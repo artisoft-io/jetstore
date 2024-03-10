@@ -135,10 +135,18 @@ func (ctx *BuilderContext) buildMapEvaluator(source *InputChannel, outCh *Output
 	case spec.MapExpr.RdfType=="string", spec.MapExpr.RdfType=="text":
 		defaultValue = *spec.MapExpr.Default
 	}
+	inputPos, ok := source.columns[*spec.Expr]
+	if !ok {
+		err = fmt.Errorf("error column %s not found in input source %s", *spec.Expr, source.config.Name)
+	}
+	outputPos, ok := outCh.columns[spec.Name]
+	if !ok {
+		err = fmt.Errorf("error column %s not found in output source %s", spec.Name, outCh.config.Name)
+	}
 	return &mapColumnEval{
 		mapConfig: &mapColumnConfig{
-			inputPos: source.columns[*spec.Expr],
-			outputPos: outCh.columns[spec.Name],
+			inputPos: inputPos,
+			outputPos: outputPos,
 			defaultValue: defaultValue,
 			mapConfig: spec.MapExpr},
 		cleansingCtx: &cleansingFunctionContext{
@@ -146,6 +154,6 @@ func (ctx *BuilderContext) buildMapEvaluator(source *InputChannel, outCh *Output
 			argdMap: make(map[string]float64),
 			parsedFunctionArguments: make(map[string]interface{}),
 		},
-	}, nil
+	}, err
 }
 

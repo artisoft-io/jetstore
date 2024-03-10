@@ -24,7 +24,7 @@ func (r *ChannelRegistry) CloseChannel(name string) {
 	}
 	c := r.computeChannels[name]
 	if c != nil {
-		fmt.Println("** Closing channel", name)
+		// fmt.Println("** Closing channel", name)
 		close(c.channel)
 	}
 	r.closedChannels[name] = true
@@ -126,12 +126,12 @@ func (ctx *BuilderContext) buildComputeGraph() error {
 func (ctx *BuilderContext) buildPipeTransformationEvaluator(source *InputChannel, spec *TransformationSpec) (PipeTransformationEvaluator, error) {
 
 	// Construct the pipe transformation
-	// fmt.Println("**& buildPipeTransformationEvaluator for", spec.Type,"source:",source.config.Name)
+	// fmt.Println("**& buildPipeTransformationEvaluator for", spec.Type,"source:",source.config.Name,"output:", spec.Output)
 
 	// Get the output channel
 	outCh, err := ctx.channelRegistry.GetOutputChannel(spec.Output)
 	if err != nil {
-		err = fmt.Errorf("while requesting output channel %s: %v", spec.Output, err)
+		err = fmt.Errorf("while in buildPipeTransformationEvaluator for %s from source %s requesting output channel %s: %v", spec.Type, source.config.Name, spec.Output, err)
 		fmt.Println(err)
 		return nil, err
 	}

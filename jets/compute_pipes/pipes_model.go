@@ -24,8 +24,8 @@ type TableColumnSpec struct {
 }
 
 type PipeSpec struct {
-	// Type range: fan_out, splitter, 
-	Type   string               `json:"type"` 
+	// Type range: fan_out, splitter,
+	Type   string               `json:"type"`
 	Input  string               `json:"input"`
 	Column *string              `json:"column"` // splitter column
 	Apply  []TransformationSpec `json:"apply"`
@@ -39,8 +39,8 @@ type TransformationSpec struct {
 }
 
 type TransformationColumnSpec struct {
-	Name     string           `json:"name"`
-	// Type range: select, value, eval, map, 
+	Name string `json:"name"`
+	// Type range: select, value, eval, map,
 	// (applicable to aggregate) count, distinct_count, sum, min,
 	Type     string           `json:"type"`
 	Expr     *string          `json:"expr"`
@@ -71,6 +71,6 @@ type ExpressionNode struct {
 }
 
 type CaseExpression struct {
-	When ExpressionNode `json:"when"`
-	Then ExpressionNode `json:"then"`
+	When    ExpressionNode `json:"when"`
+	Then    ExpressionNode `json:"then"`
 }

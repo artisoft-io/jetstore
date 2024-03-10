@@ -31,6 +31,7 @@ func (ctx *AggregateTransformationPipe) done() error {
 	case <-ctx.doneCh:
 		log.Println("AggregateTransform interrupted")
 	}
+	// fmt.Println("**! ** Send AGGREGATE Result to", ctx.outputCh.config.Name,"DONE")
 	return nil
 }
 

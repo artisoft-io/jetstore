@@ -30,12 +30,47 @@ func (ctx *BuilderContext) buildEvalOperator(op string) (evalOperator, error) {
 	// Arithemtic operators
 	case "/":
 		return opDIV{}, nil
+	case "+":
+		return opADD{}, nil
+	case "-":
+		return opSUB{}, nil
+	case "*":
+		return opMUL{}, nil
 	case "DISTANCE_MONTHS":
 		return opDMonths{}, nil
 	}
 	return nil, fmt.Errorf("error: unknown operator: %v", op)
 }
 
+func ToBool(b interface{}) bool {
+	switch v := b.(type) {
+	case string:
+		if strings.ToUpper(v) == "TRUE" {
+			return true
+		}
+	case int:
+		return v > 0
+	case int64:
+		return v > 0
+	case float64:
+		return v > 0
+	}
+	return false
+}
+
+func ToDouble(d interface{}) (float64, error) {
+	switch v := d.(type) {
+	case string:
+		return strconv.ParseFloat(v, 64)
+	case int:
+		return float64(v), nil
+	case int64:
+		return float64(v), nil
+	case float64:
+		return v, nil
+	}
+	return 0, fmt.Errorf("invalid data: not a double: %v", d)
+}
 
 type opEqual struct {}
 func (op opEqual) eval(lhs interface{}, rhs interface{}) (interface{}, error) {
@@ -828,127 +863,160 @@ func (op opDIV) eval(lhs interface{}, rhs interface{}) (interface{}, error) {
 	if lhs == nil || rhs == nil {
 		return 0, nil
 	}
+	lhsv, err := ToDouble(lhs)
+	if err != nil {
+		return nil, err
+	}
+	rhsv, err := ToDouble(rhs)
+	if err != nil {
+		return nil, err
+	}
+	if math.Abs(rhsv) < 1e-10 {
+		return nil, fmt.Errorf("opDIV: division by zero")
+	}
+	return lhsv / rhsv, nil
+}
+
+
+type opADD struct {}
+func (op opADD) eval(lhs interface{}, rhs interface{}) (interface{}, error) {
+	if lhs == nil || rhs == nil {
+		return 0, nil
+	}
 	switch lhsv := lhs.(type) {
 	case string:
 		switch rhsv := rhs.(type) {
 		case int:
-			if rhsv == 0 {
-				return nil, fmt.Errorf("opDIV: division by zero")
-			}
-			v, err := strconv.Atoi(lhsv)
-			if err != nil {
-				return nil, fmt.Errorf("opDIV string and int, string not a int")
-			}
-			return v / rhsv, nil
+			return fmt.Sprintf("%s%v",lhsv,rhsv), nil
 		case int64:
-			v, err := strconv.ParseInt(lhsv, 10, 64)
-			if err != nil {
-				return nil, fmt.Errorf("opDIV string and int64, string not a int64")
-			}
-			if rhsv == 0 {
-				return nil, fmt.Errorf("opDIV: division by zero")
-			}
-			return v / rhsv, nil
-
+			return fmt.Sprintf("%s%v",lhsv,rhsv), nil
 		case float64:
-			v, err := strconv.ParseFloat(lhsv, 64)
-			if err != nil {
-				return nil, fmt.Errorf("opDIV string and double, string not a double")
-			}
-			if math.Abs(rhsv) < 1e-10 {
-				return nil, fmt.Errorf("opDIV: division by zero")
-			}
-			return v / rhsv, nil
+			return fmt.Sprintf("%s%v",lhsv,rhsv), nil
 		}
 	
 	case int:
 		switch rhsv := rhs.(type) {
 		case string:
-			v, err := strconv.Atoi(rhsv)
-			if err != nil {
-				return nil, fmt.Errorf("opDIV int and string, string not a int")
-			}
-			if v == 0 {
-				return nil, fmt.Errorf("opDIV: division by zero")
-			}
-			return lhsv / v, nil
+			return fmt.Sprintf("%v%v",lhsv,rhsv), nil
 		case int:
-			if rhsv == 0 {
-				return nil, fmt.Errorf("opDIV: division by zero")
-			}
-			return lhsv / rhsv, nil
+			return lhsv + rhsv, nil
 		case int64:
-			if rhsv == 0 {
-				return nil, fmt.Errorf("opDIV: division by zero")
-			}
-			return int64(lhsv) / rhsv, nil
+			return int64(lhsv) + rhsv, nil
 
 		case float64:
-			if math.Abs(rhsv) < 1e-10 {
-				return nil, fmt.Errorf("opDIV: division by zero")
-			}
-			return float64(lhsv) / rhsv, nil
+			return float64(lhsv) + rhsv, nil
 		}
 
 	case int64:
 		switch rhsv := rhs.(type) {
 		case string:
-			v, err := strconv.ParseInt(rhsv, 10, 64)
-			if err != nil {
-				return nil, fmt.Errorf("opDIV string and int64, string not a int64")
-			}
-			if v == 0 {
-				return nil, fmt.Errorf("opDIV: division by zero")
-			}
-			return lhsv / v, nil
+			return fmt.Sprintf("%v%v",lhsv,rhsv), nil
 		case int:
-			if rhsv == 0 {
-				return nil, fmt.Errorf("opDIV: division by zero")
-			}
-			return lhsv / int64(rhsv), nil
+			return lhsv + int64(rhsv), nil
 		case int64:
-			if rhsv == 0 {
-				return nil, fmt.Errorf("opDIV: division by zero")
-			}
-			return lhsv / rhsv, nil
+			return lhsv + rhsv, nil
 
 		case float64:
-			if math.Abs(rhsv) < 1e-10 {
-				return nil, fmt.Errorf("opDIV: division by zero")
-			}
-			return float64(lhsv) / rhsv, nil
+			return float64(lhsv) + rhsv, nil
 		}
 
 	case float64:
 		switch rhsv := rhs.(type) {
 		case string:
-			v, err := strconv.ParseFloat(rhsv, 64)
-			if err != nil {
-				return nil, fmt.Errorf("opDIV double and string, string not a double")
-			}
-			if math.Abs(v) < 1e-10 {
-				return nil, fmt.Errorf("opDIV: division by zero")
-			}
-			return lhsv / v, nil
+			return fmt.Sprintf("%v%v",lhsv,rhsv), nil
 		case int:
-			if rhsv == 0 {
-				return nil, fmt.Errorf("opDIV: division by zero")
-			}
-			return lhsv / float64(rhsv), nil
+			return lhsv + float64(rhsv), nil
 		case int64:
-			if rhsv == 0 {
-				return nil, fmt.Errorf("opDIV: division by zero")
-			}
-			return lhsv / float64(rhsv), nil
+			return lhsv + float64(rhsv), nil
 
 		case float64:
-			if math.Abs(rhsv) < 1e-10 {
-				return nil, fmt.Errorf("opDIV: division by zero")
-			}
-			return lhsv / rhsv, nil
+			return lhsv + rhsv, nil
 		}
 	}
-	return nil, fmt.Errorf("opDIV incompatible types, rejected")
+	return nil, fmt.Errorf("opADD incompatible types, rejected")
+}
+
+
+type opSUB struct {}
+func (op opSUB) eval(lhs interface{}, rhs interface{}) (interface{}, error) {
+	if lhs == nil || rhs == nil {
+		return 0, nil
+	}
+	switch lhsv := lhs.(type) {
+	case int:
+		switch rhsv := rhs.(type) {
+		case int:
+			return lhsv - rhsv, nil
+		case int64:
+			return int64(lhsv) - rhsv, nil
+
+		case float64:
+			return float64(lhsv) - rhsv, nil
+		}
+
+	case int64:
+		switch rhsv := rhs.(type) {
+		case int:
+			return lhsv - int64(rhsv), nil
+		case int64:
+			return lhsv - rhsv, nil
+
+		case float64:
+			return float64(lhsv) - rhsv, nil
+		}
+
+	case float64:
+		switch rhsv := rhs.(type) {
+		case int:
+			return lhsv - float64(rhsv), nil
+		case int64:
+			return lhsv - float64(rhsv), nil
+
+		case float64:
+			return lhsv - rhsv, nil
+		}
+	}
+	return nil, fmt.Errorf("opSUB incompatible types, rejected")
+}
+
+
+type opMUL struct {}
+func (op opMUL) eval(lhs interface{}, rhs interface{}) (interface{}, error) {
+	if lhs == nil || rhs == nil {
+		return 0, nil
+	}
+	switch lhsv := lhs.(type) {
+	case int:
+		switch rhsv := rhs.(type) {
+		case int:
+			return lhsv * rhsv, nil
+		case int64:
+			return int64(lhsv) * rhsv, nil
+		case float64:
+			return float64(lhsv) * rhsv, nil
+		}
+
+	case int64:
+		switch rhsv := rhs.(type) {
+		case int:
+			return lhsv * int64(rhsv), nil
+		case int64:
+			return lhsv * rhsv, nil
+		case float64:
+			return float64(lhsv) * rhsv, nil
+		}
+
+	case float64:
+		switch rhsv := rhs.(type) {
+		case int:
+			return lhsv * float64(rhsv), nil
+		case int64:
+			return lhsv * float64(rhsv), nil
+		case float64:
+			return lhsv * rhsv, nil
+		}
+	}
+	return nil, fmt.Errorf("opMUL incompatible types, rejected")
 }
 
 

@@ -113,10 +113,21 @@ func (ctx *BuilderContext) buildExprNodeEvaluator(source *InputChannel, outCh *O
 			if spec.Expr == nil {
 				return nil, fmt.Errorf("error: Type select must have Expr != nil")
 			}
+			inputPos, ok := source.columns[*spec.Expr]
+			var err error
+			if !ok {
+				err = fmt.Errorf("error column %s not found in input source %s", *spec.Expr, source.config.Name)
+			}
 			return &expressionSelectLeaf{
-				index: source.columns[*spec.Expr],
-			}, nil
+				index: inputPos,
+			}, err
+
+		case "eval":
+			if spec.EvalExpr == nil {
+				return nil, fmt.Errorf("error: Type eval must have EvalExpr != nil")
+			}
+			return ctx.buildExprNodeEvaluator(source, outCh, spec.EvalExpr)
 		}
 	}
-	return nil, fmt.Errorf("error buildExprNodeEvaluator: cannot determine if expr is node or leaf?")
+	return nil, fmt.Errorf("error buildExprNodeEvaluator: cannot determine if expr is node or leaf? spec type %v", *spec.Type)
 }
