@@ -129,6 +129,9 @@ func (ctx *BuilderContext) buildTransformationColumnEvaluator(source *InputChann
 
 	case "case":
 		return ctx.buildCaseExprEvaluator(source, outCh, spec)
+
+	case "map_reduce":
+		return ctx.buildMapReduceEvaluator(source, outCh, spec)
 	}
 	return nil, fmt.Errorf("error: unknown TransformationColumnSpec Type: %v", spec.Type)
 }
@@ -149,12 +152,18 @@ func (ctx *evalExprColumnEval) update(currentValue *[]interface{}, input *[]inte
 	(*currentValue)[ctx.outputPos] = value
 	return nil
 }
+func (ctx *evalExprColumnEval) done(currentValue *[]interface{}) error {
+	return nil
+}
 
 
 // TransformationColumnSpec Type value
 type valueColumnEval struct {
 	value     interface{}
 	outputPos int
+}
+func (ctx *valueColumnEval) done(currentValue *[]interface{}) error {
+	return nil
 }
 
 func (ctx *valueColumnEval) initializeCurrentValue(currentValue *[]interface{}) {}
@@ -170,6 +179,9 @@ func (ctx *valueColumnEval) update(currentValue *[]interface{}, input *[]interfa
 type selectColumnEval struct {
 	inputPos  int
 	outputPos int
+}
+func (ctx *selectColumnEval) done(currentValue *[]interface{}) error {
+	return nil
 }
 
 func (ctx *selectColumnEval) initializeCurrentValue(currentValue *[]interface{}) {}

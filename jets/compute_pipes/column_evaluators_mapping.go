@@ -105,6 +105,9 @@ func (ctx *mapColumnEval) update(currentValue *[]interface{}, input *[]interface
 	(*currentValue)[ctx.mapConfig.outputPos] = outputVal
 	return nil
 }
+func (ctx *mapColumnEval) done(currentValue *[]interface{}) error {
+	return nil
+}
 
 func (ctx *BuilderContext) buildMapEvaluator(source *InputChannel, outCh *OutputChannel,  spec *TransformationColumnSpec) (*mapColumnEval, error) {
 	if spec == nil || spec.MapExpr == nil {

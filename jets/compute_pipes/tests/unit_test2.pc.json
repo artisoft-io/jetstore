@@ -71,7 +71,7 @@
         "svc_ndc_code",
         "svc_service_frm_date",
         "svc_specialty_drug_indicator",
-        "svc_written_date"      
+        "svc_written_date"
       ]
     },
     {
@@ -101,7 +101,7 @@
         "female_gender",
         "mbr_carrying_more_records"
       ]
-     },
+    },
     {
       "name": "metric_record",
       "columns": [
@@ -116,7 +116,7 @@
         "lower_failure",
         "lower_warning"
       ]
-   }
+    }
   ],
   "pipes_config": [
     {
@@ -531,36 +531,33 @@
               }
             },
             {
-              "name": "mbr_carrying_more_records",
               "type": "map_reduce",
               "map_on": "mbr_id",
-              "apply": [
+              "apply_map": [
                 {
-                  "type": "aggregate",
-                  "columns": [
-                    {
-                      "name": "mbr_record_count",
-                      "type": "count",
-                      "expr": "*"
-                    }
-                  ]
+                  "name": "mbr_record_count",
+                  "type": "count",
+                  "expr": "*"
                 }
               ],
-              "reduce": {
-                "type": "count",
-                "expr": "*",
-                "where": {
-                  "lhs": {
-                    "type": "select",
-                    "expr": "mbr_record_count"
-                  },
-                  "op": ">",
-                  "rhs": {
-                    "type": "value",
-                    "expr": "15000"
+              "apply_reduce": [
+                {
+                  "name": "mbr_carrying_more_records",
+                  "type": "count",
+                  "expr": "*",
+                  "where": {
+                    "lhs": {
+                      "type": "select",
+                      "expr": "mbr_record_count"
+                    },
+                    "op": ">",
+                    "rhs": {
+                      "type": "value",
+                      "expr": "15000"
+                    }
                   }
                 }
-              }
+              ]
             }
           ],
           "output": "claim_metrics"
@@ -1545,8 +1542,22 @@
               "type": "eval",
               "eval_expr": {
                 "lhs": {
-                  "type": "select",
-                  "expr": "numerator"
+                  "lhs": {
+                    "type": "select",
+                    "expr": "sum_copay"
+                  },
+                  "op": "+",
+                  "rhs": {
+                    "lhs": {
+                      "type": "select",
+                      "expr": "sum_coins"
+                    },
+                    "op": "+",
+                    "rhs": {
+                      "type": "select",
+                      "expr": "sum_deduct"
+                    }
+                  }
                 },
                 "op": "/",
                 "rhs": {
@@ -1852,7 +1863,7 @@
                     "rhs": {
                       "type": "select",
                       "expr": "upper_warning"
-                    }  
+                    }
                   },
                   "then": {
                     "type": "value",

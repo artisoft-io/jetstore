@@ -101,7 +101,7 @@
         "female_gender",
         "mbr_carrying_more_records"
       ]
-    },
+     },
     {
       "name": "metric_record",
       "columns": [
@@ -116,7 +116,7 @@
         "lower_failure",
         "lower_warning"
       ]
-    }
+   }
   ],
   "pipes_config": [
     {

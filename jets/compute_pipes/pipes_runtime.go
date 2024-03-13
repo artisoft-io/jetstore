@@ -91,6 +91,7 @@ type PipeTransformationEvaluator interface {
 type TransformationColumnEvaluator interface {
 	initializeCurrentValue(currentValue *[]interface{})
 	update(currentValue *[]interface{}, input *[]interface{}) error
+	done(currentValue *[]interface{}) error
 }
 
 func (ctx *BuilderContext) buildComputeGraph() error {

@@ -39,16 +39,20 @@ type TransformationSpec struct {
 }
 
 type TransformationColumnSpec struct {
-	Name string `json:"name"`
 	// Type range: select, value, eval, map,
 	// (applicable to aggregate) count, distinct_count, sum, min,
-	Type     string           `json:"type"`
-	Expr     *string          `json:"expr"`
-	MapExpr  *MapExpression   `json:"map_expr"`
-	EvalExpr *ExpressionNode  `json:"eval_expr"`
-	Where    *ExpressionNode  `json:"where"`
-	CaseExpr []CaseExpression `json:"case_expr"`
-	ElseExpr *ExpressionNode  `json:"else_expr"`
+	// case, map_reduce
+	Name        string                      `json:"name"`
+	Type        string                      `json:"type"`
+	Expr        *string                     `json:"expr"`
+	MapExpr     *MapExpression              `json:"map_expr"`
+	EvalExpr    *ExpressionNode             `json:"eval_expr"`
+	Where       *ExpressionNode             `json:"where"`
+	CaseExpr    []CaseExpression            `json:"case_expr"`
+	ElseExpr    *ExpressionNode             `json:"else_expr"`
+	MapOn       *string                     `json:"map_on"`
+	ApplyMap    *[]TransformationColumnSpec `json:"apply_map"`
+	ApplyReduce *[]TransformationColumnSpec `json:"apply_reduce"`
 }
 
 type MapExpression struct {
@@ -71,6 +75,6 @@ type ExpressionNode struct {
 }
 
 type CaseExpression struct {
-	When    ExpressionNode `json:"when"`
-	Then    ExpressionNode `json:"then"`
+	When ExpressionNode `json:"when"`
+	Then ExpressionNode `json:"then"`
 }

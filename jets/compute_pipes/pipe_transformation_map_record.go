@@ -16,14 +16,26 @@ type MapRecordTransformationPipe struct {
 
 // Implementing interface PipeTransformationEvaluator
 func (ctx *MapRecordTransformationPipe) apply(input *[]interface{}) error {
-	// apply the column transformation for each column
 	currentValues := make([]interface{}, len(ctx.outputCh.config.Columns))
+	// initialize the column evaluators
+	for i := range ctx.columnEvaluators {
+		ctx.columnEvaluators[i].initializeCurrentValue(&currentValues)
+	}
+	// apply the column transformation for each column
 	for i := range ctx.columnEvaluators {
 		err := ctx.columnEvaluators[i].update(&currentValues, input)
 		if err != nil {
 			err = fmt.Errorf("while calling column transformation from map_record: %v", err)
 			log.Println(err)
 			return err
+		}
+	}
+	// Notify the column evaluator that we're done
+	// fmt.Println("**! calling done on column evaluator from MapRecordTransformationPipe for output", ctx.outputCh.config.Name)
+	for i := range ctx.columnEvaluators {
+		err := ctx.columnEvaluators[i].done(&currentValues)
+		if err != nil {
+			return fmt.Errorf("while calling done on column evaluator from AggregateTransformationPipe: %v", err)
 		}
 	}
 	// Send the result to output
