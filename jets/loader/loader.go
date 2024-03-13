@@ -213,7 +213,7 @@ func processFile(dbpool *pgxpool.Pool, done chan struct{}, headersFileCh, fileNa
 	return
 
 gotError:
-	fmt.Println("processFile gotError ***", err)
+	fmt.Println("processFile gotError, writing to loadFromS3FilesResultCh AND copy2DbResultCh (ComputePipesResult)  ***", err)
 	loadFromS3FilesResultCh <- LoadFromS3FilesResult{err: err}
 	copy2DbResultCh <- compute_pipes.ComputePipesResult{CopyRowCount: 0}
 	close(done)

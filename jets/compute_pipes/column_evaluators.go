@@ -12,15 +12,15 @@ func (ctx *BuilderContext) parseValue(expr *string) (interface{}, error) {
 	switch {
 	case *expr == "NULL":
 		value = nil
-		
+
 	case strings.HasPrefix(*expr, "$"):
 		// value is an env var
 		value = ctx.env[*expr]
 		
 	case strings.HasPrefix(*expr, "'"):
 		// value is a string
-		value = strings.TrimPrefix(*expr, "'")
-		value = strings.TrimSuffix(*expr, "'")
+		value = strings.TrimSuffix(strings.TrimPrefix(*expr, "'"), "'")
+		
 	case strings.Contains(*expr, "."):
 		// value is double
 		value, err = strconv.ParseFloat(*expr, 64)
@@ -34,6 +34,7 @@ func (ctx *BuilderContext) parseValue(expr *string) (interface{}, error) {
 			return nil, fmt.Errorf("error: expecting an int: %s", *expr)
 		}
 	}
+	// fmt.Printf("**! PARSEVALUE: %s => = %v of type %T\n", *expr, value, value)
 	return value, err
 }
 
@@ -41,15 +42,24 @@ func (ctx *BuilderContext) parseValue(expr *string) (interface{}, error) {
 func (ctx *BuilderContext) buildTransformationColumnEvaluator(source *InputChannel, outCh *OutputChannel, spec *TransformationColumnSpec) (TransformationColumnEvaluator, error) {
 
 	switch spec.Type {
-	// select, value, eval, map, count, distinct_count, sum, min
+	// select, value, eval, map, count, distinct_count, sum, min, case
 	case "select":
 		if spec.Expr == nil {
 			return nil, fmt.Errorf("error: Type select must have Expr != nil")
 		}
+		inputPos, ok := source.columns[*spec.Expr]
+		var err error
+		if !ok {
+			err = fmt.Errorf("error column %s not found in input source %s", *spec.Expr, source.config.Name)
+		}
+		outputPos, ok := outCh.columns[spec.Name]
+		if !ok {
+			err = fmt.Errorf("error column %s not found in output source %s", spec.Name, outCh.config.Name)
+		}
 		return &selectColumnEval{
-			inputPos:  source.columns[*spec.Expr],
-			outputPos: outCh.columns[spec.Name],
-		}, nil
+			inputPos:  inputPos,
+			outputPos: outputPos,
+		}, err
 
 	case "value":
 		if spec.Expr == nil {
@@ -59,20 +69,28 @@ func (ctx *BuilderContext) buildTransformationColumnEvaluator(source *InputChann
 		if err != nil {
 			return nil, err
 		}
-		return &valueColumnEval{
+		outputPos, ok := outCh.columns[spec.Name]
+		if !ok {
+			err = fmt.Errorf("error column %s not found in output source %s", spec.Name, outCh.config.Name)
+		}
+			return &valueColumnEval{
 			value:     value,
-			outputPos: outCh.columns[spec.Name],
-		}, nil
+			outputPos: outputPos,
+		}, err
 
 	case "eval":
 		evalEpr, err := ctx.buildExprNodeEvaluator(source, outCh, spec.EvalExpr)
 		if err != nil {
 			return nil, fmt.Errorf("while calling buildExprNodeEvaluator: %v", err)
 		}
-		return &evalExprColumnEval{
+		outputPos, ok := outCh.columns[spec.Name]
+		if !ok {
+			err = fmt.Errorf("error column %s not found in output source %s", spec.Name, outCh.config.Name)
+		}
+			return &evalExprColumnEval{
 			expr: evalEpr,
-			outputPos: outCh.columns[spec.Name],
-		}, nil
+			outputPos: outputPos,
+		}, err
 
 	case "map":
 		mapEvaluator, err := ctx.buildMapEvaluator(source, outCh, spec)
@@ -108,6 +126,12 @@ func (ctx *BuilderContext) buildTransformationColumnEvaluator(source *InputChann
 			return nil, fmt.Errorf("while calling buildMinEvaluator: %v", err)
 		}
 		return minEvaluator, nil
+
+	case "case":
+		return ctx.buildCaseExprEvaluator(source, outCh, spec)
+
+	case "map_reduce":
+		return ctx.buildMapReduceEvaluator(source, outCh, spec)
 	}
 	return nil, fmt.Errorf("error: unknown TransformationColumnSpec Type: %v", spec.Type)
 }
@@ -128,12 +152,18 @@ func (ctx *evalExprColumnEval) update(currentValue *[]interface{}, input *[]inte
 	(*currentValue)[ctx.outputPos] = value
 	return nil
 }
+func (ctx *evalExprColumnEval) done(currentValue *[]interface{}) error {
+	return nil
+}
 
 
 // TransformationColumnSpec Type value
 type valueColumnEval struct {
 	value     interface{}
 	outputPos int
+}
+func (ctx *valueColumnEval) done(currentValue *[]interface{}) error {
+	return nil
 }
 
 func (ctx *valueColumnEval) initializeCurrentValue(currentValue *[]interface{}) {}
@@ -149,6 +179,9 @@ func (ctx *valueColumnEval) update(currentValue *[]interface{}, input *[]interfa
 type selectColumnEval struct {
 	inputPos  int
 	outputPos int
+}
+func (ctx *selectColumnEval) done(currentValue *[]interface{}) error {
+	return nil
 }
 
 func (ctx *selectColumnEval) initializeCurrentValue(currentValue *[]interface{}) {}

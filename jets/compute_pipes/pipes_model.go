@@ -24,8 +24,8 @@ type TableColumnSpec struct {
 }
 
 type PipeSpec struct {
-	// Type range: fan_out, splitter, 
-	Type   string               `json:"type"` 
+	// Type range: fan_out, splitter,
+	Type   string               `json:"type"`
 	Input  string               `json:"input"`
 	Column *string              `json:"column"` // splitter column
 	Apply  []TransformationSpec `json:"apply"`
@@ -39,16 +39,20 @@ type TransformationSpec struct {
 }
 
 type TransformationColumnSpec struct {
-	Name     string           `json:"name"`
-	// Type range: select, value, eval, map, 
+	// Type range: select, value, eval, map,
 	// (applicable to aggregate) count, distinct_count, sum, min,
-	Type     string           `json:"type"`
-	Expr     *string          `json:"expr"`
-	MapExpr  *MapExpression   `json:"map_expr"`
-	EvalExpr *ExpressionNode  `json:"eval_expr"`
-	Where    *ExpressionNode  `json:"where"`
-	CaseExpr []CaseExpression `json:"case_expr"`
-	ElseExpr *ExpressionNode  `json:"else_expr"`
+	// case, map_reduce
+	Name        string                      `json:"name"`
+	Type        string                      `json:"type"`
+	Expr        *string                     `json:"expr"`
+	MapExpr     *MapExpression              `json:"map_expr"`
+	EvalExpr    *ExpressionNode             `json:"eval_expr"`
+	Where       *ExpressionNode             `json:"where"`
+	CaseExpr    []CaseExpression            `json:"case_expr"`
+	ElseExpr    *ExpressionNode             `json:"else_expr"`
+	MapOn       *string                     `json:"map_on"`
+	ApplyMap    *[]TransformationColumnSpec `json:"apply_map"`
+	ApplyReduce *[]TransformationColumnSpec `json:"apply_reduce"`
 }
 
 type MapExpression struct {
@@ -64,6 +68,7 @@ type ExpressionNode struct {
 	Type     *string         `json:"type"`
 	Expr     *string         `json:"expr"`
 	EvalExpr *ExpressionNode `json:"eval_expr"`
+	Arg      *ExpressionNode `json:"arg"`
 	Lhs      *ExpressionNode `json:"lhs"`
 	Op       *string         `json:"op"`
 	Rhs      *ExpressionNode `json:"rhs"`
