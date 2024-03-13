@@ -342,6 +342,7 @@ func loadFile2DB(headersDKInfo *schema.HeadersAndDomainKeysInfo, filePath *strin
 			copyRec[lastUpdatePos] = lastUpdate
 			var mainDomainKey string
 			var mainDomainKeyPos int
+			var mainShardIdPos int
 			for _, ot := range *objTypes {
 				groupingKey, shardId, err := headersDKInfo.ComputeGroupingKey(*nbrShards, &ot, &record, recordTypeOffset, &jetsKeyStr)
 				if err != nil {
@@ -353,13 +354,14 @@ func loadFile2DB(headersDKInfo *schema.HeadersAndDomainKeysInfo, filePath *strin
 					fmt.Printf("**=* Grouping Key Value: %s\n", groupingKey)
 				}
 				domainKeyPos := headersDKInfo.DomainKeysInfoMap[ot].DomainKeyPos
-				if ot == *objectType {
-					mainDomainKey = groupingKey
-					mainDomainKeyPos = domainKeyPos
-				}
 				copyRec[domainKeyPos] = groupingKey
 				shardIdPos := headersDKInfo.DomainKeysInfoMap[ot].ShardIdPos
 				copyRec[shardIdPos] = shardId
+				if ot == *objectType {
+					mainDomainKey = groupingKey
+					mainDomainKeyPos = domainKeyPos
+					mainShardIdPos = shardIdPos
+				}
 			}
 			var buf strings.Builder
 			switch jetsInputRowJetsKeyAlgo {
@@ -383,6 +385,7 @@ func loadFile2DB(headersDKInfo *schema.HeadersAndDomainKeysInfo, filePath *strin
 			}
 			if headersDKInfo.IsDomainKeyIsJetsKey(objectType) {
 				copyRec[mainDomainKeyPos] = jetsKeyStr
+				copyRec[mainShardIdPos] = schema.ComputeShardId(*nbrShards, jetsKeyStr)
 			}
 			copyRec[jetsKeyPos] = jetsKeyStr
 			select {
