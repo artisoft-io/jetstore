@@ -71,14 +71,19 @@ var devMode bool
 // and then if sum(output_records_count) == 0 && count(*) > 0 from pipeline_execution_details where session_id = $session_id
 // skip running the reports
 
-func getSourcePeriodKey(dbpool *pgxpool.Pool, sessionId string) (int, error) {
+func getSourcePeriodKey(dbpool *pgxpool.Pool, sessionId, fileKey string) (int, error) {
 	var sourcePeriodKey int
 	err := dbpool.QueryRow(context.Background(), 
 		"SELECT source_period_key FROM jetsapi.pipeline_execution_status WHERE session_id=$1", 
 		sessionId).Scan(&sourcePeriodKey)
 	if err != nil {
-		return 0, 
-			fmt.Errorf("failed to get source_period_key from pipeline_execution_status table for session_id '%s': %v", sessionId, err)
+		err = dbpool.QueryRow(context.Background(), 
+		"SELECT source_period_key FROM jetsapi.file_key_staging WHERE file_key=$1", 
+		fileKey).Scan(&sourcePeriodKey)
+		if err != nil {
+			return 0, 
+				fmt.Errorf("failed to get source_period_key from pipeline_execution_status or file_key_staging table for session_id '%s': %v", sessionId, err)
+		}
 	}
 	return sourcePeriodKey, nil
 }
@@ -214,7 +219,7 @@ func coordinateWorkAndUpdateStatus(ca *delegate.CommandArguments) error {
 
 	// Get the source_period_key from pipeline_execution_status table by session_id
 	if len(ca.SessionId) > 0 {
-		k, err := getSourcePeriodKey(dbpool, ca.SessionId)
+		k, err := getSourcePeriodKey(dbpool, ca.SessionId, ca.FileKey)
 		if err != nil {
 			fmt.Println(err)
 		} else {

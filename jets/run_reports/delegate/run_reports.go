@@ -20,7 +20,9 @@ import (
 	"github.com/jackc/pgx/v4/pgxpool"
 	"go.uber.org/zap"
 )
+
 var logger *zap.Logger
+
 func init() {
 	// Create logger.
 	var err error
@@ -29,6 +31,7 @@ func init() {
 		panic("failed to create logger: " + err.Error())
 	}
 }
+
 // The delegate that actually execute the report
 // Required Env variable:
 // JETS_DSN_SECRET
@@ -45,37 +48,38 @@ type StringSubstitution struct {
 }
 
 type ReportDirectives struct {
-	FilePathSubstitution         []StringSubstitution           `json:"filePathSubstitution"`
-	ReportScripts                []string                       `json:"reportScripts"`
-	UpdateLookupTables           bool                           `json:"updateLookupTables"`
-	OutputS3Prefix               string                         `json:"outputS3Prefix"`
-	OutputPath                   string                         `json:"outputPath"`
-	ReportsAsTable               map[string]string              `json:"reportsAsTable"`
-	ReportOrStatementProperties  map[string]map[string]string   `json:"reportOrStatementProperties"`
+	FilePathSubstitution        []StringSubstitution         `json:"filePathSubstitution"`
+	ReportScripts               []string                     `json:"reportScripts"`
+	UpdateLookupTables          bool                         `json:"updateLookupTables"`
+	OutputS3Prefix              string                       `json:"outputS3Prefix"`
+	OutputPath                  string                       `json:"outputPath"`
+	ReportsAsTable              map[string]string            `json:"reportsAsTable"`
+	ReportOrStatementProperties map[string]map[string]string `json:"reportOrStatementProperties"`
+	RegisterReport              []map[string]string          `json:"registerReport"`
 }
 
 type CommandArguments struct {
-	WorkspaceName string
-	Client string
-	Org string
-	ObjectType string
-	Environment string
-	SessionId string
-	SourcePeriodKey string
-	ProcessName string
-	ReportName string
-	FileKey string
-	OutputPath string
-	OriginalFileName string
-	ReportScriptPaths []string
+	WorkspaceName           string
+	Client                  string
+	Org                     string
+	ObjectType              string
+	Environment             string
+	SessionId               string
+	SourcePeriodKey         string
+	ProcessName             string
+	ReportName              string
+	FileKey                 string
+	OutputPath              string
+	OriginalFileName        string
+	ReportScriptPaths       []string
 	CurrentReportDirectives *ReportDirectives
-	BucketName string
-	RegionName string
+	BucketName              string
+	RegionName              string
 }
 
 // Main Functions
 // --------------------------------------------------------------------------------------
-func (ca *CommandArguments)RunReports(dbpool *pgxpool.Pool) (err error) {
+func (ca *CommandArguments) RunReports(dbpool *pgxpool.Pool) (err error) {
 	defer func() {
 		if r := recover(); r != nil {
 			err = fmt.Errorf("recovered error: %v", r)
@@ -94,12 +98,12 @@ func (ca *CommandArguments)RunReports(dbpool *pgxpool.Pool) (err error) {
 		// while sql report are executed statement by statement with results generally saved to s3 (most common)
 		if reportProps["reportOrScript"] == "script" {
 			// Running as sql script
-			log.Println("Running sql script:",ca.ReportScriptPaths[i])
-			err = ca.runSqlScriptDelegate(dbpool, ca.ReportScriptPaths[i])	
+			log.Println("Running sql script:", ca.ReportScriptPaths[i])
+			err = ca.runSqlScriptDelegate(dbpool, ca.ReportScriptPaths[i])
 		} else {
 			// Running as sql report by default
-			log.Println("Running report:",ca.ReportScriptPaths[i])
-			err = ca.runReportsDelegate(dbpool, ca.ReportScriptPaths[i], &updatedKeys)	
+			log.Println("Running report:", ca.ReportScriptPaths[i])
+			err = ca.runReportsDelegate(dbpool, ca.ReportScriptPaths[i], &updatedKeys)
 		}
 		if err != nil {
 			return err
@@ -111,10 +115,10 @@ func (ca *CommandArguments)RunReports(dbpool *pgxpool.Pool) (err error) {
 		// sync s3 reports to to db and locally
 		// to make sure we get the report we just created
 		for i := range updatedKeys {
-			err = awsi.SyncS3Files(dbpool, ca.WorkspaceName, updatedKeys[i], reportDirectives.OutputPath + "/", "lookups")
+			err = awsi.SyncS3Files(dbpool, ca.WorkspaceName, updatedKeys[i], reportDirectives.OutputPath+"/", "lookups")
 			if err != nil {
 				return fmt.Errorf("run_reports: failed to sync s3 files: %v", err)
-			}	
+			}
 		}
 
 		version := strconv.FormatInt(time.Now().Unix(), 10)
@@ -127,7 +131,7 @@ func (ca *CommandArguments)RunReports(dbpool *pgxpool.Pool) (err error) {
 }
 
 // Support Functions
-func (ca *CommandArguments)runSqlScriptDelegate(dbpool *pgxpool.Pool, reportScriptPath string) error {
+func (ca *CommandArguments) runSqlScriptDelegate(dbpool *pgxpool.Pool, reportScriptPath string) error {
 
 	// Read the sql script
 	file, err := os.ReadFile(reportScriptPath)
@@ -159,13 +163,13 @@ func (ca *CommandArguments)runSqlScriptDelegate(dbpool *pgxpool.Pool, reportScri
 	stmt = strings.ReplaceAll(stmt, "$SOURCE_PERIOD_KEY", ca.SourcePeriodKey)
 
 	_, err = dbpool.Exec(context.Background(), stmt)
-if err != nil {
-	return fmt.Errorf("while executing sql script %s: %v", reportScriptPath, err)
-}
+	if err != nil {
+		return fmt.Errorf("while executing sql script %s: %v", reportScriptPath, err)
+	}
 	return nil
 }
 
-func (ca *CommandArguments)runReportsDelegate(dbpool *pgxpool.Pool, reportScriptPath string, updatedKeys *[]string) error {
+func (ca *CommandArguments) runReportsDelegate(dbpool *pgxpool.Pool, reportScriptPath string, updatedKeys *[]string) error {
 
 	// Get the report definitions
 	file, err := os.Open(reportScriptPath)
@@ -193,8 +197,8 @@ func (ca *CommandArguments)runReportsDelegate(dbpool *pgxpool.Pool, reportScript
 		name = strings.TrimSpace(name)
 		// remove leading -- and ending ; in name
 		name = name[2 : len(name)-1]
-		
-		// read the sql statement		
+
+		// read the sql statement
 		stmt, err = reader.ReadString(';')
 		if err == io.EOF {
 			isDone = true
@@ -221,7 +225,7 @@ func (ca *CommandArguments)runReportsDelegate(dbpool *pgxpool.Pool, reportScript
 
 // The heavy lifting
 // outputFileName is the name in the report sql file, this is mapped to a table name in ReportDirectives.ReportsAsTable
-func (ca *CommandArguments)DoReport(dbpool *pgxpool.Pool, outputFileName *string, sqlStmt *string) (string, error) {
+func (ca *CommandArguments) DoReport(dbpool *pgxpool.Pool, outputFileName *string, sqlStmt *string) (string, error) {
 
 	name := *outputFileName
 	// Remove ':' and '.' from originalFileName
@@ -283,11 +287,11 @@ func (ca *CommandArguments)DoReport(dbpool *pgxpool.Pool, outputFileName *string
 	case outputFormat == "parquet" || strings.HasSuffix(name, ".parquet"):
 		outputFormat = "parquet"
 		s3FileName = fmt.Sprintf("%s/%s", ca.OutputPath, name)
-	case outputFormat == "csv" || strings.HasSuffix(name, ".csv"): 
+	case outputFormat == "csv" || strings.HasSuffix(name, ".csv"):
 		options = "format CSV, HEADER"
 		outputFormat = "csv"
 		s3FileName = fmt.Sprintf("%s/%s", ca.OutputPath, name)
-	case outputFormat == "json" || strings.HasSuffix(name, ".json"): 
+	case outputFormat == "json" || strings.HasSuffix(name, ".json"):
 		options = "format TEXT"
 		outputFormat = "json"
 		s3FileName = fmt.Sprintf("%s/%s", ca.OutputPath, name)
@@ -327,8 +331,8 @@ func (ca *CommandArguments)DoReport(dbpool *pgxpool.Pool, outputFileName *string
 	case "csv", "json":
 		// save to s3 file s3FileName in csv or json format
 		escapedStmt := strings.ReplaceAll(stmt, "'", "''")
-		s3Stmt := fmt.Sprintf("SELECT * from aws_s3.query_export_to_s3('%s', '%s', '%s','%s',options:='%s')", 
-								escapedStmt, ca.BucketName, s3FileName, ca.RegionName, options)
+		s3Stmt := fmt.Sprintf("SELECT * from aws_s3.query_export_to_s3('%s', '%s', '%s','%s',options:='%s')",
+			escapedStmt, ca.BucketName, s3FileName, ca.RegionName, options)
 		// fmt.Println("S3 QUERY:", s3Stmt)
 		var rowsUploaded, filesUploaded, bytesUploaded sql.NullInt64
 		err := dbpool.QueryRow(context.Background(), s3Stmt).Scan(&rowsUploaded, &filesUploaded, &bytesUploaded)
@@ -386,21 +390,31 @@ func (ca *CommandArguments)DoReport(dbpool *pgxpool.Pool, outputFileName *string
 			}
 
 			// Register the report with table input_registry:
-			registerReportStmt := `INSERT INTO jetsapi.input_registry (
-					client, org, object_type, file_key, 
-					source_period_key, table_name, source_type, 
-					session_id, user_email
-				) 
-				VALUES 
-					(
-						$1, $2, $3, $4, $5, 
-						$6, 'file', $7, $8
-					) ON CONFLICT DO NOTHING RETURNING key`
-			_, err2 = dbpool.Exec(context.Background(), registerReportStmt, 
-				ca.Client, stmtProps["org"], stmtProps["object_type"], ca.FileKey,
+			err2 = registerReport(dbpool, ca.Client, stmtProps["org"], stmtProps["object_type"], ca.FileKey,
 				ca.SourcePeriodKey, tableName, ca.SessionId, "system")
 			if err2 != nil {
-				return "", fmt.Errorf("while adding report to input_registry table: %v", err2)
+				return "", err2
+			}
+		}
+	}
+
+	// Register reports
+	if reportDirectives.RegisterReport != nil {
+		for i := range reportDirectives.RegisterReport {
+			rmap := reportDirectives.RegisterReport[i]
+			tableName := rmap["table_name"]
+			objectType, ok := rmap["object_type"]
+			if !ok {
+				objectType = stmtProps["object_type"]
+			}
+			org, ok := rmap["org"]
+			if !ok {
+				org = stmtProps["org"]
+			}
+			err2 := registerReport(dbpool, ca.Client, org, objectType, ca.FileKey,
+				ca.SourcePeriodKey, tableName, ca.SessionId, "system")
+			if err2 != nil {
+				return "", err2
 			}
 		}
 	}
@@ -408,4 +422,27 @@ func (ca *CommandArguments)DoReport(dbpool *pgxpool.Pool, outputFileName *string
 	fmt.Println("------")
 
 	return s3FileName, nil
+}
+
+func registerReport(dbpool *pgxpool.Pool, client, org, object_type, file_key string,
+	source_period_key, table_name, session_id, user_email string) error {
+
+	// Register the report with table input_registry:
+	registerReportStmt := `INSERT INTO jetsapi.input_registry (
+		client, org, object_type, file_key, 
+		source_period_key, table_name, source_type, 
+		session_id, user_email
+	) 
+	VALUES 
+		(
+			$1, $2, $3, $4, $5, 
+			$6, 'file', $7, $8
+		) ON CONFLICT DO NOTHING RETURNING key`
+	_, err := dbpool.Exec(context.Background(), registerReportStmt,
+		client, org, object_type, file_key, source_period_key, table_name,
+		session_id, user_email)
+	if err != nil {
+		return fmt.Errorf("while adding report to input_registry table: %v", err)
+	}
+	return nil
 }
