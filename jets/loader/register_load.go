@@ -28,8 +28,8 @@ func registerCurrentLoad(loadCount int64, badRowCount int64, dbpool *pgxpool.Poo
 		return fmt.Errorf("error inserting in jetsapi.input_loader_status table: %v", err)
 	}
 	log.Println("Updated input_loader_status table with main object type:", *objectType, "client", *client, "org", *clientOrg, ":: status is", status)
-	// Register loads, except when status == "failed" or loadCount == 0
-	if dkInfo != nil && loadCount > 0 && status != "failed" {
+	// Register loads, except when status == "failed" or loadCount == 0 or len(computePipesJson) > 0
+	if dkInfo != nil && loadCount > 0 && status != "failed" && len(computePipesJson) == 0 {
 		inputRegistryKey = make([]int, len(dkInfo.DomainKeysInfoMap))
 		ipos := 0
 		for objType := range dkInfo.DomainKeysInfoMap {
