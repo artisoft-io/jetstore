@@ -2,6 +2,7 @@ package compute_pipes
 
 import (
 	"fmt"
+	"math"
 	"strconv"
 	"strings"
 )
@@ -12,6 +13,8 @@ func (ctx *BuilderContext) parseValue(expr *string) (interface{}, error) {
 	switch {
 	case *expr == "NULL":
 		value = nil
+	case *expr == "NaN" || *expr == "NAN":
+		value = math.NaN()
 
 	case strings.HasPrefix(*expr, "$"):
 		// value is an env var

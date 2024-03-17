@@ -12,16 +12,17 @@ import (
 // Compute Pipes main entry point
 
 type ComputePipesResult struct {
+	TableName    string
 	CopyRowCount int64
 	Err          error
 }
 
 // Function to write transformed row to database
-func StartComputePipes(dbpool *pgxpool.Pool, headersDKInfo *schema.HeadersAndDomainKeysInfo, done chan struct{},
-	computePipesInputCh <-chan []interface{}, computePipesResultCh chan<- ComputePipesResult, computePipesJson *string,
+func StartComputePipes(dbpool *pgxpool.Pool, headersDKInfo *schema.HeadersAndDomainKeysInfo, done chan struct{}, errCh chan error,
+	computePipesInputCh <-chan []interface{}, computePipesResultCh chan chan ComputePipesResult, computePipesJson *string,
 	envSettings map[string]interface{}) {
 
-	var cpErr error	
+	var cpErr error
 	if computePipesJson == nil || len(*computePipesJson) == 0 {
 		// Loader in classic mode, no compute pipes defined
 		tableIdentifier, err := SplitTableName(headersDKInfo.TableName)
@@ -30,11 +31,13 @@ func StartComputePipes(dbpool *pgxpool.Pool, headersDKInfo *schema.HeadersAndDom
 			goto gotError
 		}
 		wt := WriteTableSource{
-			source: computePipesInputCh,
-			tableIdentifier: tableIdentifier,	// using default staging table
-			columns: headersDKInfo.Headers, // using default staging table
+			source:          computePipesInputCh,
+			tableIdentifier: tableIdentifier,       // using default staging table
+			columns:         headersDKInfo.Headers, // using default staging table
 		}
-		wt.writeTable(dbpool, done, computePipesResultCh)
+		table := make(chan ComputePipesResult, 1)
+		computePipesResultCh <- table
+		wt.writeTable(dbpool, done, table)
 
 	} else {
 		fmt.Println("Compute Pipes identified")
@@ -50,13 +53,13 @@ func StartComputePipes(dbpool *pgxpool.Pool, headersDKInfo *schema.HeadersAndDom
 		// Prepare the channel registry
 		channelRegistry := &ChannelRegistry{
 			computePipesInputCh: computePipesInputCh,
-			inputColumns: headersDKInfo.HeadersPosMap,
+			inputColumns:        headersDKInfo.HeadersPosMap,
 			inputChannelSpec: &ChannelSpec{
-				Name: "input_row",
+				Name:    "input_row",
 				Columns: headersDKInfo.Headers,
 			},
 			computeChannels: make(map[string]*Channel),
-			closedChannels: make(map[string]bool),
+			closedChannels:  make(map[string]bool),
 		}
 		for i := range cpConfig.Channels {
 			cm := make(map[string]int)
@@ -66,14 +69,14 @@ func StartComputePipes(dbpool *pgxpool.Pool, headersDKInfo *schema.HeadersAndDom
 			channelRegistry.computeChannels[cpConfig.Channels[i].Name] = &Channel{
 				channel: make(chan []interface{}),
 				columns: cm,
-				config: &cpConfig.Channels[i],
+				config:  &cpConfig.Channels[i],
 			}
 		}
 		fmt.Println("Compute Pipes channel registry ready")
 		// for i := range cpConfig.Channels {
 		// 	fmt.Println("**& Channel", cpConfig.Channels[i].Name, "Columns map", channelRegistry.computeChannels[cpConfig.Channels[i].Name].columns)
 		// }
-	
+
 		// Prepare the output tables
 		for i := range cpConfig.OutputTables {
 			tableIdentifier, err := SplitTableName(cpConfig.OutputTables[i].Name)
@@ -84,43 +87,48 @@ func StartComputePipes(dbpool *pgxpool.Pool, headersDKInfo *schema.HeadersAndDom
 			err = prepareOutoutTable(dbpool, tableIdentifier, &cpConfig.OutputTables[i])
 			if err != nil {
 				cpErr = fmt.Errorf("while preparing output table: %s", err)
-				goto gotError	
+				goto gotError
 			}
 			outChannel := channelRegistry.computeChannels[cpConfig.OutputTables[i].Key]
 			if outChannel == nil {
-				cpErr = fmt.Errorf("error: invalid Compute Pipes configuration: Output table %s does not have a channel configuration", 
+				cpErr = fmt.Errorf("error: invalid Compute Pipes configuration: Output table %s does not have a channel configuration",
 					cpConfig.OutputTables[i].Name)
-				goto gotError	
+				goto gotError
 			}
 			wt := WriteTableSource{
-				source: outChannel.channel,
+				source:          outChannel.channel,
 				tableIdentifier: tableIdentifier,
-				columns: outChannel.config.Columns,
+				columns:         outChannel.config.Columns,
 			}
-			go wt.writeTable(dbpool, done, computePipesResultCh)
+			table := make(chan ComputePipesResult, 1)
+			computePipesResultCh <- table
+			go wt.writeTable(dbpool, done, table)
 		}
 		fmt.Println("Compute Pipes output tables ready")
 
 		ctx := &BuilderContext{
-			cpConfig: &cpConfig,
-			channelRegistry: channelRegistry,
-			done: done,
+			cpConfig:             &cpConfig,
+			channelRegistry:      channelRegistry,
+			done:                 done,
+			errCh:                errCh,
 			computePipesResultCh: computePipesResultCh,
-			env: envSettings,
+			env:                  envSettings,
 		}
 		err = ctx.buildComputeGraph()
 		if err != nil {
 			cpErr = fmt.Errorf("while building the compute graph: %s", err)
-			goto gotError	
+			goto gotError
 		}
 
 	}
-	// All good!
+	// All done!
+	close(computePipesResultCh)
 	return
 
-	gotError:
+gotError:
 	log.Println(cpErr)
 	// fmt.Println("**! gotError, writting to computePipesResultCh (ComputePipesResult)")
-	computePipesResultCh <- ComputePipesResult{Err: cpErr}
+	errCh <- cpErr
 	close(done)
+	close(computePipesResultCh)
 }

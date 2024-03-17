@@ -56,6 +56,6 @@ func (ctx *BuilderContext) startFanOutPipe(spec *PipeSpec, source *InputChannel)
 gotError:
 	log.Println(cpErr)
 	// fmt.Println("**! gotError, writting to computePipesResultCh (ComputePipesResult)")
-	ctx.computePipesResultCh <- ComputePipesResult{Err: cpErr}
+	ctx.errCh <- cpErr
 	close(ctx.done)
 }

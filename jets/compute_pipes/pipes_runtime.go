@@ -79,7 +79,8 @@ type BuilderContext struct {
 	cpConfig             *ComputePipesConfig
 	channelRegistry      *ChannelRegistry
 	done                 chan struct{}
-	computePipesResultCh chan<- ComputePipesResult
+	errCh                chan error
+	computePipesResultCh chan chan ComputePipesResult
 	env map[string]interface{}
 }
 
