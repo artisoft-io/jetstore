@@ -77,9 +77,10 @@ func (ctx *BuilderContext) startSplitterPipe(spec *PipeSpec, source *InputChanne
 	return
 gotError:
 	log.Println(cpErr)
-	// fmt.Println("**! gotError, writting to computePipesResultCh (ComputePipesResult)")
 	ctx.errCh <- cpErr
 	close(ctx.done)
+	// fmt.Println("**! gotError, in startSplitterPipe, closing output table channels")
+	ctx.channelRegistry.CloseOutputTableChannels()
 }
 
 func (ctx *BuilderContext) startSplitterChannelHandler(spec *PipeSpec, source *InputChannel, wg *sync.WaitGroup) {
@@ -124,4 +125,6 @@ gotError:
 	log.Println(cpErr)
 	ctx.errCh <- cpErr
 	close(ctx.done)
+	fmt.Println("**! gotError, in startSplitterChannelHandler, closing output table channels")
+	ctx.channelRegistry.CloseOutputTableChannels()
 }

@@ -243,8 +243,6 @@ func processFileAndReportStatus(dbpool *pgxpool.Pool,
 		}	
 	}
 
-	log.Println("**!@@ Getting table write results @@")
-
 	for table := range copy2DbResultCh {
 		copy2DbResult := <-table
 		log.Println("Inserted", copy2DbResult.CopyRowCount, "rows in table",copy2DbResult.TableName,"::", copy2DbResult.Err)	
@@ -255,8 +253,8 @@ func processFileAndReportStatus(dbpool *pgxpool.Pool,
 			}
 		}	
 	}
+
 	// Check for error from compute pipes
-	log.Println("**!@@ Checking for error from Compute Pipes @@")
 	var cpErr error
 	select {
 	case cpErr = <-errCh:
@@ -265,6 +263,7 @@ func processFileAndReportStatus(dbpool *pgxpool.Pool,
 		if err == nil {
 			err= cpErr
 		}
+		processingErrors = append(processingErrors, fmt.Sprintf("got error from Compute Pipes processing: %v", cpErr))
 	default:
 		log.Println("No errors from Compute Pipes processing!")
 	}
@@ -395,7 +394,7 @@ func coordinateWork() error {
 	log.Printf("Input file encoding (format) is: %s", inputFileEncoding.String())
 	// Start the download of file(s) from s3 and upload to db, coordinated using channel
 	done := make(chan struct{})
-	errCh := make(chan error)
+	errCh := make(chan error, 1)
 	defer func() {
 		select {
 		case <-done:

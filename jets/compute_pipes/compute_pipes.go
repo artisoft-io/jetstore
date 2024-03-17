@@ -59,6 +59,7 @@ func StartComputePipes(dbpool *pgxpool.Pool, headersDKInfo *schema.HeadersAndDom
 				Columns: headersDKInfo.Headers,
 			},
 			computeChannels: make(map[string]*Channel),
+			outputTableChannels: make([]string, 0),
 			closedChannels:  make(map[string]bool),
 		}
 		for i := range cpConfig.Channels {
@@ -90,6 +91,7 @@ func StartComputePipes(dbpool *pgxpool.Pool, headersDKInfo *schema.HeadersAndDom
 				goto gotError
 			}
 			outChannel := channelRegistry.computeChannels[cpConfig.OutputTables[i].Key]
+			channelRegistry.outputTableChannels = append(channelRegistry.outputTableChannels, cpConfig.OutputTables[i].Key)
 			if outChannel == nil {
 				cpErr = fmt.Errorf("error: invalid Compute Pipes configuration: Output table %s does not have a channel configuration",
 					cpConfig.OutputTables[i].Name)
@@ -127,7 +129,7 @@ func StartComputePipes(dbpool *pgxpool.Pool, headersDKInfo *schema.HeadersAndDom
 
 gotError:
 	log.Println(cpErr)
-	// fmt.Println("**! gotError, writting to computePipesResultCh (ComputePipesResult)")
+	// fmt.Println("**! gotError in StartComputePipes")
 	errCh <- cpErr
 	close(done)
 	close(computePipesResultCh)
