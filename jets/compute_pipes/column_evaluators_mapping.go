@@ -55,25 +55,25 @@ func (ctx *mapColumnEval) update(currentValue *[]interface{}, input *[]interface
 			case "int":
 				outputVal, err = strconv.Atoi(inputVal.(string))
 				if err != nil {
-					fmt.Println("input is not int:", inputVal.(string))
+					// fmt.Println("input is not int:", inputVal.(string))
 					outputVal = nil
 				}
 			case "int64", "long":
 				outputVal, err = strconv.ParseInt(inputVal.(string), 10, 64)
 				if err != nil {
-					fmt.Println("input is not long:", inputVal.(string))
+					// fmt.Println("input is not long:", inputVal.(string))
 					outputVal = nil
 				}
 			case "float64", "double":
 				outputVal, err = strconv.ParseFloat(inputVal.(string), 64)
 				if err != nil {
-					fmt.Println("input is not double:", inputVal.(string))
+					// fmt.Println("input is not double:", inputVal.(string))
 					outputVal = nil
 				}
 			case "date":
 				temp, err = ParseDate(inputVal.(string))
 				if err != nil {
-					fmt.Println("input is not date:", inputVal.(string))
+					// fmt.Println("input is not date:", inputVal.(string))
 					outputVal = nil
 				} else {
 					outputVal = *(temp.(*time.Time))
@@ -81,7 +81,7 @@ func (ctx *mapColumnEval) update(currentValue *[]interface{}, input *[]interface
 			case "datetime":
 				temp, err = ParseDatetime(inputVal.(string))
 				if err != nil {
-					fmt.Println("input is not date:", inputVal.(string))
+					// fmt.Println("input is not date:", inputVal.(string))
 					outputVal = nil
 				} else {
 					outputVal = *(temp.(*time.Time))	

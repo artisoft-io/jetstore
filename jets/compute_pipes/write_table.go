@@ -46,7 +46,7 @@ func SplitTableName(tableName string) (pgx.Identifier, error) {
 			splitTableName[1],
 		}
 	default:
-		return tableIdentifier, fmt.Errorf("error: invalid output table name:", tableName)
+		return tableIdentifier, fmt.Errorf("error: invalid output table name: %s", tableName)
 	}
 	return tableIdentifier, nil
 }
@@ -76,11 +76,11 @@ func (wt *WriteTableSource) writeTable(dbpool *pgxpool.Pool, done chan struct{},
 		}
 		close(done)
 		fmt.Println("**! ERROR writing to database, writing to copy2DbResultCh (ComputePipesResult)")
-		copy2DbResultCh <- ComputePipesResult{Err: fmt.Errorf("while copy records to db at count %d: %v", wt.count, err)}
+		copy2DbResultCh <- ComputePipesResult{TableName: wt.tableIdentifier.Sanitize(), Err: fmt.Errorf("while copy records to db at count %d: %v", wt.count, err)}
 		return
 	}
 	fmt.Println("DONE writing to database, writing to copy2DbResultCh (ComputePipesResult)")
-	copy2DbResultCh <- ComputePipesResult{CopyRowCount: recCount}
+	copy2DbResultCh <- ComputePipesResult{TableName: wt.tableIdentifier.Sanitize(), CopyRowCount: recCount}
 }
 
 func prepareOutoutTable(dbpool *pgxpool.Pool, tableIdentifier pgx.Identifier, tableSpec *TableSpec) error {

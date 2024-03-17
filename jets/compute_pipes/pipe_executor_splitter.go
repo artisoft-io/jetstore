@@ -42,7 +42,7 @@ func (ctx *BuilderContext) startSplitterPipe(spec *PipeSpec, source *InputChanne
 					go ctx.startSplitterChannelHandler(spec, &InputChannel{
 						channel: splitCh,
 						columns: source.columns,
-						config: &ChannelSpec{Name: "splitter_generated"},
+						config: &ChannelSpec{Name: fmt.Sprintf("splitter channel from %s", source.config.Name)},
 					}, &wg)
 				}
 				// Send the record to the intermediate channel
@@ -77,9 +77,10 @@ func (ctx *BuilderContext) startSplitterPipe(spec *PipeSpec, source *InputChanne
 	return
 gotError:
 	log.Println(cpErr)
-	// fmt.Println("**! gotError, writting to computePipesResultCh (ComputePipesResult)")
-	ctx.computePipesResultCh <- ComputePipesResult{Err: cpErr}
+	ctx.errCh <- cpErr
 	close(ctx.done)
+	// fmt.Println("**! gotError, in startSplitterPipe, closing output table channels")
+	ctx.channelRegistry.CloseOutputTableChannels()
 }
 
 func (ctx *BuilderContext) startSplitterChannelHandler(spec *PipeSpec, source *InputChannel, wg *sync.WaitGroup) {
@@ -122,6 +123,8 @@ func (ctx *BuilderContext) startSplitterChannelHandler(spec *PipeSpec, source *I
 
 gotError:
 	log.Println(cpErr)
-	ctx.computePipesResultCh <- ComputePipesResult{Err: cpErr}
+	ctx.errCh <- cpErr
 	close(ctx.done)
+	fmt.Println("**! gotError, in startSplitterChannelHandler, closing output table channels")
+	ctx.channelRegistry.CloseOutputTableChannels()
 }

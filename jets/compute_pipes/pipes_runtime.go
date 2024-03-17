@@ -13,6 +13,7 @@ type ChannelRegistry struct {
 	inputChannelSpec    *ChannelSpec
 	inputColumns        map[string]int
 	computeChannels     map[string]*Channel
+	outputTableChannels []string
 	closedChannels      map[string]bool
 	closedChMutex       sync.Mutex
 }
@@ -29,6 +30,12 @@ func (r *ChannelRegistry) CloseChannel(name string) {
 	}
 	r.closedChannels[name] = true
 }
+func (r *ChannelRegistry) CloseOutputTableChannels() {
+	for _,c := range r.outputTableChannels {
+		r.CloseChannel(c)
+	}
+}
+
 func (r *ChannelRegistry) GetInputChannel(name string) (*InputChannel, error) {
 	if name == "input_row" {
 		return &InputChannel{
@@ -79,7 +86,8 @@ type BuilderContext struct {
 	cpConfig             *ComputePipesConfig
 	channelRegistry      *ChannelRegistry
 	done                 chan struct{}
-	computePipesResultCh chan<- ComputePipesResult
+	errCh                chan error
+	computePipesResultCh chan chan ComputePipesResult
 	env map[string]interface{}
 }
 

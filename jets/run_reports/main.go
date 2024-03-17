@@ -88,6 +88,7 @@ func getSourcePeriodKey(dbpool *pgxpool.Pool, sessionId, fileKey string) (int, e
 	return sourcePeriodKey, nil
 }
 
+// Returns dbRecordCount (nbr of rows in pipeline_execution_details) and outputRecordCount (nbr of rows saved from server process)
 func getOutputRecordCount(dbpool *pgxpool.Pool, sessionId string) (int64, int64) {
 	var dbRecordCount, outputRecordCount sql.NullInt64
 	err := dbpool.QueryRow(context.Background(), 
@@ -101,6 +102,19 @@ func getOutputRecordCount(dbpool *pgxpool.Pool, sessionId string) (int64, int64)
 		log.Fatalf(msg)
 	}
 	return dbRecordCount.Int64, outputRecordCount.Int64
+}
+
+// Return the Compute Pipes config json from source_config table
+func getComputePipesJson(dbpool *pgxpool.Pool, client, org, objectType string) string {
+	var computePipesJson sql.NullString
+	err := dbpool.QueryRow(context.Background(), 
+		"SELECT compute_pipes_json FROM jetsapi.source_config WHERE client=$1 AND org=$2 AND object_type=$3", 
+		client, org, objectType).Scan(&computePipesJson)
+	if err != nil {
+		// may not have an entry in source_config
+		return ""
+	}
+	return computePipesJson.String
 }
 
 func coordinateWorkAndUpdateStatus(ca *delegate.CommandArguments) error {
@@ -130,6 +144,9 @@ func coordinateWorkAndUpdateStatus(ca *delegate.CommandArguments) error {
 		}
 	}
 
+	// Get the compute pipes json from source_config
+	ca.ComputePipesJson = getComputePipesJson(dbpool, ca.Client, ca.Org, ca.ObjectType)
+
 	// Fetch reports.tgz from overriten workspace files (here we want the reports definitions in particular)
 	// We don't care about /lookup.db and /workspace.db, hence the argument skipSqliteFiles = true
 	_,devMode = os.LookupEnv("JETSTORE_DEV_MODE")
@@ -149,6 +166,7 @@ func coordinateWorkAndUpdateStatus(ca *delegate.CommandArguments) error {
 	if err != nil {
 		if os.IsNotExist(err) {
 			fmt.Println("Warning report config.json does not exist, using defaults")
+			ca.CurrentReportDirectives = &delegate.ReportDirectives{}
 		} else {
 			return fmt.Errorf("while reading report config.json: %v", err)
 		}
@@ -199,19 +217,28 @@ func coordinateWorkAndUpdateStatus(ca *delegate.CommandArguments) error {
 
 	// Put the full path to the ReportScript
 	ca.ReportScriptPaths = make([]string, 0)
+	foundReports := false
 	if len(ca.CurrentReportDirectives.ReportScripts) > 0 {
 		for i := range ca.CurrentReportDirectives.ReportScripts {
+			foundReports = true
 			ca.ReportScriptPaths = append(ca.ReportScriptPaths, fmt.Sprintf("%s/%s/reports/%s", wh, ws, ca.CurrentReportDirectives.ReportScripts[i]))
 		}
 	} else {
 		// reportScripts defaults to process name
+		foundReports = true
 		ca.ReportScriptPaths = append(ca.ReportScriptPaths, fmt.Sprintf("%s/%s/reports/%s.sql", wh, ws, *reportName))
 		ca.CurrentReportDirectives.ReportScripts = []string{*reportName}
 	}
 
-	if len(ca.ReportScriptPaths) == 0 {
+	if !foundReports {
 		return fmt.Errorf("error: can't determine the report definitions file")
 	}
+
+	if len(ca.ReportScriptPaths) == 0 {
+		log.Println("No report to execute, exiting silently...")
+		return nil
+	}
+
 	fmt.Println("Executing the following reports:")
 	for i := range ca.ReportScriptPaths {
 		fmt.Println("  -", ca.ReportScriptPaths[i])
@@ -380,7 +407,8 @@ func main() {
 		// OutputPath: ,
 		OriginalFileName: *originalFileName,
 		ReportScriptPaths: []string{},
-		// CurrentReportConfiguration: reportConfig, // set in func coordinateWorkAndUpdateStatus
+		// CurrentReportDirectives: ReportDirectives, // set in func coordinateWorkAndUpdateStatus
+		// ComputePipesJson: string,                  // set in func coordinateWorkAndUpdateStatus
 		BucketName: *awsBucket,
 		RegionName: *awsRegion,
 	}

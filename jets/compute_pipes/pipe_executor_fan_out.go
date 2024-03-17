@@ -54,8 +54,9 @@ func (ctx *BuilderContext) startFanOutPipe(spec *PipeSpec, source *InputChannel)
 	return
 
 gotError:
-	log.Println(cpErr)
-	// fmt.Println("**! gotError, writting to computePipesResultCh (ComputePipesResult)")
-	ctx.computePipesResultCh <- ComputePipesResult{Err: cpErr}
+	log.Println(cpErr)	
+	ctx.errCh <- cpErr
 	close(ctx.done)
+	// fmt.Println("**! gotError, in startFanOutPipe, closing output table channels")
+	ctx.channelRegistry.CloseOutputTableChannels()
 }

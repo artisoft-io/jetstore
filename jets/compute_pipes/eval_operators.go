@@ -2,6 +2,7 @@ package compute_pipes
 
 import (
 	"fmt"
+	"log"
 	"math"
 	"strconv"
 	"strings"
@@ -15,6 +16,8 @@ func (ctx *BuilderContext) buildEvalOperator(op string) (evalOperator, error) {
 	// Boolean operators
 	case "==":
 		return opEqual{}, nil
+	case "!=":
+		return opNotEqual{}, nil
 	case "IS":
 		return opIS{}, nil
 	case "<":
@@ -36,8 +39,13 @@ func (ctx *BuilderContext) buildEvalOperator(op string) (evalOperator, error) {
 		return opSUB{}, nil
 	case "*":
 		return opMUL{}, nil
+	case "ABS":
+		return opABS{}, nil
+	// Special Operators
 	case "DISTANCE_MONTHS":
 		return opDMonths{}, nil
+	case "APPLY_FORMAT":
+		return opApplyFormat{}, nil
 	}
 	return nil, fmt.Errorf("error: unknown operator: %v", op)
 }
@@ -206,6 +214,27 @@ func (op opEqual) eval(lhs interface{}, rhs interface{}) (interface{}, error) {
 	return nil, fmt.Errorf("opEqual incompatible types, rejected")
 }
 
+// Operator !=
+type opNotEqual struct {}
+func (op opNotEqual) eval(lhs interface{}, rhs interface{}) (interface{}, error) {
+	if lhs == nil || rhs == nil {
+		return 0, nil
+	}
+	v, err := opEqual{}.eval(lhs, rhs)
+	if err != nil {
+		return nil, fmt.Errorf("opNotEqual eval using opEqual: %v", err)	
+	}
+	switch vv := v.(type) {
+	case int:
+		if vv == 0 {
+			return 1, nil
+		} else {
+			return 0, nil
+		}
+	}
+	return nil, fmt.Errorf("opNotEqual incompatible types, rejected")
+}
+
 
 // Boolean not
 type opNot struct {}
@@ -241,6 +270,15 @@ type opIS struct {}
 func (op opIS) eval(lhs interface{}, rhs interface{}) (interface{}, error) {
 	if lhs == nil && rhs == nil {
 		return 1, nil
+	}
+	switch lhsv := lhs.(type) {
+	case float64:
+		switch rhsv := rhs.(type) {
+		case float64:
+			if(math.IsNaN(lhsv) && math.IsNaN(rhsv)) {
+				return 1, nil
+			}
+		}
 	}
 	return 0, nil
 }
@@ -861,7 +899,7 @@ func (op opGE) eval(lhs interface{}, rhs interface{}) (interface{}, error) {
 type opDIV struct {}
 func (op opDIV) eval(lhs interface{}, rhs interface{}) (interface{}, error) {
 	if lhs == nil || rhs == nil {
-		return 0, nil
+		return nil, nil
 	}
 	lhsv, err := ToDouble(lhs)
 	if err != nil {
@@ -872,7 +910,7 @@ func (op opDIV) eval(lhs interface{}, rhs interface{}) (interface{}, error) {
 		return nil, err
 	}
 	if math.Abs(rhsv) < 1e-10 {
-		return nil, fmt.Errorf("opDIV: division by zero")
+		return math.NaN(), nil
 	}
 	return lhsv / rhsv, nil
 }
@@ -881,11 +919,13 @@ func (op opDIV) eval(lhs interface{}, rhs interface{}) (interface{}, error) {
 type opADD struct {}
 func (op opADD) eval(lhs interface{}, rhs interface{}) (interface{}, error) {
 	if lhs == nil || rhs == nil {
-		return 0, nil
+		return nil, nil
 	}
 	switch lhsv := lhs.(type) {
 	case string:
 		switch rhsv := rhs.(type) {
+		case string:
+			return fmt.Sprintf("%s%s", lhsv, rhsv), nil
 		case int:
 			return fmt.Sprintf("%s%v",lhsv,rhsv), nil
 		case int64:
@@ -932,15 +972,26 @@ func (op opADD) eval(lhs interface{}, rhs interface{}) (interface{}, error) {
 		case float64:
 			return lhsv + rhsv, nil
 		}
+
+	case time.Time:
+		switch rhsv := rhs.(type) {
+		case int:
+			// Assuming lhs is date and rhs is days
+			d, err := time.ParseDuration(fmt.Sprintf("%dh", rhsv * 24))
+			if err != nil {
+				log.Printf("opADD: while adding time with int (assuming adding days to a date): %v", err)
+			}
+			return lhsv.Add(d), nil
+		}
 	}
-	return nil, fmt.Errorf("opADD incompatible types, rejected")
+	return nil, fmt.Errorf("opADD incompatible types: '%v' and '%v', rejected", lhs, rhs)
 }
 
 
 type opSUB struct {}
 func (op opSUB) eval(lhs interface{}, rhs interface{}) (interface{}, error) {
 	if lhs == nil || rhs == nil {
-		return 0, nil
+		return nil, nil
 	}
 	switch lhsv := lhs.(type) {
 	case int:
@@ -975,6 +1026,22 @@ func (op opSUB) eval(lhs interface{}, rhs interface{}) (interface{}, error) {
 		case float64:
 			return lhsv - rhsv, nil
 		}
+
+	case time.Time:
+		switch rhsv := rhs.(type) {
+		case int:
+			// Assuming lhs is date and rhs is days
+			d, err := time.ParseDuration(fmt.Sprintf("%dh", rhsv * 24))
+			if err != nil {
+				log.Printf("opSUB: while substracting time with int (assuming subtracting days to a date): %v", err)
+			}
+			return lhsv.Add(-d), nil
+
+		case time.Time:
+			// Assuming Substracting 2 dates, return the number of days as duration
+			return int(lhsv.Sub(rhsv).Hours() / 24), nil
+		}
+
 	}
 	return nil, fmt.Errorf("opSUB incompatible types, rejected")
 }
@@ -983,7 +1050,7 @@ func (op opSUB) eval(lhs interface{}, rhs interface{}) (interface{}, error) {
 type opMUL struct {}
 func (op opMUL) eval(lhs interface{}, rhs interface{}) (interface{}, error) {
 	if lhs == nil || rhs == nil {
-		return 0, nil
+		return nil, nil
 	}
 	switch lhsv := lhs.(type) {
 	case int:
@@ -1020,24 +1087,29 @@ func (op opMUL) eval(lhs interface{}, rhs interface{}) (interface{}, error) {
 }
 
 
-type opDMonths struct {}
-func (op opDMonths) eval(lhs interface{}, rhs interface{}) (interface{}, error) {
-	if lhs == nil || rhs == nil {
+// Operator abs()
+type opABS struct {}
+func (op opABS) eval(lhs interface{}, _ interface{}) (interface{}, error) {
+	if lhs == nil {
 		return 0, nil
 	}
 	switch lhsv := lhs.(type) {
-
-	case time.Time:
-		switch rhsv := rhs.(type) {
-		case time.Time:
-			v := (lhsv.Year() - rhsv.Year()) * 12 + int(lhsv.Month()) - int(rhsv.Month())
-			if v > 0 {
-				return v, nil
-			}
-			return -v, nil
+	case int:
+		if lhsv < 0 {
+			return -lhsv, nil
 		}
+		return lhsv, nil
+
+	case int64:
+		if lhsv < 0 {
+			return -lhsv, nil
+		}
+		return lhsv, nil
+
+	case float64:
+		return math.Abs(lhsv), nil
 	}
-	return nil, fmt.Errorf("opDMonths incompatible types, rejected")
+	return nil, fmt.Errorf("opABS incompatible types, rejected")
 }
 
 func nearlyEqual(a, b float64) bool {

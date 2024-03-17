@@ -73,6 +73,7 @@ type CommandArguments struct {
 	OriginalFileName        string
 	ReportScriptPaths       []string
 	CurrentReportDirectives *ReportDirectives
+	ComputePipesJson        string
 	BucketName              string
 	RegionName              string
 }
@@ -94,6 +95,18 @@ func (ca *CommandArguments) RunReports(dbpool *pgxpool.Pool) (err error) {
 	// Run the reports
 	for i := range ca.ReportScriptPaths {
 		reportProps := reportDirectives.ReportOrStatementProperties[reportDirectives.ReportScripts[i]]
+		// Check if report/script is for Compute Pipes only
+		doIt := true
+		switch reportProps["runWhenComputePipes"] {
+		case "true":
+			doIt = len(ca.ComputePipesJson) > 0
+		case "false":
+			doIt = len(ca.ComputePipesJson) == 0
+		}
+		if !doIt {
+			log.Printf("Skipping report or script '%s' (compute pipes check)", reportDirectives.ReportScripts[i])
+			continue
+		}
 		// Determine if we file is a sql reports or a sql script, sql script are executed in one go
 		// while sql report are executed statement by statement with results generally saved to s3 (most common)
 		if reportProps["reportOrScript"] == "script" {

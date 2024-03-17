@@ -29,8 +29,8 @@ import (
 // Backward compatibility: when compute pipe graph config is null or empty, the input file content is save in database, meaning the
 // compute transformation is the identity operator.
 
-func loadFiles(dbpool *pgxpool.Pool, headersDKInfo *schema.HeadersAndDomainKeysInfo, done chan struct{},
-	fileNamesCh <-chan string, loadFromS3FilesResultCh chan<- LoadFromS3FilesResult, copy2DbResultCh chan<- compute_pipes.ComputePipesResult,
+func loadFiles(dbpool *pgxpool.Pool, headersDKInfo *schema.HeadersAndDomainKeysInfo, done chan struct{}, errCh chan error,
+	fileNamesCh <-chan string, loadFromS3FilesResultCh chan<- LoadFromS3FilesResult, copy2DbResultCh chan chan compute_pipes.ComputePipesResult,
 	badRowsWriter *bufio.Writer) {
 
 	// Create a channel to use as a buffer between the file loader and the copy to db
@@ -49,7 +49,7 @@ func loadFiles(dbpool *pgxpool.Pool, headersDKInfo *schema.HeadersAndDomainKeysI
 	}()
 
 	// Start the Compute Pipes async
-	go compute_pipes.StartComputePipes(dbpool, headersDKInfo, done, computePipesInputCh, copy2DbResultCh, 
+	go compute_pipes.StartComputePipes(dbpool, headersDKInfo, done, errCh, computePipesInputCh, copy2DbResultCh, 
 		&computePipesJson, map[string]interface{}{
 			"$SESSIONID": *sessionId,
 			"$FILE_KEY_DATE": fileKeyDate,
