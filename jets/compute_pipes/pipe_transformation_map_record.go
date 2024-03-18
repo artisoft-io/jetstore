@@ -43,7 +43,7 @@ func (ctx *MapRecordTransformationPipe) apply(input *[]interface{}) error {
 	select {
 	case ctx.outputCh.channel <- currentValues:
 	case <-ctx.doneCh:
-		log.Println("MapRecordTransformationPipe interrupted")
+		log.Printf("MapRecordTransformationPipe writting to '%s' interrupted", ctx.outputCh.config.Name)
 		return nil
 	}
 
