@@ -12,6 +12,9 @@ type countColumnEval struct {
 	where evalExpression
 }
 func (ctx *countColumnEval) initializeCurrentValue(currentValue *[]interface{}) {
+	if currentValue == nil {
+		return
+	}
 	(*currentValue)[ctx.outputPos] = int64(0)
 }
 func (ctx *countColumnEval) update(currentValue *[]interface{}, input *[]interface{}) error {
@@ -83,6 +86,9 @@ type distinctCountColumnEval struct {
 	where evalExpression
 }
 func (ctx *distinctCountColumnEval) initializeCurrentValue(currentValue *[]interface{}) {
+	if currentValue == nil {
+		return
+	}
 	(*currentValue)[ctx.outputPos] = int64(0)
 }
 func (ctx *distinctCountColumnEval) update(currentValue *[]interface{}, input *[]interface{}) error {

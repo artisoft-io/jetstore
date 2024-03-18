@@ -25,15 +25,10 @@ func (r *ChannelRegistry) CloseChannel(name string) {
 	}
 	c := r.computeChannels[name]
 	if c != nil {
-		// fmt.Println("** Closing channel", name)
+		fmt.Println("** Closing channel", name)
 		close(c.channel)
 	}
 	r.closedChannels[name] = true
-}
-func (r *ChannelRegistry) CloseOutputTableChannels() {
-	for _,c := range r.outputTableChannels {
-		r.CloseChannel(c)
-	}
 }
 
 func (r *ChannelRegistry) GetInputChannel(name string) (*InputChannel, error) {

@@ -50,13 +50,14 @@ func (ctx *BuilderContext) startSplitterPipe(spec *PipeSpec, source *InputChanne
 				select {
 				case splitCh <- inRow:
 				case <-ctx.done:
-					log.Println("startSplitterPipe interrupted")
-					return
+					// log.Printf("startSplitterPipe writting to splitter intermediate channel with key %s from '%s' interrupted", key, source.config.Name)
+					goto doneSplitterLoop
 				}				
 			}
 		}
 	}
-	// Close all the intermediate channels after the splitterPipes are done
+	doneSplitterLoop:
+	// Close all the intermediate channels
 	for _, ch := range chanState {
 		// fmt.Println("**! startSplitterPipe closing intermediate channel", key)
 		close(ch)
@@ -70,7 +71,7 @@ func (ctx *BuilderContext) startSplitterPipe(spec *PipeSpec, source *InputChanne
 		oc[spec.Apply[i].Output] = true
 	}
 	for i := range oc {
-		// fmt.Println("**! SplitterPipe: Closing Output Channel",i)
+		fmt.Println("**! SplitterPipe: Closing Output Channel",i)
 		ctx.channelRegistry.CloseChannel(i)
 	}
 	// All good!
@@ -79,8 +80,6 @@ gotError:
 	log.Println(cpErr)
 	ctx.errCh <- cpErr
 	close(ctx.done)
-	// fmt.Println("**! gotError, in startSplitterPipe, closing output table channels")
-	ctx.channelRegistry.CloseOutputTableChannels()
 }
 
 func (ctx *BuilderContext) startSplitterChannelHandler(spec *PipeSpec, source *InputChannel, wg *sync.WaitGroup) {
@@ -125,6 +124,4 @@ gotError:
 	log.Println(cpErr)
 	ctx.errCh <- cpErr
 	close(ctx.done)
-	fmt.Println("**! gotError, in startSplitterChannelHandler, closing output table channels")
-	ctx.channelRegistry.CloseOutputTableChannels()
 }
