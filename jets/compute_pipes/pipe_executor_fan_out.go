@@ -31,7 +31,7 @@ func (ctx *BuilderContext) startFanOutPipe(spec *PipeSpec, source *InputChannel)
 		evaluators[j] = eval
 	}
 
-	// fmt.Println("**! start fan_out loop on source:", source.config.Name)
+	fmt.Println("**! start fan_out loop on source:", source.config.Name)
 	for inRow := range source.channel {
 		for i := range spec.Apply {
 			err = evaluators[i].apply(&inRow)
@@ -41,7 +41,7 @@ func (ctx *BuilderContext) startFanOutPipe(spec *PipeSpec, source *InputChannel)
 			}
 		}
 	}
-	// fmt.Println("Closing fan_out PipeTransformationEvaluator")
+	fmt.Println("Closing fan_out PipeTransformationEvaluator")
 	for i := range evaluators {
 		if evaluators[i] != nil {
 			err = evaluators[i].done()
