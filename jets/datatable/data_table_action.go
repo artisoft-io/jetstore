@@ -1064,7 +1064,7 @@ func (ctx *Context) InsertRows(dataTableAction *DataTableAction, token string) (
 						httpStatus = http.StatusInternalServerError
 						err = errors.New("error while running run_reports command")
 						ca.Status = "failed"
-						ca.FailureDetails = "Error while running reports command in test mode"
+						ca.FailureDetails = fmt.Sprintf("Error while running reports command in test mode: %s", (*results)["log"])
 						// Update server execution status table
 						ca.ValidateArguments()
 						ca.CoordinateWork()

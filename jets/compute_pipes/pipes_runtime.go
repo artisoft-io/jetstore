@@ -101,9 +101,9 @@ func (ctx *BuilderContext) buildComputeGraph() error {
 
 	// Construct the in-memory compute graph
 	// Build the Pipes
-	// fmt.Println("**& Start ComputeGraph")
+	fmt.Println("**& Start ComputeGraph")
 	for i := range ctx.cpConfig.PipesConfig {
-		// fmt.Println("**& PipeConfig", i, "type", ctx.cpConfig.PipesConfig[i].Type)
+		fmt.Println("**& PipeConfig", i, "type", ctx.cpConfig.PipesConfig[i].Type)
 		pipeSpec := &ctx.cpConfig.PipesConfig[i]
 		source, err := ctx.channelRegistry.GetInputChannel(pipeSpec.Input)
 		if err != nil {
@@ -112,18 +112,18 @@ func (ctx *BuilderContext) buildComputeGraph() error {
 
 		switch pipeSpec.Type {
 		case "fan_out":
-			// fmt.Println("**& starting PipeConfig", i, "fan_out", "on source", source.config.Name)
+			fmt.Println("**& starting PipeConfig", i, "fan_out", "on source", source.config.Name)
 			go ctx.startFanOutPipe(pipeSpec, source)
 
 		case "splitter":
-			// fmt.Println("**& starting PipeConfig", i, "splitter", "on source", source.config.Name)
+			fmt.Println("**& starting PipeConfig", i, "splitter", "on source", source.config.Name)
 			go ctx.startSplitterPipe(pipeSpec, source)
 
 		default:
 			return fmt.Errorf("error: unknown PipeSpec type: %s", pipeSpec.Type)
 		}
 	}
-	// fmt.Println("**& Start ComputeGraph DONE")
+	fmt.Println("**& Start ComputeGraph DONE")
 	return nil
 }
 
