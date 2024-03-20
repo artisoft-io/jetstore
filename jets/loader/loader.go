@@ -90,7 +90,7 @@ func processFile(dbpool *pgxpool.Pool, done chan struct{}, errCh chan error, hea
 	errFileHd *os.File) (headersDKInfo *schema.HeadersAndDomainKeysInfo, loadFromS3FilesResultCh chan LoadFromS3FilesResult,
 	copy2DbResultCh chan chan compute_pipes.ComputePipesResult) {
 	loadFromS3FilesResultCh = make(chan LoadFromS3FilesResult, 1)
-	copy2DbResultCh = make(chan chan compute_pipes.ComputePipesResult, 1)
+	copy2DbResultCh = make(chan chan compute_pipes.ComputePipesResult, 101)	// NOTE: 101 is the limit of nbr of output table
 	var rawHeaders *[]string
 	var headersFile string
 	var fixedWidthColumnPrefix string

@@ -85,6 +85,7 @@ func StartComputePipes(dbpool *pgxpool.Pool, headersDKInfo *schema.HeadersAndDom
 				cpErr = fmt.Errorf("while splitting table name: %s", err)
 				goto gotError
 			}
+			fmt.Println("**& Preparing Output Table", tableIdentifier)
 			err = prepareOutoutTable(dbpool, tableIdentifier, &cpConfig.OutputTables[i])
 			if err != nil {
 				cpErr = fmt.Errorf("while preparing output table: %s", err)
@@ -97,6 +98,7 @@ func StartComputePipes(dbpool *pgxpool.Pool, headersDKInfo *schema.HeadersAndDom
 					cpConfig.OutputTables[i].Name)
 				goto gotError
 			}
+			fmt.Println("**& Channel for Output Table", tableIdentifier, "is:",outChannel.config.Name)
 			wt := WriteTableSource{
 				source:          outChannel.channel,
 				tableIdentifier: tableIdentifier,
