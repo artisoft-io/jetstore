@@ -44,7 +44,9 @@ func (ctx *mapColumnEval) update(currentValue *[]interface{}, input *[]interface
 				fmt.Println("*** Error while applying cleansing function:", errMsg)
 				outputVal = nil
 			} else {
-				outputVal = outV
+				if len(outV) > 0 {
+					outputVal = outV
+				}
 			}
 			if outputVal == nil && ctx.mapConfig.defaultValue != nil {
 				outputVal = ctx.mapConfig.defaultValue
