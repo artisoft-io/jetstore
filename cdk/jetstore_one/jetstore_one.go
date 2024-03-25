@@ -883,6 +883,7 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 			"JETS_RESET_DOMAIN_TABLE_ON_STARTUP": jsii.String(os.Getenv("JETS_RESET_DOMAIN_TABLE_ON_STARTUP")),
 			"JETS_s3_INPUT_PREFIX":               jsii.String(os.Getenv("JETS_s3_INPUT_PREFIX")),
 			"JETS_s3_OUTPUT_PREFIX":              jsii.String(os.Getenv("JETS_s3_OUTPUT_PREFIX")),
+			"JETS_SENTINEL_FILE_NAME":            jsii.String(os.Getenv("JETS_SENTINEL_FILE_NAME")),
 			"JETS_DOMAIN_KEY_SEPARATOR":          jsii.String(os.Getenv("JETS_DOMAIN_KEY_SEPARATOR")),
 			"WORKSPACE":                          jsii.String(os.Getenv("WORKSPACE")),
 			"WORKSPACE_BRANCH":                   jsii.String(os.Getenv("WORKSPACE_BRANCH")),
@@ -1107,6 +1108,7 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 	// 	},
 	// 	Environment: &map[string]*string{
 	// 		"JETS_REGION":         jsii.String(os.Getenv("AWS_REGION")),
+	// 		"JETS_SENTINEL_FILE_NAME":         jsii.String(os.Getenv("JETS_SENTINEL_FILE_NAME")), // may need other env var here...
 	// 		"JETS_DSN_SECRET":     rdsSecret.SecretName(),
 	// 	},
 	// 	MemorySize: jsii.Number(128),
@@ -1151,14 +1153,6 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 	}
 
 	// Run the task starter Lambda when an object is added to the S3 bucket.
-	// registerKeyLambda.AddEventSource(awslambdaeventsources.NewS3EventSource(sourceBucket, &awslambdaeventsources.S3EventSourceProps{
-	// 	Events: &[]awss3.EventType{
-	// 		awss3.EventType_OBJECT_CREATED,
-	// 	},
-	// 	Filters: &[]*awss3.NotificationKeyFilter{
-	// 		{Prefix: jsii.String(os.Getenv("JETS_s3_INPUT_PREFIX"))},
-	// 	},
-	// }))
 	sourceBucket.AddEventNotification(awss3.EventType_OBJECT_CREATED, awss3n.NewLambdaDestination(registerKeyLambda), &awss3.NotificationKeyFilter{
 		Prefix: jsii.String(os.Getenv("JETS_s3_INPUT_PREFIX")),
 	})
@@ -1206,6 +1200,7 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 // JETS_RESET_DOMAIN_TABLE_ON_STARTUP (optional, if is yes will reset the domain table on startup if build version is more recent than db version)
 // JETS_s3_INPUT_PREFIX (required)
 // JETS_s3_OUTPUT_PREFIX (required)
+// JETS_SENTINEL_FILE_NAME (optional, fixed file name for multipart sentinel file - file of size 0)
 // JETS_SERVER_TASK_CPU allocated cpu in vCPU units
 // JETS_SERVER_TASK_MEM_LIMIT_MB memory limit, based on fargate table
 // JETS_SNS_ALARM_TOPIC_ARN (optional, sns topic for sending alarm)
@@ -1260,6 +1255,7 @@ func main() {
 	fmt.Println("env JETS_RESET_DOMAIN_TABLE_ON_STARTUP:", os.Getenv("JETS_RESET_DOMAIN_TABLE_ON_STARTUP"))
 	fmt.Println("env JETS_s3_INPUT_PREFIX:", os.Getenv("JETS_s3_INPUT_PREFIX"))
 	fmt.Println("env JETS_s3_OUTPUT_PREFIX:", os.Getenv("JETS_s3_OUTPUT_PREFIX"))
+	fmt.Println("env JETS_SENTINEL_FILE_NAME:", os.Getenv("JETS_SENTINEL_FILE_NAME"))
 	fmt.Println("env JETS_SERVER_TASK_CPU:", os.Getenv("JETS_SERVER_TASK_CPU"))
 	fmt.Println("env JETS_SERVER_TASK_MEM_LIMIT_MB:", os.Getenv("JETS_SERVER_TASK_MEM_LIMIT_MB"))
 	fmt.Println("env JETS_SNS_ALARM_TOPIC_ARN:", os.Getenv("JETS_SNS_ALARM_TOPIC_ARN"))
