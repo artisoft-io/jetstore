@@ -349,9 +349,32 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 	// JetStore Loader ECS Task
 	// Define the loaderTaskDefinition for the loaderSM
 	// --------------------------------------------------------------------------------------------------------------
+	var memLimit, cpu float64
+	if len(os.Getenv("JETS_LOADER_TASK_MEM_LIMIT_MB")) > 0 {
+		var err error
+		memLimit, err = strconv.ParseFloat(os.Getenv("JETS_LOADER_TASK_MEM_LIMIT_MB"), 64)
+		if err != nil {
+			fmt.Println("while parsing JETS_LOADER_TASK_MEM_LIMIT_MB:", err)
+			memLimit = 3072
+		}	
+	} else {
+		memLimit = 3072
+	}
+	fmt.Println("Using memory limit of",memLimit," (from env JETS_LOADER_TASK_MEM_LIMIT_MB)")
+	if len(os.Getenv("JETS_LOADER_TASK_CPU")) > 0 {
+		var err error
+		cpu, err = strconv.ParseFloat(os.Getenv("JETS_LOADER_TASK_CPU"), 64)
+		if err != nil {
+			fmt.Println("while parsing JETS_LOADER_TASK_CPU:", err)
+			cpu = 1024
+		}	
+	} else {
+		cpu = 1024
+	}
+	fmt.Println("Using cpu allocation of",cpu," (from env JETS_LOADER_TASK_CPU)")
 	loaderTaskDefinition := awsecs.NewFargateTaskDefinition(stack, jsii.String("loaderTaskDefinition"), &awsecs.FargateTaskDefinitionProps{
-		MemoryLimitMiB: jsii.Number(3072),
-		Cpu:            jsii.Number(1024),
+		MemoryLimitMiB: jsii.Number(memLimit),
+		Cpu:            jsii.Number(cpu),
 		ExecutionRole:  ecsTaskExecutionRole,
 		TaskRole:       ecsTaskRole,
 		RuntimePlatform: &awsecs.RuntimePlatform{
@@ -626,7 +649,6 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 	// JetStore Rule Server State Machine
 	// Define the ECS TAsk serverTaskDefinition for the serverSM
 	// --------------------------------------------------------------------------------------------------------------
-	var memLimit, cpu float64
 	if len(os.Getenv("JETS_SERVER_TASK_MEM_LIMIT_MB")) > 0 {
 		var err error
 		memLimit, err = strconv.ParseFloat(os.Getenv("JETS_SERVER_TASK_MEM_LIMIT_MB"), 64)
@@ -1203,6 +1225,8 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 // JETS_SENTINEL_FILE_NAME (optional, fixed file name for multipart sentinel file - file of size 0)
 // JETS_SERVER_TASK_CPU allocated cpu in vCPU units
 // JETS_SERVER_TASK_MEM_LIMIT_MB memory limit, based on fargate table
+// JETS_LOADER_TASK_CPU allocated cpu in vCPU units
+// JETS_LOADER_TASK_MEM_LIMIT_MB memory limit, based on fargate table
 // JETS_SNS_ALARM_TOPIC_ARN (optional, sns topic for sending alarm)
 // JETS_TAG_NAME_DESCRIPTION (optional, resource-level tag name for description of the resource)
 // JETS_TAG_NAME_OWNER (optional, stack-level tag name for owner)
@@ -1258,6 +1282,8 @@ func main() {
 	fmt.Println("env JETS_SENTINEL_FILE_NAME:", os.Getenv("JETS_SENTINEL_FILE_NAME"))
 	fmt.Println("env JETS_SERVER_TASK_CPU:", os.Getenv("JETS_SERVER_TASK_CPU"))
 	fmt.Println("env JETS_SERVER_TASK_MEM_LIMIT_MB:", os.Getenv("JETS_SERVER_TASK_MEM_LIMIT_MB"))
+	fmt.Println("env JETS_LOADER_TASK_CPU:", os.Getenv("JETS_LOADER_TASK_CPU"))
+	fmt.Println("env JETS_LOADER_TASK_MEM_LIMIT_MB:", os.Getenv("JETS_LOADER_TASK_MEM_LIMIT_MB"))
 	fmt.Println("env JETS_SNS_ALARM_TOPIC_ARN:", os.Getenv("JETS_SNS_ALARM_TOPIC_ARN"))
 	fmt.Println("env JETS_STACK_TAGS_JSON:", os.Getenv("JETS_STACK_TAGS_JSON"))
 	fmt.Println("env JETS_TAG_NAME_DESCRIPTION:", os.Getenv("JETS_TAG_NAME_DESCRIPTION"))
