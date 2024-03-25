@@ -95,6 +95,7 @@ func (ctx *Context) RegisterFileKeys(registerFileKeyAction *RegisterFileKeyActio
 	if !ok {
 		return nil, http.StatusInternalServerError, errors.New("error cannot find file_key_staging stmt")
 	}
+	sentinelFileName := os.Getenv("JETS_SENTINEL_FILE_NAME")
 	sessionId := time.Now().UnixMilli()
 	row := make([]interface{}, len(sqlStmt.ColumnKeys))
 	for irow := range registerFileKeyAction.Data {
@@ -173,6 +174,11 @@ func (ctx *Context) RegisterFileKeys(registerFileKeyAction *RegisterFileKeyActio
 					// log.Println("Register File Key: data source with multiple parts: skipping file key:", fileKeyObject["file_key"],"size",fileKeyObject["size"])
 					goto NextKey
 				} else {
+					// Check if we restrict sentinel files by name
+					if len(sentinelFileName) > 0 && !strings.HasSuffix(fileKey, sentinelFileName) {
+						// case of accepting only sentinel file with specific name, this one does not have it
+						goto NextKey
+					}
 					// Current key is for sentinel file, remove sentinel file name from file_key
 					idx := strings.LastIndex(fileKey, "/")
 					if idx >= 0 && idx < len(fileKey)-1 {
