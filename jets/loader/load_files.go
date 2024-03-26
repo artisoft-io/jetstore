@@ -53,7 +53,8 @@ func loadFiles(dbpool *pgxpool.Pool, headersDKInfo *schema.HeadersAndDomainKeysI
 		&computePipesJson, map[string]interface{}{
 			"$SESSIONID": *sessionId,
 			"$FILE_KEY_DATE": fileKeyDate,
-		})
+			"$FILE_KEY": *inFile,
+		}, fileKeyComponents)
 
 	var totalRowCount, badRowCount int64
 	for localInFile := range fileNamesCh {

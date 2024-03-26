@@ -2,14 +2,22 @@ package compute_pipes
 
 // This file contains the Compute Pipes configuration model
 type ComputePipesConfig struct {
-	OutputTables []TableSpec   `json:"output_tables"`
-	Channels     []ChannelSpec `json:"channels"`
-	PipesConfig  []PipeSpec    `json:"pipes_config"`
+	OutputTables []TableSpec    `json:"output_tables"`
+	Channels     []ChannelSpec  `json:"channels"`
+	Context      *[]ContextSpec `json:"context"`
+	PipesConfig  []PipeSpec     `json:"pipes_config"`
 }
 
 type ChannelSpec struct {
 	Name    string   `json:"name"`
 	Columns []string `json:"columns"`
+}
+
+type ContextSpec struct {
+	// Type range: file_key_component
+	Type string `json:"type"`
+	Key  string `json:"key"`
+	Expr string `json:"expr"`
 }
 
 type TableSpec struct {

@@ -20,7 +20,7 @@ type ComputePipesResult struct {
 // Function to write transformed row to database
 func StartComputePipes(dbpool *pgxpool.Pool, headersDKInfo *schema.HeadersAndDomainKeysInfo, done chan struct{}, errCh chan error,
 	computePipesInputCh <-chan []interface{}, computePipesResultCh chan chan ComputePipesResult, computePipesJson *string,
-	envSettings map[string]interface{}) {
+	envSettings map[string]interface{}, fileKeyComponents map[string]interface{}) {
 
 	var cpErr error
 	if computePipesJson == nil || len(*computePipesJson) == 0 {
@@ -48,6 +48,19 @@ func StartComputePipes(dbpool *pgxpool.Pool, headersDKInfo *schema.HeadersAndDom
 		if err != nil {
 			cpErr = fmt.Errorf("while unmarshaling compute pipes json: %s", err)
 			goto gotError
+		}
+
+		// Add to envSettings based on compute pipe config
+		if cpConfig.Context != nil {
+			for _, contextSpec := range *cpConfig.Context {
+				switch contextSpec.Type {
+				case "file_key_component":
+					envSettings[contextSpec.Key] = fileKeyComponents[contextSpec.Expr]
+				default:
+					cpErr = fmt.Errorf("error: unknown ContextSpec Type: %v", contextSpec.Type)
+					goto gotError
+				}
+			}
 		}
 
 		// Prepare the channel registry
