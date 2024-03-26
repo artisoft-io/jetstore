@@ -32,10 +32,13 @@ type PipeSpec struct {
 }
 
 type TransformationSpec struct {
-	// Type range: map_record, aggregate
-	Type    string                     `json:"type"`
-	Columns []TransformationColumnSpec `json:"columns"`
-	Output  string                     `json:"output"`
+	// Type range: map_record, aggregate, partition_writer
+	Type                  string                     `json:"type"`
+	Device                *string                    `json:"device"`
+	PartitionSize         *int                       `json:"partition_size"`
+	FilePathSubstitutions *[]string                  `json:"file_path_substitutions"`
+	Columns               []TransformationColumnSpec `json:"columns"`
+	Output                string                     `json:"output"`
 }
 
 type TransformationColumnSpec struct {

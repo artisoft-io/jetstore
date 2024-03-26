@@ -130,7 +130,7 @@ func (ctx *BuilderContext) buildComputeGraph() error {
 func (ctx *BuilderContext) buildPipeTransformationEvaluator(source *InputChannel, spec *TransformationSpec) (PipeTransformationEvaluator, error) {
 
 	// Construct the pipe transformation
-	// fmt.Println("**& buildPipeTransformationEvaluator for", spec.Type,"source:",source.config.Name,"output:", spec.Output)
+	fmt.Println("**& buildPipeTransformationEvaluator for", spec.Type,"source:",source.config.Name,"output:", spec.Output)
 
 	// Get the output channel
 	outCh, err := ctx.channelRegistry.GetOutputChannel(spec.Output)
@@ -145,6 +145,9 @@ func (ctx *BuilderContext) buildPipeTransformationEvaluator(source *InputChannel
 
 	case "aggregate":
 		return ctx.NewAggregateTransformationPipe(source, outCh, spec)
+
+	case "partition_writer":
+		return ctx.NewPartitionWriterTransformationPipe(source, outCh, spec)
 
 	default:
 		return nil, fmt.Errorf("error: unknown TransformationSpec type: %s", spec.Type)

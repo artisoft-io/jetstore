@@ -34,7 +34,7 @@ func (ctx *BuilderContext) startSplitterPipe(spec *PipeSpec, source *InputChanne
 			if len(key) > 0 {
 				splitCh := chanState[key]
 				if splitCh == nil {
-					splitCh = make(chan []interface{})
+					splitCh = make(chan []interface{}, 1)
 					chanState[key] = splitCh
 					// start a goroutine to manage the channel
 					// the input channel to the goroutine is splitCh
