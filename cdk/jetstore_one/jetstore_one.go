@@ -81,6 +81,8 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 		os.Getenv("AWS_REGION"), os.Getenv("AWS_ACCOUNT"), "loaderSM")
 	serverSmArn := fmt.Sprintf( "arn:aws:states:%s:%s:stateMachine:%s",
 		os.Getenv("AWS_REGION"), os.Getenv("AWS_ACCOUNT"), "serverSM")
+	cpipesSmArn := fmt.Sprintf( "arn:aws:states:%s:%s:stateMachine:%s",
+		os.Getenv("AWS_REGION"), os.Getenv("AWS_ACCOUNT"), "cpipesSM")
 
 	// JetStore Bucket
 	// ----------------------------------------------------------------------------------------------
@@ -302,7 +304,7 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 		awsecr.Repository_FromRepositoryArn(stack, jsii.String("jetstore-image"), jsii.String(os.Getenv("JETS_ECR_REPO_ARN"))),
 		jsii.String(os.Getenv("JETS_IMAGE_TAG")))
 
-	// Define the run_reports task, used in serverSM and loaderSM
+	// Define the run_reports task, used in serverSM, cpipesSM, and loaderSM
 	// Run Reports ECS Task Definition
 	// --------------------------------------------------------------------------------------------------------------
 	runreportTaskDefinition := awsecs.NewFargateTaskDefinition(stack, jsii.String("runreportTaskDefinition"), &awsecs.FargateTaskDefinitionProps{
@@ -334,6 +336,7 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 			"JETS_RESET_DOMAIN_TABLE_ON_STARTUP": jsii.String(os.Getenv("JETS_RESET_DOMAIN_TABLE_ON_STARTUP")),
 			"JETS_s3_INPUT_PREFIX":               jsii.String(os.Getenv("JETS_s3_INPUT_PREFIX")),
 			"JETS_s3_OUTPUT_PREFIX":              jsii.String(os.Getenv("JETS_s3_OUTPUT_PREFIX")),
+			"JETS_SENTINEL_FILE_NAME":            jsii.String(os.Getenv("JETS_SENTINEL_FILE_NAME")),
 			"JETS_DOMAIN_KEY_SEPARATOR":          jsii.String(os.Getenv("JETS_DOMAIN_KEY_SEPARATOR")),
 			"ENVIRONMENT":                        jsii.String(os.Getenv("ENVIRONMENT")),
 			"JETS_SERVER_SM_ARN":                 jsii.String(serverSmArn),
@@ -412,6 +415,7 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 			"JETS_RESET_DOMAIN_TABLE_ON_STARTUP": jsii.String(os.Getenv("JETS_RESET_DOMAIN_TABLE_ON_STARTUP")),
 			"JETS_s3_INPUT_PREFIX":               jsii.String(os.Getenv("JETS_s3_INPUT_PREFIX")),
 			"JETS_s3_OUTPUT_PREFIX":              jsii.String(os.Getenv("JETS_s3_OUTPUT_PREFIX")),
+			"JETS_SENTINEL_FILE_NAME":            jsii.String(os.Getenv("JETS_SENTINEL_FILE_NAME")),
 			"JETS_DOMAIN_KEY_SEPARATOR":          jsii.String(os.Getenv("JETS_DOMAIN_KEY_SEPARATOR")),
 			"JETS_SERVER_SM_ARN":                 jsii.String(serverSmArn),
 		},
@@ -489,7 +493,7 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 	}
 
 	// -----------------------------------------------
-	// Define the Status Update lambda, used in serverSM and reportsSM
+	// Define the Status Update lambda, used in serverSM, cpipesSM and reportsSM
 	// Status Update Lambda Definition
 	// --------------------------------------------------------------------------------------------------------------
 	statusUpdateLambda := awslambdago.NewGoFunction(stack, jsii.String("StatusUpdateLambda"), &awslambdago.GoFunctionProps{
@@ -512,6 +516,7 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 			"JETS_RESET_DOMAIN_TABLE_ON_STARTUP": jsii.String(os.Getenv("JETS_RESET_DOMAIN_TABLE_ON_STARTUP")),
 			"JETS_s3_INPUT_PREFIX":               jsii.String(os.Getenv("JETS_s3_INPUT_PREFIX")),
 			"JETS_s3_OUTPUT_PREFIX":              jsii.String(os.Getenv("JETS_s3_OUTPUT_PREFIX")),
+			"JETS_SENTINEL_FILE_NAME":            jsii.String(os.Getenv("JETS_SENTINEL_FILE_NAME")),
 			"JETS_DOMAIN_KEY_SEPARATOR":          jsii.String(os.Getenv("JETS_DOMAIN_KEY_SEPARATOR")),
 			"JETS_SERVER_SM_ARN":                 jsii.String(serverSmArn),
 			"SYSTEM_USER":                        jsii.String("admin"),
@@ -597,7 +602,7 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 			{
 				ContainerDefinition: runreportsContainerDef,
 				// Using same api as serverSM from apiserver point of view, taking reportsCommand, 
-				// other SM could use the serverCommand when in need of Map construct
+				// other SM (as cpipesSM does) could use the serverCommands when in need of Map construct
 				Command:             sfn.JsonPath_ListAt(jsii.String("$.reportsCommand")),
 			},
 		},
@@ -702,6 +707,7 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 			"JETS_RESET_DOMAIN_TABLE_ON_STARTUP": jsii.String(os.Getenv("JETS_RESET_DOMAIN_TABLE_ON_STARTUP")),
 			"JETS_s3_INPUT_PREFIX":               jsii.String(os.Getenv("JETS_s3_INPUT_PREFIX")),
 			"JETS_s3_OUTPUT_PREFIX":              jsii.String(os.Getenv("JETS_s3_OUTPUT_PREFIX")),
+			"JETS_SENTINEL_FILE_NAME":            jsii.String(os.Getenv("JETS_SENTINEL_FILE_NAME")),
 			"JETS_DOMAIN_KEY_SEPARATOR":          jsii.String(os.Getenv("JETS_DOMAIN_KEY_SEPARATOR")),
 			"JETS_SERVER_SM_ARN":                 jsii.String(serverSmArn),
 		},
@@ -831,6 +837,186 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 		awscdk.Tags_Of(serverSM).Add(descriptionTagName, jsii.String("State Machine to execute rules in JetStore Platform"), nil)
 	}
 
+	// @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+	// @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+	// @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+
+	// ================================================
+	// JetStore Rule Compute Pipes State Machine
+	// Define the ECS TAsk cpipesTaskDefinition for the cpipesSM
+	// --------------------------------------------------------------------------------------------------------------
+	if len(os.Getenv("JETS_CPIPES_TASK_MEM_LIMIT_MB")) > 0 {
+		var err error
+		memLimit, err = strconv.ParseFloat(os.Getenv("JETS_CPIPES_TASK_MEM_LIMIT_MB"), 64)
+		if err != nil {
+			fmt.Println("while parsing JETS_CPIPES_TASK_MEM_LIMIT_MB:", err)
+			memLimit = 24576
+		}	
+	} else {
+		memLimit = 24576
+	}
+	fmt.Println("Using memory limit of",memLimit," (from env JETS_CPIPES_TASK_MEM_LIMIT_MB)")
+	if len(os.Getenv("JETS_CPIPES_TASK_CPU")) > 0 {
+		var err error
+		cpu, err = strconv.ParseFloat(os.Getenv("JETS_CPIPES_TASK_CPU"), 64)
+		if err != nil {
+			fmt.Println("while parsing JETS_CPIPES_TASK_CPU:", err)
+			cpu = 4096
+		}	
+	} else {
+		cpu = 4096
+	}
+	fmt.Println("Using cpu allocation of",cpu," (from env JETS_CPIPES_TASK_CPU)")
+
+	cpipesTaskDefinition := awsecs.NewFargateTaskDefinition(stack, jsii.String("cpipesTaskDefinition"), &awsecs.FargateTaskDefinitionProps{
+		MemoryLimitMiB: jsii.Number(memLimit),
+		Cpu:            jsii.Number(cpu),
+		ExecutionRole:  ecsTaskExecutionRole,
+		TaskRole:       ecsTaskRole,
+		RuntimePlatform: &awsecs.RuntimePlatform{
+			OperatingSystemFamily: awsecs.OperatingSystemFamily_LINUX(),
+			CpuArchitecture:       awsecs.CpuArchitecture_X86_64(),
+		},
+	})
+	// Compute Pipes Task Container
+	// ---------------------
+	cpipesContainerDef := cpipesTaskDefinition.AddContainer(jsii.String("cpipesContainer"), &awsecs.ContainerDefinitionOptions{
+		// Use JetStore Image in ecr
+		Image:         jetStoreImage,
+		ContainerName: jsii.String("cpipesContainer"),
+		Essential:     jsii.Bool(true),
+		EntryPoint:    jsii.Strings("cpipes"),
+		Environment: &map[string]*string{
+			"JETS_BUCKET":                        sourceBucket.BucketName(),
+			"JETS_DOMAIN_KEY_HASH_ALGO":          jsii.String(os.Getenv("JETS_DOMAIN_KEY_HASH_ALGO")),
+			"JETS_DOMAIN_KEY_HASH_SEED":          jsii.String(os.Getenv("JETS_DOMAIN_KEY_HASH_SEED")),
+			"JETS_INPUT_ROW_JETS_KEY_ALGO":       jsii.String(os.Getenv("JETS_INPUT_ROW_JETS_KEY_ALGO")),
+			"JETS_INVALID_CODE":                  jsii.String(os.Getenv("JETS_INVALID_CODE")),
+			"JETS_LOADER_CHUNCK_SIZE":            jsii.String(os.Getenv("JETS_LOADER_CHUNCK_SIZE")),
+			"JETS_LOADER_SM_ARN":                 jsii.String(loaderSmArn),
+			"JETS_REGION":                        jsii.String(os.Getenv("AWS_REGION")),
+			"JETS_RESET_DOMAIN_TABLE_ON_STARTUP": jsii.String(os.Getenv("JETS_RESET_DOMAIN_TABLE_ON_STARTUP")),
+			"JETS_s3_INPUT_PREFIX":               jsii.String(os.Getenv("JETS_s3_INPUT_PREFIX")),
+			"JETS_s3_OUTPUT_PREFIX":              jsii.String(os.Getenv("JETS_s3_OUTPUT_PREFIX")),
+			"JETS_SENTINEL_FILE_NAME":            jsii.String(os.Getenv("JETS_SENTINEL_FILE_NAME")),
+			"JETS_DOMAIN_KEY_SEPARATOR":          jsii.String(os.Getenv("JETS_DOMAIN_KEY_SEPARATOR")),
+			"JETS_CPIPES_SM_ARN":                 jsii.String(cpipesSmArn),
+		},
+		Secrets: &map[string]awsecs.Secret{
+			"JETS_DSN_JSON_VALUE": awsecs.Secret_FromSecretsManager(rdsSecret, nil),
+		},
+		Logging: awsecs.LogDriver_AwsLogs(&awsecs.AwsLogDriverProps{
+			StreamPrefix: jsii.String("task"),
+		}),
+	})
+	// Compute Pipes ECS Task
+	// ----------------
+	runCPipesTask := sfntask.NewEcsRunTask(stack, jsii.String("run-cpipes"), &sfntask.EcsRunTaskProps{
+		Comment:        jsii.String("Run JetStore Rule Compute Pipes Task"),
+		Cluster:        ecsCluster,
+		Subnets:        isolatedSubnetSelection,
+		AssignPublicIp: jsii.Bool(false),
+		LaunchTarget: sfntask.NewEcsFargateLaunchTarget(&sfntask.EcsFargateLaunchTargetOptions{
+			PlatformVersion: awsecs.FargatePlatformVersion_LATEST,
+		}),
+		TaskDefinition: cpipesTaskDefinition,
+		ContainerOverrides: &[]*sfntask.ContainerOverride{
+			{
+				ContainerDefinition: cpipesContainerDef,
+				Command:             sfn.JsonPath_ListAt(jsii.String("$")),
+			},
+		},
+		PropagatedTagSource: awsecs.PropagatedTagSource_TASK_DEFINITION,
+		IntegrationPattern: sfn.IntegrationPattern_RUN_JOB,
+	})
+	runCPipesTask.Connections().AllowTo(rdsCluster, awsec2.Port_Tcp(jsii.Number(5432)), jsii.String("Allow connection from runCPipesTask"))
+
+	// Run Reports Step Function Task for cpipesSM
+	// -----------------------------------------------
+	runCPipesReportsTask := sfntask.NewEcsRunTask(stack, jsii.String("run-cpipes-reports"), &sfntask.EcsRunTaskProps{
+		Comment:        jsii.String("Run Compute Pipes Reports Task"),
+		Cluster:        ecsCluster,
+		Subnets:        isolatedSubnetSelection,
+		AssignPublicIp: jsii.Bool(false),
+		LaunchTarget: sfntask.NewEcsFargateLaunchTarget(&sfntask.EcsFargateLaunchTargetOptions{
+			PlatformVersion: awsecs.FargatePlatformVersion_LATEST,
+		}),
+		TaskDefinition: runreportTaskDefinition,
+		ContainerOverrides: &[]*sfntask.ContainerOverride{
+			{
+				ContainerDefinition: runreportsContainerDef,
+				Command:             sfn.JsonPath_ListAt(jsii.String("$.reportsCommand")),
+			},
+		},
+		PropagatedTagSource: awsecs.PropagatedTagSource_TASK_DEFINITION,
+		ResultPath:         sfn.JsonPath_DISCARD(),
+		IntegrationPattern: sfn.IntegrationPattern_RUN_JOB,
+	})
+	runCPipesReportsTask.Connections().AllowTo(rdsCluster, awsec2.Port_Tcp(jsii.Number(5432)), jsii.String("Allow connection from runCPipesReportsTask "))
+
+	// Status Update: update_success Step Function Task for reportsSM
+	// --------------------------------------------------------------------------------------------------------------
+	updateCPipesErrorStatusLambdaTask := sfntask.NewLambdaInvoke(stack, jsii.String("UpdateCPipesErrorStatusLambdaTask"), &sfntask.LambdaInvokeProps{
+		Comment: jsii.String("Lambda Task to update cpipes status to error/failed"),
+		LambdaFunction: statusUpdateLambda,
+		InputPath: jsii.String("$.errorUpdate"),
+		ResultPath: sfn.JsonPath_DISCARD(),
+	})
+
+	// Status Update: update_success Step Function Task for reportsSM
+	// --------------------------------------------------------------------------------------------------------------
+	updateCPipesSuccessStatusLambdaTask := sfntask.NewLambdaInvoke(stack, jsii.String("UpdateCPipesSuccessStatusLambdaTask"), &sfntask.LambdaInvokeProps{
+		Comment: jsii.String("Lambda Task to update cpipes status to success"),
+		LambdaFunction: statusUpdateLambda,
+		InputPath: jsii.String("$.successUpdate"),
+		ResultPath: sfn.JsonPath_DISCARD(),
+	})
+
+	//*TODO SNS message
+	cpipesNotifyFailure := sfn.NewPass(scope, jsii.String("notify-failure"), &sfn.PassProps{})
+	cpipesNotifySuccess := sfn.NewPass(scope, jsii.String("notify-success"), &sfn.PassProps{})
+
+	// Create Rule Compute Pipes State Machine - cpipesSM
+	// -------------------------------------------
+	runCPipesMap := sfn.NewMap(stack, jsii.String("run-cpipes-map"), &sfn.MapProps{
+		Comment:        jsii.String("Run JetStore Compute Pipes Task"),
+		ItemsPath:      sfn.JsonPath_StringAt(jsii.String("$.serverCommands")),
+		MaxConcurrency: jsii.Number(maxConcurrency),
+		ResultPath:     sfn.JsonPath_DISCARD(),
+	})
+
+	// Chaining the SF Tasks
+	// Version using Lambda for Status Update
+	runCPipesMap.Iterator(runCPipesTask).AddRetry(&sfn.RetryProps{
+		BackoffRate: jsii.Number(2),
+		Errors: jsii.Strings(*sfn.Errors_TASKS_FAILED()),
+		Interval: awscdk.Duration_Minutes(jsii.Number(4)),
+		MaxAttempts: jsii.Number(2),
+	}).AddCatch(updateCPipesErrorStatusLambdaTask, mkCatchProps()).Next(runCPipesReportsTask)
+	runCPipesReportsTask.AddCatch(updateCPipesErrorStatusLambdaTask, mkCatchProps()).Next(updateCPipesSuccessStatusLambdaTask)
+	updateCPipesSuccessStatusLambdaTask.AddCatch(cpipesNotifyFailure, mkCatchProps()).Next(cpipesNotifySuccess)
+	updateCPipesErrorStatusLambdaTask.AddCatch(cpipesNotifyFailure, mkCatchProps()).Next(cpipesNotifyFailure)
+
+	cpipesSM := sfn.NewStateMachine(stack, jsii.String("cpipesSM"), &sfn.StateMachineProps{
+		StateMachineName: jsii.String("cpipesSM"),
+		DefinitionBody: sfn.DefinitionBody_FromChainable(runCPipesMap),
+		//* NOTE 2h TIMEOUT
+		Timeout: awscdk.Duration_Hours(jsii.Number(2)),
+	})
+	if phiTagName != nil {
+		awscdk.Tags_Of(cpipesSM).Add(phiTagName, jsii.String("true"), nil)
+	}
+	if piiTagName != nil {
+		awscdk.Tags_Of(cpipesSM).Add(piiTagName, jsii.String("true"), nil)
+	}
+	if descriptionTagName != nil {
+		awscdk.Tags_Of(cpipesSM).Add(descriptionTagName, jsii.String("State Machine to execute rules in JetStore Platform"), nil)
+	}
+
+	// @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+	// @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+	// @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+	
 	// ---------------------------------------
 	// Allow JetStore Tasks Running in JetStore Container
 	// permission to execute the StateMachines
@@ -841,6 +1027,7 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 		Resources: &[]*string{
 			loaderSM.StateMachineArn(),
 			serverSM.StateMachineArn(),
+			cpipesSM.StateMachineArn(),
 			reportsSM.StateMachineArn(),
 		},
 	}))

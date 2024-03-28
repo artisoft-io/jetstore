@@ -43,6 +43,8 @@ func (ctx *AggregateTransformationPipe) done() error {
 	return nil
 }
 
+func (ctx *AggregateTransformationPipe) finally() {}
+
 func (ctx *BuilderContext) NewAggregateTransformationPipe(source *InputChannel, outputCh *OutputChannel, spec *TransformationSpec) (*AggregateTransformationPipe, error) {
 	// Prepare the column evaluators
 	var err error

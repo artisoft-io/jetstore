@@ -18,23 +18,24 @@ import (
 // --------------------------------------------------------------------------------------
 
 // Loader env variable:
-// JETS_DSN_SECRET
-// JETS_REGION
+// AWS_API_SECRET or API_SECRET
+// JETS_ADMIN_EMAIL (set as admin in dockerfile)
 // JETS_BUCKET
-// JETS_DSN_URI_VALUE
-// JETS_DSN_JSON_VALUE
-// LOADER_ERR_DIR
 // JETS_DOMAIN_KEY_HASH_ALGO (values: md5, sha1, none (default: none))
 // JETS_DOMAIN_KEY_HASH_SEED (required for md5 and sha1. MUST be a valid uuid )
-// JETS_INPUT_ROW_JETS_KEY_ALGO (values: uuid, row_hash, domain_key (default: uuid))
-// JETS_ADMIN_EMAIL (set as admin in dockerfile)
-// JETSTORE_DEV_MODE Indicates running in dev mode
-// AWS_API_SECRET or API_SECRET
-// JETS_LOADER_SM_ARN state machine arn
-// JETS_SERVER_SM_ARN state machine arn
-// JETS_LOADER_CHUNCK_SIZE buffer size for input lines, default 200K
-// JETS_LOG_DEBUG (optional, if > 0 for printing debug statements)
 // JETS_DOMAIN_KEY_SEPARATOR
+// JETS_DSN_JSON_VALUE
+// JETS_DSN_SECRET
+// JETS_DSN_URI_VALUE
+// JETS_INPUT_ROW_JETS_KEY_ALGO (values: uuid, row_hash, domain_key (default: uuid))
+// JETS_LOADER_CHUNCK_SIZE buffer size for input lines, default 200K
+// JETS_LOADER_SM_ARN state machine arn
+// JETS_LOG_DEBUG (optional, if > 0 for printing debug statements)
+// JETS_REGION
+// JETS_SENTINEL_FILE_NAME (optional, used by compute pipe partion_writer)
+// JETS_SERVER_SM_ARN state machine arn
+// JETSTORE_DEV_MODE Indicates running in dev mode
+// LOADER_ERR_DIR
 var awsDsnSecret = flag.String("awsDsnSecret", "", "aws secret with dsn definition (aws integration) (required or JETS_DSN_SECRET or -dsn)")
 var awsRegion = flag.String("awsRegion", "", "aws region to connect to for aws secret and bucket (required or JETS_REGION)")
 var awsBucket = flag.String("awsBucket", "", "Bucket having the the input csv file (required or JETS_BUCKET)")
@@ -184,6 +185,9 @@ func main() {
 	if *clientOrg == "''" {
 		*clientOrg = ""
 	}
+	if *nbrShards < 1 {
+		*nbrShards = 1
+	}
 
 	fmt.Println("Loader argument:")
 	fmt.Println("----------------")
@@ -203,12 +207,13 @@ func main() {
 	fmt.Println("Got argument: loaderCompletedMetric", *completedMetric)
 	fmt.Println("Got argument: loaderFailedMetric", *failedMetric)
 	fmt.Println("Loader out dir (from env LOADER_ERR_DIR):", errOutDir)
-	fmt.Printf("ENV JETS_REGION: %s\n", os.Getenv("JETS_REGION"))
 	fmt.Printf("ENV JETS_BUCKET: %s\n", os.Getenv("JETS_BUCKET"))
 	fmt.Printf("ENV JETS_DSN_SECRET: %s\n", os.Getenv("JETS_DSN_SECRET"))
-	fmt.Printf("ENV JETS_LOADER_SM_ARN: %s\n", os.Getenv("JETS_LOADER_SM_ARN"))
-	fmt.Printf("ENV JETS_SERVER_SM_ARN: %s\n", os.Getenv("JETS_SERVER_SM_ARN"))
 	fmt.Printf("ENV JETS_LOADER_CHUNCK_SIZE: %s\n", os.Getenv("JETS_LOADER_CHUNCK_SIZE"))
+	fmt.Printf("ENV JETS_LOADER_SM_ARN: %s\n", os.Getenv("JETS_LOADER_SM_ARN"))
+	fmt.Printf("ENV JETS_REGION: %s\n", os.Getenv("JETS_REGION"))
+	fmt.Printf("ENV JETS_SENTINEL_FILE_NAME: %s\n", os.Getenv("JETS_SENTINEL_FILE_NAME"))
+	fmt.Printf("ENV JETS_SERVER_SM_ARN: %s\n", os.Getenv("JETS_SERVER_SM_ARN"))
 	if len(errOutDir) == 0 {
 		fmt.Println("Loader error file will be in same directory as input file.")
 	}

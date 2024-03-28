@@ -7,7 +7,7 @@ import (
 	"sync"
 )
 
-func (ctx *BuilderContext) startSplitterPipe(spec *PipeSpec, source *InputChannel) {
+func (ctx *BuilderContext) startSplitterPipe(spec *PipeSpec, source *InputChannel, writePartitionsResultCh chan chan ComputePipesResult) {
 	var cpErr error
 	var wg sync.WaitGroup
 	var oc map[string]bool
@@ -38,25 +38,25 @@ func (ctx *BuilderContext) startSplitterPipe(spec *PipeSpec, source *InputChanne
 					chanState[key] = splitCh
 					// start a goroutine to manage the channel
 					// the input channel to the goroutine is splitCh
-					wg.Add(1)
+					wg.Add(1)								
 					go ctx.startSplitterChannelHandler(spec, &InputChannel{
 						channel: splitCh,
 						columns: source.columns,
-						config: &ChannelSpec{Name: fmt.Sprintf("splitter channel from %s", source.config.Name)},
-					}, &wg)
+						config:  &ChannelSpec{Name: fmt.Sprintf("splitter channel from %s", source.config.Name)},
+					}, writePartitionsResultCh, &key, &wg)
 				}
 				// Send the record to the intermediate channel
 				// fmt.Println("**! splitter loop, sending record to intermediate channel:", key)
 				select {
 				case splitCh <- inRow:
 				case <-ctx.done:
-					// log.Printf("startSplitterPipe writting to splitter intermediate channel with key %s from '%s' interrupted", key, source.config.Name)
+					// log.Printf("startSplitterPipe writing to splitter intermediate channel with key %s from '%s' interrupted", key, source.config.Name)
 					goto doneSplitterLoop
-				}				
+				}
 			}
 		}
 	}
-	doneSplitterLoop:
+doneSplitterLoop:
 	// Close all the intermediate channels
 	for _, ch := range chanState {
 		// fmt.Println("**! startSplitterPipe closing intermediate channel", key)
@@ -65,24 +65,27 @@ func (ctx *BuilderContext) startSplitterPipe(spec *PipeSpec, source *InputChanne
 
 	// Close the output channels once all ch handlers are done
 	wg.Wait()
+	close(writePartitionsResultCh)
 	// Closing the output channels
 	oc = make(map[string]bool)
 	for i := range spec.Apply {
 		oc[spec.Apply[i].Output] = true
 	}
 	for i := range oc {
-		fmt.Println("**! SplitterPipe: Closing Output Channel",i)
+		fmt.Println("**! SplitterPipe: Closing Output Channel", i)
 		ctx.channelRegistry.CloseChannel(i)
 	}
 	// All good!
 	return
 gotError:
+	close(writePartitionsResultCh)
 	log.Println(cpErr)
 	ctx.errCh <- cpErr
 	close(ctx.done)
 }
 
-func (ctx *BuilderContext) startSplitterChannelHandler(spec *PipeSpec, source *InputChannel, wg *sync.WaitGroup) {
+func (ctx *BuilderContext) startSplitterChannelHandler(spec *PipeSpec, source *InputChannel, writePartitionsResultCh chan chan ComputePipesResult,
+	splitterKey *string, wg *sync.WaitGroup) {
 	var cpErr, err error
 	var evaluators []PipeTransformationEvaluator
 	defer func() {
@@ -91,20 +94,22 @@ func (ctx *BuilderContext) startSplitterChannelHandler(spec *PipeSpec, source *I
 	// Build the PipeTransformationEvaluator
 	evaluators = make([]PipeTransformationEvaluator, len(spec.Apply))
 	for j := range spec.Apply {
-		eval, err := ctx.buildPipeTransformationEvaluator(source, &spec.Apply[j])
+		partitionResultCh := make(chan ComputePipesResult, 1)
+		writePartitionsResultCh <- partitionResultCh
+		eval, err := ctx.buildPipeTransformationEvaluator(source, splitterKey, partitionResultCh, &spec.Apply[j])
 		if err != nil {
 			cpErr = fmt.Errorf("while calling buildPipeTransformationEvaluator for %s: %v", spec.Apply[j].Type, err)
 			goto gotError
 		}
 		evaluators[j] = eval
-  }
+	}
 	// Process the channel
 	for inRow := range source.channel {
 		for i := range evaluators {
 			err = evaluators[i].apply(&inRow)
 			if err != nil {
 				cpErr = fmt.Errorf("while calling apply on PipeTransformationEvaluator (in startSplitterChannelHandler): %v", err)
-				goto gotError	
+				goto gotError
 			}
 		}
 	}
@@ -114,13 +119,19 @@ func (ctx *BuilderContext) startSplitterChannelHandler(spec *PipeSpec, source *I
 			err = evaluators[i].done()
 			if err != nil {
 				log.Printf("while calling done on PipeTransformationEvaluator (in startSplitterChannelHandler): %v", err)
-			}	
+			}
+			evaluators[i].finally()
 		}
 	}
 	// All good!
 	return
 
 gotError:
+	for i := range spec.Apply {
+		if evaluators[i] != nil {
+			evaluators[i].finally()
+		}
+	}
 	log.Println(cpErr)
 	ctx.errCh <- cpErr
 	close(ctx.done)

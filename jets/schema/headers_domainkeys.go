@@ -522,10 +522,9 @@ func (dkInfo *HeadersAndDomainKeysInfo)ComputeGroupingKeyI(NumberOfShards int, o
 func ComputeShardId(NumberOfShards int, key string) int {
 	h := fnv.New32a()
 	h.Write([]byte(key))
-	v := int(h.Sum32())
-	res := v % NumberOfShards
+	res := h.Sum32() % uint32(NumberOfShards)
 	// log.Println("COMPUTE SHARD for key ",key,"hashed to", v,"on",NumberOfShards,"shard id =",res)
-	return res
+	return int(res)
 }
 func TableExists(dbpool *pgxpool.Pool, schema, table string) (exists bool, err error) {
 	err = dbpool.QueryRow(context.Background(), "select exists (select from pg_tables where schemaname = $1 and tablename = $2)", schema, table).Scan(&exists)

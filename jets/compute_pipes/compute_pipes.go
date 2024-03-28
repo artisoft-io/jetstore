@@ -19,8 +19,9 @@ type ComputePipesResult struct {
 
 // Function to write transformed row to database
 func StartComputePipes(dbpool *pgxpool.Pool, headersDKInfo *schema.HeadersAndDomainKeysInfo, done chan struct{}, errCh chan error,
-	computePipesInputCh <-chan []interface{}, computePipesResultCh chan chan ComputePipesResult, computePipesJson *string,
-	envSettings map[string]interface{}, fileKeyComponents map[string]interface{}) {
+	computePipesInputCh <-chan []interface{}, copy2DbResultCh chan chan ComputePipesResult,
+	writePartitionsResultCh chan chan chan ComputePipesResult, computePipesJson *string, envSettings map[string]interface{},
+	fileKeyComponents map[string]interface{}) {
 
 	var cpErr error
 	if computePipesJson == nil || len(*computePipesJson) == 0 {
@@ -36,7 +37,7 @@ func StartComputePipes(dbpool *pgxpool.Pool, headersDKInfo *schema.HeadersAndDom
 			columns:         headersDKInfo.Headers, // using default staging table
 		}
 		table := make(chan ComputePipesResult, 1)
-		computePipesResultCh <- table
+		copy2DbResultCh <- table
 		wt.writeTable(dbpool, done, table)
 
 	} else {
@@ -71,9 +72,9 @@ func StartComputePipes(dbpool *pgxpool.Pool, headersDKInfo *schema.HeadersAndDom
 				Name:    "input_row",
 				Columns: headersDKInfo.Headers,
 			},
-			computeChannels: make(map[string]*Channel),
+			computeChannels:     make(map[string]*Channel),
 			outputTableChannels: make([]string, 0),
-			closedChannels:  make(map[string]bool),
+			closedChannels:      make(map[string]bool),
 		}
 		for i := range cpConfig.Channels {
 			cm := make(map[string]int)
@@ -111,25 +112,27 @@ func StartComputePipes(dbpool *pgxpool.Pool, headersDKInfo *schema.HeadersAndDom
 					cpConfig.OutputTables[i].Name)
 				goto gotError
 			}
-			fmt.Println("**& Channel for Output Table", tableIdentifier, "is:",outChannel.config.Name)
+			fmt.Println("**& Channel for Output Table", tableIdentifier, "is:", outChannel.config.Name)
 			wt := WriteTableSource{
 				source:          outChannel.channel,
 				tableIdentifier: tableIdentifier,
 				columns:         outChannel.config.Columns,
 			}
 			table := make(chan ComputePipesResult, 1)
-			computePipesResultCh <- table
+			copy2DbResultCh <- table
 			go wt.writeTable(dbpool, done, table)
 		}
 		fmt.Println("Compute Pipes output tables ready")
 
 		ctx := &BuilderContext{
-			cpConfig:             &cpConfig,
-			channelRegistry:      channelRegistry,
-			done:                 done,
-			errCh:                errCh,
-			computePipesResultCh: computePipesResultCh,
-			env:                  envSettings,
+			dbpool:                  dbpool,
+			cpConfig:                &cpConfig,
+			channelRegistry:         channelRegistry,
+			done:                    done,
+			errCh:                   errCh,
+			copy2DbResultCh:         copy2DbResultCh,
+			writePartitionsResultCh: writePartitionsResultCh,
+			env:                     envSettings,
 		}
 		err = ctx.buildComputeGraph()
 		if err != nil {
@@ -139,7 +142,8 @@ func StartComputePipes(dbpool *pgxpool.Pool, headersDKInfo *schema.HeadersAndDom
 
 	}
 	// All done!
-	close(computePipesResultCh)
+	close(copy2DbResultCh)
+	close(writePartitionsResultCh)
 	return
 
 gotError:
@@ -147,5 +151,6 @@ gotError:
 	// fmt.Println("**! gotError in StartComputePipes")
 	errCh <- cpErr
 	close(done)
-	close(computePipesResultCh)
+	close(copy2DbResultCh)
+	close(writePartitionsResultCh)
 }

@@ -23,7 +23,7 @@ func (ctx *BuilderContext) startFanOutPipe(spec *PipeSpec, source *InputChannel)
 	}()
 
 	for j := range spec.Apply {
-		eval, err := ctx.buildPipeTransformationEvaluator(source, &spec.Apply[j])
+		eval, err := ctx.buildPipeTransformationEvaluator(source, nil, nil, &spec.Apply[j])
 		if err != nil {
 			cpErr = fmt.Errorf("while calling buildPipeTransformationEvaluator for %s: %v", spec.Apply[j].Type, err)
 			goto gotError
@@ -48,6 +48,7 @@ func (ctx *BuilderContext) startFanOutPipe(spec *PipeSpec, source *InputChannel)
 			if err != nil {
 				log.Printf("while calling done on PipeTransformationEvaluator (in fan_out): %v", err)
 			}
+			evaluators[i].finally()
 		}
 	}
 
@@ -55,6 +56,11 @@ func (ctx *BuilderContext) startFanOutPipe(spec *PipeSpec, source *InputChannel)
 	return
 
 gotError:
+	for i := range evaluators {
+		if evaluators[i] != nil {
+			evaluators[i].finally()
+		}
+	}
 	log.Println(cpErr)	
 	ctx.errCh <- cpErr
 	close(ctx.done)

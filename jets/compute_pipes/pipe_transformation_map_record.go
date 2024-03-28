@@ -43,7 +43,7 @@ func (ctx *MapRecordTransformationPipe) apply(input *[]interface{}) error {
 	select {
 	case ctx.outputCh.channel <- currentValues:
 	case <-ctx.doneCh:
-		log.Printf("MapRecordTransformationPipe writting to '%s' interrupted", ctx.outputCh.config.Name)
+		log.Printf("MapRecordTransformationPipe writing to '%s' interrupted", ctx.outputCh.config.Name)
 		return nil
 	}
 
@@ -52,6 +52,8 @@ func (ctx *MapRecordTransformationPipe) apply(input *[]interface{}) error {
 func (ctx *MapRecordTransformationPipe) done() error {
 	return nil
 }
+
+func (ctx *MapRecordTransformationPipe) finally() {}
 
 func (ctx *BuilderContext) NewMapRecordTransformationPipe(source *InputChannel, outputCh *OutputChannel, spec *TransformationSpec) (*MapRecordTransformationPipe, error) {
 	// Prepare the column evaluators

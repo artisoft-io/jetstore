@@ -42,13 +42,16 @@ type PipeSpec struct {
 type TransformationSpec struct {
 	// Type range: map_record, aggregate, partition_writer
 	Type                  string                     `json:"type"`
-	Device                *string                    `json:"device"`
 	PartitionSize         *int                       `json:"partition_size"`
-	FilePathSubstitutions *[]string                  `json:"file_path_substitutions"`
+	FilePathSubstitutions *[]PathSubstitution        `json:"file_path_substitutions"`
 	Columns               []TransformationColumnSpec `json:"columns"`
 	Output                string                     `json:"output"`
 }
 
+type PathSubstitution struct {
+	Replace string `json:"replace"`
+	With    string `json:"with"`
+}
 type TransformationColumnSpec struct {
 	// Type range: select, value, eval, map,
 	// (applicable to aggregate) count, distinct_count, sum, min,

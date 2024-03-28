@@ -178,7 +178,8 @@ func UploadToS3(bucket, region, objKey string, fileHd *os.File) error {
 
 	// Create an uploader with the client and custom options
 	uploader := manager.NewUploader(s3Client)
-	uout, err := uploader.Upload(context.TODO(), &s3.PutObjectInput{
+	// uout, err := uploader.Upload(context.TODO(), &s3.PutObjectInput{
+	_, err = uploader.Upload(context.TODO(), &s3.PutObjectInput{
 		Bucket: &bucket,
 		Key:    &objKey,
 		Body:   bufio.NewReader(fileHd),
@@ -186,9 +187,9 @@ func UploadToS3(bucket, region, objKey string, fileHd *os.File) error {
 	if err != nil {
 		return fmt.Errorf("failed to upload file to s3: %v", err)
 	}
-	if uout != nil {
-		log.Println("Uploaded",*uout.Key,"to location",uout.Location)
-	}
+	// if uout != nil {
+	// 	log.Println("Uploaded",*uout.Key,"to location",uout.Location)
+	// }
 	return nil
 }
 
