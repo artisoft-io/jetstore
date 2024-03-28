@@ -2,14 +2,22 @@ package compute_pipes
 
 // This file contains the Compute Pipes configuration model
 type ComputePipesConfig struct {
-	OutputTables []TableSpec   `json:"output_tables"`
-	Channels     []ChannelSpec `json:"channels"`
-	PipesConfig  []PipeSpec    `json:"pipes_config"`
+	OutputTables []TableSpec    `json:"output_tables"`
+	Channels     []ChannelSpec  `json:"channels"`
+	Context      *[]ContextSpec `json:"context"`
+	PipesConfig  []PipeSpec     `json:"pipes_config"`
 }
 
 type ChannelSpec struct {
 	Name    string   `json:"name"`
 	Columns []string `json:"columns"`
+}
+
+type ContextSpec struct {
+	// Type range: file_key_component
+	Type string `json:"type"`
+	Key  string `json:"key"`
+	Expr string `json:"expr"`
 }
 
 type TableSpec struct {
@@ -32,12 +40,18 @@ type PipeSpec struct {
 }
 
 type TransformationSpec struct {
-	// Type range: map_record, aggregate
-	Type    string                     `json:"type"`
-	Columns []TransformationColumnSpec `json:"columns"`
-	Output  string                     `json:"output"`
+	// Type range: map_record, aggregate, partition_writer
+	Type                  string                     `json:"type"`
+	PartitionSize         *int                       `json:"partition_size"`
+	FilePathSubstitutions *[]PathSubstitution        `json:"file_path_substitutions"`
+	Columns               []TransformationColumnSpec `json:"columns"`
+	Output                string                     `json:"output"`
 }
 
+type PathSubstitution struct {
+	Replace string `json:"replace"`
+	With    string `json:"with"`
+}
 type TransformationColumnSpec struct {
 	// Type range: select, value, eval, map,
 	// (applicable to aggregate) count, distinct_count, sum, min,

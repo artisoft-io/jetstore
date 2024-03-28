@@ -3,6 +3,8 @@ package compute_pipes
 import (
 	"fmt"
 	"sync"
+
+	"github.com/jackc/pgx/v4/pgxpool"
 )
 
 // This file contains the Compute Pipes runtime data structures
@@ -17,9 +19,10 @@ type ChannelRegistry struct {
 	closedChannels      map[string]bool
 	closedChMutex       sync.Mutex
 }
+
 func (r *ChannelRegistry) CloseChannel(name string) {
 	r.closedChMutex.Lock()
-	defer r.closedChMutex.Unlock()	
+	defer r.closedChMutex.Unlock()
 	if r.closedChannels[name] {
 		return
 	}
@@ -47,7 +50,7 @@ func (r *ChannelRegistry) GetInputChannel(name string) (*InputChannel, error) {
 		channel: ch.channel,
 		config:  ch.config,
 		columns: ch.columns,
-		}, nil
+	}, nil
 }
 func (r *ChannelRegistry) GetOutputChannel(name string) (*OutputChannel, error) {
 	ch, ok := r.computeChannels[name]
@@ -58,7 +61,7 @@ func (r *ChannelRegistry) GetOutputChannel(name string) (*OutputChannel, error) 
 		channel: ch.channel,
 		config:  ch.config,
 		columns: ch.columns,
-		}, nil
+	}, nil
 }
 
 type Channel struct {
@@ -78,17 +81,20 @@ type OutputChannel struct {
 }
 
 type BuilderContext struct {
-	cpConfig             *ComputePipesConfig
-	channelRegistry      *ChannelRegistry
-	done                 chan struct{}
-	errCh                chan error
-	computePipesResultCh chan chan ComputePipesResult
-	env map[string]interface{}
+	dbpool                  *pgxpool.Pool
+	cpConfig                *ComputePipesConfig
+	channelRegistry         *ChannelRegistry
+	done                    chan struct{}
+	errCh                   chan error
+	copy2DbResultCh         chan chan ComputePipesResult
+	writePartitionsResultCh chan chan chan ComputePipesResult
+	env                     map[string]interface{}
 }
 
 type PipeTransformationEvaluator interface {
 	apply(input *[]interface{}) error
 	done() error
+	finally()
 }
 
 type TransformationColumnEvaluator interface {
@@ -117,7 +123,10 @@ func (ctx *BuilderContext) buildComputeGraph() error {
 
 		case "splitter":
 			// fmt.Println("**& starting PipeConfig", i, "splitter", "on source", source.config.Name)
-			go ctx.startSplitterPipe(pipeSpec, source)
+			splitterPartitionResultCh := make(chan chan ComputePipesResult, 10000)	// NOTE Max number of partitions
+			ctx.writePartitionsResultCh <- splitterPartitionResultCh
+
+			go ctx.startSplitterPipe(pipeSpec, source, splitterPartitionResultCh)
 
 		default:
 			return fmt.Errorf("error: unknown PipeSpec type: %s", pipeSpec.Type)
@@ -127,10 +136,11 @@ func (ctx *BuilderContext) buildComputeGraph() error {
 	return nil
 }
 
-func (ctx *BuilderContext) buildPipeTransformationEvaluator(source *InputChannel, spec *TransformationSpec) (PipeTransformationEvaluator, error) {
+func (ctx *BuilderContext) buildPipeTransformationEvaluator(source *InputChannel, splitterKey *string, 
+	partitionResultCh chan ComputePipesResult, spec *TransformationSpec) (PipeTransformationEvaluator, error) {
 
 	// Construct the pipe transformation
-	// fmt.Println("**& buildPipeTransformationEvaluator for", spec.Type,"source:",source.config.Name,"output:", spec.Output)
+	// fmt.Println("**& buildPipeTransformationEvaluator for", spec.Type, "source:", source.config.Name, "splitterKey:", splitterKey, "output:", spec.Output)
 
 	// Get the output channel
 	outCh, err := ctx.channelRegistry.GetOutputChannel(spec.Output)
@@ -141,12 +151,24 @@ func (ctx *BuilderContext) buildPipeTransformationEvaluator(source *InputChannel
 	}
 	switch spec.Type {
 	case "map_record":
+		if partitionResultCh != nil {
+			close(partitionResultCh)
+		}
 		return ctx.NewMapRecordTransformationPipe(source, outCh, spec)
 
 	case "aggregate":
+		if partitionResultCh != nil {
+			close(partitionResultCh)
+		}
 		return ctx.NewAggregateTransformationPipe(source, outCh, spec)
 
+	case "partition_writer":
+		return ctx.NewPartitionWriterTransformationPipe(source, splitterKey, outCh, partitionResultCh, spec)
+
 	default:
+		if partitionResultCh != nil {
+			close(partitionResultCh)
+		}
 		return nil, fmt.Errorf("error: unknown TransformationSpec type: %s", spec.Type)
 	}
 }

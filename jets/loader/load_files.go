@@ -13,8 +13,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/artisoft-io/jetstore/jets/schema"
 	"github.com/artisoft-io/jetstore/jets/compute_pipes"
+	"github.com/artisoft-io/jetstore/jets/schema"
 	"github.com/dimchansky/utfbom"
 	goparquet "github.com/fraugster/parquet-go"
 	"github.com/google/uuid"
@@ -31,7 +31,7 @@ import (
 
 func loadFiles(dbpool *pgxpool.Pool, headersDKInfo *schema.HeadersAndDomainKeysInfo, done chan struct{}, errCh chan error,
 	fileNamesCh <-chan string, loadFromS3FilesResultCh chan<- LoadFromS3FilesResult, copy2DbResultCh chan chan compute_pipes.ComputePipesResult,
-	badRowsWriter *bufio.Writer) {
+	writePartitionsResultCh chan chan chan compute_pipes.ComputePipesResult, badRowsWriter *bufio.Writer) {
 
 	// Create a channel to use as a buffer between the file loader and the copy to db
 	// This gives the opportunity to use Compute Pipes to transform the data before writing to the db
@@ -48,12 +48,27 @@ func loadFiles(dbpool *pgxpool.Pool, headersDKInfo *schema.HeadersAndDomainKeysI
 		close(computePipesInputCh)
 	}()
 
+	// Get the s3 folder containing the file if not multipart file
+	var fileKeyFolder string
+	if isPartFiles == 1 {
+		fileKeyFolder = *inFile
+	} else {
+		// Remove file name from file_key
+		idx := strings.LastIndex(*inFile, "/")
+		if idx >= 0 && idx < len(*inFile)-1 {
+			// Removing file name
+			fileKeyFolder = (*inFile)[0:idx]
+		}
+	}
 	// Start the Compute Pipes async
-	go compute_pipes.StartComputePipes(dbpool, headersDKInfo, done, errCh, computePipesInputCh, copy2DbResultCh, 
+	go compute_pipes.StartComputePipes(dbpool, headersDKInfo, done, errCh, computePipesInputCh, copy2DbResultCh, writePartitionsResultCh,
 		&computePipesJson, map[string]interface{}{
-			"$SESSIONID": *sessionId,
-			"$FILE_KEY_DATE": fileKeyDate,
-		})
+			"$SESSIONID":       *sessionId,
+			"$FILE_KEY_DATE":   fileKeyDate,
+			"$FILE_KEY":        *inFile,
+			"$FILE_KEY_FOLDER": fileKeyFolder,
+			"$NBR_SHARDS":      *nbrShards,
+		}, fileKeyComponents)
 
 	var totalRowCount, badRowCount int64
 	for localInFile := range fileNamesCh {

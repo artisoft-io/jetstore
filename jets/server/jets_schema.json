@@ -1532,6 +1532,40 @@
   },
   {
     "schemaName": "jetsapi",
+    "tableName": "compute_pipes_shard_registry",
+    "columns": [
+      {
+        "columnName": "session_id",
+        "dataType": "text",
+        "isNotNull": true
+      },
+      {
+        "columnName": "file_key",
+        "dataType": "text",
+        "isNotNull": true
+      },
+      {
+        "columnName": "shard_id",
+        "dataType": "int",
+        "default": "0",
+        "isNotNull": true
+      }
+    ],
+    "indexes": [
+      {
+        "indexName": "compute_pipes_shard_registry_session_shard_idx",
+        "indexDef": "INDEX compute_pipes_shard_registry_session_shard_idx ON jetsapi.compute_pipes_shard_registry (session_id,shard_id)"
+      }
+    ],
+    "tableConstraints": [
+      {
+        "name": "compute_pipes_shard_registry_unique_cstraint",
+        "definition": "CONSTRAINT compute_pipes_shard_registry_unique_cstraint UNIQUE (session_id,file_key)"
+      }
+    ]
+  },
+  {
+    "schemaName": "jetsapi",
     "tableName": "session_registry",
     "columns": [
       {
