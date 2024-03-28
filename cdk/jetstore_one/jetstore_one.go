@@ -973,8 +973,8 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 	})
 
 	//*TODO SNS message
-	cpipesNotifyFailure := sfn.NewPass(scope, jsii.String("notify-failure"), &sfn.PassProps{})
-	cpipesNotifySuccess := sfn.NewPass(scope, jsii.String("notify-success"), &sfn.PassProps{})
+	cpipesNotifyFailure := sfn.NewPass(scope, jsii.String("cpipes-notify-failure"), &sfn.PassProps{})
+	cpipesNotifySuccess := sfn.NewPass(scope, jsii.String("cpipes-notify-success"), &sfn.PassProps{})
 
 	// Create Rule Compute Pipes State Machine - cpipesSM
 	// -------------------------------------------
