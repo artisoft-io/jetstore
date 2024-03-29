@@ -179,8 +179,8 @@ func (ctx *PartitionWriterTransformationPipe) done() error {
 		os.Remove(tempFileName)
 	}()
 	s3FileName := fmt.Sprintf("%s/%s", *ctx.baseOutputPath, sentinelFileName)
-	if err2 = awsi.UploadToS3(ctx.bucketName, ctx.regionName, s3FileName, fileHd); err != nil {
-		err = fmt.Errorf("while copying sentinel to s3: %v", err)
+	if err2 = awsi.UploadToS3(ctx.bucketName, ctx.regionName, s3FileName, fileHd); err2 != nil {
+		err = fmt.Errorf("while copying sentinel to s3: %v", err2)
 		return err
 	}
 
