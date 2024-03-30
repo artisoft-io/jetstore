@@ -11,7 +11,7 @@ func (ctx *BuilderContext) startFanOutPipe(spec *PipeSpec, source *InputChannel)
 
 	defer func() {
 		// Closing the output channels
-		fmt.Println("**! FanOutPipe: Closing Output Channels")
+		// fmt.Println("**! FanOutPipe: Closing Output Channels")
 		oc := make(map[string]bool)
 		for i := range spec.Apply {
 			oc[spec.Apply[i].Output] = true

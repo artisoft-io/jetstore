@@ -1545,6 +1545,12 @@
         "isNotNull": true
       },
       {
+        "columnName": "is_file",
+        "dataType": "int",
+        "default": "1",
+        "isNotNull": true
+      },
+      {
         "columnName": "shard_id",
         "dataType": "int",
         "default": "0",

@@ -185,7 +185,7 @@ func (ca *StatusUpdate) CoordinateWork() error {
 	}
 	// Register out tables
 	if ca.Status != "failed" && getOutputRecordCount(ca.Dbpool, ca.PeKey) > 0 {
-		err = RegisterDomainTables(ca.Dbpool, ca.PeKey)
+		err = RegisterDomainTables(ca.Dbpool, ca.UsingSshTunnel, ca.PeKey)
 		if err != nil {
 			return fmt.Errorf("while registrying out tables to input_registry: %v", err)
 		}
@@ -196,7 +196,6 @@ func (ca *StatusUpdate) CoordinateWork() error {
 	err = schema.RegisterSession(ca.Dbpool, "domain_table", client, sessionId, sourcePeriodKey)
 	if err != nil {
 		log.Printf("Failed locking the session, must be already locked: %v (ignoring the error)", err)
-	}	
-
+	}		
 	return nil
 }

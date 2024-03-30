@@ -8,7 +8,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/artisoft-io/jetstore/jets/awsi"
+	// "github.com/artisoft-io/jetstore/jets/awsi"
 	"github.com/jackc/pgx/v4/pgxpool"
 )
 
@@ -154,35 +154,37 @@ func (ctx *PartitionWriterTransformationPipe) done() error {
 	}
 
 	// Write to db the shardId of this partition: session_id, file_key, shard
-	stmt := `INSERT INTO jetsapi.compute_pipes_shard_registry (session_id, file_key, shard_id) 
-		VALUES ($1, $2, $3) ON CONFLICT DO NOTHING`
+	stmt := `INSERT INTO jetsapi.compute_pipes_shard_registry (session_id, file_key, is_file, shard_id) 
+		VALUES ($1, $2, 0, $3) ON CONFLICT DO NOTHING`
 	_, err := ctx.dbpool.Exec(context.Background(), stmt, ctx.sessionId, *ctx.baseOutputPath, ctx.splitterShardId)
 	if err != nil {
 		return fmt.Errorf("error inserting in jetsapi.compute_pipes_shard_registry table: %v", err)
 	}
 
-	// Write the 0-byte sentinel file (take the file name from env JETS_SENTINEL_FILE_NAME)
-	// Copy file to s3 location
-	sentinelFileName := os.Getenv("JETS_SENTINEL_FILE_NAME")
-	if len(sentinelFileName) == 0 {
-		sentinelFileName = "_DONE"
-	}
-	tempFileName := fmt.Sprintf("%s/%s", *ctx.localTempDir, sentinelFileName)
-	fileHd, err2 := os.OpenFile(tempFileName, os.O_RDWR|os.O_CREATE, 0644)
-	if err2 != nil {
-		err = fmt.Errorf("while creating sentinel file to copy to s3: %v", err2)
-		log.Println(err)
-		return err
-	}
-	defer func() {
-		fileHd.Close()
-		os.Remove(tempFileName)
-	}()
-	s3FileName := fmt.Sprintf("%s/%s", *ctx.baseOutputPath, sentinelFileName)
-	if err2 = awsi.UploadToS3(ctx.bucketName, ctx.regionName, s3FileName, fileHd); err != nil {
-		err = fmt.Errorf("while copying sentinel to s3: %v", err)
-		return err
-	}
+	//*NOT NEEDED - USING domain_table input regristration event
+	// // Write the 0-byte sentinel file (take the file name from env JETS_SENTINEL_FILE_NAME)
+	// // Copy file to s3 location
+	// sentinelFileName := os.Getenv("JETS_SENTINEL_FILE_NAME")
+	// if len(sentinelFileName) == 0 {
+	// 	sentinelFileName = "_DONE"
+	// }
+	// tempFileName := fmt.Sprintf("%s/%s", *ctx.localTempDir, sentinelFileName)
+	// fileHd, err2 := os.OpenFile(tempFileName, os.O_RDWR|os.O_CREATE, 0644)
+	// if err2 != nil {
+	// 	err = fmt.Errorf("while creating sentinel file to copy to s3: %v", err2)
+	// 	log.Println(err)
+	// 	return err
+	// }
+	// defer func() {
+	// 	fileHd.Close()
+	// 	os.Remove(tempFileName)
+	// }()
+	// s3FileName := fmt.Sprintf("%s/%s", *ctx.baseOutputPath, sentinelFileName)
+	// if err2 = awsi.UploadToS3(ctx.bucketName, ctx.regionName, s3FileName, fileHd); err2 != nil {
+	// 	err = fmt.Errorf("while copying sentinel to s3: %v", err2)
+	// 	return err
+	// }
+	//*MOVED TO run_report using emitSentinelFile directive
 
 	// Send the total row count to ctx.copy2DeviceResultCh
 	ctx.copy2DeviceResultCh <- ComputePipesResult{

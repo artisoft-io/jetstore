@@ -33,6 +33,7 @@ import (
 // JETS_s3_OUTPUT_PREFIX Output file key prefix
 // JETSTORE_DEV_MODE Indicates running in dev mode, used to determine if sync workspace file from s3
 // ENVIRONMENT used as substitution variable in reports
+// JETS_SENTINEL_FILE_NAME for emitSentinelFile directive
 
 // Command Line Arguments
 // --------------------------------------------------------------------------------------
@@ -104,18 +105,19 @@ func getOutputRecordCount(dbpool *pgxpool.Pool, sessionId string) (int64, int64)
 	return dbRecordCount.Int64, outputRecordCount.Int64
 }
 
-// Return the Compute Pipes config json from source_config table
-func getComputePipesJson(dbpool *pgxpool.Pool, client, org, objectType string) string {
-	var computePipesJson sql.NullString
-	err := dbpool.QueryRow(context.Background(), 
-		"SELECT compute_pipes_json FROM jetsapi.source_config WHERE client=$1 AND org=$2 AND object_type=$3", 
-		client, org, objectType).Scan(&computePipesJson)
-	if err != nil {
-		// may not have an entry in source_config
-		return ""
-	}
-	return computePipesJson.String
-}
+// DO NOT USE
+// // Return the Compute Pipes config json from source_config table
+// func getComputePipesJson(dbpool *pgxpool.Pool, client, org, objectType string) string {
+// 	var computePipesJson sql.NullString
+// 	err := dbpool.QueryRow(context.Background(), 
+// 		"SELECT compute_pipes_json FROM jetsapi.source_config WHERE client=$1 AND org=$2 AND object_type=$3", 
+// 		client, org, objectType).Scan(&computePipesJson)
+// 	if err != nil {
+// 		// may not have an entry in source_config
+// 		return ""
+// 	}
+// 	return computePipesJson.String
+// }
 
 func coordinateWorkAndUpdateStatus(ca *delegate.CommandArguments) error {
 	wh := os.Getenv("WORKSPACES_HOME")
@@ -143,9 +145,6 @@ func coordinateWorkAndUpdateStatus(ca *delegate.CommandArguments) error {
 			return nil
 		}
 	}
-
-	// Get the compute pipes json from source_config
-	ca.ComputePipesJson = getComputePipesJson(dbpool, ca.Client, ca.Org, ca.ObjectType)
 
 	// Fetch reports.tgz from overriten workspace files (here we want the reports definitions in particular)
 	// We don't care about /lookup.db and /workspace.db, hence the argument skipSqliteFiles = true
@@ -189,6 +188,11 @@ func coordinateWorkAndUpdateStatus(ca *delegate.CommandArguments) error {
 	}
 	// Apply / update the reportDirectives
 	ca.OutputPath = *filePath
+	if len(ca.CurrentReportDirectives.InputPath) == 0 {
+		ca.CurrentReportDirectives.InputPath = strings.ReplaceAll(ca.OutputPath,
+			os.Getenv("JETS_s3_OUTPUT_PREFIX"),
+			os.Getenv("JETS_s3_INPUT_PREFIX"))
+	}
 	switch {
 	case ca.CurrentReportDirectives.OutputS3Prefix == "JETS_s3_INPUT_PREFIX":
 		// Write the output file in the jetstore input folder of s3
@@ -383,6 +387,7 @@ func main() {
 	fmt.Println("Got argument: originalFileName", *originalFileName)
 	fmt.Println("ENV JETSTORE_DEV_MODE:",os.Getenv("JETSTORE_DEV_MODE"))
 	fmt.Println("ENV WORKSPACE:",os.Getenv("WORKSPACE"))
+	fmt.Println("ENV JETS_SENTINEL_FILE_NAME:",os.Getenv("JETS_SENTINEL_FILE_NAME"))
 	fmt.Println("Process Input file_key:", fileKey)
 	fmt.Println("*** DO NOT USE jetsapi.session_registry TABLE IN REPORTS FOR THE CURRENT session_id SINCE IT IS NOT REGISTERED YET")
 	fmt.Println("*** The session_id is registered AFTER the report completion during the status_update task")

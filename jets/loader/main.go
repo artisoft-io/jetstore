@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/artisoft-io/jetstore/jets/awsi"
-	"github.com/artisoft-io/jetstore/jets/datatable"
 	"github.com/artisoft-io/jetstore/jets/datatable/jcsv"
 	"github.com/artisoft-io/jetstore/jets/user"
 )
@@ -34,6 +33,8 @@ import (
 // JETS_REGION
 // JETS_SENTINEL_FILE_NAME (optional, used by compute pipe partion_writer)
 // JETS_SERVER_SM_ARN state machine arn
+// JETS_REPORTS_SM_ARN state machine arn
+// JETS_CPIPES_SM_ARN state machine arn
 // JETSTORE_DEV_MODE Indicates running in dev mode
 // LOADER_ERR_DIR
 var awsDsnSecret = flag.String("awsDsnSecret", "", "aws secret with dsn definition (aws integration) (required or JETS_DSN_SECRET or -dsn)")
@@ -51,6 +52,19 @@ var sourcePeriodKey = flag.Int("sourcePeriodKey", -1, "Source period key associa
 var sessionId = flag.String("sessionId", "", "Process session ID, is needed as -inSessionId for the server process (must be unique), default based on timestamp.")
 var completedMetric = flag.String("loaderCompletedMetric", "loaderCompleted", "Metric name to register the loader successfull completion (default: loaderCompleted)")
 var failedMetric = flag.String("loaderFailedMetric", "loaderFailed", "Metric name to register the load failure [success load metric: loaderCompleted] (default: loaderFailed)")
+var cpipesCompletedMetric = flag.String("serverCompletedMetric", "", "Metric name to register the server/cpipes successfull completion")
+var cpipesFailedMetric = flag.String("serverFailedMetric", "", "Metric name to register the server/cpipes failure [success load metric: serverCompleted]")
+
+// compatibility to server api
+// when peKey is provided, do not need command line arg: client, org, objectType, sourcePeriodKey, in_file, sessionId
+var pipelineConfigKey int // used only for registring cpipesSM with pipeline_execution_details table
+var processName string    // used only to register with pipeline_execution_details (cpipesSM)
+var pipelineExecKey = flag.Int("peKey", -1, "Pipeline execution key (required for cpipes with multipart files)")
+var shardId = flag.Int("shardId", -1, "Run the cpipes process for this single shard. (required when peKey is provided)")
+var inputSessionId string		// needed to read the file_keys from sharding table when peKey is provided
+var cpipesMode string // values: pre-sharding, sharding, reducing, standalone :: set in coordinateWork()
+var cpipesFileKeys []string
+
 var tableName string
 var domainKeysJson string
 var inputColumnsJson string
@@ -94,29 +108,36 @@ func main() {
 			fmt.Sprintf("env var JETS_INPUT_ROW_JETS_KEY_ALGO has invalid value: %s, must be one of uuid, row_hash, domain_key (default: uuid if empty)",
 				os.Getenv("JETS_INPUT_ROW_JETS_KEY_ALGO")))
 	}
-	if *inFile == "" {
-		hasErr = true
-		errMsg = append(errMsg, "Input file name must be provided (-in_file).")
-	}
-	if *client == "" {
-		hasErr = true
-		errMsg = append(errMsg, "Client name must be provided (-client).")
-	}
-	if *clientOrg == "" {
-		hasErr = true
-		errMsg = append(errMsg, "Client org must be provided (-org).")
-	}
-	if *sourcePeriodKey < 0 {
-		hasErr = true
-		errMsg = append(errMsg, "Source Period Key must be provided (-sourcePeriodKey).")
-	}
-	if *userEmail == "" {
-		hasErr = true
-		errMsg = append(errMsg, "User email must be provided (-userEmail).")
-	}
-	if *objectType == "" {
-		hasErr = true
-		errMsg = append(errMsg, "Object type of the input file must be provided (-objectType).")
+	if *pipelineExecKey == -1 {
+		if *inFile == "" {
+			hasErr = true
+			errMsg = append(errMsg, "Input file name must be provided (-in_file or -peKey).")
+		}
+		if *client == "" {
+			hasErr = true
+			errMsg = append(errMsg, "Client name must be provided (-client).")
+		}
+		if *clientOrg == "" {
+			hasErr = true
+			errMsg = append(errMsg, "Client org must be provided (-org).")
+		}
+		if *sourcePeriodKey < 0 {
+			hasErr = true
+			errMsg = append(errMsg, "Source Period Key must be provided (-sourcePeriodKey).")
+		}
+		if *userEmail == "" {
+			hasErr = true
+			errMsg = append(errMsg, "User email must be provided (-userEmail).")
+		}
+		if *objectType == "" {
+			hasErr = true
+			errMsg = append(errMsg, "Object type of the input file must be provided (-objectType).")
+		}	
+	} else {
+		if *shardId == -1 {
+			hasErr = true
+			errMsg = append(errMsg, "-shardId must be provided when -peKey is provided.")
+		}	
 	}
 	if *dsn == "" && *awsDsnSecret == "" {
 		*dsn = os.Getenv("JETS_DSN_URI_VALUE")
@@ -188,6 +209,12 @@ func main() {
 	if *nbrShards < 1 {
 		*nbrShards = 1
 	}
+	if len(*cpipesCompletedMetric) > 0 {
+		*completedMetric = *cpipesCompletedMetric
+	}
+	if len(*cpipesFailedMetric) > 0 {
+		*failedMetric = *cpipesFailedMetric
+	}
 
 	fmt.Println("Loader argument:")
 	fmt.Println("----------------")
@@ -196,12 +223,14 @@ func main() {
 	fmt.Println("Got argument: awsRegion", *awsRegion)
 	fmt.Println("Got argument: inFile", *inFile)
 	fmt.Println("Got argument: len(dsn)", len(*dsn))
+	fmt.Println("Got argument: peKey", *pipelineExecKey)
+	fmt.Println("Got argument: shardId", *shardId)
+	fmt.Println("Got argument: nbrShards", *nbrShards)
 	fmt.Println("Got argument: client", *client)
 	fmt.Println("Got argument: org", *clientOrg)
 	fmt.Println("Got argument: objectType", *objectType)
 	fmt.Println("Got argument: sourcePeriodKey", *sourcePeriodKey)
 	fmt.Println("Got argument: userEmail", *userEmail)
-	fmt.Println("Got argument: nbrShards", *nbrShards)
 	fmt.Println("Got argument: sessionId", *sessionId)
 	fmt.Println("Got argument: usingSshTunnel", *usingSshTunnel)
 	fmt.Println("Got argument: loaderCompletedMetric", *completedMetric)
@@ -231,13 +260,6 @@ func main() {
 		fmt.Println("Nbr Shards in DEV MODE: nbrShards", *nbrShards)
 	}
 	jetsDebug, _ = strconv.Atoi(os.Getenv("JETS_LOG_DEBUG"))
-	fileKeyComponents = make(map[string]interface{})
-	fileKeyComponents = datatable.SplitFileKeyIntoComponents(fileKeyComponents, inFile)
-	year := fileKeyComponents["year"].(int)
-	month := fileKeyComponents["month"].(int)
-	day := fileKeyComponents["day"].(int)
-	fileKeyDate = time.Date(year, time.Month(month), day, 14, 0, 0, 0, time.UTC)
-	log.Println("fileKeyDate:",fileKeyDate)
 
 	err = coordinateWork()
 	if err != nil {

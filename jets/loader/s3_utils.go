@@ -1,11 +1,13 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"os"
 
 	"github.com/artisoft-io/jetstore/jets/awsi"
+	"github.com/jackc/pgx/v4/pgxpool"
 )
 
 // Utilities to dowmload from s3
@@ -39,23 +41,45 @@ func downloadS3Files(done <-chan struct{}) (<-chan string, <-chan string, <-chan
 	go func() {
 		defer close(fileNamesCh)
 		var inFilePath string
-
+		var err error
 		if isPartFiles == 1 {
-			log.Printf("Downloading multi-part file from s3 folder: %s", *inFile)
-			s3Objects, err := awsi.ListS3Objects(inFile, *awsBucket, *awsRegion)
-			if err != nil || s3Objects == nil || len(s3Objects) == 0 {
+			var fileKeys []string
+			switch cpipesMode {
+			case "loader", "reducing":
+				// Case loader mode (loaderSM) or cpipes reducing mode, get the file keys from s3
+				log.Printf("Getting file keys from s3 folder: %s", *inFile)
+				s3Objects, err := awsi.ListS3Objects(inFile, *awsBucket, *awsRegion)
+				if err != nil || s3Objects == nil || len(s3Objects) == 0 {
+					downloadS3ResultCh <- DownloadS3Result{
+						err: fmt.Errorf("failed to download list of files from s3 (or folder is empty): %v", err),
+					}
+					return
+				}
+				fileKeys = make([]string, 0)
+				for i := range s3Objects {
+					if s3Objects[i].Size > 0 {
+						fileKeys = append(fileKeys, s3Objects[i].Key)
+					}
+				}
+
+			case "sharding":
+				// Process the fileKeys in the global variable cpipesFileKeys
+				fileKeys = cpipesFileKeys
+
+			default:
 				downloadS3ResultCh <- DownloadS3Result{
-					err: fmt.Errorf("failed to download list of files from s3 (or folder is empty): %v", err),
+					err: fmt.Errorf("error: invalid cpipesMode in downloadS3Files: %s", cpipesMode),
 				}
 				return
 			}
+			log.Printf("Downloading multi-part file from s3 folder: %s", *inFile)
 			gotHeaders := false
-			for i := range s3Objects {
-				inFilePath, err = downloadS3Object(s3Objects[i].Key, inFolderPath, 1000)
+			for i := range fileKeys {
+				inFilePath, err = downloadS3Object(fileKeys[i], inFolderPath, 1)
 				if err != nil {
 					downloadS3ResultCh <- DownloadS3Result{
 						InputFilesCount: i,
-						err:             fmt.Errorf("failed to download s3 file %s: %v", s3Objects[i].Key, err),
+						err:             fmt.Errorf("failed to download s3 file %s: %v", fileKeys[i], err),
 					}
 					return
 				}
@@ -72,10 +96,10 @@ func downloadS3Files(done <-chan struct{}) (<-chan string, <-chan string, <-chan
 					}
 				}
 			}
-			downloadS3ResultCh <- DownloadS3Result{InputFilesCount: len(s3Objects)}
+			downloadS3ResultCh <- DownloadS3Result{InputFilesCount: len(fileKeys)}
 		} else {
 			// Download single file using a download manager to a temp file (fileHd)
-			inFilePath, err = downloadS3Object(*inFile, inFolderPath, 0)
+			inFilePath, err = downloadS3Object(*inFile, inFolderPath, 1)
 			switch {
 			case err != nil:
 				downloadS3ResultCh <- DownloadS3Result{err: fmt.Errorf("while downloading single file from s3: %v", err)}
@@ -100,6 +124,31 @@ func downloadS3Files(done <-chan struct{}) (<-chan string, <-chan string, <-chan
 	}()
 
 	return headersFileCh, fileNamesCh, downloadS3ResultCh, inFolderPath, nil
+}
+
+func getFileKeys(dbpool *pgxpool.Pool, sessionId string, shardId int) ([]string, int, error) {
+	stmt := `
+	SELECT file_key, is_file 
+	FROM jetsapi.compute_pipes_shard_registry 
+	WHERE session_id = $1 AND shard_id = $2`
+
+	fileKeys := make([]string, 0)
+	var isFile int
+	var key string
+	rows, err := dbpool.Query(context.Background(), stmt, sessionId, shardId)
+	if err != nil {
+		return nil, -1, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		// scan the row
+		if err = rows.Scan(&key, &isFile); err != nil {
+			return nil, -1, err
+		}
+		fileKeys = append(fileKeys, key)
+	}
+	// fmt.Println("**!@@ GOT KEYS:", fileKeys)
+	return fileKeys, isFile, nil
 }
 
 func downloadS3Object(s3Key, localDir string, minSize int64) (string, error) {

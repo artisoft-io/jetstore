@@ -3,8 +3,10 @@ package main
 import (
 	"context"
 	"fmt"
+	"hash/fnv"
 	"log"
 
+	"github.com/artisoft-io/jetstore/jets/awsi"
 	"github.com/artisoft-io/jetstore/jets/datatable"
 	"github.com/artisoft-io/jetstore/jets/schema"
 	"github.com/artisoft-io/jetstore/jets/user"
@@ -12,9 +14,12 @@ import (
 )
 
 // Utility functions to register load
+// Register load for loaderSM
+func registerCurrentLoad(loadCount int64, badRowCount int64, dbpool *pgxpool.Pool, objectTypes []string, registerTableName string,
+	status string, errMessage string) error {
 
-func registerCurrentLoad(loadCount int64, badRowCount int64, dbpool *pgxpool.Pool,
-	dkInfo *schema.HeadersAndDomainKeysInfo, status string, errMessage string) error {
+	// NOTE: this stmt uses the global tableName so to match on the existing entry. 
+	// CPIPES register the load with input_registry with a different name (uses S3 as table name), hence the registerTableName
 	stmt := `INSERT INTO jetsapi.input_loader_status (
 		object_type, table_name, client, org, file_key, session_id, source_period_key, status, error_message,
 		load_count, bad_row_count, user_email) 
@@ -28,11 +33,10 @@ func registerCurrentLoad(loadCount int64, badRowCount int64, dbpool *pgxpool.Poo
 		return fmt.Errorf("error inserting in jetsapi.input_loader_status table: %v", err)
 	}
 	log.Println("Updated input_loader_status table with main object type:", *objectType, "client", *client, "org", *clientOrg, ":: status is", status)
-	// Register loads, except when status == "failed" or loadCount == 0 or len(computePipesJson) > 0
-	if dkInfo != nil && loadCount > 0 && status != "failed" && len(computePipesJson) == 0 {
-		inputRegistryKey = make([]int, len(dkInfo.DomainKeysInfoMap))
-		ipos := 0
-		for objType := range dkInfo.DomainKeysInfoMap {
+	// Register loads, except when status == "failed" or loadCount == 0 
+	if len(objectTypes) > 0 && loadCount > 0 && status != "failed"  {
+		inputRegistryKey = make([]int, len(objectTypes))
+		for ipos, objType := range objectTypes {
 			log.Println("Registering staging table with object type:", objType, "client", *client, "org", *clientOrg)
 			stmt = `INSERT INTO jetsapi.input_registry (
 				client, org, object_type, file_key, source_period_key, table_name, source_type, session_id, user_email) 
@@ -40,11 +44,10 @@ func registerCurrentLoad(loadCount int64, badRowCount int64, dbpool *pgxpool.Poo
 				ON CONFLICT DO NOTHING
 				RETURNING key`
 			err = dbpool.QueryRow(context.Background(), stmt,
-				*client, *clientOrg, objType, *inFile, *sourcePeriodKey, tableName, *sessionId, *userEmail).Scan(&inputRegistryKey[ipos])
+				*client, *clientOrg, objType, *inFile, *sourcePeriodKey, registerTableName, *sessionId, *userEmail).Scan(&inputRegistryKey[ipos])
 			if err != nil {
 				return fmt.Errorf("error inserting in jetsapi.input_registry table: %v", err)
 			}
-			ipos += 1
 		}
 		// Check for any process that are ready to kick off
 		context := datatable.NewContext(dbpool, devMode, *usingSshTunnel, nil, *nbrShards, &adminEmail)
@@ -63,6 +66,54 @@ func registerCurrentLoad(loadCount int64, badRowCount int64, dbpool *pgxpool.Poo
 		}, token)
 	}
 	return nil
+}
+
+// Register the CPIPES execution status details to pipeline_execution_details
+// Lock the sessionId & Register output tables (register sessionId with session_registry) if not failed
+func updatePipelineExecutionStatus(dbpool *pgxpool.Pool, inputRowCount, outputRowCount int, status, errMessage string) error {
+	if *shardId >= 0 {
+		log.Printf("Inserting status '%s' to pipeline_execution_details table", status)
+		stmt := `INSERT INTO jetsapi.pipeline_execution_details (
+							pipeline_config_key, pipeline_execution_status_key, client, process_name, main_input_session_id, session_id, source_period_key,
+							shard_id, status, error_message, input_records_count, rete_sessions_count, output_records_count, user_email) 
+							VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)`
+		_, err := dbpool.Exec(context.Background(), stmt,
+			pipelineConfigKey, *pipelineExecKey, *client, processName, inputSessionId, *sessionId, *sourcePeriodKey, *shardId,
+			status, errMessage, inputRowCount, 0, outputRowCount, userEmail)
+		if err != nil {
+			return fmt.Errorf("error inserting in jetsapi.pipeline_execution_details table: %v", err)
+		}
+	}
+	return nil
+}
+
+
+// Function to assign file_key to shard into jetsapi.compute_pipes_shard_registry
+// file_key is a file not a directory
+func shardFileKeys(dbpool *pgxpool.Pool, baseFileKey string, sessionId string, nbrShards int) (int, error) {
+	// Get all the file keys having baseFileKey as prefix
+	log.Printf("Downloading file keys from s3 folder: %s", baseFileKey)
+	s3Objects, err := awsi.ListS3Objects(inFile, *awsBucket, *awsRegion)
+	if err != nil || s3Objects == nil || len(s3Objects) == 0 {
+		return 0, fmt.Errorf("failed to download list of files from s3 (or folder is empty): %v", err)
+	}
+	stmt := `INSERT INTO jetsapi.compute_pipes_shard_registry (session_id, file_key, is_file, shard_id) 
+		VALUES ($1, $2, 1, $3) ON CONFLICT DO NOTHING`
+	for i := range s3Objects {
+		if s3Objects[i].Size > 1 {
+			// Hash the file hey and assign it to a shard
+			h := fnv.New64a()
+			h.Write([]byte(s3Objects[i].Key))
+			keyHash := h.Sum64()
+			shardId := keyHash % uint64(nbrShards)
+			// Write to shardId of this file key: session_id, file_key, shard
+			_, err := dbpool.Exec(context.Background(), stmt, sessionId, s3Objects[i].Key, int(shardId))
+			if err != nil {
+				return 0, fmt.Errorf("error inserting in jetsapi.compute_pipes_shard_registry table: %v", err)
+			}
+		}
+	}
+	return len(s3Objects), nil
 }
 
 func prepareStagingTable(dbpool *pgxpool.Pool, headersDKInfo *schema.HeadersAndDomainKeysInfo, tableName string) error {
@@ -105,7 +156,7 @@ func prepareStagingTable(dbpool *pgxpool.Pool, headersDKInfo *schema.HeadersAndD
 			for c := range unseenColumns {
 				tableSchema.Columns = append(tableSchema.Columns, schema.ColumnDefinition{
 					ColumnName: c,
-					DataType: "text",
+					DataType:   "text",
 				})
 			}
 			tableSchema.UpdateTable(dbpool, tableSchema)

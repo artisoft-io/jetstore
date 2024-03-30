@@ -907,8 +907,8 @@ func (ctx *Context) InsertRows(dataTableAction *DataTableAction, token string) (
 		row := make(map[string]interface{}, len(sqlStmt.ColumnKeys))
 		for irow := range dataTableAction.Data {
 			// Need to get:
-			//	- DevMode: run_report_only, run_server_only, run_server_reports
-			//  - State Machine URI: serverSM, or reportsSM
+			//	- DevMode: run_report_only, run_server_only, run_server_reports, run_cpipes_only, run_cpipes_reports
+			//  - State Machine URI: serverSM, reportsSM, and cpipesSM
 			// from process_config table
 			// ----------------------------
 			var devModeCode, stateMachineName string
@@ -982,11 +982,13 @@ func (ctx *Context) InsertRows(dataTableAction *DataTableAction, token string) (
 				ca := StatusUpdate{
 					Status: "completed",
 					Dbpool: ctx.Dbpool,
+					UsingSshTunnel: ctx.UsingSshTunnel,
 					PeKey: peKeyInt,
 				}
-				if devModeCode == "run_server_only" || devModeCode == "run_server_reports" {
+				if devModeCode == "run_server_only" || devModeCode == "run_server_reports" || devModeCode == "run_cpipes_only" || devModeCode == "run_cpipes_reports" {
 					// DevMode: Lock session id & register run on last shard (unless error)
 					// loop over every chard to exec in succession
+					var lable string
 					for shardId := 0; shardId < ctx.NbrShards && err == nil; shardId++ {
 						serverArgs := []string{
 							"-peKey", peKey,
@@ -1005,8 +1007,22 @@ func (ctx *Context) InsertRows(dataTableAction *DataTableAction, token string) (
 						if ctx.UsingSshTunnel {
 							serverArgs = append(serverArgs, "-usingSshTunnel")
 						}
-						log.Printf("Run server: %s", serverArgs)
-						cmd := exec.Command("/usr/local/bin/server", serverArgs...)
+						var cmd *exec.Cmd
+						switch devModeCode {
+						case "run_server_only", "run_server_reports":
+							log.Printf("Run server: %s", serverArgs)
+							lable = "SERVER"
+							cmd = exec.Command("/usr/local/bin/server", serverArgs...)
+						case  "run_cpipes_only", "run_cpipes_reports":
+							log.Printf("Run cpipes: %s", serverArgs)
+							lable = "CPIPES"
+							cmd = exec.Command("/usr/local/bin/loader", serverArgs...)
+						default:
+							log.Printf("error: unknown devModeCode: %s", devModeCode)
+							httpStatus = http.StatusInternalServerError
+							err = fmt.Errorf("error: unknown devModeCode: %s", devModeCode)
+							return
+						}
 						cmd.Env = append(os.Environ(),
 							fmt.Sprintf("WORKSPACE=%s", workspaceName),
 							"JETSTORE_DEV_MODE=1",
@@ -1019,16 +1035,16 @@ func (ctx *Context) InsertRows(dataTableAction *DataTableAction, token string) (
 					if err != nil {
 						log.Printf("while executing server command: %v", err)
 						log.Println("=*=*=*=*=*=*=*=*=*=*=*=*=*=*")
-						log.Println("SERVER CAPTURED OUTPUT BEGIN")
+						log.Printf("%s CAPTURED OUTPUT BEGIN", lable)
 						log.Println("=*=*=*=*=*=*=*=*=*=*=*=*=*=*")
 						(*results)["log"] = buf.String()
 						log.Println((*results)["log"])
 						log.Println("=*=*=*=*=*=*=*=*=*=*=*=*=*=*")
-						log.Println("SERVER CAPTURED OUTPUT END")
+						log.Printf("%s CAPTURED OUTPUT END", lable)
 						log.Println("=*=*=*=*=*=*=*=*=*=*=*=*=*=*")
-						err = errors.New("error while running server command")
+						err = errors.New("error while running command")
 						ca.Status = "failed"
-						ca.FailureDetails = "Error while running server command in test mode"
+						ca.FailureDetails = "Error while running command in test mode"
 						// Update server execution status table
 						ca.ValidateArguments()
 						ca.CoordinateWork()
@@ -1037,7 +1053,7 @@ func (ctx *Context) InsertRows(dataTableAction *DataTableAction, token string) (
 					}
 				}
 
-				if devModeCode == "run_reports_only" || devModeCode == "run_server_reports" {
+				if devModeCode == "run_reports_only" || devModeCode == "run_server_reports" || devModeCode == "run_cpipes_reports" {
 					// Call run_report synchronously
 					if ctx.UsingSshTunnel {
 						runReportsCommand = append(runReportsCommand, "-usingSshTunnel")
@@ -1055,11 +1071,11 @@ func (ctx *Context) InsertRows(dataTableAction *DataTableAction, token string) (
 					if err != nil {
 						log.Printf("while executing run_reports command '%v': %v", runReportsCommand, err)
 						log.Println("=*=*=*=*=*=*=*=*=*=*=*=*=*=*")
-						log.Println("SERVER & REPORTS CAPTURED OUTPUT BEGIN")
+						log.Println("SERVER/CPIPES & REPORTS CAPTURED OUTPUT BEGIN")
 						log.Println("=*=*=*=*=*=*=*=*=*=*=*=*=*=*")
 						log.Println((*results)["log"])
 						log.Println("=*=*=*=*=*=*=*=*=*=*=*=*=*=*")
-						log.Println("SERVER & REPORTS CAPTURED OUTPUT END")
+						log.Println("SERVER/CPIPES & REPORTS CAPTURED OUTPUT END")
 						log.Println("=*=*=*=*=*=*=*=*=*=*=*=*=*=*")
 						httpStatus = http.StatusInternalServerError
 						err = errors.New("error while running run_reports command")
@@ -1071,16 +1087,16 @@ func (ctx *Context) InsertRows(dataTableAction *DataTableAction, token string) (
 						return
 					}
 				}
-				// all good, update server execution status table
-				ca.ValidateArguments()
-				ca.CoordinateWork()
 				log.Println("============================")
-				log.Println("SERVER & REPORTS CAPTURED OUTPUT BEGIN")
+				log.Println("SERVER/CPIPES & REPORTS CAPTURED OUTPUT BEGIN")
 				log.Println("============================")
 				log.Println((*results)["log"])
 				log.Println("============================")
-				log.Println("SERVER & REPORTS CAPTURED OUTPUT END")
+				log.Println("SERVER/CPIPES & REPORTS CAPTURED OUTPUT END")
 				log.Println("============================")
+				// all good, update server execution status table
+				ca.ValidateArguments()
+				ca.CoordinateWork()
 
 			default:
 				// Invoke states to execute a process
@@ -1117,8 +1133,22 @@ func (ctx *Context) InsertRows(dataTableAction *DataTableAction, token string) (
 						"failureDetails": "",
 					},
 				}
-				processArn := strings.TrimSuffix(os.Getenv("JETS_SERVER_SM_ARN"), "serverSM")
-				processArn += stateMachineName
+				var processArn string
+				switch stateMachineName {
+				case "serverSM":
+					processArn = os.Getenv("JETS_SERVER_SM_ARN")
+				case "loaderSM":
+					processArn = os.Getenv("JETS_LOADER_SM_ARN")
+				case "cpipesSM":
+					processArn = os.Getenv("JETS_CPIPES_SM_ARN")
+				case "reportsSM":
+					processArn = os.Getenv("JETS_REPORTS_SM_ARN")
+				default:
+					log.Printf("error: unknown stateMachineName: %s", stateMachineName)
+					httpStatus = http.StatusInternalServerError
+					err = fmt.Errorf("error: unknown stateMachineName: %s", stateMachineName)
+					return
+				}
 
 				// StartExecution execute rule
 				log.Printf("calling StartExecution on processArn: %s", processArn)
@@ -1238,7 +1268,7 @@ func execWorkspaceQuery(db *sql.DB, dataTableAction *DataTableAction, query *str
 	return &resultRows, nil
 }
 
-func execDDL(dbpool *pgxpool.Pool, dataTableAction *DataTableAction, query *string) (*[][]interface{}, *[]DataTableColumnDef, error) {
+func execDDL(dbpool *pgxpool.Pool, _ *DataTableAction, query *string) (*[][]interface{}, *[]DataTableColumnDef, error) {
 	// //DEV
 	// fmt.Println("\n*** UI Query:\n", *query)
 	results, err := dbpool.Exec(context.Background(), *query)
