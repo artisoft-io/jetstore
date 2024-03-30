@@ -903,7 +903,7 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 		Image:         jetStoreImage,
 		ContainerName: jsii.String("cpipesContainer"),
 		Essential:     jsii.Bool(true),
-		EntryPoint:    jsii.Strings("cpipes"),
+		EntryPoint:    jsii.Strings("loader"),
 		Environment: &map[string]*string{
 			"JETS_BUCKET":                        sourceBucket.BucketName(),
 			"JETS_DOMAIN_KEY_HASH_ALGO":          jsii.String(os.Getenv("JETS_DOMAIN_KEY_HASH_ALGO")),
