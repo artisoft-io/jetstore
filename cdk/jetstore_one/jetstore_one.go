@@ -975,7 +975,7 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 	})
 	runCPipesReportsTask.Connections().AllowTo(rdsCluster, awsec2.Port_Tcp(jsii.Number(5432)), jsii.String("Allow connection from runCPipesReportsTask "))
 
-	// Status Update: update_success Step Function Task for reportsSM
+	// Status Update: update_success Step Function Task for cpipesSM
 	// --------------------------------------------------------------------------------------------------------------
 	updateCPipesErrorStatusLambdaTask := sfntask.NewLambdaInvoke(stack, jsii.String("UpdateCPipesErrorStatusLambdaTask"), &sfntask.LambdaInvokeProps{
 		Comment: jsii.String("Lambda Task to update cpipes status to error/failed"),
@@ -1044,6 +1044,16 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 	// These execution are performed in code so must give permission explicitly
 	// ---------------------------------------
 	ecsTaskRole.AddToPolicy(awsiam.NewPolicyStatement(&awsiam.PolicyStatementProps{
+		Actions: jsii.Strings("states:StartExecution"),
+		Resources: &[]*string{
+			loaderSM.StateMachineArn(),
+			serverSM.StateMachineArn(),
+			cpipesSM.StateMachineArn(),
+			reportsSM.StateMachineArn(),
+		},
+	}))
+	// Also to status update lambda
+	statusUpdateLambda.AddToRolePolicy(awsiam.NewPolicyStatement(&awsiam.PolicyStatementProps{
 		Actions: jsii.Strings("states:StartExecution"),
 		Resources: &[]*string{
 			loaderSM.StateMachineArn(),
