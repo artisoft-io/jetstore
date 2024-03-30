@@ -90,6 +90,15 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 	reportsSmArn := fmt.Sprintf( "arn:aws:states:%s:%s:stateMachine:%s",
 		os.Getenv("AWS_REGION"), os.Getenv("AWS_ACCOUNT"), "reportsSM")
 
+	// Created here since it's needed for all containers
+	apiSecret := awssm.NewSecret(stack, jsii.String("apiSecret"), &awssm.SecretProps{
+		Description: jsii.String("API secret used for jwt token encryption"),
+		GenerateSecretString: &awssm.SecretStringGenerator{
+			PasswordLength:          jsii.Number(15),
+			IncludeSpace:            jsii.Bool(false),
+			RequireEachIncludedType: jsii.Bool(true),
+		},
+	})
 	// JetStore Bucket
 	// ----------------------------------------------------------------------------------------------
 	// The code that defines your stack goes here
@@ -351,7 +360,8 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 			"JETS_REPORTS_SM_ARN":                jsii.String(reportsSmArn),
 		},
 		Secrets: &map[string]awsecs.Secret{
-			"JETS_DSN_JSON_VALUE": awsecs.Secret_FromSecretsManager(rdsSecret, nil),
+			"JETS_DSN_JSON_VALUE":          awsecs.Secret_FromSecretsManager(rdsSecret, nil),
+			"API_SECRET":                   awsecs.Secret_FromSecretsManager(apiSecret, nil),
 		},
 		Logging: awsecs.LogDriver_AwsLogs(&awsecs.AwsLogDriverProps{
 			StreamPrefix: jsii.String("task"),
@@ -395,15 +405,6 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 		},
 	})
 
-	// Created here since it's needed for loader and apiserver
-	apiSecret := awssm.NewSecret(stack, jsii.String("apiSecret"), &awssm.SecretProps{
-		Description: jsii.String("API secret used for jwt token encryption"),
-		GenerateSecretString: &awssm.SecretStringGenerator{
-			PasswordLength:          jsii.Number(15),
-			IncludeSpace:            jsii.Bool(false),
-			RequireEachIncludedType: jsii.Bool(true),
-		},
-	})
 	// Loader Task Container
 	// ---------------------
 	loaderContainerDef := loaderTaskDefinition.AddContainer(jsii.String("loaderContainer"), &awsecs.ContainerDefinitionOptions{
@@ -730,7 +731,8 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 			"JETS_REPORTS_SM_ARN":                jsii.String(reportsSmArn),
 		},
 		Secrets: &map[string]awsecs.Secret{
-			"JETS_DSN_JSON_VALUE": awsecs.Secret_FromSecretsManager(rdsSecret, nil),
+			"JETS_DSN_JSON_VALUE":          awsecs.Secret_FromSecretsManager(rdsSecret, nil),
+			"API_SECRET":                   awsecs.Secret_FromSecretsManager(apiSecret, nil),
 		},
 		Logging: awsecs.LogDriver_AwsLogs(&awsecs.AwsLogDriverProps{
 			StreamPrefix: jsii.String("task"),
@@ -924,7 +926,8 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 			"JETS_REPORTS_SM_ARN":                jsii.String(reportsSmArn),
 		},
 		Secrets: &map[string]awsecs.Secret{
-			"JETS_DSN_JSON_VALUE": awsecs.Secret_FromSecretsManager(rdsSecret, nil),
+			"JETS_DSN_JSON_VALUE":          awsecs.Secret_FromSecretsManager(rdsSecret, nil),
+			"API_SECRET":                   awsecs.Secret_FromSecretsManager(apiSecret, nil),
 		},
 		Logging: awsecs.LogDriver_AwsLogs(&awsecs.AwsLogDriverProps{
 			StreamPrefix: jsii.String("task"),
@@ -1298,6 +1301,12 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 	statusUpdateLambda.AddEnvironment(
 		jsii.String("SYSTEM_PWD_SECRET"),
 		adminPwdSecret.SecretName(),
+		&awslambda.EnvironmentOptions{},	
+	)
+	apiSecret.GrantRead(statusUpdateLambda, nil)
+	statusUpdateLambda.AddEnvironment(
+		jsii.String("AWS_API_SECRET"),
+		apiSecret.SecretName(),
 		&awslambda.EnvironmentOptions{},	
 	)
 	statusUpdateLambda.AddEnvironment(

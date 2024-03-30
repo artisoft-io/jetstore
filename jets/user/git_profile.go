@@ -12,6 +12,7 @@ import (
 	"log"
 	"os"
 
+	"github.com/artisoft-io/jetstore/jets/awsi"
 	"github.com/jackc/pgx/v4"
 	"github.com/jackc/pgx/v4/pgxpool"
 )
@@ -23,11 +24,28 @@ type GitProfile struct {
 }
 
 var jetsEncriptionKey string
+var DevMode bool
 func init() {
 	jetsEncriptionKey = os.Getenv("JETS_ENCRYPTION_KEY")
 	if jetsEncriptionKey == "" {
-		log.Println("Could not load value for JETS_ENCRYPTION_KEY")
+		log.Println("user.init(): Could not load value for JETS_ENCRYPTION_KEY")
 	}
+
+	AdminEmail = os.Getenv("JETS_ADMIN_EMAIL")
+	_, DevMode = os.LookupEnv("JETSTORE_DEV_MODE")
+
+	// Get secret to sign jwt tokens
+	var err error
+	awsApiSecret := os.Getenv("AWS_API_SECRET")
+	apiSecret := os.Getenv("API_SECRET")
+	if apiSecret == "" && awsApiSecret != "" {
+		apiSecret, err = awsi.GetSecretValue(awsApiSecret)
+		if err != nil {
+			log.Println("user.init(): could not get secret value for AWS_API_SECRET")
+		}
+	}
+	ApiSecret = apiSecret
+	TokenExpiration = 60
 }
 
 func GetGitProfile(dbpool *pgxpool.Pool, userEmail string) (GitProfile, error) {

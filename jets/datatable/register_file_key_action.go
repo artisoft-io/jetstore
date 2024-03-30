@@ -673,6 +673,7 @@ func (ctx *Context) StartPipelineOnInputRegistryInsert(registerFileKeyAction *Re
 			FromClauses: []FromClause{{Schema: "jetsapi", Table: "pipeline_execution_status"}},
 			Data:        payload,
 		}
+		fmt.Println("***@@** Calling InsertRow to start pipeline with token", token)
 		result, httpStatus, err := ctx.InsertRows(&dataTableAction, token)
 		if err != nil {
 			return nil, httpStatus, fmt.Errorf("while starting pipeline in StartPipelineOnInputRegistryInsert: %v", err)
