@@ -503,7 +503,7 @@ func PipelineConfigReady2Execute(dbpool *pgxpool.Pool, processInputKeys *[]int, 
 //   - Pipeline must have automated flag on
 func (ctx *Context) StartPipelineOnInputRegistryInsert(registerFileKeyAction *RegisterFileKeyAction, token string) (*[]map[string]interface{}, int, error) {
 	// // DEV
-	// fmt.Println("StartPipelineOnInputRegistryInsert called with registerFileKeyAction:", *registerFileKeyAction)
+	fmt.Println("StartPipelineOnInputRegistryInsert called with registerFileKeyAction:", *registerFileKeyAction)
 
 	results := make([]map[string]interface{}, 0)
 	for irow := range registerFileKeyAction.Data {
