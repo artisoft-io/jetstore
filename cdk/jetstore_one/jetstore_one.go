@@ -1055,12 +1055,13 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 	// Also to status update lambda
 	statusUpdateLambda.AddToRolePolicy(awsiam.NewPolicyStatement(&awsiam.PolicyStatementProps{
 		Actions: jsii.Strings("states:StartExecution"),
-		Resources: &[]*string{
-			loaderSM.StateMachineArn(),
-			serverSM.StateMachineArn(),
-			cpipesSM.StateMachineArn(),
-			reportsSM.StateMachineArn(),
-		},
+		Resources: jsii.Strings("*"),
+		// Resources: &[]*string{
+		// 	loaderSM.StateMachineArn(),
+		// 	serverSM.StateMachineArn(),
+		// 	cpipesSM.StateMachineArn(),
+		// 	reportsSM.StateMachineArn(),
+		// },
 	}))
 
 	// ---------------------------------------
