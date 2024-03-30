@@ -297,16 +297,6 @@ func processFileAndReportStatus(dbpool *pgxpool.Pool,
 			err = nil
 		}
 	}
-	// register the session if status is not failed
-	if status != "failed" {
-
-		err = schema.RegisterSession(dbpool, "file", *client, *sessionId, *sourcePeriodKey)
-		if err != nil {
-			status = "errors"
-			processingErrors = append(processingErrors, fmt.Sprintf("error while registering the session id: %v", err))
-			err = nil
-		}
-	}
 	var errMessage string
 	if len(processingErrors) > 0 {
 		errMessage = strings.Join(processingErrors, ",")

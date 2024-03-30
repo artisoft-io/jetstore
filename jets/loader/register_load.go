@@ -18,7 +18,7 @@ import (
 func registerCurrentLoad(loadCount int64, badRowCount int64, dbpool *pgxpool.Pool, objectTypes []string, registerTableName string,
 	status string, errMessage string) error {
 
-	// NOTE: this stmt uses the global tableName so to match on the existing entry. 
+	// NOTE: this stmt uses the global tableName so to match on the existing entry.
 	// CPIPES register the load with input_registry with a different name (uses S3 as table name), hence the registerTableName
 	stmt := `INSERT INTO jetsapi.input_loader_status (
 		object_type, table_name, client, org, file_key, session_id, source_period_key, status, error_message,
@@ -33,8 +33,8 @@ func registerCurrentLoad(loadCount int64, badRowCount int64, dbpool *pgxpool.Poo
 		return fmt.Errorf("error inserting in jetsapi.input_loader_status table: %v", err)
 	}
 	log.Println("Updated input_loader_status table with main object type:", *objectType, "client", *client, "org", *clientOrg, ":: status is", status)
-	// Register loads, except when status == "failed" or loadCount == 0 
-	if len(objectTypes) > 0 && loadCount > 0 && status != "failed"  {
+	// Register loads, except when status == "failed" or loadCount == 0
+	if len(objectTypes) > 0 && loadCount > 0 && status != "failed" {
 		inputRegistryKey = make([]int, len(objectTypes))
 		for ipos, objType := range objectTypes {
 			log.Println("Registering staging table with object type:", objType, "client", *client, "org", *clientOrg)
@@ -65,6 +65,14 @@ func registerCurrentLoad(loadCount int64, badRowCount int64, dbpool *pgxpool.Poo
 			}},
 		}, token)
 	}
+	// Register session_id
+	err = schema.RegisterSession(dbpool, "file", *client, *sessionId, *sourcePeriodKey)
+	if err != nil {
+		status = "errors"
+		processingErrors = append(processingErrors, fmt.Sprintf("error while registering the session id: %v", err))
+		err = nil
+	}
+
 	return nil
 }
 
@@ -86,7 +94,6 @@ func updatePipelineExecutionStatus(dbpool *pgxpool.Pool, inputRowCount, outputRo
 	}
 	return nil
 }
-
 
 // Function to assign file_key to shard into jetsapi.compute_pipes_shard_registry
 // file_key is a file not a directory
