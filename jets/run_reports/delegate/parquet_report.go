@@ -15,15 +15,9 @@ import (
 
 // Run report and save it as parquet file locally and then copy it to s3
 
-func (ca *CommandArguments)DoParquetReport(dbpool *pgxpool.Pool, s3FileName *string, name string, sqlStmt *string) error {
+func (ca *CommandArguments)DoParquetReport(dbpool *pgxpool.Pool, tempDir string, s3FileName *string, name string, sqlStmt *string) error {
 		// save report locally in parquet
 		fmt.Println("STMT", name, "saving in parquet format")
-		// Create temp directory for the local parquet file
-		tempDir, err := os.MkdirTemp("", "jetstore")
-		if err != nil {
-			return fmt.Errorf("while creating temp dir: %v", err)
-		}
-		defer os.RemoveAll(tempDir)
 	
 		// open the parquet writer
 		tempFileName := fmt.Sprintf("%s/csv.parquet", tempDir)

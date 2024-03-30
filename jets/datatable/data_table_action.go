@@ -982,6 +982,7 @@ func (ctx *Context) InsertRows(dataTableAction *DataTableAction, token string) (
 				ca := StatusUpdate{
 					Status: "completed",
 					Dbpool: ctx.Dbpool,
+					UsingSshTunnel: ctx.UsingSshTunnel,
 					PeKey: peKeyInt,
 				}
 				if devModeCode == "run_server_only" || devModeCode == "run_server_reports" || devModeCode == "run_cpipes_only" || devModeCode == "run_cpipes_reports" {
@@ -1030,9 +1031,6 @@ func (ctx *Context) InsertRows(dataTableAction *DataTableAction, token string) (
 						cmd.Stderr = &buf
 						log.Printf("Executing server command '%v'", serverArgs)
 						err = cmd.Run()
-						fmt.Println("@@&&@@@&&&@@")
-						fmt.Println(buf.String())
-						fmt.Println("@@&&@@@&&&@@")
 					}
 					if err != nil {
 						log.Printf("while executing server command: %v", err)
@@ -1089,9 +1087,6 @@ func (ctx *Context) InsertRows(dataTableAction *DataTableAction, token string) (
 						return
 					}
 				}
-				// all good, update server execution status table
-				ca.ValidateArguments()
-				ca.CoordinateWork()
 				log.Println("============================")
 				log.Println("SERVER/CPIPES & REPORTS CAPTURED OUTPUT BEGIN")
 				log.Println("============================")
@@ -1099,6 +1094,9 @@ func (ctx *Context) InsertRows(dataTableAction *DataTableAction, token string) (
 				log.Println("============================")
 				log.Println("SERVER/CPIPES & REPORTS CAPTURED OUTPUT END")
 				log.Println("============================")
+				// all good, update server execution status table
+				ca.ValidateArguments()
+				ca.CoordinateWork()
 
 			default:
 				// Invoke states to execute a process

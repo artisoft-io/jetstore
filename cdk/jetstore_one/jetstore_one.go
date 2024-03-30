@@ -73,6 +73,10 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 		alarmAction = awscloudwatchactions.NewSnsAction(awssns.Topic_FromTopicArn(stack, jsii.String("JetStoreSnsAlarmTopic"),
 			props.SnsAlarmTopicArn))
 	}
+	nbrShards := os.Getenv("NBR_SHARDS")
+	if nbrShards == "" {
+		nbrShards = "1"
+	}
 
 	// ---------------------------------------
 	// Define the JetStore State Machines ARNs
@@ -341,6 +345,7 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 			"JETS_SENTINEL_FILE_NAME":            jsii.String(os.Getenv("JETS_SENTINEL_FILE_NAME")),
 			"JETS_DOMAIN_KEY_SEPARATOR":          jsii.String(os.Getenv("JETS_DOMAIN_KEY_SEPARATOR")),
 			"ENVIRONMENT":                        jsii.String(os.Getenv("ENVIRONMENT")),
+			"NBR_SHARDS":                         jsii.String(nbrShards),
 			"JETS_SERVER_SM_ARN":                 jsii.String(serverSmArn),
 			"JETS_CPIPES_SM_ARN":                 jsii.String(cpipesSmArn),
 			"JETS_REPORTS_SM_ARN":                jsii.String(reportsSmArn),
@@ -421,6 +426,7 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 			"JETS_s3_OUTPUT_PREFIX":              jsii.String(os.Getenv("JETS_s3_OUTPUT_PREFIX")),
 			"JETS_SENTINEL_FILE_NAME":            jsii.String(os.Getenv("JETS_SENTINEL_FILE_NAME")),
 			"JETS_DOMAIN_KEY_SEPARATOR":          jsii.String(os.Getenv("JETS_DOMAIN_KEY_SEPARATOR")),
+			"NBR_SHARDS":                         jsii.String(nbrShards),
 			"JETS_SERVER_SM_ARN":                 jsii.String(serverSmArn),
 			"JETS_CPIPES_SM_ARN":                 jsii.String(cpipesSmArn),
 			"JETS_REPORTS_SM_ARN":                jsii.String(reportsSmArn),
@@ -527,6 +533,7 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 			"JETS_SERVER_SM_ARN":                 jsii.String(serverSmArn),
 			"JETS_CPIPES_SM_ARN":                 jsii.String(cpipesSmArn),
 			"JETS_REPORTS_SM_ARN":                jsii.String(reportsSmArn),
+			"NBR_SHARDS":                         jsii.String(nbrShards),
 			"SYSTEM_USER":                        jsii.String("admin"),
 		},
 		MemorySize: jsii.Number(128),
@@ -717,6 +724,7 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 			"JETS_s3_OUTPUT_PREFIX":              jsii.String(os.Getenv("JETS_s3_OUTPUT_PREFIX")),
 			"JETS_SENTINEL_FILE_NAME":            jsii.String(os.Getenv("JETS_SENTINEL_FILE_NAME")),
 			"JETS_DOMAIN_KEY_SEPARATOR":          jsii.String(os.Getenv("JETS_DOMAIN_KEY_SEPARATOR")),
+			"NBR_SHARDS":                         jsii.String(nbrShards),
 			"JETS_SERVER_SM_ARN":                 jsii.String(serverSmArn),
 			"JETS_CPIPES_SM_ARN":                 jsii.String(cpipesSmArn),
 			"JETS_REPORTS_SM_ARN":                jsii.String(reportsSmArn),
@@ -911,6 +919,7 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 			"JETS_SENTINEL_FILE_NAME":            jsii.String(os.Getenv("JETS_SENTINEL_FILE_NAME")),
 			"JETS_DOMAIN_KEY_SEPARATOR":          jsii.String(os.Getenv("JETS_DOMAIN_KEY_SEPARATOR")),
 			"JETS_SERVER_SM_ARN":                 jsii.String(serverSmArn),
+			"NBR_SHARDS":                         jsii.String(nbrShards),
 			"JETS_CPIPES_SM_ARN":                 jsii.String(cpipesSmArn),
 			"JETS_REPORTS_SM_ARN":                jsii.String(reportsSmArn),
 		},
@@ -1074,10 +1083,6 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 			RequireEachIncludedType: jsii.Bool(true),
 		},
 	})
-	nbrShards := os.Getenv("NBR_SHARDS")
-	if nbrShards == "" {
-		nbrShards = "1"
-	}
 	uiTaskContainer := uiTaskDefinition.AddContainer(jsii.String("uiContainer"), &awsecs.ContainerDefinitionOptions{
 		// Use JetStore Image in ecr
 		Image:         jetStoreImage,

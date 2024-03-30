@@ -47,11 +47,18 @@ type StringSubstitution struct {
 	With    string `json:"with"`
 }
 
+type SentinelConfig struct {
+	FilePathSubstitution []StringSubstitution `json:"filePathSubstitution"`
+}
+
 type ReportDirectives struct {
+	// InputPath is original fileKey, unless overriten in config file, used to emit sentinel file
 	FilePathSubstitution        []StringSubstitution         `json:"filePathSubstitution"`
 	ReportScripts               []string                     `json:"reportScripts"`
 	UpdateLookupTables          bool                         `json:"updateLookupTables"`
+	EmitSentinelFile            *SentinelConfig              `json:"emitSentinelFile"`
 	OutputS3Prefix              string                       `json:"outputS3Prefix"`
+	InputPath                   string                       `json:"inputPath"`
 	OutputPath                  string                       `json:"outputPath"`
 	ReportsAsTable              map[string]string            `json:"reportsAsTable"`
 	ReportOrStatementProperties map[string]map[string]string `json:"reportOrStatementProperties"`
@@ -73,7 +80,7 @@ type CommandArguments struct {
 	OriginalFileName        string
 	ReportScriptPaths       []string
 	CurrentReportDirectives *ReportDirectives
-	ComputePipesJson        string
+	// ComputePipesJson        string
 	BucketName              string
 	RegionName              string
 }
@@ -81,11 +88,18 @@ type CommandArguments struct {
 // Main Functions
 // --------------------------------------------------------------------------------------
 func (ca *CommandArguments) RunReports(dbpool *pgxpool.Pool) (err error) {
+
+	// Create temp directory for the local temp files
+	tempDir, err := os.MkdirTemp("", "jetstore")
+	if err != nil {
+		return fmt.Errorf("while creating temp dir: %v", err)
+	}
 	defer func() {
 		if r := recover(); r != nil {
 			err = fmt.Errorf("recovered error: %v", r)
 			debug.PrintStack()
 		}
+		os.RemoveAll(tempDir)
 	}()
 
 	// Keep track of files (reports) written to s3 (use case UpdateLookupTables)
@@ -95,18 +109,18 @@ func (ca *CommandArguments) RunReports(dbpool *pgxpool.Pool) (err error) {
 	// Run the reports
 	for i := range ca.ReportScriptPaths {
 		reportProps := reportDirectives.ReportOrStatementProperties[reportDirectives.ReportScripts[i]]
-		// Check if report/script is for Compute Pipes only
-		doIt := true
-		switch reportProps["runWhenComputePipes"] {
-		case "true":
-			doIt = len(ca.ComputePipesJson) > 0
-		case "false":
-			doIt = len(ca.ComputePipesJson) == 0
-		}
-		if !doIt {
-			log.Printf("Skipping report or script '%s' (compute pipes check)", reportDirectives.ReportScripts[i])
-			continue
-		}
+		// // Check if report/script is for Compute Pipes only
+		// doIt := true
+		// switch reportProps["runWhenComputePipes"] {
+		// case "true":
+		// 	doIt = len(ca.ComputePipesJson) > 0
+		// case "false":
+		// 	doIt = len(ca.ComputePipesJson) == 0
+		// }
+		// if !doIt {
+		// 	log.Printf("Skipping report or script '%s' (compute pipes check)", reportDirectives.ReportScripts[i])
+		// 	continue
+		// }
 		// Determine if we file is a sql reports or a sql script, sql script are executed in one go
 		// while sql report are executed statement by statement with results generally saved to s3 (most common)
 		if reportProps["reportOrScript"] == "script" {
@@ -116,7 +130,7 @@ func (ca *CommandArguments) RunReports(dbpool *pgxpool.Pool) (err error) {
 		} else {
 			// Running as sql report by default
 			log.Println("Running report:", ca.ReportScriptPaths[i])
-			err = ca.runReportsDelegate(dbpool, ca.ReportScriptPaths[i], &updatedKeys)
+			err = ca.runReportsDelegate(dbpool, tempDir, ca.ReportScriptPaths[i], &updatedKeys)
 		}
 		if err != nil {
 			return err
@@ -137,6 +151,40 @@ func (ca *CommandArguments) RunReports(dbpool *pgxpool.Pool) (err error) {
 		version := strconv.FormatInt(time.Now().Unix(), 10)
 		_, err = workspace.CompileWorkspace(dbpool, ca.WorkspaceName, version)
 		if err != nil {
+			return err
+		}
+	}
+
+	// Check if we need to emit a sentinel file (cpipesSM)
+	if reportDirectives.EmitSentinelFile != nil {
+		log.Println("Emitting Sentinel File to:",reportDirectives.InputPath)
+		// Write the 0-byte sentinel file (take the file name from env JETS_SENTINEL_FILE_NAME)
+		// Copy file to s3 location
+		sentinelFileName := os.Getenv("JETS_SENTINEL_FILE_NAME")
+		if len(sentinelFileName) == 0 {
+			sentinelFileName = "_DONE"
+		}
+		tempFileName := fmt.Sprintf("%s/%s", tempDir, sentinelFileName)
+		fileHd, err2 := os.OpenFile(tempFileName, os.O_RDWR|os.O_CREATE, 0644)
+		if err2 != nil {
+			err = fmt.Errorf("while creating sentinel file to copy to s3: %v", err2)
+			log.Println(err)
+			return err
+		}
+		defer func() {
+			fileHd.Close()
+			os.Remove(tempFileName)
+		}()
+		s3FileDir := reportDirectives.InputPath
+		for i := range reportDirectives.EmitSentinelFile.FilePathSubstitution {
+			s3FileDir = strings.ReplaceAll(s3FileDir,
+				reportDirectives.EmitSentinelFile.FilePathSubstitution[i].Replace,
+				reportDirectives.EmitSentinelFile.FilePathSubstitution[i].With)
+		}
+	
+		s3FileName := fmt.Sprintf("%s/%s/session_id=%s/%s", s3FileDir, ca.OriginalFileName, ca.SessionId, sentinelFileName)
+		if err2 = awsi.UploadToS3(ca.BucketName, ca.RegionName, s3FileName, fileHd); err2 != nil {
+			err = fmt.Errorf("while copying sentinel to s3: %v", err2)
 			return err
 		}
 	}
@@ -182,7 +230,7 @@ func (ca *CommandArguments) runSqlScriptDelegate(dbpool *pgxpool.Pool, reportScr
 	return nil
 }
 
-func (ca *CommandArguments) runReportsDelegate(dbpool *pgxpool.Pool, reportScriptPath string, updatedKeys *[]string) error {
+func (ca *CommandArguments) runReportsDelegate(dbpool *pgxpool.Pool, tempDir string, reportScriptPath string, updatedKeys *[]string) error {
 
 	// Get the report definitions
 	file, err := os.Open(reportScriptPath)
@@ -225,7 +273,7 @@ func (ca *CommandArguments) runReportsDelegate(dbpool *pgxpool.Pool, reportScrip
 		stmt = strings.TrimSuffix(stmt, ";")
 
 		// Do the report
-		s3FileName, err := ca.DoReport(dbpool, &name, &stmt)
+		s3FileName, err := ca.DoReport(dbpool, tempDir, &name, &stmt)
 		if err != nil {
 			return err
 		}
@@ -238,7 +286,7 @@ func (ca *CommandArguments) runReportsDelegate(dbpool *pgxpool.Pool, reportScrip
 
 // The heavy lifting
 // outputFileName is the name in the report sql file, this is mapped to a table name in ReportDirectives.ReportsAsTable
-func (ca *CommandArguments) DoReport(dbpool *pgxpool.Pool, outputFileName *string, sqlStmt *string) (string, error) {
+func (ca *CommandArguments) DoReport(dbpool *pgxpool.Pool, tempDir string, outputFileName *string, sqlStmt *string) (string, error) {
 
 	name := *outputFileName
 	// Remove ':' and '.' from originalFileName
@@ -337,7 +385,7 @@ func (ca *CommandArguments) DoReport(dbpool *pgxpool.Pool, outputFileName *strin
 	switch outputFormat {
 	case "parquet":
 		// Output to parquet format
-		err := ca.DoParquetReport(dbpool, &s3FileName, name, &stmt)
+		err := ca.DoParquetReport(dbpool, tempDir, &s3FileName, name, &stmt)
 		if err != nil {
 			return "", err
 		}

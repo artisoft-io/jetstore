@@ -262,7 +262,7 @@ func processFileAndReportStatus(dbpool *pgxpool.Pool,
 		for partition := range splitter {
 			copy2DbResult := <-partition
 			outputRowCount += copy2DbResult.CopyRowCount
-			fmt.Println("**!@@ Wrote", copy2DbResult.CopyRowCount, "rows in partition", copy2DbResult.TableName, "::", copy2DbResult.Err)
+			fmt.Println("Wrote", copy2DbResult.CopyRowCount, "rows in partition", copy2DbResult.TableName, "::", copy2DbResult.Err)
 			if copy2DbResult.Err != nil {
 				processingErrors = append(processingErrors, copy2DbResult.Err.Error())
 				if err == nil {
@@ -463,7 +463,7 @@ func coordinateWork() error {
 
 	log.Printf("Input file encoding (format) is: %s", inputFileEncoding.String())
 
-	if *pipelineExecKey == -1 && isPartFiles == 1 {
+	if len(computePipesJson) > 0 &&  *pipelineExecKey == -1 && isPartFiles == 1 {
 		// Case loader mode (loaderSM) with multipart files, allocate the file keys to shards
 		// and register the load to kick off cpipesSM
 		nkeys, err := shardFileKeys(dbpool, *inFile, *sessionId, *nbrShards)
@@ -477,6 +477,77 @@ func coordinateWork() error {
 		}
 		return nil
 	}
+
+	// Processing file(s), invoking the loader process in loop when processing
+	// Global var cpipesMode string,  values: loader, pre-sharding, sharding, reducing, standalone
+	// multiple folders of multipart files (case cpipesSM in mode reduce)
+	// Scenario:
+	//	- loader classic (loaderSM) case *pipelineExecKey == -1 && computePipesJson empty
+	//		Single call to processComputeGraph with inFile
+
+	//	- loader cpipesSM standalone case *pipelineExecKey == -1 && isPartFiles == 0 && computePipesJson not empty
+	//		Single call to processComputeGraph with inFile (single file for now)
+
+	//	- loader cpipesSM pre-sharding: case *pipelineExecKey == -1 && isPartFiles == 1 && computePipesJson not empty
+	//		Handled above, no invocation of processComputeGraph
+
+	//	- loader cpipesSM sharding: case *pipelineExecKey > -1 && isPartFiles == 1 && computePipesJson not empty, 
+	//		entries on compute_pipes_shard_registry table HAVE is_file = 1
+	//		Single invokation of processComputeGraph with all file keys
+
+	//	- loader cpipesSM reducing: case *pipelineExecKey > -1 && isPartFiles == 1 && computePipesJson not empty, 
+	//		entries on compute_pipes_shard_registry table HAVE is_file = 0
+	//		Invoke of processComputeGraph for each file key, update inFile with file key to process
+	cpipesFileKeys = make([]string, 0)
+	switch {
+	case *pipelineExecKey == -1 && len(computePipesJson) == 0:
+		// loader classic (loaderSM)
+		cpipesMode = "loader"
+		return processComputeGraph(dbpool)
+
+	case *pipelineExecKey == -1 && isPartFiles == 0 && len(computePipesJson) > 0:
+		// loader cpipesSM standalone
+		cpipesMode = "standalone"
+		return processComputeGraph(dbpool)
+
+	case *pipelineExecKey == -1 && isPartFiles == 1 && len(computePipesJson) > 0:
+		// loader cpipesSM pre-sharding: handled above
+		return nil
+
+	case *pipelineExecKey > -1 && isPartFiles == 1 && len(computePipesJson) > 0:
+		// Get the file keys from compute_pipes_shard_registry table
+		fileKeys, isFile, err := getFileKeys(dbpool, inputSessionId, *shardId)
+		if err != nil || fileKeys == nil || len(fileKeys) == 0 {
+			return fmt.Errorf("failed to get list of files from compute_pipes_shard_registry table (list empty?): %v", err)
+		}
+		log.Printf("**!@@ Got %d file keys from database, isFile %d", len(fileKeys), isFile)
+		if isFile == 1 {
+			// loader cpipesSM sharding when entries on compute_pipes_shard_registry table HAVE is_file = 1
+			cpipesFileKeys = fileKeys
+			cpipesMode = "sharding"
+			log.Println("cpipes 'sharding' sharding keys under",*inFile)
+			return processComputeGraph(dbpool)
+		}
+		// loader cpipesSM reducing when entries on compute_pipes_shard_registry table HAVE is_file = 0
+		cpipesMode = "reducing"
+		for i := range fileKeys {
+			*inFile = fileKeys[i]
+			log.Println("cpipes 'reducing' processing key",*inFile)
+			err = processComputeGraph(dbpool)
+			if err != nil {
+				return err
+			}
+		}
+
+	default:
+		msg := "error: unexpected schenario: pipelineExecKey = %d && isPartFiles = %d && len(computePipesJson) = %d"
+		log.Printf(msg, *pipelineExecKey, isPartFiles, len(computePipesJson))
+		return fmt.Errorf(msg, *pipelineExecKey, isPartFiles, len(computePipesJson))
+	}
+	return nil
+}
+
+func processComputeGraph(dbpool *pgxpool.Pool) (err error) {
 
 	// Start the download of file(s) from s3 and upload to db, coordinated using channel
 	done := make(chan struct{})
@@ -499,7 +570,7 @@ func coordinateWork() error {
 	// fmt.Println("Temp error file name:", errFileHd.Name())
 	defer os.Remove(errFileHd.Name())
 
-	headersFileCh, fileNamesCh, downloadS3ResultCh, inFolderPath, err := downloadS3Files(dbpool, done)
+	headersFileCh, fileNamesCh, downloadS3ResultCh, inFolderPath, err := downloadS3Files(done)
 	if err != nil {
 		return fmt.Errorf("failed to setup the download of input file(s): %v", err)
 	}
