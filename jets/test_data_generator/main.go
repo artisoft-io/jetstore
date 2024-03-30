@@ -24,7 +24,7 @@ var awsRegion          = flag.String("awsRegion", "", "aws region to connect to 
 var ndcFilePath        = flag.String("ndcFilePath", "", "File path for the ndc reference data")
 var outFileKey         = flag.String("outFileKey", "", "S3 file key for the generated test file")
 var csvTemplatePath    = flag.String("csvTemplatePath", "", "File path for the output csv template")
-var nbrBaseClaims      = flag.Int("nbrBaseClaims", 1, "Nbr of claims per key combination")
+var NbrRawFN           = flag.Int("NbrRawFN", 1, "Nbr of claims per key combination")
 var nbrMembers         = flag.Int("nbrMembers", 1, "Nbr of members to generate")
 
 func main() {
@@ -39,7 +39,7 @@ func main() {
 		NdcFilePath: *ndcFilePath,
 		OutFileKey: *outFileKey,
 		CsvTemplatePath: *csvTemplatePath,
-		NbrBaseClaims: *nbrBaseClaims,
+		NbrRawFN: *NbrRawFN,
 		NbrMembers: *nbrMembers,
 	}
 

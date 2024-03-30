@@ -7,7 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"math/rand"
+	// "math/rand"
 	"os"
 
 	"github.com/artisoft-io/jetstore/jets/awsi"
@@ -32,7 +32,7 @@ type CommandArguments struct {
 	NdcFilePath     string
 	OutFileKey      string
 	CsvTemplatePath string
-	NbrBaseClaims   int
+	NbrRawFN        int
 	NbrMembers      int
 }
 
@@ -141,8 +141,8 @@ func (ca *CommandArguments) ValidateArguments() []string {
 		errMsg = append(errMsg, "Env var JETS_BUCKET must be provided.")
 	}
 
-	if ca.NbrBaseClaims < 1 {
-		errMsg = append(errMsg, "NbrBaseClaims must be at least 1.")
+	if ca.NbrRawFN < 1 {
+		errMsg = append(errMsg, "NbrRawFN must be at least 1.")
 	}
 
 	if ca.NbrMembers < 1 {
@@ -159,7 +159,7 @@ func (ca *CommandArguments) ValidateArguments() []string {
 	fmt.Println("Got argument: ndcFilePath", ca.NdcFilePath)
 	fmt.Println("Got argument: outFileKey", ca.OutFileKey)
 	fmt.Println("Got argument: csvTemplatePath", ca.CsvTemplatePath)
-	fmt.Println("Got argument: nbrBaseClaims", ca.NbrBaseClaims)
+	fmt.Println("Got argument: NbrRawFN", ca.NbrRawFN)
 	fmt.Println("Got argument: nbrMembers", ca.NbrMembers)
 	fmt.Printf("ENV JETS_s3_INPUT_PREFIX: %s\n", os.Getenv("JETS_s3_INPUT_PREFIX"))
 	fmt.Printf("ENV JETS_BUCKET: %s\n", os.Getenv("JETS_BUCKET"))
@@ -192,12 +192,12 @@ func (ca *CommandArguments) CoordinateWork() error {
 	defer os.Remove(outFile.Name()) // clean up
 	outWriter := bufio.NewWriter(outFile)
 
-	// Get the NDC list
-	ndcList, err := ca.GetNdcList()
-	if err != nil {
-		return fmt.Errorf("while getting the NDC list: %v", err)
-	}
-	nbrNdc := len(*ndcList)
+	// // Get the NDC list
+	// ndcList, err := ca.GetNdcList()
+	// if err != nil {
+	// 	return fmt.Errorf("while getting the NDC list: %v", err)
+	// }
+	// nbrNdc := len(*ndcList)
 
 	// Test data template info
 	header, rowTemplate, err := ca.GetTemplateInfo()
@@ -215,22 +215,17 @@ func (ca *CommandArguments) CoordinateWork() error {
 	fmt.Println("OutFile Path:", outFilePath)
 
 	// Generate test data
-	for iMbr := 0; iMbr < ca.NbrMembers; iMbr++ {
-		baseKey := uuid.New().String()
-		fmt.Println(iMbr+1, "of", ca.NbrMembers, "baseKey", baseKey)
-		for k1 := 11; k1 < 13; k1++ {
-			for k2 := 21; k2 < 23; k2++ {
-				for k3 := 31; k3 < 34; k3++ {
-					for iClm := 0; iClm < ca.NbrBaseClaims; iClm++ {
-						ndc := (*ndcList)[rand.Intn(nbrNdc)]
-						_, err = outWriter.WriteString(fmt.Sprintf(rowTemplate, baseKey, k1, k2, k3, ndc))
-						if err != nil {
-							return fmt.Errorf("while writing test claim row to output file: %v", err)
-						}
-						outWriter.WriteRune('\n')
-					}
-				}
+	fmt.Println("Generate data NbrRawFN:", ca.NbrRawFN, "NbrMembers:", ca.NbrMembers)
+	for iFN := 0; iFN < ca.NbrRawFN; iFN++ {
+		baseFN := uuid.New().String()
+		for iMbr := 0; iMbr < ca.NbrMembers; iMbr++ {
+			// ndc := (*ndcList)[rand.Intn(nbrNdc)]
+			baseKey := uuid.New().String()
+			_, err = outWriter.WriteString(fmt.Sprintf(rowTemplate, baseFN, baseKey))
+			if err != nil {
+				return fmt.Errorf("while writing test claim row to output file: %v", err)
 			}
+			outWriter.WriteRune('\n')
 		}
 	}
 
