@@ -507,9 +507,14 @@ func coordinateWork() error {
 	case *pipelineExecKey > -1 && isPartFiles == 1 && len(computePipesJson) > 0:
 		// Get the file keys from compute_pipes_shard_registry table
 		fileKeys, isFile, err := getFileKeys(dbpool, inputSessionId, *shardId)
-		if err != nil || fileKeys == nil || len(fileKeys) == 0 {
-			return fmt.Errorf("failed to get list of files from compute_pipes_shard_registry table (list empty?): %v", err)
+		if err != nil || fileKeys == nil {
+			return fmt.Errorf("failed to get list of files from compute_pipes_shard_registry table: %v", err)
 		}
+		if len(fileKeys) == 0 {
+			log.Println("Got no file keys, exiting silently")
+			return nil
+		}
+
 		log.Printf("**!@@ Got %d file keys from database, isFile %d", len(fileKeys), isFile)
 		if isFile == 1 {
 			// loader cpipesSM sharding when entries on compute_pipes_shard_registry table HAVE is_file = 1
