@@ -527,7 +527,7 @@ func coordinateWork() error {
 		cpipesMode = "reducing"
 		for i := range fileKeys {
 			*inFile = fileKeys[i]
-			log.Println("cpipes 'reducing' processing key",*inFile)
+			log.Println("cpipes 'reducing' #",i," :: processing key",*inFile)
 			err = processComputeGraph(dbpool)
 			if err != nil {
 				return err
