@@ -8,6 +8,7 @@ import (
 // aggregate TransformationSpec implementing PipeTransformationEvaluator interface
 
 type AggregateTransformationPipe struct {
+	cpConfig *ComputePipesConfig
 	outputCh *OutputChannel
 	columnEvaluators []TransformationColumnEvaluator
 	currentValues []interface{}
@@ -31,6 +32,10 @@ func (ctx *AggregateTransformationPipe) done() error {
 		if err != nil {
 			return fmt.Errorf("while calling done on column evaluator from AggregateTransformationPipe: %v", err)
 		}
+	}
+	// Print Memory Usage if requested
+	if len(ctx.cpConfig.RuntimeMetrics) > 0 {
+		ReportMetrics(ctx.cpConfig.RuntimeMetrics)
 	}
 	// Send the result to output
 	// fmt.Println("**! ** Send AGGREGATE Result to", ctx.outputCh.config.Name)
@@ -64,6 +69,7 @@ func (ctx *BuilderContext) NewAggregateTransformationPipe(source *InputChannel, 
 		columnEvaluators[i].initializeCurrentValue(&currentValues)
 	}
 	return &AggregateTransformationPipe{
+		cpConfig: ctx.cpConfig,
 		outputCh: outputCh,
 		columnEvaluators: columnEvaluators,
 		currentValues: currentValues,

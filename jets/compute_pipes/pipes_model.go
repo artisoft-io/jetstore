@@ -2,12 +2,19 @@ package compute_pipes
 
 // This file contains the Compute Pipes configuration model
 type ComputePipesConfig struct {
-	OutputTables []TableSpec    `json:"output_tables"`
-	Channels     []ChannelSpec  `json:"channels"`
-	Context      *[]ContextSpec `json:"context"`
-	PipesConfig  []PipeSpec     `json:"pipes_config"`
+	RuntimeMetrics []Metric       `json:"runtime_metrics"`
+	OutputTables   []TableSpec    `json:"output_tables"`
+	Channels       []ChannelSpec  `json:"channels"`
+	Context        *[]ContextSpec `json:"context"`
+	PipesConfig    []PipeSpec     `json:"pipes_config"`
 }
 
+type Metric struct {
+	// Type range: runtime
+	// Name values: alloc, total_alloc, sys, nbr_gc
+	Type string `json:"type"`
+	Name string `json:"name"`
+}
 type ChannelSpec struct {
 	Name    string   `json:"name"`
 	Columns []string `json:"columns"`
