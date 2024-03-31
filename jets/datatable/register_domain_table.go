@@ -36,11 +36,12 @@ func RegisterDomainTables(dbpool *pgxpool.Pool, usingSshTunnel bool, pipelineExe
 	}
 	_, globalDevMode := os.LookupEnv("JETSTORE_DEV_MODE")
 
+	var mainInputFileKey string
 	err = dbpool.QueryRow(context.Background(),
-		`SELECT pe.client, pc.output_tables, pe.session_id, pe.source_period_key, pe.user_email 
+		`SELECT pe.client, pc.output_tables, pe.main_input_file_key, pe.session_id, pe.source_period_key, pe.user_email 
 		FROM jetsapi.process_config pc, jetsapi.pipeline_config plnc, jetsapi.pipeline_execution_status pe 
 		WHERE pc.key = plnc.process_config_key AND plnc.key = pe.pipeline_config_key AND pe.key = $1`,
-		pipelineExecutionKey).Scan(&client, &outTables, &sessionId, &sourcePeriodKey, &userEmail)
+		pipelineExecutionKey).Scan(&client, &outTables, &mainInputFileKey, &sessionId, &sourcePeriodKey, &userEmail)
 	if err != nil {
 		msg := fmt.Sprintf("while getting output_tables from process config: %v", err)
 		return fmt.Errorf(msg)
@@ -62,19 +63,25 @@ func RegisterDomainTables(dbpool *pgxpool.Pool, usingSshTunnel bool, pipelineExe
 	if err != nil {
 		return fmt.Errorf("error creating jwt token: %v", err)
 	}
-	fmt.Println("***@@@** Created token for user", userEmail,"token:",token)
-	fmt.Println("***@@@** Registrying outTables:", outTables)
+	fmt.Println("***@@@** Created token for user", userEmail, "token:", token)
+	fmt.Println("***@@@** Registrying outTables:", outTables, "from file key", mainInputFileKey)
 	for i := range outTables {
-		// Get the ObjectTypes associated with Domain Table from domain_keys_registry
-		// Note: Using the fact that Domain Table is named from the assiciated rdf type
+		//*TODO REVIEW THIS: Get the ObjectTypes associated with Domain Table from domain_keys_registry
+		//*TODO REVIEW THIS: Note: Using the fact that Domain Table is named from the associated rdf type
 		objectTypes, _, err := workspace.GetDomainKeysInfo(dbpool, outTables[i])
 		if err != nil {
 			return fmt.Errorf("while calling GetDomainKeysInfo for table %s: %v", outTables[i], err)
 		}
-		fmt.Println("***@@@** Registrying for outTable:", outTables[i],"registring oubject_types:",*objectTypes)
+		fmt.Println("***@@@** Registrying for outTable:", outTables[i], "registring object_types:", *objectTypes)
 		for j := range *objectTypes {
+			var label string
+			if len(mainInputFileKey) > 0 {
+				label = GetLastComponent(mainInputFileKey)
+			} else {
+				label = outTables[i]
+			}
 			domainTableFileKey := fmt.Sprintf("%s/client=%s/year=%d/month=%d/day=%d/%s",
-				prefix, client, sourcePeriod.Year, sourcePeriod.Month, sourcePeriod.Day, outTables[i])
+				prefix, client, sourcePeriod.Year, sourcePeriod.Month, sourcePeriod.Day, label)
 
 			var inputRegistryKey int
 			// Register domain_table and session in input_registry
@@ -88,7 +95,7 @@ func RegisterDomainTables(dbpool *pgxpool.Pool, usingSshTunnel bool, pipelineExe
 				fmt.Println("error unable to register out tables to input_registry (ignored):", err)
 			} else {
 				// Check if automated processes are ready to start
-				fmt.Println("**** Register Domain Table w/ inputRegistryKey:",inputRegistryKey, "object_type",(*objectTypes)[j])
+				fmt.Println("**** Register Domain Table w/ inputRegistryKey:", inputRegistryKey, "object_type", (*objectTypes)[j])
 				ctx.StartPipelineOnInputRegistryInsert(&RegisterFileKeyAction{
 					Action: "register_keys",
 					Data: []map[string]interface{}{{
