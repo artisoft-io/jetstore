@@ -73,16 +73,14 @@ func RegisterDomainTables(dbpool *pgxpool.Pool, usingSshTunnel bool, pipelineExe
 			return fmt.Errorf("while calling GetDomainKeysInfo for table %s: %v", outTables[i], err)
 		}
 		fmt.Println("***@@@** Registrying for outTable:", outTables[i], "registring object_types:", *objectTypes)
+		var domainTableFileKey string
+		if len(mainInputFileKey) > 0 {
+			domainTableFileKey = mainInputFileKey
+		} else {
+			domainTableFileKey = fmt.Sprintf("%s/client=%s/year=%d/month=%d/day=%d/%s",
+				prefix, client, sourcePeriod.Year, sourcePeriod.Month, sourcePeriod.Day, outTables[i])
+		}
 		for j := range *objectTypes {
-			var label string
-			if len(mainInputFileKey) > 0 {
-				label = GetLastComponent(mainInputFileKey)
-			} else {
-				label = outTables[i]
-			}
-			domainTableFileKey := fmt.Sprintf("%s/client=%s/year=%d/month=%d/day=%d/%s",
-				prefix, client, sourcePeriod.Year, sourcePeriod.Month, sourcePeriod.Day, label)
-
 			var inputRegistryKey int
 			// Register domain_table and session in input_registry
 			stmt := `INSERT INTO jetsapi.input_registry 
