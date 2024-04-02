@@ -1422,13 +1422,15 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 // ----------------------
 // ACTIVE_WORKSPACE_URI source of active workspace
 // AWS_ACCOUNT (required)
-// AWS_REGION (required)
-// ENVIRONMENT (used by run_report)
 // AWS_PREFIX_LIST_ROUTE53_HEALTH_CHECK (required) region specific aws prefix list for endpoint access
 // AWS_PREFIX_LIST_S3 (required) region specific aws prefix list for endpoint access
+// AWS_REGION (required)
 // BASTION_HOST_KEYPAIR_NAME (optional, no keys deployed if not defined)
+// ENVIRONMENT (used by run_report)
 // JETS_BUCKET_NAME (optional, use existing bucket by name, create new bucket if empty)
 // JETS_CERT_ARN (not required unless JETS_ELB_MODE==public)
+// JETS_CPIPES_TASK_CPU allocated cpu in vCPU units
+// JETS_CPIPES_TASK_MEM_LIMIT_MB memory limit, based on fargate table
 // JETS_CPU_UTILIZATION_ALARM_THRESHOLD (required, Alarm threshold for metric CPUUtilization, default 80)
 // JETS_DB_MAX_CAPACITY (required, Aurora Serverless v2 max capacity in ACU units, default 6)
 // JETS_DB_MIN_CAPACITY (required, Aurora Serverless v2 min capacity in ACU units, default 0.5)
@@ -1437,13 +1439,15 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 // JETS_DOMAIN_KEY_SEPARATOR used as separator to domain key elements
 // JETS_ECR_REPO_ARN (required)
 // JETS_ELB_INTERNET_FACING (not required unless JETS_ELB_MODE==public, values: true, false)
-// JETS_ELB_NO_ALL_INCOMING UI ELB SG w/o all incoming traffic (not required unless JETS_ELB_INTERNET_FACING==true, default false, values: true, false)
 // JETS_ELB_MODE (defaults private)
+// JETS_ELB_NO_ALL_INCOMING UI ELB SG w/o all incoming traffic (not required unless JETS_ELB_INTERNET_FACING==true, default false, values: true, false)
 // JETS_GIT_ACCESS (optional) value is list of SCM e.g. 'github,bitbucket'
 // JETS_IMAGE_TAG (required)
 // JETS_INPUT_ROW_JETS_KEY_ALGO (values: uuid, row_hash, domain_key (default: uuid))
 // JETS_INVALID_CODE (optional) code value when client code is not is the code value mapping, default return the client value
 // JETS_LOADER_CHUNCK_SIZE loader file partition size
+// JETS_LOADER_TASK_CPU allocated cpu in vCPU units
+// JETS_LOADER_TASK_MEM_LIMIT_MB memory limit, based on fargate table
 // JETS_NBR_NAT_GATEWAY (optional, default to 0), set to 1 to be able to reach out to github for git integration
 // JETS_RESET_DOMAIN_TABLE_ON_STARTUP (optional, if is yes will reset the domain table on startup if build version is more recent than db version)
 // JETS_s3_INPUT_PREFIX (required)
@@ -1451,9 +1455,8 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 // JETS_SENTINEL_FILE_NAME (optional, fixed file name for multipart sentinel file - file of size 0)
 // JETS_SERVER_TASK_CPU allocated cpu in vCPU units
 // JETS_SERVER_TASK_MEM_LIMIT_MB memory limit, based on fargate table
-// JETS_LOADER_TASK_CPU allocated cpu in vCPU units
-// JETS_LOADER_TASK_MEM_LIMIT_MB memory limit, based on fargate table
 // JETS_SNS_ALARM_TOPIC_ARN (optional, sns topic for sending alarm)
+// JETS_STACK_TAGS_JSON (optional, stack-level tags name/value as json)
 // JETS_TAG_NAME_DESCRIPTION (optional, resource-level tag name for description of the resource)
 // JETS_TAG_NAME_OWNER (optional, stack-level tag name for owner)
 // JETS_TAG_NAME_PHI (optional, resource-level tag name for indicating if resource contains PHI data, value true/false)
@@ -1461,7 +1464,6 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 // JETS_TAG_NAME_PROD (optional, stack-level tag name for prod indicator)
 // JETS_TAG_VALUE_OWNER (optional, stack-level tag value for owner)
 // JETS_TAG_VALUE_PROD (optional, stack-level tag value for indicating it's a production env)
-// JETS_STACK_TAGS_JSON (optional, stack-level tags name/value as json)
 // JETS_UI_PORT (defaults 8080)
 // JETS_VPC_CIDR VPC cidr block, default 10.10.0.0/16
 // JETS_VPC_INTERNET_GATEWAY (optional, default to false), set to true to create VPC with internet gateway, if false JETS_NBR_NAT_GATEWAY is set to 0
@@ -1486,6 +1488,8 @@ func main() {
 	fmt.Println("env ENVIRONMENT:", os.Getenv("ENVIRONMENT"))
 	fmt.Println("env JETS_BUCKET_NAME:", os.Getenv("JETS_BUCKET_NAME"))
 	fmt.Println("env JETS_CERT_ARN:", os.Getenv("JETS_CERT_ARN"))
+	fmt.Println("env JETS_CPIPES_TASK_CPU:", os.Getenv("JETS_CPIPES_TASK_CPU"))
+	fmt.Println("env JETS_CPIPES_TASK_MEM_LIMIT_MB:", os.Getenv("JETS_CPIPES_TASK_MEM_LIMIT_MB"))
 	fmt.Println("env JETS_CPU_UTILIZATION_ALARM_THRESHOLD:", os.Getenv("JETS_CPU_UTILIZATION_ALARM_THRESHOLD"))
 	fmt.Println("env JETS_DB_MAX_CAPACITY:", os.Getenv("JETS_DB_MAX_CAPACITY"))
 	fmt.Println("env JETS_DB_MIN_CAPACITY:", os.Getenv("JETS_DB_MIN_CAPACITY"))
