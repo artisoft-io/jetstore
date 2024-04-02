@@ -80,7 +80,7 @@ func (ctx *PartitionWriterTransformationPipe) apply(input *[]interface{}) error 
 
 		// Start the device writter for the partition
 		ctx.filePartitionNumber += 1
-		partitionFileName := fmt.Sprintf("part%04d.parquet", ctx.filePartitionNumber)
+		partitionFileName := fmt.Sprintf("part%07d.parquet", ctx.filePartitionNumber)
 		s3DeviceWriter := &S3DeviceWriter{
 			source: &InputChannel{
 				channel: ctx.currentDeviceCh,
@@ -151,6 +151,11 @@ func (ctx *PartitionWriterTransformationPipe) apply(input *[]interface{}) error 
 //   - write the 0-byte sentinel file (take the file name from env JETS_SENTINEL_FILE_NAME)
 //   - Send the total row count to ctx.copy2DeviceResultCh
 func (ctx *PartitionWriterTransformationPipe) done() error {
+	// Print Memory Usage if requested
+	if len(ctx.cpConfig.RuntimeMetrics) > 0 {
+		ReportMetrics(ctx.cpConfig.RuntimeMetrics)
+	}
+
 	// Flush the current partition
 	if ctx.currentDeviceCh != nil {
 		close(ctx.currentDeviceCh)
