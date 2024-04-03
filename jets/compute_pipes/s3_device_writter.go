@@ -52,6 +52,12 @@ func (ctx *S3DeviceWriter) WritePartition() {
 
 	// Write the rows into the temp file
 	for inRow := range ctx.source.channel {
+		// replace null with empty string
+		for i := range inRow {
+			if inRow[i] == nil {
+				inRow[i] = ""
+			}
+		}
 		if err = pw.Write(inRow); err != nil {
 			fw.Close()
 			cpErr = fmt.Errorf("while writing row to local parquet file: %v", err)
@@ -84,7 +90,9 @@ func (ctx *S3DeviceWriter) WritePartition() {
 	// All good!
 	return
 gotError:
-	log.Println(cpErr)
-	ctx.errCh <- cpErr
-	close(ctx.doneCh)
+	//* FIX THIS These error are often commin too late FIX THIS
+	log.Fatalln("PANIC (FIX THIS)",cpErr)
+	// log.Println(cpErr)
+	// ctx.errCh <- cpErr
+	// close(ctx.doneCh)
 }
