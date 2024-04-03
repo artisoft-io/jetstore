@@ -212,6 +212,8 @@ func (ctx *BuilderContext) NewPartitionWriterTransformationPipe(source *InputCha
 	outputCh *OutputChannel, copy2DeviceResultCh chan ComputePipesResult, spec *TransformationSpec) (*PartitionWriterTransformationPipe, error) {
 
 	// Prepare the column evaluators
+	// IMPORTANT NOTE: When got an error while creating/configuring the partition_writer make sure to
+	//                 close the copy2DeviceResultCh channel, otherwise the process will hang
 	var err error
 	columnEvaluators := make([]TransformationColumnEvaluator, len(spec.Columns))
 	for i := range spec.Columns {
@@ -220,6 +222,7 @@ func (ctx *BuilderContext) NewPartitionWriterTransformationPipe(source *InputCha
 		if err != nil {
 			err = fmt.Errorf("while buildTransformationColumnEvaluator (in NewPartitionWriterTransformationPipe) %v", err)
 			fmt.Println(err)
+			close(copy2DeviceResultCh)
 			return nil, err
 		}
 	}
@@ -255,6 +258,7 @@ func (ctx *BuilderContext) NewPartitionWriterTransformationPipe(source *InputCha
 	if err2 != nil {
 		err = fmt.Errorf("while creating temp dir (in NewPartitionWriterTransformationPipe) %v", err2)
 		fmt.Println(err)
+		close(copy2DeviceResultCh)
 		return nil, err
 	}
 
