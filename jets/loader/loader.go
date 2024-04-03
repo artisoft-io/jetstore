@@ -518,7 +518,7 @@ func coordinateWork() error {
 			return nil
 		}
 
-		log.Printf("**!@@ Got %d file keys from database, isFile %d", len(fileKeys), isFile)
+		log.Printf("**!@@ Got %d file keys from database for shardId %d, isFile %d", len(fileKeys), *shardId, isFile)
 		if isFile == 1 {
 			// loader cpipesSM sharding when entries on compute_pipes_shard_registry table HAVE is_file = 1
 			cpipesFileKeys = fileKeys
@@ -530,7 +530,7 @@ func coordinateWork() error {
 		cpipesMode = "reducing"
 		for i := range fileKeys {
 			*inFile = fileKeys[i]
-			log.Println("cpipes 'reducing' #",i," :: processing key",*inFile)
+			log.Println("cpipes 'reducing' #",i,"shardId:",*shardId," :: processing key",*inFile)
 			err = processComputeGraph(dbpool)
 			if err != nil {
 				return err

@@ -124,7 +124,10 @@ func (ctx *PartitionWriterTransformationPipe) apply(input *[]interface{}) error 
 		// Compute the ctx.rowCountPerPartition based on the size of the currentValues
 		rowSize := 0
 		for i := range currentValues {
-			rowSize += len(currentValues[i].(string))
+			switch vv := currentValues[i].(type) {
+			case string:
+				rowSize += len(vv)
+			}
 		}
 		if rowSize > 0 {
 			ctx.rowCountPerPartition = int64(*ctx.spec.PartitionSize / rowSize)
