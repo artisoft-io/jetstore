@@ -62,7 +62,7 @@ var processName string    // used only to register with pipeline_execution_detai
 var pipelineExecKey = flag.Int("peKey", -1, "Pipeline execution key (required for cpipes with multipart files)")
 var shardId = flag.Int("shardId", -1, "Run the cpipes process for this single shard. (required when peKey is provided)")
 var inputSessionId string		// needed to read the file_keys from sharding table when peKey is provided
-var cpipesMode string // values: pre-sharding, sharding, reducing, standalone :: set in coordinateWork()
+var cpipesMode string // values: loader, sharding, reducing, standalone :: set in coordinateWork()
 var cpipesFileKeys []string
 
 var tableName string

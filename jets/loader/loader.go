@@ -294,7 +294,10 @@ func processFileAndReportStatus(dbpool *pgxpool.Pool,
 		processingErrors = append(processingErrors, fmt.Sprintf("File contains %d bad rows", loadFromS3FilesResult.BadRowCount))
 		if err != nil {
 			status = "failed"
-			err = nil
+			if cpipesMode == "loader" {
+				// loader in classic mode, we don't want to fail the task
+				err = nil
+			}
 		}
 	}
 	var errMessage string
@@ -318,16 +321,16 @@ func processFileAndReportStatus(dbpool *pgxpool.Pool,
 	}
 	if *pipelineExecKey == -1 {
 		// Loader mode (loaderSM), register with loader_execution_status table
-		err = registerCurrentLoad(loadFromS3FilesResult.LoadRowCount, loadFromS3FilesResult.BadRowCount,
+		err2 := registerCurrentLoad(loadFromS3FilesResult.LoadRowCount, loadFromS3FilesResult.BadRowCount,
 			dbpool, objectTypes, tableName, status, errMessage)
-		if err != nil {
-			return false, fmt.Errorf("error while registering the load (loaderSM): %v", err)
+		if err2 != nil {
+			return false, fmt.Errorf("error while registering the load (loaderSM): %v", err2)
 		}
 	} else {
 		// CPIPES mode (cpipesSM), register the result of this shard with pipeline_execution_details
-		err = updatePipelineExecutionStatus(dbpool, int(loadFromS3FilesResult.LoadRowCount), int(outputRowCount), status, errMessage)
-		if err != nil {
-			return false, fmt.Errorf("error while registering the load (cpipesSM): %v", err)
+		err2 := updatePipelineExecutionStatus(dbpool, int(loadFromS3FilesResult.LoadRowCount), int(outputRowCount), status, errMessage)
+		if err2 != nil {
+			return false, fmt.Errorf("error while registering the load (cpipesSM): %v", err2)
 		}
 	}
 

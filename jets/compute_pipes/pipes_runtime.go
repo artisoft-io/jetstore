@@ -147,6 +147,9 @@ func (ctx *BuilderContext) buildPipeTransformationEvaluator(source *InputChannel
 	if err != nil {
 		err = fmt.Errorf("while in buildPipeTransformationEvaluator for %s from source %s requesting output channel %s: %v", spec.Type, source.config.Name, spec.Output, err)
 		fmt.Println(err)
+		if partitionResultCh != nil {
+			close(partitionResultCh)
+		}
 		return nil, err
 	}
 	switch spec.Type {
