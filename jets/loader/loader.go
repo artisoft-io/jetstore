@@ -316,8 +316,10 @@ func processFileAndReportStatus(dbpool *pgxpool.Pool,
 		awsi.LogMetric(*completedMetric, dimentions, 1)
 	}
 	objectTypes := make([]string, 0)
-	for objType := range headersDKInfo.DomainKeysInfoMap {
-		objectTypes = append(objectTypes, objType)
+	if headersDKInfo != nil {		// can be nil for cpipes with no input files
+		for objType := range headersDKInfo.DomainKeysInfoMap {
+			objectTypes = append(objectTypes, objType)
+		}	
 	}
 	if *pipelineExecKey == -1 {
 		// Loader mode (loaderSM), register with loader_execution_status table

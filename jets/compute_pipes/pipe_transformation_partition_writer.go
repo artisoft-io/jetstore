@@ -132,7 +132,7 @@ func (ctx *PartitionWriterTransformationPipe) apply(input *[]interface{}) error 
 		if rowSize > 0 {
 			ctx.rowCountPerPartition = int64(*ctx.spec.PartitionSize / rowSize)
 		}
-		// fmt.Println("**!@@ partition_writer: splitterShardId", ctx.splitterShardId, "filePartitionNumber", ctx.filePartitionNumber, "rowSize:", rowSize, "rowCountPerPartition:", ctx.rowCountPerPartition)
+		fmt.Println("**!@@ partition_writer: splitterShardId", ctx.splitterShardId, "filePartitionNumber", ctx.filePartitionNumber, "rowSize:", rowSize, "rowCountPerPartition:", ctx.rowCountPerPartition)
 		doRowSize = false
 	}
 	// Send the result to output
