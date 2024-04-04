@@ -36,7 +36,7 @@ func loadFiles(dbpool *pgxpool.Pool, headersDKInfo *schema.HeadersAndDomainKeysI
 	// Create a channel to use as a buffer between the file loader and the copy to db
 	// This gives the opportunity to use Compute Pipes to transform the data before writing to the db
 	// This channel is buffered by the same size as the chunk size sent to db
-	computePipesInputCh := make(chan []interface{}, 100)
+	computePipesInputCh := make(chan []interface{}, 10)
 
 	defer func() {
 		// if r := recover(); r != nil {
