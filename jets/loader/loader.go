@@ -106,6 +106,10 @@ func processFile(dbpool *pgxpool.Pool, done chan struct{}, errCh chan error, hea
 	// Get the file name to get the headers from
 	select {
 	case headersFile = <-headersFileCh:
+		if len(headersFile) == 0 {
+			// No header file, therefore no input file
+			goto doNothingExit
+		}
 		log.Printf("Reading headers from file %s", headersFile)
 	case <-time.After(5 * time.Minute):
 		err = fmt.Errorf("unable to get the header file name")
@@ -214,6 +218,14 @@ func processFile(dbpool *pgxpool.Pool, done chan struct{}, errCh chan error, hea
 	// All good!
 	return
 
+doNothingExit:
+	fmt.Println("processFile: no files to load, exiting ***", err)
+	loadFromS3FilesResultCh <- LoadFromS3FilesResult{}
+	close(copy2DbResultCh)
+	close(writePartitionsResultCh)
+	close(done)
+	return
+
 gotError:
 	fmt.Println("processFile gotError prior to loadFiles, writing to loadFromS3FilesResultCh AND copy2DbResultCh AND writePartitionsResultCh (ComputePipesResult)  ***", err)
 	loadFromS3FilesResultCh <- LoadFromS3FilesResult{err: err}
@@ -316,10 +328,10 @@ func processFileAndReportStatus(dbpool *pgxpool.Pool,
 		awsi.LogMetric(*completedMetric, dimentions, 1)
 	}
 	objectTypes := make([]string, 0)
-	if headersDKInfo != nil {		// can be nil for cpipes with no input files
+	if headersDKInfo != nil {
 		for objType := range headersDKInfo.DomainKeysInfoMap {
 			objectTypes = append(objectTypes, objType)
-		}	
+		}
 	}
 	if *pipelineExecKey == -1 {
 		// Loader mode (loaderSM), register with loader_execution_status table
@@ -403,7 +415,7 @@ func coordinateWork() error {
 	month := fileKeyComponents["month"].(int)
 	day := fileKeyComponents["day"].(int)
 	fileKeyDate = time.Date(year, time.Month(month), day, 14, 0, 0, 0, time.UTC)
-	log.Println("fileKeyDate:",fileKeyDate)
+	log.Println("fileKeyDate:", fileKeyDate)
 
 	// check the session is not already used
 	// ---------------------------------------
@@ -458,7 +470,7 @@ func coordinateWork() error {
 
 	log.Printf("Input file encoding (format) is: %s", inputFileEncoding.String())
 
-	if len(computePipesJson) > 0 &&  *pipelineExecKey == -1 && isPartFiles == 1 {
+	if len(computePipesJson) > 0 && *pipelineExecKey == -1 && isPartFiles == 1 {
 		// Case loader mode (loaderSM) with multipart files, allocate the file keys to shards
 		// and register the load to kick off cpipesSM
 		nkeys, err := shardFileKeys(dbpool, *inFile, *sessionId, *nbrShards)
@@ -486,11 +498,11 @@ func coordinateWork() error {
 	//	- loader cpipesSM pre-sharding: case *pipelineExecKey == -1 && isPartFiles == 1 && computePipesJson not empty
 	//		Handled above, no invocation of processComputeGraph
 
-	//	- loader cpipesSM sharding: case *pipelineExecKey > -1 && isPartFiles == 1 && computePipesJson not empty, 
+	//	- loader cpipesSM sharding: case *pipelineExecKey > -1 && isPartFiles == 1 && computePipesJson not empty,
 	//		entries on compute_pipes_shard_registry table HAVE is_file = 1
 	//		Single invokation of processComputeGraph with all file keys
 
-	//	- loader cpipesSM reducing: case *pipelineExecKey > -1 && isPartFiles == 1 && computePipesJson not empty, 
+	//	- loader cpipesSM reducing: case *pipelineExecKey > -1 && isPartFiles == 1 && computePipesJson not empty,
 	//		entries on compute_pipes_shard_registry table HAVE is_file = 0
 	//		Invoke of processComputeGraph for each file key, update inFile with file key to process
 	cpipesFileKeys = make([]string, 0)
@@ -516,7 +528,7 @@ func coordinateWork() error {
 			return fmt.Errorf("failed to get list of files from compute_pipes_shard_registry table: %v", err)
 		}
 		if len(fileKeys) == 0 {
-			log.Println("Got no file keys, exiting silently")
+			log.Printf("**!@@ Got no file keys for shardId %d, exiting silently", *shardId)
 			return nil
 		}
 
@@ -525,14 +537,14 @@ func coordinateWork() error {
 			// loader cpipesSM sharding when entries on compute_pipes_shard_registry table HAVE is_file = 1
 			cpipesFileKeys = fileKeys
 			cpipesMode = "sharding"
-			log.Println("cpipes 'sharding' sharding keys under",*inFile)
+			log.Println("cpipes 'sharding' sharding keys under", *inFile)
 			return processComputeGraph(dbpool)
 		}
 		// loader cpipesSM reducing when entries on compute_pipes_shard_registry table HAVE is_file = 0
 		cpipesMode = "reducing"
 		for i := range fileKeys {
 			*inFile = fileKeys[i]
-			log.Println("cpipes 'reducing' #",i,"shardId:",*shardId," :: processing key",*inFile)
+			log.Println("cpipes 'reducing' #", i, "shardId:", *shardId, " :: processing key", *inFile)
 			err = processComputeGraph(dbpool)
 			if err != nil {
 				return err
