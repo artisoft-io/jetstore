@@ -39,6 +39,7 @@ func downloadS3Files(done <-chan struct{}) (<-chan string, <-chan string, <-chan
 	}
 
 	go func() {
+		defer close(headersFileCh)
 		defer close(fileNamesCh)
 		var inFilePath string
 		var err error
@@ -49,10 +50,14 @@ func downloadS3Files(done <-chan struct{}) (<-chan string, <-chan string, <-chan
 				// Case loader mode (loaderSM) or cpipes reducing mode, get the file keys from s3
 				log.Printf("Getting file keys from s3 folder: %s", *inFile)
 				s3Objects, err := awsi.ListS3Objects(inFile, *awsBucket, *awsRegion)
-				if err != nil || s3Objects == nil || len(s3Objects) == 0 {
+				if err != nil || s3Objects == nil {
 					downloadS3ResultCh <- DownloadS3Result{
-						err: fmt.Errorf("failed to download list of files from s3 (or folder is empty): %v", err),
+						err: fmt.Errorf("failed to download list of files from s3: %v", err),
 					}
+					return
+				}
+				if len(s3Objects) == 0 {
+					downloadS3ResultCh <- DownloadS3Result{}
 					return
 				}
 				fileKeys = make([]string, 0)
@@ -108,7 +113,7 @@ func downloadS3Files(done <-chan struct{}) (<-chan string, <-chan string, <-chan
 				downloadS3ResultCh <- DownloadS3Result{err: fmt.Errorf("error: got sentinel file from s3: %s", *inFile)}
 				return
 			}
-			if err != nil || inFilePath == "" {
+			if inFilePath == "" {
 				downloadS3ResultCh <- DownloadS3Result{err: fmt.Errorf("while downloading single file from s3: %v", err)}
 				return
 			}

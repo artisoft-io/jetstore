@@ -54,8 +54,12 @@ func (ctx *S3DeviceWriter) WritePartition() {
 	for inRow := range ctx.source.channel {
 		// replace null with empty string
 		for i := range inRow {
-			if inRow[i] == nil {
+			switch  vv := inRow[i].(type) {
+			case string:
+			case nil:
 				inRow[i] = ""
+			default:
+				inRow[i] = fmt.Sprintf("%v", vv)
 			}
 		}
 		if err = pw.Write(inRow); err != nil {
