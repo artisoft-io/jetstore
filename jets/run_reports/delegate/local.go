@@ -11,6 +11,13 @@ type LocalFile struct {
 	File     *os.File
 }
 
+func NewLocalFile(name string, fp *os.File) source.ParquetFile {
+	return &LocalFile{
+		FilePath: name,
+		File: fp,
+	}
+}
+
 func NewLocalFileWriter(name string) (source.ParquetFile, error) {
 	return (&LocalFile{}).Create(name)
 }

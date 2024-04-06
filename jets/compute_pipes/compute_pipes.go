@@ -1,19 +1,27 @@
 package compute_pipes
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"log"
+	"os"
 
 	"github.com/artisoft-io/jetstore/jets/schema"
+	"github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/feature/s3/manager"
+	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/jackc/pgx/v4/pgxpool"
 )
 
 // Compute Pipes main entry point
 
 type ComputePipesResult struct {
+	// Table name can be jets_partition name
+	// PartCount is nbr of file part in jets_partition
 	TableName    string
 	CopyRowCount int64
+	PartsCount   int64
 	Err          error
 }
 
@@ -124,6 +132,17 @@ func StartComputePipes(dbpool *pgxpool.Pool, headersDKInfo *schema.HeadersAndDom
 		}
 		fmt.Println("Compute Pipes output tables ready")
 
+		// Setup the s3Uploader
+		cfg, err := config.LoadDefaultConfig(context.TODO(), config.WithRegion(os.Getenv("JETS_REGION")))
+		if err != nil {
+			cpErr = fmt.Errorf("while loading aws configuration (in StartComputePipes): %v", err)
+			goto gotError
+		}
+		// Create a s3 client
+		s3Client := s3.NewFromConfig(cfg)
+		// Create the uploader with the client and custom options
+		s3Uploader := manager.NewUploader(s3Client)
+
 		ctx := &BuilderContext{
 			dbpool:                  dbpool,
 			cpConfig:                &cpConfig,
@@ -133,6 +152,7 @@ func StartComputePipes(dbpool *pgxpool.Pool, headersDKInfo *schema.HeadersAndDom
 			copy2DbResultCh:         copy2DbResultCh,
 			writePartitionsResultCh: writePartitionsResultCh,
 			env:                     envSettings,
+			s3Uploader:              s3Uploader,
 		}
 		err = ctx.buildComputeGraph()
 		if err != nil {
