@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"sync"
 
+	"github.com/aws/aws-sdk-go-v2/feature/s3/manager"
 	"github.com/jackc/pgx/v4/pgxpool"
 )
 
@@ -89,6 +90,7 @@ type BuilderContext struct {
 	copy2DbResultCh         chan chan ComputePipesResult
 	writePartitionsResultCh chan chan chan ComputePipesResult
 	env                     map[string]interface{}
+	s3Uploader *manager.Uploader
 }
 
 type PipeTransformationEvaluator interface {

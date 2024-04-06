@@ -2,17 +2,23 @@ package delegate
 
 import (
 	"bufio"
+	"math/rand"
+	"strings"
+
 	// "context"
 	"encoding/csv"
 	"errors"
 	"fmt"
 	"io"
+
 	// "math/rand"
 	"os"
 
 	"github.com/artisoft-io/jetstore/jets/awsi"
 	"github.com/artisoft-io/jetstore/jets/datatable/jcsv"
-	"github.com/google/uuid"
+	"github.com/artisoft-io/jetstore/jets/run_reports/delegate"
+	"github.com/xitongsys/parquet-go/writer"
+	// "github.com/google/uuid"
 	// "github.com/jackc/pgx/v4/pgxpool"
 )
 
@@ -22,24 +28,29 @@ import (
 // JETS_REGION
 // JETS_BUCKET
 // JETS_s3_INPUT_PREFIX
+// WORKSPACE Workspace currently in use
+// WORKSPACES_HOME Home dir of workspaces
 
 type CommandArguments struct {
-	AwsDsnSecret    string
-	DbPoolSize      int
-	UsingSshTunnel  bool
-	AwsRegion       string
-	Dsn             string
-	NdcFilePath     string
-	OutFileKey      string
-	CsvTemplatePath string
-	NbrRawFN        int
-	NbrMembers      int
+	AwsDsnSecret     string
+	DbPoolSize       int
+	UsingSshTunnel   bool
+	AwsRegion        string
+	Dsn              string
+	NdcFilePath      string
+	OutFileKey       string
+	CsvTemplatePath  string
+	NbrRawDataFile   int
+	NbrMembers       int
+	NbrRowPerMembers int
+	NbrRowsPerChard  int
 }
 
 // Support Functions
 // --------------------------------------------------------------------------------------
 func (ca *CommandArguments) GetTemplateInfo() (string, string, error) {
-	readFile, err := os.Open(ca.CsvTemplatePath)
+	readFile, err := os.Open(
+		fmt.Sprintf("%s/%s/%s",os.Getenv("WORKSPACES_HOME"),os.Getenv("WORKSPACE"),ca.CsvTemplatePath))
 	if err != nil {
 		return "", "", err
 	}
@@ -141,12 +152,20 @@ func (ca *CommandArguments) ValidateArguments() []string {
 		errMsg = append(errMsg, "Env var JETS_BUCKET must be provided.")
 	}
 
-	if ca.NbrRawFN < 1 {
-		errMsg = append(errMsg, "NbrRawFN must be at least 1.")
+	if ca.NbrRawDataFile < 1 {
+		errMsg = append(errMsg, "NbrRawDataFile must be at least 1.")
 	}
 
 	if ca.NbrMembers < 1 {
 		errMsg = append(errMsg, "NbrMembers must be at least 1.")
+	}
+
+	if ca.NbrRowPerMembers < 1 {
+		errMsg = append(errMsg, "NbrRowPerMembers must be at least 1.")
+	}
+
+	if ca.NbrRowsPerChard < 1 {
+		errMsg = append(errMsg, "NbrRowsPerChard must be at least 1.")
 	}
 
 	fmt.Println("Status Update Arguments:")
@@ -159,10 +178,14 @@ func (ca *CommandArguments) ValidateArguments() []string {
 	fmt.Println("Got argument: ndcFilePath", ca.NdcFilePath)
 	fmt.Println("Got argument: outFileKey", ca.OutFileKey)
 	fmt.Println("Got argument: csvTemplatePath", ca.CsvTemplatePath)
-	fmt.Println("Got argument: NbrRawFN", ca.NbrRawFN)
+	fmt.Println("Got argument: NbrRawDataFile", ca.NbrRawDataFile)
 	fmt.Println("Got argument: nbrMembers", ca.NbrMembers)
+	fmt.Println("Got argument: NbrRowPerMembers", ca.NbrRowPerMembers)
+	fmt.Println("Got argument: NbrRowsPerChard", ca.NbrRowsPerChard)
 	fmt.Printf("ENV JETS_s3_INPUT_PREFIX: %s\n", os.Getenv("JETS_s3_INPUT_PREFIX"))
 	fmt.Printf("ENV JETS_BUCKET: %s\n", os.Getenv("JETS_BUCKET"))
+	fmt.Printf("ENV WORKSPACE: %s\n", os.Getenv("WORKSPACE"))
+	fmt.Printf("ENV WORKSPACES_HOME: %s\n", os.Getenv("WORKSPACES_HOME"))
 
 	return errMsg
 }
@@ -190,7 +213,6 @@ func (ca *CommandArguments) CoordinateWork() error {
 		return fmt.Errorf("while creating temp file: %v", err)
 	}
 	defer os.Remove(outFile.Name()) // clean up
-	outWriter := bufio.NewWriter(outFile)
 
 	// // Get the NDC list
 	// ndcList, err := ca.GetNdcList()
@@ -204,34 +226,55 @@ func (ca *CommandArguments) CoordinateWork() error {
 	if err != nil {
 		return fmt.Errorf("while getting csv template info: %v", err)
 	}
+	headers := strings.Split(header, ",")
 
-	// Write the header
-	_, err = outWriter.WriteString(header)
-	if err != nil {
-		return fmt.Errorf("while writing csv headers to output file: %v", err)
+	// Prepare the parquet schema -- saving rows as string
+	parquetSchema := make([]string, len(headers))
+	for i := range headers {
+		parquetSchema[i] = fmt.Sprintf("name=%s, type=BYTE_ARRAY, convertedtype=UTF8, encoding=PLAIN_DICTIONARY",
+			headers[i])
 	}
-	outWriter.WriteRune('\n')
-	outFilePath := fmt.Sprintf("%s/%s", os.Getenv("JETS_s3_INPUT_PREFIX"), ca.OutFileKey)
-	fmt.Println("OutFile Path:", outFilePath)
 
-	// Generate test data
-	fmt.Println("Generate data NbrRawFN:", ca.NbrRawFN, "NbrMembers:", ca.NbrMembers)
-	for iFN := 0; iFN < ca.NbrRawFN; iFN++ {
-		baseFN := uuid.New().String()
-		for iMbr := 0; iMbr < ca.NbrMembers; iMbr++ {
-			// ndc := (*ndcList)[rand.Intn(nbrNdc)]
-			baseKey := uuid.New().String()
-			_, err = outWriter.WriteString(fmt.Sprintf(rowTemplate, baseFN, baseKey))
-			if err != nil {
-				return fmt.Errorf("while writing test claim row to output file: %v", err)
-			}
-			outWriter.WriteRune('\n')
+	// open the local temp file for the parquet writer
+	fwName := outFile.Name()
+	fw := delegate.NewLocalFile(fwName, outFile)
+
+	// Create the parquet writer with the provided schema
+	pw, err := writer.NewCSVWriter(parquetSchema, fw, 4)
+	if err != nil {
+		fw.Close()
+		return fmt.Errorf("while opening local parquet csv writer %v", err)
+	}
+
+	// Write the rows into the temp file
+	row := make([]interface{}, len(headers))
+	for i := 0; i < ca.NbrRowsPerChard; i++ {
+		mbrId := rand.Intn(ca.NbrMembers)
+		mbrKey := fmt.Sprintf("MBR_ID000%d", mbrId)
+		fileKey := fmt.Sprintf("FILE_KEY%d", rand.Intn(ca.NbrRawDataFile))
+		recordKey := fmt.Sprintf("REC_ID%d_%d", mbrId, rand.Intn(ca.NbrRowPerMembers))
+		data := strings.Split(fmt.Sprintf(rowTemplate, fileKey, mbrKey, recordKey), ",")
+		for j := range data {
+			row[j] = data[j]
+		}
+		if err = pw.Write(row); err != nil {
+			fw.Close()
+			return fmt.Errorf("while writing row to local parquet file: %v", err)
 		}
 	}
 
+	if err = pw.WriteStop(); err != nil {
+		fw.Close()
+		return fmt.Errorf("while writing parquet stop (trailer): %v", err)
+	}
+	// fmt.Println("**&@@ WritePartition: DONE writing local parquet file for fileName:", *ctx.fileName)
+
+	outFilePath := fmt.Sprintf("%s/%s", os.Getenv("JETS_s3_INPUT_PREFIX"), ca.OutFileKey)
+	fmt.Println("OutFile Path:", outFilePath)
+
 	// All good, put the file in s3
-	outWriter.Flush()
 	outFile.Seek(0, 0)
+
 	fmt.Println("\nDone generating data, copying to s3...")
 	err = awsi.UploadToS3(os.Getenv("JETS_BUCKET"), ca.AwsRegion, outFilePath, outFile)
 	if err != nil {

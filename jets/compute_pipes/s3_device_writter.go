@@ -1,16 +1,20 @@
 package compute_pipes
 
 import (
+	"bufio"
+	"context"
 	"fmt"
 	"log"
 	"os"
 
-	"github.com/artisoft-io/jetstore/jets/awsi"
 	"github.com/artisoft-io/jetstore/jets/run_reports/delegate"
+	"github.com/aws/aws-sdk-go-v2/feature/s3/manager"
+	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/xitongsys/parquet-go/writer"
 )
 
 type S3DeviceWriter struct {
+	s3Uploader    *manager.Uploader
 	source        *InputChannel
 	parquetSchema []string
 	localTempDir  *string
@@ -22,7 +26,7 @@ type S3DeviceWriter struct {
 	errCh         chan error
 }
 
-func (ctx *S3DeviceWriter) WritePartition() {
+func (ctx *S3DeviceWriter) WritePartition(s3WriterResultCh chan<- ComputePipesResult) {
 	var cpErr error
 	var pw *writer.CSVWriter
 	var fileHd *os.File
@@ -54,7 +58,7 @@ func (ctx *S3DeviceWriter) WritePartition() {
 	for inRow := range ctx.source.channel {
 		// replace null with empty string
 		for i := range inRow {
-			switch  vv := inRow[i].(type) {
+			switch vv := inRow[i].(type) {
 			case string:
 			case nil:
 				inRow[i] = ""
@@ -83,20 +87,22 @@ func (ctx *S3DeviceWriter) WritePartition() {
 		cpErr = fmt.Errorf("while opening written file to copy to s3: %v", err)
 		goto gotError
 	}
-	if err = awsi.UploadToS3(ctx.bucketName, ctx.regionName, s3FileName, fileHd); err != nil {
-		fileHd.Close()
-		cpErr = fmt.Errorf("while copying to s3: %v", err)
+	defer fileHd.Close()
+
+	_, err = ctx.s3Uploader.Upload(context.TODO(), &s3.PutObjectInput{
+		Bucket: &ctx.bucketName,
+		Key:    &s3FileName,
+		Body:   bufio.NewReader(fileHd),
+	})
+	if err != nil {
+		cpErr = fmt.Errorf("while copying jets_partition to s3: %v", err)
 		goto gotError
 	}
-	fileHd.Close()
-	// fmt.Println("**&@@ WritePartition: DONE copying to s3 for fileName:", *ctx.fileName)
+	s3WriterResultCh <- ComputePipesResult{PartsCount: 1}
 
 	// All good!
 	return
 gotError:
-	//* FIX THIS These error are often commin too late FIX THIS
-	log.Fatalln("PANIC (FIX THIS)",cpErr)
-	// log.Println(cpErr)
-	// ctx.errCh <- cpErr
-	// close(ctx.doneCh)
+	log.Println("Got error while copying file part to s3:",cpErr)
+	s3WriterResultCh <- ComputePipesResult{Err: cpErr}
 }

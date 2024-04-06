@@ -8,7 +8,7 @@ import (
 	"os"
 	"strings"
 
-	// "github.com/artisoft-io/jetstore/jets/awsi"
+	"github.com/aws/aws-sdk-go-v2/feature/s3/manager"
 	"github.com/jackc/pgx/v4/pgxpool"
 )
 
@@ -22,33 +22,35 @@ import (
 // Currently supporting writing to s3 jetstore input path
 
 type PartitionWriterTransformationPipe struct {
-	cpConfig             *ComputePipesConfig
-	dbpool               *pgxpool.Pool
-	spec                 *TransformationSpec
-	splitterKey          *string
-	localTempDir         *string
-	baseOutputPath       *string
-	splitterShardId      int
-	rowCountPerPartition int64
-	partitionRowCount    int64
-	totalRowCount        int64
-	filePartitionNumber  int
-	outputCh             *OutputChannel
-	currentDeviceCh      chan []interface{}
-	parquetSchema        []string
-	columnEvaluators     []TransformationColumnEvaluator
-	doneCh               chan struct{}
-	errCh                chan error
-	copy2DeviceResultCh  chan<- ComputePipesResult
-	bucketName           string
-	regionName           string
-	sessionId            string
+	cpConfig                   *ComputePipesConfig
+	dbpool                     *pgxpool.Pool
+	spec                       *TransformationSpec
+	splitterKey                *string
+	localTempDir               *string
+	baseOutputPath             *string
+	splitterShardId            int
+	rowCountPerPartition       int64
+	partitionRowCount          int64
+	totalRowCount              int64
+	filePartitionNumber        int
+	outputCh                   *OutputChannel
+	currentDeviceCh            chan []interface{}
+	parquetSchema              []string
+	columnEvaluators           []TransformationColumnEvaluator
+	doneCh                     chan struct{}
+	errCh                      chan error
+	copy2DeviceResultCh        chan<- ComputePipesResult
+	bucketName                 string
+	regionName                 string
+	sessionId                  string
+	s3WritersResultCh          chan chan ComputePipesResult
+	s3WritersCollectedResultCh chan ComputePipesResult
+	s3Uploader                 *manager.Uploader
 }
 
 // Implementing interface PipeTransformationEvaluator
 func (ctx *PartitionWriterTransformationPipe) apply(input *[]interface{}) error {
 	var err error
-	doRowSize := false
 	if input == nil {
 		err = fmt.Errorf("error: input record is nil in PartitionWriterTransformationPipe.apply")
 		log.Println(err)
@@ -73,9 +75,9 @@ func (ctx *PartitionWriterTransformationPipe) apply(input *[]interface{}) error 
 		ctx.currentDeviceCh = make(chan []interface{}, 10)
 		ctx.outputCh.channel = ctx.currentDeviceCh
 
-		// Check if we need the row size
+		// Check if we limit the file part size
 		if ctx.spec.PartitionSize != nil && *ctx.spec.PartitionSize > 0 {
-			doRowSize = true
+			ctx.rowCountPerPartition = int64(*ctx.spec.PartitionSize)
 		}
 
 		// Start the device writter for the partition
@@ -96,7 +98,9 @@ func (ctx *PartitionWriterTransformationPipe) apply(input *[]interface{}) error 
 			doneCh:        ctx.doneCh,
 			errCh:         ctx.errCh,
 		}
-		go s3DeviceWriter.WritePartition()
+		s3WriterResultCh := make(chan ComputePipesResult)
+		ctx.s3WritersResultCh <- s3WriterResultCh
+		go s3DeviceWriter.WritePartition(s3WriterResultCh)
 	}
 
 	currentValues := make([]interface{}, len(ctx.outputCh.config.Columns))
@@ -120,21 +124,6 @@ func (ctx *PartitionWriterTransformationPipe) apply(input *[]interface{}) error 
 			return fmt.Errorf("while calling done on column evaluator from partition_writer: %v", err)
 		}
 	}
-	if doRowSize {
-		// Compute the ctx.rowCountPerPartition based on the size of the currentValues
-		rowSize := 0
-		for i := range currentValues {
-			switch vv := currentValues[i].(type) {
-			case string:
-				rowSize += len(vv)
-			}
-		}
-		if rowSize > 0 {
-			ctx.rowCountPerPartition = int64(*ctx.spec.PartitionSize / rowSize)
-		}
-		fmt.Println("**!@@ partition_writer: splitterShardId", ctx.splitterShardId, "filePartitionNumber", ctx.filePartitionNumber, "rowSize:", rowSize, "rowCountPerPartition:", ctx.rowCountPerPartition)
-		doRowSize = false
-	}
 	// Send the result to output
 	select {
 	case ctx.outputCh.channel <- currentValues:
@@ -153,6 +142,8 @@ func (ctx *PartitionWriterTransformationPipe) apply(input *[]interface{}) error 
 //     Here the file_key is ctx.baseOutputPath
 //   - write the 0-byte sentinel file (take the file name from env JETS_SENTINEL_FILE_NAME)
 //   - Send the total row count to ctx.copy2DeviceResultCh
+//
+// Not called if the process has error upstream (see pipe_executor_splitter.go)
 func (ctx *PartitionWriterTransformationPipe) done() error {
 	// Print Memory Usage if requested
 	if len(ctx.cpConfig.RuntimeMetrics) > 0 {
@@ -199,18 +190,24 @@ func (ctx *PartitionWriterTransformationPipe) done() error {
 	// }
 	//*MOVED TO run_report using emitSentinelFile directive
 
+	// Collect all the file parts that was written for this partition
+	totalFilePartsWritten := <-ctx.s3WritersCollectedResultCh
+
 	// Send the total row count to ctx.copy2DeviceResultCh
 	ctx.copy2DeviceResultCh <- ComputePipesResult{
 		TableName:    *ctx.baseOutputPath,
 		CopyRowCount: ctx.totalRowCount,
+		PartsCount:   totalFilePartsWritten.PartsCount,
 	}
 	return nil
 }
 
+// Always called, if error or not upstream
 func (ctx *PartitionWriterTransformationPipe) finally() {
 	close(ctx.copy2DeviceResultCh)
 }
 
+// Create a new jets_partition writer, the partion is identified by the splitterKey
 func (ctx *BuilderContext) NewPartitionWriterTransformationPipe(source *InputChannel, splitterKey *string,
 	outputCh *OutputChannel, copy2DeviceResultCh chan ComputePipesResult, spec *TransformationSpec) (*PartitionWriterTransformationPipe, error) {
 
@@ -265,21 +262,51 @@ func (ctx *BuilderContext) NewPartitionWriterTransformationPipe(source *InputCha
 		return nil, err
 	}
 
+	// Collect the result of each part file writer of this jets_partition
+	s3WritersResultCh := make(chan chan ComputePipesResult)
+	s3WritersCollectedResultCh := make(chan ComputePipesResult)
+	go func() {
+		var partCount int64
+		var err error
+		for filePartWriter := range s3WritersResultCh {
+			partResult := <-filePartWriter
+			partCount += partResult.PartsCount
+			if partResult.Err != nil {
+				err = partResult.Err
+				break
+			}
+		}
+		// All file parts written, send out the count
+		select {
+		case s3WritersCollectedResultCh <- ComputePipesResult{PartsCount: partCount, Err: err}:
+			if err != nil {
+				// Interrupt the whole process, there's been an error writing a file part
+				close(ctx.done)
+			}
+		case <-ctx.done:
+			log.Printf("Collecting file part writer result for splitterKey '%s' interrupted", *splitterKey)
+		}
+		close(s3WritersCollectedResultCh)
+	}()
+
 	return &PartitionWriterTransformationPipe{
-		cpConfig:            ctx.cpConfig,
-		dbpool:              ctx.dbpool,
-		spec:                spec,
-		splitterKey:         splitterKey,
-		baseOutputPath:      &baseOutputPath,
-		localTempDir:        &localTempDir,
-		splitterShardId:     int(splitterShardId),
-		outputCh:            outputCh,
-		parquetSchema:       parquetSchema,
-		columnEvaluators:    columnEvaluators,
-		doneCh:              ctx.done,
-		copy2DeviceResultCh: copy2DeviceResultCh,
-		bucketName:          os.Getenv("JETS_BUCKET"),
-		regionName:          os.Getenv("JETS_REGION"),
-		sessionId:           session_id,
+		cpConfig:                   ctx.cpConfig,
+		dbpool:                     ctx.dbpool,
+		spec:                       spec,
+		splitterKey:                splitterKey,
+		baseOutputPath:             &baseOutputPath,
+		localTempDir:               &localTempDir,
+		splitterShardId:            int(splitterShardId),
+		outputCh:                   outputCh,
+		parquetSchema:              parquetSchema,
+		columnEvaluators:           columnEvaluators,
+		doneCh:                     ctx.done,
+		copy2DeviceResultCh:        copy2DeviceResultCh,
+		bucketName:                 os.Getenv("JETS_BUCKET"),
+		regionName:                 os.Getenv("JETS_REGION"),
+		sessionId:                  session_id,
+		s3WritersResultCh:          s3WritersResultCh,
+		s3WritersCollectedResultCh: s3WritersCollectedResultCh,
+		s3Uploader:                 ctx.s3Uploader,
 	}, nil
 }
