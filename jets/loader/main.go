@@ -65,6 +65,7 @@ var shardId = flag.Int("shardId", -1, "Run the cpipes process for this single sh
 var inputSessionId string		// needed to read the file_keys from sharding table when peKey is provided
 var cpipesMode string // values: loader, sharding, reducing, standalone :: set in coordinateWork()
 var cpipesFileKeys []string
+var cpipesShardWithNoFileKeys bool	// Indicate the table compute_pipes_shard_registry has no file keys for this session_id & shardId
 var cpipesServerAddr string
 
 var tableName string

@@ -109,7 +109,7 @@ func processFile(dbpool *pgxpool.Pool, done chan struct{}, errCh chan error, hea
 			goto doNothingExit
 		}
 		log.Printf("Reading headers from file %s", headersFile)
-	case <-time.After(5 * time.Minute):
+	case <-time.After(2 * time.Minute):
 		err = fmt.Errorf("unable to get the header file name")
 		goto gotError
 	}
@@ -501,8 +501,8 @@ func coordinateWork() error {
 		return nil
 	}
 
+	// Global var cpipesMode string,  values: loader, pre-sharding, sharding, reducing, standalone.
 	// Processing file(s), invoking the loader process in loop when processing
-	// Global var cpipesMode string,  values: loader, pre-sharding, sharding, reducing, standalone
 	// multiple folders of multipart files (case cpipesSM in mode reduce)
 	// Scenario:
 	//	- loader classic (loaderSM) case *pipelineExecKey == -1 && computePipesJson empty
@@ -517,10 +517,13 @@ func coordinateWork() error {
 	//	- loader cpipesSM sharding: case *pipelineExecKey > -1 && isPartFiles == 1 && computePipesJson not empty,
 	//		entries on compute_pipes_shard_registry table HAVE is_file = 1
 	//		Single invokation of processComputeGraph with all file keys
+	//		Note: when cpipesShardWithNoFileKeys == true, fileKeys will contain a single file to use for headers only
 
 	//	- loader cpipesSM reducing: case *pipelineExecKey > -1 && isPartFiles == 1 && computePipesJson not empty,
 	//		entries on compute_pipes_shard_registry table HAVE is_file = 0
 	//		Invoke of processComputeGraph for each file key, update inFile with file key to process
+	//		Note: when cpipesShardWithNoFileKeys == true, fileKeys will contain a single file to use for headers only
+	//		and will be set to inFile for fetching a single data file to use for headers only
 	cpipesFileKeys = make([]string, 0)
 	switch {
 	case *pipelineExecKey == -1 && len(computePipesJson) == 0:
@@ -538,17 +541,17 @@ func coordinateWork() error {
 		return nil
 
 	case *pipelineExecKey > -1 && isPartFiles == 1 && len(computePipesJson) > 0:
+		// loader cpipes mode "sharding" (isFile == 1) or "reducing" (isFile == 0)
 		// Get the file keys from compute_pipes_shard_registry table
 		fileKeys, isFile, err := getFileKeys(dbpool, inputSessionId, *shardId)
 		if err != nil || fileKeys == nil {
 			return fmt.Errorf("failed to get list of files from compute_pipes_shard_registry table: %v", err)
 		}
-		if len(fileKeys) == 0 {
-			log.Printf("**!@@ Got no file keys for shardId %d, exiting silently", *shardId)
-			return nil
+		if cpipesShardWithNoFileKeys {
+			log.Printf("**!@@ Got no file keys for shardId %d, continue to participate in cluster_map", *shardId)
+		} else {
+			log.Printf("**!@@ Got %d file keys from database for shardId %d, isFile %d", len(fileKeys), *shardId, isFile)
 		}
-
-		log.Printf("**!@@ Got %d file keys from database for shardId %d, isFile %d", len(fileKeys), *shardId, isFile)
 		if isFile == 1 {
 			// loader cpipesSM sharding when entries on compute_pipes_shard_registry table HAVE is_file = 1
 			cpipesFileKeys = fileKeys

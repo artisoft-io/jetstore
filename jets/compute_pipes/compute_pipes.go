@@ -116,6 +116,7 @@ func StartComputePipes(dbpool *pgxpool.Pool, headersDKInfo *schema.HeadersAndDom
 		// 	fmt.Println("**& Channel", cpConfig.Channels[i].Name, "Columns map", channelRegistry.computeChannels[cpConfig.Channels[i].Name].columns)
 		// }
 
+		shardId := envSettings["$SHARD_ID"].(int)
 		// Prepare the output tables
 		for i := range cpConfig.OutputTables {
 			tableIdentifier, err := SplitTableName(cpConfig.OutputTables[i].Name)
@@ -123,11 +124,14 @@ func StartComputePipes(dbpool *pgxpool.Pool, headersDKInfo *schema.HeadersAndDom
 				cpErr = fmt.Errorf("while splitting table name: %s", err)
 				goto gotError
 			}
-			// fmt.Println("**& Preparing Output Table", tableIdentifier)
-			err = prepareOutoutTable(dbpool, tableIdentifier, &cpConfig.OutputTables[i])
-			if err != nil {
-				cpErr = fmt.Errorf("while preparing output table: %s", err)
-				goto gotError
+			if shardId == 0 {
+				// Update table schema in database if current shardId is 0, to avoid multiple updates
+				fmt.Println("**& Preparing / Updating Output Table", tableIdentifier)
+				err = prepareOutoutTable(dbpool, tableIdentifier, &cpConfig.OutputTables[i])
+				if err != nil {
+					cpErr = fmt.Errorf("while preparing output table: %s", err)
+					goto gotError
+				}
 			}
 			outChannel := channelRegistry.computeChannels[cpConfig.OutputTables[i].Key]
 			channelRegistry.outputTableChannels = append(channelRegistry.outputTableChannels, cpConfig.OutputTables[i].Key)
@@ -177,7 +181,7 @@ func StartComputePipes(dbpool *pgxpool.Pool, headersDKInfo *schema.HeadersAndDom
 			sessionId := envSettings["$SESSIONID"].(string)
 			stmt := fmt.Sprintf(
 				"INSERT INTO jetsapi.cpipes_cluster_node_registry (session_id, node_address, shard_id) VALUES ('%s','%s',%d);",
-				sessionId, nodeAddr, envSettings["$SHARD_ID"].(int))
+				sessionId, nodeAddr, shardId)
 			log.Println(stmt)
 			_, err = dbpool.Exec(context.Background(), stmt)
 			if err != nil {
