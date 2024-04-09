@@ -10,6 +10,7 @@ import (
 	"github.com/artisoft-io/jetstore/jets/run_reports/delegate"
 	"github.com/aws/aws-sdk-go-v2/feature/s3/manager"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
+	"github.com/xitongsys/parquet-go/source"
 	"github.com/xitongsys/parquet-go/writer"
 )
 
@@ -27,17 +28,22 @@ type S3DeviceWriter struct {
 }
 
 func (ctx *S3DeviceWriter) WritePartition(s3WriterResultCh chan<- ComputePipesResult) {
-	var cpErr error
+	var cpErr, err error
 	var pw *writer.CSVWriter
 	var fileHd *os.File
-
-	// fmt.Println("**&@@ WritePartition: fileName:", *ctx.fileName)
+	var fw source.ParquetFile
 
 	tempFileName := fmt.Sprintf("%s/%s", *ctx.localTempDir, *ctx.fileName)
 	s3FileName := fmt.Sprintf("%s/%s", *ctx.s3BasePath, *ctx.fileName)
 
+	// fmt.Println("**&@@ WritePartition *1: fileName:", *ctx.fileName)
+	if ctx.s3Uploader == nil {
+		cpErr = fmt.Errorf("error: s3Uploader is nil")
+		goto gotError
+	}
+
 	// open the local temp file for the parquet writer
-	fw, err := delegate.NewLocalFileWriter(tempFileName)
+	fw, err = delegate.NewLocalFileWriter(tempFileName)
 	if err != nil {
 		cpErr = fmt.Errorf("while opening local parquet file for write %v", err)
 		goto gotError
@@ -80,6 +86,13 @@ func (ctx *S3DeviceWriter) WritePartition(s3WriterResultCh chan<- ComputePipesRe
 	}
 	// fmt.Println("**&@@ WritePartition: DONE writing local parquet file for fileName:", *ctx.fileName)
 	fw.Close()
+	// //****
+	// if fw != nil {
+	// 	cpErr = fmt.Errorf("SIMULATED error writing parquet stop (trailer): %v", err)
+	// 	fmt.Println(cpErr)
+	// 	goto gotError
+	// }
+	// //****
 
 	// Copy file to s3 location
 	fileHd, err = os.Open(tempFileName)
@@ -88,7 +101,6 @@ func (ctx *S3DeviceWriter) WritePartition(s3WriterResultCh chan<- ComputePipesRe
 		goto gotError
 	}
 	defer fileHd.Close()
-
 	_, err = ctx.s3Uploader.Upload(context.TODO(), &s3.PutObjectInput{
 		Bucket: &ctx.bucketName,
 		Key:    &s3FileName,

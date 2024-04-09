@@ -5,7 +5,9 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log"
+	"net/http"
 	"net/url"
 	"os"
 	"strconv"
@@ -31,7 +33,30 @@ func LogMetric(metricName string, dimentions *map[string]string, count int) {
 	m.Log()
 }
 
-func GetConfig() (aws.Config,error) {
+func GetPrivateIp() (string, error) {
+	resp, err := http.Get(os.Getenv("ECS_CONTAINER_METADATA_URI_V4"))
+	if err != nil {
+		log.Printf("while http get $ECS_CONTAINER_METADATA_URI_V4: %v", err)
+		return "", err
+	}
+	defer resp.Body.Close()
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		log.Printf("while reading resp of http get $ECS_CONTAINER_METADATA_URI_V4: %v", err)
+		return "", err
+	}
+	fmt.Println("Got ECS_CONTAINER_METADATA_URI_V4:\n",string(body))
+	var data map[string]interface{}
+	err = json.Unmarshal(body, &data)
+	if err != nil {
+		return "", fmt.Errorf("** Invalid JSON from ECS_CONTAINER_METADATA_URI_V4: %v", err)
+	}
+	result := data["Networks"].([]interface{})[0].(map[string]interface{})["IPv4Addresses"].([]string)[0]
+	fmt.Println("*** IPv4Addresses:",result)
+	return result, nil
+}
+
+func GetConfig() (aws.Config, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
 	defer cancel()
 	return config.LoadDefaultConfig(ctx)
@@ -82,10 +107,10 @@ func GetDsnFromJson(dsnJson string, useLocalhost bool, poolSize int) (string, er
 	if poolSize < 10 {
 		poolSize = 10
 	}
-	dsn := fmt.Sprintf("postgresql://%s:%s@%s:%.0f/postgres?pool_max_conns=%d", 
-		m["username"].(string), 
-		url.QueryEscape(m["password"].(string)), 
-		m["host"].(string), 
+	dsn := fmt.Sprintf("postgresql://%s:%s@%s:%.0f/postgres?pool_max_conns=%d",
+		m["username"].(string),
+		url.QueryEscape(m["password"].(string)),
+		m["host"].(string),
 		m["port"].(float64),
 		poolSize)
 	return dsn, nil
@@ -105,7 +130,7 @@ func GetDsnFromSecret(secret string, useLocalhost bool, poolSize int) (string, e
 }
 
 type S3Object struct {
-	Key string
+	Key  string
 	Size int64
 }
 
@@ -124,8 +149,8 @@ func ListS3Objects(prefix *string, bucket, region string) ([]*S3Object, error) {
 	var token *string
 	for isTruncated := true; isTruncated; {
 		result, err := s3Client.ListObjectsV2(context.TODO(), &s3.ListObjectsV2Input{
-			Bucket: aws.String(bucket),
-			Prefix: prefix,
+			Bucket:            aws.String(bucket),
+			Prefix:            prefix,
 			ContinuationToken: token,
 		})
 		if err != nil {
@@ -136,7 +161,7 @@ func ListS3Objects(prefix *string, bucket, region string) ([]*S3Object, error) {
 			// Skip the directories
 			if !strings.HasSuffix(*result.Contents[i].Key, "/") {
 				keys = append(keys, &S3Object{
-					Key: *result.Contents[i].Key,
+					Key:  *result.Contents[i].Key,
 					Size: *result.Contents[i].Size,
 				})
 			}
@@ -200,7 +225,7 @@ func StartExecution(stateMachineARN string, stateMachineInput map[string]interfa
 	if err != nil {
 		return "", fmt.Errorf("while load SDK configuration: %v", err)
 	}
-	
+
 	smInputJson, err := json.Marshal(stateMachineInput)
 	if err != nil {
 		return "", fmt.Errorf("while marshalling smInput: %v", err)
@@ -216,8 +241,8 @@ func StartExecution(stateMachineARN string, stateMachineInput map[string]interfa
 	// Set the parameters for starting a process
 	params := &sfn.StartExecutionInput{
 		StateMachineArn: &stateMachineARN,
-		Input: &smInputStr,
-		Name: &name,
+		Input:           &smInputStr,
+		Name:            &name,
 	}
 
 	// Step Function client

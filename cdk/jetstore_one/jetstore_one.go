@@ -906,6 +906,15 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 		ContainerName: jsii.String("cpipesContainer"),
 		Essential:     jsii.Bool(true),
 		EntryPoint:    jsii.Strings("loader"),
+		PortMappings: &[]*awsecs.PortMapping{
+			{
+				Name:          jsii.String("cpipes-port-mapping"),
+				ContainerPort: jsii.Number(8085),
+				HostPort:      jsii.Number(8085),
+				// AppProtocol:   awsecs.AppProtocol_Http(),
+			},
+		},
+
 		Environment: &map[string]*string{
 			"JETS_BUCKET":                        sourceBucket.BucketName(),
 			"JETS_DOMAIN_KEY_HASH_ALGO":          jsii.String(os.Getenv("JETS_DOMAIN_KEY_HASH_ALGO")),

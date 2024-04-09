@@ -91,6 +91,8 @@ ENV WORKSPACES_HOME /go/workspaces
 ENV WORK_HOME /go/work
 ENV LOADER_ERR_DIR /go/work/errors
 ENV JETS_ADMIN_EMAIL admin
+# cpipes listener for peer connection
+ENV CPIPES_SERVER_ADDR ':8085'
 
 RUN \
   mkdir -p ${WORKSPACES_HOME}           \

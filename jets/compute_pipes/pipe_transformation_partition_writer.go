@@ -84,6 +84,7 @@ func (ctx *PartitionWriterTransformationPipe) apply(input *[]interface{}) error 
 		ctx.filePartitionNumber += 1
 		partitionFileName := fmt.Sprintf("part%07d.parquet", ctx.filePartitionNumber)
 		s3DeviceWriter := &S3DeviceWriter{
+			s3Uploader: ctx.s3Uploader,
 			source: &InputChannel{
 				channel: ctx.currentDeviceCh,
 				columns: ctx.outputCh.columns,
@@ -98,7 +99,7 @@ func (ctx *PartitionWriterTransformationPipe) apply(input *[]interface{}) error 
 			doneCh:        ctx.doneCh,
 			errCh:         ctx.errCh,
 		}
-		s3WriterResultCh := make(chan ComputePipesResult)
+		s3WriterResultCh := make(chan ComputePipesResult, 1)
 		ctx.s3WritersResultCh <- s3WriterResultCh
 		go s3DeviceWriter.WritePartition(s3WriterResultCh)
 	}
@@ -157,6 +158,9 @@ func (ctx *PartitionWriterTransformationPipe) done() error {
 		ctx.totalRowCount += ctx.partitionRowCount
 	}
 
+	// Done writing new partition, close the channel
+	close(ctx.s3WritersResultCh)
+
 	// Write to db the shardId of this partition: session_id, file_key, shard
 	stmt := `INSERT INTO jetsapi.compute_pipes_shard_registry (session_id, file_key, is_file, shard_id) 
 		VALUES ($1, $2, 0, $3) ON CONFLICT DO NOTHING`
@@ -190,6 +194,8 @@ func (ctx *PartitionWriterTransformationPipe) done() error {
 	// }
 	//*MOVED TO run_report using emitSentinelFile directive
 
+	// fmt.Println("**!@@ partition_writer evaluator done() called, collecting total filepart written from s3WritersCollectedResultCh. . .")
+
 	// Collect all the file parts that was written for this partition
 	totalFilePartsWritten := <-ctx.s3WritersCollectedResultCh
 
@@ -198,6 +204,7 @@ func (ctx *PartitionWriterTransformationPipe) done() error {
 		TableName:    *ctx.baseOutputPath,
 		CopyRowCount: ctx.totalRowCount,
 		PartsCount:   totalFilePartsWritten.PartsCount,
+		Err: totalFilePartsWritten.Err,
 	}
 	return nil
 }
@@ -276,6 +283,7 @@ func (ctx *BuilderContext) NewPartitionWriterTransformationPipe(source *InputCha
 				break
 			}
 		}
+		// fmt.Println("**!@@ COLLECT *4 All parts collected, sending to s3WritersCollectedResultCh - count:", partCount, "err:", err)
 		// All file parts written, send out the count
 		select {
 		case s3WritersCollectedResultCh <- ComputePipesResult{PartsCount: partCount, Err: err}:

@@ -6,7 +6,10 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strings"
+	"time"
 
+	"github.com/artisoft-io/jetstore/jets/awsi"
 	"github.com/artisoft-io/jetstore/jets/schema"
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/feature/s3/manager"
@@ -24,12 +27,25 @@ type ComputePipesResult struct {
 	PartsCount   int64
 	Err          error
 }
+type LoadFromS3FilesResult struct {
+	LoadRowCount int64
+	BadRowCount  int64
+	Err          error
+}
+
+type ChannelResults struct {
+	LoadFromS3FilesResultCh chan LoadFromS3FilesResult
+	Copy2DbResultCh         chan chan ComputePipesResult
+	WritePartitionsResultCh chan chan chan ComputePipesResult
+	MapOnClusterResultCh    chan chan chan ComputePipesResult
+}
 
 // Function to write transformed row to database
 func StartComputePipes(dbpool *pgxpool.Pool, headersDKInfo *schema.HeadersAndDomainKeysInfo, done chan struct{}, errCh chan error,
-	computePipesInputCh <-chan []interface{}, copy2DbResultCh chan chan ComputePipesResult,
-	writePartitionsResultCh chan chan chan ComputePipesResult, computePipesJson *string, envSettings map[string]interface{},
+	computePipesInputCh <-chan []interface{}, chResults *ChannelResults,
+	computePipesJson *string, envSettings map[string]interface{},
 	fileKeyComponents map[string]interface{}) {
+	var peersAddr []string
 
 	var cpErr error
 	if computePipesJson == nil || len(*computePipesJson) == 0 {
@@ -45,7 +61,7 @@ func StartComputePipes(dbpool *pgxpool.Pool, headersDKInfo *schema.HeadersAndDom
 			columns:         headersDKInfo.Headers, // using default staging table
 		}
 		table := make(chan ComputePipesResult, 1)
-		copy2DbResultCh <- table
+		chResults.Copy2DbResultCh <- table
 		wt.writeTable(dbpool, done, table)
 
 	} else {
@@ -127,7 +143,7 @@ func StartComputePipes(dbpool *pgxpool.Pool, headersDKInfo *schema.HeadersAndDom
 				columns:         outChannel.config.Columns,
 			}
 			table := make(chan ComputePipesResult, 1)
-			copy2DbResultCh <- table
+			chResults.Copy2DbResultCh <- table
 			go wt.writeTable(dbpool, done, table)
 		}
 		fmt.Println("Compute Pipes output tables ready")
@@ -143,16 +159,81 @@ func StartComputePipes(dbpool *pgxpool.Pool, headersDKInfo *schema.HeadersAndDom
 		// Create the uploader with the client and custom options
 		s3Uploader := manager.NewUploader(s3Client)
 
+		var nodeAddr string
+		if cpConfig.ClusterConfig != nil {
+			// Get the node address and register it with database
+			nodePort := strings.Split(envSettings["$CPIPES_SERVER_ADDR"].(string), ":")[1]
+			if envSettings["$JETSTORE_DEV_MODE"].(bool) {
+				nodeAddr = fmt.Sprintf("127.0.0.1:%s", nodePort)
+			} else {
+				nodeIp, err := awsi.GetPrivateIp()
+				if err != nil {
+					cpErr = fmt.Errorf("while getting node's IP (in StartComputePipes): %v", err)
+					goto gotError
+				}
+				nodeAddr = fmt.Sprintf("%s:%s", nodeIp, nodePort)
+			}
+			// Register node to database
+			sessionId := envSettings["$SESSIONID"].(string)
+			stmt := fmt.Sprintf(
+				"INSERT INTO jetsapi.cpipes_cluster_node_registry (session_id, node_address, shard_id) VALUES ('%s','%s',%d);",
+				sessionId, nodeAddr, envSettings["$SHARD_ID"].(int))
+			log.Println(stmt)
+			_, err = dbpool.Exec(context.Background(), stmt)
+			if err != nil {
+				cpErr = fmt.Errorf("while inserting node's addressin db (in StartComputePipes): %v", err)
+				goto gotError
+			}
+			log.Printf("Node's address %s registered into database", nodeAddr)
+			// Get the peers addresses from database
+			registrationTimeout := cpConfig.ClusterConfig.PeerRegistrationTimeout
+			if registrationTimeout == 0 {
+				registrationTimeout = 60
+			}
+			nbrNodes := envSettings["$NBR_SHARDS"].(int)
+			stmt = "SELECT node_address FROM jetsapi.cpipes_cluster_node_registry WHERE session_id = $1 ORDER BY shard_id ASC"
+			start := time.Now()
+			for {
+				peersAddr = make([]string, 0)
+				rows, err := dbpool.Query(context.Background(), stmt, sessionId)
+				if err != nil {
+					cpErr = fmt.Errorf("while querying peer's address from db (in StartComputePipes): %v", err)
+					goto gotError
+				}
+				for rows.Next() {
+					var addr string
+					if err := rows.Scan(&addr); err != nil {
+						rows.Close()
+						cpErr = fmt.Errorf("while scanning node's address from db (in StartComputePipes): %v", err)
+						goto gotError
+					}
+					peersAddr = append(peersAddr, addr)
+				}
+				rows.Close()
+				if len(peersAddr) == nbrNodes {
+					break
+				}
+				log.Printf("Got %d out of %d peer's addresses, will try again", len(peersAddr), nbrNodes)
+				if time.Since(start) > time.Duration(registrationTimeout)*time.Second {
+					log.Printf("Error, timeout occured while trying to get peer's addresses")
+					cpErr = fmt.Errorf("error: timeout while getting peers addresses (in StartComputePipes): %v", err)
+					goto gotError
+				}
+				time.Sleep(1 * time.Second)
+			}
+		}
+
 		ctx := &BuilderContext{
-			dbpool:                  dbpool,
-			cpConfig:                &cpConfig,
-			channelRegistry:         channelRegistry,
-			done:                    done,
-			errCh:                   errCh,
-			copy2DbResultCh:         copy2DbResultCh,
-			writePartitionsResultCh: writePartitionsResultCh,
-			env:                     envSettings,
-			s3Uploader:              s3Uploader,
+			dbpool:          dbpool,
+			cpConfig:        &cpConfig,
+			channelRegistry: channelRegistry,
+			selfAddress:     nodeAddr,
+			peersAddress:    peersAddr,
+			done:            done,
+			errCh:           errCh,
+			chResults:       chResults,
+			env:             envSettings,
+			s3Uploader:      s3Uploader,
 		}
 		err = ctx.buildComputeGraph()
 		if err != nil {
@@ -162,15 +243,17 @@ func StartComputePipes(dbpool *pgxpool.Pool, headersDKInfo *schema.HeadersAndDom
 
 	}
 	// All done!
-	close(copy2DbResultCh)
-	close(writePartitionsResultCh)
+	close(chResults.Copy2DbResultCh)
+	close(chResults.WritePartitionsResultCh)
+	close(chResults.MapOnClusterResultCh)
 	return
 
 gotError:
 	log.Println(cpErr)
-	// fmt.Println("**! gotError in StartComputePipes")
+	fmt.Println("**! gotError in StartComputePipes")
 	errCh <- cpErr
 	close(done)
-	close(copy2DbResultCh)
-	close(writePartitionsResultCh)
+	close(chResults.Copy2DbResultCh)
+	close(chResults.WritePartitionsResultCh)
+	close(chResults.MapOnClusterResultCh)
 }

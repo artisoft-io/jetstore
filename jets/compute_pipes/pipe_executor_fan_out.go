@@ -5,7 +5,7 @@ import (
 	"log"
 )
 
-func (ctx *BuilderContext) startFanOutPipe(spec *PipeSpec, source *InputChannel) {
+func (ctx *BuilderContext) StartFanOutPipe(spec *PipeSpec, source *InputChannel) {
 	var cpErr, err error
 	evaluators := make([]PipeTransformationEvaluator, len(spec.Apply))
 

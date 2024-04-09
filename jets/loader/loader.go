@@ -79,21 +79,19 @@ func InputEncodingFromString(ie string) InputEncoding {
 
 var inputFileEncoding InputEncoding
 
-type LoadFromS3FilesResult struct {
-	LoadRowCount int64
-	BadRowCount  int64
-	err          error
-}
-
 // processFile
 // --------------------------------------------------------------------------------------
 func processFile(dbpool *pgxpool.Pool, done chan struct{}, errCh chan error, headersFileCh, fileNamesCh <-chan string,
-	errFileHd *os.File) (headersDKInfo *schema.HeadersAndDomainKeysInfo, loadFromS3FilesResultCh chan LoadFromS3FilesResult,
-	copy2DbResultCh chan chan compute_pipes.ComputePipesResult, writePartitionsResultCh chan chan chan compute_pipes.ComputePipesResult) {
-
-	loadFromS3FilesResultCh = make(chan LoadFromS3FilesResult, 1)
-	copy2DbResultCh = make(chan chan compute_pipes.ComputePipesResult, 101)             // NOTE: 101 is the limit of nbr of output table
-	writePartitionsResultCh = make(chan chan chan compute_pipes.ComputePipesResult, 10) // NOTE: 10 is the limit of nbr of splitter operators
+	errFileHd *os.File) (headersDKInfo *schema.HeadersAndDomainKeysInfo, chResults *compute_pipes.ChannelResults) {
+	chResults = &compute_pipes.ChannelResults{
+		// NOTE: 101 is the limit of nbr of output table
+		// NOTE: 10 is the limit of nbr of splitter operators
+		// NOTE: 5 is the limit of nbr of cluster_map operators
+		LoadFromS3FilesResultCh: make(chan compute_pipes.LoadFromS3FilesResult, 1),
+		Copy2DbResultCh:         make(chan chan compute_pipes.ComputePipesResult, 101),
+		WritePartitionsResultCh: make(chan chan chan compute_pipes.ComputePipesResult, 10),
+		MapOnClusterResultCh:    make(chan chan chan compute_pipes.ComputePipesResult, 5),
+	}
 	var rawHeaders *[]string
 	var headersFile string
 	var fixedWidthColumnPrefix string
@@ -213,24 +211,23 @@ func processFile(dbpool *pgxpool.Pool, done chan struct{}, errCh chan error, hea
 
 	// read the rest of the file(s)
 	// ---------------------------------------
-	loadFiles(dbpool, headersDKInfo, done, errCh, fileNamesCh, loadFromS3FilesResultCh, copy2DbResultCh, writePartitionsResultCh, badRowsWriter)
-
+	loadFiles(dbpool, headersDKInfo, done, errCh, fileNamesCh, chResults, badRowsWriter)
 	// All good!
 	return
 
 doNothingExit:
 	fmt.Println("processFile: no files to load, exiting ***", err)
-	loadFromS3FilesResultCh <- LoadFromS3FilesResult{}
-	close(copy2DbResultCh)
-	close(writePartitionsResultCh)
+	chResults.LoadFromS3FilesResultCh <- compute_pipes.LoadFromS3FilesResult{}
+	close(chResults.Copy2DbResultCh)
+	close(chResults.WritePartitionsResultCh)
 	close(done)
 	return
 
 gotError:
 	fmt.Println("processFile gotError prior to loadFiles, writing to loadFromS3FilesResultCh AND copy2DbResultCh AND writePartitionsResultCh (ComputePipesResult)  ***", err)
-	loadFromS3FilesResultCh <- LoadFromS3FilesResult{err: err}
-	close(copy2DbResultCh)
-	close(writePartitionsResultCh)
+	chResults.LoadFromS3FilesResultCh <- compute_pipes.LoadFromS3FilesResult{Err: err}
+	close(chResults.Copy2DbResultCh)
+	close(chResults.WritePartitionsResultCh)
 	close(done)
 	return
 
@@ -241,7 +238,7 @@ func processFileAndReportStatus(dbpool *pgxpool.Pool,
 	done chan struct{}, errCh chan error, headersFileCh, fileNamesCh <-chan string,
 	downloadS3ResultCh <-chan DownloadS3Result, inFolderPath string, errFileHd *os.File) (bool, error) {
 
-	headersDKInfo, loadFromS3FilesResultCh, copy2DbResultCh, writePartitionsResultCh := processFile(dbpool, done, errCh, headersFileCh, fileNamesCh, errFileHd)
+	headersDKInfo, chResults := processFile(dbpool, done, errCh, headersFileCh, fileNamesCh, errFileHd)
 	downloadResult := <-downloadS3ResultCh
 	err := downloadResult.err
 	log.Println("Downloaded", downloadResult.InputFilesCount, "files from s3", downloadResult.err)
@@ -249,16 +246,16 @@ func processFileAndReportStatus(dbpool *pgxpool.Pool,
 		processingErrors = append(processingErrors, downloadResult.err.Error())
 	}
 
-	loadFromS3FilesResult := <-loadFromS3FilesResultCh
-	log.Println("Loaded", loadFromS3FilesResult.LoadRowCount, "rows from s3 files with", loadFromS3FilesResult.BadRowCount, "bad rows", loadFromS3FilesResult.err)
-	if loadFromS3FilesResult.err != nil {
-		processingErrors = append(processingErrors, loadFromS3FilesResult.err.Error())
+	loadFromS3FilesResult := <-chResults.LoadFromS3FilesResultCh
+	log.Println("Loaded", loadFromS3FilesResult.LoadRowCount, "rows from s3 files with", loadFromS3FilesResult.BadRowCount, "bad rows", loadFromS3FilesResult.Err)
+	if loadFromS3FilesResult.Err != nil {
+		processingErrors = append(processingErrors, loadFromS3FilesResult.Err.Error())
 		if err == nil {
-			err = loadFromS3FilesResult.err
+			err = loadFromS3FilesResult.Err
 		}
 	}
 	var outputRowCount int64
-	for table := range copy2DbResultCh {
+	for table := range chResults.Copy2DbResultCh {
 		copy2DbResult := <-table
 		outputRowCount += copy2DbResult.CopyRowCount
 		log.Println("Inserted", copy2DbResult.CopyRowCount, "rows in table", copy2DbResult.TableName, "::", copy2DbResult.Err)
@@ -270,11 +267,30 @@ func processFileAndReportStatus(dbpool *pgxpool.Pool,
 		}
 	}
 
-	for splitter := range writePartitionsResultCh {
+	// log.Println("**!@@ Read ComputePipesResult from MapOnClusterResultCh:")
+	for mapOn := range chResults.MapOnClusterResultCh {
+		// log.Println("**!@@ Read PEER ComputePipesResult from MapOnClusterResultCh:")
+		for peer := range mapOn {
+			// log.Println("**!@@ Read RESULT ComputePipesResult from MapOnClusterResultCh:")
+			peerResult := <-peer
+			log.Printf("**!@@ Sent %d Rows to Peer %s :: %v", peerResult.CopyRowCount, peerResult.TableName, peerResult.Err)
+			if peerResult.Err != nil {
+				processingErrors = append(processingErrors, peerResult.Err.Error())
+				if err == nil {
+					err = peerResult.Err
+				}
+			}
+		}
+	}
+
+	// log.Println("**!@@ Read ComputePipesResult from WritePartitionsResultCh:")
+	for splitter := range chResults.WritePartitionsResultCh {
+		// log.Println("**!@@ Read SPLITTER ComputePipesResult from writePartitionsResultCh:")
 		for partition := range splitter {
+			// log.Println("**!@@ Read PARTITION ComputePipesResult from writePartitionsResultCh:")
 			copy2DbResult := <-partition
 			outputRowCount += copy2DbResult.CopyRowCount
-			fmt.Println("Wrote", copy2DbResult.CopyRowCount, "rows in partition", copy2DbResult.TableName, "::", copy2DbResult.Err)
+			log.Println("**!@@ Wrote", copy2DbResult.CopyRowCount, "rows in partition", copy2DbResult.TableName, "::", copy2DbResult.Err)
 			if copy2DbResult.Err != nil {
 				processingErrors = append(processingErrors, copy2DbResult.Err.Error())
 				if err == nil {

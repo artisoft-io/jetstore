@@ -18,8 +18,10 @@ import (
 
 // Loader env variable:
 // AWS_API_SECRET or API_SECRET
+// CPIPES_SERVER_ADDR cpipes listerner addr for peer connections
 // JETS_ADMIN_EMAIL (set as admin in dockerfile)
 // JETS_BUCKET
+// JETSTORE_DEV_MODE Indicates running in dev mode
 // JETS_DOMAIN_KEY_HASH_ALGO (values: md5, sha1, none (default: none))
 // JETS_DOMAIN_KEY_HASH_SEED (required for md5 and sha1. MUST be a valid uuid )
 // JETS_DOMAIN_KEY_SEPARATOR
@@ -35,7 +37,6 @@ import (
 // JETS_SERVER_SM_ARN state machine arn
 // JETS_REPORTS_SM_ARN state machine arn
 // JETS_CPIPES_SM_ARN state machine arn
-// JETSTORE_DEV_MODE Indicates running in dev mode
 // LOADER_ERR_DIR
 var awsDsnSecret = flag.String("awsDsnSecret", "", "aws secret with dsn definition (aws integration) (required or JETS_DSN_SECRET or -dsn)")
 var awsRegion = flag.String("awsRegion", "", "aws region to connect to for aws secret and bucket (required or JETS_REGION)")
@@ -64,6 +65,7 @@ var shardId = flag.Int("shardId", -1, "Run the cpipes process for this single sh
 var inputSessionId string		// needed to read the file_keys from sharding table when peKey is provided
 var cpipesMode string // values: loader, sharding, reducing, standalone :: set in coordinateWork()
 var cpipesFileKeys []string
+var cpipesServerAddr string
 
 var tableName string
 var domainKeysJson string
@@ -87,6 +89,10 @@ var fileKeyDate time.Time
 func init() {
 	flag.Var(&sep_flag, "sep", "Field separator for csv files, default is auto detect between pipe ('|'), tilda ('~'), tab ('\t') or comma (',')")
 	processingErrors = make([]string, 0)
+	cpipesServerAddr = os.Getenv("CPIPES_SERVER_ADDR")
+	if len(cpipesServerAddr) == 0 {
+		cpipesServerAddr = ":8085"
+	}
 }
 
 func main() {
