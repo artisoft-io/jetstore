@@ -104,8 +104,8 @@ func shardFileKeys(dbpool *pgxpool.Pool, baseFileKey string, sessionId string, n
 	if err != nil || s3Objects == nil || len(s3Objects) == 0 {
 		return 0, fmt.Errorf("failed to download list of files from s3 (or folder is empty): %v", err)
 	}
-	stmt := `INSERT INTO jetsapi.compute_pipes_shard_registry (session_id, file_key, is_file, shard_id) 
-		VALUES ($1, $2, 1, $3) ON CONFLICT DO NOTHING`
+	stmt := `INSERT INTO jetsapi.compute_pipes_shard_registry (session_id, file_key, is_file, shard_id, file_size) 
+		VALUES ($1, $2, 1, $3, $4) ON CONFLICT DO NOTHING`
 	for i := range s3Objects {
 		if s3Objects[i].Size > 1 {
 			// Hash the file hey and assign it to a shard
@@ -114,7 +114,7 @@ func shardFileKeys(dbpool *pgxpool.Pool, baseFileKey string, sessionId string, n
 			keyHash := h.Sum64()
 			shardId := keyHash % uint64(nbrShards)
 			// Write to shardId of this file key: session_id, file_key, shard
-			_, err := dbpool.Exec(context.Background(), stmt, sessionId, s3Objects[i].Key, int(shardId))
+			_, err := dbpool.Exec(context.Background(), stmt, sessionId, s3Objects[i].Key, int(shardId), s3Objects[i].Size)
 			if err != nil {
 				return 0, fmt.Errorf("error inserting in jetsapi.compute_pipes_shard_registry table: %v", err)
 			}
