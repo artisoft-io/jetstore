@@ -51,7 +51,7 @@ func GetPrivateIp() (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("** Invalid JSON from ECS_CONTAINER_METADATA_URI_V4: %v", err)
 	}
-	result := data["Networks"].([]interface{})[0].(map[string]interface{})["IPv4Addresses"].([]string)[0]
+	result := data["Networks"].([]interface{})[0].(map[string]interface{})["IPv4Addresses"].([]interface{})[0].(string)
 	fmt.Println("*** IPv4Addresses:",result)
 	return result, nil
 }
