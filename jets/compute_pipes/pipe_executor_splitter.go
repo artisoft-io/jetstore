@@ -7,11 +7,11 @@ import (
 	"sync"
 )
 
-func (ctx *BuilderContext) startSplitterPipe(spec *PipeSpec, source *InputChannel, writePartitionsResultCh chan chan ComputePipesResult) {
+func (ctx *BuilderContext) StartSplitterPipe(spec *PipeSpec, source *InputChannel, writePartitionsResultCh chan chan ComputePipesResult) {
 	var cpErr error
 	var wg sync.WaitGroup
 	var oc map[string]bool
-	// the map containing all the channels corresponding to values @ spliterColumnIdx
+	// the map containing all the intermediate channels corresponding to values @ spliterColumnIdx
 	chanState := make(map[string]chan []interface{})
 	spliterColumnIdx, ok := source.columns[*spec.Column]
 	if !ok {
@@ -64,7 +64,9 @@ doneSplitterLoop:
 	}
 
 	// Close the output channels once all ch handlers are done
+	// fmt.Println("**!@@ Splitter loop done, ABOUT to wait on wg")
 	wg.Wait()
+	// fmt.Println("**!@@ Splitter loop done, DONE waiting on wg!")
 	close(writePartitionsResultCh)
 	// Closing the output channels
 	oc = make(map[string]bool)
@@ -91,9 +93,11 @@ func (ctx *BuilderContext) startSplitterChannelHandler(spec *PipeSpec, source *I
 	defer func() {
 		wg.Done()
 	}()
+	// fmt.Println("**!@@ SPLITTER *1 startSplitterChannelHandler ~ Called")
 	// Build the PipeTransformationEvaluator
 	evaluators = make([]PipeTransformationEvaluator, len(spec.Apply))
 	for j := range spec.Apply {
+		// partitionResultCh will have the aggregated count of files written by the partition writer
 		partitionResultCh := make(chan ComputePipesResult, 1)
 		writePartitionsResultCh <- partitionResultCh
 		eval, err := ctx.buildPipeTransformationEvaluator(source, splitterKey, partitionResultCh, &spec.Apply[j])
@@ -123,6 +127,7 @@ func (ctx *BuilderContext) startSplitterChannelHandler(spec *PipeSpec, source *I
 			evaluators[i].finally()
 		}
 	}
+	// fmt.Println("**!@@ SPLITTER *1 startSplitterChannelHandler ~ All good!")
 	// All good!
 	return
 

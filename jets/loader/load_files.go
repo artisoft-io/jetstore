@@ -30,8 +30,7 @@ import (
 // compute transformation is the identity operator.
 
 func loadFiles(dbpool *pgxpool.Pool, headersDKInfo *schema.HeadersAndDomainKeysInfo, done chan struct{}, errCh chan error,
-	fileNamesCh <-chan string, loadFromS3FilesResultCh chan<- LoadFromS3FilesResult, copy2DbResultCh chan chan compute_pipes.ComputePipesResult,
-	writePartitionsResultCh chan chan chan compute_pipes.ComputePipesResult, badRowsWriter *bufio.Writer) {
+	fileNamesCh <-chan string, chResults *compute_pipes.ChannelResults, badRowsWriter *bufio.Writer) {
 
 	// Create a channel to use as a buffer between the file loader and the copy to db
 	// This gives the opportunity to use Compute Pipes to transform the data before writing to the db
@@ -40,7 +39,7 @@ func loadFiles(dbpool *pgxpool.Pool, headersDKInfo *schema.HeadersAndDomainKeysI
 
 	defer func() {
 		// if r := recover(); r != nil {
-		// 	loadFromS3FilesResultCh <- LoadFromS3FilesResult{err: fmt.Errorf("recovered error: %v", r)}
+		// 	loadFromS3FilesResultCh <- LoadFromS3FilesResult{Err: fmt.Errorf("recovered error: %v", r)}
 		// 	debug.PrintStack()
 		// 	close(done)
 		// }
@@ -61,13 +60,17 @@ func loadFiles(dbpool *pgxpool.Pool, headersDKInfo *schema.HeadersAndDomainKeysI
 		}
 	}
 	// Start the Compute Pipes async
-	go compute_pipes.StartComputePipes(dbpool, headersDKInfo, done, errCh, computePipesInputCh, copy2DbResultCh, writePartitionsResultCh,
+	// Note: when nbrShards > 1, cpipes does not work in local mode in apiserver yet
+	go compute_pipes.StartComputePipes(dbpool, headersDKInfo, done, errCh, computePipesInputCh, chResults,
 		&computePipesJson, map[string]interface{}{
-			"$SESSIONID":       *sessionId,
-			"$FILE_KEY_DATE":   fileKeyDate,
-			"$FILE_KEY":        *inFile,
-			"$FILE_KEY_FOLDER": fileKeyFolder,
-			"$NBR_SHARDS":      *nbrShards,
+			"$SESSIONID":          *sessionId,
+			"$FILE_KEY_DATE":      fileKeyDate,
+			"$FILE_KEY":           *inFile,
+			"$FILE_KEY_FOLDER":    fileKeyFolder,
+			"$SHARD_ID":           *shardId,
+			"$NBR_SHARDS":         *nbrShards,
+			"$CPIPES_SERVER_ADDR": cpipesServerAddr,
+			"$JETSTORE_DEV_MODE":  devMode,
 		}, fileKeyComponents)
 
 	var totalRowCount, badRowCount int64
@@ -78,11 +81,11 @@ func loadFiles(dbpool *pgxpool.Pool, headersDKInfo *schema.HeadersAndDomainKeysI
 		badRowCount += badCount
 		if err != nil {
 			fmt.Println("loadFile2Db returned error", err)
-			loadFromS3FilesResultCh <- LoadFromS3FilesResult{LoadRowCount: totalRowCount, BadRowCount: badRowCount, err: err}
+			chResults.LoadFromS3FilesResultCh <- compute_pipes.LoadFromS3FilesResult{LoadRowCount: totalRowCount, BadRowCount: badRowCount, Err: err}
 			return
 		}
 	}
-	loadFromS3FilesResultCh <- LoadFromS3FilesResult{LoadRowCount: totalRowCount, BadRowCount: badRowCount}
+	chResults.LoadFromS3FilesResultCh <- compute_pipes.LoadFromS3FilesResult{LoadRowCount: totalRowCount, BadRowCount: badRowCount}
 }
 
 func loadFile2DB(headersDKInfo *schema.HeadersAndDomainKeysInfo, filePath *string, badRowsWriter *bufio.Writer,
@@ -406,7 +409,8 @@ func loadFile2DB(headersDKInfo *schema.HeadersAndDomainKeysInfo, filePath *strin
 			select {
 			case computePipesInputCh <- copyRec:
 			case <-done:
-				return inputRowCount, int64(len(badRowsPos)), fmt.Errorf("loading input row from file interrupted")
+				log.Println("loading input row from file interrupted")
+				return inputRowCount, int64(len(badRowsPos)), nil
 			}
 			inputRowCount += 1
 		}

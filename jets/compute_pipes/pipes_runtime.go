@@ -82,15 +82,16 @@ type OutputChannel struct {
 }
 
 type BuilderContext struct {
-	dbpool                  *pgxpool.Pool
-	cpConfig                *ComputePipesConfig
-	channelRegistry         *ChannelRegistry
-	done                    chan struct{}
-	errCh                   chan error
-	copy2DbResultCh         chan chan ComputePipesResult
-	writePartitionsResultCh chan chan chan ComputePipesResult
-	env                     map[string]interface{}
-	s3Uploader *manager.Uploader
+	dbpool          *pgxpool.Pool
+	cpConfig        *ComputePipesConfig
+	channelRegistry *ChannelRegistry
+	selfAddress     string
+	peersAddress    []string
+	done            chan struct{}
+	errCh           chan error
+	chResults       *ChannelResults
+	env             map[string]interface{}
+	s3Uploader      *manager.Uploader
 }
 
 type PipeTransformationEvaluator interface {
@@ -111,7 +112,7 @@ func (ctx *BuilderContext) buildComputeGraph() error {
 	// Build the Pipes
 	fmt.Println("**& Start ComputeGraph")
 	for i := range ctx.cpConfig.PipesConfig {
-		// fmt.Println("**& PipeConfig", i, "type", ctx.cpConfig.PipesConfig[i].Type)
+		fmt.Println("**& PipeConfig", i, "type", ctx.cpConfig.PipesConfig[i].Type)
 		pipeSpec := &ctx.cpConfig.PipesConfig[i]
 		source, err := ctx.channelRegistry.GetInputChannel(pipeSpec.Input)
 		if err != nil {
@@ -120,15 +121,26 @@ func (ctx *BuilderContext) buildComputeGraph() error {
 
 		switch pipeSpec.Type {
 		case "fan_out":
-			// fmt.Println("**& starting PipeConfig", i, "fan_out", "on source", source.config.Name)
-			go ctx.startFanOutPipe(pipeSpec, source)
+			fmt.Println("**& starting PipeConfig", i, "fan_out", "on source", source.config.Name)
+			go ctx.StartFanOutPipe(pipeSpec, source)
 
 		case "splitter":
-			// fmt.Println("**& starting PipeConfig", i, "splitter", "on source", source.config.Name)
-			splitterPartitionResultCh := make(chan chan ComputePipesResult, 10000)	// NOTE Max number of partitions
-			ctx.writePartitionsResultCh <- splitterPartitionResultCh
+			fmt.Println("**& starting PipeConfig", i, "splitter", "on source", source.config.Name)
+			// Create the writePartitionResultCh that will contain the number of part files for each partition
+			writePartitionsResultCh := make(chan chan ComputePipesResult, 15000) // NOTE Max number of partitions
+			ctx.chResults.WritePartitionsResultCh <- writePartitionsResultCh
+			go ctx.StartSplitterPipe(pipeSpec, source, writePartitionsResultCh)
 
-			go ctx.startSplitterPipe(pipeSpec, source, splitterPartitionResultCh)
+		case "cluster_map":
+			fmt.Println("**& starting PipeConfig", i, "cluster_map", "on source", source.config.Name)
+			// Create the clusterMapResultCh to report on the outgoing peer connection
+			clusterMapResultCh := make(chan chan ComputePipesResult, ctx.env["$NBR_SHARDS"].(int))
+			ctx.chResults.MapOnClusterResultCh <- clusterMapResultCh
+			// Create the writePartitionResultCh that will contain the number of part files in the event partition_writer is used
+			// This will be a special case where the is a single partion to write
+			writePartitionsResultCh := make(chan chan ComputePipesResult, len(pipeSpec.Apply)) // NOTE buffer sized in the unlikely case there are multiple items in Apply
+			ctx.chResults.WritePartitionsResultCh <- writePartitionsResultCh
+			go ctx.StartClusterMap(pipeSpec, source, clusterMapResultCh, writePartitionsResultCh)
 
 		default:
 			return fmt.Errorf("error: unknown PipeSpec type: %s", pipeSpec.Type)
@@ -138,7 +150,10 @@ func (ctx *BuilderContext) buildComputeGraph() error {
 	return nil
 }
 
-func (ctx *BuilderContext) buildPipeTransformationEvaluator(source *InputChannel, splitterKey *string, 
+// Build the PipeTransformationEvaluator: one of map_record, aggregate, or partition_writer
+// The partitionResultCh argument is used only by partition_writer to return the number of part files written and
+// the error that might occur
+func (ctx *BuilderContext) buildPipeTransformationEvaluator(source *InputChannel, splitterKey *string,
 	partitionResultCh chan ComputePipesResult, spec *TransformationSpec) (PipeTransformationEvaluator, error) {
 
 	// Construct the pipe transformation

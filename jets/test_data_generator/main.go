@@ -32,7 +32,7 @@ var NbrRowsPerChard = flag.Int("NbrRowsPerChard", 1, "Nbr record per chard (nbr 
 
 func main() {
 	fmt.Println("CMD LINE ARGS:", os.Args[1:])
-	flag.Parse()
+	// flag.Parse()
 
 	ca := &delegate.CommandArguments{
 		AwsDsnSecret:     *awsDsnSecret,

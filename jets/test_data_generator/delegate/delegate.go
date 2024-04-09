@@ -44,13 +44,14 @@ type CommandArguments struct {
 	NbrMembers       int
 	NbrRowPerMembers int
 	NbrRowsPerChard  int
+	NbrChards        int
 }
 
 // Support Functions
 // --------------------------------------------------------------------------------------
 func (ca *CommandArguments) GetTemplateInfo() (string, string, error) {
 	readFile, err := os.Open(
-		fmt.Sprintf("%s/%s/%s",os.Getenv("WORKSPACES_HOME"),os.Getenv("WORKSPACE"),ca.CsvTemplatePath))
+		fmt.Sprintf("%s/%s/%s", os.Getenv("WORKSPACES_HOME"), os.Getenv("WORKSPACE"), ca.CsvTemplatePath))
 	if err != nil {
 		return "", "", err
 	}
@@ -168,6 +169,10 @@ func (ca *CommandArguments) ValidateArguments() []string {
 		errMsg = append(errMsg, "NbrRowsPerChard must be at least 1.")
 	}
 
+	if ca.NbrChards < 1 {
+		errMsg = append(errMsg, "NbrChards must be at least 1.")
+	}
+
 	fmt.Println("Status Update Arguments:")
 	fmt.Println("----------------")
 	fmt.Println("Got argument: dsn, len", len(ca.Dsn))
@@ -182,6 +187,7 @@ func (ca *CommandArguments) ValidateArguments() []string {
 	fmt.Println("Got argument: nbrMembers", ca.NbrMembers)
 	fmt.Println("Got argument: NbrRowPerMembers", ca.NbrRowPerMembers)
 	fmt.Println("Got argument: NbrRowsPerChard", ca.NbrRowsPerChard)
+	fmt.Println("Got argument: NbrChards", ca.NbrChards)
 	fmt.Printf("ENV JETS_s3_INPUT_PREFIX: %s\n", os.Getenv("JETS_s3_INPUT_PREFIX"))
 	fmt.Printf("ENV JETS_BUCKET: %s\n", os.Getenv("JETS_BUCKET"))
 	fmt.Printf("ENV WORKSPACE: %s\n", os.Getenv("WORKSPACE"))
@@ -206,6 +212,17 @@ func (ca *CommandArguments) CoordinateWork() error {
 	// }
 	// defer dbpool.Close()
 
+	for i := 0; i < ca.NbrChards; i++ {
+		err := ca.DoChard(i)
+		if err != nil {
+			return fmt.Errorf("while generation of chard %d: %v",i, err)
+		}
+	}
+
+	return nil
+}
+
+func (ca *CommandArguments) DoChard(id int) error {
 	// Set up the output writer
 	// Setup a writer for error file (bad records)
 	outFile, err := os.CreateTemp("", "testData")

@@ -38,7 +38,7 @@ func CalculatePeriod(year, month, day int) (monthPeriod, weekPeriod, dayPeriod i
 	return
 }
 
-// Lead source period info from database by key
+// Load source period info from database by key
 func LoadSourcePeriod(dbpool *pgxpool.Pool, key int) (sp SourcePeriod, err error) {
 	stmt := "SELECT year, month, day, month_period, week_period, day_period FROM jetsapi.source_period WHERE key=$1"
 	err = dbpool.QueryRow(context.Background(), stmt, key).Scan(

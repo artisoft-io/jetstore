@@ -1,12 +1,22 @@
 package compute_pipes
 
+import "strconv"
+
 // This file contains the Compute Pipes configuration model
 type ComputePipesConfig struct {
 	RuntimeMetrics []Metric       `json:"runtime_metrics"`
+	ClusterConfig  *ClusterSpec   `json:"cluster_config"`
 	OutputTables   []TableSpec    `json:"output_tables"`
 	Channels       []ChannelSpec  `json:"channels"`
 	Context        *[]ContextSpec `json:"context"`
 	PipesConfig    []PipeSpec     `json:"pipes_config"`
+}
+
+// Config for peer2peer communication
+type ClusterSpec struct {
+	ReadTimeout             int `json:"read_timeout"`
+	WriteTimeout            int `json:"write_timeout"`
+	PeerRegistrationTimeout int `json:"peer_registration_timeout"`
 }
 
 type Metric struct {
@@ -39,7 +49,7 @@ type TableColumnSpec struct {
 }
 
 type PipeSpec struct {
-	// Type range: fan_out, splitter,
+	// Type range: fan_out, splitter, cluster_map
 	Type   string               `json:"type"`
 	Input  string               `json:"input"`
 	Column *string              `json:"column"` // splitter column
@@ -98,4 +108,17 @@ type ExpressionNode struct {
 type CaseExpression struct {
 	When ExpressionNode `json:"when"`
 	Then ExpressionNode `json:"then"`
+}
+
+func toString(v interface{}) string {
+	if v != nil {
+		// improve this by supporting different types in the splitting column
+		switch vv := v.(type) {
+		case string:
+			return vv
+		case int:
+			return strconv.Itoa(vv)
+		}
+	}
+	return ""
 }
