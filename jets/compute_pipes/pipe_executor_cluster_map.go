@@ -2,6 +2,7 @@ package compute_pipes
 
 import (
 	"bytes"
+	"context"
 	"encoding/gob"
 	"errors"
 	"fmt"
@@ -11,8 +12,11 @@ import (
 	"math/rand"
 	"net"
 	"os"
+	"strings"
 	"sync"
 	"time"
+
+	"github.com/artisoft-io/jetstore/jets/awsi"
 )
 
 // Pipe executor that shard the input channel onto the cluster based
@@ -30,21 +34,32 @@ func (ctx *BuilderContext) StartClusterMap(spec *PipeSpec, source *InputChannel,
 	clusterMapResultCh, writePartitionsResultCh chan chan ComputePipesResult) {
 	var cpErr, err error
 	var evaluatorsWg sync.WaitGroup
-	var peersInWg sync.WaitGroup
+	var peersInWg, remainingPeerInWg sync.WaitGroup
 	var distributionWg sync.WaitGroup
 	var distributionCh []chan []interface{}
 	var distributionResultCh chan ComputePipesResult
 	var incommingDataCh chan []interface{}
 	var server net.Listener
-	outPeers := make([]Peer, len(ctx.peersAddress))
+	var outPeers []Peer
 	var evaluators []PipeTransformationEvaluator
 	var destinationShardId int
 	nbrShard := ctx.env["$NBR_SHARDS"].(int)
 	shardId := ctx.env["$SHARD_ID"].(int)
-	var oc map[string]bool
 	var spliterColumnIdx int
 	var ok bool
 	var addr string
+	defer func() {
+		// Closing the output channels
+		fmt.Println("**! CLUSTER_MAP: Closing Output Channels")
+		oc := make(map[string]bool)
+		for i := range spec.Apply {
+			oc[spec.Apply[i].Output] = true
+		}
+		for i := range oc {
+			fmt.Println("**! CLUSTER_MAP: Closing Output Channel", i)
+			ctx.channelRegistry.CloseChannel(i)
+		}
+	}()
 
 	fmt.Println("**!@@ CLUSTER_MAP *1 Called, shuffle on column", *spec.Column)
 
@@ -70,27 +85,39 @@ func (ctx *BuilderContext) StartClusterMap(spec *PipeSpec, source *InputChannel,
 	addr = ctx.env["$CPIPES_SERVER_ADDR"].(string)
 	server, err = net.Listen("tcp", addr)
 	if err != nil {
-		cpErr = fmt.Errorf("while opening a listener on port 8085 for incomming connection: %v", err)
+		cpErr = fmt.Errorf("while opening a listener on %s for incomming connection: %v", addr, err)
 		goto gotError
 	}
-	fmt.Println("**!@@ CLUSTER_MAP *2 Listner started on", addr)
-	go ctx.listenForIncomingData(server, incommingDataCh, &peersInWg)
+	log.Println("**!@@ CLUSTER_MAP *2 Listner started on", addr)
+	remainingPeerInWg.Add(nbrShard - 1)
+	go ctx.listenForIncomingData(server, incommingDataCh, &peersInWg, &remainingPeerInWg)
 
 	// Note: when evaluatorsWg and source is done, need to call Close() on server to terminate the Accept loop
 	// and close intermediate channel incommingDataCh
-
+	ctx.registerNode()
+	outPeers = make([]Peer, len(ctx.peersAddress))
 	// Open the client connections with peers -- send data, output sources
 	for i, peerAddress := range ctx.peersAddress {
 		log.Printf("**!@@ CLUSTER_MAP *3 (%s) connecting to %s", ctx.selfAddress, peerAddress)
 		if peerAddress != ctx.selfAddress {
-			conn, err := net.Dial("tcp", peerAddress)
-			if err != nil {
-				cpErr = fmt.Errorf("while opening conn with peer %d at %s for cluster_map with source channel %s", i, peerAddress, source.config.Name)
-				goto gotError
-			}
-			outPeers[i] = Peer{
-				peerAddress: peerAddress,
-				conn:        conn,
+			retry := 0
+			for {
+				conn, err := net.Dial("tcp", peerAddress)
+				if err == nil {
+					log.Printf("**!@@ CLUSTER_MAP *3 (%s) CONNECTED to %s on try #%d", ctx.selfAddress, peerAddress, retry)
+					outPeers[i] = Peer{
+						peerAddress: peerAddress,
+						conn:        conn,
+					}
+					break
+				}
+				if retry >= 5 {
+					cpErr = fmt.Errorf("too many retry while opening conn with peer %d at %s for cluster_map with source channel %s: %v", i, peerAddress, source.config.Name, err)
+					goto gotError
+				}
+				log.Printf("**!@@ CLUSTER_MAP *3 (%s) failed to connect to %s on try #%d, will retry", ctx.selfAddress, peerAddress, retry)
+				time.Sleep(1 * time.Second)
+				retry++
 			}
 		} else {
 			log.Printf("**!@@ CLUSTER_MAP *3 (%s) stand-in for %s", ctx.selfAddress, peerAddress)
@@ -101,9 +128,12 @@ func (ctx *BuilderContext) StartClusterMap(spec *PipeSpec, source *InputChannel,
 		}
 	}
 	log.Printf("**!@@ CLUSTER_MAP *3 (%s) All %d peer connections established", ctx.selfAddress, len(ctx.peersAddress))
+	log.Printf("**!@@ CLUSTER_MAP *4 WAIT for all incomming PEER conn to be established")
+	remainingPeerInWg.Wait()
+	log.Printf("**!@@ CLUSTER_MAP *4 DONE WAIT got all incomming PEER conn established")
 
-	// Build the PipeTransformationEvaluators
-	evaluators = make([]PipeTransformationEvaluator, len(spec.Apply))
+		// Build the PipeTransformationEvaluators
+		evaluators = make([]PipeTransformationEvaluator, len(spec.Apply))
 	for j := range spec.Apply {
 		partitionResultCh := make(chan ComputePipesResult, 1)
 		writePartitionsResultCh <- partitionResultCh
@@ -176,6 +206,7 @@ func (ctx *BuilderContext) StartClusterMap(spec *PipeSpec, source *InputChannel,
 				log.Printf("**!@@ CLUSTER_MAP *6 Distributing records :: sending to peer %d - starting", iWorker)
 				var sentRowCount int64
 				for inRow := range distributionCh[iWorker] {
+					// log.Printf("**!@@ CLUSTER_MAP *6 Sending ROW #%d to peer %d", sentRowCount, iWorker)
 					err = ctx.sendRow(outPeers[iWorker].conn, inRow)
 					if err != nil {
 						cpErr = fmt.Errorf("while sending row to peer node %d: %v", iWorker, err)
@@ -230,57 +261,135 @@ func (ctx *BuilderContext) StartClusterMap(spec *PipeSpec, source *InputChannel,
 		case distributionCh[destinationShardId] <- inRow:
 		case <-ctx.done:
 			log.Printf("ClusterMap: writing to incommingDataCh intermediate channel interrupted")
-			return
+			goto doneSource // so we can clean up
+		}
+	}
+doneSource:
+	log.Printf("**!@@ CLUSTER_MAP *5 DONE Processing input source channel: %s", source.config.Name)
+
+	// Close the distribution channel to outPeer since processing the source has completed
+	for i := range distributionCh {
+		if i == shardId {
+			// Local shard, correspond to incommingDataCh, will be closed once the incomming peer
+			// connections are closed
+		} else {
+			close(distributionCh[i])
 		}
 	}
 
 	// All the evaluators are created and no errors so far, we can close the writePartitionsResultCh
 	close(writePartitionsResultCh)
 
-	// Source channel completed, now wait for the peers with incoming records to complete
-	peersInWg.Wait()
-
-	// Wait for the distrubution channels to be completed, this will ensure no more data
-	// is sent to incommingDataCh, so we can close it
+	// Wait for the distrubution channels to be completed
+	log.Printf("**!@@ CLUSTER_MAP *7 WAIT on distributionWg so we can close the connection to PEER")
 	distributionWg.Wait()
+	log.Printf("**!@@ CLUSTER_MAP *7 DONE WAIT on distributionWg CLOSING connections to PEER")
+	// Close the outgoing connection to peer nodes
+	for i := range outPeers {
+		if outPeers[i].conn != nil {
+			outPeers[i].conn.Close()
+		}
+	}
+
+	// Source channel completed, now wait for the peers with incoming records to complete
+	log.Printf("**!@@ CLUSTER_MAP *8 WAIT on peersInWg - incomming PEER")
+	peersInWg.Wait()
+	log.Printf("**!@@ CLUSTER_MAP *8 DONE WAIT on peersInWg - incomming PEER")
 
 	// Close incommingDataCh and server listerner
 	close(incommingDataCh)
 	server.Close()
+	server = nil
 
 	// When the evaluators has completed processing incommingDataCh then close output channels
 	evaluatorsWg.Wait()
-
-	// Closing the output channels
-	oc = make(map[string]bool)
-	for i := range spec.Apply {
-		oc[spec.Apply[i].Output] = true
-	}
-	for i := range oc {
-		fmt.Println("**! SplitterPipe: Closing Output Channel", i)
-		ctx.channelRegistry.CloseChannel(i)
-	}
 
 	// All good!
 	return
 
 gotError:
+	close(clusterMapResultCh)
 	close(writePartitionsResultCh)
 	log.Println(cpErr)
 	ctx.errCh <- cpErr
 	close(ctx.done)
-
+	if server != nil {
+		server.Close()
+	}
 }
 
-func (ctx *BuilderContext) listenForIncomingData(server net.Listener, incommingDataCh chan<- []interface{}, peersWg *sync.WaitGroup) {
-	// server, err := net.Listen("tcp", ":8085")
-	// if err != nil {
+func (ctx *BuilderContext) registerNode() error {
+	var err, cpErr error
+	shardId := ctx.env["$SHARD_ID"].(int)
 
-	// }
-	// defer server.Close()
+	// Get the node address and register it with database
+	nodePort := strings.Split(ctx.env["$CPIPES_SERVER_ADDR"].(string), ":")[1]
+	if ctx.env["$JETSTORE_DEV_MODE"].(bool) {
+		ctx.selfAddress = fmt.Sprintf("127.0.0.1:%s", nodePort)
+	} else {
+		nodeIp, err := awsi.GetPrivateIp()
+		if err != nil {
+			cpErr = fmt.Errorf("while getting node's IP (in StartComputePipes): %v", err)
+			return cpErr
+		}
+		ctx.selfAddress = fmt.Sprintf("%s:%s", nodeIp, nodePort)
+	}
+	// Register node to database
+	sessionId := ctx.env["$SESSIONID"].(string)
+	stmt := fmt.Sprintf(
+		"INSERT INTO jetsapi.cpipes_cluster_node_registry (session_id, node_address, shard_id) VALUES ('%s','%s',%d);",
+		sessionId, ctx.selfAddress, shardId)
+	log.Println(stmt)
+	_, err = ctx.dbpool.Exec(context.Background(), stmt)
+	if err != nil {
+		cpErr = fmt.Errorf("while inserting node's addressin db (in StartComputePipes): %v", err)
+		return cpErr
+	}
+	log.Printf("Node's address %s registered into database", ctx.selfAddress)
+	// Get the peers addresses from database
+	registrationTimeout := ctx.cpConfig.ClusterConfig.PeerRegistrationTimeout
+	if registrationTimeout == 0 {
+		registrationTimeout = 60
+	}
+	nbrNodes := ctx.env["$NBR_SHARDS"].(int)
+	stmt = "SELECT node_address FROM jetsapi.cpipes_cluster_node_registry WHERE session_id = $1 ORDER BY shard_id ASC"
+	start := time.Now()
+	for {
+		ctx.peersAddress = make([]string, 0)
+		rows, err := ctx.dbpool.Query(context.Background(), stmt, sessionId)
+		if err != nil {
+			cpErr = fmt.Errorf("while querying peer's address from db (in StartComputePipes): %v", err)
+			return cpErr
+		}
+		for rows.Next() {
+			var addr string
+			if err := rows.Scan(&addr); err != nil {
+				rows.Close()
+				cpErr = fmt.Errorf("while scanning node's address from db (in StartComputePipes): %v", err)
+				return cpErr
+			}
+			ctx.peersAddress = append(ctx.peersAddress, addr)
+		}
+		rows.Close()
+		if len(ctx.peersAddress) == nbrNodes {
+			log.Printf("Got %d out of %d peer's addresses, done", len(ctx.peersAddress), nbrNodes)
+			break
+		}
+		log.Printf("Got %d out of %d peer's addresses, will try again", len(ctx.peersAddress), nbrNodes)
+		if time.Since(start) > time.Duration(registrationTimeout)*time.Second {
+			log.Printf("Error, timeout occured while trying to get peer's addresses")
+			cpErr = fmt.Errorf("error: timeout while getting peers addresses (in StartComputePipes): %v", err)
+			return cpErr
+		}
+		time.Sleep(1 * time.Second)
+	}
+	return nil
+}
 
+func (ctx *BuilderContext) listenForIncomingData(server net.Listener, incommingDataCh chan<- []interface{},
+	peersWg, remainingPeerInWg *sync.WaitGroup) {
 	// server.Close() will be called by the caller to terminate the loop
-	fmt.Println("**!@@ CLUSTER_MAP *2 calling server.Accept()")
+	log.Println("**!@@ CLUSTER_MAP *2 calling server.Accept()")
 	for {
 		conn, err := server.Accept()
 		if err != nil {
@@ -288,6 +397,7 @@ func (ctx *BuilderContext) listenForIncomingData(server net.Listener, incommingD
 			return
 		}
 		peersWg.Add(1)
+		remainingPeerInWg.Done()
 		go ctx.handleIncomingData(conn, incommingDataCh, peersWg)
 	}
 }
@@ -298,7 +408,7 @@ func (ctx *BuilderContext) handleIncomingData(conn net.Conn, incommingDataCh cha
 		peersWg.Done()
 	}()
 
-	timeoutDuration := 600 * time.Second
+	timeoutDuration := 180 * time.Second
 	if ctx.cpConfig.ClusterConfig != nil {
 		d := ctx.cpConfig.ClusterConfig.ReadTimeout
 		if d > 0 {
@@ -318,14 +428,14 @@ func (ctx *BuilderContext) handleIncomingData(conn net.Conn, incommingDataCh cha
 		switch {
 		case err == nil:
 		case errors.Is(err, os.ErrDeadlineExceeded):
-			//* add time to deadlime?
+			log.Printf("*** PEER Deadline exceeded on read, bailing out")
 			return
 		case err == io.EOF:
-			// done
+			log.Printf("*** PEER Connect closed by client, done")
 			return
 		default:
 			// read error
-			log.Println("*** read error:", err)
+			log.Println("*** PEER read error:", err)
 			return
 		}
 
@@ -339,6 +449,7 @@ func (ctx *BuilderContext) handleIncomingData(conn net.Conn, incommingDataCh cha
 		gobobj.Decode(row)
 
 		// Send the record to the intermediate channel
+		// fmt.Printf("**!@@ Got record LENGTH %d\n", len(*row))
 		select {
 		case incommingDataCh <- *row:
 		case <-ctx.done:

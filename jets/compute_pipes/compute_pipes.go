@@ -2,14 +2,13 @@ package compute_pipes
 
 import (
 	"context"
+	"encoding/gob"
 	"encoding/json"
 	"fmt"
 	"log"
 	"os"
-	"strings"
 	"time"
 
-	"github.com/artisoft-io/jetstore/jets/awsi"
 	"github.com/artisoft-io/jetstore/jets/schema"
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/feature/s3/manager"
@@ -18,7 +17,9 @@ import (
 )
 
 // Compute Pipes main entry point
-
+func init() {
+	gob.Register(time.Now())
+}
 type ComputePipesResult struct {
 	// Table name can be jets_partition name
 	// PartCount is nbr of file part in jets_partition
@@ -45,7 +46,6 @@ func StartComputePipes(dbpool *pgxpool.Pool, headersDKInfo *schema.HeadersAndDom
 	computePipesInputCh <-chan []interface{}, chResults *ChannelResults,
 	computePipesJson *string, envSettings map[string]interface{},
 	fileKeyComponents map[string]interface{}) {
-	var peersAddr []string
 
 	var cpErr error
 	if computePipesJson == nil || len(*computePipesJson) == 0 {
@@ -116,6 +116,7 @@ func StartComputePipes(dbpool *pgxpool.Pool, headersDKInfo *schema.HeadersAndDom
 		// 	fmt.Println("**& Channel", cpConfig.Channels[i].Name, "Columns map", channelRegistry.computeChannels[cpConfig.Channels[i].Name].columns)
 		// }
 
+		shardId := envSettings["$SHARD_ID"].(int)
 		// Prepare the output tables
 		for i := range cpConfig.OutputTables {
 			tableIdentifier, err := SplitTableName(cpConfig.OutputTables[i].Name)
@@ -123,11 +124,14 @@ func StartComputePipes(dbpool *pgxpool.Pool, headersDKInfo *schema.HeadersAndDom
 				cpErr = fmt.Errorf("while splitting table name: %s", err)
 				goto gotError
 			}
-			// fmt.Println("**& Preparing Output Table", tableIdentifier)
-			err = prepareOutoutTable(dbpool, tableIdentifier, &cpConfig.OutputTables[i])
-			if err != nil {
-				cpErr = fmt.Errorf("while preparing output table: %s", err)
-				goto gotError
+			if shardId == 0 {
+				// Update table schema in database if current shardId is 0, to avoid multiple updates
+				fmt.Println("**& Preparing / Updating Output Table", tableIdentifier)
+				err = prepareOutoutTable(dbpool, tableIdentifier, &cpConfig.OutputTables[i])
+				if err != nil {
+					cpErr = fmt.Errorf("while preparing output table: %s", err)
+					goto gotError
+				}
 			}
 			outChannel := channelRegistry.computeChannels[cpConfig.OutputTables[i].Key]
 			channelRegistry.outputTableChannels = append(channelRegistry.outputTableChannels, cpConfig.OutputTables[i].Key)
@@ -159,76 +163,11 @@ func StartComputePipes(dbpool *pgxpool.Pool, headersDKInfo *schema.HeadersAndDom
 		// Create the uploader with the client and custom options
 		s3Uploader := manager.NewUploader(s3Client)
 
-		var nodeAddr string
-		if cpConfig.ClusterConfig != nil {
-			// Get the node address and register it with database
-			nodePort := strings.Split(envSettings["$CPIPES_SERVER_ADDR"].(string), ":")[1]
-			if envSettings["$JETSTORE_DEV_MODE"].(bool) {
-				nodeAddr = fmt.Sprintf("127.0.0.1:%s", nodePort)
-			} else {
-				nodeIp, err := awsi.GetPrivateIp()
-				if err != nil {
-					cpErr = fmt.Errorf("while getting node's IP (in StartComputePipes): %v", err)
-					goto gotError
-				}
-				nodeAddr = fmt.Sprintf("%s:%s", nodeIp, nodePort)
-			}
-			// Register node to database
-			sessionId := envSettings["$SESSIONID"].(string)
-			stmt := fmt.Sprintf(
-				"INSERT INTO jetsapi.cpipes_cluster_node_registry (session_id, node_address, shard_id) VALUES ('%s','%s',%d);",
-				sessionId, nodeAddr, envSettings["$SHARD_ID"].(int))
-			log.Println(stmt)
-			_, err = dbpool.Exec(context.Background(), stmt)
-			if err != nil {
-				cpErr = fmt.Errorf("while inserting node's addressin db (in StartComputePipes): %v", err)
-				goto gotError
-			}
-			log.Printf("Node's address %s registered into database", nodeAddr)
-			// Get the peers addresses from database
-			registrationTimeout := cpConfig.ClusterConfig.PeerRegistrationTimeout
-			if registrationTimeout == 0 {
-				registrationTimeout = 60
-			}
-			nbrNodes := envSettings["$NBR_SHARDS"].(int)
-			stmt = "SELECT node_address FROM jetsapi.cpipes_cluster_node_registry WHERE session_id = $1 ORDER BY shard_id ASC"
-			start := time.Now()
-			for {
-				peersAddr = make([]string, 0)
-				rows, err := dbpool.Query(context.Background(), stmt, sessionId)
-				if err != nil {
-					cpErr = fmt.Errorf("while querying peer's address from db (in StartComputePipes): %v", err)
-					goto gotError
-				}
-				for rows.Next() {
-					var addr string
-					if err := rows.Scan(&addr); err != nil {
-						rows.Close()
-						cpErr = fmt.Errorf("while scanning node's address from db (in StartComputePipes): %v", err)
-						goto gotError
-					}
-					peersAddr = append(peersAddr, addr)
-				}
-				rows.Close()
-				if len(peersAddr) == nbrNodes {
-					break
-				}
-				log.Printf("Got %d out of %d peer's addresses, will try again", len(peersAddr), nbrNodes)
-				if time.Since(start) > time.Duration(registrationTimeout)*time.Second {
-					log.Printf("Error, timeout occured while trying to get peer's addresses")
-					cpErr = fmt.Errorf("error: timeout while getting peers addresses (in StartComputePipes): %v", err)
-					goto gotError
-				}
-				time.Sleep(1 * time.Second)
-			}
-		}
 
 		ctx := &BuilderContext{
 			dbpool:          dbpool,
 			cpConfig:        &cpConfig,
 			channelRegistry: channelRegistry,
-			selfAddress:     nodeAddr,
-			peersAddress:    peersAddr,
 			done:            done,
 			errCh:           errCh,
 			chResults:       chResults,
