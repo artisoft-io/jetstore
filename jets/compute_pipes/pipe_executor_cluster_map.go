@@ -206,7 +206,7 @@ func (ctx *BuilderContext) StartClusterMap(spec *PipeSpec, source *InputChannel,
 				log.Printf("**!@@ CLUSTER_MAP *6 Distributing records :: sending to peer %d - starting", iWorker)
 				var sentRowCount int64
 				for inRow := range distributionCh[iWorker] {
-					// log.Printf("**!@@ CLUSTER_MAP *6 Sending ROW #%d to peer %d", sentRowCount, iWorker)
+					log.Printf("**!@@ CLUSTER_MAP *6 Sending ROW #%d of length %d to peer %d", sentRowCount, len(inRow), iWorker)
 					err = ctx.sendRow(outPeers[iWorker].conn, inRow)
 					if err != nil {
 						cpErr = fmt.Errorf("while sending row to peer node %d: %v", iWorker, err)
@@ -449,7 +449,7 @@ func (ctx *BuilderContext) handleIncomingData(conn net.Conn, incommingDataCh cha
 		gobobj.Decode(row)
 
 		// Send the record to the intermediate channel
-		// fmt.Printf("**!@@ Got record LENGTH %d\n", len(*row))
+		fmt.Printf("**!@@ Got record LENGTH %d\n", len(*row))
 		select {
 		case incommingDataCh <- *row:
 		case <-ctx.done:
