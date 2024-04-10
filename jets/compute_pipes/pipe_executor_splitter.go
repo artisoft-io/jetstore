@@ -10,7 +10,20 @@ import (
 func (ctx *BuilderContext) StartSplitterPipe(spec *PipeSpec, source *InputChannel, writePartitionsResultCh chan chan ComputePipesResult) {
 	var cpErr error
 	var wg sync.WaitGroup
-	var oc map[string]bool
+	defer func() {
+		close(writePartitionsResultCh)
+		// Closing the output channels
+		fmt.Println("**! SPLITTER: Closing Output Channels")
+		oc := make(map[string]bool)
+		for i := range spec.Apply {
+			oc[spec.Apply[i].Output] = true
+		}
+		for i := range oc {
+			fmt.Println("**! SPLITTER: Closing Output Channel", i)
+			ctx.channelRegistry.CloseChannel(i)
+		}
+	}()
+
 	// the map containing all the intermediate channels corresponding to values @ spliterColumnIdx
 	chanState := make(map[string]chan []interface{})
 	spliterColumnIdx, ok := source.columns[*spec.Column]
@@ -19,7 +32,7 @@ func (ctx *BuilderContext) StartSplitterPipe(spec *PipeSpec, source *InputChanne
 		goto gotError
 	}
 
-	// fmt.Println("**! start splitter loop on source:",source.config.Name)
+	fmt.Println("**! start splitter loop on source:",source.config.Name)
 	for inRow := range source.channel {
 		var key string
 		v := inRow[spliterColumnIdx]
@@ -46,11 +59,11 @@ func (ctx *BuilderContext) StartSplitterPipe(spec *PipeSpec, source *InputChanne
 					}, writePartitionsResultCh, &key, &wg)
 				}
 				// Send the record to the intermediate channel
-				// fmt.Println("**! splitter loop, sending record to intermediate channel:", key)
+				fmt.Println("**! splitter loop, sending record to intermediate channel:", key)
 				select {
 				case splitCh <- inRow:
 				case <-ctx.done:
-					// log.Printf("startSplitterPipe writing to splitter intermediate channel with key %s from '%s' interrupted", key, source.config.Name)
+					log.Printf("startSplitterPipe writing to splitter intermediate channel with key %s from '%s' interrupted", key, source.config.Name)
 					goto doneSplitterLoop
 				}
 			}
@@ -58,29 +71,18 @@ func (ctx *BuilderContext) StartSplitterPipe(spec *PipeSpec, source *InputChanne
 	}
 doneSplitterLoop:
 	// Close all the intermediate channels
-	for _, ch := range chanState {
-		// fmt.Println("**! startSplitterPipe closing intermediate channel", key)
+	for key, ch := range chanState {
+		fmt.Println("**! startSplitterPipe closing intermediate channel", key)
 		close(ch)
 	}
-
 	// Close the output channels once all ch handlers are done
-	// fmt.Println("**!@@ Splitter loop done, ABOUT to wait on wg")
+	fmt.Println("**!@@ Splitter loop done, ABOUT to wait on wg")
 	wg.Wait()
-	// fmt.Println("**!@@ Splitter loop done, DONE waiting on wg!")
-	close(writePartitionsResultCh)
-	// Closing the output channels
-	oc = make(map[string]bool)
-	for i := range spec.Apply {
-		oc[spec.Apply[i].Output] = true
-	}
-	for i := range oc {
-		fmt.Println("**! SplitterPipe: Closing Output Channel", i)
-		ctx.channelRegistry.CloseChannel(i)
-	}
+	fmt.Println("**!@@ Splitter loop done, DONE waiting on wg!")
+	// Closing the output channels via the defer above
 	// All good!
 	return
 gotError:
-	close(writePartitionsResultCh)
 	log.Println(cpErr)
 	ctx.errCh <- cpErr
 	close(ctx.done)
@@ -127,7 +129,7 @@ func (ctx *BuilderContext) startSplitterChannelHandler(spec *PipeSpec, source *I
 			evaluators[i].finally()
 		}
 	}
-	// fmt.Println("**!@@ SPLITTER *1 startSplitterChannelHandler ~ All good!")
+	fmt.Println("**!@@ SPLITTER *1 startSplitterChannelHandler ~ All good!")
 	// All good!
 	return
 

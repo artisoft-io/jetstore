@@ -160,7 +160,7 @@ func getFileKeys(dbpool *pgxpool.Pool, sessionId string, shardId int) ([]string,
 	var key string
 	// Get isFile via a separate query in case the list of file_key is empty
 	stmt := `
-	SELECT (DISTINCT is_file)
+	SELECT DISTINCT is_file
 	FROM jetsapi.compute_pipes_shard_registry 
 	WHERE session_id = $1`
 	var isFile int
@@ -194,7 +194,7 @@ func getFileKeys(dbpool *pgxpool.Pool, sessionId string, shardId int) ([]string,
 		SELECT file_key
 		FROM jetsapi.compute_pipes_shard_registry 
 		WHERE session_id = $1 LIMIT 1`
-		err = dbpool.QueryRow(context.Background(), stmt, sessionId, shardId).Scan(&key)
+		err = dbpool.QueryRow(context.Background(), stmt, sessionId).Scan(&key)
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
 				// Nothing to do here, no files to process for this session_id
