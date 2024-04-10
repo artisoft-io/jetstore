@@ -187,7 +187,7 @@ func getFileKeys(dbpool *pgxpool.Pool, sessionId string, shardId int) ([]string,
 		}
 		fileKeys = append(fileKeys, key)
 	}
-	fmt.Println("**!@@ GOT KEYS:", fileKeys, "isFile:", isFile)
+	// fmt.Println("**!@@ GOT KEYS:", fileKeys, "isFile:", isFile)
 	if len(fileKeys) == 0 {
 		// Get a single file key to use for getting the headers
 		stmt = `

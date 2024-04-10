@@ -128,12 +128,12 @@ func (ctx *BuilderContext) StartClusterMap(spec *PipeSpec, source *InputChannel,
 		}
 	}
 	log.Printf("**!@@ CLUSTER_MAP *3 (%s) All %d peer connections established", ctx.selfAddress, len(ctx.peersAddress))
-	log.Printf("**!@@ CLUSTER_MAP *4 WAIT for all incomming PEER conn to be established")
+	// log.Printf("**!@@ CLUSTER_MAP *4 WAIT for all incomming PEER conn to be established")
 	remainingPeerInWg.Wait()
-	log.Printf("**!@@ CLUSTER_MAP *4 DONE WAIT got all incomming PEER conn established")
+	// log.Printf("**!@@ CLUSTER_MAP *4 DONE WAIT got all incomming PEER conn established")
 
-		// Build the PipeTransformationEvaluators
-		evaluators = make([]PipeTransformationEvaluator, len(spec.Apply))
+	// Build the PipeTransformationEvaluators
+	evaluators = make([]PipeTransformationEvaluator, len(spec.Apply))
 	for j := range spec.Apply {
 		partitionResultCh := make(chan ComputePipesResult, 1)
 		writePartitionsResultCh <- partitionResultCh
@@ -150,7 +150,7 @@ func (ctx *BuilderContext) StartClusterMap(spec *PipeSpec, source *InputChannel,
 	go func() {
 		defer evaluatorsWg.Done()
 		// Process the channel
-		log.Printf("**!@@ CLUSTER_MAP *5 Processing intermediate channel incommingDataCh")
+		// log.Printf("**!@@ CLUSTER_MAP *5 Processing intermediate channel incommingDataCh")
 		for inRow := range incommingDataCh {
 			for i := range evaluators {
 				err = evaluators[i].apply(&inRow)
@@ -171,7 +171,7 @@ func (ctx *BuilderContext) StartClusterMap(spec *PipeSpec, source *InputChannel,
 			}
 		}
 		// All good!
-		log.Printf("**!@@ CLUSTER_MAP *5 Processing intermediate channel incommingDataCh - All good!")
+		// log.Printf("**!@@ CLUSTER_MAP *5 Processing intermediate channel incommingDataCh - All good!")
 		return
 
 	gotError:
@@ -206,8 +206,7 @@ func (ctx *BuilderContext) StartClusterMap(spec *PipeSpec, source *InputChannel,
 				log.Printf("**!@@ CLUSTER_MAP *6 Distributing records :: sending to peer %d - starting", iWorker)
 				var sentRowCount int64
 				for inRow := range distributionCh[iWorker] {
-					// log.Printf("**!@@ CLUSTER_MAP *6 Sending ROW #%d to peer %d", sentRowCount, iWorker)
-					err = ctx.sendRow(outPeers[iWorker].conn, inRow)
+					err = ctx.sendRow(iWorker, outPeers[iWorker].conn, inRow)
 					if err != nil {
 						cpErr = fmt.Errorf("while sending row to peer node %d: %v", iWorker, err)
 						goto gotError
@@ -242,6 +241,7 @@ func (ctx *BuilderContext) StartClusterMap(spec *PipeSpec, source *InputChannel,
 	log.Printf("**!@@ CLUSTER_MAP *5 Processing input source channel: %s", source.config.Name)
 	for inRow := range source.channel {
 		var key string
+		var keyHash uint64
 		v := inRow[spliterColumnIdx]
 		if v != nil {
 			key = toString(v)
@@ -250,12 +250,13 @@ func (ctx *BuilderContext) StartClusterMap(spec *PipeSpec, source *InputChannel,
 			// hash the key, select a peer node
 			h := fnv.New64a()
 			h.Write([]byte(key))
-			keyHash := h.Sum64()
+			keyHash = h.Sum64()
 			destinationShardId = int(keyHash % uint64(nbrShard))
 		} else {
 			// pick random shard
 			destinationShardId = rand.Intn(nbrShard)
 		}
+		// log.Printf("**!@@ CLUSTER_MAP *5 INPUT key: %s, hash: %d => %d", key, keyHash, destinationShardId)
 		// consume or send the record via the distribution channels
 		select {
 		case distributionCh[destinationShardId] <- inRow:
@@ -281,9 +282,9 @@ doneSource:
 	close(writePartitionsResultCh)
 
 	// Wait for the distrubution channels to be completed
-	log.Printf("**!@@ CLUSTER_MAP *7 WAIT on distributionWg so we can close the connection to PEER")
+	// log.Printf("**!@@ CLUSTER_MAP *7 WAIT on distributionWg so we can close the connection to PEER")
 	distributionWg.Wait()
-	log.Printf("**!@@ CLUSTER_MAP *7 DONE WAIT on distributionWg CLOSING connections to PEER")
+	// log.Printf("**!@@ CLUSTER_MAP *7 DONE WAIT on distributionWg CLOSING connections to PEER")
 	// Close the outgoing connection to peer nodes
 	for i := range outPeers {
 		if outPeers[i].conn != nil {
@@ -292,9 +293,9 @@ doneSource:
 	}
 
 	// Source channel completed, now wait for the peers with incoming records to complete
-	log.Printf("**!@@ CLUSTER_MAP *8 WAIT on peersInWg - incomming PEER")
+	// log.Printf("**!@@ CLUSTER_MAP *8 WAIT on peersInWg - incomming PEER")
 	peersInWg.Wait()
-	log.Printf("**!@@ CLUSTER_MAP *8 DONE WAIT on peersInWg - incomming PEER")
+	// log.Printf("**!@@ CLUSTER_MAP *8 DONE WAIT on peersInWg - incomming PEER")
 
 	// Close incommingDataCh and server listerner
 	close(incommingDataCh)
@@ -420,11 +421,50 @@ func (ctx *BuilderContext) handleIncomingData(conn net.Conn, incommingDataCh cha
 
 	remoteAddr := conn.RemoteAddr().String()
 	fmt.Println("Client connected from " + remoteAddr)
-
-	// create a temp 10k buffer
-	tmp := make([]byte, 10240)
+	tmpSz := 1024
+	var n int
+	var err error
 	for {
-		_, err := conn.Read(tmp)
+		// create a temp buffer
+		tmp := make([]byte, tmpSz)
+		tmpbuff := new(bytes.Buffer)
+		for {
+			n, err = conn.Read(tmp)
+			if n > 0 {
+				tmpbuff.Write(tmp[:n])
+			}
+			if (n > 0 && n < tmpSz) || err != nil {
+				break
+			}
+		}
+
+		// irow := 0
+		bufLen := tmpbuff.Len()
+		if bufLen > 0 {
+			for {
+				// decode the rows received
+				row := new([]interface{})
+				// creates a decoder object
+				gobobj := gob.NewDecoder(tmpbuff)
+				// decodes buffer and unmarshals it into a Message struct
+				err2 := gobobj.Decode(row)
+				if err2 == io.EOF {
+					break
+				}
+				// irow++
+				// Send the record to the intermediate channel
+				// fmt.Printf("**!@@ Got record LENGTH %d #%d of msg remaining %d of %d\n", len(*row), irow, tmpbuff.Len(), bufLen)
+				if len(*row) > 0 {
+					select {
+					case incommingDataCh <- *row:
+					case <-ctx.done:
+						log.Printf("handleIncomingData: writing to incommingDataCh intermediate channel interrupted")
+						return
+					}
+				}
+			}
+		}
+		// Check if we're done
 		switch {
 		case err == nil:
 		case errors.Is(err, os.ErrDeadlineExceeded):
@@ -438,28 +478,10 @@ func (ctx *BuilderContext) handleIncomingData(conn net.Conn, incommingDataCh cha
 			log.Println("*** PEER read error:", err)
 			return
 		}
-
-		// convert bytes into Buffer (which implements io.Reader/io.Writer)
-		tmpbuff := bytes.NewBuffer(tmp)
-		row := new([]interface{})
-
-		// creates a decoder object
-		gobobj := gob.NewDecoder(tmpbuff)
-		// decodes buffer and unmarshals it into a Message struct
-		gobobj.Decode(row)
-
-		// Send the record to the intermediate channel
-		// fmt.Printf("**!@@ Got record LENGTH %d\n", len(*row))
-		select {
-		case incommingDataCh <- *row:
-		case <-ctx.done:
-			log.Printf("handleIncomingData: writing to incommingDataCh intermediate channel interrupted")
-			return
-		}
 	}
 }
 
-func (ctx *BuilderContext) sendRow(conn net.Conn, row []interface{}) error {
+func (ctx *BuilderContext) sendRow(iWorker int, conn net.Conn, row []interface{}) error {
 	bin_buf := new(bytes.Buffer)
 
 	// create a encoder object
@@ -471,5 +493,6 @@ func (ctx *BuilderContext) sendRow(conn net.Conn, row []interface{}) error {
 		return err
 	}
 	_, err = conn.Write(bin_buf.Bytes())
+	// log.Printf("**!@@ CLUSTER_MAP *6 Sending ROW of length %d as %d bytes to peer %d - transmitted %d bytes", len(row), bin_buf.Len(), iWorker, n)
 	return err
 }
