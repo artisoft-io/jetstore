@@ -257,7 +257,7 @@ func processFileAndReportStatus(dbpool *pgxpool.Pool,
 	log.Println("**!@@ Read chResults.Copy2DbResultCh:")
 	var outputRowCount int64
 	for table := range chResults.Copy2DbResultCh {
-		log.Println("**!@@ Read table results:")
+		// log.Println("**!@@ Read table results:")
 		copy2DbResult := <-table
 		outputRowCount += copy2DbResult.CopyRowCount
 		log.Println("Inserted", copy2DbResult.CopyRowCount, "rows in table", copy2DbResult.TableName, "::", copy2DbResult.Err)
@@ -271,9 +271,9 @@ func processFileAndReportStatus(dbpool *pgxpool.Pool,
 
 	log.Println("**!@@ Read chResults.MapOnClusterResultCh:")
 	for mapOn := range chResults.MapOnClusterResultCh {
-		log.Println("**!@@ Read PEER from MapOnClusterResultCh:")
+		// log.Println("**!@@ Read PEER from MapOnClusterResultCh:")
 		for peer := range mapOn {
-			log.Println("**!@@ Read RESULT from MapOnClusterResultCh:")
+			// log.Println("**!@@ Read RESULT from MapOnClusterResultCh:")
 			peerResult := <-peer
 			log.Printf("**!@@ Sent %d Rows to Peer %s :: %v", peerResult.CopyRowCount, peerResult.TableName, peerResult.Err)
 			if peerResult.Err != nil {
@@ -287,9 +287,9 @@ func processFileAndReportStatus(dbpool *pgxpool.Pool,
 
 	log.Println("**!@@ Read ComputePipesResult from WritePartitionsResultCh:")
 	for splitter := range chResults.WritePartitionsResultCh {
-		log.Println("**!@@ Read SPLITTER ComputePipesResult from writePartitionsResultCh:")
+		// log.Println("**!@@ Read SPLITTER ComputePipesResult from writePartitionsResultCh:")
 		for partition := range splitter {
-			log.Println("**!@@ Read PARTITION ComputePipesResult from writePartitionsResultCh:")
+			// log.Println("**!@@ Read PARTITION ComputePipesResult from writePartitionsResultCh:")
 			copy2DbResult := <-partition
 			outputRowCount += copy2DbResult.CopyRowCount
 			log.Println("**!@@ Wrote", copy2DbResult.CopyRowCount, "rows in partition", copy2DbResult.TableName, "::", copy2DbResult.Err)
