@@ -963,6 +963,8 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 		IntegrationPattern: sfn.IntegrationPattern_RUN_JOB,
 	})
 	runCPipesTask.Connections().AllowTo(rdsCluster, awsec2.Port_Tcp(jsii.Number(5432)), jsii.String("Allow connection from runCPipesTask"))
+	runCPipesTask.Connections().AllowFromAnyIpv4(awsec2.Port_Tcp(jsii.Number(8085)), jsii.String("allow between cpipes nodes"))
+	
 
 	// Run Reports Step Function Task for cpipesSM
 	// -----------------------------------------------
