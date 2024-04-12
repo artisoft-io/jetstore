@@ -82,3 +82,4 @@ jets/copytest/parquettest/parquettest
 jets/copytest/scratchpad/scratchpad
 jets/copytest/xlsxreader/xlsxreader
 jets/compute_pipes/tests/tests
+jets/cpipes_booter/cpipes_booter

@@ -156,38 +156,31 @@ func downloadS3Files(done <-chan struct{}) (<-chan string, <-chan string, <-chan
 //   - single file to be used as headers only (cpipesShardWithNoFileKeys = true)
 //   - empty list when there are no files for session_id in table compute_pipes_shard_registry
 //     cpipesShardWithNoFileKeys is set to false and the loader will exit silently
-func getFileKeys(dbpool *pgxpool.Pool, sessionId string, shardId int) ([]string, int, error) {
-	var key string
-	// Get isFile via a separate query in case the list of file_key is empty
-	stmt := `
-	SELECT DISTINCT is_file
-	FROM jetsapi.compute_pipes_shard_registry 
-	WHERE session_id = $1`
-	var isFile int
-	err := dbpool.QueryRow(context.Background(), stmt, sessionId).Scan(&isFile)
-	if err != nil {
-		return nil, -1, err
-	}
-
-	// Get isFile via a separate query in case the list of file_key is empty
-	stmt = `
-	SELECT file_key
-	FROM jetsapi.compute_pipes_shard_registry 
-	WHERE session_id = $1 AND shard_id = $2`
+func getFileKeys(dbpool *pgxpool.Pool, sessionId string, shardId int, jetsPartition string) ([]string, error) {
+	var key, stmt string
+	// Get isFile query in case the list of file_key is empty
 	fileKeys := make([]string, 0)
-	rows, err := dbpool.Query(context.Background(), stmt, sessionId, shardId)
+	var rows pgx.Rows
+	var err error
+	if jetsPartition == "" {
+		stmt = "SELECT file_key	FROM jetsapi.compute_pipes_shard_registry WHERE session_id = $1 AND shard_id = $2"
+		rows, err = dbpool.Query(context.Background(), stmt, sessionId, shardId)
+	} else {
+		stmt = "SELECT file_key	FROM jetsapi.compute_pipes_shard_registry WHERE session_id = $1 AND shard_id = $2 AND jets_partition = $3"
+		rows, err = dbpool.Query(context.Background(), stmt, sessionId, shardId, jetsPartition)
+	}
 	if err != nil {
-		return nil, -1, err
+		return nil, err
 	}
 	defer rows.Close()
 	for rows.Next() {
 		// scan the row
 		if err = rows.Scan(&key); err != nil {
-			return nil, -1, err
+			return nil, err
 		}
 		fileKeys = append(fileKeys, key)
 	}
-	// fmt.Println("**!@@ GOT KEYS:", fileKeys, "isFile:", isFile)
+	// fmt.Println("**!@@ GOT KEYS:", fileKeys)
 	if len(fileKeys) == 0 {
 		// Get a single file key to use for getting the headers
 		stmt = `
@@ -201,14 +194,14 @@ func getFileKeys(dbpool *pgxpool.Pool, sessionId string, shardId int) ([]string,
 				log.Printf("No file keys in table compute_pipes_shard_registry for session_id %s, nothing to do", sessionId)
 				cpipesShardWithNoFileKeys = false
 			} else {
-				return nil, -1, err
+				return nil, err
 			}
 		} else {
 			fileKeys = append(fileKeys, key)
 			cpipesShardWithNoFileKeys = true	
 		}
 	}
-	return fileKeys, isFile, nil
+	return fileKeys, nil
 }
 
 func downloadS3Object(s3Key, localDir string, minSize int64) (string, error) {

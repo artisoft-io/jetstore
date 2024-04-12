@@ -863,7 +863,7 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 
 	// ================================================
 	// JetStore Rule Compute Pipes State Machine
-	// Define the ECS TAsk cpipesTaskDefinition for the cpipesSM
+	// Define the ECS Task cpipesTaskDefinition for the cpipesSM
 	// --------------------------------------------------------------------------------------------------------------
 	if len(os.Getenv("JETS_CPIPES_TASK_MEM_LIMIT_MB")) > 0 {
 		var err error
@@ -905,7 +905,7 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 		Image:         jetStoreImage,
 		ContainerName: jsii.String("cpipesContainer"),
 		Essential:     jsii.Bool(true),
-		EntryPoint:    jsii.Strings("loader"),
+		EntryPoint:    jsii.Strings("cpipes_booter"),
 		PortMappings: &[]*awsecs.PortMapping{
 			{
 				Name:          jsii.String("cpipes-port-mapping"),

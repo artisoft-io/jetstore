@@ -38,6 +38,7 @@ COPY --from=builder ${JETS_BIN_DIR}/server /usr/local/bin/
 COPY --from=builder ${JETS_BIN_DIR}/run_reports /usr/local/bin/
 COPY --from=builder ${JETS_BIN_DIR}/update_db /usr/local/bin/
 COPY --from=builder ${JETS_BIN_DIR}/test_data_generator /usr/local/bin/
+COPY --from=builder ${JETS_BIN_DIR}/cpipes_booter /usr/local/bin/
 
 # Copy the jetsclient source for building the flutter app
 ENV JETS_SOURCE_DIR /usr/local/go/src/jetstore
