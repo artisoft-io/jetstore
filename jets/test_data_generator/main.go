@@ -25,14 +25,15 @@ var awsRegion = flag.String("awsRegion", "", "aws region to connect to for aws s
 var ndcFilePath = flag.String("ndcFilePath", "", "File path for the ndc reference data")
 var outFileKey = flag.String("outFileKey", "", "S3 file key for the generated test file")
 var csvTemplatePath = flag.String("csvTemplatePath", "", "File path for the output csv template")
-var NbrRawDataFile = flag.Int("NbrRawDataFile", 1, "Nbr of raw data file to model")
+var nbrRawDataFile = flag.Int("nbrRawDataFile", 1, "Nbr of raw data file to model")
 var nbrMembers = flag.Int("nbrMembers", 1, "Nbr of members to model")
-var NbrRowPerMembers = flag.Int("NbrRowPerMembers", 1, "Nbr record per member to model")
-var NbrRowsPerChard = flag.Int("NbrRowsPerChard", 1, "Nbr record per chard (nbr of records to generate)")
+var nbrRowPerMembers = flag.Int("nbrRowPerMembers", 1, "Nbr record per member to model")
+var nbrRowsPerChard = flag.Int("nbrRowsPerChard", 1, "Nbr record per chard (nbr of records to generate)")
+var nbrChards = flag.Int("nbrChards", 1, "Nbr of chards to generate")
 
 func main() {
 	fmt.Println("CMD LINE ARGS:", os.Args[1:])
-	// flag.Parse()
+	flag.Parse()
 
 	ca := &delegate.CommandArguments{
 		AwsDsnSecret:     *awsDsnSecret,
@@ -42,10 +43,11 @@ func main() {
 		NdcFilePath:      *ndcFilePath,
 		OutFileKey:       *outFileKey,
 		CsvTemplatePath:  *csvTemplatePath,
-		NbrRawDataFile:   *NbrRawDataFile,
+		NbrRawDataFile:   *nbrRawDataFile,
 		NbrMembers:       *nbrMembers,
-		NbrRowPerMembers: *NbrRowPerMembers,
-		NbrRowsPerChard:  *NbrRowsPerChard,
+		NbrRowPerMembers: *nbrRowPerMembers,
+		NbrRowsPerChard:  *nbrRowsPerChard,
+		NbrChards: *nbrChards,
 	}
 
 	errMsg := ca.ValidateArguments()
