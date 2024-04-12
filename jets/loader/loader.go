@@ -254,50 +254,53 @@ func processFileAndReportStatus(dbpool *pgxpool.Pool,
 			err = loadFromS3FilesResult.Err
 		}
 	}
-	log.Println("**!@@ Read chResults.Copy2DbResultCh:")
+	log.Println("**!@@ CP RESULT = Copy2DbResultCh:")
 	var outputRowCount int64
 	for table := range chResults.Copy2DbResultCh {
 		// log.Println("**!@@ Read table results:")
-		copy2DbResult := <-table
-		outputRowCount += copy2DbResult.CopyRowCount
-		log.Println("Inserted", copy2DbResult.CopyRowCount, "rows in table", copy2DbResult.TableName, "::", copy2DbResult.Err)
-		if copy2DbResult.Err != nil {
-			processingErrors = append(processingErrors, copy2DbResult.Err.Error())
-			if err == nil {
-				err = copy2DbResult.Err
-			}
-		}
-	}
-
-	log.Println("**!@@ Read chResults.MapOnClusterResultCh:")
-	for mapOn := range chResults.MapOnClusterResultCh {
-		// log.Println("**!@@ Read PEER from MapOnClusterResultCh:")
-		for peer := range mapOn {
-			// log.Println("**!@@ Read RESULT from MapOnClusterResultCh:")
-			peerResult := <-peer
-			log.Printf("**!@@ Sent %d Rows to Peer %s :: %v", peerResult.CopyRowCount, peerResult.TableName, peerResult.Err)
-			if peerResult.Err != nil {
-				processingErrors = append(processingErrors, peerResult.Err.Error())
-				if err == nil {
-					err = peerResult.Err
-				}
-			}
-		}
-	}
-
-	log.Println("**!@@ Read ComputePipesResult from WritePartitionsResultCh:")
-	for splitter := range chResults.WritePartitionsResultCh {
-		// log.Println("**!@@ Read SPLITTER ComputePipesResult from writePartitionsResultCh:")
-		for partition := range splitter {
-			// log.Println("**!@@ Read PARTITION ComputePipesResult from writePartitionsResultCh:")
-			copy2DbResult := <-partition
+		for copy2DbResult := range table {
 			outputRowCount += copy2DbResult.CopyRowCount
-			log.Println("**!@@ Wrote", copy2DbResult.CopyRowCount, "rows in partition", copy2DbResult.TableName, "::", copy2DbResult.Err)
+			log.Println("**!@@ Inserted", copy2DbResult.CopyRowCount, "rows in table", copy2DbResult.TableName, "::", copy2DbResult.Err)
 			if copy2DbResult.Err != nil {
 				processingErrors = append(processingErrors, copy2DbResult.Err.Error())
 				if err == nil {
 					err = copy2DbResult.Err
 				}
+			}	
+		}
+	}
+
+	log.Println("**!@@ CP RESULT = MapOnClusterResultCh:")
+	for mapOn := range chResults.MapOnClusterResultCh {
+		// log.Println("**!@@ Read PEER from MapOnClusterResultCh:")
+		for peer := range mapOn {
+			// log.Println("**!@@ Read RESULT from MapOnClusterResultCh:")
+			for peerResult := range peer {
+				log.Printf("**!@@ Sent %d Rows to Peer %s :: %v", peerResult.CopyRowCount, peerResult.TableName, peerResult.Err)
+				if peerResult.Err != nil {
+					processingErrors = append(processingErrors, peerResult.Err.Error())
+					if err == nil {
+						err = peerResult.Err
+					}
+				}	
+			}
+		}
+	}
+
+	log.Println("**!@@ CP RESULT = WritePartitionsResultCh:")
+	for splitter := range chResults.WritePartitionsResultCh {
+		// log.Println("**!@@ Read SPLITTER ComputePipesResult from writePartitionsResultCh:")
+		for partition := range splitter {
+			// log.Println("**!@@ Read PARTITION ComputePipesResult from writePartitionsResultCh:")
+			for partitionWriterResult := range partition {
+				outputRowCount += partitionWriterResult.CopyRowCount
+				log.Println("**!@@ Wrote",partitionWriterResult.CopyRowCount,"rows in", partitionWriterResult.PartsCount, "partfiles for", partitionWriterResult.TableName, "::", partitionWriterResult.Err)
+				if partitionWriterResult.Err != nil {
+					processingErrors = append(processingErrors, partitionWriterResult.Err.Error())
+					if err == nil {
+						err = partitionWriterResult.Err
+					}
+				}	
 			}
 		}
 	}
@@ -516,13 +519,11 @@ func coordinateWork() error {
 	//	- loader cpipesSM pre-sharding: case *pipelineExecKey == -1 && isPartFiles == 1 && computePipesJson not empty
 	//		Handled above, no invocation of processComputeGraph
 
-	//	- loader cpipesSM sharding: case *pipelineExecKey > -1 && isPartFiles == 1 && computePipesJson not empty,
-	//		entries on compute_pipes_shard_registry table HAVE is_file = 1
+	//	- loader cpipesSM sharding: case *pipelineExecKey > -1 && isPartFiles == 1 && computePipesJson not empty && jetsPartition == "",
 	//		Single invokation of processComputeGraph with all file keys
 	//		Note: when cpipesShardWithNoFileKeys == true, fileKeys will contain a single file to use for headers only
 
-	//	- loader cpipesSM reducing: case *pipelineExecKey > -1 && isPartFiles == 1 && computePipesJson not empty,
-	//		entries on compute_pipes_shard_registry table HAVE is_file = 0
+	//	- loader cpipesSM reducing: case *pipelineExecKey > -1 && isPartFiles == 1 && computePipesJson not empty && jetsPartition != "",
 	//		Invoke of processComputeGraph for each file key, update inFile with file key to process
 	//		Note: when cpipesShardWithNoFileKeys == true, fileKeys will contain a single file to use for headers only
 	//		and will be set to inFile for fetching a single data file to use for headers only
@@ -543,41 +544,27 @@ func coordinateWork() error {
 		return nil
 
 	case *pipelineExecKey > -1 && isPartFiles == 1 && len(computePipesJson) > 0:
-		// loader cpipes mode "sharding" (isFile == 1) or "reducing" (isFile == 0)
+		// loader cpipes mode "sharding" (jetsPartition == "") or "reducing" (jetsPartition != "")
 		// Get the file keys from compute_pipes_shard_registry table
-		fileKeys, isFile, err := getFileKeys(dbpool, inputSessionId, *shardId)
+		fileKeys, err := getFileKeys(dbpool, inputSessionId, *shardId, *jetsPartition)
 		if err != nil || fileKeys == nil {
 			return fmt.Errorf("failed to get list of files from compute_pipes_shard_registry table: %v", err)
 		}
 		if cpipesShardWithNoFileKeys {
 			log.Printf("**!@@ Got no file keys for shardId %d, continue to participate in cluster_map", *shardId)
 		} else {
-			log.Printf("**!@@ Got %d file keys from database for shardId %d, isFile %d", len(fileKeys), *shardId, isFile)
+			log.Printf("**!@@ Got %d file keys from database for shardId %d and jets_partition %s", len(fileKeys), *shardId, *jetsPartition)
 		}
-		if isFile == 1 {
-			// loader cpipesSM sharding when entries on compute_pipes_shard_registry table HAVE is_file = 1
-			cpipesFileKeys = fileKeys
-			cpipesMode = "sharding"
-			log.Println("cpipes 'sharding' sharding keys under", *inFile)
-			return processComputeGraph(dbpool)
-		}
-		// loader cpipesSM reducing when entries on compute_pipes_shard_registry table HAVE is_file = 0
-		cpipesMode = "reducing"
-		for i := range fileKeys {
-			*inFile = fileKeys[i]
-			log.Println("cpipes 'reducing' #", i, "shardId:", *shardId, " :: processing key", *inFile)
-			err = processComputeGraph(dbpool)
-			if err != nil {
-				return err
-			}
-		}
+		//* TODO Cleanup now that we use cpipes_booter, always run cpipesMode as "sharding", meaning getting file keys from registry
+		cpipesFileKeys = fileKeys
+		cpipesMode = "sharding"
+		return processComputeGraph(dbpool)
 
 	default:
 		msg := "error: unexpected schenario: pipelineExecKey = %d && isPartFiles = %d && len(computePipesJson) = %d"
 		log.Printf(msg, *pipelineExecKey, isPartFiles, len(computePipesJson))
 		return fmt.Errorf(msg, *pipelineExecKey, isPartFiles, len(computePipesJson))
 	}
-	return nil
 }
 
 func processComputeGraph(dbpool *pgxpool.Pool) (err error) {

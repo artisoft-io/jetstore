@@ -62,6 +62,7 @@ var pipelineConfigKey int // used only for registring cpipesSM with pipeline_exe
 var processName string    // used only to register with pipeline_execution_details (cpipesSM)
 var pipelineExecKey = flag.Int("peKey", -1, "Pipeline execution key (required for cpipes with multipart files)")
 var shardId = flag.Int("shardId", -1, "Run the cpipes process for this single shard. (required when peKey is provided)")
+var jetsPartition = flag.String("jetsPartition", "", "the jets_partition to process (case cpipes reducing mode)")
 var inputSessionId string		// needed to read the file_keys from sharding table when peKey is provided
 var cpipesMode string // values: loader, sharding, reducing, standalone :: set in coordinateWork()
 var cpipesFileKeys []string
@@ -232,6 +233,7 @@ func main() {
 	fmt.Println("Got argument: len(dsn)", len(*dsn))
 	fmt.Println("Got argument: peKey", *pipelineExecKey)
 	fmt.Println("Got argument: shardId", *shardId)
+	fmt.Println("Got argument: jetsPartition", *jetsPartition)
 	fmt.Println("Got argument: nbrShards", *nbrShards)
 	fmt.Println("Got argument: client", *client)
 	fmt.Println("Got argument: org", *clientOrg)

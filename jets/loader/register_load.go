@@ -83,11 +83,11 @@ func updatePipelineExecutionStatus(dbpool *pgxpool.Pool, inputRowCount, outputRo
 		log.Printf("Inserting status '%s' to pipeline_execution_details table", status)
 		stmt := `INSERT INTO jetsapi.pipeline_execution_details (
 							pipeline_config_key, pipeline_execution_status_key, client, process_name, main_input_session_id, session_id, source_period_key,
-							shard_id, status, error_message, input_records_count, rete_sessions_count, output_records_count, user_email) 
-							VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)`
+							shard_id, jets_partition, status, error_message, input_records_count, rete_sessions_count, output_records_count, user_email) 
+							VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)`
 		_, err := dbpool.Exec(context.Background(), stmt,
-			pipelineConfigKey, *pipelineExecKey, *client, processName, inputSessionId, *sessionId, *sourcePeriodKey, *shardId,
-			status, errMessage, inputRowCount, 0, outputRowCount, userEmail)
+			pipelineConfigKey, *pipelineExecKey, *client, processName, inputSessionId, *sessionId, *sourcePeriodKey, 
+			*shardId, *jetsPartition,	status, errMessage, inputRowCount, 0, outputRowCount, userEmail)
 		if err != nil {
 			return fmt.Errorf("error inserting in jetsapi.pipeline_execution_details table: %v", err)
 		}
@@ -96,11 +96,12 @@ func updatePipelineExecutionStatus(dbpool *pgxpool.Pool, inputRowCount, outputRo
 }
 
 // Function to assign file_key to shard into jetsapi.compute_pipes_shard_registry
-// file_key is a file not a directory
+// NOTE: A new version exists in cpipes_booter without dependency on gloabl variables 
+//       so it can be moved to a package to re-use. See AssignFileKeys
 func shardFileKeys(dbpool *pgxpool.Pool, baseFileKey string, sessionId string, nbrShards int) (int, error) {
 	// Get all the file keys having baseFileKey as prefix
 	log.Printf("Downloading file keys from s3 folder: %s", baseFileKey)
-	s3Objects, err := awsi.ListS3Objects(inFile, *awsBucket, *awsRegion)
+	s3Objects, err := awsi.ListS3Objects(&baseFileKey, *awsBucket, *awsRegion)
 	if err != nil || s3Objects == nil || len(s3Objects) == 0 {
 		return 0, fmt.Errorf("failed to download list of files from s3 (or folder is empty): %v", err)
 	}

@@ -14,9 +14,11 @@ type ComputePipesConfig struct {
 
 // Config for peer2peer communication
 type ClusterSpec struct {
-	ReadTimeout             int `json:"read_timeout"`
-	WriteTimeout            int `json:"write_timeout"`
-	PeerRegistrationTimeout int `json:"peer_registration_timeout"`
+	CpipesMode              string `json:"cpipes_mode"`
+	ReadTimeout             int    `json:"read_timeout"`
+	WriteTimeout            int    `json:"write_timeout"`
+	PeerRegistrationTimeout int    `json:"peer_registration_timeout"`
+	NbrJetsPartitions       uint64 `json:"nbr_jets_partition"`
 }
 
 type Metric struct {

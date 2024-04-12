@@ -49,14 +49,17 @@ func (ctx *BuilderContext) StartSplitterPipe(spec *PipeSpec, source *InputChanne
 				if splitCh == nil {
 					splitCh = make(chan []interface{}, 1)
 					chanState[key] = splitCh
+					partitionResultCh := make(chan ComputePipesResult, 10)
+					writePartitionsResultCh <- partitionResultCh
+			
 					// start a goroutine to manage the channel
 					// the input channel to the goroutine is splitCh
-					wg.Add(1)								
+					wg.Add(1)
 					go ctx.startSplitterChannelHandler(spec, &InputChannel{
 						channel: splitCh,
 						columns: source.columns,
 						config:  &ChannelSpec{Name: fmt.Sprintf("splitter channel from %s", source.config.Name)},
-					}, writePartitionsResultCh, &key, &wg)
+					}, partitionResultCh, &key, &wg)
 				}
 				// Send the record to the intermediate channel
 				// fmt.Println("**! splitter loop, sending record to intermediate channel:", key)
@@ -88,7 +91,7 @@ gotError:
 	close(ctx.done)
 }
 
-func (ctx *BuilderContext) startSplitterChannelHandler(spec *PipeSpec, source *InputChannel, writePartitionsResultCh chan chan ComputePipesResult,
+func (ctx *BuilderContext) startSplitterChannelHandler(spec *PipeSpec, source *InputChannel, partitionResultCh chan ComputePipesResult,
 	splitterKey *string, wg *sync.WaitGroup) {
 	var cpErr, err error
 	var evaluators []PipeTransformationEvaluator
@@ -100,8 +103,6 @@ func (ctx *BuilderContext) startSplitterChannelHandler(spec *PipeSpec, source *I
 	evaluators = make([]PipeTransformationEvaluator, len(spec.Apply))
 	for j := range spec.Apply {
 		// partitionResultCh will have the aggregated count of files written by the partition writer
-		partitionResultCh := make(chan ComputePipesResult, 1)
-		writePartitionsResultCh <- partitionResultCh
 		eval, err := ctx.buildPipeTransformationEvaluator(source, splitterKey, partitionResultCh, &spec.Apply[j])
 		if err != nil {
 			cpErr = fmt.Errorf("while calling buildPipeTransformationEvaluator for %s: %v", spec.Apply[j].Type, err)

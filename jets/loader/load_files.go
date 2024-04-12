@@ -69,6 +69,7 @@ func loadFiles(dbpool *pgxpool.Pool, headersDKInfo *schema.HeadersAndDomainKeysI
 			"$FILE_KEY_FOLDER":    fileKeyFolder,
 			"$SHARD_ID":           *shardId,
 			"$NBR_SHARDS":         *nbrShards,
+			"$JETS_PARTITION":     *jetsPartition,
 			"$CPIPES_SERVER_ADDR": cpipesServerAddr,
 			"$JETSTORE_DEV_MODE":  devMode,
 		}, fileKeyComponents)

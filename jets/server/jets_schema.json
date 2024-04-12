@@ -1377,6 +1377,12 @@
         "isNotNull": true
       },
       {
+        "columnName": "jets_partition",
+        "dataType": "text",
+        "default": "''",
+        "isNotNull": true
+      },
+      {
         "columnName": "status",
         "dataType": "text",
         "isNotNull": true
@@ -1533,6 +1539,7 @@
   {
     "schemaName": "jetsapi",
     "tableName": "compute_pipes_shard_registry",
+    "description": "Assignment of files to node for processing. Shard (legacy name) makes reference to a node in the cluster. is_file is always 1.",
     "columns": [
       {
         "columnName": "session_id",
@@ -1548,13 +1555,18 @@
         "columnName": "is_file",
         "dataType": "int",
         "default": "1",
-        "isNotNull": true
+        "isNotNull": true,
+        "deprecated": true
       },
       {
         "columnName": "file_size",
         "dataType": "long",
         "default": "0",
         "isNotNull": true
+      },
+      {
+        "columnName": "jets_partition",
+        "dataType": "text"
       },
       {
         "columnName": "shard_id",
@@ -1573,6 +1585,46 @@
       {
         "name": "compute_pipes_shard_registry_unique_cstraint",
         "definition": "CONSTRAINT compute_pipes_shard_registry_unique_cstraint UNIQUE (session_id,file_key)"
+      }
+    ]
+  },
+  {
+    "schemaName": "jetsapi",
+    "tableName": "compute_pipes_partitions_registry",
+    "description": "Assignment of directory of part-files to jet partitons / node for processing. The shard_id is to indicate which shard made the entry so the cpipes_booter can make the entries in compute_pipes_shard_registry",
+    "columns": [
+      {
+        "columnName": "session_id",
+        "dataType": "text",
+        "isNotNull": true
+      },
+      {
+        "columnName": "file_key",
+        "dataType": "text",
+        "isNotNull": true
+      },
+      {
+        "columnName": "jets_partition",
+        "dataType": "text",
+        "isNotNull": true
+      },
+      {
+        "columnName": "shard_id",
+        "dataType": "int",
+        "default": "0",
+        "isNotNull": true
+      }
+    ],
+    "indexes": [
+      {
+        "indexName": "compute_pipes_partitions_registry_session_idx",
+        "indexDef": "INDEX compute_pipes_partitions_registry_session_idx ON jetsapi.compute_pipes_partitions_registry (session_id)"
+      }
+    ],
+    "tableConstraints": [
+      {
+        "name": "compute_pipes_partitions_registry_unique_cstraint",
+        "definition": "CONSTRAINT compute_pipes_partitions_registry_unique_cstraint UNIQUE (session_id,file_key)"
       }
     ]
   },

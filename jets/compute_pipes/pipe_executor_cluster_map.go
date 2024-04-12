@@ -94,7 +94,11 @@ func (ctx *BuilderContext) StartClusterMap(spec *PipeSpec, source *InputChannel,
 
 	// Note: when evaluatorsWg and source is done, need to call Close() on server to terminate the Accept loop
 	// and close intermediate channel incommingDataCh
-	ctx.registerNode()
+	err = ctx.registerNode()
+	if err != nil {
+		cpErr = fmt.Errorf("while calling registerNode: %v", err)
+		goto gotError
+	}
 	outPeers = make([]Peer, len(ctx.peersAddress))
 	// Open the client connections with peers -- send data, output sources
 	for i, peerAddress := range ctx.peersAddress {

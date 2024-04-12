@@ -28,7 +28,7 @@ type PartitionWriterTransformationPipe struct {
 	splitterKey                *string
 	localTempDir               *string
 	baseOutputPath             *string
-	splitterShardId            int
+	jetsPartition              string
 	rowCountPerPartition       int64
 	partitionRowCount          int64
 	totalRowCount              int64
@@ -43,6 +43,7 @@ type PartitionWriterTransformationPipe struct {
 	bucketName                 string
 	regionName                 string
 	sessionId                  string
+	shardId                    int
 	s3WritersResultCh          chan chan ComputePipesResult
 	s3WritersCollectedResultCh chan ComputePipesResult
 	s3Uploader                 *manager.Uploader
@@ -161,12 +162,12 @@ func (ctx *PartitionWriterTransformationPipe) done() error {
 	// Done writing new partition, close the channel
 	close(ctx.s3WritersResultCh)
 
-	// Write to db the shardId of this partition: session_id, file_key, shard
-	stmt := `INSERT INTO jetsapi.compute_pipes_shard_registry (session_id, file_key, is_file, shard_id) 
-		VALUES ($1, $2, 0, $3) ON CONFLICT DO NOTHING`
-	_, err := ctx.dbpool.Exec(context.Background(), stmt, ctx.sessionId, *ctx.baseOutputPath, ctx.splitterShardId)
+	// Write to db the jets_partition and shardId of this partition w/ session_id
+	stmt := `INSERT INTO jetsapi.compute_pipes_partitions_registry (session_id, file_key, jets_partition, shard_id) 
+		VALUES ($1, $2, $3, $4) ON CONFLICT DO NOTHING`
+	_, err := ctx.dbpool.Exec(context.Background(), stmt, ctx.sessionId, *ctx.baseOutputPath, ctx.jetsPartition, ctx.shardId)
 	if err != nil {
-		return fmt.Errorf("error inserting in jetsapi.compute_pipes_shard_registry table: %v", err)
+		return fmt.Errorf("error inserting in jetsapi.compute_pipes_partitions_registry table: %v", err)
 	}
 
 	//*NOT NEEDED - USING domain_table input regristration event
@@ -201,10 +202,10 @@ func (ctx *PartitionWriterTransformationPipe) done() error {
 
 	// Send the total row count to ctx.copy2DeviceResultCh
 	ctx.copy2DeviceResultCh <- ComputePipesResult{
-		TableName:    *ctx.baseOutputPath,
+		TableName:    fmt.Sprintf("jets_partition=%s", ctx.jetsPartition),
 		CopyRowCount: ctx.totalRowCount,
 		PartsCount:   totalFilePartsWritten.PartsCount,
-		Err: totalFilePartsWritten.Err,
+		Err:          totalFilePartsWritten.Err,
 	}
 	return nil
 }
@@ -214,7 +215,7 @@ func (ctx *PartitionWriterTransformationPipe) finally() {
 	close(ctx.copy2DeviceResultCh)
 }
 
-// Create a new jets_partition writer, the partion is identified by the splitterKey
+// Create a new jets_partition writer, the partition is identified by the splitterKey
 func (ctx *BuilderContext) NewPartitionWriterTransformationPipe(source *InputChannel, splitterKey *string,
 	outputCh *OutputChannel, copy2DeviceResultCh chan ComputePipesResult, spec *TransformationSpec) (*PartitionWriterTransformationPipe, error) {
 
@@ -248,8 +249,11 @@ func (ctx *BuilderContext) NewPartitionWriterTransformationPipe(source *InputCha
 	h := fnv.New64a()
 	h.Write([]byte(*splitterKey))
 	keyHash := h.Sum64()
-	nbrShard := ctx.env["$NBR_SHARDS"].(int)
-	splitterShardId := keyHash % uint64(nbrShard)
+	nbrPartitions := ctx.cpConfig.ClusterConfig.NbrJetsPartitions
+	if nbrPartitions == 0 {
+		nbrPartitions = 20
+	}
+	jetsPartition := fmt.Sprintf("%06d", keyHash%nbrPartitions)
 
 	p := ctx.env["$FILE_KEY_FOLDER"].(string)
 	if spec.FilePathSubstitutions != nil {
@@ -258,7 +262,7 @@ func (ctx *BuilderContext) NewPartitionWriterTransformationPipe(source *InputCha
 		}
 	}
 	session_id := ctx.env["$SESSIONID"].(string)
-	baseOutputPath := fmt.Sprintf("%s/session_id=%s/jets_partition=%d", p, session_id, keyHash)
+	baseOutputPath := fmt.Sprintf("%s/session_id=%s/jets_partition=%s", p, session_id, jetsPartition)
 
 	// Create a local temp dir to save the file partition for writing to s3
 	localTempDir, err2 := os.MkdirTemp("", "jets_partition")
@@ -286,13 +290,16 @@ func (ctx *BuilderContext) NewPartitionWriterTransformationPipe(source *InputCha
 		// fmt.Println("**!@@ COLLECT *4 All parts collected, sending to s3WritersCollectedResultCh - count:", partCount, "err:", err)
 		// All file parts written, send out the count
 		select {
-		case s3WritersCollectedResultCh <- ComputePipesResult{PartsCount: partCount, Err: err}:
+		case s3WritersCollectedResultCh <- ComputePipesResult{
+			TableName: fmt.Sprintf("jets_partition=%s", jetsPartition),
+			PartsCount: partCount, 
+			Err: err}:
 			if err != nil {
 				// Interrupt the whole process, there's been an error writing a file part
 				close(ctx.done)
 			}
 		case <-ctx.done:
-			log.Printf("Collecting file part writer result for splitterKey '%s' interrupted", *splitterKey)
+			log.Printf("Collecting file part writer result for jetsPartition '%s' interrupted", jetsPartition)
 		}
 		close(s3WritersCollectedResultCh)
 	}()
@@ -304,7 +311,7 @@ func (ctx *BuilderContext) NewPartitionWriterTransformationPipe(source *InputCha
 		splitterKey:                splitterKey,
 		baseOutputPath:             &baseOutputPath,
 		localTempDir:               &localTempDir,
-		splitterShardId:            int(splitterShardId),
+		jetsPartition:              jetsPartition,
 		outputCh:                   outputCh,
 		parquetSchema:              parquetSchema,
 		columnEvaluators:           columnEvaluators,
@@ -313,6 +320,7 @@ func (ctx *BuilderContext) NewPartitionWriterTransformationPipe(source *InputCha
 		bucketName:                 os.Getenv("JETS_BUCKET"),
 		regionName:                 os.Getenv("JETS_REGION"),
 		sessionId:                  session_id,
+		shardId:                    ctx.env["$SHARD_ID"].(int),
 		s3WritersResultCh:          s3WritersResultCh,
 		s3WritersCollectedResultCh: s3WritersCollectedResultCh,
 		s3Uploader:                 ctx.s3Uploader,
