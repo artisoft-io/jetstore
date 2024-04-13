@@ -94,6 +94,9 @@ func DoPurgeSessions() error {
 	tableNames = append(tableNames, "jetsapi.pipeline_execution_details")
 	tableNames = append(tableNames, "jetsapi.report_execution_status")
 	tableNames = append(tableNames, "jetsapi.compute_pipes_shard_registry")
+	tableNames = append(tableNames, "jetsapi.compute_pipes_partitions_registry")
+	tableNames = append(tableNames, "jetsapi.cpipes_results")
+	tableNames = append(tableNames, "jetsapi.cpipes_metrics")
 	tableNames = append(tableNames, "jetsapi.session_registry")
 
 	for _,s := range tableNames {

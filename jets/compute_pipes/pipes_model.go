@@ -2,12 +2,12 @@ package compute_pipes
 
 // This file contains the Compute Pipes configuration model
 type ComputePipesConfig struct {
-	RuntimeMetrics []Metric       `json:"runtime_metrics"`
-	ClusterConfig  *ClusterSpec   `json:"cluster_config"`
-	OutputTables   []TableSpec    `json:"output_tables"`
-	Channels       []ChannelSpec  `json:"channels"`
-	Context        *[]ContextSpec `json:"context"`
-	PipesConfig    []PipeSpec     `json:"pipes_config"`
+	MetricsConfig *MetricsSpec   `json:"metrics_config"`
+	ClusterConfig *ClusterSpec   `json:"cluster_config"`
+	OutputTables  []TableSpec    `json:"output_tables"`
+	Channels      []ChannelSpec  `json:"channels"`
+	Context       *[]ContextSpec `json:"context"`
+	PipesConfig   []PipeSpec     `json:"pipes_config"`
 }
 
 // Config for peer2peer communication
@@ -19,9 +19,15 @@ type ClusterSpec struct {
 	NbrJetsPartitions       uint64 `json:"nbr_jets_partitions"`
 }
 
+type MetricsSpec struct {
+	ReportInterval int      `json:"report_interval_sec"`
+	RuntimeMetrics []Metric `json:"runtime_metrics"`
+}
+
 type Metric struct {
 	// Type range: runtime
-	// Name values: alloc, total_alloc, sys, nbr_gc
+	// Name values: alloc_mb, total_alloc_mb, sys_mb, nbr_gc
+	// note: suffix _mb for units in MiB
 	Type string `json:"type"`
 	Name string `json:"name"`
 }

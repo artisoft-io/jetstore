@@ -20,26 +20,6 @@ import (
 func init() {
 	gob.Register(time.Now())
 }
-type ComputePipesResult struct {
-	// Table name can be jets_partition name
-	// PartCount is nbr of file part in jets_partition
-	TableName    string
-	CopyRowCount int64
-	PartsCount   int64
-	Err          error
-}
-type LoadFromS3FilesResult struct {
-	LoadRowCount int64
-	BadRowCount  int64
-	Err          error
-}
-
-type ChannelResults struct {
-	LoadFromS3FilesResultCh chan LoadFromS3FilesResult
-	Copy2DbResultCh         chan chan ComputePipesResult
-	WritePartitionsResultCh chan chan chan ComputePipesResult
-	MapOnClusterResultCh    chan chan chan ComputePipesResult
-}
 
 // Function to write transformed row to database
 func StartComputePipes(dbpool *pgxpool.Pool, headersDKInfo *schema.HeadersAndDomainKeysInfo, done chan struct{}, errCh chan error,
@@ -163,7 +143,6 @@ func StartComputePipes(dbpool *pgxpool.Pool, headersDKInfo *schema.HeadersAndDom
 		// Create the uploader with the client and custom options
 		s3Uploader := manager.NewUploader(s3Client)
 
-
 		ctx := &BuilderContext{
 			dbpool:          dbpool,
 			cpConfig:        &cpConfig,
@@ -174,6 +153,23 @@ func StartComputePipes(dbpool *pgxpool.Pool, headersDKInfo *schema.HeadersAndDom
 			env:             envSettings,
 			s3Uploader:      s3Uploader,
 		}
+
+		// Start the metric reporting goroutine
+		if cpConfig.MetricsConfig != nil && ctx.cpConfig.MetricsConfig.ReportInterval > 0 {
+			go func() {
+				for {
+					time.Sleep(time.Duration(ctx.cpConfig.MetricsConfig.ReportInterval) * time.Second)
+					select {
+					case <-ctx.done:
+						log.Println("Metric Reporting Interrupted")
+						return
+					default:
+						ctx.ReportMetrics()
+					}
+				}
+			}()
+		}
+
 		err = ctx.buildComputeGraph()
 		if err != nil {
 			cpErr = fmt.Errorf("while building the compute graph: %s", err)

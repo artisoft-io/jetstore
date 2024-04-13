@@ -141,13 +141,13 @@ func DoesTableExists(dbpool *pgxpool.Pool, schemaName, tableName string) (bool, 
 
 func ToPgType(dt string) string {
 	switch dt {
-	case "int", "bool":
+	case "int", "bool", "int32":
 		return "integer"
-	case "uint", "long", "ulong":
+	case "uint", "long", "ulong", "int64", "uint64", "uint32":
 		return "bigint"
 	case "double":
 		return "double precision"
-	case "resource", "volatile_resource", "text":
+	case "resource", "volatile_resource", "text", "string":
 		return "text"
 	case "date":
 		return "date"

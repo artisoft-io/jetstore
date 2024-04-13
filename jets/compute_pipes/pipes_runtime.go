@@ -93,6 +93,21 @@ type BuilderContext struct {
 	env             map[string]interface{}
 	s3Uploader      *manager.Uploader
 }
+func (ctx *BuilderContext) JetsPartition() string {
+	return ctx.env["$JETS_PARTITION"].(string)
+}
+func (ctx *BuilderContext) NodeId() int {
+	return ctx.env["$SHARD_ID"].(int)
+}
+func (ctx *BuilderContext) NbrNodes() int {
+	return ctx.env["$NBR_SHARDS"].(int)
+}
+func (ctx *BuilderContext) SessionId() string {
+	return ctx.env["$SESSIONID"].(string)
+}
+func (ctx *BuilderContext) FileKey() string {
+	return ctx.env["$FILE_KEY"].(string)
+}
 
 type PipeTransformationEvaluator interface {
 	apply(input *[]interface{}) error

@@ -239,15 +239,34 @@ func processFileAndReportStatus(dbpool *pgxpool.Pool,
 	downloadS3ResultCh <-chan DownloadS3Result, inFolderPath string, errFileHd *os.File) (bool, error) {
 
 	headersDKInfo, chResults := processFile(dbpool, done, errCh, headersFileCh, fileNamesCh, errFileHd)
+
+	// Collect the results of each pipes and save it to database
+	saveResultsCtx := compute_pipes.NewSaveResultsContext(dbpool)
+	saveResultsCtx.JetsPartition = *jetsPartition
+	saveResultsCtx.NodeId = *shardId
+	saveResultsCtx.SessionId = *sessionId
+
 	downloadResult := <-downloadS3ResultCh
 	err := downloadResult.err
 	log.Println("Downloaded", downloadResult.InputFilesCount, "files from s3", downloadResult.err)
+	r := &compute_pipes.ComputePipesResult{
+		TableName: "Downloaded files from s3",
+		CopyRowCount: int64(downloadResult.InputFilesCount),
+		Err: downloadResult.err,
+	}
+	saveResultsCtx.Save("S3 Download", r)
 	if downloadResult.err != nil {
 		processingErrors = append(processingErrors, downloadResult.err.Error())
 	}
 
 	loadFromS3FilesResult := <-chResults.LoadFromS3FilesResultCh
 	log.Println("Loaded", loadFromS3FilesResult.LoadRowCount, "rows from s3 files with", loadFromS3FilesResult.BadRowCount, "bad rows", loadFromS3FilesResult.Err)
+	r = &compute_pipes.ComputePipesResult{
+		TableName: "Loaded rows from s3 files",
+		CopyRowCount: loadFromS3FilesResult.LoadRowCount,
+		Err: loadFromS3FilesResult.Err,
+	}
+	saveResultsCtx.Save("S3 Readers", r)
 	if loadFromS3FilesResult.Err != nil {
 		processingErrors = append(processingErrors, loadFromS3FilesResult.Err.Error())
 		if err == nil {
@@ -260,6 +279,7 @@ func processFileAndReportStatus(dbpool *pgxpool.Pool,
 		// log.Println("**!@@ Read table results:")
 		for copy2DbResult := range table {
 			outputRowCount += copy2DbResult.CopyRowCount
+			saveResultsCtx.Save("DB Inserts", &copy2DbResult)
 			log.Println("**!@@ Inserted", copy2DbResult.CopyRowCount, "rows in table", copy2DbResult.TableName, "::", copy2DbResult.Err)
 			if copy2DbResult.Err != nil {
 				processingErrors = append(processingErrors, copy2DbResult.Err.Error())
@@ -276,6 +296,7 @@ func processFileAndReportStatus(dbpool *pgxpool.Pool,
 		for peer := range mapOn {
 			// log.Println("**!@@ Read RESULT from MapOnClusterResultCh:")
 			for peerResult := range peer {
+				saveResultsCtx.Save("Peer Sent", &peerResult)
 				log.Printf("**!@@ Sent %d Rows to Peer %s :: %v", peerResult.CopyRowCount, peerResult.TableName, peerResult.Err)
 				if peerResult.Err != nil {
 					processingErrors = append(processingErrors, peerResult.Err.Error())
@@ -293,6 +314,7 @@ func processFileAndReportStatus(dbpool *pgxpool.Pool,
 		for partition := range splitter {
 			// log.Println("**!@@ Read PARTITION ComputePipesResult from writePartitionsResultCh:")
 			for partitionWriterResult := range partition {
+				saveResultsCtx.Save("Jets Partition Writer", &partitionWriterResult)
 				outputRowCount += partitionWriterResult.CopyRowCount
 				log.Println("**!@@ Wrote",partitionWriterResult.CopyRowCount,"rows in", partitionWriterResult.PartsCount, "partfiles for", partitionWriterResult.TableName, "::", partitionWriterResult.Err)
 				if partitionWriterResult.Err != nil {
@@ -314,6 +336,12 @@ func processFileAndReportStatus(dbpool *pgxpool.Pool,
 		if err == nil {
 			err = cpErr
 		}
+		r = &compute_pipes.ComputePipesResult{
+			CopyRowCount: loadFromS3FilesResult.LoadRowCount,
+			Err: cpErr,
+		}
+		saveResultsCtx.Save("CP Errors", r)
+	
 		processingErrors = append(processingErrors, fmt.Sprintf("got error from Compute Pipes processing: %v", cpErr))
 	default:
 		log.Println("No errors from Compute Pipes processing!")

@@ -33,10 +33,6 @@ func (ctx *AggregateTransformationPipe) done() error {
 			return fmt.Errorf("while calling done on column evaluator from AggregateTransformationPipe: %v", err)
 		}
 	}
-	// Print Memory Usage if requested
-	if len(ctx.cpConfig.RuntimeMetrics) > 0 {
-		ReportMetrics(ctx.cpConfig.RuntimeMetrics)
-	}
 	// Send the result to output
 	// fmt.Println("**! ** Send AGGREGATE Result to", ctx.outputCh.config.Name)
 	select {
