@@ -55,7 +55,7 @@ type TableColumnSpec struct {
 }
 
 type PipeSpec struct {
-	// Type range: fan_out, splitter, cluster_map
+	// Type range: fan_out, splitter, distribute_data
 	Type   string               `json:"type"`
 	Input  string               `json:"input"`
 	Column *string              `json:"column"` // splitter column

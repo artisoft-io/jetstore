@@ -71,7 +71,7 @@ func (ctx *BuilderContext) StartClusterMap(spec *PipeSpec, source *InputChannel,
 
 	spliterColumnIdx, ok = source.columns[*spec.Column]
 	if !ok {
-		cpErr = fmt.Errorf("error: invalid column name %s for cluster_map with source channel %s", *spec.Column, source.config.Name)
+		cpErr = fmt.Errorf("error: invalid column name %s for distribute_data with source channel %s", *spec.Column, source.config.Name)
 		goto gotError
 	}
 
@@ -125,7 +125,7 @@ func (ctx *BuilderContext) StartClusterMap(spec *PipeSpec, source *InputChannel,
 					break
 				}
 				if retry >= 5 {
-					cpErr = fmt.Errorf("too many retry while opening conn with peer %d at %s for cluster_map with source channel %s: %v", i, peerAddress, source.config.Name, err)
+					cpErr = fmt.Errorf("too many retry while opening conn with peer %d at %s for distribute_data with source channel %s: %v", i, peerAddress, source.config.Name, err)
 					goto gotError
 				}
 				log.Printf("**!@@ CLUSTER_MAP *3 (%s) failed to connect to %s on try #%d, will retry", ctx.selfAddress, peerAddress, retry)

@@ -93,6 +93,7 @@ type BuilderContext struct {
 	env             map[string]interface{}
 	s3Uploader      *manager.Uploader
 }
+
 func (ctx *BuilderContext) JetsPartition() string {
 	return ctx.env["$JETS_PARTITION"].(string)
 }
@@ -146,8 +147,8 @@ func (ctx *BuilderContext) buildComputeGraph() error {
 			ctx.chResults.WritePartitionsResultCh <- writePartitionsResultCh
 			go ctx.StartSplitterPipe(pipeSpec, source, writePartitionsResultCh)
 
-		case "cluster_map":
-			fmt.Println("**& starting PipeConfig", i, "cluster_map", "on source", source.config.Name)
+		case "distribute_data":
+			fmt.Println("**& starting PipeConfig", i, "distribute_data", "on source", source.config.Name)
 			// Create the clusterMapResultCh to report on the outgoing peer connection
 			clusterMapResultCh := make(chan chan ComputePipesResult, ctx.NbrNodes()*5)
 			ctx.chResults.MapOnClusterResultCh <- clusterMapResultCh
