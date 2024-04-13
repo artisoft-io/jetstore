@@ -6,7 +6,6 @@ import (
 	"encoding/gob"
 	"errors"
 	"fmt"
-	"hash/fnv"
 	"io"
 	"log"
 	"math/rand"
@@ -50,18 +49,18 @@ func (ctx *BuilderContext) StartClusterMap(spec *PipeSpec, source *InputChannel,
 	var addr string
 	defer func() {
 		// Closing the output channels
-		fmt.Println("**! CLUSTER_MAP: Closing Output Channels")
+		// fmt.Println("**! CLUSTER_MAP: Closing Output Channels")
 		oc := make(map[string]bool)
 		for i := range spec.Apply {
 			oc[spec.Apply[i].Output] = true
 		}
 		for i := range oc {
-			fmt.Println("**! CLUSTER_MAP: Closing Output Channel", i)
+			// fmt.Println("**! CLUSTER_MAP: Closing Output Channel", i)
 			ctx.channelRegistry.CloseChannel(i)
 		}
 	}()
 
-	fmt.Println("**!@@ CLUSTER_MAP *1 Called, shuffle on column", *spec.Column)
+	// fmt.Println("**!@@ CLUSTER_MAP *1 Called, shuffle on column", *spec.Column)
 
 	if ctx.cpConfig.ClusterConfig == nil {
 		cpErr = fmt.Errorf("error: missing ClusterConfig section in compute_pipes_config")
@@ -102,7 +101,7 @@ func (ctx *BuilderContext) StartClusterMap(spec *PipeSpec, source *InputChannel,
 	outPeers = make([]Peer, len(ctx.peersAddress))
 	// Open the client connections with peers -- send data, output sources
 	for i, peerAddress := range ctx.peersAddress {
-		log.Printf("**!@@ CLUSTER_MAP *3 (%s) connecting to %s", ctx.selfAddress, peerAddress)
+		// log.Printf("**!@@ CLUSTER_MAP *3 (%s) connecting to %s", ctx.selfAddress, peerAddress)
 		if peerAddress != ctx.selfAddress {
 			retry := 0
 			for {
@@ -124,7 +123,7 @@ func (ctx *BuilderContext) StartClusterMap(spec *PipeSpec, source *InputChannel,
 				retry++
 			}
 		} else {
-			log.Printf("**!@@ CLUSTER_MAP *3 (%s) stand-in for %s", ctx.selfAddress, peerAddress)
+			// log.Printf("**!@@ CLUSTER_MAP *3 (%s) stand-in for %s", ctx.selfAddress, peerAddress)
 			// Put a stand-in for self
 			outPeers[i] = Peer{
 				peerAddress: ctx.selfAddress,
@@ -207,7 +206,7 @@ func (ctx *BuilderContext) StartClusterMap(spec *PipeSpec, source *InputChannel,
 			// Send record to peer node
 			go func(iWorker int, resultCh chan ComputePipesResult) {
 				defer distributionWg.Done()
-				log.Printf("**!@@ CLUSTER_MAP *6 Distributing records :: sending to peer %d - starting", iWorker)
+				// log.Printf("**!@@ CLUSTER_MAP *6 Distributing records :: sending to peer %d - starting", iWorker)
 				var sentRowCount int64
 				for inRow := range distributionCh[iWorker] {
 					err = ctx.sendRow(iWorker, outPeers[iWorker].conn, inRow)
@@ -218,7 +217,7 @@ func (ctx *BuilderContext) StartClusterMap(spec *PipeSpec, source *InputChannel,
 					sentRowCount += 1
 				}
 				// All good!
-				log.Printf("**!@@ CLUSTER_MAP *6 Distributing records :: sending to peer %d - All good!", iWorker)
+				// log.Printf("**!@@ CLUSTER_MAP *6 Distributing records :: sending to peer %d - All good!", iWorker)
 				resultCh <- ComputePipesResult{
 					TableName:    fmt.Sprintf("Record sent to peer %d", iWorker),
 					CopyRowCount: sentRowCount,
@@ -242,20 +241,16 @@ func (ctx *BuilderContext) StartClusterMap(spec *PipeSpec, source *InputChannel,
 	}
 	// All the peers distribution coroutines to sent records are established, can now close clusterMapResultCh
 	close(clusterMapResultCh)
-	log.Printf("**!@@ CLUSTER_MAP *5 Processing input source channel: %s", source.config.Name)
+	// log.Printf("**!@@ CLUSTER_MAP *5 Processing input source channel: %s", source.config.Name)
 	for inRow := range source.channel {
-		var key string
-		var keyHash uint64
-		v := inRow[spliterColumnIdx]
+		v := EvalHash(inRow[spliterColumnIdx], uint64(nbrShard))
+		// if v != nil {
+		// 	log.Printf("##### EvalHash k: %v, nbr: %d => %v", inRow[spliterColumnIdx], nbrShard, *v)
+		// } else {
+		// 	log.Printf("##### EvalHash k: %v, nbr: %d => NULL", inRow[spliterColumnIdx], nbrShard)
+		// }
 		if v != nil {
-			key = toString(v)
-		}
-		if len(key) > 0 {
-			// hash the key, select a peer node
-			h := fnv.New64a()
-			h.Write([]byte(key))
-			keyHash = h.Sum64()
-			destinationShardId = int(keyHash % uint64(nbrShard))
+			destinationShardId = int(*v)
 		} else {
 			// pick random shard
 			destinationShardId = rand.Intn(nbrShard)
@@ -394,7 +389,7 @@ func (ctx *BuilderContext) registerNode() error {
 func (ctx *BuilderContext) listenForIncomingData(server net.Listener, incommingDataCh chan<- []interface{},
 	peersWg, remainingPeerInWg *sync.WaitGroup) {
 	// server.Close() will be called by the caller to terminate the loop
-	log.Println("**!@@ CLUSTER_MAP *2 calling server.Accept()")
+	// log.Println("**!@@ CLUSTER_MAP *2 calling server.Accept()")
 	for {
 		conn, err := server.Accept()
 		if err != nil {
@@ -420,7 +415,6 @@ func (ctx *BuilderContext) handleIncomingData(conn net.Conn, incommingDataCh cha
 			timeoutDuration = time.Duration(d) * time.Second
 		}
 	}
-	fmt.Println("Launching server...")
 	conn.SetReadDeadline(time.Now().Add(timeoutDuration))
 
 	remoteAddr := conn.RemoteAddr().String()

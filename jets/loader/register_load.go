@@ -3,10 +3,10 @@ package main
 import (
 	"context"
 	"fmt"
-	"hash/fnv"
 	"log"
 
 	"github.com/artisoft-io/jetstore/jets/awsi"
+	"github.com/artisoft-io/jetstore/jets/compute_pipes"
 	"github.com/artisoft-io/jetstore/jets/datatable"
 	"github.com/artisoft-io/jetstore/jets/schema"
 	"github.com/artisoft-io/jetstore/jets/user"
@@ -110,10 +110,7 @@ func shardFileKeys(dbpool *pgxpool.Pool, baseFileKey string, sessionId string, n
 	for i := range s3Objects {
 		if s3Objects[i].Size > 1 {
 			// Hash the file hey and assign it to a shard
-			h := fnv.New64a()
-			h.Write([]byte(s3Objects[i].Key))
-			keyHash := h.Sum64()
-			shardId := keyHash % uint64(nbrShards)
+			shardId := compute_pipes.Hash([]byte(s3Objects[i].Key), uint64(nbrShards))
 			// Write to shardId of this file key: session_id, file_key, shard
 			_, err := dbpool.Exec(context.Background(), stmt, sessionId, s3Objects[i].Key, int(shardId), s3Objects[i].Size)
 			if err != nil {

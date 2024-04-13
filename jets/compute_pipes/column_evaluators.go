@@ -133,6 +133,9 @@ func (ctx *BuilderContext) buildTransformationColumnEvaluator(source *InputChann
 	case "case":
 		return ctx.buildCaseExprEvaluator(source, outCh, spec)
 
+	case "hash":
+		return ctx.buildHashEvaluator(source, outCh, spec)
+
 	case "map_reduce":
 		return ctx.buildMapReduceEvaluator(source, outCh, spec)
 	}

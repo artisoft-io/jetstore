@@ -3,7 +3,6 @@ package compute_pipes
 import (
 	"fmt"
 	"log"
-	"strconv"
 	"sync"
 )
 
@@ -25,7 +24,7 @@ func (ctx *BuilderContext) StartSplitterPipe(spec *PipeSpec, source *InputChanne
 	}()
 
 	// the map containing all the intermediate channels corresponding to values @ spliterColumnIdx
-	chanState := make(map[string]chan []interface{})
+	chanState := make(map[interface{}]chan []interface{})
 	spliterColumnIdx, ok := source.columns[*spec.Column]
 	if !ok {
 		cpErr = fmt.Errorf("error: invalid column name %s for splitter with source channel %s", *spec.Column, source.config.Name)
@@ -34,42 +33,32 @@ func (ctx *BuilderContext) StartSplitterPipe(spec *PipeSpec, source *InputChanne
 
 	fmt.Println("**! start splitter loop on source:",source.config.Name)
 	for inRow := range source.channel {
-		var key string
-		v := inRow[spliterColumnIdx]
-		if v != nil {
-			// improve this by supporting different types in the splitting column
-			switch vv := v.(type) {
-			case string:
-				key = vv
-			case int:
-				key = strconv.Itoa(vv)
-			}
-			if len(key) > 0 {
-				splitCh := chanState[key]
-				if splitCh == nil {
-					splitCh = make(chan []interface{}, 1)
-					chanState[key] = splitCh
-					partitionResultCh := make(chan ComputePipesResult, 10)
-					writePartitionsResultCh <- partitionResultCh
-			
-					// start a goroutine to manage the channel
-					// the input channel to the goroutine is splitCh
-					wg.Add(1)
-					go ctx.startSplitterChannelHandler(spec, &InputChannel{
-						channel: splitCh,
-						columns: source.columns,
-						config:  &ChannelSpec{Name: fmt.Sprintf("splitter channel from %s", source.config.Name)},
-					}, partitionResultCh, &key, &wg)
-				}
-				// Send the record to the intermediate channel
-				// fmt.Println("**! splitter loop, sending record to intermediate channel:", key)
-				select {
-				case splitCh <- inRow:
-				case <-ctx.done:
-					log.Printf("startSplitterPipe writing to splitter intermediate channel with key %s from '%s' interrupted", key, source.config.Name)
-					goto doneSplitterLoop
-				}
-			}
+		key := inRow[spliterColumnIdx]
+		splitCh := chanState[key]
+		if splitCh == nil {
+			// unseen value, create an slot with an intermediate channel
+			// log.Printf("**!@@ SPLITTER NEW KEY: %v", key)
+			splitCh = make(chan []interface{}, 1)
+			chanState[key] = splitCh
+			partitionResultCh := make(chan ComputePipesResult, 10)
+			writePartitionsResultCh <- partitionResultCh
+	
+			// start a goroutine to manage the channel
+			// the input channel to the goroutine is splitCh
+			wg.Add(1)
+			go ctx.startSplitterChannelHandler(spec, &InputChannel{
+				channel: splitCh,
+				columns: source.columns,
+				config:  &ChannelSpec{Name: fmt.Sprintf("splitter channel from %s", source.config.Name)},
+			}, partitionResultCh, key, &wg)
+		}
+		// Send the record to the intermediate channel
+		// fmt.Println("**! splitter loop, sending record to intermediate channel:", key)
+		select {
+		case splitCh <- inRow:
+		case <-ctx.done:
+			log.Printf("startSplitterPipe writing to splitter intermediate channel with key %s from '%s' interrupted", key, source.config.Name)
+			goto doneSplitterLoop
 		}
 	}
 doneSplitterLoop:
@@ -92,7 +81,7 @@ gotError:
 }
 
 func (ctx *BuilderContext) startSplitterChannelHandler(spec *PipeSpec, source *InputChannel, partitionResultCh chan ComputePipesResult,
-	splitterKey *string, wg *sync.WaitGroup) {
+	jetsPartitionKey interface{}, wg *sync.WaitGroup) {
 	var cpErr, err error
 	var evaluators []PipeTransformationEvaluator
 	defer func() {
@@ -103,7 +92,7 @@ func (ctx *BuilderContext) startSplitterChannelHandler(spec *PipeSpec, source *I
 	evaluators = make([]PipeTransformationEvaluator, len(spec.Apply))
 	for j := range spec.Apply {
 		// partitionResultCh will have the aggregated count of files written by the partition writer
-		eval, err := ctx.buildPipeTransformationEvaluator(source, splitterKey, partitionResultCh, &spec.Apply[j])
+		eval, err := ctx.buildPipeTransformationEvaluator(source, jetsPartitionKey, partitionResultCh, &spec.Apply[j])
 		if err != nil {
 			cpErr = fmt.Errorf("while calling buildPipeTransformationEvaluator for %s: %v", spec.Apply[j].Type, err)
 			goto gotError

@@ -5,13 +5,13 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
-	"hash/fnv"
 	"log"
 	"os"
 	"os/exec"
 	"strconv"
 
 	"github.com/artisoft-io/jetstore/jets/awsi"
+	"github.com/artisoft-io/jetstore/jets/compute_pipes"
 	"github.com/artisoft-io/jetstore/jets/datatable"
 	"github.com/artisoft-io/jetstore/jets/schema"
 	"github.com/jackc/pgx/v4/pgxpool"
@@ -297,10 +297,7 @@ func (ctx *ShardFileKeysContext) AssignFileKeys(dbpool *pgxpool.Pool, baseFileKe
 	for i := range s3Objects {
 		if s3Objects[i].Size > 1 {
 			// Hash the file key and assign it to a shard
-			h := fnv.New64a()
-			h.Write([]byte(s3Objects[i].Key))
-			keyHash := h.Sum64()
-			nodeId := keyHash % uint64(ctx.NbrNodes)
+			nodeId := compute_pipes.Hash([]byte(s3Objects[i].Key), uint64(ctx.NbrNodes))
 			// Assign nodeId for this file key
 			_, err := dbpool.Exec(context.Background(), stmt, sessionId, s3Objects[i].Key, s3Objects[i].Size, jetsPartition, int(nodeId))
 			if err != nil {

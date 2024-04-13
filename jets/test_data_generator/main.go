@@ -47,7 +47,7 @@ func main() {
 		NbrMembers:       *nbrMembers,
 		NbrRowPerMembers: *nbrRowPerMembers,
 		NbrRowsPerChard:  *nbrRowsPerChard,
-		NbrChards: *nbrChards,
+		NbrChards:        *nbrChards,
 	}
 
 	errMsg := ca.ValidateArguments()
