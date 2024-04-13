@@ -36,7 +36,8 @@ func (ctx *BuilderContext) StartClusterMap(spec *PipeSpec, source *InputChannel,
 	var peersInWg, remainingPeerInWg sync.WaitGroup
 	var distributionWg sync.WaitGroup
 	var distributionCh []chan []interface{}
-	var distributionResultCh chan ComputePipesResult
+	var distributionResultCh, consumedLocallyResultCh chan ComputePipesResult
+	var nbrRecordsConsuledLocally int64
 	var incommingDataCh chan []interface{}
 	var server net.Listener
 	var outPeers []Peer
@@ -239,6 +240,10 @@ func (ctx *BuilderContext) StartClusterMap(spec *PipeSpec, source *InputChannel,
 			}(i, distributionResultCh)
 		}
 	}
+	// Keep track of how many records are consume locally by current nodes
+	consumedLocallyResultCh = make(chan ComputePipesResult, 1)
+	clusterMapResultCh <- consumedLocallyResultCh
+
 	// All the peers distribution coroutines to sent records are established, can now close clusterMapResultCh
 	close(clusterMapResultCh)
 	// log.Printf("**!@@ CLUSTER_MAP *5 Processing input source channel: %s", source.config.Name)
@@ -255,6 +260,9 @@ func (ctx *BuilderContext) StartClusterMap(spec *PipeSpec, source *InputChannel,
 			// pick random shard
 			destinationShardId = rand.Intn(nbrShard)
 		}
+		if destinationShardId == shardId {
+			nbrRecordsConsuledLocally++
+		}
 		// log.Printf("**!@@ CLUSTER_MAP *5 INPUT key: %s, hash: %d => %d", key, keyHash, destinationShardId)
 		// consume or send the record via the distribution channels
 		select {
@@ -266,6 +274,11 @@ func (ctx *BuilderContext) StartClusterMap(spec *PipeSpec, source *InputChannel,
 	}
 doneSource:
 	log.Printf("**!@@ CLUSTER_MAP *5 DONE Processing input source channel: %s", source.config.Name)
+	consumedLocallyResultCh <- ComputePipesResult{
+		CopyRowCount: nbrRecordsConsuledLocally,
+		TableName:    fmt.Sprintf("Records consumed locally by node %d", shardId),
+	}
+	close(consumedLocallyResultCh)
 
 	// Close the distribution channel to outPeer since processing the source has completed
 	for i := range distributionCh {
