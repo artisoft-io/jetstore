@@ -58,10 +58,6 @@ func (ctx *PartitionWriterTransformationPipe) apply(input *[]interface{}) error 
 
 	// Check if partition is complete, if so close current output channel and start a new one
 	if ctx.rowCountPerPartition > 0 && ctx.partitionRowCount >= ctx.rowCountPerPartition {
-		// Print Memory Usage if requested
-		if len(ctx.cpConfig.RuntimeMetrics) > 0 {
-			ReportMetrics(ctx.cpConfig.RuntimeMetrics)
-		}
 		close(ctx.currentDeviceCh)
 		ctx.currentDeviceCh = nil
 		ctx.totalRowCount += ctx.partitionRowCount
@@ -145,11 +141,6 @@ func (ctx *PartitionWriterTransformationPipe) apply(input *[]interface{}) error 
 //
 // Not called if the process has error upstream (see pipe_executor_splitter.go)
 func (ctx *PartitionWriterTransformationPipe) done() error {
-	// Print Memory Usage if requested
-	if len(ctx.cpConfig.RuntimeMetrics) > 0 {
-		ReportMetrics(ctx.cpConfig.RuntimeMetrics)
-	}
-
 	// Flush the current partition
 	if ctx.currentDeviceCh != nil {
 		close(ctx.currentDeviceCh)

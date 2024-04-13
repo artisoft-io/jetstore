@@ -1664,6 +1664,117 @@
   },
   {
     "schemaName": "jetsapi",
+    "tableName": "cpipes_results",
+    "columns": [
+      {
+        "columnName": "session_id",
+        "dataType": "text",
+        "isNotNull": true
+      },
+      {
+        "columnName": "jets_partition",
+        "dataType": "text",
+        "isNotNull": true
+      },
+      {
+        "columnName": "node_id",
+        "dataType": "int",
+        "isNotNull": true
+      },
+      {
+        "columnName": "category",
+        "dataType": "text",
+        "isNotNull": true
+      },
+      {
+        "columnName": "name",
+        "dataType": "text",
+        "isNotNull": true
+      },
+      {
+        "columnName": "row_count",
+        "dataType": "long",
+        "isNotNull": true
+      },
+      {
+        "columnName": "parts_count",
+        "dataType": "long",
+        "isNotNull": true
+      },
+      {
+        "columnName": "err",
+        "dataType": "text",
+        "isNotNull": true
+      },
+      {
+        "columnName": "last_update",
+        "dataType": "datetime",
+        "default": "now()",
+        "isNotNull": true
+      }
+    ],
+    "indexes": [
+      {
+        "indexName": "cpipes_results_session_id_idx",
+        "indexDef": "INDEX cpipes_results_session_id_idx ON jetsapi.cpipes_results (session_id)"
+      }
+    ]
+  },
+  {
+    "schemaName": "jetsapi",
+    "tableName": "cpipes_metrics",
+    "columns": [
+      {
+        "columnName": "session_id",
+        "dataType": "text",
+        "isNotNull": true
+      },
+      {
+        "columnName": "jets_partition",
+        "dataType": "text",
+        "isNotNull": true
+      },
+      {
+        "columnName": "node_id",
+        "dataType": "int",
+        "isNotNull": true
+      },
+      {
+        "columnName": "category",
+        "dataType": "text",
+        "isNotNull": true
+      },
+      {
+        "columnName": "name",
+        "dataType": "text",
+        "isNotNull": true
+      },
+      {
+        "columnName": "value",
+        "dataType": "double",
+        "isNotNull": true
+      },
+      {
+        "columnName": "units",
+        "dataType": "text",
+        "isNotNull": true
+      },
+      {
+        "columnName": "last_update",
+        "dataType": "datetime",
+        "default": "now()",
+        "isNotNull": true
+      }
+    ],
+    "indexes": [
+      {
+        "indexName": "cpipes_metrics_session_id_idx",
+        "indexDef": "INDEX cpipes_metrics_session_id_idx ON jetsapi.cpipes_results (session_id)"
+      }
+    ]
+  },
+  {
+    "schemaName": "jetsapi",
     "tableName": "session_registry",
     "columns": [
       {
