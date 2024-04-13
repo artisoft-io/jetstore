@@ -37,6 +37,7 @@ func (ctx *BuilderContext) StartClusterMap(spec *PipeSpec, source *InputChannel,
 	var distributionWg sync.WaitGroup
 	var distributionCh []chan []interface{}
 	var distributionResultCh, consumedLocallyResultCh chan ComputePipesResult
+	var receivedFromPeersResultCh []chan ComputePipesResult
 	var nbrRecordsConsuledLocally int64
 	var incommingDataCh chan []interface{}
 	var server net.Listener
@@ -89,8 +90,16 @@ func (ctx *BuilderContext) StartClusterMap(spec *PipeSpec, source *InputChannel,
 		goto gotError
 	}
 	log.Println("**!@@ CLUSTER_MAP *2 Listner started on", addr)
+	
+	// Keep track of how many records received by current node from peers
+	receivedFromPeersResultCh = make([]chan ComputePipesResult, nbrShard - 1)
+	for i := range receivedFromPeersResultCh {
+		receivedFromPeersResultCh[i] = make(chan ComputePipesResult, 2)
+		clusterMapResultCh <- receivedFromPeersResultCh[i]
+	}
+
 	remainingPeerInWg.Add(nbrShard - 1)
-	go ctx.listenForIncomingData(server, incommingDataCh, &peersInWg, &remainingPeerInWg)
+	go ctx.listenForIncomingData(server, incommingDataCh, &peersInWg, &remainingPeerInWg, receivedFromPeersResultCh)
 
 	// Note: when evaluatorsWg and source is done, need to call Close() on server to terminate the Accept loop
 	// and close intermediate channel incommingDataCh
@@ -400,9 +409,10 @@ func (ctx *BuilderContext) registerNode() error {
 }
 
 func (ctx *BuilderContext) listenForIncomingData(server net.Listener, incommingDataCh chan<- []interface{},
-	peersWg, remainingPeerInWg *sync.WaitGroup) {
+	peersWg, remainingPeerInWg *sync.WaitGroup, receivedFromPeersResultCh []chan ComputePipesResult) {
 	// server.Close() will be called by the caller to terminate the loop
 	// log.Println("**!@@ CLUSTER_MAP *2 calling server.Accept()")
+	var ipeer int
 	for {
 		conn, err := server.Accept()
 		if err != nil {
@@ -411,12 +421,23 @@ func (ctx *BuilderContext) listenForIncomingData(server net.Listener, incommingD
 		}
 		peersWg.Add(1)
 		remainingPeerInWg.Done()
-		go ctx.handleIncomingData(conn, incommingDataCh, peersWg)
+		go ctx.handleIncomingData(conn, incommingDataCh, peersWg, receivedFromPeersResultCh[ipeer])
+		ipeer++
 	}
 }
 
-func (ctx *BuilderContext) handleIncomingData(conn net.Conn, incommingDataCh chan<- []interface{}, peersWg *sync.WaitGroup) {
+func (ctx *BuilderContext) handleIncomingData(conn net.Conn, incommingDataCh chan<- []interface{}, peersWg *sync.WaitGroup, receivedResultCh chan ComputePipesResult) {
+	var receiveCount, receive0Count int64
 	defer func() {
+		receivedResultCh <- ComputePipesResult{
+			TableName: "Records received from peers",
+			CopyRowCount: receiveCount,
+		}
+		receivedResultCh <- ComputePipesResult{
+			TableName: "0-length records received from peers",
+			CopyRowCount: receive0Count,
+		}
+		close(receivedResultCh)
 		conn.Close()
 		peersWg.Done()
 	}()
@@ -468,10 +489,13 @@ func (ctx *BuilderContext) handleIncomingData(conn net.Conn, incommingDataCh cha
 				if len(*row) > 0 {
 					select {
 					case incommingDataCh <- *row:
+						receiveCount++
 					case <-ctx.done:
 						log.Printf("handleIncomingData: writing to incommingDataCh intermediate channel interrupted")
 						return
 					}
+				} else {
+					receive0Count++
 				}
 			}
 		}

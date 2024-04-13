@@ -296,7 +296,7 @@ func processFileAndReportStatus(dbpool *pgxpool.Pool,
 		for peer := range mapOn {
 			// log.Println("**!@@ Read RESULT from MapOnClusterResultCh:")
 			for peerResult := range peer {
-				saveResultsCtx.Save("Peer Sent", &peerResult)
+				saveResultsCtx.Save("Peer Communication", &peerResult)
 				log.Printf("**!@@ Sent %d Rows to Peer %s :: %v", peerResult.CopyRowCount, peerResult.TableName, peerResult.Err)
 				if peerResult.Err != nil {
 					processingErrors = append(processingErrors, peerResult.Err.Error())
