@@ -471,36 +471,38 @@ func (ctx *BuilderContext) handleIncomingData(conn net.Conn, incommingDataCh cha
 			}
 		}
 
-		// irow := 0
-		bufLen := tmpbuff.Len()
-		if bufLen > 0 {
-			for {
-				// decode the rows received
-				row := new([]interface{})
-				// creates a decoder object
-				gobobj := gob.NewDecoder(tmpbuff)
-				// decodes buffer and unmarshals it into a Message struct
-				err2 := gobobj.Decode(row)
-				if err2 == io.EOF {
-					break
-				}
-				if err2 != nil {
-					cpErr = fmt.Errorf("while call Decode on incoming record")
-					goto gotError		
-				}
-				// irow++
-				// Send the record to the intermediate channel
-				// fmt.Printf("**!@@ Got record LENGTH %d #%d of msg remaining %d of %d\n", len(*row), irow, tmpbuff.Len(), bufLen)
-				if len(*row) > 0 {
-					select {
-					case incommingDataCh <- *row:
-						receiveCount++
-					case <-ctx.done:
-						log.Printf("handleIncomingData: writing to incommingDataCh intermediate channel interrupted")
-						return
+		if err == nil {
+			// irow := 0
+			bufLen := tmpbuff.Len()
+			if bufLen > 0 {
+				for {
+					// decode the rows received
+					row := new([]interface{})
+					// creates a decoder object
+					gobobj := gob.NewDecoder(tmpbuff)
+					// decodes buffer and unmarshals it into a Message struct
+					err2 := gobobj.Decode(row)
+					if err2 == io.EOF {
+						break
 					}
-				} else {
-					receive0Count++
+					if err2 != nil {
+						cpErr = fmt.Errorf("while call Decode on incoming record: %v", err2)
+						goto gotError
+					}
+					// irow++
+					// Send the record to the intermediate channel
+					// fmt.Printf("**!@@ Got record LENGTH %d #%d of msg remaining %d of %d\n", len(*row), irow, tmpbuff.Len(), bufLen)
+					if len(*row) > 0 {
+						select {
+						case incommingDataCh <- *row:
+							receiveCount++
+						case <-ctx.done:
+							log.Printf("handleIncomingData: writing to incommingDataCh intermediate channel interrupted")
+							return
+						}
+					} else {
+						receive0Count++
+					}
 				}
 			}
 		}
