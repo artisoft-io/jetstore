@@ -228,6 +228,7 @@ gotError:
 	chResults.LoadFromS3FilesResultCh <- compute_pipes.LoadFromS3FilesResult{Err: err}
 	close(chResults.Copy2DbResultCh)
 	close(chResults.WritePartitionsResultCh)
+	errCh <- err
 	close(done)
 	return
 
@@ -297,7 +298,7 @@ func processFileAndReportStatus(dbpool *pgxpool.Pool,
 			// log.Println("**!@@ Read RESULT from MapOnClusterResultCh:")
 			for peerResult := range peer {
 				saveResultsCtx.Save("Peer Communication", &peerResult)
-				log.Printf("**!@@ Sent %d Rows to Peer %s :: %v", peerResult.CopyRowCount, peerResult.TableName, peerResult.Err)
+				log.Printf("**!@@ PEER COMM %d Rows :: Peer %s :: %v", peerResult.CopyRowCount, peerResult.TableName, peerResult.Err)
 				if peerResult.Err != nil {
 					processingErrors = append(processingErrors, peerResult.Err.Error())
 					if err == nil {

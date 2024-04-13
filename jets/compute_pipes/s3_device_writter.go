@@ -111,10 +111,11 @@ func (ctx *S3DeviceWriter) WritePartition(s3WriterResultCh chan<- ComputePipesRe
 		goto gotError
 	}
 	s3WriterResultCh <- ComputePipesResult{PartsCount: 1}
-
 	// All good!
 	return
 gotError:
-	log.Println("Got error while copying file part to s3:",cpErr)
+	log.Println(cpErr)
 	s3WriterResultCh <- ComputePipesResult{Err: cpErr}
+	ctx.errCh <- cpErr
+	close(ctx.doneCh)
 }
