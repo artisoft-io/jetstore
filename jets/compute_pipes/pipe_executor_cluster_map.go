@@ -90,9 +90,9 @@ func (ctx *BuilderContext) StartClusterMap(spec *PipeSpec, source *InputChannel,
 		goto gotError
 	}
 	log.Println("**!@@ CLUSTER_MAP *2 Listner started on", addr)
-	
+
 	// Keep track of how many records received by current node from peers
-	receivedFromPeersResultCh = make([]chan ComputePipesResult, nbrShard - 1)
+	receivedFromPeersResultCh = make([]chan ComputePipesResult, nbrShard-1)
 	for i := range receivedFromPeersResultCh {
 		receivedFromPeersResultCh[i] = make(chan ComputePipesResult, 2)
 		clusterMapResultCh <- receivedFromPeersResultCh[i]
@@ -428,13 +428,14 @@ func (ctx *BuilderContext) listenForIncomingData(server net.Listener, incommingD
 
 func (ctx *BuilderContext) handleIncomingData(conn net.Conn, incommingDataCh chan<- []interface{}, peersWg *sync.WaitGroup, receivedResultCh chan ComputePipesResult) {
 	var receiveCount, receive0Count int64
+	var cpErr error
 	defer func() {
 		receivedResultCh <- ComputePipesResult{
-			TableName: "Records received from peers",
+			TableName:    "Records received from peers",
 			CopyRowCount: receiveCount,
 		}
 		receivedResultCh <- ComputePipesResult{
-			TableName: "0-length records received from peers",
+			TableName:    "0-length records received from peers",
 			CopyRowCount: receive0Count,
 		}
 		close(receivedResultCh)
@@ -483,6 +484,10 @@ func (ctx *BuilderContext) handleIncomingData(conn net.Conn, incommingDataCh cha
 				if err2 == io.EOF {
 					break
 				}
+				if err2 != nil {
+					cpErr = fmt.Errorf("while call Decode on incoming record")
+					goto gotError		
+				}
 				// irow++
 				// Send the record to the intermediate channel
 				// fmt.Printf("**!@@ Got record LENGTH %d #%d of msg remaining %d of %d\n", len(*row), irow, tmpbuff.Len(), bufLen)
@@ -503,17 +508,24 @@ func (ctx *BuilderContext) handleIncomingData(conn net.Conn, incommingDataCh cha
 		switch {
 		case err == nil:
 		case errors.Is(err, os.ErrDeadlineExceeded):
-			log.Printf("*** PEER Deadline exceeded on read, bailing out")
-			return
+			cpErr = fmt.Errorf("*** PEER Deadline exceeded on read, bailing out")
+			goto gotError
+
 		case err == io.EOF:
 			log.Printf("*** PEER Connect closed by client, done")
+			// All good!
 			return
 		default:
 			// read error
-			log.Println("*** PEER read error:", err)
-			return
+			cpErr = fmt.Errorf("*** PEER read error: %v", err)
+			goto gotError
 		}
 	}
+
+gotError:
+	log.Println(cpErr)
+	ctx.errCh <- cpErr
+	close(ctx.done)
 }
 
 func (ctx *BuilderContext) sendRow(iWorker int, conn net.Conn, row []interface{}) error {
