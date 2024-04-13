@@ -28,7 +28,8 @@ type DownloadS3Result struct {
 // inFolderPath: temp folder containing the downloaded files
 // error when setting up the downloader
 // Special case:
-//	Case of multipart files using cluster_map operator where this shardId contains no files in
+//
+//	Case of multipart files using distribute_data operator where this shardId contains no files in
 //	table compute_pipes_shard_registry:
 //		- Use of global cpipesShardWithNoFileKeys == true to indicate this situation
 //		- Case cpipes "reducing": inFile contains the file_key folder of another shardId to get the headers file from it.
@@ -111,7 +112,7 @@ func downloadS3Files(done <-chan struct{}) (<-chan string, <-chan string, <-chan
 						if cpipesShardWithNoFileKeys {
 							// Got the header file, it's all we need
 							downloadS3ResultCh <- DownloadS3Result{}
-							return	
+							return
 						}
 					}
 					select {
@@ -198,7 +199,7 @@ func getFileKeys(dbpool *pgxpool.Pool, sessionId string, shardId int, jetsPartit
 			}
 		} else {
 			fileKeys = append(fileKeys, key)
-			cpipesShardWithNoFileKeys = true	
+			cpipesShardWithNoFileKeys = true
 		}
 	}
 	return fileKeys, nil
