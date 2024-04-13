@@ -149,7 +149,7 @@ func (ctx *BuilderContext) buildComputeGraph() error {
 		case "cluster_map":
 			fmt.Println("**& starting PipeConfig", i, "cluster_map", "on source", source.config.Name)
 			// Create the clusterMapResultCh to report on the outgoing peer connection
-			clusterMapResultCh := make(chan chan ComputePipesResult, ctx.env["$NBR_SHARDS"].(int))
+			clusterMapResultCh := make(chan chan ComputePipesResult, ctx.NbrNodes()*5)
 			ctx.chResults.MapOnClusterResultCh <- clusterMapResultCh
 			// Create the writePartitionResultCh that will contain the number of part files in the event partition_writer is used
 			// This will be a special case where the is a single partion to write
