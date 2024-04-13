@@ -153,11 +153,11 @@ func (ctx *BuilderContext) buildComputeGraph() error {
 // Build the PipeTransformationEvaluator: one of map_record, aggregate, or partition_writer
 // The partitionResultCh argument is used only by partition_writer to return the number of part files written and
 // the error that might occur
-func (ctx *BuilderContext) buildPipeTransformationEvaluator(source *InputChannel, splitterKey *string,
+func (ctx *BuilderContext) buildPipeTransformationEvaluator(source *InputChannel, jetsPartitionKey interface{},
 	partitionResultCh chan ComputePipesResult, spec *TransformationSpec) (PipeTransformationEvaluator, error) {
 
 	// Construct the pipe transformation
-	// fmt.Println("**& buildPipeTransformationEvaluator for", spec.Type, "source:", source.config.Name, "splitterKey:", splitterKey, "output:", spec.Output)
+	// fmt.Println("**& buildPipeTransformationEvaluator for", spec.Type, "source:", source.config.Name, "jetsPartitionKey:", *jetsPartitionKey, "output:", spec.Output)
 
 	// Get the output channel
 	outCh, err := ctx.channelRegistry.GetOutputChannel(spec.Output)
@@ -183,7 +183,7 @@ func (ctx *BuilderContext) buildPipeTransformationEvaluator(source *InputChannel
 		return ctx.NewAggregateTransformationPipe(source, outCh, spec)
 
 	case "partition_writer":
-		return ctx.NewPartitionWriterTransformationPipe(source, splitterKey, outCh, partitionResultCh, spec)
+		return ctx.NewPartitionWriterTransformationPipe(source, jetsPartitionKey, outCh, partitionResultCh, spec)
 
 	default:
 		if partitionResultCh != nil {

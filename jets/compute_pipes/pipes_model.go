@@ -1,7 +1,5 @@
 package compute_pipes
 
-import "strconv"
-
 // This file contains the Compute Pipes configuration model
 type ComputePipesConfig struct {
 	RuntimeMetrics []Metric       `json:"runtime_metrics"`
@@ -18,7 +16,7 @@ type ClusterSpec struct {
 	ReadTimeout             int    `json:"read_timeout"`
 	WriteTimeout            int    `json:"write_timeout"`
 	PeerRegistrationTimeout int    `json:"peer_registration_timeout"`
-	NbrJetsPartitions       uint64 `json:"nbr_jets_partition"`
+	NbrJetsPartitions       uint64 `json:"nbr_jets_partitions"`
 }
 
 type Metric struct {
@@ -72,7 +70,7 @@ type PathSubstitution struct {
 	With    string `json:"with"`
 }
 type TransformationColumnSpec struct {
-	// Type range: select, value, eval, map,
+	// Type range: select, value, eval, map, hash
 	// (applicable to aggregate) count, distinct_count, sum, min,
 	// case, map_reduce
 	Name        string                      `json:"name"`
@@ -80,12 +78,20 @@ type TransformationColumnSpec struct {
 	Expr        *string                     `json:"expr"`
 	MapExpr     *MapExpression              `json:"map_expr"`
 	EvalExpr    *ExpressionNode             `json:"eval_expr"`
+	HashExpr    *HashExpression             `json:"hash_expr"`
 	Where       *ExpressionNode             `json:"where"`
 	CaseExpr    []CaseExpression            `json:"case_expr"`
 	ElseExpr    *ExpressionNode             `json:"else_expr"`
 	MapOn       *string                     `json:"map_on"`
 	ApplyMap    *[]TransformationColumnSpec `json:"apply_map"`
 	ApplyReduce *[]TransformationColumnSpec `json:"apply_reduce"`
+}
+
+type HashExpression struct {
+	Expr              string          `json:"expr"`
+	Format            *string         `json:"format"`
+	NbrJetsPartitions *uint64         `json:"nbr_jets_partitions"`
+	DefaultExpr       *ExpressionNode `json:"default_expr"`
 }
 
 type MapExpression struct {
@@ -110,17 +116,4 @@ type ExpressionNode struct {
 type CaseExpression struct {
 	When ExpressionNode `json:"when"`
 	Then ExpressionNode `json:"then"`
-}
-
-func toString(v interface{}) string {
-	if v != nil {
-		// improve this by supporting different types in the splitting column
-		switch vv := v.(type) {
-		case string:
-			return vv
-		case int:
-			return strconv.Itoa(vv)
-		}
-	}
-	return ""
 }

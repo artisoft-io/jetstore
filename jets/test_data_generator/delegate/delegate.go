@@ -2,6 +2,7 @@ package delegate
 
 import (
 	"bufio"
+	"log"
 	"math/rand"
 	"strings"
 
@@ -50,8 +51,9 @@ type CommandArguments struct {
 // Support Functions
 // --------------------------------------------------------------------------------------
 func (ca *CommandArguments) GetTemplateInfo() (string, string, error) {
-	readFile, err := os.Open(
-		fmt.Sprintf("%s/%s/%s", os.Getenv("WORKSPACES_HOME"), os.Getenv("WORKSPACE"), ca.CsvTemplatePath))
+	fname := fmt.Sprintf("%s/%s/%s", os.Getenv("WORKSPACES_HOME"), os.Getenv("WORKSPACE"), ca.CsvTemplatePath)
+	log.Printf("Reading template from: %s", fname)
+	readFile, err := os.Open(fname)
 	if err != nil {
 		return "", "", err
 	}
@@ -286,7 +288,7 @@ func (ca *CommandArguments) DoChard(id int) error {
 	}
 	// fmt.Println("**&@@ WritePartition: DONE writing local parquet file for fileName:", *ctx.fileName)
 
-	outFilePath := fmt.Sprintf("%s/%s", os.Getenv("JETS_s3_INPUT_PREFIX"), ca.OutFileKey)
+	outFilePath := fmt.Sprintf("%s/%s/in-part%05d", os.Getenv("JETS_s3_INPUT_PREFIX"), ca.OutFileKey, id)
 	fmt.Println("OutFile Path:", outFilePath)
 
 	// All good, put the file in s3
