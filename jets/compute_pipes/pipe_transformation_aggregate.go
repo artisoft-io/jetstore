@@ -26,7 +26,7 @@ func (ctx *AggregateTransformationPipe) apply(input *[]interface{}) error {
 }
 func (ctx *AggregateTransformationPipe) done() error {
 	// Notify the column evaluator that we're done
-	// fmt.Println("**! calling done on column evaluator from AggregateTransformationPipe for output", ctx.outputCh.config.Name)
+	// fmt.Println("**!@@ calling done on column evaluator from AggregateTransformationPipe for output", ctx.outputCh.config.Name)
 	for i := range ctx.columnEvaluators {
 		err := ctx.columnEvaluators[i].done(&ctx.currentValues)
 		if err != nil {
@@ -34,13 +34,13 @@ func (ctx *AggregateTransformationPipe) done() error {
 		}
 	}
 	// Send the result to output
-	// fmt.Println("**! ** Send AGGREGATE Result to", ctx.outputCh.config.Name)
+	// fmt.Println("**!@@ ** Send AGGREGATE Result to", ctx.outputCh.config.Name)
 	select {
 	case ctx.outputCh.channel <- ctx.currentValues:
 	case <-ctx.doneCh:
 		log.Println("AggregateTransform interrupted")
 	}
-	// fmt.Println("**! ** Send AGGREGATE Result to", ctx.outputCh.config.Name,"DONE")
+	// fmt.Println("**!@@ ** Send AGGREGATE Result to", ctx.outputCh.config.Name,"DONE")
 	return nil
 }
 

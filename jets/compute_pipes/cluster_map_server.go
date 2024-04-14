@@ -44,7 +44,7 @@ func (ps *PeerServer) ClientReady(args *PeerRecordMessage, reply *PeerReply) err
 		return fmt.Errorf("error: invalid sender %d, expecting up to %d",
 			args.Sender, len(ps.receivedFromPeersResultCh)+1)
 	}
-	log.Printf("**!@@ PeerServer: got ClientReady for peer %d", args.Sender)
+	// log.Printf("**!@@ PeerServer: got ClientReady for peer %d", args.Sender)
 	ps.peersWg.Add(1)
 	ps.remainingPeerInWg.Done()
 	return nil
@@ -65,7 +65,7 @@ func (ps *PeerServer) PushRecords(args *PeerRecordMessage, reply *PeerReply) err
 	count := int(args.RecordsCount)
 	for i := 0; i < count; i++ {
 		if len(args.Records[i]) == 0 {
-			cpErr = fmt.Errorf("**!@@ PeerServer ERROR got record of 0-length")
+			// cpErr = fmt.Errorf("**!@@ PeerServer ERROR got record of 0-length")
 			goto gotError
 		}
 		select {
@@ -107,7 +107,7 @@ func (ps *PeerServer) ClientDone(args *PeerRecordMessage, reply *PeerReply) erro
 		TableName:    fmt.Sprintf("Records received from peer %d", args.Sender),
 		CopyRowCount: *ps.recordCount[sender],
 	}
-	log.Printf("**!@@ PeerServer: got ClientDone for peer %d", args.Sender)
+	// log.Printf("**!@@ PeerServer: got ClientDone for peer %d", args.Sender)
 	close(ps.receivedFromPeersResultCh[sender])
 	*ps.peersResultClosed[sender] = true
 	ps.peersWg.Done()

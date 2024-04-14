@@ -11,13 +11,13 @@ func (ctx *BuilderContext) StartFanOutPipe(spec *PipeSpec, source *InputChannel)
 
 	defer func() {
 		// Closing the output channels
-		// fmt.Println("**! FanOutPipe: Closing Output Channels")
+		// fmt.Println("**!@@ FanOutPipe: Closing Output Channels")
 		oc := make(map[string]bool)
 		for i := range spec.Apply {
 			oc[spec.Apply[i].Output] = true
 		}
 		for i := range oc {
-			// fmt.Println("**! FanOutPipe: Closing Output Channel",i)
+			// fmt.Println("**!@@ FanOutPipe: Closing Output Channel",i)
 			ctx.channelRegistry.CloseChannel(i)
 		}
 	}()
@@ -31,7 +31,7 @@ func (ctx *BuilderContext) StartFanOutPipe(spec *PipeSpec, source *InputChannel)
 		evaluators[j] = eval
 	}
 
-	// fmt.Println("**! start fan_out loop on source:", source.config.Name)
+	// fmt.Println("**!@@ start fan_out loop on source:", source.config.Name)
 	for inRow := range source.channel {
 		for i := range spec.Apply {
 			err = evaluators[i].apply(&inRow)

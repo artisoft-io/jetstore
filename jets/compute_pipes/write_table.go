@@ -76,11 +76,11 @@ func (wt *WriteTableSource) writeTable(dbpool *pgxpool.Pool, done chan struct{},
 			fmt.Println()
 		}
 		close(done)
-		fmt.Println("**! ERROR writing to database, writing to copy2DbResultCh (ComputePipesResult)")
+		fmt.Println("**!@@ ERROR writing to database, writing to copy2DbResultCh (ComputePipesResult)")
 		copy2DbResultCh <- ComputePipesResult{TableName: wt.tableIdentifier.Sanitize(), Err: fmt.Errorf("while copy records to db at count %d: %v", wt.count, err)}
 		return
 	}
-	fmt.Println("DONE writing to database, writing to copy2DbResultCh (ComputePipesResult)")
+	// fmt.Println("**!@@ DONE writing to database, writing to copy2DbResultCh (ComputePipesResult)")
 	copy2DbResultCh <- ComputePipesResult{TableName: wt.tableIdentifier.Sanitize(), CopyRowCount: recCount}
 }
 
