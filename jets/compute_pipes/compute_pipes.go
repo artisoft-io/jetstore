@@ -185,7 +185,7 @@ func StartComputePipes(dbpool *pgxpool.Pool, headersDKInfo *schema.HeadersAndDom
 
 gotError:
 	log.Println(cpErr)
-	fmt.Println("**! gotError in StartComputePipes")
+	fmt.Println("**!@@ gotError in StartComputePipes")
 	errCh <- cpErr
 	close(done)
 	close(chResults.Copy2DbResultCh)

@@ -31,7 +31,7 @@ func (ctx *MapRecordTransformationPipe) apply(input *[]interface{}) error {
 		}
 	}
 	// Notify the column evaluator that we're done
-	// fmt.Println("**! calling done on column evaluator from MapRecordTransformationPipe for output", ctx.outputCh.config.Name)
+	// fmt.Println("**!@@ calling done on column evaluator from MapRecordTransformationPipe for output", ctx.outputCh.config.Name)
 	for i := range ctx.columnEvaluators {
 		err := ctx.columnEvaluators[i].done(&currentValues)
 		if err != nil {
@@ -39,7 +39,7 @@ func (ctx *MapRecordTransformationPipe) apply(input *[]interface{}) error {
 		}
 	}
 	// Send the result to output
-	// fmt.Println("**! map_record loop out row:", currentValues, "to outCh:", ctx.outputCh.config.Name)
+	// fmt.Println("**!@@ map_record loop out row:", currentValues, "to outCh:", ctx.outputCh.config.Name)
 	select {
 	case ctx.outputCh.channel <- currentValues:
 	case <-ctx.doneCh:

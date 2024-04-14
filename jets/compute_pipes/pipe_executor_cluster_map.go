@@ -55,13 +55,13 @@ func (ctx *BuilderContext) StartClusterMap(spec *PipeSpec, source *InputChannel,
 			}
 		}
 		// Closing the output channels
-		fmt.Println("**! CLUSTER_MAP: Closing Output Channels")
+		// fmt.Println("**!@@ CLUSTER_MAP: Closing Output Channels")
 		oc := make(map[string]bool)
 		for i := range spec.Apply {
 			oc[spec.Apply[i].Output] = true
 		}
 		for i := range oc {
-			fmt.Println("**! CLUSTER_MAP: Closing Output Channel", i)
+			// fmt.Println("**!@@ CLUSTER_MAP: Closing Output Channel", i)
 			ctx.channelRegistry.CloseChannel(i)
 		}
 	}()
@@ -138,7 +138,7 @@ func (ctx *BuilderContext) StartClusterMap(spec *PipeSpec, source *InputChannel,
 				close(ctx.done)
 			}
 		}()
-		log.Println("**!@@ CLUSTER_MAP *2 RPC server registered, listening on", addr)
+		// log.Println("**!@@ CLUSTER_MAP *2 RPC server registered, listening on", addr)
 		err := http.Serve(server, nil)
 		log.Println("**!@@ CLUSTER_MAP *2 RPC server DONE listening on", addr, "::", err)
 	}()
@@ -169,7 +169,7 @@ func (ctx *BuilderContext) StartClusterMap(spec *PipeSpec, source *InputChannel,
 					}
 					// Register the client with the peer server
 					args := &PeerRecordMessage{Sender: int32(ctx.NodeId())}
-					log.Printf("**!@@ PeerServer: sending ClientReady to peer %d", i)
+					// log.Printf("**!@@ PeerServer: sending ClientReady to peer %d", i)
 					err = client.Call("PeerServer.ClientReady", args, &PeerReply{})
 					if err != nil {
 						cpErr = fmt.Errorf("while calling PeerServer.ClientReady to node %d: %v", i, err)
@@ -186,7 +186,7 @@ func (ctx *BuilderContext) StartClusterMap(spec *PipeSpec, source *InputChannel,
 				retry++
 			}
 		} else {
-			log.Printf("**!@@ CLUSTER_MAP *3 (%s) stand-in for %s", ctx.selfAddress, peerAddress)
+			// log.Printf("**!@@ CLUSTER_MAP *3 (%s) stand-in for %s", ctx.selfAddress, peerAddress)
 			// Put a stand-in for self
 			outPeers[i] = Peer{
 				peerAddress: ctx.selfAddress,
@@ -195,9 +195,9 @@ func (ctx *BuilderContext) StartClusterMap(spec *PipeSpec, source *InputChannel,
 	}
 	log.Printf("**!@@ CLUSTER_MAP *3 (%s) All %d peer connections established", ctx.selfAddress, len(ctx.peersAddress))
 
-	log.Printf("**!@@ CLUSTER_MAP *4 WAIT for all incomming PEER client to be established")
+	// log.Printf("**!@@ CLUSTER_MAP *4 WAIT for all incomming PEER client to be established")
 	remainingPeerInWg.Wait()
-	log.Printf("**!@@ CLUSTER_MAP *4 DONE WAIT got all incomming PEER client established")
+	// log.Printf("**!@@ CLUSTER_MAP *4 DONE WAIT got all incomming PEER client established")
 
 	// Build the PipeTransformationEvaluators
 	evaluators = make([]PipeTransformationEvaluator, len(spec.Apply))
@@ -217,7 +217,7 @@ func (ctx *BuilderContext) StartClusterMap(spec *PipeSpec, source *InputChannel,
 	go func() {
 		defer evaluatorsWg.Done()
 		// Process the channel
-		log.Printf("**!@@ CLUSTER_MAP *5 Processing intermediate channel incommingDataCh")
+		// log.Printf("**!@@ CLUSTER_MAP *5 Processing intermediate channel incommingDataCh")
 		for inRow := range incommingDataCh {
 			for i := range evaluators {
 				err = evaluators[i].apply(&inRow)
@@ -238,7 +238,7 @@ func (ctx *BuilderContext) StartClusterMap(spec *PipeSpec, source *InputChannel,
 			}
 		}
 		// All good!
-		log.Printf("**!@@ CLUSTER_MAP *5 Processing intermediate channel incommingDataCh - All good!")
+		// log.Printf("**!@@ CLUSTER_MAP *5 Processing intermediate channel incommingDataCh - All good!")
 		return
 
 	gotError:
@@ -315,7 +315,7 @@ func (ctx *BuilderContext) StartClusterMap(spec *PipeSpec, source *InputChannel,
 					}
 				}
 				// All good!
-				log.Printf("**!@@ CLUSTER_MAP *6 Distributing records :: sending to peer %d - All good!", iWorker)
+				// log.Printf("**!@@ CLUSTER_MAP *6 Distributing records :: sending to peer %d - All good!", iWorker)
 				resultCh <- ComputePipesResult{
 					TableName:    fmt.Sprintf("Record sent to peer %d", iWorker),
 					CopyRowCount: sentRowCount,
@@ -343,7 +343,7 @@ func (ctx *BuilderContext) StartClusterMap(spec *PipeSpec, source *InputChannel,
 
 	// All the peers distribution goroutines to sent records are established, can now close clusterMapResultCh
 	close(clusterMapResultCh)
-	log.Printf("**!@@ CLUSTER_MAP *5 Processing input source channel: %s", source.config.Name)
+	// log.Printf("**!@@ CLUSTER_MAP *5 Processing input source channel: %s", source.config.Name)
 	for inRow := range source.channel {
 		v := EvalHash(inRow[spliterColumnIdx], uint64(nbrShard))
 		// if v != nil {
@@ -370,7 +370,7 @@ func (ctx *BuilderContext) StartClusterMap(spec *PipeSpec, source *InputChannel,
 		}
 	}
 doneSource:
-	log.Printf("**!@@ CLUSTER_MAP *5 DONE Processing input source channel: %s", source.config.Name)
+	// log.Printf("**!@@ CLUSTER_MAP *5 DONE Processing input source channel: %s", source.config.Name)
 	consumedLocallyResultCh <- ComputePipesResult{
 		CopyRowCount: nbrRecordsConsuledLocally,
 		TableName:    fmt.Sprintf("Records consumed locally by node %d", shardId),
@@ -402,9 +402,9 @@ doneSource:
 	}
 
 	// Source channel completed, now wait for the peers with incoming records to complete
-	log.Printf("**!@@ CLUSTER_MAP *8 WAIT on peersInWg - incomming PEER")
+	// log.Printf("**!@@ CLUSTER_MAP *8 WAIT on peersInWg - incomming PEER")
 	peersInWg.Wait()
-	log.Printf("**!@@ CLUSTER_MAP *8 DONE WAIT on peersInWg - incomming PEER")
+	// log.Printf("**!@@ CLUSTER_MAP *8 DONE WAIT on peersInWg - incomming PEER")
 
 	// Close incommingDataCh and server listerner
 	close(incommingDataCh)

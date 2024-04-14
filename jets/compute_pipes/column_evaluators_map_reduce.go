@@ -63,7 +63,7 @@ func (ctx *mapReduceColumnEval) done(currentValue *[]interface{}) error {
 		}
 	}
 	// for k,v := range ctx.currentIntermediateValues {
-	// 	fmt.Println("**! MAP REDUCE intermediate values by key",k,": ",v)
+	// 	fmt.Println("**!@@ MAP REDUCE intermediate values by key",k,": ",v)
 	// }
 	return nil
 }
