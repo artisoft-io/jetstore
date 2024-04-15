@@ -241,7 +241,7 @@ func (ctx *BuilderContext) NewPartitionWriterTransformationPipe(source *InputCha
 		}
 	}
 	session_id := ctx.env["$SESSIONID"].(string)
-	jetsPartitionLabel := fmt.Sprintf("%v", jetsPartitionKey)
+	jetsPartitionLabel := fmt.Sprintf("%vp", jetsPartitionKey)
 	baseOutputPath := fmt.Sprintf("%s/session_id=%s/jets_partition=%s", p, session_id, jetsPartitionLabel)
 
 	// Create a local temp dir to save the file partition for writing to s3
