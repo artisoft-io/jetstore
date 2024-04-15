@@ -192,12 +192,19 @@ func coordinateWork() error {
 
 func invokeCpipes(dbpool *pgxpool.Pool, jetsPartition *string) error {
 	// Remove the node from the cpipes_cluster_node_registry as this is used for synchronization for the nodes
-	stmt := "DELETE FROM jetsapi.cpipes_cluster_node_registry WHERE session_id = $1;"
-	_, err := dbpool.Exec(context.Background(), stmt, sessionId)
+	stmt := "DELETE FROM jetsapi.cpipes_cluster_node_registry WHERE session_id = $1 AND shard_id = $2;"
+	_, err := dbpool.Exec(context.Background(), stmt, sessionId, *shardId)
 	if err != nil {
 		return fmt.Errorf("while deleting node's registration from cpipes_cluster_node_registry: %v", err)
 	}
-
+	defer func() {
+		// Remove the node from the cpipes_cluster_node_registry as this is used for synchronization for the nodes
+		stmt := "DELETE FROM jetsapi.cpipes_cluster_node_registry WHERE session_id = $1 AND shard_id = $2;"
+		_, err := dbpool.Exec(context.Background(), stmt, sessionId, *shardId)
+		if err != nil {
+			log.Printf("while deleting node's registration from cpipes_cluster_node_registry: %v (ignored)", err)
+		}
+	}()
 	cpipesArgs := []string{
 		"-peKey", strconv.Itoa(*pipelineExecKey),
 		"-userEmail", *userEmail,
@@ -259,7 +266,7 @@ type ShardFileKeysContext struct {
 }
 
 // Assign all the file keys (multipart files) from jets_partition created by nodeId
-func  (ctx *ShardFileKeysContext) AssignJetsPartitionFileKeys(dbpool *pgxpool.Pool, nodeId int) error {
+func (ctx *ShardFileKeysContext) AssignJetsPartitionFileKeys(dbpool *pgxpool.Pool, nodeId int) error {
 	var totalPartfileCount int
 	// For each jets_partition and the base directory of that partition, invoke AssignFileKeys
 	stmt := "SELECT file_key, jets_partition FROM jetsapi.compute_pipes_partitions_registry WHERE session_id = $1 AND shard_id = $2"
