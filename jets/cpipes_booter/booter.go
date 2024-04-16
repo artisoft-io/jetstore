@@ -197,7 +197,14 @@ func invokeCpipes(dbpool *pgxpool.Pool, jetsPartition *string) error {
 	if err != nil {
 		return fmt.Errorf("while deleting node's registration from cpipes_cluster_node_registry: %v", err)
 	}
-
+	defer func() {
+		// Remove the node from the cpipes_cluster_node_registry as this is used for synchronization for the nodes
+		stmt := "DELETE FROM jetsapi.cpipes_cluster_node_registry WHERE session_id = $1 AND shard_id = $2;"
+		_, err := dbpool.Exec(context.Background(), stmt, sessionId, *shardId)
+		if err != nil {
+			log.Printf("while deleting node's registration from cpipes_cluster_node_registry: %v (ignored)", err)
+		}
+	}()
 	cpipesArgs := []string{
 		"-peKey", strconv.Itoa(*pipelineExecKey),
 		"-userEmail", *userEmail,
@@ -259,9 +266,9 @@ type ShardFileKeysContext struct {
 }
 
 // Assign all the file keys (multipart files) from jets_partition created by nodeId
-func  (ctx *ShardFileKeysContext) AssignJetsPartitionFileKeys(dbpool *pgxpool.Pool, nodeId int) error {
+func (ctx *ShardFileKeysContext) AssignJetsPartitionFileKeys(dbpool *pgxpool.Pool, nodeId int) error {
 	var totalPartfileCount int
-	// For each jets_partition and the base directory if that partition, invoke AssignFileKeys
+	// For each jets_partition and the base directory of that partition, invoke AssignFileKeys
 	stmt := "SELECT file_key, jets_partition FROM jetsapi.compute_pipes_partitions_registry WHERE session_id = $1 AND shard_id = $2"
 	rows, err := dbpool.Query(context.Background(), stmt, ctx.SessionId, nodeId)
 	if err == nil {
@@ -284,7 +291,7 @@ func  (ctx *ShardFileKeysContext) AssignJetsPartitionFileKeys(dbpool *pgxpool.Po
 	return nil
 }
 
-// Function to assign file_key to noes (aka shard) into jetsapi.compute_pipes_shard_registry
+// Function to assign file_key to nodes (aka shard) into jetsapi.compute_pipes_shard_registry
 func (ctx *ShardFileKeysContext) AssignFileKeys(dbpool *pgxpool.Pool, baseFileKey *string, jetsPartition string) (int, error) {
 	// Get all the file keys having baseFileKey as prefix
 	log.Printf("Downloading file keys from s3 folder: %s", *baseFileKey)
