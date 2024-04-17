@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"runtime/debug"
 	"time"
 
 	"github.com/artisoft-io/jetstore/jets/schema"
@@ -32,6 +33,7 @@ func StartComputePipes(dbpool *pgxpool.Pool, headersDKInfo *schema.HeadersAndDom
 		if r := recover(); r != nil {
 			cpErr := fmt.Errorf("StartComputePipes: recovered error: %v", r)
 			log.Println(cpErr)
+			debug.PrintStack()
 			errCh <- cpErr
 			close(done)
 			close(chResults.Copy2DbResultCh)
