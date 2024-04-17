@@ -699,23 +699,29 @@ func splitFileKey(keyMap map[string]interface{}, fileKey *string) map[string]int
 }
 
 func SplitFileKeyIntoComponents(keyMap map[string]interface{}, fileKey *string) map[string]interface{} {
-
+	var err error
 	fileKeyObject := splitFileKey(keyMap, fileKey)
 	fileKeyObject["file_key"] = *fileKey
-	year, err := strconv.Atoi(fileKeyObject["year"].(string))
-	if err != nil {
-		log.Printf("File Key with invalid year: %s, setting to 1970\n", fileKeyObject["year"])
-		year = 1970
+	year := 1970
+	if fileKeyObject["year"] != nil {
+		year, err = strconv.Atoi(fileKeyObject["year"].(string))
+		if err != nil {
+			log.Printf("File Key with invalid year: %s, setting to 1970", fileKeyObject["year"])
+		}	
 	}
-	month, err := strconv.Atoi(fileKeyObject["month"].(string))
-	if err != nil {
-		log.Printf("File Key with invalid month: %s, setting to 1\n", fileKeyObject["year"])
-		year = 1
+	month := 1
+	if fileKeyObject["month"] != nil {
+		month, err = strconv.Atoi(fileKeyObject["month"].(string))
+		if err != nil {
+			log.Printf("File Key with invalid month: %s, setting to 1", fileKeyObject["month"])
+		}	
 	}
-	day, err := strconv.Atoi(fileKeyObject["day"].(string))
-	if err != nil {
-		log.Printf("File Key with invalid day: %s, setting to 1\n", fileKeyObject["year"])
-		year = 1
+	day := 1
+	if fileKeyObject["day"] != nil {
+		day, err = strconv.Atoi(fileKeyObject["day"].(string))
+		if err != nil {
+			log.Printf("File Key with invalid day: %s, setting to 1", fileKeyObject["day"])
+		}	
 	}
 	// Updating object attribute with correct type
 	fileKeyObject["year"] = year
