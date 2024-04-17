@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	// "runtime"
 	"runtime/debug"
 	"time"
 
@@ -33,6 +34,7 @@ func StartComputePipes(dbpool *pgxpool.Pool, headersDKInfo *schema.HeadersAndDom
 		if r := recover(); r != nil {
 			cpErr := fmt.Errorf("StartComputePipes: recovered error: %v", r)
 			log.Println(cpErr)
+			// runtime.Stack()
 			debug.PrintStack()
 			errCh <- cpErr
 			close(done)
@@ -91,9 +93,10 @@ func StartComputePipes(dbpool *pgxpool.Pool, headersDKInfo *schema.HeadersAndDom
 				Name:    "input_row",
 				Columns: headersDKInfo.Headers,
 			},
-			computeChannels:     make(map[string]*Channel),
-			outputTableChannels: make([]string, 0),
-			closedChannels:      make(map[string]bool),
+			computeChannels:      make(map[string]*Channel),
+			outputTableChannels:  make([]string, 0),
+			closedChannels:       make(map[string]bool),
+			distributionChannels: make(map[string]*[]string),
 		}
 		for i := range cpConfig.Channels {
 			cm := make(map[string]int)
