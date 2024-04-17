@@ -3,6 +3,7 @@ package compute_pipes
 import (
 	"fmt"
 	"log"
+	"runtime/debug"
 	"sync"
 )
 
@@ -14,6 +15,7 @@ func (ctx *BuilderContext) StartSplitterPipe(spec *PipeSpec, source *InputChanne
 		if r := recover(); r != nil {
 			cpErr := fmt.Errorf("StartSplitterPipe: recovered error: %v", r)
 			log.Println(cpErr)
+			debug.PrintStack()
 			ctx.errCh <- cpErr
 			close(ctx.done)
 		}
@@ -96,6 +98,7 @@ func (ctx *BuilderContext) startSplitterChannelHandler(spec *PipeSpec, source *I
 		if r := recover(); r != nil {
 			cpErr := fmt.Errorf("startSplitterChannelHandler: recovered error: %v", r)
 			log.Println(cpErr)
+			debug.PrintStack()
 			ctx.errCh <- cpErr
 			close(ctx.done)
 		}

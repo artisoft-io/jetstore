@@ -3,6 +3,7 @@ package compute_pipes
 import (
 	"fmt"
 	"log"
+	"runtime/debug"
 )
 
 func (ctx *BuilderContext) StartFanOutPipe(spec *PipeSpec, source *InputChannel) {
@@ -14,6 +15,7 @@ func (ctx *BuilderContext) StartFanOutPipe(spec *PipeSpec, source *InputChannel)
 		if r := recover(); r != nil {
 			cpErr := fmt.Errorf("StartFanOutPipe: recovered error: %v", r)
 			log.Println(cpErr)
+			debug.PrintStack()
 			ctx.errCh <- cpErr
 			close(ctx.done)
 		}

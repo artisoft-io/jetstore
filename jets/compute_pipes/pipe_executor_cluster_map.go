@@ -8,6 +8,7 @@ import (
 	"net"
 	"net/http"
 	"net/rpc"
+	"runtime/debug"
 	"sync"
 	"time"
 )
@@ -46,6 +47,7 @@ func (ctx *BuilderContext) StartClusterMap(spec *PipeSpec, source *InputChannel,
 		if r := recover(); r != nil {
 			cpErr := fmt.Errorf("StartClusterMap: recovered error: %v", r)
 			log.Println(cpErr)
+			debug.PrintStack()
 			ctx.errCh <- cpErr
 			close(ctx.done)
 		}
@@ -137,6 +139,7 @@ func (ctx *BuilderContext) StartClusterMap(spec *PipeSpec, source *InputChannel,
 			if r := recover(); r != nil {
 				cpErr := fmt.Errorf("StartClusterMap: recovered error: %v", r)
 				log.Println(cpErr)
+				debug.PrintStack()
 				ctx.errCh <- cpErr
 				close(ctx.done)
 			}
@@ -231,6 +234,7 @@ func (ctx *BuilderContext) StartClusterMap(spec *PipeSpec, source *InputChannel,
 			if r := recover(); r != nil {
 				cpErr := fmt.Errorf("StartClusterMap: recovered error while evaluators are processing incommingDataCh: %v", r)
 				log.Println(cpErr)
+				debug.PrintStack()
 				ctx.errCh <- cpErr
 				close(ctx.done)
 			}
@@ -300,6 +304,7 @@ func (ctx *BuilderContext) StartClusterMap(spec *PipeSpec, source *InputChannel,
 					if r := recover(); r != nil {
 						cpErr := fmt.Errorf("StartClusterMap: recovered error while sending records to peer %d: %v", iWorker, r)
 						log.Println(cpErr)
+						debug.PrintStack()
 						ctx.errCh <- cpErr
 						close(ctx.done)
 					}
