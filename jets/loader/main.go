@@ -98,7 +98,7 @@ func init() {
 }
 
 func main() {
-	fmt.Println("CMD LINE ARGS:", os.Args[1:])
+	fmt.Println("LOADER CMD LINE ARGS:", os.Args[1:])
 	flag.Parse()
 	hasErr := false
 	var errMsg []string
@@ -201,7 +201,7 @@ func main() {
 
 	if hasErr {
 		for _, msg := range errMsg {
-			fmt.Println("**", msg)
+			log.Println("**", msg)
 		}
 		panic("Invalid arguments")
 	}
@@ -224,55 +224,55 @@ func main() {
 		*failedMetric = *cpipesFailedMetric
 	}
 
-	fmt.Println("Loader argument:")
-	fmt.Println("----------------")
-	fmt.Println("Got argument: awsDsnSecret", *awsDsnSecret)
-	fmt.Println("Got argument: awsBucket", *awsBucket)
-	fmt.Println("Got argument: awsRegion", *awsRegion)
-	fmt.Println("Got argument: inFile", *inFile)
-	fmt.Println("Got argument: len(dsn)", len(*dsn))
-	fmt.Println("Got argument: peKey", *pipelineExecKey)
-	fmt.Println("Got argument: shardId", *shardId)
-	fmt.Println("Got argument: jetsPartition", *jetsPartition)
-	fmt.Println("Got argument: nbrShards", *nbrShards)
-	fmt.Println("Got argument: client", *client)
-	fmt.Println("Got argument: org", *clientOrg)
-	fmt.Println("Got argument: objectType", *objectType)
-	fmt.Println("Got argument: sourcePeriodKey", *sourcePeriodKey)
-	fmt.Println("Got argument: userEmail", *userEmail)
-	fmt.Println("Got argument: sessionId", *sessionId)
-	fmt.Println("Got argument: usingSshTunnel", *usingSshTunnel)
-	fmt.Println("Got argument: loaderCompletedMetric", *completedMetric)
-	fmt.Println("Got argument: loaderFailedMetric", *failedMetric)
-	fmt.Println("Loader out dir (from env LOADER_ERR_DIR):", errOutDir)
-	fmt.Printf("ENV JETS_BUCKET: %s\n", os.Getenv("JETS_BUCKET"))
-	fmt.Printf("ENV JETS_DSN_SECRET: %s\n", os.Getenv("JETS_DSN_SECRET"))
-	fmt.Printf("ENV JETS_LOADER_CHUNCK_SIZE: %s\n", os.Getenv("JETS_LOADER_CHUNCK_SIZE"))
-	fmt.Printf("ENV JETS_LOADER_SM_ARN: %s\n", os.Getenv("JETS_LOADER_SM_ARN"))
-	fmt.Printf("ENV JETS_REGION: %s\n", os.Getenv("JETS_REGION"))
-	fmt.Printf("ENV JETS_SENTINEL_FILE_NAME: %s\n", os.Getenv("JETS_SENTINEL_FILE_NAME"))
-	fmt.Printf("ENV JETS_SERVER_SM_ARN: %s\n", os.Getenv("JETS_SERVER_SM_ARN"))
+	log.Println("Loader argument:")
+	log.Println("----------------")
+	log.Println("Got argument: awsDsnSecret", *awsDsnSecret)
+	log.Println("Got argument: awsBucket", *awsBucket)
+	log.Println("Got argument: awsRegion", *awsRegion)
+	log.Println("Got argument: inFile", *inFile)
+	log.Println("Got argument: len(dsn)", len(*dsn))
+	log.Println("Got argument: peKey", *pipelineExecKey)
+	log.Println("Got argument: shardId", *shardId)
+	log.Println("Got argument: jetsPartition", *jetsPartition)
+	log.Println("Got argument: nbrShards", *nbrShards)
+	log.Println("Got argument: client", *client)
+	log.Println("Got argument: org", *clientOrg)
+	log.Println("Got argument: objectType", *objectType)
+	log.Println("Got argument: sourcePeriodKey", *sourcePeriodKey)
+	log.Println("Got argument: userEmail", *userEmail)
+	log.Println("Got argument: sessionId", *sessionId)
+	log.Println("Got argument: usingSshTunnel", *usingSshTunnel)
+	log.Println("Got argument: loaderCompletedMetric", *completedMetric)
+	log.Println("Got argument: loaderFailedMetric", *failedMetric)
+	log.Println("Loader out dir (from env LOADER_ERR_DIR):", errOutDir)
+	log.Printf("ENV JETS_BUCKET: %s\n", os.Getenv("JETS_BUCKET"))
+	log.Printf("ENV JETS_DSN_SECRET: %s\n", os.Getenv("JETS_DSN_SECRET"))
+	log.Printf("ENV JETS_LOADER_CHUNCK_SIZE: %s\n", os.Getenv("JETS_LOADER_CHUNCK_SIZE"))
+	log.Printf("ENV JETS_LOADER_SM_ARN: %s\n", os.Getenv("JETS_LOADER_SM_ARN"))
+	log.Printf("ENV JETS_REGION: %s\n", os.Getenv("JETS_REGION"))
+	log.Printf("ENV JETS_SENTINEL_FILE_NAME: %s\n", os.Getenv("JETS_SENTINEL_FILE_NAME"))
+	log.Printf("ENV JETS_SERVER_SM_ARN: %s\n", os.Getenv("JETS_SERVER_SM_ARN"))
 	if len(errOutDir) == 0 {
-		fmt.Println("Loader error file will be in same directory as input file.")
+		log.Println("Loader error file will be in same directory as input file.")
 	}
 	if *dsn != "" && *awsDsnSecret != "" {
-		fmt.Println("Both -awsDsnSecret and -dsn are provided, will use argument -awsDsnSecret only")
+		log.Println("Both -awsDsnSecret and -dsn are provided, will use argument -awsDsnSecret only")
 	}
-	fmt.Println("ENV JETS_DOMAIN_KEY_HASH_ALGO:", os.Getenv("JETS_DOMAIN_KEY_HASH_ALGO"))
-	fmt.Println("ENV JETS_DOMAIN_KEY_HASH_SEED:", os.Getenv("JETS_DOMAIN_KEY_HASH_SEED"))
-	fmt.Println("ENV JETS_INPUT_ROW_JETS_KEY_ALGO:", os.Getenv("JETS_INPUT_ROW_JETS_KEY_ALGO"))
-	fmt.Println("ENV AWS_API_SECRET:", os.Getenv("AWS_API_SECRET"))
-	fmt.Println("ENV JETS_LOG_DEBUG:", os.Getenv("JETS_LOG_DEBUG"))
-	fmt.Println("ENV JETS_DOMAIN_KEY_SEPARATOR:", os.Getenv("JETS_DOMAIN_KEY_SEPARATOR"))
+	log.Println("ENV JETS_DOMAIN_KEY_HASH_ALGO:", os.Getenv("JETS_DOMAIN_KEY_HASH_ALGO"))
+	log.Println("ENV JETS_DOMAIN_KEY_HASH_SEED:", os.Getenv("JETS_DOMAIN_KEY_HASH_SEED"))
+	log.Println("ENV JETS_INPUT_ROW_JETS_KEY_ALGO:", os.Getenv("JETS_INPUT_ROW_JETS_KEY_ALGO"))
+	log.Println("ENV AWS_API_SECRET:", os.Getenv("AWS_API_SECRET"))
+	log.Println("ENV JETS_LOG_DEBUG:", os.Getenv("JETS_LOG_DEBUG"))
+	log.Println("ENV JETS_DOMAIN_KEY_SEPARATOR:", os.Getenv("JETS_DOMAIN_KEY_SEPARATOR"))
 	if devMode {
-		fmt.Println("Running in DEV MODE")
-		fmt.Println("Nbr Shards in DEV MODE: nbrShards", *nbrShards)
+		log.Println("Running in DEV MODE")
+		log.Println("Nbr Shards in DEV MODE: nbrShards", *nbrShards)
 	}
 	jetsDebug, _ = strconv.Atoi(os.Getenv("JETS_LOG_DEBUG"))
 
 	err = coordinateWork()
 	if err != nil {
-		fmt.Println(err)
+		log.Println(err)
 		panic(err)
 	}
 }

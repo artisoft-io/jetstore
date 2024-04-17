@@ -183,11 +183,13 @@ func loadFile2DB(headersDKInfo *schema.HeadersAndDomainKeysInfo, filePath *strin
 	lastUpdate := time.Now().UTC()
 
 	// Get the list of ObjectType from domainKeysJson if it's an elm, detault to *objectType
-	objTypes, err := schema.GetObjectTypesFromDominsKeyJson(domainKeysJson, *objectType)
-	if err != nil {
-		return 0, 0, err
+	var objTypes *[]string
+	if cpipesMode == "loader" {
+		objTypes, err = schema.GetObjectTypesFromDominsKeyJson(domainKeysJson, *objectType)
+		if err != nil {
+			return 0, 0, err
+		}
 	}
-
 	var inputRowCount int64
 	var record []string
 	var recordTypeOffset int
@@ -238,12 +240,22 @@ func loadFile2DB(headersDKInfo *schema.HeadersAndDomainKeysInfo, filePath *strin
 						record[i] = ""
 					} else {
 						switch vv := rawValue.(type) {
-						case int:
-							record[i] = strconv.Itoa(vv)
 						case string:
 							record[i] = vv
 						case []byte:
 							record[i] = string(vv)
+						case int:
+							record[i] = strconv.Itoa(vv)
+						case int32:
+							record[i] = strconv.FormatInt(int64(vv), 10)
+						case int64:
+							record[i] = strconv.FormatInt(vv, 10)
+						case float64:
+							record[i] = strconv.FormatFloat(vv, 'E', -1, 32)
+						case float32:
+							record[i] = strconv.FormatFloat(float64(vv), 'E', -1, 32)
+						case bool:
+							record[i] = fmt.Sprintf("%v", vv)
 						default:
 							t := reflect.TypeOf(rawValue)
 							if t.Kind() == reflect.Array {
@@ -359,52 +371,57 @@ func loadFile2DB(headersDKInfo *schema.HeadersAndDomainKeysInfo, filePath *strin
 			copyRec[sessionIdPos] = *sessionId
 			jetsKeyStr := uuid.New().String()
 			copyRec[lastUpdatePos] = lastUpdate
-			var mainDomainKey string
-			var mainDomainKeyPos int
-			var mainShardIdPos int
-			for _, ot := range *objTypes {
-				groupingKey, shardId, err := headersDKInfo.ComputeGroupingKey(*nbrShards, &ot, &record, recordTypeOffset, &jetsKeyStr)
-				if err != nil {
-					badRowsPos = append(badRowsPos, currentLineNumber)
-					processingErrors = append(processingErrors, err.Error())
-					goto NextRow
-				}
-				if jetsDebug >= 2 {
-					fmt.Printf("**=* Grouping Key Value: %s\n", groupingKey)
-				}
-				domainKeyPos := headersDKInfo.DomainKeysInfoMap[ot].DomainKeyPos
-				copyRec[domainKeyPos] = groupingKey
-				shardIdPos := headersDKInfo.DomainKeysInfoMap[ot].ShardIdPos
-				copyRec[shardIdPos] = shardId
-				if ot == *objectType {
-					mainDomainKey = groupingKey
-					mainDomainKeyPos = domainKeyPos
-					mainShardIdPos = shardIdPos
-				}
-			}
-			var buf strings.Builder
-			switch jetsInputRowJetsKeyAlgo {
-			case "row_hash":
-				// Add sourcePeriodKey in row_hash calculation so if same record in input
-				// for 2 different period, they get different jets:key
-				buf.WriteString(strconv.Itoa(*sourcePeriodKey))
-				for _, h := range headersDKInfo.Headers {
-					ipos := headersDKInfo.HeadersPosMap[h]
-					if !headersDKInfo.ReservedColumns[h] && !headersDKInfo.FillerColumns[h] {
-						buf.WriteString(record[ipos])
+
+			//*TODO fusion of cpipes and jets:Entity
+			// No need to compute jets:Entity attributes when in cpipes mode
+			if cpipesMode == "loader" {
+				var mainDomainKey string
+				var mainDomainKeyPos int
+				var mainShardIdPos int
+				for _, ot := range *objTypes {
+					groupingKey, shardId, err := headersDKInfo.ComputeGroupingKey(*nbrShards, &ot, &record, recordTypeOffset, &jetsKeyStr)
+					if err != nil {
+						badRowsPos = append(badRowsPos, currentLineNumber)
+						processingErrors = append(processingErrors, err.Error())
+						goto NextRow
+					}
+					if jetsDebug >= 2 {
+						fmt.Printf("**=* Grouping Key Value: %s\n", groupingKey)
+					}
+					domainKeyPos := headersDKInfo.DomainKeysInfoMap[ot].DomainKeyPos
+					copyRec[domainKeyPos] = groupingKey
+					shardIdPos := headersDKInfo.DomainKeysInfoMap[ot].ShardIdPos
+					copyRec[shardIdPos] = shardId
+					if ot == *objectType {
+						mainDomainKey = groupingKey
+						mainDomainKeyPos = domainKeyPos
+						mainShardIdPos = shardIdPos
 					}
 				}
-				jetsKeyStr = uuid.NewSHA1(headersDKInfo.HashingSeed, []byte(buf.String())).String()
-				if jetsDebug >= 2 {
-					fmt.Println("COMPUTING ROW HASH WITH", buf.String())
-					fmt.Println("row_hash jetsKeyStr", jetsKeyStr)
+				var buf strings.Builder
+				switch jetsInputRowJetsKeyAlgo {
+				case "row_hash":
+					// Add sourcePeriodKey in row_hash calculation so if same record in input
+					// for 2 different period, they get different jets:key
+					buf.WriteString(strconv.Itoa(*sourcePeriodKey))
+					for _, h := range headersDKInfo.Headers {
+						ipos := headersDKInfo.HeadersPosMap[h]
+						if !headersDKInfo.ReservedColumns[h] && !headersDKInfo.FillerColumns[h] {
+							buf.WriteString(record[ipos])
+						}
+					}
+					jetsKeyStr = uuid.NewSHA1(headersDKInfo.HashingSeed, []byte(buf.String())).String()
+					if jetsDebug >= 2 {
+						fmt.Println("COMPUTING ROW HASH WITH", buf.String())
+						fmt.Println("row_hash jetsKeyStr", jetsKeyStr)
+					}
+				case "domain_key":
+					jetsKeyStr = mainDomainKey
 				}
-			case "domain_key":
-				jetsKeyStr = mainDomainKey
-			}
-			if headersDKInfo.IsDomainKeyIsJetsKey(objectType) {
-				copyRec[mainDomainKeyPos] = jetsKeyStr
-				copyRec[mainShardIdPos] = schema.ComputeShardId(*nbrShards, jetsKeyStr)
+				if headersDKInfo.IsDomainKeyIsJetsKey(objectType) {
+					copyRec[mainDomainKeyPos] = jetsKeyStr
+					copyRec[mainShardIdPos] = schema.ComputeShardId(*nbrShards, jetsKeyStr)
+				}
 			}
 			copyRec[jetsKeyPos] = jetsKeyStr
 			select {
