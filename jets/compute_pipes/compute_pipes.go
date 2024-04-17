@@ -27,6 +27,19 @@ func StartComputePipes(dbpool *pgxpool.Pool, headersDKInfo *schema.HeadersAndDom
 	computePipesJson *string, envSettings map[string]interface{},
 	fileKeyComponents map[string]interface{}) {
 
+	defer func() {
+		// Catch the panic that might be generated downstream
+		if r := recover(); r != nil {
+			cpErr := fmt.Errorf("StartComputePipes: recovered error: %v", r)
+			log.Println(cpErr)
+			errCh <- cpErr
+			close(done)
+			close(chResults.Copy2DbResultCh)
+			close(chResults.WritePartitionsResultCh)
+			close(chResults.MapOnClusterResultCh)
+		}
+	}()
+
 	var cpErr error
 	if computePipesJson == nil || len(*computePipesJson) == 0 {
 		// Loader in classic mode, no compute pipes defined
@@ -96,22 +109,12 @@ func StartComputePipes(dbpool *pgxpool.Pool, headersDKInfo *schema.HeadersAndDom
 		// 	fmt.Println("**& Channel", cpConfig.Channels[i].Name, "Columns map", channelRegistry.computeChannels[cpConfig.Channels[i].Name].columns)
 		// }
 
-		shardId := envSettings["$SHARD_ID"].(int)
 		// Prepare the output tables
 		for i := range cpConfig.OutputTables {
 			tableIdentifier, err := SplitTableName(cpConfig.OutputTables[i].Name)
 			if err != nil {
 				cpErr = fmt.Errorf("while splitting table name: %s", err)
 				goto gotError
-			}
-			if shardId == 0 {
-				// Update table schema in database if current shardId is 0, to avoid multiple updates
-				fmt.Println("**& Preparing / Updating Output Table", tableIdentifier)
-				err = prepareOutoutTable(dbpool, tableIdentifier, &cpConfig.OutputTables[i])
-				if err != nil {
-					cpErr = fmt.Errorf("while preparing output table: %s", err)
-					goto gotError
-				}
 			}
 			outChannel := channelRegistry.computeChannels[cpConfig.OutputTables[i].Key]
 			channelRegistry.outputTableChannels = append(channelRegistry.outputTableChannels, cpConfig.OutputTables[i].Key)

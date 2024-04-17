@@ -84,13 +84,13 @@ func (wt *WriteTableSource) writeTable(dbpool *pgxpool.Pool, done chan struct{},
 	copy2DbResultCh <- ComputePipesResult{TableName: wt.tableIdentifier.Sanitize(), CopyRowCount: recCount}
 }
 
-func prepareOutoutTable(dbpool *pgxpool.Pool, tableIdentifier pgx.Identifier, tableSpec *TableSpec) error {
+func PrepareOutoutTable(dbpool *pgxpool.Pool, tableIdentifier pgx.Identifier, tableSpec *TableSpec) error {
 	tblExists, err := schema.TableExists(dbpool, tableIdentifier[0], tableIdentifier[1])
 	if err != nil {
 		return fmt.Errorf("while verifying if output table exists: %v", err)
 	}
 	if !tblExists {
-		err = createOutputTable(dbpool, tableIdentifier, tableSpec)
+		err = CreateOutputTable(dbpool, tableIdentifier, tableSpec)
 		if err != nil {
 			return fmt.Errorf("while creating table: %v", err)
 		}
@@ -132,7 +132,7 @@ func prepareOutoutTable(dbpool *pgxpool.Pool, tableIdentifier pgx.Identifier, ta
 }
 
 // Create the Staging Table
-func createOutputTable(dbpool *pgxpool.Pool, tableName pgx.Identifier, tableSpec *TableSpec) error {
+func CreateOutputTable(dbpool *pgxpool.Pool, tableName pgx.Identifier, tableSpec *TableSpec) error {
 	stmt := fmt.Sprintf("DROP TABLE IF EXISTS %s", tableName.Sanitize())
 	_, err := dbpool.Exec(context.Background(), stmt)
 	if err != nil {

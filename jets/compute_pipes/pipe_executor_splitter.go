@@ -10,6 +10,13 @@ func (ctx *BuilderContext) StartSplitterPipe(spec *PipeSpec, source *InputChanne
 	var cpErr error
 	var wg sync.WaitGroup
 	defer func() {
+		// Catch the panic that might be generated downstream
+		if r := recover(); r != nil {
+			cpErr := fmt.Errorf("StartSplitterPipe: recovered error: %v", r)
+			log.Println(cpErr)
+			ctx.errCh <- cpErr
+			close(ctx.done)
+		}
 		close(writePartitionsResultCh)
 		// Closing the output channels
 		// fmt.Println("**!@@ SPLITTER: Closing Output Channels")
@@ -40,9 +47,9 @@ func (ctx *BuilderContext) StartSplitterPipe(spec *PipeSpec, source *InputChanne
 			// log.Printf("**!@@ SPLITTER NEW KEY: %v", key)
 			splitCh = make(chan []interface{}, 1)
 			chanState[key] = splitCh
-			partitionResultCh := make(chan ComputePipesResult, 10)
+			partitionResultCh := make(chan ComputePipesResult, 1)
 			writePartitionsResultCh <- partitionResultCh
-	
+
 			// start a goroutine to manage the channel
 			// the input channel to the goroutine is splitCh
 			wg.Add(1)
@@ -85,19 +92,44 @@ func (ctx *BuilderContext) startSplitterChannelHandler(spec *PipeSpec, source *I
 	var cpErr, err error
 	var evaluators []PipeTransformationEvaluator
 	defer func() {
+		// Catch the panic that might be generated downstream
+		if r := recover(); r != nil {
+			cpErr := fmt.Errorf("startSplitterChannelHandler: recovered error: %v", r)
+			log.Println(cpErr)
+			ctx.errCh <- cpErr
+			close(ctx.done)
+		}
 		wg.Done()
 	}()
+	// Aggregate all results from partition writers
+	aggregator := make(chan chan ComputePipesResult)
+	defer close(aggregator)
+	go func() {
+		for resultCh := range aggregator {
+			for result := range resultCh {
+				partitionResultCh <- result
+			}
+		}
+		close(partitionResultCh)
+	}()
+
 	// fmt.Println("**!@@ SPLITTER *1 startSplitterChannelHandler ~ Called")
 	// Build the PipeTransformationEvaluator
 	evaluators = make([]PipeTransformationEvaluator, len(spec.Apply))
 	for j := range spec.Apply {
-		// partitionResultCh will have the aggregated count of files written by the partition writer
-		eval, err := ctx.buildPipeTransformationEvaluator(source, jetsPartitionKey, partitionResultCh, &spec.Apply[j])
+		if spec.Apply[j].Type == "partition_writer" {
+			// partitionResultCh will have the aggregated count of files written by the partition writer
+			pResultCh := make(chan ComputePipesResult, 1)
+			aggregator <- pResultCh
+			evaluators[j], err = ctx.buildPipeTransformationEvaluator(source, jetsPartitionKey, pResultCh, &spec.Apply[j])
+		} else {
+			evaluators[j], err = ctx.buildPipeTransformationEvaluator(source, nil, nil, &spec.Apply[j])
+		}
 		if err != nil {
+			close(aggregator)
 			cpErr = fmt.Errorf("while calling buildPipeTransformationEvaluator for %s: %v", spec.Apply[j].Type, err)
 			goto gotError
 		}
-		evaluators[j] = eval
 	}
 	// Process the channel
 	for inRow := range source.channel {

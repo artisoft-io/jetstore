@@ -152,11 +152,7 @@ func (ctx *BuilderContext) buildComputeGraph() error {
 			// Create the clusterMapResultCh to report on the outgoing peer connection
 			clusterMapResultCh := make(chan chan ComputePipesResult, ctx.NbrNodes()*5)
 			ctx.chResults.MapOnClusterResultCh <- clusterMapResultCh
-			// Create the writePartitionResultCh that will contain the number of part files in the event partition_writer is used
-			// This will be a special case where the is a single partion to write
-			writePartitionsResultCh := make(chan chan ComputePipesResult, len(pipeSpec.Apply)) // NOTE buffer sized in the unlikely case there are multiple items in Apply
-			ctx.chResults.WritePartitionsResultCh <- writePartitionsResultCh
-			go ctx.StartClusterMap(pipeSpec, source, clusterMapResultCh, writePartitionsResultCh)
+			go ctx.StartClusterMap(pipeSpec, source, clusterMapResultCh)
 
 		default:
 			return fmt.Errorf("error: unknown PipeSpec type: %s", pipeSpec.Type)

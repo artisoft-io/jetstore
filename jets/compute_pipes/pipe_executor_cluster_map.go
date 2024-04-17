@@ -8,11 +8,8 @@ import (
 	"net"
 	"net/http"
 	"net/rpc"
-	"strings"
 	"sync"
 	"time"
-
-	"github.com/artisoft-io/jetstore/jets/awsi"
 )
 
 // Pipe executor that shard the input channel onto the cluster based
@@ -21,8 +18,7 @@ import (
 // nbrShard in cpipes main, aka loader main).
 
 // Cluster nodes sharding data using splitter key
-func (ctx *BuilderContext) StartClusterMap(spec *PipeSpec, source *InputChannel,
-	clusterMapResultCh, writePartitionsResultCh chan chan ComputePipesResult) {
+func (ctx *BuilderContext) StartClusterMap(spec *PipeSpec, source *InputChannel, clusterMapResultCh chan chan ComputePipesResult) {
 	var cpErr, err error
 	var evaluatorsWg sync.WaitGroup
 	// remainingPeerInWg: peers to join for sending records, wait untill all peers have joined
@@ -46,6 +42,13 @@ func (ctx *BuilderContext) StartClusterMap(spec *PipeSpec, source *InputChannel,
 	var pcServer *PeerServer
 	var peerBatchSize int
 	defer func() {
+		// Catch the panic that might be generated downstream
+		if r := recover(); r != nil {
+			cpErr := fmt.Errorf("StartClusterMap: recovered error: %v", r)
+			log.Println(cpErr)
+			ctx.errCh <- cpErr
+			close(ctx.done)
+		}
 		// Make sure the PeerServer closed all the receivedFromPeersResultCh
 		if pcServer != nil {
 			for i, isClosed := range pcServer.peersResultClosed {
@@ -145,8 +148,8 @@ func (ctx *BuilderContext) StartClusterMap(spec *PipeSpec, source *InputChannel,
 	// Note: when evaluatorsWg and source is done, need to call Close() on server to terminate the Accept loop
 	// and close intermediate channel incommingDataCh
 
-	// Start the registerNode loop to get the addr of all peer nodes
-	err = ctx.registerNode()
+	// Get the node's ip
+	err = ctx.updateClusterInfo()
 	if err != nil {
 		cpErr = fmt.Errorf("while calling registerNode: %v", err)
 		goto gotError
@@ -158,6 +161,7 @@ func (ctx *BuilderContext) StartClusterMap(spec *PipeSpec, source *InputChannel,
 		log.Printf("**!@@ CLUSTER_MAP *3 (%s) connecting to %s", ctx.selfAddress, peerAddress)
 		if peerAddress != ctx.selfAddress {
 			retry := 0
+			start := time.Now()
 			for {
 				// DialHTTP connects to an HTTP RPC server at the specified network
 				client, err := rpc.DialHTTP("tcp", peerAddress)
@@ -177,12 +181,17 @@ func (ctx *BuilderContext) StartClusterMap(spec *PipeSpec, source *InputChannel,
 					}
 					break
 				}
-				if retry >= 5 {
-					cpErr = fmt.Errorf("too many retry while opening conn with peer %d at %s for distribute_data with source channel %s: %v", i, peerAddress, source.config.Name, err)
+				if time.Since(start) > time.Duration(ctx.cpConfig.ClusterConfig.PeerRegistrationTimeout)*time.Second {
+					cpErr = fmt.Errorf("too many retry to open comm with peer %d at %s for distribute_data with source channel %s: %v", i, peerAddress, source.config.Name, err)
 					goto gotError
 				}
 				log.Printf("**!@@ CLUSTER_MAP *3 (%s) failed to connect to %s on try #%d, will retry :: %v", ctx.selfAddress, peerAddress, retry, err)
 				time.Sleep(1 * time.Second)
+				err = ctx.updatePeerAddr(i)
+				if err != nil {
+					cpErr = fmt.Errorf("while refreshing peer %d addr: %v", i, err)
+					goto gotError
+				}
 				retry++
 			}
 		} else {
@@ -202,9 +211,11 @@ func (ctx *BuilderContext) StartClusterMap(spec *PipeSpec, source *InputChannel,
 	// Build the PipeTransformationEvaluators
 	evaluators = make([]PipeTransformationEvaluator, len(spec.Apply))
 	for j := range spec.Apply {
-		partitionResultCh := make(chan ComputePipesResult, 1)
-		writePartitionsResultCh <- partitionResultCh
-		eval, err := ctx.buildPipeTransformationEvaluator(source, spec.Column, partitionResultCh, &spec.Apply[j])
+		if spec.Apply[j].Type == "partition_writer" {
+			cpErr = fmt.Errorf("error in StartClusterMap, cannot have an Apply of Type partition_writer")
+			goto gotError
+		}
+		eval, err := ctx.buildPipeTransformationEvaluator(source, nil, nil, &spec.Apply[j])
 		if err != nil {
 			cpErr = fmt.Errorf("while calling buildPipeTransformationEvaluator in StartClusterMap for %s: %v", spec.Apply[j].Type, err)
 			goto gotError
@@ -215,7 +226,16 @@ func (ctx *BuilderContext) StartClusterMap(spec *PipeSpec, source *InputChannel,
 	// Have the evaluators process records from incommingDataCh in a goroutine
 	evaluatorsWg.Add(1)
 	go func() {
-		defer evaluatorsWg.Done()
+		defer func() {
+			// Catch the panic that might be generated downstream
+			if r := recover(); r != nil {
+				cpErr := fmt.Errorf("StartClusterMap: recovered error while evaluators are processing incommingDataCh: %v", r)
+				log.Println(cpErr)
+				ctx.errCh <- cpErr
+				close(ctx.done)
+			}
+			evaluatorsWg.Done()
+		}()
 		// Process the channel
 		// log.Printf("**!@@ CLUSTER_MAP *5 Processing intermediate channel incommingDataCh")
 		for inRow := range incommingDataCh {
@@ -275,7 +295,16 @@ func (ctx *BuilderContext) StartClusterMap(spec *PipeSpec, source *InputChannel,
 			distributionWg.Add(1)
 			// Send record to peer node
 			go func(iWorker int, resultCh chan ComputePipesResult) {
-				defer distributionWg.Done()
+				defer func() {
+					// Catch the panic that might be generated downstream
+					if r := recover(); r != nil {
+						cpErr := fmt.Errorf("StartClusterMap: recovered error while sending records to peer %d: %v", iWorker, r)
+						log.Println(cpErr)
+						ctx.errCh <- cpErr
+						close(ctx.done)
+					}
+					distributionWg.Done()
+				}()
 				log.Printf("**!@@ CLUSTER_MAP *6 Distributing records :: sending to peer %d - starting", iWorker)
 				var sentRowCount int64
 				for {
@@ -387,9 +416,6 @@ doneSource:
 		}
 	}
 
-	// All the evaluators are created and no errors so far, we can close the writePartitionsResultCh
-	close(writePartitionsResultCh)
-
 	// Wait for the distrubution channels to be completed
 	// log.Printf("**!@@ CLUSTER_MAP *7 WAIT on distributionWg so we can close the connection to PEER")
 	distributionWg.Wait()
@@ -419,7 +445,6 @@ doneSource:
 
 gotError:
 	close(clusterMapResultCh)
-	close(writePartitionsResultCh)
 	log.Println("**!@@ CLUSTER_MAP gotError:", cpErr)
 	ctx.errCh <- cpErr
 	close(ctx.done)
@@ -428,70 +453,35 @@ gotError:
 	}
 }
 
-func (ctx *BuilderContext) registerNode() error {
-	var err, cpErr error
-	shardId := ctx.NodeId()
-
-	// Get the node address and register it with database
-	nodePort := strings.Split(ctx.env["$CPIPES_SERVER_ADDR"].(string), ":")[1]
-	if ctx.env["$JETSTORE_DEV_MODE"].(bool) {
-		ctx.selfAddress = fmt.Sprintf("127.0.0.1:%s", nodePort)
-	} else {
-		nodeIp, err := awsi.GetPrivateIp()
-		if err != nil {
-			cpErr = fmt.Errorf("while getting node's IP (in StartComputePipes): %v", err)
-			return cpErr
-		}
-		ctx.selfAddress = fmt.Sprintf("%s:%s", nodeIp, nodePort)
-	}
-	// Register node to database
-	sessionId := ctx.env["$SESSIONID"].(string)
-	stmt := fmt.Sprintf(
-		"INSERT INTO jetsapi.cpipes_cluster_node_registry (session_id, node_address, shard_id) VALUES ('%s','%s',%d);",
-		sessionId, ctx.selfAddress, shardId)
-	log.Println(stmt)
-	_, err = ctx.dbpool.Exec(context.Background(), stmt)
+func (ctx *BuilderContext) updateClusterInfo() error {
+	stmt := "SELECT node_address FROM jetsapi.cpipes_cluster_node_registry WHERE session_id = $1 ORDER BY shard_id ASC"
+	ctx.peersAddress = make([]string, 0)
+	rows, err := ctx.dbpool.Query(context.Background(), stmt, ctx.SessionId())
 	if err != nil {
-		cpErr = fmt.Errorf("while inserting node's addressin db (in StartComputePipes): %v", err)
-		return cpErr
+		return fmt.Errorf("while querying peer's address from db (in updateClusterInfo): %v", err)
 	}
-	log.Printf("Node's address %s registered into database", ctx.selfAddress)
-	// Get the peers addresses from database
-	registrationTimeout := ctx.cpConfig.ClusterConfig.PeerRegistrationTimeout
-	if registrationTimeout == 0 {
-		registrationTimeout = 60
+	defer rows.Close()
+	for rows.Next() {
+		var addr string
+		if err := rows.Scan(&addr); err != nil {
+			return fmt.Errorf("while scanning node's address from db (in updateClusterInfo): %v", err)
+		}
+		ctx.peersAddress = append(ctx.peersAddress, addr)
 	}
-	nbrNodes := ctx.env["$NBR_SHARDS"].(int)
-	stmt = "SELECT node_address FROM jetsapi.cpipes_cluster_node_registry WHERE session_id = $1 ORDER BY shard_id ASC"
-	start := time.Now()
-	for {
-		ctx.peersAddress = make([]string, 0)
-		rows, err := ctx.dbpool.Query(context.Background(), stmt, sessionId)
-		if err != nil {
-			cpErr = fmt.Errorf("while querying peer's address from db (in StartComputePipes): %v", err)
-			return cpErr
-		}
-		for rows.Next() {
-			var addr string
-			if err := rows.Scan(&addr); err != nil {
-				rows.Close()
-				cpErr = fmt.Errorf("while scanning node's address from db (in StartComputePipes): %v", err)
-				return cpErr
-			}
-			ctx.peersAddress = append(ctx.peersAddress, addr)
-		}
-		rows.Close()
-		if len(ctx.peersAddress) == nbrNodes {
-			log.Printf("Got %d out of %d peer's addresses, done", len(ctx.peersAddress), nbrNodes)
-			break
-		}
-		log.Printf("Got %d out of %d peer's addresses, will try again", len(ctx.peersAddress), nbrNodes)
-		if time.Since(start) > time.Duration(registrationTimeout)*time.Second {
-			log.Printf("Error, timeout occured while trying to get peer's addresses")
-			cpErr = fmt.Errorf("error: timeout while getting peers addresses (in StartComputePipes): %v", err)
-			return cpErr
-		}
-		time.Sleep(1 * time.Second)
+	if len(ctx.peersAddress) != ctx.NbrNodes() {
+		return fmt.Errorf("error got %d node addresses from database, expecting %d", len(ctx.peersAddress), ctx.NbrNodes())
 	}
+	ctx.selfAddress = ctx.peersAddress[ctx.NodeId()]
+	return nil
+}
+
+func (ctx *BuilderContext) updatePeerAddr(peer int) error {
+	var addr string
+	stmt := "SELECT node_address FROM jetsapi.cpipes_cluster_node_registry WHERE session_id = $1  AND shard_id = $2"
+	err := ctx.dbpool.QueryRow(context.Background(), stmt, ctx.SessionId(), peer).Scan(&addr)
+	if err != nil {
+		return fmt.Errorf("while querying peer's address from db (in updatePeerAddr): %v", err)
+	}
+	ctx.peersAddress[peer] = addr
 	return nil
 }

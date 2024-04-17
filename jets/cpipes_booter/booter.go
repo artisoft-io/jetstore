@@ -23,6 +23,7 @@ func coordinateWork() error {
 	// open db connections
 	// ---------------------------------------
 	var err error
+	var stmt string
 	if awsDsnSecret != "" {
 		// Get the dsn from the aws secret
 		dsn, err = awsi.GetDsnFromSecret(awsDsnSecret, *usingSshTunnel, 10)
@@ -36,6 +37,13 @@ func coordinateWork() error {
 	}
 	defer dbpool.Close()
 
+	// Remove node ip registration from table cpipes_cluster_node_registry (in case node is re-started)
+	stmt = "DELETE FROM jetsapi.cpipes_cluster_node_registry WHERE session_id = $1 AND shard_id = $2;"
+	_, err = dbpool.Exec(context.Background(), stmt, sessionId, *shardId)
+	if err != nil {
+		return fmt.Errorf("while deleting node's registration from cpipes_cluster_node_registry: %v", err)
+	}
+
 	// Make sure the jetstore schema exists
 	// ---------------------------------------
 	tblExists, err := schema.TableExists(dbpool, "jetsapi", "input_loader_status")
@@ -46,12 +54,11 @@ func coordinateWork() error {
 		return fmt.Errorf("error: JetStore schema does not exst in database, please run 'update_db -migrateDb'")
 	}
 
-	// Get pipeline exec info when peKey is provided
+	// Get pipeline exec info
 	// ---------------------------------------
-	if *pipelineExecKey > -1 {
-		log.Println("CPIPES Mode, loading pipeline configuration")
-		var fkey sql.NullString
-		stmt := `
+	log.Println("CPIPES Mode, loading pipeline configuration")
+	var fkey sql.NullString
+	stmt = `
 		SELECT	ir.client, ir.org, ir.object_type, ir.file_key, ir.source_period_key, 
 			pe.pipeline_config_key, pe.process_name, pe.input_session_id, pe.session_id, pe.user_email
 		FROM 
@@ -59,24 +66,24 @@ func coordinateWork() error {
 			jetsapi.input_registry ir
 		WHERE pe.main_input_registry_key = ir.key
 			AND pe.key = $1`
-		err = dbpool.QueryRow(context.Background(), stmt, *pipelineExecKey).Scan(&client, &clientOrg, &objectType, &fkey, &sourcePeriodKey,
-			&pipelineConfigKey, &processName, &inputSessionId, &sessionId, userEmail)
-		if err != nil {
-			return fmt.Errorf("query table_name, domain_keys_json, input_columns_json, input_columns_positions_csv, input_format_data_json from jetsapi.source_config failed: %v", err)
-		}
-		if !fkey.Valid {
-			return fmt.Errorf("error, file_key is NULL in input_registry table")
-		}
-		inFile = fkey.String
-		log.Println("Updated argument: processName", processName)
-		log.Println("Updated argument: client", client)
-		log.Println("Updated argument: org", clientOrg)
-		log.Println("Updated argument: objectType", objectType)
-		log.Println("Updated argument: sourcePeriodKey", sourcePeriodKey)
-		log.Println("Updated argument: inputSessionId", inputSessionId)
-		log.Println("Updated argument: sessionId", sessionId)
-		log.Println("Updated argument: inFile", inFile)
+	err = dbpool.QueryRow(context.Background(), stmt, *pipelineExecKey).Scan(&client, &clientOrg, &objectType, &fkey, &sourcePeriodKey,
+		&pipelineConfigKey, &processName, &inputSessionId, &sessionId, userEmail)
+	if err != nil {
+		return fmt.Errorf("query table_name, domain_keys_json, input_columns_json, input_columns_positions_csv, input_format_data_json from jetsapi.source_config failed: %v", err)
 	}
+	if !fkey.Valid {
+		return fmt.Errorf("error, file_key is NULL in input_registry table")
+	}
+	inFile = fkey.String
+	log.Println("Updated argument: processName", processName)
+	log.Println("Updated argument: client", client)
+	log.Println("Updated argument: org", clientOrg)
+	log.Println("Updated argument: objectType", objectType)
+	log.Println("Updated argument: sourcePeriodKey", sourcePeriodKey)
+	log.Println("Updated argument: inputSessionId", inputSessionId)
+	log.Println("Updated argument: sessionId", sessionId)
+	log.Println("Updated argument: inFile", inFile)
+
 	// Extract processing date from file key inFile
 	fileKeyComponents = make(map[string]interface{})
 	fileKeyComponents = datatable.SplitFileKeyIntoComponents(fileKeyComponents, &inFile)
@@ -119,6 +126,32 @@ func coordinateWork() error {
 	cpipesMode = cpConfig.ClusterConfig.CpipesMode
 	if len(cpipesMode) == 0 {
 		return fmt.Errorf("error: cpipes_mode must be specified in compute pipes json")
+	}
+
+	// If this is nodeId = 0, create / update cpipes output table schemas
+	// -------------------------------------------
+	// Prepare the output tables
+	if *shardId == 0 {
+		for i := range cpConfig.OutputTables {
+			tableIdentifier, err := compute_pipes.SplitTableName(cpConfig.OutputTables[i].Name)
+			if err != nil {
+				return fmt.Errorf("while splitting table name: %s", err)
+			}
+			// Update table schema in database if current shardId is 0, to avoid multiple updates
+			fmt.Println("**& Preparing / Updating Output Table", tableIdentifier)
+			err = compute_pipes.PrepareOutoutTable(dbpool, tableIdentifier, &cpConfig.OutputTables[i])
+			if err != nil {
+				return fmt.Errorf("while preparing output table: %s", err)
+			}
+		}
+		fmt.Println("Compute Pipes output tables schema ready")
+	}
+
+	// Register node's IP with database and sync the cluster
+	// -------------------------------------------------
+	err = registerNode(dbpool, *shardId, *nbrShards)
+	if err != nil {
+		return fmt.Errorf("while registering the node %d with the database: %v", *shardId, err)
 	}
 
 	// CPIPES Booter Mode
@@ -191,20 +224,6 @@ func coordinateWork() error {
 }
 
 func invokeCpipes(dbpool *pgxpool.Pool, jetsPartition *string) error {
-	// Remove the node from the cpipes_cluster_node_registry as this is used for synchronization for the nodes
-	stmt := "DELETE FROM jetsapi.cpipes_cluster_node_registry WHERE session_id = $1 AND shard_id = $2;"
-	_, err := dbpool.Exec(context.Background(), stmt, sessionId, *shardId)
-	if err != nil {
-		return fmt.Errorf("while deleting node's registration from cpipes_cluster_node_registry: %v", err)
-	}
-	defer func() {
-		// Remove the node from the cpipes_cluster_node_registry as this is used for synchronization for the nodes
-		stmt := "DELETE FROM jetsapi.cpipes_cluster_node_registry WHERE session_id = $1 AND shard_id = $2;"
-		_, err := dbpool.Exec(context.Background(), stmt, sessionId, *shardId)
-		if err != nil {
-			log.Printf("while deleting node's registration from cpipes_cluster_node_registry: %v (ignored)", err)
-		}
-	}()
 	cpipesArgs := []string{
 		"-peKey", strconv.Itoa(*pipelineExecKey),
 		"-userEmail", *userEmail,

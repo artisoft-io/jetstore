@@ -18,9 +18,11 @@ import (
 // JETSTORE_DEV_MODE Indicates running in dev mode
 // JETS_DSN_JSON_VALUE
 // JETS_REGION
+// CPIPES_SERVER_ADDR cpipes listerner addr for peer connections
+// JETSTORE_DEV_MODE Indicates running in dev mode
 var usingSshTunnel = flag.Bool("usingSshTunnel", false, "Connect  to DB using ssh tunnel (expecting the ssh open)")
 var userEmail = flag.String("userEmail", "", "User identifier to register the load (required)")
-var pipelineExecKey = flag.Int("peKey", -1, "Pipeline execution key (required for cpipes with multipart files)")
+var pipelineExecKey = flag.Int("peKey", -1, "Pipeline execution key (required)")
 var shardId = flag.Int("shardId", -1, "Run the cpipes process for this single shard. (required when peKey is provided)")
 var nbrShards = flag.Int("nbrShards", 1, "Number of shards to use in sharding the input file")
 var cpipesCompletedMetric = flag.String("serverCompletedMetric", "", "Metric name to register the server/cpipes successfull completion")
@@ -52,7 +54,11 @@ func main() {
 	var err error
 	if *shardId == -1 {
 		hasErr = true
-		errMsg = append(errMsg, "-shardId must be provided when -peKey is provided.")
+		errMsg = append(errMsg, "-shardId must be provided.")
+	}	
+	if *pipelineExecKey == -1 {
+		hasErr = true
+		errMsg = append(errMsg, "-peKey must be provided.")
 	}	
 	awsDsnSecret = os.Getenv("JETS_DSN_SECRET")
 	if len(awsDsnSecret) == 0 {
