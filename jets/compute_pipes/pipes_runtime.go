@@ -12,13 +12,33 @@ import (
 
 type ChannelRegistry struct {
 	// Compute Pipes input channel, called input_row
-	computePipesInputCh <-chan []interface{}
-	inputChannelSpec    *ChannelSpec
-	inputColumns        map[string]int
-	computeChannels     map[string]*Channel
-	outputTableChannels []string
-	closedChannels      map[string]bool
-	closedChMutex       sync.Mutex
+	computePipesInputCh  <-chan []interface{}
+	inputChannelSpec     *ChannelSpec
+	inputColumns         map[string]int
+	computeChannels      map[string]*Channel
+	outputTableChannels  []string
+	closedChannels       map[string]bool
+	closedChMutex        sync.Mutex
+	distributionChannels map[string]*[]string
+}
+
+func (r *ChannelRegistry) AddDistributionChannel(input string) string {
+	channels := r.distributionChannels[input]
+	if channels == nil {
+		c := make([]string, 0)
+		channels = &c
+		r.distributionChannels[input] = channels
+	}
+	echo := fmt.Sprintf("%s_%d", input, len(*channels))
+	*channels = append(*channels, echo)
+	// create the echo channel
+	r.computeChannels[echo] = &Channel{
+		channel: make(chan []interface{}),
+		columns: r.computeChannels[input].columns,
+		config:  r.computeChannels[input].config,
+	}
+
+	return echo
 }
 
 func (r *ChannelRegistry) CloseChannel(name string) {
@@ -122,15 +142,35 @@ type TransformationColumnEvaluator interface {
 	done(currentValue *[]interface{}) error
 }
 
+type PipeSet map[*PipeSpec]bool
+type Input2PipeSet map[string]*PipeSet
+
 func (ctx *BuilderContext) buildComputeGraph() error {
 
 	// Construct the in-memory compute graph
 	// Build the Pipes
 	fmt.Println("**& Start ComputeGraph")
+	// look for pipes with common input, need to distribute the entities
+	i2p := make(Input2PipeSet)
+	for i := range ctx.cpConfig.PipesConfig {
+		pipeSet := i2p[ctx.cpConfig.PipesConfig[i].Input]
+		if pipeSet == nil {
+			p := make(PipeSet)
+			pipeSet = &p
+			i2p[ctx.cpConfig.PipesConfig[i].Input] = pipeSet
+		}
+		(*pipeSet)[&ctx.cpConfig.PipesConfig[i]] = true
+	}
+
 	for i := range ctx.cpConfig.PipesConfig {
 		fmt.Println("**& PipeConfig", i, "type", ctx.cpConfig.PipesConfig[i].Type)
 		pipeSpec := &ctx.cpConfig.PipesConfig[i]
-		source, err := ctx.channelRegistry.GetInputChannel(pipeSpec.Input)
+		pset := i2p[pipeSpec.Input]
+		input := pipeSpec.Input
+		if len(*pset) > 1 {
+			input = ctx.channelRegistry.AddDistributionChannel(pipeSpec.Input)
+		}
+		source, err := ctx.channelRegistry.GetInputChannel(input)
 		if err != nil {
 			return fmt.Errorf("while building Pipe: %v", err)
 		}
@@ -156,6 +196,27 @@ func (ctx *BuilderContext) buildComputeGraph() error {
 
 		default:
 			return fmt.Errorf("error: unknown PipeSpec type: %s", pipeSpec.Type)
+		}
+	}
+	// Start the distribution channels
+	for input, echos := range ctx.channelRegistry.distributionChannels {
+		if echos != nil {
+			go func(in string, ec *[]string) {
+				echoCh := make([]chan []interface{}, len(*ec))
+				for i, echo := range *ec {
+					echoCh[i] = ctx.channelRegistry.computeChannels[echo].channel
+				}
+				// start distribution
+				for item := range ctx.channelRegistry.computeChannels[in].channel {
+					for i := range echoCh {
+						select {
+						case echoCh[i] <- item:
+						case <-ctx.done:
+							return
+						}
+					}
+				}
+			}(input, echos)
 		}
 	}
 	fmt.Println("**& Start ComputeGraph DONE")
