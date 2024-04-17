@@ -2,7 +2,6 @@ package main
 
 import (
 	"flag"
-	"fmt"
 	"log"
 	"os"
 
@@ -47,7 +46,7 @@ var fileKeyComponents map[string]interface{}
 var cpConfig compute_pipes.ComputePipesConfig
 
 func main() {
-	fmt.Println("CPIPES BOOTER CMD LINE ARGS:", os.Args[1:])
+	log.Println("CPIPES BOOTER CMD LINE ARGS:", os.Args[1:])
 	flag.Parse()
 	hasErr := false
 	var errMsg []string
@@ -80,7 +79,7 @@ func main() {
 
 	if hasErr {
 		for _, msg := range errMsg {
-			fmt.Println("**", msg)
+			log.Println("**", msg)
 		}
 		panic("Invalid arguments")
 	}
@@ -88,27 +87,27 @@ func main() {
 		*nbrShards = 1
 	}
 
-	fmt.Println("Cpipes Booter argument:")
-	fmt.Println("----------------")
-	fmt.Println("Got argument: awsDsnSecret", awsDsnSecret)
-	fmt.Println("Got argument: awsBucket", awsBucket)
-	fmt.Println("Got argument: awsRegion", awsRegion)
-	fmt.Println("Got argument: peKey", *pipelineExecKey)
-	fmt.Println("Got argument: shardId", *shardId)
-	fmt.Println("Got argument: nbrShards", *nbrShards)
-	fmt.Println("Got argument: userEmail", *userEmail)
-	fmt.Println("Got argument: usingSshTunnel", *usingSshTunnel)
-	fmt.Printf("ENV JETS_BUCKET: %s\n", os.Getenv("JETS_BUCKET"))
-	fmt.Printf("ENV JETS_DSN_SECRET: %s\n", os.Getenv("JETS_DSN_SECRET"))
-	fmt.Printf("ENV JETS_REGION: %s\n", os.Getenv("JETS_REGION"))
+	log.Println("Cpipes Booter argument:")
+	log.Println("----------------")
+	log.Println("Got argument: awsDsnSecret", awsDsnSecret)
+	log.Println("Got argument: awsBucket", awsBucket)
+	log.Println("Got argument: awsRegion", awsRegion)
+	log.Println("Got argument: peKey", *pipelineExecKey)
+	log.Println("Got argument: shardId", *shardId)
+	log.Println("Got argument: nbrShards", *nbrShards)
+	log.Println("Got argument: userEmail", *userEmail)
+	log.Println("Got argument: usingSshTunnel", *usingSshTunnel)
+	log.Printf("ENV JETS_BUCKET: %s", os.Getenv("JETS_BUCKET"))
+	log.Printf("ENV JETS_DSN_SECRET: %s", os.Getenv("JETS_DSN_SECRET"))
+	log.Printf("ENV JETS_REGION: %s", os.Getenv("JETS_REGION"))
 	if devMode {
-		fmt.Println("Running in DEV MODE")
-		fmt.Println("Nbr Shards in DEV MODE: nbrShards", *nbrShards)
+		log.Println("Running in DEV MODE")
+		log.Println("Nbr Shards in DEV MODE: nbrShards", *nbrShards)
 	}
 
 	err = coordinateWork()
 	if err != nil {
-		fmt.Println(err)
+		log.Println(err)
 		panic(err)
 	}
 }

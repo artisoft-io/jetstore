@@ -234,11 +234,11 @@ func (dkInfo *HeadersAndDomainKeysInfo)Initialize(mainObjectType string, domainK
 					ObjectType: k,
 				}
 			default:
-					fmt.Println("domainKeysJson contains",vv,"which is of a type that is not supported")
+					log.Println("domainKeysJson contains",vv,"which is of a type that is not supported")
 			}
 		}
 	default:
-		fmt.Println("domainKeysJson contains",value,"which is of a type that is not supported")
+		log.Println("domainKeysJson contains",value,"which is of a type that is not supported")
 	}
 
 	// Extract the preprocessing functions that are decorating the column names (if any)

@@ -149,7 +149,7 @@ func processFile(dbpool *pgxpool.Pool, done chan struct{}, errCh chan error, hea
 		if err != nil {
 			goto gotError
 		}
-		fmt.Println("Input columns (rawHeaders) for fixed-width schema:", rawHeaders)
+		log.Println("Input columns (rawHeaders) for fixed-width schema:", rawHeaders)
 
 	case Parquet:
 		// Get the file headers from the parquet schema
@@ -169,7 +169,7 @@ func processFile(dbpool *pgxpool.Pool, done chan struct{}, errCh chan error, hea
 		}
 		// Make sure we don't have empty names in rawHeaders
 		adjustFillers(rawHeaders)
-		fmt.Println("Got input columns (rawHeaders) from json:", rawHeaders)
+		log.Println("Got input columns (rawHeaders) from json:", rawHeaders)
 
 	case Xlsx, HeaderlessXlsx:
 		// Parse the file type specific options
@@ -204,9 +204,11 @@ func processFile(dbpool *pgxpool.Pool, done chan struct{}, errCh chan error, hea
 	}
 
 	// prepare staging table
-	err = prepareStagingTable(dbpool, headersDKInfo, tableName)
-	if err != nil {
-		goto gotError
+	if cpipesMode == "loader" {
+		err = prepareStagingTable(dbpool, headersDKInfo, tableName)
+		if err != nil {
+			goto gotError
+		}
 	}
 
 	// read the rest of the file(s)
@@ -216,7 +218,7 @@ func processFile(dbpool *pgxpool.Pool, done chan struct{}, errCh chan error, hea
 	return
 
 doNothingExit:
-	fmt.Println("processFile: no files to load, exiting ***", err)
+	log.Println("processFile: no files to load, exiting ***", err)
 	chResults.LoadFromS3FilesResultCh <- compute_pipes.LoadFromS3FilesResult{}
 	close(chResults.Copy2DbResultCh)
 	close(chResults.WritePartitionsResultCh)
@@ -224,7 +226,7 @@ doNothingExit:
 	return
 
 gotError:
-	fmt.Println("processFile gotError prior to loadFiles, writing to loadFromS3FilesResultCh AND copy2DbResultCh AND writePartitionsResultCh (ComputePipesResult)  ***", err)
+	log.Println("processFile: gotError prior to loadFiles***", err)
 	chResults.LoadFromS3FilesResultCh <- compute_pipes.LoadFromS3FilesResult{Err: err}
 	close(chResults.Copy2DbResultCh)
 	close(chResults.WritePartitionsResultCh)
@@ -431,7 +433,7 @@ func coordinateWork() error {
 	// Get pipeline exec info when peKey is provided
 	// ---------------------------------------
 	if *pipelineExecKey > -1 {
-		log.Println("CPIPES Mode, loading pipeline configuration")
+		log.Println("CPIPES, loading pipeline configuration")
 		var fkey sql.NullString
 		stmt := `
 		SELECT	ir.client, ir.org, ir.object_type, ir.file_key, ir.source_period_key, 
@@ -450,13 +452,13 @@ func coordinateWork() error {
 			return fmt.Errorf("error, file_key is NULL in input_registry table")
 		}
 		*inFile = fkey.String
-		fmt.Println("Updated argument: client", *client)
-		fmt.Println("Updated argument: org", *clientOrg)
-		fmt.Println("Updated argument: objectType", *objectType)
-		fmt.Println("Updated argument: sourcePeriodKey", *sourcePeriodKey)
-		fmt.Println("Updated argument: inputSessionId", inputSessionId)
-		fmt.Println("Updated argument: sessionId", *sessionId)
-		fmt.Println("Updated argument: inFile", *inFile)
+		log.Println("Updated argument: client", *client)
+		log.Println("Updated argument: org", *clientOrg)
+		log.Println("Updated argument: objectType", *objectType)
+		log.Println("Updated argument: sourcePeriodKey", *sourcePeriodKey)
+		log.Println("Updated argument: inputSessionId", inputSessionId)
+		log.Println("Updated argument: sessionId", *sessionId)
+		log.Println("Updated argument: inFile", *inFile)
 	}
 	// Extract processing date from file key inFile
 	fileKeyComponents = make(map[string]interface{})
@@ -556,16 +558,19 @@ func coordinateWork() error {
 	//		Invoke of processComputeGraph for each file key, update inFile with file key to process
 	//		Note: when cpipesShardWithNoFileKeys == true, fileKeys will contain a single file to use for headers only
 	//		and will be set to inFile for fetching a single data file to use for headers only
+
 	cpipesFileKeys = make([]string, 0)
 	switch {
 	case *pipelineExecKey == -1 && len(computePipesJson) == 0:
 		// loader classic (loaderSM)
 		cpipesMode = "loader"
+		log.Printf("CPIPES Mode: %s", cpipesMode)
 		return processComputeGraph(dbpool)
 
 	case *pipelineExecKey == -1 && isPartFiles == 0 && len(computePipesJson) > 0:
 		// loader cpipesSM standalone
 		cpipesMode = "standalone"
+		log.Printf("CPIPES Mode: %s", cpipesMode)
 		return processComputeGraph(dbpool)
 
 	case *pipelineExecKey == -1 && isPartFiles == 1 && len(computePipesJson) > 0:
@@ -587,6 +592,7 @@ func coordinateWork() error {
 		//* TODO Cleanup now that we use cpipes_booter, always run cpipesMode as "sharding", meaning getting file keys from registry
 		cpipesFileKeys = fileKeys
 		cpipesMode = "sharding"
+		log.Printf("CPIPES Mode: %s", cpipesMode)
 		return processComputeGraph(dbpool)
 
 	default:

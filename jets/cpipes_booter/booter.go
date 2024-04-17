@@ -56,7 +56,7 @@ func coordinateWork() error {
 
 	// Get pipeline exec info
 	// ---------------------------------------
-	log.Println("CPIPES Mode, loading pipeline configuration")
+	log.Println("CPIPES Booter, loading pipeline configuration")
 	var fkey sql.NullString
 	stmt = `
 		SELECT	ir.client, ir.org, ir.object_type, ir.file_key, ir.source_period_key, 
