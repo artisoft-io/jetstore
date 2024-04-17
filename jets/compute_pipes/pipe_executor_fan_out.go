@@ -10,6 +10,13 @@ func (ctx *BuilderContext) StartFanOutPipe(spec *PipeSpec, source *InputChannel)
 	evaluators := make([]PipeTransformationEvaluator, len(spec.Apply))
 
 	defer func() {
+		// Catch the panic that might be generated downstream
+		if r := recover(); r != nil {
+			cpErr := fmt.Errorf("StartFanOutPipe: recovered error: %v", r)
+			log.Println(cpErr)
+			ctx.errCh <- cpErr
+			close(ctx.done)
+		}
 		// Closing the output channels
 		// fmt.Println("**!@@ FanOutPipe: Closing Output Channels")
 		oc := make(map[string]bool)
@@ -23,6 +30,10 @@ func (ctx *BuilderContext) StartFanOutPipe(spec *PipeSpec, source *InputChannel)
 	}()
 
 	for j := range spec.Apply {
+		if spec.Apply[j].Type == "partition_writer" {
+			cpErr = fmt.Errorf("error in StartFanOutPipe, cannot have an Apply of Type partition_writer")
+			goto gotError
+		}
 		eval, err := ctx.buildPipeTransformationEvaluator(source, nil, nil, &spec.Apply[j])
 		if err != nil {
 			cpErr = fmt.Errorf("while calling buildPipeTransformationEvaluator for %s: %v", spec.Apply[j].Type, err)
@@ -61,7 +72,7 @@ gotError:
 			evaluators[i].finally()
 		}
 	}
-	log.Println(cpErr)	
+	log.Println(cpErr)
 	ctx.errCh <- cpErr
 	close(ctx.done)
 }
