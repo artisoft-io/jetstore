@@ -2,6 +2,7 @@ package compute_pipes
 
 import (
 	"fmt"
+	"log"
 	"sync"
 
 	"github.com/aws/aws-sdk-go-v2/feature/s3/manager"
@@ -35,9 +36,12 @@ func (r *ChannelRegistry) AddDistributionChannel(input string) string {
 	r.computeChannels[echo] = &Channel{
 		channel: make(chan []interface{}),
 		columns: r.computeChannels[input].columns,
-		config:  r.computeChannels[input].config,
+		config:  &ChannelSpec{
+			Name: echo,
+			Columns: r.computeChannels[input].config.Columns,
+		},
 	}
-
+	log.Printf("AddDistributionChannel %s -> %s", input, echo)
 	return echo
 }
 
@@ -49,7 +53,7 @@ func (r *ChannelRegistry) CloseChannel(name string) {
 	}
 	c := r.computeChannels[name]
 	if c != nil {
-		fmt.Println("** Closing channel", name)
+		log.Println("** Closing channel", name)
 		close(c.channel)
 	}
 	r.closedChannels[name] = true
@@ -149,27 +153,32 @@ func (ctx *BuilderContext) buildComputeGraph() error {
 
 	// Construct the in-memory compute graph
 	// Build the Pipes
-	fmt.Println("**& Start ComputeGraph")
-	// look for pipes with common input, need to distribute the entities
-	i2p := make(Input2PipeSet)
-	for i := range ctx.cpConfig.PipesConfig {
-		pipeSet := i2p[ctx.cpConfig.PipesConfig[i].Input]
-		if pipeSet == nil {
-			p := make(PipeSet)
-			pipeSet = &p
-			i2p[ctx.cpConfig.PipesConfig[i].Input] = pipeSet
-		}
-		(*pipeSet)[&ctx.cpConfig.PipesConfig[i]] = true
-	}
+	log.Println("**& Start ComputeGraph")
+	// // look for pipes with common input, need to distribute the entities
+	// i2p := make(Input2PipeSet)
+	// for i := range ctx.cpConfig.PipesConfig {
+	// 	pipeSet := i2p[ctx.cpConfig.PipesConfig[i].Input]
+	// 	if pipeSet == nil {
+	// 		p := make(PipeSet)
+	// 		pipeSet = &p
+	// 		i2p[ctx.cpConfig.PipesConfig[i].Input] = pipeSet
+	// 	}
+	// 	(*pipeSet)[&ctx.cpConfig.PipesConfig[i]] = true
+	// }
+	// log.Printf("**!@@ Distribution Channels Lookup")
+	// for k, v := range i2p {
+	// 	log.Printf("== %s -> %v", k, *v)
+	// }
 
 	for i := range ctx.cpConfig.PipesConfig {
-		fmt.Println("**& PipeConfig", i, "type", ctx.cpConfig.PipesConfig[i].Type)
 		pipeSpec := &ctx.cpConfig.PipesConfig[i]
-		pset := i2p[pipeSpec.Input]
+		// pset := i2p[pipeSpec.Input]
 		input := pipeSpec.Input
-		if len(*pset) > 1 {
-			input = ctx.channelRegistry.AddDistributionChannel(pipeSpec.Input)
-		}
+		// if len(*pset) > 1 {
+		// 	input = ctx.channelRegistry.AddDistributionChannel(pipeSpec.Input)
+		// 	pipeSpec.Input = input
+		// }
+		log.Println("**& PipeConfig", i, "type", ctx.cpConfig.PipesConfig[i].Type, "with input source", input)
 		source, err := ctx.channelRegistry.GetInputChannel(input)
 		if err != nil {
 			return fmt.Errorf("while building Pipe: %v", err)
@@ -177,18 +186,18 @@ func (ctx *BuilderContext) buildComputeGraph() error {
 
 		switch pipeSpec.Type {
 		case "fan_out":
-			fmt.Println("**& starting PipeConfig", i, "fan_out", "on source", source.config.Name)
+			log.Println("**& starting PipeConfig", i, "fan_out", "on source", source.config.Name)
 			go ctx.StartFanOutPipe(pipeSpec, source)
 
 		case "splitter":
-			fmt.Println("**& starting PipeConfig", i, "splitter", "on source", source.config.Name)
+			log.Println("**& starting PipeConfig", i, "splitter", "on source", source.config.Name)
 			// Create the writePartitionResultCh that will contain the number of part files for each partition
 			writePartitionsResultCh := make(chan chan ComputePipesResult, 15000) // NOTE Max number of partitions
 			ctx.chResults.WritePartitionsResultCh <- writePartitionsResultCh
 			go ctx.StartSplitterPipe(pipeSpec, source, writePartitionsResultCh)
 
 		case "distribute_data":
-			fmt.Println("**& starting PipeConfig", i, "distribute_data", "on source", source.config.Name)
+			log.Println("**& starting PipeConfig", i, "distribute_data", "on source", source.config.Name)
 			// Create the clusterMapResultCh to report on the outgoing peer connection
 			clusterMapResultCh := make(chan chan ComputePipesResult, ctx.NbrNodes()*5)
 			ctx.chResults.MapOnClusterResultCh <- clusterMapResultCh
@@ -198,28 +207,36 @@ func (ctx *BuilderContext) buildComputeGraph() error {
 			return fmt.Errorf("error: unknown PipeSpec type: %s", pipeSpec.Type)
 		}
 	}
-	// Start the distribution channels
-	for input, echos := range ctx.channelRegistry.distributionChannels {
-		if echos != nil {
-			go func(in string, ec *[]string) {
-				echoCh := make([]chan []interface{}, len(*ec))
-				for i, echo := range *ec {
-					echoCh[i] = ctx.channelRegistry.computeChannels[echo].channel
-				}
-				// start distribution
-				for item := range ctx.channelRegistry.computeChannels[in].channel {
-					for i := range echoCh {
-						select {
-						case echoCh[i] <- item:
-						case <-ctx.done:
-							return
-						}
-					}
-				}
-			}(input, echos)
-		}
-	}
-	fmt.Println("**& Start ComputeGraph DONE")
+	// // Start the distribution channels
+	// for input, echos := range ctx.channelRegistry.distributionChannels {
+	// 	if echos != nil {
+	// 		go func(in string, ec *[]string) {
+	// 			echoCh := make([]chan []interface{}, len(*ec))
+	// 			for i, echo := range *ec {
+	// 				echoCh[i] = ctx.channelRegistry.computeChannels[echo].channel
+	// 				log.Println("**!@@ starting distribution channel", in, "=>", echo)
+	// 			}
+	// 			// start distribution
+	// 			for item := range ctx.channelRegistry.computeChannels[in].channel {
+	// 				log.Println("ECHO ECHO IN **", item)
+	// 				for i := range echoCh {
+	// 					select {
+	// 					case echoCh[i] <- item:
+	// 					case <-ctx.done:
+	// 						for j := range echoCh {
+	// 							close(echoCh[j])
+	// 						}
+	// 						return
+	// 					}
+	// 				}
+	// 			}
+	// 			for j := range echoCh {
+	// 				close(echoCh[j])
+	// 			}
+	// 		}(input, echos)
+	// 	}
+	// }
+	log.Println("**& Start ComputeGraph DONE")
 	return nil
 }
 
@@ -230,13 +247,13 @@ func (ctx *BuilderContext) buildPipeTransformationEvaluator(source *InputChannel
 	partitionResultCh chan ComputePipesResult, spec *TransformationSpec) (PipeTransformationEvaluator, error) {
 
 	// Construct the pipe transformation
-	// fmt.Println("**& buildPipeTransformationEvaluator for", spec.Type, "source:", source.config.Name, "jetsPartitionKey:", *jetsPartitionKey, "output:", spec.Output)
+	// log.Println("**& buildPipeTransformationEvaluator for", spec.Type, "source:", source.config.Name, "jetsPartitionKey:", jetsPartitionKey, "output:", spec.Output)
 
 	// Get the output channel
 	outCh, err := ctx.channelRegistry.GetOutputChannel(spec.Output)
 	if err != nil {
 		err = fmt.Errorf("while in buildPipeTransformationEvaluator for %s from source %s requesting output channel %s: %v", spec.Type, source.config.Name, spec.Output, err)
-		fmt.Println(err)
+		log.Println(err)
 		if partitionResultCh != nil {
 			close(partitionResultCh)
 		}
