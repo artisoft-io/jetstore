@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"log"
 	"os"
-	// "runtime"
 	"runtime/debug"
 	"time"
 
@@ -34,7 +33,7 @@ func StartComputePipes(dbpool *pgxpool.Pool, headersDKInfo *schema.HeadersAndDom
 		if r := recover(); r != nil {
 			cpErr := fmt.Errorf("StartComputePipes: recovered error: %v", r)
 			log.Println(cpErr)
-			// runtime.Stack()
+			// debug.Stack()
 			debug.PrintStack()
 			errCh <- cpErr
 			close(done)
