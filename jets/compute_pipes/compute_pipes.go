@@ -71,6 +71,17 @@ func StartComputePipes(dbpool *pgxpool.Pool, headersDKInfo *schema.HeadersAndDom
 			goto gotError
 		}
 
+		// validate cluster config
+		if cpConfig.ClusterConfig == nil {
+			cpErr = fmt.Errorf("error: cluster_config is required in compute_pipes_json")
+			goto gotError			
+		}
+
+		// set default nbr of sub-cluster if not set
+		if cpConfig.ClusterConfig.NbrSubClusters == 0 {
+			cpConfig.ClusterConfig.NbrSubClusters = 1
+		}
+
 		// Add to envSettings based on compute pipe config
 		if cpConfig.Context != nil {
 			for _, contextSpec := range *cpConfig.Context {

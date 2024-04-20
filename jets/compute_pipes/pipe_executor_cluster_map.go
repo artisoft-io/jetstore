@@ -458,10 +458,15 @@ gotError:
 	}
 }
 
+// Get the nodes' ip address of the nodes that are in this sub-cluster
 func (ctx *BuilderContext) updateClusterInfo() error {
-	stmt := "SELECT node_address FROM jetsapi.cpipes_cluster_node_registry WHERE session_id = $1 ORDER BY shard_id ASC"
+	subClusterId := ctx.NodeId() % ctx.cpConfig.ClusterConfig.NbrSubClusters
+	nbrSubClusterNodes := ctx.NbrNodes() / ctx.cpConfig.ClusterConfig.NbrSubClusters
+	subClusterNodeId := ctx.NodeId() % nbrSubClusterNodes
+
+	stmt := "SELECT node_address FROM jetsapi.cpipes_cluster_node_registry WHERE session_id = $1 AND sc_id = $2 ORDER BY sc_node_id ASC"
 	ctx.peersAddress = make([]string, 0)
-	rows, err := ctx.dbpool.Query(context.Background(), stmt, ctx.SessionId())
+	rows, err := ctx.dbpool.Query(context.Background(), stmt, ctx.SessionId(), subClusterId)
 	if err != nil {
 		return fmt.Errorf("while querying peer's address from db (in updateClusterInfo): %v", err)
 	}
@@ -473,17 +478,18 @@ func (ctx *BuilderContext) updateClusterInfo() error {
 		}
 		ctx.peersAddress = append(ctx.peersAddress, addr)
 	}
-	if len(ctx.peersAddress) != ctx.NbrNodes() {
-		return fmt.Errorf("error got %d node addresses from database, expecting %d", len(ctx.peersAddress), ctx.NbrNodes())
+	if len(ctx.peersAddress) != nbrSubClusterNodes {
+		return fmt.Errorf("error got %d node addresses from database, expecting %d", len(ctx.peersAddress), subClusterNodeId)
 	}
-	ctx.selfAddress = ctx.peersAddress[ctx.NodeId()]
+	ctx.selfAddress = ctx.peersAddress[subClusterNodeId]
 	return nil
 }
 
 func (ctx *BuilderContext) updatePeerAddr(peer int) error {
 	var addr string
-	stmt := "SELECT node_address FROM jetsapi.cpipes_cluster_node_registry WHERE session_id = $1  AND shard_id = $2"
-	err := ctx.dbpool.QueryRow(context.Background(), stmt, ctx.SessionId(), peer).Scan(&addr)
+	subClusterId := ctx.NodeId() % ctx.cpConfig.ClusterConfig.NbrSubClusters
+	stmt := "SELECT node_address FROM jetsapi.cpipes_cluster_node_registry WHERE session_id = $1 AND sc_id = $2 AND sc_node_id = $3"
+	err := ctx.dbpool.QueryRow(context.Background(), stmt, ctx.SessionId(), subClusterId, peer).Scan(&addr)
 	if err != nil {
 		return fmt.Errorf("while querying peer's address from db (in updatePeerAddr): %v", err)
 	}
