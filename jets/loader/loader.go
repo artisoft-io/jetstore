@@ -262,6 +262,7 @@ func processFileAndReportStatus(dbpool *pgxpool.Pool,
 		processingErrors = append(processingErrors, downloadResult.err.Error())
 	}
 
+	log.Println("**!@@ CP RESULT = Loaded from s3:")
 	loadFromS3FilesResult := <-chResults.LoadFromS3FilesResultCh
 	log.Println("Loaded", loadFromS3FilesResult.LoadRowCount, "rows from s3 files with", loadFromS3FilesResult.BadRowCount, "bad rows", loadFromS3FilesResult.Err)
 	r = &compute_pipes.ComputePipesResult{
@@ -276,6 +277,7 @@ func processFileAndReportStatus(dbpool *pgxpool.Pool,
 			err = loadFromS3FilesResult.Err
 		}
 	}
+	log.Println("**!@@ CP RESULT = Loaded from s3: DONE")
 	log.Println("**!@@ CP RESULT = Copy2DbResultCh:")
 	var outputRowCount int64
 	for table := range chResults.Copy2DbResultCh {
@@ -292,6 +294,7 @@ func processFileAndReportStatus(dbpool *pgxpool.Pool,
 			}
 		}
 	}
+	log.Println("**!@@ CP RESULT = Copy2DbResultCh: DONE")
 
 	log.Println("**!@@ CP RESULT = MapOnClusterResultCh:")
 	for mapOn := range chResults.MapOnClusterResultCh {
@@ -310,6 +313,7 @@ func processFileAndReportStatus(dbpool *pgxpool.Pool,
 			}
 		}
 	}
+	log.Println("**!@@ CP RESULT = MapOnClusterResultCh: DONE")
 
 	log.Println("**!@@ CP RESULT = WritePartitionsResultCh:")
 	for splitter := range chResults.WritePartitionsResultCh {
@@ -329,6 +333,7 @@ func processFileAndReportStatus(dbpool *pgxpool.Pool,
 			}
 		}
 	}
+	log.Println("**!@@ CP RESULT = WritePartitionsResultCh: DONE")
 
 	// Check for error from compute pipes
 	var cpErr error
