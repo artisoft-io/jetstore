@@ -413,7 +413,7 @@ func coordinateWork() error {
 	// ---------------------------------------
 	if *awsDsnSecret != "" {
 		// Get the dsn from the aws secret
-		dsnStr, err := awsi.GetDsnFromSecret(*awsDsnSecret, *usingSshTunnel, 10)
+		dsnStr, err := awsi.GetDsnFromSecret(*awsDsnSecret, *usingSshTunnel, 1000)
 		if err != nil {
 			return fmt.Errorf("while getting dsn from aws secret: %v", err)
 		}

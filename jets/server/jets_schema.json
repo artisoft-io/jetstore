@@ -1647,12 +1647,32 @@
         "dataType": "int",
         "default": "0",
         "isNotNull": true
+      },
+      {
+        "columnName": "sc_id",
+        "dataType": "int",
+        "default": "0",
+        "isNotNull": true
+      },
+      {
+        "columnName": "sc_node_id",
+        "dataType": "int",
+        "default": "0",
+        "isNotNull": true
       }
     ],
     "indexes": [
       {
         "indexName": "cpipes_cluster_node_registry_session_shard_idx",
         "indexDef": "INDEX cpipes_cluster_node_registry_session_shard_idx ON jetsapi.cpipes_cluster_node_registry (session_id,shard_id)"
+      },
+      {
+        "indexName": "cpipes_cluster_node_registry_session_node_idx",
+        "indexDef": "INDEX cpipes_cluster_node_registry_session_node_idx ON jetsapi.cpipes_cluster_node_registry (session_id,sc_id,sc_node_id)"
+      },
+      {
+        "indexName": "cpipes_cluster_node_registry_session_sc_idx",
+        "indexDef": "INDEX cpipes_cluster_node_registry_session_sc_idx ON jetsapi.cpipes_cluster_node_registry (session_id,sc_id)"
       }
     ],
     "tableConstraints": [
