@@ -43,6 +43,7 @@ type PartitionWriterTransformationPipe struct {
 	sessionId                  string
 	nodeId                     int
 	subClusterNodeId           int
+	subClusterId               int
 	s3WritersResultCh          chan chan ComputePipesResult
 	s3WritersCollectedResultCh chan ComputePipesResult
 	s3Uploader                 *manager.Uploader
@@ -78,7 +79,7 @@ func (ctx *PartitionWriterTransformationPipe) apply(input *[]interface{}) error 
 
 		// Start the device writter for the partition
 		ctx.filePartitionNumber += 1
-		partitionFileName := fmt.Sprintf("part%03d-%07d.parquet", ctx.subClusterNodeId, ctx.filePartitionNumber)
+		partitionFileName := fmt.Sprintf("part%03d-%07d.parquet", ctx.subClusterId, ctx.filePartitionNumber)
 		s3DeviceWriter := &S3DeviceWriter{
 			s3Uploader: ctx.s3Uploader,
 			source: &InputChannel{
@@ -300,6 +301,7 @@ func (ctx *BuilderContext) NewPartitionWriterTransformationPipe(source *InputCha
 		sessionId:                  session_id,
 		nodeId:                     ctx.nodeId,
 		subClusterNodeId:           ctx.subClusterNodeId,
+		subClusterId:               ctx.subClusterId,
 		s3WritersResultCh:          s3WritersResultCh,
 		s3WritersCollectedResultCh: s3WritersCollectedResultCh,
 		s3Uploader:                 ctx.s3Uploader,
