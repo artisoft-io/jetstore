@@ -36,8 +36,8 @@ func (r *ChannelRegistry) AddDistributionChannel(input string) string {
 	r.computeChannels[echo] = &Channel{
 		channel: make(chan []interface{}),
 		columns: r.computeChannels[input].columns,
-		config:  &ChannelSpec{
-			Name: echo,
+		config: &ChannelSpec{
+			Name:    echo,
 			Columns: r.computeChannels[input].config.Columns,
 		},
 	}
@@ -106,26 +106,26 @@ type OutputChannel struct {
 }
 
 type BuilderContext struct {
-	dbpool          *pgxpool.Pool
-	cpConfig        *ComputePipesConfig
-	channelRegistry *ChannelRegistry
-	selfAddress     string
-	peersAddress    []string
-	done            chan struct{}
-	errCh           chan error
-	chResults       *ChannelResults
-	env             map[string]interface{}
-	s3Uploader      *manager.Uploader
+	dbpool             *pgxpool.Pool
+	cpConfig           *ComputePipesConfig
+	channelRegistry    *ChannelRegistry
+	selfAddress        string
+	peersAddress       []string
+	done               chan struct{}
+	errCh              chan error
+	chResults          *ChannelResults
+	env                map[string]interface{}
+	s3Uploader         *manager.Uploader
+	nodeId             int
+	subClusterId       int
+	subClusterNodeId   int
+	nbrNodes           int
+	nbrSubClusters     int
+	nbrSubClusterNodes int
 }
 
 func (ctx *BuilderContext) JetsPartition() string {
 	return ctx.env["$JETS_PARTITION"].(string)
-}
-func (ctx *BuilderContext) NodeId() int {
-	return ctx.env["$SHARD_ID"].(int)
-}
-func (ctx *BuilderContext) NbrNodes() int {
-	return ctx.env["$NBR_SHARDS"].(int)
 }
 func (ctx *BuilderContext) SessionId() string {
 	return ctx.env["$SESSIONID"].(string)
@@ -199,7 +199,7 @@ func (ctx *BuilderContext) buildComputeGraph() error {
 		case "distribute_data":
 			log.Println("**& starting PipeConfig", i, "distribute_data", "on source", source.config.Name)
 			// Create the clusterMapResultCh to report on the outgoing peer connection
-			clusterMapResultCh := make(chan chan ComputePipesResult, ctx.NbrNodes()*5)
+			clusterMapResultCh := make(chan chan ComputePipesResult, ctx.nbrNodes*5)
 			ctx.chResults.MapOnClusterResultCh <- clusterMapResultCh
 			go ctx.StartClusterMap(pipeSpec, source, clusterMapResultCh)
 

@@ -14,7 +14,7 @@ func (ctx *BuilderContext) ReportMetrics() {
 		return
 	}
 	jetsPartition := ctx.JetsPartition()
-	nodeId := ctx.NodeId()
+	nodeId := ctx.nodeId
 	sessionId := ctx.SessionId()
 	var m runtime.MemStats
 	f := float64(1024 * 1024)

@@ -13,30 +13,28 @@ import (
 	"time"
 )
 
-// Pipe executor that shard the input channel onto the cluster based
+// Pipe executor that shard the input channel onto the sub-cluster based
 // on the shard key. The shard key is hashed and map onto one of the
-// cluster node (The number of nodes of the cluster is specified by
-// nbrShard in cpipes main, aka loader main).
+// sub-cluster node (The number of nodes of the sub-cluster is specified by nbrSubClusterNodes).
 
 // Cluster nodes sharding data using splitter key
 func (ctx *BuilderContext) StartClusterMap(spec *PipeSpec, source *InputChannel, clusterMapResultCh chan chan ComputePipesResult) {
 	var cpErr, err error
 	var evaluatorsWg sync.WaitGroup
-	// remainingPeerInWg: peers to join for sending records, wait untill all peers have joined
-	// peersInWg: peers joining to send records, wait untill all peers has completed sending records
+	// remainingPeerInWg: peers to join for sending records, wait until all peers have joined
+	// peersInWg: peers joining to send records, wait until all peers has completed sending records
 	var peersInWg, remainingPeerInWg sync.WaitGroup
 	var distributionWg sync.WaitGroup
 	var distributionCh []chan []interface{}
 	var distributionResultCh, consumedLocallyResultCh chan ComputePipesResult
 	var receivedFromPeersResultCh []chan ComputePipesResult
-	var nbrRecordsConsuledLocally int64
+	var nbrRecordsConsumedLocally int64
 	var incommingDataCh chan []interface{}
 	var server net.Listener
 	var outPeers []Peer
 	var evaluators []PipeTransformationEvaluator
-	var destinationShardId int
-	nbrShard := ctx.env["$NBR_SHARDS"].(int)
-	shardId := ctx.env["$SHARD_ID"].(int)
+	var destinationSubClusterNodeId int
+
 	var spliterColumnIdx int
 	var ok bool
 	var addr string
@@ -72,7 +70,6 @@ func (ctx *BuilderContext) StartClusterMap(spec *PipeSpec, source *InputChannel,
 	}()
 
 	// fmt.Println("**!@@ CLUSTER_MAP *1 Called, shuffle on column", *spec.Column)
-
 	if ctx.cpConfig.ClusterConfig == nil {
 		cpErr = fmt.Errorf("error: missing ClusterConfig section in compute_pipes_config")
 		goto gotError
@@ -92,7 +89,7 @@ func (ctx *BuilderContext) StartClusterMap(spec *PipeSpec, source *InputChannel,
 	incommingDataCh = make(chan []interface{}, 1)
 
 	// Keep track of how many records received by current node from peers
-	receivedFromPeersResultCh = make([]chan ComputePipesResult, nbrShard-1)
+	receivedFromPeersResultCh = make([]chan ComputePipesResult, ctx.nbrSubClusterNodes-1)
 	for i := range receivedFromPeersResultCh {
 		receivedFromPeersResultCh[i] = make(chan ComputePipesResult, 2)
 		clusterMapResultCh <- receivedFromPeersResultCh[i]
@@ -102,17 +99,18 @@ func (ctx *BuilderContext) StartClusterMap(spec *PipeSpec, source *InputChannel,
 	addr = ctx.env["$CPIPES_SERVER_ADDR"].(string)
 	// Register the rpc server
 	pcServer = &PeerServer{
-		nodeId:                    int32(ctx.NodeId()),
-		recordCount:               make(map[int]*int64, nbrShard-1),
+		nodeId:                    int32(ctx.nodeId),
+		subClusterNodeId:          int32(ctx.subClusterNodeId),
+		recordCount:               make(map[int]*int64, ctx.nbrSubClusterNodes-1),
 		peersWg:                   &peersInWg,
 		remainingPeerInWg:         &remainingPeerInWg,
 		incommingDataCh:           incommingDataCh,
-		peersResultClosed:         make(map[int]*bool, nbrShard-1),
+		peersResultClosed:         make(map[int]*bool, ctx.nbrSubClusterNodes-1),
 		receivedFromPeersResultCh: receivedFromPeersResultCh,
 		errCh:                     ctx.errCh,
 		done:                      ctx.done,
 	}
-	for i := 0; i < nbrShard-1; i++ {
+	for i := 0; i < ctx.nbrSubClusterNodes-1; i++ {
 		pcServer.recordCount[i] = new(int64)
 		pcServer.peersResultClosed[i] = new(bool)
 	}
@@ -129,7 +127,7 @@ func (ctx *BuilderContext) StartClusterMap(spec *PipeSpec, source *InputChannel,
 		cpErr = fmt.Errorf("while opening a listener on %s: %v", addr, err)
 		goto gotError
 	}
-	remainingPeerInWg.Add(nbrShard - 1)
+	remainingPeerInWg.Add(ctx.nbrSubClusterNodes - 1)
 	// Serve accepts incoming HTTP connections on the listener l, creating
 	// a new service goroutine for each. The service goroutines read requests
 	// and then call handler to reply to them
@@ -144,7 +142,7 @@ func (ctx *BuilderContext) StartClusterMap(spec *PipeSpec, source *InputChannel,
 				close(ctx.done)
 			}
 		}()
-		// log.Println("**!@@ CLUSTER_MAP *2 RPC server registered, listening on", addr)
+		log.Println("**!@@ CLUSTER_MAP *2 RPC server registered, listening on", addr)
 		err := http.Serve(server, nil)
 		log.Println("**!@@ CLUSTER_MAP *2 RPC server DONE listening on", addr, "::", err)
 	}()
@@ -161,7 +159,7 @@ func (ctx *BuilderContext) StartClusterMap(spec *PipeSpec, source *InputChannel,
 	// Open the client connections with peers -- send data, output sources
 	outPeers = make([]Peer, len(ctx.peersAddress))
 	for i, peerAddress := range ctx.peersAddress {
-		log.Printf("**!@@ CLUSTER_MAP *3 (%s) connecting to %s", ctx.selfAddress, peerAddress)
+		// log.Printf("**!@@ CLUSTER_MAP *3 (%s) connecting to %s", ctx.selfAddress, peerAddress)
 		if peerAddress != ctx.selfAddress {
 			retry := 0
 			start := time.Now()
@@ -175,7 +173,7 @@ func (ctx *BuilderContext) StartClusterMap(spec *PipeSpec, source *InputChannel,
 						client:      client,
 					}
 					// Register the client with the peer server
-					args := &PeerRecordMessage{Sender: int32(ctx.NodeId())}
+					args := &PeerRecordMessage{Sender: int32(ctx.subClusterNodeId)}
 					// log.Printf("**!@@ PeerServer: sending ClientReady to peer %d", i)
 					err = client.Call("PeerServer.ClientReady", args, &PeerReply{})
 					if err != nil {
@@ -281,7 +279,7 @@ func (ctx *BuilderContext) StartClusterMap(spec *PipeSpec, source *InputChannel,
 	// Process the channel
 	// Add a layor of intermediate channels so the main loop does not serialize all the sending of inRow.
 	// This is to allow sending to peer nodes in parallel
-	distributionCh = make([]chan []interface{}, nbrShard)
+	distributionCh = make([]chan []interface{}, ctx.nbrSubClusterNodes)
 	if ctx.cpConfig.ClusterConfig != nil {
 		peerBatchSize = ctx.cpConfig.ClusterConfig.PeerBatchSize
 	}
@@ -289,7 +287,7 @@ func (ctx *BuilderContext) StartClusterMap(spec *PipeSpec, source *InputChannel,
 		peerBatchSize = 100
 	}
 	for i := range distributionCh {
-		if i == shardId {
+		if i == ctx.subClusterNodeId {
 			// Consume the record locally -- no need for another coroutine, just switch the channel
 			distributionCh[i] = incommingDataCh
 		} else {
@@ -310,11 +308,11 @@ func (ctx *BuilderContext) StartClusterMap(spec *PipeSpec, source *InputChannel,
 					}
 					distributionWg.Done()
 				}()
-				log.Printf("**!@@ CLUSTER_MAP *6 Distributing records :: sending to peer %d - starting", iWorker)
+				// log.Printf("**!@@ CLUSTER_MAP *6 Distributing records :: sending to peer %d - starting", iWorker)
 				var sentRowCount int64
 				for {
 					peerMsg := PeerRecordMessage{
-						Sender:  int32(ctx.NodeId()),
+						Sender:  int32(ctx.subClusterNodeId),
 						Records: make([][]interface{}, peerBatchSize),
 					}
 					iCount := 0
@@ -330,7 +328,7 @@ func (ctx *BuilderContext) StartClusterMap(spec *PipeSpec, source *InputChannel,
 						peerMsg.RecordsCount = int32(iCount)
 						err = outPeers[iWorker].client.Call("PeerServer.PushRecords", &peerMsg, &PeerReply{})
 						if err != nil {
-							cpErr = fmt.Errorf("while calling PeerServer.PushRecords to node %d: %v", iWorker, err)
+							cpErr = fmt.Errorf("while calling PeerServer.PushRecords to node %d of sub-cluster %d: %v", iWorker, ctx.subClusterId, err)
 							goto gotError
 						}
 						sentRowCount += int64(iCount)
@@ -338,31 +336,31 @@ func (ctx *BuilderContext) StartClusterMap(spec *PipeSpec, source *InputChannel,
 					if iCount < peerBatchSize {
 						// We're done the channel is closed, let the peer node know
 						peerMsg = PeerRecordMessage{
-							Sender: int32(ctx.NodeId()),
+							Sender: int32(ctx.subClusterNodeId),
 						}
 						err = outPeers[iWorker].client.Call("PeerServer.ClientDone", &peerMsg, &PeerReply{})
 						if err != nil {
-							cpErr = fmt.Errorf("while calling PeerServer.ClientDone to node %d: %v", iWorker, err)
+							cpErr = fmt.Errorf("while calling PeerServer.ClientDone to node %d of sub-cluster %d: %v", iWorker, ctx.subClusterId, err)
 							goto gotError
 						}
 						break
 					}
 				}
 				// All good!
-				// log.Printf("**!@@ CLUSTER_MAP *6 Distributing records :: sending to peer %d - All good!", iWorker)
+				// log.Printf("**!@@ CLUSTER_MAP *6 Distributing records :: sending to peer %d of sub-cluster %d - All good!", iWorker, ctx.subClusterId)
 				resultCh <- ComputePipesResult{
-					TableName:    fmt.Sprintf("Record sent to peer %d", iWorker),
+					TableName:    fmt.Sprintf("Record sent to peer %d of sub-cluster %d", iWorker, ctx.subClusterId),
 					CopyRowCount: sentRowCount,
 				}
 				close(resultCh)
 				return
 			gotError:
-				log.Printf("**!@@ CLUSTER_MAP *6 Distributing records :: sending to peer %d - gotError", iWorker)
+				log.Printf("**!@@ CLUSTER_MAP *6 Distributing records :: sending to peer %d of sub-cluster %d - gotError", iWorker, ctx.subClusterId)
 				log.Println(cpErr)
 				ctx.errCh <- cpErr
 				close(ctx.done)
 				resultCh <- ComputePipesResult{
-					TableName:    fmt.Sprintf("Record sent to peer %d (error)", iWorker),
+					TableName:    fmt.Sprintf("Record sent to peer %d of sub-cluster %d (error)", iWorker, ctx.subClusterId),
 					CopyRowCount: sentRowCount,
 					Err:          cpErr,
 				}
@@ -379,25 +377,25 @@ func (ctx *BuilderContext) StartClusterMap(spec *PipeSpec, source *InputChannel,
 	close(clusterMapResultCh)
 	// log.Printf("**!@@ CLUSTER_MAP *5 Processing input source channel: %s", source.config.Name)
 	for inRow := range source.channel {
-		v := EvalHash(inRow[spliterColumnIdx], uint64(nbrShard))
+		v := EvalHash(inRow[spliterColumnIdx], uint64(ctx.nbrSubClusterNodes))
 		// if v != nil {
-		// 	log.Printf("##### EvalHash k: %v, nbr: %d => %v", inRow[spliterColumnIdx], nbrShard, *v)
+		// 	log.Printf("##### EvalHash k: %v, nbr: %d => %v", inRow[spliterColumnIdx], nbrSubClusterNodes, *v)
 		// } else {
-		// 	log.Printf("##### EvalHash k: %v, nbr: %d => NULL", inRow[spliterColumnIdx], nbrShard)
+		// 	log.Printf("##### EvalHash k: %v, nbr: %d => NULL", inRow[spliterColumnIdx], nbrSubClusterNodes)
 		// }
 		if v != nil {
-			destinationShardId = int(*v)
+			destinationSubClusterNodeId = int(*v)
 		} else {
 			// pick random shard
-			destinationShardId = rand.Intn(nbrShard)
+			destinationSubClusterNodeId = rand.Intn(ctx.nbrSubClusterNodes)
 		}
-		if destinationShardId == shardId {
-			nbrRecordsConsuledLocally++
+		if destinationSubClusterNodeId == ctx.subClusterNodeId {
+			nbrRecordsConsumedLocally++
 		}
-		// log.Printf("**!@@ CLUSTER_MAP *5 INPUT key: %s, hash: %d => %d", key, keyHash, destinationShardId)
+		// log.Printf("**!@@ CLUSTER_MAP *5 INPUT key: %s, hash: %d => %d", key, keyHash, destinationSubClusterNodeId)
 		// consume or send the record via the distribution channels
 		select {
-		case distributionCh[destinationShardId] <- inRow:
+		case distributionCh[destinationSubClusterNodeId] <- inRow:
 		case <-ctx.done:
 			log.Printf("ClusterMap: writing to incommingDataCh intermediate channel interrupted")
 			goto doneSource // so we can clean up
@@ -406,14 +404,14 @@ func (ctx *BuilderContext) StartClusterMap(spec *PipeSpec, source *InputChannel,
 doneSource:
 	// log.Printf("**!@@ CLUSTER_MAP *5 DONE Processing input source channel: %s", source.config.Name)
 	consumedLocallyResultCh <- ComputePipesResult{
-		CopyRowCount: nbrRecordsConsuledLocally,
-		TableName:    fmt.Sprintf("Records consumed locally by node %d", shardId),
+		CopyRowCount: nbrRecordsConsumedLocally,
+		TableName:    fmt.Sprintf("Records consumed locally by node %d of sub-cluster %d", ctx.nodeId, ctx.subClusterId),
 	}
 	close(consumedLocallyResultCh)
 
 	// Close the distribution channel to outPeer since processing the source has completed
 	for i := range distributionCh {
-		if i == shardId {
+		if i == ctx.subClusterNodeId {
 			// Local shard, correspond to incommingDataCh, will be closed once the incomming peer
 			// connections are closed
 		} else {
@@ -460,13 +458,9 @@ gotError:
 
 // Get the nodes' ip address of the nodes that are in this sub-cluster
 func (ctx *BuilderContext) updateClusterInfo() error {
-	subClusterId := ctx.NodeId() % ctx.cpConfig.ClusterConfig.NbrSubClusters
-	nbrSubClusterNodes := ctx.NbrNodes() / ctx.cpConfig.ClusterConfig.NbrSubClusters
-	subClusterNodeId := ctx.NodeId() % nbrSubClusterNodes
-
 	stmt := "SELECT node_address FROM jetsapi.cpipes_cluster_node_registry WHERE session_id = $1 AND sc_id = $2 ORDER BY sc_node_id ASC"
 	ctx.peersAddress = make([]string, 0)
-	rows, err := ctx.dbpool.Query(context.Background(), stmt, ctx.SessionId(), subClusterId)
+	rows, err := ctx.dbpool.Query(context.Background(), stmt, ctx.SessionId(), ctx.subClusterId)
 	if err != nil {
 		return fmt.Errorf("while querying peer's address from db (in updateClusterInfo): %v", err)
 	}
@@ -478,18 +472,17 @@ func (ctx *BuilderContext) updateClusterInfo() error {
 		}
 		ctx.peersAddress = append(ctx.peersAddress, addr)
 	}
-	if len(ctx.peersAddress) != nbrSubClusterNodes {
-		return fmt.Errorf("error got %d node addresses from database, expecting %d", len(ctx.peersAddress), subClusterNodeId)
+	if len(ctx.peersAddress) != ctx.nbrSubClusterNodes {
+		return fmt.Errorf("error got %d node addresses from database, expecting %d", len(ctx.peersAddress), ctx.subClusterNodeId)
 	}
-	ctx.selfAddress = ctx.peersAddress[subClusterNodeId]
+	ctx.selfAddress = ctx.peersAddress[ctx.subClusterNodeId]
 	return nil
 }
 
 func (ctx *BuilderContext) updatePeerAddr(peer int) error {
 	var addr string
-	subClusterId := ctx.NodeId() % ctx.cpConfig.ClusterConfig.NbrSubClusters
 	stmt := "SELECT node_address FROM jetsapi.cpipes_cluster_node_registry WHERE session_id = $1 AND sc_id = $2 AND sc_node_id = $3"
-	err := ctx.dbpool.QueryRow(context.Background(), stmt, ctx.SessionId(), subClusterId, peer).Scan(&addr)
+	err := ctx.dbpool.QueryRow(context.Background(), stmt, ctx.SessionId(), ctx.subClusterId, peer).Scan(&addr)
 	if err != nil {
 		return fmt.Errorf("while querying peer's address from db (in updatePeerAddr): %v", err)
 	}

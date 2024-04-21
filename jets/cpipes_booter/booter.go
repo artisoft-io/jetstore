@@ -19,6 +19,16 @@ import (
 
 // Main booter functions
 
+type BooterContext struct {
+	dbpool             *pgxpool.Pool
+	nodeId             int
+	subClusterId       int
+	subClusterNodeId   int
+	nbrNodes           int
+	nbrSubClusters     int
+	nbrSubClusterNodes int
+}
+
 func coordinateWork() error {
 	// open db connections
 	// ---------------------------------------
@@ -123,9 +133,40 @@ func coordinateWork() error {
 	if err != nil {
 		return fmt.Errorf("while unmarshaling compute pipes json: %s", err)
 	}
+
+	// validate cluster config
+	if cpConfig.ClusterConfig == nil {
+		return fmt.Errorf("error: cluster_config is required in compute_pipes_json")
+	}
 	cpipesMode = cpConfig.ClusterConfig.CpipesMode
 	if len(cpipesMode) == 0 {
 		return fmt.Errorf("error: cpipes_mode must be specified in compute pipes json")
+	}
+
+	// set default nbr of sub-cluster if not set
+	if cpConfig.ClusterConfig.NbrSubClusters == 0 {
+		cpConfig.ClusterConfig.NbrSubClusters = 1
+	}
+	nbrNodes := *nbrShards
+	nodeId := *shardId
+	nbrSubClusters := cpConfig.ClusterConfig.NbrSubClusters
+	subClusterId := nodeId % nbrSubClusters
+	nbrSubClusterNodes := nbrNodes / nbrSubClusters
+	subClusterNodeId := nodeId / nbrSubClusters
+	booterContext := &BooterContext{
+		dbpool:             dbpool,
+		nbrNodes:           nbrNodes,
+		nodeId:             nodeId,
+		nbrSubClusters:     nbrSubClusters,
+		subClusterId:       subClusterId,
+		nbrSubClusterNodes: nbrSubClusterNodes,
+		subClusterNodeId:   subClusterNodeId,
+	}
+
+	// Make sure the sub-clusters will all contain the same number of nodes
+	if nbrNodes%nbrSubClusters != 0 {
+		return fmt.Errorf("error: cluster has %d nodes, cannot allocate them evenly in %d sub-clusters", nbrNodes,
+			nbrSubClusters)
 	}
 
 	// If this is nodeId = 0, create / update cpipes output table schemas
@@ -149,11 +190,7 @@ func coordinateWork() error {
 
 	// Register node's IP with database and sync the cluster
 	// -------------------------------------------------
-	nbrSubClusters := cpConfig.ClusterConfig.NbrSubClusters
-	if nbrSubClusters == 0 {
-		nbrSubClusters = 1
-	}
-	err = registerNode(dbpool, *shardId, *nbrShards, nbrSubClusters)
+	err = booterContext.registerNode()
 	if err != nil {
 		return fmt.Errorf("while registering the node %d with the database: %v", *shardId, err)
 	}
@@ -198,28 +235,26 @@ func coordinateWork() error {
 			}
 		}
 		// Invoke cpipes
-		err = invokeCpipes(dbpool, nil)
+		err = booterContext.invokeCpipes(nil)
 		if err != nil {
 			return fmt.Errorf("while invoking cpipes process: %v", err)
 		}
 		log.Println("cpipes executed successfully")
 		// Process the jets_partition, make entries in compute_pipes_shard_registry
 		shardCtx := &ShardFileKeysContext{
-			Bucket:         awsBucket,
-			Region:         awsRegion,
-			SessionId:      sessionId,
-			NodeId:         *shardId,
-			NbrNodes:       *nbrShards,
-			NbrSubClusters: nbrSubClusters,
+			BooterCtx: booterContext,
+			Bucket:    awsBucket,
+			Region:    awsRegion,
+			SessionId: sessionId,
 		}
-		err = shardCtx.AssignJetsPartitionFileKeys(dbpool)
+		err = shardCtx.AssignJetsPartitionFileKeys()
 		if err != nil {
 			return fmt.Errorf("while assigning jets_partition to node_id: %v", err)
 		}
 		log.Println("cpipes sharding completed!")
 
 	case "reducing":
-		return execCpipesReducing(dbpool, *shardId, *nbrShards, nbrSubClusters)
+		return booterContext.execCpipesReducing()
 
 	default:
 		msg := "error: unexpected cpipesMode mode: %s"
@@ -229,12 +264,12 @@ func coordinateWork() error {
 	return nil
 }
 
-func invokeCpipes(dbpool *pgxpool.Pool, jetsPartition *string) error {
+func (ctx *BooterContext) invokeCpipes(jetsPartition *string) error {
 	cpipesArgs := []string{
 		"-peKey", strconv.Itoa(*pipelineExecKey),
 		"-userEmail", *userEmail,
-		"-shardId", strconv.Itoa(*shardId),
-		"-nbrShards", strconv.Itoa(*nbrShards),
+		"-shardId", strconv.Itoa(ctx.nodeId),
+		"-nbrShards", strconv.Itoa(ctx.nbrNodes),
 		"-serverCompletedMetric", *cpipesCompletedMetric,
 		"-serverFailedMetric", *cpipesFailedMetric,
 	}
@@ -258,12 +293,11 @@ func invokeCpipes(dbpool *pgxpool.Pool, jetsPartition *string) error {
 	return cmd.Run()
 }
 
-func execCpipesReducing(dbpool *pgxpool.Pool, nodeId, nbrNodes, nbrSubClusters int) error {
+func (ctx *BooterContext) execCpipesReducing() error {
 	var totalPartitionsProcessed int
-	subClusterId := nodeId % nbrSubClusters
 	// For each jets_partition in compute_pipes_partitions_registry with session_id = input_session_id call invokeCpipes
 	stmt := "SELECT jets_partition FROM jetsapi.compute_pipes_partitions_registry WHERE session_id = $1 AND MOD(shard_id, $2) = $3 ORDER BY jets_partition ASC"
-	rows, err := dbpool.Query(context.Background(), stmt, inputSessionId, nbrSubClusters, subClusterId)
+	rows, err := ctx.dbpool.Query(context.Background(), stmt, inputSessionId, ctx.nbrSubClusters, ctx.subClusterId)
 	if err == nil {
 		defer rows.Close()
 		for rows.Next() {
@@ -273,46 +307,42 @@ func execCpipesReducing(dbpool *pgxpool.Pool, nodeId, nbrNodes, nbrSubClusters i
 				return fmt.Errorf("while scanning jets_partition from compute_pipes_partitions_registry table (execCpipesReducing): %v", err)
 			}
 			log.Printf("CPIPES REDUCING: processing jets_partiion %s by node %d", jetsPartition, *shardId)
-			err = invokeCpipes(dbpool, &jetsPartition)
+			err = ctx.invokeCpipes(&jetsPartition)
 			if err != nil {
 				return fmt.Errorf("while cpipes reducing jets_partition %s: %v", jetsPartition, err)
 			}
 			totalPartitionsProcessed++
 		}
 	}
-	log.Printf("CPIPES REDUCING: processing completed for all %d jets_partions in sub-cluster %d", totalPartitionsProcessed, subClusterId)
+	log.Printf("CPIPES REDUCING: processing completed for all %d jets_partions in sub-cluster %d", totalPartitionsProcessed, ctx.subClusterId)
 	return nil
 }
 
 type ShardFileKeysContext struct {
+	BooterCtx               *BooterContext
 	Bucket                  string
 	Region                  string
 	SessionId               string
-	NodeId                  int
-	NbrNodes                int
-	NbrSubClusters          int
 	SubClusterNodeId2NodeId []int
 }
 
 // Assign all the file keys (multipart files) from jets_partition created by nodeId to nodes within the sub-cluster of nodeId
-func (ctx *ShardFileKeysContext) AssignJetsPartitionFileKeys(dbpool *pgxpool.Pool) error {
+func (ctx *ShardFileKeysContext) AssignJetsPartitionFileKeys() error {
 	var totalPartfileCount int
 
 	// Get the subCluster of nodeId and nbr of nodes in sub-clusters
 	// Get a reverse mapping of nodeId that are within the current sub-cluster, by subClusterNodeId
-	subClusterId := ctx.NodeId % ctx.NbrSubClusters
-	nbrSubClusterNodes := ctx.NbrNodes / ctx.NbrSubClusters
 	// mapping of subClusterNodeId => nodeId
-	ctx.SubClusterNodeId2NodeId = make([]int, nbrSubClusterNodes)
-	for iNodeId := 0; iNodeId < ctx.NbrNodes; iNodeId++ {
-		if (iNodeId % ctx.NbrSubClusters) == subClusterId {
-			ctx.SubClusterNodeId2NodeId[iNodeId%nbrSubClusterNodes] = iNodeId
+	ctx.SubClusterNodeId2NodeId = make([]int, ctx.BooterCtx.nbrSubClusterNodes)
+	for iNodeId := 0; iNodeId < ctx.BooterCtx.nbrNodes; iNodeId++ {
+		if (iNodeId % ctx.BooterCtx.nbrSubClusters) == ctx.BooterCtx.subClusterId {
+			ctx.SubClusterNodeId2NodeId[iNodeId/ctx.BooterCtx.nbrSubClusters] = iNodeId
 		}
 	}
 
-	// For each jets_partition (and the base directory of that partition) created by nodeId, invoke AssignFileKeys
+	// For each jets_partition created by nodeId, invoke AssignFileKeys
 	stmt := "SELECT file_key, jets_partition FROM jetsapi.compute_pipes_partitions_registry WHERE session_id = $1 AND shard_id = $2"
-	rows, err := dbpool.Query(context.Background(), stmt, ctx.SessionId, ctx.NodeId)
+	rows, err := ctx.BooterCtx.dbpool.Query(context.Background(), stmt, ctx.SessionId, ctx.BooterCtx.nodeId)
 	if err == nil {
 		defer rows.Close()
 		for rows.Next() {
@@ -321,7 +351,7 @@ func (ctx *ShardFileKeysContext) AssignJetsPartitionFileKeys(dbpool *pgxpool.Poo
 			if err = rows.Scan(&fileKey, &jetsPartition); err != nil {
 				return fmt.Errorf("while scanning file_key and jets_partition from compute_pipes_partitions_registry table: %v", err)
 			}
-			nkeys, err := ctx.AssignFileKeys(dbpool, &fileKey, jetsPartition)
+			nkeys, err := ctx.AssignFileKeys(&fileKey, jetsPartition)
 			if err != nil {
 				return fmt.Errorf("while calling AssignFileKeys for fileKey: %s: %v", fileKey, err)
 			}
@@ -334,8 +364,8 @@ func (ctx *ShardFileKeysContext) AssignJetsPartitionFileKeys(dbpool *pgxpool.Poo
 }
 
 // Function to assign file_key to nodes (aka shard) into jetsapi.compute_pipes_shard_registry
-func (ctx *ShardFileKeysContext) AssignFileKeys(dbpool *pgxpool.Pool, baseFileKey *string, jetsPartition string) (int, error) {
-	nbrSubClusterNodes := ctx.NbrNodes / ctx.NbrSubClusters
+func (ctx *ShardFileKeysContext) AssignFileKeys(baseFileKey *string, jetsPartition string) (int, error) {
+	nbrSubClusterNodes := ctx.BooterCtx.nbrSubClusterNodes
 	// Get all the file keys having baseFileKey as prefix
 	log.Printf("Downloading file keys from s3 folder: %s", *baseFileKey)
 	s3Objects, err := awsi.ListS3Objects(baseFileKey, ctx.Bucket, ctx.Region)
@@ -350,7 +380,7 @@ func (ctx *ShardFileKeysContext) AssignFileKeys(dbpool *pgxpool.Pool, baseFileKe
 			subClusterNodeId := compute_pipes.Hash([]byte(s3Objects[i].Key), uint64(nbrSubClusterNodes))
 			// Assign nodeId for this file key
 			nodeId := ctx.SubClusterNodeId2NodeId[subClusterNodeId]
-			_, err := dbpool.Exec(context.Background(), stmt, sessionId, s3Objects[i].Key, s3Objects[i].Size, jetsPartition, nodeId)
+			_, err := ctx.BooterCtx.dbpool.Exec(context.Background(), stmt, sessionId, s3Objects[i].Key, s3Objects[i].Size, jetsPartition, nodeId)
 			if err != nil {
 				return 0, fmt.Errorf("error inserting in jetsapi.compute_pipes_shard_registry table: %v", err)
 			}
