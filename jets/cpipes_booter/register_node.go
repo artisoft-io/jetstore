@@ -9,15 +9,11 @@ import (
 	"time"
 
 	"github.com/artisoft-io/jetstore/jets/awsi"
-	"github.com/jackc/pgx/v4/pgxpool"
 )
 
-func registerNode(dbpool *pgxpool.Pool, nodeId, nbrNodes, nbrSubClusters int) error {
+func (ctx *BooterContext) registerNode() error {
 	var err, cpErr error
 	var selfAddress string
-	subClusterId := nodeId % nbrSubClusters
-	nbrSubClusterNodes := nbrNodes / nbrSubClusters
-	subClusterNodeId := nodeId % nbrSubClusterNodes
 
 	// Get the node address and register it with database
 	nodePort := strings.Split(os.Getenv("CPIPES_SERVER_ADDR"), ":")[1]
@@ -34,9 +30,9 @@ func registerNode(dbpool *pgxpool.Pool, nodeId, nbrNodes, nbrSubClusters int) er
 	// Register node to database
 	stmt := fmt.Sprintf(
 		"INSERT INTO jetsapi.cpipes_cluster_node_registry (session_id, node_address, shard_id, sc_id, sc_node_id) VALUES ('%s','%s',%d,%d,%d);",
-		sessionId, selfAddress, nodeId, subClusterId, subClusterNodeId)
+		sessionId, selfAddress, ctx.nodeId, ctx.subClusterId, ctx.subClusterNodeId)
 	log.Println(stmt)
-	_, err = dbpool.Exec(context.Background(), stmt)
+	_, err = ctx.dbpool.Exec(context.Background(), stmt)
 	if err != nil {
 		cpErr = fmt.Errorf("while inserting node's address in db (in registerNode): %v", err)
 		return cpErr
@@ -52,7 +48,7 @@ func registerNode(dbpool *pgxpool.Pool, nodeId, nbrNodes, nbrSubClusters int) er
 	start := time.Now()
 	for {
 		peersAddress := make([]string, 0)
-		rows, err := dbpool.Query(context.Background(), stmt, sessionId, subClusterId)
+		rows, err := ctx.dbpool.Query(context.Background(), stmt, sessionId, ctx.subClusterId)
 		if err != nil {
 			cpErr = fmt.Errorf("while querying peer's address from db (in registerNode): %v", err)
 			return cpErr
@@ -67,11 +63,11 @@ func registerNode(dbpool *pgxpool.Pool, nodeId, nbrNodes, nbrSubClusters int) er
 			peersAddress = append(peersAddress, addr)
 		}
 		rows.Close()
-		if len(peersAddress) == nbrSubClusterNodes {
-			log.Printf("Got %d out of %d peer's addresses, done", len(peersAddress), nbrSubClusterNodes)
+		if len(peersAddress) == ctx.nbrSubClusterNodes {
+			log.Printf("Got %d out of %d peer's addresses, done", len(peersAddress), ctx.nbrSubClusterNodes)
 			break
 		}
-		log.Printf("Got %d out of %d peer's addresses, will try again", len(peersAddress), nbrSubClusterNodes)
+		log.Printf("Got %d out of %d peer's addresses, will try again", len(peersAddress), ctx.nbrSubClusterNodes)
 		if time.Since(start) > time.Duration(registrationTimeout)*time.Second {
 			log.Printf("Error, timeout occured while trying to get peer's addresses")
 			cpErr = fmt.Errorf("error: timeout while getting peers addresses (in registerNode): %v", err)

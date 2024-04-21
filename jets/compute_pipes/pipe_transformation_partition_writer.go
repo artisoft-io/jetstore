@@ -13,7 +13,7 @@ import (
 
 // partition_writer TransformationSpec implementing PipeTransformationEvaluator interface
 // partition_writer: bundle input records into fixed-sized partitions.
-// The outputCh collumn spec correspond to the intermediate channel to the actual
+// The outputCh column spec correspond to the intermediate channel to the actual
 // device writer.
 // currentDeviceCh is the physical ch to the device writer.
 // If the TransformationSpec.PartitionSize is nil or 0 then there is a single partion.
@@ -41,7 +41,8 @@ type PartitionWriterTransformationPipe struct {
 	bucketName                 string
 	regionName                 string
 	sessionId                  string
-	shardId                    int
+	nodeId                     int
+	subClusterNodeId           int
 	s3WritersResultCh          chan chan ComputePipesResult
 	s3WritersCollectedResultCh chan ComputePipesResult
 	s3Uploader                 *manager.Uploader
@@ -77,7 +78,7 @@ func (ctx *PartitionWriterTransformationPipe) apply(input *[]interface{}) error 
 
 		// Start the device writter for the partition
 		ctx.filePartitionNumber += 1
-		partitionFileName := fmt.Sprintf("part%07d.parquet", ctx.filePartitionNumber)
+		partitionFileName := fmt.Sprintf("part%03d-%07d.parquet", ctx.subClusterNodeId, ctx.filePartitionNumber)
 		s3DeviceWriter := &S3DeviceWriter{
 			s3Uploader: ctx.s3Uploader,
 			source: &InputChannel{
@@ -134,9 +135,8 @@ func (ctx *PartitionWriterTransformationPipe) apply(input *[]interface{}) error 
 
 // Done writing the splitter partition
 //   - Close the current ctx.currentDeviceCh to flush the data, update totalRowCount
-//   - Write to db the shardId of this partition: session_id, file_key, shard
+//   - Write to db the nodeId of this partition: session_id, file_key, shard
 //     Here the file_key is ctx.baseOutputPath
-//   - write the 0-byte sentinel file (take the file name from env JETS_SENTINEL_FILE_NAME)
 //   - Send the total row count to ctx.copy2DeviceResultCh
 //
 // Not called if the process has error upstream (see pipe_executor_splitter.go)
@@ -151,10 +151,10 @@ func (ctx *PartitionWriterTransformationPipe) done() error {
 	// Done writing new partition, close the channel
 	close(ctx.s3WritersResultCh)
 
-	// Write to db the jets_partition and shardId of this partition w/ session_id
+	// Write to db the jets_partition and nodeId of this partition w/ session_id
 	stmt := `INSERT INTO jetsapi.compute_pipes_partitions_registry (session_id, file_key, jets_partition, shard_id) 
 		VALUES ($1, $2, $3, $4) ON CONFLICT DO NOTHING`
-	_, err := ctx.dbpool.Exec(context.Background(), stmt, ctx.sessionId, *ctx.baseOutputPath, ctx.jetsPartitionLabel, ctx.shardId)
+	_, err := ctx.dbpool.Exec(context.Background(), stmt, ctx.sessionId, *ctx.baseOutputPath, ctx.jetsPartitionLabel, ctx.nodeId)
 	if err != nil {
 		return fmt.Errorf("error inserting in jetsapi.compute_pipes_partitions_registry table: %v", err)
 	}
@@ -240,7 +240,7 @@ func (ctx *BuilderContext) NewPartitionWriterTransformationPipe(source *InputCha
 			p = strings.Replace(p, ps.Replace, ps.With, 1)
 		}
 	}
-	session_id := ctx.env["$SESSIONID"].(string)
+	session_id := ctx.SessionId()
 	jetsPartitionLabel := fmt.Sprintf("%vp", jetsPartitionKey)
 	baseOutputPath := fmt.Sprintf("%s/session_id=%s/jets_partition=%s", p, session_id, jetsPartitionLabel)
 
@@ -283,7 +283,6 @@ func (ctx *BuilderContext) NewPartitionWriterTransformationPipe(source *InputCha
 		}
 		close(s3WritersCollectedResultCh)
 	}()
-
 	return &PartitionWriterTransformationPipe{
 		cpConfig:                   ctx.cpConfig,
 		dbpool:                     ctx.dbpool,
@@ -299,7 +298,8 @@ func (ctx *BuilderContext) NewPartitionWriterTransformationPipe(source *InputCha
 		bucketName:                 os.Getenv("JETS_BUCKET"),
 		regionName:                 os.Getenv("JETS_REGION"),
 		sessionId:                  session_id,
-		shardId:                    ctx.env["$SHARD_ID"].(int),
+		nodeId:                     ctx.nodeId,
+		subClusterNodeId:           ctx.subClusterNodeId,
 		s3WritersResultCh:          s3WritersResultCh,
 		s3WritersCollectedResultCh: s3WritersCollectedResultCh,
 		s3Uploader:                 ctx.s3Uploader,

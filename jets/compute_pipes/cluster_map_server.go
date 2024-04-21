@@ -13,7 +13,7 @@ type Peer struct {
 }
 
 // Message used to send records to remote peer
-// Sender is nodeId (shardId) or client peer
+// Sender is subClusterNodeId of client peer
 type PeerRecordMessage struct {
 	Sender       int32
 	RecordsCount int32
@@ -24,6 +24,7 @@ type PeerReply struct{}
 // The server handling incomming requests from peer nodes
 type PeerServer struct {
 	nodeId                    int32
+	subClusterNodeId          int32
 	recordCount               map[int]*int64
 	peersWg                   *sync.WaitGroup
 	remainingPeerInWg         *sync.WaitGroup
@@ -37,7 +38,7 @@ type PeerServer struct {
 func (ps *PeerServer) ClientReady(args *PeerRecordMessage, reply *PeerReply) error {
 	*reply = PeerReply{}
 	sender := int(args.Sender)
-	if args.Sender > ps.nodeId {
+	if args.Sender > ps.subClusterNodeId {
 		sender -= 1
 	}
 	if sender < 0 || sender > len(ps.receivedFromPeersResultCh) {
@@ -54,7 +55,7 @@ func (ps *PeerServer) PushRecords(args *PeerRecordMessage, reply *PeerReply) err
 	var cpErr error
 	*reply = PeerReply{}
 	sender := int(args.Sender)
-	if args.Sender > ps.nodeId {
+	if args.Sender > ps.subClusterNodeId {
 		sender -= 1
 	}
 	if sender < 0 || sender > len(ps.receivedFromPeersResultCh) {
@@ -65,7 +66,7 @@ func (ps *PeerServer) PushRecords(args *PeerRecordMessage, reply *PeerReply) err
 	count := int(args.RecordsCount)
 	for i := 0; i < count; i++ {
 		if len(args.Records[i]) == 0 {
-			// cpErr = fmt.Errorf("**!@@ PeerServer ERROR got record of 0-length")
+			cpErr = fmt.Errorf("**!@@ PeerServer ERROR got record of 0-length")
 			goto gotError
 		}
 		select {
@@ -95,7 +96,7 @@ gotError:
 func (ps *PeerServer) ClientDone(args *PeerRecordMessage, reply *PeerReply) error {
 	*reply = PeerReply{}
 	sender := int(args.Sender)
-	if args.Sender > ps.nodeId {
+	if args.Sender > ps.subClusterNodeId {
 		sender -= 1
 	}
 	if sender < 0 || sender > len(ps.receivedFromPeersResultCh) {

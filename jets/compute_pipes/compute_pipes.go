@@ -61,7 +61,7 @@ func StartComputePipes(dbpool *pgxpool.Pool, headersDKInfo *schema.HeadersAndDom
 		wt.writeTable(dbpool, done, table)
 
 	} else {
-		fmt.Println("Compute Pipes identified")
+		log.Println("Compute Pipes identified")
 
 		// unmarshall the compute graph definition
 		var cpConfig ComputePipesConfig
@@ -74,13 +74,28 @@ func StartComputePipes(dbpool *pgxpool.Pool, headersDKInfo *schema.HeadersAndDom
 		// validate cluster config
 		if cpConfig.ClusterConfig == nil {
 			cpErr = fmt.Errorf("error: cluster_config is required in compute_pipes_json")
-			goto gotError			
+			goto gotError
 		}
 
 		// set default nbr of sub-cluster if not set
 		if cpConfig.ClusterConfig.NbrSubClusters == 0 {
 			cpConfig.ClusterConfig.NbrSubClusters = 1
 		}
+		nbrNodes := envSettings["$NBR_SHARDS"].(int)
+		nodeId := envSettings["$SHARD_ID"].(int)
+		nbrSubClusters := cpConfig.ClusterConfig.NbrSubClusters
+		subClusterId := nodeId % nbrSubClusters
+		nbrSubClusterNodes := nbrNodes / nbrSubClusters
+		subClusterNodeId := nodeId / nbrSubClusters
+
+		// Make sure the sub-clusters will all contain the same number of nodes
+		if nbrNodes%nbrSubClusters != 0 {
+			cpErr = fmt.Errorf("error: cluster has %d nodes, cannot allocate them evenly in %d sub-clusters", nbrNodes,
+				nbrSubClusters)
+			goto gotError
+		}
+		log.Printf("StartComputePipes: nodeId: %d, subClusterId: %d, subClusterNodeId: %d, nbrNodes: %d, nbrSubClusters: %d, nbrSubClusterNodes: %d",
+			nodeId, subClusterId, subClusterNodeId, nbrNodes, nbrSubClusters, nbrSubClusterNodes)
 
 		// Add to envSettings based on compute pipe config
 		if cpConfig.Context != nil {
@@ -119,9 +134,9 @@ func StartComputePipes(dbpool *pgxpool.Pool, headersDKInfo *schema.HeadersAndDom
 				config:  &cpConfig.Channels[i],
 			}
 		}
-		fmt.Println("Compute Pipes channel registry ready")
+		log.Println("Compute Pipes channel registry ready")
 		// for i := range cpConfig.Channels {
-		// 	fmt.Println("**& Channel", cpConfig.Channels[i].Name, "Columns map", channelRegistry.computeChannels[cpConfig.Channels[i].Name].columns)
+		// 	log.Println("**& Channel", cpConfig.Channels[i].Name, "Columns map", channelRegistry.computeChannels[cpConfig.Channels[i].Name].columns)
 		// }
 
 		// Prepare the output tables
@@ -138,7 +153,7 @@ func StartComputePipes(dbpool *pgxpool.Pool, headersDKInfo *schema.HeadersAndDom
 					cpConfig.OutputTables[i].Name)
 				goto gotError
 			}
-			// fmt.Println("**& Channel for Output Table", tableIdentifier, "is:", outChannel.config.Name)
+			// log.Println("**& Channel for Output Table", tableIdentifier, "is:", outChannel.config.Name)
 			wt := WriteTableSource{
 				source:          outChannel.channel,
 				tableIdentifier: tableIdentifier,
@@ -148,7 +163,7 @@ func StartComputePipes(dbpool *pgxpool.Pool, headersDKInfo *schema.HeadersAndDom
 			chResults.Copy2DbResultCh <- table
 			go wt.writeTable(dbpool, done, table)
 		}
-		fmt.Println("Compute Pipes output tables ready")
+		log.Println("Compute Pipes output tables ready")
 
 		// Setup the s3Uploader
 		cfg, err := config.LoadDefaultConfig(context.TODO(), config.WithRegion(os.Getenv("JETS_REGION")))
@@ -162,14 +177,20 @@ func StartComputePipes(dbpool *pgxpool.Pool, headersDKInfo *schema.HeadersAndDom
 		s3Uploader := manager.NewUploader(s3Client)
 
 		ctx := &BuilderContext{
-			dbpool:          dbpool,
-			cpConfig:        &cpConfig,
-			channelRegistry: channelRegistry,
-			done:            done,
-			errCh:           errCh,
-			chResults:       chResults,
-			env:             envSettings,
-			s3Uploader:      s3Uploader,
+			dbpool:             dbpool,
+			cpConfig:           &cpConfig,
+			channelRegistry:    channelRegistry,
+			done:               done,
+			errCh:              errCh,
+			chResults:          chResults,
+			env:                envSettings,
+			s3Uploader:         s3Uploader,
+			nodeId:             nodeId,
+			subClusterId:       subClusterId,
+			subClusterNodeId:   subClusterNodeId,
+			nbrNodes:           nbrNodes,
+			nbrSubClusters:     nbrSubClusters,
+			nbrSubClusterNodes: nbrSubClusterNodes,
 		}
 
 		// Start the metric reporting goroutine
@@ -203,7 +224,7 @@ func StartComputePipes(dbpool *pgxpool.Pool, headersDKInfo *schema.HeadersAndDom
 
 gotError:
 	log.Println(cpErr)
-	fmt.Println("**!@@ gotError in StartComputePipes")
+	log.Println("**!@@ gotError in StartComputePipes")
 	errCh <- cpErr
 	close(done)
 	close(chResults.Copy2DbResultCh)
