@@ -1584,12 +1584,12 @@
     ],
     "indexes": [
       {
-        "indexName": "compute_pipes_shard_registry_session_file_key_shard_idx",
-        "indexDef": "INDEX compute_pipes_shard_registry_session_file_key_shard_idx ON jetsapi.compute_pipes_shard_registry (session_id,file_key,shard_id)"
+        "indexName": "compute_pipes_shard_registry_idx1",
+        "indexDef": "INDEX compute_pipes_shard_registry_idx1 ON jetsapi.compute_pipes_shard_registry (session_id,file_key,shard_id)"
       },
       {
-        "indexName": "compute_pipes_shard_registry_session_shard_file_key_partition_idx",
-        "indexDef": "INDEX compute_pipes_shard_registry_session_shard_file_key_partition_idx ON jetsapi.compute_pipes_shard_registry (session_id,shard_id,file_key,jets_partition)"
+        "indexName": "compute_pipes_shard_registry_idx2",
+        "indexDef": "INDEX compute_pipes_shard_registry_idx2 ON jetsapi.compute_pipes_shard_registry (session_id,shard_id,file_key,jets_partition)"
       }
     ],
     "tableConstraints": [
