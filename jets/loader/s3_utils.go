@@ -164,10 +164,10 @@ func getFileKeys(dbpool *pgxpool.Pool, sessionId string, shardId int, jetsPartit
 	var rows pgx.Rows
 	var err error
 	if jetsPartition == "" {
-		stmt = "SELECT file_key	FROM jetsapi.compute_pipes_shard_registry WHERE session_id = $1 AND shard_id = $2"
+		stmt = "SELECT DISTINCT file_key	FROM jetsapi.compute_pipes_shard_registry WHERE session_id = $1 AND shard_id = $2"
 		rows, err = dbpool.Query(context.Background(), stmt, sessionId, shardId)
 	} else {
-		stmt = "SELECT file_key	FROM jetsapi.compute_pipes_shard_registry WHERE session_id = $1 AND shard_id = $2 AND jets_partition = $3"
+		stmt = "SELECT DISTINCT file_key	FROM jetsapi.compute_pipes_shard_registry WHERE session_id = $1 AND shard_id = $2 AND jets_partition = $3"
 		rows, err = dbpool.Query(context.Background(), stmt, sessionId, shardId, jetsPartition)
 	}
 	if err != nil {

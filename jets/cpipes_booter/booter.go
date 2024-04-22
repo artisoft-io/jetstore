@@ -355,19 +355,20 @@ func (ctx *ShardFileKeysContext) AssignJetsPartitionFileKeys() error {
 // Function to assign file_key to nodes (aka shard) into jetsapi.compute_pipes_shard_registry
 func (ctx *ShardFileKeysContext) AssignFileKeys(baseFileKey *string, jetsPartition string) (int, error) {
 	nbrNodes := ctx.BooterCtx.nbrNodes
+	scId := ctx.BooterCtx.subClusterId
 	// Get all the file keys having baseFileKey as prefix
 	log.Printf("Downloading file keys from s3 folder: %s", *baseFileKey)
 	s3Objects, err := awsi.ListS3Objects(baseFileKey, ctx.Bucket, ctx.Region)
 	if err != nil || s3Objects == nil || len(s3Objects) == 0 {
 		return 0, fmt.Errorf("failed to download list of files from s3 (or folder is empty): %v", err)
 	}
-	stmt := `INSERT INTO jetsapi.compute_pipes_shard_registry (session_id, file_key, file_size, jets_partition, shard_id) 
-		VALUES ($1, $2, $3, $4, $5)`
+	stmt := `INSERT INTO jetsapi.compute_pipes_shard_registry (session_id, file_key, file_size, jets_partition, shard_id, sc_id) 
+		VALUES ($1, $2, $3, $4, $5, $6)`
 	for i := range s3Objects {
 		if s3Objects[i].Size > 1 {
 			// Hash the file key and assign it to a shard / node
 			nodeId := compute_pipes.Hash([]byte(s3Objects[i].Key), uint64(nbrNodes))
-			_, err := ctx.BooterCtx.dbpool.Exec(context.Background(), stmt, sessionId, s3Objects[i].Key, s3Objects[i].Size, jetsPartition, nodeId)
+			_, err := ctx.BooterCtx.dbpool.Exec(context.Background(), stmt, sessionId, s3Objects[i].Key, s3Objects[i].Size, jetsPartition, nodeId, scId)
 			if err != nil {
 				return 0, fmt.Errorf("error inserting in jetsapi.compute_pipes_shard_registry table: %v", err)
 			}

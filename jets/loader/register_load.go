@@ -105,6 +105,7 @@ func shardFileKeys(dbpool *pgxpool.Pool, baseFileKey string, sessionId string, n
 	if err != nil || s3Objects == nil || len(s3Objects) == 0 {
 		return 0, fmt.Errorf("failed to download list of files from s3 (or folder is empty): %v", err)
 	}
+	// Leaving the default value for sc_id, has the legacy of do nothing
 	stmt := `INSERT INTO jetsapi.compute_pipes_shard_registry (session_id, file_key, is_file, shard_id, file_size) 
 		VALUES ($1, $2, 1, $3, $4) ON CONFLICT DO NOTHING`
 	for i := range s3Objects {
