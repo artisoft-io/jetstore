@@ -323,25 +323,14 @@ type ShardFileKeysContext struct {
 	Bucket                  string
 	Region                  string
 	SessionId               string
-	SubClusterNodeId2NodeId []int
 }
 
 // Assign all the file keys (multipart files) from jets_partition created by nodeId to nodes within the sub-cluster of nodeId
 func (ctx *ShardFileKeysContext) AssignJetsPartitionFileKeys() error {
 	var totalPartfileCount int
 
-	// Get the subCluster of nodeId and nbr of nodes in sub-clusters
-	// Get a reverse mapping of nodeId that are within the current sub-cluster, by subClusterNodeId
-	// mapping of subClusterNodeId => nodeId
-	ctx.SubClusterNodeId2NodeId = make([]int, ctx.BooterCtx.nbrSubClusterNodes)
-	for iNodeId := 0; iNodeId < ctx.BooterCtx.nbrNodes; iNodeId++ {
-		if (iNodeId % ctx.BooterCtx.nbrSubClusters) == ctx.BooterCtx.subClusterId {
-			ctx.SubClusterNodeId2NodeId[iNodeId/ctx.BooterCtx.nbrSubClusters] = iNodeId
-		}
-	}
-
 	// For each jets_partition created by nodeId, invoke AssignFileKeys
-	stmt := "SELECT file_key, jets_partition FROM jetsapi.compute_pipes_partitions_registry WHERE session_id = $1 AND shard_id = $2"
+	stmt := "SELECT DISTINCT file_key, jets_partition FROM jetsapi.compute_pipes_partitions_registry WHERE session_id = $1 AND shard_id = $2"
 	rows, err := ctx.BooterCtx.dbpool.Query(context.Background(), stmt, ctx.SessionId, ctx.BooterCtx.nodeId)
 	if err == nil {
 		defer rows.Close()
@@ -365,7 +354,7 @@ func (ctx *ShardFileKeysContext) AssignJetsPartitionFileKeys() error {
 
 // Function to assign file_key to nodes (aka shard) into jetsapi.compute_pipes_shard_registry
 func (ctx *ShardFileKeysContext) AssignFileKeys(baseFileKey *string, jetsPartition string) (int, error) {
-	nbrSubClusterNodes := ctx.BooterCtx.nbrSubClusterNodes
+	nbrNodes := ctx.BooterCtx.nbrNodes
 	// Get all the file keys having baseFileKey as prefix
 	log.Printf("Downloading file keys from s3 folder: %s", *baseFileKey)
 	s3Objects, err := awsi.ListS3Objects(baseFileKey, ctx.Bucket, ctx.Region)
@@ -376,10 +365,8 @@ func (ctx *ShardFileKeysContext) AssignFileKeys(baseFileKey *string, jetsPartiti
 		VALUES ($1, $2, $3, $4, $5)`
 	for i := range s3Objects {
 		if s3Objects[i].Size > 1 {
-			// Hash the file key and assign it to a shard
-			subClusterNodeId := compute_pipes.Hash([]byte(s3Objects[i].Key), uint64(nbrSubClusterNodes))
-			// Assign nodeId for this file key
-			nodeId := ctx.SubClusterNodeId2NodeId[subClusterNodeId]
+			// Hash the file key and assign it to a shard / node
+			nodeId := compute_pipes.Hash([]byte(s3Objects[i].Key), uint64(nbrNodes))
 			_, err := ctx.BooterCtx.dbpool.Exec(context.Background(), stmt, sessionId, s3Objects[i].Key, s3Objects[i].Size, jetsPartition, nodeId)
 			if err != nil {
 				return 0, fmt.Errorf("error inserting in jetsapi.compute_pipes_shard_registry table: %v", err)
