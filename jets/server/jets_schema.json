@@ -1613,6 +1613,13 @@
         "dataType": "int",
         "default": "0",
         "isNotNull": true
+      },
+      {
+        "columnName": "sc_id",
+        "description": "Sub-cluster ID, based on the partitioning of the sharding task",
+        "dataType": "int",
+        "default": "0",
+        "isNotNull": true
       }
     ],
     "indexes": [
@@ -1623,8 +1630,8 @@
     ],
     "tableConstraints": [
       {
-        "name": "compute_pipes_partitions_registry_unique_cstraint",
-        "definition": "CONSTRAINT compute_pipes_partitions_registry_unique_cstraint UNIQUE (session_id,file_key)"
+        "name": "compute_pipes_partitions_registry_unique_cstraint_v2",
+        "definition": "CONSTRAINT compute_pipes_partitions_registry_unique_cstraint_v2 UNIQUE (session_id,file_key,shard_id,sc_id)"
       }
     ]
   },
