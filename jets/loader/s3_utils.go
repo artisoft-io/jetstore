@@ -8,6 +8,7 @@ import (
 	"os"
 
 	"github.com/artisoft-io/jetstore/jets/awsi"
+	"github.com/artisoft-io/jetstore/jets/compute_pipes"
 	"github.com/jackc/pgx/v4"
 	"github.com/jackc/pgx/v4/pgxpool"
 )
@@ -153,22 +154,24 @@ func downloadS3Files(done <-chan struct{}) (<-chan string, <-chan string, <-chan
 	return headersFileCh, fileNamesCh, downloadS3ResultCh, inFolderPath, nil
 }
 
-// Get the file_key(s) assigned to shardId, may return:
+// Get the file_key(s) assigned to shardId (sc_node_id, sc_id), may return:
 //   - single file to be used as headers only (cpipesShardWithNoFileKeys = true)
 //   - empty list when there are no files for session_id in table compute_pipes_shard_registry
 //     cpipesShardWithNoFileKeys is set to false and the loader will exit silently
-func getFileKeys(dbpool *pgxpool.Pool, sessionId string, shardId int, jetsPartition string) ([]string, error) {
+func getFileKeys(dbpool *pgxpool.Pool, sessionId string, cpConfig *compute_pipes.ComputePipesConfig, jetsPartition string) ([]string, error) {
 	var key, stmt string
 	// Get isFile query in case the list of file_key is empty
 	fileKeys := make([]string, 0)
 	var rows pgx.Rows
 	var err error
 	if jetsPartition == "" {
-		stmt = "SELECT DISTINCT file_key	FROM jetsapi.compute_pipes_shard_registry WHERE session_id = $1 AND shard_id = $2"
-		rows, err = dbpool.Query(context.Background(), stmt, sessionId, shardId)
+		stmt = "SELECT DISTINCT file_key	FROM jetsapi.compute_pipes_shard_registry WHERE session_id = $1 AND shard_id = $2 AND sc_id = $3"
+		rows, err = dbpool.Query(context.Background(), stmt, sessionId, cpConfig.ClusterConfig.SubClusterNodeId,
+			cpConfig.ClusterConfig.SubClusterId)
 	} else {
-		stmt = "SELECT DISTINCT file_key	FROM jetsapi.compute_pipes_shard_registry WHERE session_id = $1 AND shard_id = $2 AND jets_partition = $3"
-		rows, err = dbpool.Query(context.Background(), stmt, sessionId, shardId, jetsPartition)
+		stmt = "SELECT DISTINCT file_key	FROM jetsapi.compute_pipes_shard_registry WHERE session_id = $1 AND shard_id = $2 AND sc_id = $3 AND jets_partition = $4"
+		rows, err = dbpool.Query(context.Background(), stmt, sessionId, cpConfig.ClusterConfig.SubClusterNodeId,
+			cpConfig.ClusterConfig.SubClusterId, jetsPartition)
 	}
 	if err != nil {
 		return nil, err

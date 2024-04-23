@@ -25,7 +25,7 @@ func init() {
 // Function to write transformed row to database
 func StartComputePipes(dbpool *pgxpool.Pool, headersDKInfo *schema.HeadersAndDomainKeysInfo, done chan struct{}, errCh chan error,
 	computePipesInputCh <-chan []interface{}, chResults *ChannelResults,
-	computePipesJson *string, envSettings map[string]interface{},
+	cpConfig *ComputePipesConfig, envSettings map[string]interface{},
 	fileKeyComponents map[string]interface{}) {
 
 	defer func() {
@@ -44,7 +44,7 @@ func StartComputePipes(dbpool *pgxpool.Pool, headersDKInfo *schema.HeadersAndDom
 	}()
 
 	var cpErr error
-	if computePipesJson == nil || len(*computePipesJson) == 0 {
+	if cpConfig == nil {
 		// Loader in classic mode, no compute pipes defined
 		tableIdentifier, err := SplitTableName(headersDKInfo.TableName)
 		if err != nil {
@@ -62,40 +62,6 @@ func StartComputePipes(dbpool *pgxpool.Pool, headersDKInfo *schema.HeadersAndDom
 
 	} else {
 		log.Println("Compute Pipes identified")
-
-		// unmarshall the compute graph definition
-		var cpConfig ComputePipesConfig
-		err := json.Unmarshal([]byte(*computePipesJson), &cpConfig)
-		if err != nil {
-			cpErr = fmt.Errorf("while unmarshaling compute pipes json: %s", err)
-			goto gotError
-		}
-
-		// validate cluster config
-		if cpConfig.ClusterConfig == nil {
-			cpErr = fmt.Errorf("error: cluster_config is required in compute_pipes_json")
-			goto gotError
-		}
-
-		// set default nbr of sub-cluster if not set
-		if cpConfig.ClusterConfig.NbrSubClusters == 0 {
-			cpConfig.ClusterConfig.NbrSubClusters = 1
-		}
-		nbrNodes := envSettings["$NBR_SHARDS"].(int)
-		nodeId := envSettings["$SHARD_ID"].(int)
-		nbrSubClusters := cpConfig.ClusterConfig.NbrSubClusters
-		subClusterId := nodeId % nbrSubClusters
-		nbrSubClusterNodes := nbrNodes / nbrSubClusters
-		subClusterNodeId := nodeId / nbrSubClusters
-
-		// Make sure the sub-clusters will all contain the same number of nodes
-		if nbrNodes%nbrSubClusters != 0 {
-			cpErr = fmt.Errorf("error: cluster has %d nodes, cannot allocate them evenly in %d sub-clusters", nbrNodes,
-				nbrSubClusters)
-			goto gotError
-		}
-		log.Printf("StartComputePipes: nodeId: %d, subClusterId: %d, subClusterNodeId: %d, nbrNodes: %d, nbrSubClusters: %d, nbrSubClusterNodes: %d",
-			nodeId, subClusterId, subClusterNodeId, nbrNodes, nbrSubClusters, nbrSubClusterNodes)
 
 		// Add to envSettings based on compute pipe config
 		if cpConfig.Context != nil {
@@ -178,19 +144,20 @@ func StartComputePipes(dbpool *pgxpool.Pool, headersDKInfo *schema.HeadersAndDom
 
 		ctx := &BuilderContext{
 			dbpool:             dbpool,
-			cpConfig:           &cpConfig,
+			cpConfig:           cpConfig,
 			channelRegistry:    channelRegistry,
 			done:               done,
 			errCh:              errCh,
 			chResults:          chResults,
 			env:                envSettings,
 			s3Uploader:         s3Uploader,
-			nodeId:             nodeId,
-			subClusterId:       subClusterId,
-			subClusterNodeId:   subClusterNodeId,
-			nbrNodes:           nbrNodes,
-			nbrSubClusters:     nbrSubClusters,
-			nbrSubClusterNodes: nbrSubClusterNodes,
+			//*TODO no longer needed here. . .
+			nodeId:             cpConfig.ClusterConfig.NodeId,
+			subClusterId:       cpConfig.ClusterConfig.SubClusterId,
+			subClusterNodeId:   cpConfig.ClusterConfig.SubClusterNodeId,
+			nbrNodes:           cpConfig.ClusterConfig.NbrNodes,
+			nbrSubClusters:     cpConfig.ClusterConfig.NbrSubClusters,
+			nbrSubClusterNodes: cpConfig.ClusterConfig.NbrSubClusterNodes,
 		}
 
 		// Start the metric reporting goroutine
@@ -230,4 +197,45 @@ gotError:
 	close(chResults.Copy2DbResultCh)
 	close(chResults.WritePartitionsResultCh)
 	close(chResults.MapOnClusterResultCh)
+}
+
+func UnmarshalComputePipesConfig(computePipesJson *string, nodeId, nbrNodes int) (*ComputePipesConfig, error) {
+
+		// unmarshall the compute graph definition
+		var cpConfig ComputePipesConfig
+		err := json.Unmarshal([]byte(*computePipesJson), &cpConfig)
+		if err != nil {
+			return nil, fmt.Errorf("while unmarshaling compute pipes json: %s", err)
+		}
+
+		// validate cluster config
+		if cpConfig.ClusterConfig == nil {
+			return nil, fmt.Errorf("error: cluster_config is required in compute_pipes_json")
+		}
+
+		// set default nbr of sub-cluster if not set
+		if cpConfig.ClusterConfig.NbrSubClusters == 0 {
+			cpConfig.ClusterConfig.NbrSubClusters = 1
+		}
+		if cpConfig.ClusterConfig.NbrNodes == 0 {
+			cpConfig.ClusterConfig.NbrNodes = nbrNodes
+		}
+		nbrNodes = cpConfig.ClusterConfig.NbrNodes
+		nbrSubClusters := cpConfig.ClusterConfig.NbrSubClusters
+		subClusterId := nodeId % nbrSubClusters
+		nbrSubClusterNodes := nbrNodes / nbrSubClusters
+		subClusterNodeId := nodeId / nbrSubClusters
+
+		// Make sure the sub-clusters will all contain the same number of nodes
+		if nbrNodes%nbrSubClusters != 0 {
+			return nil, fmt.Errorf("error: cluster has %d nodes, cannot allocate them evenly in %d sub-clusters", nbrNodes,
+				nbrSubClusters)
+		}
+		cpConfig.ClusterConfig.NodeId = nodeId
+		cpConfig.ClusterConfig.SubClusterId = subClusterId
+		cpConfig.ClusterConfig.NbrSubClusterNodes = nbrSubClusterNodes
+		cpConfig.ClusterConfig.SubClusterNodeId = subClusterNodeId
+		log.Printf("StartComputePipes: nodeId: %d, subClusterId: %d, subClusterNodeId: %d, nbrNodes: %d, nbrSubClusters: %d, nbrSubClusterNodes: %d",
+			nodeId, subClusterId, subClusterNodeId, nbrNodes, nbrSubClusters, nbrSubClusterNodes)
+		return &cpConfig, nil
 }
