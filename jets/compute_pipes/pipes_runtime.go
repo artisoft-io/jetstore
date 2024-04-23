@@ -53,7 +53,7 @@ func (r *ChannelRegistry) CloseChannel(name string) {
 	}
 	c := r.computeChannels[name]
 	if c != nil {
-		log.Println("** Closing channel", name)
+		// log.Println("** Closing channel", name)
 		close(c.channel)
 	}
 	r.closedChannels[name] = true
@@ -153,7 +153,7 @@ func (ctx *BuilderContext) buildComputeGraph() error {
 
 	// Construct the in-memory compute graph
 	// Build the Pipes
-	log.Println("**& Start ComputeGraph")
+	// log.Println("**& Start ComputeGraph")
 	// // look for pipes with common input, need to distribute the entities
 	// i2p := make(Input2PipeSet)
 	// for i := range ctx.cpConfig.PipesConfig {
@@ -178,7 +178,7 @@ func (ctx *BuilderContext) buildComputeGraph() error {
 		// 	input = ctx.channelRegistry.AddDistributionChannel(pipeSpec.Input)
 		// 	pipeSpec.Input = input
 		// }
-		log.Println("**& PipeConfig", i, "type", ctx.cpConfig.PipesConfig[i].Type, "with input source", input)
+		// log.Println("**& PipeConfig", i, "type", ctx.cpConfig.PipesConfig[i].Type, "with input source", input)
 		source, err := ctx.channelRegistry.GetInputChannel(input)
 		if err != nil {
 			return fmt.Errorf("while building Pipe: %v", err)
@@ -186,18 +186,18 @@ func (ctx *BuilderContext) buildComputeGraph() error {
 
 		switch pipeSpec.Type {
 		case "fan_out":
-			log.Println("**& starting PipeConfig", i, "fan_out", "on source", source.config.Name)
+			// log.Println("**& starting PipeConfig", i, "fan_out", "on source", source.config.Name)
 			go ctx.StartFanOutPipe(pipeSpec, source)
 
 		case "splitter":
-			log.Println("**& starting PipeConfig", i, "splitter", "on source", source.config.Name)
+			// log.Println("**& starting PipeConfig", i, "splitter", "on source", source.config.Name)
 			// Create the writePartitionResultCh that will contain the number of part files for each partition
 			writePartitionsResultCh := make(chan chan ComputePipesResult, 15000) // NOTE Max number of partitions
 			ctx.chResults.WritePartitionsResultCh <- writePartitionsResultCh
 			go ctx.StartSplitterPipe(pipeSpec, source, writePartitionsResultCh)
 
 		case "distribute_data":
-			log.Println("**& starting PipeConfig", i, "distribute_data", "on source", source.config.Name)
+			// log.Println("**& starting PipeConfig", i, "distribute_data", "on source", source.config.Name)
 			// Create the clusterMapResultCh to report on the outgoing peer connection
 			clusterMapResultCh := make(chan chan ComputePipesResult, ctx.nbrNodes*5)
 			ctx.chResults.MapOnClusterResultCh <- clusterMapResultCh
@@ -236,7 +236,7 @@ func (ctx *BuilderContext) buildComputeGraph() error {
 	// 		}(input, echos)
 	// 	}
 	// }
-	log.Println("**& Start ComputeGraph DONE")
+	// log.Println("**& Start ComputeGraph DONE")
 	return nil
 }
 

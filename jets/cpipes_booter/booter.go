@@ -180,7 +180,7 @@ func coordinateWork() error {
 				return fmt.Errorf("while splitting table name: %s", err)
 			}
 			// Update table schema in database if current shardId is 0, to avoid multiple updates
-			fmt.Println("**& Preparing / Updating Output Table", tableIdentifier)
+			// fmt.Println("**& Preparing / Updating Output Table", tableIdentifier)
 			err = compute_pipes.PrepareOutoutTable(dbpool, tableIdentifier, &cpConfig.OutputTables[i])
 			if err != nil {
 				return fmt.Errorf("while preparing output table: %s", err)
