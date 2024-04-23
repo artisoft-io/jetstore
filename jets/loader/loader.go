@@ -251,7 +251,7 @@ func processFileAndReportStatus(dbpool *pgxpool.Pool,
 
 	downloadResult := <-downloadS3ResultCh
 	err := downloadResult.err
-	log.Println("Downloaded", downloadResult.InputFilesCount, "files from s3", downloadResult.err)
+	// log.Println("Downloaded", downloadResult.InputFilesCount, "files from s3", downloadResult.err)
 	r := &compute_pipes.ComputePipesResult{
 		TableName:    "Downloaded files from s3",
 		CopyRowCount: int64(downloadResult.InputFilesCount),
@@ -262,9 +262,9 @@ func processFileAndReportStatus(dbpool *pgxpool.Pool,
 		processingErrors = append(processingErrors, downloadResult.err.Error())
 	}
 
-	log.Println("**!@@ CP RESULT = Loaded from s3:")
+	// log.Println("**!@@ CP RESULT = Loaded from s3:")
 	loadFromS3FilesResult := <-chResults.LoadFromS3FilesResultCh
-	log.Println("Loaded", loadFromS3FilesResult.LoadRowCount, "rows from s3 files with", loadFromS3FilesResult.BadRowCount, "bad rows", loadFromS3FilesResult.Err)
+	// log.Println("Loaded", loadFromS3FilesResult.LoadRowCount, "rows from s3 files with", loadFromS3FilesResult.BadRowCount, "bad rows", loadFromS3FilesResult.Err)
 	r = &compute_pipes.ComputePipesResult{
 		TableName:    "Loaded rows from s3 files",
 		CopyRowCount: loadFromS3FilesResult.LoadRowCount,
@@ -277,15 +277,15 @@ func processFileAndReportStatus(dbpool *pgxpool.Pool,
 			err = loadFromS3FilesResult.Err
 		}
 	}
-	log.Println("**!@@ CP RESULT = Loaded from s3: DONE")
-	log.Println("**!@@ CP RESULT = Copy2DbResultCh:")
+	// log.Println("**!@@ CP RESULT = Loaded from s3: DONE")
+	// log.Println("**!@@ CP RESULT = Copy2DbResultCh:")
 	var outputRowCount int64
 	for table := range chResults.Copy2DbResultCh {
 		// log.Println("**!@@ Read table results:")
 		for copy2DbResult := range table {
 			outputRowCount += copy2DbResult.CopyRowCount
 			saveResultsCtx.Save("DB Inserts", &copy2DbResult)
-			log.Println("**!@@ Inserted", copy2DbResult.CopyRowCount, "rows in table", copy2DbResult.TableName, "::", copy2DbResult.Err)
+			// log.Println("**!@@ Inserted", copy2DbResult.CopyRowCount, "rows in table", copy2DbResult.TableName, "::", copy2DbResult.Err)
 			if copy2DbResult.Err != nil {
 				processingErrors = append(processingErrors, copy2DbResult.Err.Error())
 				if err == nil {
@@ -294,16 +294,16 @@ func processFileAndReportStatus(dbpool *pgxpool.Pool,
 			}
 		}
 	}
-	log.Println("**!@@ CP RESULT = Copy2DbResultCh: DONE")
+	// log.Println("**!@@ CP RESULT = Copy2DbResultCh: DONE")
 
-	log.Println("**!@@ CP RESULT = MapOnClusterResultCh:")
+	// log.Println("**!@@ CP RESULT = MapOnClusterResultCh:")
 	for mapOn := range chResults.MapOnClusterResultCh {
 		// log.Println("**!@@ Read PEER from MapOnClusterResultCh:")
 		for peer := range mapOn {
 			// log.Println("**!@@ Read RESULT from MapOnClusterResultCh:")
 			for peerResult := range peer {
 				saveResultsCtx.Save("Peer Communication", &peerResult)
-				log.Printf("**!@@ PEER COMM %d Rows :: Peer %s :: %v", peerResult.CopyRowCount, peerResult.TableName, peerResult.Err)
+				// log.Printf("**!@@ PEER COMM %d Rows :: Peer %s :: %v", peerResult.CopyRowCount, peerResult.TableName, peerResult.Err)
 				if peerResult.Err != nil {
 					processingErrors = append(processingErrors, peerResult.Err.Error())
 					if err == nil {
@@ -313,9 +313,9 @@ func processFileAndReportStatus(dbpool *pgxpool.Pool,
 			}
 		}
 	}
-	log.Println("**!@@ CP RESULT = MapOnClusterResultCh: DONE")
+	// log.Println("**!@@ CP RESULT = MapOnClusterResultCh: DONE")
 
-	log.Println("**!@@ CP RESULT = WritePartitionsResultCh:")
+	// log.Println("**!@@ CP RESULT = WritePartitionsResultCh:")
 	for splitter := range chResults.WritePartitionsResultCh {
 		// log.Println("**!@@ Read SPLITTER ComputePipesResult from writePartitionsResultCh:")
 		for partition := range splitter {
@@ -323,7 +323,7 @@ func processFileAndReportStatus(dbpool *pgxpool.Pool,
 			for partitionWriterResult := range partition {
 				saveResultsCtx.Save("Jets Partition Writer", &partitionWriterResult)
 				outputRowCount += partitionWriterResult.CopyRowCount
-				log.Println("**!@@ Wrote", partitionWriterResult.CopyRowCount, "rows in", partitionWriterResult.PartsCount, "partfiles for", partitionWriterResult.TableName, "::", partitionWriterResult.Err)
+				// log.Println("**!@@ Wrote", partitionWriterResult.CopyRowCount, "rows in", partitionWriterResult.PartsCount, "partfiles for", partitionWriterResult.TableName, "::", partitionWriterResult.Err)
 				if partitionWriterResult.Err != nil {
 					processingErrors = append(processingErrors, partitionWriterResult.Err.Error())
 					if err == nil {
@@ -333,7 +333,7 @@ func processFileAndReportStatus(dbpool *pgxpool.Pool,
 			}
 		}
 	}
-	log.Println("**!@@ CP RESULT = WritePartitionsResultCh: DONE")
+	// log.Println("**!@@ CP RESULT = WritePartitionsResultCh: DONE")
 
 	// Check for error from compute pipes
 	var cpErr error
@@ -536,7 +536,7 @@ func coordinateWork() error {
 	if cpConfig != nil && *pipelineExecKey == -1 && isPartFiles == 1 {
 		// Case loader mode (loaderSM) with multipart files, save the file keys to compute_pipes_shard_registry
 		// and register the load to kick off cpipesSM
-		nkeys, err := shardFileKeys(dbpool, *inFile, *sessionId, cpConfig, *shardId, *nbrShards)
+		nkeys, err := shardFileKeys(dbpool, *inFile, *sessionId, cpConfig)
 		if err != nil {
 			return fmt.Errorf("while sharding file keys for multipart file load: %v", err)
 		}

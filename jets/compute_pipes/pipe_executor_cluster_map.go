@@ -142,9 +142,10 @@ func (ctx *BuilderContext) StartClusterMap(spec *PipeSpec, source *InputChannel,
 				close(ctx.done)
 			}
 		}()
-		log.Println("**!@@ CLUSTER_MAP *2 RPC server registered, listening on", addr)
-		err := http.Serve(server, nil)
-		log.Println("**!@@ CLUSTER_MAP *2 RPC server DONE listening on", addr, "::", err)
+		// log.Println("**!@@ CLUSTER_MAP *2 RPC server registered, listening on", addr)
+		http.Serve(server, nil)
+		// err := http.Serve(server, nil)
+		// log.Println("**!@@ CLUSTER_MAP *2 RPC server DONE listening on", addr, "::", err)
 	}()
 	// Note: when evaluatorsWg and source is done, need to call Close() on server to terminate the Accept loop
 	// and close intermediate channel incommingDataCh
@@ -167,7 +168,7 @@ func (ctx *BuilderContext) StartClusterMap(spec *PipeSpec, source *InputChannel,
 				// DialHTTP connects to an HTTP RPC server at the specified network
 				client, err := rpc.DialHTTP("tcp", peerAddress)
 				if err == nil {
-					log.Printf("**!@@ CLUSTER_MAP *3 (%s) CONNECTED to %s on try #%d", ctx.selfAddress, peerAddress, retry)
+					// log.Printf("**!@@ CLUSTER_MAP *3 (%s) CONNECTED to %s on try #%d", ctx.selfAddress, peerAddress, retry)
 					outPeers[i] = Peer{
 						peerAddress: peerAddress,
 						client:      client,
@@ -186,7 +187,7 @@ func (ctx *BuilderContext) StartClusterMap(spec *PipeSpec, source *InputChannel,
 					cpErr = fmt.Errorf("too many retry to open comm with peer %d at %s for distribute_data with source channel %s: %v", i, peerAddress, source.config.Name, err)
 					goto gotError
 				}
-				log.Printf("**!@@ CLUSTER_MAP *3 (%s) failed to connect to %s on try #%d, will retry :: %v", ctx.selfAddress, peerAddress, retry, err)
+				// log.Printf("**!@@ CLUSTER_MAP *3 (%s) failed to connect to %s on try #%d, will retry :: %v", ctx.selfAddress, peerAddress, retry, err)
 				time.Sleep(1 * time.Second)
 				err = ctx.updatePeerAddr(i)
 				if err != nil {
@@ -203,7 +204,7 @@ func (ctx *BuilderContext) StartClusterMap(spec *PipeSpec, source *InputChannel,
 			}
 		}
 	}
-	log.Printf("**!@@ CLUSTER_MAP *3 (%s) All %d peer connections established", ctx.selfAddress, len(ctx.peersAddress))
+	// log.Printf("**!@@ CLUSTER_MAP *3 (%s) All %d peer connections established", ctx.selfAddress, len(ctx.peersAddress))
 
 	// log.Printf("**!@@ CLUSTER_MAP *4 WAIT for all incomming PEER client to be established")
 	remainingPeerInWg.Wait()

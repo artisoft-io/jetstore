@@ -1570,6 +1570,14 @@
       },
       {
         "columnName": "shard_id",
+        "description": "This column should be called node_id, shard_id is a legacy name",
+        "dataType": "int",
+        "default": "0",
+        "isNotNull": true
+      },
+      {
+        "columnName": "sc_node_id",
+        "description": "This column is the sub-cluster node id",
         "dataType": "int",
         "default": "0",
         "isNotNull": true
@@ -1598,8 +1606,8 @@
     ],
     "tableConstraints": [
       {
-        "name": "compute_pipes_shard_registry_unique_cstraint_v2",
-        "definition": "CONSTRAINT compute_pipes_shard_registry_unique_cstraint_v2 UNIQUE (session_id,file_key,shard_id,sc_id)"
+        "name": "compute_pipes_shard_registry_unique_cstraint_v4",
+        "definition": "CONSTRAINT compute_pipes_shard_registry_unique_cstraint_v4 UNIQUE (session_id,file_key,shard_id,sc_node_id,sc_id)"
       }
     ]
   },
@@ -1625,6 +1633,14 @@
       },
       {
         "columnName": "shard_id",
+        "description": "This column should be called node_id, shard_id is a legacy name",
+        "dataType": "int",
+        "default": "0",
+        "isNotNull": true
+      },
+      {
+        "columnName": "sc_node_id",
+        "description": "This column is the sub-cluster node id",
         "dataType": "int",
         "default": "0",
         "isNotNull": true
@@ -1645,8 +1661,8 @@
     ],
     "tableConstraints": [
       {
-        "name": "compute_pipes_partitions_registry_unique_cstraint_v2",
-        "definition": "CONSTRAINT compute_pipes_partitions_registry_unique_cstraint_v2 UNIQUE (session_id,file_key,shard_id,sc_id)"
+        "name": "compute_pipes_partitions_registry_unique_cstraint_v4",
+        "definition": "CONSTRAINT compute_pipes_partitions_registry_unique_cstraint_v4 UNIQUE (session_id,file_key,shard_id,sc_node_id,sc_id)"
       }
     ]
   },

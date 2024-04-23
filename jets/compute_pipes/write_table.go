@@ -54,7 +54,7 @@ func SplitTableName(tableName string) (pgx.Identifier, error) {
 // Methods for writing output entity records to postgres
 func (wt *WriteTableSource) writeTable(dbpool *pgxpool.Pool, done chan struct{}, copy2DbResultCh chan<- ComputePipesResult) {
 	defer close(copy2DbResultCh)
-	log.Println("Write Table Started for", wt.tableIdentifier, "with", len(wt.columns), "columns")
+	// log.Println("Write Table Started for", wt.tableIdentifier, "with", len(wt.columns), "columns")
 	// log.Println("Write Table Started for", wt.tableIdentifier, "with columns:", wt.columns)
 
 	recCount, err := dbpool.CopyFrom(context.Background(), wt.tableIdentifier, wt.columns, wt)
