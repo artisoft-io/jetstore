@@ -536,7 +536,7 @@ func coordinateWork() error {
 	if cpConfig != nil && *pipelineExecKey == -1 && isPartFiles == 1 {
 		// Case loader mode (loaderSM) with multipart files, save the file keys to compute_pipes_shard_registry
 		// and register the load to kick off cpipesSM
-		nkeys, err := shardFileKeys(dbpool, *inFile, *sessionId, cpConfig, *shardId, *nbrShards)
+		nkeys, err := shardFileKeys(dbpool, *inFile, *sessionId, cpConfig)
 		if err != nil {
 			return fmt.Errorf("while sharding file keys for multipart file load: %v", err)
 		}
