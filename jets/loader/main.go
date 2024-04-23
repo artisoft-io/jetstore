@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/artisoft-io/jetstore/jets/awsi"
+	"github.com/artisoft-io/jetstore/jets/compute_pipes"
 	"github.com/artisoft-io/jetstore/jets/datatable/jcsv"
 	"github.com/artisoft-io/jetstore/jets/user"
 )
@@ -68,6 +69,7 @@ var cpipesMode string // values: loader, sharding, reducing, standalone :: set i
 var cpipesFileKeys []string
 var cpipesShardWithNoFileKeys bool	// Indicate the table compute_pipes_shard_registry has no file keys for this session_id & shardId
 var cpipesServerAddr string
+var cpConfig *compute_pipes.ComputePipesConfig
 
 var tableName string
 var domainKeysJson string
@@ -75,7 +77,7 @@ var inputColumnsJson string
 var inputColumnsPositionsCsv string
 var inputFormat string
 var inputFormatDataJson string
-var computePipesJson string
+// var computePipesJson string
 var isPartFiles int
 var sep_flag jcsv.Chartype = '€'
 var errOutDir string

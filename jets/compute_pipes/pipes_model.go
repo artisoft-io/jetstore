@@ -20,6 +20,10 @@ type ClusterSpec struct {
 	NbrSubClusters          int    `json:"nbr_sub_clusters"`
 	NbrJetsPartitions       uint64 `json:"nbr_jets_partitions"`
 	PeerBatchSize           int    `json:"peer_batch_size"`
+	NodeId                  int			// calculated field
+	SubClusterId            int			// calculated field
+	NbrSubClusterNodes      int			// calculated field
+	SubClusterNodeId        int			// calculated field
 }
 
 type MetricsSpec struct {

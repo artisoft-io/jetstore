@@ -86,8 +86,8 @@ func updatePipelineExecutionStatus(dbpool *pgxpool.Pool, inputRowCount, outputRo
 							shard_id, jets_partition, status, error_message, input_records_count, rete_sessions_count, output_records_count, user_email) 
 							VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)`
 		_, err := dbpool.Exec(context.Background(), stmt,
-			pipelineConfigKey, *pipelineExecKey, *client, processName, inputSessionId, *sessionId, *sourcePeriodKey, 
-			*shardId, *jetsPartition,	status, errMessage, inputRowCount, 0, outputRowCount, userEmail)
+			pipelineConfigKey, *pipelineExecKey, *client, processName, inputSessionId, *sessionId, *sourcePeriodKey,
+			*shardId, *jetsPartition, status, errMessage, inputRowCount, 0, outputRowCount, userEmail)
 		if err != nil {
 			return fmt.Errorf("error inserting in jetsapi.pipeline_execution_details table: %v", err)
 		}
@@ -95,31 +95,58 @@ func updatePipelineExecutionStatus(dbpool *pgxpool.Pool, inputRowCount, outputRo
 	return nil
 }
 
-// Function to assign file_key to shard into jetsapi.compute_pipes_shard_registry
-// NOTE: A new version exists in cpipes_booter without dependency on gloabl variables 
-//       so it can be moved to a package to re-use. See AssignFileKeys
-func shardFileKeys(dbpool *pgxpool.Pool, baseFileKey string, sessionId string, nbrShards int) (int, error) {
+// Function to assign file_key to shard (sc_node_id, sc_id) into jetsapi.compute_pipes_shard_registry
+// This is done in 2 steps, first load the file_key and file_size into the table
+// Then allocate the file_key using a round robin to sc_is and sc_node_id in decreasing order of file size
+// Note sc_node_id is called shard_id on table for legacy reason
+func shardFileKeys(dbpool *pgxpool.Pool, baseFileKey string, sessionId string, cpConfig *compute_pipes.ComputePipesConfig,
+	nodeId, nbrNodes int) (int, error) {
 	// Get all the file keys having baseFileKey as prefix
 	log.Printf("Downloading file keys from s3 folder: %s", baseFileKey)
 	s3Objects, err := awsi.ListS3Objects(&baseFileKey, *awsBucket, *awsRegion)
 	if err != nil || s3Objects == nil || len(s3Objects) == 0 {
 		return 0, fmt.Errorf("failed to download list of files from s3 (or folder is empty): %v", err)
 	}
-	// Leaving the default value for sc_id, has the legacy of do nothing
-	stmt := `INSERT INTO jetsapi.compute_pipes_shard_registry (session_id, file_key, is_file, shard_id, file_size) 
-		VALUES ($1, $2, 1, $3, $4) ON CONFLICT DO NOTHING`
+	// Step 1: load the file_key and file_size into the table
+	stmt := `INSERT INTO jetsapi.compute_pipes_shard_registry (session_id, file_key, file_size) 
+		VALUES ($1, $2, $3)`
 	for i := range s3Objects {
 		if s3Objects[i].Size > 1 {
-			// Hash the file hey and assign it to a shard
-			shardId := compute_pipes.Hash([]byte(s3Objects[i].Key), uint64(nbrShards))
-			// Write to shardId of this file key: session_id, file_key, shard
-			_, err := dbpool.Exec(context.Background(), stmt, sessionId, s3Objects[i].Key, int(shardId), s3Objects[i].Size)
+			_, err := dbpool.Exec(context.Background(), stmt, sessionId, s3Objects[i].Key, s3Objects[i].Size)
 			if err != nil {
 				return 0, fmt.Errorf("error inserting in jetsapi.compute_pipes_shard_registry table: %v", err)
 			}
 		}
 	}
-	return len(s3Objects), nil
+
+	// Step 2: assign shard_id (sc_node_id, sc_id) using round robin based on file size
+	nbrSubClusters := cpConfig.ClusterConfig.NbrSubClusters
+	nbrSubClusterNodes := cpConfig.ClusterConfig.NbrSubClusterNodes
+	selectStmt := "SELECT file_key FROM jetsapi.compute_pipes_shard_registry WHERE session_id = $1 ORDER BY file_size DESC"
+	updateStmt := "UPDATE jetsapi.compute_pipes_shard_registry SET (shard_id, sc_id) = ($1, $2)	WHERE file_key = $3 AND session_id = $4;"
+
+	totalPartfileCount := 0
+	rows, err := dbpool.Query(context.Background(), selectStmt, sessionId)
+	if err != nil {
+		return 0, fmt.Errorf("while querying compute_pipes_shard_registry in shardFileKeys: %s", err)
+	}
+	defer rows.Close()
+	for rows.Next() {
+		// scan the row
+		var fileKey string
+		if err = rows.Scan(&fileKey); err != nil {
+			return 0, fmt.Errorf("while scanning file_key from compute_pipes_shard_registry table in shardFileKeys: %v", err)
+		}
+		shardId := totalPartfileCount % nbrSubClusterNodes
+		scId := totalPartfileCount % nbrSubClusters
+		_, err = dbpool.Exec(context.Background(), updateStmt, shardId, scId, fileKey, sessionId)
+		if err != nil {
+			return 0, fmt.Errorf("error inserting in jetsapi.compute_pipes_shard_registry table in shardFileKeys: %v", err)
+		}
+		totalPartfileCount += 1
+	}
+	log.Printf("Done sharding %d files under file_key %s, session id %s", totalPartfileCount, baseFileKey, sessionId)
+	return totalPartfileCount, nil
 }
 
 func prepareStagingTable(dbpool *pgxpool.Pool, headersDKInfo *schema.HeadersAndDomainKeysInfo, tableName string) error {

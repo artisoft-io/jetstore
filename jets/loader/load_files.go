@@ -62,7 +62,7 @@ func loadFiles(dbpool *pgxpool.Pool, headersDKInfo *schema.HeadersAndDomainKeysI
 	// Start the Compute Pipes async
 	// Note: when nbrShards > 1, cpipes does not work in local mode in apiserver yet
 	go compute_pipes.StartComputePipes(dbpool, headersDKInfo, done, errCh, computePipesInputCh, chResults,
-		&computePipesJson, map[string]interface{}{
+		cpConfig, map[string]interface{}{
 			"$SESSIONID":          *sessionId,
 			"$FILE_KEY_DATE":      fileKeyDate,
 			"$FILE_KEY":           *inFile,

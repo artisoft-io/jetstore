@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/exec"
 	"strconv"
+	"strings"
 
 	"github.com/artisoft-io/jetstore/jets/awsi"
 	"github.com/artisoft-io/jetstore/jets/compute_pipes"
@@ -188,13 +189,6 @@ func coordinateWork() error {
 		fmt.Println("Compute Pipes output tables schema ready")
 	}
 
-	// Register node's IP with database and sync the cluster
-	// -------------------------------------------------
-	err = booterContext.registerNode()
-	if err != nil {
-		return fmt.Errorf("while registering the node %d with the database: %v", *shardId, err)
-	}
-
 	// CPIPES Booter Mode
 	// Global var cpipesMode string,  values: sharding, reducing.
 	// Scenarios:
@@ -225,7 +219,7 @@ func coordinateWork() error {
 
 	case "sharding":
 		if *shardId == 0 {
-			// Remove entries from compute_pipes_shard_registry table	under the current session_id.
+			// Remove entries from compute_pipes_shard_registry table	under the current session_id (in case of a rerun).
 			log.Printf("cpipes_booter @ shardId 0: removing entries in table compute_pipes_shard_registry with session_id %s", sessionId)
 			stmt := fmt.Sprintf(`DELETE FROM jetsapi.compute_pipes_shard_registry WHERE session_id = '%s';`, sessionId)
 			log.Println(stmt)
@@ -234,26 +228,36 @@ func coordinateWork() error {
 				return fmt.Errorf("while deleting entries in compute_pipes_shard_registry: %v", err)
 			}
 		}
+		// Register node's IP with database and sync the cluster
+		err = booterContext.registerNode()
+		if err != nil {
+			return fmt.Errorf("while registering the node %d with the database: %v", *shardId, err)
+		}
 		// Invoke cpipes
 		err = booterContext.invokeCpipes(nil)
 		if err != nil {
 			return fmt.Errorf("while invoking cpipes process: %v", err)
 		}
 		log.Println("cpipes executed successfully")
-		// Process the jets_partition, make entries in compute_pipes_shard_registry
+		log.Println("cpipes sharding completed!")
+
+	case "reducing":
+		// Process the jets_partition, make entries in compute_pipes_shard_registry using input_session_id
 		shardCtx := &ShardFileKeysContext{
-			BooterCtx: booterContext,
-			Bucket:    awsBucket,
-			Region:    awsRegion,
-			SessionId: sessionId,
+			BooterCtx:      booterContext,
+			Bucket:         awsBucket,
+			Region:         awsRegion,
+			InputSessionId: inputSessionId,
 		}
 		err = shardCtx.AssignJetsPartitionFileKeys()
 		if err != nil {
 			return fmt.Errorf("while assigning jets_partition to node_id: %v", err)
 		}
-		log.Println("cpipes sharding completed!")
-
-	case "reducing":
+		// Register node's IP with database and sync the cluster
+		err = booterContext.registerNode()
+		if err != nil {
+			return fmt.Errorf("while registering the node %d with the database: %v", *shardId, err)
+		}
 		return booterContext.execCpipesReducing()
 
 	default:
@@ -319,19 +323,24 @@ func (ctx *BooterContext) execCpipesReducing() error {
 }
 
 type ShardFileKeysContext struct {
-	BooterCtx               *BooterContext
-	Bucket                  string
-	Region                  string
-	SessionId               string
+	BooterCtx      *BooterContext
+	Bucket         string
+	Region         string
+	InputSessionId string
 }
 
-// Assign all the file keys (multipart files) from jets_partition created by nodeId to nodes within the sub-cluster of nodeId
+// List all the file keys (multipart files) from jets_partition assigned to this nodeId (based on sc_node_id, sc_id),
+// insert then into compute_pipes_shard_registry table.
+// This is done at the start of reducing phase, it use input_session_id (since the partitions were created during sharding)
 func (ctx *ShardFileKeysContext) AssignJetsPartitionFileKeys() error {
 	var totalPartfileCount int
-
 	// For each jets_partition created by nodeId, invoke AssignFileKeys
-	stmt := "SELECT DISTINCT file_key, jets_partition FROM jetsapi.compute_pipes_partitions_registry WHERE session_id = $1 AND shard_id = $2"
-	rows, err := ctx.BooterCtx.dbpool.Query(context.Background(), stmt, ctx.SessionId, ctx.BooterCtx.nodeId)
+	// looking for partition, such that:
+	//		abs(mod(hashtext(jets_partition),nbrSubClusters)) == sc_id  AND  abs(mod(hashtext(jets_partition),nbrSubClusterNodes)) == sc_node_id
+	stmt := `SELECT DISTINCT file_key, jets_partition FROM jetsapi.compute_pipes_partitions_registry 
+		WHERE session_id = $1 AND ABS(MOD(HASHTEXT(jets_partition),$2)) = $3 AND ABS(MOD(HASHTEXT(jets_partition),$4)) = $5`
+	rows, err := ctx.BooterCtx.dbpool.Query(context.Background(), stmt, ctx.InputSessionId,
+		ctx.BooterCtx.nbrSubClusters, ctx.BooterCtx.subClusterId, ctx.BooterCtx.nbrSubClusterNodes, ctx.BooterCtx.subClusterNodeId)
 	if err == nil {
 		defer rows.Close()
 		for rows.Next() {
@@ -352,27 +361,35 @@ func (ctx *ShardFileKeysContext) AssignJetsPartitionFileKeys() error {
 	return nil
 }
 
-// Function to assign file_key to nodes (aka shard) into jetsapi.compute_pipes_shard_registry
+// Function to save the file_key from s3 jetsapi.compute_pipes_shard_registry
+// The shard_id (node_id) is not assigned here. see ShardFileKeys
 func (ctx *ShardFileKeysContext) AssignFileKeys(baseFileKey *string, jetsPartition string) (int, error) {
-	nbrNodes := ctx.BooterCtx.nbrNodes
 	scId := ctx.BooterCtx.subClusterId
+	scNodeId := ctx.BooterCtx.subClusterNodeId
 	// Get all the file keys having baseFileKey as prefix
 	log.Printf("Downloading file keys from s3 folder: %s", *baseFileKey)
 	s3Objects, err := awsi.ListS3Objects(baseFileKey, ctx.Bucket, ctx.Region)
 	if err != nil || s3Objects == nil || len(s3Objects) == 0 {
 		return 0, fmt.Errorf("failed to download list of files from s3 (or folder is empty): %v", err)
 	}
-	stmt := `INSERT INTO jetsapi.compute_pipes_shard_registry (session_id, file_key, file_size, jets_partition, shard_id, sc_id) 
-		VALUES ($1, $2, $3, $4, $5, $6)`
+	var buf strings.Builder
+	buf.WriteString("INSERT INTO jetsapi.compute_pipes_shard_registry ")
+	buf.WriteString("(session_id, file_key, file_size, jets_partition, shard_id, sc_id) VALUES ")
+	isFirst := true
 	for i := range s3Objects {
 		if s3Objects[i].Size > 1 {
-			// Hash the file key and assign it to a shard / node
-			nodeId := compute_pipes.Hash([]byte(s3Objects[i].Key), uint64(nbrNodes))
-			_, err := ctx.BooterCtx.dbpool.Exec(context.Background(), stmt, sessionId, s3Objects[i].Key, s3Objects[i].Size, jetsPartition, nodeId, scId)
-			if err != nil {
-				return 0, fmt.Errorf("error inserting in jetsapi.compute_pipes_shard_registry table: %v", err)
+			if !isFirst {
+				buf.WriteString(", ")	
 			}
+			isFirst = false
+			buf.WriteString(fmt.Sprintf("('%s','%s',%d,'%s',%d,%d)", ctx.InputSessionId, s3Objects[i].Key, 
+				s3Objects[i].Size, jetsPartition, scNodeId, scId))
 		}
 	}
+	_, err = ctx.BooterCtx.dbpool.Exec(context.Background(), buf.String())
+	if err != nil {
+		return 0, fmt.Errorf("error inserting in jetsapi.compute_pipes_shard_registry table: %v", err)
+	}
+
 	return len(s3Objects), nil
 }

@@ -1590,6 +1590,10 @@
       {
         "indexName": "compute_pipes_shard_registry_idx2",
         "indexDef": "INDEX compute_pipes_shard_registry_idx2 ON jetsapi.compute_pipes_shard_registry (session_id,shard_id,file_key,jets_partition)"
+      },
+      {
+        "indexName": "compute_pipes_shard_registry_idx3",
+        "indexDef": "INDEX compute_pipes_shard_registry_idx3 ON jetsapi.compute_pipes_shard_registry (session_id,sc_id)"
       }
     ],
     "tableConstraints": [

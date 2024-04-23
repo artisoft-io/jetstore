@@ -520,17 +520,23 @@ func coordinateWork() error {
 		// For backward compatibility
 		inputFileEncoding = Csv
 	}
-	if cpJson.Valid {
-		computePipesJson = cpJson.String
+	if cpJson.Valid && len(cpJson.String) > 0 {
+		cpConfig, err = compute_pipes.UnmarshalComputePipesConfig(&cpJson.String, *shardId, *nbrShards)
+		if err != nil {
+			log.Println(fmt.Errorf("error while UnmarshalComputePipesConfig: %v", err))
+			return fmt.Errorf("error while UnmarshalComputePipesConfig: %v", err)
+		}
 		log.Println("This loader contains Compute Pipes configuration")
+		cc := cpConfig.ClusterConfig
+		log.Println("CP Config: nodeId:",cc.NodeId,"scNodeId:",cc.SubClusterNodeId,"scId:", cc.SubClusterId, "nbrNodes:",cc.NbrNodes,"nbrSc:",cc.NbrSubClusters, "nbrScNodes:",cc.NbrSubClusterNodes)
 	}
 
 	log.Printf("Input file encoding (format) is: %s", inputFileEncoding.String())
 
-	if len(computePipesJson) > 0 && *pipelineExecKey == -1 && isPartFiles == 1 {
-		// Case loader mode (loaderSM) with multipart files, allocate the file keys to shards
+	if cpConfig != nil && *pipelineExecKey == -1 && isPartFiles == 1 {
+		// Case loader mode (loaderSM) with multipart files, save the file keys to compute_pipes_shard_registry
 		// and register the load to kick off cpipesSM
-		nkeys, err := shardFileKeys(dbpool, *inFile, *sessionId, *nbrShards)
+		nkeys, err := shardFileKeys(dbpool, *inFile, *sessionId, cpConfig, *shardId, *nbrShards)
 		if err != nil {
 			return fmt.Errorf("while sharding file keys for multipart file load: %v", err)
 		}
@@ -566,26 +572,26 @@ func coordinateWork() error {
 
 	cpipesFileKeys = make([]string, 0)
 	switch {
-	case *pipelineExecKey == -1 && len(computePipesJson) == 0:
+	case *pipelineExecKey == -1 && cpConfig == nil:
 		// loader classic (loaderSM)
 		cpipesMode = "loader"
 		log.Printf("CPIPES Mode: %s", cpipesMode)
 		return processComputeGraph(dbpool)
 
-	case *pipelineExecKey == -1 && isPartFiles == 0 && len(computePipesJson) > 0:
+	case *pipelineExecKey == -1 && isPartFiles == 0 && cpConfig != nil:
 		// loader cpipesSM standalone
 		cpipesMode = "standalone"
 		log.Printf("CPIPES Mode: %s", cpipesMode)
 		return processComputeGraph(dbpool)
 
-	case *pipelineExecKey == -1 && isPartFiles == 1 && len(computePipesJson) > 0:
+	case *pipelineExecKey == -1 && isPartFiles == 1 && cpConfig != nil:
 		// loader cpipesSM pre-sharding: handled above
 		return nil
 
-	case *pipelineExecKey > -1 && isPartFiles == 1 && len(computePipesJson) > 0:
+	case *pipelineExecKey > -1 && isPartFiles == 1 && cpConfig != nil:
 		// loader cpipes mode "sharding" (jetsPartition == "") or "reducing" (jetsPartition != "")
 		// Get the file keys from compute_pipes_shard_registry table
-		fileKeys, err := getFileKeys(dbpool, inputSessionId, *shardId, *jetsPartition)
+		fileKeys, err := getFileKeys(dbpool, inputSessionId, cpConfig, *jetsPartition)
 		if err != nil || fileKeys == nil {
 			return fmt.Errorf("failed to get list of files from compute_pipes_shard_registry table: %v", err)
 		}
@@ -601,9 +607,9 @@ func coordinateWork() error {
 		return processComputeGraph(dbpool)
 
 	default:
-		msg := "error: unexpected schenario: pipelineExecKey = %d && isPartFiles = %d && len(computePipesJson) = %d"
-		log.Printf(msg, *pipelineExecKey, isPartFiles, len(computePipesJson))
-		return fmt.Errorf(msg, *pipelineExecKey, isPartFiles, len(computePipesJson))
+		msg := "error: unexpected schenario: pipelineExecKey = %d && isPartFiles = %d && cpConfig = nil"
+		log.Printf(msg, *pipelineExecKey, isPartFiles)
+		return fmt.Errorf(msg, *pipelineExecKey, isPartFiles)
 	}
 }
 
