@@ -54,7 +54,7 @@ Future<String?> loginFormActions(BuildContext context,
       if (result.statusCode == 200) {
         // update the [UserModel]
         var version = (result.body[FSK.jetstoreVersion] ?? '###') as String;
-        if(version.isEmpty) version = '###';
+        if (version.isEmpty) version = '###';
         JetsRouterDelegate().jetstoreVersion = version;
         JetsRouterDelegate().user.name = result.body[FSK.userName];
         JetsRouterDelegate().user.email = result.body[FSK.userEmail];
@@ -93,6 +93,7 @@ Future<String?> loginFormActions(BuildContext context,
         // Get the workspace_uri from the server WORKSPACE_URI env variable
         // Get the workspace_name from the server WORKSPACE env variable
         // Get the workspace_branch from the server WORKSPACE_BRANCH env variable
+        // Get the workspace_file_key_label_re from the server WORKSPACE_FILE_KEY_LABEL_RE env variable
         msg = <String, dynamic>{
           'action': 'get_workspace_uri',
         };
@@ -106,6 +107,17 @@ Future<String?> loginFormActions(BuildContext context,
           globalWorkspaceUri = result.body['workspace_uri'] as String;
           globalWorkspaceName = result.body['workspace_name'] as String;
           globalWorkspaceBranch = result.body['workspace_branch'] as String;
+          var labelRe = result.body['workspace_file_key_label_re'] as String?;
+          if (labelRe != null && labelRe.isNotEmpty) {
+            try {
+              globalWorkspaceFileKeyLabelRe = RegExp(labelRe);
+              print('Got valid regex for file_key label: $labelRe');
+            } catch (e) {
+              // invalid regex
+              print('Got INVALID regex for file_key label: $labelRe');
+              globalWorkspaceFileKeyLabelRe = null;
+            }
+          }
         }
 
         JetsRouterDelegate()(JetsRouteData(
@@ -125,7 +137,7 @@ Future<String?> loginFormActions(BuildContext context,
       }
       break;
     case ActionKeys.register:
-      JetsRouterDelegate()(JetsRouteData(registerPath));
+      JetsRouterDelegate()(const JetsRouteData(registerPath));
       break;
     default:
       showAlertDialog(

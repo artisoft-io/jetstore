@@ -82,10 +82,16 @@ final inputRegistryColumns = [
       label: 'File Key',
       tooltips: 'File Key of the loaded file',
       isNumeric: false,
-          cellFilter: (text) {
-            if(text == null) return null;
-            return '...${text.substring(text.lastIndexOf('/'))}';
-          }),
+      cellFilter: (text) {
+        if (text == null) return null;
+        if (globalWorkspaceFileKeyLabelRe != null) {
+          RegExpMatch? match = globalWorkspaceFileKeyLabelRe!.firstMatch(text);
+          if (match != null) {
+            return match[1];
+          }
+        }
+        return '...${text.substring(text.lastIndexOf('/'))}';
+      }),
   ColumnConfig(
       index: 11,
       table: "input_registry",
@@ -109,7 +115,6 @@ final inputRegistryColumns = [
       isHidden: true,
       isNumeric: true),
 ];
-
 
 final baseProcessInputColumns = [
   ColumnConfig(
@@ -158,30 +163,30 @@ final baseProcessInputColumns = [
       isHidden: false),
 ];
 
-final processInputColumns = baseProcessInputColumns + [
-  ColumnConfig(
-      index: 7,
-      name: "lookback_periods",
-      label: 'Lookback Periods',
-      tooltips: 'Number of periods included in the rule session',
-      isNumeric: true),
-  ColumnConfig(
-      index: 8,
-      name: "user_email",
-      label: 'User',
-      tooltips: 'Who created the record',
-      isNumeric: false),
-  ColumnConfig(
-      index: 9,
-      name: "last_update",
-      label: 'Loaded At',
-      tooltips: 'Indicates when the record was created',
-      isNumeric: false),
-];
+final processInputColumns = baseProcessInputColumns +
+    [
+      ColumnConfig(
+          index: 7,
+          name: "lookback_periods",
+          label: 'Lookback Periods',
+          tooltips: 'Number of periods included in the rule session',
+          isNumeric: true),
+      ColumnConfig(
+          index: 8,
+          name: "user_email",
+          label: 'User',
+          tooltips: 'Who created the record',
+          isNumeric: false),
+      ColumnConfig(
+          index: 9,
+          name: "last_update",
+          label: 'Loaded At',
+          tooltips: 'Indicates when the record was created',
+          isNumeric: false),
+    ];
 
 /// Source Config User Flow Tables
 final Map<String, TableConfig> _tableConfigurations = {
-
   // Pipeline Config Data Table for Pipeline Execution Dialog
   FSK.pipelineConfigKey: TableConfig(
     key: FSK.pipelineConfigKey,
@@ -452,7 +457,6 @@ final Map<String, TableConfig> _tableConfigurations = {
     noFooter: true,
   ),
 
-
   // Table to show the merge process_input of the selected pipeline above
   // this is informative to the user
   DTKeys.mergeProcessInputTable: TableConfig(
@@ -526,7 +530,6 @@ final Map<String, TableConfig> _tableConfigurations = {
     rowsPerPage: 50,
   ),
 
-
   // Summary of selected data sources
   DTKeys.spSummaryDataSources: TableConfig(
     key: DTKeys.spSummaryDataSources,
@@ -545,38 +548,38 @@ final Map<String, TableConfig> _tableConfigurations = {
     formStateConfig:
         DataTableFormStateConfig(keyColumnIdx: 0, otherColumns: []),
     columns: [
-  ColumnConfig(
-      index: 0,
-      name: "key",
-      label: 'Key',
-      tooltips: 'Row Primary Key',
-      isNumeric: true,
-      isHidden: true),
-  ColumnConfig(
-      index: 1,
-      name: "object_type",
-      label: 'Domain Key',
-      tooltips: 'Pipeline Grouping Domain Key',
-      isNumeric: false),
-  ColumnConfig(
-      index: 2,
-      name: "source_type",
-      label: 'Source Type',
-      tooltips: 'Source of the input data, either File or Domain Table',
-      isNumeric: false),
-  ColumnConfig(
-      index: 3,
-      name: "table_name",
-      label: 'Table Name',
-      tooltips: 'Table where the data reside',
-      isNumeric: false,
-      isHidden: false),
-  ColumnConfig(
-      index: 4,
-      name: "file_key",
-      label: 'File Key',
-      tooltips: 'File Key from s3',
-      isNumeric: false),
+      ColumnConfig(
+          index: 0,
+          name: "key",
+          label: 'Key',
+          tooltips: 'Row Primary Key',
+          isNumeric: true,
+          isHidden: true),
+      ColumnConfig(
+          index: 1,
+          name: "object_type",
+          label: 'Domain Key',
+          tooltips: 'Pipeline Grouping Domain Key',
+          isNumeric: false),
+      ColumnConfig(
+          index: 2,
+          name: "source_type",
+          label: 'Source Type',
+          tooltips: 'Source of the input data, either File or Domain Table',
+          isNumeric: false),
+      ColumnConfig(
+          index: 3,
+          name: "table_name",
+          label: 'Table Name',
+          tooltips: 'Table where the data reside',
+          isNumeric: false,
+          isHidden: false),
+      ColumnConfig(
+          index: 4,
+          name: "file_key",
+          label: 'File Key',
+          tooltips: 'File Key from s3',
+          isNumeric: false),
     ],
     sortColumnName: 'source_type',
     sortAscending: false,
@@ -601,39 +604,38 @@ final Map<String, TableConfig> _tableConfigurations = {
     formStateConfig:
         DataTableFormStateConfig(keyColumnIdx: 0, otherColumns: []),
     columns: [
-  ColumnConfig(
-      index: 0,
-      name: "key",
-      label: 'Key',
-      tooltips: 'Row Primary Key',
-      isNumeric: true,
-      isHidden: true),
-  ColumnConfig(
-      index: 1,
-      name: "object_type",
-      label: 'Domain Key',
-      tooltips: 'Pipeline Grouping Domain Key',
-      isNumeric: false),
-  ColumnConfig(
-      index: 2,
-      name: "source_type",
-      label: 'Source Type',
-      tooltips: 'Source of the input data, either File or Domain Table',
-      isNumeric: false),
-  ColumnConfig(
-      index: 3,
-      name: "table_name",
-      label: 'Table Name',
-      tooltips: 'Table where the data reside',
-      isNumeric: false,
-      isHidden: false),
-  ColumnConfig(
-      index: 4,
-      name: "lookback_periods",
-      label: 'Lookback Periods',
-      tooltips: 'Number of periods included in the rule session',
-      isNumeric: true),
-
+      ColumnConfig(
+          index: 0,
+          name: "key",
+          label: 'Key',
+          tooltips: 'Row Primary Key',
+          isNumeric: true,
+          isHidden: true),
+      ColumnConfig(
+          index: 1,
+          name: "object_type",
+          label: 'Domain Key',
+          tooltips: 'Pipeline Grouping Domain Key',
+          isNumeric: false),
+      ColumnConfig(
+          index: 2,
+          name: "source_type",
+          label: 'Source Type',
+          tooltips: 'Source of the input data, either File or Domain Table',
+          isNumeric: false),
+      ColumnConfig(
+          index: 3,
+          name: "table_name",
+          label: 'Table Name',
+          tooltips: 'Table where the data reside',
+          isNumeric: false,
+          isHidden: false),
+      ColumnConfig(
+          index: 4,
+          name: "lookback_periods",
+          label: 'Lookback Periods',
+          tooltips: 'Number of periods included in the rule session',
+          isNumeric: true),
     ],
     sortColumnName: 'source_type',
     sortAscending: false,

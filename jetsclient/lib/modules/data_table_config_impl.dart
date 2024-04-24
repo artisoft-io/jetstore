@@ -11,7 +11,6 @@ import 'package:jetsclient/models/data_table_config.dart';
 import 'package:jetsclient/modules/rete_session/model_handlers.dart';
 import 'package:jetsclient/modules/workspace_ide/data_table_config.dart';
 
-
 final fileKeyStagingColumns = [
   ColumnConfig(
       index: 0,
@@ -185,7 +184,14 @@ final Map<String, TableConfig> _tableConfigurations = {
           tooltips: 'File key',
           isNumeric: false,
           cellFilter: (text) {
-            if(text == null) return null;
+            if (text == null) return null;
+            if (globalWorkspaceFileKeyLabelRe != null) {
+              RegExpMatch? match =
+                  globalWorkspaceFileKeyLabelRe!.firstMatch(text);
+              if (match != null) {
+                return match[1];
+              }
+            }
             return '...${text.substring(text.lastIndexOf('/'))}';
           }),
       ColumnConfig(
@@ -208,7 +214,8 @@ final Map<String, TableConfig> _tableConfigurations = {
           isNumeric: false,
           maxLines: 3,
           columnWidth: 400,
-          cellFilter: (text) => text?.replaceFirst('File contains 0 bad rows,recovered error: ', '')),
+          cellFilter: (text) => text?.replaceFirst(
+              'File contains 0 bad rows,recovered error: ', '')),
       ColumnConfig(
           index: 14,
           name: "user_email",
@@ -362,7 +369,14 @@ final Map<String, TableConfig> _tableConfigurations = {
               'Start the process by loading the this file and then execute the rule process',
           isNumeric: false,
           cellFilter: (text) {
-            if(text == null) return null;
+            if (text == null) return null;
+            if (globalWorkspaceFileKeyLabelRe != null) {
+              RegExpMatch? match =
+                  globalWorkspaceFileKeyLabelRe!.firstMatch(text);
+              if (match != null) {
+                return match[1];
+              }
+            }
             return '...${text.substring(text.lastIndexOf('/'))}';
           }),
       ColumnConfig(
@@ -1438,7 +1452,6 @@ final Map<String, TableConfig> _tableConfigurations = {
     sortAscending: false,
     rowsPerPage: 50,
   ),
-
 
   // Domain Table Viewer Data Table
   DTKeys.inputTable: TableConfig(

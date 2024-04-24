@@ -5,6 +5,7 @@ const betweenTheButtonsPadding = 8.0;
 var globalWorkspaceUri = '';
 var globalWorkspaceName = '';
 var globalWorkspaceBranch = '';
+RegExp? globalWorkspaceFileKeyLabelRe;
 
 /// Button action style, used by both JetsDataTable and JetsForm
 enum ActionStyle {
