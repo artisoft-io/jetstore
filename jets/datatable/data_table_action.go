@@ -1183,7 +1183,6 @@ func (ctx *Context) InsertRows(dataTableAction *DataTableAction, token string) (
 
 // utility methods
 func getNbrNodesFromComputePipesConfig(dbpool *pgxpool.Pool, inputRegistryKey interface{}) (int, error) {
-	var client, org, objectType string
 	stmt := `
 		SELECT compute_pipes_json 
 		FROM  jetsapi.input_registry ir, jetsapi.source_config sc
@@ -1192,8 +1191,7 @@ func getNbrNodesFromComputePipesConfig(dbpool *pgxpool.Pool, inputRegistryKey in
 			AND ir.object_type = sc.object_type
 		  AND ir.key = $1`
 	var cpJson sql.NullString
-	stmt = "SELECT compute_pipes_json FROM jetsapi.source_config WHERE client = $1 AND org = $2 AND object_type = $3"
-	err := dbpool.QueryRow(context.Background(), stmt, client, org, objectType).Scan(&cpJson)
+	err := dbpool.QueryRow(context.Background(), stmt, inputRegistryKey).Scan(&cpJson)
 	if err != nil {
 		return 0, fmt.Errorf("getNbrNodesFromComputePipesConfig: while getting compute_pipes_json from source_config table: %v", err)
 	}
