@@ -55,8 +55,8 @@ var phiTagName, piiTagName, descriptionTagName *string
 
 func mkCatchProps() *sfn.CatchProps {
 	return &sfn.CatchProps{
-		Errors:       jsii.Strings("States.ALL"),
-		ResultPath:   jsii.String("$.errorUpdate.failureDetails"),
+		Errors:     jsii.Strings("States.ALL"),
+		ResultPath: jsii.String("$.errorUpdate.failureDetails"),
 	}
 }
 
@@ -81,13 +81,13 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 	// ---------------------------------------
 	// Define the JetStore State Machines ARNs
 	// ---------------------------------------
-	loaderSmArn := fmt.Sprintf( "arn:aws:states:%s:%s:stateMachine:%s",
+	loaderSmArn := fmt.Sprintf("arn:aws:states:%s:%s:stateMachine:%s",
 		os.Getenv("AWS_REGION"), os.Getenv("AWS_ACCOUNT"), "loaderSM")
-	serverSmArn := fmt.Sprintf( "arn:aws:states:%s:%s:stateMachine:%s",
+	serverSmArn := fmt.Sprintf("arn:aws:states:%s:%s:stateMachine:%s",
 		os.Getenv("AWS_REGION"), os.Getenv("AWS_ACCOUNT"), "serverSM")
-	cpipesSmArn := fmt.Sprintf( "arn:aws:states:%s:%s:stateMachine:%s",
+	cpipesSmArn := fmt.Sprintf("arn:aws:states:%s:%s:stateMachine:%s",
 		os.Getenv("AWS_REGION"), os.Getenv("AWS_ACCOUNT"), "cpipesSM")
-	reportsSmArn := fmt.Sprintf( "arn:aws:states:%s:%s:stateMachine:%s",
+	reportsSmArn := fmt.Sprintf("arn:aws:states:%s:%s:stateMachine:%s",
 		os.Getenv("AWS_REGION"), os.Getenv("AWS_ACCOUNT"), "reportsSM")
 
 	// Created here since it's needed for all containers
@@ -113,11 +113,11 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 	bucketName := os.Getenv("JETS_BUCKET_NAME")
 	if bucketName == "" {
 		sb := awss3.NewBucket(stack, jsii.String("JetStoreBucket"), &awss3.BucketProps{
-			RemovalPolicy:          awscdk.RemovalPolicy_DESTROY,
-			AutoDeleteObjects:      jsii.Bool(true),
-			BlockPublicAccess:      awss3.BlockPublicAccess_BLOCK_ALL(),
-			Versioned:              jsii.Bool(true),
-			// AccessControl: awss3.BucketAccessControl_BUCKET_OWNER_FULL_CONTROL, 
+			RemovalPolicy:     awscdk.RemovalPolicy_DESTROY,
+			AutoDeleteObjects: jsii.Bool(true),
+			BlockPublicAccess: awss3.BlockPublicAccess_BLOCK_ALL(),
+			Versioned:         jsii.Bool(true),
+			// AccessControl: awss3.BucketAccessControl_BUCKET_OWNER_FULL_CONTROL,
 			ServerAccessLogsPrefix: jsii.String("AccessLogs/"),
 		})
 		if phiTagName != nil {
@@ -157,7 +157,6 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 	// Add Endpoints on private subnets
 	privateSecurityGroup := jetstorestack.AddVpcEndpoints(stack, vpc, "Private", privateSubnetSelection)
 
-
 	// Database Cluster
 	// ----------------------------------------------------------------------------------------------
 	// Create Serverless v2 Aurora Cluster -- Postgresql Server
@@ -184,14 +183,14 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 		Engine: awsrds.DatabaseClusterEngine_AuroraPostgres(&awsrds.AuroraPostgresClusterEngineProps{
 			Version: awsrds.AuroraPostgresEngineVersion_VER_14_5(),
 		}),
-		Credentials:         awsrds.Credentials_FromSecret(rdsSecret, username),
-		ClusterIdentifier:   jsii.String("jetstoreDb"),
-		DefaultDatabaseName: jsii.String("postgres"),
-		Writer: awsrds.ClusterInstance_ServerlessV2(jsii.String("ClusterInstance"), &awsrds.ServerlessV2ClusterInstanceProps{}),
+		Credentials:             awsrds.Credentials_FromSecret(rdsSecret, username),
+		ClusterIdentifier:       jsii.String("jetstoreDb"),
+		DefaultDatabaseName:     jsii.String("postgres"),
+		Writer:                  awsrds.ClusterInstance_ServerlessV2(jsii.String("ClusterInstance"), &awsrds.ServerlessV2ClusterInstanceProps{}),
 		ServerlessV2MinCapacity: props.DbMinCapacity,
-    ServerlessV2MaxCapacity: props.DbMaxCapacity,
-		Vpc:          vpc,
-		VpcSubnets:   isolatedSubnetSelection,
+		ServerlessV2MaxCapacity: props.DbMaxCapacity,
+		Vpc:                     vpc,
+		VpcSubnets:              isolatedSubnetSelection,
 		S3ExportBuckets: &[]awss3.IBucket{
 			sourceBucket,
 		},
@@ -360,14 +359,14 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 			"JETS_REPORTS_SM_ARN":                jsii.String(reportsSmArn),
 		},
 		Secrets: &map[string]awsecs.Secret{
-			"JETS_DSN_JSON_VALUE":          awsecs.Secret_FromSecretsManager(rdsSecret, nil),
-			"API_SECRET":                   awsecs.Secret_FromSecretsManager(apiSecret, nil),
+			"JETS_DSN_JSON_VALUE": awsecs.Secret_FromSecretsManager(rdsSecret, nil),
+			"API_SECRET":          awsecs.Secret_FromSecretsManager(apiSecret, nil),
 		},
 		Logging: awsecs.LogDriver_AwsLogs(&awsecs.AwsLogDriverProps{
 			StreamPrefix: jsii.String("task"),
 		}),
 	})
-	
+
 	// JetStore Loader ECS Task
 	// Define the loaderTaskDefinition for the loaderSM
 	// --------------------------------------------------------------------------------------------------------------
@@ -378,22 +377,22 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 		if err != nil {
 			fmt.Println("while parsing JETS_LOADER_TASK_MEM_LIMIT_MB:", err)
 			memLimit = 3072
-		}	
+		}
 	} else {
 		memLimit = 3072
 	}
-	fmt.Println("Using memory limit of",memLimit," (from env JETS_LOADER_TASK_MEM_LIMIT_MB)")
+	fmt.Println("Using memory limit of", memLimit, " (from env JETS_LOADER_TASK_MEM_LIMIT_MB)")
 	if len(os.Getenv("JETS_LOADER_TASK_CPU")) > 0 {
 		var err error
 		cpu, err = strconv.ParseFloat(os.Getenv("JETS_LOADER_TASK_CPU"), 64)
 		if err != nil {
 			fmt.Println("while parsing JETS_LOADER_TASK_CPU:", err)
 			cpu = 1024
-		}	
+		}
 	} else {
 		cpu = 1024
 	}
-	fmt.Println("Using cpu allocation of",cpu," (from env JETS_LOADER_TASK_CPU)")
+	fmt.Println("Using cpu allocation of", cpu, " (from env JETS_LOADER_TASK_CPU)")
 	loaderTaskDefinition := awsecs.NewFargateTaskDefinition(stack, jsii.String("loaderTaskDefinition"), &awsecs.FargateTaskDefinitionProps{
 		MemoryLimitMiB: jsii.Number(memLimit),
 		Cpu:            jsii.Number(cpu),
@@ -458,8 +457,8 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 			},
 		},
 		PropagatedTagSource: awsecs.PropagatedTagSource_TASK_DEFINITION,
-		ResultPath:         sfn.JsonPath_DISCARD(),
-		IntegrationPattern: sfn.IntegrationPattern_RUN_JOB,
+		ResultPath:          sfn.JsonPath_DISCARD(),
+		IntegrationPattern:  sfn.IntegrationPattern_RUN_JOB,
 	})
 	runLoaderTask.Connections().AllowTo(rdsCluster, awsec2.Port_Tcp(jsii.Number(5432)), jsii.String("Allow connection from runLoaderTask"))
 
@@ -481,8 +480,8 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 			},
 		},
 		PropagatedTagSource: awsecs.PropagatedTagSource_TASK_DEFINITION,
-		ResultPath:         sfn.JsonPath_DISCARD(),
-		IntegrationPattern: sfn.IntegrationPattern_RUN_JOB,
+		ResultPath:          sfn.JsonPath_DISCARD(),
+		IntegrationPattern:  sfn.IntegrationPattern_RUN_JOB,
 	})
 	runLoaderReportsTask.Connections().AllowTo(rdsCluster, awsec2.Port_Tcp(jsii.Number(5432)), jsii.String("Allow connection from runLoaderReportsTask "))
 	//* TODO add a catch on runLoaderTask and runLoaderReportsTask
@@ -492,7 +491,7 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 	// --------------------------------------------------------------------------------------------------------------
 	loaderSM := sfn.NewStateMachine(stack, jsii.String("loaderSM"), &sfn.StateMachineProps{
 		StateMachineName: jsii.String("loaderSM"),
-		DefinitionBody: sfn.DefinitionBody_FromChainable(runLoaderTask),
+		DefinitionBody:   sfn.DefinitionBody_FromChainable(runLoaderTask),
 		Timeout:          awscdk.Duration_Hours(jsii.Number(2)),
 	})
 	if phiTagName != nil {
@@ -511,8 +510,8 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 	// --------------------------------------------------------------------------------------------------------------
 	statusUpdateLambda := awslambdago.NewGoFunction(stack, jsii.String("StatusUpdateLambda"), &awslambdago.GoFunctionProps{
 		Description: jsii.String("Lambda function to register file key with jetstore db"),
-		Runtime: awslambda.Runtime_GO_1_X(),
-		Entry:   jsii.String("lambdas/status_update"),
+		Runtime:     awslambda.Runtime_GO_1_X(),
+		Entry:       jsii.String("lambdas/status_update"),
 		Bundling: &awslambdago.BundlingOptions{
 			GoBuildFlags: &[]*string{jsii.String(`-buildvcs=false -ldflags "-s -w"`)},
 		},
@@ -539,7 +538,7 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 		},
 		MemorySize: jsii.Number(128),
 		Timeout:    awscdk.Duration_Millis(jsii.Number(60000)),
-		Vpc: vpc,
+		Vpc:        vpc,
 		VpcSubnets: isolatedSubnetSelection,
 	})
 	if phiTagName != nil {
@@ -563,23 +562,23 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 	if len(os.Getenv("RETENTION_DAYS")) > 0 {
 		purgeDataLambda = awslambdago.NewGoFunction(stack, jsii.String("PurgeDataLambda"), &awslambdago.GoFunctionProps{
 			Description: jsii.String("Lambda function to purge historical data in jetstore db"),
-			Runtime: awslambda.Runtime_GO_1_X(),
-			Entry:   jsii.String("lambdas/purge_data"),
+			Runtime:     awslambda.Runtime_GO_1_X(),
+			Entry:       jsii.String("lambdas/purge_data"),
 			Bundling: &awslambdago.BundlingOptions{
 				GoBuildFlags: &[]*string{jsii.String(`-buildvcs=false -ldflags "-s -w"`)},
 			},
 			Environment: &map[string]*string{
-				"JETS_DSN_SECRET":                    rdsSecret.SecretName(),
-				"JETS_REGION":                        jsii.String(os.Getenv("AWS_REGION")),
-				"RETENTION_DAYS":                     jsii.String(os.Getenv("RETENTION_DAYS")),
+				"JETS_DSN_SECRET": rdsSecret.SecretName(),
+				"JETS_REGION":     jsii.String(os.Getenv("AWS_REGION")),
+				"RETENTION_DAYS":  jsii.String(os.Getenv("RETENTION_DAYS")),
 			},
 			MemorySize: jsii.Number(128),
-			Timeout:    awscdk.Duration_Millis(jsii.Number(60000*15)),
-			Vpc: vpc,
+			Timeout:    awscdk.Duration_Millis(jsii.Number(60000 * 15)),
+			Vpc:        vpc,
 			VpcSubnets: isolatedSubnetSelection,
 		})
 		purgeDataLambda.Connections().AllowTo(rdsCluster, awsec2.Port_Tcp(jsii.Number(5432)), jsii.String("Allow connection from StatusUpdateLambda"))
-		rdsSecret.GrantRead(purgeDataLambda, nil)	
+		rdsSecret.GrantRead(purgeDataLambda, nil)
 		if phiTagName != nil {
 			awscdk.Tags_Of(purgeDataLambda).Add(phiTagName, jsii.String("false"), nil)
 		}
@@ -596,8 +595,8 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 				awseventstargets.NewLambdaFunction(purgeDataLambda, &awseventstargets.LambdaFunctionProps{}),
 			},
 			Schedule: awsevents.Schedule_Cron(&awsevents.CronOptions{
-				Hour: jsii.String("7"),
-				Minute: jsii.String("0"),
+				Hour:    jsii.String("7"),
+				Minute:  jsii.String("0"),
 				WeekDay: jsii.String("MON-FRI"),
 			}),
 		})
@@ -617,35 +616,35 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 		ContainerOverrides: &[]*sfntask.ContainerOverride{
 			{
 				ContainerDefinition: runreportsContainerDef,
-				// Using same api as serverSM from apiserver point of view, taking reportsCommand, 
+				// Using same api as serverSM from apiserver point of view, taking reportsCommand,
 				// other SM (as cpipesSM does) could use the serverCommands when in need of Map construct
-				Command:             sfn.JsonPath_ListAt(jsii.String("$.reportsCommand")),
+				Command: sfn.JsonPath_ListAt(jsii.String("$.reportsCommand")),
 			},
 		},
 		PropagatedTagSource: awsecs.PropagatedTagSource_TASK_DEFINITION,
-		ResultPath:         sfn.JsonPath_DISCARD(),
-		IntegrationPattern: sfn.IntegrationPattern_RUN_JOB,
+		ResultPath:          sfn.JsonPath_DISCARD(),
+		IntegrationPattern:  sfn.IntegrationPattern_RUN_JOB,
 	})
 	runReportsTask.Connections().AllowTo(rdsCluster, awsec2.Port_Tcp(jsii.Number(5432)), jsii.String("Allow connection from runReportsTask "))
 
 	// Status Update lambda: update_success Step Function Task for reportsSM
 	// --------------------------------------------------------------------------------------------------------------
 	updateReportsSuccessStatusLambdaTask := sfntask.NewLambdaInvoke(stack, jsii.String("UpdateStatusSuccessLambdaTask"), &sfntask.LambdaInvokeProps{
-		Comment: jsii.String("Lambda Task to update status to success"),
+		Comment:        jsii.String("Lambda Task to update status to success"),
 		LambdaFunction: statusUpdateLambda,
-		InputPath: jsii.String("$.successUpdate"),
-		ResultPath: sfn.JsonPath_DISCARD(),
+		InputPath:      jsii.String("$.successUpdate"),
+		ResultPath:     sfn.JsonPath_DISCARD(),
 	})
 
 	// Status Update: update_success Step Function Task for reportsSM
 	// --------------------------------------------------------------------------------------------------------------
 	updateReportsErrorStatusLambdaTask := sfntask.NewLambdaInvoke(stack, jsii.String("UpdateReportsErrorStatusLambdaTask"), &sfntask.LambdaInvokeProps{
-		Comment: jsii.String("Lambda Task to update status to error/failed"),
+		Comment:        jsii.String("Lambda Task to update status to error/failed"),
 		LambdaFunction: statusUpdateLambda,
-		InputPath: jsii.String("$.errorUpdate"),
-		ResultPath: sfn.JsonPath_DISCARD(),
+		InputPath:      jsii.String("$.errorUpdate"),
+		ResultPath:     sfn.JsonPath_DISCARD(),
 	})
-	
+
 	// runReportsTask.AddCatch(updateReportsErrorStatusTask, mkCatchProps()).Next(updateReportsSuccessStatusTask)
 	runReportsTask.AddCatch(updateReportsErrorStatusLambdaTask, mkCatchProps()).Next(updateReportsSuccessStatusLambdaTask)
 
@@ -653,7 +652,7 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 	// --------------------------------------------------------------------------------------------------------------
 	reportsSM := sfn.NewStateMachine(stack, jsii.String("reportsSM"), &sfn.StateMachineProps{
 		StateMachineName: jsii.String("reportsSM"),
-		DefinitionBody: sfn.DefinitionBody_FromChainable(runReportsTask),
+		DefinitionBody:   sfn.DefinitionBody_FromChainable(runReportsTask),
 		Timeout:          awscdk.Duration_Hours(jsii.Number(4)),
 	})
 	if phiTagName != nil {
@@ -676,22 +675,22 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 		if err != nil {
 			fmt.Println("while parsing JETS_SERVER_TASK_MEM_LIMIT_MB:", err)
 			memLimit = 24576
-		}	
+		}
 	} else {
 		memLimit = 24576
 	}
-	fmt.Println("Using memory limit of",memLimit," (from env JETS_SERVER_TASK_MEM_LIMIT_MB)")
+	fmt.Println("Using memory limit of", memLimit, " (from env JETS_SERVER_TASK_MEM_LIMIT_MB)")
 	if len(os.Getenv("JETS_SERVER_TASK_CPU")) > 0 {
 		var err error
 		cpu, err = strconv.ParseFloat(os.Getenv("JETS_SERVER_TASK_CPU"), 64)
 		if err != nil {
 			fmt.Println("while parsing JETS_SERVER_TASK_CPU:", err)
 			cpu = 4096
-		}	
+		}
 	} else {
 		cpu = 4096
 	}
-	fmt.Println("Using cpu allocation of",cpu," (from env JETS_SERVER_TASK_CPU)")
+	fmt.Println("Using cpu allocation of", cpu, " (from env JETS_SERVER_TASK_CPU)")
 
 	serverTaskDefinition := awsecs.NewFargateTaskDefinition(stack, jsii.String("serverTaskDefinition"), &awsecs.FargateTaskDefinitionProps{
 		MemoryLimitMiB: jsii.Number(memLimit),
@@ -731,8 +730,8 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 			"JETS_REPORTS_SM_ARN":                jsii.String(reportsSmArn),
 		},
 		Secrets: &map[string]awsecs.Secret{
-			"JETS_DSN_JSON_VALUE":          awsecs.Secret_FromSecretsManager(rdsSecret, nil),
-			"API_SECRET":                   awsecs.Secret_FromSecretsManager(apiSecret, nil),
+			"JETS_DSN_JSON_VALUE": awsecs.Secret_FromSecretsManager(rdsSecret, nil),
+			"API_SECRET":          awsecs.Secret_FromSecretsManager(apiSecret, nil),
 		},
 		Logging: awsecs.LogDriver_AwsLogs(&awsecs.AwsLogDriverProps{
 			StreamPrefix: jsii.String("task"),
@@ -756,7 +755,7 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 			},
 		},
 		PropagatedTagSource: awsecs.PropagatedTagSource_TASK_DEFINITION,
-		IntegrationPattern: sfn.IntegrationPattern_RUN_JOB,
+		IntegrationPattern:  sfn.IntegrationPattern_RUN_JOB,
 	})
 	runServerTask.Connections().AllowTo(rdsCluster, awsec2.Port_Tcp(jsii.Number(5432)), jsii.String("Allow connection from runServerTask"))
 
@@ -778,27 +777,27 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 			},
 		},
 		PropagatedTagSource: awsecs.PropagatedTagSource_TASK_DEFINITION,
-		ResultPath:         sfn.JsonPath_DISCARD(),
-		IntegrationPattern: sfn.IntegrationPattern_RUN_JOB,
+		ResultPath:          sfn.JsonPath_DISCARD(),
+		IntegrationPattern:  sfn.IntegrationPattern_RUN_JOB,
 	})
 	runServerReportsTask.Connections().AllowTo(rdsCluster, awsec2.Port_Tcp(jsii.Number(5432)), jsii.String("Allow connection from runServerReportsTask "))
 
 	// Status Update: update_success Step Function Task for reportsSM
 	// --------------------------------------------------------------------------------------------------------------
 	updateServerErrorStatusLambdaTask := sfntask.NewLambdaInvoke(stack, jsii.String("UpdateServerErrorStatusLambdaTask"), &sfntask.LambdaInvokeProps{
-		Comment: jsii.String("Lambda Task to update server status to error/failed"),
+		Comment:        jsii.String("Lambda Task to update server status to error/failed"),
 		LambdaFunction: statusUpdateLambda,
-		InputPath: jsii.String("$.errorUpdate"),
-		ResultPath: sfn.JsonPath_DISCARD(),
+		InputPath:      jsii.String("$.errorUpdate"),
+		ResultPath:     sfn.JsonPath_DISCARD(),
 	})
 
 	// Status Update: update_success Step Function Task for reportsSM
 	// --------------------------------------------------------------------------------------------------------------
 	updateServerSuccessStatusLambdaTask := sfntask.NewLambdaInvoke(stack, jsii.String("UpdateServerSuccessStatusLambdaTask"), &sfntask.LambdaInvokeProps{
-		Comment: jsii.String("Lambda Task to update server status to success"),
+		Comment:        jsii.String("Lambda Task to update server status to success"),
 		LambdaFunction: statusUpdateLambda,
-		InputPath: jsii.String("$.successUpdate"),
-		ResultPath: sfn.JsonPath_DISCARD(),
+		InputPath:      jsii.String("$.successUpdate"),
+		ResultPath:     sfn.JsonPath_DISCARD(),
 	})
 
 	//*TODO SNS message
@@ -833,8 +832,8 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 	// Version using Lambda for Status Update
 	runServerMap.Iterator(runServerTask).AddRetry(&sfn.RetryProps{
 		BackoffRate: jsii.Number(2),
-		Errors: jsii.Strings(*sfn.Errors_TASKS_FAILED()),
-		Interval: awscdk.Duration_Minutes(jsii.Number(4)),
+		Errors:      jsii.Strings(*sfn.Errors_TASKS_FAILED()),
+		Interval:    awscdk.Duration_Minutes(jsii.Number(4)),
 		MaxAttempts: jsii.Number(2),
 	}).AddCatch(updateServerErrorStatusLambdaTask, mkCatchProps()).Next(runServerReportsTask)
 	runServerReportsTask.AddCatch(updateServerErrorStatusLambdaTask, mkCatchProps()).Next(updateServerSuccessStatusLambdaTask)
@@ -843,7 +842,7 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 
 	serverSM := sfn.NewStateMachine(stack, jsii.String("serverSM"), &sfn.StateMachineProps{
 		StateMachineName: jsii.String("serverSM"),
-		DefinitionBody: sfn.DefinitionBody_FromChainable(runServerMap),
+		DefinitionBody:   sfn.DefinitionBody_FromChainable(runServerMap),
 		//* NOTE 4h TIMEOUT of exec rules
 		Timeout: awscdk.Duration_Hours(jsii.Number(4)),
 	})
@@ -871,22 +870,22 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 		if err != nil {
 			fmt.Println("while parsing JETS_CPIPES_TASK_MEM_LIMIT_MB:", err)
 			memLimit = 24576
-		}	
+		}
 	} else {
 		memLimit = 24576
 	}
-	fmt.Println("Using memory limit of",memLimit," (from env JETS_CPIPES_TASK_MEM_LIMIT_MB)")
+	fmt.Println("Using memory limit of", memLimit, " (from env JETS_CPIPES_TASK_MEM_LIMIT_MB)")
 	if len(os.Getenv("JETS_CPIPES_TASK_CPU")) > 0 {
 		var err error
 		cpu, err = strconv.ParseFloat(os.Getenv("JETS_CPIPES_TASK_CPU"), 64)
 		if err != nil {
 			fmt.Println("while parsing JETS_CPIPES_TASK_CPU:", err)
 			cpu = 4096
-		}	
+		}
 	} else {
 		cpu = 4096
 	}
-	fmt.Println("Using cpu allocation of",cpu," (from env JETS_CPIPES_TASK_CPU)")
+	fmt.Println("Using cpu allocation of", cpu, " (from env JETS_CPIPES_TASK_CPU)")
 
 	cpipesTaskDefinition := awsecs.NewFargateTaskDefinition(stack, jsii.String("cpipesTaskDefinition"), &awsecs.FargateTaskDefinitionProps{
 		MemoryLimitMiB: jsii.Number(memLimit),
@@ -935,8 +934,8 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 			"JETS_REPORTS_SM_ARN":                jsii.String(reportsSmArn),
 		},
 		Secrets: &map[string]awsecs.Secret{
-			"JETS_DSN_JSON_VALUE":          awsecs.Secret_FromSecretsManager(rdsSecret, nil),
-			"API_SECRET":                   awsecs.Secret_FromSecretsManager(apiSecret, nil),
+			"JETS_DSN_JSON_VALUE": awsecs.Secret_FromSecretsManager(rdsSecret, nil),
+			"API_SECRET":          awsecs.Secret_FromSecretsManager(apiSecret, nil),
 		},
 		Logging: awsecs.LogDriver_AwsLogs(&awsecs.AwsLogDriverProps{
 			StreamPrefix: jsii.String("task"),
@@ -960,11 +959,10 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 			},
 		},
 		PropagatedTagSource: awsecs.PropagatedTagSource_TASK_DEFINITION,
-		IntegrationPattern: sfn.IntegrationPattern_RUN_JOB,
+		IntegrationPattern:  sfn.IntegrationPattern_RUN_JOB,
 	})
 	runCPipesTask.Connections().AllowTo(rdsCluster, awsec2.Port_Tcp(jsii.Number(5432)), jsii.String("Allow connection from runCPipesTask"))
 	runCPipesTask.Connections().AllowFromAnyIpv4(awsec2.Port_Tcp(jsii.Number(8085)), jsii.String("allow between cpipes nodes"))
-	
 
 	// Run Reports Step Function Task for cpipesSM
 	// -----------------------------------------------
@@ -984,27 +982,27 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 			},
 		},
 		PropagatedTagSource: awsecs.PropagatedTagSource_TASK_DEFINITION,
-		ResultPath:         sfn.JsonPath_DISCARD(),
-		IntegrationPattern: sfn.IntegrationPattern_RUN_JOB,
+		ResultPath:          sfn.JsonPath_DISCARD(),
+		IntegrationPattern:  sfn.IntegrationPattern_RUN_JOB,
 	})
 	runCPipesReportsTask.Connections().AllowTo(rdsCluster, awsec2.Port_Tcp(jsii.Number(5432)), jsii.String("Allow connection from runCPipesReportsTask "))
 
 	// Status Update: update_success Step Function Task for cpipesSM
 	// --------------------------------------------------------------------------------------------------------------
 	updateCPipesErrorStatusLambdaTask := sfntask.NewLambdaInvoke(stack, jsii.String("UpdateCPipesErrorStatusLambdaTask"), &sfntask.LambdaInvokeProps{
-		Comment: jsii.String("Lambda Task to update cpipes status to error/failed"),
+		Comment:        jsii.String("Lambda Task to update cpipes status to error/failed"),
 		LambdaFunction: statusUpdateLambda,
-		InputPath: jsii.String("$.errorUpdate"),
-		ResultPath: sfn.JsonPath_DISCARD(),
+		InputPath:      jsii.String("$.errorUpdate"),
+		ResultPath:     sfn.JsonPath_DISCARD(),
 	})
 
 	// Status Update: update_success Step Function Task for reportsSM
 	// --------------------------------------------------------------------------------------------------------------
 	updateCPipesSuccessStatusLambdaTask := sfntask.NewLambdaInvoke(stack, jsii.String("UpdateCPipesSuccessStatusLambdaTask"), &sfntask.LambdaInvokeProps{
-		Comment: jsii.String("Lambda Task to update cpipes status to success"),
+		Comment:        jsii.String("Lambda Task to update cpipes status to success"),
 		LambdaFunction: statusUpdateLambda,
-		InputPath: jsii.String("$.successUpdate"),
-		ResultPath: sfn.JsonPath_DISCARD(),
+		InputPath:      jsii.String("$.successUpdate"),
+		ResultPath:     sfn.JsonPath_DISCARD(),
 	})
 
 	//*TODO SNS message
@@ -1024,8 +1022,8 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 	// Version using Lambda for Status Update
 	runCPipesMap.Iterator(runCPipesTask).AddRetry(&sfn.RetryProps{
 		BackoffRate: jsii.Number(2),
-		Errors: jsii.Strings(*sfn.Errors_TASKS_FAILED()),
-		Interval: awscdk.Duration_Minutes(jsii.Number(4)),
+		Errors:      jsii.Strings(*sfn.Errors_TASKS_FAILED()),
+		Interval:    awscdk.Duration_Minutes(jsii.Number(4)),
 		MaxAttempts: jsii.Number(2),
 	}).AddCatch(updateCPipesErrorStatusLambdaTask, mkCatchProps()).Next(runCPipesReportsTask)
 	runCPipesReportsTask.AddCatch(updateCPipesErrorStatusLambdaTask, mkCatchProps()).Next(updateCPipesSuccessStatusLambdaTask)
@@ -1034,7 +1032,7 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 
 	cpipesSM := sfn.NewStateMachine(stack, jsii.String("cpipesSM"), &sfn.StateMachineProps{
 		StateMachineName: jsii.String("cpipesSM"),
-		DefinitionBody: sfn.DefinitionBody_FromChainable(runCPipesMap),
+		DefinitionBody:   sfn.DefinitionBody_FromChainable(runCPipesMap),
 		//* NOTE 2h TIMEOUT
 		Timeout: awscdk.Duration_Hours(jsii.Number(2)),
 	})
@@ -1051,7 +1049,7 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 	// @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
 	// @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
 	// @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
-	
+
 	// ---------------------------------------
 	// Allow JetStore Tasks Running in JetStore Container
 	// permission to execute the StateMachines
@@ -1068,7 +1066,7 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 	}))
 	// Also to status update lambda
 	statusUpdateLambda.AddToRolePolicy(awsiam.NewPolicyStatement(&awsiam.PolicyStatementProps{
-		Actions: jsii.Strings("states:StartExecution"),
+		Actions:   jsii.Strings("states:StartExecution"),
 		Resources: jsii.Strings("*"),
 		// Resources: &[]*string{
 		// 	loaderSM.StateMachineArn(),
@@ -1082,7 +1080,7 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 	// Define the JetStore UI Service
 	// ---------------------------------------
 	uiTaskDefinition := awsecs.NewFargateTaskDefinition(stack, jsii.String("uiTaskDefinition"), &awsecs.FargateTaskDefinitionProps{
-		MemoryLimitMiB: jsii.Number(1024*4),
+		MemoryLimitMiB: jsii.Number(1024 * 4),
 		Cpu:            jsii.Number(1024),
 		ExecutionRole:  ecsTaskExecutionRole,
 		TaskRole:       ecsTaskRole,
@@ -1138,6 +1136,7 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 			"JETS_DOMAIN_KEY_SEPARATOR":          jsii.String(os.Getenv("JETS_DOMAIN_KEY_SEPARATOR")),
 			"WORKSPACE":                          jsii.String(os.Getenv("WORKSPACE")),
 			"WORKSPACE_BRANCH":                   jsii.String(os.Getenv("WORKSPACE_BRANCH")),
+			"WORKSPACE_FILE_KEY_LABEL_RE":        jsii.String(os.Getenv("WORKSPACE_FILE_KEY_LABEL_RE")),
 			"WORKSPACE_URI":                      jsii.String(os.Getenv("WORKSPACE_URI")),
 			"ACTIVE_WORKSPACE_URI":               jsii.String(os.Getenv("ACTIVE_WORKSPACE_URI")),
 			"ENVIRONMENT":                        jsii.String(os.Getenv("ENVIRONMENT")),
@@ -1147,16 +1146,16 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 			"JETS_REPORTS_SM_ARN":                jsii.String(reportsSmArn),
 		},
 		Secrets: &map[string]awsecs.Secret{
-			"JETS_DSN_JSON_VALUE":          awsecs.Secret_FromSecretsManager(rdsSecret, nil),
-			"API_SECRET":                   awsecs.Secret_FromSecretsManager(apiSecret, nil),
-			"JETS_ADMIN_PWD":               awsecs.Secret_FromSecretsManager(adminPwdSecret, nil),
-			"JETS_ENCRYPTION_KEY":          awsecs.Secret_FromSecretsManager(encryptionKeySecret, nil),
+			"JETS_DSN_JSON_VALUE": awsecs.Secret_FromSecretsManager(rdsSecret, nil),
+			"API_SECRET":          awsecs.Secret_FromSecretsManager(apiSecret, nil),
+			"JETS_ADMIN_PWD":      awsecs.Secret_FromSecretsManager(adminPwdSecret, nil),
+			"JETS_ENCRYPTION_KEY": awsecs.Secret_FromSecretsManager(encryptionKeySecret, nil),
 		},
 		Logging: awsecs.LogDriver_AwsLogs(&awsecs.AwsLogDriverProps{
 			StreamPrefix: jsii.String("task"),
 		}),
 	})
-	
+
 	ecsUiService := awsecs.NewFargateService(stack, jsii.String("jetstore-ui"), &awsecs.FargateServiceProps{
 		Cluster:        ecsCluster,
 		ServiceName:    jsii.String("jetstore-ui"),
@@ -1165,7 +1164,7 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 		AssignPublicIp: jsii.Bool(false),
 		DesiredCount:   jsii.Number(1),
 		SecurityGroups: &[]awsec2.ISecurityGroup{
-			privateSecurityGroup, 
+			privateSecurityGroup,
 			jetstorestack.NewGitAccessSecurityGroup(stack, vpc)},
 	})
 	if phiTagName != nil {
@@ -1191,17 +1190,17 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 		var elbSecurityGroup awsec2.ISecurityGroup
 		if os.Getenv("JETS_ELB_NO_ALL_INCOMING") == "true" {
 			elbSecurityGroup = awsec2.NewSecurityGroup(stack, jsii.String("UiElbSecurityGroup"), &awsec2.SecurityGroupProps{
-				Vpc: vpc,
-				Description: jsii.String("UI public ELB Security Group without all incoming traffic"),
+				Vpc:              vpc,
+				Description:      jsii.String("UI public ELB Security Group without all incoming traffic"),
 				AllowAllOutbound: jsii.Bool(false),
 			})
 		}
 		uiLoadBalancer = awselb.NewApplicationLoadBalancer(stack, jsii.String("UIELB"), &awselb.ApplicationLoadBalancerProps{
 			Vpc:            vpc,
 			InternetFacing: jsii.Bool(internetFacing),
-			VpcSubnets:      elbSubnetSelection,
-			SecurityGroup: elbSecurityGroup,
-			IdleTimeout: awscdk.Duration_Minutes(jsii.Number(20)),
+			VpcSubnets:     elbSubnetSelection,
+			SecurityGroup:  elbSecurityGroup,
+			IdleTimeout:    awscdk.Duration_Minutes(jsii.Number(20)),
 		})
 		if phiTagName != nil {
 			awscdk.Tags_Of(uiLoadBalancer).Add(phiTagName, jsii.String("true"), nil)
@@ -1216,7 +1215,7 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 			Vpc:            vpc,
 			InternetFacing: jsii.Bool(false),
 			VpcSubnets:     isolatedSubnetSelection,
-			IdleTimeout: awscdk.Duration_Minutes(jsii.Number(10)),
+			IdleTimeout:    awscdk.Duration_Minutes(jsii.Number(10)),
 		})
 		if phiTagName != nil {
 			awscdk.Tags_Of(serviceLoadBalancer).Add(phiTagName, jsii.String("false"), nil)
@@ -1233,7 +1232,7 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 			Vpc:            vpc,
 			InternetFacing: jsii.Bool(false),
 			VpcSubnets:     isolatedSubnetSelection,
-			IdleTimeout: awscdk.Duration_Minutes(jsii.Number(20)),
+			IdleTimeout:    awscdk.Duration_Minutes(jsii.Number(20)),
 		})
 		if phiTagName != nil {
 			awscdk.Tags_Of(uiLoadBalancer).Add(phiTagName, jsii.String("true"), nil)
@@ -1312,18 +1311,18 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 	statusUpdateLambda.AddEnvironment(
 		jsii.String("SYSTEM_PWD_SECRET"),
 		adminPwdSecret.SecretName(),
-		&awslambda.EnvironmentOptions{},	
+		&awslambda.EnvironmentOptions{},
 	)
 	apiSecret.GrantRead(statusUpdateLambda, nil)
 	statusUpdateLambda.AddEnvironment(
 		jsii.String("AWS_API_SECRET"),
 		apiSecret.SecretName(),
-		&awslambda.EnvironmentOptions{},	
+		&awslambda.EnvironmentOptions{},
 	)
 	statusUpdateLambda.AddEnvironment(
 		jsii.String("JETS_API_URL"),
 		jsii.String(jetsApiUrl),
-		&awslambda.EnvironmentOptions{},	
+		&awslambda.EnvironmentOptions{},
 	)
 
 	// Add the ELB alerts
@@ -1388,12 +1387,12 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 		Timeout:     awscdk.Duration_Seconds(jsii.Number(300)),
 		Runtime:     awslambda.Runtime_PYTHON_3_9(),
 		Environment: &map[string]*string{
-			"JETS_REGION":                   jsii.String(os.Getenv("AWS_REGION")),
-			"JETS_API_URL":                  jsii.String(jetsApiUrl),
-			"SYSTEM_USER":                   jsii.String("admin"),
-			"SYSTEM_PWD_SECRET":             adminPwdSecret.SecretName(),
-			"JETS_ELB_MODE":                 jsii.String(os.Getenv("JETS_ELB_MODE")),
-			"JETS_DOMAIN_KEY_SEPARATOR":     jsii.String(os.Getenv("JETS_DOMAIN_KEY_SEPARATOR")),
+			"JETS_REGION":               jsii.String(os.Getenv("AWS_REGION")),
+			"JETS_API_URL":              jsii.String(jetsApiUrl),
+			"SYSTEM_USER":               jsii.String("admin"),
+			"SYSTEM_PWD_SECRET":         adminPwdSecret.SecretName(),
+			"JETS_ELB_MODE":             jsii.String(os.Getenv("JETS_ELB_MODE")),
+			"JETS_DOMAIN_KEY_SEPARATOR": jsii.String(os.Getenv("JETS_DOMAIN_KEY_SEPARATOR")),
 		},
 		Vpc:        vpc,
 		VpcSubnets: isolatedSubnetSelection,
@@ -1485,6 +1484,7 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 // WORKSPACE_BRANCH to indicate the active workspace
 // WORKSPACE_URI (optional, if set it will lock the workspace uri and will not take the ui value)
 // WORKSPACES_HOME (required, to copy test files from workspace data folder)
+// WORKSPACE_FILE_KEY_LABEL_RE (optional) regex to extract label from file_key in UI
 func main() {
 	defer jsii.Close()
 	var err error
@@ -1541,6 +1541,7 @@ func main() {
 	fmt.Println("env RETENTION_DAYS:", os.Getenv("RETENTION_DAYS"))
 	fmt.Println("env TASK_MAX_CONCURRENCY:", os.Getenv("TASK_MAX_CONCURRENCY"))
 	fmt.Println("env WORKSPACE_BRANCH:", os.Getenv("WORKSPACE_BRANCH"))
+	fmt.Println("env WORKSPACE_FILE_KEY_LABEL_RE:", os.Getenv("WORKSPACE_FILE_KEY_LABEL_RE"))
 	fmt.Println("env WORKSPACE_URI:", os.Getenv("WORKSPACE_URI"))
 	fmt.Println("env WORKSPACE:", os.Getenv("WORKSPACE"))
 	fmt.Println("env WORKSPACES_HOME:", os.Getenv("WORKSPACES_HOME"))
@@ -1638,7 +1639,7 @@ func main() {
 		awscdk.Tags_Of(app).Add(jsii.String(os.Getenv("JETS_TAG_NAME_PROD")), jsii.String(os.Getenv("JETS_TAG_VALUE_PROD")), nil)
 	}
 	// Set custom tags from JETS_STACK_TAGS_JSON
-	if(os.Getenv("JETS_STACK_TAGS_JSON") != "") {
+	if os.Getenv("JETS_STACK_TAGS_JSON") != "" {
 		var tags map[string]string
 		err := json.Unmarshal([]byte(os.Getenv("JETS_STACK_TAGS_JSON")), &tags)
 		if err != nil {

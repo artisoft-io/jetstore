@@ -29,7 +29,7 @@ func (server *Server) DoDataTableAction(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 	token := user.ExtractToken(r)
-	user,_ := user.ExtractTokenID(token)
+	user, _ := user.ExtractTokenID(token)
 	server.AuditLogger.Info(string(body), zap.String("user", user), zap.String("time", time.Now().Format(time.RFC3339)))
 	dataTableAction := datatable.DataTableAction{Limit: 200}
 	err = json.Unmarshal(body, &dataTableAction)
@@ -37,7 +37,7 @@ func (server *Server) DoDataTableAction(w http.ResponseWriter, r *http.Request) 
 		ERROR(w, http.StatusUnprocessableEntity, err)
 		return
 	}
-	context := datatable.NewContext(server.dbpool, globalDevMode, *usingSshTunnel, unitTestDir,nbrShards, adminEmail)
+	context := datatable.NewContext(server.dbpool, globalDevMode, *usingSshTunnel, unitTestDir, nbrShards, adminEmail)
 	// Intercept specific dataTable action
 	switch dataTableAction.Action {
 	case "raw_query", "raw_query_tool":
@@ -51,7 +51,7 @@ func (server *Server) DoDataTableAction(w http.ResponseWriter, r *http.Request) 
 	case "insert_rows":
 		results, code, err = context.InsertRows(&dataTableAction, token)
 	case "test_pipeline":
-		results = &map[string]interface{}{}	
+		results = &map[string]interface{}{}
 		code = 200
 		datatable.UnitTestWorkspaceAction(context, &dataTableAction, token)
 
@@ -96,13 +96,13 @@ func (server *Server) DoDataTableAction(w http.ResponseWriter, r *http.Request) 
 		results, code, err = context.DeleteWorkspaceChanges(&dataTableAction, token)
 	case "delete_all_workspace_changes":
 		results, code, err = context.DeleteAllWorkspaceChanges(&dataTableAction, token)
-	
+
 	case "workspace_read":
 		results, code, err = context.DoWorkspaceReadAction(&dataTableAction, token)
 
 	case "save_workspace_client_config":
 		results, code, err = context.SaveWorkspaceClientConfig(&dataTableAction, token)
-	
+
 	case "read":
 		results, code, err = context.DoReadAction(&dataTableAction, token)
 	case "preview_file":
@@ -115,9 +115,10 @@ func (server *Server) DoDataTableAction(w http.ResponseWriter, r *http.Request) 
 		err = nil
 	case "get_workspace_uri":
 		results = &map[string]interface{}{
-			"workspace_uri": os.Getenv("WORKSPACE_URI"),
-			"workspace_name": os.Getenv("WORKSPACE"),
-			"workspace_branch": os.Getenv("WORKSPACE_BRANCH"),
+			"workspace_uri":               os.Getenv("WORKSPACE_URI"),
+			"workspace_name":              os.Getenv("WORKSPACE"),
+			"workspace_branch":            os.Getenv("WORKSPACE_BRANCH"),
+			"workspace_file_key_label_re": os.Getenv("WORKSPACE_FILE_KEY_LABEL_RE"),
 		}
 		code = http.StatusOK
 		err = nil
@@ -169,7 +170,7 @@ func (server *Server) readLocalFiles(w http.ResponseWriter, r *http.Request, dat
 	})
 	if err != nil {
 		log.Printf("error walking the path %q: %v\n", *unitTestDir, err)
-		ERROR(w, http.StatusInternalServerError, errors.New("error while walking the unit test directory"))	
+		ERROR(w, http.StatusInternalServerError, errors.New("error while walking the unit test directory"))
 		return
 	}
 
@@ -182,10 +183,10 @@ func (server *Server) readLocalFiles(w http.ResponseWriter, r *http.Request, dat
 			row = make([]string, len(dataTableAction.Columns))
 			for iCol, col := range dataTableAction.Columns {
 				row[iCol] = dirData[iRow][col.Column]
-			}	
+			}
 		} else {
 			row = make([]string, 1)
-				row[0] = dirData[iRow]["file_key"]
+			row[0] = dirData[iRow]["file_key"]
 		}
 		resultRows = append(resultRows, row)
 	}
@@ -211,5 +212,5 @@ func makeResult(r *http.Request) map[string]interface{} {
 	if ok {
 		results["token"] = token[0]
 	}
-	return results	
+	return results
 }
