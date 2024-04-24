@@ -929,7 +929,7 @@ func (ctx *Context) InsertRows(dataTableAction *DataTableAction, token string) (
 			}
 
 			nbrCpipesClusterNodes := 0
-			if stateMachineName == "cpipes" {
+			if stateMachineName == "cpipesSM" {
 				nbrCpipesClusterNodes, err = getNbrNodesFromComputePipesConfig(ctx.Dbpool, dataTableAction.Data[irow]["main_input_registry_key"])
 				if err != nil {
 					httpStatus = http.StatusInternalServerError
