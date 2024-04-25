@@ -185,6 +185,7 @@ func purgeMatchingRows(dbpool *pgxpool.Pool, sessionIds []string, tableName stri
 	sqlstmt := buf.String()
 	// fmt.Println(sqlstmt)
 	fmt.Printf("Purging %d sessions from table %s",len(sessionIds), tableName)
-	_, err := dbpool.Exec(context.Background(), sqlstmt)
-	return err
+	// ignore returned error, due to tableName that does not exis (virtual table)
+	dbpool.Exec(context.Background(), sqlstmt)
+	return nil
 }

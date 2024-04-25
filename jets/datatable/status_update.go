@@ -69,17 +69,19 @@ func getOutputRecordCount(dbpool *pgxpool.Pool, pipelineExecutionKey int) int64 
 	}
 	return count.Int64
 }
-func getPeInfo(dbpool *pgxpool.Pool, pipelineExecutionKey int) (string, string, int) {
+func getPeInfo(dbpool *pgxpool.Pool, pipelineExecutionKey int) (string, string, int, []string) {
 	var client, sessionId string
+	outTables := make([]string, 0)
 	var sourcePeriodKey int
-	err := dbpool.QueryRow(context.Background(), 
-		"SELECT client, session_id, source_period_key FROM jetsapi.pipeline_execution_status WHERE key=$1", 
-		pipelineExecutionKey).Scan(&client, &sessionId, &sourcePeriodKey)
+	err := dbpool.QueryRow(context.Background(),
+		`SELECT pe.client, pc.output_tables, pe.session_id, pe.source_period_key 
+		FROM jetsapi.process_config pc, jetsapi.pipeline_config plnc, jetsapi.pipeline_execution_status pe 
+		WHERE pc.key = plnc.process_config_key AND plnc.key = pe.pipeline_config_key AND pe.key = $1`,
+		pipelineExecutionKey).Scan(&client, &outTables, &sessionId, &sourcePeriodKey)
 	if err != nil {
-		msg := fmt.Sprintf("QueryRow on pipeline_execution_status failed: %v", err)
-		log.Fatalf(msg)
+		log.Fatalf(fmt.Sprintf("QueryRow on pipeline_execution_status failed: %v", err))
 	}
-	return client, sessionId, sourcePeriodKey
+	return client, sessionId, sourcePeriodKey, outTables
 }
 func updateStatus(dbpool *pgxpool.Pool, pipelineExecutionKey int, status string, failureDetails *string) error {
 		// Record the status of the pipeline execution
@@ -183,8 +185,9 @@ func (ca *StatusUpdate) CoordinateWork() error {
 	if err != nil {
 		return fmt.Errorf("while updating process execution status: %v", err)
 	}
+	client, sessionId, sourcePeriodKey, outTables := getPeInfo(ca.Dbpool, ca.PeKey)
 	// Register out tables
-	if ca.Status != "failed" && getOutputRecordCount(ca.Dbpool, ca.PeKey) > 0 {
+	if ca.Status != "failed" && len(outTables) > 0 && getOutputRecordCount(ca.Dbpool, ca.PeKey) > 0 {
 		err = RegisterDomainTables(ca.Dbpool, ca.UsingSshTunnel, ca.PeKey)
 		if err != nil {
 			return fmt.Errorf("while registrying out tables to input_registry: %v", err)
@@ -192,7 +195,6 @@ func (ca *StatusUpdate) CoordinateWork() error {
 	}
 
 	// Lock the session
-	client, sessionId, sourcePeriodKey := getPeInfo(ca.Dbpool, ca.PeKey)
 	err = schema.RegisterSession(ca.Dbpool, "domain_table", client, sessionId, sourcePeriodKey)
 	if err != nil {
 		log.Printf("Failed locking the session, must be already locked: %v (ignoring the error)", err)

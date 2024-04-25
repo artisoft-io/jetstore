@@ -509,7 +509,7 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 	// Status Update Lambda Definition
 	// --------------------------------------------------------------------------------------------------------------
 	statusUpdateLambda := awslambdago.NewGoFunction(stack, jsii.String("StatusUpdateLambda"), &awslambdago.GoFunctionProps{
-		Description: jsii.String("Lambda function to register file key with jetstore db"),
+		Description: jsii.String("Lambda function to update job status with jetstore db"),
 		Runtime:     awslambda.Runtime_GO_1_X(),
 		Entry:       jsii.String("lambdas/status_update"),
 		Bundling: &awslambdago.BundlingOptions{
@@ -560,6 +560,10 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 	// --------------------------------------------------------------------------------------------------------------
 	var purgeDataLambda awslambdago.GoFunction
 	if len(os.Getenv("RETENTION_DAYS")) > 0 {
+		purgeDataHours := os.Getenv("PURGE_DATA_SCHEDULED_HOUR_UTC")
+		if len(purgeDataHours) == 0 {
+			purgeDataHours = "7"
+		}
 		purgeDataLambda = awslambdago.NewGoFunction(stack, jsii.String("PurgeDataLambda"), &awslambdago.GoFunctionProps{
 			Description: jsii.String("Lambda function to purge historical data in jetstore db"),
 			Runtime:     awslambda.Runtime_GO_1_X(),
@@ -595,9 +599,8 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 				awseventstargets.NewLambdaFunction(purgeDataLambda, &awseventstargets.LambdaFunctionProps{}),
 			},
 			Schedule: awsevents.Schedule_Cron(&awsevents.CronOptions{
-				Hour:    jsii.String("7"),
+				Hour:    jsii.String(purgeDataHours),
 				Minute:  jsii.String("0"),
-				WeekDay: jsii.String("MON-FRI"),
 			}),
 		})
 	}
@@ -1393,6 +1396,7 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 			"SYSTEM_PWD_SECRET":         adminPwdSecret.SecretName(),
 			"JETS_ELB_MODE":             jsii.String(os.Getenv("JETS_ELB_MODE")),
 			"JETS_DOMAIN_KEY_SEPARATOR": jsii.String(os.Getenv("JETS_DOMAIN_KEY_SEPARATOR")),
+			"JETS_SENTINEL_FILE_NAME":   jsii.String(os.Getenv("JETS_SENTINEL_FILE_NAME")),
 		},
 		Vpc:        vpc,
 		VpcSubnets: isolatedSubnetSelection,
@@ -1411,9 +1415,16 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 	}
 
 	// Run the task starter Lambda when an object is added to the S3 bucket.
-	sourceBucket.AddEventNotification(awss3.EventType_OBJECT_CREATED, awss3n.NewLambdaDestination(registerKeyLambda), &awss3.NotificationKeyFilter{
-		Prefix: jsii.String(os.Getenv("JETS_s3_INPUT_PREFIX")),
-	})
+	if len(os.Getenv("JETS_SENTINEL_FILE_NAME")) > 0 {
+		sourceBucket.AddEventNotification(awss3.EventType_OBJECT_CREATED, awss3n.NewLambdaDestination(registerKeyLambda), &awss3.NotificationKeyFilter{
+			Prefix: jsii.String(os.Getenv("JETS_s3_INPUT_PREFIX")),
+			Suffix: jsii.String(os.Getenv("JETS_SENTINEL_FILE_NAME")),
+		})
+	} else {
+		sourceBucket.AddEventNotification(awss3.EventType_OBJECT_CREATED, awss3n.NewLambdaDestination(registerKeyLambda), &awss3.NotificationKeyFilter{
+			Prefix: jsii.String(os.Getenv("JETS_s3_INPUT_PREFIX")),
+		})
+	}
 
 	return stack
 }
@@ -1479,6 +1490,7 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 // JETS_VPC_INTERNET_GATEWAY (optional, default to false), set to true to create VPC with internet gateway, if false JETS_NBR_NAT_GATEWAY is set to 0
 // NBR_SHARDS (defaults to 1)
 // RETENTION_DAYS site global rentention days, delete sessions if > 0
+// PURGE_DATA_SCHEDULED_HOUR_UTC hour of day to run purge_data, default 7 UTC
 // TASK_MAX_CONCURRENCY (defaults to 1)
 // WORKSPACE (required, indicate active workspace)
 // WORKSPACE_BRANCH to indicate the active workspace
@@ -1539,6 +1551,7 @@ func main() {
 	fmt.Println("env JETS_VPC_INTERNET_GATEWAY:", os.Getenv("JETS_VPC_INTERNET_GATEWAY"))
 	fmt.Println("env NBR_SHARDS:", os.Getenv("NBR_SHARDS"))
 	fmt.Println("env RETENTION_DAYS:", os.Getenv("RETENTION_DAYS"))
+	fmt.Println("env PURGE_DATA_SCHEDULED_HOUR_UTC:", os.Getenv("PURGE_DATA_SCHEDULED_HOUR_UTC"))
 	fmt.Println("env TASK_MAX_CONCURRENCY:", os.Getenv("TASK_MAX_CONCURRENCY"))
 	fmt.Println("env WORKSPACE_BRANCH:", os.Getenv("WORKSPACE_BRANCH"))
 	fmt.Println("env WORKSPACE_FILE_KEY_LABEL_RE:", os.Getenv("WORKSPACE_FILE_KEY_LABEL_RE"))

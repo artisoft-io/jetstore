@@ -30,9 +30,6 @@ func main() {
 	// Create logger.
 	var err error
 	logger = zap.NewExample().Sugar()
-	if err != nil {
-		panic("failed to create logger: " + err.Error())
-	}
 
 	// Check required env var
 	c.IsValid = true
