@@ -63,8 +63,8 @@ func RegisterDomainTables(dbpool *pgxpool.Pool, usingSshTunnel bool, pipelineExe
 	if err != nil {
 		return fmt.Errorf("error creating jwt token: %v", err)
 	}
-	fmt.Println("***@@@** Created token for user", userEmail, "token:", token)
-	fmt.Println("***@@@** Registrying outTables:", outTables, "from file key", mainInputFileKey)
+	// fmt.Println("***@@@** Created token for user", userEmail, "token:", token)
+	// fmt.Println("***@@@** Registrying outTables:", outTables, "from file key", mainInputFileKey)
 	for i := range outTables {
 		//*TODO REVIEW THIS: Get the ObjectTypes associated with Domain Table from domain_keys_registry
 		//*TODO REVIEW THIS: Note: Using the fact that Domain Table is named from the associated rdf type
@@ -72,7 +72,7 @@ func RegisterDomainTables(dbpool *pgxpool.Pool, usingSshTunnel bool, pipelineExe
 		if err != nil {
 			return fmt.Errorf("while calling GetDomainKeysInfo for table %s: %v", outTables[i], err)
 		}
-		fmt.Println("***@@@** Registrying for outTable:", outTables[i], "registring object_types:", *objectTypes)
+		// fmt.Println("***@@@** Registrying for outTable:", outTables[i], "registring object_types:", *objectTypes)
 		var domainTableFileKey string
 		if len(mainInputFileKey) > 0 {
 			domainTableFileKey = mainInputFileKey
