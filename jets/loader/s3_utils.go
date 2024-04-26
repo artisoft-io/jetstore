@@ -43,7 +43,7 @@ func downloadS3Files(done <-chan struct{}) (<-chan string, <-chan string, <-chan
 	var inFolderPath string
 	var err error
 	headersFileCh := make(chan string, 1)
-	fileNamesCh := make(chan string)
+	fileNamesCh := make(chan string, 2)
 	downloadS3ResultCh := make(chan DownloadS3Result, 1)
 
 	// Create a local temp directory to hold the file(s)
