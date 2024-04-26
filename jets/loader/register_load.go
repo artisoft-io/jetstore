@@ -99,8 +99,7 @@ func updatePipelineExecutionStatus(dbpool *pgxpool.Pool, inputRowCount, outputRo
 
 // Function to assign file_key to shard (sc_node_id, sc_id) into jetsapi.compute_pipes_shard_registry
 // This is done in 2 steps, first load the file_key and file_size into the table
-// Then allocate the file_key using a round robin to sc_is and sc_node_id in decreasing order of file size
-// Note sc_node_id is called shard_id on table for legacy reason
+// Then allocate the file_key using a round robin to sc_is and sc_node_id in decreasing order of file size.
 func shardFileKeys(dbpool *pgxpool.Pool, baseFileKey string, sessionId string, cpConfig *compute_pipes.ComputePipesConfig) (int, error) {
 	// Get all the file keys having baseFileKey as prefix
 	log.Printf("Downloading file keys from s3 folder: %s", baseFileKey)
