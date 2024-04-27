@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 
@@ -292,6 +293,16 @@ func main() {
 	}
 	dbPoolSize = 10
 	usingSshTunnel = false
+
+	// Make sure directory exists
+	fileDir :=filepath.Dir(fmt.Sprintf("%s/%s/%s",workspaceHome,wprefix, "somefile.jr"))
+	if err := os.MkdirAll(fileDir, 0770); err != nil {
+		err = fmt.Errorf("while creating file directory structure: %v", err)
+		fmt.Println(err)
+		hasErr = true
+		errMsg = append(errMsg, err.Error())
+	}
+
 
 	if hasErr {
 		for _, msg := range errMsg {
