@@ -590,7 +590,7 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 			"ENVIRONMENT":                        jsii.String(os.Getenv("ENVIRONMENT")),
 			"SYSTEM_USER":                        jsii.String("admin"),
 			"WORKSPACE":                          jsii.String(os.Getenv("WORKSPACE")),
-			"WORKSPACES_HOME":                    jsii.String("/go/workspaces"),
+			"WORKSPACES_HOME":                    jsii.String("/tmp/workspaces"),
 		},
 		MemorySize: jsii.Number(3072),
 		Timeout:    awscdk.Duration_Minutes(jsii.Number(15)),
