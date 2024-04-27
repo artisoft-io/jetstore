@@ -9,6 +9,7 @@ import (
 
 	"github.com/artisoft-io/jetstore/jets/datatable/wsfile"
 	"github.com/artisoft-io/jetstore/jets/dbutils"
+	"github.com/artisoft-io/jetstore/jets/run_reports/tarextract"
 	"github.com/jackc/pgx/v4/pgxpool"
 )
 
@@ -41,7 +42,8 @@ func SyncWorkspaceFiles(dbpool *pgxpool.Pool, workspaceName, status, contentType
 		// When in skipTgzFiles == true, do not override *.tgz files
 		if (!skipSqliteFiles || !strings.HasSuffix(fo.FileName, ".db")) &&
 				(!skipTgzFiles || !strings.HasSuffix(fo.FileName, ".tgz")) {
-			fileHd, err := os.Create(fmt.Sprintf("%s/%s/%s", wh, workspaceName, fo.FileName))
+			localFileName := fmt.Sprintf("%s/%s/%s", wh, workspaceName, fo.FileName)
+			fileHd, err := os.Create(localFileName)
 			if err != nil {
 				return fmt.Errorf("failed to open local workspace file %s for write: %v", fo.FileName, err)
 			}
@@ -54,21 +56,30 @@ func SyncWorkspaceFiles(dbpool *pgxpool.Pool, workspaceName, status, contentType
 
 			// If FileName ends with .tgz, extract files from archive
 			if strings.HasSuffix(fo.FileName, ".tgz") {
-				command := "tar"
-				args := []string{"xfvz", fo.FileName} 
-				var buf strings.Builder
-				err = wsfile.RunCommand(&buf, command, &args, workspaceName)
-				defer os.Remove(fo.FileName)
-				cmdLog := buf.String()
+				// command := "tar"
+				// args := []string{"xfvz", fo.FileName} 
+				// var buf strings.Builder
+				// err = wsfile.RunCommand(&buf, command, &args, workspaceName)
+				// defer os.Remove(fo.FileName)
+				// cmdLog := buf.String()
+				// if err != nil {
+				// 	if err.Error() != "exit status 2" { // tar exit 2 is no issue
+				// 		log.Println("=*=*=*=*=*=*=*=*=*=*=*=*=*=*")
+				// 		log.Println(cmdLog)
+				// 		log.Println("=*=*=*=*=*=*=*=*=*=*=*=*=*=*")
+				// 		return fmt.Errorf("failed to extract archive %s: %v", fo.FileName, err)
+				// 	}
+				// }
+				// log.Println(cmdLog)
+				fileHd, err := os.Open(localFileName)
+				defer fileHd.Close()
 				if err != nil {
-					if err.Error() != "exit status 2" { // tar exit 2 is no issue
-						log.Println("=*=*=*=*=*=*=*=*=*=*=*=*=*=*")
-						log.Println(cmdLog)
-						log.Println("=*=*=*=*=*=*=*=*=*=*=*=*=*=*")
-						return fmt.Errorf("failed to extract archive %s: %v", fo.FileName, err)
-					}
-				}
-				log.Println(cmdLog)
+					return fmt.Errorf("failed to open tgz reports file %s for read: %v", fo.FileName, err)
+				}	
+				err = tarextract.ExtractTarGz(fileHd)
+				if err != nil {
+					return fmt.Errorf("failed to extract content from tgz file %s for read: %v", fo.FileName, err)
+				}	
 			}
 
 		} else {
