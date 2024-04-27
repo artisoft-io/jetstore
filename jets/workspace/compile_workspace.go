@@ -76,7 +76,7 @@ func SyncWorkspaceFiles(dbpool *pgxpool.Pool, workspaceName, status, contentType
 				if err != nil {
 					return fmt.Errorf("failed to open tgz reports file %s for read: %v", fo.FileName, err)
 				}	
-				err = tarextract.ExtractTarGz(fileHd)
+				err = tarextract.ExtractTarGz(fileHd, fmt.Sprintf("%s/%s", wh, workspaceName))
 				if err != nil {
 					return fmt.Errorf("failed to extract content from tgz file %s for read: %v", fo.FileName, err)
 				}	
