@@ -534,6 +534,7 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 			"JETS_CPIPES_SM_ARN":                 jsii.String(cpipesSmArn),
 			"JETS_REPORTS_SM_ARN":                jsii.String(reportsSmArn),
 			"NBR_SHARDS":                         jsii.String(nbrShards),
+			"ENVIRONMENT":                        jsii.String(os.Getenv("ENVIRONMENT")),
 			"SYSTEM_USER":                        jsii.String("admin"),
 		},
 		MemorySize: jsii.Number(128),
@@ -555,6 +556,56 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 	// NOTE following added below due to dependency
 	// statusUpdateLambda.Connections().AllowTo(apiLoadBalancer, awsec2.Port_Tcp(&p), jsii.String("Allow connection from registerKeyLambda"))
 	// adminPwdSecret.GrantRead(statusUpdateLambda, nil)
+
+	// -----------------------------------------------
+	// Define the Run Reports lambda, used in cpipesSM and eventually to others
+	// Run Reports Lambda Definition
+	// --------------------------------------------------------------------------------------------------------------
+	runReportsLambda := awslambdago.NewGoFunction(stack, jsii.String("RunReportsLambda"), &awslambdago.GoFunctionProps{
+		Description: jsii.String("Lambda function to run JetStore Workspace reports"),
+		Runtime:     awslambda.Runtime_GO_1_X(),
+		Entry:       jsii.String("lambdas/run_reports"),
+		Bundling: &awslambdago.BundlingOptions{
+			GoBuildFlags: &[]*string{jsii.String(`-buildvcs=false -ldflags "-s -w"`)},
+		},
+		Environment: &map[string]*string{
+			"JETS_BUCKET":                        sourceBucket.BucketName(),
+			"JETS_DOMAIN_KEY_HASH_ALGO":          jsii.String(os.Getenv("JETS_DOMAIN_KEY_HASH_ALGO")),
+			"JETS_DOMAIN_KEY_HASH_SEED":          jsii.String(os.Getenv("JETS_DOMAIN_KEY_HASH_SEED")),
+			"JETS_DSN_SECRET":                    rdsSecret.SecretName(),
+			"JETS_INPUT_ROW_JETS_KEY_ALGO":       jsii.String(os.Getenv("JETS_INPUT_ROW_JETS_KEY_ALGO")),
+			"JETS_INVALID_CODE":                  jsii.String(os.Getenv("JETS_INVALID_CODE")),
+			"JETS_LOADER_CHUNCK_SIZE":            jsii.String(os.Getenv("JETS_LOADER_CHUNCK_SIZE")),
+			"JETS_LOADER_SM_ARN":                 jsii.String(loaderSmArn),
+			"JETS_REGION":                        jsii.String(os.Getenv("AWS_REGION")),
+			"JETS_RESET_DOMAIN_TABLE_ON_STARTUP": jsii.String(os.Getenv("JETS_RESET_DOMAIN_TABLE_ON_STARTUP")),
+			"JETS_s3_INPUT_PREFIX":               jsii.String(os.Getenv("JETS_s3_INPUT_PREFIX")),
+			"JETS_s3_OUTPUT_PREFIX":              jsii.String(os.Getenv("JETS_s3_OUTPUT_PREFIX")),
+			"JETS_SENTINEL_FILE_NAME":            jsii.String(os.Getenv("JETS_SENTINEL_FILE_NAME")),
+			"JETS_DOMAIN_KEY_SEPARATOR":          jsii.String(os.Getenv("JETS_DOMAIN_KEY_SEPARATOR")),
+			"JETS_SERVER_SM_ARN":                 jsii.String(serverSmArn),
+			"JETS_CPIPES_SM_ARN":                 jsii.String(cpipesSmArn),
+			"JETS_REPORTS_SM_ARN":                jsii.String(reportsSmArn),
+			"NBR_SHARDS":                         jsii.String(nbrShards),
+			"ENVIRONMENT":                        jsii.String(os.Getenv("ENVIRONMENT")),
+			"SYSTEM_USER":                        jsii.String("admin"),
+		},
+		MemorySize: jsii.Number(3072),
+		Timeout:    awscdk.Duration_Minutes(jsii.Number(15)),
+		Vpc:        vpc,
+		VpcSubnets: isolatedSubnetSelection,
+	})
+	if phiTagName != nil {
+		awscdk.Tags_Of(runReportsLambda).Add(phiTagName, jsii.String("false"), nil)
+	}
+	if piiTagName != nil {
+		awscdk.Tags_Of(runReportsLambda).Add(piiTagName, jsii.String("false"), nil)
+	}
+	if descriptionTagName != nil {
+		awscdk.Tags_Of(runReportsLambda).Add(descriptionTagName, jsii.String("JetStore lambda to update the pipeline status upon completion"), nil)
+	}
+	runReportsLambda.Connections().AllowTo(rdsCluster, awsec2.Port_Tcp(jsii.Number(5432)), jsii.String("Allow connection from StatusUpdateLambda"))
+	rdsSecret.GrantRead(runReportsLambda, nil)
 
 	// Purge Data lambda function
 	// --------------------------------------------------------------------------------------------------------------
@@ -967,28 +1018,14 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 	runCPipesTask.Connections().AllowTo(rdsCluster, awsec2.Port_Tcp(jsii.Number(5432)), jsii.String("Allow connection from runCPipesTask"))
 	runCPipesTask.Connections().AllowFromAnyIpv4(awsec2.Port_Tcp(jsii.Number(8085)), jsii.String("allow between cpipes nodes"))
 
-	// Run Reports Step Function Task for cpipesSM
+	// Run Reports Step Function Lambda Task for cpipesSM
 	// -----------------------------------------------
-	runCPipesReportsTask := sfntask.NewEcsRunTask(stack, jsii.String("run-cpipes-reports"), &sfntask.EcsRunTaskProps{
-		Comment:        jsii.String("Run Compute Pipes Reports Task"),
-		Cluster:        ecsCluster,
-		Subnets:        isolatedSubnetSelection,
-		AssignPublicIp: jsii.Bool(false),
-		LaunchTarget: sfntask.NewEcsFargateLaunchTarget(&sfntask.EcsFargateLaunchTargetOptions{
-			PlatformVersion: awsecs.FargatePlatformVersion_LATEST,
-		}),
-		TaskDefinition: runreportTaskDefinition,
-		ContainerOverrides: &[]*sfntask.ContainerOverride{
-			{
-				ContainerDefinition: runreportsContainerDef,
-				Command:             sfn.JsonPath_ListAt(jsii.String("$.reportsCommand")),
-			},
-		},
-		PropagatedTagSource: awsecs.PropagatedTagSource_TASK_DEFINITION,
-		ResultPath:          sfn.JsonPath_DISCARD(),
-		IntegrationPattern:  sfn.IntegrationPattern_RUN_JOB,
+	runCPipesReportsLambdaTask := sfntask.NewLambdaInvoke(stack, jsii.String("RunReportsSuccessLambdaTask"), &sfntask.LambdaInvokeProps{
+		Comment:        jsii.String("Lambda Task to run reports for cpipes task"),
+		LambdaFunction: runReportsLambda,
+		InputPath:      jsii.String("$.reportsCommand"),
+		ResultPath:     sfn.JsonPath_DISCARD(),
 	})
-	runCPipesReportsTask.Connections().AllowTo(rdsCluster, awsec2.Port_Tcp(jsii.Number(5432)), jsii.String("Allow connection from runCPipesReportsTask "))
 
 	// Status Update: update_success Step Function Task for cpipesSM
 	// --------------------------------------------------------------------------------------------------------------
@@ -1028,8 +1065,8 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 		Errors:      jsii.Strings(*sfn.Errors_TASKS_FAILED()),
 		Interval:    awscdk.Duration_Minutes(jsii.Number(4)),
 		MaxAttempts: jsii.Number(2),
-	}).AddCatch(updateCPipesErrorStatusLambdaTask, mkCatchProps()).Next(runCPipesReportsTask)
-	runCPipesReportsTask.AddCatch(updateCPipesErrorStatusLambdaTask, mkCatchProps()).Next(updateCPipesSuccessStatusLambdaTask)
+	}).AddCatch(updateCPipesErrorStatusLambdaTask, mkCatchProps()).Next(runCPipesReportsLambdaTask)
+	runCPipesReportsLambdaTask.AddCatch(updateCPipesErrorStatusLambdaTask, mkCatchProps()).Next(updateCPipesSuccessStatusLambdaTask)
 	updateCPipesSuccessStatusLambdaTask.AddCatch(cpipesNotifyFailure, mkCatchProps()).Next(cpipesNotifySuccess)
 	updateCPipesErrorStatusLambdaTask.AddCatch(cpipesNotifyFailure, mkCatchProps()).Next(cpipesNotifyFailure)
 

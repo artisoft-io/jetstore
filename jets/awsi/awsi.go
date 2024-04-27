@@ -45,14 +45,14 @@ func GetPrivateIp() (string, error) {
 		log.Printf("while reading resp of http get $ECS_CONTAINER_METADATA_URI_V4: %v", err)
 		return "", err
 	}
-	fmt.Println("Got ECS_CONTAINER_METADATA_URI_V4:\n",string(body))
+	fmt.Println("Got ECS_CONTAINER_METADATA_URI_V4:\n", string(body))
 	var data map[string]interface{}
 	err = json.Unmarshal(body, &data)
 	if err != nil {
 		return "", fmt.Errorf("** Invalid JSON from ECS_CONTAINER_METADATA_URI_V4: %v", err)
 	}
 	result := data["Networks"].([]interface{})[0].(map[string]interface{})["IPv4Addresses"].([]interface{})[0].(string)
-	fmt.Println("*** IPv4Addresses:",result)
+	fmt.Println("*** IPv4Addresses:", result)
 	return result, nil
 }
 
@@ -135,7 +135,9 @@ type S3Object struct {
 }
 
 // ListObjects lists the objects in a bucket with prefix if not nil.
-func ListS3Objects(prefix *string, bucket, region string) ([]*S3Object, error) {
+func ListS3Objects(prefix *string) ([]*S3Object, error) {
+	bucket := os.Getenv("JETS_BUCKET")
+	region := os.Getenv("JETS_REGION")
 	cfg, err := config.LoadDefaultConfig(context.TODO(), config.WithRegion(region))
 	if err != nil {
 		return nil, fmt.Errorf("while loading aws configuration: %v", err)

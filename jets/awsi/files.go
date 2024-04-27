@@ -18,7 +18,7 @@ func SyncS3Files(dbpool *pgxpool.Pool, workspaceName, keyPrefix, trimPrefix, con
 	wh := os.Getenv("WORKSPACES_HOME")
 	// sync workspace files from s3 to locally
 	log.Println("Synching overriten workspace file from s3 using keyPrefix",keyPrefix)
-	keys, err := ListS3Objects(&keyPrefix, bucket, region)
+	keys, err := ListS3Objects(&keyPrefix)
 	if err != nil {
 		return err
 	}

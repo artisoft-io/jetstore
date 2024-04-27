@@ -752,7 +752,7 @@ func (ctx *Context) SyncFileKeys(registerFileKeyAction *RegisterFileKeyAction, t
 		prefix = &p
 	}
 
-	keys, err := awsi.ListS3Objects(prefix, os.Getenv("JETS_BUCKET"), os.Getenv("JETS_REGION"))
+	keys, err := awsi.ListS3Objects(prefix)
 	if err != nil {
 		return nil, http.StatusInternalServerError, fmt.Errorf("while calling awsi.ListS3Objects: %v", err)
 	}

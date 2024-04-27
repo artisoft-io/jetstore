@@ -368,7 +368,7 @@ func (ctx *ShardFileKeysContext) AssignFileKeys(baseFileKey *string, jetsPartiti
 	nbrScNodes := ctx.BooterCtx.nbrSubClusterNodes
 	// Get all the file keys having baseFileKey as prefix
 	log.Printf("Downloading file keys from s3 folder: %s", *baseFileKey)
-	s3Objects, err := awsi.ListS3Objects(baseFileKey, ctx.Bucket, ctx.Region)
+	s3Objects, err := awsi.ListS3Objects(baseFileKey)
 	if err != nil || s3Objects == nil {
 		return 0, fmt.Errorf("failed to download list of files from s3: %v", err)
 	}
