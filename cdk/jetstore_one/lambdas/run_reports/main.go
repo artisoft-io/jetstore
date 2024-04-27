@@ -338,12 +338,29 @@ type RunReports struct {
 	FileKey     string `json:"file_key"`
 	OutputPath  string `json:"output_path"`
 }
+// runReportsCommand := []string{
+// 	"-client", client.(string),
+// 	"-processName", processName.(string),
+// 	"-sessionId", sessionId.(string),
+// 	"-filePath", strings.Replace(fileKey.(string), os.Getenv("JETS_s3_INPUT_PREFIX"), os.Getenv("JETS_s3_OUTPUT_PREFIX"), 1),
+// }
+func handler(ctx context.Context, arg []string) error {
 
-func handler(ctx context.Context, rr RunReports) error {
-
+	rr := RunReports{}
+	for i := range arg {
+		switch arg[i] {
+		case "-client":
+			rr.Client = arg[i+1]
+		case "-processName":
+			rr.ProcessName = arg[i+1]
+		case "-sessionId":
+			rr.SessionId = arg[i+1]
+		case "-filePath":
+			rr.OutputPath = arg[i+1]
+		}
+	}
 	// Reconstiture input file_key from OutputPath (aka filePath)
-	//* DO NEXT???????
-	// ca.FileKey = strings.Replace(rr.OutputPath, os.Getenv("JETS_s3_OUTPUT_PREFIX"), os.Getenv("JETS_s3_INPUT_PREFIX"), 1)
+	rr.FileKey = strings.Replace(rr.OutputPath, os.Getenv("JETS_s3_OUTPUT_PREFIX"), os.Getenv("JETS_s3_INPUT_PREFIX"), 1)
 
 	var originalFileName string
 		idx := strings.LastIndex(rr.OutputPath, "/")
