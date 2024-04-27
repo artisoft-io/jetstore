@@ -295,14 +295,13 @@ func main() {
 	usingSshTunnel = false
 
 	// Make sure directory exists
-	fileDir :=filepath.Dir(fmt.Sprintf("%s/%s/%s",workspaceHome,wprefix, "somefile.jr"))
+	fileDir := filepath.Dir(fmt.Sprintf("%s/%s/%s", workspaceHome, wprefix, "somefile.jr"))
 	if err := os.MkdirAll(fileDir, 0770); err != nil {
 		err = fmt.Errorf("while creating file directory structure: %v", err)
 		fmt.Println(err)
 		hasErr = true
 		errMsg = append(errMsg, err.Error())
 	}
-
 
 	if hasErr {
 		for _, msg := range errMsg {
@@ -337,13 +336,15 @@ type RunReports struct {
 	ReportName  string `json:"report_name"`
 	FileKey     string `json:"file_key"`
 	OutputPath  string `json:"output_path"`
+	FilePath    string `json:"file_path"`
 }
-// runReportsCommand := []string{
-// 	"-client", client.(string),
-// 	"-processName", processName.(string),
-// 	"-sessionId", sessionId.(string),
-// 	"-filePath", strings.Replace(fileKey.(string), os.Getenv("JETS_s3_INPUT_PREFIX"), os.Getenv("JETS_s3_OUTPUT_PREFIX"), 1),
-// }
+
+//	runReportsCommand := []string{
+//		"-client", client.(string),
+//		"-processName", processName.(string),
+//		"-sessionId", sessionId.(string),
+//		"-filePath", strings.Replace(fileKey.(string), os.Getenv("JETS_s3_INPUT_PREFIX"), os.Getenv("JETS_s3_OUTPUT_PREFIX"), 1),
+//	}
 func handler(ctx context.Context, arg []string) error {
 
 	rr := RunReports{}
@@ -356,21 +357,21 @@ func handler(ctx context.Context, arg []string) error {
 		case "-sessionId":
 			rr.SessionId = arg[i+1]
 		case "-filePath":
-			rr.OutputPath = arg[i+1]
+			rr.FilePath = arg[i+1]
 		}
 	}
 	// Reconstiture input file_key from OutputPath (aka filePath)
 	rr.FileKey = strings.Replace(rr.OutputPath, os.Getenv("JETS_s3_OUTPUT_PREFIX"), os.Getenv("JETS_s3_INPUT_PREFIX"), 1)
 
 	var originalFileName string
-		idx := strings.LastIndex(rr.OutputPath, "/")
-		if idx >= 0 && idx < len(rr.OutputPath)-1 {
-			fmt.Println("Extracting originalFileName from filePath", rr.OutputPath)
-			originalFileName = (rr.OutputPath)[idx+1:]
-			rr.OutputPath = (rr.OutputPath)[0:idx]
-		} else {
-			originalFileName = rr.OutputPath
-		}
+	idx := strings.LastIndex(rr.OutputPath, "/")
+	if idx >= 0 && idx < len(rr.OutputPath)-1 {
+		fmt.Println("Extracting originalFileName from filePath", rr.OutputPath)
+		originalFileName = (rr.OutputPath)[idx+1:]
+		rr.OutputPath = (rr.OutputPath)[0:idx]
+	} else {
+		originalFileName = rr.OutputPath
+	}
 
 	if rr.ProcessName == "" && rr.ReportName == "" {
 		return fmt.Errorf("process name or report name must be provided (-processName or -reportName)")
@@ -398,16 +399,16 @@ func handler(ctx context.Context, arg []string) error {
 	}
 
 	ca := &delegate.CommandArguments{
-		Client:        datatable.AsString(keyMap["client"]),
-		Org:           datatable.AsString(keyMap["org"]),
-		ObjectType:    datatable.AsString(keyMap["object_type"]),
-		Environment:   os.Getenv("ENVIRONMENT"),
-		WorkspaceName: workspaceHome,
-		SessionId:     rr.SessionId,
-		ProcessName:   rr.ProcessName,
-		ReportName:    rr.ReportName,
-		FileKey:       rr.OutputPath,
-		// OutputPath: ,
+		Client:            datatable.AsString(keyMap["client"]),
+		Org:               datatable.AsString(keyMap["org"]),
+		ObjectType:        datatable.AsString(keyMap["object_type"]),
+		Environment:       os.Getenv("ENVIRONMENT"),
+		WorkspaceName:     workspaceHome,
+		SessionId:         rr.SessionId,
+		ProcessName:       rr.ProcessName,
+		ReportName:        rr.ReportName,
+		FileKey:           rr.OutputPath,
+		OutputPath:        rr.FilePath,
 		OriginalFileName:  originalFileName,
 		ReportScriptPaths: []string{},
 		// CurrentReportDirectives: ReportDirectives, // set in func coordinateWorkAndUpdateStatus
