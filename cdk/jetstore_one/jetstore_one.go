@@ -563,7 +563,7 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 	// --------------------------------------------------------------------------------------------------------------
 	runReportsLambda := awslambdago.NewGoFunction(stack, jsii.String("RunReportsLambda"), &awslambdago.GoFunctionProps{
 		Description: jsii.String("Lambda function to run JetStore Workspace reports"),
-		Runtime:     awslambda.Runtime_GO_1_X(),
+		Runtime:     awslambda.Runtime_PROVIDED_AL2023(),
 		Entry:       jsii.String("lambdas/run_reports"),
 		Bundling: &awslambdago.BundlingOptions{
 			GoBuildFlags: &[]*string{jsii.String(`-buildvcs=false -ldflags "-s -w"`)},
