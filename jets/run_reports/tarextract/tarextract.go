@@ -11,7 +11,7 @@ import (
 	"os"
 )
 
-func ExtractTarGz(gzipStream io.Reader) error {
+func ExtractTarGz(gzipStream io.Reader, baseDir string) error {
 	uncompressedStream, err := gzip.NewReader(gzipStream)
 	if err != nil {
 		log.Fatal("ExtractTarGz: NewReader failed")
@@ -32,11 +32,11 @@ func ExtractTarGz(gzipStream io.Reader) error {
 
 		switch header.Typeflag {
 		case tar.TypeDir:
-			if err := os.Mkdir(header.Name, 0755); err != nil {
+			if err := os.Mkdir(fmt.Sprintf("%s/%s",baseDir, header.Name), 0755); err != nil {
 				log.Fatalf("ExtractTarGz: Mkdir() failed: %s", err.Error())
 			}
 		case tar.TypeReg:
-			outFile, err := os.Create(header.Name)
+			outFile, err := os.Create(fmt.Sprintf("%s/%s",baseDir, header.Name))
 			if err != nil {
 				log.Fatalf("ExtractTarGz: Create() failed: %s", err.Error())
 			}
