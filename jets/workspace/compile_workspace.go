@@ -76,6 +76,11 @@ func SyncWorkspaceFiles(dbpool *pgxpool.Pool, workspaceName, status, contentType
 				if err != nil {
 					return fmt.Errorf("failed to open tgz reports file %s for read: %v", fo.FileName, err)
 				}	
+				// make sure the dir workspaceHome/workspace/reports does not already exist
+				err = os.RemoveAll(fmt.Sprintf("%s/%s/reports", wh, workspaceName))
+				if err != nil {
+					log.Println("while removing workspace reports folder:", err)
+				}
 				err = tarextract.ExtractTarGz(fileHd, fmt.Sprintf("%s/%s", wh, workspaceName))
 				if err != nil {
 					return fmt.Errorf("failed to extract content from tgz file %s for read: %v", fo.FileName, err)
