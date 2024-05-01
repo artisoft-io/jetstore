@@ -147,13 +147,13 @@ func coordinateWorkAndUpdateStatus(ctx context.Context, ca *delegate.CommandArgu
 		}
 	} else {
 		// Un-marshal the reportDirectives
-		fmt.Println("Un-marshal the reportDirectives")
+		// fmt.Println("Un-marshal the reportDirectives")
 		err = json.Unmarshal(file, reportConfiguration)
 		if err != nil {
 			return fmt.Errorf("error while parsing report config.json: %v", err)
 		}
-		//*
-		fmt.Println("REPORT DIRECTIVES:", *reportConfiguration)
+		// //*
+		// fmt.Println("REPORT DIRECTIVES:", *reportConfiguration)
 		// The report directives for the current reportName
 		rd, ok := (*reportConfiguration)[ca.ReportName]
 		if ok {
@@ -310,18 +310,18 @@ func main() {
 		panic("Invalid argument(s)")
 	}
 
-	fmt.Println("Run Reports argument:")
-	fmt.Println("----------------")
-	fmt.Println("Got argument: awsDsnSecret", awsDsnSecret)
-	fmt.Println("Got argument: dbPoolSize", dbPoolSize)
-	fmt.Println("Got argument: usingSshTunnel", usingSshTunnel)
-	fmt.Println("Got argument: awsRegion", awsRegion)
-	fmt.Println("ENV JETSTORE_DEV_MODE:", os.Getenv("JETSTORE_DEV_MODE"))
-	fmt.Println("ENV WORKSPACE:", os.Getenv("WORKSPACE"))
-	fmt.Println("ENV JETS_SENTINEL_FILE_NAME:", os.Getenv("JETS_SENTINEL_FILE_NAME"))
-	fmt.Println("*** DO NOT USE jetsapi.session_registry TABLE IN REPORTS FOR THE CURRENT session_id SINCE IT IS NOT REGISTERED YET")
-	fmt.Println("*** The session_id is registered AFTER the report completion during the status_update task")
-	fmt.Println("*** Use the substitution variable $SOURCE_PERIOD_KEY to get the source_period_key of the current session_id")
+	log.Println("Run Reports argument:")
+	log.Println("----------------")
+	log.Println("Got argument: awsDsnSecret", awsDsnSecret)
+	log.Println("Got argument: dbPoolSize", dbPoolSize)
+	log.Println("Got argument: usingSshTunnel", usingSshTunnel)
+	log.Println("Got argument: awsRegion", awsRegion)
+	log.Println("ENV JETSTORE_DEV_MODE:", os.Getenv("JETSTORE_DEV_MODE"))
+	log.Println("ENV WORKSPACE:", os.Getenv("WORKSPACE"))
+	log.Println("ENV JETS_SENTINEL_FILE_NAME:", os.Getenv("JETS_SENTINEL_FILE_NAME"))
+	log.Println("*** DO NOT USE jetsapi.session_registry TABLE IN REPORTS FOR THE CURRENT session_id SINCE IT IS NOT REGISTERED YET")
+	log.Println("*** The session_id is registered AFTER the report completion during the status_update task")
+	log.Println("*** Use the substitution variable $SOURCE_PERIOD_KEY to get the source_period_key of the current session_id")
 
 	// Start handler.
 	lambda.Start(handler)
@@ -336,7 +336,6 @@ type RunReports struct {
 	ReportName  string `json:"report_name"`
 	FileKey     string `json:"file_key"`
 	OutputPath  string `json:"output_path"`
-	FilePath    string `json:"file_path"`
 }
 
 //	runReportsCommand := []string{
@@ -357,16 +356,16 @@ func handler(ctx context.Context, arg []string) error {
 		case "-sessionId":
 			rr.SessionId = arg[i+1]
 		case "-filePath":
-			rr.FilePath = arg[i+1]
+			rr.OutputPath = arg[i+1]
 		}
 	}
-	// Reconstiture input file_key from OutputPath (aka filePath)
+	// Reconstitute input file_key from OutputPath (aka filePath)
 	rr.FileKey = strings.Replace(rr.OutputPath, os.Getenv("JETS_s3_OUTPUT_PREFIX"), os.Getenv("JETS_s3_INPUT_PREFIX"), 1)
 
 	var originalFileName string
 	idx := strings.LastIndex(rr.OutputPath, "/")
 	if idx >= 0 && idx < len(rr.OutputPath)-1 {
-		fmt.Println("Extracting originalFileName from filePath", rr.OutputPath)
+		// fmt.Println("Extracting originalFileName from filePath", rr.OutputPath)
 		originalFileName = (rr.OutputPath)[idx+1:]
 		rr.OutputPath = (rr.OutputPath)[0:idx]
 	} else {
@@ -383,13 +382,13 @@ func handler(ctx context.Context, arg []string) error {
 	if rr.ReportName == "" {
 		rr.ReportName = rr.ProcessName
 	}
-	fmt.Println("Got argument: client", rr.Client)
-	fmt.Println("Got argument: processName", rr.ProcessName)
-	fmt.Println("Got argument: reportName", rr.ReportName)
-	fmt.Println("Got argument: sessionId", rr.SessionId)
-	fmt.Println("Got argument: awsBucket", awsBucket)
-	fmt.Println("Got argument: filePath", rr.OutputPath)
-	fmt.Println("Got argument: fileKey", rr.FileKey)
+	log.Println("Got argument: client", rr.Client)
+	log.Println("Got argument: processName", rr.ProcessName)
+	log.Println("Got argument: reportName", rr.ReportName)
+	log.Println("Got argument: sessionId", rr.SessionId)
+	log.Println("Got argument: awsBucket", awsBucket)
+	log.Println("Got argument: OutputPath", rr.OutputPath)
+	log.Println("Got argument: FileKey", rr.FileKey)
 
 	// Extract file key components
 	keyMap := make(map[string]interface{})
@@ -407,8 +406,8 @@ func handler(ctx context.Context, arg []string) error {
 		SessionId:         rr.SessionId,
 		ProcessName:       rr.ProcessName,
 		ReportName:        rr.ReportName,
-		FileKey:           rr.OutputPath,
-		OutputPath:        rr.FilePath,
+		FileKey:           rr.FileKey,
+		OutputPath:        rr.OutputPath,
 		OriginalFileName:  originalFileName,
 		ReportScriptPaths: []string{},
 		// CurrentReportDirectives: ReportDirectives, // set in func coordinateWorkAndUpdateStatus

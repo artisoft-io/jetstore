@@ -192,7 +192,12 @@ final Map<String, TableConfig> _tableConfigurations = {
                 return match[1];
               }
             }
-            return '...${text.substring(text.lastIndexOf('/'))}';
+            final start = text.lastIndexOf('/');
+            if (start >= 0) {
+              return '...${text.substring(start)}';
+            } else {
+              return text;
+            }
           }),
       ColumnConfig(
           index: 11,
@@ -377,7 +382,12 @@ final Map<String, TableConfig> _tableConfigurations = {
                 return match[1];
               }
             }
-            return '...${text.substring(text.lastIndexOf('/'))}';
+            final start = text.lastIndexOf('/');
+            if (start >= 0) {
+              return '...${text.substring(start)}';
+            } else {
+              return text;
+            }
           }),
       ColumnConfig(
           index: 10,
@@ -1468,7 +1478,7 @@ final Map<String, TableConfig> _tableConfigurations = {
       columns: [],
       sortColumnName: '',
       sortAscending: false,
-      rowsPerPage: 50),
+      rowsPerPage: 10),
 
   // Query Tool Result Viewer Data Table
   DTKeys.queryToolResultSetTable: TableConfig(

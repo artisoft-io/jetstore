@@ -90,7 +90,12 @@ final inputRegistryColumns = [
             return match[1];
           }
         }
-        return '...${text.substring(text.lastIndexOf('/'))}';
+        final start = text.lastIndexOf('/');
+        if (start >= 0) {
+          return '...${text.substring(start)}';
+        } else {
+          return text;
+        }
       }),
   ColumnConfig(
       index: 11,
