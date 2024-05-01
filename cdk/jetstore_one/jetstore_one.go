@@ -318,7 +318,7 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 		awsecr.Repository_FromRepositoryArn(stack, jsii.String("jetstore-image"), jsii.String(os.Getenv("JETS_ECR_REPO_ARN"))),
 		jsii.String(os.Getenv("JETS_IMAGE_TAG")))
 
-	// Define the run_reports task, used in serverSM, cpipesSM, and loaderSM
+	// Define the run_reports task, used in serverSM, and loaderSM
 	// Run Reports ECS Task Definition
 	// --------------------------------------------------------------------------------------------------------------
 	runreportTaskDefinition := awsecs.NewFargateTaskDefinition(stack, jsii.String("runreportTaskDefinition"), &awsecs.FargateTaskDefinitionProps{
@@ -1022,7 +1022,7 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 
 	// Run Reports Step Function Lambda Task for cpipesSM
 	// -----------------------------------------------
-	runCPipesReportsLambdaTask := sfntask.NewLambdaInvoke(stack, jsii.String("RunReportsSuccessLambdaTask"), &sfntask.LambdaInvokeProps{
+	runCPipesReportsLambdaTask := sfntask.NewLambdaInvoke(stack, jsii.String("RunReportsLambdaTask"), &sfntask.LambdaInvokeProps{
 		Comment:        jsii.String("Lambda Task to run reports for cpipes task"),
 		LambdaFunction: runReportsLambda,
 		InputPath:      jsii.String("$.reportsCommand"),
@@ -1707,14 +1707,14 @@ func main() {
 		snsAlarmTopicArn = jsii.String(os.Getenv("JETS_SNS_ALARM_TOPIC_ARN"))
 	}
 	NewJetstoreOneStack(app, "JetstoreOneStack", &jetstorestack.JetstoreOneStackProps{
-		awscdk.StackProps{
+		StackProps: awscdk.StackProps{
 			Env:         env(),
 			Description: stackDescription,
 		},
-		&dBMinCapacity,
-		&dBMaxCapacity,
-		&CpuUtilizationAlarmThreshold,
-		snsAlarmTopicArn,
+		DbMinCapacity: &dBMinCapacity,
+		DbMaxCapacity: &dBMaxCapacity,
+		CpuUtilizationAlarmThreshold: &CpuUtilizationAlarmThreshold,
+		SnsAlarmTopicArn: snsAlarmTopicArn,
 	})
 
 	app.Synth(nil)
