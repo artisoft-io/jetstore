@@ -313,7 +313,7 @@ func (ctx *ShardFileKeysContext) AssignJetsPartitionFileKeys(shardId int) ([]str
 	var totalPartfileCount int
 	jetsPartitions := make([]string, 0)
 	// For each jets_partition assigned to this nodeId, invoke AssignFileKeys
-	// params: $1: input_session_id, $2: nbr_nodes, $3: nbr_sc, $4 sc_id of caller
+	// params: $1: input_session_id, $2: nbr_nodes, $3: nbr_sc, $4: sc_id of caller
 	stmt := `
 		WITH r AS (
 			SELECT DISTINCT file_key, jets_partition 

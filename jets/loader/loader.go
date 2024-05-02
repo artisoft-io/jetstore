@@ -365,7 +365,7 @@ func processFileAndReportStatus(dbpool *pgxpool.Pool,
 		if err != nil {
 			status = "failed"
 			if cpipesMode == "loader" {
-				// loader in classic mode, we don't want to fail the task
+				// loader in classic mode, we don't want to fail (panic) the task
 				err = nil
 			}
 		}

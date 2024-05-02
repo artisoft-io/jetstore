@@ -61,18 +61,35 @@ func loadFiles(dbpool *pgxpool.Pool, headersDKInfo *schema.HeadersAndDomainKeysI
 	}
 	// Start the Compute Pipes async
 	// Note: when nbrShards > 1, cpipes does not work in local mode in apiserver yet
-	go compute_pipes.StartComputePipes(dbpool, headersDKInfo, done, errCh, computePipesInputCh, chResults,
-		cpConfig, map[string]interface{}{
-			"$SESSIONID":          *sessionId,
-			"$FILE_KEY_DATE":      fileKeyDate,
-			"$FILE_KEY":           *inFile,
-			"$FILE_KEY_FOLDER":    fileKeyFolder,
-			"$SHARD_ID":           *shardId,
-			"$NBR_SHARDS":         *nbrShards,
-			"$JETS_PARTITION":     *jetsPartition,
-			"$CPIPES_SERVER_ADDR": cpipesServerAddr,
-			"$JETSTORE_DEV_MODE":  devMode,
-		}, fileKeyComponents)
+	if cpConfig == nil {
+		// Loader in classic mode, no compute pipes defined
+		tableIdentifier, err := compute_pipes.SplitTableName(headersDKInfo.TableName)
+		if err != nil {
+			err = fmt.Errorf("while splitting table name: %s", err)
+			fmt.Println(err)
+			chResults.LoadFromS3FilesResultCh <- compute_pipes.LoadFromS3FilesResult{LoadRowCount: 0, BadRowCount: 0, Err: err}
+			return
+		}
+		wt := compute_pipes.NewWriteTableSource(computePipesInputCh,	tableIdentifier, headersDKInfo.Headers)
+		table := make(chan compute_pipes.ComputePipesResult, 1)
+		chResults.Copy2DbResultCh <- table
+		wt.WriteTable(dbpool, done, table)
+
+	} else {
+		log.Println("Compute Pipes identified")
+		go compute_pipes.StartComputePipes(dbpool, headersDKInfo.Headers, done, errCh, computePipesInputCh, chResults,
+			cpConfig, map[string]interface{}{
+				"$SESSIONID":            *sessionId,
+				"$FILE_KEY_DATE":        fileKeyDate,
+				"$FILE_KEY":             *inFile,
+				"$FILE_KEY_FOLDER":      fileKeyFolder,
+				"$SHARD_ID":             *shardId,
+				"$NBR_SHARDS":           *nbrShards,
+				"$JETS_PARTITION_LABEL": *jetsPartition,
+				"$CPIPES_SERVER_ADDR":   cpipesServerAddr,
+				"$JETSTORE_DEV_MODE":    devMode,
+			}, fileKeyComponents)
+	}
 
 	var totalRowCount, badRowCount int64
 	for localInFile := range fileNamesCh {

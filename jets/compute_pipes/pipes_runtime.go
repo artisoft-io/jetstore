@@ -125,7 +125,7 @@ type BuilderContext struct {
 }
 
 func (ctx *BuilderContext) JetsPartition() string {
-	return ctx.env["$JETS_PARTITION"].(string)
+	return ctx.env["$JETS_PARTITION_LABEL"].(string)
 }
 func (ctx *BuilderContext) SessionId() string {
 	return ctx.env["$SESSIONID"].(string)

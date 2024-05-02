@@ -87,3 +87,5 @@ jets/compute_pipes/tests/pcserv/server/server
 jets/compute_pipes/tests/pcserv/client/client
 cdk/jetstore_one/lambdas/compute_pipes/shard_file_keys/shard_file_keys
 cdk/jetstore_one/lambdas/run_reports/run_reports
+cdk/jetstore_one/lambdas/compute_pipes/cp_sharding/cp_sharding
+cdk/jetstore_one/lambdas/compute_pipes/cp_node/cp_node

@@ -14,16 +14,25 @@ import (
 // Compute Pipes
 
 type WriteTableSource struct {
-	source <-chan []interface{}
-	pending []interface{}
-	count int
+	source          <-chan []interface{}
+	pending         []interface{}
+	count           int
 	tableIdentifier pgx.Identifier
-	columns []string
+	columns         []string
 }
+
+func NewWriteTableSource(source <-chan []interface{},	tableIdentifier pgx.Identifier, columns []string) *WriteTableSource {
+	return &WriteTableSource{
+		source:          source,
+		tableIdentifier: tableIdentifier,
+		columns:         columns,
+	}
+}
+
 // pgx.CopyFromSource interface
 func (wt *WriteTableSource) Next() bool {
 	var ok bool
-	wt.pending,ok = <-wt.source
+	wt.pending, ok = <-wt.source
 	wt.count += 1
 	return ok
 }
@@ -52,7 +61,7 @@ func SplitTableName(tableName string) (pgx.Identifier, error) {
 }
 
 // Methods for writing output entity records to postgres
-func (wt *WriteTableSource) writeTable(dbpool *pgxpool.Pool, done chan struct{}, copy2DbResultCh chan<- ComputePipesResult) {
+func (wt *WriteTableSource) WriteTable(dbpool *pgxpool.Pool, done chan struct{}, copy2DbResultCh chan<- ComputePipesResult) {
 	defer close(copy2DbResultCh)
 	// log.Println("Write Table Started for", wt.tableIdentifier, "with", len(wt.columns), "columns")
 	// log.Println("Write Table Started for", wt.tableIdentifier, "with columns:", wt.columns)
@@ -62,9 +71,9 @@ func (wt *WriteTableSource) writeTable(dbpool *pgxpool.Pool, done chan struct{},
 		switch {
 		case wt.count == 0:
 			log.Println("No rows were sent to database")
-		case  wt.count > 0 && len(wt.pending)==0:
+		case wt.count > 0 && len(wt.pending) == 0:
 			log.Println("Last pending row is not available")
-		case  wt.count > 0 && len(wt.pending)==len(wt.columns):
+		case wt.count > 0 && len(wt.pending) == len(wt.columns):
 			log.Println("Last pending row is:")
 			for i := range wt.columns {
 				if i > 0 {
@@ -123,7 +132,7 @@ func PrepareOutoutTable(dbpool *pgxpool.Pool, tableIdentifier pgx.Identifier, ta
 			for c := range unseenColumns {
 				tableSchema.Columns = append(tableSchema.Columns, schema.ColumnDefinition{
 					ColumnName: tableSpec.Columns[c].Name,
-					DataType: tableSpec.Columns[c].RdfType,
+					DataType:   tableSpec.Columns[c].RdfType,
 				})
 			}
 			tableSchema.UpdateTable(dbpool, tableSchema)
@@ -148,7 +157,7 @@ func CreateOutputTable(dbpool *pgxpool.Pool, tableName pgx.Identifier, tableSpec
 		switch {
 		case column.Name == "jets:key":
 			buf.WriteString(
-				fmt.Sprintf(" %s TEXT DEFAULT gen_random_uuid ()::text NOT NULL", 
+				fmt.Sprintf(" %s TEXT DEFAULT gen_random_uuid ()::text NOT NULL",
 					pgx.Identifier{column.Name}.Sanitize()))
 
 		case column.Name == "session_id":
@@ -171,9 +180,9 @@ func CreateOutputTable(dbpool *pgxpool.Pool, tableName pgx.Identifier, tableSpec
 
 	// Create index on sessionIdcolumns
 	stmt = fmt.Sprintf(`CREATE INDEX IF NOT EXISTS %s ON %s (%s);`,
-	pgx.Identifier{fmt.Sprintf("%s_%s_session_id", tableName[0], tableName[1])}.Sanitize(),
-	tableName.Sanitize(),
-	pgx.Identifier{"session_id"}.Sanitize())
+		pgx.Identifier{fmt.Sprintf("%s_%s_session_id", tableName[0], tableName[1])}.Sanitize(),
+		tableName.Sanitize(),
+		pgx.Identifier{"session_id"}.Sanitize())
 	log.Println(stmt)
 	_, err = dbpool.Exec(context.Background(), stmt)
 	if err != nil {

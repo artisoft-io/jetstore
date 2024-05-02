@@ -24,7 +24,7 @@ type DownloadS3Result struct {
 // done: unbuffered channel to indicate to stop downloading file (must be an error downstream)
 // Returned values:
 // headersFileCh: channel having the first file name to get headers from
-// fileNamesCh: unbuffered channel having all file names (incl header file), one at a time
+// fileNamesCh: channel having all file names (incl header file), one at a time
 // downloadS3ResultCh: channel indicating the downoader results (nbr of files downloaded or error)
 // inFolderPath: temp folder containing the downloaded files
 // error when setting up the downloader
