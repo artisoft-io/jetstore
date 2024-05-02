@@ -83,16 +83,5 @@ func main() {
 
 // Compute Pipes Sharding Handler
 func handler(ctx context.Context, arg actions.ComputePipesArgs) error {
-	// Initialize the calculated fields on Cluster Config
-	// taking into account the assumptions of no subclusters
-	nodeId := arg.NodeId
-	nbrNodes := arg.CpConfig.ClusterConfig.NbrNodes
-	arg.CpConfig.ClusterConfig.NodeId = nodeId
-	arg.CpConfig.ClusterConfig.NbrNodes = nbrNodes
-	arg.CpConfig.ClusterConfig.NbrSubClusters = nbrNodes
-	arg.CpConfig.ClusterConfig.NbrSubClusterNodes = 1
-	arg.CpConfig.ClusterConfig.SubClusterId = nodeId
-	arg.CpConfig.ClusterConfig.SubClusterNodeId = 0
-	p := &arg
-	return p.CoordinateComputePipes(ctx, dsn)
+	return (&arg).CoordinateComputePipes(ctx, dsn)
 }
