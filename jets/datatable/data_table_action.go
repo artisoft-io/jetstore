@@ -1154,6 +1154,15 @@ func (ctx *Context) InsertRows(dataTableAction *DataTableAction, token string) (
 				case "loaderSM":
 					processArn = os.Getenv("JETS_LOADER_SM_ARN")
 				case "cpipesSM":
+					// Override State Machine input for new cpipesSM all-in-one
+					smInput = map[string]interface{}{
+						"startSharding": map[string]interface{}{
+							"pipeline_execution_key": peKey,
+							"file_key": fileKey,
+							"session_id": sessionId,
+						 },
+					}
+	
 					processArn = os.Getenv("JETS_CPIPES_SM_ARN")
 				case "reportsSM":
 					processArn = os.Getenv("JETS_REPORTS_SM_ARN")
