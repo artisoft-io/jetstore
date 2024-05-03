@@ -5,22 +5,21 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strconv"
 
 	"github.com/artisoft-io/jetstore/jets/awsi"
 	"github.com/artisoft-io/jetstore/jets/compute_pipes/actions"
 	"github.com/aws/aws-lambda-go/lambda"
 )
 
-// Compute Pipe Node Executor
-// This lambda replace cpipes_booter and loader
-// Assumptions:
-//		- nbr of nodes (lambda workers) is same as nbr of partitions
-//		- nbr of sub-clusters is same as nbr of nodes (ie no inter-node communication)
+// lambda function to shard or assign file keys to nodes
 
 // ENV VARIABLES:
 // JETS_DSN_SECRET
 // JETS_REGION
 // JETS_BUCKET
+// JETS_s3_INPUT_PREFIX
+// JETS_s3_OUTPUT_PREFIX
 // JETSTORE_DEV_MODE Indicates running in dev mode
 
 var awsDsnSecret string
@@ -30,6 +29,7 @@ var awsRegion string
 var awsBucket string
 var dsn string
 var devMode bool
+var nbrNodes int
 
 func main() {
 	hasErr := false
@@ -52,6 +52,26 @@ func main() {
 		hasErr = true
 		errMsg = append(errMsg, "Bucket must be provided using env var JETS_BUCKET")
 	}
+	if os.Getenv("JETS_s3_INPUT_PREFIX") == "" {
+		hasErr = true
+		errMsg = append(errMsg, "env var JETS_s3_INPUT_PREFIX must be provided")
+	}
+	if os.Getenv("JETS_s3_OUTPUT_PREFIX") == "" {
+		hasErr = true
+		errMsg = append(errMsg, "env var JETS_s3_OUTPUT_PREFIX must be provided")
+	}
+
+	v := os.Getenv("NBR_SHARDS")
+	if v == "" {
+		hasErr = true
+		errMsg = append(errMsg, "env NBR_SHARDS not set")
+	} else {
+		nbrNodes, err = strconv.Atoi(v)
+		if err != nil {
+			hasErr = true
+			errMsg = append(errMsg, "env NBR_SHARDS not a valid integer")
+		}
+	}
 
 	// Get the dsn from the aws secret
 	dsn, err = awsi.GetDsnFromSecret(awsDsnSecret, usingSshTunnel, dbPoolSize)
@@ -69,12 +89,13 @@ func main() {
 		panic("Invalid argument(s)")
 	}
 
-	log.Println("CP Node:")
-	log.Println("--------")
+	log.Println("CP Starter:")
+	log.Println("-----------")
 	log.Println("Got argument: awsDsnSecret", awsDsnSecret)
 	log.Println("Got argument: dbPoolSize", dbPoolSize)
 	log.Println("Got argument: usingSshTunnel", usingSshTunnel)
 	log.Println("Got argument: awsRegion", awsRegion)
+	log.Println("Got argument: nbrNodes (default)", nbrNodes)
 	log.Println("ENV JETSTORE_DEV_MODE:", os.Getenv("JETSTORE_DEV_MODE"))
 
 	// Start handler.
@@ -82,6 +103,6 @@ func main() {
 }
 
 // Compute Pipes Sharding Handler
-func handler(ctx context.Context, arg actions.ComputePipesArgs) error {
-	return (&arg).CoordinateComputePipes(ctx, dsn)
+func handler(ctx context.Context, arg actions.StartComputePipesArgs) (actions.ComputePipesRun, error) {
+	return (&arg).StartShardingComputePipes(ctx, dsn, nbrNodes)
 }

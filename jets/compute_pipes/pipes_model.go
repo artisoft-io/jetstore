@@ -19,6 +19,8 @@ type ClusterSpec struct {
 	WriteTimeout            int    `json:"write_timeout"`
 	PeerRegistrationTimeout int    `json:"peer_registration_timeout"`
 	NbrNodes                int    `json:"nbr_nodes"`
+	ShardingNbrNodes        int    `json:"sharding_nbr_nodes"`
+	ReducingNbrNodes        int    `json:"reducing_nbr_nodes"`
 	NbrSubClusters          int    `json:"nbr_sub_clusters"`
 	NbrJetsPartitions       uint64 `json:"nbr_jets_partitions"`
 	PeerBatchSize           int    `json:"peer_batch_size"`

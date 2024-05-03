@@ -19,14 +19,29 @@ import (
 // This is done in 2 steps, first load the file_key and file_size into the table
 // Then allocate the file_key using a round robin to sc_is and sc_node_id in decreasing order of file size.
 func ShardFileKeys(exeCtx context.Context, dbpool *pgxpool.Pool, baseFileKey string, sessionId string, clusterConfig *compute_pipes.ClusterSpec) (int, error) {
+	// Step 1: load the file_key and file_size into the table
+	totalPartfileCount, _, err := ShardFileKeysP1(exeCtx, dbpool, baseFileKey, sessionId)
+	if err != nil {
+		return 0, err
+	}
+
+	// Step 2: assign shard_id, sc_node_id, sc_id using round robin based on file size
+	nbrNodes := clusterConfig.NbrNodes
+	nbrSubClusters := clusterConfig.NbrSubClusters
+	return totalPartfileCount, ShardFileKeysP2(exeCtx, dbpool, baseFileKey, sessionId, nbrNodes, nbrSubClusters)
+}
+
+// Part 1
+func ShardFileKeysP1(exeCtx context.Context, dbpool *pgxpool.Pool, baseFileKey string, sessionId string) (int, int64, error) {
 	// Get all the file keys having baseFileKey as prefix
 	log.Printf("Downloading file keys from s3 folder: %s", baseFileKey)
 	s3Objects, err := awsi.ListS3Objects(&baseFileKey)
 	if err != nil || s3Objects == nil || len(s3Objects) == 0 {
-		return 0, fmt.Errorf("failed to download list of files from s3 (or folder is empty): %v", err)
+		return 0, 0, fmt.Errorf("failed to download list of files from s3 (or folder is empty): %v", err)
 	}
 	// Step 1: load the file_key and file_size into the table
-	totalPartfileCount := 0
+	var totalPartfileCount int
+	var totalSize int64
 	var buf strings.Builder
 	buf.WriteString("INSERT INTO jetsapi.compute_pipes_shard_registry ")
 	buf.WriteString("(session_id, file_key, file_size) VALUES ")
@@ -39,16 +54,19 @@ func ShardFileKeys(exeCtx context.Context, dbpool *pgxpool.Pool, baseFileKey str
 			isFirst = false
 			buf.WriteString(fmt.Sprintf("('%s','%s',%d)", sessionId, s3Objects[i].Key, s3Objects[i].Size))
 			totalPartfileCount += 1
+			totalSize += s3Objects[i].Size
 		}
 	}
 	_, err = dbpool.Exec(exeCtx, buf.String())
 	if err != nil {
-		return 0, fmt.Errorf("error inserting in jetsapi.compute_pipes_shard_registry table in shardFileKeys: %v", err)
+		return 0, 0, fmt.Errorf("error inserting in jetsapi.compute_pipes_shard_registry table in shardFileKeys: %v", err)
 	}
+	return totalPartfileCount, totalSize, nil
+}
 
+// Part 2
+func ShardFileKeysP2(exeCtx context.Context, dbpool *pgxpool.Pool, baseFileKey string, sessionId string, nbrNodes, nbrSubClusters int) error {
 	// Step 2: assign shard_id, sc_node_id, sc_id using round robin based on file size
-	nbrNodes := clusterConfig.NbrNodes
-	nbrSubClusters := clusterConfig.NbrSubClusters
 	// nbrSubClusterNodes := cpConfig.ClusterConfig.NbrSubClusterNodes
 	updateStmt := `
 		BEGIN;
@@ -87,10 +105,10 @@ func ShardFileKeys(exeCtx context.Context, dbpool *pgxpool.Pool, baseFileKey str
 	updateStmt = strings.ReplaceAll(updateStmt, "$3", strconv.Itoa(nbrSubClusters))
 	// Reverse calculation of shard_id from sc_node_id and sc_id:
 	//	 shard_id = nbr_sc * sc_node_id + sc_id
-	_, err = dbpool.Exec(exeCtx, updateStmt)
+	_, err := dbpool.Exec(exeCtx, updateStmt)
 	if err != nil {
-		return 0, fmt.Errorf("error inserting in jetsapi.compute_pipes_shard_registry table in shardFileKeys: %v", err)
+		return fmt.Errorf("error inserting in jetsapi.compute_pipes_shard_registry table in shardFileKeys: %v", err)
 	}
-	log.Printf("Done sharding %d files under file_key %s, session id %s", totalPartfileCount, baseFileKey, sessionId)
-	return totalPartfileCount, nil
+	log.Printf("Done sharding files under file_key %s, session id %s", baseFileKey, sessionId)
+	return nil
 }
