@@ -2,12 +2,14 @@ package compute_pipes
 
 // This file contains the Compute Pipes configuration model
 type ComputePipesConfig struct {
-	MetricsConfig *MetricsSpec   `json:"metrics_config"`
-	ClusterConfig *ClusterSpec   `json:"cluster_config"`
-	OutputTables  []TableSpec    `json:"output_tables"`
-	Channels      []ChannelSpec  `json:"channels"`
-	Context       *[]ContextSpec `json:"context"`
-	PipesConfig   []PipeSpec     `json:"pipes_config"`
+	MetricsConfig       *MetricsSpec   `json:"metrics_config"`
+	ClusterConfig       *ClusterSpec   `json:"cluster_config"`
+	OutputTables        []TableSpec    `json:"output_tables"`
+	Channels            []ChannelSpec  `json:"channels"`
+	Context             *[]ContextSpec `json:"context"`
+	PipesConfig         []PipeSpec     `json:"pipes_config"`
+	ShardingPipesConfig []PipeSpec     `json:"sharding_pipes_config"`
+	ReducingPipesConfig []PipeSpec     `json:"reducing_pipes_config"`
 }
 
 // Config for peer2peer communication
@@ -17,13 +19,15 @@ type ClusterSpec struct {
 	WriteTimeout            int    `json:"write_timeout"`
 	PeerRegistrationTimeout int    `json:"peer_registration_timeout"`
 	NbrNodes                int    `json:"nbr_nodes"`
+	ShardingNbrNodes        int    `json:"sharding_nbr_nodes"`
+	ReducingNbrNodes        int    `json:"reducing_nbr_nodes"`
 	NbrSubClusters          int    `json:"nbr_sub_clusters"`
 	NbrJetsPartitions       uint64 `json:"nbr_jets_partitions"`
 	PeerBatchSize           int    `json:"peer_batch_size"`
-	NodeId                  int			// calculated field
-	SubClusterId            int			// calculated field
-	NbrSubClusterNodes      int			// calculated field
-	SubClusterNodeId        int			// calculated field
+	NodeId                  int    // calculated field
+	SubClusterId            int    // calculated field
+	NbrSubClusterNodes      int    // calculated field
+	SubClusterNodeId        int    // calculated field
 }
 
 type MetricsSpec struct {

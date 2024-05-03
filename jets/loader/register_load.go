@@ -75,7 +75,6 @@ func registerCurrentLoad(loadCount int64, badRowCount int64, dbpool *pgxpool.Poo
 }
 
 // Register the CPIPES execution status details to pipeline_execution_details
-// Lock the sessionId & Register output tables (register sessionId with session_registry) if not failed
 func updatePipelineExecutionStatus(dbpool *pgxpool.Pool, inputRowCount, outputRowCount int, status, errMessage string) error {
 	if *shardId >= 0 {
 		log.Printf("Inserting status '%s' to pipeline_execution_details table", status)

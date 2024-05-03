@@ -26,8 +26,6 @@ import (
 // JETS_DSN_SECRET
 // JETS_REGION
 // JETS_BUCKET
-// JETS_DSN_URI_VALUE
-// JETS_DSN_JSON_VALUE
 // WORKSPACES_HOME Home dir of workspaces
 // WORKSPACE Workspace currently in use
 // JETS_s3_INPUT_PREFIX Input file key prefix
@@ -36,8 +34,6 @@ import (
 // ENVIRONMENT used as substitution variable in reports
 // JETS_SENTINEL_FILE_NAME for emitSentinelFile directive
 
-// Command Line Arguments
-// --------------------------------------------------------------------------------------
 // Command Line Arguments
 // --------------------------------------------------------------------------------------
 var awsDsnSecret string
@@ -103,11 +99,6 @@ func getOutputRecordCount(ctx context.Context, dbpool *pgxpool.Pool, sessionId s
 func coordinateWorkAndUpdateStatus(ctx context.Context, ca *delegate.CommandArguments) error {
 	// open db connection
 	var err error
-	// Get the dsn from the aws secret
-	dsn, err = awsi.GetDsnFromSecret(awsDsnSecret, usingSshTunnel, dbPoolSize)
-	if err != nil {
-		return fmt.Errorf("while getting dsn from aws secret: %v", err)
-	}
 	dbpool, err := pgxpool.Connect(ctx, dsn)
 	if err != nil {
 		return fmt.Errorf("while opening db connection: %v", err)
@@ -263,6 +254,7 @@ func main() {
 	// var awsBucket = flag.String("awsBucket", "", "AWS bucket name for output files. (required)")
 	// var dsn = flag.String("dsn", "", "Database connection string (required unless -awsDsnSecret is provided)")
 	// var devMode bool
+	var err error
 	hasErr := false
 	var errMsg []string
 	_, devMode = os.LookupEnv("JETSTORE_DEV_MODE")
@@ -292,12 +284,21 @@ func main() {
 		errMsg = append(errMsg, "Bucket must be provided using env var JETS_BUCKET")
 	}
 	dbPoolSize = 10
-	usingSshTunnel = false
+	usingSshTunnel = devMode
 
 	// Make sure directory exists
 	fileDir := filepath.Dir(fmt.Sprintf("%s/%s/%s", workspaceHome, wprefix, "somefile.jr"))
-	if err := os.MkdirAll(fileDir, 0770); err != nil {
+	if err = os.MkdirAll(fileDir, 0770); err != nil {
 		err = fmt.Errorf("while creating file directory structure: %v", err)
+		fmt.Println(err)
+		hasErr = true
+		errMsg = append(errMsg, err.Error())
+	}
+	
+	// Get the dsn from the aws secret
+	dsn, err = awsi.GetDsnFromSecret(awsDsnSecret, usingSshTunnel, dbPoolSize)
+	if err != nil {
+		err = fmt.Errorf("while getting dsn from aws secret: %v", err)
 		fmt.Println(err)
 		hasErr = true
 		errMsg = append(errMsg, err.Error())

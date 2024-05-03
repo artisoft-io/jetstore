@@ -1722,6 +1722,47 @@
   },
   {
     "schemaName": "jetsapi",
+    "tableName": "cpipes_execution_status",
+    "columns": [
+      {
+        "columnName": "key",
+        "dataType": "int",
+        "isPK": true
+      },
+      {
+        "columnName": "pipeline_execution_status_key",
+        "dataType": "int",
+        "isNotNull": true
+      },
+      {
+        "columnName": "session_id",
+        "dataType": "text",
+        "isNotNull": true
+      },
+      {
+        "columnName": "sharding_config_json",
+        "dataType": "text",
+        "isNotNull": true
+      },
+      {
+        "columnName": "reducing_config_json",
+        "dataType": "text",
+        "isNotNull": true
+      }
+    ],
+    "indexes": [
+      {
+        "indexName": "cpipes_execution_status_session_id_idx",
+        "indexDef": "INDEX cpipes_execution_status_session_id_idx ON jetsapi.cpipes_execution_status (session_id)"
+      },
+      {
+        "indexName": "cpipes_execution_status_pe_key_idx",
+        "indexDef": "INDEX cpipes_execution_status_pe_key_idx ON jetsapi.cpipes_execution_status (pipeline_execution_status_key)"
+      }
+    ]
+  },
+  {
+    "schemaName": "jetsapi",
     "tableName": "cpipes_results",
     "columns": [
       {

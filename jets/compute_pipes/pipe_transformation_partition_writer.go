@@ -49,6 +49,10 @@ type PartitionWriterTransformationPipe struct {
 	s3Uploader                 *manager.Uploader
 }
 
+func MakeJetsPartitionLabel(jetsPartitionKey interface{}) string {
+	return fmt.Sprintf("%vp", jetsPartitionKey)
+}
+
 // Implementing interface PipeTransformationEvaluator
 func (ctx *PartitionWriterTransformationPipe) apply(input *[]interface{}) error {
 	var err error
@@ -243,7 +247,7 @@ func (ctx *BuilderContext) NewPartitionWriterTransformationPipe(source *InputCha
 		}
 	}
 	session_id := ctx.SessionId()
-	jetsPartitionLabel := fmt.Sprintf("%vp", jetsPartitionKey)
+	jetsPartitionLabel := MakeJetsPartitionLabel(jetsPartitionKey)
 	baseOutputPath := fmt.Sprintf("%s/session_id=%s/jets_partition=%s", p, session_id, jetsPartitionLabel)
 
 	// Create a local temp dir to save the file partition for writing to s3

@@ -18,7 +18,6 @@ import (
 // JETS_DSN_JSON_VALUE
 // JETS_REGION
 // CPIPES_SERVER_ADDR cpipes listerner addr for peer connections
-// JETSTORE_DEV_MODE Indicates running in dev mode
 var usingSshTunnel = flag.Bool("usingSshTunnel", false, "Connect  to DB using ssh tunnel (expecting the ssh open)")
 var userEmail = flag.String("userEmail", "", "User identifier to register the load (required)")
 var pipelineExecKey = flag.Int("peKey", -1, "Pipeline execution key (required)")
