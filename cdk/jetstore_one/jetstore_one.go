@@ -14,8 +14,6 @@ import (
 	"github.com/aws/aws-cdk-go/awscdk/v2/awsecr"
 	"github.com/aws/aws-cdk-go/awscdk/v2/awsecs"
 	awselb "github.com/aws/aws-cdk-go/awscdk/v2/awselasticloadbalancingv2"
-	"github.com/aws/aws-cdk-go/awscdk/v2/awsevents"
-	"github.com/aws/aws-cdk-go/awscdk/v2/awseventstargets"
 	"github.com/aws/aws-cdk-go/awscdk/v2/awsiam"
 	"github.com/aws/aws-cdk-go/awscdk/v2/awslambda"
 
@@ -26,14 +24,8 @@ import (
 	"github.com/aws/aws-cdk-go/awscdk/v2/awsrds"
 	"github.com/aws/aws-cdk-go/awscdk/v2/awss3"
 	awss3n "github.com/aws/aws-cdk-go/awscdk/v2/awss3notifications"
-	awssm "github.com/aws/aws-cdk-go/awscdk/v2/awssecretsmanager"
-	sfn "github.com/aws/aws-cdk-go/awscdk/v2/awsstepfunctions"
-	sfntask "github.com/aws/aws-cdk-go/awscdk/v2/awsstepfunctionstasks"
 	constructs "github.com/aws/constructs-go/constructs/v10"
 	jsii "github.com/aws/jsii-runtime-go"
-
-	awslambdago "github.com/aws/aws-cdk-go/awscdklambdagoalpha/v2"
-	// s3deployment "github.com/aws/aws-cdk-go/awscdk/v2/awss3deployment"
 )
 
 type DbClusterVisitor struct {
@@ -85,15 +77,12 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 			os.Getenv("AWS_REGION"), os.Getenv("AWS_ACCOUNT"), "reportsSM"),
 	}
 
-	// Created here since it's needed for all containers
-	jsComp.ApiSecret = awssm.NewSecret(stack, jsii.String("jsComp.ApiSecret"), &awssm.SecretProps{
-		Description: jsii.String("API secret used for jwt token encryption"),
-		GenerateSecretString: &awssm.SecretStringGenerator{
-			PasswordLength:          jsii.Number(15),
-			IncludeSpace:            jsii.Bool(false),
-			RequireEachIncludedType: jsii.Bool(true),
-		},
-	})
+	// Build Secrets
+	//	- ApiSecret
+	//	- AdminPwdSecret
+	//	- EncryptionKeySecret
+	jsComp.BuildSecrets(scope, stack, props)
+
 	// JetStore Bucket
 	// ----------------------------------------------------------------------------------------------
 	// The code that defines your stack goes here
@@ -312,597 +301,37 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 		awsecr.Repository_FromRepositoryArn(stack, jsii.String("jetstore-image"), jsii.String(os.Getenv("JETS_ECR_REPO_ARN"))),
 		jsii.String(os.Getenv("JETS_IMAGE_TAG")))
 
-	// Define the run_reports task, used in jsComp.ServerSM, and jsComp.LoaderSM
-	// Run Reports ECS Task Definition
-	// --------------------------------------------------------------------------------------------------------------
-	jsComp.RunreportTaskDefinition = awsecs.NewFargateTaskDefinition(stack, jsii.String("runreportTaskDefinition"), &awsecs.FargateTaskDefinitionProps{
-		MemoryLimitMiB: jsii.Number(3072),
-		Cpu:            jsii.Number(1024),
-		ExecutionRole:  jsComp.EcsTaskExecutionRole,
-		TaskRole:       jsComp.EcsTaskRole,
-		RuntimePlatform: &awsecs.RuntimePlatform{
-			OperatingSystemFamily: awsecs.OperatingSystemFamily_LINUX(),
-			CpuArchitecture:       awsecs.CpuArchitecture_X86_64(),
-		},
-	})
-	// Run Reports Task Container
-	jsComp.RunreportsContainerDef = jsComp.RunreportTaskDefinition.AddContainer(jsii.String("runreportsContainerDef"), &awsecs.ContainerDefinitionOptions{
-		// Use JetStore Image in ecr
-		Image:         jsComp.JetStoreImage,
-		ContainerName: jsii.String("runreportsContainer"),
-		Essential:     jsii.Bool(true),
-		EntryPoint:    jsii.Strings("run_reports"),
-		Environment: &map[string]*string{
-			"JETS_BUCKET":                        jsComp.SourceBucket.BucketName(),
-			"JETS_DOMAIN_KEY_HASH_ALGO":          jsii.String(os.Getenv("JETS_DOMAIN_KEY_HASH_ALGO")),
-			"JETS_DOMAIN_KEY_HASH_SEED":          jsii.String(os.Getenv("JETS_DOMAIN_KEY_HASH_SEED")),
-			"JETS_INPUT_ROW_JETS_KEY_ALGO":       jsii.String(os.Getenv("JETS_INPUT_ROW_JETS_KEY_ALGO")),
-			"JETS_INVALID_CODE":                  jsii.String(os.Getenv("JETS_INVALID_CODE")),
-			"JETS_LOADER_CHUNCK_SIZE":            jsii.String(os.Getenv("JETS_LOADER_CHUNCK_SIZE")),
-			"JETS_LOADER_SM_ARN":                 jsii.String(jsComp.LoaderSmArn),
-			"JETS_REGION":                        jsii.String(os.Getenv("AWS_REGION")),
-			"JETS_RESET_DOMAIN_TABLE_ON_STARTUP": jsii.String(os.Getenv("JETS_RESET_DOMAIN_TABLE_ON_STARTUP")),
-			"JETS_s3_INPUT_PREFIX":               jsii.String(os.Getenv("JETS_s3_INPUT_PREFIX")),
-			"JETS_s3_OUTPUT_PREFIX":              jsii.String(os.Getenv("JETS_s3_OUTPUT_PREFIX")),
-			"JETS_SENTINEL_FILE_NAME":            jsii.String(os.Getenv("JETS_SENTINEL_FILE_NAME")),
-			"JETS_DOMAIN_KEY_SEPARATOR":          jsii.String(os.Getenv("JETS_DOMAIN_KEY_SEPARATOR")),
-			"ENVIRONMENT":                        jsii.String(os.Getenv("ENVIRONMENT")),
-			"NBR_SHARDS":                         jsii.String(props.NbrShards),
-			"JETS_SERVER_SM_ARN":                 jsii.String(jsComp.ServerSmArn),
-			"JETS_CPIPES_SM_ARN":                 jsii.String(jsComp.CpipesSmArn),
-			"JETS_REPORTS_SM_ARN":                jsii.String(jsComp.ReportsSmArn),
-		},
-		Secrets: &map[string]awsecs.Secret{
-			"JETS_DSN_JSON_VALUE": awsecs.Secret_FromSecretsManager(jsComp.RdsSecret, nil),
-			"API_SECRET":          awsecs.Secret_FromSecretsManager(jsComp.ApiSecret, nil),
-		},
-		Logging: awsecs.LogDriver_AwsLogs(&awsecs.AwsLogDriverProps{
-			StreamPrefix: jsii.String("task"),
-		}),
-	})
+	// Build ECS Tasks
+	//	- RunreportTaskDefinition
+	//	- LoaderTaskDefinition
+	//	- ServerTaskDefinition
+	//	- CpipesTaskDefinition
+	jsComp.BuildEcsTasks(scope, stack, props)
+	
+	// Build JetStore general prupose Lambdas:
+	//	- StatusUpdateLambda
+	//	- RunReportsLambda
+	//	- PurgeDataLambda
+	jsComp.BuildLambdas(scope, stack, props)
 
-	// JetStore Loader ECS Task
-	// Define the jsComp.LoaderTaskDefinition for the jsComp.LoaderSM
-	// --------------------------------------------------------------------------------------------------------------
-	var memLimit, cpu float64
-	if len(os.Getenv("JETS_LOADER_TASK_MEM_LIMIT_MB")) > 0 {
-		var err error
-		memLimit, err = strconv.ParseFloat(os.Getenv("JETS_LOADER_TASK_MEM_LIMIT_MB"), 64)
-		if err != nil {
-			fmt.Println("while parsing JETS_LOADER_TASK_MEM_LIMIT_MB:", err)
-			memLimit = 3072
-		}
-	} else {
-		memLimit = 3072
-	}
-	fmt.Println("Using memory limit of", memLimit, " (from env JETS_LOADER_TASK_MEM_LIMIT_MB)")
-	if len(os.Getenv("JETS_LOADER_TASK_CPU")) > 0 {
-		var err error
-		cpu, err = strconv.ParseFloat(os.Getenv("JETS_LOADER_TASK_CPU"), 64)
-		if err != nil {
-			fmt.Println("while parsing JETS_LOADER_TASK_CPU:", err)
-			cpu = 1024
-		}
-	} else {
-		cpu = 1024
-	}
-	fmt.Println("Using cpu allocation of", cpu, " (from env JETS_LOADER_TASK_CPU)")
-	jsComp.LoaderTaskDefinition = awsecs.NewFargateTaskDefinition(stack, jsii.String("loaderTaskDefinition"), &awsecs.FargateTaskDefinitionProps{
-		MemoryLimitMiB: jsii.Number(memLimit),
-		Cpu:            jsii.Number(cpu),
-		ExecutionRole:  jsComp.EcsTaskExecutionRole,
-		TaskRole:       jsComp.EcsTaskRole,
-		RuntimePlatform: &awsecs.RuntimePlatform{
-			OperatingSystemFamily: awsecs.OperatingSystemFamily_LINUX(),
-			CpuArchitecture:       awsecs.CpuArchitecture_X86_64(),
-		},
-	})
+	// Build Loader State Machine
+	// ---------------------------------------------
+	jsComp.BuildLoaderSM(scope, stack, props)
 
-	// Loader Task Container
-	// ---------------------
-	jsComp.LoaderContainerDef = jsComp.LoaderTaskDefinition.AddContainer(jsii.String("loaderContainer"), &awsecs.ContainerDefinitionOptions{
-		// Use JetStore Image in ecr
-		Image:         jsComp.JetStoreImage,
-		ContainerName: jsii.String("loaderContainer"),
-		Essential:     jsii.Bool(true),
-		EntryPoint:    jsii.Strings("loader"),
-		Environment: &map[string]*string{
-			"JETS_BUCKET":                        jsComp.SourceBucket.BucketName(),
-			"JETS_DOMAIN_KEY_HASH_ALGO":          jsii.String(os.Getenv("JETS_DOMAIN_KEY_HASH_ALGO")),
-			"JETS_DOMAIN_KEY_HASH_SEED":          jsii.String(os.Getenv("JETS_DOMAIN_KEY_HASH_SEED")),
-			"JETS_INPUT_ROW_JETS_KEY_ALGO":       jsii.String(os.Getenv("JETS_INPUT_ROW_JETS_KEY_ALGO")),
-			"JETS_INVALID_CODE":                  jsii.String(os.Getenv("JETS_INVALID_CODE")),
-			"JETS_LOADER_CHUNCK_SIZE":            jsii.String(os.Getenv("JETS_LOADER_CHUNCK_SIZE")),
-			"JETS_LOADER_SM_ARN":                 jsii.String(jsComp.LoaderSmArn),
-			"JETS_REGION":                        jsii.String(os.Getenv("AWS_REGION")),
-			"JETS_RESET_DOMAIN_TABLE_ON_STARTUP": jsii.String(os.Getenv("JETS_RESET_DOMAIN_TABLE_ON_STARTUP")),
-			"JETS_s3_INPUT_PREFIX":               jsii.String(os.Getenv("JETS_s3_INPUT_PREFIX")),
-			"JETS_s3_OUTPUT_PREFIX":              jsii.String(os.Getenv("JETS_s3_OUTPUT_PREFIX")),
-			"JETS_SENTINEL_FILE_NAME":            jsii.String(os.Getenv("JETS_SENTINEL_FILE_NAME")),
-			"JETS_DOMAIN_KEY_SEPARATOR":          jsii.String(os.Getenv("JETS_DOMAIN_KEY_SEPARATOR")),
-			"NBR_SHARDS":                         jsii.String(props.NbrShards),
-			"JETS_SERVER_SM_ARN":                 jsii.String(jsComp.ServerSmArn),
-			"JETS_CPIPES_SM_ARN":                 jsii.String(jsComp.CpipesSmArn),
-			"JETS_REPORTS_SM_ARN":                jsii.String(jsComp.ReportsSmArn),
-		},
-		Secrets: &map[string]awsecs.Secret{
-			"JETS_DSN_JSON_VALUE": awsecs.Secret_FromSecretsManager(jsComp.RdsSecret, nil),
-			"API_SECRET":          awsecs.Secret_FromSecretsManager(jsComp.ApiSecret, nil),
-		},
-		Logging: awsecs.LogDriver_AwsLogs(&awsecs.AwsLogDriverProps{
-			StreamPrefix: jsii.String("task"),
-		}),
-	})
-	// Loader ECS Task (for Loader State Machine)
-	// -----------------
-	runLoaderTask := sfntask.NewEcsRunTask(stack, jsii.String("run-loader"), &sfntask.EcsRunTaskProps{
-		Comment:        jsii.String("Run JetStore Loader Task"),
-		Cluster:        jsComp.EcsCluster,
-		Subnets:        jsComp.IsolatedSubnetSelection,
-		AssignPublicIp: jsii.Bool(false),
-		LaunchTarget: sfntask.NewEcsFargateLaunchTarget(&sfntask.EcsFargateLaunchTargetOptions{
-			PlatformVersion: awsecs.FargatePlatformVersion_LATEST,
-		}),
-		TaskDefinition: jsComp.LoaderTaskDefinition,
-		ContainerOverrides: &[]*sfntask.ContainerOverride{
-			{
-				ContainerDefinition: jsComp.LoaderContainerDef,
-				Command:             sfn.JsonPath_ListAt(jsii.String("$.loaderCommand")),
-			},
-		},
-		PropagatedTagSource: awsecs.PropagatedTagSource_TASK_DEFINITION,
-		ResultPath:          sfn.JsonPath_DISCARD(),
-		IntegrationPattern:  sfn.IntegrationPattern_RUN_JOB,
-	})
-	runLoaderTask.Connections().AllowTo(jsComp.RdsCluster, awsec2.Port_Tcp(jsii.Number(5432)), jsii.String("Allow connection from runLoaderTask"))
+	// Build Run Reports State Machine
+	// ---------------------------------------------
+	jsComp.BuildRunReportsSM(scope, stack, props)
 
-	// Run Reports ECS Task (for jsComp.LoaderSM)
-	// --------------------------------------------------------------------------------------------------------------
-	runLoaderReportsTask := sfntask.NewEcsRunTask(stack, jsii.String("run-loader-reports"), &sfntask.EcsRunTaskProps{
-		Comment:        jsii.String("Run Loader Reports Task"),
-		Cluster:        jsComp.EcsCluster,
-		Subnets:        jsComp.IsolatedSubnetSelection,
-		AssignPublicIp: jsii.Bool(false),
-		LaunchTarget: sfntask.NewEcsFargateLaunchTarget(&sfntask.EcsFargateLaunchTargetOptions{
-			PlatformVersion: awsecs.FargatePlatformVersion_LATEST,
-		}),
-		TaskDefinition: jsComp.RunreportTaskDefinition,
-		ContainerOverrides: &[]*sfntask.ContainerOverride{
-			{
-				ContainerDefinition: jsComp.RunreportsContainerDef,
-				Command:             sfn.JsonPath_ListAt(jsii.String("$.reportsCommand")),
-			},
-		},
-		PropagatedTagSource: awsecs.PropagatedTagSource_TASK_DEFINITION,
-		ResultPath:          sfn.JsonPath_DISCARD(),
-		IntegrationPattern:  sfn.IntegrationPattern_RUN_JOB,
-	})
-	runLoaderReportsTask.Connections().AllowTo(jsComp.RdsCluster, awsec2.Port_Tcp(jsii.Number(5432)), jsii.String("Allow connection from runLoaderReportsTask "))
-	//* TODO add a catch on runLoaderTask and runLoaderReportsTask
-	runLoaderTask.Next(runLoaderReportsTask)
-
-	// Loader State Machine - jsComp.LoaderSM
-	// --------------------------------------------------------------------------------------------------------------
-	jsComp.LoaderSM = sfn.NewStateMachine(stack, jsii.String("loaderSM"), &sfn.StateMachineProps{
-		StateMachineName: jsii.String("loaderSM"),
-		DefinitionBody:   sfn.DefinitionBody_FromChainable(runLoaderTask),
-		Timeout:          awscdk.Duration_Hours(jsii.Number(2)),
-	})
-	if phiTagName != nil {
-		awscdk.Tags_Of(jsComp.LoaderSM).Add(phiTagName, jsii.String("true"), nil)
-	}
-	if piiTagName != nil {
-		awscdk.Tags_Of(jsComp.LoaderSM).Add(piiTagName, jsii.String("true"), nil)
-	}
-	if descriptionTagName != nil {
-		awscdk.Tags_Of(jsComp.LoaderSM).Add(descriptionTagName, jsii.String("State Machine to load data into JetStore Platform"), nil)
-	}
-
-	// -----------------------------------------------
-	// Define the Status Update lambda, used in jsComp.ServerSM, jsComp.CpipesSM and jsComp.ReportsSM
-	// Status Update Lambda Definition
-	// --------------------------------------------------------------------------------------------------------------
-	jsComp.StatusUpdateLambda = awslambdago.NewGoFunction(stack, jsii.String("StatusUpdateLambda"), &awslambdago.GoFunctionProps{
-		Description: jsii.String("Lambda function to update job status with jetstore db"),
-		Runtime:     awslambda.Runtime_PROVIDED_AL2023(),
-		Entry:       jsii.String("lambdas/status_update"),
-		Bundling: &awslambdago.BundlingOptions{
-			GoBuildFlags: &[]*string{jsii.String(`-buildvcs=false -ldflags "-s -w"`)},
-		},
-		Environment: &map[string]*string{
-			"JETS_BUCKET":                        jsComp.SourceBucket.BucketName(),
-			"JETS_DOMAIN_KEY_HASH_ALGO":          jsii.String(os.Getenv("JETS_DOMAIN_KEY_HASH_ALGO")),
-			"JETS_DOMAIN_KEY_HASH_SEED":          jsii.String(os.Getenv("JETS_DOMAIN_KEY_HASH_SEED")),
-			"JETS_DSN_SECRET":                    jsComp.RdsSecret.SecretName(),
-			"JETS_INPUT_ROW_JETS_KEY_ALGO":       jsii.String(os.Getenv("JETS_INPUT_ROW_JETS_KEY_ALGO")),
-			"JETS_INVALID_CODE":                  jsii.String(os.Getenv("JETS_INVALID_CODE")),
-			"JETS_LOADER_CHUNCK_SIZE":            jsii.String(os.Getenv("JETS_LOADER_CHUNCK_SIZE")),
-			"JETS_LOADER_SM_ARN":                 jsii.String(jsComp.LoaderSmArn),
-			"JETS_REGION":                        jsii.String(os.Getenv("AWS_REGION")),
-			"JETS_RESET_DOMAIN_TABLE_ON_STARTUP": jsii.String(os.Getenv("JETS_RESET_DOMAIN_TABLE_ON_STARTUP")),
-			"JETS_s3_INPUT_PREFIX":               jsii.String(os.Getenv("JETS_s3_INPUT_PREFIX")),
-			"JETS_s3_OUTPUT_PREFIX":              jsii.String(os.Getenv("JETS_s3_OUTPUT_PREFIX")),
-			"JETS_SENTINEL_FILE_NAME":            jsii.String(os.Getenv("JETS_SENTINEL_FILE_NAME")),
-			"JETS_DOMAIN_KEY_SEPARATOR":          jsii.String(os.Getenv("JETS_DOMAIN_KEY_SEPARATOR")),
-			"JETS_SERVER_SM_ARN":                 jsii.String(jsComp.ServerSmArn),
-			"JETS_CPIPES_SM_ARN":                 jsii.String(jsComp.CpipesSmArn),
-			"JETS_REPORTS_SM_ARN":                jsii.String(jsComp.ReportsSmArn),
-			"NBR_SHARDS":                         jsii.String(props.NbrShards),
-			"ENVIRONMENT":                        jsii.String(os.Getenv("ENVIRONMENT")),
-			"SYSTEM_USER":                        jsii.String("admin"),
-		},
-		MemorySize: jsii.Number(128),
-		Timeout:    awscdk.Duration_Millis(jsii.Number(60000)),
-		Vpc:        jsComp.Vpc,
-		VpcSubnets: jsComp.IsolatedSubnetSelection,
-	})
-	if phiTagName != nil {
-		awscdk.Tags_Of(jsComp.StatusUpdateLambda).Add(phiTagName, jsii.String("false"), nil)
-	}
-	if piiTagName != nil {
-		awscdk.Tags_Of(jsComp.StatusUpdateLambda).Add(piiTagName, jsii.String("false"), nil)
-	}
-	if descriptionTagName != nil {
-		awscdk.Tags_Of(jsComp.StatusUpdateLambda).Add(descriptionTagName, jsii.String("JetStore lambda to update the pipeline status upon completion"), nil)
-	}
-	jsComp.StatusUpdateLambda.Connections().AllowTo(jsComp.RdsCluster, awsec2.Port_Tcp(jsii.Number(5432)), jsii.String("Allow connection from StatusUpdateLambda"))
-	jsComp.RdsSecret.GrantRead(jsComp.StatusUpdateLambda, nil)
-	// NOTE following added below due to dependency
-	// jsComp.StatusUpdateLambda.Connections().AllowTo(jsComp.ApiLoadBalancer, awsec2.Port_Tcp(&p), jsii.String("Allow connection from jsComp.RegisterKeyLambda"))
-	// jsComp.AdminPwdSecret.GrantRead(jsComp.StatusUpdateLambda, nil)
-
-	// -----------------------------------------------
-	// Define the Run Reports lambda, used in jsComp.CpipesSM and eventually to others
-	// Run Reports Lambda Definition
-	// --------------------------------------------------------------------------------------------------------------
-	jsComp.RunReportsLambda = awslambdago.NewGoFunction(stack, jsii.String("RunReportsLambda"), &awslambdago.GoFunctionProps{
-		Description: jsii.String("Lambda function to run JetStore Workspace reports"),
-		Runtime:     awslambda.Runtime_PROVIDED_AL2023(),
-		Entry:       jsii.String("lambdas/run_reports"),
-		Bundling: &awslambdago.BundlingOptions{
-			GoBuildFlags: &[]*string{jsii.String(`-buildvcs=false -ldflags "-s -w"`)},
-		},
-		Environment: &map[string]*string{
-			"JETS_BUCKET":                        jsComp.SourceBucket.BucketName(),
-			"JETS_DOMAIN_KEY_HASH_ALGO":          jsii.String(os.Getenv("JETS_DOMAIN_KEY_HASH_ALGO")),
-			"JETS_DOMAIN_KEY_HASH_SEED":          jsii.String(os.Getenv("JETS_DOMAIN_KEY_HASH_SEED")),
-			"JETS_DSN_SECRET":                    jsComp.RdsSecret.SecretName(),
-			"JETS_INPUT_ROW_JETS_KEY_ALGO":       jsii.String(os.Getenv("JETS_INPUT_ROW_JETS_KEY_ALGO")),
-			"JETS_INVALID_CODE":                  jsii.String(os.Getenv("JETS_INVALID_CODE")),
-			"JETS_LOADER_CHUNCK_SIZE":            jsii.String(os.Getenv("JETS_LOADER_CHUNCK_SIZE")),
-			"JETS_LOADER_SM_ARN":                 jsii.String(jsComp.LoaderSmArn),
-			"JETS_REGION":                        jsii.String(os.Getenv("AWS_REGION")),
-			"JETS_RESET_DOMAIN_TABLE_ON_STARTUP": jsii.String(os.Getenv("JETS_RESET_DOMAIN_TABLE_ON_STARTUP")),
-			"JETS_s3_INPUT_PREFIX":               jsii.String(os.Getenv("JETS_s3_INPUT_PREFIX")),
-			"JETS_s3_OUTPUT_PREFIX":              jsii.String(os.Getenv("JETS_s3_OUTPUT_PREFIX")),
-			"JETS_SENTINEL_FILE_NAME":            jsii.String(os.Getenv("JETS_SENTINEL_FILE_NAME")),
-			"JETS_DOMAIN_KEY_SEPARATOR":          jsii.String(os.Getenv("JETS_DOMAIN_KEY_SEPARATOR")),
-			"JETS_SERVER_SM_ARN":                 jsii.String(jsComp.ServerSmArn),
-			"JETS_CPIPES_SM_ARN":                 jsii.String(jsComp.CpipesSmArn),
-			"JETS_REPORTS_SM_ARN":                jsii.String(jsComp.ReportsSmArn),
-			"NBR_SHARDS":                         jsii.String(props.NbrShards),
-			"ENVIRONMENT":                        jsii.String(os.Getenv("ENVIRONMENT")),
-			"SYSTEM_USER":                        jsii.String("admin"),
-			"WORKSPACE":                          jsii.String(os.Getenv("WORKSPACE")),
-			"WORKSPACES_HOME":                    jsii.String("/tmp/workspaces"),
-		},
-		MemorySize: jsii.Number(3072),
-		Timeout:    awscdk.Duration_Minutes(jsii.Number(15)),
-		Vpc:        jsComp.Vpc,
-		VpcSubnets: jsComp.IsolatedSubnetSelection,
-	})
-	if phiTagName != nil {
-		awscdk.Tags_Of(jsComp.RunReportsLambda).Add(phiTagName, jsii.String("false"), nil)
-	}
-	if piiTagName != nil {
-		awscdk.Tags_Of(jsComp.RunReportsLambda).Add(piiTagName, jsii.String("false"), nil)
-	}
-	if descriptionTagName != nil {
-		awscdk.Tags_Of(jsComp.RunReportsLambda).Add(descriptionTagName, jsii.String("JetStore lambda to update the pipeline status upon completion"), nil)
-	}
-	jsComp.RunReportsLambda.Connections().AllowTo(jsComp.RdsCluster, awsec2.Port_Tcp(jsii.Number(5432)), jsii.String("Allow connection from StatusUpdateLambda"))
-	jsComp.RdsSecret.GrantRead(jsComp.RunReportsLambda, nil)
-
-	// Purge Data lambda function
-	// --------------------------------------------------------------------------------------------------------------
-	if len(os.Getenv("RETENTION_DAYS")) > 0 {
-		purgeDataHours := os.Getenv("PURGE_DATA_SCHEDULED_HOUR_UTC")
-		if len(purgeDataHours) == 0 {
-			purgeDataHours = "7"
-		}
-		jsComp.PurgeDataLambda = awslambdago.NewGoFunction(stack, jsii.String("PurgeDataLambda"), &awslambdago.GoFunctionProps{
-			Description: jsii.String("Lambda function to purge historical data in jetstore db"),
-			Runtime:     awslambda.Runtime_PROVIDED_AL2023(),
-			Entry:       jsii.String("lambdas/purge_data"),
-			Bundling: &awslambdago.BundlingOptions{
-				GoBuildFlags: &[]*string{jsii.String(`-buildvcs=false -ldflags "-s -w"`)},
-			},
-			Environment: &map[string]*string{
-				"JETS_DSN_SECRET": jsComp.RdsSecret.SecretName(),
-				"JETS_REGION":     jsii.String(os.Getenv("AWS_REGION")),
-				"RETENTION_DAYS":  jsii.String(os.Getenv("RETENTION_DAYS")),
-			},
-			MemorySize: jsii.Number(128),
-			Timeout:    awscdk.Duration_Millis(jsii.Number(60000 * 15)),
-			Vpc:        jsComp.Vpc,
-			VpcSubnets: jsComp.IsolatedSubnetSelection,
-		})
-		jsComp.PurgeDataLambda.Connections().AllowTo(jsComp.RdsCluster, awsec2.Port_Tcp(jsii.Number(5432)), jsii.String("Allow connection from StatusUpdateLambda"))
-		jsComp.RdsSecret.GrantRead(jsComp.PurgeDataLambda, nil)
-		if phiTagName != nil {
-			awscdk.Tags_Of(jsComp.PurgeDataLambda).Add(phiTagName, jsii.String("false"), nil)
-		}
-		if piiTagName != nil {
-			awscdk.Tags_Of(jsComp.PurgeDataLambda).Add(piiTagName, jsii.String("false"), nil)
-		}
-		if descriptionTagName != nil {
-			awscdk.Tags_Of(jsComp.PurgeDataLambda).Add(descriptionTagName, jsii.String("Lambda to purge historical data from JetStore Platform"), nil)
-		}
-		// Run the Lambda daily at 2 am eastern (7 am UTC) Mon thu Fri
-		awsevents.NewRule(stack, jsii.String("RunPurgeDataLambdaDaily"), &awsevents.RuleProps{
-			Description: jsii.String("Cron rule to run PurgeDataLambda daily"),
-			Targets: &[]awsevents.IRuleTarget{
-				awseventstargets.NewLambdaFunction(jsComp.PurgeDataLambda, &awseventstargets.LambdaFunctionProps{}),
-			},
-			Schedule: awsevents.Schedule_Cron(&awsevents.CronOptions{
-				Hour:   jsii.String(purgeDataHours),
-				Minute: jsii.String("0"),
-			}),
-		})
-	}
-
-	// Run Reports ECS Task for jsComp.ReportsSM
-	// --------------------------------------------------------------------------------------------------------------
-	runReportsTask := sfntask.NewEcsRunTask(stack, jsii.String("run-reports"), &sfntask.EcsRunTaskProps{
-		Comment:        jsii.String("Run Reports Task"),
-		Cluster:        jsComp.EcsCluster,
-		Subnets:        jsComp.IsolatedSubnetSelection,
-		AssignPublicIp: jsii.Bool(false),
-		LaunchTarget: sfntask.NewEcsFargateLaunchTarget(&sfntask.EcsFargateLaunchTargetOptions{
-			PlatformVersion: awsecs.FargatePlatformVersion_LATEST,
-		}),
-		TaskDefinition: jsComp.RunreportTaskDefinition,
-		ContainerOverrides: &[]*sfntask.ContainerOverride{
-			{
-				ContainerDefinition: jsComp.RunreportsContainerDef,
-				// Using same api as jsComp.ServerSM from apiserver point of view, taking reportsCommand,
-				// other SM (as jsComp.CpipesSM does) could use the serverCommands when in need of Map construct
-				Command: sfn.JsonPath_ListAt(jsii.String("$.reportsCommand")),
-			},
-		},
-		PropagatedTagSource: awsecs.PropagatedTagSource_TASK_DEFINITION,
-		ResultPath:          sfn.JsonPath_DISCARD(),
-		IntegrationPattern:  sfn.IntegrationPattern_RUN_JOB,
-	})
-	runReportsTask.Connections().AllowTo(jsComp.RdsCluster, awsec2.Port_Tcp(jsii.Number(5432)), jsii.String("Allow connection from runReportsTask "))
-
-	// Status Update lambda: update_success Step Function Task for jsComp.ReportsSM
-	// --------------------------------------------------------------------------------------------------------------
-	updateReportsSuccessStatusLambdaTask := sfntask.NewLambdaInvoke(stack, jsii.String("UpdateStatusSuccessLambdaTask"), &sfntask.LambdaInvokeProps{
-		Comment:        jsii.String("Lambda Task to update status to success"),
-		LambdaFunction: jsComp.StatusUpdateLambda,
-		InputPath:      jsii.String("$.successUpdate"),
-		ResultPath:     sfn.JsonPath_DISCARD(),
-	})
-
-	// Status Update: update_success Step Function Task for jsComp.ReportsSM
-	// --------------------------------------------------------------------------------------------------------------
-	updateReportsErrorStatusLambdaTask := sfntask.NewLambdaInvoke(stack, jsii.String("UpdateReportsErrorStatusLambdaTask"), &sfntask.LambdaInvokeProps{
-		Comment:        jsii.String("Lambda Task to update status to error/failed"),
-		LambdaFunction: jsComp.StatusUpdateLambda,
-		InputPath:      jsii.String("$.errorUpdate"),
-		ResultPath:     sfn.JsonPath_DISCARD(),
-	})
-
-	// runReportsTask.AddCatch(updateReportsErrorStatusTask, jetstorestack.MkCatchProps()).Next(updateReportsSuccessStatusTask)
-	runReportsTask.AddCatch(updateReportsErrorStatusLambdaTask, jetstorestack.MkCatchProps()).Next(updateReportsSuccessStatusLambdaTask)
-
-	// Reports State Machine - jsComp.ReportsSM
-	// --------------------------------------------------------------------------------------------------------------
-	jsComp.ReportsSM = sfn.NewStateMachine(stack, jsii.String("reportsSM"), &sfn.StateMachineProps{
-		StateMachineName: jsii.String("reportsSM"),
-		DefinitionBody:   sfn.DefinitionBody_FromChainable(runReportsTask),
-		Timeout:          awscdk.Duration_Hours(jsii.Number(4)),
-	})
-	if phiTagName != nil {
-		awscdk.Tags_Of(jsComp.ReportsSM).Add(phiTagName, jsii.String("true"), nil)
-	}
-	if piiTagName != nil {
-		awscdk.Tags_Of(jsComp.ReportsSM).Add(piiTagName, jsii.String("true"), nil)
-	}
-	if descriptionTagName != nil {
-		awscdk.Tags_Of(jsComp.ReportsSM).Add(descriptionTagName, jsii.String("State Machine to load data into JetStore Platform"), nil)
-	}
-
-	// ================================================
 	// JetStore Rule Server State Machine
-	// Define the ECS TAsk jsComp.ServerTaskDefinition for the jsComp.ServerSM
+	// ---------------------------------------------
+	jsComp.BuildServerSM(scope, stack, props)
+
+	// Build lambdas used by cpipesSM:
+	//	- CpipesNodeLambda
+	//	- CpipesStartShardingLambda
+	//	- CpipesStartReducingLambda
 	// --------------------------------------------------------------------------------------------------------------
-	if len(os.Getenv("JETS_SERVER_TASK_MEM_LIMIT_MB")) > 0 {
-		var err error
-		memLimit, err = strconv.ParseFloat(os.Getenv("JETS_SERVER_TASK_MEM_LIMIT_MB"), 64)
-		if err != nil {
-			fmt.Println("while parsing JETS_SERVER_TASK_MEM_LIMIT_MB:", err)
-			memLimit = 24576
-		}
-	} else {
-		memLimit = 24576
-	}
-	fmt.Println("Using memory limit of", memLimit, " (from env JETS_SERVER_TASK_MEM_LIMIT_MB)")
-	if len(os.Getenv("JETS_SERVER_TASK_CPU")) > 0 {
-		var err error
-		cpu, err = strconv.ParseFloat(os.Getenv("JETS_SERVER_TASK_CPU"), 64)
-		if err != nil {
-			fmt.Println("while parsing JETS_SERVER_TASK_CPU:", err)
-			cpu = 4096
-		}
-	} else {
-		cpu = 4096
-	}
-	fmt.Println("Using cpu allocation of", cpu, " (from env JETS_SERVER_TASK_CPU)")
-
-	jsComp.ServerTaskDefinition = awsecs.NewFargateTaskDefinition(stack, jsii.String("serverTaskDefinition"), &awsecs.FargateTaskDefinitionProps{
-		MemoryLimitMiB: jsii.Number(memLimit),
-		Cpu:            jsii.Number(cpu),
-		ExecutionRole:  jsComp.EcsTaskExecutionRole,
-		TaskRole:       jsComp.EcsTaskRole,
-		RuntimePlatform: &awsecs.RuntimePlatform{
-			OperatingSystemFamily: awsecs.OperatingSystemFamily_LINUX(),
-			CpuArchitecture:       awsecs.CpuArchitecture_X86_64(),
-		},
-	})
-	// Server Task Container
-	// ---------------------
-	jsComp.ServerContainerDef = jsComp.ServerTaskDefinition.AddContainer(jsii.String("serverContainer"), &awsecs.ContainerDefinitionOptions{
-		// Use JetStore Image in ecr
-		Image:         jsComp.JetStoreImage,
-		ContainerName: jsii.String("serverContainer"),
-		Essential:     jsii.Bool(true),
-		EntryPoint:    jsii.Strings("server"),
-		Environment: &map[string]*string{
-			"JETS_BUCKET":                        jsComp.SourceBucket.BucketName(),
-			"JETS_DOMAIN_KEY_HASH_ALGO":          jsii.String(os.Getenv("JETS_DOMAIN_KEY_HASH_ALGO")),
-			"JETS_DOMAIN_KEY_HASH_SEED":          jsii.String(os.Getenv("JETS_DOMAIN_KEY_HASH_SEED")),
-			"JETS_INPUT_ROW_JETS_KEY_ALGO":       jsii.String(os.Getenv("JETS_INPUT_ROW_JETS_KEY_ALGO")),
-			"JETS_INVALID_CODE":                  jsii.String(os.Getenv("JETS_INVALID_CODE")),
-			"JETS_LOADER_CHUNCK_SIZE":            jsii.String(os.Getenv("JETS_LOADER_CHUNCK_SIZE")),
-			"JETS_LOADER_SM_ARN":                 jsii.String(jsComp.LoaderSmArn),
-			"JETS_REGION":                        jsii.String(os.Getenv("AWS_REGION")),
-			"JETS_RESET_DOMAIN_TABLE_ON_STARTUP": jsii.String(os.Getenv("JETS_RESET_DOMAIN_TABLE_ON_STARTUP")),
-			"JETS_s3_INPUT_PREFIX":               jsii.String(os.Getenv("JETS_s3_INPUT_PREFIX")),
-			"JETS_s3_OUTPUT_PREFIX":              jsii.String(os.Getenv("JETS_s3_OUTPUT_PREFIX")),
-			"JETS_SENTINEL_FILE_NAME":            jsii.String(os.Getenv("JETS_SENTINEL_FILE_NAME")),
-			"JETS_DOMAIN_KEY_SEPARATOR":          jsii.String(os.Getenv("JETS_DOMAIN_KEY_SEPARATOR")),
-			"NBR_SHARDS":                         jsii.String(props.NbrShards),
-			"JETS_SERVER_SM_ARN":                 jsii.String(jsComp.ServerSmArn),
-			"JETS_CPIPES_SM_ARN":                 jsii.String(jsComp.CpipesSmArn),
-			"JETS_REPORTS_SM_ARN":                jsii.String(jsComp.ReportsSmArn),
-		},
-		Secrets: &map[string]awsecs.Secret{
-			"JETS_DSN_JSON_VALUE": awsecs.Secret_FromSecretsManager(jsComp.RdsSecret, nil),
-			"API_SECRET":          awsecs.Secret_FromSecretsManager(jsComp.ApiSecret, nil),
-		},
-		Logging: awsecs.LogDriver_AwsLogs(&awsecs.AwsLogDriverProps{
-			StreamPrefix: jsii.String("task"),
-		}),
-	})
-	// Run Server ECS Task
-	// ----------------
-	runServerTask := sfntask.NewEcsRunTask(stack, jsii.String("run-server"), &sfntask.EcsRunTaskProps{
-		Comment:        jsii.String("Run JetStore Rule Server Task"),
-		Cluster:        jsComp.EcsCluster,
-		Subnets:        jsComp.IsolatedSubnetSelection,
-		AssignPublicIp: jsii.Bool(false),
-		LaunchTarget: sfntask.NewEcsFargateLaunchTarget(&sfntask.EcsFargateLaunchTargetOptions{
-			PlatformVersion: awsecs.FargatePlatformVersion_LATEST,
-		}),
-		TaskDefinition: jsComp.ServerTaskDefinition,
-		ContainerOverrides: &[]*sfntask.ContainerOverride{
-			{
-				ContainerDefinition: jsComp.ServerContainerDef,
-				Command:             sfn.JsonPath_ListAt(jsii.String("$")),
-			},
-		},
-		PropagatedTagSource: awsecs.PropagatedTagSource_TASK_DEFINITION,
-		IntegrationPattern:  sfn.IntegrationPattern_RUN_JOB,
-	})
-	runServerTask.Connections().AllowTo(jsComp.RdsCluster, awsec2.Port_Tcp(jsii.Number(5432)), jsii.String("Allow connection from runServerTask"))
-
-	// Run Reports Step Function Task for jsComp.ServerSM
-	// -----------------------------------------------
-	runServerReportsTask := sfntask.NewEcsRunTask(stack, jsii.String("run-server-reports"), &sfntask.EcsRunTaskProps{
-		Comment:        jsii.String("Run Server Reports Task"),
-		Cluster:        jsComp.EcsCluster,
-		Subnets:        jsComp.IsolatedSubnetSelection,
-		AssignPublicIp: jsii.Bool(false),
-		LaunchTarget: sfntask.NewEcsFargateLaunchTarget(&sfntask.EcsFargateLaunchTargetOptions{
-			PlatformVersion: awsecs.FargatePlatformVersion_LATEST,
-		}),
-		TaskDefinition: jsComp.RunreportTaskDefinition,
-		ContainerOverrides: &[]*sfntask.ContainerOverride{
-			{
-				ContainerDefinition: jsComp.RunreportsContainerDef,
-				Command:             sfn.JsonPath_ListAt(jsii.String("$.reportsCommand")),
-			},
-		},
-		PropagatedTagSource: awsecs.PropagatedTagSource_TASK_DEFINITION,
-		ResultPath:          sfn.JsonPath_DISCARD(),
-		IntegrationPattern:  sfn.IntegrationPattern_RUN_JOB,
-	})
-	runServerReportsTask.Connections().AllowTo(jsComp.RdsCluster, awsec2.Port_Tcp(jsii.Number(5432)), jsii.String("Allow connection from runServerReportsTask "))
-
-	// Status Update: update_success Step Function Task for jsComp.ReportsSM
-	// --------------------------------------------------------------------------------------------------------------
-	updateServerErrorStatusLambdaTask := sfntask.NewLambdaInvoke(stack, jsii.String("UpdateServerErrorStatusLambdaTask"), &sfntask.LambdaInvokeProps{
-		Comment:        jsii.String("Lambda Task to update server status to error/failed"),
-		LambdaFunction: jsComp.StatusUpdateLambda,
-		InputPath:      jsii.String("$.errorUpdate"),
-		ResultPath:     sfn.JsonPath_DISCARD(),
-	})
-
-	// Status Update: update_success Step Function Task for jsComp.ReportsSM
-	// --------------------------------------------------------------------------------------------------------------
-	updateServerSuccessStatusLambdaTask := sfntask.NewLambdaInvoke(stack, jsii.String("UpdateServerSuccessStatusLambdaTask"), &sfntask.LambdaInvokeProps{
-		Comment:        jsii.String("Lambda Task to update server status to success"),
-		LambdaFunction: jsComp.StatusUpdateLambda,
-		InputPath:      jsii.String("$.successUpdate"),
-		ResultPath:     sfn.JsonPath_DISCARD(),
-	})
-
-	//*TODO SNS message
-	notifyFailure := sfn.NewPass(scope, jsii.String("notify-failure"), &sfn.PassProps{})
-	notifySuccess := sfn.NewPass(scope, jsii.String("notify-success"), &sfn.PassProps{})
-
-	// Create Rule Server State Machine - jsComp.ServerSM
-	// -------------------------------------------
-	if os.Getenv("TASK_MAX_CONCURRENCY") == "" {
-		props.MaxConcurrency = 1
-	} else {
-		var err error
-		props.MaxConcurrency, err = strconv.ParseFloat(os.Getenv("TASK_MAX_CONCURRENCY"), 64)
-		if err != nil {
-			props.MaxConcurrency = 1
-		}
-	}
-	runServerMap := sfn.NewMap(stack, jsii.String("run-server-map"), &sfn.MapProps{
-		Comment:        jsii.String("Run JetStore Rule Server Task"),
-		ItemsPath:      sfn.JsonPath_StringAt(jsii.String("$.serverCommands")),
-		MaxConcurrency: jsii.Number(props.MaxConcurrency),
-		ResultPath:     sfn.JsonPath_DISCARD(),
-	})
-
-	// Chaining the SF Tasks
-	// // Version using ECS Task for Status Update
-	// runServerMap.Iterator(runServerTask).AddCatch(updateServerErrorStatusTask, jetstorestack.MkCatchProps()).Next(runServerReportsTask)
-	// runServerReportsTask.AddCatch(updateServerErrorStatusTask, jetstorestack.MkCatchProps()).Next(updateServerSuccessStatusTask)
-	// updateServerSuccessStatusTask.AddCatch(notifyFailure, jetstorestack.MkCatchProps()).Next(notifySuccess)
-	// updateServerErrorStatusTask.AddCatch(notifyFailure, jetstorestack.MkCatchProps()).Next(notifyFailure)
-	// Version using Lambda for Status Update
-	runServerMap.Iterator(runServerTask).AddRetry(&sfn.RetryProps{
-		BackoffRate: jsii.Number(2),
-		Errors:      jsii.Strings(*sfn.Errors_TASKS_FAILED()),
-		Interval:    awscdk.Duration_Minutes(jsii.Number(4)),
-		MaxAttempts: jsii.Number(2),
-	}).AddCatch(updateServerErrorStatusLambdaTask, jetstorestack.MkCatchProps()).Next(runServerReportsTask)
-	runServerReportsTask.AddCatch(updateServerErrorStatusLambdaTask, jetstorestack.MkCatchProps()).Next(updateServerSuccessStatusLambdaTask)
-	updateServerSuccessStatusLambdaTask.AddCatch(notifyFailure, jetstorestack.MkCatchProps()).Next(notifySuccess)
-	updateServerErrorStatusLambdaTask.AddCatch(notifyFailure, jetstorestack.MkCatchProps()).Next(notifyFailure)
-
-	jsComp.ServerSM = sfn.NewStateMachine(stack, jsii.String("serverSM"), &sfn.StateMachineProps{
-		StateMachineName: jsii.String("serverSM"),
-		DefinitionBody:   sfn.DefinitionBody_FromChainable(runServerMap),
-		//* NOTE 4h TIMEOUT of exec rules
-		Timeout: awscdk.Duration_Hours(jsii.Number(4)),
-	})
-	if phiTagName != nil {
-		awscdk.Tags_Of(jsComp.ServerSM).Add(phiTagName, jsii.String("true"), nil)
-	}
-	if piiTagName != nil {
-		awscdk.Tags_Of(jsComp.ServerSM).Add(piiTagName, jsii.String("true"), nil)
-	}
-	if descriptionTagName != nil {
-		awscdk.Tags_Of(jsComp.ServerSM).Add(descriptionTagName, jsii.String("State Machine to execute rules in JetStore Platform"), nil)
-	}
+	jsComp.BuildCpipesLambdas(scope, stack, props)
 
 	// Build the cpipes State Machine (cpipesSM)
 	jsComp.BuildCpipesSM(scope, stack, props)
@@ -936,103 +365,7 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 	// ---------------------------------------
 	// Define the JetStore UI Service
 	// ---------------------------------------
-	jsComp.UiTaskDefinition = awsecs.NewFargateTaskDefinition(stack, jsii.String("uiTaskDefinition"), &awsecs.FargateTaskDefinitionProps{
-		MemoryLimitMiB: jsii.Number(1024 * 4),
-		Cpu:            jsii.Number(1024),
-		ExecutionRole:  jsComp.EcsTaskExecutionRole,
-		TaskRole:       jsComp.EcsTaskRole,
-		RuntimePlatform: &awsecs.RuntimePlatform{
-			OperatingSystemFamily: awsecs.OperatingSystemFamily_LINUX(),
-			CpuArchitecture:       awsecs.CpuArchitecture_X86_64(),
-		},
-	})
-	jsComp.AdminPwdSecret = awssm.NewSecret(stack, jsii.String("adminPwdSecret"), &awssm.SecretProps{
-		Description: jsii.String("JetStore UI admin password"),
-		GenerateSecretString: &awssm.SecretStringGenerator{
-			PasswordLength:          jsii.Number(15),
-			IncludeSpace:            jsii.Bool(false),
-			RequireEachIncludedType: jsii.Bool(true),
-		},
-	})
-	jsComp.EncryptionKeySecret = awssm.NewSecret(stack, jsii.String("encryptionKeySecret"), &awssm.SecretProps{
-		Description: jsii.String("JetStore Encryption Key"),
-		GenerateSecretString: &awssm.SecretStringGenerator{
-			PasswordLength:          jsii.Number(32),
-			IncludeSpace:            jsii.Bool(false),
-			ExcludePunctuation:      jsii.Bool(true),
-			RequireEachIncludedType: jsii.Bool(true),
-		},
-	})
-	jsComp.UiTaskContainer = jsComp.UiTaskDefinition.AddContainer(jsii.String("uiContainer"), &awsecs.ContainerDefinitionOptions{
-		// Use JetStore Image in ecr
-		Image:         jsComp.JetStoreImage,
-		ContainerName: jsii.String("uiContainer"),
-		Essential:     jsii.Bool(true),
-		EntryPoint:    jsii.Strings("apiserver"),
-		PortMappings: &[]*awsecs.PortMapping{
-			{
-				Name:          jsii.String("ui-port-mapping"),
-				ContainerPort: jsii.Number(8080),
-				HostPort:      jsii.Number(8080),
-				AppProtocol:   awsecs.AppProtocol_Http(),
-			},
-		},
-		Environment: &map[string]*string{
-			"JETS_BUCKET":                        jsComp.SourceBucket.BucketName(),
-			"JETS_DOMAIN_KEY_HASH_ALGO":          jsii.String(os.Getenv("JETS_DOMAIN_KEY_HASH_ALGO")),
-			"JETS_DOMAIN_KEY_HASH_SEED":          jsii.String(os.Getenv("JETS_DOMAIN_KEY_HASH_SEED")),
-			"JETS_INPUT_ROW_JETS_KEY_ALGO":       jsii.String(os.Getenv("JETS_INPUT_ROW_JETS_KEY_ALGO")),
-			"JETS_INVALID_CODE":                  jsii.String(os.Getenv("JETS_INVALID_CODE")),
-			"JETS_LOADER_CHUNCK_SIZE":            jsii.String(os.Getenv("JETS_LOADER_CHUNCK_SIZE")),
-			"JETS_LOADER_SM_ARN":                 jsii.String(jsComp.LoaderSmArn),
-			"JETS_REGION":                        jsii.String(os.Getenv("AWS_REGION")),
-			"JETS_RESET_DOMAIN_TABLE_ON_STARTUP": jsii.String(os.Getenv("JETS_RESET_DOMAIN_TABLE_ON_STARTUP")),
-			"JETS_s3_INPUT_PREFIX":               jsii.String(os.Getenv("JETS_s3_INPUT_PREFIX")),
-			"JETS_s3_OUTPUT_PREFIX":              jsii.String(os.Getenv("JETS_s3_OUTPUT_PREFIX")),
-			"JETS_SENTINEL_FILE_NAME":            jsii.String(os.Getenv("JETS_SENTINEL_FILE_NAME")),
-			"JETS_DOMAIN_KEY_SEPARATOR":          jsii.String(os.Getenv("JETS_DOMAIN_KEY_SEPARATOR")),
-			"WORKSPACE":                          jsii.String(os.Getenv("WORKSPACE")),
-			"WORKSPACE_BRANCH":                   jsii.String(os.Getenv("WORKSPACE_BRANCH")),
-			"WORKSPACE_FILE_KEY_LABEL_RE":        jsii.String(os.Getenv("WORKSPACE_FILE_KEY_LABEL_RE")),
-			"WORKSPACE_URI":                      jsii.String(os.Getenv("WORKSPACE_URI")),
-			"ACTIVE_WORKSPACE_URI":               jsii.String(os.Getenv("ACTIVE_WORKSPACE_URI")),
-			"ENVIRONMENT":                        jsii.String(os.Getenv("ENVIRONMENT")),
-			"JETS_SERVER_SM_ARN":                 jsii.String(jsComp.ServerSmArn),
-			"NBR_SHARDS":                         jsii.String(props.NbrShards),
-			"JETS_CPIPES_SM_ARN":                 jsii.String(jsComp.CpipesSmArn),
-			"JETS_REPORTS_SM_ARN":                jsii.String(jsComp.ReportsSmArn),
-		},
-		Secrets: &map[string]awsecs.Secret{
-			"JETS_DSN_JSON_VALUE": awsecs.Secret_FromSecretsManager(jsComp.RdsSecret, nil),
-			"API_SECRET":          awsecs.Secret_FromSecretsManager(jsComp.ApiSecret, nil),
-			"JETS_ADMIN_PWD":      awsecs.Secret_FromSecretsManager(jsComp.AdminPwdSecret, nil),
-			"JETS_ENCRYPTION_KEY": awsecs.Secret_FromSecretsManager(jsComp.EncryptionKeySecret, nil),
-		},
-		Logging: awsecs.LogDriver_AwsLogs(&awsecs.AwsLogDriverProps{
-			StreamPrefix: jsii.String("task"),
-		}),
-	})
-
-	jsComp.EcsUiService = awsecs.NewFargateService(stack, jsii.String("jetstore-ui"), &awsecs.FargateServiceProps{
-		Cluster:        jsComp.EcsCluster,
-		ServiceName:    jsii.String("jetstore-ui"),
-		TaskDefinition: jsComp.UiTaskDefinition,
-		VpcSubnets:     jsComp.PrivateSubnetSelection,
-		AssignPublicIp: jsii.Bool(false),
-		DesiredCount:   jsii.Number(1),
-		SecurityGroups: &[]awsec2.ISecurityGroup{
-			jsComp.PrivateSecurityGroup,
-			jetstorestack.NewGitAccessSecurityGroup(stack, jsComp.Vpc)},
-	})
-	if phiTagName != nil {
-		awscdk.Tags_Of(jsComp.EcsUiService).Add(phiTagName, jsii.String("true"), nil)
-	}
-	if piiTagName != nil {
-		awscdk.Tags_Of(jsComp.EcsUiService).Add(piiTagName, jsii.String("true"), nil)
-	}
-	if descriptionTagName != nil {
-		awscdk.Tags_Of(jsComp.EcsUiService).Add(descriptionTagName, jsii.String("JetStore Platform Microservices and UI service"), nil)
-	}
+	jsComp.BuildUiService(scope, stack, props)
 
 	// JETS_ELB_MODE == public: deploy ELB in public subnet and public facing
 	// JETS_ELB_MODE != public: (private or empty) deploy ELB in private subnet and not public facing
@@ -1160,7 +493,7 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 	if os.Getenv("JETS_ELB_MODE") == "public" {
 		p = uiPort + 1
 	}
-	jetsApiUrl := fmt.Sprintf("http://%s:%.0f", *s, p)
+	props.JetsApiUrl = fmt.Sprintf("http://%s:%.0f", *s, p)
 	// Status Update Lambda Function
 	jsComp.StatusUpdateLambda.Connections().AllowTo(jsComp.ApiLoadBalancer, awsec2.Port_Tcp(&p), jsii.String("Allow connection from StatusUpdateLambda"))
 	jsComp.AdminPwdSecret.GrantRead(jsComp.StatusUpdateLambda, nil)
@@ -1177,7 +510,7 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 	)
 	jsComp.StatusUpdateLambda.AddEnvironment(
 		jsii.String("JETS_API_URL"),
-		jsii.String(jetsApiUrl),
+		jsii.String(props.JetsApiUrl),
 		&awslambda.EnvironmentOptions{},
 	)
 
@@ -1212,60 +545,10 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 		}
 	}
 
-	// BEGIN Create a Lambda function to register File Keys with JetStore DB
-	// jsComp.RegisterKeyLambda := awslambdago.NewGoFunction(stack, jsii.String("registerKeyLambda"), &awslambdago.GoFunctionProps{
-	// 	Description: jsii.String("Lambda function to register file key with jetstore db"),
-	// 	Runtime: awslambda.Runtime_PROVIDED_AL2023(),
-	// 	Entry:   jsii.String("lambdas"),
-	// 	Bundling: &awslambdago.BundlingOptions{
-	// 		GoBuildFlags: &[]*string{jsii.String(`-ldflags "-s -w"`)},
-	// 	},
-	// 	Environment: &map[string]*string{
-	// 		"JETS_REGION":         jsii.String(os.Getenv("AWS_REGION")),
-	// 		"JETS_SENTINEL_FILE_NAME":         jsii.String(os.Getenv("JETS_SENTINEL_FILE_NAME")), // may need other env var here...
-	// 		"JETS_DSN_SECRET":     jsComp.RdsSecret.SecretName(),
-	// 	},
-	// 	MemorySize: jsii.Number(128),
-	// 	Timeout:    awscdk.Duration_Millis(jsii.Number(60000)),
-	// 	Vpc: jsComp.Vpc,
-	// 	VpcSubnets: jsComp.IsolatedSubnetSelection,
-	// })
-	// jsComp.RegisterKeyLambda.Connections().AllowTo(jsComp.RdsCluster, awsec2.Port_Tcp(jsii.Number(5432)), jsii.String("Allow connection from jsComp.RegisterKeyLambda"))
-	// jsComp.RdsSecret.GrantRead(jsComp.RegisterKeyLambda, nil)
-	// END Create a Lambda function to register File Keys with JetStore DB
-
-	// Lambda to register key from s3
-	// BEGIN ALTERNATE with python lamdba fnc
-	jsComp.RegisterKeyLambda = awslambda.NewFunction(stack, jsii.String("registerKeyLambda"), &awslambda.FunctionProps{
-		Description: jsii.String("Lambda to register s3 key to JetStore"),
-		Code:        awslambda.NewAssetCode(jsii.String("lambdas"), nil),
-		Handler:     jsii.String("handlers.register_key"),
-		Timeout:     awscdk.Duration_Seconds(jsii.Number(300)),
-		Runtime:     awslambda.Runtime_PYTHON_3_9(),
-		Environment: &map[string]*string{
-			"JETS_REGION":               jsii.String(os.Getenv("AWS_REGION")),
-			"JETS_API_URL":              jsii.String(jetsApiUrl),
-			"SYSTEM_USER":               jsii.String("admin"),
-			"SYSTEM_PWD_SECRET":         jsComp.AdminPwdSecret.SecretName(),
-			"JETS_ELB_MODE":             jsii.String(os.Getenv("JETS_ELB_MODE")),
-			"JETS_DOMAIN_KEY_SEPARATOR": jsii.String(os.Getenv("JETS_DOMAIN_KEY_SEPARATOR")),
-			"JETS_SENTINEL_FILE_NAME":   jsii.String(os.Getenv("JETS_SENTINEL_FILE_NAME")),
-		},
-		Vpc:        jsComp.Vpc,
-		VpcSubnets: jsComp.IsolatedSubnetSelection,
-	})
+	// RegisterKey Lambda
+	jsComp.BuildRegisterKeyLambdas(scope, stack, props)
 	jsComp.RegisterKeyLambda.Connections().AllowTo(jsComp.ApiLoadBalancer, awsec2.Port_Tcp(&p), jsii.String("Allow connection from jsComp.RegisterKeyLambda"))
 	jsComp.AdminPwdSecret.GrantRead(jsComp.RegisterKeyLambda, nil)
-	// END ALTERNATE with python lamdba fnc
-	if phiTagName != nil {
-		awscdk.Tags_Of(jsComp.RegisterKeyLambda).Add(phiTagName, jsii.String("false"), nil)
-	}
-	if piiTagName != nil {
-		awscdk.Tags_Of(jsComp.RegisterKeyLambda).Add(piiTagName, jsii.String("false"), nil)
-	}
-	if descriptionTagName != nil {
-		awscdk.Tags_Of(jsComp.RegisterKeyLambda).Add(descriptionTagName, jsii.String("Lambda listening to S3 events for JetStore Platform"), nil)
-	}
 
 	// Run the task starter Lambda when an object is added to the S3 bucket.
 	if len(os.Getenv("JETS_SENTINEL_FILE_NAME")) > 0 {
@@ -1305,6 +588,7 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 // JETS_CERT_ARN (not required unless JETS_ELB_MODE==public)
 // JETS_CPIPES_TASK_CPU allocated cpu in vCPU units
 // JETS_CPIPES_TASK_MEM_LIMIT_MB memory limit, based on fargate table
+// JETS_CPIPES_LAMBDA_MEM_LIMIT_MB memory limit for cpipes execution node lambda
 // JETS_CPU_UTILIZATION_ALARM_THRESHOLD (required, Alarm threshold for metric CPUUtilization, default 80)
 // JETS_DB_MAX_CAPACITY (required, Aurora Serverless v2 max capacity in ACU units, default 6)
 // JETS_DB_MIN_CAPACITY (required, Aurora Serverless v2 min capacity in ACU units, default 0.5)
@@ -1366,6 +650,7 @@ func main() {
 	fmt.Println("env JETS_CERT_ARN:", os.Getenv("JETS_CERT_ARN"))
 	fmt.Println("env JETS_CPIPES_TASK_CPU:", os.Getenv("JETS_CPIPES_TASK_CPU"))
 	fmt.Println("env JETS_CPIPES_TASK_MEM_LIMIT_MB:", os.Getenv("JETS_CPIPES_TASK_MEM_LIMIT_MB"))
+	fmt.Println("env JETS_CPIPES_LAMBDA_MEM_LIMIT_MB:", os.Getenv("JETS_CPIPES_LAMBDA_MEM_LIMIT_MB"))
 	fmt.Println("env JETS_CPU_UTILIZATION_ALARM_THRESHOLD:", os.Getenv("JETS_CPU_UTILIZATION_ALARM_THRESHOLD"))
 	fmt.Println("env JETS_DB_MAX_CAPACITY:", os.Getenv("JETS_DB_MAX_CAPACITY"))
 	fmt.Println("env JETS_DB_MIN_CAPACITY:", os.Getenv("JETS_DB_MIN_CAPACITY"))

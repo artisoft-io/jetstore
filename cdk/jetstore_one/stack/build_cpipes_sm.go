@@ -1,10 +1,6 @@
 package stack
 
 import (
-	"fmt"
-	"os"
-	"strconv"
-
 	awscdk "github.com/aws/aws-cdk-go/awscdk/v2"
 	"github.com/aws/aws-cdk-go/awscdk/v2/awsec2"
 	"github.com/aws/aws-cdk-go/awscdk/v2/awsecs"
@@ -17,88 +13,6 @@ import (
 // functions to build the cpipes state machine
 
 func (jsComp *JetStoreStackComponents) BuildCpipesSM(scope constructs.Construct, stack awscdk.Stack, props *JetstoreOneStackProps) {
-	// ================================================
-	// JetStore Compute Pipes State Machine
-	// Define the ECS Task jsComp.CpipesTaskDefinition for the jsComp.CpipesSM
-	// --------------------------------------------------------------------------------------------------------------
-	var memLimit, cpu float64
-	if len(os.Getenv("JETS_CPIPES_TASK_MEM_LIMIT_MB")) > 0 {
-		var err error
-		memLimit, err = strconv.ParseFloat(os.Getenv("JETS_CPIPES_TASK_MEM_LIMIT_MB"), 64)
-		if err != nil {
-			fmt.Println("while parsing JETS_CPIPES_TASK_MEM_LIMIT_MB:", err)
-			memLimit = 24576
-		}
-	} else {
-		memLimit = 24576
-	}
-	fmt.Println("Using memory limit of", memLimit, " (from env JETS_CPIPES_TASK_MEM_LIMIT_MB)")
-	if len(os.Getenv("JETS_CPIPES_TASK_CPU")) > 0 {
-		var err error
-		cpu, err = strconv.ParseFloat(os.Getenv("JETS_CPIPES_TASK_CPU"), 64)
-		if err != nil {
-			fmt.Println("while parsing JETS_CPIPES_TASK_CPU:", err)
-			cpu = 4096
-		}
-	} else {
-		cpu = 4096
-	}
-	fmt.Println("Using cpu allocation of", cpu, " (from env JETS_CPIPES_TASK_CPU)")
-
-	jsComp.CpipesTaskDefinition = awsecs.NewFargateTaskDefinition(stack, jsii.String("cpipesTaskDefinition"), &awsecs.FargateTaskDefinitionProps{
-		MemoryLimitMiB: jsii.Number(memLimit),
-		Cpu:            jsii.Number(cpu),
-		ExecutionRole:  jsComp.EcsTaskExecutionRole,
-		TaskRole:       jsComp.EcsTaskRole,
-		RuntimePlatform: &awsecs.RuntimePlatform{
-			OperatingSystemFamily: awsecs.OperatingSystemFamily_LINUX(),
-			CpuArchitecture:       awsecs.CpuArchitecture_X86_64(),
-		},
-	})
-	// Compute Pipes Task Container
-	// ---------------------
-	jsComp.CpipesContainerDef = jsComp.CpipesTaskDefinition.AddContainer(jsii.String("cpipesContainer"), &awsecs.ContainerDefinitionOptions{
-		// Use JetStore Image in ecr
-		Image:         jsComp.JetStoreImage,
-		ContainerName: jsii.String("cpipesContainer"),
-		Essential:     jsii.Bool(true),
-		EntryPoint:    jsii.Strings("cpipes_booter"),
-		PortMappings: &[]*awsecs.PortMapping{
-			{
-				Name:          jsii.String("cpipes-port-mapping"),
-				ContainerPort: jsii.Number(8085),
-				HostPort:      jsii.Number(8085),
-				// AppProtocol:   awsecs.AppProtocol_Http(),
-			},
-		},
-
-		Environment: &map[string]*string{
-			"JETS_BUCKET":                        jsComp.SourceBucket.BucketName(),
-			"JETS_DOMAIN_KEY_HASH_ALGO":          jsii.String(os.Getenv("JETS_DOMAIN_KEY_HASH_ALGO")),
-			"JETS_DOMAIN_KEY_HASH_SEED":          jsii.String(os.Getenv("JETS_DOMAIN_KEY_HASH_SEED")),
-			"JETS_INPUT_ROW_JETS_KEY_ALGO":       jsii.String(os.Getenv("JETS_INPUT_ROW_JETS_KEY_ALGO")),
-			"JETS_INVALID_CODE":                  jsii.String(os.Getenv("JETS_INVALID_CODE")),
-			"JETS_LOADER_CHUNCK_SIZE":            jsii.String(os.Getenv("JETS_LOADER_CHUNCK_SIZE")),
-			"JETS_LOADER_SM_ARN":                 jsii.String(jsComp.LoaderSmArn),
-			"JETS_REGION":                        jsii.String(os.Getenv("AWS_REGION")),
-			"JETS_RESET_DOMAIN_TABLE_ON_STARTUP": jsii.String(os.Getenv("JETS_RESET_DOMAIN_TABLE_ON_STARTUP")),
-			"JETS_s3_INPUT_PREFIX":               jsii.String(os.Getenv("JETS_s3_INPUT_PREFIX")),
-			"JETS_s3_OUTPUT_PREFIX":              jsii.String(os.Getenv("JETS_s3_OUTPUT_PREFIX")),
-			"JETS_SENTINEL_FILE_NAME":            jsii.String(os.Getenv("JETS_SENTINEL_FILE_NAME")),
-			"JETS_DOMAIN_KEY_SEPARATOR":          jsii.String(os.Getenv("JETS_DOMAIN_KEY_SEPARATOR")),
-			"JETS_SERVER_SM_ARN":                 jsii.String(jsComp.ServerSmArn),
-			"NBR_SHARDS":                         jsii.String(props.NbrShards),
-			"JETS_CPIPES_SM_ARN":                 jsii.String(jsComp.CpipesSmArn),
-			"JETS_REPORTS_SM_ARN":                jsii.String(jsComp.ReportsSmArn),
-		},
-		Secrets: &map[string]awsecs.Secret{
-			"JETS_DSN_JSON_VALUE": awsecs.Secret_FromSecretsManager(jsComp.RdsSecret, nil),
-			"API_SECRET":          awsecs.Secret_FromSecretsManager(jsComp.ApiSecret, nil),
-		},
-		Logging: awsecs.LogDriver_AwsLogs(&awsecs.AwsLogDriverProps{
-			StreamPrefix: jsii.String("task"),
-		}),
-	})
 	// Compute Pipes SM
 	// ----------------
 	runCPipesTask := sfntask.NewEcsRunTask(stack, jsii.String("run-cpipes"), &sfntask.EcsRunTaskProps{

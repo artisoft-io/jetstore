@@ -22,7 +22,8 @@ type JetstoreOneStackProps struct {
 	CpuUtilizationAlarmThreshold *float64
 	SnsAlarmTopicArn             *string
 	NbrShards                    string
-	MaxConcurrency float64
+	MaxConcurrency               float64
+	JetsApiUrl                   string
 }
 
 // Struct to hold the stack components
@@ -66,10 +67,13 @@ type JetStoreStackComponents struct {
 	ServiceLoadBalancer awselb.ApplicationLoadBalancer
 	ApiLoadBalancer     awselb.ApplicationLoadBalancer
 
-	StatusUpdateLambda awslambdago.GoFunction
-	RunReportsLambda   awslambdago.GoFunction
-	PurgeDataLambda    awslambdago.GoFunction
-	RegisterKeyLambda  awslambda.Function
+	StatusUpdateLambda        awslambdago.GoFunction
+	RunReportsLambda          awslambdago.GoFunction
+	PurgeDataLambda           awslambdago.GoFunction
+	CpipesNodeLambda          awslambdago.GoFunction
+	CpipesStartShardingLambda awslambdago.GoFunction
+	CpipesStartReducingLambda awslambdago.GoFunction
+	RegisterKeyLambda         awslambda.Function
 
 	LoaderSM    sfn.StateMachine
 	ReportsSM   sfn.StateMachine
@@ -77,7 +81,6 @@ type JetStoreStackComponents struct {
 	CpipesSM    sfn.StateMachine
 	BastionHost awsec2.BastionHostLinux
 }
-
 
 func MkCatchProps() *sfn.CatchProps {
 	return &sfn.CatchProps{
