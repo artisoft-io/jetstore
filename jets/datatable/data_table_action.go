@@ -59,47 +59,47 @@ func NewContext(dbpool *pgxpool.Pool, devMode bool, usingSshTunnel bool,
 
 // sql access builder
 type DataTableAction struct {
-	Action            string                   `json:"action"`
-	WorkspaceName     string                   `json:"workspaceName"`
-	WorkspaceBranch   string                   `json:"workspaceBranch"`
-	FeatureBranch     string                   `json:"featureBranch"`
-	RawQuery          string                   `json:"query"`
-	RawQueryMap       map[string]string        `json:"query_map"`
-	Columns           []Column                 `json:"columns"`
-	FromClauses       []FromClause             `json:"fromClauses"`
-	WhereClauses      []WhereClause            `json:"whereClauses"`
-	WithClauses       []WithClause             `json:"withClauses"`
-	DistinctOnClauses []string                 `json:"distinctOnClauses"`
-	SortColumn        string                   `json:"sortColumn"`
-	SortColumnTable   string                   `json:"sortColumnTable"`
-	SortAscending     bool                     `json:"sortAscending"`
-	Offset            int                      `json:"offset"`
-	Limit             int                      `json:"limit"`
+	Action            string            `json:"action"`
+	WorkspaceName     string            `json:"workspaceName"`
+	WorkspaceBranch   string            `json:"workspaceBranch"`
+	FeatureBranch     string            `json:"featureBranch"`
+	RawQuery          string            `json:"query"`
+	RawQueryMap       map[string]string `json:"query_map"`
+	Columns           []Column          `json:"columns"`
+	FromClauses       []FromClause      `json:"fromClauses"`
+	WhereClauses      []WhereClause     `json:"whereClauses"`
+	WithClauses       []WithClause      `json:"withClauses"`
+	DistinctOnClauses []string          `json:"distinctOnClauses"`
+	SortColumn        string            `json:"sortColumn"`
+	SortColumnTable   string            `json:"sortColumnTable"`
+	SortAscending     bool              `json:"sortAscending"`
+	Offset            int               `json:"offset"`
+	Limit             int               `json:"limit"`
 	// used for raw_query & raw_query_tool action only
-	RequestColumnDef  bool                     `json:"requestColumnDef"`
-	Data              []map[string]interface{} `json:"data"`
+	RequestColumnDef bool                     `json:"requestColumnDef"`
+	Data             []map[string]interface{} `json:"data"`
 }
 type Column struct {
 	Table  string `json:"table"`
 	Column string `json:"column"`
 }
 type FromClause struct {
-	Schema   string `json:"schema"`
-	Table    string `json:"table"`
-	AsTable  string `json:"asTable"`
+	Schema  string `json:"schema"`
+	Table   string `json:"table"`
+	AsTable string `json:"asTable"`
 }
 type WithClause struct {
 	Name string `json:"name"`
 	Stmt string `json:"stmt"`
 }
 type WhereClause struct {
-	Table    string          `json:"table"`
-	Column   string          `json:"column"`
-	Values   []string        `json:"values"`
-	JoinWith string          `json:"joinWith"`
-	Like     string          `json:"like"`
+	Table    string   `json:"table"`
+	Column   string   `json:"column"`
+	Values   []string `json:"values"`
+	JoinWith string   `json:"joinWith"`
+	Like     string   `json:"like"`
 	// Adding a simple or clause
-	OrWith   *WhereClause    `json:"orWith"`
+	OrWith *WhereClause `json:"orWith"`
 }
 
 // DataTableColumnDef used when returning the column definition
@@ -163,7 +163,7 @@ func (dtq *DataTableAction) buildQuery() (string, string) {
 	buf.WriteString(" OFFSET ")
 	buf.WriteString(fmt.Sprintf("%d", dtq.Offset))
 
-	// Query for number of rows 
+	// Query for number of rows
 	var stmt string
 
 	if len(dtq.DistinctOnClauses) > 0 {
@@ -389,7 +389,7 @@ type SqlInsertDefinition struct {
 func (ctx *Context) VerifyUserPermission(sqlStmt *SqlInsertDefinition, token string) (*user.User, error) {
 	// RBAC check
 	if sqlStmt.Capability == "" {
-		return nil,  errors.New("error: unauthorized, configuration error: missing capability on sql statement")
+		return nil, errors.New("error: unauthorized, configuration error: missing capability on sql statement")
 	}
 	// Get user info
 	user, err := user.GetUserByToken(ctx.Dbpool, token)
@@ -427,7 +427,7 @@ func (ctx *Context) ExecRawQuery(dataTableAction *DataTableAction, token string)
 	// fmt.Println("*** ExecRawQuery called, query:",dataTableAction.RawQuery)
 
 	resultRows, columnDefs, err2 := execQuery(ctx.Dbpool, dataTableAction, &dataTableAction.RawQuery)
-	
+
 	if err2 != nil {
 		httpStatus = http.StatusInternalServerError
 		err = fmt.Errorf("while executing raw query: %v", err2)
@@ -435,7 +435,7 @@ func (ctx *Context) ExecRawQuery(dataTableAction *DataTableAction, token string)
 	}
 
 	results = &map[string]interface{}{
-		"rows": resultRows,
+		"rows":      resultRows,
 		"columnDef": columnDefs,
 	}
 	httpStatus = http.StatusOK
@@ -451,7 +451,7 @@ func (ctx *Context) ExecDataManagementStatement(dataTableAction *DataTableAction
 		return
 	}
 	resultRows, columnDefs, err2 := execDDL(ctx.Dbpool, dataTableAction, &dataTableAction.RawQuery)
-	
+
 	if err2 != nil {
 		httpStatus = http.StatusInternalServerError
 		err = fmt.Errorf("while executing raw query: %v", err2)
@@ -459,7 +459,7 @@ func (ctx *Context) ExecDataManagementStatement(dataTableAction *DataTableAction
 	}
 
 	results = &map[string]interface{}{
-		"rows": resultRows,
+		"rows":      resultRows,
 		"columnDef": columnDefs,
 	}
 	httpStatus = http.StatusOK
@@ -478,7 +478,7 @@ func (ctx *Context) ExecRawQueryMap(dataTableAction *DataTableAction, token stri
 			if strings.Contains(err2.Error(), "SQLSTATE") {
 				httpStatus = http.StatusBadRequest
 				err = err2
-				return	
+				return
 			}
 			httpStatus = http.StatusInternalServerError
 			err = fmt.Errorf("while executing raw query: %v", err2)
@@ -687,7 +687,7 @@ func (ctx *Context) InsertRows(dataTableAction *DataTableAction, token string) (
 				default:
 					err = fmt.Errorf("domainKeysJson contains %v which is of a type that is not supported", value)
 					return
-				}			
+				}
 			}
 
 		case strings.HasSuffix(dataTableAction.FromClauses[0].Table, "user_git_profile"):
@@ -702,7 +702,7 @@ func (ctx *Context) InsertRows(dataTableAction *DataTableAction, token string) (
 			rolesi := dataTableAction.Data[irow]["roles"]
 			if rolesi != nil {
 				roles := rolesi.([]interface{})
-				encryptedRoles := make([]string, len(roles)) 
+				encryptedRoles := make([]string, len(roles))
 				for i := range roles {
 					role := roles[i].(string)
 					// encrypt role
@@ -718,7 +718,7 @@ func (ctx *Context) InsertRows(dataTableAction *DataTableAction, token string) (
 			for jcol, colKey := range sqlStmt.ColumnKeys {
 				row[jcol] = dataTableAction.Data[irow][colKey]
 			}
-	
+
 			// fmt.Printf("Insert Row with stmt %s\n", sqlStmt.Stmt)
 			// fmt.Printf("Insert Row on table %s: %v\n", dataTableAction.FromClauses[0].Table, row)
 			// Executing the InserRow Stmt
@@ -738,7 +738,7 @@ func (ctx *Context) InsertRows(dataTableAction *DataTableAction, token string) (
 					err = errors.New("error while inserting into a table")
 					return
 				}
-			}	
+			}
 		}
 	}
 	// Post Processing Hook
@@ -929,14 +929,14 @@ func (ctx *Context) InsertRows(dataTableAction *DataTableAction, token string) (
 			}
 
 			nbrCpipesClusterNodes := 0
-			if stateMachineName == "cpipesSM" {
-				nbrCpipesClusterNodes, err = getNbrNodesFromComputePipesConfig(ctx.Dbpool, dataTableAction.Data[irow]["main_input_registry_key"])
-				if err != nil {
-					httpStatus = http.StatusInternalServerError
-					err = fmt.Errorf("while calling getNbrNodesFromComputePipesConfig for process %v: %v", processName, err)
-					return	
-				}
-			}
+			// if stateMachineName == "cpipesSM" {
+			// 	nbrCpipesClusterNodes, err = getNbrNodesFromComputePipesConfig(ctx.Dbpool, dataTableAction.Data[irow]["main_input_registry_key"])
+			// 	if err != nil {
+			// 		httpStatus = http.StatusInternalServerError
+			// 		err = fmt.Errorf("while calling getNbrNodesFromComputePipesConfig for process %v: %v", processName, err)
+			// 		return
+			// 	}
+			// }
 
 			// returnedKey is the key of the row inserted in the db, here it correspond to peKey
 			if returnedKey[irow] <= 0 {
@@ -991,10 +991,10 @@ func (ctx *Context) InsertRows(dataTableAction *DataTableAction, token string) (
 				var buf strings.Builder
 				peKeyInt, _ := strconv.Atoi(peKey)
 				ca := StatusUpdate{
-					Status: "completed",
-					Dbpool: ctx.Dbpool,
+					Status:         "completed",
+					Dbpool:         ctx.Dbpool,
 					UsingSshTunnel: ctx.UsingSshTunnel,
-					PeKey: peKeyInt,
+					PeKey:          peKeyInt,
 				}
 				if devModeCode == "run_server_only" || devModeCode == "run_server_reports" || devModeCode == "run_cpipes_only" || devModeCode == "run_cpipes_reports" {
 					// DevMode: Lock session id & register run on last shard (unless error)
@@ -1024,7 +1024,7 @@ func (ctx *Context) InsertRows(dataTableAction *DataTableAction, token string) (
 							log.Printf("Run server: %s", serverArgs)
 							lable = "SERVER"
 							cmd = exec.Command("/usr/local/bin/server", serverArgs...)
-						case  "run_cpipes_only", "run_cpipes_reports":
+						case "run_cpipes_only", "run_cpipes_reports":
 							log.Printf("Run cpipes: %s", serverArgs)
 							lable = "CPIPES"
 							cmd = exec.Command("/usr/local/bin/cpipes_booter", serverArgs...)
@@ -1116,34 +1116,36 @@ func (ctx *Context) InsertRows(dataTableAction *DataTableAction, token string) (
 					nbrCpipesClusterNodes = ctx.NbrShards
 				}
 				serverCommands := make([][]string, 0)
-				for shardId := 0; shardId < nbrCpipesClusterNodes; shardId++ {
-					serverArgs := []string{
-						"-peKey", peKey,
-						"-userEmail", userEmail.(string),
-						"-shardId", strconv.Itoa(shardId),
-						"-nbrShards", strconv.Itoa(nbrCpipesClusterNodes),
+				if stateMachineName != "cpipesSM" {
+					for shardId := 0; shardId < nbrCpipesClusterNodes; shardId++ {
+						serverArgs := []string{
+							"-peKey", peKey,
+							"-userEmail", userEmail.(string),
+							"-shardId", strconv.Itoa(shardId),
+							"-nbrShards", strconv.Itoa(nbrCpipesClusterNodes),
+						}
+						if serverCompletedMetric != "" {
+							serverArgs = append(serverArgs, "-serverCompletedMetric")
+							serverArgs = append(serverArgs, serverCompletedMetric)
+						}
+						if serverFailedMetric != "" {
+							serverArgs = append(serverArgs, "-serverFailedMetric")
+							serverArgs = append(serverArgs, serverFailedMetric)
+						}
+						serverCommands = append(serverCommands, serverArgs)
 					}
-					if serverCompletedMetric != "" {
-						serverArgs = append(serverArgs, "-serverCompletedMetric")
-						serverArgs = append(serverArgs, serverCompletedMetric)
-					}
-					if serverFailedMetric != "" {
-						serverArgs = append(serverArgs, "-serverFailedMetric")
-						serverArgs = append(serverArgs, serverFailedMetric)
-					}
-					serverCommands = append(serverCommands, serverArgs)
 				}
 				smInput := map[string]interface{}{
 					"serverCommands": serverCommands,
 					"reportsCommand": runReportsCommand,
 					"successUpdate": map[string]interface{}{
-						"-peKey": peKey,
-						"-status": "completed",
+						"-peKey":         peKey,
+						"-status":        "completed",
 						"failureDetails": "",
-					 },
+					},
 					"errorUpdate": map[string]interface{}{
-						"-peKey": peKey,
-						"-status": "failed",
+						"-peKey":         peKey,
+						"-status":        "failed",
 						"failureDetails": "",
 					},
 				}
@@ -1155,14 +1157,18 @@ func (ctx *Context) InsertRows(dataTableAction *DataTableAction, token string) (
 					processArn = os.Getenv("JETS_LOADER_SM_ARN")
 				case "cpipesSM":
 					// Override State Machine input for new cpipesSM all-in-one
+					peKeyInt, err := strconv.Atoi(peKey)
+					if err != nil {
+						peKeyInt = 0
+					}
 					smInput = map[string]interface{}{
 						"startSharding": map[string]interface{}{
-							"pipeline_execution_key": peKey,
-							"file_key": fileKey,
-							"session_id": sessionId,
-						 },
+							"pipeline_execution_key": peKeyInt ,
+							"file_key":               fileKey,
+							"session_id":             sessionId,
+						},
 					}
-	
+
 					processArn = os.Getenv("JETS_CPIPES_SM_ARN")
 				case "reportsSM":
 					processArn = os.Getenv("JETS_REPORTS_SM_ARN")
@@ -1242,7 +1248,7 @@ func execQuery(dbpool *pgxpool.Pool, dataTableAction *DataTableAction, query *st
 			columnDefs[i].Name = string(fd[i].Name)
 			columnDefs[i].Label = columnDefs[i].Name
 			// fmt.Println("*** ColumnName",columnDefs[i].Name,"oid",fd[i].DataTypeOID)
-			dataType := dbutils.DataTypeFromOID(fd[i].DataTypeOID) 
+			dataType := dbutils.DataTypeFromOID(fd[i].DataTypeOID)
 			if dbutils.IsNumeric(dataType) {
 				columnDefs[i].IsNumeric = true
 			}
@@ -1251,8 +1257,8 @@ func execQuery(dbpool *pgxpool.Pool, dataTableAction *DataTableAction, query *st
 			if dbutils.IsArrayFromOID(fd[i].DataTypeOID) {
 				isArray = "array of "
 			}
-			columnDefs[i].Tooltips = fmt.Sprintf("DataType oid %d, size %d (%s%s)", 
-				fd[i].DataTypeOID, fd[i].DataTypeSize, 
+			columnDefs[i].Tooltips = fmt.Sprintf("DataType oid %d, size %d (%s%s)",
+				fd[i].DataTypeOID, fd[i].DataTypeSize,
 				isArray,
 				dataType,
 			)
@@ -1331,10 +1337,10 @@ func execDDL(dbpool *pgxpool.Pool, _ *DataTableAction, query *string) (*[][]inte
 		return nil, nil, err
 	}
 	columnDefs := []DataTableColumnDef{{
-		Index: 0,
-		Name: "results",
-		Label: "Results",
-		Tooltips: "Exec result",
+		Index:     0,
+		Name:      "results",
+		Label:     "Results",
+		Tooltips:  "Exec result",
 		IsNumeric: false,
 	}}
 	resultRows := make([][]interface{}, 1)
@@ -1354,7 +1360,7 @@ func (ctx *Context) DoReadAction(dataTableAction *DataTableAction, token string)
 
 	if len(dataTableAction.Columns) == 0 {
 		// Get table column definition
-		columnsDef, err = dataTableAction.getColumnsDefinitions(ctx.Dbpool)		
+		columnsDef, err = dataTableAction.getColumnsDefinitions(ctx.Dbpool)
 		if err != nil {
 			return nil, http.StatusInternalServerError, err
 		}
@@ -1410,17 +1416,17 @@ func (ctx *Context) DoReadAction(dataTableAction *DataTableAction, token string)
 			goto gotRolesPos
 		}
 	}
-	gotRolesPos:
+gotRolesPos:
 	if rolesPos >= 0 {
 		// email, _ := user.ExtractTokenID(token)
-		for i := range (*resultRows) {
+		for i := range *resultRows {
 			if (*resultRows)[i][rolesPos] != nil {
 				encryptedRole := (*resultRows)[i][rolesPos].(string)
 				// decrypt encryptedRole
 				// @**@ on read: decrypt encryptedRole
 				// role := user.DecryptWithEmail(encryptedRole, email)
 				role := encryptedRole
-				(*resultRows)[i][rolesPos] = role	
+				(*resultRows)[i][rolesPos] = role
 			}
 		}
 	}
@@ -1535,8 +1541,8 @@ func (ctx *Context) DropTable(dataTableAction *DataTableAction, token string) (r
 			USING jetsapi.input_registry ir
 			WHERE ir.table_name = '%s'
 				AND sr.session_id=ir.session_id;
-			DELETE FROM jetsapi.input_registry WHERE table_name='%s';`, 
-		  tableName.(string), tableName.(string))
+			DELETE FROM jetsapi.input_registry WHERE table_name='%s';`,
+			tableName.(string), tableName.(string))
 		_, err = ctx.Dbpool.Exec(context.Background(), stmt)
 		if err != nil {
 			return nil, http.StatusInternalServerError, fmt.Errorf("while droping tables: %v", err)
