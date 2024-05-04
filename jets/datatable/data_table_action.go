@@ -1163,9 +1163,14 @@ func (ctx *Context) InsertRows(dataTableAction *DataTableAction, token string) (
 					}
 					smInput = map[string]interface{}{
 						"startSharding": map[string]interface{}{
-							"pipeline_execution_key": peKeyInt ,
+							"pipeline_execution_key": peKeyInt,
 							"file_key":               fileKey,
 							"session_id":             sessionId,
+						},
+						"errorUpdate": map[string]interface{}{
+							"-peKey":         peKey, // string for this one! - legacy alert!
+							"-status":        "failed",
+							"failureDetails": "",
 						},
 					}
 
