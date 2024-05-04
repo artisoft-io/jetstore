@@ -132,7 +132,6 @@ func (jsComp *JetStoreStackComponents) BuildCpipesSM(scope constructs.Construct,
 		DefinitionBody:   sfn.DefinitionBody_FromChainable(runStartSharingTask),
 		//* NOTE 1h TIMEOUT
 		Timeout: awscdk.Duration_Hours(jsii.Number(1)),
-		Role: jsComp.EcsTaskRole,
 	})
 	if phiTagName != nil {
 		awscdk.Tags_Of(jsComp.CpipesSM).Add(phiTagName, jsii.String("true"), nil)
@@ -143,4 +142,5 @@ func (jsComp *JetStoreStackComponents) BuildCpipesSM(scope constructs.Construct,
 	if descriptionTagName != nil {
 		awscdk.Tags_Of(jsComp.CpipesSM).Add(descriptionTagName, jsii.String("State Machine to execute Compute Pipes in the JetStore Platform"), nil)
 	}
+	jsComp.SourceBucket.GrantReadWrite(jsComp.CpipesSM.Role(), nil)
 }
