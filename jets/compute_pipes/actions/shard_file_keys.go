@@ -59,7 +59,7 @@ func ShardFileKeysP1(exeCtx context.Context, dbpool *pgxpool.Pool, baseFileKey s
 	}
 	_, err = dbpool.Exec(exeCtx, buf.String())
 	if err != nil {
-		return 0, 0, fmt.Errorf("error inserting in jetsapi.compute_pipes_shard_registry table in shardFileKeys: %v", err)
+		return 0, 0, fmt.Errorf("error inserting in jetsapi.compute_pipes_shard_registry table in ShardFileKeysP1: %v", err)
 	}
 	return totalPartfileCount, totalSize, nil
 }
@@ -107,7 +107,7 @@ func ShardFileKeysP2(exeCtx context.Context, dbpool *pgxpool.Pool, baseFileKey s
 	//	 shard_id = nbr_sc * sc_node_id + sc_id
 	_, err := dbpool.Exec(exeCtx, updateStmt)
 	if err != nil {
-		return fmt.Errorf("error inserting in jetsapi.compute_pipes_shard_registry table in shardFileKeys: %v", err)
+		return fmt.Errorf("error inserting in jetsapi.compute_pipes_shard_registry table in ShardFileKeysP2: %v", err)
 	}
 	log.Printf("Done sharding files under file_key %s, session id %s", baseFileKey, sessionId)
 	return nil

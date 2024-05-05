@@ -100,6 +100,9 @@ func GetDsnFromJson(dsnJson string, useLocalhost bool, poolSize int) (string, er
 		return "", fmt.Errorf("while umarshaling dsn json: %v", err)
 	}
 	// fmt.Println(m)
+	if !useLocalhost {
+		_, useLocalhost = os.LookupEnv("USING_SSH_TUNNEL")
+	}
 	if useLocalhost {
 		m["host"] = "localhost"
 		fmt.Println("LOCAL TESTING using ssh tunnel (expecting ssh tunnel open)")

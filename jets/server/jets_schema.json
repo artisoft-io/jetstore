@@ -1759,6 +1759,12 @@
         "indexName": "cpipes_execution_status_pe_key_idx",
         "indexDef": "INDEX cpipes_execution_status_pe_key_idx ON jetsapi.cpipes_execution_status (pipeline_execution_status_key)"
       }
+    ],
+    "tableConstraints": [
+      {
+        "name": "cpipes_execution_status_unique_cstraint",
+        "definition": "CONSTRAINT cpipes_execution_status_unique_cstraint UNIQUE (session_id)"
+      }
     ]
   },
   {

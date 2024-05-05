@@ -15,12 +15,12 @@ import (
 // lambda function to shard or assign file keys to nodes
 
 // ENV VARIABLES:
+// JETS_BUCKET
 // JETS_DSN_SECRET
 // JETS_REGION
-// JETS_BUCKET
 // JETS_s3_INPUT_PREFIX
 // JETS_s3_OUTPUT_PREFIX
-// JETSTORE_DEV_MODE Indicates running in dev mode
+// NBR_SHARDS default nbr_nodes of cluster
 
 var awsDsnSecret string
 var dbPoolSize int
@@ -28,14 +28,12 @@ var usingSshTunnel bool
 var awsRegion string
 var awsBucket string
 var dsn string
-var devMode bool
 var nbrNodes int
 
 func main() {
 	hasErr := false
 	var errMsg []string
 	var err error
-	_, devMode = os.LookupEnv("JETSTORE_DEV_MODE")
 	dbPoolSize = 500
 	awsDsnSecret = os.Getenv("JETS_DSN_SECRET")
 	if awsDsnSecret == "" {
@@ -93,10 +91,8 @@ func main() {
 	log.Println("-----------")
 	log.Println("Got argument: awsDsnSecret", awsDsnSecret)
 	log.Println("Got argument: dbPoolSize", dbPoolSize)
-	log.Println("Got argument: usingSshTunnel", usingSshTunnel)
 	log.Println("Got argument: awsRegion", awsRegion)
 	log.Println("Got argument: nbrNodes (default)", nbrNodes)
-	log.Println("ENV JETSTORE_DEV_MODE:", os.Getenv("JETSTORE_DEV_MODE"))
 
 	// Start handler.
 	lambda.Start(handler)
