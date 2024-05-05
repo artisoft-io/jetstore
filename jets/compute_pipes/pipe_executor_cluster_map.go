@@ -474,7 +474,7 @@ func (ctx *BuilderContext) updateClusterInfo() error {
 		ctx.peersAddress = append(ctx.peersAddress, addr)
 	}
 	if len(ctx.peersAddress) != ctx.nbrSubClusterNodes {
-		return fmt.Errorf("error got %d node addresses from database, expecting %d", len(ctx.peersAddress), ctx.subClusterNodeId)
+		return fmt.Errorf("error got %d node addresses from database, expecting %d", len(ctx.peersAddress), ctx.nbrSubClusterNodes)
 	}
 	ctx.selfAddress = ctx.peersAddress[ctx.subClusterNodeId]
 	return nil

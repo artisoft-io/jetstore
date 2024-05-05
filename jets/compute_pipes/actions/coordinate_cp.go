@@ -112,11 +112,14 @@ func (args *ComputePipesArgs) CoordinateComputePipes(ctx context.Context, dsn st
 	}
 
 	defer func() {
+		log.Printf("##!@@ DONE CoordinateComputePipes closing Done ch")
 		select {
 		case <-cpContext.Done:
+			log.Printf("##!@@ Done ch was already closed!")
 			// done chan is already closed due to error
 		default:
 			close(cpContext.Done)
+			log.Printf("##!@@ Done ch closed")
 		}
 	}()
 

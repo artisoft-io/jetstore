@@ -99,31 +99,33 @@ func StartComputePipes(dbpool *pgxpool.Pool, inputHeaders []string, done chan st
 	// 	log.Println("**& Channel", cpConfig.Channels[i].Name, "Columns map", channelRegistry.computeChannels[cpConfig.Channels[i].Name].columns)
 	// }
 
-	// Prepare the output tables
-	for i := range cpConfig.OutputTables {
-		tableIdentifier, err := SplitTableName(cpConfig.OutputTables[i].Name)
-		if err != nil {
-			cpErr = fmt.Errorf("while splitting table name: %s", err)
-			goto gotError
+	// Prepare the output tables when in mode reducing only
+	if cpConfig.ClusterConfig.CpipesMode == "reducing" {
+		for i := range cpConfig.OutputTables {
+			tableIdentifier, err := SplitTableName(cpConfig.OutputTables[i].Name)
+			if err != nil {
+				cpErr = fmt.Errorf("while splitting table name: %s", err)
+				goto gotError
+			}
+			outChannel = channelRegistry.computeChannels[cpConfig.OutputTables[i].Key]
+			channelRegistry.outputTableChannels = append(channelRegistry.outputTableChannels, cpConfig.OutputTables[i].Key)
+			if outChannel == nil {
+				cpErr = fmt.Errorf("error: invalid Compute Pipes configuration: Output table %s does not have a channel configuration",
+					cpConfig.OutputTables[i].Name)
+				goto gotError
+			}
+			// log.Println("**& Channel for Output Table", tableIdentifier, "is:", outChannel.config.Name)
+			wt = WriteTableSource{
+				source:          outChannel.channel,
+				tableIdentifier: tableIdentifier,
+				columns:         outChannel.config.Columns,
+			}
+			table = make(chan ComputePipesResult, 1)
+			chResults.Copy2DbResultCh <- table
+			go wt.WriteTable(dbpool, done, table)
 		}
-		outChannel = channelRegistry.computeChannels[cpConfig.OutputTables[i].Key]
-		channelRegistry.outputTableChannels = append(channelRegistry.outputTableChannels, cpConfig.OutputTables[i].Key)
-		if outChannel == nil {
-			cpErr = fmt.Errorf("error: invalid Compute Pipes configuration: Output table %s does not have a channel configuration",
-				cpConfig.OutputTables[i].Name)
-			goto gotError
-		}
-		// log.Println("**& Channel for Output Table", tableIdentifier, "is:", outChannel.config.Name)
-		wt = WriteTableSource{
-			source:          outChannel.channel,
-			tableIdentifier: tableIdentifier,
-			columns:         outChannel.config.Columns,
-		}
-		table = make(chan ComputePipesResult, 1)
-		chResults.Copy2DbResultCh <- table
-		go wt.WriteTable(dbpool, done, table)
+		log.Println("Compute Pipes output tables ready")
 	}
-	log.Println("Compute Pipes output tables ready")
 
 	// Setup the s3Uploader
 	cfg, err = config.LoadDefaultConfig(context.TODO(), config.WithRegion(os.Getenv("JETS_REGION")))

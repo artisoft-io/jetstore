@@ -91,3 +91,4 @@ cdk/jetstore_one/lambdas/compute_pipes/cp_sharding/cp_sharding
 cdk/jetstore_one/lambdas/compute_pipes/cp_node/cp_node
 cdk/jetstore_one/lambdas/compute_pipes/cp_reducing_starter/cp_reducing_starter
 cdk/jetstore_one/lambdas/compute_pipes/cp_sharding_starter/cp_sharding_starter
+jets/compute_pipes/actions/local_test_driver/local_test_driver
