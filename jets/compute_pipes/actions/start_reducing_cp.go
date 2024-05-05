@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strconv"
 	"strings"
 
 	"github.com/artisoft-io/jetstore/jets/compute_pipes"
@@ -86,12 +87,12 @@ func (args *StartComputePipesArgs) StartReducingComputePipes(ctx context.Context
 		"-filePath", strings.Replace(args.FileKey, os.Getenv("JETS_s3_INPUT_PREFIX"), os.Getenv("JETS_s3_OUTPUT_PREFIX"), 1),
 	}
 	result.SuccessUpdate = map[string]interface{}{
-		"-peKey":         args.PipelineExecKey,
+		"-peKey":         strconv.Itoa(args.PipelineExecKey),
 		"-status":        "completed",
 		"failureDetails": "",
 	}
 	result.ErrorUpdate = map[string]interface{}{
-		"-peKey":         args.PipelineExecKey,
+		"-peKey":         strconv.Itoa(args.PipelineExecKey),
 		"-status":        "failed",
 		"failureDetails": "",
 	}
