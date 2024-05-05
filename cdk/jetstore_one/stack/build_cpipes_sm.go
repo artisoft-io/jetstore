@@ -40,7 +40,7 @@ func (jsComp *JetStoreStackComponents) BuildCpipesSM(scope constructs.Construct,
 		Comment:        jsii.String("Lambda Task to start sharding input data"),
 		LambdaFunction: jsComp.CpipesStartShardingLambda,
 		InputPath:      jsii.String("$.startSharding"),
-		ResultPath:     jsii.String("$.Payload"),
+		OutputPath:     jsii.String("$.Payload"),
 	})
 
 	// 2) Sharding Map Task
@@ -64,7 +64,7 @@ func (jsComp *JetStoreStackComponents) BuildCpipesSM(scope constructs.Construct,
 		Comment:        jsii.String("Lambda Task to start reducing the sharded data"),
 		LambdaFunction: jsComp.CpipesStartReducingLambda,
 		InputPath:      jsii.String("$.startReducing"),
-		ResultPath:     jsii.String("$.Payload"),
+		OutputPath:     jsii.String("$.Payload"),
 	})
 
 	// 4) Reducing Map Task
