@@ -262,7 +262,7 @@ func (ctx *Context) RegisterFileKeys(registerFileKeyAction *RegisterFileKeyActio
 							ON CONFLICT DO NOTHING
 							RETURNING key`
 					err = ctx.Dbpool.QueryRow(context.Background(), stmt,
-						client, org, objectType, fileKey, source_period_key, "S3", sessionIdStr, "system").Scan(&inputRegistryKey)
+						client, org, objectType, fileKey, source_period_key, tableName, sessionIdStr, "system").Scan(&inputRegistryKey)
 					if err != nil {
 						return nil, http.StatusInternalServerError, fmt.Errorf("error inserting in jetsapi.input_registry table: %v", err)
 					}
