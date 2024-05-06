@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"strconv"
 
 	"github.com/artisoft-io/jetstore/jets/compute_pipes"
 	"github.com/artisoft-io/jetstore/jets/schema"
@@ -105,7 +106,7 @@ func (args *StartComputePipesArgs) StartShardingComputePipes(ctx context.Context
 	}
 
 	result.ErrorUpdate = map[string]interface{}{
-		"-peKey":         args.PipelineExecKey,
+		"-peKey":         strconv.Itoa(args.PipelineExecKey),
 		"-status":        "failed",
 		"failureDetails": "",
 	}
