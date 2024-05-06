@@ -82,6 +82,22 @@ func (args *StartComputePipesArgs) StartShardingComputePipes(ctx context.Context
 	if !icJson.Valid || len(icJson.String) == 0 {
 		return result, fmt.Errorf("error: input_columns_json is null or empty")
 	}
+
+	// Update output table schema
+	for i := range cpConfig.OutputTables {
+		tableIdentifier, err := compute_pipes.SplitTableName(cpConfig.OutputTables[i].Name)
+		if err != nil {
+			return result, fmt.Errorf("while splitting table name: %s", err)
+		}
+		fmt.Println("**& Preparing / Updating Output Table", tableIdentifier)
+		err = compute_pipes.PrepareOutoutTable(dbpool, tableIdentifier, &cpConfig.OutputTables[i])
+		if err != nil {
+			return result, fmt.Errorf("while preparing output table: %s", err)
+		}
+	}
+	fmt.Println("Compute Pipes output tables schema ready")
+
+	// Get the input columns info
 	var ic InputColumnsDef
 	err = json.Unmarshal([]byte(icJson.String), &ic)
 	if err != nil {
