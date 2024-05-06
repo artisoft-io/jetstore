@@ -3,6 +3,7 @@ package datatable
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log"
@@ -715,9 +716,11 @@ func (ctx *Context) StartPipelineOnInputRegistryInsert(registerFileKeyAction *Re
 			FromClauses: []FromClause{{Schema: "jetsapi", Table: "pipeline_execution_status"}},
 			Data:        payload,
 		}
-		fmt.Println("***@@** Calling InsertRow to start pipeline with token", token)
+		v, _ := json.Marshal(dataTableAction)
+		fmt.Println("***@@** Calling InsertRow to start pipeline with dataTableAction", v)
 		result, httpStatus, err := ctx.InsertRows(&dataTableAction, token)
 		if err != nil {
+			log.Printf("while calling InsertRow for starting pipeline in StartPipelineOnInputRegistryInsert: %v", err)
 			return nil, httpStatus, fmt.Errorf("while starting pipeline in StartPipelineOnInputRegistryInsert: %v", err)
 		}
 		results = append(results, *result)
