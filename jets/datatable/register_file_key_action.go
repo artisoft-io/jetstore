@@ -251,6 +251,7 @@ func (ctx *Context) RegisterFileKeys(registerFileKeyAction *RegisterFileKeyActio
 					log.Println("CASE CPIPES V2")
 					// to make sure we don't duplicate session_id
 					sessionId += 1
+					sessionIdStr := strconv.FormatInt(sessionId, 10)
 					// Insert into input registry (essentially we are bypassing loader here by registering the fileKey
 					// and invoke StartPipelineOnInputRegistryInsert)
 					var inputRegistryKey int
@@ -261,7 +262,7 @@ func (ctx *Context) RegisterFileKeys(registerFileKeyAction *RegisterFileKeyActio
 							ON CONFLICT DO NOTHING
 							RETURNING key`
 					err = ctx.Dbpool.QueryRow(context.Background(), stmt,
-						client, org, objectType, fileKey, source_period_key, "S3", sessionId, "system").Scan(&inputRegistryKey)
+						client, org, objectType, fileKey, source_period_key, "S3", sessionIdStr, "system").Scan(&inputRegistryKey)
 					if err != nil {
 						return nil, http.StatusInternalServerError, fmt.Errorf("error inserting in jetsapi.input_registry table: %v", err)
 					}
@@ -277,7 +278,7 @@ func (ctx *Context) RegisterFileKeys(registerFileKeyAction *RegisterFileKeyActio
 						}},
 					}, token)
 					// for completness register the session_id
-					err = schema.RegisterSession(ctx.Dbpool, "file", client.(string), strconv.FormatInt(sessionId, 10), source_period_key)
+					err = schema.RegisterSession(ctx.Dbpool, "file", client.(string), sessionIdStr, source_period_key)
 					if err != nil {
 						log.Println("Error while registering session_id")
 						err = nil
