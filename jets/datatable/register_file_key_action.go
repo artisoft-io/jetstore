@@ -3,7 +3,7 @@ package datatable
 import (
 	"context"
 	"database/sql"
-	"encoding/json"
+	// "encoding/json"
 	"errors"
 	"fmt"
 	"log"
@@ -545,8 +545,8 @@ func PipelineConfigReady2Execute(dbpool *pgxpool.Pool, processInputKeys *[]int, 
 //   - find processes that are ready to start with one of the input input_registry key.
 //   - Pipeline must have automated flag on
 func (ctx *Context) StartPipelineOnInputRegistryInsert(registerFileKeyAction *RegisterFileKeyAction, token string) (*[]map[string]interface{}, int, error) {
-	// // DEV
-	fmt.Println("StartPipelineOnInputRegistryInsert called with registerFileKeyAction:", *registerFileKeyAction)
+	// // // DEV
+	// fmt.Println("StartPipelineOnInputRegistryInsert called with registerFileKeyAction:", *registerFileKeyAction)
 
 	results := make([]map[string]interface{}, 0)
 	for irow := range registerFileKeyAction.Data {
@@ -579,7 +579,7 @@ func (ctx *Context) StartPipelineOnInputRegistryInsert(registerFileKeyAction *Re
 			return nil, http.StatusInternalServerError, err2
 		}
 		// DEV
-		fmt.Println("Found matching processInputKeys:", *processInputKeys)
+		// fmt.Println("Found matching processInputKeys:", *processInputKeys)
 
 		if len(*processInputKeys) == 0 {
 			return &[]map[string]interface{}{}, http.StatusOK, nil
@@ -592,7 +592,7 @@ func (ctx *Context) StartPipelineOnInputRegistryInsert(registerFileKeyAction *Re
 			return nil, http.StatusInternalServerError, err2
 		}
 		// DEV
-		fmt.Println("Found any matching pipelineConfigKeys:", *pipelineConfigKeys)
+		// fmt.Println("Found any matching pipelineConfigKeys:", *pipelineConfigKeys)
 
 		if len(*pipelineConfigKeys) == 0 {
 			return &[]map[string]interface{}{}, http.StatusOK, nil
@@ -606,7 +606,7 @@ func (ctx *Context) StartPipelineOnInputRegistryInsert(registerFileKeyAction *Re
 			return nil, http.StatusInternalServerError, err2
 		}
 		// DEV
-		fmt.Println("Found matching processInputKeys where source_period_key = sourcePeriodKey:", *processInputKeys)
+		// fmt.Println("Found matching processInputKeys where source_period_key = sourcePeriodKey:", *processInputKeys)
 
 		if len(*processInputKeys) == 0 {
 			return &[]map[string]interface{}{}, http.StatusOK, nil
@@ -618,8 +618,8 @@ func (ctx *Context) StartPipelineOnInputRegistryInsert(registerFileKeyAction *Re
 			err2 := fmt.Errorf("in StartPipelineOnInputRegistryInsert while querying all pipeline_config ready to execute: %v", err)
 			return nil, http.StatusInternalServerError, err2
 		}
-		// DEV
-		fmt.Println("Found all pipeline_config ready to go:", *pipelineConfigKeys)
+		
+		// fmt.Println("Found all pipeline_config ready to go:", *pipelineConfigKeys) // DEV
 
 		if len(*pipelineConfigKeys) == 0 {
 			return &[]map[string]interface{}{}, http.StatusOK, nil
@@ -670,9 +670,9 @@ func (ctx *Context) StartPipelineOnInputRegistryInsert(registerFileKeyAction *Re
 					fmt.Errorf("in StartPipelineOnInputRegistryInsert while querying pipeline_config to start a pipeline: %v", err)
 			}
 			// DEV
-			fmt.Println("GOT pipeline_config w/ main_input_registry_key for execution:")
-			fmt.Printf("*pcKey: %d, process_name: %s, client: %s, main_input_registry_key: %d, file_key: %s, main_object_type: %s, merged_process_input_keys: %v\n",
-				pcKey, process_name, client, main_input_registry_key, file_key.String, main_object_type, merged_process_input_keys)
+			// fmt.Println("GOT pipeline_config w/ main_input_registry_key for execution:")
+			// fmt.Printf("*pcKey: %d, process_name: %s, client: %s, main_input_registry_key: %d, file_key: %s, main_object_type: %s, merged_process_input_keys: %v\n",
+			// 	pcKey, process_name, client, main_input_registry_key, file_key.String, main_object_type, merged_process_input_keys)
 
 			// Lookup merged_input_registry_keys from merged_process_input_keys
 			merged_input_registry_keys := make([]int, len(merged_process_input_keys))
@@ -696,7 +696,7 @@ func (ctx *Context) StartPipelineOnInputRegistryInsert(registerFileKeyAction *Re
 				merged_input_registry_keys[ipos] = irKey
 			}
 			// DEV
-			fmt.Printf("GOT corresponding merged_input_registry_keys: %v\n", merged_input_registry_keys)
+			// fmt.Printf("GOT corresponding merged_input_registry_keys: %v\n", merged_input_registry_keys)
 
 			data["process_name"] = process_name
 			data["client"] = client
@@ -716,8 +716,8 @@ func (ctx *Context) StartPipelineOnInputRegistryInsert(registerFileKeyAction *Re
 			FromClauses: []FromClause{{Schema: "jetsapi", Table: "pipeline_execution_status"}},
 			Data:        payload,
 		}
-		v, _ := json.Marshal(dataTableAction)
-		fmt.Println("***@@** Calling InsertRow to start pipeline with dataTableAction", v)
+		// v, _ := json.Marshal(dataTableAction)
+		// fmt.Println("***@@** Calling InsertRow to start pipeline with dataTableAction", string(v))
 		result, httpStatus, err := ctx.InsertRows(&dataTableAction, token)
 		if err != nil {
 			log.Printf("while calling InsertRow for starting pipeline in StartPipelineOnInputRegistryInsert: %v", err)
