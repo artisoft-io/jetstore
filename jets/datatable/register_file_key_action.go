@@ -14,14 +14,15 @@ import (
 	"time"
 
 	"github.com/artisoft-io/jetstore/jets/awsi"
+	"github.com/artisoft-io/jetstore/jets/schema"
 	"github.com/jackc/pgx/v4"
 	"github.com/jackc/pgx/v4/pgxpool"
 )
 
 type RegisterFileKeyAction struct {
-	Action           string                   `json:"action"`
-	Data             []map[string]interface{} `json:"data"`
-	NoAutomatedLoad  bool                     `json:"noAutomatedLoad"`
+	Action          string                   `json:"action"`
+	Data            []map[string]interface{} `json:"data"`
+	NoAutomatedLoad bool                     `json:"noAutomatedLoad"`
 }
 
 // Function to match the case for client, org, and object_type based on jetstore
@@ -41,7 +42,7 @@ func (ctx *Context) updateFileKeyComponentCase(fileKeyObjectPtr *map[string]inte
 	}
 
 	// Check if vendor is used in place of org
-	if fileKeyObject["vendor"]!= nil && len(fileKeyObject["org"].(string)) == 0 {
+	if fileKeyObject["vendor"] != nil && len(fileKeyObject["org"].(string)) == 0 {
 		fileKeyObject["org"] = fileKeyObject["vendor"]
 	}
 
@@ -73,7 +74,7 @@ func (ctx *Context) updateFileKeyComponentCase(fileKeyObjectPtr *map[string]inte
 			} else {
 				// log.Printf("updateFileKeyComponentCase: client %s, org %s not found in client_org_registry\n", client, org)
 			}
-		}	
+		}
 	}
 	if len(objectType) > 0 {
 		var objectCase string
@@ -161,10 +162,11 @@ func (ctx *Context) RegisterFileKeys(registerFileKeyAction *RegisterFileKeyActio
 		var tableName string
 		var automated int
 		var isPartFile int
+		var isNotCpipes bool
 		fileKey := fileKeyObject["file_key"].(string)
-		stmt := "SELECT table_name, automated, is_part_files FROM jetsapi.source_config WHERE client=$1 AND org=$2 AND object_type=$3"
+		stmt := "SELECT table_name, automated, is_part_files, (compute_pipes_json is null or (length(compute_pipes_json)=0)) as is_not_cpipes FROM jetsapi.source_config WHERE client=$1 AND org=$2 AND object_type=$3"
 		allOk := true
-		err = ctx.Dbpool.QueryRow(context.Background(), stmt, client, org, objectType).Scan(&tableName, &automated, &isPartFile)
+		err = ctx.Dbpool.QueryRow(context.Background(), stmt, client, org, objectType).Scan(&tableName, &automated, &isPartFile, &isNotCpipes)
 		// process if entry found
 		if err == nil {
 			// Multi Part File
@@ -186,7 +188,7 @@ func (ctx *Context) RegisterFileKeys(registerFileKeyAction *RegisterFileKeyActio
 						// Removing file name
 						fileKey = (fileKey)[0:idx]
 						fileKeyObject["file_key"] = fileKey
-					}	
+					}
 				}
 			}
 		}
@@ -219,33 +221,72 @@ func (ctx *Context) RegisterFileKeys(registerFileKeyAction *RegisterFileKeyActio
 			// log.Println("File key is test file, skiping the automated load")
 		} else {
 			if !registerFileKeyAction.NoAutomatedLoad && automated > 0 {
-				// to make sure we don't duplicate session_id
-				sessionId += 1
+				// Check if not CPIPES v2 (cpipes actions)
+				if isNotCpipes {
+					// to make sure we don't duplicate session_id
+					sessionId += 1
+					// insert into input_loader_status and kick off loader (dev mode)
+					dataTableAction := DataTableAction{
+						Action:      "insert_rows",
+						FromClauses: []FromClause{{Schema: "jetsapi", Table: "input_loader_status"}},
+						Data: []map[string]interface{}{{
+							"file_key":              fileKey,
+							"table_name":            tableName,
+							"client":                client,
+							"org":                   org,
+							"object_type":           objectType,
+							"session_id":            strconv.FormatInt(sessionId, 10),
+							"source_period_key":     source_period_key,
+							"status":                "submitted",
+							"user_email":            "system",
+							"loaderCompletedMetric": "autoLoaderCompleted",
+							"loaderFailedMetric":    "autoLoaderFailed",
+						}}}
+					_, httpStatus, err := ctx.InsertRows(&dataTableAction, token)
+					if err != nil {
+						return nil, httpStatus, fmt.Errorf("while starting loader automatically for key %s: %v", fileKey, err)
+					}
+				} else {
+					// Case CPIPES v2
+					log.Println("CASE CPIPES V2")
+					// to make sure we don't duplicate session_id
+					sessionId += 1
+					// Insert into input registry (essentially we are bypassing loader here by registering the fileKey
+					// and invoke StartPipelineOnInputRegistryInsert)
+					var inputRegistryKey int
+					log.Println("Write to input_registry for cpipes input files object type:", objectType, "client", client, "org", org)
+					stmt = `INSERT INTO jetsapi.input_registry (
+							client, org, object_type, file_key, source_period_key, table_name, source_type, session_id, user_email) 
+							VALUES ($1, $2, $3, $4, $5, $6, 'file', $7, $8) 
+							ON CONFLICT DO NOTHING
+							RETURNING key`
+					err = ctx.Dbpool.QueryRow(context.Background(), stmt,
+						client, org, objectType, fileKey, source_period_key, "S3", sessionId, "system").Scan(&inputRegistryKey)
+					if err != nil {
+						return nil, http.StatusInternalServerError, fmt.Errorf("error inserting in jetsapi.input_registry table: %v", err)
+					}
 
-				// insert into input_loader_status and kick off loader (dev mode)
-				dataTableAction := DataTableAction{
-					Action:      "insert_rows",
-					FromClauses: []FromClause{{Schema: "jetsapi", Table: "input_loader_status"}},
-					Data: []map[string]interface{}{{
-						"file_key":              fileKey,
-						"table_name":            tableName,
-						"client":                client,
-						"org":                   org,
-						"object_type":           objectType,
-						"session_id":            strconv.FormatInt(sessionId, 10),
-						"source_period_key":     source_period_key,
-						"status":                "submitted",
-						"user_email":            "system",
-						"loaderCompletedMetric": "autoLoaderCompleted",
-						"loaderFailedMetric":    "autoLoaderFailed",
-					}}}
-				_, httpStatus, err := ctx.InsertRows(&dataTableAction, token)
-				if err != nil {
-					return nil, httpStatus, fmt.Errorf("while starting loader automatically for key %s: %v", fileKey, err)
+					// Check for any process that are ready to kick off
+					ctx.StartPipelineOnInputRegistryInsert(&RegisterFileKeyAction{
+						Action: "register_keys",
+						Data: []map[string]interface{}{{
+							"input_registry_keys": []int{inputRegistryKey},
+							"source_period_key":   source_period_key,
+							"file_key":            fileKey,
+							"client":              client,
+						}},
+					}, token)
+					// for completness register the session_id
+					err = schema.RegisterSession(ctx.Dbpool, "file", client.(string), strconv.FormatInt(sessionId, 10), source_period_key)
+					if err != nil {
+						log.Println("Error while registering session_id")
+						err = nil
+					}
+
 				}
 			}
 		}
-		NextKey:
+	NextKey:
 	}
 	return &map[string]interface{}{}, http.StatusOK, nil
 }
@@ -310,7 +351,7 @@ func (ctx *Context) LoadAllFiles(registerFileKeyAction *RegisterFileKeyAction, t
 			// scan the row
 			if err = rows.Scan(&fkey, &pkey); err != nil {
 				return nil, http.StatusInternalServerError,
-				fmt.Errorf("in LoadAllFiles while scanning all file keys to load: %v", err)
+					fmt.Errorf("in LoadAllFiles while scanning all file keys to load: %v", err)
 			}
 			fileKeys = append(fileKeys, fkey)
 			sourcePeriodKeys = append(sourcePeriodKeys, strconv.Itoa(pkey))
@@ -322,8 +363,8 @@ func (ctx *Context) LoadAllFiles(registerFileKeyAction *RegisterFileKeyAction, t
 		dataTableAction := DataTableAction{
 			Action:      "insert_rows",
 			FromClauses: []FromClause{{Schema: "jetsapi", Table: "input_loader_status"}},
-			Data: make([]map[string]interface{}, 0),
-		}		
+			Data:        make([]map[string]interface{}, 0),
+		}
 		for i := range fileKeys {
 			// Make sure we don't duplicate session_id
 			sessionId += 1
@@ -589,7 +630,7 @@ func (ctx *Context) StartPipelineOnInputRegistryInsert(registerFileKeyAction *Re
 			data := map[string]interface{}{
 				"pipeline_config_key":   strconv.Itoa(pcKey),
 				"input_session_id":      nil,
-				"session_id":            strconv.FormatInt(baseSessionId + int64(i), 10),
+				"session_id":            strconv.FormatInt(baseSessionId+int64(i), 10),
 				"source_period_key":     sourcePeriodKey,
 				"status":                "submitted",
 				"user_email":            "system",
@@ -693,7 +734,7 @@ func splitFileKey(keyMap map[string]interface{}, fileKey *string) map[string]int
 					keyMap["org"] = elms[1]
 				}
 			}
-		}	
+		}
 	}
 	return keyMap
 }
@@ -707,21 +748,21 @@ func SplitFileKeyIntoComponents(keyMap map[string]interface{}, fileKey *string) 
 		year, err = strconv.Atoi(fileKeyObject["year"].(string))
 		if err != nil {
 			log.Printf("File Key with invalid year: %s, setting to 1970", fileKeyObject["year"])
-		}	
+		}
 	}
 	month := 1
 	if fileKeyObject["month"] != nil {
 		month, err = strconv.Atoi(fileKeyObject["month"].(string))
 		if err != nil {
 			log.Printf("File Key with invalid month: %s, setting to 1", fileKeyObject["month"])
-		}	
+		}
 	}
 	day := 1
 	if fileKeyObject["day"] != nil {
 		day, err = strconv.Atoi(fileKeyObject["day"].(string))
 		if err != nil {
 			log.Printf("File Key with invalid day: %s, setting to 1", fileKeyObject["day"])
-		}	
+		}
 	}
 	// Updating object attribute with correct type
 	fileKeyObject["year"] = year
@@ -729,7 +770,6 @@ func SplitFileKeyIntoComponents(keyMap map[string]interface{}, fileKey *string) 
 	fileKeyObject["day"] = day
 	return fileKeyObject
 }
-
 
 func AsString(i interface{}) string {
 	if i != nil && reflect.TypeOf(i).Kind() == reflect.String {
@@ -779,8 +819,8 @@ func (ctx *Context) SyncFileKeys(registerFileKeyAction *RegisterFileKeyAction, t
 	// Delegating to RegisterFileKeys for inserting into db
 	log.Printf("Registring %d file keys with file_key_staging table", len(s3Lookup))
 	registerFileKeyDelegateAction := &RegisterFileKeyAction{
-		Action: "register_keys",
-		Data: make([]map[string]interface{}, 0),
+		Action:          "register_keys",
+		Data:            make([]map[string]interface{}, 0),
 		NoAutomatedLoad: true,
 	}
 	for s3Key, s3Obj := range s3Lookup {
@@ -790,7 +830,7 @@ func (ctx *Context) SyncFileKeys(registerFileKeyAction *RegisterFileKeyAction, t
 			"year":  "1970",
 			"month": "1",
 			"day":   "1",
-			"size": s3Obj.Size,
+			"size":  s3Obj.Size,
 		}
 		// Split fileKey into components and then in it's elements
 		fileKeyObject = SplitFileKeyIntoComponents(fileKeyObject, &s3Key)

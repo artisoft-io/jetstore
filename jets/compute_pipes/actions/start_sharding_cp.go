@@ -97,7 +97,7 @@ func (args *StartComputePipesArgs) StartShardingComputePipes(ctx context.Context
 
 	// Prepare the cpipes commands, get the file count and size
 	// Step 1: load the file_key and file_size into the table
-	totalPartfileCount, totalSize, err := ShardFileKeysP1(ctx, dbpool, args.FileKey, inputSessionId)
+	totalPartfileCount, totalSize, err := ShardFileKeysP1(ctx, dbpool, args.FileKey, args.SessionId)
 	if err != nil {
 		return result, err
 	}
@@ -195,7 +195,7 @@ func (args *StartComputePipesArgs) StartShardingComputePipes(ctx context.Context
 	}
 
 	// Step 2: assign shard_id, sc_node_id, sc_id using round robin based on file size
-	err = ShardFileKeysP2(ctx, dbpool, args.FileKey, inputSessionId, 
+	err = ShardFileKeysP2(ctx, dbpool, args.FileKey, args.SessionId, 
 		cpConfig.ClusterConfig.ShardingNbrNodes, cpConfig.ClusterConfig.ShardingNbrNodes)
 
 	return result, err

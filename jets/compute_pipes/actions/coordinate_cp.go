@@ -53,7 +53,7 @@ func (args *ComputePipesArgs) CoordinateComputePipes(ctx context.Context, dsn st
 			goto gotError
 		}
 		// Case sharding, get the file keys from compute_pipes_shard_registry
-		fileKeys, err = GetFileKeys(ctx, dbpool, args.InputSessionId, args.NodeId)
+		fileKeys, err = GetFileKeys(ctx, dbpool, args.SessionId, args.NodeId)
 		if err != nil {
 			cpErr = fmt.Errorf("while loading aws configuration (in CoordinateComputePipes): %v", err)
 			goto gotError
