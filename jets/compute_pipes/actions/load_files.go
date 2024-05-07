@@ -128,6 +128,7 @@ func (cpCtx *ComputePipesContext) ReadFile(filePath *FileName, computePipesInput
 					for j := range cpCtx.PartFileKeyComponents {
 						if cpCtx.InputColumns[offset + j] == cpCtx.PartFileKeyComponents[i].ColumnName {
 							record[offset + j] = cpCtx.PartFileKeyComponents[i].Regex.FindString(filePath.InFileKey)
+							log.Println("**!@@ partfile_key_component Got value",record[offset + j],"@column_name:",cpCtx.PartFileKeyComponents[i].ColumnName,"file_key:",filePath.InFileKey)
 							break
 						}
 						log.Println("*** WARNING *** partfile_key_component not configure properly, column not found!!")
