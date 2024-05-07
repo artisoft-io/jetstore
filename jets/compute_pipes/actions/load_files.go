@@ -66,6 +66,7 @@ func (cpCtx *ComputePipesContext) ReadFile(filePath *FileName, computePipesInput
 		os.Remove(filePath.LocalFileName)
 	}()
 
+	log.Println("**!@@",cpCtx.SessionId,"partfile_key_component GOT",len(cpCtx.PartFileKeyComponents))
 	inputColumns := cpCtx.InputColumns[:len(cpCtx.InputColumns)-len(cpCtx.PartFileKeyComponents)]
 	parquetReader, err = goparquet.NewFileReader(fileHd, inputColumns...)
 	if err != nil {
@@ -124,6 +125,7 @@ func (cpCtx *ComputePipesContext) ReadFile(filePath *FileName, computePipesInput
 			// Add the columns from the partfile_key_component
 			if len(cpCtx.PartFileKeyComponents) > 0 {
 				offset := len(inputColumns)
+				log.Println("**!@@",cpCtx.SessionId,"partfile_key_component GOT[0]",cpCtx.PartFileKeyComponents[0].ColumnName,"offset",offset,"InputColumn",cpCtx.InputColumns[offset])
 				for i := range cpCtx.PartFileKeyComponents {
 					for j := range cpCtx.PartFileKeyComponents {
 						if cpCtx.InputColumns[offset + j] == cpCtx.PartFileKeyComponents[i].ColumnName {
