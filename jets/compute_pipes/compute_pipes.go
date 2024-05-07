@@ -60,6 +60,7 @@ func StartComputePipes(dbpool *pgxpool.Pool, inputHeaders []string, done chan st
 			switch contextSpec.Type {
 			case "file_key_component":
 				envSettings[contextSpec.Key] = fileKeyComponents[contextSpec.Expr]
+			case "partfile_key_component":
 			default:
 				cpErr = fmt.Errorf("error: unknown ContextSpec Type: %v", contextSpec.Type)
 				goto gotError
