@@ -66,7 +66,7 @@ func (cpCtx *ComputePipesContext) ReadFile(filePath *FileName, computePipesInput
 		os.Remove(filePath.LocalFileName)
 	}()
 
-	log.Println("**!@@",cpCtx.SessionId,"partfile_key_component GOT",len(cpCtx.PartFileKeyComponents))
+	// log.Println("**!@@",cpCtx.SessionId,"partfile_key_component GOT",len(cpCtx.PartFileKeyComponents))
 	inputColumns := cpCtx.InputColumns[:len(cpCtx.InputColumns)-len(cpCtx.PartFileKeyComponents)]
 	parquetReader, err = goparquet.NewFileReader(fileHd, inputColumns...)
 	if err != nil {
@@ -125,12 +125,15 @@ func (cpCtx *ComputePipesContext) ReadFile(filePath *FileName, computePipesInput
 			// Add the columns from the partfile_key_component
 			if len(cpCtx.PartFileKeyComponents) > 0 {
 				offset := len(inputColumns)
-				log.Println("**!@@",cpCtx.SessionId,"partfile_key_component GOT[0]",cpCtx.PartFileKeyComponents[0].ColumnName,"offset",offset,"InputColumn",cpCtx.InputColumns[offset])
+				// log.Println("**!@@",cpCtx.SessionId,"partfile_key_component GOT[0]",cpCtx.PartFileKeyComponents[0].ColumnName,"offset",offset,"InputColumn",cpCtx.InputColumns[offset])
 				for i := range cpCtx.PartFileKeyComponents {
 					for j := range cpCtx.PartFileKeyComponents {
 						if cpCtx.InputColumns[offset + j] == cpCtx.PartFileKeyComponents[i].ColumnName {
-							record[offset + j] = cpCtx.PartFileKeyComponents[i].Regex.FindString(filePath.InFileKey)
-							log.Println("**!@@ partfile_key_component Got value",record[offset + j],"@column_name:",cpCtx.PartFileKeyComponents[i].ColumnName,"file_key:",filePath.InFileKey)
+							result := cpCtx.PartFileKeyComponents[i].Regex.FindStringSubmatch(filePath.InFileKey)
+							if len(result) > 0 {
+								record[offset + j] = result[1]
+							}
+							log.Println("**!@@ partfile_key_component Got result",result,"@column_name:",cpCtx.PartFileKeyComponents[i].ColumnName,"file_key:",filePath.InFileKey)
 							break
 						}
 						log.Println("*** WARNING *** partfile_key_component not configure properly, column not found!!")
