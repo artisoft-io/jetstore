@@ -121,7 +121,9 @@ func (args *ComputePipesArgs) CoordinateComputePipes(ctx context.Context, dsn st
 		cpContext.PartFileKeyComponents = make([]CompiledPartFileComponent, 0)
 		for i := range *cpContext.CpConfig.Context {
 			if (*cpContext.CpConfig.Context)[i].Type == "partfile_key_component" {
-				re, err := regexp.Compile(fmt.Sprintf(`%s=(.*?)\/`, (*cpContext.CpConfig.Context)[i].Expr))
+				regex_query := fmt.Sprintf(`%s=(.*?)\/`, (*cpContext.CpConfig.Context)[i].Expr)
+				log.Println("**!@@ partfile_key_component Got regex_query",regex_query)
+				re, err := regexp.Compile(regex_query)
 				if err != nil {
 					cpContext.PartFileKeyComponents = append(cpContext.PartFileKeyComponents, CompiledPartFileComponent{
 						ColumnName: (*cpContext.CpConfig.Context)[i].Key,
