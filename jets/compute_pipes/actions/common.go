@@ -1,6 +1,8 @@
 package actions
 
 import (
+	"regexp"
+
 	"github.com/artisoft-io/jetstore/jets/compute_pipes"
 )
 
@@ -62,14 +64,15 @@ type FileName struct {
 
 type ComputePipesContext struct {
 	ComputePipesArgs
-	CpConfig           *compute_pipes.ComputePipesConfig
-	FileKeyComponents  map[string]interface{}
-	EnvSettings        map[string]interface{}
-	ChResults          *compute_pipes.ChannelResults
-	Done               chan struct{}
-	ErrCh              chan error
-	FileNamesCh        chan FileName
-	DownloadS3ResultCh chan DownloadS3Result // avoid to modify ChannelResult for now...
+	CpConfig              *compute_pipes.ComputePipesConfig
+	FileKeyComponents     map[string]interface{}
+	PartFileKeyComponents []*regexp.Regexp
+	EnvSettings           map[string]interface{}
+	ChResults             *compute_pipes.ChannelResults
+	Done                  chan struct{}
+	ErrCh                 chan error
+	FileNamesCh           chan FileName
+	DownloadS3ResultCh    chan DownloadS3Result // avoid to modify ChannelResult for now...
 }
 
 // Struct used in input_columns_json of table source_config for cpipes

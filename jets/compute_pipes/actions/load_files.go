@@ -37,7 +37,7 @@ func (cpCtx *ComputePipesContext) LoadFiles(ctx context.Context, dbpool *pgxpool
 	go compute_pipes.StartComputePipes(dbpool, cpCtx.InputColumns, cpCtx.Done, cpCtx.ErrCh, computePipesInputCh, cpCtx.ChResults,
 		cpCtx.CpConfig, cpCtx.EnvSettings, cpCtx.FileKeyComponents)
 
-		// Load the files
+	// Load the files
 	var totalRowCount int64
 	for localInFile := range cpCtx.FileNamesCh {
 		log.Printf("Loading file '%s'", localInFile)
@@ -57,19 +57,20 @@ func (cpCtx *ComputePipesContext) ReadFile(filePath *FileName, computePipesInput
 	var parquetReader *goparquet.FileReader
 	var err error
 
-		fileHd, err = os.Open(filePath.LocalFileName)
-		if err != nil {
-			return 0, fmt.Errorf("while opening temp file '%s' (loadFiles): %v", *filePath, err)
-		}
-		defer func() {
-			fileHd.Close()
-			os.Remove(filePath.LocalFileName)
-		}()
+	fileHd, err = os.Open(filePath.LocalFileName)
+	if err != nil {
+		return 0, fmt.Errorf("while opening temp file '%s' (loadFiles): %v", *filePath, err)
+	}
+	defer func() {
+		fileHd.Close()
+		os.Remove(filePath.LocalFileName)
+	}()
 
-		parquetReader, err = goparquet.NewFileReader(fileHd, cpCtx.InputColumns...)
-		if err != nil {
-			return 0, err
-		}
+	inputColumns := cpCtx.InputColumns[:len(cpCtx.InputColumns)-len(cpCtx.PartFileKeyComponents)]
+	parquetReader, err = goparquet.NewFileReader(fileHd, inputColumns...)
+	if err != nil {
+		return 0, err
+	}
 
 	var inputRowCount int64
 	var record []interface{}
@@ -83,7 +84,7 @@ func (cpCtx *ComputePipesContext) ReadFile(filePath *FileName, computePipesInput
 		var parquetRow map[string]interface{}
 		parquetRow, err = parquetReader.NextRow()
 		if err == nil {
-			for i := range cpCtx.InputColumns {
+			for i := range inputColumns {
 				rawValue := parquetRow[cpCtx.InputColumns[i]]
 				if rawValue == nil {
 					record[i] = ""
@@ -119,6 +120,11 @@ func (cpCtx *ComputePipesContext) ReadFile(filePath *FileName, computePipesInput
 						}
 					}
 				}
+			}
+			// Add the columns from the partfile_key_component
+			l := len(inputColumns)
+			for i := range cpCtx.PartFileKeyComponents {
+				record[l+i] = cpCtx.PartFileKeyComponents[i].FindString(filePath.InFileKey)
 			}
 		}
 

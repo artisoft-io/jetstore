@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"regexp"
 	"time"
 
 	"github.com/artisoft-io/jetstore/jets/awsi"
@@ -109,6 +110,18 @@ func (args *ComputePipesArgs) CoordinateComputePipes(ctx context.Context, dsn st
 	if err != nil {
 		cpErr = fmt.Errorf("failed to unmarshal cpipes config json (%s): %v", args.CpipesMode, err)
 		goto gotError
+	}
+	if args.CpipesMode == "sharding" {
+		// Prepare the regex for the partfile_key_component
+		cpContext.PartFileKeyComponents = make([]*regexp.Regexp, 0)
+		for i := range *cpContext.CpConfig.Context {
+			if (*cpContext.CpConfig.Context)[i].Type == "partfile_key_component" {
+				re, err := regexp.Compile(fmt.Sprintf(`%s=(.*?)\/`, (*cpContext.CpConfig.Context)[i].Expr))
+				if err != nil {
+					cpContext.PartFileKeyComponents = append(cpContext.PartFileKeyComponents, re)
+				}
+			}
+		}
 	}
 
 	defer func() {

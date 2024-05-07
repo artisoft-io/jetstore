@@ -48,7 +48,7 @@ type ChannelSpec struct {
 }
 
 type ContextSpec struct {
-	// Type range: file_key_component
+	// Type range: file_key_component, partfile_key_component
 	Type string `json:"type"`
 	Key  string `json:"key"`
 	Expr string `json:"expr"`
