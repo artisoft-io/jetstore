@@ -112,13 +112,21 @@ func (args *ComputePipesArgs) CoordinateComputePipes(ctx context.Context, dsn st
 		goto gotError
 	}
 	if args.CpipesMode == "sharding" {
+		// partfile_key_component :: explained
+		// ContextSpec.Type == partfile_key_component:
+		//		Key is column name of input_row to put the key component (must be at end of columns comming from parquet parfiles)
+		//		Expr is key in partfile file_key
+		// NOTE: Ensure to have the added columns in the input_columns_json of source_config
 		// Prepare the regex for the partfile_key_component
-		cpContext.PartFileKeyComponents = make([]*regexp.Regexp, 0)
+		cpContext.PartFileKeyComponents = make([]CompiledPartFileComponent, 0)
 		for i := range *cpContext.CpConfig.Context {
 			if (*cpContext.CpConfig.Context)[i].Type == "partfile_key_component" {
 				re, err := regexp.Compile(fmt.Sprintf(`%s=(.*?)\/`, (*cpContext.CpConfig.Context)[i].Expr))
 				if err != nil {
-					cpContext.PartFileKeyComponents = append(cpContext.PartFileKeyComponents, re)
+					cpContext.PartFileKeyComponents = append(cpContext.PartFileKeyComponents, CompiledPartFileComponent{
+						ColumnName: (*cpContext.CpConfig.Context)[i].Key,
+						Regex: re,
+					})
 				}
 			}
 		}

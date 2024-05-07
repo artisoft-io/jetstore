@@ -122,9 +122,17 @@ func (cpCtx *ComputePipesContext) ReadFile(filePath *FileName, computePipesInput
 				}
 			}
 			// Add the columns from the partfile_key_component
-			l := len(inputColumns)
-			for i := range cpCtx.PartFileKeyComponents {
-				record[l+i] = cpCtx.PartFileKeyComponents[i].FindString(filePath.InFileKey)
+			if len(cpCtx.PartFileKeyComponents) > 0 {
+				offset := len(inputColumns)
+				for i := range cpCtx.PartFileKeyComponents {
+					for j := range cpCtx.PartFileKeyComponents {
+						if cpCtx.InputColumns[offset + j] == cpCtx.PartFileKeyComponents[i].ColumnName {
+							record[offset + j] = cpCtx.PartFileKeyComponents[i].Regex.FindString(filePath.InFileKey)
+							break
+						}
+						log.Println("*** WARNING *** partfile_key_component not configure properly, column not found!!")
+					}
+				}
 			}
 		}
 

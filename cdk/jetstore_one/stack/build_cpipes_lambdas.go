@@ -90,7 +90,7 @@ func (jsComp *JetStoreStackComponents) BuildCpipesLambdas(scope constructs.Const
 			"ENVIRONMENT":                        jsii.String(os.Getenv("ENVIRONMENT")),
 		},
 		MemorySize: jsii.Number(128),
-		Timeout:    awscdk.Duration_Minutes(jsii.Number(2)),
+		Timeout:    awscdk.Duration_Minutes(jsii.Number(5)),
 		Vpc:        jsComp.Vpc,
 		VpcSubnets: jsComp.IsolatedSubnetSelection,
 	})
@@ -127,7 +127,7 @@ func (jsComp *JetStoreStackComponents) BuildCpipesLambdas(scope constructs.Const
 			"ENVIRONMENT":                        jsii.String(os.Getenv("ENVIRONMENT")),
 		},
 		MemorySize: jsii.Number(128),
-		Timeout:    awscdk.Duration_Minutes(jsii.Number(2)),
+		Timeout:    awscdk.Duration_Minutes(jsii.Number(5)),
 		Vpc:        jsComp.Vpc,
 		VpcSubnets: jsComp.IsolatedSubnetSelection,
 	})
