@@ -129,6 +129,8 @@ func (args *ComputePipesArgs) CoordinateComputePipes(ctx context.Context, dsn st
 						ColumnName: (*cpContext.CpConfig.Context)[i].Key,
 						Regex: re,
 					})
+				} else {
+					log.Println("*** WARNING *** error compiling regex:",regex_query)
 				}
 			}
 		}
