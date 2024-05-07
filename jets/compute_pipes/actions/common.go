@@ -62,11 +62,16 @@ type FileName struct {
 	InFileKey     string
 }
 
+type CompiledPartFileComponent struct {
+	ColumnName string
+	Regex      *regexp.Regexp
+}
+
 type ComputePipesContext struct {
 	ComputePipesArgs
 	CpConfig              *compute_pipes.ComputePipesConfig
 	FileKeyComponents     map[string]interface{}
-	PartFileKeyComponents []*regexp.Regexp
+	PartFileKeyComponents []CompiledPartFileComponent
 	EnvSettings           map[string]interface{}
 	ChResults             *compute_pipes.ChannelResults
 	Done                  chan struct{}
