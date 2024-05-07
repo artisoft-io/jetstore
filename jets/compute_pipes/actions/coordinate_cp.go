@@ -124,13 +124,13 @@ func (args *ComputePipesArgs) CoordinateComputePipes(ctx context.Context, dsn st
 				regex_query := fmt.Sprintf(`%s=(.*?)\/`, (*cpContext.CpConfig.Context)[i].Expr)
 				log.Println("**!@@",args.SessionId,"partfile_key_component Got regex_query",regex_query,"for column",(*cpContext.CpConfig.Context)[i].Key)
 				re, err := regexp.Compile(regex_query)
-				if err != nil {
+				if err == nil {
 					cpContext.PartFileKeyComponents = append(cpContext.PartFileKeyComponents, CompiledPartFileComponent{
 						ColumnName: (*cpContext.CpConfig.Context)[i].Key,
 						Regex: re,
 					})
 				} else {
-					log.Println("*** WARNING *** error compiling regex:",regex_query)
+					log.Println("*** WARNING *** error compiling regex:",regex_query,"err:",err)
 				}
 			}
 		}
