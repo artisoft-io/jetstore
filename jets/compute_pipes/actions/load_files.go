@@ -133,7 +133,7 @@ func (cpCtx *ComputePipesContext) ReadFile(filePath *FileName, computePipesInput
 							if len(result) > 0 {
 								record[offset + j] = result[1]
 							}
-							log.Println("**!@@ partfile_key_component Got result",result,"@column_name:",cpCtx.PartFileKeyComponents[i].ColumnName,"file_key:",filePath.InFileKey)
+							// log.Println("**!@@ partfile_key_component Got result",result,"@column_name:",cpCtx.PartFileKeyComponents[i].ColumnName,"file_key:",filePath.InFileKey)
 							break
 						}
 						log.Println("*** WARNING *** partfile_key_component not configure properly, column not found!!")
