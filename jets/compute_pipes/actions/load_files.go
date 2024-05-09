@@ -6,7 +6,6 @@ import (
 	"io"
 	"log"
 	"os"
-	"reflect"
 	"strconv"
 
 	"github.com/artisoft-io/jetstore/jets/compute_pipes"
@@ -76,6 +75,7 @@ func (cpCtx *ComputePipesContext) ReadFile(filePath *FileName, computePipesInput
 	var inputRowCount int64
 	var record []interface{}
 	currentLineNumber := 0
+	isShardingMode := cpCtx.CpipesMode == "sharding"
 	for {
 		// read and put the rows into computePipesInputCh
 		currentLineNumber += 1
@@ -90,34 +90,38 @@ func (cpCtx *ComputePipesContext) ReadFile(filePath *FileName, computePipesInput
 				if rawValue == nil {
 					record[i] = ""
 				} else {
-					switch vv := rawValue.(type) {
-					case string:
-						record[i] = vv
-					case []byte:
-						record[i] = string(vv)
-					case int:
-						record[i] = strconv.Itoa(vv)
-					case int32:
-						record[i] = strconv.FormatInt(int64(vv), 10)
-					case int64:
-						record[i] = strconv.FormatInt(vv, 10)
-					case float64:
-						record[i] = strconv.FormatFloat(vv, 'E', -1, 32)
-					case float32:
-						record[i] = strconv.FormatFloat(float64(vv), 'E', -1, 32)
-					case bool:
-						record[i] = fmt.Sprintf("%v", vv)
-					default:
-						t := reflect.TypeOf(rawValue)
-						if t.Kind() == reflect.Array {
-							v := reflect.ValueOf(rawValue)
-							bb := make([]byte, t.Len())
-							for i := range bb {
-								bb[i] = byte(v.Index(i).Interface().(uint8))
-							}
-							record[i] = string(bb)
-						} else {
+					if isShardingMode {
+						// Read all fields as string
+						switch vv := rawValue.(type) {
+						case string:
+							record[i] = vv
+						case []byte:
+							record[i] = string(vv)
+						case int:
+							record[i] = strconv.Itoa(vv)
+						case int32:
+							record[i] = strconv.FormatInt(int64(vv), 10)
+						case int64:
+							record[i] = strconv.FormatInt(vv, 10)
+						case float64:
+							record[i] = strconv.FormatFloat(vv, 'E', -1, 32)
+						case float32:
+							record[i] = strconv.FormatFloat(float64(vv), 'E', -1, 32)
+						case bool:
+							record[i] = fmt.Sprintf("%v", vv)
+						default:
 							record[i] = fmt.Sprintf("%v", rawValue)
+						}
+					} else {
+						// Read fields and preserve their types
+						// NOTES: Dates are saved as strings, must be converted to dates as needed downstream
+						switch vv := rawValue.(type) {
+						case []byte:
+							record[i] = string(vv)
+						case float32:
+							record[i] = float64(vv)
+						default:
+							record[i] = vv
 						}
 					}
 				}
@@ -128,10 +132,10 @@ func (cpCtx *ComputePipesContext) ReadFile(filePath *FileName, computePipesInput
 				// log.Println("**!@@",cpCtx.SessionId,"partfile_key_component GOT[0]",cpCtx.PartFileKeyComponents[0].ColumnName,"offset",offset,"InputColumn",cpCtx.InputColumns[offset])
 				for i := range cpCtx.PartFileKeyComponents {
 					for j := range cpCtx.PartFileKeyComponents {
-						if cpCtx.InputColumns[offset + j] == cpCtx.PartFileKeyComponents[i].ColumnName {
+						if cpCtx.InputColumns[offset+j] == cpCtx.PartFileKeyComponents[i].ColumnName {
 							result := cpCtx.PartFileKeyComponents[i].Regex.FindStringSubmatch(filePath.InFileKey)
 							if len(result) > 0 {
-								record[offset + j] = result[1]
+								record[offset+j] = result[1]
 							}
 							// log.Println("**!@@ partfile_key_component Got result",result,"@column_name:",cpCtx.PartFileKeyComponents[i].ColumnName,"file_key:",filePath.InFileKey)
 							break

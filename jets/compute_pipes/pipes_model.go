@@ -80,6 +80,7 @@ type TransformationSpec struct {
 	FilePathSubstitutions *[]PathSubstitution        `json:"file_path_substitutions"`
 	StepId                *string                    `json:"step_id"`
 	Columns               []TransformationColumnSpec `json:"columns"`
+	DataSchema            *[]DataSchemaSpec          `json:"data_schema"`
 	Output                string                     `json:"output"`
 }
 
@@ -87,6 +88,12 @@ type PathSubstitution struct {
 	Replace string `json:"replace"`
 	With    string `json:"with"`
 }
+
+type DataSchemaSpec struct {
+	Columns string `json:"column"`
+	RdfType string `json:"rdf_type"`
+}
+
 type TransformationColumnSpec struct {
 	// Type range: select, value, eval, map, hash
 	// (applicable to aggregate) count, distinct_count, sum, min,
