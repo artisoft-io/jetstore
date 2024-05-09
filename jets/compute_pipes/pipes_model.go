@@ -9,7 +9,7 @@ type ComputePipesConfig struct {
 	Context             *[]ContextSpec `json:"context"`
 	PipesConfig         []PipeSpec     `json:"pipes_config"`
 	ShardingPipesConfig []PipeSpec     `json:"sharding_pipes_config"`
-	ReducingPipesConfig []PipeSpec     `json:"reducing_pipes_config"`
+	ReducingPipesConfig [][]PipeSpec   `json:"reducing_pipes_config"`
 }
 
 // Config for peer2peer communication
@@ -78,6 +78,7 @@ type TransformationSpec struct {
 	Type                  string                     `json:"type"`
 	PartitionSize         *int                       `json:"partition_size"`
 	FilePathSubstitutions *[]PathSubstitution        `json:"file_path_substitutions"`
+	StepId                *string                    `json:"step_id"`
 	Columns               []TransformationColumnSpec `json:"columns"`
 	Output                string                     `json:"output"`
 }

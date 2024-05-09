@@ -157,9 +157,13 @@ func (ctx *PartitionWriterTransformationPipe) done() error {
 	close(ctx.s3WritersResultCh)
 
 	// Write to db the jets_partition and nodeId of this partition w/ session_id
-	stmt := `INSERT INTO jetsapi.compute_pipes_partitions_registry (session_id, file_key, jets_partition, shard_id, sc_node_id, sc_id) 
-		VALUES ($1, $2, $3, $4, $5, $6)`
-	_, err := ctx.dbpool.Exec(context.Background(), stmt, ctx.sessionId, *ctx.baseOutputPath, ctx.jetsPartitionLabel,
+	stepId := "sharding"
+	if ctx.spec.StepId != nil {
+		stepId = *ctx.spec.StepId
+	}
+	stmt := `INSERT INTO jetsapi.compute_pipes_partitions_registry (session_id, step_id, file_key, jets_partition, shard_id, sc_node_id, sc_id) 
+		VALUES ($1, $2, $3, $4, $5, $6, $7)`
+	_, err := ctx.dbpool.Exec(context.Background(), stmt, ctx.sessionId, stepId, *ctx.baseOutputPath, ctx.jetsPartitionLabel,
 		ctx.nodeId, ctx.subClusterNodeId, ctx.subClusterId)
 	if err != nil {
 		return fmt.Errorf("error inserting in jetsapi.compute_pipes_partitions_registry table: %v", err)

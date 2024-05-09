@@ -16,8 +16,8 @@ import (
 func (args *StartComputePipesArgs) StartShardingComputePipes(ctx context.Context, dsn string, defaultNbrNodes int) (result ComputePipesRun, err error) {
 	// validate the args
 	if args.FileKey == "" || args.SessionId == "" {
-		log.Println("error: missing file_key or session_id as input args of StartComputePipes")
-		return result, fmt.Errorf("error: missing file_key or session_id as input args of StartComputePipes")
+		log.Println("error: missing file_key or session_id as input args of StartComputePipes (sharding mode)")
+		return result, fmt.Errorf("error: missing file_key or session_id as input args of StartComputePipes (sharding mode)")
 	}
 
 	// open db connection
@@ -74,14 +74,13 @@ func (args *StartComputePipesArgs) StartShardingComputePipes(ctx context.Context
 	if !cpJson.Valid || len(cpJson.String) == 0 {
 		return result, fmt.Errorf("error: compute_pipes_json is null or empty")
 	}
+	if !icJson.Valid || len(icJson.String) == 0 {
+		return result, fmt.Errorf("error: input_columns_json is null or empty")
+	}
 	cpConfig, err := compute_pipes.UnmarshalComputePipesConfig(&cpJson.String, 0, defaultNbrNodes)
 	if err != nil {
 		log.Println(fmt.Errorf("error while UnmarshalComputePipesConfig: %v", err))
 		return result, fmt.Errorf("error while UnmarshalComputePipesConfig: %v", err)
-	}
-
-	if !icJson.Valid || len(icJson.String) == 0 {
-		return result, fmt.Errorf("error: input_columns_json is null or empty")
 	}
 
 	// Update output table schema
@@ -99,7 +98,7 @@ func (args *StartComputePipesArgs) StartShardingComputePipes(ctx context.Context
 	fmt.Println("Compute Pipes output tables schema ready")
 
 	// Get the input columns info
-	var ic InputColumnsDef
+	var ic []string
 	err = json.Unmarshal([]byte(icJson.String), &ic)
 	if err != nil {
 		return result, fmt.Errorf("while unmarshaling input_columns_json: %s", err)
@@ -110,7 +109,6 @@ func (args *StartComputePipesArgs) StartShardingComputePipes(ctx context.Context
 		"-status":        "failed",
 		"failureDetails": "",
 	}
-	result.StartReducing = *args
 
 	// Prepare the cpipes commands, get the file count and size
 	// Step 1: load the file_key and file_size into the table
@@ -121,83 +119,80 @@ func (args *StartComputePipesArgs) StartShardingComputePipes(ctx context.Context
 
 	// Determine the number of nodes for sharding
 	if cpConfig.ClusterConfig.ShardingNbrNodes == 0 {
-		cpConfig.ClusterConfig.ShardingNbrNodes = defaultNbrNodes
+		cpConfig.ClusterConfig.ShardingNbrNodes = cpConfig.ClusterConfig.NbrNodes
+		if cpConfig.ClusterConfig.ShardingNbrNodes == 0 {
+			cpConfig.ClusterConfig.ShardingNbrNodes = defaultNbrNodes
+		}
 	}
+	// Use the reducing nbrNodes as initial value for nbrPartition
+	// Determine the number of nodes for reducing
+	if cpConfig.ClusterConfig.ReducingNbrNodes == 0 {
+		cpConfig.ClusterConfig.ReducingNbrNodes = cpConfig.ClusterConfig.NbrNodes
+		if cpConfig.ClusterConfig.ReducingNbrNodes == 0 {
+			cpConfig.ClusterConfig.ReducingNbrNodes = defaultNbrNodes
+		}
+	}
+	nbrPartitions := cpConfig.ClusterConfig.ReducingNbrNodes
+	//*TODO use totalSize of files to adjust the nbrPartitions
+	if totalSize < 0 {
+		fmt.Println("//*TODO")
+	}
+
+	// Adjust the nbr of sharding nodes based on the nbr of input files
 	if totalPartfileCount < cpConfig.ClusterConfig.ShardingNbrNodes {
 		cpConfig.ClusterConfig.ShardingNbrNodes = totalPartfileCount
 	}
 
-	// Determine the number of nodes for reducing
-	if cpConfig.ClusterConfig.ReducingNbrNodes == 0 {
-		cpConfig.ClusterConfig.ReducingNbrNodes = defaultNbrNodes
-	}
-	//*TODO use totalSize of files to determine nbrNodes for reducing
-	if totalSize < 0 {
-		fmt.Println("//*TODO")
+	// Args for start_reducing_cp lambda
+	inputStepId := "sharding"
+	result.StartReducing = StartComputePipesArgs{
+		PipelineExecKey: args.PipelineExecKey,
+		FileKey:         args.FileKey,
+		SessionId:       args.SessionId,
+		InputStepId:     &inputStepId,
+		NbrPartitions:   &nbrPartitions,
 	}
 
 	// Build CpipesShardingCommands
 	result.CpipesCommands = make([]ComputePipesArgs, cpConfig.ClusterConfig.ShardingNbrNodes)
 	for i := range result.CpipesCommands {
 		result.CpipesCommands[i] = ComputePipesArgs{
-			NodeId: i,
-			CpipesMode: "sharding",
-			NbrNodes: cpConfig.ClusterConfig.ShardingNbrNodes,
-			Client: client,
-			Org: org,
-			ObjectType: objectType,
-			InputSessionId: inputSessionId,
-			SessionId: args.SessionId,
-			SourcePeriodKey: sourcePeriodKey,
-			ProcessName: processName,
-			FileKey: args.FileKey,
-			InputColumns: ic.ShardingInput,
-			PipelineExecKey: args.PipelineExecKey,
+			NodeId:            i,
+			CpipesMode:        "sharding",
+			NbrNodes:          cpConfig.ClusterConfig.ShardingNbrNodes,
+			Client:            client,
+			Org:               org,
+			ObjectType:        objectType,
+			InputSessionId:    inputSessionId,
+			SessionId:         args.SessionId,
+			SourcePeriodKey:   sourcePeriodKey,
+			ProcessName:       processName,
+			FileKey:           args.FileKey,
+			InputColumns:      ic,
+			PipelineExecKey:   args.PipelineExecKey,
 			PipelineConfigKey: pipelineConfigKey,
-			UserEmail: userEmail,
+			UserEmail:         userEmail,
 		}
 	}
 	// Make the sharding pipeline config
 	cpShardingConfig := &compute_pipes.ComputePipesConfig{
 		ClusterConfig: &compute_pipes.ClusterSpec{
-			CpipesMode: "sharding",
-			ReadTimeout: cpConfig.ClusterConfig.ReadTimeout,
-			WriteTimeout: cpConfig.ClusterConfig.WriteTimeout,
+			CpipesMode:              "sharding",
+			ReadTimeout:             cpConfig.ClusterConfig.ReadTimeout,
+			WriteTimeout:            cpConfig.ClusterConfig.WriteTimeout,
 			PeerRegistrationTimeout: cpConfig.ClusterConfig.PeerRegistrationTimeout,
-			NbrNodes: cpConfig.ClusterConfig.ShardingNbrNodes,
-			NbrSubClusters: cpConfig.ClusterConfig.ShardingNbrNodes,
-			NbrJetsPartitions: uint64(cpConfig.ClusterConfig.ReducingNbrNodes),
-			PeerBatchSize: 100,
+			NbrNodes:                cpConfig.ClusterConfig.ShardingNbrNodes,
+			NbrSubClusters:          cpConfig.ClusterConfig.ShardingNbrNodes,
+			NbrJetsPartitions:       uint64(nbrPartitions),
+			PeerBatchSize:           100,
 		},
 		MetricsConfig: cpConfig.MetricsConfig,
-		OutputTables: cpConfig.OutputTables,
-		Channels: cpConfig.Channels,
-		Context: cpConfig.Context,
-		PipesConfig: cpConfig.ShardingPipesConfig,
-	}
-	// Make the reducing pipeline config
-	cpReducingConfig := &compute_pipes.ComputePipesConfig{
-		ClusterConfig: &compute_pipes.ClusterSpec{
-			CpipesMode: "reducing",
-			ReadTimeout: cpConfig.ClusterConfig.ReadTimeout,
-			WriteTimeout: cpConfig.ClusterConfig.WriteTimeout,
-			PeerRegistrationTimeout: cpConfig.ClusterConfig.PeerRegistrationTimeout,
-			NbrNodes: cpConfig.ClusterConfig.ReducingNbrNodes,
-			NbrSubClusters: cpConfig.ClusterConfig.ReducingNbrNodes,
-			NbrJetsPartitions: uint64(cpConfig.ClusterConfig.ReducingNbrNodes),
-			PeerBatchSize: 100,
-		},
-		MetricsConfig: cpConfig.MetricsConfig,
-		OutputTables: cpConfig.OutputTables,
-		Channels: cpConfig.Channels,
-		Context: cpConfig.Context,
-		PipesConfig: cpConfig.ReducingPipesConfig,
+		OutputTables:  cpConfig.OutputTables,
+		Channels:      cpConfig.Channels,
+		Context:       cpConfig.Context,
+		PipesConfig:   cpConfig.ShardingPipesConfig,
 	}
 	shardingConfigJson, err := json.Marshal(cpShardingConfig)
-	if err != nil {
-		return result, err
-	}
-	reducingConfigJson, err := json.Marshal(cpReducingConfig)
 	if err != nil {
 		return result, err
 	}
@@ -205,14 +200,14 @@ func (args *StartComputePipesArgs) StartShardingComputePipes(ctx context.Context
 	// Create entry in cpipes_execution_status
 	stmt = `INSERT INTO jetsapi.cpipes_execution_status 
 						(pipeline_execution_status_key, session_id, sharding_config_json, reducing_config_json) 
-						VALUES ($1, $2, $3, $4)`
-	_, err2 := dbpool.Exec(ctx, stmt, args.PipelineExecKey, args.SessionId, string(shardingConfigJson), string(reducingConfigJson))
+						VALUES ($1, $2, $3, '{}')`
+	_, err2 := dbpool.Exec(ctx, stmt, args.PipelineExecKey, args.SessionId, string(shardingConfigJson))
 	if err2 != nil {
 		return result, fmt.Errorf("error inserting in jetsapi.cpipes_execution_status table: %v", err2)
 	}
 
 	// Step 2: assign shard_id, sc_node_id, sc_id using round robin based on file size
-	err = ShardFileKeysP2(ctx, dbpool, args.FileKey, args.SessionId, 
+	err = ShardFileKeysP2(ctx, dbpool, args.FileKey, args.SessionId,
 		cpConfig.ClusterConfig.ShardingNbrNodes, cpConfig.ClusterConfig.ShardingNbrNodes)
 
 	return result, err
