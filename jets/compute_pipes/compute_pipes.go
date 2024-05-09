@@ -45,7 +45,6 @@ func StartComputePipes(dbpool *pgxpool.Pool, inputHeaders []string, done chan st
 
 	var cpErr, err error
 	var channelRegistry *ChannelRegistry
-	headersPosMap := make(map[string]int)
 	var outChannel *Channel
 	var wt WriteTableSource
 	var table chan ComputePipesResult
@@ -53,6 +52,7 @@ func StartComputePipes(dbpool *pgxpool.Pool, inputHeaders []string, done chan st
 	var s3Client *s3.Client
 	var s3Uploader *manager.Uploader
 	var cfg aws.Config
+	var inputRowChannel *InputChannel
 
 	// Add to envSettings based on compute pipe config
 	if cpConfig.Context != nil {
@@ -69,16 +69,23 @@ func StartComputePipes(dbpool *pgxpool.Pool, inputHeaders []string, done chan st
 	}
 
 	// Prepare the channel registry
-	for i, c := range inputHeaders {
-		headersPosMap[c] = i
+	if cpConfig.ClusterConfig.CpipesMode == "sharding" {
+		// Setup the input channel for input_row
+		headersPosMap := make(map[string]int)
+		for i, c := range inputHeaders {
+			headersPosMap[c] = i
+		}
+		inputRowChannel = &InputChannel{
+			channel: computePipesInputCh,
+			columns: headersPosMap,
+			config: &ChannelSpec{
+				Name:    "input_row",
+				Columns: inputHeaders,
+			},
+		}
 	}
 	channelRegistry = &ChannelRegistry{
-		computePipesInputCh: computePipesInputCh,
-		inputColumns:        headersPosMap,
-		inputChannelSpec: &ChannelSpec{
-			Name:    "input_row",
-			Columns: inputHeaders,
-		},
+		inputRowChannel:      inputRowChannel,
 		computeChannels:      make(map[string]*Channel),
 		outputTableChannels:  make([]string, 0),
 		closedChannels:       make(map[string]bool),

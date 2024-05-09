@@ -106,6 +106,12 @@ func (jsComp *JetStoreStackComponents) BuildCpipesSM(scope constructs.Construct,
 		ResultPath:     sfn.JsonPath_DISCARD(),
 	})
 
+	//	7) choice for reducing task iteration
+	// ----------------------
+	reducingIterationChoice := sfn.NewChoice(stack, jsii.String("ReducingIterationChoice"), &sfn.ChoiceProps{
+		Comment: jsii.String("Choice to continue reducing iteration"),
+	})
+
 	// Chaining the SF Tasks
 	// ---------------------
 	runStartSharingTask.AddCatch(runErrorStatusLambdaTask, MkCatchProps()).Next(runShardingMap)
@@ -122,7 +128,13 @@ func (jsComp *JetStoreStackComponents) BuildCpipesSM(scope constructs.Construct,
 		Errors:      jsii.Strings(*sfn.Errors_TASKS_FAILED()),
 		Interval:    awscdk.Duration_Minutes(jsii.Number(4)),
 		MaxAttempts: jsii.Number(1),
-	}).AddCatch(runErrorStatusLambdaTask, MkCatchProps()).Next(runReportsLambdaTask)
+	}).AddCatch(runErrorStatusLambdaTask, MkCatchProps()).Next(reducingIterationChoice)
+
+	reducingIterationChoice.When(sfn.Condition_BooleanEquals(jsii.String("$.isLastReducing"),
+		jsii.Bool(true)), runReportsLambdaTask, &sfn.ChoiceTransitionOptions{
+		Comment: jsii.String("When isLastReducing is true, stop looping and run reports"),
+	})
+	reducingIterationChoice.Otherwise(runStartReducingTask)
 
 	runReportsLambdaTask.AddCatch(runErrorStatusLambdaTask, MkCatchProps()).Next(runSuccessStatusLambdaTask)
 

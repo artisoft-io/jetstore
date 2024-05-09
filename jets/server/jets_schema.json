@@ -1622,6 +1622,13 @@
         "isNotNull": true
       },
       {
+        "columnName": "step_id",
+        "dataType": "text",
+        "default": "'sharding'",
+        "description": "Indicate which step of the process the partition were written, values: sharding, reducing0, reducing1...",
+        "isNotNull": true
+      },
+      {
         "columnName": "file_key",
         "dataType": "text",
         "isNotNull": true
@@ -1655,8 +1662,8 @@
     ],
     "indexes": [
       {
-        "indexName": "compute_pipes_partitions_registry_session_idx",
-        "indexDef": "INDEX compute_pipes_partitions_registry_session_idx ON jetsapi.compute_pipes_partitions_registry (session_id)"
+        "indexName": "compute_pipes_partitions_registry_idx_v2",
+        "indexDef": "INDEX compute_pipes_partitions_registry_idx_v2 ON jetsapi.compute_pipes_partitions_registry (session_id,step_id)"
       }
     ],
     "tableConstraints": [

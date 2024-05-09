@@ -12,10 +12,9 @@ import (
 // This file contains the Compute Pipes runtime data structures
 
 type ChannelRegistry struct {
-	// Compute Pipes input channel, called input_row
-	computePipesInputCh  <-chan []interface{}
-	inputChannelSpec     *ChannelSpec
-	inputColumns         map[string]int
+	// Compute Pipes input channel (inputRowChannel), called input_row
+	// Used for sharding mode only
+	inputRowChannel      *InputChannel
 	computeChannels      map[string]*Channel
 	outputTableChannels  []string
 	closedChannels       map[string]bool
@@ -61,11 +60,7 @@ func (r *ChannelRegistry) CloseChannel(name string) {
 
 func (r *ChannelRegistry) GetInputChannel(name string) (*InputChannel, error) {
 	if name == "input_row" {
-		return &InputChannel{
-			channel: r.computePipesInputCh,
-			config:  r.inputChannelSpec,
-			columns: r.inputColumns,
-		}, nil
+		return r.inputRowChannel, nil
 	}
 	ch, ok := r.computeChannels[name]
 	if !ok {

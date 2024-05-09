@@ -10,9 +10,17 @@ import (
 
 // Argument to start_cp for starting the cp cluster
 type StartComputePipesArgs struct {
-	PipelineExecKey int    `json:"pipeline_execution_key"`
-	FileKey         string `json:"file_key"`
-	SessionId       string `json:"session_id"`
+	PipelineExecKey int     `json:"pipeline_execution_key"`
+	FileKey         string  `json:"file_key"`
+	SessionId       string  `json:"session_id"`
+	InputStepId     *string `json:"input_step_id"`
+	NbrPartitions   *int    `json:"nbr_partitions"`
+	CurrentStep     *int    `json:"current_step"`
+}
+
+type InputStats struct {
+	TotalPartfileCount int
+	TotalSizeMb        int
 }
 
 // Argument to cp_node for sharding and reducing
@@ -52,6 +60,7 @@ type ComputePipesArgs struct {
 type ComputePipesRun struct {
 	CpipesCommands []ComputePipesArgs     `json:"cpipesCommands"`
 	StartReducing  StartComputePipesArgs  `json:"startReducing"`
+	IsLastReducing bool                   `json:"isLastReducing"`
 	ReportsCommand []string               `json:"reportsCommand"`
 	SuccessUpdate  map[string]interface{} `json:"successUpdate"`
 	ErrorUpdate    map[string]interface{} `json:"errorUpdate"`
@@ -78,10 +87,4 @@ type ComputePipesContext struct {
 	ErrCh                 chan error
 	FileNamesCh           chan FileName
 	DownloadS3ResultCh    chan DownloadS3Result // avoid to modify ChannelResult for now...
-}
-
-// Struct used in input_columns_json of table source_config for cpipes
-type InputColumnsDef struct {
-	ShardingInput []string `json:"sharding_input"`
-	ReducingInput []string `json:"reducing_input"`
 }
