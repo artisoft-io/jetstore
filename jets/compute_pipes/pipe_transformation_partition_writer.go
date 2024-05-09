@@ -237,11 +237,27 @@ func (ctx *BuilderContext) NewPartitionWriterTransformationPipe(source *InputCha
 	// close the underlying channel of outputCh since it will be replaced
 	ctx.channelRegistry.CloseChannel(outputCh.config.Name)
 
-	// Prepare the parquet schema -- saving rows as string
+	// Prepare the parquet schema -- saving rows based on specified data type
+	schema := make(map[string]string)
+	if spec.DataSchema != nil {
+		for i := range *spec.DataSchema {
+			schema[(*spec.DataSchema)[i].Columns] = (*spec.DataSchema)[i].RdfType
+		}	
+	}
 	parquetSchema := make([]string, len(outputCh.config.Columns))
 	for i := range outputCh.config.Columns {
-		parquetSchema[i] = fmt.Sprintf("name=%s, type=BYTE_ARRAY, convertedtype=UTF8, encoding=PLAIN_DICTIONARY",
+		rdfType := schema[outputCh.config.Columns[i]]
+		switch rdfType {
+		case "int", "int32":
+			parquetSchema[i] = fmt.Sprintf("name=%s, type=INT32",	outputCh.config.Columns[i])
+		case "long", "int64", "timestamp":
+			parquetSchema[i] = fmt.Sprintf("name=%s, type=INT64",	outputCh.config.Columns[i])
+		case "double", "float64":
+			parquetSchema[i] = fmt.Sprintf("name=%s, type=DOUBLE",	outputCh.config.Columns[i])
+		default:
+			parquetSchema[i] = fmt.Sprintf("name=%s, type=BYTE_ARRAY, convertedtype=UTF8, encoding=PLAIN_DICTIONARY",
 			outputCh.config.Columns[i])
+		}
 	}
 
 	p := ctx.env["$FILE_KEY_FOLDER"].(string)
