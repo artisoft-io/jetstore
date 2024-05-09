@@ -87,10 +87,10 @@ func (cpCtx *ComputePipesContext) ReadFile(filePath *FileName, computePipesInput
 		if err == nil {
 			for i := range inputColumns {
 				rawValue := parquetRow[cpCtx.InputColumns[i]]
-				if rawValue == nil {
-					record[i] = ""
-				} else {
-					if isShardingMode {
+				if isShardingMode {
+					if rawValue == nil {
+						record[i] = ""
+					} else {
 						// Read all fields as string
 						switch vv := rawValue.(type) {
 						case string:
@@ -112,17 +112,17 @@ func (cpCtx *ComputePipesContext) ReadFile(filePath *FileName, computePipesInput
 						default:
 							record[i] = fmt.Sprintf("%v", rawValue)
 						}
-					} else {
-						// Read fields and preserve their types
-						// NOTES: Dates are saved as strings, must be converted to dates as needed downstream
-						switch vv := rawValue.(type) {
-						case []byte:
-							record[i] = string(vv)
-						case float32:
-							record[i] = float64(vv)
-						default:
-							record[i] = vv
-						}
+					}
+				} else {
+					// Read fields and preserve their types
+					// NOTES: Dates are saved as strings, must be converted to dates as needed downstream
+					switch vv := rawValue.(type) {
+					case []byte:
+						record[i] = string(vv)
+					case float32:
+						record[i] = float64(vv)
+					default:
+						record[i] = vv
 					}
 				}
 			}

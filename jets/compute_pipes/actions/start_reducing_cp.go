@@ -150,7 +150,7 @@ func (args *StartComputePipesArgs) StartReducingComputePipes(ctx context.Context
 	nextInputStepId := fmt.Sprintf("reducing%d", currentStep)
 	if !isLastReducing {
 		// next iteration
-		nextCurrent := *args.CurrentStep + 1
+		nextCurrent := currentStep + 1
 		result.StartReducing = StartComputePipesArgs{
 			PipelineExecKey: args.PipelineExecKey,
 			FileKey:         args.FileKey,
@@ -178,6 +178,16 @@ func (args *StartComputePipesArgs) StartReducingComputePipes(ctx context.Context
 		"failureDetails": "",
 	}
 
+	// Get the input columns from Pipes Config, from the first pipes channel
+	var inputColumns []string
+	inputChannel := cpReducingConfig.PipesConfig[0].Input
+	for i := range cpReducingConfig.Channels {
+		if cpReducingConfig.Channels[i].Name == inputChannel {
+			inputColumns = cpReducingConfig.Channels[i].Columns
+			break
+		}
+	}
+
 	// Build CpipesReducingCommands
 	log.Printf("Got %d partitions", len(partitions))
 	result.CpipesCommands = make([]ComputePipesArgs, len(partitions))
@@ -195,7 +205,7 @@ func (args *StartComputePipesArgs) StartReducingComputePipes(ctx context.Context
 			SourcePeriodKey:    sourcePeriodKey,
 			ProcessName:        processName,
 			FileKey:            partitions[i].fileKey,
-			InputColumns:       []string{},
+			InputColumns:       inputColumns,
 			PipelineExecKey:    args.PipelineExecKey,
 			PipelineConfigKey:  pipelineConfigKey,
 			UserEmail:          userEmail,
