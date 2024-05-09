@@ -266,6 +266,12 @@ func (ctx *BuilderContext) NewPartitionWriterTransformationPipe(source *InputCha
 			p = strings.Replace(p, ps.Replace, ps.With, 1)
 		}
 	}
+	// if $FILE_KEY_FOLDER is a input partition, i.e. we're reducing a second time
+	// remove the /session_id... from path
+	ipos := strings.Index(p, "/session_id=")
+	if ipos > 0 {
+		p = p[:ipos]
+	}
 	session_id := ctx.SessionId()
 	jetsPartitionLabel := MakeJetsPartitionLabel(jetsPartitionKey)
 	baseOutputPath := fmt.Sprintf("%s/session_id=%s/jets_partition=%s", p, session_id, jetsPartitionLabel)

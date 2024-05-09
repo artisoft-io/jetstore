@@ -62,18 +62,23 @@ func (ctx *S3DeviceWriter) WritePartition(s3WriterResultCh chan<- ComputePipesRe
 
 	// Write the rows into the temp file
 	for inRow := range ctx.source.channel {
-		// replace null with empty string
-		for i := range inRow {
-			switch vv := inRow[i].(type) {
-			case string:
-			case nil:
-				inRow[i] = ""
-			default:
-				inRow[i] = fmt.Sprintf("%v", vv)
-			}
-		}
+		// // replace null with empty string
+		// for i := range inRow {
+		// 	switch vv := inRow[i].(type) {
+		// 	case string:
+		// 	case nil:
+		// 		inRow[i] = ""
+		// 	default:
+		// 		inRow[i] = fmt.Sprintf("%v", vv)
+		// 	}
+		// }
 		if err = pw.Write(inRow); err != nil {
 			fw.Close()
+			// fmt.Println("ERROR")
+			// for i := range inRow {
+			// 	fmt.Println(inRow[i], reflect.TypeOf(inRow[i]).Kind())
+			// }
+			// fmt.Println("ERROR")
 			cpErr = fmt.Errorf("while writing row to local parquet file: %v", err)
 			goto gotError
 		}

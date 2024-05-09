@@ -153,5 +153,24 @@ func main() {
 			log.Fatalf("while reducing node %d: %v", i, err)
 		}
 	}
+
+	// Start Reducing
+	fmt.Println("REDUCING AGAIN")
+	cpReducingRun, err = cpReducingRun.StartReducing.StartReducingComputePipes(ctx, dsn, nbrNodes)
+	if err != nil {
+		log.Fatalf("while calling StartReducingComputePipes: %v", err)
+	}
+	fmt.Println("Reducing Map Arguments")
+	b, _ = json.MarshalIndent(cpReducingRun, "", " ")
+	fmt.Println(string(b))
+
+	// Perform Reducing
+	for i := range cpReducingRun.CpipesCommands {
+		fmt.Println("## Reducing Node", i)
+		err = cpReducingRun.CpipesCommands[i].CoordinateComputePipes(ctx, dsn)
+		if err != nil {
+			log.Fatalf("while reducing node %d: %v", i, err)
+		}
+	}
 	log.Println("That's it folks!")
 }

@@ -39,7 +39,6 @@ func (ctx *MapRecordTransformationPipe) apply(input *[]interface{}) error {
 		}
 	}
 	// Send the result to output
-	// fmt.Println("**!@@ map_record loop out row:", currentValues, "to outCh:", ctx.outputCh.config.Name)
 	select {
 	case ctx.outputCh.channel <- currentValues:
 	case <-ctx.doneCh:

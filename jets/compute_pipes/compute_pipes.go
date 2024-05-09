@@ -102,6 +102,26 @@ func StartComputePipes(dbpool *pgxpool.Pool, inputHeaders []string, done chan st
 			config:  &cpConfig.Channels[i],
 		}
 	}
+	if cpConfig.ClusterConfig.CpipesMode == "reducing" {
+		// Replace the first channel of the pipes and make it the "input_row"
+		// Setup the input channel for input_row
+		inChannel := channelRegistry.computeChannels[cpConfig.PipesConfig[0].Input]
+		if inChannel == nil {
+			cpErr = fmt.Errorf("got a bug, cannot find first channel")
+			goto gotError
+		}
+		inputRowChannel = &InputChannel{
+			channel: computePipesInputCh,
+			columns: inChannel.columns,
+			config: &ChannelSpec{
+				Name:    "input_row",
+				Columns: inChannel.config.Columns,
+			},
+		}
+		cpConfig.PipesConfig[0].Input = "input_row"
+		channelRegistry.inputRowChannel = inputRowChannel
+	}
+
 	log.Println("Compute Pipes channel registry ready")
 	// for i := range cpConfig.Channels {
 	// 	log.Println("**& Channel", cpConfig.Channels[i].Name, "Columns map", channelRegistry.computeChannels[cpConfig.Channels[i].Name].columns)
