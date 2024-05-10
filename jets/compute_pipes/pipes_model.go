@@ -81,6 +81,7 @@ type TransformationSpec struct {
 	StepId                *string                    `json:"step_id"`
 	Columns               []TransformationColumnSpec `json:"columns"`
 	DataSchema            *[]DataSchemaSpec          `json:"data_schema"`
+	DeviceWriterType      *string                    `json:"device_writer_type"`
 	Output                string                     `json:"output"`
 }
 

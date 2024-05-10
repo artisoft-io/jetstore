@@ -83,7 +83,12 @@ func (ctx *PartitionWriterTransformationPipe) apply(input *[]interface{}) error 
 
 		// Start the device writter for the partition
 		ctx.filePartitionNumber += 1
-		partitionFileName := fmt.Sprintf("part%03d-%07d.parquet", ctx.subClusterId, ctx.filePartitionNumber)
+		isParquetWriter := ctx.spec.DeviceWriterType == nil || *ctx.spec.DeviceWriterType == "parquet_writer"
+		fileEx := "csv"
+		if isParquetWriter {
+			fileEx = "parquet"
+		}
+		partitionFileName := fmt.Sprintf("part%03d-%07d.%s", ctx.subClusterId, ctx.filePartitionNumber, fileEx)
 		s3DeviceWriter := &S3DeviceWriter{
 			s3Uploader: ctx.s3Uploader,
 			source: &InputChannel{
@@ -102,7 +107,11 @@ func (ctx *PartitionWriterTransformationPipe) apply(input *[]interface{}) error 
 		}
 		s3WriterResultCh := make(chan ComputePipesResult, 1)
 		ctx.s3WritersResultCh <- s3WriterResultCh
-		go s3DeviceWriter.WritePartition(s3WriterResultCh)
+		if isParquetWriter {
+			go s3DeviceWriter.WriteParquetPartition(s3WriterResultCh)
+		} else {
+			go s3DeviceWriter.WriteCsvPartition(s3WriterResultCh)
+		}
 	}
 
 	currentValues := make([]interface{}, len(ctx.outputCh.config.Columns))
@@ -242,7 +251,7 @@ func (ctx *BuilderContext) NewPartitionWriterTransformationPipe(source *InputCha
 	if spec.DataSchema != nil {
 		for i := range *spec.DataSchema {
 			schema[(*spec.DataSchema)[i].Columns] = (*spec.DataSchema)[i].RdfType
-		}	
+		}
 	}
 	parquetSchema := make([]string, len(outputCh.config.Columns))
 	for i := range outputCh.config.Columns {
@@ -260,7 +269,7 @@ func (ctx *BuilderContext) NewPartitionWriterTransformationPipe(source *InputCha
 		// 	outputCh.config.Columns[i])
 		// }
 		parquetSchema[i] = fmt.Sprintf("name=%s, type=BYTE_ARRAY, convertedtype=UTF8, encoding=PLAIN_DICTIONARY",
-		outputCh.config.Columns[i])
+			outputCh.config.Columns[i])
 
 	}
 
