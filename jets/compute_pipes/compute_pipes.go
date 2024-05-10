@@ -107,7 +107,7 @@ func StartComputePipes(dbpool *pgxpool.Pool, inputHeaders []string, done chan st
 		// Setup the input channel for input_row
 		inChannel := channelRegistry.computeChannels[cpConfig.PipesConfig[0].Input]
 		if inChannel == nil {
-			cpErr = fmt.Errorf("got a bug, cannot find first channel")
+			cpErr = fmt.Errorf("channel %s not found in ChannelRegistry", cpConfig.PipesConfig[0].Input)
 			goto gotError
 		}
 		inputRowChannel = &InputChannel{
