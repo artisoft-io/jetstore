@@ -2,14 +2,17 @@ package actions
 
 import (
 	"context"
+	"encoding/csv"
 	"fmt"
 	"io"
 	"log"
 	"os"
 	"strconv"
+	"strings"
 
 	"github.com/artisoft-io/jetstore/jets/compute_pipes"
 	goparquet "github.com/fraugster/parquet-go"
+	"github.com/golang/snappy"
 	"github.com/jackc/pgx/v4/pgxpool"
 )
 
@@ -37,10 +40,15 @@ func (cpCtx *ComputePipesContext) LoadFiles(ctx context.Context, dbpool *pgxpool
 		cpCtx.CpConfig, cpCtx.EnvSettings, cpCtx.FileKeyComponents)
 
 	// Load the files
-	var totalRowCount int64
+	var count, totalRowCount int64
+	var err error
 	for localInFile := range cpCtx.FileNamesCh {
 		log.Printf("Loading file '%s'", localInFile)
-		count, err := cpCtx.ReadFile(&localInFile, computePipesInputCh)
+		if strings.HasSuffix(localInFile.InFileKey, ".csv") {
+			count, err = cpCtx.ReadCsvFile(&localInFile, computePipesInputCh)
+		} else {
+			count, err = cpCtx.ReadParquetFile(&localInFile, computePipesInputCh)
+		}
 		totalRowCount += count
 		if err != nil {
 			fmt.Println("loadFile2Db returned error", err)
@@ -51,7 +59,7 @@ func (cpCtx *ComputePipesContext) LoadFiles(ctx context.Context, dbpool *pgxpool
 	cpCtx.ChResults.LoadFromS3FilesResultCh <- compute_pipes.LoadFromS3FilesResult{LoadRowCount: totalRowCount, BadRowCount: 0}
 }
 
-func (cpCtx *ComputePipesContext) ReadFile(filePath *FileName, computePipesInputCh chan<- []interface{}) (int64, error) {
+func (cpCtx *ComputePipesContext) ReadParquetFile(filePath *FileName, computePipesInputCh chan<- []interface{}) (int64, error) {
 	var fileHd *os.File
 	var parquetReader *goparquet.FileReader
 	var err error
@@ -124,6 +132,88 @@ func (cpCtx *ComputePipesContext) ReadFile(filePath *FileName, computePipesInput
 					default:
 						record[i] = vv
 					}
+				}
+			}
+			// Add the columns from the partfile_key_component
+			if len(cpCtx.PartFileKeyComponents) > 0 {
+				offset := len(inputColumns)
+				// log.Println("**!@@",cpCtx.SessionId,"partfile_key_component GOT[0]",cpCtx.PartFileKeyComponents[0].ColumnName,"offset",offset,"InputColumn",cpCtx.InputColumns[offset])
+				for i := range cpCtx.PartFileKeyComponents {
+					for j := range cpCtx.PartFileKeyComponents {
+						if cpCtx.InputColumns[offset+j] == cpCtx.PartFileKeyComponents[i].ColumnName {
+							result := cpCtx.PartFileKeyComponents[i].Regex.FindStringSubmatch(filePath.InFileKey)
+							if len(result) > 0 {
+								record[offset+j] = result[1]
+							}
+							// log.Println("**!@@ partfile_key_component Got result",result,"@column_name:",cpCtx.PartFileKeyComponents[i].ColumnName,"file_key:",filePath.InFileKey)
+							break
+						}
+						log.Println("*** WARNING *** partfile_key_component not configure properly, column not found!!")
+					}
+				}
+			}
+		}
+
+		switch {
+		case err == io.EOF:
+			// expected exit route
+			// ---------------------------------------------------
+			return inputRowCount, nil
+
+		case err != nil:
+			return 0, fmt.Errorf("error while reading input records: %v", err)
+
+		default:
+			// // Remove invalid utf-8 sequence from input record
+			// for i := range record {
+			// 	record[i] = strings.ToValidUTF8(record[i], "")
+			// }
+			select {
+			case computePipesInputCh <- record:
+			case <-cpCtx.Done:
+				log.Println("loading input row from file interrupted")
+				return inputRowCount, nil
+			}
+			inputRowCount += 1
+		}
+	}
+}
+
+func (cpCtx *ComputePipesContext) ReadCsvFile(filePath *FileName, computePipesInputCh chan<- []interface{}) (int64, error) {
+	var fileHd *os.File
+	var csvReader *csv.Reader
+	var err error
+
+	fileHd, err = os.Open(filePath.LocalFileName)
+	if err != nil {
+		return 0, fmt.Errorf("while opening temp file '%s' (loadFiles): %v", *filePath, err)
+	}
+	defer func() {
+		fileHd.Close()
+		os.Remove(filePath.LocalFileName)
+	}()
+
+	// log.Println("**!@@",cpCtx.SessionId,"partfile_key_component GOT",len(cpCtx.PartFileKeyComponents))
+	inputColumns := cpCtx.InputColumns[:len(cpCtx.InputColumns)-len(cpCtx.PartFileKeyComponents)]
+	csvReader = csv.NewReader(snappy.NewReader(fileHd))
+
+	var inputRowCount int64
+	var inRow []string
+	var record []interface{}
+	currentLineNumber := 0
+	for {
+		// read and put the rows into computePipesInputCh
+		currentLineNumber += 1
+		err = nil
+
+		record = make([]interface{}, len(cpCtx.InputColumns))
+		inRow, err = csvReader.Read()
+		if err == nil {
+			for i := range inputColumns {
+				if len(inRow[i]) == 0 {
+					record[i] = nil
+				} else {
+					record[i] = inRow[i]
 				}
 			}
 			// Add the columns from the partfile_key_component

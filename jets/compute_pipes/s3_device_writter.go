@@ -3,6 +3,7 @@ package compute_pipes
 import (
 	"bufio"
 	"context"
+	"encoding/csv"
 	"fmt"
 	"log"
 	"os"
@@ -10,6 +11,7 @@ import (
 	"github.com/artisoft-io/jetstore/jets/run_reports/delegate"
 	"github.com/aws/aws-sdk-go-v2/feature/s3/manager"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
+	"github.com/golang/snappy"
 	"github.com/xitongsys/parquet-go/source"
 	"github.com/xitongsys/parquet-go/writer"
 )
@@ -27,7 +29,7 @@ type S3DeviceWriter struct {
 	errCh         chan error
 }
 
-func (ctx *S3DeviceWriter) WritePartition(s3WriterResultCh chan<- ComputePipesResult) {
+func (ctx *S3DeviceWriter) WriteParquetPartition(s3WriterResultCh chan<- ComputePipesResult) {
 	var cpErr, err error
 	var pw *writer.CSVWriter
 	var fileHd *os.File
@@ -36,7 +38,7 @@ func (ctx *S3DeviceWriter) WritePartition(s3WriterResultCh chan<- ComputePipesRe
 	tempFileName := fmt.Sprintf("%s/%s", *ctx.localTempDir, *ctx.fileName)
 	s3FileName := fmt.Sprintf("%s/%s", *ctx.s3BasePath, *ctx.fileName)
 
-	// fmt.Println("**&@@ WritePartition *1: fileName:", *ctx.fileName)
+	// fmt.Println("**&@@ WriteParquetPartition *1: fileName:", *ctx.fileName)
 	if ctx.s3Uploader == nil {
 		cpErr = fmt.Errorf("error: s3Uploader is nil")
 		goto gotError
@@ -90,7 +92,7 @@ func (ctx *S3DeviceWriter) WritePartition(s3WriterResultCh chan<- ComputePipesRe
 		cpErr = fmt.Errorf("while writing parquet stop (trailer): %v", err)
 		goto gotError
 	}
-	// fmt.Println("**&@@ WritePartition: DONE writing local parquet file for fileName:", *ctx.fileName)
+	// fmt.Println("**&@@ WriteParquetPartition: DONE writing local parquet file for fileName:", *ctx.fileName)
 	fw.Close()
 	// //****
 	// if fw != nil {
@@ -106,6 +108,100 @@ func (ctx *S3DeviceWriter) WritePartition(s3WriterResultCh chan<- ComputePipesRe
 		cpErr = fmt.Errorf("while opening written file to copy to s3: %v", err)
 		goto gotError
 	}
+	defer fileHd.Close()
+	_, err = ctx.s3Uploader.Upload(context.TODO(), &s3.PutObjectInput{
+		Bucket: &ctx.bucketName,
+		Key:    &s3FileName,
+		Body:   bufio.NewReader(fileHd),
+	})
+	if err != nil {
+		cpErr = fmt.Errorf("while copying jets_partition to s3: %v", err)
+		goto gotError
+	}
+	s3WriterResultCh <- ComputePipesResult{PartsCount: 1}
+	// All good!
+	return
+gotError:
+	log.Println(cpErr)
+	s3WriterResultCh <- ComputePipesResult{Err: cpErr}
+	ctx.errCh <- cpErr
+	close(ctx.doneCh)
+}
+
+func (ctx *S3DeviceWriter) WriteCsvPartition(s3WriterResultCh chan<- ComputePipesResult) {
+	var cpErr, err error
+	var fileHd *os.File
+	var snWriter *snappy.Writer
+	var csvWriter *csv.Writer
+
+	tempFileName := fmt.Sprintf("%s/%s", *ctx.localTempDir, *ctx.fileName)
+	s3FileName := fmt.Sprintf("%s/%s", *ctx.s3BasePath, *ctx.fileName)
+
+	// fmt.Println("**&@@ WriteCsvPartition *1: fileName:", *ctx.fileName)
+	if ctx.s3Uploader == nil {
+		cpErr = fmt.Errorf("error: s3Uploader is nil")
+		goto gotError
+	}
+
+	// open the local temp file for the writer
+	fileHd, err = os.Create(tempFileName)
+	if err != nil {
+		cpErr = fmt.Errorf("while opening local file for write %v", err)
+		goto gotError
+	}
+	defer func() {
+		os.Remove(tempFileName)
+	}()
+
+	// Open a snappy compressor
+	snWriter = snappy.NewBufferedWriter(fileHd)
+
+	// Open a csv writer
+	csvWriter = csv.NewWriter(snWriter)
+
+	// Write the rows into the temp file
+	for inRow := range ctx.source.channel {
+		//*$1
+		// replace null with empty string, convert to string
+		row := make([]string, len(inRow))
+		for i := range inRow {
+			switch vv := inRow[i].(type) {
+			case string:
+				row[i] = vv
+			case nil:
+				row[i] = ""
+			default:
+				row[i] = fmt.Sprintf("%v", vv)
+			}
+		}
+		if err = csvWriter.Write(row); err != nil {
+			fileHd.Close()
+			// fmt.Println("ERROR")
+			// for i := range inRow {
+			// 	fmt.Println(inRow[i], reflect.TypeOf(inRow[i]).Kind())
+			// }
+			// fmt.Println("ERROR")
+			cpErr = fmt.Errorf("while writing row to local csv file: %v", err)
+			goto gotError
+		}
+	}
+
+	// fmt.Println("**&@@ WriteCsvPartition: DONE writing local parquet file for fileName:", *ctx.fileName)
+	csvWriter.Flush()
+	snWriter.Flush()
+	// fileHd.Close()
+	_, err = fileHd.Seek(0, 0)
+	if err != nil {
+		cpErr = fmt.Errorf("while opening written file to copy to s3: %v", err)
+		goto gotError
+	}
+
+	// // Copy file to s3 location
+	// fileHd, err = os.Open(tempFileName)
+	// if err != nil {
+	// 	cpErr = fmt.Errorf("while opening written file to copy to s3: %v", err)
+	// 	goto gotError
+	// }
 	defer fileHd.Close()
 	_, err = ctx.s3Uploader.Upload(context.TODO(), &s3.PutObjectInput{
 		Bucket: &ctx.bucketName,

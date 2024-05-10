@@ -217,7 +217,7 @@ func (ca *CommandArguments) CoordinateWork() error {
 	for i := 0; i < ca.NbrChards; i++ {
 		err := ca.DoChard(i)
 		if err != nil {
-			return fmt.Errorf("while generation of chard %d: %v",i, err)
+			return fmt.Errorf("while generation of chard %d: %v", i, err)
 		}
 	}
 
@@ -286,7 +286,7 @@ func (ca *CommandArguments) DoChard(id int) error {
 		fw.Close()
 		return fmt.Errorf("while writing parquet stop (trailer): %v", err)
 	}
-	// fmt.Println("**&@@ WritePartition: DONE writing local parquet file for fileName:", *ctx.fileName)
+	// fmt.Println("**&@@ WriteParquetPartition: DONE writing local parquet file for fileName:", *ctx.fileName)
 
 	outFilePath := fmt.Sprintf("%s/%s/in-part%05d", os.Getenv("JETS_s3_INPUT_PREFIX"), ca.OutFileKey, id)
 	fmt.Println("OutFile Path:", outFilePath)
