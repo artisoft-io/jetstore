@@ -254,23 +254,24 @@ func (ctx *BuilderContext) NewPartitionWriterTransformationPipe(source *InputCha
 		}
 	}
 	parquetSchema := make([]string, len(outputCh.config.Columns))
-	for i := range outputCh.config.Columns {
-		//*$1
-		// rdfType := schema[outputCh.config.Columns[i]]
-		// switch rdfType {
-		// case "int", "int32":
-		// 	parquetSchema[i] = fmt.Sprintf("name=%s, type=INT32, repetitiontype=OPTIONAL",	outputCh.config.Columns[i])
-		// case "long", "int64", "timestamp":
-		// 	parquetSchema[i] = fmt.Sprintf("name=%s, type=INT64, repetitiontype=OPTIONAL",	outputCh.config.Columns[i])
-		// case "double", "float64":
-		// 	parquetSchema[i] = fmt.Sprintf("name=%s, type=DOUBLE, repetitiontype=OPTIONAL",	outputCh.config.Columns[i])
-		// default:
-		// 	parquetSchema[i] = fmt.Sprintf("name=%s, type=BYTE_ARRAY, convertedtype=UTF8, encoding=PLAIN_DICTIONARY, repetitiontype=OPTIONAL",
-		// 	outputCh.config.Columns[i])
-		// }
-		parquetSchema[i] = fmt.Sprintf("name=%s, type=BYTE_ARRAY, convertedtype=UTF8, encoding=PLAIN_DICTIONARY",
-			outputCh.config.Columns[i])
-
+	if spec.DeviceWriterType == nil || *spec.DeviceWriterType == "parquet_writer" {
+		for i := range outputCh.config.Columns {
+			//*$1
+			// rdfType := schema[outputCh.config.Columns[i]]
+			// switch rdfType {
+			// case "int", "int32":
+			// 	parquetSchema[i] = fmt.Sprintf("name=%s, type=INT32, repetitiontype=OPTIONAL",	outputCh.config.Columns[i])
+			// case "long", "int64", "timestamp":
+			// 	parquetSchema[i] = fmt.Sprintf("name=%s, type=INT64, repetitiontype=OPTIONAL",	outputCh.config.Columns[i])
+			// case "double", "float64":
+			// 	parquetSchema[i] = fmt.Sprintf("name=%s, type=DOUBLE, repetitiontype=OPTIONAL",	outputCh.config.Columns[i])
+			// default:
+			// 	parquetSchema[i] = fmt.Sprintf("name=%s, type=BYTE_ARRAY, convertedtype=UTF8, encoding=PLAIN_DICTIONARY, repetitiontype=OPTIONAL",
+			// 	outputCh.config.Columns[i])
+			// }
+			parquetSchema[i] = fmt.Sprintf("name=%s, type=BYTE_ARRAY, convertedtype=UTF8, encoding=PLAIN_DICTIONARY",
+				outputCh.config.Columns[i])
+		}	
 	}
 
 	p := ctx.env["$FILE_KEY_FOLDER"].(string)
