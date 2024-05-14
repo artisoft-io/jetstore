@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log"
@@ -148,6 +149,7 @@ func (ca *StatusUpdate) ValidateArguments() []string {
 	log.Println("Got argument: failureDetails", ca.FailureDetails)
 	log.Printf("ENV JETS_s3_INPUT_PREFIX: %s", os.Getenv("JETS_s3_INPUT_PREFIX"))
 	log.Println("env CPIPES_STATUS_NOTIFICATION_ENDPOINT:", os.Getenv("CPIPES_STATUS_NOTIFICATION_ENDPOINT"))
+	log.Println("env CPIPES_STATUS_NOTIFICATION_ENDPOINT_JSON:", os.Getenv("CPIPES_STATUS_NOTIFICATION_ENDPOINT_JSON"))
 	log.Println("env CPIPES_CUSTOM_FILE_KEY_NOTIFICATION:", os.Getenv("CPIPES_CUSTOM_FILE_KEY_NOTIFICATION"))
 	log.Println("env CPIPES_START_NOTIFICATION_JSON:", os.Getenv("CPIPES_START_NOTIFICATION_JSON"))
 	log.Println("env CPIPES_COMPLETED_NOTIFICATION_JSON:", os.Getenv("CPIPES_COMPLETED_NOTIFICATION_JSON"))
@@ -156,11 +158,15 @@ func (ca *StatusUpdate) ValidateArguments() []string {
 	return errMsg
 }
 
-func DoNotifyApiGateway(fileKey, apiEndpoint, notificationTemplate string, customFileKeys []string, errMsg string) error {
+func DoNotifyApiGateway(fileKey, apiEndpoint, apiEndpointJson, notificationTemplate string, customFileKeys []string, errMsg string) error {
 	var (
 		ctx    context.Context
 		cancel context.CancelFunc
 	)
+	if apiEndpoint == "" && apiEndpointJson == "" {
+		log.Println("error: no endpoints defined for DoNotifyApiGateway")
+		return fmt.Errorf("error: no endpoints defined for DoNotifyApiGateway")
+	}
 	timeout, err := time.ParseDuration("10s")
 	if err == nil {
 		// The request has a timeout, so create a context that is
@@ -207,6 +213,34 @@ func DoNotifyApiGateway(fileKey, apiEndpoint, notificationTemplate string, custo
 		notificationTemplate = strings.ReplaceAll(notificationTemplate, "$error", errMsg)
 	}
 
+	// Identify the endpoint where to send the request
+	if apiEndpoint == "" {
+		routes := make(map[string]string)
+		err = json.Unmarshal([]byte(apiEndpointJson), &routes)
+		if err != nil {
+			err = fmt.Errorf("while parsing CPIPES_STATUS_NOTIFICATION_ENDPOINT_JSON: %v", err)
+			log.Println(err)
+			return err
+		}
+		key := routes["key"]
+		if key == "" {
+			log.Println("Invalid routing json, key is missing")
+			return fmt.Errorf("error: invalid routing json, key is missing")
+		}
+		v = keyMap[key]
+		if v == nil {
+			err = fmt.Errorf("error: routing file key component '%v' not found on file key", v)
+			log.Println(err)
+			return err
+		}
+		apiEndpoint = routes[v.(string)]
+		if apiEndpoint == "" {
+			err = fmt.Errorf("error: notification rendpoint not found for file key component '%s' with value %v", key, v)
+			log.Println(err)
+			return err
+		}
+	}
+
 	fmt.Println("POST Request:", notificationTemplate)
 	fmt.Println("TO:", apiEndpoint)
 	req, err := http.NewRequest("POST", apiEndpoint, bytes.NewBuffer([]byte(notificationTemplate)))
@@ -230,9 +264,11 @@ func DoNotifyApiGateway(fileKey, apiEndpoint, notificationTemplate string, custo
 
 func (ca *StatusUpdate) CoordinateWork() error {
 	// NOTE 2024-05-13 Added Notification to API Gateway via env var CPIPES_STATUS_NOTIFICATION_ENDPOINT
+	// or CPIPES_STATUS_NOTIFICATION_ENDPOINT_JSON
 	// ALSO set a deadline to calls to database to avoid locks, don't fail the call when database fails
 	apiEndpoint := os.Getenv("CPIPES_STATUS_NOTIFICATION_ENDPOINT")
-	if apiEndpoint != "" {
+	apiEndpointJson := os.Getenv("CPIPES_STATUS_NOTIFICATION_ENDPOINT_JSON")
+	if apiEndpoint != "" || apiEndpointJson != "" {
 		var notificationTemplate string
 		customFileKeys := make([]string, 0)
 		ck := os.Getenv("CPIPES_CUSTOM_FILE_KEY_NOTIFICATION")
@@ -247,7 +283,7 @@ func (ca *StatusUpdate) CoordinateWork() error {
 			notificationTemplate = os.Getenv("CPIPES_COMPLETED_NOTIFICATION_JSON")
 		}
 		// ignore returned err
-		DoNotifyApiGateway(ca.FileKey, apiEndpoint, notificationTemplate, customFileKeys, errMsg)
+		DoNotifyApiGateway(ca.FileKey, apiEndpoint, apiEndpointJson, notificationTemplate, customFileKeys, errMsg)
 	}
 	// open db connection, if not already opened
 	var err error
