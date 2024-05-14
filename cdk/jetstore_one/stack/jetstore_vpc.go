@@ -267,5 +267,17 @@ func AddVpcEndpoints(stack awscdk.Stack, vpc awsec2.Vpc, prefix string, subnetSe
 		Open: jsii.Bool(true),
 	})), awsec2.Port_AllTraffic(), jsii.String("allow access to cloudwatch events"))
 
+	// Add API Gateway as an end point for status notification
+	securityGroup4EcsTask.Connections().AllowTo(addTag2Endpoint(vpc.AddInterfaceEndpoint(jsii.String(prefix+"ApiGatewayEndpoint"), &awsec2.InterfaceVpcEndpointOptions{
+		Service: awsec2.InterfaceVpcEndpointAwsService_APIGATEWAY(),
+		Subnets: subnetSelection,
+		Open: jsii.Bool(true),
+	})), awsec2.Port_AllTraffic(), jsii.String("allow access to API Gateway"))
+	securityGroup4EcsTask.Connections().AllowTo(addTag2Endpoint(vpc.AddInterfaceEndpoint(jsii.String(prefix+"ApiGatewayApiEndpoint"), &awsec2.InterfaceVpcEndpointOptions{
+		Service: awsec2.InterfaceVpcEndpointAwsService_APIGATEWAY(),
+		Subnets: subnetSelection,
+		Open: jsii.Bool(true),
+	})), awsec2.Port_AllTraffic(), jsii.String("allow access to API Gateway"))
+
 	return securityGroup4EcsTask
 }

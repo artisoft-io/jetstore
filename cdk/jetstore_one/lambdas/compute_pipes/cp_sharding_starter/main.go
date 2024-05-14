@@ -21,7 +21,9 @@ import (
 // JETS_s3_INPUT_PREFIX
 // JETS_s3_OUTPUT_PREFIX
 // NBR_SHARDS default nbr_nodes of cluster
-
+// CPIPES_STATUS_NOTIFICATION_ENDPOINT optional
+// CPIPES_CUSTOM_FILE_KEY_NOTIFICATION optional
+// CPIPES_START_NOTIFICATION optional
 var awsDsnSecret string
 var dbPoolSize int
 var usingSshTunnel bool
@@ -93,6 +95,9 @@ func main() {
 	log.Println("Got argument: dbPoolSize", dbPoolSize)
 	log.Println("Got argument: awsRegion", awsRegion)
 	log.Println("Got argument: nbrNodes (default)", nbrNodes)
+	log.Println("env CPIPES_STATUS_NOTIFICATION_ENDPOINT:", os.Getenv("CPIPES_STATUS_NOTIFICATION_ENDPOINT"))
+	log.Println("env CPIPES_CUSTOM_FILE_KEY_NOTIFICATION:", os.Getenv("CPIPES_CUSTOM_FILE_KEY_NOTIFICATION"))
+	log.Println("env CPIPES_START_NOTIFICATION_JSON:", os.Getenv("CPIPES_START_NOTIFICATION_JSON"))
 
 	// Start handler.
 	lambda.Start(handler)

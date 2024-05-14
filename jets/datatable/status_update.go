@@ -1,12 +1,16 @@
 package datatable
 
 import (
+	"bytes"
 	"context"
 	"database/sql"
 	"errors"
 	"fmt"
 	"log"
+	"net/http"
 	"os"
+	"strings"
+	"time"
 
 	"github.com/artisoft-io/jetstore/jets/awsi"
 	"github.com/artisoft-io/jetstore/jets/schema"
@@ -28,14 +32,15 @@ import (
 // and then the connection properties (AwsDsnSecret, DbPoolSize, UsingSshTunnel, AwsRegion)
 // are not needed.
 type StatusUpdate struct {
-	AwsDsnSecret string
-	DbPoolSize int
+	AwsDsnSecret   string
+	DbPoolSize     int
 	UsingSshTunnel bool
-	AwsRegion string
-	Dsn string
-	Dbpool *pgxpool.Pool
-	PeKey int
-	Status	string
+	AwsRegion      string
+	Dsn            string
+	Dbpool         *pgxpool.Pool
+	PeKey          int
+	Status         string
+	FileKey        string
 	FailureDetails string
 }
 
@@ -43,8 +48,8 @@ type StatusUpdate struct {
 // --------------------------------------------------------------------------------------
 func getStatusCount(dbpool *pgxpool.Pool, pipelineExecutionKey int, status string) int {
 	var count int
-	err := dbpool.QueryRow(context.Background(), 
-		"SELECT count(*) FROM jetsapi.pipeline_execution_details WHERE pipeline_execution_status_key=$1 AND status=$2", 
+	err := dbpool.QueryRow(context.Background(),
+		"SELECT count(*) FROM jetsapi.pipeline_execution_details WHERE pipeline_execution_status_key=$1 AND status=$2",
 		pipelineExecutionKey, status).Scan(&count)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -57,8 +62,8 @@ func getStatusCount(dbpool *pgxpool.Pool, pipelineExecutionKey int, status strin
 }
 func getOutputRecordCount(dbpool *pgxpool.Pool, pipelineExecutionKey int) int64 {
 	var count sql.NullInt64
-	err := dbpool.QueryRow(context.Background(), 
-		"SELECT SUM(output_records_count) FROM jetsapi.pipeline_execution_details WHERE pipeline_execution_status_key=$1", 
+	err := dbpool.QueryRow(context.Background(),
+		"SELECT SUM(output_records_count) FROM jetsapi.pipeline_execution_details WHERE pipeline_execution_status_key=$1",
 		pipelineExecutionKey).Scan(&count)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -84,14 +89,14 @@ func getPeInfo(dbpool *pgxpool.Pool, pipelineExecutionKey int) (string, string, 
 	return client, sessionId, sourcePeriodKey, outTables
 }
 func updateStatus(dbpool *pgxpool.Pool, pipelineExecutionKey int, status string, failureDetails *string) error {
-		// Record the status of the pipeline execution
-		log.Printf("Inserting status '%s' to pipeline_execution_status table", status)
-		stmt := "UPDATE jetsapi.pipeline_execution_status SET (status, failure_details, last_update) = ($1, $2, DEFAULT) WHERE key = $3"
-		_, err := dbpool.Exec(context.Background(), stmt, status, failureDetails, pipelineExecutionKey)
-		if err != nil {
-			return fmt.Errorf("error unable to set status in jetsapi.pipeline_execution status: %v", err)
-		}
-		return nil
+	// Record the status of the pipeline execution
+	log.Printf("Inserting status '%s' to pipeline_execution_status table", status)
+	stmt := "UPDATE jetsapi.pipeline_execution_status SET (status, failure_details, last_update) = ($1, $2, DEFAULT) WHERE key = $3"
+	_, err := dbpool.Exec(context.Background(), stmt, status, failureDetails, pipelineExecutionKey)
+	if err != nil {
+		return fmt.Errorf("error unable to set status in jetsapi.pipeline_execution status: %v", err)
+	}
+	return nil
 }
 
 // Package Main Functions
@@ -116,7 +121,7 @@ func (ca *StatusUpdate) ValidateArguments() []string {
 		}
 		ca.AwsDsnSecret = os.Getenv("JETS_DSN_SECRET")
 		if ca.Dsn == "" && ca.AwsDsnSecret == "" {
-			errMsg = append(errMsg, "Connection string must be provided using either -awsDsnSecret or -dsn.")	
+			errMsg = append(errMsg, "Connection string must be provided using either -awsDsnSecret or -dsn.")
 		}
 	}
 	if ca.AwsRegion == "" {
@@ -130,21 +135,114 @@ func (ca *StatusUpdate) ValidateArguments() []string {
 		errMsg = append(errMsg, "Env var JETS_s3_INPUT_PREFIX must be provided (used when register domain table for file key prefix).")
 	}
 
-	fmt.Println("Status Update Arguments:")
-	fmt.Println("----------------")
-	fmt.Println("Got argument: dsn, len", len(ca.Dsn))
-	fmt.Println("Got argument: awsRegion",ca.AwsRegion)
-	fmt.Println("Got argument: awsDsnSecret",ca.AwsDsnSecret)
-	fmt.Println("Got argument: dbPoolSize",ca.DbPoolSize)
-	fmt.Println("Got argument: usingSshTunnel",ca.UsingSshTunnel)
-	fmt.Println("Got argument: peKey", ca.PeKey)
-	fmt.Println("Got argument: status", ca.Status)
-	fmt.Printf("ENV JETS_s3_INPUT_PREFIX: %s\n",os.Getenv("JETS_s3_INPUT_PREFIX"))
+	log.Println("Status Update Arguments:")
+	log.Println("----------------")
+	log.Println("Got argument: dsn, len", len(ca.Dsn))
+	log.Println("Got argument: awsRegion", ca.AwsRegion)
+	log.Println("Got argument: awsDsnSecret", ca.AwsDsnSecret)
+	log.Println("Got argument: dbPoolSize", ca.DbPoolSize)
+	log.Println("Got argument: usingSshTunnel", ca.UsingSshTunnel)
+	log.Println("Got argument: peKey", ca.PeKey)
+	log.Println("Got argument: status", ca.Status)
+	log.Println("Got argument: fileKey", ca.FileKey)
+	log.Println("Got argument: failureDetails", ca.FailureDetails)
+	log.Printf("ENV JETS_s3_INPUT_PREFIX: %s", os.Getenv("JETS_s3_INPUT_PREFIX"))
+	log.Println("env CPIPES_STATUS_NOTIFICATION_ENDPOINT:", os.Getenv("CPIPES_STATUS_NOTIFICATION_ENDPOINT"))
+	log.Println("env CPIPES_CUSTOM_FILE_KEY_NOTIFICATION:", os.Getenv("CPIPES_CUSTOM_FILE_KEY_NOTIFICATION"))
+	log.Println("env CPIPES_START_NOTIFICATION_JSON:", os.Getenv("CPIPES_START_NOTIFICATION_JSON"))
+	log.Println("env CPIPES_COMPLETED_NOTIFICATION_JSON:", os.Getenv("CPIPES_COMPLETED_NOTIFICATION_JSON"))
+	log.Println("env CPIPES_FAILED_NOTIFICATION_JSON:", os.Getenv("CPIPES_FAILED_NOTIFICATION_JSON"))
 
 	return errMsg
 }
 
+func DoNotifyApiGateway(fileKey, apiEndpoint, notificationTemplate string, customFileKeys []string) error {
+	var (
+		ctx    context.Context
+		cancel context.CancelFunc
+	)
+	timeout, err := time.ParseDuration("10s")
+	if err == nil {
+		// The request has a timeout, so create a context that is
+		// canceled automatically when the timeout expires.
+		ctx, cancel = context.WithTimeout(context.Background(), timeout)
+	} else {
+		ctx, cancel = context.WithCancel(context.Background())
+	}
+	defer cancel() // Cancel ctx as soon as CoordinateWork returns.
+	// Prepare the API request.
+	var value string
+	// Extract file key components
+	keyMap := make(map[string]interface{})
+	keyMap = SplitFileKeyIntoComponents(keyMap, &fileKey)
+	v := keyMap["client"]
+	if v != nil {
+		notificationTemplate = strings.ReplaceAll(notificationTemplate, "$client", v.(string))
+	} else {
+		notificationTemplate = strings.ReplaceAll(notificationTemplate, "$client", "")
+	}
+	v = keyMap["org"]
+	if v != nil {
+		notificationTemplate = strings.ReplaceAll(notificationTemplate, "$org", v.(string))
+	} else {
+		notificationTemplate = strings.ReplaceAll(notificationTemplate, "$org", "")
+	}
+	v = keyMap["object_type"]
+	if v != nil {
+		notificationTemplate = strings.ReplaceAll(notificationTemplate, "$object_type", v.(string))
+	} else {
+		notificationTemplate = strings.ReplaceAll(notificationTemplate, "$object_type", "")
+	}
+	for _, key := range customFileKeys {
+		switch vv := keyMap[key].(type) {
+		case string:
+			value = vv
+		default:
+			value = ""
+		}
+		notificationTemplate = strings.ReplaceAll(notificationTemplate, fmt.Sprintf("$%s", key), value)
+	}
+
+	fmt.Println("POST Request:", notificationTemplate)
+	fmt.Println("TO:", apiEndpoint)
+	req, err := http.NewRequest("POST", apiEndpoint, bytes.NewBuffer([]byte(notificationTemplate)))
+	if err != nil {
+		log.Println(err)
+		return err
+	}
+	req.Header.Add("Content-Type", "application/json")
+	req = req.WithContext(ctx)
+	client := &http.Client{}
+	res, err := client.Do(req)
+	if err != nil {
+		err = fmt.Errorf("while posting result to api gateway: %v", err)
+		log.Println(err)
+		return err
+	}
+	log.Println("Result for posting status to api gateway:", res.StatusCode, res.Status)
+	res.Body.Close()
+	return nil
+}
+
 func (ca *StatusUpdate) CoordinateWork() error {
+	// NOTE 2024-05-13 Added Notification to API Gateway via env var CPIPES_STATUS_NOTIFICATION_ENDPOINT
+	// ALSO set a deadline to calls to database to avoid locks, don't fail the call when database fails
+	apiEndpoint := os.Getenv("CPIPES_STATUS_NOTIFICATION_ENDPOINT")
+	if apiEndpoint != "" {
+		var notificationTemplate string
+		customFileKeys := make([]string, 0)
+		ck := os.Getenv("CPIPES_CUSTOM_FILE_KEY_NOTIFICATION")
+		if len(ck) > 0 {
+			customFileKeys = strings.Split(ck, ",")
+		}
+		if ca.Status == "failed" {
+			notificationTemplate = os.Getenv("CPIPES_FAILED_NOTIFICATION_JSON")
+		} else {
+			notificationTemplate = os.Getenv("CPIPES_COMPLETED_NOTIFICATION_JSON")
+		}
+		// ignore returned err
+		DoNotifyApiGateway(ca.FileKey, apiEndpoint, notificationTemplate, customFileKeys)
+	}
 	// open db connection, if not already opened
 	var err error
 	if ca.Dbpool == nil {
@@ -162,7 +260,7 @@ func (ca *StatusUpdate) CoordinateWork() error {
 		defer func() {
 			ca.Dbpool.Close()
 			ca.Dbpool = nil
-		}()	
+		}()
 	}
 
 	// Update the pipeline_execution_status based on worst case status
@@ -170,11 +268,11 @@ func (ca *StatusUpdate) CoordinateWork() error {
 	case ca.Status == "failed":
 		err = updateStatus(ca.Dbpool, ca.PeKey, "failed", &ca.FailureDetails)
 
-	case getStatusCount(ca.Dbpool, ca.PeKey, "failed") > 0:
+	case apiEndpoint == "" && getStatusCount(ca.Dbpool, ca.PeKey, "failed") > 0:
 		ca.Status = "recovered"
 		err = updateStatus(ca.Dbpool, ca.PeKey, "recovered", &ca.FailureDetails)
 
-	case getStatusCount(ca.Dbpool, ca.PeKey, "errors") > 0:
+	case apiEndpoint == "" && getStatusCount(ca.Dbpool, ca.PeKey, "errors") > 0:
 		ca.Status = "errors"
 		err = updateStatus(ca.Dbpool, ca.PeKey, "errors", nil)
 
@@ -184,6 +282,11 @@ func (ca *StatusUpdate) CoordinateWork() error {
 	}
 	if err != nil {
 		return fmt.Errorf("while updating process execution status: %v", err)
+	}
+	//*REVIEW THIS: CPIPES NOTIFICATION - don't register outTables or lock session_id
+	// When CPIPES notification exists, don't register outTables or lock session_id
+	if apiEndpoint != "" {
+		return nil
 	}
 	client, sessionId, sourcePeriodKey, outTables := getPeInfo(ca.Dbpool, ca.PeKey)
 	// Register out tables
@@ -198,6 +301,6 @@ func (ca *StatusUpdate) CoordinateWork() error {
 	err = schema.RegisterSession(ca.Dbpool, "domain_table", client, sessionId, sourcePeriodKey)
 	if err != nil {
 		log.Printf("Failed locking the session, must be already locked: %v (ignoring the error)", err)
-	}		
+	}
 	return nil
 }
