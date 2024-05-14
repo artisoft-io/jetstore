@@ -156,7 +156,7 @@ func (ca *StatusUpdate) ValidateArguments() []string {
 	return errMsg
 }
 
-func DoNotifyApiGateway(fileKey, apiEndpoint, notificationTemplate string, customFileKeys []string) error {
+func DoNotifyApiGateway(fileKey, apiEndpoint, notificationTemplate string, customFileKeys []string, errMsg string) error {
 	var (
 		ctx    context.Context
 		cancel context.CancelFunc
@@ -203,6 +203,10 @@ func DoNotifyApiGateway(fileKey, apiEndpoint, notificationTemplate string, custo
 		notificationTemplate = strings.ReplaceAll(notificationTemplate, fmt.Sprintf("$%s", key), value)
 	}
 
+	if len(errMsg) > 0 {
+		notificationTemplate = strings.ReplaceAll(notificationTemplate, "$error", errMsg)
+	}
+
 	fmt.Println("POST Request:", notificationTemplate)
 	fmt.Println("TO:", apiEndpoint)
 	req, err := http.NewRequest("POST", apiEndpoint, bytes.NewBuffer([]byte(notificationTemplate)))
@@ -235,13 +239,15 @@ func (ca *StatusUpdate) CoordinateWork() error {
 		if len(ck) > 0 {
 			customFileKeys = strings.Split(ck, ",")
 		}
+		var errMsg string
 		if ca.Status == "failed" {
 			notificationTemplate = os.Getenv("CPIPES_FAILED_NOTIFICATION_JSON")
+			errMsg = ca.FailureDetails
 		} else {
 			notificationTemplate = os.Getenv("CPIPES_COMPLETED_NOTIFICATION_JSON")
 		}
 		// ignore returned err
-		DoNotifyApiGateway(ca.FileKey, apiEndpoint, notificationTemplate, customFileKeys)
+		DoNotifyApiGateway(ca.FileKey, apiEndpoint, notificationTemplate, customFileKeys, errMsg)
 	}
 	// open db connection, if not already opened
 	var err error

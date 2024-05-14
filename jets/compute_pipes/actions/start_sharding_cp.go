@@ -34,7 +34,7 @@ func (args *StartComputePipesArgs) StartShardingComputePipes(ctx context.Context
 		}
 		notificationTemplate := os.Getenv("CPIPES_START_NOTIFICATION_JSON")
 		// ignore returned err
-		datatable.DoNotifyApiGateway(args.FileKey, apiEndpoint, notificationTemplate, customFileKeys)
+		datatable.DoNotifyApiGateway(args.FileKey, apiEndpoint, notificationTemplate, customFileKeys, "")
 	}
 
 
