@@ -6,9 +6,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"os"
 	"strconv"
+	"strings"
 
 	"github.com/artisoft-io/jetstore/jets/compute_pipes"
+	"github.com/artisoft-io/jetstore/jets/datatable"
 	"github.com/artisoft-io/jetstore/jets/schema"
 	"github.com/jackc/pgx/v4/pgxpool"
 )
@@ -19,6 +22,21 @@ func (args *StartComputePipesArgs) StartShardingComputePipes(ctx context.Context
 		log.Println("error: missing file_key or session_id as input args of StartComputePipes (sharding mode)")
 		return result, fmt.Errorf("error: missing file_key or session_id as input args of StartComputePipes (sharding mode)")
 	}
+
+	// Send CPIPES start notification to api server
+	// NOTE 2024-05-13 Added Notification to API Gateway via env var CPIPES_STATUS_NOTIFICATION_ENDPOINT
+	apiEndpoint := os.Getenv("CPIPES_STATUS_NOTIFICATION_ENDPOINT")
+	if apiEndpoint != "" {
+		customFileKeys := make([]string, 0)
+		ck := os.Getenv("CPIPES_CUSTOM_FILE_KEY_NOTIFICATION")
+		if len(ck) > 0 {
+			customFileKeys = strings.Split(ck, ",")
+		}
+		notificationTemplate := os.Getenv("CPIPES_START_NOTIFICATION_JSON")
+		// ignore returned err
+		datatable.DoNotifyApiGateway(args.FileKey, apiEndpoint, notificationTemplate, customFileKeys)
+	}
+
 
 	// open db connection
 	dbpool, err := pgxpool.Connect(ctx, dsn)
