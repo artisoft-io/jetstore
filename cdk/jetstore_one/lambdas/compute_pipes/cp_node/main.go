@@ -34,7 +34,7 @@ func main() {
 	hasErr := false
 	var errMsg []string
 	var err error
-	dbPoolSize = 500
+	dbPoolSize = 50
 	awsDsnSecret = os.Getenv("JETS_DSN_SECRET")
 	if awsDsnSecret == "" {
 		hasErr = true

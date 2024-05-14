@@ -34,7 +34,7 @@ func (args *StartComputePipesArgs) StartShardingComputePipes(ctx context.Context
 		}
 		notificationTemplate := os.Getenv("CPIPES_START_NOTIFICATION_JSON")
 		// ignore returned err
-		datatable.DoNotifyApiGateway(args.FileKey, apiEndpoint, notificationTemplate, customFileKeys)
+		datatable.DoNotifyApiGateway(args.FileKey, apiEndpoint, notificationTemplate, customFileKeys, "")
 	}
 
 
@@ -125,6 +125,7 @@ func (args *StartComputePipesArgs) StartShardingComputePipes(ctx context.Context
 	result.ErrorUpdate = map[string]interface{}{
 		"-peKey":         strconv.Itoa(args.PipelineExecKey),
 		"-status":        "failed",
+		"file_key":       args.FileKey,
 		"failureDetails": "",
 	}
 

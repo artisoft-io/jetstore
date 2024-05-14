@@ -1141,11 +1141,13 @@ func (ctx *Context) InsertRows(dataTableAction *DataTableAction, token string) (
 					"successUpdate": map[string]interface{}{
 						"-peKey":         peKey,
 						"-status":        "completed",
+						"file_key":       fileKey,
 						"failureDetails": "",
 					},
 					"errorUpdate": map[string]interface{}{
 						"-peKey":         peKey,
 						"-status":        "failed",
+						"file_key":       fileKey,
 						"failureDetails": "",
 					},
 				}
@@ -1170,6 +1172,7 @@ func (ctx *Context) InsertRows(dataTableAction *DataTableAction, token string) (
 						"errorUpdate": map[string]interface{}{
 							"-peKey":         peKey, // string for this one! - legacy alert!
 							"-status":        "failed",
+							"file_key":       fileKey,
 							"failureDetails": "",
 						},
 					}
