@@ -170,11 +170,13 @@ func (args *StartComputePipesArgs) StartReducingComputePipes(ctx context.Context
 	result.SuccessUpdate = map[string]interface{}{
 		"-peKey":         strconv.Itoa(args.PipelineExecKey),
 		"-status":        "completed",
+		"file_key":       args.FileKey,
 		"failureDetails": "",
 	}
 	result.ErrorUpdate = map[string]interface{}{
 		"-peKey":         strconv.Itoa(args.PipelineExecKey),
 		"-status":        "failed",
+		"file_key":       args.FileKey,
 		"failureDetails": "",
 	}
 

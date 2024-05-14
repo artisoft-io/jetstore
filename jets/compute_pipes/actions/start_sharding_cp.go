@@ -125,6 +125,7 @@ func (args *StartComputePipesArgs) StartShardingComputePipes(ctx context.Context
 	result.ErrorUpdate = map[string]interface{}{
 		"-peKey":         strconv.Itoa(args.PipelineExecKey),
 		"-status":        "failed",
+		"file_key":       args.FileKey,
 		"failureDetails": "",
 	}
 

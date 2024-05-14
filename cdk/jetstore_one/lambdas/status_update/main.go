@@ -71,8 +71,10 @@ func main() {
 // {
 //  "-peKey": peKey,
 //  "-status": "completed",
+//  "file_key": "...",
 //  "failureDetails": {...}
 // }
+// fileKey is optional, needed for cpipes api notification
 
 func handler(ctx context.Context, arguments map[string]interface{}) (err error) {
 	logger.Info("Starting in ", zap.String("AWS Region", c.AWSRegion))
@@ -100,7 +102,11 @@ func handler(ctx context.Context, arguments map[string]interface{}) (err error) 
 	default:
 		fmt.Println("Unknown type for failureDetails")
 	}
-	fmt.Println("Got peKey",ca.PeKey,"and failureDetails", ca.FailureDetails)
+	fileKey := arguments["file_key"]
+	if fileKey != nil {
+		ca.FileKey = fileKey.(string)
+	}
+	fmt.Println("Got peKey:",ca.PeKey,"fileKey:", fileKey,"and failureDetails:", ca.FailureDetails)
 	
 	errors := ca.ValidateArguments()
 	for _, m := range errors {
