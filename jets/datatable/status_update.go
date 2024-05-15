@@ -183,21 +183,21 @@ func DoNotifyApiGateway(fileKey, apiEndpoint, apiEndpointJson, notificationTempl
 	keyMap = SplitFileKeyIntoComponents(keyMap, &fileKey)
 	v := keyMap["client"]
 	if v != nil {
-		notificationTemplate = strings.ReplaceAll(notificationTemplate, "$client", v.(string))
+		notificationTemplate = strings.ReplaceAll(notificationTemplate, "{{client}}", v.(string))
 	} else {
-		notificationTemplate = strings.ReplaceAll(notificationTemplate, "$client", "")
+		notificationTemplate = strings.ReplaceAll(notificationTemplate, "{{client}}", "")
 	}
 	v = keyMap["org"]
 	if v != nil {
-		notificationTemplate = strings.ReplaceAll(notificationTemplate, "$org", v.(string))
+		notificationTemplate = strings.ReplaceAll(notificationTemplate, "{{org}}", v.(string))
 	} else {
-		notificationTemplate = strings.ReplaceAll(notificationTemplate, "$org", "")
+		notificationTemplate = strings.ReplaceAll(notificationTemplate, "{{org}}", "")
 	}
 	v = keyMap["object_type"]
 	if v != nil {
-		notificationTemplate = strings.ReplaceAll(notificationTemplate, "$object_type", v.(string))
+		notificationTemplate = strings.ReplaceAll(notificationTemplate, "{{object_type}}", v.(string))
 	} else {
-		notificationTemplate = strings.ReplaceAll(notificationTemplate, "$object_type", "")
+		notificationTemplate = strings.ReplaceAll(notificationTemplate, "{{object_type}}", "")
 	}
 	for _, key := range customFileKeys {
 		switch vv := keyMap[key].(type) {
@@ -206,11 +206,11 @@ func DoNotifyApiGateway(fileKey, apiEndpoint, apiEndpointJson, notificationTempl
 		default:
 			value = ""
 		}
-		notificationTemplate = strings.ReplaceAll(notificationTemplate, fmt.Sprintf("$%s", key), value)
+		notificationTemplate = strings.ReplaceAll(notificationTemplate, fmt.Sprintf("{{%s}}", key), value)
 	}
 
 	if len(errMsg) > 0 {
-		notificationTemplate = strings.ReplaceAll(notificationTemplate, "$error", errMsg)
+		notificationTemplate = strings.ReplaceAll(notificationTemplate, "{{error}}", errMsg)
 	}
 
 	// Identify the endpoint where to send the request
