@@ -24,9 +24,10 @@ func (args *StartComputePipesArgs) StartShardingComputePipes(ctx context.Context
 	}
 
 	// Send CPIPES start notification to api server
-	// NOTE 2024-05-13 Added Notification to API Gateway via env var CPIPES_STATUS_NOTIFICATION_ENDPOINT
+	// NOTE 2024-05-13 Added Notification to API Gateway via env var CPIPES_STATUS_NOTIFICATION_ENDPOINT or CPIPES_STATUS_NOTIFICATION_ENDPOINT_JSON
 	apiEndpoint := os.Getenv("CPIPES_STATUS_NOTIFICATION_ENDPOINT")
-	if apiEndpoint != "" {
+	apiEndpointJson := os.Getenv("CPIPES_STATUS_NOTIFICATION_ENDPOINT_JSON")
+	if apiEndpoint != "" || apiEndpointJson != "" {
 		customFileKeys := make([]string, 0)
 		ck := os.Getenv("CPIPES_CUSTOM_FILE_KEY_NOTIFICATION")
 		if len(ck) > 0 {
@@ -34,7 +35,7 @@ func (args *StartComputePipesArgs) StartShardingComputePipes(ctx context.Context
 		}
 		notificationTemplate := os.Getenv("CPIPES_START_NOTIFICATION_JSON")
 		// ignore returned err
-		datatable.DoNotifyApiGateway(args.FileKey, apiEndpoint, notificationTemplate, customFileKeys, "")
+		datatable.DoNotifyApiGateway(args.FileKey, apiEndpoint, apiEndpointJson, notificationTemplate, customFileKeys, "")
 	}
 
 

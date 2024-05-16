@@ -196,6 +196,25 @@ func DownloadFromS3(bucket, region, objKey string, fileHd *os.File) (int64, erro
 	return nsz, nil
 }
 
+func NewDownloader(region string) (*manager.Downloader, error) {
+	cfg, err := config.LoadDefaultConfig(context.TODO(), config.WithRegion(region))
+	if err != nil {
+		return nil, fmt.Errorf("while loading aws configuration: %v", err)
+	}
+	// Create a s3 client
+	s3Client := s3.NewFromConfig(cfg)
+	return manager.NewDownloader(s3Client), nil
+}
+
+// Use a shared Downloader to download obj from s3 into fileHd (must be writable), return size of download in bytes
+func DownloadFromS3v2(downloader *manager.Downloader, bucket, objKey string, fileHd *os.File) (int64, error) {
+	nsz, err := downloader.Download(context.TODO(), fileHd, &s3.GetObjectInput{Bucket: &bucket, Key: &objKey})
+	if err != nil {
+		return 0, fmt.Errorf("failed to download file from s3: %v", err)
+	}
+	return nsz, nil
+}
+
 // upload object to S3, reading the obj from fileHd (from current position to EOF)
 func UploadToS3(bucket, region, objKey string, fileHd *os.File) error {
 	cfg, err := config.LoadDefaultConfig(context.TODO(), config.WithRegion(region))

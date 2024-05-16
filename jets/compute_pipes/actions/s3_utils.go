@@ -10,6 +10,7 @@ import (
 	"github.com/artisoft-io/jetstore/jets/awsi"
 	"github.com/jackc/pgx/v4"
 	"github.com/jackc/pgx/v4/pgxpool"
+	"github.com/aws/aws-sdk-go-v2/feature/s3/manager"
 )
 
 // Common functions and types for s3, rerwite of loader's version
@@ -135,6 +136,18 @@ func (cpCtx *ComputePipesContext) DownloadS3Files(inFolderPath string, fileKeys 
 	return nil
 }
 
+var bucket, region string
+var downloader *manager.Downloader
+func init() {
+	bucket = os.Getenv("JETS_BUCKET")
+	region = os.Getenv("JETS_REGION")
+	var err error
+	downloader, err = awsi.NewDownloader(region)
+	if err != nil {
+		log.Fatalf("while init s3 downloader for region %s: %v", region, err)
+	}
+}
+
 func DownloadS3Object(s3Key, localDir string, minSize int64) (string, error) {
 	// Download object(s) using a download manager to a temp file (fileHd)
 	var inFilePath string
@@ -146,21 +159,19 @@ func DownloadS3Object(s3Key, localDir string, minSize int64) (string, error) {
 	}
 	defer fileHd.Close()
 	inFilePath = fileHd.Name()
-	log.Printf("S3Key: %s, Temp file name: %s", s3Key, inFilePath)
+	// log.Printf("S3Key: %s, Temp file name: %s", s3Key, inFilePath)
 
 	// Download the object
-	bucket := os.Getenv("JETS_BUCKET")
-	region := os.Getenv("JETS_REGION")
-	nsz, err := awsi.DownloadFromS3(bucket, region, s3Key, fileHd)
+	nsz, err := awsi.DownloadFromS3v2(downloader, bucket, s3Key, fileHd)
 	if err != nil {
 		return "", fmt.Errorf("failed to download input file: %v", err)
 	}
-	log.Println("downloaded", nsz, "bytes for key", s3Key)
 	if minSize > 0 && nsz < minSize {
 		log.Printf("Ignoring sentinel file %s", s3Key)
 		fileHd.Close()
 		os.Remove(inFilePath)
 		return "", nil
 	}
+	log.Println("downloaded", nsz, "bytes for key", s3Key)
 	return inFilePath, nil
 }
