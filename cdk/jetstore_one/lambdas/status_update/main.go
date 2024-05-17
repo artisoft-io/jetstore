@@ -106,7 +106,9 @@ func handler(ctx context.Context, arguments map[string]interface{}) (err error) 
 	if fileKey != nil {
 		ca.FileKey = fileKey.(string)
 	}
-	fmt.Println("Got peKey:",ca.PeKey,"fileKey:", fileKey,"and failureDetails:", ca.FailureDetails)
+	// dbPoolSize = 3
+	ca.DbPoolSize = 3
+	fmt.Println("Got peKey:",ca.PeKey,"fileKey:", fileKey,"failureDetails:", ca.FailureDetails, "dbPoolSize:", ca.DbPoolSize)
 	
 	errors := ca.ValidateArguments()
 	for _, m := range errors {
