@@ -283,7 +283,7 @@ func main() {
 		hasErr = true
 		errMsg = append(errMsg, "Bucket must be provided using env var JETS_BUCKET")
 	}
-	dbPoolSize = 10
+	dbPoolSize = 3
 	usingSshTunnel = devMode
 
 	// Make sure directory exists
