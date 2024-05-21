@@ -29,6 +29,7 @@ import (
 // JETS_REGION
 // JETS_BUCKET
 // JETS_s3_INPUT_PREFIX
+// JETS_S3_KMS_KEY_ARN
 // WORKSPACE Workspace currently in use
 // WORKSPACES_HOME Home dir of workspaces
 
@@ -192,6 +193,7 @@ func (ca *CommandArguments) ValidateArguments() []string {
 	fmt.Println("Got argument: NbrChards", ca.NbrChards)
 	fmt.Printf("ENV JETS_s3_INPUT_PREFIX: %s\n", os.Getenv("JETS_s3_INPUT_PREFIX"))
 	fmt.Printf("ENV JETS_BUCKET: %s\n", os.Getenv("JETS_BUCKET"))
+	fmt.Printf("ENV JETS_S3_KMS_KEY_ARN: %s\n", os.Getenv("JETS_S3_KMS_KEY_ARN"))
 	fmt.Printf("ENV WORKSPACE: %s\n", os.Getenv("WORKSPACE"))
 	fmt.Printf("ENV WORKSPACES_HOME: %s\n", os.Getenv("WORKSPACES_HOME"))
 

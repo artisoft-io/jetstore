@@ -15,6 +15,7 @@ import (
 // JETS_DSN_URI_VALUE
 // JETS_DSN_JSON_VALUE
 // JETS_s3_INPUT_PREFIX
+// JETS_S3_KMS_KEY_ARN
 
 // Command Line Arguments
 // --------------------------------------------------------------------------------------

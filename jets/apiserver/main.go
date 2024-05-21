@@ -49,6 +49,7 @@ import (
 // JETS_BUCKET (required for SyncFileKeys)
 // JETS_s3_INPUT_PREFIX Input file key prefix
 // JETS_s3_OUTPUT_PREFIX Output file key prefix
+// JETS_S3_KMS_KEY_ARN optional for server side s3 object encryption
 // JETS_DOMAIN_KEY_HASH_ALGO (values: md5, sha1, none (default))
 // JETS_DOMAIN_KEY_HASH_SEED (required for md5 and sha1. MUST be a valid uuid )
 // JETS_RESET_DOMAIN_TABLE_ON_STARTUP (value: yes, will reset the domain table, run workspace db init script, and upgrade system tables if database version is less than build version)
@@ -221,6 +222,7 @@ func main() {
 	log.Println("ENV WORKSPACE_URI:",os.Getenv("WORKSPACE_URI"))
 	log.Println("ENV JETS_s3_INPUT_PREFIX:",os.Getenv("JETS_s3_INPUT_PREFIX"))
 	log.Println("ENV JETS_s3_OUTPUT_PREFIX:",os.Getenv("JETS_s3_OUTPUT_PREFIX"))
+	log.Println("ENV JETS_S3_KMS_KEY_ARN:",os.Getenv("JETS_S3_KMS_KEY_ARN"))
 	log.Println("ENV JETS_VERSION:",os.Getenv("JETS_VERSION"))
 	log.Println("ENV JETS_DOMAIN_KEY_HASH_ALGO:",os.Getenv("JETS_DOMAIN_KEY_HASH_ALGO"))
 	log.Println("ENV JETS_DOMAIN_KEY_HASH_SEED:",os.Getenv("JETS_DOMAIN_KEY_HASH_SEED"))
