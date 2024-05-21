@@ -31,6 +31,7 @@ import (
 // WORKSPACE Workspace currently in use
 // JETS_s3_INPUT_PREFIX Input file key prefix
 // JETS_s3_OUTPUT_PREFIX Output file key prefix
+// JETS_S3_KMS_KEY_ARN
 // JETSTORE_DEV_MODE Indicates running in dev mode, used to determine if sync workspace file from s3
 // ENVIRONMENT used as substitution variable in reports
 // JETS_SENTINEL_FILE_NAME for emitSentinelFile directive
@@ -387,6 +388,7 @@ func main() {
 	fmt.Println("Got argument: originalFileName", *originalFileName)
 	fmt.Println("ENV JETSTORE_DEV_MODE:",os.Getenv("JETSTORE_DEV_MODE"))
 	fmt.Println("ENV WORKSPACE:",os.Getenv("WORKSPACE"))
+	fmt.Println("ENV JETS_S3_KMS_KEY_ARN:",os.Getenv("JETS_S3_KMS_KEY_ARN"))
 	fmt.Println("ENV JETS_SENTINEL_FILE_NAME:",os.Getenv("JETS_SENTINEL_FILE_NAME"))
 	fmt.Println("Process Input file_key:", fileKey)
 	fmt.Println("*** DO NOT USE jetsapi.session_registry TABLE IN REPORTS FOR THE CURRENT session_id SINCE IT IS NOT REGISTERED YET")

@@ -22,6 +22,7 @@ import (
 // CPIPES_SERVER_ADDR cpipes listerner addr for peer connections
 // JETS_ADMIN_EMAIL (set as admin in dockerfile)
 // JETS_BUCKET
+// JETS_S3_KMS_KEY_ARN
 // JETSTORE_DEV_MODE Indicates running in dev mode
 // JETS_DOMAIN_KEY_HASH_ALGO (values: md5, sha1, none (default: none))
 // JETS_DOMAIN_KEY_HASH_SEED (required for md5 and sha1. MUST be a valid uuid )
@@ -254,6 +255,7 @@ func main() {
 	log.Printf("ENV JETS_REGION: %s\n", os.Getenv("JETS_REGION"))
 	log.Printf("ENV JETS_SENTINEL_FILE_NAME: %s\n", os.Getenv("JETS_SENTINEL_FILE_NAME"))
 	log.Printf("ENV JETS_SERVER_SM_ARN: %s\n", os.Getenv("JETS_SERVER_SM_ARN"))
+	log.Printf("ENV JETS_S3_KMS_KEY_ARN: %s\n", os.Getenv("JETS_S3_KMS_KEY_ARN"))
 	if len(errOutDir) == 0 {
 		log.Println("Loader error file will be in same directory as input file.")
 	}

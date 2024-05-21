@@ -20,6 +20,7 @@ import (
 // JETS_REGION
 // JETS_s3_INPUT_PREFIX
 // JETS_s3_OUTPUT_PREFIX
+// JETS_S3_KMS_KEY_ARN
 // NBR_SHARDS default nbr_nodes of cluster
 
 var awsDsnSecret string
@@ -93,6 +94,7 @@ func main() {
 	log.Println("Got argument: dbPoolSize", dbPoolSize)
 	log.Println("Got argument: awsRegion", awsRegion)
 	log.Println("Got argument: nbrNodes (default)", nbrNodes)
+	log.Println("Got env: JETS_S3_KMS_KEY_ARN", os.Getenv("JETS_S3_KMS_KEY_ARN"))
 
 	// Start handler.
 	lambda.Start(handler)

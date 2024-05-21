@@ -136,11 +136,12 @@ func (cpCtx *ComputePipesContext) DownloadS3Files(inFolderPath string, fileKeys 
 	return nil
 }
 
-var bucket, region string
+var bucket, region, kmsKeyArn string
 var downloader *manager.Downloader
 func init() {
 	bucket = os.Getenv("JETS_BUCKET")
 	region = os.Getenv("JETS_REGION")
+	kmsKeyArn = os.Getenv("JETS_S3_KMS_KEY_ARN")
 	var err error
 	downloader, err = awsi.NewDownloader(region)
 	if err != nil {

@@ -18,12 +18,21 @@ import (
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/feature/s3/manager"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
+	"github.com/aws/aws-sdk-go-v2/service/s3/types"
 	"github.com/aws/aws-sdk-go-v2/service/secretsmanager"
 	"github.com/aws/aws-sdk-go-v2/service/sfn"
 	"github.com/prozz/aws-embedded-metrics-golang/emf"
 )
 
 // This module provides aws integration for JetStore
+
+//*TODO no need to pass bucket and region to this module
+var bucket, region, kmsKeyArn string
+func init() {
+	kmsKeyArn = os.Getenv("JETS_S3_KMS_KEY_ARN")
+	bucket = os.Getenv("JETS_BUCKET")
+	region = os.Getenv("JETS_REGION")
+}
 
 func LogMetric(metricName string, dimentions *map[string]string, count int) {
 	m := emf.New().Namespace("JetStore/Pipeline").Metric(metricName, count)
@@ -139,8 +148,6 @@ type S3Object struct {
 
 // ListObjects lists the objects in a bucket with prefix if not nil.
 func ListS3Objects(prefix *string) ([]*S3Object, error) {
-	bucket := os.Getenv("JETS_BUCKET")
-	region := os.Getenv("JETS_REGION")
 	cfg, err := config.LoadDefaultConfig(context.TODO(), config.WithRegion(region))
 	if err != nil {
 		return nil, fmt.Errorf("while loading aws configuration: %v", err)
@@ -227,12 +234,17 @@ func UploadToS3(bucket, region, objKey string, fileHd *os.File) error {
 
 	// Create an uploader with the client and custom options
 	uploader := manager.NewUploader(s3Client)
-	// uout, err := uploader.Upload(context.TODO(), &s3.PutObjectInput{
-	_, err = uploader.Upload(context.TODO(), &s3.PutObjectInput{
+	putObjInput := &s3.PutObjectInput{
 		Bucket: &bucket,
 		Key:    &objKey,
 		Body:   bufio.NewReader(fileHd),
-	})
+	}
+	if len(kmsKeyArn) > 0 {
+		putObjInput.ServerSideEncryption = types.ServerSideEncryptionAwsKms
+		putObjInput.SSEKMSKeyId = &kmsKeyArn
+	}
+	// uout, err := uploader.Upload(context.TODO(), putObjInput)
+	_, err = uploader.Upload(context.TODO(), putObjInput)
 	if err != nil {
 		return fmt.Errorf("failed to upload file to s3: %v", err)
 	}

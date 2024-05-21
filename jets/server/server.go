@@ -40,6 +40,7 @@ type dbConnections struct {
 // JETS_LOG_DEBUG (optional, if == 1 set glog=3, ps=false, poolSize=1 for debugging)
 // JETS_LOG_DEBUG (optional, if == 2 set glog=3, ps=true, poolSize=1 for debugging)
 // JETS_s3_INPUT_PREFIX (required for registrying the domain table with input_registry)
+// JETS_S3_KMS_KEY_ARN
 // JETS_LOADER_SM_ARN state machine arn
 // JETS_SERVER_SM_ARN state machine arn
 // GLOG_v log level
@@ -202,6 +203,7 @@ func doJobAndReportStatus() error {
 	log.Printf("ENV JETS_INVALID_CODE: %s\n", os.Getenv("JETS_INVALID_CODE"))
 	log.Printf("ENV JETSTORE_DEV_MODE: %s\n", os.Getenv("JETSTORE_DEV_MODE"))
 	log.Printf("ENV JETS_DOMAIN_KEY_SEPARATOR: %s\n", os.Getenv("JETS_DOMAIN_KEY_SEPARATOR"))
+	log.Printf("ENV JETS_S3_KMS_KEY_ARN: %s\n", os.Getenv("JETS_S3_KMS_KEY_ARN"))
 	log.Printf("Command Line Argument: GLOG_v is set to %d\n", glogv)
 	dsn := dsnSplit[*nodeId%nbrDbNodes]
 	dbpool, err := pgxpool.Connect(context.Background(), dsn)
