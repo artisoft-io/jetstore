@@ -63,6 +63,7 @@ func loadFiles(dbpool *pgxpool.Pool, headersDKInfo *schema.HeadersAndDomainKeysI
 	// Note: when nbrShards > 1, cpipes does not work in local mode in apiserver yet
 	if cpConfig == nil {
 		// Loader in classic mode, no compute pipes defined
+		log.Println("Loader in classic mode, no compute pipes defined")
 		tableIdentifier, err := compute_pipes.SplitTableName(headersDKInfo.TableName)
 		if err != nil {
 			err = fmt.Errorf("while splitting table name: %s", err)
@@ -73,7 +74,8 @@ func loadFiles(dbpool *pgxpool.Pool, headersDKInfo *schema.HeadersAndDomainKeysI
 		wt := compute_pipes.NewWriteTableSource(computePipesInputCh,	tableIdentifier, headersDKInfo.Headers)
 		table := make(chan compute_pipes.ComputePipesResult, 1)
 		chResults.Copy2DbResultCh <- table
-		wt.WriteTable(dbpool, done, table)
+		close(chResults.Copy2DbResultCh)
+		go wt.WriteTable(dbpool, done, table)
 
 	} else {
 		log.Println("Compute Pipes identified")
