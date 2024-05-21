@@ -62,8 +62,11 @@ func SplitTableName(tableName string) (pgx.Identifier, error) {
 
 // Methods for writing output entity records to postgres
 func (wt *WriteTableSource) WriteTable(dbpool *pgxpool.Pool, done chan struct{}, copy2DbResultCh chan<- ComputePipesResult) {
-	defer close(copy2DbResultCh)
-	// log.Println("Write Table Started for", wt.tableIdentifier, "with", len(wt.columns), "columns")
+	defer func(){
+		// log.Println("Write Table Exiting, closing channel copy2DbResultCh")
+		close(copy2DbResultCh)
+	}()
+	log.Println("Write Table Started for", wt.tableIdentifier, "with", len(wt.columns), "columns")
 	// log.Println("Write Table Started for", wt.tableIdentifier, "with columns:", wt.columns)
 
 	recCount, err := dbpool.CopyFrom(context.Background(), wt.tableIdentifier, wt.columns, wt)
@@ -90,7 +93,7 @@ func (wt *WriteTableSource) WriteTable(dbpool *pgxpool.Pool, done chan struct{},
 		copy2DbResultCh <- ComputePipesResult{TableName: wt.tableIdentifier.Sanitize(), Err: fmt.Errorf("while copy records to db at count %d: %v", wt.count, err)}
 		return
 	}
-	// fmt.Println("**!@@ DONE writing to database, writing to copy2DbResultCh (ComputePipesResult)")
+	fmt.Println("**!@@ DONE writing to database, writing to copy2DbResultCh (ComputePipesResult)")
 	copy2DbResultCh <- ComputePipesResult{TableName: wt.tableIdentifier.Sanitize(), CopyRowCount: recCount}
 }
 
