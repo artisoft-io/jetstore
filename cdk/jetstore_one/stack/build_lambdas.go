@@ -128,6 +128,7 @@ func (jsComp *JetStoreStackComponents) BuildLambdas(scope constructs.Construct, 
 	}
 	jsComp.RunReportsLambda.Connections().AllowTo(jsComp.RdsCluster, awsec2.Port_Tcp(jsii.Number(5432)), jsii.String("Allow connection from RunReportsLambda"))
 	jsComp.RdsSecret.GrantRead(jsComp.RunReportsLambda, nil)
+	jsComp.SourceBucket.GrantReadWrite(jsComp.RunReportsLambda, nil)
 
 	// Purge Data lambda function
 	// --------------------------------------------------------------------------------------------------------------
