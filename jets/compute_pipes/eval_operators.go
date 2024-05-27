@@ -28,6 +28,10 @@ func (ctx *BuilderContext) buildEvalOperator(op string) (evalOperator, error) {
 		return opGT{}, nil
 	case ">=":
 		return opGE{}, nil
+	case "AND":
+		return opAND{}, nil
+	case "OR":
+		return opOR{}, nil
 	case "NOT":	// unary op
 		return opNot{}, nil
 	// Arithemtic operators
@@ -80,6 +84,7 @@ func ToDouble(d interface{}) (float64, error) {
 	return 0, fmt.Errorf("invalid data: not a double: %v", d)
 }
 
+// Operator ==
 type opEqual struct {}
 func (op opEqual) eval(lhs interface{}, rhs interface{}) (interface{}, error) {
 	if lhs == nil || rhs == nil {
@@ -233,6 +238,44 @@ func (op opNotEqual) eval(lhs interface{}, rhs interface{}) (interface{}, error)
 		}
 	}
 	return nil, fmt.Errorf("opNotEqual incompatible types, rejected")
+}
+
+// Operator AND
+type opAND struct {}
+func (op opAND) eval(lhs interface{}, rhs interface{}) (interface{}, error) {
+	if lhs == nil || rhs == nil {
+		return 0, nil
+	}
+	switch lhsv := lhs.(type) {
+	case int:
+		switch rhsv := rhs.(type) {
+		case int:
+			if lhsv == rhsv && lhsv == 1 {
+				return 1, nil
+			}
+			return 0, nil
+		}
+	}
+	return nil, fmt.Errorf("opAND incompatible types, rejected")
+}
+
+// Operator OR
+type opOR struct {}
+func (op opOR) eval(lhs interface{}, rhs interface{}) (interface{}, error) {
+	if lhs == nil || rhs == nil {
+		return 0, nil
+	}
+	switch lhsv := lhs.(type) {
+	case int:
+		switch rhsv := rhs.(type) {
+		case int:
+			if lhsv == 1 || rhsv == 1 {
+				return 1, nil
+			}
+			return 0, nil
+		}
+	}
+	return nil, fmt.Errorf("opOR incompatible types, rejected")
 }
 
 
