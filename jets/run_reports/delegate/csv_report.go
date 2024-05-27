@@ -41,7 +41,6 @@ func (ca *CommandArguments)DoCsvReport(dbpool *pgxpool.Pool, tempDir string, s3F
 		
 		// output schema: column name and data type
 		csvColumnNames := make([]string, 0)
-		// csvDatatypes := make([]string, 0)
 		fd := rows.FieldDescriptions()
 		// keep a mapping between input col position to output col position (for droping arrays and unknown data type)
 		outColFromInCol := make(map[int]int, len(fd))
@@ -51,7 +50,7 @@ func (ca *CommandArguments)DoCsvReport(dbpool *pgxpool.Pool, tempDir string, s3F
 		for inPos := range fd {
 			oid := fd[inPos].DataTypeOID
 			columName := string(fd[inPos].Name)
-			fmt.Println("*** ColumnName",columName,"oid",oid)
+			// fmt.Println("*** ColumnName",columName,"oid",oid)
 			// skipping arrays and unknown data type (for now anyways...)
 			if !dbutils.IsArrayFromOID(oid) {
 				switch datatype := dbutils.DataTypeFromOID(oid); datatype {
@@ -85,19 +84,7 @@ func (ca *CommandArguments)DoCsvReport(dbpool *pgxpool.Pool, tempDir string, s3F
 				// outPos, ok := outColFromInCol[inPos]
 				_, ok := outColFromInCol[inPos]
 				if ok {
-					// switch csvDatatypes[outPos] {
-					// case "string", "date", "time":
-					// 	dataRow[inPos] = &sql.NullString{}
-					// case "double":
-					// 	dataRow[inPos] = &sql.NullFloat64{}
-					// case "timestamp", "long":
-					// 	dataRow[inPos] = &sql.NullInt64{}
-					// case "int":
-					// 	dataRow[inPos] = &sql.NullInt32{}	
-					// }
 					dataRow[inPos] = &sql.NullString{}	
-				// } else {
-				// 	dataRow[inPos] = &sql.NullString{}
 				}
 			}
 			// scan the row
@@ -119,44 +106,6 @@ func (ca *CommandArguments)DoCsvReport(dbpool *pgxpool.Pool, tempDir string, s3F
 					return fmt.Errorf("unexpected error while scanning the row")
 				}
 			}
-			// flatRow := make([]interface{}, nbrOutputColumns)
-			// for outPos := 0; outPos < nbrOutputColumns; outPos++ {
-			// 	inPos, ok := inColFromOutCol[outPos]
-			// 	if ok {
-			// 		switch csvDatatypes[outPos] {
-			// 		case "string", "date", "time":
-			// 			ns := dataRow[inPos].(*sql.NullString)
-			// 			if ns.Valid {
-			// 				flatRow[outPos] = ns.String
-			// 			} else {
-			// 				flatRow[outPos] = ""
-			// 			}
-			// 		case "double":
-			// 			ns := dataRow[inPos].(*sql.NullFloat64)
-			// 			if ns.Valid {
-			// 				flatRow[outPos] = ns.Float64
-			// 			} else {
-			// 				flatRow[outPos] = float64(0)
-			// 			}
-			// 		case "timestamp", "long":
-			// 			ns := dataRow[inPos].(*sql.NullInt64)
-			// 			if ns.Valid {
-			// 				flatRow[outPos] = ns.Int64
-			// 			} else {
-			// 				flatRow[outPos] = int64(0)
-			// 			}
-			// 		case "int":
-			// 			ns := dataRow[inPos].(*sql.NullInt32)
-			// 			if ns.Valid {
-			// 				flatRow[outPos] = ns.Int32
-			// 			} else {
-			// 				flatRow[outPos] = int32(0)
-			// 			}
-			// 		}
-			// 	} else {
-			// 		return fmt.Errorf("unexpected error while scanning the row")
-			// 	}
-			// }
 			if err = csvWriter.Write(flatRow); err != nil {
 				return fmt.Errorf("while writing row to local csv file: %v", err)
 			}
