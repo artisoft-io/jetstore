@@ -82,8 +82,8 @@ type CommandArguments struct {
 	ReportScriptPaths       []string
 	CurrentReportDirectives *ReportDirectives
 	// ComputePipesJson        string
-	BucketName              string
-	RegionName              string
+	BucketName string
+	RegionName string
 }
 
 // Main Functions
@@ -158,7 +158,7 @@ func (ca *CommandArguments) RunReports(dbpool *pgxpool.Pool) (err error) {
 
 	// Check if we need to emit a sentinel file (cpipesSM)
 	if reportDirectives.EmitSentinelFile != nil {
-		log.Println("Emitting Sentinel File to:",reportDirectives.InputPath)
+		log.Println("Emitting Sentinel File to:", reportDirectives.InputPath)
 		// Write the 0-byte sentinel file (take the file name from env JETS_SENTINEL_FILE_NAME)
 		// Copy file to s3 location
 		sentinelFileName := os.Getenv("JETS_SENTINEL_FILE_NAME")
@@ -182,7 +182,7 @@ func (ca *CommandArguments) RunReports(dbpool *pgxpool.Pool) (err error) {
 				reportDirectives.EmitSentinelFile.FilePathSubstitution[i].Replace,
 				reportDirectives.EmitSentinelFile.FilePathSubstitution[i].With)
 		}
-	
+
 		s3FileName := fmt.Sprintf("%s/%s/session_id=%s/%s", s3FileDir, ca.OriginalFileName, ca.SessionId, sentinelFileName)
 		if err2 = awsi.UploadToS3(ca.BucketName, ca.RegionName, s3FileName, fileHd); err2 != nil {
 			err = fmt.Errorf("while copying sentinel to s3: %v", err2)
@@ -391,17 +391,29 @@ func (ca *CommandArguments) DoReport(dbpool *pgxpool.Pool, tempDir string, outpu
 			return "", err
 		}
 	case "csv", "json":
-		// save to s3 file s3FileName in csv or json format
-		escapedStmt := strings.ReplaceAll(stmt, "'", "''")
-		s3Stmt := fmt.Sprintf("SELECT * from aws_s3.query_export_to_s3('%s', '%s', '%s','%s',options:='%s')",
-			escapedStmt, ca.BucketName, s3FileName, ca.RegionName, options)
-		// fmt.Println("S3 QUERY:", s3Stmt)
-		var rowsUploaded, filesUploaded, bytesUploaded sql.NullInt64
-		err := dbpool.QueryRow(context.Background(), s3Stmt).Scan(&rowsUploaded, &filesUploaded, &bytesUploaded)
-		if err != nil {
-			return "", fmt.Errorf("while executing s3 query %s: %v", escapedStmt, err)
+		// Check if a specific kms is specified in the deployment, if so do not use the aws_s3 plug in
+		// since it does not support custom kms key but uses the default kms key of the account
+		//*FOR TESTING *****
+		// if len(os.Getenv("JETS_S3_KMS_KEY_ARN")) > 0 {
+		if true {
+			// Save the report locally and copy file to s3
+			err := ca.DoCsvReport(dbpool, tempDir, &s3FileName, name, &stmt)
+			if err != nil {
+				return "", err
+			}	
+		} else {
+			// save to s3 file s3FileName in csv or json format
+			escapedStmt := strings.ReplaceAll(stmt, "'", "''")
+			s3Stmt := fmt.Sprintf("SELECT * from aws_s3.query_export_to_s3('%s', '%s', '%s','%s',options:='%s')",
+				escapedStmt, ca.BucketName, s3FileName, ca.RegionName, options)
+			// fmt.Println("S3 QUERY:", s3Stmt)
+			var rowsUploaded, filesUploaded, bytesUploaded sql.NullInt64
+			err := dbpool.QueryRow(context.Background(), s3Stmt).Scan(&rowsUploaded, &filesUploaded, &bytesUploaded)
+			if err != nil {
+				return "", fmt.Errorf("while executing s3 query %s: %v", escapedStmt, err)
+			}
+			fmt.Println("Report:", name, "rowsUploaded", rowsUploaded.Int64, "filesUploaded", filesUploaded.Int64, "bytesUploaded", bytesUploaded.Int64)
 		}
-		fmt.Println("Report:", name, "rowsUploaded", rowsUploaded.Int64, "filesUploaded", filesUploaded.Int64, "bytesUploaded", bytesUploaded.Int64)
 	default:
 		// Report not saved to s3, probably as as table (see below)
 		log.Printf("Report %s not saved to s3", *outputFileName)
