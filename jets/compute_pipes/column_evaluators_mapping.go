@@ -132,14 +132,38 @@ func (ctx *BuilderContext) buildMapEvaluator(source *InputChannel, outCh *Output
 				return nil, err
 			}	
 		}
-	case spec.MapExpr.RdfType=="int64", spec.MapExpr.RdfType=="long":
-		defaultValue, err = strconv.ParseInt(*spec.MapExpr.Default, 10, 64)
+	case spec.MapExpr.RdfType=="double", spec.MapExpr.RdfType=="float64":
+		defaultValue, err = strconv.ParseFloat(*spec.MapExpr.Default, 64)
 		if err != nil {
 			return nil, err
 		}
 	case spec.MapExpr.RdfType=="string", spec.MapExpr.RdfType=="text":
 		defaultValue = *spec.MapExpr.Default
+
+	case spec.MapExpr.RdfType=="date":
+		temp, err := ParseDate(*spec.MapExpr.Default)
+		if err != nil || temp == nil {
+			fmt.Println("default value is not date:", *spec.MapExpr.Default)
+			defaultValue = nil
+		} else {
+			defaultValue = *temp
+		}
+	case spec.MapExpr.RdfType=="datetime":
+		temp, err := ParseDatetime(*spec.MapExpr.Default)
+		if err != nil || temp == nil {
+			fmt.Println("default value is not datetime:", *spec.MapExpr.Default)
+			defaultValue = nil
+		} else {
+			defaultValue = *temp
+		}
+
+	case spec.MapExpr.RdfType=="int64", spec.MapExpr.RdfType=="long":
+		defaultValue, err = strconv.ParseInt(*spec.MapExpr.Default, 10, 64)
+		if err != nil {
+			return nil, err
+		}
 	}
+
 	inputPos, ok := source.columns[*spec.Expr]
 	if !ok {
 		err = fmt.Errorf("error column %s not found in input source %s", *spec.Expr, source.config.Name)
