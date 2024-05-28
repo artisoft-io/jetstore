@@ -27,6 +27,8 @@ RUN pip install wheel && \
 
 # Install cdk
 RUN npm install -g aws-cdk
+RUN cdk --version
+RUN aws --version
 
 RUN \
   mkdir -p /github/workspace/jetstore \
