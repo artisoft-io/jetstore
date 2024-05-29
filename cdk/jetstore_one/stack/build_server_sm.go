@@ -1,12 +1,14 @@
 package stack
 
 import (
+	"fmt"
 	"os"
 	"strconv"
 
 	awscdk "github.com/aws/aws-cdk-go/awscdk/v2"
 	"github.com/aws/aws-cdk-go/awscdk/v2/awsec2"
 	"github.com/aws/aws-cdk-go/awscdk/v2/awsecs"
+	"github.com/aws/aws-cdk-go/awscdk/v2/awsiam"
 	sfn "github.com/aws/aws-cdk-go/awscdk/v2/awsstepfunctions"
 	sfntask "github.com/aws/aws-cdk-go/awscdk/v2/awsstepfunctionstasks"
 	constructs "github.com/aws/constructs-go/constructs/v10"
@@ -134,4 +136,13 @@ func (jsComp *JetStoreStackComponents) BuildServerSM(scope constructs.Construct,
 	if descriptionTagName != nil {
 		awscdk.Tags_Of(jsComp.ServerSM).Add(descriptionTagName, jsii.String("State Machine to execute rules in JetStore Platform"), nil)
 	}
+
+	// Specify the the SM can run all revisions of the task, per aws health notification
+	jsComp.ServerSM.AddToRolePolicy(awsiam.NewPolicyStatement(&awsiam.PolicyStatementProps{
+		Actions: jsii.Strings("ecs:RunTask"),
+		Resources: &[]*string{
+			jsii.String(fmt.Sprintf("%s:*", *jsComp.ServerTaskDefinition.TaskDefinitionArn())),
+			jsii.String(fmt.Sprintf("%s:*", *jsComp.RunreportTaskDefinition.TaskDefinitionArn())),
+		},
+	}))
 }

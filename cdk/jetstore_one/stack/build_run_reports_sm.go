@@ -1,9 +1,12 @@
 package stack
 
 import (
+	"fmt"
+
 	awscdk "github.com/aws/aws-cdk-go/awscdk/v2"
 	"github.com/aws/aws-cdk-go/awscdk/v2/awsec2"
 	"github.com/aws/aws-cdk-go/awscdk/v2/awsecs"
+	"github.com/aws/aws-cdk-go/awscdk/v2/awsiam"
 	sfn "github.com/aws/aws-cdk-go/awscdk/v2/awsstepfunctions"
 	sfntask "github.com/aws/aws-cdk-go/awscdk/v2/awsstepfunctionstasks"
 	constructs "github.com/aws/constructs-go/constructs/v10"
@@ -76,4 +79,12 @@ func (jsComp *JetStoreStackComponents) BuildRunReportsSM(scope constructs.Constr
 	if descriptionTagName != nil {
 		awscdk.Tags_Of(jsComp.ReportsSM).Add(descriptionTagName, jsii.String("State Machine to load data into JetStore Platform"), nil)
 	}
+
+	// Specify the the SM can run all revisions of the task, per aws health notification
+	jsComp.ReportsSM.AddToRolePolicy(awsiam.NewPolicyStatement(&awsiam.PolicyStatementProps{
+		Actions: jsii.Strings("ecs:RunTask"),
+		Resources: &[]*string{
+			jsii.String(fmt.Sprintf("%s:*", *jsComp.RunreportTaskDefinition.TaskDefinitionArn())),
+		},
+	}))
 }
