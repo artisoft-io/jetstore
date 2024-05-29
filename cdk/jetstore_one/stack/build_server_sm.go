@@ -1,7 +1,6 @@
 package stack
 
 import (
-	"fmt"
 	"os"
 	"strconv"
 
