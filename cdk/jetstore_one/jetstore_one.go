@@ -354,13 +354,14 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 	// Also to status update lambda
 	jsComp.StatusUpdateLambda.AddToRolePolicy(awsiam.NewPolicyStatement(&awsiam.PolicyStatementProps{
 		Actions:   jsii.Strings("states:StartExecution"),
-		// Resources: jsii.Strings("*"),
-		Resources: &[]*string{
-			jsComp.LoaderSM.StateMachineArn(),
-			jsComp.ServerSM.StateMachineArn(),
-			jsComp.CpipesSM.StateMachineArn(),
-			jsComp.ReportsSM.StateMachineArn(),
-		},
+		// Needed to use ALL resources to avoid circular depedency
+		Resources: jsii.Strings("*"),
+		// Resources: &[]*string{
+		// 	jsComp.LoaderSM.StateMachineArn(),
+		// 	jsComp.ServerSM.StateMachineArn(),
+		// 	jsComp.CpipesSM.StateMachineArn(),
+		// 	jsComp.ReportsSM.StateMachineArn(),
+		// },
 	}))
 
 	// ---------------------------------------
