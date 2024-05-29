@@ -84,8 +84,8 @@ func (jsComp *JetStoreStackComponents) BuildLoaderSM(scope constructs.Construct,
 	jsComp.LoaderSM.AddToRolePolicy(awsiam.NewPolicyStatement(&awsiam.PolicyStatementProps{
 		Actions: jsii.Strings("ecs:RunTask"),
 		Resources: &[]*string{
-			jsii.String(fmt.Sprintf("%s:*", *jsComp.LoaderTaskDefinition.TaskDefinitionArn())),
-			jsii.String(fmt.Sprintf("%s:*", *jsComp.RunreportTaskDefinition.TaskDefinitionArn())),
+			jsComp.LoaderTaskDefinition.TaskDefinitionArn(),
+			jsComp.RunreportTaskDefinition.TaskDefinitionArn(),
 		},
 	}))
 }
