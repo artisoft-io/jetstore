@@ -84,7 +84,7 @@ func (jsComp *JetStoreStackComponents) BuildRunReportsSM(scope constructs.Constr
 	jsComp.ReportsSM.AddToRolePolicy(awsiam.NewPolicyStatement(&awsiam.PolicyStatementProps{
 		Actions: jsii.Strings("ecs:RunTask"),
 		Resources: &[]*string{
-			jsii.String(fmt.Sprintf("%s:*", *jsComp.RunreportTaskDefinition.TaskDefinitionArn())),
+			jsComp.RunreportTaskDefinition.TaskDefinitionArn(),
 		},
 	}))
 }
