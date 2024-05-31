@@ -206,10 +206,12 @@ func DoNotifyApiGateway(fileKey, apiEndpoint, apiEndpointJson, notificationTempl
 		default:
 			value = ""
 		}
+		value = strings.ReplaceAll(value, `"`, `\"`)
 		notificationTemplate = strings.ReplaceAll(notificationTemplate, fmt.Sprintf("{{%s}}", key), value)
 	}
 
 	if len(errMsg) > 0 {
+		errMsg = strings.ReplaceAll(errMsg, `"`, `\"`)
 		notificationTemplate = strings.ReplaceAll(notificationTemplate, "{{error}}", errMsg)
 	}
 
