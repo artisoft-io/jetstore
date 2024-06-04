@@ -120,8 +120,8 @@ func (jsComp *JetStoreStackComponents) BuildServerSM(scope constructs.Construct,
 	updateServerSuccessStatusLambdaTask.AddCatch(notifyFailure, MkCatchProps()).Next(notifySuccess)
 	updateServerErrorStatusLambdaTask.AddCatch(notifyFailure, MkCatchProps()).Next(notifyFailure)
 
-	jsComp.ServerSM = sfn.NewStateMachine(stack, jsii.String("serverSM"), &sfn.StateMachineProps{
-		StateMachineName: jsii.String("serverSM"),
+	jsComp.ServerSM = sfn.NewStateMachine(stack, props.MkId("serverSM"), &sfn.StateMachineProps{
+		StateMachineName: props.MkId("serverSM"),
 		DefinitionBody:   sfn.DefinitionBody_FromChainable(runServerMap),
 		//* NOTE 4h TIMEOUT of exec rules
 		Timeout: awscdk.Duration_Hours(jsii.Number(4)),

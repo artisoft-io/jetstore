@@ -12,7 +12,7 @@ import (
 func (jsComp *JetStoreStackComponents) BuildSecrets(scope constructs.Construct, stack awscdk.Stack, props *JetstoreOneStackProps) {
 
 	// Created here since it's needed for all containers
-	jsComp.ApiSecret = awssm.NewSecret(stack, jsii.String("jsComp.ApiSecret"), &awssm.SecretProps{
+	jsComp.ApiSecret = awssm.NewSecret(stack, props.MkId("apiSecret"), &awssm.SecretProps{
 		Description: jsii.String("API secret used for jwt token encryption"),
 		GenerateSecretString: &awssm.SecretStringGenerator{
 			PasswordLength:          jsii.Number(15),
@@ -21,7 +21,7 @@ func (jsComp *JetStoreStackComponents) BuildSecrets(scope constructs.Construct, 
 		},
 	})
 
-	jsComp.AdminPwdSecret = awssm.NewSecret(stack, jsii.String("adminPwdSecret"), &awssm.SecretProps{
+	jsComp.AdminPwdSecret = awssm.NewSecret(stack, props.MkId("adminPwdSecret"), &awssm.SecretProps{
 		Description: jsii.String("JetStore UI admin password"),
 		GenerateSecretString: &awssm.SecretStringGenerator{
 			PasswordLength:          jsii.Number(15),
@@ -30,7 +30,7 @@ func (jsComp *JetStoreStackComponents) BuildSecrets(scope constructs.Construct, 
 		},
 	})
 
-	jsComp.EncryptionKeySecret = awssm.NewSecret(stack, jsii.String("encryptionKeySecret"), &awssm.SecretProps{
+	jsComp.EncryptionKeySecret = awssm.NewSecret(stack, props.MkId("encryptionKeySecret"), &awssm.SecretProps{
 		Description: jsii.String("JetStore Encryption Key"),
 		GenerateSecretString: &awssm.SecretStringGenerator{
 			PasswordLength:          jsii.Number(32),

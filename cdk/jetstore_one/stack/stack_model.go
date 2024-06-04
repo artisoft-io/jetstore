@@ -1,6 +1,8 @@
 package stack
 
 import (
+	"fmt"
+
 	awscdk "github.com/aws/aws-cdk-go/awscdk/v2"
 	"github.com/aws/aws-cdk-go/awscdk/v2/awsec2"
 	"github.com/aws/aws-cdk-go/awscdk/v2/awsecs"
@@ -17,6 +19,8 @@ import (
 
 type JetstoreOneStackProps struct {
 	awscdk.StackProps
+	StackId                      string
+	StackSuffix                  string
 	DbMinCapacity                *float64
 	DbMaxCapacity                *float64
 	CpuUtilizationAlarmThreshold *float64
@@ -24,6 +28,14 @@ type JetstoreOneStackProps struct {
 	NbrShards                    string
 	MaxConcurrency               float64
 	JetsApiUrl                   string
+}
+
+func (props *JetstoreOneStackProps)MkId(name string) *string {
+	if props.StackSuffix == "" {
+		return &name
+	}
+	id := fmt.Sprintf("%s%s", name, props.StackSuffix)
+	return &id
 }
 
 // Struct to hold the stack components

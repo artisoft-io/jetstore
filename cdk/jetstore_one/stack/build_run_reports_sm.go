@@ -63,8 +63,8 @@ func (jsComp *JetStoreStackComponents) BuildRunReportsSM(scope constructs.Constr
 
 	// Reports State Machine - jsComp.ReportsSM
 	// --------------------------------------------------------------------------------------------------------------
-	jsComp.ReportsSM = sfn.NewStateMachine(stack, jsii.String("reportsSM"), &sfn.StateMachineProps{
-		StateMachineName: jsii.String("reportsSM"),
+	jsComp.ReportsSM = sfn.NewStateMachine(stack, props.MkId("reportsSM"), &sfn.StateMachineProps{
+		StateMachineName: props.MkId("reportsSM"),
 		DefinitionBody:   sfn.DefinitionBody_FromChainable(runReportsTask),
 		Timeout:          awscdk.Duration_Hours(jsii.Number(4)),
 	})

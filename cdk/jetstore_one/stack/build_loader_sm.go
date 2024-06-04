@@ -64,8 +64,8 @@ func (jsComp *JetStoreStackComponents) BuildLoaderSM(scope constructs.Construct,
 
 	// Loader State Machine - jsComp.LoaderSM
 	// --------------------------------------------------------------------------------------------------------------
-	jsComp.LoaderSM = sfn.NewStateMachine(stack, jsii.String("loaderSM"), &sfn.StateMachineProps{
-		StateMachineName: jsii.String("loaderSM"),
+	jsComp.LoaderSM = sfn.NewStateMachine(stack, props.MkId("loaderSM"), &sfn.StateMachineProps{
+		StateMachineName: props.MkId("loaderSM"),
 		DefinitionBody:   sfn.DefinitionBody_FromChainable(runLoaderTask),
 		Timeout:          awscdk.Duration_Hours(jsii.Number(2)),
 	})
