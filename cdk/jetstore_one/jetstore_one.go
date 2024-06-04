@@ -69,13 +69,13 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 	// ---------------------------------------
 	jsComp := &jetstorestack.JetStoreStackComponents{
 		LoaderSmArn: fmt.Sprintf("arn:aws:states:%s:%s:stateMachine:%s",
-			os.Getenv("AWS_REGION"), os.Getenv("AWS_ACCOUNT"), "loaderSM"),
+			os.Getenv("AWS_REGION"), os.Getenv("AWS_ACCOUNT"), *props.MkId("loaderSM")),
 		ServerSmArn: fmt.Sprintf("arn:aws:states:%s:%s:stateMachine:%s",
-			os.Getenv("AWS_REGION"), os.Getenv("AWS_ACCOUNT"), "serverSM"),
+			os.Getenv("AWS_REGION"), os.Getenv("AWS_ACCOUNT"), *props.MkId("serverSM")),
 		CpipesSmArn: fmt.Sprintf("arn:aws:states:%s:%s:stateMachine:%s",
-			os.Getenv("AWS_REGION"), os.Getenv("AWS_ACCOUNT"), "cpipesSM"),
+			os.Getenv("AWS_REGION"), os.Getenv("AWS_ACCOUNT"), *props.MkId("cpipesSM")),
 		ReportsSmArn: fmt.Sprintf("arn:aws:states:%s:%s:stateMachine:%s",
-			os.Getenv("AWS_REGION"), os.Getenv("AWS_ACCOUNT"), "reportsSM"),
+			os.Getenv("AWS_REGION"), os.Getenv("AWS_ACCOUNT"), *props.MkId("reportsSM")),
 	}
 
 	// Build Secrets
@@ -96,7 +96,7 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 	// });
 	bucketName := os.Getenv("JETS_BUCKET_NAME")
 	if bucketName == "" {
-		sb := awss3.NewBucket(stack, jsii.String("JetStoreBucket"), &awss3.BucketProps{
+		sb := awss3.NewBucket(stack, props.MkId("JetStoreBucket"), &awss3.BucketProps{
 			RemovalPolicy:     awscdk.RemovalPolicy_DESTROY,
 			AutoDeleteObjects: jsii.Bool(true),
 			BlockPublicAccess: awss3.BlockPublicAccess_BLOCK_ALL(),
@@ -146,29 +146,16 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 	// Create Serverless v2 Aurora Cluster -- Postgresql Server
 	// Create username and password secret for DB Cluster
 	username := jsii.String("postgres")
-	jsComp.RdsSecret = awsrds.NewDatabaseSecret(stack, jsii.String("rdsSecret"), &awsrds.DatabaseSecretProps{
-		// SecretName: jsii.String("jetstore/pgsql"),
+	jsComp.RdsSecret = awsrds.NewDatabaseSecret(stack, props.MkId("rdsSecret"), &awsrds.DatabaseSecretProps{
 		Username: username,
 	})
-	// // jsComp.RdsCluster := awsrds.NewServerlessCluster(stack, jsii.String("AuroraCluster"), &awsrds.ServerlessClusterProps{
-	// awsrds.NewServerlessCluster(stack, jsii.String("AuroraCluster"), &awsrds.ServerlessClusterProps{
-	// 	// Engine: awsrds.DatabaseClusterEngine_AURORA_POSTGRESQL(),
-	// 	Engine: awsrds.DatabaseClusterEngine_AuroraPostgres(&awsrds.AuroraPostgresClusterEngineProps{
-	// 		Version: awsrds.AuroraPostgresEngineVersion_VER_14_5(),
-	// 	}),
-	// 	Vpc: jsComp.Vpc,
-	// 	VpcSubnets: jsComp.IsolatedSubnetSelection,
-	// 	Credentials: awsrds.Credentials_FromSecret(jsComp.RdsSecret, username),
-	// 	ClusterIdentifier: jsii.String("jetstoreDb"),
-	// 	DefaultDatabaseName: jsii.String("postgres"),
-	// })
 
 	jsComp.RdsCluster = awsrds.NewDatabaseCluster(stack, jsii.String("pgCluster"), &awsrds.DatabaseClusterProps{
 		Engine: awsrds.DatabaseClusterEngine_AuroraPostgres(&awsrds.AuroraPostgresClusterEngineProps{
 			Version: awsrds.AuroraPostgresEngineVersion_VER_14_5(),
 		}),
 		Credentials:             awsrds.Credentials_FromSecret(jsComp.RdsSecret, username),
-		ClusterIdentifier:       jsii.String("jetstoreDb"),
+		ClusterIdentifier:       props.MkId("jetstoreDb"),
 		DefaultDatabaseName:     jsii.String("postgres"),
 		Writer:                  awsrds.ClusterInstance_ServerlessV2(jsii.String("ClusterInstance"), &awsrds.ServerlessV2ClusterInstanceProps{}),
 		ServerlessV2MinCapacity: props.DbMinCapacity,
@@ -201,7 +188,7 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 
 	// Create the jsComp.EcsCluster.
 	// ==============================================================================================================
-	jsComp.EcsCluster = awsecs.NewCluster(stack, jsii.String("ecsCluster"), &awsecs.ClusterProps{
+	jsComp.EcsCluster = awsecs.NewCluster(stack, props.MkId("ecsCluster"), &awsecs.ClusterProps{
 		Vpc:               jsComp.Vpc,
 		ContainerInsights: jsii.Bool(true),
 	})
@@ -308,7 +295,7 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 	//	- ServerTaskDefinition
 	//	- CpipesTaskDefinition
 	jsComp.BuildEcsTasks(scope, stack, props)
-	
+
 	// Build JetStore general prupose Lambdas:
 	//	- StatusUpdateLambda
 	//	- RunReportsLambda
@@ -353,7 +340,7 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 	}))
 	// Also to status update lambda
 	jsComp.StatusUpdateLambda.AddToRolePolicy(awsiam.NewPolicyStatement(&awsiam.PolicyStatementProps{
-		Actions:   jsii.Strings("states:StartExecution"),
+		Actions: jsii.Strings("states:StartExecution"),
 		// Needed to use ALL resources to avoid circular depedency
 		Resources: jsii.Strings("*"),
 		// Resources: &[]*string{
@@ -530,7 +517,7 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 	if os.Getenv("BASTION_HOST_KEYPAIR_NAME") != "" {
 		jsComp.BastionHost = awsec2.NewBastionHostLinux(stack, jsii.String("JetstoreJumpServer"), &awsec2.BastionHostLinuxProps{
 			Vpc:             jsComp.Vpc,
-			InstanceName:    jsii.String("JetstoreJumpServer"),
+			InstanceName:    props.MkId("JetstoreJumpServer"),
 			SubnetSelection: jsComp.PublicSubnetSelection,
 		})
 		jsComp.BastionHost.Instance().Instance().AddPropertyOverride(jsii.String("KeyName"), os.Getenv("BASTION_HOST_KEYPAIR_NAME"))
@@ -622,6 +609,8 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 // JETS_SERVER_TASK_CPU allocated cpu in vCPU units
 // JETS_SERVER_TASK_MEM_LIMIT_MB memory limit, based on fargate table
 // JETS_SNS_ALARM_TOPIC_ARN (optional, sns topic for sending alarm)
+// JETS_STACK_ID (optional, stack id, default: JetstoreOneStack)
+// JETS_STACK_SUFFIX (optional, component suffix (when JETS_STACK_ID is not part of component id), default no suffix)
 // JETS_STACK_TAGS_JSON (optional, stack-level tags name/value as json)
 // JETS_TAG_NAME_DESCRIPTION (optional, resource-level tag name for description of the resource)
 // JETS_TAG_NAME_OWNER (optional, stack-level tag name for owner)
@@ -690,6 +679,8 @@ func main() {
 	fmt.Println("env JETS_LOADER_TASK_CPU:", os.Getenv("JETS_LOADER_TASK_CPU"))
 	fmt.Println("env JETS_LOADER_TASK_MEM_LIMIT_MB:", os.Getenv("JETS_LOADER_TASK_MEM_LIMIT_MB"))
 	fmt.Println("env JETS_SNS_ALARM_TOPIC_ARN:", os.Getenv("JETS_SNS_ALARM_TOPIC_ARN"))
+	fmt.Println("env JETS_STACK_ID:", os.Getenv("JETS_STACK_ID"))
+	fmt.Println("env JETS_STACK_SUFFIX:", os.Getenv("JETS_STACK_SUFFIX"))
 	fmt.Println("env JETS_STACK_TAGS_JSON:", os.Getenv("JETS_STACK_TAGS_JSON"))
 	fmt.Println("env JETS_TAG_NAME_DESCRIPTION:", os.Getenv("JETS_TAG_NAME_DESCRIPTION"))
 	fmt.Println("env JETS_TAG_NAME_OWNER:", os.Getenv("JETS_TAG_NAME_OWNER"))
@@ -782,6 +773,12 @@ func main() {
 		}
 		os.Exit(1)
 	}
+	if os.Getenv("JETS_STACK_ID") == "" && os.Getenv("JETS_STACK_SUFFIX") != "" {
+		fmt.Println("Warning: only one of env var JETS_STACK_ID and JETS_STACK_SUFFIX is provided, expecting both to be provided or none")
+	}
+	if os.Getenv("JETS_STACK_ID") != "" && os.Getenv("JETS_STACK_SUFFIX") == "" {
+		fmt.Println("Warning: only one of env var JETS_STACK_ID and JETS_STACK_SUFFIX is provided, expecting both to be provided or none")
+	}
 
 	app := awscdk.NewApp(nil)
 
@@ -808,7 +805,7 @@ func main() {
 		var tags map[string]string
 		err := json.Unmarshal([]byte(os.Getenv("JETS_STACK_TAGS_JSON")), &tags)
 		if err != nil {
-			log.Panic( "** Invalid JSON in JETS_STACK_TAGS_JSON:", err)
+			log.Panic("** Invalid JSON in JETS_STACK_TAGS_JSON:", err)
 		}
 		for k, v := range tags {
 			awscdk.Tags_Of(app).Add(jsii.String(k), jsii.String(v), nil)
@@ -818,11 +815,17 @@ func main() {
 	if os.Getenv("JETS_SNS_ALARM_TOPIC_ARN") != "" {
 		snsAlarmTopicArn = jsii.String(os.Getenv("JETS_SNS_ALARM_TOPIC_ARN"))
 	}
-	NewJetstoreOneStack(app, "JetstoreOneStack", &jetstorestack.JetstoreOneStackProps{
+	stackId := "JetstoreOneStack"
+	if os.Getenv("JETS_STACK_ID") != "" {
+		stackId = os.Getenv("JETS_STACK_ID")
+	}
+	NewJetstoreOneStack(app, stackId, &jetstorestack.JetstoreOneStackProps{
 		StackProps: awscdk.StackProps{
 			Env:         env(),
 			Description: stackDescription,
 		},
+		StackId:                      stackId,
+		StackSuffix:                  os.Getenv("JETS_STACK_SUFFIX"),
 		DbMinCapacity:                &dBMinCapacity,
 		DbMaxCapacity:                &dBMaxCapacity,
 		CpuUtilizationAlarmThreshold: &CpuUtilizationAlarmThreshold,

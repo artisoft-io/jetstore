@@ -139,8 +139,8 @@ func (jsComp *JetStoreStackComponents) BuildCpipesSM(scope constructs.Construct,
 	runReportsLambdaTask.AddCatch(runErrorStatusLambdaTask, MkCatchProps()).Next(runSuccessStatusLambdaTask)
 
 	// Define the State Machine
-	jsComp.CpipesSM = sfn.NewStateMachine(stack, jsii.String("cpipesSM"), &sfn.StateMachineProps{
-		StateMachineName: jsii.String("cpipesSM"),
+	jsComp.CpipesSM = sfn.NewStateMachine(stack, props.MkId("cpipesSM"), &sfn.StateMachineProps{
+		StateMachineName: props.MkId("cpipesSM"),
 		DefinitionBody:   sfn.DefinitionBody_FromChainable(runStartSharingTask),
 		//* NOTE 1h TIMEOUT
 		Timeout: awscdk.Duration_Hours(jsii.Number(1)),
