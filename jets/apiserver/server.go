@@ -134,12 +134,18 @@ func (server *Server) checkJetStoreSchema() error {
 		// Cleanup any remaining
 		_, _, err = server.ResetDomainTables(&PurgeDataAction{
 			Action:            "reset_domain_tables",
-			RunUiDbInitScript: false,
+			RunUiDbInitScript: true,
 			Data:              []map[string]interface{}{},
 		})
 		if err != nil {
 			return fmt.Errorf("while calling ResetDomainTables to initialize db schema: %v", err)
 		}
+		// Updating JetStore version in database
+		err = server.addVersionToDb(jetstoreVersion)
+		if err != nil {
+			return fmt.Errorf("while calling saving jetstoreVersion to database: %v", err)
+		}
+
 	}
 	return nil
 }
@@ -148,7 +154,7 @@ func (server *Server) checkJetStoreSchema() error {
 // Precondition: db schema exist
 func (server *Server) checkJetStoreDbVersion() error {
 	var serverArgs []string
-	var version string
+	var version sql.NullString
 	jetstoreVersion := os.Getenv("JETS_VERSION")
 	log.Println("JetStore image version JETS_VERSION is", jetstoreVersion)
 
@@ -167,13 +173,9 @@ func (server *Server) checkJetStoreDbVersion() error {
 			if err != nil {
 				return fmt.Errorf("while calling ResetDomainTables to initialize db (no version exist in db): %v", err)
 			}
-			err = server.addVersionToDb(jetstoreVersion)
-			if err != nil {
-				return fmt.Errorf("while calling saving jetstoreVersion to database: %v", err)
-			}
 
-		case jetstoreVersion > version:
-			log.Println("JetStore deployed version (in database) is", version)
+		case !version.Valid || jetstoreVersion > version.String:
+			log.Println("JetStore deployed version (in database) is", version.String)
 			if strings.Contains(os.Getenv("JETS_RESET_DOMAIN_TABLE_ON_STARTUP"), "yes") {
 				log.Println("New JetStore Release deployed, rebuilding all tables")
 				_, _, err = server.ResetDomainTables(&PurgeDataAction{
@@ -184,28 +186,29 @@ func (server *Server) checkJetStoreDbVersion() error {
 				if err != nil {
 					return fmt.Errorf("while calling ResetDomainTables for new release: %v", err)
 				}
-				err = server.addVersionToDb(jetstoreVersion)
-				if err != nil {
-					return fmt.Errorf("while calling saving jetstoreVersion to database: %v", err)
-				}
 			} else {
 				log.Println("New JetStore Release deployed, migrating tables to latest schema")
 				serverArgs = []string{"-migrateDb"}
+				if *usingSshTunnel {
+					serverArgs = append(serverArgs, "-usingSshTunnel")
+				}
+				_,err = datatable.RunUpdateDb(os.Getenv("WORKSPACE"), &serverArgs)
+				if err != nil {
+					return fmt.Errorf("while calling RunUpdateDb: %v", err)
+				}		
 			}
 
 		default:
 			log.Println("JetStore deployed version (in database) is", version)
 			log.Println("JetStore version in database", version, ">=", "JetStore image version", jetstoreVersion)
+			// DO NOT UPDATE version in database, hence return here
+			return nil
 		}
 
-	if len(serverArgs) > 0 {
-		if *usingSshTunnel {
-			serverArgs = append(serverArgs, "-usingSshTunnel")
-		}
-		_,err = datatable.RunUpdateDb(os.Getenv("WORKSPACE"), &serverArgs)
-		if err != nil {
-			return fmt.Errorf("while calling RunUpdateDb: %v", err)
-		}
+	// Updating JetStore version in database
+	err = server.addVersionToDb(jetstoreVersion)
+	if err != nil {
+		return fmt.Errorf("while calling saving jetstoreVersion to database: %v", err)
 	}
 	return nil
 }
@@ -287,7 +290,10 @@ func (server *Server) checkWorkspaceVersion() error {
 			INSERT INTO jetsapi.workspace_registry 
 				(workspace_name, workspace_uri, workspace_branch, user_email) VALUES 
 				('%s', '%s', '%s', 'system')
-				ON CONFLICT DO NOTHING`, workspaceName, activeWorkspaceUri, workspaceBranch)
+				ON CONFLICT ON CONSTRAINT workspace_name_unique_cstraintv3 
+				DO UPDATE SET (workspace_uri, workspace_branch, user_email, last_update) =
+				(EXCLUDED.workspace_uri, EXCLUDED.workspace_branch, EXCLUDED.user_email, DEFAULT)`, 
+			workspaceName, activeWorkspaceUri, workspaceBranch)
 		_, err = server.dbpool.Exec(context.Background(), stmt)
 		if err != nil {
 			log.Printf("while inserting active workspace into workspace_registry table: %v, ignored", err)
@@ -303,48 +309,47 @@ func (server *Server) checkWorkspaceVersion() error {
 
 	var version sql.NullString
 	jetstoreVersion := os.Getenv("JETS_VERSION")
-	// Check the release in database vs current release
+	// Check the workspace release in database vs current release
 	stmt := "SELECT MAX(version) FROM jetsapi.workspace_version"
 	err = server.dbpool.QueryRow(context.Background(), stmt).Scan(&version)
 	switch {
 	case err != nil:
 		if errors.Is(err, pgx.ErrNoRows) {
-			log.Println("Workspace version is not defined (no rows returned) in workspace_version table, no need to recompile workspace")
+			log.Println("Workspace version is not defined (no rows returned) in workspace_version table, setting it to JetStore version")
 			server.syncUnitTestFiles()
-			return workspace.UpdateWorkspaceVersionDb(server.dbpool, workspaceName, version.String)
+		} else {
+			return fmt.Errorf("while reading workspace version from workspace_version table: %v", err)
 		}
-		log.Println("Error while reading workspace version from workspace_version table:", err)
-		return err
 
 	case !version.Valid:
-		log.Println("Workspace version is not defined (null version) in workspace_version table, no need to recompile workspace")
+		log.Println("Workspace version is not defined (null version) in workspace_version table, setting it to JetStore version")
 		server.syncUnitTestFiles()
-		return workspace.UpdateWorkspaceVersionDb(server.dbpool, workspaceName, version.String)
 
 	case jetstoreVersion > version.String:
 		// Download overriten workspace files from database if any, skipping sqlite and tgz files since we will recompile workspace
 		if err = workspace.SyncWorkspaceFiles(server.dbpool, workspaceName, dbutils.FO_Open, "", true, true); err != nil {
-			log.Println("Error while synching workspace file from database:", err)
+			log.Println("Error (ignored) while synching workspace file from database:", err)
 		}
-		log.Println("Workspace deployed version (in database) is", version.String, "recompiling workspace")
-		// Recompile workspace, set the workspace version to be same as jetstore version
-		// Sync unit test files from workspace to s3
-		_, err = workspace.CompileWorkspace(server.dbpool, workspaceName, jetstoreVersion)
-		if err != nil {
-			log.Println("Error while compiling workspace:", err)
-			return err
-		}
+		log.Println("Workspace deployed version (in database) is", version.String)
 		// Sync unit test files
 		server.syncUnitTestFiles()
-		return nil
 
 	default:
 		log.Println("Workspace version in database", version, ">=", "JetStore image version", jetstoreVersion, ", no need to recompile workspace")
 		// Download overriten workspace files from database if any, not skipping sqlite files to get latest in case it was recompiled, no need to pull tgz files
 		// Note: We're always skipping tgz files in apiserver since these files are for run_report
 		if err = workspace.SyncWorkspaceFiles(server.dbpool, workspaceName, dbutils.FO_Open, "", false, true); err != nil {
-			log.Println("Error while synching workspace file from database:", err)
+			log.Println("Error (ignored) while synching workspace file from database:", err)
 		}
+		// NOT Recompiling workspace, hence return here
+		return nil
+	}
+	log.Println("Recompiling workspace, set the workspace version to be same as jetstore version")
+	_, err = workspace.CompileWorkspace(server.dbpool, workspaceName, jetstoreVersion)
+	if err != nil {
+		err = fmt.Errorf("error while compiling workspace: %v", err)
+		log.Println(err)
+		return err
 	}
 	return nil
 }

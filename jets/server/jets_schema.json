@@ -98,8 +98,8 @@
     ],
     "tableConstraints": [
       {
-        "name": "workspace_name_unique_cstraintv2",
-        "definition": "CONSTRAINT workspace_name_unique_cstraintv2 UNIQUE (workspace_name, workspace_branch)"
+        "name": "workspace_name_unique_cstraintv3",
+        "definition": "CONSTRAINT workspace_name_unique_cstraintv3 UNIQUE (workspace_name)"
       }
     ]
   },

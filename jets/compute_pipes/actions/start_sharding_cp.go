@@ -23,7 +23,7 @@ func (args *StartComputePipesArgs) StartShardingComputePipes(ctx context.Context
 		return result, fmt.Errorf("error: missing file_key or session_id as input args of StartComputePipes (sharding mode)")
 	}
 
-	// Send CPIPES start notification to api server
+	// Send CPIPES start notification to api gateway (install specific)
 	// NOTE 2024-05-13 Added Notification to API Gateway via env var CPIPES_STATUS_NOTIFICATION_ENDPOINT or CPIPES_STATUS_NOTIFICATION_ENDPOINT_JSON
 	apiEndpoint := os.Getenv("CPIPES_STATUS_NOTIFICATION_ENDPOINT")
 	apiEndpointJson := os.Getenv("CPIPES_STATUS_NOTIFICATION_ENDPOINT_JSON")
@@ -81,6 +81,8 @@ func (args *StartComputePipesArgs) StartShardingComputePipes(ctx context.Context
 	log.Println("argument: inputSessionId", inputSessionId)
 	log.Println("argument: sessionId", args.SessionId)
 	log.Println("argument: inFile", args.FileKey)
+
+	log.Println("Start SHARDING", args.SessionId, "file_key:", args.FileKey)
 
 	// Get the pipeline config
 	var cpJson, icJson sql.NullString

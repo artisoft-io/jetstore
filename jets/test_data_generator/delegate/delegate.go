@@ -290,7 +290,7 @@ func (ca *CommandArguments) DoChard(id int) error {
 	}
 	// fmt.Println("**&@@ WriteParquetPartition: DONE writing local parquet file for fileName:", *ctx.fileName)
 
-	outFilePath := fmt.Sprintf("%s/%s/in-part%05d", os.Getenv("JETS_s3_INPUT_PREFIX"), ca.OutFileKey, id)
+	outFilePath := fmt.Sprintf("%s/%s/in-part%05d.parquet", os.Getenv("JETS_s3_INPUT_PREFIX"), ca.OutFileKey, id)
 	fmt.Println("OutFile Path:", outFilePath)
 
 	// All good, put the file in s3
