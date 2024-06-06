@@ -25,6 +25,7 @@ func (args *ComputePipesArgs) CoordinateComputePipes(ctx context.Context, dsn st
 	var fileKeys []string
 	var cpipesConfigJson string
 	stmt := "SELECT %s FROM jetsapi.cpipes_execution_status WHERE pipeline_execution_status_key = %d"
+	log.Println("Compute NODE", args.SessionId, "file_key:", args.FileKey, "node_id:", args.NodeId, "cpipes_mode:", args.CpipesMode)
 
 	// open db connection
 	dbpool, err := pgxpool.Connect(ctx, dsn)
@@ -59,7 +60,7 @@ func (args *ComputePipesArgs) CoordinateComputePipes(ctx context.Context, dsn st
 			cpErr = fmt.Errorf("while loading aws configuration (in CoordinateComputePipes): %v", err)
 			goto gotError
 		}
-		log.Printf("**!@@ Got %d file keys from database for nodeId %d (sharding)", len(fileKeys), args.NodeId)
+		log.Printf("**!@@ %s Got %d file keys from database for nodeId %d (sharding)", args.SessionId, len(fileKeys), args.NodeId)
 
 	case "reducing":
 		err = dbpool.QueryRow(ctx, fmt.Sprintf(stmt, "reducing_config_json", args.PipelineExecKey)).Scan(&cpipesConfigJson)
@@ -74,7 +75,7 @@ func (args *ComputePipesArgs) CoordinateComputePipes(ctx context.Context, dsn st
 			cpErr = fmt.Errorf("failed to download list of files from s3: %v", err)
 			goto gotError
 		}
-		log.Printf("**!@@ Got %d file keys from database for nodeId %d (reducing)", len(s3Objects), args.NodeId)
+		log.Printf("**!@@ %s Got %d file keys from database for nodeId %d (reducing)", args.SessionId, len(s3Objects), args.NodeId)
 		fileKeys = make([]string, 0)
 		for i := range s3Objects {
 			if s3Objects[i].Size > 0 {
