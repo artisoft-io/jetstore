@@ -59,10 +59,11 @@ func (args *StartComputePipesArgs) StartReducingComputePipes(ctx context.Context
 	log.Println("argument: inputStepId", *args.InputStepId)
 	log.Println("argument: inFile", args.FileKey)
 	log.Println("argument: nbrPartitions", *args.NbrPartitions)
-	if *args.InputStepId != "sharding" {
-		log.Println("argument: current_step", *args.CurrentStep)
+	if args.CurrentStep != nil {
+		log.Println("Start REDUCING", args.SessionId, "file_key:", args.FileKey, "reducing mode", "current_step:",*args.CurrentStep)
+	} else {
+		log.Println("Start REDUCING", args.SessionId, "file_key:", args.FileKey, "sharding mode")
 	}
-	log.Println("Start REDUCING", args.SessionId, "file_key:", args.FileKey, "current_step:",*args.CurrentStep)
 
 	// Get the pipeline config
 	var cpJson sql.NullString
