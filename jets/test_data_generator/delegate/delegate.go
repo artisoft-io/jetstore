@@ -268,8 +268,8 @@ func (ca *CommandArguments) DoChard(id int) error {
 	}
 
 	// Write the rows into the temp file
-	row := make([]interface{}, len(headers))
 	for i := 0; i < ca.NbrRowsPerChard; i++ {
+		row := make([]interface{}, len(headers))
 		mbrId := rand.Intn(ca.NbrMembers)
 		mbrKey := fmt.Sprintf("MBR_ID000%d", mbrId)
 		fileKey := fmt.Sprintf("FILE_KEY%d", rand.Intn(ca.NbrRawDataFile))
