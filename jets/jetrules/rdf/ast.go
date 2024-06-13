@@ -61,6 +61,31 @@ func (v *Node) Bool() bool {
 	}
 }
 
+func (v *Node) String() string {
+	switch vv := v.Value.(type) {
+	case BlankNode:
+		return fmt.Sprintf("BN%d", vv.key)
+	case NamedResource:
+		return vv.name
+	case LDate:
+		return fmt.Sprintf("%v", vv)
+	case LDatetime:
+		return fmt.Sprintf("%v", vv)
+	case int:
+		return fmt.Sprintf("%v", vv)
+	case int32:
+		return fmt.Sprintf("%v", vv)
+	case int64:
+		return fmt.Sprintf("%v", vv)
+	case float64:
+		return fmt.Sprintf("%v", vv)
+	case string:
+		return vv
+	default:
+		return "??"
+	}
+}
+
 // type Node interface {
 // 	Key() int
 // 	Name() string
