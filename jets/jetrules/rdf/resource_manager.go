@@ -1,9 +1,11 @@
 package rdf
 
+import "log"
+
 // ResourceManager manages all the resources, incl literals and all. Equivalent to RManager in c++
 
 type ResourceManager struct {
-	IsLocked      bool
+	isLocked      bool
 	lastBnodeKey  int
 	resourceMap   map[string]*Node
 	bnodeMap      map[int]*Node
@@ -13,6 +15,20 @@ type ResourceManager struct {
 }
 
 type JetResources struct {
+	jets__client                  *Node
+	jets__completed               *Node
+	jets__sourcePeriodType        *Node
+	jets__currentSourcePeriod     *Node
+	jets__currentSourcePeriodDate *Node
+	jets__exception               *Node
+	jets__input_record            *Node
+	jets__istate                  *Node
+	jets__key                     *Node
+	jets__loop                    *Node
+	jets__org                     *Node
+	jets__source_period_sequence  *Node
+	jets__state                   *Node
+	rdf__type                     *Node
 }
 
 func NewJetResources(rm *ResourceManager) *JetResources {
@@ -26,12 +42,25 @@ func (jr *JetResources) Initialize(rm *ResourceManager) {
 		return
 	}
 	// Create the resources
-
+	jr.jets__client = rm.NewResource("jets:client")
+	jr.jets__completed = rm.NewResource("jets:completed")
+	jr.jets__sourcePeriodType = rm.NewResource("jets:sourcePeriodType")
+	jr.jets__currentSourcePeriod = rm.NewResource("jets:currentSourcePeriod")
+	jr.jets__currentSourcePeriodDate = rm.NewResource("jets:currentSourcePeriodDate")
+	jr.jets__exception = rm.NewResource("jets:exception")
+	jr.jets__input_record = rm.NewResource("jets:input_record")
+	jr.jets__istate = rm.NewResource("jets:istate")
+	jr.jets__key = rm.NewResource("jets:key")
+	jr.jets__loop = rm.NewResource("jets:loop")
+	jr.jets__org = rm.NewResource("jets:org")
+	jr.jets__source_period_sequence = rm.NewResource("jets:source_period_sequence")
+	jr.jets__state = rm.NewResource("jets:state")
+	jr.rdf__type = rm.NewResource("rdf:type")
 }
 
 func NewResourceManager(rootManager *ResourceManager) *ResourceManager {
 	if rootManager != nil {
-		rootManager.IsLocked = true
+		rootManager.isLocked = true
 	}
 	rm := &ResourceManager{
 		resourceMap: make(map[string]*Node, 100),
@@ -58,7 +87,8 @@ func (rm *ResourceManager) NewResource(name string) *Node {
 	if v != nil {
 		return v
 	}
-	if rm.IsLocked {
+	if rm.isLocked {
+		log.Println("error: NewResource called when ResourceManger is locked")
 		return nil
 	}
 	r := R(name)
@@ -77,7 +107,8 @@ func (rm *ResourceManager) GetBNode(key int) *Node {
 }
 
 func (rm *ResourceManager) NewBNode() *Node {
-	if rm.IsLocked {
+	if rm.isLocked {
+		log.Println("error: NewBNode called when ResourceManger is locked")
 		return nil
 	}
 	r := BN(rm.lastBnodeKey)
@@ -91,7 +122,8 @@ func (rm *ResourceManager) CreateBNode(key int) *Node {
 	if v != nil {
 		return v
 	}
-	if rm.IsLocked {
+	if rm.isLocked {
+		log.Println("error: CreateBNode called when ResourceManger is locked")
 		return nil
 	}
 	r := BN(key)
@@ -114,7 +146,8 @@ func (rm *ResourceManager) NewLiteral(data interface{}) *Node {
 	if v != nil {
 		return v
 	}
-	if rm.IsLocked {
+	if rm.isLocked {
+		log.Println("error: NewLiteral called when ResourceManger is locked")
 		return nil
 	}
 	r := &Node{Value: data}

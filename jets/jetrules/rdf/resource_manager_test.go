@@ -53,5 +53,16 @@ func TestRootResourceManager(t *testing.T) {
 	if s2 != nil {
 		t.Error("root is not locked!")
 	}
+}
 
+func TestJetsResources(t *testing.T) {
+	root := NewResourceManager(nil)
+	jets__client := root.JetsResources.jets__client.String()
+	if jets__client != "jets:client" {
+		t.Errorf("JetResource jets__client is not jets:client it's %s",jets__client)
+	}
+	v := root.JetsResources.jets__source_period_sequence.String()
+	if v != "jets:source_period_sequence" {
+		t.Errorf("JetResource jets__client is not jets:client it's %s",v)
+	}
 }

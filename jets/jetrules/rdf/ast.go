@@ -86,6 +86,12 @@ func (v *Node) String() string {
 	}
 }
 
+type Triple = [3]*Node
+
+func T3(s, p, o *Node) Triple {
+	return Triple{s, p, o}
+}
+
 // type Node interface {
 // 	Key() int
 // 	Name() string

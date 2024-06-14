@@ -38,6 +38,19 @@ func mapUVW2SPO(spin byte, u, v, w *Node) (*Node,*Node,*Node) {
 		return v, w, u
 	}
 }
+func mapUVW2SPOArr(spin byte, u, v, w *Node) [3]*Node {
+	switch spin {
+	case 's':
+		// case 'spo'  <==> "uvw'
+		return [3]*Node{u, v, w}
+	case 'p':
+		// case 'pos'  <==> "uvw'
+		return  [3]*Node{w, u, v}
+	default:
+		// case 'osp'  <==> "uvw'
+		return [3]*Node{v, w, u}
+	}
+}
  
 // Map (s, p, o) ==> (u, v, w) according to spin code.
 //
@@ -75,6 +88,19 @@ func mapSPO2UVW(spin byte, s, p, o *Node) (*Node,*Node,*Node) {
 	default:
 		// case 'osp'  <==> "uvw'
 		return o, s, p
+	}
+}
+func mapSPO2UVWArr(spin byte, s, p, o *Node) [3]*Node {
+	switch spin {
+	case 's':
+		// case 'spo'  <==> "uvw'
+		return [3]*Node{s, p, o}
+	case 'p':
+		// case 'pos'  <==> "uvw'
+		return  [3]*Node{p, o, s}
+	default:
+		// case 'osp'  <==> "uvw'
+		return [3]*Node{o, s, p}
 	}
 }
  

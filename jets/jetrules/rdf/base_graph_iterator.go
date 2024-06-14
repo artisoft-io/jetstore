@@ -1,8 +1,6 @@
 package rdf
 
-import (
-	"fmt"
-)
+// import "log"
 
 // BaseGraph Iterator implemented as channels
 
@@ -20,27 +18,28 @@ type BaseGraphIterator struct {
 	vSource chan Vpair
 	Itor    chan [3]*Node
 	done    chan struct{}
+	spin    byte
 }
+
 func (itor *BaseGraphIterator) Done() {
 	select {
 	case <-itor.done:
-		// log.Printf("##!@@ Done ch was already closed!")
+		// log.Printf("##!@@ Done: BaseGraphIterator ch was already closed!")
 	default:
 		close(itor.done)
-		// log.Printf("##!@@ Done ch closed")
+		// log.Printf("##!@@ Done: BaseGraphIterator ch closed")
 	}
 }
 
-func NewBaseGraphIterator(u, v *Node, g *UMapType) (*BaseGraphIterator, error) {
-	// Some validation
-	if u == nil && v != nil {
-		return nil, fmt.Errorf("error: cannot have u to be nil when v is not nil")
-	}
+// Iterator over the BaseGraph, u, v, w can be nil
+// The iterator returns the triple in (s, p, o) order based on the spin of the graph
+func NewBaseGraphIterator(spin byte, u, v, w *Node, g *UMapType) *BaseGraphIterator {
 	bgItor := &BaseGraphIterator{
 		uSource: make(chan Upair),
 		vSource: make(chan Vpair),
 		Itor:    make(chan [3]*Node),
 		done:    make(chan struct{}),
+		spin:    spin,
 	}
 	// Connect the sources to Itor
 	// Iterate over the subjects (the u's)
@@ -80,11 +79,11 @@ func NewBaseGraphIterator(u, v *Node, g *UMapType) (*BaseGraphIterator, error) {
 					}
 				}
 			} else {
-				// Single value for u, v
+				// Single value for v
 				data := upair.data[v]
 				if data != nil {
 					select {
-					case bgItor.vSource <- Vpair{u: u, v: v, data: data}:
+					case bgItor.vSource <- Vpair{u: upair.u, v: v, data: data}:
 					case <-bgItor.done:
 						return
 					}
@@ -96,16 +95,28 @@ func NewBaseGraphIterator(u, v *Node, g *UMapType) (*BaseGraphIterator, error) {
 	// For each subject, predicate pair, iterate over the objects (the w's)
 	go func() {
 		for vpair := range bgItor.vSource {
-			// Iterate over all elements
-			for node := range vpair.data {
-				select {
-				case bgItor.Itor <- [3]*Node{vpair.u, vpair.v, node}:
-				case <-bgItor.done:
-					return
+			if w == nil {
+				// Iterate over all elements
+				for node := range vpair.data {
+					select {
+					case bgItor.Itor <- mapUVW2SPOArr(spin, vpair.u, vpair.v, node):
+					case <-bgItor.done:
+						return
+					}
+				}
+			} else {
+				// Single value for w
+				c := vpair.data[w]
+				if c != 0 {
+					select {
+					case bgItor.Itor <- mapUVW2SPOArr(spin, vpair.u, vpair.v, w):
+					case <-bgItor.done:
+						return
+					}
 				}
 			}
 		}
 		close(bgItor.Itor)
 	}()
-	return bgItor, nil
+	return bgItor
 }

@@ -68,23 +68,30 @@ func (g *BaseGraph) ContainsUV(u, v *Node) bool {
 }
 
 // returns an Iterator over all the triples in the graph
-func (g *BaseGraph) Find() (*BaseGraphIterator, error) {
-	return NewBaseGraphIterator(nil, nil, &g.data)
+func (g *BaseGraph) Find() *BaseGraphIterator {
+	return NewBaseGraphIterator(g.spin, nil, nil, nil, &g.data)
 }
 
 // returns an Iterator over the triples (u, *, *) in the graph
-func (g *BaseGraph) FindU(u *Node) (*BaseGraphIterator, error) {
-	return NewBaseGraphIterator(u, nil, &g.data)
+func (g *BaseGraph) FindU(u *Node) *BaseGraphIterator {
+	return NewBaseGraphIterator(g.spin, u, nil, nil, &g.data)
 }
 
 // returns an Iterator over the triples (u, v, *) in the graph
-func (g *BaseGraph) FindUV(u, v *Node) (*BaseGraphIterator, error) {
-	return NewBaseGraphIterator(u, v, &g.data)
+func (g *BaseGraph) FindUV(u, v *Node) *BaseGraphIterator {
+	return NewBaseGraphIterator(g.spin, u, v, nil, &g.data)
+}
+
+// returns an Iterator over the triples (u, v, w) in the graph
+// this iterator will return at most one triple
+// This func is for completeness
+func (g *BaseGraph) FindUVW(u, v, w *Node) *BaseGraphIterator {
+	return NewBaseGraphIterator(g.spin, u, v, w, &g.data)
 }
 
 // Used by `rule_term` to determine if an inferred triple will
 // be removed as result of retract call.
-// returns the reference count associated with the triple (u, v, w)
+// Returns the reference count associated with the triple (u, v, w).
 func (g *BaseGraph) GetRefCount(u, v, w *Node) int {
 	vmap := g.data[u]
 	if vmap == nil {
@@ -97,9 +104,9 @@ func (g *BaseGraph) GetRefCount(u, v, w *Node) int {
 	return wmap[w]
 }
 
-// Insert triple (u, v, w) into the graph
-// Reference count increase by 1 if tripople already in graph
-// Returns true if the triple is actually inserted (was not already in the graph)
+// Insert triple (u, v, w) into the graph.
+// Reference count increase by 1 if triple already in graph.
+// Returns true if the triple is actually inserted (was not already in the graph).
 func (g *BaseGraph) Insert(u, v, w *Node) bool {
 	if u == nil || v == nil || w == nil {
 		return false
@@ -123,7 +130,7 @@ func (g *BaseGraph) Insert(u, v, w *Node) bool {
 }
 
 // Remove the triple (u, v, w) from the graph.
-// Returns true if it's actually removed from the graph
+// Returns true if it's actually removed from the graph.
 func (g *BaseGraph) Erase(u, v, w *Node) bool {
 	if u == nil || v == nil || w == nil {
 		return false
@@ -152,7 +159,7 @@ func (g *BaseGraph) Erase(u, v, w *Node) bool {
 
 // Retract the triple (u, v, w) from the graph.
 // The triple is removed if the reference count becomes zero.
-// Returns true if it's actually removed from the graph
+// Returns true if it's actually removed from the graph.
 func (g *BaseGraph) Retract(u, v, w *Node) bool {
 	if u == nil || v == nil || w == nil {
 		return false
