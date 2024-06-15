@@ -83,12 +83,12 @@ func (ctx *BuilderContext) buildCaseExprEvaluator(source *InputChannel, outCh *O
 	}
 	outputPos, ok := outCh.columns[spec.Name]
 	if !ok {
-		err = fmt.Errorf("error column %s not found in output source %s", spec.Name, outCh.config.Name)
+		return nil, fmt.Errorf("error column %s not found in output source %s", spec.Name, outCh.config.Name)
 	}
 	return &caseExprColumnEval{
 		outputPos: outputPos,
 		caseExpr: caseExpr,
 		elseExpr: &elseExpr,
-	}, err
+	}, nil
 }
 

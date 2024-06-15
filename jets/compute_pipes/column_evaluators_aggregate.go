@@ -68,13 +68,13 @@ func (ctx *BuilderContext) buildCountEvaluator(source *InputChannel, outCh *Outp
 	}
 	outputPos, ok := outCh.columns[spec.Name]
 	if !ok {
-		err = fmt.Errorf("error column %s not found in output source %s", spec.Name, outCh.config.Name)
+		return nil, fmt.Errorf("error column %s not found in output source %s", spec.Name, outCh.config.Name)
 	}
 	return &countColumnEval{
 		inputPos: inputPos,
 		outputPos: outputPos,
 		where: where,
-	}, err
+	}, nil
 }
 
 
@@ -142,14 +142,14 @@ func (ctx *BuilderContext) buildDistinctCountEvaluator(source *InputChannel, out
 	}
 	outputPos, ok := outCh.columns[spec.Name]
 	if !ok {
-		err = fmt.Errorf("error column %s not found in output source %s", spec.Name, outCh.config.Name)
+		return nil, fmt.Errorf("error column %s not found in output source %s", spec.Name, outCh.config.Name)
 	}
 	return &distinctCountColumnEval{
 		inputPos: inputPos,
 		outputPos: outputPos,
 		where: where,
 		distinctValues: make(map[string]bool),
-	}, err
+	}, nil
 }
 
 // add function used for aggregates, supports int, int64, float64
@@ -280,13 +280,13 @@ func (ctx *BuilderContext) buildSumEvaluator(source *InputChannel, outCh *Output
 	}
 	outputPos, ok := outCh.columns[spec.Name]
 	if !ok {
-		err = fmt.Errorf("error column %s not found in output source %s", spec.Name, outCh.config.Name)
+		return nil, fmt.Errorf("error column %s not found in output source %s", spec.Name, outCh.config.Name)
 	}
 	return &sumColumnEval{
 		inputPos: inputPos,
 		outputPos: outputPos,
 		where: where,
-	}, err
+	}, nil
 }
 
 
@@ -394,11 +394,11 @@ func (ctx *BuilderContext) buildMinEvaluator(source *InputChannel, outCh *Output
 	}
 	outputPos, ok := outCh.columns[spec.Name]
 	if !ok {
-		err = fmt.Errorf("error column %s not found in output source %s", spec.Name, outCh.config.Name)
+		return nil, fmt.Errorf("error column %s not found in output source %s", spec.Name, outCh.config.Name)
 	}
 	return &minColumnEval{
 		inputPos: inputPos,
 		outputPos: outputPos,
 		where: where,
-	}, err
+	}, nil
 }

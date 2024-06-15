@@ -114,10 +114,9 @@ type TransformationColumnSpec struct {
 }
 
 type HashExpression struct {
-	Expr              string          `json:"expr"`
-	Format            *string         `json:"format"`
-	NbrJetsPartitions *uint64         `json:"nbr_jets_partitions"`
-	DefaultExpr       *ExpressionNode `json:"default_expr"`
+	Expr                   string    `json:"expr"`
+	NbrJetsPartitions      *uint64   `json:"nbr_jets_partitions"`
+	AlternateCompositeExpr *[]string `json:"alternate_composite_expr"`
 }
 
 type MapExpression struct {

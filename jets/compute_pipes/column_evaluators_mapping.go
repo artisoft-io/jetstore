@@ -145,6 +145,7 @@ func (ctx *BuilderContext) buildMapEvaluator(source *InputChannel, outCh *Output
 		if err != nil || temp == nil {
 			fmt.Println("default value is not date:", *spec.MapExpr.Default)
 			defaultValue = nil
+			err = nil
 		} else {
 			defaultValue = *temp
 		}
@@ -153,6 +154,7 @@ func (ctx *BuilderContext) buildMapEvaluator(source *InputChannel, outCh *Output
 		if err != nil || temp == nil {
 			fmt.Println("default value is not datetime:", *spec.MapExpr.Default)
 			defaultValue = nil
+			err = nil
 		} else {
 			defaultValue = *temp
 		}
@@ -166,11 +168,11 @@ func (ctx *BuilderContext) buildMapEvaluator(source *InputChannel, outCh *Output
 
 	inputPos, ok := source.columns[*spec.Expr]
 	if !ok {
-		err = fmt.Errorf("error column %s not found in input source %s", *spec.Expr, source.config.Name)
+		return nil, fmt.Errorf("error column %s not found in input source %s", *spec.Expr, source.config.Name)
 	}
 	outputPos, ok := outCh.columns[spec.Name]
 	if !ok {
-		err = fmt.Errorf("error column %s not found in output source %s", spec.Name, outCh.config.Name)
+		return nil, fmt.Errorf("error column %s not found in output source %s", spec.Name, outCh.config.Name)
 	}
 	return &mapColumnEval{
 		mapConfig: &mapColumnConfig{
@@ -183,6 +185,6 @@ func (ctx *BuilderContext) buildMapEvaluator(source *InputChannel, outCh *Output
 			argdMap: make(map[string]float64),
 			parsedFunctionArguments: make(map[string]interface{}),
 		},
-	}, err
+	}, nil
 }
 

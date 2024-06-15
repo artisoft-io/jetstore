@@ -17,10 +17,10 @@ func init() {
 	datetimeRe = regexp.MustCompile(`(\d{1,4})-?\/?(JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC|\d{1,2})-?\/?(\d{1,4})[T-]?\s?(\d{1,2})?[:.]?(\d{1,2})?[:.]?(\d{1,2})?[.,]?(\d+)?\s?([+-])?(\d{1,2})?[:.]?(\d{1,2})?`)
 }
 
-func ParseDate(date string) (*time.Time, error) {
+func ParseDateComponents(date string) (int, int, int, error) {
 	ntok := dateRe.FindStringSubmatch(strings.ToUpper(date))
 	if len(ntok) < 4 {
-		return nil, fmt.Errorf("ParseDate: Argument is not a date: %s", date)
+		return 0, 0, 0, fmt.Errorf("ParseDate: Argument is not a date: %s", date)
 	}
 	token1 := ntok[1]
 	token2 := ntok[2]
@@ -29,24 +29,35 @@ func ParseDate(date string) (*time.Time, error) {
 	var err error
 	if len(token1) == 4 {
 		if y, err = strconv.Atoi(token1); err != nil {
-			return nil, fmt.Errorf("ParseDate: error parsing the year %s: %v", token1, err)
+			return 0, 0, 0, fmt.Errorf("ParseDate: error parsing the year %s: %v", token1, err)
 		}
 		if m, err = month2Int(token2); err != nil {
-			return nil, fmt.Errorf("ParseDate: error parsing the month %s: %v", token2, err)
+			return 0, 0, 0, fmt.Errorf("ParseDate: error parsing the month %s: %v", token2, err)
 		}
 		if d, err = strconv.Atoi(token3); err != nil {
-			return nil, fmt.Errorf("ParseDate: error parsing the day %s: %v", token3, err)
+			return 0, 0, 0, fmt.Errorf("ParseDate: error parsing the day %s: %v", token3, err)
 		}
 	} else {
 		if y, err = strconv.Atoi(token3); err != nil {
-			return nil, fmt.Errorf("ParseDate: error parsing the year %s: %v", token3, err)
+			return 0, 0, 0, fmt.Errorf("ParseDate: error parsing the year %s: %v", token3, err)
 		}
 		if m, err = month2Int(token1); err != nil {
-			return nil, fmt.Errorf("ParseDate: error parsing the month %s: %v", token1, err)
+			return 0, 0, 0, fmt.Errorf("ParseDate: error parsing the month %s: %v", token1, err)
 		}
 		if d, err = strconv.Atoi(token2); err != nil {
-			return nil, fmt.Errorf("ParseDate: error parsing the day %s: %v", token2, err)
+			return 0, 0, 0, fmt.Errorf("ParseDate: error parsing the day %s: %v", token2, err)
 		}
+	}
+	return y, m, d, nil
+}
+
+func ParseDate(date string) (*time.Time, error) {
+	if len(date) < 8 {
+		return nil, fmt.Errorf("ParseDate: Argument is not in a valid date format (min 8 char): %s", date)
+	}
+	y, m, d, err := ParseDateComponents(date)
+	if err != nil {
+		return nil, err
 	}
 	result := time.Date(y, time.Month(m), d, 0, 0, 0, 0, time.UTC)
 	return &result, nil

@@ -75,7 +75,7 @@ func (ctx *BuilderContext) buildMapReduceEvaluator(source *InputChannel, outCh *
 	var err error
 	mapOnColumnIdx, ok := source.columns[*spec.MapOn]
 	if !ok {
-		err = fmt.Errorf("error column %s not found in input source %s", *spec.MapOn, source.config.Name)
+		return nil, fmt.Errorf("error column %s not found in input source %s", *spec.MapOn, source.config.Name)
 	}
 	intermediateColumns := make(map[string]int)
 	for i := range *spec.ApplyMap {
@@ -114,6 +114,6 @@ func (ctx *BuilderContext) buildMapReduceEvaluator(source *InputChannel, outCh *
 		currentIntermediateValues: make(map[string][]interface{}),
 		mapColumnEval: mapColumnEval,
 		reduceColumnEval: reduceColumnEval,
-	}, err
+	},nil
 }
 
