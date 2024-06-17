@@ -26,7 +26,7 @@ func (ctx *mapReduceColumnEval) update(_ *[]interface{}, input *[]interface{}) e
 	if inputVal == nil && ctx.altInputKey != nil {
 		// Make the alternate key to hash
 		inputVal, err = makeAlternateKey(&ctx.altInputKey, input)
-		fmt.Printf("##### # mapReduceColumnEval: makeAlternateKey got: %v\n", inputVal)
+		// fmt.Printf("##### # mapReduceColumnEval: makeAlternateKey got: %v\n", inputVal)
 		if err != nil {
 			return err
 		}
