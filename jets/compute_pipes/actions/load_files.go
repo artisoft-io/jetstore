@@ -100,9 +100,13 @@ func (cpCtx *ComputePipesContext) ReadParquetFile(filePath *FileName, computePip
 						// Read all fields as string
 						switch vv := rawValue.(type) {
 						case string:
-							record[i] = vv
+							if len(vv) > 0 {
+								record[i] = vv
+							} 
 						case []byte:
-							record[i] = string(vv)
+							if len(vv) > 0 {
+								record[i] = string(vv)
+							}
 						case int:
 							record[i] = strconv.Itoa(vv)
 						case int32:
