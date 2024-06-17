@@ -26,82 +26,88 @@ func (ctx *mapColumnEval) update(currentValue *[]interface{}, input *[]interface
 	if currentValue == nil || input == nil {
 		return fmt.Errorf("error mapColumnEval.update cannot have nil currentValue or input")
 	}
-	// update currentValue using input applying cleansing function and default value
+	// Steps:
+	// - if inputVal != nil && inputVal is not empty string:
+	//		if valid cleansing function:
+	//			- apply cleansing function (which returns a string), set to inputV
+	//		else
+	//			- set inputV to inputVal as string
+	// - if inputV is empty or cleansing function returned an errMsg:
+	//		set inputV to defaultVal if not empty, else report the errMsg or the default errMsg if any.
+	// - update currentValue using input applying cleansing function and default value
+	// - map inputV to correct rdf type if specified
+	//
 	inputVal := (*input)[ctx.mapConfig.inputPos]
 	var outputVal interface{}
+	var inputV, errMsg string
+	var ok bool
 	var err error
-	if inputVal == nil {
-		// Apply default
+	if inputVal != nil {
+		inputV, ok = inputVal.(string)
+		if !ok {
+			// humm, was expecting a string
+			inputV = fmt.Sprintf("%v", inputVal)
+		}
+		if len(inputV) > 0 && ctx.mapConfig.mapConfig.CleansingFunction != nil {
+			inputV, errMsg = ctx.cleansingCtx.applyCleasingFunction(ctx.mapConfig.mapConfig.CleansingFunction, ctx.mapConfig.mapConfig.Argument, &inputV)
+			if len(errMsg) > 0 {
+				// fmt.Println("*** Error while applying cleansing function:", errMsg)
+				inputV = ""
+			}
+		}
+	}
+	if len(inputV) == 0 {
+		// Apply default if defined
 		outputVal = ctx.mapConfig.defaultValue
-		if ctx.mapConfig.defaultValue == nil && ctx.mapConfig.mapConfig.ErrMsg != nil {
-			fmt.Println("Error raise, null on input")
+		if outputVal == nil && (ctx.mapConfig.mapConfig.ErrMsg != nil || errMsg != "") {
+			if errMsg == "" {
+				errMsg = *ctx.mapConfig.mapConfig.ErrMsg
+			}
+			fmt.Println("TODO Report Error, null on input and have errMsg:", errMsg)
 		}
 	} else {
-		if ctx.mapConfig.mapConfig.CleansingFunction != nil {
-			inputV := inputVal.(string)
-			outV, errMsg := ctx.cleansingCtx.applyCleasingFunction(ctx.mapConfig.mapConfig.CleansingFunction, ctx.mapConfig.mapConfig.Argument, &inputV)
-			if len(errMsg) > 0 {
-				fmt.Println("*** Error while applying cleansing function:", errMsg)
+		// Cast to rdf type
+		var temp interface{}
+		switch ctx.mapConfig.mapConfig.RdfType {
+		case "int":
+			outputVal, err = strconv.Atoi(inputV)
+			if err != nil {
+				// fmt.Println("input is not int:", inputV)
+				outputVal = nil
+			}
+		case "int64", "long":
+			outputVal, err = strconv.ParseInt(inputV, 10, 64)
+			if err != nil {
+				// fmt.Println("input is not long:", inputV)
+				outputVal = nil
+			}
+		case "float64", "double":
+			outputVal, err = strconv.ParseFloat(inputV, 64)
+			if err != nil {
+				// fmt.Println("input is not double:", inputV)
+				outputVal = nil
+			}
+		case "date":
+			temp, err = ParseDate(inputV)
+			if err != nil {
+				// fmt.Println("input is not date:", inputV)
 				outputVal = nil
 			} else {
-				if len(outV) > 0 {
-					outputVal = outV
-				}
+				outputVal = *(temp.(*time.Time))
 			}
-			if outputVal == nil && ctx.mapConfig.defaultValue != nil {
-				outputVal = ctx.mapConfig.defaultValue
+		case "datetime":
+			temp, err = ParseDatetime(inputV)
+			if err != nil {
+				// fmt.Println("input is not date:", inputV)
+				outputVal = nil
+			} else {
+				outputVal = *(temp.(*time.Time))	
 			}
-		} else {
-			var temp interface{}
-			switch ctx.mapConfig.mapConfig.RdfType {
-			case "int":
-				outputVal, err = strconv.Atoi(inputVal.(string))
-				if err != nil {
-					// fmt.Println("input is not int:", inputVal.(string))
-					outputVal = nil
-				}
-			case "int64", "long":
-				outputVal, err = strconv.ParseInt(inputVal.(string), 10, 64)
-				if err != nil {
-					// fmt.Println("input is not long:", inputVal.(string))
-					outputVal = nil
-				}
-			case "float64", "double":
-				outputVal, err = strconv.ParseFloat(inputVal.(string), 64)
-				if err != nil {
-					// fmt.Println("input is not double:", inputVal.(string))
-					outputVal = nil
-				}
-			case "date":
-				temp, err = ParseDate(inputVal.(string))
-				if err != nil {
-					// fmt.Println("input is not date:", inputVal.(string))
-					outputVal = nil
-				} else {
-					outputVal = *(temp.(*time.Time))
-				}
-			case "datetime":
-				temp, err = ParseDatetime(inputVal.(string))
-				if err != nil {
-					// fmt.Println("input is not date:", inputVal.(string))
-					outputVal = nil
-				} else {
-					outputVal = *(temp.(*time.Time))	
-				}
-			case "string", "text":
-				switch v := inputVal.(type) {
-				case string:
-					if len(v) > 0 {
-						outputVal = inputVal	
-					}
-				default:
-					outputVal = fmt.Sprintf("%v", inputVal)
-				}
-			default:
-				outputVal = inputVal
-				log.Printf("warning: unknown rdf_type %s while mapping column value", ctx.mapConfig.mapConfig.RdfType)
-			}
-			
+		case "string", "text":
+			outputVal = inputV
+		default:
+			outputVal = inputV
+			log.Printf("warning: unknown rdf_type %s while mapping column value", ctx.mapConfig.mapConfig.RdfType)
 		}
 	}
 	(*currentValue)[ctx.mapConfig.outputPos] = outputVal
@@ -168,11 +174,11 @@ func (ctx *BuilderContext) buildMapEvaluator(source *InputChannel, outCh *Output
 
 	inputPos, ok := source.columns[*spec.Expr]
 	if !ok {
-		return nil, fmt.Errorf("error column %s not found in input source %s", *spec.Expr, source.config.Name)
+		return nil, fmt.Errorf("mapping column: error column %s not found in input source %s", *spec.Expr, source.config.Name)
 	}
 	outputPos, ok := outCh.columns[spec.Name]
 	if !ok {
-		return nil, fmt.Errorf("error column %s not found in output source %s", spec.Name, outCh.config.Name)
+		return nil, fmt.Errorf("mapping column: error column %s not found in output source %s", spec.Name, outCh.config.Name)
 	}
 	return &mapColumnEval{
 		mapConfig: &mapColumnConfig{

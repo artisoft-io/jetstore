@@ -81,9 +81,11 @@ func (ctx *hashColumnEval) update(currentValue *[]interface{}, input *[]interfac
 	// compute the hash of value @ inputPos, if it's nil use the alternate (composite) key
 	var hashedValue interface{}
 	inputVal := (*input)[ctx.inputPos]
+	fmt.Printf("##### # inputVal: %v\n", inputVal)
 	if inputVal == nil && ctx.altInputKey != nil {
 		// Make the alternate key to hash
 		inputVal, err = ctx.makeAlternateKey(input)
+		fmt.Printf("##### # makeAlternateKey: %v\n", inputVal)
 		if err != nil {
 			return err
 		}
@@ -92,9 +94,9 @@ func (ctx *hashColumnEval) update(currentValue *[]interface{}, input *[]interfac
 	h := EvalHash(inputVal, ctx.partitions)
 	if h != nil {
 		hashedValue = *h
-		fmt.Printf("##### # EvalHash k: %v, nbr: %d => %v\n", inputVal, ctx.partitions, hashedValue)
+		fmt.Printf("##### # EvalHash k: %v, nbr partitions: %d => %v\n", inputVal, ctx.partitions, hashedValue)
 	} else {
-		fmt.Printf("##### # EvalHash k: %v, nbr: %d => NULL\n", inputVal, ctx.partitions)
+		fmt.Printf("##### # EvalHash k: %v, nbr partitions: %d => NULL\n", inputVal, ctx.partitions)
 	}
 
 	(*currentValue)[ctx.outputPos] = hashedValue
@@ -165,7 +167,7 @@ func ParseAltKeyDefinition(altExpr []string, columns map[string]int) ([]Preproce
 		} else {
 			pos, ok := columns[v[2]]
 			if !ok {
-				return nil, fmt.Errorf("error: hash operator alt column %s not found", altExpr[i])
+				return nil, fmt.Errorf("error: hash operator alt column %s not found, taken from %s", v[2], altExpr[i])
 			}
 			switch v[1] {
 			case "format_date":

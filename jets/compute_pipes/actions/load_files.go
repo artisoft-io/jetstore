@@ -96,9 +96,7 @@ func (cpCtx *ComputePipesContext) ReadParquetFile(filePath *FileName, computePip
 			for i := range inputColumns {
 				rawValue := parquetRow[cpCtx.InputColumns[i]]
 				if isShardingMode {
-					if rawValue == nil {
-						record[i] = ""
-					} else {
+					if rawValue != nil {
 						// Read all fields as string
 						switch vv := rawValue.(type) {
 						case string:
@@ -116,7 +114,11 @@ func (cpCtx *ComputePipesContext) ReadParquetFile(filePath *FileName, computePip
 						case float32:
 							record[i] = strconv.FormatFloat(float64(vv), 'E', -1, 32)
 						case bool:
-							record[i] = fmt.Sprintf("%v", vv)
+							if vv {
+								record[i] = "1"	
+							} else {
+								record[i] = "0"
+							}
 						default:
 							record[i] = fmt.Sprintf("%v", rawValue)
 						}
