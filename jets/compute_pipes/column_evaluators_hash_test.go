@@ -38,7 +38,7 @@ func TestHashColumnEval(t *testing.T) {
 		partitions:  1,
 		altInputKey: pfnc,
 	}
-	out, err := ctx.makeAlternateKey(&[]interface{}{nil, "name", "6-14-2024"})
+	out, err := makeAlternateKey(&ctx.altInputKey, &[]interface{}{nil, "name", "6-14-2024"})
 	if err != nil {
 		t.Errorf("while calling makeAlternateKey: %v", err)
 	}
