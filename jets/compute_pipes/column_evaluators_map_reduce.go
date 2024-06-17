@@ -89,11 +89,10 @@ func (ctx *BuilderContext) buildMapReduceEvaluator(source *InputChannel, outCh *
 		return nil, fmt.Errorf("error column %s not found in input source %s", *spec.MapOn, source.config.Name)
 	}
 	var altInputKey []PreprocessingFunction
-	if spec.HashExpr.AlternateCompositeExpr != nil {
-		altExpr := *spec.HashExpr.AlternateCompositeExpr
-		altInputKey, err = ParseAltKeyDefinition(altExpr, source.columns)
+	if spec.AlternateMapOn != nil {
+		altInputKey, err = ParseAltKeyDefinition(*spec.AlternateMapOn, source.columns)
 		if err != nil {
-			return nil, fmt.Errorf("%v in source name %s", err, source.config.Name)
+			return nil, fmt.Errorf("buildMapReduceEvaluator: %v in source name %s", err, source.config.Name)
 		}
 	}
 
