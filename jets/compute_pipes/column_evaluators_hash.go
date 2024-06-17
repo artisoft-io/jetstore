@@ -1,17 +1,25 @@
 package compute_pipes
 
 import (
+	"bytes"
 	"fmt"
 	"hash/fnv"
+	"regexp"
+	"strings"
+
+	"github.com/artisoft-io/jetstore/jets/jetrules/rdf"
 )
+var preprocessingFncRe *regexp.Regexp
+func init() {
+	preprocessingFncRe = regexp.MustCompile(`^(.*?)\((.*?)\)$`)
+}
 
 // TransformationColumnSpec Type hash
 type hashColumnEval struct {
 	inputPos    int
 	outputPos   int
 	partitions  uint64
-	format      string
-	defaultExpr *evalExpression
+	altInputKey []PreprocessingFunction
 }
 
 func Hash(key []byte, partitions uint64) uint64 {
@@ -70,24 +78,23 @@ func (ctx *hashColumnEval) update(currentValue *[]interface{}, input *[]interfac
 	if currentValue == nil || input == nil {
 		return fmt.Errorf("error hashColumnEval.update cannot have nil currentValue or input")
 	}
-	// update currentValue using input applying cleansing function and default value
-	inputVal := (*input)[ctx.inputPos]
+	// compute the hash of value @ inputPos, if it's nil use the alternate (composite) key
 	var hashedValue interface{}
+	inputVal := (*input)[ctx.inputPos]
+	if inputVal == nil && ctx.altInputKey != nil {
+		// Make the alternate key to hash
+		inputVal, err = ctx.makeAlternateKey(input)
+		if err != nil {
+			return err
+		}
+	}
 
-	if inputVal == nil && ctx.defaultExpr != nil {
-		// Apply default
-		hashedValue, err = (*ctx.defaultExpr).eval(input)
+	h := EvalHash(inputVal, ctx.partitions)
+	if h != nil {
+		hashedValue = *h
+		fmt.Printf("##### # EvalHash k: %v, nbr: %d => %v\n", inputVal, ctx.partitions, hashedValue)
 	} else {
-		h := EvalHash(inputVal, ctx.partitions)
-		if h != nil {
-			hashedValue = *h
-			// fmt.Printf("##### # EvalHash k: %v, nbr: %d => %v\n", inputVal, ctx.partitions, hashedValue)
-		} else {
-			// fmt.Printf("##### # EvalHash k: %v, nbr: %d => NULL\n", inputVal, ctx.partitions)
-		}
-		if len(ctx.format) > 0 {
-			hashedValue = fmt.Sprintf(ctx.format, hashedValue)
-		}
+		fmt.Printf("##### # EvalHash k: %v, nbr: %d => NULL\n", inputVal, ctx.partitions)
 	}
 
 	(*currentValue)[ctx.outputPos] = hashedValue
@@ -98,7 +105,6 @@ func (ctx *hashColumnEval) done(currentValue *[]interface{}) error {
 }
 
 // The Hash operator full example (dw_rawfilename is string):
-// jets_partition as a string (applies the format):
 //
 //	{
 //		"name": "jets_partition",
@@ -106,25 +112,10 @@ func (ctx *hashColumnEval) done(currentValue *[]interface{}) error {
 //		"hash_expr": {
 //			"expr": "dw_rawfilename",
 //			"nbr_jets_partitions": 3,
-//			"format": "%04d",
-//			"default_expr": {
-//				"type": "value",
-//				"expr": "1"
-//			}
+//			"alternate_composite_expr": ["name", "gender", "format_date(dob)"],
 //		}
 //
-// jets_partition as uint64:
-//
-//	{
-//		"name": "jets_partition",
-//		"type": "hash",
-//		"hash_expr": {
-//			"expr": "dw_rawfilename",
-//			"nbr_jets_partitions": 3
-//		}
-//	},
-//
-// jets_partition will be of type uint64 if expr column is of integral type.
+// jets_partition will be of type uint64
 func (ctx *BuilderContext) buildHashEvaluator(source *InputChannel, outCh *OutputChannel, spec *TransformationColumnSpec) (*hashColumnEval, error) {
 	var err error
 	if spec == nil || spec.HashExpr == nil {
@@ -132,11 +123,11 @@ func (ctx *BuilderContext) buildHashEvaluator(source *InputChannel, outCh *Outpu
 	}
 	inputPos, ok := source.columns[spec.HashExpr.Expr]
 	if !ok {
-		err = fmt.Errorf("error column %s not found in input source %s", *spec.Expr, source.config.Name)
+		return nil, fmt.Errorf("error column %s not found in input source %s", *spec.Expr, source.config.Name)
 	}
 	outputPos, ok := outCh.columns[spec.Name]
 	if !ok {
-		err = fmt.Errorf("error column %s not found in output source %s", spec.Name, outCh.config.Name)
+		return nil, fmt.Errorf("error column %s not found in output source %s", spec.Name, outCh.config.Name)
 	}
 	var partitions uint64
 	if spec.HashExpr.NbrJetsPartitions != nil {
@@ -144,22 +135,103 @@ func (ctx *BuilderContext) buildHashEvaluator(source *InputChannel, outCh *Outpu
 	} else {
 		partitions = ctx.cpConfig.ClusterConfig.NbrJetsPartitions
 	}
-	var format string
-	if spec.HashExpr.Format != nil {
-		format = *spec.HashExpr.Format
-	}
-	var defaultExpr evalExpression
-	if spec.HashExpr.DefaultExpr != nil {
-		defaultExpr, err = ctx.buildExprNodeEvaluator(source, outCh, spec.HashExpr.DefaultExpr)
+	var altInputKey []PreprocessingFunction
+	if spec.HashExpr.AlternateCompositeExpr != nil {
+		altExpr := *spec.HashExpr.AlternateCompositeExpr
+		altInputKey, err = ParseAltKeyDefinition(altExpr, source.columns)
 		if err != nil {
-			return nil, fmt.Errorf("while building the default expr in Hash operator: %v", err)
+			return nil, fmt.Errorf("%v in source name %s", err, source.config.Name)
 		}
 	}
 	return &hashColumnEval{
 		inputPos:    inputPos,
 		outputPos:   outputPos,
 		partitions:  partitions,
-		format:      format,
-		defaultExpr: &defaultExpr,
-	}, err
+		altInputKey: altInputKey,
+	}, nil
+}
+
+func ParseAltKeyDefinition(altExpr []string, columns map[string]int) ([]PreprocessingFunction, error) {
+	altInputKey := make([]PreprocessingFunction, len(altExpr))
+	for i := range altExpr {
+		// Get the processing function, if any, and the column name
+		v := preprocessingFncRe.FindStringSubmatch(altExpr[i])
+		if len(v) < 3 {
+			pos, ok := columns[altExpr[i]]
+			if !ok {
+				return nil, fmt.Errorf("error: hash operator alt column %s not found", altExpr[i])
+			}	
+			altInputKey[i] = &DefaultPF{inputPos: pos}
+		} else {
+			pos, ok := columns[v[2]]
+			if !ok {
+				return nil, fmt.Errorf("error: hash operator alt column %s not found", altExpr[i])
+			}
+			switch v[1] {
+			case "format_date":
+				altInputKey[i] = &FormatDatePF{inputPos: pos}
+			default:
+				return nil, fmt.Errorf("error: hash operator alt key definition has an unknown preprocessing function %s", altExpr[i])
+			}
+		}
+	}
+	return altInputKey, nil
+}
+
+func (ctx *hashColumnEval) makeAlternateKey(input *[]interface{}) (interface{}, error) {
+	var buf bytes.Buffer
+	var err error
+	for _, pf := range ctx.altInputKey {
+		err = pf.ApplyPF(&buf, input)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return buf.String(), nil
+}
+
+type PreprocessingFunction interface {
+	ApplyPF(buf *bytes.Buffer, input *[]interface{}) error
+}
+
+// DefaultPF is when there is no preprocessing function, simply add the value to the byte buffer
+type DefaultPF struct {
+	inputPos int
+}
+
+func (pf *DefaultPF) ApplyPF(buf *bytes.Buffer, input *[]interface{}) error {
+	switch vv := (*input)[pf.inputPos].(type) {
+	case string:
+		buf.WriteString(strings.ToUpper(vv))
+	case []byte:
+		buf.Write(vv)
+	case nil:
+		// do nothing
+	default:
+		buf.WriteString(fmt.Sprintf("%v", vv))
+	}
+	return nil
+}
+
+// FormatDatePF is writing a date field using YYYMMDD format
+// This assume the date in the input is a valid date as string
+type FormatDatePF struct {
+	inputPos int
+}
+
+func (pf *FormatDatePF) ApplyPF(buf *bytes.Buffer, input *[]interface{}) error {
+	v := (*input)[pf.inputPos]
+	if v == nil {
+		return nil
+	}
+	vv, ok := v.(string)
+	if !ok {
+		return fmt.Errorf("error: in FormatDatePF the input date is not a string: %v", v)
+	}
+	y, m, d, err := rdf.ParseDateComponents(vv)
+	if err != nil {
+		return fmt.Errorf("error: in FormatDatePF the input date is not a valid date: %v", err)
+	}
+	buf.WriteString(fmt.Sprintf("%d%02d%02d", y, m, d))
+	return nil
 }

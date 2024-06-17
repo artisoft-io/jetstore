@@ -11,8 +11,8 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
-	"time"
 
+	"github.com/artisoft-io/jetstore/jets/jetrules/rdf"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v4"
 	"github.com/jackc/pgx/v4/pgxpool"
@@ -21,13 +21,12 @@ import (
 // available functions for preprocessing input column values used in domain keys
 var preprocessingFunctions map[string]bool
 var preprocessingFncRe *regexp.Regexp
-var dateParsingRe *regexp.Regexp
 var domainKeySeparator string
 func init() {
 	preprocessingFncRe = regexp.MustCompile(`^(.*?)\((.*?)\)$`)
-	dateParsingRe = regexp.MustCompile(`(\d{1,4})-?\/?(\d{1,2})-?\/?(\d{1,4})`)
 	preprocessingFunctions = map[string]bool{
 		"format_date": true,
+		"remove_mi": true,
 	}
 	domainKeySeparator = os.Getenv("JETS_DOMAIN_KEY_SEPARATOR")
 }
@@ -364,63 +363,14 @@ func (dkInfo *HeadersAndDomainKeysInfo)IsDomainKeyIsJetsKey(objectType *string) 
 }
 
 func applyPreprocessingFunction(fncName, value string) (string, error) {
+	// IMPORTANT NOTE: If adding preprocessing functions here, MUST update preprocessingFunctions global var
 	switch fncName {
 	case "":
 		return value, nil
 	case "format_date":
-		v := dateParsingRe.FindStringSubmatch(value)
-		if len(v) < 4 {
-			return "", fmt.Errorf("value is not a date: %s",value)
-		}
-		l1 :=len(v[1]);
-		l2 :=len(v[2]);
-		l3 :=len(v[3]);
-		if l1 == 0 || l2 == 0 || l3 == 0 {
-			return "", fmt.Errorf("value is not a date: %s",value)
-		}
-		// input format 2/19/1968 : mm/dd/yyyy
-		// input format 2012-07-27 : yyyy-mm-dd (same order as output)
-		// input format 20120727 : yyyymmdd (same as output) 
-		// input format 2012-7-9 : yyyymmdd
-		var year, month, day int
-		var err error
-		switch {
-		case l1 == 4:
-			// format yyyy mm dd
-			year, err = strconv.Atoi(v[1])
-			if err != nil {
-				return "", fmt.Errorf("invalid date format: %s",value)
-			}
-			month, err = strconv.Atoi(v[2])
-			if err != nil {
-				return "", fmt.Errorf("invalid date format: %s",value)
-			}
-			day, err = strconv.Atoi(v[3])
-			if err != nil {
-				return "", fmt.Errorf("invalid date format: %s",value)
-			}
-		case l3 == 4:
-			// format mm dd yyyy -> yyyy mm dd
-			year, err = strconv.Atoi(v[3])
-			if err != nil {
-				return "", fmt.Errorf("invalid date format: %s",value)
-			}
-			month, err = strconv.Atoi(v[1])
-			if err != nil {
-				return "", fmt.Errorf("invalid date format: %s",value)
-			}
-			day, err = strconv.Atoi(v[2])
-			if err != nil {
-				return "", fmt.Errorf("invalid date format: %s",value)
-			}
-		default:
-			return "", fmt.Errorf("unknown date format: %s",value)
-		}	
-		// validating the date - must validate since corner case of 2003812 will give 2003-81-2 and
-		// not the correct date of 2003-8-12
-		tm := time.Date(year, time.Month(month), day, 0, 0, 0, 0, time.UTC)
-		if tm.Year() != year || tm.Month() != time.Month(month) || tm.Day() != day {
-			return "", fmt.Errorf("invalid date: %s",value)
+		year, month, day, err := rdf.ParseDateComponents(value)
+		if err != nil {
+			return "", fmt.Errorf("while applyPreprocessingFunction %s: %v", fncName, err)
 		}
 		formatedDate := fmt.Sprintf("%d%02d%02d",year, month, day)
 		return formatedDate, nil

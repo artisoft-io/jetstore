@@ -57,7 +57,7 @@ using RPos3 = rdf::TripleBase<PosOrRIndex>;
 // AlphaNode class -- is a connector to the rdf graph for a antecedent or consequent term
 //                     in the for of a triple (u, v, w) where
 //                        - u and v can be ?s, or a constant
-//                        - w can be ?s, constant, or and expression
+//                        - w can be ?s, constant, or an expression
 // AlphaNode is a virtual base class, sub class are parametrized by functor: <Fu, Fv, Fw>
 // --------------------------------------------------------------------------------------
 /**
