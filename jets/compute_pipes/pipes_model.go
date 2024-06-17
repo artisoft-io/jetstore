@@ -99,18 +99,19 @@ type TransformationColumnSpec struct {
 	// Type range: select, value, eval, map, hash
 	// (applicable to aggregate) count, distinct_count, sum, min,
 	// case, map_reduce
-	Name        string                      `json:"name"`
-	Type        string                      `json:"type"`
-	Expr        *string                     `json:"expr"`
-	MapExpr     *MapExpression              `json:"map_expr"`
-	EvalExpr    *ExpressionNode             `json:"eval_expr"`
-	HashExpr    *HashExpression             `json:"hash_expr"`
-	Where       *ExpressionNode             `json:"where"`
-	CaseExpr    []CaseExpression            `json:"case_expr"`
-	ElseExpr    *ExpressionNode             `json:"else_expr"`
-	MapOn       *string                     `json:"map_on"`
-	ApplyMap    *[]TransformationColumnSpec `json:"apply_map"`
-	ApplyReduce *[]TransformationColumnSpec `json:"apply_reduce"`
+	Name           string                      `json:"name"`
+	Type           string                      `json:"type"`
+	Expr           *string                     `json:"expr"`
+	MapExpr        *MapExpression              `json:"map_expr"`
+	EvalExpr       *ExpressionNode             `json:"eval_expr"`
+	HashExpr       *HashExpression             `json:"hash_expr"`
+	Where          *ExpressionNode             `json:"where"`
+	CaseExpr       []CaseExpression            `json:"case_expr"`
+	ElseExpr       *ExpressionNode             `json:"else_expr"`
+	MapOn          *string                     `json:"map_on"`
+	AlternateMapOn *[]string                   `json:"alternate_map_on"`
+	ApplyMap       *[]TransformationColumnSpec `json:"apply_map"`
+	ApplyReduce    *[]TransformationColumnSpec `json:"apply_reduce"`
 }
 
 type HashExpression struct {

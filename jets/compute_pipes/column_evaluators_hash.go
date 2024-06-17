@@ -81,11 +81,11 @@ func (ctx *hashColumnEval) update(currentValue *[]interface{}, input *[]interfac
 	// compute the hash of value @ inputPos, if it's nil use the alternate (composite) key
 	var hashedValue interface{}
 	inputVal := (*input)[ctx.inputPos]
-	fmt.Printf("##### # inputVal: %v\n", inputVal)
+	// fmt.Printf("##### # inputVal: %v\n", inputVal)
 	if inputVal == nil && ctx.altInputKey != nil {
 		// Make the alternate key to hash
-		inputVal, err = ctx.makeAlternateKey(input)
-		fmt.Printf("##### # makeAlternateKey: %v\n", inputVal)
+		inputVal, err = makeAlternateKey(&ctx.altInputKey, input)
+		// fmt.Printf("##### # makeAlternateKey: %v\n", inputVal)
 		if err != nil {
 			return err
 		}
@@ -94,9 +94,9 @@ func (ctx *hashColumnEval) update(currentValue *[]interface{}, input *[]interfac
 	h := EvalHash(inputVal, ctx.partitions)
 	if h != nil {
 		hashedValue = *h
-		fmt.Printf("##### # EvalHash k: %v, nbr partitions: %d => %v\n", inputVal, ctx.partitions, hashedValue)
-	} else {
-		fmt.Printf("##### # EvalHash k: %v, nbr partitions: %d => NULL\n", inputVal, ctx.partitions)
+		// fmt.Printf("##### # EvalHash k: %v, nbr partitions: %d => %v\n", inputVal, ctx.partitions, hashedValue)
+	// } else {
+	// 	fmt.Printf("##### # EvalHash k: %v, nbr partitions: %d => NULL\n", inputVal, ctx.partitions)
 	}
 
 	(*currentValue)[ctx.outputPos] = hashedValue
@@ -180,10 +180,10 @@ func ParseAltKeyDefinition(altExpr []string, columns map[string]int) ([]Preproce
 	return altInputKey, nil
 }
 
-func (ctx *hashColumnEval) makeAlternateKey(input *[]interface{}) (interface{}, error) {
+func makeAlternateKey(altInputKey *[]PreprocessingFunction, input *[]interface{}) (interface{}, error) {
 	var buf bytes.Buffer
 	var err error
-	for _, pf := range ctx.altInputKey {
+	for _, pf := range *altInputKey {
 		err = pf.ApplyPF(&buf, input)
 		if err != nil {
 			return nil, err
