@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"hash/fnv"
+	"math/rand"
 	"regexp"
 	"strings"
 
@@ -39,10 +40,13 @@ func partition(key, partitions uint64) uint64 {
 }
 
 func EvalHash(key interface{}, partitions uint64) *uint64 {
-	if key == nil {
-		return nil
-	}
 	var hashedValue uint64
+	if key == nil {
+		if partitions > 0 {
+			hashedValue = uint64(rand.Int63n(int64(partitions)))
+		}
+		return &hashedValue
+	}
 	switch vv := key.(type) {
 	case string:
 		hashedValue = Hash([]byte(vv), partitions)

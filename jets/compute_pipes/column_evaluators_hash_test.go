@@ -47,3 +47,27 @@ func TestHashColumnEval(t *testing.T) {
 		t.Errorf("error: expecting NAME20240614 got %v", out)
 	}
 }
+
+func TestEvalHash(t *testing.T) {
+	v := EvalHash(nil, 0) 
+	if v == nil {
+		t.Fatal("error: got nil from EvalHash (1)")
+	}
+	if *v != 0 {
+		t.Errorf("error: expecting 0 from EvalHash (1)")
+	}
+	v = EvalHash(nil, 1)
+	if v == nil {
+		t.Fatal("error: got nil from EvalHash (2)")
+	}
+	if *v != 0 {
+		t.Errorf("error: expecting 0 from EvalHash (2)")
+	}
+	v = EvalHash(nil, 5)
+	if v == nil {
+		t.Fatal("error: got nil from EvalHash (3)")
+	}
+	if *v > 4 {
+		t.Errorf("error: expecting [0,5) from EvalHash (3)")
+	}
+}

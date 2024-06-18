@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"log"
-	"math/rand"
 	"net"
 	"net/http"
 	"net/rpc"
@@ -386,9 +385,6 @@ func (ctx *BuilderContext) StartClusterMap(spec *PipeSpec, source *InputChannel,
 		// }
 		if v != nil {
 			destinationSubClusterNodeId = int(*v)
-		} else {
-			// pick random shard
-			destinationSubClusterNodeId = rand.Intn(ctx.nbrSubClusterNodes)
 		}
 		if destinationSubClusterNodeId == ctx.subClusterNodeId {
 			nbrRecordsConsumedLocally++
