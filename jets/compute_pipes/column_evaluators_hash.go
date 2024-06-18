@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"hash/fnv"
+	"math/rand"
 	"regexp"
 	"strings"
 
@@ -39,10 +40,13 @@ func partition(key, partitions uint64) uint64 {
 }
 
 func EvalHash(key interface{}, partitions uint64) *uint64 {
-	if key == nil {
-		return nil
-	}
 	var hashedValue uint64
+	if key == nil {
+		if partitions > 0 {
+			hashedValue = uint64(rand.Int63n(int64(partitions)))
+		}
+		return &hashedValue
+	}
 	switch vv := key.(type) {
 	case string:
 		hashedValue = Hash([]byte(vv), partitions)
@@ -161,19 +165,19 @@ func ParseAltKeyDefinition(altExpr []string, columns map[string]int) ([]Preproce
 		if len(v) < 3 {
 			pos, ok := columns[altExpr[i]]
 			if !ok {
-				return nil, fmt.Errorf("error: hash operator alt column %s not found", altExpr[i])
+				return nil, fmt.Errorf("error: alt column %s not found", altExpr[i])
 			}	
 			altInputKey[i] = &DefaultPF{inputPos: pos}
 		} else {
 			pos, ok := columns[v[2]]
 			if !ok {
-				return nil, fmt.Errorf("error: hash operator alt column %s not found, taken from %s", v[2], altExpr[i])
+				return nil, fmt.Errorf("error: alt column %s not found, taken from %s", v[2], altExpr[i])
 			}
 			switch v[1] {
 			case "format_date":
 				altInputKey[i] = &FormatDatePF{inputPos: pos}
 			default:
-				return nil, fmt.Errorf("error: hash operator alt key definition has an unknown preprocessing function %s", altExpr[i])
+				return nil, fmt.Errorf("error: alt key definition has an unknown preprocessing function %s", altExpr[i])
 			}
 		}
 	}

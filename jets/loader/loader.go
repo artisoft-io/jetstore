@@ -260,11 +260,11 @@ func processFileAndReportStatus(dbpool *pgxpool.Pool,
 			err = loadFromS3FilesResult.Err
 		}
 	}
-	log.Println("**!@@ CP RESULT = Loaded from s3: DONE")
+	// log.Println("**!@@ CP RESULT = Loaded from s3: DONE")
 	log.Println("**!@@ CP RESULT = Copy2DbResultCh:")
 	var outputRowCount int64
 	for table := range chResults.Copy2DbResultCh {
-		log.Println("**!@@ Read table results:")
+		// log.Println("**!@@ Read table results:")
 		for copy2DbResult := range table {
 			outputRowCount += copy2DbResult.CopyRowCount
 			log.Println("**!@@ Inserted", copy2DbResult.CopyRowCount, "rows in table", copy2DbResult.TableName, "::", copy2DbResult.Err)
