@@ -2,6 +2,7 @@ package rdf
 
 import (
 	"fmt"
+	"math"
 	"time"
 )
 
@@ -86,6 +87,91 @@ func (v *Node) String() string {
 	}
 }
 
+func (v *Node) MarshalBinary() ([]byte, error) {
+	switch vv := v.Value.(type) {
+	case BlankNode:
+		// int is 8 bytes
+		return []byte{
+			'B', 
+			byte(vv.key >> 56), 
+			byte(vv.key >> 48),
+			byte(vv.key >> 40),
+			byte(vv.key >> 32),
+			byte(vv.key >> 24),
+			byte(vv.key >> 16),
+			byte(vv.key >> 8),
+			byte(vv.key),
+		}, nil
+	case NamedResource:
+		return append([]byte(vv.name), 'R'), nil
+	case LDate:
+		md, err := vv.date.MarshalBinary()
+		if err == nil {
+			md = append(md, 'D')
+		}
+		return md, err
+	case LDatetime:
+		mt, err := vv.datetime.MarshalBinary()
+		if err == nil {
+			mt = append(mt, 'T')
+		}
+		return mt, err
+	case int:
+		// int is 8 bytes
+		return []byte{
+			'I','0','0',
+			byte(vv >> 56), 
+			byte(vv >> 48),
+			byte(vv >> 40),
+			byte(vv >> 32),
+			byte(vv >> 24),
+			byte(vv >> 16),
+			byte(vv >> 8),
+			byte(vv),
+		}, nil
+	case int32:
+		// int32 is 4 bytes
+		return []byte{
+			'I','3','2',
+			byte(vv >> 24),
+			byte(vv >> 16),
+			byte(vv >> 8),
+			byte(vv),
+		}, nil
+	case int64:
+		// int64 is 8 bytes
+		return []byte{
+			'I','6','4',
+			byte(vv >> 56), 
+			byte(vv >> 48),
+			byte(vv >> 40),
+			byte(vv >> 32),
+			byte(vv >> 24),
+			byte(vv >> 16),
+			byte(vv >> 8),
+			byte(vv),
+		}, nil
+	case float64:
+		// float64 -> uint64 is 8 bytes
+		t := math.Float64bits(vv)
+		return []byte{
+			'F','6','4',
+			byte(t >> 56), 
+			byte(t >> 48),
+			byte(t >> 40),
+			byte(t >> 32),
+			byte(t >> 24),
+			byte(t >> 16),
+			byte(t >> 8),
+			byte(t),
+		}, nil
+	case string:
+		return append([]byte(vv), 'S'), nil
+	default:
+		return nil, fmt.Errorf("error: unknown type for rdf.Node in MarshalBinary")
+	}
+}
+
 type Triple = [3]*Node
 
 func T3(s, p, o *Node) Triple {
@@ -144,6 +230,10 @@ func L(v int64) *Node {
 }
 
 func S(v string) *Node {
+	return &Node{Value: v}
+}
+
+func F(v float64) *Node {
 	return &Node{Value: v}
 }
 

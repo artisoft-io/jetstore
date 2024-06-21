@@ -1,0 +1,90 @@
+package rete
+
+import (
+	"hash/fnv"
+	"log"
+
+	"github.com/artisoft-io/jetstore/jets/jetrules/rdf"
+)
+
+// BetaRow class is a row in the BetaRelation table
+
+const (
+	kNone = iota
+	kInserted
+	kDeleted
+	kProcessed
+)
+
+type BetaRowStatus = int
+
+type BetaRow struct {
+	NdVertex *NodeVertex
+	Status   BetaRowStatus
+	Data     []*rdf.Node
+	h        uint64
+}
+
+func NewBetaRow(vertex *NodeVertex, size int) *BetaRow {
+	return &BetaRow{
+		NdVertex: vertex,
+		Status:   kNone,
+		Data:     make([]*rdf.Node, size),
+	}
+}
+
+func (row *BetaRow) Initialize(initializer *BetaRowInitializer, parentRow *BetaRow, t3 *rdf.Triple) error {
+	var value *rdf.Node
+	for i, d := range initializer.InitData {
+		pos := d & brcLowMask
+		if d&brcParentNode != 0 {
+			value = parentRow.Data[pos]
+		} else {
+			value = (*t3)[pos]
+		}
+		row.Data[i] = value
+	}
+	// Calculate the row hash
+	row.h = row.Hash()
+	return nil
+}
+
+func (lhs *BetaRow) Eq(rhs *BetaRow) bool {
+	if len(lhs.Data) != len(rhs.Data) {
+		return false
+	}
+	for i := range lhs.Data {
+		// Should we do a deep ne??
+		if lhs.Data[i] != rhs.Data[i] {
+			return false
+		}
+	}
+	return true
+}
+
+func (row *BetaRow) Hash() uint64 {
+	if row == nil {
+		return 0
+	}
+	h := fnv.New64a()
+	var b []byte
+	var err error
+	for _, r := range (*row).Data {
+		b, err = r.MarshalBinary()
+		if err != nil {
+			log.Fatalf("error while MarshalingBinary of resource %s", r)
+		}
+		h.Write(b)
+	}
+	return h.Sum64()
+}
+
+func (row *BetaRow) Get(i int) *rdf.Node {
+	if row == nil || i < 0 {
+		return nil
+	}
+	if i < len(row.Data) {
+		return row.Data[i]
+	}
+	return nil
+}
