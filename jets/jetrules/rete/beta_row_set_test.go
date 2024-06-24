@@ -6,7 +6,7 @@ import (
 	"github.com/artisoft-io/jetstore/jets/jetrules/rdf"
 )
 
-// This file contains test cases for the BaseGraph in rdf package
+// This file contains test cases for the BetaRowSet
 func TestBetaRowSet(t *testing.T) {
 	rMgr := rdf.NewResourceManager(nil)
 	brSet := NewBetaRowSet()
