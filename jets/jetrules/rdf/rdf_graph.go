@@ -16,7 +16,7 @@ type RdfGraph struct {
 	spoGraph    *BaseGraph
 	posGraph    *BaseGraph
 	ospGraph    *BaseGraph
-	callbackMgr *CallbackManager
+	CallbackMgr *CallbackManager
 }
 
 func NewRdfGraph(graphType string) *RdfGraph {
@@ -24,7 +24,7 @@ func NewRdfGraph(graphType string) *RdfGraph {
 		spoGraph:    NewBaseGraph(graphType, 's'),
 		posGraph:    NewBaseGraph(graphType, 'p'),
 		ospGraph:    NewBaseGraph(graphType, 'o'),
-		callbackMgr: NewCallbackManager(),
+		CallbackMgr: NewCallbackManager(),
 	}
 }
 
@@ -100,7 +100,7 @@ func (g *RdfGraph) Insert(s, p, o *Node) (bool, error) {
 	g.ospGraph.Insert(o, s, p)
 	if inserted {
 		// Notify the callback mgr
-		g.callbackMgr.TripleInserted(s, p, o)
+		g.CallbackMgr.TripleInserted(s, p, o)
 	}
 	return inserted, nil
 }
@@ -119,7 +119,7 @@ func (g *RdfGraph) Erase(s, p, o *Node) (bool, error) {
 	g.ospGraph.Erase(o, s, p)
 	if erased {
 		// Notify callback mgr
-		g.callbackMgr.TripleDeleted(s, p, o)
+		g.CallbackMgr.TripleDeleted(s, p, o)
 	}
 	return erased, nil
 }
@@ -138,7 +138,7 @@ func (g *RdfGraph) Retract(s, p, o *Node) (bool, error) {
 	g.ospGraph.Erase(o, s, p)
 	if erased {
 		// Notify callback mgr
-		g.callbackMgr.TripleDeleted(s, p, o)
+		g.CallbackMgr.TripleDeleted(s, p, o)
 	}
 	return erased, nil
 }

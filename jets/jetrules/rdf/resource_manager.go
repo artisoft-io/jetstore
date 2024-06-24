@@ -15,20 +15,31 @@ type ResourceManager struct {
 }
 
 type JetResources struct {
-	jets__client                  *Node
-	jets__completed               *Node
-	jets__sourcePeriodType        *Node
-	jets__currentSourcePeriod     *Node
-	jets__currentSourcePeriodDate *Node
-	jets__exception               *Node
-	jets__input_record            *Node
-	jets__istate                  *Node
-	jets__key                     *Node
-	jets__loop                    *Node
-	jets__org                     *Node
-	jets__source_period_sequence  *Node
-	jets__state                   *Node
-	rdf__type                     *Node
+	Jets__sourcePeriodType        *Node
+	Jets__currentSourcePeriod     *Node
+	Jets__currentSourcePeriodDate *Node
+	Jets__client                  *Node
+	Jets__completed               *Node
+	Jets__entity_property         *Node
+	Jets__exception               *Node
+	Jets__from                    *Node
+	Jets__input_record            *Node
+	Jets__istate                  *Node
+	Jets__key                     *Node
+	Jets__length                  *Node
+	Jets__lookup_multi_rows       *Node
+	Jets__lookup_row              *Node
+	Jets__loop                    *Node
+	Jets__max_vertex_visits       *Node
+	Jets__operator                *Node
+	Jets__org                     *Node
+	Jets__range_value             *Node
+	Jets__replace_chars           *Node
+	Jets__replace_with            *Node
+	Jets__source_period_sequence  *Node
+	Jets__state                   *Node
+	Jets__value_property          *Node
+	Rdf__type                     *Node
 }
 
 func NewJetResources(rm *ResourceManager) *JetResources {
@@ -42,20 +53,31 @@ func (jr *JetResources) Initialize(rm *ResourceManager) {
 		return
 	}
 	// Create the resources
-	jr.jets__client = rm.NewResource("jets:client")
-	jr.jets__completed = rm.NewResource("jets:completed")
-	jr.jets__sourcePeriodType = rm.NewResource("jets:sourcePeriodType")
-	jr.jets__currentSourcePeriod = rm.NewResource("jets:currentSourcePeriod")
-	jr.jets__currentSourcePeriodDate = rm.NewResource("jets:currentSourcePeriodDate")
-	jr.jets__exception = rm.NewResource("jets:exception")
-	jr.jets__input_record = rm.NewResource("jets:input_record")
-	jr.jets__istate = rm.NewResource("jets:istate")
-	jr.jets__key = rm.NewResource("jets:key")
-	jr.jets__loop = rm.NewResource("jets:loop")
-	jr.jets__org = rm.NewResource("jets:org")
-	jr.jets__source_period_sequence = rm.NewResource("jets:source_period_sequence")
-	jr.jets__state = rm.NewResource("jets:state")
-	jr.rdf__type = rm.NewResource("rdf:type")
+	jr.Jets__client = rm.NewResource("jets:client")
+	jr.Jets__completed = rm.NewResource("jets:completed")
+	jr.Jets__currentSourcePeriod = rm.NewResource("jets:currentSourcePeriod")
+	jr.Jets__currentSourcePeriodDate = rm.NewResource("jets:currentSourcePeriodDate")
+	jr.Jets__entity_property = rm.NewResource("jets:entity_property")
+	jr.Jets__exception = rm.NewResource("jets:exception")
+	jr.Jets__from = rm.NewResource("jets:from")
+	jr.Jets__input_record = rm.NewResource("jets:InputRecord")
+	jr.Jets__istate = rm.NewResource("jets:iState")
+	jr.Jets__key = rm.NewResource("jets:key")
+	jr.Jets__length = rm.NewResource("jets:length")
+	jr.Jets__lookup_multi_rows = rm.NewResource("jets:lookup_multi_rows")
+	jr.Jets__lookup_row = rm.NewResource("jets:lookup_row")
+	jr.Jets__loop = rm.NewResource("jets:loop")
+	jr.Jets__max_vertex_visits = rm.NewResource("jets:max_vertex_visits")
+	jr.Jets__operator = rm.NewResource("jets:operator")
+	jr.Jets__org = rm.NewResource("jets:org")
+	jr.Jets__range_value = rm.NewResource("jets:range_value")
+	jr.Jets__replace_chars = rm.NewResource("jets:replace_chars")
+	jr.Jets__replace_with = rm.NewResource("jets:replace_with")
+	jr.Jets__source_period_sequence = rm.NewResource("jets:source_period_sequence")
+	jr.Jets__sourcePeriodType = rm.NewResource("jets:sourcePeriodType")
+	jr.Jets__state = rm.NewResource("jets:State")
+	jr.Jets__value_property = rm.NewResource("jets:value_property")
+	jr.Rdf__type = rm.NewResource("rdf:type")
 }
 
 func NewResourceManager(rootManager *ResourceManager) *ResourceManager {
