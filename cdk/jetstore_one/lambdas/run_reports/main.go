@@ -2,23 +2,16 @@ package main
 
 import (
 	"context"
-	"database/sql"
-	"encoding/json"
-	"errors"
 	"fmt"
 	"log"
 	"os"
 	"path/filepath"
-	"strconv"
 	"strings"
 
 	"github.com/artisoft-io/jetstore/jets/awsi"
 	"github.com/artisoft-io/jetstore/jets/datatable"
-	"github.com/artisoft-io/jetstore/jets/dbutils"
 	"github.com/artisoft-io/jetstore/jets/run_reports/delegate"
-	"github.com/artisoft-io/jetstore/jets/workspace"
 	"github.com/aws/aws-lambda-go/lambda"
-	"github.com/jackc/pgx/v4"
 	"github.com/jackc/pgx/v4/pgxpool"
 )
 
@@ -82,171 +75,6 @@ func getSourcePeriodKey(ctx context.Context, dbpool *pgxpool.Pool, sessionId, fi
 	return sourcePeriodKey, nil
 }
 
-// Returns dbRecordCount (nbr of rows in pipeline_execution_details) and outputRecordCount (nbr of rows saved from server process)
-func getOutputRecordCount(ctx context.Context, dbpool *pgxpool.Pool, sessionId string) (int64, int64) {
-	var dbRecordCount, outputRecordCount sql.NullInt64
-	err := dbpool.QueryRow(ctx, "SELECT COUNT(*), SUM(output_records_count) FROM jetsapi.pipeline_execution_details WHERE session_id=$1",
-		sessionId).Scan(&dbRecordCount, &outputRecordCount)
-	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return 0, 0
-		}
-		msg := fmt.Sprintf("QueryRow on pipeline_execution_details to get nbr of output records failed: %v", err)
-		log.Fatalf(msg)
-	}
-	return dbRecordCount.Int64, outputRecordCount.Int64
-}
-
-func coordinateWorkAndUpdateStatus(ctx context.Context, ca *delegate.CommandArguments) error {
-	// open db connection
-	var err error
-	dbpool, err := pgxpool.Connect(ctx, dsn)
-	if err != nil {
-		return fmt.Errorf("while opening db connection: %v", err)
-	}
-	defer dbpool.Close()
-
-	// // Check for special case: serverSM produced no output records, then exit silently
-	// if len(ca.SessionId) > 0 {
-	// 	dbRecordCount, outputRecordCount := getOutputRecordCount(ctx, dbpool, ca.SessionId)
-	// 	if dbRecordCount > 0 && outputRecordCount == 0 {
-	// 		fmt.Println("This run_report is for a serverSM that produced no output records, exiting silently")
-	// 		return nil
-	// 	}
-	// }
-
-	// Fetch reports.tgz from overriten workspace files (here we want the reports definitions in particular)
-	// We don't care about /lookup.db and /workspace.db, hence the argument skipSqliteFiles = true
-	if !devMode {
-		log.Println("Synching reports.tgz from db")
-		err = workspace.SyncWorkspaceFiles(dbpool, wprefix, dbutils.FO_Open, "reports.tgz", true, false)
-		if err != nil {
-			log.Println("Error while synching workspace file from db:", err)
-			return err
-		}
-	}
-
-	// Read the report config file
-	reportConfiguration := &map[string]delegate.ReportDirectives{}
-	configFile := fmt.Sprintf("%s/%s/reports/config.json", workspaceHome, wprefix)
-	file, err := os.ReadFile(configFile)
-	if err != nil {
-		if os.IsNotExist(err) {
-			fmt.Println("Warning report config.json does not exist, using defaults")
-			ca.CurrentReportDirectives = &delegate.ReportDirectives{}
-		} else {
-			return fmt.Errorf("while reading report config.json: %v", err)
-		}
-	} else {
-		// Un-marshal the reportDirectives
-		// fmt.Println("Un-marshal the reportDirectives")
-		err = json.Unmarshal(file, reportConfiguration)
-		if err != nil {
-			return fmt.Errorf("error while parsing report config.json: %v", err)
-		}
-		// //*
-		// fmt.Println("REPORT DIRECTIVES:", *reportConfiguration)
-		// The report directives for the current reportName
-		rd, ok := (*reportConfiguration)[ca.ReportName]
-		if ok {
-			ca.CurrentReportDirectives = &rd
-		} else {
-			ca.CurrentReportDirectives = &delegate.ReportDirectives{}
-		}
-	}
-	// Apply / update the reportDirectives
-	if len(ca.CurrentReportDirectives.InputPath) == 0 {
-		ca.CurrentReportDirectives.InputPath = strings.ReplaceAll(ca.OutputPath,
-			os.Getenv("JETS_s3_OUTPUT_PREFIX"),
-			os.Getenv("JETS_s3_INPUT_PREFIX"))
-	}
-	switch {
-	case ca.CurrentReportDirectives.OutputS3Prefix == "JETS_s3_INPUT_PREFIX":
-		// Write the output file in the jetstore input folder of s3
-		ca.OutputPath = strings.ReplaceAll(ca.OutputPath,
-			os.Getenv("JETS_s3_OUTPUT_PREFIX"),
-			os.Getenv("JETS_s3_INPUT_PREFIX"))
-	case ca.CurrentReportDirectives.OutputS3Prefix != "":
-		// Write output file to a location based on a custom s3 prefix
-		ca.OutputPath = strings.ReplaceAll(ca.OutputPath,
-			os.Getenv("JETS_s3_OUTPUT_PREFIX"),
-			ca.CurrentReportDirectives.OutputS3Prefix)
-	case ca.CurrentReportDirectives.OutputPath != "":
-		// Write output file to a specified s3 location
-		ca.OutputPath = ca.CurrentReportDirectives.OutputPath
-	}
-	for i := range ca.CurrentReportDirectives.FilePathSubstitution {
-		ca.OutputPath = strings.ReplaceAll(ca.OutputPath,
-			ca.CurrentReportDirectives.FilePathSubstitution[i].Replace,
-			ca.CurrentReportDirectives.FilePathSubstitution[i].With)
-	}
-	if ca.OutputPath == "" {
-		return fmt.Errorf("can't determine ca.OutputPath, is file path argument missing? (-filePath)")
-	}
-	ca.OutputPath = strings.TrimSuffix(ca.OutputPath, "/")
-	fmt.Println("Report ca.OutputPath:", ca.OutputPath)
-
-	// Put the full path to the ReportScript
-	ca.ReportScriptPaths = make([]string, 0)
-	foundReports := false
-	if len(ca.CurrentReportDirectives.ReportScripts) > 0 {
-		for i := range ca.CurrentReportDirectives.ReportScripts {
-			foundReports = true
-			ca.ReportScriptPaths = append(ca.ReportScriptPaths, fmt.Sprintf("%s/%s/reports/%s", workspaceHome, wprefix, ca.CurrentReportDirectives.ReportScripts[i]))
-		}
-	} else {
-		// reportScripts defaults to process name
-		foundReports = true
-		ca.ReportScriptPaths = append(ca.ReportScriptPaths, fmt.Sprintf("%s/%s/reports/%s.sql", workspaceHome, wprefix, ca.ReportName))
-		ca.CurrentReportDirectives.ReportScripts = []string{ca.RegionName}
-	}
-
-	if !foundReports {
-		return fmt.Errorf("error: can't determine the report definitions file")
-	}
-
-	if len(ca.ReportScriptPaths) == 0 {
-		log.Println("No report to execute, exiting silently...")
-		return nil
-	}
-
-	fmt.Println("Executing the following reports:")
-	for i := range ca.ReportScriptPaths {
-		fmt.Println("  -", ca.ReportScriptPaths[i])
-	}
-
-	// Get the source_period_key from pipeline_execution_status table by session_id
-	if len(ca.SessionId) > 0 {
-		k, err := getSourcePeriodKey(ctx, dbpool, ca.SessionId, ca.FileKey)
-		if err != nil {
-			fmt.Println(err)
-		} else {
-			ca.SourcePeriodKey = strconv.Itoa(k)
-		}
-	}
-
-	// Do the reports
-	err = ca.RunReports(dbpool)
-
-	// Update status
-	status := "completed"
-	var errMessage string
-	if err != nil {
-		status = "failed"
-		errMessage = err.Error()
-	}
-	log.Printf("Inserting status '%s' to report_execution_status table for session is '%s'", status, ca.SessionId)
-	stmt := `INSERT INTO jetsapi.report_execution_status 
-						(client, report_name, session_id, status, error_message) 
-						VALUES ($1, $2, $3, $4, $5)`
-	_, err2 := dbpool.Exec(ctx, stmt, ca.Client, ca.ReportName, ca.SessionId, status, errMessage)
-	if err2 != nil {
-		return fmt.Errorf("error inserting in jetsapi.report_execution_status table: %v", err2)
-	}
-
-	return err
-}
-
 func main() {
 	// var awsDsnSecret = flag.String("awsDsnSecret", "", "aws secret with dsn definition (aws integration) (required unless -dsn is provided)")
 	// var dbPoolSize = flag.Int("dbPoolSize", 10, "DB connection pool size, used for -awsDnsSecret (default 10)")
@@ -295,7 +123,7 @@ func main() {
 		hasErr = true
 		errMsg = append(errMsg, err.Error())
 	}
-	
+
 	// Get the dsn from the aws secret
 	dsn, err = awsi.GetDsnFromSecret(awsDsnSecret, usingSshTunnel, dbPoolSize)
 	if err != nil {
@@ -393,17 +221,8 @@ func handler(ctx context.Context, arg []string) error {
 	log.Println("Got argument: OutputPath", rr.OutputPath)
 	log.Println("Got argument: FileKey", rr.FileKey)
 
-	// Extract file key components
-	keyMap := make(map[string]interface{})
-	keyMap = datatable.SplitFileKeyIntoComponents(keyMap, &rr.FileKey)
-	if rr.Client != "" {
-		keyMap["client"] = rr.Client
-	}
-
+	// Extract file key components and populate the CommandArguments
 	ca := &delegate.CommandArguments{
-		Client:            datatable.AsString(keyMap["client"]),
-		Org:               datatable.AsString(keyMap["org"]),
-		ObjectType:        datatable.AsString(keyMap["object_type"]),
 		Environment:       os.Getenv("ENVIRONMENT"),
 		WorkspaceName:     workspaceHome,
 		SessionId:         rr.SessionId,
@@ -413,10 +232,28 @@ func handler(ctx context.Context, arg []string) error {
 		OutputPath:        rr.OutputPath,
 		OriginalFileName:  originalFileName,
 		ReportScriptPaths: []string{},
-		// CurrentReportDirectives: ReportDirectives, // set in func coordinateWorkAndUpdateStatus
-		// ComputePipesJson: string,                  // set in func coordinateWorkAndUpdateStatus
-		BucketName: awsBucket,
-		RegionName: awsRegion,
+		BucketName:        awsBucket,
+		RegionName:        awsRegion,
+		FileKeyComponents: datatable.SplitFileKeyIntoComponents(map[string]interface{}{}, &rr.FileKey),
 	}
-	return coordinateWorkAndUpdateStatus(ctx, ca)
+	if rr.Client != "" {
+		ca.FileKeyComponents["client"] = rr.Client
+	}
+	ca.Client = toString(ca.FileKeyComponents["client"])
+	ca.Org = toString(ca.FileKeyComponents["org"])
+	ca.ObjectType = toString(ca.FileKeyComponents["object_type"])
+
+	// open db connection
+	dbpool, err := pgxpool.Connect(ctx, dsn)
+	if err != nil {
+		return fmt.Errorf("while opening db connection: %v", err)
+	}
+	defer dbpool.Close()
+	return delegate.CoordinateWorkAndUpdateStatus(ctx, dbpool, ca)
+}
+
+// Return the string if it's a string, empty otherwise
+func toString(s interface{}) string {
+	str, _ := s.(string)
+	return str
 }
