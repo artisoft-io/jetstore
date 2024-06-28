@@ -13,3 +13,15 @@ func NewReteSession(rdfSession *rdf.RdfSession) *ReteSession {
 		RdfSession: rdfSession,
 	}
 }
+
+func (rs *ReteSession) GetBetaRelation(vertex int) *BetaRelation {
+	return nil
+}
+
+func (rs *ReteSession) TripleUpdated(vertex int, s, p, o *rdf.Node, isInserted bool) *BetaRelation {
+	return nil
+}
+
+func (rs *ReteSession) TripleUpdatedForFilter(vertex int, s, p, o *rdf.Node, isInserted bool) *BetaRelation {
+	return nil
+}

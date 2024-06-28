@@ -35,10 +35,33 @@ func NewReteCallbackForFilter(rs *ReteSession, vertex int, p *rdf.Node) rdf.Noti
 }
 
 func (cm *ReteCallback) TripleInserted(s, p, o *rdf.Node) {
-	XXX
+	cm.tripleUpdated(s, p, o, true)
 }
 
 func (cm *ReteCallback) TripleDeleted(s, p, o *rdf.Node) {
-	XXX
+	cm.tripleUpdated(s, p, o, false)
+}
+
+func (cm *ReteCallback) tripleUpdated(s, p, o *rdf.Node, isInserted bool) {
+  if cm.sFilter!= nil && cm.sFilter!=s {
+		return
+	}
+  if cm.pFilter!= nil && cm.pFilter!=p {
+		return
+	}
+  if cm.oFilter!= nil && cm.oFilter!=o {
+		return
+	}
+
+	// If beta node is not activated yet, ignore the notification
+	bn := cm.reteSession.GetBetaRelation(cm.vertex)
+  if bn==nil || !bn.IsActivated {
+    return;
+  }
+	if cm.forFilterTerm {
+		cm.reteSession.TripleUpdatedForFilter(cm.vertex, s, p, o, isInserted)
+	} else {
+		cm.reteSession.TripleUpdated(cm.vertex, s, p, o, isInserted)
+	}
 }
 
