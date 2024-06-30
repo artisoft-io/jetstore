@@ -1,5 +1,11 @@
 package rete
 
+import (
+	"log"
+
+	"github.com/artisoft-io/jetstore/jets/jetrules/rdf"
+)
+
 // AlphaNode type -- is a connector to the rdf graph for a antecedent or consequent term
 // Note: following descriptioin is comming from JetStore c++ code.
 //
@@ -60,11 +66,173 @@ type AlphaNode struct {
 
 func NewAlphaNode(fu, fv, fw AlphaFunctor, vertex *NodeVertex, isAntecedent bool, label string) *AlphaNode {
 	return &AlphaNode{
-		Fu: fu,
-		Fv: fv,
-		Fw: fw,
-		NdVertex: vertex,
-		IsAntecedent: isAntecedent,
+		Fu:              fu,
+		Fv:              fv,
+		Fw:              fw,
+		NdVertex:        vertex,
+		IsAntecedent:    isAntecedent,
 		NormalizedLabel: label,
+	}
+}
+
+func (an *AlphaNode) InitializeIndexes(parentBetaRelation *BetaRelation) {
+	if an == nil {
+		return
+	}
+	if !an.IsAntecedent {
+		// Not applicable
+		return
+	}
+	u := an.Fu.BetaRowIndex()
+	v := an.Fv.BetaRowIndex()
+	w := an.Fw.BetaRowIndex()
+	uI := u >= 0
+	u0 := u == -1
+	vI := v >= 0
+	v0 := v == -1
+	wI := w >= 0
+	w0 := w == -1
+	switch {
+	case uI && v0 && w0:
+		an.NdVertex.AntecedentQueryKey = parentBetaRelation.AddQuery1()
+	case uI && vI && w0:
+		an.NdVertex.AntecedentQueryKey = parentBetaRelation.AddQuery2()
+	case u0 && vI && wI:
+		an.NdVertex.AntecedentQueryKey = parentBetaRelation.AddQuery2()
+	case u0 && v0 && wI:
+		an.NdVertex.AntecedentQueryKey = parentBetaRelation.AddQuery1()
+	case uI && v0 && wI:
+		an.NdVertex.AntecedentQueryKey = parentBetaRelation.AddQuery2()
+	case u0 && vI && w0:
+		an.NdVertex.AntecedentQueryKey = parentBetaRelation.AddQuery1()
+	case uI && vI && wI:
+		an.NdVertex.AntecedentQueryKey = parentBetaRelation.AddQuery3()
+	}
+}
+
+func (an *AlphaNode) AddIndex4BetaRow(parentBetaRelation *BetaRelation, row *BetaRow) {
+	if an == nil {
+		return
+	}
+	if !an.IsAntecedent {
+		// Not applicable
+		return
+	}
+	key := an.NdVertex.AntecedentQueryKey
+	u := an.Fu.BetaRowIndex()
+	v := an.Fv.BetaRowIndex()
+	w := an.Fw.BetaRowIndex()
+	uI := u >= 0
+	u0 := u == -1
+	vI := v >= 0
+	v0 := v == -1
+	wI := w >= 0
+	w0 := w == -1
+	switch {
+	case uI && v0 && w0:
+		parentBetaRelation.AddIndex1(key, an.Fu.Eval(nil, row), row)
+	case uI && vI && w0:
+		parentBetaRelation.AddIndex2(key, an.Fu.Eval(nil, row), an.Fv.Eval(nil, row), row)
+	case u0 && vI && wI:
+		parentBetaRelation.AddIndex2(key, an.Fv.Eval(nil, row), an.Fw.Eval(nil, row), row)
+	case u0 && v0 && wI:
+		parentBetaRelation.AddIndex1(key, an.Fw.Eval(nil, row), row)
+	case uI && v0 && wI:
+		parentBetaRelation.AddIndex2(key, an.Fu.Eval(nil, row), an.Fw.Eval(nil, row), row)
+	case u0 && vI && w0:
+		parentBetaRelation.AddIndex1(key, an.Fv.Eval(nil, row), row)
+	case uI && vI && wI:
+		parentBetaRelation.AddIndex3(key, an.Fu.Eval(nil, row), an.Fv.Eval(nil, row), an.Fw.Eval(nil, row), row)
+	}
+}
+
+func (an *AlphaNode) EraseIndex4BetaRow(parentBetaRelation *BetaRelation, row *BetaRow) {
+	if an == nil {
+		return
+	}
+	if !an.IsAntecedent {
+		// Not applicable
+		return
+	}
+	key := an.NdVertex.AntecedentQueryKey
+	u := an.Fu.BetaRowIndex()
+	v := an.Fv.BetaRowIndex()
+	w := an.Fw.BetaRowIndex()
+	uI := u >= 0
+	u0 := u == -1
+	vI := v >= 0
+	v0 := v == -1
+	wI := w >= 0
+	w0 := w == -1
+	switch {
+	case uI && v0 && w0:
+		parentBetaRelation.EraseIndex1(key, an.Fu.Eval(nil, row), row)
+	case uI && vI && w0:
+		parentBetaRelation.EraseIndex2(key, an.Fu.Eval(nil, row), an.Fv.Eval(nil, row), row)
+	case u0 && vI && wI:
+		parentBetaRelation.EraseIndex2(key, an.Fv.Eval(nil, row), an.Fw.Eval(nil, row), row)
+	case u0 && v0 && wI:
+		parentBetaRelation.EraseIndex1(key, an.Fw.Eval(nil, row), row)
+	case uI && v0 && wI:
+		parentBetaRelation.EraseIndex2(key, an.Fu.Eval(nil, row), an.Fw.Eval(nil, row), row)
+	case u0 && vI && w0:
+		parentBetaRelation.EraseIndex1(key, an.Fv.Eval(nil, row), row)
+	case uI && vI && wI:
+		parentBetaRelation.EraseIndex3(key, an.Fu.Eval(nil, row), an.Fu.Eval(nil, row), an.Fu.Eval(nil, row), row)
+	}
+}
+
+// Called to query rows from parent beta node matching (s, p, o), case merging with new triples from inferred graph
+// Applicable to antecedent terms only, will panic otherwise
+func (an *AlphaNode) FindMatchingRows(parentBetaRelation *BetaRelation, s, p, o *rdf.Node) map[*BetaRow]bool {
+	if an == nil {
+		return nil
+	}
+	if !an.IsAntecedent {
+		log.Panic("bug: AlphaNode.FindMatchingRows called on consequent term")
+	}
+	u := an.Fu.BetaRowIndex()
+	v := an.Fv.BetaRowIndex()
+	w := an.Fw.BetaRowIndex()
+	key := an.NdVertex.AntecedentQueryKey
+	uI := u >= 0
+	u0 := u == -1
+	vI := v >= 0
+	v0 := v == -1
+	wI := w >= 0
+	w0 := w == -1
+	switch {
+	case uI && v0 && w0:
+		return parentBetaRelation.FindMatchingRows1(key, s)
+	case uI && vI && w0:
+		return parentBetaRelation.FindMatchingRows2(key, s, p)
+	case u0 && v0 && wI:
+		return parentBetaRelation.FindMatchingRows1(key, o)
+	case u0 && vI && wI:
+		return parentBetaRelation.FindMatchingRows2(key, p, o)
+	case uI && v0 && wI:
+		return parentBetaRelation.FindMatchingRows2(key, s, o)
+	case u0 && vI && w0:
+		return parentBetaRelation.FindMatchingRows1(key, p)
+	case uI && vI && wI:
+		return parentBetaRelation.FindMatchingRows3(key, s, p, o)
+	}
+	return nil
+}
+
+// Return consequent `triple` for BetaRow
+// Applicable to consequent terms only,
+// will panic if called on an antecedent term
+func (an *AlphaNode) ComputeConsequentTriple(rs *ReteSession, row *BetaRow) *rdf.Triple {
+	if an == nil {
+		return nil
+	}
+	if an.IsAntecedent {
+		log.Panic("bug: AlphaNode.ComputeConsequentTriple called on antecedent term")
+	}
+	return &rdf.Triple{
+		an.Fu.Eval(rs, row),
+		an.Fv.Eval(rs, row),
+		an.Fw.Eval(rs, row),
 	}
 }

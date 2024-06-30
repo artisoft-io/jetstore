@@ -9,14 +9,14 @@ import (
 // AlphaFunctor is the common interface shared by the Fu, Fv, and Fw functors parametrizing
 // the AlphaNodes. The methods of the interface are:
 //   - StaticValue (aka to_const) is used to determine the AlphaNode::register callback function
-//   - AntecedentEvaluate (aka to_AllOrRIndex) to evaluate functor for antecedent term (to invoke find on the rdf_session)
-//   - ConsequentEvaluate (aka to_r_index) to evaluate functor for consequent and filter terms
+//   - Eval (aka to_AllOrRIndex) to evaluate functor 
+//				- for antecedent term (to invoke find on the rdf_session), returns nil (case variable) or *rdf.Node (case binded var or cst)
+//   			- for consequent and filter terms, returns *rdf.Node (case binded var or cst)
 //   - BetaRowIndex (aka to_AVQ) Manage beta_row indexes in beta_relation according to the functors template arguments
 //
 type AlphaFunctor interface {
 	StaticValue() *rdf.Node
-	ConsequentEvaluate(*ReteSession, *BetaRow) *rdf.Node
-	AntecedentEvaluate(*BetaRow) *rdf.Node
+	Eval(*ReteSession, *BetaRow) *rdf.Node
 	BetaRowIndex() int
 }
 
@@ -36,10 +36,7 @@ type FConstant struct {
 func (af *FConstant) StaticValue() *rdf.Node {
 	return af.node
 }
-func (af *FConstant) ConsequentEvaluate(*ReteSession, *BetaRow) *rdf.Node {
-	return af.node
-}
-func (af *FConstant) AntecedentEvaluate(*BetaRow) *rdf.Node {
+func (af *FConstant) Eval(*ReteSession, *BetaRow) *rdf.Node {
 	return af.node
 }
 func (af *FConstant) BetaRowIndex() int {
@@ -57,10 +54,7 @@ type FVariable struct {
 func (af *FVariable) StaticValue() *rdf.Node {
 	return nil
 }
-func (af *FVariable) ConsequentEvaluate(*ReteSession, *BetaRow) *rdf.Node {
-	return nil
-}
-func (af *FVariable) AntecedentEvaluate(*BetaRow) *rdf.Node {
+func (af *FVariable) Eval(*ReteSession, *BetaRow) *rdf.Node {
 	return nil
 }
 func (af *FVariable) BetaRowIndex() int {
@@ -79,10 +73,7 @@ type FBinded struct {
 func (af *FBinded) StaticValue() *rdf.Node {
 	return nil
 }
-func (af *FBinded) ConsequentEvaluate(reteSession *ReteSession, row *BetaRow) *rdf.Node {
-	return row.Get(af.pos)
-}
-func (af *FBinded) AntecedentEvaluate(row *BetaRow) *rdf.Node {
+func (af *FBinded) Eval(reteSession *ReteSession, row *BetaRow) *rdf.Node {
 	return row.Get(af.pos)
 }
 func (af *FBinded) BetaRowIndex() int {
@@ -100,11 +91,8 @@ type FExpression struct {
 func (af *FExpression) StaticValue() *rdf.Node {
 	return nil
 }
-func (af *FExpression) ConsequentEvaluate(reteSession *ReteSession, row *BetaRow) *rdf.Node {
+func (af *FExpression) Eval(reteSession *ReteSession, row *BetaRow) *rdf.Node {
 	return af.expression.Eval(reteSession, row)
-}
-func (af *FExpression) AntecedentEvaluate(row *BetaRow) *rdf.Node {
-	return nil
 }
 func (af *FExpression) BetaRowIndex() int {
 	return -1

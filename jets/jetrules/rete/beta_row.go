@@ -37,7 +37,7 @@ func (row *BetaRow) Initialize(initializer *BetaRowInitializer, parentRow *BetaR
 	var value *rdf.Node
 	for i, d := range initializer.InitData {
 		pos := d & brcLowMask
-		if d&brcParentNode != 0 {
+		if d & brcParentNode != 0 {
 			value = parentRow.Data[pos]
 		} else {
 			value = (*t3)[pos]
@@ -70,6 +70,9 @@ func (row *BetaRow) Hash() uint64 {
 	var b []byte
 	var err error
 	for _, r := range (*row).Data {
+		if r == nil {
+			log.Fatalf("error BetaRow.Hash() with nil resource %s", r)
+		}
 		b, err = r.MarshalBinary()
 		if err != nil {
 			log.Fatalf("error while MarshalingBinary of resource %s", r)

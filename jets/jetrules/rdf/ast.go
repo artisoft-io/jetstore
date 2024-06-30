@@ -91,6 +91,9 @@ func (v *Node) String() string {
 }
 
 func (v *Node) MarshalBinary() ([]byte, error) {
+	if v == nil {
+		return nil, fmt.Errorf("error: MarshalBinary called with null rdf.Node")
+	}
 	switch vv := v.Value.(type) {
 	case BlankNode:
 		// int is 8 bytes
