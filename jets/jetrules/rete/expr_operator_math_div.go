@@ -1,10 +1,9 @@
-package op
+package rete
 
 import (
 	"math"
 
 	"github.com/artisoft-io/jetstore/jets/jetrules/rdf"
-	"github.com/artisoft-io/jetstore/jets/jetrules/rete"
 )
 
 // Add operator
@@ -12,15 +11,15 @@ type DivOp struct {
 
 }
 
-func NewDivOp() rete.BinaryOperator {
+func NewDivOp() BinaryOperator {
 	return &DivOp{}
 }
 
-func (op *DivOp) RegisterCallback(reteSession *rete.ReteSession, vertex int, lhs, rhs *rdf.Node) error {
+func (op *DivOp) RegisterCallback(reteSession *ReteSession, vertex int, lhs, rhs *rdf.Node) error {
 	return nil
 }
 
-func (op *DivOp) Eval(reteSession *rete.ReteSession, row *rete.BetaRow, lhs, rhs *rdf.Node) *rdf.Node {
+func (op *DivOp) Eval(reteSession *ReteSession, row *BetaRow, lhs, rhs *rdf.Node) *rdf.Node {
 	if lhs == nil || rhs == nil {
 		return nil
 	}

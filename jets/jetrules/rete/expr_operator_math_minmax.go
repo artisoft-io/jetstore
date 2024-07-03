@@ -1,11 +1,10 @@
-package op
+package rete
 
 import (
 	"fmt"
 	"log"
 
 	"github.com/artisoft-io/jetstore/jets/jetrules/rdf"
-	"github.com/artisoft-io/jetstore/jets/jetrules/rete"
 )
 
 // Max operator - with truth maintenance
@@ -16,7 +15,7 @@ type MinMaxOp struct {
 	dataProperty *rdf.Node
 }
 
-func NewMinMaxOp(isMin, retObj bool) rete.BinaryOperator {
+func NewMinMaxOp(isMin, retObj bool) BinaryOperator {
 	return &MinMaxOp{
 		isMin:  isMin,
 		retObj: retObj,
@@ -24,7 +23,7 @@ func NewMinMaxOp(isMin, retObj bool) rete.BinaryOperator {
 }
 
 // Add truth maintenance
-func (op *MinMaxOp) RegisterCallback(reteSession *rete.ReteSession, vertex int, lhs, rhs *rdf.Node) error {
+func (op *MinMaxOp) RegisterCallback(reteSession *ReteSession, vertex int, lhs, rhs *rdf.Node) error {
 	if reteSession == nil {
 		return nil
 	}
@@ -39,14 +38,14 @@ func (op *MinMaxOp) RegisterCallback(reteSession *rete.ReteSession, vertex int, 
 		op.dataProperty = rdfSession.GetObject(rhs, jr.Jets__value_property)
 		// value_property is the domain property to get notification for
 		if op.dataProperty != nil {
-			cb = rete.NewReteCallbackForFilter(reteSession, vertex, op.dataProperty)
+			cb = NewReteCallbackForFilter(reteSession, vertex, op.dataProperty)
 		} else {
 			return fmt.Errorf("error: jets:value_property is nill when jets:domain_property is not")
 		}
 	} else {
 		// rhs is the domain property to get notification for
 		op.objProperty = rhs
-		cb = rete.NewReteCallbackForFilter(reteSession, vertex, rhs)
+		cb = NewReteCallbackForFilter(reteSession, vertex, rhs)
 	}
 	rdfSession.AssertedGraph.CallbackMgr.AddCallback(cb)
 	rdfSession.InferredGraph.CallbackMgr.AddCallback(cb)
@@ -62,7 +61,7 @@ func (op *MinMaxOp) RegisterCallback(reteSession *rete.ReteSession, vertex int, 
 //
 //	?o is currentObj and ?v is currentValue with
 //	(s, objp, currentObj).(currentObj, datap, currentValue), with currentObj = currentValue if datap==nullptr
-func (op *MinMaxOp) Eval(reteSession *rete.ReteSession, row *rete.BetaRow, lhs, rhs *rdf.Node) *rdf.Node {
+func (op *MinMaxOp) Eval(reteSession *ReteSession, row *BetaRow, lhs, rhs *rdf.Node) *rdf.Node {
 	if lhs == nil || rhs == nil {
 		return nil
 	}

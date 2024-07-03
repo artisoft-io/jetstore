@@ -1,11 +1,10 @@
-package op
+package rete
 
 import (
 	"strconv"
 	"strings"
 
 	"github.com/artisoft-io/jetstore/jets/jetrules/rdf"
-	"github.com/artisoft-io/jetstore/jets/jetrules/rete"
 )
 
 // Add operator
@@ -13,15 +12,15 @@ type SubOp struct {
 
 }
 
-func NewSubOp() rete.BinaryOperator {
+func NewSubOp() BinaryOperator {
 	return &SubOp{}
 }
 
-func (op *SubOp) RegisterCallback(reteSession *rete.ReteSession, vertex int, lhs, rhs *rdf.Node) error {
+func (op *SubOp) RegisterCallback(reteSession *ReteSession, vertex int, lhs, rhs *rdf.Node) error {
 	return nil
 }
 
-func (op *SubOp) Eval(reteSession *rete.ReteSession, row *rete.BetaRow, lhs, rhs *rdf.Node) *rdf.Node {
+func (op *SubOp) Eval(reteSession *ReteSession, row *BetaRow, lhs, rhs *rdf.Node) *rdf.Node {
 	if lhs == nil || rhs == nil {
 		return nil
 	}

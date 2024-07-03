@@ -3,6 +3,7 @@ package rdf
 import (
 	"fmt"
 	"math"
+	"strings"
 	"time"
 )
 
@@ -245,6 +246,10 @@ func F(v float64) *Node {
 
 type RdfNull struct{}
 
+func NewRdfNull() RdfNull {
+	return RdfNull{}
+}
+
 
 type BlankNode struct {
 	key int
@@ -260,6 +265,11 @@ type LDate struct {
 	date *time.Time
 }
 
+func NewLDate(date string) (LDate, error) {
+	t, err := ParseDate(date)
+	return LDate{date: t}, err
+}
+
 func (lhs LDate) Add (days int) LDate {
 	t := lhs.date.Add(time.Duration(days) * 24 * time.Hour)
 	return LDate{date: &t}
@@ -269,7 +279,21 @@ type LDatetime struct {
 	datetime *time.Time
 }
 
+func NewLDatetime(datetime string) (LDatetime, error) {
+	t, err := ParseDatetime(datetime)
+	return LDatetime{datetime: t}, err
+}
+
 func (lhs LDatetime) Add (days int) LDatetime {
 	t := lhs.datetime.Add(time.Duration(days) * 24 * time.Hour)
 	return LDatetime{datetime: &t}
+}
+
+func ParseBool(value string) int {
+	switch strings.ToLower(value) {
+	case "true","t","1":
+		return 1
+	default:
+		return 0
+	}
 }

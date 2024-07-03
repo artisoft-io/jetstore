@@ -12,14 +12,14 @@ type NodeVertex struct {
 	ConsequentAlphaNodes []*AlphaNode
 	IsNegation           bool
 	Salience             int
-	FilterExpr           *Expression
+	FilterExpr           Expression
 	NormalizedLabel      string
 	RowInitializer       *BetaRowInitializer
 	AntecedentQueryKey   int
 }
 
 func NewNodeVertex(vertex int, parent *NodeVertex, isNeg bool, salience int,
-	filter *Expression, label string, rowInitializer *BetaRowInitializer) *NodeVertex {
+	filter Expression, label string, rowInitializer *BetaRowInitializer) *NodeVertex {
 	return &NodeVertex{
 		Vertex:               vertex,
 		ParentNodeVertex:     parent,

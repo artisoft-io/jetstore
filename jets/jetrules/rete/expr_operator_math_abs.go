@@ -1,10 +1,9 @@
-package op
+package rete
 
 import (
 	"math"
 
 	"github.com/artisoft-io/jetstore/jets/jetrules/rdf"
-	"github.com/artisoft-io/jetstore/jets/jetrules/rete"
 )
 
 // Add unary operator
@@ -12,15 +11,15 @@ type AbsOp struct {
 
 }
 
-func NewAbsOp() rete.UnaryOperator {
+func NewAbsOp() UnaryOperator {
 	return &AbsOp{}
 }
 
-func (op *AbsOp) RegisterCallback(reteSession *rete.ReteSession, vertex int, rhs *rdf.Node) error {
+func (op *AbsOp) RegisterCallback(reteSession *ReteSession, vertex int, rhs *rdf.Node) error {
 	return nil
 }
 
-func (op *AbsOp) Eval(reteSession *rete.ReteSession, row *rete.BetaRow, rhs *rdf.Node) *rdf.Node {
+func (op *AbsOp) Eval(reteSession *ReteSession, row *BetaRow, rhs *rdf.Node) *rdf.Node {
 	if rhs == nil {
 		return nil
 	}

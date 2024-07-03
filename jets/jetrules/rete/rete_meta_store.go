@@ -1,17 +1,25 @@
 package rete
 
-import "fmt"
+import (
+	"fmt"
+
+	"github.com/artisoft-io/jetstore/jets/jetrules/rdf"
+)
 
 // ReteMetaStore -- metadata store for a rete network named by it's ruleset uri
 // The ReteMetaStore correspond to a complete rule set organized as a rete network.
 type ReteMetaStore struct {
+	ResourceMgr  *rdf.ResourceManager
+	MetaGraph    *rdf.RdfGraph
 	LookupHelper *LookupSqlHelper
 	AlphaNodes   []*AlphaNode
 	NodeVertices []*NodeVertex
 }
 
-func NewReteMetaStore(h *LookupSqlHelper, an []*AlphaNode, nv []*NodeVertex) (*ReteMetaStore, error) {
+func NewReteMetaStore(rm *rdf.ResourceManager, mg *rdf.RdfGraph, h *LookupSqlHelper, an []*AlphaNode, nv []*NodeVertex) (*ReteMetaStore, error) {
 	ms := &ReteMetaStore{
+		ResourceMgr:  rm,
+		MetaGraph:    mg,
 		LookupHelper: h,
 		AlphaNodes:   an,
 		NodeVertices: nv,

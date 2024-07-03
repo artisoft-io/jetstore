@@ -59,10 +59,11 @@ func (expr *ExprCst) EvalFilter(reteSession *ReteSession, row *BetaRow) bool {
 // Binded variable term
 type ExprBindedVar struct {
 	data int
+	label string
 }
 
-func NewExprBindedVar(idx int) Expression {
-	return &ExprBindedVar{data: idx}
+func NewExprBindedVar(idx int, label string) Expression {
+	return &ExprBindedVar{data: idx, label: label}
 }
 
 func (expr *ExprBindedVar) RegisterCallback(reteSession *ReteSession, vertex int) error {

@@ -90,7 +90,11 @@ func NewResourceManager(rootManager *ResourceManager) *ResourceManager {
 		literalMap:  make(map[interface{}]*Node, 200),
 		rootManager: rootManager,
 	}
-	rm.JetsResources = NewJetResources(rm)
+	if rootManager != nil {
+		rm.JetsResources = rootManager.JetsResources
+	} else {
+		rm.JetsResources = NewJetResources(rm)
+	}
 	return rm
 }
 
