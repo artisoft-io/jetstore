@@ -141,7 +141,7 @@ func (args *StartComputePipesArgs) StartReducingComputePipes(ctx context.Context
 	if !isLastReducing {
 		// next iteration
 		nextCurrent := currentStep + 1
-		nextInputStepId := fmt.Sprintf("reducing%d", currentStep)
+		nextInputStepId := fmt.Sprintf("reducing%d", nextCurrent)
 		result.StartReducing = StartComputePipesArgs{
 			PipelineExecKey: args.PipelineExecKey,
 			FileKey:         args.FileKey,
@@ -188,7 +188,7 @@ func (args *StartComputePipesArgs) StartReducingComputePipes(ctx context.Context
 	}
 	cpipesCommands := make([]ComputePipesArgs, len(partitions))
 	// write to location: stage_prefix/cpipesCommands/session_id/reducingXCommands.json
-	result.CpipesCommandsS3Key = fmt.Sprintf("%s/cpipesCommands/%s/%sCommands.json", stagePrefix, args.SessionId, *result.StartReducing.InputStepId)
+	result.CpipesCommandsS3Key = fmt.Sprintf("%s/cpipesCommands/%s/%sCommands.json", stagePrefix, args.SessionId, *args.InputStepId)
 	for i := range cpipesCommands {
 		cpipesCommands[i] = ComputePipesArgs{
 			NodeId:             i,
