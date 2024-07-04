@@ -22,6 +22,7 @@ import (
 // JETS_REGION
 // JETS_s3_INPUT_PREFIX
 // JETS_s3_OUTPUT_PREFIX
+// JETS_s3_STAGE_PREFIX
 // JETS_S3_KMS_KEY_ARN
 // NBR_SHARDS default nbr_nodes of cluster
 // USING_SSH_TUNNEL Connect  to DB using ssh tunnel (expecting the ssh open)
@@ -130,9 +131,14 @@ func main() {
 	fmt.Println(string(b))
 
 	// Perform Sharding
-	for i := range cpShardingRun.CpipesCommands {
+	// Get the cpipes args from s3
+	cpipesCommands, err := actions.ReadCpipesArgsFromS3(cpShardingRun.CpipesCommandsS3Key)
+	if err != nil {
+		log.Fatalf("while calling ReadCpipesArgsFromS3 from %s: %v", cpShardingRun.CpipesCommandsS3Key, err)
+	}
+	for i := range cpipesCommands {
 		fmt.Println("## Sharding Node", i)
-		err = cpShardingRun.CpipesCommands[i].CoordinateComputePipes(ctx, dsn)
+		err = cpipesCommands[i].CoordinateComputePipes(ctx, dsn)
 		if err != nil {
 			log.Fatalf("while sharding node %d: %v", i, err)
 		}
@@ -148,9 +154,13 @@ func main() {
 	fmt.Println(string(b))
 
 	// Perform Reducing
-	for i := range cpReducingRun.CpipesCommands {
+	cpipesCommands, err = actions.ReadCpipesArgsFromS3(cpReducingRun.CpipesCommandsS3Key)
+	if err != nil {
+		log.Fatalf("while calling ReadCpipesArgsFromS3 from %s: %v", cpShardingRun.CpipesCommandsS3Key, err)
+	}
+	for i := range cpipesCommands {
 		fmt.Println("## Reducing Node", i)
-		err = cpReducingRun.CpipesCommands[i].CoordinateComputePipes(ctx, dsn)
+		err = cpipesCommands[i].CoordinateComputePipes(ctx, dsn)
 		if err != nil {
 			log.Fatalf("while reducing node %d: %v", i, err)
 		}
@@ -167,9 +177,13 @@ func main() {
 	fmt.Println(string(b))
 
 	// Perform Reducing
-	for i := range cpReducingRun.CpipesCommands {
+	cpipesCommands, err = actions.ReadCpipesArgsFromS3(cpReducingRun.CpipesCommandsS3Key)
+	if err != nil {
+		log.Fatalf("while calling ReadCpipesArgsFromS3 from %s: %v", cpShardingRun.CpipesCommandsS3Key, err)
+	}
+	for i := range cpipesCommands {
 		fmt.Println("## Reducing Node", i)
-		err = cpReducingRun.CpipesCommands[i].CoordinateComputePipes(ctx, dsn)
+		err = cpipesCommands[i].CoordinateComputePipes(ctx, dsn)
 		if err != nil {
 			log.Fatalf("while reducing node %d: %v", i, err)
 		}

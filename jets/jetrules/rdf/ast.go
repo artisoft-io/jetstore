@@ -2,10 +2,18 @@ package rdf
 
 import (
 	"fmt"
+	"math"
+	"strings"
 	"time"
 )
 
 // Package to define the rdf data model as an pragmatic ast
+
+var globalNull *Node
+
+func init() {
+	globalNull = &Node{Value: &RdfNull{}}
+}
 
 type Node struct {
 	Value interface{}
@@ -32,10 +40,7 @@ func (v *Node) Name() string {
 
 func (v *Node) IsNull() bool {
 	_, ok := v.Value.(RdfNull)
-	if ok {
-		return true
-	}
-	return false
+	return ok
 }
 
 func (v *Node) Bool() bool {
@@ -86,6 +91,94 @@ func (v *Node) String() string {
 	}
 }
 
+func (v *Node) MarshalBinary() ([]byte, error) {
+	if v == nil {
+		return nil, fmt.Errorf("error: MarshalBinary called with null rdf.Node")
+	}
+	switch vv := v.Value.(type) {
+	case BlankNode:
+		// int is 8 bytes
+		return []byte{
+			'B', 
+			byte(vv.key >> 56), 
+			byte(vv.key >> 48),
+			byte(vv.key >> 40),
+			byte(vv.key >> 32),
+			byte(vv.key >> 24),
+			byte(vv.key >> 16),
+			byte(vv.key >> 8),
+			byte(vv.key),
+		}, nil
+	case NamedResource:
+		return append([]byte(vv.name), 'R'), nil
+	case LDate:
+		md, err := vv.date.MarshalBinary()
+		if err == nil {
+			md = append(md, 'D')
+		}
+		return md, err
+	case LDatetime:
+		mt, err := vv.datetime.MarshalBinary()
+		if err == nil {
+			mt = append(mt, 'T')
+		}
+		return mt, err
+	case int:
+		// int is 8 bytes
+		return []byte{
+			'I','0','0',
+			byte(vv >> 56), 
+			byte(vv >> 48),
+			byte(vv >> 40),
+			byte(vv >> 32),
+			byte(vv >> 24),
+			byte(vv >> 16),
+			byte(vv >> 8),
+			byte(vv),
+		}, nil
+	case int32:
+		// int32 is 4 bytes
+		return []byte{
+			'I','3','2',
+			byte(vv >> 24),
+			byte(vv >> 16),
+			byte(vv >> 8),
+			byte(vv),
+		}, nil
+	case int64:
+		// int64 is 8 bytes
+		return []byte{
+			'I','6','4',
+			byte(vv >> 56), 
+			byte(vv >> 48),
+			byte(vv >> 40),
+			byte(vv >> 32),
+			byte(vv >> 24),
+			byte(vv >> 16),
+			byte(vv >> 8),
+			byte(vv),
+		}, nil
+	case float64:
+		// float64 -> uint64 is 8 bytes
+		t := math.Float64bits(vv)
+		return []byte{
+			'F','6','4',
+			byte(t >> 56), 
+			byte(t >> 48),
+			byte(t >> 40),
+			byte(t >> 32),
+			byte(t >> 24),
+			byte(t >> 16),
+			byte(t >> 8),
+			byte(t),
+		}, nil
+	case string:
+		return append([]byte(vv), 'S'), nil
+	default:
+		return nil, fmt.Errorf("error: unknown type for rdf.Node in MarshalBinary")
+	}
+}
+
 type Triple = [3]*Node
 
 func T3(s, p, o *Node) Triple {
@@ -114,7 +207,7 @@ func T3(s, p, o *Node) Triple {
 // bool operator()(LUInt64       const&v)const{return v.data;}
 
 func Null() *Node {
-	return &Node{Value: &RdfNull{}}
+	return globalNull
 }
 
 func BN(k int) *Node {
@@ -147,149 +240,60 @@ func S(v string) *Node {
 	return &Node{Value: v}
 }
 
+func F(v float64) *Node {
+	return &Node{Value: v}
+}
+
 type RdfNull struct{}
 
-// func (r *RdfNull) Key() int {
-// 	return 0
-// }
-// func (r *RdfNull) Name() string {
-// 	return ""
-// }
-// func (r *RdfNull) Bool() bool {
-// 	return false
-// }
-// func (r *RdfNull) Value() interface{} {
-// 	return r
-// }
+func NewRdfNull() RdfNull {
+	return RdfNull{}
+}
+
 
 type BlankNode struct {
 	key int
 }
 
-// func (r *BlankNode) Key() int {
-// 	return r.key
-// }
-// func (r *BlankNode) Name() string {
-// 	return ""
-// }
-// func (r *BlankNode) Bool() bool {
-// 	return r.key != 0
-// }
-// func (r *BlankNode) Value() interface{} {
-// 	return r
-// }
 
 type NamedResource struct {
 	name string
 }
 
-// func (r *NamedResource) Key() int {
-// 	return 0
-// }
-// func (r *NamedResource) Name() string {
-// 	return r.name
-// }
-// func (r *NamedResource) Bool() bool {
-// 	return r.name != ""
-// }
-// func (r *NamedResource) Value() interface{} {
-// 	return r
-// }
 
 type LDate struct {
 	date *time.Time
 }
 
-// func (r *LDate) Key() int {
-// 	return 0
-// }
-// func (r *LDate) Name() string {
-// 	return ""
-// }
-// func (r *LDate) Bool() bool {
-// 	return r != nil
-// }
-// func (r *LDate) Value() interface{} {
-// 	return r.date
-// }
+func NewLDate(date string) (LDate, error) {
+	t, err := ParseDate(date)
+	return LDate{date: t}, err
+}
+
+func (lhs LDate) Add (days int) LDate {
+	t := lhs.date.Add(time.Duration(days) * 24 * time.Hour)
+	return LDate{date: &t}
+}
 
 type LDatetime struct {
 	datetime *time.Time
 }
 
-// func (r *LDatetime) Key() int {
-// 	return 0
-// }
-// func (r *LDatetime) Name() string {
-// 	return ""
-// }
-// func (r *LDatetime) Bool() bool {
-// 	return r != nil
-// }
-// func (r *LDatetime) Value() interface{} {
-// 	return r.datetime
-// }
+func NewLDatetime(datetime string) (LDatetime, error) {
+	t, err := ParseDatetime(datetime)
+	return LDatetime{datetime: t}, err
+}
 
-// type LInt32 struct{
-// 	data int32
-// }
-// func (r *LInt32) Key() int {
-// 	return 0
-// }
-// func (r *LInt32) Name() string {
-// 	return ""
-// }
-// func (r *LInt32) Bool() bool {
-// 	return r.data != 0
-// }
-// func (r *LInt32) Value() interface{} {
-// 	return r.data
-// }
+func (lhs LDatetime) Add (days int) LDatetime {
+	t := lhs.datetime.Add(time.Duration(days) * 24 * time.Hour)
+	return LDatetime{datetime: &t}
+}
 
-// type LInt64 struct{
-// 	data int64
-// }
-// func (r *LInt64) Key() int {
-// 	return 0
-// }
-// func (r *LInt64) Name() string {
-// 	return ""
-// }
-// func (r *LInt64) Bool() bool {
-// 	return r.data != 0
-// }
-// func (r *LInt64) Value() interface{} {
-// 	return r.data
-// }
-
-// type LDouble struct{
-// 	data float64
-// }
-// func (r *LDouble) Key() int {
-// 	return 0
-// }
-// func (r *LDouble) Name() string {
-// 	return ""
-// }
-// func (r *LDouble) Bool() bool {
-// 	return r.data != 0
-// }
-// func (r *LDouble) Value() interface{} {
-// 	return r.data
-// }
-
-// type LString struct{
-// 	data string
-// }
-// func (r *LString) Key() int {
-// 	return 0
-// }
-// func (r *LString) Name() string {
-// 	return ""
-// }
-// func (r *LString) Bool() bool {
-// 	return r.data != ""
-// }
-// func (r *LString) Value() interface{} {
-// 	return r.data
-// }
+func ParseBool(value string) int {
+	switch strings.ToLower(value) {
+	case "true","t","1":
+		return 1
+	default:
+		return 0
+	}
+}

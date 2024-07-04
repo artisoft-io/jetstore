@@ -9,11 +9,11 @@ type NotificationCallbackTest struct {
 	deleted  map[Triple]bool
 }
 
-func (n *NotificationCallbackTest) tripleInserted(s, p, o *Node) {
+func (n *NotificationCallbackTest) TripleInserted(s, p, o *Node) {
 	n.inserted[T3(s, p, o)] = true
 }
 
-func (n *NotificationCallbackTest) tripleDeleted(s, p, o *Node) {
+func (n *NotificationCallbackTest) TripleDeleted(s, p, o *Node) {
 	n.deleted[T3(s, p, o)] = true
 }
 
@@ -33,8 +33,8 @@ func TestNotifications(t *testing.T) {
 		inserted: make(map[[3]*Node]bool),
 		deleted: make(map[[3]*Node]bool),
 	}
-	rdfSession.AssertedGraph.callbackMgr.AddCallback(cback)
-	rdfSession.InferredGraph.callbackMgr.AddCallback(cback)
+	rdfSession.AssertedGraph.CallbackMgr.AddCallback(cback)
+	rdfSession.InferredGraph.CallbackMgr.AddCallback(cback)
 	// Switch to RdfSession ResourceManager and insert triples
 	rm = rdfSession.ResourceMgr
 	s := rm.NewResource("s")

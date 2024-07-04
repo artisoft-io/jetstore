@@ -16,7 +16,7 @@ import (
 // functions to build the cpipes state machine
 
 func (jsComp *JetStoreStackComponents) BuildEcsTasks(scope constructs.Construct, stack awscdk.Stack, props *JetstoreOneStackProps) {
-	
+
 	// Define the run_reports task, used in jsComp.ServerSM, and jsComp.LoaderSM
 	// Run Reports ECS Task Definition
 	// --------------------------------------------------------------------------------------------------------------
@@ -49,6 +49,7 @@ func (jsComp *JetStoreStackComponents) BuildEcsTasks(scope constructs.Construct,
 			"JETS_RESET_DOMAIN_TABLE_ON_STARTUP": jsii.String(os.Getenv("JETS_RESET_DOMAIN_TABLE_ON_STARTUP")),
 			"JETS_s3_INPUT_PREFIX":               jsii.String(os.Getenv("JETS_s3_INPUT_PREFIX")),
 			"JETS_s3_OUTPUT_PREFIX":              jsii.String(os.Getenv("JETS_s3_OUTPUT_PREFIX")),
+			"JETS_s3_STAGE_PREFIX":               jsii.String(GetS3StagePrefix()),
 			"JETS_S3_KMS_KEY_ARN":                jsii.String(os.Getenv("JETS_S3_KMS_KEY_ARN")),
 			"JETS_SENTINEL_FILE_NAME":            jsii.String(os.Getenv("JETS_SENTINEL_FILE_NAME")),
 			"JETS_DOMAIN_KEY_SEPARATOR":          jsii.String(os.Getenv("JETS_DOMAIN_KEY_SEPARATOR")),
@@ -124,6 +125,7 @@ func (jsComp *JetStoreStackComponents) BuildEcsTasks(scope constructs.Construct,
 			"JETS_RESET_DOMAIN_TABLE_ON_STARTUP": jsii.String(os.Getenv("JETS_RESET_DOMAIN_TABLE_ON_STARTUP")),
 			"JETS_s3_INPUT_PREFIX":               jsii.String(os.Getenv("JETS_s3_INPUT_PREFIX")),
 			"JETS_s3_OUTPUT_PREFIX":              jsii.String(os.Getenv("JETS_s3_OUTPUT_PREFIX")),
+			"JETS_s3_STAGE_PREFIX":               jsii.String(GetS3StagePrefix()),
 			"JETS_S3_KMS_KEY_ARN":                jsii.String(os.Getenv("JETS_S3_KMS_KEY_ARN")),
 			"JETS_SENTINEL_FILE_NAME":            jsii.String(os.Getenv("JETS_SENTINEL_FILE_NAME")),
 			"JETS_DOMAIN_KEY_SEPARATOR":          jsii.String(os.Getenv("JETS_DOMAIN_KEY_SEPARATOR")),
@@ -231,6 +233,7 @@ func (jsComp *JetStoreStackComponents) BuildEcsTasks(scope constructs.Construct,
 			"JETS_RESET_DOMAIN_TABLE_ON_STARTUP": jsii.String(os.Getenv("JETS_RESET_DOMAIN_TABLE_ON_STARTUP")),
 			"JETS_s3_INPUT_PREFIX":               jsii.String(os.Getenv("JETS_s3_INPUT_PREFIX")),
 			"JETS_s3_OUTPUT_PREFIX":              jsii.String(os.Getenv("JETS_s3_OUTPUT_PREFIX")),
+			"JETS_s3_STAGE_PREFIX":               jsii.String(GetS3StagePrefix()),
 			"JETS_S3_KMS_KEY_ARN":                jsii.String(os.Getenv("JETS_S3_KMS_KEY_ARN")),
 			"JETS_SENTINEL_FILE_NAME":            jsii.String(os.Getenv("JETS_SENTINEL_FILE_NAME")),
 			"JETS_DOMAIN_KEY_SEPARATOR":          jsii.String(os.Getenv("JETS_DOMAIN_KEY_SEPARATOR")),
@@ -277,6 +280,7 @@ func (jsComp *JetStoreStackComponents) BuildEcsTasks(scope constructs.Construct,
 			"JETS_RESET_DOMAIN_TABLE_ON_STARTUP": jsii.String(os.Getenv("JETS_RESET_DOMAIN_TABLE_ON_STARTUP")),
 			"JETS_s3_INPUT_PREFIX":               jsii.String(os.Getenv("JETS_s3_INPUT_PREFIX")),
 			"JETS_s3_OUTPUT_PREFIX":              jsii.String(os.Getenv("JETS_s3_OUTPUT_PREFIX")),
+			"JETS_s3_STAGE_PREFIX":               jsii.String(GetS3StagePrefix()),
 			"JETS_S3_KMS_KEY_ARN":                jsii.String(os.Getenv("JETS_S3_KMS_KEY_ARN")),
 			"JETS_SENTINEL_FILE_NAME":            jsii.String(os.Getenv("JETS_SENTINEL_FILE_NAME")),
 			"JETS_DOMAIN_KEY_SEPARATOR":          jsii.String(os.Getenv("JETS_DOMAIN_KEY_SEPARATOR")),
@@ -292,5 +296,5 @@ func (jsComp *JetStoreStackComponents) BuildEcsTasks(scope constructs.Construct,
 		Logging: awsecs.LogDriver_AwsLogs(&awsecs.AwsLogDriverProps{
 			StreamPrefix: jsii.String("task"),
 		}),
-	})	
+	})
 }

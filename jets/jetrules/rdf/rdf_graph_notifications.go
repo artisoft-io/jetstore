@@ -5,8 +5,8 @@ package rdf
 
 // This interface is implemented in the rete package
 type NotificationCallback interface {
-	tripleInserted(s, p, o *Node)
-	tripleDeleted(s, p, o *Node)
+	TripleInserted(s, p, o *Node)
+	TripleDeleted(s, p, o *Node)
 }
 
 // Struct to manage a list of callbacks to invoke when
@@ -34,12 +34,12 @@ func (cm *CallbackManager) ClearCallbacks() {
 
 func (cm *CallbackManager) TripleInserted(s, p, o *Node) {
 	for i := range cm.callbacks {
-		cm.callbacks[i].tripleInserted(s, p, o)
+		cm.callbacks[i].TripleInserted(s, p, o)
 	}
 }
 
 func (cm *CallbackManager) TripleDeleted(s, p, o *Node) {
 	for i := range cm.callbacks {
-		cm.callbacks[i].tripleDeleted(s, p, o)
+		cm.callbacks[i].TripleDeleted(s, p, o)
 	}
 }

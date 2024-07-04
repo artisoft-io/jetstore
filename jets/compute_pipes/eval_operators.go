@@ -2,7 +2,6 @@ package compute_pipes
 
 import (
 	"fmt"
-	"log"
 	"math"
 	"strconv"
 	"strings"
@@ -1020,10 +1019,11 @@ func (op opADD) eval(lhs interface{}, rhs interface{}) (interface{}, error) {
 		switch rhsv := rhs.(type) {
 		case int:
 			// Assuming lhs is date and rhs is days
-			d, err := time.ParseDuration(fmt.Sprintf("%dh", rhsv * 24))
-			if err != nil {
-				log.Printf("opADD: while adding time with int (assuming adding days to a date): %v", err)
-			}
+			d := time.Duration(rhsv) * 24 * time.Hour
+			// d, err := time.ParseDuration(fmt.Sprintf("%dh", rhsv * 24))
+			// if err != nil {
+			// 	log.Printf("opADD: while adding time with int (assuming adding days to a date): %v", err)
+			// }
 			return lhsv.Add(d), nil
 		}
 	}
@@ -1074,10 +1074,11 @@ func (op opSUB) eval(lhs interface{}, rhs interface{}) (interface{}, error) {
 		switch rhsv := rhs.(type) {
 		case int:
 			// Assuming lhs is date and rhs is days
-			d, err := time.ParseDuration(fmt.Sprintf("%dh", rhsv * 24))
-			if err != nil {
-				log.Printf("opSUB: while substracting time with int (assuming subtracting days to a date): %v", err)
-			}
+			d := time.Duration(rhsv) * 24 * time.Hour
+			// d, err := time.ParseDuration(fmt.Sprintf("%dh", rhsv * 24))
+			// if err != nil {
+			// 	log.Printf("opSUB: while substracting time with int (assuming subtracting days to a date): %v", err)
+			// }
 			return lhsv.Add(-d), nil
 
 		case time.Time:

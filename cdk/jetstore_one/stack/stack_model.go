@@ -2,6 +2,8 @@ package stack
 
 import (
 	"fmt"
+	"os"
+	"strings"
 
 	awscdk "github.com/aws/aws-cdk-go/awscdk/v2"
 	"github.com/aws/aws-cdk-go/awscdk/v2/awsec2"
@@ -99,4 +101,12 @@ func MkCatchProps() *sfn.CatchProps {
 		Errors:     jsii.Strings("States.ALL"),
 		ResultPath: jsii.String("$.errorUpdate.failureDetails"),
 	}
+}
+
+func GetS3StagePrefix() string {
+	stage := os.Getenv("JETS_s3_STAGE_PREFIX")
+	if stage != "" {
+		return stage
+	}
+	return strings.Replace(os.Getenv("JETS_s3_INPUT_PREFIX"), "/input", "/stage", 1)
 }

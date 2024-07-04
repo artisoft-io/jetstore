@@ -9,7 +9,6 @@ import (
 	"log"
 	"net/http"
 	"os"
-	"reflect"
 	"strconv"
 	"strings"
 	"time"
@@ -773,13 +772,6 @@ func SplitFileKeyIntoComponents(keyMap map[string]interface{}, fileKey *string) 
 	fileKeyObject["month"] = month
 	fileKeyObject["day"] = day
 	return fileKeyObject
-}
-
-func AsString(i interface{}) string {
-	if i != nil && reflect.TypeOf(i).Kind() == reflect.String {
-		return i.(string)
-	}
-	return ""
 }
 
 // SyncFileKeys ------------------------------------------------------

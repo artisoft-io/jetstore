@@ -1624,8 +1624,8 @@
       {
         "columnName": "step_id",
         "dataType": "text",
-        "default": "'sharding'",
-        "description": "Indicate which step of the process the partition were written, values: sharding, reducing0, reducing1...",
+        "default": "'reducing0'",
+        "description": "Indicate which step of the process the partition were written, values: reducing0, reducing1...",
         "isNotNull": true
       },
       {
