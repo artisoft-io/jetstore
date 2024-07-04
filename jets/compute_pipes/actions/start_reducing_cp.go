@@ -16,13 +16,9 @@ import (
 
 func (args *StartComputePipesArgs) StartReducingComputePipes(ctx context.Context, dsn string, defaultNbrNodes int) (result ComputePipesRun, err error) {
 	// validate the args
-	if args.FileKey == "" || args.SessionId == "" || args.InputStepId == nil || args.NbrPartitions == nil {
-		log.Println("error: missing file_key or session_id or input_step_id or nbr_partitions as input args of StartComputePipes (reducing mode)")
+	if args.FileKey == "" || args.SessionId == "" || args.InputStepId == nil|| args.CurrentStep == nil || args.NbrPartitions == nil {
+		log.Println("error: missing file_key or session_id or input_step_id or current_step or nbr_partitions as input args of StartComputePipes (reducing mode)")
 		return result, fmt.Errorf("error: missing file_key or session_id or input_step_id as input args of StartComputePipes (reducing mode)")
-	}
-	if *args.InputStepId != "sharding" && args.CurrentStep == nil {
-		log.Println("error: missing current_step as input args of StartComputePipes (reducing mode)")
-		return result, fmt.Errorf("error: missing nbr_steps and current_step as input args of StartComputePipes (reducing mode)")
 	}
 
 	// open db connection
@@ -59,11 +55,7 @@ func (args *StartComputePipesArgs) StartReducingComputePipes(ctx context.Context
 	log.Println("argument: inputStepId", *args.InputStepId)
 	log.Println("argument: inFile", args.FileKey)
 	log.Println("argument: nbrPartitions", *args.NbrPartitions)
-	if args.CurrentStep != nil {
-		log.Println("Start REDUCING", args.SessionId, "file_key:", args.FileKey, "reducing mode", "current_step:",*args.CurrentStep)
-	} else {
-		log.Println("Start REDUCING", args.SessionId, "file_key:", args.FileKey, "sharding mode")
-	}
+	log.Println("Start REDUCING", args.SessionId, "file_key:", args.FileKey, "reducing mode", "current_step:",*args.CurrentStep)
 
 	// Get the pipeline config
 	var cpJson sql.NullString
@@ -106,11 +98,8 @@ func (args *StartComputePipesArgs) StartReducingComputePipes(ctx context.Context
 	}
 
 	outputTables := make([]compute_pipes.TableSpec, 0)
-	currentStep := 0
+	currentStep := *args.CurrentStep
 	isLastReducing := false
-	if args.CurrentStep != nil {
-		currentStep = *args.CurrentStep
-	}
 	if currentStep == len(cpConfig.ReducingPipesConfig)-1 {
 		outputTables = cpConfig.OutputTables
 		isLastReducing = true
@@ -149,10 +138,10 @@ func (args *StartComputePipesArgs) StartReducingComputePipes(ctx context.Context
 
 	// Check if this is the last iteration of reducing
 	result.IsLastReducing = isLastReducing
-	nextInputStepId := fmt.Sprintf("reducing%d", currentStep)
 	if !isLastReducing {
 		// next iteration
 		nextCurrent := currentStep + 1
+		nextInputStepId := fmt.Sprintf("reducing%d", currentStep)
 		result.StartReducing = StartComputePipesArgs{
 			PipelineExecKey: args.PipelineExecKey,
 			FileKey:         args.FileKey,
@@ -191,12 +180,17 @@ func (args *StartComputePipesArgs) StartReducingComputePipes(ctx context.Context
 			break
 		}
 	}
-
 	// Build CpipesReducingCommands
 	log.Printf("Got %d partitions", len(partitions))
-	result.CpipesCommands = make([]ComputePipesArgs, len(partitions))
-	for i := range result.CpipesCommands {
-		result.CpipesCommands[i] = ComputePipesArgs{
+	stagePrefix := os.Getenv("JETS_s3_STAGE_PREFIX")
+	if stagePrefix == "" {
+		return result, fmt.Errorf("error: missing env var JETS_s3_STAGE_PREFIX in deployment")
+	}
+	cpipesCommands := make([]ComputePipesArgs, len(partitions))
+	// write to location: stage_prefix/cpipesCommands/session_id/reducingXCommands.json
+	result.CpipesCommandsS3Key = fmt.Sprintf("%s/cpipesCommands/%s/%sCommands.json", stagePrefix, args.SessionId, *result.StartReducing.InputStepId)
+	for i := range cpipesCommands {
+		cpipesCommands[i] = ComputePipesArgs{
 			NodeId:             i,
 			CpipesMode:         "reducing",
 			NbrNodes:           len(partitions),
@@ -215,6 +209,8 @@ func (args *StartComputePipesArgs) StartReducingComputePipes(ctx context.Context
 			UserEmail:          userEmail,
 		}
 	}
+	// Copy the cpipesCommands to S3 as a json file
+	WriteCpipesArgsToS3(cpipesCommands, result.CpipesCommandsS3Key)
 
 	return result, nil
 }

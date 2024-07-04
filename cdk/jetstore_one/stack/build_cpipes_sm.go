@@ -51,9 +51,12 @@ func (jsComp *JetStoreStackComponents) BuildCpipesSM(scope constructs.Construct,
 		InputPath:      jsii.String("$"),
 		ResultPath:     sfn.JsonPath_DISCARD(),
 	})
-	runShardingMap := sfn.NewMap(stack, jsii.String("run-sharding-map"), &sfn.MapProps{
+	runShardingMap := sfn.NewDistributedMap(stack, jsii.String("run-sharding-map"), &sfn.DistributedMapProps{
 		Comment:        jsii.String("Run JetStore Sharding Lambda Task"),
-		ItemsPath:      sfn.JsonPath_StringAt(jsii.String("$.cpipesCommands")),
+		ItemReader: sfn.NewS3JsonItemReader(&sfn.S3FileItemReaderProps{
+			Bucket: jsComp.SourceBucket,
+			Key: sfn.JsonPath_StringAt(jsii.String("$.cpipesCommandsS3Key")),
+		}),
 		MaxConcurrency: jsii.Number(props.MaxConcurrency),
 		ResultPath:     sfn.JsonPath_DISCARD(),
 	})
@@ -75,9 +78,12 @@ func (jsComp *JetStoreStackComponents) BuildCpipesSM(scope constructs.Construct,
 		InputPath:      jsii.String("$"),
 		ResultPath:     sfn.JsonPath_DISCARD(),
 	})
-	runReducingMap := sfn.NewMap(stack, jsii.String("run-reducing-map"), &sfn.MapProps{
+	runReducingMap := sfn.NewDistributedMap(stack, jsii.String("run-reducing-map"), &sfn.DistributedMapProps{
 		Comment:        jsii.String("Run JetStore Reducing Lambda Task"),
-		ItemsPath:      sfn.JsonPath_StringAt(jsii.String("$.cpipesCommands")),
+		ItemReader: sfn.NewS3JsonItemReader(&sfn.S3FileItemReaderProps{
+			Bucket: jsComp.SourceBucket,
+			Key: sfn.JsonPath_StringAt(jsii.String("$.cpipesCommandsS3Key")),
+		}),
 		MaxConcurrency: jsii.Number(props.MaxConcurrency),
 		ResultPath:     sfn.JsonPath_DISCARD(),
 	})
@@ -115,7 +121,7 @@ func (jsComp *JetStoreStackComponents) BuildCpipesSM(scope constructs.Construct,
 	// Chaining the SF Tasks
 	// ---------------------
 	runStartSharingTask.AddCatch(runErrorStatusLambdaTask, MkCatchProps()).Next(runShardingMap)
-	runShardingMap.Iterator(runSharingNodeTask).AddRetry(&sfn.RetryProps{
+	runShardingMap.ItemProcessor(runSharingNodeTask, &sfn.ProcessorConfig{}).AddRetry(&sfn.RetryProps{
 		BackoffRate: jsii.Number(2),
 		Errors:      jsii.Strings(*sfn.Errors_TASKS_FAILED()),
 		Interval:    awscdk.Duration_Minutes(jsii.Number(4)),
@@ -123,7 +129,7 @@ func (jsComp *JetStoreStackComponents) BuildCpipesSM(scope constructs.Construct,
 	}).AddCatch(runErrorStatusLambdaTask, MkCatchProps()).Next(runStartReducingTask)
 
 	runStartReducingTask.AddCatch(runErrorStatusLambdaTask, MkCatchProps()).Next(runReducingMap)
-	runReducingMap.Iterator(runReducingNodeTask).AddRetry(&sfn.RetryProps{
+	runReducingMap.ItemProcessor(runReducingNodeTask, &sfn.ProcessorConfig{}).AddRetry(&sfn.RetryProps{
 		BackoffRate: jsii.Number(2),
 		Errors:      jsii.Strings(*sfn.Errors_TASKS_FAILED()),
 		Interval:    awscdk.Duration_Minutes(jsii.Number(4)),

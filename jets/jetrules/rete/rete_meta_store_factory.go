@@ -159,6 +159,8 @@ func (ctx *ReteBuilderContext) BuildReteMetaStore() (*ReteMetaStore, error) {
 	}
 
 	// Load the alpha nodes
+	//*##* CONTINUE HERE
+	return nil, nil
 
 	// Create & initialize the ReteMetaStore
 }

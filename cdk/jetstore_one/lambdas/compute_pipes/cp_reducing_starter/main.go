@@ -20,6 +20,7 @@ import (
 // JETS_REGION
 // JETS_s3_INPUT_PREFIX
 // JETS_s3_OUTPUT_PREFIX
+// JETS_s3_STAGE_PREFIX
 // JETS_S3_KMS_KEY_ARN
 // NBR_SHARDS default nbr_nodes of cluster
 

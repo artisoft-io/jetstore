@@ -166,7 +166,7 @@ func (ctx *PartitionWriterTransformationPipe) done() error {
 	close(ctx.s3WritersResultCh)
 
 	// Write to db the jets_partition and nodeId of this partition w/ session_id
-	stepId := "sharding"
+	stepId := "reducing0"
 	if ctx.spec.StepId != nil {
 		stepId = *ctx.spec.StepId
 	}

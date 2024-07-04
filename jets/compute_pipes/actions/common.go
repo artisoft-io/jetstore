@@ -1,8 +1,12 @@
 package actions
 
 import (
+	"encoding/json"
+	"fmt"
+	"os"
 	"regexp"
 
+	"github.com/artisoft-io/jetstore/jets/awsi"
 	"github.com/artisoft-io/jetstore/jets/compute_pipes"
 )
 
@@ -43,6 +47,63 @@ type ComputePipesArgs struct {
 	UserEmail          string   `json:"user_email"`
 }
 
+// Write the compute pipes arguments as json to s3 at location specified by s3Location
+func WriteCpipesArgsToS3(cpa []ComputePipesArgs, s3Location string) error {
+	cpJson, err := json.Marshal(cpa)
+	if err != nil {
+		return fmt.Errorf("while marshalling cpipes arg to json: %v", err)
+	}
+	f, err := os.CreateTemp("", "cp_args")
+	if err != nil {
+		return err
+	}
+	defer os.Remove(f.Name()) // clean up
+	if _, err := f.Write(cpJson); err != nil {
+		return err
+	}
+	_, err = f.Seek(0, 0)
+	if err != nil {
+		return err
+	}
+	err = awsi.UploadToS3(os.Getenv("JETS_BUCKET"), os.Getenv("JETS_REGION"), s3Location, f)
+	if err != nil {
+		return fmt.Errorf("while copying cpipes arg to s3: %v", err)
+	}
+	if err := f.Close(); err != nil {
+		return err
+	}
+	return nil
+}
+
+func ReadCpipesArgsFromS3(s3Location string) ([]ComputePipesArgs, error) {
+	f, err := os.CreateTemp("", "cp_args")
+	if err != nil {
+		return nil, err
+	}
+	defer os.Remove(f.Name()) // clean up
+
+	// Download the object
+	_, err = awsi.DownloadFromS3(os.Getenv("JETS_BUCKET"), os.Getenv("JETS_REGION"), s3Location, f)
+	if err != nil {
+		return nil, fmt.Errorf("failed to download cpipes arg from s3: %v", err)
+	}
+	fname := f.Name()
+	err = f.Close()
+	if err != nil {
+		return nil, err
+	}
+	buf, err := os.ReadFile(fname)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read cpipes arg downloaded from s3: %v", err)
+	}
+	var cpa []ComputePipesArgs
+	err = json.Unmarshal(buf, &cpa)
+	if err != nil {
+		return nil, fmt.Errorf("while unmarshaling cpipes arg downloaded from s3: %s", err)
+	}
+	return cpa, nil
+}
+
 // runReportsCommand := []string{
 // 	"-processName", processName.(string),
 // 	"-sessionId", sessionId.(string),
@@ -58,12 +119,12 @@ type ComputePipesArgs struct {
 
 // Returned by the cp_starter for a cpipes run
 type ComputePipesRun struct {
-	CpipesCommands []ComputePipesArgs     `json:"cpipesCommands"`
-	StartReducing  StartComputePipesArgs  `json:"startReducing"`
-	IsLastReducing bool                   `json:"isLastReducing"`
-	ReportsCommand []string               `json:"reportsCommand"`
-	SuccessUpdate  map[string]interface{} `json:"successUpdate"`
-	ErrorUpdate    map[string]interface{} `json:"errorUpdate"`
+	CpipesCommandsS3Key string                 `json:"cpipesCommandsS3Key"`
+	StartReducing       StartComputePipesArgs  `json:"startReducing"`
+	IsLastReducing      bool                   `json:"isLastReducing"`
+	ReportsCommand      []string               `json:"reportsCommand"`
+	SuccessUpdate       map[string]interface{} `json:"successUpdate"`
+	ErrorUpdate         map[string]interface{} `json:"errorUpdate"`
 }
 
 type FileName struct {

@@ -75,7 +75,7 @@ func (args *ComputePipesArgs) CoordinateComputePipes(ctx context.Context, dsn st
 			cpErr = fmt.Errorf("failed to download list of files from s3: %v", err)
 			goto gotError
 		}
-		log.Printf("**!@@ %s Got %d file keys from database for nodeId %d (reducing)", args.SessionId, len(s3Objects), args.NodeId)
+		log.Printf("**!@@ %s Got %d file keys from s3 for nodeId %d (reducing)", args.SessionId, len(s3Objects), args.NodeId)
 		fileKeys = make([]string, 0)
 		for i := range s3Objects {
 			if s3Objects[i].Size > 0 {

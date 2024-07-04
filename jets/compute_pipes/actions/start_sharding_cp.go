@@ -165,20 +165,16 @@ func (args *StartComputePipesArgs) StartShardingComputePipes(ctx context.Context
 		cpConfig.ClusterConfig.ShardingNbrNodes = totalPartfileCount
 	}
 
-	// Args for start_reducing_cp lambda
-	inputStepId := "sharding"
-	result.StartReducing = StartComputePipesArgs{
-		PipelineExecKey: args.PipelineExecKey,
-		FileKey:         args.FileKey,
-		SessionId:       args.SessionId,
-		InputStepId:     &inputStepId,
-		NbrPartitions:   &nbrPartitions,
-	}
-
 	// Build CpipesShardingCommands
-	result.CpipesCommands = make([]ComputePipesArgs, cpConfig.ClusterConfig.ShardingNbrNodes)
-	for i := range result.CpipesCommands {
-		result.CpipesCommands[i] = ComputePipesArgs{
+	stagePrefix := os.Getenv("JETS_s3_STAGE_PREFIX")
+	if stagePrefix == "" {
+		return result, fmt.Errorf("error: missing env var JETS_s3_STAGE_PREFIX in deployment")
+	}
+	cpipesCommands := make([]ComputePipesArgs, cpConfig.ClusterConfig.ShardingNbrNodes)
+	// write to location: stage_prefix/cpipesCommands/session_id/shardingCommands.json
+	result.CpipesCommandsS3Key = fmt.Sprintf("%s/cpipesCommands/%s/shardingCommands.json", stagePrefix, args.SessionId)
+	for i := range cpipesCommands {
+		cpipesCommands[i] = ComputePipesArgs{
 			NodeId:            i,
 			CpipesMode:        "sharding",
 			NbrNodes:          cpConfig.ClusterConfig.ShardingNbrNodes,
@@ -196,6 +192,21 @@ func (args *StartComputePipesArgs) StartShardingComputePipes(ctx context.Context
 			UserEmail:         userEmail,
 		}
 	}
+	// Copy the cpipesCommands to S3 as a json file
+	WriteCpipesArgsToS3(cpipesCommands, result.CpipesCommandsS3Key)
+
+	// Args for start_reducing_cp lambda
+	inputStepId := "reducing0"
+	reducingStep := 0
+	result.StartReducing = StartComputePipesArgs{
+		PipelineExecKey: args.PipelineExecKey,
+		FileKey:         args.FileKey,
+		SessionId:       args.SessionId,
+		InputStepId:     &inputStepId,
+		CurrentStep:     &reducingStep,
+		NbrPartitions:   &nbrPartitions,
+	}
+
 	// Make the sharding pipeline config
 	cpShardingConfig := &compute_pipes.ComputePipesConfig{
 		ClusterConfig: &compute_pipes.ClusterSpec{
