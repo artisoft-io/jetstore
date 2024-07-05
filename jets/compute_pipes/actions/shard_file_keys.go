@@ -14,9 +14,9 @@ import (
 
 // Contains action or functions invoked by process tasks
 // Action to assign input file keys to nodes aka shards.
-// Assign file_key to shard (node_id, sc_node_id, sc_id) into jetsapi.compute_pipes_shard_registry
+// Assign file_key to shard into jetsapi.compute_pipes_shard_registry
 // This is done in 2 parts, first load the file_key and file_size into the table
-// Then allocate the file_key using a round robin to sc_is and sc_node_id in decreasing order of file size.
+// Then allocate the file_key using a round robin to node_id in decreasing order of file size.
 
 //* This version which combined part 1 and part 2 is no longer used, it's used in loader.go but will be removed on the loader cleaned up
 func ShardFileKeys(exeCtx context.Context, dbpool *pgxpool.Pool, baseFileKey string, sessionId string, clusterConfig *compute_pipes.ClusterSpec) (int, error) {
