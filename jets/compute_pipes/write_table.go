@@ -108,6 +108,9 @@ func PrepareOutoutTable(dbpool *pgxpool.Pool, tableIdentifier pgx.Identifier, ta
 			return fmt.Errorf("while creating table: %v", err)
 		}
 	} else {
+		if !tableSpec.CheckSchemaChanged {
+			return nil
+		}
 		// Check if the input file has new headers compared to the staging table.
 		// ---------------------------------------------------------------
 		tableSchema, err := schema.GetTableSchema(dbpool, tableIdentifier[0], tableIdentifier[1])

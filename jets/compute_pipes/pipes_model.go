@@ -14,20 +14,26 @@ type ComputePipesConfig struct {
 
 // Config for peer2peer communication
 type ClusterSpec struct {
-	CpipesMode              string `json:"cpipes_mode"`
-	ReadTimeout             int    `json:"read_timeout"`
-	WriteTimeout            int    `json:"write_timeout"`
-	PeerRegistrationTimeout int    `json:"peer_registration_timeout"`
-	NbrNodes                int    `json:"nbr_nodes"`
-	ShardingNbrNodes        int    `json:"sharding_nbr_nodes"`
-	ReducingNbrNodes        int    `json:"reducing_nbr_nodes"`
-	NbrSubClusters          int    `json:"nbr_sub_clusters"`
-	NbrJetsPartitions       uint64 `json:"nbr_jets_partitions"`
-	PeerBatchSize           int    `json:"peer_batch_size"`
-	NodeId                  int    // calculated field
-	SubClusterId            int    // calculated field
-	NbrSubClusterNodes      int    // calculated field
-	SubClusterNodeId        int    // calculated field
+	CpipesMode              string               `json:"cpipes_mode"`
+	ReadTimeout             int                  `json:"read_timeout"`
+	WriteTimeout            int                  `json:"write_timeout"`
+	PeerRegistrationTimeout int                  `json:"peer_registration_timeout"`
+	NbrNodes                int                  `json:"nbr_nodes"`
+	NbrNodesLookup          *[]ClusterSizingSpec `json:"nbr_nodes_lookup"`
+	ShardingNbrNodes        int                  `json:"sharding_nbr_nodes"`
+	ReducingNbrNodes        int                  `json:"reducing_nbr_nodes"`
+	NbrSubClusters          int                  `json:"nbr_sub_clusters"`
+	NbrJetsPartitions       uint64               `json:"nbr_jets_partitions"`
+	PeerBatchSize           int                  `json:"peer_batch_size"`
+	NodeId                  int                  // calculated field
+	SubClusterId            int                  // calculated field
+	NbrSubClusterNodes      int                  // calculated field
+	SubClusterNodeId        int                  // calculated field
+}
+
+type ClusterSizingSpec struct {
+	WhenTotalSizeGt int `json:"when_total_size_gt_gb"`
+	NbrNodes        int `json:"nbr_nodes"`
 }
 
 type MetricsSpec struct {
@@ -55,9 +61,10 @@ type ContextSpec struct {
 }
 
 type TableSpec struct {
-	Key     string            `json:"key"`
-	Name    string            `json:"name"`
-	Columns []TableColumnSpec `json:"columns"`
+	Key                string            `json:"key"`
+	Name               string            `json:"name"`
+	CheckSchemaChanged bool              `json:"check_schema_changed"`
+	Columns            []TableColumnSpec `json:"columns"`
 }
 
 type TableColumnSpec struct {

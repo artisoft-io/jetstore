@@ -56,42 +56,39 @@ func (args *StartComputePipesArgs) StartShardingComputePipes(ctx context.Context
 		return result, fmt.Errorf("error: the session id is already used")
 	}
 
-	// get pe info
+	// get pe info and pipeline config
 	var client, org, objectType, processName, inputSessionId, userEmail string
 	var sourcePeriodKey, pipelineConfigKey int
+	var cpJson, icJson sql.NullString
 	log.Println("CPIPES, loading pipeline configuration")
 	stmt := `
 	SELECT	ir.client, ir.org, ir.object_type, ir.source_period_key, 
-		pe.pipeline_config_key, pe.process_name, pe.input_session_id, pe.user_email
+		pe.pipeline_config_key, pe.process_name, pe.input_session_id, pe.user_email,
+		sc.input_columns_json, sc.compute_pipes_json
 	FROM 
 		jetsapi.pipeline_execution_status pe,
-		jetsapi.input_registry ir
+		jetsapi.input_registry ir,
+		jetsapi.source_config sc
 	WHERE pe.main_input_registry_key = ir.key
-		AND pe.key = $1`
+		AND pe.key = $1
+		AND sc.client = ir.client,
+		AND sc.org = ir.org,
+		AND sc.object_type = ir.object_type`
 	err = dbpool.QueryRow(context.Background(), stmt, args.PipelineExecKey).Scan(
 		&client, &org, &objectType, &sourcePeriodKey,
-		&pipelineConfigKey, &processName, &inputSessionId, &userEmail)
+		&pipelineConfigKey, &processName, &inputSessionId, &userEmail, &icJson, &cpJson)
 	if err != nil {
 		return result, fmt.Errorf("query table_name, domain_keys_json, input_columns_json, input_columns_positions_csv, input_format_data_json from jetsapi.source_config failed: %v", err)
 	}
-	log.Println("argument: client", client)
-	log.Println("argument: org", org)
-	log.Println("argument: objectType", objectType)
-	log.Println("argument: sourcePeriodKey", sourcePeriodKey)
+	// log.Println("argument: client", client)
+	// log.Println("argument: org", org)
+	// log.Println("argument: objectType", objectType)
+	// log.Println("argument: sourcePeriodKey", sourcePeriodKey)
 	log.Println("argument: inputSessionId", inputSessionId)
 	log.Println("argument: sessionId", args.SessionId)
 	log.Println("argument: inFile", args.FileKey)
 
 	log.Println("Start SHARDING", args.SessionId, "file_key:", args.FileKey)
-
-	// Get the pipeline config
-	var cpJson, icJson sql.NullString
-	err = dbpool.QueryRow(context.Background(),
-		"SELECT input_columns_json, compute_pipes_json FROM jetsapi.source_config WHERE client=$1 AND org=$2 AND object_type=$3",
-		client, org, objectType).Scan(&icJson, &cpJson)
-	if err != nil {
-		return result, fmt.Errorf("query compute_pipes_json from jetsapi.source_config failed: %v", err)
-	}
 	if !cpJson.Valid || len(cpJson.String) == 0 {
 		return result, fmt.Errorf("error: compute_pipes_json is null or empty")
 	}

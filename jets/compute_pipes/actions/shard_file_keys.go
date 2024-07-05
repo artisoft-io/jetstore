@@ -13,11 +13,12 @@ import (
 )
 
 // Contains action or functions invoked by process tasks
-
 // Action to assign input file keys to nodes aka shards.
 // Assign file_key to shard (node_id, sc_node_id, sc_id) into jetsapi.compute_pipes_shard_registry
-// This is done in 2 steps, first load the file_key and file_size into the table
+// This is done in 2 parts, first load the file_key and file_size into the table
 // Then allocate the file_key using a round robin to sc_is and sc_node_id in decreasing order of file size.
+
+//* This version which combined part 1 and part 2 is no longer used, it's used in loader.go but will be removed on the loader cleaned up
 func ShardFileKeys(exeCtx context.Context, dbpool *pgxpool.Pool, baseFileKey string, sessionId string, clusterConfig *compute_pipes.ClusterSpec) (int, error) {
 	// Step 1: load the file_key and file_size into the table
 	totalPartfileCount, _, err := ShardFileKeysP1(exeCtx, dbpool, baseFileKey, sessionId)
@@ -36,10 +37,10 @@ func ShardFileKeysP1(exeCtx context.Context, dbpool *pgxpool.Pool, baseFileKey s
 	// Get all the file keys having baseFileKey as prefix
 	log.Printf("Downloading file keys from s3 folder: %s", baseFileKey)
 	s3Objects, err := awsi.ListS3Objects(&baseFileKey)
-	if err != nil || s3Objects == nil || len(s3Objects) == 0 {
+	if err != nil || len(s3Objects) == 0 {
 		return 0, 0, fmt.Errorf("failed to download list of files from s3 (or folder is empty): %v", err)
 	}
-	// Step 1: load the file_key and file_size into the table
+	// load the file_key and file_size into the table
 	var totalPartfileCount int
 	var totalSize int64
 	var buf strings.Builder
