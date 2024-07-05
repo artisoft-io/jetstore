@@ -25,7 +25,6 @@ type ChannelResults struct {
 	LoadFromS3FilesResultCh chan LoadFromS3FilesResult
 	Copy2DbResultCh         chan chan ComputePipesResult
 	WritePartitionsResultCh chan chan chan ComputePipesResult
-	MapOnClusterResultCh    chan chan chan ComputePipesResult
 }
 
 type SaveResultsContext struct {

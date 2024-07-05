@@ -1024,10 +1024,10 @@ func (ctx *Context) InsertRows(dataTableAction *DataTableAction, token string) (
 							log.Printf("Run server: %s", serverArgs)
 							lable = "SERVER"
 							cmd = exec.Command("/usr/local/bin/server", serverArgs...)
-						case "run_cpipes_only", "run_cpipes_reports":
-							log.Printf("Run cpipes: %s", serverArgs)
-							lable = "CPIPES"
-							cmd = exec.Command("/usr/local/bin/cpipes_booter", serverArgs...)
+						// case "run_cpipes_only", "run_cpipes_reports":
+						// 	log.Printf("Run cpipes: %s", serverArgs)
+						// 	lable = "CPIPES"
+						// 	cmd = exec.Command("/usr/local/bin/cpipes_booter", serverArgs...)
 						default:
 							log.Printf("error: unknown devModeCode: %s", devModeCode)
 							httpStatus = http.StatusInternalServerError

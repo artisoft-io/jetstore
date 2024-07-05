@@ -53,64 +53,13 @@ func GetFileKeys(ctx context.Context, dbpool *pgxpool.Pool, sessionId string, no
 // Input arg:
 // done: unbuffered channel to indicate to stop downloading file (must be an error downstream)
 // Returned values:
-// headersFileCh: channel having the first file name to get headers from
-// fileNamesCh: channel having all file names (incl header file), one at a time
-// downloadS3ResultCh: channel indicating the downoader results (nbr of files downloaded or error)
-// inFolderPath: temp folder containing the downloaded files
 // error when setting up the downloader
-// Special case:
-//
-//	Case of multipart files using distribute_data operator where this shardId contains no files in
-//	table compute_pipes_shard_registry:
-//		- Use of global cpipesShardWithNoFileKeys == true to indicate this situation
-//		- Case cpipes "reducing": inFile contains the file_key folder of another shardId to get the headers file from it.
-//			This will get a file to get the headers from but the file list to process (in fileNamesCh) will be empty.
-//		- Case cpipes "sharding": cpipesFileKeys will contain one file to use to obtain the headers from,
-//			but the file list to process (in fileNamesCh) will be empty
-//	This is needed to be able to setup the header sctucture and domain key info to be able to process records
-//	obtained by peer nodes even when this node had no file assigned to it originally.
 func (cpCtx *ComputePipesContext) DownloadS3Files(inFolderPath string, fileKeys []string) error {
 
 	go func() {
 		defer close(cpCtx.FileNamesCh)
 		var inFilePath string
 		var err error
-			// switch cpipesMode {
-			// case "loader", "reducing":
-			// 	// Case loader mode (loaderSM) or cpipes reducing mode, get the file keys from s3
-			// 	if cpipesShardWithNoFileKeys {
-			// 		log.Printf("Getting first file key from s3 folder for headers only: %s", *inFile)
-			// 	} else {
-			// 		log.Printf("Getting file keys from s3 folder: %s", *inFile)
-			// 	}
-			// 	s3Objects, err := awsi.ListS3Objects(inFile)
-			// 	if err != nil || s3Objects == nil {
-			// 		downloadS3ResultCh <- DownloadS3Result{
-			// 			err: fmt.Errorf("failed to download list of files from s3: %v", err),
-			// 		}
-			// 		return
-			// 	}
-			// 	if len(s3Objects) == 0 {
-			// 		downloadS3ResultCh <- DownloadS3Result{}
-			// 		return
-			// 	}
-			// 	fileKeys = make([]string, 0)
-			// 	for i := range s3Objects {
-			// 		if s3Objects[i].Size > 0 {
-			// 			fileKeys = append(fileKeys, s3Objects[i].Key)
-			// 		}
-			// 	}
-
-			// case "sharding":
-			// 	// Process the fileKeys in the global variable cpipesFileKeys
-			// 	fileKeys = cpipesFileKeys
-
-			// default:
-			// 	downloadS3ResultCh <- DownloadS3Result{
-			// 		err: fmt.Errorf("error: invalid cpipesMode in downloadS3Files: %s", cpipesMode),
-			// 	}
-			// 	return
-			// }
 			log.Printf("Downloading multi-part file from s3 folder: %s", cpCtx.FileKey)
 			for i := range fileKeys {
 				inFilePath, err = DownloadS3Object(fileKeys[i], inFolderPath, 1)

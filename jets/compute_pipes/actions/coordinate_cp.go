@@ -84,7 +84,7 @@ func (args *ComputePipesArgs) CoordinateComputePipes(ctx context.Context, dsn st
 		}
 
 	default:
-		cpErr = fmt.Errorf("error: invalid cpipesMode in downloadS3Files: %s", args.CpipesMode)
+		cpErr = fmt.Errorf("error: invalid cpipesMode in CoordinateComputePipes: %s", args.CpipesMode)
 		goto gotError
 	}
 
@@ -95,10 +95,7 @@ func (args *ComputePipesArgs) CoordinateComputePipes(ctx context.Context, dsn st
 			"$FILE_KEY_DATE":        fileKeyDate,
 			"$FILE_KEY":             args.FileKey,
 			"$FILE_KEY_FOLDER":      args.FileKey, // assuming always partfiles
-			"$SHARD_ID":             args.NodeId,
-			"$NBR_SHARDS":           args.NbrNodes,
 			"$JETS_PARTITION_LABEL": args.JetsPartitionLabel,
-			"$CPIPES_SERVER_ADDR":   ":8585", // not used
 			"$JETSTORE_DEV_MODE":    false,
 		},
 		FileKeyComponents:  fileKeyComponents,
@@ -107,7 +104,7 @@ func (args *ComputePipesArgs) CoordinateComputePipes(ctx context.Context, dsn st
 		FileNamesCh:        make(chan FileName, 2),
 		DownloadS3ResultCh: make(chan DownloadS3Result, 1),
 	}
-	cpContext.CpConfig, err = compute_pipes.UnmarshalComputePipesConfig(&cpipesConfigJson, args.NodeId, args.NbrNodes)
+	cpContext.CpConfig, err = compute_pipes.UnmarshalComputePipesConfig(&cpipesConfigJson)
 	if err != nil {
 		cpErr = fmt.Errorf("failed to unmarshal cpipes config json (%s): %v", args.CpipesMode, err)
 		goto gotError

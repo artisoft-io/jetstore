@@ -104,19 +104,12 @@ type BuilderContext struct {
 	dbpool             *pgxpool.Pool
 	cpConfig           *ComputePipesConfig
 	channelRegistry    *ChannelRegistry
-	selfAddress        string
-	peersAddress       []string
 	done               chan struct{}
 	errCh              chan error
 	chResults          *ChannelResults
 	env                map[string]interface{}
 	s3Uploader         *manager.Uploader
 	nodeId             int
-	subClusterId       int
-	subClusterNodeId   int
-	nbrNodes           int
-	nbrSubClusters     int
-	nbrSubClusterNodes int
 }
 
 func (ctx *BuilderContext) JetsPartition() string {
@@ -146,34 +139,9 @@ type Input2PipeSet map[string]*PipeSet
 
 func (ctx *BuilderContext) buildComputeGraph() error {
 
-	// Construct the in-memory compute graph
-	// Build the Pipes
-	// log.Println("**& Start ComputeGraph")
-	// // look for pipes with common input, need to distribute the entities
-	// i2p := make(Input2PipeSet)
-	// for i := range ctx.cpConfig.PipesConfig {
-	// 	pipeSet := i2p[ctx.cpConfig.PipesConfig[i].Input]
-	// 	if pipeSet == nil {
-	// 		p := make(PipeSet)
-	// 		pipeSet = &p
-	// 		i2p[ctx.cpConfig.PipesConfig[i].Input] = pipeSet
-	// 	}
-	// 	(*pipeSet)[&ctx.cpConfig.PipesConfig[i]] = true
-	// }
-	// log.Printf("**!@@ Distribution Channels Lookup")
-	// for k, v := range i2p {
-	// 	log.Printf("== %s -> %v", k, *v)
-	// }
-
 	for i := range ctx.cpConfig.PipesConfig {
 		pipeSpec := &ctx.cpConfig.PipesConfig[i]
-		// pset := i2p[pipeSpec.Input]
 		input := pipeSpec.Input
-		// if len(*pset) > 1 {
-		// 	input = ctx.channelRegistry.AddDistributionChannel(pipeSpec.Input)
-		// 	pipeSpec.Input = input
-		// }
-		// log.Println("**& PipeConfig", i, "type", ctx.cpConfig.PipesConfig[i].Type, "with input source", input)
 		source, err := ctx.channelRegistry.GetInputChannel(input)
 		if err != nil {
 			return fmt.Errorf("while building Pipe: %v", err)
@@ -191,47 +159,10 @@ func (ctx *BuilderContext) buildComputeGraph() error {
 			ctx.chResults.WritePartitionsResultCh <- writePartitionsResultCh
 			go ctx.StartSplitterPipe(pipeSpec, source, writePartitionsResultCh)
 
-		case "distribute_data":
-			// log.Println("**& starting PipeConfig", i, "distribute_data", "on source", source.config.Name)
-			// Create the clusterMapResultCh to report on the outgoing peer connection
-			clusterMapResultCh := make(chan chan ComputePipesResult, ctx.nbrNodes*5)
-			ctx.chResults.MapOnClusterResultCh <- clusterMapResultCh
-			go ctx.StartClusterMap(pipeSpec, source, clusterMapResultCh)
-
 		default:
 			return fmt.Errorf("error: unknown PipeSpec type: %s", pipeSpec.Type)
 		}
 	}
-	// // Start the distribution channels
-	// for input, echos := range ctx.channelRegistry.distributionChannels {
-	// 	if echos != nil {
-	// 		go func(in string, ec *[]string) {
-	// 			echoCh := make([]chan []interface{}, len(*ec))
-	// 			for i, echo := range *ec {
-	// 				echoCh[i] = ctx.channelRegistry.computeChannels[echo].channel
-	// 				log.Println("**!@@ starting distribution channel", in, "=>", echo)
-	// 			}
-	// 			// start distribution
-	// 			for item := range ctx.channelRegistry.computeChannels[in].channel {
-	// 				log.Println("ECHO ECHO IN **", item)
-	// 				for i := range echoCh {
-	// 					select {
-	// 					case echoCh[i] <- item:
-	// 					case <-ctx.done:
-	// 						for j := range echoCh {
-	// 							close(echoCh[j])
-	// 						}
-	// 						return
-	// 					}
-	// 				}
-	// 			}
-	// 			for j := range echoCh {
-	// 				close(echoCh[j])
-	// 			}
-	// 		}(input, echos)
-	// 	}
-	// }
-	// log.Println("**& Start ComputeGraph DONE")
 	return nil
 }
 

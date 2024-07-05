@@ -1580,41 +1580,39 @@
         "description": "This column is the sub-cluster node id",
         "dataType": "int",
         "default": "0",
-        "isNotNull": true
+        "isNotNull": true,
+        "deleted": true
       },
       {
         "columnName": "sc_id",
         "description": "Sub-cluster ID, based on the partitioning of the sharding task",
         "dataType": "int",
         "default": "0",
-        "isNotNull": true
+        "isNotNull": true,
+        "deleted": true
       }
     ],
     "indexes": [
       {
-        "indexName": "compute_pipes_shard_registry_idx1",
-        "indexDef": "INDEX compute_pipes_shard_registry_idx1 ON jetsapi.compute_pipes_shard_registry (session_id,file_key,shard_id)"
+        "indexName": "compute_pipes_shard_registry_idx1_v2",
+        "indexDef": "INDEX compute_pipes_shard_registry_idx1_v2 ON jetsapi.compute_pipes_shard_registry (session_id,shard_id)"
       },
       {
-        "indexName": "compute_pipes_shard_registry_idx2",
-        "indexDef": "INDEX compute_pipes_shard_registry_idx2 ON jetsapi.compute_pipes_shard_registry (session_id,shard_id,file_key,jets_partition)"
-      },
-      {
-        "indexName": "compute_pipes_shard_registry_idx3",
-        "indexDef": "INDEX compute_pipes_shard_registry_idx3 ON jetsapi.compute_pipes_shard_registry (session_id,sc_id)"
+        "indexName": "compute_pipes_shard_registry_idx3_v2",
+        "indexDef": "INDEX compute_pipes_shard_registry_idx3_v2 ON jetsapi.compute_pipes_shard_registry (session_id)"
       }
     ],
     "tableConstraints": [
       {
-        "name": "compute_pipes_shard_registry_unique_cstraint_v4",
-        "definition": "CONSTRAINT compute_pipes_shard_registry_unique_cstraint_v4 UNIQUE (session_id,file_key,shard_id,sc_node_id,sc_id)"
+        "name": "compute_pipes_shard_registry_unique_cstraint_v5",
+        "definition": "CONSTRAINT compute_pipes_shard_registry_unique_cstraint_v5 UNIQUE (session_id,file_key,shard_id)"
       }
     ]
   },
   {
     "schemaName": "jetsapi",
     "tableName": "compute_pipes_partitions_registry",
-    "description": "Assignment of directory of part-files to jet partitons / node for processing. The shard_id is to indicate which shard made the entry so the cpipes_booter can make the entries in compute_pipes_shard_registry",
+    "description": "Assignment of directory of part-files to node for processing",
     "columns": [
       {
         "columnName": "session_id",
@@ -1650,14 +1648,16 @@
         "description": "This column is the sub-cluster node id",
         "dataType": "int",
         "default": "0",
-        "isNotNull": true
+        "isNotNull": true,
+        "deleted": true
       },
       {
         "columnName": "sc_id",
         "description": "Sub-cluster ID, based on the partitioning of the sharding task",
         "dataType": "int",
         "default": "0",
-        "isNotNull": true
+        "isNotNull": true,
+        "deleted": true
       }
     ],
     "indexes": [
@@ -1668,8 +1668,8 @@
     ],
     "tableConstraints": [
       {
-        "name": "compute_pipes_partitions_registry_unique_cstraint_v4",
-        "definition": "CONSTRAINT compute_pipes_partitions_registry_unique_cstraint_v4 UNIQUE (session_id,file_key,shard_id,sc_node_id,sc_id)"
+        "name": "compute_pipes_partitions_registry_unique_cstraint_v5",
+        "definition": "CONSTRAINT compute_pipes_partitions_registry_unique_cstraint_v5 UNIQUE (session_id,file_key,shard_id)"
       }
     ]
   },
