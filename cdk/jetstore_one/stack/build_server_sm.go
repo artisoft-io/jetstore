@@ -110,7 +110,7 @@ func (jsComp *JetStoreStackComponents) BuildServerSM(scope constructs.Construct,
 	// updateServerSuccessStatusTask.AddCatch(notifyFailure, MkCatchProps()).Next(notifySuccess)
 	// updateServerErrorStatusTask.AddCatch(notifyFailure, MkCatchProps()).Next(notifyFailure)
 	// Version using Lambda for Status Update
-	runServerMap.Iterator(runServerTask).AddRetry(&sfn.RetryProps{
+	runServerMap.ItemProcessor(runServerTask, &sfn.ProcessorConfig{}).AddRetry(&sfn.RetryProps{
 		BackoffRate: jsii.Number(2),
 		Errors:      jsii.Strings(*sfn.Errors_TASKS_FAILED()),
 		Interval:    awscdk.Duration_Minutes(jsii.Number(4)),
