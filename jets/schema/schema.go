@@ -358,6 +358,9 @@ func (tableDefinition *TableDefinition) UpdateTable(dbpool *pgxpool.Pool, existi
 	// Add new indexes
 	for i := range tableDefinition.Indexes {
 		idx := &tableDefinition.Indexes[i]
+		if !strings.HasSuffix(idx.IndexName, "_idx") {
+			return fmt.Errorf("error: index is not ending with '_idx': %s", idx.IndexName)
+		}
 		foundIt := false
 		for i := range existingSchema.Indexes {
 			if idx.IndexName == existingSchema.Indexes[i].IndexName {

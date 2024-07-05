@@ -1594,12 +1594,12 @@
     ],
     "indexes": [
       {
-        "indexName": "compute_pipes_shard_registry_idx1_v2",
-        "indexDef": "INDEX compute_pipes_shard_registry_idx1_v2 ON jetsapi.compute_pipes_shard_registry (session_id,shard_id)"
+        "indexName": "compute_pipes_shard_registry1_v2_idx",
+        "indexDef": "INDEX compute_pipes_shard_registry1_v2_idx ON jetsapi.compute_pipes_shard_registry (session_id,shard_id)"
       },
       {
-        "indexName": "compute_pipes_shard_registry_idx3_v2",
-        "indexDef": "INDEX compute_pipes_shard_registry_idx3_v2 ON jetsapi.compute_pipes_shard_registry (session_id)"
+        "indexName": "compute_pipes_shard_registry3_v2_idx",
+        "indexDef": "INDEX compute_pipes_shard_registry3_v2_idx ON jetsapi.compute_pipes_shard_registry (session_id)"
       }
     ],
     "tableConstraints": [
@@ -1662,68 +1662,14 @@
     ],
     "indexes": [
       {
-        "indexName": "compute_pipes_partitions_registry_idx_v2",
-        "indexDef": "INDEX compute_pipes_partitions_registry_idx_v2 ON jetsapi.compute_pipes_partitions_registry (session_id,step_id)"
+        "indexName": "compute_pipes_partitions_registry_v2_idx",
+        "indexDef": "INDEX compute_pipes_partitions_registry_v2_idx ON jetsapi.compute_pipes_partitions_registry (session_id,step_id)"
       }
     ],
     "tableConstraints": [
       {
         "name": "compute_pipes_partitions_registry_unique_cstraint_v5",
         "definition": "CONSTRAINT compute_pipes_partitions_registry_unique_cstraint_v5 UNIQUE (session_id,file_key,shard_id)"
-      }
-    ]
-  },
-  {
-    "schemaName": "jetsapi",
-    "tableName": "cpipes_cluster_node_registry",
-    "columns": [
-      {
-        "columnName": "session_id",
-        "dataType": "text",
-        "isNotNull": true
-      },
-      {
-        "columnName": "node_address",
-        "dataType": "text",
-        "isNotNull": true
-      },
-      {
-        "columnName": "shard_id",
-        "dataType": "int",
-        "default": "0",
-        "isNotNull": true
-      },
-      {
-        "columnName": "sc_id",
-        "dataType": "int",
-        "default": "0",
-        "isNotNull": true
-      },
-      {
-        "columnName": "sc_node_id",
-        "dataType": "int",
-        "default": "0",
-        "isNotNull": true
-      }
-    ],
-    "indexes": [
-      {
-        "indexName": "cpipes_cluster_node_registry_session_shard_idx",
-        "indexDef": "INDEX cpipes_cluster_node_registry_session_shard_idx ON jetsapi.cpipes_cluster_node_registry (session_id,shard_id)"
-      },
-      {
-        "indexName": "cpipes_cluster_node_registry_session_node_idx",
-        "indexDef": "INDEX cpipes_cluster_node_registry_session_node_idx ON jetsapi.cpipes_cluster_node_registry (session_id,sc_id,sc_node_id)"
-      },
-      {
-        "indexName": "cpipes_cluster_node_registry_session_sc_idx",
-        "indexDef": "INDEX cpipes_cluster_node_registry_session_sc_idx ON jetsapi.cpipes_cluster_node_registry (session_id,sc_id)"
-      }
-    ],
-    "tableConstraints": [
-      {
-        "name": "cpipes_cluster_node_registry_unique_cstraint",
-        "definition": "CONSTRAINT cpipes_cluster_node_registry_unique_cstraint UNIQUE (session_id,shard_id)"
       }
     ]
   },
