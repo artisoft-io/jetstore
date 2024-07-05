@@ -167,16 +167,17 @@ func (jsComp *JetStoreStackComponents) BuildEcsTasks(scope constructs.Construct,
 	}
 	fmt.Println("Using cpu allocation of", cpu, " (from env JETS_CPIPES_TASK_CPU)")
 
-	jsComp.CpipesTaskDefinition = awsecs.NewFargateTaskDefinition(stack, jsii.String("cpipesTaskDefinition"), &awsecs.FargateTaskDefinitionProps{
-		MemoryLimitMiB: jsii.Number(memLimit),
-		Cpu:            jsii.Number(cpu),
-		ExecutionRole:  jsComp.EcsTaskExecutionRole,
-		TaskRole:       jsComp.EcsTaskRole,
-		RuntimePlatform: &awsecs.RuntimePlatform{
-			OperatingSystemFamily: awsecs.OperatingSystemFamily_LINUX(),
-			CpuArchitecture:       awsecs.CpuArchitecture_X86_64(),
-		},
-	})
+	//* CURRENTLY USING THE LAMBDA - TODO REPACKAGE LAMBDA AS TASK CONTAINER
+	// jsComp.CpipesTaskDefinition = awsecs.NewFargateTaskDefinition(stack, jsii.String("cpipesTaskDefinition"), &awsecs.FargateTaskDefinitionProps{
+	// 	MemoryLimitMiB: jsii.Number(memLimit),
+	// 	Cpu:            jsii.Number(cpu),
+	// 	ExecutionRole:  jsComp.EcsTaskExecutionRole,
+	// 	TaskRole:       jsComp.EcsTaskRole,
+	// 	RuntimePlatform: &awsecs.RuntimePlatform{
+	// 		OperatingSystemFamily: awsecs.OperatingSystemFamily_LINUX(),
+	// 		CpuArchitecture:       awsecs.CpuArchitecture_X86_64(),
+	// 	},
+	// })
 
 	// Define the ECS Task ServerTaskDefinition for the jsComp.ServerSM
 	// --------------------------------------------------------------------------------------------------------------
