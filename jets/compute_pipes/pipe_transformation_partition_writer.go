@@ -181,33 +181,6 @@ _, err := ctx.dbpool.Exec(context.Background(), stmt, ctx.sessionId, stepId, *ct
 		return fmt.Errorf("error inserting in jetsapi.compute_pipes_partitions_registry table: %v", err)
 	}
 
-	//*NOT NEEDED - USING domain_table input regristration event
-	// // Write the 0-byte sentinel file (take the file name from env JETS_SENTINEL_FILE_NAME)
-	// // Copy file to s3 location
-	// sentinelFileName := os.Getenv("JETS_SENTINEL_FILE_NAME")
-	// if len(sentinelFileName) == 0 {
-	// 	sentinelFileName = "_DONE"
-	// }
-	// tempFileName := fmt.Sprintf("%s/%s", *ctx.localTempDir, sentinelFileName)
-	// fileHd, err2 := os.OpenFile(tempFileName, os.O_RDWR|os.O_CREATE, 0644)
-	// if err2 != nil {
-	// 	err = fmt.Errorf("while creating sentinel file to copy to s3: %v", err2)
-	// 	log.Println(err)
-	// 	return err
-	// }
-	// defer func() {
-	// 	fileHd.Close()
-	// 	os.Remove(tempFileName)
-	// }()
-	// s3FileName := fmt.Sprintf("%s/%s", *ctx.baseOutputPath, sentinelFileName)
-	// if err2 = awsi.UploadToS3(ctx.bucketName, ctx.regionName, s3FileName, fileHd); err2 != nil {
-	// 	err = fmt.Errorf("while copying sentinel to s3: %v", err2)
-	// 	return err
-	// }
-	//*MOVED TO run_report using emitSentinelFile directive
-
-	// fmt.Println("**!@@ partition_writer evaluator done() called, collecting total filepart written from s3WritersCollectedResultCh. . .")
-
 	// Collect all the file parts that was written for this partition
 	totalFilePartsWritten := <-ctx.s3WritersCollectedResultCh
 
@@ -348,8 +321,6 @@ func (ctx *BuilderContext) NewPartitionWriterTransformationPipe(source *InputCha
 		regionName:                 os.Getenv("JETS_REGION"),
 		sessionId:                  session_id,
 		nodeId:                     ctx.nodeId,
-		subClusterNodeId:           ctx.subClusterNodeId,
-		subClusterId:               ctx.subClusterId,
 		s3WritersResultCh:          s3WritersResultCh,
 		s3WritersCollectedResultCh: s3WritersCollectedResultCh,
 		s3Uploader:                 ctx.s3Uploader,

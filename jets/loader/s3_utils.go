@@ -1,16 +1,11 @@
 package main
 
 import (
-	"context"
-	"errors"
 	"fmt"
 	"log"
 	"os"
 
 	"github.com/artisoft-io/jetstore/jets/awsi"
-	"github.com/artisoft-io/jetstore/jets/compute_pipes"
-	"github.com/jackc/pgx/v4"
-	"github.com/jackc/pgx/v4/pgxpool"
 )
 
 // Utilities to dowmload from s3
@@ -29,16 +24,6 @@ type DownloadS3Result struct {
 // inFolderPath: temp folder containing the downloaded files
 // error when setting up the downloader
 // Special case:
-//
-//	Case of multipart files using distribute_data operator where this shardId contains no files in
-//	table compute_pipes_shard_registry:
-//		- Use of global cpipesShardWithNoFileKeys == true to indicate this situation
-//		- Case cpipes "reducing": inFile contains the file_key folder of another shardId to get the headers file from it.
-//			This will get a file to get the headers from but the file list to process (in fileNamesCh) will be empty.
-//		- Case cpipes "sharding": cpipesFileKeys will contain one file to use to obtain the headers from,
-//			but the file list to process (in fileNamesCh) will be empty
-//	This is needed to be able to setup the header sctucture and domain key info to be able to process records
-//	obtained by peer nodes even when this node had no file assigned to it originally.
 func downloadS3Files(done <-chan struct{}) (<-chan string, <-chan string, <-chan DownloadS3Result, string, error) {
 	var inFolderPath string
 	var err error
@@ -60,6 +45,7 @@ func downloadS3Files(done <-chan struct{}) (<-chan string, <-chan string, <-chan
 		if isPartFiles == 1 {
 			var fileKeys []string
 			switch cpipesMode {
+				//* REMOVE THIS - "reducing" and cpipesShardWithNoFileKeys
 			case "loader", "reducing":
 				// Case loader mode (loaderSM) or cpipes reducing mode, get the file keys from s3
 				if cpipesShardWithNoFileKeys {
@@ -152,58 +138,6 @@ func downloadS3Files(done <-chan struct{}) (<-chan string, <-chan string, <-chan
 	}()
 
 	return headersFileCh, fileNamesCh, downloadS3ResultCh, inFolderPath, nil
-}
-
-// Get the file_key(s) assigned to shardId (sc_node_id, sc_id), may return:
-//   - single file to be used as headers only (cpipesShardWithNoFileKeys = true)
-//   - empty list when there are no files for session_id in table compute_pipes_shard_registry
-//     cpipesShardWithNoFileKeys is set to false and the loader will exit silently
-func getFileKeys(dbpool *pgxpool.Pool, sessionId string, cpConfig *compute_pipes.ComputePipesConfig, jetsPartition string) ([]string, error) {
-	var key, stmt string
-	// Get isFile query in case the list of file_key is empty
-	fileKeys := make([]string, 0)
-	var rows pgx.Rows
-	var err error
-	if jetsPartition == "" {
-		stmt = "SELECT file_key	FROM jetsapi.compute_pipes_shard_registry WHERE session_id = $1 AND shard_id = $2"
-		rows, err = dbpool.Query(context.Background(), stmt, sessionId, cpConfig.ClusterConfig.NodeId)
-	} else {
-		stmt = "SELECT file_key	FROM jetsapi.compute_pipes_shard_registry WHERE session_id = $1 AND shard_id = $2 AND jets_partition = $3"
-		rows, err = dbpool.Query(context.Background(), stmt, sessionId, cpConfig.ClusterConfig.NodeId, jetsPartition)
-	}
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	for rows.Next() {
-		// scan the row
-		if err = rows.Scan(&key); err != nil {
-			return nil, err
-		}
-		fileKeys = append(fileKeys, key)
-	}
-	// fmt.Println("**!@@ GOT KEYS:", fileKeys)
-	if len(fileKeys) == 0 {
-		// Get a single file key to use for getting the headers
-		stmt = `
-		SELECT file_key
-		FROM jetsapi.compute_pipes_shard_registry 
-		WHERE session_id = $1 LIMIT 1`
-		err = dbpool.QueryRow(context.Background(), stmt, sessionId).Scan(&key)
-		if err != nil {
-			if errors.Is(err, pgx.ErrNoRows) {
-				// Nothing to do here, no files to process for this session_id
-				log.Printf("No file keys in table compute_pipes_shard_registry for session_id %s, nothing to do", sessionId)
-				cpipesShardWithNoFileKeys = false
-			} else {
-				return nil, err
-			}
-		} else {
-			fileKeys = append(fileKeys, key)
-			cpipesShardWithNoFileKeys = true
-		}
-	}
-	return fileKeys, nil
 }
 
 func downloadS3Object(s3Key, localDir string, minSize int64) (string, error) {

@@ -36,7 +36,7 @@ func (cpCtx *ComputePipesContext) LoadFiles(ctx context.Context, dbpool *pgxpool
 
 	// Start the Compute Pipes async
 	// Note: when nbrShards > 1, cpipes does not work in local mode in apiserver yet
-	go compute_pipes.StartComputePipes(dbpool, cpCtx.InputColumns, cpCtx.Done, cpCtx.ErrCh, computePipesInputCh, cpCtx.ChResults,
+	go compute_pipes.StartComputePipes(dbpool, cpCtx.NodeId, cpCtx.InputColumns, cpCtx.Done, cpCtx.ErrCh, computePipesInputCh, cpCtx.ChResults,
 		cpCtx.CpConfig, cpCtx.EnvSettings, cpCtx.FileKeyComponents)
 
 	// Load the files

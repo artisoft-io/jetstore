@@ -28,8 +28,7 @@ func ShardFileKeys(exeCtx context.Context, dbpool *pgxpool.Pool, baseFileKey str
 
 	// Step 2: assign shard_id, sc_node_id, sc_id using round robin based on file size
 	nbrNodes := clusterConfig.NbrNodes
-	nbrSubClusters := clusterConfig.NbrSubClusters
-	return totalPartfileCount, ShardFileKeysP2(exeCtx, dbpool, baseFileKey, sessionId, nbrNodes, nbrSubClusters)
+	return totalPartfileCount, ShardFileKeysP2(exeCtx, dbpool, baseFileKey, sessionId, nbrNodes)
 }
 
 // Part 1
@@ -66,9 +65,8 @@ func ShardFileKeysP1(exeCtx context.Context, dbpool *pgxpool.Pool, baseFileKey s
 }
 
 // Part 2
-func ShardFileKeysP2(exeCtx context.Context, dbpool *pgxpool.Pool, baseFileKey string, sessionId string, nbrNodes, nbrSubClusters int) error {
-	// Step 2: assign shard_id, sc_node_id, sc_id using round robin based on file size
-	// nbrSubClusterNodes := cpConfig.ClusterConfig.NbrSubClusterNodes
+func ShardFileKeysP2(exeCtx context.Context, dbpool *pgxpool.Pool, baseFileKey string, sessionId string, nbrNodes int) error {
+	// Step 2: assign shard_id using round robin based on file size
 	updateStmt := `
 		BEGIN;
 		WITH shards AS (
@@ -85,27 +83,17 @@ func ShardFileKeysP2(exeCtx context.Context, dbpool *pgxpool.Pool, baseFileKey s
 				file_key, 
 				MOD(row_num, $2) AS node_id
 			FROM  shards
-		), fk1 AS (
-			SELECT 
-				file_key, 
-				node_id, 
-				node_id / $3 AS sc_node_id, 
-				MOD(node_id, $3) AS sc_id
-			FROM  fk0
 		)
 		UPDATE jetsapi.compute_pipes_shard_registry sr
-			SET (shard_id, sc_node_id, sc_id) = (fk1.node_id, fk1.sc_node_id, fk1.sc_id)	
-		FROM fk1
-		WHERE sr.file_key = fk1.file_key 
+			SET shard_id = fk1.node_id	
+		FROM fk0
+		WHERE sr.file_key = fk0.file_key 
 			AND sr.session_id = '$1'
 		;
 		COMMIT;`
 	// params: $1: session_id, $2: nbr_nodes, $3: nbr_sc
 	updateStmt = strings.ReplaceAll(updateStmt, "$1", sessionId)
 	updateStmt = strings.ReplaceAll(updateStmt, "$2", strconv.Itoa(nbrNodes))
-	updateStmt = strings.ReplaceAll(updateStmt, "$3", strconv.Itoa(nbrSubClusters))
-	// Reverse calculation of shard_id from sc_node_id and sc_id:
-	//	 shard_id = nbr_sc * sc_node_id + sc_id
 	_, err := dbpool.Exec(exeCtx, updateStmt)
 	if err != nil {
 		return fmt.Errorf("error inserting in jetsapi.compute_pipes_shard_registry table in ShardFileKeysP2: %v", err)

@@ -18,7 +18,6 @@ type StartComputePipesArgs struct {
 	FileKey         string  `json:"file_key"`
 	SessionId       string  `json:"session_id"`
 	InputStepId     *string `json:"input_step_id"`
-	NbrPartitions   *int    `json:"nbr_partitions"`
 	CurrentStep     *int    `json:"current_step"`
 }
 
@@ -31,7 +30,6 @@ type InputStats struct {
 type ComputePipesArgs struct {
 	NodeId             int      `json:"node_id"`
 	CpipesMode         string   `json:"cpipes_mode"`
-	NbrNodes           int      `json:"nbr_nodes"`
 	JetsPartitionLabel string   `json:"jets_partition_label"`
 	Client             string   `json:"client"`
 	Org                string   `json:"org"`

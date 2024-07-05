@@ -41,7 +41,7 @@ RUN go install jetstore/jets/apiserver
 RUN go install jetstore/jets/bridge
 RUN go install jetstore/jets/update_db
 RUN go install jetstore/jets/test_data_generator
-RUN go install jetstore/jets/cpipes_booter
+# RUN go install jetstore/jets/cpipes_booter
 
 # JETSTORE FRONT END == FLUTTER BUILD ==
 COPY jetsclient      ${JETS_SOURCE_DIR}/jetsclient

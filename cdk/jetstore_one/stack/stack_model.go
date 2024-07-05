@@ -72,7 +72,7 @@ type JetStoreStackComponents struct {
 	ServerTaskDefinition    awsecs.FargateTaskDefinition
 	ServerContainerDef      awsecs.ContainerDefinition
 	CpipesTaskDefinition    awsecs.FargateTaskDefinition
-	CpipesContainerDef      awsecs.ContainerDefinition
+	// CpipesContainerDef      awsecs.ContainerDefinition
 	UiTaskDefinition        awsecs.FargateTaskDefinition
 	UiTaskContainer         awsecs.ContainerDefinition
 	EcsUiService            awsecs.FargateService

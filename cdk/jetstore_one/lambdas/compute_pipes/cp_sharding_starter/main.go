@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"strconv"
 
 	"github.com/artisoft-io/jetstore/jets/awsi"
 	"github.com/artisoft-io/jetstore/jets/compute_pipes/actions"
@@ -21,7 +20,6 @@ import (
 // JETS_s3_INPUT_PREFIX
 // JETS_s3_OUTPUT_PREFIX
 // JETS_s3_STAGE_PREFIX
-// NBR_SHARDS default nbr_nodes of cluster
 // JETS_S3_KMS_KEY_ARN
 // CPIPES_STATUS_NOTIFICATION_ENDPOINT optional
 // CPIPES_STATUS_NOTIFICATION_ENDPOINT_JSON optional
@@ -33,7 +31,6 @@ var usingSshTunnel bool
 var awsRegion string
 var awsBucket string
 var dsn string
-var nbrNodes int
 
 func main() {
 	hasErr := false
@@ -64,18 +61,6 @@ func main() {
 		errMsg = append(errMsg, "env var JETS_s3_OUTPUT_PREFIX must be provided")
 	}
 
-	v := os.Getenv("NBR_SHARDS")
-	if v == "" {
-		hasErr = true
-		errMsg = append(errMsg, "env NBR_SHARDS not set")
-	} else {
-		nbrNodes, err = strconv.Atoi(v)
-		if err != nil {
-			hasErr = true
-			errMsg = append(errMsg, "env NBR_SHARDS not a valid integer")
-		}
-	}
-
 	// Get the dsn from the aws secret
 	dsn, err = awsi.GetDsnFromSecret(awsDsnSecret, usingSshTunnel, dbPoolSize)
 	if err != nil {
@@ -97,7 +82,6 @@ func main() {
 	log.Println("Got argument: awsDsnSecret", awsDsnSecret)
 	log.Println("Got argument: dbPoolSize", dbPoolSize)
 	log.Println("Got argument: awsRegion", awsRegion)
-	log.Println("Got argument: nbrNodes (default)", nbrNodes)
 	log.Println("env CPIPES_STATUS_NOTIFICATION_ENDPOINT:", os.Getenv("CPIPES_STATUS_NOTIFICATION_ENDPOINT"))
 	log.Println("env CPIPES_STATUS_NOTIFICATION_ENDPOINT_JSON:", os.Getenv("CPIPES_STATUS_NOTIFICATION_ENDPOINT_JSON"))
 	log.Println("env CPIPES_CUSTOM_FILE_KEY_NOTIFICATION:", os.Getenv("CPIPES_CUSTOM_FILE_KEY_NOTIFICATION"))
@@ -110,5 +94,5 @@ func main() {
 
 // Compute Pipes Sharding Handler
 func handler(ctx context.Context, arg actions.StartComputePipesArgs) (actions.ComputePipesRun, error) {
-	return (&arg).StartShardingComputePipes(ctx, dsn, nbrNodes)
+	return (&arg).StartShardingComputePipes(ctx, dsn)
 }

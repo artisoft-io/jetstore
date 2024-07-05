@@ -18,11 +18,9 @@ func (cpCtx *ComputePipesContext) ProcessFilesAndReportStatus(ctx context.Contex
 		cpCtx.ChResults = &compute_pipes.ChannelResults{
 			// NOTE: 101 is the limit of nbr of output table
 			// NOTE: 10 is the limit of nbr of splitter operators
-			// NOTE: 5 is the limit of nbr of distribute_data operators
 			LoadFromS3FilesResultCh: make(chan compute_pipes.LoadFromS3FilesResult, 1),
 			Copy2DbResultCh:         make(chan chan compute_pipes.ComputePipesResult, 101),
 			WritePartitionsResultCh: make(chan chan chan compute_pipes.ComputePipesResult, 10),
-			MapOnClusterResultCh:    make(chan chan chan compute_pipes.ComputePipesResult, 5),
 		}
 	
 		// read the rest of the file(s)
@@ -84,25 +82,6 @@ func (cpCtx *ComputePipesContext) ProcessFilesAndReportStatus(ctx context.Contex
 			}
 		}
 		log.Println("**!@@ CP RESULT = Copy2DbResultCh: DONE")
-	
-		// log.Println("**!@@ CP RESULT = MapOnClusterResultCh:")
-		for mapOn := range cpCtx.ChResults.MapOnClusterResultCh {
-			// log.Println("**!@@ Read PEER from MapOnClusterResultCh:")
-			for peer := range mapOn {
-				// log.Println("**!@@ Read RESULT from MapOnClusterResultCh:")
-				for peerResult := range peer {
-					// saveResultsCtx.Save("Peer Communication", &peerResult)
-					// log.Printf("**!@@ PEER COMM %d Rows :: Peer %s :: %v", peerResult.CopyRowCount, peerResult.TableName, peerResult.Err)
-					if peerResult.Err != nil {
-						processingErrors = append(processingErrors, peerResult.Err.Error())
-						if err == nil {
-							err = peerResult.Err
-						}
-					}
-				}
-			}
-		}
-		// log.Println("**!@@ CP RESULT = MapOnClusterResultCh: DONE")
 	
 		// log.Println("**!@@ CP RESULT = WritePartitionsResultCh:")
 		for splitter := range cpCtx.ChResults.WritePartitionsResultCh {
