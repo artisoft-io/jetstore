@@ -22,6 +22,7 @@ type TableDefinition struct {
 	Columns          []ColumnDefinition     `json:"columns"`
 	Indexes          []IndexDefinition      `json:"indexes"`
 	TableConstraints []ConstraintDefinition `json:"tableConstraints"`
+	Deleted          bool                   `json:"deleted"`
 }
 type ColumnDefinition struct {
 	ColumnName  string `json:"columnName"`
@@ -37,6 +38,7 @@ type ColumnDefinition struct {
 type IndexDefinition struct {
 	IndexName string `json:"indexName"`
 	IndexDef  string `json:"indexDef"`
+	Deleted   bool   `json:"deleted"`
 }
 type ConstraintDefinition struct {
 	Name       string `json:"name"`
@@ -204,6 +206,17 @@ func (tableDefinition *TableDefinition) UpdateTableSchema(dbpool *pgxpool.Pool, 
 	}
 	return nil
 }
+func (tableDefinition *TableDefinition) DropTable(dbpool *pgxpool.Pool) error {
+	if dbpool == nil {
+		return errors.New("error: argument dbpool is required")
+	}
+	stmt := fmt.Sprintf("DROP TABLE IF EXISTS %s", pgx.Identifier{tableDefinition.SchemaName, tableDefinition.TableName}.Sanitize())
+	_, err := dbpool.Exec(context.Background(), stmt)
+	if err != nil {
+		return fmt.Errorf("error while droping table %s: %v", tableDefinition.TableName, err)
+	}
+	return nil
+}
 
 func (tableDefinition *TableDefinition) CreateTable(dbpool *pgxpool.Pool) error {
 	log.Println("Creating Table", tableDefinition.TableName)
@@ -358,36 +371,11 @@ func (tableDefinition *TableDefinition) UpdateTable(dbpool *pgxpool.Pool, existi
 	// Add new indexes
 	for i := range tableDefinition.Indexes {
 		idx := &tableDefinition.Indexes[i]
-		if !strings.HasSuffix(idx.IndexName, "_idx") {
-			return fmt.Errorf("error: index is not ending with '_idx': %s", idx.IndexName)
-		}
-		foundIt := false
-		for i := range existingSchema.Indexes {
-			if idx.IndexName == existingSchema.Indexes[i].IndexName {
-				foundIt = true
-				break
-			}
-		}
-		if !foundIt {
-			buf.WriteString("CREATE ")
+		if !idx.Deleted {
+			buf.WriteString("CREATE IF NOT EXISTS ")
 			buf.WriteString(idx.IndexDef)
 			buf.WriteString(" ;\n")
-		}
-	}
-	// Drop removed indexes
-	for i := range existingSchema.Indexes {
-		idx := &existingSchema.Indexes[i]
-		if !strings.HasSuffix(idx.IndexName, "_idx") {
-			continue
-		}
-		foundIt := false
-		for i := range tableDefinition.Indexes {
-			if idx.IndexName == tableDefinition.Indexes[i].IndexName {
-				foundIt = true
-				break
-			}
-		}
-		if !foundIt {
+		} else {
 			buf.WriteString("DROP INDEX IF EXISTS ")
 			buf.WriteString(tableDefinition.SchemaName)
 			buf.WriteString(".")
@@ -398,7 +386,7 @@ func (tableDefinition *TableDefinition) UpdateTable(dbpool *pgxpool.Pool, existi
 
 	// Execute the statements
 	stmt := buf.String()
-	fmt.Println(stmt)
+	// log.Println(stmt)
 	_, err := dbpool.Exec(context.Background(), stmt)
 	if err != nil {
 		return fmt.Errorf("error while updating table schema: %v", err)

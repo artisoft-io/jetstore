@@ -1594,12 +1594,27 @@
     ],
     "indexes": [
       {
-        "indexName": "compute_pipes_shard_registry1_v2_idx",
-        "indexDef": "INDEX compute_pipes_shard_registry1_v2_idx ON jetsapi.compute_pipes_shard_registry (session_id,shard_id)"
+        "indexName": "compute_pipes_shard_registry_idx1",
+        "indexDef": "INDEX compute_pipes_shard_registry_idx1 ON jetsapi.compute_pipes_shard_registry (session_id,file_key,shard_id)",
+        "deleted": true
       },
       {
-        "indexName": "compute_pipes_shard_registry3_v2_idx",
-        "indexDef": "INDEX compute_pipes_shard_registry3_v2_idx ON jetsapi.compute_pipes_shard_registry (session_id)"
+        "indexName": "compute_pipes_shard_registry_idx2",
+        "indexDef": "INDEX compute_pipes_shard_registry_idx2 ON jetsapi.compute_pipes_shard_registry (session_id,shard_id,file_key,jets_partition)",
+        "deleted": true
+      },
+      {
+        "indexName": "compute_pipes_shard_registry_idx3",
+        "indexDef": "INDEX compute_pipes_shard_registry_idx3 ON jetsapi.compute_pipes_shard_registry (session_id,sc_id)",
+        "deleted": true
+      },
+      {
+        "indexName": "compute_pipes_shard_registry1_idx_v2",
+        "indexDef": "INDEX compute_pipes_shard_registry1_idx_v2 ON jetsapi.compute_pipes_shard_registry (session_id,shard_id)"
+      },
+      {
+        "indexName": "compute_pipes_shard_registry3_idx_v2",
+        "indexDef": "INDEX compute_pipes_shard_registry3_idx_v2 ON jetsapi.compute_pipes_shard_registry (session_id)"
       }
     ],
     "tableConstraints": [
@@ -1662,8 +1677,8 @@
     ],
     "indexes": [
       {
-        "indexName": "compute_pipes_partitions_registry_v2_idx",
-        "indexDef": "INDEX compute_pipes_partitions_registry_v2_idx ON jetsapi.compute_pipes_partitions_registry (session_id,step_id)"
+        "indexName": "compute_pipes_partitions_registry_idx_v2",
+        "indexDef": "INDEX compute_pipes_partitions_registry_idx_v2 ON jetsapi.compute_pipes_partitions_registry (session_id,step_id)"
       }
     ],
     "tableConstraints": [

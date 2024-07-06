@@ -35,10 +35,17 @@ func MigrateDb(dbpool *pgxpool.Pool) error {
 	}
 	for i := range schemaDef {
 		fmt.Println("-- Got schema for",schemaDef[i].SchemaName,".",schemaDef[i].TableName)
-		// Note: We don't drop system tables
-		err = schemaDef[i].UpdateTableSchema(dbpool, false)
-		if err != nil {
-			return fmt.Errorf("error while migrating jetstore schema: %v", err)
+		// Drop specified tables
+		if schemaDef[i].Deleted {
+			err = schemaDef[i].DropTable(dbpool)
+			if err != nil {
+				return fmt.Errorf("error while droping table: %v", err)
+			}	
+		} else {
+			err = schemaDef[i].UpdateTableSchema(dbpool, false)
+			if err != nil {
+				return fmt.Errorf("error while migrating jetstore schema: %v", err)
+			}	
 		}
 	}
 	return nil
