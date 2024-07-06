@@ -24,9 +24,9 @@ import (
 // JETS_RULES_SCHEMA_FILE (default: workspace_schema.json)
 
 // Command Line Arguments
-var workspace           = flag.String("workspace", "", "Workspace of Jetrule file (required)")
-var dropTables          = flag.Bool("dropTables", false, "Drop tables in workspace namespace (optional, default: false)")
-var usingSshTunnel      = flag.Bool("usingSshTunnel", false, "Connect  to DB using ssh tunnel (expecting the ssh open)")
+var workspace = flag.String("workspace", "", "Workspace of Jetrule file (required)")
+var dropTables = flag.Bool("dropTables", false, "Drop tables in workspace namespace (optional, default: false)")
+var usingSshTunnel = flag.Bool("usingSshTunnel", false, "Connect  to DB using ssh tunnel (expecting the ssh open)")
 var dsn string
 var dbpool *pgxpool.Pool
 
@@ -37,18 +37,18 @@ func updateWorkspaceSchema() error {
 		schemaFname = "workspace_schema.json"
 	}
 	// read json file
-	fmt.Println("*** Read Schema File:",schemaFname)
+	fmt.Println("*** Read Schema File:", schemaFname)
 	file, _ := os.ReadFile(schemaFname)
 
 	// Inject the workspace name as the table schema name
 	jetrule := strings.ReplaceAll(string(file), "$SCHEMA", *workspace)
- 
+
 	// Un-marshal the schema
 	schemaDef := &[]schema.TableDefinition{}
 	err := json.Unmarshal([]byte(jetrule), schemaDef)
 	if err != nil {
-		log.Printf("while reading json:%v\n",err)
-		return err		
+		log.Printf("while reading json:%v\n", err)
+		return err
 	}
 	dbpool, err = pgxpool.Connect(context.Background(), dsn)
 	if err != nil {
@@ -58,10 +58,17 @@ func updateWorkspaceSchema() error {
 
 	// update / create workspace schema
 	for i := range *schemaDef {
-		fmt.Println("-- Got schema for",(*schemaDef)[i].SchemaName,".",(*schemaDef)[i].TableName)
-		err = (*schemaDef)[i].UpdateTableSchema(dbpool, *dropTables)
-		if err != nil {
-			return fmt.Errorf("error while jetrule schema: %v", err)
+		fmt.Println("-- Got schema for", (*schemaDef)[i].SchemaName, ".", (*schemaDef)[i].TableName)
+		if (*schemaDef)[i].Deleted {
+			err = (*schemaDef)[i].DropTable(dbpool)
+			if err != nil {
+				return fmt.Errorf("error while droping table: %v", err)
+			}
+		} else {
+			err = (*schemaDef)[i].UpdateTableSchema(dbpool, *dropTables)
+			if err != nil {
+				return fmt.Errorf("error while jetrule schema: %v", err)
+			}
 		}
 	}
 	// insert seed entities into schema, e.g. owl:Think class
@@ -72,7 +79,7 @@ func updateWorkspaceSchema() error {
 		return fmt.Errorf("error while inserting owl:Thing class in domain_classes: %v", err)
 	}
 	_, err = dbpool.Exec(context.Background(),
-	fmt.Sprintf(`INSERT INTO "%s"."schema_info" (version_major, version_minor) VALUES (1, 0) ON CONFLICT DO NOTHING`, *workspace))
+		fmt.Sprintf(`INSERT INTO "%s"."schema_info" (version_major, version_minor) VALUES (1, 0) ON CONFLICT DO NOTHING`, *workspace))
 	if err != nil {
 		return fmt.Errorf("error while inserting initial version class in schema_info: %v", err)
 	}
@@ -88,31 +95,31 @@ func doJob() error {
 	log.Printf("Command Line Argument: workspace: %s\n", *workspace)
 	log.Printf("Command Line Argument: dropTables: %v\n", *dropTables)
 	log.Printf("Command Line Argument: usingSshTunnel: %v\n", *usingSshTunnel)
-	log.Printf("ENV JETS_DSN_SECRET: %s\n",os.Getenv("JETS_DSN_SECRET"))
-	log.Printf("ENV JETS_REGION: %s\n",os.Getenv("JETS_REGION"))
-	log.Printf("ENV JETS_BUCKET: %s\n",os.Getenv("JETS_BUCKET"))
-	log.Printf("ENV JETS_LOG_DEBUG: %s\n",os.Getenv("JETS_LOG_DEBUG"))
-	log.Printf("ENV JETS_RULES_SCHEMA_FILE: %s\n",os.Getenv("JETS_RULES_SCHEMA_FILE"))
+	log.Printf("ENV JETS_DSN_SECRET: %s\n", os.Getenv("JETS_DSN_SECRET"))
+	log.Printf("ENV JETS_REGION: %s\n", os.Getenv("JETS_REGION"))
+	log.Printf("ENV JETS_BUCKET: %s\n", os.Getenv("JETS_BUCKET"))
+	log.Printf("ENV JETS_LOG_DEBUG: %s\n", os.Getenv("JETS_LOG_DEBUG"))
+	log.Printf("ENV JETS_RULES_SCHEMA_FILE: %s\n", os.Getenv("JETS_RULES_SCHEMA_FILE"))
 
 	dsn, err = awsi.GetDsnFromSecret(os.Getenv("JETS_DSN_SECRET"), *usingSshTunnel, 10)
 	if err != nil {
-		log.Panicf("Cannot get dsn from secret %s: %v",os.Getenv("JETS_DSN_SECRET"), err)
+		log.Panicf("Cannot get dsn from secret %s: %v", os.Getenv("JETS_DSN_SECRET"), err)
 	}
 
 	// update / reset db schema
 	// Update / Create the jetrule schema, table schema name is workspace name
-	log.Printf("Updating jetrule schema for workspace '%s'", *workspace)		
+	log.Printf("Updating jetrule schema for workspace '%s'", *workspace)
 	err = updateWorkspaceSchema()
 	if err != nil {
 		log.Printf("while updating jetrule schema for workspace %s: %v\n", *workspace, err)
-		return err		
+		return err
 	}
 
 	return nil
 }
 
 func main() {
-	fmt.Println("CMD LINE ARGS:",os.Args[1:])
+	fmt.Println("CMD LINE ARGS:", os.Args[1:])
 	flag.Parse()
 
 	// validate command line arguments
@@ -125,7 +132,7 @@ func main() {
 
 	if os.Getenv("JETS_DSN_SECRET") == "" {
 		hasErr = true
-		errMsg = append(errMsg, "Env var JETS_DSN_SECRET is required.")	
+		errMsg = append(errMsg, "Env var JETS_DSN_SECRET is required.")
 	}
 	if os.Getenv("JETS_REGION") == "" {
 		hasErr = true
@@ -149,7 +156,7 @@ func main() {
 	// 	*poolSize = 1
 	// default:
 	// 	v, _ := strconv.ParseInt(os.Getenv("GLOG_v"), 10, 32)
-	// 	glogv = int(v)	
+	// 	glogv = int(v)
 	// }
 
 	start := time.Now()
