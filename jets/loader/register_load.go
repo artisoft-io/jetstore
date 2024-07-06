@@ -22,7 +22,7 @@ func registerCurrentLoad(loadCount int64, badRowCount int64, dbpool *pgxpool.Poo
 		object_type, table_name, client, org, file_key, session_id, source_period_key, status, error_message,
 		load_count, bad_row_count, user_email) 
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
-		ON CONFLICT ON CONSTRAINT input_loader_status_unique_cstraint
+		ON CONFLICT
 			DO UPDATE SET (status, error_message, load_count, bad_row_count, user_email, last_update) =
 			(EXCLUDED.status, EXCLUDED.error_message, EXCLUDED.load_count, EXCLUDED.bad_row_count, EXCLUDED.user_email, DEFAULT)`
 	_, err := dbpool.Exec(context.Background(), stmt,
