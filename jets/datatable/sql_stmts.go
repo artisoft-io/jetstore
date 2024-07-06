@@ -11,7 +11,7 @@ var sqlInsertStmts = map[string]*SqlInsertDefinition{
 	"client_registry": {
 		Stmt: `INSERT INTO jetsapi.client_registry (client, details)
 		VALUES ($1, $2)
-		ON CONFLICT ON CONSTRAINT client_registry_pkey
+		ON CONFLICT
 		DO UPDATE SET details = EXCLUDED.details`,
 		ColumnKeys: []string{"client", "details"},
 		Capability: "client_config",
@@ -20,7 +20,7 @@ var sqlInsertStmts = map[string]*SqlInsertDefinition{
 	"client_org_registry": {
 		Stmt: `INSERT INTO jetsapi.client_org_registry (client, org, details) 
 		VALUES ($1, $2, $3)
-		ON CONFLICT ON CONSTRAINT client_org_registry_unique_cstraint
+		ON CONFLICT
 		DO UPDATE SET details = EXCLUDED.details`,
 		ColumnKeys: []string{"client", "org", "details"},
 		Capability: "client_config",
@@ -203,7 +203,7 @@ var sqlInsertStmts = map[string]*SqlInsertDefinition{
 		Stmt: `INSERT INTO jetsapi.file_key_staging 
 			(client, org, object_type, file_key, source_period_key) 
 			VALUES ($1, $2, $3, $4, $5)
-			ON CONFLICT ON CONSTRAINT file_key_staging_unique_cstraintv3
+			ON CONFLICT
 			DO UPDATE SET last_update = DEFAULT`,
 		ColumnKeys: []string{"client", "org", "object_type", "file_key", "source_period_key"},
 		Capability: "jetstore_read",
@@ -343,7 +343,7 @@ var sqlInsertStmts = map[string]*SqlInsertDefinition{
 				INSERT INTO $SCHEMA.workspace_control 
 				(source_file_name,is_main) 
 				VALUES ($1,$2)
-				ON CONFLICT ON CONSTRAINT $SCHEMA_workspace_control_unique_cstraint
+				ON CONFLICT
 				DO NOTHING
 				RETURNING key
 			)
@@ -361,7 +361,7 @@ var sqlInsertStmts = map[string]*SqlInsertDefinition{
 				INSERT INTO $SCHEMA.resources 
 				(type,id,value,is_binded,inline,vertex,var_pos,source_file_key) 
 				VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
-				ON CONFLICT ON CONSTRAINT $SCHEMA_resources_unique_cstraint
+				ON CONFLICT
 				DO NOTHING
 				RETURNING key
 			)
@@ -379,7 +379,7 @@ var sqlInsertStmts = map[string]*SqlInsertDefinition{
 				INSERT INTO $SCHEMA.domain_classes 
 				(name,as_table,source_file_key) 
 				VALUES ($1,$2,$3)
-				ON CONFLICT ON CONSTRAINT $SCHEMA_domain_classes_unique_cstraint
+				ON CONFLICT
 				DO NOTHING
 				RETURNING key
 			)
@@ -396,7 +396,7 @@ var sqlInsertStmts = map[string]*SqlInsertDefinition{
 				INSERT INTO $SCHEMA.base_classes 
 				(domain_class_key,base_class_key) 
 				VALUES ($1,$2)
-				ON CONFLICT ON CONSTRAINT $SCHEMA_base_classes_unique_cstraint
+				ON CONFLICT
 				DO NOTHING`,
 		ColumnKeys: []string{"domain_class_key", "base_class_key"},
 		Capability: "workspace_ide",
@@ -407,7 +407,7 @@ var sqlInsertStmts = map[string]*SqlInsertDefinition{
 				INSERT INTO $SCHEMA.data_properties 
 				(domain_class_key,name,type,as_array) 
 				VALUES ($1,$2,$3,$4)
-				ON CONFLICT ON CONSTRAINT $SCHEMA_data_properties_unique_cstraint
+				ON CONFLICT
 				DO NOTHING
 				RETURNING key
 			)
@@ -424,7 +424,7 @@ var sqlInsertStmts = map[string]*SqlInsertDefinition{
 				INSERT INTO $SCHEMA.domain_tables 
 				(domain_class_key,name) 
 				VALUES ($1,$2)
-				ON CONFLICT ON CONSTRAINT $SCHEMA_domain_tables_unique_cstraint
+				ON CONFLICT
 				DO NOTHING
 				RETURNING key
 			)
@@ -441,7 +441,7 @@ var sqlInsertStmts = map[string]*SqlInsertDefinition{
 				INSERT INTO $SCHEMA.domain_columns 
 				(domain_table_key,data_property_key,name,as_array) 
 				VALUES ($1,$2,$3,$4)
-				ON CONFLICT ON CONSTRAINT $SCHEMA_domain_columns_unique_cstraint
+				ON CONFLICT
 				DO NOTHING`,
 		ColumnKeys: []string{"domain_table_key", "data_property_key", "name", "as_array"},
 		Capability: "workspace_ide",
@@ -452,7 +452,7 @@ var sqlInsertStmts = map[string]*SqlInsertDefinition{
 				INSERT INTO $SCHEMA.jetstore_config 
 				(config_key,config_value,source_file_key) 
 				VALUES ($1,$2,$3)
-				ON CONFLICT ON CONSTRAINT $SCHEMA_jetstore_config_unique_cstraint
+				ON CONFLICT
 				DO NOTHING`,
 		ColumnKeys: []string{"config_key", "config_value", "source_file_key"},
 		Capability: "workspace_ide",
@@ -463,7 +463,7 @@ var sqlInsertStmts = map[string]*SqlInsertDefinition{
 				INSERT INTO $SCHEMA.rule_sequences 
 				(name,source_file_key) 
 				VALUES ($1,$2)
-				ON CONFLICT ON CONSTRAINT $SCHEMA_rule_sequences_unique_cstraint
+				ON CONFLICT
 				DO NOTHING
 				RETURNING key
 			)
@@ -482,7 +482,7 @@ var sqlInsertStmts = map[string]*SqlInsertDefinition{
 			INSERT INTO $SCHEMA.main_rule_sets 
 			(rule_sequence_key,main_ruleset_name,ruleset_file_key,seq) 
 			VALUES ($1,$2,(SELECT e.key FROM e),$3)
-			ON CONFLICT ON CONSTRAINT $SCHEMA_main_rule_sets_unique_cstraint
+			ON CONFLICT
 			DO NOTHING`,
 		ColumnKeys: []string{"rule_sequence_key", "main_ruleset_name", "seq"},
 		Capability: "workspace_ide",
@@ -493,7 +493,7 @@ var sqlInsertStmts = map[string]*SqlInsertDefinition{
 				INSERT INTO $SCHEMA.lookup_tables 
 				(name,table_name,csv_file,lookup_key,lookup_resources,source_file_key) 
 				VALUES ($1,$2,$3,$4,$5,$6)
-				ON CONFLICT ON CONSTRAINT $SCHEMA_lookup_tables_unique_cstraint
+				ON CONFLICT
 				DO NOTHING
 				RETURNING key
 			)
@@ -509,7 +509,7 @@ var sqlInsertStmts = map[string]*SqlInsertDefinition{
 				INSERT INTO $SCHEMA.lookup_columns 
 				(lookup_table_key,name,type,as_array) 
 				VALUES ($1,$2,$3,$4)
-				ON CONFLICT ON CONSTRAINT $SCHEMA_lookup_columns_unique_cstraint
+				ON CONFLICT
 				DO NOTHING`,
 		ColumnKeys: []string{"lookup_table_key", "name", "type", "as_array"},
 		Capability: "workspace_ide",
@@ -520,7 +520,7 @@ var sqlInsertStmts = map[string]*SqlInsertDefinition{
 			INSERT INTO $SCHEMA.expressions 
 			(type, arg0_key, arg1_key, arg2_key, arg3_key, arg4_key, arg5_key, op, source_file_key) 
 			VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
-			ON CONFLICT ON CONSTRAINT $SCHEMA_expressions_unique_cstraint
+			ON CONFLICT
 			DO NOTHING
 			RETURNING key
 		)
@@ -539,7 +539,7 @@ var sqlInsertStmts = map[string]*SqlInsertDefinition{
 			(vertex, type, subject_key, predicate_key, object_key, obj_expr_key, filter_expr_key, 
 				parent_vertex, "normalized_label", source_file_key, is_negation, salience, consequent_seq) 
 			VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
-			ON CONFLICT ON CONSTRAINT $SCHEMA_rete_nodes_unique_cstraint
+			ON CONFLICT
 			DO NOTHING
 			RETURNING key
 		)
@@ -558,7 +558,7 @@ var sqlInsertStmts = map[string]*SqlInsertDefinition{
 			INSERT INTO $SCHEMA.beta_row_config
 			(vertex, seq, source_file_key, row_pos, is_binded, id) 
 			VALUES ($1,$2,$3,$4,$5,$6)
-			ON CONFLICT ON CONSTRAINT $SCHEMA_beta_row_config_unique_cstraint
+			ON CONFLICT
 			DO NOTHING
 			RETURNING key
 		)
@@ -576,7 +576,7 @@ var sqlInsertStmts = map[string]*SqlInsertDefinition{
 			INSERT INTO $SCHEMA.jet_rules
 			(name, optimization, salience, authored_label, normalized_label, label, source_file_key) 
 			VALUES ($1,$2,$3,$4,$5,$6,$7)
-			ON CONFLICT ON CONSTRAINT $SCHEMA_jet_rules_unique_cstraint
+			ON CONFLICT
 			DO NOTHING
 			RETURNING key
 		)
@@ -593,7 +593,7 @@ var sqlInsertStmts = map[string]*SqlInsertDefinition{
 			INSERT INTO $SCHEMA.rule_properties
 			(rule_key, name, value) 
 			VALUES ($1,$2,$3)
-			ON CONFLICT ON CONSTRAINT $SCHEMA_rule_properties_unique_cstraint
+			ON CONFLICT
 			DO NOTHING`,
 
 		ColumnKeys: []string{"rule_key", "name", "value"},
@@ -604,7 +604,7 @@ var sqlInsertStmts = map[string]*SqlInsertDefinition{
 			INSERT INTO $SCHEMA.rule_terms
 			(rule_key, rete_node_key, is_antecedent) 
 			VALUES ($1,$2,$3)
-			ON CONFLICT ON CONSTRAINT $SCHEMA_rule_terms_unique_cstraint
+			ON CONFLICT
 			DO NOTHING`,
 
 		ColumnKeys: []string{"rule_key", "rete_node_key", "is_antecedent"},
@@ -616,7 +616,7 @@ var sqlInsertStmts = map[string]*SqlInsertDefinition{
 			INSERT INTO $SCHEMA.triples
 			(subject_key, predicate_key, object_key, source_file_key) 
 			VALUES ($1,$2,$3,$4)
-			ON CONFLICT ON CONSTRAINT $SCHEMA_triples_unique_cstraint
+			ON CONFLICT
 			DO NOTHING`,
 
 		ColumnKeys: []string{"subject_key", "predicate_key", "object_key", "source_file_key"},

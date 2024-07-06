@@ -290,7 +290,7 @@ func (server *Server) checkWorkspaceVersion() error {
 			INSERT INTO jetsapi.workspace_registry 
 				(workspace_name, workspace_uri, workspace_branch, user_email) VALUES 
 				('%s', '%s', '%s', 'system')
-				ON CONFLICT ON CONSTRAINT workspace_name_unique_cstraintv3 
+				ON CONFLICT 
 				DO UPDATE SET (workspace_uri, workspace_branch, user_email, last_update) =
 				(EXCLUDED.workspace_uri, EXCLUDED.workspace_branch, EXCLUDED.user_email, DEFAULT)`, 
 			workspaceName, activeWorkspaceUri, workspaceBranch)

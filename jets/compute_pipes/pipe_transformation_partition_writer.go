@@ -42,8 +42,6 @@ type PartitionWriterTransformationPipe struct {
 	regionName                 string
 	sessionId                  string
 	nodeId                     int
-	subClusterNodeId           int
-	subClusterId               int
 	s3WritersResultCh          chan chan ComputePipesResult
 	s3WritersCollectedResultCh chan ComputePipesResult
 	s3Uploader                 *manager.Uploader
@@ -88,7 +86,7 @@ func (ctx *PartitionWriterTransformationPipe) apply(input *[]interface{}) error 
 		if isParquetWriter {
 			fileEx = "parquet"
 		}
-		partitionFileName := fmt.Sprintf("part%03d-%07d.%s", ctx.subClusterId, ctx.filePartitionNumber, fileEx)
+		partitionFileName := fmt.Sprintf("part%03d-%07d.%s", ctx.nodeId, ctx.filePartitionNumber, fileEx)
 		s3DeviceWriter := &S3DeviceWriter{
 			s3Uploader: ctx.s3Uploader,
 			source: &InputChannel{
@@ -171,12 +169,12 @@ func (ctx *PartitionWriterTransformationPipe) done() error {
 		stepId = *ctx.spec.StepId
 	}
 	stmt := `INSERT INTO jetsapi.compute_pipes_partitions_registry 
-	  (session_id, step_id, file_key, jets_partition, shard_id, sc_node_id, sc_id) 
-		VALUES ($1, $2, $3, $4, $5, $6, $7)
-		ON CONFLICT ON CONSTRAINT compute_pipes_partitions_registry_unique_cstraint_v4 
+	  (session_id, step_id, file_key, jets_partition, shard_id) 
+		VALUES ($1, $2, $3, $4, $5)
+		ON CONFLICT
 		DO UPDATE SET (step_id, jets_partition) =	(EXCLUDED.step_id, EXCLUDED.jets_partition)`
-_, err := ctx.dbpool.Exec(context.Background(), stmt, ctx.sessionId, stepId, *ctx.baseOutputPath, ctx.jetsPartitionLabel,
-		ctx.nodeId, ctx.subClusterNodeId, ctx.subClusterId)
+	_, err := ctx.dbpool.Exec(context.Background(), stmt, ctx.sessionId, stepId, *ctx.baseOutputPath,
+		ctx.jetsPartitionLabel, ctx.nodeId)
 	if err != nil {
 		return fmt.Errorf("error inserting in jetsapi.compute_pipes_partitions_registry table: %v", err)
 	}
@@ -247,7 +245,7 @@ func (ctx *BuilderContext) NewPartitionWriterTransformationPipe(source *InputCha
 			// }
 			parquetSchema[i] = fmt.Sprintf("name=%s, type=BYTE_ARRAY, convertedtype=UTF8, encoding=PLAIN_DICTIONARY",
 				outputCh.config.Columns[i])
-		}	
+		}
 	}
 
 	p := ctx.env["$FILE_KEY_FOLDER"].(string)
