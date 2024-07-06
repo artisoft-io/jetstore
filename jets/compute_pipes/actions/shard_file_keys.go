@@ -85,7 +85,7 @@ func ShardFileKeysP2(exeCtx context.Context, dbpool *pgxpool.Pool, baseFileKey s
 			FROM  shards
 		)
 		UPDATE jetsapi.compute_pipes_shard_registry sr
-			SET shard_id = fk1.node_id	
+			SET shard_id = fk0.node_id	
 		FROM fk0
 		WHERE sr.file_key = fk0.file_key 
 			AND sr.session_id = '$1'
