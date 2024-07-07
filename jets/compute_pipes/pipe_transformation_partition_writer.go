@@ -171,7 +171,7 @@ func (ctx *PartitionWriterTransformationPipe) done() error {
 	stmt := `INSERT INTO jetsapi.compute_pipes_partitions_registry 
 	  (session_id, step_id, file_key, jets_partition, shard_id) 
 		VALUES ($1, $2, $3, $4, $5)
-		ON CONFLICT
+		ON CONFLICT ON CONSTRAINT compute_pipes_partitions_registry_unique_cstraint_v5 
 		DO UPDATE SET (step_id, jets_partition) =	(EXCLUDED.step_id, EXCLUDED.jets_partition)`
 	_, err := ctx.dbpool.Exec(context.Background(), stmt, ctx.sessionId, stepId, *ctx.baseOutputPath,
 		ctx.jetsPartitionLabel, ctx.nodeId)

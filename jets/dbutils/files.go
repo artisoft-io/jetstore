@@ -72,7 +72,7 @@ func QueryFileObject(dbpool *pgxpool.Pool, workspaceName, status, contentType st
 // 	Stmt: `INSERT INTO jetsapi.workspace_changes 
 // 		(workspace_name, oid, file_name, content_type, status, user_email) 
 // 		VALUES ($1, $2, $3, $4, $5, $6)
-// 		ON CONFLICT
+// 		ON CONFLICT ON CONSTRAINT workspace_changes_unique_cstraint
 // 		DO UPDATE SET (oid, status, user_email, last_update) = 
 // 		(EXCLUDED.oid, EXCLUDED.status, EXCLUDED.user_email, DEFAULT)
 // 		RETURNING key`,
@@ -85,7 +85,7 @@ func (fo *FileDbObject) UpdateFileObject(txWrite pgx.Tx, ctx context.Context) er
 	stmt := `INSERT INTO jetsapi.workspace_changes 
 		(workspace_name, oid, file_name, content_type, status, user_email) 
 		VALUES ($1, $2, $3, $4, $5, $6)
-		ON CONFLICT
+		ON CONFLICT ON CONSTRAINT workspace_changes_unique_cstraint
 		DO UPDATE SET (oid, status, user_email, last_update) = 
 		(EXCLUDED.oid, EXCLUDED.status, EXCLUDED.user_email, DEFAULT)
 		RETURNING key`
