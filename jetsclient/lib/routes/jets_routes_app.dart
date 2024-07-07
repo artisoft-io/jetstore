@@ -23,6 +23,7 @@ const domainTableViewerPath = '/domainTableViewer/:table_name/:session_id';
 const queryToolPath = '/queryTool';
 const filePreviewPath = '/filePreviewPath/:file_key';
 const executionStatusDetailsPath = '/executionStatusDetails/:session_id';
+const executionStatsDetailsPath = '/executionStatsDetails/:session_id';
 const processErrorsPath = '/processErrors/:session_id';
 
 // Old Rule Config with triples
@@ -179,6 +180,18 @@ final Map<String, Widget> jetsRoutesMap = {
         return null;
       },
       tableConfig: getTableConfig(DTKeys.pipelineExecDetailsTable)),
+
+  // Pipeline Execution Stats Details Viewer from cpipes_execution_status_details table
+  executionStatsDetailsPath: ScreenOne(
+      key: const Key(ScreenKeys.execStatsDetailsTable),
+      screenPath: const JetsRouteData(executionStatsDetailsPath),
+      screenConfig: getScreenConfig(ScreenKeys.execStatsDetailsTable),
+      validatorDelegate: (formState, p2, p3, p4) => null,
+      actionsDelegate: (context, formKey, formState, actionKey,
+          {group = 0}) async {
+        return null;
+      },
+      tableConfig: getTableConfig(DTKeys.cpipesExecDetailsTable)),
 
   // Process Errors Viewer
   processErrorsPath: ScreenWithForm(

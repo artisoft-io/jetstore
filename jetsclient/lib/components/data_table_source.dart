@@ -413,7 +413,8 @@ class JetsDataTableSource extends ChangeNotifier {
           columns.length,
           (index) => <String, String>{
                 'table': columns[index].table ?? '',
-                'column': columns[index].name
+                'column': columns[index].name,
+                'calculatedAs': columns[index].calculatedAs ?? '',
               });
       for (final col in columns) {
         if (col.name == 'client') {

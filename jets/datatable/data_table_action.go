@@ -80,8 +80,9 @@ type DataTableAction struct {
 	Data             []map[string]interface{} `json:"data"`
 }
 type Column struct {
-	Table  string `json:"table"`
-	Column string `json:"column"`
+	Table        string `json:"table"`
+	Column       string `json:"column"`
+	CalculatedAs string `json:"calculatedAs"`
 }
 type FromClause struct {
 	Schema  string `json:"schema"`
@@ -225,10 +226,16 @@ func (dtq *DataTableAction) makeSelectColumns() string {
 		if column == "roles" {
 			column = "encrypted_roles"
 		}
-		if dtq.Columns[i].Table != "" {
-			buf.WriteString(pgx.Identifier{dtq.Columns[i].Table, column}.Sanitize())
+		if len(dtq.Columns[i].CalculatedAs) > 0 {
+			buf.WriteString(dtq.Columns[i].CalculatedAs)
+			buf.WriteString(" AS ")
+			buf.WriteString(column)
 		} else {
-			buf.WriteString(pgx.Identifier{column}.Sanitize())
+			if dtq.Columns[i].Table != "" {
+				buf.WriteString(pgx.Identifier{dtq.Columns[i].Table, column}.Sanitize())
+			} else {
+				buf.WriteString(pgx.Identifier{column}.Sanitize())
+			}	
 		}
 	}
 	return buf.String()
