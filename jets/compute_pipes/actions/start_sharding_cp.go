@@ -186,19 +186,21 @@ func (args *StartComputePipesArgs) StartShardingComputePipes(ctx context.Context
 	// Set the number of partitions when sharding
 	for i := range cpConfig.ShardingPipesConfig {
 		pipeSpec := &cpConfig.ShardingPipesConfig[i]
-		for j := range pipeSpec.Apply {
-			transformationSpec := &pipeSpec.Apply[j]
-			if transformationSpec.Type == "map_record" {
-				for k := range transformationSpec.Columns {
-					trsfColumnSpec := &transformationSpec.Columns[k]
-					if trsfColumnSpec.Type == "hash" {
-						if trsfColumnSpec.HashExpr != nil && trsfColumnSpec.HashExpr.NbrJetsPartitions == nil {
-							trsfColumnSpec.HashExpr.NbrJetsPartitions = &nbrPartitions
-							// log.Println("********** Setting trsfColumnSpec.HashExpr.NbrJetsPartitions to", nbrPartitions)
+		if pipeSpec.Type == "fan_out" {
+			for j := range pipeSpec.Apply {
+				transformationSpec := &pipeSpec.Apply[j]
+				if transformationSpec.Type == "map_record" {
+					for k := range transformationSpec.Columns {
+						trsfColumnSpec := &transformationSpec.Columns[k]
+						if trsfColumnSpec.Type == "hash" {
+							if trsfColumnSpec.HashExpr != nil && trsfColumnSpec.HashExpr.NbrJetsPartitions == nil {
+								trsfColumnSpec.HashExpr.NbrJetsPartitions = &nbrPartitions
+								// log.Println("********** Setting trsfColumnSpec.HashExpr.NbrJetsPartitions to", nbrPartitions)
+							}
 						}
 					}
 				}
-			}
+			}	
 		}
 	}
 	cpShardingConfig := &compute_pipes.ComputePipesConfig{

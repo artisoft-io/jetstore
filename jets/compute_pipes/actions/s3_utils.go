@@ -8,15 +8,16 @@ import (
 	"os"
 
 	"github.com/artisoft-io/jetstore/jets/awsi"
+	"github.com/aws/aws-sdk-go-v2/feature/s3/manager"
 	"github.com/jackc/pgx/v4"
 	"github.com/jackc/pgx/v4/pgxpool"
-	"github.com/aws/aws-sdk-go-v2/feature/s3/manager"
 )
 
 // Common functions and types for s3, rerwite of loader's version
 
 type DownloadS3Result struct {
 	InputFilesCount int
+	TotalFilesSize  int64
 	Err             error
 }
 
@@ -49,7 +50,6 @@ func GetFileKeys(ctx context.Context, dbpool *pgxpool.Pool, sessionId string, no
 	return fileKeys, nil
 }
 
-
 // Input arg:
 // done: unbuffered channel to indicate to stop downloading file (must be an error downstream)
 // Returned values:
@@ -59,27 +59,30 @@ func (cpCtx *ComputePipesContext) DownloadS3Files(inFolderPath string, fileKeys 
 	go func() {
 		defer close(cpCtx.FileNamesCh)
 		var inFilePath string
+		var fileSize, totalFilesSize int64
 		var err error
-			log.Printf("Downloading multi-part file from s3 folder: %s", cpCtx.FileKey)
-			for i := range fileKeys {
-				inFilePath, err = DownloadS3Object(fileKeys[i], inFolderPath, 1)
-				if err != nil {
-					cpCtx.DownloadS3ResultCh <- DownloadS3Result{
-						InputFilesCount: i,
-						Err: fmt.Errorf("failed to download s3 file %s: %v", fileKeys[i], err),
-					}
+		log.Printf("Downloading multi-part file from s3 folder: %s", cpCtx.FileKey)
+		for i := range fileKeys {
+			inFilePath, fileSize, err = DownloadS3Object(fileKeys[i], inFolderPath, 1)
+			if err != nil {
+				cpCtx.DownloadS3ResultCh <- DownloadS3Result{
+					InputFilesCount: i,
+					TotalFilesSize:  totalFilesSize,
+					Err:             fmt.Errorf("failed to download s3 file %s: %v", fileKeys[i], err),
+				}
+				return
+			}
+			if len(inFilePath) > 0 {
+				select {
+				case cpCtx.FileNamesCh <- FileName{LocalFileName: inFilePath, InFileKey: fileKeys[i]}:
+				case <-cpCtx.Done:
+					cpCtx.DownloadS3ResultCh <- DownloadS3Result{InputFilesCount: i + 1, TotalFilesSize: totalFilesSize}
 					return
 				}
-				if len(inFilePath) > 0 {
-					select {
-					case cpCtx.FileNamesCh <- FileName{LocalFileName: inFilePath,InFileKey: fileKeys[i]}:
-					case <-cpCtx.Done:
-						cpCtx.DownloadS3ResultCh <- DownloadS3Result{InputFilesCount: i + 1}
-						return
-					}
-				}
 			}
-			cpCtx.DownloadS3ResultCh<- DownloadS3Result{InputFilesCount: len(fileKeys)}
+			totalFilesSize += fileSize
+		}
+		cpCtx.DownloadS3ResultCh <- DownloadS3Result{InputFilesCount: len(fileKeys), TotalFilesSize: totalFilesSize}
 	}()
 
 	return nil
@@ -87,6 +90,7 @@ func (cpCtx *ComputePipesContext) DownloadS3Files(inFolderPath string, fileKeys 
 
 var bucket, region, kmsKeyArn string
 var downloader *manager.Downloader
+
 func init() {
 	bucket = os.Getenv("JETS_BUCKET")
 	region = os.Getenv("JETS_REGION")
@@ -98,14 +102,14 @@ func init() {
 	}
 }
 
-func DownloadS3Object(s3Key, localDir string, minSize int64) (string, error) {
+func DownloadS3Object(s3Key, localDir string, minSize int64) (string, int64, error) {
 	// Download object(s) using a download manager to a temp file (fileHd)
 	var inFilePath string
 	var fileHd *os.File
 	var err error
 	fileHd, err = os.CreateTemp(localDir, "jetstore")
 	if err != nil {
-		return "", fmt.Errorf("failed to open temp input file: %v", err)
+		return "", 0, fmt.Errorf("failed to open temp input file: %v", err)
 	}
 	defer fileHd.Close()
 	inFilePath = fileHd.Name()
@@ -114,14 +118,14 @@ func DownloadS3Object(s3Key, localDir string, minSize int64) (string, error) {
 	// Download the object
 	nsz, err := awsi.DownloadFromS3v2(downloader, bucket, s3Key, fileHd)
 	if err != nil {
-		return "", fmt.Errorf("failed to download input file: %v", err)
+		return "", 0, fmt.Errorf("failed to download input file: %v", err)
 	}
 	if minSize > 0 && nsz < minSize {
 		log.Printf("Ignoring sentinel file %s", s3Key)
 		fileHd.Close()
 		os.Remove(inFilePath)
-		return "", nil
+		return "", 0, nil
 	}
 	log.Println("downloaded", nsz, "bytes for key", s3Key)
-	return inFilePath, nil
+	return inFilePath, nsz, nil
 }
