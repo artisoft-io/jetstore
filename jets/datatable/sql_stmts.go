@@ -11,7 +11,7 @@ var sqlInsertStmts = map[string]*SqlInsertDefinition{
 	"client_registry": {
 		Stmt: `INSERT INTO jetsapi.client_registry (client, details)
 		VALUES ($1, $2)
-		ON CONFLICT
+		ON CONFLICT ON CONSTRAINT client_registry_pkey
 		DO UPDATE SET details = EXCLUDED.details`,
 		ColumnKeys: []string{"client", "details"},
 		Capability: "client_config",
@@ -20,7 +20,7 @@ var sqlInsertStmts = map[string]*SqlInsertDefinition{
 	"client_org_registry": {
 		Stmt: `INSERT INTO jetsapi.client_org_registry (client, org, details) 
 		VALUES ($1, $2, $3)
-		ON CONFLICT
+		ON CONFLICT ON CONSTRAINT client_org_registry_unique_cstraint
 		DO UPDATE SET details = EXCLUDED.details`,
 		ColumnKeys: []string{"client", "org", "details"},
 		Capability: "client_config",
@@ -203,7 +203,7 @@ var sqlInsertStmts = map[string]*SqlInsertDefinition{
 		Stmt: `INSERT INTO jetsapi.file_key_staging 
 			(client, org, object_type, file_key, source_period_key) 
 			VALUES ($1, $2, $3, $4, $5)
-			ON CONFLICT
+			ON CONFLICT ON CONSTRAINT file_key_staging_unique_cstraintv3 
 			DO UPDATE SET last_update = DEFAULT`,
 		ColumnKeys: []string{"client", "org", "object_type", "file_key", "source_period_key"},
 		Capability: "jetstore_read",

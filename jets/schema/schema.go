@@ -372,8 +372,8 @@ func (tableDefinition *TableDefinition) UpdateTable(dbpool *pgxpool.Pool, existi
 	for i := range tableDefinition.Indexes {
 		idx := &tableDefinition.Indexes[i]
 		if !idx.Deleted {
-			buf.WriteString("CREATE IF NOT EXISTS ")
-			buf.WriteString(idx.IndexDef)
+			buf.WriteString("CREATE INDEX IF NOT EXISTS ")
+			buf.WriteString(strings.TrimPrefix(strings.TrimPrefix(idx.IndexDef, "INDEX"), "index"))
 			buf.WriteString(" ;\n")
 		} else {
 			buf.WriteString("DROP INDEX IF EXISTS ")
