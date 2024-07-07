@@ -237,7 +237,7 @@ func calculateNbrNodes(totalSizeMb int, sizingSpec *[]compute_pipes.ClusterSizin
 		return 0
 	}
 	for _, spec := range *sizingSpec {
-		if spec.WhenTotalSizeGe >= totalSizeMb {
+		if totalSizeMb >= spec.WhenTotalSizeGe {
 			log.Printf("calculateNbrNodes: totalSizeMb: %d, spec.WhenTotalSizeGe: %d, got NbrNodes: %d", totalSizeMb, spec.WhenTotalSizeGe, spec.NbrNodes)
 			return spec.NbrNodes
 		}
