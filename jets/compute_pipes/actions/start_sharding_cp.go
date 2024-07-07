@@ -194,7 +194,7 @@ func (args *StartComputePipesArgs) StartShardingComputePipes(ctx context.Context
 					if trsfColumnSpec.Type == "hash" {
 						if trsfColumnSpec.HashExpr != nil && trsfColumnSpec.HashExpr.NbrJetsPartitions == nil {
 							trsfColumnSpec.HashExpr.NbrJetsPartitions = &nbrPartitions
-							log.Println("********** Setting trsfColumnSpec.HashExpr.NbrJetsPartitions to", nbrPartitions)
+							// log.Println("********** Setting trsfColumnSpec.HashExpr.NbrJetsPartitions to", nbrPartitions)
 						}
 					}
 				}
@@ -216,8 +216,8 @@ func (args *StartComputePipesArgs) StartShardingComputePipes(ctx context.Context
 	if err != nil {
 		return result, err
 	}
-	log.Println("*** shardingConfigJson ***")
-	log.Println(string(shardingConfigJson))
+	// log.Println("*** shardingConfigJson ***")
+	// log.Println(string(shardingConfigJson))
 	// Create entry in cpipes_execution_status
 	stmt = `INSERT INTO jetsapi.cpipes_execution_status 
 						(pipeline_execution_status_key, session_id, sharding_config_json, reducing_config_json) 
