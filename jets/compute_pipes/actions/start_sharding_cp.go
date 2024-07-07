@@ -135,6 +135,7 @@ func (args *StartComputePipesArgs) StartShardingComputePipes(ctx context.Context
 		}
 		shardingNbrNodes = calculateNbrNodes(int(totalSize/1024/1024), cpConfig.ClusterConfig.NbrNodesLookup)
 	}
+	nbrPartitions := uint64(shardingNbrNodes)
 
 	// Adjust the nbr of sharding nodes based on the nbr of input files
 	if totalPartfileCount < shardingNbrNodes {
@@ -182,6 +183,23 @@ func (args *StartComputePipesArgs) StartShardingComputePipes(ctx context.Context
 	}
 
 	// Make the sharding pipeline config
+	// Set the number of partitions when sharding
+	for i := range cpConfig.ShardingPipesConfig {
+		pipeSpec := &cpConfig.ShardingPipesConfig[i]
+		for j := range pipeSpec.Apply {
+			transformationSpec := &pipeSpec.Apply[j]
+			if transformationSpec.Type == "map_record" {
+				for k := range transformationSpec.Columns {
+					trsfColumnSpec := &transformationSpec.Columns[k]
+					if trsfColumnSpec.Type == "hash" {
+						if trsfColumnSpec.HashExpr != nil && trsfColumnSpec.HashExpr.NbrJetsPartitions == nil {
+							trsfColumnSpec.HashExpr.NbrJetsPartitions = &nbrPartitions
+						}
+					}
+				}
+			}
+		}
+	}
 	cpShardingConfig := &compute_pipes.ComputePipesConfig{
 		ClusterConfig: &compute_pipes.ClusterSpec{
 			CpipesMode: "sharding",
