@@ -1383,6 +1383,10 @@
         "isNotNull": true
       },
       {
+        "columnName": "cpipes_step_id",
+        "dataType": "text"
+      },
+      {
         "columnName": "status",
         "dataType": "text",
         "isNotNull": true
@@ -1393,6 +1397,10 @@
       },
       {
         "columnName": "input_records_count",
+        "dataType": "int"
+      },
+      {
+        "columnName": "input_files_size_mb",
         "dataType": "int"
       },
       {
@@ -1419,6 +1427,10 @@
       {
         "indexName": "pipeline_execution_details_pipeline_execution_status_key_idx",
         "indexDef": "INDEX pipeline_execution_details_pipeline_execution_status_key_idx ON jetsapi.pipeline_execution_details (pipeline_execution_status_key ASC)"
+      },
+      {
+        "indexName": "pipeline_execution_details_pe_key_status_idx",
+        "indexDef": "INDEX pipeline_execution_details_pe_key_status_idx ON jetsapi.pipeline_execution_details (pipeline_execution_status_key, status)"
       },
       {
         "indexName": "pipeline_execution_details_last_update_idx",
@@ -1737,6 +1749,44 @@
   },
   {
     "schemaName": "jetsapi",
+    "tableName": "cpipes_execution_status_details",
+    "description": "Table to keep the statistics of the cpipes runs for partition sizing",
+    "columns": [
+      {
+        "columnName": "session_id",
+        "dataType": "text",
+        "isNotNull": true,
+        "isPK": true
+      },
+      {
+        "columnName": "cpipes_step_id",
+        "dataType": "text",
+        "isNotNull": true
+      },
+      {
+        "columnName": "nbr_nodes",
+        "dataType": "int",
+        "isNotNull": true
+      },
+      {
+        "columnName": "total_input_files_size_mb",
+        "dataType": "long",
+        "isNotNull": true
+      },
+      {
+        "columnName": "total_input_records_count",
+        "dataType": "long",
+        "isNotNull": true
+      },
+      {
+        "columnName": "total_output_records_count",
+        "dataType": "long",
+        "isNotNull": true
+      }
+    ]
+  },
+  {
+    "schemaName": "jetsapi",
     "tableName": "cpipes_results",
     "columns": [
       {
@@ -1842,7 +1892,12 @@
     "indexes": [
       {
         "indexName": "cpipes_metrics_session_id_idx",
-        "indexDef": "INDEX cpipes_metrics_session_id_idx ON jetsapi.cpipes_results (session_id)"
+        "indexDef": "INDEX cpipes_metrics_session_id_idx ON jetsapi.cpipes_results (session_id)",
+        "deleted": true
+      },
+      {
+        "indexName": "cpipes_metrics_session_id_idx_v2",
+        "indexDef": "INDEX cpipes_metrics_session_id_idx_v2 ON jetsapi.cpipes_metrics (session_id)"
       }
     ]
   },
