@@ -327,6 +327,39 @@ func (ca *StatusUpdate) CoordinateWork() error {
 	if err != nil {
 		return fmt.Errorf("while updating process execution status: %v", err)
 	}
+	// Put cpipes run stats in cpipes_execution_status_details table
+	// this is to track file size and help set the thresholds for nbr_nodes (nbr_nodes_lookup)
+	stmt := `
+		INSERT INTO jetsapi.cpipes_execution_status_details (
+				session_id,
+				process_name,
+				cpipes_step_id,
+				nbr_nodes,
+				total_input_files_size_mb,
+				total_input_records_count,
+				total_output_records_count
+			) (
+				SELECT 
+					ped.session_id,
+					pe.process_name,
+					ped.cpipes_step_id,
+					count(*) AS nbr_nodes,
+					sum(ped.input_files_size_mb) AS total_input_files_size_mb,
+					sum(ped.input_records_count) AS total_input_records_count,
+					sum(ped.output_records_count) AS total_output_records_count
+				FROM jetsapi.pipeline_execution_details ped,
+					jetsapi.pipeline_execution_status pe
+				WHERE ped.pipeline_execution_status_key = $1
+					AND ped.pipeline_execution_status_key = pe.key
+				GROUP BY ped.cpipes_step_id,
+					ped.session_id,
+					pe.process_name
+			)`
+	_, err = ca.Dbpool.Exec(context.Background(), stmt, ca.PeKey)
+	if err != nil {
+		return fmt.Errorf("while inserting in jetsapi.cpipes_execution_status_details: %v", err)
+	}
+
 	//*REVIEW THIS: CPIPES NOTIFICATION - don't register outTables or lock session_id
 	// When CPIPES notification exists, don't register outTables or lock session_id
 	if apiEndpoint != "" {

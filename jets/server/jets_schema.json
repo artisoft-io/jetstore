@@ -1425,8 +1425,12 @@
     ],
     "indexes": [
       {
+        "indexName": "pipeline_execution_details_session_id_idx",
+        "indexDef": "INDEX pipeline_execution_details_session_id_idx ON jetsapi.pipeline_execution_details (session_id)"
+      },
+      {
         "indexName": "pipeline_execution_details_pipeline_execution_status_key_idx",
-        "indexDef": "INDEX pipeline_execution_details_pipeline_execution_status_key_idx ON jetsapi.pipeline_execution_details (pipeline_execution_status_key ASC)"
+        "indexDef": "INDEX pipeline_execution_details_pipeline_execution_status_key_idx ON jetsapi.pipeline_execution_details (pipeline_execution_status_key)"
       },
       {
         "indexName": "pipeline_execution_details_pe_key_status_idx",
@@ -1757,6 +1761,11 @@
         "dataType": "text",
         "isNotNull": true,
         "isPK": true
+      },
+      {
+        "columnName": "process_name",
+        "dataType": "text",
+        "isNotNull": true
       },
       {
         "columnName": "cpipes_step_id",
