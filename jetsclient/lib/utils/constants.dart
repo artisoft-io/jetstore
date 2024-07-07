@@ -137,6 +137,7 @@ class ScreenKeys {
   static const fileRegistryTable = "fileRegistryTableScreen";
   static const filePreview = "filePreviewScreen";
   static const execStatusDetailsTable = "execStatusDetailsTable";
+  static const execStatsDetailsTable = "execStatsDetailsTable";
   static const processErrorsTable = "processErrorsTable";
 
   // Workspace IDE Screens
@@ -713,6 +714,7 @@ class DTKeys {
   static const inputLoaderStatusTable = "inputLoaderStatusTable";
   static const pipelineExecStatusTable = "pipelineExecStatusTable";
   static const pipelineExecDetailsTable = "pipelineExecDetailsTable";
+  static const cpipesExecDetailsTable = "cpipesExecDetailsTable";
   static const processErrorsTable = "processErrorsTable";
   // View rete session triples v1
   static const reteSessionTriplesTable = "reteSessionTriplesTable";

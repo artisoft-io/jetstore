@@ -289,6 +289,16 @@ final Map<String, ScreenConfig> _screenConfigurations = {
       adminMenuEntries: adminMenuEntries,
       toolbarMenuEntries: toolbarMenuEntries),
 
+  ScreenKeys.execStatsDetailsTable: ScreenConfig(
+      key: ScreenKeys.execStatsDetailsTable,
+      appBarLabel: 'JetStore Workspace',
+      // title: 'Pipeline Execution Details',
+      showLogout: true,
+      leftBarLogo: 'assets/images/logo.png',
+      menuEntries: defaultMenuEntries,
+      adminMenuEntries: adminMenuEntries,
+      toolbarMenuEntries: toolbarMenuEntries),
+
   ScreenKeys.processErrorsTable: ScreenConfig(
       key: ScreenKeys.processErrorsTable,
       appBarLabel: 'JetStore Workspace',

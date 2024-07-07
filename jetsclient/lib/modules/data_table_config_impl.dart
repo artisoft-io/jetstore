@@ -299,6 +299,15 @@ final Map<String, TableConfig> _tableConfigurations = {
           isEnabledWhenHavingSelectedRows: true,
           configForm: FormKeys.showFailureDetails,
           navigationParams: {'session_id': 10, 'failure_details': 12}),
+      ActionConfig(
+          actionType: DataTableActionType.showScreen,
+          key: 'viewExecStatsDetails',
+          label: 'View Execution Stats',
+          style: ActionStyle.secondary,
+          isVisibleWhenCheckboxVisible: null,
+          isEnabledWhenHavingSelectedRows: true,
+          configScreenPath: executionStatsDetailsPath,
+          navigationParams: {'session_id': 10}),
     ],
     formStateConfig: DataTableFormStateConfig(keyColumnIdx: 0, otherColumns: [
       DataTableFormStateOtherColumnConfig(
@@ -432,6 +441,13 @@ final Map<String, TableConfig> _tableConfigurations = {
           isNumeric: false),
       ColumnConfig(
           index: 16,
+          name: "run_duration",
+          label: 'Duration',
+          tooltips: 'Run duration',
+          calculatedAs: 'AGE(last_update, start_time)',
+          isNumeric: false),
+      ColumnConfig(
+          index: 17,
           name: "last_update",
           label: 'Loaded At',
           tooltips: 'Indicates when the pipeline was submitted',
@@ -528,42 +544,54 @@ final Map<String, TableConfig> _tableConfigurations = {
           isNumeric: false),
       ColumnConfig(
           index: 10,
+          name: "cpipes_step_id",
+          label: 'Step Id',
+          tooltips: 'CPIPES Step Id',
+          isNumeric: false),
+      ColumnConfig(
+          index: 11,
+          name: "input_files_size_mb",
+          label: 'Input Files Size (Mb)',
+          tooltips: 'Total size in Mb of input files',
+          isNumeric: true),
+      ColumnConfig(
+          index: 12,
           name: "input_records_count",
           label: 'Input Records Count',
           tooltips: 'Number of input records',
           isNumeric: true),
       ColumnConfig(
-          index: 11,
+          index: 13,
           name: "rete_sessions_count",
           label: 'Rete Sessions Count',
           tooltips: 'Number of rete sessions',
           isNumeric: true),
       ColumnConfig(
-          index: 12,
+          index: 14,
           name: "output_records_count",
           label: 'Output Records Count',
           tooltips: 'Number of output records',
           isNumeric: true),
       ColumnConfig(
-          index: 13,
+          index: 15,
           name: "main_input_session_id",
           label: 'Input Session ID',
           tooltips: 'Session ID of main input table',
           isNumeric: false),
       ColumnConfig(
-          index: 14,
+          index: 16,
           name: "session_id",
           label: 'Session ID',
           tooltips: 'Data Pipeline session ID',
           isNumeric: false),
       ColumnConfig(
-          index: 15,
+          index: 17,
           name: "user_email",
           label: 'User',
           tooltips: 'Who started the pipeline',
           isNumeric: false),
       ColumnConfig(
-          index: 16,
+          index: 18,
           name: "last_update",
           label: 'Loaded At',
           tooltips: 'Indicates when the file was loaded',
@@ -571,6 +599,72 @@ final Map<String, TableConfig> _tableConfigurations = {
     ],
     sortColumnName: 'shard_id',
     sortAscending: true,
+    rowsPerPage: 10,
+  ),
+
+  // CPIPES Execution Status Details Data Table
+  DTKeys.cpipesExecDetailsTable: TableConfig(
+    key: DTKeys.cpipesExecDetailsTable,
+    fromClauses: [
+      FromClause(
+          schemaName: 'jetsapi', tableName: 'cpipes_execution_status_details')
+    ],
+    label: 'CPIPES Execution Details',
+    apiPath: '/dataTable',
+    isCheckboxVisible: false,
+    isCheckboxSingleSelect: true,
+    whereClauses: [
+      WhereClause(column: "session_id", formStateKey: FSK.sessionId),
+    ],
+    actions: [],
+    formStateConfig:
+        DataTableFormStateConfig(keyColumnIdx: 0, otherColumns: []),
+    columns: [
+      ColumnConfig(
+          index: 0,
+          name: "process_name",
+          label: 'Process Name',
+          tooltips: 'Process executed',
+          isNumeric: false),
+      ColumnConfig(
+          index: 1,
+          name: "cpipes_step_id",
+          label: 'CPIPES Step Id',
+          tooltips: 'Compute Pipes Step Id',
+          isNumeric: false),
+      ColumnConfig(
+          index: 2,
+          name: "nbr_nodes",
+          label: 'Nbr Nodes',
+          tooltips: 'Number of nodes used for the step',
+          isNumeric: true),
+      ColumnConfig(
+          index: 3,
+          name: "total_input_files_size_mb",
+          label: 'Total Input Files Size (Mb)',
+          tooltips: 'Total size in Mb of input files',
+          isNumeric: true),
+      ColumnConfig(
+          index: 4,
+          name: "total_input_records_count",
+          label: 'Total Input Records Count',
+          tooltips: 'Total number of input records',
+          isNumeric: true),
+      ColumnConfig(
+          index: 5,
+          name: "total_output_records_count",
+          label: 'Total Output Records Count',
+          tooltips: 'Total number of output records',
+          isNumeric: true),
+      ColumnConfig(
+          index: 6,
+          name: "session_id",
+          label: 'Session ID',
+          tooltips: 'JetStore session id',
+          isNumeric: false),
+    ],
+    sortColumnName: 'total_input_files_size_mb',
+    sortAscending: false,
     rowsPerPage: 10,
   ),
 

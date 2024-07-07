@@ -247,6 +247,7 @@ class ColumnConfig {
     required this.index,
     this.table,
     required this.name,
+    this.calculatedAs,
     required this.label,
     required this.tooltips,
     required this.isNumeric,
@@ -258,6 +259,7 @@ class ColumnConfig {
   final int index;
   final String? table;
   final String name;
+  final String? calculatedAs;
   final String label;
   final String tooltips;
   final bool isNumeric;

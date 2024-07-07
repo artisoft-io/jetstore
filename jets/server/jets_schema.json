@@ -1313,6 +1313,12 @@
         "isNotNull": true
       },
       {
+        "columnName": "start_time",
+        "dataType": "datetime",
+        "default": "now()",
+        "isNotNull": true
+      },
+      {
         "columnName": "last_update",
         "dataType": "datetime",
         "default": "now()",
@@ -1757,10 +1763,14 @@
     "description": "Table to keep the statistics of the cpipes runs for partition sizing",
     "columns": [
       {
+        "columnName": "key",
+        "dataType": "int",
+        "isPK": true
+      },
+      {
         "columnName": "session_id",
         "dataType": "text",
-        "isNotNull": true,
-        "isPK": true
+        "isNotNull": true
       },
       {
         "columnName": "process_name",
@@ -1791,6 +1801,12 @@
         "columnName": "total_output_records_count",
         "dataType": "long",
         "isNotNull": true
+      }
+    ],
+    "indexes": [
+      {
+        "indexName": "cpipes_execution_status_details_session_id_idx",
+        "indexDef": "INDEX cpipes_execution_status_details_session_id_idx ON jetsapi.cpipes_execution_status_details (session_id)"
       }
     ]
   },
