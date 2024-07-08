@@ -159,10 +159,52 @@ func (ctx *ReteBuilderContext) BuildReteMetaStore() (*ReteMetaStore, error) {
 	}
 
 	// Load the alpha nodes
-	//*##* CONTINUE HERE
-	return nil, nil
-
+	// Initialize the network with the root node
+	rootAlphaNode := NewRootAlphaNode()
+	ctx.AlphaNodes = append(ctx.AlphaNodes, rootAlphaNode)
+	for _, ruleTerm := range ctx.JetruleModel.Antecedents {
+		var u, v, w AlphaFunctor
+		var expr Expression
+		if u, err = ctx.NewAlphaFunctor(ruleTerm.SubjectKey); err != nil {
+			return nil, err
+		}
+		if v, err = ctx.NewAlphaFunctor(ruleTerm.PredicateKey); err != nil {
+			return nil, err
+		}
+		if ruleTerm.ObjectExpr != nil {
+			if expr, err = ctx.makeExpression(ruleTerm.ObjectExpr); err != nil {
+				return nil, err
+			}
+			w = &FExpression{expression: expr}
+		} else {
+			if w, err = ctx.NewAlphaFunctor(ruleTerm.ObjectKey); err != nil {
+				return nil, err
+			}
+		}
+		if w == nil {
+			return nil, fmt.Errorf("error: invalid AlphaNode configuration for vertex %d", ruleTerm.Vertex)
+		}
+		ctx.AlphaNodes = append(ctx.AlphaNodes, 
+			NewAlphaNode(u, v, w, ctx.NodeVertices[ruleTerm.Vertex],true, ruleTerm.NormalizedLabel))
+	}
 	// Create & initialize the ReteMetaStore
+	return NewReteMetaStore(ctx.ResourceMgr, ctx.MetaGraph, ctx.LookupHelper, ctx.AlphaNodes, ctx.NodeVertices)
+}
+
+func (ctx *ReteBuilderContext) NewAlphaFunctor(key int) (AlphaFunctor, error) {
+	varInfo := ctx.VariablesLookup[key]
+	if varInfo != nil {
+		if varInfo.IsBinded {
+			return &FBinded{pos: varInfo.VarPos}, nil
+		} else {
+			return &FVariable{variable: varInfo.Id}, nil
+		}
+	}
+	resource := ctx.ResourcesLookup[key]
+	if resource != nil {
+		return &FConstant{node: resource}, nil
+	}
+	return nil, fmt.Errorf("error: key %d not found in NewAlphaFunctor", key)
 }
 
 func (ctx *ReteBuilderContext) loadResources() error {

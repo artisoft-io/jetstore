@@ -248,21 +248,29 @@ func (ctx *BuilderContext) NewPartitionWriterTransformationPipe(source *InputCha
 		}
 	}
 
+	// s3 partitioning, put the partition label as the first key element to avoid hot spot in writing files
+	// baseOutputPath structure is: jetspationLabel/<original file key folder>/session_id=123456789
+	// The original file key folder is prepended with the jets partition (it replace the first path component with the partion number)
 	p := ctx.env["$FILE_KEY_FOLDER"].(string)
 	if spec.FilePathSubstitutions != nil {
 		for _, ps := range *spec.FilePathSubstitutions {
 			p = strings.Replace(p, ps.Replace, ps.With, 1)
 		}
 	}
+	// Remove the first path component, aka "jetstore/" or "22p/", it will be replaced with the jetsPartitionLabel
+	ipos := strings.Index(p, "/")
+	if ipos > 0 {
+		p = p[ipos+1:]
+	}
 	// if $FILE_KEY_FOLDER is a input partition, i.e. we're reducing a second time
 	// remove the /session_id... from path
-	ipos := strings.Index(p, "/session_id=")
+	ipos = strings.Index(p, "/session_id=")
 	if ipos > 0 {
 		p = p[:ipos]
 	}
 	session_id := ctx.SessionId()
 	jetsPartitionLabel := MakeJetsPartitionLabel(jetsPartitionKey)
-	baseOutputPath := fmt.Sprintf("%s/session_id=%s/jets_partition=%s", p, session_id, jetsPartitionLabel)
+	baseOutputPath := fmt.Sprintf("%s/%s/session_id=%s", jetsPartitionLabel, p, session_id)
 
 	// Create a local temp dir to save the file partition for writing to s3
 	localTempDir, err2 := os.MkdirTemp("", "jets_partition")
