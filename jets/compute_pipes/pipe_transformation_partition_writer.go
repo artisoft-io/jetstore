@@ -7,7 +7,10 @@ import (
 	"os"
 	"strings"
 
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/feature/s3/manager"
+	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/jackc/pgx/v4/pgxpool"
 )
 
@@ -281,6 +284,18 @@ func (ctx *BuilderContext) NewPartitionWriterTransformationPipe(source *InputCha
 		return nil, err
 	}
 
+	var s3Uploader *manager.Uploader
+	var cfg aws.Config
+	// Setup the s3Uploader
+	cfg, err = config.LoadDefaultConfig(context.TODO(), config.WithRegion(os.Getenv("JETS_REGION")))
+	if err != nil {
+		return nil, fmt.Errorf("while loading aws configuration (in NewPartitionWriterTransformationPipe): %v", err)
+	}
+	// Create a s3 client
+	// Create the uploader with the client and custom options
+	s3Uploader = manager.NewUploader(s3.NewFromConfig(cfg))
+	// ---
+
 	// Collect the result of each part file writer of this jets_partition
 	s3WritersResultCh := make(chan chan ComputePipesResult)
 	s3WritersCollectedResultCh := make(chan ComputePipesResult)
@@ -329,6 +344,7 @@ func (ctx *BuilderContext) NewPartitionWriterTransformationPipe(source *InputCha
 		nodeId:                     ctx.nodeId,
 		s3WritersResultCh:          s3WritersResultCh,
 		s3WritersCollectedResultCh: s3WritersCollectedResultCh,
-		s3Uploader:                 ctx.s3Uploader,
+		// s3Uploader:                 ctx.s3Uploader,
+		s3Uploader:                 s3Uploader,
 	}, nil
 }
