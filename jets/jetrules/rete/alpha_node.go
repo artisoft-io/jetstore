@@ -75,6 +75,17 @@ func NewAlphaNode(fu, fv, fw AlphaFunctor, vertex *NodeVertex, isAntecedent bool
 	}
 }
 
+func NewRootAlphaNode() *AlphaNode {
+	return &AlphaNode{
+		Fu:              &FVariable{variable: "*"},
+		Fv:              &FVariable{variable: "*"},
+		Fw:              &FVariable{variable: "*"},
+		NdVertex:        nil,
+		IsAntecedent:    false,
+		NormalizedLabel: "Root Node",
+	}
+}
+
 func (an *AlphaNode) InitializeIndexes(parentBetaRelation *BetaRelation) {
 	if an == nil {
 		return

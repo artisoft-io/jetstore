@@ -42,7 +42,7 @@ type LookupTableNode struct {
 	Type           string                   `json:"type"`
 }
 
-// JetruleNode is not yet used
+// JetruleNode provides a rule view of the rete network
 type JetruleNode struct {
 	Name            string            `json:"name"`
 	Properties      map[string]string `json:"properties"`
