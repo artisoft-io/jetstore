@@ -1,0 +1,113 @@
+FROM jetstore_builder:go-cpipes as builder
+
+FROM jetstore_base:cpipes
+
+# Fix DL4006
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
+
+USER root
+
+ARG JETS_VERSION
+ENV JETS_VERSION=${JETS_VERSION}
+ARG JETS_GIT_SHA
+ENV JETS_GIT_SHA=${JETS_GIT_SHA}
+RUN echo "----------------JetStore-Version------------------" >> /VERSION.txt && \
+    echo "JETS_VERSION: ${JETS_VERSION}"                      >> /VERSION.txt && \
+    echo "JETS_GIT_SHA: ${JETS_GIT_SHA}"                      >> /VERSION.txt && \
+    echo "----------------*********************-------------" >> /VERSION.txt && \
+    echo "----------------JetStore-Version------------------" && \
+    echo "JETS_VERSION: ${JETS_VERSION}"                      && \
+    echo "JETS_GIT_SHA: ${JETS_GIT_SHA}"                      && \
+    echo "----------------*********************-------------" 
+# Copy libraries and apps from builder
+ENV JETS_BUILD_DIR /usr/local/go/build
+ENV JETS_BIN_DIR /usr/local/go/bin
+ENV JETS_PY_BUILD_DIR /usr/local/go/src/jetstore/build
+COPY --from=builder ${JETS_PY_BUILD_DIR}/lib /usr/local/lib
+COPY --from=builder ${JETS_BUILD_DIR}/jets/jets_test /usr/local/bin/
+COPY --from=builder ${JETS_BUILD_DIR}/jets/test_data /usr/local/bin/test_data
+COPY --from=builder ${JETS_BUILD_DIR}/jets/libjets.so /usr/local/lib/
+#* Verify lib version when upgrading dependencies
+# COPY --from=builder /usr/local/lib/libsqlite3.so.0.8.6 /usr/local/lib/
+# COPY --from=builder /usr/local/lib/libglog.so.0.6.0 /usr/local/lib/
+# Go commands
+COPY --from=builder ${JETS_BIN_DIR}/loader /usr/local/bin/
+COPY --from=builder ${JETS_BIN_DIR}/status_update /usr/local/bin/
+COPY --from=builder ${JETS_BIN_DIR}/apiserver /usr/local/bin/
+# COPY --from=builder ${JETS_BIN_DIR}/server /usr/local/bin/
+COPY --from=builder ${JETS_BIN_DIR}/run_reports /usr/local/bin/
+COPY --from=builder ${JETS_BIN_DIR}/update_db /usr/local/bin/
+COPY --from=builder ${JETS_BIN_DIR}/test_data_generator /usr/local/bin/
+
+# Copy the jetsclient source for building the flutter app
+ENV JETS_SOURCE_DIR /usr/local/go/src/jetstore
+COPY --from=builder ${JETS_SOURCE_DIR}/jetsclient /usr/local/jetsclient
+
+# Resource files
+COPY --from=builder ${JETS_BUILD_DIR}/jets_schema.json /usr/local/bin/
+COPY --from=builder ${JETS_BUILD_DIR}/jets_init_db.sql /usr/local/bin/
+# Set env to find the jets_schema.json by update_db (migrate_db.go)
+ENV JETS_SCHEMA_FILE /usr/local/bin/jets_schema.json
+# *TODO Not used, it's now integrated into the workspace_init_db.sql script
+ENV JETS_INIT_DB_SCRIPT /usr/local/bin/jets_init_db.sql
+
+# Install Client UI == Flutter App ==
+ENV JETS_SOURCE_DIR /usr/local/go/src/jetstore
+ENV WEB_APP_DEPLOYMENT_DIR /usr/local/lib/web
+COPY --from=builder ${JETS_SOURCE_DIR}/jetsclient/build/web $WEB_APP_DEPLOYMENT_DIR
+
+RUN \
+    cd /usr/local/lib/ \
+    && ldconfig \
+    && echo "USR LOCAL LIB DIRECTORY Contains" \
+    && ls -la \
+    && echo "USR LOCAL BIN DIRECTORY Contains" \
+    && ls -la /usr/local/bin \
+    && ldd libjets.so \
+    && cd / 
+
+ARG USER_ID="1000"
+ARG GROUP_ID="1000"
+RUN groupadd -g ${GROUP_ID} jsuser \
+    && useradd -r -u ${USER_ID} -g jsuser jsuser
+
+ENV PYTHONPATH "$PYTHONPATH:/go/lib:/usr/local/lib"
+ENV CLASSPATH ".:/usr/local/lib/antlr-${ANTLR4_VERSION}-complete.jar:$CLASSPATH"
+
+# Path for JetStore Workspace compilation
+ENV JETRULE_COMPILER /usr/local/lib/jets/compiler/jetrule_compiler.py
+ENV JETRULE_LOOKUP_LOADER /usr/local/lib/jets/compiler/jetrule_lookup_loader.py
+
+# Jets Application ENV Variable
+# These are set via cdk when the stack is deployed and overrides these defaults.
+# We need the defaults here for when we do local development
+# jetsclient ui
+ENV UI_PORT 5001
+# apiserver
+ENV API_SECRET 'JetStore Dev Mode - Override This'
+ENV API_SERVER_ADDR ':8080'
+ENV API_TOKEN_EXPIRATION_MIN 60
+ENV WORKSPACES_HOME /go/workspaces
+ENV WORK_HOME /go/work
+ENV LOADER_ERR_DIR /go/work/errors
+ENV JETS_ADMIN_EMAIL admin
+# cpipes listener for peer connection
+ENV CPIPES_SERVER_ADDR ':8085'
+
+RUN \
+  mkdir -p ${WORKSPACES_HOME}           \
+  && mkdir -p ${WORK_HOME}/output       \
+  && mkdir -p ${WORK_HOME}/input        \ 
+  && mkdir -p ${WORK_HOME}/metrics      \
+  && mkdir -p ${WORK_HOME}/sm           \
+  && mkdir -p ${WORK_HOME}/errors       \
+  && mkdir -p ${WORK_HOME}/output_params 
+
+# Copy the cloud9 scripts
+COPY --chown=jsuser:jsuser utils/cloud9_*.sh /go/cloud9_scripts/
+
+RUN chown -Rc jsuser /go
+USER jsuser
+
+ENTRYPOINT ["python3"]
+WORKDIR ${WORK_HOME}

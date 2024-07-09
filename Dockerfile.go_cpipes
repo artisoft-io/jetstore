@@ -1,0 +1,53 @@
+ARG BASE_CONTAINER=jetstore_base_builder:go-cpipes
+FROM ${BASE_CONTAINER}
+ARG BASE_CONTAINER
+
+# JetStore Build
+ENV JETS_SOURCE_DIR /usr/local/go/src/jetstore
+ENV JETS_BUILD_DIR /usr/local/go/build
+ENV JETS_BIN_DIR /usr/local/go/bin
+
+RUN mkdir -p ${JETS_SOURCE_DIR}
+WORKDIR ${JETS_SOURCE_DIR}
+
+COPY CMakeLists.txt      ${JETS_SOURCE_DIR}/
+COPY go.mod              ${JETS_SOURCE_DIR}/
+COPY setup.py            ${JETS_SOURCE_DIR}/
+COPY jets                ${JETS_SOURCE_DIR}/jets
+
+RUN \
+  mkdir -p ${JETS_BUILD_DIR}                                   \
+  && cd ${JETS_BUILD_DIR}                                      \
+  # && cmake -DCMAKE_BUILD_TYPE=Release -DJETS_VERSION=$JETS_VERSION ${JETS_SOURCE_DIR} \
+  # && make clean                                                       \
+  # && make -j8                                                         \
+  # && cd ${JETS_SOURCE_DIR}  \
+  # && ldconfig 
+
+# python puts it in ${JETS_SOURCE_DIR}/build
+RUN python3 setup.py build
+  
+ENV GOOS linux
+ENV CGO_ENABLED 1
+RUN go mod tidy
+RUN go get all
+RUN go mod download
+
+RUN go install jetstore/jets/loader
+RUN go install jetstore/jets/status_update
+# RUN go install jetstore/jets/server
+RUN go install jetstore/jets/run_reports
+RUN go install jetstore/jets/apiserver
+# RUN go install jetstore/jets/bridge
+RUN go install jetstore/jets/update_db
+RUN go install jetstore/jets/test_data_generator
+
+# JETSTORE FRONT END == FLUTTER BUILD ==
+COPY jetsclient      ${JETS_SOURCE_DIR}/jetsclient
+WORKDIR ${JETS_SOURCE_DIR}/jetsclient
+RUN flutter build web --dart-define=API_HOST=CLOUD9_API_HOST
+
+# Copy programs resources
+COPY utils  ${JETS_BUILD_DIR}/utils
+RUN cp ${JETS_SOURCE_DIR}/jets/server/jets_schema.json ${JETS_BUILD_DIR}
+RUN cp ${JETS_SOURCE_DIR}/jets/server/jets_init_db.sql ${JETS_BUILD_DIR}
