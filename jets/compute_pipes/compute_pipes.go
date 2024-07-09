@@ -1,19 +1,19 @@
 package compute_pipes
 
 import (
-	// "context"
+	"context"
 	"encoding/gob"
 	"encoding/json"
 	"fmt"
 	"log"
-	// "os"
+	"os"
 	"runtime/debug"
 	"time"
 
-	// "github.com/aws/aws-sdk-go-v2/aws"
-	// "github.com/aws/aws-sdk-go-v2/config"
-	// "github.com/aws/aws-sdk-go-v2/feature/s3/manager"
-	// "github.com/aws/aws-sdk-go-v2/service/s3"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/feature/s3/manager"
+	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/jackc/pgx/v4/pgxpool"
 )
 
@@ -48,9 +48,8 @@ func StartComputePipes(dbpool *pgxpool.Pool, nodeId int, inputHeaders []string, 
 	var wt WriteTableSource
 	var table chan ComputePipesResult
 	var ctx *BuilderContext
-	// var s3Client *s3.Client
-	// var s3Uploader *manager.Uploader
-	// var cfg aws.Config
+	var s3Uploader *manager.Uploader
+	var cfg aws.Config
 	var inputRowChannel *InputChannel
 
 	// Add to envSettings based on compute pipe config
@@ -154,16 +153,14 @@ func StartComputePipes(dbpool *pgxpool.Pool, nodeId int, inputHeaders []string, 
 		log.Println("Compute Pipes output tables ready")
 	}
 
-	// // Setup the s3Uploader
-	// cfg, err = config.LoadDefaultConfig(context.TODO(), config.WithRegion(os.Getenv("JETS_REGION")))
-	// if err != nil {
-	// 	cpErr = fmt.Errorf("while loading aws configuration (in StartComputePipes): %v", err)
-	// 	goto gotError
-	// }
-	// // Create a s3 client
-	// s3Client = s3.NewFromConfig(cfg)
-	// // Create the uploader with the client and custom options
-	// s3Uploader = manager.NewUploader(s3Client)
+	// Setup the s3Uploader
+	cfg, err = config.LoadDefaultConfig(context.TODO(), config.WithRegion(os.Getenv("JETS_REGION")))
+	if err != nil {
+		cpErr = fmt.Errorf("while loading aws configuration (in StartComputePipes): %v", err)
+		goto gotError
+	}
+	// Create the uploader
+	s3Uploader = manager.NewUploader(s3.NewFromConfig(cfg))
 
 	ctx = &BuilderContext{
 		dbpool:          dbpool,
@@ -173,7 +170,7 @@ func StartComputePipes(dbpool *pgxpool.Pool, nodeId int, inputHeaders []string, 
 		errCh:           errCh,
 		chResults:       chResults,
 		env:             envSettings,
-		// s3Uploader:      s3Uploader,
+		s3Uploader:      s3Uploader,
 		nodeId:          nodeId,
 	}
 

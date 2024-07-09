@@ -117,12 +117,13 @@ func ReadCpipesArgsFromS3(s3Location string) ([]ComputePipesArgs, error) {
 
 // Returned by the cp_starter for a cpipes run
 type ComputePipesRun struct {
-	CpipesCommandsS3Key string                 `json:"cpipesCommandsS3Key"`
-	StartReducing       StartComputePipesArgs  `json:"startReducing"`
-	IsLastReducing      bool                   `json:"isLastReducing"`
-	ReportsCommand      []string               `json:"reportsCommand"`
-	SuccessUpdate       map[string]interface{} `json:"successUpdate"`
-	ErrorUpdate         map[string]interface{} `json:"errorUpdate"`
+	CpipesCommandsS3Key  string                 `json:"cpipesCommandsS3Key"`
+	CpipesMaxConcurrency int                    `json:"cpipesMaxConcurrency"`
+	StartReducing        StartComputePipesArgs  `json:"startReducing"`
+	IsLastReducing       bool                   `json:"isLastReducing"`
+	ReportsCommand       []string               `json:"reportsCommand"`
+	SuccessUpdate        map[string]interface{} `json:"successUpdate"`
+	ErrorUpdate          map[string]interface{} `json:"errorUpdate"`
 }
 
 type FileName struct {
