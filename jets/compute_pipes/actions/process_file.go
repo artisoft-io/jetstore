@@ -23,6 +23,11 @@ func (cpCtx *ComputePipesContext) ProcessFilesAndReportStatus(ctx context.Contex
 		WritePartitionsResultCh: make(chan chan chan compute_pipes.ComputePipesResult, 10),
 	}
 
+	key, err := cpCtx.InsertPipelineExecutionStatus(dbpool)
+	if err != nil {
+		return fmt.Errorf("error while inserting the load registry (cpipesSM): %v", err)
+	}
+
 	// read the rest of the file(s)
 	// ---------------------------------------
 	cpCtx.LoadFiles(ctx, dbpool)
@@ -35,7 +40,7 @@ func (cpCtx *ComputePipesContext) ProcessFilesAndReportStatus(ctx context.Contex
 
 	log.Println("**!@@ CP RESULT = Downloaded from s3:")
 	downloadResult := <-cpCtx.DownloadS3ResultCh
-	err := downloadResult.Err
+	err = downloadResult.Err
 	log.Println("Downloaded", downloadResult.InputFilesCount, "files from s3, total size:", downloadResult.TotalFilesSize/1024/1024, "MB, err:", downloadResult.Err)
 	var r *compute_pipes.ComputePipesResult
 	processingErrors := make([]string, 0)
@@ -149,7 +154,7 @@ func (cpCtx *ComputePipesContext) ProcessFilesAndReportStatus(ctx context.Contex
 			}	
 		}
 	}
-	err2 := cpCtx.UpdatePipelineExecutionStatus(dbpool,
+	err2 := cpCtx.UpdatePipelineExecutionStatus(dbpool, key,
 		int(loadFromS3FilesResult.LoadRowCount),
 		int(downloadResult.TotalFilesSize/1024/1024),
 		int(outputRowCount), cpipesStepId, status, errMessage)
@@ -161,19 +166,34 @@ func (cpCtx *ComputePipesContext) ProcessFilesAndReportStatus(ctx context.Contex
 }
 
 // Register the CPIPES execution status details to pipeline_execution_details
-func (cpCtx *ComputePipesContext) UpdatePipelineExecutionStatus(dbpool *pgxpool.Pool, inputRowCount, totalFilesSizeMb, outputRowCount int,
-	cpipesStepId, status, errMessage string) error {
-	log.Printf("Inserting status '%s' to pipeline_execution_details table", status)
+func (cpCtx *ComputePipesContext) InsertPipelineExecutionStatus(dbpool *pgxpool.Pool) (int, error) {
+	log.Printf("Inserting status 'in progress' to pipeline_execution_details table")
 	stmt := `INSERT INTO jetsapi.pipeline_execution_details (
-							pipeline_config_key, pipeline_execution_status_key, client, process_name, main_input_session_id, session_id, source_period_key,
-							shard_id, jets_partition, cpipes_step_id, status, error_message, input_records_count, input_files_size_mb, rete_sessions_count, 
-							output_records_count, user_email) 
-							VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)`
-	_, err := dbpool.Exec(context.Background(), stmt,
+							status, pipeline_config_key, pipeline_execution_status_key, 
+							client, process_name, main_input_session_id, session_id, source_period_key,
+							shard_id, jets_partition, user_email) 
+							VALUES ('in progress', $1, $2, $3, $4, $5, $6, $7, $8, $9, $10) 
+							RETURNING key`
+	var key int
+	err := dbpool.QueryRow(context.Background(), stmt,
 		cpCtx.PipelineConfigKey, cpCtx.PipelineExecKey, cpCtx.Client, cpCtx.ProcessName, cpCtx.InputSessionId, cpCtx.SessionId, cpCtx.SourcePeriodKey,
-		cpCtx.NodeId, cpCtx.JetsPartitionLabel, cpipesStepId, status, errMessage, inputRowCount, totalFilesSizeMb, 0, outputRowCount, cpCtx.UserEmail)
+		cpCtx.NodeId, cpCtx.JetsPartitionLabel, cpCtx.UserEmail).Scan(&key)
 	if err != nil {
-		return fmt.Errorf("error inserting in jetsapi.pipeline_execution_details table: %v", err)
+		return 0, fmt.Errorf("error inserting in jetsapi.pipeline_execution_details table: %v", err)
+	}
+	return key, nil
+}
+func (cpCtx *ComputePipesContext) UpdatePipelineExecutionStatus(dbpool *pgxpool.Pool, key int, inputRowCount, totalFilesSizeMb, outputRowCount int,
+	cpipesStepId, status, errMessage string) error {
+	log.Printf("Updating status '%s' to pipeline_execution_details table", status)
+	stmt := `UPDATE jetsapi.pipeline_execution_details SET (
+							cpipes_step_id, status, error_message, input_records_count, 
+							input_files_size_mb, rete_sessions_count, output_records_count) 
+							= ($1, $2, $3, $4, $5, $6, $7) WHERE key = $8`
+	_, err := dbpool.Exec(context.Background(), stmt,
+		cpipesStepId, status, errMessage, inputRowCount, totalFilesSizeMb, 0, outputRowCount, key)
+	if err != nil {
+		return fmt.Errorf("error updating in jetsapi.pipeline_execution_details table: %v", err)
 	}
 	return nil
 }
