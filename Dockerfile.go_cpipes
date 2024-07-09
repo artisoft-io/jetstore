@@ -18,14 +18,7 @@ COPY jets                ${JETS_SOURCE_DIR}/jets
 RUN \
   mkdir -p ${JETS_BUILD_DIR}                                   \
   && cd ${JETS_BUILD_DIR}                                      \
-  # && cmake -DCMAKE_BUILD_TYPE=Release -DJETS_VERSION=$JETS_VERSION ${JETS_SOURCE_DIR} \
-  # && make clean                                                       \
-  # && make -j8                                                         \
-  # && cd ${JETS_SOURCE_DIR}  \
-  # && ldconfig 
-
-# python puts it in ${JETS_SOURCE_DIR}/build
-RUN python3 setup.py build
+  && python3 setup.py build
   
 ENV GOOS linux
 ENV CGO_ENABLED 1
