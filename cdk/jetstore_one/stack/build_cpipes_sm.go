@@ -60,8 +60,8 @@ func (jsComp *JetStoreStackComponents) BuildCpipesSM(scope constructs.Construct,
 			Key:    sfn.JsonPath_StringAt(jsii.String("$.cpipesCommandsS3Key")),
 		}),
 		// MaxConcurrency: jsii.Number(props.MaxConcurrency),
-		MaxConcurrency: sfn.JsonPath_NumberAt(jsii.String("$.cpipesMaxConcurrency")),
-		ResultPath:     sfn.JsonPath_DISCARD(),
+		MaxConcurrencyPath: jsii.String("$.cpipesMaxConcurrency"),
+		ResultPath:         sfn.JsonPath_DISCARD(),
 	})
 
 	// 3) Start Reducing Task
@@ -90,8 +90,8 @@ func (jsComp *JetStoreStackComponents) BuildCpipesSM(scope constructs.Construct,
 			Key:    sfn.JsonPath_StringAt(jsii.String("$.cpipesCommandsS3Key")),
 		}),
 		// MaxConcurrency: jsii.Number(props.MaxConcurrency),
-		MaxConcurrency: sfn.JsonPath_NumberAt(jsii.String("$.cpipesMaxConcurrency")),
-		ResultPath:     sfn.JsonPath_DISCARD(),
+		MaxConcurrencyPath: jsii.String("$.cpipesMaxConcurrency"),
+		ResultPath:         sfn.JsonPath_DISCARD(),
 	})
 
 	// 5) Run Reports Task
