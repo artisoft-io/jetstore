@@ -37,79 +37,88 @@ func (jsComp *JetStoreStackComponents) BuildCpipesSM(scope constructs.Construct,
 	// 1) Start Sharding Task
 	// ----------------------
 	runStartSharingTask := sfntask.NewLambdaInvoke(stack, jsii.String("RunStartShardingLambdaTask"), &sfntask.LambdaInvokeProps{
-		Comment:        jsii.String("Lambda Task to start sharding input data"),
-		LambdaFunction: jsComp.CpipesStartShardingLambda,
-		InputPath:      jsii.String("$.startSharding"),
-		OutputPath:     jsii.String("$.Payload"),
+		Comment:                  jsii.String("Lambda Task to start sharding input data"),
+		LambdaFunction:           jsComp.CpipesStartShardingLambda,
+		InputPath:                jsii.String("$.startSharding"),
+		OutputPath:               jsii.String("$.Payload"),
+		RetryOnServiceExceptions: jsii.Bool(false),
 	})
 
 	// 2) Sharding Map Task
 	// ----------------------
 	runSharingNodeTask := sfntask.NewLambdaInvoke(stack, jsii.String("RunShardingNodeLambdaTask"), &sfntask.LambdaInvokeProps{
-		Comment:        jsii.String("Lambda Task to shard input data"),
-		LambdaFunction: jsComp.CpipesNodeLambda,
-		InputPath:      jsii.String("$"),
-		ResultPath:     sfn.JsonPath_DISCARD(),
+		Comment:                  jsii.String("Lambda Task to shard input data"),
+		LambdaFunction:           jsComp.CpipesNodeLambda,
+		InputPath:                jsii.String("$"),
+		ResultPath:               sfn.JsonPath_DISCARD(),
+		RetryOnServiceExceptions: jsii.Bool(false),
 	})
 	runShardingMap := sfn.NewDistributedMap(stack, jsii.String("run-sharding-map"), &sfn.DistributedMapProps{
-		Comment:        jsii.String("Run JetStore Sharding Lambda Task"),
+		Comment: jsii.String("Run JetStore Sharding Lambda Task"),
 		ItemReader: sfn.NewS3JsonItemReader(&sfn.S3FileItemReaderProps{
 			Bucket: jsComp.SourceBucket,
-			Key: sfn.JsonPath_StringAt(jsii.String("$.cpipesCommandsS3Key")),
+			Key:    sfn.JsonPath_StringAt(jsii.String("$.cpipesCommandsS3Key")),
 		}),
-		MaxConcurrency: jsii.Number(props.MaxConcurrency),
+		// MaxConcurrency: jsii.Number(props.MaxConcurrency),
+		MaxConcurrency: sfn.JsonPath_NumberAt(jsii.String("$.cpipesMaxConcurrency")),
 		ResultPath:     sfn.JsonPath_DISCARD(),
 	})
 
 	// 3) Start Reducing Task
 	// ----------------------
 	runStartReducingTask := sfntask.NewLambdaInvoke(stack, jsii.String("RunStartReducingLambdaTask"), &sfntask.LambdaInvokeProps{
-		Comment:        jsii.String("Lambda Task to start reducing the sharded data"),
-		LambdaFunction: jsComp.CpipesStartReducingLambda,
-		InputPath:      jsii.String("$.startReducing"),
-		OutputPath:     jsii.String("$.Payload"),
+		Comment:                  jsii.String("Lambda Task to start reducing the sharded data"),
+		LambdaFunction:           jsComp.CpipesStartReducingLambda,
+		InputPath:                jsii.String("$.startReducing"),
+		OutputPath:               jsii.String("$.Payload"),
+		RetryOnServiceExceptions: jsii.Bool(false),
 	})
 
 	// 4) Reducing Map Task
 	// ----------------------
 	runReducingNodeTask := sfntask.NewLambdaInvoke(stack, jsii.String("RunReducingNodeLambdaTask"), &sfntask.LambdaInvokeProps{
-		Comment:        jsii.String("Lambda Task to reduce the sharded data"),
-		LambdaFunction: jsComp.CpipesNodeLambda,
-		InputPath:      jsii.String("$"),
-		ResultPath:     sfn.JsonPath_DISCARD(),
+		Comment:                  jsii.String("Lambda Task to reduce the sharded data"),
+		LambdaFunction:           jsComp.CpipesNodeLambda,
+		InputPath:                jsii.String("$"),
+		ResultPath:               sfn.JsonPath_DISCARD(),
+		RetryOnServiceExceptions: jsii.Bool(false),
 	})
 	runReducingMap := sfn.NewDistributedMap(stack, jsii.String("run-reducing-map"), &sfn.DistributedMapProps{
-		Comment:        jsii.String("Run JetStore Reducing Lambda Task"),
+		Comment: jsii.String("Run JetStore Reducing Lambda Task"),
 		ItemReader: sfn.NewS3JsonItemReader(&sfn.S3FileItemReaderProps{
 			Bucket: jsComp.SourceBucket,
-			Key: sfn.JsonPath_StringAt(jsii.String("$.cpipesCommandsS3Key")),
+			Key:    sfn.JsonPath_StringAt(jsii.String("$.cpipesCommandsS3Key")),
 		}),
-		MaxConcurrency: jsii.Number(props.MaxConcurrency),
+		// MaxConcurrency: jsii.Number(props.MaxConcurrency),
+		MaxConcurrency: sfn.JsonPath_NumberAt(jsii.String("$.cpipesMaxConcurrency")),
 		ResultPath:     sfn.JsonPath_DISCARD(),
 	})
 
 	// 5) Run Reports Task
 	// ----------------------
 	runReportsLambdaTask := sfntask.NewLambdaInvoke(stack, jsii.String("RunReportsLambdaTask"), &sfntask.LambdaInvokeProps{
-		Comment:        jsii.String("Lambda Task to run reports for cpipes task"),
-		LambdaFunction: jsComp.RunReportsLambda,
-		InputPath:      jsii.String("$.reportsCommand"),
-		ResultPath:     sfn.JsonPath_DISCARD(),
+		Comment:                  jsii.String("Lambda Task to run reports for cpipes task"),
+		LambdaFunction:           jsComp.RunReportsLambda,
+		InputPath:                jsii.String("$.reportsCommand"),
+		ResultPath:               sfn.JsonPath_DISCARD(),
+		RetryOnServiceExceptions: jsii.Bool(false),
 	})
 
 	//	6) status update tasks
 	// ----------------------
 	runErrorStatusLambdaTask := sfntask.NewLambdaInvoke(stack, jsii.String("RunErrorStatusLambdaTask"), &sfntask.LambdaInvokeProps{
-		Comment:        jsii.String("Lambda Task to update cpipes status to failed"),
-		LambdaFunction: jsComp.StatusUpdateLambda,
-		InputPath:      jsii.String("$.errorUpdate"),
-		ResultPath:     sfn.JsonPath_DISCARD(),
+		Comment:                  jsii.String("Lambda Task to update cpipes status to failed"),
+		LambdaFunction:           jsComp.StatusUpdateLambda,
+		InputPath:                jsii.String("$.errorUpdate"),
+		ResultPath:               sfn.JsonPath_DISCARD(),
+		RetryOnServiceExceptions: jsii.Bool(false),
 	})
 	runSuccessStatusLambdaTask := sfntask.NewLambdaInvoke(stack, jsii.String("RunSuccessStatusLambdaTask"), &sfntask.LambdaInvokeProps{
-		Comment:        jsii.String("Lambda Task to update cpipes status to success"),
-		LambdaFunction: jsComp.StatusUpdateLambda,
-		InputPath:      jsii.String("$.successUpdate"),
-		ResultPath:     sfn.JsonPath_DISCARD(),
+		Comment:                  jsii.String("Lambda Task to update cpipes status to success"),
+		LambdaFunction:           jsComp.StatusUpdateLambda,
+		InputPath:                jsii.String("$.successUpdate"),
+		ResultPath:               sfn.JsonPath_DISCARD(),
+		RetryOnServiceExceptions: jsii.Bool(false),
 	})
 
 	//	7) choice for reducing task iteration
@@ -121,20 +130,28 @@ func (jsComp *JetStoreStackComponents) BuildCpipesSM(scope constructs.Construct,
 	// Chaining the SF Tasks
 	// ---------------------
 	runStartSharingTask.AddCatch(runErrorStatusLambdaTask, MkCatchProps()).Next(runShardingMap)
-	runShardingMap.ItemProcessor(runSharingNodeTask, &sfn.ProcessorConfig{}).AddRetry(&sfn.RetryProps{
-		BackoffRate: jsii.Number(2),
-		Errors:      jsii.Strings(*sfn.Errors_TASKS_FAILED()),
-		Interval:    awscdk.Duration_Minutes(jsii.Number(4)),
-		MaxAttempts: jsii.Number(1),
-	}).AddCatch(runErrorStatusLambdaTask, MkCatchProps()).Next(runStartReducingTask)
+	runShardingMap.ItemProcessor(
+		runSharingNodeTask, &sfn.ProcessorConfig{},
+	).AddCatch(runErrorStatusLambdaTask, MkCatchProps()).Next(runStartReducingTask)
+	// TO RESTAURE, REMOVE PREVIOUS LINE ).AddCatch above...
+	// ).AddRetry(&sfn.RetryProps{
+	// 	BackoffRate: jsii.Number(2),
+	// 	Errors:      jsii.Strings(*sfn.Errors_TASKS_FAILED()),
+	// 	Interval:    awscdk.Duration_Minutes(jsii.Number(4)),
+	// 	MaxAttempts: jsii.Number(1),
+	// }).AddCatch(runErrorStatusLambdaTask, MkCatchProps()).Next(runStartReducingTask)
 
 	runStartReducingTask.AddCatch(runErrorStatusLambdaTask, MkCatchProps()).Next(runReducingMap)
-	runReducingMap.ItemProcessor(runReducingNodeTask, &sfn.ProcessorConfig{}).AddRetry(&sfn.RetryProps{
-		BackoffRate: jsii.Number(2),
-		Errors:      jsii.Strings(*sfn.Errors_TASKS_FAILED()),
-		Interval:    awscdk.Duration_Minutes(jsii.Number(4)),
-		MaxAttempts: jsii.Number(1),
-	}).AddCatch(runErrorStatusLambdaTask, MkCatchProps()).Next(reducingIterationChoice)
+	runReducingMap.ItemProcessor(
+		runReducingNodeTask, &sfn.ProcessorConfig{},
+	).AddCatch(runErrorStatusLambdaTask, MkCatchProps()).Next(reducingIterationChoice)
+	// TO RESTAURE, REMOVE PREVIOUS LINE ).AddCatch above...
+	// ).AddRetry(&sfn.RetryProps{
+	// 	BackoffRate: jsii.Number(2),
+	// 	Errors:      jsii.Strings(*sfn.Errors_TASKS_FAILED()),
+	// 	Interval:    awscdk.Duration_Minutes(jsii.Number(4)),
+	// 	MaxAttempts: jsii.Number(1),
+	// }).AddCatch(runErrorStatusLambdaTask, MkCatchProps()).Next(reducingIterationChoice)
 
 	reducingIterationChoice.When(sfn.Condition_BooleanEquals(jsii.String("$.isLastReducing"),
 		jsii.Bool(true)), runReportsLambdaTask, &sfn.ChoiceTransitionOptions{

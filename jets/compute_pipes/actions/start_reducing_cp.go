@@ -14,7 +14,9 @@ import (
 	"github.com/jackc/pgx/v4/pgxpool"
 )
 
-func (args *StartComputePipesArgs) StartReducingComputePipes(ctx context.Context, dsn string) (result ComputePipesRun, err error) {
+func (args *StartComputePipesArgs) StartReducingComputePipes(ctx context.Context, dsn string) (ComputePipesRun, error) {
+	var result ComputePipesRun
+	var err error
 	// validate the args
 	if args.FileKey == "" || args.SessionId == "" || args.InputStepId == nil || args.CurrentStep == nil {
 		log.Println("error: missing file_key or session_id or input_step_id or current_step as input args of StartComputePipes (reducing mode)")
@@ -89,6 +91,16 @@ func (args *StartComputePipesArgs) StartReducingComputePipes(ctx context.Context
 		}
 		partitions = append(partitions, partitionInfo)
 	}
+
+	// Set the nbr of concurrent map tasks
+	result.CpipesMaxConcurrency = 3500 / len(partitions)
+	if result.CpipesMaxConcurrency > 10 {
+		result.CpipesMaxConcurrency = 10
+	}
+	if result.CpipesMaxConcurrency < 3 {
+		result.CpipesMaxConcurrency = 3
+	}
+
 
 	outputTables := make([]compute_pipes.TableSpec, 0)
 	currentStep := *args.CurrentStep

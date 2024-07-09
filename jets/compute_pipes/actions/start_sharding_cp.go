@@ -16,7 +16,9 @@ import (
 	"github.com/jackc/pgx/v4/pgxpool"
 )
 
-func (args *StartComputePipesArgs) StartShardingComputePipes(ctx context.Context, dsn string) (result ComputePipesRun, err error) {
+func (args *StartComputePipesArgs) StartShardingComputePipes(ctx context.Context, dsn string) (ComputePipesRun, error) {
+	var result ComputePipesRun
+	var err error
 	// validate the args
 	if args.FileKey == "" || args.SessionId == "" {
 		log.Println("error: missing file_key or session_id as input args of StartComputePipes (sharding mode)")
@@ -136,6 +138,13 @@ func (args *StartComputePipesArgs) StartShardingComputePipes(ctx context.Context
 		shardingNbrNodes = calculateNbrNodes(int(totalSize/1024/1024), cpConfig.ClusterConfig.NbrNodesLookup)
 	}
 	nbrPartitions := uint64(shardingNbrNodes)
+	result.CpipesMaxConcurrency = 3500 / shardingNbrNodes
+	if result.CpipesMaxConcurrency > 10 {
+		result.CpipesMaxConcurrency = 10
+	}
+	if result.CpipesMaxConcurrency < 3 {
+		result.CpipesMaxConcurrency = 3
+	}
 
 	// Adjust the nbr of sharding nodes based on the nbr of input files
 	if totalPartfileCount < shardingNbrNodes {
