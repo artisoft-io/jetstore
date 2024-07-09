@@ -138,13 +138,7 @@ func (args *StartComputePipesArgs) StartShardingComputePipes(ctx context.Context
 		shardingNbrNodes = calculateNbrNodes(int(totalSize/1024/1024), cpConfig.ClusterConfig.NbrNodesLookup)
 	}
 	nbrPartitions := uint64(shardingNbrNodes)
-	result.CpipesMaxConcurrency = 3500 / shardingNbrNodes
-	if result.CpipesMaxConcurrency > 10 {
-		result.CpipesMaxConcurrency = 10
-	}
-	if result.CpipesMaxConcurrency < 3 {
-		result.CpipesMaxConcurrency = 3
-	}
+	result.CpipesMaxConcurrency = GetMaxConcurrency(shardingNbrNodes)
 
 	// Adjust the nbr of sharding nodes based on the nbr of input files
 	if totalPartfileCount < shardingNbrNodes {
@@ -184,11 +178,11 @@ func (args *StartComputePipesArgs) StartShardingComputePipes(ctx context.Context
 	inputStepId := "reducing0"
 	reducingStep := 0
 	result.StartReducing = StartComputePipesArgs{
-		PipelineExecKey:  args.PipelineExecKey,
-		FileKey:          args.FileKey,
-		SessionId:        args.SessionId,
-		InputStepId:      &inputStepId,
-		CurrentStep:      &reducingStep,
+		PipelineExecKey: args.PipelineExecKey,
+		FileKey:         args.FileKey,
+		SessionId:       args.SessionId,
+		InputStepId:     &inputStepId,
+		CurrentStep:     &reducingStep,
 	}
 
 	// Make the sharding pipeline config
@@ -209,7 +203,7 @@ func (args *StartComputePipesArgs) StartShardingComputePipes(ctx context.Context
 						}
 					}
 				}
-			}	
+			}
 		}
 	}
 	cpShardingConfig := &compute_pipes.ComputePipesConfig{
@@ -254,4 +248,18 @@ func calculateNbrNodes(totalSizeMb int, sizingSpec *[]compute_pipes.ClusterSizin
 		}
 	}
 	return 0
+}
+
+func GetMaxConcurrency(nbrNodes int) int {
+	if nbrNodes < 1 {
+		return 1
+	}
+	maxConcurrency := 2001 / nbrNodes
+	if maxConcurrency > 10 {
+		maxConcurrency = 10
+	}
+	if maxConcurrency < 1 {
+		maxConcurrency = 1
+	}
+	return maxConcurrency
 }

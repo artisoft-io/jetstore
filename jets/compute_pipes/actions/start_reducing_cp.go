@@ -93,13 +93,7 @@ func (args *StartComputePipesArgs) StartReducingComputePipes(ctx context.Context
 	}
 
 	// Set the nbr of concurrent map tasks
-	result.CpipesMaxConcurrency = 3500 / len(partitions)
-	if result.CpipesMaxConcurrency > 10 {
-		result.CpipesMaxConcurrency = 10
-	}
-	if result.CpipesMaxConcurrency < 3 {
-		result.CpipesMaxConcurrency = 3
-	}
+	result.CpipesMaxConcurrency = GetMaxConcurrency(len(partitions))
 
 
 	outputTables := make([]compute_pipes.TableSpec, 0)
