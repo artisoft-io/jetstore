@@ -118,7 +118,7 @@ func (args *StartComputePipesArgs) StartShardingComputePipes(ctx context.Context
 	result.ErrorUpdate = map[string]interface{}{
 		"-peKey":         strconv.Itoa(args.PipelineExecKey),
 		"-status":        "failed",
-		"cpipesMode":			true,
+		"cpipesMode":     true,
 		"file_key":       args.FileKey,
 		"failureDetails": "",
 	}
@@ -131,12 +131,15 @@ func (args *StartComputePipesArgs) StartShardingComputePipes(ctx context.Context
 	}
 
 	// Determine the number of nodes for sharding
+	var clusterSpec *compute_pipes.ClusterSizingSpec
 	shardingNbrNodes := cpConfig.ClusterConfig.NbrNodes
 	if shardingNbrNodes == 0 {
 		if cpConfig.ClusterConfig.NbrNodesLookup == nil {
 			return result, fmt.Errorf("error: invalid cpipes config, NbrNodes or NbrNodesLookup must be specified")
 		}
-		shardingNbrNodes = calculateNbrNodes(int(totalSize/1024/1024), cpConfig.ClusterConfig.NbrNodesLookup)
+		// shardingNbrNodes, result.UseECSReducingTask = calculateNbrNodes(int(totalSize/1024/1024), cpConfig.ClusterConfig.NbrNodesLookup)
+		clusterSpec = calculateNbrNodes(int(totalSize/1024/1024), cpConfig.ClusterConfig.NbrNodesLookup)
+		shardingNbrNodes = clusterSpec.NbrNodes
 	}
 	nbrPartitions := uint64(shardingNbrNodes)
 	result.CpipesMaxConcurrency = GetMaxConcurrency(shardingNbrNodes)
@@ -184,6 +187,8 @@ func (args *StartComputePipesArgs) StartShardingComputePipes(ctx context.Context
 		SessionId:       args.SessionId,
 		InputStepId:     &inputStepId,
 		CurrentStep:     &reducingStep,
+		UseECSTask:      clusterSpec.UseEcsTasks,
+		MaxConcurrency:  clusterSpec.MaxConcurrency,
 	}
 
 	// Make the sharding pipeline config
@@ -238,24 +243,21 @@ func (args *StartComputePipesArgs) StartShardingComputePipes(ctx context.Context
 	return result, err
 }
 
-func calculateNbrNodes(totalSizeMb int, sizingSpec *[]compute_pipes.ClusterSizingSpec) int {
+func calculateNbrNodes(totalSizeMb int, sizingSpec *[]compute_pipes.ClusterSizingSpec) *compute_pipes.ClusterSizingSpec {
 	if sizingSpec == nil {
-		return 0
+		return &compute_pipes.ClusterSizingSpec{}
 	}
 	for _, spec := range *sizingSpec {
 		if totalSizeMb >= spec.WhenTotalSizeGe {
 			log.Printf("calculateNbrNodes: totalSizeMb: %d, spec.WhenTotalSizeGe: %d, got NbrNodes: %d", totalSizeMb, spec.WhenTotalSizeGe, spec.NbrNodes)
-			return spec.NbrNodes
+			return &spec
 		}
 	}
-	return 0
+	return &compute_pipes.ClusterSizingSpec{}
 }
 
 func GetMaxConcurrency(nbrNodes int) int {
 	if nbrNodes < 1 {
-		return 1
-	}
-	if nbrNodes > 595 {
 		return 1
 	}
 	maxConcurrency := 2001 / nbrNodes

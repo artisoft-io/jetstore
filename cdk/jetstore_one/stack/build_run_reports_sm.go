@@ -30,7 +30,6 @@ func (jsComp *JetStoreStackComponents) BuildRunReportsSM(scope constructs.Constr
 			{
 				ContainerDefinition: jsComp.RunreportsContainerDef,
 				// Using same api as jsComp.ServerSM from apiserver point of view, taking reportsCommand,
-				// other SM (as jsComp.CpipesSM does) could use the serverCommands when in need of Map construct
 				Command: sfn.JsonPath_ListAt(jsii.String("$.reportsCommand")),
 			},
 		},

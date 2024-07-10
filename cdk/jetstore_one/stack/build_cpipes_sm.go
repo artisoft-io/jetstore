@@ -5,6 +5,8 @@ import (
 	"strconv"
 
 	awscdk "github.com/aws/aws-cdk-go/awscdk/v2"
+	"github.com/aws/aws-cdk-go/awscdk/v2/awsec2"
+	"github.com/aws/aws-cdk-go/awscdk/v2/awsecs"
 	sfn "github.com/aws/aws-cdk-go/awscdk/v2/awsstepfunctions"
 	sfntask "github.com/aws/aws-cdk-go/awscdk/v2/awsstepfunctionstasks"
 	constructs "github.com/aws/constructs-go/constructs/v10"
@@ -76,6 +78,7 @@ func (jsComp *JetStoreStackComponents) BuildCpipesSM(scope constructs.Construct,
 
 	// 4) Reducing Map Task
 	// ----------------------
+	// Lambda Option
 	runReducingNodeTask := sfntask.NewLambdaInvoke(stack, jsii.String("RunReducingNodeLambdaTask"), &sfntask.LambdaInvokeProps{
 		Comment:                  jsii.String("Lambda Task to reduce the sharded data"),
 		LambdaFunction:           jsComp.CpipesNodeLambda,
@@ -92,6 +95,38 @@ func (jsComp *JetStoreStackComponents) BuildCpipesSM(scope constructs.Construct,
 		// MaxConcurrency: jsii.Number(props.MaxConcurrency),
 		MaxConcurrencyPath: jsii.String("$.cpipesMaxConcurrency"),
 		ResultPath:         sfn.JsonPath_DISCARD(),
+	})
+
+	// ECS Task Option
+	// Run Server ECS Task
+	// ----------------
+	runReducingECSTask := sfntask.NewEcsRunTask(stack, jsii.String("run-cpipes-server"), &sfntask.EcsRunTaskProps{
+		Comment:        jsii.String("Run CPIPES JetStore Rule Server Task"),
+		Cluster:        jsComp.EcsCluster,
+		Subnets:        jsComp.IsolatedSubnetSelection,
+		AssignPublicIp: jsii.Bool(false),
+		LaunchTarget: sfntask.NewEcsFargateLaunchTarget(&sfntask.EcsFargateLaunchTargetOptions{
+			PlatformVersion: awsecs.FargatePlatformVersion_LATEST,
+		}),
+		TaskDefinition: jsComp.CpipesTaskDefinition,
+		ContainerOverrides: &[]*sfntask.ContainerOverride{
+			{
+				ContainerDefinition: jsComp.CpipesContainerDef,
+				Command:             sfn.JsonPath_ListAt(jsii.String("$")),
+			},
+		},
+		PropagatedTagSource: awsecs.PropagatedTagSource_TASK_DEFINITION,
+		IntegrationPattern:  sfn.IntegrationPattern_RUN_JOB,
+	})
+	runReducingECSTask.Connections().AllowTo(jsComp.RdsCluster, awsec2.Port_Tcp(jsii.Number(5432)),
+		jsii.String("Allow connection from runReducingECSTask"))
+	
+	runReducingECSMap := sfn.NewMap(stack, jsii.String("run-cpipes-server-map"), &sfn.MapProps{
+		Comment:        jsii.String("Run CPIPES JetStore Rule Server Task"),
+		ItemsPath:      sfn.JsonPath_StringAt(jsii.String("$.cpipesCommands")),
+		// MaxConcurrency: jsii.Number(props.MaxConcurrency),
+		MaxConcurrencyPath: jsii.String("$.cpipesMaxConcurrency"),
+		ResultPath:     sfn.JsonPath_DISCARD(),
 	})
 
 	// 5) Run Reports Task
@@ -127,6 +162,12 @@ func (jsComp *JetStoreStackComponents) BuildCpipesSM(scope constructs.Construct,
 		Comment: jsii.String("Choice to continue reducing iteration"),
 	})
 
+	//	8) choice for ecs vs lambda tasks
+	// ----------------------
+	ecsOrLambdaChoice := sfn.NewChoice(stack, jsii.String("EcsOrLambdaChoice"), &sfn.ChoiceProps{
+		Comment: jsii.String("Choice between ECS or Lambda Tasks"),
+	})
+
 	// Chaining the SF Tasks
 	// ---------------------
 	runStartSharingTask.AddCatch(runErrorStatusLambdaTask, MkCatchProps()).Next(runShardingMap)
@@ -141,7 +182,17 @@ func (jsComp *JetStoreStackComponents) BuildCpipesSM(scope constructs.Construct,
 	// 	MaxAttempts: jsii.Number(1),
 	// }).AddCatch(runErrorStatusLambdaTask, MkCatchProps()).Next(runStartReducingTask)
 
-	runStartReducingTask.AddCatch(runErrorStatusLambdaTask, MkCatchProps()).Next(runReducingMap)
+	runStartReducingTask.AddCatch(runErrorStatusLambdaTask, MkCatchProps()).Next(ecsOrLambdaChoice)
+
+	ecsOrLambdaChoice.When(sfn.Condition_BooleanEquals(jsii.String("$.useECSReducingTask"),
+		jsii.Bool(true)), runReducingECSMap, &sfn.ChoiceTransitionOptions{
+		Comment: jsii.String("When useECSReducingTask is true, use ECS Task for Reducing"),
+	})
+	ecsOrLambdaChoice.Otherwise(runReducingMap)
+
+	runReducingECSMap.ItemProcessor(runReducingECSTask, &sfn.ProcessorConfig{}).AddCatch(
+		runErrorStatusLambdaTask, MkCatchProps()).Next(reducingIterationChoice)
+
 	runReducingMap.ItemProcessor(
 		runReducingNodeTask, &sfn.ProcessorConfig{},
 	).AddCatch(runErrorStatusLambdaTask, MkCatchProps()).Next(reducingIterationChoice)
@@ -178,4 +229,5 @@ func (jsComp *JetStoreStackComponents) BuildCpipesSM(scope constructs.Construct,
 		awscdk.Tags_Of(jsComp.CpipesSM).Add(descriptionTagName, jsii.String("State Machine to execute Compute Pipes in the JetStore Platform"), nil)
 	}
 	jsComp.SourceBucket.GrantReadWrite(jsComp.CpipesSM.Role(), nil)
+	jsComp.RdsSecret.GrantRead(jsComp.CpipesSM.Role(), nil)
 }

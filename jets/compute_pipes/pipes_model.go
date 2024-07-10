@@ -14,14 +14,16 @@ type ComputePipesConfig struct {
 
 // Config for peer2peer communication
 type ClusterSpec struct {
-	CpipesMode              string               `json:"cpipes_mode"`
-	NbrNodes                int                  `json:"nbr_nodes"`
-	NbrNodesLookup          *[]ClusterSizingSpec `json:"nbr_nodes_lookup"`
+	CpipesMode     string               `json:"cpipes_mode"`
+	NbrNodes       int                  `json:"nbr_nodes"`
+	NbrNodesLookup *[]ClusterSizingSpec `json:"nbr_nodes_lookup"`
 }
 
 type ClusterSizingSpec struct {
-	WhenTotalSizeGe int `json:"when_total_size_ge_mb"`
-	NbrNodes        int `json:"nbr_nodes"`
+	WhenTotalSizeGe int  `json:"when_total_size_ge_mb"`
+	NbrNodes        int  `json:"nbr_nodes"`
+	UseEcsTasks     bool `json:"use_ecs_tasks"`
+	MaxConcurrency  int  `json:"max_concurrency"`
 }
 
 type MetricsSpec struct {

@@ -19,6 +19,8 @@ type StartComputePipesArgs struct {
 	SessionId       string  `json:"session_id"`
 	InputStepId     *string `json:"input_step_id"`
 	CurrentStep     *int    `json:"current_step"`
+	UseECSTask      bool    `json:"use_ecs_tasks"`
+	MaxConcurrency  int     `json:"max_concurrency"`
 }
 
 type InputStats struct {
@@ -121,6 +123,7 @@ type ComputePipesRun struct {
 	CpipesMaxConcurrency int                    `json:"cpipesMaxConcurrency"`
 	StartReducing        StartComputePipesArgs  `json:"startReducing"`
 	IsLastReducing       bool                   `json:"isLastReducing"`
+	UseECSReducingTask   bool                   `json:"useECSReducingTask"`
 	ReportsCommand       []string               `json:"reportsCommand"`
 	SuccessUpdate        map[string]interface{} `json:"successUpdate"`
 	ErrorUpdate          map[string]interface{} `json:"errorUpdate"`

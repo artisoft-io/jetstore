@@ -93,7 +93,12 @@ func (args *StartComputePipesArgs) StartReducingComputePipes(ctx context.Context
 	}
 
 	// Set the nbr of concurrent map tasks
-	result.CpipesMaxConcurrency = GetMaxConcurrency(len(partitions))
+	if args.MaxConcurrency == 0 {
+		result.CpipesMaxConcurrency = GetMaxConcurrency(len(partitions))
+	} else {
+		result.CpipesMaxConcurrency = args.MaxConcurrency
+	}
+	result.UseECSReducingTask = args.UseECSTask
 
 
 	outputTables := make([]compute_pipes.TableSpec, 0)
