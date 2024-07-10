@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"time"
 
 	"github.com/artisoft-io/jetstore/jets/run_reports/delegate"
 	"github.com/aws/aws-sdk-go-v2/feature/s3/manager"
@@ -149,6 +150,7 @@ func (ctx *S3DeviceWriter) WriteCsvPartition(s3WriterResultCh chan<- ComputePipe
 	var snWriter *snappy.Writer
 	var csvWriter *csv.Writer
 	var putObjInput *s3.PutObjectInput
+	var retry int
 
 	tempFileName := fmt.Sprintf("%s/%s", *ctx.localTempDir, *ctx.fileName)
 	s3FileName := fmt.Sprintf("%s/%s", *ctx.s3BasePath, *ctx.fileName)
@@ -222,8 +224,15 @@ func (ctx *S3DeviceWriter) WriteCsvPartition(s3WriterResultCh chan<- ComputePipe
 		putObjInput.ServerSideEncryption = types.ServerSideEncryptionAwsKms
 		putObjInput.SSEKMSKeyId = &kmsKeyArn
 	}
+	retry = 0
+	do_retry:
 	_, err = ctx.s3Uploader.Upload(context.TODO(), putObjInput)
 	if err != nil {
+		if retry < 6 {
+			time.Sleep(500 * time.Millisecond)
+			retry++
+			goto do_retry
+		}
 		cpErr = fmt.Errorf("while copying compressed csv jets_partition to s3: %v", err)
 		goto gotError
 	}

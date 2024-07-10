@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"time"
 
 	"github.com/artisoft-io/jetstore/jets/awsi"
 	"github.com/aws/aws-sdk-go-v2/feature/s3/manager"
@@ -63,8 +64,15 @@ func (cpCtx *ComputePipesContext) DownloadS3Files(inFolderPath string, fileKeys 
 		var err error
 		log.Printf("Downloading multi-part file from s3 folder: %s", cpCtx.FileKey)
 		for i := range fileKeys {
+			retry := 0
+		do_retry:
 			inFilePath, fileSize, err = DownloadS3Object(fileKeys[i], inFolderPath, 1)
 			if err != nil {
+				if retry < 6 {
+					time.Sleep(500 * time.Millisecond)
+					retry++
+					goto do_retry		
+				}
 				cpCtx.DownloadS3ResultCh <- DownloadS3Result{
 					InputFilesCount: i,
 					TotalFilesSize:  totalFilesSize,
