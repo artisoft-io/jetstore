@@ -118,6 +118,7 @@ func (args *StartComputePipesArgs) StartShardingComputePipes(ctx context.Context
 	result.ErrorUpdate = map[string]interface{}{
 		"-peKey":         strconv.Itoa(args.PipelineExecKey),
 		"-status":        "failed",
+		"cpipesMode":			true,
 		"file_key":       args.FileKey,
 		"failureDetails": "",
 	}
@@ -252,6 +253,9 @@ func calculateNbrNodes(totalSizeMb int, sizingSpec *[]compute_pipes.ClusterSizin
 
 func GetMaxConcurrency(nbrNodes int) int {
 	if nbrNodes < 1 {
+		return 1
+	}
+	if nbrNodes > 595 {
 		return 1
 	}
 	maxConcurrency := 2001 / nbrNodes

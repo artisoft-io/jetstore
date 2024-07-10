@@ -70,6 +70,7 @@ func main() {
 // map[string]interface{}
 // {
 //  "-peKey": peKey,
+//  "cpipesMode": true/false,
 //  "-status": "completed",
 //  "file_key": "...",
 //  "failureDetails": {...}
@@ -80,6 +81,9 @@ func handler(ctx context.Context, arguments map[string]interface{}) (err error) 
 	logger.Info("Starting in ", zap.String("AWS Region", c.AWSRegion))
 	ca := datatable.StatusUpdate{
 		Status: arguments["-status"].(string),
+	}
+	if arguments["cpipesMode"] != nil {
+		ca.CpipesMode = true
 	}
 	v, err := strconv.Atoi(arguments["-peKey"].(string))
 	if err != nil {

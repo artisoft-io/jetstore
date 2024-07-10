@@ -15,7 +15,6 @@ import (
 // This lambda replace cpipes_booter and loader
 // Assumptions:
 //		- nbr of nodes (lambda workers) is same as nbr of partitions
-//		- nbr of sub-clusters is same as nbr of nodes (ie no inter-node communication)
 
 // ENV VARIABLES:
 // JETS_BUCKET

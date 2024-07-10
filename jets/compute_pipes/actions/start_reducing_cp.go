@@ -151,12 +151,14 @@ func (args *StartComputePipesArgs) StartReducingComputePipes(ctx context.Context
 		"-filePath", strings.Replace(args.FileKey, os.Getenv("JETS_s3_INPUT_PREFIX"), os.Getenv("JETS_s3_OUTPUT_PREFIX"), 1),
 	}
 	result.SuccessUpdate = map[string]interface{}{
+		"cpipesMode":			true,
 		"-peKey":         strconv.Itoa(args.PipelineExecKey),
 		"-status":        "completed",
 		"file_key":       args.FileKey,
 		"failureDetails": "",
 	}
 	result.ErrorUpdate = map[string]interface{}{
+		"cpipesMode":			true,
 		"-peKey":         strconv.Itoa(args.PipelineExecKey),
 		"-status":        "failed",
 		"file_key":       args.FileKey,
