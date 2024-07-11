@@ -292,7 +292,7 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 	// JetStore Image from ecr -- referenced in most tasks
 	jsComp.CpipesImage = awsecs.AssetImage_FromEcrRepository(
 		//* example: arn:aws:ecr:us-east-1:470601442608:repository/jetstore_test_ws
-		awsecr.Repository_FromRepositoryArn(stack, jsii.String("jetstore-image"), jsii.String(os.Getenv("CPIPES_ECR_REPO_ARN"))),
+		awsecr.Repository_FromRepositoryArn(stack, jsii.String("jetstore-cpipes-image"), jsii.String(os.Getenv("CPIPES_ECR_REPO_ARN"))),
 		jsii.String(os.Getenv("CPIPES_IMAGE_TAG")))
 
 	// Build ECS Tasks
