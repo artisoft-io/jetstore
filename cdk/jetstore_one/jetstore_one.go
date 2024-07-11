@@ -184,7 +184,7 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 	})
 
 	// Grant access to ECS Tasks in Private subnets
-	jsComp.PrivateSecurityGroup.Connections().AllowTo(jsComp.RdsCluster, awsec2.Port_Tcp(jsii.Number(5432)), jsii.String("Allow connection from runLoaderTask"))
+	jsComp.PrivateSecurityGroup.Connections().AllowTo(jsComp.RdsCluster, awsec2.Port_Tcp(jsii.Number(5432)), jsii.String("Allow connection from PrivateSecurityGroup"))
 
 	// Create the jsComp.EcsCluster.
 	// ==============================================================================================================
@@ -288,6 +288,12 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 		//* example: arn:aws:ecr:us-east-1:470601442608:repository/jetstore_test_ws
 		awsecr.Repository_FromRepositoryArn(stack, jsii.String("jetstore-image"), jsii.String(os.Getenv("JETS_ECR_REPO_ARN"))),
 		jsii.String(os.Getenv("JETS_IMAGE_TAG")))
+
+	// JetStore Image from ecr -- referenced in most tasks
+	jsComp.CpipesImage = awsecs.AssetImage_FromEcrRepository(
+		//* example: arn:aws:ecr:us-east-1:470601442608:repository/jetstore_test_ws
+		awsecr.Repository_FromRepositoryArn(stack, jsii.String("jetstore-image"), jsii.String(os.Getenv("CPIPES_ECR_REPO_ARN"))),
+		jsii.String(os.Getenv("CPIPES_IMAGE_TAG")))
 
 	// Build ECS Tasks
 	//	- RunreportTaskDefinition
@@ -590,11 +596,13 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 // JETS_DOMAIN_KEY_HASH_SEED (required for md5 and sha1. MUST be a valid uuid )
 // JETS_DOMAIN_KEY_SEPARATOR used as separator to domain key elements
 // JETS_ECR_REPO_ARN (required)
+// CPIPES_ECR_REPO_ARN (required for cpipes server)
 // JETS_ELB_INTERNET_FACING (not required unless JETS_ELB_MODE==public, values: true, false)
 // JETS_ELB_MODE (defaults private)
 // JETS_ELB_NO_ALL_INCOMING UI ELB SG w/o all incoming traffic (not required unless JETS_ELB_INTERNET_FACING==true, default false, values: true, false)
 // JETS_GIT_ACCESS (optional) value is list of SCM e.g. 'github,bitbucket'
 // JETS_IMAGE_TAG (required)
+// CPIPES_IMAGE_TAG (required for cpipes server)
 // JETS_INPUT_ROW_JETS_KEY_ALGO (values: uuid, row_hash, domain_key (default: uuid))
 // JETS_INVALID_CODE (optional) code value when client code is not is the code value mapping, default return the client value
 // JETS_LOADER_CHUNCK_SIZE loader file partition size
@@ -661,11 +669,13 @@ func main() {
 	fmt.Println("env JETS_DOMAIN_KEY_HASH_SEED:", os.Getenv("JETS_DOMAIN_KEY_HASH_SEED"))
 	fmt.Println("env JETS_DOMAIN_KEY_SEPARATOR:", os.Getenv("JETS_DOMAIN_KEY_SEPARATOR"))
 	fmt.Println("env JETS_ECR_REPO_ARN:", os.Getenv("JETS_ECR_REPO_ARN"))
+	fmt.Println("env CPIPES_ECR_REPO_ARN:", os.Getenv("CPIPES_ECR_REPO_ARN"))
 	fmt.Println("env JETS_ELB_INTERNET_FACING:", os.Getenv("JETS_ELB_INTERNET_FACING"))
 	fmt.Println("env JETS_ELB_MODE:", os.Getenv("JETS_ELB_MODE"))
 	fmt.Println("env JETS_ELB_NO_ALL_INCOMING:", os.Getenv("JETS_ELB_NO_ALL_INCOMING"))
 	fmt.Println("env JETS_GIT_ACCESS:", os.Getenv("JETS_GIT_ACCESS"))
 	fmt.Println("env JETS_IMAGE_TAG:", os.Getenv("JETS_IMAGE_TAG"))
+	fmt.Println("env CPIPES_IMAGE_TAG:", os.Getenv("CPIPES_IMAGE_TAG"))
 	fmt.Println("env JETS_INPUT_ROW_JETS_KEY_ALGO:", os.Getenv("JETS_INPUT_ROW_JETS_KEY_ALGO"))
 	fmt.Println("env JETS_INVALID_CODE:", os.Getenv("JETS_INVALID_CODE"))
 	fmt.Println("env JETS_LOADER_CHUNCK_SIZE:", os.Getenv("JETS_LOADER_CHUNCK_SIZE"))

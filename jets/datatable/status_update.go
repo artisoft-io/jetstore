@@ -14,7 +14,6 @@ import (
 	"time"
 
 	"github.com/artisoft-io/jetstore/jets/awsi"
-	"github.com/artisoft-io/jetstore/jets/schema"
 	"github.com/jackc/pgx/v4"
 	"github.com/jackc/pgx/v4/pgxpool"
 )
@@ -27,12 +26,19 @@ import (
 // JETS_DSN_URI_VALUE
 // JETS_DSN_JSON_VALUE
 // JETS_s3_INPUT_PREFIX
+// CPIPES_STATUS_NOTIFICATION_ENDPOINT
+// CPIPES_STATUS_NOTIFICATION_ENDPOINT_JSON
+// CPIPES_CUSTOM_FILE_KEY_NOTIFICATION
+// CPIPES_START_NOTIFICATION_JSON
+// CPIPES_COMPLETED_NOTIFICATION_JSON
+// CPIPES_FAILED_NOTIFICATION_JSON
 
 // Status Update command line arguments
 // When used as a delegate from apiserver Dbpool is non nil
 // and then the connection properties (AwsDsnSecret, DbPoolSize, UsingSshTunnel, AwsRegion)
 // are not needed.
 type StatusUpdate struct {
+	CpipesMode     bool
 	AwsDsnSecret   string
 	DbPoolSize     int
 	UsingSshTunnel bool
@@ -350,6 +356,7 @@ func (ca *StatusUpdate) CoordinateWork() error {
 				FROM jetsapi.pipeline_execution_details ped,
 					jetsapi.pipeline_execution_status pe
 				WHERE ped.pipeline_execution_status_key = $1
+					AND ped.status != 'in progress'
 					AND ped.pipeline_execution_status_key = pe.key
 				GROUP BY ped.cpipes_step_id,
 					ped.session_id,
@@ -360,22 +367,44 @@ func (ca *StatusUpdate) CoordinateWork() error {
 		return fmt.Errorf("while inserting in jetsapi.cpipes_execution_status_details: %v", err)
 	}
 
-	//*REVIEW THIS: CPIPES NOTIFICATION - don't register outTables or lock session_id
-	// When CPIPES notification exists, don't register outTables or lock session_id
-	if apiEndpoint != "" {
-		return nil
-	}
-	client, sessionId, sourcePeriodKey, outTables := getPeInfo(ca.Dbpool, ca.PeKey)
-	// Register out tables
-	if ca.Status != "failed" && len(outTables) > 0 && getOutputRecordCount(ca.Dbpool, ca.PeKey) > 0 {
-		err = RegisterDomainTables(ca.Dbpool, ca.UsingSshTunnel, ca.PeKey)
-		if err != nil {
-			return fmt.Errorf("while registrying out tables to input_registry: %v", err)
-		}
+	// CpipesMode - don't register outTables
+	if !ca.CpipesMode { // CPIPES_MODE is empty, ie false
+		//* TODO OPTIMIZE THIS SQL, do not getPeInfo
+		_, _, _, outTables := getPeInfo(ca.Dbpool, ca.PeKey)
+		// Register out tables
+		if ca.Status != "failed" && len(outTables) > 0 && getOutputRecordCount(ca.Dbpool, ca.PeKey) > 0 {
+			err = RegisterDomainTables(ca.Dbpool, ca.UsingSshTunnel, ca.PeKey)
+			if err != nil {
+				return fmt.Errorf("while registrying out tables to input_registry: %v", err)
+			}
+		}	
 	}
 
-	// Lock the session
-	err = schema.RegisterSession(ca.Dbpool, "domain_table", client, sessionId, sourcePeriodKey)
+	// Lock the session in session_registry
+	stmt = `
+		INSERT INTO jetsapi.session_registry (
+				source_type, 
+				session_id, 
+				client, 
+				source_period_key, 
+				month_period, 
+				week_period, 
+				day_period
+			) (
+				SELECT 
+					'domain_table',
+					pe.session_id,
+					pe.client,
+					pe.source_period_key,
+				  sp.month_period, 
+				  sp.week_period, 
+				  sp.day_period
+				FROM jetsapi.pipeline_execution_status pe,
+					jetsapi.source_period sp
+				WHERE pe.key = $1
+					AND pe.source_period_key = sp.key
+			)`
+	_, err = ca.Dbpool.Exec(context.Background(), stmt, ca.PeKey)
 	if err != nil {
 		log.Printf("Failed locking the session, must be already locked: %v (ignoring the error)", err)
 	}

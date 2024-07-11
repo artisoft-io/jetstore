@@ -2,19 +2,19 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log"
 	"os"
 
 	"github.com/artisoft-io/jetstore/jets/awsi"
 	"github.com/artisoft-io/jetstore/jets/compute_pipes/actions"
-	"github.com/aws/aws-lambda-go/lambda"
 )
 
-// Compute Pipe Node Executor
-// This lambda replace cpipes_booter and loader
+// Compute Pipe Node Executor as a Container Server
+// This cpipes_server is the equivalent of the cp_node lambda
 // Assumptions:
-//		- nbr of nodes (lambda workers) is same as nbr of partitions
+//		- nbr of nodes (workers) is same as nbr of partitions
 
 // ENV VARIABLES:
 // JETS_BUCKET
@@ -31,6 +31,9 @@ var awsBucket string
 var dsn string
 
 func main() {
+	args := os.Args[1]
+	fmt.Println("CMD LINE ARGS:", args)
+
 	hasErr := false
 	var errMsg []string
 	var err error
@@ -60,25 +63,35 @@ func main() {
 		errMsg = append(errMsg, err.Error())
 	}
 
+	// Parse the command line json (arguments)
+	var cpArgs actions.ComputePipesArgs
+	err = json.Unmarshal([]byte(args), &cpArgs)
+	if err != nil {
+		errMsg = append(errMsg, fmt.Sprintf("while unmarshaling command line json (arguments): %s", err))
+	}
+
 	if hasErr {
 		for _, msg := range errMsg {
 			fmt.Println("**", msg)
 		}
-		panic("Invalid argument(s)")
+		// panic("Invalid argument(s)")
 	}
 
-	log.Println("CP Node:")
+	log.Println("CPIPES Server:")
 	log.Println("--------")
 	log.Println("Got argument: awsDsnSecret", awsDsnSecret)
 	log.Println("Got argument: dbPoolSize", dbPoolSize)
 	log.Println("Got argument: awsRegion", awsRegion)
 	log.Println("Got env: JETS_S3_KMS_KEY_ARN", os.Getenv("JETS_S3_KMS_KEY_ARN"))
 
-	// Start handler.
-	lambda.Start(handler)
-}
-
-// Compute Pipes Sharding Handler
-func handler(ctx context.Context, arg actions.ComputePipesArgs) error {
-	return (&arg).CoordinateComputePipes(ctx, dsn)
+	// vv, err := json.Marshal(cpArgs)
+	// if err != nil {
+	// 	log.Panic("Invalid json argument")
+	// }
+	// log.Println(string(vv))
+	
+	err = (&cpArgs).CoordinateComputePipes(context.Background(), dsn)
+	if err != nil {
+		log.Panicf("cpipes_server: while calling CoordinateComputePipes: %v", err)
+	}
 }

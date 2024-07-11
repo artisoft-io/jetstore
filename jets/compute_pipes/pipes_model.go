@@ -12,16 +12,24 @@ type ComputePipesConfig struct {
 	ReducingPipesConfig [][]PipeSpec   `json:"reducing_pipes_config"`
 }
 
-// Config for peer2peer communication
+// Cluster configuration
+// DefaultMaxConcurrency is to override the env var MAX_CONCURRENCY
 type ClusterSpec struct {
-	CpipesMode              string               `json:"cpipes_mode"`
-	NbrNodes                int                  `json:"nbr_nodes"`
-	NbrNodesLookup          *[]ClusterSizingSpec `json:"nbr_nodes_lookup"`
+	CpipesMode            string               `json:"cpipes_mode"`
+	NbrNodes              int                  `json:"nbr_nodes"`
+	DefaultMaxConcurrency int                  `json:"default_max_concurrency"`
+	NbrNodesLookup        *[]ClusterSizingSpec `json:"nbr_nodes_lookup"`
 }
 
+// Cluster sizing configuration
+// Allows to dynamically determine the NbrNodes based on total size of input files.
+// UseEcsTasks and MaxConcurrency is used for step id 'reducing0'
+// When UseEcsTasks == true, MaxConcurrency applies to ECS cluster (reducing0 step id)
 type ClusterSizingSpec struct {
-	WhenTotalSizeGe int `json:"when_total_size_ge_mb"`
-	NbrNodes        int `json:"nbr_nodes"`
+	WhenTotalSizeGe int  `json:"when_total_size_ge_mb"`
+	NbrNodes        int  `json:"nbr_nodes"`
+	UseEcsTasks     bool `json:"use_ecs_tasks"`
+	MaxConcurrency  int  `json:"max_concurrency"`
 }
 
 type MetricsSpec struct {

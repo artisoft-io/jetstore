@@ -12,13 +12,17 @@ import (
 
 // Common functions and types for cp lambda version
 
-// Argument to start_cp for starting the cp cluster
+// Argument to start_cp (start_sharding_cp, start_reducing_cp)
+// for starting the cp cluster
+// MaxConcurrency is to have a specified value of max concurrency
 type StartComputePipesArgs struct {
 	PipelineExecKey int     `json:"pipeline_execution_key"`
 	FileKey         string  `json:"file_key"`
 	SessionId       string  `json:"session_id"`
 	InputStepId     *string `json:"input_step_id"`
 	CurrentStep     *int    `json:"current_step"`
+	UseECSTask      bool    `json:"use_ecs_tasks"`
+	MaxConcurrency  int     `json:"max_concurrency"`
 }
 
 type InputStats struct {
@@ -46,6 +50,7 @@ type ComputePipesArgs struct {
 }
 
 // Write the compute pipes arguments as json to s3 at location specified by s3Location
+// This is currently not used, needed for Distributed Map
 func WriteCpipesArgsToS3(cpa []ComputePipesArgs, s3Location string) error {
 	cpJson, err := json.Marshal(cpa)
 	if err != nil {
@@ -73,6 +78,7 @@ func WriteCpipesArgsToS3(cpa []ComputePipesArgs, s3Location string) error {
 	return nil
 }
 
+// This is currently not used, needed for Distributed Map (for testing purpose)
 func ReadCpipesArgsFromS3(s3Location string) ([]ComputePipesArgs, error) {
 	f, err := os.CreateTemp("", "cp_args")
 	if err != nil {
@@ -116,11 +122,14 @@ func ReadCpipesArgsFromS3(s3Location string) ([]ComputePipesArgs, error) {
 // }
 
 // Returned by the cp_starter for a cpipes run
+// CpipesCommandsS3Key is for Distributed Map, currently not used
 type ComputePipesRun struct {
+	CpipesCommands       []ComputePipesArgs     `json:"cpipesCommands"`
 	CpipesCommandsS3Key  string                 `json:"cpipesCommandsS3Key"`
 	CpipesMaxConcurrency int                    `json:"cpipesMaxConcurrency"`
 	StartReducing        StartComputePipesArgs  `json:"startReducing"`
 	IsLastReducing       bool                   `json:"isLastReducing"`
+	UseECSReducingTask   bool                   `json:"useECSReducingTask"`
 	ReportsCommand       []string               `json:"reportsCommand"`
 	SuccessUpdate        map[string]interface{} `json:"successUpdate"`
 	ErrorUpdate          map[string]interface{} `json:"errorUpdate"`

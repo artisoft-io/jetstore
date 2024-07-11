@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"time"
 
 	"github.com/artisoft-io/jetstore/jets/awsi"
 )
@@ -45,7 +46,7 @@ func downloadS3Files(done <-chan struct{}) (<-chan string, <-chan string, <-chan
 		if isPartFiles == 1 {
 			var fileKeys []string
 			switch cpipesMode {
-				//* REMOVE THIS - "reducing" and cpipesShardWithNoFileKeys
+			//* REMOVE THIS - "reducing" and cpipesShardWithNoFileKeys
 			case "loader", "reducing":
 				// Case loader mode (loaderSM) or cpipes reducing mode, get the file keys from s3
 				if cpipesShardWithNoFileKeys {
@@ -84,7 +85,14 @@ func downloadS3Files(done <-chan struct{}) (<-chan string, <-chan string, <-chan
 			log.Printf("Downloading multi-part file from s3 folder: %s", *inFile)
 			gotHeaders := false
 			for i := range fileKeys {
+				retry := 0
+			do_retry:
 				inFilePath, err = downloadS3Object(fileKeys[i], inFolderPath, 1)
+				if retry < 6 {
+					time.Sleep(500 * time.Millisecond)
+					retry++
+					goto do_retry
+				}
 				if err != nil {
 					downloadS3ResultCh <- DownloadS3Result{
 						InputFilesCount: i,

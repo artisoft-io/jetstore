@@ -63,7 +63,7 @@ func (jsComp *JetStoreStackComponents) BuildServerSM(scope constructs.Construct,
 	})
 	runServerReportsTask.Connections().AllowTo(jsComp.RdsCluster, awsec2.Port_Tcp(jsii.Number(5432)), jsii.String("Allow connection from runServerReportsTask "))
 
-	// Status Update: update_success Step Function Task for jsComp.ReportsSM
+	// Status Update: update_success Step Function Task for jsComp.ServerSM
 	// --------------------------------------------------------------------------------------------------------------
 	updateServerErrorStatusLambdaTask := sfntask.NewLambdaInvoke(stack, jsii.String("UpdateServerErrorStatusLambdaTask"), &sfntask.LambdaInvokeProps{
 		Comment:        jsii.String("Lambda Task to update server status to error/failed"),
@@ -72,7 +72,7 @@ func (jsComp *JetStoreStackComponents) BuildServerSM(scope constructs.Construct,
 		ResultPath:     sfn.JsonPath_DISCARD(),
 	})
 
-	// Status Update: update_success Step Function Task for jsComp.ReportsSM
+	// Status Update: update_success Step Function Task for jsComp.ServerSM
 	// --------------------------------------------------------------------------------------------------------------
 	updateServerSuccessStatusLambdaTask := sfntask.NewLambdaInvoke(stack, jsii.String("UpdateServerSuccessStatusLambdaTask"), &sfntask.LambdaInvokeProps{
 		Comment:        jsii.String("Lambda Task to update server status to success"),
