@@ -94,12 +94,11 @@ func (args *StartComputePipesArgs) StartReducingComputePipes(ctx context.Context
 
 	// Set the nbr of concurrent map tasks
 	if args.MaxConcurrency == 0 {
-		result.CpipesMaxConcurrency = GetMaxConcurrency(len(partitions))
+		result.CpipesMaxConcurrency = GetMaxConcurrency(len(partitions), cpConfig.ClusterConfig.DefaultMaxConcurrency)
 	} else {
 		result.CpipesMaxConcurrency = args.MaxConcurrency
 	}
 	result.UseECSReducingTask = args.UseECSTask
-
 
 	outputTables := make([]compute_pipes.TableSpec, 0)
 	currentStep := *args.CurrentStep
@@ -112,8 +111,9 @@ func (args *StartComputePipesArgs) StartReducingComputePipes(ctx context.Context
 	// Make the reducing pipeline config
 	cpReducingConfig := &compute_pipes.ComputePipesConfig{
 		ClusterConfig: &compute_pipes.ClusterSpec{
-			CpipesMode: "reducing",
-			NbrNodes:   len(partitions),
+			CpipesMode:            "reducing",
+			NbrNodes:              len(partitions),
+			DefaultMaxConcurrency: cpConfig.ClusterConfig.DefaultMaxConcurrency,
 		},
 		MetricsConfig: cpConfig.MetricsConfig,
 		OutputTables:  outputTables,
@@ -141,11 +141,11 @@ func (args *StartComputePipesArgs) StartReducingComputePipes(ctx context.Context
 		nextCurrent := currentStep + 1
 		nextInputStepId := fmt.Sprintf("reducing%d", nextCurrent)
 		result.StartReducing = StartComputePipesArgs{
-			PipelineExecKey:  args.PipelineExecKey,
-			FileKey:          args.FileKey,
-			SessionId:        args.SessionId,
-			InputStepId:      &nextInputStepId,
-			CurrentStep:      &nextCurrent,
+			PipelineExecKey: args.PipelineExecKey,
+			FileKey:         args.FileKey,
+			SessionId:       args.SessionId,
+			InputStepId:     &nextInputStepId,
+			CurrentStep:     &nextCurrent,
 		}
 	}
 
@@ -156,14 +156,14 @@ func (args *StartComputePipesArgs) StartReducingComputePipes(ctx context.Context
 		"-filePath", strings.Replace(args.FileKey, os.Getenv("JETS_s3_INPUT_PREFIX"), os.Getenv("JETS_s3_OUTPUT_PREFIX"), 1),
 	}
 	result.SuccessUpdate = map[string]interface{}{
-		"cpipesMode":			true,
+		"cpipesMode":     true,
 		"-peKey":         strconv.Itoa(args.PipelineExecKey),
 		"-status":        "completed",
 		"file_key":       args.FileKey,
 		"failureDetails": "",
 	}
 	result.ErrorUpdate = map[string]interface{}{
-		"cpipesMode":			true,
+		"cpipesMode":     true,
 		"-peKey":         strconv.Itoa(args.PipelineExecKey),
 		"-status":        "failed",
 		"file_key":       args.FileKey,
@@ -181,13 +181,7 @@ func (args *StartComputePipesArgs) StartReducingComputePipes(ctx context.Context
 	}
 	// Build CpipesReducingCommands
 	log.Printf("Got %d partitions", len(partitions))
-	stagePrefix := os.Getenv("JETS_s3_STAGE_PREFIX")
-	if stagePrefix == "" {
-		return result, fmt.Errorf("error: missing env var JETS_s3_STAGE_PREFIX in deployment")
-	}
 	cpipesCommands := make([]ComputePipesArgs, len(partitions))
-	// write to location: stage_prefix/cpipesCommands/session_id/reducingXCommands.json
-	result.CpipesCommandsS3Key = fmt.Sprintf("%s/cpipesCommands/%s/%sCommands.json", stagePrefix, args.SessionId, *args.InputStepId)
 	for i := range cpipesCommands {
 		cpipesCommands[i] = ComputePipesArgs{
 			NodeId:             i,
@@ -207,8 +201,18 @@ func (args *StartComputePipesArgs) StartReducingComputePipes(ctx context.Context
 			UserEmail:          userEmail,
 		}
 	}
-	// Copy the cpipesCommands to S3 as a json file
-	WriteCpipesArgsToS3(cpipesCommands, result.CpipesCommandsS3Key)
+	// Using Inline Map:
+	result.CpipesCommands = cpipesCommands
+	// // WHEN Using Distributed Map:
+	// // write to location: stage_prefix/cpipesCommands/session_id/shardingCommands.json
+	// stagePrefix := os.Getenv("JETS_s3_STAGE_PREFIX")
+	// if stagePrefix == "" {
+	// 	return result, fmt.Errorf("error: missing env var JETS_s3_STAGE_PREFIX in deployment")
+	// }
+	// // write to location: stage_prefix/cpipesCommands/session_id/reducingXCommands.json
+	// result.CpipesCommandsS3Key = fmt.Sprintf("%s/cpipesCommands/%s/%sCommands.json", stagePrefix, args.SessionId, *args.InputStepId)
+	// // Copy the cpipesCommands to S3 as a json file
+	// WriteCpipesArgsToS3(cpipesCommands, result.CpipesCommandsS3Key)
 
 	return result, nil
 }

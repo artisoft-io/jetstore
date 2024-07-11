@@ -255,10 +255,10 @@ func (jsComp *JetStoreStackComponents) BuildEcsTasks(scope constructs.Construct,
 	// ---------------------
 	jsComp.CpipesContainerDef = jsComp.CpipesTaskDefinition.AddContainer(jsii.String("cpipesContainer"), &awsecs.ContainerDefinitionOptions{
 		// Use JetStore Image in ecr
-		Image:         jsComp.JetStoreImage,
+		Image:         jsComp.CpipesImage,
 		ContainerName: jsii.String("cpipesContainer"),
 		Essential:     jsii.Bool(true),
-		EntryPoint:    jsii.Strings("cpipes_booter"),
+		EntryPoint:    jsii.Strings("cpipes_server"),
 		PortMappings: &[]*awsecs.PortMapping{
 			{
 				Name:          jsii.String("cpipes-port-mapping"),

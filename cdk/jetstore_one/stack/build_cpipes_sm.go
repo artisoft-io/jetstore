@@ -1,9 +1,7 @@
 package stack
 
 import (
-	"os"
-	"strconv"
-
+	
 	awscdk "github.com/aws/aws-cdk-go/awscdk/v2"
 	"github.com/aws/aws-cdk-go/awscdk/v2/awsec2"
 	"github.com/aws/aws-cdk-go/awscdk/v2/awsecs"
@@ -26,15 +24,16 @@ func (jsComp *JetStoreStackComponents) BuildCpipesSM(scope constructs.Construct,
 	//	5. run reports task
 	//	6. status update task
 
-	if os.Getenv("TASK_MAX_CONCURRENCY") == "" {
-		props.MaxConcurrency = 1
-	} else {
-		var err error
-		props.MaxConcurrency, err = strconv.ParseFloat(os.Getenv("TASK_MAX_CONCURRENCY"), 64)
-		if err != nil {
-			props.MaxConcurrency = 10
-		}
-	}
+	// THIS IS NOW SPECIFIED IN runStartSharingTask
+	// if os.Getenv("TASK_MAX_CONCURRENCY") == "" {
+	// 	props.MaxConcurrency = 1
+	// } else {
+	// 	var err error
+	// 	props.MaxConcurrency, err = strconv.ParseFloat(os.Getenv("TASK_MAX_CONCURRENCY"), 64)
+	// 	if err != nil {
+	// 		props.MaxConcurrency = 10
+	// 	}
+	// }
 
 	// 1) Start Sharding Task
 	// ----------------------
@@ -55,15 +54,24 @@ func (jsComp *JetStoreStackComponents) BuildCpipesSM(scope constructs.Construct,
 		ResultPath:               sfn.JsonPath_DISCARD(),
 		RetryOnServiceExceptions: jsii.Bool(false),
 	})
-	runShardingMap := sfn.NewDistributedMap(stack, jsii.String("run-sharding-map"), &sfn.DistributedMapProps{
-		Comment: jsii.String("Run JetStore Sharding Lambda Task"),
-		ItemReader: sfn.NewS3JsonItemReader(&sfn.S3FileItemReaderProps{
-			Bucket: jsComp.SourceBucket,
-			Key:    sfn.JsonPath_StringAt(jsii.String("$.cpipesCommandsS3Key")),
-		}),
+	// BELOW IS USING DISTRIBUTED MAP
+	// runShardingMap := sfn.NewDistributedMap(stack, jsii.String("run-sharding-map"), &sfn.DistributedMapProps{
+	// 	Comment: jsii.String("Run JetStore Sharding Lambda Task"),
+	// 	ItemReader: sfn.NewS3JsonItemReader(&sfn.S3FileItemReaderProps{
+	// 		Bucket: jsComp.SourceBucket,
+	// 		Key:    sfn.JsonPath_StringAt(jsii.String("$.cpipesCommandsS3Key")),
+	// 	}),
+	// 	// MaxConcurrency: jsii.Number(props.MaxConcurrency),
+	// 	MaxConcurrencyPath: jsii.String("$.cpipesMaxConcurrency"),
+	// 	ResultPath:         sfn.JsonPath_DISCARD(),
+	// })
+	// BELOW IS THE ALTERNATIVE USING AN INLINED MAP
+	runShardingMap := sfn.NewMap(stack, jsii.String("run-sharding-map"), &sfn.MapProps{
+		Comment:        jsii.String("Run JetStore Sharding Lambda Task"),
+		ItemsPath:      sfn.JsonPath_StringAt(jsii.String("$.cpipesCommands")),
 		// MaxConcurrency: jsii.Number(props.MaxConcurrency),
 		MaxConcurrencyPath: jsii.String("$.cpipesMaxConcurrency"),
-		ResultPath:         sfn.JsonPath_DISCARD(),
+		ResultPath:     sfn.JsonPath_DISCARD(),
 	})
 
 	// 3) Start Reducing Task
@@ -86,15 +94,24 @@ func (jsComp *JetStoreStackComponents) BuildCpipesSM(scope constructs.Construct,
 		ResultPath:               sfn.JsonPath_DISCARD(),
 		RetryOnServiceExceptions: jsii.Bool(false),
 	})
-	runReducingMap := sfn.NewDistributedMap(stack, jsii.String("run-reducing-map"), &sfn.DistributedMapProps{
-		Comment: jsii.String("Run JetStore Reducing Lambda Task"),
-		ItemReader: sfn.NewS3JsonItemReader(&sfn.S3FileItemReaderProps{
-			Bucket: jsComp.SourceBucket,
-			Key:    sfn.JsonPath_StringAt(jsii.String("$.cpipesCommandsS3Key")),
-		}),
+	// BELOW IS USING DISTRIBUTED MAP
+	// runReducingMap := sfn.NewDistributedMap(stack, jsii.String("run-reducing-map"), &sfn.DistributedMapProps{
+	// 	Comment: jsii.String("Run JetStore Reducing Lambda Task"),
+	// 	ItemReader: sfn.NewS3JsonItemReader(&sfn.S3FileItemReaderProps{
+	// 		Bucket: jsComp.SourceBucket,
+	// 		Key:    sfn.JsonPath_StringAt(jsii.String("$.cpipesCommandsS3Key")),
+	// 	}),
+	// 	// MaxConcurrency: jsii.Number(props.MaxConcurrency),
+	// 	MaxConcurrencyPath: jsii.String("$.cpipesMaxConcurrency"),
+	// 	ResultPath:         sfn.JsonPath_DISCARD(),
+	// })
+	// BELOW IS THE ALTERNATIVE USING AN INLINED MAP
+	runReducingMap := sfn.NewMap(stack, jsii.String("run-reducing-map"), &sfn.MapProps{
+		Comment:        jsii.String("Run JetStore Reducing Lambda Task"),
+		ItemsPath:      sfn.JsonPath_StringAt(jsii.String("$.cpipesCommands")),
 		// MaxConcurrency: jsii.Number(props.MaxConcurrency),
 		MaxConcurrencyPath: jsii.String("$.cpipesMaxConcurrency"),
-		ResultPath:         sfn.JsonPath_DISCARD(),
+		ResultPath:     sfn.JsonPath_DISCARD(),
 	})
 
 	// ECS Task Option

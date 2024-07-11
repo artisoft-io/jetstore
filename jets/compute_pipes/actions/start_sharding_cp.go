@@ -131,18 +131,24 @@ func (args *StartComputePipesArgs) StartShardingComputePipes(ctx context.Context
 	}
 
 	// Determine the number of nodes for sharding
-	var clusterSpec *compute_pipes.ClusterSizingSpec
 	shardingNbrNodes := cpConfig.ClusterConfig.NbrNodes
+	// Set a default cluster spec
+	clusterSpec := &compute_pipes.ClusterSizingSpec{
+		NbrNodes: shardingNbrNodes,
+	}
 	if shardingNbrNodes == 0 {
 		if cpConfig.ClusterConfig.NbrNodesLookup == nil {
 			return result, fmt.Errorf("error: invalid cpipes config, NbrNodes or NbrNodesLookup must be specified")
 		}
-		// shardingNbrNodes, result.UseECSReducingTask = calculateNbrNodes(int(totalSize/1024/1024), cpConfig.ClusterConfig.NbrNodesLookup)
 		clusterSpec = calculateNbrNodes(int(totalSize/1024/1024), cpConfig.ClusterConfig.NbrNodesLookup)
 		shardingNbrNodes = clusterSpec.NbrNodes
 	}
 	nbrPartitions := uint64(shardingNbrNodes)
-	result.CpipesMaxConcurrency = GetMaxConcurrency(shardingNbrNodes)
+	if clusterSpec.MaxConcurrency > 0 {
+		result.CpipesMaxConcurrency = clusterSpec.MaxConcurrency
+	} else {
+		result.CpipesMaxConcurrency = GetMaxConcurrency(shardingNbrNodes, cpConfig.ClusterConfig.DefaultMaxConcurrency)
+	}
 
 	// Adjust the nbr of sharding nodes based on the nbr of input files
 	if totalPartfileCount < shardingNbrNodes {
@@ -150,13 +156,7 @@ func (args *StartComputePipesArgs) StartShardingComputePipes(ctx context.Context
 	}
 
 	// Build CpipesShardingCommands
-	stagePrefix := os.Getenv("JETS_s3_STAGE_PREFIX")
-	if stagePrefix == "" {
-		return result, fmt.Errorf("error: missing env var JETS_s3_STAGE_PREFIX in deployment")
-	}
 	cpipesCommands := make([]ComputePipesArgs, shardingNbrNodes)
-	// write to location: stage_prefix/cpipesCommands/session_id/shardingCommands.json
-	result.CpipesCommandsS3Key = fmt.Sprintf("%s/cpipesCommands/%s/shardingCommands.json", stagePrefix, args.SessionId)
 	for i := range cpipesCommands {
 		cpipesCommands[i] = ComputePipesArgs{
 			NodeId:            i,
@@ -175,8 +175,17 @@ func (args *StartComputePipesArgs) StartShardingComputePipes(ctx context.Context
 			UserEmail:         userEmail,
 		}
 	}
-	// Copy the cpipesCommands to S3 as a json file
-	WriteCpipesArgsToS3(cpipesCommands, result.CpipesCommandsS3Key)
+	// Using Inline Map:
+	result.CpipesCommands = cpipesCommands
+	// // WHEN Using Distributed Map:
+	// // write to location: stage_prefix/cpipesCommands/session_id/shardingCommands.json
+	// stagePrefix := os.Getenv("JETS_s3_STAGE_PREFIX")
+	// if stagePrefix == "" {
+	// 	return result, fmt.Errorf("error: missing env var JETS_s3_STAGE_PREFIX in deployment")
+	// }
+	// result.CpipesCommandsS3Key = fmt.Sprintf("%s/cpipesCommands/%s/shardingCommands.json", stagePrefix, args.SessionId)
+	// // Copy the cpipesCommands to S3 as a json file
+	// WriteCpipesArgsToS3(cpipesCommands, result.CpipesCommandsS3Key)
 
 	// Args for start_reducing_cp lambda
 	inputStepId := "reducing0"
@@ -214,8 +223,9 @@ func (args *StartComputePipesArgs) StartShardingComputePipes(ctx context.Context
 	}
 	cpShardingConfig := &compute_pipes.ComputePipesConfig{
 		ClusterConfig: &compute_pipes.ClusterSpec{
-			CpipesMode: "sharding",
-			NbrNodes:   shardingNbrNodes,
+			CpipesMode:            "sharding",
+			NbrNodes:              shardingNbrNodes,
+			DefaultMaxConcurrency: cpConfig.ClusterConfig.DefaultMaxConcurrency,
 		},
 		MetricsConfig: cpConfig.MetricsConfig,
 		OutputTables:  cpConfig.OutputTables,
@@ -249,21 +259,34 @@ func calculateNbrNodes(totalSizeMb int, sizingSpec *[]compute_pipes.ClusterSizin
 	}
 	for _, spec := range *sizingSpec {
 		if totalSizeMb >= spec.WhenTotalSizeGe {
-			log.Printf("calculateNbrNodes: totalSizeMb: %d, spec.WhenTotalSizeGe: %d, got NbrNodes: %d", totalSizeMb, spec.WhenTotalSizeGe, spec.NbrNodes)
+			log.Printf("calculateNbrNodes: totalSizeMb: %d, spec.WhenTotalSizeGe: %d, got NbrNodes: %d, MaxConcurrency: %d",
+				totalSizeMb, spec.WhenTotalSizeGe, spec.NbrNodes, spec.MaxConcurrency)
 			return &spec
 		}
 	}
 	return &compute_pipes.ClusterSizingSpec{}
 }
 
-func GetMaxConcurrency(nbrNodes int) int {
+func GetMaxConcurrency(nbrNodes, defaultMaxConcurrency int) int {
 	if nbrNodes < 1 {
 		return 1
 	}
-	maxConcurrency := 2001 / nbrNodes
-	if maxConcurrency > 10 {
-		maxConcurrency = 10
+	if defaultMaxConcurrency == 0 {
+		v := os.Getenv("TASK_MAX_CONCURRENCY")
+		if v != "" {
+			var err error
+			defaultMaxConcurrency, err = strconv.Atoi(os.Getenv("TASK_MAX_CONCURRENCY"))
+			if err != nil {
+				defaultMaxConcurrency = 10
+			}
+		}
 	}
+
+	maxConcurrency := defaultMaxConcurrency
+	// maxConcurrency := 2001 / nbrNodes
+	// if maxConcurrency > defaultMaxConcurrency {
+	// 	maxConcurrency = defaultMaxConcurrency
+	// }
 	if maxConcurrency < 1 {
 		maxConcurrency = 1
 	}
