@@ -124,7 +124,7 @@ func ReadCpipesArgsFromS3(s3Location string) ([]ComputePipesArgs, error) {
 // Returned by the cp_starter for a cpipes run
 // CpipesCommandsS3Key is for Distributed Map, currently not used
 type ComputePipesRun struct {
-	CpipesCommands       []ComputePipesArgs     `json:"cpipesCommands"`
+	CpipesCommands       interface{}            `json:"cpipesCommands"`
 	CpipesCommandsS3Key  string                 `json:"cpipesCommandsS3Key"`
 	CpipesMaxConcurrency int                    `json:"cpipesMaxConcurrency"`
 	StartReducing        StartComputePipesArgs  `json:"startReducing"`

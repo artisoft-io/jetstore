@@ -180,13 +180,14 @@ func (args *StartComputePipesArgs) StartReducingComputePipes(ctx context.Context
 		}
 	}
 	// Build CpipesReducingCommands
-	log.Printf("Got %d partitions", len(partitions))
-	cpipesCommands := make([]ComputePipesArgs, len(partitions))
-	for i := range cpipesCommands {
-		cpipesCommands[i] = ComputePipesArgs{
-			NodeId:             i,
+	log.Printf("Got %d partitions, use_ecs_tasks: %v", len(partitions), args.UseECSTask)
+	if args.UseECSTask {
+		// Using ecs taks for reducing, cpipesCommands must be of type [][]string
+		cpipesCommands := make([][]string, len(partitions))
+		template, err := json.Marshal(ComputePipesArgs{
+			NodeId:             123456789,
 			CpipesMode:         "reducing",
-			JetsPartitionLabel: partitions[i].jetsPartition,
+			JetsPartitionLabel: "__LABEL__",
 			Client:             client,
 			Org:                org,
 			ObjectType:         objectType,
@@ -194,15 +195,48 @@ func (args *StartComputePipesArgs) StartReducingComputePipes(ctx context.Context
 			SessionId:          args.SessionId,
 			SourcePeriodKey:    sourcePeriodKey,
 			ProcessName:        processName,
-			FileKey:            partitions[i].fileKey,
+			FileKey:            "__FILE_KEY__",
 			InputColumns:       inputColumns,
 			PipelineExecKey:    args.PipelineExecKey,
 			PipelineConfigKey:  pipelineConfigKey,
 			UserEmail:          userEmail,
+		})
+		if err != nil {
+			return result, err
 		}
+		templateStr := string(template)
+		for i := range cpipesCommands {
+			value := strings.Replace(templateStr, "123456789", strconv.Itoa(i),1)
+			value = strings.Replace(value, "__LABEL__", partitions[i].jetsPartition,1)
+			cpipesCommands[i] = []string{
+				strings.Replace(value, "__FILE_KEY__", partitions[i].fileKey,1),
+			}
+		}
+		result.CpipesCommands = cpipesCommands	
+	} else {
+		// Using lambda functions for reducing, cpipesCommands must be []ComputePipesArgs
+		cpipesCommands := make([]ComputePipesArgs, len(partitions))
+		for i := range cpipesCommands {
+			cpipesCommands[i] = ComputePipesArgs{
+				NodeId:             i,
+				CpipesMode:         "reducing",
+				JetsPartitionLabel: partitions[i].jetsPartition,
+				Client:             client,
+				Org:                org,
+				ObjectType:         objectType,
+				InputSessionId:     inputSessionId,
+				SessionId:          args.SessionId,
+				SourcePeriodKey:    sourcePeriodKey,
+				ProcessName:        processName,
+				FileKey:            partitions[i].fileKey,
+				InputColumns:       inputColumns,
+				PipelineExecKey:    args.PipelineExecKey,
+				PipelineConfigKey:  pipelineConfigKey,
+				UserEmail:          userEmail,
+			}
+		}
+		result.CpipesCommands = cpipesCommands	
 	}
-	// Using Inline Map:
-	result.CpipesCommands = cpipesCommands
 	// // WHEN Using Distributed Map:
 	// // write to location: stage_prefix/cpipesCommands/session_id/shardingCommands.json
 	// stagePrefix := os.Getenv("JETS_s3_STAGE_PREFIX")
