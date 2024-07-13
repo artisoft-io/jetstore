@@ -95,3 +95,4 @@ jets/compute_pipes/actions/local_test_driver/local_test_driver
 jets/datatable/test/do_notify/client/client
 jets/datatable/test/do_notify/server/server
 jets/cpipes_server/cpipes_server
+jets/copytest/scratchpad/test/test
