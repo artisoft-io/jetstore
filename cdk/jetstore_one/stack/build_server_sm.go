@@ -123,8 +123,8 @@ func (jsComp *JetStoreStackComponents) BuildServerSM(scope constructs.Construct,
 	jsComp.ServerSM = sfn.NewStateMachine(stack, props.MkId("serverSM"), &sfn.StateMachineProps{
 		StateMachineName: props.MkId("serverSM"),
 		DefinitionBody:   sfn.DefinitionBody_FromChainable(runServerMap),
-		//* NOTE 4h TIMEOUT of exec rules
-		Timeout: awscdk.Duration_Hours(jsii.Number(4)),
+		//* NOTE 2h TIMEOUT of exec rules
+		Timeout: awscdk.Duration_Hours(jsii.Number(2)),
 	})
 	if phiTagName != nil {
 		awscdk.Tags_Of(jsComp.ServerSM).Add(phiTagName, jsii.String("true"), nil)

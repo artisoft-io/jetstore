@@ -233,8 +233,8 @@ func (jsComp *JetStoreStackComponents) BuildCpipesSM(scope constructs.Construct,
 	jsComp.CpipesSM = sfn.NewStateMachine(stack, props.MkId("cpipesSM"), &sfn.StateMachineProps{
 		StateMachineName: props.MkId("cpipesSM"),
 		DefinitionBody:   sfn.DefinitionBody_FromChainable(runStartSharingTask),
-		//* NOTE 1h TIMEOUT
-		Timeout: awscdk.Duration_Hours(jsii.Number(1)),
+		//* NOTE 2h TIMEOUT
+		Timeout: awscdk.Duration_Hours(jsii.Number(2)),
 	})
 	if phiTagName != nil {
 		awscdk.Tags_Of(jsComp.CpipesSM).Add(phiTagName, jsii.String("true"), nil)
