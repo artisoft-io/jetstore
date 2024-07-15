@@ -12,7 +12,7 @@ import (
 	"github.com/artisoft-io/jetstore/jets/jetrules/rdf"
 )
 
-// Factory class to create and configure ReteMetaStore objects
+// Factory class to create and configure ReteMetaStore components.
 // This factory is loading the Rete Network definition from json
 // files produced by the rule compiler. The json is loaded into the
 // data model `JetruleModel`
@@ -44,23 +44,25 @@ type VarInfo struct {
 
 // Context for building the components of the ReteMetaStore.
 // The meta store is identified by the main rule uri `MainRuleUri`.
-// The `ResourcesLookup` and `ResourcesLookup` are lookup to link the json components
-// together while `LookupHelper`, `AlphaNodes`, and `NodeVertices` are the actual
+// The `ResourcesLookup` and `VariablesLookup` are lookup to link the json components
+// together while `LookupTables`, `AlphaNodes`, and `NodeVertices` are the actual
 // components that are being built here and are making the ReteMetaStore
 type ReteBuilderContext struct {
 	ResourceMgr     *rdf.ResourceManager
+	WorkspaceCtrl   *WorkspaceControl
 	MetaGraph       *rdf.RdfGraph
 	ResourcesLookup map[int]*rdf.Node
 	VariablesLookup map[int]*VarInfo
 	MainRuleUri     string
 	JetruleModel    *JetruleModel
 	JetStoreConfig  *map[string]string
-	LookupHelper    *LookupSqlHelper
+	LookupTables    *LookupTableManager
 	AlphaNodes      []*AlphaNode
 	NodeVertices    []*NodeVertex
 }
 
 type ReteMetaStoreFactory struct {
+	WorkspaceCtrl   *WorkspaceControl
 	ResourceMgr     *rdf.ResourceManager
 	MetaStoreLookup map[string]*ReteMetaStore
 	ReteModelLookup map[string]*JetruleModel
@@ -68,11 +70,23 @@ type ReteMetaStoreFactory struct {
 
 // Main function to create the factory and to load ReteMetaStore, one per main rule file.
 // Each rule file is a json with extension .jrcc.json produced by the rule compiler
-func NewReteMetaStoreFactory(mainRuleFileNames []string) (*ReteMetaStoreFactory, error) {
-	if len(mainRuleFileNames) == 0 {
-		return nil, fmt.Errorf("error, must provide at least one main rule file name")
+// Argument jetRuleName is either a main rule file (ending with .jr) or a RuleSequence name.
+// The WorkspaceControl component provides the mapping from jetRuleName to a list of
+// main rule files.
+func NewReteMetaStoreFactory(jetRuleName string) (*ReteMetaStoreFactory, error) {
+	// Load the workspace control file
+	wcPath := fmt.Sprintf("%s/%s/workspace_control.json", workspaceHome, wprefix)
+	workspaceControl, err := LoadWorkspaceControl(wcPath)
+	if err != nil {
+		return nil, err
 	}
+	mainRuleFileNames := workspaceControl.MainRuleFileNames(jetRuleName)
+	if len(mainRuleFileNames) == 0 {
+		return nil, fmt.Errorf("error, %s does not correspond to any rule file names", jetRuleName)
+	}
+
 	factory := &ReteMetaStoreFactory{
+		WorkspaceCtrl:   workspaceControl,
 		ResourceMgr:     rdf.NewResourceManager(nil),
 		MetaStoreLookup: make(map[string]*ReteMetaStore),
 		ReteModelLookup: make(map[string]*JetruleModel),
@@ -98,7 +112,7 @@ func NewReteMetaStoreFactory(mainRuleFileNames []string) (*ReteMetaStoreFactory,
 	}
 	// All the json rule files are parsed successfully
 	// Load the ReteMetaStore from the rule model
-	err := factory.Initialize()
+	err = factory.initialize()
 	if err != nil {
 		log.Printf("while loading the ReteMetaStore from jetrule model:%v\n", err)
 		return nil, err
@@ -106,14 +120,15 @@ func NewReteMetaStoreFactory(mainRuleFileNames []string) (*ReteMetaStoreFactory,
 	return factory, nil
 }
 
-// Transform the jetrule model into a set of ReteMetaStore
-func (factory *ReteMetaStoreFactory) Initialize() error {
-	// Note: single ResourceManager for all reteMetaStore
+// Transform the jetrule models into a set of ReteMetaStore
+func (factory *ReteMetaStoreFactory) initialize() error {
+	// Note: single ResourceManager for all reteMetaStores
 	// Note: each reteMetaStore have it's own MetaGraph
 	for ruleUri, jrModel := range factory.ReteModelLookup {
 		log.Println("Building ReteMetaStore for ruleset", ruleUri)
 		builderContext := &ReteBuilderContext{
 			ResourceMgr:     factory.ResourceMgr,
+			WorkspaceCtrl:   factory.WorkspaceCtrl,
 			MetaGraph:       rdf.NewRdfGraph("META"),
 			ResourcesLookup: make(map[int]*rdf.Node),
 			VariablesLookup: make(map[int]*VarInfo),
@@ -139,8 +154,11 @@ func (ctx *ReteBuilderContext) BuildReteMetaStore() (*ReteMetaStore, error) {
 		return nil, err
 	}
 
-	//*##*TODO Load LookupSqlHelper
-	ctx.LookupHelper = &LookupSqlHelper{}
+	// Load LookupTableManager
+	ctx.LookupTables, err = NewLookupTableManager(ctx.JetruleModel)
+	if err != nil {
+		return nil, fmt.Errorf("while calling LoadLookupTables for ruleUri %s: %v", ctx.MainRuleUri, err)
+	}
 
 	// Sort the antecedent terms from the consequent terms
 	for i := range ctx.JetruleModel.ReteNodes {
@@ -184,11 +202,11 @@ func (ctx *ReteBuilderContext) BuildReteMetaStore() (*ReteMetaStore, error) {
 		if w == nil {
 			return nil, fmt.Errorf("error: invalid AlphaNode configuration for vertex %d", ruleTerm.Vertex)
 		}
-		ctx.AlphaNodes = append(ctx.AlphaNodes, 
-			NewAlphaNode(u, v, w, ctx.NodeVertices[ruleTerm.Vertex],true, ruleTerm.NormalizedLabel))
+		ctx.AlphaNodes = append(ctx.AlphaNodes,
+			NewAlphaNode(u, v, w, ctx.NodeVertices[ruleTerm.Vertex], true, ruleTerm.NormalizedLabel))
 	}
 	// Create & initialize the ReteMetaStore
-	return NewReteMetaStore(ctx.ResourceMgr, ctx.MetaGraph, ctx.LookupHelper, ctx.AlphaNodes, ctx.NodeVertices)
+	return NewReteMetaStore(ctx.ResourceMgr, ctx.MetaGraph, ctx.LookupTables, ctx.AlphaNodes, ctx.NodeVertices)
 }
 
 func (ctx *ReteBuilderContext) NewAlphaFunctor(key int) (AlphaFunctor, error) {

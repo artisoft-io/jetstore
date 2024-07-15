@@ -11,16 +11,16 @@ import (
 type ReteMetaStore struct {
 	ResourceMgr  *rdf.ResourceManager
 	MetaGraph    *rdf.RdfGraph
-	LookupHelper *LookupSqlHelper
+	LookupTables *LookupTableManager
 	AlphaNodes   []*AlphaNode
 	NodeVertices []*NodeVertex
 }
 
-func NewReteMetaStore(rm *rdf.ResourceManager, mg *rdf.RdfGraph, h *LookupSqlHelper, an []*AlphaNode, nv []*NodeVertex) (*ReteMetaStore, error) {
+func NewReteMetaStore(rm *rdf.ResourceManager, mg *rdf.RdfGraph, ltm *LookupTableManager, an []*AlphaNode, nv []*NodeVertex) (*ReteMetaStore, error) {
 	ms := &ReteMetaStore{
 		ResourceMgr:  rm,
 		MetaGraph:    mg,
-		LookupHelper: h,
+		LookupTables: ltm,
 		AlphaNodes:   an,
 		NodeVertices: nv,
 	}

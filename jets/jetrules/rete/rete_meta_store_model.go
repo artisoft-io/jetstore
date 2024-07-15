@@ -33,13 +33,29 @@ type ResourceNode struct {
 }
 
 type LookupTableNode struct {
-	Columns        []map[string]interface{} `json:"columns"`
-	CsvFile        string                   `json:"csv_file"`
-	Key            []string                 `json:"key"`
-	Name           string                   `json:"name"`
-	Resources      []string                 `json:"resources"`
-	SourceFileName string                   `json:"source_file_name"`
-	Type           string                   `json:"type"`
+	Columns        []LookupTableColumn  `json:"columns"`
+	DataInfo       *LookupTableDataInfo `json:"data_file_info"`
+	CsvFile        string               `json:"csv_file"`
+	Key            []string             `json:"key"`
+	Name           string               `json:"name"`
+	Resources      []string             `json:"resources"`
+	SourceFileName string               `json:"source_file_name"`
+	Type           string               `json:"type"`
+}
+
+type LookupTableColumn struct {
+	Name    string `json:"name"`
+	Type    string `json:"type"`
+	IsArray bool   `json:"as_array"`
+}
+
+// LookupTableDataInfo contain the information of the lookup table data.
+// Originally this was the `lookup.db` and is a sqlite3 file.
+// other option will be in a jetstore binary format
+type LookupTableDataInfo struct {
+	DbFileName    string `json:"db_file_name"`
+	Format        string `json:"format"`
+	IndexFileName string `json:"index_file_name"`
 }
 
 // JetruleNode provides a rule view of the rete network
