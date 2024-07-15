@@ -16,18 +16,18 @@ import (
 )
 
 func (jsComp *JetStoreStackComponents) BuildCpipesLambdas(scope constructs.Construct, stack awscdk.Stack, props *JetstoreOneStackProps) {
-	// FOR TESTING ONLY
-	awslambdago.NewGoFunction(stack, jsii.String("TestLambda"), &awslambdago.GoFunctionProps{
-		Description: jsii.String("JetStore One Test Lambda function"),
-		Runtime:     awslambda.Runtime_PROVIDED_AL2023(),
-		Entry:       jsii.String("lambdas/compute_pipes/lambda_test"),
-		Bundling: &awslambdago.BundlingOptions{
-			GoBuildFlags: &[]*string{jsii.String(`-buildvcs=false -ldflags "-s -w"`)},
-		},
-		Vpc:                  jsComp.Vpc,
-		VpcSubnets:           jsComp.IsolatedSubnetSelection,
-	})
-	// FOR TESTING ONLY
+	// // FOR TESTING ONLY
+	// awslambdago.NewGoFunction(stack, jsii.String("TestLambda"), &awslambdago.GoFunctionProps{
+	// 	Description: jsii.String("JetStore One Test Lambda function"),
+	// 	Runtime:     awslambda.Runtime_PROVIDED_AL2023(),
+	// 	Entry:       jsii.String("lambdas/compute_pipes/lambda_test"),
+	// 	Bundling: &awslambdago.BundlingOptions{
+	// 		GoBuildFlags: &[]*string{jsii.String(`-buildvcs=false -ldflags "-s -w"`)},
+	// 	},
+	// 	Vpc:                  jsComp.Vpc,
+	// 	VpcSubnets:           jsComp.IsolatedSubnetSelection,
+	// })
+	// // FOR TESTING ONLY
 
 	// Build lambdas used by cpipesSM:
 	//	- CpipesNodeLambda
