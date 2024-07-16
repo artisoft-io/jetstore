@@ -120,7 +120,7 @@ func StartComputePipes(dbpool *pgxpool.Pool, nodeId int, inputHeaders []string, 
 		channelRegistry.inputRowChannel = inputRowChannel
 	}
 
-	log.Println("Compute Pipes channel registry ready")
+	// log.Println("Compute Pipes channel registry ready")
 	// for i := range cpConfig.Channels {
 	// 	log.Println("**& Channel", cpConfig.Channels[i].Name, "Columns map", channelRegistry.computeChannels[cpConfig.Channels[i].Name].columns)
 	// }
@@ -150,7 +150,7 @@ func StartComputePipes(dbpool *pgxpool.Pool, nodeId int, inputHeaders []string, 
 			chResults.Copy2DbResultCh <- table
 			go wt.WriteTable(dbpool, done, table)
 		}
-		log.Println("Compute Pipes output tables ready")
+		// log.Println("Compute Pipes output tables ready")
 	}
 
 	// Setup the s3Uploader
@@ -202,8 +202,7 @@ func StartComputePipes(dbpool *pgxpool.Pool, nodeId int, inputHeaders []string, 
 	return
 
 gotError:
-	log.Println(cpErr)
-	log.Println("**!@@ gotError in StartComputePipes")
+	log.Println("error in StartComputePipes:", cpErr)
 	errCh <- cpErr
 	close(done)
 	close(chResults.Copy2DbResultCh)
