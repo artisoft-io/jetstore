@@ -158,7 +158,7 @@ func (cpCtx *ComputePipesContext) ReadParquetFile(filePath *FileName, computePip
 							// log.Println("**!@@ partfile_key_component Got result",result,"@column_name:",cpCtx.PartFileKeyComponents[i].ColumnName,"file_key:",filePath.InFileKey)
 							break
 						}
-						log.Println(cpCtx.SessionId, "*WARNING* partfile_key_component not configure properly, column not found!!")
+						log.Println(cpCtx.SessionId,"node",cpCtx.NodeId, "*WARNING* partfile_key_component not configure properly, column not found!!")
 					}
 				}
 			}
