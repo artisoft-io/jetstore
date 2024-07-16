@@ -226,6 +226,8 @@ func (args *StartComputePipesArgs) StartShardingComputePipes(ctx context.Context
 			CpipesMode:            "sharding",
 			NbrNodes:              shardingNbrNodes,
 			DefaultMaxConcurrency: cpConfig.ClusterConfig.DefaultMaxConcurrency,
+			IsDebugMode:           cpConfig.ClusterConfig.IsDebugMode,
+			SamplingRate:          cpConfig.ClusterConfig.SamplingRate,
 		},
 		MetricsConfig: cpConfig.MetricsConfig,
 		OutputTables:  cpConfig.OutputTables,
