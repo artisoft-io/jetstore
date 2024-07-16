@@ -63,7 +63,7 @@ func (cpCtx *ComputePipesContext) DownloadS3Files(inFolderPath string, fileKeys 
 		var fileSize, totalFilesSize int64
 		var err error
 		if cpCtx.CpConfig.ClusterConfig.IsDebugMode {
-			log.Printf(cpCtx.SessionId, "node", cpCtx.NodeId, "Downloading multi-part file from s3 folder: %s", cpCtx.FileKey)
+			log.Printf("%s node %d Downloading multi-part file from s3 folder: %s", cpCtx.SessionId, cpCtx.NodeId, cpCtx.FileKey)
 		}
 		for i := range fileKeys {
 			retry := 0
