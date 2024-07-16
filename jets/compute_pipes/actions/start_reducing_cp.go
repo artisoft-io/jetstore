@@ -114,6 +114,8 @@ func (args *StartComputePipesArgs) StartReducingComputePipes(ctx context.Context
 			CpipesMode:            "reducing",
 			NbrNodes:              len(partitions),
 			DefaultMaxConcurrency: cpConfig.ClusterConfig.DefaultMaxConcurrency,
+			IsDebugMode:           cpConfig.ClusterConfig.IsDebugMode,
+			SamplingRate:          cpConfig.ClusterConfig.SamplingRate,
 		},
 		MetricsConfig: cpConfig.MetricsConfig,
 		OutputTables:  outputTables,
@@ -180,7 +182,7 @@ func (args *StartComputePipesArgs) StartReducingComputePipes(ctx context.Context
 		}
 	}
 	// Build CpipesReducingCommands
-	log.Printf("Got %d partitions, use_ecs_tasks: %v", len(partitions), args.UseECSTask)
+	log.Printf("%s Got %d partitions, use_ecs_tasks: %v", args.SessionId, len(partitions), args.UseECSTask)
 	if args.UseECSTask {
 		// Using ecs taks for reducing, cpipesCommands must be of type [][]string
 		cpipesCommands := make([][]string, len(partitions))
@@ -206,13 +208,13 @@ func (args *StartComputePipesArgs) StartReducingComputePipes(ctx context.Context
 		}
 		templateStr := string(template)
 		for i := range cpipesCommands {
-			value := strings.Replace(templateStr, "123456789", strconv.Itoa(i),1)
-			value = strings.Replace(value, "__LABEL__", partitions[i].jetsPartition,1)
+			value := strings.Replace(templateStr, "123456789", strconv.Itoa(i), 1)
+			value = strings.Replace(value, "__LABEL__", partitions[i].jetsPartition, 1)
 			cpipesCommands[i] = []string{
-				strings.Replace(value, "__FILE_KEY__", partitions[i].fileKey,1),
+				strings.Replace(value, "__FILE_KEY__", partitions[i].fileKey, 1),
 			}
 		}
-		result.CpipesCommands = cpipesCommands	
+		result.CpipesCommands = cpipesCommands
 	} else {
 		// Using lambda functions for reducing, cpipesCommands must be []ComputePipesArgs
 		cpipesCommands := make([]ComputePipesArgs, len(partitions))
@@ -235,7 +237,7 @@ func (args *StartComputePipesArgs) StartReducingComputePipes(ctx context.Context
 				UserEmail:          userEmail,
 			}
 		}
-		result.CpipesCommands = cpipesCommands	
+		result.CpipesCommands = cpipesCommands
 	}
 	// // WHEN Using Distributed Map:
 	// // write to location: stage_prefix/cpipesCommands/session_id/shardingCommands.json
