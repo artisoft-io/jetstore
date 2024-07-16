@@ -30,7 +30,6 @@ func (cpCtx *ComputePipesContext) LoadFiles(ctx context.Context, dbpool *pgxpool
 		// 	debug.PrintStack()
 		// 	close(done)
 		// }
-		fmt.Println("Closing computePipesInputCh **")
 		close(computePipesInputCh)
 	}()
 
@@ -43,7 +42,7 @@ func (cpCtx *ComputePipesContext) LoadFiles(ctx context.Context, dbpool *pgxpool
 	var count, totalRowCount int64
 	var err error
 	for localInFile := range cpCtx.FileNamesCh {
-		log.Printf("Loading file '%s'", localInFile)
+		log.Printf("%s node %d Loading file '%s'", cpCtx.SessionId, cpCtx.NodeId, localInFile)
 		if strings.HasSuffix(localInFile.InFileKey, ".csv") {
 			count, err = cpCtx.ReadCsvFile(&localInFile, computePipesInputCh)
 		} else {
@@ -51,7 +50,7 @@ func (cpCtx *ComputePipesContext) LoadFiles(ctx context.Context, dbpool *pgxpool
 		}
 		totalRowCount += count
 		if err != nil {
-			fmt.Println("loadFile2Db returned error", err)
+			log.Println(cpCtx.SessionId,"node",cpCtx.NodeId, "loadFile2Db returned error", err)
 			cpCtx.ChResults.LoadFromS3FilesResultCh <- compute_pipes.LoadFromS3FilesResult{LoadRowCount: totalRowCount, BadRowCount: 0, Err: err}
 			return
 		}
@@ -154,7 +153,7 @@ func (cpCtx *ComputePipesContext) ReadParquetFile(filePath *FileName, computePip
 							// log.Println("**!@@ partfile_key_component Got result",result,"@column_name:",cpCtx.PartFileKeyComponents[i].ColumnName,"file_key:",filePath.InFileKey)
 							break
 						}
-						log.Println("*** WARNING *** partfile_key_component not configure properly, column not found!!")
+						log.Println(cpCtx.SessionId, "*WARNING* partfile_key_component not configure properly, column not found!!")
 					}
 				}
 			}
@@ -177,7 +176,7 @@ func (cpCtx *ComputePipesContext) ReadParquetFile(filePath *FileName, computePip
 			select {
 			case computePipesInputCh <- record:
 			case <-cpCtx.Done:
-				log.Println("loading input row from file interrupted")
+				log.Println(cpCtx.SessionId,"node",cpCtx.NodeId, "loading input row from file interrupted")
 				return inputRowCount, nil
 			}
 			inputRowCount += 1

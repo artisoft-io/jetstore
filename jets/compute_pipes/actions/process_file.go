@@ -38,10 +38,12 @@ func (cpCtx *ComputePipesContext) ProcessFilesAndReportStatus(ctx context.Contex
 	saveResultsCtx.NodeId = cpCtx.NodeId
 	saveResultsCtx.SessionId = cpCtx.SessionId
 
-	log.Println("**!@@ CP RESULT = Downloaded from s3:")
+	// if cpCtx.CpConfig.ClusterConfig.IsDebugMode {
+	// 	log.Println(cpCtx.SessionId, "**!@@ CP RESULT = Downloaded from s3:")
+	// }
 	downloadResult := <-cpCtx.DownloadS3ResultCh
 	err = downloadResult.Err
-	log.Println("Downloaded", downloadResult.InputFilesCount, "files from s3, total size:", downloadResult.TotalFilesSize/1024/1024, "MB, err:", downloadResult.Err)
+	log.Println(cpCtx.SessionId,"node",cpCtx.ComputePipesArgs.NodeId, "Downloaded", downloadResult.InputFilesCount, "files from s3, total size:", downloadResult.TotalFilesSize/1024/1024, "MB, err:", downloadResult.Err)
 	var r *compute_pipes.ComputePipesResult
 	processingErrors := make([]string, 0)
 	// r = &compute_pipes.ComputePipesResult{
@@ -54,9 +56,9 @@ func (cpCtx *ComputePipesContext) ProcessFilesAndReportStatus(ctx context.Contex
 		processingErrors = append(processingErrors, downloadResult.Err.Error())
 	}
 
-	log.Println("**!@@ CP RESULT = Loaded from s3:")
+	// log.Println("**!@@ CP RESULT = Loaded from s3:")
 	loadFromS3FilesResult := <-cpCtx.ChResults.LoadFromS3FilesResultCh
-	log.Println("Loaded", loadFromS3FilesResult.LoadRowCount, "rows from s3 files with", loadFromS3FilesResult.BadRowCount, "bad rows", loadFromS3FilesResult.Err)
+	log.Println(cpCtx.SessionId,"node",cpCtx.ComputePipesArgs.NodeId, "Loaded", loadFromS3FilesResult.LoadRowCount, "rows from s3 files with", loadFromS3FilesResult.BadRowCount, "bad rows", loadFromS3FilesResult.Err)
 	// r = &compute_pipes.ComputePipesResult{
 	// 	TableName:    "Loaded rows from s3 files",
 	// 	CopyRowCount: loadFromS3FilesResult.LoadRowCount,
@@ -69,8 +71,8 @@ func (cpCtx *ComputePipesContext) ProcessFilesAndReportStatus(ctx context.Contex
 			err = loadFromS3FilesResult.Err
 		}
 	}
-	log.Println("**!@@ CP RESULT = Loaded from s3: DONE")
-	log.Println("**!@@ CP RESULT = Copy2DbResultCh:")
+	// log.Println("**!@@ CP RESULT = Loaded from s3: DONE")
+	// log.Println("**!@@ CP RESULT = Copy2DbResultCh:")
 	var outputRowCount int64
 	for table := range cpCtx.ChResults.Copy2DbResultCh {
 		// log.Println("**!@@ Read table results:")
@@ -86,7 +88,7 @@ func (cpCtx *ComputePipesContext) ProcessFilesAndReportStatus(ctx context.Contex
 			}
 		}
 	}
-	log.Println("**!@@ CP RESULT = Copy2DbResultCh: DONE")
+	// log.Println("**!@@ CP RESULT = Copy2DbResultCh: DONE")
 
 	// log.Println("**!@@ CP RESULT = WritePartitionsResultCh:")
 	for splitter := range cpCtx.ChResults.WritePartitionsResultCh {

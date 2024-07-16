@@ -19,6 +19,7 @@ type ClusterSpec struct {
 	NbrNodes              int                  `json:"nbr_nodes"`
 	DefaultMaxConcurrency int                  `json:"default_max_concurrency"`
 	NbrNodesLookup        *[]ClusterSizingSpec `json:"nbr_nodes_lookup"`
+	IsDebugMode           bool                 `json:"is_debug_mode"`
 }
 
 // Cluster sizing configuration
