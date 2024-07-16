@@ -121,7 +121,7 @@ func (cpCtx *ComputePipesContext) ProcessFilesAndReportStatus(ctx context.Contex
 	select {
 	case cpErr = <-cpCtx.ErrCh:
 		// got an error during compute pipes processing
-		log.Printf("got error from Compute Pipes processing: %v", cpErr)
+		log.Printf("%s node %d got error from Compute Pipes processing: %v",cpCtx.SessionId, cpCtx.NodeId, cpErr)
 		if err == nil {
 			err = cpErr
 		}
@@ -133,7 +133,7 @@ func (cpCtx *ComputePipesContext) ProcessFilesAndReportStatus(ctx context.Contex
 
 		processingErrors = append(processingErrors, fmt.Sprintf("got error from Compute Pipes processing: %v", cpErr))
 	default:
-		log.Println("No errors from Compute Pipes processing!")
+		// log.Println("No errors from Compute Pipes processing!")
 	}
 
 	// registering the load
@@ -145,7 +145,7 @@ func (cpCtx *ComputePipesContext) ProcessFilesAndReportStatus(ctx context.Contex
 	var errMessage string
 	if len(processingErrors) > 0 {
 		errMessage = strings.Join(processingErrors, ",")
-		log.Println(errMessage)
+		log.Println(cpCtx.SessionId, "node", cpCtx.NodeId, errMessage)
 	}
 
 	// CPIPES mode (cpipesSM), register the result of this shard with pipeline_execution_details
