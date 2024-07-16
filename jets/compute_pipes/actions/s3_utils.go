@@ -62,7 +62,9 @@ func (cpCtx *ComputePipesContext) DownloadS3Files(inFolderPath string, fileKeys 
 		var inFilePath string
 		var fileSize, totalFilesSize int64
 		var err error
-		log.Printf("Downloading multi-part file from s3 folder: %s", cpCtx.FileKey)
+		if cpCtx.CpConfig.ClusterConfig.IsDebugMode {
+			log.Printf(cpCtx.SessionId, "node", cpCtx.NodeId, "Downloading multi-part file from s3 folder: %s", cpCtx.FileKey)
+		}
 		for i := range fileKeys {
 			retry := 0
 		do_retry:
@@ -71,7 +73,7 @@ func (cpCtx *ComputePipesContext) DownloadS3Files(inFolderPath string, fileKeys 
 				if retry < 6 {
 					time.Sleep(500 * time.Millisecond)
 					retry++
-					goto do_retry		
+					goto do_retry
 				}
 				cpCtx.DownloadS3ResultCh <- DownloadS3Result{
 					InputFilesCount: i,
@@ -134,6 +136,6 @@ func DownloadS3Object(s3Key, localDir string, minSize int64) (string, int64, err
 		os.Remove(inFilePath)
 		return "", 0, nil
 	}
-	log.Println("downloaded", nsz, "bytes for key", s3Key)
+	// log.Println("downloaded", nsz, "bytes for key", s3Key)
 	return inFilePath, nsz, nil
 }

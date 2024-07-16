@@ -42,7 +42,9 @@ func (cpCtx *ComputePipesContext) LoadFiles(ctx context.Context, dbpool *pgxpool
 	var count, totalRowCount int64
 	var err error
 	for localInFile := range cpCtx.FileNamesCh {
-		log.Printf("%s node %d Loading file '%s'", cpCtx.SessionId, cpCtx.NodeId, localInFile)
+		if cpCtx.CpConfig.ClusterConfig.IsDebugMode {
+			log.Printf("%s node %d Loading file '%s'", cpCtx.SessionId, cpCtx.NodeId, localInFile)
+		}
 		if strings.HasSuffix(localInFile.InFileKey, ".csv") {
 			count, err = cpCtx.ReadCsvFile(&localInFile, computePipesInputCh)
 		} else {
@@ -62,6 +64,7 @@ func (cpCtx *ComputePipesContext) ReadParquetFile(filePath *FileName, computePip
 	var fileHd *os.File
 	var parquetReader *goparquet.FileReader
 	var err error
+	samplingRate := cpCtx.CpConfig.ClusterConfig.SamplingRate
 
 	fileHd, err = os.Open(filePath.LocalFileName)
 	if err != nil {
@@ -81,17 +84,19 @@ func (cpCtx *ComputePipesContext) ReadParquetFile(filePath *FileName, computePip
 
 	var inputRowCount int64
 	var record []interface{}
-	currentLineNumber := 0
 	isShardingMode := cpCtx.CpipesMode == "sharding"
 	for {
 		// read and put the rows into computePipesInputCh
-		currentLineNumber += 1
 		err = nil
-
-		record = make([]interface{}, len(cpCtx.InputColumns))
 		var parquetRow map[string]interface{}
 		parquetRow, err = parquetReader.NextRow()
 		if err == nil {
+			cpCtx.SamplingCount += 1
+			if samplingRate > 0 && cpCtx.SamplingCount < samplingRate {
+				continue
+			}
+			cpCtx.SamplingCount = 0
+			record = make([]interface{}, len(cpCtx.InputColumns))
 			for i := range inputColumns {
 				rawValue := parquetRow[cpCtx.InputColumns[i]]
 				if isShardingMode {
@@ -188,6 +193,7 @@ func (cpCtx *ComputePipesContext) ReadCsvFile(filePath *FileName, computePipesIn
 	var fileHd *os.File
 	var csvReader *csv.Reader
 	var err error
+	samplingRate := cpCtx.CpConfig.ClusterConfig.SamplingRate
 
 	fileHd, err = os.Open(filePath.LocalFileName)
 	if err != nil {
@@ -205,15 +211,17 @@ func (cpCtx *ComputePipesContext) ReadCsvFile(filePath *FileName, computePipesIn
 	var inputRowCount int64
 	var inRow []string
 	var record []interface{}
-	currentLineNumber := 0
 	for {
 		// read and put the rows into computePipesInputCh
-		currentLineNumber += 1
 		err = nil
-
-		record = make([]interface{}, len(cpCtx.InputColumns))
 		inRow, err = csvReader.Read()
 		if err == nil {
+			cpCtx.SamplingCount += 1
+			if samplingRate > 0 && cpCtx.SamplingCount < samplingRate {
+				continue
+			}
+			cpCtx.SamplingCount = 0
+			record = make([]interface{}, len(cpCtx.InputColumns))
 			for i := range inputColumns {
 				if len(inRow[i]) == 0 {
 					record[i] = nil
