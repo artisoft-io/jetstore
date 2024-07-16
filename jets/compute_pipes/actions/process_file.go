@@ -38,10 +38,15 @@ func (cpCtx *ComputePipesContext) ProcessFilesAndReportStatus(ctx context.Contex
 	saveResultsCtx.NodeId = cpCtx.NodeId
 	saveResultsCtx.SessionId = cpCtx.SessionId
 
-	log.Println("**!@@ CP RESULT = Downloaded from s3:")
+	// if cpCtx.CpConfig.ClusterConfig.IsDebugMode {
+	// 	log.Println(cpCtx.SessionId, "**!@@ CP RESULT = Downloaded from s3:")
+	// }
 	downloadResult := <-cpCtx.DownloadS3ResultCh
 	err = downloadResult.Err
-	log.Println("Downloaded", downloadResult.InputFilesCount, "files from s3, total size:", downloadResult.TotalFilesSize/1024/1024, "MB, err:", downloadResult.Err)
+	if cpCtx.CpConfig.ClusterConfig.IsDebugMode {
+		log.Println(cpCtx.SessionId, "node", cpCtx.ComputePipesArgs.NodeId, "Downloaded", downloadResult.InputFilesCount,
+			"files from s3, total size:", downloadResult.TotalFilesSize/1024/1024, "MB, err:", downloadResult.Err)
+	}
 	var r *compute_pipes.ComputePipesResult
 	processingErrors := make([]string, 0)
 	// r = &compute_pipes.ComputePipesResult{
@@ -54,9 +59,12 @@ func (cpCtx *ComputePipesContext) ProcessFilesAndReportStatus(ctx context.Contex
 		processingErrors = append(processingErrors, downloadResult.Err.Error())
 	}
 
-	log.Println("**!@@ CP RESULT = Loaded from s3:")
+	// log.Println("**!@@ CP RESULT = Loaded from s3:")
 	loadFromS3FilesResult := <-cpCtx.ChResults.LoadFromS3FilesResultCh
-	log.Println("Loaded", loadFromS3FilesResult.LoadRowCount, "rows from s3 files with", loadFromS3FilesResult.BadRowCount, "bad rows", loadFromS3FilesResult.Err)
+	if cpCtx.CpConfig.ClusterConfig.IsDebugMode {
+		log.Println(cpCtx.SessionId, "node", cpCtx.ComputePipesArgs.NodeId, "Loaded", loadFromS3FilesResult.LoadRowCount,
+			"rows from s3 files with", loadFromS3FilesResult.BadRowCount, "bad rows", loadFromS3FilesResult.Err)
+	}
 	// r = &compute_pipes.ComputePipesResult{
 	// 	TableName:    "Loaded rows from s3 files",
 	// 	CopyRowCount: loadFromS3FilesResult.LoadRowCount,
@@ -69,8 +77,8 @@ func (cpCtx *ComputePipesContext) ProcessFilesAndReportStatus(ctx context.Contex
 			err = loadFromS3FilesResult.Err
 		}
 	}
-	log.Println("**!@@ CP RESULT = Loaded from s3: DONE")
-	log.Println("**!@@ CP RESULT = Copy2DbResultCh:")
+	// log.Println("**!@@ CP RESULT = Loaded from s3: DONE")
+	// log.Println("**!@@ CP RESULT = Copy2DbResultCh:")
 	var outputRowCount int64
 	for table := range cpCtx.ChResults.Copy2DbResultCh {
 		// log.Println("**!@@ Read table results:")
@@ -86,7 +94,7 @@ func (cpCtx *ComputePipesContext) ProcessFilesAndReportStatus(ctx context.Contex
 			}
 		}
 	}
-	log.Println("**!@@ CP RESULT = Copy2DbResultCh: DONE")
+	// log.Println("**!@@ CP RESULT = Copy2DbResultCh: DONE")
 
 	// log.Println("**!@@ CP RESULT = WritePartitionsResultCh:")
 	for splitter := range cpCtx.ChResults.WritePartitionsResultCh {
@@ -151,7 +159,7 @@ func (cpCtx *ComputePipesContext) ProcessFilesAndReportStatus(ctx context.Contex
 				if transformationSpec.Type == "partition_writer" && transformationSpec.StepId != nil {
 					cpipesStepId = *transformationSpec.StepId
 				}
-			}	
+			}
 		}
 	}
 	err2 := cpCtx.UpdatePipelineExecutionStatus(dbpool, key,
@@ -167,7 +175,7 @@ func (cpCtx *ComputePipesContext) ProcessFilesAndReportStatus(ctx context.Contex
 
 // Register the CPIPES execution status details to pipeline_execution_details
 func (cpCtx *ComputePipesContext) InsertPipelineExecutionStatus(dbpool *pgxpool.Pool) (int, error) {
-	log.Printf("Inserting status 'in progress' to pipeline_execution_details table")
+	// log.Printf("Inserting status 'in progress' to pipeline_execution_details table")
 	stmt := `INSERT INTO jetsapi.pipeline_execution_details (
 							status, pipeline_config_key, pipeline_execution_status_key, 
 							client, process_name, main_input_session_id, session_id, source_period_key,
@@ -185,7 +193,7 @@ func (cpCtx *ComputePipesContext) InsertPipelineExecutionStatus(dbpool *pgxpool.
 }
 func (cpCtx *ComputePipesContext) UpdatePipelineExecutionStatus(dbpool *pgxpool.Pool, key int, inputRowCount, totalFilesSizeMb, outputRowCount int,
 	cpipesStepId, status, errMessage string) error {
-	log.Printf("Updating status '%s' to pipeline_execution_details table", status)
+	// log.Printf("Updating status '%s' to pipeline_execution_details table", status)
 	stmt := `UPDATE jetsapi.pipeline_execution_details SET (
 							cpipes_step_id, status, error_message, input_records_count, 
 							input_files_size_mb, rete_sessions_count, output_records_count) 

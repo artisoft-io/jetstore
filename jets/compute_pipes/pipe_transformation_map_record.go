@@ -63,7 +63,7 @@ func (ctx *BuilderContext) NewMapRecordTransformationPipe(source *InputChannel, 
 		columnEvaluators[i], err = ctx.buildTransformationColumnEvaluator(source, outputCh, &spec.Columns[i])
 		if err != nil {
 			err = fmt.Errorf("while buildTransformationColumnEvaluator (in NewMapRecordTransformationPipe) %v", err)
-			fmt.Println(err)
+			log.Println(err)
 			return nil, err
 		}
 	}

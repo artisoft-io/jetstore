@@ -43,6 +43,9 @@ func (ctx *BuilderContext) StartSplitterPipe(spec *PipeSpec, source *InputChanne
 	// fmt.Println("**!@@ start splitter loop on source:",source.config.Name)
 	for inRow := range source.channel {
 		key := inRow[spliterColumnIdx]
+		if key == nil {
+			log.Println(ctx.SessionId(),"node",ctx.nodeId, "*WARNING* splitter with nil key on source",source.config.Name)
+		}
 		splitCh := chanState[key]
 		if splitCh == nil {
 			// unseen value, create an slot with an intermediate channel
@@ -51,6 +54,12 @@ func (ctx *BuilderContext) StartSplitterPipe(spec *PipeSpec, source *InputChanne
 			chanState[key] = splitCh
 			partitionResultCh := make(chan ComputePipesResult, 1)
 			writePartitionsResultCh <- partitionResultCh
+
+			if ctx.cpConfig.ClusterConfig.IsDebugMode {
+				if len(chanState) % 5 == 0 {
+					log.Println(ctx.SessionId(),"node",ctx.nodeId, "splitter size:",len(chanState)," on source",source.config.Name)
+				}
+			}
 
 			// start a goroutine to manage the channel
 			// the input channel to the goroutine is splitCh

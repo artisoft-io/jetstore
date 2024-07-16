@@ -3,7 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
-	"log"
+	// "log"
 	"os"
 
 	"github.com/artisoft-io/jetstore/jets/awsi"
@@ -77,16 +77,16 @@ func main() {
 		panic("Invalid argument(s)")
 	}
 
-	log.Println("CP Starter:")
-	log.Println("-----------")
-	log.Println("Got argument: awsDsnSecret", awsDsnSecret)
-	log.Println("Got argument: dbPoolSize", dbPoolSize)
-	log.Println("Got argument: awsRegion", awsRegion)
-	log.Println("env CPIPES_STATUS_NOTIFICATION_ENDPOINT:", os.Getenv("CPIPES_STATUS_NOTIFICATION_ENDPOINT"))
-	log.Println("env CPIPES_STATUS_NOTIFICATION_ENDPOINT_JSON:", os.Getenv("CPIPES_STATUS_NOTIFICATION_ENDPOINT_JSON"))
-	log.Println("env CPIPES_CUSTOM_FILE_KEY_NOTIFICATION:", os.Getenv("CPIPES_CUSTOM_FILE_KEY_NOTIFICATION"))
-	log.Println("env CPIPES_START_NOTIFICATION_JSON:", os.Getenv("CPIPES_START_NOTIFICATION_JSON"))
-	log.Println("env JETS_S3_KMS_KEY_ARN:", os.Getenv("JETS_S3_KMS_KEY_ARN"))
+	// log.Println("CP Starter:")
+	// log.Println("-----------")
+	// log.Println("Got argument: awsDsnSecret", awsDsnSecret)
+	// log.Println("Got argument: dbPoolSize", dbPoolSize)
+	// log.Println("Got argument: awsRegion", awsRegion)
+	// log.Println("env CPIPES_STATUS_NOTIFICATION_ENDPOINT:", os.Getenv("CPIPES_STATUS_NOTIFICATION_ENDPOINT"))
+	// log.Println("env CPIPES_STATUS_NOTIFICATION_ENDPOINT_JSON:", os.Getenv("CPIPES_STATUS_NOTIFICATION_ENDPOINT_JSON"))
+	// log.Println("env CPIPES_CUSTOM_FILE_KEY_NOTIFICATION:", os.Getenv("CPIPES_CUSTOM_FILE_KEY_NOTIFICATION"))
+	// log.Println("env CPIPES_START_NOTIFICATION_JSON:", os.Getenv("CPIPES_START_NOTIFICATION_JSON"))
+	// log.Println("env JETS_S3_KMS_KEY_ARN:", os.Getenv("JETS_S3_KMS_KEY_ARN"))
 
 	// Start handler.
 	lambda.Start(handler)

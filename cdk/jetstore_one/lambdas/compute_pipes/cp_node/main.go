@@ -3,7 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
-	"log"
+	// "log"
 	"os"
 
 	"github.com/artisoft-io/jetstore/jets/awsi"
@@ -67,12 +67,12 @@ func main() {
 		panic("Invalid argument(s)")
 	}
 
-	log.Println("CP Node:")
-	log.Println("--------")
-	log.Println("Got argument: awsDsnSecret", awsDsnSecret)
-	log.Println("Got argument: dbPoolSize", dbPoolSize)
-	log.Println("Got argument: awsRegion", awsRegion)
-	log.Println("Got env: JETS_S3_KMS_KEY_ARN", os.Getenv("JETS_S3_KMS_KEY_ARN"))
+	// log.Println("CP Node:")
+	// log.Println("--------")
+	// log.Println("Got argument: awsDsnSecret", awsDsnSecret)
+	// log.Println("Got argument: dbPoolSize", dbPoolSize)
+	// log.Println("Got argument: awsRegion", awsRegion)
+	// log.Println("Got env: JETS_S3_KMS_KEY_ARN", os.Getenv("JETS_S3_KMS_KEY_ARN"))
 
 	// Start handler.
 	lambda.Start(handler)

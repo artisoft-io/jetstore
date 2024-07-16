@@ -151,6 +151,7 @@ type ComputePipesContext struct {
 	FileKeyComponents     map[string]interface{}
 	PartFileKeyComponents []CompiledPartFileComponent
 	EnvSettings           map[string]interface{}
+	SamplingCount         int
 	ChResults             *compute_pipes.ChannelResults
 	Done                  chan struct{}
 	ErrCh                 chan error
