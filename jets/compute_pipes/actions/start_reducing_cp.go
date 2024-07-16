@@ -115,7 +115,7 @@ func (args *StartComputePipesArgs) StartReducingComputePipes(ctx context.Context
 			NbrNodes:              len(partitions),
 			DefaultMaxConcurrency: cpConfig.ClusterConfig.DefaultMaxConcurrency,
 			IsDebugMode:           cpConfig.ClusterConfig.IsDebugMode,
-			SamplingRate:          cpConfig.ClusterConfig.SamplingRate,
+			// SamplingRate:          cpConfig.ClusterConfig.SamplingRate, // only do sampling on the initial read (sharding)
 		},
 		MetricsConfig: cpConfig.MetricsConfig,
 		OutputTables:  outputTables,
