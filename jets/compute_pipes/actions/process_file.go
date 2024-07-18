@@ -21,6 +21,7 @@ func (cpCtx *ComputePipesContext) ProcessFilesAndReportStatus(ctx context.Contex
 		LoadFromS3FilesResultCh: make(chan compute_pipes.LoadFromS3FilesResult, 1),
 		Copy2DbResultCh:         make(chan chan compute_pipes.ComputePipesResult, 101),
 		WritePartitionsResultCh: make(chan chan chan compute_pipes.ComputePipesResult, 10),
+		S3PutObjectResultCh:     make(chan compute_pipes.ComputePipesResult, 1),
 	}
 
 	key, err := cpCtx.InsertPipelineExecutionStatus(dbpool)
@@ -28,8 +29,8 @@ func (cpCtx *ComputePipesContext) ProcessFilesAndReportStatus(ctx context.Contex
 		return fmt.Errorf("error while inserting the load registry (cpipesSM): %v", err)
 	}
 
-	// read the rest of the file(s)
-	// ---------------------------------------
+	// read the the file(s)
+	// --------------------
 	cpCtx.LoadFiles(ctx, dbpool)
 
 	// Collect the results of each pipes and save it to database
@@ -116,12 +117,26 @@ func (cpCtx *ComputePipesContext) ProcessFilesAndReportStatus(ctx context.Contex
 	}
 	// log.Println("**!@@ CP RESULT = WritePartitionsResultCh: DONE")
 
+	// Get the result from S3DeviceManager
+
+	for s3DeviceManagerResult := range cpCtx.ChResults.S3PutObjectResultCh {
+		if cpCtx.CpConfig.ClusterConfig.IsDebugMode {
+			log.Printf("%s node %d Put %d part files to s3", cpCtx.SessionId, cpCtx.NodeId, s3DeviceManagerResult.PartsCount)
+		}
+		if s3DeviceManagerResult.Err != nil {
+			processingErrors = append(processingErrors, s3DeviceManagerResult.Err.Error())
+			if err == nil {
+				err = s3DeviceManagerResult.Err
+			}
+		}
+	}
+
 	// Check for error from compute pipes
 	var cpErr error
 	select {
 	case cpErr = <-cpCtx.ErrCh:
 		// got an error during compute pipes processing
-		log.Printf("%s node %d got error from Compute Pipes processing: %v",cpCtx.SessionId, cpCtx.NodeId, cpErr)
+		log.Printf("%s node %d got error from Compute Pipes processing: %v", cpCtx.SessionId, cpCtx.NodeId, cpErr)
 		if err == nil {
 			err = cpErr
 		}

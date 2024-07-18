@@ -109,11 +109,13 @@ func (args *StartComputePipesArgs) StartReducingComputePipes(ctx context.Context
 	}
 
 	// Make the reducing pipeline config
+	// Note that S3WorkerPoolSize is set to the  value set at the ClusterSpec
 	cpReducingConfig := &compute_pipes.ComputePipesConfig{
 		ClusterConfig: &compute_pipes.ClusterSpec{
 			CpipesMode:            "reducing",
 			NbrNodes:              len(partitions),
 			DefaultMaxConcurrency: cpConfig.ClusterConfig.DefaultMaxConcurrency,
+			S3WorkerPoolSize:      cpConfig.ClusterConfig.S3WorkerPoolSize,
 			IsDebugMode:           cpConfig.ClusterConfig.IsDebugMode,
 			// SamplingRate:          cpConfig.ClusterConfig.SamplingRate, // only do sampling on the initial read (sharding)
 		},

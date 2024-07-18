@@ -135,6 +135,7 @@ func (args *StartComputePipesArgs) StartShardingComputePipes(ctx context.Context
 	// Set a default cluster spec
 	clusterSpec := &compute_pipes.ClusterSizingSpec{
 		NbrNodes: shardingNbrNodes,
+		S3WorkerPoolSize: cpConfig.ClusterConfig.S3WorkerPoolSize,
 	}
 	if shardingNbrNodes == 0 {
 		if cpConfig.ClusterConfig.NbrNodesLookup == nil {
@@ -142,8 +143,14 @@ func (args *StartComputePipesArgs) StartShardingComputePipes(ctx context.Context
 		}
 		clusterSpec = calculateNbrNodes(int(totalSize/1024/1024), cpConfig.ClusterConfig.NbrNodesLookup)
 		shardingNbrNodes = clusterSpec.NbrNodes
+		if clusterSpec.S3WorkerPoolSize == 0 {
+			clusterSpec.S3WorkerPoolSize = cpConfig.ClusterConfig.S3WorkerPoolSize
+		}
 	}
 	nbrPartitions := uint64(shardingNbrNodes)
+	if clusterSpec.S3WorkerPoolSize == 0 {
+		clusterSpec.S3WorkerPoolSize = shardingNbrNodes
+	}
 	if clusterSpec.MaxConcurrency > 0 {
 		result.CpipesMaxConcurrency = clusterSpec.MaxConcurrency
 	} else {
@@ -225,6 +232,7 @@ func (args *StartComputePipesArgs) StartShardingComputePipes(ctx context.Context
 		ClusterConfig: &compute_pipes.ClusterSpec{
 			CpipesMode:            "sharding",
 			NbrNodes:              shardingNbrNodes,
+			S3WorkerPoolSize:      clusterSpec.S3WorkerPoolSize,
 			DefaultMaxConcurrency: cpConfig.ClusterConfig.DefaultMaxConcurrency,
 			IsDebugMode:           cpConfig.ClusterConfig.IsDebugMode,
 			SamplingRate:          cpConfig.ClusterConfig.SamplingRate,

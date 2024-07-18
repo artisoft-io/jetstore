@@ -5,7 +5,6 @@ import (
 	"log"
 	"sync"
 
-	"github.com/aws/aws-sdk-go-v2/feature/s3/manager"
 	"github.com/jackc/pgx/v4/pgxpool"
 )
 
@@ -108,7 +107,7 @@ type BuilderContext struct {
 	errCh              chan error
 	chResults          *ChannelResults
 	env                map[string]interface{}
-	s3Uploader         *manager.Uploader
+	s3DeviceManager    *S3DeviceManager
 	nodeId             int
 }
 

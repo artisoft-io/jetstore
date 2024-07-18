@@ -21,10 +21,16 @@ type LoadFromS3FilesResult struct {
 	Err          error
 }
 
+// ChannelResults holds the channel reporting back results.
+// LoadFromS3FilesResultCh: results from loading files (row count)
+// Copy2DbResultCh: results of records written to JetStore DB
+// WritePartitionsResultCh: report on rows output to s3 (row count)
+// S3PutObjectResultCh: reports on nbr of files put to s3 (file count)
 type ChannelResults struct {
 	LoadFromS3FilesResultCh chan LoadFromS3FilesResult
 	Copy2DbResultCh         chan chan ComputePipesResult
 	WritePartitionsResultCh chan chan chan ComputePipesResult
+	S3PutObjectResultCh     chan ComputePipesResult
 }
 
 type SaveResultsContext struct {

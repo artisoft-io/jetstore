@@ -18,6 +18,9 @@ import (
 	"github.com/xitongsys/parquet-go/writer"
 )
 
+// S3DeviceWriter is the component that reads the rows comming the PipeTransformationEvaluator
+// and writes them to a local file. This component delegates to S3DeviceManager to put the files in s3
+
 type S3DeviceWriter struct {
 	s3Uploader    *manager.Uploader
 	source        *InputChannel
@@ -25,13 +28,10 @@ type S3DeviceWriter struct {
 	localTempDir  *string
 	s3BasePath    *string
 	fileName      *string
-	bucketName    string
-	regionName    string
 	doneCh        chan struct{}
 	errCh         chan error
 }
 
-//*TODO No need to have bucketName and regionName in ctx, can be put as globals
 var kmsKeyArn string
 func init() {
 	kmsKeyArn = os.Getenv("JETS_S3_KMS_KEY_ARN")
@@ -121,7 +121,7 @@ func (ctx *S3DeviceWriter) WriteParquetPartition(s3WriterResultCh chan<- Compute
 	defer fileHd.Close()
 
 	putObjInput = &s3.PutObjectInput{
-		Bucket: &ctx.bucketName,
+		Bucket: &bucketName,
 		Key:    &s3FileName,
 		Body:   bufio.NewReader(fileHd),
 	}
@@ -204,7 +204,7 @@ func (ctx *S3DeviceWriter) WriteCsvPartition(s3WriterResultCh chan<- ComputePipe
 		}
 	}
 
-	// fmt.Println("**&@@ WriteCsvPartition: DONE writing local parquet file for fileName:", *ctx.fileName)
+	// fmt.Println("**&@@ WriteCsvPartition: DONE writing local csv file for fileName:", *ctx.fileName)
 	csvWriter.Flush()
 	snWriter.Flush()
 	_, err = fileHd.Seek(0, 0)
@@ -216,7 +216,7 @@ func (ctx *S3DeviceWriter) WriteCsvPartition(s3WriterResultCh chan<- ComputePipe
 	defer fileHd.Close()
 
 	putObjInput = &s3.PutObjectInput{
-		Bucket: &ctx.bucketName,
+		Bucket: &bucketName,
 		Key:    &s3FileName,
 		Body:   bufio.NewReader(fileHd),
 	}
