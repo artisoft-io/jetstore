@@ -9,7 +9,7 @@ import (
 	"os"
 
 	"github.com/artisoft-io/jetstore/jets/awsi"
-	"github.com/artisoft-io/jetstore/jets/compute_pipes/actions"
+	"github.com/artisoft-io/jetstore/jets/compute_pipes"
 )
 
 // Booter utility to execute cpipes (loader) in loop for each jets_partition
@@ -99,7 +99,7 @@ func main() {
 	var b []byte
 
 	// Start Sharding
-	shardingArgs := &actions.StartComputePipesArgs{
+	shardingArgs := &compute_pipes.StartComputePipesArgs{
 		PipelineExecKey: *pipelineExecKey,
 		FileKey:         *fileKey,
 		SessionId:       *sessionId,
@@ -118,7 +118,7 @@ func main() {
 
 	// Perform Sharding
 	// Get the cpipes args from s3
-	cpipesCommands, err := actions.ReadCpipesArgsFromS3(cpShardingRun.CpipesCommandsS3Key)
+	cpipesCommands, err := compute_pipes.ReadCpipesArgsFromS3(cpShardingRun.CpipesCommandsS3Key)
 	if err != nil {
 		log.Fatalf("while calling ReadCpipesArgsFromS3 from %s: %v", cpShardingRun.CpipesCommandsS3Key, err)
 	}
@@ -140,7 +140,7 @@ func main() {
 	fmt.Println(string(b))
 
 	// Perform Reducing
-	cpipesCommands, err = actions.ReadCpipesArgsFromS3(cpReducingRun.CpipesCommandsS3Key)
+	cpipesCommands, err = compute_pipes.ReadCpipesArgsFromS3(cpReducingRun.CpipesCommandsS3Key)
 	if err != nil {
 		log.Fatalf("while calling ReadCpipesArgsFromS3 from %s: %v", cpShardingRun.CpipesCommandsS3Key, err)
 	}
@@ -163,7 +163,7 @@ func main() {
 	fmt.Println(string(b))
 
 	// Perform Reducing
-	cpipesCommands, err = actions.ReadCpipesArgsFromS3(cpReducingRun.CpipesCommandsS3Key)
+	cpipesCommands, err = compute_pipes.ReadCpipesArgsFromS3(cpReducingRun.CpipesCommandsS3Key)
 	if err != nil {
 		log.Fatalf("while calling ReadCpipesArgsFromS3 from %s: %v", cpShardingRun.CpipesCommandsS3Key, err)
 	}
