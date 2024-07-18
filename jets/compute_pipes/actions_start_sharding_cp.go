@@ -1,4 +1,4 @@
-package actions
+package compute_pipes
 
 import (
 	"context"
@@ -10,7 +10,6 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/artisoft-io/jetstore/jets/compute_pipes"
 	"github.com/artisoft-io/jetstore/jets/datatable"
 	"github.com/artisoft-io/jetstore/jets/schema"
 	"github.com/jackc/pgx/v4/pgxpool"
@@ -88,7 +87,7 @@ func (args *StartComputePipesArgs) StartShardingComputePipes(ctx context.Context
 	if !icJson.Valid || len(icJson.String) == 0 {
 		return result, fmt.Errorf("error: input_columns_json is null or empty")
 	}
-	cpConfig, err := compute_pipes.UnmarshalComputePipesConfig(&cpJson.String)
+	cpConfig, err := UnmarshalComputePipesConfig(&cpJson.String)
 	if err != nil {
 		log.Println(fmt.Errorf("error while UnmarshalComputePipesConfig: %v", err))
 		return result, fmt.Errorf("error while UnmarshalComputePipesConfig: %v", err)
@@ -96,12 +95,12 @@ func (args *StartComputePipesArgs) StartShardingComputePipes(ctx context.Context
 
 	// Update output table schema
 	for i := range cpConfig.OutputTables {
-		tableIdentifier, err := compute_pipes.SplitTableName(cpConfig.OutputTables[i].Name)
+		tableIdentifier, err := SplitTableName(cpConfig.OutputTables[i].Name)
 		if err != nil {
 			return result, fmt.Errorf("while splitting table name: %s", err)
 		}
 		fmt.Println("**& Preparing / Updating Output Table", tableIdentifier)
-		err = compute_pipes.PrepareOutoutTable(dbpool, tableIdentifier, &cpConfig.OutputTables[i])
+		err = PrepareOutoutTable(dbpool, tableIdentifier, &cpConfig.OutputTables[i])
 		if err != nil {
 			return result, fmt.Errorf("while preparing output table: %s", err)
 		}
@@ -133,8 +132,9 @@ func (args *StartComputePipesArgs) StartShardingComputePipes(ctx context.Context
 	// Determine the number of nodes for sharding
 	shardingNbrNodes := cpConfig.ClusterConfig.NbrNodes
 	// Set a default cluster spec
-	clusterSpec := &compute_pipes.ClusterSizingSpec{
+	clusterSpec := &ClusterSizingSpec{
 		NbrNodes: shardingNbrNodes,
+		S3WorkerPoolSize: cpConfig.ClusterConfig.S3WorkerPoolSize,
 	}
 	if shardingNbrNodes == 0 {
 		if cpConfig.ClusterConfig.NbrNodesLookup == nil {
@@ -142,8 +142,14 @@ func (args *StartComputePipesArgs) StartShardingComputePipes(ctx context.Context
 		}
 		clusterSpec = calculateNbrNodes(int(totalSize/1024/1024), cpConfig.ClusterConfig.NbrNodesLookup)
 		shardingNbrNodes = clusterSpec.NbrNodes
+		if clusterSpec.S3WorkerPoolSize == 0 {
+			clusterSpec.S3WorkerPoolSize = cpConfig.ClusterConfig.S3WorkerPoolSize
+		}
 	}
 	nbrPartitions := uint64(shardingNbrNodes)
+	if clusterSpec.S3WorkerPoolSize == 0 {
+		clusterSpec.S3WorkerPoolSize = shardingNbrNodes
+	}
 	if clusterSpec.MaxConcurrency > 0 {
 		result.CpipesMaxConcurrency = clusterSpec.MaxConcurrency
 	} else {
@@ -221,10 +227,11 @@ func (args *StartComputePipesArgs) StartShardingComputePipes(ctx context.Context
 			}
 		}
 	}
-	cpShardingConfig := &compute_pipes.ComputePipesConfig{
-		ClusterConfig: &compute_pipes.ClusterSpec{
+	cpShardingConfig := &ComputePipesConfig{
+		ClusterConfig: &ClusterSpec{
 			CpipesMode:            "sharding",
 			NbrNodes:              shardingNbrNodes,
+			S3WorkerPoolSize:      clusterSpec.S3WorkerPoolSize,
 			DefaultMaxConcurrency: cpConfig.ClusterConfig.DefaultMaxConcurrency,
 			IsDebugMode:           cpConfig.ClusterConfig.IsDebugMode,
 			SamplingRate:          cpConfig.ClusterConfig.SamplingRate,
@@ -255,9 +262,9 @@ func (args *StartComputePipesArgs) StartShardingComputePipes(ctx context.Context
 	return result, err
 }
 
-func calculateNbrNodes(totalSizeMb int, sizingSpec *[]compute_pipes.ClusterSizingSpec) *compute_pipes.ClusterSizingSpec {
+func calculateNbrNodes(totalSizeMb int, sizingSpec *[]ClusterSizingSpec) *ClusterSizingSpec {
 	if sizingSpec == nil {
-		return &compute_pipes.ClusterSizingSpec{}
+		return &ClusterSizingSpec{}
 	}
 	for _, spec := range *sizingSpec {
 		if totalSizeMb >= spec.WhenTotalSizeGe {
@@ -266,7 +273,7 @@ func calculateNbrNodes(totalSizeMb int, sizingSpec *[]compute_pipes.ClusterSizin
 			return &spec
 		}
 	}
-	return &compute_pipes.ClusterSizingSpec{}
+	return &ClusterSizingSpec{}
 }
 
 func GetMaxConcurrency(nbrNodes, defaultMaxConcurrency int) int {

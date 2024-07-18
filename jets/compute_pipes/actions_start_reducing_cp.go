@@ -1,4 +1,4 @@
-package actions
+package compute_pipes
 
 import (
 	"context"
@@ -10,7 +10,6 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/artisoft-io/jetstore/jets/compute_pipes"
 	"github.com/jackc/pgx/v4/pgxpool"
 )
 
@@ -60,7 +59,7 @@ func (args *StartComputePipesArgs) StartReducingComputePipes(ctx context.Context
 	if len(cpJson.String) == 0 {
 		return result, fmt.Errorf("error: compute_pipes_json is null or empty")
 	}
-	cpConfig, err := compute_pipes.UnmarshalComputePipesConfig(&cpJson.String)
+	cpConfig, err := UnmarshalComputePipesConfig(&cpJson.String)
 	if err != nil {
 		log.Println(fmt.Errorf("error while UnmarshalComputePipesConfig: %v", err))
 		return result, fmt.Errorf("error while UnmarshalComputePipesConfig: %v", err)
@@ -100,7 +99,7 @@ func (args *StartComputePipesArgs) StartReducingComputePipes(ctx context.Context
 	}
 	result.UseECSReducingTask = args.UseECSTask
 
-	outputTables := make([]compute_pipes.TableSpec, 0)
+	outputTables := make([]TableSpec, 0)
 	currentStep := *args.CurrentStep
 	isLastReducing := false
 	if currentStep == len(cpConfig.ReducingPipesConfig)-1 {
@@ -109,11 +108,13 @@ func (args *StartComputePipesArgs) StartReducingComputePipes(ctx context.Context
 	}
 
 	// Make the reducing pipeline config
-	cpReducingConfig := &compute_pipes.ComputePipesConfig{
-		ClusterConfig: &compute_pipes.ClusterSpec{
+	// Note that S3WorkerPoolSize is set to the  value set at the ClusterSpec
+	cpReducingConfig := &ComputePipesConfig{
+		ClusterConfig: &ClusterSpec{
 			CpipesMode:            "reducing",
 			NbrNodes:              len(partitions),
 			DefaultMaxConcurrency: cpConfig.ClusterConfig.DefaultMaxConcurrency,
+			S3WorkerPoolSize:      cpConfig.ClusterConfig.S3WorkerPoolSize,
 			IsDebugMode:           cpConfig.ClusterConfig.IsDebugMode,
 			// SamplingRate:          cpConfig.ClusterConfig.SamplingRate, // only do sampling on the initial read (sharding)
 		},

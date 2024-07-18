@@ -18,6 +18,7 @@ type ClusterSpec struct {
 	CpipesMode            string               `json:"cpipes_mode"`
 	NbrNodes              int                  `json:"nbr_nodes"`
 	DefaultMaxConcurrency int                  `json:"default_max_concurrency"`
+	S3WorkerPoolSize      int                  `json:"s3_worker_pool_size"`
 	NbrNodesLookup        *[]ClusterSizingSpec `json:"nbr_nodes_lookup"`
 	IsDebugMode           bool                 `json:"is_debug_mode"`
 	SamplingRate          int                  `json:"sampling_rate"`
@@ -26,12 +27,15 @@ type ClusterSpec struct {
 // Cluster sizing configuration
 // Allows to dynamically determine the NbrNodes based on total size of input files.
 // UseEcsTasks and MaxConcurrency is used for step id 'reducing0'
-// When UseEcsTasks == true, MaxConcurrency applies to ECS cluster (reducing0 step id)
+// When UseEcsTasks == true, MaxConcurrency applies to ECS cluster (reducing0 step id).
+// Note that S3WorkerPoolSize is used for reducing0, all other reducing steps use the
+// S3WorkerPoolSize set at the ClusterSpec level.
 type ClusterSizingSpec struct {
-	WhenTotalSizeGe int  `json:"when_total_size_ge_mb"`
-	NbrNodes        int  `json:"nbr_nodes"`
-	UseEcsTasks     bool `json:"use_ecs_tasks"`
-	MaxConcurrency  int  `json:"max_concurrency"`
+	WhenTotalSizeGe  int  `json:"when_total_size_ge_mb"`
+	NbrNodes         int  `json:"nbr_nodes"`
+	S3WorkerPoolSize int  `json:"s3_worker_pool_size"`
+	UseEcsTasks      bool `json:"use_ecs_tasks"`
+	MaxConcurrency   int  `json:"max_concurrency"`
 }
 
 type MetricsSpec struct {

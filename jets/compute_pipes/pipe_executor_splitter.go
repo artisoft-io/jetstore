@@ -7,7 +7,7 @@ import (
 	"sync"
 )
 
-func (ctx *BuilderContext) StartSplitterPipe(spec *PipeSpec, source *InputChannel, writePartitionsResultCh chan chan ComputePipesResult) {
+func (ctx *BuilderContext) StartSplitterPipe(spec *PipeSpec, source *InputChannel, writePartitionsResultCh chan ComputePipesResult) {
 	var cpErr error
 	var wg sync.WaitGroup
 	defer func() {
@@ -52,8 +52,6 @@ func (ctx *BuilderContext) StartSplitterPipe(spec *PipeSpec, source *InputChanne
 			// log.Printf("**!@@ SPLITTER NEW KEY: %v", key)
 			splitCh = make(chan []interface{}, 1)
 			chanState[key] = splitCh
-			partitionResultCh := make(chan ComputePipesResult, 1)
-			writePartitionsResultCh <- partitionResultCh
 
 			if ctx.cpConfig.ClusterConfig.IsDebugMode {
 				if len(chanState) % 5 == 0 {
@@ -68,7 +66,7 @@ func (ctx *BuilderContext) StartSplitterPipe(spec *PipeSpec, source *InputChanne
 				channel: splitCh,
 				columns: source.columns,
 				config:  &ChannelSpec{Name: fmt.Sprintf("splitter channel from %s", source.config.Name)},
-			}, partitionResultCh, key, &wg)
+			}, writePartitionsResultCh, key, &wg)
 		}
 		// Send the record to the intermediate channel
 		// fmt.Println("**!@@ splitter loop, sending record to intermediate channel:", key)
@@ -113,32 +111,12 @@ func (ctx *BuilderContext) startSplitterChannelHandler(spec *PipeSpec, source *I
 		}
 		wg.Done()
 	}()
-	// Aggregate all results from partition writers
-	aggregator := make(chan chan ComputePipesResult)
-	defer close(aggregator)
-	go func() {
-		for resultCh := range aggregator {
-			for result := range resultCh {
-				partitionResultCh <- result
-			}
-		}
-		close(partitionResultCh)
-	}()
-
 	// fmt.Println("**!@@ SPLITTER *1 startSplitterChannelHandler ~ Called")
 	// Build the PipeTransformationEvaluator
 	evaluators = make([]PipeTransformationEvaluator, len(spec.Apply))
 	for j := range spec.Apply {
-		if spec.Apply[j].Type == "partition_writer" {
-			// partitionResultCh will have the aggregated count of files written by the partition writer
-			pResultCh := make(chan ComputePipesResult, 1)
-			aggregator <- pResultCh
-			evaluators[j], err = ctx.buildPipeTransformationEvaluator(source, jetsPartitionKey, pResultCh, &spec.Apply[j])
-		} else {
-			evaluators[j], err = ctx.buildPipeTransformationEvaluator(source, nil, nil, &spec.Apply[j])
-		}
+		evaluators[j], err = ctx.buildPipeTransformationEvaluator(source, jetsPartitionKey, partitionResultCh, &spec.Apply[j])
 		if err != nil {
-			close(aggregator)
 			cpErr = fmt.Errorf("while calling buildPipeTransformationEvaluator for %s: %v", spec.Apply[j].Type, err)
 			goto gotError
 		}

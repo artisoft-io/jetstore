@@ -14,7 +14,6 @@ import (
 
 	"github.com/artisoft-io/jetstore/jets/awsi"
 	"github.com/artisoft-io/jetstore/jets/compute_pipes"
-	"github.com/artisoft-io/jetstore/jets/compute_pipes/actions"
 	"github.com/artisoft-io/jetstore/jets/datatable"
 	"github.com/artisoft-io/jetstore/jets/schema"
 	"github.com/jackc/pgx/v4/pgxpool"
@@ -89,7 +88,7 @@ func processFile(dbpool *pgxpool.Pool, done chan struct{}, errCh chan error, hea
 		// NOTE: 10 is the limit of nbr of splitter operators
 		LoadFromS3FilesResultCh: make(chan compute_pipes.LoadFromS3FilesResult, 1),
 		Copy2DbResultCh:         make(chan chan compute_pipes.ComputePipesResult, 101),
-		WritePartitionsResultCh: make(chan chan chan compute_pipes.ComputePipesResult, 10),
+		WritePartitionsResultCh: make(chan chan compute_pipes.ComputePipesResult, 10),
 	}
 	var rawHeaders *[]string
 	var headersFile string
@@ -459,7 +458,7 @@ func coordinateWork() error {
 	if cpConfig != nil && *pipelineExecKey == -1 && isPartFiles == 1 {
 		// Case loader mode (loaderSM) with multipart files, save the file keys to compute_pipes_shard_registry
 		// and register the load to kick off cpipesSM
-		nkeys, err := actions.ShardFileKeys(context.Background(), dbpool, *inFile, *sessionId, cpConfig.ClusterConfig)
+		nkeys, err := compute_pipes.ShardFileKeys(context.Background(), dbpool, *inFile, *sessionId, cpConfig.ClusterConfig)
 		if err != nil {
 			return fmt.Errorf("while sharding file keys for multipart file load: %v", err)
 		}

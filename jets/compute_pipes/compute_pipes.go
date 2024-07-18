@@ -1,19 +1,13 @@
 package compute_pipes
 
 import (
-	"context"
 	"encoding/gob"
 	"encoding/json"
 	"fmt"
 	"log"
-	"os"
 	"runtime/debug"
 	"time"
 
-	"github.com/aws/aws-sdk-go-v2/aws"
-	"github.com/aws/aws-sdk-go-v2/config"
-	"github.com/aws/aws-sdk-go-v2/feature/s3/manager"
-	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/jackc/pgx/v4/pgxpool"
 )
 
@@ -23,10 +17,7 @@ func init() {
 }
 
 // Function to write transformed row to database
-func StartComputePipes(dbpool *pgxpool.Pool, nodeId int, inputHeaders []string, done chan struct{}, errCh chan error,
-	computePipesInputCh <-chan []interface{}, chResults *ChannelResults,
-	cpConfig *ComputePipesConfig, envSettings map[string]interface{},
-	fileKeyComponents map[string]interface{}) {
+func (cpCtx *ComputePipesContext) StartComputePipes(dbpool *pgxpool.Pool, computePipesInputCh <-chan []interface{}) {
 
 	defer func() {
 		// Catch the panic that might be generated downstream
@@ -35,10 +26,10 @@ func StartComputePipes(dbpool *pgxpool.Pool, nodeId int, inputHeaders []string, 
 			log.Println(cpErr)
 			// debug.Stack()
 			debug.PrintStack()
-			errCh <- cpErr
-			close(done)
-			close(chResults.Copy2DbResultCh)
-			close(chResults.WritePartitionsResultCh)
+			cpCtx.ErrCh <- cpErr
+			close(cpCtx.Done)
+			close(cpCtx.ChResults.Copy2DbResultCh)
+			close(cpCtx.ChResults.WritePartitionsResultCh)
 		}
 	}()
 
@@ -48,16 +39,14 @@ func StartComputePipes(dbpool *pgxpool.Pool, nodeId int, inputHeaders []string, 
 	var wt WriteTableSource
 	var table chan ComputePipesResult
 	var ctx *BuilderContext
-	var s3Uploader *manager.Uploader
-	var cfg aws.Config
 	var inputRowChannel *InputChannel
 
 	// Add to envSettings based on compute pipe config
-	if cpConfig.Context != nil {
-		for _, contextSpec := range *cpConfig.Context {
+	if cpCtx.CpConfig.Context != nil {
+		for _, contextSpec := range *cpCtx.CpConfig.Context {
 			switch contextSpec.Type {
 			case "file_key_component":
-				envSettings[contextSpec.Key] = fileKeyComponents[contextSpec.Expr]
+				cpCtx.EnvSettings[contextSpec.Key] = cpCtx.FileKeyComponents[contextSpec.Expr]
 			case "partfile_key_component":
 			default:
 				cpErr = fmt.Errorf("error: unknown ContextSpec Type: %v", contextSpec.Type)
@@ -67,10 +56,10 @@ func StartComputePipes(dbpool *pgxpool.Pool, nodeId int, inputHeaders []string, 
 	}
 
 	// Prepare the channel registry
-	if cpConfig.ClusterConfig.CpipesMode == "sharding" {
+	if cpCtx.CpConfig.ClusterConfig.CpipesMode == "sharding" {
 		// Setup the input channel for input_row
 		headersPosMap := make(map[string]int)
-		for i, c := range inputHeaders {
+		for i, c := range cpCtx.InputColumns {
 			headersPosMap[c] = i
 		}
 		inputRowChannel = &InputChannel{
@@ -78,7 +67,7 @@ func StartComputePipes(dbpool *pgxpool.Pool, nodeId int, inputHeaders []string, 
 			columns: headersPosMap,
 			config: &ChannelSpec{
 				Name:    "input_row",
-				Columns: inputHeaders,
+				Columns: cpCtx.InputColumns,
 			},
 		}
 	}
@@ -89,23 +78,23 @@ func StartComputePipes(dbpool *pgxpool.Pool, nodeId int, inputHeaders []string, 
 		closedChannels:       make(map[string]bool),
 		distributionChannels: make(map[string]*[]string),
 	}
-	for i := range cpConfig.Channels {
+	for i := range cpCtx.CpConfig.Channels {
 		cm := make(map[string]int)
-		for j, c := range cpConfig.Channels[i].Columns {
+		for j, c := range cpCtx.CpConfig.Channels[i].Columns {
 			cm[c] = j
 		}
-		channelRegistry.computeChannels[cpConfig.Channels[i].Name] = &Channel{
+		channelRegistry.computeChannels[cpCtx.CpConfig.Channels[i].Name] = &Channel{
 			channel: make(chan []interface{}),
 			columns: cm,
-			config:  &cpConfig.Channels[i],
+			config:  &cpCtx.CpConfig.Channels[i],
 		}
 	}
-	if cpConfig.ClusterConfig.CpipesMode == "reducing" {
+	if cpCtx.CpConfig.ClusterConfig.CpipesMode == "reducing" {
 		// Replace the first channel of the pipes and make it the "input_row"
 		// Setup the input channel for input_row
-		inChannel := channelRegistry.computeChannels[cpConfig.PipesConfig[0].Input]
+		inChannel := channelRegistry.computeChannels[cpCtx.CpConfig.PipesConfig[0].Input]
 		if inChannel == nil {
-			cpErr = fmt.Errorf("channel %s not found in ChannelRegistry", cpConfig.PipesConfig[0].Input)
+			cpErr = fmt.Errorf("channel %s not found in ChannelRegistry", cpCtx.CpConfig.PipesConfig[0].Input)
 			goto gotError
 		}
 		inputRowChannel = &InputChannel{
@@ -116,28 +105,28 @@ func StartComputePipes(dbpool *pgxpool.Pool, nodeId int, inputHeaders []string, 
 				Columns: inChannel.config.Columns,
 			},
 		}
-		cpConfig.PipesConfig[0].Input = "input_row"
+		cpCtx.CpConfig.PipesConfig[0].Input = "input_row"
 		channelRegistry.inputRowChannel = inputRowChannel
 	}
 
 	// log.Println("Compute Pipes channel registry ready")
-	// for i := range cpConfig.Channels {
-	// 	log.Println("**& Channel", cpConfig.Channels[i].Name, "Columns map", channelRegistry.computeChannels[cpConfig.Channels[i].Name].columns)
+	// for i := range cpCtx.CpConfig.Channels {
+	// 	log.Println("**& Channel", cpCtx.CpConfig.Channels[i].Name, "Columns map", channelRegistry.computeChannels[cpCtx.CpConfig.Channels[i].Name].columns)
 	// }
 
 	// Prepare the output tables when in mode reducing only
-	if cpConfig.ClusterConfig.CpipesMode == "reducing" {
-		for i := range cpConfig.OutputTables {
-			tableIdentifier, err := SplitTableName(cpConfig.OutputTables[i].Name)
+	if cpCtx.CpConfig.ClusterConfig.CpipesMode == "reducing" {
+		for i := range cpCtx.CpConfig.OutputTables {
+			tableIdentifier, err := SplitTableName(cpCtx.CpConfig.OutputTables[i].Name)
 			if err != nil {
 				cpErr = fmt.Errorf("while splitting table name: %s", err)
 				goto gotError
 			}
-			outChannel = channelRegistry.computeChannels[cpConfig.OutputTables[i].Key]
-			channelRegistry.outputTableChannels = append(channelRegistry.outputTableChannels, cpConfig.OutputTables[i].Key)
+			outChannel = channelRegistry.computeChannels[cpCtx.CpConfig.OutputTables[i].Key]
+			channelRegistry.outputTableChannels = append(channelRegistry.outputTableChannels, cpCtx.CpConfig.OutputTables[i].Key)
 			if outChannel == nil {
 				cpErr = fmt.Errorf("error: invalid Compute Pipes configuration: Output table %s does not have a channel configuration",
-					cpConfig.OutputTables[i].Name)
+					cpCtx.CpConfig.OutputTables[i].Name)
 				goto gotError
 			}
 			// log.Println("**& Channel for Output Table", tableIdentifier, "is:", outChannel.config.Name)
@@ -147,35 +136,32 @@ func StartComputePipes(dbpool *pgxpool.Pool, nodeId int, inputHeaders []string, 
 				columns:         outChannel.config.Columns,
 			}
 			table = make(chan ComputePipesResult, 1)
-			chResults.Copy2DbResultCh <- table
-			go wt.WriteTable(dbpool, done, table)
+			cpCtx.ChResults.Copy2DbResultCh <- table
+			go wt.WriteTable(dbpool, cpCtx.Done, table)
 		}
 		// log.Println("Compute Pipes output tables ready")
 	}
 
-	// Setup the s3Uploader
-	cfg, err = config.LoadDefaultConfig(context.TODO(), config.WithRegion(os.Getenv("JETS_REGION")))
-	if err != nil {
-		cpErr = fmt.Errorf("while loading aws configuration (in StartComputePipes): %v", err)
-		goto gotError
-	}
-	// Create the uploader
-	s3Uploader = manager.NewUploader(s3.NewFromConfig(cfg))
-
 	ctx = &BuilderContext{
 		dbpool:          dbpool,
-		cpConfig:        cpConfig,
+		cpConfig:        cpCtx.CpConfig,
 		channelRegistry: channelRegistry,
-		done:            done,
-		errCh:           errCh,
-		chResults:       chResults,
-		env:             envSettings,
-		s3Uploader:      s3Uploader,
-		nodeId:          nodeId,
+		done:            cpCtx.Done,
+		errCh:           cpCtx.ErrCh,
+		chResults:       cpCtx.ChResults,
+		env:             cpCtx.EnvSettings,
+		nodeId:          cpCtx.NodeId,
 	}
+	err = ctx.NewS3DeviceManager()
+	if err != nil {
+		cpErr = err
+		goto gotError
+	}
+	// Set the S3DeviceManager to ComputePipesContext so it's avail when cpipes wind down
+	cpCtx.S3DeviceMgr = ctx.s3DeviceManager
 
 	// Start the metric reporting goroutine
-	if cpConfig.MetricsConfig != nil && ctx.cpConfig.MetricsConfig.ReportInterval > 0 {
+	if cpCtx.CpConfig.MetricsConfig != nil && ctx.cpConfig.MetricsConfig.ReportInterval > 0 {
 		go func() {
 			for {
 				time.Sleep(time.Duration(ctx.cpConfig.MetricsConfig.ReportInterval) * time.Second)
@@ -197,16 +183,16 @@ func StartComputePipes(dbpool *pgxpool.Pool, nodeId int, inputHeaders []string, 
 	}
 
 	// All done!
-	close(chResults.Copy2DbResultCh)
-	close(chResults.WritePartitionsResultCh)
+	close(cpCtx.ChResults.Copy2DbResultCh)
+	close(cpCtx.ChResults.WritePartitionsResultCh)
 	return
 
 gotError:
 	log.Println("error in StartComputePipes:", cpErr)
-	errCh <- cpErr
-	close(done)
-	close(chResults.Copy2DbResultCh)
-	close(chResults.WritePartitionsResultCh)
+	cpCtx.ErrCh <- cpErr
+	close(cpCtx.Done)
+	close(cpCtx.ChResults.Copy2DbResultCh)
+	close(cpCtx.ChResults.WritePartitionsResultCh)
 }
 
 func UnmarshalComputePipesConfig(computePipesJson *string) (*ComputePipesConfig, error) {

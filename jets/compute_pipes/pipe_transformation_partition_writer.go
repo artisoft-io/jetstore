@@ -7,9 +7,9 @@ import (
 	"os"
 	"strings"
 
-	"github.com/aws/aws-sdk-go-v2/feature/s3/manager"
 	"github.com/jackc/pgx/v4/pgxpool"
 )
+
 var jetsS3InputPrefix string
 var jetsS3StagePrefix string
 
@@ -25,7 +25,7 @@ func init() {
 // currentDeviceCh is the physical ch to the device writer.
 // If the TransformationSpec.PartitionSize is nil or 0 then there is a single partion.
 // Replace the underlying channel to have a buffered channel and create one for each partition.
-// Currently supporting writing to s3 jetstore input path
+// Currently supporting writing to s3 jetstore stage path
 
 type PartitionWriterTransformationPipe struct {
 	cpConfig                   *ComputePipesConfig
@@ -45,13 +45,9 @@ type PartitionWriterTransformationPipe struct {
 	doneCh                     chan struct{}
 	errCh                      chan error
 	copy2DeviceResultCh        chan<- ComputePipesResult
-	bucketName                 string
-	regionName                 string
 	sessionId                  string
 	nodeId                     int
-	s3WritersResultCh          chan chan ComputePipesResult
-	s3WritersCollectedResultCh chan ComputePipesResult
-	s3Uploader                 *manager.Uploader
+	s3DeviceManager            *S3DeviceManager
 }
 
 func MakeJetsPartitionLabel(jetsPartitionKey interface{}) string {
@@ -81,11 +77,6 @@ func (ctx *PartitionWriterTransformationPipe) apply(input *[]interface{}) error 
 		ctx.currentDeviceCh = make(chan []interface{}, 10)
 		ctx.outputCh.channel = ctx.currentDeviceCh
 
-		// Check if we limit the file part size
-		if ctx.spec.PartitionSize != nil && *ctx.spec.PartitionSize > 0 {
-			ctx.rowCountPerPartition = int64(*ctx.spec.PartitionSize)
-		}
-
 		// Start the device writter for the partition
 		ctx.filePartitionNumber += 1
 		isParquetWriter := ctx.spec.DeviceWriterType == nil || *ctx.spec.DeviceWriterType == "parquet_writer"
@@ -95,7 +86,7 @@ func (ctx *PartitionWriterTransformationPipe) apply(input *[]interface{}) error 
 		}
 		partitionFileName := fmt.Sprintf("part%03d-%07d.%s", ctx.nodeId, ctx.filePartitionNumber, fileEx)
 		s3DeviceWriter := &S3DeviceWriter{
-			s3Uploader: ctx.s3Uploader,
+			s3DeviceManager: ctx.s3DeviceManager,
 			source: &InputChannel{
 				channel: ctx.currentDeviceCh,
 				columns: ctx.outputCh.columns,
@@ -105,17 +96,13 @@ func (ctx *PartitionWriterTransformationPipe) apply(input *[]interface{}) error 
 			localTempDir:  ctx.localTempDir,
 			s3BasePath:    ctx.baseOutputPath,
 			fileName:      &partitionFileName,
-			bucketName:    ctx.bucketName,
-			regionName:    ctx.regionName,
 			doneCh:        ctx.doneCh,
 			errCh:         ctx.errCh,
 		}
-		s3WriterResultCh := make(chan ComputePipesResult, 1)
-		ctx.s3WritersResultCh <- s3WriterResultCh
 		if isParquetWriter {
-			go s3DeviceWriter.WriteParquetPartition(s3WriterResultCh)
+			go s3DeviceWriter.WriteParquetPartition()
 		} else {
-			go s3DeviceWriter.WriteCsvPartition(s3WriterResultCh)
+			go s3DeviceWriter.WriteCsvPartition()
 		}
 	}
 
@@ -167,9 +154,6 @@ func (ctx *PartitionWriterTransformationPipe) done() error {
 		ctx.totalRowCount += ctx.partitionRowCount
 	}
 
-	// Done writing new partition, close the channel
-	close(ctx.s3WritersResultCh)
-
 	// Write to db the jets_partition and nodeId of this partition w/ session_id
 	stepId := "reducing0"
 	if ctx.spec.StepId != nil {
@@ -186,22 +170,19 @@ func (ctx *PartitionWriterTransformationPipe) done() error {
 		return fmt.Errorf("error inserting in jetsapi.compute_pipes_partitions_registry table: %v", err)
 	}
 
-	// Collect all the file parts that was written for this partition
-	totalFilePartsWritten := <-ctx.s3WritersCollectedResultCh
-
 	// Send the total row count to ctx.copy2DeviceResultCh
 	ctx.copy2DeviceResultCh <- ComputePipesResult{
 		TableName:    fmt.Sprintf("jets_partition=%s", ctx.jetsPartitionLabel),
 		CopyRowCount: ctx.totalRowCount,
-		PartsCount:   totalFilePartsWritten.PartsCount,
-		Err:          totalFilePartsWritten.Err,
+		PartsCount:   int64(ctx.filePartitionNumber),
 	}
 	return nil
 }
 
 // Always called, if error or not upstream
 func (ctx *PartitionWriterTransformationPipe) finally() {
-	close(ctx.copy2DeviceResultCh)
+	// Indicate to S3DeviceManager that we're done using it
+	ctx.s3DeviceManager.ClientsWg.Done()
 }
 
 // Create a new jets_partition writer, the partition is identified by the jetsPartition
@@ -209,8 +190,6 @@ func (ctx *BuilderContext) NewPartitionWriterTransformationPipe(source *InputCha
 	outputCh *OutputChannel, copy2DeviceResultCh chan ComputePipesResult, spec *TransformationSpec) (*PartitionWriterTransformationPipe, error) {
 
 	// Prepare the column evaluators
-	// IMPORTANT NOTE: When got an error while creating/configuring the partition_writer make sure to
-	//                 close the copy2DeviceResultCh channel, otherwise the process will hang
 	var err error
 	columnEvaluators := make([]TransformationColumnEvaluator, len(spec.Columns))
 	for i := range spec.Columns {
@@ -219,7 +198,6 @@ func (ctx *BuilderContext) NewPartitionWriterTransformationPipe(source *InputCha
 		if err != nil {
 			err = fmt.Errorf("while buildTransformationColumnEvaluator (in NewPartitionWriterTransformationPipe) %v", err)
 			fmt.Println(err)
-			close(copy2DeviceResultCh)
 			return nil, err
 		}
 	}
@@ -260,7 +238,7 @@ func (ctx *BuilderContext) NewPartitionWriterTransformationPipe(source *InputCha
 	// The original file key folder is prepended with the jets partition (it replace the first path component with the partion number)
 	p := ctx.env["$FILE_KEY_FOLDER"].(string)
 	// Write the partition files in the jetstore stage folder of s3
-	p = strings.Replace(p,	jetsS3InputPrefix, jetsS3StagePrefix, 1)
+	p = strings.Replace(p, jetsS3InputPrefix, jetsS3StagePrefix, 1)
 	if spec.FilePathSubstitutions != nil {
 		for _, ps := range *spec.FilePathSubstitutions {
 			p = strings.Replace(p, ps.Replace, ps.With, 1)
@@ -276,45 +254,23 @@ func (ctx *BuilderContext) NewPartitionWriterTransformationPipe(source *InputCha
 	jetsPartitionLabel := MakeJetsPartitionLabel(jetsPartitionKey)
 	baseOutputPath := fmt.Sprintf("%s/session_id=%s/jets_partition=%s", p, session_id, jetsPartitionLabel)
 
+	// Check if we limit the file part size
+	var rowCountPerPartition int64
+	if spec.PartitionSize != nil && *spec.PartitionSize > 0 {
+		rowCountPerPartition = int64(*spec.PartitionSize)
+	}
+
 	// Create a local temp dir to save the file partition for writing to s3
 	localTempDir, err2 := os.MkdirTemp("", "jets_partition")
 	if err2 != nil {
 		err = fmt.Errorf("while creating temp dir (in NewPartitionWriterTransformationPipe) %v", err2)
 		fmt.Println(err)
-		close(copy2DeviceResultCh)
 		return nil, err
 	}
 
-	// Collect the result of each part file writer of this jets_partition
-	s3WritersResultCh := make(chan chan ComputePipesResult)
-	s3WritersCollectedResultCh := make(chan ComputePipesResult)
-	go func() {
-		var partCount int64
-		var err error
-		for filePartWriter := range s3WritersResultCh {
-			partResult := <-filePartWriter
-			partCount += partResult.PartsCount
-			if partResult.Err != nil {
-				err = partResult.Err
-				break
-			}
-		}
-		// fmt.Println("**!@@ COLLECT *4 All parts collected, sending to s3WritersCollectedResultCh - count:", partCount, "err:", err)
-		// All file parts written, send out the count
-		select {
-		case s3WritersCollectedResultCh <- ComputePipesResult{
-			TableName:  fmt.Sprintf("jets_partition=%s", jetsPartitionLabel),
-			PartsCount: partCount,
-			Err:        err}:
-			if err != nil {
-				// Interrupt the whole process, there's been an error writing a file part
-				close(ctx.done)
-			}
-		case <-ctx.done:
-			log.Printf("Collecting file part writer result for jetsPartition '%s' interrupted", jetsPartitionLabel)
-		}
-		close(s3WritersCollectedResultCh)
-	}()
+	// Register as a client to S3DeviceManager
+	ctx.s3DeviceManager.ClientsWg.Add(1)
+
 	return &PartitionWriterTransformationPipe{
 		cpConfig:                   ctx.cpConfig,
 		dbpool:                     ctx.dbpool,
@@ -322,18 +278,14 @@ func (ctx *BuilderContext) NewPartitionWriterTransformationPipe(source *InputCha
 		baseOutputPath:             &baseOutputPath,
 		localTempDir:               &localTempDir,
 		jetsPartitionLabel:         jetsPartitionLabel,
+		rowCountPerPartition:       rowCountPerPartition,
 		outputCh:                   outputCh,
 		parquetSchema:              parquetSchema,
 		columnEvaluators:           columnEvaluators,
 		doneCh:                     ctx.done,
 		copy2DeviceResultCh:        copy2DeviceResultCh,
-		bucketName:                 os.Getenv("JETS_BUCKET"),
-		regionName:                 os.Getenv("JETS_REGION"),
 		sessionId:                  session_id,
 		nodeId:                     ctx.nodeId,
-		s3WritersResultCh:          s3WritersResultCh,
-		s3WritersCollectedResultCh: s3WritersCollectedResultCh,
-		// s3Uploader:                 ctx.s3Uploader,
-		s3Uploader:                 ctx.s3Uploader,
+		s3DeviceManager:            ctx.s3DeviceManager,
 	}, nil
 }

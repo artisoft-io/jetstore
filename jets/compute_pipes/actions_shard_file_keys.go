@@ -1,4 +1,4 @@
-package actions
+package compute_pipes
 
 import (
 	"context"
@@ -8,7 +8,6 @@ import (
 	"strings"
 
 	"github.com/artisoft-io/jetstore/jets/awsi"
-	"github.com/artisoft-io/jetstore/jets/compute_pipes"
 	"github.com/jackc/pgx/v4/pgxpool"
 )
 
@@ -19,7 +18,7 @@ import (
 // Then allocate the file_key using a round robin to node_id in decreasing order of file size.
 
 //* This version which combined part 1 and part 2 is no longer used, it's used in loader.go but will be removed on the loader cleaned up
-func ShardFileKeys(exeCtx context.Context, dbpool *pgxpool.Pool, baseFileKey string, sessionId string, clusterConfig *compute_pipes.ClusterSpec) (int, error) {
+func ShardFileKeys(exeCtx context.Context, dbpool *pgxpool.Pool, baseFileKey string, sessionId string, clusterConfig *ClusterSpec) (int, error) {
 	// Step 1: load the file_key and file_size into the table
 	totalPartfileCount, _, err := ShardFileKeysP1(exeCtx, dbpool, baseFileKey, sessionId)
 	if err != nil {
