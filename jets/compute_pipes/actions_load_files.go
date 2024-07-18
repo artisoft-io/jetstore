@@ -1,4 +1,4 @@
-package actions
+package compute_pipes
 
 import (
 	"context"
@@ -10,7 +10,6 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/artisoft-io/jetstore/jets/compute_pipes"
 	goparquet "github.com/fraugster/parquet-go"
 	"github.com/golang/snappy"
 	"github.com/jackc/pgx/v4/pgxpool"
@@ -35,8 +34,7 @@ func (cpCtx *ComputePipesContext) LoadFiles(ctx context.Context, dbpool *pgxpool
 
 	// Start the Compute Pipes async
 	// Note: when nbrShards > 1, cpipes does not work in local mode in apiserver yet
-	go compute_pipes.StartComputePipes(dbpool, cpCtx.NodeId, cpCtx.InputColumns, cpCtx.Done, cpCtx.ErrCh, computePipesInputCh, cpCtx.ChResults,
-		cpCtx.CpConfig, cpCtx.EnvSettings, cpCtx.FileKeyComponents)
+	go cpCtx.StartComputePipes(dbpool, computePipesInputCh)
 
 	// Load the files
 	var count, totalRowCount int64
@@ -53,11 +51,11 @@ func (cpCtx *ComputePipesContext) LoadFiles(ctx context.Context, dbpool *pgxpool
 		totalRowCount += count
 		if err != nil {
 			log.Println(cpCtx.SessionId,"node",cpCtx.NodeId, "loadFile2Db returned error", err)
-			cpCtx.ChResults.LoadFromS3FilesResultCh <- compute_pipes.LoadFromS3FilesResult{LoadRowCount: totalRowCount, BadRowCount: 0, Err: err}
+			cpCtx.ChResults.LoadFromS3FilesResultCh <- LoadFromS3FilesResult{LoadRowCount: totalRowCount, BadRowCount: 0, Err: err}
 			return
 		}
 	}
-	cpCtx.ChResults.LoadFromS3FilesResultCh <- compute_pipes.LoadFromS3FilesResult{LoadRowCount: totalRowCount, BadRowCount: 0}
+	cpCtx.ChResults.LoadFromS3FilesResultCh <- LoadFromS3FilesResult{LoadRowCount: totalRowCount, BadRowCount: 0}
 }
 
 func (cpCtx *ComputePipesContext) ReadParquetFile(filePath *FileName, computePipesInputCh chan<- []interface{}) (int64, error) {

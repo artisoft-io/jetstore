@@ -23,7 +23,6 @@ import (
 	// "time"
 
 	"github.com/artisoft-io/jetstore/jets/awsi"
-	"github.com/artisoft-io/jetstore/jets/compute_pipes"
 	"github.com/artisoft-io/jetstore/jets/datatable/jcsv"
 	"github.com/artisoft-io/jetstore/jets/dbutils"
 	"github.com/artisoft-io/jetstore/jets/schema"
@@ -935,15 +934,7 @@ func (ctx *Context) InsertRows(dataTableAction *DataTableAction, token string) (
 				return
 			}
 
-			nbrCpipesClusterNodes := 0
-			// if stateMachineName == "cpipesSM" {
-			// 	nbrCpipesClusterNodes, err = getNbrNodesFromComputePipesConfig(ctx.Dbpool, dataTableAction.Data[irow]["main_input_registry_key"])
-			// 	if err != nil {
-			// 		httpStatus = http.StatusInternalServerError
-			// 		err = fmt.Errorf("while calling getNbrNodesFromComputePipesConfig for process %v: %v", processName, err)
-			// 		return
-			// 	}
-			// }
+			nbrClusterNodes := 0
 
 			// returnedKey is the key of the row inserted in the db, here it correspond to peKey
 			if returnedKey[irow] <= 0 {
@@ -1119,17 +1110,17 @@ func (ctx *Context) InsertRows(dataTableAction *DataTableAction, token string) (
 			default:
 				// Invoke states to execute a process
 				// Rules Server arguments
-				if nbrCpipesClusterNodes == 0 {
-					nbrCpipesClusterNodes = ctx.NbrShards
+				if nbrClusterNodes == 0 {
+					nbrClusterNodes = ctx.NbrShards
 				}
 				serverCommands := make([][]string, 0)
 				if stateMachineName != "cpipesSM" {
-					for shardId := 0; shardId < nbrCpipesClusterNodes; shardId++ {
+					for shardId := 0; shardId < nbrClusterNodes; shardId++ {
 						serverArgs := []string{
 							"-peKey", peKey,
 							"-userEmail", userEmail.(string),
 							"-shardId", strconv.Itoa(shardId),
-							"-nbrShards", strconv.Itoa(nbrCpipesClusterNodes),
+							"-nbrShards", strconv.Itoa(nbrClusterNodes),
 						}
 						if serverCompletedMetric != "" {
 							serverArgs = append(serverArgs, "-serverCompletedMetric")
@@ -1212,37 +1203,6 @@ func (ctx *Context) InsertRows(dataTableAction *DataTableAction, token string) (
 }
 
 // utility methods
-func getNbrNodesFromComputePipesConfig(dbpool *pgxpool.Pool, inputRegistryKey interface{}) (int, error) {
-	stmt := `
-		SELECT compute_pipes_json 
-		FROM  jetsapi.input_registry ir, jetsapi.source_config sc
-		WHERE ir.client = sc.client
-		  AND ir.org = sc.org
-			AND ir.object_type = sc.object_type
-		  AND ir.key = $1`
-	var cpJson sql.NullString
-	err := dbpool.QueryRow(context.Background(), stmt, inputRegistryKey).Scan(&cpJson)
-	if err != nil {
-		return 0, fmt.Errorf("getNbrNodesFromComputePipesConfig: while getting compute_pipes_json from source_config table: %v", err)
-	}
-	if cpJson.Valid {
-		// Parse the json and get the nbr nodes for the cluster
-		// unmarshall the compute graph definition
-		var cpConfig compute_pipes.ComputePipesConfig
-		err := json.Unmarshal([]byte(cpJson.String), &cpConfig)
-		if err != nil {
-			return 0, fmt.Errorf("getNbrNodesFromComputePipesConfig: while unmarshaling compute pipes json: %s", err)
-		}
-
-		// validate cluster config
-		if cpConfig.ClusterConfig == nil {
-			return 0, nil
-		}
-		return cpConfig.ClusterConfig.NbrNodes, nil
-	}
-	return 0, nil
-}
-
 func execQuery(dbpool *pgxpool.Pool, dataTableAction *DataTableAction, query *string) (*[][]interface{}, *[]DataTableColumnDef, error) {
 	// //DEV
 	// fmt.Println("\n*** UI Query:\n", *query)

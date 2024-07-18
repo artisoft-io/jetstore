@@ -1,4 +1,4 @@
-package actions
+package compute_pipes
 
 import (
 	"context"
@@ -6,7 +6,6 @@ import (
 	"log"
 	"strings"
 
-	"github.com/artisoft-io/jetstore/jets/compute_pipes"
 	"github.com/jackc/pgx/v4/pgxpool"
 )
 
@@ -15,13 +14,13 @@ import (
 func (cpCtx *ComputePipesContext) ProcessFilesAndReportStatus(ctx context.Context, dbpool *pgxpool.Pool,
 	inFolderPath string) error {
 
-	cpCtx.ChResults = &compute_pipes.ChannelResults{
+	cpCtx.ChResults = &ChannelResults{
 		// NOTE: 101 is the limit of nbr of output table
 		// NOTE: 10 is the limit of nbr of splitter operators
-		LoadFromS3FilesResultCh: make(chan compute_pipes.LoadFromS3FilesResult, 1),
-		Copy2DbResultCh:         make(chan chan compute_pipes.ComputePipesResult, 101),
-		WritePartitionsResultCh: make(chan chan chan compute_pipes.ComputePipesResult, 10),
-		S3PutObjectResultCh:     make(chan compute_pipes.ComputePipesResult, 1),
+		LoadFromS3FilesResultCh: make(chan LoadFromS3FilesResult, 1),
+		Copy2DbResultCh:         make(chan chan ComputePipesResult, 101),
+		WritePartitionsResultCh: make(chan chan chan ComputePipesResult, 10),
+		S3PutObjectResultCh:     make(chan ComputePipesResult, 1),
 	}
 
 	key, err := cpCtx.InsertPipelineExecutionStatus(dbpool)
@@ -34,7 +33,7 @@ func (cpCtx *ComputePipesContext) ProcessFilesAndReportStatus(ctx context.Contex
 	cpCtx.LoadFiles(ctx, dbpool)
 
 	// Collect the results of each pipes and save it to database
-	saveResultsCtx := compute_pipes.NewSaveResultsContext(dbpool)
+	saveResultsCtx := NewSaveResultsContext(dbpool)
 	saveResultsCtx.JetsPartition = cpCtx.JetsPartitionLabel
 	saveResultsCtx.NodeId = cpCtx.NodeId
 	saveResultsCtx.SessionId = cpCtx.SessionId
@@ -48,9 +47,9 @@ func (cpCtx *ComputePipesContext) ProcessFilesAndReportStatus(ctx context.Contex
 		log.Println(cpCtx.SessionId, "node", cpCtx.ComputePipesArgs.NodeId, "Downloaded", downloadResult.InputFilesCount,
 			"files from s3, total size:", downloadResult.TotalFilesSize/1024/1024, "MB, err:", downloadResult.Err)
 	}
-	var r *compute_pipes.ComputePipesResult
+	var r *ComputePipesResult
 	processingErrors := make([]string, 0)
-	// r = &compute_pipes.ComputePipesResult{
+	// r = &ComputePipesResult{
 	// 	TableName:    "Downloaded files from s3",
 	// 	CopyRowCount: int64(downloadResult.InputFilesCount),
 	// 	Err:          downloadResult.Err,
@@ -66,7 +65,7 @@ func (cpCtx *ComputePipesContext) ProcessFilesAndReportStatus(ctx context.Contex
 		log.Println(cpCtx.SessionId, "node", cpCtx.ComputePipesArgs.NodeId, "Loaded", loadFromS3FilesResult.LoadRowCount,
 			"rows from s3 files with", loadFromS3FilesResult.BadRowCount, "bad rows", loadFromS3FilesResult.Err)
 	}
-	// r = &compute_pipes.ComputePipesResult{
+	// r = &ComputePipesResult{
 	// 	TableName:    "Loaded rows from s3 files",
 	// 	CopyRowCount: loadFromS3FilesResult.LoadRowCount,
 	// 	Err:          loadFromS3FilesResult.Err,
@@ -140,7 +139,7 @@ func (cpCtx *ComputePipesContext) ProcessFilesAndReportStatus(ctx context.Contex
 		if err == nil {
 			err = cpErr
 		}
-		r = &compute_pipes.ComputePipesResult{
+		r = &ComputePipesResult{
 			CopyRowCount: loadFromS3FilesResult.LoadRowCount,
 			Err:          cpErr,
 		}

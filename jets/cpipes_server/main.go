@@ -8,7 +8,7 @@ import (
 	"os"
 
 	"github.com/artisoft-io/jetstore/jets/awsi"
-	"github.com/artisoft-io/jetstore/jets/compute_pipes/actions"
+	"github.com/artisoft-io/jetstore/jets/compute_pipes"
 )
 
 // Compute Pipe Node Executor as a Container Server
@@ -57,7 +57,7 @@ func main() {
 	}
 
 	// Parse the command line json (arguments)
-	var cpArgs actions.ComputePipesArgs
+	var cpArgs compute_pipes.ComputePipesArgs
 	err = json.Unmarshal([]byte(args), &cpArgs)
 	if err != nil {
 		errMsg = append(errMsg, fmt.Sprintf("while unmarshaling command line json (arguments): %s", err))

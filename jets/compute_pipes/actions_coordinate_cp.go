@@ -1,4 +1,4 @@
-package actions
+package compute_pipes
 
 import (
 	"context"
@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/artisoft-io/jetstore/jets/awsi"
-	"github.com/artisoft-io/jetstore/jets/compute_pipes"
 	"github.com/artisoft-io/jetstore/jets/datatable"
 	"github.com/jackc/pgx/v4/pgxpool"
 )
@@ -104,7 +103,7 @@ func (args *ComputePipesArgs) CoordinateComputePipes(ctx context.Context, dsn st
 		FileNamesCh:        make(chan FileName, 2),
 		DownloadS3ResultCh: make(chan DownloadS3Result, 1),
 	}
-	cpContext.CpConfig, err = compute_pipes.UnmarshalComputePipesConfig(&cpipesConfigJson)
+	cpContext.CpConfig, err = UnmarshalComputePipesConfig(&cpipesConfigJson)
 	if err != nil {
 		cpErr = fmt.Errorf("failed to unmarshal cpipes config json (%s): %v", args.CpipesMode, err)
 		goto gotError

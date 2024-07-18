@@ -15,13 +15,6 @@ import (
 // S3DeviceManager manages a pool of S3DeviceWorker to put local files
 // to s3
 
-var bucketName, regionName string
-
-func init() {
-	bucketName = os.Getenv("JETS_BUCKET")
-	regionName = os.Getenv("JETS_REGION")
-}
-
 // S3DeviceManager manage a pool of workers to put file to s3.
 // ClientWg is a wait group of the partition writers created during 
 // buildComputeGraph function. The WorkersTaskCh is closed in process_file.go

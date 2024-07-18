@@ -1,4 +1,4 @@
-package actions
+package compute_pipes
 
 import (
 	"encoding/json"
@@ -7,7 +7,6 @@ import (
 	"regexp"
 
 	"github.com/artisoft-io/jetstore/jets/awsi"
-	"github.com/artisoft-io/jetstore/jets/compute_pipes"
 )
 
 // Common functions and types for cp lambda version
@@ -147,12 +146,12 @@ type CompiledPartFileComponent struct {
 
 type ComputePipesContext struct {
 	ComputePipesArgs
-	CpConfig              *compute_pipes.ComputePipesConfig
+	CpConfig              *ComputePipesConfig
 	FileKeyComponents     map[string]interface{}
 	PartFileKeyComponents []CompiledPartFileComponent
 	EnvSettings           map[string]interface{}
 	SamplingCount         int
-	ChResults             *compute_pipes.ChannelResults
+	ChResults             *ChannelResults
 	Done                  chan struct{}
 	ErrCh                 chan error
 	FileNamesCh           chan FileName

@@ -32,11 +32,6 @@ type S3DeviceWriter struct {
 	errCh         chan error
 }
 
-var kmsKeyArn string
-func init() {
-	kmsKeyArn = os.Getenv("JETS_S3_KMS_KEY_ARN")
-}
-
 func (ctx *S3DeviceWriter) WriteParquetPartition(s3WriterResultCh chan<- ComputePipesResult) {
 	var cpErr, err error
 	var pw *writer.CSVWriter

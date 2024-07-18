@@ -1,4 +1,4 @@
-package actions
+package compute_pipes
 
 import (
 	"context"
@@ -15,6 +15,20 @@ import (
 )
 
 // Common functions and types for s3, rerwite of loader's version
+
+var bucketName, regionName, kmsKeyArn string
+var downloader *manager.Downloader
+
+func init() {
+	bucketName = os.Getenv("JETS_BUCKET")
+	regionName = os.Getenv("JETS_REGION")
+	kmsKeyArn = os.Getenv("JETS_S3_KMS_KEY_ARN")
+	var err error
+	downloader, err = awsi.NewDownloader(regionName)
+	if err != nil {
+		log.Fatalf("while init s3 downloader for region %s: %v", regionName, err)
+	}
+}
 
 type DownloadS3Result struct {
 	InputFilesCount int
@@ -98,20 +112,6 @@ func (cpCtx *ComputePipesContext) DownloadS3Files(inFolderPath string, fileKeys 
 	return nil
 }
 
-var bucket, region, kmsKeyArn string
-var downloader *manager.Downloader
-
-func init() {
-	bucket = os.Getenv("JETS_BUCKET")
-	region = os.Getenv("JETS_REGION")
-	kmsKeyArn = os.Getenv("JETS_S3_KMS_KEY_ARN")
-	var err error
-	downloader, err = awsi.NewDownloader(region)
-	if err != nil {
-		log.Fatalf("while init s3 downloader for region %s: %v", region, err)
-	}
-}
-
 func DownloadS3Object(s3Key, localDir string, minSize int64) (string, int64, error) {
 	// Download object(s) using a download manager to a temp file (fileHd)
 	var inFilePath string
@@ -126,7 +126,7 @@ func DownloadS3Object(s3Key, localDir string, minSize int64) (string, int64, err
 	// log.Printf("S3Key: %s, Temp file name: %s", s3Key, inFilePath)
 
 	// Download the object
-	nsz, err := awsi.DownloadFromS3v2(downloader, bucket, s3Key, fileHd)
+	nsz, err := awsi.DownloadFromS3v2(downloader, bucketName, s3Key, fileHd)
 	if err != nil {
 		return "", 0, fmt.Errorf("failed to download input file: %v", err)
 	}
