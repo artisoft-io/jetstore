@@ -156,4 +156,5 @@ type ComputePipesContext struct {
 	ErrCh                 chan error
 	FileNamesCh           chan FileName
 	DownloadS3ResultCh    chan DownloadS3Result // avoid to modify ChannelResult for now...
+	S3DeviceMgr           *S3DeviceManager
 }

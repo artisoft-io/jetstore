@@ -19,7 +19,7 @@ func (cpCtx *ComputePipesContext) ProcessFilesAndReportStatus(ctx context.Contex
 		// NOTE: 10 is the limit of nbr of splitter operators
 		LoadFromS3FilesResultCh: make(chan LoadFromS3FilesResult, 1),
 		Copy2DbResultCh:         make(chan chan ComputePipesResult, 101),
-		WritePartitionsResultCh: make(chan chan chan ComputePipesResult, 10),
+		WritePartitionsResultCh: make(chan chan ComputePipesResult, 10),
 		S3PutObjectResultCh:     make(chan ComputePipesResult, 1),
 	}
 
@@ -32,11 +32,11 @@ func (cpCtx *ComputePipesContext) ProcessFilesAndReportStatus(ctx context.Contex
 	// --------------------
 	cpCtx.LoadFiles(ctx, dbpool)
 
-	// Collect the results of each pipes and save it to database
-	saveResultsCtx := NewSaveResultsContext(dbpool)
-	saveResultsCtx.JetsPartition = cpCtx.JetsPartitionLabel
-	saveResultsCtx.NodeId = cpCtx.NodeId
-	saveResultsCtx.SessionId = cpCtx.SessionId
+	// // Collect the results of each pipes and save it to database
+	// saveResultsCtx := NewSaveResultsContext(dbpool)
+	// saveResultsCtx.JetsPartition = cpCtx.JetsPartitionLabel
+	// saveResultsCtx.NodeId = cpCtx.NodeId
+	// saveResultsCtx.SessionId = cpCtx.SessionId
 
 	// if cpCtx.CpConfig.ClusterConfig.IsDebugMode {
 	// 	log.Println(cpCtx.SessionId, "**!@@ CP RESULT = Downloaded from s3:")
@@ -47,7 +47,7 @@ func (cpCtx *ComputePipesContext) ProcessFilesAndReportStatus(ctx context.Contex
 		log.Println(cpCtx.SessionId, "node", cpCtx.ComputePipesArgs.NodeId, "Downloaded", downloadResult.InputFilesCount,
 			"files from s3, total size:", downloadResult.TotalFilesSize/1024/1024, "MB, err:", downloadResult.Err)
 	}
-	var r *ComputePipesResult
+	// var r *ComputePipesResult
 	processingErrors := make([]string, 0)
 	// r = &ComputePipesResult{
 	// 	TableName:    "Downloaded files from s3",
@@ -99,17 +99,14 @@ func (cpCtx *ComputePipesContext) ProcessFilesAndReportStatus(ctx context.Contex
 	// log.Println("**!@@ CP RESULT = WritePartitionsResultCh:")
 	for splitter := range cpCtx.ChResults.WritePartitionsResultCh {
 		// log.Println("**!@@ Read SPLITTER ComputePipesResult from writePartitionsResultCh:")
-		for partition := range splitter {
-			// log.Println("**!@@ Read PARTITION ComputePipesResult from writePartitionsResultCh:")
-			for partitionWriterResult := range partition {
-				// saveResultsCtx.Save("Jets Partition Writer", &partitionWriterResult)
-				outputRowCount += partitionWriterResult.CopyRowCount
-				// log.Println("**!@@ Wrote", partitionWriterResult.CopyRowCount, "rows in", partitionWriterResult.PartsCount, "partfiles for", partitionWriterResult.TableName, "::", partitionWriterResult.Err)
-				if partitionWriterResult.Err != nil {
-					processingErrors = append(processingErrors, partitionWriterResult.Err.Error())
-					if err == nil {
-						err = partitionWriterResult.Err
-					}
+		for partitionWriterResult := range splitter {
+			// saveResultsCtx.Save("Jets Partition Writer", &partitionWriterResult)
+			outputRowCount += partitionWriterResult.CopyRowCount
+			// log.Println("**!@@ Wrote", partitionWriterResult.CopyRowCount, "rows in", partitionWriterResult.PartsCount, "partfiles for", partitionWriterResult.TableName, "::", partitionWriterResult.Err)
+			if partitionWriterResult.Err != nil {
+				processingErrors = append(processingErrors, partitionWriterResult.Err.Error())
+				if err == nil {
+					err = partitionWriterResult.Err
 				}
 			}
 		}
@@ -117,7 +114,8 @@ func (cpCtx *ComputePipesContext) ProcessFilesAndReportStatus(ctx context.Contex
 	// log.Println("**!@@ CP RESULT = WritePartitionsResultCh: DONE")
 
 	// Get the result from S3DeviceManager
-
+	cpCtx.S3DeviceMgr.ClientsWg.Wait()
+	close(cpCtx.S3DeviceMgr.WorkersTaskCh)
 	for s3DeviceManagerResult := range cpCtx.ChResults.S3PutObjectResultCh {
 		if cpCtx.CpConfig.ClusterConfig.IsDebugMode {
 			log.Printf("%s node %d Put %d part files to s3", cpCtx.SessionId, cpCtx.NodeId, s3DeviceManagerResult.PartsCount)
@@ -139,11 +137,11 @@ func (cpCtx *ComputePipesContext) ProcessFilesAndReportStatus(ctx context.Contex
 		if err == nil {
 			err = cpErr
 		}
-		r = &ComputePipesResult{
-			CopyRowCount: loadFromS3FilesResult.LoadRowCount,
-			Err:          cpErr,
-		}
-		saveResultsCtx.Save("CP Errors", r)
+		// r = &ComputePipesResult{
+		// 	CopyRowCount: loadFromS3FilesResult.LoadRowCount,
+		// 	Err:          cpErr,
+		// }
+		// saveResultsCtx.Save("CP Errors", r)
 
 		processingErrors = append(processingErrors, fmt.Sprintf("got error from Compute Pipes processing: %v", cpErr))
 	default:

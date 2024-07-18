@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"log"
-	"os"
 	"sync"
 
 	"github.com/aws/aws-sdk-go-v2/config"
@@ -89,5 +88,5 @@ func (ctx *BuilderContext) NewS3DeviceManager() error {
 	}
 	wg.Wait()
 	close(s3WorkersResultCh)
-	XXX
+	return nil
 }

@@ -153,8 +153,8 @@ func (ctx *BuilderContext) buildComputeGraph() error {
 
 		case "splitter":
 			// log.Println("**& starting PipeConfig", i, "splitter", "on source", source.config.Name)
-			// Create the writePartitionResultCh that will contain the number of part files for each partition
-			writePartitionsResultCh := make(chan chan ComputePipesResult, 15000) // NOTE Max number of partitions
+			// Create the writePartitionResultCh that will contain the number of rows for each partition
+			writePartitionsResultCh := make(chan ComputePipesResult, 15000) // NOTE Max number of partitions
 			ctx.chResults.WritePartitionsResultCh <- writePartitionsResultCh
 			go ctx.StartSplitterPipe(pipeSpec, source, writePartitionsResultCh)
 
@@ -166,7 +166,7 @@ func (ctx *BuilderContext) buildComputeGraph() error {
 }
 
 // Build the PipeTransformationEvaluator: one of map_record, aggregate, or partition_writer
-// The partitionResultCh argument is used only by partition_writer to return the number of part files written and
+// The partitionResultCh argument is used only by partition_writer to return the number of rows written and
 // the error that might occur
 func (ctx *BuilderContext) buildPipeTransformationEvaluator(source *InputChannel, jetsPartitionKey interface{},
 	partitionResultCh chan ComputePipesResult, spec *TransformationSpec) (PipeTransformationEvaluator, error) {
@@ -179,31 +179,19 @@ func (ctx *BuilderContext) buildPipeTransformationEvaluator(source *InputChannel
 	if err != nil {
 		err = fmt.Errorf("while in buildPipeTransformationEvaluator for %s from source %s requesting output channel %s: %v", spec.Type, source.config.Name, spec.Output, err)
 		log.Println(err)
-		if partitionResultCh != nil {
-			close(partitionResultCh)
-		}
 		return nil, err
 	}
 	switch spec.Type {
 	case "map_record":
-		if partitionResultCh != nil {
-			close(partitionResultCh)
-		}
 		return ctx.NewMapRecordTransformationPipe(source, outCh, spec)
 
 	case "aggregate":
-		if partitionResultCh != nil {
-			close(partitionResultCh)
-		}
 		return ctx.NewAggregateTransformationPipe(source, outCh, spec)
 
 	case "partition_writer":
 		return ctx.NewPartitionWriterTransformationPipe(source, jetsPartitionKey, outCh, partitionResultCh, spec)
 
 	default:
-		if partitionResultCh != nil {
-			close(partitionResultCh)
-		}
 		return nil, fmt.Errorf("error: unknown TransformationSpec type: %s", spec.Type)
 	}
 }

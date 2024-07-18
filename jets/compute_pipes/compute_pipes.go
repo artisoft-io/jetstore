@@ -157,6 +157,8 @@ func (cpCtx *ComputePipesContext) StartComputePipes(dbpool *pgxpool.Pool, comput
 		cpErr = err
 		goto gotError
 	}
+	// Set the S3DeviceManager to ComputePipesContext so it's avail when cpipes wind down
+	cpCtx.S3DeviceMgr = ctx.s3DeviceManager
 
 	// Start the metric reporting goroutine
 	if cpCtx.CpConfig.MetricsConfig != nil && ctx.cpConfig.MetricsConfig.ReportInterval > 0 {

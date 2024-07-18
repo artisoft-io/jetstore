@@ -7,7 +7,7 @@ import (
 	"os"
 
 	"github.com/artisoft-io/jetstore/jets/awsi"
-	"github.com/artisoft-io/jetstore/jets/compute_pipes/actions"
+	"github.com/artisoft-io/jetstore/jets/compute_pipes"
 	"github.com/aws/aws-lambda-go/lambda"
 )
 
@@ -79,6 +79,6 @@ func main() {
 }
 
 // Compute Pipes Sharding Handler
-func handler(ctx context.Context, arg actions.ComputePipesArgs) error {
+func handler(ctx context.Context, arg compute_pipes.ComputePipesArgs) error {
 	return (&arg).CoordinateComputePipes(ctx, dsn)
 }
