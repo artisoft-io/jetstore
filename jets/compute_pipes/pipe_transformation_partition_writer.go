@@ -182,13 +182,18 @@ func (ctx *PartitionWriterTransformationPipe) done() error {
 // Always called, if error or not upstream
 func (ctx *PartitionWriterTransformationPipe) finally() {
 	// Indicate to S3DeviceManager that we're done using it
-	ctx.s3DeviceManager.ClientsWg.Done()
+	if ctx.s3DeviceManager.ClientsWg != nil {
+		ctx.s3DeviceManager.ClientsWg.Done()
+	} else {
+		log.Panicln("ERROR expecting ctx.s3DeviceManager.ClientsWg not nil")
+	}
 }
 
 // Create a new jets_partition writer, the partition is identified by the jetsPartition
 func (ctx *BuilderContext) NewPartitionWriterTransformationPipe(source *InputChannel, jetsPartitionKey interface{},
 	outputCh *OutputChannel, copy2DeviceResultCh chan ComputePipesResult, spec *TransformationSpec) (*PartitionWriterTransformationPipe, error) {
 
+		// log.Println("NewPartitionWriterTransformationPipe called for partition key:",jetsPartitionKey)
 	// Prepare the column evaluators
 	var err error
 	columnEvaluators := make([]TransformationColumnEvaluator, len(spec.Columns))
@@ -269,7 +274,11 @@ func (ctx *BuilderContext) NewPartitionWriterTransformationPipe(source *InputCha
 	}
 
 	// Register as a client to S3DeviceManager
-	ctx.s3DeviceManager.ClientsWg.Add(1)
+	if ctx.s3DeviceManager.ClientsWg != nil {
+		ctx.s3DeviceManager.ClientsWg.Add(1)
+	} else {
+		log.Panicln("ERROR Expecting ClientsWg not nil")
+	}
 
 	return &PartitionWriterTransformationPipe{
 		cpConfig:                   ctx.cpConfig,

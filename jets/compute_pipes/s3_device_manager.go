@@ -15,7 +15,7 @@ import (
 // to s3
 
 // S3DeviceManager manage a pool of workers to put file to s3.
-// ClientWg is a wait group of the partition writers created during 
+// ClientWg is a wait group of the partition writers created during
 // buildComputeGraph function. The WorkersTaskCh is closed in process_file.go
 type S3DeviceManager struct {
 	cpConfig         *ComputePipesConfig
@@ -33,6 +33,7 @@ type S3Object struct {
 // Create the S3DeviceManager, it will be set to the receiving BuilderContext
 func (ctx *BuilderContext) NewS3DeviceManager() error {
 
+	// log.Println("Entering NewS3DeviceManager")
 	// Create the s3 uploader that will be used by all the workers
 	cfg, err := config.LoadDefaultConfig(context.TODO(), config.WithRegion(regionName))
 	if err != nil {
@@ -42,15 +43,17 @@ func (ctx *BuilderContext) NewS3DeviceManager() error {
 	s3Uploader := manager.NewUploader(s3.NewFromConfig(cfg))
 
 	// Create the s3 device manager
+	var clientsWg sync.WaitGroup
 	ctx.s3DeviceManager = &S3DeviceManager{
 		cpConfig:         ctx.cpConfig,
 		s3WorkerPoolSize: ctx.cpConfig.ClusterConfig.S3WorkerPoolSize,
 		WorkersTaskCh:    make(chan S3Object, 10),
+		ClientsWg:        &clientsWg,
 	}
 
 	// Create a channel for the workers to report results
-	// Collect the results from all the workers
 	s3WorkersResultCh := make(chan ComputePipesResult)
+	// Collect the results from all the workers
 	go func() {
 		var partCount int64
 		var err error
@@ -77,16 +80,19 @@ func (ctx *BuilderContext) NewS3DeviceManager() error {
 	}()
 
 	// Set up all the workers, use a wait group to track when they are all done
-	var wg sync.WaitGroup
-	for i := 0; i < ctx.s3DeviceManager.s3WorkerPoolSize; i++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			worker := NewS3DeviceWorker(s3Uploader, ctx.done, ctx.errCh)
-			worker.DoWork(ctx.s3DeviceManager, s3WorkersResultCh)
-		}()
-	}
-	wg.Wait()
-	close(s3WorkersResultCh)
+	// to close s3WorkersResultCh
+	go func() {
+		var wg sync.WaitGroup
+		for i := 0; i < ctx.s3DeviceManager.s3WorkerPoolSize; i++ {
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				worker := NewS3DeviceWorker(s3Uploader, ctx.done, ctx.errCh)
+				worker.DoWork(ctx.s3DeviceManager, s3WorkersResultCh)
+			}()
+		}
+		wg.Wait()
+		close(s3WorkersResultCh)
+	}()
 	return nil
 }

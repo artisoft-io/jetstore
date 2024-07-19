@@ -18,6 +18,8 @@ func init() {
 
 // Function to write transformed row to database
 func (cpCtx *ComputePipesContext) StartComputePipes(dbpool *pgxpool.Pool, computePipesInputCh <-chan []interface{}) {
+	
+	// log.Println("Entering StartComputePipes")
 
 	defer func() {
 		// Catch the panic that might be generated downstream
@@ -176,11 +178,13 @@ func (cpCtx *ComputePipesContext) StartComputePipes(dbpool *pgxpool.Pool, comput
 		}()
 	}
 
+	// log.Println("Calling ctx.buildComputeGraph()")
 	err = ctx.buildComputeGraph()
 	if err != nil {
 		cpErr = fmt.Errorf("while building the compute graph: %s", err)
 		goto gotError
 	}
+	// log.Println("Calling ctx.buildComputeGraph() completed")
 
 	// All done!
 	close(cpCtx.ChResults.Copy2DbResultCh)

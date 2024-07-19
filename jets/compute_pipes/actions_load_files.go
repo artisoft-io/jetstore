@@ -176,6 +176,7 @@ func (cpCtx *ComputePipesContext) ReadParquetFile(filePath *FileName, computePip
 			// for i := range record {
 			// 	record[i] = strings.ToValidUTF8(record[i], "")
 			// }
+			// log.Println(cpCtx.SessionId,"node",cpCtx.NodeId, "push record to computePipesInputCh")
 			select {
 			case computePipesInputCh <- record:
 			case <-cpCtx.Done:

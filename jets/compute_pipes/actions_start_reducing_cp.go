@@ -109,15 +109,22 @@ func (args *StartComputePipesArgs) StartReducingComputePipes(ctx context.Context
 
 	// Make the reducing pipeline config
 	// Note that S3WorkerPoolSize is set to the  value set at the ClusterSpec
+	// with a default of len(partitions)
+	clusterSpec := &ClusterSpec{
+		CpipesMode:            "reducing",
+		NbrNodes:              len(partitions),
+		DefaultMaxConcurrency: cpConfig.ClusterConfig.DefaultMaxConcurrency,
+		S3WorkerPoolSize:      cpConfig.ClusterConfig.S3WorkerPoolSize,
+		IsDebugMode:           cpConfig.ClusterConfig.IsDebugMode,
+		// SamplingRate:          cpConfig.ClusterConfig.SamplingRate, // only do sampling on the initial read (sharding)
+	}
+	if clusterSpec.S3WorkerPoolSize == 0 {
+		clusterSpec.S3WorkerPoolSize = len(partitions)
+	}
+	result.CpipesMaxConcurrency = GetMaxConcurrency(len(partitions), cpConfig.ClusterConfig.DefaultMaxConcurrency)
+
 	cpReducingConfig := &ComputePipesConfig{
-		ClusterConfig: &ClusterSpec{
-			CpipesMode:            "reducing",
-			NbrNodes:              len(partitions),
-			DefaultMaxConcurrency: cpConfig.ClusterConfig.DefaultMaxConcurrency,
-			S3WorkerPoolSize:      cpConfig.ClusterConfig.S3WorkerPoolSize,
-			IsDebugMode:           cpConfig.ClusterConfig.IsDebugMode,
-			// SamplingRate:          cpConfig.ClusterConfig.SamplingRate, // only do sampling on the initial read (sharding)
-		},
+		ClusterConfig: clusterSpec,
 		MetricsConfig: cpConfig.MetricsConfig,
 		OutputTables:  outputTables,
 		Channels:      cpConfig.Channels,
