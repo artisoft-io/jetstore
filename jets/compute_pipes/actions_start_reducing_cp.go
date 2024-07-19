@@ -125,7 +125,7 @@ func (args *StartComputePipesArgs) StartReducingComputePipes(ctx context.Context
 
 	// Get the input columns from Pipes Config, from the first pipes channel
 	var inputColumns []string
-	inputChannel := cpConfig.PipesConfig[0].Input
+	inputChannel := cpConfig.ReducingPipesConfig[currentStep][0].Input
 	for i := range cpConfig.Channels {
 		if cpConfig.Channels[i].Name == inputChannel {
 			inputColumns = cpConfig.Channels[i].Columns
