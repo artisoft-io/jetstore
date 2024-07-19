@@ -117,14 +117,17 @@ func main() {
 	fmt.Println(string(b))
 
 	// Perform Sharding
-	// Get the cpipes args from s3
-	cpipesCommands, err := compute_pipes.ReadCpipesArgsFromS3(cpShardingRun.CpipesCommandsS3Key)
-	if err != nil {
-		log.Fatalf("while calling ReadCpipesArgsFromS3 from %s: %v", cpShardingRun.CpipesCommandsS3Key, err)
-	}
+	// // CASE DISTRIBUTED MAP
+	// // Get the cpipes args from s3
+	// cpipesCommands, err := compute_pipes.ReadCpipesArgsFromS3(cpShardingRun.CpipesCommandsS3Key)
+	// if err != nil {
+	// 	log.Fatalf("while calling ReadCpipesArgsFromS3 from %s: %v", cpShardingRun.CpipesCommandsS3Key, err)
+	// }
+	cpipesCommands := cpShardingRun.CpipesCommands.([]compute_pipes.ComputePipesArgs)
 	for i := range cpipesCommands {
+		cpipesCommand := cpipesCommands[i]
 		fmt.Println("## Sharding Node", i)
-		err = cpipesCommands[i].CoordinateComputePipes(ctx, dsn)
+		err = (&cpipesCommand).CoordinateComputePipes(ctx, dsn)
 		if err != nil {
 			log.Fatalf("while sharding node %d: %v", i, err)
 		}
@@ -140,13 +143,16 @@ func main() {
 	fmt.Println(string(b))
 
 	// Perform Reducing
-	cpipesCommands, err = compute_pipes.ReadCpipesArgsFromS3(cpReducingRun.CpipesCommandsS3Key)
-	if err != nil {
-		log.Fatalf("while calling ReadCpipesArgsFromS3 from %s: %v", cpShardingRun.CpipesCommandsS3Key, err)
-	}
+	// // CASE DISTRIBUTED MAP
+	// cpipesCommands, err = compute_pipes.ReadCpipesArgsFromS3(cpReducingRun.CpipesCommandsS3Key)
+	// if err != nil {
+	// 	log.Fatalf("while calling ReadCpipesArgsFromS3 from %s: %v", cpShardingRun.CpipesCommandsS3Key, err)
+	// }
+	cpipesCommands = cpReducingRun.CpipesCommands.([]compute_pipes.ComputePipesArgs)
 	for i := range cpipesCommands {
+		cpipesCommand := cpipesCommands[i]
 		fmt.Println("## Reducing Node", i)
-		err = cpipesCommands[i].CoordinateComputePipes(ctx, dsn)
+		err = (&cpipesCommand).CoordinateComputePipes(ctx, dsn)
 		if err != nil {
 			log.Fatalf("while reducing node %d: %v", i, err)
 		}
@@ -163,13 +169,16 @@ func main() {
 	fmt.Println(string(b))
 
 	// Perform Reducing
-	cpipesCommands, err = compute_pipes.ReadCpipesArgsFromS3(cpReducingRun.CpipesCommandsS3Key)
-	if err != nil {
-		log.Fatalf("while calling ReadCpipesArgsFromS3 from %s: %v", cpShardingRun.CpipesCommandsS3Key, err)
-	}
+	// // CASE DISTRIBUTED MAP
+	// cpipesCommands, err = compute_pipes.ReadCpipesArgsFromS3(cpReducingRun.CpipesCommandsS3Key)
+	// if err != nil {
+	// 	log.Fatalf("while calling ReadCpipesArgsFromS3 from %s: %v", cpShardingRun.CpipesCommandsS3Key, err)
+	// }
+	cpipesCommands = cpReducingRun.CpipesCommands.([]compute_pipes.ComputePipesArgs)
 	for i := range cpipesCommands {
+		cpipesCommand := cpipesCommands[i]
 		fmt.Println("## Reducing Node", i)
-		err = cpipesCommands[i].CoordinateComputePipes(ctx, dsn)
+		err = (&cpipesCommand).CoordinateComputePipes(ctx, dsn)
 		if err != nil {
 			log.Fatalf("while reducing node %d: %v", i, err)
 		}
