@@ -57,7 +57,7 @@ func main() {
 	}
 
 	// Parse the command line json (arguments)
-	var cpArgs compute_pipes.ComputePipesArgs
+	var cpArgs compute_pipes.ComputePipesNodeArgs
 	err = json.Unmarshal([]byte(args), &cpArgs)
 	if err != nil {
 		errMsg = append(errMsg, fmt.Sprintf("while unmarshaling command line json (arguments): %s", err))

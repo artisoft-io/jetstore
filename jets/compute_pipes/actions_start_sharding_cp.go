@@ -162,23 +162,14 @@ func (args *StartComputePipesArgs) StartShardingComputePipes(ctx context.Context
 	}
 
 	// Build CpipesShardingCommands
-	cpipesCommands := make([]ComputePipesArgs, shardingNbrNodes)
+	cpipesCommands := make([]ComputePipesNodeArgs, shardingNbrNodes)
 	for i := range cpipesCommands {
-		cpipesCommands[i] = ComputePipesArgs{
+		cpipesCommands[i] = ComputePipesNodeArgs{
 			NodeId:            i,
 			CpipesMode:        "sharding",
-			Client:            client,
-			Org:               org,
-			ObjectType:        objectType,
-			InputSessionId:    inputSessionId,
 			SessionId:         args.SessionId,
-			SourcePeriodKey:   sourcePeriodKey,
-			ProcessName:       processName,
 			FileKey:           args.FileKey,
-			InputColumns:      ic,
 			PipelineExecKey:   args.PipelineExecKey,
-			PipelineConfigKey: pipelineConfigKey,
-			UserEmail:         userEmail,
 		}
 	}
 	// Using Inline Map:
@@ -228,6 +219,17 @@ func (args *StartComputePipesArgs) StartShardingComputePipes(ctx context.Context
 		}
 	}
 	cpShardingConfig := &ComputePipesConfig{
+		CommonRuntimeArgs: &ComputePipesCommonArgs{
+			Client:            client,
+			Org:               org,
+			ObjectType:        objectType,
+			InputSessionId:    inputSessionId,
+			SourcePeriodKey:   sourcePeriodKey,
+			ProcessName:       processName,
+			InputColumns:      ic,
+			PipelineConfigKey: pipelineConfigKey,
+			UserEmail:         userEmail,
+		},
 		ClusterConfig: &ClusterSpec{
 			CpipesMode:            "sharding",
 			NbrNodes:              shardingNbrNodes,

@@ -15,7 +15,7 @@ import (
 
 // Compute Pipes Actions
 
-func (args *ComputePipesArgs) CoordinateComputePipes(ctx context.Context, dsn string) error {
+func (args *ComputePipesNodeArgs) CoordinateComputePipes(ctx context.Context, dsn string) error {
 	var cpErr, err error
 	var inFolderPath string
 	var cpContext *ComputePipesContext
@@ -23,6 +23,7 @@ func (args *ComputePipesArgs) CoordinateComputePipes(ctx context.Context, dsn st
 	var fileKeyDate time.Time
 	var fileKeys []string
 	var cpipesConfigJson string
+	var cpConfig *ComputePipesConfig
 	stmt := "SELECT %s FROM jetsapi.cpipes_execution_status WHERE pipeline_execution_status_key = %d"
 	// log.Println("Compute NODE", args.SessionId, "file_key:", args.FileKey, "node_id:", args.NodeId, "cpipes_mode:", args.CpipesMode)
 
@@ -87,8 +88,16 @@ func (args *ComputePipesArgs) CoordinateComputePipes(ctx context.Context, dsn st
 		goto gotError
 	}
 
+	cpConfig, err = UnmarshalComputePipesConfig(&cpipesConfigJson)
+	if err != nil {
+		cpErr = fmt.Errorf("failed to unmarshal cpipes config json (%s): %v", args.CpipesMode, err)
+		goto gotError
+	}
 	cpContext = &ComputePipesContext{
-		ComputePipesArgs: *args,
+		ComputePipesArgs: ComputePipesArgs{
+			ComputePipesNodeArgs: *args,
+			ComputePipesCommonArgs: *cpConfig.CommonRuntimeArgs,
+		},
 		EnvSettings: map[string]interface{}{
 			"$SESSIONID":            args.SessionId,
 			"$FILE_KEY_DATE":        fileKeyDate,
@@ -102,11 +111,6 @@ func (args *ComputePipesArgs) CoordinateComputePipes(ctx context.Context, dsn st
 		ErrCh:              make(chan error, 1),
 		FileNamesCh:        make(chan FileName, 2),
 		DownloadS3ResultCh: make(chan DownloadS3Result, 1),
-	}
-	cpContext.CpConfig, err = UnmarshalComputePipesConfig(&cpipesConfigJson)
-	if err != nil {
-		cpErr = fmt.Errorf("failed to unmarshal cpipes config json (%s): %v", args.CpipesMode, err)
-		goto gotError
 	}
 	if args.CpipesMode == "sharding" {
 		// partfile_key_component :: explained

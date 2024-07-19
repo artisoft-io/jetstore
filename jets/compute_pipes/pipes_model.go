@@ -2,14 +2,15 @@ package compute_pipes
 
 // This file contains the Compute Pipes configuration model
 type ComputePipesConfig struct {
-	MetricsConfig       *MetricsSpec   `json:"metrics_config"`
-	ClusterConfig       *ClusterSpec   `json:"cluster_config"`
-	OutputTables        []TableSpec    `json:"output_tables"`
-	Channels            []ChannelSpec  `json:"channels"`
-	Context             *[]ContextSpec `json:"context"`
-	PipesConfig         []PipeSpec     `json:"pipes_config"`
-	ShardingPipesConfig []PipeSpec     `json:"sharding_pipes_config"`
-	ReducingPipesConfig [][]PipeSpec   `json:"reducing_pipes_config"`
+	CommonRuntimeArgs   *ComputePipesCommonArgs `json:"common_runtime_args"`
+	MetricsConfig       *MetricsSpec            `json:"metrics_config"`
+	ClusterConfig       *ClusterSpec            `json:"cluster_config"`
+	OutputTables        []TableSpec             `json:"output_tables"`
+	Channels            []ChannelSpec           `json:"channels"`
+	Context             *[]ContextSpec          `json:"context"`
+	PipesConfig         []PipeSpec              `json:"pipes_config"`
+	ShardingPipesConfig []PipeSpec              `json:"sharding_pipes_config"`
+	ReducingPipesConfig [][]PipeSpec            `json:"reducing_pipes_config"`
 }
 
 // Cluster configuration
