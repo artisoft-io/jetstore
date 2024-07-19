@@ -95,9 +95,10 @@ func (args *ComputePipesNodeArgs) CoordinateComputePipes(ctx context.Context, ds
 	}
 	cpContext = &ComputePipesContext{
 		ComputePipesArgs: ComputePipesArgs{
-			ComputePipesNodeArgs: *args,
+			ComputePipesNodeArgs:   *args,
 			ComputePipesCommonArgs: *cpConfig.CommonRuntimeArgs,
 		},
+		CpConfig: cpConfig,
 		EnvSettings: map[string]interface{}{
 			"$SESSIONID":            args.SessionId,
 			"$FILE_KEY_DATE":        fileKeyDate,
@@ -128,10 +129,10 @@ func (args *ComputePipesNodeArgs) CoordinateComputePipes(ctx context.Context, ds
 				if err == nil {
 					cpContext.PartFileKeyComponents = append(cpContext.PartFileKeyComponents, CompiledPartFileComponent{
 						ColumnName: (*cpContext.CpConfig.Context)[i].Key,
-						Regex: re,
+						Regex:      re,
 					})
 				} else {
-					log.Println("*** WARNING *** error compiling regex:",regex_query,"err:",err)
+					log.Println("*** WARNING *** error compiling regex:", regex_query, "err:", err)
 				}
 			}
 		}
