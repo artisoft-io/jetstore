@@ -29,28 +29,41 @@ type InputStats struct {
 	TotalSizeMb        int
 }
 
-// Argument to cp_node for sharding and reducing
-type ComputePipesArgs struct {
+// Arguments to start cp_node for sharding and reducing
+// minimal set of arguments to reduce the size of the json
+// to call the lambda functions
+type ComputePipesNodeArgs struct {
 	NodeId             int      `json:"node_id"`
 	CpipesMode         string   `json:"cpipes_mode"`
 	JetsPartitionLabel string   `json:"jets_partition_label"`
+	SessionId          string   `json:"session_id"`
+	FileKey            string   `json:"file_key"`
+	PipelineExecKey    int      `json:"pipeline_execution_key"`
+}
+
+// Common arguments factored out and put into the
+// the ComputePipesConfig component
+type ComputePipesCommonArgs struct {
 	Client             string   `json:"client"`
 	Org                string   `json:"org"`
 	ObjectType         string   `json:"object_type"`
 	InputSessionId     string   `json:"input_session_id"`
-	SessionId          string   `json:"session_id"`
 	SourcePeriodKey    int      `json:"source_period_key"`
 	ProcessName        string   `json:"process_name"`
-	FileKey            string   `json:"file_key"`
 	InputColumns       []string `json:"input_columns"`
-	PipelineExecKey    int      `json:"pipeline_execution_key"`
 	PipelineConfigKey  int      `json:"pipeline_config_key"`
 	UserEmail          string   `json:"user_email"`
 }
 
+// Full arguments to cp_node for sharding and reducing
+type ComputePipesArgs struct {
+	ComputePipesNodeArgs
+	ComputePipesCommonArgs
+}
+
 // Write the compute pipes arguments as json to s3 at location specified by s3Location
 // This is currently not used, needed for Distributed Map
-func WriteCpipesArgsToS3(cpa []ComputePipesArgs, s3Location string) error {
+func WriteCpipesArgsToS3(cpa []ComputePipesNodeArgs, s3Location string) error {
 	cpJson, err := json.Marshal(cpa)
 	if err != nil {
 		return fmt.Errorf("while marshalling cpipes arg to json: %v", err)
@@ -78,7 +91,7 @@ func WriteCpipesArgsToS3(cpa []ComputePipesArgs, s3Location string) error {
 }
 
 // This is currently not used, needed for Distributed Map (for testing purpose)
-func ReadCpipesArgsFromS3(s3Location string) ([]ComputePipesArgs, error) {
+func ReadCpipesArgsFromS3(s3Location string) ([]ComputePipesNodeArgs, error) {
 	f, err := os.CreateTemp("", "cp_args")
 	if err != nil {
 		return nil, err
@@ -99,7 +112,7 @@ func ReadCpipesArgsFromS3(s3Location string) ([]ComputePipesArgs, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to read cpipes arg downloaded from s3: %v", err)
 	}
-	var cpa []ComputePipesArgs
+	var cpa []ComputePipesNodeArgs
 	err = json.Unmarshal(buf, &cpa)
 	if err != nil {
 		return nil, fmt.Errorf("while unmarshaling cpipes arg downloaded from s3: %s", err)

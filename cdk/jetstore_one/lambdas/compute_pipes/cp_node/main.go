@@ -79,6 +79,6 @@ func main() {
 }
 
 // Compute Pipes Sharding Handler
-func handler(ctx context.Context, arg compute_pipes.ComputePipesArgs) error {
+func handler(ctx context.Context, arg compute_pipes.ComputePipesNodeArgs) error {
 	return (&arg).CoordinateComputePipes(ctx, dsn)
 }

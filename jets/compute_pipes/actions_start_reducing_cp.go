@@ -123,7 +123,29 @@ func (args *StartComputePipesArgs) StartReducingComputePipes(ctx context.Context
 	}
 	result.CpipesMaxConcurrency = GetMaxConcurrency(len(partitions), cpConfig.ClusterConfig.DefaultMaxConcurrency)
 
+	// Get the input columns from Pipes Config, from the first pipes channel
+	var inputColumns []string
+	inputChannel := cpConfig.PipesConfig[0].Input
+	for i := range cpConfig.Channels {
+		if cpConfig.Channels[i].Name == inputChannel {
+			inputColumns = cpConfig.Channels[i].Columns
+			break
+		}
+	}
+
 	cpReducingConfig := &ComputePipesConfig{
+		CommonRuntimeArgs: &ComputePipesCommonArgs{
+			Client:             client,
+			Org:                org,
+			ObjectType:         objectType,
+			InputSessionId:     inputSessionId,
+			SourcePeriodKey:    sourcePeriodKey,
+			ProcessName:        processName,
+			InputColumns:       inputColumns,
+			PipelineConfigKey:  pipelineConfigKey,
+			UserEmail:          userEmail,
+
+		},
 		ClusterConfig: clusterSpec,
 		MetricsConfig: cpConfig.MetricsConfig,
 		OutputTables:  outputTables,
@@ -179,37 +201,18 @@ func (args *StartComputePipesArgs) StartReducingComputePipes(ctx context.Context
 		"file_key":       args.FileKey,
 		"failureDetails": "",
 	}
-
-	// Get the input columns from Pipes Config, from the first pipes channel
-	var inputColumns []string
-	inputChannel := cpReducingConfig.PipesConfig[0].Input
-	for i := range cpReducingConfig.Channels {
-		if cpReducingConfig.Channels[i].Name == inputChannel {
-			inputColumns = cpReducingConfig.Channels[i].Columns
-			break
-		}
-	}
 	// Build CpipesReducingCommands
 	log.Printf("%s Got %d partitions, use_ecs_tasks: %v", args.SessionId, len(partitions), args.UseECSTask)
 	if args.UseECSTask {
-		// Using ecs taks for reducing, cpipesCommands must be of type [][]string
+		// Using ecs tasks for reducing, cpipesCommands must be of type [][]string
 		cpipesCommands := make([][]string, len(partitions))
-		template, err := json.Marshal(ComputePipesArgs{
+		template, err := json.Marshal(ComputePipesNodeArgs{
 			NodeId:             123456789,
 			CpipesMode:         "reducing",
 			JetsPartitionLabel: "__LABEL__",
-			Client:             client,
-			Org:                org,
-			ObjectType:         objectType,
-			InputSessionId:     inputSessionId,
 			SessionId:          args.SessionId,
-			SourcePeriodKey:    sourcePeriodKey,
-			ProcessName:        processName,
 			FileKey:            "__FILE_KEY__",
-			InputColumns:       inputColumns,
 			PipelineExecKey:    args.PipelineExecKey,
-			PipelineConfigKey:  pipelineConfigKey,
-			UserEmail:          userEmail,
 		})
 		if err != nil {
 			return result, err
@@ -224,25 +227,16 @@ func (args *StartComputePipesArgs) StartReducingComputePipes(ctx context.Context
 		}
 		result.CpipesCommands = cpipesCommands
 	} else {
-		// Using lambda functions for reducing, cpipesCommands must be []ComputePipesArgs
-		cpipesCommands := make([]ComputePipesArgs, len(partitions))
+		// Using lambda functions for reducing, cpipesCommands must be []ComputePipesNodeArgs
+		cpipesCommands := make([]ComputePipesNodeArgs, len(partitions))
 		for i := range cpipesCommands {
-			cpipesCommands[i] = ComputePipesArgs{
+			cpipesCommands[i] = ComputePipesNodeArgs{
 				NodeId:             i,
 				CpipesMode:         "reducing",
 				JetsPartitionLabel: partitions[i].jetsPartition,
-				Client:             client,
-				Org:                org,
-				ObjectType:         objectType,
-				InputSessionId:     inputSessionId,
 				SessionId:          args.SessionId,
-				SourcePeriodKey:    sourcePeriodKey,
-				ProcessName:        processName,
 				FileKey:            partitions[i].fileKey,
-				InputColumns:       inputColumns,
 				PipelineExecKey:    args.PipelineExecKey,
-				PipelineConfigKey:  pipelineConfigKey,
-				UserEmail:          userEmail,
 			}
 		}
 		result.CpipesCommands = cpipesCommands

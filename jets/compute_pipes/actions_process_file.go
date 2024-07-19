@@ -44,7 +44,7 @@ func (cpCtx *ComputePipesContext) ProcessFilesAndReportStatus(ctx context.Contex
 	downloadResult := <-cpCtx.DownloadS3ResultCh
 	err = downloadResult.Err
 	if cpCtx.CpConfig.ClusterConfig.IsDebugMode {
-		log.Println(cpCtx.SessionId, "node", cpCtx.ComputePipesArgs.NodeId, "Downloaded", downloadResult.InputFilesCount,
+		log.Println(cpCtx.SessionId, "node", cpCtx.NodeId, "Downloaded", downloadResult.InputFilesCount,
 			"files from s3, total size:", downloadResult.TotalFilesSize/1024/1024, "MB, err:", downloadResult.Err)
 	}
 	// var r *ComputePipesResult
@@ -62,7 +62,7 @@ func (cpCtx *ComputePipesContext) ProcessFilesAndReportStatus(ctx context.Contex
 	// log.Println("**!@@ CP RESULT = Loaded from s3:")
 	loadFromS3FilesResult := <-cpCtx.ChResults.LoadFromS3FilesResultCh
 	if cpCtx.CpConfig.ClusterConfig.IsDebugMode {
-		log.Println(cpCtx.SessionId, "node", cpCtx.ComputePipesArgs.NodeId, "Loaded", loadFromS3FilesResult.LoadRowCount,
+		log.Println(cpCtx.SessionId, "node", cpCtx.NodeId, "Loaded", loadFromS3FilesResult.LoadRowCount,
 			"rows from s3 files with", loadFromS3FilesResult.BadRowCount, "bad rows", loadFromS3FilesResult.Err)
 	}
 	// r = &ComputePipesResult{

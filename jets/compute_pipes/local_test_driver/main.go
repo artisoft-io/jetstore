@@ -123,7 +123,7 @@ func main() {
 	// if err != nil {
 	// 	log.Fatalf("while calling ReadCpipesArgsFromS3 from %s: %v", cpShardingRun.CpipesCommandsS3Key, err)
 	// }
-	cpipesCommands := cpShardingRun.CpipesCommands.([]compute_pipes.ComputePipesArgs)
+	cpipesCommands := cpShardingRun.CpipesCommands.([]compute_pipes.ComputePipesNodeArgs)
 	for i := range cpipesCommands {
 		cpipesCommand := cpipesCommands[i]
 		fmt.Println("## Sharding Node", i)
@@ -148,7 +148,7 @@ func main() {
 	// if err != nil {
 	// 	log.Fatalf("while calling ReadCpipesArgsFromS3 from %s: %v", cpShardingRun.CpipesCommandsS3Key, err)
 	// }
-	cpipesCommands = cpReducingRun.CpipesCommands.([]compute_pipes.ComputePipesArgs)
+	cpipesCommands = cpReducingRun.CpipesCommands.([]compute_pipes.ComputePipesNodeArgs)
 	for i := range cpipesCommands {
 		cpipesCommand := cpipesCommands[i]
 		fmt.Println("## Reducing Node", i)
@@ -174,7 +174,7 @@ func main() {
 	// if err != nil {
 	// 	log.Fatalf("while calling ReadCpipesArgsFromS3 from %s: %v", cpShardingRun.CpipesCommandsS3Key, err)
 	// }
-	cpipesCommands = cpReducingRun.CpipesCommands.([]compute_pipes.ComputePipesArgs)
+	cpipesCommands = cpReducingRun.CpipesCommands.([]compute_pipes.ComputePipesNodeArgs)
 	for i := range cpipesCommands {
 		cpipesCommand := cpipesCommands[i]
 		fmt.Println("## Reducing Node", i)
