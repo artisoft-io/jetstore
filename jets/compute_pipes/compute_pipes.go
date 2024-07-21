@@ -18,7 +18,7 @@ func init() {
 
 // Function to write transformed row to database
 func (cpCtx *ComputePipesContext) StartComputePipes(dbpool *pgxpool.Pool, computePipesInputCh <-chan []interface{}) {
-	
+
 	// log.Println("Entering StartComputePipes")
 
 	defer func() {
@@ -146,7 +146,10 @@ func (cpCtx *ComputePipesContext) StartComputePipes(dbpool *pgxpool.Pool, comput
 
 	ctx = &BuilderContext{
 		dbpool:          dbpool,
+		sessionId:       cpCtx.SessionId,
+		jetsPartition:   cpCtx.JetsPartitionLabel,
 		cpConfig:        cpCtx.CpConfig,
+		processName:     cpCtx.ProcessName,
 		channelRegistry: channelRegistry,
 		done:            cpCtx.Done,
 		errCh:           cpCtx.ErrCh,

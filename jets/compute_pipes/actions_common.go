@@ -33,12 +33,9 @@ type InputStats struct {
 // minimal set of arguments to reduce the size of the json
 // to call the lambda functions
 type ComputePipesNodeArgs struct {
-	NodeId             int      `json:"node_id"`
-	CpipesMode         string   `json:"cpipes_mode"`
-	JetsPartitionLabel string   `json:"jets_partition_label"`
-	SessionId          string   `json:"session_id"`
-	FileKey            string   `json:"file_key"`
-	PipelineExecKey    int      `json:"pipeline_execution_key"`
+	NodeId             int      `json:"id"`
+	JetsPartitionLabel string   `json:"jp"`
+	PipelineExecKey    int      `json:"pe"`
 }
 
 // Common arguments factored out and put into the
@@ -47,6 +44,9 @@ type ComputePipesCommonArgs struct {
 	Client             string   `json:"client"`
 	Org                string   `json:"org"`
 	ObjectType         string   `json:"object_type"`
+	FileKey            string   `json:"file_key"`
+	SessionId          string   `json:"session_id"`
+	StepId             string   `json:"step_id"`
 	InputSessionId     string   `json:"input_session_id"`
 	SourcePeriodKey    int      `json:"source_period_key"`
 	ProcessName        string   `json:"process_name"`

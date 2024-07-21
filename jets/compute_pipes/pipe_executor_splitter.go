@@ -44,7 +44,7 @@ func (ctx *BuilderContext) StartSplitterPipe(spec *PipeSpec, source *InputChanne
 	for inRow := range source.channel {
 		key := inRow[spliterColumnIdx]
 		if key == nil {
-			log.Println(ctx.SessionId(),"node",ctx.nodeId, "*WARNING* splitter with nil key on source",source.config.Name)
+			log.Println(ctx.sessionId,"node",ctx.nodeId, "*WARNING* splitter with nil key on source",source.config.Name)
 		}
 		splitCh := chanState[key]
 		if splitCh == nil {
@@ -55,7 +55,7 @@ func (ctx *BuilderContext) StartSplitterPipe(spec *PipeSpec, source *InputChanne
 
 			if ctx.cpConfig.ClusterConfig.IsDebugMode {
 				if len(chanState) % 5 == 0 {
-					log.Println(ctx.SessionId(),"node",ctx.nodeId, "splitter size:",len(chanState)," on source",source.config.Name)
+					log.Println(ctx.sessionId,"node",ctx.nodeId, "splitter size:",len(chanState)," on source",source.config.Name)
 				}
 			}
 

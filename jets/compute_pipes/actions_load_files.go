@@ -82,7 +82,7 @@ func (cpCtx *ComputePipesContext) ReadParquetFile(filePath *FileName, computePip
 
 	var inputRowCount int64
 	var record []interface{}
-	isShardingMode := cpCtx.CpipesMode == "sharding"
+	isShardingMode := cpCtx.CpConfig.ClusterConfig.CpipesMode == "sharding"
 	for {
 		// read and put the rows into computePipesInputCh
 		err = nil

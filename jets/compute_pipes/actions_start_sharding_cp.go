@@ -166,9 +166,6 @@ func (args *StartComputePipesArgs) StartShardingComputePipes(ctx context.Context
 	for i := range cpipesCommands {
 		cpipesCommands[i] = ComputePipesNodeArgs{
 			NodeId:            i,
-			CpipesMode:        "sharding",
-			SessionId:         args.SessionId,
-			FileKey:           args.FileKey,
 			PipelineExecKey:   args.PipelineExecKey,
 		}
 	}
@@ -223,6 +220,8 @@ func (args *StartComputePipesArgs) StartShardingComputePipes(ctx context.Context
 			Client:            client,
 			Org:               org,
 			ObjectType:        objectType,
+			FileKey:           args.FileKey,
+			SessionId:         args.SessionId,
 			InputSessionId:    inputSessionId,
 			SourcePeriodKey:   sourcePeriodKey,
 			ProcessName:       processName,
@@ -252,8 +251,8 @@ func (args *StartComputePipesArgs) StartShardingComputePipes(ctx context.Context
 	// log.Println(string(shardingConfigJson))
 	// Create entry in cpipes_execution_status
 	stmt = `INSERT INTO jetsapi.cpipes_execution_status 
-						(pipeline_execution_status_key, session_id, sharding_config_json, reducing_config_json) 
-						VALUES ($1, $2, $3, '{}')`
+						(pipeline_execution_status_key, session_id, cpipes_config_json) 
+						VALUES ($1, $2, $3)`
 	_, err2 := dbpool.Exec(ctx, stmt, args.PipelineExecKey, args.SessionId, string(shardingConfigJson))
 	if err2 != nil {
 		return result, fmt.Errorf("error inserting in jetsapi.cpipes_execution_status table: %v", err2)

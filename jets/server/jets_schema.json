@@ -1666,7 +1666,8 @@
       {
         "columnName": "file_key",
         "dataType": "text",
-        "isNotNull": true
+        "isNotNull": true,
+        "deleted": true
       },
       {
         "columnName": "jets_partition",
@@ -1678,7 +1679,8 @@
         "description": "This column should be called node_id, shard_id is a legacy name",
         "dataType": "int",
         "default": "0",
-        "isNotNull": true
+        "isNotNull": true,
+        "deleted": true
       },
       {
         "columnName": "sc_node_id",
@@ -1705,8 +1707,8 @@
     ],
     "tableConstraints": [
       {
-        "name": "compute_pipes_partitions_registry_unique_cstraint_v5",
-        "definition": "CONSTRAINT compute_pipes_partitions_registry_unique_cstraint_v5 UNIQUE (session_id,file_key,shard_id)"
+        "name": "compute_pipes_partitions_registry_unique_cstraint_v6",
+        "definition": "CONSTRAINT compute_pipes_partitions_registry_unique_cstraint_v6 UNIQUE (session_id,step_id,jets_partition)"
       }
     ]
   },
@@ -1730,20 +1732,28 @@
         "isNotNull": true
       },
       {
-        "columnName": "sharding_config_json",
+        "columnName": "cpipes_config_json",
         "dataType": "text",
         "isNotNull": true
       },
       {
+        "columnName": "sharding_config_json",
+        "dataType": "text",
+        "isNotNull": true,
+        "deleted": true
+      },
+      {
         "columnName": "reducing_config_json",
         "dataType": "text",
-        "isNotNull": true
+        "isNotNull": true,
+        "deleted": true
       }
     ],
     "indexes": [
       {
         "indexName": "cpipes_execution_status_session_id_idx",
-        "indexDef": "INDEX cpipes_execution_status_session_id_idx ON jetsapi.cpipes_execution_status (session_id)"
+        "indexDef": "INDEX cpipes_execution_status_session_id_idx ON jetsapi.cpipes_execution_status (session_id)",
+        "deleted": true
       },
       {
         "indexName": "cpipes_execution_status_pe_key_idx",
