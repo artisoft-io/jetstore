@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"strings"
 
 	"github.com/jackc/pgx/v4/pgxpool"
 )
@@ -141,8 +140,7 @@ func (ctx *PartitionWriterTransformationPipe) apply(input *[]interface{}) error 
 
 // Done writing the splitter partition
 //   - Close the current ctx.currentDeviceCh to flush the data, update totalRowCount
-//   - Write to db the nodeId of this partition: session_id, file_key, shard
-//     Here the file_key is ctx.baseOutputPath
+//   - Write to db the nodeId of this partition: session_id, shard, jets_partition
 //   - Send the total row count to ctx.copy2DeviceResultCh
 //
 // Not called if the process has error upstream (see pipe_executor_splitter.go)
@@ -160,12 +158,10 @@ func (ctx *PartitionWriterTransformationPipe) done() error {
 		stepId = *ctx.spec.StepId
 	}
 	stmt := `INSERT INTO jetsapi.compute_pipes_partitions_registry 
-	  (session_id, step_id, file_key, jets_partition, shard_id) 
-		VALUES ($1, $2, $3, $4, $5)
-		ON CONFLICT ON CONSTRAINT compute_pipes_partitions_registry_unique_cstraint_v5 
-		DO UPDATE SET (step_id, jets_partition) =	(EXCLUDED.step_id, EXCLUDED.jets_partition)`
-	_, err := ctx.dbpool.Exec(context.Background(), stmt, ctx.sessionId, stepId, *ctx.baseOutputPath,
-		ctx.jetsPartitionLabel, ctx.nodeId)
+	  (session_id, step_id, jets_partition) 
+		VALUES ($1, $2, $3)
+		ON CONFLICT DO NOTHING`
+	_, err := ctx.dbpool.Exec(context.Background(), stmt, ctx.sessionId, stepId, ctx.jetsPartitionLabel)
 	if err != nil {
 		return fmt.Errorf("error inserting in jetsapi.compute_pipes_partitions_registry table: %v", err)
 	}
@@ -239,25 +235,10 @@ func (ctx *BuilderContext) NewPartitionWriterTransformationPipe(source *InputCha
 	}
 
 	// s3 partitioning, write the partition files in the JetStore's stage path defined by the env var JETS_s3_STAGE_PREFIX
-	// baseOutputPath structure is: <JETS_s3_STAGE_PREFIX>/<original file key folder>/session_id=123456789/jets_partition=22p/
-	// The original file key folder is prepended with the jets partition (it replace the first path component with the partion number)
-	p := ctx.env["$FILE_KEY_FOLDER"].(string)
-	// Write the partition files in the jetstore stage folder of s3
-	p = strings.Replace(p, jetsS3InputPrefix, jetsS3StagePrefix, 1)
-	if spec.FilePathSubstitutions != nil {
-		for _, ps := range *spec.FilePathSubstitutions {
-			p = strings.Replace(p, ps.Replace, ps.With, 1)
-		}
-	}
-	// if $FILE_KEY_FOLDER is a input partition, i.e. we're reducing a second time
-	// remove the /session_id... from path
-	ipos := strings.Index(p, "/session_id=")
-	if ipos > 0 {
-		p = p[:ipos]
-	}
-	session_id := ctx.SessionId()
+	// baseOutputPath structure is: <JETS_s3_STAGE_PREFIX>/process_name=QcProcess/session_id=123456789/step_id=reduce0/jets_partition=22p/
 	jetsPartitionLabel := MakeJetsPartitionLabel(jetsPartitionKey)
-	baseOutputPath := fmt.Sprintf("%s/session_id=%s/jets_partition=%s", p, session_id, jetsPartitionLabel)
+	baseOutputPath := fmt.Sprintf("%s/process_name=%s/session_id=%s/step_id=%s/jets_partition=%s", 
+		jetsS3StagePrefix, ctx.processName, ctx.sessionId, *spec.StepId, jetsPartitionLabel)
 
 	// Check if we limit the file part size
 	var rowCountPerPartition int64
@@ -293,7 +274,7 @@ func (ctx *BuilderContext) NewPartitionWriterTransformationPipe(source *InputCha
 		columnEvaluators:           columnEvaluators,
 		doneCh:                     ctx.done,
 		copy2DeviceResultCh:        copy2DeviceResultCh,
-		sessionId:                  session_id,
+		sessionId:                  ctx.sessionId,
 		nodeId:                     ctx.nodeId,
 		s3DeviceManager:            ctx.s3DeviceManager,
 	}, nil

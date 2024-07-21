@@ -24,7 +24,7 @@ func (args *ComputePipesNodeArgs) CoordinateComputePipes(ctx context.Context, ds
 	var fileKeys []string
 	var cpipesConfigJson string
 	var cpConfig *ComputePipesConfig
-	stmt := "SELECT %s FROM jetsapi.cpipes_execution_status WHERE pipeline_execution_status_key = %d"
+	stmt := "SELECT cpipes_config_json FROM jetsapi.cpipes_execution_status WHERE pipeline_execution_status_key = %d"
 	// log.Println("Compute NODE", args.SessionId, "file_key:", args.FileKey, "node_id:", args.NodeId, "cpipes_mode:", args.CpipesMode)
 
 	// open db connection
@@ -35,47 +35,42 @@ func (args *ComputePipesNodeArgs) CoordinateComputePipes(ctx context.Context, ds
 	}
 	defer dbpool.Close()
 
-	// Extract processing date from file key inFile
-	fileKeyComponents = make(map[string]interface{})
-	fileKeyComponents = datatable.SplitFileKeyIntoComponents(fileKeyComponents, &args.FileKey)
-	if len(fileKeyComponents) > 0 {
-		year := fileKeyComponents["year"].(int)
-		month := fileKeyComponents["month"].(int)
-		day := fileKeyComponents["day"].(int)
-		fileKeyDate = time.Date(year, time.Month(month), day, 14, 0, 0, 0, time.UTC)
-		// log.Println("fileKeyDate:", fileKeyDate)
+	// Get the cpipes config from cpipes_execution_status
+	err = dbpool.QueryRow(ctx, fmt.Sprintf(stmt, args.PipelineExecKey)).Scan(&cpipesConfigJson)
+	if err != nil {
+		cpErr = fmt.Errorf("while reading cpipes config from cpipes_execution_status table (CoordinateComputePipes): %v", err)
+		goto gotError
 	}
-	// Get the cpipes config from cpipes_execution_status and file keys from compute_pipes_shard_registry table
-	//*NOTE Case reducing, get the file keys from s3
-	switch args.CpipesMode {
+	cpConfig, err = UnmarshalComputePipesConfig(&cpipesConfigJson)
+	if err != nil {
+		cpErr = fmt.Errorf("failed to unmarshal cpipes config json: %v", err)
+		goto gotError
+	}
+
+	// Get file keys
+	switch cpConfig.ClusterConfig.CpipesMode {
 	case "sharding":
-		err = dbpool.QueryRow(ctx, fmt.Sprintf(stmt, "sharding_config_json", args.PipelineExecKey)).Scan(&cpipesConfigJson)
-		if err != nil {
-			cpErr = fmt.Errorf("while reading cpipes config from cpipes_execution_status table (sharding in CoordinateComputePipes): %v", err)
-			goto gotError
-		}
 		// Case sharding, get the file keys from compute_pipes_shard_registry
-		fileKeys, err = GetFileKeys(ctx, dbpool, args.SessionId, args.NodeId)
+		fileKeys, err = GetFileKeys(ctx, dbpool, cpConfig.CommonRuntimeArgs.SessionId, args.NodeId)
 		if err != nil {
 			cpErr = fmt.Errorf("while loading aws configuration (in CoordinateComputePipes): %v", err)
 			goto gotError
 		}
-		log.Printf("%s node %d Got %d file keys from database (sharding)", args.SessionId, args.NodeId, len(fileKeys))
+		log.Printf("%s node %d Got %d file keys from database (sharding)", cpConfig.CommonRuntimeArgs.SessionId, args.NodeId, len(fileKeys))
 
 	case "reducing":
-		err = dbpool.QueryRow(ctx, fmt.Sprintf(stmt, "reducing_config_json", args.PipelineExecKey)).Scan(&cpipesConfigJson)
-		if err != nil {
-			cpErr = fmt.Errorf("while reading cpipes config from cpipes_execution_status table (reducing in CoordinateComputePipes): %v", err)
-			goto gotError
-		}
 		// Case cpipes reducing mode, get the file keys from s3
-		// log.Printf("Getting file keys from s3 folder: %s", args.FileKey)
-		s3Objects, err := awsi.ListS3Objects(&args.FileKey)
+		s3BaseFolder := fmt.Sprintf("%s/process_name=%s/session_id=%s/step_id=%s/jets_partition=%s", 
+			jetsS3StagePrefix, cpConfig.CommonRuntimeArgs.ProcessName, cpConfig.CommonRuntimeArgs.SessionId, 
+			cpConfig.CommonRuntimeArgs.StepId, args.JetsPartitionLabel)
+
+		log.Printf("Getting file keys from s3 folder: %s", s3BaseFolder)
+		s3Objects, err := awsi.ListS3Objects(&s3BaseFolder)
 		if err != nil || s3Objects == nil {
 			cpErr = fmt.Errorf("failed to download list of files from s3: %v", err)
 			goto gotError
 		}
-		log.Printf("%s node %d Got %d file keys from s3 (reducing)", args.SessionId, args.NodeId, len(s3Objects))
+		log.Printf("%s node %d Got %d file keys from s3 (reducing)", cpConfig.CommonRuntimeArgs.SessionId, args.NodeId, len(s3Objects))
 		fileKeys = make([]string, 0)
 		for i := range s3Objects {
 			if s3Objects[i].Size > 0 {
@@ -84,27 +79,29 @@ func (args *ComputePipesNodeArgs) CoordinateComputePipes(ctx context.Context, ds
 		}
 
 	default:
-		cpErr = fmt.Errorf("error: invalid cpipesMode in CoordinateComputePipes: %s", args.CpipesMode)
+		cpErr = fmt.Errorf("error: invalid cpipesMode in CoordinateComputePipes: %s", cpConfig.ClusterConfig.CpipesMode)
 		goto gotError
 	}
 
-	cpConfig, err = UnmarshalComputePipesConfig(&cpipesConfigJson)
-	if err != nil {
-		cpErr = fmt.Errorf("failed to unmarshal cpipes config json (%s): %v", args.CpipesMode, err)
-		goto gotError
+	// Extract processing date from file key inFile
+	fileKeyComponents = make(map[string]interface{})
+	fileKeyComponents = datatable.SplitFileKeyIntoComponents(fileKeyComponents, &cpConfig.CommonRuntimeArgs.FileKey)
+	if len(fileKeyComponents) > 0 {
+		year := fileKeyComponents["year"].(int)
+		month := fileKeyComponents["month"].(int)
+		day := fileKeyComponents["day"].(int)
+		fileKeyDate = time.Date(year, time.Month(month), day, 14, 0, 0, 0, time.UTC)
+		// log.Println("fileKeyDate:", fileKeyDate)
 	}
+
 	cpContext = &ComputePipesContext{
 		ComputePipesArgs: ComputePipesArgs{
 			ComputePipesNodeArgs:   *args,
 			ComputePipesCommonArgs: *cpConfig.CommonRuntimeArgs,
 		},
 		CpConfig: cpConfig,
-		EnvSettings: map[string]interface{}{
-			"$SESSIONID":            args.SessionId,
+		EnvSettings: map[string]interface{} {
 			"$FILE_KEY_DATE":        fileKeyDate,
-			"$FILE_KEY":             args.FileKey,
-			"$FILE_KEY_FOLDER":      args.FileKey, // assuming always partfiles
-			"$JETS_PARTITION_LABEL": args.JetsPartitionLabel,
 			"$JETSTORE_DEV_MODE":    false,
 		},
 		FileKeyComponents:  fileKeyComponents,
@@ -113,7 +110,7 @@ func (args *ComputePipesNodeArgs) CoordinateComputePipes(ctx context.Context, ds
 		FileNamesCh:        make(chan FileName, 2),
 		DownloadS3ResultCh: make(chan DownloadS3Result, 1),
 	}
-	if args.CpipesMode == "sharding" {
+	if cpConfig.ClusterConfig.CpipesMode == "sharding" {
 		// partfile_key_component :: explained
 		// ContextSpec.Type == partfile_key_component:
 		//		Key is column name of input_row to put the key component (must be at end of columns comming from parquet parfiles)
@@ -169,7 +166,7 @@ func (args *ComputePipesNodeArgs) CoordinateComputePipes(ctx context.Context, ds
 	return cpContext.ProcessFilesAndReportStatus(ctx, dbpool, inFolderPath)
 
 gotError:
-	log.Println(args.SessionId, "node", args.NodeId, "error in CoordinateComputePipes:", cpErr)
+	log.Println(cpConfig.CommonRuntimeArgs.SessionId, "node", args.NodeId, "error in CoordinateComputePipes:", cpErr)
 
 	//*TODO insert error in pipeline_execution_details
 	return cpErr

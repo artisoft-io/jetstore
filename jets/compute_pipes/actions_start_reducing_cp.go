@@ -66,29 +66,27 @@ func (args *StartComputePipesArgs) StartReducingComputePipes(ctx context.Context
 	}
 
 	// Read the partitions file keys, this will give us the nbr of nodes for reducing
-	// Get the partition file key (root dir of each partition) from compute_pipes_partitions_registry
-	type jetsPartitionInfo struct {
-		fileKey       string
-		jetsPartition string
-	}
-	partitions := make([]jetsPartitionInfo, 0)
-	stmt = `SELECT DISTINCT file_key, jets_partition 
+	// Root dir of each partition:
+	//		<JETS_s3_STAGE_PREFIX>/process_name=QcProcess/session_id=123456789/step_id=reduce0/jets_partition=22p/
+	// Get the partition key from compute_pipes_partitions_registry
+	partitions := make([]string, 0)
+	stmt = `SELECT jets_partition 
 			FROM jetsapi.compute_pipes_partitions_registry 
 			WHERE session_id = $1 AND step_id = $2`
 	rows, err := dbpool.Query(context.Background(), stmt, args.SessionId, args.InputStepId)
 	if err != nil {
 		return result,
-			fmt.Errorf("while querying file_key, jets_partition from compute_pipes_partitions_registry: %v", err)
+			fmt.Errorf("while querying jets_partition from compute_pipes_partitions_registry: %v", err)
 	}
 	defer rows.Close()
 	for rows.Next() {
 		// scan the row
-		var partitionInfo jetsPartitionInfo
-		if err = rows.Scan(&partitionInfo.fileKey, &partitionInfo.jetsPartition); err != nil {
+		var jetsPartition string
+		if err = rows.Scan(&jetsPartition); err != nil {
 			return result,
-				fmt.Errorf("while scanning jetsPartitionInfo from compute_pipes_partitions_registry table: %v", err)
+				fmt.Errorf("while scanning jetsPartition from compute_pipes_partitions_registry table: %v", err)
 		}
-		partitions = append(partitions, partitionInfo)
+		partitions = append(partitions, jetsPartition)
 	}
 
 	// Set the nbr of concurrent map tasks
@@ -135,16 +133,18 @@ func (args *StartComputePipesArgs) StartReducingComputePipes(ctx context.Context
 
 	cpReducingConfig := &ComputePipesConfig{
 		CommonRuntimeArgs: &ComputePipesCommonArgs{
-			Client:             client,
-			Org:                org,
-			ObjectType:         objectType,
-			InputSessionId:     inputSessionId,
-			SourcePeriodKey:    sourcePeriodKey,
-			ProcessName:        processName,
-			InputColumns:       inputColumns,
-			PipelineConfigKey:  pipelineConfigKey,
-			UserEmail:          userEmail,
-
+			Client:            client,
+			Org:               org,
+			ObjectType:        objectType,
+			FileKey:           args.FileKey,
+			SessionId:         args.SessionId,
+			StepId:            fmt.Sprintf("reducing%d", currentStep),
+			InputSessionId:    inputSessionId,
+			SourcePeriodKey:   sourcePeriodKey,
+			ProcessName:       processName,
+			InputColumns:      inputColumns,
+			PipelineConfigKey: pipelineConfigKey,
+			UserEmail:         userEmail,
 		},
 		ClusterConfig: clusterSpec,
 		MetricsConfig: cpConfig.MetricsConfig,
@@ -160,7 +160,7 @@ func (args *StartComputePipesArgs) StartReducingComputePipes(ctx context.Context
 	}
 
 	// Update entry in cpipes_execution_status with reducing config json
-	stmt = "UPDATE jetsapi.cpipes_execution_status SET reducing_config_json = $1 WHERE session_id = $2"
+	stmt = "UPDATE jetsapi.cpipes_execution_status SET cpipes_config_json = $1 WHERE session_id = $2"
 	_, err2 := dbpool.Exec(ctx, stmt, string(reducingConfigJson), args.SessionId)
 	if err2 != nil {
 		return result, fmt.Errorf("error inserting in jetsapi.cpipes_execution_status table (reducing): %v", err2)
@@ -208,10 +208,7 @@ func (args *StartComputePipesArgs) StartReducingComputePipes(ctx context.Context
 		cpipesCommands := make([][]string, len(partitions))
 		template, err := json.Marshal(ComputePipesNodeArgs{
 			NodeId:             123456789,
-			CpipesMode:         "reducing",
 			JetsPartitionLabel: "__LABEL__",
-			SessionId:          args.SessionId,
-			FileKey:            "__FILE_KEY__",
 			PipelineExecKey:    args.PipelineExecKey,
 		})
 		if err != nil {
@@ -220,9 +217,8 @@ func (args *StartComputePipesArgs) StartReducingComputePipes(ctx context.Context
 		templateStr := string(template)
 		for i := range cpipesCommands {
 			value := strings.Replace(templateStr, "123456789", strconv.Itoa(i), 1)
-			value = strings.Replace(value, "__LABEL__", partitions[i].jetsPartition, 1)
 			cpipesCommands[i] = []string{
-				strings.Replace(value, "__FILE_KEY__", partitions[i].fileKey, 1),
+				strings.Replace(value, "__LABEL__", partitions[i], 1),
 			}
 		}
 		result.CpipesCommands = cpipesCommands
@@ -232,10 +228,7 @@ func (args *StartComputePipesArgs) StartReducingComputePipes(ctx context.Context
 		for i := range cpipesCommands {
 			cpipesCommands[i] = ComputePipesNodeArgs{
 				NodeId:             i,
-				CpipesMode:         "reducing",
-				JetsPartitionLabel: partitions[i].jetsPartition,
-				SessionId:          args.SessionId,
-				FileKey:            partitions[i].fileKey,
+				JetsPartitionLabel: partitions[i],
 				PipelineExecKey:    args.PipelineExecKey,
 			}
 		}

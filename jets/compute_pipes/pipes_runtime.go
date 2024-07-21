@@ -100,25 +100,21 @@ type OutputChannel struct {
 }
 
 type BuilderContext struct {
-	dbpool             *pgxpool.Pool
-	cpConfig           *ComputePipesConfig
-	channelRegistry    *ChannelRegistry
-	done               chan struct{}
-	errCh              chan error
-	chResults          *ChannelResults
-	env                map[string]interface{}
-	s3DeviceManager    *S3DeviceManager
-	nodeId             int
-}
-
-func (ctx *BuilderContext) JetsPartition() string {
-	return ctx.env["$JETS_PARTITION_LABEL"].(string)
-}
-func (ctx *BuilderContext) SessionId() string {
-	return ctx.env["$SESSIONID"].(string)
+	dbpool          *pgxpool.Pool
+	sessionId       string
+	jetsPartition   string
+	cpConfig        *ComputePipesConfig
+	processName     string
+	channelRegistry *ChannelRegistry
+	done            chan struct{}
+	errCh           chan error
+	chResults       *ChannelResults
+	env             map[string]interface{}
+	s3DeviceManager *S3DeviceManager
+	nodeId          int
 }
 func (ctx *BuilderContext) FileKey() string {
-	return ctx.env["$FILE_KEY"].(string)
+	return ctx.cpConfig.CommonRuntimeArgs.FileKey
 }
 
 type PipeTransformationEvaluator interface {
