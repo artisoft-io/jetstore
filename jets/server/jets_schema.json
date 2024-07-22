@@ -1734,6 +1734,7 @@
       {
         "columnName": "cpipes_config_json",
         "dataType": "text",
+        "default": "'{}'",
         "isNotNull": true
       },
       {
