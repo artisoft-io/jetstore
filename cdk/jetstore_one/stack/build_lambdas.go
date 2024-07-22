@@ -114,10 +114,11 @@ func (jsComp *JetStoreStackComponents) BuildLambdas(scope constructs.Construct, 
 			"WORKSPACE":                          jsii.String(os.Getenv("WORKSPACE")),
 			"WORKSPACES_HOME":                    jsii.String("/tmp/workspaces"),
 		},
-		MemorySize: jsii.Number(3072),
-		Timeout:    awscdk.Duration_Minutes(jsii.Number(15)),
-		Vpc:        jsComp.Vpc,
-		VpcSubnets: jsComp.IsolatedSubnetSelection,
+		MemorySize:           jsii.Number(3072),
+		Timeout:              awscdk.Duration_Minutes(jsii.Number(15)),
+		Vpc:                  jsComp.Vpc,
+		VpcSubnets:           jsComp.IsolatedSubnetSelection,
+		EphemeralStorageSize: awscdk.Size_Mebibytes(jsii.Number(4096)),
 	})
 	if phiTagName != nil {
 		awscdk.Tags_Of(jsComp.RunReportsLambda).Add(phiTagName, jsii.String("false"), nil)
