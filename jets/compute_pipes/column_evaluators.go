@@ -17,8 +17,16 @@ func (ctx *BuilderContext) parseValue(expr *string) (interface{}, error) {
 		value = math.NaN()
 
 	case strings.HasPrefix(*expr, "$"):
-		// value is an env var
-		value = ctx.env[*expr]
+		// Check for special case
+		switch *expr {
+		case "$SESSIONID":
+			value = ctx.sessionId
+		case "$SHARD_ID":
+			value = ctx.nodeId
+		default:
+			// value is an env var, e.g. $FILE_KEY_DATE
+			value = ctx.env[*expr]
+		}
 		
 	case strings.HasPrefix(*expr, "'"):
 		// value is a string
