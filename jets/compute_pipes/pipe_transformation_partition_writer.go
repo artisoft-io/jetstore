@@ -27,26 +27,26 @@ func init() {
 // Currently supporting writing to s3 jetstore stage path
 
 type PartitionWriterTransformationPipe struct {
-	cpConfig                   *ComputePipesConfig
-	dbpool                     *pgxpool.Pool
-	spec                       *TransformationSpec
-	localTempDir               *string
-	baseOutputPath             *string
-	jetsPartitionLabel         string
-	rowCountPerPartition       int64
-	partitionRowCount          int64
-	totalRowCount              int64
-	filePartitionNumber        int
-	outputCh                   *OutputChannel
-	currentDeviceCh            chan []interface{}
-	parquetSchema              []string
-	columnEvaluators           []TransformationColumnEvaluator
-	doneCh                     chan struct{}
-	errCh                      chan error
-	copy2DeviceResultCh        chan<- ComputePipesResult
-	sessionId                  string
-	nodeId                     int
-	s3DeviceManager            *S3DeviceManager
+	cpConfig             *ComputePipesConfig
+	dbpool               *pgxpool.Pool
+	spec                 *TransformationSpec
+	localTempDir         *string
+	baseOutputPath       *string
+	jetsPartitionLabel   string
+	rowCountPerPartition int64
+	partitionRowCount    int64
+	totalRowCount        int64
+	filePartitionNumber  int
+	outputCh             *OutputChannel
+	currentDeviceCh      chan []interface{}
+	parquetSchema        []string
+	columnEvaluators     []TransformationColumnEvaluator
+	doneCh               chan struct{}
+	errCh                chan error
+	copy2DeviceResultCh  chan<- ComputePipesResult
+	sessionId            string
+	nodeId               int
+	s3DeviceManager      *S3DeviceManager
 }
 
 func MakeJetsPartitionLabel(jetsPartitionKey interface{}) string {
@@ -98,11 +98,15 @@ func (ctx *PartitionWriterTransformationPipe) apply(input *[]interface{}) error 
 			doneCh:        ctx.doneCh,
 			errCh:         ctx.errCh,
 		}
-		if isParquetWriter {
-			go s3DeviceWriter.WriteParquetPartition()
-		} else {
-			go s3DeviceWriter.WriteCsvPartition()
-		}
+		ctx.s3DeviceManager.ClientsWg.Add(1)
+		go func() {
+			defer ctx.s3DeviceManager.ClientsWg.Done()
+			if isParquetWriter {
+				s3DeviceWriter.WriteParquetPartition()
+			} else {
+				s3DeviceWriter.WriteCsvPartition()
+			}
+		}()
 	}
 
 	currentValues := make([]interface{}, len(ctx.outputCh.config.Columns))
@@ -189,7 +193,7 @@ func (ctx *PartitionWriterTransformationPipe) finally() {
 func (ctx *BuilderContext) NewPartitionWriterTransformationPipe(source *InputChannel, jetsPartitionKey interface{},
 	outputCh *OutputChannel, copy2DeviceResultCh chan ComputePipesResult, spec *TransformationSpec) (*PartitionWriterTransformationPipe, error) {
 
-		// log.Println("NewPartitionWriterTransformationPipe called for partition key:",jetsPartitionKey)
+	// log.Println("NewPartitionWriterTransformationPipe called for partition key:",jetsPartitionKey)
 	// Prepare the column evaluators
 	var err error
 	columnEvaluators := make([]TransformationColumnEvaluator, len(spec.Columns))
@@ -237,7 +241,7 @@ func (ctx *BuilderContext) NewPartitionWriterTransformationPipe(source *InputCha
 	// s3 partitioning, write the partition files in the JetStore's stage path defined by the env var JETS_s3_STAGE_PREFIX
 	// baseOutputPath structure is: <JETS_s3_STAGE_PREFIX>/process_name=QcProcess/session_id=123456789/step_id=reduce0/jets_partition=22p/
 	jetsPartitionLabel := MakeJetsPartitionLabel(jetsPartitionKey)
-	baseOutputPath := fmt.Sprintf("%s/process_name=%s/session_id=%s/step_id=%s/jets_partition=%s", 
+	baseOutputPath := fmt.Sprintf("%s/process_name=%s/session_id=%s/step_id=%s/jets_partition=%s",
 		jetsS3StagePrefix, ctx.processName, ctx.sessionId, *spec.StepId, jetsPartitionLabel)
 
 	// Check if we limit the file part size
@@ -262,20 +266,20 @@ func (ctx *BuilderContext) NewPartitionWriterTransformationPipe(source *InputCha
 	}
 
 	return &PartitionWriterTransformationPipe{
-		cpConfig:                   ctx.cpConfig,
-		dbpool:                     ctx.dbpool,
-		spec:                       spec,
-		baseOutputPath:             &baseOutputPath,
-		localTempDir:               &localTempDir,
-		jetsPartitionLabel:         jetsPartitionLabel,
-		rowCountPerPartition:       rowCountPerPartition,
-		outputCh:                   outputCh,
-		parquetSchema:              parquetSchema,
-		columnEvaluators:           columnEvaluators,
-		doneCh:                     ctx.done,
-		copy2DeviceResultCh:        copy2DeviceResultCh,
-		sessionId:                  ctx.sessionId,
-		nodeId:                     ctx.nodeId,
-		s3DeviceManager:            ctx.s3DeviceManager,
+		cpConfig:             ctx.cpConfig,
+		dbpool:               ctx.dbpool,
+		spec:                 spec,
+		baseOutputPath:       &baseOutputPath,
+		localTempDir:         &localTempDir,
+		jetsPartitionLabel:   jetsPartitionLabel,
+		rowCountPerPartition: rowCountPerPartition,
+		outputCh:             outputCh,
+		parquetSchema:        parquetSchema,
+		columnEvaluators:     columnEvaluators,
+		doneCh:               ctx.done,
+		copy2DeviceResultCh:  copy2DeviceResultCh,
+		sessionId:            ctx.sessionId,
+		nodeId:               ctx.nodeId,
+		s3DeviceManager:      ctx.s3DeviceManager,
 	}, nil
 }
