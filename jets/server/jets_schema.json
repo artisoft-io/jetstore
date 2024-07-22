@@ -1734,8 +1734,7 @@
       {
         "columnName": "cpipes_config_json",
         "dataType": "text",
-        "default": "'{}'",
-        "isNotNull": true
+        "default": "'{}'"
       },
       {
         "columnName": "sharding_config_json",
