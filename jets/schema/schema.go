@@ -386,6 +386,7 @@ func (tableDefinition *TableDefinition) UpdateTable(dbpool *pgxpool.Pool, existi
 
 	// Execute the statements
 	stmt := buf.String()
+	//* PRINT STMT
 	// log.Println(stmt)
 	_, err := dbpool.Exec(context.Background(), stmt)
 	if err != nil {
