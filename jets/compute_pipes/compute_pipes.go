@@ -49,6 +49,8 @@ func (cpCtx *ComputePipesContext) StartComputePipes(dbpool *pgxpool.Pool, comput
 			switch contextSpec.Type {
 			case "file_key_component":
 				cpCtx.EnvSettings[contextSpec.Key] = cpCtx.FileKeyComponents[contextSpec.Expr]
+			case "value":
+				cpCtx.EnvSettings[contextSpec.Key] = contextSpec.Expr
 			case "partfile_key_component":
 			default:
 				cpErr = fmt.Errorf("error: unknown ContextSpec Type: %v", contextSpec.Type)

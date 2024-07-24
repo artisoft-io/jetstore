@@ -50,6 +50,10 @@ type PartitionWriterTransformationPipe struct {
 }
 
 func MakeJetsPartitionLabel(jetsPartitionKey interface{}) string {
+	key, ok := jetsPartitionKey.(string)
+	if ok {
+		return key
+	}
 	return fmt.Sprintf("%vp", jetsPartitionKey)
 }
 
@@ -194,6 +198,9 @@ func (ctx *BuilderContext) NewPartitionWriterTransformationPipe(source *InputCha
 	outputCh *OutputChannel, copy2DeviceResultCh chan ComputePipesResult, spec *TransformationSpec) (*PartitionWriterTransformationPipe, error) {
 
 	// log.Println("NewPartitionWriterTransformationPipe called for partition key:",jetsPartitionKey)
+	if jetsPartitionKey == nil && spec.JetsPartitionKey != nil {
+		jetsPartitionKey = *spec.JetsPartitionKey
+	}
 	// Prepare the column evaluators
 	var err error
 	columnEvaluators := make([]TransformationColumnEvaluator, len(spec.Columns))

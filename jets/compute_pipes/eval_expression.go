@@ -25,18 +25,27 @@ func (node *expressionNodeEvaluator) eval(input *[]interface{}) (interface{}, er
 		rhs, err = node.rhs.eval(input)
 		if err != nil {
 			return nil, err
-		}	
+		}
 	}
 	return node.op.eval(lhs, rhs)
 }
 
 type expressionSelectLeaf struct {
-	index int
+	index   int
+	rdfType *string
 }
 
 func (node *expressionSelectLeaf) eval(input *[]interface{}) (interface{}, error) {
 	if node.index >= len(*input) {
 		return nil, fmt.Errorf("error expressionSelectLeaf index %d >= len(*input) %d", node.index, len(*input))
+	}
+	if node.rdfType != nil {
+		inputV, ok := (*input)[node.index].(string)
+		if !ok {
+			// humm, was expecting a string
+			inputV = fmt.Sprintf("%v", (*input)[node.index])
+		}
+		return CastToRdfType(inputV, *node.rdfType), nil
 	}
 	return (*input)[node.index], nil
 }
@@ -119,14 +128,9 @@ func (ctx *BuilderContext) buildExprNodeEvaluator(source *InputChannel, outCh *O
 				err = fmt.Errorf("error column %s not found in input source %s", *spec.Expr, source.config.Name)
 			}
 			return &expressionSelectLeaf{
-				index: inputPos,
+				index:   inputPos,
+				rdfType: spec.AsRdfType,
 			}, err
-
-		case "eval":
-			if spec.EvalExpr == nil {
-				return nil, fmt.Errorf("error: Type eval must have EvalExpr != nil")
-			}
-			return ctx.buildExprNodeEvaluator(source, outCh, spec.EvalExpr)
 		}
 	}
 	return nil, fmt.Errorf("error buildExprNodeEvaluator: cannot determine if expr is node or leaf? spec type %v", *spec.Type)

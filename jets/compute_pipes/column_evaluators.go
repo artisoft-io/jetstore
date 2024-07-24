@@ -17,21 +17,13 @@ func (ctx *BuilderContext) parseValue(expr *string) (interface{}, error) {
 		value = math.NaN()
 
 	case strings.HasPrefix(*expr, "$"):
-		// Check for special case
-		switch *expr {
-		case "$SESSIONID":
-			value = ctx.sessionId
-		case "$SHARD_ID":
-			value = ctx.nodeId
-		default:
-			// value is an env var, e.g. $FILE_KEY_DATE
-			value = ctx.env[*expr]
-		}
-		
+		// value is an env var, e.g. $FILE_KEY_DATE
+		value = ctx.env[*expr]
+
 	case strings.HasPrefix(*expr, "'"):
 		// value is a string
 		value = strings.TrimSuffix(strings.TrimPrefix(*expr, "'"), "'")
-		
+
 	case strings.Contains(*expr, "."):
 		// value is double
 		value, err = strconv.ParseFloat(*expr, 64)
@@ -53,7 +45,7 @@ func (ctx *BuilderContext) parseValue(expr *string) (interface{}, error) {
 func (ctx *BuilderContext) buildTransformationColumnEvaluator(source *InputChannel, outCh *OutputChannel, spec *TransformationColumnSpec) (TransformationColumnEvaluator, error) {
 
 	switch spec.Type {
-	// select, value, eval, map, count, distinct_count, sum, min, case
+	// select, value, eval, map, count, distinct_count, sum, min, case, hash, map_reduce
 	case "select":
 		if spec.Expr == nil {
 			return nil, fmt.Errorf("error: Type select must have Expr != nil")
@@ -83,7 +75,7 @@ func (ctx *BuilderContext) buildTransformationColumnEvaluator(source *InputChann
 		if !ok {
 			return nil, fmt.Errorf("error column %s not found in output source %s", spec.Name, outCh.config.Name)
 		}
-			return &valueColumnEval{
+		return &valueColumnEval{
 			value:     value,
 			outputPos: outputPos,
 		}, nil
@@ -97,8 +89,8 @@ func (ctx *BuilderContext) buildTransformationColumnEvaluator(source *InputChann
 		if !ok {
 			return nil, fmt.Errorf("error column %s not found in output source %s", spec.Name, outCh.config.Name)
 		}
-			return &evalExprColumnEval{
-			expr: evalEpr,
+		return &evalExprColumnEval{
+			expr:      evalEpr,
 			outputPos: outputPos,
 		}, nil
 
@@ -149,10 +141,9 @@ func (ctx *BuilderContext) buildTransformationColumnEvaluator(source *InputChann
 	return nil, fmt.Errorf("error: unknown TransformationColumnSpec Type: %v", spec.Type)
 }
 
-
 // TransformationColumnSpec Type eval
 type evalExprColumnEval struct {
-	expr evalExpression
+	expr      evalExpression
 	outputPos int
 }
 
@@ -169,12 +160,12 @@ func (ctx *evalExprColumnEval) done(currentValue *[]interface{}) error {
 	return nil
 }
 
-
 // TransformationColumnSpec Type value
 type valueColumnEval struct {
 	value     interface{}
 	outputPos int
 }
+
 func (ctx *valueColumnEval) done(currentValue *[]interface{}) error {
 	return nil
 }
@@ -193,6 +184,7 @@ type selectColumnEval struct {
 	inputPos  int
 	outputPos int
 }
+
 func (ctx *selectColumnEval) done(currentValue *[]interface{}) error {
 	return nil
 }

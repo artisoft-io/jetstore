@@ -76,17 +76,19 @@ type TableColumnSpec struct {
 }
 
 type PipeSpec struct {
-	// Type range: fan_out, splitter
-	Type   string               `json:"type"`
-	Input  string               `json:"input"`
-	Column *string              `json:"column"` // splitter column
-	Apply  []TransformationSpec `json:"apply"`
+	// Type range: fan_out, splitter, merge_files
+	Type       string               `json:"type"`
+	Input      string               `json:"input"`
+	Column     *string              `json:"column"` // splitter column
+	Apply      []TransformationSpec `json:"apply"`
+	OutputFile *string              `json:"output_file"` // for merge_files
 }
 
 type TransformationSpec struct {
 	// Type range: map_record, aggregate, partition_writer
 	Type                  string                     `json:"type"`
 	PartitionSize         *int                       `json:"partition_size"`
+	JetsPartitionKey      *string                    `json:"jets_partition_key"`
 	FilePathSubstitutions *[]PathSubstitution        `json:"file_path_substitutions"`
 	StepId                *string                    `json:"step_id"`
 	Columns               []TransformationColumnSpec `json:"columns"`
@@ -139,14 +141,14 @@ type MapExpression struct {
 }
 
 type ExpressionNode struct {
-	// Type for leaf node: select, value, eval
-	Type     *string         `json:"type"`
-	Expr     *string         `json:"expr"`
-	EvalExpr *ExpressionNode `json:"eval_expr"`
-	Arg      *ExpressionNode `json:"arg"`
-	Lhs      *ExpressionNode `json:"lhs"`
-	Op       *string         `json:"op"`
-	Rhs      *ExpressionNode `json:"rhs"`
+	// Type is for leaf nodes: select, value
+	Type      *string         `json:"type"`
+	Expr      *string         `json:"expr"`
+	AsRdfType *string         `json:"as_rdf_type"`
+	Arg       *ExpressionNode `json:"arg"`
+	Lhs       *ExpressionNode `json:"lhs"`
+	Op        *string         `json:"op"`
+	Rhs       *ExpressionNode `json:"rhs"`
 }
 
 type CaseExpression struct {

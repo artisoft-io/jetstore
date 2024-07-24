@@ -60,8 +60,8 @@ func (args *ComputePipesNodeArgs) CoordinateComputePipes(ctx context.Context, ds
 
 	case "reducing":
 		// Case cpipes reducing mode, get the file keys from s3
-		s3BaseFolder := fmt.Sprintf("%s/process_name=%s/session_id=%s/step_id=%s/jets_partition=%s", 
-			jetsS3StagePrefix, cpConfig.CommonRuntimeArgs.ProcessName, cpConfig.CommonRuntimeArgs.SessionId, 
+		s3BaseFolder := fmt.Sprintf("%s/process_name=%s/session_id=%s/step_id=%s/jets_partition=%s",
+			jetsS3StagePrefix, cpConfig.CommonRuntimeArgs.ProcessName, cpConfig.CommonRuntimeArgs.SessionId,
 			cpConfig.CommonRuntimeArgs.StepId, args.JetsPartitionLabel)
 
 		log.Printf("Getting file keys from s3 folder: %s", s3BaseFolder)
@@ -100,9 +100,12 @@ func (args *ComputePipesNodeArgs) CoordinateComputePipes(ctx context.Context, ds
 			ComputePipesCommonArgs: *cpConfig.CommonRuntimeArgs,
 		},
 		CpConfig: cpConfig,
-		EnvSettings: map[string]interface{} {
+		EnvSettings: map[string]interface{}{
+			"$SESSIONID":            cpConfig.CommonRuntimeArgs.SessionId,
+			"$SHARD_ID":             args.NodeId,
 			"$FILE_KEY_DATE":        fileKeyDate,
 			"$JETSTORE_DEV_MODE":    false,
+			"$JETS_PARTITION_LABEL": args.JetsPartitionLabel,
 		},
 		FileKeyComponents:  fileKeyComponents,
 		Done:               make(chan struct{}),
