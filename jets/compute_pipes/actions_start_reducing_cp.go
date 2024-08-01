@@ -17,9 +17,9 @@ func (args *StartComputePipesArgs) StartReducingComputePipes(ctx context.Context
 	var result ComputePipesRun
 	var err error
 	// validate the args
-	if args.FileKey == "" || args.SessionId == "" || args.InputStepId == nil || args.CurrentStep == nil {
-		log.Println("error: missing file_key or session_id or input_step_id or current_step as input args of StartComputePipes (reducing mode)")
-		return result, fmt.Errorf("error: missing file_key or session_id or input_step_id as input args of StartComputePipes (reducing mode)")
+	if args.FileKey == "" || args.SessionId == "" || args.StepId == nil {
+		log.Println("error: missing file_key or session_id or step_id as input args of StartComputePipes (reducing mode)")
+		return result, fmt.Errorf("error: missing file_key or session_id or step_id as input args of StartComputePipes (reducing mode)")
 	}
 
 	// open db connection
@@ -53,8 +53,9 @@ func (args *StartComputePipesArgs) StartReducingComputePipes(ctx context.Context
 	if err != nil {
 		return result, fmt.Errorf("query table_name, domain_keys_json, input_columns_json, input_columns_positions_csv, input_format_data_json from jetsapi.source_config failed: %v", err)
 	}
-	log.Println("argument: inputStepId", *args.InputStepId)
-	log.Println("Start REDUCING", args.SessionId, "file_key:", args.FileKey, "reducing mode", "current_step:", *args.CurrentStep)
+	log.Println("argument: StepId", *args.StepId)
+	log.Println("Start REDUCING", args.SessionId, "file_key:", args.FileKey, "reducing mode", "step_id:", *args.StepId)
+	readStepId, writeStepId := GetRWStepId(*args.StepId)
 
 	if len(cpJson.String) == 0 {
 		return result, fmt.Errorf("error: compute_pipes_json is null or empty")
@@ -67,13 +68,13 @@ func (args *StartComputePipesArgs) StartReducingComputePipes(ctx context.Context
 
 	// Read the partitions file keys, this will give us the nbr of nodes for reducing
 	// Root dir of each partition:
-	//		<JETS_s3_STAGE_PREFIX>/process_name=QcProcess/session_id=123456789/step_id=reduce0/jets_partition=22p/
+	//		<JETS_s3_STAGE_PREFIX>/process_name=QcProcess/session_id=123456789/step_id=reducing01/jets_partition=22p/
 	// Get the partition key from compute_pipes_partitions_registry
 	partitions := make([]string, 0)
 	stmt = `SELECT jets_partition 
 			FROM jetsapi.compute_pipes_partitions_registry 
 			WHERE session_id = $1 AND step_id = $2`
-	rows, err := dbpool.Query(context.Background(), stmt, args.SessionId, args.InputStepId)
+	rows, err := dbpool.Query(context.Background(), stmt, args.SessionId, readStepId)
 	if err != nil {
 		return result,
 			fmt.Errorf("while querying jets_partition from compute_pipes_partitions_registry: %v", err)
@@ -98,18 +99,28 @@ func (args *StartComputePipesArgs) StartReducingComputePipes(ctx context.Context
 	result.UseECSReducingTask = args.UseECSTask
 
 	outputTables := make([]TableSpec, 0)
-	currentStep := *args.CurrentStep
+	stepId := *args.StepId
 	isLastReducing := false
-	if currentStep == len(cpConfig.ReducingPipesConfig)-1 {
+	isMergeFiles := false
+	if stepId == len(cpConfig.ReducingPipesConfig)-1 {
 		outputTables = cpConfig.OutputTables
 		isLastReducing = true
+		// Check and validate if we're on a merge_files step
+		if cpConfig.ReducingPipesConfig[stepId][0].Type == "merge_files" {
+			isMergeFiles = true
+			// perform validation
+			if len(partitions) != 1 {
+				return result,
+					fmt.Errorf("error: last step of type 'merge_files' requires a single partition, currently has %d partitons",
+						len(partitions))
+			}
+		}
 	}
 
 	// Make the reducing pipeline config
 	// Note that S3WorkerPoolSize is set to the  value set at the ClusterSpec
 	// with a default of len(partitions)
 	clusterSpec := &ClusterSpec{
-		CpipesMode:            "reducing",
 		NbrNodes:              len(partitions),
 		DefaultMaxConcurrency: cpConfig.ClusterConfig.DefaultMaxConcurrency,
 		S3WorkerPoolSize:      cpConfig.ClusterConfig.S3WorkerPoolSize,
@@ -123,22 +134,27 @@ func (args *StartComputePipesArgs) StartReducingComputePipes(ctx context.Context
 
 	// Get the input columns from Pipes Config, from the first pipes channel
 	var inputColumns []string
-	inputChannel := cpConfig.ReducingPipesConfig[currentStep][0].Input
-	for i := range cpConfig.Channels {
-		if cpConfig.Channels[i].Name == inputChannel {
-			inputColumns = cpConfig.Channels[i].Columns
-			break
+	if !isMergeFiles {
+		inputChannel := cpConfig.ReducingPipesConfig[stepId][0].Input
+		for i := range cpConfig.Channels {
+			if cpConfig.Channels[i].Name == inputChannel {
+				inputColumns = cpConfig.Channels[i].Columns
+				break
+			}
 		}
 	}
 
 	cpReducingConfig := &ComputePipesConfig{
 		CommonRuntimeArgs: &ComputePipesCommonArgs{
+			CpipesMode:        "reducing",
 			Client:            client,
 			Org:               org,
 			ObjectType:        objectType,
 			FileKey:           args.FileKey,
 			SessionId:         args.SessionId,
-			StepId:            fmt.Sprintf("reducing%d", currentStep),
+			ReadStepId:        readStepId,
+			WriteStepId:       writeStepId,
+			MergeFiles:        isMergeFiles,
 			InputSessionId:    inputSessionId,
 			SourcePeriodKey:   sourcePeriodKey,
 			ProcessName:       processName,
@@ -151,7 +167,7 @@ func (args *StartComputePipesArgs) StartReducingComputePipes(ctx context.Context
 		OutputTables:  outputTables,
 		Channels:      cpConfig.Channels,
 		Context:       cpConfig.Context,
-		PipesConfig:   cpConfig.ReducingPipesConfig[currentStep],
+		PipesConfig:   cpConfig.ReducingPipesConfig[stepId],
 	}
 
 	reducingConfigJson, err := json.Marshal(cpReducingConfig)
@@ -170,14 +186,12 @@ func (args *StartComputePipesArgs) StartReducingComputePipes(ctx context.Context
 	result.IsLastReducing = isLastReducing
 	if !isLastReducing {
 		// next iteration
-		nextCurrent := currentStep + 1
-		nextInputStepId := fmt.Sprintf("reducing%d", nextCurrent)
+		nextStepId := stepId + 1
 		result.StartReducing = StartComputePipesArgs{
 			PipelineExecKey: args.PipelineExecKey,
 			FileKey:         args.FileKey,
 			SessionId:       args.SessionId,
-			InputStepId:     &nextInputStepId,
-			CurrentStep:     &nextCurrent,
+			StepId:          &nextStepId,
 		}
 	}
 

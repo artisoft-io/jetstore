@@ -133,7 +133,7 @@ func (args *StartComputePipesArgs) StartShardingComputePipes(ctx context.Context
 	shardingNbrNodes := cpConfig.ClusterConfig.NbrNodes
 	// Set a default cluster spec
 	clusterSpec := &ClusterSizingSpec{
-		NbrNodes: shardingNbrNodes,
+		NbrNodes:         shardingNbrNodes,
 		S3WorkerPoolSize: cpConfig.ClusterConfig.S3WorkerPoolSize,
 	}
 	if shardingNbrNodes == 0 {
@@ -165,8 +165,8 @@ func (args *StartComputePipesArgs) StartShardingComputePipes(ctx context.Context
 	cpipesCommands := make([]ComputePipesNodeArgs, shardingNbrNodes)
 	for i := range cpipesCommands {
 		cpipesCommands[i] = ComputePipesNodeArgs{
-			NodeId:            i,
-			PipelineExecKey:   args.PipelineExecKey,
+			NodeId:          i,
+			PipelineExecKey: args.PipelineExecKey,
 		}
 	}
 	// Using Inline Map:
@@ -182,22 +182,20 @@ func (args *StartComputePipesArgs) StartShardingComputePipes(ctx context.Context
 	// WriteCpipesArgsToS3(cpipesCommands, result.CpipesCommandsS3Key)
 
 	// Args for start_reducing_cp lambda
-	inputStepId := "reducing0"
-	reducingStep := 0
+	stepId := 1
 	result.StartReducing = StartComputePipesArgs{
 		PipelineExecKey: args.PipelineExecKey,
 		FileKey:         args.FileKey,
 		SessionId:       args.SessionId,
-		InputStepId:     &inputStepId,
-		CurrentStep:     &reducingStep,
+		StepId:          &stepId,
 		UseECSTask:      clusterSpec.UseEcsTasks,
 		MaxConcurrency:  clusterSpec.MaxConcurrency,
 	}
 
 	// Make the sharding pipeline config
 	// Set the number of partitions when sharding
-	for i := range cpConfig.ShardingPipesConfig {
-		pipeSpec := &cpConfig.ShardingPipesConfig[i]
+	for i := range cpConfig.ReducingPipesConfig[0] {
+		pipeSpec := &cpConfig.ReducingPipesConfig[0][i]
 		if pipeSpec.Type == "fan_out" {
 			for j := range pipeSpec.Apply {
 				transformationSpec := &pipeSpec.Apply[j]
@@ -215,13 +213,17 @@ func (args *StartComputePipesArgs) StartShardingComputePipes(ctx context.Context
 			}
 		}
 	}
+	readStepId, writeStepId := GetRWStepId(stepId)
 	cpShardingConfig := &ComputePipesConfig{
 		CommonRuntimeArgs: &ComputePipesCommonArgs{
+			CpipesMode:        "sharding",
 			Client:            client,
 			Org:               org,
 			ObjectType:        objectType,
 			FileKey:           args.FileKey,
 			SessionId:         args.SessionId,
+			ReadStepId:        readStepId,
+			WriteStepId:       writeStepId,
 			InputSessionId:    inputSessionId,
 			SourcePeriodKey:   sourcePeriodKey,
 			ProcessName:       processName,
@@ -230,7 +232,6 @@ func (args *StartComputePipesArgs) StartShardingComputePipes(ctx context.Context
 			UserEmail:         userEmail,
 		},
 		ClusterConfig: &ClusterSpec{
-			CpipesMode:            "sharding",
 			NbrNodes:              shardingNbrNodes,
 			S3WorkerPoolSize:      clusterSpec.S3WorkerPoolSize,
 			DefaultMaxConcurrency: cpConfig.ClusterConfig.DefaultMaxConcurrency,
@@ -241,7 +242,7 @@ func (args *StartComputePipesArgs) StartShardingComputePipes(ctx context.Context
 		OutputTables:  cpConfig.OutputTables,
 		Channels:      cpConfig.Channels,
 		Context:       cpConfig.Context,
-		PipesConfig:   cpConfig.ShardingPipesConfig,
+		PipesConfig:   cpConfig.ReducingPipesConfig[0],
 	}
 	shardingConfigJson, err := json.Marshal(cpShardingConfig)
 	if err != nil {
@@ -293,12 +294,14 @@ func GetMaxConcurrency(nbrNodes, defaultMaxConcurrency int) int {
 	}
 
 	maxConcurrency := defaultMaxConcurrency
-	// maxConcurrency := 2001 / nbrNodes
-	// if maxConcurrency > defaultMaxConcurrency {
-	// 	maxConcurrency = defaultMaxConcurrency
-	// }
 	if maxConcurrency < 1 {
 		maxConcurrency = 1
 	}
 	return maxConcurrency
+}
+
+func GetRWStepId(stepId int) (readStepId, writeStepId string) {
+	readStepId = fmt.Sprintf("reducing%02d", stepId)
+	writeStepId = fmt.Sprintf("reducing%02d", stepId+1)
+	return
 }

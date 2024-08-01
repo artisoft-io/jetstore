@@ -1410,6 +1410,10 @@
         "dataType": "int"
       },
       {
+        "columnName": "input_files_count",
+        "dataType": "int"
+      },
+      {
         "columnName": "rete_sessions_count",
         "dataType": "int"
       },
@@ -1659,7 +1663,7 @@
       {
         "columnName": "step_id",
         "dataType": "text",
-        "default": "'reducing0'",
+        "default": "'reducing00'",
         "description": "Indicate which step of the process the partition were written, values: reducing0, reducing1...",
         "isNotNull": true
       },

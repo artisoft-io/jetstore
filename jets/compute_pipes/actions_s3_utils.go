@@ -73,6 +73,7 @@ func (cpCtx *ComputePipesContext) DownloadS3Files(inFolderPath string, fileKeys 
 
 	go func() {
 		defer close(cpCtx.FileNamesCh)
+		defer close(cpCtx.DownloadS3ResultCh)
 		var inFilePath string
 		var fileSize, totalFilesSize int64
 		var err error
@@ -96,7 +97,7 @@ func (cpCtx *ComputePipesContext) DownloadS3Files(inFolderPath string, fileKeys 
 				}
 				return
 			}
-			if len(inFilePath) > 0 {
+			if len(inFilePath) > 0 {	// skip sentinel files
 				select {
 				case cpCtx.FileNamesCh <- FileName{LocalFileName: inFilePath, InFileKey: fileKeys[i]}:
 				case <-cpCtx.Done:

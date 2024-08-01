@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"runtime/debug"
+	"sync"
 	"time"
 
 	"github.com/jackc/pgx/v4/pgxpool"
@@ -43,22 +44,24 @@ func (cpCtx *ComputePipesContext) StartComputePipes(dbpool *pgxpool.Pool, comput
 	var ctx *BuilderContext
 	var inputRowChannel *InputChannel
 
-	// Add to envSettings based on compute pipe config
-	if cpCtx.CpConfig.Context != nil {
-		for _, contextSpec := range *cpCtx.CpConfig.Context {
-			switch contextSpec.Type {
-			case "file_key_component":
-				cpCtx.EnvSettings[contextSpec.Key] = cpCtx.FileKeyComponents[contextSpec.Expr]
-			case "partfile_key_component":
-			default:
-				cpErr = fmt.Errorf("error: unknown ContextSpec Type: %v", contextSpec.Type)
-				goto gotError
-			}
+	// Create the LookupTableManager and prepare the lookups async
+	lookupManager := NewLookupTableManager(cpCtx.CpConfig.LookupTables)
+	var lookupWg sync.WaitGroup
+	lookupWg.Add(1)
+	go func() {
+		defer lookupWg.Done()
+		err := lookupManager.PrepareLookupTables(dbpool)
+		if err != nil {
+			log.Println("error in lookupManager.PrepareLookupTables:", err)
+			cpCtx.ErrCh <- err
+			close(cpCtx.Done)
+			close(cpCtx.ChResults.Copy2DbResultCh)
+			close(cpCtx.ChResults.WritePartitionsResultCh)
 		}
-	}
+	}()
 
 	// Prepare the channel registry
-	if cpCtx.CpConfig.ClusterConfig.CpipesMode == "sharding" {
+	if cpCtx.CpConfig.CommonRuntimeArgs.CpipesMode == "sharding" {
 		// Setup the input channel for input_row
 		headersPosMap := make(map[string]int)
 		for i, c := range cpCtx.InputColumns {
@@ -91,7 +94,7 @@ func (cpCtx *ComputePipesContext) StartComputePipes(dbpool *pgxpool.Pool, comput
 			config:  &cpCtx.CpConfig.Channels[i],
 		}
 	}
-	if cpCtx.CpConfig.ClusterConfig.CpipesMode == "reducing" {
+	if cpCtx.CpConfig.CommonRuntimeArgs.CpipesMode == "reducing" {
 		// Replace the first channel of the pipes and make it the "input_row"
 		// Setup the input channel for input_row
 		inChannel := channelRegistry.computeChannels[cpCtx.CpConfig.PipesConfig[0].Input]
@@ -117,7 +120,7 @@ func (cpCtx *ComputePipesContext) StartComputePipes(dbpool *pgxpool.Pool, comput
 	// }
 
 	// Prepare the output tables when in mode reducing only
-	if cpCtx.CpConfig.ClusterConfig.CpipesMode == "reducing" {
+	if cpCtx.CpConfig.CommonRuntimeArgs.CpipesMode == "reducing" {
 		for i := range cpCtx.CpConfig.OutputTables {
 			tableIdentifier, err := SplitTableName(cpCtx.CpConfig.OutputTables[i].Name)
 			if err != nil {
@@ -145,17 +148,18 @@ func (cpCtx *ComputePipesContext) StartComputePipes(dbpool *pgxpool.Pool, comput
 	}
 
 	ctx = &BuilderContext{
-		dbpool:          dbpool,
-		sessionId:       cpCtx.SessionId,
-		jetsPartition:   cpCtx.JetsPartitionLabel,
-		cpConfig:        cpCtx.CpConfig,
-		processName:     cpCtx.ProcessName,
-		channelRegistry: channelRegistry,
-		done:            cpCtx.Done,
-		errCh:           cpCtx.ErrCh,
-		chResults:       cpCtx.ChResults,
-		env:             cpCtx.EnvSettings,
-		nodeId:          cpCtx.NodeId,
+		dbpool:             dbpool,
+		sessionId:          cpCtx.SessionId,
+		jetsPartition:      cpCtx.JetsPartitionLabel,
+		cpConfig:           cpCtx.CpConfig,
+		processName:        cpCtx.ProcessName,
+		channelRegistry:    channelRegistry,
+		lookupTableManager: lookupManager,
+		done:               cpCtx.Done,
+		errCh:              cpCtx.ErrCh,
+		chResults:          cpCtx.ChResults,
+		env:                cpCtx.EnvSettings,
+		nodeId:             cpCtx.NodeId,
 	}
 	err = ctx.NewS3DeviceManager()
 	if err != nil {
@@ -180,6 +184,9 @@ func (cpCtx *ComputePipesContext) StartComputePipes(dbpool *pgxpool.Pool, comput
 			}
 		}()
 	}
+
+	// Wait until the lookup tables are ready
+	lookupWg.Wait()
 
 	// log.Println("Calling ctx.buildComputeGraph()")
 	err = ctx.buildComputeGraph()

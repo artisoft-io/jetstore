@@ -25,7 +25,6 @@ func (args *ComputePipesNodeArgs) CoordinateComputePipes(ctx context.Context, ds
 	var cpipesConfigJson string
 	var cpConfig *ComputePipesConfig
 	stmt := "SELECT cpipes_config_json FROM jetsapi.cpipes_execution_status WHERE pipeline_execution_status_key = %d"
-	// log.Println("Compute NODE", args.SessionId, "file_key:", args.FileKey, "node_id:", args.NodeId, "cpipes_mode:", args.CpipesMode)
 
 	// open db connection
 	dbpool, err := pgxpool.Connect(ctx, dsn)
@@ -48,7 +47,7 @@ func (args *ComputePipesNodeArgs) CoordinateComputePipes(ctx context.Context, ds
 	}
 
 	// Get file keys
-	switch cpConfig.ClusterConfig.CpipesMode {
+	switch cpConfig.CommonRuntimeArgs.CpipesMode {
 	case "sharding":
 		// Case sharding, get the file keys from compute_pipes_shard_registry
 		fileKeys, err = GetFileKeys(ctx, dbpool, cpConfig.CommonRuntimeArgs.SessionId, args.NodeId)
@@ -60,9 +59,9 @@ func (args *ComputePipesNodeArgs) CoordinateComputePipes(ctx context.Context, ds
 
 	case "reducing":
 		// Case cpipes reducing mode, get the file keys from s3
-		s3BaseFolder := fmt.Sprintf("%s/process_name=%s/session_id=%s/step_id=%s/jets_partition=%s", 
-			jetsS3StagePrefix, cpConfig.CommonRuntimeArgs.ProcessName, cpConfig.CommonRuntimeArgs.SessionId, 
-			cpConfig.CommonRuntimeArgs.StepId, args.JetsPartitionLabel)
+		s3BaseFolder := fmt.Sprintf("%s/process_name=%s/session_id=%s/step_id=%s/jets_partition=%s",
+			jetsS3StagePrefix, cpConfig.CommonRuntimeArgs.ProcessName, cpConfig.CommonRuntimeArgs.SessionId,
+			cpConfig.CommonRuntimeArgs.ReadStepId, args.JetsPartitionLabel)
 
 		log.Printf("Getting file keys from s3 folder: %s", s3BaseFolder)
 		s3Objects, err := awsi.ListS3Objects(&s3BaseFolder)
@@ -79,7 +78,7 @@ func (args *ComputePipesNodeArgs) CoordinateComputePipes(ctx context.Context, ds
 		}
 
 	default:
-		cpErr = fmt.Errorf("error: invalid cpipesMode in CoordinateComputePipes: %s", cpConfig.ClusterConfig.CpipesMode)
+		cpErr = fmt.Errorf("error: invalid cpipesMode in CoordinateComputePipes: %s", cpConfig.CommonRuntimeArgs.CpipesMode)
 		goto gotError
 	}
 
@@ -100,9 +99,12 @@ func (args *ComputePipesNodeArgs) CoordinateComputePipes(ctx context.Context, ds
 			ComputePipesCommonArgs: *cpConfig.CommonRuntimeArgs,
 		},
 		CpConfig: cpConfig,
-		EnvSettings: map[string]interface{} {
+		EnvSettings: map[string]interface{}{
+			"$SESSIONID":            cpConfig.CommonRuntimeArgs.SessionId,
+			"$SHARD_ID":             args.NodeId,
 			"$FILE_KEY_DATE":        fileKeyDate,
 			"$JETSTORE_DEV_MODE":    false,
+			"$JETS_PARTITION_LABEL": args.JetsPartitionLabel,
 		},
 		FileKeyComponents:  fileKeyComponents,
 		Done:               make(chan struct{}),
@@ -110,7 +112,24 @@ func (args *ComputePipesNodeArgs) CoordinateComputePipes(ctx context.Context, ds
 		FileNamesCh:        make(chan FileName, 2),
 		DownloadS3ResultCh: make(chan DownloadS3Result, 1),
 	}
-	if cpConfig.ClusterConfig.CpipesMode == "sharding" {
+
+	// Add to envSettings based on compute pipe config
+	if cpConfig.Context != nil {
+		for _, contextSpec := range *cpConfig.Context {
+			switch contextSpec.Type {
+			case "file_key_component":
+				cpContext.EnvSettings[contextSpec.Key] = cpContext.FileKeyComponents[contextSpec.Expr]
+			case "value":
+				cpContext.EnvSettings[contextSpec.Key] = contextSpec.Expr
+			case "partfile_key_component":
+			default:
+				cpErr = fmt.Errorf("error: unknown ContextSpec Type: %v", contextSpec.Type)
+				goto gotError
+			}
+		}
+	}
+
+	if cpConfig.CommonRuntimeArgs.CpipesMode == "sharding" {
 		// partfile_key_component :: explained
 		// ContextSpec.Type == partfile_key_component:
 		//		Key is column name of input_row to put the key component (must be at end of columns comming from parquet parfiles)
