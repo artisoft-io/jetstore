@@ -165,7 +165,7 @@ func (ctx *PartitionWriterTransformationPipe) done() error {
 	  (session_id, step_id, jets_partition) 
 		VALUES ($1, $2, $3)
 		ON CONFLICT DO NOTHING`
-	if _, err := ctx.dbpool.Exec(context.Background(), stmt, ctx.sessionId, 
+	if _, err := ctx.dbpool.Exec(context.Background(), stmt, ctx.sessionId,
 		ctx.cpConfig.CommonRuntimeArgs.WriteStepId, ctx.jetsPartitionLabel); err != nil {
 		return fmt.Errorf("error inserting in jetsapi.compute_pipes_partitions_registry table: %v", err)
 	}
@@ -193,19 +193,25 @@ func (ctx *PartitionWriterTransformationPipe) finally() {
 func (ctx *BuilderContext) NewPartitionWriterTransformationPipe(source *InputChannel, jetsPartitionKey interface{},
 	outputCh *OutputChannel, copy2DeviceResultCh chan ComputePipesResult, spec *TransformationSpec) (*PartitionWriterTransformationPipe, error) {
 
+	// Validation
+	var err error
+	if ctx.s3DeviceManager == nil {
+		err = fmt.Errorf("error:  ctx.s3DeviceManager == nil in NewPartitionWriterTransformationPipe")
+		log.Println(err)
+		return nil, err
+	}
 	// log.Println("NewPartitionWriterTransformationPipe called for partition key:",jetsPartitionKey)
 	if jetsPartitionKey == nil && spec.JetsPartitionKey != nil {
 		jetsPartitionKey = *spec.JetsPartitionKey
 	}
 	// Prepare the column evaluators
-	var err error
 	columnEvaluators := make([]TransformationColumnEvaluator, len(spec.Columns))
 	for i := range spec.Columns {
 		// log.Printf("**& build TransformationColumn[%d] of type %s for output %s", i, spec.Type, spec.Output)
 		columnEvaluators[i], err = ctx.buildTransformationColumnEvaluator(source, outputCh, &spec.Columns[i])
 		if err != nil {
 			err = fmt.Errorf("while buildTransformationColumnEvaluator (in NewPartitionWriterTransformationPipe) %v", err)
-			fmt.Println(err)
+			log.Println(err)
 			return nil, err
 		}
 	}
@@ -257,7 +263,7 @@ func (ctx *BuilderContext) NewPartitionWriterTransformationPipe(source *InputCha
 	localTempDir, err2 := os.MkdirTemp("", "jets_partition")
 	if err2 != nil {
 		err = fmt.Errorf("while creating temp dir (in NewPartitionWriterTransformationPipe) %v", err2)
-		fmt.Println(err)
+		log.Println(err)
 		return nil, err
 	}
 

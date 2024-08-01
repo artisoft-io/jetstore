@@ -147,7 +147,11 @@ func (ctx *BuilderContext) buildComputeGraph() error {
 		switch pipeSpec.Type {
 		case "fan_out":
 			// log.Println("**& starting PipeConfig", i, "fan_out", "on source", source.config.Name)
-			go ctx.StartFanOutPipe(pipeSpec, source)
+			// Create the writePartitionResultCh in case it contains a partition_writter, 
+			// it would write a single partition, the ch will contain the number of rows for the partition
+			writePartitionsResultCh := make(chan ComputePipesResult, 10)
+			ctx.chResults.WritePartitionsResultCh <- writePartitionsResultCh
+			go ctx.StartFanOutPipe(pipeSpec, source, writePartitionsResultCh)
 
 		case "splitter":
 			// log.Println("**& starting PipeConfig", i, "splitter", "on source", source.config.Name)
