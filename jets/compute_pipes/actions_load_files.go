@@ -30,6 +30,7 @@ func (cpCtx *ComputePipesContext) LoadFiles(ctx context.Context, dbpool *pgxpool
 		// 	close(done)
 		// }
 		close(computePipesInputCh)
+		close(cpCtx.ChResults.LoadFromS3FilesResultCh)
 	}()
 
 	// Start the Compute Pipes async
@@ -41,7 +42,7 @@ func (cpCtx *ComputePipesContext) LoadFiles(ctx context.Context, dbpool *pgxpool
 	var err error
 	for localInFile := range cpCtx.FileNamesCh {
 		if cpCtx.CpConfig.ClusterConfig.IsDebugMode {
-			log.Printf("%s node %d Loading file '%s'", cpCtx.SessionId, cpCtx.NodeId, localInFile)
+			log.Printf("%s node %d Loading file '%s'", cpCtx.SessionId, cpCtx.NodeId, localInFile.InFileKey)
 		}
 		if strings.HasSuffix(localInFile.InFileKey, ".csv") {
 			count, err = cpCtx.ReadCsvFile(&localInFile, computePipesInputCh)
@@ -82,7 +83,7 @@ func (cpCtx *ComputePipesContext) ReadParquetFile(filePath *FileName, computePip
 
 	var inputRowCount int64
 	var record []interface{}
-	isShardingMode := cpCtx.CpConfig.ClusterConfig.CpipesMode == "sharding"
+	isShardingMode := cpCtx.CpConfig.CommonRuntimeArgs.CpipesMode == "sharding"
 	for {
 		// read and put the rows into computePipesInputCh
 		err = nil

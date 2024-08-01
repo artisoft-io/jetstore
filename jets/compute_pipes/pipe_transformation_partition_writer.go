@@ -161,16 +161,12 @@ func (ctx *PartitionWriterTransformationPipe) done() error {
 	}
 
 	// Write to db the jets_partition and nodeId of this partition w/ session_id
-	stepId := "reducing0"
-	if ctx.spec.StepId != nil {
-		stepId = *ctx.spec.StepId
-	}
 	stmt := `INSERT INTO jetsapi.compute_pipes_partitions_registry 
 	  (session_id, step_id, jets_partition) 
 		VALUES ($1, $2, $3)
 		ON CONFLICT DO NOTHING`
-	_, err := ctx.dbpool.Exec(context.Background(), stmt, ctx.sessionId, stepId, ctx.jetsPartitionLabel)
-	if err != nil {
+	if _, err := ctx.dbpool.Exec(context.Background(), stmt, ctx.sessionId, 
+		ctx.cpConfig.CommonRuntimeArgs.WriteStepId, ctx.jetsPartitionLabel); err != nil {
 		return fmt.Errorf("error inserting in jetsapi.compute_pipes_partitions_registry table: %v", err)
 	}
 
@@ -246,10 +242,10 @@ func (ctx *BuilderContext) NewPartitionWriterTransformationPipe(source *InputCha
 	}
 
 	// s3 partitioning, write the partition files in the JetStore's stage path defined by the env var JETS_s3_STAGE_PREFIX
-	// baseOutputPath structure is: <JETS_s3_STAGE_PREFIX>/process_name=QcProcess/session_id=123456789/step_id=reduce0/jets_partition=22p/
+	// baseOutputPath structure is: <JETS_s3_STAGE_PREFIX>/process_name=QcProcess/session_id=123456789/step_id=reduce01/jets_partition=22p/
 	jetsPartitionLabel := MakeJetsPartitionLabel(jetsPartitionKey)
 	baseOutputPath := fmt.Sprintf("%s/process_name=%s/session_id=%s/step_id=%s/jets_partition=%s",
-		jetsS3StagePrefix, ctx.processName, ctx.sessionId, *spec.StepId, jetsPartitionLabel)
+		jetsS3StagePrefix, ctx.processName, ctx.sessionId, ctx.cpConfig.CommonRuntimeArgs.WriteStepId, jetsPartitionLabel)
 
 	// Check if we limit the file part size
 	var rowCountPerPartition int64

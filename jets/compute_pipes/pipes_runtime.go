@@ -100,19 +100,21 @@ type OutputChannel struct {
 }
 
 type BuilderContext struct {
-	dbpool          *pgxpool.Pool
-	sessionId       string
-	jetsPartition   string
-	cpConfig        *ComputePipesConfig
-	processName     string
-	channelRegistry *ChannelRegistry
-	done            chan struct{}
-	errCh           chan error
-	chResults       *ChannelResults
-	env             map[string]interface{}
-	s3DeviceManager *S3DeviceManager
-	nodeId          int
+	dbpool             *pgxpool.Pool
+	sessionId          string
+	jetsPartition      string
+	cpConfig           *ComputePipesConfig
+	processName        string
+	lookupTableManager *LookupTableManager
+	channelRegistry    *ChannelRegistry
+	done               chan struct{}
+	errCh              chan error
+	chResults          *ChannelResults
+	env                map[string]interface{}
+	s3DeviceManager    *S3DeviceManager
+	nodeId             int
 }
+
 func (ctx *BuilderContext) FileKey() string {
 	return ctx.cpConfig.CommonRuntimeArgs.FileKey
 }

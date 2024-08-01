@@ -6,17 +6,17 @@ type ComputePipesConfig struct {
 	MetricsConfig       *MetricsSpec            `json:"metrics_config"`
 	ClusterConfig       *ClusterSpec            `json:"cluster_config"`
 	OutputTables        []TableSpec             `json:"output_tables"`
+	OutputFiles         []OutputFileSpec        `json:"output_files"`
+	LookupTables        []LookupSpec            `json:"lookup_tables"`
 	Channels            []ChannelSpec           `json:"channels"`
 	Context             *[]ContextSpec          `json:"context"`
 	PipesConfig         []PipeSpec              `json:"pipes_config"`
-	ShardingPipesConfig []PipeSpec              `json:"sharding_pipes_config"`
 	ReducingPipesConfig [][]PipeSpec            `json:"reducing_pipes_config"`
 }
 
 // Cluster configuration
 // DefaultMaxConcurrency is to override the env var MAX_CONCURRENCY
 type ClusterSpec struct {
-	CpipesMode            string               `json:"cpipes_mode"`
 	NbrNodes              int                  `json:"nbr_nodes"`
 	DefaultMaxConcurrency int                  `json:"default_max_concurrency"`
 	S3WorkerPoolSize      int                  `json:"s3_worker_pool_size"`
@@ -29,7 +29,7 @@ type ClusterSpec struct {
 // Allows to dynamically determine the NbrNodes based on total size of input files.
 // UseEcsTasks and MaxConcurrency is used for step id 'reducing0'
 // When UseEcsTasks == true, MaxConcurrency applies to ECS cluster (reducing0 step id).
-// Note that S3WorkerPoolSize is used for reducing0, all other reducing steps use the
+// Note that S3WorkerPoolSize is used for reducing01, all other reducing steps use the
 // S3WorkerPoolSize set at the ClusterSpec level.
 type ClusterSizingSpec struct {
 	WhenTotalSizeGe  int  `json:"when_total_size_ge_mb"`
@@ -51,6 +51,17 @@ type Metric struct {
 	Type string `json:"type"`
 	Name string `json:"name"`
 }
+
+type LookupSpec struct {
+	// type range: sql_lookup
+	Key          string            `json:"key"`
+	Type         string            `json:"type"`
+	Query        string            `json:"query"`
+	Columns      []TableColumnSpec `json:"columns"`
+	LookupKey    []string          `json:"lookup_key"`
+	LookupValues []string          `json:"lookup_values"`
+}
+
 type ChannelSpec struct {
 	Name    string   `json:"name"`
 	Columns []string `json:"columns"`
@@ -68,6 +79,12 @@ type TableSpec struct {
 	Name               string            `json:"name"`
 	CheckSchemaChanged bool              `json:"check_schema_changed"`
 	Columns            []TableColumnSpec `json:"columns"`
+}
+
+type OutputFileSpec struct {
+	Key     string   `json:"key"`
+	Name    string   `json:"name"`
+	Headers []string `json:"headers"`
 }
 
 type TableColumnSpec struct {
@@ -90,7 +107,6 @@ type TransformationSpec struct {
 	PartitionSize         *int                       `json:"partition_size"`
 	JetsPartitionKey      *string                    `json:"jets_partition_key"`
 	FilePathSubstitutions *[]PathSubstitution        `json:"file_path_substitutions"`
-	StepId                *string                    `json:"step_id"`
 	Columns               []TransformationColumnSpec `json:"columns"`
 	DataSchema            *[]DataSchemaSpec          `json:"data_schema"`
 	DeviceWriterType      *string                    `json:"device_writer_type"`

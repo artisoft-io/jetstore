@@ -15,13 +15,12 @@ import (
 // for starting the cp cluster
 // MaxConcurrency is to have a specified value of max concurrency
 type StartComputePipesArgs struct {
-	PipelineExecKey int     `json:"pipeline_execution_key"`
-	FileKey         string  `json:"file_key"`
-	SessionId       string  `json:"session_id"`
-	InputStepId     *string `json:"input_step_id"`
-	CurrentStep     *int    `json:"current_step"`
-	UseECSTask      bool    `json:"use_ecs_tasks"`
-	MaxConcurrency  int     `json:"max_concurrency"`
+	PipelineExecKey int    `json:"pipeline_execution_key"`
+	FileKey         string `json:"file_key"`
+	SessionId       string `json:"session_id"`
+	StepId          *int   `json:"step_id"`
+	UseECSTask      bool   `json:"use_ecs_tasks"`
+	MaxConcurrency  int    `json:"max_concurrency"`
 }
 
 type InputStats struct {
@@ -33,26 +32,33 @@ type InputStats struct {
 // minimal set of arguments to reduce the size of the json
 // to call the lambda functions
 type ComputePipesNodeArgs struct {
-	NodeId             int      `json:"id"`
-	JetsPartitionLabel string   `json:"jp"`
-	PipelineExecKey    int      `json:"pe"`
+	NodeId             int    `json:"id"`
+	JetsPartitionLabel string `json:"jp"`
+	PipelineExecKey    int    `json:"pe"`
 }
 
 // Common arguments factored out and put into the
 // the ComputePipesConfig component
+// MergeFile property is to indicate that the pipe
+// is at the stage of merging the part files into a single output file.
+// This will use a single node since merge_files has a single partition
+// to read from (the step_id prior to merge_files writes a single partition).
 type ComputePipesCommonArgs struct {
-	Client             string   `json:"client"`
-	Org                string   `json:"org"`
-	ObjectType         string   `json:"object_type"`
-	FileKey            string   `json:"file_key"`
-	SessionId          string   `json:"session_id"`
-	StepId             string   `json:"step_id"`
-	InputSessionId     string   `json:"input_session_id"`
-	SourcePeriodKey    int      `json:"source_period_key"`
-	ProcessName        string   `json:"process_name"`
-	InputColumns       []string `json:"input_columns"`
-	PipelineConfigKey  int      `json:"pipeline_config_key"`
-	UserEmail          string   `json:"user_email"`
+	CpipesMode        string   `json:"cpipes_mode"`
+	Client            string   `json:"client"`
+	Org               string   `json:"org"`
+	ObjectType        string   `json:"object_type"`
+	FileKey           string   `json:"file_key"`
+	SessionId         string   `json:"session_id"`
+	ReadStepId        string   `json:"read_step_id"`
+	WriteStepId       string   `json:"write_step_id"`
+	MergeFiles        bool     `json:"merge_files"`
+	InputSessionId    string   `json:"input_session_id"`
+	SourcePeriodKey   int      `json:"source_period_key"`
+	ProcessName       string   `json:"process_name"`
+	InputColumns      []string `json:"input_columns"`
+	PipelineConfigKey int      `json:"pipeline_config_key"`
+	UserEmail         string   `json:"user_email"`
 }
 
 // Full arguments to cp_node for sharding and reducing
