@@ -55,7 +55,9 @@ func (args *ComputePipesNodeArgs) CoordinateComputePipes(ctx context.Context, ds
 			cpErr = fmt.Errorf("while loading aws configuration (in CoordinateComputePipes): %v", err)
 			goto gotError
 		}
-		log.Printf("%s node %d Got %d file keys from database (sharding)", cpConfig.CommonRuntimeArgs.SessionId, args.NodeId, len(fileKeys))
+		log.Printf("%s node %d %s Got %d file keys from database for file_key: %s", 
+			cpConfig.CommonRuntimeArgs.SessionId, args.NodeId, 
+			cpConfig.CommonRuntimeArgs.ReadStepId, len(fileKeys), cpConfig.CommonRuntimeArgs.FileKey)
 
 	case "reducing":
 		// Case cpipes reducing mode, get the file keys from s3
@@ -63,13 +65,14 @@ func (args *ComputePipesNodeArgs) CoordinateComputePipes(ctx context.Context, ds
 			jetsS3StagePrefix, cpConfig.CommonRuntimeArgs.ProcessName, cpConfig.CommonRuntimeArgs.SessionId,
 			cpConfig.CommonRuntimeArgs.ReadStepId, args.JetsPartitionLabel)
 
-		log.Printf("Getting file keys from s3 folder: %s", s3BaseFolder)
 		s3Objects, err := awsi.ListS3Objects(&s3BaseFolder)
 		if err != nil || s3Objects == nil {
 			cpErr = fmt.Errorf("failed to download list of files from s3: %v", err)
 			goto gotError
 		}
-		log.Printf("%s node %d Got %d file keys from s3 (reducing)", cpConfig.CommonRuntimeArgs.SessionId, args.NodeId, len(s3Objects))
+		log.Printf("%s node %d %s Got %d file keys from s3 folder: %s", 
+			cpConfig.CommonRuntimeArgs.SessionId, args.NodeId, 
+			cpConfig.CommonRuntimeArgs.ReadStepId, len(s3Objects), s3BaseFolder)
 		fileKeys = make([]string, 0)
 		for i := range s3Objects {
 			if s3Objects[i].Size > 0 {

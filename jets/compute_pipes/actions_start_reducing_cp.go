@@ -53,8 +53,7 @@ func (args *StartComputePipesArgs) StartReducingComputePipes(ctx context.Context
 	if err != nil {
 		return result, fmt.Errorf("query table_name, domain_keys_json, input_columns_json, input_columns_positions_csv, input_format_data_json from jetsapi.source_config failed: %v", err)
 	}
-	log.Println("argument: StepId", *args.StepId)
-	log.Println("Start REDUCING", args.SessionId, "file_key:", args.FileKey, "reducing mode", "step_id:", *args.StepId)
+	log.Println("Start REDUCING", args.SessionId, "StepId:", *args.StepId, "file_key:", args.FileKey)
 	readStepId, writeStepId := GetRWStepId(*args.StepId)
 
 	if len(cpJson.String) == 0 {
