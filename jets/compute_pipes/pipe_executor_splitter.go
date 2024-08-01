@@ -44,7 +44,11 @@ func (ctx *BuilderContext) StartSplitterPipe(spec *PipeSpec, source *InputChanne
 	for inRow := range source.channel {
 		key := inRow[spliterColumnIdx]
 		if key == nil {
-			log.Println(ctx.sessionId,"node",ctx.nodeId, "*WARNING* splitter with nil key on source",source.config.Name)
+			if spec.DefaultSplitterValue != nil {
+				key = *spec.DefaultSplitterValue
+			} else {
+				log.Println(ctx.sessionId,"node",ctx.nodeId, "*WARNING* splitter with nil key on source",source.config.Name)
+			}
 		}
 		splitCh := chanState[key]
 		if splitCh == nil {

@@ -94,11 +94,12 @@ type TableColumnSpec struct {
 
 type PipeSpec struct {
 	// Type range: fan_out, splitter, merge_files
-	Type       string               `json:"type"`
-	Input      string               `json:"input"`
-	Column     *string              `json:"column"` // splitter column
-	Apply      []TransformationSpec `json:"apply"`
-	OutputFile *string              `json:"output_file"` // for merge_files
+	Type                 string               `json:"type"`
+	Input                string               `json:"input"`
+	Column               *string              `json:"column"`                 // splitter column
+	DefaultSplitterValue *string              `json:"default_splitter_value"` // splitter default value
+	Apply                []TransformationSpec `json:"apply"`
+	OutputFile           *string              `json:"output_file"` // for merge_files
 }
 
 type TransformationSpec struct {
