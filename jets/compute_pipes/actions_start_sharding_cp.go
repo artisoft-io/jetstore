@@ -182,12 +182,13 @@ func (args *StartComputePipesArgs) StartShardingComputePipes(ctx context.Context
 	// WriteCpipesArgsToS3(cpipesCommands, result.CpipesCommandsS3Key)
 
 	// Args for start_reducing_cp lambda
-	stepId := 1
+	stepId := 0
+	nextStepId := 1
 	result.StartReducing = StartComputePipesArgs{
 		PipelineExecKey: args.PipelineExecKey,
 		FileKey:         args.FileKey,
 		SessionId:       args.SessionId,
-		StepId:          &stepId,
+		StepId:          &nextStepId,
 		UseECSTask:      clusterSpec.UseEcsTasks,
 		MaxConcurrency:  clusterSpec.MaxConcurrency,
 	}
