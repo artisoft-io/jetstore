@@ -6,7 +6,7 @@ import (
 	"runtime/debug"
 )
 
-func (ctx *BuilderContext) StartFanOutPipe(spec *PipeSpec, source *InputChannel) {
+func (ctx *BuilderContext) StartFanOutPipe(spec *PipeSpec, source *InputChannel, writePartitionsResultCh chan ComputePipesResult) {
 	var cpErr, err error
 	evaluators := make([]PipeTransformationEvaluator, len(spec.Apply))
 
@@ -29,14 +29,11 @@ func (ctx *BuilderContext) StartFanOutPipe(spec *PipeSpec, source *InputChannel)
 			// fmt.Println("**!@@ FanOutPipe: Closing Output Channel",i)
 			ctx.channelRegistry.CloseChannel(i)
 		}
+		close(writePartitionsResultCh)
 	}()
 
 	for j := range spec.Apply {
-		if spec.Apply[j].Type == "partition_writer" {
-			cpErr = fmt.Errorf("error in StartFanOutPipe, cannot have an Apply of Type partition_writer")
-			goto gotError
-		}
-		eval, err := ctx.buildPipeTransformationEvaluator(source, nil, nil, &spec.Apply[j])
+		eval, err := ctx.buildPipeTransformationEvaluator(source, nil, writePartitionsResultCh, &spec.Apply[j])
 		if err != nil {
 			cpErr = fmt.Errorf("while calling buildPipeTransformationEvaluator for %s: %v", spec.Apply[j].Type, err)
 			goto gotError
