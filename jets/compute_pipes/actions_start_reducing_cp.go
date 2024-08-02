@@ -143,7 +143,7 @@ func (args *StartComputePipesArgs) StartReducingComputePipes(ctx context.Context
 		}
 	}
 
-	lookupTables, err := SelectActiveLookupTable(cpConfig.LookupTables, cpConfig.ReducingPipesConfig[0])
+	lookupTables, err := SelectActiveLookupTable(cpConfig.LookupTables, cpConfig.ReducingPipesConfig[stepId])
 	if err != nil {
 		return result, err
 	}
