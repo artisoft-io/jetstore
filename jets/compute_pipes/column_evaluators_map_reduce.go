@@ -79,7 +79,7 @@ func (ctx *mapReduceColumnEval) done(currentValue *[]interface{}) error {
 	return nil
 }
 
-func (ctx *BuilderContext) buildMapReduceEvaluator(source *InputChannel, outCh *OutputChannel, spec *TransformationColumnSpec) (*mapReduceColumnEval, error) {
+func (ctx *BuilderContext) buildMapReduceEvaluator(source *InputChannel, outCh *OutputChannel, spec *TransformationColumnSpec) (TransformationColumnEvaluator, error) {
 	if spec == nil || spec.MapOn == nil || spec.ApplyMap == nil || spec.ApplyReduce == nil {
 		return nil, fmt.Errorf("error: Type map_reduce must have MapOn, ApplyMap and ApplyReduce not nil")
 	}

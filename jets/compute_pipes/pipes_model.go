@@ -7,7 +7,7 @@ type ComputePipesConfig struct {
 	ClusterConfig       *ClusterSpec            `json:"cluster_config"`
 	OutputTables        []TableSpec             `json:"output_tables"`
 	OutputFiles         []OutputFileSpec        `json:"output_files"`
-	LookupTables        []LookupSpec            `json:"lookup_tables"`
+	LookupTables        []*LookupSpec           `json:"lookup_tables"`
 	Channels            []ChannelSpec           `json:"channels"`
 	Context             *[]ContextSpec          `json:"context"`
 	PipesConfig         []PipeSpec              `json:"pipes_config"`
@@ -126,8 +126,8 @@ type DataSchemaSpec struct {
 
 type TransformationColumnSpec struct {
 	// Type range: select, value, eval, map, hash
-	// (applicable to aggregate) count, distinct_count, sum, min,
-	// case, map_reduce
+	// count, distinct_count, sum, min, case, map_reduce,
+	// lookup
 	Name           string                      `json:"name"`
 	Type           string                      `json:"type"`
 	Expr           *string                     `json:"expr"`
@@ -141,6 +141,16 @@ type TransformationColumnSpec struct {
 	AlternateMapOn *[]string                   `json:"alternate_map_on"`
 	ApplyMap       *[]TransformationColumnSpec `json:"apply_map"`
 	ApplyReduce    *[]TransformationColumnSpec `json:"apply_reduce"`
+	LookupName     *string                     `json:"lookup_name"`
+	LookupKey      *[]LookupColumnSpec         `json:"key"`
+	LookupValues   *[]LookupColumnSpec         `json:"values"`
+}
+
+type LookupColumnSpec struct {
+	// Type range: select, value
+	Name string  `json:"name"`
+	Type string  `json:"type"`
+	Expr *string `json:"expr"`
 }
 
 type HashExpression struct {

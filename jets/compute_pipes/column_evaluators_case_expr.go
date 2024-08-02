@@ -52,7 +52,7 @@ func (ctx *caseExprColumnEval) update(currentValue *[]interface{}, input *[]inte
 func (ctx *caseExprColumnEval) done(currentValue *[]interface{}) error {
 	return nil
 }
-func (ctx *BuilderContext) buildCaseExprEvaluator(source *InputChannel, outCh *OutputChannel,  spec *TransformationColumnSpec) (*caseExprColumnEval, error) {
+func (ctx *BuilderContext) buildCaseExprEvaluator(source *InputChannel, outCh *OutputChannel,  spec *TransformationColumnSpec) (TransformationColumnEvaluator, error) {
 	if spec == nil || spec.CaseExpr == nil {
 		return nil, fmt.Errorf("error: Type case_expr must have CaseExpr != nil")
 	}

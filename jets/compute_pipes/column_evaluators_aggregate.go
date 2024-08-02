@@ -46,7 +46,7 @@ func (ctx *countColumnEval) done(currentValue *[]interface{}) error {
 	return nil
 }
 
-func (ctx *BuilderContext) buildCountEvaluator(source *InputChannel, outCh *OutputChannel,  spec *TransformationColumnSpec) (*countColumnEval, error) {
+func (ctx *BuilderContext) buildCountEvaluator(source *InputChannel, outCh *OutputChannel,  spec *TransformationColumnSpec) (TransformationColumnEvaluator, error) {
 	if spec == nil || spec.Expr == nil {
 		return nil, fmt.Errorf("error: Type count must have Expr != nil")
 	}
@@ -124,7 +124,7 @@ func (ctx *distinctCountColumnEval) done(currentValue *[]interface{}) error {
 	return nil
 }
 
-func (ctx *BuilderContext) buildDistinctCountEvaluator(source *InputChannel, outCh *OutputChannel,  spec *TransformationColumnSpec) (*distinctCountColumnEval, error) {
+func (ctx *BuilderContext) buildDistinctCountEvaluator(source *InputChannel, outCh *OutputChannel,  spec *TransformationColumnSpec) (TransformationColumnEvaluator, error) {
 	if spec == nil || spec.Expr == nil {
 		return nil, fmt.Errorf("error: Type distinct_count must have Expr != nil")
 	}
@@ -262,7 +262,7 @@ func (ctx *sumColumnEval) done(currentValue *[]interface{}) error {
 	return nil
 }
 
-func (ctx *BuilderContext) buildSumEvaluator(source *InputChannel, outCh *OutputChannel,  spec *TransformationColumnSpec) (*sumColumnEval, error) {
+func (ctx *BuilderContext) buildSumEvaluator(source *InputChannel, outCh *OutputChannel,  spec *TransformationColumnSpec) (TransformationColumnEvaluator, error) {
 	if spec == nil || spec.Expr == nil {
 		return nil, fmt.Errorf("error: Type sum must have Expr != nil")
 	}
