@@ -75,7 +75,7 @@ func (ctx *mapColumnEval) done(currentValue *[]interface{}) error {
 	return nil
 }
 
-func (ctx *BuilderContext) buildMapEvaluator(source *InputChannel, outCh *OutputChannel,  spec *TransformationColumnSpec) (*mapColumnEval, error) {
+func (ctx *BuilderContext) buildMapEvaluator(source *InputChannel, outCh *OutputChannel,  spec *TransformationColumnSpec) (TransformationColumnEvaluator, error) {
 	if spec == nil || spec.MapExpr == nil {
 		return nil, fmt.Errorf("error: Type map must have MapExpr != nil")
 	}

@@ -215,6 +215,10 @@ func (args *StartComputePipesArgs) StartShardingComputePipes(ctx context.Context
 		}
 	}
 	readStepId, writeStepId := GetRWStepId(stepId)
+	lookupTables, err := SelectActiveLookupTable(cpConfig.LookupTables, cpConfig.ReducingPipesConfig[0])
+	if err != nil {
+		return result, err
+	}
 	cpShardingConfig := &ComputePipesConfig{
 		CommonRuntimeArgs: &ComputePipesCommonArgs{
 			CpipesMode:        "sharding",
@@ -241,6 +245,8 @@ func (args *StartComputePipesArgs) StartShardingComputePipes(ctx context.Context
 		},
 		MetricsConfig: cpConfig.MetricsConfig,
 		OutputTables:  cpConfig.OutputTables,
+		OutputFiles:   cpConfig.OutputFiles,
+		LookupTables:  lookupTables,
 		Channels:      cpConfig.Channels,
 		Context:       cpConfig.Context,
 		PipesConfig:   cpConfig.ReducingPipesConfig[0],
@@ -305,4 +311,34 @@ func GetRWStepId(stepId int) (readStepId, writeStepId string) {
 	readStepId = fmt.Sprintf("reducing%02d", stepId)
 	writeStepId = fmt.Sprintf("reducing%02d", stepId+1)
 	return
+}
+
+// Function to prune the lookupConfig and return only the lookup used in the pipeConfig
+// Returns an error if pipeConfig has reference to a lookup not in lookupConfig
+func SelectActiveLookupTable(lookupConfig []*LookupSpec, pipeConfig []PipeSpec) ([]*LookupSpec, error) {
+	// get a mapping of lookup table name to lookup table spec
+	lookupMap := make(map[string]*LookupSpec)
+	for _, config := range lookupConfig {
+		if config != nil {
+			lookupMap[config.Key] = config
+		}
+	}
+	// Identify the used lookup tables
+	activeTables := make([]*LookupSpec, 0)
+	for i := range pipeConfig {
+		for j := range pipeConfig[i].Apply {
+			for k := range pipeConfig[i].Apply[j].Columns {
+				name := pipeConfig[i].Apply[j].Columns[k].LookupName
+				if name != nil {
+					spec := lookupMap[*name]
+					if spec == nil {
+						return nil, 
+							fmt.Errorf("error: lookup table '%s' is not defined, please verify the column transformation", *name)
+					}
+					activeTables = append(activeTables, spec)
+				}
+			}
+		}
+	}
+	return activeTables, nil
 }

@@ -143,6 +143,10 @@ func (args *StartComputePipesArgs) StartReducingComputePipes(ctx context.Context
 		}
 	}
 
+	lookupTables, err := SelectActiveLookupTable(cpConfig.LookupTables, cpConfig.ReducingPipesConfig[0])
+	if err != nil {
+		return result, err
+	}
 	cpReducingConfig := &ComputePipesConfig{
 		CommonRuntimeArgs: &ComputePipesCommonArgs{
 			CpipesMode:        "reducing",
@@ -164,6 +168,8 @@ func (args *StartComputePipesArgs) StartReducingComputePipes(ctx context.Context
 		ClusterConfig: clusterSpec,
 		MetricsConfig: cpConfig.MetricsConfig,
 		OutputTables:  outputTables,
+		OutputFiles:   cpConfig.OutputFiles,
+		LookupTables:  lookupTables,
 		Channels:      cpConfig.Channels,
 		Context:       cpConfig.Context,
 		PipesConfig:   cpConfig.ReducingPipesConfig[stepId],

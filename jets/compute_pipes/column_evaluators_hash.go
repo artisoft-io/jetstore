@@ -122,7 +122,7 @@ func (ctx *hashColumnEval) done(currentValue *[]interface{}) error {
 //		}
 //
 // jets_partition will be of type uint64
-func (ctx *BuilderContext) buildHashEvaluator(source *InputChannel, outCh *OutputChannel, spec *TransformationColumnSpec) (*hashColumnEval, error) {
+func (ctx *BuilderContext) buildHashEvaluator(source *InputChannel, outCh *OutputChannel, spec *TransformationColumnSpec) (TransformationColumnEvaluator, error) {
 	var err error
 	if spec == nil || spec.HashExpr == nil {
 		return nil, fmt.Errorf("error: Type map must have HashExpr != nil")

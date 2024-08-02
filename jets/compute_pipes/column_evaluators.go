@@ -45,7 +45,7 @@ func (ctx *BuilderContext) parseValue(expr *string) (interface{}, error) {
 func (ctx *BuilderContext) buildTransformationColumnEvaluator(source *InputChannel, outCh *OutputChannel, spec *TransformationColumnSpec) (TransformationColumnEvaluator, error) {
 
 	switch spec.Type {
-	// select, value, eval, map, count, distinct_count, sum, min, case, hash, map_reduce
+	// select, value, eval, map, count, distinct_count, sum, min, case, hash, map_reduce, lookup
 	case "select":
 		if spec.Expr == nil {
 			return nil, fmt.Errorf("error: Type select must have Expr != nil")
@@ -137,6 +137,9 @@ func (ctx *BuilderContext) buildTransformationColumnEvaluator(source *InputChann
 
 	case "map_reduce":
 		return ctx.buildMapReduceEvaluator(source, outCh, spec)
+
+	case "lookup":
+		return ctx.buildLookupEvaluator(source, outCh, spec)
 	}
 	return nil, fmt.Errorf("error: unknown TransformationColumnSpec Type: %v", spec.Type)
 }

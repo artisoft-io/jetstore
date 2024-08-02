@@ -133,3 +133,7 @@ func (tbl *LookupTableSql) LookupValue(row *[]interface{}, columnName string) (i
 	}
 	return (*row)[pos], nil
 }
+
+func (tbl *LookupTableSql) ColumnMap() map[string]int {
+	return tbl.columnsMap
+}
