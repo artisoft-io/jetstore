@@ -35,6 +35,7 @@ var usingSshTunnel bool
 var awsRegion string
 var awsBucket string
 var dsn string
+
 // var nbrNodes int
 
 func main() {
@@ -112,9 +113,9 @@ func main() {
 	if err != nil {
 		log.Fatalf("while calling StartShardingComputePipes: %v", err)
 	}
-	fmt.Println("Sharding Map Arguments")
-	b, _ = json.MarshalIndent(cpShardingRun, "", " ")
-	fmt.Println(string(b))
+	// fmt.Println("Sharding Map Arguments")
+	// b, _ = json.MarshalIndent(cpShardingRun, "", " ")
+	// fmt.Println(string(b))
 
 	// Perform Sharding
 	// // CASE DISTRIBUTED MAP
@@ -134,54 +135,39 @@ func main() {
 	}
 
 	// Start Reducing
-	cpReducingRun, err := cpShardingRun.StartReducing.StartReducingComputePipes(ctx, dsn)
-	if err != nil {
-		log.Fatalf("while calling StartReducingComputePipes: %v", err)
-	}
-	fmt.Println("Reducing Map Arguments")
-	b, _ = json.MarshalIndent(cpReducingRun, "", " ")
-	fmt.Println(string(b))
-
-	// Perform Reducing
-	// // CASE DISTRIBUTED MAP
-	// cpipesCommands, err = compute_pipes.ReadCpipesArgsFromS3(cpReducingRun.CpipesCommandsS3Key)
-	// if err != nil {
-	// 	log.Fatalf("while calling ReadCpipesArgsFromS3 from %s: %v", cpShardingRun.CpipesCommandsS3Key, err)
-	// }
-	cpipesCommands = cpReducingRun.CpipesCommands.([]compute_pipes.ComputePipesNodeArgs)
-	for i := range cpipesCommands {
-		cpipesCommand := cpipesCommands[i]
-		fmt.Println("## Reducing Node", i)
-		err = (&cpipesCommand).CoordinateComputePipes(ctx, dsn)
+	iter := 1
+	cpRun := &cpShardingRun
+	for {
+		fmt.Println("REDUCING ITER", iter)
+		iter += 1
+		cpReducingRun, err := cpRun.StartReducing.StartReducingComputePipes(ctx, dsn)
 		if err != nil {
-			log.Fatalf("while reducing node %d: %v", i, err)
+			log.Fatalf("while calling StartReducingComputePipes: %v", err)
 		}
+		fmt.Println("Reducing Map Arguments")
+		b, _ = json.MarshalIndent(cpReducingRun, "", " ")
+		fmt.Println(string(b))
+
+		// Perform Reducing
+		// // CASE DISTRIBUTED MAP
+		// cpipesCommands, err = compute_pipes.ReadCpipesArgsFromS3(cpReducingRun.CpipesCommandsS3Key)
+		// if err != nil {
+		// 	log.Fatalf("while calling ReadCpipesArgsFromS3 from %s: %v", cpShardingRun.CpipesCommandsS3Key, err)
+		// }
+		cpipesCommands = cpReducingRun.CpipesCommands.([]compute_pipes.ComputePipesNodeArgs)
+		for i := range cpipesCommands {
+			cpipesCommand := cpipesCommands[i]
+			fmt.Println("## Reducing Node", i)
+			err = (&cpipesCommand).CoordinateComputePipes(ctx, dsn)
+			if err != nil {
+				log.Fatalf("while reducing node %d: %v", i, err)
+			}
+		}
+		if cpRun.IsLastReducing {
+			break
+		}
+		cpRun = &cpReducingRun
 	}
 
-	// Start Reducing
-	fmt.Println("REDUCING AGAIN")
-	cpReducingRun, err = cpReducingRun.StartReducing.StartReducingComputePipes(ctx, dsn)
-	if err != nil {
-		log.Fatalf("while calling StartReducingComputePipes: %v", err)
-	}
-	fmt.Println("Reducing Map Arguments")
-	b, _ = json.MarshalIndent(cpReducingRun, "", " ")
-	fmt.Println(string(b))
-
-	// Perform Reducing
-	// // CASE DISTRIBUTED MAP
-	// cpipesCommands, err = compute_pipes.ReadCpipesArgsFromS3(cpReducingRun.CpipesCommandsS3Key)
-	// if err != nil {
-	// 	log.Fatalf("while calling ReadCpipesArgsFromS3 from %s: %v", cpShardingRun.CpipesCommandsS3Key, err)
-	// }
-	cpipesCommands = cpReducingRun.CpipesCommands.([]compute_pipes.ComputePipesNodeArgs)
-	for i := range cpipesCommands {
-		cpipesCommand := cpipesCommands[i]
-		fmt.Println("## Reducing Node", i)
-		err = (&cpipesCommand).CoordinateComputePipes(ctx, dsn)
-		if err != nil {
-			log.Fatalf("while reducing node %d: %v", i, err)
-		}
-	}
 	log.Println("That's it folks!")
 }
