@@ -12,6 +12,7 @@ type LookupTableManager struct {
 	spec           []*LookupSpec
 	envSettings    map[string]interface{}
 	LookupTableMap map[string]LookupTable
+	isVerbose      bool
 }
 
 type LookupTable interface {
@@ -23,11 +24,12 @@ type LookupTable interface {
 	ColumnMap() map[string]int
 }
 
-func NewLookupTableManager(spec []*LookupSpec, envSettings map[string]interface{}) *LookupTableManager {
+func NewLookupTableManager(spec []*LookupSpec, envSettings map[string]interface{}, isVerbose bool) *LookupTableManager {
 	return &LookupTableManager{
 		spec:           spec,
 		envSettings:    envSettings,
 		LookupTableMap: make(map[string]LookupTable),
+		isVerbose:      isVerbose,
 	}
 }
 
@@ -36,7 +38,7 @@ func (mgr *LookupTableManager) PrepareLookupTables(dbpool *pgxpool.Pool) error {
 		lookupTableConfig := mgr.spec[i]
 		switch lookupTableConfig.Type {
 		case "sql_lookup":
-			tbl, err := NewLookupTableSql(dbpool, lookupTableConfig, mgr.envSettings)
+			tbl, err := NewLookupTableSql(dbpool, lookupTableConfig, mgr.envSettings, mgr.isVerbose)
 			if err != nil {
 				return fmt.Errorf("while calling NewLookupTableSql: %v", err)
 			}
