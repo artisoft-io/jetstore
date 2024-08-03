@@ -110,11 +110,12 @@ func (cpCtx *ComputePipesContext) StartMergeFiles(dbpool *pgxpool.Pool) error {
 	// write content of file
 	fileHd.Close()
 	log.Println("MERGED FILE CONTENT")
-	dat, err := os.ReadFile(tempFileName)
-	if err != nil {
-		return fmt.Errorf("while reading full content: %v", err)
-	}
-  log.Print(string(dat))
+	// dat, err := os.ReadFile(tempFileName)
+	// if err != nil {
+	// 	return fmt.Errorf("while reading full content: %v", err)
+	// }
+  // log.Print(string(dat))
+	//***
 	// if fileHd, err = os.Open(fname); err != nil {
 	// 	return fmt.Errorf("while reopening file for read: %v", err)
 	// }
@@ -147,6 +148,7 @@ func (cpCtx *ComputePipesContext) StartMergeFiles(dbpool *pgxpool.Pool) error {
 	something onsomething onsomething onsomething onsomething onsomething onsomething onsomething onsomething on line 4
 	something onsomething onsomething onsomething onsomething onsomething onsomething onsomething onsomething on line 4
 	something onsomething onsomething onsomething onsomething onsomething onsomething onsomething onsomething on line 99`
+  log.Print(testData)
 	if err = awsi.UploadBufToS3(outputS3FileKey, []byte(testData)); err != nil {
 		return fmt.Errorf("while copying to s3: %v", err)
 	}
