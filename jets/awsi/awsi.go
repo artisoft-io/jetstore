@@ -267,10 +267,13 @@ func UploadBufToS3(objKey string, buf []byte) error {
 
 	// Create an uploader with the client and custom options
 	uploader := manager.NewUploader(s3Client)
+	reader := bytes.NewReader(buf)
+	contentLen := int64(len(buf))
 	putObjInput := &s3.PutObjectInput{
 		Bucket: &bucket,
 		Key:    &objKey,
-		Body:   bytes.NewReader(buf),
+		Body:   reader,
+		ContentLength: &contentLen,
 	}
 	if len(kmsKeyArn) > 0 {
 		putObjInput.ServerSideEncryption = types.ServerSideEncryptionAwsKms
@@ -281,6 +284,7 @@ func UploadBufToS3(objKey string, buf []byte) error {
 	if err != nil {
 		return fmt.Errorf("failed to upload buf to s3: %v", err)
 	}
+	log.Println("*** UNREAD PORTION OF BUF:", reader.Len(), "contentLen:", contentLen)
 	// if uout != nil {
 	// 	log.Println("Uploaded",*uout.Key,"to location",uout.Location)
 	// }
