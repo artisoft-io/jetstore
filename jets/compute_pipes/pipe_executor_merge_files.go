@@ -89,13 +89,13 @@ func (cpCtx *ComputePipesContext) StartMergeFiles(dbpool *pgxpool.Pool) error {
 	// Merge the part files into a single output file
 	// Open the destination file
 	for localInFile := range cpCtx.FileNamesCh {
-		if cpCtx.CpConfig.ClusterConfig.IsDebugMode {
-			log.Printf("%s node %d merging file '%s'", cpCtx.SessionId, cpCtx.NodeId, localInFile.InFileKey)
-		}
-		err = copyFile(localInFile.LocalFileName, w)
+		n, err := copyFile(localInFile.LocalFileName, w)
 		if err != nil {
 			log.Println(cpCtx.SessionId, "node", cpCtx.NodeId, err)
 			return err
+		}
+		if cpCtx.CpConfig.ClusterConfig.IsDebugMode {
+			log.Printf("%s node %d merged file '%s', copied %d bytes", cpCtx.SessionId, cpCtx.NodeId, localInFile.InFileKey, n)
 		}
 	}
 	err = w.Flush()
@@ -116,12 +116,13 @@ func (cpCtx *ComputePipesContext) StartMergeFiles(dbpool *pgxpool.Pool) error {
 	return nil
 }
 
-func copyFile(source string, destination *bufio.Writer) error {
+func copyFile(source string, destination *bufio.Writer) (int, error) {
 	var fileHd *os.File
 	var err error
+	var totalBytes int
 	fileHd, err = os.Open(source)
 	if err != nil {
-		return fmt.Errorf("while opening temp file '%s' (copyFile): %v", source, err)
+		return 0, fmt.Errorf("while opening temp file '%s' (copyFile): %v", source, err)
 	}
 	defer func() {
 		fileHd.Close()
@@ -134,16 +135,17 @@ func copyFile(source string, destination *bufio.Writer) error {
 		switch {
 		case err == io.EOF:
 			// expected exit route
-			return nil
+			return totalBytes, nil
 
 		case err != nil:
-			return fmt.Errorf("while reading input part file (copyFile): %v", err)
+			return totalBytes, fmt.Errorf("while reading input part file (copyFile): %v", err)
 
 		default:
 			_, err = destination.Write(buf[:n])
 			if err != nil {
-				return fmt.Errorf("while writing part file to output merged file (copyFile): %v", err)
+				return totalBytes, fmt.Errorf("while writing part file to output merged file (copyFile): %v", err)
 			}
+			totalBytes += n
 		}
 	}
 }
