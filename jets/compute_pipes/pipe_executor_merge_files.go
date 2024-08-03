@@ -124,6 +124,32 @@ func (cpCtx *ComputePipesContext) StartMergeFiles(dbpool *pgxpool.Pool) error {
 	if cpCtx.CpConfig.ClusterConfig.IsDebugMode {
 		log.Printf("%s node %d merging files to '%s' completed", cpCtx.SessionId, cpCtx.NodeId, outputS3FileKey)
 	}
+	//***
+	testData := `something on line 1
+	something onsomething onsomething onsomething onsomething onsomething onsomething onsomething onsomething on line 2
+	something onsomething onsomething onsomething onsomething onsomething onsomething onsomething onsomething on line 3
+	something onsomething onsomething onsomething onsomething onsomething onsomething onsomething onsomething on line 4
+	something onsomething onsomething onsomething onsomething onsomething onsomething onsomething onsomething on line 4
+	something onsomething onsomething onsomething onsomething onsomething onsomething onsomething onsomething on line 4
+	something onsomething onsomething onsomething onsomething onsomething onsomething onsomething onsomething on line 4
+	something onsomething onsomething onsomething onsomething onsomething onsomething onsomething onsomething on line 4
+	something onsomething onsomething onsomething onsomething onsomething onsomething onsomething onsomething on line 4
+	something onsomething onsomething onsomething onsomething onsomething onsomething onsomething onsomething on line 4
+	something onsomething onsomething onsomething onsomething onsomething onsomething onsomething onsomething on line 4
+	something onsomething onsomething onsomething onsomething onsomething onsomething onsomething onsomething on line 4
+	something onsomething onsomething onsomething onsomething onsomething onsomething onsomething onsomething on line 4
+	something onsomething onsomething onsomething onsomething onsomething onsomething onsomething onsomething on line 4
+	something onsomething onsomething onsomething onsomething onsomething onsomething onsomething onsomething on line 4
+	something onsomething onsomething onsomething onsomething onsomething onsomething onsomething onsomething on line 4
+	something onsomething onsomething onsomething onsomething onsomething onsomething onsomething onsomething on line 4
+	something onsomething onsomething onsomething onsomething onsomething onsomething onsomething onsomething on line 4
+	something onsomething onsomething onsomething onsomething onsomething onsomething onsomething onsomething on line 4
+	something onsomething onsomething onsomething onsomething onsomething onsomething onsomething onsomething on line 99`
+	if err = awsi.UploadBufToS3(outputS3FileKey, []byte(testData)); err != nil {
+		return fmt.Errorf("while copying to s3: %v", err)
+	}
+	log.Println("*** WROTE TEST DATA")
+
 	return nil
 }
 
