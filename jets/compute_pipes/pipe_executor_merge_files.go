@@ -149,10 +149,10 @@ func (cpCtx *ComputePipesContext) StartMergeFiles(dbpool *pgxpool.Pool) error {
 	something onsomething onsomething onsomething onsomething onsomething onsomething onsomething onsomething on line 4
 	something onsomething onsomething onsomething onsomething onsomething onsomething onsomething onsomething on line 99`
   log.Print(testData)
-	if err = awsi.UploadBufToS3(outputS3FileKey, []byte(testData)); err != nil {
+	if err = awsi.UploadBufToS3(fmt.Sprintf("%s_test", outputS3FileKey), []byte(testData)); err != nil {
 		return fmt.Errorf("while copying to s3: %v", err)
 	}
-	log.Println("*** WROTE TEST DATA")
+	log.Println("*** WROTE TEST DATA TO:",fmt.Sprintf("%s_test", outputS3FileKey))
 
 	return nil
 }
