@@ -79,7 +79,7 @@ func (cpCtx *ComputePipesContext) StartMergeFiles(dbpool *pgxpool.Pool) error {
 			log.Println(cpCtx.SessionId, "node", cpCtx.NodeId, err)
 			return err
 		}
-		_, err = w.Write([]byte("\n"))
+	  err = w.WriteByte('\n')
 		if err != nil {
 			err = fmt.Errorf("while writing carriage return to output merged file:%v", err)
 			log.Println(cpCtx.SessionId, "node", cpCtx.NodeId, err)
