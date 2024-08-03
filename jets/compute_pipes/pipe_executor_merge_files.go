@@ -106,7 +106,19 @@ func (cpCtx *ComputePipesContext) StartMergeFiles(dbpool *pgxpool.Pool) error {
 	}
 
 	// Copy the file to s3
-	fileHd.Seek(0, 0)
+	// fileHd.Seek(0, 0)
+	// write content of file
+	fname := fileHd.Name()
+	fileHd.Close()
+	log.Println("MERGED FILE CONTENT")
+	dat, err := os.ReadFile(fname)
+	if err != nil {
+		return fmt.Errorf("while reading full content: %v", err)
+	}
+  log.Print(string(dat))
+	if fileHd, err = os.Open(fname); err != nil {
+		return fmt.Errorf("while reopening file for read: %v", err)
+	}
 	if err = awsi.UploadToS3(bucketName, regionName, outputS3FileKey, fileHd); err != nil {
 		return fmt.Errorf("while copying to s3: %v", err)
 	}
