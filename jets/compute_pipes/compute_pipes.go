@@ -45,7 +45,8 @@ func (cpCtx *ComputePipesContext) StartComputePipes(dbpool *pgxpool.Pool, comput
 	var inputRowChannel *InputChannel
 
 	// Create the LookupTableManager and prepare the lookups async
-	lookupManager := NewLookupTableManager(cpCtx.CpConfig.LookupTables, cpCtx.EnvSettings)
+	lookupManager := NewLookupTableManager(cpCtx.CpConfig.LookupTables, cpCtx.EnvSettings, 
+		cpCtx.CpConfig.ClusterConfig.IsDebugMode)
 	var lookupWg sync.WaitGroup
 	lookupWg.Add(1)
 	go func() {
