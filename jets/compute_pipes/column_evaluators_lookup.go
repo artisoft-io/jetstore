@@ -150,7 +150,7 @@ func (ctx *BuilderContext) buildLookupEvaluator(source *InputChannel, outCh *Out
 			}
 		}
 	}
-	lookupTable, ok := (*ctx.lookupTableManager.LookupTableMap)[*spec.LookupName]
+	lookupTable, ok := ctx.lookupTableManager.LookupTableMap[*spec.LookupName]
 	if !ok {
 		return nil, fmt.Errorf("error: lookup table '%s' not found in lookup table manager", *spec.LookupName)
 	}

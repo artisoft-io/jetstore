@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	// "log"
 	"strings"
 
 	"github.com/jackc/pgx/v4/pgxpool"
@@ -19,7 +20,7 @@ type LookupTableSql struct {
 	columnsMap map[string]int
 }
 
-func NewLookupTableSql(dbpool *pgxpool.Pool, spec *LookupSpec) (LookupTable, error) {
+func NewLookupTableSql(dbpool *pgxpool.Pool, spec *LookupSpec, env map[string]interface{}) (LookupTable, error) {
 	tbl := &LookupTableSql{
 		spec:       spec,
 		data:       make(map[string]*[]interface{}),
@@ -27,6 +28,17 @@ func NewLookupTableSql(dbpool *pgxpool.Pool, spec *LookupSpec) (LookupTable, err
 	}
 	// load the lookup table according to spec
 	// Issue the query and get the returned columns info
+	// Perform parameter substitution to the query
+	for k,v := range env {
+		if strings.Contains(spec.Query, k) {
+			str, ok := v.(string)
+			if !ok {
+				str = fmt.Sprintf("%v", v)
+			}
+			spec.Query = strings.ReplaceAll(spec.Query, k, str)
+		}
+	}
+	// log.Println("NewLookupTableSql query is:\n", spec.Query)
 	rows, err := dbpool.Query(context.Background(), spec.Query)
 	if err != nil {
 		return nil, fmt.Errorf("while querying the lookup table %s: %v", spec.Key, err)

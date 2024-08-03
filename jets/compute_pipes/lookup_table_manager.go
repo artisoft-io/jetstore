@@ -10,7 +10,8 @@ import (
 
 type LookupTableManager struct {
 	spec           []*LookupSpec
-	LookupTableMap *map[string]LookupTable
+	envSettings    map[string]interface{}
+	LookupTableMap map[string]LookupTable
 }
 
 type LookupTable interface {
@@ -22,11 +23,11 @@ type LookupTable interface {
 	ColumnMap() map[string]int
 }
 
-func NewLookupTableManager(spec []*LookupSpec) *LookupTableManager {
-	lookupTables := make(map[string]LookupTable)
+func NewLookupTableManager(spec []*LookupSpec, envSettings map[string]interface{}) *LookupTableManager {
 	return &LookupTableManager{
 		spec:           spec,
-		LookupTableMap: &lookupTables,
+		envSettings:    envSettings,
+		LookupTableMap: make(map[string]LookupTable),
 	}
 }
 
@@ -35,11 +36,11 @@ func (mgr *LookupTableManager) PrepareLookupTables(dbpool *pgxpool.Pool) error {
 		lookupTableConfig := mgr.spec[i]
 		switch lookupTableConfig.Type {
 		case "sql_lookup":
-			tbl, err := NewLookupTableSql(dbpool, lookupTableConfig)
+			tbl, err := NewLookupTableSql(dbpool, lookupTableConfig, mgr.envSettings)
 			if err != nil {
 				return fmt.Errorf("while calling NewLookupTableSql: %v", err)
 			}
-			(*mgr.LookupTableMap)[lookupTableConfig.Key] = tbl
+			mgr.LookupTableMap[lookupTableConfig.Key] = tbl
 		default:
 			return fmt.Errorf("error:unknown lookup table type: %s", lookupTableConfig.Type)
 		}
