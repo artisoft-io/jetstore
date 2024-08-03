@@ -64,10 +64,10 @@ func (cpCtx *ComputePipesContext) StartMergeFiles(dbpool *pgxpool.Pool) error {
 	if err != nil {
 		return fmt.Errorf("failed to open temp output file in StartMergeFiles: %v", err)
 	}
+	tempFileName := fileHd.Name()
 	defer func() {
-		fileName := fileHd.Name()
-		fileHd.Close()
-		os.Remove(fileName)
+		// fileHd.Close()
+		os.Remove(tempFileName)
 	}()
 
 	// Write the output file headers if specified
@@ -108,18 +108,17 @@ func (cpCtx *ComputePipesContext) StartMergeFiles(dbpool *pgxpool.Pool) error {
 	// Copy the file to s3
 	// fileHd.Seek(0, 0)
 	// write content of file
-	fname := fileHd.Name()
 	fileHd.Close()
 	log.Println("MERGED FILE CONTENT")
-	dat, err := os.ReadFile(fname)
+	dat, err := os.ReadFile(tempFileName)
 	if err != nil {
 		return fmt.Errorf("while reading full content: %v", err)
 	}
   log.Print(string(dat))
-	if fileHd, err = os.Open(fname); err != nil {
-		return fmt.Errorf("while reopening file for read: %v", err)
-	}
-	if err = awsi.UploadToS3(bucketName, regionName, outputS3FileKey, fileHd); err != nil {
+	// if fileHd, err = os.Open(fname); err != nil {
+	// 	return fmt.Errorf("while reopening file for read: %v", err)
+	// }
+	if err = awsi.UploadBufToS3(outputS3FileKey, dat); err != nil {
 		return fmt.Errorf("while copying to s3: %v", err)
 	}
 	if cpCtx.CpConfig.ClusterConfig.IsDebugMode {
