@@ -66,7 +66,7 @@ func (cpCtx *ComputePipesContext) StartMergeFiles(dbpool *pgxpool.Pool) error {
 	}
 	tempFileName := fileHd.Name()
 	defer func() {
-		// fileHd.Close()
+		fileHd.Close()
 		os.Remove(tempFileName)
 	}()
 
@@ -106,54 +106,14 @@ func (cpCtx *ComputePipesContext) StartMergeFiles(dbpool *pgxpool.Pool) error {
 	}
 
 	// Copy the file to s3
-	// fileHd.Seek(0, 0)
-	// write content of file
-	fileHd.Close()
-	log.Println("MERGED FILE CONTENT")
-	// dat, err := os.ReadFile(tempFileName)
-	// if err != nil {
-	// 	return fmt.Errorf("while reading full content: %v", err)
-	// }
-  // log.Print(string(dat))
-	//***
-	// if fileHd, err = os.Open(fname); err != nil {
-	// 	return fmt.Errorf("while reopening file for read: %v", err)
-	// }
-	//****
-	// if err = awsi.UploadBufToS3(outputS3FileKey, dat); err != nil {
-	// 	return fmt.Errorf("while copying to s3: %v", err)
-	// }
-	//*****
+	fileHd.Seek(0, 0)
+	// put content of file to s3
+	if err = awsi.UploadToS3(bucketName, regionName, outputS3FileKey, fileHd); err != nil {
+		return fmt.Errorf("while copying to s3: %v", err)
+	}
 	if cpCtx.CpConfig.ClusterConfig.IsDebugMode {
 		log.Printf("%s node %d merging files to '%s' completed", cpCtx.SessionId, cpCtx.NodeId, outputS3FileKey)
 	}
-	//***
-	testData := `something on line 1
-	something onsomething onsomething onsomething onsomething onsomething onsomething onsomething onsomething on line 2
-	something onsomething onsomething onsomething onsomething onsomething onsomething onsomething onsomething on line 3
-	something onsomething onsomething onsomething onsomething onsomething onsomething onsomething onsomething on line 4
-	something onsomething onsomething onsomething onsomething onsomething onsomething onsomething onsomething on line 4
-	something onsomething onsomething onsomething onsomething onsomething onsomething onsomething onsomething on line 4
-	something onsomething onsomething onsomething onsomething onsomething onsomething onsomething onsomething on line 4
-	something onsomething onsomething onsomething onsomething onsomething onsomething onsomething onsomething on line 4
-	something onsomething onsomething onsomething onsomething onsomething onsomething onsomething onsomething on line 4
-	something onsomething onsomething onsomething onsomething onsomething onsomething onsomething onsomething on line 4
-	something onsomething onsomething onsomething onsomething onsomething onsomething onsomething onsomething on line 4
-	something onsomething onsomething onsomething onsomething onsomething onsomething onsomething onsomething on line 4
-	something onsomething onsomething onsomething onsomething onsomething onsomething onsomething onsomething on line 4
-	something onsomething onsomething onsomething onsomething onsomething onsomething onsomething onsomething on line 4
-	something onsomething onsomething onsomething onsomething onsomething onsomething onsomething onsomething on line 4
-	something onsomething onsomething onsomething onsomething onsomething onsomething onsomething onsomething on line 4
-	something onsomething onsomething onsomething onsomething onsomething onsomething onsomething onsomething on line 4
-	something onsomething onsomething onsomething onsomething onsomething onsomething onsomething onsomething on line 4
-	something onsomething onsomething onsomething onsomething onsomething onsomething onsomething onsomething on line 4
-	something onsomething onsomething onsomething onsomething onsomething onsomething onsomething onsomething on line 99`
-  log.Print(testData)
-	if err = awsi.UploadBufToS3(fmt.Sprintf("%s_test", outputS3FileKey), []byte(testData)); err != nil {
-		return fmt.Errorf("while copying to s3: %v", err)
-	}
-	log.Println("*** WROTE TEST DATA TO:",fmt.Sprintf("%s_test", outputS3FileKey))
-
 	return nil
 }
 
