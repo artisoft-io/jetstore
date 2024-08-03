@@ -118,9 +118,11 @@ func (cpCtx *ComputePipesContext) StartMergeFiles(dbpool *pgxpool.Pool) error {
 	// if fileHd, err = os.Open(fname); err != nil {
 	// 	return fmt.Errorf("while reopening file for read: %v", err)
 	// }
-	if err = awsi.UploadBufToS3(outputS3FileKey, dat); err != nil {
-		return fmt.Errorf("while copying to s3: %v", err)
-	}
+	//****
+	// if err = awsi.UploadBufToS3(outputS3FileKey, dat); err != nil {
+	// 	return fmt.Errorf("while copying to s3: %v", err)
+	// }
+	//*****
 	if cpCtx.CpConfig.ClusterConfig.IsDebugMode {
 		log.Printf("%s node %d merging files to '%s' completed", cpCtx.SessionId, cpCtx.NodeId, outputS3FileKey)
 	}
