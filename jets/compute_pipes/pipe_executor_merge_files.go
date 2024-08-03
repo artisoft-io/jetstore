@@ -130,7 +130,7 @@ func copyFile(source string, destination *bufio.Writer) error {
 	reader := snappy.NewReader(fileHd)
 	buf := make([]byte, 4096)
 	for {
-		_, err = reader.Read(buf)
+		n, err := reader.Read(buf)
 		switch {
 		case err == io.EOF:
 			// expected exit route
@@ -140,7 +140,7 @@ func copyFile(source string, destination *bufio.Writer) error {
 			return fmt.Errorf("while reading input part file (copyFile): %v", err)
 
 		default:
-			_, err = destination.Write(buf)
+			_, err = destination.Write(buf[:n])
 			if err != nil {
 				return fmt.Errorf("while writing part file to output merged file (copyFile): %v", err)
 			}

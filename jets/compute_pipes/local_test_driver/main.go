@@ -144,9 +144,9 @@ func main() {
 		if err != nil {
 			log.Fatalf("while calling StartReducingComputePipes: %v", err)
 		}
-		fmt.Println("Reducing Map Arguments")
-		b, _ = json.MarshalIndent(cpReducingRun, "", " ")
-		fmt.Println(string(b))
+		// fmt.Println("Reducing Map Arguments")
+		// b, _ = json.MarshalIndent(cpReducingRun, "", " ")
+		// fmt.Println(string(b))
 
 		// Perform Reducing
 		// // CASE DISTRIBUTED MAP
@@ -163,7 +163,7 @@ func main() {
 				log.Fatalf("while reducing node %d: %v", i, err)
 			}
 		}
-		if cpRun.IsLastReducing {
+		if cpReducingRun.IsLastReducing {
 			break
 		}
 		cpRun = &cpReducingRun
