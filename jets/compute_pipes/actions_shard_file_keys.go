@@ -42,25 +42,39 @@ func ShardFileKeysP1(exeCtx context.Context, dbpool *pgxpool.Pool, baseFileKey s
 	var totalPartfileCount int
 	var totalSize int64
 	var buf strings.Builder
-	buf.WriteString("INSERT INTO jetsapi.compute_pipes_shard_registry ")
-	buf.WriteString("(session_id, file_key, file_size) VALUES ")
-	isFirst := true
-	for i := range s3Objects {
-		if s3Objects[i].Size > 1 {
-			if !isFirst {
-				buf.WriteString(", ")
-			}
-			isFirst = false
-			buf.WriteString(fmt.Sprintf("('%s','%s',%d)", sessionId, s3Objects[i].Key, s3Objects[i].Size))
-			totalPartfileCount += 1
-			totalSize += s3Objects[i].Size
+	var s3ObjectsBatch []*awsi.S3Object
+	var ibatch, nbatch int
+	batchSize := 500
+	for {
+		nbatch = ibatch + batchSize
+		if nbatch > len(s3Objects) {
+			nbatch = len(s3Objects)
 		}
+		s3ObjectsBatch = s3Objects[ibatch:nbatch]
+		buf.Reset()
+		buf.WriteString("INSERT INTO jetsapi.compute_pipes_shard_registry ")
+		buf.WriteString("(session_id, file_key, file_size) VALUES ")
+		isFirst := true
+		for i := range s3ObjectsBatch {
+			if s3ObjectsBatch[i].Size > 1 {
+				if !isFirst {
+					buf.WriteString(", ")
+				}
+				isFirst = false
+				buf.WriteString(fmt.Sprintf("('%s','%s',%d)", sessionId, s3ObjectsBatch[i].Key, s3ObjectsBatch[i].Size))
+				totalPartfileCount += 1
+				totalSize += s3ObjectsBatch[i].Size
+			}
+		}
+		_, err = dbpool.Exec(exeCtx, buf.String())
+		if err != nil {
+			return 0, 0, fmt.Errorf("error inserting in jetsapi.compute_pipes_shard_registry table in ShardFileKeysP1: %v", err)
+		}
+		if nbatch == len(s3Objects) {
+			return totalPartfileCount, totalSize, nil
+		}
+		ibatch += batchSize
 	}
-	_, err = dbpool.Exec(exeCtx, buf.String())
-	if err != nil {
-		return 0, 0, fmt.Errorf("error inserting in jetsapi.compute_pipes_shard_registry table in ShardFileKeysP1: %v", err)
-	}
-	return totalPartfileCount, totalSize, nil
 }
 
 // Part 2
