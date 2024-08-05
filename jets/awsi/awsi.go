@@ -255,6 +255,38 @@ func UploadToS3(bucket, region, objKey string, fileHd *os.File) error {
 	return nil
 }
 
+// upload object to S3, reading the obj from reader (from current position to EOF)
+func UploadToS3FromReader(objKey string, reader io.Reader) error {
+	cfg, err := config.LoadDefaultConfig(context.TODO(), config.WithRegion(region))
+	if err != nil {
+		return fmt.Errorf("while loading aws configuration: %v", err)
+	}
+
+	// Create a s3 client
+	s3Client := s3.NewFromConfig(cfg)
+
+	// Create an uploader with the client and custom options
+	uploader := manager.NewUploader(s3Client)
+	putObjInput := &s3.PutObjectInput{
+		Bucket: &bucket,
+		Key:    &objKey,
+		Body:   reader,
+	}
+	if len(kmsKeyArn) > 0 {
+		putObjInput.ServerSideEncryption = types.ServerSideEncryptionAwsKms
+		putObjInput.SSEKMSKeyId = &kmsKeyArn
+	}
+	// uout, err := uploader.Upload(context.TODO(), putObjInput)
+	_, err = uploader.Upload(context.TODO(), putObjInput)
+	if err != nil {
+		return fmt.Errorf("failed to upload file to s3: %v", err)
+	}
+	// if uout != nil {
+	// 	log.Println("Uploaded",*uout.Key,"to location",uout.Location)
+	// }
+	return nil
+}
+
 // upload buf to S3, reading the obj from in-memory buffer
 func UploadBufToS3(objKey string, buf []byte) error {
 	cfg, err := config.LoadDefaultConfig(context.TODO(), config.WithRegion(region))

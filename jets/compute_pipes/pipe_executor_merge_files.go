@@ -1,7 +1,6 @@
 package compute_pipes
 
 import (
-	"bufio"
 	"fmt"
 	"io"
 	"log"
@@ -17,7 +16,9 @@ import (
 // Component that merge part files into a single output file.
 // Merge the file content by chunks w/o loading it as rows
 
-// Function to write transformed row to database
+// Function to merge the partfiles into a single file by streaming the content
+// to s3 using a channel. This is run in the main thread, so no need to have
+// a result channel back to the caller.
 func (cpCtx *ComputePipesContext) StartMergeFiles(dbpool *pgxpool.Pool) error {
 
 	log.Println("Entering StartMergeFiles")
@@ -57,58 +58,11 @@ func (cpCtx *ComputePipesContext) StartMergeFiles(dbpool *pgxpool.Pool) error {
 		os.Getenv("JETS_s3_INPUT_PREFIX"), os.Getenv("JETS_s3_OUTPUT_PREFIX"), 1)
 	outputS3FileKey := fmt.Sprintf("%s/%s", fileFolder, fileName)
 
-	// Create a local temp file to write the merged file
-	var fileHd *os.File
-	var err error
-	fileHd, err = os.CreateTemp("", "jetstoreMergedFile")
-	if err != nil {
-		return fmt.Errorf("failed to open temp output file in StartMergeFiles: %v", err)
-	}
-	tempFileName := fileHd.Name()
-	defer func() {
-		fileHd.Close()
-		os.Remove(tempFileName)
-	}()
+	// Create a reader to stream the data to s3
+	r := cpCtx.NewMergeFileReader(outputFileConfig.Headers)
 
-	// Write the output file headers if specified
-	w := bufio.NewWriter(fileHd)
-	if len(outputFileConfig.Headers) > 0 {
-		_, err = w.Write([]byte(strings.Join(outputFileConfig.Headers, ",")))
-		if err != nil {
-			err = fmt.Errorf("while writing headers to output merged file:%v", err)
-			log.Println(cpCtx.SessionId, "node", cpCtx.NodeId, err)
-			return err
-		}
-	  err = w.WriteByte('\n')
-		if err != nil {
-			err = fmt.Errorf("while writing carriage return to output merged file:%v", err)
-			log.Println(cpCtx.SessionId, "node", cpCtx.NodeId, err)
-			return err
-		}
-	}
-	// Merge the part files into a single output file
-	// Open the destination file
-	for localInFile := range cpCtx.FileNamesCh {
-		n, err := copyFile(localInFile.LocalFileName, w)
-		if err != nil {
-			log.Println(cpCtx.SessionId, "node", cpCtx.NodeId, err)
-			return err
-		}
-		if cpCtx.CpConfig.ClusterConfig.IsDebugMode {
-			log.Printf("%s node %d merged file '%s', copied %d bytes", cpCtx.SessionId, cpCtx.NodeId, localInFile.InFileKey, n)
-		}
-	}
-	err = w.Flush()
-	if err != nil {
-		err = fmt.Errorf("while flusing output file (StartMergeFile): %v", err)
-		log.Println(cpCtx.SessionId, "node", cpCtx.NodeId, err)
-		return err
-	}
-
-	// Copy the file to s3
-	fileHd.Seek(0, 0)
 	// put content of file to s3
-	if err = awsi.UploadToS3(bucketName, regionName, outputS3FileKey, fileHd); err != nil {
+	if err := awsi.UploadToS3FromReader(outputS3FileKey, r); err != nil {
 		return fmt.Errorf("while copying to s3: %v", err)
 	}
 	if cpCtx.CpConfig.ClusterConfig.IsDebugMode {
@@ -117,36 +71,77 @@ func (cpCtx *ComputePipesContext) StartMergeFiles(dbpool *pgxpool.Pool) error {
 	return nil
 }
 
-func copyFile(source string, destination *bufio.Writer) (int, error) {
-	var fileHd *os.File
+// MergeFileReader provides a reader that conforms to io.Reader interface
+// that reads content from partfiles and makes it available to the s3 manager
+// via the Read interface
+type MergeFileReader struct {
+	currentFile   FileName
+	currentFileHd *os.File
+	reader        *snappy.Reader
+	headers       []byte
+	cpCtx         *ComputePipesContext
+}
+
+func (cpCtx *ComputePipesContext) NewMergeFileReader(headers []string) io.Reader {
+	var h []byte
+	if len(headers) > 0 {
+		v := fmt.Sprintf("%s\n", strings.Join(headers, ","))
+		h = []byte(v)
+	}
+	return &MergeFileReader{
+		cpCtx:   cpCtx,
+		headers: h,
+	}
+}
+
+func (r *MergeFileReader) Read(buf []byte) (int, error) {
 	var err error
-	var totalBytes int
-	fileHd, err = os.Open(source)
-	if err != nil {
-		return 0, fmt.Errorf("while opening temp file '%s' (copyFile): %v", source, err)
-	}
-	defer func() {
-		fileHd.Close()
-		os.Remove(source)
-	}()
-	reader := snappy.NewReader(fileHd)
-	buf := make([]byte, 4096)
-	for {
-		n, err := reader.Read(buf)
-		switch {
-		case err == io.EOF:
-			// expected exit route
-			return totalBytes, nil
+	switch {
 
-		case err != nil:
-			return totalBytes, fmt.Errorf("while reading input part file (copyFile): %v", err)
-
-		default:
-			_, err = destination.Write(buf[:n])
-			if err != nil {
-				return totalBytes, fmt.Errorf("while writing part file to output merged file (copyFile): %v", err)
-			}
-			totalBytes += n
+	case r.headers != nil:
+		n := copy(buf, r.headers)
+		if n < len(r.headers) {
+			r.headers = r.headers[n:]
+		} else {
+			r.headers = nil
 		}
+		return n, nil
+
+	case r.reader == nil:
+		// get the next file
+		r.currentFile = <-r.cpCtx.FileNamesCh
+		if r.currentFile.LocalFileName == "" {
+			return 0, io.EOF
+		}
+
+		// open the reader for currentFile
+		r.currentFileHd, err = os.Open(r.currentFile.LocalFileName)
+		if err != nil {
+			return 0, fmt.Errorf("while opening temp file '%s' (MergeFileReader.Read): %v",
+				r.currentFile.LocalFileName, err)
+		}
+		r.reader = snappy.NewReader(r.currentFileHd)
+		// read from file, delegate to itself
+		return r.Read(buf)
+
+	default:
+		// Delegate to the reader
+		n, err2 := r.reader.Read(buf)
+		if err2 == io.EOF {
+			r.currentFileHd.Close()
+			os.Remove(r.currentFile.LocalFileName)
+			r.currentFileHd = nil
+			r.reader = nil
+		}
+		if err2 != nil && err2 != io.EOF {
+			// Got error while reading file
+			return n, err2
+		}
+		if n == 0 {
+			// check for next file
+			return r.Read(buf)
+		}
+		return n, nil
 	}
+
 }
