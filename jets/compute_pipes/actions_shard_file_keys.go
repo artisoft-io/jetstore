@@ -43,9 +43,10 @@ func ShardFileKeysP1(exeCtx context.Context, dbpool *pgxpool.Pool, baseFileKey s
 	var totalSize int64
 	var buf strings.Builder
 	var s3ObjectsBatch []*awsi.S3Object
-	var ibatch, nbatch int
+	var ibatch, nbatch, countInBatch int
 	batchSize := 500
 	for {
+		countInBatch = 0
 		nbatch = ibatch + batchSize
 		if nbatch > len(s3Objects) {
 			nbatch = len(s3Objects)
@@ -63,14 +64,20 @@ func ShardFileKeysP1(exeCtx context.Context, dbpool *pgxpool.Pool, baseFileKey s
 				isFirst = false
 				buf.WriteString(fmt.Sprintf("('%s','%s',%d)", sessionId, s3ObjectsBatch[i].Key, s3ObjectsBatch[i].Size))
 				totalPartfileCount += 1
+				countInBatch += 1
 				totalSize += s3ObjectsBatch[i].Size
 			}
 		}
-		_, err = dbpool.Exec(exeCtx, buf.String())
-		if err != nil {
-			return 0, 0, fmt.Errorf("error inserting in jetsapi.compute_pipes_shard_registry table in ShardFileKeysP1: %v", err)
+		if countInBatch > 0 {
+			_, err = dbpool.Exec(exeCtx, buf.String())
+			if err != nil {
+				return 0, 0, fmt.Errorf("error inserting in jetsapi.compute_pipes_shard_registry table in ShardFileKeysP1: %v", err)
+			}	
 		}
 		if nbatch == len(s3Objects) {
+			if totalPartfileCount == 0 {
+				return 0, 0, fmt.Errorf("error: the pipeline contains no data file on input")
+			}
 			return totalPartfileCount, totalSize, nil
 		}
 		ibatch += batchSize
