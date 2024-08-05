@@ -139,6 +139,7 @@ func (ca *CommandArguments) RunReports(dbpool *pgxpool.Pool) (err error) {
 	for i := range ca.ReportScriptPaths {
 		reportProps := reportDirectives.ReportProperties[reportDirectives.ReportScripts[i]]
 		doIt := true
+		log.Println("Considering report:",reportDirectives.ReportScripts[i])
 		for i := range reportProps.RunWhen {
 			value, ok := ca.FileKeyComponents[reportProps.RunWhen[i].FileKeyComponent].(string)
 			if ok {
@@ -159,11 +160,12 @@ func (ca *CommandArguments) RunReports(dbpool *pgxpool.Pool) (err error) {
 					gotRecordCount = true
 				}
 				if dbRecordCount > 0 && outputRecordCount == 0 {
-					fmt.Println("This report is requiring having non zero output records and no output records are found, skipping report")
+					log.Println("This report is requiring having non zero output records and no output records are found, skipping report")
 					doIt = false
 				}		
 			}
 			if !doIt {
+				log.Println("Skipping report:",reportDirectives.ReportScripts[i])
 				break
 			}
 		}
@@ -188,6 +190,7 @@ func (ca *CommandArguments) RunReports(dbpool *pgxpool.Pool) (err error) {
 	}
 	if !didAnyReport {
 		// Did no report, bailing out
+		log.Println("Done no reports, bailing out")
 		return
 	}
 
