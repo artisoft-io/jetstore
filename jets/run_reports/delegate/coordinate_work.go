@@ -132,7 +132,7 @@ func CoordinateWorkAndUpdateStatus(ctx context.Context, dbpool *pgxpool.Pool, ca
 		return nil
 	}
 
-	fmt.Println("Executing the following reports:")
+	fmt.Println("Reports available for execution:")
 	for i := range ca.ReportScriptPaths {
 		fmt.Println("  -", ca.ReportScriptPaths[i])
 	}
