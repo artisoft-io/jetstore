@@ -139,7 +139,6 @@ func (ca *CommandArguments) RunReports(dbpool *pgxpool.Pool) (err error) {
 	for i := range ca.ReportScriptPaths {
 		reportProps := reportDirectives.ReportProperties[reportDirectives.ReportScripts[i]]
 		doIt := true
-		log.Println("Considering report:",reportDirectives.ReportScripts[i])
 		for i := range reportProps.RunWhen {
 			value, ok := ca.FileKeyComponents[reportProps.RunWhen[i].FileKeyComponent].(string)
 			if ok {
@@ -165,7 +164,6 @@ func (ca *CommandArguments) RunReports(dbpool *pgxpool.Pool) (err error) {
 				}		
 			}
 			if !doIt {
-				log.Println("Skipping report:",reportDirectives.ReportScripts[i])
 				break
 			}
 		}
