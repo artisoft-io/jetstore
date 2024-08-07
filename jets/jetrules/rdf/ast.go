@@ -53,9 +53,7 @@ func (v *Node) Bool() bool {
 		return true
 	case LDatetime:
 		return true
-	case int32:
-		return vv != 0
-	case int64:
+	case int:
 		return vv != 0
 	case float64:
 		return vv != 0
@@ -77,10 +75,6 @@ func (v *Node) String() string {
 	case LDatetime:
 		return fmt.Sprintf("%v", vv)
 	case int:
-		return fmt.Sprintf("%v", vv)
-	case int32:
-		return fmt.Sprintf("%v", vv)
-	case int64:
 		return fmt.Sprintf("%v", vv)
 	case float64:
 		return fmt.Sprintf("%v", vv)
@@ -136,28 +130,6 @@ func (v *Node) MarshalBinary() ([]byte, error) {
 			byte(vv >> 8),
 			byte(vv),
 		}, nil
-	case int32:
-		// int32 is 4 bytes
-		return []byte{
-			'I','3','2',
-			byte(vv >> 24),
-			byte(vv >> 16),
-			byte(vv >> 8),
-			byte(vv),
-		}, nil
-	case int64:
-		// int64 is 8 bytes
-		return []byte{
-			'I','6','4',
-			byte(vv >> 56), 
-			byte(vv >> 48),
-			byte(vv >> 40),
-			byte(vv >> 32),
-			byte(vv >> 24),
-			byte(vv >> 16),
-			byte(vv >> 8),
-			byte(vv),
-		}, nil
 	case float64:
 		// float64 -> uint64 is 8 bytes
 		t := math.Float64bits(vv)
@@ -198,13 +170,9 @@ func T3(s, p, o *Node) Triple {
 // bool operator()(NamedResource const&v)const{return true;}
 // bool operator()(LDate         const&v)const{return true;}
 // bool operator()(LDatetime     const&v)const{return true;}
-// bool operator()(LInt32        const&v)const{return v.data;}
-// bool operator()(LInt64        const&v)const{return v.data;}
+// bool operator()(LInt          const&v)const{return v.data;}
 // bool operator()(LDouble       const&v)const{return v.data;}
 // bool operator()(LString       const&v)const
-// Omit unsigned integrals:
-// bool operator()(LUInt32       const&v)const{return v.data;}
-// bool operator()(LUInt64       const&v)const{return v.data;}
 
 func Null() *Node {
 	return globalNull
@@ -228,11 +196,7 @@ func DT(datetime string) (*Node, error) {
 	return &Node{Value: LDatetime{datetime: t}}, err
 }
 
-func I(v int32) *Node {
-	return &Node{Value: v}
-}
-
-func L(v int64) *Node {
+func I(v int) *Node {
 	return &Node{Value: v}
 }
 

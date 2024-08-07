@@ -125,7 +125,7 @@ func TestMarshalBinary(t *testing.T) {
 		t.Errorf("Unexpected number of distinct hashed values")
 	}
 
-	// Int32
+	// Int
 	node, _ = I(1).MarshalBinary()
 	hashed[hashIt(node)] = true
 	if len(hashed) != 10 {
@@ -149,35 +149,23 @@ func TestMarshalBinary(t *testing.T) {
 		t.Errorf("Unexpected number of distinct hashed values")
 	}
 
-	// Int64
-	node, _ = L(1).MarshalBinary()
-	hashed[hashIt(node)] = true
-	if len(hashed) != 12 {
-		t.Errorf("Unexpected number of distinct hashed values, got %d, expecting 12", len(hashed))
-	}
-	node, _ = L(1101123).MarshalBinary()
-	hashed[hashIt(node)] = true
-	if len(hashed) != 13 {
-		t.Errorf("Unexpected number of distinct hashed values, got %d, expecting 13", len(hashed))
-	}
-
 
 	// Float64
 	node, _ = F(1.05).MarshalBinary()
 	hashed[hashIt(node)] = true
-	if len(hashed) != 14 {
+	if len(hashed) != 12 {
 		t.Errorf("Unexpected number of distinct hashed values, got %d, expecting 14", len(hashed))
 	}
 
 	node, _ = F(1101123).MarshalBinary()
 	hashed[hashIt(node)] = true
-	if len(hashed) != 15 {
+	if len(hashed) != 13 {
 		t.Errorf("Unexpected number of distinct hashed values, got %d, expecting 15", len(hashed))
 	}
 
 	node, _ = F(1.05).MarshalBinary()
 	hashed[hashIt(node)] = true
-	if len(hashed) != 15 {
+	if len(hashed) != 13 {
 		t.Errorf("Unexpected number of distinct hashed values, got %d, expecting 15", len(hashed))
 	}
 
@@ -190,7 +178,7 @@ func TestMarshalBinary(t *testing.T) {
 		t.Error(err)
 	}
 	hashed[hashIt(node)] = true
-	if len(hashed) != 16 {
+	if len(hashed) != 14 {
 		t.Errorf("Unexpected number of distinct hashed values, got %d, expecting 16", len(hashed))
 	}
 }

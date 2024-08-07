@@ -24,58 +24,28 @@ func (op *GtOp) Eval(reteSession *ReteSession, row *BetaRow, lhs, rhs *rdf.Node)
 	}
 
 	switch lhsv := lhs.Value.(type) {
-	case int32:
+	case int:
 		switch rhsv := rhs.Value.(type) {
-		case int32:
+		case int:
 			if lhsv > rhsv {
-				return &rdf.Node{Value: int32(1)}
+				return &rdf.Node{Value: 1}
 			}
-			return &rdf.Node{Value: int32(0)}
-		case int64:
-			if int64(lhsv) > rhsv {
-				return &rdf.Node{Value: int32(1)}
-			}
-			return &rdf.Node{Value: int32(0)}
+			return &rdf.Node{Value: 0}
 		case float64:
 			if float64(lhsv) > rhsv {
-				return &rdf.Node{Value: int32(1)}
+				return &rdf.Node{Value: 1}
 			}
-			return &rdf.Node{Value: int32(0)}
-		default:
-			return nil
-		}
-	case int64:
-		switch rhsv := rhs.Value.(type) {
-		case int32:
-			if lhsv > int64(rhsv) {
-				return &rdf.Node{Value: int32(1)}
-			}
-			return &rdf.Node{Value: int32(0)}
-		case int64:
-			if lhsv > rhsv {
-				return &rdf.Node{Value: int32(1)}
-			}
-			return &rdf.Node{Value: int32(0)}
-		case float64:
-			if float64(lhsv) > rhsv {
-				return &rdf.Node{Value: int32(1)}
-			}
-			return &rdf.Node{Value: int32(0)}
+			return &rdf.Node{Value: 0}
 		default:
 			return nil
 		}
 	case float64:
 		switch rhsv := rhs.Value.(type) {
-		case int32:
+		case int:
 			if lhsv > float64(rhsv) {
-				return &rdf.Node{Value: int32(1)}
+				return &rdf.Node{Value: 1}
 			}
-			return &rdf.Node{Value: int32(0)}
-		case int64:
-			if lhsv > float64(rhsv) {
-				return &rdf.Node{Value: int32(1)}
-			}
-			return &rdf.Node{Value: int32(0)}
+			return &rdf.Node{Value: 0}
 		case float64:
 			return &rdf.Node{Value: lhsv * rhsv}
 		default:
@@ -85,9 +55,9 @@ func (op *GtOp) Eval(reteSession *ReteSession, row *BetaRow, lhs, rhs *rdf.Node)
 		switch rhsv := rhs.Value.(type) {
 		case string:
 			if lhsv > rhsv {
-				return &rdf.Node{Value: int32(1)}
+				return &rdf.Node{Value: 1}
 			}
-			return &rdf.Node{Value: int32(0)}
+			return &rdf.Node{Value: 0}
 		default:
 			return nil
 		}

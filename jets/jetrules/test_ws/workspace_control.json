@@ -1,0 +1,6 @@
+{
+  "rule_sets": [
+    "jet_rules/map_eligibility_main.jr"
+  ],
+  "rule_sequences": []
+}

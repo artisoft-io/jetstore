@@ -11,8 +11,8 @@ import (
 // known as ruleSets, and the ruleSeq which are sequences
 // of ruleSets.
 type WorkspaceControl struct {
-	RuleSets       []string        `json:"rule_sets"`
-	RuleSequences  []RuleSequence  `json:"rule_sequences"`
+	RuleSets      []string       `json:"rule_sets"`
+	RuleSequences []RuleSequence `json:"rule_sequences"`
 }
 
 func NewWorkspaceControl(ruleSets []string, ruleSequences []RuleSequence) *WorkspaceControl {
@@ -59,10 +59,10 @@ func (wc *WorkspaceControl) MainRuleFileNames(ruleFileName string) []string {
 		if wc.RuleSequences[i].Name == ruleFileName {
 			return wc.RuleSets
 		}
-		for i := range wc.RuleSets {
-			if wc.RuleSets[i] == ruleFileName {
-				return []string{ruleFileName}
-			}
+	}
+	for i := range wc.RuleSets {
+		if wc.RuleSets[i] == ruleFileName {
+			return []string{ruleFileName}
 		}
 	}
 	return nil

@@ -26,13 +26,19 @@ func TestResourceManager(t *testing.T) {
 	}
 
 	// Literals
-	day := rm.NewLiteral("day")
+	day := rm.NewTextLiteral("day")
 	if day != rm.GetLiteral("day") {
-		t.Error("NewLiteral(day) != GetLiteral(day)")
+		t.Error("NewTextLiteral(day) != GetLiteral(day)")
 	}
-	one := rm.NewLiteral(1)
-	if one != rm.GetLiteral(1) {
-		t.Error("NewLiteral(1) != GetLiteral(1)")
+	one, err := rm.NewLiteral(1)
+	if err != nil {
+		t.Error("err in NewLiteral(1) ", err)
+	}
+	if one != rm.GetLiteral(int32(1)) {
+		t.Error("NewIntLiteral(1) != GetLiteral(int32(1))")
+	}
+	if one != rm.NewIntLiteral(1) {
+		t.Error("NewIntLiteral(1) != GetLiteral(int64(1))")
 	}
 	if one == day {
 		t.Error("day == 1")

@@ -254,57 +254,57 @@ func (ctx *ReteBuilderContext) loadResources() error {
 				return fmt.Errorf("error: resource require 'value' to be provided as resource name")
 			}
 		case "text", "string":
-			ctx.ResourcesLookup[resourceNode.Key] = ctx.ResourceMgr.NewLiteral(resourceNode.Value)
+			ctx.ResourcesLookup[resourceNode.Key] = ctx.ResourceMgr.NewTextLiteral(resourceNode.Value)
 		case "int":
 			v, err := strconv.Atoi(resourceNode.Value)
 			if err != nil {
 				return err
 			}
-			ctx.ResourcesLookup[resourceNode.Key] = ctx.ResourceMgr.NewLiteral(int32(v))
+			ctx.ResourcesLookup[resourceNode.Key] = ctx.ResourceMgr.NewIntLiteral(v)
 		case "date":
 			v, err := rdf.NewLDate(resourceNode.Value)
 			if err != nil {
 				return err
 			}
-			ctx.ResourcesLookup[resourceNode.Key] = ctx.ResourceMgr.NewLiteral(v)
+			ctx.ResourcesLookup[resourceNode.Key] = ctx.ResourceMgr.NewDateLiteral(v)
 		case "double":
 			v, err := strconv.ParseFloat(resourceNode.Value, 64)
 			if err != nil {
 				return err
 			}
-			ctx.ResourcesLookup[resourceNode.Key] = ctx.ResourceMgr.NewLiteral(v)
+			ctx.ResourcesLookup[resourceNode.Key] = ctx.ResourceMgr.NewDoubleLiteral(v)
 		case "bool":
-			ctx.ResourcesLookup[resourceNode.Key] = ctx.ResourceMgr.NewLiteral(rdf.ParseBool(resourceNode.Value))
+			ctx.ResourcesLookup[resourceNode.Key] = ctx.ResourceMgr.NewIntLiteral(rdf.ParseBool(resourceNode.Value))
 		case "datetime":
 			v, err := rdf.NewLDatetime(resourceNode.Value)
 			if err != nil {
 				return err
 			}
-			ctx.ResourcesLookup[resourceNode.Key] = ctx.ResourceMgr.NewLiteral(v)
+			ctx.ResourcesLookup[resourceNode.Key] = ctx.ResourceMgr.NewDatetimeLiteral(v)
 		case "long":
 			v, err := strconv.Atoi(resourceNode.Value)
 			if err != nil {
 				return err
 			}
-			ctx.ResourcesLookup[resourceNode.Key] = ctx.ResourceMgr.NewLiteral(int64(v))
+			ctx.ResourcesLookup[resourceNode.Key] = ctx.ResourceMgr.NewIntLiteral(v)
 		case "uint":
-			v, err := strconv.ParseUint(resourceNode.Value, 10, 32)
+			v, err := strconv.Atoi(resourceNode.Value)
 			if err != nil {
 				return err
 			}
-			ctx.ResourcesLookup[resourceNode.Key] = ctx.ResourceMgr.NewLiteral(uint32(v))
+			ctx.ResourcesLookup[resourceNode.Key] = ctx.ResourceMgr.NewIntLiteral(v)
 		case "ulong":
-			v, err := strconv.ParseUint(resourceNode.Value, 10, 64)
+			v, err := strconv.Atoi(resourceNode.Value)
 			if err != nil {
 				return err
 			}
-			ctx.ResourcesLookup[resourceNode.Key] = ctx.ResourceMgr.NewLiteral(uint64(v))
+			ctx.ResourcesLookup[resourceNode.Key] = ctx.ResourceMgr.NewIntLiteral(v)
 		case "keyword":
 			switch resourceNode.Value {
 			case "true":
-				ctx.ResourcesLookup[resourceNode.Key] = ctx.ResourceMgr.NewLiteral(int32(1))
+				ctx.ResourcesLookup[resourceNode.Key] = ctx.ResourceMgr.NewIntLiteral(1)
 			case "false":
-				ctx.ResourcesLookup[resourceNode.Key] = ctx.ResourceMgr.NewLiteral(int32(0))
+				ctx.ResourcesLookup[resourceNode.Key] = ctx.ResourceMgr.NewIntLiteral(0)
 			case "null":
 				ctx.ResourcesLookup[resourceNode.Key] = rdf.Null()
 			}
@@ -323,9 +323,6 @@ func (ctx *ReteBuilderContext) loadNodeVertices() error {
 
 		// Make the BetaRowInitializer
 		sz := len(reteNode.BetaVarNodes)
-		if sz == 0 {
-			return fmt.Errorf("bug: antecedent with no beta variable")
-		}
 		brData := make([]int, sz)
 		brLabels := make([]string, sz)
 		for j := range reteNode.BetaVarNodes {
@@ -411,15 +408,16 @@ func (ctx *ReteBuilderContext) makeExpressionArgument(expr map[string]interface{
 	var lhs Expression
 	var err error
 	switch vv := expr[argv].(type) {
-	case int:
+	case float64:
 		// argv is a resource or a binded var
-		r, ok := ctx.ResourcesLookup[vv]
+		key := int(vv)
+		r, ok := ctx.ResourcesLookup[key]
 		if ok {
 			lhs = NewExprCst(r)
 		} else {
-			v, ok := ctx.VariablesLookup[vv]
+			v, ok := ctx.VariablesLookup[key]
 			if !ok {
-				return nil, fmt.Errorf("error: makeExpression called with %s as key %d but it's not a resource or a binded variable", argv, vv)
+				return nil, fmt.Errorf("error: makeExpression called with %s as key %d but it's not a resource or a binded variable", argv, key)
 			}
 			if !v.IsBinded {
 				return nil, fmt.Errorf("error: makeExpression called with %s as variable %s, but it's not a binded var", argv, v.Id)
@@ -433,7 +431,7 @@ func (ctx *ReteBuilderContext) makeExpressionArgument(expr map[string]interface{
 			return nil, err
 		}
 	default:
-		return nil, fmt.Errorf("error: makeExpression called with unexpected type for %s", argv)
+		return nil, fmt.Errorf("error: makeExpression called with unexpected type for %s, it's %T from expr: %v", argv, expr[argv], expr)
 	}
 	return lhs, nil
 }

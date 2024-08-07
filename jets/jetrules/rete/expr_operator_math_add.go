@@ -31,10 +31,8 @@ func (op *AddOp) Eval(reteSession *ReteSession, row *BetaRow, lhs, rhs *rdf.Node
 		return nil
 	case rdf.LDate:
 		switch rhsv := rhs.Value.(type) {
-		case int32:
-			return &rdf.Node{Value: lhsv.Add(int(rhsv))}
-		case int64:
-			return &rdf.Node{Value: lhsv.Add(int(rhsv))}
+		case int:
+			return &rdf.Node{Value: lhsv.Add(rhsv)}
 		case float64:
 			return &rdf.Node{Value: lhsv.Add(int(rhsv))}
 		default:
@@ -43,33 +41,18 @@ func (op *AddOp) Eval(reteSession *ReteSession, row *BetaRow, lhs, rhs *rdf.Node
 	
 	case rdf.LDatetime:
 		switch rhsv := rhs.Value.(type) {
-		case int32:
-			return &rdf.Node{Value: lhsv.Add(int(rhsv))}
-		case int64:
-			return &rdf.Node{Value: lhsv.Add(int(rhsv))}
+		case int:
+			return &rdf.Node{Value: lhsv.Add(rhsv)}
 		case float64:
 			return &rdf.Node{Value: lhsv.Add(int(rhsv))}
 		default:
 			return nil
 		}
 
-	case int32:
+	case int:
 		switch rhsv := rhs.Value.(type) {
-		case int32:
+		case int:
 			return &rdf.Node{Value: lhsv + rhsv}
-		case int64:
-			return &rdf.Node{Value: int64(lhsv) + rhsv}
-		case float64:
-			return &rdf.Node{Value: float64(lhsv) + rhsv}
-		default:
-			return nil
-		}
-	case int64:
-		switch rhsv := rhs.Value.(type) {
-		case int32:
-			return &rdf.Node{Value: lhsv + int64(rhsv)}
-		case int64:
-			return &rdf.Node{Value: int64(lhsv) + rhsv}
 		case float64:
 			return &rdf.Node{Value: float64(lhsv) + rhsv}
 		default:
@@ -77,9 +60,7 @@ func (op *AddOp) Eval(reteSession *ReteSession, row *BetaRow, lhs, rhs *rdf.Node
 		}
 	case float64:
 		switch rhsv := rhs.Value.(type) {
-		case int32:
-			return &rdf.Node{Value: lhsv + float64(rhsv)}
-		case int64:
+		case int:
 			return &rdf.Node{Value: lhsv + float64(rhsv)}
 		case float64:
 			return &rdf.Node{Value: lhsv + rhsv}
@@ -88,9 +69,7 @@ func (op *AddOp) Eval(reteSession *ReteSession, row *BetaRow, lhs, rhs *rdf.Node
 		}
 	case string:
 		switch rhsv := rhs.Value.(type) {
-		case int32:
-			return &rdf.Node{Value: fmt.Sprintf("%v%v", rhsv, rhsv)}
-		case int64:
+		case int:
 			return &rdf.Node{Value: fmt.Sprintf("%v%v", rhsv, rhsv)}
 		case float64:
 			return &rdf.Node{Value: fmt.Sprintf("%v%v", rhsv, rhsv)}

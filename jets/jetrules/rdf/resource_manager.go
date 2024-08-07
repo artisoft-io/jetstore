@@ -1,6 +1,10 @@
 package rdf
 
-import "log"
+import (
+	"fmt"
+	"log"
+	"time"
+)
 
 // ResourceManager manages all the resources, incl literals and all. Equivalent to RManager in c++
 
@@ -157,26 +161,149 @@ func (rm *ResourceManager) CreateBNode(key int) *Node {
 	return r
 }
 
+func toValidData(data interface{}) interface{} {
+	var validData interface{}
+	switch vv := data.(type) {
+	case int:
+		validData = vv
+	case int32:
+		validData = int(vv)
+	case uint32:
+		validData = int(vv)
+	case int64:
+		validData = int(vv)
+	case time.Time:
+		validData = vv
+	case string:
+		validData = vv
+	case float64:
+		validData = vv
+	case bool:
+		if vv {
+			validData = 1
+		} else {
+			validData = 0
+		}
+	}
+	return validData
+}
+
 func (rm *ResourceManager) GetLiteral(data interface{}) *Node {
+	validData := toValidData(data)
 	if rm.rootManager != nil {
-		n := rm.rootManager.literalMap[data]
+		n := rm.rootManager.literalMap[validData]
 		if n != nil {
 			return n
 		}
 	}
-	return rm.literalMap[data]
+	return rm.literalMap[validData]
 }
 
-func (rm *ResourceManager) NewLiteral(data interface{}) *Node {
+func (rm *ResourceManager) NewIntLiteral(data int) *Node {
 	v := rm.GetLiteral(data)
 	if v != nil {
 		return v
 	}
 	if rm.isLocked {
-		log.Println("error: NewLiteral called when ResourceManger is locked")
+		log.Println("error: NewIntLiteral called when ResourceManger is locked")
 		return nil
 	}
 	r := &Node{Value: data}
 	rm.literalMap[data] = r
 	return r
+}
+
+func (rm *ResourceManager) NewDoubleLiteral(data float64) *Node {
+	v := rm.GetLiteral(data)
+	if v != nil {
+		return v
+	}
+	if rm.isLocked {
+		log.Println("error: NewDoubleLiteral called when ResourceManger is locked")
+		return nil
+	}
+	r := &Node{Value: data}
+	rm.literalMap[data] = r
+	return r
+}
+
+func (rm *ResourceManager) NewDateLiteral(data LDate) *Node {
+	v := rm.GetLiteral(data)
+	if v != nil {
+		return v
+	}
+	if rm.isLocked {
+		log.Println("error: NewDateLiteral called when ResourceManger is locked")
+		return nil
+	}
+	r := &Node{Value: data}
+	rm.literalMap[data] = r
+	return r
+}
+
+func (rm *ResourceManager) NewDatetimeLiteral(data LDatetime) *Node {
+	v := rm.GetLiteral(data)
+	if v != nil {
+		return v
+	}
+	if rm.isLocked {
+		log.Println("error: NewDatetimeLiteral called when ResourceManger is locked")
+		return nil
+	}
+	r := &Node{Value: data}
+	rm.literalMap[data] = r
+	return r
+}
+
+func (rm *ResourceManager) NewTextLiteral(data string) *Node {
+	v := rm.GetLiteral(data)
+	if v != nil {
+		return v
+	}
+	if rm.isLocked {
+		log.Println("error: NewTextLiteral called when ResourceManger is locked")
+		return nil
+	}
+	r := &Node{Value: data}
+	rm.literalMap[data] = r
+	return r
+}
+
+func (rm *ResourceManager) NewBoolLiteral(data bool) *Node {
+	dd := 0
+	if data {
+		dd = 1
+	}
+	v := rm.GetLiteral(dd)
+	if v != nil {
+		return v
+	}
+	if rm.isLocked {
+		log.Println("error: NewBoolLiteral called when ResourceManger is locked")
+		return nil
+	}
+	r := &Node{Value: dd}
+	rm.literalMap[dd] = r
+	return r
+}
+
+
+// Coerce data to the limited data type: int, string, time, float64
+// return nil if not a valid type
+func (rm *ResourceManager) NewLiteral(data interface{}) (*Node, error) {
+	validData := toValidData(data)
+	if validData == nil {
+		return nil, fmt.Errorf("error: invalid data type %T for NewLiteral", data)
+	}
+	v := rm.GetLiteral(validData)
+	if v != nil {
+		return v, nil
+	}
+	if rm.isLocked {
+		log.Println("error: NewLiteral called when ResourceManger is locked")
+		return nil, fmt.Errorf("error: resource manager is locked")
+	}
+	r := &Node{Value: validData}
+	rm.literalMap[validData] = r
+	return r, nil
 }

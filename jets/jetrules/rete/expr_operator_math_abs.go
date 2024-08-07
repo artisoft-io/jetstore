@@ -25,12 +25,7 @@ func (op *AbsOp) Eval(reteSession *ReteSession, row *BetaRow, rhs *rdf.Node) *rd
 	}
 
 	switch rhsv := rhs.Value.(type) {
-	case int32:
-		if rhsv < 0 {
-			return &rdf.Node{Value: -rhsv}
-		}
-		return &rdf.Node{Value: rhsv}
-	case int64:
+	case int:
 		if rhsv < 0 {
 			return &rdf.Node{Value: -rhsv}
 		}
