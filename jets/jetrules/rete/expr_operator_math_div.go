@@ -25,38 +25,13 @@ func (op *DivOp) Eval(reteSession *ReteSession, row *BetaRow, lhs, rhs *rdf.Node
 	}
 
 	switch lhsv := lhs.Value.(type) {
-	case int32:
+	case int:
 		switch rhsv := rhs.Value.(type) {
-		case int32:
+		case int:
 			if rhsv == 0 {
 				return &rdf.Node{Value: math.NaN()}	
 			}
 			return &rdf.Node{Value: lhsv / rhsv}
-		case int64:
-			if rhsv == 0 {
-				return &rdf.Node{Value: math.NaN()}	
-			}
-			return &rdf.Node{Value: int64(lhsv) / rhsv}
-		case float64:
-			if rhsv == 0 {
-				return &rdf.Node{Value: math.NaN()}	
-			}
-			return &rdf.Node{Value: float64(lhsv) / rhsv}
-		default:
-			return nil
-		}
-	case int64:
-		switch rhsv := rhs.Value.(type) {
-		case int32:
-			if rhsv == 0 {
-				return &rdf.Node{Value: math.NaN()}	
-			}
-			return &rdf.Node{Value: lhsv / int64(rhsv)}
-		case int64:
-			if rhsv == 0 {
-				return &rdf.Node{Value: math.NaN()}	
-			}
-			return &rdf.Node{Value: int64(lhsv) / rhsv}
 		case float64:
 			if rhsv == 0 {
 				return &rdf.Node{Value: math.NaN()}	
@@ -67,12 +42,7 @@ func (op *DivOp) Eval(reteSession *ReteSession, row *BetaRow, lhs, rhs *rdf.Node
 		}
 	case float64:
 		switch rhsv := rhs.Value.(type) {
-		case int32:
-			if rhsv == 0 {
-				return &rdf.Node{Value: math.NaN()}	
-			}
-			return &rdf.Node{Value: lhsv / float64(rhsv)}
-		case int64:
+		case int:
 			if rhsv == 0 {
 				return &rdf.Node{Value: math.NaN()}	
 			}

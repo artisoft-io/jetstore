@@ -40,7 +40,7 @@ func (op *MinMaxOp) RegisterCallback(reteSession *ReteSession, vertex int, lhs, 
 		if op.dataProperty != nil {
 			cb = NewReteCallbackForFilter(reteSession, vertex, op.dataProperty)
 		} else {
-			return fmt.Errorf("error: jets:value_property is nill when jets:domain_property is not")
+			return fmt.Errorf("error: jets:value_property is nil when jets:domain_property is not")
 		}
 	} else {
 		// rhs is the domain property to get notification for

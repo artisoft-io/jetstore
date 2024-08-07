@@ -15,7 +15,7 @@ func TestBetaRowSet(t *testing.T) {
 	br1 := NewBetaRow(nd, 3)
 	br1.Data[0] = rMgr.NewResource("s")
 	br1.Data[1] = rMgr.NewResource("p")
-	br1.Data[2] = rMgr.NewLiteral(101.75)
+	br1.Data[2] = rMgr.NewDoubleLiteral(101.75)
 	inserted, br2 := brSet.Put(br1)
 	if !inserted {
 		t.Error("Expected to add BetaRow to BetaRowSet")
@@ -31,7 +31,7 @@ func TestBetaRowSet(t *testing.T) {
 	br3 := NewBetaRow(nd, 3)
 	br3.Data[0] = rMgr.NewResource("s")
 	br3.Data[1] = rMgr.NewResource("p")
-	br3.Data[2] = rMgr.NewLiteral(101.00)
+	br3.Data[2] = rMgr.NewDoubleLiteral(101.00)
 	inserted, _ = brSet.Put(br3)
 	if !inserted {
 		t.Error("Expected to add BetaRow to BetaRowSet 2")
@@ -45,7 +45,7 @@ func TestBetaRowSet(t *testing.T) {
 	br12 := NewBetaRow(nd, 3)
 	br12.Data[0] = rMgr.NewResource("s")
 	br12.Data[1] = rMgr.NewResource("p")
-	br12.Data[2] = rMgr.NewLiteral(101.75)
+	br12.Data[2] = rMgr.NewDoubleLiteral(101.75)
 	inserted, br22 := brSet.Put(br12)
 	if inserted {
 		t.Error("Not Expecting to add BetaRow to BetaRowSet")

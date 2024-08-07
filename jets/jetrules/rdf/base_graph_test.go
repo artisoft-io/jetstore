@@ -114,8 +114,8 @@ func TestBaseGraphIterator(t *testing.T) {
 	v := rm.NewResource("v")
 	w := rm.NewResource("w")
 	bg.Insert(u, v, w)
-	one := rm.NewLiteral(1)
-	two := rm.NewLiteral(2)
+	one := rm.NewIntLiteral(1)
+	two := rm.NewIntLiteral(2)
 	bg.Insert(s, p, one)
 	bg.Insert(s, p, two)
 
@@ -137,8 +137,8 @@ func TestBenchBaseGraph(t *testing.T) {
 		s := rm.NewResource(fmt.Sprintf("subject%d", i))
 		for j := 0; j < 20; j++ {
 			p := rm.NewResource(fmt.Sprintf("predicate%d", j))
-			o1 := rm.NewLiteral(i + j)
-			o2 := rm.NewLiteral(fmt.Sprintf("obj%d", j))
+			o1 := rm.NewIntLiteral(i + j)
+			o2 := rm.NewTextLiteral(fmt.Sprintf("obj%d", j))
 			bg.Insert(s, p, o1)
 			bg.Insert(s, p, o2)
 		}
