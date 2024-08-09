@@ -144,13 +144,20 @@ func (ctx *Context) RegisterFileKeys(registerFileKeyAction *RegisterFileKeyActio
 		}
 		ctx.updateFileKeyComponentCase(&fileKeyObject)
 
-		// Inserting source_period
+		// Inserting source_period, do retry logic in case of a race condition
+		retry := 0
+	do_retry:
 		source_period_key, err := InsertSourcePeriod(
 			ctx.Dbpool,
 			fileKeyObject["year"].(int),
 			fileKeyObject["month"].(int),
 			fileKeyObject["day"].(int))
 		if err != nil {
+			if retry < 4 {
+				time.Sleep(500 * time.Millisecond)
+				retry++
+				goto do_retry
+			}
 			return nil, http.StatusInternalServerError, fmt.Errorf("while calling InsertSourcePeriod: %v", err)
 		}
 		fileKeyObject["source_period_key"] = source_period_key
@@ -617,7 +624,7 @@ func (ctx *Context) StartPipelineOnInputRegistryInsert(registerFileKeyAction *Re
 			err2 := fmt.Errorf("in StartPipelineOnInputRegistryInsert while querying all pipeline_config ready to execute: %v", err)
 			return nil, http.StatusInternalServerError, err2
 		}
-		
+
 		// fmt.Println("Found all pipeline_config ready to go:", *pipelineConfigKeys) // DEV
 
 		if len(*pipelineConfigKeys) == 0 {
