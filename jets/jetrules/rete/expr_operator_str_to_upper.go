@@ -8,7 +8,6 @@ import (
 
 // TO_UPPER unary operator
 type ToUpperOp struct {
-
 }
 
 func NewToUpperOp() UnaryOperator {
@@ -24,10 +23,9 @@ func (op *ToUpperOp) Eval(reteSession *ReteSession, row *BetaRow, rhs *rdf.Node)
 		return nil
 	}
 
-	switch rhsv := rhs.Value.(type) {
-	case string:
-		return rdf.S(strings.ToUpper(rhsv))
-	default:
+	rhsv, ok := rhs.Value.(string)
+	if !ok {
 		return nil
 	}
+	return rdf.S(strings.ToUpper(rhsv))
 }

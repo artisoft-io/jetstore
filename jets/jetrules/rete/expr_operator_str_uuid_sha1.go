@@ -22,10 +22,9 @@ func (op *UuidSha1Op) Eval(reteSession *ReteSession, row *BetaRow, rhs *rdf.Node
 		return nil
 	}
 
-	switch rhsv := rhs.Value.(type) {
-	case string:
-		return rdf.S(uuid.NewSHA1(seedUuid, []byte(rhsv)).String())
-	default:
+	rhsv, ok := rhs.Value.(string)
+	if !ok {
 		return nil
 	}
+	return rdf.S(uuid.NewSHA1(seedUuid, []byte(rhsv)).String())
 }

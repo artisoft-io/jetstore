@@ -9,6 +9,7 @@ import (
 )
 
 var seedUuid uuid.UUID
+
 func init() {
 	seed := os.Getenv("JETS_DOMAIN_KEY_HASH_SEED")
 	if seed == "" {
@@ -39,10 +40,9 @@ func (op *UuidMd5Op) Eval(reteSession *ReteSession, row *BetaRow, rhs *rdf.Node)
 		return nil
 	}
 
-	switch rhsv := rhs.Value.(type) {
-	case string:
-		return rdf.S(uuid.NewMD5(seedUuid, []byte(rhsv)).String())
-	default:
+	rhsv, ok := rhs.Value.(string)
+	if !ok {
 		return nil
 	}
+	return rdf.S(uuid.NewMD5(seedUuid, []byte(rhsv)).String())
 }

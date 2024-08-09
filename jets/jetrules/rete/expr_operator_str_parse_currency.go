@@ -8,7 +8,6 @@ import (
 
 // PARSE_CURRENCY unary operator
 type ParseCurrencyOp struct {
-
 }
 
 func NewParseCurrencyOp() UnaryOperator {
@@ -23,19 +22,19 @@ func (op *ParseCurrencyOp) Eval(reteSession *ReteSession, row *BetaRow, rhs *rdf
 	if rhs == nil {
 		return nil
 	}
-	switch rhsv := rhs.Value.(type) {
-	case string:
-		out := make([]rune, 0)
-		for _, r := range rhsv {
-			switch {
-			case r == '(' || r == '-':
-				out = append(out, '-')
-			case unicode.IsDigit(r) || r == '.':
-				out = append(out, r)
-			}			
-		}
-		return rdf.S(string(out))
-	default:
+
+	rhsv, ok := rhs.Value.(string)
+	if !ok {
 		return nil
 	}
+	out := make([]rune, 0)
+	for _, r := range rhsv {
+		switch {
+		case r == '(' || r == '-':
+			out = append(out, '-')
+		case unicode.IsDigit(r) || r == '.':
+			out = append(out, r)
+		}
+	}
+	return rdf.S(string(out))
 }

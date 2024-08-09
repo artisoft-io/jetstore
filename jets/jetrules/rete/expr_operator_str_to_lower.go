@@ -8,7 +8,6 @@ import (
 
 // TO_LOWER unary operator
 type ToLowerOp struct {
-
 }
 
 func NewToLowerOp() UnaryOperator {
@@ -24,10 +23,9 @@ func (op *ToLowerOp) Eval(reteSession *ReteSession, row *BetaRow, rhs *rdf.Node)
 		return nil
 	}
 
-	switch rhsv := rhs.Value.(type) {
-	case string:
-		return rdf.S(strings.ToLower(rhsv))
-	default:
+	rhsv, ok := rhs.Value.(string)
+	if !ok {
 		return nil
 	}
+	return rdf.S(strings.ToLower(rhsv))
 }

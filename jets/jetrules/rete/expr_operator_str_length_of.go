@@ -6,7 +6,6 @@ import (
 
 // LENGTH_OF unary operator
 type LengthOfOp struct {
-
 }
 
 func NewLengthOfOp() UnaryOperator {
@@ -22,10 +21,9 @@ func (op *LengthOfOp) Eval(reteSession *ReteSession, row *BetaRow, rhs *rdf.Node
 		return nil
 	}
 
-	switch rhsv := rhs.Value.(type) {
-	case string:
-		return rdf.I(len(rhsv))
-	default:
+	rhsv, ok := rhs.Value.(string)
+	if !ok {
 		return nil
 	}
+	return rdf.I(len(rhsv))
 }

@@ -8,7 +8,6 @@ import (
 
 // TRIM unary operator
 type TrimOp struct {
-
 }
 
 func NewTrimOp() UnaryOperator {
@@ -24,10 +23,9 @@ func (op *TrimOp) Eval(reteSession *ReteSession, row *BetaRow, rhs *rdf.Node) *r
 		return nil
 	}
 
-	switch rhsv := rhs.Value.(type) {
-	case string:
-		return rdf.S(strings.Trim(rhsv, " \r\t\n"))
-	default:
+	rhsv, ok := rhs.Value.(string)
+	if !ok {
 		return nil
 	}
+	return rdf.S(strings.Trim(rhsv, " \r\t\n"))
 }

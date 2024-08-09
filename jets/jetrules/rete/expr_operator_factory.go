@@ -47,12 +47,20 @@ func CreateBinaryOperator(op string) BinaryOperator {
 		// String operators
 	case "literal_regex", "apply_regex":
 		return NewApplyRegexOp()
-		// if(op == "apply_format")      return create_expr_binary_operator<ApplyFormatVisitor>(key, lhs, rhs);
-		// if(op == "contains")          return create_expr_binary_operator<ContainsVisitor>(key, lhs, rhs);
-		// if(op == "starts_with")       return create_expr_binary_operator<StartsWithVisitor>(key, lhs, rhs);
-		// if(op == "substring_of")      return create_expr_binary_operator<SubstringOfVisitor>(key, lhs, rhs);
-		// if(op == "char_at")           return create_expr_binary_operator<CharAtVisitor>(key, lhs, rhs);
-		// if(op == "replace_char_of")   return create_expr_binary_operator<ReplaceCharOfVisitor>(key, lhs, rhs);
+	case "apply_format":
+		return NewApplyFormatOp()
+	case "contains":
+		return NewContainsOp()
+	case "starts_with":
+		return NewStartWithOp()
+	case "ends_with":
+		return NewEndsWithOp()
+	case "substring_of":
+		return NewSubstringOfOp()
+	case "char_at":
+		return NewCharAtOp()
+	case "replace_char_of":
+		return NewReplaceCharOp()
 
 		// Resource operators
 	case "range": // "Iterator" operator
@@ -68,9 +76,11 @@ func CreateBinaryOperator(op string) BinaryOperator {
 		// if(op == "lookup")            return create_expr_binary_operator<LookupVisitor>(key, lhs, rhs);
 		// if(op == "multi_lookup")      return create_expr_binary_operator<MultiLookupVisitor>(key, lhs, rhs);
 
-		// Utility operators (in expr_op_others.h)
-		// if(op == "age_as_of")            return create_expr_binary_operator<AgeAsOfVisitor>(key, lhs, rhs);
-		// if(op == "age_in_months_as_of")  return create_expr_binary_operator<AgeInMonthsAsOfVisitor>(key, lhs, rhs);
+		// Utility operators
+	case "age_as_of":
+		return NewAgeAsOfOp()
+	case "age_in_months_as_of":
+		return NewAgeMonthsAsOfOp()
 
 	}
 	return nil
