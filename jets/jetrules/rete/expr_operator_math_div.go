@@ -6,9 +6,8 @@ import (
 	"github.com/artisoft-io/jetstore/jets/jetrules/rdf"
 )
 
-// Add operator
+// DIV operator
 type DivOp struct {
-
 }
 
 func NewDivOp() BinaryOperator {
@@ -29,12 +28,12 @@ func (op *DivOp) Eval(reteSession *ReteSession, row *BetaRow, lhs, rhs *rdf.Node
 		switch rhsv := rhs.Value.(type) {
 		case int:
 			if rhsv == 0 {
-				return &rdf.Node{Value: math.NaN()}	
+				return &rdf.Node{Value: math.NaN()}
 			}
 			return &rdf.Node{Value: lhsv / rhsv}
 		case float64:
-			if rhsv == 0 {
-				return &rdf.Node{Value: math.NaN()}	
+			if rdf.NearlyEqual(rhsv, 0) {
+				return &rdf.Node{Value: math.NaN()}
 			}
 			return &rdf.Node{Value: float64(lhsv) / rhsv}
 		default:
@@ -44,14 +43,14 @@ func (op *DivOp) Eval(reteSession *ReteSession, row *BetaRow, lhs, rhs *rdf.Node
 		switch rhsv := rhs.Value.(type) {
 		case int:
 			if rhsv == 0 {
-				return &rdf.Node{Value: math.NaN()}	
+				return &rdf.Node{Value: math.NaN()}
 			}
 			return &rdf.Node{Value: lhsv / float64(rhsv)}
 		case float64:
-			if math.Abs(rhsv) < math.SmallestNonzeroFloat64 {
-				return &rdf.Node{Value: math.NaN()}	
+			if rdf.NearlyEqual(rhsv, 0) {
+				return &rdf.Node{Value: math.NaN()}
 			}
-			return &rdf.Node{Value: lhsv * rhsv}
+			return &rdf.Node{Value: lhsv / rhsv}
 		default:
 			return nil
 		}

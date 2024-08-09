@@ -1,24 +1,22 @@
 package rete
 
 import (
-
 	"github.com/artisoft-io/jetstore/jets/jetrules/rdf"
 )
 
-// Add operator
-type GtOp struct {
-
+// NE operator
+type NeOp struct {
 }
 
-func NewGtOp() BinaryOperator {
-	return &GtOp{}
+func NewNeOp() BinaryOperator {
+	return &NeOp{}
 }
 
-func (op *GtOp) RegisterCallback(reteSession *ReteSession, vertex int, lhs, rhs *rdf.Node) error {
+func (op *NeOp) RegisterCallback(reteSession *ReteSession, vertex int, lhs, rhs *rdf.Node) error {
 	return nil
 }
 
-func (op *GtOp) Eval(reteSession *ReteSession, row *BetaRow, lhs, rhs *rdf.Node) *rdf.Node {
+func (op *NeOp) Eval(reteSession *ReteSession, row *BetaRow, lhs, rhs *rdf.Node) *rdf.Node {
 	if lhs == nil || rhs == nil {
 		return nil
 	}
@@ -27,12 +25,12 @@ func (op *GtOp) Eval(reteSession *ReteSession, row *BetaRow, lhs, rhs *rdf.Node)
 	case int:
 		switch rhsv := rhs.Value.(type) {
 		case int:
-			if lhsv > rhsv {
+			if lhsv != rhsv {
 				return &rdf.Node{Value: 1}
 			}
 			return &rdf.Node{Value: 0}
 		case float64:
-			if float64(lhsv) > rhsv {
+			if !rdf.NearlyEqual(float64(lhsv), rhsv) {
 				return &rdf.Node{Value: 1}
 			}
 			return &rdf.Node{Value: 0}
@@ -42,12 +40,12 @@ func (op *GtOp) Eval(reteSession *ReteSession, row *BetaRow, lhs, rhs *rdf.Node)
 	case float64:
 		switch rhsv := rhs.Value.(type) {
 		case int:
-			if lhsv > float64(rhsv) {
+			if !rdf.NearlyEqual(lhsv, float64(rhsv)) {
 				return &rdf.Node{Value: 1}
 			}
 			return &rdf.Node{Value: 0}
 		case float64:
-			if lhsv > rhsv {
+			if !rdf.NearlyEqual(lhsv, rhsv) {
 				return &rdf.Node{Value: 1}
 			}
 			return &rdf.Node{Value: 0}
@@ -57,7 +55,7 @@ func (op *GtOp) Eval(reteSession *ReteSession, row *BetaRow, lhs, rhs *rdf.Node)
 	case string:
 		switch rhsv := rhs.Value.(type) {
 		case string:
-			if lhsv > rhsv {
+			if lhsv != rhsv {
 				return &rdf.Node{Value: 1}
 			}
 			return &rdf.Node{Value: 0}

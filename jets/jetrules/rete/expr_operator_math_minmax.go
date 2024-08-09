@@ -84,7 +84,7 @@ func (op *MinMaxOp) Eval(reteSession *ReteSession, row *BetaRow, lhs, rhs *rdf.N
 			currentValue = reteSession.RdfSession.GetObject(currentObj, op.dataProperty)
 		}
 		// skip null values
-		if currentValue != nil {
+		if currentValue != nil && currentValue != rdf.Null()  {
 			if isFirst {
 				resultObj = currentObj
 				resultValue = currentValue

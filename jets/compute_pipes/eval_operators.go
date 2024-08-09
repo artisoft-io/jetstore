@@ -6,6 +6,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/artisoft-io/jetstore/jets/jetrules/rdf"
 )
 
 // build the runtime evaluator for the column transformation
@@ -113,7 +115,7 @@ func (op opEqual) eval(lhs interface{}, rhs interface{}) (interface{}, error) {
 			if err != nil {
 				return nil, fmt.Errorf("opEqual string and double, string not a double")
 			}
-			if nearlyEqual(v, rhsv) {
+			if rdf.NearlyEqual(v, rhsv) {
 				return 1, nil
 			}
 			return 0, nil
@@ -140,7 +142,7 @@ func (op opEqual) eval(lhs interface{}, rhs interface{}) (interface{}, error) {
 			return 0, nil
 
 		case float64:
-			if nearlyEqual(float64(lhsv), rhsv) {
+			if rdf.NearlyEqual(float64(lhsv), rhsv) {
 				return 1, nil
 			}
 			return 0, nil
@@ -167,7 +169,7 @@ func (op opEqual) eval(lhs interface{}, rhs interface{}) (interface{}, error) {
 			return 0, nil
 
 		case float64:
-			if nearlyEqual(float64(lhsv), rhsv) {
+			if rdf.NearlyEqual(float64(lhsv), rhsv) {
 				return 1, nil
 			}
 			return 0, nil
@@ -182,23 +184,23 @@ func (op opEqual) eval(lhs interface{}, rhs interface{}) (interface{}, error) {
 			if err != nil {
 				return nil, fmt.Errorf("opEqual double and string, string not a double")
 			}
-			if nearlyEqual(v, lhsv) {
+			if rdf.NearlyEqual(v, lhsv) {
 				return 1, nil
 			}
 			return 0, nil
 		case int:
-			if nearlyEqual(lhsv, float64(rhsv)) {
+			if rdf.NearlyEqual(lhsv, float64(rhsv)) {
 				return 1, nil
 			}
 			return 0, nil
 		case int64:
-			if nearlyEqual(lhsv, float64(rhsv)) {
+			if rdf.NearlyEqual(lhsv, float64(rhsv)) {
 				return 1, nil
 			}
 			return 0, nil
 
 		case float64:
-			if nearlyEqual(lhsv, rhsv) {
+			if rdf.NearlyEqual(lhsv, rhsv) {
 				return 1, nil
 			}
 			return 0, nil
@@ -514,7 +516,7 @@ func (op opLE) eval(lhs interface{}, rhs interface{}) (interface{}, error) {
 			if err != nil {
 				return nil, fmt.Errorf("opLE string and double, string not a double")
 			}
-			if v < rhsv || nearlyEqual(v, rhsv) {
+			if v < rhsv || rdf.NearlyEqual(v, rhsv) {
 				return 1, nil
 			}
 			return 0, nil
@@ -546,7 +548,7 @@ func (op opLE) eval(lhs interface{}, rhs interface{}) (interface{}, error) {
 
 		case float64:
 			v := float64(lhsv)
-			if v < rhsv || nearlyEqual(v, rhsv) {
+			if v < rhsv || rdf.NearlyEqual(v, rhsv) {
 				return 1, nil
 			}
 			return 0, nil
@@ -578,7 +580,7 @@ func (op opLE) eval(lhs interface{}, rhs interface{}) (interface{}, error) {
 
 		case float64:
 			v := float64(lhsv)
-			if v < rhsv || nearlyEqual(v, rhsv) {
+			if v < rhsv || rdf.NearlyEqual(v, rhsv) {
 				return 1, nil
 			}
 			return 0, nil
@@ -593,25 +595,25 @@ func (op opLE) eval(lhs interface{}, rhs interface{}) (interface{}, error) {
 			if err != nil {
 				return nil, fmt.Errorf("opLE double and string, string not a double")
 			}
-			if v < lhsv || nearlyEqual(v, lhsv) {
+			if v < lhsv || rdf.NearlyEqual(v, lhsv) {
 				return 1, nil
 			}
 			return 0, nil
 		case int:
 			v := float64(rhsv)
-			if lhsv < v || nearlyEqual(v, lhsv) {
+			if lhsv < v || rdf.NearlyEqual(v, lhsv) {
 				return 1, nil
 			}
 			return 0, nil
 		case int64:
 			v := float64(rhsv)
-			if lhsv < v || nearlyEqual(v, lhsv) {
+			if lhsv < v || rdf.NearlyEqual(v, lhsv) {
 				return 1, nil
 			}
 			return 0, nil
 
 		case float64:
-			if lhsv <= rhsv || nearlyEqual(lhsv, rhsv) {
+			if lhsv <= rhsv || rdf.NearlyEqual(lhsv, rhsv) {
 				return 1, nil
 			}
 			return 0, nil
@@ -820,7 +822,7 @@ func (op opGE) eval(lhs interface{}, rhs interface{}) (interface{}, error) {
 			if err != nil {
 				return nil, fmt.Errorf("opGE string and double, string not a double")
 			}
-			if v > rhsv || nearlyEqual(v, rhsv) {
+			if v > rhsv || rdf.NearlyEqual(v, rhsv) {
 				return 1, nil
 			}
 			return 0, nil
@@ -852,7 +854,7 @@ func (op opGE) eval(lhs interface{}, rhs interface{}) (interface{}, error) {
 
 		case float64:
 			v := float64(lhsv)
-			if v > rhsv || nearlyEqual(v, rhsv) {
+			if v > rhsv || rdf.NearlyEqual(v, rhsv) {
 				return 1, nil
 			}
 			return 0, nil
@@ -884,7 +886,7 @@ func (op opGE) eval(lhs interface{}, rhs interface{}) (interface{}, error) {
 
 		case float64:
 			v := float64(lhsv)
-			if v > rhsv || nearlyEqual(v, rhsv) {
+			if v > rhsv || rdf.NearlyEqual(v, rhsv) {
 				return 1, nil
 			}
 			return 0, nil
@@ -899,25 +901,25 @@ func (op opGE) eval(lhs interface{}, rhs interface{}) (interface{}, error) {
 			if err != nil {
 				return nil, fmt.Errorf("opGE double and string, string not a double")
 			}
-			if lhsv > v || nearlyEqual(v, lhsv) {
+			if lhsv > v || rdf.NearlyEqual(v, lhsv) {
 				return 1, nil
 			}
 			return 0, nil
 		case int:
 			v := float64(rhsv)
-			if lhsv > v || nearlyEqual(lhsv, v) {
+			if lhsv > v || rdf.NearlyEqual(lhsv, v) {
 				return 1, nil
 			}
 			return 0, nil
 		case int64:
 			v := float64(rhsv)
-			if lhsv > v || nearlyEqual(lhsv, v) {
+			if lhsv > v || rdf.NearlyEqual(lhsv, v) {
 				return 1, nil
 			}
 			return 0, nil
 
 		case float64:
-			if lhsv > rhsv || nearlyEqual(lhsv, rhsv) {
+			if lhsv > rhsv || rdf.NearlyEqual(lhsv, rhsv) {
 				return 1, nil
 			}
 			return 0, nil
@@ -1154,19 +1156,4 @@ func (op opABS) eval(lhs interface{}, _ interface{}) (interface{}, error) {
 		return math.Abs(lhsv), nil
 	}
 	return nil, fmt.Errorf("opABS incompatible types, rejected")
-}
-
-func nearlyEqual(a, b float64) bool {
-
-	// already equal?
-	if(a == b) {
-			return true
-	}
-
-	diff := math.Abs(a - b)
-	if a == 0.0 || b == 0.0 || diff < math.SmallestNonzeroFloat64 {
-			return diff < 1e-10 * math.SmallestNonzeroFloat64
-	}
-
-	return diff / (math.Abs(a) + math.Abs(b)) < 1e-10
 }

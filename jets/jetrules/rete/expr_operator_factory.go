@@ -7,13 +7,20 @@ func CreateBinaryOperator(op string) BinaryOperator {
 	// Logical Operators
 	case ">":
 		return NewGtOp()
-		// if(op == "and")               return create_expr_binary_operator<AndVisitor>(key, lhs, rhs);
-		// if(op == "or")                return create_expr_binary_operator<OrVisitor>(key, lhs, rhs);
-		// if(op == "==")                return create_expr_binary_operator<EqVisitor>(key, lhs, rhs);
-		// if(op == "!=")                return create_expr_binary_operator<NeVisitor>(key, lhs, rhs);
-		// if(op == "<")                 return create_expr_binary_operator<LtVisitor>(key, lhs, rhs);
-		// if(op == "<=")                return create_expr_binary_operator<LeVisitor>(key, lhs, rhs);
-		// if(op == ">=")                return create_expr_binary_operator<GeVisitor>(key, lhs, rhs);
+	case ">=":
+		return NewGeOp()
+	case "<":
+		return NewLtOp()
+	case "<=":
+		return NewLeOp()
+	case "==":
+		return NewEqOp()
+	case "!=":
+		return NewNeOp()
+	case "and":
+		return NewAndOp()
+	case "or":
+		return NewOrOp()
 
 		// Arithmetic operators
 	case "+":
@@ -28,11 +35,18 @@ func CreateBinaryOperator(op string) BinaryOperator {
 		return NewMinMaxOp(true, false)
 	case "max_of":
 		return NewMinMaxOp(false, false)
-		// if(op == "sorted_head")       return create_expr_binary_operator<SortedHeadVisitor>(key, lhs, rhs);
-		// if(op == "sum_values")        return create_expr_binary_operator<SumValuesVisitor>(key, lhs, rhs);
+	case "min_head_of":
+		return NewMinMaxOp(true, true)
+	case "max_head_of":
+		return NewMinMaxOp(false, true)
+	case "sorted_head":
+		return NewSortedHeadOp()
+	case "sum_values":
+		return NewSumValuesOp()
 
 		// String operators
-		// if(op == "literal_regex")     return create_expr_binary_operator<RegexVisitor>(key, lhs, rhs);
+	case "literal_regex", "apply_regex":
+		return NewApplyRegexOp()
 		// if(op == "apply_format")      return create_expr_binary_operator<ApplyFormatVisitor>(key, lhs, rhs);
 		// if(op == "contains")          return create_expr_binary_operator<ContainsVisitor>(key, lhs, rhs);
 		// if(op == "starts_with")       return create_expr_binary_operator<StartsWithVisitor>(key, lhs, rhs);
@@ -40,17 +54,15 @@ func CreateBinaryOperator(op string) BinaryOperator {
 		// if(op == "char_at")           return create_expr_binary_operator<CharAtVisitor>(key, lhs, rhs);
 		// if(op == "replace_char_of")   return create_expr_binary_operator<ReplaceCharOfVisitor>(key, lhs, rhs);
 
-		// "Iterator" operator
-		// if(op == "range")             return create_expr_binary_operator<RangeVisitor>(key, lhs, rhs);
-
 		// Resource operators
+	case "range": // "Iterator" operator
+		return NewRangeOp()
 	case "exist":
 		return NewExistOp(false)
 	case "exist_not":
 		return NewExistOp(true)
 	case "size_of":
-		
-		// if(op == "size_of")           return create_expr_binary_operator<SizeOfVisitor>(key, lhs, rhs);
+		return NewSizeOfOp()
 
 		// Lookup operators (in expr_op_others.h)
 		// if(op == "lookup")            return create_expr_binary_operator<LookupVisitor>(key, lhs, rhs);
@@ -69,35 +81,58 @@ func CreateUnaryOperator(op string) UnaryOperator {
 	// Arithmetic operators
 	case "abs":
 		return NewAbsOp()
-		// if(op == "to_int")            return create_expr_unary_operator<ToIntVisitor>(key, arg);
-		// if(op == "to_double")         return create_expr_unary_operator<ToDoubleVisitor>(key, arg);
+	case "to_int":
+		return NewToIntOp()
+	case "to_double":
+		return NewToDoubleOp()
+	case "to_date":
+		return NewToDateOp()
+	case "to_datetime":
+		return NewToDatetimeOp()
 
 		// Date/Datetime operators
-		// if(op == "to_timestamp")      return create_expr_unary_operator<ToTimestampVisitor>(key, arg);
-		// if(op == "month_period_of")   return create_expr_unary_operator<MonthPeriodVisitor>(key, arg);
-		// if(op == "week_period_of")    return create_expr_unary_operator<WeekPeriodVisitor>(key, arg);
-		// if(op == "day_period_of")     return create_expr_unary_operator<DayPeriodVisitor>(key, arg);
+	case "to_timestamp":
+		return NewToTimestampOp()
+	case "month_period_of":
+		return NewMonthPeriodOfOp()
+	case "week_period_of":
+		return NewWeekPeriodOfOp()
+	case "day_period_of":
+		return NewDayPeriodOfOp()
 
 		// Logical operators
-		// if(op == "not")               return create_expr_unary_operator<NotVisitor>(key, arg);
+	case "not":
+		return NewNotOp()
 
 		// String operators
-		// if(op == "to_upper")           return create_expr_unary_operator<To_upperVisitor>(key, arg);
-		// if(op == "to_lower")           return create_expr_unary_operator<To_lowerVisitor>(key, arg);
-		// if(op == "trim")               return create_expr_unary_operator<TrimVisitor>(key, arg);
-		// if(op == "length_of")          return create_expr_unary_operator<LengthOfVisitor>(key, arg);
-		// if(op == "parse_usd_currency") return create_expr_unary_operator<ParseUsdCurrencyVisitor>(key, arg);
-		// if(op == "uuid_md5")           return create_expr_unary_operator<CreateNamedMd5UUIDVisitor>(key, arg);
-		// if(op == "uuid_sha1")          return create_expr_unary_operator<CreateNamedSha1UUIDVisitor>(key, arg);
+	case "to_upper":
+		return NewToUpperOp()
+	case "to_lower":
+		return NewToLowerOp()
+	case "trim":
+		return NewTrimOp()
+	case "length_of":
+		return NewLengthOfOp()
+	case "parse_usd_currency":
+		return NewParseCurrencyOp()
+	case "uuid_md5":
+		return NewUuidMd5Op()
+	case "uuid_sha1":
+		return NewUuidSha1Op()
 
 		// Resource operators
-		// if(op == "create_entity")     return create_expr_unary_operator<CreateEntityVisitor>(key, arg);
-		// if(op == "create_literal")    return create_expr_unary_operator<CreateLiteralVisitor>(key, arg);
-		// if(op == "create_resource")   return create_expr_unary_operator<CreateResourceVisitor>(key, arg);
-		// if(op == "create_uuid_resource") return create_expr_unary_operator<CreateUUIDResourceVisitor>(key, arg);
-		// if(op == "is_literal")        return create_expr_unary_operator<IsLiteralVisitor>(key, arg);
-		// if(op == "is_resource")       return create_expr_unary_operator<IsResourceVisitor>(key, arg);
-		// if(op == "raise_exception")   return create_expr_unary_operator<RaiseExceptionVisitor>(key, arg);
+	case "create_entity":
+		return NewCreateEntityOp()
+	case "create_literal":
+		return NewCreateLiteralOp()
+	case "create_resource":
+		return NewCreateResourceOp()
+	case "create_uuid_resource":
+		return NewCreateUuidResourceOp()
+	case "is_literal":
+		return NewIsLiteralOp()
+	case "is_resource":
+		return NewIsResourceOp()
 
 		// Lookup operators (in expr_op_others.h)
 		// if(op == "lookup_rand")       return create_expr_unary_operator<LookupRandVisitor>(key, arg);

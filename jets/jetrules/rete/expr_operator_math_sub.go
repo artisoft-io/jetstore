@@ -26,10 +26,6 @@ func (op *SubOp) Eval(reteSession *ReteSession, row *BetaRow, lhs, rhs *rdf.Node
 	}
 
 	switch lhsv := lhs.Value.(type) {
-	case rdf.BlankNode:
-		return nil
-	case rdf.NamedResource:
-		return nil
 	case rdf.LDate:
 		switch rhsv := rhs.Value.(type) {
 		case int:

@@ -3,6 +3,7 @@ package rdf
 import (
 	"fmt"
 	"math"
+	"reflect"
 	"strings"
 	"time"
 )
@@ -22,7 +23,7 @@ type Node struct {
 func (v *Node) Key() int {
 	vv, ok := v.Value.(BlankNode)
 	if ok {
-		return vv.key
+		return vv.Key
 	}
 	return 0
 }
@@ -30,9 +31,9 @@ func (v *Node) Key() int {
 func (v *Node) Name() string {
 	switch vv := v.Value.(type) {
 	case BlankNode:
-		return fmt.Sprintf("BN%d", vv.key)
+		return fmt.Sprintf("BN%d", vv.Key)
 	case NamedResource:
-		return vv.name
+		return vv.Name
 	default:
 		return ""
 	}
@@ -41,6 +42,25 @@ func (v *Node) Name() string {
 func (v *Node) IsNull() bool {
 	_, ok := v.Value.(RdfNull)
 	return ok
+}
+
+func (v *Node) IsLiteral() bool {
+	switch reflect.TypeOf(v.Value).Kind() {
+	case reflect.Int, reflect.Float64, reflect.String:
+		return true
+	default:
+		return false
+	}
+}
+
+// returns true if v is a Resource or BlankNode
+func (v *Node) IsResource() bool {
+	switch reflect.TypeOf(v.Value) {
+	case reflect.TypeOf(NamedResource{}), reflect.TypeOf(BlankNode{}):
+		return true
+	default:
+		return false
+	}
 }
 
 func (v *Node) Bool() bool {
@@ -56,7 +76,7 @@ func (v *Node) Bool() bool {
 	case int:
 		return vv != 0
 	case float64:
-		return vv != 0
+		return !NearlyEqual(vv, 0)
 	case string:
 		return vv != ""
 	default:
@@ -67,9 +87,9 @@ func (v *Node) Bool() bool {
 func (v *Node) String() string {
 	switch vv := v.Value.(type) {
 	case BlankNode:
-		return fmt.Sprintf("BN%d", vv.key)
+		return fmt.Sprintf("BN%d", vv.Key)
 	case NamedResource:
-		return vv.name
+		return vv.Name
 	case LDate:
 		return fmt.Sprintf("%v", vv)
 	case LDatetime:
@@ -94,25 +114,25 @@ func (v *Node) MarshalBinary() ([]byte, error) {
 		// int is 8 bytes
 		return []byte{
 			'B', 
-			byte(vv.key >> 56), 
-			byte(vv.key >> 48),
-			byte(vv.key >> 40),
-			byte(vv.key >> 32),
-			byte(vv.key >> 24),
-			byte(vv.key >> 16),
-			byte(vv.key >> 8),
-			byte(vv.key),
+			byte(vv.Key >> 56), 
+			byte(vv.Key >> 48),
+			byte(vv.Key >> 40),
+			byte(vv.Key >> 32),
+			byte(vv.Key >> 24),
+			byte(vv.Key >> 16),
+			byte(vv.Key >> 8),
+			byte(vv.Key),
 		}, nil
 	case NamedResource:
-		return append([]byte(vv.name), 'R'), nil
+		return append([]byte(vv.Name), 'R'), nil
 	case LDate:
-		md, err := vv.date.MarshalBinary()
+		md, err := vv.Date.MarshalBinary()
 		if err == nil {
 			md = append(md, 'D')
 		}
 		return md, err
 	case LDatetime:
-		mt, err := vv.datetime.MarshalBinary()
+		mt, err := vv.Datetime.MarshalBinary()
 		if err == nil {
 			mt = append(mt, 'T')
 		}
@@ -157,43 +177,26 @@ func T3(s, p, o *Node) Triple {
 	return Triple{s, p, o}
 }
 
-// type Node interface {
-// 	Key() int
-// 	Name() string
-// 	Bool() bool
-// 	Value() interface{}
-// }
-
-// From c++ implementation:
-// bool operator()(RDFNull       const& )const{return false;}
-// bool operator()(BlankNode     const&v)const{return true;}
-// bool operator()(NamedResource const&v)const{return true;}
-// bool operator()(LDate         const&v)const{return true;}
-// bool operator()(LDatetime     const&v)const{return true;}
-// bool operator()(LInt          const&v)const{return v.data;}
-// bool operator()(LDouble       const&v)const{return v.data;}
-// bool operator()(LString       const&v)const
-
 func Null() *Node {
 	return globalNull
 }
 
 func BN(k int) *Node {
-	return &Node{Value: BlankNode{key: k}}
+	return &Node{Value: BlankNode{Key: k}}
 }
 
 func R(name string) *Node {
-	return &Node{Value: NamedResource{name: name}}
+	return &Node{Value: NamedResource{Name: name}}
 }
 
 func D(date string) (*Node, error) {
 	t, err := ParseDate(date)
-	return &Node{Value: LDate{date: t}}, err
+	return &Node{Value: LDate{Date: t}}, err
 }
 
 func DT(datetime string) (*Node, error) {
 	t, err := ParseDatetime(datetime)
-	return &Node{Value: LDatetime{datetime: t}}, err
+	return &Node{Value: LDatetime{Datetime: t}}, err
 }
 
 func I(v int) *Node {
@@ -216,41 +219,41 @@ func NewRdfNull() RdfNull {
 
 
 type BlankNode struct {
-	key int
+	Key int
 }
 
 
 type NamedResource struct {
-	name string
+	Name string
 }
 
 
 type LDate struct {
-	date *time.Time
+	Date *time.Time
 }
 
 func NewLDate(date string) (LDate, error) {
 	t, err := ParseDate(date)
-	return LDate{date: t}, err
+	return LDate{Date: t}, err
 }
 
 func (lhs LDate) Add (days int) LDate {
-	t := lhs.date.Add(time.Duration(days) * 24 * time.Hour)
-	return LDate{date: &t}
+	t := lhs.Date.Add(time.Duration(days) * 24 * time.Hour)
+	return LDate{Date: &t}
 }
 
 type LDatetime struct {
-	datetime *time.Time
+	Datetime *time.Time
 }
 
 func NewLDatetime(datetime string) (LDatetime, error) {
 	t, err := ParseDatetime(datetime)
-	return LDatetime{datetime: t}, err
+	return LDatetime{Datetime: t}, err
 }
 
 func (lhs LDatetime) Add (days int) LDatetime {
-	t := lhs.datetime.Add(time.Duration(days) * 24 * time.Hour)
-	return LDatetime{datetime: &t}
+	t := lhs.Datetime.Add(time.Duration(days) * 24 * time.Hour)
+	return LDatetime{Datetime: &t}
 }
 
 func ParseBool(value string) int {
@@ -260,4 +263,20 @@ func ParseBool(value string) int {
 	default:
 		return 0
 	}
+}
+
+
+func NearlyEqual(a, b float64) bool {
+
+	// already equal?
+	if(a == b) {
+			return true
+	}
+
+	diff := math.Abs(a - b)
+	if a == 0.0 || b == 0.0 || diff < math.SmallestNonzeroFloat64 {
+			return diff < 1e-10 * math.SmallestNonzeroFloat64
+	}
+
+	return diff / (math.Abs(a) + math.Abs(b)) < 1e-10
 }
