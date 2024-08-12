@@ -47,7 +47,10 @@ func (op *GtOp) Eval(reteSession *ReteSession, row *BetaRow, lhs, rhs *rdf.Node)
 			}
 			return &rdf.Node{Value: 0}
 		case float64:
-			return &rdf.Node{Value: lhsv * rhsv}
+			if lhsv > rhsv {
+				return &rdf.Node{Value: 1}
+			}
+			return &rdf.Node{Value: 0}
 		default:
 			return nil
 		}

@@ -6,7 +6,7 @@ import (
 	"github.com/artisoft-io/jetstore/jets/jetrules/rdf"
 )
 
-// Add operator
+// MULT operator
 type MultOp struct {
 
 }

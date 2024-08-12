@@ -51,7 +51,8 @@ type LookupTableColumn struct {
 
 // LookupTableDataInfo contain the information of the lookup table data.
 // Originally this was the `lookup.db` and is a sqlite3 file.
-// other option will be in a jetstore binary format
+// Which is the default when data_file_info is not specified.
+// Other option will be in a jetstore binary format (TODO).
 type LookupTableDataInfo struct {
 	DbFileName    string `json:"db_file_name"`
 	Format        string `json:"format"`

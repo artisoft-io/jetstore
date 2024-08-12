@@ -155,7 +155,7 @@ func (ctx *ReteBuilderContext) BuildReteMetaStore() (*ReteMetaStore, error) {
 	}
 
 	// Load LookupTableManager
-	ctx.LookupTables, err = NewLookupTableManager(ctx.JetruleModel)
+	ctx.LookupTables, err = NewLookupTableManager(ctx.ResourceMgr, ctx.MetaGraph, ctx.JetruleModel)
 	if err != nil {
 		return nil, fmt.Errorf("while calling LoadLookupTables for ruleUri %s: %v", ctx.MainRuleUri, err)
 	}

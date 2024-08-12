@@ -6,7 +6,7 @@ import (
 	"github.com/artisoft-io/jetstore/jets/jetrules/rdf"
 )
 
-// Add unary operator
+// ABS unary operator
 type AbsOp struct {
 
 }
