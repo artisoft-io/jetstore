@@ -29,7 +29,7 @@ type RegisterFileKeyAction struct {
 func (ctx *Context) updateFileKeyComponentCase(fileKeyObjectPtr *map[string]interface{}) {
 	fileKeyObject := *fileKeyObjectPtr
 	var err error
-	log.Println("updateFileKeyComponentCase CALLED:",fileKeyObject)
+	// log.Println("updateFileKeyComponentCase CALLED:",fileKeyObject)
 
 	// Make sure we have expected values
 	if fileKeyObject["org"] == nil {
@@ -62,7 +62,7 @@ func (ctx *Context) updateFileKeyComponentCase(fileKeyObjectPtr *map[string]inte
 				// update client with proper case
 				fileKeyObject["client"] = clientCase
 			} else {
-				log.Printf("updateFileKeyComponentCase: client %s not found in client_registry\n", client)
+				// log.Printf("updateFileKeyComponentCase: client %s not found in client_registry\n", client)
 			}
 		} else {
 			var clientCase, orgCase string
@@ -73,7 +73,7 @@ func (ctx *Context) updateFileKeyComponentCase(fileKeyObjectPtr *map[string]inte
 				fileKeyObject["client"] = clientCase
 				fileKeyObject["org"] = orgCase
 			} else {
-				log.Printf("updateFileKeyComponentCase: client %s, org %s not found in client_org_registry\n", client, org)
+				// log.Printf("updateFileKeyComponentCase: client %s, org %s not found in client_org_registry\n", client, org)
 			}
 		}
 	}
@@ -85,10 +85,10 @@ func (ctx *Context) updateFileKeyComponentCase(fileKeyObjectPtr *map[string]inte
 			// update object_type with proper case
 			fileKeyObject["object_type"] = objectCase
 		} else {
-			log.Printf("updateFileKeyComponentCase: object_type %s not found in object_type_registry\n", objectType)
+			// log.Printf("updateFileKeyComponentCase: object_type %s not found in object_type_registry\n", objectType)
 		}
 	}
-	log.Println("updateFileKeyComponentCase UPDATED:",fileKeyObject)
+	// log.Println("updateFileKeyComponentCase UPDATED:",fileKeyObject)
 }
 
 // Register file_key with file_key_staging table
@@ -200,8 +200,8 @@ func (ctx *Context) RegisterFileKeys(registerFileKeyAction *RegisterFileKeyActio
 					}
 				}
 			}
-		} else {
-			log.Printf("Query jetsapi.source_config: %v", err)
+		// } else {
+		// 	log.Printf("Query jetsapi.source_config: %v", err)
 		}
 		// Insert file key info in table file_key_staging
 		// make sure we have a value for each column
@@ -210,7 +210,7 @@ func (ctx *Context) RegisterFileKeys(registerFileKeyAction *RegisterFileKeyActio
 			row[jcol], ok = fileKeyObject[colKey]
 			if !ok {
 				allOk = false
-				log.Printf("RegisterFileKey: Missing column %s in fileKeyObject", colKey)
+				// log.Printf("RegisterFileKey: Missing column %s in fileKeyObject", colKey)
 			}
 		}
 		if strings.Contains(fileKey, "/err_") {
@@ -260,7 +260,7 @@ func (ctx *Context) RegisterFileKeys(registerFileKeyAction *RegisterFileKeyActio
 					}
 				} else {
 					// Case CPIPES v2
-					log.Println("CASE CPIPES V2")
+					// log.Println("CASE CPIPES V2")
 					// to make sure we don't duplicate session_id
 					sessionId += 1
 					sessionIdStr := strconv.FormatInt(sessionId, 10)

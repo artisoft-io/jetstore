@@ -204,7 +204,8 @@ var sqlInsertStmts = map[string]*SqlInsertDefinition{
 			(client, org, object_type, file_key, source_period_key) 
 			VALUES ($1, $2, $3, $4, $5)
 			ON CONFLICT ON CONSTRAINT file_key_staging_unique_cstraintv3 
-			DO UPDATE SET last_update = DEFAULT`,
+			DO UPDATE SET (client, org, object_type, last_update) = 
+			(EXCLUDED.client, EXCLUDED.org, EXCLUDED.object_type, DEFAULT)`,
 		ColumnKeys: []string{"client", "org", "object_type", "file_key", "source_period_key"},
 		Capability: "jetstore_read",
 	},
