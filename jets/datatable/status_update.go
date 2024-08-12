@@ -333,9 +333,10 @@ func (ca *StatusUpdate) CoordinateWork() error {
 	if err != nil {
 		return fmt.Errorf("while updating process execution status: %v", err)
 	}
-	// Put cpipes run stats in cpipes_execution_status_details table
-	// this is to track file size and help set the thresholds for nbr_nodes (nbr_nodes_lookup)
-	stmt := `
+	if ca.CpipesMode {
+		// Put cpipes run stats in cpipes_execution_status_details table
+		// this is to track file size and help set the thresholds for nbr_nodes (nbr_nodes_lookup)
+		stmt := `
 		INSERT INTO jetsapi.cpipes_execution_status_details (
 				session_id,
 				process_name,
@@ -362,9 +363,10 @@ func (ca *StatusUpdate) CoordinateWork() error {
 					ped.session_id,
 					pe.process_name
 			)`
-	_, err = ca.Dbpool.Exec(context.Background(), stmt, ca.PeKey)
-	if err != nil {
-		return fmt.Errorf("while inserting in jetsapi.cpipes_execution_status_details: %v", err)
+		_, err = ca.Dbpool.Exec(context.Background(), stmt, ca.PeKey)
+		if err != nil {
+			return fmt.Errorf("while inserting in jetsapi.cpipes_execution_status_details: %v", err)
+		}
 	}
 
 	// CpipesMode - don't register outTables
@@ -377,11 +379,11 @@ func (ca *StatusUpdate) CoordinateWork() error {
 			if err != nil {
 				return fmt.Errorf("while registrying out tables to input_registry: %v", err)
 			}
-		}	
+		}
 	}
 
 	// Lock the session in session_registry
-	stmt = `
+	stmt := `
 		INSERT INTO jetsapi.session_registry (
 				source_type, 
 				session_id, 
