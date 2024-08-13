@@ -41,12 +41,12 @@ func NewReteMetaStore(rm *rdf.ResourceManager, mg *rdf.RdfGraph, ltm *LookupTabl
 	// and validate that alpha node at ipos < nbr_vertices are antecedent nodes
 	nbrVertices := ms.NbrVertices()
 	for ipos, alphaNode := range ms.AlphaNodes {
-		if ipos < nbrVertices && !alphaNode.IsAntecedent {
+		if ipos > 0 && ipos < nbrVertices && !alphaNode.IsAntecedent {
 			err = fmt.Errorf("NewReteMetaStore: AlphaNode with vertex %d < nbrVertices %d that is NOT antecedent term",
 				ipos, nbrVertices)
 			return nil, err
 		}
-		if !alphaNode.IsAntecedent {
+		if ipos > 0 && !alphaNode.IsAntecedent {
 			alphaNode.NdVertex.AddConsequentTerm(alphaNode)
 		}
 	}

@@ -1,0 +1,265 @@
+
+lookup_table common_zipcode {
+  $csv_file = "lookups/common/zipcode.csv",         # main table
+  $key = ["ZIP"],         # Lookup key
+
+# Value columns, corresponding resource automatically created
+  $columns = [
+    "ZIP_CITY" as text,
+    "ZIP_COUNTY" as text,
+    "SC_ID" as text,
+    "ZIP_STATE" as text,
+    "ZIP" as text
+  ]
+};
+
+
+        
+lookup_table IM_CodeInContract {
+  $csv_file = "lookups/IM/CodeInContract.csv",         # main table
+  $key = ["CPT"],         # Lookup key
+
+# Value columns, corresponding resource automatically created
+  $columns = [
+    "Modality" as text
+  ]
+};
+
+
+        
+lookup_table IM_Exclusion_County {
+  $csv_file = "lookups/IM/Exclusion_County.csv",         # main table
+  $key = ["STATE","COUNTY"],         # Lookup key
+
+# Value columns, corresponding resource automatically created
+  $columns = [
+    "COUNTY" as text,
+    "EFFECTIVE_TO" as date,
+    "MEDICARE" as bool,
+    "STATE" as text,
+    "EFFECTIVE_FROM" as date,
+    "COMMERCIAL" as bool
+  ]
+};
+
+
+        
+lookup_table IM_Exclusion_GroupID {
+  $csv_file = "lookups/IM/Exclusion_GroupID.csv",         # main table
+  $key = ["GROUPID"],         # Lookup key
+
+# Value columns, corresponding resource automatically created
+  $columns = [
+    "GROUPID" as text,
+    "EFFECTIVE_TO" as date,
+    "MEDICARE" as bool,
+    "EFFECTIVE_FROM" as date,
+    "COMMERCIAL" as bool
+  ]
+};
+
+
+        
+lookup_table IM_Exclusion_Modality {
+  $csv_file = "lookups/IM/Exclusion_Modality.csv",         # main table
+  $key = ["MODALITY"],         # Lookup key
+
+# Value columns, corresponding resource automatically created
+  $columns = [
+    "MODALITY" as text,
+    "EFFECTIVE_TO" as date,
+    "MEDICARE" as bool,
+    "EFFECTIVE_FROM" as date,
+    "COMMERCIAL" as bool
+  ]
+};
+
+
+        
+lookup_table IM_Exclusion_State {
+  $csv_file = "lookups/IM/Exclusion_State.csv",         # main table
+  $key = ["STATE"],         # Lookup key
+
+# Value columns, corresponding resource automatically created
+  $columns = [
+    "EFFECTIVE_TO" as date,
+    "MEDICARE" as bool,
+    "STATE" as text,
+    "EFFECTIVE_FROM" as date,
+    "COMMERCIAL" as bool
+  ]
+};
+
+
+        
+lookup_table IM_Exclusion_Tin {
+  $csv_file = "lookups/IM/Exclusion_Tin.csv",         # main table
+  $key = ["FACILITY_TIN"],         # Lookup key
+
+# Value columns, corresponding resource automatically created
+  $columns = [
+    "EFFECTIVE_TO" as date,
+    "MEDICARE" as bool,
+    "EFFECTIVE_FROM" as date,
+    "COMMERCIAL" as bool
+  ]
+};
+
+
+        
+lookup_table IM_Exclusion_TinState {
+  $csv_file = "lookups/IM/Exclusion_TinState.csv",         # main table
+  $key = ["FACILITY_TIN","STATE"],         # Lookup key
+
+# Value columns, corresponding resource automatically created
+  $columns = [
+    "EFFECTIVE_TO" as date,
+    "MEDICARE" as bool,
+    "EFFECTIVE_FROM" as date,
+    "COMMERCIAL" as bool
+  ]
+};
+
+
+        
+lookup_table IM_Exclusion_Type {
+  $csv_file = "lookups/IM/Exclusion_Type.csv",         # main table
+  $key = ["TYPE"],         # Lookup key
+
+# Value columns, corresponding resource automatically created
+  $columns = [
+    "PRIORITY" as int,
+    "TYPE" as text
+  ]
+};
+
+
+        
+lookup_table IM_Inclusion_AmtPaid {
+  $csv_file = "lookups/IM/Inclusion_AmtPaid.csv",         # main table
+  $key = ["FACILITY_TIN"],         # Lookup key
+
+# Value columns, corresponding resource automatically created
+  $columns = [
+    "EFFECTIVE_TO" as date,
+    "MEDICARE" as bool,
+    "EFFECTIVE_FROM" as date,
+    "COMMERCIAL" as bool
+  ]
+};
+
+
+        
+lookup_table IM_ZipToCounty {
+  $csv_file = "lookups/IM/ZipToCounty.csv",         # main table
+  $key = ["ML_Zip"],         # Lookup key
+
+# Value columns, corresponding resource automatically created
+  $columns = [
+    "ML_Zip" as text,
+    "County" as text
+  ]
+};
+
+
+        
+lookup_table MSK_MSA_CBSA_ZIP_EXTRACT {
+  $csv_file = "lookups/MSK/MSA_CBSA_ZIP_EXTRACT.csv",         # main table
+  $key = ["ZIP"],         # Lookup key
+
+# Value columns, corresponding resource automatically created
+  $columns = [
+    "County" as text,
+    "County_FIPS" as text,
+    "Medicare_CBSA_Name" as text,
+    "CBSA_Name" as text,
+    "State_FIPS" as text,
+    "ZIP" as text,
+    "City" as text,
+    "State" as text,
+    "MSA_Name" as text
+  ]
+};
+
+
+        
+lookup_table MSK_MSK_ANESTHESIA {
+  $csv_file = "lookups/MSK/MSK_ANESTHESIA.csv",         # main table
+  $key = ["CPT"],         # Lookup key
+
+# Value columns, corresponding resource automatically created
+  $columns = [
+    "CPT" as text,
+    "MSK_AREA_DRG_ANESTHESIA" as text,
+    "OVERLAP" as text,
+    "MSK_TAG" as text
+  ]
+};
+
+
+        
+lookup_table MSK_MSK_CPT_TRIGGER {
+  $csv_file = "lookups/MSK/MSK_CPT_TRIGGER.csv",         # main table
+  $key = ["CPT"],         # Lookup key
+
+# Value columns, corresponding resource automatically created
+  $columns = [
+    "CPT" as text,
+    "USE_ANESTHESIA" as text,
+    "MSK_TAG" as text,
+    "MSK_AREA_DRG_TRIGGER_ONLY" as text,
+    "PRIORITY_DOS_START_AND_END" as text,
+    "MSK_AREA_CPT_TRIGGER" as text
+  ]
+};
+
+
+        
+lookup_table MSK_MSK_DRG_TRIGGER {
+  $csv_file = "lookups/MSK/MSK_DRG_TRIGGER.csv",         # main table
+  $key = ["DRG"],         # Lookup key
+
+# Value columns, corresponding resource automatically created
+  $columns = [
+    "TRIGGER_TAG_DRG_ONLY" as text,
+    "USE_ANESTHESIA" as text,
+    "OVERLAP" as text,
+    "MSK_TAG" as text,
+    "MSK_AREA_DRG_TRIGGER_ONLY" as text,
+    "DRG" as text
+  ]
+};
+
+
+        
+lookup_table MSK_MSK_POS {
+  $csv_file = "lookups/MSK/MSK_POS.csv",         # main table
+  $key = ["POS"],         # Lookup key
+
+# Value columns, corresponding resource automatically created
+  $columns = [
+    "POS" as text,
+    "DOS_START_AND_END" as text,
+    "DOS_START_ONLY" as text
+  ]
+};
+
+
+        
+lookup_table MSK_MSK_TAG {
+  $csv_file = "lookups/MSK/MSK_TAG.csv",         # main table
+  $key = ["CODE"],         # Lookup key
+
+# Value columns, corresponding resource automatically created
+  $columns = [
+    "REVENUE_CODE" as text,
+    "CPT" as text,
+    "MSK_TAG" as text,
+    "PRIORITY_DOS_START_AND_END" as text,
+    "HCPCS" as text,
+    "CODE" as text
+  ]
+};
+
+
+        

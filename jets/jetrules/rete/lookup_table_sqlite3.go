@@ -25,7 +25,7 @@ type LookupTableSqlite3 struct {
 
 type ColumnSpec struct {
 	columnResource *rdf.Node
-	dataSpec       interface{}
+	// dataSpec       interface{}
 }
 
 func NewLookupTableSqlite3(rmgr *rdf.ResourceManager, metaGraph *rdf.RdfGraph, spec *LookupTableNode,
@@ -42,28 +42,29 @@ func NewLookupTableSqlite3(rmgr *rdf.ResourceManager, metaGraph *rdf.RdfGraph, s
 	if err != nil {
 		return nil, fmt.Errorf("failed to get max key for table %s: %v", spec.Name, err)
 	}
+	// log.Println("Got max_key:", lookupTable.maxKey)
 	// Create lookup statements
 	lookupTable.columnsSpec = make([]ColumnSpec, len(spec.Columns))
 	var buf strings.Builder
 	buf.WriteString("SELECT ")
 	isFirst := true
 	for i := range spec.Columns {
-		if isFirst {
+		if !isFirst {
 			buf.WriteString(", ")
-			isFirst = false
 		}
+		isFirst = false
 		buf.WriteString(fmt.Sprintf(`"%s"`, spec.Columns[i].Name))
 		// columnResource as a resource from column name
 		lookupTable.columnsSpec[i].columnResource = rmgr.GetResource(spec.Columns[i].Name)
-		// the columns data type
-		switch spec.Columns[i].Type {
-		case "text", "resource", "date", "datetime", "string":
-			lookupTable.columnsSpec[i].dataSpec = sql.NullString{}
-		case "int", "bool", "long", "integer":
-			lookupTable.columnsSpec[i].dataSpec = sql.NullInt64{}
-		case "double":
-			lookupTable.columnsSpec[i].dataSpec = sql.NullFloat64{}
-		}
+		// // the columns data type
+		// switch spec.Columns[i].Type {
+		// case "text", "resource", "date", "datetime", "string":
+		// 	lookupTable.columnsSpec[i].dataSpec = sql.NullString{}
+		// case "int", "bool", "long", "integer":
+		// 	lookupTable.columnsSpec[i].dataSpec = sql.NullInt64{}
+		// case "double":
+		// 	lookupTable.columnsSpec[i].dataSpec = sql.NullFloat64{}
+		// }
 	}
 	buf.WriteString(fmt.Sprintf(` FROM "%s" WHERE `, spec.Name))
 	stmt := buf.String()
@@ -71,79 +72,71 @@ func NewLookupTableSqlite3(rmgr *rdf.ResourceManager, metaGraph *rdf.RdfGraph, s
 	lookupTable.selectRandStmt = fmt.Sprintf(`%s __key__ = ?`, stmt)
 	lookupTable.selectMultiRandStmt = fmt.Sprintf(
 		`%s "jets:key" = (SELECT "jets:key" FROM "%s" WHERE __key__ = ?)`, stmt, spec.Name)
+	// log.Println("selectStmt:", lookupTable.selectStmt)
+	// log.Println("selectRandStmt:", lookupTable.selectRandStmt)
+	// log.Println("selectMultiRandStmt:", lookupTable.selectMultiRandStmt)
 
 	return lookupTable, nil
-}
-
-func (tbl *LookupTableSqlite3) prepareResultRow() []interface{} {
-	resultRow := make([]interface{}, len(tbl.columnsSpec))
-	for i := range tbl.columnsSpec {
-		// make a copy of the data spec
-		p := tbl.columnsSpec[i].dataSpec
-		resultRow[i] = &p
-	}
-	return resultRow
 }
 
 func (tbl *LookupTableSqlite3) insertResultIntoSession(sess *rdf.RdfSession, s *rdf.Node, resultRow []interface{}) error {
 	rmgr := sess.ResourceMgr
 	for i := range tbl.spec.Columns {
 		value := rdf.Null()
+		// r := resultRow[i].(*interface{})
+		// log.Println("TypeOf:", reflect.TypeOf(*r))
 		switch tbl.spec.Columns[i].Type {
 		case "text", "string":
-			v, ok := resultRow[i].(sql.NullString)
+			v, ok := (*resultRow[i].(*interface{})).(string)
 			if !ok {
-				return fmt.Errorf("buf: expecting sql.NullString type in lookup for text")
+				return fmt.Errorf("expecting string type in lookup for text")
 			}
-			if v.Valid {
-				value = rmgr.NewTextLiteral(v.String)
-			}
+			value = rmgr.NewTextLiteral(v)
 		case "date":
-			v, ok := resultRow[i].(sql.NullString)
+			v, ok := (*resultRow[i].(*interface{})).(string)
 			if !ok {
-				return fmt.Errorf("buf: expecting sql.NullString type in lookup for date")
+				return fmt.Errorf("expecting string type in lookup for date")
 			}
-			if v.Valid {
-				d, err := rdf.NewLDate(v.String)
-				if err != nil {
-					log.Printf("Invalid date in lookup %s: %v", tbl.spec.Name, err)
-				} else {
-					value = rmgr.NewDateLiteral(d)
-				}
+			d, err := rdf.NewLDate(v)
+			if err != nil {
+				log.Printf("Invalid date in lookup %s: %v", tbl.spec.Name, err)
+			} else {
+				value = rmgr.NewDateLiteral(d)
 			}
 		case "datetime":
-			v, ok := resultRow[i].(sql.NullString)
+			v, ok := (*resultRow[i].(*interface{})).(string)
 			if !ok {
-				return fmt.Errorf("buf: expecting sql.NullString type in lookup for datetime")
+				return fmt.Errorf("expecting sql.NullString type in lookup for datetime")
 			}
-			if v.Valid {
-				d, err := rdf.NewLDatetime(v.String)
-				if err != nil {
-					log.Printf("Invalid datetime in lookup %s: %v", tbl.spec.Name, err)
-				} else {
-					value = rmgr.NewDatetimeLiteral(d)
-				}
+			d, err := rdf.NewLDatetime(v)
+			if err != nil {
+				log.Printf("Invalid datetime in lookup %s: %v", tbl.spec.Name, err)
+			} else {
+				value = rmgr.NewDatetimeLiteral(d)
 			}
 		case "int", "bool", "long", "integer":
-			v, ok := resultRow[i].(sql.NullInt64)
-			if !ok {
-				return fmt.Errorf("buf: expecting sql.NullInt64 type in lookup for int and bool")
-			}
-			if v.Valid {
-				value = rmgr.NewIntLiteral(int(v.Int64))
+			switch v := (*resultRow[i].(*interface{})).(type) {
+			case int:
+				value = rmgr.NewIntLiteral(v)
+			case int64:
+				value = rmgr.NewIntLiteral(int(v))
+			default:
+				return fmt.Errorf("expecting int/int64 type in lookup for int/bool/long")
 			}
 		case "double":
-			v, ok := resultRow[i].(sql.NullFloat64)
-			if !ok {
-				return fmt.Errorf("buf: expecting sql.NullInt64 type in lookup for int and bool")
+			switch v := (*resultRow[i].(*interface{})).(type) {
+			case float64:
+				value = rmgr.NewDoubleLiteral(v)
+			default:
+				return fmt.Errorf("expecting float64 type in lookup for double")
 			}
-			if v.Valid {
-				value = rmgr.NewDoubleLiteral(v.Float64)
-			}
+		default:
+			return fmt.Errorf("unknown datatype %s for column %s in lookup table %s configuration", 
+				tbl.spec.Columns[i].Type, tbl.spec.Columns[i].Name, tbl.spec.Name)
 		}
 		_, err := sess.InsertInferred(s, tbl.columnsSpec[i].columnResource, value)
 		if err != nil {
-			return fmt.Errorf("buf: while InsertInferred in lookup: %v", err)
+			return fmt.Errorf("while InsertInferred in lookup: %v", err)
 		}
 	}
 	return nil
@@ -164,8 +157,11 @@ func (tbl *LookupTableSqlite3) Lookup(rs *ReteSession, tblName *string, key *str
 		// Already got it
 		return row, nil
 	}
-	// Query the lookup table, make a copy of the destination
-	resultRow := tbl.prepareResultRow()
+	// Query the lookup table, make destination
+	resultRow := make([]interface{}, len(tbl.columnsSpec))
+	for i := range resultRow {
+		resultRow[i] = new(interface{})
+	}
 	err := tbl.lookupDb.QueryRow(tbl.selectStmt, *key).Scan(resultRow...)
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -183,7 +179,7 @@ func (tbl *LookupTableSqlite3) Lookup(rs *ReteSession, tblName *string, key *str
 	// Put the result into the cache
 	_, err = sess.InsertInferred(tbl.lookupCache, jr.Jets__lookup_row, row)
 	if err != nil {
-		return nil, fmt.Errorf("buf: while InsertInferred in lookup (2): %v", err)
+		return nil, fmt.Errorf("while InsertInferred in lookup (2): %v", err)
 	}
 	return row, nil
 }
@@ -204,7 +200,6 @@ func (tbl *LookupTableSqlite3) MultiLookup(rs *ReteSession, tblName *string, key
 		return row, nil
 	}
 	// Query the lookup table, make a copy of the destination
-	resultRow := tbl.prepareResultRow()
 	rows, err := tbl.lookupDb.Query(tbl.selectStmt, *key)
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -214,8 +209,12 @@ func (tbl *LookupTableSqlite3) MultiLookup(rs *ReteSession, tblName *string, key
 		return nil, fmt.Errorf("failed query lookup table %s for key %s: %v", tbl.spec.Name, *key, err)
 	}
 	defer rows.Close()
+	resultRow := make([]interface{}, len(tbl.columnsSpec))
 	for rows.Next() {
 		// Scan the row
+		for i := range resultRow {
+			resultRow[i] = new(interface{})
+		}
 		if err = rows.Scan(resultRow...); err != nil {
 			return nil, fmt.Errorf("while scanning row for multi lookup: %v", err)
 		}
@@ -234,7 +233,7 @@ func (tbl *LookupTableSqlite3) MultiLookup(rs *ReteSession, tblName *string, key
 	// Put the result into the cache
 	_, err = sess.InsertInferred(tbl.lookupCache, jr.Jets__lookup_multi_rows, row)
 	if err != nil {
-		return nil, fmt.Errorf("buf: while InsertInferred in lookup (4): %v", err)
+		return nil, fmt.Errorf("while InsertInferred in lookup (4): %v", err)
 	}
 	return row, nil
 }
@@ -256,7 +255,10 @@ func (tbl *LookupTableSqlite3) LookupRand(rs *ReteSession, tblName *string) (*rd
 		return row, nil
 	}
 	// Query the lookup table, make a copy of the destination
-	resultRow := tbl.prepareResultRow()
+	resultRow := make([]interface{}, len(tbl.columnsSpec))
+	for i := range resultRow {
+		resultRow[i] = new(interface{})
+	}
 	err := tbl.lookupDb.QueryRow(tbl.selectRandStmt, key).Scan(resultRow...)
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -274,7 +276,7 @@ func (tbl *LookupTableSqlite3) LookupRand(rs *ReteSession, tblName *string) (*rd
 	// Put the result into the cache
 	_, err = sess.InsertInferred(tbl.lookupCache, jr.Jets__lookup_row, row)
 	if err != nil {
-		return nil, fmt.Errorf("buf: while InsertInferred in lookup (3): %v", err)
+		return nil, fmt.Errorf("while InsertInferred in lookup (3): %v", err)
 	}
 	return row, nil
 }
@@ -296,7 +298,6 @@ func (tbl *LookupTableSqlite3) MultiLookupRand(rs *ReteSession, tblName *string)
 		return row, nil
 	}
 	// Query the lookup table, make a copy of the destination
-	resultRow := tbl.prepareResultRow()
 	rows, err := tbl.lookupDb.Query(tbl.selectMultiRandStmt, key)
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -306,8 +307,12 @@ func (tbl *LookupTableSqlite3) MultiLookupRand(rs *ReteSession, tblName *string)
 		return nil, fmt.Errorf("failed query multi rand lookup for table %s for key %d: %v", tbl.spec.Name, key, err)
 	}
 	defer rows.Close()
+	resultRow := make([]interface{}, len(tbl.columnsSpec))
 	for rows.Next() {
 		// Scan the row
+		for i := range resultRow {
+			resultRow[i] = new(interface{})
+		}
 		if err = rows.Scan(resultRow...); err != nil {
 			return nil, fmt.Errorf("while scanning row for multi lookup: %v", err)
 		}
@@ -326,7 +331,7 @@ func (tbl *LookupTableSqlite3) MultiLookupRand(rs *ReteSession, tblName *string)
 	// Put the result into the cache
 	_, err = sess.InsertInferred(tbl.lookupCache, jr.Jets__lookup_multi_rows, row)
 	if err != nil {
-		return nil, fmt.Errorf("buf: while InsertInferred in MultiLookupRand: %v", err)
+		return nil, fmt.Errorf("while InsertInferred in MultiLookupRand: %v", err)
 	}
 	return row, nil
 }
