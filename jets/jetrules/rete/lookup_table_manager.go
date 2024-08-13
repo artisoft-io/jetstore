@@ -12,7 +12,7 @@ import (
 // This component was called LookupSqlHelper in the c++ version
 
 type LookupTableManager struct {
-	LookupTableMap *map[string]LookupTable
+	LookupTableMap map[string]LookupTable
 }
 
 // NewLookupTableManager creates the LookupTableManager which is used in the context of a
@@ -52,6 +52,6 @@ func NewLookupTableManager(rmgr *rdf.ResourceManager, metaGraph *rdf.RdfGraph, j
 		}
 	}
 	return &LookupTableManager{
-		LookupTableMap: &lookupTablesByName,
+		LookupTableMap: lookupTablesByName,
 	}, nil
 }
