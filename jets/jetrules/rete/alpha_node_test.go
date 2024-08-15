@@ -43,7 +43,7 @@ func TestAlphaNode(t *testing.T) {
 	}
 	rm := rdfSession.ResourceMgr
 	reteSession := NewReteSession(rdfSession)
-	parentBetaRelation := NewBetaRelation(reteSession, nvertex0)
+	parentBetaRelation := NewBetaRelation(nvertex0)
 	alphaNode1.InitializeIndexes(parentBetaRelation)
 	if len(parentBetaRelation.rowIndexes1) != 0 {
 		t.Error("expecting having len(rowIndexes1) == 0")
@@ -273,8 +273,7 @@ func TestAlphaNodePanic1(t *testing.T) {
 		t.Fatal("error: unexpected nil rdfSession")
 	}
 	rm := rdfSession.ResourceMgr
-	reteSession := NewReteSession(rdfSession)
-	parentBetaRelation := NewBetaRelation(reteSession, nvertex0)
+	parentBetaRelation := NewBetaRelation(nvertex0)
 	alphaNode1.InitializeIndexes(parentBetaRelation)
 	if len(parentBetaRelation.rowIndexes1) != 0 {
 		t.Error("expecting having len(rowIndexes1) == 0")
@@ -321,7 +320,7 @@ func TestAlphaNodePanic2(t *testing.T) {
 	}
 	rm := rdfSession.ResourceMgr
 	reteSession := NewReteSession(rdfSession)
-	parentBetaRelation := NewBetaRelation(reteSession, nvertex0)
+	parentBetaRelation := NewBetaRelation(nvertex0)
 	alphaNode1.InitializeIndexes(parentBetaRelation)
 	if len(parentBetaRelation.rowIndexes1) != 0 {
 		t.Error("expecting having len(rowIndexes1) == 0")

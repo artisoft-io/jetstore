@@ -5,8 +5,8 @@ import ()
 // BetaRowSet - Custom container class, since BetaRow is not comparable due to slice data property
 
 type BetaRowSet struct {
-	data map[uint64]*[]*BetaRow
-	size int
+	data   map[uint64]*[]*BetaRow
+	size   int
 }
 
 func NewBetaRowSet() *BetaRowSet {

@@ -206,7 +206,8 @@ func (ctx *ReteBuilderContext) BuildReteMetaStore() (*ReteMetaStore, error) {
 			NewAlphaNode(u, v, w, ctx.NodeVertices[ruleTerm.Vertex], true, ruleTerm.NormalizedLabel))
 	}
 	// Create & initialize the ReteMetaStore
-	return NewReteMetaStore(ctx.ResourceMgr, ctx.MetaGraph, ctx.LookupTables, ctx.AlphaNodes, ctx.NodeVertices)
+	return NewReteMetaStore(ctx.ResourceMgr, ctx.MetaGraph, ctx.LookupTables, 
+		ctx.AlphaNodes, ctx.NodeVertices, ctx.JetStoreConfig)
 }
 
 func (ctx *ReteBuilderContext) NewAlphaFunctor(key int) (AlphaFunctor, error) {

@@ -231,6 +231,28 @@ func (an *AlphaNode) FindMatchingRows(parentBetaRelation *BetaRelation, s, p, o 
 	return nil
 }
 
+/**
+   * @brief Get all triples from rdf session matching `parent_row`
+   *
+   * Invoking the functors to_AllOrRIndex methods, case:
+   *  - F_cst: return the rdf resource of the functor (constant value)
+   *  - F_binded: return the binded rdf resource from parent_row @ index of the functor.
+   *  - F_var: return 'any' (StarMatch) to indicate a unbinded variable
+   *
+   * Applicable to antecedent terms only, call during initial graph visit only
+   * Will throw if called on a consequent term
+   * @param rdf_session
+   * @param parent_row
+   * @return AlphaNode::Iterator = rdf::RDFSession::Iterator
+	 * from c++ implementation
+*/
+func (an *AlphaNode) FindMatchingTriples(rs *ReteSession, parentRow *BetaRow) *rdf.RdfSessionIterator {
+	if !an.IsAntecedent {
+		log.Panicf("AlphaNode.FindMatchingTriples called on non antecedent node, vertex %d", an.NdVertex.Vertex)
+	}
+	return rs.RdfSession.FindSPO(an.Fu.Eval(rs, parentRow), an.Fv.Eval(rs, parentRow), an.Fw.Eval(rs, parentRow))
+}
+
 // Return consequent `triple` for BetaRow
 // Applicable to consequent terms only,
 // will panic if called on an antecedent term

@@ -9,20 +9,23 @@ import (
 // ReteMetaStore -- metadata store for a rete network named by it's ruleset uri
 // The ReteMetaStore correspond to a complete rule set organized as a rete network.
 type ReteMetaStore struct {
-	ResourceMgr  *rdf.ResourceManager
-	MetaGraph    *rdf.RdfGraph
-	LookupTables *LookupTableManager
-	AlphaNodes   []*AlphaNode
-	NodeVertices []*NodeVertex
+	ResourceMgr    *rdf.ResourceManager
+	MetaGraph      *rdf.RdfGraph
+	LookupTables   *LookupTableManager
+	AlphaNodes     []*AlphaNode
+	NodeVertices   []*NodeVertex
+	JetStoreConfig *map[string]string
 }
 
-func NewReteMetaStore(rm *rdf.ResourceManager, mg *rdf.RdfGraph, ltm *LookupTableManager, an []*AlphaNode, nv []*NodeVertex) (*ReteMetaStore, error) {
+func NewReteMetaStore(rm *rdf.ResourceManager, mg *rdf.RdfGraph, ltm *LookupTableManager,
+	an []*AlphaNode, nv []*NodeVertex, config *map[string]string) (*ReteMetaStore, error) {
 	ms := &ReteMetaStore{
-		ResourceMgr:  rm,
-		MetaGraph:    mg,
-		LookupTables: ltm,
-		AlphaNodes:   an,
-		NodeVertices: nv,
+		ResourceMgr:    rm,
+		MetaGraph:      mg,
+		LookupTables:   ltm,
+		AlphaNodes:     an,
+		NodeVertices:   nv,
+		JetStoreConfig: config,
 	}
 	// Initialize routine perform important connection between the
 	// metadata entities, such as reverse lookup of the consequent terms
