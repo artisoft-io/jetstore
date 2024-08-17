@@ -1,0 +1,17 @@
+# ///////////////////////////////////////////////////////////////////////////////////////
+# Unit Test JetStore server process
+# ---------------------------------------------------------------------------------------
+import "test1_support.jr"
+
+# =======================================================================================
+# Ruleset specific configuration for JetStore
+# ---------------------------------------------------------------------------------------
+
+# Rule to augment ndays by a factor 10 if have a service description
+[X1]:
+  (?claim rdf:type hc:Claim).
+  (?claim hc:ndays ?ndays).
+  (?claim hc:service_description ?desc)
+  ->
+  (?claim hc:corrected_ndays ?ndays * 10)
+;
