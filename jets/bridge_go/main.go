@@ -106,7 +106,7 @@ func LoadJetRules(processName string, mainRuleName string, rete_db_path string, 
 	}
 	js.metaStore = js.factory.MetaStoreLookup[js.mainRuleName]
 	if js.metaStore == nil {
-		return nil, fmt.Errorf("Rete Network for main rule %s not found", js.mainRuleName)
+		return nil, fmt.Errorf("error: Rete Network for main rule %s not found", js.mainRuleName)
 	}
 	return js, nil
 }
