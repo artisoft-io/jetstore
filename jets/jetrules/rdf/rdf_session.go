@@ -115,6 +115,10 @@ func (g *RdfSession) Find() *RdfSessionIterator {
 	return NewRdfSessionIterator(g.MetaGraph.Find(), g.AssertedGraph.Find(), g.InferredGraph.Find())
 }
 
+func (g *RdfSession) FindS(s *Node) *RdfSessionIterator {
+	return NewRdfSessionIterator(g.MetaGraph.FindS(s), g.AssertedGraph.FindS(s), g.InferredGraph.FindS(s))
+}
+
 func (g *RdfSession) FindSP(s, p *Node) *RdfSessionIterator {
 	return NewRdfSessionIterator(g.MetaGraph.FindSP(s, p), g.AssertedGraph.FindSP(s, p), g.InferredGraph.FindSP(s, p))
 }

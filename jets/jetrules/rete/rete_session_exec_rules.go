@@ -96,10 +96,7 @@ func (rs *ReteSession) VisitReteGraph(fromVertex int, isInferring bool) error {
 			// process rows from parent beta node:
 			// for each BetaRow of parent beta node, compute the inferred/retracted BetaRow for childBetaRelation
 			betaRowInitializer := childAlphaNode.NdVertex.RowInitializer
-			for {
-				if itor.IsEnd() {
-					break
-				}
+			for !itor.IsEnd() {
 				// for each triple from the rdf graph matching the AlphaNode
 				// compute the BetaRow to infer or retract
 				parentBetaRow := itor.GetRow()

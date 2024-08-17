@@ -48,6 +48,10 @@ func (g *RdfGraph) FindSP(s, p *Node) *BaseGraphIterator {
 	return g.spoGraph.FindUV(s, p)
 }
 
+func (g *RdfGraph) FindS(s *Node) *BaseGraphIterator {
+	return g.spoGraph.FindU(s)
+}
+
 func (g *RdfGraph) FindSPO(s, p, o *Node) *BaseGraphIterator {
 	switch {
 	case s == nil && p == nil && o == nil:

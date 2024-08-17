@@ -125,10 +125,7 @@ func (rs *ReteSession) TripleUpdatedForFilter(vertex int, _, _, _ *rdf.Node, _ b
 	}
 	alphaNode := rs.GetAlphaNode(vertex)
 	parentRowsItor := NewBetaRowSetIterator(parentBetaRelation.AllRows)
-	for {
-		if parentRowsItor.IsEnd() {
-			break
-		}
+	for !parentRowsItor.IsEnd() {
 		// for each triple from the rdf graph matching the AlphaNode
 		// compute the BetaRow to infer or retract
 		parentBetaRow := parentRowsItor.GetRow()
