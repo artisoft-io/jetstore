@@ -76,6 +76,61 @@ func (br *BetaRelation) InsertBetaRow(rs *ReteSession, row *BetaRow) {
 	}
 }
 
+func (br *BetaRelation) RemoveBetaRow(rs *ReteSession, row *BetaRow) {
+	betaRow := br.AllRows.Get(row)
+	if betaRow == nil || betaRow.IsDeleted() {
+		// Already deleted or marked as deleted
+		return
+	}
+
+	// Check for consequent terms
+	if betaRow.NdVertex.HasConsequentTerms() {
+
+		// Check if status is kInserted
+		if betaRow.IsInserted() {
+			// Row was marked kInserted, not inferred yet
+			// Cancel row insertion **
+			betaRow.Status = kProcessed
+
+			// Put the row in the pending queue to notify children that this row is being deleted
+			if len(br.NdVertex.ChildAlphaNodes) > 0 {
+				br.pendingRows = append(br.pendingRows, betaRow)
+				br.RemoveIndexesForBetaRow(betaRow)
+			}
+			br.AllRows.Erase(betaRow)
+			return
+		}
+
+		// Row must be in kProcessed state -- need to put it for delete/retract
+		betaRow.Status = kDeleted
+
+		// Put the row in the pending queue to notify children that this row is being deleted
+		if len(br.NdVertex.ChildAlphaNodes) > 0 {
+			br.pendingRows = append(br.pendingRows, betaRow)
+			br.RemoveIndexesForBetaRow(betaRow)
+		}
+		rs.ScheduleConsequentTerms(betaRow)
+
+	} else {
+    // No consequent terms, put the row in the pending queue to notify children
+		betaRow.Status = kProcessed
+
+		// Put the row in the pending queue to notify children that this row is being deleted
+		if len(br.NdVertex.ChildAlphaNodes) > 0 {
+			br.pendingRows = append(br.pendingRows, betaRow)
+			br.RemoveIndexesForBetaRow(betaRow)
+		}
+		br.AllRows.Erase(betaRow)
+	}
+}
+
+// remove the indexes associated with the beta row
+func (br *BetaRelation) RemoveIndexesForBetaRow(row *BetaRow) {
+	for _, childAlphaNode := range br.NdVertex.ChildAlphaNodes {
+		childAlphaNode.EraseIndex4BetaRow(br, row)
+	}
+}
+
 func (br *BetaRelation) HasPendingRows() bool {
 	return len(br.pendingRows) > 0
 }

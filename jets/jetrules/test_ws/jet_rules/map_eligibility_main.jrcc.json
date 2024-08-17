@@ -5718,7 +5718,7 @@
         ]
     },
     "jetstore_config": {
-        "$max_looping": "0",
+        "$max_looping": "150",
         "source_file_name": "jet_rules/eligibility/map_eligibility_main.jr",
         "type": "jsconfig"
     },

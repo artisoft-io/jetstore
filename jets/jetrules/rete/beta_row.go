@@ -49,6 +49,18 @@ func (row *BetaRow) Initialize(initializer *BetaRowInitializer, parentRow *BetaR
 	return nil
 }
 
+func (row *BetaRow) IsInserted() bool {
+	return row.Status == kInserted
+}
+
+func (row *BetaRow) IsDeleted() bool {
+	return row.Status == kDeleted
+}
+
+func (row *BetaRow) IsProcessed() bool {
+	return row.Status == kProcessed
+}
+
 func (lhs *BetaRow) Eq(rhs *BetaRow) bool {
 	if len(lhs.Data) != len(rhs.Data) {
 		return false

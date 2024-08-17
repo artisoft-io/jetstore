@@ -2,6 +2,8 @@ package rete
 
 import (
 	"testing"
+
+	"github.com/artisoft-io/jetstore/jets/jetrules/rdf"
 )
 
 func TestReteMetaStoreFactory(t *testing.T) {
@@ -20,5 +22,19 @@ func TestReteMetaStoreFactory(t *testing.T) {
 	reteMetaStore := factory.MetaStoreLookup["jet_rules/map_eligibility_main.jr"]
 	if reteMetaStore == nil {
 		t.Fatalf("error: ReteMetaStoreFactory has nil ReteMetaStore for jet_rules/map_eligibility_main.jr")
+	}
+
+	// Create the session
+	metaMgr := rdf.NewResourceManager(nil)
+	metaGraph := rdf.NewRdfGraph("META")
+	rdfSession := rdf.NewRdfSession(metaMgr, metaGraph)
+	if rdfSession == nil {
+		t.Fatal("error: unexpected nil rdfSession")
+	}
+	// rm := rdfSession.ResourceMgr
+	reteSession := NewReteSession(rdfSession)
+	reteSession.Initialize(reteMetaStore)
+	if reteSession.maxVertexVisits != 150 {
+		t.Error("Expecting max_looping = 150")
 	}
 }

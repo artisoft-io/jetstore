@@ -72,16 +72,17 @@ func CreateBinaryOperator(op string) BinaryOperator {
 	case "size_of":
 		return NewSizeOfOp()
 
-		// Lookup operators (in expr_op_others.h)
-		// if(op == "lookup")            return create_expr_binary_operator<LookupVisitor>(key, lhs, rhs);
-		// if(op == "multi_lookup")      return create_expr_binary_operator<MultiLookupVisitor>(key, lhs, rhs);
+		// Lookup binary operators
+	case "lookup":
+		return NewLookupOp()
+	case "multi_lookup":
+		return NewMultiLookupOp()
 
 		// Utility operators
 	case "age_as_of":
 		return NewAgeAsOfOp()
 	case "age_in_months_as_of":
 		return NewAgeMonthsAsOfOp()
-
 	}
 	return nil
 }
@@ -144,9 +145,11 @@ func CreateUnaryOperator(op string) UnaryOperator {
 	case "is_resource":
 		return NewIsResourceOp()
 
-		// Lookup operators (in expr_op_others.h)
-		// if(op == "lookup_rand")       return create_expr_unary_operator<LookupRandVisitor>(key, arg);
-		// if(op == "multi_lookup_rand") return create_expr_unary_operator<MultiLookupRandVisitor>(key, arg);
+		// Lookup rand operators
+	case "lookup_rand":
+		return NewLookupRandOp()
+	case "multi_lookup_rand":
+		return NewMultiLookupRandOp()
 	}
 	return nil
 }

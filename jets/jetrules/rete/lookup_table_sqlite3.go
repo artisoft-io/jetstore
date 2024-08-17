@@ -37,6 +37,8 @@ func NewLookupTableSqlite3(rmgr *rdf.ResourceManager, metaGraph *rdf.RdfGraph, s
 		lookupCache: rmgr.NewResource(fmt.Sprintf("jets:cache:%s", spec.Name)),
 	}
 	// initialize the lookupTable
+	// Make sure that the lookup table name has a corresponding resource
+	rmgr.NewResource(spec.Name)
 	// Get table's max key
 	err := lookupDb.QueryRow(fmt.Sprintf(`SELECT MAX(__key__) FROM "%s"`, spec.Name)).Scan(&lookupTable.maxKey)
 	if err != nil {
@@ -56,15 +58,6 @@ func NewLookupTableSqlite3(rmgr *rdf.ResourceManager, metaGraph *rdf.RdfGraph, s
 		buf.WriteString(fmt.Sprintf(`"%s"`, spec.Columns[i].Name))
 		// columnResource as a resource from column name
 		lookupTable.columnsSpec[i].columnResource = rmgr.GetResource(spec.Columns[i].Name)
-		// // the columns data type
-		// switch spec.Columns[i].Type {
-		// case "text", "resource", "date", "datetime", "string":
-		// 	lookupTable.columnsSpec[i].dataSpec = sql.NullString{}
-		// case "int", "bool", "long", "integer":
-		// 	lookupTable.columnsSpec[i].dataSpec = sql.NullInt64{}
-		// case "double":
-		// 	lookupTable.columnsSpec[i].dataSpec = sql.NullFloat64{}
-		// }
 	}
 	buf.WriteString(fmt.Sprintf(` FROM "%s" WHERE `, spec.Name))
 	stmt := buf.String()

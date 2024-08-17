@@ -45,6 +45,22 @@ func (s *BetaRowSet) Put(row *BetaRow) (bool, *BetaRow) {
 	}
 }
 
+// Get the row from the set, return the row that is in the set, if any otherwise nil
+func (s *BetaRowSet) Get(row *BetaRow) *BetaRow {
+	rows := s.data[row.h]
+	if rows == nil {
+		return nil
+	}
+	for _, r := range *rows {
+		if r.Eq(row) {
+			// found in set
+			return r
+		}
+	}
+	// Not found
+	return nil
+}
+
 // Erase the row from the set, return the row that was in the set, if any otherwise nil
 func (s *BetaRowSet) Erase(row *BetaRow) *BetaRow {
 	rows := s.data[row.h]

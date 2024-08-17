@@ -53,11 +53,6 @@ func (cm *ReteCallback) tripleUpdated(s, p, o *rdf.Node, isInserted bool) {
 		return
 	}
 
-	// If beta node is not activated yet, ignore the notification
-	bn := cm.reteSession.GetBetaRelation(cm.vertex)
-  if bn==nil || !bn.IsActivated {
-    return;
-  }
 	if cm.forFilterTerm {
 		cm.reteSession.TripleUpdatedForFilter(cm.vertex, s, p, o, isInserted)
 	} else {

@@ -177,6 +177,10 @@ func T3(s, p, o *Node) Triple {
 	return Triple{s, p, o}
 }
 
+func NilTriple() Triple {
+	return Triple{Null(), Null(), Null()}
+}
+
 func Null() *Node {
 	return globalNull
 }

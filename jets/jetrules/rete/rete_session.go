@@ -17,6 +17,7 @@ type ReteSession struct {
 	vertexVisits             []VisitCount
 	pendingComputeConsequent *BetaRowPriorityQueue
 	maxVertexVisits          int
+	maxVertexVisitReached    bool
 }
 
 type VisitCount struct {
@@ -57,7 +58,7 @@ func (pq *BetaRowPriorityQueue) Pop() any {
 func NewReteSession(rdfSession *rdf.RdfSession) *ReteSession {
 	pq := make(BetaRowPriorityQueue, 0)
 	return &ReteSession{
-		RdfSession: rdfSession,
+		RdfSession:               rdfSession,
 		pendingComputeConsequent: &pq,
 	}
 }
@@ -75,7 +76,7 @@ func (rs *ReteSession) Initialize(ms *ReteMetaStore) {
 		nodeVertex := ms.NodeVertices[i]
 		bn := NewBetaRelation(nodeVertex)
 		if nodeVertex.IsHead() {
-      // put an empty BetaRow to kick start the propagation in the rete network
+			// put an empty BetaRow to kick start the propagation in the rete network
 			bn.InsertBetaRow(rs, NewBetaRow(nodeVertex, 0))
 		}
 		rs.betaRelations[i] = bn
@@ -84,7 +85,7 @@ func (rs *ReteSession) Initialize(ms *ReteMetaStore) {
 	// Initialize the VertexVisits
 	rs.vertexVisits = make([]VisitCount, len(ms.NodeVertices))
 
-  // Get the max_vertex_visit from the meta store properties
+	// Get the max_vertex_visit from the meta store properties
 	p := (*ms.JetStoreConfig)["$max_looping"]
 	if len(p) > 0 && p != "0" {
 		c, err := strconv.Atoi(p)
@@ -94,7 +95,7 @@ func (rs *ReteSession) Initialize(ms *ReteMetaStore) {
 			log.Printf("JetStoreConfig has invalid $max_looping value: %v", err)
 		}
 	}
-	
+
 	// Set the callbacks
 	for i := range ms.NodeVertices {
 		nodeVertex := ms.NodeVertices[i]
@@ -125,12 +126,9 @@ func (rs *ReteSession) GetNodeVertex(vertex int) *NodeVertex {
 	return rs.ms.NodeVertices[vertex]
 }
 
-func (rs *ReteSession) TripleUpdated(vertex int, s, p, o *rdf.Node, isInserted bool) *BetaRelation {
-	//*##* TripleUpdated
-	return nil
-}
-
-func (rs *ReteSession) TripleUpdatedForFilter(vertex int, s, p, o *rdf.Node, isInserted bool) *BetaRelation {
-	//*##* TripleUpdatedForFilter
-	return nil
+func (rs *ReteSession) GetAlphaNode(vertex int) *AlphaNode {
+	if vertex >= len(rs.ms.AlphaNodes) {
+		return nil
+	}
+	return rs.ms.AlphaNodes[vertex]
 }
