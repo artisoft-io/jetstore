@@ -12,7 +12,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/artisoft-io/jetstore/jets/bridge"
+	bridgego "github.com/artisoft-io/jetstore/jets/bridgego"
 	"github.com/artisoft-io/jetstore/jets/datatable/jcsv"
 	"github.com/artisoft-io/jetstore/jets/schema"
 	"github.com/google/uuid"
@@ -185,7 +185,7 @@ type ProcessInput struct {
 	lookbackPeriods       int
 	sourceType            string
 	entityRdfType         string
-	entityRdfTypeResource *bridge.Resource
+	entityRdfTypeResource *bridgego.Resource
 	groupingColumn        string
 	groupingPosition      int
 	shardIdColumn         string
@@ -218,7 +218,7 @@ type ProcessMap struct {
 	isDomainKey  bool
 	inputColumn  sql.NullString
 	dataProperty string
-	predicate    *bridge.Resource
+	predicate    *bridgego.Resource
 	rdfType      string // populated from workspace.db
 	isArray      bool   // populated from workspace.db
 	functionName sql.NullString

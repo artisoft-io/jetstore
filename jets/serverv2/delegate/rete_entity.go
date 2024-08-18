@@ -6,11 +6,11 @@ import (
 	"log"
 	"strconv"
 
-	"github.com/artisoft-io/jetstore/jets/bridge"
+	bridgego "github.com/artisoft-io/jetstore/jets/bridgego"
 	"github.com/google/uuid"
 )
 
-func createStringLiteral(reteSession *bridge.ReteSession, rdfType string, obj string) (*bridge.Resource, error) {
+func createStringLiteral(reteSession *bridgego.ReteSession, rdfType string, obj string) (*bridgego.Resource, error) {
 	switch rdfType {
 	case "resource":
 		return reteSession.NewResource(obj)
@@ -32,7 +32,7 @@ func createStringLiteral(reteSession *bridge.ReteSession, rdfType string, obj st
 }
 
 // main function for asserting input entity row (from persisted entities)
-func (ri *ReteInputContext) assertInputEntityRecord(reteSession *bridge.ReteSession, inBundleRow *jetRow, writeOutputc *map[string][]chan []interface{}) error {
+func (ri *ReteInputContext) assertInputEntityRecord(reteSession *bridgego.ReteSession, inBundleRow *jetRow, writeOutputc *map[string][]chan []interface{}) error {
 	// // For development
 	// log.Println("ASSERT ENTITY:")
 	// for ipos := range inBundleRow.rowData {
@@ -42,13 +42,13 @@ func (ri *ReteInputContext) assertInputEntityRecord(reteSession *bridge.ReteSess
 	// if it's an alias_domain_table, assign a new jets:key unless Class Name is unchanged
 	isAliasTable := false
 	var jetsKey, tagName string
-	
+
 	if inBundleRow.processInput.sourceType == "alias_domain_table" {
-		tagName = "Alias Domain"	// for printing only
+		tagName = "Alias Domain" // for printing only
 		if inBundleRow.processInput.entityRdfType != inBundleRow.processInput.tableName {
-		 isAliasTable = true			// apply special processinf: assign new jets:key and rdf:type
- 		}
-  } else {
+			isAliasTable = true // apply special processinf: assign new jets:key and rdf:type
+		}
+	} else {
 		tagName = "Domain"
 	}
 
@@ -74,11 +74,11 @@ func (ri *ReteInputContext) assertInputEntityRecord(reteSession *bridge.ReteSess
 	ncol := len(inBundleRow.rowData)
 	for icol := 0; icol < ncol; icol++ {
 		inputColumnSpec := &inBundleRow.processInput.processInputMapping[icol]
-		var object *bridge.Resource
-		var objectArr []*bridge.Resource
+		var object *bridgego.Resource
+		var objectArr []*bridgego.Resource
 		var err error
 		if inputColumnSpec.isArray {
-			objectArr = make([]*bridge.Resource, 0)
+			objectArr = make([]*bridgego.Resource, 0)
 		}
 
 		// check for special case, alias input record
@@ -179,7 +179,7 @@ func (ri *ReteInputContext) assertInputEntityRecord(reteSession *bridge.ReteSess
 		default:
 			err = fmt.Errorf("ERROR unknown or invalid type for column %s: %s", inputColumnSpec.inputColumn.String, inputColumnSpec.rdfType)
 		}
-		ERRCHECK:
+	ERRCHECK:
 		if err != nil {
 			br := NewBadRow()
 			br.RowJetsKey = sql.NullString{String: jetsKey, Valid: true}

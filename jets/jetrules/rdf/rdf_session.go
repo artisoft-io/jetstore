@@ -87,10 +87,6 @@ func (rs *RdfSession) InsertInferred(s, p, o *Node) (bool, error) {
 
 // Delete triple from rdf session
 func (rs *RdfSession) Erase(s, p, o *Node) (bool, error) {
-	if s == nil || p == nil || o == nil {
-		log.Printf("error: Erase called with NULL *Node to RdfSession: (%s, %s, %s)", s, p, o)
-		return false, ErrNilNodeRdfSession
-	}
 	var b1, b2 bool
 	var err error
 	if b1, err = rs.AssertedGraph.Erase(s, p, o); err != nil {

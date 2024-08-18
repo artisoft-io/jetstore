@@ -205,6 +205,33 @@ func (ctx *ReteBuilderContext) BuildReteMetaStore() (*ReteMetaStore, error) {
 		ctx.AlphaNodes = append(ctx.AlphaNodes,
 			NewAlphaNode(u, v, w, ctx.NodeVertices[ruleTerm.Vertex], true, ruleTerm.NormalizedLabel))
 	}
+	// Initializing consequent terms
+	for _, ruleTerm := range ctx.JetruleModel.Consequents {
+		var u, v, w AlphaFunctor
+		var expr Expression
+		if u, err = ctx.NewAlphaFunctor(ruleTerm.SubjectKey); err != nil {
+			return nil, err
+		}
+		if v, err = ctx.NewAlphaFunctor(ruleTerm.PredicateKey); err != nil {
+			return nil, err
+		}
+		if ruleTerm.ObjectExpr != nil {
+			if expr, err = ctx.makeExpression(ruleTerm.ObjectExpr); err != nil {
+				return nil, err
+			}
+			w = &FExpression{expression: expr}
+		} else {
+			if w, err = ctx.NewAlphaFunctor(ruleTerm.ObjectKey); err != nil {
+				return nil, err
+			}
+		}
+		if w == nil {
+			return nil, fmt.Errorf("error: invalid AlphaNode configuration for vertex %d", ruleTerm.Vertex)
+		}
+		ctx.AlphaNodes = append(ctx.AlphaNodes,
+			NewAlphaNode(u, v, w, ctx.NodeVertices[ruleTerm.Vertex], false, ruleTerm.NormalizedLabel))
+	}
+
 	// Create & initialize the ReteMetaStore
 	return NewReteMetaStore(ctx.ResourceMgr, ctx.MetaGraph, ctx.LookupTables, 
 		ctx.AlphaNodes, ctx.NodeVertices, ctx.JetStoreConfig)
@@ -346,7 +373,10 @@ func (ctx *ReteBuilderContext) loadNodeVertices() error {
 		if reteNode.ParentVertex >= len(ctx.NodeVertices) {
 			return fmt.Errorf("bug: something is wrong, parent vertex >= vertex at vertex %d", reteNode.Vertex)
 		}
-		parent := ctx.NodeVertices[reteNode.ParentVertex]
+		var parent *NodeVertex
+		if reteNode.Vertex > 0 {
+			parent = ctx.NodeVertices[reteNode.ParentVertex]
+		}
 		salience := 100
 		if len(reteNode.Salience) > 0 {
 			salience = slices.Min(reteNode.Salience)

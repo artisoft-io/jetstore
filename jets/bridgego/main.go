@@ -108,6 +108,9 @@ func LoadJetRules(processName string, mainRuleName string, rete_db_path string, 
 	if js.metaStore == nil {
 		return nil, fmt.Errorf("error: Rete Network for main rule %s not found", js.mainRuleName)
 	}
+	js.metaMgr = rdf.NewResourceManager(nil)
+	js.metaGraph = rdf.NewRdfGraph("META")
+
 	return js, nil
 }
 
@@ -128,10 +131,12 @@ func (rdfs *RDFSession) ReleaseRDFSession() error {
 
 func (js *JetStore) NewReteSession(rdfSession *RDFSession, jetrules_name string) (*ReteSession, error) {
 
+	reteSession := rete.NewReteSession(rdfSession.rdfSession)
+	reteSession.Initialize(js.metaStore)
 	return &ReteSession{
 		js:         js,
 		rdfSession: rdfSession,
-		reteSession: rete.NewReteSession(rdfSession.rdfSession),
+		reteSession: reteSession,
 	}, nil
 }
 
@@ -507,7 +512,11 @@ func (rs *ReteSession) ContainsSP(s *Resource, p *Resource) (int, error) {
 
 // ReteSession Erase
 func (rs *RDFSession) Erase(s *Resource, p *Resource, o *Resource) (int, error) {
-	b, err := rs.rdfSession.Erase(s.r, p.r, o.r)
+	var r *rdf.Node
+	if o != nil {
+		r = o.r
+	}
+	b, err := rs.rdfSession.Erase(s.r, p.r, r)
 	if err != nil {
 		return 0, err
 	}

@@ -1019,9 +1019,9 @@ func (ctx *Context) InsertRows(dataTableAction *DataTableAction, token string) (
 						var cmd *exec.Cmd
 						switch devModeCode {
 						case "run_server_only", "run_server_reports":
-							log.Printf("Run server: %s", serverArgs)
+							log.Printf("Run serverv2: %s", serverArgs)
 							lable = "SERVER"
-							cmd = exec.Command("/usr/local/bin/server", serverArgs...)
+							cmd = exec.Command("/usr/local/bin/serverv2", serverArgs...)
 						// case "run_cpipes_only", "run_cpipes_reports":
 						// 	log.Printf("Run cpipes: %s", serverArgs)
 						// 	lable = "CPIPES"

@@ -10,12 +10,12 @@ import (
 	"strings"
 	"unicode"
 
-	"github.com/artisoft-io/jetstore/jets/bridge"
+	bridgego "github.com/artisoft-io/jetstore/jets/bridgego"
 	"github.com/artisoft-io/jetstore/jets/datatable/jcsv"
 )
 
 type ConcatFunctionArg struct {
-	Delimit string
+	Delimit         string
 	ColumnPositions []int
 }
 
@@ -32,7 +32,7 @@ func ParseConcatFunctionArgument(rawArg *string, functionName string, inputColum
 	}
 	// Parsed the raw argument into ConcatFunctionArg and put it in the cache
 	rows, err := jcsv.Parse(*rawArg)
-	if len(rows)==0 || len(rows[0])==0 || err != nil {
+	if len(rows) == 0 || len(rows[0]) == 0 || err != nil {
 		// It's not csv or there's no data
 		return nil, fmt.Errorf("error:no-data: argument %s cannot be parsed as csv: %v (%s function)", *rawArg, err, functionName)
 	}
@@ -40,7 +40,7 @@ func ParseConcatFunctionArgument(rawArg *string, functionName string, inputColum
 		ColumnPositions: make([]int, 0),
 	}
 	for i := range rows[0] {
-		if i==0 && functionName=="concat_with" {
+		if i == 0 && functionName == "concat_with" {
 			results.Delimit = rows[0][i]
 		} else {
 			colPos, ok := inputColumnName2Pos[rows[0][i]]
@@ -58,7 +58,7 @@ func ParseConcatFunctionArgument(rawArg *string, functionName string, inputColum
 
 type SubStringFunctionArg struct {
 	Start int
-	End int
+	End   int
 }
 
 func ParseSubStringFunctionArgument(rawArg *string, functionName string, cache map[string]interface{}) (*SubStringFunctionArg, error) {
@@ -88,14 +88,14 @@ func ParseSubStringFunctionArgument(rawArg *string, functionName string, cache m
 	}
 	results := &SubStringFunctionArg{
 		Start: start,
-		End: end,
+		End:   end,
 	}
 	cache[*rawArg] = results
 	return results, nil
 }
 
 type FindReplaceFunctionArg struct {
-	Find string
+	Find        string
 	ReplaceWith string
 }
 
@@ -112,13 +112,13 @@ func ParseFindReplaceFunctionArgument(rawArg *string, functionName string, cache
 	}
 	// Parsed the raw argument into FindReplaceFunctionArg and put it in the cache
 	rows, err := jcsv.Parse(*rawArg)
-	if len(rows)==0 || len(rows[0])!=2 || err != nil {
+	if len(rows) == 0 || len(rows[0]) != 2 || err != nil {
 		// It's not csv or there's no data
 		return nil, fmt.Errorf("error:no-data: argument %s cannot be parsed as csv: %v (%s function)", *rawArg, err, functionName)
 	}
 
 	results := &FindReplaceFunctionArg{
-		Find: rows[0][0],
+		Find:        rows[0][0],
 		ReplaceWith: rows[0][1],
 	}
 	cache[*rawArg] = results
@@ -150,7 +150,7 @@ func filterDouble(str string) string {
 	return buf.String()
 }
 
-func (ri *ReteInputContext) applyCleasingFunction(reteSession *bridge.ReteSession, inputColumnSpec *ProcessMap, 
+func (ri *ReteInputContext) applyCleasingFunction(reteSession *bridgego.ReteSession, inputColumnSpec *ProcessMap,
 	inputValue *string, row []sql.NullString, inputColumnName2Pos map[string]int) (string, string) {
 	var obj, errMsg string
 	var err error
@@ -208,7 +208,7 @@ func (ri *ReteInputContext) applyCleasingFunction(reteSession *bridge.ReteSessio
 			}
 		default:
 		}
-	case "to_zipext4_from_zip9":	// from a zip9 input
+	case "to_zipext4_from_zip9": // from a zip9 input
 		// Remove non digits characters
 		inVal := filterDigits(*inputValue)
 		sz = len(inVal)
@@ -233,7 +233,7 @@ func (ri *ReteInputContext) applyCleasingFunction(reteSession *bridge.ReteSessio
 			}
 		default:
 		}
-	case "to_zipext4":	// from a zip ext4 input
+	case "to_zipext4": // from a zip ext4 input
 		// Remove non digits characters
 		inVal := filterDigits(*inputValue)
 		sz = len(inVal)
@@ -310,7 +310,7 @@ func (ri *ReteInputContext) applyCleasingFunction(reteSession *bridge.ReteSessio
 					obj = fmt.Sprintf(arg, v)
 				} else {
 					errMsg = err.Error()
-				}	
+				}
 			}
 		} else {
 			// configuration error, bailing out
@@ -427,7 +427,7 @@ func (ri *ReteInputContext) applyCleasingFunction(reteSession *bridge.ReteSessio
 					buf.WriteString(row[arg.ColumnPositions[i]].String)
 				}
 			}
-			obj = buf.String()		
+			obj = buf.String()
 		}
 
 	case "find_and_replace":

@@ -2,6 +2,7 @@ package rete
 
 import (
 	"fmt"
+	"log"
 
 	"github.com/artisoft-io/jetstore/jets/jetrules/rdf"
 )
@@ -39,6 +40,24 @@ func NewReteMetaStore(rm *rdf.ResourceManager, mg *rdf.RdfGraph, ltm *LookupTabl
 			node.ParentNodeVertex.AddChildAlphaNode(ms.AlphaNodes[node.Vertex])
 		}
 	}
+	//**
+	// the NodeVertex parentNode property
+	for i, node := range ms.AlphaNodes {
+		if i > 0 {
+			// Check the child node's meta node
+			if node.NdVertex == nil {
+				log.Printf("!!! node.NdVertex is nil for AlphaNode")
+			}
+			if node.NdVertex.ChildAlphaNodes != nil {
+				for _, childNode := range node.NdVertex.ChildAlphaNodes {
+					if childNode.NdVertex == nil {
+						log.Printf("HELP! node.NdVertex.ChildAlphaNodes with nil NdVertex")
+					}
+				}
+			}
+		}
+	}
+	//**
 
 	// Assign consequent terms vertex (AlphaNode) to NodeVertex
 	// and validate that alpha node at ipos < nbr_vertices are antecedent nodes

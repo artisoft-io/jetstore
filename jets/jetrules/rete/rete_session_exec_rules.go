@@ -3,6 +3,7 @@ package rete
 import (
 	"container/heap"
 	"fmt"
+	"log"
 	"runtime/debug"
 
 	"github.com/artisoft-io/jetstore/jets/jetrules/rdf"
@@ -69,9 +70,15 @@ func (rs *ReteSession) VisitReteGraph(fromVertex int, isInferring bool) error {
 		var allParentBetaRowItor BetaRowIterator
 		pendingParentBetaRowItor := NewBetaRowSliceIterator(parentBetaRelation.pendingRows)
 
-		for _, childAlphaNode := range parentVertexNode.ChildAlphaNodes {
+		for i, childAlphaNode := range parentVertexNode.ChildAlphaNodes {
 
 			// Compute beta relation between `parent_vertex` and `child_vertex`
+			if childAlphaNode == nil {
+				log.Panic("childAlphaNode IS NIL!!!!!")
+			}
+			if childAlphaNode.NdVertex == nil {
+				log.Panic("childAlphaNode.NdVertex IS NIL!!!!! AT",i)
+			}
 			childVertex := childAlphaNode.NdVertex.Vertex
 			childBetaRelation := rs.GetBetaRelation(childVertex)
 			if childBetaRelation == nil {

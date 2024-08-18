@@ -10,41 +10,41 @@ import (
 	"log"
 	"strings"
 
-	jw "github.com/artisoft-io/jetstore/jets/workspace"
-	"github.com/artisoft-io/jetstore/jets/bridge"
+	bridgego "github.com/artisoft-io/jetstore/jets/bridgego"
 	"github.com/artisoft-io/jetstore/jets/schema"
+	jw "github.com/artisoft-io/jetstore/jets/workspace"
 	"github.com/jackc/pgx/v4"
 	"github.com/jackc/pgx/v4/pgxpool"
 	_ "github.com/mattn/go-sqlite3" // Import go-sqlite3 library
 )
 
 type WorkspaceDb struct {
-	Dsn string
-	db  *sql.DB
+	Dsn    string
+	db     *sql.DB
 	Dbpool *pgxpool.Pool
 }
 
 type DomainColumn struct {
 	PropertyName string
 	ColumnName   string
-	Predicate    *bridge.Resource
+	Predicate    *bridgego.Resource
 	DataType     string
 	IsArray      bool
 	IsGrouping   bool
 }
 
 type DomainTable struct {
-	TableName        string
-	ClassName        string
-	ClassResource    *bridge.Resource
-	Columns          []DomainColumn
-	DomainKeysInfo   *schema.HeadersAndDomainKeysInfo
+	TableName      string
+	ClassName      string
+	ClassResource  *bridgego.Resource
+	Columns        []DomainColumn
+	DomainKeysInfo *schema.HeadersAndDomainKeysInfo
 }
 
 func NewDomainTable(tableName string) (DomainTable, error) {
 	domainTable := DomainTable{
-		TableName: tableName, 
-		Columns: make([]DomainColumn, 0),
+		TableName: tableName,
+		Columns:   make([]DomainColumn, 0),
 	}
 	// Load the Domain Key info from domain_keys_registry
 	domainKeyInfo, err := schema.NewHeadersAndDomainKeysInfo(tableName)
@@ -55,7 +55,7 @@ func NewDomainTable(tableName string) (DomainTable, error) {
 	return domainTable, nil
 }
 
-func (domainTable *DomainTable)DomainHeaders() *[]string {
+func (domainTable *DomainTable) DomainHeaders() *[]string {
 	domainHeaders := make([]string, len(domainTable.Columns))
 	for ipos := range domainTable.Columns {
 		domainHeaders[ipos] = domainTable.Columns[ipos].ColumnName
@@ -251,7 +251,6 @@ func (workspaceDb *WorkspaceDb) LoadJetStoreProperties(ruleset string) (JetStore
 	return result, nil
 }
 
-
 func (tableSpec *DomainTable) UpdateDomainTableSchema(dbpool *pgxpool.Pool, dropExisting bool, extVR []string) error {
 	var err error
 	if len(tableSpec.Columns) == 0 {
@@ -261,7 +260,7 @@ func (tableSpec *DomainTable) UpdateDomainTableSchema(dbpool *pgxpool.Pool, drop
 	objectTypes, _, err := jw.GetDomainKeysInfo(dbpool, tableSpec.ClassName)
 	if err != nil {
 		return err
-	}	
+	}
 
 	// convert the virtual resource to column names
 	extCols := make([]string, len(extVR))
@@ -280,58 +279,58 @@ func (tableSpec *DomainTable) UpdateDomainTableSchema(dbpool *pgxpool.Pool, drop
 	// create the table schema definition
 	tableDefinition := schema.TableDefinition{
 		SchemaName: "public",
-		TableName: tableSpec.TableName,
-		Columns: make([]schema.ColumnDefinition, 0),
-		Indexes: make([]schema.IndexDefinition, 0),
+		TableName:  tableSpec.TableName,
+		Columns:    make([]schema.ColumnDefinition, 0),
+		Indexes:    make([]schema.IndexDefinition, 0),
 	}
 	// Add column definitions
 	for icol := range tableSpec.Columns {
 		col := tableSpec.Columns[icol]
 		tableDefinition.Columns = append(tableDefinition.Columns, schema.ColumnDefinition{
 			ColumnName: col.ColumnName,
-			DataType: col.DataType,
-			IsArray: col.IsArray,
-			IsNotNull: col.ColumnName == "jets:key",
+			DataType:   col.DataType,
+			IsArray:    col.IsArray,
+			IsNotNull:  col.ColumnName == "jets:key",
 		})
 	}
 	// Add extension columns
 	for _, extc := range extCols {
 		tableDefinition.Columns = append(tableDefinition.Columns, schema.ColumnDefinition{
 			ColumnName: extc,
-			DataType: "text",
-			IsArray: true,
+			DataType:   "text",
+			IsArray:    true,
 		})
 	}
 	// Add jetstore engine built-in columns
 	tableDefinition.Columns = append(tableDefinition.Columns, schema.ColumnDefinition{
 		ColumnName: "session_id",
-		DataType: "text",
-		IsNotNull: true,
+		DataType:   "text",
+		IsNotNull:  true,
 	})
 	targetCols["session_id"] = true
 
-	for _,objectType := range *objectTypes {
+	for _, objectType := range *objectTypes {
 		domainKey := fmt.Sprintf("%s:domain_key", objectType)
 		shardId := fmt.Sprintf("%s:shard_id", objectType)
 
 		tableDefinition.Columns = append(tableDefinition.Columns, schema.ColumnDefinition{
 			ColumnName: domainKey,
-			DataType: "text",
-			Default: "",
-			IsNotNull: true,
+			DataType:   "text",
+			Default:    "",
+			IsNotNull:  true,
 		})
 		targetCols[domainKey] = true
 
 		tableDefinition.Columns = append(tableDefinition.Columns, schema.ColumnDefinition{
 			ColumnName: shardId,
-			DataType: "int",
-			Default: "0",
-			IsNotNull: true,
+			DataType:   "int",
+			Default:    "0",
+			IsNotNull:  true,
 		})
 		targetCols[shardId] = true
 
 		// Indexes on grouping columns
-		idxname := tableSpec.TableName+"_"+domainKey+"_idx"
+		idxname := tableSpec.TableName + "_" + domainKey + "_idx"
 		tableDefinition.Indexes = append(tableDefinition.Indexes, schema.IndexDefinition{
 			IndexName: idxname,
 			IndexDef: fmt.Sprintf(`INDEX %s ON %s  (session_id, %s ASC)`,
@@ -348,12 +347,12 @@ func (tableSpec *DomainTable) UpdateDomainTableSchema(dbpool *pgxpool.Pool, drop
 				pgx.Identifier{shardId}.Sanitize()),
 		})
 	}
-	
+
 	tableDefinition.Columns = append(tableDefinition.Columns, schema.ColumnDefinition{
 		ColumnName: "last_update",
-		DataType: "datetime",
-		Default: "now()",
-		IsNotNull: true,
+		DataType:   "datetime",
+		Default:    "now()",
+		IsNotNull:  true,
 	})
 	targetCols["last_update"] = true
 

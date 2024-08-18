@@ -64,7 +64,7 @@ var processName string // put it as global var since there is always one and onl
 var devMode bool
 
 func main() {
-	fmt.Println("CMD LINE ARGS:", os.Args[1:])
+	fmt.Println("serverv2 CMD LINE ARGS:", os.Args[1:])
 	flag.Parse()
 
 	// validate command line arguments

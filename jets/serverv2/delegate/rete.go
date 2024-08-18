@@ -9,14 +9,14 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/artisoft-io/jetstore/jets/bridge"
+	bridgego "github.com/artisoft-io/jetstore/jets/bridgego"
 	"github.com/artisoft-io/jetstore/jets/schema"
-	"github.com/artisoft-io/jetstore/jets/server/rdf"
-	"github.com/artisoft-io/jetstore/jets/server/workspace"
+	"github.com/artisoft-io/jetstore/jets/serverv2/rdf"
+	"github.com/artisoft-io/jetstore/jets/serverv2/workspace"
 )
 
 type ReteWorkspace struct {
-	js             *bridge.JetStore
+	js             *bridgego.JetStore
 	workspaceDb    string
 	lookupDb       string
 	ruleset        []string
@@ -56,7 +56,7 @@ func LoadReteWorkspace(
 	if len(ruleset) > 0 {
 		reteWorkspace.ruleset = []string{ruleset}
 	}
-	reteWorkspace.js, err = bridge.LoadJetRules(pipelineConfig.processConfig.processName, workspaceDb, lookupDb)
+	reteWorkspace.js, err = bridgego.LoadJetRules(pipelineConfig.processConfig.processName, pipelineConfig.processConfig.mainRules, workspaceDb, lookupDb)
 	if err != nil {
 		return &reteWorkspace, fmt.Errorf("while loading workspace db: %v", err)
 	}
@@ -238,7 +238,7 @@ func (rw *ReteWorkspace) ExecuteRules(
 					br := NewBadRow()
 					br.GroupingKey = sql.NullString{String: inBundle.groupingValue, Valid: true}
 					br.ErrorMessage = sql.NullString{String: msg, Valid: true}
-					log.Println("BAD ROW (ExecuteRules returned err):", br,"(",err.Error(),")")
+					log.Println("BAD ROW (ExecuteRules returned err):", br, "(", err.Error(), ")")
 					br.write2Chan(writeOutputc["jetsapi.process_errors"][0])
 					break
 				}
@@ -288,17 +288,17 @@ func (rw *ReteWorkspace) ExecuteRules(
 						} else {
 							br.ReteSessionTriples = sql.NullString{
 								String: string(b),
-								Valid: true,
-							}	
+								Valid:  true,
+							}
 						}
 					} else {
 						log.Println("Rete Session Has Rule Exception:", txt)
 					}
 					br.write2Chan(writeOutputc["jetsapi.process_errors"][0])
-				}	
+				}
 				ctor.Next()
 			}
-			ctor.ReleaseIterator()	
+			ctor.ReleaseIterator()
 		}
 
 		// pulling the data out of the rete session
@@ -340,8 +340,8 @@ func (rw *ReteWorkspace) ExecuteRules(
 							return &result, fmt.Errorf("while checking if entity has marker class jets:InputRecord for an entity of type %s: %v", tableSpec.ClassName, err)
 						}
 						if isInputRecord == 0 {
-							keepObj = false	
-						}	
+							keepObj = false
+						}
 					} else {
 						keepObj = false
 					}
@@ -398,7 +398,7 @@ func (rw *ReteWorkspace) ExecuteRules(
 								} else {
 									if !(domainColumn.ColumnName == "rdf:type" && obj.(string) == "jets:InputRecord") {
 										data = append(data, obj)
-									}	
+									}
 								}
 								itor.Next()
 							}
@@ -410,7 +410,7 @@ func (rw *ReteWorkspace) ExecuteRules(
 							// Functional property, got single element
 							case len(data) == 1:
 								entityRow[i] = data[0]
-	
+
 							// There is no value, this is null
 							case len(data) == 0:
 								entityRow[i] = nil
@@ -427,7 +427,7 @@ func (rw *ReteWorkspace) ExecuteRules(
 											buf.WriteString(",")
 										}
 										buf.WriteString(v)
-										isFirst = false	
+										isFirst = false
 									}
 								}
 								buf.WriteString("}")
@@ -548,7 +548,7 @@ func (rw *ReteWorkspace) assertRuleConfig() error {
 		}
 		// Constructing a Resource from meta graph (not from a rete session!)
 		// Same construct is used with rete session handle
-		var object *bridge.Resource
+		var object *bridgego.Resource
 		switch strings.TrimSpace(t3.rdfType) {
 		case "null":
 			object, err = rw.js.NewNull()

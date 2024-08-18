@@ -8,32 +8,32 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/artisoft-io/jetstore/jets/bridge"
+	bridgego "github.com/artisoft-io/jetstore/jets/bridgego"
 	"github.com/google/uuid"
 )
 
 type ReteInputContext struct {
-	jets__client                     *bridge.Resource
-	jets__completed                  *bridge.Resource
-	jets__sourcePeriodType           *bridge.Resource
-	jets__currentSourcePeriod        *bridge.Resource
-	jets__currentSourcePeriodDate    *bridge.Resource
-	jets__exception                  *bridge.Resource
-	jets__input_record               *bridge.Resource
-	jets__istate                     *bridge.Resource
-	jets__key                        *bridge.Resource
-	jets__loop                       *bridge.Resource
-	jets__org                        *bridge.Resource
-	jets__source_period_sequence     *bridge.Resource
-	jets__state                      *bridge.Resource
-	rdf__type                        *bridge.Resource
-	reMap                            map[string]*regexp.Regexp
-	argdMap                          map[string]float64
-	parsedFunctionArguments          map[string]interface{}
+	jets__client                  *bridgego.Resource
+	jets__completed               *bridgego.Resource
+	jets__sourcePeriodType        *bridgego.Resource
+	jets__currentSourcePeriod     *bridgego.Resource
+	jets__currentSourcePeriodDate *bridgego.Resource
+	jets__exception               *bridgego.Resource
+	jets__input_record            *bridgego.Resource
+	jets__istate                  *bridgego.Resource
+	jets__key                     *bridgego.Resource
+	jets__loop                    *bridgego.Resource
+	jets__org                     *bridgego.Resource
+	jets__source_period_sequence  *bridgego.Resource
+	jets__state                   *bridgego.Resource
+	rdf__type                     *bridgego.Resource
+	reMap                         map[string]*regexp.Regexp
+	argdMap                       map[string]float64
+	parsedFunctionArguments       map[string]interface{}
 }
 
 // main processing function to execute rules
-func (ri *ReteInputContext) assertInputBundle(reteSession *bridge.ReteSession, inBundle *groupedJetRows, writeOutputc *map[string][]chan []interface{}) error {
+func (ri *ReteInputContext) assertInputBundle(reteSession *bridgego.ReteSession, inBundle *groupedJetRows, writeOutputc *map[string][]chan []interface{}) error {
 	// Each row in inputRecords is a jets:Entity, with it's own jets:key
 	for _, aJetRow := range inBundle.jetRowSlice {
 		rowl := len(aJetRow.rowData)
@@ -57,7 +57,7 @@ func (ri *ReteInputContext) assertInputBundle(reteSession *bridge.ReteSession, i
 }
 
 func castToRdfType(objValue *string, inputColumnSpec *ProcessMap,
-	reteSession *bridge.ReteSession) (object *bridge.Resource, err error) {
+	reteSession *bridgego.ReteSession) (object *bridgego.Resource, err error) {
 
 	switch inputColumnSpec.rdfType {
 	// case "null":
@@ -129,7 +129,7 @@ func castToRdfType(objValue *string, inputColumnSpec *ProcessMap,
 }
 
 // main function for asserting input text row (from csv files)
-func (ri *ReteInputContext) assertInputTextRecord(reteSession *bridge.ReteSession, aJetRow *jetRow, writeOutputc *map[string][]chan []interface{}) error {
+func (ri *ReteInputContext) assertInputTextRecord(reteSession *bridgego.ReteSession, aJetRow *jetRow, writeOutputc *map[string][]chan []interface{}) error {
 	// Each row in inputRecords is a jets:Entity, with it's own jets:key
 	ncol := len(aJetRow.rowData)
 	row := make([]sql.NullString, ncol)
@@ -168,9 +168,9 @@ func (ri *ReteInputContext) assertInputTextRecord(reteSession *bridge.ReteSessio
 		log.Panicf("while asserting row jets key: %v", err)
 	}
 	// Asserting client and org (assert empty string if empty)
-	v,_ := reteSession.NewTextLiteral(aJetRow.processInput.client)
+	v, _ := reteSession.NewTextLiteral(aJetRow.processInput.client)
 	reteSession.Insert(subject, ri.jets__client, v)
-	v,_ = reteSession.NewTextLiteral(aJetRow.processInput.organization)
+	v, _ = reteSession.NewTextLiteral(aJetRow.processInput.organization)
 	reteSession.Insert(subject, ri.jets__org, v)
 	// Assert domain columns of the row
 	for icol := 0; icol < ncol; icol++ {
@@ -183,7 +183,7 @@ func (ri *ReteInputContext) assertInputTextRecord(reteSession *bridge.ReteSessio
 		if row[icol].Valid && sz > 0 {
 			if inputColumnSpec.functionName.Valid {
 				// Apply cleansing function
-				obj, errMsg = ri.applyCleasingFunction(reteSession, inputColumnSpec, &row[icol].String, 
+				obj, errMsg = ri.applyCleasingFunction(reteSession, inputColumnSpec, &row[icol].String,
 					row, aJetRow.processInput.inputColumnName2Pos)
 			} else {
 				obj = row[icol].String
@@ -244,8 +244,7 @@ func (ri *ReteInputContext) assertInputTextRecord(reteSession *bridge.ReteSessio
 				} else {
 					br.InputColumn = sql.NullString{String: "UNNAMED", Valid: true}
 				}
-				br.ErrorMessage = sql.NullString{String: 
-					fmt.Sprintf("while converting value from column %s to property %s: %v", 
+				br.ErrorMessage = sql.NullString{String: fmt.Sprintf("while converting value from column %s to property %s: %v",
 					inputColumnSpec.inputColumn.String, inputColumnSpec.dataProperty, err), Valid: true}
 				log.Println("Error while casting object value to column type:", br)
 				br.write2Chan((*writeOutputc)["jetsapi.process_errors"][0])

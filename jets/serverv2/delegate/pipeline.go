@@ -8,7 +8,7 @@ import (
 	"sync"
 
 	"github.com/artisoft-io/jetstore/jets/awsi"
-	"github.com/artisoft-io/jetstore/jets/server/workspace"
+	"github.com/artisoft-io/jetstore/jets/serverv2/workspace"
 	"github.com/jackc/pgx/v4/pgxpool"
 )
 
