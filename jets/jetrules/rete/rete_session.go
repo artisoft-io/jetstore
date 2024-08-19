@@ -4,6 +4,7 @@ import (
 	"container/heap"
 	"log"
 	"strconv"
+	"strings"
 
 	"github.com/artisoft-io/jetstore/jets/jetrules/rdf"
 )
@@ -14,15 +15,16 @@ type ReteSession struct {
 	RdfSession               *rdf.RdfSession
 	ms                       *ReteMetaStore
 	betaRelations            []*BetaRelation
-	vertexVisits             []VisitCount
+	VertexVisits             []VisitCount
 	pendingComputeConsequent *BetaRowPriorityQueue
 	maxVertexVisits          int
 	maxVertexVisitReached    bool
 }
 
 type VisitCount struct {
-	inferCount   int
-	retractCount int
+	Label        string
+	InferCount   int
+	RetractCount int
 }
 
 // Priority queue that implements the heap.Interface
@@ -71,6 +73,8 @@ func (rs *ReteSession) Initialize(ms *ReteMetaStore) {
 	log.Println("Initializing the ReteSession")
 
 	// Initializing the BetaRelations
+	// Initialize the VertexVisits
+	rs.VertexVisits = make([]VisitCount, len(ms.NodeVertices))
 	rs.betaRelations = make([]*BetaRelation, len(ms.NodeVertices))
 	for i := range ms.NodeVertices {
 		nodeVertex := ms.NodeVertices[i]
@@ -80,10 +84,8 @@ func (rs *ReteSession) Initialize(ms *ReteMetaStore) {
 			bn.InsertBetaRow(rs, NewBetaRow(nodeVertex, 0))
 		}
 		rs.betaRelations[i] = bn
+		rs.VertexVisits[i].Label = strings.Join(nodeVertex.AssociatedRules, ",")
 	}
-
-	// Initialize the VertexVisits
-	rs.vertexVisits = make([]VisitCount, len(ms.NodeVertices))
 
 	// Get the max_vertex_visit from the meta store properties
 	p := (*ms.JetStoreConfig)["$max_looping"]
@@ -97,13 +99,26 @@ func (rs *ReteSession) Initialize(ms *ReteMetaStore) {
 	}
 
 	// Set the callbacks
-	for i := range ms.NodeVertices {
-		nodeVertex := ms.NodeVertices[i]
-		if nodeVertex.HasExpression() {
-			// log.Printf("Set Callbacks for vertex %d with filter",  nodeVertex.Vertex)
-			nodeVertex.FilterExpr.RegisterCallback(rs, nodeVertex.Vertex)
+	for i := range ms.AlphaNodes {
+		alphaNode := ms.AlphaNodes[i]
+		if alphaNode.IsAntecedent {
+			alphaNode.RegisterCallback(rs)
+			nodeVertex := alphaNode.NdVertex
+			if nodeVertex.HasExpression() {
+				// log.Printf("Set Callbacks for vertex %d with filter",  nodeVertex.Vertex)
+				nodeVertex.FilterExpr.RegisterCallback(rs, nodeVertex.Vertex)
+			}
+		} else {
+			if i > 0 {
+				break
+			}
 		}
 	}
+}
+
+func (rs *ReteSession) Done() {
+	rs.RdfSession.AssertedGraph.CallbackMgr.ClearCallbacks()
+	rs.RdfSession.InferredGraph.CallbackMgr.ClearCallbacks()
 }
 
 func (rs *ReteSession) ScheduleConsequentTerms(row *BetaRow) {

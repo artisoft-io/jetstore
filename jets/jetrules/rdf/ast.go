@@ -223,6 +223,13 @@ type Triple = [3]*Node
 // 	return fmt.Sprintf("(%s, %s, %s)", (*t)[0], (*t)[1], (*t)[2])
 // }
 
+func ToString(t3 *Triple) string {
+	if t3 == nil {
+		return "<nil>"
+	}
+	return fmt.Sprintf("(%v, %v, %v)", (*t3)[0], (*t3)[1], (*t3)[2])
+}
+
 func T3(s, p, o *Node) Triple {
 	return Triple{s, p, o}
 }

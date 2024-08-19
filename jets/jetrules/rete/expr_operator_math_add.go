@@ -66,11 +66,11 @@ func (op *AddOp) Eval(reteSession *ReteSession, row *BetaRow, lhs, rhs *rdf.Node
 	case string:
 		switch rhsv := rhs.Value.(type) {
 		case int:
-			return &rdf.Node{Value: fmt.Sprintf("%v%v", rhsv, rhsv)}
+			return &rdf.Node{Value: fmt.Sprintf("%v%v", lhsv, rhsv)}
 		case float64:
-			return &rdf.Node{Value: fmt.Sprintf("%v%v", rhsv, rhsv)}
+			return &rdf.Node{Value: fmt.Sprintf("%v%v", lhsv, rhsv)}
 		case string:
-			return &rdf.Node{Value: rhsv + rhsv}
+			return &rdf.Node{Value: lhsv + rhsv}
 		default:
 			return nil
 		}

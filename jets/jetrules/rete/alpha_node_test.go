@@ -26,8 +26,8 @@ func TestAlphaNode(t *testing.T) {
 
 	// Configure the first row: the initializer and the node_vertex
 	initializer1 := SimpleInitializer()
-	nvertex0 := NewNodeVertex(0, nil, false, 100, nil, "root vertex 0", initializer1)
-	nvertex1 := NewNodeVertex(1, nil, false, 100, nil, "test node vertex 1", initializer1)
+	nvertex0 := NewNodeVertex(0, nil, false, 100, nil, "root vertex 0", nil, initializer1)
+	nvertex1 := NewNodeVertex(1, nil, false, 100, nil, "test node vertex 1", nil, initializer1)
 	isAntecedent := true
 	alphaNode1 := NewAlphaNode(&FBinded{pos: 0}, &FBinded{pos: 1}, &FVariable{variable: "?o"}, nvertex1, isAntecedent, "first node")
 
@@ -115,7 +115,7 @@ func TestAlphaNode(t *testing.T) {
 		}
 	}
 	// add alphaNode2 as antecedent to parentBetaRelation
-	nvertex2 := NewNodeVertex(2, nil, false, 100, nil, "test node vertex 0", initializer1)
+	nvertex2 := NewNodeVertex(2, nil, false, 100, nil, "test node vertex 0", nil, initializer1)
 	isAntecedent = true
 	alphaNode2 := NewAlphaNode(&FConstant{node: rm.NewResource("s1")}, &FBinded{pos: 1}, &FBinded{pos: 2}, nvertex2, isAntecedent, "second node")
 	alphaNode2.InitializeIndexes(parentBetaRelation)
@@ -174,7 +174,7 @@ func TestAlphaNode(t *testing.T) {
 	}
 
 	// add alphaNode3 as antecedent to parentBetaRelation
-	nvertex3 := NewNodeVertex(3, nil, false, 100, nil, "test node vertex 3", initializer1)
+	nvertex3 := NewNodeVertex(3, nil, false, 100, nil, "test node vertex 3", nil, initializer1)
 	isAntecedent = true
 	alphaNode3 := NewAlphaNode(&FVariable{variable: "?s"}, &FBinded{pos: 1}, &FConstant{node: rm.NewResource("o30")}, nvertex3, isAntecedent, "third node")
 	alphaNode3.InitializeIndexes(parentBetaRelation)
@@ -203,7 +203,7 @@ func TestAlphaNode(t *testing.T) {
 	}
 
 	// add alphaNode4 as consequent to parentBetaRelation
-	nvertex4 := NewNodeVertex(4, nil, false, 100, nil, "test node vertex 4", initializer1)
+	nvertex4 := NewNodeVertex(4, nil, false, 100, nil, "test node vertex 4", nil, initializer1)
 	isAntecedent = false
 	currentLen := len(parentBetaRelation.rowIndexes2)
 	alphaNode4 := NewAlphaNode(&FBinded{pos: 0}, &FConstant{node: rm.NewResource("p40")}, &FBinded{pos: 2}, nvertex4, isAntecedent, "third node")
@@ -228,7 +228,7 @@ func TestAlphaNode(t *testing.T) {
 	}
 
 	// add alphaNode5 as antecedent to parentBetaRelation
-	nvertex5 := NewNodeVertex(5, nil, false, 100, nil, "test node vertex 5", initializer1)
+	nvertex5 := NewNodeVertex(5, nil, false, 100, nil, "test node vertex 5", nil, initializer1)
 	isAntecedent = true
 	alphaNode5 := NewAlphaNode(&FBinded{pos: 0}, &FBinded{pos: 1}, &FBinded{pos: 2}, nvertex5, isAntecedent, "fifth node")
 	alphaNode5.InitializeIndexes(parentBetaRelation)
@@ -261,8 +261,8 @@ func TestAlphaNode(t *testing.T) {
 func TestAlphaNodePanic1(t *testing.T) {
 	metaMgr := rdf.NewResourceManager(nil)
 	initializer1 := SimpleInitializer()
-	nvertex0 := NewNodeVertex(0, nil, false, 100, nil, "root vertex 0", initializer1)
-	nvertex1 := NewNodeVertex(1, nil, false, 100, nil, "test node vertex 1", initializer1)
+	nvertex0 := NewNodeVertex(0, nil, false, 100, nil, "root vertex 0", nil, initializer1)
+	nvertex1 := NewNodeVertex(1, nil, false, 100, nil, "test node vertex 1", nil, initializer1)
 	isAntecedent := false
 	alphaNode1 := NewAlphaNode(&FBinded{pos: 0}, &FBinded{pos: 1}, &FConstant{node: metaMgr.GetLiteral("some string")}, nvertex1, isAntecedent, "first node")
 
@@ -307,8 +307,8 @@ func TestAlphaNodePanic1(t *testing.T) {
 func TestAlphaNodePanic2(t *testing.T) {
 	metaMgr := rdf.NewResourceManager(nil)
 	initializer1 := SimpleInitializer()
-	nvertex0 := NewNodeVertex(0, nil, false, 100, nil, "root vertex 0", initializer1)
-	nvertex1 := NewNodeVertex(1, nil, false, 100, nil, "test node vertex 1", initializer1)
+	nvertex0 := NewNodeVertex(0, nil, false, 100, nil, "root vertex 0", nil, initializer1)
+	nvertex1 := NewNodeVertex(1, nil, false, 100, nil, "test node vertex 1", nil, initializer1)
 	isAntecedent := true
 	alphaNode1 := NewAlphaNode(&FBinded{pos: 0}, &FBinded{pos: 1}, &FConstant{node: metaMgr.GetLiteral("some string")}, nvertex1, isAntecedent, "first node")
 

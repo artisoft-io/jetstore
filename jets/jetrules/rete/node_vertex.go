@@ -16,10 +16,11 @@ type NodeVertex struct {
 	NormalizedLabel      string
 	RowInitializer       *BetaRowInitializer
 	AntecedentQueryKey   int
+	AssociatedRules      []string
 }
 
 func NewNodeVertex(vertex int, parent *NodeVertex, isNeg bool, salience int,
-	filter Expression, label string, rowInitializer *BetaRowInitializer) *NodeVertex {
+	filter Expression, label string, rules []string, rowInitializer *BetaRowInitializer) *NodeVertex {
 	return &NodeVertex{
 		Vertex:               vertex,
 		ParentNodeVertex:     parent,
@@ -29,6 +30,7 @@ func NewNodeVertex(vertex int, parent *NodeVertex, isNeg bool, salience int,
 		Salience:             salience,
 		FilterExpr:           filter,
 		NormalizedLabel:      label,
+		AssociatedRules:      rules,
 		RowInitializer:       rowInitializer,
 	}
 }

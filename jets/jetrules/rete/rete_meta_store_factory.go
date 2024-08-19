@@ -154,6 +154,23 @@ func (ctx *ReteBuilderContext) BuildReteMetaStore() (*ReteMetaStore, error) {
 		return nil, err
 	}
 
+	// Load the meta triples from the rule files
+	for i := range ctx.JetruleModel.Triples {
+		t3 := &ctx.JetruleModel.Triples[i]
+		s := ctx.ResourcesLookup[t3.SubjectKey]
+		p := ctx.ResourcesLookup[t3.PredicateKey]
+		o := ctx.ResourcesLookup[t3.ObjectKey]
+		if s==nil || p==nil || o==nil {
+			err := fmt.Errorf("error: invalid triples in metastore config, resource not found: (%v, %v, %v)", s, p, o)
+			log.Println(err)
+			return nil, err
+		}
+		_, err = ctx.MetaGraph.Insert(s, p, o)
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	// Load LookupTableManager
 	ctx.LookupTables, err = NewLookupTableManager(ctx.ResourceMgr, ctx.MetaGraph, ctx.JetruleModel)
 	if err != nil {
@@ -385,7 +402,7 @@ func (ctx *ReteBuilderContext) loadNodeVertices() error {
 	sort.Slice(*l, func(i, j int) bool { return (*l)[i].Vertex < (*l)[j].Vertex })
 
 	// Initialize the slice of *NodeVertex with the root node
-	ctx.NodeVertices = append(ctx.NodeVertices, NewNodeVertex(0, nil, false, 0, nil, "(* * *)", nil))
+	ctx.NodeVertices = append(ctx.NodeVertices, NewNodeVertex(0, nil, false, 0, nil, "(* * *)", nil, nil))
 
 	for i := range ctx.JetruleModel.Antecedents {
 		reteNode := ctx.JetruleModel.Antecedents[i]
@@ -421,7 +438,7 @@ func (ctx *ReteBuilderContext) loadNodeVertices() error {
 		}
 		ctx.NodeVertices = append(ctx.NodeVertices,
 			NewNodeVertex(reteNode.Vertex, parent, reteNode.IsNot, salience, filterExpr,
-				reteNode.NormalizedLabel, brInitializer))
+				reteNode.NormalizedLabel, reteNode.Rules, brInitializer))
 	}
 	return nil
 }

@@ -92,6 +92,25 @@ func NewRootAlphaNode(vertex *NodeVertex) *AlphaNode {
 	}
 }
 
+func (an *AlphaNode) RegisterCallback(rs *ReteSession) {
+	u := an.Fu.StaticValue()
+	v := an.Fv.StaticValue()
+	w := an.Fw.StaticValue()
+	if u != nil && !u.IsResource() {
+		u = nil
+	}
+	if v != nil && !v.IsResource() {
+		v = nil
+	}
+	if w != nil && !w.IsResource() {
+		w = nil
+	}
+	cb := NewReteCallback(rs, an.NdVertex.Vertex, u, v, w)
+
+	rs.RdfSession.AssertedGraph.CallbackMgr.AddCallback(cb)
+	rs.RdfSession.InferredGraph.CallbackMgr.AddCallback(cb)
+}
+
 func (an *AlphaNode) InitializeIndexes(parentBetaRelation *BetaRelation) {
 	if an == nil {
 		return

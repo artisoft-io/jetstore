@@ -11,7 +11,6 @@ import (
 
 func (rs *ReteSession) ExecuteRules() (err error) {
 	log.Println("Entering ReteSession.ExecuteRules")
-
 	defer func() {
 		if r := recover(); r != nil {
 			err = fmt.Errorf("ExecuteRules recovered error: %v", r)
@@ -56,7 +55,7 @@ func (rs *ReteSession) VisitReteGraph(fromVertex int, isInferring bool) error {
 	log.Println("Entering ReteSession.VisitReteGraph @ vertex",fromVertex)
 	stack := NewIntStack(rs.ms.NbrVertices())
 	stack.Push(fromVertex)
-	idebug := 0
+	// idebug := 0
 	for {
 		if stack.Len() == 0 {
 			// Main exit point
@@ -69,8 +68,8 @@ func (rs *ReteSession) VisitReteGraph(fromVertex int, isInferring bool) error {
 		if parentBetaRelation == nil {
 			return fmt.Errorf("error: got nil parentBetaRelation at vertex %d (VisitReteGraph)", parentVertex)
 		}
-		//**
-		log.Printf("Pop parent vertex %d, stack len is %d", parentVertex, stack.Len())
+		// //**
+		// log.Printf("Pop parent vertex %d, stack len is %d", parentVertex, stack.Len())
 
 		var itor BetaRowIterator
 		var allParentBetaRowItor BetaRowIterator
@@ -96,16 +95,16 @@ func (rs *ReteSession) VisitReteGraph(fromVertex int, isInferring bool) error {
 
 			// Get an iterator over all applicable rows from the parent beta node
 			if !childBetaRelation.IsActivated {
-				//**
-				log.Printf("VisitReteGraph @ <%d|%d> all rows", parentVertex, childVertex)
+				// //**
+				// log.Printf("VisitReteGraph @ <%d|%d> all rows (%d rows :: %d keys)", parentVertex, childVertex, parentBetaRelation.AllRows.Size(), len(parentBetaRelation.AllRows.data))
 				// Need all rows
 				if allParentBetaRowItor == nil {
 					allParentBetaRowItor = NewBetaRowSetIterator(parentBetaRelation.AllRows)
 				}
 				itor = allParentBetaRowItor
 			} else {
-				//**
-				log.Printf("VisitReteGraph @ <%d|%d> pending rows only", parentVertex, childVertex)
+				// //**
+				// log.Printf("VisitReteGraph @ <%d|%d> pending rows only", parentVertex, childVertex)
 				itor = pendingParentBetaRowItor
 			}
 			itor.Reset()
@@ -125,12 +124,12 @@ func (rs *ReteSession) VisitReteGraph(fromVertex int, isInferring bool) error {
 					select {
 					case <-t3Itor.Itor:
 						// Got a triple, condition not met since it's a negation
-						//**
-						log.Println("Got a triple, condition not met since it's a negation")
+						// //**
+						// log.Println("Got a triple, condition not met since it's a negation")
 					default:
 						// Got no triples, condition met; create the beta row
-						//**
-						log.Println("Got no triples, condition met; create the beta row")
+						// //**
+						// log.Println("Got no triples, condition met; create the beta row")
 						childBetaRow := NewBetaRow(childAlphaNode.NdVertex, betaRowInitializer.RowSize())
 						// initialize the beta row with parent_row and place holder for t3
 						t3 := rdf.NilTriple()
@@ -158,8 +157,8 @@ func (rs *ReteSession) VisitReteGraph(fromVertex int, isInferring bool) error {
 				} else {
 					// for each t3Itor.Itor create the beta row, keep it if pass filter, add/remove row when infer/retract
 					for t3 := range t3Itor.Itor {
-						//**
-						log.Printf("Got triple (%s, %s, %s)", t3[0], t3[1], t3[2])
+						// //**
+						// log.Printf("Got triple (%s, %s, %s)", t3[0], t3[1], t3[2])
 						// Create the beta row
 						childBetaRow := NewBetaRow(childAlphaNode.NdVertex, betaRowInitializer.RowSize())
 						// initialize the beta row with parent_row and t3
@@ -188,12 +187,12 @@ func (rs *ReteSession) VisitReteGraph(fromVertex int, isInferring bool) error {
 			// Mark current beta node as activated (if was not already) and push it on the stack so to visit it's childrens
 			childBetaRelation.IsActivated = true
 			stack.Push(childVertex)
-			//**
-			idebug += 1
-			log.Printf("Pushed child vertex %d, stack len is now %d", childVertex, stack.Len())
-			if idebug == 200 {
-				log.Panic("That's enough!")
-			}
+			// //**
+			// idebug += 1
+			// log.Printf("Pushed child vertex %d, stack len is now %d", childVertex, stack.Len())
+			// if idebug == 200 {
+			// 	log.Panic("That's enough!")
+			// }
 		}
 		// Clear the pending rows of parent node since we propagated to all it's children
 		parentBetaRelation.ClearPendingRows()
@@ -224,8 +223,8 @@ func (rs *ReteSession) ComputeConsequentTriples() error {
 		//*TODO Track how many times a rule infer/retract triples here (aka rule stat collector)
 
 		// Check for max visit allowed for a vertex
-		currentVisit := &rs.vertexVisits[vertex]
-		if rs.maxVertexVisits > 0 && currentVisit.inferCount >= rs.maxVertexVisits {
+		currentVisit := &rs.VertexVisits[vertex]
+		if rs.maxVertexVisits > 0 && currentVisit.InferCount >= rs.maxVertexVisits {
 			// Max vertex visit reached, return error
 			rs.maxVertexVisitReached = true
 			return fmt.Errorf("error: max vertex visit reached")
@@ -233,7 +232,7 @@ func (rs *ReteSession) ComputeConsequentTriples() error {
 
 		if betaRow.IsInserted() {
 			// Infer consequent triples
-			currentVisit.inferCount += 1
+			currentVisit.InferCount += 1
 			for _, consequentAlphaNode := range betaRow.NdVertex.ConsequentAlphaNodes {
 				t3 := consequentAlphaNode.ComputeConsequentTriple(rs, betaRow)
 				_, err := rs.RdfSession.InsertInferred(t3[0], t3[1], t3[2])
@@ -249,7 +248,7 @@ func (rs *ReteSession) ComputeConsequentTriples() error {
 				return fmt.Errorf("error: invalid beta row at vertex %d, expecting status kDeleted (ComputeConsequentTriples)", vertex)
 			}
 			// Retract consequent triples
-			currentVisit.retractCount += 1
+			currentVisit.RetractCount += 1
 			for _, consequentAlphaNode := range betaRow.NdVertex.ConsequentAlphaNodes {
 				t3 := consequentAlphaNode.ComputeConsequentTriple(rs, betaRow)
 				_, err := rs.RdfSession.Retract(t3[0], t3[1], t3[2])

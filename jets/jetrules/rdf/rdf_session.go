@@ -48,10 +48,12 @@ func (rs *RdfSession) ContainsSP(s, p *Node) bool {
 }
 
 func (rs *RdfSession) GetObject(s, p *Node) *Node {
-	itor := rs.MetaGraph.FindSP(s, p)
+	itor := rs.FindSP(s, p)
 	defer itor.Done()
-	t3 := <- itor.Itor
-	return t3[2]
+	for t3 := range itor.Itor {
+		return t3[2]
+	}
+	return nil
 }
 
 // Asserting a triple to rdf session, returns true if actually inserted
@@ -83,6 +85,8 @@ func (rs *RdfSession) InsertInferred(s, p, o *Node) (bool, error) {
 	if rs.MetaGraph.Contains(s, p, o) || rs.AssertedGraph.Contains(s, p, o) {
 		return false, nil
 	}
+	//**
+	log.Printf("InsertInferred: %s", ToString(&[3]*Node{s, p, o}))
 	return rs.InferredGraph.Insert(s, p, o)
 }
 
@@ -105,6 +109,8 @@ func (rs *RdfSession) Retract(s, p, o *Node) (bool, error) {
 		log.Printf("error: Retract called with NULL *Node to RdfSession: (%s, %s, %s)", s, p, o)
 		return false, ErrNilNodeRdfSession
 	}
+	//**
+	log.Printf("Retract: %s", ToString(&[3]*Node{s, p, o}))
 	return rs.InferredGraph.Retract(s, p, o)
 }
 
@@ -121,7 +127,7 @@ func (g *RdfSession) FindSP(s, p *Node) *RdfSessionIterator {
 }
 
 func (g *RdfSession) FindSPO(s, p, o *Node) *RdfSessionIterator {
-	//**
-	log.Printf("RdfSession.FindSPO(%s, %s, %s)", s, p, o)
+	// //**
+	// log.Printf("RdfSession.FindSPO(%s, %s, %s)", s, p, o)
 	return NewRdfSessionIterator(g.MetaGraph.FindSPO(s, p, o), g.AssertedGraph.FindSPO(s, p, o), g.InferredGraph.FindSPO(s, p, o))
 }

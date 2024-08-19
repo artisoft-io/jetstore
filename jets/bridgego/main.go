@@ -116,8 +116,8 @@ func LoadJetRules(processName string, mainRuleName string, rete_db_path string, 
 	if js.metaStore == nil {
 		return nil, fmt.Errorf("error: Rete Network for main rule %s not found", js.mainRuleName)
 	}
-	js.metaMgr = rdf.NewResourceManager(nil)
-	js.metaGraph = rdf.NewRdfGraph("META")
+	js.metaMgr = js.metaStore.ResourceMgr
+	js.metaGraph = js.metaStore.MetaGraph
 
 	return js, nil
 }
@@ -149,6 +149,7 @@ func (js *JetStore) NewReteSession(rdfSession *RDFSession, jetrules_name string)
 }
 
 func (rs *ReteSession) ReleaseReteSession() error {
+	rs.reteSession.Done()
 	return nil
 }
 
@@ -573,11 +574,20 @@ func (rs *RDFSession) DumpRdfGraph() error {
 		log.Println(triples[i])
 		count += 1
 	}
-	log.Printf("The graph contains %d triples", count)
+	log.Printf("The graph contains %d triples, the metagraph contains %d triples",count,rs.rdfSession.MetaGraph.Size())
 	return nil
 }
 func (rs *ReteSession) DumpRdfGraph() error {
 	return rs.rdfSession.DumpRdfGraph()
+}
+
+func (rs *ReteSession) DumpVertexVisit() {
+	for i := range rs.reteSession.VertexVisits {
+		vv := &rs.reteSession.VertexVisits[i]
+		if len(vv.Label) > 0 && vv.InferCount > 0 {
+			log.Printf("Rules %s, inferred: %d, retracted: %d", vv.Label, vv.InferCount, vv.RetractCount)
+		}
+	}
 }
 
 // ReteSession FindAll

@@ -1,6 +1,8 @@
 package rete
 
-import "golang.org/x/exp/maps"
+import (
+	"golang.org/x/exp/maps"
+)
 
 // BetaRow iterator offers a unified iterator over the BetaRow managed by a BetaRelation
 //
@@ -34,25 +36,15 @@ type BetaRowSetIterator struct {
 }
 
 func NewBetaRowSetIterator(set *BetaRowSet) BetaRowIterator {
+	keys := maps.Keys(set.data)
 	return &BetaRowSetIterator{
 		set:    set,
-		hashes: maps.Keys(set.data),
+		hashes: keys,
 	}
 }
 
 func (itor *BetaRowSetIterator) IsEnd() bool {
-	if itor.hpos == len(itor.hashes) {
-		// we're past the end already
-		return true
-	}
-	if itor.hpos == len(itor.hashes)-1 {
-		rows := itor.set.data[itor.hashes[itor.hpos]]
-		if itor.kpos == len(*rows)-1 {
-			return true
-		}
-		return false
-	}
-	return false
+	return itor.hpos == len(itor.hashes)
 }
 
 func (itor *BetaRowSetIterator) GetRow() *BetaRow {

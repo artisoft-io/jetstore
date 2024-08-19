@@ -256,6 +256,11 @@ func (rw *ReteWorkspace) ExecuteRules(
 				br.write2Chan(writeOutputc["jetsapi.process_errors"][0])
 				break
 			}
+			if *ps {
+				log.Println("Rule visits:")
+				reteSession.DumpVertexVisit()
+	
+			}
 			reteSession.ReleaseReteSession()
 		}
 
