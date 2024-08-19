@@ -3,6 +3,8 @@ package bridge
 import (
 	"errors"
 	"fmt"
+	"log"
+	"sort"
 	"time"
 
 	"github.com/artisoft-io/jetstore/jets/jetrules/rdf"
@@ -30,12 +32,18 @@ type ReteSession struct {
 	rdfSession  *RDFSession
 	reteSession *rete.ReteSession
 }
-type RSIterator struct {
-	t3Itor *rdf.RdfSessionIteratorAdaptor
-}
+type RSIterator = rdf.RdfSessionIterator
+
+// type RSIterator struct {
+// 	t3Itor *rdf.RdfSessionIteratorAdaptor
+// }
 
 type Resource struct {
 	r *rdf.Node
+}
+
+func NewResource(r *rdf.Node) *Resource {
+	return &Resource{r: r}
 }
 
 var (
@@ -512,11 +520,17 @@ func (rs *ReteSession) ContainsSP(s *Resource, p *Resource) (int, error) {
 
 // ReteSession Erase
 func (rs *RDFSession) Erase(s *Resource, p *Resource, o *Resource) (int, error) {
-	var r *rdf.Node
-	if o != nil {
-		r = o.r
+	var u, v, w *rdf.Node
+	if s != nil {
+		u = s.r
 	}
-	b, err := rs.rdfSession.Erase(s.r, p.r, r)
+	if p != nil {
+		v = p.r
+	}
+	if o != nil {
+		w = o.r
+	}
+	b, err := rs.rdfSession.Erase(u, v, w)
 	if err != nil {
 		return 0, err
 	}
@@ -547,7 +561,19 @@ func (rs *RDFSession) GetRdfGraph() string {
 }
 // RDFSession DumpRdfGraph
 func (rs *RDFSession) DumpRdfGraph() error {
-	//*TODO dumpt to output the rdf graph
+	triples := make([]string, 0)
+	t3Itor := rs.rdfSession.Find()
+	for t3 := range t3Itor.Itor {
+		triples = append(triples, fmt.Sprintf("(%s, %s, %s)", t3[0], t3[1], t3[2]))
+	}
+	t3Itor.Done()
+	sort.Slice(triples, func(i, j int) bool { return triples[i] < triples[j] })
+	count := 0
+	for i := range triples {
+		log.Println(triples[i])
+		count += 1
+	}
+	log.Printf("The graph contains %d triples", count)
 	return nil
 }
 func (rs *ReteSession) DumpRdfGraph() error {
@@ -556,9 +582,7 @@ func (rs *ReteSession) DumpRdfGraph() error {
 
 // ReteSession FindAll
 func (rs *RDFSession) FindAll() (*RSIterator, error) {
-	return &RSIterator{
-		t3Itor: rdf.NewRdfSessionIteratorAdaptor(rs.rdfSession.Find()),
-	}, nil
+	return rs.rdfSession.Find(), nil
 }
 func (rs *ReteSession) FindAll() (*RSIterator, error) {
 	return rs.rdfSession.FindAll()
@@ -566,77 +590,45 @@ func (rs *ReteSession) FindAll() (*RSIterator, error) {
 
 // ReteSession Find
 func (rs *RDFSession) Find(s *Resource, p *Resource, o *Resource) (*RSIterator, error) {
-	return &RSIterator{
-		t3Itor: rdf.NewRdfSessionIteratorAdaptor(rs.rdfSession.FindSPO(s.r, p.r, o.r)),
-	}, nil
+	var u, v, w *rdf.Node
+	if s != nil {
+		u = s.r
+	}
+	if p != nil {
+		v = p.r
+	}
+	if o != nil {
+		w = o.r
+	}
+	return rs.rdfSession.FindSPO(u, v, w), nil
 }
 func (rs *ReteSession) Find(s *Resource, p *Resource, o *Resource) (*RSIterator, error) {
 	return rs.rdfSession.Find(s, p, o)
 }
 
 func (rs *RDFSession) Find_s(s *Resource) (*RSIterator, error) {
-	return &RSIterator{
-		t3Itor: rdf.NewRdfSessionIteratorAdaptor(rs.rdfSession.FindS(s.r)),
-	}, nil
+	return rs.rdfSession.FindS(s.r), nil
 }
 func (rs *ReteSession) Find_s(s *Resource) (*RSIterator, error) {
 	return rs.rdfSession.Find_s(s)
 }
 
 func (rs *RDFSession) Find_sp(s *Resource, p *Resource) (*RSIterator, error) {
-	return &RSIterator{
-		t3Itor: rdf.NewRdfSessionIteratorAdaptor(rs.rdfSession.FindSP(s.r, p.r)),
-	}, nil
+	return rs.rdfSession.FindSP(s.r, p.r), nil
 }
 func (rs *ReteSession) Find_sp(s *Resource, p *Resource) (*RSIterator, error) {
 	return rs.rdfSession.Find_sp(s, p)
 }
 
 func (rs *RDFSession) GetObject(s *Resource, p *Resource) (*Resource, error) {
+	r := rs.rdfSession.GetObject(s.r, p.r)
+	if r == nil {
+		return nil, nil
+	}
 	return &Resource{
-		r: rs.rdfSession.GetObject(s.r, p.r),
+		r: r,
 	}, nil
 }
 func (rs *ReteSession) GetObject(s *Resource, p *Resource) (*Resource, error) {
 	return rs.rdfSession.GetObject(s, p)
-}
-
-// RSIterator IsEnd
-func (itor *RSIterator) IsEnd() bool {	
-	return itor.t3Itor.IsEnd()
-}
-
-// RSIterator Next
-func (itor *RSIterator) Next() bool {
-	return itor.t3Itor.Next()
-}
-
-// RSIterator GetSubject
-func (itor *RSIterator) GetSubject() *Resource {
-	t3 := itor.t3Itor.Triple()
-	return &Resource{
-		r: (*t3)[0],
-	}
-}
-
-// RSIterator GetPredicate
-func (itor *RSIterator) GetPredicate() *Resource {
-	t3 := itor.t3Itor.Triple()
-	return &Resource{
-		r: (*t3)[1],
-	}
-}
-
-// RSIterator GetObject
-func (itor *RSIterator) GetObject() *Resource {
-	t3 := itor.t3Itor.Triple()
-	return &Resource{
-		r: (*t3)[2],
-	}
-}
-
-// ReteSession ReleaseIterator
-func (itor *RSIterator) ReleaseIterator() error {
-	itor.t3Itor.Done()
-	return nil
 }

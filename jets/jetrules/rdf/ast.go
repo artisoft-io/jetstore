@@ -219,6 +219,10 @@ func (v *Node) MarshalBinary() ([]byte, error) {
 
 type Triple = [3]*Node
 
+// func (t *Triple) String() string {
+// 	return fmt.Sprintf("(%s, %s, %s)", (*t)[0], (*t)[1], (*t)[2])
+// }
+
 func T3(s, p, o *Node) Triple {
 	return Triple{s, p, o}
 }

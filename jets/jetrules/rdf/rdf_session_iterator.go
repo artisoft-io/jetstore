@@ -1,7 +1,5 @@
 package rdf
 
-// import "log"
-
 // RdfSession Iterator, it's essentially a funnel from the iterator of the session's rdf graphs
 
 type RdfSessionIterator struct {
@@ -53,41 +51,51 @@ func NewRdfSessionIterator(metaItor, assertedItor, inferredItor *BaseGraphIterat
 	return rsItor
 }
 
-type RdfSessionIteratorAdaptor struct {
-	itor         *RdfSessionIterator
-	currentValue *[3]*Node
-}
+// type RdfSessionIteratorAdaptor struct {
+// 	itor         *RdfSessionIterator
+// 	currentValue *[3]*Node
+// }
 
-func NewRdfSessionIteratorAdaptor(itor *RdfSessionIterator) *RdfSessionIteratorAdaptor {
-	adaptor := &RdfSessionIteratorAdaptor{itor: itor}
-	select {
-	case vv := <-adaptor.itor.Itor:
-		adaptor.currentValue = &vv
-	default:
-		// Got no value
-	}
-	return adaptor
-}
+// func NewRdfSessionIteratorAdaptor(itor *RdfSessionIterator) *RdfSessionIteratorAdaptor {
+// 	adaptor := &RdfSessionIteratorAdaptor{itor: itor}
+// 	vv, ok := <-adaptor.itor.Itor
+// 	if ok {
+// 		log.Println("Got value:", vv)
+// 		adaptor.currentValue = &vv
+// 	} else {
+// 		// Got no value
+// 		log.Println("Got no value")
+// 	}
+// 	// select {
+// 	// case vv := <-adaptor.itor.Itor:
+// 	// 	log.Println("Got value:", vv)
+// 	// 	adaptor.currentValue = &vv
+// 	// default:
+// 	// 	// Got no value
+// 	// 	log.Println("Got no value")
+// 	// }
+// 	return adaptor
+// }
 
-func (adaptor *RdfSessionIteratorAdaptor) Triple() *[3]*Node {
-	return adaptor.currentValue
-}
+// func (adaptor *RdfSessionIteratorAdaptor) Triple() *[3]*Node {
+// 	return adaptor.currentValue
+// }
 
-func (adaptor *RdfSessionIteratorAdaptor) IsEnd() bool {
-	return adaptor.currentValue == nil
-}
+// func (adaptor *RdfSessionIteratorAdaptor) IsEnd() bool {
+// 	return adaptor.currentValue == nil
+// }
 
-func (adaptor *RdfSessionIteratorAdaptor) Next() bool {
-	select {
-	case vv := <-adaptor.itor.Itor:
-		adaptor.currentValue = &vv
-	default:
-		// Got no more value
-		adaptor.currentValue = nil
-	}
-	return adaptor.currentValue == nil
-}
+// func (adaptor *RdfSessionIteratorAdaptor) Next() bool {
+// 	select {
+// 	case vv := <-adaptor.itor.Itor:
+// 		adaptor.currentValue = &vv
+// 	default:
+// 		// Got no more value
+// 		adaptor.currentValue = nil
+// 	}
+// 	return adaptor.currentValue == nil
+// }
 
-func (adaptor *RdfSessionIteratorAdaptor) Done() {
-	adaptor.itor.Done()
-}
+// func (adaptor *RdfSessionIteratorAdaptor) Done() {
+// 	adaptor.itor.Done()
+// }

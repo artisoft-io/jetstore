@@ -60,7 +60,9 @@ type AlphaNode struct {
 	Fv              AlphaFunctor
 	Fw              AlphaFunctor
 	NdVertex        *NodeVertex
+	IsHeadNode      bool
 	IsAntecedent    bool
+	IsConsequent    bool
 	NormalizedLabel string
 }
 
@@ -70,19 +72,23 @@ func NewAlphaNode(fu, fv, fw AlphaFunctor, vertex *NodeVertex, isAntecedent bool
 		Fv:              fv,
 		Fw:              fw,
 		NdVertex:        vertex,
+		IsHeadNode:      vertex.Vertex == 0,
 		IsAntecedent:    isAntecedent,
+		IsConsequent:    vertex.Vertex > 0 && !isAntecedent,
 		NormalizedLabel: label,
 	}
 }
 
-func NewRootAlphaNode() *AlphaNode {
+func NewRootAlphaNode(vertex *NodeVertex) *AlphaNode {
 	return &AlphaNode{
 		Fu:              &FVariable{variable: "*"},
 		Fv:              &FVariable{variable: "*"},
 		Fw:              &FVariable{variable: "*"},
-		NdVertex:        nil,
+		NdVertex:        vertex,
+		IsHeadNode:      true,
 		IsAntecedent:    false,
-		NormalizedLabel: "Root Node",
+		IsConsequent:    false,
+		NormalizedLabel: "(* * *)",
 	}
 }
 

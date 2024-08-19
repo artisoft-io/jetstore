@@ -26,20 +26,22 @@ func RDFSessionAsTable(rdfSession *bridgego.RDFSession, limit int) *map[string]i
 		log.Printf("while call findAll on rdfSession: %v", err)
 		return nil
 	}
-	defer ctor.ReleaseIterator()
+	defer ctor.Done()
 	resultRows := make([][]interface{}, 0, limit)
 
 	sz := 0
-	for !ctor.IsEnd() && sz < limit {
-		o := ctor.GetObject()
+	for t3 := range ctor.Itor {
+		if sz >= limit {
+			break
+		}
+		o := t3[2]
 		flatRow := []interface{}{
-			ctor.GetSubject().AsTextSilent(),
-			ctor.GetPredicate().AsTextSilent(),
-			o.AsTextSilent(),
+			t3[0].String(),
+			t3[1].String(),
+			o.String(),
 			o.GetTypeName(),
 		}
 		resultRows = append(resultRows, flatRow)
-		ctor.Next()
 		sz += 1
 	}
 	sort.Slice(resultRows, func(i, j int) bool {
@@ -97,22 +99,21 @@ func RDFSessionAsTableV2(rdfSession *bridgego.RDFSession, js *bridgego.JetStore)
 	if err != nil {
 		return nil, fmt.Errorf("while calling Find(nil, ri.rdf__type, nil) on rdfSession: %v", err)
 	}
-	for !ctor.IsEnd() {
-		entity := ctor.GetSubject()
-		entityName, _ := entity.AsText()
+	for t3 := range ctor.Itor {
+		entity := t3[0]
+		entityName := entity.String()
 
-		rdfType, _ := ctor.GetObject().AsText()
+		rdfType := t3[2].String()
 		rdfTypeSet[rdfType] = true
-		entitySet[entityName] = entity
+		entitySet[entityName] = bridgego.NewResource(entity)
 		entities := entityKeyByType[rdfType]
 		if entities == nil {
 			entities = &[][]string{}
 			entityKeyByType[rdfType] = entities
 		}
 		*entities = append(*entities, []string{entityName})
-		ctor.Next()
 	}
-	ctor.ReleaseIterator()
+	ctor.Done()
 
 	// Now create the entity_details_by_key: Map[jets:key]*[][]string
 	entityDetailsByKey := make(map[string]*[][]string)
@@ -121,19 +122,18 @@ func RDFSessionAsTableV2(rdfSession *bridgego.RDFSession, js *bridgego.JetStore)
 		if err != nil {
 			return nil, fmt.Errorf("while calling Find_s(entity) on rdfSession: %v", err)
 		}
-		for !ctor.IsEnd() {
-			propertyName, _ := ctor.GetPredicate().AsText()
-			value := ctor.GetObject()
+		for t3 := range ctor.Itor {
+			propertyName := t3[1].String()
+			value := t3[2]
 			valueType := value.GetTypeName()
 			model := entityDetailsByKey[entityKey]
 			if model == nil {
 				model = &[][]string{}
 				entityDetailsByKey[entityKey] = model
 			}
-			*model = append(*model, []string{propertyName, value.AsTextSilent(), valueType})
-			ctor.Next()
+			*model = append(*model, []string{propertyName, value.String(), valueType})
 		}
-		ctor.ReleaseIterator()
+		ctor.Done()
 	}
 
 	// Put all the results in the output map

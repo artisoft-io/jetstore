@@ -100,6 +100,7 @@ func (rs *ReteSession) Initialize(ms *ReteMetaStore) {
 	for i := range ms.NodeVertices {
 		nodeVertex := ms.NodeVertices[i]
 		if nodeVertex.HasExpression() {
+			// log.Printf("Set Callbacks for vertex %d with filter",  nodeVertex.Vertex)
 			nodeVertex.FilterExpr.RegisterCallback(rs, nodeVertex.Vertex)
 		}
 	}

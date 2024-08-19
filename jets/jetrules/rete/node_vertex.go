@@ -33,6 +33,13 @@ func NewNodeVertex(vertex int, parent *NodeVertex, isNeg bool, salience int,
 	}
 }
 
+func (node *NodeVertex) String() string {
+	if node.IsHead() {
+		return "head_node (*, *, *)"
+	}
+	return node.NormalizedLabel
+}
+
 func (node *NodeVertex) IsHead() bool {
 	return node.Vertex == 0
 }

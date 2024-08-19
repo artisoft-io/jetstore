@@ -34,7 +34,30 @@ func TestReteMetaStoreFactory(t *testing.T) {
 	// rm := rdfSession.ResourceMgr
 	reteSession := NewReteSession(rdfSession)
 	reteSession.Initialize(reteMetaStore)
-	if reteSession.maxVertexVisits != 150 {
-		t.Error("Expecting max_looping = 150")
+	if reteSession.maxVertexVisits != 12 {
+		t.Errorf("Expecting max_looping = 12, got %d", reteSession.maxVertexVisits)
+	}
+	for i, alphaNode := range reteMetaStore.AlphaNodes {
+		switch {
+		case alphaNode == nil:
+			t.Errorf("Got nil alphanode @ %d", i)
+		case alphaNode.NdVertex == nil:
+			t.Errorf("Got nil alphanode.NdVertex @ %d", i)
+		default:
+			var tp string
+			switch {
+			case alphaNode.NdVertex.IsHead():
+				tp = "head_node"
+			case alphaNode.IsAntecedent:
+				tp = "antecedent"
+			default:
+				tp = "consequent"
+			}
+			vertex := 0
+			if alphaNode.NdVertex != nil {
+				vertex = alphaNode.NdVertex.Vertex
+			}
+			t.Errorf("AlphaNode %d, %s %s vertex %d", i, tp, alphaNode.NormalizedLabel, vertex)
+		}
 	}
 }

@@ -1,6 +1,8 @@
 package rete
 
-import "github.com/artisoft-io/jetstore/jets/jetrules/rdf"
+import (
+	"github.com/artisoft-io/jetstore/jets/jetrules/rdf"
+)
 
 // This file contains the types for rule expression.
 // Expression are used as:
@@ -102,6 +104,7 @@ func NewExprBinaryOp(lhs Expression, op BinaryOperator, rhs Expression) Expressi
 }
 
 func (expr *ExprBinaryOp) RegisterCallback(reteSession *ReteSession, vertex int) error {
+
 	// Propagate the RegisterCallback
 	expr.lhs.RegisterCallback(reteSession, vertex)
 	expr.rhs.RegisterCallback(reteSession, vertex)
@@ -109,7 +112,10 @@ func (expr *ExprBinaryOp) RegisterCallback(reteSession *ReteSession, vertex int)
 	// perform StaticEval for calling RegisterCallback on the operator
 	lhs := expr.lhs.StaticEval(reteSession)
 	rhs := expr.rhs.StaticEval(reteSession)
-	return expr.op.RegisterCallback(reteSession, vertex, lhs, rhs)
+	err := expr.op.RegisterCallback(reteSession, vertex, lhs, rhs)
+	// //**
+	// log.Printf("RegisterCallback for binary operator %v, vertex %d, err: %v", expr.op, vertex, err)
+	return err
 }
 
 func (expr *ExprBinaryOp) Eval(reteSession *ReteSession, row *BetaRow) *rdf.Node {
@@ -143,7 +149,10 @@ func (expr *ExprUnaryOp) RegisterCallback(reteSession *ReteSession, vertex int) 
 
 	// perform StaticEval for calling RegisterCallback on the operator
 	rhs := expr.rhs.StaticEval(reteSession)
-	return expr.op.RegisterCallback(reteSession, vertex, rhs)
+	err := expr.op.RegisterCallback(reteSession, vertex, rhs)
+	// //**
+	// log.Printf("RegisterCallback for unary operator %v, vertex %d, err: %v", expr.op, vertex, err)
+	return err
 }
 
 func (expr *ExprUnaryOp) Eval(reteSession *ReteSession, row *BetaRow) *rdf.Node {

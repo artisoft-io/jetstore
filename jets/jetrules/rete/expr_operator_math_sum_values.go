@@ -7,7 +7,7 @@ import (
 	"github.com/artisoft-io/jetstore/jets/jetrules/rdf"
 )
 
-// Max operator - with truth maintenance
+// SUM_VALUES operator - with truth maintenance
 type SumValuesOp struct {
 	objProperty  *rdf.Node
 	dataProperty *rdf.Node
@@ -48,6 +48,9 @@ func (op *SumValuesOp) RegisterCallback(reteSession *ReteSession, vertex int, lh
 	rdfSession.AssertedGraph.CallbackMgr.AddCallback(cb)
 	rdfSession.InferredGraph.CallbackMgr.AddCallback(cb)
 	return nil
+}
+func (op *SumValuesOp) String() string {
+	return fmt.Sprintf("sum_values of %s with %s",op.objProperty, op.dataProperty)
 }
 
 // Apply the visitor to find:

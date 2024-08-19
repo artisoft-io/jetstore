@@ -49,6 +49,7 @@ func (rs *RdfSession) ContainsSP(s, p *Node) bool {
 
 func (rs *RdfSession) GetObject(s, p *Node) *Node {
 	itor := rs.MetaGraph.FindSP(s, p)
+	defer itor.Done()
 	t3 := <- itor.Itor
 	return t3[2]
 }
@@ -120,5 +121,7 @@ func (g *RdfSession) FindSP(s, p *Node) *RdfSessionIterator {
 }
 
 func (g *RdfSession) FindSPO(s, p, o *Node) *RdfSessionIterator {
+	//**
+	log.Printf("RdfSession.FindSPO(%s, %s, %s)", s, p, o)
 	return NewRdfSessionIterator(g.MetaGraph.FindSPO(s, p, o), g.AssertedGraph.FindSPO(s, p, o), g.InferredGraph.FindSPO(s, p, o))
 }

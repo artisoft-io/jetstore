@@ -27,6 +27,12 @@ func (op *ExistOp) RegisterCallback(reteSession *ReteSession, vertex int, lhs, r
 	rdfSession.InferredGraph.CallbackMgr.AddCallback(cb)
 	return nil
 }
+func (op *ExistOp) String() string {
+	if op.isExistNot {
+		return "exist_not"
+	}
+	return "exist"
+}
 
 // Apply the operator:
 //		lhs exist rhs     (case op.isExistNot is false)

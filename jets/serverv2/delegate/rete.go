@@ -265,14 +265,14 @@ func (rw *ReteWorkspace) ExecuteRules(
 		}
 
 		// Get the jets:exception(s)
-		ctor, err := rdfSession.Find(ri.jets__istate, ri.jets__exception, nil)
+		ctor, err := rdfSession.Find_sp(ri.jets__istate, ri.jets__exception)
 		if err != nil {
 			log.Printf("while finding all jets:exception in rdf graph: %v", err)
 		} else {
-			for !ctor.IsEnd() {
-				hasException := ctor.GetObject()
+			for t3 := range ctor.Itor {
+				hasException := t3[2]
 				if hasException != nil {
-					txt, _ := hasException.AsText()
+					txt := hasException.String()
 					br := NewBadRow()
 					br.GroupingKey = sql.NullString{String: inBundle.groupingValue, Valid: true}
 					br.ErrorMessage = sql.NullString{String: txt, Valid: true}
@@ -296,9 +296,8 @@ func (rw *ReteWorkspace) ExecuteRules(
 					}
 					br.write2Chan(writeOutputc["jetsapi.process_errors"][0])
 				}
-				ctor.Next()
 			}
-			ctor.ReleaseIterator()
+			ctor.Done()
 		}
 
 		// pulling the data out of the rete session
@@ -312,8 +311,10 @@ func (rw *ReteWorkspace) ExecuteRules(
 			if err != nil {
 				return &result, fmt.Errorf("while finding all entities of type %s: %v", tableSpec.ClassName, err)
 			}
-			for !ctor.IsEnd() {
-				subject := ctor.GetSubject()
+			for t3 := range ctor.Itor {
+				subject := t3[0]
+				//**
+				log.Println("Extracting subject:", subject.String())
 
 				// Check if subject is an entity for the current source period
 				// i.e. is not an historical entity comming from the lookback period
@@ -324,7 +325,7 @@ func (rw *ReteWorkspace) ExecuteRules(
 				// as rdf:type to ensure it's a mapped entity and not an injected entity.
 				// Note: Do not save the jets:InputEntity marker type
 				keepObj := true
-				obj, err := rdfSession.GetObject(subject, ri.jets__source_period_sequence)
+				obj, err := rdfSession.GetObject(bridgego.NewResource(subject), ri.jets__source_period_sequence)
 				if err != nil {
 					return &result, fmt.Errorf("while getting obj for predicate jets:source_period_sequence of an entity of type %s: %v", tableSpec.ClassName, err)
 				}
@@ -335,7 +336,7 @@ func (rw *ReteWorkspace) ExecuteRules(
 					}
 					if v == 0 {
 						// Check if obj has marker type jets:InputRecord, if not don't extract obj
-						isInputRecord, err := rdfSession.Contains(subject, ri.rdf__type, ri.jets__input_record)
+						isInputRecord, err := rdfSession.Contains(bridgego.NewResource(subject), ri.rdf__type, ri.jets__input_record)
 						if err != nil {
 							return &result, fmt.Errorf("while checking if entity has marker class jets:InputRecord for an entity of type %s: %v", tableSpec.ClassName, err)
 						}
@@ -377,18 +378,15 @@ func (rw *ReteWorkspace) ExecuteRules(
 
 						default:
 							var data []interface{}
-							itor, err := rdfSession.Find_sp(subject, domainColumn.Predicate)
+							itor, err := rdfSession.Find_sp(bridgego.NewResource(subject), domainColumn.Predicate)
 							if err != nil {
 								return &result, fmt.Errorf("while finding triples of an entity of type %s: %v", tableSpec.ClassName, err)
 							}
-							for !itor.IsEnd() {
-								obj, err := itor.GetObject().AsInterface(schema.ToPgType(domainColumn.DataType))
+							for t3 := range itor.Itor {
+								obj, err := bridgego.NewResource(t3[2]).AsInterface(schema.ToPgType(domainColumn.DataType))
 								if err != nil {
 									br := NewBadRow()
-									rowkey, err2 := subject.GetName()
-									if err2 == nil {
-										br.RowJetsKey = sql.NullString{String: rowkey, Valid: true}
-									}
+									br.RowJetsKey = sql.NullString{String: subject.Name(), Valid: true}
 									br.GroupingKey = sql.NullString{String: inBundle.groupingValue, Valid: true}
 									br.ErrorMessage = sql.NullString{
 										String: fmt.Sprintf("error while getting value from graph for column %s: %v", domainColumn.ColumnName, err),
@@ -400,7 +398,6 @@ func (rw *ReteWorkspace) ExecuteRules(
 										data = append(data, obj)
 									}
 								}
-								itor.Next()
 							}
 							switch {
 							// Use array as value
@@ -442,10 +439,7 @@ func (rw *ReteWorkspace) ExecuteRules(
 							default:
 								// Invalid row, multiple values for a functional property
 								br := NewBadRow()
-								rowkey, err := subject.GetName()
-								if err == nil {
-									br.RowJetsKey = sql.NullString{String: rowkey, Valid: true}
-								}
+								br.RowJetsKey = sql.NullString{String: subject.Name(), Valid: true}
 								br.GroupingKey = sql.NullString{String: inBundle.groupingValue, Valid: true}
 								br.ErrorMessage = sql.NullString{
 									String: fmt.Sprintf("error getting multiple values from graph for functional column %s", domainColumn.ColumnName),
@@ -453,7 +447,7 @@ func (rw *ReteWorkspace) ExecuteRules(
 								log.Println("BAD EXTRACT:", br)
 								br.write2Chan(writeOutputc["jetsapi.process_errors"][0])
 							}
-							itor.ReleaseIterator()
+							itor.Done()
 						}
 					}
 					// entityRow is complete
@@ -461,9 +455,11 @@ func (rw *ReteWorkspace) ExecuteRules(
 					// writeOutputc[tableName][compute_node_id_from_shard_id(shard)] <- entityRow
 					writeOutputc[tableName][0] <- entityRow
 				}
-				ctor.Next()
 			}
-			ctor.ReleaseIterator()
+			ctor.Done()
+			//**
+			log.Println("Done Extracting class:", tableSpec.ClassName)
+
 		}
 		result.ExecuteRulesCount += 1
 		rdfSession.ReleaseRDFSession()

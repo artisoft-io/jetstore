@@ -10,6 +10,7 @@ import (
 )
 
 func (rs *ReteSession) ExecuteRules() (err error) {
+	log.Println("Entering ReteSession.ExecuteRules")
 
 	defer func() {
 		if r := recover(); r != nil {
@@ -52,11 +53,14 @@ func (s *IntStack) Pop() int {
 }
 
 func (rs *ReteSession) VisitReteGraph(fromVertex int, isInferring bool) error {
+	log.Println("Entering ReteSession.VisitReteGraph @ vertex",fromVertex)
 	stack := NewIntStack(rs.ms.NbrVertices())
 	stack.Push(fromVertex)
+	idebug := 0
 	for {
 		if stack.Len() == 0 {
 			// Main exit point
+			log.Println("Exiting ReteSession.VisitReteGraph @ vertex",fromVertex)
 			return nil
 		}
 		parentVertex := stack.Pop()
@@ -65,6 +69,8 @@ func (rs *ReteSession) VisitReteGraph(fromVertex int, isInferring bool) error {
 		if parentBetaRelation == nil {
 			return fmt.Errorf("error: got nil parentBetaRelation at vertex %d (VisitReteGraph)", parentVertex)
 		}
+		//**
+		log.Printf("Pop parent vertex %d, stack len is %d", parentVertex, stack.Len())
 
 		var itor BetaRowIterator
 		var allParentBetaRowItor BetaRowIterator
@@ -90,12 +96,16 @@ func (rs *ReteSession) VisitReteGraph(fromVertex int, isInferring bool) error {
 
 			// Get an iterator over all applicable rows from the parent beta node
 			if !childBetaRelation.IsActivated {
+				//**
+				log.Printf("VisitReteGraph @ <%d|%d> all rows", parentVertex, childVertex)
 				// Need all rows
 				if allParentBetaRowItor == nil {
 					allParentBetaRowItor = NewBetaRowSetIterator(parentBetaRelation.AllRows)
 				}
 				itor = allParentBetaRowItor
 			} else {
+				//**
+				log.Printf("VisitReteGraph @ <%d|%d> pending rows only", parentVertex, childVertex)
 				itor = pendingParentBetaRowItor
 			}
 			itor.Reset()
@@ -115,8 +125,12 @@ func (rs *ReteSession) VisitReteGraph(fromVertex int, isInferring bool) error {
 					select {
 					case <-t3Itor.Itor:
 						// Got a triple, condition not met since it's a negation
+						//**
+						log.Println("Got a triple, condition not met since it's a negation")
 					default:
 						// Got no triples, condition met; create the beta row
+						//**
+						log.Println("Got no triples, condition met; create the beta row")
 						childBetaRow := NewBetaRow(childAlphaNode.NdVertex, betaRowInitializer.RowSize())
 						// initialize the beta row with parent_row and place holder for t3
 						t3 := rdf.NilTriple()
@@ -144,6 +158,8 @@ func (rs *ReteSession) VisitReteGraph(fromVertex int, isInferring bool) error {
 				} else {
 					// for each t3Itor.Itor create the beta row, keep it if pass filter, add/remove row when infer/retract
 					for t3 := range t3Itor.Itor {
+						//**
+						log.Printf("Got triple (%s, %s, %s)", t3[0], t3[1], t3[2])
 						// Create the beta row
 						childBetaRow := NewBetaRow(childAlphaNode.NdVertex, betaRowInitializer.RowSize())
 						// initialize the beta row with parent_row and t3
@@ -172,6 +188,12 @@ func (rs *ReteSession) VisitReteGraph(fromVertex int, isInferring bool) error {
 			// Mark current beta node as activated (if was not already) and push it on the stack so to visit it's childrens
 			childBetaRelation.IsActivated = true
 			stack.Push(childVertex)
+			//**
+			idebug += 1
+			log.Printf("Pushed child vertex %d, stack len is now %d", childVertex, stack.Len())
+			if idebug == 200 {
+				log.Panic("That's enough!")
+			}
 		}
 		// Clear the pending rows of parent node since we propagated to all it's children
 		parentBetaRelation.ClearPendingRows()

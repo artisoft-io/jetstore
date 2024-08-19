@@ -39,6 +39,9 @@ func (op *SortedHeadOp) RegisterCallback(reteSession *ReteSession, vertex int, l
 	}
 	return op.minMaxOp.RegisterCallback(reteSession, vertex, lhs, rhs)
 }
+func (op *SortedHeadOp) String() string {
+	return "sorted_head (depricated)"
+}
 
 // Delegate to MinMaxOp
 func (op *SortedHeadOp) Eval(reteSession *ReteSession, row *BetaRow, lhs, rhs *rdf.Node) *rdf.Node {

@@ -136,7 +136,7 @@ func (factory *ReteMetaStoreFactory) initialize() error {
 			JetruleModel:    jrModel,
 			JetStoreConfig:  &jrModel.JetstoreConfig,
 			AlphaNodes:      make([]*AlphaNode, 0),
-			NodeVertices:    []*NodeVertex{NewNodeVertex(0, nil, false, 0, nil, "(* * *)", nil)},
+			NodeVertices:    make([]*NodeVertex, 0),
 		}
 		metaStore, err := builderContext.BuildReteMetaStore()
 		if err != nil {
@@ -162,12 +162,14 @@ func (ctx *ReteBuilderContext) BuildReteMetaStore() (*ReteMetaStore, error) {
 
 	// Sort the antecedent terms from the consequent terms
 	for i := range ctx.JetruleModel.ReteNodes {
-		reteNode := ctx.JetruleModel.ReteNodes[i]
+		reteNode := &ctx.JetruleModel.ReteNodes[i]
 		switch reteNode.Type {
 		case "antecedent":
-			ctx.JetruleModel.Antecedents = append(ctx.JetruleModel.Antecedents, &reteNode)
+			ctx.JetruleModel.Antecedents = append(ctx.JetruleModel.Antecedents, reteNode)
 		case "consequent":
-			ctx.JetruleModel.Consequents = append(ctx.JetruleModel.Consequents, &reteNode)
+			ctx.JetruleModel.Consequents = append(ctx.JetruleModel.Consequents, reteNode)
+		case "head_node":
+			ctx.JetruleModel.HeadRuleTerm = reteNode
 		}
 	}
 	// Load all NodeVertex
@@ -178,8 +180,7 @@ func (ctx *ReteBuilderContext) BuildReteMetaStore() (*ReteMetaStore, error) {
 
 	// Load the alpha nodes
 	// Initialize the network with the root node
-	rootAlphaNode := NewRootAlphaNode()
-	ctx.AlphaNodes = append(ctx.AlphaNodes, rootAlphaNode)
+	ctx.AlphaNodes = append(ctx.AlphaNodes, NewRootAlphaNode(ctx.NodeVertices[0]))
 	for _, ruleTerm := range ctx.JetruleModel.Antecedents {
 		var u, v, w AlphaFunctor
 		var expr Expression
@@ -232,8 +233,44 @@ func (ctx *ReteBuilderContext) BuildReteMetaStore() (*ReteMetaStore, error) {
 			NewAlphaNode(u, v, w, ctx.NodeVertices[ruleTerm.Vertex], false, ruleTerm.NormalizedLabel))
 	}
 
+	// Initialize routine perform important connection between the
+	// metadata entities, such as reverse lookup of the consequent terms
+	// and children lookup for each NodeVertex.
+
+	// Perform reverse lookup of NodeVertex to their child AlphaNode
+	// (which are neccessarily antecedent terms)
+	for _, node := range ctx.AlphaNodes {
+		if node.IsAntecedent {
+			node.NdVertex.ParentNodeVertex.AddChildAlphaNode(node)
+		} else {
+			if node.NdVertex.Vertex > 0 {
+				// Done with antecedent terms
+				break
+			}
+		}
+	}
+
+	// Assign consequent terms vertex (AlphaNode) to NodeVertex
+	// and validate that alpha nodes
+	nbrVertices := len(ctx.NodeVertices)
+	for ipos, alphaNode := range ctx.AlphaNodes {
+		switch {
+		case ipos == 0 && alphaNode.IsHeadNode:
+			// pass
+		case ipos > 0 && ipos < nbrVertices && alphaNode.IsAntecedent:
+			// pass
+		case ipos >= nbrVertices && alphaNode.IsConsequent:
+			alphaNode.NdVertex.AddConsequentTerm(alphaNode)
+		default:
+			// something is wrong
+			err = fmt.Errorf("NewReteMetaStore: AlphaNode at position %d, with vertex %d fails validation",
+				ipos, alphaNode.NdVertex.Vertex)
+			return nil, err
+		}
+	}
+
 	// Create & initialize the ReteMetaStore
-	return NewReteMetaStore(ctx.ResourceMgr, ctx.MetaGraph, ctx.LookupTables, 
+	return NewReteMetaStore(ctx.ResourceMgr, ctx.MetaGraph, ctx.LookupTables,
 		ctx.AlphaNodes, ctx.NodeVertices, ctx.JetStoreConfig)
 }
 
@@ -342,12 +379,16 @@ func (ctx *ReteBuilderContext) loadResources() error {
 }
 
 func (ctx *ReteBuilderContext) loadNodeVertices() error {
-	// Load all NodeVertex
+	// Load all NodeVertex from RuleTerms
 	// Ensure the Antecedents are sorted by vertex so to create NodeVertex recursively
 	l := &ctx.JetruleModel.Antecedents
 	sort.Slice(*l, func(i, j int) bool { return (*l)[i].Vertex < (*l)[j].Vertex })
+
+	// Initialize the slice of *NodeVertex with the root node
+	ctx.NodeVertices = append(ctx.NodeVertices, NewNodeVertex(0, nil, false, 0, nil, "(* * *)", nil))
+
 	for i := range ctx.JetruleModel.Antecedents {
-		reteNode := ctx.JetruleModel.ReteNodes[i]
+		reteNode := ctx.JetruleModel.Antecedents[i]
 
 		// Make the BetaRowInitializer
 		sz := len(reteNode.BetaVarNodes)
@@ -373,10 +414,7 @@ func (ctx *ReteBuilderContext) loadNodeVertices() error {
 		if reteNode.ParentVertex >= len(ctx.NodeVertices) {
 			return fmt.Errorf("bug: something is wrong, parent vertex >= vertex at vertex %d", reteNode.Vertex)
 		}
-		var parent *NodeVertex
-		if reteNode.Vertex > 0 {
-			parent = ctx.NodeVertices[reteNode.ParentVertex]
-		}
+		parent := ctx.NodeVertices[reteNode.ParentVertex]
 		salience := 100
 		if len(reteNode.Salience) > 0 {
 			salience = slices.Min(reteNode.Salience)
