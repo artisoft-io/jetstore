@@ -1,0 +1,10 @@
+# Data Model for Test Lookup UC
+
+class tl:Patient {
+  $base_classes = [jets:Entity],
+  $data_properties = [
+    tl:condition              as text,
+    tl:diagnosis              as text
+  ],
+  $as_table = true
+};
