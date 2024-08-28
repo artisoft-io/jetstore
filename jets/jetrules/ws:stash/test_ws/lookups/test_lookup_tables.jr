@@ -1,0 +1,11 @@
+# Lookup Table Definition for Test Lookup UC
+
+lookup_table TestLookup {
+  $csv_file = "lookups/test_lookup_data.csv",
+  # Lookup key
+  $key = ["DIAGNOSIS"],
+  # Value columns, corresponding resource automatically created
+  $columns = [
+    "CONDITION"          as text
+  ]
+};

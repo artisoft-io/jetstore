@@ -1,0 +1,2118 @@
+{
+    "resources": [
+        {
+            "type": "text",
+            "id": "jets:MONTHLY_PERIOD",
+            "value": "month_period",
+            "source_file_name": "data_model/jets_model.jr",
+            "key": 0,
+            "db_key": 82
+        },
+        {
+            "type": "text",
+            "id": "jets:WEEKLY_PERIOD",
+            "value": "week_period",
+            "source_file_name": "data_model/jets_model.jr",
+            "key": 1,
+            "db_key": 83
+        },
+        {
+            "type": "text",
+            "id": "jets:DAYLY_PERIOD",
+            "value": "day_period",
+            "source_file_name": "data_model/jets_model.jr",
+            "key": 2,
+            "db_key": 84
+        },
+        {
+            "type": "resource",
+            "id": "jets:iState",
+            "value": "jets:iState",
+            "source_file_name": "data_model/jets_model.jr",
+            "source_fname": "predefined",
+            "key": 3,
+            "db_key": 85
+        },
+        {
+            "type": "volatile_resource",
+            "id": "hasConditionLookup",
+            "value": "hasConditionLookup",
+            "source_file_name": "jet_rules/test_lookup_main.jr",
+            "key": 4,
+            "db_key": 86
+        },
+        {
+            "type": "volatile_resource",
+            "id": "gate1",
+            "value": "gate1",
+            "source_file_name": "jet_rules/test_lookup_main.jr",
+            "key": 5,
+            "db_key": 87
+        },
+        {
+            "type": "volatile_resource",
+            "id": "gate2",
+            "value": "gate2",
+            "source_file_name": "jet_rules/test_lookup_main.jr",
+            "key": 6,
+            "db_key": 88
+        },
+        {
+            "id": "jets:Entity",
+            "type": "resource",
+            "value": "jets:Entity",
+            "source_file_name": "data_model/test_lookup_model.jr",
+            "key": 7,
+            "db_key": 89
+        },
+        {
+            "id": "owl:Thing",
+            "type": "resource",
+            "value": "owl:Thing",
+            "source_file_name": "predefined",
+            "key": 8,
+            "db_key": 75
+        },
+        {
+            "id": "jets:client",
+            "type": "resource",
+            "value": "jets:client",
+            "source_file_name": "data_model/jets_model.jr",
+            "key": 9,
+            "db_key": 90
+        },
+        {
+            "id": "jets:key",
+            "type": "resource",
+            "value": "jets:key",
+            "source_file_name": "predefined",
+            "key": 10,
+            "db_key": 56
+        },
+        {
+            "id": "jets:org",
+            "type": "resource",
+            "value": "jets:org",
+            "source_file_name": "data_model/jets_model.jr",
+            "key": 11,
+            "db_key": 91
+        },
+        {
+            "id": "jets:ruleTag",
+            "type": "resource",
+            "value": "jets:ruleTag",
+            "source_file_name": "data_model/jets_model.jr",
+            "key": 12,
+            "db_key": 92
+        },
+        {
+            "id": "rdf:type",
+            "type": "resource",
+            "value": "rdf:type",
+            "source_file_name": "predefined",
+            "key": 13,
+            "db_key": 46
+        },
+        {
+            "id": "jets:InputRecord",
+            "type": "resource",
+            "value": "jets:InputRecord",
+            "source_file_name": "data_model/jets_model.jr",
+            "key": 14,
+            "db_key": 93
+        },
+        {
+            "id": "jets:State",
+            "type": "resource",
+            "value": "jets:State",
+            "source_file_name": "predefined",
+            "key": 15,
+            "db_key": 51
+        },
+        {
+            "id": "jets:completed",
+            "type": "resource",
+            "value": "jets:completed",
+            "source_file_name": "predefined",
+            "key": 16,
+            "db_key": 43
+        },
+        {
+            "id": "jets:currentSourcePeriod",
+            "type": "resource",
+            "value": "jets:currentSourcePeriod",
+            "source_file_name": "data_model/jets_model.jr",
+            "key": 17,
+            "db_key": 94
+        },
+        {
+            "id": "jets:currentSourcePeriodDate",
+            "type": "resource",
+            "value": "jets:currentSourcePeriodDate",
+            "source_file_name": "data_model/jets_model.jr",
+            "key": 18,
+            "db_key": 95
+        },
+        {
+            "id": "jets:exception",
+            "type": "resource",
+            "value": "jets:exception",
+            "source_file_name": "predefined",
+            "key": 19,
+            "db_key": 6
+        },
+        {
+            "id": "jets:from",
+            "type": "resource",
+            "value": "jets:from",
+            "source_file_name": "data_model/jets_model.jr",
+            "key": 20,
+            "db_key": 96
+        },
+        {
+            "id": "jets:length",
+            "type": "resource",
+            "value": "jets:length",
+            "source_file_name": "data_model/jets_model.jr",
+            "key": 21,
+            "db_key": 97
+        },
+        {
+            "id": "jets:loop",
+            "type": "resource",
+            "value": "jets:loop",
+            "source_file_name": "predefined",
+            "key": 22,
+            "db_key": 0
+        },
+        {
+            "id": "jets:max_vertex_visits",
+            "type": "resource",
+            "value": "jets:max_vertex_visits",
+            "source_file_name": "data_model/jets_model.jr",
+            "key": 23,
+            "db_key": 98
+        },
+        {
+            "id": "jets:range_value",
+            "type": "resource",
+            "value": "jets:range_value",
+            "source_file_name": "data_model/jets_model.jr",
+            "key": 24,
+            "db_key": 99
+        },
+        {
+            "id": "jets:replace_chars",
+            "type": "resource",
+            "value": "jets:replace_chars",
+            "source_file_name": "data_model/jets_model.jr",
+            "key": 25,
+            "db_key": 100
+        },
+        {
+            "id": "jets:replace_with",
+            "type": "resource",
+            "value": "jets:replace_with",
+            "source_file_name": "data_model/jets_model.jr",
+            "key": 26,
+            "db_key": 101
+        },
+        {
+            "id": "jets:sourcePeriodType",
+            "type": "resource",
+            "value": "jets:sourcePeriodType",
+            "source_file_name": "data_model/jets_model.jr",
+            "key": 27,
+            "db_key": 102
+        },
+        {
+            "id": "tl:Patient",
+            "type": "resource",
+            "value": "tl:Patient",
+            "source_file_name": "data_model/test_lookup_model.jr",
+            "key": 28,
+            "db_key": 103
+        },
+        {
+            "id": "tl:condition",
+            "type": "resource",
+            "value": "tl:condition",
+            "source_file_name": "data_model/test_lookup_model.jr",
+            "key": 29,
+            "db_key": 104
+        },
+        {
+            "id": "tl:diagnosis",
+            "type": "resource",
+            "value": "tl:diagnosis",
+            "source_file_name": "data_model/test_lookup_model.jr",
+            "key": 30,
+            "db_key": 105
+        },
+        {
+            "id": "TestLookup",
+            "type": "resource",
+            "value": "TestLookup",
+            "source_file_name": "lookups/test_lookup_tables.jr",
+            "key": 31,
+            "db_key": 106
+        },
+        {
+            "id": "CONDITION",
+            "type": "resource",
+            "value": "CONDITION",
+            "source_file_name": "lookups/test_lookup_tables.jr",
+            "key": 32,
+            "db_key": 107
+        },
+        {
+            "type": "var",
+            "id": "?x1",
+            "is_binded": false,
+            "var_pos": 0,
+            "vertex": 1,
+            "key": 33,
+            "source_file_name": "jet_rules/test_lookup_main.jr",
+            "db_key": 108
+        },
+        {
+            "type": "var",
+            "id": "?x1",
+            "is_binded": true,
+            "vertex": 2,
+            "is_antecedent": true,
+            "var_pos": 0,
+            "key": 34,
+            "source_file_name": "jet_rules/test_lookup_main.jr",
+            "db_key": 109
+        },
+        {
+            "type": "var",
+            "id": "?x2",
+            "is_binded": false,
+            "var_pos": 2,
+            "vertex": 2,
+            "key": 35,
+            "source_file_name": "jet_rules/test_lookup_main.jr",
+            "db_key": 110
+        },
+        {
+            "type": "var",
+            "id": "?x1",
+            "is_binded": true,
+            "vertex": 3,
+            "is_antecedent": true,
+            "var_pos": 0,
+            "key": 36,
+            "source_file_name": "jet_rules/test_lookup_main.jr",
+            "db_key": 111
+        },
+        {
+            "type": "keyword",
+            "value": "true",
+            "inline": true,
+            "key": 37,
+            "source_file_name": "jet_rules/test_lookup_main.jr",
+            "db_key": 112
+        },
+        {
+            "type": "var",
+            "id": "?x1",
+            "is_binded": true,
+            "vertex": 4,
+            "is_antecedent": true,
+            "var_pos": 0,
+            "key": 38,
+            "source_file_name": "jet_rules/test_lookup_main.jr",
+            "db_key": 113
+        },
+        {
+            "type": "keyword",
+            "value": "true",
+            "inline": true,
+            "key": 39,
+            "source_file_name": "jet_rules/test_lookup_main.jr",
+            "db_key": 114
+        },
+        {
+            "type": "var",
+            "id": "?x1",
+            "is_binded": true,
+            "vertex": 5,
+            "is_antecedent": true,
+            "var_pos": 0,
+            "key": 40,
+            "source_file_name": "jet_rules/test_lookup_main.jr",
+            "db_key": 115
+        },
+        {
+            "type": "var",
+            "id": "?x2",
+            "is_binded": false,
+            "var_pos": 2,
+            "vertex": 5,
+            "key": 41,
+            "source_file_name": "jet_rules/test_lookup_main.jr",
+            "db_key": 116
+        },
+        {
+            "type": "var",
+            "id": "?x2",
+            "is_binded": true,
+            "vertex": 6,
+            "is_antecedent": true,
+            "var_pos": 1,
+            "key": 42,
+            "source_file_name": "jet_rules/test_lookup_main.jr",
+            "db_key": 117
+        },
+        {
+            "type": "var",
+            "id": "?x3",
+            "is_binded": false,
+            "var_pos": 2,
+            "vertex": 6,
+            "key": 43,
+            "source_file_name": "jet_rules/test_lookup_main.jr",
+            "db_key": 118
+        },
+        {
+            "type": "var",
+            "id": "?x1",
+            "is_binded": false,
+            "var_pos": 0,
+            "vertex": 7,
+            "key": 44,
+            "source_file_name": "jet_rules/test_lookup_main.jr",
+            "db_key": 119
+        },
+        {
+            "type": "var",
+            "id": "?x1",
+            "is_binded": false,
+            "var_pos": 0,
+            "vertex": 8,
+            "key": 45,
+            "source_file_name": "jet_rules/test_lookup_main.jr",
+            "db_key": 120
+        },
+        {
+            "type": "var",
+            "id": "?x1",
+            "is_binded": false,
+            "var_pos": 0,
+            "vertex": 9,
+            "key": 46,
+            "source_file_name": "jet_rules/test_lookup_main.jr",
+            "db_key": 121
+        },
+        {
+            "type": "var",
+            "id": "?x1",
+            "is_binded": true,
+            "vertex": 1,
+            "is_antecedent": false,
+            "var_pos": 0,
+            "key": 47,
+            "source_file_name": "jet_rules/test_lookup_main.jr",
+            "db_key": 122
+        },
+        {
+            "type": "keyword",
+            "value": "true",
+            "inline": true,
+            "key": 48,
+            "source_file_name": "jet_rules/test_lookup_main.jr",
+            "db_key": 123
+        },
+        {
+            "type": "var",
+            "id": "?x1",
+            "is_binded": true,
+            "vertex": 1,
+            "is_antecedent": false,
+            "var_pos": 0,
+            "key": 49,
+            "source_file_name": "jet_rules/test_lookup_main.jr",
+            "db_key": 124
+        },
+        {
+            "type": "var",
+            "id": "?x1",
+            "is_binded": true,
+            "vertex": 2,
+            "is_antecedent": false,
+            "var_pos": 0,
+            "key": 50,
+            "source_file_name": "jet_rules/test_lookup_main.jr",
+            "db_key": 125
+        },
+        {
+            "type": "var",
+            "id": "?x2",
+            "is_binded": true,
+            "vertex": 2,
+            "is_antecedent": false,
+            "var_pos": 1,
+            "key": 51,
+            "source_file_name": "jet_rules/test_lookup_main.jr",
+            "db_key": 126
+        },
+        {
+            "type": "var",
+            "id": "?x1",
+            "is_binded": true,
+            "vertex": 3,
+            "is_antecedent": false,
+            "var_pos": 0,
+            "key": 52,
+            "source_file_name": "jet_rules/test_lookup_main.jr",
+            "db_key": 127
+        },
+        {
+            "type": "text",
+            "value": "diag1",
+            "inline": true,
+            "key": 53,
+            "source_file_name": "jet_rules/test_lookup_main.jr",
+            "db_key": 128
+        },
+        {
+            "type": "var",
+            "id": "?x1",
+            "is_binded": true,
+            "vertex": 4,
+            "is_antecedent": false,
+            "var_pos": 0,
+            "key": 54,
+            "source_file_name": "jet_rules/test_lookup_main.jr",
+            "db_key": 129
+        },
+        {
+            "type": "text",
+            "value": "diag2",
+            "inline": true,
+            "key": 55,
+            "source_file_name": "jet_rules/test_lookup_main.jr",
+            "db_key": 130
+        },
+        {
+            "type": "var",
+            "id": "?x1",
+            "is_binded": true,
+            "vertex": 4,
+            "is_antecedent": false,
+            "var_pos": 0,
+            "key": 56,
+            "source_file_name": "jet_rules/test_lookup_main.jr",
+            "db_key": 131
+        },
+        {
+            "type": "keyword",
+            "value": "true",
+            "inline": true,
+            "key": 57,
+            "source_file_name": "jet_rules/test_lookup_main.jr",
+            "db_key": 132
+        },
+        {
+            "type": "var",
+            "id": "?x1",
+            "is_binded": true,
+            "vertex": 6,
+            "is_antecedent": false,
+            "var_pos": 0,
+            "key": 58,
+            "source_file_name": "jet_rules/test_lookup_main.jr",
+            "db_key": 133
+        },
+        {
+            "type": "var",
+            "id": "?x3",
+            "is_binded": true,
+            "vertex": 6,
+            "is_antecedent": false,
+            "var_pos": 1,
+            "key": 59,
+            "source_file_name": "jet_rules/test_lookup_main.jr",
+            "db_key": 134
+        },
+        {
+            "type": "var",
+            "id": "?x1",
+            "is_binded": true,
+            "vertex": 7,
+            "is_antecedent": false,
+            "var_pos": 0,
+            "key": 60,
+            "source_file_name": "jet_rules/test_lookup_main.jr",
+            "db_key": 135
+        },
+        {
+            "type": "var",
+            "id": "?x1",
+            "is_binded": true,
+            "vertex": 8,
+            "is_antecedent": false,
+            "var_pos": 0,
+            "key": 61,
+            "source_file_name": "jet_rules/test_lookup_main.jr",
+            "db_key": 136
+        },
+        {
+            "type": "var",
+            "id": "?x1",
+            "is_binded": true,
+            "vertex": 9,
+            "is_antecedent": false,
+            "var_pos": 0,
+            "key": 62,
+            "source_file_name": "jet_rules/test_lookup_main.jr",
+            "db_key": 137
+        }
+    ],
+    "lookup_tables": [
+        {
+            "type": "lookup",
+            "name": "TestLookup",
+            "key": [
+                "DIAGNOSIS"
+            ],
+            "columns": [
+                {
+                    "name": "CONDITION",
+                    "type": "text",
+                    "as_array": false
+                }
+            ],
+            "csv_file": "lookups/test_lookup_data.csv",
+            "source_file_name": "lookups/test_lookup_tables.jr",
+            "resources": [
+                "CONDITION"
+            ],
+            "db_key": 0
+        }
+    ],
+    "jet_rules": [
+        {
+            "name": "rule1",
+            "properties": {},
+            "optimization": true,
+            "salience": 100,
+            "antecedents": [
+                {
+                    "type": "antecedent",
+                    "isNot": false,
+                    "normalizedLabel": "(?x1 rdf:type tl:Patient)",
+                    "vertex": 1,
+                    "parent_vertex": 0,
+                    "beta_relation_vars": [
+                        "?x1"
+                    ],
+                    "pruned_var": [],
+                    "beta_var_nodes": [
+                        {
+                            "type": "var",
+                            "id": "?x1",
+                            "is_binded": false,
+                            "var_pos": 0,
+                            "vertex": 1,
+                            "key": 33,
+                            "source_file_name": "jet_rules/test_lookup_main.jr",
+                            "db_key": 108
+                        }
+                    ],
+                    "children_vertexes": [
+                        2,
+                        3,
+                        4,
+                        5
+                    ],
+                    "rules": [
+                        "rule2",
+                        "tl:Patient:4"
+                    ],
+                    "salience": [
+                        100,
+                        100
+                    ],
+                    "subject_key": 33,
+                    "predicate_key": 13,
+                    "object_key": 28,
+                    "db_key": 1
+                },
+                {
+                    "type": "antecedent",
+                    "isNot": false,
+                    "normalizedLabel": "(?x1 tl:diagnosis ?x2)",
+                    "vertex": 2,
+                    "parent_vertex": 1,
+                    "beta_relation_vars": [
+                        "?x1",
+                        "?x2"
+                    ],
+                    "pruned_var": [],
+                    "beta_var_nodes": [
+                        {
+                            "type": "var",
+                            "id": "?x1",
+                            "is_binded": true,
+                            "var_pos": 0,
+                            "vertex": 2
+                        },
+                        {
+                            "type": "var",
+                            "id": "?x2",
+                            "is_binded": false,
+                            "var_pos": 2,
+                            "vertex": 2,
+                            "key": 35,
+                            "source_file_name": "jet_rules/test_lookup_main.jr",
+                            "db_key": 110
+                        }
+                    ],
+                    "children_vertexes": [],
+                    "rules": [
+                        "rule1"
+                    ],
+                    "salience": [
+                        100
+                    ],
+                    "subject_key": 34,
+                    "predicate_key": 30,
+                    "object_key": 35,
+                    "db_key": 2
+                }
+            ],
+            "consequents": [
+                {
+                    "type": "consequent",
+                    "normalizedLabel": "(?x1 hasConditionLookup TestLookup lookup ?x2)",
+                    "vertex": 2,
+                    "consequent_seq": 1,
+                    "consequent_for_rule": "rule1",
+                    "consequent_salience": 100,
+                    "subject_key": 50,
+                    "predicate_key": 4,
+                    "obj_expr": {
+                        "type": "binary",
+                        "lhs": 31,
+                        "op": "lookup",
+                        "rhs": 51,
+                        "arg0_key": 0,
+                        "arg1_key": 1
+                    },
+                    "obj_expr_key": 2,
+                    "db_key": 12
+                }
+            ],
+            "authoredLabel": "[rule1]:(?c1 rdf:type tl:Patient).(?c1 tl:diagnosis ?diag1) -> (?c1 hasConditionLookup TestLookup lookup ?diag1);",
+            "source_file_name": "jet_rules/test_lookup_main.jr",
+            "normalizedLabel": "[rule1]:(?x1 rdf:type tl:Patient).(?x1 tl:diagnosis ?x2) -> (?x1 hasConditionLookup TestLookup lookup ?x2);",
+            "label": "[rule1]:(?c1 rdf:type tl:Patient).(?c1 tl:diagnosis ?diag1) -> (?c1 hasConditionLookup TestLookup lookup ?diag1);",
+            "db_key": 0
+        },
+        {
+            "name": "rule2",
+            "properties": {},
+            "optimization": true,
+            "salience": 100,
+            "antecedents": [
+                {
+                    "type": "antecedent",
+                    "isNot": false,
+                    "normalizedLabel": "(?x1 rdf:type tl:Patient)",
+                    "vertex": 1,
+                    "parent_vertex": 0,
+                    "beta_relation_vars": [
+                        "?x1"
+                    ],
+                    "pruned_var": [],
+                    "beta_var_nodes": [
+                        {
+                            "type": "var",
+                            "id": "?x1",
+                            "is_binded": false,
+                            "var_pos": 0,
+                            "vertex": 1,
+                            "key": 33,
+                            "source_file_name": "jet_rules/test_lookup_main.jr",
+                            "db_key": 108
+                        }
+                    ],
+                    "children_vertexes": [
+                        2,
+                        3,
+                        4,
+                        5
+                    ],
+                    "rules": [
+                        "rule2",
+                        "tl:Patient:4"
+                    ],
+                    "salience": [
+                        100,
+                        100
+                    ],
+                    "subject_key": 33,
+                    "predicate_key": 13,
+                    "object_key": 28,
+                    "db_key": 1
+                }
+            ],
+            "consequents": [
+                {
+                    "type": "consequent",
+                    "normalizedLabel": "(?x1 gate1 true)",
+                    "vertex": 1,
+                    "consequent_seq": 1,
+                    "consequent_for_rule": "rule2",
+                    "consequent_salience": 100,
+                    "subject_key": 47,
+                    "predicate_key": 5,
+                    "object_key": 48,
+                    "db_key": 10
+                }
+            ],
+            "authoredLabel": "[rule2]:(?c1 rdf:type tl:Patient) -> (?c1 gate1 true);",
+            "source_file_name": "jet_rules/test_lookup_main.jr",
+            "normalizedLabel": "[rule2]:(?x1 rdf:type tl:Patient) -> (?x1 gate1 true);",
+            "label": "[rule2]:(?c1 rdf:type tl:Patient) -> (?c1 gate1 true);",
+            "db_key": 1
+        },
+        {
+            "name": "rule3",
+            "properties": {},
+            "optimization": true,
+            "salience": 100,
+            "antecedents": [
+                {
+                    "type": "antecedent",
+                    "isNot": false,
+                    "normalizedLabel": "(?x1 rdf:type tl:Patient)",
+                    "vertex": 1,
+                    "parent_vertex": 0,
+                    "beta_relation_vars": [
+                        "?x1"
+                    ],
+                    "pruned_var": [],
+                    "beta_var_nodes": [
+                        {
+                            "type": "var",
+                            "id": "?x1",
+                            "is_binded": false,
+                            "var_pos": 0,
+                            "vertex": 1,
+                            "key": 33,
+                            "source_file_name": "jet_rules/test_lookup_main.jr",
+                            "db_key": 108
+                        }
+                    ],
+                    "children_vertexes": [
+                        2,
+                        3,
+                        4,
+                        5
+                    ],
+                    "rules": [
+                        "rule2",
+                        "tl:Patient:4"
+                    ],
+                    "salience": [
+                        100,
+                        100
+                    ],
+                    "subject_key": 33,
+                    "predicate_key": 13,
+                    "object_key": 28,
+                    "db_key": 1
+                },
+                {
+                    "type": "antecedent",
+                    "isNot": true,
+                    "normalizedLabel": "not(?x1 gate2 true)",
+                    "vertex": 3,
+                    "parent_vertex": 1,
+                    "beta_relation_vars": [
+                        "?x1"
+                    ],
+                    "pruned_var": [],
+                    "beta_var_nodes": [
+                        {
+                            "type": "var",
+                            "id": "?x1",
+                            "is_binded": true,
+                            "var_pos": 0,
+                            "vertex": 3
+                        }
+                    ],
+                    "children_vertexes": [],
+                    "rules": [
+                        "rule3"
+                    ],
+                    "salience": [
+                        100
+                    ],
+                    "subject_key": 36,
+                    "predicate_key": 6,
+                    "object_key": 37,
+                    "db_key": 3
+                }
+            ],
+            "consequents": [
+                {
+                    "type": "consequent",
+                    "normalizedLabel": "(?x1 tl:diagnosis \"diag1\")",
+                    "vertex": 3,
+                    "consequent_seq": 1,
+                    "consequent_for_rule": "rule3",
+                    "consequent_salience": 100,
+                    "subject_key": 52,
+                    "predicate_key": 30,
+                    "object_key": 53,
+                    "db_key": 13
+                }
+            ],
+            "authoredLabel": "[rule3]:(?c1 rdf:type tl:Patient).not(?c1 gate2 true) -> (?c1 tl:diagnosis \"diag1\");",
+            "source_file_name": "jet_rules/test_lookup_main.jr",
+            "normalizedLabel": "[rule3]:(?x1 rdf:type tl:Patient).not(?x1 gate2 true) -> (?x1 tl:diagnosis \"diag1\");",
+            "label": "[rule3]:(?c1 rdf:type tl:Patient).not(?c1 gate2 true) -> (?c1 tl:diagnosis \"diag1\");",
+            "db_key": 2
+        },
+        {
+            "name": "rule4",
+            "properties": {},
+            "optimization": true,
+            "salience": 100,
+            "antecedents": [
+                {
+                    "type": "antecedent",
+                    "isNot": false,
+                    "normalizedLabel": "(?x1 rdf:type tl:Patient)",
+                    "vertex": 1,
+                    "parent_vertex": 0,
+                    "beta_relation_vars": [
+                        "?x1"
+                    ],
+                    "pruned_var": [],
+                    "beta_var_nodes": [
+                        {
+                            "type": "var",
+                            "id": "?x1",
+                            "is_binded": false,
+                            "var_pos": 0,
+                            "vertex": 1,
+                            "key": 33,
+                            "source_file_name": "jet_rules/test_lookup_main.jr",
+                            "db_key": 108
+                        }
+                    ],
+                    "children_vertexes": [
+                        2,
+                        3,
+                        4,
+                        5
+                    ],
+                    "rules": [
+                        "rule2",
+                        "tl:Patient:4"
+                    ],
+                    "salience": [
+                        100,
+                        100
+                    ],
+                    "subject_key": 33,
+                    "predicate_key": 13,
+                    "object_key": 28,
+                    "db_key": 1
+                },
+                {
+                    "type": "antecedent",
+                    "isNot": false,
+                    "normalizedLabel": "(?x1 gate1 true)",
+                    "vertex": 4,
+                    "parent_vertex": 1,
+                    "beta_relation_vars": [
+                        "?x1"
+                    ],
+                    "pruned_var": [],
+                    "beta_var_nodes": [
+                        {
+                            "type": "var",
+                            "id": "?x1",
+                            "is_binded": true,
+                            "var_pos": 0,
+                            "vertex": 4
+                        }
+                    ],
+                    "children_vertexes": [],
+                    "rules": [
+                        "rule4"
+                    ],
+                    "salience": [
+                        100
+                    ],
+                    "subject_key": 38,
+                    "predicate_key": 5,
+                    "object_key": 39,
+                    "db_key": 4
+                }
+            ],
+            "consequents": [
+                {
+                    "type": "consequent",
+                    "normalizedLabel": "(?x1 tl:diagnosis \"diag2\")",
+                    "vertex": 4,
+                    "consequent_seq": 1,
+                    "consequent_for_rule": "rule4",
+                    "consequent_salience": 100,
+                    "subject_key": 54,
+                    "predicate_key": 30,
+                    "object_key": 55,
+                    "db_key": 14
+                },
+                {
+                    "type": "consequent",
+                    "normalizedLabel": "(?x1 gate2 true)",
+                    "vertex": 4,
+                    "consequent_seq": 2,
+                    "consequent_for_rule": "rule4",
+                    "consequent_salience": 100,
+                    "subject_key": 56,
+                    "predicate_key": 6,
+                    "object_key": 57,
+                    "db_key": 15
+                }
+            ],
+            "authoredLabel": "[rule4]:(?c1 rdf:type tl:Patient).(?c1 gate1 true) -> (?c1 tl:diagnosis \"diag2\").(?c1 gate2 true);",
+            "source_file_name": "jet_rules/test_lookup_main.jr",
+            "normalizedLabel": "[rule4]:(?x1 rdf:type tl:Patient).(?x1 gate1 true) -> (?x1 tl:diagnosis \"diag2\").(?x1 gate2 true);",
+            "label": "[rule4]:(?c1 rdf:type tl:Patient).(?c1 gate1 true) -> (?c1 tl:diagnosis \"diag2\").(?c1 gate2 true);",
+            "db_key": 3
+        },
+        {
+            "name": "rule5",
+            "properties": {},
+            "optimization": true,
+            "salience": 100,
+            "antecedents": [
+                {
+                    "type": "antecedent",
+                    "isNot": false,
+                    "normalizedLabel": "(?x1 rdf:type tl:Patient)",
+                    "vertex": 1,
+                    "parent_vertex": 0,
+                    "beta_relation_vars": [
+                        "?x1"
+                    ],
+                    "pruned_var": [],
+                    "beta_var_nodes": [
+                        {
+                            "type": "var",
+                            "id": "?x1",
+                            "is_binded": false,
+                            "var_pos": 0,
+                            "vertex": 1,
+                            "key": 33,
+                            "source_file_name": "jet_rules/test_lookup_main.jr",
+                            "db_key": 108
+                        }
+                    ],
+                    "children_vertexes": [
+                        2,
+                        3,
+                        4,
+                        5
+                    ],
+                    "rules": [
+                        "rule2",
+                        "tl:Patient:4"
+                    ],
+                    "salience": [
+                        100,
+                        100
+                    ],
+                    "subject_key": 33,
+                    "predicate_key": 13,
+                    "object_key": 28,
+                    "db_key": 1
+                },
+                {
+                    "type": "antecedent",
+                    "isNot": false,
+                    "normalizedLabel": "(?x1 hasConditionLookup ?x2)",
+                    "vertex": 5,
+                    "parent_vertex": 1,
+                    "beta_relation_vars": [
+                        "?x1",
+                        "?x2"
+                    ],
+                    "pruned_var": [],
+                    "beta_var_nodes": [
+                        {
+                            "type": "var",
+                            "id": "?x1",
+                            "is_binded": true,
+                            "var_pos": 0,
+                            "vertex": 5
+                        },
+                        {
+                            "type": "var",
+                            "id": "?x2",
+                            "is_binded": false,
+                            "var_pos": 2,
+                            "vertex": 5,
+                            "key": 41,
+                            "source_file_name": "jet_rules/test_lookup_main.jr",
+                            "db_key": 116
+                        }
+                    ],
+                    "children_vertexes": [
+                        6
+                    ],
+                    "subject_key": 40,
+                    "predicate_key": 4,
+                    "object_key": 41,
+                    "db_key": 5
+                },
+                {
+                    "type": "antecedent",
+                    "isNot": false,
+                    "normalizedLabel": "(?x2 CONDITION ?x3)",
+                    "vertex": 6,
+                    "parent_vertex": 5,
+                    "beta_relation_vars": [
+                        "?x1",
+                        "?x3"
+                    ],
+                    "pruned_var": [
+                        "?x2"
+                    ],
+                    "beta_var_nodes": [
+                        {
+                            "type": "var",
+                            "id": "?x1",
+                            "is_binded": true,
+                            "var_pos": 0,
+                            "vertex": 6
+                        },
+                        {
+                            "type": "var",
+                            "id": "?x3",
+                            "is_binded": false,
+                            "var_pos": 2,
+                            "vertex": 6,
+                            "key": 43,
+                            "source_file_name": "jet_rules/test_lookup_main.jr",
+                            "db_key": 118
+                        }
+                    ],
+                    "children_vertexes": [],
+                    "rules": [
+                        "rule5"
+                    ],
+                    "salience": [
+                        100
+                    ],
+                    "subject_key": 42,
+                    "predicate_key": 32,
+                    "object_key": 43,
+                    "db_key": 6
+                }
+            ],
+            "consequents": [
+                {
+                    "type": "consequent",
+                    "normalizedLabel": "(?x1 tl:condition ?x3)",
+                    "vertex": 6,
+                    "consequent_seq": 1,
+                    "consequent_for_rule": "rule5",
+                    "consequent_salience": 100,
+                    "subject_key": 58,
+                    "predicate_key": 29,
+                    "object_key": 59,
+                    "db_key": 16
+                }
+            ],
+            "authoredLabel": "[rule5]:(?c1 rdf:type tl:Patient).(?c1 hasConditionLookup ?row1).(?row1 CONDITION ?cond1) -> (?c1 tl:condition ?cond1);",
+            "source_file_name": "jet_rules/test_lookup_main.jr",
+            "normalizedLabel": "[rule5]:(?x1 rdf:type tl:Patient).(?x1 hasConditionLookup ?x2).(?x2 CONDITION ?x3) -> (?x1 tl:condition ?x3);",
+            "label": "[rule5]:(?c1 rdf:type tl:Patient).(?c1 hasConditionLookup ?row1).(?row1 CONDITION ?cond1) -> (?c1 tl:condition ?cond1);",
+            "db_key": 4
+        },
+        {
+            "name": "jets:Entity:1",
+            "properties": {
+                "i": "true"
+            },
+            "optimization": true,
+            "salience": 100,
+            "antecedents": [
+                {
+                    "type": "antecedent",
+                    "isNot": false,
+                    "normalizedLabel": "(?x1 rdf:type jets:Entity)",
+                    "vertex": 7,
+                    "parent_vertex": 0,
+                    "beta_relation_vars": [
+                        "?x1"
+                    ],
+                    "pruned_var": [],
+                    "beta_var_nodes": [
+                        {
+                            "type": "var",
+                            "id": "?x1",
+                            "is_binded": false,
+                            "var_pos": 0,
+                            "vertex": 7,
+                            "key": 44,
+                            "source_file_name": "jet_rules/test_lookup_main.jr",
+                            "db_key": 119
+                        }
+                    ],
+                    "children_vertexes": [],
+                    "rules": [
+                        "jets:Entity:1"
+                    ],
+                    "salience": [
+                        100
+                    ],
+                    "subject_key": 44,
+                    "predicate_key": 13,
+                    "object_key": 7,
+                    "db_key": 7
+                }
+            ],
+            "consequents": [
+                {
+                    "type": "consequent",
+                    "normalizedLabel": "(?x1 rdf:type owl:Thing)",
+                    "vertex": 7,
+                    "consequent_seq": 1,
+                    "consequent_for_rule": "jets:Entity:1",
+                    "consequent_salience": 100,
+                    "subject_key": 60,
+                    "predicate_key": 13,
+                    "object_key": 8,
+                    "db_key": 17
+                }
+            ],
+            "authoredLabel": "[jets:Entity:1, i=true]:(?s1 rdf:type jets:Entity) -> (?s1 rdf:type owl:Thing);",
+            "source_file_name": "data_model/jets_model.jr",
+            "normalizedLabel": "[jets:Entity:1, i=true]:(?x1 rdf:type jets:Entity) -> (?x1 rdf:type owl:Thing);",
+            "label": "[jets:Entity:1, i=true]:(?s1 rdf:type jets:Entity) -> (?s1 rdf:type owl:Thing);",
+            "db_key": 5
+        },
+        {
+            "name": "jets:InputRecord:2",
+            "properties": {
+                "i": "true"
+            },
+            "optimization": true,
+            "salience": 100,
+            "antecedents": [
+                {
+                    "type": "antecedent",
+                    "isNot": false,
+                    "normalizedLabel": "(?x1 rdf:type jets:InputRecord)",
+                    "vertex": 8,
+                    "parent_vertex": 0,
+                    "beta_relation_vars": [
+                        "?x1"
+                    ],
+                    "pruned_var": [],
+                    "beta_var_nodes": [
+                        {
+                            "type": "var",
+                            "id": "?x1",
+                            "is_binded": false,
+                            "var_pos": 0,
+                            "vertex": 8,
+                            "key": 45,
+                            "source_file_name": "jet_rules/test_lookup_main.jr",
+                            "db_key": 120
+                        }
+                    ],
+                    "children_vertexes": [],
+                    "rules": [
+                        "jets:InputRecord:2"
+                    ],
+                    "salience": [
+                        100
+                    ],
+                    "subject_key": 45,
+                    "predicate_key": 13,
+                    "object_key": 14,
+                    "db_key": 8
+                }
+            ],
+            "consequents": [
+                {
+                    "type": "consequent",
+                    "normalizedLabel": "(?x1 rdf:type owl:Thing)",
+                    "vertex": 8,
+                    "consequent_seq": 1,
+                    "consequent_for_rule": "jets:InputRecord:2",
+                    "consequent_salience": 100,
+                    "subject_key": 61,
+                    "predicate_key": 13,
+                    "object_key": 8,
+                    "db_key": 18
+                }
+            ],
+            "authoredLabel": "[jets:InputRecord:2, i=true]:(?s1 rdf:type jets:InputRecord) -> (?s1 rdf:type owl:Thing);",
+            "source_file_name": "data_model/jets_model.jr",
+            "normalizedLabel": "[jets:InputRecord:2, i=true]:(?x1 rdf:type jets:InputRecord) -> (?x1 rdf:type owl:Thing);",
+            "label": "[jets:InputRecord:2, i=true]:(?s1 rdf:type jets:InputRecord) -> (?s1 rdf:type owl:Thing);",
+            "db_key": 6
+        },
+        {
+            "name": "jets:State:3",
+            "properties": {
+                "i": "true"
+            },
+            "optimization": true,
+            "salience": 100,
+            "antecedents": [
+                {
+                    "type": "antecedent",
+                    "isNot": false,
+                    "normalizedLabel": "(?x1 rdf:type jets:State)",
+                    "vertex": 9,
+                    "parent_vertex": 0,
+                    "beta_relation_vars": [
+                        "?x1"
+                    ],
+                    "pruned_var": [],
+                    "beta_var_nodes": [
+                        {
+                            "type": "var",
+                            "id": "?x1",
+                            "is_binded": false,
+                            "var_pos": 0,
+                            "vertex": 9,
+                            "key": 46,
+                            "source_file_name": "jet_rules/test_lookup_main.jr",
+                            "db_key": 121
+                        }
+                    ],
+                    "children_vertexes": [],
+                    "rules": [
+                        "jets:State:3"
+                    ],
+                    "salience": [
+                        100
+                    ],
+                    "subject_key": 46,
+                    "predicate_key": 13,
+                    "object_key": 15,
+                    "db_key": 9
+                }
+            ],
+            "consequents": [
+                {
+                    "type": "consequent",
+                    "normalizedLabel": "(?x1 rdf:type owl:Thing)",
+                    "vertex": 9,
+                    "consequent_seq": 1,
+                    "consequent_for_rule": "jets:State:3",
+                    "consequent_salience": 100,
+                    "subject_key": 62,
+                    "predicate_key": 13,
+                    "object_key": 8,
+                    "db_key": 19
+                }
+            ],
+            "authoredLabel": "[jets:State:3, i=true]:(?s1 rdf:type jets:State) -> (?s1 rdf:type owl:Thing);",
+            "source_file_name": "data_model/jets_model.jr",
+            "normalizedLabel": "[jets:State:3, i=true]:(?x1 rdf:type jets:State) -> (?x1 rdf:type owl:Thing);",
+            "label": "[jets:State:3, i=true]:(?s1 rdf:type jets:State) -> (?s1 rdf:type owl:Thing);",
+            "db_key": 7
+        },
+        {
+            "name": "tl:Patient:4",
+            "properties": {
+                "i": "true"
+            },
+            "optimization": true,
+            "salience": 100,
+            "antecedents": [
+                {
+                    "type": "antecedent",
+                    "isNot": false,
+                    "normalizedLabel": "(?x1 rdf:type tl:Patient)",
+                    "vertex": 1,
+                    "parent_vertex": 0,
+                    "beta_relation_vars": [
+                        "?x1"
+                    ],
+                    "pruned_var": [],
+                    "beta_var_nodes": [
+                        {
+                            "type": "var",
+                            "id": "?x1",
+                            "is_binded": false,
+                            "var_pos": 0,
+                            "vertex": 1,
+                            "key": 33,
+                            "source_file_name": "jet_rules/test_lookup_main.jr",
+                            "db_key": 108
+                        }
+                    ],
+                    "children_vertexes": [
+                        2,
+                        3,
+                        4,
+                        5
+                    ],
+                    "rules": [
+                        "rule2",
+                        "tl:Patient:4"
+                    ],
+                    "salience": [
+                        100,
+                        100
+                    ],
+                    "subject_key": 33,
+                    "predicate_key": 13,
+                    "object_key": 28,
+                    "db_key": 1
+                }
+            ],
+            "consequents": [
+                {
+                    "type": "consequent",
+                    "normalizedLabel": "(?x1 rdf:type jets:Entity)",
+                    "vertex": 1,
+                    "consequent_seq": 2,
+                    "consequent_for_rule": "tl:Patient:4",
+                    "consequent_salience": 100,
+                    "subject_key": 49,
+                    "predicate_key": 13,
+                    "object_key": 7,
+                    "db_key": 11
+                }
+            ],
+            "authoredLabel": "[tl:Patient:4, i=true]:(?s1 rdf:type tl:Patient) -> (?s1 rdf:type jets:Entity);",
+            "source_file_name": "data_model/test_lookup_model.jr",
+            "normalizedLabel": "[tl:Patient:4, i=true]:(?x1 rdf:type tl:Patient) -> (?x1 rdf:type jets:Entity);",
+            "label": "[tl:Patient:4, i=true]:(?s1 rdf:type tl:Patient) -> (?s1 rdf:type jets:Entity);",
+            "db_key": 8
+        }
+    ],
+    "imports": {
+        "jet_rules/test_lookup_main.jr": [
+            "data_model/jets_model.jr",
+            "data_model/test_lookup_model.jr",
+            "lookups/test_lookup_tables.jr"
+        ]
+    },
+    "classes": [
+        {
+            "type": "class",
+            "name": "jets:Entity",
+            "base_classes": [
+                "owl:Thing"
+            ],
+            "data_properties": [
+                {
+                    "name": "jets:client",
+                    "type": "text",
+                    "as_array": false,
+                    "db_key": 0
+                },
+                {
+                    "name": "jets:key",
+                    "type": "text",
+                    "as_array": false,
+                    "db_key": 1
+                },
+                {
+                    "name": "jets:org",
+                    "type": "text",
+                    "as_array": false,
+                    "db_key": 2
+                },
+                {
+                    "name": "jets:ruleTag",
+                    "type": "text",
+                    "as_array": true,
+                    "db_key": 3
+                },
+                {
+                    "name": "rdf:type",
+                    "type": "resource",
+                    "as_array": true,
+                    "db_key": 4
+                }
+            ],
+            "source_file_name": "data_model/jets_model.jr",
+            "as_table": false,
+            "sub_classes": [
+                "tl:Patient"
+            ],
+            "db_key": 1
+        },
+        {
+            "type": "class",
+            "name": "jets:InputRecord",
+            "base_classes": [
+                "owl:Thing"
+            ],
+            "data_properties": [],
+            "source_file_name": "data_model/jets_model.jr",
+            "as_table": false,
+            "sub_classes": [],
+            "db_key": 2
+        },
+        {
+            "type": "class",
+            "name": "jets:State",
+            "base_classes": [
+                "owl:Thing"
+            ],
+            "data_properties": [
+                {
+                    "name": "jets:completed",
+                    "type": "bool",
+                    "as_array": false,
+                    "db_key": 5
+                },
+                {
+                    "name": "jets:currentSourcePeriod",
+                    "type": "int",
+                    "as_array": false,
+                    "db_key": 6
+                },
+                {
+                    "name": "jets:currentSourcePeriodDate",
+                    "type": "date",
+                    "as_array": false,
+                    "db_key": 7
+                },
+                {
+                    "name": "jets:exception",
+                    "type": "text",
+                    "as_array": false,
+                    "db_key": 8
+                },
+                {
+                    "name": "jets:from",
+                    "type": "int",
+                    "as_array": false,
+                    "db_key": 9
+                },
+                {
+                    "name": "jets:length",
+                    "type": "int",
+                    "as_array": false,
+                    "db_key": 10
+                },
+                {
+                    "name": "jets:loop",
+                    "type": "int",
+                    "as_array": false,
+                    "db_key": 11
+                },
+                {
+                    "name": "jets:max_vertex_visits",
+                    "type": "int",
+                    "as_array": false,
+                    "db_key": 12
+                },
+                {
+                    "name": "jets:range_value",
+                    "type": "resource",
+                    "as_array": false,
+                    "db_key": 13
+                },
+                {
+                    "name": "jets:replace_chars",
+                    "type": "text",
+                    "as_array": false,
+                    "db_key": 14
+                },
+                {
+                    "name": "jets:replace_with",
+                    "type": "text",
+                    "as_array": false,
+                    "db_key": 15
+                },
+                {
+                    "name": "jets:sourcePeriodType",
+                    "type": "text",
+                    "as_array": false,
+                    "db_key": 16
+                }
+            ],
+            "source_file_name": "data_model/jets_model.jr",
+            "as_table": false,
+            "sub_classes": [],
+            "db_key": 3
+        },
+        {
+            "type": "class",
+            "name": "tl:Patient",
+            "base_classes": [
+                "jets:Entity"
+            ],
+            "data_properties": [
+                {
+                    "name": "tl:condition",
+                    "type": "text",
+                    "as_array": false,
+                    "db_key": 17
+                },
+                {
+                    "name": "tl:diagnosis",
+                    "type": "text",
+                    "as_array": false,
+                    "db_key": 18
+                }
+            ],
+            "source_file_name": "data_model/test_lookup_model.jr",
+            "as_table": true,
+            "sub_classes": [],
+            "db_key": 4
+        }
+    ],
+    "tables": [
+        {
+            "type": "table",
+            "table_name": "tl:Patient",
+            "class_name": "tl:Patient",
+            "columns": [
+                {
+                    "type": "text",
+                    "as_array": false,
+                    "property_name": "jets:client",
+                    "column_name": "jets:client"
+                },
+                {
+                    "type": "text",
+                    "as_array": false,
+                    "property_name": "jets:key",
+                    "column_name": "jets:key"
+                },
+                {
+                    "type": "text",
+                    "as_array": false,
+                    "property_name": "jets:org",
+                    "column_name": "jets:org"
+                },
+                {
+                    "type": "text",
+                    "as_array": true,
+                    "property_name": "jets:ruleTag",
+                    "column_name": "jets:ruleTag"
+                },
+                {
+                    "type": "resource",
+                    "as_array": true,
+                    "property_name": "rdf:type",
+                    "column_name": "rdf:type"
+                },
+                {
+                    "type": "text",
+                    "as_array": false,
+                    "property_name": "tl:condition",
+                    "column_name": "tl:condition"
+                },
+                {
+                    "type": "text",
+                    "as_array": false,
+                    "property_name": "tl:diagnosis",
+                    "column_name": "tl:diagnosis"
+                }
+            ],
+            "source_file_name": "data_model/test_lookup_model.jr",
+            "db_key": 0
+        }
+    ],
+    "triples": [
+        {
+            "type": "triple",
+            "subject_key": 3,
+            "predicate_key": 13,
+            "object_key": 15,
+            "source_file_name": "data_model/jets_model.jr"
+        }
+    ],
+    "main_rule_file_name": "jet_rules/test_lookup_main.jr",
+    "support_rule_file_names": [
+        "data_model/jets_model.jr",
+        "data_model/test_lookup_model.jr",
+        "lookups/test_lookup_tables.jr"
+    ],
+    "rete_nodes": [
+        {
+            "vertex": 0,
+            "parent_vertex": 0,
+            "children_vertexes": [
+                1,
+                7,
+                8,
+                9
+            ],
+            "type": "head_node",
+            "db_key": 0
+        },
+        {
+            "type": "antecedent",
+            "isNot": false,
+            "normalizedLabel": "(?x1 rdf:type tl:Patient)",
+            "vertex": 1,
+            "parent_vertex": 0,
+            "beta_relation_vars": [
+                "?x1"
+            ],
+            "pruned_var": [],
+            "beta_var_nodes": [
+                {
+                    "type": "var",
+                    "id": "?x1",
+                    "is_binded": false,
+                    "var_pos": 0,
+                    "vertex": 1,
+                    "key": 33,
+                    "source_file_name": "jet_rules/test_lookup_main.jr",
+                    "db_key": 108
+                }
+            ],
+            "children_vertexes": [
+                2,
+                3,
+                4,
+                5
+            ],
+            "rules": [
+                "rule2",
+                "tl:Patient:4"
+            ],
+            "salience": [
+                100,
+                100
+            ],
+            "subject_key": 33,
+            "predicate_key": 13,
+            "object_key": 28,
+            "db_key": 1
+        },
+        {
+            "type": "antecedent",
+            "isNot": false,
+            "normalizedLabel": "(?x1 tl:diagnosis ?x2)",
+            "vertex": 2,
+            "parent_vertex": 1,
+            "beta_relation_vars": [
+                "?x1",
+                "?x2"
+            ],
+            "pruned_var": [],
+            "beta_var_nodes": [
+                {
+                    "type": "var",
+                    "id": "?x1",
+                    "is_binded": true,
+                    "var_pos": 0,
+                    "vertex": 2
+                },
+                {
+                    "type": "var",
+                    "id": "?x2",
+                    "is_binded": false,
+                    "var_pos": 2,
+                    "vertex": 2,
+                    "key": 35,
+                    "source_file_name": "jet_rules/test_lookup_main.jr",
+                    "db_key": 110
+                }
+            ],
+            "children_vertexes": [],
+            "rules": [
+                "rule1"
+            ],
+            "salience": [
+                100
+            ],
+            "subject_key": 34,
+            "predicate_key": 30,
+            "object_key": 35,
+            "db_key": 2
+        },
+        {
+            "type": "antecedent",
+            "isNot": true,
+            "normalizedLabel": "not(?x1 gate2 true)",
+            "vertex": 3,
+            "parent_vertex": 1,
+            "beta_relation_vars": [
+                "?x1"
+            ],
+            "pruned_var": [],
+            "beta_var_nodes": [
+                {
+                    "type": "var",
+                    "id": "?x1",
+                    "is_binded": true,
+                    "var_pos": 0,
+                    "vertex": 3
+                }
+            ],
+            "children_vertexes": [],
+            "rules": [
+                "rule3"
+            ],
+            "salience": [
+                100
+            ],
+            "subject_key": 36,
+            "predicate_key": 6,
+            "object_key": 37,
+            "db_key": 3
+        },
+        {
+            "type": "antecedent",
+            "isNot": false,
+            "normalizedLabel": "(?x1 gate1 true)",
+            "vertex": 4,
+            "parent_vertex": 1,
+            "beta_relation_vars": [
+                "?x1"
+            ],
+            "pruned_var": [],
+            "beta_var_nodes": [
+                {
+                    "type": "var",
+                    "id": "?x1",
+                    "is_binded": true,
+                    "var_pos": 0,
+                    "vertex": 4
+                }
+            ],
+            "children_vertexes": [],
+            "rules": [
+                "rule4"
+            ],
+            "salience": [
+                100
+            ],
+            "subject_key": 38,
+            "predicate_key": 5,
+            "object_key": 39,
+            "db_key": 4
+        },
+        {
+            "type": "antecedent",
+            "isNot": false,
+            "normalizedLabel": "(?x1 hasConditionLookup ?x2)",
+            "vertex": 5,
+            "parent_vertex": 1,
+            "beta_relation_vars": [
+                "?x1",
+                "?x2"
+            ],
+            "pruned_var": [],
+            "beta_var_nodes": [
+                {
+                    "type": "var",
+                    "id": "?x1",
+                    "is_binded": true,
+                    "var_pos": 0,
+                    "vertex": 5
+                },
+                {
+                    "type": "var",
+                    "id": "?x2",
+                    "is_binded": false,
+                    "var_pos": 2,
+                    "vertex": 5,
+                    "key": 41,
+                    "source_file_name": "jet_rules/test_lookup_main.jr",
+                    "db_key": 116
+                }
+            ],
+            "children_vertexes": [
+                6
+            ],
+            "subject_key": 40,
+            "predicate_key": 4,
+            "object_key": 41,
+            "db_key": 5
+        },
+        {
+            "type": "antecedent",
+            "isNot": false,
+            "normalizedLabel": "(?x2 CONDITION ?x3)",
+            "vertex": 6,
+            "parent_vertex": 5,
+            "beta_relation_vars": [
+                "?x1",
+                "?x3"
+            ],
+            "pruned_var": [
+                "?x2"
+            ],
+            "beta_var_nodes": [
+                {
+                    "type": "var",
+                    "id": "?x1",
+                    "is_binded": true,
+                    "var_pos": 0,
+                    "vertex": 6
+                },
+                {
+                    "type": "var",
+                    "id": "?x3",
+                    "is_binded": false,
+                    "var_pos": 2,
+                    "vertex": 6,
+                    "key": 43,
+                    "source_file_name": "jet_rules/test_lookup_main.jr",
+                    "db_key": 118
+                }
+            ],
+            "children_vertexes": [],
+            "rules": [
+                "rule5"
+            ],
+            "salience": [
+                100
+            ],
+            "subject_key": 42,
+            "predicate_key": 32,
+            "object_key": 43,
+            "db_key": 6
+        },
+        {
+            "type": "antecedent",
+            "isNot": false,
+            "normalizedLabel": "(?x1 rdf:type jets:Entity)",
+            "vertex": 7,
+            "parent_vertex": 0,
+            "beta_relation_vars": [
+                "?x1"
+            ],
+            "pruned_var": [],
+            "beta_var_nodes": [
+                {
+                    "type": "var",
+                    "id": "?x1",
+                    "is_binded": false,
+                    "var_pos": 0,
+                    "vertex": 7,
+                    "key": 44,
+                    "source_file_name": "jet_rules/test_lookup_main.jr",
+                    "db_key": 119
+                }
+            ],
+            "children_vertexes": [],
+            "rules": [
+                "jets:Entity:1"
+            ],
+            "salience": [
+                100
+            ],
+            "subject_key": 44,
+            "predicate_key": 13,
+            "object_key": 7,
+            "db_key": 7
+        },
+        {
+            "type": "antecedent",
+            "isNot": false,
+            "normalizedLabel": "(?x1 rdf:type jets:InputRecord)",
+            "vertex": 8,
+            "parent_vertex": 0,
+            "beta_relation_vars": [
+                "?x1"
+            ],
+            "pruned_var": [],
+            "beta_var_nodes": [
+                {
+                    "type": "var",
+                    "id": "?x1",
+                    "is_binded": false,
+                    "var_pos": 0,
+                    "vertex": 8,
+                    "key": 45,
+                    "source_file_name": "jet_rules/test_lookup_main.jr",
+                    "db_key": 120
+                }
+            ],
+            "children_vertexes": [],
+            "rules": [
+                "jets:InputRecord:2"
+            ],
+            "salience": [
+                100
+            ],
+            "subject_key": 45,
+            "predicate_key": 13,
+            "object_key": 14,
+            "db_key": 8
+        },
+        {
+            "type": "antecedent",
+            "isNot": false,
+            "normalizedLabel": "(?x1 rdf:type jets:State)",
+            "vertex": 9,
+            "parent_vertex": 0,
+            "beta_relation_vars": [
+                "?x1"
+            ],
+            "pruned_var": [],
+            "beta_var_nodes": [
+                {
+                    "type": "var",
+                    "id": "?x1",
+                    "is_binded": false,
+                    "var_pos": 0,
+                    "vertex": 9,
+                    "key": 46,
+                    "source_file_name": "jet_rules/test_lookup_main.jr",
+                    "db_key": 121
+                }
+            ],
+            "children_vertexes": [],
+            "rules": [
+                "jets:State:3"
+            ],
+            "salience": [
+                100
+            ],
+            "subject_key": 46,
+            "predicate_key": 13,
+            "object_key": 15,
+            "db_key": 9
+        },
+        {
+            "type": "consequent",
+            "normalizedLabel": "(?x1 gate1 true)",
+            "vertex": 1,
+            "consequent_seq": 1,
+            "consequent_for_rule": "rule2",
+            "consequent_salience": 100,
+            "subject_key": 47,
+            "predicate_key": 5,
+            "object_key": 48,
+            "db_key": 10
+        },
+        {
+            "type": "consequent",
+            "normalizedLabel": "(?x1 rdf:type jets:Entity)",
+            "vertex": 1,
+            "consequent_seq": 2,
+            "consequent_for_rule": "tl:Patient:4",
+            "consequent_salience": 100,
+            "subject_key": 49,
+            "predicate_key": 13,
+            "object_key": 7,
+            "db_key": 11
+        },
+        {
+            "type": "consequent",
+            "normalizedLabel": "(?x1 hasConditionLookup TestLookup lookup ?x2)",
+            "vertex": 2,
+            "consequent_seq": 1,
+            "consequent_for_rule": "rule1",
+            "consequent_salience": 100,
+            "subject_key": 50,
+            "predicate_key": 4,
+            "obj_expr": {
+                "type": "binary",
+                "lhs": 31,
+                "op": "lookup",
+                "rhs": 51,
+                "arg0_key": 0,
+                "arg1_key": 1
+            },
+            "obj_expr_key": 2,
+            "db_key": 12
+        },
+        {
+            "type": "consequent",
+            "normalizedLabel": "(?x1 tl:diagnosis \"diag1\")",
+            "vertex": 3,
+            "consequent_seq": 1,
+            "consequent_for_rule": "rule3",
+            "consequent_salience": 100,
+            "subject_key": 52,
+            "predicate_key": 30,
+            "object_key": 53,
+            "db_key": 13
+        },
+        {
+            "type": "consequent",
+            "normalizedLabel": "(?x1 tl:diagnosis \"diag2\")",
+            "vertex": 4,
+            "consequent_seq": 1,
+            "consequent_for_rule": "rule4",
+            "consequent_salience": 100,
+            "subject_key": 54,
+            "predicate_key": 30,
+            "object_key": 55,
+            "db_key": 14
+        },
+        {
+            "type": "consequent",
+            "normalizedLabel": "(?x1 gate2 true)",
+            "vertex": 4,
+            "consequent_seq": 2,
+            "consequent_for_rule": "rule4",
+            "consequent_salience": 100,
+            "subject_key": 56,
+            "predicate_key": 6,
+            "object_key": 57,
+            "db_key": 15
+        },
+        {
+            "type": "consequent",
+            "normalizedLabel": "(?x1 tl:condition ?x3)",
+            "vertex": 6,
+            "consequent_seq": 1,
+            "consequent_for_rule": "rule5",
+            "consequent_salience": 100,
+            "subject_key": 58,
+            "predicate_key": 29,
+            "object_key": 59,
+            "db_key": 16
+        },
+        {
+            "type": "consequent",
+            "normalizedLabel": "(?x1 rdf:type owl:Thing)",
+            "vertex": 7,
+            "consequent_seq": 1,
+            "consequent_for_rule": "jets:Entity:1",
+            "consequent_salience": 100,
+            "subject_key": 60,
+            "predicate_key": 13,
+            "object_key": 8,
+            "db_key": 17
+        },
+        {
+            "type": "consequent",
+            "normalizedLabel": "(?x1 rdf:type owl:Thing)",
+            "vertex": 8,
+            "consequent_seq": 1,
+            "consequent_for_rule": "jets:InputRecord:2",
+            "consequent_salience": 100,
+            "subject_key": 61,
+            "predicate_key": 13,
+            "object_key": 8,
+            "db_key": 18
+        },
+        {
+            "type": "consequent",
+            "normalizedLabel": "(?x1 rdf:type owl:Thing)",
+            "vertex": 9,
+            "consequent_seq": 1,
+            "consequent_for_rule": "jets:State:3",
+            "consequent_salience": 100,
+            "subject_key": 62,
+            "predicate_key": 13,
+            "object_key": 8,
+            "db_key": 19
+        }
+    ]
+}

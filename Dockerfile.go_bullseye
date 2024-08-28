@@ -50,5 +50,5 @@ RUN flutter build web --dart-define=API_HOST=CLOUD9_API_HOST
 
 # Copy programs resources
 COPY utils  ${JETS_BUILD_DIR}/utils
-RUN cp ${JETS_SOURCE_DIR}/jets/server/jets_schema.json ${JETS_BUILD_DIR}
-RUN cp ${JETS_SOURCE_DIR}/jets/server/jets_init_db.sql ${JETS_BUILD_DIR}
+RUN cp ${JETS_SOURCE_DIR}/jets/serverv2/jets_schema.json ${JETS_BUILD_DIR}
+RUN cp ${JETS_SOURCE_DIR}/jets/serverv2/jets_init_db.sql ${JETS_BUILD_DIR}

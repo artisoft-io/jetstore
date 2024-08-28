@@ -914,7 +914,7 @@ func (ctx *Context) InsertRows(dataTableAction *DataTableAction, token string) (
 		row := make(map[string]interface{}, len(sqlStmt.ColumnKeys))
 		for irow := range dataTableAction.Data {
 			// Need to get:
-			//	- DevMode: run_report_only, run_server_only, run_server_reports, run_cpipes_only, run_cpipes_reports
+			//	- DevMode: run_report_only, run_server_only, run_server_reports
 			//  - State Machine URI: serverSM, reportsSM, and cpipesSM
 			// from process_config table
 			// ----------------------------
@@ -994,7 +994,7 @@ func (ctx *Context) InsertRows(dataTableAction *DataTableAction, token string) (
 					UsingSshTunnel: ctx.UsingSshTunnel,
 					PeKey:          peKeyInt,
 				}
-				if devModeCode == "run_server_only" || devModeCode == "run_server_reports" || devModeCode == "run_cpipes_only" || devModeCode == "run_cpipes_reports" {
+				if devModeCode == "run_server_only" || devModeCode == "run_server_reports" {
 					// DevMode: Lock session id & register run on last shard (unless error)
 					// loop over every chard to exec in succession
 					var lable string
@@ -1022,10 +1022,6 @@ func (ctx *Context) InsertRows(dataTableAction *DataTableAction, token string) (
 							log.Printf("Run serverv2: %s", serverArgs)
 							lable = "SERVER"
 							cmd = exec.Command("/usr/local/bin/serverv2", serverArgs...)
-						// case "run_cpipes_only", "run_cpipes_reports":
-						// 	log.Printf("Run cpipes: %s", serverArgs)
-						// 	lable = "CPIPES"
-						// 	cmd = exec.Command("/usr/local/bin/cpipes_booter", serverArgs...)
 						default:
 							log.Printf("error: unknown devModeCode: %s", devModeCode)
 							httpStatus = http.StatusInternalServerError
@@ -1062,7 +1058,7 @@ func (ctx *Context) InsertRows(dataTableAction *DataTableAction, token string) (
 					}
 				}
 
-				if devModeCode == "run_reports_only" || devModeCode == "run_server_reports" || devModeCode == "run_cpipes_reports" {
+				if devModeCode == "run_reports_only" || devModeCode == "run_server_reports" {
 					// Call run_report synchronously
 					if ctx.UsingSshTunnel {
 						runReportsCommand = append(runReportsCommand, "-usingSshTunnel")
@@ -1080,11 +1076,11 @@ func (ctx *Context) InsertRows(dataTableAction *DataTableAction, token string) (
 					if err != nil {
 						log.Printf("while executing run_reports command '%v': %v", runReportsCommand, err)
 						log.Println("=*=*=*=*=*=*=*=*=*=*=*=*=*=*")
-						log.Println("SERVER/CPIPES & REPORTS CAPTURED OUTPUT BEGIN")
+						log.Println("SERVER & REPORTS CAPTURED OUTPUT BEGIN")
 						log.Println("=*=*=*=*=*=*=*=*=*=*=*=*=*=*")
 						log.Println((*results)["log"])
 						log.Println("=*=*=*=*=*=*=*=*=*=*=*=*=*=*")
-						log.Println("SERVER/CPIPES & REPORTS CAPTURED OUTPUT END")
+						log.Println("SERVER & REPORTS CAPTURED OUTPUT END")
 						log.Println("=*=*=*=*=*=*=*=*=*=*=*=*=*=*")
 						httpStatus = http.StatusInternalServerError
 						err = errors.New("error while running run_reports command")
@@ -1097,11 +1093,11 @@ func (ctx *Context) InsertRows(dataTableAction *DataTableAction, token string) (
 					}
 				}
 				log.Println("============================")
-				log.Println("SERVER/CPIPES & REPORTS CAPTURED OUTPUT BEGIN")
+				log.Println("SERVER & REPORTS CAPTURED OUTPUT BEGIN")
 				log.Println("============================")
 				log.Println((*results)["log"])
 				log.Println("============================")
-				log.Println("SERVER/CPIPES & REPORTS CAPTURED OUTPUT END")
+				log.Println("SERVER & REPORTS CAPTURED OUTPUT END")
 				log.Println("============================")
 				// all good, update server execution status table
 				ca.ValidateArguments()
