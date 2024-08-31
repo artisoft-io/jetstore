@@ -39,16 +39,16 @@ func (wt *WriteTableSource) Err() error {
 
 // DomainTable methods for writing output entity records to postgres
 func (wt *WriteTableSource) writeTable(dbpool *pgxpool.Pool, domainTable *workspace.DomainTable) (*WriteTableResult, error) {
-	result := WriteTableResult{tableName: domainTable.TableName}
+	result := WriteTableResult{tableName: domainTable.TableInfo.TableName}
 	// prepare sql -- get a slice of the columns
 	var columns []string
 	for i := range domainTable.Columns {
-		columns = append(columns, domainTable.Columns[i].ColumnName)
+		columns = append(columns, domainTable.Columns[i].ColumnInfo.ColumnName)
 	}
-	log.Println("Write Table Started for", domainTable.TableName, "with", len(columns), "columns")
+	log.Println("Write Table Started for", domainTable.TableInfo.TableName, "with", len(columns), "columns")
 
 	// Check if we have a special table (namelly process_errors) which is not in the public schema
-	splitTableName := strings.Split(domainTable.TableName, ".")
+	splitTableName := strings.Split(domainTable.TableInfo.TableName, ".")
 	var tableIdentifier pgx.Identifier
 	switch len(splitTableName) {
 	case 1:
@@ -59,7 +59,7 @@ func (wt *WriteTableSource) writeTable(dbpool *pgxpool.Pool, domainTable *worksp
 			splitTableName[1],
 		}
 	default:
-		return &result, fmt.Errorf("error: invalid domain table name: %s",domainTable.TableName)
+		return &result, fmt.Errorf("error: invalid domain table name: %s",domainTable.TableInfo.TableName)
 	}
 	recCount, err := dbpool.CopyFrom(context.Background(), tableIdentifier, columns, wt)
 	if err != nil {

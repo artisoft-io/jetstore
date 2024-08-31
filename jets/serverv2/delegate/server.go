@@ -5,7 +5,6 @@ import (
 	"log"
 	"os"
 	"runtime/debug"
-	"strconv"
 
 	"github.com/artisoft-io/jetstore/jets/dbutils"
 	"github.com/artisoft-io/jetstore/jets/workspace"
@@ -29,30 +28,20 @@ import (
 // JETS_S3_KMS_KEY_ARN
 // JETS_LOADER_SM_ARN state machine arn
 // JETS_SERVER_SM_ARN state machine arn
-// GLOG_v log level
 // JETSTORE_DEV_MODE Indicates running in dev mode, used to determine if sync workspace file from s3
 // JETS_DOMAIN_KEY_SEPARATOR
 
 // Command Line Arguments
 var awsRegion string
-var workspaceDb string
 var lookupDb string
-var ruleset string
-var ruleseq string
-var pipelineConfigKey int
 var pipelineExecKey int
 var poolSize int
 var outSessionId string
-var inSessionIdOverride string
 var limit int
-var nodeId int
 var nbrShards int
-var outTables string
 var shardId int
-var userEmail string
 var completedMetric string
 var failedMetric string
-var outTableSlice []string
 var glogv int          // taken from env GLOG_v
 var processName string // put it as global var since there is always one and only one process per invocation
 var devMode bool
@@ -61,24 +50,15 @@ type CommandArguments struct {
 	AwsRegion           string
 	WorkspaceDb         string
 	LookupDb            string
-	Ruleset             string
-	Ruleseq             string
 	PipelineConfigKey   int
 	PipelineExecKey     int
 	PoolSize            int
 	OutSessionId        string
-	InSessionIdOverride string
 	Limit               int
-	NodeId              int
 	NbrShards           int
-	OutTables           string
 	ShardId             int
-	UserEmail           string
 	CompletedMetric     string
 	FailedMetric        string
-	OutTableSlice       []string
-	Glogv               int
-	ProcessName         string
 	DevMode             bool
 }
 
@@ -113,23 +93,13 @@ func doJob(dbpool *pgxpool.Pool, ca *CommandArguments) (pipelineResult *Pipeline
 	}
 
 	// Read pipeline configuration
-	pipelineConfig, err := ReadPipelineConfig(dbpool, pipelineConfigKey, pipelineExecKey)
+	pipelineConfig, err := ReadPipelineConfig(dbpool, pipelineExecKey)
 	if err != nil {
 		return nil, fmt.Errorf("while reading jetsapi.pipeline_config / jetsapi.pipeline_execution_status table: %v", err)
 	}
 
-	// check if we are NOT overriding ruleset/ruleseq
-	if len(ruleset) == 0 && len(ruleseq) == 0 {
-		pc := pipelineConfig.GetProcessConfig()
-		if pc.IsRuleSet() > 0 {
-			ruleset = pc.MainRuleName()
-		} else {
-			ruleseq = pc.MainRuleName()
-		}
-	}
-
 	// let's do it!
-	reteWorkspace, err := LoadReteWorkspace(workspaceDb, lookupDb, ruleset, ruleseq, pipelineConfig, outTableSlice, nil)
+	reteWorkspace, err := LoadReteWorkspace(lookupDb, pipelineConfig)
 	if err != nil {
 		return nil, fmt.Errorf("while loading workspace: %v", err)
 	}
@@ -154,26 +124,15 @@ func DoJobAndReportStatus(dbpool *pgxpool.Pool, ca *CommandArguments) error {
 	}
 
 	awsRegion = ca.AwsRegion
-	workspaceDb = ca.WorkspaceDb
 	lookupDb = ca.LookupDb
-	ruleset = ca.Ruleset
-	ruleseq = ca.Ruleseq
-	pipelineConfigKey = ca.PipelineConfigKey
 	pipelineExecKey = ca.PipelineExecKey
 	poolSize = ca.PoolSize
 	outSessionId = ca.OutSessionId
-	inSessionIdOverride = ca.InSessionIdOverride
 	limit = ca.Limit
-	nodeId = ca.NodeId
 	nbrShards = ca.NbrShards
-	outTables = ca.OutTables
 	shardId = ca.ShardId
-	userEmail = ca.UserEmail
 	completedMetric = ca.CompletedMetric
 	failedMetric = ca.FailedMetric
-	outTableSlice = ca.OutTableSlice
-	glogv = ca.Glogv
-	processName = ca.ProcessName
 	devMode = ca.DevMode
 
 	switch os.Getenv("JETS_LOG_DEBUG") {
@@ -185,35 +144,17 @@ func DoJobAndReportStatus(dbpool *pgxpool.Pool, ca *CommandArguments) error {
 		glogv = 3
 		*ps = true
 		poolSize = 1
-	case "0", "":
-		v, _ := strconv.ParseInt(os.Getenv("GLOG_v"), 10, 32)
-		glogv = int(v)
-	default:
-		str := os.Getenv("JETS_LOG_DEBUG")
-		v, _ := strconv.ParseInt(str, 10, 32)
-		glogv = int(v)
-		*ps = true
-		poolSize = 1
-		os.Setenv("GLOG_v", str)
 	}
 
 	var err error
 	log.Println("Command Line Argument: awsRegion", awsRegion)
-	log.Printf("Command Line Argument: inSessionId: %s\n", inSessionIdOverride)
 	log.Printf("Command Line Argument: limit: %d\n", limit)
 	log.Printf("Command Line Argument: lookupDb: %s\n", lookupDb)
 	log.Printf("Command Line Argument: nbrShards: %d\n", nbrShards)
-	log.Printf("Command Line Argument: nodeId: %d\n", nodeId)
-	log.Printf("Command Line Argument: outTables: %s\n", outTables)
 	log.Printf("Command Line Argument: poolSize: %d\n", poolSize)
-	log.Printf("Command Line Argument: pcKey: %d\n", pipelineConfigKey)
 	log.Printf("Command Line Argument: peKey: %d\n", pipelineExecKey)
-	log.Printf("Command Line Argument: ruleseq: %s\n", ruleseq)
-	log.Printf("Command Line Argument: ruleset: %s\n", ruleset)
 	log.Printf("Command Line Argument: sessionId: %s\n", outSessionId)
 	log.Printf("Command Line Argument: shardId: %d\n", shardId)
-	log.Printf("Command Line Argument: workspaceDb: %s\n", workspaceDb)
-	log.Printf("Command Line Argument: userEmail: %s\n", userEmail)
 	log.Printf("Command Line Argument: serverCompletedMetric %s\n", completedMetric)
 	log.Printf("Command Line Argument: serverFailedMetric %s\n", failedMetric)
 	log.Printf("ENV JETS_DOMAIN_KEY_HASH_ALGO: %s\n", os.Getenv("JETS_DOMAIN_KEY_HASH_ALGO"))
@@ -226,7 +167,7 @@ func DoJobAndReportStatus(dbpool *pgxpool.Pool, ca *CommandArguments) error {
 	log.Printf("ENV JETSTORE_DEV_MODE: %s\n", os.Getenv("JETSTORE_DEV_MODE"))
 	log.Printf("ENV JETS_DOMAIN_KEY_SEPARATOR: %s\n", os.Getenv("JETS_DOMAIN_KEY_SEPARATOR"))
 	log.Printf("ENV JETS_S3_KMS_KEY_ARN: %s\n", os.Getenv("JETS_S3_KMS_KEY_ARN"))
-	log.Printf("Command Line Argument: GLOG_v is set to %d\n", glogv)
+	log.Printf("glogv log level is set to %d\n", glogv)
 
 	// Load configuration and execute pipeline
 	pipelineResult, err := doJob(dbpool, ca)

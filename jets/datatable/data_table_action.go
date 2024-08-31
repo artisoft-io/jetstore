@@ -234,7 +234,7 @@ func (dtq *DataTableAction) makeSelectColumns() string {
 				buf.WriteString(pgx.Identifier{dtq.Columns[i].Table, column}.Sanitize())
 			} else {
 				buf.WriteString(pgx.Identifier{column}.Sanitize())
-			}	
+			}
 		}
 	}
 	return buf.String()
@@ -1110,7 +1110,16 @@ func (ctx *Context) InsertRows(dataTableAction *DataTableAction, token string) (
 					nbrClusterNodes = ctx.NbrShards
 				}
 				serverCommands := make([][]string, 0)
-				if stateMachineName != "cpipesSM" {
+
+				var processArn string
+				var smInput map[string]interface{}
+				peKeyInt, err2 := strconv.Atoi(peKey)
+				if err2 != nil {
+					peKeyInt = 0
+				}
+				switch stateMachineName {
+				case "serverSM":
+					processArn = os.Getenv("JETS_SERVER_SM_ARN")
 					for shardId := 0; shardId < nbrClusterNodes; shardId++ {
 						serverArgs := []string{
 							"-peKey", peKey,
@@ -1128,35 +1137,51 @@ func (ctx *Context) InsertRows(dataTableAction *DataTableAction, token string) (
 						}
 						serverCommands = append(serverCommands, serverArgs)
 					}
-				}
-				smInput := map[string]interface{}{
-					"serverCommands": serverCommands,
-					"reportsCommand": runReportsCommand,
-					"successUpdate": map[string]interface{}{
-						"-peKey":         peKey,
-						"-status":        "completed",
-						"file_key":       fileKey,
-						"failureDetails": "",
-					},
-					"errorUpdate": map[string]interface{}{
-						"-peKey":         peKey,
-						"-status":        "failed",
-						"file_key":       fileKey,
-						"failureDetails": "",
-					},
-				}
-				var processArn string
-				switch stateMachineName {
-				case "serverSM":
-					processArn = os.Getenv("JETS_SERVER_SM_ARN")
-				case "loaderSM":
-					processArn = os.Getenv("JETS_LOADER_SM_ARN")
-				case "cpipesSM":
-					// Override State Machine input for new cpipesSM all-in-one
-					peKeyInt, err := strconv.Atoi(peKey)
-					if err != nil {
-						peKeyInt = 0
+					smInput = map[string]interface{}{
+						"serverCommands": serverCommands,
+						"reportsCommand": runReportsCommand,
+						"successUpdate": map[string]interface{}{
+							"-peKey":         peKey,
+							"-status":        "completed",
+							"file_key":       fileKey,
+							"failureDetails": "",
+						},
+						"errorUpdate": map[string]interface{}{
+							"-peKey":         peKey,
+							"-status":        "failed",
+							"file_key":       fileKey,
+							"failureDetails": "",
+						},
 					}
+
+				case "serverSMv2":
+					processArn = os.Getenv("JETS_SERVER_SM_ARNv2")
+					serverArgs := make([]map[string]interface{}, ctx.NbrShards)
+					for i := range serverArgs {
+						serverArgs[i] = map[string]interface{}{
+							"id": i,
+							"pe": peKeyInt,
+						}
+					}
+					smInput = map[string]interface{}{
+						"serverCommands": serverArgs,
+						"reportsCommand": runReportsCommand,
+						"successUpdate": map[string]interface{}{
+							"-peKey":         peKey,
+							"-status":        "completed",
+							"file_key":       fileKey,
+							"failureDetails": "",
+						},
+						"errorUpdate": map[string]interface{}{
+							"-peKey":         peKey,
+							"-status":        "failed",
+							"file_key":       fileKey,
+							"failureDetails": "",
+						},
+					}
+
+				case "cpipesSM":
+					// State Machine input for new cpipesSM all-in-one
 					smInput = map[string]interface{}{
 						"startSharding": map[string]interface{}{
 							"pipeline_execution_key": peKeyInt,

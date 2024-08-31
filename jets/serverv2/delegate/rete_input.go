@@ -8,7 +8,7 @@ import (
 	"strconv"
 	"strings"
 
-	bridgego "github.com/artisoft-io/jetstore/jets/bridgego"
+	"github.com/artisoft-io/jetstore/jets/bridgego"
 	"github.com/google/uuid"
 )
 

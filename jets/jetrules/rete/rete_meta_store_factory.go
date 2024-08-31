@@ -62,10 +62,11 @@ type ReteBuilderContext struct {
 }
 
 type ReteMetaStoreFactory struct {
-	WorkspaceCtrl   *WorkspaceControl
-	ResourceMgr     *rdf.ResourceManager
-	MetaStoreLookup map[string]*ReteMetaStore
-	ReteModelLookup map[string]*JetruleModel
+	WorkspaceCtrl     *WorkspaceControl
+	MainRuleFileNames []string
+	ResourceMgr       *rdf.ResourceManager
+	MetaStoreLookup   map[string]*ReteMetaStore
+	ReteModelLookup   map[string]*JetruleModel
 }
 
 // Main function to create the factory and to load ReteMetaStore, one per main rule file.
@@ -80,18 +81,19 @@ func NewReteMetaStoreFactory(jetRuleName string) (*ReteMetaStoreFactory, error) 
 	if err != nil {
 		return nil, err
 	}
-	mainRuleFileNames := workspaceControl.MainRuleFileNames(jetRuleName)
-	if len(mainRuleFileNames) == 0 {
+
+	factory := &ReteMetaStoreFactory{
+		WorkspaceCtrl:     workspaceControl,
+		MainRuleFileNames: workspaceControl.MainRuleFileNames(jetRuleName),
+		ResourceMgr:       rdf.NewResourceManager(nil),
+		MetaStoreLookup:   make(map[string]*ReteMetaStore),
+		ReteModelLookup:   make(map[string]*JetruleModel),
+	}
+	if len(factory.MainRuleFileNames) == 0 {
 		return nil, fmt.Errorf("error, %s does not correspond to any rule file names", jetRuleName)
 	}
 
-	factory := &ReteMetaStoreFactory{
-		WorkspaceCtrl:   workspaceControl,
-		ResourceMgr:     rdf.NewResourceManager(nil),
-		MetaStoreLookup: make(map[string]*ReteMetaStore),
-		ReteModelLookup: make(map[string]*JetruleModel),
-	}
-	for _, ruleFileName := range mainRuleFileNames {
+	for _, ruleFileName := range factory.MainRuleFileNames {
 		fpath := fmt.Sprintf("%s/%s/%scc.json", workspaceHome, wprefix, ruleFileName)
 		log.Println("Reading JetStore rule config:", ruleFileName, "from:", fpath)
 		file, err := os.ReadFile(fpath)
@@ -160,7 +162,7 @@ func (ctx *ReteBuilderContext) BuildReteMetaStore() (*ReteMetaStore, error) {
 		s := ctx.ResourcesLookup[t3.SubjectKey]
 		p := ctx.ResourcesLookup[t3.PredicateKey]
 		o := ctx.ResourcesLookup[t3.ObjectKey]
-		if s==nil || p==nil || o==nil {
+		if s == nil || p == nil || o == nil {
 			err := fmt.Errorf("error: invalid triples in metastore config, resource not found: (%v, %v, %v)", s, p, o)
 			log.Println(err)
 			return nil, err
@@ -280,15 +282,31 @@ func (ctx *ReteBuilderContext) BuildReteMetaStore() (*ReteMetaStore, error) {
 			alphaNode.NdVertex.AddConsequentTerm(alphaNode)
 		default:
 			// something is wrong
-			err = fmt.Errorf("NewReteMetaStore: AlphaNode at position %d, with vertex %d fails validation",
+			err = fmt.Errorf("BuildReteMetaStore: AlphaNode at position %d, with vertex %d fails validation",
 				ipos, alphaNode.NdVertex.Vertex)
 			return nil, err
 		}
 	}
 
+	// Prepare a lookup of Data Properties (from classes) by name
+	dataPropertyMap := make(map[string]*DataPropertyNode)
+	for i := range ctx.JetruleModel.Classes {
+		for j := range ctx.JetruleModel.Classes[i].DataProperties {
+			p := &ctx.JetruleModel.Classes[i].DataProperties[j]
+			dataPropertyMap[p.Name] = p
+		}
+	}
+
+	// Prepare a lookup of Domain Tables by name
+	domainTableMap := make(map[string]*TableNode)
+	for i := range ctx.JetruleModel.Tables {
+		t := &ctx.JetruleModel.Tables[i]
+		domainTableMap[t.TableName] = t
+	}
+
 	// Create & initialize the ReteMetaStore
 	return NewReteMetaStore(ctx.ResourceMgr, ctx.MetaGraph, ctx.LookupTables,
-		ctx.AlphaNodes, ctx.NodeVertices, ctx.JetStoreConfig)
+		ctx.AlphaNodes, ctx.NodeVertices, ctx.JetStoreConfig, dataPropertyMap, domainTableMap)
 }
 
 func (ctx *ReteBuilderContext) NewAlphaFunctor(key int) (AlphaFunctor, error) {

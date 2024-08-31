@@ -6,7 +6,7 @@ import (
 	"log"
 	"sort"
 
-	bridgego "github.com/artisoft-io/jetstore/jets/bridgego"
+	"github.com/artisoft-io/jetstore/jets/bridgego"
 )
 
 // Returns map[string]interface{} which is

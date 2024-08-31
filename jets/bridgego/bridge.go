@@ -1,4 +1,4 @@
-package bridge
+package bridgego
 
 import (
 	"errors"
@@ -12,14 +12,13 @@ import (
 )
 
 type JetStore struct {
-	factory         *rete.ReteMetaStoreFactory
-	metaStore       *rete.ReteMetaStore
-	metaMgr         *rdf.ResourceManager
-	metaGraph       *rdf.RdfGraph
-	processName     string
-	mainRuleName    string
-	workspaceDbPath string
-	lookupDbPath    string
+	Factory         *rete.ReteMetaStoreFactory
+	MetaStore       *rete.ReteMetaStore
+	MetaMgr         *rdf.ResourceManager
+	MetaGraph       *rdf.RdfGraph
+	ProcessName     string
+	MainRuleName    string
+	LookupDbPath    string
 }
 
 type RDFSession struct {
@@ -100,24 +99,24 @@ func GetTypeName(dtype int) string {
 	return getTypeName(dtype)
 }
 
-func LoadJetRules(processName string, mainRuleName string, rete_db_path string, lookup_db_path string) (*JetStore, error) {
+// mainRuleName correspond to either a MainRuleFile (aka rule set) or a rule sequece (aka sequence of rule set)
+func LoadJetRules(processName string, mainRuleName string, lookup_db_path string) (*JetStore, error) {
 	js := &JetStore{
-		processName:     processName,
-		mainRuleName:    mainRuleName,
-		workspaceDbPath: rete_db_path,
-		lookupDbPath:    lookup_db_path,
+		ProcessName:     processName,
+		MainRuleName:    mainRuleName,
+		LookupDbPath:    lookup_db_path,
 	}
 	var err error
-	js.factory, err = rete.NewReteMetaStoreFactory(js.mainRuleName)
+	js.Factory, err = rete.NewReteMetaStoreFactory(js.MainRuleName)
 	if err != nil {
-		return nil, fmt.Errorf("while calling NewReteMetaStoreFactory(%s): %v", js.mainRuleName, err)
+		return nil, fmt.Errorf("while calling NewReteMetaStoreFactory(%s): %v", js.MainRuleName, err)
 	}
-	js.metaStore = js.factory.MetaStoreLookup[js.mainRuleName]
-	if js.metaStore == nil {
-		return nil, fmt.Errorf("error: Rete Network for main rule %s not found", js.mainRuleName)
+	js.MetaStore = js.Factory.MetaStoreLookup[js.MainRuleName]
+	if js.MetaStore == nil {
+		return nil, fmt.Errorf("error: Rete Network for main rule %s not found", js.MainRuleName)
 	}
-	js.metaMgr = js.metaStore.ResourceMgr
-	js.metaGraph = js.metaStore.MetaGraph
+	js.MetaMgr = js.MetaStore.ResourceMgr
+	js.MetaGraph = js.MetaStore.MetaGraph
 
 	return js, nil
 }
@@ -129,7 +128,7 @@ func (jr *JetStore) ReleaseJetRules() error {
 func (js *JetStore) NewRDFSession() (*RDFSession, error) {
 	return &RDFSession{
 		js:         js,
-		rdfSession: rdf.NewRdfSession(js.metaMgr, js.metaGraph),
+		rdfSession: rdf.NewRdfSession(js.MetaMgr, js.MetaGraph),
 	}, nil
 }
 
@@ -140,7 +139,7 @@ func (rdfs *RDFSession) ReleaseRDFSession() error {
 func (js *JetStore) NewReteSession(rdfSession *RDFSession, jetrules_name string) (*ReteSession, error) {
 
 	reteSession := rete.NewReteSession(rdfSession.rdfSession)
-	reteSession.Initialize(js.metaStore)
+	reteSession.Initialize(js.MetaStore)
 	return &ReteSession{
 		js:         js,
 		rdfSession: rdfSession,
@@ -161,59 +160,59 @@ func (js *JetStore) NewNull() (*Resource, error) {
 }
 func (js *JetStore) NewBlankNode(v int) (*Resource, error) {
 	return &Resource{
-		r: js.metaMgr.CreateBNode(v),
+		r: js.MetaMgr.CreateBNode(v),
 	}, nil
 }
 func (js *JetStore) NewResource(resource_name string) (*Resource, error) {
 	return &Resource{
-		r: js.metaMgr.NewResource(resource_name),
+		r: js.MetaMgr.NewResource(resource_name),
 	}, nil
 }
 func (js *JetStore) GetResource(resource_name string) (*Resource, error) {
 	return &Resource{
-		r: js.metaMgr.GetResource(resource_name),
+		r: js.MetaMgr.GetResource(resource_name),
 	}, nil
 }
 func (js *JetStore) NewTextLiteral(txt string) (*Resource, error) {
 	return &Resource{
-		r: js.metaMgr.NewTextLiteral(txt),
+		r: js.MetaMgr.NewTextLiteral(txt),
 	}, nil
 }
 func (js *JetStore) NewIntLiteral(value int) (*Resource, error) {
 	return &Resource{
-		r: js.metaMgr.NewIntLiteral(value),
+		r: js.MetaMgr.NewIntLiteral(value),
 	}, nil
 }
 func (js *JetStore) NewUIntLiteral(value uint) (*Resource, error) {
 	return &Resource{
-		r: js.metaMgr.NewIntLiteral(int(value)),
+		r: js.MetaMgr.NewIntLiteral(int(value)),
 	}, nil
 }
 func (js *JetStore) NewLongLiteral(value int) (*Resource, error) {
 	return &Resource{
-		r: js.metaMgr.NewIntLiteral(int(value)),
+		r: js.MetaMgr.NewIntLiteral(int(value)),
 	}, nil
 }
 func (js *JetStore) NewULongLiteral(value uint) (*Resource, error) {
 	return &Resource{
-		r: js.metaMgr.NewIntLiteral(int(value)),
+		r: js.MetaMgr.NewIntLiteral(int(value)),
 	}, nil
 }
 func (js *JetStore) NewDoubleLiteral(value float64) (*Resource, error) {
 	return &Resource{
-		r: js.metaMgr.NewDoubleLiteral(value),
+		r: js.MetaMgr.NewDoubleLiteral(value),
 	}, nil
 }
 func (js *JetStore) NewDateLiteral(value string) (*Resource, error) {
 	ld, err := rdf.NewLDate(value)
 	return &Resource{
-		r: js.metaMgr.NewDateLiteral(ld),
+		r: js.MetaMgr.NewDateLiteral(ld),
 	}, err
 }
 func (js *JetStore) NewDatetimeLiteral(value string) (*Resource, error) {
 	ld, err := rdf.NewLDatetime(value)
 	return &Resource{
-		r: js.metaMgr.NewDatetimeLiteral(ld),
+		r: js.MetaMgr.NewDatetimeLiteral(ld),
 	}, err
 }
 
@@ -227,7 +226,7 @@ func (js *JetStore) InsertRuleConfig(s *Resource, p *Resource, o *Resource) (int
 	if s == nil || p == nil || o == nil {
 		return 0, fmt.Errorf("ERROR cannot have null args when calling InsertRuleConfig")
 	}
-	_, err := js.metaGraph.Insert(s.r, p.r, o.r)
+	_, err := js.MetaGraph.Insert(s.r, p.r, o.r)
 	return 0, err
 }
 

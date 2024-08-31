@@ -149,7 +149,8 @@ func main() {
 		}
 	}
 
-	// This is used only in DEV MODE
+	// This specify the nbr of shard to the loaderand server processes via command line argument
+	// The serverv2 process will take it via env var, as done here.
 	nbrShards = 1
 	ns, ok := os.LookupEnv("NBR_SHARDS")
 	var err error

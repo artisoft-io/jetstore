@@ -10,7 +10,7 @@ import (
 	"strings"
 	"unicode"
 
-	bridgego "github.com/artisoft-io/jetstore/jets/bridgego"
+	"github.com/artisoft-io/jetstore/jets/bridgego"
 	"github.com/artisoft-io/jetstore/jets/datatable/jcsv"
 )
 

@@ -1,7 +1,7 @@
 package rdf
 
 import (
-	bridgego "github.com/artisoft-io/jetstore/jets/bridgego"
+	"github.com/artisoft-io/jetstore/jets/bridgego"
 )
 
 type RdfResources struct {

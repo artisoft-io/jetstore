@@ -9,7 +9,7 @@ import (
 	"strconv"
 	"strings"
 
-	bridgego "github.com/artisoft-io/jetstore/jets/bridgego"
+	"github.com/artisoft-io/jetstore/jets/bridgego"
 	"github.com/artisoft-io/jetstore/jets/schema"
 	"github.com/artisoft-io/jetstore/jets/serverv2/rdf"
 	"github.com/artisoft-io/jetstore/jets/serverv2/workspace"
@@ -17,12 +17,8 @@ import (
 
 type ReteWorkspace struct {
 	js             *bridgego.JetStore
-	workspaceDb    string
 	lookupDb       string
-	ruleset        []string
-	ruleseq        string
 	outTables      []string
-	extTables      map[string][]string
 	pipelineConfig *PipelineConfig
 }
 
@@ -34,29 +30,17 @@ var ps = flag.Bool("ps", false, "Print the rete session for each session (very v
 
 // Load the rete workspace database via cgo
 func LoadReteWorkspace(
-	workspaceDb string,
 	lookupDb string,
-	ruleset string,
-	ruleseq string,
-	pipelineConfig *PipelineConfig,
-	outTables []string,
-	extTables map[string][]string) (*ReteWorkspace, error) {
+	pipelineConfig *PipelineConfig) (*ReteWorkspace, error) {
 
 	// load the workspace db
 	reteWorkspace := ReteWorkspace{
-		workspaceDb:    workspaceDb,
 		lookupDb:       lookupDb,
-		ruleseq:        ruleseq,
 		pipelineConfig: pipelineConfig,
-		outTables:      outTables,
-		extTables:      extTables,
 	}
 	var err error
-	// case invoking single ruleset, in pipeline for case ruleseq
-	if len(ruleset) > 0 {
-		reteWorkspace.ruleset = []string{ruleset}
-	}
-	reteWorkspace.js, err = bridgego.LoadJetRules(pipelineConfig.processConfig.processName, pipelineConfig.processConfig.mainRules, workspaceDb, lookupDb)
+	reteWorkspace.js, err = bridgego.LoadJetRules(pipelineConfig.processConfig.processName, 
+		pipelineConfig.processConfig.mainRules, lookupDb)
 	if err != nil {
 		return &reteWorkspace, fmt.Errorf("while loading workspace db: %v", err)
 	}
@@ -74,7 +58,6 @@ func (rw *ReteWorkspace) Release() error {
 // main processing function to execute rules
 func (rw *ReteWorkspace) ExecuteRules(
 	workerId int,
-	workspaceMgr *workspace.WorkspaceDb,
 	dataInputc <-chan groupedJetRows,
 	outputSpecs workspace.OutputTableSpecs,
 	writeOutputc map[string][]chan []interface{}) (*ExecuteRulesResult, error) {
@@ -169,9 +152,10 @@ func (rw *ReteWorkspace) ExecuteRules(
 			return &result, fmt.Errorf("while creating rdf session: %v", err)
 		}
 
-		for iset, ruleset := range rw.ruleset {
+		for iset, ruleset := range rw.js.Factory.MainRuleFileNames {
 			if glogv > 0 {
-				log.Println("thread", workerId, ":: Start Rete Session", session_count, "for ruleset", ruleset, "with grouping key", inBundle.groupingValue)
+				log.Println("thread", workerId, ":: Start Rete Session", session_count, "for ruleset", ruleset, 
+					"with grouping key", inBundle.groupingValue)
 			}
 			reteSession, err := rw.js.NewReteSession(rdfSession, ruleset)
 			if err != nil {
@@ -205,10 +189,7 @@ func (rw *ReteWorkspace) ExecuteRules(
 			// Step 1+ for looping
 			reteSession.Erase(ri.jets__istate, ri.jets__loop, nil)
 			reteSession.Erase(ri.jets__istate, ri.jets__completed, nil)
-			jetStoreProp, err := workspaceMgr.LoadJetStoreProperties(ruleset)
-			if err != nil {
-				return &result, fmt.Errorf("while LoadJetStoreProperties for ruleset %s: %v", ruleset, err)
-			}
+			jetStoreProp := *rw.js.MetaStore.JetStoreConfig
 			var nloop, iloop int64
 			value, ok := jetStoreProp["$max_looping"]
 			if ok {
@@ -259,7 +240,7 @@ func (rw *ReteWorkspace) ExecuteRules(
 			if *ps {
 				log.Println("Rule visits:")
 				reteSession.DumpVertexVisit()
-	
+
 			}
 			reteSession.ReleaseReteSession()
 		}
@@ -314,7 +295,7 @@ func (rw *ReteWorkspace) ExecuteRules(
 			// extract entities by rdf type
 			ctor, err := rdfSession.Find(nil, ri.rdf__type, tableSpec.ClassResource)
 			if err != nil {
-				return &result, fmt.Errorf("while finding all entities of type %s: %v", tableSpec.ClassName, err)
+				return &result, fmt.Errorf("while finding all entities of type %s: %v", tableSpec.TableInfo.ClassName, err)
 			}
 			for t3 := range ctor.Itor {
 				subject := t3[0]
@@ -332,18 +313,18 @@ func (rw *ReteWorkspace) ExecuteRules(
 				keepObj := true
 				obj, err := rdfSession.GetObject(bridgego.NewResource(subject), ri.jets__source_period_sequence)
 				if err != nil {
-					return &result, fmt.Errorf("while getting obj for predicate jets:source_period_sequence of an entity of type %s: %v", tableSpec.ClassName, err)
+					return &result, fmt.Errorf("while getting obj for predicate jets:source_period_sequence of an entity of type %s: %v", tableSpec.TableInfo.ClassName, err)
 				}
 				if obj != nil {
 					v, err := obj.GetInt()
 					if err != nil {
-						return &result, fmt.Errorf("range of predicate jets:source_period_sequence is not int for an entity of type %s: %v", tableSpec.ClassName, err)
+						return &result, fmt.Errorf("range of predicate jets:source_period_sequence is not int for an entity of type %s: %v", tableSpec.TableInfo.ClassName, err)
 					}
 					if v == 0 {
 						// Check if obj has marker type jets:InputRecord, if not don't extract obj
 						isInputRecord, err := rdfSession.Contains(bridgego.NewResource(subject), ri.rdf__type, ri.jets__input_record)
 						if err != nil {
-							return &result, fmt.Errorf("while checking if entity has marker class jets:InputRecord for an entity of type %s: %v", tableSpec.ClassName, err)
+							return &result, fmt.Errorf("while checking if entity has marker class jets:InputRecord for an entity of type %s: %v", tableSpec.TableInfo.ClassName, err)
 						}
 						if isInputRecord == 0 {
 							keepObj = false
@@ -362,19 +343,19 @@ func (rw *ReteWorkspace) ExecuteRules(
 						domainColumn := &tableSpec.Columns[i]
 						// log.Println("Found entity with subject:",subject.AsTextSilent(), "with column",domainColumn.ColumnName,"of type",domainColumn.DataType)
 						switch {
-						case domainColumn.ColumnName == "session_id":
+						case domainColumn.ColumnInfo.ColumnName == "session_id":
 							entityRow[i] = outSessionId
 
-						case strings.HasSuffix(domainColumn.ColumnName, ":domain_key"):
-							objectType := strings.Split(domainColumn.ColumnName, ":")[0]
+						case strings.HasSuffix(domainColumn.ColumnInfo.ColumnName, ":domain_key"):
+							objectType := strings.Split(domainColumn.ColumnInfo.ColumnName, ":")[0]
 							domainKey, _, err := tableSpec.DomainKeysInfo.ComputeGroupingKeyI(nbrShards, &objectType, &entityRow)
 							if err != nil {
 								return &result, fmt.Errorf("while ComputeGroupingKeyI: %v", err)
 							}
 							entityRow[i] = domainKey
 
-						case strings.HasSuffix(domainColumn.ColumnName, ":shard_id"):
-							objectType := strings.Split(domainColumn.ColumnName, ":")[0]
+						case strings.HasSuffix(domainColumn.ColumnInfo.ColumnName, ":shard_id"):
+							objectType := strings.Split(domainColumn.ColumnInfo.ColumnName, ":")[0]
 							_, shardId, err := tableSpec.DomainKeysInfo.ComputeGroupingKeyI(nbrShards, &objectType, &entityRow)
 							if err != nil {
 								return &result, fmt.Errorf("while ComputeGroupingKeyI: %v", err)
@@ -385,28 +366,28 @@ func (rw *ReteWorkspace) ExecuteRules(
 							var data []interface{}
 							itor, err := rdfSession.Find_sp(bridgego.NewResource(subject), domainColumn.Predicate)
 							if err != nil {
-								return &result, fmt.Errorf("while finding triples of an entity of type %s: %v", tableSpec.ClassName, err)
+								return &result, fmt.Errorf("while finding triples of an entity of type %s: %v", tableSpec.TableInfo.ClassName, err)
 							}
 							for t3 := range itor.Itor {
-								obj, err := bridgego.NewResource(t3[2]).AsInterface(schema.ToPgType(domainColumn.DataType))
+								obj, err := bridgego.NewResource(t3[2]).AsInterface(schema.ToPgType(domainColumn.ColumnInfo.Type))
 								if err != nil {
 									br := NewBadRow()
 									br.RowJetsKey = sql.NullString{String: subject.Name(), Valid: true}
 									br.GroupingKey = sql.NullString{String: inBundle.groupingValue, Valid: true}
 									br.ErrorMessage = sql.NullString{
-										String: fmt.Sprintf("error while getting value from graph for column %s: %v", domainColumn.ColumnName, err),
+										String: fmt.Sprintf("error while getting value from graph for column %s: %v", domainColumn.ColumnInfo.ColumnName, err),
 										Valid:  true}
 									log.Println("BAD EXTRACT:", br)
 									br.write2Chan(writeOutputc["jetsapi.process_errors"][0])
 								} else {
-									if !(domainColumn.ColumnName == "rdf:type" && obj.(string) == "jets:InputRecord") {
+									if !(domainColumn.ColumnInfo.ColumnName == "rdf:type" && obj.(string) == "jets:InputRecord") {
 										data = append(data, obj)
 									}
 								}
 							}
 							switch {
 							// Use array as value
-							case domainColumn.IsArray:
+							case domainColumn.ColumnInfo.AsArray:
 								entityRow[i] = data
 
 							// Functional property, got single element
@@ -418,7 +399,7 @@ func (rw *ReteWorkspace) ExecuteRules(
 								entityRow[i] = nil
 
 							// Coalesce text array into functional text property
-							case domainColumn.DataType == "text" || domainColumn.DataType == "resource" || domainColumn.DataType == "volatile_resource":
+							case domainColumn.ColumnInfo.Type == "text" || domainColumn.ColumnInfo.Type == "resource" || domainColumn.ColumnInfo.Type == "volatile_resource":
 								var buf strings.Builder
 								buf.WriteString("{")
 								isFirst := true
@@ -447,7 +428,7 @@ func (rw *ReteWorkspace) ExecuteRules(
 								br.RowJetsKey = sql.NullString{String: subject.Name(), Valid: true}
 								br.GroupingKey = sql.NullString{String: inBundle.groupingValue, Valid: true}
 								br.ErrorMessage = sql.NullString{
-									String: fmt.Sprintf("error getting multiple values from graph for functional column %s", domainColumn.ColumnName),
+									String: fmt.Sprintf("error getting multiple values from graph for functional column %s", domainColumn.ColumnInfo.ColumnName),
 									Valid:  true}
 								log.Println("BAD EXTRACT:", br)
 								br.write2Chan(writeOutputc["jetsapi.process_errors"][0])
@@ -463,7 +444,7 @@ func (rw *ReteWorkspace) ExecuteRules(
 			}
 			ctor.Done()
 			//**
-			log.Println("Done Extracting class:", tableSpec.ClassName)
+			log.Println("Done Extracting class:", tableSpec.TableInfo.ClassName)
 
 		}
 		result.ExecuteRulesCount += 1
@@ -472,25 +453,10 @@ func (rw *ReteWorkspace) ExecuteRules(
 	return &result, nil
 }
 
-// addExtTablesInfo: Add columns corresponding to volatile resources added to output tables
-func (rw *ReteWorkspace) addExtTablesInfo(tableSpecs *workspace.OutputTableSpecs) error {
-	for tableName, vrs := range rw.extTables {
-		outTable, ok := (*tableSpecs)[tableName]
-		if !ok {
-			return fmt.Errorf("error: -extTable table %s does not found in output table specs", tableName)
-		}
-		for _, vr := range vrs {
-			outTable.Columns = append(outTable.Columns,
-				workspace.DomainColumn{PropertyName: "_0:" + vr, ColumnName: strings.ToLower(vr), DataType: "text", IsArray: true})
-		}
-	}
-	return nil
-}
-
 // addOutputClassResource: Add the rdf resource to DomainTable for output table
 func (rw *ReteWorkspace) addOutputClassResource(domainTable *workspace.DomainTable) error {
 	var err error
-	domainTable.ClassResource, err = rw.js.NewResource(domainTable.ClassName)
+	domainTable.ClassResource, err = rw.js.NewResource(domainTable.TableInfo.ClassName)
 	if err != nil {
 		return fmt.Errorf("while adding class resource to DomainTable: %v", err)
 	}
@@ -501,7 +467,7 @@ func (rw *ReteWorkspace) addOutputClassResource(domainTable *workspace.DomainTab
 func (rw *ReteWorkspace) addOutputPredicate(domainColumns []workspace.DomainColumn) error {
 	for ipos := range domainColumns {
 		var err error
-		domainColumns[ipos].Predicate, err = rw.js.NewResource(domainColumns[ipos].PropertyName)
+		domainColumns[ipos].Predicate, err = rw.js.NewResource(domainColumns[ipos].ColumnInfo.PropertyName)
 		if err != nil {
 			return fmt.Errorf("while adding predicate to DomainColumn: %v", err)
 		}
@@ -526,6 +492,17 @@ func (rw *ReteWorkspace) addEntityRdfType(processInput *ProcessInput) error {
 	var err error
 	processInput.entityRdfTypeResource, err = rw.js.NewResource(processInput.entityRdfType)
 	return err
+}
+
+// GetRangeDataType: Get the data type for the range of the dataProperty arg
+func (rw *ReteWorkspace) GetRangeDataType(dataProperty string) (string, bool, error) {
+	switch {
+	case dataProperty == "jets:source_period_sequence":
+		return "int", false, nil
+
+	default:
+		return rw.js.MetaStore.GetRangeDataType(dataProperty)
+	}
 }
 
 // assertRuleConfig: assert rule config triples to metadata graph

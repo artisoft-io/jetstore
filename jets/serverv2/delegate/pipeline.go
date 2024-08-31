@@ -4,10 +4,10 @@ import (
 	"context"
 	"fmt"
 	"log"
-	"strings"
 	"sync"
 
 	"github.com/artisoft-io/jetstore/jets/awsi"
+	"github.com/artisoft-io/jetstore/jets/jetrules/rete"
 	"github.com/artisoft-io/jetstore/jets/serverv2/workspace"
 	"github.com/jackc/pgx/v4/pgxpool"
 )
@@ -57,7 +57,7 @@ type writeResult struct {
 // Register the status details to pipeline_execution_details
 // Lock the sessionId & Register output tables (register sessionId with session_registry) if not failed
 // Do nothing if pipelineExecutionKey < 0
-func (pr *PipelineResult) UpdatePipelineExecutionStatus(dbpool *pgxpool.Pool, pipelineExecutionKey int, 
+func (pr *PipelineResult) UpdatePipelineExecutionStatus(dbpool *pgxpool.Pool, pipelineExecutionKey int,
 	shardId int, errMessage string) error {
 	if pipelineExecutionKey < 0 {
 		return nil
@@ -66,21 +66,21 @@ func (pr *PipelineResult) UpdatePipelineExecutionStatus(dbpool *pgxpool.Pool, pi
 	var userEmail string
 	var client, processName, objectType string
 	var sourcePeriodKey, pipelineConfigKey int
-	err := dbpool.QueryRow(context.Background(), 
+	err := dbpool.QueryRow(context.Background(),
 		`SELECT pipeline_config_key, client, process_name, main_object_type, input_session_id, session_id, source_period_key, user_email 
-		 FROM jetsapi.pipeline_execution_status WHERE key=$1`, 
-		pipelineExecutionKey).Scan(&pipelineConfigKey, &client, &processName, &objectType, 
-			&mainInputSessionId, &sessionId, &sourcePeriodKey, &userEmail)
+		 FROM jetsapi.pipeline_execution_status WHERE key=$1`,
+		pipelineExecutionKey).Scan(&pipelineConfigKey, &client, &processName, &objectType,
+		&mainInputSessionId, &sessionId, &sourcePeriodKey, &userEmail)
 	if err != nil {
 		return fmt.Errorf("QueryRow on pipeline_execution_status failed: %v", err)
 	}
 
 	// Emit server execution metric
-	dimentions := &map[string]string {
-		"client": client,
-		"object_type": objectType,
+	dimentions := &map[string]string{
+		"client":       client,
+		"object_type":  objectType,
 		"process_name": processName,
-	}	
+	}
 	if pr.Status != "failed" {
 		awsi.LogMetric(completedMetric, dimentions, 1)
 	} else {
@@ -104,8 +104,7 @@ func (pr *PipelineResult) UpdatePipelineExecutionStatus(dbpool *pgxpool.Pool, pi
 	return nil
 }
 
-func prepareProcessInput(processInput *ProcessInput,
-	reteWorkspace *ReteWorkspace, workspaceMgr *workspace.WorkspaceDb) error {
+func prepareProcessInput(processInput *ProcessInput, reteWorkspace *ReteWorkspace) error {
 	err := processInput.setGroupingPos()
 	if err != nil {
 		return err
@@ -128,10 +127,10 @@ func prepareProcessInput(processInput *ProcessInput,
 	for ipos := range processInput.processInputMapping {
 		pim := &processInput.processInputMapping[ipos]
 		if !pim.isDomainKey {
-			pim.rdfType, pim.isArray, err = workspaceMgr.GetRangeDataType(pim.dataProperty)
+			pim.rdfType, pim.isArray, err = reteWorkspace.GetRangeDataType(pim.dataProperty)
 			if err != nil {
 				return fmt.Errorf("while adding range type to data property %s: %v", pim.dataProperty, err)
-			}	
+			}
 		}
 	}
 	return nil
@@ -152,31 +151,21 @@ func (ctx *ServerContext) ProcessData(reteWorkspace *ReteWorkspace) (*PipelineRe
 		}
 	}()
 
-	// Open connection to workspaceDb
-	workspaceMgr, err := workspace.OpenWorkspaceDb(reteWorkspace.workspaceDb)
-	if err != nil {
-		return &result, fmt.Errorf("while opening workspace db: %v", err)
-	}
-	workspaceMgr.Dbpool = ctx.dbpool
-	defer workspaceMgr.Close()
-
 	// setup to read the primary input table
 	mainProcessInput := reteWorkspace.pipelineConfig.mainProcessInput
 	// Configure all ProcessInput
-	err = prepareProcessInput(mainProcessInput, reteWorkspace, workspaceMgr)
+	err = prepareProcessInput(mainProcessInput, reteWorkspace)
 	if err != nil {
 		return &result, err
 	}
 	for i := range reteWorkspace.pipelineConfig.mergedProcessInput {
-		err = prepareProcessInput(reteWorkspace.pipelineConfig.mergedProcessInput[i],
-			reteWorkspace, workspaceMgr)
+		err = prepareProcessInput(reteWorkspace.pipelineConfig.mergedProcessInput[i], reteWorkspace)
 		if err != nil {
 			return &result, err
 		}
 	}
 	for i := range reteWorkspace.pipelineConfig.injectedProcessInput {
-		err = prepareProcessInput(reteWorkspace.pipelineConfig.injectedProcessInput[i],
-			reteWorkspace, workspaceMgr)
+		err = prepareProcessInput(reteWorkspace.pipelineConfig.injectedProcessInput[i], reteWorkspace)
 		if err != nil {
 			return &result, err
 		}
@@ -188,74 +177,37 @@ func (ctx *ServerContext) ProcessData(reteWorkspace *ReteWorkspace) (*PipelineRe
 	if glogv > 1 {
 		fmt.Println("\nPIPELINE CONFIGURATION:")
 		fmt.Println(reteWorkspace.pipelineConfig.String())
-	// fmt.Println("Main Process Input Mapping:")
-	// for i := range reteWorkspace.pipelineConfig.mainProcessInput.processInputMapping {
-	// 	pi := &reteWorkspace.pipelineConfig.mainProcessInput.processInputMapping[i]
-	// 	fmt.Println("  ",pi.tableName,pi.inputColumn.String,"->",pi.dataProperty,"(",pi.rdfType,")")
-	// }
-}
+		// fmt.Println("Main Process Input Mapping:")
+		// for i := range reteWorkspace.pipelineConfig.mainProcessInput.processInputMapping {
+		// 	pi := &reteWorkspace.pipelineConfig.mainProcessInput.processInputMapping[i]
+		// 	fmt.Println("  ",pi.tableName,pi.inputColumn.String,"->",pi.dataProperty,"(",pi.rdfType,")")
+		// }
+	}
 
 	// some bookeeping
-	// get all tables of the workspace
-	allTables, err := workspaceMgr.GetTableNames()
-	if err != nil {
-		log.Println("Error while getting table names:", err)
-		return &result, err
-	}
-	// check if output table are overriden on command line
-	if len(reteWorkspace.outTables) == 0 {
-		reteWorkspace.outTables = append(reteWorkspace.outTables,
-			reteWorkspace.pipelineConfig.processConfig.outputTables...)
-	}
-	// check that the provided out table exists
-	var ok bool
-	for _, str := range reteWorkspace.outTables {
-		ok = false
-		for _, tbl := range allTables {
-			if str == tbl {
-				ok = true
-				break
-			}
-		}
-		if !ok {
-			return &result, fmt.Errorf("error: table %s does not exist in workspace", str)
-		}
-	}
-	// create a filter to retain selected tables
-	outTableFilter := make(map[string]bool)
+	reteWorkspace.outTables = append(reteWorkspace.outTables,
+		reteWorkspace.pipelineConfig.processConfig.outputTables...)
+	// check that the out table exists
 	log.Println("The output tables are:")
-	for i := range reteWorkspace.outTables {
-		log.Printf("   - %s\n", reteWorkspace.outTables[i])
-		outTableFilter[reteWorkspace.outTables[i]] = true
-	}
-
-	// Get ruleset name if case of ruleseq - rule sequence
-	if len(reteWorkspace.ruleseq) > 0 {
-		reteWorkspace.ruleset, err = workspaceMgr.GetRuleSetNames(reteWorkspace.ruleseq)
-		if err != nil {
-			return &result, fmt.Errorf("while adding ruleset name for ruleseq %s: %v", ruleseq, err)
+	for _, tableName := range reteWorkspace.outTables {
+		_, ok := reteWorkspace.js.MetaStore.DomainTableMap[tableName]
+		if !ok {
+			return &result, fmt.Errorf("error: table %s does not exist in workspace", tableName)
 		}
-		if len(reteWorkspace.ruleset) == 0 {
-			return &result, fmt.Errorf("error ruleseq %s does not exist in workspace", reteWorkspace.ruleseq)
-		}
+		log.Printf("   - %s", tableName)
 	}
 
 	// Get workspace resource configuration
 	// -----------------------------------------------------------------------
 	// Output domain table's columns specs (map[table name]columns' spec)
 	// from OutputTableSpecs
-	outputMapping, err := workspaceMgr.LoadDomainTableDefinitions(false, outTableFilter)
+	outputMapping, err := workspace.DomainTableDefinitions(reteWorkspace.js.MetaStore.DomainTableMap)
 	if err != nil {
 		return &result, fmt.Errorf("while loading domain column definition from workspace db: %v", err)
 	}
 	// add class rdf type to output table (to select triples from graph)
 	// add predicate to DomainColumn for each output table
-	// add table extensions (extTable): Add DomainColumn corresponding to the volatile resources added to tables
 	// add columns for session_id and shard_id
-	err = reteWorkspace.addExtTablesInfo(&outputMapping)
-	if err != nil {
-		return &result, fmt.Errorf("while adding -extTables info to output tables specs: %v", err)
-	}
 	for _, domainTable := range outputMapping {
 		err = reteWorkspace.addOutputClassResource(domainTable)
 		if err != nil {
@@ -266,40 +218,38 @@ func (ctx *ServerContext) ProcessData(reteWorkspace *ReteWorkspace) (*PipelineRe
 			return &result, fmt.Errorf("while adding Predicate to output DomainColumn: %v", err)
 		}
 
-		// Add reserved columns and domain keys
-		for header := range domainTable.DomainKeysInfo.ReservedColumns {
-			switch {
-			case header == "session_id":
-				domainTable.Columns = append(domainTable.Columns, 
-					workspace.DomainColumn{ColumnName: header, DataType: "text", IsArray: false})
+		// // Add reserved columns and domain keys
+		// for header := range domainTable.DomainKeysInfo.ReservedColumns {
+		// 	switch {
+		// 	case header == "session_id":
+		// 		domainTable.Columns = append(domainTable.Columns, 
+		// 			workspace.DomainColumn{ColumnName: header, DataType: "text", IsArray: false})
 	
-			case strings.HasSuffix(header, ":domain_key"):
-				domainTable.Columns = append(domainTable.Columns, 
-					workspace.DomainColumn{ColumnName: header, DataType: "text", IsArray: false})
+		// 	case strings.HasSuffix(header, ":domain_key"):
+		// 		domainTable.Columns = append(domainTable.Columns, 
+		// 			workspace.DomainColumn{ColumnName: header, DataType: "text", IsArray: false})
 	
-			case strings.HasSuffix(header, ":shard_id"):
-				domainTable.Columns = append(domainTable.Columns, 
-					workspace.DomainColumn{ColumnName: header, DataType: "int", IsArray: false})
-			}	
-		}
+		// 	case strings.HasSuffix(header, ":shard_id"):
+		// 		domainTable.Columns = append(domainTable.Columns, 
+		// 			workspace.DomainColumn{ColumnName: header, DataType: "int", IsArray: false})
+		// 	}	
+		// }
 	}
 
 	// For development
-	// fmt.Println("***-* outputMapping is complete, len is", len(outputMapping))
-	// for cname, domainTbl := range outputMapping {
-	// 	fmt.Println("  Output table:", cname)
-	// 	// for icol := range domainTbl.Columns {
-	// 	// 	fmt.Println(
-	// 	// 		"    PropertyName:", domainTbl.Columns[icol].PropertyName,
-	// 	// 		"ColumnName:", domainTbl.Columns[icol].ColumnName,
-	// 	// 		"Predicate:", domainTbl.Columns[icol].Predicate,
-	// 	// 		"DataType:", domainTbl.Columns[icol].DataType,
-	// 	// 		"IsArray:", domainTbl.Columns[icol].IsArray)
-	// 	// }
-	// 	fmt.Println("    * DOMAIN KEY INFO:")
-	// 	fmt.Println(domainTbl.DomainKeysInfo)
-	// 	fmt.Println("    * DOMAIN KEY INFO END")
-	// }
+	fmt.Println("***-* outputMapping is complete, len is", len(outputMapping))
+	for cname, domainTbl := range outputMapping {
+		fmt.Println("  Output table:", cname)
+		for icol := range domainTbl.Columns {
+			fmt.Println(
+				"ColumnName:", domainTbl.Columns[icol].ColumnInfo.ColumnName,
+				"DataType:", domainTbl.Columns[icol].ColumnInfo.Type,
+				"IsArray:", domainTbl.Columns[icol].ColumnInfo.AsArray)
+		}
+		fmt.Println("    * DOMAIN KEY INFO:")
+		fmt.Println(domainTbl.DomainKeysInfo)
+		fmt.Println("    * DOMAIN KEY INFO END")
+	}
 
 	log.Print("Pipeline Preparation Complete, starting Rete Sessions...")
 
@@ -347,7 +297,7 @@ func (ctx *ServerContext) ProcessData(reteWorkspace *ReteWorkspace) (*PipelineRe
 	for i := 0; i < ps; i++ {
 		go func(workerId int) {
 			// Start the execute rules workers
-			result, err := reteWorkspace.ExecuteRules(workerId, workspaceMgr, dataInputc, outputMapping, writeOutputc)
+			result, err := reteWorkspace.ExecuteRules(workerId, dataInputc, outputMapping, writeOutputc)
 			if err != nil {
 				err = fmt.Errorf("while execute rules: %v", err)
 				log.Println(err)
@@ -377,17 +327,19 @@ func (ctx *ServerContext) ProcessData(reteWorkspace *ReteWorkspace) (*PipelineRe
 	// notifications to the database. Note that we put the schema name with
 	// the table name since the process_errors table is not in the public schema
 	outputMapping["jetsapi.process_errors"] = &workspace.DomainTable{
-		TableName: "jetsapi.process_errors",
+		TableInfo: &rete.TableNode{
+			TableName: "jetsapi.process_errors",
+		},
 		Columns: []workspace.DomainColumn{
-			{ColumnName: "pipeline_execution_status_key"},
-			{ColumnName: "session_id"},
-			{ColumnName: "grouping_key"},
-			{ColumnName: "row_jets_key"},
-			{ColumnName: "input_column"},
-			{ColumnName: "error_message"},
-			{ColumnName: "rete_session_saved"},
-			{ColumnName: "rete_session_triples"},
-			{ColumnName: "shard_id"},
+			{ColumnInfo: &rete.TableColumnNode{ColumnName: "pipeline_execution_status_key"}},
+			{ColumnInfo: &rete.TableColumnNode{ColumnName: "session_id"}},
+			{ColumnInfo: &rete.TableColumnNode{ColumnName: "grouping_key"}},
+			{ColumnInfo: &rete.TableColumnNode{ColumnName: "row_jets_key"}},
+			{ColumnInfo: &rete.TableColumnNode{ColumnName: "input_column"}},
+			{ColumnInfo: &rete.TableColumnNode{ColumnName: "error_message"}},
+			{ColumnInfo: &rete.TableColumnNode{ColumnName: "rete_session_saved"}},
+			{ColumnInfo: &rete.TableColumnNode{ColumnName: "rete_session_triples"}},
+			{ColumnInfo: &rete.TableColumnNode{ColumnName: "shard_id"}},
 		}}
 
 	var wg2 sync.WaitGroup
@@ -406,7 +358,8 @@ func (ctx *ServerContext) ProcessData(reteWorkspace *ReteWorkspace) (*PipelineRe
 					// stop the process
 					close(done)
 					// empty the channel
-					for range source.source {}
+					for range source.source {
+					}
 				}
 				wtrc <- writeResult{result: *result, err: err}
 				wg2.Done()

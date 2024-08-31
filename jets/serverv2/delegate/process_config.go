@@ -12,7 +12,7 @@ import (
 	"strconv"
 	"strings"
 
-	bridgego "github.com/artisoft-io/jetstore/jets/bridgego"
+	"github.com/artisoft-io/jetstore/jets/bridgego"
 	"github.com/artisoft-io/jetstore/jets/datatable/jcsv"
 	"github.com/artisoft-io/jetstore/jets/schema"
 	"github.com/google/uuid"
@@ -45,14 +45,6 @@ type PipelineConfig struct {
 
 func (pc *PipelineConfig) GetProcessConfig() *ProcessConfig {
 	return pc.processConfig
-}
-
-func (pc *ProcessConfig) IsRuleSet() int {
-	return pc.isRuleSet
-}
-
-func (pc *ProcessConfig) MainRuleName() string {
-	return pc.mainRules
 }
 
 func (pc *PipelineConfig) String() string {
@@ -161,7 +153,7 @@ func (br BadRow) write2Chan(ch chan<- []interface{}) {
 	brout[5] = br.ErrorMessage
 	brout[6] = br.ReteSessionSaved
 	brout[7] = br.ReteSessionTriples
-	brout[8] = nodeId
+	brout[8] = shardId
 	ch <- brout
 }
 
@@ -417,28 +409,26 @@ func (processInput *ProcessInput) setKeyPos() error {
 
 // Main Pipeline Configuration Read Function
 // -----------------------------------------
-func ReadPipelineConfig(dbpool *pgxpool.Pool, pcKey int, peKey int) (*PipelineConfig, error) {
-	pc := PipelineConfig{key: pcKey,
+func ReadPipelineConfig(dbpool *pgxpool.Pool, peKey int) (*PipelineConfig, error) {
+	pc := PipelineConfig{
 		mergedProcessInputMap:   make(map[int]*ProcessInput),
 		injectedProcessInputMap: make(map[int]*ProcessInput)}
 	var err error
 	var outSessId sql.NullString
 	mainInputRegistryKey := sql.NullInt64{}
 	var mergedInputRegistryKeys []int
-	if peKey > -1 {
-		err = dbpool.QueryRow(context.Background(),
-			`SELECT pipeline_config_key, main_input_registry_key, merged_input_registry_keys, session_id
+	err = dbpool.QueryRow(context.Background(),
+		`SELECT pipeline_config_key, main_input_registry_key, merged_input_registry_keys, session_id
 			 FROM jetsapi.pipeline_execution_status 
 			 WHERE key = $1`, peKey).Scan(&pc.key, &mainInputRegistryKey, &mergedInputRegistryKeys, &outSessId)
-		if err != nil {
-			return &pc, fmt.Errorf("read jetsapi.pipeline_execution_status table failed: %v", err)
-		}
-		if outSessId.Valid && outSessionId == "" {
-			outSessionId = outSessId.String
-		}
-		if outSessionId == "" {
-			return &pc, fmt.Errorf("error: output SessionId is not specified")
-		}
+	if err != nil {
+		return &pc, fmt.Errorf("read jetsapi.pipeline_execution_status table failed: %v", err)
+	}
+	if outSessId.Valid && outSessionId == "" {
+		outSessionId = outSessId.String
+	}
+	if outSessionId == "" {
+		return &pc, fmt.Errorf("error: output SessionId is not specified")
 	}
 	// Validate the outSessionId is not already used
 	isInUse, err := schema.IsSessionExists(dbpool, outSessionId)
@@ -494,62 +484,41 @@ func ReadPipelineConfig(dbpool *pgxpool.Pool, pcKey int, peKey int) (*PipelineCo
 	}
 
 	// determine the input session ids
-	if inSessionIdOverride != "" {
-		pc.mainProcessInput.sessionId = inSessionIdOverride
-		for i := range pc.mergedProcessInput {
-			pc.mergedProcessInput[i].sessionId = inSessionIdOverride
-		}
-	} else if mainInputRegistryKey.Valid {
-		// take the specific input session id as specified in the pipeline execution status table
-		if len(mergedInputRegistryKeys) != len(pc.mergedProcessInput) {
-			return &pc, fmt.Errorf("error: nbr of merged table in process exec is %d != nbr in process config %d",
-				len(mergedInputRegistryKeys), len(pc.mergedProcessInput))
-		}
-		_, pc.mainProcessInput.sessionId, pc.sourcePeriodKey, err = getProcessInputKeyAndSessionId(dbpool, int(mainInputRegistryKey.Int64))
-		if err != nil {
-			return &pc, fmt.Errorf("while reading session id for main table: %v", err)
-		}
-		log.Printf("MainProcessInput key: %d, table: %s, sessionId: %s", pc.mainProcessInput.key, pc.mainProcessInput.tableName, pc.mainProcessInput.sessionId)
-
-		// Get the sessionIds for the merged-in table. Need to get the process_input.key via the input_registry.key
-		for _, key := range mergedInputRegistryKeys {
-			processInputKey, sessionId, _, err := getProcessInputKeyAndSessionId(dbpool, key)
-			if err != nil {
-				return &pc, fmt.Errorf("while reading processInputKey and session_id for merged-in input registry with key %d: %v", key, err)
-			}
-			p := pc.mergedProcessInputMap[processInputKey]
-			if p == nil {
-				return &pc, fmt.Errorf("while reading processInputKey and session_id for merged-in input registry with key %d: unkown processInputKey %d", key, processInputKey)
-			}
-			log.Printf("MergedProcessInput key: %d, registry key: %d, table: %s, sessionId: %s", processInputKey, key, p.tableName, sessionId)
-			p.sessionId = sessionId
-		}
-
-		// Get the currentSourcePeriod & currentSourcePeriodDate
-		var year, month, day int
-		err = dbpool.QueryRow(context.Background(),
-			fmt.Sprintf("SELECT %s, year, month, day FROM jetsapi.source_period WHERE key = %d", pc.sourcePeriodType, pc.sourcePeriodKey)).Scan(
-			&pc.currentSourcePeriod, &year, &month, &day)
-		if err != nil {
-			return &pc, fmt.Errorf("while reading from source_period table: %v", err)
-		}
-		pc.currentSourcePeriodDate = fmt.Sprintf("%d/%d/%d", year, month, day)
-		log.Println("Current Source Period Date for pipeline:", pc.currentSourcePeriodDate)
-
-	} else {
-		log.Println("*** Input session id not specified, take the latest from input_registry (uncommon use case)")
-		pc.mainProcessInput.sessionId, err = getLatestSessionId(dbpool, pc.mainProcessInput.tableName)
-		if err != nil {
-			return &pc, fmt.Errorf("while reading latest session id for main table: %v", err)
-		}
-		for i := range pc.mergedProcessInput {
-			pc.mergedProcessInput[i].sessionId, err = getLatestSessionId(dbpool, pc.mergedProcessInput[i].tableName)
-			if err != nil {
-				return &pc, fmt.Errorf("while reading latest session id for merged-in table %s: %v",
-					pc.mergedProcessInput[i].tableName, err)
-			}
-		}
+	// take the specific input session id as specified in the pipeline execution status table
+	if len(mergedInputRegistryKeys) != len(pc.mergedProcessInput) {
+		return &pc, fmt.Errorf("error: nbr of merged table in process exec is %d != nbr in process config %d",
+			len(mergedInputRegistryKeys), len(pc.mergedProcessInput))
 	}
+	_, pc.mainProcessInput.sessionId, pc.sourcePeriodKey, err = getProcessInputKeyAndSessionId(dbpool, int(mainInputRegistryKey.Int64))
+	if err != nil {
+		return &pc, fmt.Errorf("while reading session id for main table: %v", err)
+	}
+	log.Printf("MainProcessInput key: %d, table: %s, sessionId: %s", pc.mainProcessInput.key, pc.mainProcessInput.tableName, pc.mainProcessInput.sessionId)
+
+	// Get the sessionIds for the merged-in table. Need to get the process_input.key via the input_registry.key
+	for _, key := range mergedInputRegistryKeys {
+		processInputKey, sessionId, _, err := getProcessInputKeyAndSessionId(dbpool, key)
+		if err != nil {
+			return &pc, fmt.Errorf("while reading processInputKey and session_id for merged-in input registry with key %d: %v", key, err)
+		}
+		p := pc.mergedProcessInputMap[processInputKey]
+		if p == nil {
+			return &pc, fmt.Errorf("while reading processInputKey and session_id for merged-in input registry with key %d: unkown processInputKey %d", key, processInputKey)
+		}
+		log.Printf("MergedProcessInput key: %d, registry key: %d, table: %s, sessionId: %s", processInputKey, key, p.tableName, sessionId)
+		p.sessionId = sessionId
+	}
+
+	// Get the currentSourcePeriod & currentSourcePeriodDate
+	var year, month, day int
+	err = dbpool.QueryRow(context.Background(),
+		fmt.Sprintf("SELECT %s, year, month, day FROM jetsapi.source_period WHERE key = %d", pc.sourcePeriodType, pc.sourcePeriodKey)).Scan(
+		&pc.currentSourcePeriod, &year, &month, &day)
+	if err != nil {
+		return &pc, fmt.Errorf("while reading from source_period table: %v", err)
+	}
+	pc.currentSourcePeriodDate = fmt.Sprintf("%d/%d/%d", year, month, day)
+	log.Println("Current Source Period Date for pipeline:", pc.currentSourcePeriodDate)
 
 	return &pc, nil
 }

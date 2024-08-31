@@ -6,7 +6,7 @@ import (
 	"log"
 	"strconv"
 
-	bridgego "github.com/artisoft-io/jetstore/jets/bridgego"
+	"github.com/artisoft-io/jetstore/jets/bridgego"
 	"github.com/google/uuid"
 )
 

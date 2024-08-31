@@ -32,7 +32,7 @@ type JetstoreOneStackProps struct {
 	JetsApiUrl                   string
 }
 
-func (props *JetstoreOneStackProps)MkId(name string) *string {
+func (props *JetstoreOneStackProps) MkId(name string) *string {
 	if props.StackSuffix == "" {
 		return &name
 	}
@@ -42,10 +42,11 @@ func (props *JetstoreOneStackProps)MkId(name string) *string {
 
 // Struct to hold the stack components
 type JetStoreStackComponents struct {
-	LoaderSmArn  string
-	ServerSmArn  string
-	CpipesSmArn  string
-	ReportsSmArn string
+	LoaderSmArn   string
+	ServerSmArn   string
+	ServerSmArnv2 string
+	CpipesSmArn   string
+	ReportsSmArn  string
 
 	ApiSecret           awssm.Secret
 	AdminPwdSecret      awssm.Secret
