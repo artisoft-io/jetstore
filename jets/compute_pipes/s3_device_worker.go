@@ -55,6 +55,7 @@ func (ctx *S3DeviceWorker) processTask(task *S3Object, mgr *S3DeviceManager, res
 		goto gotError
 	}
 	defer func() {
+		fileHd.Close()
 		os.Remove(task.LocalFilePath)
 	}()
 
