@@ -17,6 +17,7 @@ RUN go mod download
 RUN go install jetstore/jets/loader
 RUN go install jetstore/jets/run_reports
 RUN go install jetstore/jets/cpipes_server
+RUN go install jetstore/jets/serverv2
 
 FROM golang:1.21-alpine
 # FROM scratch
@@ -24,4 +25,5 @@ FROM golang:1.21-alpine
 ENV JETS_BIN_DIR /usr/local/go/bin
 COPY --from=builder ${JETS_BIN_DIR}/loader /usr/local/bin/
 COPY --from=builder ${JETS_BIN_DIR}/cpipes_server /usr/local/bin/
+COPY --from=builder ${JETS_BIN_DIR}/serverv2 /usr/local/bin/
 COPY --from=builder ${JETS_BIN_DIR}/run_reports /usr/local/bin/

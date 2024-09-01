@@ -7,9 +7,9 @@ import (
 
 	awscdk "github.com/aws/aws-cdk-go/awscdk/v2"
 	"github.com/aws/aws-cdk-go/awscdk/v2/awsec2"
+	"github.com/aws/aws-cdk-go/awscdk/v2/awslambda"
 	sfn "github.com/aws/aws-cdk-go/awscdk/v2/awsstepfunctions"
 	sfntask "github.com/aws/aws-cdk-go/awscdk/v2/awsstepfunctionstasks"
-	"github.com/aws/aws-cdk-go/awscdk/v2/awslambda"
 	awslambdago "github.com/aws/aws-cdk-go/awscdklambdagoalpha/v2"
 	constructs "github.com/aws/constructs-go/constructs/v10"
 	jsii "github.com/aws/jsii-runtime-go"
@@ -71,6 +71,8 @@ func (jsComp *JetStoreStackComponents) BuildServerv2SM(scope constructs.Construc
 			"NBR_SHARDS":                               jsii.String(props.NbrShards),
 			"ENVIRONMENT":                              jsii.String(os.Getenv("ENVIRONMENT")),
 			"SYSTEM_USER":                              jsii.String("admin"),
+			"WORKSPACES_HOME":                          jsii.String(os.Getenv("WORKSPACES_HOME")),
+			"WORKSPACE":                                jsii.String(os.Getenv("WORKSPACE")),
 		},
 		MemorySize:           jsii.Number(memLimit),
 		EphemeralStorageSize: awscdk.Size_Mebibytes(jsii.Number(2048)),
@@ -126,7 +128,6 @@ func (jsComp *JetStoreStackComponents) BuildServerv2SM(scope constructs.Construc
 		MaxConcurrency: jsii.Number(maxConcurrency),
 		ResultPath:     sfn.JsonPath_DISCARD(),
 	})
-
 
 	// 2) Run Reports Task
 	// ----------------------
