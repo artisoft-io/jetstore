@@ -45,7 +45,7 @@ func SyncWorkspaceFiles(dbpool *pgxpool.Pool, workspaceName, status, contentType
 			localFileName := fmt.Sprintf("%s/%s/%s", wh, workspaceName, fo.FileName)
 			fileHd, err := os.Create(localFileName)
 			if err != nil {
-				return fmt.Errorf("failed to open local workspace file %s for write: %v", fo.FileName, err)
+				return fmt.Errorf("failed to os.Create on local workspace file %s for write: %v", fo.FileName, err)
 			}
 			n, err := fo.ReadObject(dbpool, fileHd)
 			if err != nil {

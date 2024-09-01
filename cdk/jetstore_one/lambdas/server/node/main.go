@@ -99,8 +99,9 @@ func main() {
 			hasErr = true
 			errMsg = append(errMsg, fmt.Sprintf("failed to Mkdir for WORKSPACE: %v", err))
 		}
+		log.Println("Created dir WORKSPACE:", fmt.Sprintf("%s/%s", wh, os.Getenv("WORKSPACE")))
 	}
-	log.Println("Got env var WORKSPACES_HOME:", os.Getenv("WORKSPACES_HOME"))
+	log.Printf("Got workspace at: %s/%s", os.Getenv("WORKSPACES_HOME"), os.Getenv("WORKSPACE"))
 
 	// Copy workspace files
 	// Fetch overriten workspace files if not in dev mode
