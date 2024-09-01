@@ -156,8 +156,8 @@ func (jsComp *JetStoreStackComponents) BuildServerv2SM(scope constructs.Construc
 	})
 
 	//*TODO SNS message
-	notifyFailure := sfn.NewPass(scope, jsii.String("notify-failure"), &sfn.PassProps{})
-	notifySuccess := sfn.NewPass(scope, jsii.String("notify-success"), &sfn.PassProps{})
+	notifyFailure := sfn.NewPass(scope, jsii.String("serverv2-notify-failure"), &sfn.PassProps{})
+	notifySuccess := sfn.NewPass(scope, jsii.String("serverv2-notify-success"), &sfn.PassProps{})
 
 	// Create Rule Serverv2 State Machine - jsComp.Serverv2SM
 	// -------------------------------------------
