@@ -14,9 +14,10 @@ import (
 
 type ServerNodeArgs struct {
 	PipelineExecKey int `json:"pe"`
-	NodeId int `json:"id"`
+	NodeId          int `json:"id"`
 }
-func (args *ServerNodeArgs) RunServer(ctx context.Context, dsn string) error {
+
+func (args *ServerNodeArgs) RunServer(ctx context.Context, dsn string, dbpool *pgxpool.Pool) error {
 
 	// validate command line arguments
 	hasErr := false
@@ -26,8 +27,8 @@ func (args *ServerNodeArgs) RunServer(ctx context.Context, dsn string) error {
 		errMsg = append(errMsg, "Pipeline execution status key (-peKey) must be provided.")
 	}
 	if dsn == "" {
-			hasErr = true
-			errMsg = append(errMsg, "Connection string must be provided.")
+		hasErr = true
+		errMsg = append(errMsg, "Connection string must be provided.")
 	}
 	if os.Getenv("JETS_REGION") == "" {
 		hasErr = true
@@ -51,24 +52,15 @@ func (args *ServerNodeArgs) RunServer(ctx context.Context, dsn string) error {
 	if ok {
 		var err error
 		nbrShardsFromEnv, err = strconv.Atoi(ns)
-			if err != nil {
-				hasErr = true
-				errMsg = append(errMsg, fmt.Sprintf("Invalid ENV NBR_SHARDS, expecting an int, got %s", ns))
-			}
+		if err != nil {
+			hasErr = true
+			errMsg = append(errMsg, fmt.Sprintf("Invalid ENV NBR_SHARDS, expecting an int, got %s", ns))
+		}
 		if nbrShardsFromEnv < 1 {
 			hasErr = true
 			errMsg = append(errMsg, "The number of shards (env NBR_SHARDS) for the output entities must at least be 1.")
-		}	
+		}
 	}
-
-	// open db connection
-	var err error
-	dbpool, err := pgxpool.Connect(context.Background(), dsn)
-	if err != nil {
-		hasErr = true
-		errMsg = append(errMsg, fmt.Sprintf("while opening db connection: %v", err))
-	}
-	defer dbpool.Close()
 
 	if hasErr {
 		for _, msg := range errMsg {
@@ -76,20 +68,22 @@ func (args *ServerNodeArgs) RunServer(ctx context.Context, dsn string) error {
 		}
 		panic(errMsg)
 	}
+	_, devMode := os.LookupEnv("JETSTORE_DEV_MODE")
 
-	ca := &CommandArguments {
-		AwsRegion           : os.Getenv("JETS_REGION"),
-		LookupDb            : fmt.Sprintf("%s/%s/lookup.db", os.Getenv("WORKSPACES_HOME"), os.Getenv("WORKSPACE")),
-		PipelineExecKey     : args.PipelineExecKey,
-		PoolSize            : 10,
-		Limit               : -1,
-		NbrShards           : nbrShardsFromEnv,
-		ShardId             : args.NodeId,
-		CompletedMetric     : "serverCompleted",
-		FailedMetric        : "serverFailed",
+	ca := &CommandArguments{
+		AwsRegion:       os.Getenv("JETS_REGION"),
+		LookupDb:        fmt.Sprintf("%s/%s/lookup.db", os.Getenv("WORKSPACES_HOME"), os.Getenv("WORKSPACE")),
+		PipelineExecKey: args.PipelineExecKey,
+		PoolSize:        10,
+		Limit:           -1,
+		NbrShards:       nbrShardsFromEnv,
+		ShardId:         args.NodeId,
+		CompletedMetric: "serverCompleted",
+		FailedMetric:    "serverFailed",
+		DevMode:         devMode,
 	}
 
-	err = DoJobAndReportStatus(dbpool, ca)
+	err := DoJobAndReportStatus(dbpool, ca)
 	if err != nil {
 		fmt.Println(err)
 	}

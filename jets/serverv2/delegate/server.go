@@ -6,8 +6,6 @@ import (
 	"os"
 	"runtime/debug"
 
-	"github.com/artisoft-io/jetstore/jets/dbutils"
-	"github.com/artisoft-io/jetstore/jets/workspace"
 	"github.com/jackc/pgx/v4/pgxpool"
 )
 
@@ -75,26 +73,6 @@ func doJob(dbpool *pgxpool.Pool, ca *CommandArguments) (pipelineResult *Pipeline
 			debug.PrintStack()
 		}
 	}()
-
-	// Fetch overriten workspace files if not in dev mode
-	// When in dev mode, the apiserver refreshes the overriten workspace files
-	_, devMode = os.LookupEnv("JETSTORE_DEV_MODE")
-	if !devMode {
-		// We're not in dev mode, sync the overriten workspace files
-		// We're interested in lookup.db and workspace.tgz 
-		err = workspace.SyncWorkspaceFiles(dbpool, os.Getenv("WORKSPACE"), dbutils.FO_Open, "sqlite", false, true)
-		if err != nil {
-			log.Println("Error while synching workspace file from db:", err)
-			return
-		}
-		err = workspace.SyncWorkspaceFiles(dbpool, os.Getenv("WORKSPACE"), dbutils.FO_Open, "workspace.tgz", true, false)
-		if err != nil {
-			log.Println("Error while synching workspace file from db:", err)
-			return
-		}
-	} else {
-		log.Println("We are in DEV_MODE, do not sync workspace file from db")
-	}
 
 	// Read pipeline configuration
 	pipelineConfig, err := ReadPipelineConfig(dbpool, pipelineExecKey)

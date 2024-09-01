@@ -3,13 +3,17 @@ package main
 import (
 	"context"
 	"fmt"
+	"log"
 
 	// "log"
 	"os"
 
 	"github.com/artisoft-io/jetstore/jets/awsi"
+	"github.com/artisoft-io/jetstore/jets/dbutils"
 	"github.com/artisoft-io/jetstore/jets/serverv2/delegate"
+	"github.com/artisoft-io/jetstore/jets/workspace"
 	"github.com/aws/aws-lambda-go/lambda"
+	"github.com/jackc/pgx/v4/pgxpool"
 )
 
 // lambda function assign shardId to nodes
@@ -28,6 +32,7 @@ var usingSshTunnel bool
 var awsRegion string
 var awsBucket string
 var dsn string
+var dbpool *pgxpool.Pool
 
 func main() {
 	hasErr := false
@@ -67,6 +72,51 @@ func main() {
 		errMsg = append(errMsg, err.Error())
 	}
 
+	// open db connection
+	dbpool, err = pgxpool.Connect(context.Background(), dsn)
+	if err != nil {
+		hasErr = true
+		errMsg = append(errMsg, fmt.Sprintf("while opening db connection: %v", err))
+	}
+
+	wh := os.Getenv("WORKSPACES_HOME")
+	if len(wh) == 0 {
+		// Create a local temp directory to hold the file(s)
+		tempDir, err := os.MkdirTemp("", "jetstore")
+		if err != nil {
+			hasErr = true
+			errMsg = append(errMsg, fmt.Sprintf("failed to create local temp directory: %v", err))
+		}
+		log.Println("Setting env var WORKSPACES_HOME to:", tempDir)
+		err = os.Setenv("WORKSPACES_HOME", tempDir)
+		if err != nil {
+			hasErr = true
+			errMsg = append(errMsg, fmt.Sprintf("failed to set env var WORKSPACES_HOME: %v", err))
+		}
+	}
+	log.Println("Got env var WORKSPACES_HOME:", os.Getenv("WORKSPACES_HOME"))
+
+	// Copy workspace files
+	// Fetch overriten workspace files if not in dev mode
+	// When in dev mode, the apiserver refreshes the overriten workspace files
+	_, devMode := os.LookupEnv("JETSTORE_DEV_MODE")
+	if !devMode {
+		// We're not in dev mode, sync the overriten workspace files
+		// We're interested in lookup.db and workspace.tgz
+		err = workspace.SyncWorkspaceFiles(dbpool, os.Getenv("WORKSPACE"), dbutils.FO_Open, "sqlite", false, true)
+		if err != nil {
+			log.Println("Error while synching workspace file from db:", err)
+			return
+		}
+		err = workspace.SyncWorkspaceFiles(dbpool, os.Getenv("WORKSPACE"), dbutils.FO_Open, "workspace.tgz", true, false)
+		if err != nil {
+			log.Println("Error while synching workspace file from db:", err)
+			return
+		}
+	} else {
+		log.Println("We are in DEV_MODE, do not sync workspace file from db")
+	}
+
 	if hasErr {
 		for _, msg := range errMsg {
 			fmt.Println("**", msg)
@@ -86,5 +136,5 @@ func main() {
 }
 
 func handler(ctx context.Context, arg delegate.ServerNodeArgs) error {
-	return (&arg).RunServer(ctx, dsn)
+	return (&arg).RunServer(ctx, dsn, dbpool)
 }
