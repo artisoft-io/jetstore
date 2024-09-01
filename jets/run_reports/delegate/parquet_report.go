@@ -25,6 +25,7 @@ func (ca *CommandArguments)DoParquetReport(dbpool *pgxpool.Pool, tempDir string,
 		if err != nil {
 			return fmt.Errorf("while opening parquet file for write: %v", err)
 		}
+		defer os.Remove(tempFileName)
 
 		// reading from db
 		rows, err := dbpool.Query(context.Background(), *sqlStmt)
@@ -174,6 +175,7 @@ func (ca *CommandArguments)DoParquetReport(dbpool *pgxpool.Pool, tempDir string,
 		if err != nil {
 			return fmt.Errorf("while opening written file to copy to s3: %v", err)
 		}
+		defer fileHd.Close()
 		if err = awsi.UploadToS3(ca.BucketName, ca.RegionName, *s3FileName, fileHd); err != nil {
 			return fmt.Errorf("while copying to s3: %v", err)
 		}

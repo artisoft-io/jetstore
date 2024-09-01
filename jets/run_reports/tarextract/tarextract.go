@@ -33,12 +33,12 @@ func ExtractTarGz(gzipStream io.Reader, baseDir string) error {
 		switch header.Typeflag {
 		case tar.TypeDir:
 			if err := os.Mkdir(fmt.Sprintf("%s/%s",baseDir, header.Name), 0755); err != nil {
-				log.Fatalf("ExtractTarGz: Mkdir() failed: %s", err.Error())
+				log.Printf("ExtractTarGz: Mkdir() failed, folder probably already exist: %s", err.Error())
 			}
 		case tar.TypeReg:
-			outFile, err := os.Create(fmt.Sprintf("%s/%s",baseDir, header.Name))
+			outFile, err := os.OpenFile(fmt.Sprintf("%s/%s",baseDir, header.Name), os.O_RDWR|os.O_CREATE, 0755)
 			if err != nil {
-				log.Fatalf("ExtractTarGz: Create() failed: %s", err.Error())
+				log.Fatalf("ExtractTarGz: OpenFile() failed: %s", err.Error())
 			}
 			defer outFile.Close()
 			if _, err := io.Copy(outFile, tarReader); err != nil {

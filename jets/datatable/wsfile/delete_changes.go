@@ -49,7 +49,7 @@ func DeleteFileChange(dbpool *pgxpool.Pool, workspaceChangesKey, workspaceName, 
 
 // Delete all files overrides from database for workspaceName.
 // if restaureFromStash is true then, replace the local file with the stash content
-// if keepWorkspaceAndLookupDb is true, then don't remove files 'workspace.db', 'lookup.db', 'reports.tgz' from the overrides
+// if keepWorkspaceAndLookupDb is true, then don't remove files 'workspace.db', 'lookup.db', 'workspace.tgz', 'reports.tgz' from the overrides
 func DeleteAllFileChanges(dbpool *pgxpool.Pool, workspaceName string, restaureFromStash, keepWorkspaceAndLookupDb bool) error {
 	fmt.Println("DeleteAllWorkspaceChanges: workspace_name", workspaceName)
 	var stmt string
@@ -59,10 +59,10 @@ func DeleteAllFileChanges(dbpool *pgxpool.Pool, workspaceName string, restaureFr
 			`SELECT lo_unlink(oid) 
 			 FROM jetsapi.workspace_changes 
 			 WHERE workspace_name = '%s' 
-			   AND file_name NOT IN ('workspace.db', 'lookup.db', 'reports.tgz'); 
+			   AND file_name NOT IN ('workspace.db', 'lookup.db', 'workspace.tgz', 'reports.tgz'); 
 			 DELETE FROM jetsapi.workspace_changes 
 			 WHERE workspace_name = '%s'
-			   AND file_name NOT IN ('workspace.db', 'lookup.db', 'reports.tgz');`,
+			   AND file_name NOT IN ('workspace.db', 'lookup.db', 'workspace.tgz', 'reports.tgz');`,
 			workspaceName, workspaceName)
 	default:	
 		stmt = fmt.Sprintf(

@@ -160,7 +160,6 @@ func main() {
 
 	ca := &delegate.CommandArguments{
 		AwsRegion:           *awsRegion,
-		WorkspaceDb:         *workspaceDb,
 		LookupDb:            *lookupDb,
 		PipelineExecKey:     *pipelineExecKey,
 		PoolSize:            *poolSize,

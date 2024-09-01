@@ -12,6 +12,7 @@ import (
 	"github.com/artisoft-io/jetstore/jets/bridgego"
 	"github.com/artisoft-io/jetstore/jets/jetrules/rete"
 	"github.com/artisoft-io/jetstore/jets/schema"
+	jw "github.com/artisoft-io/jetstore/jets/workspace"
 	"github.com/jackc/pgx/v4"
 	"github.com/jackc/pgx/v4/pgxpool"
 	_ "github.com/mattn/go-sqlite3" // Import go-sqlite3 library
@@ -29,11 +30,19 @@ type DomainTable struct {
 	DomainKeysInfo *schema.HeadersAndDomainKeysInfo
 }
 
-func NewDomainTable(tableInfo *rete.TableNode) (*DomainTable, error) {
+func NewDomainTable(dbpool *pgxpool.Pool, tableInfo *rete.TableNode) (*DomainTable, error) {
+	// Create the DomainTable from the rete model TableNode
 	domainTable := &DomainTable{
 		TableInfo: tableInfo,
 		Columns:   make([]DomainColumn, len(tableInfo.Columns)),
 	}
+	for i := range tableInfo.Columns {
+		c := &tableInfo.Columns[i]
+		domainTable.Columns[i] = DomainColumn{
+			ColumnInfo: c,
+		}
+	}
+
 	// Load the Domain Key info from domain_keys_registry
 	domainKeyInfo, err := schema.NewHeadersAndDomainKeysInfo(tableInfo.TableName)
 	if err != nil {
@@ -41,12 +50,23 @@ func NewDomainTable(tableInfo *rete.TableNode) (*DomainTable, error) {
 			fmt.Errorf("while calling NewHeadersAndDomainKeysInfo for table %s: %v", tableInfo.TableName, err)
 	}
 	domainTable.DomainKeysInfo = domainKeyInfo
-	for i := range tableInfo.Columns {
-		c := &tableInfo.Columns[i]
-		domainTable.Columns[i] = DomainColumn{
-			ColumnInfo: c,
-		}
+
+	// Initializing Domain Keys Info
+	domainHeaders := domainTable.DomainHeaders()
+	objectTypes, domainKeysJson, err := jw.GetDomainKeysInfo(dbpool, tableInfo.ClassName)
+	if err != nil {
+		return domainTable, fmt.Errorf("while calling GetDomainKeysInfo: %v", err)
 	}
+	mainObjectType := ""
+	if len(*objectTypes) > 0 {
+		mainObjectType = (*objectTypes)[0]
+	}
+
+	err = domainTable.DomainKeysInfo.InitializeDomainTable(domainHeaders, mainObjectType, domainKeysJson)
+	if err != nil {
+		return domainTable, fmt.Errorf("while calling domainTable.DomainKeysInfo.InitializeDomainTable: %v", err)
+	}
+
 	// Add jetstore engine built-in columns
 	// Add reserved columns and domain keys
 	for header := range domainTable.DomainKeysInfo.ReservedColumns {
@@ -101,10 +121,10 @@ type OutputTableSpecs map[string]*DomainTable
 
 // DomainTableDefinitions: Wrap the rete.TableNode into Domain Table Definition, including Domain Keys definition
 // returns a mapping of the output domain tables with their column specs
-func DomainTableDefinitions(tableMap map[string]*rete.TableNode) (OutputTableSpecs, error) {
+func DomainTableDefinitions(dbpool *pgxpool.Pool, tableMap map[string]*rete.TableNode) (OutputTableSpecs, error) {
 	domainTableMap := make(OutputTableSpecs, len(tableMap))
 	for tableName, tableInfo := range tableMap {
-		domainTable, err := NewDomainTable(tableInfo)
+		domainTable, err := NewDomainTable(dbpool, tableInfo)
 		if err != nil {
 			return domainTableMap, fmt.Errorf("while calling NewDomainTable for table %s: %v", tableName, err)
 		}
@@ -151,7 +171,7 @@ func (tableSpec *DomainTable) UpdateDomainTableSchema(dbpool *pgxpool.Pool, drop
 					pgx.Identifier{idxname}.Sanitize(),
 					pgx.Identifier{tableSpec.TableInfo.TableName}.Sanitize(),
 					pgx.Identifier{col.ColumnInfo.ColumnName}.Sanitize()),
-			})	
+			})
 		case strings.HasSuffix(col.ColumnInfo.ColumnName, "shard_id"):
 			columnDef.Default = "0"
 			idxname := tableSpec.TableInfo.TableName + "_" + col.ColumnInfo.ColumnName + "_idx"
@@ -164,8 +184,8 @@ func (tableSpec *DomainTable) UpdateDomainTableSchema(dbpool *pgxpool.Pool, drop
 			})
 		}
 		tableDefinition.Columns = append(tableDefinition.Columns, columnDef)
-	}	
-		// Add JetStore system column
+	}
+	// Add JetStore system column
 	tableDefinition.Columns = append(tableDefinition.Columns, schema.ColumnDefinition{
 		ColumnName: "last_update",
 		DataType:   "datetime",

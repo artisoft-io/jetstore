@@ -48,7 +48,6 @@ var devMode bool
 
 type CommandArguments struct {
 	AwsRegion           string
-	WorkspaceDb         string
 	LookupDb            string
 	PipelineConfigKey   int
 	PipelineExecKey     int
@@ -82,8 +81,13 @@ func doJob(dbpool *pgxpool.Pool, ca *CommandArguments) (pipelineResult *Pipeline
 	_, devMode = os.LookupEnv("JETSTORE_DEV_MODE")
 	if !devMode {
 		// We're not in dev mode, sync the overriten workspace files
-		// We're only interested in /lookup.db and /workspace.db (both have content_type = 'sqlite')
+		// We're interested in lookup.db and workspace.tgz 
 		err = workspace.SyncWorkspaceFiles(dbpool, os.Getenv("WORKSPACE"), dbutils.FO_Open, "sqlite", false, true)
+		if err != nil {
+			log.Println("Error while synching workspace file from db:", err)
+			return
+		}
+		err = workspace.SyncWorkspaceFiles(dbpool, os.Getenv("WORKSPACE"), dbutils.FO_Open, "workspace.tgz", true, false)
 		if err != nil {
 			log.Println("Error while synching workspace file from db:", err)
 			return

@@ -201,7 +201,7 @@ func (ctx *ServerContext) ProcessData(reteWorkspace *ReteWorkspace) (*PipelineRe
 	// -----------------------------------------------------------------------
 	// Output domain table's columns specs (map[table name]columns' spec)
 	// from OutputTableSpecs
-	outputMapping, err := workspace.DomainTableDefinitions(reteWorkspace.js.MetaStore.DomainTableMap)
+	outputMapping, err := workspace.DomainTableDefinitions(ctx.dbpool, reteWorkspace.js.MetaStore.DomainTableMap)
 	if err != nil {
 		return &result, fmt.Errorf("while loading domain column definition from workspace db: %v", err)
 	}
@@ -217,23 +217,6 @@ func (ctx *ServerContext) ProcessData(reteWorkspace *ReteWorkspace) (*PipelineRe
 		if err != nil {
 			return &result, fmt.Errorf("while adding Predicate to output DomainColumn: %v", err)
 		}
-
-		// // Add reserved columns and domain keys
-		// for header := range domainTable.DomainKeysInfo.ReservedColumns {
-		// 	switch {
-		// 	case header == "session_id":
-		// 		domainTable.Columns = append(domainTable.Columns, 
-		// 			workspace.DomainColumn{ColumnName: header, DataType: "text", IsArray: false})
-	
-		// 	case strings.HasSuffix(header, ":domain_key"):
-		// 		domainTable.Columns = append(domainTable.Columns, 
-		// 			workspace.DomainColumn{ColumnName: header, DataType: "text", IsArray: false})
-	
-		// 	case strings.HasSuffix(header, ":shard_id"):
-		// 		domainTable.Columns = append(domainTable.Columns, 
-		// 			workspace.DomainColumn{ColumnName: header, DataType: "int", IsArray: false})
-		// 	}	
-		// }
 	}
 
 	// For development

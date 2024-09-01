@@ -79,7 +79,6 @@ func (args *ServerNodeArgs) RunServer(ctx context.Context, dsn string) error {
 
 	ca := &CommandArguments {
 		AwsRegion           : os.Getenv("JETS_REGION"),
-		WorkspaceDb         : fmt.Sprintf("%s/%s/workspace.db", os.Getenv("WORKSPACES_HOME"), os.Getenv("WORKSPACE")),
 		LookupDb            : fmt.Sprintf("%s/%s/lookup.db", os.Getenv("WORKSPACES_HOME"), os.Getenv("WORKSPACE")),
 		PipelineExecKey     : args.PipelineExecKey,
 		PoolSize            : 10,

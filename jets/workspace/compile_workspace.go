@@ -72,15 +72,27 @@ func SyncWorkspaceFiles(dbpool *pgxpool.Pool, workspaceName, status, contentType
 				// }
 				// log.Println(cmdLog)
 				fileHd, err := os.Open(localFileName)
-				defer fileHd.Close()
+				defer func () {
+					fileHd.Close()
+				}()
 				if err != nil {
-					return fmt.Errorf("failed to open tgz reports file %s for read: %v", fo.FileName, err)
+					return fmt.Errorf("failed to open tgz file %s for read: %v", fo.FileName, err)
 				}	
-				// make sure the dir workspaceHome/workspace/reports does not already exist
-				err = os.RemoveAll(fmt.Sprintf("%s/%s/reports", wh, workspaceName))
-				if err != nil {
-					log.Println("while removing workspace reports folder:", err)
-				}
+				//DELETE THIS v
+				// // Based on the ContentType, make sure the dir workspaceHome/workspace/<based on content type> does not already exist
+				// switch contentType {
+				// case "report.tgz":
+				// 	err = os.RemoveAll(fmt.Sprintf("%s/%s/reports", wh, workspaceName))
+				// 	if err != nil {
+				// 		log.Println("while removing workspace reports folder:", err)
+				// 	}
+				// case "workspace.tgz":
+				// 	err = os.RemoveAll(fmt.Sprintf("%s/%s/jet_rules", wh, workspaceName))
+				// 	if err != nil {
+				// 		log.Println("while removing workspace reports folder:", err)
+				// 	}
+				// }
+				//DELETE THIS ^
 				err = tarextract.ExtractTarGz(fileHd, fmt.Sprintf("%s/%s", wh, workspaceName))
 				if err != nil {
 					return fmt.Errorf("failed to extract content from tgz file %s for read: %v", fo.FileName, err)
@@ -145,6 +157,19 @@ func CompileWorkspace(dbpool *pgxpool.Pool, workspaceName, version string) (stri
 		return cmdLog, fmt.Errorf("while archiving the reports folder : %v", err)
 	}
 
+	args = []string{"cfvz", "workspace.tgz", "--exclude", "'*.jr'", "workspace_control.json", "jet_rules/"} 
+	buf.WriteString("\nArchiving the jet_rules\n")
+	err = wsfile.RunCommand(&buf, command, &args, workspaceName)
+	path = fmt.Sprintf("%s/%s/%s", os.Getenv("WORKSPACES_HOME"), workspaceName, "workspace.tgz")
+	defer os.Remove(path)
+	cmdLog = buf.String()
+	if err != nil {
+		log.Println("=*=*=*=*=*=*=*=*=*=*=*=*=*=*")
+		log.Println(cmdLog)
+		log.Println("=*=*=*=*=*=*=*=*=*=*=*=*=*=*")
+		return cmdLog, fmt.Errorf("while archiving the jet_rules folder : %v", err)
+	}
+
 	log.Println("COMPILE WORKSPACE CAPTURED OUTPUT:")
 	log.Println("============================")
 	log.Println(cmdLog)
@@ -159,12 +184,14 @@ func CompileWorkspace(dbpool *pgxpool.Pool, workspaceName, version string) (stri
 		sourcesPath := []string{
 			fmt.Sprintf("%s/%s/lookup.db", wh, workspaceName),
 			fmt.Sprintf("%s/%s/workspace.db", wh, workspaceName),
+			fmt.Sprintf("%s/%s/workspace.tgz", wh, workspaceName),
 			fmt.Sprintf("%s/%s/reports.tgz", wh, workspaceName),
 		}
-		fileNames := []string{ "lookup.db", "workspace.db", "reports.tgz" }
+		fileNames := []string{ "lookup.db", "workspace.db", "workspace.tgz", "reports.tgz" }
 		fo := []dbutils.FileDbObject{
 			{WorkspaceName: workspaceName, ContentType: "sqlite", Status: dbutils.FO_Open, UserEmail: "system"},
 			{WorkspaceName: workspaceName, ContentType: "sqlite", Status: dbutils.FO_Open, UserEmail: "system"},
+			{WorkspaceName: workspaceName, ContentType: "workspace.tgz",	Status: dbutils.FO_Open, UserEmail: "system"},
 			{WorkspaceName: workspaceName, ContentType: "reports.tgz",	Status: dbutils.FO_Open, UserEmail: "system"}}
 		for i := range sourcesPath {
 			// Copy the file to db as large objects
