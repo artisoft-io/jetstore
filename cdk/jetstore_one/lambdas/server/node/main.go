@@ -93,6 +93,12 @@ func main() {
 			hasErr = true
 			errMsg = append(errMsg, fmt.Sprintf("failed to set env var WORKSPACES_HOME: %v", err))
 		}
+		// Create the workspace dir
+		err = os.Mkdir(fmt.Sprintf("%s/%s", wh, os.Getenv("WORKSPACE")), 0755)
+		if err != nil {
+			hasErr = true
+			errMsg = append(errMsg, fmt.Sprintf("failed to Mkdir for WORKSPACE: %v", err))
+		}
 	}
 	log.Println("Got env var WORKSPACES_HOME:", os.Getenv("WORKSPACES_HOME"))
 
