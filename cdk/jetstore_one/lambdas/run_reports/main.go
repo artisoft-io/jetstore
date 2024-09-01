@@ -41,7 +41,7 @@ var workspaceHome string
 var wprefix string
 
 // NOTE 5/5/2023:
-// This run_reports utility is used by serverSM, loaderSM, and reportsSM to run reports.
+// This run_reports utility is used by serverSM, serverv2SM, loaderSM, and reportsSM to run reports.
 // filePath correspond to the output directory where the report is written, for backward compatibility
 // filePath has JETS_s3_OUTPUT_PREFIX (writing to the s3 output folder), which now can be
 // changed using the config.json file located at root of workspace reports folder.
@@ -55,25 +55,10 @@ var wprefix string
 // DO NOT USE jetsapi.session_registry FOR THE CURRENT session_id SINCE IT IS NOT REGISTERED YET
 // The session_id is registered AFTER the report completion during the status_update task
 // NOTE 02/27/2024:
-// When run_report is used by serverSM, make sure there was data in output before running the reports.
-// This is when count(*) > 0 from pipeline_execution_details where session_id = $session_id (that is serverSM case)
+// When run_report is used by serverSM/serverv2SM, make sure there was data in output before running the reports.
+// This is when count(*) > 0 from pipeline_execution_details where session_id = $session_id (that is serverSM/serverv2SM case)
 // and then if sum(output_records_count) == 0 && count(*) > 0 from pipeline_execution_details where session_id = $session_id
 // skip running the reports
-
-func getSourcePeriodKey(ctx context.Context, dbpool *pgxpool.Pool, sessionId, fileKey string) (int, error) {
-	var sourcePeriodKey int
-	err := dbpool.QueryRow(ctx, "SELECT source_period_key FROM jetsapi.pipeline_execution_status WHERE session_id=$1",
-		sessionId).Scan(&sourcePeriodKey)
-	if err != nil {
-		err = dbpool.QueryRow(ctx, "SELECT source_period_key FROM jetsapi.file_key_staging WHERE file_key=$1",
-			fileKey).Scan(&sourcePeriodKey)
-		if err != nil {
-			return 0,
-				fmt.Errorf("failed to get source_period_key from pipeline_execution_status or file_key_staging table for session_id '%s': %v", sessionId, err)
-		}
-	}
-	return sourcePeriodKey, nil
-}
 
 func main() {
 	// var awsDsnSecret = flag.String("awsDsnSecret", "", "aws secret with dsn definition (aws integration) (required unless -dsn is provided)")

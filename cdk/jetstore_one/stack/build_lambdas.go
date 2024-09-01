@@ -17,7 +17,7 @@ import (
 
 func (jsComp *JetStoreStackComponents) BuildLambdas(scope constructs.Construct, stack awscdk.Stack, props *JetstoreOneStackProps) {
 	// -----------------------------------------------
-	// Define the Status Update lambda, used in jsComp.ServerSM, jsComp.CpipesSM and jsComp.ReportsSM
+	// Define the Status Update lambda, used in jsComp.ServerSM, jsComp.Serverv2SM, jsComp.CpipesSM and jsComp.ReportsSM
 	// Status Update Lambda Definition
 	// --------------------------------------------------------------------------------------------------------------
 	jsComp.StatusUpdateLambda = awslambdago.NewGoFunction(stack, jsii.String("StatusUpdateLambda"), &awslambdago.GoFunctionProps{
@@ -79,7 +79,7 @@ func (jsComp *JetStoreStackComponents) BuildLambdas(scope constructs.Construct, 
 	// jsComp.AdminPwdSecret.GrantRead(jsComp.StatusUpdateLambda, nil)
 
 	// -----------------------------------------------
-	// Define the Run Reports lambda, used in jsComp.CpipesSM and eventually to others
+	// Define the Run Reports lambda, used in jsComp.CpipesSM, jsComp.Serverv2SM and eventually to others
 	// Run Reports Lambda Definition
 	// --------------------------------------------------------------------------------------------------------------
 	jsComp.RunReportsLambda = awslambdago.NewGoFunction(stack, jsii.String("RunReportsLambda"), &awslambdago.GoFunctionProps{

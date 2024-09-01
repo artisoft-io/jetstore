@@ -915,7 +915,7 @@ func (ctx *Context) InsertRows(dataTableAction *DataTableAction, token string) (
 		for irow := range dataTableAction.Data {
 			// Need to get:
 			//	- DevMode: run_report_only, run_server_only, run_server_reports
-			//  - State Machine URI: serverSM, reportsSM, and cpipesSM
+			//  - State Machine URI: serverSM, serverv2SM, reportsSM, and cpipesSM
 			// from process_config table
 			// ----------------------------
 			var devModeCode, stateMachineName string
@@ -939,7 +939,7 @@ func (ctx *Context) InsertRows(dataTableAction *DataTableAction, token string) (
 			// returnedKey is the key of the row inserted in the db, here it correspond to peKey
 			if returnedKey[irow] <= 0 {
 				log.Printf(
-					"error while preparing to run server/argo: unexpected value for returnedKey from insert to pipeline_execution_status table: %v", returnedKey)
+					"error while preparing to run server/serverv2: unexpected value for returnedKey from insert to pipeline_execution_status table: %v", returnedKey)
 				httpStatus = http.StatusInternalServerError
 				err = errors.New("error while preparing server command")
 				return
@@ -1154,7 +1154,7 @@ func (ctx *Context) InsertRows(dataTableAction *DataTableAction, token string) (
 						},
 					}
 
-				case "serverSMv2":
+				case "serverv2SM":
 					processArn = os.Getenv("JETS_SERVER_SM_ARNv2")
 					serverArgs := make([]map[string]interface{}, ctx.NbrShards)
 					for i := range serverArgs {

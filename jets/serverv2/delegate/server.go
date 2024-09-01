@@ -27,7 +27,7 @@ import (
 // JETS_s3_INPUT_PREFIX (required for registrying the domain table with input_registry)
 // JETS_S3_KMS_KEY_ARN
 // JETS_LOADER_SM_ARN state machine arn
-// JETS_SERVER_SM_ARN state machine arn
+// JETS_SERVER_SM_ARNv2 state machine arn
 // JETSTORE_DEV_MODE Indicates running in dev mode, used to determine if sync workspace file from s3
 // JETS_DOMAIN_KEY_SEPARATOR
 
@@ -164,8 +164,6 @@ func DoJobAndReportStatus(dbpool *pgxpool.Pool, ca *CommandArguments) error {
 	log.Printf("ENV JETS_DOMAIN_KEY_HASH_ALGO: %s\n", os.Getenv("JETS_DOMAIN_KEY_HASH_ALGO"))
 	log.Printf("ENV JETS_DOMAIN_KEY_HASH_SEED: %s\n", os.Getenv("JETS_DOMAIN_KEY_HASH_SEED"))
 	log.Printf("ENV JETS_LOG_DEBUG: %s\n", os.Getenv("JETS_LOG_DEBUG"))
-	log.Printf("ENV JETS_LOADER_SM_ARN: %s\n", os.Getenv("JETS_LOADER_SM_ARN"))
-	log.Printf("ENV JETS_SERVER_SM_ARN: %s\n", os.Getenv("JETS_SERVER_SM_ARN"))
 	log.Printf("ENV JETS_s3_INPUT_PREFIX: %s\n", os.Getenv("JETS_s3_INPUT_PREFIX"))
 	log.Printf("ENV JETS_INVALID_CODE: %s\n", os.Getenv("JETS_INVALID_CODE"))
 	log.Printf("ENV JETSTORE_DEV_MODE: %s\n", os.Getenv("JETSTORE_DEV_MODE"))

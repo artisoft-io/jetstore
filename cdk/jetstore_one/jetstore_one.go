@@ -73,7 +73,7 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 		ServerSmArn: fmt.Sprintf("arn:aws:states:%s:%s:stateMachine:%s",
 			os.Getenv("AWS_REGION"), os.Getenv("AWS_ACCOUNT"), *props.MkId("serverSM")),
 		ServerSmArnv2: fmt.Sprintf("arn:aws:states:%s:%s:stateMachine:%s",
-			os.Getenv("AWS_REGION"), os.Getenv("AWS_ACCOUNT"), *props.MkId("serverSMv2")),
+			os.Getenv("AWS_REGION"), os.Getenv("AWS_ACCOUNT"), *props.MkId("serverv2SM")),
 		CpipesSmArn: fmt.Sprintf("arn:aws:states:%s:%s:stateMachine:%s",
 			os.Getenv("AWS_REGION"), os.Getenv("AWS_ACCOUNT"), *props.MkId("cpipesSM")),
 		ReportsSmArn: fmt.Sprintf("arn:aws:states:%s:%s:stateMachine:%s",
@@ -321,6 +321,7 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 	// JetStore Rule Server State Machine
 	// ---------------------------------------------
 	jsComp.BuildServerSM(scope, stack, props)
+	jsComp.BuildServerv2SM(scope, stack, props)
 
 	// Build lambdas used by cpipesSM:
 	//	- CpipesNodeLambda
@@ -342,6 +343,7 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 		Resources: &[]*string{
 			jsComp.LoaderSM.StateMachineArn(),
 			jsComp.ServerSM.StateMachineArn(),
+			jsComp.Serverv2SM.StateMachineArn(),
 			jsComp.CpipesSM.StateMachineArn(),
 			jsComp.ReportsSM.StateMachineArn(),
 		},
@@ -354,6 +356,7 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 		// Resources: &[]*string{
 		// 	jsComp.LoaderSM.StateMachineArn(),
 		// 	jsComp.ServerSM.StateMachineArn(),
+		// 	jsComp.Serverv2SM.StateMachineArn(),
 		// 	jsComp.CpipesSM.StateMachineArn(),
 		// 	jsComp.ReportsSM.StateMachineArn(),
 		// },

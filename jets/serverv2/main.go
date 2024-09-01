@@ -29,7 +29,7 @@ import (
 // JETS_s3_INPUT_PREFIX (required for registrying the domain table with input_registry)
 // JETS_S3_KMS_KEY_ARN
 // JETS_LOADER_SM_ARN state machine arn
-// JETS_SERVER_SM_ARN state machine arn
+// JETS_SERVER_SM_ARNv2 state machine arn
 // JETSTORE_DEV_MODE Indicates running in dev mode, used to determine if sync workspace file from s3
 // JETS_DOMAIN_KEY_SEPARATOR
 
@@ -121,9 +121,9 @@ func main() {
 
 	// If not in dev mode, must have state machine arn defined
 	if os.Getenv("JETSTORE_DEV_MODE") == "" {
-		if os.Getenv("JETS_LOADER_SM_ARN") == "" || os.Getenv("JETS_SERVER_SM_ARN") == "" {
+		if os.Getenv("JETS_LOADER_SM_ARN") == "" || os.Getenv("JETS_SERVER_SM_ARNv2") == "" {
 			hasErr = true
-			errMsg = append(errMsg, "Env var JETS_LOADER_SM_ARN, and JETS_SERVER_SM_ARN are required when not in dev mode.")
+			errMsg = append(errMsg, "Env var JETS_LOADER_SM_ARN, and JETS_SERVER_SM_ARNv2 are required when not in dev mode.")
 		}
 	}
 

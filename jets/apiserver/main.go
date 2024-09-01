@@ -37,6 +37,7 @@ import (
 // JETS_LOADER_SM_ARN state machine arn
 // JETS_REGION
 // JETS_SERVER_SM_ARN state machine arn
+// JETS_SERVER_SM_ARNv2 state machine arn
 // JETSTORE_DEV_MODE Indicates running in dev mode
 // NBR_SHARDS set the nbr of shard to use for loader and server
 // WEB_APP_DEPLOYMENT_DIR

@@ -969,7 +969,7 @@
       {
         "columnName": "state_machine_name",
         "dataType": "text",
-        "default": "'serverSM'",
+        "default": "'serverv2SM'",
         "isNotNull": true
       },
       {

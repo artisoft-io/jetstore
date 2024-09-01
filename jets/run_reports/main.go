@@ -44,10 +44,9 @@ var sessionId = flag.String("sessionId", "", "Process session ID. (required if -
 var filePath = flag.String("filePath", "", "File path for output files. (required)")
 var originalFileName = flag.String("originalFileName", "", "Original file name submitted for processing, if empty will take last component of filePath.")
 var fileKey string
-var devMode bool
 
 // NOTE 5/5/2023:
-// This run_reports utility is used by serverSM, loaderSM, and reportsSM to run reports.
+// This run_reports utility is used by serverSM, serverv2SM, loaderSM, and reportsSM to run reports.
 // filePath correspond to the output directory where the report is written, for backward compatibility
 // filePath has JETS_s3_OUTPUT_PREFIX (writing to the s3 output folder), which now can be
 // changed using the config.json file located at root of workspace reports folder.
@@ -65,23 +64,6 @@ var devMode bool
 // This is when count(*) > 0 from pipeline_execution_details where session_id = $session_id (that is serverSM case)
 // and then if sum(output_records_count) == 0 && count(*) > 0 from pipeline_execution_details where session_id = $session_id
 // skip running the reports
-
-func getSourcePeriodKey(dbpool *pgxpool.Pool, sessionId, fileKey string) (int, error) {
-	var sourcePeriodKey int
-	err := dbpool.QueryRow(context.Background(),
-		"SELECT source_period_key FROM jetsapi.pipeline_execution_status WHERE session_id=$1",
-		sessionId).Scan(&sourcePeriodKey)
-	if err != nil {
-		err = dbpool.QueryRow(context.Background(),
-			"SELECT source_period_key FROM jetsapi.file_key_staging WHERE file_key=$1",
-			fileKey).Scan(&sourcePeriodKey)
-		if err != nil {
-			return 0,
-				fmt.Errorf("failed to get source_period_key from pipeline_execution_status or file_key_staging table for session_id '%s': %v", sessionId, err)
-		}
-	}
-	return sourcePeriodKey, nil
-}
 
 func main() {
 	var err error
