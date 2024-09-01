@@ -336,9 +336,8 @@ func (server *Server) checkWorkspaceVersion() error {
 
 	default:
 		log.Println("Workspace version in database", version, ">=", "JetStore image version", jetstoreVersion, ", no need to recompile workspace")
-		// Download overriten workspace files from database if any, not skipping sqlite files to get latest in case it was recompiled, no need to pull tgz files
-		// Note: We're always skipping tgz files in apiserver since these files are for run_report
-		if err = workspace.SyncWorkspaceFiles(server.dbpool, workspaceName, dbutils.FO_Open, "", false, true); err != nil {
+		// Download overriten workspace files from database if any, not skipping sqlite/tgz files to get latest in case it was recompiled
+		if err = workspace.SyncWorkspaceFiles(server.dbpool, workspaceName, dbutils.FO_Open, "", false, false); err != nil {
 			log.Println("Error (ignored) while synching workspace file from database:", err)
 		}
 		// NOT Recompiling workspace, hence return here

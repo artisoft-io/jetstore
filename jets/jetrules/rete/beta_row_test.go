@@ -18,7 +18,7 @@ func TestBetaRow(t *testing.T) {
 			2 | brcTriple,
 		}, 
 		[]string{"s", "p", "o"})
-	nvertex1 := NewNodeVertex(0, nil, false, 100, nil, "test node vertex 0", initializer1)
+	nvertex1 := NewNodeVertex(0, nil, false, 100, nil, "test node vertex 0", nil, initializer1)
 
 	// first row
 	br1 := NewBetaRow(nvertex1, len(initializer1.InitData))
@@ -61,7 +61,7 @@ func TestBetaRow(t *testing.T) {
 			2 | brcTriple,
 		}, 
 		[]string{"s", "p", "s", "o"})
-	nvertex2 := NewNodeVertex(1, nvertex1, false, 100, nil, "test node vertex 1", initializer2)
+	nvertex2 := NewNodeVertex(1, nvertex1, false, 100, nil, "test node vertex 1", nil, initializer2)
 	br2 := NewBetaRow(nvertex2, len(initializer2.InitData))
 	t3 = rdf.T3(rMgr.NewResource("s2"), rMgr.NewResource("p2"), rMgr.NewResource("o2"))
 	err = br2.Initialize(initializer2, br1, &t3)

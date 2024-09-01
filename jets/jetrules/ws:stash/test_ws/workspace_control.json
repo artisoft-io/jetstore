@@ -1,0 +1,6 @@
+{
+  "rule_sets": [
+    "jet_rules/test_lookup_main.jr"
+  ],
+  "rule_sequences": []
+}

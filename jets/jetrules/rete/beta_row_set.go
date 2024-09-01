@@ -5,8 +5,8 @@ import ()
 // BetaRowSet - Custom container class, since BetaRow is not comparable due to slice data property
 
 type BetaRowSet struct {
-	data map[uint64]*[]*BetaRow
-	size int
+	data   map[uint64]*[]*BetaRow
+	size   int
 }
 
 func NewBetaRowSet() *BetaRowSet {
@@ -43,6 +43,22 @@ func (s *BetaRowSet) Put(row *BetaRow) (bool, *BetaRow) {
 		s.size += 1
 		return true, row
 	}
+}
+
+// Get the row from the set, return the row that is in the set, if any otherwise nil
+func (s *BetaRowSet) Get(row *BetaRow) *BetaRow {
+	rows := s.data[row.h]
+	if rows == nil {
+		return nil
+	}
+	for _, r := range *rows {
+		if r.Eq(row) {
+			// found in set
+			return r
+		}
+	}
+	// Not found
+	return nil
 }
 
 // Erase the row from the set, return the row that was in the set, if any otherwise nil

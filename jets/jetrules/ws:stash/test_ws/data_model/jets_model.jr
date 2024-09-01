@@ -1,0 +1,50 @@
+# =======================================================================================
+# Jets Data Model 
+# ---------------------------------------------------------------------------------------
+
+class jets:Entity {
+  $base_classes = [owl:Thing],
+  $data_properties = [
+    jets:client                 as text, 
+    jets:key                    as text, 
+    jets:org                    as text, 
+    jets:ruleTag                as array of text,
+    rdf:type                    as array of resource
+  ],
+  $as_table = false
+};
+
+# Marker class to indicate the entity is a mapped entity
+# This is used by the server process to ensure we extract only mapped entities
+class jets:InputRecord {
+  $base_classes = [owl:Thing],
+  $as_table = false
+};
+
+# State class used in rule engine working memory
+class jets:State {
+  $base_classes = [owl:Thing],
+  $data_properties = [
+    jets:completed                  as bool,
+    jets:currentSourcePeriod        as int, 
+    jets:currentSourcePeriodDate    as date, 
+    jets:exception                  as text,
+    jets:from                       as int,
+    jets:length                     as int,
+    jets:loop                       as int,
+    jets:max_vertex_visits          as int,
+    jets:range_value                as resource,
+    jets:replace_chars              as text,
+    jets:replace_with               as text,
+    jets:sourcePeriodType           as text 
+  ],
+  $as_table = false
+};
+
+# jets:sourcePeriodType enum
+text jets:MONTHLY_PERIOD = "month_period";
+text jets:WEEKLY_PERIOD = "week_period";
+text jets:DAYLY_PERIOD = "day_period";
+
+resource jets:iState = "jets:iState";
+triple(jets:iState, rdf:type, jets:State);

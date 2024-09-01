@@ -24,6 +24,9 @@ func (op *SizeOfOp) RegisterCallback(reteSession *ReteSession, vertex int, lhs, 
 	rdfSession.InferredGraph.CallbackMgr.AddCallback(cb)
 	return nil
 }
+func (op *SizeOfOp) String() string {
+	return "size_of"
+}
 
 // Apply the operator:
 //		lhs size_of rhs

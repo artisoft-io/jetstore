@@ -1,0 +1,30 @@
+
+# Main Rule File for Test Lookup UC
+import "data_model/jets_model.jr"
+import "data_model/test_lookup_model.jr"
+import "lookups/test_lookup_tables.jr"
+
+volatile_resource hasConditionLookup = "hasConditionLookup";
+volatile_resource gate1 = "gate1";
+volatile_resource gate2 = "gate2";
+
+[rule1]:
+  (?c1 rdf:type tl:Patient).
+  (?c1 tl:diagnosis ?diag1)      
+  ->
+  (?c1 hasConditionLookup (TestLookup lookup ?diag1))
+;
+
+# Following is to have initially (?c1 tl:diagnosis "diag1") and then trackback to settle as (?c1 tl:diagnosis "diag2")
+[rule2]: (?c1 rdf:type tl:Patient) -> (?c1 gate1 true);
+[rule3]: (?c1 rdf:type tl:Patient).not(?c1 gate2 true) -> (?c1 tl:diagnosis "diag1");
+[rule4]: (?c1 rdf:type tl:Patient).(?c1 gate1 true) -> (?c1 tl:diagnosis "diag2").(?c1 gate2 true);
+
+# Pull values from the lookup records
+[rule5]:                     
+  (?c1 rdf:type tl:Patient).          
+  (?c1 hasConditionLookup ?row1).         
+  (?row1 CONDITION ?cond1)
+  ->                           
+  (?c1 tl:condition ?cond1)
+;

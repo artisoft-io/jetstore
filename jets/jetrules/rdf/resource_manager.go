@@ -102,6 +102,10 @@ func NewResourceManager(rootManager *ResourceManager) *ResourceManager {
 	return rm
 }
 
+func (rm *ResourceManager) GetRootManager() *ResourceManager {
+	return rm.rootManager
+}
+
 func (rm *ResourceManager) GetResource(name string) *Node {
 	if rm.rootManager != nil {
 		n := rm.rootManager.resourceMap[name]

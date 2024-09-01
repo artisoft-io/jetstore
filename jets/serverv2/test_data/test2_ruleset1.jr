@@ -1,0 +1,120 @@
+# ///////////////////////////////////////////////////////////////////////////////////////
+# Unit Test JetStore server process
+# ---------------------------------------------------------------------------------------
+import "test2_support.jr"
+
+# =======================================================================================
+# Create Population
+# ---------------------------------------------------------------------------------------
+main {
+  $max_looping = 4
+};
+
+# ========================================================================
+# Loop Control
+# -----------------------------------------------------------------------
+volatile_resource newEntity = "newEntity";
+volatile_resource personaRow = "personaRow";
+volatile_resource simKey = "simKey";
+
+[LOOP010]:
+  (?simspec rdf:type aspec:Simulator).
+  (?simspec aspec:nbr_entities ?max).
+  (?simspec aspec:entity_key_prefix ?entity_key_prefix).
+  (?state rdf:type jets:State).
+  (?state jets:loop ?i).
+  [?i <= ?max]
+  ->
+  (?state ?i create_entity 0)
+;
+
+[LOOP011]:
+  (?simspec rdf:type aspec:Simulator).
+  (?simspec aspec:nbr_entities ?max).
+  (?simspec aspec:entity_key_prefix ?entity_key_prefix).
+  (?state rdf:type jets:State).
+  (?state jets:loop ?i).
+  (?state ?i ?entity)
+  ->
+  (?state newEntity ?entity).
+  (?entity simKey (?entity_key_prefix + (?i apply_format "%03u")))
+;
+
+# Note: Adding +1 to the max loop to ensure when that when jets:completed is set 
+#       all the entities are created and we're ready to do 'pick_one' on local lists
+[LOOP020]:
+  (?simspec rdf:type aspec:Simulator).
+  (?simspec aspec:nbr_entities ?max).
+  (?state rdf:type jets:State).
+  (?state jets:loop ?i).
+  [?i >= (?max + 1)]
+  ->
+  (?state jets:completed true)
+;
+
+# ========================================================================
+# Create Entity
+# -----------------------------------------------------------------------
+
+[JSIM010]:
+  (?simspec rdf:type aspec:Simulator).
+  (?simspec aspec:entity_persona_lk ?uri).
+  (?state rdf:type jets:State).
+  (?state newEntity ?entity)
+  ->
+  (?entity rdf:type asim:Entity).
+  (?entity personaRow (lookup_rand ?uri)).
+;
+
+[JSIM020]:
+  (?state rdf:type jets:State).
+  (?state newEntity ?entity).
+  (?entity personaRow ?row).
+  (?row ?p ?o).
+  [(?p != rdf:type) and (?p != jets:key)]
+ ->
+  (?entity ?p ?o)
+;
+
+[JSIM030]:
+  (?simspec rdf:type aspec:Simulator).
+  (?simspec aspec:anchor_date ?anchor_date).
+  (?entity rdf:type asim:Entity)
+ ->
+  (?entity asim:anchor_date ?anchor_date)
+;
+
+# ========================================================================
+# Create Patient
+# -----------------------------------------------------------------------
+volatile_resource demographicRow = "demographicRow";
+
+[JSIMHC010]:
+  (?entity rdf:type asim:Entity).
+  (?entity simKey ?simkey).
+  (?entity asim:demographic_group_key ?demo_key)
+ ->
+  (?entity rdf:type hc:SimulatedPatient).
+  (?entity hc:patient_number ?simkey).
+  (?entity demographicRow (lk:PatientDemographic lookup ?demo_key))
+;
+
+[JSIMHC020]:
+  (?entity rdf:type hc:SimulatedPatient).
+  (?entity asim:event_group1_lk ?key).
+ ->
+  (?entity asim:claim_group_lk ?key)
+;
+
+[JSIMHC015]:
+  (?simspec rdf:type aspec:Simulator).
+  (?simspec aspec:anchor_date ?anchor_date).
+  (?entity rdf:type asim:Entity).
+  (?entity demographicRow ?row).
+  (?row lk:gender ?gender).
+  (?row lk:age_min ?age_min).
+  (?row lk:age_max ?age_max)
+ ->
+  (?entity hc:gender ?gender).
+  (?entity hc:dob (?anchor_date - ((?age_min + (?age_max/2)) * 365) ))
+;

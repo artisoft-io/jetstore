@@ -57,7 +57,7 @@ func (wc *WorkspaceControl) MainRuleFileNames(ruleFileName string) []string {
 	}
 	for i := range wc.RuleSequences {
 		if wc.RuleSequences[i].Name == ruleFileName {
-			return wc.RuleSets
+			return wc.RuleSequences[i].RuleSets
 		}
 	}
 	for i := range wc.RuleSets {

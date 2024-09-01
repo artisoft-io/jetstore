@@ -17,7 +17,7 @@ import (
 
 func (jsComp *JetStoreStackComponents) BuildLambdas(scope constructs.Construct, stack awscdk.Stack, props *JetstoreOneStackProps) {
 	// -----------------------------------------------
-	// Define the Status Update lambda, used in jsComp.ServerSM, jsComp.CpipesSM and jsComp.ReportsSM
+	// Define the Status Update lambda, used in jsComp.ServerSM, jsComp.Serverv2SM, jsComp.CpipesSM and jsComp.ReportsSM
 	// Status Update Lambda Definition
 	// --------------------------------------------------------------------------------------------------------------
 	jsComp.StatusUpdateLambda = awslambdago.NewGoFunction(stack, jsii.String("StatusUpdateLambda"), &awslambdago.GoFunctionProps{
@@ -45,6 +45,7 @@ func (jsComp *JetStoreStackComponents) BuildLambdas(scope constructs.Construct, 
 			"JETS_SENTINEL_FILE_NAME":                  jsii.String(os.Getenv("JETS_SENTINEL_FILE_NAME")),
 			"JETS_DOMAIN_KEY_SEPARATOR":                jsii.String(os.Getenv("JETS_DOMAIN_KEY_SEPARATOR")),
 			"JETS_SERVER_SM_ARN":                       jsii.String(jsComp.ServerSmArn),
+			"JETS_SERVER_SM_ARNv2":                     jsii.String(jsComp.ServerSmArnv2),
 			"JETS_CPIPES_SM_ARN":                       jsii.String(jsComp.CpipesSmArn),
 			"JETS_REPORTS_SM_ARN":                      jsii.String(jsComp.ReportsSmArn),
 			"CPIPES_STATUS_NOTIFICATION_ENDPOINT":      jsii.String(os.Getenv("CPIPES_STATUS_NOTIFICATION_ENDPOINT")),
@@ -78,7 +79,7 @@ func (jsComp *JetStoreStackComponents) BuildLambdas(scope constructs.Construct, 
 	// jsComp.AdminPwdSecret.GrantRead(jsComp.StatusUpdateLambda, nil)
 
 	// -----------------------------------------------
-	// Define the Run Reports lambda, used in jsComp.CpipesSM and eventually to others
+	// Define the Run Reports lambda, used in jsComp.CpipesSM, jsComp.Serverv2SM and eventually to others
 	// Run Reports Lambda Definition
 	// --------------------------------------------------------------------------------------------------------------
 	jsComp.RunReportsLambda = awslambdago.NewGoFunction(stack, jsii.String("RunReportsLambda"), &awslambdago.GoFunctionProps{
@@ -106,6 +107,7 @@ func (jsComp *JetStoreStackComponents) BuildLambdas(scope constructs.Construct, 
 			"JETS_SENTINEL_FILE_NAME":            jsii.String(os.Getenv("JETS_SENTINEL_FILE_NAME")),
 			"JETS_DOMAIN_KEY_SEPARATOR":          jsii.String(os.Getenv("JETS_DOMAIN_KEY_SEPARATOR")),
 			"JETS_SERVER_SM_ARN":                 jsii.String(jsComp.ServerSmArn),
+			"JETS_SERVER_SM_ARNv2":               jsii.String(jsComp.ServerSmArnv2),
 			"JETS_CPIPES_SM_ARN":                 jsii.String(jsComp.CpipesSmArn),
 			"JETS_REPORTS_SM_ARN":                jsii.String(jsComp.ReportsSmArn),
 			"NBR_SHARDS":                         jsii.String(props.NbrShards),

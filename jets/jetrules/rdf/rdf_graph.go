@@ -48,6 +48,10 @@ func (g *RdfGraph) FindSP(s, p *Node) *BaseGraphIterator {
 	return g.spoGraph.FindUV(s, p)
 }
 
+func (g *RdfGraph) FindS(s *Node) *BaseGraphIterator {
+	return g.spoGraph.FindU(s)
+}
+
 func (g *RdfGraph) FindSPO(s, p, o *Node) *BaseGraphIterator {
 	switch {
 	case s == nil && p == nil && o == nil:
@@ -106,7 +110,7 @@ func (g *RdfGraph) Insert(s, p, o *Node) (bool, error) {
 }
 
 // Return true if the triple is actually deleted from the RdfGraph.
-func (g *RdfGraph) Erase(s, p, o *Node) (bool, error) {
+func (g *RdfGraph) erase_internal(s, p, o *Node) (bool, error) {
 	if g.isLocked {
 		return false, ErrGraphLocked
 	}
@@ -120,6 +124,27 @@ func (g *RdfGraph) Erase(s, p, o *Node) (bool, error) {
 	if erased {
 		// Notify callback mgr
 		g.CallbackMgr.TripleDeleted(s, p, o)
+	}
+	return erased, nil
+}
+
+// Return true if the triple is actually deleted from the RdfGraph.
+func (g *RdfGraph) Erase(s, p, o *Node) (bool, error) {
+	if g.isLocked {
+		return false, ErrGraphLocked
+	}
+	var erased bool
+	l := make([]*[3]*Node, 0)
+	t3Itor := g.FindSPO(s, p, o)
+	for t3 := range t3Itor.Itor {
+		l = append(l, &t3)
+	}
+	for _, t3 := range l {
+		b, err := g.erase_internal((*t3)[0],(*t3)[1],(*t3)[2])
+		if err != nil {
+			return false, err
+		}
+		erased = erased || b
 	}
 	return erased, nil
 }

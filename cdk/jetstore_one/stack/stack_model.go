@@ -32,7 +32,7 @@ type JetstoreOneStackProps struct {
 	JetsApiUrl                   string
 }
 
-func (props *JetstoreOneStackProps)MkId(name string) *string {
+func (props *JetstoreOneStackProps) MkId(name string) *string {
 	if props.StackSuffix == "" {
 		return &name
 	}
@@ -42,10 +42,11 @@ func (props *JetstoreOneStackProps)MkId(name string) *string {
 
 // Struct to hold the stack components
 type JetStoreStackComponents struct {
-	LoaderSmArn  string
-	ServerSmArn  string
-	CpipesSmArn  string
-	ReportsSmArn string
+	LoaderSmArn   string
+	ServerSmArn   string
+	ServerSmArnv2 string
+	CpipesSmArn   string
+	ReportsSmArn  string
 
 	ApiSecret           awssm.Secret
 	AdminPwdSecret      awssm.Secret
@@ -85,6 +86,7 @@ type JetStoreStackComponents struct {
 	StatusUpdateLambda        awslambdago.GoFunction
 	RunReportsLambda          awslambdago.GoFunction
 	PurgeDataLambda           awslambdago.GoFunction
+	serverv2NodeLambda        awslambdago.GoFunction
 	CpipesNodeLambda          awslambdago.GoFunction
 	CpipesStartShardingLambda awslambdago.GoFunction
 	CpipesStartReducingLambda awslambdago.GoFunction
@@ -93,6 +95,7 @@ type JetStoreStackComponents struct {
 	LoaderSM    sfn.StateMachine
 	ReportsSM   sfn.StateMachine
 	ServerSM    sfn.StateMachine
+	Serverv2SM  sfn.StateMachine
 	CpipesSM    sfn.StateMachine
 	BastionHost awsec2.BastionHostLinux
 }

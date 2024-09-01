@@ -37,6 +37,7 @@ import (
 // JETS_REGION
 // JETS_SENTINEL_FILE_NAME (optional, used by compute pipe partion_writer)
 // JETS_SERVER_SM_ARN state machine arn
+// JETS_SERVER_SM_ARNv2 state machine arn
 // JETS_REPORTS_SM_ARN state machine arn
 // JETS_CPIPES_SM_ARN state machine arn
 // LOADER_ERR_DIR

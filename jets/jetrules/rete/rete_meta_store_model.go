@@ -15,6 +15,7 @@ type JetruleModel struct {
 	Classes              []ClassNode              `json:"classes"`
 	Tables               []TableNode              `json:"tables"`
 	Triples              []TripleNode             `json:"triples"`
+	HeadRuleTerm         *RuleTerm
 	Antecedents          []*RuleTerm
 	Consequents          []*RuleTerm
 }

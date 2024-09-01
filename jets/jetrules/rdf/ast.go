@@ -63,6 +63,52 @@ func (v *Node) IsResource() bool {
 	}
 }
 
+func (v *Node) GetType() int {
+	switch v.Value.(type) {
+	case RdfNull:
+		return 0
+	case BlankNode:
+		return 1
+	case NamedResource:
+		return 2
+	case LDate:
+		return 9
+	case LDatetime:
+		return 10
+	case int:
+		return 3
+	case float64:
+		return 7
+	case string:
+		return 8
+	default:
+		return 0
+	}
+}
+
+func (v *Node) GetTypeName() string {
+	switch v.Value.(type) {
+	case RdfNull:
+		return  "null"
+	case BlankNode:
+		return "blank_node"
+	case NamedResource:
+		return "named_resource"
+	case LDate:
+		return "date"
+	case LDatetime:
+		return "datetime"
+	case int:
+		return "int"
+	case float64:
+		return "double"
+	case string:
+		return "string"
+	default:
+		return "unknown"
+	}
+}
+
 func (v *Node) Bool() bool {
 	switch vv := v.Value.(type) {
 	case BlankNode:
@@ -173,8 +219,23 @@ func (v *Node) MarshalBinary() ([]byte, error) {
 
 type Triple = [3]*Node
 
+// func (t *Triple) String() string {
+// 	return fmt.Sprintf("(%s, %s, %s)", (*t)[0], (*t)[1], (*t)[2])
+// }
+
+func ToString(t3 *Triple) string {
+	if t3 == nil {
+		return "<nil>"
+	}
+	return fmt.Sprintf("(%v, %v, %v)", (*t3)[0], (*t3)[1], (*t3)[2])
+}
+
 func T3(s, p, o *Node) Triple {
 	return Triple{s, p, o}
+}
+
+func NilTriple() Triple {
+	return Triple{Null(), Null(), Null()}
 }
 
 func Null() *Node {

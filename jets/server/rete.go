@@ -617,7 +617,10 @@ func (rw *ReteWorkspace) assertRuleConfig() error {
 		if err != nil {
 			return fmt.Errorf("while asserting rule config: %v", err)
 		}
-		rw.js.InsertRuleConfig(subject, predicate, object)
+		_, err = rw.js.InsertRuleConfig(subject, predicate, object)
+		if err != nil {
+			return fmt.Errorf("while calling InsertRuleConfig: %v", err)
+		}
 	}
 	return nil
 }

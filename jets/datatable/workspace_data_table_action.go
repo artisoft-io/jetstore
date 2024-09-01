@@ -134,7 +134,7 @@ func (ctx *Context) WorkspaceInsertRows(dataTableAction *DataTableAction, token 
 			//	- Commit and Push to repository
 			//  NOTE:
 			//	- Delete workspace overrides
-			//	  (except for workspace.db, lookup.db, and reports.tgz)
+			//	  (except for workspace.db, workspace.tgz, lookup.db, and reports.tgz)
 			//	- Compile workspace must be done manually
 			var gitLog string
 			status := ""

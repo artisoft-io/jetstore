@@ -22,8 +22,11 @@ type BetaRelation struct {
 	rowIndexes3 []*BetaRowIndex3
 }
 
-func NewBetaRelation(rs *ReteSession, nv *NodeVertex) *BetaRelation {
-
+// Create and initialize a BetaRelation
+func NewBetaRelation(nv *NodeVertex) *BetaRelation {
+	if nv == nil {
+		log.Panic("NewBetaRelation called with nil NodeVertex")
+	}
 	br := &BetaRelation{
 		NdVertex:    nv,
 		AllRows:     NewBetaRowSet(),
@@ -32,10 +35,108 @@ func NewBetaRelation(rs *ReteSession, nv *NodeVertex) *BetaRelation {
 		rowIndexes2: make([]*BetaRowIndex2, 0),
 		rowIndexes3: make([]*BetaRowIndex3, 0),
 	}
-	for _, alphaNode := range br.NdVertex.ChildAlphaNodes {
+	for _, alphaNode := range nv.ChildAlphaNodes {
 		alphaNode.InitializeIndexes(br)
 	}
 	return br
+}
+
+func (br *BetaRelation) InsertBetaRow(rs *ReteSession, row *BetaRow) {
+	inserted, row := br.AllRows.Put(row)
+	if inserted {
+		if row.NdVertex.HasConsequentTerms() {
+			// Flag row as new and pending to infer triples
+			row.Status = kInserted
+			rs.ScheduleConsequentTerms(row)
+		} else {
+			// Mark row as done
+			row.Status = kProcessed
+		}
+	} else {
+		// Row is inserted again, check if it was marked as deleted
+		if row.Status == kDeleted {
+			// Mark it as processed so it does not get retracted
+			row.Status = kProcessed
+		} else {
+			// Already inserted, skipping
+			return
+		}
+	}
+	if !br.NdVertex.HasChildren() {
+		return
+	}
+	// Add row to pending queue to notify child nodes
+	br.pendingRows = append(br.pendingRows, row)
+	if br.NdVertex.IsHead() {
+		return
+	}
+	// Add/Restore row indexes for the alpha node queries
+	for _, childAlphaNode := range br.NdVertex.ChildAlphaNodes {
+		childAlphaNode.AddIndex4BetaRow(br, row)
+	}
+}
+
+func (br *BetaRelation) RemoveBetaRow(rs *ReteSession, row *BetaRow) {
+	betaRow := br.AllRows.Get(row)
+	if betaRow == nil || betaRow.IsDeleted() {
+		// Already deleted or marked as deleted
+		return
+	}
+
+	// Check for consequent terms
+	if betaRow.NdVertex.HasConsequentTerms() {
+
+		// Check if status is kInserted
+		if betaRow.IsInserted() {
+			// Row was marked kInserted, not inferred yet
+			// Cancel row insertion **
+			betaRow.Status = kProcessed
+
+			// Put the row in the pending queue to notify children that this row is being deleted
+			if len(br.NdVertex.ChildAlphaNodes) > 0 {
+				br.pendingRows = append(br.pendingRows, betaRow)
+				br.RemoveIndexesForBetaRow(betaRow)
+			}
+			br.AllRows.Erase(betaRow)
+			return
+		}
+
+		// Row must be in kProcessed state -- need to put it for delete/retract
+		betaRow.Status = kDeleted
+
+		// Put the row in the pending queue to notify children that this row is being deleted
+		if len(br.NdVertex.ChildAlphaNodes) > 0 {
+			br.pendingRows = append(br.pendingRows, betaRow)
+			br.RemoveIndexesForBetaRow(betaRow)
+		}
+		rs.ScheduleConsequentTerms(betaRow)
+
+	} else {
+    // No consequent terms, put the row in the pending queue to notify children
+		betaRow.Status = kProcessed
+
+		// Put the row in the pending queue to notify children that this row is being deleted
+		if len(br.NdVertex.ChildAlphaNodes) > 0 {
+			br.pendingRows = append(br.pendingRows, betaRow)
+			br.RemoveIndexesForBetaRow(betaRow)
+		}
+		br.AllRows.Erase(betaRow)
+	}
+}
+
+// remove the indexes associated with the beta row
+func (br *BetaRelation) RemoveIndexesForBetaRow(row *BetaRow) {
+	for _, childAlphaNode := range br.NdVertex.ChildAlphaNodes {
+		childAlphaNode.EraseIndex4BetaRow(br, row)
+	}
+}
+
+func (br *BetaRelation) HasPendingRows() bool {
+	return len(br.pendingRows) > 0
+}
+
+func (br *BetaRelation) ClearPendingRows() {
+	br.pendingRows = make([]*BetaRow, 0)
 }
 
 func (br *BetaRelation) AddQuery1() int {

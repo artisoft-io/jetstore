@@ -27,6 +27,12 @@ func (op *ExistOp) RegisterCallback(reteSession *ReteSession, vertex int, lhs, r
 	rdfSession.InferredGraph.CallbackMgr.AddCallback(cb)
 	return nil
 }
+func (op *ExistOp) String() string {
+	if op.isExistNot {
+		return "exist_not"
+	}
+	return "exist"
+}
 
 // Apply the operator:
 //		lhs exist rhs     (case op.isExistNot is false)
@@ -36,17 +42,21 @@ func (op *ExistOp) Eval(reteSession *ReteSession, row *BetaRow, lhs, rhs *rdf.No
 		return nil
 	}
 	obj := reteSession.RdfSession.GetObject(lhs, rhs)
+	var result *rdf.Node
 	if op.isExistNot {
 		if obj == nil {
-			return rdf.I(1)
+			result = rdf.I(1)
 		} else {
-			return rdf.I(0)
+			result = rdf.I(0)
 		}
 	} else {
 		if obj == nil {
-			return rdf.I(0)
+			result = rdf.I(0)
 		} else {
-			return rdf.I(1)
+			result = rdf.I(1)
 		}
 	}
+	// //**
+	// log.Printf("Eval: %s %s %s returning %s", lhs, op.String(), rhs, result)
+	return result
 }

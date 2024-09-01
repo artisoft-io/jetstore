@@ -1,7 +1,5 @@
 package rdf
 
-// import "log"
-
 // RdfSession Iterator, it's essentially a funnel from the iterator of the session's rdf graphs
 
 type RdfSessionIterator struct {

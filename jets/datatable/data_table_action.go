@@ -234,7 +234,7 @@ func (dtq *DataTableAction) makeSelectColumns() string {
 				buf.WriteString(pgx.Identifier{dtq.Columns[i].Table, column}.Sanitize())
 			} else {
 				buf.WriteString(pgx.Identifier{column}.Sanitize())
-			}	
+			}
 		}
 	}
 	return buf.String()
@@ -914,8 +914,8 @@ func (ctx *Context) InsertRows(dataTableAction *DataTableAction, token string) (
 		row := make(map[string]interface{}, len(sqlStmt.ColumnKeys))
 		for irow := range dataTableAction.Data {
 			// Need to get:
-			//	- DevMode: run_report_only, run_server_only, run_server_reports, run_cpipes_only, run_cpipes_reports
-			//  - State Machine URI: serverSM, reportsSM, and cpipesSM
+			//	- DevMode: run_report_only, run_server_only, run_server_reports
+			//  - State Machine URI: serverSM, serverv2SM, reportsSM, and cpipesSM
 			// from process_config table
 			// ----------------------------
 			var devModeCode, stateMachineName string
@@ -939,7 +939,7 @@ func (ctx *Context) InsertRows(dataTableAction *DataTableAction, token string) (
 			// returnedKey is the key of the row inserted in the db, here it correspond to peKey
 			if returnedKey[irow] <= 0 {
 				log.Printf(
-					"error while preparing to run server/argo: unexpected value for returnedKey from insert to pipeline_execution_status table: %v", returnedKey)
+					"error while preparing to run server/serverv2: unexpected value for returnedKey from insert to pipeline_execution_status table: %v", returnedKey)
 				httpStatus = http.StatusInternalServerError
 				err = errors.New("error while preparing server command")
 				return
@@ -994,7 +994,7 @@ func (ctx *Context) InsertRows(dataTableAction *DataTableAction, token string) (
 					UsingSshTunnel: ctx.UsingSshTunnel,
 					PeKey:          peKeyInt,
 				}
-				if devModeCode == "run_server_only" || devModeCode == "run_server_reports" || devModeCode == "run_cpipes_only" || devModeCode == "run_cpipes_reports" {
+				if devModeCode == "run_server_only" || devModeCode == "run_server_reports" {
 					// DevMode: Lock session id & register run on last shard (unless error)
 					// loop over every chard to exec in succession
 					var lable string
@@ -1019,13 +1019,9 @@ func (ctx *Context) InsertRows(dataTableAction *DataTableAction, token string) (
 						var cmd *exec.Cmd
 						switch devModeCode {
 						case "run_server_only", "run_server_reports":
-							log.Printf("Run server: %s", serverArgs)
+							log.Printf("Run serverv2: %s", serverArgs)
 							lable = "SERVER"
-							cmd = exec.Command("/usr/local/bin/server", serverArgs...)
-						// case "run_cpipes_only", "run_cpipes_reports":
-						// 	log.Printf("Run cpipes: %s", serverArgs)
-						// 	lable = "CPIPES"
-						// 	cmd = exec.Command("/usr/local/bin/cpipes_booter", serverArgs...)
+							cmd = exec.Command("/usr/local/bin/serverv2", serverArgs...)
 						default:
 							log.Printf("error: unknown devModeCode: %s", devModeCode)
 							httpStatus = http.StatusInternalServerError
@@ -1062,7 +1058,7 @@ func (ctx *Context) InsertRows(dataTableAction *DataTableAction, token string) (
 					}
 				}
 
-				if devModeCode == "run_reports_only" || devModeCode == "run_server_reports" || devModeCode == "run_cpipes_reports" {
+				if devModeCode == "run_reports_only" || devModeCode == "run_server_reports" {
 					// Call run_report synchronously
 					if ctx.UsingSshTunnel {
 						runReportsCommand = append(runReportsCommand, "-usingSshTunnel")
@@ -1080,11 +1076,11 @@ func (ctx *Context) InsertRows(dataTableAction *DataTableAction, token string) (
 					if err != nil {
 						log.Printf("while executing run_reports command '%v': %v", runReportsCommand, err)
 						log.Println("=*=*=*=*=*=*=*=*=*=*=*=*=*=*")
-						log.Println("SERVER/CPIPES & REPORTS CAPTURED OUTPUT BEGIN")
+						log.Println("SERVER & REPORTS CAPTURED OUTPUT BEGIN")
 						log.Println("=*=*=*=*=*=*=*=*=*=*=*=*=*=*")
 						log.Println((*results)["log"])
 						log.Println("=*=*=*=*=*=*=*=*=*=*=*=*=*=*")
-						log.Println("SERVER/CPIPES & REPORTS CAPTURED OUTPUT END")
+						log.Println("SERVER & REPORTS CAPTURED OUTPUT END")
 						log.Println("=*=*=*=*=*=*=*=*=*=*=*=*=*=*")
 						httpStatus = http.StatusInternalServerError
 						err = errors.New("error while running run_reports command")
@@ -1097,11 +1093,11 @@ func (ctx *Context) InsertRows(dataTableAction *DataTableAction, token string) (
 					}
 				}
 				log.Println("============================")
-				log.Println("SERVER/CPIPES & REPORTS CAPTURED OUTPUT BEGIN")
+				log.Println("SERVER & REPORTS CAPTURED OUTPUT BEGIN")
 				log.Println("============================")
 				log.Println((*results)["log"])
 				log.Println("============================")
-				log.Println("SERVER/CPIPES & REPORTS CAPTURED OUTPUT END")
+				log.Println("SERVER & REPORTS CAPTURED OUTPUT END")
 				log.Println("============================")
 				// all good, update server execution status table
 				ca.ValidateArguments()
@@ -1114,7 +1110,16 @@ func (ctx *Context) InsertRows(dataTableAction *DataTableAction, token string) (
 					nbrClusterNodes = ctx.NbrShards
 				}
 				serverCommands := make([][]string, 0)
-				if stateMachineName != "cpipesSM" {
+
+				var processArn string
+				var smInput map[string]interface{}
+				peKeyInt, err2 := strconv.Atoi(peKey)
+				if err2 != nil {
+					peKeyInt = 0
+				}
+				switch stateMachineName {
+				case "serverSM":
+					processArn = os.Getenv("JETS_SERVER_SM_ARN")
 					for shardId := 0; shardId < nbrClusterNodes; shardId++ {
 						serverArgs := []string{
 							"-peKey", peKey,
@@ -1132,35 +1137,51 @@ func (ctx *Context) InsertRows(dataTableAction *DataTableAction, token string) (
 						}
 						serverCommands = append(serverCommands, serverArgs)
 					}
-				}
-				smInput := map[string]interface{}{
-					"serverCommands": serverCommands,
-					"reportsCommand": runReportsCommand,
-					"successUpdate": map[string]interface{}{
-						"-peKey":         peKey,
-						"-status":        "completed",
-						"file_key":       fileKey,
-						"failureDetails": "",
-					},
-					"errorUpdate": map[string]interface{}{
-						"-peKey":         peKey,
-						"-status":        "failed",
-						"file_key":       fileKey,
-						"failureDetails": "",
-					},
-				}
-				var processArn string
-				switch stateMachineName {
-				case "serverSM":
-					processArn = os.Getenv("JETS_SERVER_SM_ARN")
-				case "loaderSM":
-					processArn = os.Getenv("JETS_LOADER_SM_ARN")
-				case "cpipesSM":
-					// Override State Machine input for new cpipesSM all-in-one
-					peKeyInt, err := strconv.Atoi(peKey)
-					if err != nil {
-						peKeyInt = 0
+					smInput = map[string]interface{}{
+						"serverCommands": serverCommands,
+						"reportsCommand": runReportsCommand,
+						"successUpdate": map[string]interface{}{
+							"-peKey":         peKey,
+							"-status":        "completed",
+							"file_key":       fileKey,
+							"failureDetails": "",
+						},
+						"errorUpdate": map[string]interface{}{
+							"-peKey":         peKey,
+							"-status":        "failed",
+							"file_key":       fileKey,
+							"failureDetails": "",
+						},
 					}
+
+				case "serverv2SM":
+					processArn = os.Getenv("JETS_SERVER_SM_ARNv2")
+					serverArgs := make([]map[string]interface{}, ctx.NbrShards)
+					for i := range serverArgs {
+						serverArgs[i] = map[string]interface{}{
+							"id": i,
+							"pe": peKeyInt,
+						}
+					}
+					smInput = map[string]interface{}{
+						"serverCommands": serverArgs,
+						"reportsCommand": runReportsCommand,
+						"successUpdate": map[string]interface{}{
+							"-peKey":         peKey,
+							"-status":        "completed",
+							"file_key":       fileKey,
+							"failureDetails": "",
+						},
+						"errorUpdate": map[string]interface{}{
+							"-peKey":         peKey,
+							"-status":        "failed",
+							"file_key":       fileKey,
+							"failureDetails": "",
+						},
+					}
+
+				case "cpipesSM":
+					// State Machine input for new cpipesSM all-in-one
 					smInput = map[string]interface{}{
 						"startSharding": map[string]interface{}{
 							"pipeline_execution_key": peKeyInt,

@@ -9,48 +9,30 @@ import (
 // ReteMetaStore -- metadata store for a rete network named by it's ruleset uri
 // The ReteMetaStore correspond to a complete rule set organized as a rete network.
 type ReteMetaStore struct {
-	ResourceMgr  *rdf.ResourceManager
-	MetaGraph    *rdf.RdfGraph
-	LookupTables *LookupTableManager
-	AlphaNodes   []*AlphaNode
-	NodeVertices []*NodeVertex
+	ResourceMgr     *rdf.ResourceManager
+	MetaGraph       *rdf.RdfGraph
+	LookupTables    *LookupTableManager
+	AlphaNodes      []*AlphaNode
+	NodeVertices    []*NodeVertex
+	JetStoreConfig  *map[string]string
+	DataPropertyMap map[string]*DataPropertyNode
+	DomainTableMap  map[string]*TableNode
 }
 
-func NewReteMetaStore(rm *rdf.ResourceManager, mg *rdf.RdfGraph, ltm *LookupTableManager, an []*AlphaNode, nv []*NodeVertex) (*ReteMetaStore, error) {
-	ms := &ReteMetaStore{
-		ResourceMgr:  rm,
-		MetaGraph:    mg,
-		LookupTables: ltm,
-		AlphaNodes:   an,
-		NodeVertices: nv,
-	}
-	// Initialize routine perform important connection between the
-	// metadata entities, such as reverse lookup of the consequent terms
-	// and children lookup for each NodeVertex.
-	var err error
-	// Perform reverse lookup of children NodeVertex (AlphaNode) using
-	// the NodeVertex parentNode property
-	for _, node := range ms.NodeVertices {
-		// Root node does not have a parent node
-		if node.ParentNodeVertex != nil {
-			node.ParentNodeVertex.AddChildAlphaNode(ms.AlphaNodes[node.Vertex])
-		}
-	}
-
-	// Assign consequent terms vertex (AlphaNode) to NodeVertex
-	// and validate that alpha node at ipos < nbr_vertices are antecedent nodes
-	nbrVertices := ms.NbrVertices()
-	for ipos, alphaNode := range ms.AlphaNodes {
-		if ipos > 0 && ipos < nbrVertices && !alphaNode.IsAntecedent {
-			err = fmt.Errorf("NewReteMetaStore: AlphaNode with vertex %d < nbrVertices %d that is NOT antecedent term",
-				ipos, nbrVertices)
-			return nil, err
-		}
-		if ipos > 0 && !alphaNode.IsAntecedent {
-			alphaNode.NdVertex.AddConsequentTerm(alphaNode)
-		}
-	}
-	return ms, nil
+func NewReteMetaStore(rm *rdf.ResourceManager, mg *rdf.RdfGraph, ltm *LookupTableManager,
+	an []*AlphaNode, nv []*NodeVertex, config *map[string]string,
+	dataPropertyMap map[string]*DataPropertyNode,
+	domainTableMap map[string]*TableNode) (*ReteMetaStore, error) {
+	return &ReteMetaStore{
+		ResourceMgr:     rm,
+		MetaGraph:       mg,
+		LookupTables:    ltm,
+		AlphaNodes:      an,
+		NodeVertices:    nv,
+		JetStoreConfig:  config,
+		DataPropertyMap: dataPropertyMap,
+		DomainTableMap:  domainTableMap,
+	}, nil
 }
 
 func (ms *ReteMetaStore) NbrVertices() int {
@@ -58,4 +40,12 @@ func (ms *ReteMetaStore) NbrVertices() int {
 		return 0
 	}
 	return len(ms.NodeVertices)
+}
+
+func (ms *ReteMetaStore) GetRangeDataType(dataProperty string) (string, bool, error) {
+	p := ms.DataPropertyMap[dataProperty]
+	if p == nil {
+		return "", false, fmt.Errorf("GetRangeDataType: unknown data property: %s", dataProperty)
+	}
+	return p.Type, p.AsArray, nil
 }

@@ -51,6 +51,19 @@ func (op *MinMaxOp) RegisterCallback(reteSession *ReteSession, vertex int, lhs, 
 	rdfSession.InferredGraph.CallbackMgr.AddCallback(cb)
 	return nil
 }
+func (op *MinMaxOp) String() string {
+	switch {
+	case op.isMin && op.retObj:
+		return "min_head_of"
+	case op.isMin && !op.retObj:
+		return "min_of"
+	case !op.isMin && op.retObj:
+		return "max_head_of"
+	case !op.isMin && !op.retObj:
+		return "max_of"
+	}
+	return "UNKNOWN OP (minmax)"
+}
 
 // Apply the visitor to find the min/max value.
 //   - case datap == nullptr: return ?o such that min/max ?o in (s, objp, ?o) with objp functional property

@@ -1,6 +1,6 @@
 {
   "rule_sets": [
-    "jet_rules/map_eligibility_main.jr"
+    "jet_rules/test_lookup_main.jr"
   ],
   "rule_sequences": []
 }

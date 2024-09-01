@@ -62,10 +62,11 @@ type ReteBuilderContext struct {
 }
 
 type ReteMetaStoreFactory struct {
-	WorkspaceCtrl   *WorkspaceControl
-	ResourceMgr     *rdf.ResourceManager
-	MetaStoreLookup map[string]*ReteMetaStore
-	ReteModelLookup map[string]*JetruleModel
+	WorkspaceCtrl     *WorkspaceControl
+	MainRuleFileNames []string
+	ResourceMgr       *rdf.ResourceManager
+	MetaStoreLookup   map[string]*ReteMetaStore
+	ReteModelLookup   map[string]*JetruleModel
 }
 
 // Main function to create the factory and to load ReteMetaStore, one per main rule file.
@@ -80,18 +81,19 @@ func NewReteMetaStoreFactory(jetRuleName string) (*ReteMetaStoreFactory, error) 
 	if err != nil {
 		return nil, err
 	}
-	mainRuleFileNames := workspaceControl.MainRuleFileNames(jetRuleName)
-	if len(mainRuleFileNames) == 0 {
+
+	factory := &ReteMetaStoreFactory{
+		WorkspaceCtrl:     workspaceControl,
+		MainRuleFileNames: workspaceControl.MainRuleFileNames(jetRuleName),
+		ResourceMgr:       rdf.NewResourceManager(nil),
+		MetaStoreLookup:   make(map[string]*ReteMetaStore),
+		ReteModelLookup:   make(map[string]*JetruleModel),
+	}
+	if len(factory.MainRuleFileNames) == 0 {
 		return nil, fmt.Errorf("error, %s does not correspond to any rule file names", jetRuleName)
 	}
 
-	factory := &ReteMetaStoreFactory{
-		WorkspaceCtrl:   workspaceControl,
-		ResourceMgr:     rdf.NewResourceManager(nil),
-		MetaStoreLookup: make(map[string]*ReteMetaStore),
-		ReteModelLookup: make(map[string]*JetruleModel),
-	}
-	for _, ruleFileName := range mainRuleFileNames {
+	for _, ruleFileName := range factory.MainRuleFileNames {
 		fpath := fmt.Sprintf("%s/%s/%scc.json", workspaceHome, wprefix, ruleFileName)
 		log.Println("Reading JetStore rule config:", ruleFileName, "from:", fpath)
 		file, err := os.ReadFile(fpath)
@@ -136,7 +138,7 @@ func (factory *ReteMetaStoreFactory) initialize() error {
 			JetruleModel:    jrModel,
 			JetStoreConfig:  &jrModel.JetstoreConfig,
 			AlphaNodes:      make([]*AlphaNode, 0),
-			NodeVertices:    []*NodeVertex{NewNodeVertex(0, nil, false, 0, nil, "(* * *)", nil)},
+			NodeVertices:    make([]*NodeVertex, 0),
 		}
 		metaStore, err := builderContext.BuildReteMetaStore()
 		if err != nil {
@@ -154,6 +156,23 @@ func (ctx *ReteBuilderContext) BuildReteMetaStore() (*ReteMetaStore, error) {
 		return nil, err
 	}
 
+	// Load the meta triples from the rule files
+	for i := range ctx.JetruleModel.Triples {
+		t3 := &ctx.JetruleModel.Triples[i]
+		s := ctx.ResourcesLookup[t3.SubjectKey]
+		p := ctx.ResourcesLookup[t3.PredicateKey]
+		o := ctx.ResourcesLookup[t3.ObjectKey]
+		if s == nil || p == nil || o == nil {
+			err := fmt.Errorf("error: invalid triples in metastore config, resource not found: (%v, %v, %v)", s, p, o)
+			log.Println(err)
+			return nil, err
+		}
+		_, err = ctx.MetaGraph.Insert(s, p, o)
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	// Load LookupTableManager
 	ctx.LookupTables, err = NewLookupTableManager(ctx.ResourceMgr, ctx.MetaGraph, ctx.JetruleModel)
 	if err != nil {
@@ -162,12 +181,14 @@ func (ctx *ReteBuilderContext) BuildReteMetaStore() (*ReteMetaStore, error) {
 
 	// Sort the antecedent terms from the consequent terms
 	for i := range ctx.JetruleModel.ReteNodes {
-		reteNode := ctx.JetruleModel.ReteNodes[i]
+		reteNode := &ctx.JetruleModel.ReteNodes[i]
 		switch reteNode.Type {
 		case "antecedent":
-			ctx.JetruleModel.Antecedents = append(ctx.JetruleModel.Antecedents, &reteNode)
+			ctx.JetruleModel.Antecedents = append(ctx.JetruleModel.Antecedents, reteNode)
 		case "consequent":
-			ctx.JetruleModel.Consequents = append(ctx.JetruleModel.Consequents, &reteNode)
+			ctx.JetruleModel.Consequents = append(ctx.JetruleModel.Consequents, reteNode)
+		case "head_node":
+			ctx.JetruleModel.HeadRuleTerm = reteNode
 		}
 	}
 	// Load all NodeVertex
@@ -178,8 +199,7 @@ func (ctx *ReteBuilderContext) BuildReteMetaStore() (*ReteMetaStore, error) {
 
 	// Load the alpha nodes
 	// Initialize the network with the root node
-	rootAlphaNode := NewRootAlphaNode()
-	ctx.AlphaNodes = append(ctx.AlphaNodes, rootAlphaNode)
+	ctx.AlphaNodes = append(ctx.AlphaNodes, NewRootAlphaNode(ctx.NodeVertices[0]))
 	for _, ruleTerm := range ctx.JetruleModel.Antecedents {
 		var u, v, w AlphaFunctor
 		var expr Expression
@@ -205,8 +225,88 @@ func (ctx *ReteBuilderContext) BuildReteMetaStore() (*ReteMetaStore, error) {
 		ctx.AlphaNodes = append(ctx.AlphaNodes,
 			NewAlphaNode(u, v, w, ctx.NodeVertices[ruleTerm.Vertex], true, ruleTerm.NormalizedLabel))
 	}
+	// Initializing consequent terms
+	for _, ruleTerm := range ctx.JetruleModel.Consequents {
+		var u, v, w AlphaFunctor
+		var expr Expression
+		if u, err = ctx.NewAlphaFunctor(ruleTerm.SubjectKey); err != nil {
+			return nil, err
+		}
+		if v, err = ctx.NewAlphaFunctor(ruleTerm.PredicateKey); err != nil {
+			return nil, err
+		}
+		if ruleTerm.ObjectExpr != nil {
+			if expr, err = ctx.makeExpression(ruleTerm.ObjectExpr); err != nil {
+				return nil, err
+			}
+			w = &FExpression{expression: expr}
+		} else {
+			if w, err = ctx.NewAlphaFunctor(ruleTerm.ObjectKey); err != nil {
+				return nil, err
+			}
+		}
+		if w == nil {
+			return nil, fmt.Errorf("error: invalid AlphaNode configuration for vertex %d", ruleTerm.Vertex)
+		}
+		ctx.AlphaNodes = append(ctx.AlphaNodes,
+			NewAlphaNode(u, v, w, ctx.NodeVertices[ruleTerm.Vertex], false, ruleTerm.NormalizedLabel))
+	}
+
+	// Initialize routine perform important connection between the
+	// metadata entities, such as reverse lookup of the consequent terms
+	// and children lookup for each NodeVertex.
+
+	// Perform reverse lookup of NodeVertex to their child AlphaNode
+	// (which are neccessarily antecedent terms)
+	for _, node := range ctx.AlphaNodes {
+		if node.IsAntecedent {
+			node.NdVertex.ParentNodeVertex.AddChildAlphaNode(node)
+		} else {
+			if node.NdVertex.Vertex > 0 {
+				// Done with antecedent terms
+				break
+			}
+		}
+	}
+
+	// Assign consequent terms vertex (AlphaNode) to NodeVertex
+	// and validate that alpha nodes
+	nbrVertices := len(ctx.NodeVertices)
+	for ipos, alphaNode := range ctx.AlphaNodes {
+		switch {
+		case ipos == 0 && alphaNode.IsHeadNode:
+			// pass
+		case ipos > 0 && ipos < nbrVertices && alphaNode.IsAntecedent:
+			// pass
+		case ipos >= nbrVertices && alphaNode.IsConsequent:
+			alphaNode.NdVertex.AddConsequentTerm(alphaNode)
+		default:
+			// something is wrong
+			err = fmt.Errorf("BuildReteMetaStore: AlphaNode at position %d, with vertex %d fails validation",
+				ipos, alphaNode.NdVertex.Vertex)
+			return nil, err
+		}
+	}
+
+	// Prepare a lookup of Data Properties (from classes) by name
+	dataPropertyMap := make(map[string]*DataPropertyNode)
+	for i := range ctx.JetruleModel.Classes {
+		for j := range ctx.JetruleModel.Classes[i].DataProperties {
+			p := &ctx.JetruleModel.Classes[i].DataProperties[j]
+			dataPropertyMap[p.Name] = p
+		}
+	}
+
+	// Prepare a lookup of Domain Tables by name
+	domainTableMap := make(map[string]*TableNode)
+	for i := range ctx.JetruleModel.Tables {
+		t := &ctx.JetruleModel.Tables[i]
+		domainTableMap[t.TableName] = t
+	}
+
 	// Create & initialize the ReteMetaStore
-	return NewReteMetaStore(ctx.ResourceMgr, ctx.MetaGraph, ctx.LookupTables, ctx.AlphaNodes, ctx.NodeVertices)
+	return NewReteMetaStore(ctx.ResourceMgr, ctx.MetaGraph, ctx.LookupTables,
+		ctx.AlphaNodes, ctx.NodeVertices, ctx.JetStoreConfig, dataPropertyMap, domainTableMap)
 }
 
 func (ctx *ReteBuilderContext) NewAlphaFunctor(key int) (AlphaFunctor, error) {
@@ -314,12 +414,16 @@ func (ctx *ReteBuilderContext) loadResources() error {
 }
 
 func (ctx *ReteBuilderContext) loadNodeVertices() error {
-	// Load all NodeVertex
+	// Load all NodeVertex from RuleTerms
 	// Ensure the Antecedents are sorted by vertex so to create NodeVertex recursively
 	l := &ctx.JetruleModel.Antecedents
 	sort.Slice(*l, func(i, j int) bool { return (*l)[i].Vertex < (*l)[j].Vertex })
+
+	// Initialize the slice of *NodeVertex with the root node
+	ctx.NodeVertices = append(ctx.NodeVertices, NewNodeVertex(0, nil, false, 0, nil, "(* * *)", nil, nil))
+
 	for i := range ctx.JetruleModel.Antecedents {
-		reteNode := ctx.JetruleModel.ReteNodes[i]
+		reteNode := ctx.JetruleModel.Antecedents[i]
 
 		// Make the BetaRowInitializer
 		sz := len(reteNode.BetaVarNodes)
@@ -352,7 +456,7 @@ func (ctx *ReteBuilderContext) loadNodeVertices() error {
 		}
 		ctx.NodeVertices = append(ctx.NodeVertices,
 			NewNodeVertex(reteNode.Vertex, parent, reteNode.IsNot, salience, filterExpr,
-				reteNode.NormalizedLabel, brInitializer))
+				reteNode.NormalizedLabel, reteNode.Rules, brInitializer))
 	}
 	return nil
 }
