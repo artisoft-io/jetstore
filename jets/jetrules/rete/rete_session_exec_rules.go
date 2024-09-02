@@ -59,7 +59,7 @@ func (rs *ReteSession) VisitReteGraph(fromVertex int, isInferring bool) error {
 	for {
 		if stack.Len() == 0 {
 			// Main exit point
-			log.Println("Exiting ReteSession.VisitReteGraph @ vertex",fromVertex)
+			// log.Println("Exiting ReteSession.VisitReteGraph @ vertex",fromVertex)
 			return nil
 		}
 		parentVertex := stack.Pop()

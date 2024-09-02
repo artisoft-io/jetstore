@@ -78,9 +78,12 @@ func (rs *RdfSession) Insert(s, p, o *Node) (bool, error) {
 
 // Insert an inferred triple to rdf session, returns true if actually inserted
 func (rs *RdfSession) InsertInferred(s, p, o *Node) (bool, error) {
-	if s == nil || p == nil || o == nil {
+	if s == nil || p == nil {
 		log.Printf("error: InsertInferred called with NULL *Node to RdfSession: (%s, %s, %s)", s, p, o)
 		return false, ErrNilNodeRdfSession
+	}
+	if o == nil {
+		o = Null()
 	}
 	if rs.MetaGraph.Contains(s, p, o) || rs.AssertedGraph.Contains(s, p, o) {
 		return false, nil
