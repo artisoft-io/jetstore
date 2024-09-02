@@ -101,6 +101,7 @@ func GetTypeName(dtype int) string {
 
 // mainRuleName correspond to either a MainRuleFile (aka rule set) or a rule sequece (aka sequence of rule set)
 func LoadJetRules(processName string, mainRuleName string, lookup_db_path string) (*JetStore, error) {
+	log.Printf("** LoadJetRules Called process: %s, mainRule: %s", processName, mainRuleName)
 	js := &JetStore{
 		ProcessName:     processName,
 		MainRuleName:    mainRuleName,
