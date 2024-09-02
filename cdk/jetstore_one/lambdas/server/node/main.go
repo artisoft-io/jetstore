@@ -62,6 +62,14 @@ func main() {
 		hasErr = true
 		errMsg = append(errMsg, "env var JETS_s3_OUTPUT_PREFIX must be provided")
 	}
+	if os.Getenv("WORKSPACES_HOME") == "" {
+		hasErr = true
+		errMsg = append(errMsg, "env var WORKSPACES_HOME must be provided")
+	}
+	if os.Getenv("WORKSPACE") == "" {
+		hasErr = true
+		errMsg = append(errMsg, "env var WORKSPACE must be provided")
+	}
 
 	// Get the dsn from the aws secret
 	dsn, err = awsi.GetDsnFromSecret(awsDsnSecret, usingSshTunnel, dbPoolSize)
@@ -80,26 +88,12 @@ func main() {
 	}
 
 	wh := os.Getenv("WORKSPACES_HOME")
-	if len(wh) == 0 {
-		// Create a local temp directory to hold the file(s)
-		wh, err := os.MkdirTemp("", "jetstore")
-		if err != nil {
-			hasErr = true
-			errMsg = append(errMsg, fmt.Sprintf("failed to create local temp directory: %v", err))
-		}
-		log.Println("Setting env var WORKSPACES_HOME to:", wh)
-		err = os.Setenv("WORKSPACES_HOME", wh)
-		if err != nil {
-			hasErr = true
-			errMsg = append(errMsg, fmt.Sprintf("failed to set env var WORKSPACES_HOME: %v", err))
-		}
-		// Create the workspace dir
-		err = os.Mkdir(fmt.Sprintf("%s/%s", wh, os.Getenv("WORKSPACE")), 0755)
-		if err != nil {
-			hasErr = true
-			errMsg = append(errMsg, fmt.Sprintf("failed to Mkdir for WORKSPACE: %v", err))
-		}
-		log.Println("Created dir WORKSPACE:", fmt.Sprintf("%s/%s", wh, os.Getenv("WORKSPACE")))
+	wd := os.Getenv("WORKSPACE")
+	// Create a local temp directory to hold the file(s)
+	err = os.MkdirAll(fmt.Sprintf("%s/%s", wh, wd), 0755)
+	if err != nil {
+		hasErr = true
+		errMsg = append(errMsg, fmt.Sprintf("failed to create local workspace directory: %v", err))
 	}
 	log.Printf("Got workspace at: %s/%s", os.Getenv("WORKSPACES_HOME"), os.Getenv("WORKSPACE"))
 
