@@ -119,20 +119,11 @@ func NewReteMetaStoreFactory(jetRuleName string) (*ReteMetaStoreFactory, error) 
 		log.Printf("while loading the ReteMetaStore from jetrule model:%v\n", err)
 		return nil, err
 	}
-	// Add rule sequence to ReteModelLookup using first rule set of the sequence
+	// Add rule sequence to ReteMetaStore using first rule set of the sequence
 	for i := range workspaceControl.RuleSequences {
 		rseq := &workspaceControl.RuleSequences[i]
 		log.Printf("Add rule sequence: %s associated with 1st rule set: %s", rseq.Name, rseq.RuleSets[0])
-		factory.ReteModelLookup[rseq.Name] = factory.ReteModelLookup[rseq.RuleSets[0]]
-	}
-	//**
-	log.Printf("ReteMetaStoreFactory Initialized for %s", jetRuleName)
-	for k, v := range factory.ReteModelLookup {
-		if v == nil {
-			log.Printf("Got ReteModelLookup[%s] => NIL", k)
-		} else {
-			log.Printf("Got ReteModelLookup[%s] => %s", k, v.MainRuleFileName)
-		}
+		factory.MetaStoreLookup[rseq.Name] = factory.MetaStoreLookup[rseq.RuleSets[0]]
 	}
 	return factory, nil
 }
