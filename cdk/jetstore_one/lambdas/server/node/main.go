@@ -82,13 +82,13 @@ func main() {
 	wh := os.Getenv("WORKSPACES_HOME")
 	if len(wh) == 0 {
 		// Create a local temp directory to hold the file(s)
-		tempDir, err := os.MkdirTemp("", "jetstore")
+		wh, err := os.MkdirTemp("", "jetstore")
 		if err != nil {
 			hasErr = true
 			errMsg = append(errMsg, fmt.Sprintf("failed to create local temp directory: %v", err))
 		}
-		log.Println("Setting env var WORKSPACES_HOME to:", tempDir)
-		err = os.Setenv("WORKSPACES_HOME", tempDir)
+		log.Println("Setting env var WORKSPACES_HOME to:", wh)
+		err = os.Setenv("WORKSPACES_HOME", wh)
 		if err != nil {
 			hasErr = true
 			errMsg = append(errMsg, fmt.Sprintf("failed to set env var WORKSPACES_HOME: %v", err))
