@@ -124,6 +124,11 @@ func NewReteMetaStoreFactory(jetRuleName string) (*ReteMetaStoreFactory, error) 
 		rseq := &workspaceControl.RuleSequences[i]
 		factory.ReteModelLookup[rseq.Name] = factory.ReteModelLookup[rseq.RuleSets[0]]
 	}
+	//**
+	log.Printf("ReteMetaStoreFactory Initialized for %s", jetRuleName)
+	for k, v := range factory.ReteModelLookup {
+		log.Printf("Got ReteModelLookup[%s] => %s", k, v.MainRuleFileName)
+	}
 	return factory, nil
 }
 
