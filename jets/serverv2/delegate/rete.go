@@ -497,6 +497,9 @@ func (rw *ReteWorkspace) addEntityRdfType(processInput *ProcessInput) error {
 // GetRangeDataType: Get the data type for the range of the dataProperty arg
 func (rw *ReteWorkspace) GetRangeDataType(dataProperty string) (string, bool, error) {
 	switch {
+	case strings.HasPrefix(dataProperty, "_0:"):
+		return "text", true, nil
+
 	case dataProperty == "jets:source_period_sequence":
 		return "int", false, nil
 
