@@ -72,7 +72,7 @@ func (rw *ReteWorkspace) ExecuteRules(
 	//		- write to ouput chanel
 	// ---------------------------
 	// ReteInputContext: context/cache across all rdf sessions
-	log.Println("Execute Rule Started")
+	// log.Println("Execute Rule Started")
 	nbrReteSessionSaved := 0
 	var ri ReteInputContext
 	var err error
@@ -299,8 +299,8 @@ func (rw *ReteWorkspace) ExecuteRules(
 			}
 			for t3 := range ctor.Itor {
 				subject := t3[0]
-				//**
-				log.Println("Extracting subject:", subject.String())
+				// //DEV**
+				// log.Println("Extracting subject:", subject.String())
 
 				// Check if subject is an entity for the current source period
 				// i.e. is not an historical entity comming from the lookback period

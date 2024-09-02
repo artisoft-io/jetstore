@@ -219,22 +219,22 @@ func (ctx *ServerContext) ProcessData(reteWorkspace *ReteWorkspace) (*PipelineRe
 		}
 	}
 
-	// For development
-	fmt.Println("***-* outputMapping is complete, len is", len(outputMapping))
-	for cname, domainTbl := range outputMapping {
-		fmt.Println("  Output table:", cname)
-		for icol := range domainTbl.Columns {
-			fmt.Println(
-				"ColumnName:", domainTbl.Columns[icol].ColumnInfo.ColumnName,
-				"DataType:", domainTbl.Columns[icol].ColumnInfo.Type,
-				"IsArray:", domainTbl.Columns[icol].ColumnInfo.AsArray)
-		}
-		fmt.Println("    * DOMAIN KEY INFO:")
-		fmt.Println(domainTbl.DomainKeysInfo)
-		fmt.Println("    * DOMAIN KEY INFO END")
-	}
+	// // For development
+	// fmt.Println("***-* outputMapping is complete, len is", len(outputMapping))
+	// for cname, domainTbl := range outputMapping {
+	// 	fmt.Println("  Output table:", cname)
+	// 	for icol := range domainTbl.Columns {
+	// 		fmt.Println(
+	// 			"ColumnName:", domainTbl.Columns[icol].ColumnInfo.ColumnName,
+	// 			"DataType:", domainTbl.Columns[icol].ColumnInfo.Type,
+	// 			"IsArray:", domainTbl.Columns[icol].ColumnInfo.AsArray)
+	// 	}
+	// 	fmt.Println("    * DOMAIN KEY INFO:")
+	// 	fmt.Println(domainTbl.DomainKeysInfo)
+	// 	fmt.Println("    * DOMAIN KEY INFO END")
+	// }
 
-	log.Print("Pipeline Preparation Complete, starting Rete Sessions...")
+	// log.Print("Pipeline Preparation Complete, starting Rete Sessions...")
 
 	// Don't exit the function until normal completion to avoid chanel hanging
 	// start the read input goroutine

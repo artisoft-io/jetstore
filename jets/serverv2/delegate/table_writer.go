@@ -45,7 +45,7 @@ func (wt *WriteTableSource) writeTable(dbpool *pgxpool.Pool, domainTable *worksp
 	for i := range domainTable.Columns {
 		columns = append(columns, domainTable.Columns[i].ColumnInfo.ColumnName)
 	}
-	log.Println("Write Table Started for", domainTable.TableInfo.TableName, "with", len(columns), "columns")
+	// log.Println("Write Table Started for", domainTable.TableInfo.TableName, "with", len(columns), "columns")
 
 	// Check if we have a special table (namelly process_errors) which is not in the public schema
 	splitTableName := strings.Split(domainTable.TableInfo.TableName, ".")

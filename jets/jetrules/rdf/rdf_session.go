@@ -85,8 +85,8 @@ func (rs *RdfSession) InsertInferred(s, p, o *Node) (bool, error) {
 	if rs.MetaGraph.Contains(s, p, o) || rs.AssertedGraph.Contains(s, p, o) {
 		return false, nil
 	}
-	//**
-	log.Printf("InsertInferred: %s", ToString(&[3]*Node{s, p, o}))
+	// //DEV**
+	// log.Printf("InsertInferred: %s", ToString(&[3]*Node{s, p, o}))
 	return rs.InferredGraph.Insert(s, p, o)
 }
 
@@ -109,8 +109,8 @@ func (rs *RdfSession) Retract(s, p, o *Node) (bool, error) {
 		log.Printf("error: Retract called with NULL *Node to RdfSession: (%s, %s, %s)", s, p, o)
 		return false, ErrNilNodeRdfSession
 	}
-	//**
-	log.Printf("Retract: %s", ToString(&[3]*Node{s, p, o}))
+	// //DEV**
+	// log.Printf("Retract: %s", ToString(&[3]*Node{s, p, o}))
 	return rs.InferredGraph.Retract(s, p, o)
 }
 
