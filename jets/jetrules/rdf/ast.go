@@ -21,6 +21,9 @@ type Node struct {
 }
 
 func (v *Node) Key() int {
+	if v == nil {
+		return 0
+	}
 	vv, ok := v.Value.(BlankNode)
 	if ok {
 		return vv.Key
@@ -29,6 +32,9 @@ func (v *Node) Key() int {
 }
 
 func (v *Node) Name() string {
+	if v == nil {
+		return ""
+	}
 	switch vv := v.Value.(type) {
 	case BlankNode:
 		return fmt.Sprintf("BN%d", vv.Key)
@@ -40,11 +46,17 @@ func (v *Node) Name() string {
 }
 
 func (v *Node) IsNull() bool {
+	if v == nil {
+		return true
+	}
 	_, ok := v.Value.(RdfNull)
 	return ok
 }
 
 func (v *Node) IsLiteral() bool {
+	if v == nil {
+		return false
+	}
 	switch reflect.TypeOf(v.Value).Kind() {
 	case reflect.Int, reflect.Float64, reflect.String:
 		return true
@@ -55,6 +67,9 @@ func (v *Node) IsLiteral() bool {
 
 // returns true if v is a Resource or BlankNode
 func (v *Node) IsResource() bool {
+	if v == nil {
+		return false
+	}
 	switch reflect.TypeOf(v.Value) {
 	case reflect.TypeOf(NamedResource{}), reflect.TypeOf(BlankNode{}):
 		return true
@@ -64,6 +79,9 @@ func (v *Node) IsResource() bool {
 }
 
 func (v *Node) GetType() int {
+	if v == nil {
+		return 0
+	}
 	switch v.Value.(type) {
 	case RdfNull:
 		return 0
@@ -87,6 +105,9 @@ func (v *Node) GetType() int {
 }
 
 func (v *Node) GetTypeName() string {
+	if v == nil {
+		return  "null"
+	}
 	switch v.Value.(type) {
 	case RdfNull:
 		return  "null"
@@ -110,6 +131,9 @@ func (v *Node) GetTypeName() string {
 }
 
 func (v *Node) Bool() bool {
+	if v == nil {
+		return false
+	}
 	switch vv := v.Value.(type) {
 	case BlankNode:
 		return true
@@ -131,6 +155,9 @@ func (v *Node) Bool() bool {
 }
 
 func (v *Node) String() string {
+	if v == nil {
+		return  "null"
+	}
 	switch vv := v.Value.(type) {
 	case BlankNode:
 		return fmt.Sprintf("BN%d", vv.Key)
