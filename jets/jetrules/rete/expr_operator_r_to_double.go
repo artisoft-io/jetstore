@@ -1,6 +1,8 @@
 package rete
 
 import (
+	"strconv"
+
 	"github.com/artisoft-io/jetstore/jets/jetrules/rdf"
 )
 
@@ -27,6 +29,13 @@ func (op *ToDoubleOp) Eval(reteSession *ReteSession, row *BetaRow, rhs *rdf.Node
 		return &rdf.Node{Value: float64(rhsv)}
 	case float64:
 		return rhs
+	case string:
+		f, err := strconv.ParseFloat(rhsv, 64)
+		if err != nil {
+			// log.Printf("***to_double: arg string is not a double: %s", rhsv)
+			return nil
+		}
+		return &rdf.Node{Value: f}
 	default:
 		return nil
 	}

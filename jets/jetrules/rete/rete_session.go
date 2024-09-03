@@ -70,7 +70,7 @@ func (rs *ReteSession) Initialize(ms *ReteMetaStore) {
 		log.Panic("error: ReteSession.Initialize requires a non nil ReteMetaStore")
 	}
 	rs.ms = ms
-	log.Println("Initializing the ReteSession")
+	// log.Println("Initializing the ReteSession")
 
 	// Initializing the BetaRelations
 	// Initialize the VertexVisits

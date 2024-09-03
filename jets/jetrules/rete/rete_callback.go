@@ -1,6 +1,7 @@
 package rete
 
 import (
+
 	"github.com/artisoft-io/jetstore/jets/jetrules/rdf"
 )
 
@@ -17,8 +18,6 @@ type ReteCallback struct {
 }
 
 func NewReteCallback(rs *ReteSession, vertex int, s, p, o *rdf.Node) rdf.NotificationCallback {
-	// //**
-	// log.Printf("NewReteCallback for vertex %d, predicate filter %s", vertex, rdf.ToString(&[3]*rdf.Node{s, p, o}))
 	return &ReteCallback{
 		reteSession: rs,
 		vertex: vertex,
@@ -30,8 +29,6 @@ func NewReteCallback(rs *ReteSession, vertex int, s, p, o *rdf.Node) rdf.Notific
 }
 
 func NewReteCallbackForFilter(rs *ReteSession, vertex int, p *rdf.Node) rdf.NotificationCallback {
-	// //**
-	// log.Printf("NewReteCallbackForFilter for vertex %d, predicate filter %v", vertex, p)
 	return &ReteCallback{
 		reteSession: rs,
 		vertex: vertex,

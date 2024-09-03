@@ -35,7 +35,7 @@ func (op *ApplyRegexOp) Eval(reteSession *ReteSession, row *BetaRow, lhs, rhs *r
 	if !ok {
 		return nil
 	}
-	rhsv,ok := lhs.Value.(string)
+	rhsv,ok := rhs.Value.(string)
 	if !ok {
 		return nil
 	}

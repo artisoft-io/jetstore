@@ -96,15 +96,10 @@ func (an *AlphaNode) RegisterCallback(rs *ReteSession) {
 	u := an.Fu.StaticValue()
 	v := an.Fv.StaticValue()
 	w := an.Fw.StaticValue()
-	if u != nil && !u.IsResource() {
-		u = nil
-	}
-	if v != nil && !v.IsResource() {
-		v = nil
-	}
-	if w != nil && !w.IsResource() {
-		w = nil
-	}
+	// //***
+	// if an.NdVertex.Vertex == 119 {
+	// 	log.Printf("Vertex 119 = RegisterCallback w/ (%v, %v, %v)", u, v, w)
+	// }
 	cb := NewReteCallback(rs, an.NdVertex.Vertex, u, v, w)
 
 	rs.RdfSession.AssertedGraph.CallbackMgr.AddCallback(cb)
@@ -272,6 +267,11 @@ func (an *AlphaNode) FindMatchingRows(parentBetaRelation *BetaRelation, s, p, o 
 	 * from c++ implementation
 */
 func (an *AlphaNode) FindMatchingTriples(rs *ReteSession, parentRow *BetaRow) *rdf.RdfSessionIterator {
+	// //***
+	// if an.NdVertex.Vertex == 119 {
+	// 	log.Printf("* FindMatchingTriples for alpha node %d: %s called", an.NdVertex.Vertex, an.NormalizedLabel)
+	// }
+
 	if !an.IsAntecedent {
 		log.Panicf("AlphaNode.FindMatchingTriples called on non antecedent node, vertex %d", an.NdVertex.Vertex)
 	}

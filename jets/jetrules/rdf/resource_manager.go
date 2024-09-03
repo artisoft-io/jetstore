@@ -1,9 +1,9 @@
 package rdf
 
 import (
-	"fmt"
 	"log"
-	"time"
+	"math"
+	"math/big"
 )
 
 // ResourceManager manages all the resources, incl literals and all. Equivalent to RManager in c++
@@ -165,6 +165,46 @@ func (rm *ResourceManager) CreateBNode(key int) *Node {
 	return r
 }
 
+func (rm *ResourceManager) ReifyResource(r *Node) *Node {
+	if r == nil {
+		return globalNull
+	}
+	switch vv := r.Value.(type) {
+	case RdfNull:
+		return globalNull
+	case BlankNode:
+		return rm.CreateBNode(vv.Key)
+	case NamedResource:
+		return rm.NewResource(vv.Name)
+	case LDate:
+		return rm.NewDateLiteral(vv)
+	case LDatetime:
+		return rm.NewDatetimeLiteral(vv)
+	case int:
+		return rm.NewIntLiteral(vv)
+	case string:
+		return rm.NewTextLiteral(vv)
+	case float64:
+		return rm.NewDoubleLiteral(vv)
+	case bool:
+		if vv {
+			return rm.NewIntLiteral(1)
+		} else {
+			return rm.NewIntLiteral(0)
+		}
+	case int32:
+		return rm.NewIntLiteral(int(vv))
+	case uint32:
+		return rm.NewIntLiteral(int(vv))
+	case int64:
+		return rm.NewIntLiteral(int(vv))
+	}
+	return globalNull
+}
+
+// This applies to basic literal types: int, string, float64
+// It does not applies to dates of other resource types
+// Thisis only used by GetLiteral
 func toValidData(data interface{}) interface{} {
 	var validData interface{}
 	switch vv := data.(type) {
@@ -176,8 +216,6 @@ func toValidData(data interface{}) interface{} {
 		validData = int(vv)
 	case int64:
 		validData = int(vv)
-	case time.Time:
-		validData = vv
 	case string:
 		validData = vv
 	case float64:
@@ -192,19 +230,28 @@ func toValidData(data interface{}) interface{} {
 	return validData
 }
 
+// This applies ONLY to basic literal types: int, string, double
+// This func is used for testing only
 func (rm *ResourceManager) GetLiteral(data interface{}) *Node {
 	validData := toValidData(data)
+	return rm.getLiteralInternal(validData)
+}
+
+func (rm *ResourceManager) getLiteralInternal(data interface{}) *Node {
+	if data == nil {
+		return nil
+	}
 	if rm.rootManager != nil {
-		n := rm.rootManager.literalMap[validData]
+		n := rm.rootManager.literalMap[data]
 		if n != nil {
 			return n
 		}
 	}
-	return rm.literalMap[validData]
+	return rm.literalMap[data]
 }
 
 func (rm *ResourceManager) NewIntLiteral(data int) *Node {
-	v := rm.GetLiteral(data)
+	v := rm.getLiteralInternal(data)
 	if v != nil {
 		return v
 	}
@@ -217,8 +264,19 @@ func (rm *ResourceManager) NewIntLiteral(data int) *Node {
 	return r
 }
 
-func (rm *ResourceManager) NewDoubleLiteral(data float64) *Node {
-	v := rm.GetLiteral(data)
+func (rm *ResourceManager) NewDoubleLiteral(x float64) *Node {
+	// see test case TestMakingDoubleLiterals for details
+	// Get cleaned up version of x
+	var data float64
+	switch {
+	case math.IsNaN(x):
+		return globalNan
+	case math.IsInf(x, 0):
+		return globalInf
+	default:
+		data, _ = big.NewFloat(x).SetPrec(15).Float64()
+	}
+	v := rm.getLiteralInternal(data)
 	if v != nil {
 		return v
 	}
@@ -232,7 +290,8 @@ func (rm *ResourceManager) NewDoubleLiteral(data float64) *Node {
 }
 
 func (rm *ResourceManager) NewDateLiteral(data LDate) *Node {
-	v := rm.GetLiteral(data)
+	raw := *data.Date
+	v := rm.getLiteralInternal(raw)
 	if v != nil {
 		return v
 	}
@@ -241,12 +300,13 @@ func (rm *ResourceManager) NewDateLiteral(data LDate) *Node {
 		return nil
 	}
 	r := &Node{Value: data}
-	rm.literalMap[data] = r
+	rm.literalMap[raw] = r
 	return r
 }
 
 func (rm *ResourceManager) NewDatetimeLiteral(data LDatetime) *Node {
-	v := rm.GetLiteral(data)
+	raw := *data.Datetime
+	v := rm.getLiteralInternal(raw)
 	if v != nil {
 		return v
 	}
@@ -255,12 +315,12 @@ func (rm *ResourceManager) NewDatetimeLiteral(data LDatetime) *Node {
 		return nil
 	}
 	r := &Node{Value: data}
-	rm.literalMap[data] = r
+	rm.literalMap[raw] = r
 	return r
 }
 
 func (rm *ResourceManager) NewTextLiteral(data string) *Node {
-	v := rm.GetLiteral(data)
+	v := rm.getLiteralInternal(data)
 	if v != nil {
 		return v
 	}
@@ -278,7 +338,7 @@ func (rm *ResourceManager) NewBoolLiteral(data bool) *Node {
 	if data {
 		dd = 1
 	}
-	v := rm.GetLiteral(dd)
+	v := rm.getLiteralInternal(dd)
 	if v != nil {
 		return v
 	}
@@ -289,25 +349,4 @@ func (rm *ResourceManager) NewBoolLiteral(data bool) *Node {
 	r := &Node{Value: dd}
 	rm.literalMap[dd] = r
 	return r
-}
-
-
-// Coerce data to the limited data type: int, string, time, float64
-// return nil if not a valid type
-func (rm *ResourceManager) NewLiteral(data interface{}) (*Node, error) {
-	validData := toValidData(data)
-	if validData == nil {
-		return nil, fmt.Errorf("error: invalid data type %T for NewLiteral", data)
-	}
-	v := rm.GetLiteral(validData)
-	if v != nil {
-		return v, nil
-	}
-	if rm.isLocked {
-		log.Println("error: NewLiteral called when ResourceManger is locked")
-		return nil, fmt.Errorf("error: resource manager is locked")
-	}
-	r := &Node{Value: validData}
-	rm.literalMap[validData] = r
-	return r, nil
 }

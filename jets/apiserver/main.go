@@ -39,6 +39,7 @@ import (
 // JETS_SERVER_SM_ARN state machine arn
 // JETS_SERVER_SM_ARNv2 state machine arn
 // JETSTORE_DEV_MODE Indicates running in dev mode
+// JETS_LOG_DEBUG set to 1 or 2 (will prints graph, very verbose)
 // NBR_SHARDS set the nbr of shard to use for loader and server
 // WEB_APP_DEPLOYMENT_DIR
 // WORKSPACE Workspace currently in use (active workspace)
