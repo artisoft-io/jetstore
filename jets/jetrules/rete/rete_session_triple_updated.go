@@ -14,7 +14,9 @@ func (rs *ReteSession) TripleUpdated(vertex int, s, p, o *rdf.Node, isInserted b
 		log.Panic("ReteSession.TripleUpdated called with invalid vertex:", vertex)
 	}
 	// //**
-	// log.Printf("TripleUpdated: %s, inserted? %v at vertex %d", rdf.ToString(&[3]*rdf.Node{s, p, o}), isInserted,vertex)
+	// if vertex == 119 {
+	// 	log.Printf("TripleUpdated: %s, inserted? %v at vertex %d", rdf.ToString(&[3]*rdf.Node{s, p, o}), isInserted,vertex)
+	// }
 
 	// If beta node is not activated yet, ignore the notification
 	betaRelation := rs.GetBetaRelation(vertex)

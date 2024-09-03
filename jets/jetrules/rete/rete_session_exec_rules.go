@@ -10,7 +10,7 @@ import (
 )
 
 func (rs *ReteSession) ExecuteRules() (err error) {
-	log.Println("Entering ReteSession.ExecuteRules")
+	// log.Println("Entering ReteSession.ExecuteRules")
 	defer func() {
 		if r := recover(); r != nil {
 			err = fmt.Errorf("ExecuteRules recovered error: %v", r)
@@ -52,7 +52,7 @@ func (s *IntStack) Pop() int {
 }
 
 func (rs *ReteSession) VisitReteGraph(fromVertex int, isInferring bool) error {
-	log.Println("Entering ReteSession.VisitReteGraph @ vertex",fromVertex)
+	// log.Println("Entering ReteSession.VisitReteGraph @ vertex",fromVertex)
 	stack := NewIntStack(rs.ms.NbrVertices())
 	stack.Push(fromVertex)
 	// idebug := 0
@@ -129,7 +129,9 @@ func (rs *ReteSession) VisitReteGraph(fromVertex int, isInferring bool) error {
 					default:
 						// Got no triples, condition met; create the beta row
 						// //**
-						// log.Println("Got no triples, condition met; create the beta row")
+						// if childVertex == 119 {
+						// 	log.Println("Vertex 119 = Got no triples for NEGATION, condition met; create the beta row, inferring?",isInferring)
+						// }
 						childBetaRow := NewBetaRow(childAlphaNode.NdVertex, betaRowInitializer.RowSize())
 						// initialize the beta row with parent_row and place holder for t3
 						t3 := rdf.NilTriple()
@@ -158,7 +160,9 @@ func (rs *ReteSession) VisitReteGraph(fromVertex int, isInferring bool) error {
 					// for each t3Itor.Itor create the beta row, keep it if pass filter, add/remove row when infer/retract
 					for t3 := range t3Itor.Itor {
 						// //**
-						// log.Printf("Got triple (%s, %s, %s)", t3[0], t3[1], t3[2])
+						// if childVertex == 119 {
+						// 	log.Printf("Vertex 119 = Got triple (%s, %s, %s), inferring? %v for beta row", t3[0], t3[1], t3[2], isInferring)
+						// }
 						// Create the beta row
 						childBetaRow := NewBetaRow(childAlphaNode.NdVertex, betaRowInitializer.RowSize())
 						// initialize the beta row with parent_row and t3
@@ -235,6 +239,10 @@ func (rs *ReteSession) ComputeConsequentTriples() error {
 			currentVisit.InferCount += 1
 			for _, consequentAlphaNode := range betaRow.NdVertex.ConsequentAlphaNodes {
 				t3 := consequentAlphaNode.ComputeConsequentTriple(rs, betaRow)
+				// //***
+				// if vertex == 119 {
+				// 	log.Printf("vertex 119: inserting %s",rdf.ToString(t3))
+				// }
 				_, err := rs.RdfSession.InsertInferred(t3[0], t3[1], t3[2])
 				if err != nil {
 					return fmt.Errorf("while calling ReteSession.InsertInferred (ComputeConsequentTriples): %v", err)
@@ -251,6 +259,10 @@ func (rs *ReteSession) ComputeConsequentTriples() error {
 			currentVisit.RetractCount += 1
 			for _, consequentAlphaNode := range betaRow.NdVertex.ConsequentAlphaNodes {
 				t3 := consequentAlphaNode.ComputeConsequentTriple(rs, betaRow)
+				// //***
+				// if vertex == 119 {
+				// 	log.Printf("vertex 119: retracting %s",rdf.ToString(t3))
+				// }
 				_, err := rs.RdfSession.Retract(t3[0], t3[1], t3[2])
 				if err != nil {
 					return fmt.Errorf("while calling ReteSession.Retract (ComputeConsequentTriples): %v", err)

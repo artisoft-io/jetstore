@@ -137,10 +137,16 @@ func (rdfs *RDFSession) ReleaseRDFSession() error {
 	return nil
 }
 
-func (js *JetStore) NewReteSession(rdfSession *RDFSession, jetrules_name string) (*ReteSession, error) {
+func (js *JetStore) NewReteSession(rdfSession *RDFSession, jetrulesName string) (*ReteSession, error) {
 
 	reteSession := rete.NewReteSession(rdfSession.rdfSession)
-	reteSession.Initialize(js.MetaStore)
+	ms := js.Factory.MetaStoreLookup[jetrulesName]
+	if ms == nil {
+		return nil, fmt.Errorf("error: rete meta store not found for %s", jetrulesName)
+	}
+	// Set the current meta store
+	js.MetaStore = ms
+	reteSession.Initialize(ms)
 	return &ReteSession{
 		js:         js,
 		rdfSession: rdfSession,

@@ -92,7 +92,8 @@ func (af *FExpression) StaticValue() *rdf.Node {
 	return nil
 }
 func (af *FExpression) Eval(reteSession *ReteSession, row *BetaRow) *rdf.Node {
-	return af.expression.Eval(reteSession, row)
+	r := af.expression.Eval(reteSession, row)
+	return reteSession.RdfSession.ResourceMgr.ReifyResource(r)
 }
 func (af *FExpression) BetaRowIndex() int {
 	return -1

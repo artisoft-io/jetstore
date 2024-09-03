@@ -87,7 +87,7 @@ func (row *BetaRow) Hash() uint64 {
 		}
 		b, err = r.MarshalBinary()
 		if err != nil {
-			log.Fatalf("error while MarshalingBinary of resource %s", r)
+			log.Fatalf("error while MarshalingBinary of resource %s: %v", r, err)
 		}
 		h.Write(b)
 	}

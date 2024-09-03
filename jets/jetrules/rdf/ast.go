@@ -11,9 +11,13 @@ import (
 // Package to define the rdf data model as an pragmatic ast
 
 var globalNull *Node
+var globalNan *Node
+var globalInf *Node
 
 func init() {
-	globalNull = &Node{Value: &RdfNull{}}
+	globalNull = &Node{Value: RdfNull{}}
+	globalNan = &Node{Value: math.NaN()}
+	globalInf = &Node{Value: math.Inf(0)}
 }
 
 type Node struct {
@@ -106,11 +110,11 @@ func (v *Node) GetType() int {
 
 func (v *Node) GetTypeName() string {
 	if v == nil {
-		return  "null"
+		return "null"
 	}
 	switch v.Value.(type) {
 	case RdfNull:
-		return  "null"
+		return "rdf_null_type"
 	case BlankNode:
 		return "blank_node"
 	case NamedResource:
@@ -156,7 +160,7 @@ func (v *Node) Bool() bool {
 
 func (v *Node) String() string {
 	if v == nil {
-		return  "null"
+		return "null"
 	}
 	switch vv := v.Value.(type) {
 	case BlankNode:
@@ -173,8 +177,10 @@ func (v *Node) String() string {
 		return fmt.Sprintf("%v", vv)
 	case string:
 		return vv
+	case RdfNull:
+		return "rdfNull"
 	default:
-		return "??"
+		return fmt.Sprintf("<invalid type:%v>", reflect.TypeOf(v.Value))
 	}
 }
 
@@ -186,8 +192,8 @@ func (v *Node) MarshalBinary() ([]byte, error) {
 	case BlankNode:
 		// int is 8 bytes
 		return []byte{
-			'B', 
-			byte(vv.Key >> 56), 
+			'B',
+			byte(vv.Key >> 56),
 			byte(vv.Key >> 48),
 			byte(vv.Key >> 40),
 			byte(vv.Key >> 32),
@@ -213,8 +219,8 @@ func (v *Node) MarshalBinary() ([]byte, error) {
 	case int:
 		// int is 8 bytes
 		return []byte{
-			'I','0','0',
-			byte(vv >> 56), 
+			'I', '0', '0',
+			byte(vv >> 56),
 			byte(vv >> 48),
 			byte(vv >> 40),
 			byte(vv >> 32),
@@ -227,8 +233,8 @@ func (v *Node) MarshalBinary() ([]byte, error) {
 		// float64 -> uint64 is 8 bytes
 		t := math.Float64bits(vv)
 		return []byte{
-			'F','6','4',
-			byte(t >> 56), 
+			'F', '6', '4',
+			byte(t >> 56),
 			byte(t >> 48),
 			byte(t >> 40),
 			byte(t >> 32),
@@ -239,8 +245,11 @@ func (v *Node) MarshalBinary() ([]byte, error) {
 		}, nil
 	case string:
 		return append([]byte(vv), 'S'), nil
+	case RdfNull:
+		return []byte{'R', 'D', 'F', 'N', 'U', 'L', 'L'}, nil
 	default:
-		return nil, fmt.Errorf("error: unknown type for rdf.Node in MarshalBinary")
+		return nil, fmt.Errorf("error: unknown type for rdf.Node in MarshalBinary: %v",
+			reflect.TypeOf(v.Value))
 	}
 }
 
@@ -305,16 +314,13 @@ func NewRdfNull() RdfNull {
 	return RdfNull{}
 }
 
-
 type BlankNode struct {
 	Key int
 }
 
-
 type NamedResource struct {
 	Name string
 }
-
 
 type LDate struct {
 	Date *time.Time
@@ -325,7 +331,7 @@ func NewLDate(date string) (LDate, error) {
 	return LDate{Date: t}, err
 }
 
-func (lhs LDate) Add (days int) LDate {
+func (lhs LDate) Add(days int) LDate {
 	t := lhs.Date.Add(time.Duration(days) * 24 * time.Hour)
 	return LDate{Date: &t}
 }
@@ -339,32 +345,31 @@ func NewLDatetime(datetime string) (LDatetime, error) {
 	return LDatetime{Datetime: t}, err
 }
 
-func (lhs LDatetime) Add (days int) LDatetime {
+func (lhs LDatetime) Add(days int) LDatetime {
 	t := lhs.Datetime.Add(time.Duration(days) * 24 * time.Hour)
 	return LDatetime{Datetime: &t}
 }
 
 func ParseBool(value string) int {
 	switch strings.ToLower(value) {
-	case "true","t","1":
+	case "true", "t", "1":
 		return 1
 	default:
 		return 0
 	}
 }
 
-
 func NearlyEqual(a, b float64) bool {
 
 	// already equal?
-	if(a == b) {
-			return true
+	if a == b {
+		return true
 	}
 
 	diff := math.Abs(a - b)
 	if a == 0.0 || b == 0.0 || diff < math.SmallestNonzeroFloat64 {
-			return diff < 1e-10 * math.SmallestNonzeroFloat64
+		return diff < 1e-10*math.SmallestNonzeroFloat64
 	}
 
-	return diff / (math.Abs(a) + math.Abs(b)) < 1e-10
+	return diff/(math.Abs(a)+math.Abs(b)) < 1e-10
 }

@@ -42,6 +42,10 @@ func NewBetaRelation(nv *NodeVertex) *BetaRelation {
 }
 
 func (br *BetaRelation) InsertBetaRow(rs *ReteSession, row *BetaRow) {
+	// //***
+	// if br.NdVertex.Vertex == 119 {
+	// 	log.Printf("Vertex 119 = BetaRow Inserted: %v", row.Data)
+	// }
 	inserted, row := br.AllRows.Put(row)
 	if inserted {
 		if row.NdVertex.HasConsequentTerms() {
