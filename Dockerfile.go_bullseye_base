@@ -1,4 +1,4 @@
-ARG BASE_CONTAINER=golang:1.21-bullseye
+ARG BASE_CONTAINER=golang:1.23-bullseye
 FROM ${BASE_CONTAINER} as builder
 ARG BASE_CONTAINER
 
