@@ -1,5 +1,7 @@
 package rdf
 
+// import "sync"
+
 // Class BaseGraph is an rdf graph
 //
 // Class to manage a triple graph. The natural indexing to the graph is (u, v, w)
@@ -16,9 +18,14 @@ package rdf
 //
 //	(u, v, w) implemented as MAP(u, MAP(v, SET(WNode)))
 
+// Using sync.Map ranther than regular map due to race condition
+// created by the use of async channels
 type WSetType = map[*Node]int
 type VMapType = map[*Node]WSetType
 type UMapType = map[*Node]VMapType
+// type WSetType = *sync.Map
+// type VMapType = *sync.Map
+// type UMapType = *sync.Map
 
 type BaseGraph struct {
 	GraphType string
@@ -32,6 +39,7 @@ func NewBaseGraph(graphType string, spin byte) *BaseGraph {
 		GraphType: graphType,
 		spin: spin,
 		data: make(UMapType, 100),
+		// data: new(sync.Map),
 	}
 }
 
@@ -40,6 +48,7 @@ func (g *BaseGraph) Size() int {
 }
 
 func (g *BaseGraph) Clear() {
+	// g.data.Clear()
 	g.data = make(UMapType, 100)
 }
 
