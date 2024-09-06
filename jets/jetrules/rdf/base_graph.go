@@ -1,6 +1,6 @@
 package rdf
 
-// import "sync"
+import "sync"
 
 // Class BaseGraph is an rdf graph
 //
@@ -20,12 +20,12 @@ package rdf
 
 // Using sync.Map ranther than regular map due to race condition
 // created by the use of async channels
-type WSetType = map[*Node]int
-type VMapType = map[*Node]WSetType
-type UMapType = map[*Node]VMapType
-// type WSetType = *sync.Map
-// type VMapType = *sync.Map
-// type UMapType = *sync.Map
+// type WSetType = map[*Node]int
+// type VMapType = map[*Node]WSetType
+// type UMapType = map[*Node]VMapType
+type WSetType = *sync.Map
+type VMapType = *sync.Map
+type UMapType = *sync.Map
 
 type BaseGraph struct {
 	GraphType string
@@ -38,8 +38,7 @@ func NewBaseGraph(graphType string, spin byte) *BaseGraph {
 	return &BaseGraph{
 		GraphType: graphType,
 		spin: spin,
-		data: make(UMapType, 100),
-		// data: new(sync.Map),
+		data: new(sync.Map),
 	}
 }
 
@@ -48,8 +47,7 @@ func (g *BaseGraph) Size() int {
 }
 
 func (g *BaseGraph) Clear() {
-	// g.data.Clear()
-	g.data = make(UMapType, 100)
+	g.data.Clear()
 }
 
 // returns true if (u, v, w) exist, false otherwise.
@@ -65,15 +63,15 @@ func (g *BaseGraph) ContainsSPO(s, p, o *Node) bool {
 
 // returns true if (u, v, *) exist, false otherwise.
 func (g *BaseGraph) ContainsUV(u, v *Node) bool {
-	vmap := g.data[u]
+	vmap, _ := g.data.Load(u)
 	if vmap == nil {
 		return false
 	}
-	wmap := vmap[v]
+	wmap, _ := vmap.(*sync.Map).Load(v)
 	if wmap == nil {
 		return false
 	}
-	return len(wmap) > 0
+	return len(*wmap.(*sync.Map)) > 0
 }
 
 // returns an Iterator over all the triples in the graph
