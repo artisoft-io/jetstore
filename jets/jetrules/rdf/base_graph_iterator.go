@@ -77,7 +77,7 @@ func NewBaseGraphIterator(spin byte, u, v, w *Node, g *UMapType) *BaseGraphItera
 					// Iterate over all elements
 					upair.Data.Range(func(node, data any) bool {
 					select {
-					case bgItor.Usource <- Upair{U: node.(*Node), Data: data.(*sync.Map)}:
+					case bgItor.Vsource <- Vpair{U: upair.U, V: node.(*Node), Data: data.(*sync.Map)}:
 					case <-bgItor.done:
 						return false
 					}
