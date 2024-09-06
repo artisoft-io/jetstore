@@ -21,15 +21,18 @@ RUN apk --no-cache add --virtual builds-deps build-base python3
 # RUN pip install --upgrade pip && \
 #     pip install --upgrade awscli --no-build-isolation
 
-RUN pip install wheel && \
-    pip install "Cython<3.0" "pyyaml<6" --no-build-isolation && \
+# Create env to pip install packages
+RUN python3 -m venv /opt/venv
+RUN source /opt/venv/bin/activate && pip install wheel && \
+    pip install "Cython" "pyyaml" --no-build-isolation && \
     pip3 install awscli
+# Enable the env
+ENV PATH="/opt/venv/bin:$PATH"
 
 # Install cdk
 RUN npm install -g aws-cdk
 RUN cdk --version
-RUN aws --version
-
+RUN source /opt/venv/bin/activate && aws --version
 RUN \
   mkdir -p /github/workspace/jetstore \
   mkdir -p /github/workspace/workspace
