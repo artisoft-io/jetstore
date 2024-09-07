@@ -35,6 +35,7 @@ COPY --from=builder ${JETS_BIN_DIR}/loader /usr/local/bin/
 COPY --from=builder ${JETS_BIN_DIR}/status_update /usr/local/bin/
 COPY --from=builder ${JETS_BIN_DIR}/apiserver /usr/local/bin/
 COPY --from=builder ${JETS_BIN_DIR}/server /usr/local/bin/
+COPY --from=builder ${JETS_BIN_DIR}/serverv2 /usr/local/bin/
 COPY --from=builder ${JETS_BIN_DIR}/run_reports /usr/local/bin/
 COPY --from=builder ${JETS_BIN_DIR}/update_db /usr/local/bin/
 COPY --from=builder ${JETS_BIN_DIR}/test_data_generator /usr/local/bin/
