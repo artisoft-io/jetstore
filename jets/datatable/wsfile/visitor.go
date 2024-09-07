@@ -91,7 +91,7 @@ func visitChildren(root, relativeRoot, dir string, filters *[]string, workspaceN
 // Note: This function cannot be called recursively, otherwise it will interrupt WalDir
 func visitDir(root, relativeRoot, dir string, filters *[]string, workspaceName string) (*[]*WorkspaceNode, error) {
 
-	// fmt.Println("*visitDir called for dir:",dir)
+	// fmt.Println("*visitDir called for:",fmt.Sprintf("%s/%s", root, dir))
 	fileSystem := os.DirFS(fmt.Sprintf("%s/%s", root, dir))
 	children := make([]*WorkspaceNode, 0)
 

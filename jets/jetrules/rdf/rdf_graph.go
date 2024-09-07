@@ -133,6 +133,9 @@ func (g *RdfGraph) Erase(s, p, o *Node) (bool, error) {
 	if g.isLocked {
 		return false, ErrGraphLocked
 	}
+	if s != nil && p != nil && o != nil {
+		return g.erase_internal(s, p, o)
+	}
 	var erased bool
 	l := make([]*[3]*Node, 0)
 	t3Itor := g.FindSPO(s, p, o)

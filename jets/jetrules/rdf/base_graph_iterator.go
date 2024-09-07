@@ -35,7 +35,7 @@ func (itor *BaseGraphIterator) Done() {
 
 // Iterator over the BaseGraph, u, v, w can be nil
 // The iterator returns the triple in (s, p, o) order based on the spin of the graph
-func NewBaseGraphIterator(spin byte, u, v, w *Node, g *UMapType) *BaseGraphIterator {
+func NewBaseGraphIterator(spin byte, u, v, w *Node, g UMapType) *BaseGraphIterator {
 	bgItor := &BaseGraphIterator{
 		Usource: make(chan Upair),
 		Vsource: make(chan Vpair),
@@ -48,8 +48,7 @@ func NewBaseGraphIterator(spin byte, u, v, w *Node, g *UMapType) *BaseGraphItera
 	go func() {
 		if u == nil {
 			// Iterate over all elements
-			m := *g
-			m.Range(func(node, data any) bool {
+			g.Range(func(node, data any) bool {
 				select {
 				case bgItor.Usource <- Upair{U: node.(*Node), Data: data.(*sync.Map)}:
 				case <-bgItor.done:
@@ -59,7 +58,7 @@ func NewBaseGraphIterator(spin byte, u, v, w *Node, g *UMapType) *BaseGraphItera
 			})
 		} else {
 			// Single value for u
-			data, _ := (*g).Load(u)
+			data, _ := g.Load(u)
 			if data != nil {
 				select {
 				case bgItor.Usource <- Upair{U: u, Data: data.(*sync.Map)}:
@@ -77,7 +76,7 @@ func NewBaseGraphIterator(spin byte, u, v, w *Node, g *UMapType) *BaseGraphItera
 					// Iterate over all elements
 					upair.Data.Range(func(node, data any) bool {
 					select {
-					case bgItor.Usource <- Upair{U: node.(*Node), Data: data.(*sync.Map)}:
+					case bgItor.Vsource <- Vpair{U: upair.U, V: node.(*Node), Data: data.(*sync.Map)}:
 					case <-bgItor.done:
 						return false
 					}
@@ -85,7 +84,7 @@ func NewBaseGraphIterator(spin byte, u, v, w *Node, g *UMapType) *BaseGraphItera
 				})
 			} else {
 				// Single value for v
-				data, _ := upair.Data.Load(u)
+				data, _ := upair.Data.Load(v)
 				if data != nil {
 					select {
 					case bgItor.Vsource <- Vpair{U: upair.U, V: v, Data: data.(*sync.Map)}:

@@ -67,7 +67,7 @@ func (rs *RdfSession) Insert(s, p, o *Node) (bool, error) {
 	}
 	var b bool
 	var err error
-	if _, err = rs.InferredGraph.Erase(s, p, o); err != nil {
+	if _, err = rs.InferredGraph.erase_internal(s, p, o); err != nil {
 		return false, err
 	}
 	if b, err = rs.AssertedGraph.Insert(s, p, o); err != nil {

@@ -82,24 +82,24 @@ func (g *BaseGraph) ContainsUV(u, v *Node) bool {
 
 // returns an Iterator over all the triples in the graph
 func (g *BaseGraph) Find() *BaseGraphIterator {
-	return NewBaseGraphIterator(g.spin, nil, nil, nil, &g.data)
+	return NewBaseGraphIterator(g.spin, nil, nil, nil, g.data)
 }
 
 // returns an Iterator over the triples (u, *, *) in the graph
 func (g *BaseGraph) FindU(u *Node) *BaseGraphIterator {
-	return NewBaseGraphIterator(g.spin, u, nil, nil, &g.data)
+	return NewBaseGraphIterator(g.spin, u, nil, nil, g.data)
 }
 
 // returns an Iterator over the triples (u, v, *) in the graph
 func (g *BaseGraph) FindUV(u, v *Node) *BaseGraphIterator {
-	return NewBaseGraphIterator(g.spin, u, v, nil, &g.data)
+	return NewBaseGraphIterator(g.spin, u, v, nil, g.data)
 }
 
 // returns an Iterator over the triples (u, v, w) in the graph
 // this iterator will return at most one triple
 // This func is for completeness
 func (g *BaseGraph) FindUVW(u, v, w *Node) *BaseGraphIterator {
-	return NewBaseGraphIterator(g.spin, u, v, w, &g.data)
+	return NewBaseGraphIterator(g.spin, u, v, w, g.data)
 }
 
 // Used by `rule_term` to determine if an inferred triple will
@@ -129,15 +129,27 @@ func (g *BaseGraph) Insert(u, v, w *Node) bool {
 	if u == nil || v == nil || w == nil {
 		return false
 	}
-	vmap, _ := g.data.LoadOrStore(u, new(sync.Map))
-	wmap, _ := vmap.(*sync.Map).LoadOrStore(v, new(sync.Map))
+	vv, _ := g.data.Load(u)
+	if vv == nil {
+		vv = new(sync.Map)
+		g.data.Store(u, vv)
+	}
+	vmap := vv.(*sync.Map)
+	ww, _ := vmap.Load(v)
+	if ww == nil {
+		ww = new(sync.Map)
+		vmap.Store(v, ww)
+	}
+	wmap := ww.(*sync.Map)
 	var count int
-	c, _ := wmap.(*sync.Map).Load(w)
+	c, _ := wmap.Load(w)
 	if c != nil {
 		count = c.(int)
+	} else {
+		g.size += 1
 	}
 	count += 1
-	wmap.(*sync.Map).Store(w, count)
+	wmap.Store(w, count)
 	return count == 1
 }
 
@@ -151,13 +163,14 @@ func (g *BaseGraph) Erase(u, v, w *Node) bool {
 	if vmap == nil {
 		return false
 	}
-	wmap, _ := vmap.(*sync.Map).Load(v)
-	if wmap == nil {
+	ww, _ := vmap.(*sync.Map).Load(v)
+	if ww == nil {
 		return false
 	}
-	_, ok := wmap.(*sync.Map).Load(w)
+	wmap := ww.(*sync.Map)
+	_, ok := wmap.Load(w)
 	if ok {
-		wmap.(*sync.Map).Delete(w)
+		wmap.Delete(w)
 		g.size -= 1
 	}
 	return ok
@@ -174,20 +187,21 @@ func (g *BaseGraph) Retract(u, v, w *Node) bool {
 	if vmap == nil {
 		return false
 	}
-	wmap, _ := vmap.(*sync.Map).Load(v)
-	if wmap == nil {
+	ww, _ := vmap.(*sync.Map).Load(v)
+	if ww == nil {
 		return false
 	}
-	cc, _ := wmap.(*sync.Map).Load(w)
+	wmap := ww.(*sync.Map)
+	cc, _ := wmap.Load(w)
 	if cc == nil {
 		return false
 	}
 	c := cc.(int)
 	if c < 2 {
-		wmap.(*sync.Map).Delete(w)
+		wmap.Delete(w)
 		g.size -= 1
 	} else {
-		wmap.(*sync.Map).Store(w, c - 1)
+		wmap.Store(w, c - 1)
 	}
 	return c < 2
 }
