@@ -56,21 +56,6 @@ func SyncWorkspaceFiles(dbpool *pgxpool.Pool, workspaceName, status, contentType
 
 			// If FileName ends with .tgz, extract files from archive
 			if strings.HasSuffix(fo.FileName, ".tgz") {
-				// command := "tar"
-				// args := []string{"xfvz", fo.FileName} 
-				// var buf strings.Builder
-				// err = wsfile.RunCommand(&buf, command, &args, workspaceName)
-				// defer os.Remove(fo.FileName)
-				// cmdLog := buf.String()
-				// if err != nil {
-				// 	if err.Error() != "exit status 2" { // tar exit 2 is no issue
-				// 		log.Println("=*=*=*=*=*=*=*=*=*=*=*=*=*=*")
-				// 		log.Println(cmdLog)
-				// 		log.Println("=*=*=*=*=*=*=*=*=*=*=*=*=*=*")
-				// 		return fmt.Errorf("failed to extract archive %s: %v", fo.FileName, err)
-				// 	}
-				// }
-				// log.Println(cmdLog)
 				fileHd, err := os.Open(localFileName)
 				defer func () {
 					fileHd.Close()
@@ -78,21 +63,6 @@ func SyncWorkspaceFiles(dbpool *pgxpool.Pool, workspaceName, status, contentType
 				if err != nil {
 					return fmt.Errorf("failed to open tgz file %s for read: %v", fo.FileName, err)
 				}	
-				//DELETE THIS v
-				// // Based on the ContentType, make sure the dir workspaceHome/workspace/<based on content type> does not already exist
-				// switch contentType {
-				// case "report.tgz":
-				// 	err = os.RemoveAll(fmt.Sprintf("%s/%s/reports", wh, workspaceName))
-				// 	if err != nil {
-				// 		log.Println("while removing workspace reports folder:", err)
-				// 	}
-				// case "workspace.tgz":
-				// 	err = os.RemoveAll(fmt.Sprintf("%s/%s/jet_rules", wh, workspaceName))
-				// 	if err != nil {
-				// 		log.Println("while removing workspace reports folder:", err)
-				// 	}
-				// }
-				//DELETE THIS ^
 				err = tarextract.ExtractTarGz(fileHd, fmt.Sprintf("%s/%s", wh, workspaceName))
 				if err != nil {
 					return fmt.Errorf("failed to extract content from tgz file %s for read: %v", fo.FileName, err)
@@ -157,8 +127,9 @@ func CompileWorkspace(dbpool *pgxpool.Pool, workspaceName, version string) (stri
 		return cmdLog, fmt.Errorf("while archiving the reports folder : %v", err)
 	}
 
-	args = []string{"cfvz", "workspace.tgz", "--exclude", "'*.jr'", "workspace_control.json", "jet_rules/"} 
-	buf.WriteString("\nArchiving the jet_rules\n")
+	// Archive riles and cpipes config
+	args = []string{"cfvz", "workspace.tgz", "--exclude", "'*.jr'", "workspace_control.json", "jet_rules/", "pipes_config/"}
+	buf.WriteString("\nArchiving the jet_rules and cpipes config\n")
 	err = wsfile.RunCommand(&buf, command, &args, workspaceName)
 	path = fmt.Sprintf("%s/%s/%s", os.Getenv("WORKSPACES_HOME"), workspaceName, "workspace.tgz")
 	defer os.Remove(path)

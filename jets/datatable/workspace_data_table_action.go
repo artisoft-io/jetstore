@@ -622,17 +622,6 @@ func (ctx *Context) WorkspaceQueryStructure(dataTableAction *DataTableAction, to
 
 	switch requestType {
 	case "workspace_file_structure":
-		// // Data/test_data (.csv, .txt)
-		// // fmt.Println("** Visiting data/test_data:")
-		// workspaceNode, err = wsfile.VisitDirWrapper(root, "data/test_data", "Unit Test Data", &[]string{".txt", ".csv"}, workspaceName)
-		// if err != nil {
-		// 	log.Println("while walking workspace structure:", err)
-		// 	httpStatus = http.StatusInternalServerError
-		// 	err = errors.New("error while walking workspace folder")
-		// 	return
-		// }
-		// resultData = append(resultData, workspaceNode)
-
 		// Data Model (.jr)
 		// fmt.Println("** Visiting data_model:")
 		workspaceNode, err = wsfile.VisitDirWrapper(root, "data_model", "Data Model", &[]string{".jr", ".csv"}, workspaceName)
@@ -658,6 +647,17 @@ func (ctx *Context) WorkspaceQueryStructure(dataTableAction *DataTableAction, to
 		// Lookups (.jr)
 		// fmt.Println("** Visiting lookups:")
 		workspaceNode, err = wsfile.VisitDirWrapper(root, "lookups", "Lookups", &[]string{".jr", ".csv"}, workspaceName)
+		if err != nil {
+			log.Println("while walking workspace structure:", err)
+			httpStatus = http.StatusInternalServerError
+			err = errors.New("error while walking workspace folder")
+			return
+		}
+		resultData = append(resultData, workspaceNode)
+
+		// cpipes config (.pc.json)
+		fmt.Println("** Visiting pipes_config:")
+		workspaceNode, err = wsfile.VisitDirWrapper(root, "pipes_config", "Pipes Config", &[]string{".pc.json"}, workspaceName)
 		if err != nil {
 			log.Println("while walking workspace structure:", err)
 			httpStatus = http.StatusInternalServerError
@@ -710,6 +710,20 @@ func (ctx *Context) WorkspaceQueryStructure(dataTableAction *DataTableAction, to
 				"workspace_name": workspaceName,
 				"file_name":      url.QueryEscape("compile_workspace.sh"),
 				"label":          "compile_workspace.sh",
+			},
+		})
+
+		// workspace_control.json
+		resultData = append(resultData, &wsfile.WorkspaceNode{
+			Key:          "workspace_control",
+			Type:         "file",
+			PageMatchKey: "workspace_control.json",
+			Label:        "Workspace Control",
+			RoutePath:    "/workspace/:workspace_name/home",
+			RouteParams: map[string]string{
+				"workspace_name": workspaceName,
+				"file_name":      url.QueryEscape("workspace_control.json"),
+				"label":          "workspace_control.json",
 			},
 		})
 	default:

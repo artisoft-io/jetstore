@@ -11,9 +11,16 @@ import (
 	"strings"
 
 	"github.com/artisoft-io/jetstore/jets/datatable"
+	"github.com/artisoft-io/jetstore/jets/dbutils"
 	"github.com/artisoft-io/jetstore/jets/schema"
+	"github.com/artisoft-io/jetstore/jets/workspace"
 	"github.com/jackc/pgx/v4/pgxpool"
 )
+var workspaceHome, wsPrefix string
+func init() {
+	workspaceHome = os.Getenv("WORKSPACES_HOME")
+	wsPrefix = os.Getenv("WORKSPACE")
+}
 
 func (args *StartComputePipesArgs) StartShardingComputePipes(ctx context.Context, dsn string) (ComputePipesRun, error) {
 	var result ComputePipesRun
@@ -56,43 +63,66 @@ func (args *StartComputePipesArgs) StartShardingComputePipes(ctx context.Context
 		return result, fmt.Errorf("error: the session id is already used")
 	}
 
+	// Sync workspace files
+	// Fetch overriten workspace files if not in dev mode
+	// When in dev mode, the apiserver refreshes the overriten workspace files
+	_, devMode := os.LookupEnv("JETSTORE_DEV_MODE")
+	if !devMode {
+		err = workspace.SyncWorkspaceFiles(dbpool, wsPrefix, dbutils.FO_Open, "workspace.tgz", true, false)
+		if err != nil {
+			log.Println("Error while synching workspace file from db:", err)
+			return result, fmt.Errorf("while synching workspace file from db: %v", err)
+		}
+	} else {
+		log.Println("We are in DEV_MODE, do not sync workspace file from db")
+	}
+
 	// get pe info and pipeline config
+	// cpipesConfig is file name within workspace
 	var client, org, objectType, processName, inputSessionId, userEmail string
 	var sourcePeriodKey, pipelineConfigKey int
-	var cpJson, icJson sql.NullString
+	var cpipesConfig, icJson sql.NullString
 	log.Println("CPIPES, loading pipeline configuration")
 	stmt := `
 	SELECT	ir.client, ir.org, ir.object_type, ir.source_period_key, 
 		pe.pipeline_config_key, pe.process_name, pe.input_session_id, pe.user_email,
-		sc.input_columns_json, sc.compute_pipes_json
+		sc.input_columns_json, pc.main_rules
 	FROM 
 		jetsapi.pipeline_execution_status pe,
 		jetsapi.input_registry ir,
-		jetsapi.source_config sc
+		jetsapi.source_config sc,
+		jetsapi.process_config pc
 	WHERE pe.main_input_registry_key = ir.key
 		AND pe.key = $1
 		AND sc.client = ir.client
 		AND sc.org = ir.org
-		AND sc.object_type = ir.object_type`
+		AND sc.object_type = ir.object_type
+		AND pc.process_name = pe.process_name`
 	err = dbpool.QueryRow(context.Background(), stmt, args.PipelineExecKey).Scan(
 		&client, &org, &objectType, &sourcePeriodKey,
-		&pipelineConfigKey, &processName, &inputSessionId, &userEmail, &icJson, &cpJson)
+		&pipelineConfigKey, &processName, &inputSessionId, &userEmail, &icJson, &cpipesConfig)
 	if err != nil {
 		return result, fmt.Errorf("query table_name, domain_keys_json, input_columns_json, input_columns_positions_csv, input_format_data_json from jetsapi.source_config failed: %v", err)
 	}
-	log.Println("Start SHARDING", args.SessionId, "file_key:", args.FileKey)
-	if !cpJson.Valid || len(cpJson.String) == 0 {
-		return result, fmt.Errorf("error: compute_pipes_json is null or empty")
+	if !cpipesConfig.Valid || len(cpipesConfig.String) == 0 {
+		return result, fmt.Errorf("error: process_config table does not have a cpipes config file name in main_rules column")
 	}
 	if !icJson.Valid || len(icJson.String) == 0 {
 		return result, fmt.Errorf("error: input_columns_json is null or empty")
 	}
-	cpConfig, err := UnmarshalComputePipesConfig(&cpJson.String)
+	// Get the cpipes_config json from workspace
+	configFile := fmt.Sprintf("%s/%s/%s", workspaceHome, wsPrefix, cpipesConfig.String)
+	cpJson, err := os.ReadFile(configFile)
 	if err != nil {
-		log.Println(fmt.Errorf("error while UnmarshalComputePipesConfig: %v", err))
-		return result, fmt.Errorf("error while UnmarshalComputePipesConfig: %v", err)
+			return result, fmt.Errorf("while reading cpipes config from workspace: %v", err)
+	}
+	var cpConfig ComputePipesConfig
+	err = json.Unmarshal(cpJson, &cpConfig)
+	if err != nil {
+		return result, fmt.Errorf("while unmarshaling compute pipes json: %s", err)
 	}
 
+	log.Println("Start SHARDING", args.SessionId, "file_key:", args.FileKey)
 	// Update output table schema
 	for i := range cpConfig.OutputTables {
 		tableIdentifier, err := SplitTableName(cpConfig.OutputTables[i].Name)
@@ -332,7 +362,7 @@ func SelectActiveLookupTable(lookupConfig []*LookupSpec, pipeConfig []PipeSpec) 
 				if name != nil {
 					spec := lookupMap[*name]
 					if spec == nil {
-						return nil, 
+						return nil,
 							fmt.Errorf("error: lookup table '%s' is not defined, please verify the column transformation", *name)
 					}
 					activeTables = append(activeTables, spec)

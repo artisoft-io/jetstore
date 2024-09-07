@@ -72,6 +72,9 @@ func (jsComp *JetStoreStackComponents) BuildCpipesLambdas(scope constructs.Const
 			"TASK_MAX_CONCURRENCY":                     jsii.String(os.Getenv("TASK_MAX_CONCURRENCY")),
 			"NBR_SHARDS":                               jsii.String(props.NbrShards),
 			"ENVIRONMENT":                              jsii.String(os.Getenv("ENVIRONMENT")),
+			//NOTE: SET WORKSPACES_HOME HERE - lambda function uses a local temp
+			"WORKSPACES_HOME":                          jsii.String("/tmp/jetstore/workspaces"),
+			"WORKSPACE":                                jsii.String(os.Getenv("WORKSPACE")),
 		},
 		MemorySize:           jsii.Number(memLimit),
 		EphemeralStorageSize: awscdk.Size_Mebibytes(jsii.Number(2048)),
@@ -119,6 +122,9 @@ func (jsComp *JetStoreStackComponents) BuildCpipesLambdas(scope constructs.Const
 			"TASK_MAX_CONCURRENCY":                     jsii.String(os.Getenv("TASK_MAX_CONCURRENCY")),
 			"NBR_SHARDS":                               jsii.String(props.NbrShards),
 			"ENVIRONMENT":                              jsii.String(os.Getenv("ENVIRONMENT")),
+			//NOTE: SET WORKSPACES_HOME HERE - lambda function uses a local temp
+			"WORKSPACES_HOME":                          jsii.String("/tmp/jetstore/workspaces"),
+			"WORKSPACE":                                jsii.String(os.Getenv("WORKSPACE")),
 		},
 		MemorySize: jsii.Number(128),
 		Timeout:    awscdk.Duration_Minutes(jsii.Number(15)),
@@ -165,6 +171,9 @@ func (jsComp *JetStoreStackComponents) BuildCpipesLambdas(scope constructs.Const
 			"TASK_MAX_CONCURRENCY":                     jsii.String(os.Getenv("TASK_MAX_CONCURRENCY")),
 			"NBR_SHARDS":                               jsii.String(props.NbrShards),
 			"ENVIRONMENT":                              jsii.String(os.Getenv("ENVIRONMENT")),
+			//NOTE: SET WORKSPACES_HOME HERE - lambda function uses a local temp
+			"WORKSPACES_HOME":                          jsii.String("/tmp/jetstore/workspaces"),
+			"WORKSPACE":                                jsii.String(os.Getenv("WORKSPACE")),
 		},
 		MemorySize: jsii.Number(128),
 		Timeout:    awscdk.Duration_Minutes(jsii.Number(15)),
