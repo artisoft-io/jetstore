@@ -36,12 +36,12 @@ RUN go mod download
 RUN go install jetstore/jets/loader
 RUN go install jetstore/jets/status_update
 RUN go install jetstore/jets/server
+RUN go install jetstore/jets/serverv2
 RUN go install jetstore/jets/run_reports
 RUN go install jetstore/jets/apiserver
 RUN go install jetstore/jets/bridge
 RUN go install jetstore/jets/update_db
 RUN go install jetstore/jets/test_data_generator
-# RUN go install jetstore/jets/cpipes_booter
 
 # JETSTORE FRONT END == FLUTTER BUILD ==
 COPY jetsclient      ${JETS_SOURCE_DIR}/jetsclient

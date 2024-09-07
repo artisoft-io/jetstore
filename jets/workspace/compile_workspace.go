@@ -85,7 +85,7 @@ func UpdateWorkspaceVersionDb(dbpool *pgxpool.Pool, workspaceName, version strin
 	}
 	// insert the new workspace version in jetsapi db
 	log.Println("Updating workspace version in database to",version)
-	stmt := "INSERT INTO jetsapi.workspace_version (version) VALUES ($1)"
+	stmt := "INSERT INTO jetsapi.workspace_version (version) VALUES ($1) ON CONFLICT DO NOTHING"
 	_, err := dbpool.Exec(context.Background(), stmt, version)
 	if err != nil {
 		return fmt.Errorf("while inserting workspace version into workspace_version table: %v", err)

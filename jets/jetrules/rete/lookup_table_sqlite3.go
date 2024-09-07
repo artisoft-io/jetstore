@@ -78,54 +78,56 @@ func (tbl *LookupTableSqlite3) insertResultIntoSession(sess *rdf.RdfSession, s *
 		value := rdf.Null()
 		// r := resultRow[i].(*interface{})
 		// log.Println("TypeOf:", reflect.TypeOf(*r))
-		switch tbl.spec.Columns[i].Type {
-		case "text", "string":
-			v, ok := (*resultRow[i].(*interface{})).(string)
-			if !ok {
-				return fmt.Errorf("expecting string type in lookup for text")
-			}
-			value = rmgr.NewTextLiteral(v)
-		case "date":
-			v, ok := (*resultRow[i].(*interface{})).(string)
-			if !ok {
-				return fmt.Errorf("expecting string type in lookup for date")
-			}
-			d, err := rdf.NewLDate(v)
-			if err != nil {
-				log.Printf("Invalid date in lookup %s: %v", tbl.spec.Name, err)
-			} else {
-				value = rmgr.NewDateLiteral(d)
-			}
-		case "datetime":
-			v, ok := (*resultRow[i].(*interface{})).(string)
-			if !ok {
-				return fmt.Errorf("expecting sql.NullString type in lookup for datetime")
-			}
-			d, err := rdf.NewLDatetime(v)
-			if err != nil {
-				log.Printf("Invalid datetime in lookup %s: %v", tbl.spec.Name, err)
-			} else {
-				value = rmgr.NewDatetimeLiteral(d)
-			}
-		case "int", "bool", "long", "integer":
-			switch v := (*resultRow[i].(*interface{})).(type) {
-			case int:
-				value = rmgr.NewIntLiteral(v)
-			case int64:
-				value = rmgr.NewIntLiteral(int(v))
+		if resultRow[i] != nil && *resultRow[i].(*interface{}) != nil {
+			switch tbl.spec.Columns[i].Type {
+			case "text", "string":
+				v, ok := (*resultRow[i].(*interface{})).(string)
+				if !ok {
+					return fmt.Errorf("expecting string type in lookup for text")
+				}
+				value = rmgr.NewTextLiteral(v)
+			case "date":
+				v, ok := (*resultRow[i].(*interface{})).(string)
+				if !ok {
+					return fmt.Errorf("expecting string type in lookup for date")
+				}
+				d, err := rdf.NewLDate(v)
+				if err != nil {
+					log.Printf("Invalid date in lookup %s: %v", tbl.spec.Name, err)
+				} else {
+					value = rmgr.NewDateLiteral(d)
+				}
+			case "datetime":
+				v, ok := (*resultRow[i].(*interface{})).(string)
+				if !ok {
+					return fmt.Errorf("expecting sql.NullString type in lookup for datetime")
+				}
+				d, err := rdf.NewLDatetime(v)
+				if err != nil {
+					log.Printf("Invalid datetime in lookup %s: %v", tbl.spec.Name, err)
+				} else {
+					value = rmgr.NewDatetimeLiteral(d)
+				}
+			case "int", "bool", "long", "integer":
+				switch v := (*resultRow[i].(*interface{})).(type) {
+				case int:
+					value = rmgr.NewIntLiteral(v)
+				case int64:
+					value = rmgr.NewIntLiteral(int(v))
+				default:
+					return fmt.Errorf("expecting int/int64 type in lookup for int/bool/long")
+				}
+			case "double":
+				switch v := (*resultRow[i].(*interface{})).(type) {
+				case float64:
+					value = rmgr.NewDoubleLiteral(v)
+				default:
+					return fmt.Errorf("expecting float64 type in lookup for double")
+				}
 			default:
-				return fmt.Errorf("expecting int/int64 type in lookup for int/bool/long")
+				return fmt.Errorf("unknown datatype %s for column %s in lookup table %s configuration",
+					tbl.spec.Columns[i].Type, tbl.spec.Columns[i].Name, tbl.spec.Name)
 			}
-		case "double":
-			switch v := (*resultRow[i].(*interface{})).(type) {
-			case float64:
-				value = rmgr.NewDoubleLiteral(v)
-			default:
-				return fmt.Errorf("expecting float64 type in lookup for double")
-			}
-		default:
-			return fmt.Errorf("unknown datatype %s for column %s in lookup table %s configuration", 
-				tbl.spec.Columns[i].Type, tbl.spec.Columns[i].Name, tbl.spec.Name)
 		}
 		_, err := sess.InsertInferred(s, tbl.columnsSpec[i].columnResource, value)
 		if err != nil {
