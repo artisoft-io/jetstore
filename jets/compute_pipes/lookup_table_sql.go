@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"strings"
+	"time"
 
 	"github.com/jackc/pgx/v4/pgxpool"
 )
@@ -62,15 +63,29 @@ func NewLookupTableSql(dbpool *pgxpool.Pool, spec *LookupSpec, env map[string]in
 		columnsPos[columName] = i
 		switch spec.Columns[i].RdfType {
 		case "text", "string":
-			columns[i] = &sql.NullString{}
-		case "int", "int32", "integer":
-			columns[i] = &sql.NullInt32{}
-		case "long", "int64":
-			columns[i] = &sql.NullInt64{}
+			if spec.Columns[i].IsArray {
+				columns[i] = &[]string{}
+			} else {
+				columns[i] = &sql.NullString{}
+			}
+		case "int", "int32", "integer", "long", "int64":
+			if spec.Columns[i].IsArray {
+				columns[i] = &[]int{}
+			} else {
+				columns[i] = &sql.NullInt64{}
+			}
 		case "double", "float64", "double precision":
-			columns[i] = &sql.NullFloat64{}
+			if spec.Columns[i].IsArray {
+				columns[i] = &[]float64{}
+			} else {
+				columns[i] = &sql.NullFloat64{}
+			}
 		case "date", "datetime":
-			columns[i] = &sql.NullTime{}
+			if spec.Columns[i].IsArray {
+				columns[i] = &[]time.Time{}
+			} else {
+				columns[i] = &sql.NullTime{}
+			}
 		}
 	}
 	// Keep a mapping of the returned column names to their position in the returned row
@@ -104,22 +119,26 @@ func NewLookupTableSql(dbpool *pgxpool.Pool, spec *LookupSpec, env map[string]in
 				return nil, fmt.Errorf("error: value column '%s' is not in the query of lookup table %s", valueColumn, spec.Key)
 			}
 			switch vv := columns[pos].(type) {
+			case *[]string:
+				values[i] = vv
 			case *sql.NullString:
 				if vv.Valid {
 					values[i] = vv.String
 				}
-			case *sql.NullInt32:
-				if vv.Valid {
-					values[i] = vv.Int32
-				}
+			case *[]int:
+				values[i] = vv
 			case *sql.NullInt64:
 				if vv.Valid {
-					values[i] = vv.Int64
+					values[i] = int(vv.Int64)
 				}
+			case *[]float64:
+				values[i] = vv
 			case *sql.NullFloat64:
 				if vv.Valid {
 					values[i] = vv.Float64
 				}
+			case *[]time.Time:
+				values[i] = vv
 			case *sql.NullTime:
 				if vv.Valid {
 					values[i] = vv.Time

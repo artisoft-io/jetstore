@@ -90,6 +90,7 @@ type OutputFileSpec struct {
 type TableColumnSpec struct {
 	Name    string `json:"name"`
 	RdfType string `json:"rdf_type"`
+	IsArray bool   `json:"as_array"`
 }
 
 type PipeSpec struct {
@@ -103,7 +104,7 @@ type PipeSpec struct {
 }
 
 type TransformationSpec struct {
-	// Type range: map_record, aggregate, partition_writer
+	// Type range: map_record, aggregate, analyze, partition_writer
 	Type                  string                     `json:"type"`
 	PartitionSize         *int                       `json:"partition_size"`
 	JetsPartitionKey      *string                    `json:"jets_partition_key"`
@@ -111,6 +112,9 @@ type TransformationSpec struct {
 	Columns               []TransformationColumnSpec `json:"columns"`
 	DataSchema            *[]DataSchemaSpec          `json:"data_schema"`
 	DeviceWriterType      *string                    `json:"device_writer_type"`
+	RegexTokens           *[]RegexNode               `json:"regex_tokens"`   // for analyze
+	LookupTokens          *[]LookupTokenNode         `json:"lookup_tokens"`  // for analyze
+	KeywordTokens         *[]KeywordTokenNode        `json:"keyword_tokens"` // for analyze
 	Output                string                     `json:"output"`
 }
 
@@ -122,6 +126,21 @@ type PathSubstitution struct {
 type DataSchemaSpec struct {
 	Columns string `json:"column"`
 	RdfType string `json:"rdf_type"`
+}
+
+type RegexNode struct {
+	Name  string `json:"name"`
+	Rexpr string `json:"re"`
+}
+
+type LookupTokenNode struct {
+	Name   string   `json:"lookup_name"`
+	Tokens []string `json:"tokens"`
+}
+
+type KeywordTokenNode struct {
+	Name     string   `json:"name"`
+	Keywords []string `json:"keywords"`
 }
 
 type TransformationColumnSpec struct {
