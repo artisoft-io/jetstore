@@ -131,7 +131,9 @@ func (state *AnalyzeState) NewToken(value string) error {
 	}
 	dv.Count += 1
 	// Welford's Algo
-	state.Welford.Update(float64(len(value)))
+	if state.Welford != nil {
+		state.Welford.Update(float64(len(value)))
+	}
 	// Regex matches
 	for _, reCount := range state.RegexMatch {
 		if reCount.Rexpr.MatchString(value) {

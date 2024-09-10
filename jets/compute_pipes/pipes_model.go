@@ -104,7 +104,7 @@ type PipeSpec struct {
 }
 
 type TransformationSpec struct {
-	// Type range: map_record, aggregate, analyze, partition_writer
+	// Type range: map_record, aggregate, analyze, high_freq, partition_writer
 	Type                  string                     `json:"type"`
 	PartitionSize         *int                       `json:"partition_size"`
 	JetsPartitionKey      *string                    `json:"jets_partition_key"`
@@ -112,9 +112,10 @@ type TransformationSpec struct {
 	Columns               []TransformationColumnSpec `json:"columns"`
 	DataSchema            *[]DataSchemaSpec          `json:"data_schema"`
 	DeviceWriterType      *string                    `json:"device_writer_type"`
-	RegexTokens           *[]RegexNode               `json:"regex_tokens"`   // for analyze
-	LookupTokens          *[]LookupTokenNode         `json:"lookup_tokens"`  // for analyze
-	KeywordTokens         *[]KeywordTokenNode        `json:"keyword_tokens"` // for analyze
+	RegexTokens           *[]RegexNode               `json:"regex_tokens"`      // for analyze
+	LookupTokens          *[]LookupTokenNode         `json:"lookup_tokens"`     // for analyze
+	KeywordTokens         *[]KeywordTokenNode        `json:"keyword_tokens"`    // for analyze
+	HighFreqColumns       *[]string                  `json:"high_freq_columns"` // for high_freq
 	Output                string                     `json:"output"`
 }
 
@@ -145,8 +146,8 @@ type KeywordTokenNode struct {
 
 type TransformationColumnSpec struct {
 	// Type range: select, value, eval, map, hash
-	// count, distinct_count, sum, min, case, map_reduce,
-	// lookup
+	// count, distinct_count, sum, min, case,
+	// map_reduce, lookup
 	Name           string                      `json:"name"`
 	Type           string                      `json:"type"`
 	Expr           *string                     `json:"expr"`

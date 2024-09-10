@@ -193,6 +193,9 @@ func (ctx *BuilderContext) buildPipeTransformationEvaluator(source *InputChannel
 	case "analyze":
 		return ctx.NewAnalyzeTransformationPipe(source, outCh, spec)
 
+	case "high_freq":
+		return ctx.NewHighFreqTransformationPipe(source, outCh, spec)
+
 	case "partition_writer":
 		return ctx.NewPartitionWriterTransformationPipe(source, jetsPartitionKey, outCh, partitionResultCh, spec)
 
