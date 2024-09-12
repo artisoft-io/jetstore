@@ -65,7 +65,7 @@ func (cpCtx *ComputePipesContext) StartComputePipes(dbpool *pgxpool.Pool, comput
 	if cpCtx.CpConfig.CommonRuntimeArgs.CpipesMode == "sharding" {
 		// Setup the input channel for input_row
 		headersPosMap := make(map[string]int)
-		for i, c := range cpCtx.InputColumns {
+		for i, c := range cpCtx.CpConfig.CommonRuntimeArgs.SourcesConfig.MainInput.InputColumns {
 			headersPosMap[c] = i
 		}
 		inputRowChannel = &InputChannel{
@@ -73,7 +73,7 @@ func (cpCtx *ComputePipesContext) StartComputePipes(dbpool *pgxpool.Pool, comput
 			columns: headersPosMap,
 			config: &ChannelSpec{
 				Name:    "input_row",
-				Columns: cpCtx.InputColumns,
+				Columns: cpCtx.CpConfig.CommonRuntimeArgs.SourcesConfig.MainInput.InputColumns,
 			},
 		}
 	}

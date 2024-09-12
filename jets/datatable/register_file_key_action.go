@@ -171,15 +171,14 @@ func (ctx *Context) RegisterFileKeys(registerFileKeyAction *RegisterFileKeyActio
 		var tableName string
 		var automated int
 		var isPartFile int
-		var isNotCpipes bool
 		fileKey := fileKeyObject["file_key"].(string)
-		stmt := "SELECT table_name, automated, is_part_files, (compute_pipes_json is null or (length(compute_pipes_json)=0)) as is_not_cpipes FROM jetsapi.source_config WHERE client=$1 AND org=$2 AND object_type=$3"
+		stmt := "SELECT table_name, automated, is_part_files FROM jetsapi.source_config WHERE client=$1 AND org=$2 AND object_type=$3"
 		allOk := true
-		err = ctx.Dbpool.QueryRow(context.Background(), stmt, client, org, objectType).Scan(&tableName, &automated, &isPartFile, &isNotCpipes)
-		// process if entry found
+		err = ctx.Dbpool.QueryRow(context.Background(), stmt, client, org, objectType).Scan(&tableName, &automated, &isPartFile)
 		if err == nil {
-			// Multi Part File
+			// process - entry found
 			if isPartFile == 1 {
+				// Multi Part File
 				size := fileKeyObject["size"].(int64)
 				if size > 1 {
 					// log.Println("Register File Key: data source with multiple parts: skipping file key:", fileKeyObject["file_key"],"size",fileKeyObject["size"])
@@ -200,8 +199,6 @@ func (ctx *Context) RegisterFileKeys(registerFileKeyAction *RegisterFileKeyActio
 					}
 				}
 			}
-		// } else {
-		// 	log.Printf("Query jetsapi.source_config: %v", err)
 		}
 		// Insert file key info in table file_key_staging
 		// make sure we have a value for each column
@@ -214,71 +211,93 @@ func (ctx *Context) RegisterFileKeys(registerFileKeyAction *RegisterFileKeyActio
 			}
 		}
 		if strings.Contains(fileKey, "/err_") {
+			// Skip error files
 			// log.Println("File key is an error file, skiping")
 			allOk = false
 		}
 		if allOk {
 			_, err = ctx.Dbpool.Exec(context.Background(), sqlStmt.Stmt, row...)
 			if err != nil {
-				return nil, http.StatusInternalServerError, fmt.Errorf("while inserting missing file keys in file_key_staging table: %v", err)
+				return nil, http.StatusInternalServerError, fmt.Errorf("while inserting file keys in file_key_staging table: %v", err)
 			}
 		} else {
 			// log.Println("while SyncFileKeys: skipping file key:", fileKeyObject["file_key"])
 			goto NextKey
 		}
-
-		// Start the loader if automated flag is set on source_config table
-		// and if not a test file
+		if registerFileKeyAction.NoAutomatedLoad {
+			goto NextKey
+		}
+		// If there is an entry in source_config (ie len(tableName) > 0):
+		// 	- Start the loader if hasOtherSM > 0 and automated flag is set on source_config table and if not a test file
+		//	- Register the file key in input_registry if hasCpipesSM > 0 AND kick off cpipes pipelines ready to start
 		if strings.Contains(fileKey, "/test_") {
 			// log.Println("File key is test file, skiping the automated load")
 		} else {
-			if !registerFileKeyAction.NoAutomatedLoad && automated > 0 {
-				// Check if not CPIPES v2 (cpipes actions)
-				if isNotCpipes {
-					// to make sure we don't duplicate session_id
-					sessionId += 1
-					// insert into input_loader_status and kick off loader (dev mode)
-					dataTableAction := DataTableAction{
-						Action:      "insert_rows",
-						FromClauses: []FromClause{{Schema: "jetsapi", Table: "input_loader_status"}},
-						Data: []map[string]interface{}{{
-							"file_key":              fileKey,
-							"table_name":            tableName,
-							"client":                client,
-							"org":                   org,
-							"object_type":           objectType,
-							"session_id":            strconv.FormatInt(sessionId, 10),
-							"source_period_key":     source_period_key,
-							"status":                "submitted",
-							"user_email":            "system",
-							"loaderCompletedMetric": "autoLoaderCompleted",
-							"loaderFailedMetric":    "autoLoaderFailed",
-						}}}
-					_, httpStatus, err := ctx.InsertRows(&dataTableAction, token)
-					if err != nil {
-						return nil, httpStatus, fmt.Errorf("while starting loader automatically for key %s: %v", fileKey, err)
-					}
-				} else {
-					// Case CPIPES v2
-					// log.Println("CASE CPIPES V2")
-					// to make sure we don't duplicate session_id
-					sessionId += 1
-					sessionIdStr := strconv.FormatInt(sessionId, 10)
-					// Insert into input registry (essentially we are bypassing loader here by registering the fileKey
-					// and invoke StartPipelineOnInputRegistryInsert)
-					var inputRegistryKey int
-					log.Println("Write to input_registry for cpipes input files object type:", objectType, "client", client, "org", org)
-					stmt = `INSERT INTO jetsapi.input_registry (
+			// Check if current objectType is associated with cpipesSM and/or other state machines
+			var hasCpipesSM, hasOtherSM int64
+			stmt := `
+        WITH pc AS (
+        	SELECT state_machine_name, unnest(input_rdf_types) as input_rdf_type FROM jetsapi.process_config
+        ),
+        cpipes AS (
+        	SELECT COUNT(*) as has_cpipes FROM jetsapi.object_type_registry AS otr, pc
+        	WHERE pc.input_rdf_type = otr.entity_rdf_type AND otr.object_type = $1 AND pc.state_machine_name = 'cpipesSM'
+        ),
+        other AS (
+        	SELECT COUNT(*) as has_other FROM jetsapi.object_type_registry AS otr, pc
+        	WHERE pc.input_rdf_type = otr.entity_rdf_type AND otr.object_type = $1 AND pc.state_machine_name != 'cpipesSM'
+        )
+        SELECT cpipes.has_cpipes, other.has_other FROM cpipes, other`
+			err = ctx.Dbpool.QueryRow(context.Background(), stmt, objectType).Scan(&hasCpipesSM, &hasOtherSM)
+			if err != nil {
+				return nil, http.StatusInternalServerError, fmt.Errorf("while determining hasCpipesSM and hasOtherSM: %v", err)
+			}
+			//**
+			log.Printf("*** RegisterFileKey for object_type %s, having cpipesSM: %d and other SM: %d", objectType, hasCpipesSM, hasOtherSM)
+			switch {
+			case hasOtherSM > 0 && automated > 0:
+				// make sure we don't duplicate session_id
+				sessionId += 1
+				// insert into input_loader_status and kick off loader
+				dataTableAction := DataTableAction{
+					Action:      "insert_rows",
+					FromClauses: []FromClause{{Schema: "jetsapi", Table: "input_loader_status"}},
+					Data: []map[string]interface{}{{
+						"file_key":              fileKey,
+						"table_name":            tableName,
+						"client":                client,
+						"org":                   org,
+						"object_type":           objectType,
+						"session_id":            strconv.FormatInt(sessionId, 10),
+						"source_period_key":     source_period_key,
+						"status":                "submitted",
+						"user_email":            "system",
+						"loaderCompletedMetric": "autoLoaderCompleted",
+						"loaderFailedMetric":    "autoLoaderFailed",
+					}}}
+				_, httpStatus, err := ctx.InsertRows(&dataTableAction, token)
+				if err != nil {
+					return nil, httpStatus, fmt.Errorf("while starting loader automatically for key %s: %v", fileKey, err)
+				}
+			case hasCpipesSM > 0:
+				// make sure we don't duplicate session_id
+				sessionId += 1
+				sessionIdStr := strconv.FormatInt(sessionId, 10)
+				// Insert into input registry (essentially we are bypassing loader here by registering the fileKey
+				// and invoke StartPipelineOnInputRegistryInsert)
+				var inputRegistryKey int
+				log.Println("Write to input_registry for cpipes input files object type:", objectType, "client", client, "org", org)
+				stmt = `INSERT INTO jetsapi.input_registry (
 							client, org, object_type, file_key, source_period_key, table_name, source_type, session_id, user_email) 
 							VALUES ($1, $2, $3, $4, $5, $6, 'file', $7, $8) 
 							ON CONFLICT DO NOTHING
 							RETURNING key`
-					err = ctx.Dbpool.QueryRow(context.Background(), stmt,
-						client, org, objectType, fileKey, source_period_key, tableName, sessionIdStr, "system").Scan(&inputRegistryKey)
-					if err != nil {
-						return nil, http.StatusInternalServerError, fmt.Errorf("error inserting in jetsapi.input_registry table: %v", err)
-					}
-
+				err = ctx.Dbpool.QueryRow(context.Background(), stmt,
+					client, org, objectType, fileKey, source_period_key, tableName, sessionIdStr, "system").Scan(&inputRegistryKey)
+				if err != nil {
+					return nil, http.StatusInternalServerError, fmt.Errorf("error inserting in jetsapi.input_registry table: %v", err)
+				}
+				if automated > 0 {
 					// Check for any process that are ready to kick off
 					ctx.StartPipelineOnInputRegistryInsert(&RegisterFileKeyAction{
 						Action: "register_keys",
@@ -287,15 +306,15 @@ func (ctx *Context) RegisterFileKeys(registerFileKeyAction *RegisterFileKeyActio
 							"source_period_key":   source_period_key,
 							"file_key":            fileKey,
 							"client":              client,
+							"state_machine":       "cpipesSM", //TODO only start cpipes pipeline
 						}},
 					}, token)
-					// for completness register the session_id
-					err = schema.RegisterSession(ctx.Dbpool, "file", client.(string), sessionIdStr, source_period_key)
-					if err != nil {
-						log.Println("Error while registering session_id")
-						err = nil
-					}
-
+				}
+				// for completness register the session_id
+				err = schema.RegisterSession(ctx.Dbpool, "file", client.(string), sessionIdStr, source_period_key)
+				if err != nil {
+					log.Println("Error while registering session_id")
+					err = nil
 				}
 			}
 		}

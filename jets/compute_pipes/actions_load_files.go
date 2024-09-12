@@ -8,7 +8,6 @@ import (
 	"log"
 	"os"
 	"strconv"
-	"strings"
 
 	goparquet "github.com/fraugster/parquet-go"
 	"github.com/golang/snappy"
@@ -44,14 +43,24 @@ func (cpCtx *ComputePipesContext) LoadFiles(ctx context.Context, dbpool *pgxpool
 		if cpCtx.CpConfig.ClusterConfig.IsDebugMode {
 			log.Printf("%s node %d Loading file '%s'", cpCtx.SessionId, cpCtx.NodeId, localInFile.InFileKey)
 		}
-		if strings.HasSuffix(localInFile.InFileKey, ".csv") {
-			count, err = cpCtx.ReadCsvFile(&localInFile, computePipesInputCh)
+		if cpCtx.CpipesMode == "sharding" {
+			inputFormat := cpCtx.CpConfig.CommonRuntimeArgs.SourcesConfig.MainInput.InputFormat
+			switch inputFormat {
+			case "csv", "headerless_csv":
+				count, err = cpCtx.ReadCsvFile(&localInFile, inputFormat, computePipesInputCh)
+			case "parquet", "parquet_select":
+				count, err = cpCtx.ReadParquetFile(&localInFile, computePipesInputCh)
+			default:
+				log.Println(cpCtx.SessionId, "node", cpCtx.NodeId, "error: unsupported file format: %s", inputFormat)
+				cpCtx.ChResults.LoadFromS3FilesResultCh <- LoadFromS3FilesResult{LoadRowCount: totalRowCount, BadRowCount: 0, Err: err}
+				return
+			}
 		} else {
-			count, err = cpCtx.ReadParquetFile(&localInFile, computePipesInputCh)
+			count, err = cpCtx.ReadCsvFile(&localInFile, "headerless_csv", computePipesInputCh)
 		}
 		totalRowCount += count
 		if err != nil {
-			log.Println(cpCtx.SessionId,"node",cpCtx.NodeId, "loadFile2Db returned error", err)
+			log.Println(cpCtx.SessionId, "node", cpCtx.NodeId, "loadFile2Db returned error", err)
 			cpCtx.ChResults.LoadFromS3FilesResultCh <- LoadFromS3FilesResult{LoadRowCount: totalRowCount, BadRowCount: 0, Err: err}
 			return
 		}
@@ -75,10 +84,22 @@ func (cpCtx *ComputePipesContext) ReadParquetFile(filePath *FileName, computePip
 	}()
 
 	// log.Println("**!@@",cpCtx.SessionId,"partfile_key_component GOT",len(cpCtx.PartFileKeyComponents))
-	inputColumns := cpCtx.InputColumns[:len(cpCtx.InputColumns)-len(cpCtx.PartFileKeyComponents)]
+	nbrColumns := len(cpCtx.CpConfig.CommonRuntimeArgs.SourcesConfig.MainInput.InputColumns)
+	inputColumns := cpCtx.CpConfig.CommonRuntimeArgs.SourcesConfig.MainInput.InputColumns[:nbrColumns-len(cpCtx.PartFileKeyComponents)]
 	parquetReader, err = goparquet.NewFileReader(fileHd, inputColumns...)
 	if err != nil {
 		return 0, err
+	}
+	// Prepare the extended columns from partfile_key_component
+	var extColumns []string
+	if len(cpCtx.PartFileKeyComponents) > 0 {
+		extColumns = make([]string, len(cpCtx.PartFileKeyComponents))
+		for i := range cpCtx.PartFileKeyComponents {
+			result := cpCtx.PartFileKeyComponents[i].Regex.FindStringSubmatch(filePath.InFileKey)
+			if len(result) > 0 {
+				extColumns[i] = result[1]
+			}
+		}
 	}
 
 	var inputRowCount int64
@@ -95,9 +116,9 @@ func (cpCtx *ComputePipesContext) ReadParquetFile(filePath *FileName, computePip
 				continue
 			}
 			cpCtx.SamplingCount = 0
-			record = make([]interface{}, len(cpCtx.InputColumns))
+			record = make([]interface{}, nbrColumns)
 			for i := range inputColumns {
-				rawValue := parquetRow[cpCtx.InputColumns[i]]
+				rawValue := parquetRow[inputColumns[i]]
 				if isShardingMode {
 					if rawValue != nil {
 						// Read all fields as string
@@ -105,7 +126,7 @@ func (cpCtx *ComputePipesContext) ReadParquetFile(filePath *FileName, computePip
 						case string:
 							if len(vv) > 0 {
 								record[i] = vv
-							} 
+							}
 						case []byte:
 							if len(vv) > 0 {
 								record[i] = string(vv)
@@ -117,12 +138,12 @@ func (cpCtx *ComputePipesContext) ReadParquetFile(filePath *FileName, computePip
 						case int64:
 							record[i] = strconv.FormatInt(vv, 10)
 						case float64:
-							record[i] = strconv.FormatFloat(vv, 'E', -1, 32)
+							record[i] = strconv.FormatFloat(vv, 'G', -1, 64)
 						case float32:
-							record[i] = strconv.FormatFloat(float64(vv), 'E', -1, 32)
+							record[i] = strconv.FormatFloat(float64(vv), 'G', -1, 32)
 						case bool:
 							if vv {
-								record[i] = "1"	
+								record[i] = "1"
 							} else {
 								record[i] = "0"
 							}
@@ -144,21 +165,11 @@ func (cpCtx *ComputePipesContext) ReadParquetFile(filePath *FileName, computePip
 				}
 			}
 			// Add the columns from the partfile_key_component
-			if len(cpCtx.PartFileKeyComponents) > 0 {
+			if len(extColumns) > 0 {
 				offset := len(inputColumns)
 				// log.Println("**!@@",cpCtx.SessionId,"partfile_key_component GOT[0]",cpCtx.PartFileKeyComponents[0].ColumnName,"offset",offset,"InputColumn",cpCtx.InputColumns[offset])
-				for i := range cpCtx.PartFileKeyComponents {
-					for j := range cpCtx.PartFileKeyComponents {
-						if cpCtx.InputColumns[offset+j] == cpCtx.PartFileKeyComponents[i].ColumnName {
-							result := cpCtx.PartFileKeyComponents[i].Regex.FindStringSubmatch(filePath.InFileKey)
-							if len(result) > 0 {
-								record[offset+j] = result[1]
-							}
-							// log.Println("**!@@ partfile_key_component Got result",result,"@column_name:",cpCtx.PartFileKeyComponents[i].ColumnName,"file_key:",filePath.InFileKey)
-							break
-						}
-						log.Println(cpCtx.SessionId,"node",cpCtx.NodeId, "*WARNING* partfile_key_component not configure properly, column not found!!")
-					}
+				for i := range extColumns {
+					record[offset+i] = extColumns[i]
 				}
 			}
 		}
@@ -181,7 +192,7 @@ func (cpCtx *ComputePipesContext) ReadParquetFile(filePath *FileName, computePip
 			select {
 			case computePipesInputCh <- record:
 			case <-cpCtx.Done:
-				log.Println(cpCtx.SessionId,"node",cpCtx.NodeId, "loading input row from file interrupted")
+				log.Println(cpCtx.SessionId, "node", cpCtx.NodeId, "loading input row from file interrupted")
 				return inputRowCount, nil
 			}
 			inputRowCount += 1
@@ -189,7 +200,7 @@ func (cpCtx *ComputePipesContext) ReadParquetFile(filePath *FileName, computePip
 	}
 }
 
-func (cpCtx *ComputePipesContext) ReadCsvFile(filePath *FileName, computePipesInputCh chan<- []interface{}) (int64, error) {
+func (cpCtx *ComputePipesContext) ReadCsvFile(filePath *FileName, inputFormat string, computePipesInputCh chan<- []interface{}) (int64, error) {
 	var fileHd *os.File
 	var csvReader *csv.Reader
 	var err error
@@ -205,8 +216,35 @@ func (cpCtx *ComputePipesContext) ReadCsvFile(filePath *FileName, computePipesIn
 	}()
 
 	// log.Println("**!@@",cpCtx.SessionId,"partfile_key_component GOT",len(cpCtx.PartFileKeyComponents))
-	inputColumns := cpCtx.InputColumns[:len(cpCtx.InputColumns)-len(cpCtx.PartFileKeyComponents)]
-	csvReader = csv.NewReader(snappy.NewReader(fileHd))
+	nbrColumns := len(cpCtx.CpConfig.CommonRuntimeArgs.SourcesConfig.MainInput.InputColumns)
+	inputColumns := cpCtx.CpConfig.CommonRuntimeArgs.SourcesConfig.MainInput.InputColumns[:nbrColumns-len(cpCtx.PartFileKeyComponents)]
+	if cpCtx.CpipesMode == "sharding" {
+		csvReader = csv.NewReader(fileHd)
+	} else {
+		csvReader = csv.NewReader(snappy.NewReader(fileHd))
+	}
+	// if inputFormat is "csv" (rather than "headerless_csv"), then skip header row (first row)
+	if inputFormat == "csv" {
+		_, err = csvReader.Read()
+		if err == io.EOF {
+			// empty file
+			return 0, nil
+		}
+		if err != nil {
+			return 0, fmt.Errorf("error while reading first input records: %v", err)
+		}
+	}
+	// Prepare the extended columns from partfile_key_component
+	var extColumns []string
+	if len(cpCtx.PartFileKeyComponents) > 0 {
+		extColumns = make([]string, len(cpCtx.PartFileKeyComponents))
+		for i := range cpCtx.PartFileKeyComponents {
+			result := cpCtx.PartFileKeyComponents[i].Regex.FindStringSubmatch(filePath.InFileKey)
+			if len(result) > 0 {
+				extColumns[i] = result[1]
+			}
+		}
+	}
 
 	var inputRowCount int64
 	var inRow []string
@@ -221,7 +259,7 @@ func (cpCtx *ComputePipesContext) ReadCsvFile(filePath *FileName, computePipesIn
 				continue
 			}
 			cpCtx.SamplingCount = 0
-			record = make([]interface{}, len(cpCtx.InputColumns))
+			record = make([]interface{}, nbrColumns)
 			for i := range inputColumns {
 				if len(inRow[i]) == 0 {
 					record[i] = nil
@@ -230,21 +268,11 @@ func (cpCtx *ComputePipesContext) ReadCsvFile(filePath *FileName, computePipesIn
 				}
 			}
 			// Add the columns from the partfile_key_component
-			if len(cpCtx.PartFileKeyComponents) > 0 {
+			if len(extColumns) > 0 {
 				offset := len(inputColumns)
 				// log.Println("**!@@",cpCtx.SessionId,"partfile_key_component GOT[0]",cpCtx.PartFileKeyComponents[0].ColumnName,"offset",offset,"InputColumn",cpCtx.InputColumns[offset])
-				for i := range cpCtx.PartFileKeyComponents {
-					for j := range cpCtx.PartFileKeyComponents {
-						if cpCtx.InputColumns[offset+j] == cpCtx.PartFileKeyComponents[i].ColumnName {
-							result := cpCtx.PartFileKeyComponents[i].Regex.FindStringSubmatch(filePath.InFileKey)
-							if len(result) > 0 {
-								record[offset+j] = result[1]
-							}
-							// log.Println("**!@@ partfile_key_component Got result",result,"@column_name:",cpCtx.PartFileKeyComponents[i].ColumnName,"file_key:",filePath.InFileKey)
-							break
-						}
-						log.Println("*** WARNING *** partfile_key_component not configure properly, column not found!!")
-					}
+				for i := range extColumns {
+					record[offset+i] = extColumns[i]
 				}
 			}
 		}
