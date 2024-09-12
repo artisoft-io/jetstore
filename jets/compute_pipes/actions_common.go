@@ -44,21 +44,38 @@ type ComputePipesNodeArgs struct {
 // This will use a single node since merge_files has a single partition
 // to read from (the step_id prior to merge_files writes a single partition).
 type ComputePipesCommonArgs struct {
-	CpipesMode        string   `json:"cpipes_mode"`
-	Client            string   `json:"client"`
-	Org               string   `json:"org"`
-	ObjectType        string   `json:"object_type"`
-	FileKey           string   `json:"file_key"`
-	SessionId         string   `json:"session_id"`
-	ReadStepId        string   `json:"read_step_id"`
-	WriteStepId       string   `json:"write_step_id"`
-	MergeFiles        bool     `json:"merge_files"`
-	InputSessionId    string   `json:"input_session_id"`
-	SourcePeriodKey   int      `json:"source_period_key"`
-	ProcessName       string   `json:"process_name"`
-	InputColumns      []string `json:"input_columns"`
-	PipelineConfigKey int      `json:"pipeline_config_key"`
-	UserEmail         string   `json:"user_email"`
+	CpipesMode        string            `json:"cpipes_mode"`
+	Client            string            `json:"client"`
+	Org               string            `json:"org"`
+	ObjectType        string            `json:"object_type"`
+	FileKey           string            `json:"file_key"`
+	SessionId         string            `json:"session_id"`
+	ReadStepId        string            `json:"read_step_id"`
+	WriteStepId       string            `json:"write_step_id"`
+	MergeFiles        bool              `json:"merge_files"`
+	InputSessionId    string            `json:"input_session_id"`
+	SourcePeriodKey   int               `json:"source_period_key"`
+	ProcessName       string            `json:"process_name"`
+	SourcesConfig     SourcesConfigSpec `json:"sources_config"`
+	PipelineConfigKey int               `json:"pipeline_config_key"`
+	UserEmail         string            `json:"user_email"`
+}
+
+// SourcesConfigSpec contains carry over configuration from
+// table source_config. It has provision for multiple input
+// sources to be merged via domian keys
+type SourcesConfigSpec struct {
+	MainInput     *InputSourceSpec   `json:"main_input"`
+	MergedInput   []*InputSourceSpec `json:"merged_inputs"`
+	InjectedInput []*InputSourceSpec `json:"injected_inputs"`
+}
+
+// InputSourceSpec contains carry over configuration from
+// table source_config.
+type InputSourceSpec struct {
+	InputColumns        []string `json:"input_columns"`
+	InputFormat         string   `json:"input_format"`
+	InputFormatDataJson string   `json:"input_format_data_json"`
 }
 
 // Full arguments to cp_node for sharding and reducing

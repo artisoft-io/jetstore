@@ -72,7 +72,7 @@ func (op *AddOp) Eval(reteSession *ReteSession, row *BetaRow, lhs, rhs *rdf.Node
 		case string:
 			return &rdf.Node{Value: lhsv + rhsv}
 		default:
-			return nil
+			return &rdf.Node{Value: fmt.Sprintf("%v%v", lhs, rhs)}
 		}
 	default:
 		return nil

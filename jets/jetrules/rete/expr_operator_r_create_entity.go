@@ -32,6 +32,8 @@ func (op *CreateEntityOp) Eval(reteSession *ReteSession, row *BetaRow, rhs *rdf.
 			return createEntity(reteSession, "")
 		}
 		return createEntity(reteSession, strconv.Itoa(rhsv))
+	case string:
+		return createEntity(reteSession, rhsv)
 	case float64:
 		if rdf.NearlyEqual(rhsv, 0) {
 			return createEntity(reteSession, "")

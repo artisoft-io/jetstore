@@ -10,6 +10,8 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/artisoft-io/jetstore/jets/dbutils"
+	"github.com/artisoft-io/jetstore/jets/workspace"
 	"github.com/jackc/pgx/v4/pgxpool"
 )
 
@@ -29,41 +31,65 @@ func (args *StartComputePipesArgs) StartReducingComputePipes(ctx context.Context
 	}
 	defer dbpool.Close()
 
-	// get pe info and the pipeline config
-	var client, org, objectType, processName, inputSessionId, userEmail string
+
+	// Sync workspace files
+	// Fetch overriten workspace files if not in dev mode
+	// When in dev mode, the apiserver refreshes the overriten workspace files
+	_, devMode := os.LookupEnv("JETSTORE_DEV_MODE")
+	if !devMode {
+		err = workspace.SyncWorkspaceFiles(dbpool, wsPrefix, dbutils.FO_Open, "workspace.tgz", true, false)
+		if err != nil {
+			log.Println("Error while synching workspace file from db:", err)
+			return result, fmt.Errorf("while synching workspace file from db: %v", err)
+		}
+	} else {
+		log.Println("We are in DEV_MODE, do not sync workspace file from db")
+	}
+
+	// get pe info and pipeline config
+	// cpipesConfigFN is file name within workspace
+	var client, org, objectType, processName, inputFormat, inputSessionId, userEmail string
 	var sourcePeriodKey, pipelineConfigKey int
-	var cpJson sql.NullString
+	var cpipesConfigFN sql.NullString
 	log.Println("CPIPES, loading pipeline configuration")
 	stmt := `
 	SELECT	ir.client, ir.org, ir.object_type, ir.source_period_key, 
 		pe.pipeline_config_key, pe.process_name, pe.input_session_id, pe.user_email,
-		sc.compute_pipes_json
+		pc.main_rules
 	FROM 
 		jetsapi.pipeline_execution_status pe,
 		jetsapi.input_registry ir,
-		jetsapi.source_config sc
+		jetsapi.process_config pc
 	WHERE pe.main_input_registry_key = ir.key
 		AND pe.key = $1
-		AND sc.client = ir.client
-		AND sc.org = ir.org
-		AND sc.object_type = ir.object_type`
+		AND pc.process_name = pe.process_name`
 	err = dbpool.QueryRow(context.Background(), stmt, args.PipelineExecKey).Scan(
 		&client, &org, &objectType, &sourcePeriodKey,
-		&pipelineConfigKey, &processName, &inputSessionId, &userEmail, &cpJson)
+		&pipelineConfigKey, &processName, &inputSessionId, &userEmail,
+		&cpipesConfigFN)
 	if err != nil {
 		return result, fmt.Errorf("query table_name, domain_keys_json, input_columns_json, input_columns_positions_csv, input_format_data_json from jetsapi.source_config failed: %v", err)
 	}
+	if !cpipesConfigFN.Valid || len(cpipesConfigFN.String) == 0 {
+		return result, fmt.Errorf("error: process_config table does not have a cpipes config file name in main_rules column")
+	}
+	// File format: csv, headerless_csv, fixed_width, parquet, parquet_select
+	if inputFormat == "" {
+		inputFormat = "csv"
+	}
+	// Get the cpipes_config json from workspace
+	configFile := fmt.Sprintf("%s/%s/%s", workspaceHome, wsPrefix, cpipesConfigFN.String)
+	cpJson, err := os.ReadFile(configFile)
+	if err != nil {
+		return result, fmt.Errorf("while reading cpipes config from workspace: %v", err)
+	}
+	var cpConfig ComputePipesConfig
+	err = json.Unmarshal(cpJson, &cpConfig)
+	if err != nil {
+		return result, fmt.Errorf("while unmarshaling compute pipes json: %s", err)
+	}
 	log.Println("Start REDUCING", args.SessionId, "StepId:", *args.StepId, "file_key:", args.FileKey)
 	readStepId, writeStepId := GetRWStepId(*args.StepId)
-
-	if len(cpJson.String) == 0 {
-		return result, fmt.Errorf("error: compute_pipes_json is null or empty")
-	}
-	cpConfig, err := UnmarshalComputePipesConfig(&cpJson.String)
-	if err != nil {
-		log.Println(fmt.Errorf("error while UnmarshalComputePipesConfig: %v", err))
-		return result, fmt.Errorf("error while UnmarshalComputePipesConfig: %v", err)
-	}
 
 	// Read the partitions file keys, this will give us the nbr of nodes for reducing
 	// Root dir of each partition:
@@ -161,7 +187,13 @@ func (args *StartComputePipesArgs) StartReducingComputePipes(ctx context.Context
 			InputSessionId:    inputSessionId,
 			SourcePeriodKey:   sourcePeriodKey,
 			ProcessName:       processName,
-			InputColumns:      inputColumns,
+			SourcesConfig: SourcesConfigSpec{
+				MainInput: &InputSourceSpec{
+					InputColumns:        inputColumns,
+					InputFormat:         "headerless_csv",
+					InputFormatDataJson: "",
+				},
+			},
 			PipelineConfigKey: pipelineConfigKey,
 			UserEmail:         userEmail,
 		},

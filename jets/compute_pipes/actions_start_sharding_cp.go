@@ -16,7 +16,9 @@ import (
 	"github.com/artisoft-io/jetstore/jets/workspace"
 	"github.com/jackc/pgx/v4/pgxpool"
 )
+
 var workspaceHome, wsPrefix string
+
 func init() {
 	workspaceHome = os.Getenv("WORKSPACES_HOME")
 	wsPrefix = os.Getenv("WORKSPACE")
@@ -78,15 +80,16 @@ func (args *StartComputePipesArgs) StartShardingComputePipes(ctx context.Context
 	}
 
 	// get pe info and pipeline config
-	// cpipesConfig is file name within workspace
-	var client, org, objectType, processName, inputSessionId, userEmail string
+	// cpipesConfigFN is file name within workspace
+	var client, org, objectType, processName, inputFormat, inputSessionId, userEmail string
 	var sourcePeriodKey, pipelineConfigKey int
-	var cpipesConfig, icJson sql.NullString
+	var cpipesConfigFN, icJson, icPosCsv, inputFormatDataJson sql.NullString
 	log.Println("CPIPES, loading pipeline configuration")
 	stmt := `
 	SELECT	ir.client, ir.org, ir.object_type, ir.source_period_key, 
 		pe.pipeline_config_key, pe.process_name, pe.input_session_id, pe.user_email,
-		sc.input_columns_json, pc.main_rules
+		sc.input_columns_json, sc.input_columns_positions_csv, sc.input_format, sc.input_format_data_json,
+		pc.main_rules
 	FROM 
 		jetsapi.pipeline_execution_status pe,
 		jetsapi.input_registry ir,
@@ -100,21 +103,24 @@ func (args *StartComputePipesArgs) StartShardingComputePipes(ctx context.Context
 		AND pc.process_name = pe.process_name`
 	err = dbpool.QueryRow(context.Background(), stmt, args.PipelineExecKey).Scan(
 		&client, &org, &objectType, &sourcePeriodKey,
-		&pipelineConfigKey, &processName, &inputSessionId, &userEmail, &icJson, &cpipesConfig)
+		&pipelineConfigKey, &processName, &inputSessionId, &userEmail,
+		&icJson, &icPosCsv, &inputFormat, &inputFormatDataJson,
+		&cpipesConfigFN)
 	if err != nil {
 		return result, fmt.Errorf("query table_name, domain_keys_json, input_columns_json, input_columns_positions_csv, input_format_data_json from jetsapi.source_config failed: %v", err)
 	}
-	if !cpipesConfig.Valid || len(cpipesConfig.String) == 0 {
+	if !cpipesConfigFN.Valid || len(cpipesConfigFN.String) == 0 {
 		return result, fmt.Errorf("error: process_config table does not have a cpipes config file name in main_rules column")
 	}
-	if !icJson.Valid || len(icJson.String) == 0 {
-		return result, fmt.Errorf("error: input_columns_json is null or empty")
+	// File format: csv, headerless_csv, fixed_width, parquet, parquet_select
+	if inputFormat == "" {
+		inputFormat = "csv"
 	}
 	// Get the cpipes_config json from workspace
-	configFile := fmt.Sprintf("%s/%s/%s", workspaceHome, wsPrefix, cpipesConfig.String)
+	configFile := fmt.Sprintf("%s/%s/%s", workspaceHome, wsPrefix, cpipesConfigFN.String)
 	cpJson, err := os.ReadFile(configFile)
 	if err != nil {
-			return result, fmt.Errorf("while reading cpipes config from workspace: %v", err)
+		return result, fmt.Errorf("while reading cpipes config from workspace: %v", err)
 	}
 	var cpConfig ComputePipesConfig
 	err = json.Unmarshal(cpJson, &cpConfig)
@@ -139,9 +145,11 @@ func (args *StartComputePipesArgs) StartShardingComputePipes(ctx context.Context
 
 	// Get the input columns info
 	var ic []string
-	err = json.Unmarshal([]byte(icJson.String), &ic)
-	if err != nil {
-		return result, fmt.Errorf("while unmarshaling input_columns_json: %s", err)
+	if icJson.Valid && len(icJson.String) > 0 {
+		err = json.Unmarshal([]byte(icJson.String), &ic)
+		if err != nil {
+			return result, fmt.Errorf("while unmarshaling input_columns_json: %s", err)
+		}
 	}
 
 	result.ErrorUpdate = map[string]interface{}{
@@ -154,9 +162,25 @@ func (args *StartComputePipesArgs) StartShardingComputePipes(ctx context.Context
 
 	// Prepare the cpipes commands, get the file count and size
 	// Step 1: load the file_key and file_size into the table
-	totalPartfileCount, totalSize, err := ShardFileKeysP1(ctx, dbpool, args.FileKey, args.SessionId)
+	totalPartfileCount, totalSize, firstKey, err := ShardFileKeysP1(ctx, dbpool, args.FileKey, args.SessionId)
 	if err != nil {
 		return result, err
+	}
+	// Check if headers where provided in source_config record
+	if len(ic) == 0 {
+		// Get the input columns from the first file
+		icp, err := FetchHeadersFromFile(firstKey, inputFormat, inputFormatDataJson.String)
+		if err != nil {
+			return result, fmt.Errorf("while calling FetchHeadersFromFile(%s, %s): %v", firstKey, inputFormat, err)
+		}
+		ic = *icp
+	}
+
+	// Add the headers from the partfile_key_component
+	for i := range *cpConfig.Context {
+		if (*cpConfig.Context)[i].Type == "partfile_key_component" {
+			ic = append(ic, (*cpConfig.Context)[i].Key)
+		}
 	}
 
 	// Determine the number of nodes for sharding
@@ -251,18 +275,24 @@ func (args *StartComputePipesArgs) StartShardingComputePipes(ctx context.Context
 	}
 	cpShardingConfig := &ComputePipesConfig{
 		CommonRuntimeArgs: &ComputePipesCommonArgs{
-			CpipesMode:        "sharding",
-			Client:            client,
-			Org:               org,
-			ObjectType:        objectType,
-			FileKey:           args.FileKey,
-			SessionId:         args.SessionId,
-			ReadStepId:        readStepId,
-			WriteStepId:       writeStepId,
-			InputSessionId:    inputSessionId,
-			SourcePeriodKey:   sourcePeriodKey,
-			ProcessName:       processName,
-			InputColumns:      ic,
+			CpipesMode:      "sharding",
+			Client:          client,
+			Org:             org,
+			ObjectType:      objectType,
+			FileKey:         args.FileKey,
+			SessionId:       args.SessionId,
+			ReadStepId:      readStepId,
+			WriteStepId:     writeStepId,
+			InputSessionId:  inputSessionId,
+			SourcePeriodKey: sourcePeriodKey,
+			ProcessName:     processName,
+			SourcesConfig: SourcesConfigSpec{
+				MainInput: &InputSourceSpec{
+					InputColumns:        ic,
+					InputFormat:         inputFormat,
+					InputFormatDataJson: inputFormatDataJson.String,
+				},
+			},
 			PipelineConfigKey: pipelineConfigKey,
 			UserEmail:         userEmail,
 		},
