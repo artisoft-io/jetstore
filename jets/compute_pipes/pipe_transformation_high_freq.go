@@ -4,18 +4,19 @@ import (
 	"fmt"
 	"log"
 	"sort"
+	"strings"
 )
 
 type HighFreqTransformationPipe struct {
-	cpConfig     *ComputePipesConfig
-	source       *InputChannel
-	outputCh     *OutputChannel
+	cpConfig      *ComputePipesConfig
+	source        *InputChannel
+	outputCh      *OutputChannel
 	highFreqState map[string]map[string]*DistinctCount
-	layoutName   string
-	spec         *TransformationSpec
-	env          map[string]interface{}
-	sessionId    string
-	doneCh       chan struct{}
+	layoutName    string
+	spec          *TransformationSpec
+	env           map[string]interface{}
+	sessionId     string
+	doneCh        chan struct{}
 }
 
 // Implementing interface PipeTransformationEvaluator
@@ -43,6 +44,7 @@ func (ctx *HighFreqTransformationPipe) apply(input *[]interface{}) error {
 			default:
 				token = fmt.Sprintf("%v", value)
 			}
+			token = strings.ToUpper(token)
 			dv := highFreqMap[token]
 			if dv == nil {
 				dv = &DistinctCount{
@@ -66,7 +68,8 @@ func (ctx *HighFreqTransformationPipe) done() error {
 	for _, columnName := range *ctx.spec.HighFreqColumns {
 		highFreqMap := ctx.highFreqState[columnName]
 		totalCount := 0
-		dcSlice := make([]*DistinctCount, len(highFreqMap))
+		// log.Printf("HighFreqTransformationPipe.done: sending results for column: %s, got %d distinct values", columnName, len(highFreqMap))
+		dcSlice := make([]*DistinctCount, 0, len(highFreqMap))
 		for _, dc := range highFreqMap {
 			dcSlice = append(dcSlice, dc)
 			totalCount += dc.Count
@@ -74,14 +77,14 @@ func (ctx *HighFreqTransformationPipe) done() error {
 		sort.Slice(dcSlice, func(i, j int) bool {
 			return dcSlice[i].Count > dcSlice[j].Count
 		})
-		top80pct := int(float64(totalCount) / 0.8 + 0.5)
+		top80pct := int(float64(totalCount)*0.8 + 0.5)
 		var pctCount int
 		maxCount := 500
 		l := len(dcSlice)
 		if l < maxCount {
 			maxCount = l
 		}
-		for i:=0; i<maxCount; i++ {
+		for i := 0; i < maxCount; i++ {
 			// make the output row
 			outputRow := make([]interface{}, len(ctx.outputCh.columns))
 			outputRow[ctx.outputCh.columns["column_name"]] = columnName
@@ -106,8 +109,7 @@ func (ctx *HighFreqTransformationPipe) done() error {
 			}
 		}
 	}
-
-	fmt.Println("**!@@ ** Send Freq Count Result to", ctx.outputCh.config.Name, "DONE")
+	// fmt.Println("**!@@ ** Send Freq Count Result to", ctx.outputCh.config.Name, "DONE")
 	return nil
 }
 
@@ -117,18 +119,22 @@ func (ctx *BuilderContext) NewHighFreqTransformationPipe(source *InputChannel, o
 	if spec == nil || spec.HighFreqColumns == nil {
 		return nil, fmt.Errorf("error: High Freq Pipe Transformation spec is missing columns definition")
 	}
+	if source == nil || outputCh == nil {
+		return nil, fmt.Errorf("error: High Freq Pipe Transformation spec is missing source and/or outputCh channels")
+	}
 	// Set up the High Freq State for each input column that are tracked
 	analyzeState := make(map[string]map[string]*DistinctCount)
 	for _, c := range *spec.HighFreqColumns {
 		analyzeState[c] = make(map[string]*DistinctCount)
 	}
 	return &HighFreqTransformationPipe{
-		cpConfig:     ctx.cpConfig,
-		outputCh:     outputCh,
+		cpConfig:      ctx.cpConfig,
+		source:        source,
+		outputCh:      outputCh,
 		highFreqState: analyzeState,
-		spec:         spec,
-		env:          ctx.env,
-		sessionId:    ctx.sessionId,
-		doneCh:       ctx.done,
+		spec:          spec,
+		env:           ctx.env,
+		sessionId:     ctx.sessionId,
+		doneCh:        ctx.done,
 	}, nil
 }

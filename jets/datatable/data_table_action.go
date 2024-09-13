@@ -994,48 +994,73 @@ func (ctx *Context) InsertRows(dataTableAction *DataTableAction, token string) (
 					UsingSshTunnel: ctx.UsingSshTunnel,
 					PeKey:          peKeyInt,
 				}
-				if devModeCode == "run_server_only" || devModeCode == "run_server_reports" {
+				if devModeCode == "run_server_only" || devModeCode == "run_server_reports" ||
+					devModeCode == "run_cpipes_only" || devModeCode == "run_cpipes_reports" {
 					// DevMode: Lock session id & register run on last shard (unless error)
 					// loop over every chard to exec in succession
 					var lable string
-					for shardId := 0; shardId < ctx.NbrShards && err == nil; shardId++ {
-						serverArgs := []string{
-							"-peKey", peKey,
-							"-userEmail", userEmail.(string),
-							"-shardId", strconv.Itoa(shardId),
-							"-nbrShards", strconv.Itoa(ctx.NbrShards),
-						}
-						if serverCompletedMetric != "" {
-							serverArgs = append(serverArgs, "-serverCompletedMetric")
-							serverArgs = append(serverArgs, serverCompletedMetric)
-						}
-						if serverFailedMetric != "" {
-							serverArgs = append(serverArgs, "-serverFailedMetric")
-							serverArgs = append(serverArgs, serverFailedMetric)
-						}
-						if ctx.UsingSshTunnel {
-							serverArgs = append(serverArgs, "-usingSshTunnel")
-						}
-						var cmd *exec.Cmd
-						switch devModeCode {
-						case "run_server_only", "run_server_reports":
+					var cmd *exec.Cmd
+					switch devModeCode {
+					case "run_server_only", "run_server_reports":
+						for shardId := 0; shardId < ctx.NbrShards && err == nil; shardId++ {
+							serverArgs := []string{
+								"-peKey", peKey,
+								"-userEmail", userEmail.(string),
+								"-shardId", strconv.Itoa(shardId),
+								"-nbrShards", strconv.Itoa(ctx.NbrShards),
+							}
+							if serverCompletedMetric != "" {
+								serverArgs = append(serverArgs, "-serverCompletedMetric")
+								serverArgs = append(serverArgs, serverCompletedMetric)
+							}
+							if serverFailedMetric != "" {
+								serverArgs = append(serverArgs, "-serverFailedMetric")
+								serverArgs = append(serverArgs, serverFailedMetric)
+							}
+							if ctx.UsingSshTunnel {
+								serverArgs = append(serverArgs, "-usingSshTunnel")
+							}
+
 							log.Printf("Run serverv2: %s", serverArgs)
 							lable = "SERVER"
 							cmd = exec.Command("/usr/local/bin/serverv2", serverArgs...)
-						default:
-							log.Printf("error: unknown devModeCode: %s", devModeCode)
-							httpStatus = http.StatusInternalServerError
-							err = fmt.Errorf("error: unknown devModeCode: %s", devModeCode)
-							return
+							cmd.Env = append(os.Environ(),
+								fmt.Sprintf("WORKSPACE=%s", workspaceName),
+								"JETSTORE_DEV_MODE=1", "USING_SSH_TUNNEL=1",
+							)
+							cmd.Stdout = &buf
+							cmd.Stderr = &buf
+							log.Printf("Executing server command '%v'", serverArgs)
+							err = cmd.Run()
 						}
+
+					case "run_cpipes_only", "run_cpipes_reports":
+						// State Machine input for new cpipesSM all-in-one
+						// Using the local test driver
+						cpipesArgs := []string{
+							"-pipeline_execution_key", peKey,
+							"-file_key", fileKey.(string),
+							"-session_id", sessionId.(string),
+						}
+						log.Printf("Run local cpipes driver: %s", cpipesArgs)
+						lable = "CPIPES"
+						cmd = exec.Command(
+							"/home/michel/projects/repos/jetstore/jets/compute_pipes/local_test_driver/local_test_driver",
+							cpipesArgs...)
 						cmd.Env = append(os.Environ(),
 							fmt.Sprintf("WORKSPACE=%s", workspaceName),
-							"JETSTORE_DEV_MODE=1",
+							"JETSTORE_DEV_MODE=1", "USING_SSH_TUNNEL=1",
 						)
 						cmd.Stdout = &buf
 						cmd.Stderr = &buf
-						log.Printf("Executing server command '%v'", serverArgs)
+						log.Printf("Executing cpipes command '%v'", cpipesArgs)
 						err = cmd.Run()
+
+					default:
+						log.Printf("error: unknown devModeCode: %s", devModeCode)
+						httpStatus = http.StatusInternalServerError
+						err = fmt.Errorf("error: unknown devModeCode: %s", devModeCode)
+						return
 					}
 					if err != nil {
 						log.Printf("while executing server command: %v", err)
@@ -1050,7 +1075,7 @@ func (ctx *Context) InsertRows(dataTableAction *DataTableAction, token string) (
 						err = errors.New("error while running command")
 						ca.Status = "failed"
 						ca.FailureDetails = "Error while running command in test mode"
-						// Update server execution status table
+						// Update pipeline execution status table
 						ca.ValidateArguments()
 						ca.CoordinateWork()
 						httpStatus = http.StatusInternalServerError
@@ -1058,7 +1083,8 @@ func (ctx *Context) InsertRows(dataTableAction *DataTableAction, token string) (
 					}
 				}
 
-				if devModeCode == "run_reports_only" || devModeCode == "run_server_reports" {
+				if devModeCode == "run_reports_only" || devModeCode == "run_server_reports" ||
+					devModeCode == "run_cpipes_reports" {
 					// Call run_report synchronously
 					if ctx.UsingSshTunnel {
 						runReportsCommand = append(runReportsCommand, "-usingSshTunnel")
@@ -1093,11 +1119,11 @@ func (ctx *Context) InsertRows(dataTableAction *DataTableAction, token string) (
 					}
 				}
 				log.Println("============================")
-				log.Println("SERVER & REPORTS CAPTURED OUTPUT BEGIN")
+				log.Println("SERVER/CPIPES & REPORTS CAPTURED OUTPUT BEGIN")
 				log.Println("============================")
 				log.Println((*results)["log"])
 				log.Println("============================")
-				log.Println("SERVER & REPORTS CAPTURED OUTPUT END")
+				log.Println("SERVER/CPIPES & REPORTS CAPTURED OUTPUT END")
 				log.Println("============================")
 				// all good, update server execution status table
 				ca.ValidateArguments()

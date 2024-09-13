@@ -190,7 +190,7 @@ func (jsComp *JetStoreStackComponents) BuildCpipesSM(scope constructs.Construct,
 	runStartSharingTask.AddCatch(runErrorStatusLambdaTask, MkCatchProps()).Next(runShardingMap)
 	runShardingMap.ItemProcessor(
 		runSharingNodeTask, &sfn.ProcessorConfig{},
-	).AddCatch(runErrorStatusLambdaTask, MkCatchProps()).Next(runStartReducingTask)
+	).AddCatch(runErrorStatusLambdaTask, MkCatchProps()).Next(reducingIterationChoice)
 	// TO RESTAURE, REMOVE PREVIOUS LINE ).AddCatch above...
 	// ).AddRetry(&sfn.RetryProps{
 	// 	BackoffRate: jsii.Number(2),

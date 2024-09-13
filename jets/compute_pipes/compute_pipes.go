@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"runtime/debug"
+	"strings"
 	"sync"
 	"time"
 
@@ -45,7 +46,7 @@ func (cpCtx *ComputePipesContext) StartComputePipes(dbpool *pgxpool.Pool, comput
 	var inputRowChannel *InputChannel
 
 	// Create the LookupTableManager and prepare the lookups async
-	lookupManager := NewLookupTableManager(cpCtx.CpConfig.LookupTables, cpCtx.EnvSettings, 
+	lookupManager := NewLookupTableManager(cpCtx.CpConfig.LookupTables, cpCtx.EnvSettings,
 		cpCtx.CpConfig.ClusterConfig.IsDebugMode)
 	var lookupWg sync.WaitGroup
 	lookupWg.Add(1)
@@ -121,32 +122,39 @@ func (cpCtx *ComputePipesContext) StartComputePipes(dbpool *pgxpool.Pool, comput
 	// }
 
 	// Prepare the output tables when in mode reducing only
-	if cpCtx.CpConfig.CommonRuntimeArgs.CpipesMode == "reducing" {
-		for i := range cpCtx.CpConfig.OutputTables {
-			tableIdentifier, err := SplitTableName(cpCtx.CpConfig.OutputTables[i].Name)
-			if err != nil {
-				cpErr = fmt.Errorf("while splitting table name: %s", err)
-				goto gotError
+	for i := range cpCtx.CpConfig.OutputTables {
+		tableName := cpCtx.CpConfig.OutputTables[i].Name
+		if strings.Contains(tableName, "$") {
+			for k, v := range cpCtx.EnvSettings {
+				value, ok := v.(string)
+				if ok {
+					tableName = strings.ReplaceAll(tableName, k, value)
+				}
 			}
-			outChannel = channelRegistry.computeChannels[cpCtx.CpConfig.OutputTables[i].Key]
-			channelRegistry.outputTableChannels = append(channelRegistry.outputTableChannels, cpCtx.CpConfig.OutputTables[i].Key)
-			if outChannel == nil {
-				cpErr = fmt.Errorf("error: invalid Compute Pipes configuration: Output table %s does not have a channel configuration",
-					cpCtx.CpConfig.OutputTables[i].Name)
-				goto gotError
-			}
-			// log.Println("**& Channel for Output Table", tableIdentifier, "is:", outChannel.config.Name)
-			wt = WriteTableSource{
-				source:          outChannel.channel,
-				tableIdentifier: tableIdentifier,
-				columns:         outChannel.config.Columns,
-			}
-			table = make(chan ComputePipesResult, 1)
-			cpCtx.ChResults.Copy2DbResultCh <- table
-			go wt.WriteTable(dbpool, cpCtx.Done, table)
 		}
-		// log.Println("Compute Pipes output tables ready")
+		tableIdentifier, err := SplitTableName(tableName)
+		if err != nil {
+			cpErr = fmt.Errorf("while splitting table name: %s", err)
+			goto gotError
+		}
+		outChannel = channelRegistry.computeChannels[cpCtx.CpConfig.OutputTables[i].Key]
+		channelRegistry.outputTableChannels = append(channelRegistry.outputTableChannels, cpCtx.CpConfig.OutputTables[i].Key)
+		if outChannel == nil {
+			cpErr = fmt.Errorf("error: invalid Compute Pipes configuration: Output table %s does not have a channel configuration",
+				cpCtx.CpConfig.OutputTables[i].Name)
+			goto gotError
+		}
+		// log.Println("*** Channel for Output Table", tableIdentifier, "is:", outChannel.config.Name)
+		wt = WriteTableSource{
+			source:          outChannel.channel,
+			tableIdentifier: tableIdentifier,
+			columns:         outChannel.config.Columns,
+		}
+		table = make(chan ComputePipesResult, 1)
+		cpCtx.ChResults.Copy2DbResultCh <- table
+		go wt.WriteTable(dbpool, cpCtx.Done, table)
 	}
+	// log.Println("*** Compute Pipes output tables ready")
 
 	ctx = &BuilderContext{
 		dbpool:             dbpool,
