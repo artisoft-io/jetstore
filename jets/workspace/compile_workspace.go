@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/artisoft-io/jetstore/jets/datatable/wsfile"
@@ -21,9 +22,9 @@ import (
 // Function to pull override workspace files from databse to the
 // container workspace (local copy).
 // Need this when:
-//	- starting a task requiring local workspace (e.g. run_report to get latest report definition)
-//	- starting apiserver to get latest override files (e.g. lookup csv files) to compile workspace
-//	- starting rule server to get the latest lookup.db and workspace.db
+//   - starting a task requiring local workspace (e.g. run_report to get latest report definition)
+//   - starting apiserver to get latest override files (e.g. lookup csv files) to compile workspace
+//   - starting rule server to get the latest lookup.db and workspace.db
 func SyncWorkspaceFiles(dbpool *pgxpool.Pool, workspaceName, status, contentType string, skipSqliteFiles bool, skipTgzFiles bool) error {
 	wh := os.Getenv("WORKSPACES_HOME")
 	// sync workspace files from db to locally
@@ -37,12 +38,18 @@ func SyncWorkspaceFiles(dbpool *pgxpool.Pool, workspaceName, status, contentType
 	if err != nil {
 		return err
 	}
-	for _,fo := range fileObjects {
+	for _, fo := range fileObjects {
 		// When in skipSqliteFiles == true, do not override lookup.db and workspace.db
 		// When in skipTgzFiles == true, do not override *.tgz files
 		if (!skipSqliteFiles || !strings.HasSuffix(fo.FileName, ".db")) &&
-				(!skipTgzFiles || !strings.HasSuffix(fo.FileName, ".tgz")) {
+			(!skipTgzFiles || !strings.HasSuffix(fo.FileName, ".tgz")) {
 			localFileName := fmt.Sprintf("%s/%s/%s", wh, workspaceName, fo.FileName)
+			// create workspace.tgz file and dir structure
+			fileDir := filepath.Dir(localFileName)
+			if err = os.MkdirAll(fileDir, 0770); err != nil {
+				return fmt.Errorf("while creating file directory structure: %v", err)
+			}
+
 			fileHd, err := os.Create(localFileName)
 			if err != nil {
 				return fmt.Errorf("failed to os.Create on local workspace file %s for write: %v", fo.FileName, err)
@@ -51,22 +58,22 @@ func SyncWorkspaceFiles(dbpool *pgxpool.Pool, workspaceName, status, contentType
 			if err != nil {
 				return fmt.Errorf("failed to read file object %s from database for write: %v", fo.FileName, err)
 			}
-			log.Println("Updated file", fo.FileName,"size",n)
+			log.Println("Updated file", fo.FileName, "size", n)
 			fileHd.Close()
 
 			// If FileName ends with .tgz, extract files from archive
 			if strings.HasSuffix(fo.FileName, ".tgz") {
 				fileHd, err := os.Open(localFileName)
-				defer func () {
+				defer func() {
 					fileHd.Close()
 				}()
 				if err != nil {
 					return fmt.Errorf("failed to open tgz file %s for read: %v", fo.FileName, err)
-				}	
+				}
 				err = tarextract.ExtractTarGz(fileHd, fmt.Sprintf("%s/%s", wh, workspaceName))
 				if err != nil {
 					return fmt.Errorf("failed to extract content from tgz file %s for read: %v", fo.FileName, err)
-				}	
+				}
 			}
 
 		} else {
@@ -84,7 +91,7 @@ func UpdateWorkspaceVersionDb(dbpool *pgxpool.Pool, workspaceName, version strin
 		return nil
 	}
 	// insert the new workspace version in jetsapi db
-	log.Println("Updating workspace version in database to",version)
+	log.Println("Updating workspace version in database to", version)
 	stmt := "INSERT INTO jetsapi.workspace_version (version) VALUES ($1) ON CONFLICT DO NOTHING"
 	_, err := dbpool.Exec(context.Background(), stmt, version)
 	if err != nil {
@@ -101,7 +108,7 @@ func CompileWorkspace(dbpool *pgxpool.Pool, workspaceName, version string) (stri
 
 	// Compile the workspace locally
 	var buf strings.Builder
-	buf.WriteString(fmt.Sprintf("Compiling workspace %s at version %s\n",workspaceName, version))
+	buf.WriteString(fmt.Sprintf("Compiling workspace %s at version %s\n", workspaceName, version))
 	err := wsfile.RunCommand(&buf, compilerPath, nil, workspaceName)
 
 	if err != nil {
@@ -114,7 +121,7 @@ func CompileWorkspace(dbpool *pgxpool.Pool, workspaceName, version string) (stri
 
 	// Archive reports
 	command := "tar"
-	args := []string{"cfvz", "reports.tgz", "reports/"} 
+	args := []string{"cfvz", "reports.tgz", "reports/"}
 	buf.WriteString("\nArchiving the reports\n")
 	err = wsfile.RunCommand(&buf, command, &args, workspaceName)
 	path := fmt.Sprintf("%s/%s/%s", os.Getenv("WORKSPACES_HOME"), workspaceName, "reports.tgz")
@@ -158,12 +165,12 @@ func CompileWorkspace(dbpool *pgxpool.Pool, workspaceName, version string) (stri
 			fmt.Sprintf("%s/%s/workspace.tgz", wh, workspaceName),
 			fmt.Sprintf("%s/%s/reports.tgz", wh, workspaceName),
 		}
-		fileNames := []string{ "lookup.db", "workspace.db", "workspace.tgz", "reports.tgz" }
+		fileNames := []string{"lookup.db", "workspace.db", "workspace.tgz", "reports.tgz"}
 		fo := []dbutils.FileDbObject{
 			{WorkspaceName: workspaceName, ContentType: "sqlite", Status: dbutils.FO_Open, UserEmail: "system"},
 			{WorkspaceName: workspaceName, ContentType: "sqlite", Status: dbutils.FO_Open, UserEmail: "system"},
-			{WorkspaceName: workspaceName, ContentType: "workspace.tgz",	Status: dbutils.FO_Open, UserEmail: "system"},
-			{WorkspaceName: workspaceName, ContentType: "reports.tgz",	Status: dbutils.FO_Open, UserEmail: "system"}}
+			{WorkspaceName: workspaceName, ContentType: "workspace.tgz", Status: dbutils.FO_Open, UserEmail: "system"},
+			{WorkspaceName: workspaceName, ContentType: "reports.tgz", Status: dbutils.FO_Open, UserEmail: "system"}}
 		for i := range sourcesPath {
 			// Copy the file to db as large objects
 			file, err := os.Open(sourcesPath[i])
@@ -176,7 +183,7 @@ func CompileWorkspace(dbpool *pgxpool.Pool, workspaceName, version string) (stri
 			}
 			fo[i].FileName = fileNames[i]
 			fo[i].Oid = 0
-			_,err = fo[i].WriteObject(dbpool, file)
+			_, err = fo[i].WriteObject(dbpool, file)
 			file.Close()
 			if err != nil {
 				buf.WriteString("Failed to upload file to db:")
