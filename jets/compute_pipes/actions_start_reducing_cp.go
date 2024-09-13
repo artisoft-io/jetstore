@@ -15,6 +15,8 @@ import (
 	"github.com/jackc/pgx/v4/pgxpool"
 )
 
+var ErrNoReducingStep = fmt.Errorf("ErrNoReducingStep")
+
 func (args *StartComputePipesArgs) StartReducingComputePipes(ctx context.Context, dsn string) (ComputePipesRun, error) {
 	var result ComputePipesRun
 	var err error
@@ -123,12 +125,19 @@ func (args *StartComputePipesArgs) StartReducingComputePipes(ctx context.Context
 	}
 	result.UseECSReducingTask = args.UseECSTask
 
-	outputTables := make([]TableSpec, 0)
 	stepId := *args.StepId
+	// Validate that there is such stepId
+	if stepId >= len(cpConfig.ReducingPipesConfig) {
+		// we're past the last step - most likely there was only a sharding step
+		return result, ErrNoReducingStep
+	}
+	outputTables, err := SelectActiveOutputTable(cpConfig.OutputTables, cpConfig.ReducingPipesConfig[stepId])
+	if err != nil {
+		return result, fmt.Errorf("while calling SelectActiveOutputTable for stepId %d: %v", stepId, err)
+	}
 	isLastReducing := false
 	isMergeFiles := false
 	if stepId == len(cpConfig.ReducingPipesConfig)-1 {
-		outputTables = cpConfig.OutputTables
 		isLastReducing = true
 		// Check and validate if we're on a merge_files step
 		if cpConfig.ReducingPipesConfig[stepId][0].Type == "merge_files" {

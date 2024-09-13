@@ -131,17 +131,33 @@ func (args *StartComputePipesArgs) StartShardingComputePipes(ctx context.Context
 	log.Println("Start SHARDING", args.SessionId, "file_key:", args.FileKey)
 	// Update output table schema
 	for i := range cpConfig.OutputTables {
-		tableIdentifier, err := SplitTableName(cpConfig.OutputTables[i].Name)
+		tableName := cpConfig.OutputTables[i].Name
+		if strings.Contains(tableName, "$") && cpConfig.Context != nil {
+			for i := range *cpConfig.Context {
+				if (*cpConfig.Context)[i].Type == "value" {
+					key := (*cpConfig.Context)[i].Key
+					value := (*cpConfig.Context)[i].Expr
+					tableName = strings.ReplaceAll(tableName, key, value)
+				}
+			}
+		}
+		tableIdentifier, err := SplitTableName(tableName)
 		if err != nil {
 			return result, fmt.Errorf("while splitting table name: %s", err)
 		}
 		fmt.Println("**& Preparing / Updating Output Table", tableIdentifier)
-		err = PrepareOutoutTable(dbpool, tableIdentifier, &cpConfig.OutputTables[i])
+		err = PrepareOutoutTable(dbpool, tableIdentifier, cpConfig.OutputTables[i])
 		if err != nil {
 			return result, fmt.Errorf("while preparing output table: %s", err)
 		}
 	}
 	fmt.Println("Compute Pipes output tables schema ready")
+	// Select any used table during sharding
+	stepId := 0
+	outputTables, err := SelectActiveOutputTable(cpConfig.OutputTables, cpConfig.ReducingPipesConfig[stepId])
+	if err != nil {
+		return result, fmt.Errorf("while calling SelectActiveOutputTable for stepId %d: %v", stepId, err)
+	}
 
 	// Get the input columns info
 	var ic []string
@@ -152,6 +168,12 @@ func (args *StartComputePipesArgs) StartShardingComputePipes(ctx context.Context
 		}
 	}
 
+	result.ReportsCommand = []string{
+		"-client", client,
+		"-processName", processName,
+		"-sessionId", args.SessionId,
+		"-filePath", strings.Replace(args.FileKey, os.Getenv("JETS_s3_INPUT_PREFIX"), os.Getenv("JETS_s3_OUTPUT_PREFIX"), 1),
+	}
 	result.ErrorUpdate = map[string]interface{}{
 		"-peKey":         strconv.Itoa(args.PipelineExecKey),
 		"-status":        "failed",
@@ -236,15 +258,17 @@ func (args *StartComputePipesArgs) StartShardingComputePipes(ctx context.Context
 	// WriteCpipesArgsToS3(cpipesCommands, result.CpipesCommandsS3Key)
 
 	// Args for start_reducing_cp lambda
-	stepId := 0
 	nextStepId := 1
-	result.StartReducing = StartComputePipesArgs{
-		PipelineExecKey: args.PipelineExecKey,
-		FileKey:         args.FileKey,
-		SessionId:       args.SessionId,
-		StepId:          &nextStepId,
-		UseECSTask:      clusterSpec.UseEcsTasks,
-		MaxConcurrency:  clusterSpec.MaxConcurrency,
+	result.IsLastReducing = len(cpConfig.ReducingPipesConfig) == 1
+	if !result.IsLastReducing {
+		result.StartReducing = StartComputePipesArgs{
+			PipelineExecKey: args.PipelineExecKey,
+			FileKey:         args.FileKey,
+			SessionId:       args.SessionId,
+			StepId:          &nextStepId,
+			UseECSTask:      clusterSpec.UseEcsTasks,
+			MaxConcurrency:  clusterSpec.MaxConcurrency,
+		}
 	}
 
 	// Make the sharding pipeline config
@@ -304,7 +328,7 @@ func (args *StartComputePipesArgs) StartShardingComputePipes(ctx context.Context
 			SamplingRate:          cpConfig.ClusterConfig.SamplingRate,
 		},
 		MetricsConfig: cpConfig.MetricsConfig,
-		OutputTables:  cpConfig.OutputTables,
+		OutputTables:  outputTables,
 		OutputFiles:   cpConfig.OutputFiles,
 		LookupTables:  lookupTables,
 		Channels:      cpConfig.Channels,
@@ -397,6 +421,30 @@ func SelectActiveLookupTable(lookupConfig []*LookupSpec, pipeConfig []PipeSpec) 
 					}
 					activeTables = append(activeTables, spec)
 				}
+			}
+		}
+	}
+	return activeTables, nil
+}
+
+// Function to prune the output tables and return only the tables used in pipeConfig
+// Returns an error if pipeConfig makes reference to a non-existent table
+func SelectActiveOutputTable(tableConfig []*TableSpec, pipeConfig []PipeSpec) ([]*TableSpec, error) {
+	// get a mapping of table name to table spec
+	tableMap := make(map[string]*TableSpec)
+	for i := range tableConfig {
+		if tableConfig[i] != nil {
+			tableMap[tableConfig[i].Key] = tableConfig[i]
+		}
+	}
+	// Identify the used tables
+	activeTables := make([]*TableSpec, 0)
+	for i := range pipeConfig {
+		for j := range pipeConfig[i].Apply {
+			transformationSpec := &pipeConfig[i].Apply[j]
+			spec := tableMap[transformationSpec.Output]
+			if spec != nil {
+				activeTables = append(activeTables, spec)
 			}
 		}
 	}

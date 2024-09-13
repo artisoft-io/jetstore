@@ -5,7 +5,7 @@ type ComputePipesConfig struct {
 	CommonRuntimeArgs   *ComputePipesCommonArgs `json:"common_runtime_args"`
 	MetricsConfig       *MetricsSpec            `json:"metrics_config"`
 	ClusterConfig       *ClusterSpec            `json:"cluster_config"`
-	OutputTables        []TableSpec             `json:"output_tables"`
+	OutputTables        []*TableSpec            `json:"output_tables"`
 	OutputFiles         []OutputFileSpec        `json:"output_files"`
 	LookupTables        []*LookupSpec           `json:"lookup_tables"`
 	Channels            []ChannelSpec           `json:"channels"`

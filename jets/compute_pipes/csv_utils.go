@@ -51,7 +51,7 @@ func GetRawHeadersFromCsvFile(fileHd *os.File, fileName string) (*[]string, erro
 	var csvReader *csv.Reader
 
 	// determine the csv separator
-	if sep_flag == '€' {
+	if sep_flag == 0 {
 		sep_flag, err = DetectCsvDelimitor(fileHd, fileName)
 		if err != nil {
 			return nil, err
