@@ -174,6 +174,13 @@ func (args *StartComputePipesArgs) StartShardingComputePipes(ctx context.Context
 		"-sessionId", args.SessionId,
 		"-filePath", strings.Replace(args.FileKey, os.Getenv("JETS_s3_INPUT_PREFIX"), os.Getenv("JETS_s3_OUTPUT_PREFIX"), 1),
 	}
+	result.SuccessUpdate = map[string]interface{}{
+		"-peKey":         strconv.Itoa(args.PipelineExecKey),
+		"-status":        "completed",
+		"cpipesMode":     true,
+		"file_key":       args.FileKey,
+		"failureDetails": "",
+	}
 	result.ErrorUpdate = map[string]interface{}{
 		"-peKey":         strconv.Itoa(args.PipelineExecKey),
 		"-status":        "failed",
