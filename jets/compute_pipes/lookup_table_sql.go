@@ -120,25 +120,25 @@ func NewLookupTableSql(dbpool *pgxpool.Pool, spec *LookupSpec, env map[string]in
 			}
 			switch vv := columns[pos].(type) {
 			case *[]string:
-				values[i] = vv
+				values[i] = *vv
 			case *sql.NullString:
 				if vv.Valid {
 					values[i] = vv.String
 				}
 			case *[]int:
-				values[i] = vv
+				values[i] = *vv
 			case *sql.NullInt64:
 				if vv.Valid {
 					values[i] = int(vv.Int64)
 				}
 			case *[]float64:
-				values[i] = vv
+				values[i] = *vv
 			case *sql.NullFloat64:
 				if vv.Valid {
 					values[i] = vv.Float64
 				}
 			case *[]time.Time:
-				values[i] = vv
+				values[i] = *vv
 			case *sql.NullTime:
 				if vv.Valid {
 					values[i] = vv.Time

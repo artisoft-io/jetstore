@@ -411,7 +411,9 @@ func SelectActiveLookupTable(lookupConfig []*LookupSpec, pipeConfig []PipeSpec) 
 	activeTables := make([]*LookupSpec, 0)
 	for i := range pipeConfig {
 		for j := range pipeConfig[i].Apply {
-			for k := range pipeConfig[i].Apply[j].Columns {
+			transformationSpec := &pipeConfig[i].Apply[j]
+			// Check for column transformation of type lookup
+			for k := range transformationSpec.Columns {
 				name := pipeConfig[i].Apply[j].Columns[k].LookupName
 				if name != nil {
 					spec := lookupMap[*name]
@@ -421,6 +423,17 @@ func SelectActiveLookupTable(lookupConfig []*LookupSpec, pipeConfig []PipeSpec) 
 					}
 					activeTables = append(activeTables, spec)
 				}
+			}
+			// Check for Analyze transformation using lookup tables
+			for k := range *transformationSpec.LookupTokens {
+				lookupTokenNode := &(*transformationSpec.LookupTokens)[k]
+				spec := lookupMap[lookupTokenNode.Name]
+				if spec == nil {
+					return nil,
+						fmt.Errorf(
+							"error: lookup table '%s' is not defined, please verify the column transformation", lookupTokenNode.Name)
+				}
+				activeTables = append(activeTables, spec)
 			}
 		}
 	}
