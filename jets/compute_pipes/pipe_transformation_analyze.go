@@ -22,15 +22,13 @@ func NewRegexCount(re *regexp.Regexp) *RegexCount {
 }
 
 type LookupCount struct {
-	Name      string
-	LookupTbl LookupTable
-	Count     int
+	Name  string
+	Count int
 }
 
-func NewLookupCount(name string, lookupTbl LookupTable) *LookupCount {
+func NewLookupCount(name string) *LookupCount {
 	return &LookupCount{
-		Name:      name,
-		LookupTbl: lookupTbl,
+		Name: name,
 	}
 }
 
@@ -55,12 +53,28 @@ type AnalyzeState struct {
 	NullCount      int
 	Welford        *WelfordAlgo
 	RegexMatch     map[string]*RegexCount
-	LookupMatch    map[string]*LookupCount
+	LookupState    []*LookupTokensState
 	KeywordMatch   map[string]*KeywordCount
 	RegexTokens    []string
 	LookupTokens   []string
 	TotalRowCount  int
 	Spec           *TransformationSpec
+}
+
+type LookupTokensState struct {
+	LookupTbl   LookupTable
+	LookupMatch map[string]*LookupCount
+}
+
+func NewLookupTokensState(lookupTbl LookupTable, tokens []string) *LookupTokensState {
+	lookupMatch := make(map[string]*LookupCount)
+	for _, token := range tokens {
+		lookupMatch[token] = NewLookupCount(token)
+	}
+	return &LookupTokensState{
+		LookupTbl:   lookupTbl,
+		LookupMatch: lookupMatch,
+	}
 }
 
 func (ctx *BuilderContext) NewAnalyzeState(columnName string, columnPos int, spec *TransformationSpec) (*AnalyzeState, error) {
@@ -75,13 +89,15 @@ func (ctx *BuilderContext) NewAnalyzeState(columnName string, columnPos int, spe
 			regexMatch[conf.Name] = NewRegexCount(rexp)
 		}
 	}
-	lookupMatch := make(map[string]*LookupCount)
-	if spec.LookupTokens != nil {
+	lookupState := make([]*LookupTokensState, 0)
+	if spec.LookupTokens != nil && ctx.lookupTableManager != nil {
 		for i := range *spec.LookupTokens {
-			lkConfig := &(*spec.LookupTokens)[i]
-			for _, token := range lkConfig.Tokens {
-				lookupMatch[token] = NewLookupCount(token, ctx.lookupTableManager.LookupTableMap[lkConfig.Name])
+			lookupNode := &(*spec.LookupTokens)[i]
+			lookupTable := ctx.lookupTableManager.LookupTableMap[lookupNode.Name]
+			if lookupTable == nil {
+				return nil, fmt.Errorf("error: lookup table %s not found (NewAlalyzeState)", lookupNode.Name)
 			}
+			lookupState = append(lookupState, NewLookupTokensState(lookupTable, lookupNode.Tokens))
 		}
 	}
 	keywordMatch := make(map[string]*KeywordCount)
@@ -98,7 +114,7 @@ func (ctx *BuilderContext) NewAnalyzeState(columnName string, columnPos int, spe
 		DistinctValues: make(map[string]*DistinctCount),
 		Welford:        NewWelfordAlgo(),
 		RegexMatch:     regexMatch,
-		LookupMatch:    lookupMatch,
+		LookupState:    lookupState,
 		KeywordMatch:   keywordMatch,
 		Spec:           spec,
 	}, nil
@@ -141,10 +157,10 @@ func (state *AnalyzeState) NewToken(value string) error {
 		}
 	}
 	// Lookup matches
-	for _, lkCount := range state.LookupMatch {
-		row, err := lkCount.LookupTbl.Lookup(&value)
+	for _, lookupState := range state.LookupState {
+		row, err := lookupState.LookupTbl.Lookup(&value)
 		if err != nil {
-			return fmt.Errorf("while calling lookup %s, with key %s: %v", lkCount.Name, value, err)
+			return fmt.Errorf("while calling lookup, with key %s: %v", value, err)
 		}
 		// The first and only column returned is called tokens and is an array of string
 		if row != nil {
@@ -153,7 +169,7 @@ func (state *AnalyzeState) NewToken(value string) error {
 				return fmt.Errorf("error: lookup row first elm is not []string in AnalyzeState.NewToken")
 			}
 			for _, token := range tokens {
-				lkCount := state.LookupMatch[token]
+				lkCount := lookupState.LookupMatch[token]
 				if lkCount != nil {
 					lkCount.Count += 1
 				}
@@ -227,30 +243,81 @@ func (ctx *AnalyzeTransformationPipe) done() error {
 		outputRow := make([]interface{}, len(ctx.outputCh.columns))
 
 		// The first base columns
-		outputRow[ctx.outputCh.columns["column_name"]] = state.ColumnName
-		outputRow[ctx.outputCh.columns["column_pos"]] = state.ColumnPos
-		outputRow[ctx.outputCh.columns["distinct_count"]] = len(state.DistinctValues)
-		outputRow[ctx.outputCh.columns["null_count"]] = state.NullCount
-		outputRow[ctx.outputCh.columns["total_count"]] = state.TotalRowCount
+		var ipos int
+		ipos, ok = ctx.outputCh.columns["column_name"]
+		if ok {
+			outputRow[ipos] = state.ColumnName
+		}
+		ipos, ok = ctx.outputCh.columns["column_pos"]
+		if ok {
+			outputRow[ipos] = state.ColumnPos
+		}
+		ipos, ok = ctx.outputCh.columns["distinct_count"]
+		if ok {
+			outputRow[ipos] = len(state.DistinctValues)
+		}
+		ipos, ok = ctx.outputCh.columns["null_count"]
+		if ok {
+			outputRow[ipos] = state.NullCount
+		}
+		ipos, ok = ctx.outputCh.columns["total_count"]
+		if ok {
+			outputRow[ipos] = state.TotalRowCount
+		}
+
 		avrLen, avrVar := state.Welford.Finalize()
-		outputRow[ctx.outputCh.columns["avr_length"]] = avrLen
-		outputRow[ctx.outputCh.columns["length_var"]] = avrVar
+		ipos, ok = ctx.outputCh.columns["avr_length"]
+		if ok {
+			outputRow[ipos] = avrLen
+		}
+		ipos, ok = ctx.outputCh.columns["length_var"]
+		if ok {
+			outputRow[ipos] = avrVar
+		}
 		// The context driven columns
-		outputRow[ctx.outputCh.columns["processing_ticket"]] = ctx.env["$PROCESSING_TICKET"]
-		outputRow[ctx.outputCh.columns["layout_name"]] = ctx.layoutName
-		outputRow[ctx.outputCh.columns["session_id"]] = ctx.sessionId
+		ipos, ok = ctx.outputCh.columns["processing_ticket"]
+		if ok {
+			outputRow[ipos] = ctx.env["$PROCESSING_TICKET"]
+		}
+		ipos, ok = ctx.outputCh.columns["layout_name"]
+		if ok {
+			outputRow[ipos] = ctx.layoutName
+		}
+		ipos, ok = ctx.outputCh.columns["session_id"]
+		if ok {
+			outputRow[ipos] = ctx.sessionId
+		}
 
 		// The regex tokens
 		for name, m := range state.RegexMatch {
-			outputRow[ctx.outputCh.columns[name]] = m.Count
+			ipos, ok = ctx.outputCh.columns[name]
+			if ok {
+				outputRow[ipos] = m.Count
+			}
 		}
+
+		//***
+		log.Printf("Column: %s lookup tokens:", state.ColumnName)
+		for token,count := range state.LookupState[0].LookupMatch {
+			log.Printf("     token: %s, count: %d", token, count.Count)
+		}
+
 		// The lookup tokens
-		for name, m := range state.LookupMatch {
-			outputRow[ctx.outputCh.columns[name]] = m.Count
+		for _, lookupState := range state.LookupState {
+			for name, m := range lookupState.LookupMatch {
+				ipos, ok := ctx.outputCh.columns[name]
+				if ok {
+					outputRow[ipos] = m.Count
+				}
+			}
 		}
+
 		// The keywords match
 		for name, m := range state.KeywordMatch {
-			outputRow[ctx.outputCh.columns[name]] = m.Count
+			ipos, ok = ctx.outputCh.columns[name]
+			if ok {
+				outputRow[ipos] = m.Count
+			}
 		}
 		// Send the column result to output
 		// fmt.Println("**!@@ ** Send AGGREGATE Result to", ctx.outputCh.config.Name)
@@ -269,38 +336,9 @@ func (ctx *AnalyzeTransformationPipe) finally() {}
 
 func (ctx *BuilderContext) NewAnalyzeTransformationPipe(source *InputChannel, outputCh *OutputChannel, spec *TransformationSpec) (*AnalyzeTransformationPipe, error) {
 	var err error
-	if spec == nil || spec.RegexTokens == nil || spec.LookupTokens == nil {
-		return nil, fmt.Errorf("error: Analyze Pipe Transformation spec is missing regex aand/or lookup definition")
+	if spec == nil || spec.RegexTokens == nil || spec.LookupTokens == nil || spec.KeywordTokens == nil {
+		return nil, fmt.Errorf("error: Analyze Pipe Transformation spec is missing regex, lookup,  and/or keywords definition")
 	}
-	// Setup the output channel columns
-	columns := []string{
-		"column_name",
-		"column_pos",
-		"distinct_count",
-		"null_count",
-		"total_count",
-		"avr_length",
-		"length_var",
-	}
-	for i := range *spec.RegexTokens {
-		node := &(*spec.RegexTokens)[i]
-		columns = append(columns, node.Name)
-	}
-	for i := range *spec.LookupTokens {
-		columns = append(columns, (*spec.LookupTokens)[i].Tokens...)
-	}
-	// Add the trailing columns that are context driven (if you change this, see above in done func)
-	columns = append(columns, "processing_ticket", "layout_name", "session_id")
-	//*
-	log.Println("The Analyze output columns:")
-	columnsMap := make(map[string]int)
-	for i, c := range columns {
-		//*
-		log.Println(c)
-		columnsMap[c] = i
-	}
-	outputCh.config.Columns = columns
-	outputCh.columns = columnsMap
 
 	// Set up the AnalyzeState for each input column
 	analyzeState := make([]interface{}, len(source.config.Columns))
@@ -313,6 +351,7 @@ func (ctx *BuilderContext) NewAnalyzeTransformationPipe(source *InputChannel, ou
 	}
 	return &AnalyzeTransformationPipe{
 		cpConfig:     ctx.cpConfig,
+		source:       source,
 		outputCh:     outputCh,
 		analyzeState: analyzeState,
 		spec:         spec,

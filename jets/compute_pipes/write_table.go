@@ -147,7 +147,7 @@ func PrepareOutoutTable(dbpool *pgxpool.Pool, tableIdentifier pgx.Identifier, ta
 	return nil
 }
 
-// Create the Staging Table
+// Create the Output Table
 func CreateOutputTable(dbpool *pgxpool.Pool, tableName pgx.Identifier, tableSpec *TableSpec) error {
 	stmt := fmt.Sprintf("DROP TABLE IF EXISTS %s", tableName.Sanitize())
 	_, err := dbpool.Exec(context.Background(), stmt)
@@ -170,7 +170,7 @@ func CreateOutputTable(dbpool *pgxpool.Pool, tableName pgx.Identifier, tableSpec
 			buf.WriteString(" session_id TEXT DEFAULT '' NOT NULL")
 
 		default:
-			buf.WriteString(fmt.Sprintf(" %s %s", pgx.Identifier{column.Name}.Sanitize(), column.RdfType))
+			buf.WriteString(fmt.Sprintf(" %s %s", pgx.Identifier{column.Name}.Sanitize(), schema.ToPgType(column.RdfType)))
 		}
 		if ipos < lastPos {
 			buf.WriteString(", ")
