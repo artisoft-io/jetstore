@@ -296,11 +296,10 @@ func (ctx *AnalyzeTransformationPipe) done() error {
 			}
 		}
 
-		//***
-		log.Printf("Column: %s lookup tokens:", state.ColumnName)
-		for token,count := range state.LookupState[0].LookupMatch {
-			log.Printf("     token: %s, count: %d", token, count.Count)
-		}
+		// log.Printf("Column: %s lookup tokens:", state.ColumnName)
+		// for token,count := range state.LookupState[0].LookupMatch {
+		// 	log.Printf("     token: %s, count: %d", token, count.Count)
+		// }
 
 		// The lookup tokens
 		for _, lookupState := range state.LookupState {
