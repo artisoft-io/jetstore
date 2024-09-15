@@ -11,19 +11,29 @@ import (
 type MapRecordTransformationPipe struct {
 	outputCh         *OutputChannel
 	columnEvaluators []TransformationColumnEvaluator
+	spec             *TransformationSpec
 	doneCh           chan struct{}
 }
 
 // Implementing interface PipeTransformationEvaluator
 func (ctx *MapRecordTransformationPipe) apply(input *[]interface{}) error {
-	currentValues := make([]interface{}, len(ctx.outputCh.config.Columns))
-	// initialize the column evaluators
-	for i := range ctx.columnEvaluators {
-		ctx.columnEvaluators[i].initializeCurrentValue(&currentValues)
+	if input == nil {
+		return fmt.Errorf("error: input is nil in MapRecordTransformationPipe.apply")
+	}
+	var currentValues *[]interface{}
+	if ctx.spec.NewRecord {
+		v := make([]interface{}, len(ctx.outputCh.config.Columns))
+		currentValues = &v
+		// initialize the column evaluators
+		for i := range ctx.columnEvaluators {
+			ctx.columnEvaluators[i].initializeCurrentValue(currentValues)
+		}	
+	} else {
+		currentValues = input
 	}
 	// apply the column transformation for each column
 	for i := range ctx.columnEvaluators {
-		err := ctx.columnEvaluators[i].update(&currentValues, input)
+		err := ctx.columnEvaluators[i].update(currentValues, input)
 		if err != nil {
 			err = fmt.Errorf("while calling column transformation from map_record: %v", err)
 			log.Println(err)
@@ -33,14 +43,20 @@ func (ctx *MapRecordTransformationPipe) apply(input *[]interface{}) error {
 	// Notify the column evaluator that we're done
 	// fmt.Println("**!@@ calling done on column evaluator from MapRecordTransformationPipe for output", ctx.outputCh.config.Name)
 	for i := range ctx.columnEvaluators {
-		err := ctx.columnEvaluators[i].done(&currentValues)
+		err := ctx.columnEvaluators[i].done(currentValues)
 		if err != nil {
 			return fmt.Errorf("while calling done on column evaluator from AggregateTransformationPipe: %v", err)
 		}
 	}
+	if !ctx.spec.NewRecord {
+		// resize the slice in case we're dropping column on the output
+		if len(*currentValues) > len(ctx.outputCh.config.Columns) {
+			*currentValues = (*currentValues)[:len(ctx.outputCh.config.Columns)]
+		}
+	}
 	// Send the result to output
 	select {
-	case ctx.outputCh.channel <- currentValues:
+	case ctx.outputCh.channel <- *currentValues:
 	case <-ctx.doneCh:
 		log.Printf("MapRecordTransformationPipe writing to '%s' interrupted", ctx.outputCh.config.Name)
 		return nil
@@ -70,6 +86,7 @@ func (ctx *BuilderContext) NewMapRecordTransformationPipe(source *InputChannel, 
 	return &MapRecordTransformationPipe{
 		outputCh:         outputCh,
 		columnEvaluators: columnEvaluators,
+		spec:             spec,
 		doneCh:           ctx.done,
 	}, nil
 }

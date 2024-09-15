@@ -49,6 +49,12 @@ func (ctx *AggregateTransformationPipe) finally() {}
 func (ctx *BuilderContext) NewAggregateTransformationPipe(source *InputChannel, outputCh *OutputChannel, spec *TransformationSpec) (*AggregateTransformationPipe, error) {
 	// Prepare the column evaluators
 	var err error
+	// Validate the config: must have NewRecord set to true
+	if !spec.NewRecord {
+		err = fmt.Errorf("error: must have new_record set to true for aggregate transform")
+		fmt.Println(err)
+		return nil, err
+	}
 	columnEvaluators := make([]TransformationColumnEvaluator, len(spec.Columns))
 	for i := range spec.Columns {
 		// log.Printf("**& build aggregate TransformationColumn[%d] of type %s for output %s", i, spec.Type, spec.Output)

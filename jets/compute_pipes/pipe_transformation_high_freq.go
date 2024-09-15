@@ -122,6 +122,8 @@ func (ctx *BuilderContext) NewHighFreqTransformationPipe(source *InputChannel, o
 	if source == nil || outputCh == nil {
 		return nil, fmt.Errorf("error: High Freq Pipe Transformation spec is missing source and/or outputCh channels")
 	}
+	// Validate the config: must have NewRecord set to true
+	spec.NewRecord = true
 	// Set up the High Freq State for each input column that are tracked
 	analyzeState := make(map[string]map[string]*DistinctCount)
 	for _, c := range *spec.HighFreqColumns {

@@ -147,7 +147,7 @@ func (ctx *BuilderContext) buildComputeGraph() error {
 		switch pipeSpec.Type {
 		case "fan_out":
 			// log.Println("**& starting PipeConfig", i, "fan_out", "on source", source.config.Name)
-			// Create the writePartitionResultCh in case it contains a partition_writter, 
+			// Create the writePartitionResultCh in case it contains a partition_writter,
 			// it would write a single partition, the ch will contain the number of rows for the partition
 			writePartitionsResultCh := make(chan ComputePipesResult, 10)
 			ctx.chResults.WritePartitionsResultCh <- writePartitionsResultCh
@@ -177,9 +177,10 @@ func (ctx *BuilderContext) buildPipeTransformationEvaluator(source *InputChannel
 	// log.Println("**& buildPipeTransformationEvaluator for", spec.Type, "source:", source.config.Name, "jetsPartitionKey:", jetsPartitionKey, "output:", spec.Output)
 
 	// Get the output channel
-	outCh, err := ctx.channelRegistry.GetOutputChannel(spec.Output)
+	outCh, err := ctx.channelRegistry.GetOutputChannel(spec.OutputChannel.Name)
 	if err != nil {
-		err = fmt.Errorf("while in buildPipeTransformationEvaluator for %s from source %s requesting output channel %s: %v", spec.Type, source.config.Name, spec.Output, err)
+		err = fmt.Errorf("while in buildPipeTransformationEvaluator for %s from source %s requesting output channel %s: %v",
+			spec.Type, source.config.Name, spec.OutputChannel.Name, err)
 		log.Println(err)
 		return nil, err
 	}

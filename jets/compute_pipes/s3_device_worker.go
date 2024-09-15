@@ -42,7 +42,7 @@ func (ctx *S3DeviceWorker) DoWork(mgr *S3DeviceManager, resultCh chan ComputePip
 	resultCh <- ComputePipesResult{PartsCount: count}
 }
 
-func (ctx *S3DeviceWorker) processTask(task *S3Object, mgr *S3DeviceManager, resultCh chan ComputePipesResult) error {
+func (ctx *S3DeviceWorker) processTask(task *S3Object, _ *S3DeviceManager, resultCh chan ComputePipesResult) error {
 	var cpErr error
 	var putObjInput *s3.PutObjectInput
 	var retry int

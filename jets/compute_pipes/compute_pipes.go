@@ -63,6 +63,7 @@ func (cpCtx *ComputePipesContext) StartComputePipes(dbpool *pgxpool.Pool, comput
 	}()
 
 	// Prepare the channel registry
+	// ----------------------------
 	if cpCtx.CpConfig.CommonRuntimeArgs.CpipesMode == "sharding" {
 		// Setup the input channel for input_row
 		headersPosMap := make(map[string]int)
@@ -78,6 +79,31 @@ func (cpCtx *ComputePipesContext) StartComputePipes(dbpool *pgxpool.Pool, comput
 			},
 		}
 	}
+	// Collect all the channel that are in use in PipeConfig, looking at PipeConfig.TransformationSpec.OutputChannel
+	// Make a lookup of channel spec using the channels config
+	channelsSpec := make(map[string]*ChannelSpec)
+	// Get the channels in used based on transformation pipe config, prime the channels using the provided channel spec
+	channelsInUse := make(map[string]*ChannelSpec)
+	for i := range cpCtx.CpConfig.Channels {
+		channelsSpec[cpCtx.CpConfig.Channels[i].Name] = &cpCtx.CpConfig.Channels[i]
+		channelsInUse[cpCtx.CpConfig.Channels[i].Name] = &cpCtx.CpConfig.Channels[i]
+	}
+	// Get the output channels
+	for i := range cpCtx.CpConfig.PipesConfig {
+		for j := range cpCtx.CpConfig.PipesConfig[i].Apply {
+			outputChannel := &cpCtx.CpConfig.PipesConfig[i].Apply[j].OutputChannel
+			spec := channelsSpec[outputChannel.SpecName]
+			if spec == nil {
+				cpErr = fmt.Errorf("channel spec %s not found in ChannelRegistry", outputChannel.SpecName)
+				goto gotError	
+			}
+			channelsInUse[outputChannel.Name] = &ChannelSpec{
+				Name: outputChannel.Name,
+				Columns: spec.Columns,
+			}
+		}
+	}
+	// Use the channelsInUse map to create the Channel Registry
 	channelRegistry = &ChannelRegistry{
 		inputRowChannel:      inputRowChannel,
 		computeChannels:      make(map[string]*Channel),
@@ -85,15 +111,15 @@ func (cpCtx *ComputePipesContext) StartComputePipes(dbpool *pgxpool.Pool, comput
 		closedChannels:       make(map[string]bool),
 		distributionChannels: make(map[string]*[]string),
 	}
-	for i := range cpCtx.CpConfig.Channels {
+	for name, spec := range channelsInUse {
 		cm := make(map[string]int)
-		for j, c := range cpCtx.CpConfig.Channels[i].Columns {
+		for j, c := range spec.Columns {
 			cm[c] = j
 		}
-		channelRegistry.computeChannels[cpCtx.CpConfig.Channels[i].Name] = &Channel{
+		channelRegistry.computeChannels[name] = &Channel{
 			channel: make(chan []interface{}),
 			columns: cm,
-			config:  &cpCtx.CpConfig.Channels[i],
+			config:  spec,
 		}
 	}
 	if cpCtx.CpConfig.CommonRuntimeArgs.CpipesMode == "reducing" {
@@ -115,13 +141,12 @@ func (cpCtx *ComputePipesContext) StartComputePipes(dbpool *pgxpool.Pool, comput
 		cpCtx.CpConfig.PipesConfig[0].Input = "input_row"
 		channelRegistry.inputRowChannel = inputRowChannel
 	}
-
 	// log.Println("Compute Pipes channel registry ready")
-	// for i := range cpCtx.CpConfig.Channels {
-	// 	log.Println("**& Channel", cpCtx.CpConfig.Channels[i].Name, "Columns map", channelRegistry.computeChannels[cpCtx.CpConfig.Channels[i].Name].columns)
+	// for name, channel := range channelRegistry.computeChannels {
+	// 	log.Println("**& Channel", name, "Columns map", channel.columns)
 	// }
 
-	// Prepare the output tables when in mode reducing only
+	// Prepare the output tables
 	for i := range cpCtx.CpConfig.OutputTables {
 		tableName := cpCtx.CpConfig.OutputTables[i].Name
 		if strings.Contains(tableName, "$") {
@@ -138,12 +163,12 @@ func (cpCtx *ComputePipesContext) StartComputePipes(dbpool *pgxpool.Pool, comput
 			goto gotError
 		}
 		outChannel = channelRegistry.computeChannels[cpCtx.CpConfig.OutputTables[i].Key]
-		channelRegistry.outputTableChannels = append(channelRegistry.outputTableChannels, cpCtx.CpConfig.OutputTables[i].Key)
 		if outChannel == nil {
 			cpErr = fmt.Errorf("error: invalid Compute Pipes configuration: Output table %s does not have a channel configuration",
 				cpCtx.CpConfig.OutputTables[i].Name)
 			goto gotError
 		}
+		channelRegistry.outputTableChannels = append(channelRegistry.outputTableChannels, cpCtx.CpConfig.OutputTables[i].Key)
 		// log.Println("*** Channel for Output Table", tableIdentifier, "is:", outChannel.config.Name)
 		wt = WriteTableSource{
 			source:          outChannel.channel,
