@@ -145,13 +145,13 @@ func (args *StartComputePipesArgs) StartShardingComputePipes(ctx context.Context
 		if err != nil {
 			return result, fmt.Errorf("while splitting table name: %s", err)
 		}
-		fmt.Println("**& Preparing / Updating Output Table", tableIdentifier)
+		// log.Println("*** Preparing / Updating Output Table", tableIdentifier)
 		err = PrepareOutoutTable(dbpool, tableIdentifier, cpConfig.OutputTables[i])
 		if err != nil {
 			return result, fmt.Errorf("while preparing output table: %s", err)
 		}
 	}
-	fmt.Println("Compute Pipes output tables schema ready")
+	// log.Println("Compute Pipes output tables schema ready")
 	// Select any used table during sharding
 	stepId := 0
 	outputTables, err := SelectActiveOutputTable(cpConfig.OutputTables, cpConfig.ReducingPipesConfig[stepId])
@@ -304,6 +304,25 @@ func (args *StartComputePipesArgs) StartShardingComputePipes(ctx context.Context
 	if err != nil {
 		return result, err
 	}
+	pipeConfig := cpConfig.ReducingPipesConfig[0]
+	if len(pipeConfig) == 0 {
+		return result, fmt.Errorf("error: invalid cpipes config, reducing_pipes_config is incomplete")
+	}
+	// Validate that the first PipeSpec[0].Input == "input_row"
+	if pipeConfig[0].Input != "input_row" {
+		return result, fmt.Errorf("error: invalid cpipes config, reducing_pipes_config[0][0].input must be 'input_row'")
+	}
+	// Validate PipeSpec[0].TransformationSpec[*].NewRecord == true
+	for i := range pipeConfig[0].Apply {
+		if !pipeConfig[0].Apply[i].NewRecord {
+			return result, fmt.Errorf("error: invalid cpipes config, reducing_pipes_config[0][0].apply[*].new_record must be 'true'")
+		}
+	}
+	// Validate the PipeSpec.TransformationSpec.OutputChannel configuration
+	err = ValidatePipeSpecOutputChannels(pipeConfig)
+	if err != nil {
+		return result, err
+	}
 	cpShardingConfig := &ComputePipesConfig{
 		CommonRuntimeArgs: &ComputePipesCommonArgs{
 			CpipesMode:      "sharding",
@@ -340,7 +359,7 @@ func (args *StartComputePipesArgs) StartShardingComputePipes(ctx context.Context
 		LookupTables:  lookupTables,
 		Channels:      cpConfig.Channels,
 		Context:       cpConfig.Context,
-		PipesConfig:   cpConfig.ReducingPipesConfig[0],
+		PipesConfig:   pipeConfig,
 	}
 	shardingConfigJson, err := json.Marshal(cpShardingConfig)
 	if err != nil {
@@ -432,15 +451,17 @@ func SelectActiveLookupTable(lookupConfig []*LookupSpec, pipeConfig []PipeSpec) 
 				}
 			}
 			// Check for Analyze transformation using lookup tables
-			for k := range *transformationSpec.LookupTokens {
-				lookupTokenNode := &(*transformationSpec.LookupTokens)[k]
-				spec := lookupMap[lookupTokenNode.Name]
-				if spec == nil {
-					return nil,
-						fmt.Errorf(
-							"error: lookup table '%s' is not defined, please verify the column transformation", lookupTokenNode.Name)
+			if transformationSpec.LookupTokens != nil {
+				for k := range *transformationSpec.LookupTokens {
+					lookupTokenNode := &(*transformationSpec.LookupTokens)[k]
+					spec := lookupMap[lookupTokenNode.Name]
+					if spec == nil {
+						return nil,
+							fmt.Errorf(
+								"error: lookup table '%s' is not defined, please verify the column transformation", lookupTokenNode.Name)
+					}
+					activeTables = append(activeTables, spec)
 				}
-				activeTables = append(activeTables, spec)
 			}
 		}
 	}
@@ -462,11 +483,34 @@ func SelectActiveOutputTable(tableConfig []*TableSpec, pipeConfig []PipeSpec) ([
 	for i := range pipeConfig {
 		for j := range pipeConfig[i].Apply {
 			transformationSpec := &pipeConfig[i].Apply[j]
-			spec := tableMap[transformationSpec.Output]
-			if spec != nil {
+			if len(transformationSpec.OutputChannel.OutputTableKey) > 0 {
+				spec := tableMap[transformationSpec.OutputChannel.OutputTableKey]
+				if spec == nil {
+					return nil, fmt.Errorf(
+						"error: Output Table spec %s not found, is used in output_channel",
+						transformationSpec.OutputChannel.OutputTableKey)
+				}
 				activeTables = append(activeTables, spec)
 			}
 		}
 	}
 	return activeTables, nil
+}
+
+// Function to validate the PipeSpec output channel config
+func ValidatePipeSpecOutputChannels(pipeConfig []PipeSpec) error {
+	for i := range pipeConfig {
+		for j := range pipeConfig[i].Apply {
+			config := &pipeConfig[i].Apply[j].OutputChannel
+			if len(config.OutputTableKey) > 0 {
+				config.Name = config.OutputTableKey
+				config.SpecName = config.OutputTableKey
+			} else {
+				if len(config.Name) == 0 || config.Name == config.SpecName {
+					return fmt.Errorf("error: invalid cpipes config, output_channel.name must not be empty or same as output_channel.channel_spec_name")
+				}
+			}
+		}
+	}
+	return nil
 }

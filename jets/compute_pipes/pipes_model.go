@@ -106,6 +106,7 @@ type PipeSpec struct {
 type TransformationSpec struct {
 	// Type range: map_record, aggregate, analyze, high_freq, partition_writer
 	Type                  string                     `json:"type"`
+	NewRecord             bool                       `json:"new_record"`
 	PartitionSize         *int                       `json:"partition_size"`
 	JetsPartitionKey      *string                    `json:"jets_partition_key"`
 	FilePathSubstitutions *[]PathSubstitution        `json:"file_path_substitutions"`
@@ -116,7 +117,13 @@ type TransformationSpec struct {
 	LookupTokens          *[]LookupTokenNode         `json:"lookup_tokens"`     // for analyze
 	KeywordTokens         *[]KeywordTokenNode        `json:"keyword_tokens"`    // for analyze
 	HighFreqColumns       *[]string                  `json:"high_freq_columns"` // for high_freq
-	Output                string                     `json:"output"`
+	OutputChannel         OutputChannelConfig        `json:"output_channel"`
+}
+
+type OutputChannelConfig struct {
+	Name           string `json:"name"`
+	OutputTableKey string `json:"output_table_key"`
+	SpecName       string `json:"channel_spec_name"`
 }
 
 type PathSubstitution struct {

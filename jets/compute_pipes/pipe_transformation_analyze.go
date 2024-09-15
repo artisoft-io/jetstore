@@ -319,7 +319,7 @@ func (ctx *AnalyzeTransformationPipe) done() error {
 			}
 		}
 		// Send the column result to output
-		// fmt.Println("**!@@ ** Send AGGREGATE Result to", ctx.outputCh.config.Name)
+		// log.Println("**!@@ ** Send AGGREGATE Result to", ctx.outputCh.config.Name)
 		select {
 		case ctx.outputCh.channel <- outputRow:
 		case <-ctx.doneCh:
@@ -327,7 +327,7 @@ func (ctx *AnalyzeTransformationPipe) done() error {
 		}
 	}
 
-	fmt.Println("**!@@ ** Send ANALYZE Result to", ctx.outputCh.config.Name, "DONE")
+	// log.Println("**!@@ ** Send ANALYZE Result to", ctx.outputCh.config.Name, "DONE")
 	return nil
 }
 
@@ -336,8 +336,10 @@ func (ctx *AnalyzeTransformationPipe) finally() {}
 func (ctx *BuilderContext) NewAnalyzeTransformationPipe(source *InputChannel, outputCh *OutputChannel, spec *TransformationSpec) (*AnalyzeTransformationPipe, error) {
 	var err error
 	if spec == nil || spec.RegexTokens == nil || spec.LookupTokens == nil || spec.KeywordTokens == nil {
-		return nil, fmt.Errorf("error: Analyze Pipe Transformation spec is missing regex, lookup,  and/or keywords definition")
+		return nil, fmt.Errorf("error: Analyze Pipe Transformation spec is missing regex, lookup, and/or keywords definition")
 	}
+	// Validate the config: must have NewRecord set to true
+	spec.NewRecord = true
 
 	// Set up the AnalyzeState for each input column
 	analyzeState := make([]interface{}, len(source.config.Columns))

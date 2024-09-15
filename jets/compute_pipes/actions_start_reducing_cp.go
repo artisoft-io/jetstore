@@ -33,7 +33,6 @@ func (args *StartComputePipesArgs) StartReducingComputePipes(ctx context.Context
 	}
 	defer dbpool.Close()
 
-
 	// Sync workspace files
 	// Fetch overriten workspace files if not in dev mode
 	// When in dev mode, the apiserver refreshes the overriten workspace files
@@ -168,13 +167,17 @@ func (args *StartComputePipesArgs) StartReducingComputePipes(ctx context.Context
 
 	// Get the input columns from Pipes Config, from the first pipes channel
 	var inputColumns []string
+	var inputChannel string
 	if !isMergeFiles {
-		inputChannel := cpConfig.ReducingPipesConfig[stepId][0].Input
+		inputChannel = cpConfig.ReducingPipesConfig[stepId][0].Input
 		for i := range cpConfig.Channels {
 			if cpConfig.Channels[i].Name == inputChannel {
 				inputColumns = cpConfig.Channels[i].Columns
 				break
 			}
+		}
+		if len(inputColumns) == 0 {
+			return result, fmt.Errorf("error: cpipes config is missing channel config for input %s", inputChannel)
 		}
 	}
 
@@ -182,20 +185,27 @@ func (args *StartComputePipesArgs) StartReducingComputePipes(ctx context.Context
 	if err != nil {
 		return result, err
 	}
+	// Validate the PipeSpec.TransformationSpec.OutputChannel configuration
+	pipeConfig := cpConfig.ReducingPipesConfig[stepId]
+	err = ValidatePipeSpecOutputChannels(pipeConfig)
+	if err != nil {
+		return result, err
+	}
+
 	cpReducingConfig := &ComputePipesConfig{
 		CommonRuntimeArgs: &ComputePipesCommonArgs{
-			CpipesMode:        "reducing",
-			Client:            client,
-			Org:               org,
-			ObjectType:        objectType,
-			FileKey:           args.FileKey,
-			SessionId:         args.SessionId,
-			ReadStepId:        readStepId,
-			WriteStepId:       writeStepId,
-			MergeFiles:        isMergeFiles,
-			InputSessionId:    inputSessionId,
-			SourcePeriodKey:   sourcePeriodKey,
-			ProcessName:       processName,
+			CpipesMode:      "reducing",
+			Client:          client,
+			Org:             org,
+			ObjectType:      objectType,
+			FileKey:         args.FileKey,
+			SessionId:       args.SessionId,
+			ReadStepId:      readStepId,
+			WriteStepId:     writeStepId,
+			MergeFiles:      isMergeFiles,
+			InputSessionId:  inputSessionId,
+			SourcePeriodKey: sourcePeriodKey,
+			ProcessName:     processName,
 			SourcesConfig: SourcesConfigSpec{
 				MainInput: &InputSourceSpec{
 					InputColumns:        inputColumns,
@@ -213,7 +223,7 @@ func (args *StartComputePipesArgs) StartReducingComputePipes(ctx context.Context
 		LookupTables:  lookupTables,
 		Channels:      cpConfig.Channels,
 		Context:       cpConfig.Context,
-		PipesConfig:   cpConfig.ReducingPipesConfig[stepId],
+		PipesConfig:   pipeConfig,
 	}
 
 	reducingConfigJson, err := json.Marshal(cpReducingConfig)

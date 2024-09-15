@@ -9,11 +9,9 @@ import (
 	"github.com/jackc/pgx/v4/pgxpool"
 )
 
-var jetsS3InputPrefix string
 var jetsS3StagePrefix string
 
 func init() {
-	jetsS3InputPrefix = os.Getenv("JETS_s3_INPUT_PREFIX")
 	jetsS3StagePrefix = os.Getenv("JETS_s3_STAGE_PREFIX")
 }
 
@@ -112,15 +110,22 @@ func (ctx *PartitionWriterTransformationPipe) apply(input *[]interface{}) error 
 			}
 		}()
 	}
-
-	currentValues := make([]interface{}, len(ctx.outputCh.config.Columns))
-	// initialize the column evaluators
-	for i := range ctx.columnEvaluators {
-		ctx.columnEvaluators[i].initializeCurrentValue(&currentValues)
+	// currentValue is either the input row or a new row based on ctx.NewRecord flag
+	var currentValues *[]interface{}
+	if ctx.spec.NewRecord {
+		v := make([]interface{}, len(ctx.outputCh.config.Columns))
+		currentValues = &v
+		// initialize the column evaluators
+		for i := range ctx.columnEvaluators {
+			ctx.columnEvaluators[i].initializeCurrentValue(currentValues)
+		}
+	} else {
+		currentValues = input
 	}
+
 	// apply the column transformation for each column
 	for i := range ctx.columnEvaluators {
-		err = ctx.columnEvaluators[i].update(&currentValues, input)
+		err = ctx.columnEvaluators[i].update(currentValues, input)
 		if err != nil {
 			err = fmt.Errorf("while calling column transformation from partition_writer: %v", err)
 			log.Println(err)
@@ -129,14 +134,20 @@ func (ctx *PartitionWriterTransformationPipe) apply(input *[]interface{}) error 
 	}
 	// Notify the column evaluator that we're done
 	for i := range ctx.columnEvaluators {
-		err := ctx.columnEvaluators[i].done(&currentValues)
+		err := ctx.columnEvaluators[i].done(currentValues)
 		if err != nil {
 			return fmt.Errorf("while calling done on column evaluator from partition_writer: %v", err)
 		}
 	}
+	if !ctx.spec.NewRecord {
+		// resize the slice in case we're dropping column on the output
+		if len(*currentValues) > len(ctx.outputCh.config.Columns) {
+			*currentValues = (*currentValues)[:len(ctx.outputCh.config.Columns)]
+		}
+	}
 	// Send the result to output
 	select {
-	case ctx.outputCh.channel <- currentValues:
+	case ctx.outputCh.channel <- *currentValues:
 	case <-ctx.doneCh:
 		log.Printf("PartitionWriterTransformationPipe writing to '%s' interrupted", ctx.outputCh.config.Name)
 		return nil

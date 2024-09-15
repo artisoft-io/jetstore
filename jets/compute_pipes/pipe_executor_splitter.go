@@ -24,7 +24,7 @@ func (ctx *BuilderContext) StartSplitterPipe(spec *PipeSpec, source *InputChanne
 		// fmt.Println("**!@@ SPLITTER: Closing Output Channels")
 		oc := make(map[string]bool)
 		for i := range spec.Apply {
-			oc[spec.Apply[i].Output] = true
+			oc[spec.Apply[i].OutputChannel.Name] = true
 		}
 		for i := range oc {
 			// fmt.Println("**!@@ SPLITTER: Closing Output Channel", i)
