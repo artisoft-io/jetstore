@@ -232,6 +232,10 @@ func (an *AlphaNode) FindMatchingRows(parentBetaRelation *BetaRelation, s, p, o 
 	v0 := v == -1
 	wI := w >= 0
 	w0 := w == -1
+	// //**
+	// if an.NdVertex.Vertex == 42 {
+	// 	log.Printf("vertex %d FindMatchingRows: %s, BetaRowIndex: (Fu: %d, Fv: %d, Fw: %d)", an.NdVertex.Vertex, rdf.ToString(&[3]*rdf.Node{s, p, o}), u, v, w)
+	// }
 	switch {
 	case uI && v0 && w0:
 		return parentBetaRelation.FindMatchingRows1(key, s)
@@ -247,6 +251,10 @@ func (an *AlphaNode) FindMatchingRows(parentBetaRelation *BetaRelation, s, p, o 
 		return parentBetaRelation.FindMatchingRows1(key, p)
 	case uI && vI && wI:
 		return parentBetaRelation.FindMatchingRows3(key, s, p, o)
+		case u0 && v0 && w0:
+			return map[*BetaRow]bool{
+				NewBetaRow(an.NdVertex.ParentNodeVertex, 0):true,
+			}
 	}
 	return nil
 }
