@@ -305,7 +305,7 @@ func (ctx *ServerContext) ProcessData(reteWorkspace *ReteWorkspace) (*PipelineRe
 	// start write2tables pipeline that reads from writeOutputc
 	// setup a WaitGroup with the number of workers,
 	// each worker is assigned to an output table
-	// create a chanel for executor's result
+	// create a channel for executor's result
 	// NOTE: Add to outputMapping the table information for writing BadRows
 	// notifications to the database. Note that we put the schema name with
 	// the table name since the process_errors table is not in the public schema
