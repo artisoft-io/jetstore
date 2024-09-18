@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"strconv"
 
 	// "log"
 	"os"
@@ -21,6 +22,7 @@ import (
 // ENV VARIABLES:
 // JETS_BUCKET
 // JETS_DSN_SECRET
+// JETS_DB_POOL_SIZE
 // JETS_REGION
 // JETS_s3_INPUT_PREFIX
 // JETS_s3_OUTPUT_PREFIX
@@ -38,7 +40,18 @@ func main() {
 	hasErr := false
 	var errMsg []string
 	var err error
-	dbPoolSize = 3
+	dbPoolSize = 8
+	v := os.Getenv("JETS_DB_POOL_SIZE")
+	if len(v) > 0 {
+		vv, err := strconv.Atoi(v)
+		if err == nil {
+			dbPoolSize = vv
+		}
+	}
+	if dbPoolSize < 5 {
+		hasErr = true
+		errMsg = append(errMsg, "DB pool size must be a least 5, using env JETS_DB_POOL_SIZE")
+	}
 	awsDsnSecret = os.Getenv("JETS_DSN_SECRET")
 	if awsDsnSecret == "" {
 		hasErr = true

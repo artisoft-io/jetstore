@@ -252,8 +252,8 @@ func (ctx *Context) RegisterFileKeys(registerFileKeyAction *RegisterFileKeyActio
 			if err != nil {
 				return nil, http.StatusInternalServerError, fmt.Errorf("while determining hasCpipesSM and hasOtherSM: %v", err)
 			}
-			//**
-			log.Printf("*** RegisterFileKey for object_type %s, having cpipesSM: %d and other SM: %d", objectType, hasCpipesSM, hasOtherSM)
+			// //***
+			// log.Printf("*** RegisterFileKey for object_type %s, having cpipesSM: %d and other SM: %d", objectType, hasCpipesSM, hasOtherSM)
 			switch {
 			case hasOtherSM > 0 && automated > 0:
 				// make sure we don't duplicate session_id
@@ -306,7 +306,7 @@ func (ctx *Context) RegisterFileKeys(registerFileKeyAction *RegisterFileKeyActio
 							"source_period_key":   source_period_key,
 							"file_key":            fileKey,
 							"client":              client,
-							"state_machine":       "cpipesSM", //TODO only start cpipes pipeline
+							"state_machine":       "cpipesSM", //TODO use this as filter to only start cpipes pipeline
 						}},
 					}, token)
 				}
@@ -336,8 +336,8 @@ func (ctx *Context) LoadAllFiles(registerFileKeyAction *RegisterFileKeyAction, t
 		fromSourcePeriodKey := registerFileKeyAction.Data[irow]["from_source_period_key"]
 		toSourcePeriodKey := registerFileKeyAction.Data[irow]["to_source_period_key"]
 		userEmail := registerFileKeyAction.Data[irow]["user_email"]
-		// //DEV
-		// fmt.Println("**** LoadAllFiles called with client",client, org,"objectType",objectType,"userEmail",userEmail)
+		// //***
+		// log.Println("**** LoadAllFiles called with client",client, org,"objectType",objectType,"userEmail",userEmail)
 		var tableName string
 		stmt := `
 			SELECT table_name

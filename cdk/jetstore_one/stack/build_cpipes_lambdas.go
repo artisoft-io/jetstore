@@ -57,6 +57,7 @@ func (jsComp *JetStoreStackComponents) BuildCpipesLambdas(scope constructs.Const
 			"JETS_BUCKET":                              jsComp.SourceBucket.BucketName(),
 			"JETS_DSN_SECRET":                          jsComp.RdsSecret.SecretName(),
 			"JETS_INVALID_CODE":                        jsii.String(os.Getenv("JETS_INVALID_CODE")),
+			"CPIPES_DB_POOL_SIZE":                      jsii.String(os.Getenv("CPIPES_DB_POOL_SIZE")),
 			"JETS_REGION":                              jsii.String(os.Getenv("AWS_REGION")),
 			"JETS_s3_INPUT_PREFIX":                     jsii.String(os.Getenv("JETS_s3_INPUT_PREFIX")),
 			"JETS_s3_OUTPUT_PREFIX":                    jsii.String(os.Getenv("JETS_s3_OUTPUT_PREFIX")),

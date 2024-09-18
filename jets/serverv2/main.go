@@ -22,6 +22,7 @@ import (
 // JETS_BUCKET
 // JETS_DSN_URI_VALUE
 // JETS_DSN_JSON_VALUE
+// JETS_DB_POOL_SIZE
 // WORKSPACE Workspace currently in use
 // WORKSPACES_HOME Home dir of workspaces
 // JETS_DOMAIN_KEY_HASH_ALGO (values: md5, sha1, none (default))
@@ -64,6 +65,17 @@ func main() {
 	if *pipelineExecKey < 0 {
 		hasErr = true
 		errMsg = append(errMsg, "Pipeline execution status key (-peKey) must be provided.")
+	}
+	v := os.Getenv("JETS_DB_POOL_SIZE")
+	if len(v) > 0 {
+		vv, err := strconv.Atoi(v)
+		if err == nil {
+			dbPoolSize = &vv
+		}
+	}
+	if *dbPoolSize < 5 {
+		hasErr = true
+		errMsg = append(errMsg, "DB pool size must be a least 5, using env JETS_DB_POOL_SIZE or arg -dbPoolSize, env var takes precedence")
 	}
 
 	//*TODO Factor out code

@@ -45,6 +45,7 @@ func (jsComp *JetStoreStackComponents) BuildServerv2SM(scope constructs.Construc
 			"JETS_DOMAIN_KEY_HASH_ALGO":                jsii.String(os.Getenv("JETS_DOMAIN_KEY_HASH_ALGO")),
 			"JETS_DOMAIN_KEY_HASH_SEED":                jsii.String(os.Getenv("JETS_DOMAIN_KEY_HASH_SEED")),
 			"JETS_DSN_SECRET":                          jsComp.RdsSecret.SecretName(),
+			"JETS_DB_POOL_SIZE":                        jsii.String(os.Getenv("JETS_DB_POOL_SIZE")),
 			"JETS_INPUT_ROW_JETS_KEY_ALGO":             jsii.String(os.Getenv("JETS_INPUT_ROW_JETS_KEY_ALGO")),
 			"JETS_INVALID_CODE":                        jsii.String(os.Getenv("JETS_INVALID_CODE")),
 			"JETS_LOADER_CHUNCK_SIZE":                  jsii.String(os.Getenv("JETS_LOADER_CHUNCK_SIZE")),

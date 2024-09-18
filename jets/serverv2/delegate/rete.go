@@ -443,9 +443,8 @@ func (rw *ReteWorkspace) ExecuteRules(
 				}
 			}
 			ctor.Done()
-			//**
-			log.Println("Done Extracting class:", tableSpec.TableInfo.ClassName)
-
+			// //**
+			// log.Println("Done Extracting class:", tableSpec.TableInfo.ClassName)
 		}
 		result.ExecuteRulesCount += 1
 		rdfSession.ReleaseRDFSession()

@@ -33,7 +33,7 @@ import (
 var awsRegion string
 var lookupDb string
 var pipelineExecKey int
-var poolSize int
+var poolSize int	// execute rules workers pool size
 var outSessionId string
 var limit int
 var nbrShards int
@@ -133,7 +133,7 @@ func DoJobAndReportStatus(dbpool *pgxpool.Pool, ca *CommandArguments) error {
 	log.Printf("Command Line Argument: limit: %d\n", limit)
 	log.Printf("Command Line Argument: lookupDb: %s\n", lookupDb)
 	log.Printf("Command Line Argument: nbrShards: %d\n", nbrShards)
-	log.Printf("Command Line Argument: poolSize: %d\n", poolSize)
+	log.Printf("Command Line Argument: execute rules worker poolSize: %d\n", poolSize)
 	log.Printf("Command Line Argument: peKey: %d\n", pipelineExecKey)
 	log.Printf("Command Line Argument: sessionId: %s\n", outSessionId)
 	log.Printf("Command Line Argument: shardId: %d\n", shardId)
