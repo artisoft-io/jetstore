@@ -14,13 +14,17 @@ func (rs *ReteSession) TripleUpdated(vertex int, s, p, o *rdf.Node, isInserted b
 		log.Panic("ReteSession.TripleUpdated called with invalid vertex:", vertex)
 	}
 	// //**
-	// if vertex == 119 {
-	// 	log.Printf("TripleUpdated: %s, inserted? %v at vertex %d", rdf.ToString(&[3]*rdf.Node{s, p, o}), isInserted,vertex)
+	// if vertex == 42 {
+	// 	log.Printf("vertex %d TripleUpdated: %s, inserted? %v", vertex, rdf.ToString(&[3]*rdf.Node{s, p, o}), isInserted)
 	// }
 
 	// If beta node is not activated yet, ignore the notification
 	betaRelation := rs.GetBetaRelation(vertex)
 	if !betaRelation.IsActivated {
+		// //**
+		// if vertex == 42 {
+		// 	log.Printf("vertex %d TripleUpdated: %s, !betaRelation.IsActivated - bailing out", vertex, rdf.ToString(&[3]*rdf.Node{s, p, o}))
+		// }
 		return
 	}
 	nodeVertex := rs.ms.NodeVertices[vertex]
@@ -30,7 +34,10 @@ func (rs *ReteSession) TripleUpdated(vertex int, s, p, o *rdf.Node, isInserted b
 	// which is provided by the alpha node adaptor
 	alphaNode := rs.GetAlphaNode(vertex)
 	parentBetaRows := alphaNode.FindMatchingRows(parentBetaRelation, s, p, o)
-
+	// //**
+	// if vertex == 42 {
+	// 	log.Printf("vertex %d TripleUpdated: %s, parentBetaRows == nil ? %v", vertex, rdf.ToString(&[3]*rdf.Node{s, p, o}), parentBetaRows == nil)
+	// }
 	// for each BetaRow of parent beta node,
 	// compute the inferred/retracted BetaRow for the added/retracted triple (s, p, o)
 	t3 := rdf.Triple{s, p, o}
@@ -51,8 +58,12 @@ func (rs *ReteSession) TripleUpdated(vertex int, s, p, o *rdf.Node, isInserted b
 		if keepIt {
 			// Add/Remove row to current beta relation (betaRelation)
 			switch {
-			case (isInserted && !nodeVertex.IsNegation) || 
+			case (isInserted && !nodeVertex.IsNegation) ||
 				(!isInserted && nodeVertex.IsNegation):
+				// //**
+				// if vertex == 42 {
+				// 	log.Printf("vertex %d TripleUpdated: %s, Insert the row and propagate down the network", vertex, rdf.ToString(&[3]*rdf.Node{s, p, o}))
+				// }
 				// Insert the row and propagate down the network
 				betaRelation.InsertBetaRow(rs, betaRow)
 				if betaRelation.HasPendingRows() {
@@ -61,8 +72,12 @@ func (rs *ReteSession) TripleUpdated(vertex int, s, p, o *rdf.Node, isInserted b
 						log.Panicf("while calling VisitReteGraph(inferring) from vertex %d: %v", vertex, err)
 					}
 				}
-			case (!isInserted && !nodeVertex.IsNegation) || 
+			case (!isInserted && !nodeVertex.IsNegation) ||
 				(isInserted && nodeVertex.IsNegation):
+				// //**
+				// if vertex == 42 {
+				// 	log.Printf("vertex %d TripleUpdated: %s, Remove the row and propagate down the network", vertex, rdf.ToString(&[3]*rdf.Node{s, p, o}))
+				// }
 				// Remove the row and propagate down the network
 				betaRelation.RemoveBetaRow(rs, betaRow)
 				if betaRelation.HasPendingRows() {
