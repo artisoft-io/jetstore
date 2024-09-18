@@ -3,6 +3,8 @@ package main
 import (
 	"context"
 	"fmt"
+	"strconv"
+
 	// "log"
 	"os"
 
@@ -19,6 +21,7 @@ import (
 // ENV VARIABLES:
 // JETS_BUCKET
 // JETS_DSN_SECRET
+// CPIPES_DB_POOL_SIZE
 // JETS_REGION
 // NBR_SHARDS default nbr_nodes of cluster
 // JETS_S3_KMS_KEY_ARN
@@ -35,6 +38,17 @@ func main() {
 	var errMsg []string
 	var err error
 	dbPoolSize = 3
+	v := os.Getenv("CPIPES_DB_POOL_SIZE")
+	if len(v) > 0 {
+		vv, err := strconv.Atoi(v)
+		if err == nil {
+			dbPoolSize = vv
+		}
+	}
+	if dbPoolSize < 4 {
+		hasErr = true
+		errMsg = append(errMsg, "DB pool size must be a least 3, using env CPIPES_DB_POOL_SIZE")
+	}
 	awsDsnSecret = os.Getenv("JETS_DSN_SECRET")
 	if awsDsnSecret == "" {
 		hasErr = true
