@@ -14,6 +14,10 @@ func NewEndsWithOp() BinaryOperator {
 	return &EndsWithOp{}
 }
 
+func (op *EndsWithOp) InitializeOperator(metaGraph *rdf.RdfGraph, lhs, rhs *rdf.Node) error {
+	return nil
+}
+
 func (op *EndsWithOp) RegisterCallback(reteSession *ReteSession, vertex int, lhs, rhs *rdf.Node) error {
 	return nil
 }

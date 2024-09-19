@@ -16,26 +16,29 @@ func NewSortedHeadOp() BinaryOperator {
 	return &SortedHeadOp{}
 }
 
-// Add truth maintenance
-// Delegate to MinMaxOp
-func (op *SortedHeadOp) RegisterCallback(reteSession *ReteSession, vertex int, lhs, rhs *rdf.Node) error {
-	if reteSession == nil {
-		return nil
-	}
-	rdfSession := reteSession.RdfSession
-	jr := rdfSession.ResourceMgr.JetsResources
+func (op *SortedHeadOp) InitializeOperator(metaGraph *rdf.RdfGraph, lhs, rhs *rdf.Node) error {
+	jr := metaGraph.RootRm.JetsResources
 	// Get the operator for sorted_head (it's either '<' or '>')
-	operator := rdfSession.GetObject(rhs, jr.Jets__operator)
+	operator := metaGraph.GetObject(rhs, jr.Jets__operator)
 	if operator == nil {
 		return fmt.Errorf("error: sorted_head operator misconfigured, missing jets:operator configuration")
 	}
 	operatorValue, ok := operator.Value.(string)
 	if !ok {
-		return fmt.Errorf("error: sorted_head operator misconfigured, jets:operator must be a string literal")
+		return fmt.Errorf("error: sorted_head operator misconfigured, jets:operator argument must be a string literal")
 	}
 	op.minMaxOp = &MinMaxOp{
 		isMin: operatorValue == "<",
 		retObj: true,
+	}
+	return nil
+}
+
+// Add truth maintenance
+// Delegate to MinMaxOp
+func (op *SortedHeadOp) RegisterCallback(reteSession *ReteSession, vertex int, lhs, rhs *rdf.Node) error {
+	if reteSession == nil {
+		return nil
 	}
 	return op.minMaxOp.RegisterCallback(reteSession, vertex, lhs, rhs)
 }

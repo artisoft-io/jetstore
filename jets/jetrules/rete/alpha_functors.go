@@ -15,6 +15,7 @@ import (
 //   - BetaRowIndex (aka to_AVQ) Manage beta_row indexes in beta_relation according to the functors template arguments
 //
 type AlphaFunctor interface {
+	InitializeExpression(reteSession *ReteSession) error
 	StaticValue() *rdf.Node
 	Eval(*ReteSession, *BetaRow) *rdf.Node
 	BetaRowIndex() int
@@ -36,6 +37,9 @@ type FConstant struct {
 func (af *FConstant) StaticValue() *rdf.Node {
 	return af.node
 }
+func (af *FConstant) InitializeExpression(reteSession *ReteSession) error {
+	return nil
+}
 func (af *FConstant) Eval(*ReteSession, *BetaRow) *rdf.Node {
 	return af.node
 }
@@ -52,6 +56,9 @@ type FVariable struct {
 }
 
 func (af *FVariable) StaticValue() *rdf.Node {
+	return nil
+}
+func (af *FVariable) InitializeExpression(reteSession *ReteSession) error {
 	return nil
 }
 func (af *FVariable) Eval(*ReteSession, *BetaRow) *rdf.Node {
@@ -73,6 +80,9 @@ type FBinded struct {
 func (af *FBinded) StaticValue() *rdf.Node {
 	return nil
 }
+func (af *FBinded) InitializeExpression(reteSession *ReteSession) error {
+	return nil
+}
 func (af *FBinded) Eval(reteSession *ReteSession, row *BetaRow) *rdf.Node {
 	return row.Get(af.pos)
 }
@@ -90,6 +100,9 @@ type FExpression struct {
 
 func (af *FExpression) StaticValue() *rdf.Node {
 	return nil
+}
+func (af *FExpression) InitializeExpression(reteSession *ReteSession) error {
+	return af.expression.InitializeExpression(reteSession)
 }
 func (af *FExpression) Eval(reteSession *ReteSession, row *BetaRow) *rdf.Node {
 	r := af.expression.Eval(reteSession, row)

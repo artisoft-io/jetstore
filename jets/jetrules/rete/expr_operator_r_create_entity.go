@@ -17,6 +17,10 @@ func NewCreateEntityOp() UnaryOperator {
 	return &CreateEntityOp{}
 }
 
+func (op *CreateEntityOp) InitializeOperator(metaGraph *rdf.RdfGraph, rhs *rdf.Node) error {
+	return nil
+}
+
 func (op *CreateEntityOp) RegisterCallback(reteSession *ReteSession, vertex int, rhs *rdf.Node) error {
 	return nil
 }

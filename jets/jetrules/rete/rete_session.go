@@ -106,12 +106,14 @@ func (rs *ReteSession) Initialize(ms *ReteMetaStore) {
 			nodeVertex := alphaNode.NdVertex
 			if nodeVertex.HasExpression() {
 				// log.Printf("Set Callbacks for vertex %d with filter",  nodeVertex.Vertex)
+				err := nodeVertex.FilterExpr.InitializeExpression(rs)
+				if err != nil {
+					log.Panicf("configuration error found while initializing rete session: %v", err)
+				}
 				nodeVertex.FilterExpr.RegisterCallback(rs, nodeVertex.Vertex)
 			}
 		} else {
-			if i > 0 {
-				break
-			}
+			alphaNode.Fw.InitializeExpression(rs)
 		}
 	}
 }

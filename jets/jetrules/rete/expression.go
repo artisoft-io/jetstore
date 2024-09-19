@@ -1,6 +1,8 @@
 package rete
 
 import (
+	"log"
+
 	"github.com/artisoft-io/jetstore/jets/jetrules/rdf"
 )
 
@@ -13,13 +15,17 @@ import (
 // The expression parsing and transformation to it's final expression tree is done in the rule compiler.
 
 type Expression interface {
-
+	// Initialize the operators in expressions
+	//
+	// Applicable to filter and object
+	InitializeExpression(reteSession *ReteSession) error
 	// Register callback with graph
 	//
 	// Applicable to operator having predicates as argument
 	// that need to participate to the truth maintenance
 	// e.g. operators exists and exists_not
-	// Only some binary operator do participate to the truth maintenance
+	// Only some binary operator do participate to the truth maintenance.
+	// Applicable to filter components only.
 	RegisterCallback(reteSession *ReteSession, vertex int) error
 	// Eval the Expression node
 	Eval(reteSession *ReteSession, row *BetaRow) *rdf.Node
@@ -37,6 +43,10 @@ type ExprCst struct {
 
 func NewExprCst(r *rdf.Node) Expression {
 	return &ExprCst{data: r}
+}
+
+func (expr *ExprCst) InitializeExpression(reteSession *ReteSession) error {
+	return nil
 }
 
 func (expr *ExprCst) RegisterCallback(reteSession *ReteSession, vertex int) error {
@@ -60,12 +70,16 @@ func (expr *ExprCst) EvalFilter(reteSession *ReteSession, row *BetaRow) bool {
 
 // Binded variable term
 type ExprBindedVar struct {
-	data int
+	data  int
 	label string
 }
 
 func NewExprBindedVar(idx int, label string) Expression {
 	return &ExprBindedVar{data: idx, label: label}
+}
+
+func (expr *ExprBindedVar) InitializeExpression(reteSession *ReteSession) error {
+	return nil
 }
 
 func (expr *ExprBindedVar) RegisterCallback(reteSession *ReteSession, vertex int) error {
@@ -100,7 +114,22 @@ type ExprBinaryOp struct {
 }
 
 func NewExprBinaryOp(lhs Expression, op BinaryOperator, rhs Expression) Expression {
+	if lhs == nil || op == nil || rhs == nil {
+		log.Panicf("oops invalid arguments to NewExprBinaryOp(%v, %v, %v), argument cannot be nil",
+			lhs, op, rhs)
+	}
 	return &ExprBinaryOp{op: op, lhs: lhs, rhs: rhs}
+}
+
+func (expr *ExprBinaryOp) InitializeExpression(reteSession *ReteSession) error {
+	// Propagate the InitializeExpression
+	expr.lhs.InitializeExpression(reteSession)
+	expr.rhs.InitializeExpression(reteSession)
+
+	// perform StaticEval for calling RegisterCallback on the operator
+	lhs := expr.lhs.StaticEval(reteSession)
+	rhs := expr.rhs.StaticEval(reteSession)
+	return expr.op.InitializeOperator(reteSession.ms.MetaGraph, lhs, rhs)
 }
 
 func (expr *ExprBinaryOp) RegisterCallback(reteSession *ReteSession, vertex int) error {
@@ -141,6 +170,15 @@ type ExprUnaryOp struct {
 
 func NewExprUnaryOp(op UnaryOperator, rhs Expression) Expression {
 	return &ExprUnaryOp{op: op, rhs: rhs}
+}
+
+func (expr *ExprUnaryOp) InitializeExpression(reteSession *ReteSession) error {
+	// Propagate the InitializeExpression
+	expr.rhs.InitializeExpression(reteSession)
+
+	// perform StaticEval for calling RegisterCallback on the operator
+	rhs := expr.rhs.StaticEval(reteSession)
+	return expr.op.InitializeOperator(reteSession.ms.MetaGraph, rhs)
 }
 
 func (expr *ExprUnaryOp) RegisterCallback(reteSession *ReteSession, vertex int) error {

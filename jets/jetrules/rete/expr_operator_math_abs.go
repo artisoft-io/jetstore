@@ -15,6 +15,10 @@ func NewAbsOp() UnaryOperator {
 	return &AbsOp{}
 }
 
+func (op *AbsOp) InitializeOperator(metaGraph *rdf.RdfGraph, rhs *rdf.Node) error {
+	return nil
+}
+
 func (op *AbsOp) RegisterCallback(reteSession *ReteSession, vertex int, rhs *rdf.Node) error {
 	return nil
 }

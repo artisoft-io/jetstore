@@ -13,6 +13,10 @@ func NewUuidSha1Op() UnaryOperator {
 	return &UuidSha1Op{}
 }
 
+func (op *UuidSha1Op) InitializeOperator(metaGraph *rdf.RdfGraph, rhs *rdf.Node) error {
+	return nil
+}
+
 func (op *UuidSha1Op) RegisterCallback(reteSession *ReteSession, vertex int, rhs *rdf.Node) error {
 	return nil
 }

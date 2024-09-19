@@ -18,6 +18,10 @@ func NewSubstringOfOp() BinaryOperator {
 	return &SubstringOfOp{}
 }
 
+func (op *SubstringOfOp) InitializeOperator(metaGraph *rdf.RdfGraph, lhs, rhs *rdf.Node) error {
+	return nil
+}
+
 func (op *SubstringOfOp) RegisterCallback(reteSession *ReteSession, vertex int, lhs, rhs *rdf.Node) error {
 	return nil
 }

@@ -42,8 +42,10 @@ func (rs *ReteSession) TripleUpdated(vertex int, s, p, o *rdf.Node, isInserted b
 	// compute the inferred/retracted BetaRow for the added/retracted triple (s, p, o)
 	t3 := rdf.Triple{s, p, o}
 	betaRowInitializer := nodeVertex.RowInitializer
-	for parentRow := range parentBetaRows {
-
+	for parentRow, valid := range parentBetaRows {
+		if !valid {
+			continue
+		}
 		// create the beta row to add/retract
 		betaRow := NewBetaRow(nodeVertex, betaRowInitializer.RowSize())
 

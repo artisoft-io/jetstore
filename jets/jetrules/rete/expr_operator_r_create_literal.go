@@ -16,6 +16,10 @@ func NewCreateLiteralOp() UnaryOperator {
 	return &CreateLiteralOp{}
 }
 
+func (op *CreateLiteralOp) InitializeOperator(metaGraph *rdf.RdfGraph, rhs *rdf.Node) error {
+	return nil
+}
+
 func (op *CreateLiteralOp) RegisterCallback(reteSession *ReteSession, vertex int, rhs *rdf.Node) error {
 	return nil
 }

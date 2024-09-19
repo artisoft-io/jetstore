@@ -12,6 +12,9 @@ type ToDatetimeOp struct {
 func NewToDatetimeOp() UnaryOperator {
 	return &ToDatetimeOp{}
 }
+func (op *ToDatetimeOp) InitializeOperator(metaGraph *rdf.RdfGraph, rhs *rdf.Node) error {
+	return nil
+}
 
 func (op *ToDatetimeOp) RegisterCallback(reteSession *ReteSession, vertex int, rhs *rdf.Node) error {
 	return nil

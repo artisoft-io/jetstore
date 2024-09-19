@@ -14,6 +14,10 @@ func NewParseCurrencyOp() UnaryOperator {
 	return &ParseCurrencyOp{}
 }
 
+func (op *ParseCurrencyOp) InitializeOperator(metaGraph *rdf.RdfGraph, rhs *rdf.Node) error {
+	return nil
+}
+
 func (op *ParseCurrencyOp) RegisterCallback(reteSession *ReteSession, vertex int, rhs *rdf.Node) error {
 	return nil
 }

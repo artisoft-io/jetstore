@@ -12,6 +12,10 @@ func NewIsResourceOp() UnaryOperator {
 	return &IsResourceOp{}
 }
 
+func (op *IsResourceOp) InitializeOperator(metaGraph *rdf.RdfGraph, rhs *rdf.Node) error {
+	return nil
+}
+
 func (op *IsResourceOp) RegisterCallback(reteSession *ReteSession, vertex int, rhs *rdf.Node) error {
 	return nil
 }

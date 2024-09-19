@@ -22,6 +22,10 @@ func NewRangeOp() BinaryOperator {
 	return &RangeOp{}
 }
 
+func (op *RangeOp) InitializeOperator(metaGraph *rdf.RdfGraph, lhs, rhs *rdf.Node) error {
+	return nil
+}
+
 func (op *RangeOp) RegisterCallback(reteSession *ReteSession, vertex int, lhs, rhs *rdf.Node) error {
 	return nil
 }

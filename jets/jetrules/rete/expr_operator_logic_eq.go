@@ -12,6 +12,10 @@ func NewEqOp() BinaryOperator {
 	return &EqOp{}
 }
 
+func (op *EqOp) InitializeOperator(metaGraph *rdf.RdfGraph, lhs, rhs *rdf.Node) error {
+	return nil
+}
+
 func (op *EqOp) RegisterCallback(reteSession *ReteSession, vertex int, lhs, rhs *rdf.Node) error {
 	return nil
 }

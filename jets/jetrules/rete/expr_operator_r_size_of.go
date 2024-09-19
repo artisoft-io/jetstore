@@ -12,6 +12,10 @@ func NewSizeOfOp() BinaryOperator {
 	return &SizeOfOp{}
 }
 
+func (op *SizeOfOp) InitializeOperator(metaGraph *rdf.RdfGraph, lhs, rhs *rdf.Node) error {
+	return nil
+}
+
 // Add truth maintenance
 func (op *SizeOfOp) RegisterCallback(reteSession *ReteSession, vertex int, lhs, rhs *rdf.Node) error {
 	if reteSession == nil {

@@ -12,6 +12,10 @@ func NewAndOp() BinaryOperator {
 	return &AndOp{}
 }
 
+func (op *AndOp) InitializeOperator(metaGraph *rdf.RdfGraph, lhs, rhs *rdf.Node) error {
+	return nil
+}
+
 func (op *AndOp) RegisterCallback(reteSession *ReteSession, vertex int, lhs, rhs *rdf.Node) error {
 	return nil
 }

@@ -137,7 +137,7 @@ func (factory *ReteMetaStoreFactory) initialize() error {
 		builderContext := &ReteBuilderContext{
 			ResourceMgr:     factory.ResourceMgr,
 			WorkspaceCtrl:   factory.WorkspaceCtrl,
-			MetaGraph:       rdf.NewRdfGraph("META"),
+			MetaGraph:       rdf.NewMetaRdfGraph(factory.ResourceMgr),
 			ResourcesLookup: make(map[int]*rdf.Node),
 			VariablesLookup: make(map[int]*VarInfo),
 			MainRuleUri:     ruleUri,
@@ -428,9 +428,11 @@ func (ctx *ReteBuilderContext) loadNodeVertices() error {
 	// Initialize the slice of *NodeVertex with the root node
 	ctx.NodeVertices = append(ctx.NodeVertices, NewNodeVertex(0, nil, false, 0, nil, "(* * *)", nil, nil))
 
-	for i := range ctx.JetruleModel.Antecedents {
-		reteNode := ctx.JetruleModel.Antecedents[i]
-
+	for _, reteNode := range ctx.JetruleModel.Antecedents {
+		if reteNode.ParentVertex >= len(ctx.NodeVertices) {
+			return fmt.Errorf("bug: something is wrong, parent vertex >= vertex at vertex %d", reteNode.Vertex)
+		}
+		parent := ctx.NodeVertices[reteNode.ParentVertex]
 		// Make the BetaRowInitializer
 		sz := len(reteNode.BetaVarNodes)
 		brData := make([]int, sz)
@@ -438,6 +440,11 @@ func (ctx *ReteBuilderContext) loadNodeVertices() error {
 		for j := range reteNode.BetaVarNodes {
 			betaVarNode := &reteNode.BetaVarNodes[j]
 			if betaVarNode.IsBinded {
+				if reteNode.ParentVertex == 0 {
+					return fmt.Errorf(
+						"bug: something is wrong, cannot have binded var %s at node %d since it's parent node is root node", 
+						betaVarNode.Id, reteNode.Vertex)
+				}
 				brData[j] = betaVarNode.VarPos | brcParentNode
 			} else {
 				brData[j] = betaVarNode.VarPos | brcTriple
@@ -452,10 +459,6 @@ func (ctx *ReteBuilderContext) loadNodeVertices() error {
 			err = fmt.Errorf("while making FilterExpr for NodeVertex at %d: %v", reteNode.Vertex, err)
 			return err
 		}
-		if reteNode.ParentVertex >= len(ctx.NodeVertices) {
-			return fmt.Errorf("bug: something is wrong, parent vertex >= vertex at vertex %d", reteNode.Vertex)
-		}
-		parent := ctx.NodeVertices[reteNode.ParentVertex]
 		salience := 100
 		if len(reteNode.Salience) > 0 {
 			salience = slices.Min(reteNode.Salience)
@@ -491,7 +494,7 @@ func (ctx *ReteBuilderContext) makeExpression(expr map[string]interface{}) (Expr
 		if !ok {
 			return nil, fmt.Errorf("error: makeExpression called for binary expression without an op")
 		}
-		operator := CreateBinaryOperator(opStr)
+		operator := ctx.CreateBinaryOperator(opStr)
 		if operator == nil {
 			return nil, fmt.Errorf("error: makeExpression called for binary expression with unknown op %s", opStr)
 		}
@@ -505,7 +508,7 @@ func (ctx *ReteBuilderContext) makeExpression(expr map[string]interface{}) (Expr
 		if !ok {
 			return nil, fmt.Errorf("error: makeExpression called for unary expression without an op")
 		}
-		operator := CreateUnaryOperator(opStr)
+		operator := ctx.CreateUnaryOperator(opStr)
 		if operator == nil {
 			return nil, fmt.Errorf("error: makeExpression called for unary expression with unknown op %s", opStr)
 		}

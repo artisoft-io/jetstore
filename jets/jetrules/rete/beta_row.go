@@ -38,6 +38,9 @@ func (row *BetaRow) Initialize(initializer *BetaRowInitializer, parentRow *BetaR
 	for i, d := range initializer.InitData {
 		pos := d & brcLowMask
 		if d & brcParentNode != 0 {
+			if len(parentRow.Data) == 0 {
+				log.Panicf("oops len(parentRow.Data)==0 but (d & brcParentNode != 0) @ vertex %d, parent %d, triple %s", row.NdVertex.Vertex, parentRow.NdVertex.Vertex, rdf.ToString(t3))
+			}
 			value = parentRow.Data[pos]
 		} else {
 			value = (*t3)[pos]

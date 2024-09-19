@@ -17,6 +17,7 @@ type RdfGraph struct {
 	posGraph    *BaseGraph
 	ospGraph    *BaseGraph
 	CallbackMgr *CallbackManager
+	RootRm      *ResourceManager
 }
 
 func NewRdfGraph(graphType string) *RdfGraph {
@@ -25,6 +26,16 @@ func NewRdfGraph(graphType string) *RdfGraph {
 		posGraph:    NewBaseGraph(graphType, 'p'),
 		ospGraph:    NewBaseGraph(graphType, 'o'),
 		CallbackMgr: NewCallbackManager(),
+	}
+}
+
+func NewMetaRdfGraph(rootRm *ResourceManager) *RdfGraph {
+	return &RdfGraph{
+		spoGraph:    NewBaseGraph("META", 's'),
+		posGraph:    NewBaseGraph("META", 'p'),
+		ospGraph:    NewBaseGraph("META", 'o'),
+		CallbackMgr: NewCallbackManager(),
+		RootRm:      rootRm,
 	}
 }
 
@@ -38,6 +49,15 @@ func (g *RdfGraph) Contains(s, p, o *Node) bool {
 
 func (g *RdfGraph) ContainsSP(s, p *Node) bool {
 	return g.spoGraph.ContainsUV(s, p)
+}
+
+func (rs *RdfGraph) GetObject(s, p *Node) *Node {
+	itor := rs.FindSP(s, p)
+	defer itor.Done()
+	for t3 := range itor.Itor {
+		return t3[2]
+	}
+	return nil
 }
 
 func (g *RdfGraph) Find() *BaseGraphIterator {
@@ -143,7 +163,7 @@ func (g *RdfGraph) Erase(s, p, o *Node) (bool, error) {
 		l = append(l, &t3)
 	}
 	for _, t3 := range l {
-		b, err := g.erase_internal((*t3)[0],(*t3)[1],(*t3)[2])
+		b, err := g.erase_internal((*t3)[0], (*t3)[1], (*t3)[2])
 		if err != nil {
 			return false, err
 		}

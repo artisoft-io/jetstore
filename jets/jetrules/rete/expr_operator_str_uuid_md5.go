@@ -31,6 +31,10 @@ func NewUuidMd5Op() UnaryOperator {
 	return &UuidMd5Op{}
 }
 
+func (op *UuidMd5Op) InitializeOperator(metaGraph *rdf.RdfGraph, rhs *rdf.Node) error {
+	return nil
+}
+
 func (op *UuidMd5Op) RegisterCallback(reteSession *ReteSession, vertex int, rhs *rdf.Node) error {
 	return nil
 }

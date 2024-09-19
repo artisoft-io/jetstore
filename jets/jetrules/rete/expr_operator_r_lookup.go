@@ -23,6 +23,10 @@ func NewMultiLookupOp() BinaryOperator {
 	}
 }
 
+func (op *LookupOp) InitializeOperator(metaGraph *rdf.RdfGraph, lhs, rhs *rdf.Node) error {
+	return nil
+}
+
 func (op *LookupOp) RegisterCallback(reteSession *ReteSession, vertex int, lhs, rhs *rdf.Node) error {
 	return nil
 }
@@ -67,6 +71,10 @@ func NewMultiLookupRandOp() UnaryOperator {
 	return &LookupRandOp{
 		isMultiLookup: true,
 	}
+}
+
+func (op *LookupRandOp) InitializeOperator(metaGraph *rdf.RdfGraph, rhs *rdf.Node) error {
+	return nil
 }
 
 func (op *LookupRandOp) RegisterCallback(reteSession *ReteSession, vertex int, rhs *rdf.Node) error {
