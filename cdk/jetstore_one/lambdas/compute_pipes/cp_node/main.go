@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strconv"
 
-	// "log"
+	"log"
 	"os"
 
 	"github.com/artisoft-io/jetstore/jets/awsi"
@@ -45,9 +45,9 @@ func main() {
 			dbPoolSize = vv
 		}
 	}
-	if dbPoolSize < 4 {
-		hasErr = true
-		errMsg = append(errMsg, "DB pool size must be a least 3, using env CPIPES_DB_POOL_SIZE")
+	if dbPoolSize < 3 {
+		dbPoolSize = 3
+		log.Println("WARNING DB pool size must be a least 3, using env CPIPES_DB_POOL_SIZE, setting to 3")
 	}
 	awsDsnSecret = os.Getenv("JETS_DSN_SECRET")
 	if awsDsnSecret == "" {
