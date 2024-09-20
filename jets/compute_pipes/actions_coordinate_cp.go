@@ -8,7 +8,6 @@ import (
 	"regexp"
 	"time"
 
-	"github.com/artisoft-io/jetstore/jets/awsi"
 	"github.com/artisoft-io/jetstore/jets/datatable"
 	"github.com/jackc/pgx/v4/pgxpool"
 )
@@ -55,28 +54,26 @@ func (args *ComputePipesNodeArgs) CoordinateComputePipes(ctx context.Context, ds
 			cpErr = fmt.Errorf("while loading aws configuration (in CoordinateComputePipes): %v", err)
 			goto gotError
 		}
-		log.Printf("%s node %d %s Got %d file keys from database for file_key: %s", 
-			cpConfig.CommonRuntimeArgs.SessionId, args.NodeId, 
+		log.Printf("%s node %d %s Got %d file keys from database for file_key: %s",
+			cpConfig.CommonRuntimeArgs.SessionId, args.NodeId,
 			cpConfig.CommonRuntimeArgs.ReadStepId, len(fileKeys), cpConfig.CommonRuntimeArgs.FileKey)
 
 	case "reducing":
 		// Case cpipes reducing mode, get the file keys from s3
-		s3BaseFolder := fmt.Sprintf("%s/process_name=%s/session_id=%s/step_id=%s/jets_partition=%s",
-			jetsS3StagePrefix, cpConfig.CommonRuntimeArgs.ProcessName, cpConfig.CommonRuntimeArgs.SessionId,
+		fileKeys, err = GetS3FileKeys(cpConfig.CommonRuntimeArgs.ProcessName, cpConfig.CommonRuntimeArgs.SessionId,
 			cpConfig.CommonRuntimeArgs.ReadStepId, args.JetsPartitionLabel)
-
-		s3Objects, err := awsi.ListS3Objects(&s3BaseFolder)
-		if err != nil || s3Objects == nil {
-			cpErr = fmt.Errorf("failed to download list of files from s3: %v", err)
+		if err != nil {
+			cpErr = err
 			goto gotError
 		}
-		log.Printf("%s node %d %s Got %d file keys from s3 folder: %s", 
-			cpConfig.CommonRuntimeArgs.SessionId, args.NodeId, 
-			cpConfig.CommonRuntimeArgs.ReadStepId, len(s3Objects), s3BaseFolder)
-		fileKeys = make([]string, 0)
-		for i := range s3Objects {
-			if s3Objects[i].Size > 0 {
-				fileKeys = append(fileKeys, s3Objects[i].Key)
+		log.Printf("%s node %d %s Got %d file keys from s3",
+			cpConfig.CommonRuntimeArgs.SessionId, args.NodeId,
+			cpConfig.CommonRuntimeArgs.ReadStepId, len(fileKeys))
+		if cpConfig.ClusterConfig.IsDebugMode {
+			for _, k := range fileKeys {
+				log.Printf("%s node %d %s Got file key from s3: %s",
+				cpConfig.CommonRuntimeArgs.SessionId, args.NodeId,
+				cpConfig.CommonRuntimeArgs.ReadStepId, k)	
 			}
 		}
 
@@ -106,7 +103,6 @@ func (args *ComputePipesNodeArgs) CoordinateComputePipes(ctx context.Context, ds
 			"$SESSIONID":            cpConfig.CommonRuntimeArgs.SessionId,
 			"$SHARD_ID":             args.NodeId,
 			"$FILE_KEY_DATE":        fileKeyDate,
-			"$JETSTORE_DEV_MODE":    false,
 			"$JETS_PARTITION_LABEL": args.JetsPartitionLabel,
 		},
 		FileKeyComponents:  fileKeyComponents,
@@ -137,7 +133,6 @@ func (args *ComputePipesNodeArgs) CoordinateComputePipes(ctx context.Context, ds
 		// ContextSpec.Type == partfile_key_component:
 		//		Key is column name of input_row to put the key component (must be at end of columns comming from parquet parfiles)
 		//		Expr is key in partfile file_key
-		// NOTE: Ensure to have the added columns in the input_columns_json of source_config
 		// Prepare the regex for the partfile_key_component
 		cpContext.PartFileKeyComponents = make([]CompiledPartFileComponent, 0)
 		for i := range *cpContext.CpConfig.Context {

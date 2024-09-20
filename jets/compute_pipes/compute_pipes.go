@@ -43,6 +43,7 @@ func (cpCtx *ComputePipesContext) StartComputePipes(dbpool *pgxpool.Pool, comput
 	var wt WriteTableSource
 	var table chan ComputePipesResult
 	var ctx *BuilderContext
+	var inputRowChSpec *ChannelSpec
 	var inputRowChannel *InputChannel
 
 	// Create the LookupTableManager and prepare the lookups async
@@ -64,18 +65,24 @@ func (cpCtx *ComputePipesContext) StartComputePipes(dbpool *pgxpool.Pool, comput
 
 	// Prepare the channel registry
 	// ----------------------------
-	if cpCtx.CpConfig.CommonRuntimeArgs.CpipesMode == "sharding" {
+	inputChannelName := cpCtx.CpConfig.PipesConfig[0].Input
+	if inputChannelName == "input_row" {
+		// case sharding or reducing
 		// Setup the input channel for input_row
 		headersPosMap := make(map[string]int)
 		for i, c := range cpCtx.CpConfig.CommonRuntimeArgs.SourcesConfig.MainInput.InputColumns {
 			headersPosMap[c] = i
+		}
+		inputRowChSpec = &ChannelSpec{
+			Name: "input_row",
+			Columns: cpCtx.CpConfig.CommonRuntimeArgs.SourcesConfig.MainInput.InputColumns,
 		}
 		inputRowChannel = &InputChannel{
 			channel: computePipesInputCh,
 			columns: headersPosMap,
 			config: &ChannelSpec{
 				Name:    "input_row",
-				Columns: cpCtx.CpConfig.CommonRuntimeArgs.SourcesConfig.MainInput.InputColumns,
+				Columns: inputRowChSpec.Columns,
 			},
 		}
 	}
@@ -88,13 +95,16 @@ func (cpCtx *ComputePipesContext) StartComputePipes(dbpool *pgxpool.Pool, comput
 		channelsSpec[cpCtx.CpConfig.Channels[i].Name] = &cpCtx.CpConfig.Channels[i]
 		channelsInUse[cpCtx.CpConfig.Channels[i].Name] = &cpCtx.CpConfig.Channels[i]
 	}
+	if inputRowChSpec != nil {
+		channelsSpec[inputRowChSpec.Name] = inputRowChSpec
+	}
 	// Get the output channels
 	for i := range cpCtx.CpConfig.PipesConfig {
 		for j := range cpCtx.CpConfig.PipesConfig[i].Apply {
 			outputChannel := &cpCtx.CpConfig.PipesConfig[i].Apply[j].OutputChannel
 			spec := channelsSpec[outputChannel.SpecName]
 			if spec == nil {
-				cpErr = fmt.Errorf("channel spec %s not found in ChannelRegistry", outputChannel.SpecName)
+				cpErr = fmt.Errorf("channel spec %s not found in Channel Registry", outputChannel.SpecName)
 				goto gotError	
 			}
 			channelsInUse[outputChannel.Name] = &ChannelSpec{
@@ -122,12 +132,13 @@ func (cpCtx *ComputePipesContext) StartComputePipes(dbpool *pgxpool.Pool, comput
 			config:  spec,
 		}
 	}
-	if cpCtx.CpConfig.CommonRuntimeArgs.CpipesMode == "reducing" {
+	if inputChannelName != "input_row" {
+		// Case reducing
 		// Replace the first channel of the pipes and make it the "input_row"
 		// Setup the input channel for input_row
-		inChannel := channelRegistry.computeChannels[cpCtx.CpConfig.PipesConfig[0].Input]
+		inChannel := channelRegistry.computeChannels[inputChannelName]
 		if inChannel == nil {
-			cpErr = fmt.Errorf("channel %s not found in ChannelRegistry", cpCtx.CpConfig.PipesConfig[0].Input)
+			cpErr = fmt.Errorf("channel %s not found in Channel Registry", cpCtx.CpConfig.PipesConfig[0].Input)
 			goto gotError
 		}
 		inputRowChannel = &InputChannel{

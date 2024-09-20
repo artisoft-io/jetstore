@@ -312,12 +312,6 @@ func (args *StartComputePipesArgs) StartShardingComputePipes(ctx context.Context
 	if pipeConfig[0].Input != "input_row" {
 		return result, fmt.Errorf("error: invalid cpipes config, reducing_pipes_config[0][0].input must be 'input_row'")
 	}
-	// Validate PipeSpec[0].TransformationSpec[*].NewRecord == true
-	for i := range pipeConfig[0].Apply {
-		if !pipeConfig[0].Apply[i].NewRecord {
-			return result, fmt.Errorf("error: invalid cpipes config, reducing_pipes_config[0][0].apply[*].new_record must be 'true'")
-		}
-	}
 	// Validate the PipeSpec.TransformationSpec.OutputChannel configuration
 	err = ValidatePipeSpecOutputChannels(pipeConfig)
 	if err != nil {

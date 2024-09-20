@@ -33,30 +33,25 @@ func (cpCtx *ComputePipesContext) LoadFiles(ctx context.Context, dbpool *pgxpool
 	}()
 
 	// Start the Compute Pipes async
-	// Note: when nbrShards > 1, cpipes does not work in local mode in apiserver yet
 	go cpCtx.StartComputePipes(dbpool, computePipesInputCh)
 
 	// Load the files
 	var count, totalRowCount int64
 	var err error
+	inputFormat := cpCtx.CpConfig.CommonRuntimeArgs.SourcesConfig.MainInput.InputFormat
 	for localInFile := range cpCtx.FileNamesCh {
 		if cpCtx.CpConfig.ClusterConfig.IsDebugMode {
 			log.Printf("%s node %d Loading file '%s'", cpCtx.SessionId, cpCtx.NodeId, localInFile.InFileKey)
 		}
-		if cpCtx.CpipesMode == "sharding" {
-			inputFormat := cpCtx.CpConfig.CommonRuntimeArgs.SourcesConfig.MainInput.InputFormat
-			switch inputFormat {
-			case "csv", "headerless_csv":
-				count, err = cpCtx.ReadCsvFile(&localInFile, inputFormat, computePipesInputCh)
-			case "parquet", "parquet_select":
-				count, err = cpCtx.ReadParquetFile(&localInFile, computePipesInputCh)
-			default:
-				log.Println(cpCtx.SessionId, "node", cpCtx.NodeId, "error: unsupported file format: %s", inputFormat)
-				cpCtx.ChResults.LoadFromS3FilesResultCh <- LoadFromS3FilesResult{LoadRowCount: totalRowCount, BadRowCount: 0, Err: err}
-				return
-			}
-		} else {
-			count, err = cpCtx.ReadCsvFile(&localInFile, "headerless_csv", computePipesInputCh)
+		switch inputFormat {
+		case "csv", "headerless_csv", "compressed_csv", "compressed_headerless_csv":
+			count, err = cpCtx.ReadCsvFile(&localInFile, inputFormat, computePipesInputCh)
+		case "parquet", "parquet_select":
+			count, err = cpCtx.ReadParquetFile(&localInFile, computePipesInputCh)
+		default:
+			log.Println(cpCtx.SessionId, "node", cpCtx.NodeId, "error: unsupported file format: %s", inputFormat)
+			cpCtx.ChResults.LoadFromS3FilesResultCh <- LoadFromS3FilesResult{LoadRowCount: totalRowCount, BadRowCount: 0, Err: err}
+			return
 		}
 		totalRowCount += count
 		if err != nil {
@@ -217,33 +212,50 @@ func (cpCtx *ComputePipesContext) ReadCsvFile(filePath *FileName, inputFormat st
 
 	// log.Println("**!@@",cpCtx.SessionId,"partfile_key_component GOT",len(cpCtx.PartFileKeyComponents))
 	nbrColumns := len(cpCtx.CpConfig.CommonRuntimeArgs.SourcesConfig.MainInput.InputColumns)
-	inputColumns := cpCtx.CpConfig.CommonRuntimeArgs.SourcesConfig.MainInput.InputColumns[:nbrColumns-len(cpCtx.PartFileKeyComponents)]
-	if cpCtx.CpipesMode == "sharding" {
-		csvReader = csv.NewReader(fileHd)
-	} else {
-		csvReader = csv.NewReader(snappy.NewReader(fileHd))
-	}
-	// if inputFormat is "csv" (rather than "headerless_csv"), then skip header row (first row)
-	if inputFormat == "csv" {
-		_, err = csvReader.Read()
-		if err == io.EOF {
-			// empty file
-			return 0, nil
-		}
-		if err != nil {
-			return 0, fmt.Errorf("error while reading first input records: %v", err)
-		}
-	}
-	// Prepare the extended columns from partfile_key_component
+	var inputColumns []string
 	var extColumns []string
-	if len(cpCtx.PartFileKeyComponents) > 0 {
-		extColumns = make([]string, len(cpCtx.PartFileKeyComponents))
-		for i := range cpCtx.PartFileKeyComponents {
-			result := cpCtx.PartFileKeyComponents[i].Regex.FindStringSubmatch(filePath.InFileKey)
-			if len(result) > 0 {
-				extColumns[i] = result[1]
+	switch cpCtx.CpConfig.CommonRuntimeArgs.CpipesMode {
+	case "sharding":
+		// input columns include the partfile_key_component
+		inputColumns = cpCtx.CpConfig.CommonRuntimeArgs.SourcesConfig.MainInput.InputColumns[:nbrColumns-len(cpCtx.PartFileKeyComponents)]
+		// Prepare the extended columns from partfile_key_component
+		if len(cpCtx.PartFileKeyComponents) > 0 {
+			extColumns = make([]string, len(cpCtx.PartFileKeyComponents))
+			for i := range cpCtx.PartFileKeyComponents {
+				result := cpCtx.PartFileKeyComponents[i].Regex.FindStringSubmatch(filePath.InFileKey)
+				if len(result) > 0 {
+					extColumns[i] = result[1]
+				}
 			}
 		}
+	case "reducing":
+		inputColumns = cpCtx.CpConfig.CommonRuntimeArgs.SourcesConfig.MainInput.InputColumns
+	default:
+		return 0, fmt.Errorf("error: unknown cpipes mode in ReadCsvFile: %s", cpCtx.CpConfig.CommonRuntimeArgs.CpipesMode)
+	}
+
+	switch inputFormat {
+	case "csv":
+		csvReader = csv.NewReader(fileHd)
+		// skip header row (first row)
+		_, err = csvReader.Read()
+	case "compressed_csv":
+		csvReader = csv.NewReader(snappy.NewReader(fileHd))
+		// skip header row (first row)
+		_, err = csvReader.Read()
+	case "hearderless_csv":
+		csvReader = csv.NewReader(fileHd)
+	case "compressed_headerless_csv":
+		csvReader = csv.NewReader(snappy.NewReader(fileHd))
+	default:
+		return 0, fmt.Errorf("error: unknown input format in ReadCsvFile: %s", inputFormat)
+	}
+	if err == io.EOF {
+		// empty file
+		return 0, nil
+	}
+	if err != nil {
+		return 0, fmt.Errorf("error while reading first input records: %v", err)
 	}
 
 	var inputRowCount int64

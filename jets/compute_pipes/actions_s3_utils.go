@@ -65,10 +65,6 @@ func GetFileKeys(ctx context.Context, dbpool *pgxpool.Pool, sessionId string, no
 	return fileKeys, nil
 }
 
-// Input arg:
-// done: unbuffered channel to indicate to stop downloading file (must be an error downstream)
-// Returned values:
-// error when setting up the downloader
 func (cpCtx *ComputePipesContext) DownloadS3Files(inFolderPath string, fileKeys []string) error {
 
 	go func() {
@@ -78,9 +74,14 @@ func (cpCtx *ComputePipesContext) DownloadS3Files(inFolderPath string, fileKeys 
 		var fileSize, totalFilesSize int64
 		var err error
 		if cpCtx.CpConfig.ClusterConfig.IsDebugMode {
-			log.Printf("%s node %d Downloading multi-part file from s3 folder: %s", cpCtx.SessionId, cpCtx.NodeId, cpCtx.FileKey)
+			log.Printf("%s node %d %s Start downloading %d files from s3",
+				cpCtx.SessionId, cpCtx.NodeId, cpCtx.ReadStepId, len(fileKeys))
 		}
 		for i := range fileKeys {
+			if cpCtx.CpConfig.ClusterConfig.IsDebugMode {
+				log.Printf("%s node %d %s Downloading file from s3: %s",
+					cpCtx.SessionId, cpCtx.NodeId, cpCtx.ReadStepId, fileKeys[i])
+			}
 			retry := 0
 		do_retry:
 			inFilePath, fileSize, err = DownloadS3Object(fileKeys[i], inFolderPath, 1)
@@ -97,7 +98,7 @@ func (cpCtx *ComputePipesContext) DownloadS3Files(inFolderPath string, fileKeys 
 				}
 				return
 			}
-			if len(inFilePath) > 0 {	// skip sentinel files
+			if fileSize > 0 { // skip sentinel files
 				select {
 				case cpCtx.FileNamesCh <- FileName{LocalFileName: inFilePath, InFileKey: fileKeys[i]}:
 				case <-cpCtx.Done:
@@ -106,6 +107,10 @@ func (cpCtx *ComputePipesContext) DownloadS3Files(inFolderPath string, fileKeys 
 				}
 			}
 			totalFilesSize += fileSize
+		}
+		if cpCtx.CpConfig.ClusterConfig.IsDebugMode {
+			log.Printf("%s node %d %s DONE downloading %d files from s3",
+				cpCtx.SessionId, cpCtx.NodeId, cpCtx.ReadStepId, len(fileKeys))
 		}
 		cpCtx.DownloadS3ResultCh <- DownloadS3Result{InputFilesCount: len(fileKeys), TotalFilesSize: totalFilesSize}
 	}()
