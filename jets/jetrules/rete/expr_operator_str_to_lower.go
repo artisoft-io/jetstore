@@ -14,6 +14,10 @@ func NewToLowerOp() UnaryOperator {
 	return &ToLowerOp{}
 }
 
+func (op *ToLowerOp) InitializeOperator(metaGraph *rdf.RdfGraph, rhs *rdf.Node) error {
+	return nil
+}
+
 func (op *ToLowerOp) RegisterCallback(reteSession *ReteSession, vertex int, rhs *rdf.Node) error {
 	return nil
 }

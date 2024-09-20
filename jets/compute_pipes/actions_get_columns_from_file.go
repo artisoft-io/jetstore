@@ -35,8 +35,8 @@ do_retry:
 	log.Printf("Reading headers from file %s, size %d Kb", fileName, fileSize/1024)
 
 	switch fileFormat {
-	case "csv":
-		return GetRawHeadersCsv(fileName)
+	case "csv", "compressed_csv":
+		return GetRawHeadersCsv(fileName, fileFormat)
 
 	case "parquet":
 		// Get the file headers from the parquet schema

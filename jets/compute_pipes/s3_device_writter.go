@@ -22,6 +22,8 @@ type S3DeviceWriter struct {
 	localTempDir    *string
 	s3BasePath      *string
 	fileName        *string
+	spec            *TransformationSpec
+	outputCh        *OutputChannel
 	doneCh          chan struct{}
 	errCh           chan error
 }
@@ -129,6 +131,12 @@ func (ctx *S3DeviceWriter) WriteCsvPartition() {
 	snWriter = snappy.NewBufferedWriter(fileHd)
 	// Open a csv writer
 	csvWriter = csv.NewWriter(snWriter)
+	if ctx.spec.WriteHeaders {
+		if err = csvWriter.Write(ctx.outputCh.config.Columns); err != nil {
+			cpErr = fmt.Errorf("while writing headers to local csv file: %v", err)
+			goto gotError
+		}
+	}
 	// Write the rows into the temp file
 	for inRow := range ctx.source.channel {
 		//*$1

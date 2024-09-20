@@ -12,6 +12,10 @@ func NewNotOp() UnaryOperator {
 	return &NotOp{}
 }
 
+func (op *NotOp) InitializeOperator(metaGraph *rdf.RdfGraph, rhs *rdf.Node) error {
+	return nil
+}
+
 func (op *NotOp) RegisterCallback(reteSession *ReteSession, vertex int, rhs *rdf.Node) error {
 	return nil
 }

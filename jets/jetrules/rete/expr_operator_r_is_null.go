@@ -12,6 +12,10 @@ func NewIsNullOp() UnaryOperator {
 	return &IsNullOp{}
 }
 
+func (op *IsNullOp) InitializeOperator(metaGraph *rdf.RdfGraph, rhs *rdf.Node) error {
+	return nil
+}
+
 func (op *IsNullOp) RegisterCallback(reteSession *ReteSession, vertex int, rhs *rdf.Node) error {
 	return nil
 }

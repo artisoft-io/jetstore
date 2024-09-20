@@ -75,9 +75,9 @@ func (args *StartComputePipesArgs) StartReducingComputePipes(ctx context.Context
 		return result, fmt.Errorf("error: process_config table does not have a cpipes config file name in main_rules column")
 	}
 	// File format: csv, headerless_csv, fixed_width, parquet, parquet_select
-	if inputFormat == "" {
-		inputFormat = "csv"
-	}
+	// Additional file format for internal use (for now): compressed_csv, compressed_headerless_csv
+	inputFormat = "compressed_headerless_csv"
+
 	// Get the cpipes_config json from workspace
 	configFile := fmt.Sprintf("%s/%s/%s", workspaceHome, wsPrefix, cpipesConfigFN.String)
 	cpJson, err := os.ReadFile(configFile)
@@ -149,6 +149,9 @@ func (args *StartComputePipesArgs) StartReducingComputePipes(ctx context.Context
 			}
 		}
 	}
+	if len(partitions) == 0 {
+		return result, fmt.Errorf("error: no partitions found during start reducing for step %d", stepId)
+	}
 
 	// Make the reducing pipeline config
 	// Note that S3WorkerPoolSize is set to the  value set at the ClusterSpec
@@ -170,14 +173,31 @@ func (args *StartComputePipesArgs) StartReducingComputePipes(ctx context.Context
 	var inputChannel string
 	if !isMergeFiles {
 		inputChannel = cpConfig.ReducingPipesConfig[stepId][0].Input
-		for i := range cpConfig.Channels {
-			if cpConfig.Channels[i].Name == inputChannel {
-				inputColumns = cpConfig.Channels[i].Columns
-				break
+		if inputChannel == "input_row" {
+			// special case, need to get the input columns from file of first partition
+			inputFormat = "compressed_csv"
+			fileKeys, err := GetS3FileKeys(processName, args.SessionId, readStepId, partitions[0])
+			if err != nil {
+				return result, err
 			}
-		}
-		if len(inputColumns) == 0 {
-			return result, fmt.Errorf("error: cpipes config is missing channel config for input %s", inputChannel)
+			if len(fileKeys) == 0 {
+				return result, fmt.Errorf("error: no files found in partition %s", partitions[0])
+			}
+			ic, err := FetchHeadersFromFile(fileKeys[0], inputFormat, "")
+			if err != nil || ic == nil {
+				return result, fmt.Errorf("error: could not get input columns from file (reduce mode): %v", err)
+			}
+			inputColumns = *ic
+		} else {
+			for i := range cpConfig.Channels {
+				if cpConfig.Channels[i].Name == inputChannel {
+					inputColumns = cpConfig.Channels[i].Columns
+					break
+				}
+			}
+			if len(inputColumns) == 0 {
+				return result, fmt.Errorf("error: cpipes config is missing channel config for input %s", inputChannel)
+			}
 		}
 	}
 
@@ -209,7 +229,7 @@ func (args *StartComputePipesArgs) StartReducingComputePipes(ctx context.Context
 			SourcesConfig: SourcesConfigSpec{
 				MainInput: &InputSourceSpec{
 					InputColumns:        inputColumns,
-					InputFormat:         "headerless_csv",
+					InputFormat:         inputFormat,
 					InputFormatDataJson: "",
 				},
 			},

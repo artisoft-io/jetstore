@@ -93,6 +93,8 @@ func (ctx *PartitionWriterTransformationPipe) apply(input *[]interface{}) error 
 				columns: ctx.outputCh.columns,
 				config:  &ChannelSpec{Name: fmt.Sprintf("input channel for partition_writer for %s", partitionFileName)},
 			},
+			spec:          ctx.spec,
+			outputCh:      ctx.outputCh,
 			parquetSchema: ctx.parquetSchema,
 			localTempDir:  ctx.localTempDir,
 			s3BasePath:    ctx.baseOutputPath,

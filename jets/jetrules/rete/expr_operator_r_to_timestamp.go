@@ -12,6 +12,9 @@ type ToTimestampOp struct {
 func NewToTimestampOp() UnaryOperator {
 	return &ToTimestampOp{}
 }
+func (op *ToTimestampOp) InitializeOperator(metaGraph *rdf.RdfGraph, rhs *rdf.Node) error {
+	return nil
+}
 
 func (op *ToTimestampOp) RegisterCallback(reteSession *ReteSession, vertex int, rhs *rdf.Node) error {
 	return nil

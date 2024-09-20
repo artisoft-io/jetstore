@@ -17,6 +17,7 @@ type BetaRelation struct {
 	IsActivated bool
 	AllRows     *BetaRowSet
 	pendingRows []*BetaRow
+	rowIndexes0 map[*BetaRow]bool	// for getting all rows
 	rowIndexes1 []*BetaRowIndex1
 	rowIndexes2 []*BetaRowIndex2
 	rowIndexes3 []*BetaRowIndex3
@@ -31,6 +32,7 @@ func NewBetaRelation(nv *NodeVertex) *BetaRelation {
 		NdVertex:    nv,
 		AllRows:     NewBetaRowSet(),
 		pendingRows: make([]*BetaRow, 0),
+		rowIndexes0: make(map[*BetaRow]bool),
 		rowIndexes1: make([]*BetaRowIndex1, 0),
 		rowIndexes2: make([]*BetaRowIndex2, 0),
 		rowIndexes3: make([]*BetaRowIndex3, 0),
@@ -71,6 +73,7 @@ func (br *BetaRelation) InsertBetaRow(rs *ReteSession, row *BetaRow) {
 	}
 	// Add row to pending queue to notify child nodes
 	br.pendingRows = append(br.pendingRows, row)
+	br.rowIndexes0[row] = true	// need to make sure the head node has at least one beta row
 	if br.NdVertex.IsHead() {
 		return
 	}
@@ -130,6 +133,7 @@ func (br *BetaRelation) RemoveBetaRow(rs *ReteSession, row *BetaRow) {
 
 // remove the indexes associated with the beta row
 func (br *BetaRelation) RemoveIndexesForBetaRow(row *BetaRow) {
+	br.rowIndexes0[row] = false
 	for _, childAlphaNode := range br.NdVertex.ChildAlphaNodes {
 		childAlphaNode.EraseIndex4BetaRow(br, row)
 	}
@@ -197,11 +201,7 @@ func (br *BetaRelation) FindMatchingRows1(key int, u *rdf.Node) map[*BetaRow]boo
 	if betaRowIndex1 == nil {
 		log.Panic("bug: FindMatchingRows1 called with unknown key")
 	}
-	m := br.rowIndexes1[key]
-	if m == nil {
-		return nil
-	}
-	return (*m)[u]
+	return (*betaRowIndex1)[u]
 }
 
 func (br *BetaRelation) AddIndex2(key int, u, v *rdf.Node, row *BetaRow) {
@@ -242,12 +242,8 @@ func (br *BetaRelation) FindMatchingRows2(key int, u, v *rdf.Node) map[*BetaRow]
 	if betaRowIndex2 == nil {
 		log.Panic("bug: FindMatchingRows2 called with unknown key")
 	}
-	m := br.rowIndexes2[key]
-	if m == nil {
-		return nil
-	}
 	uv := [2]*rdf.Node{u, v}
-	return (*m)[uv]
+	return (*betaRowIndex2)[uv]
 }
 
 func (br *BetaRelation) AddIndex3(key int, u, v, w *rdf.Node, row *BetaRow) {
@@ -285,10 +281,6 @@ func (br *BetaRelation) FindMatchingRows3(key int, u, v, w *rdf.Node) map[*BetaR
 	if betaRowIndex3 == nil {
 		log.Panic("bug: FindMatchingRows3 called with unknown key")
 	}
-	m := br.rowIndexes3[key]
-	if m == nil {
-		return nil
-	}
 	uvw := [3]*rdf.Node{u, v, w}
-	return (*m)[uvw]
+	return (*betaRowIndex3)[uvw]
 }

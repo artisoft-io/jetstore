@@ -2,7 +2,7 @@ package rete
 
 // Factory for creating Expression operators
 
-func CreateBinaryOperator(op string) BinaryOperator {
+func (ctx *ReteBuilderContext) CreateBinaryOperator(op string) BinaryOperator {
 	switch op {
 	// Logical Operators
 	case ">":
@@ -87,7 +87,7 @@ func CreateBinaryOperator(op string) BinaryOperator {
 	return nil
 }
 
-func CreateUnaryOperator(op string) UnaryOperator {
+func (ctx *ReteBuilderContext) CreateUnaryOperator(op string) UnaryOperator {
 	switch op {
 	// Arithmetic operators
 	case "abs":

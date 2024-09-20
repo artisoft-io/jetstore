@@ -14,6 +14,10 @@ func NewDivOp() BinaryOperator {
 	return &DivOp{}
 }
 
+func (op *DivOp) InitializeOperator(metaGraph *rdf.RdfGraph, lhs, rhs *rdf.Node) error {
+	return nil
+}
+
 func (op *DivOp) RegisterCallback(reteSession *ReteSession, vertex int, lhs, rhs *rdf.Node) error {
 	return nil
 }

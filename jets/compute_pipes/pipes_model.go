@@ -113,6 +113,7 @@ type TransformationSpec struct {
 	Columns               []TransformationColumnSpec `json:"columns"`
 	DataSchema            *[]DataSchemaSpec          `json:"data_schema"`
 	DeviceWriterType      *string                    `json:"device_writer_type"`
+	WriteHeaders          bool                       `json:"write_headers"`
 	RegexTokens           *[]RegexNode               `json:"regex_tokens"`      // for analyze
 	LookupTokens          *[]LookupTokenNode         `json:"lookup_tokens"`     // for analyze
 	KeywordTokens         *[]KeywordTokenNode        `json:"keyword_tokens"`    // for analyze

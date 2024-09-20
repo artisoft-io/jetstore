@@ -15,6 +15,10 @@ func NewCreateResourceOp() UnaryOperator {
 	return &CreateResourceOp{}
 }
 
+func (op *CreateResourceOp) InitializeOperator(metaGraph *rdf.RdfGraph, rhs *rdf.Node) error {
+	return nil
+}
+
 func (op *CreateResourceOp) RegisterCallback(reteSession *ReteSession, vertex int, rhs *rdf.Node) error {
 	return nil
 }

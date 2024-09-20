@@ -14,6 +14,10 @@ func NewDayPeriodOfOp() UnaryOperator {
 	return &DayPeriodOfOp{}
 }
 
+func (op *DayPeriodOfOp) InitializeOperator(metaGraph *rdf.RdfGraph, rhs *rdf.Node) error {
+	return nil
+}
+
 func (op *DayPeriodOfOp) RegisterCallback(reteSession *ReteSession, vertex int, rhs *rdf.Node) error {
 	return nil
 }

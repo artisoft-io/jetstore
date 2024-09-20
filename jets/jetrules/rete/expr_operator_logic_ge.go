@@ -14,6 +14,10 @@ func NewGeOp() BinaryOperator {
 	return &GeOp{}
 }
 
+func (op *GeOp) InitializeOperator(metaGraph *rdf.RdfGraph, lhs, rhs *rdf.Node) error {
+	return nil
+}
+
 func (op *GeOp) RegisterCallback(reteSession *ReteSession, vertex int, lhs, rhs *rdf.Node) error {
 	return nil
 }

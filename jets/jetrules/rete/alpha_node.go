@@ -233,8 +233,8 @@ func (an *AlphaNode) FindMatchingRows(parentBetaRelation *BetaRelation, s, p, o 
 	wI := w >= 0
 	w0 := w == -1
 	// //**
-	// if an.NdVertex.Vertex == 42 {
-	// 	log.Printf("vertex %d FindMatchingRows: %s, BetaRowIndex: (Fu: %d, Fv: %d, Fw: %d)", an.NdVertex.Vertex, rdf.ToString(&[3]*rdf.Node{s, p, o}), u, v, w)
+	// if an.NdVertex.ParentNodeVertex.Vertex == 0 {
+	// 	log.Printf("vertex %d (parent vertex %d) FindMatchingRows: %s, BetaRowIndex: (Fu: %d, Fv: %d, Fw: %d)", an.NdVertex.Vertex, an.NdVertex.ParentNodeVertex.Vertex, rdf.ToString(&[3]*rdf.Node{s, p, o}), u, v, w)
 	// }
 	switch {
 	case uI && v0 && w0:
@@ -251,10 +251,11 @@ func (an *AlphaNode) FindMatchingRows(parentBetaRelation *BetaRelation, s, p, o 
 		return parentBetaRelation.FindMatchingRows1(key, p)
 	case uI && vI && wI:
 		return parentBetaRelation.FindMatchingRows3(key, s, p, o)
-		case u0 && v0 && w0:
-			return map[*BetaRow]bool{
-				NewBetaRow(an.NdVertex.ParentNodeVertex, 0):true,
-			}
+	case u0 && v0 && w0:
+		if parentBetaRelation.NdVertex.Vertex == 0 && len(parentBetaRelation.rowIndexes0) == 0 {
+			log.Panicf("root node has no beta row!!")
+		}
+		return parentBetaRelation.rowIndexes0
 	}
 	return nil
 }

@@ -12,6 +12,10 @@ func NewCharAtOp() BinaryOperator {
 	return &CharAtOp{}
 }
 
+func (op *CharAtOp) InitializeOperator(metaGraph *rdf.RdfGraph, lhs, rhs *rdf.Node) error {
+	return nil
+}
+
 func (op *CharAtOp) RegisterCallback(reteSession *ReteSession, vertex int, lhs, rhs *rdf.Node) error {
 	return nil
 }

@@ -22,6 +22,10 @@ func NewApplyRegexOp() BinaryOperator {
 	return &ApplyRegexOp{}
 }
 
+func (op *ApplyRegexOp) InitializeOperator(metaGraph *rdf.RdfGraph, lhs, rhs *rdf.Node) error {
+	return nil
+}
+
 func (op *ApplyRegexOp) RegisterCallback(reteSession *ReteSession, vertex int, lhs, rhs *rdf.Node) error {
 	return nil
 }

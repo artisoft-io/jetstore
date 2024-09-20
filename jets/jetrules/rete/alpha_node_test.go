@@ -69,7 +69,10 @@ func TestAlphaNode(t *testing.T) {
 	if len(rows) != 1 {
 		t.Error("expecting to have 1 row indexed")
 	}
-	for row := range rows {
+	for row, valid := range rows {
+		if !valid {
+			continue
+		}
 		if row.Data[0] != t3[0] || row.Data[1] != t3[1] || row.Data[2] != t3[2] {
 			t.Error("did not get the expected row")
 		}
@@ -89,7 +92,10 @@ func TestAlphaNode(t *testing.T) {
 	if len(rows) != 2 {
 		t.Error("expecting to have 2 row indexed")
 	}
-	for row := range rows {
+	for row, valid := range rows {
+		if !valid {
+			continue
+		}
 		if row.Data[0] != t3[0] || row.Data[1] != t3[1] {
 			t.Error("did not get the expected row")
 		}
@@ -109,7 +115,10 @@ func TestAlphaNode(t *testing.T) {
 	if len(rows) != 1 {
 		t.Error("expecting to have 1 row indexed")
 	}
-	for row := range rows {
+	for row, valid := range rows {
+		if !valid {
+			continue
+		}
 		if row.Data[0] != t3[0] || row.Data[1] != t3[1] {
 			t.Error("did not get the expected row")
 		}
@@ -137,7 +146,10 @@ func TestAlphaNode(t *testing.T) {
 	if len(rows) != 1 {
 		t.Error("expecting to have 1 row indexed")
 	}
-	for row := range rows {
+	for row, valid := range rows {
+		if !valid {
+			continue
+		}
 		if row.Data[1] != t3[1] || row.Data[2] != t3[2] {
 			t.Error("did not get the expected row")
 		}
@@ -157,7 +169,10 @@ func TestAlphaNode(t *testing.T) {
 	if len(rows) != 2 {
 		t.Error("expecting to have 2 row indexed")
 	}
-	for row := range rows {
+	for row, valid := range rows {
+		if !valid {
+			continue
+		}
 		if row.Data[1] != t3[1] || row.Data[2] != t3[2] {
 			t.Error("did not get the expected row")
 		}
@@ -167,7 +182,10 @@ func TestAlphaNode(t *testing.T) {
 	if len(rows) != 2 {
 		t.Error("expecting to have 2 row indexed")
 	}
-	for row := range rows {
+	for row, valid := range rows {
+		if !valid {
+			continue
+		}
 		if row.Data[0] != rm.NewResource("s1") || row.Data[1] != rm.NewResource("p1") {
 			t.Error("did not get the expected row")
 		}
@@ -196,7 +214,10 @@ func TestAlphaNode(t *testing.T) {
 	if len(rows) != 1 {
 		t.Error("expecting to have 1 row indexed")
 	}
-	for row := range rows {
+	for row, valid := range rows {
+		if !valid {
+			continue
+		}
 		if row.Data[1] != t3[1] || row.Data[2] != t3[2] {
 			t.Error("did not get the expected row")
 		}
@@ -251,7 +272,10 @@ func TestAlphaNode(t *testing.T) {
 	if len(rows) != 1 {
 		t.Error("expecting to have 1 row indexed")
 	}
-	for row := range rows {
+	for row, valid := range rows {
+		if !valid {
+			continue
+		}
 		if row.Data[0] != t3[0] || row.Data[1] != t3[1] || row.Data[2] != t3[2] {
 			t.Error("did not get the expected row")
 		}

@@ -14,6 +14,9 @@ type ToIntOp struct {
 func NewToIntOp() UnaryOperator {
 	return &ToIntOp{}
 }
+func (op *ToIntOp) InitializeOperator(metaGraph *rdf.RdfGraph, rhs *rdf.Node) error {
+	return nil
+}
 
 func (op *ToIntOp) RegisterCallback(reteSession *ReteSession, vertex int, rhs *rdf.Node) error {
 	return nil

@@ -12,6 +12,10 @@ func NewNeOp() BinaryOperator {
 	return &NeOp{}
 }
 
+func (op *NeOp) InitializeOperator(metaGraph *rdf.RdfGraph, lhs, rhs *rdf.Node) error {
+	return nil
+}
+
 func (op *NeOp) RegisterCallback(reteSession *ReteSession, vertex int, lhs, rhs *rdf.Node) error {
 	return nil
 }

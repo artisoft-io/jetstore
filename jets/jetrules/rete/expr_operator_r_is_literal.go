@@ -12,6 +12,10 @@ func NewIsLiteralOp() UnaryOperator {
 	return &IsLiteralOp{}
 }
 
+func (op *IsLiteralOp) InitializeOperator(metaGraph *rdf.RdfGraph, rhs *rdf.Node) error {
+	return nil
+}
+
 func (op *IsLiteralOp) RegisterCallback(reteSession *ReteSession, vertex int, rhs *rdf.Node) error {
 	return nil
 }

@@ -63,7 +63,7 @@ type ReportDirectives struct {
 	OutputPath           string                       `json:"outputPath"`
 	ReportProperties     map[string]ReportProperty    `json:"reportProperties"`
 	StatementProperties  map[string]StatementProperty `json:"statementProperties"`
-	RegisterReports      []RegisterReport             `json:"registerReport"`
+	RegisterReports      []RegisterReportSpec         `json:"registerReport"`
 }
 
 type ReportProperty struct {
@@ -85,10 +85,11 @@ type RunWhenCriteria struct {
 	HasNonZeroOutputRecords bool   `json:"hasOutputRecordsOnly"`
 }
 
-type RegisterReport struct {
+type RegisterReportSpec struct {
 	TableName  string `json:"table_name"`
 	Org        string `json:"org"`
 	ObjectType string `json:"object_type"`
+	SourceType string `json:"source_type"`
 }
 
 type CommandArguments struct {
@@ -186,10 +187,35 @@ func (ca *CommandArguments) RunReports(dbpool *pgxpool.Pool) (err error) {
 		}
 		didAnyReport = true
 	}
+
 	if !didAnyReport {
 		// Did no report, bailing out
 		log.Println("Done no reports, bailing out")
 		return
+	}
+
+	// Register reports
+	if reportDirectives.RegisterReports != nil {
+		for i := range reportDirectives.RegisterReports {
+			rr := &reportDirectives.RegisterReports[i]
+			tableName := rr.TableName
+			if tableName == "" {
+				continue
+			}
+			objectType := rr.ObjectType
+			if objectType == "" {
+				objectType = ca.ObjectType
+			}
+			sourceType := rr.SourceType
+			if sourceType == "" {
+				sourceType = "report_table"
+			}
+			err2 := RegisterReport(dbpool, ca.Client, rr.Org, objectType, ca.FileKey,
+				ca.SourcePeriodKey, tableName, sourceType, ca.SessionId, "system")
+			if err2 != nil {
+				return err2
+			}
+		}
 	}
 
 	// Done with the report part, see if we need to rebuild the lookup tables
@@ -465,52 +491,26 @@ func (ca *CommandArguments) DoReport(dbpool *pgxpool.Pool, tempDir string, outpu
 		log.Printf("Report %s not saved to s3", *outputFileName)
 	}
 
-	// Register reports
-	if reportDirectives.RegisterReports != nil {
-		for i := range reportDirectives.RegisterReports {
-			rr := reportDirectives.RegisterReports[i]
-			tableName := rr.TableName
-			if tableName == "" {
-				continue
-			}
-			objectType := rr.ObjectType
-			if objectType == "" {
-				objectType = stmtProps.ObjectType
-			}
-			org := rr.Org
-			if org == "" {
-				org = stmtProps.Org
-			}
-			err2 := registerReport(dbpool, ca.Client, org, objectType, ca.FileKey,
-				ca.SourcePeriodKey, tableName, ca.SessionId, "system")
-			if err2 != nil {
-				return "", err2
-			}
-		}
-	}
-
 	fmt.Println("------")
 
 	return s3FileName, nil
 }
 
-func registerReport(dbpool *pgxpool.Pool, client, org, object_type, file_key string,
-	source_period_key, table_name, session_id, user_email string) error {
+func RegisterReport(dbpool *pgxpool.Pool, client, org, objectType, fileKey string,
+	sourcePeriodKey, tableName, sourceType, sessionId, userEmail string) error {
 
 	// Register the report with table input_registry:
 	registerReportStmt := `INSERT INTO jetsapi.input_registry (
 		client, org, object_type, file_key, 
 		source_period_key, table_name, source_type, 
 		session_id, user_email
-	) 
-	VALUES 
-		(
-			$1, $2, $3, $4, $5, 
-			$6, 'file', $7, $8
-		) ON CONFLICT DO NOTHING RETURNING key`
+	) VALUES (
+		$1, $2, $3, $4, $5, 
+		$6, $7, $8, $9
+	) ON CONFLICT DO NOTHING`
 	_, err := dbpool.Exec(context.Background(), registerReportStmt,
-		client, org, object_type, file_key, source_period_key, table_name,
-		session_id, user_email)
+		client, org, objectType, fileKey, sourcePeriodKey, tableName,
+		sourceType, sessionId, userEmail)
 	if err != nil {
 		return fmt.Errorf("while adding report to input_registry table: %v", err)
 	}
@@ -528,7 +528,7 @@ func GetOutputRecordCount(dbpool *pgxpool.Pool, sessionId string) (int64, int64)
 			return 0, 0
 		}
 		msg := fmt.Sprintf("QueryRow on pipeline_execution_details to get nbr of output records failed: %v", err)
-		log.Fatalf(msg)
+		log.Fatal(msg)
 	}
 	return dbRecordCount.Int64, outputRecordCount.Int64
 }

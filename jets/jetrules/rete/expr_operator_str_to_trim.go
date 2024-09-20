@@ -14,6 +14,10 @@ func NewTrimOp() UnaryOperator {
 	return &TrimOp{}
 }
 
+func (op *TrimOp) InitializeOperator(metaGraph *rdf.RdfGraph, rhs *rdf.Node) error {
+	return nil
+}
+
 func (op *TrimOp) RegisterCallback(reteSession *ReteSession, vertex int, rhs *rdf.Node) error {
 	return nil
 }

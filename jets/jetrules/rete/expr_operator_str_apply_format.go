@@ -14,6 +14,10 @@ func NewApplyFormatOp() BinaryOperator {
 	return &ApplyFormatOp{}
 }
 
+func (op *ApplyFormatOp) InitializeOperator(metaGraph *rdf.RdfGraph, lhs, rhs *rdf.Node) error {
+	return nil
+}
+
 func (op *ApplyFormatOp) RegisterCallback(reteSession *ReteSession, vertex int, lhs, rhs *rdf.Node) error {
 	return nil
 }

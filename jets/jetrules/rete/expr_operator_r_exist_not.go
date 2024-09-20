@@ -15,6 +15,10 @@ func NewExistOp(isExistNot bool) BinaryOperator {
 	}
 }
 
+func (op *ExistOp) InitializeOperator(metaGraph *rdf.RdfGraph, lhs, rhs *rdf.Node) error {
+	return nil
+}
+
 // Add truth maintenance
 func (op *ExistOp) RegisterCallback(reteSession *ReteSession, vertex int, lhs, rhs *rdf.Node) error {
 	if reteSession == nil {

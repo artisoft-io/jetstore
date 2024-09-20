@@ -16,6 +16,10 @@ func NewAgeAsOfOp() BinaryOperator {
 	return &AgeAsOfOp{}
 }
 
+func (op *AgeAsOfOp) InitializeOperator(metaGraph *rdf.RdfGraph, lhs, rhs *rdf.Node) error {
+	return nil
+}
+
 func (op *AgeAsOfOp) RegisterCallback(reteSession *ReteSession, vertex int, lhs, rhs *rdf.Node) error {
 	return nil
 }

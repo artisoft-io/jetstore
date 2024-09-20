@@ -14,6 +14,9 @@ type ToDoubleOp struct {
 func NewToDoubleOp() UnaryOperator {
 	return &ToDoubleOp{}
 }
+func (op *ToDoubleOp) InitializeOperator(metaGraph *rdf.RdfGraph, rhs *rdf.Node) error {
+	return nil
+}
 
 func (op *ToDoubleOp) RegisterCallback(reteSession *ReteSession, vertex int, rhs *rdf.Node) error {
 	return nil

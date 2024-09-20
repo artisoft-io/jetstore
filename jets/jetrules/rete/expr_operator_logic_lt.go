@@ -14,6 +14,10 @@ func NewLtOp() BinaryOperator {
 	return &LtOp{}
 }
 
+func (op *LtOp) InitializeOperator(metaGraph *rdf.RdfGraph, lhs, rhs *rdf.Node) error {
+	return nil
+}
+
 func (op *LtOp) RegisterCallback(reteSession *ReteSession, vertex int, lhs, rhs *rdf.Node) error {
 	return nil
 }

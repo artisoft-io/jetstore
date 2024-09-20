@@ -14,6 +14,10 @@ func NewGtOp() BinaryOperator {
 	return &GtOp{}
 }
 
+func (op *GtOp) InitializeOperator(metaGraph *rdf.RdfGraph, lhs, rhs *rdf.Node) error {
+	return nil
+}
+
 func (op *GtOp) RegisterCallback(reteSession *ReteSession, vertex int, lhs, rhs *rdf.Node) error {
 	return nil
 }
