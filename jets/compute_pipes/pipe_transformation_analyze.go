@@ -189,16 +189,38 @@ func (state *AnalyzeState) NewToken(value string) error {
 	return nil
 }
 
+// firstInputRow is the first row from the input channel.
+// A reference to it is kept for use in the Done function
+// so to carry over the select fields in the columnEvaluators.
+// Note: columnEvaluators is applied only on the firstInputRow
+// and it is used only to select column having same value for every input row
+// or to put constant values comming from the env
+//
+// Base columns available on the output (only columns specified in outputCh
+// are actually send out):
+//		"column_name",
+//		"column_pos",
+//		"distinct_count",
+//		"distinct_count_pct",
+//		"null_count",
+//		"null_count_pct",
+//		"total_count",
+//		"avr_length",
+//		"length_var",
+// Other columns are added based on regex_tokens, lookup_tokens, and keyword_tokens
+// The value of the domain counts are expressed in percentage of the non null count:
+//		ratio = <domain count>/(totalCount - nullCount) * 100.0
+// Note that if totalCount - nullCount == 0, then ratio = -1
 type AnalyzeTransformationPipe struct {
-	cpConfig     *ComputePipesConfig
-	source       *InputChannel
-	outputCh     *OutputChannel
-	analyzeState []interface{}
-	layoutName   string
-	spec         *TransformationSpec
-	env          map[string]interface{}
-	sessionId    string
-	doneCh       chan struct{}
+	cpConfig         *ComputePipesConfig
+	source           *InputChannel
+	outputCh         *OutputChannel
+	analyzeState     []interface{}
+	columnEvaluators []TransformationColumnEvaluator
+	firstInputRow    *[]interface{}
+	spec             *TransformationSpec
+	env              map[string]interface{}
+	doneCh           chan struct{}
 }
 
 // Implementing interface PipeTransformationEvaluator
@@ -207,14 +229,8 @@ func (ctx *AnalyzeTransformationPipe) apply(input *[]interface{}) error {
 	if input == nil {
 		return fmt.Errorf("error: unexpected null input arg in AnalyzeTransformationPipe")
 	}
-	if len(ctx.layoutName) == 0 {
-		pos, ok := ctx.source.columns["layout_name"]
-		if ok {
-			name, ok := (*input)[pos].(string)
-			if ok {
-				ctx.layoutName = name
-			}
-		}
+	if ctx.firstInputRow == nil {
+		ctx.firstInputRow = input
 	}
 	for i := range *input {
 		analyzeState := ctx.analyzeState[i].(*AnalyzeState)
@@ -252,13 +268,34 @@ func (ctx *AnalyzeTransformationPipe) done() error {
 		if ok {
 			outputRow[ipos] = state.ColumnPos
 		}
+		distinctCount := len(state.DistinctValues)
+		var ratioFactor float64
+		if state.TotalRowCount != state.NullCount {
+			ratioFactor = 100.0 / float64(state.TotalRowCount - state.NullCount)
+		}
 		ipos, ok = ctx.outputCh.columns["distinct_count"]
 		if ok {
-			outputRow[ipos] = len(state.DistinctValues)
+			outputRow[ipos] = distinctCount
+		}
+		ipos, ok = ctx.outputCh.columns["distinct_count_pct"]
+		if ok {
+			if ratioFactor > 0 {
+				outputRow[ipos] = float64(distinctCount) * ratioFactor
+			} else {
+				outputRow[ipos] = -1.0
+			}
 		}
 		ipos, ok = ctx.outputCh.columns["null_count"]
 		if ok {
 			outputRow[ipos] = state.NullCount
+		}
+		ipos, ok = ctx.outputCh.columns["null_count_pct"]
+		if ok {
+			if ratioFactor > 0 {
+				outputRow[ipos] = float64(state.NullCount) * ratioFactor
+			} else {
+				outputRow[ipos] = -1.0
+			}
 		}
 		ipos, ok = ctx.outputCh.columns["total_count"]
 		if ok {
@@ -274,25 +311,20 @@ func (ctx *AnalyzeTransformationPipe) done() error {
 		if ok {
 			outputRow[ipos] = avrVar
 		}
-		// The context driven columns
-		ipos, ok = ctx.outputCh.columns["processing_ticket"]
-		if ok {
-			outputRow[ipos] = ctx.env["$PROCESSING_TICKET"]
-		}
-		ipos, ok = ctx.outputCh.columns["layout_name"]
-		if ok {
-			outputRow[ipos] = ctx.layoutName
-		}
-		ipos, ok = ctx.outputCh.columns["session_id"]
-		if ok {
-			outputRow[ipos] = ctx.sessionId
-		}
+
+		// The value of the domain counts are expressed in percentage of the non null count:
+		//		ratio = 100 * <domain count>/(totalCount - nullCount)
+		// Note that if totalCount - nullCount == 0, then ratio = -1
 
 		// The regex tokens
 		for name, m := range state.RegexMatch {
 			ipos, ok = ctx.outputCh.columns[name]
 			if ok {
-				outputRow[ipos] = m.Count
+				if ratioFactor > 0 {
+					outputRow[ipos] = float64(m.Count) * ratioFactor
+				} else {
+					outputRow[ipos] = -1.0
+				}
 			}
 		}
 
@@ -306,8 +338,12 @@ func (ctx *AnalyzeTransformationPipe) done() error {
 			for name, m := range lookupState.LookupMatch {
 				ipos, ok := ctx.outputCh.columns[name]
 				if ok {
-					outputRow[ipos] = m.Count
-				}
+					if ratioFactor > 0 {
+						outputRow[ipos] = float64(m.Count) * ratioFactor
+					} else {
+						outputRow[ipos] = -1.0
+					}
+					}
 			}
 		}
 
@@ -315,9 +351,26 @@ func (ctx *AnalyzeTransformationPipe) done() error {
 		for name, m := range state.KeywordMatch {
 			ipos, ok = ctx.outputCh.columns[name]
 			if ok {
-				outputRow[ipos] = m.Count
+				if ratioFactor > 0 {
+					outputRow[ipos] = float64(m.Count) * ratioFactor
+				} else {
+					outputRow[ipos] = -1.0
+				}
 			}
 		}
+
+		// Add the carry over select and const values
+		// NOTE there is no initialize and done called on the column evaluators
+		//      since they should be only of type 'select' or 'value'
+		for i := range ctx.columnEvaluators {
+			err := ctx.columnEvaluators[i].update(&outputRow, ctx.firstInputRow)
+			if err != nil {
+				err = fmt.Errorf("while calling column transformation from analyze operator: %v", err)
+				log.Println(err)
+				return err
+			}
+		}
+
 		// Send the column result to output
 		// log.Println("**!@@ ** Send AGGREGATE Result to", ctx.outputCh.config.Name)
 		select {
@@ -350,15 +403,28 @@ func (ctx *BuilderContext) NewAnalyzeTransformationPipe(source *InputChannel, ou
 				source.config.Columns[i], err)
 		}
 	}
+
+	// Prepare the column evaluators
+	columnEvaluators := make([]TransformationColumnEvaluator, len(spec.Columns))
+	for i := range spec.Columns {
+		// log.Printf("**& build TransformationColumn[%d] of type %s for output %s", i, spec.Type, spec.Output)
+		columnEvaluators[i], err = ctx.buildTransformationColumnEvaluator(source, outputCh, &spec.Columns[i])
+		if err != nil {
+			err = fmt.Errorf("while buildTransformationColumnEvaluator (in NewAnalyzeTransformationPipe) %v", err)
+			log.Println(err)
+			return nil, err
+		}
+	}
+
 	return &AnalyzeTransformationPipe{
-		cpConfig:     ctx.cpConfig,
-		source:       source,
-		outputCh:     outputCh,
-		analyzeState: analyzeState,
-		spec:         spec,
-		env:          ctx.env,
-		sessionId:    ctx.sessionId,
-		doneCh:       ctx.done,
+		cpConfig:         ctx.cpConfig,
+		source:           source,
+		outputCh:         outputCh,
+		analyzeState:     analyzeState,
+		columnEvaluators: columnEvaluators,
+		spec:             spec,
+		env:              ctx.env,
+		doneCh:           ctx.done,
 	}, nil
 }
 

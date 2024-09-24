@@ -7,16 +7,23 @@ import (
 	"strings"
 )
 
+// firstInputRow is the first row from the input channel.
+// A reference to it is kept for use in the Done function
+// so to carry over the select fields in the columnEvaluators.
+// Note: columnEvaluators is applied only on the firstInputRow
+// and it is used only to select column having same value for every input row
+// or to put constant values comming from the env
 type HighFreqTransformationPipe struct {
-	cpConfig      *ComputePipesConfig
-	source        *InputChannel
-	outputCh      *OutputChannel
-	highFreqState map[string]map[string]*DistinctCount
-	layoutName    string
-	spec          *TransformationSpec
-	env           map[string]interface{}
-	sessionId     string
-	doneCh        chan struct{}
+	cpConfig         *ComputePipesConfig
+	source           *InputChannel
+	outputCh         *OutputChannel
+	highFreqState    map[string]map[string]*DistinctCount
+	columnEvaluators []TransformationColumnEvaluator
+	firstInputRow    *[]interface{}
+	spec             *TransformationSpec
+	env              map[string]interface{}
+	sessionId        string
+	doneCh           chan struct{}
 }
 
 // Implementing interface PipeTransformationEvaluator
@@ -24,14 +31,8 @@ func (ctx *HighFreqTransformationPipe) apply(input *[]interface{}) error {
 	if input == nil {
 		return fmt.Errorf("error: unexpected null input arg in HighFreqTransformationPipe")
 	}
-	if len(ctx.layoutName) == 0 {
-		pos, ok := ctx.source.columns["layout_name"]
-		if ok {
-			name, ok := (*input)[pos].(string)
-			if ok {
-				ctx.layoutName = name
-			}
-		}
+	if ctx.firstInputRow == nil {
+		ctx.firstInputRow = input
 	}
 	var token string
 	for _, c := range *ctx.spec.HighFreqColumns {
@@ -88,14 +89,21 @@ func (ctx *HighFreqTransformationPipe) done() error {
 			// make the output row
 			outputRow := make([]interface{}, len(ctx.outputCh.columns))
 			outputRow[ctx.outputCh.columns["column_name"]] = columnName
-			// The context driven columns
-			outputRow[ctx.outputCh.columns["processing_ticket"]] = ctx.env["$PROCESSING_TICKET"]
-			outputRow[ctx.outputCh.columns["layout_name"]] = ctx.layoutName
-			outputRow[ctx.outputCh.columns["session_id"]] = ctx.sessionId
 			// The freq count columns
 			dc := dcSlice[i]
 			outputRow[ctx.outputCh.columns["freq_count"]] = dc.Count
 			outputRow[ctx.outputCh.columns["freq_value"]] = dc.Value
+			// Add the carry over select and const values
+			// NOTE there is no initialize and done called on the column evaluators
+			//      since they should be only of type 'select' or 'value'
+			for i := range ctx.columnEvaluators {
+				err := ctx.columnEvaluators[i].update(&outputRow, ctx.firstInputRow)
+				if err != nil {
+					err = fmt.Errorf("while calling column transformation from high_freq operator: %v", err)
+					log.Println(err)
+					return err
+				}
+			}
 			// Send out the row
 			select {
 			case ctx.outputCh.channel <- outputRow:
@@ -129,14 +137,28 @@ func (ctx *BuilderContext) NewHighFreqTransformationPipe(source *InputChannel, o
 	for _, c := range *spec.HighFreqColumns {
 		analyzeState[c] = make(map[string]*DistinctCount)
 	}
+	// Prepare the column evaluators
+	var err error
+	columnEvaluators := make([]TransformationColumnEvaluator, len(spec.Columns))
+	for i := range spec.Columns {
+		// log.Printf("**& build TransformationColumn[%d] of type %s for output %s", i, spec.Type, spec.Output)
+		columnEvaluators[i], err = ctx.buildTransformationColumnEvaluator(source, outputCh, &spec.Columns[i])
+		if err != nil {
+			err = fmt.Errorf("while buildTransformationColumnEvaluator (in NewHighFreqTransformationPipe) %v", err)
+			log.Println(err)
+			return nil, err
+		}
+	}
+
 	return &HighFreqTransformationPipe{
-		cpConfig:      ctx.cpConfig,
-		source:        source,
-		outputCh:      outputCh,
-		highFreqState: analyzeState,
-		spec:          spec,
-		env:           ctx.env,
-		sessionId:     ctx.sessionId,
-		doneCh:        ctx.done,
+		cpConfig:         ctx.cpConfig,
+		source:           source,
+		outputCh:         outputCh,
+		highFreqState:    analyzeState,
+		columnEvaluators: columnEvaluators,
+		spec:             spec,
+		env:              ctx.env,
+		sessionId:        ctx.sessionId,
+		doneCh:           ctx.done,
 	}, nil
 }
