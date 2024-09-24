@@ -23,6 +23,7 @@ type ClusterSpec struct {
 	NbrNodesLookup        *[]ClusterSizingSpec `json:"nbr_nodes_lookup"`
 	IsDebugMode           bool                 `json:"is_debug_mode"`
 	SamplingRate          int                  `json:"sampling_rate"`
+	KillSwitchMin         int                  `json:"kill_switch_min"`
 }
 
 // Cluster sizing configuration

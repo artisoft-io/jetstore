@@ -3,11 +3,13 @@ package compute_pipes
 import (
 	"context"
 	"encoding/csv"
+	"errors"
 	"fmt"
 	"io"
 	"log"
 	"os"
 	"strconv"
+	"time"
 
 	goparquet "github.com/fraugster/parquet-go"
 	"github.com/golang/snappy"
@@ -15,6 +17,10 @@ import (
 )
 
 // Load multipart files to JetStore, file to load are provided by channel fileNameCh
+var (
+	ErrKillSwitch     = errors.New("ErrKillSwitch")
+	ComputePipesStart = time.Now()
+)
 
 func (cpCtx *ComputePipesContext) LoadFiles(ctx context.Context, dbpool *pgxpool.Pool) {
 
@@ -169,6 +175,12 @@ func (cpCtx *ComputePipesContext) ReadParquetFile(filePath *FileName, computePip
 			}
 		}
 
+		// Kill Switch - prevent lambda timeout
+		if cpCtx.CpConfig.ClusterConfig.KillSwitchMin > 0 &&
+			time.Since(ComputePipesStart).Minutes() >= float64(cpCtx.CpConfig.ClusterConfig.KillSwitchMin) {
+				return inputRowCount, ErrKillSwitch
+		}
+
 		switch {
 		case err == io.EOF:
 			// expected exit route
@@ -288,6 +300,8 @@ func (cpCtx *ComputePipesContext) ReadCsvFile(filePath *FileName, inputFormat st
 				}
 			}
 		}
+
+		// PUT KILL SWITCH HERE
 
 		switch {
 		case err == io.EOF:

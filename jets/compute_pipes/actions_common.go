@@ -188,6 +188,7 @@ type ComputePipesContext struct {
 	EnvSettings           map[string]interface{}
 	SamplingCount         int
 	ChResults             *ChannelResults
+	KillSwitch            chan struct{}
 	Done                  chan struct{}
 	ErrCh                 chan error
 	FileNamesCh           chan FileName

@@ -101,6 +101,9 @@ func (cpCtx *ComputePipesContext) DownloadS3Files(inFolderPath string, fileKeys 
 			if fileSize > 0 { // skip sentinel files
 				select {
 				case cpCtx.FileNamesCh <- FileName{LocalFileName: inFilePath, InFileKey: fileKeys[i]}:
+				case <-cpCtx.KillSwitch:
+					cpCtx.DownloadS3ResultCh <- DownloadS3Result{InputFilesCount: i + 1, TotalFilesSize: totalFilesSize}
+					return
 				case <-cpCtx.Done:
 					cpCtx.DownloadS3ResultCh <- DownloadS3Result{InputFilesCount: i + 1, TotalFilesSize: totalFilesSize}
 					return
