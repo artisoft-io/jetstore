@@ -106,6 +106,7 @@ func (args *ComputePipesNodeArgs) CoordinateComputePipes(ctx context.Context, ds
 			"$JETS_PARTITION_LABEL": args.JetsPartitionLabel,
 		},
 		FileKeyComponents:  fileKeyComponents,
+		KillSwitch:         make(chan struct{}),
 		Done:               make(chan struct{}),
 		ErrCh:              make(chan error, 1),
 		FileNamesCh:        make(chan FileName, 2),

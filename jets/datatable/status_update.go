@@ -53,19 +53,28 @@ type StatusUpdate struct {
 
 // Support Functions
 // --------------------------------------------------------------------------------------
-func getStatusCount(dbpool *pgxpool.Pool, pipelineExecutionKey int, status string) int {
+func getStatusCount(dbpool *pgxpool.Pool, pipelineExecutionKey int) (map[string]int, error) {
+	statusCountMap := make(map[string] int)
+	var status string
 	var count int
-	err := dbpool.QueryRow(context.Background(),
-		"SELECT count(*) FROM jetsapi.pipeline_execution_details WHERE pipeline_execution_status_key=$1 AND status=$2",
-		pipelineExecutionKey, status).Scan(&count)
+	stmt := "SELECT count(*) AS count, status FROM jetsapi.pipeline_execution_details WHERE pipeline_execution_status_key=$1 GROUP BY status"
+	rows, err := dbpool.Query(context.Background(),	stmt,	pipelineExecutionKey)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return 0
+			return statusCountMap, nil
 		}
-		msg := fmt.Sprintf("QueryRow on pipeline_execution_details failed: %v", err)
-		log.Fatalf(msg)
+		return statusCountMap, fmt.Errorf("QueryRow on pipeline_execution_details failed: %v", err)
 	}
-	return count
+	defer rows.Close()
+	for rows.Next() {
+		// scan the row
+		if err = rows.Scan(&count, &status); err != nil {
+			return nil, err
+		}
+		statusCountMap[status] = count
+	}
+
+	return statusCountMap, nil
 }
 func getOutputRecordCount(dbpool *pgxpool.Pool, pipelineExecutionKey int) int64 {
 	var count sql.NullInt64
@@ -314,15 +323,22 @@ func (ca *StatusUpdate) CoordinateWork() error {
 	}
 
 	// Update the pipeline_execution_status based on worst case status
+	statusCountMap, err := getStatusCount(ca.Dbpool, ca.PeKey)
+	if err != nil {
+		return err
+	}
 	switch {
 	case ca.Status == "failed":
 		err = updateStatus(ca.Dbpool, ca.PeKey, "failed", &ca.FailureDetails)
 
-	case apiEndpoint == "" && getStatusCount(ca.Dbpool, ca.PeKey, "failed") > 0:
+	case statusCountMap["interrupted"] > 0:
+		err = updateStatus(ca.Dbpool, ca.PeKey, "interrupted", &ca.FailureDetails)
+
+	case statusCountMap["failed"] > 0:
 		ca.Status = "recovered"
 		err = updateStatus(ca.Dbpool, ca.PeKey, "recovered", &ca.FailureDetails)
 
-	case apiEndpoint == "" && getStatusCount(ca.Dbpool, ca.PeKey, "errors") > 0:
+	case statusCountMap["errors"] > 0:
 		ca.Status = "errors"
 		err = updateStatus(ca.Dbpool, ca.PeKey, "errors", nil)
 

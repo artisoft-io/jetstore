@@ -174,8 +174,13 @@ func (cpCtx *ComputePipesContext) ProcessFilesAndReportStatus(ctx context.Contex
 
 	// registering the load
 	// ---------------------------------------
-	status := "completed"
-	if err != nil {
+	var status string
+	switch {
+	case err == nil:
+		status = "completed"
+	case err == ErrKillSwitch:
+		status = "interrupted"
+	default:
 		status = "failed"
 	}
 	var errMessage string
