@@ -198,18 +198,22 @@ func (state *AnalyzeState) NewToken(value string) error {
 //
 // Base columns available on the output (only columns specified in outputCh
 // are actually send out):
-//		"column_name",
-//		"column_pos",
-//		"distinct_count",
-//		"distinct_count_pct",
-//		"null_count",
-//		"null_count_pct",
-//		"total_count",
-//		"avr_length",
-//		"length_var",
+//
+//	"column_name",
+//	"column_pos",
+//	"distinct_count",
+//	"distinct_count_pct",
+//	"null_count",
+//	"null_count_pct",
+//	"total_count",
+//	"avr_length",
+//	"length_var",
+//
 // Other columns are added based on regex_tokens, lookup_tokens, and keyword_tokens
 // The value of the domain counts are expressed in percentage of the non null count:
-//		ratio = <domain count>/(totalCount - nullCount) * 100.0
+//
+//	ratio = <domain count>/(totalCount - nullCount) * 100.0
+//
 // Note that if totalCount - nullCount == 0, then ratio = -1
 type AnalyzeTransformationPipe struct {
 	cpConfig         *ComputePipesConfig
@@ -271,7 +275,7 @@ func (ctx *AnalyzeTransformationPipe) done() error {
 		distinctCount := len(state.DistinctValues)
 		var ratioFactor float64
 		if state.TotalRowCount != state.NullCount {
-			ratioFactor = 100.0 / float64(state.TotalRowCount - state.NullCount)
+			ratioFactor = 100.0 / float64(state.TotalRowCount-state.NullCount)
 		}
 		ipos, ok = ctx.outputCh.columns["distinct_count"]
 		if ok {
@@ -291,11 +295,7 @@ func (ctx *AnalyzeTransformationPipe) done() error {
 		}
 		ipos, ok = ctx.outputCh.columns["null_count_pct"]
 		if ok {
-			if ratioFactor > 0 {
-				outputRow[ipos] = float64(state.NullCount) * ratioFactor
-			} else {
-				outputRow[ipos] = -1.0
-			}
+			outputRow[ipos] = float64(state.NullCount) / float64(state.TotalRowCount) * 100
 		}
 		ipos, ok = ctx.outputCh.columns["total_count"]
 		if ok {
@@ -343,7 +343,7 @@ func (ctx *AnalyzeTransformationPipe) done() error {
 					} else {
 						outputRow[ipos] = -1.0
 					}
-					}
+				}
 			}
 		}
 
