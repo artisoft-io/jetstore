@@ -118,7 +118,7 @@ type TransformationSpec struct {
 	RegexTokens           *[]RegexNode               `json:"regex_tokens"`      // for analyze
 	LookupTokens          *[]LookupTokenNode         `json:"lookup_tokens"`     // for analyze
 	KeywordTokens         *[]KeywordTokenNode        `json:"keyword_tokens"`    // for analyze
-	HighFreqColumns       *[]string                  `json:"high_freq_columns"` // for high_freq
+	HighFreqColumns       *[]HighFreqSpec            `json:"high_freq_columns"` // for high_freq
 	OutputChannel         OutputChannelConfig        `json:"output_channel"`
 }
 
@@ -151,6 +151,12 @@ type LookupTokenNode struct {
 type KeywordTokenNode struct {
 	Name     string   `json:"name"`
 	Keywords []string `json:"keywords"`
+}
+
+type HighFreqSpec struct {
+	Name          string `json:"name"`
+	TopPercentile int    `json:"top_pct"`
+	TopRank       int    `json:"top_rank"`
 }
 
 type TransformationColumnSpec struct {
