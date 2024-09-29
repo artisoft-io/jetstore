@@ -147,6 +147,7 @@ type RegexNode struct {
 
 type LookupTokenNode struct {
 	Name   string   `json:"lookup_name"`
+	KeyRe  string   `json:"key_re"`
 	Tokens []string `json:"tokens"`
 }
 

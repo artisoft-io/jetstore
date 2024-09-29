@@ -63,18 +63,28 @@ type AnalyzeState struct {
 
 type LookupTokensState struct {
 	LookupTbl   LookupTable
+	KeyRe       *regexp.Regexp
 	LookupMatch map[string]*LookupCount
 }
 
-func NewLookupTokensState(lookupTbl LookupTable, tokens []string) *LookupTokensState {
+func NewLookupTokensState(lookupTbl LookupTable, keyRe string, tokens []string) (*LookupTokensState, error) {
+	var err error
 	lookupMatch := make(map[string]*LookupCount)
 	for _, token := range tokens {
 		lookupMatch[token] = NewLookupCount(token)
 	}
+	var re *regexp.Regexp
+	if len(keyRe) > 0 {
+		re, err = regexp.Compile(keyRe)
+		if err != nil {
+			return nil, fmt.Errorf("while compiling regex %s: %v", keyRe, err)
+		}
+	}
 	return &LookupTokensState{
 		LookupTbl:   lookupTbl,
+		KeyRe:       re,
 		LookupMatch: lookupMatch,
-	}
+	}, nil
 }
 
 func (ctx *BuilderContext) NewAnalyzeState(columnName string, columnPos int, spec *TransformationSpec) (*AnalyzeState, error) {
@@ -97,7 +107,11 @@ func (ctx *BuilderContext) NewAnalyzeState(columnName string, columnPos int, spe
 			if lookupTable == nil {
 				return nil, fmt.Errorf("error: lookup table %s not found (NewAlalyzeState)", lookupNode.Name)
 			}
-			lookupState = append(lookupState, NewLookupTokensState(lookupTable, lookupNode.Tokens))
+			state, err := NewLookupTokensState(lookupTable, lookupNode.KeyRe, lookupNode.Tokens)
+			if err != nil {
+				return nil, err
+			}
+			lookupState = append(lookupState, state)
 		}
 	}
 	keywordMatch := make(map[string]*KeywordCount)
@@ -157,8 +171,15 @@ func (state *AnalyzeState) NewToken(value string) error {
 		}
 	}
 	// Lookup matches
+	var row *[]interface{}
+	var err error
 	for _, lookupState := range state.LookupState {
-		row, err := lookupState.LookupTbl.Lookup(&value)
+		if lookupState.KeyRe != nil {
+			key := lookupState.KeyRe.FindString(value)
+			row, err = lookupState.LookupTbl.Lookup(&key)
+		} else {
+			row, err = lookupState.LookupTbl.Lookup(&value)
+		}
 		if err != nil {
 			return fmt.Errorf("while calling lookup, with key %s: %v", value, err)
 		}
