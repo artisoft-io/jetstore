@@ -3,6 +3,7 @@ package compute_pipes
 import (
 	"fmt"
 	"log"
+	"regexp"
 	"sort"
 	"strings"
 )
@@ -46,14 +47,20 @@ func (ctx *HighFreqTransformationPipe) apply(input *[]interface{}) error {
 				token = fmt.Sprintf("%v", value)
 			}
 			token = strings.ToUpper(token)
-			dv := highFreqMap[token]
-			if dv == nil {
-				dv = &DistinctCount{
-					Value: token,
-				}
-				highFreqMap[token] = dv
+			// check for key extraction regex
+			if c.re != nil {
+				token = c.re.FindString(token)
 			}
-			dv.Count += 1
+			if len(token) > 0 {
+				dv := highFreqMap[token]
+				if dv == nil {
+					dv = &DistinctCount{
+						Value: token,
+					}
+					highFreqMap[token] = dv
+				}
+				dv.Count += 1	
+			}
 		}
 	}
 
@@ -131,6 +138,7 @@ func (ctx *HighFreqTransformationPipe) done() error {
 func (ctx *HighFreqTransformationPipe) finally() {}
 
 func (ctx *BuilderContext) NewHighFreqTransformationPipe(source *InputChannel, outputCh *OutputChannel, spec *TransformationSpec) (*HighFreqTransformationPipe, error) {
+	var err error
 	if spec == nil || spec.HighFreqColumns == nil {
 		return nil, fmt.Errorf("error: High Freq Pipe Transformation spec is missing columns definition")
 	}
@@ -143,9 +151,15 @@ func (ctx *BuilderContext) NewHighFreqTransformationPipe(source *InputChannel, o
 	analyzeState := make(map[string]map[string]*DistinctCount)
 	for _, c := range *spec.HighFreqColumns {
 		analyzeState[c.Name] = make(map[string]*DistinctCount)
+		// Compile the key extraction regex
+		if len(c.KeyRe) > 0 {
+			c.re, err = regexp.Compile(c.KeyRe)
+			if err != nil {
+				return nil, fmt.Errorf("while compiling regex %s: %v", c.KeyRe, err)
+			}
+		}
 	}
 	// Prepare the column evaluators
-	var err error
 	columnEvaluators := make([]TransformationColumnEvaluator, len(spec.Columns))
 	for i := range spec.Columns {
 		// log.Printf("**& build TransformationColumn[%d] of type %s for output %s", i, spec.Type, spec.Output)
