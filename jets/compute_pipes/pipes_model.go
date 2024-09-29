@@ -1,5 +1,7 @@
 package compute_pipes
 
+import "regexp"
+
 // This file contains the Compute Pipes configuration model
 type ComputePipesConfig struct {
 	CommonRuntimeArgs   *ComputePipesCommonArgs `json:"common_runtime_args"`
@@ -118,7 +120,7 @@ type TransformationSpec struct {
 	RegexTokens           *[]RegexNode               `json:"regex_tokens"`      // for analyze
 	LookupTokens          *[]LookupTokenNode         `json:"lookup_tokens"`     // for analyze
 	KeywordTokens         *[]KeywordTokenNode        `json:"keyword_tokens"`    // for analyze
-	HighFreqColumns       *[]string                  `json:"high_freq_columns"` // for high_freq
+	HighFreqColumns       *[]*HighFreqSpec           `json:"high_freq_columns"` // for high_freq
 	OutputChannel         OutputChannelConfig        `json:"output_channel"`
 }
 
@@ -145,12 +147,21 @@ type RegexNode struct {
 
 type LookupTokenNode struct {
 	Name   string   `json:"lookup_name"`
+	KeyRe  string   `json:"key_re"`
 	Tokens []string `json:"tokens"`
 }
 
 type KeywordTokenNode struct {
 	Name     string   `json:"name"`
 	Keywords []string `json:"keywords"`
+}
+
+type HighFreqSpec struct {
+	Name          string `json:"name"`
+	KeyRe         string `json:"key_re"`
+	TopPercentile int    `json:"top_pct"`
+	TopRank       int    `json:"top_rank"`
+	re            *regexp.Regexp
 }
 
 type TransformationColumnSpec struct {

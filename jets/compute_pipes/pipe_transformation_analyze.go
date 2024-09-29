@@ -63,18 +63,28 @@ type AnalyzeState struct {
 
 type LookupTokensState struct {
 	LookupTbl   LookupTable
+	KeyRe       *regexp.Regexp
 	LookupMatch map[string]*LookupCount
 }
 
-func NewLookupTokensState(lookupTbl LookupTable, tokens []string) *LookupTokensState {
+func NewLookupTokensState(lookupTbl LookupTable, keyRe string, tokens []string) (*LookupTokensState, error) {
+	var err error
 	lookupMatch := make(map[string]*LookupCount)
 	for _, token := range tokens {
 		lookupMatch[token] = NewLookupCount(token)
 	}
+	var re *regexp.Regexp
+	if len(keyRe) > 0 {
+		re, err = regexp.Compile(keyRe)
+		if err != nil {
+			return nil, fmt.Errorf("while compiling regex %s: %v", keyRe, err)
+		}
+	}
 	return &LookupTokensState{
 		LookupTbl:   lookupTbl,
+		KeyRe:       re,
 		LookupMatch: lookupMatch,
-	}
+	}, nil
 }
 
 func (ctx *BuilderContext) NewAnalyzeState(columnName string, columnPos int, spec *TransformationSpec) (*AnalyzeState, error) {
@@ -97,7 +107,11 @@ func (ctx *BuilderContext) NewAnalyzeState(columnName string, columnPos int, spe
 			if lookupTable == nil {
 				return nil, fmt.Errorf("error: lookup table %s not found (NewAlalyzeState)", lookupNode.Name)
 			}
-			lookupState = append(lookupState, NewLookupTokensState(lookupTable, lookupNode.Tokens))
+			state, err := NewLookupTokensState(lookupTable, lookupNode.KeyRe, lookupNode.Tokens)
+			if err != nil {
+				return nil, err
+			}
+			lookupState = append(lookupState, state)
 		}
 	}
 	keywordMatch := make(map[string]*KeywordCount)
@@ -157,8 +171,15 @@ func (state *AnalyzeState) NewToken(value string) error {
 		}
 	}
 	// Lookup matches
+	var row *[]interface{}
+	var err error
 	for _, lookupState := range state.LookupState {
-		row, err := lookupState.LookupTbl.Lookup(&value)
+		if lookupState.KeyRe != nil {
+			key := lookupState.KeyRe.FindString(value)
+			row, err = lookupState.LookupTbl.Lookup(&key)
+		} else {
+			row, err = lookupState.LookupTbl.Lookup(&value)
+		}
 		if err != nil {
 			return fmt.Errorf("while calling lookup, with key %s: %v", value, err)
 		}
@@ -198,18 +219,22 @@ func (state *AnalyzeState) NewToken(value string) error {
 //
 // Base columns available on the output (only columns specified in outputCh
 // are actually send out):
-//		"column_name",
-//		"column_pos",
-//		"distinct_count",
-//		"distinct_count_pct",
-//		"null_count",
-//		"null_count_pct",
-//		"total_count",
-//		"avr_length",
-//		"length_var",
+//
+//	"column_name",
+//	"column_pos",
+//	"distinct_count",
+//	"distinct_count_pct",
+//	"null_count",
+//	"null_count_pct",
+//	"total_count",
+//	"avr_length",
+//	"length_var",
+//
 // Other columns are added based on regex_tokens, lookup_tokens, and keyword_tokens
 // The value of the domain counts are expressed in percentage of the non null count:
-//		ratio = <domain count>/(totalCount - nullCount) * 100.0
+//
+//	ratio = <domain count>/(totalCount - nullCount) * 100.0
+//
 // Note that if totalCount - nullCount == 0, then ratio = -1
 type AnalyzeTransformationPipe struct {
 	cpConfig         *ComputePipesConfig
@@ -271,7 +296,7 @@ func (ctx *AnalyzeTransformationPipe) done() error {
 		distinctCount := len(state.DistinctValues)
 		var ratioFactor float64
 		if state.TotalRowCount != state.NullCount {
-			ratioFactor = 100.0 / float64(state.TotalRowCount - state.NullCount)
+			ratioFactor = 100.0 / float64(state.TotalRowCount-state.NullCount)
 		}
 		ipos, ok = ctx.outputCh.columns["distinct_count"]
 		if ok {
@@ -291,11 +316,7 @@ func (ctx *AnalyzeTransformationPipe) done() error {
 		}
 		ipos, ok = ctx.outputCh.columns["null_count_pct"]
 		if ok {
-			if ratioFactor > 0 {
-				outputRow[ipos] = float64(state.NullCount) * ratioFactor
-			} else {
-				outputRow[ipos] = -1.0
-			}
+			outputRow[ipos] = float64(state.NullCount) / float64(state.TotalRowCount) * 100
 		}
 		ipos, ok = ctx.outputCh.columns["total_count"]
 		if ok {
@@ -343,7 +364,7 @@ func (ctx *AnalyzeTransformationPipe) done() error {
 					} else {
 						outputRow[ipos] = -1.0
 					}
-					}
+				}
 			}
 		}
 
