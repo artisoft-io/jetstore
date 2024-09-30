@@ -49,7 +49,12 @@ func (ctx *HighFreqTransformationPipe) apply(input *[]interface{}) error {
 			token = strings.ToUpper(token)
 			// check for key extraction regex
 			if c.re != nil {
-				token = c.re.FindString(token)
+				key := c.re.FindStringSubmatch(token)
+				if len(key) > 1 {
+					token = key[1]
+				} else {
+					token = ""
+				}
 			}
 			if len(token) > 0 {
 				dv := highFreqMap[token]
