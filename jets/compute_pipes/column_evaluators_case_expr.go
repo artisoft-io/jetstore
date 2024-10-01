@@ -4,55 +4,61 @@ import (
 	"fmt"
 )
 
-// TransformationColumnSpec Type case_expr
-type caseExprColumnEval struct {
-	outputPos int
+// TransformationColumnSpec Type case
+type caseExprEvaluator struct {
 	caseExpr []caseExprClause
-	elseExpr *evalExpression
+	elseExpr []*columnExpression
 }
 type caseExprClause struct {
-	whenCase evalExpression
-	thenCase evalExpression
+	whenCase  evalExpression
+	thenCases []*columnExpression
 }
-func (ctx *caseExprColumnEval) initializeCurrentValue(currentValue *[]interface{}) {}
-func (ctx *caseExprColumnEval) update(currentValue *[]interface{}, input *[]interface{}) error {
+
+// columnExpression indicate which column by position
+// is to be updated by the evalExpression
+type columnExpression struct {
+	outputPos int
+	evalExpr  evalExpression
+}
+
+func (ctx *caseExprEvaluator) initializeCurrentValue(currentValue *[]interface{}) {}
+func (ctx *caseExprEvaluator) update(currentValue *[]interface{}, input *[]interface{}) error {
 	if currentValue == nil || input == nil {
-		return fmt.Errorf("error caseExprColumnEval.update cannot have nil currentValue or input")
+		return fmt.Errorf("error caseExprEvaluator.update cannot have nil currentValue or input")
 	}
 	if ctx.caseExpr == nil {
-		return fmt.Errorf("error caseExprColumnEval.update cannot have nil caseExpr")
-	}	
+		return fmt.Errorf("error caseExprEvaluator.update cannot have nil caseExpr")
+	}
 	for i := range ctx.caseExpr {
 		when, err := ctx.caseExpr[i].whenCase.eval(input)
 		if err != nil {
 			return fmt.Errorf("while evaluating case_expr when clause: %v", err)
 		}
 		if ToBool(when) {
-			thenCase, err := ctx.caseExpr[i].thenCase.eval(input)
-			if err != nil {
-				return fmt.Errorf("while evaluating case_expr then clause: %v", err)
+			for _, node := range ctx.caseExpr[i].thenCases {
+				value, err := node.evalExpr.eval(input)
+				if err != nil {
+					return fmt.Errorf("while evaluating case_expr then clause: %v", err)
+				}
+				(*currentValue)[node.outputPos] = value
 			}
-			(*currentValue)[ctx.outputPos] = thenCase
 			return nil
 		}
 	}
-	// No match apply default if not null
-	if ctx.elseExpr != nil {
-		elseCase, err := (*ctx.elseExpr).eval(input)
+	// No match apply default if provided
+	for _, node := range ctx.elseExpr {
+		value, err := node.evalExpr.eval(input)
 		if err != nil {
-			return fmt.Errorf("while evaluating case_expr else clause: %v", err)
+			return fmt.Errorf("while evaluating case_expr then clause: %v", err)
 		}
-		(*currentValue)[ctx.outputPos] = elseCase
-		return nil
+		(*currentValue)[node.outputPos] = value
 	}
-	// Got no match and no default clause
-	(*currentValue)[ctx.outputPos] = nil
 	return nil
 }
-func (ctx *caseExprColumnEval) done(currentValue *[]interface{}) error {
+func (ctx *caseExprEvaluator) done(currentValue *[]interface{}) error {
 	return nil
 }
-func (ctx *BuilderContext) buildCaseExprEvaluator(source *InputChannel, outCh *OutputChannel,  spec *TransformationColumnSpec) (TransformationColumnEvaluator, error) {
+func (ctx *BuilderContext) buildCaseExprEvaluator(source *InputChannel, outCh *OutputChannel, spec *TransformationColumnSpec) (TransformationColumnEvaluator, error) {
 	if spec == nil || spec.CaseExpr == nil {
 		return nil, fmt.Errorf("error: Type case_expr must have CaseExpr != nil")
 	}
@@ -61,34 +67,52 @@ func (ctx *BuilderContext) buildCaseExprEvaluator(source *InputChannel, outCh *O
 	for i := range spec.CaseExpr {
 		whenCase, err := ctx.buildExprNodeEvaluator(source, outCh, &spec.CaseExpr[i].When)
 		if err != nil {
-			return nil, fmt.Errorf("while building when clause for item %d: %v",i, err)
+			return nil, fmt.Errorf("while building when clause for item %d: %v", i, err)
 		}
-		thenCase, err := ctx.buildExprNodeEvaluator(source, outCh, &spec.CaseExpr[i].Then)
-		if err != nil {
-			return nil, fmt.Errorf("while building then clause for item %d: %v",i, err)
+		thenCases := make([]*columnExpression, len(spec.CaseExpr[i].Then))
+		for i, node := range spec.CaseExpr[i].Then {
+			expr, err := ctx.buildExprNodeEvaluator(source, outCh, node)
+			if err != nil {
+				return nil, fmt.Errorf("while building then clause for item %d: %v", i, err)
+			}
+			if node.Name == nil {
+				return nil, fmt.Errorf("error: case operator is missing column name in then clause")
+			}
+			outputPos, ok := outCh.columns[*node.Name]
+			if !ok {
+				return nil, fmt.Errorf("error column %s not found in output source %s", *node.Name, outCh.config.Name)
+			}
+			thenCases[i] = &columnExpression{
+				outputPos: outputPos,
+				evalExpr:  expr,
+			}
 		}
 		caseExpr[i] = caseExprClause{
 			whenCase: whenCase,
-			thenCase: thenCase,
+			thenCases: thenCases,
 		}
 	}
 
-	var  elseExpr evalExpression
-	var err error
-	if spec.ElseExpr != nil {
-		elseExpr, err = ctx.buildExprNodeEvaluator(source, outCh, spec.ElseExpr)
+	elseExpr := make([]*columnExpression, len(spec.ElseExpr))
+	for i, node := range spec.ElseExpr {
+		expr, err := ctx.buildExprNodeEvaluator(source, outCh, node)
 		if err != nil {
 			return nil, fmt.Errorf("while building else clause for case_expr: %v", err)
 		}
+		if node.Name == nil {
+			return nil, fmt.Errorf("error: case operator is missing column name in else clause")
+		}
+		outputPos, ok := outCh.columns[*node.Name]
+		if !ok {
+			return nil, fmt.Errorf("error column %s not found in output source %s", *node.Name, outCh.config.Name)
+		}
+		elseExpr[i] = &columnExpression{
+			outputPos: outputPos,
+			evalExpr: expr,
+		}
 	}
-	outputPos, ok := outCh.columns[spec.Name]
-	if !ok {
-		return nil, fmt.Errorf("error column %s not found in output source %s", spec.Name, outCh.config.Name)
-	}
-	return &caseExprColumnEval{
-		outputPos: outputPos,
+	return &caseExprEvaluator{
 		caseExpr: caseExpr,
-		elseExpr: &elseExpr,
+		elseExpr: elseExpr,
 	}, nil
 }
-

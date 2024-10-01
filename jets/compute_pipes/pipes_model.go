@@ -181,8 +181,8 @@ type TransformationColumnSpec struct {
 	EvalExpr       *ExpressionNode             `json:"eval_expr"`
 	HashExpr       *HashExpression             `json:"hash_expr"`
 	Where          *ExpressionNode             `json:"where"`
-	CaseExpr       []CaseExpression            `json:"case_expr"`
-	ElseExpr       *ExpressionNode             `json:"else_expr"`
+	CaseExpr       []CaseExpression            `json:"case_expr"` // case operator
+	ElseExpr       []*ExpressionNode           `json:"else_expr"` // case operator
 	MapOn          *string                     `json:"map_on"`
 	AlternateMapOn *[]string                   `json:"alternate_map_on"`
 	ApplyMap       *[]TransformationColumnSpec `json:"apply_map"`
@@ -215,6 +215,9 @@ type MapExpression struct {
 
 type ExpressionNode struct {
 	// Type is for leaf nodes: select, value
+	// Name is for CaseExpression.Then and TransformationColumnSpec.ElseExpr
+	// to indicate which column to set the calculated value
+	Name      *string         `json:"name"` // TransformationColumnSpec case operator
 	Type      *string         `json:"type"`
 	Expr      *string         `json:"expr"`
 	AsRdfType *string         `json:"as_rdf_type"`
@@ -225,6 +228,6 @@ type ExpressionNode struct {
 }
 
 type CaseExpression struct {
-	When ExpressionNode `json:"when"`
-	Then ExpressionNode `json:"then"`
+	When ExpressionNode    `json:"when"`
+	Then []*ExpressionNode `json:"then"`
 }
