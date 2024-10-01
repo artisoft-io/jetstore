@@ -175,8 +175,10 @@ func (state *AnalyzeState) NewToken(value string) error {
 	var err error
 	for _, lookupState := range state.LookupState {
 		if lookupState.KeyRe != nil {
-			key := lookupState.KeyRe.FindString(value)
-			row, err = lookupState.LookupTbl.Lookup(&key)
+			key := lookupState.KeyRe.FindStringSubmatch(value)
+			if len(key) > 1 {
+				row, err = lookupState.LookupTbl.Lookup(&key[1])
+			}
 		} else {
 			row, err = lookupState.LookupTbl.Lookup(&value)
 		}
