@@ -65,7 +65,7 @@ func (cpCtx *ComputePipesContext) StartComputePipes(dbpool *pgxpool.Pool, comput
 
 	// Prepare the channel registry
 	// ----------------------------
-	inputChannelName := cpCtx.CpConfig.PipesConfig[0].Input
+	inputChannelName := cpCtx.CpConfig.PipesConfig[0].InputChannel.Name
 	if inputChannelName == "input_row" {
 		// case sharding or reducing
 		// Setup the input channel for input_row
@@ -138,7 +138,7 @@ func (cpCtx *ComputePipesContext) StartComputePipes(dbpool *pgxpool.Pool, comput
 		// Setup the input channel for input_row
 		inChannel := channelRegistry.computeChannels[inputChannelName]
 		if inChannel == nil {
-			cpErr = fmt.Errorf("channel %s not found in Channel Registry", cpCtx.CpConfig.PipesConfig[0].Input)
+			cpErr = fmt.Errorf("channel %s not found in Channel Registry", inputChannelName)
 			goto gotError
 		}
 		inputRowChannel = &InputChannel{
@@ -149,7 +149,7 @@ func (cpCtx *ComputePipesContext) StartComputePipes(dbpool *pgxpool.Pool, comput
 				Columns: inChannel.config.Columns,
 			},
 		}
-		cpCtx.CpConfig.PipesConfig[0].Input = "input_row"
+		cpCtx.CpConfig.PipesConfig[0].InputChannel.Name = "input_row"
 		channelRegistry.inputRowChannel = inputRowChannel
 	}
 	// log.Println("Compute Pipes channel registry ready")

@@ -299,7 +299,7 @@ func (args *StartComputePipesArgs) StartShardingComputePipes(ctx context.Context
 			}
 		}
 	}
-	readStepId, writeStepId := GetRWStepId(stepId)
+	mainInputStepId := "reducing00"
 	lookupTables, err := SelectActiveLookupTable(cpConfig.LookupTables, cpConfig.ReducingPipesConfig[0])
 	if err != nil {
 		return result, err
@@ -309,7 +309,7 @@ func (args *StartComputePipesArgs) StartShardingComputePipes(ctx context.Context
 		return result, fmt.Errorf("error: invalid cpipes config, reducing_pipes_config is incomplete")
 	}
 	// Validate that the first PipeSpec[0].Input == "input_row"
-	if pipeConfig[0].Input != "input_row" {
+	if pipeConfig[0].InputChannel.Name != "input_row" {
 		return result, fmt.Errorf("error: invalid cpipes config, reducing_pipes_config[0][0].input must be 'input_row'")
 	}
 	// Validate the PipeSpec.TransformationSpec.OutputChannel configuration
@@ -325,8 +325,7 @@ func (args *StartComputePipesArgs) StartShardingComputePipes(ctx context.Context
 			ObjectType:      objectType,
 			FileKey:         args.FileKey,
 			SessionId:       args.SessionId,
-			ReadStepId:      readStepId,
-			WriteStepId:     writeStepId,
+			MainInputStepId: mainInputStepId,
 			InputSessionId:  inputSessionId,
 			SourcePeriodKey: sourcePeriodKey,
 			ProcessName:     processName,
@@ -409,12 +408,6 @@ func GetMaxConcurrency(nbrNodes, defaultMaxConcurrency int) int {
 		maxConcurrency = 1
 	}
 	return maxConcurrency
-}
-
-func GetRWStepId(stepId int) (readStepId, writeStepId string) {
-	readStepId = fmt.Sprintf("reducing%02d", stepId)
-	writeStepId = fmt.Sprintf("reducing%02d", stepId+1)
-	return
 }
 
 // Function to prune the lookupConfig and return only the lookup used in the pipeConfig

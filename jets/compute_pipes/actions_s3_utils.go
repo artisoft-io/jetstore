@@ -75,12 +75,12 @@ func (cpCtx *ComputePipesContext) DownloadS3Files(inFolderPath string, fileKeys 
 		var err error
 		if cpCtx.CpConfig.ClusterConfig.IsDebugMode {
 			log.Printf("%s node %d %s Start downloading %d files from s3",
-				cpCtx.SessionId, cpCtx.NodeId, cpCtx.ReadStepId, len(fileKeys))
+				cpCtx.SessionId, cpCtx.NodeId, cpCtx.MainInputStepId, len(fileKeys))
 		}
 		for i := range fileKeys {
 			if cpCtx.CpConfig.ClusterConfig.IsDebugMode {
 				log.Printf("%s node %d %s Downloading file from s3: %s",
-					cpCtx.SessionId, cpCtx.NodeId, cpCtx.ReadStepId, fileKeys[i])
+					cpCtx.SessionId, cpCtx.NodeId, cpCtx.MainInputStepId, fileKeys[i])
 			}
 			retry := 0
 		do_retry:
@@ -113,7 +113,7 @@ func (cpCtx *ComputePipesContext) DownloadS3Files(inFolderPath string, fileKeys 
 		}
 		if cpCtx.CpConfig.ClusterConfig.IsDebugMode {
 			log.Printf("%s node %d %s DONE downloading %d files from s3",
-				cpCtx.SessionId, cpCtx.NodeId, cpCtx.ReadStepId, len(fileKeys))
+				cpCtx.SessionId, cpCtx.NodeId, cpCtx.MainInputStepId, len(fileKeys))
 		}
 		cpCtx.DownloadS3ResultCh <- DownloadS3Result{InputFilesCount: len(fileKeys), TotalFilesSize: totalFilesSize}
 	}()

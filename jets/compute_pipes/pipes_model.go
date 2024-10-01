@@ -99,7 +99,7 @@ type TableColumnSpec struct {
 type PipeSpec struct {
 	// Type range: fan_out, splitter, merge_files
 	Type                 string               `json:"type"`
-	Input                string               `json:"input"`
+	InputChannel         InputChannelConfig   `json:"input_channel"`
 	Column               *string              `json:"column"`                 // splitter column
 	DefaultSplitterValue *string              `json:"default_splitter_value"` // splitter default value
 	Apply                []TransformationSpec `json:"apply"`
@@ -124,8 +124,14 @@ type TransformationSpec struct {
 	OutputChannel         OutputChannelConfig        `json:"output_channel"`
 }
 
+type InputChannelConfig struct {
+	Name       string `json:"name"`
+	ReadStepId string `json:"read_step_id"`
+}
+
 type OutputChannelConfig struct {
 	Name           string `json:"name"`
+	WriteStepId    string `json:"write_step_id"`
 	OutputTableKey string `json:"output_table_key"`
 	SpecName       string `json:"channel_spec_name"`
 }

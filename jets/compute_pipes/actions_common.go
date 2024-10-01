@@ -50,8 +50,7 @@ type ComputePipesCommonArgs struct {
 	ObjectType        string            `json:"object_type"`
 	FileKey           string            `json:"file_key"`
 	SessionId         string            `json:"session_id"`
-	ReadStepId        string            `json:"read_step_id"`
-	WriteStepId       string            `json:"write_step_id"`
+	MainInputStepId   string            `json:"read_step_id"`
 	MergeFiles        bool              `json:"merge_files"`
 	InputSessionId    string            `json:"input_session_id"`
 	SourcePeriodKey   int               `json:"source_period_key"`

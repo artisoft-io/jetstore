@@ -179,7 +179,7 @@ func (ctx *PartitionWriterTransformationPipe) done() error {
 		VALUES ($1, $2, $3)
 		ON CONFLICT DO NOTHING`
 	if _, err := ctx.dbpool.Exec(context.Background(), stmt, ctx.sessionId,
-		ctx.cpConfig.CommonRuntimeArgs.WriteStepId, ctx.jetsPartitionLabel); err != nil {
+		ctx.spec.OutputChannel.WriteStepId, ctx.jetsPartitionLabel); err != nil {
 		return fmt.Errorf("error inserting in jetsapi.compute_pipes_partitions_registry table: %v", err)
 	}
 
@@ -210,6 +210,11 @@ func (ctx *BuilderContext) NewPartitionWriterTransformationPipe(source *InputCha
 	var err error
 	if ctx.s3DeviceManager == nil {
 		err = fmt.Errorf("error:  ctx.s3DeviceManager == nil in NewPartitionWriterTransformationPipe")
+		log.Println(err)
+		return nil, err
+	}
+	if len(spec.OutputChannel.WriteStepId) == 0 {
+		err = fmt.Errorf("error:  write_step_id is not specified in output_channel in NewPartitionWriterTransformationPipe")
 		log.Println(err)
 		return nil, err
 	}
@@ -264,7 +269,7 @@ func (ctx *BuilderContext) NewPartitionWriterTransformationPipe(source *InputCha
 	// baseOutputPath structure is: <JETS_s3_STAGE_PREFIX>/process_name=QcProcess/session_id=123456789/step_id=reduce01/jets_partition=22p/
 	jetsPartitionLabel := MakeJetsPartitionLabel(jetsPartitionKey)
 	baseOutputPath := fmt.Sprintf("%s/process_name=%s/session_id=%s/step_id=%s/jets_partition=%s",
-		jetsS3StagePrefix, ctx.processName, ctx.sessionId, ctx.cpConfig.CommonRuntimeArgs.WriteStepId, jetsPartitionLabel)
+		jetsS3StagePrefix, ctx.processName, ctx.sessionId, spec.OutputChannel.WriteStepId, jetsPartitionLabel)
 
 	// Check if we limit the file part size
 	var rowCountPerPartition int64

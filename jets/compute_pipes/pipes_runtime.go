@@ -138,7 +138,7 @@ func (ctx *BuilderContext) buildComputeGraph() error {
 
 	for i := range ctx.cpConfig.PipesConfig {
 		pipeSpec := &ctx.cpConfig.PipesConfig[i]
-		input := pipeSpec.Input
+		input := pipeSpec.InputChannel.Name
 		source, err := ctx.channelRegistry.GetInputChannel(input)
 		if err != nil {
 			return fmt.Errorf("while building Pipe: %v", err)
