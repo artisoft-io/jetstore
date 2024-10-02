@@ -194,6 +194,9 @@ func (ctx *PartitionWriterTransformationPipe) done() error {
 
 // Always called, if error or not upstream
 func (ctx *PartitionWriterTransformationPipe) finally() {
+	if ctx == nil || ctx.s3DeviceManager == nil {
+		return
+	}
 	// Indicate to S3DeviceManager that we're done using it
 	if ctx.s3DeviceManager.ClientsWg != nil {
 		ctx.s3DeviceManager.ClientsWg.Done()

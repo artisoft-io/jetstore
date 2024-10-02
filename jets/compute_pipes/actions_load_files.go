@@ -195,7 +195,7 @@ func (cpCtx *ComputePipesContext) ReadParquetFile(filePath *FileName, computePip
 			// for i := range record {
 			// 	record[i] = strings.ToValidUTF8(record[i], "")
 			// }
-			// log.Println(cpCtx.SessionId,"node",cpCtx.NodeId, "push record to computePipesInputCh")
+			// log.Println(cpCtx.SessionId,"node",cpCtx.NodeId, "push record to computePipesInputCh with",len(record),"columns")
 			select {
 			case computePipesInputCh <- record:
 			case <-cpCtx.Done:
@@ -301,7 +301,11 @@ func (cpCtx *ComputePipesContext) ReadCsvFile(filePath *FileName, inputFormat st
 			}
 		}
 
-		// PUT KILL SWITCH HERE
+		// Kill Switch - prevent lambda timeout
+		if cpCtx.CpConfig.ClusterConfig.KillSwitchMin > 0 &&
+			time.Since(ComputePipesStart).Minutes() >= float64(cpCtx.CpConfig.ClusterConfig.KillSwitchMin) {
+				return inputRowCount, ErrKillSwitch
+		}
 
 		switch {
 		case err == io.EOF:
@@ -317,6 +321,7 @@ func (cpCtx *ComputePipesContext) ReadCsvFile(filePath *FileName, inputFormat st
 			// for i := range record {
 			// 	record[i] = strings.ToValidUTF8(record[i], "")
 			// }
+			// log.Println(cpCtx.SessionId,"node",cpCtx.NodeId, "push record to computePipesInputCh with",len(record),"columns")
 			select {
 			case computePipesInputCh <- record:
 			case <-cpCtx.Done:
