@@ -45,7 +45,7 @@ func (node *expressionSelectLeaf) eval(input *[]interface{}) (interface{}, error
 			// humm, was expecting a string
 			inputV = fmt.Sprintf("%v", (*input)[node.index])
 		}
-		return CastToRdfType(inputV, *node.rdfType), nil
+		return CastToRdfType(inputV, *node.rdfType)
 	}
 	return (*input)[node.index], nil
 }

@@ -344,7 +344,6 @@ func (args *StartComputePipesArgs) StartShardingComputePipes(ctx context.Context
 			S3WorkerPoolSize:      clusterSpec.S3WorkerPoolSize,
 			DefaultMaxConcurrency: cpConfig.ClusterConfig.DefaultMaxConcurrency,
 			IsDebugMode:           cpConfig.ClusterConfig.IsDebugMode,
-			SamplingRate:          cpConfig.ClusterConfig.SamplingRate,
 		},
 		MetricsConfig: cpConfig.MetricsConfig,
 		OutputTables:  outputTables,

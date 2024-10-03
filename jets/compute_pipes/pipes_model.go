@@ -24,7 +24,6 @@ type ClusterSpec struct {
 	S3WorkerPoolSize      int                  `json:"s3_worker_pool_size"`
 	NbrNodesLookup        *[]ClusterSizingSpec `json:"nbr_nodes_lookup"`
 	IsDebugMode           bool                 `json:"is_debug_mode"`
-	SamplingRate          int                  `json:"sampling_rate"`
 	KillSwitchMin         int                  `json:"kill_switch_min"`
 }
 
@@ -56,13 +55,26 @@ type Metric struct {
 }
 
 type LookupSpec struct {
-	// type range: sql_lookup
+	// type range: sql_lookup, s2_csv_lookup
 	Key          string            `json:"key"`
 	Type         string            `json:"type"`
-	Query        string            `json:"query"`
+	Query        string            `json:"query"`      // for sql_lookup
+	CsvSource    *CsvSourceSpec    `json:"csv_source"` //for s2_csv_lookup
 	Columns      []TableColumnSpec `json:"columns"`
 	LookupKey    []string          `json:"lookup_key"`
 	LookupValues []string          `json:"lookup_values"`
+}
+
+type CsvSourceSpec struct {
+	// Type range: cpipes, csv_file (future)
+	// Default values are taken from current pipeline
+	// InputFormat: csv, headerless_csv, compressed_csv, compressed_headerless_csv
+	Type               string `json:"type"`
+	InputFormat        string `json:"input_format"`
+	ProcessName        string `json:"process_name"`   // for cpipes
+	ReadStepId         string `json:"read_step_id"`   // for cpipes
+	JetsPartitionLabel string `json:"jets_partition"` // for cpipes
+	SessionId          string `json:"session_id"`     // for cpipes
 }
 
 type ChannelSpec struct {
@@ -125,8 +137,9 @@ type TransformationSpec struct {
 }
 
 type InputChannelConfig struct {
-	Name       string `json:"name"`
-	ReadStepId string `json:"read_step_id"`
+	Name         string `json:"name"`
+	ReadStepId   string `json:"read_step_id"`
+	SamplingRate int    `json:"sampling_rate"`
 }
 
 type OutputChannelConfig struct {

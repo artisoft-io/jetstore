@@ -5,7 +5,6 @@ import (
 	"log"
 	"regexp"
 	"strconv"
-	"time"
 )
 
 // TransformationColumnSpec Type map
@@ -41,6 +40,7 @@ func (ctx *mapColumnEval) update(currentValue *[]interface{}, input *[]interface
 	var outputVal interface{}
 	var inputV, errMsg string
 	var ok bool
+	var err error
 	if inputVal != nil {
 		inputV, ok = inputVal.(string)
 		if !ok {
@@ -66,7 +66,10 @@ func (ctx *mapColumnEval) update(currentValue *[]interface{}, input *[]interface
 		}
 	} else {
 		// Cast to rdf type
-		outputVal = CastToRdfType(inputV, ctx.mapConfig.mapConfig.RdfType)
+		outputVal, err = CastToRdfType(inputV, ctx.mapConfig.mapConfig.RdfType)
+		if err != nil {
+			log.Printf("error while casting value to rdf type (will set to null): %v", err)
+		}
 	}
 	(*currentValue)[ctx.mapConfig.outputPos] = outputVal
 	return nil
@@ -153,49 +156,54 @@ func (ctx *BuilderContext) buildMapEvaluator(source *InputChannel, outCh *Output
 }
 
 // Utility function for casting to specified rdf type
-func CastToRdfType(inputV string, rdfType string) (outputVal interface{}) {
-	var temp interface{}
-	var err error
+func CastToRdfType(inputV string, rdfType string) (interface{}, error) {
 	switch rdfType {
-	case "int":
-		outputVal, err = strconv.Atoi(inputV)
-		if err != nil {
-			// fmt.Println("input is not int:", inputV)
-			outputVal = nil
+
+	case "string", "text":
+		return inputV, nil
+
+	case "int", "integer", "int64", "long":
+		if inputV == "" {
+			return nil, nil
 		}
-	case "int64", "long":
-		outputVal, err = strconv.ParseInt(inputV, 10, 64)
-		if err != nil {
-			// fmt.Println("input is not long:", inputV)
-			outputVal = nil
-		}
+		return strconv.Atoi(inputV)
+
 	case "float64", "double":
-		outputVal, err = strconv.ParseFloat(inputV, 64)
-		if err != nil {
-			// fmt.Println("input is not double:", inputV)
-			outputVal = nil
+		if inputV == "" {
+			return nil, nil
 		}
+		return strconv.ParseFloat(inputV, 64)
+
+	case "bool":
+		if inputV == "" {
+			return nil, nil
+		}
+		if inputV[0] == 'T' || inputV[0] == 't' || inputV[0] == '1' {
+			return 1, nil
+		}
+		return 0, nil
+	
 	case "date":
-		temp, err = ParseDate(inputV)
-		if err != nil {
-			// fmt.Println("input is not date:", inputV)
-			outputVal = nil
+		if inputV == "" {
+			return nil, nil
+		}
+		temp, err := ParseDate(inputV)
+		if err == nil {
+			return *temp, nil
 		} else {
-			outputVal = *(temp.(*time.Time))
+			return nil, err
 		}
 	case "datetime":
-		temp, err = ParseDatetime(inputV)
-		if err != nil {
-			// fmt.Println("input is not date:", inputV)
-			outputVal = nil
-		} else {
-			outputVal = *(temp.(*time.Time))	
+		if inputV == "" {
+			return nil, nil
 		}
-	case "string", "text":
-		outputVal = inputV
+		temp, err := ParseDatetime(inputV)
+		if err == nil {
+			return *temp, nil
+		} else {
+			return nil, err
+		}
 	default:
-		outputVal = inputV
-		log.Printf("warning: unknown rdf_type %s while mapping column value", rdfType)
+		return nil, fmt.Errorf("error: unknown rdf_type %s while mapping column value", rdfType)
 	}
-	return
 }

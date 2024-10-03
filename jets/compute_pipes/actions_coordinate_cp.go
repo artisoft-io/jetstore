@@ -102,6 +102,7 @@ func (args *ComputePipesNodeArgs) CoordinateComputePipes(ctx context.Context, ds
 		EnvSettings: map[string]interface{}{
 			"$SESSIONID":            cpConfig.CommonRuntimeArgs.SessionId,
 			"$SHARD_ID":             args.NodeId,
+			"$PROCESS_NAME":         cpConfig.CommonRuntimeArgs.ProcessName,
 			"$FILE_KEY_DATE":        fileKeyDate,
 			"$JETS_PARTITION_LABEL": args.JetsPartitionLabel,
 		},
