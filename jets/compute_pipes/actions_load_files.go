@@ -73,7 +73,7 @@ func (cpCtx *ComputePipesContext) ReadParquetFile(filePath *FileName, computePip
 	var fileHd *os.File
 	var parquetReader *goparquet.FileReader
 	var err error
-	samplingRate := cpCtx.CpConfig.ClusterConfig.SamplingRate
+	samplingRate := cpCtx.CpConfig.PipesConfig[0].InputChannel.SamplingRate
 
 	fileHd, err = os.Open(filePath.LocalFileName)
 	if err != nil {
@@ -211,7 +211,7 @@ func (cpCtx *ComputePipesContext) ReadCsvFile(filePath *FileName, inputFormat st
 	var fileHd *os.File
 	var csvReader *csv.Reader
 	var err error
-	samplingRate := cpCtx.CpConfig.ClusterConfig.SamplingRate
+	samplingRate := cpCtx.CpConfig.PipesConfig[0].InputChannel.SamplingRate
 
 	fileHd, err = os.Open(filePath.LocalFileName)
 	if err != nil {
@@ -255,7 +255,7 @@ func (cpCtx *ComputePipesContext) ReadCsvFile(filePath *FileName, inputFormat st
 		csvReader = csv.NewReader(snappy.NewReader(fileHd))
 		// skip header row (first row)
 		_, err = csvReader.Read()
-	case "hearderless_csv":
+	case "headerless_csv":
 		csvReader = csv.NewReader(fileHd)
 	case "compressed_headerless_csv":
 		csvReader = csv.NewReader(snappy.NewReader(fileHd))

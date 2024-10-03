@@ -166,7 +166,6 @@ func (args *StartComputePipesArgs) StartReducingComputePipes(ctx context.Context
 		DefaultMaxConcurrency: cpConfig.ClusterConfig.DefaultMaxConcurrency,
 		S3WorkerPoolSize:      cpConfig.ClusterConfig.S3WorkerPoolSize,
 		IsDebugMode:           cpConfig.ClusterConfig.IsDebugMode,
-		// SamplingRate:          cpConfig.ClusterConfig.SamplingRate, // only do sampling on the initial read (sharding)
 	}
 	if clusterSpec.S3WorkerPoolSize == 0 {
 		clusterSpec.S3WorkerPoolSize = len(partitions)
