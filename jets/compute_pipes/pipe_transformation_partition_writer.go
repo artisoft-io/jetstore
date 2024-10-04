@@ -5,14 +5,19 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strings"
 
 	"github.com/jackc/pgx/v4/pgxpool"
 )
 
+var jetsS3InputPrefix string
 var jetsS3StagePrefix string
+var jetsS3OutputPrefix string
 
 func init() {
+	jetsS3InputPrefix = os.Getenv("JETS_s3_INPUT_PREFIX")
 	jetsS3StagePrefix = os.Getenv("JETS_s3_STAGE_PREFIX")
+	jetsS3OutputPrefix = os.Getenv("JETS_s3_OUTPUT_PREFIX")
 }
 
 // partition_writer TransformationSpec implementing PipeTransformationEvaluator interface
@@ -85,7 +90,12 @@ func (ctx *PartitionWriterTransformationPipe) apply(input *[]interface{}) error 
 		if isParquetWriter {
 			fileEx = "parquet"
 		}
-		partitionFileName := fmt.Sprintf("part%03d-%07d.%s", ctx.nodeId, ctx.filePartitionNumber, fileEx)
+		var partitionFileName string
+		if len(ctx.spec.OutputChannel.FileName) > 0 {
+			partitionFileName = ctx.spec.OutputChannel.FileName
+		} else {
+			partitionFileName = fmt.Sprintf("part%04d-%07d.%s", ctx.nodeId, ctx.filePartitionNumber, fileEx)
+		}
 		s3DeviceWriter := &S3DeviceWriter{
 			s3DeviceManager: ctx.s3DeviceManager,
 			source: &InputChannel{
@@ -216,7 +226,10 @@ func (ctx *BuilderContext) NewPartitionWriterTransformationPipe(source *InputCha
 		log.Println(err)
 		return nil, err
 	}
-	if len(spec.OutputChannel.WriteStepId) == 0 {
+	if spec.OutputChannel.Type == "" {
+		spec.OutputChannel.Type = "stage"
+	}
+	if spec.OutputChannel.Type == "stage" && len(spec.OutputChannel.WriteStepId) == 0 {
 		err = fmt.Errorf("error:  write_step_id is not specified in output_channel in NewPartitionWriterTransformationPipe")
 		log.Println(err)
 		return nil, err
@@ -268,11 +281,29 @@ func (ctx *BuilderContext) NewPartitionWriterTransformationPipe(source *InputCha
 		}
 	}
 
-	// s3 partitioning, write the partition files in the JetStore's stage path defined by the env var JETS_s3_STAGE_PREFIX
-	// baseOutputPath structure is: <JETS_s3_STAGE_PREFIX>/process_name=QcProcess/session_id=123456789/step_id=reduce01/jets_partition=22p/
 	jetsPartitionLabel := MakeJetsPartitionLabel(jetsPartitionKey)
-	baseOutputPath := fmt.Sprintf("%s/process_name=%s/session_id=%s/step_id=%s/jets_partition=%s",
-		jetsS3StagePrefix, ctx.processName, ctx.sessionId, spec.OutputChannel.WriteStepId, jetsPartitionLabel)
+	var baseOutputPath string
+	switch spec.OutputChannel.Type {
+	case "stage":
+		// s3 partitioning, write the partition files in the JetStore's stage path defined by the env var JETS_s3_STAGE_PREFIX
+		// baseOutputPath structure is: <JETS_s3_STAGE_PREFIX>/process_name=QcProcess/session_id=123456789/step_id=reduce01/jets_partition=22p/
+		baseOutputPath = fmt.Sprintf("%s/process_name=%s/session_id=%s/step_id=%s/jets_partition=%s",
+			jetsS3StagePrefix, ctx.processName, ctx.sessionId, spec.OutputChannel.WriteStepId, jetsPartitionLabel)
+	case "output":
+		baseOutputPath = spec.OutputChannel.KeyPrefix
+		if strings.Contains(baseOutputPath, "$") {
+			for key, v := range ctx.env {
+				value, ok := v.(string)
+				if ok {
+					baseOutputPath = strings.ReplaceAll(baseOutputPath, key, value)
+				}
+			}
+			baseOutputPath = strings.ReplaceAll(baseOutputPath, "$CURRENT_PARTITION_LABEL", jetsPartitionLabel)
+			baseOutputPath = strings.ReplaceAll(baseOutputPath, jetsS3InputPrefix, jetsS3OutputPrefix)
+		}
+	default:
+		return nil, fmt.Errorf("error: unknown output channel type for partition_writer: %s", spec.OutputChannel.Type)
+	}
 
 	// Check if we limit the file part size
 	var rowCountPerPartition int64

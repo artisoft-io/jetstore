@@ -110,16 +110,21 @@ type TableColumnSpec struct {
 
 type PipeSpec struct {
 	// Type range: fan_out, splitter, merge_files
-	Type                 string               `json:"type"`
-	InputChannel         InputChannelConfig   `json:"input_channel"`
-	Column               *string              `json:"column"`                 // splitter column
-	DefaultSplitterValue *string              `json:"default_splitter_value"` // splitter default value
-	Apply                []TransformationSpec `json:"apply"`
-	OutputFile           *string              `json:"output_file"` // for merge_files
+	Type           string               `json:"type"`
+	InputChannel   InputChannelConfig   `json:"input_channel"`
+	SplitterConfig *SplitterSpec        `json:"splitter_config"`
+	Apply          []TransformationSpec `json:"apply"`
+	OutputFile     *string              `json:"output_file"` // for merge_files
+}
+
+type SplitterSpec struct {
+	Column               string `json:"column"`                 // splitter column
+	DefaultSplitterValue string `json:"default_splitter_value"` // splitter default value
+	RandSuffix           int    `json:"rand_suffix"`
 }
 
 type TransformationSpec struct {
-	// Type range: map_record, aggregate, analyze, high_freq, partition_writer
+	// Type range: map_record, aggregate, analyze, high_freq, partition_writer, anonymize
 	Type                  string                     `json:"type"`
 	NewRecord             bool                       `json:"new_record"`
 	PartitionSize         *int                       `json:"partition_size"`
@@ -129,23 +134,30 @@ type TransformationSpec struct {
 	DataSchema            *[]DataSchemaSpec          `json:"data_schema"`
 	DeviceWriterType      *string                    `json:"device_writer_type"`
 	WriteHeaders          bool                       `json:"write_headers"`
-	RegexTokens           *[]RegexNode               `json:"regex_tokens"`      // for analyze
-	LookupTokens          *[]LookupTokenNode         `json:"lookup_tokens"`     // for analyze
-	KeywordTokens         *[]KeywordTokenNode        `json:"keyword_tokens"`    // for analyze
-	HighFreqColumns       *[]*HighFreqSpec           `json:"high_freq_columns"` // for high_freq
+	RegexTokens           *[]RegexNode               `json:"regex_tokens"`      // Type analyze
+	LookupTokens          *[]LookupTokenNode         `json:"lookup_tokens"`     // Type analyze
+	KeywordTokens         *[]KeywordTokenNode        `json:"keyword_tokens"`    // Type analyze
+	HighFreqColumns       *[]*HighFreqSpec           `json:"high_freq_columns"` // Type high_freq
+	AnonymizeConfig       *AnonymizeSpec             `json:"anonymize_config"`
 	OutputChannel         OutputChannelConfig        `json:"output_channel"`
 }
 
 type InputChannelConfig struct {
+	// Type range: stage (default)
+	Type         string `json:"type"`
 	Name         string `json:"name"`
 	ReadStepId   string `json:"read_step_id"`
 	SamplingRate int    `json:"sampling_rate"`
 }
 
 type OutputChannelConfig struct {
+	// Type range: stage (default), output, sql
+	Type           string `json:"type"`
 	Name           string `json:"name"`
-	WriteStepId    string `json:"write_step_id"`
-	OutputTableKey string `json:"output_table_key"`
+	WriteStepId    string `json:"write_step_id"`    // Type stage
+	OutputTableKey string `json:"output_table_key"` // Type sql
+	KeyPrefix      string `json:"key_prefix"`       // Type output
+	FileName       string `json:"file_name"`        // Type output
 	SpecName       string `json:"channel_spec_name"`
 }
 
@@ -181,6 +193,13 @@ type HighFreqSpec struct {
 	TopPercentile int    `json:"top_pct"`
 	TopRank       int    `json:"top_rank"`
 	re            *regexp.Regexp
+}
+
+type AnonymizeSpec struct {
+	LookupName        string              `json:"lookup_name"`
+	AnonymizeType     string              `json:"anonymize_type"`
+	KeyPrefix         string              `json:"key_prefix"`
+	KeysOutputChannel OutputChannelConfig `json:"keys_output_channel"`
 }
 
 type TransformationColumnSpec struct {

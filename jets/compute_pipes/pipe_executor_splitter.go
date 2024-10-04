@@ -3,7 +3,9 @@ package compute_pipes
 import (
 	"fmt"
 	"log"
+	"math/rand/v2"
 	"runtime/debug"
+	"strings"
 	"sync"
 )
 
@@ -31,24 +33,62 @@ func (ctx *BuilderContext) StartSplitterPipe(spec *PipeSpec, source *InputChanne
 			ctx.channelRegistry.CloseChannel(i)
 		}
 	}()
+	var chanState map[interface{}]chan []interface{}
+	var spliterColumnIdx int
+	var ok bool
+	var config *SplitterSpec
+	var key interface{}
+
+	if spec.SplitterConfig == nil {
+		cpErr = fmt.Errorf("error: missing splitter_config for splitter with source channel %s", source.config.Name)
+		goto gotError
+	}
+	config = spec.SplitterConfig
+	if len(config.Column) == 0 && len(config.DefaultSplitterValue) == 0 && config.RandSuffix == 0 {
+		cpErr = fmt.Errorf("error: invalid splitter_config for splitter with source channel %s", source.config.Name)
+		goto gotError
+	}
 
 	// the map containing all the intermediate channels corresponding to values @ spliterColumnIdx
-	chanState := make(map[interface{}]chan []interface{})
-	spliterColumnIdx, ok := source.columns[*spec.Column]
-	if !ok {
-		cpErr = fmt.Errorf("error: invalid column name %s for splitter with source channel %s", *spec.Column, source.config.Name)
-		goto gotError
+	chanState = make(map[interface{}]chan []interface{})
+	if len(config.Column) > 0 {
+		spliterColumnIdx, ok = source.columns[config.Column]
+		if !ok {
+			cpErr = fmt.Errorf("error: invalid column name %s for splitter with source channel %s", config.Column, source.config.Name)
+			goto gotError
+		}
+	} else {
+		spliterColumnIdx = -1
+	}
+	if len(config.DefaultSplitterValue) > 0 {
+		if strings.Contains(config.DefaultSplitterValue, "$") {
+			for key, v := range ctx.env {
+				value, ok := v.(string)
+				if ok {
+					config.DefaultSplitterValue = strings.ReplaceAll(config.DefaultSplitterValue, key, value)
+				}
+			}
+		}
 	}
 
 	// fmt.Println("**!@@ start splitter loop on source:",source.config.Name)
 	for inRow := range source.channel {
-		key := inRow[spliterColumnIdx]
-		if key == nil {
-			if spec.DefaultSplitterValue != nil {
-				key = *spec.DefaultSplitterValue
+		key = nil
+		if spliterColumnIdx >= 0 {
+			key = inRow[spliterColumnIdx]
+		}
+		if key == nil && len(config.DefaultSplitterValue) > 0 {
+				key = config.DefaultSplitterValue
+		}
+		if config.RandSuffix > 0 {
+			if key != nil {
+				key = fmt.Sprintf("%v|%d", key, rand.IntN(config.RandSuffix))
 			} else {
-				log.Println(ctx.sessionId,"node",ctx.nodeId, "*WARNING* splitter with nil key on source",source.config.Name)
+				key = rand.IntN(config.RandSuffix)
 			}
+		}
+		if key == nil {
+			log.Println(ctx.sessionId, "node", ctx.nodeId, "*WARNING* splitter with nil key on source", source.config.Name)
 		}
 		splitCh := chanState[key]
 		if splitCh == nil {
@@ -58,8 +98,8 @@ func (ctx *BuilderContext) StartSplitterPipe(spec *PipeSpec, source *InputChanne
 			chanState[key] = splitCh
 
 			if ctx.cpConfig.ClusterConfig.IsDebugMode {
-				if len(chanState) % 5 == 0 {
-					log.Println(ctx.sessionId,"node",ctx.nodeId, "splitter size:",len(chanState)," on source",source.config.Name)
+				if len(chanState)%5 == 0 {
+					log.Println(ctx.sessionId, "node", ctx.nodeId, "splitter size:", len(chanState), " on source", source.config.Name)
 				}
 			}
 

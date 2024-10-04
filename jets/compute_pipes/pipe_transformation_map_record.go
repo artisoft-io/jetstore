@@ -61,9 +61,9 @@ func (ctx *MapRecordTransformationPipe) apply(input *[]interface{}) error {
 		log.Printf("MapRecordTransformationPipe writing to '%s' interrupted", ctx.outputCh.config.Name)
 		return nil
 	}
-
 	return nil
 }
+
 func (ctx *MapRecordTransformationPipe) done() error {
 	return nil
 }
