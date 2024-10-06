@@ -89,8 +89,20 @@ func (args *StartComputePipesArgs) StartReducingComputePipes(ctx context.Context
 	if err != nil {
 		return result, fmt.Errorf("while unmarshaling compute pipes json: %s", err)
 	}
-	log.Println("Start REDUCING", args.SessionId, "StepId:", *args.StepId, "file_key:", args.FileKey)
-	readStepId, writeStepId := GetRWStepId(*args.StepId)
+
+	// Get the source for input_row channel, given by the first input_channel node
+	stepId := *args.StepId
+	// Validate that there is such stepId
+	if stepId >= len(cpConfig.ReducingPipesConfig) {
+		// we're past the last step - most likely there was only a sharding step
+		return result, ErrNoReducingStep
+	}
+	mainInputStepId := cpConfig.ReducingPipesConfig[stepId][0].InputChannel.ReadStepId
+	if len(mainInputStepId) == 0 {
+		return result, fmt.Errorf("error: missing input_channel.read_step_id for first pipe at step %d", stepId)
+	}
+	log.Println("Start REDUCING", args.SessionId, "StepId:", *args.StepId,
+		"MainInputStepId", mainInputStepId, "file_key:", args.FileKey)
 
 	// Read the partitions file keys, this will give us the nbr of nodes for reducing
 	// Root dir of each partition:
@@ -100,7 +112,7 @@ func (args *StartComputePipesArgs) StartReducingComputePipes(ctx context.Context
 	stmt = `SELECT jets_partition 
 			FROM jetsapi.compute_pipes_partitions_registry 
 			WHERE session_id = $1 AND step_id = $2`
-	rows, err := dbpool.Query(context.Background(), stmt, args.SessionId, readStepId)
+	rows, err := dbpool.Query(context.Background(), stmt, args.SessionId, mainInputStepId)
 	if err != nil {
 		return result,
 			fmt.Errorf("while querying jets_partition from compute_pipes_partitions_registry: %v", err)
@@ -123,13 +135,6 @@ func (args *StartComputePipesArgs) StartReducingComputePipes(ctx context.Context
 		result.CpipesMaxConcurrency = args.MaxConcurrency
 	}
 	result.UseECSReducingTask = args.UseECSTask
-
-	stepId := *args.StepId
-	// Validate that there is such stepId
-	if stepId >= len(cpConfig.ReducingPipesConfig) {
-		// we're past the last step - most likely there was only a sharding step
-		return result, ErrNoReducingStep
-	}
 	outputTables, err := SelectActiveOutputTable(cpConfig.OutputTables, cpConfig.ReducingPipesConfig[stepId])
 	if err != nil {
 		return result, fmt.Errorf("while calling SelectActiveOutputTable for stepId %d: %v", stepId, err)
@@ -161,7 +166,6 @@ func (args *StartComputePipesArgs) StartReducingComputePipes(ctx context.Context
 		DefaultMaxConcurrency: cpConfig.ClusterConfig.DefaultMaxConcurrency,
 		S3WorkerPoolSize:      cpConfig.ClusterConfig.S3WorkerPoolSize,
 		IsDebugMode:           cpConfig.ClusterConfig.IsDebugMode,
-		// SamplingRate:          cpConfig.ClusterConfig.SamplingRate, // only do sampling on the initial read (sharding)
 	}
 	if clusterSpec.S3WorkerPoolSize == 0 {
 		clusterSpec.S3WorkerPoolSize = len(partitions)
@@ -172,11 +176,11 @@ func (args *StartComputePipesArgs) StartReducingComputePipes(ctx context.Context
 	var inputColumns []string
 	var inputChannel string
 	if !isMergeFiles {
-		inputChannel = cpConfig.ReducingPipesConfig[stepId][0].Input
+		inputChannel = cpConfig.ReducingPipesConfig[stepId][0].InputChannel.Name
 		if inputChannel == "input_row" {
 			// special case, need to get the input columns from file of first partition
 			inputFormat = "compressed_csv"
-			fileKeys, err := GetS3FileKeys(processName, args.SessionId, readStepId, partitions[0])
+			fileKeys, err := GetS3FileKeys(processName, args.SessionId, mainInputStepId, partitions[0])
 			if err != nil {
 				return result, err
 			}
@@ -220,8 +224,7 @@ func (args *StartComputePipesArgs) StartReducingComputePipes(ctx context.Context
 			ObjectType:      objectType,
 			FileKey:         args.FileKey,
 			SessionId:       args.SessionId,
-			ReadStepId:      readStepId,
-			WriteStepId:     writeStepId,
+			MainInputStepId: mainInputStepId,
 			MergeFiles:      isMergeFiles,
 			InputSessionId:  inputSessionId,
 			SourcePeriodKey: sourcePeriodKey,

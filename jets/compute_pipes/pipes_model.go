@@ -24,7 +24,6 @@ type ClusterSpec struct {
 	S3WorkerPoolSize      int                  `json:"s3_worker_pool_size"`
 	NbrNodesLookup        *[]ClusterSizingSpec `json:"nbr_nodes_lookup"`
 	IsDebugMode           bool                 `json:"is_debug_mode"`
-	SamplingRate          int                  `json:"sampling_rate"`
 	KillSwitchMin         int                  `json:"kill_switch_min"`
 }
 
@@ -56,13 +55,26 @@ type Metric struct {
 }
 
 type LookupSpec struct {
-	// type range: sql_lookup
+	// type range: sql_lookup, s2_csv_lookup
 	Key          string            `json:"key"`
 	Type         string            `json:"type"`
-	Query        string            `json:"query"`
+	Query        string            `json:"query"`      // for sql_lookup
+	CsvSource    *CsvSourceSpec    `json:"csv_source"` //for s2_csv_lookup
 	Columns      []TableColumnSpec `json:"columns"`
 	LookupKey    []string          `json:"lookup_key"`
 	LookupValues []string          `json:"lookup_values"`
+}
+
+type CsvSourceSpec struct {
+	// Type range: cpipes, csv_file (future)
+	// Default values are taken from current pipeline
+	// InputFormat: csv, headerless_csv, compressed_csv, compressed_headerless_csv
+	Type               string `json:"type"`
+	InputFormat        string `json:"input_format"`
+	ProcessName        string `json:"process_name"`   // for cpipes
+	ReadStepId         string `json:"read_step_id"`   // for cpipes
+	JetsPartitionLabel string `json:"jets_partition"` // for cpipes
+	SessionId          string `json:"session_id"`     // for cpipes
 }
 
 type ChannelSpec struct {
@@ -98,16 +110,21 @@ type TableColumnSpec struct {
 
 type PipeSpec struct {
 	// Type range: fan_out, splitter, merge_files
-	Type                 string               `json:"type"`
-	Input                string               `json:"input"`
-	Column               *string              `json:"column"`                 // splitter column
-	DefaultSplitterValue *string              `json:"default_splitter_value"` // splitter default value
-	Apply                []TransformationSpec `json:"apply"`
-	OutputFile           *string              `json:"output_file"` // for merge_files
+	Type           string               `json:"type"`
+	InputChannel   InputChannelConfig   `json:"input_channel"`
+	SplitterConfig *SplitterSpec        `json:"splitter_config"`
+	Apply          []TransformationSpec `json:"apply"`
+	OutputFile     *string              `json:"output_file"` // for merge_files
+}
+
+type SplitterSpec struct {
+	Column               string `json:"column"`                 // splitter column
+	DefaultSplitterValue string `json:"default_splitter_value"` // splitter default value
+	RandSuffix           int    `json:"rand_suffix"`
 }
 
 type TransformationSpec struct {
-	// Type range: map_record, aggregate, analyze, high_freq, partition_writer
+	// Type range: map_record, aggregate, analyze, high_freq, partition_writer, anonymize
 	Type                  string                     `json:"type"`
 	NewRecord             bool                       `json:"new_record"`
 	PartitionSize         *int                       `json:"partition_size"`
@@ -117,16 +134,34 @@ type TransformationSpec struct {
 	DataSchema            *[]DataSchemaSpec          `json:"data_schema"`
 	DeviceWriterType      *string                    `json:"device_writer_type"`
 	WriteHeaders          bool                       `json:"write_headers"`
-	RegexTokens           *[]RegexNode               `json:"regex_tokens"`      // for analyze
-	LookupTokens          *[]LookupTokenNode         `json:"lookup_tokens"`     // for analyze
-	KeywordTokens         *[]KeywordTokenNode        `json:"keyword_tokens"`    // for analyze
-	HighFreqColumns       *[]*HighFreqSpec           `json:"high_freq_columns"` // for high_freq
+	RegexTokens           *[]RegexNode               `json:"regex_tokens"`      // Type analyze
+	LookupTokens          *[]LookupTokenNode         `json:"lookup_tokens"`     // Type analyze
+	KeywordTokens         *[]KeywordTokenNode        `json:"keyword_tokens"`    // Type analyze
+	HighFreqColumns       *[]*HighFreqSpec           `json:"high_freq_columns"` // Type high_freq
+	AnonymizeConfig       *AnonymizeSpec             `json:"anonymize_config"`
 	OutputChannel         OutputChannelConfig        `json:"output_channel"`
 }
 
+type InputChannelConfig struct {
+	// Type range: input, stage (default)
+	// Format: csv, headerless_csv, compressed_csv, compressed_headerless_csv, etc
+	Type         string `json:"type"`
+	Name         string `json:"name"`
+	Format       string `json:"format"` // Type input
+	ReadStepId   string `json:"read_step_id"`
+	SamplingRate int    `json:"sampling_rate"`
+}
+
 type OutputChannelConfig struct {
+	// Type range: stage (default), output, sql
+	// Format: csv, headerless_csv, compressed_csv, compressed_headerless_csv, etc
+	Type           string `json:"type"`
 	Name           string `json:"name"`
-	OutputTableKey string `json:"output_table_key"`
+	Format         string `json:"format"`           // Type output
+	WriteStepId    string `json:"write_step_id"`    // Type stage
+	OutputTableKey string `json:"output_table_key"` // Type sql
+	KeyPrefix      string `json:"key_prefix"`       // Type output
+	FileName       string `json:"file_name"`        // Type output
 	SpecName       string `json:"channel_spec_name"`
 }
 
@@ -164,6 +199,13 @@ type HighFreqSpec struct {
 	re            *regexp.Regexp
 }
 
+type AnonymizeSpec struct {
+	LookupName        string              `json:"lookup_name"`
+	AnonymizeType     string              `json:"anonymize_type"`
+	KeyPrefix         string              `json:"key_prefix"`
+	KeysOutputChannel OutputChannelConfig `json:"keys_output_channel"`
+}
+
 type TransformationColumnSpec struct {
 	// Type range: select, value, eval, map, hash
 	// count, distinct_count, sum, min, case,
@@ -175,8 +217,8 @@ type TransformationColumnSpec struct {
 	EvalExpr       *ExpressionNode             `json:"eval_expr"`
 	HashExpr       *HashExpression             `json:"hash_expr"`
 	Where          *ExpressionNode             `json:"where"`
-	CaseExpr       []CaseExpression            `json:"case_expr"`
-	ElseExpr       *ExpressionNode             `json:"else_expr"`
+	CaseExpr       []CaseExpression            `json:"case_expr"` // case operator
+	ElseExpr       []*ExpressionNode           `json:"else_expr"` // case operator
 	MapOn          *string                     `json:"map_on"`
 	AlternateMapOn *[]string                   `json:"alternate_map_on"`
 	ApplyMap       *[]TransformationColumnSpec `json:"apply_map"`
@@ -209,6 +251,9 @@ type MapExpression struct {
 
 type ExpressionNode struct {
 	// Type is for leaf nodes: select, value
+	// Name is for CaseExpression.Then and TransformationColumnSpec.ElseExpr
+	// to indicate which column to set the calculated value
+	Name      *string         `json:"name"` // TransformationColumnSpec case operator
 	Type      *string         `json:"type"`
 	Expr      *string         `json:"expr"`
 	AsRdfType *string         `json:"as_rdf_type"`
@@ -219,6 +264,6 @@ type ExpressionNode struct {
 }
 
 type CaseExpression struct {
-	When ExpressionNode `json:"when"`
-	Then ExpressionNode `json:"then"`
+	When ExpressionNode    `json:"when"`
+	Then []*ExpressionNode `json:"then"`
 }

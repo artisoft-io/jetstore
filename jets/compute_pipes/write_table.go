@@ -33,7 +33,9 @@ func NewWriteTableSource(source <-chan []interface{},	tableIdentifier pgx.Identi
 func (wt *WriteTableSource) Next() bool {
 	var ok bool
 	wt.pending, ok = <-wt.source
-	wt.count += 1
+	if ok {
+		wt.count += 1
+	}
 	return ok
 }
 func (wt *WriteTableSource) Values() ([]interface{}, error) {
@@ -89,7 +91,7 @@ func (wt *WriteTableSource) WriteTable(dbpool *pgxpool.Pool, done chan struct{},
 			fmt.Println()
 		}
 		close(done)
-		fmt.Println("**!@@ ERROR writing to database, writing to copy2DbResultCh (ComputePipesResult)")
+		fmt.Println("**!@@ ERROR writing to database, writing to copy2DbResultCh (ComputePipesResult) recCount",recCount)
 		copy2DbResultCh <- ComputePipesResult{TableName: wt.tableIdentifier.Sanitize(), Err: fmt.Errorf("while copy records to db at count %d: %v", wt.count, err)}
 		return
 	}

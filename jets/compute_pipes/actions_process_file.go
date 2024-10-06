@@ -57,7 +57,7 @@ func (cpCtx *ComputePipesContext) ProcessFilesAndReportStatus(ctx context.Contex
 	// }
 	var totalInputFileSize int64
 	var totalInputFileCount int
-	for downloadResult :=  range cpCtx.DownloadS3ResultCh {
+	for downloadResult := range cpCtx.DownloadS3ResultCh {
 		if cpCtx.CpConfig.ClusterConfig.IsDebugMode {
 			log.Println(cpCtx.SessionId, "node", cpCtx.NodeId, "Downloaded", downloadResult.InputFilesCount,
 				"files from s3, total size:", downloadResult.TotalFilesSize/1024/1024, "MB, err:", downloadResult.Err)
@@ -74,10 +74,10 @@ func (cpCtx *ComputePipesContext) ProcessFilesAndReportStatus(ctx context.Contex
 		if downloadResult.Err != nil {
 			err = downloadResult.Err
 			processingErrors = append(processingErrors, downloadResult.Err.Error())
-		}	
+		}
 	}
 
-	// log.Println("**!@@ CP RESULT = Loaded from s3:") 
+	// log.Println("**!@@ CP RESULT = Loaded from s3:")
 	var loadedRowCount int
 	for loadFromS3FilesResult := range cpCtx.ChResults.LoadFromS3FilesResultCh {
 		if cpCtx.CpConfig.ClusterConfig.IsDebugMode {
@@ -96,7 +96,7 @@ func (cpCtx *ComputePipesContext) ProcessFilesAndReportStatus(ctx context.Contex
 			if err == nil {
 				err = loadFromS3FilesResult.Err
 			}
-		}	
+		}
 	}
 	// log.Println("**!@@ CP RESULT = Loaded from s3: DONE")
 	// log.Println("**!@@ CP RESULT = Copy2DbResultCh:")
@@ -138,7 +138,7 @@ func (cpCtx *ComputePipesContext) ProcessFilesAndReportStatus(ctx context.Contex
 	// cpCtx.S3DeviceMgr == nil when cpCtx.ComputePipesArgs.MergeFiles == true
 	if cpCtx.S3DeviceMgr != nil {
 		cpCtx.S3DeviceMgr.ClientsWg.Wait()
-		close(cpCtx.S3DeviceMgr.WorkersTaskCh)	
+		close(cpCtx.S3DeviceMgr.WorkersTaskCh)
 	}
 	for s3DeviceManagerResult := range cpCtx.ChResults.S3PutObjectResultCh {
 		if cpCtx.CpConfig.ClusterConfig.IsDebugMode {
@@ -153,9 +153,8 @@ func (cpCtx *ComputePipesContext) ProcessFilesAndReportStatus(ctx context.Contex
 	}
 
 	// Check for error from compute pipes
-	var cpErr error
-	select {
-	case cpErr = <-cpCtx.ErrCh:
+	close(cpCtx.ErrCh)
+	for cpErr := range cpCtx.ErrCh {
 		// got an error during compute pipes processing
 		log.Printf("%s node %d got error from Compute Pipes processing: %v", cpCtx.SessionId, cpCtx.NodeId, cpErr)
 		if err == nil {
@@ -166,12 +165,9 @@ func (cpCtx *ComputePipesContext) ProcessFilesAndReportStatus(ctx context.Contex
 		// 	Err:          cpErr,
 		// }
 		// saveResultsCtx.Save("CP Errors", r)
-
 		processingErrors = append(processingErrors, fmt.Sprintf("got error from Compute Pipes processing: %v", cpErr))
-	default:
-		// log.Println("No errors from Compute Pipes processing!")
 	}
-
+	
 	// registering the load
 	// ---------------------------------------
 	var status string
@@ -191,8 +187,8 @@ func (cpCtx *ComputePipesContext) ProcessFilesAndReportStatus(ctx context.Contex
 
 	// Register the result of this shard with pipeline_execution_details
 	err2 := cpCtx.UpdatePipelineExecutionStatus(dbpool, key,
-		loadedRowCount, int(totalInputFileSize/1024/1024), totalInputFileCount,	
-		int(outputRowCount), cpCtx.ReadStepId, status, errMessage)
+		loadedRowCount, int(totalInputFileSize/1024/1024), totalInputFileCount,
+		int(outputRowCount), cpCtx.MainInputStepId, status, errMessage)
 	if err2 != nil {
 		return fmt.Errorf("error while registering the load (cpipesSM): %v", err2)
 	}

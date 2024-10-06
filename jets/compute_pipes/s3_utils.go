@@ -8,9 +8,9 @@ import (
 
 // Utility function to access s3
 
-func GetS3FileKeys(processName, sessionId, readStepId, jetsPartitionLabel string) ([]string, error) {
+func GetS3FileKeys(processName, sessionId, mainInputStepId, jetsPartitionLabel string) ([]string, error) {
 	s3BaseFolder := fmt.Sprintf("%s/process_name=%s/session_id=%s/step_id=%s/jets_partition=%s",
-		jetsS3StagePrefix, processName, sessionId, readStepId, jetsPartitionLabel)
+		jetsS3StagePrefix, processName, sessionId, mainInputStepId, jetsPartitionLabel)
 
 	s3Objects, err := awsi.ListS3Objects(&s3BaseFolder)
 	if err != nil || s3Objects == nil {

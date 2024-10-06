@@ -71,7 +71,12 @@ func (ctx *BuilderContext) NewS3DeviceManager() error {
 			Err:        err}:
 			if err != nil {
 				// Interrupt the whole process, there's been an error writing a file part
-				close(ctx.done)
+				// Avoid closing a closed channel
+				select {
+				case <-ctx.done:
+				default:
+					close(ctx.done)
+				}
 			}
 		case <-ctx.done:
 			log.Printf("Collecting results from S3DeviceWorker interrupted")

@@ -299,7 +299,7 @@ func (args *StartComputePipesArgs) StartShardingComputePipes(ctx context.Context
 			}
 		}
 	}
-	readStepId, writeStepId := GetRWStepId(stepId)
+	mainInputStepId := "reducing00"
 	lookupTables, err := SelectActiveLookupTable(cpConfig.LookupTables, cpConfig.ReducingPipesConfig[0])
 	if err != nil {
 		return result, err
@@ -309,7 +309,7 @@ func (args *StartComputePipesArgs) StartShardingComputePipes(ctx context.Context
 		return result, fmt.Errorf("error: invalid cpipes config, reducing_pipes_config is incomplete")
 	}
 	// Validate that the first PipeSpec[0].Input == "input_row"
-	if pipeConfig[0].Input != "input_row" {
+	if pipeConfig[0].InputChannel.Name != "input_row" {
 		return result, fmt.Errorf("error: invalid cpipes config, reducing_pipes_config[0][0].input must be 'input_row'")
 	}
 	// Validate the PipeSpec.TransformationSpec.OutputChannel configuration
@@ -325,8 +325,7 @@ func (args *StartComputePipesArgs) StartShardingComputePipes(ctx context.Context
 			ObjectType:      objectType,
 			FileKey:         args.FileKey,
 			SessionId:       args.SessionId,
-			ReadStepId:      readStepId,
-			WriteStepId:     writeStepId,
+			MainInputStepId: mainInputStepId,
 			InputSessionId:  inputSessionId,
 			SourcePeriodKey: sourcePeriodKey,
 			ProcessName:     processName,
@@ -345,7 +344,6 @@ func (args *StartComputePipesArgs) StartShardingComputePipes(ctx context.Context
 			S3WorkerPoolSize:      clusterSpec.S3WorkerPoolSize,
 			DefaultMaxConcurrency: cpConfig.ClusterConfig.DefaultMaxConcurrency,
 			IsDebugMode:           cpConfig.ClusterConfig.IsDebugMode,
-			SamplingRate:          cpConfig.ClusterConfig.SamplingRate,
 		},
 		MetricsConfig: cpConfig.MetricsConfig,
 		OutputTables:  outputTables,
@@ -411,23 +409,17 @@ func GetMaxConcurrency(nbrNodes, defaultMaxConcurrency int) int {
 	return maxConcurrency
 }
 
-func GetRWStepId(stepId int) (readStepId, writeStepId string) {
-	readStepId = fmt.Sprintf("reducing%02d", stepId)
-	writeStepId = fmt.Sprintf("reducing%02d", stepId+1)
-	return
-}
-
 // Function to prune the lookupConfig and return only the lookup used in the pipeConfig
 // Returns an error if pipeConfig has reference to a lookup not in lookupConfig
 func SelectActiveLookupTable(lookupConfig []*LookupSpec, pipeConfig []PipeSpec) ([]*LookupSpec, error) {
-	// get a mapping of lookup table name to lookup table spec
+	// get a mapping of lookup table name to lookup table spec -- all lookup tables
 	lookupMap := make(map[string]*LookupSpec)
 	for _, config := range lookupConfig {
 		if config != nil {
 			lookupMap[config.Key] = config
 		}
 	}
-	// Identify the used lookup tables
+	// Identify the used lookup tables in this step
 	activeTables := make([]*LookupSpec, 0)
 	for i := range pipeConfig {
 		for j := range pipeConfig[i].Apply {
@@ -453,6 +445,19 @@ func SelectActiveLookupTable(lookupConfig []*LookupSpec, pipeConfig []PipeSpec) 
 						return nil,
 							fmt.Errorf(
 								"error: lookup table '%s' is not defined, please verify the column transformation", lookupTokenNode.Name)
+					}
+					activeTables = append(activeTables, spec)
+				}
+			}
+			// Check for Anonymize transformation using lookup tables
+			if transformationSpec.AnonymizeConfig != nil {
+				name := transformationSpec.AnonymizeConfig.LookupName
+				if len(name) > 0 {
+					spec := lookupMap[name]
+					if spec == nil {
+						return nil,
+							fmt.Errorf(
+								"error: lookup table '%s' used by anonymize operator is not defined, please verify the configuration", name)
 					}
 					activeTables = append(activeTables, spec)
 				}

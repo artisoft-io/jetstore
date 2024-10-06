@@ -17,16 +17,21 @@ func (ctx *BuilderContext) StartFanOutPipe(spec *PipeSpec, source *InputChannel,
 			log.Println(cpErr)
 			debug.PrintStack()
 			ctx.errCh <- cpErr
-			close(ctx.done)
+			// Avoid closing a closed channel
+			select {
+			case <-ctx.done:
+			default:
+				close(ctx.done)
+			}
 		}
 		// Closing the output channels
-		// fmt.Println("**!@@ FanOutPipe: Closing Output Channels")
+		fmt.Println("**!@@ FanOutPipe: Closing Output Channels")
 		oc := make(map[string]bool)
 		for i := range spec.Apply {
 			oc[spec.Apply[i].OutputChannel.Name] = true
 		}
 		for i := range oc {
-			// fmt.Println("**!@@ FanOutPipe: Closing Output Channel",i)
+			fmt.Println("**!@@ FanOutPipe: Closing Output Channel",i)
 			ctx.channelRegistry.CloseChannel(i)
 		}
 		close(writePartitionsResultCh)
@@ -73,5 +78,10 @@ gotError:
 	}
 	log.Println(cpErr)
 	ctx.errCh <- cpErr
-	close(ctx.done)
+	// Avoid closing a closed channel
+	select {
+	case <-ctx.done:
+	default:
+		close(ctx.done)
+	}
 }

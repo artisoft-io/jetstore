@@ -85,6 +85,11 @@ gotError:
 	log.Println(cpErr)
 	resultCh <- ComputePipesResult{Err: cpErr}
 	ctx.errCh <- cpErr
-	close(ctx.done)
+	// Avoid closing a closed channel
+	select {
+	case <-ctx.done:
+	default:
+		close(ctx.done)
+	}
 	return cpErr
 }

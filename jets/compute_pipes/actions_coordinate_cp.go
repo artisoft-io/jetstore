@@ -56,24 +56,24 @@ func (args *ComputePipesNodeArgs) CoordinateComputePipes(ctx context.Context, ds
 		}
 		log.Printf("%s node %d %s Got %d file keys from database for file_key: %s",
 			cpConfig.CommonRuntimeArgs.SessionId, args.NodeId,
-			cpConfig.CommonRuntimeArgs.ReadStepId, len(fileKeys), cpConfig.CommonRuntimeArgs.FileKey)
+			cpConfig.CommonRuntimeArgs.MainInputStepId, len(fileKeys), cpConfig.CommonRuntimeArgs.FileKey)
 
 	case "reducing":
 		// Case cpipes reducing mode, get the file keys from s3
 		fileKeys, err = GetS3FileKeys(cpConfig.CommonRuntimeArgs.ProcessName, cpConfig.CommonRuntimeArgs.SessionId,
-			cpConfig.CommonRuntimeArgs.ReadStepId, args.JetsPartitionLabel)
+			cpConfig.CommonRuntimeArgs.MainInputStepId, args.JetsPartitionLabel)
 		if err != nil {
 			cpErr = err
 			goto gotError
 		}
 		log.Printf("%s node %d %s Got %d file keys from s3",
 			cpConfig.CommonRuntimeArgs.SessionId, args.NodeId,
-			cpConfig.CommonRuntimeArgs.ReadStepId, len(fileKeys))
+			cpConfig.CommonRuntimeArgs.MainInputStepId, len(fileKeys))
 		if cpConfig.ClusterConfig.IsDebugMode {
 			for _, k := range fileKeys {
 				log.Printf("%s node %d %s Got file key from s3: %s",
-				cpConfig.CommonRuntimeArgs.SessionId, args.NodeId,
-				cpConfig.CommonRuntimeArgs.ReadStepId, k)	
+					cpConfig.CommonRuntimeArgs.SessionId, args.NodeId,
+					cpConfig.CommonRuntimeArgs.MainInputStepId, k)
 			}
 		}
 
@@ -100,15 +100,17 @@ func (args *ComputePipesNodeArgs) CoordinateComputePipes(ctx context.Context, ds
 		},
 		CpConfig: cpConfig,
 		EnvSettings: map[string]interface{}{
+			"$FILE_KEY":             cpConfig.CommonRuntimeArgs.FileKey,
 			"$SESSIONID":            cpConfig.CommonRuntimeArgs.SessionId,
 			"$SHARD_ID":             args.NodeId,
+			"$PROCESS_NAME":         cpConfig.CommonRuntimeArgs.ProcessName,
 			"$FILE_KEY_DATE":        fileKeyDate,
 			"$JETS_PARTITION_LABEL": args.JetsPartitionLabel,
 		},
 		FileKeyComponents:  fileKeyComponents,
 		KillSwitch:         make(chan struct{}),
 		Done:               make(chan struct{}),
-		ErrCh:              make(chan error, 1),
+		ErrCh:              make(chan error, 1000),
 		FileNamesCh:        make(chan FileName, 2),
 		DownloadS3ResultCh: make(chan DownloadS3Result, 1),
 	}
