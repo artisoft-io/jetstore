@@ -110,7 +110,7 @@ func (args *ComputePipesNodeArgs) CoordinateComputePipes(ctx context.Context, ds
 		FileKeyComponents:  fileKeyComponents,
 		KillSwitch:         make(chan struct{}),
 		Done:               make(chan struct{}),
-		ErrCh:              make(chan error, 1),
+		ErrCh:              make(chan error, 1000),
 		FileNamesCh:        make(chan FileName, 2),
 		DownloadS3ResultCh: make(chan DownloadS3Result, 1),
 	}

@@ -127,10 +127,18 @@ func (ctx *S3DeviceWriter) WriteCsvPartition() {
 	}
 	defer fileHd.Close()
 
-	// Open a snappy compressor
-	snWriter = snappy.NewBufferedWriter(fileHd)
-	// Open a csv writer
-	csvWriter = csv.NewWriter(snWriter)
+	switch ctx.spec.OutputChannel.Format {
+	case "csv", "headerless_csv":
+		// Open a csv writer
+		csvWriter = csv.NewWriter(fileHd)
+
+	default:
+		// default is compressed_headerless_csv / compressed_csv (write headers is separate)
+		// Open a snappy compressor
+		snWriter = snappy.NewBufferedWriter(fileHd)
+		// Open a csv writer
+		csvWriter = csv.NewWriter(snWriter)
+	}
 	if ctx.spec.WriteHeaders {
 		if err = csvWriter.Write(ctx.outputCh.config.Columns); err != nil {
 			cpErr = fmt.Errorf("while writing headers to local csv file: %v", err)
@@ -165,7 +173,9 @@ func (ctx *S3DeviceWriter) WriteCsvPartition() {
 
 	// fmt.Println("**&@@ WriteCsvPartition: DONE writing local csv file for fileName:", *ctx.fileName)
 	csvWriter.Flush()
-	snWriter.Flush()
+	if snWriter != nil {
+		snWriter.Flush()
+	}
 	// schedule the file to be moved to s3
 	select {
 	case ctx.s3DeviceManager.WorkersTaskCh <- S3Object{

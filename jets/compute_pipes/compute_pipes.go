@@ -98,19 +98,29 @@ func (cpCtx *ComputePipesContext) StartComputePipes(dbpool *pgxpool.Pool, comput
 	if inputRowChSpec != nil {
 		channelsSpec[inputRowChSpec.Name] = inputRowChSpec
 	}
-	// Get the output channels
+	// Collect the output channels
+	outputChannels := make([]*OutputChannelConfig, 0)
 	for i := range cpCtx.CpConfig.PipesConfig {
 		for j := range cpCtx.CpConfig.PipesConfig[i].Apply {
 			outputChannel := &cpCtx.CpConfig.PipesConfig[i].Apply[j].OutputChannel
-			spec := channelsSpec[outputChannel.SpecName]
-			if spec == nil {
-				cpErr = fmt.Errorf("channel spec %s not found in Channel Registry", outputChannel.SpecName)
-				goto gotError	
+			outputChannels = append(outputChannels, outputChannel)
+			switch cpCtx.CpConfig.PipesConfig[i].Apply[j].Type {
+			case "anonymize":
+				outputChannel := &cpCtx.CpConfig.PipesConfig[i].Apply[j].AnonymizeConfig.KeysOutputChannel
+				outputChannels = append(outputChannels, outputChannel)	
 			}
-			channelsInUse[outputChannel.Name] = &ChannelSpec{
-				Name: outputChannel.Name,
-				Columns: spec.Columns,
-			}
+		}
+	}
+	// Prepare the channels in use
+	for _, outputChannel := range outputChannels {
+		spec := channelsSpec[outputChannel.SpecName]
+		if spec == nil {
+			cpErr = fmt.Errorf("channel spec %s not found in Channel Registry", outputChannel.SpecName)
+			goto gotError	
+		}
+		channelsInUse[outputChannel.Name] = &ChannelSpec{
+			Name: outputChannel.Name,
+			Columns: spec.Columns,
 		}
 	}
 	// Use the channelsInUse map to create the Channel Registry

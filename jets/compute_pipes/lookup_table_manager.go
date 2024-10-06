@@ -43,6 +43,12 @@ func (mgr *LookupTableManager) PrepareLookupTables(dbpool *pgxpool.Pool) error {
 				return fmt.Errorf("while calling NewLookupTableSql: %v", err)
 			}
 			mgr.LookupTableMap[lookupTableConfig.Key] = tbl
+		case "s3_csv_lookup":
+			tbl, err := NewLookupTableS3(dbpool, lookupTableConfig, mgr.envSettings, mgr.isVerbose)
+			if err != nil {
+				return fmt.Errorf("while calling NewLookupTableS3: %v", err)
+			}
+			mgr.LookupTableMap[lookupTableConfig.Key] = tbl
 		default:
 			return fmt.Errorf("error:unknown lookup table type: %s", lookupTableConfig.Type)
 		}

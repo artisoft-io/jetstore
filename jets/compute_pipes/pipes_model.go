@@ -143,17 +143,21 @@ type TransformationSpec struct {
 }
 
 type InputChannelConfig struct {
-	// Type range: stage (default)
+	// Type range: input, stage (default)
+	// Format: csv, headerless_csv, compressed_csv, compressed_headerless_csv, etc
 	Type         string `json:"type"`
 	Name         string `json:"name"`
+	Format       string `json:"format"` // Type input
 	ReadStepId   string `json:"read_step_id"`
 	SamplingRate int    `json:"sampling_rate"`
 }
 
 type OutputChannelConfig struct {
 	// Type range: stage (default), output, sql
+	// Format: csv, headerless_csv, compressed_csv, compressed_headerless_csv, etc
 	Type           string `json:"type"`
 	Name           string `json:"name"`
+	Format         string `json:"format"`           // Type output
 	WriteStepId    string `json:"write_step_id"`    // Type stage
 	OutputTableKey string `json:"output_table_key"` // Type sql
 	KeyPrefix      string `json:"key_prefix"`       // Type output

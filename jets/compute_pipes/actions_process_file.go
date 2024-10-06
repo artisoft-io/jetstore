@@ -153,9 +153,8 @@ func (cpCtx *ComputePipesContext) ProcessFilesAndReportStatus(ctx context.Contex
 	}
 
 	// Check for error from compute pipes
-	var cpErr error
-	select {
-	case cpErr = <-cpCtx.ErrCh:
+	close(cpCtx.ErrCh)
+	for cpErr := range cpCtx.ErrCh {
 		// got an error during compute pipes processing
 		log.Printf("%s node %d got error from Compute Pipes processing: %v", cpCtx.SessionId, cpCtx.NodeId, cpErr)
 		if err == nil {
@@ -166,12 +165,9 @@ func (cpCtx *ComputePipesContext) ProcessFilesAndReportStatus(ctx context.Contex
 		// 	Err:          cpErr,
 		// }
 		// saveResultsCtx.Save("CP Errors", r)
-
 		processingErrors = append(processingErrors, fmt.Sprintf("got error from Compute Pipes processing: %v", cpErr))
-	default:
-		// log.Println("No errors from Compute Pipes processing!")
 	}
-
+	
 	// registering the load
 	// ---------------------------------------
 	var status string

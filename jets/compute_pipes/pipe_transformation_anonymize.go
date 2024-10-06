@@ -20,6 +20,7 @@ type AnonymizeTransformationPipe struct {
 	columnEvaluators []TransformationColumnEvaluator
 	firstInputRow    *[]interface{}
 	spec             *TransformationSpec
+	channelRegistry  *ChannelRegistry
 	env              map[string]interface{}
 	doneCh           chan struct{}
 }
@@ -41,6 +42,9 @@ func (ctx *AnonymizeTransformationPipe) apply(input *[]interface{}) error {
 	var inputStr, hashedValue string
 	for _, action := range ctx.anonymActions {
 		value := (*input)[action.inputColumn]
+		if value == nil {
+			continue
+		}
 		switch vv := value.(type) {
 		case string:
 			inputStr = vv
@@ -63,7 +67,7 @@ func (ctx *AnonymizeTransformationPipe) apply(input *[]interface{}) error {
 			}
 		}
 		(*input)[action.inputColumn] = hashedValue
-		ctx.keysMap.Put(ctx.hasher.Hash(inputStr + hashedValue) , [2]string{inputStr, hashedValue})
+		ctx.keysMap.Put(ctx.hasher.Hash(inputStr+hashedValue), [2]string{inputStr, hashedValue})
 	}
 	// Send the result to output
 	select {
@@ -76,14 +80,13 @@ func (ctx *AnonymizeTransformationPipe) apply(input *[]interface{}) error {
 }
 
 // Anonymization complete, now send out the keys mapping to keys_output_channel
-
 func (ctx *AnonymizeTransformationPipe) done() error {
 	var err error
 	ctx.keysMap.Iter(func(k uint64, v [2]string) (stop bool) {
-		outputRow := make([]interface{}, len(ctx.outputCh.columns))
-		outputRow[ctx.outputCh.columns["hashed_key"]] = k
-		outputRow[ctx.outputCh.columns["original_value"]] = v[0]
-		outputRow[ctx.outputCh.columns["anonymized_value"]] = v[1]
+		outputRow := make([]interface{}, len(ctx.keysOutputCh.columns))
+		outputRow[ctx.keysOutputCh.columns["hashed_key"]] = k
+		outputRow[ctx.keysOutputCh.columns["original_value"]] = v[0]
+		outputRow[ctx.keysOutputCh.columns["anonymized_value"]] = v[1]
 
 		// Add the carry over select and const values
 		// NOTE there is no initialize and done called on the column evaluators
@@ -99,22 +102,23 @@ func (ctx *AnonymizeTransformationPipe) done() error {
 		}
 
 		// Send the keys mapping to output
-		// log.Println("**!@@ ** Send AGGREGATE Result to", ctx.outputCh.config.Name)
+		// log.Println("**!@@ ** Send AGGREGATE Result to", ctx.keysOutputCh.config.Name)
 		select {
-		case ctx.outputCh.channel <- outputRow:
+		case ctx.keysOutputCh.channel <- outputRow:
 		case <-ctx.doneCh:
 			log.Println("AnonymizeTransform interrupted")
 			return true // stop
 		}
 		return false // continue
 	})
+	// Done sending the keys, closing the keys output channel
+	ctx.channelRegistry.CloseChannel(ctx.keysOutputCh.config.Name)
 	return err
 }
 
 func (ctx *AnonymizeTransformationPipe) finally() {}
 
 func (ctx *BuilderContext) NewAnonymizeTransformationPipe(source *InputChannel, outputCh *OutputChannel, spec *TransformationSpec) (*AnonymizeTransformationPipe, error) {
-	var err error
 	if spec == nil || spec.AnonymizeConfig == nil {
 		return nil, fmt.Errorf("error: Anonymize Pipe Transformation spec is missing or anonymize_config is missing")
 	}
@@ -122,17 +126,29 @@ func (ctx *BuilderContext) NewAnonymizeTransformationPipe(source *InputChannel, 
 	if len(config.AnonymizeType) == 0 || len(config.KeyPrefix) == 0 {
 		return nil, fmt.Errorf("error: Anonymize Pipe Transformation spec is missing anonymize_type or key_prefix")
 	}
+	var keysOutCh *OutputChannel
+	var metaLookupTbl LookupTable
+	var anonymActions []*AnonymizationAction
+	var hasher maphash.Hasher[string]
+	var columnEvaluators []TransformationColumnEvaluator
+	var err error
 	// Get the channel for sending the keys
-	keysOutCh, err := ctx.channelRegistry.GetOutputChannel(config.KeysOutputChannel.Name)
+	keysOutCh, err = ctx.channelRegistry.GetOutputChannel(config.KeysOutputChannel.Name)
 	if err != nil {
 		return nil, fmt.Errorf("while getting the keys output channel %s: %v", config.KeysOutputChannel.Name, err)
 	}
+	closeIfNotNil := keysOutCh.channel
+	defer func() {
+		if closeIfNotNil != nil {
+			close(closeIfNotNil)
+		}
+	}()
 	// Prepare the actions to anonymize marked columns
-	metaLookupTbl := ctx.lookupTableManager.LookupTableMap[config.LookupName]
+	metaLookupTbl = ctx.lookupTableManager.LookupTableMap[config.LookupName]
 	if metaLookupTbl == nil {
 		return nil, fmt.Errorf("error: anonymize metadata lookup table %s not found", config.LookupName)
 	}
-	anonymActions := make([]*AnonymizationAction, 0)
+	anonymActions = make([]*AnonymizationAction, 0)
 	metaLookupColumnsMap := metaLookupTbl.ColumnMap()
 	for name, ipos := range source.columns {
 		metaRow, err := metaLookupTbl.Lookup(&name)
@@ -145,19 +161,21 @@ func (ctx *BuilderContext) NewAnonymizeTransformationPipe(source *InputChannel, 
 		anonymizeType := (*metaRow)[metaLookupColumnsMap[config.AnonymizeType]].(string)
 		switch anonymizeType {
 		case "text", "date":
+			anonymActions = append(anonymActions, &AnonymizationAction{
+				inputColumn:   ipos,
+				anonymizeType: anonymizeType,
+				keyPrefix:     (*metaRow)[metaLookupColumnsMap[config.KeyPrefix]].(string),
+			})
+		case "":
+			// Not anonymized
 		default:
 			return nil, fmt.Errorf("error: unknown anonymize type '%s', known values: test, date", anonymizeType)
 		}
-		anonymActions = append(anonymActions, &AnonymizationAction{
-			inputColumn:   ipos,
-			anonymizeType: anonymizeType,
-			keyPrefix:     (*metaRow)[metaLookupColumnsMap[config.KeyPrefix]].(string),
-		})
 	}
-	hasher := maphash.NewHasher[string]()
+	hasher = maphash.NewHasher[string]()
 
 	// Prepare the column evaluators
-	columnEvaluators := make([]TransformationColumnEvaluator, len(spec.Columns))
+	columnEvaluators = make([]TransformationColumnEvaluator, len(spec.Columns))
 	for i := range spec.Columns {
 		// log.Printf("**& build TransformationColumn[%d] of type %s for output %s", i, spec.Type, spec.Output)
 		columnEvaluators[i], err = ctx.buildTransformationColumnEvaluator(source, keysOutCh, &spec.Columns[i])
@@ -167,7 +185,8 @@ func (ctx *BuilderContext) NewAnonymizeTransformationPipe(source *InputChannel, 
 			return nil, err
 		}
 	}
-
+	// All good, no errors
+	closeIfNotNil = nil
 	return &AnonymizeTransformationPipe{
 		cpConfig:         ctx.cpConfig,
 		source:           source,
@@ -178,6 +197,7 @@ func (ctx *BuilderContext) NewAnonymizeTransformationPipe(source *InputChannel, 
 		metaLookupTbl:    metaLookupTbl,
 		anonymActions:    anonymActions,
 		columnEvaluators: columnEvaluators,
+		channelRegistry:  ctx.channelRegistry,
 		spec:             spec,
 		env:              ctx.env,
 		doneCh:           ctx.done,

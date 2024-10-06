@@ -19,7 +19,12 @@ func (ctx *BuilderContext) StartSplitterPipe(spec *PipeSpec, source *InputChanne
 			log.Println(cpErr)
 			debug.PrintStack()
 			ctx.errCh <- cpErr
-			close(ctx.done)
+			// Avoid closing a closed channel
+			select {
+			case <-ctx.done:
+			default:
+				close(ctx.done)
+			}
 		}
 		close(writePartitionsResultCh)
 		// Closing the output channels
@@ -78,7 +83,7 @@ func (ctx *BuilderContext) StartSplitterPipe(spec *PipeSpec, source *InputChanne
 			key = inRow[spliterColumnIdx]
 		}
 		if key == nil && len(config.DefaultSplitterValue) > 0 {
-				key = config.DefaultSplitterValue
+			key = config.DefaultSplitterValue
 		}
 		if config.RandSuffix > 0 {
 			if key != nil {
@@ -137,7 +142,12 @@ doneSplitterLoop:
 gotError:
 	log.Println(cpErr)
 	ctx.errCh <- cpErr
-	close(ctx.done)
+	// Avoid closing a closed channel
+	select {
+	case <-ctx.done:
+	default:
+		close(ctx.done)
+	}
 }
 
 func (ctx *BuilderContext) startSplitterChannelHandler(spec *PipeSpec, source *InputChannel, partitionResultCh chan ComputePipesResult,
@@ -151,7 +161,12 @@ func (ctx *BuilderContext) startSplitterChannelHandler(spec *PipeSpec, source *I
 			log.Println(cpErr)
 			debug.PrintStack()
 			ctx.errCh <- cpErr
-			close(ctx.done)
+			// Avoid closing a closed channel
+			select {
+			case <-ctx.done:
+			default:
+				close(ctx.done)
+			}
 		}
 		wg.Done()
 	}()
@@ -197,5 +212,10 @@ gotError:
 	}
 	log.Println(cpErr)
 	ctx.errCh <- cpErr
-	close(ctx.done)
+	// Avoid closing a closed channel
+	select {
+	case <-ctx.done:
+	default:
+		close(ctx.done)
+	}
 }

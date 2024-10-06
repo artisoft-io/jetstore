@@ -412,14 +412,14 @@ func GetMaxConcurrency(nbrNodes, defaultMaxConcurrency int) int {
 // Function to prune the lookupConfig and return only the lookup used in the pipeConfig
 // Returns an error if pipeConfig has reference to a lookup not in lookupConfig
 func SelectActiveLookupTable(lookupConfig []*LookupSpec, pipeConfig []PipeSpec) ([]*LookupSpec, error) {
-	// get a mapping of lookup table name to lookup table spec
+	// get a mapping of lookup table name to lookup table spec -- all lookup tables
 	lookupMap := make(map[string]*LookupSpec)
 	for _, config := range lookupConfig {
 		if config != nil {
 			lookupMap[config.Key] = config
 		}
 	}
-	// Identify the used lookup tables
+	// Identify the used lookup tables in this step
 	activeTables := make([]*LookupSpec, 0)
 	for i := range pipeConfig {
 		for j := range pipeConfig[i].Apply {
@@ -445,6 +445,19 @@ func SelectActiveLookupTable(lookupConfig []*LookupSpec, pipeConfig []PipeSpec) 
 						return nil,
 							fmt.Errorf(
 								"error: lookup table '%s' is not defined, please verify the column transformation", lookupTokenNode.Name)
+					}
+					activeTables = append(activeTables, spec)
+				}
+			}
+			// Check for Anonymize transformation using lookup tables
+			if transformationSpec.AnonymizeConfig != nil {
+				name := transformationSpec.AnonymizeConfig.LookupName
+				if len(name) > 0 {
+					spec := lookupMap[name]
+					if spec == nil {
+						return nil,
+							fmt.Errorf(
+								"error: lookup table '%s' used by anonymize operator is not defined, please verify the configuration", name)
 					}
 					activeTables = append(activeTables, spec)
 				}
