@@ -118,9 +118,14 @@ type PipeSpec struct {
 }
 
 type SplitterSpec struct {
+	// Type range: standard (default), ext_count
+	// standard: split on Column / DefaultSplitterValue, create partition for each value
+	// ext_count: split on Column / DefaultSplitterValue + N, N = 0..ExtPartitionsCount-1
+	//            where each partition has up to RowCount rows
+	Type                 string `json:"type"`
 	Column               string `json:"column"`                 // splitter column
 	DefaultSplitterValue string `json:"default_splitter_value"` // splitter default value
-	RandSuffix           int    `json:"rand_suffix"`
+	PartitionRowCount    int    `json:"partition_row_count"`    // nbr of row for each ext partition
 }
 
 type TransformationSpec struct {
