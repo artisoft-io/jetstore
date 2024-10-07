@@ -58,8 +58,6 @@ func (cpCtx *ComputePipesContext) StartComputePipes(dbpool *pgxpool.Pool, comput
 			log.Println("error in lookupManager.PrepareLookupTables:", err)
 			cpCtx.ErrCh <- err
 			close(cpCtx.Done)
-			close(cpCtx.ChResults.Copy2DbResultCh)
-			close(cpCtx.ChResults.WritePartitionsResultCh)
 		}
 	}()
 

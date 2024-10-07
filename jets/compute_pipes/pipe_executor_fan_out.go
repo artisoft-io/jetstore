@@ -61,7 +61,9 @@ func (ctx *BuilderContext) StartFanOutPipe(spec *PipeSpec, source *InputChannel,
 		if evaluators[i] != nil {
 			err = evaluators[i].done()
 			if err != nil {
-				log.Printf("while calling done on PipeTransformationEvaluator (in fan_out): %v", err)
+				cpErr = fmt.Errorf("while calling done on PipeTransformationEvaluator (in fan_out): %v", err)
+				log.Println(cpErr)
+				goto gotError
 			}
 			evaluators[i].finally()
 		}
