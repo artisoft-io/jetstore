@@ -129,7 +129,7 @@ type SplitterSpec struct {
 }
 
 type TransformationSpec struct {
-	// Type range: map_record, aggregate, analyze, high_freq, partition_writer, anonymize
+	// Type range: map_record, aggregate, analyze, high_freq, partition_writer, anonymize, distinct
 	Type                  string                     `json:"type"`
 	NewRecord             bool                       `json:"new_record"`
 	PartitionSize         *int                       `json:"partition_size"`
@@ -144,6 +144,7 @@ type TransformationSpec struct {
 	KeywordTokens         *[]KeywordTokenNode        `json:"keyword_tokens"`    // Type analyze
 	HighFreqColumns       *[]*HighFreqSpec           `json:"high_freq_columns"` // Type high_freq
 	AnonymizeConfig       *AnonymizeSpec             `json:"anonymize_config"`
+	DistinctConfig        *DistinctSpec              `json:"distinct_config"`
 	OutputChannel         OutputChannelConfig        `json:"output_channel"`
 }
 
@@ -209,6 +210,10 @@ type AnonymizeSpec struct {
 	AnonymizeType     string              `json:"anonymize_type"`
 	KeyPrefix         string              `json:"key_prefix"`
 	KeysOutputChannel OutputChannelConfig `json:"keys_output_channel"`
+}
+
+type DistinctSpec struct {
+	DistinctOn []string `json:"distinct_on"`
 }
 
 type TransformationColumnSpec struct {
