@@ -118,13 +118,18 @@ type PipeSpec struct {
 }
 
 type SplitterSpec struct {
+	// Type range: standard (default), ext_count
+	// standard: split on Column / DefaultSplitterValue, create partition for each value
+	// ext_count: split on Column / DefaultSplitterValue + N, N = 0..ExtPartitionsCount-1
+	//            where each partition has up to RowCount rows
+	Type                 string `json:"type"`
 	Column               string `json:"column"`                 // splitter column
 	DefaultSplitterValue string `json:"default_splitter_value"` // splitter default value
-	RandSuffix           int    `json:"rand_suffix"`
+	PartitionRowCount    int    `json:"partition_row_count"`    // nbr of row for each ext partition
 }
 
 type TransformationSpec struct {
-	// Type range: map_record, aggregate, analyze, high_freq, partition_writer, anonymize
+	// Type range: map_record, aggregate, analyze, high_freq, partition_writer, anonymize, distinct
 	Type                  string                     `json:"type"`
 	NewRecord             bool                       `json:"new_record"`
 	PartitionSize         *int                       `json:"partition_size"`
@@ -139,6 +144,7 @@ type TransformationSpec struct {
 	KeywordTokens         *[]KeywordTokenNode        `json:"keyword_tokens"`    // Type analyze
 	HighFreqColumns       *[]*HighFreqSpec           `json:"high_freq_columns"` // Type high_freq
 	AnonymizeConfig       *AnonymizeSpec             `json:"anonymize_config"`
+	DistinctConfig        *DistinctSpec              `json:"distinct_config"`
 	OutputChannel         OutputChannelConfig        `json:"output_channel"`
 }
 
@@ -204,6 +210,10 @@ type AnonymizeSpec struct {
 	AnonymizeType     string              `json:"anonymize_type"`
 	KeyPrefix         string              `json:"key_prefix"`
 	KeysOutputChannel OutputChannelConfig `json:"keys_output_channel"`
+}
+
+type DistinctSpec struct {
+	DistinctOn []string `json:"distinct_on"`
 }
 
 type TransformationColumnSpec struct {

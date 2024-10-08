@@ -65,7 +65,9 @@ func NewLookupTableS3(_ *pgxpool.Pool, spec *LookupSpec, env map[string]interfac
 			return nil, fmt.Errorf("failed to file keys for s3_csv_lookup of type cpipes: %v", err)
 		}
 		if len(fileKeys) == 0 {
-			return nil, fmt.Errorf("error: no file keys found for s3_csv_lookup of type cpipes")
+			return nil, fmt.Errorf(
+				"error: no file keys found for s3_csv_lookup of type cpipes, ReadStepId: %s, JetPartitionLabel: %s",
+				source.ReadStepId, source.JetsPartitionLabel)
 		}
 		fileKey = fileKeys[0]
 	default:

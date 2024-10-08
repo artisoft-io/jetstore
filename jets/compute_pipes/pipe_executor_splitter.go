@@ -3,11 +3,18 @@ package compute_pipes
 import (
 	"fmt"
 	"log"
-	"math/rand/v2"
 	"runtime/debug"
 	"strings"
 	"sync"
+
+	"github.com/dolthub/swiss"
 )
+
+type ChannelState struct {
+	rowCount int
+	extShard int
+	data     chan []interface{}
+}
 
 func (ctx *BuilderContext) StartSplitterPipe(spec *PipeSpec, source *InputChannel, writePartitionsResultCh chan ComputePipesResult) {
 	var cpErr error
@@ -38,24 +45,43 @@ func (ctx *BuilderContext) StartSplitterPipe(spec *PipeSpec, source *InputChanne
 			ctx.channelRegistry.CloseChannel(i)
 		}
 	}()
-	var chanState map[interface{}]chan []interface{}
+	var chanState *swiss.Map[interface{}, *ChannelState]
 	var spliterColumnIdx int
 	var ok bool
 	var config *SplitterSpec
-	var key interface{}
+	var baseKey interface{}
+	var jetsPartitionKey interface{}
 
 	if spec.SplitterConfig == nil {
 		cpErr = fmt.Errorf("error: missing splitter_config for splitter with source channel %s", source.config.Name)
 		goto gotError
 	}
 	config = spec.SplitterConfig
-	if len(config.Column) == 0 && len(config.DefaultSplitterValue) == 0 && config.RandSuffix == 0 {
-		cpErr = fmt.Errorf("error: invalid splitter_config for splitter with source channel %s", source.config.Name)
+	if config.Type == "" {
+		config.Type = "standard"
+	}
+	if config.Column == "" && config.DefaultSplitterValue == "" {
+		cpErr = fmt.Errorf(
+			"error: invalid splitter_config for splitter with source channel %s, must specify column or default_splitter_value",
+			source.config.Name)
+		goto gotError
+	}
+	switch config.Type {
+	case "standard":
+	case "ext_count":
+		if config.PartitionRowCount == 0 {
+			cpErr = fmt.Errorf(
+				"error: splitter config type ext_count, with source channel %s must have partition_row_count specified",
+				source.config.Name)
+			goto gotError
+		}
+	default:
+		cpErr = fmt.Errorf("error: unknown splitter config type %s, with source channel %s", config.Type, source.config.Name)
 		goto gotError
 	}
 
 	// the map containing all the intermediate channels corresponding to values @ spliterColumnIdx
-	chanState = make(map[interface{}]chan []interface{})
+	chanState = swiss.NewMap[interface{}, *ChannelState](1000)
 	if len(config.Column) > 0 {
 		spliterColumnIdx, ok = source.columns[config.Column]
 		if !ok {
@@ -78,60 +104,87 @@ func (ctx *BuilderContext) StartSplitterPipe(spec *PipeSpec, source *InputChanne
 
 	// fmt.Println("**!@@ start splitter loop on source:",source.config.Name)
 	for inRow := range source.channel {
-		key = nil
+		baseKey = nil
 		if spliterColumnIdx >= 0 {
-			key = inRow[spliterColumnIdx]
+			baseKey = inRow[spliterColumnIdx]
 		}
-		if key == nil && len(config.DefaultSplitterValue) > 0 {
-			key = config.DefaultSplitterValue
+		if baseKey == nil && len(config.DefaultSplitterValue) > 0 {
+			baseKey = config.DefaultSplitterValue
 		}
-		if config.RandSuffix > 0 {
-			if key != nil {
-				key = fmt.Sprintf("%v|%d", key, rand.IntN(config.RandSuffix))
-			} else {
-				key = rand.IntN(config.RandSuffix)
-			}
-		}
-		if key == nil {
-			log.Println(ctx.sessionId, "node", ctx.nodeId, "*WARNING* splitter with nil key on source", source.config.Name)
-		}
-		splitCh := chanState[key]
-		if splitCh == nil {
+		splitCh, ok := chanState.Get(baseKey)
+		if !ok {
 			// unseen value, create an slot with an intermediate channel
-			// log.Printf("**!@@ SPLITTER NEW KEY: %v", key)
-			splitCh = make(chan []interface{}, 1)
-			chanState[key] = splitCh
-
+			// log.Printf("**!@@ SPLITTER NEW KEY: %v", baseKey)
+			splitCh = &ChannelState{data: make(chan []interface{}, 1)}
+			chanState.Put(baseKey, splitCh)
 			if ctx.cpConfig.ClusterConfig.IsDebugMode {
-				if len(chanState)%5 == 0 {
-					log.Println(ctx.sessionId, "node", ctx.nodeId, "splitter size:", len(chanState), " on source", source.config.Name)
+				if chanState.Count()%5 == 0 {
+					log.Println(ctx.sessionId, "node", ctx.nodeId, "splitter size:", chanState.Count(), " on source", source.config.Name)
 				}
 			}
-
 			// start a goroutine to manage the channel
 			// the input channel to the goroutine is splitCh
+			// The channel jetsPartitionKey
+			switch config.Type {
+			case "standard":
+				jetsPartitionKey = baseKey
+			case "ext_count":
+				if baseKey != nil {
+					jetsPartitionKey = fmt.Sprintf("%v|0", baseKey)
+				} else {
+					jetsPartitionKey = 0
+				}
+			default:
+				cpErr = fmt.Errorf("error: unknown splitter config type %s, with source channel %s", config.Type, source.config.Name)
+				goto gotError
+			}
+			if jetsPartitionKey == nil {
+				log.Println(ctx.sessionId, "node", ctx.nodeId, "*WARNING* splitter with nil jetsPartitionKey, with source channel", source.config.Name)
+			}
 			wg.Add(1)
 			go ctx.startSplitterChannelHandler(spec, &InputChannel{
-				channel: splitCh,
+				channel: splitCh.data,
 				columns: source.columns,
 				config:  &ChannelSpec{Name: fmt.Sprintf("splitter channel from %s", source.config.Name)},
-			}, writePartitionsResultCh, key, &wg)
+			}, writePartitionsResultCh, jetsPartitionKey, &wg)
+		}
+
+		if config.Type == "ext_count" {
+			if splitCh.rowCount >= config.PartitionRowCount {
+				// Cut a new channel and associated jetsPartitionKey
+				close(splitCh.data)
+				splitCh.data = make(chan []interface{}, 1)
+				splitCh.extShard += 1
+				splitCh.rowCount = 0
+				jetsPartitionKey = fmt.Sprintf("%v|%d", baseKey, splitCh.extShard)
+				// syart a go routine to manage the new channel
+				wg.Add(1)
+				go ctx.startSplitterChannelHandler(spec, &InputChannel{
+					channel: splitCh.data,
+					columns: source.columns,
+					config:  &ChannelSpec{Name: fmt.Sprintf("splitter channel from %s", source.config.Name)},
+				}, writePartitionsResultCh, jetsPartitionKey, &wg)
+			}
 		}
 		// Send the record to the intermediate channel
 		// fmt.Println("**!@@ splitter loop, sending record to intermediate channel:", key)
 		select {
-		case splitCh <- inRow:
+		case splitCh.data <- inRow:
 		case <-ctx.done:
-			log.Printf("startSplitterPipe writing to splitter intermediate channel with key %s from '%s' interrupted", key, source.config.Name)
+			log.Printf(
+				"startSplitterPipe writing to splitter intermediate channel with baseKey %s (jetsPartitionKey %s) from '%s' interrupted",
+				baseKey, jetsPartitionKey, source.config.Name)
 			goto doneSplitterLoop
 		}
+		splitCh.rowCount += 1
 	}
 doneSplitterLoop:
-	// Close all the intermediate channels
-	for _, ch := range chanState {
+	// Close all the opened intermediate channels
+	chanState.Iter(func(key interface{}, v *ChannelState) (stop bool){
 		// fmt.Println("**!@@ startSplitterPipe closing intermediate channel", key)
-		close(ch)
-	}
+		close(v.data)
+		return false
+	})
 	// Close the output channels once all ch handlers are done
 	// fmt.Println("**!@@ Splitter loop done, ABOUT to wait on wg")
 	wg.Wait()

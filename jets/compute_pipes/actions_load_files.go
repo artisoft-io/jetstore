@@ -279,7 +279,7 @@ func (cpCtx *ComputePipesContext) ReadCsvFile(filePath *FileName, inputFormat st
 		inRow, err = csvReader.Read()
 		if err == nil {
 			cpCtx.SamplingCount += 1
-			if samplingRate > 0 && cpCtx.SamplingCount < samplingRate {
+			if inputRowCount > 0 && samplingRate > 0 && cpCtx.SamplingCount < samplingRate {
 				continue
 			}
 			cpCtx.SamplingCount = 0
