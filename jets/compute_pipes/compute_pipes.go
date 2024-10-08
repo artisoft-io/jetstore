@@ -268,7 +268,7 @@ func UnmarshalComputePipesConfig(computePipesJson *string) (*ComputePipesConfig,
 	var cpConfig ComputePipesConfig
 	err := json.Unmarshal([]byte(*computePipesJson), &cpConfig)
 	if err != nil {
-		return nil, fmt.Errorf("while unmarshaling compute pipes json: %s", err)
+		return nil, fmt.Errorf("while unmarshaling compute pipes json (ComputePipes): %s", err)
 	}
 
 	// validate cluster config
