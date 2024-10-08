@@ -171,11 +171,20 @@ func (jsComp *JetStoreStackComponents) BuildServerv2SM(scope constructs.Construc
 	runSuccessStatusLambdaTask.AddCatch(notifyFailure, MkCatchProps()).Next(notifySuccess)
 	runErrorStatusLambdaTask.AddCatch(notifyFailure, MkCatchProps()).Next(notifyFailure)
 
+	timeout := 60
+	if len(os.Getenv("JETS_SERVER_SM_TIMEOUT_MIN")) > 0 {
+		var err error
+		timeout, err = strconv.Atoi(os.Getenv("JETS_SERVER_SM_TIMEOUT_MIN"))
+		if err != nil {
+			log.Println("while parsing JETS_SERVER_SM_TIMEOUT_MIN:", err)
+			timeout = 60
+		}
+	}
 	jsComp.Serverv2SM = sfn.NewStateMachine(stack, props.MkId("serverv2SM"), &sfn.StateMachineProps{
 		StateMachineName: props.MkId("serverv2SM"),
 		DefinitionBody:   sfn.DefinitionBody_FromChainable(runServerv2Map),
 		//* NOTE 1h TIMEOUT of exec rules
-		Timeout: awscdk.Duration_Hours(jsii.Number(1)),
+		Timeout: awscdk.Duration_Minutes(jsii.Number(timeout)),
 	})
 	if phiTagName != nil {
 		awscdk.Tags_Of(jsComp.Serverv2SM).Add(phiTagName, jsii.String("true"), nil)
