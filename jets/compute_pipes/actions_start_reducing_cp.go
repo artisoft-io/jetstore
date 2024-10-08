@@ -87,7 +87,7 @@ func (args *StartComputePipesArgs) StartReducingComputePipes(ctx context.Context
 	var cpConfig ComputePipesConfig
 	err = json.Unmarshal(cpJson, &cpConfig)
 	if err != nil {
-		return result, fmt.Errorf("while unmarshaling compute pipes json: %s", err)
+		return result, fmt.Errorf("while unmarshaling compute pipes json (StartReducingComputePipes): %s", err)
 	}
 
 	// Get the source for input_row channel, given by the first input_channel node

@@ -125,7 +125,7 @@ func (args *StartComputePipesArgs) StartShardingComputePipes(ctx context.Context
 	var cpConfig ComputePipesConfig
 	err = json.Unmarshal(cpJson, &cpConfig)
 	if err != nil {
-		return result, fmt.Errorf("while unmarshaling compute pipes json: %s", err)
+		return result, fmt.Errorf("while unmarshaling compute pipes json (StartShardingComputePipes): %s", err)
 	}
 
 	log.Println("Start SHARDING", args.SessionId, "file_key:", args.FileKey)
