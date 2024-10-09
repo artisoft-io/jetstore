@@ -85,8 +85,7 @@ func getOutputRecordCount(dbpool *pgxpool.Pool, pipelineExecutionKey int) int64 
 		if errors.Is(err, pgx.ErrNoRows) {
 			return 0
 		}
-		msg := fmt.Sprintf("QueryRow on pipeline_execution_details to get nbr of output records failed: %v", err)
-		log.Fatalf(msg)
+		log.Fatalf("QueryRow on pipeline_execution_details to get nbr of output records failed: %v", err)
 	}
 	return count.Int64
 }
@@ -97,10 +96,10 @@ func getPeInfo(dbpool *pgxpool.Pool, pipelineExecutionKey int) (string, string, 
 	err := dbpool.QueryRow(context.Background(),
 		`SELECT pe.client, pc.output_tables, pe.session_id, pe.source_period_key 
 		FROM jetsapi.process_config pc, jetsapi.pipeline_config plnc, jetsapi.pipeline_execution_status pe 
-		WHERE pc.key = plnc.process_config_key AND plnc.key = pe.pipeline_config_key AND pe.key = $1`,
+		WHERE pc.process_name = plnc.process_name AND plnc.key = pe.pipeline_config_key AND pe.key = $1`,
 		pipelineExecutionKey).Scan(&client, &outTables, &sessionId, &sourcePeriodKey)
 	if err != nil {
-		log.Fatalf(fmt.Sprintf("QueryRow on pipeline_execution_status failed: %v", err))
+		log.Fatalf("QueryRow on pipeline_execution_status failed: %v", err)
 	}
 	return client, sessionId, sourcePeriodKey, outTables
 }

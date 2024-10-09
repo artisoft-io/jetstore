@@ -40,11 +40,10 @@ func RegisterDomainTables(dbpool *pgxpool.Pool, usingSshTunnel bool, pipelineExe
 	err = dbpool.QueryRow(context.Background(),
 		`SELECT pe.client, pc.output_tables, pe.main_input_file_key, pe.session_id, pe.source_period_key, pe.user_email 
 		FROM jetsapi.process_config pc, jetsapi.pipeline_config plnc, jetsapi.pipeline_execution_status pe 
-		WHERE pc.key = plnc.process_config_key AND plnc.key = pe.pipeline_config_key AND pe.key = $1`,
+		WHERE pc.process_name = plnc.process_name AND plnc.key = pe.pipeline_config_key AND pe.key = $1`,
 		pipelineExecutionKey).Scan(&client, &outTables, &mainInputFileKey, &sessionId, &sourcePeriodKey, &userEmail)
 	if err != nil {
-		msg := fmt.Sprintf("while getting output_tables from process config: %v", err)
-		return fmt.Errorf(msg)
+		return fmt.Errorf("while getting output_tables from process config: %v", err)
 	}
 	log.Printf("Registring Domain Tables with sessionId '%s' and sourcePeriodKey %d", sessionId, sourcePeriodKey)
 

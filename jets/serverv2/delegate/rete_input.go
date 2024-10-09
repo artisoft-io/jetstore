@@ -15,7 +15,6 @@ import (
 type ReteInputContext struct {
 	jets__client                  *bridgego.Resource
 	jets__completed               *bridgego.Resource
-	jets__sourcePeriodType        *bridgego.Resource
 	jets__currentSourcePeriod     *bridgego.Resource
 	jets__currentSourcePeriodDate *bridgego.Resource
 	jets__exception               *bridgego.Resource
@@ -25,6 +24,7 @@ type ReteInputContext struct {
 	jets__loop                    *bridgego.Resource
 	jets__org                     *bridgego.Resource
 	jets__source_period_sequence  *bridgego.Resource
+	jets__sourcePeriodType        *bridgego.Resource
 	jets__state                   *bridgego.Resource
 	rdf__type                     *bridgego.Resource
 	reMap                         map[string]*regexp.Regexp

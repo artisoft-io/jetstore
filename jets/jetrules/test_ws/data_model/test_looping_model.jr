@@ -1,0 +1,9 @@
+# Data Model for Test Looping UC
+
+class lp:Person {
+  $base_classes = [jets:Entity],
+  $data_properties = [
+    lp:name     as text
+  ],
+  $as_table = true
+};

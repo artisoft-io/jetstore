@@ -15,7 +15,6 @@ import (
 	jw "github.com/artisoft-io/jetstore/jets/workspace"
 	"github.com/jackc/pgx/v4"
 	"github.com/jackc/pgx/v4/pgxpool"
-	_ "github.com/mattn/go-sqlite3" // Import go-sqlite3 library
 )
 
 type DomainColumn struct {

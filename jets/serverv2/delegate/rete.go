@@ -190,16 +190,16 @@ func (rw *ReteWorkspace) ExecuteRules(
 			reteSession.Erase(ri.jets__istate, ri.jets__loop, nil)
 			reteSession.Erase(ri.jets__istate, ri.jets__completed, nil)
 			jetStoreProp := *rw.js.MetaStore.JetStoreConfig
-			var nloop, iloop int64
+			var nloop, iloop int
 			value, ok := jetStoreProp["$max_looping"]
 			if ok {
-				nloop, err = strconv.ParseInt(value, 10, 64)
+				nloop, err = strconv.Atoi(value)
 				if err != nil {
 					return &result, fmt.Errorf("while parsing $max_looping value as int: %v", err)
 				}
 			}
 			if nloop > 0 {
-				// log.Println("looping in use, max number of loops is ",nloop)
+				log.Println("looping in use, max number of loops is ",nloop)
 				rdfSession.Insert(ri.jets__istate, ri.rdf__type, ri.jets__state)
 			}
 			// do for iloop <= maxloop (since loop start at one!)
@@ -208,7 +208,7 @@ func (rw *ReteWorkspace) ExecuteRules(
 					log.Println("thread", workerId, ":: Calling Execute Rules, loop:", iloop, ", session count:", session_count, ", for ruleset:", ruleset, ", with grouping key:", inBundle.groupingValue)
 				}
 				if iloop > 0 {
-					r, err := reteSession.NewIntLiteral(int(iloop))
+					r, err := reteSession.NewIntLiteral(iloop)
 					if err != nil {
 						return &result, fmt.Errorf("while NewIntLiteral for loop %s: %v", ruleset, err)
 					}
@@ -225,7 +225,7 @@ func (rw *ReteWorkspace) ExecuteRules(
 				}
 				// CHECK for jets__terminate
 				if isDone, err := rdfSession.ContainsSP(ri.jets__istate, ri.jets__completed); isDone > 0 || err != nil {
-					// log.Println("Rete Session Looping Completed")
+					log.Println("Rete Session Looping Completed")
 					break
 				}
 			}

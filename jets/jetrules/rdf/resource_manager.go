@@ -19,11 +19,10 @@ type ResourceManager struct {
 }
 
 type JetResources struct {
-	Jets__sourcePeriodType        *Node
-	Jets__currentSourcePeriod     *Node
-	Jets__currentSourcePeriodDate *Node
 	Jets__client                  *Node
 	Jets__completed               *Node
+	Jets__currentSourcePeriod     *Node
+	Jets__currentSourcePeriodDate *Node
 	Jets__entity_property         *Node
 	Jets__exception               *Node
 	Jets__from                    *Node
@@ -41,6 +40,7 @@ type JetResources struct {
 	Jets__replace_chars           *Node
 	Jets__replace_with            *Node
 	Jets__source_period_sequence  *Node
+	Jets__sourcePeriodType        *Node
 	Jets__state                   *Node
 	Jets__value_property          *Node
 	Rdf__type                     *Node

@@ -23,7 +23,6 @@ import (
 // Main data entity
 type PipelineConfig struct {
 	key                      int
-	processConfigKey         int
 	clientName               string
 	sourcePeriodType         string
 	sourcePeriodKey          int
@@ -77,7 +76,6 @@ func (pc *PipelineConfig) String() string {
 }
 
 type ProcessConfig struct {
-	key          int
 	processName  string
 	mainRules    string
 	isRuleSet    int
@@ -414,13 +412,14 @@ func ReadPipelineConfig(dbpool *pgxpool.Pool, peKey int) (*PipelineConfig, error
 		mergedProcessInputMap:   make(map[int]*ProcessInput),
 		injectedProcessInputMap: make(map[int]*ProcessInput)}
 	var err error
+	var processName string
 	var outSessId sql.NullString
 	mainInputRegistryKey := sql.NullInt64{}
 	var mergedInputRegistryKeys []int
 	err = dbpool.QueryRow(context.Background(),
-		`SELECT pipeline_config_key, main_input_registry_key, merged_input_registry_keys, session_id
+		`SELECT pipeline_config_key, process_name, main_input_registry_key, merged_input_registry_keys, session_id
 			 FROM jetsapi.pipeline_execution_status 
-			 WHERE key = $1`, peKey).Scan(&pc.key, &mainInputRegistryKey, &mergedInputRegistryKeys, &outSessId)
+			 WHERE key = $1`, peKey).Scan(&pc.key, &processName, &mainInputRegistryKey, &mergedInputRegistryKeys, &outSessId)
 	if err != nil {
 		return &pc, fmt.Errorf("read jetsapi.pipeline_execution_status table failed: %v", err)
 	}
@@ -470,17 +469,17 @@ func ReadPipelineConfig(dbpool *pgxpool.Pool, peKey int) (*PipelineConfig, error
 		pc.injectedProcessInputMap[key] = pc.injectedProcessInput[i]
 	}
 
+	// load the process config
+	pc.processConfig = &ProcessConfig{processName: processName}
+	err = pc.processConfig.loadProcessConfig(dbpool)
+	if err != nil {
+		return &pc, fmt.Errorf("while loading process config: %v", err)
+	}
+
 	// read the rule config triples / json
 	err = pc.readRuleConfig(dbpool)
 	if err != nil {
 		return &pc, fmt.Errorf("read jetsapi.rule_config table failed: %v", err)
-	}
-
-	// load the process config
-	pc.processConfig = &ProcessConfig{key: pc.processConfigKey}
-	err = pc.processConfig.loadProcessConfig(dbpool)
-	if err != nil {
-		return &pc, fmt.Errorf("while loading process config: %v", err)
 	}
 
 	// determine the input session ids
@@ -555,9 +554,9 @@ func (pc *PipelineConfig) loadPipelineConfig(dbpool *pgxpool.Pool) error {
 	var ruleConfigJson string
 	pc.ruleConfigs = make([]RuleConfig, 0)
 	err := dbpool.QueryRow(context.Background(),
-		`SELECT client, process_config_key, main_process_input_key, merged_process_input_keys, injected_process_input_keys, source_period_type, max_rete_sessions_saved, rule_config_json
+		`SELECT client, main_process_input_key, merged_process_input_keys, injected_process_input_keys, source_period_type, max_rete_sessions_saved, rule_config_json
 		FROM jetsapi.pipeline_config WHERE key = $1`,
-		pc.key).Scan(&pc.clientName, &pc.processConfigKey, &pc.mainProcessInputKey, &pc.mergedProcessInputKeys, &pc.injectedProcessInputKeys,
+		pc.key).Scan(&pc.clientName, &pc.mainProcessInputKey, &pc.mergedProcessInputKeys, &pc.injectedProcessInputKeys,
 		&pc.sourcePeriodType, &maxReteSessionsSaved, &ruleConfigJson)
 	if err != nil {
 		return fmt.Errorf("while reading jetsapi.pipeline_config table: %v", err)
@@ -732,9 +731,9 @@ func (pi *ProcessInput) loadProcessInput(dbpool *pgxpool.Pool) error {
 // load ProcessConfig
 func (pc *ProcessConfig) loadProcessConfig(dbpool *pgxpool.Pool) error {
 	err := dbpool.QueryRow(context.Background(),
-		`SELECT process_name, main_rules, is_rule_set, output_tables
+		`SELECT main_rules, is_rule_set, output_tables
 		FROM jetsapi.process_config 
-		WHERE key = $1`, pc.key).Scan(&pc.processName, &pc.mainRules, &pc.isRuleSet, &pc.outputTables)
+		WHERE process_name = $1`, pc.processName).Scan(&pc.mainRules, &pc.isRuleSet, &pc.outputTables)
 	if err != nil {
 		return fmt.Errorf("while reading jetsapi.process_config table: %v", err)
 	}
@@ -774,13 +773,13 @@ func readProcessInputMapping(dbpool *pgxpool.Pool, tableName string) ([]ProcessM
 	return result, nil
 }
 
-// Read rule config triples, processConfigKey is rule_config.process_config_key
+// Read rule config triples
 // Note: At this point pipeline specific rule config is already loaded into pc
 func (pc *PipelineConfig) readRuleConfig(dbpool *pgxpool.Pool) error {
 	rows, err := dbpool.Query(context.Background(),
 		`SELECT subject, predicate, object, rdf_type 
-		FROM jetsapi.rule_config WHERE process_config_key = $1 AND client = $2`,
-		pc.processConfigKey, pc.clientName)
+		FROM jetsapi.rule_config WHERE process_name = $1 AND client = $2`,
+		pc.processConfig.processName, pc.clientName)
 	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
 		return err
 	}
@@ -802,8 +801,8 @@ func (pc *PipelineConfig) readRuleConfig(dbpool *pgxpool.Pool) error {
 	var ruleConfigJson string
 	var configObjs []*map[string]interface{}
 	err = dbpool.QueryRow(context.Background(),
-		`SELECT rule_config_json FROM jetsapi.rule_configv2 WHERE process_config_key = $1 AND client = $2`,
-		pc.processConfigKey, pc.clientName).Scan(&ruleConfigJson)
+		`SELECT rule_config_json FROM jetsapi.rule_configv2 WHERE process_name = $1 AND client = $2`,
+		pc.processConfig.processName, pc.clientName).Scan(&ruleConfigJson)
 	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
 		return err
 	}

@@ -112,25 +112,25 @@ var sqlInsertStmts = map[string]*SqlInsertDefinition{
 	// Rule Config
 	"delete/rule_config": {
 		Stmt: `DELETE FROM jetsapi.rule_config 
-			WHERE (process_config_key, process_name, client) = 
-			($1, $2, $3)`,
-		ColumnKeys: []string{"process_config_key", "process_name", "client"},
+			WHERE (process_name, client) = 
+			($1, $2)`,
+		ColumnKeys: []string{"process_name", "client"},
 		Capability: "client_config",
 	},
 	"rule_config": {
 		Stmt: `INSERT INTO jetsapi.rule_config 
-			(process_config_key, process_name, client, subject, predicate, object, rdf_type) 
-			VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-		ColumnKeys: []string{"process_config_key", "process_name", "client", "subject", "predicate", "object", "rdf_type"},
+			(process_name, client, subject, predicate, object, rdf_type) 
+			VALUES ($1, $2, $3, $4, $5, $6)`,
+		ColumnKeys: []string{"process_name", "client", "subject", "predicate", "object", "rdf_type"},
 		Capability: "client_config",
 	},
 	// Rule Configv2
 	"update/rule_configv2": {
 		Stmt: `UPDATE jetsapi.rule_configv2 SET
-			(process_config_key, process_name, client, rule_config_json, user_email, last_update) =
-			($1, $2, $3, $4, $5, DEFAULT)
-			WHERE key = $6`,
-		ColumnKeys: []string{"process_config_key", "process_name", "client", "rule_config_json", "user_email", "key"},
+			(process_name, client, rule_config_json, user_email, last_update) =
+			($1, $2, $3, $4, DEFAULT)
+			WHERE key = $5`,
+		ColumnKeys: []string{"process_name", "client", "rule_config_json", "user_email", "key"},
 		Capability: "client_config",
 	},
 	"delete/rule_configv2": {
@@ -140,9 +140,9 @@ var sqlInsertStmts = map[string]*SqlInsertDefinition{
 	},
 	"rule_configv2": {
 		Stmt: `INSERT INTO jetsapi.rule_configv2 
-			(process_config_key, process_name, client, rule_config_json, user_email) 
-			VALUES ($1, $2, $3, $4, $5)`,
-		ColumnKeys: []string{"process_config_key", "process_name", "client", "rule_config_json", "user_email"},
+			(process_name, client, rule_config_json, user_email) 
+			VALUES ($1, $2, $3, $4)`,
+		ColumnKeys: []string{"process_name", "client", "rule_config_json", "user_email"},
 		Capability: "client_config",
 	},
 	// pipeline config
