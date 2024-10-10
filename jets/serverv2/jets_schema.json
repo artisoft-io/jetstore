@@ -1033,7 +1033,8 @@
       {
         "columnName": "process_config_key",
         "dataType": "int",
-        "isNotNull": true
+        "isNotNull": true,
+        "deprecated": true
       },
       {
         "columnName": "process_name",
@@ -1069,7 +1070,12 @@
     "indexes": [
       {
         "indexName": "rule_config_process_config_key_client_idx",
-        "indexDef": "INDEX rule_config_process_config_key_client_idx ON jetsapi.rule_config (process_config_key ASC, client ASC)"
+        "indexDef": "INDEX rule_config_process_config_key_client_idx ON jetsapi.rule_config (process_config_key ASC, client ASC)",
+        "deleted": true
+      },
+      {
+        "indexName": "rule_config_process_name_client_idx",
+        "indexDef": "INDEX rule_config_process_name_client_idx ON jetsapi.rule_config (process_name ASC, client ASC)"
       }
     ],
     "tableConstraints": [
@@ -1091,7 +1097,8 @@
       {
         "columnName": "process_config_key",
         "dataType": "int",
-        "isNotNull": true
+        "isNotNull": true,
+        "deprecated": true
       },
       {
         "columnName": "process_name",
@@ -1123,7 +1130,12 @@
     "indexes": [
       {
         "indexName": "rule_configv2_process_config_key_client_idx",
-        "indexDef": "INDEX rule_configv2_process_config_key_client_idx ON jetsapi.rule_config (process_config_key, client)"
+        "indexDef": "INDEX rule_configv2_process_config_key_client_idx ON jetsapi.rule_config (process_config_key, client)",
+        "deleted": true
+      },
+      {
+        "indexName": "rule_configv2_process_name_client_idx",
+        "indexDef": "INDEX rule_configv2_process_name_client_idx ON jetsapi.rule_configv2 (process_name, client)"
       }
     ],
     "tableConstraints": [
@@ -1155,7 +1167,8 @@
       {
         "columnName": "process_config_key",
         "dataType": "int",
-        "isNotNull": true
+        "isNotNull": true,
+        "deprecated": true
       },
       {
         "columnName": "main_process_input_key",

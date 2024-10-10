@@ -1,0 +1,36 @@
+# Main Rule File for Test Looping UC
+import "data_model/jets_model.jr"
+import "data_model/test_looping_model.jr"
+
+main {
+  $max_looping = 5,
+  $max_rule_exec = 100
+};
+
+volatile_resource newPerson = "newPerson";
+
+# Looping starts at 1
+[LOOP01]:
+  (?state rdf:type jets:State).
+  (?state jets:loop ?i).
+  [?i <= 3]
+  ->
+  (?state newPerson (create_entity 0))
+;
+
+[LOOP02]:
+  (?state rdf:type jets:State).
+  (?state jets:loop ?i).
+  (?state newPerson ?p)
+  ->
+  (?p rdf:type lp:Person).
+  (?p lp:name ("person_" + ?i))
+;
+
+# Loop termination condition
+[LOOP03]:
+  (?state rdf:type jets:State).
+  (?state jets:loop 3)
+  ->
+  (?state jets:completed true)
+;

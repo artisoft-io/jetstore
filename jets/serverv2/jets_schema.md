@@ -142,10 +142,10 @@ Depends on `client_registry` and `process_config` tables.
 
 The pipeline config brings together all the configuration information required to execute rules:
 
-- The process configuration (`process_config`) via `process_config_key` (or via `process_name`)
+- The process configuration (`process_config`) via `process_name`
 - The main input table (`process_input`) via `main_process_input_key` (specifying `main_table_name`)
 - The merged-in tables (`process_input`) via the `merged_process_input_keys`
-- The `rule_config` rows are specified via `process_config_key` and `client`
+- The `rule_config` rows are specified via `process_name` and `client`
 
 Depends on `process_config` and `process_input` tables and indirectly on `rule_config` table.
 
@@ -190,7 +190,7 @@ The table consist of:
 - `session_id` for the process output tables (specified in the `process_config` table)
 - and a number of metrics per `shard_id`.
 
-The `status` can be `completed`, `errors`, or `failed` when an unrecoverable error occured. 
+The `status` can be `completed`, `errors`, or `failed` when an unrecoverable error occured.
 The `errors` status is to indicates that some session got a rule execution error.
 
 Depend on `pipeline_config`, `pipeline_execution_status`

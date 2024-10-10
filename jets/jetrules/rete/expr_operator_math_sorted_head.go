@@ -31,7 +31,7 @@ func (op *SortedHeadOp) InitializeOperator(metaGraph *rdf.RdfGraph, lhs, rhs *rd
 		isMin: operatorValue == "<",
 		retObj: true,
 	}
-	return nil
+	return op.minMaxOp.InitializeOperator(metaGraph, lhs, rhs)
 }
 
 // Add truth maintenance
@@ -43,7 +43,7 @@ func (op *SortedHeadOp) RegisterCallback(reteSession *ReteSession, vertex int, l
 	return op.minMaxOp.RegisterCallback(reteSession, vertex, lhs, rhs)
 }
 func (op *SortedHeadOp) String() string {
-	return "sorted_head (depricated)"
+	return "sorted_head (deprecated)"
 }
 
 // Delegate to MinMaxOp

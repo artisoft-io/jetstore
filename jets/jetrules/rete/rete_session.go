@@ -62,6 +62,7 @@ func NewReteSession(rdfSession *rdf.RdfSession) *ReteSession {
 	return &ReteSession{
 		RdfSession:               rdfSession,
 		pendingComputeConsequent: &pq,
+		maxVertexVisits:          10000,
 	}
 }
 
@@ -88,13 +89,23 @@ func (rs *ReteSession) Initialize(ms *ReteMetaStore) {
 	}
 
 	// Get the max_vertex_visit from the meta store properties
-	p := (*ms.JetStoreConfig)["$max_looping"]
+	p := (*ms.JetStoreConfig)["$max_rule_exec"]
 	if len(p) > 0 && p != "0" {
 		c, err := strconv.Atoi(p)
 		if err == nil {
 			rs.maxVertexVisits = c
 		} else {
-			log.Printf("JetStoreConfig has invalid $max_looping value: %v", err)
+			log.Printf("JetStoreConfig has invalid $max_rule_exec: %v, using default value of 10,000", err)
+		}
+	}
+	// Check for a pipeline or rule_config override to $max_rule_exec via jets:max_vertex_visits
+	mvv := ms.MetaGraph.GetObject(ms.ResourceMgr.JetsResources.Jets__istate,	ms.ResourceMgr.JetsResources.Jets__max_vertex_visits)
+	if mvv != nil {
+		c, ok := mvv.Value.(int)
+		if ok {
+			rs.maxVertexVisits = c
+		} else {
+			log.Printf("Rule config has invalid jets:max_vertex_visits, expecting an int, using value set in rule file or default")
 		}
 	}
 

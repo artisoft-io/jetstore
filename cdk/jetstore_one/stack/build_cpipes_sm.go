@@ -1,7 +1,10 @@
 package stack
 
 import (
-	
+	"log"
+	"os"
+	"strconv"
+
 	awscdk "github.com/aws/aws-cdk-go/awscdk/v2"
 	"github.com/aws/aws-cdk-go/awscdk/v2/awsec2"
 	"github.com/aws/aws-cdk-go/awscdk/v2/awsecs"
@@ -230,11 +233,20 @@ func (jsComp *JetStoreStackComponents) BuildCpipesSM(scope constructs.Construct,
 	runReportsLambdaTask.AddCatch(runErrorStatusLambdaTask, MkCatchProps()).Next(runSuccessStatusLambdaTask)
 
 	// Define the State Machine
+	timeout := 60
+	if len(os.Getenv("JETS_CPIPES_SM_TIMEOUT_MIN")) > 0 {
+		var err error
+		timeout, err = strconv.Atoi(os.Getenv("JETS_CPIPES_SM_TIMEOUT_MIN"))
+		if err != nil {
+			log.Println("while parsing JETS_CPIPES_SM_TIMEOUT_MIN:", err)
+			timeout = 60
+		}
+	}
 	jsComp.CpipesSM = sfn.NewStateMachine(stack, props.MkId("cpipesSM"), &sfn.StateMachineProps{
 		StateMachineName: props.MkId("cpipesSM"),
 		DefinitionBody:   sfn.DefinitionBody_FromChainable(runStartSharingTask),
 		//* NOTE 1h TIMEOUT
-		Timeout: awscdk.Duration_Hours(jsii.Number(1)),
+		Timeout: awscdk.Duration_Minutes(jsii.Number(timeout)),
 	})
 	if phiTagName != nil {
 		awscdk.Tags_Of(jsComp.CpipesSM).Add(phiTagName, jsii.String("true"), nil)

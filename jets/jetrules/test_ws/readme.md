@@ -30,7 +30,8 @@ pip3 install --no-input \
     && pip3 list
 ```
 
-Then compile the workspace with the following command:
+Then compile the workspace with the following command
+in the Workspace folder (where `compile_workspace.sh` is located):
 
 ```bash
 WORKSPACES_HOME=/home/michel/projects/repos/jetstore/jets/jetrules \

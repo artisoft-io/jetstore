@@ -589,6 +589,7 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 // JETS_CPIPES_TASK_CPU allocated cpu in vCPU units
 // JETS_CPIPES_TASK_MEM_LIMIT_MB memory limit, based on fargate table
 // JETS_CPIPES_LAMBDA_MEM_LIMIT_MB memory limit for cpipes execution node lambda
+// JETS_CPIPES_SM_TIMEOUT_MIN (optional) state machine timeout for CPIPES_SM, default 60 min
 // CPIPES_STATUS_NOTIFICATION_ENDPOINT api gateway endpoint to send start and end notifications
 // CPIPES_STATUS_NOTIFICATION_ENDPOINT_JSON api gateway endpoints based on file key component to send start and end notifications
 // CPIPES_START_NOTIFICATION_JSON template for the cpipes start notification
@@ -622,6 +623,7 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 // JETS_SENTINEL_FILE_NAME (optional, fixed file name for multipart sentinel file - file of size 0)
 // JETS_SERVER_TASK_CPU allocated cpu in vCPU units
 // JETS_SERVER_TASK_MEM_LIMIT_MB memory limit, based on fargate table
+// JETS_SERVER_SM_TIMEOUT_MIN (optional) state machine timeout for SERVER_SM, default 60 min
 // JETS_SNS_ALARM_TOPIC_ARN (optional, sns topic for sending alarm)
 // JETS_STACK_ID (optional, stack id, default: JetstoreOneStack)
 // JETS_STACK_SUFFIX (optional, component suffix (when JETS_STACK_ID is not part of component id), default no suffix)
@@ -664,6 +666,7 @@ func main() {
 	fmt.Println("env JETS_CPIPES_TASK_CPU:", os.Getenv("JETS_CPIPES_TASK_CPU"))
 	fmt.Println("env JETS_CPIPES_TASK_MEM_LIMIT_MB:", os.Getenv("JETS_CPIPES_TASK_MEM_LIMIT_MB"))
 	fmt.Println("env JETS_CPIPES_LAMBDA_MEM_LIMIT_MB:", os.Getenv("JETS_CPIPES_LAMBDA_MEM_LIMIT_MB"))
+	fmt.Println("env JETS_CPIPES_SM_TIMEOUT_MIN:", os.Getenv("JETS_CPIPES_SM_TIMEOUT_MIN"))
 	fmt.Println("env CPIPES_STATUS_NOTIFICATION_ENDPOINT:", os.Getenv("CPIPES_STATUS_NOTIFICATION_ENDPOINT"))
 	fmt.Println("env CPIPES_STATUS_NOTIFICATION_ENDPOINT_JSON:", os.Getenv("CPIPES_STATUS_NOTIFICATION_ENDPOINT_JSON"))
 	fmt.Println("env CPIPES_START_NOTIFICATION_JSON:", os.Getenv("CPIPES_START_NOTIFICATION_JSON"))
@@ -695,6 +698,7 @@ func main() {
 	fmt.Println("env JETS_SENTINEL_FILE_NAME:", os.Getenv("JETS_SENTINEL_FILE_NAME"))
 	fmt.Println("env JETS_SERVER_TASK_CPU:", os.Getenv("JETS_SERVER_TASK_CPU"))
 	fmt.Println("env JETS_SERVER_TASK_MEM_LIMIT_MB:", os.Getenv("JETS_SERVER_TASK_MEM_LIMIT_MB"))
+	fmt.Println("env JETS_SERVER_SM_TIMEOUT_MIN:", os.Getenv("JETS_SERVER_SM_TIMEOUT_MIN"))
 	fmt.Println("env JETS_LOADER_TASK_CPU:", os.Getenv("JETS_LOADER_TASK_CPU"))
 	fmt.Println("env JETS_LOADER_TASK_MEM_LIMIT_MB:", os.Getenv("JETS_LOADER_TASK_MEM_LIMIT_MB"))
 	fmt.Println("env JETS_SNS_ALARM_TOPIC_ARN:", os.Getenv("JETS_SNS_ALARM_TOPIC_ARN"))
