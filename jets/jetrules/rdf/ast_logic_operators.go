@@ -4,7 +4,37 @@ package rdf
 // Semantic is lhs.op(rhs) returns *Node
 // returns nil if lhs and rhs are not a valid combination for op
 
+func (lhs *Node) AND(rhs *Node) *Node {
+	if lhs == nil || rhs == nil {
+		return FALSE()
+	}
+	if lhs.Bool() && rhs.Bool() {
+		return TRUE()
+	}
+	return FALSE()
+}
+
+func (lhs *Node) OR(rhs *Node) *Node {
+	if lhs.Bool() || rhs.Bool() {
+		return TRUE()
+	}
+	return FALSE()
+}
+
+func (lhs *Node) NOT() *Node {
+	if lhs == nil {
+		return FALSE()
+	}
+  return B(!lhs.Bool())
+}
+
 func (lhs *Node) EQ(rhs *Node) *Node {
+	if lhs == nil || rhs == nil {
+		return FALSE()
+	}
+  if lhs == rhs {
+    return TRUE()
+  }
 	switch lhsv := lhs.Value.(type) {
 	case int:
 		switch rhsv := rhs.Value.(type) {
@@ -19,7 +49,7 @@ func (lhs *Node) EQ(rhs *Node) *Node {
 			}
 			return FALSE()
 		default:
-			return nil
+			return FALSE()
 		}
 	case float64:
 		switch rhsv := rhs.Value.(type) {
@@ -34,7 +64,7 @@ func (lhs *Node) EQ(rhs *Node) *Node {
 			}
 			return FALSE()
 		default:
-			return nil
+			return FALSE()
 		}
 	case string:
 		rhsv, ok := rhs.Value.(string)
@@ -67,78 +97,18 @@ func (lhs *Node) EQ(rhs *Node) *Node {
 		}
 		return FALSE()
 	default:
-		return nil
+		return FALSE()
 	}
 }
 
 func (lhs *Node) NE(rhs *Node) *Node {
-	switch lhsv := lhs.Value.(type) {
-	case int:
-		switch rhsv := rhs.Value.(type) {
-		case int:
-			if lhsv != rhsv {
-				return TRUE()
-			}
-			return FALSE()
-		case float64:
-			if !NearlyEqual(float64(lhsv), rhsv) {
-				return TRUE()
-			}
-			return FALSE()
-		default:
-			return TRUE()
-		}
-	case float64:
-		switch rhsv := rhs.Value.(type) {
-		case int:
-			if !NearlyEqual(lhsv, float64(rhsv)) {
-				return TRUE()
-			}
-			return FALSE()
-		case float64:
-			if !NearlyEqual(lhsv, rhsv) {
-				return TRUE()
-			}
-			return FALSE()
-		default:
-			return TRUE()
-		}
-	case string:
-		rhsv, ok := rhs.Value.(string)
-		if ok && lhsv == rhsv {
-			return FALSE()
-		}
-		return TRUE()
-	case BlankNode:
-		rhsv, ok := rhs.Value.(BlankNode)
-		if ok && lhsv.Key == rhsv.Key {
-			return FALSE()
-		}
-		return TRUE()
-	case NamedResource:
-		rhsv, ok := rhs.Value.(NamedResource)
-		if ok && lhsv.Name == rhsv.Name {
-			return FALSE()
-		}
-		return TRUE()
-	case LDate:
-		rhsv, ok := rhs.Value.(LDate)
-		if ok && lhsv.Date.Equal(*rhsv.Date) {
-			return FALSE()
-		}
-		return TRUE()
-	case LDatetime:
-		rhsv, ok := rhs.Value.(LDatetime)
-		if ok && lhsv.Datetime.Equal(*rhsv.Datetime) {
-			return FALSE()
-		}
-		return TRUE()
-	default:
-		return TRUE()
-	}
+  return lhs.EQ(rhs).NOT()
 }
 
 func (lhs *Node) GE(rhs *Node) *Node {
+	if lhs == nil || rhs == nil {
+		return FALSE()
+	}
 	switch lhsv := lhs.Value.(type) {
 	case int:
 		switch rhsv := rhs.Value.(type) {
@@ -153,7 +123,7 @@ func (lhs *Node) GE(rhs *Node) *Node {
 			}
 			return FALSE()
 		default:
-			return nil
+			return FALSE()
 		}
 	case float64:
 		switch rhsv := rhs.Value.(type) {
@@ -168,7 +138,7 @@ func (lhs *Node) GE(rhs *Node) *Node {
 			}
 			return FALSE()
 		default:
-			return nil
+			return FALSE()
 		}
 	case string:
 		rhsv, ok := rhs.Value.(string)
@@ -201,11 +171,14 @@ func (lhs *Node) GE(rhs *Node) *Node {
 		}
 		return FALSE()
 	default:
-		return nil
+		return FALSE()
 	}
 }
 
 func (lhs *Node) GT(rhs *Node) *Node {
+	if lhs == nil || rhs == nil {
+		return FALSE()
+	}
 	switch lhsv := lhs.Value.(type) {
 	case int:
 		switch rhsv := rhs.Value.(type) {
@@ -220,7 +193,7 @@ func (lhs *Node) GT(rhs *Node) *Node {
 			}
 			return FALSE()
 		default:
-			return nil
+			return FALSE()
 		}
 	case float64:
 		switch rhsv := rhs.Value.(type) {
@@ -235,7 +208,7 @@ func (lhs *Node) GT(rhs *Node) *Node {
 			}
 			return FALSE()
 		default:
-			return nil
+			return FALSE()
 		}
 	case string:
 		rhsv, ok := rhs.Value.(string)
@@ -268,11 +241,14 @@ func (lhs *Node) GT(rhs *Node) *Node {
 		}
 		return FALSE()
 	default:
-		return nil
+		return FALSE()
 	}
 }
 
 func (lhs *Node) LE(rhs *Node) *Node {
+	if lhs == nil || rhs == nil {
+		return FALSE()
+	}
 	switch lhsv := lhs.Value.(type) {
 	case int:
 		switch rhsv := rhs.Value.(type) {
@@ -287,7 +263,7 @@ func (lhs *Node) LE(rhs *Node) *Node {
 			}
 			return FALSE()
 		default:
-			return nil
+			return FALSE()
 		}
 	case float64:
 		switch rhsv := rhs.Value.(type) {
@@ -302,7 +278,7 @@ func (lhs *Node) LE(rhs *Node) *Node {
 			}
 			return FALSE()
 		default:
-			return nil
+			return FALSE()
 		}
 	case string:
 		rhsv, ok := rhs.Value.(string)
@@ -335,11 +311,14 @@ func (lhs *Node) LE(rhs *Node) *Node {
 		}
 		return FALSE()
 	default:
-		return nil
+		return FALSE()
 	}
 }
 
 func (lhs *Node) LT(rhs *Node) *Node {
+	if lhs == nil || rhs == nil {
+		return FALSE()
+	}
 	switch lhsv := lhs.Value.(type) {
 	case int:
 		switch rhsv := rhs.Value.(type) {
@@ -354,7 +333,7 @@ func (lhs *Node) LT(rhs *Node) *Node {
 			}
 			return FALSE()
 		default:
-			return nil
+			return FALSE()
 		}
 	case float64:
 		switch rhsv := rhs.Value.(type) {
@@ -369,7 +348,7 @@ func (lhs *Node) LT(rhs *Node) *Node {
 			}
 			return FALSE()
 		default:
-			return nil
+			return FALSE()
 		}
 	case string:
 		rhsv, ok := rhs.Value.(string)
@@ -402,6 +381,6 @@ func (lhs *Node) LT(rhs *Node) *Node {
 		}
 		return FALSE()
 	default:
-		return nil
+		return FALSE()
 	}
 }

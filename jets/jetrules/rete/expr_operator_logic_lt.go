@@ -23,8 +23,5 @@ func (op *LtOp) RegisterCallback(reteSession *ReteSession, vertex int, lhs, rhs 
 }
 
 func (op *LtOp) Eval(reteSession *ReteSession, row *BetaRow, lhs, rhs *rdf.Node) *rdf.Node {
-	if lhs == nil || rhs == nil {
-		return nil
-	}
 	return lhs.LT(rhs)
 }

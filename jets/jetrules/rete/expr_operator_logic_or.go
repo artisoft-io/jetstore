@@ -21,11 +21,5 @@ func (op *OrOp) RegisterCallback(reteSession *ReteSession, vertex int, lhs, rhs 
 }
 
 func (op *OrOp) Eval(reteSession *ReteSession, row *BetaRow, lhs, rhs *rdf.Node) *rdf.Node {
-	if lhs == nil || rhs == nil {
-		return nil
-	}
-	if lhs.Bool() || rhs.Bool() {
-		return rdf.TRUE()
-	}
-	return rdf.FALSE()
+	return lhs.OR(rhs)
 }

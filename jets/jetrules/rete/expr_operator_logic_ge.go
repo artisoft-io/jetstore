@@ -23,8 +23,5 @@ func (op *GeOp) RegisterCallback(reteSession *ReteSession, vertex int, lhs, rhs 
 }
 
 func (op *GeOp) Eval(reteSession *ReteSession, row *BetaRow, lhs, rhs *rdf.Node) *rdf.Node {
-	if lhs == nil || rhs == nil {
-		return nil
-	}
 	return lhs.GE(rhs)
 }

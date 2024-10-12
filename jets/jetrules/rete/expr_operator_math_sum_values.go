@@ -21,9 +21,11 @@ func (op *SumValuesOp) InitializeOperator(metaGraph *rdf.RdfGraph, lhs, rhs *rdf
 	jr := metaGraph.RootRm.JetsResources
 	entityProperty := metaGraph.GetObject(rhs, jr.Jets__entity_property)
 	// if op.entityProperty == null then do sum of ?v in (lhs, rhs, ?v)
+	//  where rhs is non functional data property
+	//
 	// if op.entityProperty != null then do sum of ?v in (lhs, objP, ?o).(?o, dataP, ?v)
-	//	where objP is entity property (non functional property) and
-	//        dataP is value property (functional property)
+	//	where objP is entity property (non functional obj property) and
+	//        dataP is value property (functional data property)
 	if entityProperty != nil {
 		op.objProperty = entityProperty
 		op.dataProperty = metaGraph.GetObject(rhs, jr.Jets__value_property)
