@@ -33,10 +33,6 @@ type ReteSession struct {
 }
 type RSIterator = rdf.RdfSessionIterator
 
-// type RSIterator struct {
-// 	t3Itor *rdf.RdfSessionIteratorAdaptor
-// }
-
 type Resource struct {
 	r *rdf.Node
 }
@@ -112,12 +108,12 @@ func LoadJetRules(processName string, mainRuleName string, lookup_db_path string
 	if err != nil {
 		return nil, fmt.Errorf("while calling NewReteMetaStoreFactory(%s): %v", js.MainRuleName, err)
 	}
-	js.MetaStore = js.Factory.MetaStoreLookup[js.MainRuleName]
-	if js.MetaStore == nil {
-		return nil, fmt.Errorf("error: Rete Network for main rule %s not found", js.MainRuleName)
-	}
-	js.MetaMgr = js.MetaStore.ResourceMgr
-	js.MetaGraph = js.MetaStore.MetaGraph
+	// NOTE: js.MetaStore is set when the rete session is created (in NewReteSession)
+	// setting a default value to access Classes and Table information when preparing
+	// the server process
+	js.MetaStore = js.Factory.MetaStoreLookup[js.Factory.MainRuleFileNames[0]]
+	js.MetaMgr = js.Factory.ResourceMgr
+	js.MetaGraph = js.Factory.MetaGraph
 
 	return js, nil
 }
@@ -140,13 +136,12 @@ func (rdfs *RDFSession) ReleaseRDFSession() error {
 func (js *JetStore) NewReteSession(rdfSession *RDFSession, jetrulesName string) (*ReteSession, error) {
 
 	reteSession := rete.NewReteSession(rdfSession.rdfSession)
-	ms := js.Factory.MetaStoreLookup[jetrulesName]
-	if ms == nil {
-		return nil, fmt.Errorf("error: rete meta store not found for %s", jetrulesName)
-	}
 	// Set the current meta store
-	js.MetaStore = ms
-	reteSession.Initialize(ms)
+	js.MetaStore = js.Factory.MetaStoreLookup[jetrulesName]
+	if js.MetaStore == nil {
+		return nil, fmt.Errorf("error: Rete Network for main rule %s not found", js.MainRuleName)
+	}
+	reteSession.Initialize(js.MetaStore)
 	return &ReteSession{
 		js:         js,
 		rdfSession: rdfSession,
@@ -567,9 +562,9 @@ func (rs *RDFSession) GetRdfGraph() string {
 	return ""
 }
 // RDFSession DumpRdfGraph
-func (rs *RDFSession) DumpRdfGraph() error {
+func DumpGraph(g *rdf.RdfGraph) {
 	triples := make([]string, 0)
-	t3Itor := rs.rdfSession.Find()
+	t3Itor := g.Find()
 	for t3 := range t3Itor.Itor {
 		triples = append(triples, fmt.Sprintf("(%s, %s, %s)", t3[0], t3[1], t3[2]))
 	}
@@ -580,7 +575,13 @@ func (rs *RDFSession) DumpRdfGraph() error {
 		log.Println(triples[i])
 		count += 1
 	}
-	log.Printf("The graph contains %d triples, the metagraph contains %d triples",count,rs.rdfSession.MetaGraph.Size())
+}
+func (rs *RDFSession) DumpRdfGraph() error {
+	log.Printf("Asserted Graph Contains %d triples (go version):", rs.rdfSession.AssertedGraph.Size())
+	DumpGraph(rs.rdfSession.AssertedGraph)
+	log.Printf("Inferred Graph Contains %d triples (go version):", rs.rdfSession.InferredGraph.Size())
+	DumpGraph(rs.rdfSession.InferredGraph)
+	log.Printf("The Meta Graph contains %d triples",rs.rdfSession.MetaGraph.Size())
 	return nil
 }
 func (rs *ReteSession) DumpRdfGraph() error {

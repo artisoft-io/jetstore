@@ -25,21 +25,23 @@ import (
 // WORKSPACE Workspace currently in use
 // JETSTORE_DEV_MODE Indicates running in dev mode, used to determine if sync workspace file from s3
 
-var devMode bool
 var workspaceHome string
 var wprefix string
 
 func init() {
-	_, devMode = os.LookupEnv("JETSTORE_DEV_MODE")
 	workspaceHome = os.Getenv("WORKSPACES_HOME")
 	wprefix = os.Getenv("WORKSPACE")
 }
 
-type VarInfo struct {
-	Id       string
-	IsBinded bool
-	Vertex   int
-	VarPos   int
+// Note: single ResourceManager for all reteMetaStores
+// Note: single MetaGraph for all reteMetaStores
+type ReteMetaStoreFactory struct {
+	WorkspaceCtrl     *WorkspaceControl
+	MainRuleFileNames []string
+	ResourceMgr       *rdf.ResourceManager
+	MetaGraph         *rdf.RdfGraph
+	MetaStoreLookup   map[string]*ReteMetaStore
+	ReteModelLookup   map[string]*JetruleModel
 }
 
 // Context for building the components of the ReteMetaStore.
@@ -61,12 +63,11 @@ type ReteBuilderContext struct {
 	NodeVertices    []*NodeVertex
 }
 
-type ReteMetaStoreFactory struct {
-	WorkspaceCtrl     *WorkspaceControl
-	MainRuleFileNames []string
-	ResourceMgr       *rdf.ResourceManager
-	MetaStoreLookup   map[string]*ReteMetaStore
-	ReteModelLookup   map[string]*JetruleModel
+type VarInfo struct {
+	Id       string
+	IsBinded bool
+	Vertex   int
+	VarPos   int
 }
 
 // Main function to create the factory and to load ReteMetaStore, one per main rule file.
@@ -82,10 +83,12 @@ func NewReteMetaStoreFactory(jetRuleName string) (*ReteMetaStoreFactory, error) 
 		return nil, err
 	}
 
+	resourceManager := rdf.NewResourceManager(nil)
 	factory := &ReteMetaStoreFactory{
 		WorkspaceCtrl:     workspaceControl,
 		MainRuleFileNames: workspaceControl.MainRuleFileNames(jetRuleName),
-		ResourceMgr:       rdf.NewResourceManager(nil),
+		ResourceMgr:       resourceManager,
+		MetaGraph:         rdf.NewMetaRdfGraph(resourceManager),
 		MetaStoreLookup:   make(map[string]*ReteMetaStore),
 		ReteModelLookup:   make(map[string]*JetruleModel),
 	}
@@ -119,25 +122,19 @@ func NewReteMetaStoreFactory(jetRuleName string) (*ReteMetaStoreFactory, error) 
 		log.Printf("while loading the ReteMetaStore from jetrule model:%v\n", err)
 		return nil, err
 	}
-	// Add rule sequence to ReteMetaStore using first rule set of the sequence
-	for i := range workspaceControl.RuleSequences {
-		rseq := &workspaceControl.RuleSequences[i]
-		log.Printf("Add rule sequence: %s associated with 1st rule set: %s", rseq.Name, rseq.RuleSets[0])
-		factory.MetaStoreLookup[rseq.Name] = factory.MetaStoreLookup[rseq.RuleSets[0]]
-	}
 	return factory, nil
 }
 
 // Transform the jetrule models into a set of ReteMetaStore
 func (factory *ReteMetaStoreFactory) initialize() error {
 	// Note: single ResourceManager for all reteMetaStores
-	// Note: each reteMetaStore have it's own MetaGraph
+	// Note: single MetaGraph for all reteMetaStores
 	for ruleUri, jrModel := range factory.ReteModelLookup {
 		log.Println("Building ReteMetaStore for ruleset", ruleUri)
 		builderContext := &ReteBuilderContext{
 			ResourceMgr:     factory.ResourceMgr,
 			WorkspaceCtrl:   factory.WorkspaceCtrl,
-			MetaGraph:       rdf.NewMetaRdfGraph(factory.ResourceMgr),
+			MetaGraph:       factory.MetaGraph,
 			ResourcesLookup: make(map[int]*rdf.Node),
 			VariablesLookup: make(map[int]*VarInfo),
 			MainRuleUri:     ruleUri,
@@ -442,7 +439,7 @@ func (ctx *ReteBuilderContext) loadNodeVertices() error {
 			if betaVarNode.IsBinded {
 				if reteNode.ParentVertex == 0 {
 					return fmt.Errorf(
-						"bug: something is wrong, cannot have binded var %s at node %d since it's parent node is root node", 
+						"bug: something is wrong, cannot have binded var %s at node %d since it's parent node is root node",
 						betaVarNode.Id, reteNode.Vertex)
 				}
 				brData[j] = betaVarNode.VarPos | brcParentNode

@@ -632,8 +632,11 @@ int dump_rdf_graph(HJRDF hdl)
 {
   if(not hdl) return -1;
   auto * rdf_session =  static_cast<RDFSession*>(hdl);
-  std::cout << "RDF Session Contains:"<<std::endl;
-  std::cout << rdf_session<<"---"<<std::endl;
+  std::cout << "Asserted Graph Contains "<<rdf_session->asserted_graph()->size()<<" triples (c++ version):"<<std::endl;
+  std::cout << rdf_session->asserted_graph()<<"---"<<std::endl;
+  std::cout << "Inferred Graph Contains "<<rdf_session->inferred_graph()->size()<<" triples (c++ version):"<<std::endl;
+  std::cout << rdf_session->inferred_graph()<<"---"<<std::endl;
+  std::cout << "The Meta Graph Contains:"<<rdf_session->meta_graph()->size()<<" triples"<<std::endl;
   return 0;
 }
 

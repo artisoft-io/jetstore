@@ -2,6 +2,7 @@ package rdf
 
 import (
 	"fmt"
+	"log"
 	"math"
 	"reflect"
 	"strings"
@@ -291,13 +292,46 @@ func D(date string) (*Node, error) {
 	return &Node{Value: LDate{Date: t}}, err
 }
 
+func DD(date string) *Node {
+	t, err := ParseDate(date)
+	if err != nil {
+		log.Printf("error parsing date: %v", err)
+		return nil
+	}
+	return &Node{Value: LDate{Date: t}}
+}
+
 func DT(datetime string) (*Node, error) {
 	t, err := ParseDatetime(datetime)
 	return &Node{Value: LDatetime{Datetime: t}}, err
 }
 
+func DDT(datetime string) *Node {
+	t, err := ParseDatetime(datetime)
+	if err != nil {
+		log.Printf("error parsing datetime: %v", err)
+		return nil
+	}
+	return &Node{Value: LDatetime{Datetime: t}}
+}
+
 func I(v int) *Node {
 	return &Node{Value: v}
+}
+
+func B(b bool) *Node {
+	if b {
+		return TRUE()
+	}
+	return FALSE()
+}
+
+func TRUE() *Node {
+	return &Node{Value: 1}
+}
+
+func FALSE() *Node {
+	return &Node{Value: 0}
 }
 
 func S(v string) *Node {
