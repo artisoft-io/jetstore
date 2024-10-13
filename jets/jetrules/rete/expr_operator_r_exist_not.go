@@ -42,25 +42,9 @@ func (op *ExistOp) String() string {
 //		lhs exist rhs     (case op.isExistNot is false)
 //		lhs exist_not rhs (case op.isExistNot is true)
 func (op *ExistOp) Eval(reteSession *ReteSession, row *BetaRow, lhs, rhs *rdf.Node) *rdf.Node {
-	if lhs == nil || rhs == nil {
-		return nil
-	}
-	obj := reteSession.RdfSession.GetObject(lhs, rhs)
-	var result *rdf.Node
 	if op.isExistNot {
-		if obj == nil {
-			result = rdf.I(1)
-		} else {
-			result = rdf.I(0)
-		}
+		return lhs.ExistNot(reteSession.RdfSession, rhs)
 	} else {
-		if obj == nil {
-			result = rdf.I(0)
-		} else {
-			result = rdf.I(1)
-		}
+		return lhs.Exist(reteSession.RdfSession, rhs)
 	}
-	// //**
-	// log.Printf("Eval: %s %s %s returning %s", lhs, op.String(), rhs, result)
-	return result
 }

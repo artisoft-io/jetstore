@@ -21,11 +21,5 @@ func (op *NotOp) RegisterCallback(reteSession *ReteSession, vertex int, rhs *rdf
 }
 
 func (op *NotOp) Eval(reteSession *ReteSession, row *BetaRow, rhs *rdf.Node) *rdf.Node {
-	if rhs == nil {
-		return nil
-	}
-	if !rhs.Bool() {
-		return rdf.I(1)
-	}
-	return rdf.I(0)
+	return rhs.NOT()
 }

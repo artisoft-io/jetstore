@@ -24,8 +24,5 @@ func (op *IsNullOp) Eval(reteSession *ReteSession, row *BetaRow, rhs *rdf.Node) 
 	if rhs == nil {
 		return nil
 	}
-	if rhs.IsNull() {
-		return rdf.I(1)
-	}
-	return rdf.I(0)
+	return rdf.B(rhs.IsNull())
 }

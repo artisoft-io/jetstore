@@ -251,71 +251,17 @@ func TestRdfSessionIterator2(t *testing.T) {
 	o2 := rm.NewResource("o2")
 	rdfSession.Insert(s, p, o2)
 	itor := rdfSession.Find()
+
 	count := 0
-	// Wait to see if there is a value or it's closed
-	vv, ok := <-itor.Itor
-	if ok {
+	for vv := range itor.Itor {
 		log.Println("Got value:", vv)
 		if vv[2] != o && vv[2] != o2 {
 			t.Errorf("Unexpected triple (%s, %s, %s)", vv[0], vv[1], vv[2])
 		}
-	} else {
-		// Got no value
-		t.Error("Got no value")
+		count += 1
 	}
-	count += 1
-	// Now the channel has value, the select will work
-	select {
-	case vv := <-itor.Itor:
-		log.Println("Got value2:", vv)
-		if vv[2] != o && vv[2] != o2 {
-			t.Errorf("Unexpected2 triple (%s, %s, %s)", vv[0], vv[1], vv[2])
-		}
-	default:
-		// Got no value
-		t.Error("Got no value2")
-	}
-	count += 1
-	// for t3 := range itor.Itor {
-	// 	if t3[2] != o && t3[2] != o2 {
-	// 		t.Errorf("error: Unexpected triple (%s, %s, %s)", t3[0], t3[1], t3[2])
-	// 	} else {
-	// 		count += 1
-	// 	}
-	// }
 	itor.Done()
 	if count != 2 {
 		t.Errorf("Expected count == 2, got %d", count)
 	}
 }
-
-// func TestRdfSessionIteratorAdaptor(t *testing.T) {
-
-// 	// test RdfGraph type
-// 	rm := NewResourceManager(nil)
-// 	if rm == nil {
-// 		t.Errorf("error: nil returned by NewResourceManager")
-// 	}
-// 	s := rm.NewResource("s")
-// 	p := rm.NewResource("p")
-// 	o := rm.NewResource("o")
-// 	metaGraph := NewRdfGraph("META")
-// 	metaGraph.Insert(s, p, o)
-// 	rdfSession := NewRdfSession(rm, metaGraph)
-// 	rm = rdfSession.ResourceMgr
-// 	o2 := rm.NewResource("o2")
-// 	idaptor := NewRdfSessionIteratorAdaptor(rdfSession.Find())
-// 	count := 0
-// 	for !idaptor.IsEnd() {
-// 		t3 := idaptor.currentValue
-// 		if (*t3)[2] != o && (*t3)[2] != o2 {
-// 			t.Errorf("error: Unexpected triple (%s, %s, %s)", (*t3)[0], (*t3)[1], (*t3)[2])
-// 		} else {
-// 			count += 1
-// 		}
-// 	}
-// 	idaptor.Done()
-// 	if count != 2 {
-// 		t.Errorf("Expected count == 2, got %d", count)
-// 	}
-// }

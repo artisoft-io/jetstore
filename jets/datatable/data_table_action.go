@@ -998,10 +998,21 @@ func (ctx *Context) InsertRows(dataTableAction *DataTableAction, token string) (
 					devModeCode == "run_cpipes_only" || devModeCode == "run_cpipes_reports" {
 					// DevMode: Lock session id & register run on last shard (unless error)
 					// loop over every chard to exec in succession
-					var lable string
+					var execName, lable string
 					var cmd *exec.Cmd
 					switch devModeCode {
 					case "run_server_only", "run_server_reports":
+						switch stateMachineName {
+						case "serverSM":
+							execName = "/usr/local/bin/server"
+						case "serverv2SM":
+							execName = "/usr/local/bin/serverv2"
+						default:
+							log.Printf("error: unknown state machine name: %s", stateMachineName)
+							httpStatus = http.StatusInternalServerError
+							err = fmt.Errorf("error: unknown stateMachineName: %s", stateMachineName)
+							return
+						}
 						for shardId := 0; shardId < ctx.NbrShards && err == nil; shardId++ {
 							serverArgs := []string{
 								"-peKey", peKey,
@@ -1021,16 +1032,16 @@ func (ctx *Context) InsertRows(dataTableAction *DataTableAction, token string) (
 								serverArgs = append(serverArgs, "-usingSshTunnel")
 							}
 
-							log.Printf("Run serverv2: %s", serverArgs)
+							log.Printf("Run %s: %s", execName, serverArgs)
 							lable = "SERVER"
-							cmd = exec.Command("/usr/local/bin/serverv2", serverArgs...)
+							cmd = exec.Command(execName, serverArgs...)
 							cmd.Env = append(os.Environ(),
 								fmt.Sprintf("WORKSPACE=%s", workspaceName),
 								"JETSTORE_DEV_MODE=1", "USING_SSH_TUNNEL=1",
 							)
 							cmd.Stdout = &buf
 							cmd.Stderr = &buf
-							log.Printf("Executing server command '%v'", serverArgs)
+							log.Printf("Executing %s with args '%v'", execName, serverArgs)
 							err = cmd.Run()
 						}
 

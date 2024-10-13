@@ -24,9 +24,5 @@ func (op *IsResourceOp) Eval(reteSession *ReteSession, row *BetaRow, rhs *rdf.No
 	if rhs == nil {
 		return nil
 	}
-
-	if rhs.IsResource() {
-		return rdf.I(1)
-	}
-	return rdf.I(0)
+	return rdf.B(rhs.IsResource())
 }
