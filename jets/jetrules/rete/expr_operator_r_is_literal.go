@@ -24,9 +24,5 @@ func (op *IsLiteralOp) Eval(reteSession *ReteSession, row *BetaRow, rhs *rdf.Nod
 	if rhs == nil {
 		return nil
 	}
-
-	if rhs.IsLiteral() {
-		return rdf.I(1)
-	}
-	return rdf.I(0)
+	return rdf.B(rhs.IsLiteral())
 }
