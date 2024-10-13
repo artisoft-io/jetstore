@@ -76,8 +76,8 @@ func (s *BetaRowSet) Erase(row *BetaRow) *BetaRow {
 			switch {
 			case i == 0 && sz == 1:
 				// remove the only elm
-				// delete(s.data, row.h)
-				s.data[row.h] = nil
+				delete(s.data, row.h)
+				// s.data[row.h] = nil
 				return r
 			case i == sz-1:
 				// remove the last elm

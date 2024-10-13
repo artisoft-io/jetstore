@@ -190,8 +190,8 @@ func (br *BetaRelation) EraseIndex1(key int, u *rdf.Node, row *BetaRow) {
 	if betaRowIndex1 == nil {
 		log.Panic("bug: EraseIndex1 called with unknown key")
 	}
-	// delete((*betaRowIndex1)[u], row)
-	(*betaRowIndex1)[u][row] = false
+	delete((*betaRowIndex1)[u], row)
+	// (*betaRowIndex1)[u][row] = false
 }
 
 func (br *BetaRelation) FindMatchingRows1(key int, u *rdf.Node) map[*BetaRow]bool {
@@ -232,8 +232,8 @@ func (br *BetaRelation) EraseIndex2(key int, u, v *rdf.Node, row *BetaRow) {
 		log.Panic("bug: EraseIndex2 called with unknown key")
 	}
 	uv := [2]*rdf.Node{u, v}
-	// delete((*betaRowIndex2)[uv], row)
-	(*betaRowIndex2)[uv][row] = false
+	delete((*betaRowIndex2)[uv], row)
+	// (*betaRowIndex2)[uv][row] = false
 }
 
 func (br *BetaRelation) FindMatchingRows2(key int, u, v *rdf.Node) map[*BetaRow]bool {
@@ -275,8 +275,8 @@ func (br *BetaRelation) EraseIndex3(key int, u, v, w *rdf.Node, row *BetaRow) {
 		log.Panic("bug: EraseIndex3 called with unknown key")
 	}
 	uvw := [3]*rdf.Node{u, v, w}
-	// delete((*betaRowIndex3)[uvw], row)
-	(*betaRowIndex3)[uvw][row] = false
+	delete((*betaRowIndex3)[uvw], row)
+	// (*betaRowIndex3)[uvw][row] = false
 }
 
 func (br *BetaRelation) FindMatchingRows3(key int, u, v, w *rdf.Node) map[*BetaRow]bool {
