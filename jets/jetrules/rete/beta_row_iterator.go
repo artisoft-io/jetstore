@@ -1,9 +1,5 @@
 package rete
 
-import (
-	"golang.org/x/exp/maps"
-)
-
 // BetaRow iterator offers a unified iterator over the BetaRow managed by a BetaRelation
 //
 // 	The interator unify the iteration over:
@@ -36,7 +32,12 @@ type BetaRowSetIterator struct {
 }
 
 func NewBetaRowSetIterator(set *BetaRowSet) BetaRowIterator {
-	keys := maps.Keys(set.data)
+	// keys := maps.Keys(set.data)
+	keys := make([]uint64, 0, set.data.Count())
+	set.data.Iter(func(k uint64, v *[]*BetaRow) (stop bool) {
+		keys = append(keys, k)
+		return false
+	})
 	return &BetaRowSetIterator{
 		set:    set,
 		hashes: keys,
@@ -52,8 +53,11 @@ func (itor *BetaRowSetIterator) GetRow() *BetaRow {
 		// we're past the end already
 		return nil
 	}
-	rows := itor.set.data[itor.hashes[itor.hpos]]
-	return (*rows)[itor.kpos]
+	rows, ok := itor.set.data.Get(itor.hashes[itor.hpos])
+	if ok {
+		return (*rows)[itor.kpos]
+	}
+	return nil
 }
 
 func (itor *BetaRowSetIterator) Next() *BetaRow {
@@ -61,7 +65,10 @@ func (itor *BetaRowSetIterator) Next() *BetaRow {
 		// we're past the end already
 		return nil
 	}
-	rows := itor.set.data[itor.hashes[itor.hpos]]
+	rows, ok := itor.set.data.Get(itor.hashes[itor.hpos])
+	if !ok {
+		return nil
+	}
 	if itor.kpos == len(*rows)-1 {
 		itor.hpos += 1
 		itor.kpos = 0
@@ -69,8 +76,11 @@ func (itor *BetaRowSetIterator) Next() *BetaRow {
 			// we're past the end
 			return nil
 		}
-		rows = itor.set.data[itor.hashes[itor.hpos]]
-		return (*rows)[itor.kpos]
+		rows, ok = itor.set.data.Get(itor.hashes[itor.hpos])
+		if ok {
+			return (*rows)[itor.kpos]	
+		}
+		return nil
 	}
 	itor.kpos += 1
 	return (*rows)[itor.kpos]
@@ -89,16 +99,12 @@ type BetaRowSliceIterator struct {
 
 func NewBetaRowSliceIterator(slice []*BetaRow) BetaRowIterator {
 	return &BetaRowSliceIterator{
-		slice:    slice,
+		slice: slice,
 	}
 }
 
 func (itor *BetaRowSliceIterator) IsEnd() bool {
-	if itor.kpos == len(itor.slice) {
-		// we're past the end already
-		return true
-	}
-	return false
+	return itor.kpos == len(itor.slice)
 }
 
 func (itor *BetaRowSliceIterator) GetRow() *BetaRow {
