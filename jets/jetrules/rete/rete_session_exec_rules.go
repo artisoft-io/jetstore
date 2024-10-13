@@ -82,7 +82,7 @@ func (rs *ReteSession) VisitReteGraph(fromVertex int, isInferring bool) error {
 				log.Panic("childAlphaNode IS NIL!!!!!")
 			}
 			if childAlphaNode.NdVertex == nil {
-				log.Panic("childAlphaNode.NdVertex IS NIL!!!!! AT",i)
+				log.Panic("childAlphaNode.NdVertex IS NIL!!!!! AT", i)
 			}
 			childVertex := childAlphaNode.NdVertex.Vertex
 			childBetaRelation := rs.GetBetaRelation(childVertex)
@@ -121,12 +121,13 @@ func (rs *ReteSession) VisitReteGraph(fromVertex int, isInferring bool) error {
 				// Process the returned iterator t3_itor accordingly if AlphaNode is a negation
 				if childAlphaNode.NdVertex.IsNegation {
 					// if t3Itor.Itor is empty then create the beta row
-					select {
-					case <-t3Itor.Itor:
-						// Got a triple, condition not met since it's a negation
-						// //**
-						// log.Println("Got a triple, condition not met since it's a negation")
-					default:
+					count := 0
+					for range t3Itor.Itor {
+						// Got a triple, skip creating the beta row
+						count++
+						break
+					}
+					if count == 0 {
 						// Got no triples, condition met; create the beta row
 						// //**
 						// if childVertex == 119 {
@@ -268,7 +269,7 @@ func (rs *ReteSession) ComputeConsequentTriples() error {
 					return fmt.Errorf("while calling ReteSession.Retract (ComputeConsequentTriples): %v", err)
 				}
 			}
-      // Remove row from beta node
+			// Remove row from beta node
 			betaRelation.RemoveBetaRow(rs, betaRow)
 			betaRow.Status = kProcessed
 		}
