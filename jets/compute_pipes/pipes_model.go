@@ -12,6 +12,7 @@ type ComputePipesConfig struct {
 	LookupTables        []*LookupSpec           `json:"lookup_tables"`
 	Channels            []ChannelSpec           `json:"channels"`
 	Context             *[]ContextSpec          `json:"context"`
+	SchemaProviders     *[]*SchemaProviderSpec  `json:"schema_providers"`
 	PipesConfig         []PipeSpec              `json:"pipes_config"`
 	ReducingPipesConfig [][]PipeSpec            `json:"reducing_pipes_config"`
 }
@@ -87,6 +88,26 @@ type ContextSpec struct {
 	Type string `json:"type"`
 	Key  string `json:"key"`
 	Expr string `json:"expr"`
+}
+
+type SchemaProviderSpec struct {
+	// Type range: default
+	// InputFormat: csv, headerless_csv, fixed-width, parquet
+	Type        string             `json:"type"`
+	Key         string             `json:"key"`
+	Client      string             `json:"client"`
+	Vendor      string             `json:"vendor"`
+	ObjectType  string             `json:"object_type"`
+	SchemaName  string             `json:"schema_name"`
+	InputFormat string             `json:"input_format"`
+	Delimiter   string             `json:"delimiter"`
+	Columns     []SchemaColumnSpec `json:"columns"`
+}
+
+type SchemaColumnSpec struct {
+	Name      string `json:"name"`
+	Length    int    `json:"length"`
+	Precision *int   `json:"precision"`
 }
 
 type TableSpec struct {

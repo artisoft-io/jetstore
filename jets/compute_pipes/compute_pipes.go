@@ -45,14 +45,18 @@ func (cpCtx *ComputePipesContext) StartComputePipes(dbpool *pgxpool.Pool, comput
 	var ctx *BuilderContext
 	var inputRowChSpec *ChannelSpec
 	var inputRowChannel *InputChannel
+	var inputChannelName string
+	var managersWg sync.WaitGroup
+	var channelsSpec map[string]*ChannelSpec
+	var channelsInUse map[string]*ChannelSpec
+	var outputChannels []*OutputChannelConfig
 
 	// Create the LookupTableManager and prepare the lookups async
 	lookupManager := NewLookupTableManager(cpCtx.CpConfig.LookupTables, cpCtx.EnvSettings,
 		cpCtx.CpConfig.ClusterConfig.IsDebugMode)
-	var lookupWg sync.WaitGroup
-	lookupWg.Add(1)
+	managersWg.Add(1)
 	go func() {
-		defer lookupWg.Done()
+		defer managersWg.Done()
 		err := lookupManager.PrepareLookupTables(dbpool)
 		if err != nil {
 			log.Println("error in lookupManager.PrepareLookupTables:", err)
@@ -61,18 +65,28 @@ func (cpCtx *ComputePipesContext) StartComputePipes(dbpool *pgxpool.Pool, comput
 		}
 	}()
 
+	// Create the SchemaManager and prepare the providers
+	schemaManager := NewSchemaManager(cpCtx.CpConfig.SchemaProviders, cpCtx.EnvSettings,
+		cpCtx.CpConfig.ClusterConfig.IsDebugMode)
+	err = schemaManager.PrepareSchemaProviders(dbpool)
+	if err != nil {
+		cpErr = fmt.Errorf("while calling schemaManager.PrepareSchemaProviders: %v", err)
+		goto gotError
+	}
+
 	// Prepare the channel registry
 	// ----------------------------
-	inputChannelName := cpCtx.CpConfig.PipesConfig[0].InputChannel.Name
+	inputChannelName = cpCtx.CpConfig.PipesConfig[0].InputChannel.Name
 	if inputChannelName == "input_row" {
 		// case sharding or reducing
 		// Setup the input channel for input_row
 		headersPosMap := make(map[string]int)
+		//****CHECK FOR SCHEMA PROVIDER IN USE
 		for i, c := range cpCtx.CpConfig.CommonRuntimeArgs.SourcesConfig.MainInput.InputColumns {
 			headersPosMap[c] = i
 		}
 		inputRowChSpec = &ChannelSpec{
-			Name: "input_row",
+			Name:    "input_row",
 			Columns: cpCtx.CpConfig.CommonRuntimeArgs.SourcesConfig.MainInput.InputColumns,
 		}
 		inputRowChannel = &InputChannel{
@@ -86,9 +100,9 @@ func (cpCtx *ComputePipesContext) StartComputePipes(dbpool *pgxpool.Pool, comput
 	}
 	// Collect all the channel that are in use in PipeConfig, looking at PipeConfig.TransformationSpec.OutputChannel
 	// Make a lookup of channel spec using the channels config
-	channelsSpec := make(map[string]*ChannelSpec)
+	channelsSpec = make(map[string]*ChannelSpec)
 	// Get the channels in used based on transformation pipe config, prime the channels using the provided channel spec
-	channelsInUse := make(map[string]*ChannelSpec)
+	channelsInUse = make(map[string]*ChannelSpec)
 	for i := range cpCtx.CpConfig.Channels {
 		channelsSpec[cpCtx.CpConfig.Channels[i].Name] = &cpCtx.CpConfig.Channels[i]
 		channelsInUse[cpCtx.CpConfig.Channels[i].Name] = &cpCtx.CpConfig.Channels[i]
@@ -97,7 +111,7 @@ func (cpCtx *ComputePipesContext) StartComputePipes(dbpool *pgxpool.Pool, comput
 		channelsSpec[inputRowChSpec.Name] = inputRowChSpec
 	}
 	// Collect the output channels
-	outputChannels := make([]*OutputChannelConfig, 0)
+	outputChannels = make([]*OutputChannelConfig, 0)
 	for i := range cpCtx.CpConfig.PipesConfig {
 		for j := range cpCtx.CpConfig.PipesConfig[i].Apply {
 			outputChannel := &cpCtx.CpConfig.PipesConfig[i].Apply[j].OutputChannel
@@ -105,7 +119,7 @@ func (cpCtx *ComputePipesContext) StartComputePipes(dbpool *pgxpool.Pool, comput
 			switch cpCtx.CpConfig.PipesConfig[i].Apply[j].Type {
 			case "anonymize":
 				outputChannel := &cpCtx.CpConfig.PipesConfig[i].Apply[j].AnonymizeConfig.KeysOutputChannel
-				outputChannels = append(outputChannels, outputChannel)	
+				outputChannels = append(outputChannels, outputChannel)
 			}
 		}
 	}
@@ -114,10 +128,10 @@ func (cpCtx *ComputePipesContext) StartComputePipes(dbpool *pgxpool.Pool, comput
 		spec := channelsSpec[outputChannel.SpecName]
 		if spec == nil {
 			cpErr = fmt.Errorf("channel spec %s not found in Channel Registry", outputChannel.SpecName)
-			goto gotError	
+			goto gotError
 		}
 		channelsInUse[outputChannel.Name] = &ChannelSpec{
-			Name: outputChannel.Name,
+			Name:    outputChannel.Name,
 			Columns: spec.Columns,
 		}
 	}
@@ -208,6 +222,7 @@ func (cpCtx *ComputePipesContext) StartComputePipes(dbpool *pgxpool.Pool, comput
 		processName:        cpCtx.ProcessName,
 		channelRegistry:    channelRegistry,
 		lookupTableManager: lookupManager,
+		schemaManager:      schemaManager,
 		done:               cpCtx.Done,
 		errCh:              cpCtx.ErrCh,
 		chResults:          cpCtx.ChResults,
@@ -239,7 +254,7 @@ func (cpCtx *ComputePipesContext) StartComputePipes(dbpool *pgxpool.Pool, comput
 	}
 
 	// Wait until the lookup tables are ready
-	lookupWg.Wait()
+	managersWg.Wait()
 
 	// log.Println("Calling ctx.buildComputeGraph()")
 	err = ctx.buildComputeGraph()

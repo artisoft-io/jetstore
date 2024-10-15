@@ -106,6 +106,7 @@ type BuilderContext struct {
 	cpConfig           *ComputePipesConfig
 	processName        string
 	lookupTableManager *LookupTableManager
+	schemaManager      *SchemaManager
 	channelRegistry    *ChannelRegistry
 	done               chan struct{}
 	errCh              chan error
