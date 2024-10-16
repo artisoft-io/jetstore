@@ -4,11 +4,11 @@ import (
 	"database/sql"
 	"fmt"
 	"log"
-	"regexp"
 	"strconv"
 	"strings"
 
 	"github.com/artisoft-io/jetstore/jets/bridgego"
+	"github.com/artisoft-io/jetstore/jets/cleansing_functions"
 	"github.com/google/uuid"
 )
 
@@ -27,9 +27,7 @@ type ReteInputContext struct {
 	jets__sourcePeriodType        *bridgego.Resource
 	jets__state                   *bridgego.Resource
 	rdf__type                     *bridgego.Resource
-	reMap                         map[string]*regexp.Regexp
-	argdMap                       map[string]float64
-	parsedFunctionArguments       map[string]interface{}
+	cleansingFunctionContext      *cleansing_functions.CleansingFunctionContext
 }
 
 // main processing function to execute rules
@@ -172,6 +170,8 @@ func (ri *ReteInputContext) assertInputTextRecord(reteSession *bridgego.ReteSess
 	reteSession.Insert(subject, ri.jets__client, v)
 	v, _ = reteSession.NewTextLiteral(aJetRow.processInput.organization)
 	reteSession.Insert(subject, ri.jets__org, v)
+	// Set the column name to pos according to aJetRow.processInput
+	ri.cleansingFunctionContext = ri.cleansingFunctionContext.With(aJetRow.processInput.inputColumnName2Pos)
 	// Assert domain columns of the row
 	for icol := 0; icol < ncol; icol++ {
 		// asserting input row with mapping spec
@@ -183,8 +183,8 @@ func (ri *ReteInputContext) assertInputTextRecord(reteSession *bridgego.ReteSess
 		if row[icol].Valid && sz > 0 {
 			if inputColumnSpec.functionName.Valid {
 				// Apply cleansing function
-				obj, errMsg = ri.applyCleasingFunction(reteSession, inputColumnSpec, &row[icol].String,
-					row, aJetRow.processInput.inputColumnName2Pos)
+				obj, errMsg = ri.cleansingFunctionContext.ApplyCleasingFunction(&inputColumnSpec.functionName.String,
+					&inputColumnSpec.argument.String, &row[icol].String, icol, &aJetRow.rowData)
 			} else {
 				obj = row[icol].String
 			}

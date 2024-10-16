@@ -1,175 +1,63 @@
-package compute_pipes
+package cleansing_functions
 
 import (
+	"database/sql"
 	"fmt"
 	"log"
 	"math"
 	"regexp"
 	"strconv"
 	"strings"
-	"unicode"
 
-	"github.com/artisoft-io/jetstore/jets/datatable/jcsv"
+	"github.com/artisoft-io/jetstore/jets/jetrules/rdf"
 )
 
-type ConcatFunctionArg struct {
-	Delimit string
-	ColumnPositions []int
+type CleansingFunctionContext struct {
+	reMap                   map[string]*regexp.Regexp
+	argdMap                 map[string]float64
+	parsedFunctionArguments map[string]interface{}
+	inputColumns            map[string]int
 }
 
-func ParseConcatFunctionArgument(rawArg *string, functionName string, inputColumnName2Pos map[string]int, cache map[string]interface{}) (*ConcatFunctionArg, error) {
-	// rawArg is csv-encoded
-	if rawArg == nil {
-		return nil, fmt.Errorf("unexpected null argument to %s function", functionName)
+func NewCleansingFunctionContext(inputColumns map[string]int) *CleansingFunctionContext {
+	return &CleansingFunctionContext{
+		reMap:                   make(map[string]*regexp.Regexp),
+		argdMap:                 make(map[string]float64),
+		parsedFunctionArguments: make(map[string]interface{}),
+		inputColumns:            inputColumns,
 	}
-	// Check if we have it cached
-	v := cache[*rawArg]
-	if v != nil {
-		// fmt.Println("*** OK Got Cached value for", *rawArg)
-		return v.(*ConcatFunctionArg), nil
+}
+func (ctx *CleansingFunctionContext) With(inputColumns map[string]int) *CleansingFunctionContext {
+	return &CleansingFunctionContext{
+		reMap:                   ctx.reMap,
+		argdMap:                 ctx.argdMap,
+		parsedFunctionArguments: ctx.parsedFunctionArguments,
+		inputColumns:            inputColumns,
 	}
-	// Parsed the raw argument into ConcatFunctionArg and put it in the cache
-	rows, err := jcsv.Parse(*rawArg)
-	if len(rows)==0 || len(rows[0])==0 || err != nil {
-		// It's not csv or there's no data
-		return nil, fmt.Errorf("error:no-data: argument %s cannot be parsed as csv: %v (%s function)", *rawArg, err, functionName)
-	}
-	results := &ConcatFunctionArg{
-		ColumnPositions: make([]int, 0),
-	}
-	for i := range rows[0] {
-		if i==0 && functionName=="concat_with" {
-			results.Delimit = rows[0][i]
-		} else {
-			colPos, ok := inputColumnName2Pos[rows[0][i]]
-			// fmt.Println("*** concat:",row[i],"value @:", colPos,"ok?",ok)
-			if !ok {
-				// Column not found
-				return nil, fmt.Errorf("error:column-not-fount: argument %s is not an input column name (%s function)", *rawArg, functionName)
-			}
-			results.ColumnPositions = append(results.ColumnPositions, colPos)
-		}
-	}
-	cache[*rawArg] = results
-	return results, nil
 }
 
-type SubStringFunctionArg struct {
-	Start int
-	End int
-}
-
-func ParseSubStringFunctionArgument(rawArg *string, functionName string, cache map[string]interface{}) (*SubStringFunctionArg, error) {
-	// rawArg is comma separated as: start,end
-	if rawArg == nil {
-		return nil, fmt.Errorf("unexpected null argument to %s function", functionName)
-	}
-	// Check if we have it cached
-	v := cache[*rawArg]
-	if v != nil {
-		// fmt.Println("*** OK Got Cached value for", *rawArg,":",v)
-		return v.(*SubStringFunctionArg), nil
-	}
-	// Parsed the raw argument into SubStringFunctionArg and put it in the cache
-	row := strings.Split(*rawArg, ",")
-	if len(row) != 2 {
-		// The argument is not valid
-		return nil, fmt.Errorf("error: argument %s cannot be parsed as start,end (%s function)", *rawArg, functionName)
-	}
-	start, err := strconv.Atoi(strings.TrimSpace(row[0]))
-	if err != nil {
-		return nil, fmt.Errorf("error: argument %s cannot be parsed as start,end: %v (%s function)", *rawArg, err, functionName)
-	}
-	end, err := strconv.Atoi(strings.TrimSpace(row[1]))
-	if err != nil || (end > 0 && end <= start) {
-		return nil, fmt.Errorf("error: argument %s cannot be parsed as start,end: %v (%s function)", *rawArg, err, functionName)
-	}
-	results := &SubStringFunctionArg{
-		Start: start,
-		End: end,
-	}
-	cache[*rawArg] = results
-	return results, nil
-}
-
-type FindReplaceFunctionArg struct {
-	Find string
-	ReplaceWith string
-}
-
-func ParseFindReplaceFunctionArgument(rawArg *string, functionName string, cache map[string]interface{}) (*FindReplaceFunctionArg, error) {
-	// rawArg is csv-encoded: "text to find","text to replace with"
-	if rawArg == nil {
-		return nil, fmt.Errorf("unexpected null argument to %s function", functionName)
-	}
-	// Check if we have it cached
-	v := cache[*rawArg]
-	if v != nil {
-		// fmt.Println("*** OK Got Cached value for", *rawArg,":",v)
-		return v.(*FindReplaceFunctionArg), nil
-	}
-	// Parsed the raw argument into FindReplaceFunctionArg and put it in the cache
-	rows, err := jcsv.Parse(*rawArg)
-	if len(rows)==0 || len(rows[0])!=2 || err != nil {
-		// It's not csv or there's no data
-		return nil, fmt.Errorf("error:no-data: argument %s cannot be parsed as csv: %v (%s function)", *rawArg, err, functionName)
-	}
-
-	results := &FindReplaceFunctionArg{
-		Find: rows[0][0],
-		ReplaceWith: rows[0][1],
-	}
-	cache[*rawArg] = results
-	return results, nil
-}
-
-func filterDigits(str string) string {
-	// Remove non digits characters
-	var buf strings.Builder
-	for _, c := range str {
-		if unicode.IsDigit(c) {
-			buf.WriteRune(c)
-		}
-	}
-	return buf.String()
-}
-
-func filterDouble(str string) string {
-	// clean up the amount
-	var buf strings.Builder
-	var c rune
-	for _, c = range str {
-		if c == '(' || c == '-' {
-			buf.WriteRune('-')
-		} else if unicode.IsDigit(c) || c == '.' {
-			buf.WriteRune(c)
-		}
-	}
-	return buf.String()
-}
-
-type cleansingFunctionContext struct {
-	reMap                            map[string]*regexp.Regexp
-	argdMap                          map[string]float64
-	parsedFunctionArguments          map[string]interface{}
-}
-
-func (ctx *cleansingFunctionContext) applyCleasingFunction(functionName *string, argument *string, inputValue *string) (string, string) {
+// inputColumnName can be null
+func (ctx *CleansingFunctionContext) ApplyCleasingFunction(functionName *string, argument *string, inputValue *string,
+	inputPos int, inputRow *[]interface{}) (string, string) {
 	var obj, errMsg string
 	var err error
 	var sz int
 	switch *functionName {
+
 	case "trim":
 		obj = strings.TrimSpace(*inputValue)
+
 	case "validate_date":
-		fmt.Println("*** Validate Date not Imlemented")
-		if err == nil {
+		_, err2 := rdf.ParseDate(*inputValue)
+		if err2 == nil {
 			obj = *inputValue
 		} else {
-			errMsg = err.Error()
+			errMsg = err2.Error()
 		}
+
 	case "to_upper":
 		obj = strings.ToUpper(*inputValue)
+
 	case "to_zip5":
 		// Remove non digits characters
 		inVal := filterDigits(*inputValue)
@@ -211,7 +99,8 @@ func (ctx *cleansingFunctionContext) applyCleasingFunction(functionName *string,
 			}
 		default:
 		}
-	case "to_zipext4_from_zip9":	// from a zip9 input
+
+	case "to_zipext4_from_zip9": // from a zip9 input
 		// Remove non digits characters
 		inVal := filterDigits(*inputValue)
 		sz = len(inVal)
@@ -236,7 +125,8 @@ func (ctx *cleansingFunctionContext) applyCleasingFunction(functionName *string,
 			}
 		default:
 		}
-	case "to_zipext4":	// from a zip ext4 input
+
+	case "to_zipext4": // from a zip ext4 input
 		// Remove non digits characters
 		inVal := filterDigits(*inputValue)
 		sz = len(inVal)
@@ -261,6 +151,7 @@ func (ctx *cleansingFunctionContext) applyCleasingFunction(functionName *string,
 			}
 		default:
 		}
+
 	case "format_phone": // Validate & format phone according to E.164
 		// Output: +1 area_code exchange_code subscriber_nbr
 		// area_code: 3 digits, 1st digit is not 0 or 1
@@ -311,12 +202,13 @@ func (ctx *cleansingFunctionContext) applyCleasingFunction(functionName *string,
 					obj = fmt.Sprintf(*argument, v)
 				} else {
 					errMsg = err.Error()
-				}	
+				}
 			}
 		} else {
 			// configuration error, bailing out
-			log.Panicf("ERROR missing argument for function reformat0 for input column: %s", "")
+			log.Panicf("ERROR missing argument for function reformat0 for input column pos %d", inputPos)
 		}
+
 	case "overpunch_number":
 		if argument != nil {
 			// Get the number of decimal position
@@ -332,7 +224,7 @@ func (ctx *cleansingFunctionContext) applyCleasingFunction(functionName *string,
 			}
 		} else {
 			// configuration error, bailing out
-			log.Panicf("ERROR missing argument for function overpunch_number for input column: %s", "")
+			log.Panicf("ERROR missing argument for function overpunch_number for input column pos %d", inputPos)
 		}
 	case "apply_regex":
 		if argument != nil {
@@ -348,10 +240,10 @@ func (ctx *cleansingFunctionContext) applyCleasingFunction(functionName *string,
 			obj = re.FindString(*inputValue)
 		} else {
 			// configuration error, bailing out
-			log.Panicf("ERROR missing argument for function apply_regex for input column: %s", "")
+			log.Panicf("ERROR missing argument for function apply_regex for input column pos %d", inputPos)
 		}
 	case "scale_units":
-		if argument != nil{
+		if argument != nil {
 			if *argument == "1" {
 				obj = filterDouble(*inputValue)
 			} else {
@@ -376,7 +268,7 @@ func (ctx *cleansingFunctionContext) applyCleasingFunction(functionName *string,
 			}
 		} else {
 			// configuration error, bailing out
-			log.Panicf("ERROR missing argument for function scale_units for input column: %s", "")
+			log.Panicf("ERROR missing argument for function scale_units for input column pos %d", inputPos)
 		}
 	case "parse_amount":
 		// clean up the amount
@@ -406,26 +298,36 @@ func (ctx *cleansingFunctionContext) applyCleasingFunction(functionName *string,
 			}
 		}
 
-	// case "concat", "concat_with":
-	// 	// Cleansing function that concatenate input columns w delimiter
-	// 	// Get the parsed argument
-	// 	arg, err := ParseConcatFunctionArgument(argument, inputColumnSpec.functionName.String, inputColumnName2Pos, ctx.parsedFunctionArguments)
-	// 	if err != nil {
-	// 		errMsg = err.Error()
-	// 	} else {
-	// 		var buf strings.Builder
-	// 		buf.WriteString(*inputValue)
-	// 		for i := range arg.ColumnPositions {
-	// 			// fmt.Println("=== concat value @pos:",arg.ColumnPositions[i])
-	// 			if row[arg.ColumnPositions[i]].Valid {
-	// 				if arg.Delimit != "" {
-	// 					buf.WriteString(arg.Delimit)
-	// 				}
-	// 				buf.WriteString(row[arg.ColumnPositions[i]].String)
-	// 			}
-	// 		}
-	// 		obj = buf.String()		
-	// 	}
+	case "concat", "concat_with":
+		// Cleansing function that concatenate inputRow columns w delimiter
+		// Get the parsed argument
+		arg, err := ParseConcatFunctionArgument(argument, *functionName, ctx.inputColumns, ctx.parsedFunctionArguments, inputRow)
+		if err != nil {
+			errMsg = err.Error()
+		} else {
+			var buf strings.Builder
+			buf.WriteString(*inputValue)
+			for i := range arg.ColumnPositions {
+				// fmt.Println("=== concat value @pos:",arg.ColumnPositions[i])
+				if (*inputRow)[arg.ColumnPositions[i]] != nil {
+					if arg.Delimit != "" {
+						buf.WriteString(arg.Delimit)
+					}
+					switch vv := (*inputRow)[arg.ColumnPositions[i]].(type) {
+					case string:
+						buf.WriteString(vv)
+					case *sql.NullString:
+						if vv.Valid {
+							buf.WriteString(vv.String)
+						}
+					default:
+						buf.WriteString(fmt.Sprint(vv))
+					}
+
+				}
+			}
+			obj = buf.String()
+		}
 
 	case "find_and_replace":
 		// Cleansing function that replace portion of the input column

@@ -3,14 +3,15 @@ package compute_pipes
 import (
 	"fmt"
 	"log"
-	"regexp"
 	"strconv"
+
+	"github.com/artisoft-io/jetstore/jets/cleansing_functions"
 )
 
 // TransformationColumnSpec Type map
 type mapColumnEval struct {
 	mapConfig *mapColumnConfig
-	cleansingCtx *cleansingFunctionContext
+	cleansingCtx *cleansing_functions.CleansingFunctionContext
 }
 
 type mapColumnConfig struct {
@@ -48,7 +49,8 @@ func (ctx *mapColumnEval) update(currentValue *[]interface{}, input *[]interface
 			inputV = fmt.Sprintf("%v", inputVal)
 		}
 		if len(inputV) > 0 && ctx.mapConfig.mapConfig.CleansingFunction != nil {
-			inputV, errMsg = ctx.cleansingCtx.applyCleasingFunction(ctx.mapConfig.mapConfig.CleansingFunction, ctx.mapConfig.mapConfig.Argument, &inputV)
+			inputV, errMsg = ctx.cleansingCtx.ApplyCleasingFunction(ctx.mapConfig.mapConfig.CleansingFunction, ctx.mapConfig.mapConfig.Argument, &inputV,
+				ctx.mapConfig.inputPos, input)
 			if len(errMsg) > 0 {
 				// fmt.Println("*** Error while applying cleansing function:", errMsg)
 				inputV = ""
@@ -147,12 +149,8 @@ func (ctx *BuilderContext) buildMapEvaluator(source *InputChannel, outCh *Output
 			outputPos: outputPos,
 			defaultValue: defaultValue,
 			mapConfig: spec.MapExpr},
-		cleansingCtx: &cleansingFunctionContext{
-			reMap: make(map[string]*regexp.Regexp),
-			argdMap: make(map[string]float64),
-			parsedFunctionArguments: make(map[string]interface{}),
-		},
-	}, nil
+			cleansingCtx: cleansing_functions.NewCleansingFunctionContext(source.columns),
+		}, nil
 }
 
 // Utility function for casting to specified rdf type

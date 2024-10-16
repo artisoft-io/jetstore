@@ -5,11 +5,11 @@ import (
 	"flag"
 	"fmt"
 	"log"
-	"regexp"
 	"strconv"
 	"strings"
 
 	"github.com/artisoft-io/jetstore/jets/bridge"
+	"github.com/artisoft-io/jetstore/jets/cleansing_functions"
 	"github.com/artisoft-io/jetstore/jets/schema"
 	"github.com/artisoft-io/jetstore/jets/server/rdf"
 	"github.com/artisoft-io/jetstore/jets/server/workspace"
@@ -151,13 +151,9 @@ func (rw *ReteWorkspace) ExecuteRules(
 		return &result, fmt.Errorf("while get resource: %v", err)
 	}
 
-	// keep a map of compiled regex, keyed by the regex pattern
-	ri.reMap = make(map[string]*regexp.Regexp)
-	// keep a map of map function argument that needs to be cast to double
-	ri.argdMap = make(map[string]float64)
+	// Cleansing Function Context - argument caches
+	ri.cleansingFunctionContext = cleansing_functions.NewCleansingFunctionContext(rw.pipelineConfig.mainProcessInput.inputColumnName2Pos)
 	var session_count int64
-	// keep a map of cleansing function arguments that needs to be parsed into a struct
-	ri.parsedFunctionArguments = make(map[string]interface{})
 
 	for inBundle := range dataInputc {
 

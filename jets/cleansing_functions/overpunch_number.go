@@ -1,4 +1,4 @@
-package compute_pipes
+package cleansing_functions
 
 import (
 	"fmt"
