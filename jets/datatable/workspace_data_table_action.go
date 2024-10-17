@@ -753,7 +753,7 @@ func (ctx *Context) WorkspaceQueryStructure(dataTableAction *DataTableAction, to
 
 // AddWorkspaceFile --------------------------------------------------------------------------
 // Function to add a workspace file
-func (ctx *Context) addWorkspaceFile(dataTableAction *DataTableAction, token string) (err error) {
+func (ctx *Context) addWorkspaceFile(dataTableAction *DataTableAction, _ string) (err error) {
 	workspaceName := dataTableAction.WorkspaceName
 	if workspaceName == "" {
 		err = fmt.Errorf("GetWorkspaceFileContent: missing workspace_name")
