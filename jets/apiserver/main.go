@@ -58,6 +58,7 @@ import (
 // JETS_RESET_DOMAIN_TABLE_ON_STARTUP (value: yes, will reset the domain table, run workspace db init script, and upgrade system tables if database version is less than build version)
 // JETS_DOMAIN_KEY_SEPARATOR 
 // JETS_SCHEMA_FILE location of jetstore db schema file
+// JETS_INIT_DB_SCRIPT path to jets_init_db.sql files (not workspace specific)
 // JETS_ENCRYPTION_KEY required key to encrypt git token in users table
 
 var awsDsnSecret       = flag.String("awsDsnSecret", "", "aws secret with dsn definition (aws integration) (required unless -dsn is provided)")

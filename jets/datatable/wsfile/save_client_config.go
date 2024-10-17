@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/artisoft-io/jetstore/jets/schema"
 	"github.com/jackc/pgx/v4"
@@ -23,6 +24,7 @@ func SaveClientConfig(dbpool *pgxpool.Pool, workspaceName, clientName string) er
 	var err error
 	buf.WriteString("-- =============================================================================================================\n")
 	buf.WriteString(fmt.Sprintf("-- %s\n", clientName))
+	buf.WriteString(fmt.Sprintf("-- generated on %v\n", time.Now()))
 	buf.WriteString("-- =============================================================================================================\n")
 	buf.WriteString("-- Jets Database Init Script\n")
 
@@ -30,55 +32,55 @@ func SaveClientConfig(dbpool *pgxpool.Pool, workspaceName, clientName string) er
 	//	- specify the delete and the select criteria
 	//	- Get the list of columns and data type of the table from jets schema definition
 	//	- Make the select statement with the list of columns
-	//	- Create the insert statement with the ist of columns
+	//	- Create the insert statement with the list of columns
 	//	- Make an list of interface{} based on columns spec to read each row
 	//	- Write each row based on the data type of the interface{}
 	//  - Write the insert termination clause (ON CONFLICT DO NOTHING;)
 	jetsSchema, err := getJetsSchema()
 	if err != nil {
-		return fmt.Errorf(fmt.Sprintf("While reading JetStore DB schema from file: %v", err))
+		return fmt.Errorf("while reading JetStore DB schema from file: %v", err)
 	}
 
 	// jetsapi.client_registry
 	tableName := "client_registry"
 	err = writeTable(dbpool, jetsSchema, tableName, "client", clientName, true, true, &buf)
 	if err != nil {
-		return fmt.Errorf(fmt.Sprintf("while reading table %s: %v", tableName, err))
+		return fmt.Errorf("while reading table %s: %v", tableName, err)
 	}
 
 	// jetsapi.client_org_registry
 	tableName = "client_org_registry"
 	err = writeTable(dbpool, jetsSchema, tableName, "client", clientName, true, true, &buf)
 	if err != nil {
-		return fmt.Errorf(fmt.Sprintf("while reading table %s: %v", tableName, err))
+		return fmt.Errorf("while reading table %s: %v", tableName, err)
 	}
 
 	// jetsapi.source_config
 	tableName = "source_config"
 	err = writeTable(dbpool, jetsSchema, tableName, "client", clientName, true, false, &buf)
 	if err != nil {
-		return fmt.Errorf(fmt.Sprintf("while reading table %s: %v", tableName, err))
+		return fmt.Errorf("while reading table %s: %v", tableName, err)
 	}
 
 	// jetsapi.rule_config
 	tableName = "rule_config"
 	err = writeTable(dbpool, jetsSchema, tableName, "client", clientName, true, true, &buf)
 	if err != nil {
-		return fmt.Errorf(fmt.Sprintf("while reading table %s: %v", tableName, err))
+		return fmt.Errorf("while reading table %s: %v", tableName, err)
 	}
 
 	// jetsapi.rule_configv2
 	tableName = "rule_configv2"
 	err = writeTable(dbpool, jetsSchema, tableName, "client", clientName, true, false, &buf)
 	if err != nil {
-		return fmt.Errorf(fmt.Sprintf("while reading table %s: %v", tableName, err))
+		return fmt.Errorf("while reading table %s: %v", tableName, err)
 	}
 
 	// jetsapi.process_input
 	tableName = "process_input"
 	err = writeTable(dbpool, jetsSchema, tableName, "client", clientName, false, true, &buf)
 	if err != nil {
-		return fmt.Errorf(fmt.Sprintf("while reading table %s: %v", tableName, err))
+		return fmt.Errorf("while reading table %s: %v", tableName, err)
 	}
 	buf.WriteString("SELECT setval(pg_get_serial_sequence('jetsapi.process_input', 'key'), max(key)) FROM jetsapi.process_input;\n")
 
@@ -86,7 +88,7 @@ func SaveClientConfig(dbpool *pgxpool.Pool, workspaceName, clientName string) er
 	tableName = "pipeline_config"
 	err = writeTable(dbpool, jetsSchema, tableName, "client", clientName, true, false, &buf)
 	if err != nil {
-		return fmt.Errorf(fmt.Sprintf("while reading table %s: %v", tableName, err))
+		return fmt.Errorf("while reading table %s: %v", tableName, err)
 	}
 
 	// Get the list of staging tables from source_config table
@@ -95,7 +97,7 @@ func SaveClientConfig(dbpool *pgxpool.Pool, workspaceName, clientName string) er
 	rows, err := dbpool.Query(context.Background(), stmt)
 	if err != nil {
 		if !errors.Is(err, pgx.ErrNoRows) {
-			return fmt.Errorf(fmt.Sprintf("While reading staging table names from table source_config: %v", err))
+			return fmt.Errorf("while reading staging table names from table source_config: %v", err)
 		}
 	} else {
 		for rows.Next() {
@@ -114,7 +116,7 @@ func SaveClientConfig(dbpool *pgxpool.Pool, workspaceName, clientName string) er
 	for i := range stagingTables {
 		err = writeTable(dbpool, jetsSchema, tableName, "table_name", stagingTables[i], true, true, &buf)
 		if err != nil {
-			return fmt.Errorf(fmt.Sprintf("while reading table %s: %v", tableName, err))
+			return fmt.Errorf("while reading table %s: %v", tableName, err)
 		}	
 	}
 	buf.WriteString("\n-- End of Export Client Script\n")
@@ -124,7 +126,7 @@ func SaveClientConfig(dbpool *pgxpool.Pool, workspaceName, clientName string) er
 		fmt.Sprintf("process_config/%s_workspace_init_db.sql", strings.ToLower(clientName)),
 		buf.String())
 	if err != nil {
-		return fmt.Errorf(fmt.Sprintf("While saving %s client to local worspace and DB: %v", clientName, err))
+		return fmt.Errorf("while saving %s client to local worspace and DB: %v", clientName, err)
 	}
 	
 	return nil
@@ -147,7 +149,7 @@ func writeTable(dbpool *pgxpool.Pool, jetsSchema *map[string]schema.TableDefinit
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil
 		}
-		return fmt.Errorf(fmt.Sprintf("While reading from table %s: %v", tableName, err))
+		return fmt.Errorf("while reading from table %s: %v", tableName, err)
 	}
 	defer rows.Close()
 	isFirst := true
