@@ -19,6 +19,7 @@ INSERT INTO jetsapi.mapping_function_registry (function_name, is_argument_requir
   ('parse_amount',           '1'),
   ('reformat0',              '1'),
   ('scale_units',            '1'),
+  ('split_on',               '1'),
   ('to_upper',               '0'),
   ('to_zip5',                '0'),
   ('to_zipext4_from_zip9',   '0'),

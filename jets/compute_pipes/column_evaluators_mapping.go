@@ -4,21 +4,23 @@ import (
 	"fmt"
 	"log"
 	"strconv"
+	"time"
 
 	"github.com/artisoft-io/jetstore/jets/cleansing_functions"
+	"github.com/artisoft-io/jetstore/jets/jetrules/rdf"
 )
 
 // TransformationColumnSpec Type map
 type mapColumnEval struct {
-	mapConfig *mapColumnConfig
+	mapConfig    *mapColumnConfig
 	cleansingCtx *cleansing_functions.CleansingFunctionContext
 }
 
 type mapColumnConfig struct {
-	inputPos  int
-	outputPos int
+	inputPos     int
+	outputPos    int
 	defaultValue interface{}
-	mapConfig *MapExpression
+	mapConfig    *MapExpression
 }
 
 func (ctx *mapColumnEval) initializeCurrentValue(currentValue *[]interface{}) {}
@@ -49,15 +51,17 @@ func (ctx *mapColumnEval) update(currentValue *[]interface{}, input *[]interface
 			inputV = fmt.Sprintf("%v", inputVal)
 		}
 		if len(inputV) > 0 && ctx.mapConfig.mapConfig.CleansingFunction != nil {
-			inputV, errMsg = ctx.cleansingCtx.ApplyCleasingFunction(ctx.mapConfig.mapConfig.CleansingFunction, ctx.mapConfig.mapConfig.Argument, &inputV,
-				ctx.mapConfig.inputPos, input)
+			outputVal, errMsg =
+				ctx.cleansingCtx.ApplyCleasingFunction(ctx.mapConfig.mapConfig.CleansingFunction,
+					ctx.mapConfig.mapConfig.Argument, &inputV, ctx.mapConfig.inputPos, input)
 			if len(errMsg) > 0 {
+				//*TODO Report error on cleansing function
 				// fmt.Println("*** Error while applying cleansing function:", errMsg)
-				inputV = ""
+				outputVal = nil
 			}
 		}
 	}
-	if len(inputV) == 0 {
+	if outputVal == nil {
 		// Apply default if defined
 		outputVal = ctx.mapConfig.defaultValue
 		if outputVal == nil && (ctx.mapConfig.mapConfig.ErrMsg != nil || errMsg != "") {
@@ -68,7 +72,7 @@ func (ctx *mapColumnEval) update(currentValue *[]interface{}, input *[]interface
 		}
 	} else {
 		// Cast to rdf type
-		outputVal, err = CastToRdfType(inputV, ctx.mapConfig.mapConfig.RdfType)
+		outputVal, err = CastToRdfType(outputVal, ctx.mapConfig.mapConfig.RdfType)
 		if err != nil {
 			log.Printf("error while casting value to rdf type (will set to null): %v", err)
 		}
@@ -76,20 +80,21 @@ func (ctx *mapColumnEval) update(currentValue *[]interface{}, input *[]interface
 	(*currentValue)[ctx.mapConfig.outputPos] = outputVal
 	return nil
 }
+
 func (ctx *mapColumnEval) done(currentValue *[]interface{}) error {
 	return nil
 }
 
-func (ctx *BuilderContext) buildMapEvaluator(source *InputChannel, outCh *OutputChannel,  spec *TransformationColumnSpec) (TransformationColumnEvaluator, error) {
+func (ctx *BuilderContext) buildMapEvaluator(source *InputChannel, outCh *OutputChannel, spec *TransformationColumnSpec) (TransformationColumnEvaluator, error) {
 	if spec == nil || spec.MapExpr == nil {
 		return nil, fmt.Errorf("error: Type map must have MapExpr != nil")
 	}
 	var defaultValue interface{}
 	var err error
-	switch  {
+	switch {
 	case spec.MapExpr.Default == nil:
 		defaultValue = nil
-	case spec.MapExpr.RdfType=="int", spec.MapExpr.RdfType=="bool":
+	case spec.MapExpr.RdfType == "int", spec.MapExpr.RdfType == "bool":
 		switch {
 		case *spec.MapExpr.Default == "true" || *spec.MapExpr.Default == "TRUE":
 			defaultValue = 1
@@ -99,17 +104,17 @@ func (ctx *BuilderContext) buildMapEvaluator(source *InputChannel, outCh *Output
 			defaultValue, err = strconv.Atoi(*spec.MapExpr.Default)
 			if err != nil {
 				return nil, err
-			}	
+			}
 		}
-	case spec.MapExpr.RdfType=="double", spec.MapExpr.RdfType=="float64":
+	case spec.MapExpr.RdfType == "double", spec.MapExpr.RdfType == "float64":
 		defaultValue, err = strconv.ParseFloat(*spec.MapExpr.Default, 64)
 		if err != nil {
 			return nil, err
 		}
-	case spec.MapExpr.RdfType=="string", spec.MapExpr.RdfType=="text":
+	case spec.MapExpr.RdfType == "string", spec.MapExpr.RdfType == "text":
 		defaultValue = *spec.MapExpr.Default
 
-	case spec.MapExpr.RdfType=="date":
+	case spec.MapExpr.RdfType == "date":
 		temp, err := ParseDate(*spec.MapExpr.Default)
 		if err != nil || temp == nil {
 			fmt.Println("default value is not date:", *spec.MapExpr.Default)
@@ -118,7 +123,7 @@ func (ctx *BuilderContext) buildMapEvaluator(source *InputChannel, outCh *Output
 		} else {
 			defaultValue = *temp
 		}
-	case spec.MapExpr.RdfType=="datetime":
+	case spec.MapExpr.RdfType == "datetime":
 		temp, err := ParseDatetime(*spec.MapExpr.Default)
 		if err != nil || temp == nil {
 			fmt.Println("default value is not datetime:", *spec.MapExpr.Default)
@@ -128,7 +133,7 @@ func (ctx *BuilderContext) buildMapEvaluator(source *InputChannel, outCh *Output
 			defaultValue = *temp
 		}
 
-	case spec.MapExpr.RdfType=="int64", spec.MapExpr.RdfType=="long":
+	case spec.MapExpr.RdfType == "int64", spec.MapExpr.RdfType == "long":
 		defaultValue, err = strconv.ParseInt(*spec.MapExpr.Default, 10, 64)
 		if err != nil {
 			return nil, err
@@ -145,62 +150,116 @@ func (ctx *BuilderContext) buildMapEvaluator(source *InputChannel, outCh *Output
 	}
 	return &mapColumnEval{
 		mapConfig: &mapColumnConfig{
-			inputPos: inputPos,
-			outputPos: outputPos,
+			inputPos:     inputPos,
+			outputPos:    outputPos,
 			defaultValue: defaultValue,
-			mapConfig: spec.MapExpr},
-			cleansingCtx: cleansing_functions.NewCleansingFunctionContext(source.columns),
-		}, nil
+			mapConfig:    spec.MapExpr},
+		cleansingCtx: cleansing_functions.NewCleansingFunctionContext(source.columns),
+	}, nil
 }
 
 // Utility function for casting to specified rdf type
-func CastToRdfType(inputV string, rdfType string) (interface{}, error) {
+func CastToRdfType(input interface{}, rdfType string) (interface{}, error) {
+	if input == nil {
+		return nil, nil
+	}
+	var inputV string
+	var inputArr []string
+	switch vv := input.(type) {
+	case string:
+		if len(vv) == 0 {
+			return nil, nil
+		}
+		inputV = vv
+	case []string:
+		if len(vv) == 0 {
+			return nil, nil
+		}
+		inputArr = vv
+	default:
+		// humm, expecting string or []string
+		inputV = fmt.Sprintf("%v", vv)
+	}
 	switch rdfType {
-
 	case "string", "text":
-		return inputV, nil
+		return input, nil
 
 	case "int", "integer", "int64", "long":
-		if inputV == "" {
-			return nil, nil
+		if inputArr == nil {
+			return strconv.Atoi(inputV)
 		}
-		return strconv.Atoi(inputV)
+		outV := make([]int, 0, len(inputArr))
+		for _, v := range inputArr {
+			vi, err := strconv.Atoi(v)
+			if err != nil {
+				return nil, err
+			}
+			outV = append(outV, vi)
+		}
+		return outV, nil
 
 	case "float64", "double":
-		if inputV == "" {
-			return nil, nil
+		if inputArr == nil {
+			return strconv.ParseFloat(inputV, 64)
 		}
-		return strconv.ParseFloat(inputV, 64)
+		outV := make([]float64, 0, len(inputArr))
+		for _, v := range inputArr {
+			vi, err := strconv.ParseFloat(v, 64)
+			if err != nil {
+				return nil, err
+			}
+			outV = append(outV, vi)
+		}
+		return outV, nil
 
 	case "bool":
-		if inputV == "" {
-			return nil, nil
+		if inputArr == nil {
+			return rdf.ParseBool(inputV), nil
 		}
-		if inputV[0] == 'T' || inputV[0] == 't' || inputV[0] == '1' {
-			return 1, nil
+		outV := make([]int, 0, len(inputArr))
+		for _, v := range inputArr {
+			outV = append(outV, rdf.ParseBool(v))
 		}
-		return 0, nil
-	
+		return outV, nil
+
 	case "date":
-		if inputV == "" {
-			return nil, nil
+		if inputArr == nil {
+			temp, err := ParseDate(inputV)
+			if err == nil {
+				return *temp, nil
+			} else {
+				return nil, err
+			}
 		}
-		temp, err := ParseDate(inputV)
-		if err == nil {
-			return *temp, nil
-		} else {
-			return nil, err
+		outV := make([]time.Time, 0, len(inputArr))
+		for _, v := range inputArr {
+			vi, err := ParseDate(v)
+			if err != nil {
+				return nil, err
+			}
+			outV = append(outV, *vi)
 		}
+		return outV, nil
+
 	case "datetime":
-		if inputV == "" {
-			return nil, nil
+		if inputArr == nil {
+			temp, err := ParseDatetime(inputV)
+			if err == nil {
+				return *temp, nil
+			} else {
+				return nil, err
+			}
 		}
-		temp, err := ParseDatetime(inputV)
-		if err == nil {
-			return *temp, nil
-		} else {
-			return nil, err
+		outV := make([]time.Time, 0, len(inputArr))
+		for _, v := range inputArr {
+			vi, err := ParseDatetime(v)
+			if err != nil {
+				return nil, err
+			}
+			outV = append(outV, *vi)
 		}
+		return outV, nil
+
 	default:
 		return nil, fmt.Errorf("error: unknown rdf_type %s while mapping column value", rdfType)
 	}

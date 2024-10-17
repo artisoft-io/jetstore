@@ -38,14 +38,18 @@ func (ctx *CleansingFunctionContext) With(inputColumns map[string]int) *Cleansin
 
 // inputColumnName can be null
 func (ctx *CleansingFunctionContext) ApplyCleasingFunction(functionName *string, argument *string, inputValue *string,
-	inputPos int, inputRow *[]interface{}) (string, string) {
-	var obj, errMsg string
+	inputPos int, inputRow *[]interface{}) (obj interface{}, errMsg string) {
 	var err error
 	var sz int
 	switch *functionName {
 
 	case "trim":
-		obj = strings.TrimSpace(*inputValue)
+		vv := strings.TrimSpace(*inputValue)
+		if len(vv) == 0 {
+			obj = nil
+		} else {
+			obj = vv
+		}
 
 	case "validate_date":
 		_, err2 := rdf.ParseDate(*inputValue)
@@ -64,14 +68,14 @@ func (ctx *CleansingFunctionContext) ApplyCleasingFunction(functionName *string,
 		sz = len(inVal)
 		switch {
 		case sz == 0:
-			obj = ""
+			obj = nil
 		case sz < 5:
 			var v int
 			v, err = strconv.Atoi(inVal)
 			if err == nil {
 				obj = fmt.Sprintf("%05d", v)
 				if obj == "00000" {
-					obj = ""
+					obj = nil
 				}
 			} else {
 				errMsg = err.Error()
@@ -79,7 +83,7 @@ func (ctx *CleansingFunctionContext) ApplyCleasingFunction(functionName *string,
 		case sz == 5:
 			obj = inVal
 			if obj == "00000" {
-				obj = ""
+				obj = nil
 			}
 		case sz > 5 && sz < 9:
 			var v int
@@ -87,7 +91,7 @@ func (ctx *CleansingFunctionContext) ApplyCleasingFunction(functionName *string,
 			if err == nil {
 				obj = fmt.Sprintf("%09d", v)[:5]
 				if obj == "00000" {
-					obj = ""
+					obj = nil
 				}
 			} else {
 				errMsg = err.Error()
@@ -95,7 +99,7 @@ func (ctx *CleansingFunctionContext) ApplyCleasingFunction(functionName *string,
 		case sz == 9:
 			obj = inVal[:5]
 			if obj == "00000" {
-				obj = ""
+				obj = nil
 			}
 		default:
 		}
@@ -106,14 +110,14 @@ func (ctx *CleansingFunctionContext) ApplyCleasingFunction(functionName *string,
 		sz = len(inVal)
 		switch {
 		case sz == 0:
-			obj = ""
+			obj = nil
 		case sz > 5 && sz < 9:
 			var v int
 			v, err = strconv.Atoi(inVal)
 			if err == nil {
 				obj = fmt.Sprintf("%09d", v)[5:]
 				if obj == "0000" {
-					obj = ""
+					obj = nil
 				}
 			} else {
 				errMsg = err.Error()
@@ -121,7 +125,7 @@ func (ctx *CleansingFunctionContext) ApplyCleasingFunction(functionName *string,
 		case sz == 9:
 			obj = inVal[5:]
 			if obj == "0000" {
-				obj = ""
+				obj = nil
 			}
 		default:
 		}
@@ -132,14 +136,14 @@ func (ctx *CleansingFunctionContext) ApplyCleasingFunction(functionName *string,
 		sz = len(inVal)
 		switch {
 		case sz == 0:
-			obj = ""
+			obj = nil
 		case sz < 4:
 			var v int
 			v, err = strconv.Atoi(inVal)
 			if err == nil {
 				obj = fmt.Sprintf("%04d", v)
 				if obj == "0000" {
-					obj = ""
+					obj = nil
 				}
 			} else {
 				errMsg = err.Error()
@@ -147,7 +151,7 @@ func (ctx *CleansingFunctionContext) ApplyCleasingFunction(functionName *string,
 		case sz == 4:
 			obj = inVal
 			if obj == "0000" {
-				obj = ""
+				obj = nil
 			}
 		default:
 		}
@@ -195,7 +199,7 @@ func (ctx *CleansingFunctionContext) ApplyCleasingFunction(functionName *string,
 			inVal := filterDigits(*inputValue)
 			var v int
 			if len(inVal) == 0 {
-				obj = ""
+				obj = nil
 			} else {
 				v, err = strconv.Atoi(inVal)
 				if err == nil {
@@ -215,17 +219,26 @@ func (ctx *CleansingFunctionContext) ApplyCleasingFunction(functionName *string,
 			var npos int
 			npos, err = strconv.Atoi(*argument)
 			if err == nil {
-				obj, err = OverpunchNumber(*inputValue, npos)
+				vv, err := OverpunchNumber(*inputValue, npos)
 				if err != nil {
+					obj = nil
 					errMsg = err.Error()
+				} else {
+					if len(vv) == 0 {
+						obj = nil
+					} else {
+						obj = vv
+					}
 				}
 			} else {
+				obj = nil
 				errMsg = err.Error()
 			}
 		} else {
 			// configuration error, bailing out
 			log.Panicf("ERROR missing argument for function overpunch_number for input column pos %d", inputPos)
 		}
+
 	case "apply_regex":
 		if argument != nil {
 			re, ok := ctx.reMap[*argument]
@@ -237,15 +250,26 @@ func (ctx *CleansingFunctionContext) ApplyCleasingFunction(functionName *string,
 				}
 				ctx.reMap[*argument] = re
 			}
-			obj = re.FindString(*inputValue)
+			vv := re.FindString(*inputValue)
+			if len(vv) == 0 {
+				obj = nil
+			} else {
+				obj = vv
+			}
 		} else {
 			// configuration error, bailing out
 			log.Panicf("ERROR missing argument for function apply_regex for input column pos %d", inputPos)
 		}
+
 	case "scale_units":
 		if argument != nil {
 			if *argument == "1" {
-				obj = filterDouble(*inputValue)
+				vv := filterDouble(*inputValue)
+				if len(vv) == 0 {
+					obj = nil
+				} else {
+					obj = vv
+				}
 			} else {
 				divisor, ok := ctx.argdMap[*argument]
 				if !ok {
@@ -263,6 +287,7 @@ func (ctx *CleansingFunctionContext) ApplyCleasingFunction(functionName *string,
 				if err == nil {
 					obj = fmt.Sprintf("%f", math.Ceil(unit/divisor))
 				} else {
+					obj = nil
 					errMsg = err.Error()
 				}
 			}
@@ -270,30 +295,30 @@ func (ctx *CleansingFunctionContext) ApplyCleasingFunction(functionName *string,
 			// configuration error, bailing out
 			log.Panicf("ERROR missing argument for function scale_units for input column pos %d", inputPos)
 		}
+
 	case "parse_amount":
 		// clean up the amount
 		inVal := filterDouble(*inputValue)
 		if len(inVal) > 0 {
 			obj = inVal
 			// argument is optional, assume divisor is 1 if absent
-			if argument != nil {
-				if *argument != "1" {
-					divisor, ok := ctx.argdMap[*argument]
-					if !ok {
-						divisor, err = strconv.ParseFloat(*argument, 64)
-						if err != nil {
-							// configuration error, bailing out
-							log.Panicf("ERROR divisor argument to function scale_units is not a double: %s", *argument)
-						}
-						ctx.argdMap[*argument] = divisor
+			if argument != nil && *argument != "1" {
+				divisor, ok := ctx.argdMap[*argument]
+				if !ok {
+					divisor, err = strconv.ParseFloat(*argument, 64)
+					if err != nil {
+						// configuration error, bailing out
+						log.Panicf("ERROR divisor argument to function scale_units is not a double: %s", *argument)
 					}
-					var amt float64
-					amt, err = strconv.ParseFloat(obj, 64)
-					if err == nil {
-						obj = fmt.Sprintf("%f", amt/divisor)
-					} else {
-						errMsg = err.Error()
-					}
+					ctx.argdMap[*argument] = divisor
+				}
+				var amt float64
+				amt, err = strconv.ParseFloat(inVal, 64)
+				if err == nil {
+					obj = fmt.Sprintf("%f", amt/divisor)
+				} else {
+					obj = nil
+					errMsg = err.Error()
 				}
 			}
 		}
@@ -326,7 +351,12 @@ func (ctx *CleansingFunctionContext) ApplyCleasingFunction(functionName *string,
 
 				}
 			}
-			obj = buf.String()
+			vv := buf.String()
+			if len(vv) == 0 {
+				obj = nil
+			} else {
+				obj = vv
+			}
 		}
 
 	case "find_and_replace":
@@ -336,7 +366,12 @@ func (ctx *CleansingFunctionContext) ApplyCleasingFunction(functionName *string,
 		if err != nil {
 			errMsg = err.Error()
 		} else {
-			obj = strings.ReplaceAll(*inputValue, arg.Find, arg.ReplaceWith)
+			vv := strings.ReplaceAll(*inputValue, arg.Find, arg.ReplaceWith)
+			if len(vv) == 0 {
+				obj = nil
+			} else {
+				obj = vv
+			}
 		}
 
 	case "substring":
@@ -351,10 +386,23 @@ func (ctx *CleansingFunctionContext) ApplyCleasingFunction(functionName *string,
 				end = len(*inputValue) + end
 			}
 			if end > len(*inputValue) || end <= arg.Start {
-				obj = ""
+				obj = nil
 			} else {
 				obj = (*inputValue)[arg.Start:end]
 			}
+		}
+
+	case "split_on":
+		if argument != nil {
+			vv := strings.Split(*inputValue, *argument)
+			if len(vv) == 0 {
+				obj = nil
+			} else {
+				obj = vv
+			}
+		} else {
+			// configuration error, bailing out
+			log.Panicf("ERROR missing argument for function split_on for input column pos %d", inputPos)
 		}
 
 	default:
