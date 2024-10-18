@@ -83,7 +83,7 @@ final adminMenuEntries = [
   MenuEntry(
       otherPageStyle: ActionStyle.danger,
       key: 'runInitDb',
-      label: 'Run Workspace Database Initialization',
+      label: 'Run Workspace DB Base Initialization',
       menuAction: rerunDbInitAction),
 ];
 
