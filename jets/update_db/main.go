@@ -129,7 +129,7 @@ func doJob() error {
 		model := domainTablesModel{}
 		err = json.Unmarshal(file, &model)
 		if err != nil {
-			log.Printf("while unmarshaling json:%v\n", err)
+			log.Printf("while unmarshaling json (update_db):%v\n", err)
 			return err
 		}
 		for _, table := range model.Tables {
