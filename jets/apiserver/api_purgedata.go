@@ -53,7 +53,7 @@ func (server *Server) DoPurgeDataAction(w http.ResponseWriter, r *http.Request) 
 	case "reset_domain_tables":
 		results, code, err = server.ResetDomainTables(&action)
 	case "rerun_db_init":
-		results, code, err = server.RunWorkspaceDbInit(&action)
+		results, code, err = server.RunWorkspaceBaseDbInit(&action)
 	default:
 		code = http.StatusUnprocessableEntity
 		err = fmt.Errorf("DoPurgeDataAction: unknown action: %v", action.Action)
@@ -127,16 +127,16 @@ func (server *Server) DoPurgeDataAction(w http.ResponseWriter, r *http.Request) 
 	return &map[string]interface{}{}, http.StatusOK, nil
 }
 
-// RunWorkspaceDbInit ------------------------------------------------------
+// RunWorkspaceBaseDbInit ------------------------------------------------------
 // Initialize jetstore database with workspace db init script
-func (server *Server) RunWorkspaceDbInit(purgeDataAction *PurgeDataAction) (*map[string]interface{}, int, error) {
+func (server *Server) RunWorkspaceBaseDbInit(purgeDataAction *PurgeDataAction) (*map[string]interface{}, int, error) {
 	// using update_db script
-	log.Println("Running DB Initialization with base and ALL workspace-specific init script")
-	serverArgs := []string{ "-initWorkspaceDb", "-migrateDb" }
+	log.Println("Run update_db for base init script")
+	serverArgs := []string{ "-initBaseWorkspaceDb", "-migrateDb" }
 	if *usingSshTunnel {
 		serverArgs = append(serverArgs, "-usingSshTunnel")
 	}
-	if _, err := datatable.RunUpdateDb(purgeDataAction.WorkspaceName, &serverArgs); err != nil {
+	if _, err := datatable.RunUpdateDb(os.Getenv("WORKSPACE"), &serverArgs); err != nil {
 		return nil, http.StatusInternalServerError, fmt.Errorf("while running updateDb command: %v", err)
 	}
 	return &map[string]interface{}{}, http.StatusOK, nil
