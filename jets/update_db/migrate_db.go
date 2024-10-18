@@ -100,11 +100,11 @@ func InitializeBaseJetsapiDb(dbpool *pgxpool.Pool, jetsDbInitPath *string) error
 	return loadConfig(dbpool, sqlFile)
 }
 
-func InitializeBaseJetsapiDb4Clients(dbpool *pgxpool.Pool, jetsDbInitPath *string, clients *string) error {
+func InitializeJetsapiDb4Clients(dbpool *pgxpool.Pool, jetsDbInitPath *string, clients *string) error {
 	// initialize jetsapi database for the clients
 	// jetsDbInitPath using base__workspace_init_db.sql
 	if clients == nil {
-		return fmt.Errorf("InitializeBaseJetsapiDb4Clients: Invalid argument, clients cannot be nil")
+		return fmt.Errorf("InitializeJetsapiDb4Clients: Invalid argument, clients cannot be nil")
 	}
 	clientList := strings.Split(*clients, ",")
 	for i := range clientList {

@@ -75,7 +75,7 @@ func doJob() error {
 	}
 	if len(*clients) > 0 {
 		log.Println("Initialize jetsapi database with workspace-specific initalization for clients", *clients)
-		err = InitializeBaseJetsapiDb4Clients(dbpool, &jetsDbInitPath, clients)
+		err = InitializeJetsapiDb4Clients(dbpool, &jetsDbInitPath, clients)
 		if err != nil {
 			return err
 		}
