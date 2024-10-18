@@ -355,24 +355,24 @@ func (pipelineConfig *PipelineConfig) makeProcessInputSqlStmt(processInput *Proc
 }
 
 // Map client-specific code value to canonical code value
-func (processInput *ProcessInput) mapCodeValue(clientValue *string, inputColumnSpec *ProcessMap) *string {
+func (processInput *ProcessInput) mapCodeValue(clientValue *string, inputColumnSpec *ProcessMap) string {
 	var canonicalValue string
 	if processInput.codeValueMapping == nil {
-		return clientValue
+		return *clientValue
 	}
 	codeValueMap, ok := (*processInput.codeValueMapping)[inputColumnSpec.dataProperty]
 	if !ok {
-		return clientValue
+		return *clientValue
 	}
 	canonicalValue, ok = codeValueMap[*clientValue]
 	if !ok {
 		if invalidCodeValue == "" {
-			return clientValue
+			return *clientValue
 		} else {
-			return &invalidCodeValue
+			return invalidCodeValue
 		}
 	}
-	return &canonicalValue
+	return canonicalValue
 }
 
 // sets the grouping position

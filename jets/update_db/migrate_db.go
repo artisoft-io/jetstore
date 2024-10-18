@@ -34,18 +34,18 @@ func MigrateDb(dbpool *pgxpool.Pool) error {
 		return fmt.Errorf("error while decoding jstore schema: %v", err)
 	}
 	for i := range schemaDef {
-		fmt.Println("-- Got schema for",schemaDef[i].SchemaName,".",schemaDef[i].TableName)
+		fmt.Println("-- Got schema for", schemaDef[i].SchemaName, ".", schemaDef[i].TableName)
 		// Drop specified tables
 		if schemaDef[i].Deleted {
 			err = schemaDef[i].DropTable(dbpool)
 			if err != nil {
 				return fmt.Errorf("error while droping table: %v", err)
-			}	
+			}
 		} else {
 			err = schemaDef[i].UpdateTableSchema(dbpool, false)
 			if err != nil {
 				return fmt.Errorf("error while migrating jetstore schema: %v", err)
-			}	
+			}
 		}
 	}
 	return nil
@@ -87,26 +87,28 @@ func loadConfig(dbpool *pgxpool.Pool, sqlFile string) error {
 	return nil
 }
 
-func InitializeBaseJetsapiDb(dbpool *pgxpool.Pool, jetsapiInitPath *string) error {
+func InitializeBaseJetsapiDb(dbpool *pgxpool.Pool, jetsDbInitPath *string) error {
 	// initialize jetsapi database -- base initialization only
-	// jetsapiInitPath using base_workspace_init_db.sql
-	basePath := strings.TrimSuffix(*jetsapiInitPath, "/workspace_init_db.sql")
-	basePath = strings.TrimSuffix(basePath, "/")
-	sqlFile := fmt.Sprintf("%s/base_workspace_init_db.sql", basePath)
+	// jetsDbInitPath using base__workspace_init_db.sql
+	if len(jetsDbInitScriptPath) > 0 {
+		err := loadConfig(dbpool, jetsDbInitScriptPath)
+		if err != nil {
+			return err
+		}
+	}
+	sqlFile := fmt.Sprintf("%s/base__workspace_init_db.sql", *jetsDbInitPath)
 	return loadConfig(dbpool, sqlFile)
 }
 
-func InitializeBaseJetsapiDb4Clients(dbpool *pgxpool.Pool, jetsapiInitPath *string, clients *string) error {
+func InitializeJetsapiDb4Clients(dbpool *pgxpool.Pool, jetsDbInitPath *string, clients *string) error {
 	// initialize jetsapi database for the clients
-	// jetsapiInitPath using base_workspace_init_db.sql
+	// jetsDbInitPath using base__workspace_init_db.sql
 	if clients == nil {
-		return fmt.Errorf("InitializeBaseJetsapiDb4Clients: Invalid argument, clients cannot be nil")
+		return fmt.Errorf("InitializeJetsapiDb4Clients: Invalid argument, clients cannot be nil")
 	}
-	basePath := strings.TrimSuffix(*jetsapiInitPath, "/workspace_init_db.sql")
-	basePath = strings.TrimSuffix(basePath, "/")
 	clientList := strings.Split(*clients, ",")
 	for i := range clientList {
-		sqlFile := fmt.Sprintf("%s/%s_workspace_init_db.sql", basePath, strings.ToLower(clientList[i]))
+		sqlFile := fmt.Sprintf("%s/%s_workspace_init_db.sql", *jetsDbInitPath, strings.ToLower(clientList[i]))
 		err := loadConfig(dbpool, sqlFile)
 		if err != nil {
 			return err
@@ -115,23 +117,20 @@ func InitializeBaseJetsapiDb4Clients(dbpool *pgxpool.Pool, jetsapiInitPath *stri
 	return nil
 }
 
-func InitializeJetsapiDb(dbpool *pgxpool.Pool, jetsapiInitPath *string) error {
-	// initialize jetsapi database
-	// jetsapiInitPath used to be the path of workspace_init_db.sql
-	// if jetsapiInitPath ends with workspace_init_db.sql, remove the suffix
-	// and use all files in directory
-	workspaceInitDbPath := strings.TrimSuffix(*jetsapiInitPath, "/workspace_init_db.sql")
-	fileSystem := os.DirFS(workspaceInitDbPath)
+func InitializeJetsapiDb(dbpool *pgxpool.Pool, jetsDbInitPath *string) error {
+	// initialize jetsapi database using all client files in directory
+	// skipping base__workspace_init_db.sql
+	fileSystem := os.DirFS(*jetsDbInitPath)
 	err := fs.WalkDir(fileSystem, ".", func(path string, info fs.DirEntry, err error) error {
 		if err != nil {
 			log.Printf("ERROR while walking workspace init db directory %q: %v", path, err)
 			return err
 		}
-		if info.IsDir() {
+		if info.IsDir() || path == "base__workspace_init_db.sql" {
 			// fmt.Printf("visiting directory: %+v \n", info.Name())
 			return nil
 		}
-		sqlFile := fmt.Sprintf("%s/%s", workspaceInitDbPath, path)
+		sqlFile := fmt.Sprintf("%s/%s", *jetsDbInitPath, path)
 		fmt.Println("-- Initializing jetsapi db using", sqlFile)
 		file, err := os.Open(sqlFile)
 		if err != nil {
@@ -163,7 +162,7 @@ func InitializeJetsapiDb(dbpool *pgxpool.Pool, jetsapiInitPath *string) error {
 		return nil
 	})
 	if err != nil {
-		return fmt.Errorf("error walking the workspace init db path %s: %v", workspaceInitDbPath, err)
+		return fmt.Errorf("error walking the workspace init db path %s: %v", *jetsDbInitPath, err)
 	}
 	return nil
 }

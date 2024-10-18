@@ -98,3 +98,4 @@ jets/cpipes_server/cpipes_server
 jets/copytest/scratchpad/test/test
 jets/compute_pipes/local_test_driver/local_test_driver
 jets/serverv2/serverv2
+cdk/jetstore_one/lambdas/sqs_listener/cgt_sqs_listener.go

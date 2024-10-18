@@ -37,7 +37,7 @@ type User struct {
 //	- workspace_ide: Access workspace IDE screens and functions, including query tool and git functions
 //	- run_pipelines: Load files and run pipelines
 //  - user_profile:  Update user profile
-// NOTE: role_capability table is initialized in base_workspace_init_db.sql
+// NOTE: role_capability table is initialized in jets_init_db.sql
 
 func NewUser(email string) *User {
 	u := User{Email: email}
@@ -61,7 +61,7 @@ func (u *User) IsAdmin() bool {
 func (u *User) GetCapabilities() []string {
 	keys := make([]string, 0, len(u.capabilities))
 	for k := range u.capabilities {
-			keys = append(keys, k)
+		keys = append(keys, k)
 	}
 	return keys
 }
@@ -96,27 +96,27 @@ func (u *User) Validate(action string) error {
 	switch strings.ToLower(action) {
 	case "login":
 		if u.Password == "" {
-			return errors.New("Required Password")
+			return errors.New("required Password")
 		}
 		if u.Email == "" {
-			return errors.New("Required Email")
+			return errors.New("required Email")
 		}
 		if !u.IsAdmin() {
 			if err := checkmail.ValidateFormat(u.Email); err != nil {
-				return errors.New("Invalid Email")
+				return errors.New("invalid Email")
 			}
 		}
 		return nil
 
 	default:
 		if u.IsAdmin() {
-			return errors.New("Login Reserved for Administrator")
+			return errors.New("login Reserved for Administrator")
 		}
 		if u.Name == "" {
-			return errors.New("Required Name")
+			return errors.New("required Name")
 		}
 		if u.Password == "" {
-			return errors.New("Required Password")
+			return errors.New("required Password")
 		}
 		//* check that password pass test
 		hasDigit, _ := regexp.MatchString("[0-9]", u.Password)
@@ -124,13 +124,13 @@ func (u *User) Validate(action string) error {
 		hasLower, _ := regexp.MatchString("[a-z]", u.Password)
 		hasSpecial, _ := regexp.MatchString(`[!@#$%^&*()_+-=\[\]{}|']`, u.Password)
 		if !hasDigit || !hasUpper || !hasLower || !hasSpecial || len(u.Password) < 14 {
-			return errors.New("Invalid Password")
+			return errors.New("invalid Password")
 		}
 		if u.Email == "" {
-			return errors.New("Required Email")
+			return errors.New("required Email")
 		}
 		if err := checkmail.ValidateFormat(u.Email); err != nil {
-			return errors.New("Invalid Email")
+			return errors.New("invalid Email")
 		}
 		return nil
 	}
@@ -141,14 +141,14 @@ func (u *User) InsertUser(dbpool *pgxpool.Pool) error {
 	err := u.BeforeSave()
 	if err != nil {
 		log.Println("while hashing user's password before save in db:", err)
-		return errors.New("Unknown error while saving user")
+		return errors.New("unknown error while saving user")
 	}
 	// insert in db
 	stmt := `INSERT INTO jetsapi.users (name, user_email, password) VALUES ($1, $2, $3)`
 	_, err = dbpool.Exec(context.Background(), stmt, u.Name, u.Email, u.Password)
 	if err != nil {
 		log.Println("while inserting in db:", err)
-		return errors.New("Unknown error while saving user")
+		return errors.New("unknown error while saving user")
 	}
 	return nil
 }
@@ -177,7 +177,7 @@ func GetUserByEmail(dbpool *pgxpool.Pool, email string) (*User, error) {
 	}
 	// Decrypt user's role and map it to capabilities
 	// @**@ profile read Decrypt user's role and map it to capabilities
-	
+
 	for _, role := range encryptedRoles {
 		u.roles[role] = true
 	}
