@@ -8,6 +8,7 @@ import (
 	"slices"
 	"sort"
 	"strconv"
+	"strings"
 
 	"github.com/artisoft-io/jetstore/jets/jetrules/rdf"
 )
@@ -95,25 +96,47 @@ func NewReteMetaStoreFactory(jetRuleName string) (*ReteMetaStoreFactory, error) 
 	if len(factory.MainRuleFileNames) == 0 {
 		return nil, fmt.Errorf("error, %s does not correspond to any rule file names", jetRuleName)
 	}
-
-	for _, ruleFileName := range factory.MainRuleFileNames {
-		fpath := fmt.Sprintf("%s/%s/%scc.json", workspaceHome, wprefix, ruleFileName)
-		log.Println("Reading JetStore rule config:", ruleFileName, "from:", fpath)
+	// Define function to avoid repeating code
+	loadJson := func (strFmt, rootName string,  jetruleModel *JetruleModel) error {
+		fpath := fmt.Sprintf(strFmt, workspaceHome, wprefix, rootName)
 		file, err := os.ReadFile(fpath)
 		if err != nil {
-			log.Printf("while reading json file:%v\n", err)
-			return nil, err
+			err = fmt.Errorf("while reading .json file (NewReteMetaStoreFactory):%v", err)
+			log.Println(err)
+			return err
 		}
+		err = json.Unmarshal(file, jetruleModel)
+		if err != nil {
+			err = fmt.Errorf("while unmarshaling .json file (NewReteMetaStoreFactory):%v", err)
+			log.Println(err)
+			return err
+		}
+		return nil
+	}
+
+	for _, ruleFileName := range factory.MainRuleFileNames {
+		rootName := strings.TrimSuffix(ruleFileName, ".jr")
 		jetruleModel := JetruleModel{
 			Antecedents: make([]*RuleTerm, 0),
 			Consequents: make([]*RuleTerm, 0),
 		}
-		err = json.Unmarshal(file, &jetruleModel)
+		log.Println("Reading JetStore rule config:", rootName)
+		// .model.json
+		err := loadJson("%s/%s/%s.model.json", rootName, &jetruleModel)
 		if err != nil {
-			log.Printf("while unmarshaling json:%v\n", err)
 			return nil, err
 		}
-		factory.ReteModelLookup[ruleFileName] = &jetruleModel
+		// .rete.json
+		err = loadJson("%s/%s/%s.rete.json", rootName, &jetruleModel)
+		if err != nil {
+			return nil, err
+		}
+		// .triples.json
+		err = loadJson("%s/%s/%s.triples.json", rootName, &jetruleModel)
+		if err != nil {
+			return nil, err
+		}
+		factory.ReteModelLookup[rootName] = &jetruleModel
 	}
 	// All the json rule files are parsed successfully
 	// Load the ReteMetaStore from the rule model

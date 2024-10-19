@@ -97,47 +97,26 @@ func doJob() error {
 	}
 
 	fmt.Println("-- Create / Update JetStore Domain Tables")
-	// get the table definitions from compiled workspace
-	workspaceControl, err := rete.LoadWorkspaceControl(workspaceControlPath)
+	tables := make([]*rete.TableNode, 0)
+	fpath := fmt.Sprintf("%s/%s/build/tables.json", workspaceHome, wprefix)
+	log.Println("Reading JetStore tables definitions from:", fpath)
+	file, err := os.ReadFile(fpath)
 	if err != nil {
+		err = fmt.Errorf("while reading table.json json file:%v", err)
+		log.Println(err)
 		return err
 	}
-	// Collect all the main rule files
-	mainRules := make(map[string]bool)
-	for _, name := range workspaceControl.RuleSets {
-		mainRules[name] = true
+	err = json.Unmarshal(file, &tables)
+	if err != nil {
+		err = fmt.Errorf("while unmarshaling tables.json (update_db):%v", err)
+		log.Println(err)
+		return err
 	}
-	for i := range workspaceControl.RuleSequences {
-		for _, name := range workspaceControl.RuleSequences[i].RuleSets {
-			mainRules[name] = true
-		}
+	tableMap := make(map[string]*rete.TableNode, len(tables))
+	for _, table := range tables {
+		tableMap[table.TableName] = table
 	}
-	// For each main rule file, read the compiled rete network to load only the domain table definition
-	// Define an abridge version of the workspace definition so to parse only the domain tables
-	type domainTablesModel struct {
-		Tables []*rete.TableNode `json:"tables"`
-	}
-	domainTables := make(map[string]*rete.TableNode)
-	for name := range mainRules {
-		fpath := fmt.Sprintf("%s/%s/%scc.json", workspaceHome, wprefix, name)
-		log.Println("Reading JetStore rule config:", name, "from:", fpath)
-		file, err := os.ReadFile(fpath)
-		if err != nil {
-			log.Printf("while reading json file:%v\n", err)
-			return err
-		}
-		model := domainTablesModel{}
-		err = json.Unmarshal(file, &model)
-		if err != nil {
-			log.Printf("while unmarshaling json (update_db):%v\n", err)
-			return err
-		}
-		for _, table := range model.Tables {
-			domainTables[table.TableName] = table
-		}
-	}
-
-	tableSpecs, err := workspace.DomainTableDefinitions(dbpool, domainTables)
+	tableSpecs, err := workspace.DomainTableDefinitions(dbpool, tableMap)
 	if err != nil {
 		return fmt.Errorf("while loading table definition from workspace compiled rule files: %v", err)
 	}
