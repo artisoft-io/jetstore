@@ -2,6 +2,7 @@ package workspace
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log"
 	"os"
@@ -10,9 +11,19 @@ import (
 
 	"github.com/artisoft-io/jetstore/jets/datatable/wsfile"
 	"github.com/artisoft-io/jetstore/jets/dbutils"
+	"github.com/artisoft-io/jetstore/jets/jetrules/rete"
 	"github.com/artisoft-io/jetstore/jets/run_reports/tarextract"
 	"github.com/jackc/pgx/v4/pgxpool"
 )
+
+// Active workspace prefix and control file path
+var workspaceHome, wprefix, workspaceControlPath string
+
+func init() {
+	workspaceHome = os.Getenv("WORKSPACES_HOME")
+	wprefix = os.Getenv("WORKSPACE")
+	workspaceControlPath = fmt.Sprintf("%s/%s/workspace_control.json", workspaceHome, wprefix)
+}
 
 // This file contains functions to compile and sync the workspace
 // between jetstore database and the local container
@@ -26,7 +37,6 @@ import (
 //   - starting apiserver to get latest override files (e.g. lookup csv files) to compile workspace
 //   - starting rule server to get the latest lookup.db and workspace.db
 func SyncWorkspaceFiles(dbpool *pgxpool.Pool, workspaceName, status, contentType string, skipSqliteFiles bool, skipTgzFiles bool) error {
-	wh := os.Getenv("WORKSPACES_HOME")
 	// sync workspace files from db to locally
 	// Get all file_name that are modified
 	if len(contentType) > 0 {
@@ -43,7 +53,7 @@ func SyncWorkspaceFiles(dbpool *pgxpool.Pool, workspaceName, status, contentType
 		// When in skipTgzFiles == true, do not override *.tgz files
 		if (!skipSqliteFiles || !strings.HasSuffix(fo.FileName, ".db")) &&
 			(!skipTgzFiles || !strings.HasSuffix(fo.FileName, ".tgz")) {
-			localFileName := fmt.Sprintf("%s/%s/%s", wh, workspaceName, fo.FileName)
+			localFileName := fmt.Sprintf("%s/%s/%s", workspaceHome, workspaceName, fo.FileName)
 			// create workspace.tgz file and dir structure
 			fileDir := filepath.Dir(localFileName)
 			if err = os.MkdirAll(fileDir, 0770); err != nil {
@@ -70,7 +80,7 @@ func SyncWorkspaceFiles(dbpool *pgxpool.Pool, workspaceName, status, contentType
 				if err != nil {
 					return fmt.Errorf("failed to open tgz file %s for read: %v", fo.FileName, err)
 				}
-				err = tarextract.ExtractTarGz(fileHd, fmt.Sprintf("%s/%s", wh, workspaceName))
+				err = tarextract.ExtractTarGz(fileHd, fmt.Sprintf("%s/%s", workspaceHome, workspaceName))
 				if err != nil {
 					return fmt.Errorf("failed to extract content from tgz file %s for read: %v", fo.FileName, err)
 				}
@@ -103,14 +113,12 @@ func UpdateWorkspaceVersionDb(dbpool *pgxpool.Pool, workspaceName, version strin
 
 func CompileWorkspace(dbpool *pgxpool.Pool, workspaceName, version string) (string, error) {
 
-	wh := os.Getenv("WORKSPACES_HOME")
-	compilerPath := fmt.Sprintf("%s/%s/compile_workspace.sh", wh, workspaceName)
+	compilerPath := fmt.Sprintf("%s/%s/compile_workspace.sh", workspaceHome, workspaceName)
 
 	// Compile the workspace locally
 	var buf strings.Builder
 	buf.WriteString(fmt.Sprintf("Compiling workspace %s at version %s\n", workspaceName, version))
 	err := wsfile.RunCommand(&buf, compilerPath, nil, workspaceName)
-
 	if err != nil {
 		log.Println("=*=*=*=*=*=*=*=*=*=*=*=*=*=*")
 		cmdLog := buf.String()
@@ -124,8 +132,6 @@ func CompileWorkspace(dbpool *pgxpool.Pool, workspaceName, version string) (stri
 	args := []string{"cfvz", "reports.tgz", "reports/"}
 	buf.WriteString("\nArchiving the reports\n")
 	err = wsfile.RunCommand(&buf, command, &args, workspaceName)
-	path := fmt.Sprintf("%s/%s/%s", os.Getenv("WORKSPACES_HOME"), workspaceName, "reports.tgz")
-	defer os.Remove(path)
 	cmdLog := buf.String()
 	if err != nil {
 		log.Println("=*=*=*=*=*=*=*=*=*=*=*=*=*=*")
@@ -134,12 +140,86 @@ func CompileWorkspace(dbpool *pgxpool.Pool, workspaceName, version string) (stri
 		return cmdLog, fmt.Errorf("while archiving the reports folder : %v", err)
 	}
 
-	// Archive riles and cpipes config
-	args = []string{"cfvz", "workspace.tgz", "--exclude", "'*.jr'", "workspace_control.json", "jet_rules/", "pipes_config/"}
-	buf.WriteString("\nArchiving the jet_rules and cpipes config\n")
+	// Compile the workspace-wide classes and tables, save it in the workspace build directory
+	// Get all the main rule files from the workspace_control.json
+	workspaceControl, err := rete.LoadWorkspaceControl(workspaceControlPath)
+	if err != nil {
+		err = fmt.Errorf("while loading workspace_control.json: %v", err)
+		return err.Error(), err
+	}
+	// Collect all the main rule files
+	mainRules := make(map[string]bool)
+	for _, name := range workspaceControl.RuleSets {
+		mainRules[name] = true
+	}
+	for i := range workspaceControl.RuleSequences {
+		for _, name := range workspaceControl.RuleSequences[i].RuleSets {
+			mainRules[name] = true
+		}
+	}
+	// For each main rule file, read the compiled rete network to load only the domain classes and tables
+	// definition
+	domainClasses := make(map[string]*rete.ClassNode)
+	domainTables := make(map[string]*rete.TableNode)
+	for name := range mainRules {
+		fpath := fmt.Sprintf("%s/%s/build/%s.model.json", workspaceHome,
+			wprefix, strings.TrimSuffix(name, ".jr"))
+		log.Println("Reading JetStore Model of", name, "from:", fpath)
+		file, err := os.ReadFile(fpath)
+		if err != nil {
+			err = fmt.Errorf("while reading json file (.model.json):%v", err)
+			return err.Error(), err
+		}
+		model := rete.JetruleModel{}
+		err = json.Unmarshal(file, &model)
+		if err != nil {
+			err = fmt.Errorf("while unmarshaling .model.json (compile_workspace):%v", err)
+			return err.Error(), err
+		}
+		for i := range model.Classes {
+			class := &model.Classes[i]
+			domainClasses[class.Name] = class
+		}
+		for i := range model.Tables {
+			table := &model.Tables[i]
+			domainTables[table.TableName] = table
+		}
+	}
+	// Save the unique list of classes and tables to the root of build directory
+	classes := make([]*rete.ClassNode, 0, len(domainClasses))
+	for _, class := range domainClasses {
+		classes = append(classes, class)
+	}
+	fpath := fmt.Sprintf("%s/%s/build/classes.json", workspaceHome,	wprefix)
+	log.Println("Writing JetStore Classes to:", fpath)
+	file, err := os.OpenFile(fpath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
+	if err != nil {
+		err = fmt.Errorf("while opening classes.json for write (compile_workspace):%v", err)
+		return err.Error(), err
+	}
+	encoder := json.NewEncoder(file)
+	encoder.Encode(classes)
+	file.Close()
+	// Tables
+	tables := make([]*rete.TableNode, 0, len(domainTables))
+	for _, table := range domainTables {
+		tables = append(tables, table)
+	}
+	fpath = fmt.Sprintf("%s/%s/build/tables.json", workspaceHome,	wprefix)
+	log.Println("Writing JetStore Tables to:", fpath)
+	file, err = os.OpenFile(fpath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
+	if err != nil {
+		err = fmt.Errorf("while opening tables.json for write (compile_workspace):%v", err)
+		return err.Error(), err
+	}
+	encoder = json.NewEncoder(file)
+	encoder.Encode(tables)
+	file.Close()
+
+	// Archive the build rules and cpipes config
+	args = []string{"cfvz", "workspace.tgz", "workspace_control.json", "build/", "pipes_config/"}
+	buf.WriteString("\nArchiving the build and cpipes config directories\n")
 	err = wsfile.RunCommand(&buf, command, &args, workspaceName)
-	path = fmt.Sprintf("%s/%s/%s", os.Getenv("WORKSPACES_HOME"), workspaceName, "workspace.tgz")
-	defer os.Remove(path)
 	cmdLog = buf.String()
 	if err != nil {
 		log.Println("=*=*=*=*=*=*=*=*=*=*=*=*=*=*")
@@ -160,10 +240,10 @@ func CompileWorkspace(dbpool *pgxpool.Pool, workspaceName, version string) (stri
 		// Copy the sqlite files & the tar file to db
 		buf.WriteString("\nCopy the sqlite file to db\n")
 		sourcesPath := []string{
-			fmt.Sprintf("%s/%s/lookup.db", wh, workspaceName),
-			fmt.Sprintf("%s/%s/workspace.db", wh, workspaceName),
-			fmt.Sprintf("%s/%s/workspace.tgz", wh, workspaceName),
-			fmt.Sprintf("%s/%s/reports.tgz", wh, workspaceName),
+			fmt.Sprintf("%s/%s/lookup.db", workspaceHome, workspaceName),
+			fmt.Sprintf("%s/%s/workspace.db", workspaceHome, workspaceName),
+			fmt.Sprintf("%s/%s/workspace.tgz", workspaceHome, workspaceName),
+			fmt.Sprintf("%s/%s/reports.tgz", workspaceHome, workspaceName),
 		}
 		fileNames := []string{"lookup.db", "workspace.db", "workspace.tgz", "reports.tgz"}
 		fo := []dbutils.FileDbObject{

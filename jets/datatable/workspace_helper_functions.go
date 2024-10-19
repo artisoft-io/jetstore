@@ -116,7 +116,7 @@ func compileWorkspaceAction(ctx *Context, dataTableAction *DataTableAction) {
 			if !didLoadWorkspaceConfig {
 				// Load the base workspace config in case domain schema or config changed
 				log.Printf("Loading base Workspace Config for workspace: %s\n", dataTableAction.WorkspaceName)
-				serverArgs := []string{"-initBaseWorkspaceDb", "-migrateDb"}
+				serverArgs := []string{"-initBaseWorkspaceDb"}
 				if ctx.UsingSshTunnel {
 					serverArgs = append(serverArgs, "-usingSshTunnel")
 				}

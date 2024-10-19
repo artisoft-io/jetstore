@@ -390,11 +390,13 @@ def main(argv):
 
     # Combine the json, add the following to jetRules:
     #   - main_rule_file_name
-    #   - support_rule_file_names
+    #   - support_rule_file_names (skipped for now 2024/10/18)
     #   - rete_nodes
     compiler.jetrule_ctx.jetRules["main_rule_file_name"] = compiler.jetrule_ctx.jetReteNodes.get("main_rule_file_name", None)
-    compiler.jetrule_ctx.jetRules["support_rule_file_names"] = compiler.jetrule_ctx.jetReteNodes.get("support_rule_file_names", [])
+    # compiler.jetrule_ctx.jetRules["support_rule_file_names"] = compiler.jetrule_ctx.jetReteNodes.get("support_rule_file_names", [])
     compiler.jetrule_ctx.jetRules["rete_nodes"] = compiler.jetrule_ctx.jetReteNodes.get("rete_nodes", None)
+    # 2024/10/18 - Remove jet_rules from .jrcc.json file
+    compiler.jetrule_ctx.jetRules["jet_rules"] = []    
 
     # Correct the bool data type stored as strings
     for lookupTable in compiler.jetrule_ctx.jetRules.get("lookup_tables", []):
@@ -429,6 +431,43 @@ def main(argv):
     with open(jetrules_path, 'wt', encoding='utf-8') as f:
       f.write(json.dumps(compiler.jetrule_ctx.jetRules, indent=4))
     print('Corrected JetRules saved to {0}'.format(os.path.abspath(jetrules_path)))
+
+    # Create the "build" files, create the build directory if not exist
+    build_path = os.path.join(base_path, 'build')
+    
+    # Save the .rete.json:
+    obj_path = os.path.join(build_path, in_tup[0]+'.rete.json')
+    os.makedirs(os.path.dirname(obj_path), exist_ok=True)
+    obj = {
+      'main_rule_file_name': compiler.jetrule_ctx.jetRules.get("main_rule_file_name", []),
+      'resources': compiler.jetrule_ctx.jetRules.get("resources", []),
+      'lookup_tables': compiler.jetrule_ctx.jetRules.get("lookup_tables", []),
+      'rete_nodes': compiler.jetrule_ctx.jetRules.get("rete_nodes", [])
+    }
+    with open(obj_path, 'wt', encoding='utf-8') as f:
+      f.write(json.dumps(obj, indent=4))
+    print('Rete network saved to {0}'.format(os.path.abspath(obj_path)))
+    
+    # Save the .model.json:
+    obj_path = os.path.join(build_path, in_tup[0]+'.model.json')
+    obj = {
+      'main_rule_file_name': compiler.jetrule_ctx.jetRules.get("main_rule_file_name", []),
+      'classes': compiler.jetrule_ctx.jetRules.get("classes", []),
+      'tables': compiler.jetrule_ctx.jetRules.get("tables", [])
+    }
+    with open(obj_path, 'wt', encoding='utf-8') as f:
+      f.write(json.dumps(obj, indent=4))
+    print('Model saved to {0}'.format(os.path.abspath(obj_path)))
+    
+    # Save the .triples.json:
+    obj_path = os.path.join(build_path, in_tup[0]+'.triples.json')
+    obj = {
+      'main_rule_file_name': compiler.jetrule_ctx.jetRules.get("main_rule_file_name", []),
+      'triples': compiler.jetrule_ctx.jetRules.get("triples", [])
+    }
+    with open(obj_path, 'wt', encoding='utf-8') as f:
+      f.write(json.dumps(obj, indent=4))
+    print('Triples saved to {0}'.format(os.path.abspath(obj_path)))
 
 if __name__ == '__main__':
   flags.mark_flag_as_required('in_file')
