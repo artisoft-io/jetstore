@@ -120,7 +120,7 @@ func NewReteMetaStoreFactory(jetRuleName string) (*ReteMetaStoreFactory, error) 
 			Antecedents: make([]*RuleTerm, 0),
 			Consequents: make([]*RuleTerm, 0),
 		}
-		log.Println("Reading JetStore rule config:", rootName)
+		log.Println("Reading JetStore rule config:", ruleFileName)
 		// .model.json
 		err := loadJson("%s/%s/build/%s.model.json", rootName, &jetruleModel)
 		if err != nil {
@@ -136,7 +136,7 @@ func NewReteMetaStoreFactory(jetRuleName string) (*ReteMetaStoreFactory, error) 
 		if err != nil {
 			return nil, err
 		}
-		factory.ReteModelLookup[rootName] = &jetruleModel
+		factory.ReteModelLookup[ruleFileName] = &jetruleModel
 	}
 	// All the json rule files are parsed successfully
 	// Load the ReteMetaStore from the rule model
