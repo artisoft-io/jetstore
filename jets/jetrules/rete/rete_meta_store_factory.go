@@ -122,17 +122,17 @@ func NewReteMetaStoreFactory(jetRuleName string) (*ReteMetaStoreFactory, error) 
 		}
 		log.Println("Reading JetStore rule config:", rootName)
 		// .model.json
-		err := loadJson("%s/%s/%s.model.json", rootName, &jetruleModel)
+		err := loadJson("%s/%s/build/%s.model.json", rootName, &jetruleModel)
 		if err != nil {
 			return nil, err
 		}
 		// .rete.json
-		err = loadJson("%s/%s/%s.rete.json", rootName, &jetruleModel)
+		err = loadJson("%s/%s/build/%s.rete.json", rootName, &jetruleModel)
 		if err != nil {
 			return nil, err
 		}
 		// .triples.json
-		err = loadJson("%s/%s/%s.triples.json", rootName, &jetruleModel)
+		err = loadJson("%s/%s/build/%s.triples.json", rootName, &jetruleModel)
 		if err != nil {
 			return nil, err
 		}
