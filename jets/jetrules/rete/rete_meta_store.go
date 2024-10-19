@@ -43,6 +43,9 @@ func (ms *ReteMetaStore) NbrVertices() int {
 }
 
 func (ms *ReteMetaStore) GetRangeDataType(dataProperty string) (string, bool, error) {
+	if ms == nil {
+		return "", false, fmt.Errorf("error: GetRangeDataType called with nil ReteMetaStore for data property: %s", dataProperty)
+	}
 	p := ms.DataPropertyMap[dataProperty]
 	if p == nil {
 		return "", false, fmt.Errorf("GetRangeDataType: unknown data property: %s", dataProperty)
