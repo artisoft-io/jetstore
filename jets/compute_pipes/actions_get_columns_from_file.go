@@ -67,7 +67,7 @@ do_retry:
 				if err != nil {
 					return err
 				}
-				fmt.Println("Detected sep_flag", sepFlag)	
+				fmt.Println("Detected sep_flag:", sepFlag)	
 			}
 		}
 		if len(*ic) == 0 && !strings.HasSuffix(fileFormat, "headerless_csv") {

@@ -1,40 +1,40 @@
-male_name|female_name|last_name|status_flag|binary_flag|gender|city|addr_line|work_loc|prv_org|alphaNumRe|nAlphaNumRe|amountRe|phoneRe|emailRe|numericRe|npiRe
-James|Mary|Smith|active|T|M|montreal|1000 Rosedale Avenue|main office|"Police Athletic League,Inc."|26b0e07f0e36d206|cb522e244cda613b|15.5|1-558-207-0326 x06409|Kendall.Stroman36@gmail.com|3240515|1234567890
-Robert|Patricia|Johnson|pending|F|F|Montreal|1005 Tinton Avenue|headquaters|Institute for the Puerto Rican/Hispanic Elderly|f542af2491fa7c6b|cb522e244cda613b|-125|(819) 367-5092 x86765|Vinnie_Kuhic@gmail.com|1040252|0123456789
-Bob|Jennefer|Williams|terminated|0|U|New York|1020 College Avenue|south branch|Union Settlement Association|bd66d18d45c79704|08d9a894b9bd5318|12|836-615-6814 x51698|Olin8@gmail.com|1040292|2345678901
-John|Linda|||1|0|new york|10-25 41st Avenue||Federation of Italian American Organizations of Brooklyn|796fa08fd0e6cb5a|586eb1cc3344a2b4|-133.02|316.842.0540 x2586|Stephanie.Okuneva-OHara43@gmail.com|5139790|1234567890
-Michael|Susan|Brown||U|1|boston|10-26 41st Avenue||"Catholic Charities Neighborhood Services,Inc."|796fa08fd0e6cb5a|bfef25c1a8b147e9|12345|(641) 540-8660||5139790|0123456789
-Peter|Mia|Jones|||X|BOSTON|10-29 41st Avenue|south depot|"Regional Aid For Interim Needs,Inc."|a38f1158417fb8c8|b4939827fc2b7aa7|-22.4|560.813.0519|Pierce29@outlook.com|5142137|2345678901
-Jake|Xianxi||active|2|Male||102 West 91 Street|main office||add23db1e3ef3053|759ab816aefbb3b7||424-343-4935 x884|Kaylee_Walter13@outlook.com|5142471|4453256723
-James|Mary|Smith|pending||Female|montreal|10-30 41st Avenue|headquaters||543181b86676d8a8|cab0b8867d1663af||1-691-494-9374 x63785|Ottis9@outlook.com|5142492|1325432765
-Robert|Patricia|Johnson|terminated|T|Female|Montreal|1030 East 178th Street|south branch|Friends of Crown Heights|9de2ccf4b466ef6d|e5f225d2dfadc863|15.5||Corine.Cole@outlook.com|5143600|2345678901
-Bob|Jennefer|Williams|active|F|male|New York|10-43 41st Avenue||Brooklyn Bureau of Comm. Service|13d73fe0389d324b|e5f225d2dfadc863|-125|||5166552|1234567890
-John|Linda||pending|0|unknown|new york|1057 Boynton Avenue||Baychester Youth Council|a94cf407e936265d|768fec29d4f82a5f|12|281-210-8441 x42837|Hubert_Wilderman@yahoo.com|2073571|0123456789
-Michael|Susan|Brown|terminated|1||boston|105 North Portland Avenue|south depot|Jewish Association Services For the Aged|a94cf407e936265d|e3368d9638df98e3|-133.02|(922) 298-8277 x426|Nichole28@yahoo.com|2073571|2345678901
-Peter|Mia|Jones|0|U|M|BOSTON|1060 Myrtle Avenue|main office|Hudson Guild|a0d0374e9718c0f5|ab5991ee734bb0ef|12345|954-547-9602 x011|Selmer37@yahoo.com|1016107|4453256723
-Jake|Xianxi||1||F||1065 Beach Avenue|headquaters|"Ridgewood-Bushwick Sr Citizens Council,Inc."|f7e653656529339d|12555ca44ef41693|-22.4|(647) 607-0086 x611|Narciso_Jakubowski11@yahoo.com|3055768|1325432765
-James|Mary|Smith|0|2|U||107-60 159th Street|south branch||f7e653656529339d|12555ca44ef41693||||3055768|1234567890
-Robert|Patricia|Johnson|1|T|0|montreal|108-17 159th Street||"William Hodson Senior Center,Inc."|6c2b6152d51273ce|a33ffdf73a1e9dcb||1-883-806-8974 x40448|Rae_Renner84@protonmail.com|2016760|0123456789
-Bob|Jennefer|Williams|0|F|1|Montreal|108-25 62nd Drive||"Brooklyn Kindergarten Society,Inc. & DDC"|e32928910c1a5512|1f9b75a850b81db3|15.5|741-421-1519|Freida_Wilkinson97@protonmail.com|5127554|2345678901
-John|Linda||1|0|X|New York|108-25 62nd Drive|south depot|Coalition for Hispanic Family Services|0839c03843c72dfe|6d6bb19772d6cc07|-125|629.435.5075 x4013|Maci22@protonmail.com|5135735|1234567890
-Michael|Susan|Brown|0|1|Male|new york|1085 Castleton Avenue||NYCHA|7f7c31e6fca986e6|3bb05f8b59fc51bb|12|1-313-820-5793 x94332|Dorothy_Collins@protonmail.com|1040455|0123456789
-Peter|Mia|Jones|1|U|Female|boston|108 Avenue D|||63856b66953ac0c0|b2587f8f7487b85d|-133.02|||2024061|2345678901
-Jake|Xianxi||0||Female|BOSTON|109-04 160th Street||"Police Athletic League,Inc."|864f99fc3919ef61|b2587f8f7487b85d|12345|1-726-355-2008|Wyman.Brakus93@icloud.com|330604|4453256723
-James|Mary|Smith|1|2|male||10 Catherine Slip|main office|"South Bronx Head Start Program,Inc."|4cd932299fad68c8|72ce7a0ed1a6cccc|-22.4|244-502-3739 x6671|Annamarie.Kuhlman62@icloud.com|2016763|1325432765
-Robert|Patricia|Johnson|||unknown||110-01 62nd Drive|headquaters|Institute for the Puerto Rican/Hispanic Elderly|3737301b9e3365cf|2c2821da43fb81d1||460-406-7586|Macey.Kuphal10@icloud.com|2000047|2345678901
-Bob|Jennefer|Williams|active|T|||110-120 Baruch Drive|south branch|East Side House Settlement|3737301b9e3365cf|97626b17bb567ef6|15.5|365.410.7935 x489|Florencio_Wilkinson@icloud.com|2000047|1234567890
-James|Mary||pending|F|M|montreal|1105 Teller Avenue||Dawning Village|3737301b9e3365cf|913f1ad9ad99e4fc|-125|||2000047|0123456789
-Robert|Patricia|Brown|terminated|0|F|Montreal|110 East 129th Street||I Have A Dream Foundation-NY|3737301b9e3365cf|4b9907fa3f50038f|12|248-819-6371 x008|Seamus.Schaden@aol.com|2000047|2345678901
-Bob|Jennefer|Jones|active|1|U|New York|110 Taylor Street|south depot|Graham Windham Services to Families & Children|3737301b9e3365cf|431abb1b8f993561|-133.02|1-248-687-2066 x330|Lupe_Harris-Bartoletti@aol.com|2000047|4453256723
-James|Mary|Smith|pending|U|0|new york|110 West 9th Street||Colony South Brooklyn Houses|3737301b9e3365cf|f5f027cfc2063af3|12345|1-703-249-6199|Nellie28@aol.com|2000047|1325432765
-Robert|Patricia|Johnson|terminated||1|boston|1135 229th Dr South|main office|Claremont Neighborhood Center|3737301b9e3365cf|3cb69547957179b4|-22.4|540.688.8918|Genoveva_Schinner7@aol.com|2000047|1234567890
-Bob|Jennefer|Smith||2|X|BOSTON|1140 East 229th Street|headquaters|SCAN Supportive Children's Advocacy Network|3737301b9e3365cf|fcc80a4961c34b6a||||2000047|0123456789
-James|Mary|Johnson|active|T|Male|montreal|1141 East 229th Street|south branch|Spanish Speaking Elderly Council - RAICES|be0a893944fb722a|063ee252b8ee0327|xxx|546-434-4413 x63060|Halie41@mail.com|5137814|2345678901
-Robert|Patricia|Smith|pending|F|Female|Montreal|1145 University Avenue||Goodwill Industries of Greater New York|be0a893944fb722a|5df3e6067d97c3ee|xxx|543.561.6296 x8304|Autumn.Gusikowski88@mail.com|5137814|1234567890
-James|Mary|Johnson|terminated|0|Female|New York|114 Taylor Street||Research Foundation of the State University of New York|be0a893944fb722a|6ba964733898b0b9|15.5|1-908-492-2620 x76062|Ana_Dickinson@mail.com|5137814|0123456789
-Robert|Patricia|Smith|active|1|male|new york|114 West 91st Street|south depot||3f57b15af19ffe92|8ef75b106ec48e0c|-125|474.377.0371 x191|Mable20@mail.com|5140713|2345678901
-James|Mary|Johnson|pending|U|unknown|boston|1150 East 229th Street|main office|"Grand Street Settlement,Inc."|ac2bfce181be5444|8ef75b106ec48e0c|12|(346) 646-6226 x77469|Grayce.Parker@zoho.com|5141250|4453256723
-Robert|Patricia||terminated|||BOSTON|1155 University Avenue|headquaters|Utopia Children's Center|0e641162bf74e39f|d02814ec4ee00055|-133.02|252-924-5968 x23585|Armand_Runolfsson67@zoho.com|5143851|1325432765
-no_name|no_name1|no_name1|trash1|2|x1||115 East 98th Steet|south branch|SCAN Supportive Children's Advocacy Network|67a3748eb5312afd|86cb47219fd53371|12345|807.337.9363|Murray74@zoho.com|330609|2345678901
-no_good|no_name2|no_name2|trash2|z|x2|x1|1162 Washington Avenue||Addie Mae Collins Comm. Serv.|67a3748eb5312afd|86cb47219fd53371|-22.4|1-266-512-0884 x757|Geo_Moore@zoho.com|330609|1234567890
-no_name2|no_name3|no_name3|trash3|zz|x3|x2|116-40 Guy Brewer Blvd||"Hamilton-Madison House,Inc."|6f219b940cc18d72|1154a4dfc2fa5b0c|||||
+male_name*female_name*last_name*status_flag*binary_flag*gender*city*addr_line*work_loc*prv_org*alphaNumRe*nAlphaNumRe*amountRe*phoneRe*emailRe*numericRe*npiRe
+James*Mary*Smith*active*T*M*montreal*1000 Rosedale Avenue*main office*Police Athletic League,Inc.*26b0e07f0e36d206*cb522e244cda613b*15.5*1-558-207-0326 x06409*Kendall.Stroman36@gmail.com*3240515*1234567890
+Robert*Patricia*Johnson*pending*F*F*Montreal*1005 Tinton Avenue*headquaters*Institute for the Puerto Rican/Hispanic Elderly*f542af2491fa7c6b*cb522e244cda613b*-125*(819) 367-5092 x86765*Vinnie_Kuhic@gmail.com*1040252*0123456789
+Bob*Jennefer*Williams*terminated*0*U*New York*1020 College Avenue*south branch*Union Settlement Association*bd66d18d45c79704*08d9a894b9bd5318*12*836-615-6814 x51698*Olin8@gmail.com*1040292*2345678901
+John*Linda***1*0*new york*10-25 41st Avenue**Federation of Italian American Organizations of Brooklyn*796fa08fd0e6cb5a*586eb1cc3344a2b4*-133.02*316.842.0540 x2586*Stephanie.Okuneva-OHara43@gmail.com*5139790*1234567890
+Michael*Susan*Brown**U*1*boston*10-26 41st Avenue**Catholic Charities Neighborhood Services,Inc.*796fa08fd0e6cb5a*bfef25c1a8b147e9*12345*(641) 540-8660**5139790*0123456789
+Peter*Mia*Jones***X*BOSTON*10-29 41st Avenue*south depot*Regional Aid For Interim Needs,Inc.*a38f1158417fb8c8*b4939827fc2b7aa7*-22.4*560.813.0519*Pierce29@outlook.com*5142137*2345678901
+Jake*Xianxi**active*2*Male**102 West 91 Street*main office**add23db1e3ef3053*759ab816aefbb3b7**424-343-4935 x884*Kaylee_Walter13@outlook.com*5142471*4453256723
+James*Mary*Smith*pending**Female*montreal*10-30 41st Avenue*headquaters**543181b86676d8a8*cab0b8867d1663af**1-691-494-9374 x63785*Ottis9@outlook.com*5142492*1325432765
+Robert*Patricia*Johnson*terminated*T*Female*Montreal*1030 East 178th Street*south branch*Friends of Crown Heights*9de2ccf4b466ef6d*e5f225d2dfadc863*15.5**Corine.Cole@outlook.com*5143600*2345678901
+Bob*Jennefer*Williams*active*F*male*New York*10-43 41st Avenue**Brooklyn Bureau of Comm. Service*13d73fe0389d324b*e5f225d2dfadc863*-125***5166552*1234567890
+John*Linda**pending*0*unknown*new york*1057 Boynton Avenue**Baychester Youth Council*a94cf407e936265d*768fec29d4f82a5f*12*281-210-8441 x42837*Hubert_Wilderman@yahoo.com*2073571*0123456789
+Michael*Susan*Brown*terminated*1**boston*105 North Portland Avenue*south depot*Jewish Association Services For the Aged*a94cf407e936265d*e3368d9638df98e3*-133.02*(922) 298-8277 x426*Nichole28@yahoo.com*2073571*2345678901
+Peter*Mia*Jones*0*U*M*BOSTON*1060 Myrtle Avenue*main office*Hudson Guild*a0d0374e9718c0f5*ab5991ee734bb0ef*12345*954-547-9602 x011*Selmer37@yahoo.com*1016107*4453256723
+Jake*Xianxi**1**F**1065 Beach Avenue*headquaters*Ridgewood-Bushwick Sr Citizens Council,Inc.*f7e653656529339d*12555ca44ef41693*-22.4*(647) 607-0086 x611*Narciso_Jakubowski11@yahoo.com*3055768*1325432765
+James*Mary*Smith*0*2*U**107-60 159th Street*south branch**f7e653656529339d*12555ca44ef41693****3055768*1234567890
+Robert*Patricia*Johnson*1*T*0*montreal*108-17 159th Street**William Hodson Senior Center,Inc.*6c2b6152d51273ce*a33ffdf73a1e9dcb**1-883-806-8974 x40448*Rae_Renner84@protonmail.com*2016760*0123456789
+Bob*Jennefer*Williams*0*F*1*Montreal*108-25 62nd Drive**Brooklyn Kindergarten Society,Inc. & DDC*e32928910c1a5512*1f9b75a850b81db3*15.5*741-421-1519*Freida_Wilkinson97@protonmail.com*5127554*2345678901
+John*Linda**1*0*X*New York*108-25 62nd Drive*south depot*Coalition for Hispanic Family Services*0839c03843c72dfe*6d6bb19772d6cc07*-125*629.435.5075 x4013*Maci22@protonmail.com*5135735*1234567890
+Michael*Susan*Brown*0*1*Male*new york*1085 Castleton Avenue**NYCHA*7f7c31e6fca986e6*3bb05f8b59fc51bb*12*1-313-820-5793 x94332*Dorothy_Collins@protonmail.com*1040455*0123456789
+Peter*Mia*Jones*1*U*Female*boston*108 Avenue D***63856b66953ac0c0*b2587f8f7487b85d*-133.02***2024061*2345678901
+Jake*Xianxi**0**Female*BOSTON*109-04 160th Street**Police Athletic League,Inc.*864f99fc3919ef61*b2587f8f7487b85d*12345*1-726-355-2008*Wyman.Brakus93@icloud.com*330604*4453256723
+James*Mary*Smith*1*2*male**10 Catherine Slip*main office*South Bronx Head Start Program,Inc.*4cd932299fad68c8*72ce7a0ed1a6cccc*-22.4*244-502-3739 x6671*Annamarie.Kuhlman62@icloud.com*2016763*1325432765
+Robert*Patricia*Johnson***unknown**110-01 62nd Drive*headquaters*Institute for the Puerto Rican/Hispanic Elderly*3737301b9e3365cf*2c2821da43fb81d1**460-406-7586*Macey.Kuphal10@icloud.com*2000047*2345678901
+Bob*Jennefer*Williams*active*T***110-120 Baruch Drive*south branch*East Side House Settlement*3737301b9e3365cf*97626b17bb567ef6*15.5*365.410.7935 x489*Florencio_Wilkinson@icloud.com*2000047*1234567890
+James*Mary**pending*F*M*montreal*1105 Teller Avenue**Dawning Village*3737301b9e3365cf*913f1ad9ad99e4fc*-125***2000047*0123456789
+Robert*Patricia*Brown*terminated*0*F*Montreal*110 East 129th Street**I Have A Dream Foundation-NY*3737301b9e3365cf*4b9907fa3f50038f*12*248-819-6371 x008*Seamus.Schaden@aol.com*2000047*2345678901
+Bob*Jennefer*Jones*active*1*U*New York*110 Taylor Street*south depot*Graham Windham Services to Families & Children*3737301b9e3365cf*431abb1b8f993561*-133.02*1-248-687-2066 x330*Lupe_Harris-Bartoletti@aol.com*2000047*4453256723
+James*Mary*Smith*pending*U*0*new york*110 West 9th Street**Colony South Brooklyn Houses*3737301b9e3365cf*f5f027cfc2063af3*12345*1-703-249-6199*Nellie28@aol.com*2000047*1325432765
+Robert*Patricia*Johnson*terminated**1*boston*1135 229th Dr South*main office*Claremont Neighborhood Center*3737301b9e3365cf*3cb69547957179b4*-22.4*540.688.8918*Genoveva_Schinner7@aol.com*2000047*1234567890
+Bob*Jennefer*Smith**2*X*BOSTON*1140 East 229th Street*headquaters*SCAN Supportive Children's Advocacy Network*3737301b9e3365cf*fcc80a4961c34b6a****2000047*0123456789
+James*Mary*Johnson*active*T*Male*montreal*1141 East 229th Street*south branch*Spanish Speaking Elderly Council - RAICES*be0a893944fb722a*063ee252b8ee0327*xxx*546-434-4413 x63060*Halie41@mail.com*5137814*2345678901
+Robert*Patricia*Smith*pending*F*Female*Montreal*1145 University Avenue**Goodwill Industries of Greater New York*be0a893944fb722a*5df3e6067d97c3ee*xxx*543.561.6296 x8304*Autumn.Gusikowski88@mail.com*5137814*1234567890
+James*Mary*Johnson*terminated*0*Female*New York*114 Taylor Street**Research Foundation of the State University of New York*be0a893944fb722a*6ba964733898b0b9*15.5*1-908-492-2620 x76062*Ana_Dickinson@mail.com*5137814*0123456789
+Robert*Patricia*Smith*active*1*male*new york*114 West 91st Street*south depot**3f57b15af19ffe92*8ef75b106ec48e0c*-125*474.377.0371 x191*Mable20@mail.com*5140713*2345678901
+James*Mary*Johnson*pending*U*unknown*boston*1150 East 229th Street*main office*Grand Street Settlement,Inc.*ac2bfce181be5444*8ef75b106ec48e0c*12*(346) 646-6226 x77469*Grayce.Parker@zoho.com*5141250*4453256723
+Robert*Patricia**terminated***BOSTON*1155 University Avenue*headquaters*Utopia Children's Center*0e641162bf74e39f*d02814ec4ee00055*-133.02*252-924-5968 x23585*Armand_Runolfsson67@zoho.com*5143851*1325432765
+no_name*no_name1*no_name1*trash1*2*x1**115 East 98th Steet*south branch*SCAN Supportive Children's Advocacy Network*67a3748eb5312afd*86cb47219fd53371*12345*807.337.9363*Murray74@zoho.com*330609*2345678901
+no_good*no_name2*no_name2*trash2*z*x2*x1*1162 Washington Avenue**Addie Mae Collins Comm. Serv.*67a3748eb5312afd*86cb47219fd53371*-22.4*1-266-512-0884 x757*Geo_Moore@zoho.com*330609*1234567890
+no_name2*no_name3*no_name3*trash3*zz*x3*x2*116-40 Guy Brewer Blvd**Hamilton-Madison House,Inc.*6f219b940cc18d72*1154a4dfc2fa5b0c*****

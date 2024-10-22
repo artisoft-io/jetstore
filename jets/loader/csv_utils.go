@@ -59,7 +59,7 @@ func getRawHeadersFromCsvFile(fileHd *os.File) (*[]string, error) {
 			return nil, err
 		}
 	}
-	fmt.Println("Detected sep_flag", sep_flag)
+	fmt.Println("Detected sep_flag:", sep_flag)
 
 	// Read the file headers
 	switch inputFileEncoding {

@@ -30,10 +30,24 @@
           "rdf_type": "text"
         },
         {
+          "name": "layout_name",
+          "rdf_type": "text"
+        },
+        {
           "name": "session_id",
           "rdf_type": "text"
         }
       ]
+    }
+  ],
+  "schema_providers": [
+    {
+      "type": "default",
+      "source_type": "main_input",
+      "key": "_main_input_",
+      "schema_name": "test_schema",
+      "input_format": "csv",
+      "delimiter": "*"
     }
   ],
   "channels": [
@@ -43,6 +57,7 @@
         "column_name",
         "freq_count",
         "freq_value",
+        "layout_name",
         "session_id"
       ]
     }
@@ -59,15 +74,58 @@
           {
             "type": "high_freq",
             "high_freq_columns": [
-              "male_name",
-              "female_name",
-              "last_name",
-              "status_flag",
-              "binary_flag",
-              "gender",
-              "city"
+              {
+                "name": "male_name",
+                "top_pct": 75,
+                "top_rank": 10
+              },
+              {
+                "name": "female_name",
+                "top_pct": 75,
+                "top_rank": 10
+              },
+              {
+                "name": "last_name",
+                "top_pct": 75,
+                "top_rank": 10
+              },
+              {
+                "name": "status_flag",
+                "top_pct": 75,
+                "top_rank": 10
+              },
+              {
+                "name": "binary_flag",
+                "top_pct": 75,
+                "top_rank": 10
+              },
+              {
+                "name": "gender",
+                "top_pct": 75,
+                "top_rank": 10
+              },
+              {
+                "name": "city",
+                "top_pct": 75,
+                "top_rank": 10
+              }
             ],
-            "output": "$HIGH_FREQ_OUTPUT"
+            "columns": [
+              {
+                "name": "layout_name",
+                "type": "value",
+                "expr": "$MAIN_SCHEMA_NAME"
+              },
+              {
+                "name": "session_id",
+                "type": "value",
+                "expr": "$SESSIONID"
+              }
+            ],
+            "output_channel": {
+              "type": "sql",
+              "output_table_key": "$HIGH_FREQ_OUTPUT"
+            }
           }
         ]
       }

@@ -114,11 +114,11 @@ func (args *StartComputePipesArgs) StartReducingComputePipes(ctx context.Context
 			Key:        "_main_input_",
 			SourceType: "main_input",
 		}
+		if cpConfig.SchemaProviders == nil {
+			cpConfig.SchemaProviders = make([]*SchemaProviderSpec, 0)
+		}
+		cpConfig.SchemaProviders = append(cpConfig.SchemaProviders, schemaProviderConfig)
 	}
-	if cpConfig.SchemaProviders == nil {
-		cpConfig.SchemaProviders = make([]*SchemaProviderSpec, 0)
-	}
-	cpConfig.SchemaProviders = append(cpConfig.SchemaProviders, schemaProviderConfig)
 
 	// Deserialize the schema provider from the main input source
 	if len(schemaProviderJson) > 0 {
