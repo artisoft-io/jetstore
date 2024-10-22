@@ -15,7 +15,7 @@ type Chartype rune
 
 // Single character type for csv options
 func (s *Chartype) String() string {
-	return fmt.Sprintf("%#U", *s)
+	return string(rune(*s))
 }
 
 func (s *Chartype) Set(value string) error {

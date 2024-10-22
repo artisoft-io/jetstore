@@ -184,11 +184,11 @@ func (args *StartComputePipesArgs) StartShardingComputePipes(ctx context.Context
 			schemaProviderConfig.IsPartFiles = true
 		}
 		schemaProviderKey = schemaProviderConfig.Key
+		if cpConfig.SchemaProviders == nil {
+			cpConfig.SchemaProviders = make([]*SchemaProviderSpec, 0)
+		}
+		cpConfig.SchemaProviders = append(cpConfig.SchemaProviders, schemaProviderConfig)
 	}
-	if cpConfig.SchemaProviders == nil {
-		cpConfig.SchemaProviders = make([]*SchemaProviderSpec, 0)
-	}
-	cpConfig.SchemaProviders = append(cpConfig.SchemaProviders, schemaProviderConfig)
 
 	var sepFlag jcsv.Chartype
 	if len(schemaProviderJson) > 0 {
@@ -209,10 +209,10 @@ func (args *StartComputePipesArgs) StartShardingComputePipes(ctx context.Context
 		if len(schemaProviderConfig.InputFormat) > 0 {
 			inputFormat = schemaProviderConfig.InputFormat
 		}
-		if len(schemaProviderConfig.Delimiter) > 0 {
-			sepFlag.Set(schemaProviderConfig.Delimiter)
-		}
 		schemaProviderKey = schemaProviderConfig.Key
+	}
+	if len(schemaProviderConfig.Delimiter) > 0 {
+		sepFlag.Set(schemaProviderConfig.Delimiter)
 	}
 	stepId := 0
 	outputTables, err := SelectActiveOutputTable(cpConfig.OutputTables, cpConfig.ReducingPipesConfig[stepId])
