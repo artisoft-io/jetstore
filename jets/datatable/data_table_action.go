@@ -1043,6 +1043,7 @@ func (ctx *Context) InsertRows(dataTableAction *DataTableAction, token string) (
 							cmd.Stderr = &buf
 							log.Printf("Executing %s with args '%v'", execName, serverArgs)
 							err = cmd.Run()
+							(*results)["log"] = buf.String()
 						}
 
 					case "run_cpipes_only", "run_cpipes_reports":
@@ -1064,6 +1065,7 @@ func (ctx *Context) InsertRows(dataTableAction *DataTableAction, token string) (
 						cmd.Stderr = &buf
 						log.Printf("Executing cpipes command '%v'", cpipesArgs)
 						err = cmd.Run()
+						(*results)["log"] = buf.String()
 
 					default:
 						log.Printf("error: unknown devModeCode: %s", devModeCode)
@@ -1076,7 +1078,6 @@ func (ctx *Context) InsertRows(dataTableAction *DataTableAction, token string) (
 						log.Println("=*=*=*=*=*=*=*=*=*=*=*=*=*=*")
 						log.Printf("%s CAPTURED OUTPUT BEGIN", lable)
 						log.Println("=*=*=*=*=*=*=*=*=*=*=*=*=*=*")
-						(*results)["log"] = buf.String()
 						log.Println((*results)["log"])
 						log.Println("=*=*=*=*=*=*=*=*=*=*=*=*=*=*")
 						log.Printf("%s CAPTURED OUTPUT END", lable)

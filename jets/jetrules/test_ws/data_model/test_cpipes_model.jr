@@ -1,0 +1,10 @@
+# Data Model for Test CPIPES
+# Currently the data model is not used by cpipes, this is here for completeness
+
+class hf:Person {
+  $base_classes = [jets:Entity],
+  $data_properties = [
+    hf:name     as text
+  ],
+  $as_table = true
+};
