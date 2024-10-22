@@ -93,21 +93,40 @@ func (args *StartComputePipesArgs) StartReducingComputePipes(ctx context.Context
 		return result, fmt.Errorf("while unmarshaling compute pipes json (StartReducingComputePipes): %s", err)
 	}
 
-	// Deserialize the schema provider from the main input input source
 	// Get the schema provider from schemaProviderJson:
 	//   - Put SchemaName into env (done in CoordinateComputePipes)
 	//   - Put the schema provider in compute pipes json
-	var schemaProviderConfig SchemaProviderSpec
+	var schemaProviderConfig *SchemaProviderSpec
+	// First find if a schema provider already exist for "main_input"
+	for _, sp := range cpConfig.SchemaProviders {
+		if sp.SourceType == "main_input" {
+			schemaProviderConfig = sp
+			if sp.Key == "" {
+				sp.Key = "_main_input_"
+			}
+			break
+		}
+	}
+	if schemaProviderConfig == nil {
+		// Create and initialize a default SchemaProviderSpec
+		schemaProviderConfig = &SchemaProviderSpec{
+			Type:       "default",
+			Key:        "_main_input_",
+			SourceType: "main_input",
+		}
+	}
+	if cpConfig.SchemaProviders == nil {
+		cpConfig.SchemaProviders = make([]*SchemaProviderSpec, 0)
+	}
+	cpConfig.SchemaProviders = append(cpConfig.SchemaProviders, schemaProviderConfig)
+
+	// Deserialize the schema provider from the main input source
 	if len(schemaProviderJson) > 0 {
-		err = json.Unmarshal([]byte(schemaProviderJson), &schemaProviderConfig)
+		err = json.Unmarshal([]byte(schemaProviderJson), schemaProviderConfig)
 		if err != nil {
 			return result, fmt.Errorf("while unmarshaling schema_provider_json: %s", err)
 		}
 		schemaProviderConfig.SourceType = "main_input"
-		if cpConfig.SchemaProviders == nil {
-			cpConfig.SchemaProviders = make([]*SchemaProviderSpec, 0)
-		}
-		cpConfig.SchemaProviders = append(cpConfig.SchemaProviders, &schemaProviderConfig)
 	}
 
 	// Get the source for input_row channel, given by the first input_channel node
@@ -195,7 +214,7 @@ func (args *StartComputePipesArgs) StartReducingComputePipes(ctx context.Context
 	// Get the input columns from Pipes Config, from the first pipes channel
 	var inputColumns []string
 	var inputChannel string
-	sepFlag := jcsv.Chartype(',')		// always use ',' in reduce mode
+	sepFlag := jcsv.Chartype(',') // always use ',' in reduce mode
 	if !isMergeFiles {
 		inputChannel = cpConfig.ReducingPipesConfig[stepId][0].InputChannel.Name
 		if inputChannel == "input_row" {
