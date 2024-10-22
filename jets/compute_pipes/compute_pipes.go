@@ -65,15 +65,6 @@ func (cpCtx *ComputePipesContext) StartComputePipes(dbpool *pgxpool.Pool, comput
 		}
 	}()
 
-	// Create the SchemaManager and prepare the providers
-	schemaManager := NewSchemaManager(cpCtx.CpConfig.SchemaProviders, cpCtx.EnvSettings,
-		cpCtx.CpConfig.ClusterConfig.IsDebugMode)
-	err = schemaManager.PrepareSchemaProviders(dbpool)
-	if err != nil {
-		cpErr = fmt.Errorf("while calling schemaManager.PrepareSchemaProviders: %v", err)
-		goto gotError
-	}
-
 	// Prepare the channel registry
 	// ----------------------------
 	inputChannelName = cpCtx.CpConfig.PipesConfig[0].InputChannel.Name
@@ -81,7 +72,6 @@ func (cpCtx *ComputePipesContext) StartComputePipes(dbpool *pgxpool.Pool, comput
 		// case sharding or reducing
 		// Setup the input channel for input_row
 		headersPosMap := make(map[string]int)
-		//****CHECK FOR SCHEMA PROVIDER IN USE
 		for i, c := range cpCtx.CpConfig.CommonRuntimeArgs.SourcesConfig.MainInput.InputColumns {
 			headersPosMap[c] = i
 		}
@@ -222,7 +212,7 @@ func (cpCtx *ComputePipesContext) StartComputePipes(dbpool *pgxpool.Pool, comput
 		processName:        cpCtx.ProcessName,
 		channelRegistry:    channelRegistry,
 		lookupTableManager: lookupManager,
-		schemaManager:      schemaManager,
+		schemaManager:      cpCtx.SchemaManager,
 		done:               cpCtx.Done,
 		errCh:              cpCtx.ErrCh,
 		chResults:          cpCtx.ChResults,

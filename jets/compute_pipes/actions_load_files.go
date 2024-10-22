@@ -45,13 +45,14 @@ func (cpCtx *ComputePipesContext) LoadFiles(ctx context.Context, dbpool *pgxpool
 	var count, totalRowCount int64
 	var err error
 	inputFormat := cpCtx.CpConfig.CommonRuntimeArgs.SourcesConfig.MainInput.InputFormat
+	schemaProvider := cpCtx.CpConfig.CommonRuntimeArgs.SourcesConfig.MainInput.SchemaProvider
 	for localInFile := range cpCtx.FileNamesCh {
 		if cpCtx.CpConfig.ClusterConfig.IsDebugMode {
 			log.Printf("%s node %d Loading file '%s'", cpCtx.SessionId, cpCtx.NodeId, localInFile.InFileKey)
 		}
 		switch inputFormat {
 		case "csv", "headerless_csv", "compressed_csv", "compressed_headerless_csv":
-			count, err = cpCtx.ReadCsvFile(&localInFile, inputFormat, computePipesInputCh)
+			count, err = cpCtx.ReadCsvFile(&localInFile, inputFormat, schemaProvider, computePipesInputCh)
 		case "parquet", "parquet_select":
 			count, err = cpCtx.ReadParquetFile(&localInFile, computePipesInputCh)
 		default:
@@ -207,7 +208,7 @@ func (cpCtx *ComputePipesContext) ReadParquetFile(filePath *FileName, computePip
 	}
 }
 
-func (cpCtx *ComputePipesContext) ReadCsvFile(filePath *FileName, inputFormat string, computePipesInputCh chan<- []interface{}) (int64, error) {
+func (cpCtx *ComputePipesContext) ReadCsvFile(filePath *FileName, inputFormat, schemaProvider string, computePipesInputCh chan<- []interface{}) (int64, error) {
 	var fileHd *os.File
 	var csvReader *csv.Reader
 	var err error
@@ -245,20 +246,32 @@ func (cpCtx *ComputePipesContext) ReadCsvFile(filePath *FileName, inputFormat st
 	default:
 		return 0, fmt.Errorf("error: unknown cpipes mode in ReadCsvFile: %s", cpCtx.CpConfig.CommonRuntimeArgs.CpipesMode)
 	}
+	// Get the csv delimiter from the schema provider, if no schema provider exist assume it's ','
+	var sepFlag rune = ','
+	if len(schemaProvider) > 0 {
+		sp := cpCtx.SchemaManager.GetSchemaProvider(schemaProvider)
+		if sp != nil {
+			sepFlag = sp.Delimiter()
+		}
+	}
 
 	switch inputFormat {
 	case "csv":
 		csvReader = csv.NewReader(fileHd)
+		csvReader.Comma = sepFlag
 		// skip header row (first row)
 		_, err = csvReader.Read()
 	case "compressed_csv":
 		csvReader = csv.NewReader(snappy.NewReader(fileHd))
+		csvReader.Comma = sepFlag
 		// skip header row (first row)
 		_, err = csvReader.Read()
 	case "headerless_csv":
 		csvReader = csv.NewReader(fileHd)
+		csvReader.Comma = sepFlag
 	case "compressed_headerless_csv":
 		csvReader = csv.NewReader(snappy.NewReader(fileHd))
+		csvReader.Comma = sepFlag
 	default:
 		return 0, fmt.Errorf("error: unknown input format in ReadCsvFile: %s", inputFormat)
 	}

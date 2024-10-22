@@ -12,7 +12,7 @@ type ComputePipesConfig struct {
 	LookupTables        []*LookupSpec           `json:"lookup_tables"`
 	Channels            []ChannelSpec           `json:"channels"`
 	Context             *[]ContextSpec          `json:"context"`
-	SchemaProviders     *[]*SchemaProviderSpec  `json:"schema_providers"`
+	SchemaProviders     []*SchemaProviderSpec   `json:"schema_providers"`
 	PipesConfig         []PipeSpec              `json:"pipes_config"`
 	ReducingPipesConfig [][]PipeSpec            `json:"reducing_pipes_config"`
 }
@@ -56,17 +56,18 @@ type Metric struct {
 }
 
 type LookupSpec struct {
-	// type range: sql_lookup, s2_csv_lookup
+	// type range: sql_lookup, s3_csv_lookup
 	Key          string            `json:"key"`
 	Type         string            `json:"type"`
 	Query        string            `json:"query"`      // for sql_lookup
-	CsvSource    *CsvSourceSpec    `json:"csv_source"` //for s2_csv_lookup
+	CsvSource    *CsvSourceSpec    `json:"csv_source"` //for s3_csv_lookup
 	Columns      []TableColumnSpec `json:"columns"`
 	LookupKey    []string          `json:"lookup_key"`
 	LookupValues []string          `json:"lookup_values"`
 }
 
 type CsvSourceSpec struct {
+	// This is used for lookup tables only
 	// Type range: cpipes, csv_file (future)
 	// Default values are taken from current pipeline
 	// InputFormat: csv, headerless_csv, compressed_csv, compressed_headerless_csv
@@ -92,16 +93,25 @@ type ContextSpec struct {
 
 type SchemaProviderSpec struct {
 	// Type range: default
-	// InputFormat: csv, headerless_csv, fixed-width, parquet
-	Type        string             `json:"type"`
-	Key         string             `json:"key"`
-	Client      string             `json:"client"`
-	Vendor      string             `json:"vendor"`
-	ObjectType  string             `json:"object_type"`
-	SchemaName  string             `json:"schema_name"`
-	InputFormat string             `json:"input_format"`
-	Delimiter   string             `json:"delimiter"`
-	Columns     []SchemaColumnSpec `json:"columns"`
+	// InputFormat: csv, headerless_csv, fixed_width, parquet, parquet_select,
+	//              xlsx, headerless_xlsx
+	// InputFormatDataJson: json config based on InputFormat
+	// example: {"currentSheet": "Daily entry for Approvals"} (for xlsx).
+  // SourceType range: main_input, merged_input, historical_input (from input_source table)
+	//*TODO domain_keys_json
+	//*TODO code_values_mapping_json
+	Type                string             `json:"type"`
+	SourceType          string             `json:"source_type"`
+	Key                 string             `json:"key"`
+	Client              string             `json:"client"`
+	Vendor              string             `json:"vendor"`
+	ObjectType          string             `json:"object_type"`
+	SchemaName          string             `json:"schema_name"`
+	InputFormat         string             `json:"input_format"`
+	InputFormatDataJson string             `json:"input_format_data_json"`
+	Delimiter           string             `json:"delimiter"`
+	IsPartFiles         bool               `json:"is_part_files"`
+	Columns             []SchemaColumnSpec `json:"columns"`
 }
 
 type SchemaColumnSpec struct {
@@ -172,11 +182,12 @@ type TransformationSpec struct {
 type InputChannelConfig struct {
 	// Type range: input, stage (default)
 	// Format: csv, headerless_csv, compressed_csv, compressed_headerless_csv, etc
-	Type         string `json:"type"`
-	Name         string `json:"name"`
-	Format       string `json:"format"` // Type input
-	ReadStepId   string `json:"read_step_id"`
-	SamplingRate int    `json:"sampling_rate"`
+  // SchemaProvider is provided via ComputePipesCommonArgs.SourcesConfig (ie input_registry table)
+	Type           string `json:"type"`
+	Name           string `json:"name"`
+	Format         string `json:"format"`          // Type input
+	ReadStepId     string `json:"read_step_id"`
+	SamplingRate   int    `json:"sampling_rate"`
 }
 
 type OutputChannelConfig struct {
@@ -185,6 +196,7 @@ type OutputChannelConfig struct {
 	Type           string `json:"type"`
 	Name           string `json:"name"`
 	Format         string `json:"format"`           // Type output
+	SchemaProvider string `json:"schema_provider"`  // Type output, alt to Format
 	WriteStepId    string `json:"write_step_id"`    // Type stage
 	OutputTableKey string `json:"output_table_key"` // Type sql
 	KeyPrefix      string `json:"key_prefix"`       // Type output

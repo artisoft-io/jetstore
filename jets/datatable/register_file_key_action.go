@@ -102,6 +102,7 @@ func (ctx *Context) RegisterFileKeys(registerFileKeyAction *RegisterFileKeyActio
 	sessionId := time.Now().UnixMilli()
 	row := make([]interface{}, len(sqlStmt.ColumnKeys))
 	for irow := range registerFileKeyAction.Data {
+		var schemaProviderJson string
 		// fileKeyObject with defaults
 		fileKeyObject := map[string]interface{}{
 			"org":   "",
@@ -142,6 +143,8 @@ func (ctx *Context) RegisterFileKeys(registerFileKeyAction *RegisterFileKeyActio
 						return nil, http.StatusBadRequest, fmt.Errorf("while converting %s (%s) to int64: %v", k, vv, err)
 					}
 				}
+			case "schema_provider_json":
+				schemaProviderJson = v.(string)
 			}
 		}
 		ctx.updateFileKeyComponentCase(&fileKeyObject)
@@ -287,13 +290,14 @@ func (ctx *Context) RegisterFileKeys(registerFileKeyAction *RegisterFileKeyActio
 				// and invoke StartPipelineOnInputRegistryInsert)
 				var inputRegistryKey int
 				log.Println("Write to input_registry for cpipes input files object type:", objectType, "client", client, "org", org)
-				stmt = `INSERT INTO jetsapi.input_registry (
-							client, org, object_type, file_key, source_period_key, table_name, source_type, session_id, user_email) 
-							VALUES ($1, $2, $3, $4, $5, $6, 'file', $7, $8) 
+				stmt = `INSERT INTO jetsapi.input_registry 
+							(client, org, object_type, file_key, source_period_key, table_name, 
+							 source_type, session_id, user_email, schema_provider_json
+							)	VALUES ($1, $2, $3, $4, $5, $6, 'file', $7, 'system', $8) 
 							ON CONFLICT DO NOTHING
 							RETURNING key`
 				err = ctx.Dbpool.QueryRow(context.Background(), stmt,
-					client, org, objectType, fileKey, source_period_key, tableName, sessionIdStr, "system").Scan(&inputRegistryKey)
+					client, org, objectType, fileKey, source_period_key, tableName, sessionIdStr, schemaProviderJson).Scan(&inputRegistryKey)
 				if err != nil {
 					return nil, http.StatusInternalServerError, fmt.Errorf("error inserting in jetsapi.input_registry table: %v", err)
 				}

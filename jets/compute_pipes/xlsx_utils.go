@@ -20,19 +20,18 @@ func parseInputFormatDataXlsx(inputDataFormatJson *string) error {
 	return nil
 }
 
-func GetRawHeadersXlsx(fileName string, fileFormatDataJson string) (*[]string, error) {
+func GetRawHeadersXlsx(fileName string, fileFormatDataJson string, ic *[]string) error {
 	// Parse the file type specific options
 	err := parseInputFormatDataXlsx(&fileFormatDataJson)
 	if err != nil {
-		return nil, fmt.Errorf("while parsing input_data_format_json for xlsx files: %v", err)
+		return fmt.Errorf("while parsing input_data_format_json for xlsx files: %v", err)
 	}
 
 	// Get rawHeaders from file
-	var rawHeaders []string
 	// open the file, need to get the sheet structure
 	xl, err := xlsxreader.OpenFile(fileName)
 	if err != nil {
-		return nil, fmt.Errorf("while opening file %s using xlsx reader: %v", fileName, err)
+		return fmt.Errorf("while opening file %s using xlsx reader: %v", fileName, err)
 	}
 	defer xl.Close()
 
@@ -53,7 +52,7 @@ func GetRawHeadersXlsx(fileName string, fileFormatDataJson string) (*[]string, e
 			}
 			if currentSheetPos < 0 {
 				// Current Sheet not found
-				return nil, fmt.Errorf("error: could not find sheet named %s in xlsx file", sheet)
+				return fmt.Errorf("error: could not find sheet named %s in xlsx file", sheet)
 			}
 		}
 		inputFormatData["currentSheetPos"] = currentSheetPos
@@ -67,7 +66,7 @@ func GetRawHeadersXlsx(fileName string, fileFormatDataJson string) (*[]string, e
 	for {
 		row, ok = <-xlCh
 		if !ok || row.Error != nil {
-			return nil, fmt.Errorf("error: could not read headers from xlsx file: %v", row.Error)
+			return fmt.Errorf("error: could not read headers from xlsx file: %v", row.Error)
 		}
 		if len(row.Cells) > 1 {
 			// ok got headers
@@ -75,7 +74,7 @@ func GetRawHeadersXlsx(fileName string, fileFormatDataJson string) (*[]string, e
 		}
 	}
 	ipos := 0
-	rawHeaders = make([]string, 0)
+	rawHeaders := make([]string, 0)
 	for i := range row.Cells {
 		for ipos < row.Cells[i].ColumnIndex() {
 			rawHeaders = append(rawHeaders, "")
@@ -84,9 +83,9 @@ func GetRawHeadersXlsx(fileName string, fileFormatDataJson string) (*[]string, e
 		rawHeaders = append(rawHeaders, row.Cells[i].Value)
 		ipos += 1
 	}
-
 	// Make sure we don't have empty names in rawHeaders
 	AdjustFillers(&rawHeaders)
-	fmt.Println("Got input columns (rawHeaders) from xls file:", rawHeaders)
-	return &rawHeaders, nil
+	*ic = rawHeaders
+	fmt.Println("Got input columns (rawHeaders) from xls file:", *ic)
+	return nil
 }

@@ -10,17 +10,22 @@ import (
 )
 
 // Common functions and types for cp lambda version
+// NOTE: SchemaProviders for externally specified schema, are specified
+//       in the input_registry table via register_file_key action.
+//       The schema providers are put into the ComputePipesConfig.
+// Note: SchemaProviderSpec.Key must match the value specified in
+//       OutputChannelConfig.SchemaProvider
 
 // Argument to start_cp (start_sharding_cp, start_reducing_cp)
 // for starting the cp cluster
 // MaxConcurrency is to have a specified value of max concurrency
 type StartComputePipesArgs struct {
-	PipelineExecKey int    `json:"pipeline_execution_key"`
-	FileKey         string `json:"file_key"`
-	SessionId       string `json:"session_id"`
-	StepId          *int   `json:"step_id"`
-	UseECSTask      bool   `json:"use_ecs_tasks"`
-	MaxConcurrency  int    `json:"max_concurrency"`
+	PipelineExecKey int                    `json:"pipeline_execution_key"`
+	FileKey         string                 `json:"file_key"`
+	SessionId       string                 `json:"session_id"`
+	StepId          *int                   `json:"step_id"`
+	UseECSTask      bool                   `json:"use_ecs_tasks"`
+	MaxConcurrency  int                    `json:"max_concurrency"`
 }
 
 type InputStats struct {
@@ -43,6 +48,11 @@ type ComputePipesNodeArgs struct {
 // is at the stage of merging the part files into a single output file.
 // This will use a single node since merge_files has a single partition
 // to read from (the step_id prior to merge_files writes a single partition).
+// Note: Client and Org are the pipeline execution client and org and may
+//       be different than the client/vendor of the actual data (case using
+//       stand-in client/org name). In that situation the actual 
+//       client/vendor of the data is specified at run time via the SchemaProviders
+//       on table input_registry.
 type ComputePipesCommonArgs struct {
 	CpipesMode        string            `json:"cpipes_mode"`
 	Client            string            `json:"client"`
@@ -71,10 +81,14 @@ type SourcesConfigSpec struct {
 
 // InputSourceSpec contains carry over configuration from
 // table source_config.
+// See SchemaProviderSpec for details
+// InputSourceSpec proverties override SchemaProviderSpec
+// properties.
 type InputSourceSpec struct {
 	InputColumns        []string `json:"input_columns"`
 	InputFormat         string   `json:"input_format"`
 	InputFormatDataJson string   `json:"input_format_data_json"`
+	SchemaProvider      string   `json:"schema_provider"`
 }
 
 // Full arguments to cp_node for sharding and reducing
@@ -193,4 +207,5 @@ type ComputePipesContext struct {
 	FileNamesCh           chan FileName
 	DownloadS3ResultCh    chan DownloadS3Result // avoid to modify ChannelResult for now...
 	S3DeviceMgr           *S3DeviceManager
+	SchemaManager         *SchemaManager
 }

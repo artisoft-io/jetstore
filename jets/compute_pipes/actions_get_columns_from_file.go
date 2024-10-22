@@ -4,47 +4,89 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strings"
 	"time"
+
+	"github.com/artisoft-io/jetstore/jets/awsi"
+	"github.com/artisoft-io/jetstore/jets/datatable/jcsv"
 )
 
 // This file contains functions to fetch a file from s3 and read it's columns header.
 // This is all done synchronously.
 
 // Main function
-func FetchHeadersFromFile(fileKey, fileFormat, fileFormatDataJson string) (*[]string, error) {
+// if len(*ic) == 0 then fetch headers from file
+// if *sepFlag == 0 then fetch column separator from file
+// error if ic == nil or sepFlag == nil
+func FetchHeadersAndDelimiterFromFile(fileKey, fileFormat string, ic *[]string, sepFlag *jcsv.Chartype, fileFormatDataJson string) error {
 	var fileHd *os.File
 	var err error
+	if ic == nil || sepFlag == nil {
+		return fmt.Errorf("error: FetchHeadersAndDelimiterFromFile must have ic and sepFlag arguments not nil")
+	}
 	fileHd, err = os.CreateTemp("", "jetstore_headers")
 	if err != nil {
-		return nil, fmt.Errorf("failed to open temp file: %v", err)
+		return fmt.Errorf("failed to open temp file: %v", err)
 	}
 	// fmt.Println("Temp error file name:", fileHd.Name())
-	defer os.Remove(fileHd.Name())
-
+	defer func() { 
+		if fileHd != nil {
+			fn := fileHd.Name()
+			fileHd.Close()
+			os.Remove(fn) 
+		}
+	}()
+	var byteRange *string
+	switch fileFormat {
+	case "csv", "compressed_csv":
+		s := "bytes=0-50000"
+		byteRange = &s
+	}
 	retry := 0
 do_retry:
-	fileName, fileSize, err := DownloadS3Object(fileKey, "", 1)
+	// Download the object
+	fileSize, err := awsi.DownloadFromS3v2(downloader, bucketName, fileKey, byteRange, fileHd)
 	if err != nil {
 		if retry < 6 {
 			time.Sleep(500 * time.Millisecond)
 			retry++
 			goto do_retry
 		}
-		return nil, fmt.Errorf("failed to download s3 file %s: %v", fileKey, err)
+		return fmt.Errorf("failed to download s3 file %s: %v", fileKey, err)
 	}
-	log.Printf("Reading headers from file %s, size %d Kb", fileName, fileSize/1024)
+	log.Printf("Reading headers from file %s, size %.3f Kb", fileHd.Name(), float64(fileSize)/1024)
 
-	switch fileFormat {
-	case "csv", "compressed_csv":
-		return GetRawHeadersCsv(fileName, fileFormat)
+	switch  {
+	case strings.HasSuffix(fileFormat, "csv"):
+		if *sepFlag == 0 {
+			// determine the csv separator
+			if strings.HasPrefix(fileFormat, "compressed") {
+				*sepFlag = ','
+			} else {
+				*sepFlag, err = DetectCsvDelimitor(fileHd, fileKey)
+				if err != nil {
+					return err
+				}
+				fmt.Println("Detected sep_flag", sepFlag)	
+			}
+		}
+		if len(*ic) == 0 && !strings.HasSuffix(fileFormat, "headerless_csv") {
+			return GetRawHeadersCsv(fileHd, fileKey, fileFormat, ic, sepFlag)
+		}
+		return nil
 
-	case "parquet":
+	case fileFormat == "parquet":
 		// Get the file headers from the parquet schema
-		return GetRawHeadersParquet(fileName)
+		return GetRawHeadersParquet(fileHd, fileKey, fileFormat, ic)
 
-	case "xlsx":
-		return GetRawHeadersXlsx(fileName, fileFormatDataJson)
+	case fileFormat == "xlsx":
+		fileName := fileHd.Name()
+		fileHd.Close()
+		fileHd = nil
+		err = GetRawHeadersXlsx(fileName, fileFormatDataJson, ic)
+		os.Remove(fileName)
+		return err
 	default:
-		return nil, fmt.Errorf("error: unknown file format: %s for getting headers from file", fileFormat)
+		return fmt.Errorf("error: unknown file format: %s for getting headers or delimiter from file", fileFormat)
 	}
 }

@@ -10,6 +10,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/artisoft-io/jetstore/jets/datatable/jcsv"
 	"github.com/artisoft-io/jetstore/jets/dbutils"
 	"github.com/artisoft-io/jetstore/jets/workspace"
 	"github.com/jackc/pgx/v4/pgxpool"
@@ -49,12 +50,12 @@ func (args *StartComputePipesArgs) StartReducingComputePipes(ctx context.Context
 
 	// get pe info and pipeline config
 	// cpipesConfigFN is file name within workspace
-	var client, org, objectType, processName, inputFormat, inputSessionId, userEmail string
+	var client, org, objectType, processName, inputFormat, inputSessionId, userEmail, schemaProviderJson string
 	var sourcePeriodKey, pipelineConfigKey int
 	var cpipesConfigFN sql.NullString
 	log.Println("CPIPES, loading pipeline configuration")
 	stmt := `
-	SELECT	ir.client, ir.org, ir.object_type, ir.source_period_key, 
+	SELECT	ir.client, ir.org, ir.object_type, ir.source_period_key, ir.schema_provider_json, 
 		pe.pipeline_config_key, pe.process_name, pe.input_session_id, pe.user_email,
 		pc.main_rules
 	FROM 
@@ -65,7 +66,7 @@ func (args *StartComputePipesArgs) StartReducingComputePipes(ctx context.Context
 		AND pe.key = $1
 		AND pc.process_name = pe.process_name`
 	err = dbpool.QueryRow(context.Background(), stmt, args.PipelineExecKey).Scan(
-		&client, &org, &objectType, &sourcePeriodKey,
+		&client, &org, &objectType, &sourcePeriodKey, &schemaProviderJson,
 		&pipelineConfigKey, &processName, &inputSessionId, &userEmail,
 		&cpipesConfigFN)
 	if err != nil {
@@ -74,8 +75,10 @@ func (args *StartComputePipesArgs) StartReducingComputePipes(ctx context.Context
 	if !cpipesConfigFN.Valid || len(cpipesConfigFN.String) == 0 {
 		return result, fmt.Errorf("error: process_config table does not have a cpipes config file name in main_rules column")
 	}
-	// File format: csv, headerless_csv, fixed_width, parquet, parquet_select
+
+	// File format: csv, headerless_csv, fixed_width, parquet, parquet_select, xlsx, headerless_xlsx
 	// Additional file format for internal use (for now): compressed_csv, compressed_headerless_csv
+	// Reducing steps uses compressed_headerless_csv except when inputChannel is 'input_row', see below
 	inputFormat = "compressed_headerless_csv"
 
 	// Get the cpipes_config json from workspace
@@ -88,6 +91,23 @@ func (args *StartComputePipesArgs) StartReducingComputePipes(ctx context.Context
 	err = json.Unmarshal(cpJson, &cpConfig)
 	if err != nil {
 		return result, fmt.Errorf("while unmarshaling compute pipes json (StartReducingComputePipes): %s", err)
+	}
+
+	// Deserialize the schema provider from the main input input source
+	// Get the schema provider from schemaProviderJson:
+	//   - Put SchemaName into env (done in CoordinateComputePipes)
+	//   - Put the schema provider in compute pipes json
+	var schemaProviderConfig SchemaProviderSpec
+	if len(schemaProviderJson) > 0 {
+		err = json.Unmarshal([]byte(schemaProviderJson), &schemaProviderConfig)
+		if err != nil {
+			return result, fmt.Errorf("while unmarshaling schema_provider_json: %s", err)
+		}
+		schemaProviderConfig.SourceType = "main_input"
+		if cpConfig.SchemaProviders == nil {
+			cpConfig.SchemaProviders = make([]*SchemaProviderSpec, 0)
+		}
+		cpConfig.SchemaProviders = append(cpConfig.SchemaProviders, &schemaProviderConfig)
 	}
 
 	// Get the source for input_row channel, given by the first input_channel node
@@ -175,6 +195,7 @@ func (args *StartComputePipesArgs) StartReducingComputePipes(ctx context.Context
 	// Get the input columns from Pipes Config, from the first pipes channel
 	var inputColumns []string
 	var inputChannel string
+	sepFlag := jcsv.Chartype(',')		// always use ',' in reduce mode
 	if !isMergeFiles {
 		inputChannel = cpConfig.ReducingPipesConfig[stepId][0].InputChannel.Name
 		if inputChannel == "input_row" {
@@ -187,11 +208,10 @@ func (args *StartComputePipesArgs) StartReducingComputePipes(ctx context.Context
 			if len(fileKeys) == 0 {
 				return result, fmt.Errorf("error: no files found in partition %s", partitions[0])
 			}
-			ic, err := FetchHeadersFromFile(fileKeys[0], inputFormat, "")
-			if err != nil || ic == nil {
+			err = FetchHeadersAndDelimiterFromFile(fileKeys[0], inputFormat, &inputColumns, &sepFlag, "")
+			if err != nil {
 				return result, fmt.Errorf("error: could not get input columns from file (reduce mode): %v", err)
 			}
-			inputColumns = *ic
 		} else {
 			for i := range cpConfig.Channels {
 				if cpConfig.Channels[i].Name == inputChannel {
@@ -231,22 +251,22 @@ func (args *StartComputePipesArgs) StartReducingComputePipes(ctx context.Context
 			ProcessName:     processName,
 			SourcesConfig: SourcesConfigSpec{
 				MainInput: &InputSourceSpec{
-					InputColumns:        inputColumns,
-					InputFormat:         inputFormat,
-					InputFormatDataJson: "",
+					InputColumns: inputColumns,
+					InputFormat:  inputFormat,
 				},
 			},
 			PipelineConfigKey: pipelineConfigKey,
 			UserEmail:         userEmail,
 		},
-		ClusterConfig: clusterSpec,
-		MetricsConfig: cpConfig.MetricsConfig,
-		OutputTables:  outputTables,
-		OutputFiles:   cpConfig.OutputFiles,
-		LookupTables:  lookupTables,
-		Channels:      cpConfig.Channels,
-		Context:       cpConfig.Context,
-		PipesConfig:   pipeConfig,
+		ClusterConfig:   clusterSpec,
+		MetricsConfig:   cpConfig.MetricsConfig,
+		OutputTables:    outputTables,
+		OutputFiles:     cpConfig.OutputFiles,
+		LookupTables:    lookupTables,
+		Channels:        cpConfig.Channels,
+		Context:         cpConfig.Context,
+		SchemaProviders: cpConfig.SchemaProviders,
+		PipesConfig:     pipeConfig,
 	}
 
 	reducingConfigJson, err := json.Marshal(cpReducingConfig)
