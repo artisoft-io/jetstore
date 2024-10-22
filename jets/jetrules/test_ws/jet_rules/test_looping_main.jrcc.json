@@ -31,7 +31,7 @@
             "source_file_name": "data_model/jets_model.jr",
             "source_fname": "predefined",
             "key": 3,
-            "db_key": 31
+            "db_key": 28
         },
         {
             "type": "volatile_resource",
@@ -55,7 +55,7 @@
             "value": "owl:Thing",
             "source_file_name": "predefined",
             "key": 6,
-            "db_key": 8
+            "db_key": 59
         },
         {
             "id": "jets:client",
@@ -71,7 +71,7 @@
             "value": "jets:key",
             "source_file_name": "predefined",
             "key": 8,
-            "db_key": 54
+            "db_key": 9
         },
         {
             "id": "jets:org",
@@ -95,7 +95,7 @@
             "value": "rdf:type",
             "source_file_name": "predefined",
             "key": 11,
-            "db_key": 53
+            "db_key": 31
         },
         {
             "id": "jets:InputRecord",
@@ -111,7 +111,7 @@
             "value": "jets:State",
             "source_file_name": "predefined",
             "key": 13,
-            "db_key": 29
+            "db_key": 78
         },
         {
             "id": "jets:completed",
@@ -119,7 +119,7 @@
             "value": "jets:completed",
             "source_file_name": "predefined",
             "key": 14,
-            "db_key": 64
+            "db_key": 32
         },
         {
             "id": "jets:currentSourcePeriod",
@@ -143,7 +143,7 @@
             "value": "jets:exception",
             "source_file_name": "predefined",
             "key": 17,
-            "db_key": 74
+            "db_key": 52
         },
         {
             "id": "jets:from",
@@ -167,7 +167,7 @@
             "value": "jets:loop",
             "source_file_name": "predefined",
             "key": 20,
-            "db_key": 71
+            "db_key": 2
         },
         {
             "id": "jets:max_vertex_visits",
@@ -491,646 +491,7 @@
         }
     ],
     "lookup_tables": [],
-    "jet_rules": [
-        {
-            "name": "LOOP01",
-            "properties": {},
-            "optimization": true,
-            "salience": 100,
-            "antecedents": [
-                {
-                    "type": "antecedent",
-                    "isNot": false,
-                    "normalizedLabel": "(?x1 rdf:type jets:State)",
-                    "vertex": 1,
-                    "parent_vertex": 0,
-                    "beta_relation_vars": [
-                        "?x1"
-                    ],
-                    "pruned_var": [],
-                    "beta_var_nodes": [
-                        {
-                            "type": "var",
-                            "id": "?x1",
-                            "is_binded": false,
-                            "var_pos": 0,
-                            "vertex": 1,
-                            "key": 28,
-                            "source_file_name": "jet_rules/test_looping_main.jr",
-                            "db_key": 142
-                        }
-                    ],
-                    "children_vertexes": [
-                        2,
-                        3,
-                        5
-                    ],
-                    "rules": [
-                        "jets:State:3"
-                    ],
-                    "salience": [
-                        100
-                    ],
-                    "subject_key": 28,
-                    "predicate_key": 11,
-                    "object_key": 13,
-                    "db_key": 21
-                },
-                {
-                    "type": "antecedent",
-                    "isNot": false,
-                    "normalizedLabel": "(?x1 jets:loop ?x2).[?x2 <= int(3)]",
-                    "filter": {
-                        "type": "binary",
-                        "lhs": 31,
-                        "op": "<=",
-                        "rhs": 32,
-                        "arg0_key": 3,
-                        "arg1_key": 4
-                    },
-                    "vertex": 2,
-                    "parent_vertex": 1,
-                    "beta_relation_vars": [
-                        "?x1",
-                        "?x2"
-                    ],
-                    "pruned_var": [],
-                    "beta_var_nodes": [
-                        {
-                            "type": "var",
-                            "id": "?x1",
-                            "is_binded": true,
-                            "var_pos": 0,
-                            "vertex": 2
-                        },
-                        {
-                            "type": "var",
-                            "id": "?x2",
-                            "is_binded": false,
-                            "var_pos": 2,
-                            "vertex": 2,
-                            "key": 30,
-                            "source_file_name": "jet_rules/test_looping_main.jr",
-                            "db_key": 144
-                        }
-                    ],
-                    "children_vertexes": [],
-                    "rules": [
-                        "LOOP01"
-                    ],
-                    "salience": [
-                        100
-                    ],
-                    "subject_key": 29,
-                    "predicate_key": 20,
-                    "object_key": 30,
-                    "filter_expr_key": 5,
-                    "db_key": 22
-                }
-            ],
-            "consequents": [
-                {
-                    "type": "consequent",
-                    "normalizedLabel": "(?x1 newPerson create_entity int(0))",
-                    "vertex": 2,
-                    "consequent_seq": 1,
-                    "consequent_for_rule": "LOOP01",
-                    "consequent_salience": 100,
-                    "subject_key": 43,
-                    "predicate_key": 4,
-                    "obj_expr": {
-                        "type": "unary",
-                        "op": "create_entity",
-                        "arg": 44,
-                        "arg0_key": 6
-                    },
-                    "obj_expr_key": 7,
-                    "db_key": 30
-                }
-            ],
-            "authoredLabel": "[LOOP01]:(?state rdf:type jets:State).(?state jets:loop ?i).[?i <= int(3)] -> (?state newPerson create_entity int(0));",
-            "source_file_name": "jet_rules/test_looping_main.jr",
-            "normalizedLabel": "[LOOP01]:(?x1 rdf:type jets:State).(?x1 jets:loop ?x2).[?x2 <= int(3)] -> (?x1 newPerson create_entity int(0));",
-            "label": "[LOOP01]:(?state rdf:type jets:State).(?state jets:loop ?i).[?i <= int(3)] -> (?state newPerson create_entity int(0));",
-            "db_key": 9
-        },
-        {
-            "name": "LOOP02",
-            "properties": {},
-            "optimization": true,
-            "salience": 100,
-            "antecedents": [
-                {
-                    "type": "antecedent",
-                    "isNot": false,
-                    "normalizedLabel": "(?x1 rdf:type jets:State)",
-                    "vertex": 1,
-                    "parent_vertex": 0,
-                    "beta_relation_vars": [
-                        "?x1"
-                    ],
-                    "pruned_var": [],
-                    "beta_var_nodes": [
-                        {
-                            "type": "var",
-                            "id": "?x1",
-                            "is_binded": false,
-                            "var_pos": 0,
-                            "vertex": 1,
-                            "key": 28,
-                            "source_file_name": "jet_rules/test_looping_main.jr",
-                            "db_key": 142
-                        }
-                    ],
-                    "children_vertexes": [
-                        2,
-                        3,
-                        5
-                    ],
-                    "rules": [
-                        "jets:State:3"
-                    ],
-                    "salience": [
-                        100
-                    ],
-                    "subject_key": 28,
-                    "predicate_key": 11,
-                    "object_key": 13,
-                    "db_key": 21
-                },
-                {
-                    "type": "antecedent",
-                    "isNot": false,
-                    "normalizedLabel": "(?x1 jets:loop ?x2)",
-                    "vertex": 3,
-                    "parent_vertex": 1,
-                    "beta_relation_vars": [
-                        "?x1",
-                        "?x2"
-                    ],
-                    "pruned_var": [],
-                    "beta_var_nodes": [
-                        {
-                            "type": "var",
-                            "id": "?x1",
-                            "is_binded": true,
-                            "var_pos": 0,
-                            "vertex": 3
-                        },
-                        {
-                            "type": "var",
-                            "id": "?x2",
-                            "is_binded": false,
-                            "var_pos": 2,
-                            "vertex": 3,
-                            "key": 34,
-                            "source_file_name": "jet_rules/test_looping_main.jr",
-                            "db_key": 148
-                        }
-                    ],
-                    "children_vertexes": [
-                        4
-                    ],
-                    "subject_key": 33,
-                    "predicate_key": 20,
-                    "object_key": 34,
-                    "db_key": 23
-                },
-                {
-                    "type": "antecedent",
-                    "isNot": false,
-                    "normalizedLabel": "(?x1 newPerson ?x3)",
-                    "vertex": 4,
-                    "parent_vertex": 3,
-                    "beta_relation_vars": [
-                        "?x2",
-                        "?x3"
-                    ],
-                    "pruned_var": [
-                        "?x1"
-                    ],
-                    "beta_var_nodes": [
-                        {
-                            "type": "var",
-                            "id": "?x2",
-                            "is_binded": true,
-                            "var_pos": 1,
-                            "vertex": 4
-                        },
-                        {
-                            "type": "var",
-                            "id": "?x3",
-                            "is_binded": false,
-                            "var_pos": 2,
-                            "vertex": 4,
-                            "key": 36,
-                            "source_file_name": "jet_rules/test_looping_main.jr",
-                            "db_key": 150
-                        }
-                    ],
-                    "children_vertexes": [],
-                    "rules": [
-                        "LOOP02"
-                    ],
-                    "salience": [
-                        100
-                    ],
-                    "subject_key": 35,
-                    "predicate_key": 4,
-                    "object_key": 36,
-                    "db_key": 24
-                }
-            ],
-            "consequents": [
-                {
-                    "type": "consequent",
-                    "normalizedLabel": "(?x3 rdf:type lp:Person)",
-                    "vertex": 4,
-                    "consequent_seq": 1,
-                    "consequent_for_rule": "LOOP02",
-                    "consequent_salience": 100,
-                    "subject_key": 45,
-                    "predicate_key": 11,
-                    "object_key": 26,
-                    "db_key": 31
-                },
-                {
-                    "type": "consequent",
-                    "normalizedLabel": "(?x3 lp:name \"person_\" + ?x2)",
-                    "vertex": 4,
-                    "consequent_seq": 2,
-                    "consequent_for_rule": "LOOP02",
-                    "consequent_salience": 100,
-                    "subject_key": 46,
-                    "predicate_key": 27,
-                    "obj_expr": {
-                        "type": "binary",
-                        "lhs": 47,
-                        "op": "+",
-                        "rhs": 48,
-                        "arg0_key": 8,
-                        "arg1_key": 9
-                    },
-                    "obj_expr_key": 10,
-                    "db_key": 32
-                }
-            ],
-            "authoredLabel": "[LOOP02]:(?state rdf:type jets:State).(?state jets:loop ?i).(?state newPerson ?p) -> (?p rdf:type lp:Person).(?p lp:name \"person_\" + ?i);",
-            "source_file_name": "jet_rules/test_looping_main.jr",
-            "normalizedLabel": "[LOOP02]:(?x1 rdf:type jets:State).(?x1 jets:loop ?x2).(?x1 newPerson ?x3) -> (?x3 rdf:type lp:Person).(?x3 lp:name \"person_\" + ?x2);",
-            "label": "[LOOP02]:(?state rdf:type jets:State).(?state jets:loop ?i).(?state newPerson ?p) -> (?p rdf:type lp:Person).(?p lp:name \"person_\" + ?i);",
-            "db_key": 10
-        },
-        {
-            "name": "LOOP03",
-            "properties": {},
-            "optimization": true,
-            "salience": 100,
-            "antecedents": [
-                {
-                    "type": "antecedent",
-                    "isNot": false,
-                    "normalizedLabel": "(?x1 rdf:type jets:State)",
-                    "vertex": 1,
-                    "parent_vertex": 0,
-                    "beta_relation_vars": [
-                        "?x1"
-                    ],
-                    "pruned_var": [],
-                    "beta_var_nodes": [
-                        {
-                            "type": "var",
-                            "id": "?x1",
-                            "is_binded": false,
-                            "var_pos": 0,
-                            "vertex": 1,
-                            "key": 28,
-                            "source_file_name": "jet_rules/test_looping_main.jr",
-                            "db_key": 142
-                        }
-                    ],
-                    "children_vertexes": [
-                        2,
-                        3,
-                        5
-                    ],
-                    "rules": [
-                        "jets:State:3"
-                    ],
-                    "salience": [
-                        100
-                    ],
-                    "subject_key": 28,
-                    "predicate_key": 11,
-                    "object_key": 13,
-                    "db_key": 21
-                },
-                {
-                    "type": "antecedent",
-                    "isNot": false,
-                    "normalizedLabel": "(?x1 jets:loop int(3))",
-                    "vertex": 5,
-                    "parent_vertex": 1,
-                    "beta_relation_vars": [
-                        "?x1"
-                    ],
-                    "pruned_var": [],
-                    "beta_var_nodes": [
-                        {
-                            "type": "var",
-                            "id": "?x1",
-                            "is_binded": true,
-                            "var_pos": 0,
-                            "vertex": 5
-                        }
-                    ],
-                    "children_vertexes": [],
-                    "rules": [
-                        "LOOP03"
-                    ],
-                    "salience": [
-                        100
-                    ],
-                    "subject_key": 37,
-                    "predicate_key": 20,
-                    "object_key": 38,
-                    "db_key": 25
-                }
-            ],
-            "consequents": [
-                {
-                    "type": "consequent",
-                    "normalizedLabel": "(?x1 jets:completed true)",
-                    "vertex": 5,
-                    "consequent_seq": 1,
-                    "consequent_for_rule": "LOOP03",
-                    "consequent_salience": 100,
-                    "subject_key": 49,
-                    "predicate_key": 14,
-                    "object_key": 50,
-                    "db_key": 33
-                }
-            ],
-            "authoredLabel": "[LOOP03]:(?state rdf:type jets:State).(?state jets:loop int(3)) -> (?state jets:completed true);",
-            "source_file_name": "jet_rules/test_looping_main.jr",
-            "normalizedLabel": "[LOOP03]:(?x1 rdf:type jets:State).(?x1 jets:loop int(3)) -> (?x1 jets:completed true);",
-            "label": "[LOOP03]:(?state rdf:type jets:State).(?state jets:loop int(3)) -> (?state jets:completed true);",
-            "db_key": 11
-        },
-        {
-            "name": "jets:Entity:1",
-            "properties": {
-                "i": "true"
-            },
-            "optimization": true,
-            "salience": 100,
-            "antecedents": [
-                {
-                    "type": "antecedent",
-                    "isNot": false,
-                    "normalizedLabel": "(?x1 rdf:type jets:Entity)",
-                    "vertex": 6,
-                    "parent_vertex": 0,
-                    "beta_relation_vars": [
-                        "?x1"
-                    ],
-                    "pruned_var": [],
-                    "beta_var_nodes": [
-                        {
-                            "type": "var",
-                            "id": "?x1",
-                            "is_binded": false,
-                            "var_pos": 0,
-                            "vertex": 6,
-                            "key": 39,
-                            "source_file_name": "jet_rules/test_looping_main.jr",
-                            "db_key": 153
-                        }
-                    ],
-                    "children_vertexes": [],
-                    "rules": [
-                        "jets:Entity:1"
-                    ],
-                    "salience": [
-                        100
-                    ],
-                    "subject_key": 39,
-                    "predicate_key": 11,
-                    "object_key": 5,
-                    "db_key": 26
-                }
-            ],
-            "consequents": [
-                {
-                    "type": "consequent",
-                    "normalizedLabel": "(?x1 rdf:type owl:Thing)",
-                    "vertex": 6,
-                    "consequent_seq": 1,
-                    "consequent_for_rule": "jets:Entity:1",
-                    "consequent_salience": 100,
-                    "subject_key": 51,
-                    "predicate_key": 11,
-                    "object_key": 6,
-                    "db_key": 34
-                }
-            ],
-            "authoredLabel": "[jets:Entity:1, i=true]:(?s1 rdf:type jets:Entity) -> (?s1 rdf:type owl:Thing);",
-            "source_file_name": "data_model/jets_model.jr",
-            "normalizedLabel": "[jets:Entity:1, i=true]:(?x1 rdf:type jets:Entity) -> (?x1 rdf:type owl:Thing);",
-            "label": "[jets:Entity:1, i=true]:(?s1 rdf:type jets:Entity) -> (?s1 rdf:type owl:Thing);"
-        },
-        {
-            "name": "jets:InputRecord:2",
-            "properties": {
-                "i": "true"
-            },
-            "optimization": true,
-            "salience": 100,
-            "antecedents": [
-                {
-                    "type": "antecedent",
-                    "isNot": false,
-                    "normalizedLabel": "(?x1 rdf:type jets:InputRecord)",
-                    "vertex": 7,
-                    "parent_vertex": 0,
-                    "beta_relation_vars": [
-                        "?x1"
-                    ],
-                    "pruned_var": [],
-                    "beta_var_nodes": [
-                        {
-                            "type": "var",
-                            "id": "?x1",
-                            "is_binded": false,
-                            "var_pos": 0,
-                            "vertex": 7,
-                            "key": 40,
-                            "source_file_name": "jet_rules/test_looping_main.jr",
-                            "db_key": 154
-                        }
-                    ],
-                    "children_vertexes": [],
-                    "rules": [
-                        "jets:InputRecord:2"
-                    ],
-                    "salience": [
-                        100
-                    ],
-                    "subject_key": 40,
-                    "predicate_key": 11,
-                    "object_key": 12,
-                    "db_key": 27
-                }
-            ],
-            "consequents": [
-                {
-                    "type": "consequent",
-                    "normalizedLabel": "(?x1 rdf:type owl:Thing)",
-                    "vertex": 7,
-                    "consequent_seq": 1,
-                    "consequent_for_rule": "jets:InputRecord:2",
-                    "consequent_salience": 100,
-                    "subject_key": 52,
-                    "predicate_key": 11,
-                    "object_key": 6,
-                    "db_key": 35
-                }
-            ],
-            "authoredLabel": "[jets:InputRecord:2, i=true]:(?s1 rdf:type jets:InputRecord) -> (?s1 rdf:type owl:Thing);",
-            "source_file_name": "data_model/jets_model.jr",
-            "normalizedLabel": "[jets:InputRecord:2, i=true]:(?x1 rdf:type jets:InputRecord) -> (?x1 rdf:type owl:Thing);",
-            "label": "[jets:InputRecord:2, i=true]:(?s1 rdf:type jets:InputRecord) -> (?s1 rdf:type owl:Thing);"
-        },
-        {
-            "name": "jets:State:3",
-            "properties": {
-                "i": "true"
-            },
-            "optimization": true,
-            "salience": 100,
-            "antecedents": [
-                {
-                    "type": "antecedent",
-                    "isNot": false,
-                    "normalizedLabel": "(?x1 rdf:type jets:State)",
-                    "vertex": 1,
-                    "parent_vertex": 0,
-                    "beta_relation_vars": [
-                        "?x1"
-                    ],
-                    "pruned_var": [],
-                    "beta_var_nodes": [
-                        {
-                            "type": "var",
-                            "id": "?x1",
-                            "is_binded": false,
-                            "var_pos": 0,
-                            "vertex": 1,
-                            "key": 28,
-                            "source_file_name": "jet_rules/test_looping_main.jr",
-                            "db_key": 142
-                        }
-                    ],
-                    "children_vertexes": [
-                        2,
-                        3,
-                        5
-                    ],
-                    "rules": [
-                        "jets:State:3"
-                    ],
-                    "salience": [
-                        100
-                    ],
-                    "subject_key": 28,
-                    "predicate_key": 11,
-                    "object_key": 13,
-                    "db_key": 21
-                }
-            ],
-            "consequents": [
-                {
-                    "type": "consequent",
-                    "normalizedLabel": "(?x1 rdf:type owl:Thing)",
-                    "vertex": 1,
-                    "consequent_seq": 1,
-                    "consequent_for_rule": "jets:State:3",
-                    "consequent_salience": 100,
-                    "subject_key": 42,
-                    "predicate_key": 11,
-                    "object_key": 6,
-                    "db_key": 29
-                }
-            ],
-            "authoredLabel": "[jets:State:3, i=true]:(?s1 rdf:type jets:State) -> (?s1 rdf:type owl:Thing);",
-            "source_file_name": "data_model/jets_model.jr",
-            "normalizedLabel": "[jets:State:3, i=true]:(?x1 rdf:type jets:State) -> (?x1 rdf:type owl:Thing);",
-            "label": "[jets:State:3, i=true]:(?s1 rdf:type jets:State) -> (?s1 rdf:type owl:Thing);"
-        },
-        {
-            "name": "lp:Person:4",
-            "properties": {
-                "i": "true"
-            },
-            "optimization": true,
-            "salience": 100,
-            "antecedents": [
-                {
-                    "type": "antecedent",
-                    "isNot": false,
-                    "normalizedLabel": "(?x1 rdf:type lp:Person)",
-                    "vertex": 8,
-                    "parent_vertex": 0,
-                    "beta_relation_vars": [
-                        "?x1"
-                    ],
-                    "pruned_var": [],
-                    "beta_var_nodes": [
-                        {
-                            "type": "var",
-                            "id": "?x1",
-                            "is_binded": false,
-                            "var_pos": 0,
-                            "vertex": 8,
-                            "key": 41,
-                            "source_file_name": "jet_rules/test_looping_main.jr",
-                            "db_key": 155
-                        }
-                    ],
-                    "children_vertexes": [],
-                    "rules": [
-                        "lp:Person:4"
-                    ],
-                    "salience": [
-                        100
-                    ],
-                    "subject_key": 41,
-                    "predicate_key": 11,
-                    "object_key": 26,
-                    "db_key": 28
-                }
-            ],
-            "consequents": [
-                {
-                    "type": "consequent",
-                    "normalizedLabel": "(?x1 rdf:type jets:Entity)",
-                    "vertex": 8,
-                    "consequent_seq": 1,
-                    "consequent_for_rule": "lp:Person:4",
-                    "consequent_salience": 100,
-                    "subject_key": 53,
-                    "predicate_key": 11,
-                    "object_key": 5,
-                    "db_key": 36
-                }
-            ],
-            "authoredLabel": "[lp:Person:4, i=true]:(?s1 rdf:type lp:Person) -> (?s1 rdf:type jets:Entity);",
-            "source_file_name": "data_model/test_looping_model.jr",
-            "normalizedLabel": "[lp:Person:4, i=true]:(?x1 rdf:type lp:Person) -> (?x1 rdf:type jets:Entity);",
-            "label": "[lp:Person:4, i=true]:(?s1 rdf:type lp:Person) -> (?s1 rdf:type jets:Entity);",
-            "db_key": 12
-        }
-    ],
+    "jet_rules": [],
     "imports": {
         "jet_rules/test_looping_main.jr": [
             "data_model/jets_model.jr",
@@ -1363,10 +724,6 @@
         }
     ],
     "main_rule_file_name": "jet_rules/test_looping_main.jr",
-    "support_rule_file_names": [
-        "data_model/jets_model.jr",
-        "data_model/test_looping_model.jr"
-    ],
     "rete_nodes": [
         {
             "vertex": 0,

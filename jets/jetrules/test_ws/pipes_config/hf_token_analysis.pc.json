@@ -1,0 +1,76 @@
+{
+  "cluster_config": {
+    "default_max_concurrency": 3,
+    "s3_worker_pool_size": 1,
+    "nbr_nodes": 1,
+    "sampling_rate": 0
+  },
+  "context": [
+    {
+      "type": "value",
+      "key": "$HF_REPORT",
+      "expr": "high_freq_tokens"
+    }
+  ],
+  "output_tables": [
+    {
+      "key": "$HIGH_FREQ_OUTPUT",
+      "name": "$HF_REPORT",
+      "columns": [
+        {
+          "name": "column_name",
+          "rdf_type": "text"
+        },
+        {
+          "name": "freq_count",
+          "rdf_type": "int"
+        },
+        {
+          "name": "freq_value",
+          "rdf_type": "text"
+        },
+        {
+          "name": "session_id",
+          "rdf_type": "text"
+        }
+      ]
+    }
+  ],
+  "channels": [
+    {
+      "name": "$HIGH_FREQ_OUTPUT",
+      "columns": [
+        "column_name",
+        "freq_count",
+        "freq_value",
+        "session_id"
+      ]
+    }
+  ],
+  "reducing_pipes_config": [
+    [
+      {
+        "type": "fan_out",
+        "input_channel": {
+          "type": "input",
+          "name": "input_row"
+        },
+        "apply": [
+          {
+            "type": "high_freq",
+            "high_freq_columns": [
+              "male_name",
+              "female_name",
+              "last_name",
+              "status_flag",
+              "binary_flag",
+              "gender",
+              "city"
+            ],
+            "output": "$HIGH_FREQ_OUTPUT"
+          }
+        ]
+      }
+    ]
+  ]
+}

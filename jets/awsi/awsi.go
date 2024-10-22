@@ -215,8 +215,8 @@ func NewDownloader(region string) (*manager.Downloader, error) {
 }
 
 // Use a shared Downloader to download obj from s3 into fileHd (must be writable), return size of download in bytes
-func DownloadFromS3v2(downloader *manager.Downloader, bucket, objKey string, fileHd *os.File) (int64, error) {
-	nsz, err := downloader.Download(context.TODO(), fileHd, &s3.GetObjectInput{Bucket: &bucket, Key: &objKey})
+func DownloadFromS3v2(downloader *manager.Downloader, bucket, objKey string, byteRange *string, fileHd *os.File) (int64, error) {
+	nsz, err := downloader.Download(context.TODO(), fileHd, &s3.GetObjectInput{Bucket: &bucket, Key: &objKey, Range: byteRange})
 	if err != nil {
 		return 0, fmt.Errorf("failed to download file from s3: %v", err)
 	}

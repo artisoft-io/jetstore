@@ -179,7 +179,7 @@ func main() {
 	log.Println("Here's what we got:")
 	log.Println("   -awsDsnSecret:", awsDsnSecret)
 	log.Println("   -dbPoolSize:", dbPoolSize)
-	log.Println("   -usingSshTunnel:", usingSshTunnel)
+	log.Println("   -usingSshTunnel:", *usingSshTunnel)
 	log.Println("   -dsn len:", len(dsn))
 	log.Println("   -jetsDbInitPath:", jetsDbInitPath)
 	log.Println("   -migrateDb:", *migrateDb)

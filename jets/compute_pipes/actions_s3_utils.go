@@ -135,7 +135,7 @@ func DownloadS3Object(s3Key, localDir string, minSize int64) (string, int64, err
 	// log.Printf("S3Key: %s, Temp file name: %s", s3Key, inFilePath)
 
 	// Download the object
-	nsz, err := awsi.DownloadFromS3v2(downloader, bucketName, s3Key, fileHd)
+	nsz, err := awsi.DownloadFromS3v2(downloader, bucketName, s3Key, nil, fileHd)
 	if err != nil {
 		return "", 0, fmt.Errorf("failed to download input file: %v", err)
 	}

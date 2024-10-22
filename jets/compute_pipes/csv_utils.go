@@ -8,14 +8,14 @@ import (
 	"os"
 
 	"github.com/artisoft-io/jetstore/jets/datatable/jcsv"
-	"github.com/dimchansky/utfbom"
+	// "github.com/dimchansky/utfbom"
 	"github.com/golang/snappy"
 )
 
 // Utilities for CSV Files
 
 func DetectCsvDelimitor(fileHd *os.File, fileName string) (d jcsv.Chartype, err error) {
-	// auto detect the separator based on the first line
+	// auto detect the separator based on the first 2048 bytes of the file
 	buf := make([]byte, 2048)
 	_, err = fileHd.Read(buf)
 	if err != nil {
@@ -32,49 +32,39 @@ func DetectCsvDelimitor(fileHd *os.File, fileName string) (d jcsv.Chartype, err 
 	return
 }
 
-var sep_flag jcsv.Chartype
-
-func GetRawHeadersCsv(fileName, fileFormat string) (*[]string, error) {
+// Get the raw headers from fileHd, put them in *ic
+// Use *sepFlag as the csv delimiter
+func GetRawHeadersCsv(fileHd *os.File, fileName, fileFormat string, ic *[]string, sepFlag *jcsv.Chartype) error {
 	// Get field delimiters used in files and rawHeaders
-	var fileHd *os.File
-	var err error
-	var rawHeaders []string
-	var csvReader *csv.Reader
-	fileHd, err = os.Open(fileName)
-	if err != nil {
-		return nil, fmt.Errorf("while opening temp file %s to read headers: %v", fileName, err)
+	if ic == nil || sepFlag == nil {
+		return fmt.Errorf("error: GetRawHeadersCsv must have ic and sepFlag arguments non nil")
 	}
-	defer fileHd.Close()
+	var err error
+	var csvReader *csv.Reader
 	switch fileFormat {
 	case "csv":
-		// determine the csv separator
-		if sep_flag == 0 {
-			sep_flag, err = DetectCsvDelimitor(fileHd, fileName)
-			if err != nil {
-				return nil, err
-			}
-		}
-		fmt.Println("Detected sep_flag", sep_flag)
-		// Remove the Byte Order Mark (BOM) at beggining of the file if present
-		sr, _ := utfbom.Skip(fileHd)
+		// // Remove the Byte Order Mark (BOM) at beggining of the file if present
+		// sr, _ := utfbom.Skip(fileHd)
 		// Setup a csv reader
-		csvReader = csv.NewReader(sr)
-		csvReader.Comma = rune(sep_flag)
+		// csvReader = csv.NewReader(sr)
+		csvReader = csv.NewReader(fileHd)
+		csvReader.Comma = rune(*sepFlag)
 
 	case "compressed_csv":
 		csvReader = csv.NewReader(snappy.NewReader(fileHd))
+		csvReader.Comma = rune(*sepFlag)
 	}
 	// Read the file headers
-	rawHeaders, err = csvReader.Read()
+	*ic, err = csvReader.Read()
 	if err == io.EOF {
-		return nil, errors.New("input csv file is empty")
+		return errors.New("input csv file is empty")
 	} else if err != nil {
-		return nil, fmt.Errorf("while reading csv headers: %v", err)
+		return fmt.Errorf("while reading csv headers: %v", err)
 	}
 	// Make sure we don't have empty names in rawHeaders
-	AdjustFillers(&rawHeaders)
-	fmt.Println("Got input columns (rawHeaders) from csv file:", rawHeaders)
-	return &rawHeaders, nil
+	AdjustFillers(ic)
+	fmt.Println("Got input columns (rawHeaders) from csv file:", *ic)
+	return nil
 }
 
 func AdjustFillers(rawHeaders *[]string) {

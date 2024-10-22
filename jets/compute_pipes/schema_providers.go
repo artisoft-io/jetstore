@@ -9,13 +9,13 @@ import (
 // This package defines the schema manager & provider types
 
 type SchemaManager struct {
-	spec            *[]*SchemaProviderSpec
+	spec            []*SchemaProviderSpec
 	envSettings     map[string]interface{}
 	isDebugMode     bool
 	schemaProviders map[string]SchemaProvider
 }
 
-func NewSchemaManager(spec *[]*SchemaProviderSpec,
+func NewSchemaManager(spec []*SchemaProviderSpec,
 	envSettings map[string]interface{}, isDebugMode bool) *SchemaManager {
 	return &SchemaManager{
 		spec:        spec,
@@ -34,6 +34,8 @@ type SchemaProvider interface {
 	ObjectType() string
 	SchemaName() string
 	InputFormat() string
+	InputFormatDataJson() string
+	IsPartFiles() bool
 	Delimiter() rune
 	Columns() []SchemaColumnSpec
 }
@@ -52,7 +54,7 @@ func (sm *SchemaManager) PrepareSchemaProviders(dbpool *pgxpool.Pool) error {
   if sm == nil || sm.spec == nil {
     return nil
   }
-  for _, spec := range *sm.spec {
+  for _, spec := range sm.spec {
     switch spec.Type {
     case "default":
       sp := NewDefaultSchemaProvider()
@@ -119,6 +121,20 @@ func (sp *DefaultSchemaProvider) InputFormat() string {
 		return ""
 	}
 	return sp.spec.InputFormat
+}
+
+func (sp *DefaultSchemaProvider) InputFormatDataJson() string {
+	if sp == nil {
+		return ""
+	}
+	return sp.spec.InputFormatDataJson
+}
+
+func (sp *DefaultSchemaProvider) IsPartFiles() bool {
+	if sp == nil {
+		return false
+	}
+	return sp.spec.IsPartFiles
 }
 
 func (sp *DefaultSchemaProvider) Delimiter() rune {

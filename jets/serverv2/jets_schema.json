@@ -557,7 +557,7 @@
       },
       {
         "columnName": "input_format",
-        "description": "File format: csv, headerless_csv, fixed_width, parquet, parquet_select",
+        "description": "File format: csv, headerless_csv, compressed_csv, compressed_headerless_csv, fixed_width, parquet, parquet_select, xlsx, headerless_xlsx",
         "dataType": "text",
         "default": "''",
         "isNotNull": true
@@ -755,6 +755,13 @@
       {
         "columnName": "source_type",
         "dataType": "text",
+        "isNotNull": true
+      },
+      {
+        "columnName": "schema_provider_json",
+        "dataType": "text",
+        "default": "''",
+        "description": "This is applicable to source_type = 'file'",
         "isNotNull": true
       },
       {

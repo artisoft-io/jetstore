@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/artisoft-io/jetstore/jets/datatable"
+	"github.com/artisoft-io/jetstore/jets/datatable/jcsv"
 	"github.com/artisoft-io/jetstore/jets/dbutils"
 	"github.com/artisoft-io/jetstore/jets/schema"
 	"github.com/artisoft-io/jetstore/jets/workspace"
@@ -81,14 +82,14 @@ func (args *StartComputePipesArgs) StartShardingComputePipes(ctx context.Context
 
 	// get pe info and pipeline config
 	// cpipesConfigFN is file name within workspace
-	var client, org, objectType, processName, inputFormat, inputSessionId, userEmail string
-	var sourcePeriodKey, pipelineConfigKey int
+	var client, org, objectType, processName, inputFormat, inputSessionId, userEmail, schemaProviderJson string
+	var sourcePeriodKey, pipelineConfigKey, isPartFile int
 	var cpipesConfigFN, icJson, icPosCsv, inputFormatDataJson sql.NullString
 	log.Println("CPIPES, loading pipeline configuration")
 	stmt := `
-	SELECT	ir.client, ir.org, ir.object_type, ir.source_period_key, 
+	SELECT	ir.client, ir.org, ir.object_type, ir.source_period_key, ir.schema_provider_json, 
 		pe.pipeline_config_key, pe.process_name, pe.input_session_id, pe.user_email,
-		sc.input_columns_json, sc.input_columns_positions_csv, sc.input_format, sc.input_format_data_json,
+		sc.input_columns_json, sc.input_columns_positions_csv, sc.input_format, sc.is_part_files, sc.input_format_data_json,
 		pc.main_rules
 	FROM 
 		jetsapi.pipeline_execution_status pe,
@@ -102,9 +103,9 @@ func (args *StartComputePipesArgs) StartShardingComputePipes(ctx context.Context
 		AND sc.object_type = ir.object_type
 		AND pc.process_name = pe.process_name`
 	err = dbpool.QueryRow(context.Background(), stmt, args.PipelineExecKey).Scan(
-		&client, &org, &objectType, &sourcePeriodKey,
+		&client, &org, &objectType, &sourcePeriodKey, &schemaProviderJson,
 		&pipelineConfigKey, &processName, &inputSessionId, &userEmail,
-		&icJson, &icPosCsv, &inputFormat, &inputFormatDataJson,
+		&icJson, &icPosCsv, &inputFormat, &isPartFile, &inputFormatDataJson,
 		&cpipesConfigFN)
 	if err != nil {
 		return result, fmt.Errorf("query table_name, domain_keys_json, input_columns_json, input_columns_positions_csv, input_format_data_json from jetsapi.source_config failed: %v", err)
@@ -112,10 +113,7 @@ func (args *StartComputePipesArgs) StartShardingComputePipes(ctx context.Context
 	if !cpipesConfigFN.Valid || len(cpipesConfigFN.String) == 0 {
 		return result, fmt.Errorf("error: process_config table does not have a cpipes config file name in main_rules column")
 	}
-	// File format: csv, headerless_csv, fixed_width, parquet, parquet_select
-	if inputFormat == "" {
-		inputFormat = "csv"
-	}
+
 	// Get the cpipes_config json from workspace
 	configFile := fmt.Sprintf("%s/%s/%s", workspaceHome, wsPrefix, cpipesConfigFN.String)
 	cpJson, err := os.ReadFile(configFile)
@@ -152,7 +150,70 @@ func (args *StartComputePipesArgs) StartShardingComputePipes(ctx context.Context
 		}
 	}
 	// log.Println("Compute Pipes output tables schema ready")
-	// Select any used table during sharding
+
+	var ic []string
+	// Get the schema provider from schemaProviderJson:
+	//   - Populate the input columns (ic)
+	//   - Populate inputFormat
+	//   - Populate inputFormatDataJson for fixed_width
+	//   - Put SchemaName into env (done in CoordinateComputePipes)
+	//   - Put the schema provider in compute pipes json
+	var schemaProviderConfig *SchemaProviderSpec
+	// First find if a schema provider already exist for "main_input"
+	var schemaProviderKey string
+	for _, sp := range cpConfig.SchemaProviders {
+		if sp.SourceType == "main_input" {
+			schemaProviderConfig = sp
+			if sp.Key == "" {
+				sp.Key = "_main_input_"
+			}
+			schemaProviderKey = sp.Key
+			break
+		}
+	}
+	if schemaProviderConfig == nil {
+		// Create and initialize a default SchemaProviderSpec
+		schemaProviderConfig = &SchemaProviderSpec{
+			Type:                "default",
+			Key:                 "_main_input_",
+			SourceType:          "main_input",
+			InputFormat:         inputFormat,
+			InputFormatDataJson: inputFormatDataJson.String,
+		}
+		if isPartFile == 1 {
+			schemaProviderConfig.IsPartFiles = true
+		}
+		schemaProviderKey = schemaProviderConfig.Key
+	}
+	if cpConfig.SchemaProviders == nil {
+		cpConfig.SchemaProviders = make([]*SchemaProviderSpec, 0)
+	}
+	cpConfig.SchemaProviders = append(cpConfig.SchemaProviders, schemaProviderConfig)
+
+	var sepFlag jcsv.Chartype
+	if len(schemaProviderJson) > 0 {
+		err = json.Unmarshal([]byte(schemaProviderJson), schemaProviderConfig)
+		if err != nil {
+			return result, fmt.Errorf("while unmarshaling schema_provider_json: %s", err)
+		}
+		if len(schemaProviderConfig.Columns) > 0 {
+			ic = make([]string, 0, len(schemaProviderConfig.Columns))
+			for _, c := range schemaProviderConfig.Columns {
+				ic = append(ic, c.Name)
+			}
+		}
+		if len(schemaProviderConfig.InputFormatDataJson) > 0 {
+			inputFormatDataJson.String = schemaProviderConfig.InputFormatDataJson
+			inputFormatDataJson.Valid = true
+		}
+		if len(schemaProviderConfig.InputFormat) > 0 {
+			inputFormat = schemaProviderConfig.InputFormat
+		}
+		if len(schemaProviderConfig.Delimiter) > 0 {
+			sepFlag.Set(schemaProviderConfig.Delimiter)
+		}
+		schemaProviderKey = schemaProviderConfig.Key
+	}
 	stepId := 0
 	outputTables, err := SelectActiveOutputTable(cpConfig.OutputTables, cpConfig.ReducingPipesConfig[stepId])
 	if err != nil {
@@ -160,8 +221,7 @@ func (args *StartComputePipesArgs) StartShardingComputePipes(ctx context.Context
 	}
 
 	// Get the input columns info
-	var ic []string
-	if icJson.Valid && len(icJson.String) > 0 {
+	if len(ic) == 0 && icJson.Valid && len(icJson.String) > 0 {
 		err = json.Unmarshal([]byte(icJson.String), &ic)
 		if err != nil {
 			return result, fmt.Errorf("while unmarshaling input_columns_json: %s", err)
@@ -195,14 +255,16 @@ func (args *StartComputePipesArgs) StartShardingComputePipes(ctx context.Context
 	if err != nil {
 		return result, err
 	}
-	// Check if headers where provided in source_config record
-	if len(ic) == 0 {
-		// Get the input columns from the first file
-		icp, err := FetchHeadersFromFile(firstKey, inputFormat, inputFormatDataJson.String)
+	// Check if headers where provided in source_config record or need to determine the csv delimiter
+	if len(ic) == 0 || (sepFlag == 0 && strings.HasSuffix(inputFormat, "csv")) {
+		// Get the input columns / column separator from the first file
+		err := FetchHeadersAndDelimiterFromFile(firstKey, inputFormat, &ic, &sepFlag, inputFormatDataJson.String)
 		if err != nil {
-			return result, fmt.Errorf("while calling FetchHeadersFromFile(%s, %s): %v", firstKey, inputFormat, err)
+			return result, fmt.Errorf("while calling FetchHeadersAndDelimiterFromFile(%s, %s): %v", firstKey, inputFormat, err)
 		}
-		ic = *icp
+		if sepFlag != 0 {
+			schemaProviderConfig.Delimiter = sepFlag.String()
+		}
 	}
 
 	// Add the headers from the partfile_key_component
@@ -317,6 +379,7 @@ func (args *StartComputePipesArgs) StartShardingComputePipes(ctx context.Context
 	if err != nil {
 		return result, err
 	}
+
 	cpShardingConfig := &ComputePipesConfig{
 		CommonRuntimeArgs: &ComputePipesCommonArgs{
 			CpipesMode:      "sharding",
@@ -334,6 +397,7 @@ func (args *StartComputePipesArgs) StartShardingComputePipes(ctx context.Context
 					InputColumns:        ic,
 					InputFormat:         inputFormat,
 					InputFormatDataJson: inputFormatDataJson.String,
+					SchemaProvider:      schemaProviderKey,
 				},
 			},
 			PipelineConfigKey: pipelineConfigKey,
@@ -345,13 +409,14 @@ func (args *StartComputePipesArgs) StartShardingComputePipes(ctx context.Context
 			DefaultMaxConcurrency: cpConfig.ClusterConfig.DefaultMaxConcurrency,
 			IsDebugMode:           cpConfig.ClusterConfig.IsDebugMode,
 		},
-		MetricsConfig: cpConfig.MetricsConfig,
-		OutputTables:  outputTables,
-		OutputFiles:   cpConfig.OutputFiles,
-		LookupTables:  lookupTables,
-		Channels:      cpConfig.Channels,
-		Context:       cpConfig.Context,
-		PipesConfig:   pipeConfig,
+		MetricsConfig:   cpConfig.MetricsConfig,
+		OutputTables:    outputTables,
+		OutputFiles:     cpConfig.OutputFiles,
+		LookupTables:    lookupTables,
+		Channels:        cpConfig.Channels,
+		Context:         cpConfig.Context,
+		SchemaProviders: cpConfig.SchemaProviders,
+		PipesConfig:     pipeConfig,
 	}
 	shardingConfigJson, err := json.Marshal(cpShardingConfig)
 	if err != nil {

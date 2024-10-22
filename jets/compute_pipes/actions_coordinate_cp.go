@@ -23,6 +23,10 @@ func (args *ComputePipesNodeArgs) CoordinateComputePipes(ctx context.Context, ds
 	var fileKeys []string
 	var cpipesConfigJson string
 	var cpConfig *ComputePipesConfig
+	var mainSchemaName interface{}
+	var envSettings map[string]interface{}
+	var schemaManager *SchemaManager
+
 	stmt := "SELECT cpipes_config_json FROM jetsapi.cpipes_execution_status WHERE pipeline_execution_status_key = %d"
 
 	// open db connection
@@ -92,22 +96,42 @@ func (args *ComputePipesNodeArgs) CoordinateComputePipes(ctx context.Context, ds
 		fileKeyDate = time.Date(year, time.Month(month), day, 14, 0, 0, 0, time.UTC)
 		// log.Println("fileKeyDate:", fileKeyDate)
 	}
+	for i := range cpConfig.SchemaProviders {
+		if cpConfig.SchemaProviders[i].SourceType == "main_input" {
+			if len(cpConfig.SchemaProviders[i].SchemaName) > 0 {
+				mainSchemaName = cpConfig.SchemaProviders[i].SchemaName
+			}
+			break
+		}
+	}
+
+	envSettings = map[string]interface{}{
+		"$FILE_KEY":             cpConfig.CommonRuntimeArgs.FileKey,
+		"$SESSIONID":            cpConfig.CommonRuntimeArgs.SessionId,
+		"$SHARD_ID":             args.NodeId,
+		"$PROCESS_NAME":         cpConfig.CommonRuntimeArgs.ProcessName,
+		"$FILE_KEY_DATE":        fileKeyDate,
+		"$JETS_PARTITION_LABEL": args.JetsPartitionLabel,
+		"$MAIN_SCHEMA_NAME":     mainSchemaName,
+	}
+
+	// Create the SchemaManager and prepare the providers
+	schemaManager = NewSchemaManager(cpConfig.SchemaProviders, envSettings, cpConfig.ClusterConfig.IsDebugMode)
+	err = schemaManager.PrepareSchemaProviders(dbpool)
+	if err != nil {
+		cpErr = fmt.Errorf("while calling schemaManager.PrepareSchemaProviders: %v", err)
+		goto gotError
+	}
 
 	cpContext = &ComputePipesContext{
 		ComputePipesArgs: ComputePipesArgs{
 			ComputePipesNodeArgs:   *args,
 			ComputePipesCommonArgs: *cpConfig.CommonRuntimeArgs,
 		},
-		CpConfig: cpConfig,
-		EnvSettings: map[string]interface{}{
-			"$FILE_KEY":             cpConfig.CommonRuntimeArgs.FileKey,
-			"$SESSIONID":            cpConfig.CommonRuntimeArgs.SessionId,
-			"$SHARD_ID":             args.NodeId,
-			"$PROCESS_NAME":         cpConfig.CommonRuntimeArgs.ProcessName,
-			"$FILE_KEY_DATE":        fileKeyDate,
-			"$JETS_PARTITION_LABEL": args.JetsPartitionLabel,
-		},
+		CpConfig:           cpConfig,
+		EnvSettings:        envSettings,
 		FileKeyComponents:  fileKeyComponents,
+		SchemaManager:      schemaManager,
 		KillSwitch:         make(chan struct{}),
 		Done:               make(chan struct{}),
 		ErrCh:              make(chan error, 1000),

@@ -1043,6 +1043,7 @@ func (ctx *Context) InsertRows(dataTableAction *DataTableAction, token string) (
 							cmd.Stderr = &buf
 							log.Printf("Executing %s with args '%v'", execName, serverArgs)
 							err = cmd.Run()
+							(*results)["log"] = buf.String()
 						}
 
 					case "run_cpipes_only", "run_cpipes_reports":
@@ -1055,9 +1056,7 @@ func (ctx *Context) InsertRows(dataTableAction *DataTableAction, token string) (
 						}
 						log.Printf("Run local cpipes driver: %s", cpipesArgs)
 						lable = "CPIPES"
-						cmd = exec.Command(
-							"/home/michel/projects/repos/jetstore/jets/compute_pipes/local_test_driver/local_test_driver",
-							cpipesArgs...)
+						cmd = exec.Command("/usr/local/bin/local_test_driver", cpipesArgs...)
 						cmd.Env = append(os.Environ(),
 							fmt.Sprintf("WORKSPACE=%s", workspaceName),
 							"JETSTORE_DEV_MODE=1", "USING_SSH_TUNNEL=1",
@@ -1066,6 +1065,7 @@ func (ctx *Context) InsertRows(dataTableAction *DataTableAction, token string) (
 						cmd.Stderr = &buf
 						log.Printf("Executing cpipes command '%v'", cpipesArgs)
 						err = cmd.Run()
+						(*results)["log"] = buf.String()
 
 					default:
 						log.Printf("error: unknown devModeCode: %s", devModeCode)
@@ -1078,7 +1078,6 @@ func (ctx *Context) InsertRows(dataTableAction *DataTableAction, token string) (
 						log.Println("=*=*=*=*=*=*=*=*=*=*=*=*=*=*")
 						log.Printf("%s CAPTURED OUTPUT BEGIN", lable)
 						log.Println("=*=*=*=*=*=*=*=*=*=*=*=*=*=*")
-						(*results)["log"] = buf.String()
 						log.Println((*results)["log"])
 						log.Println("=*=*=*=*=*=*=*=*=*=*=*=*=*=*")
 						log.Printf("%s CAPTURED OUTPUT END", lable)
