@@ -45,14 +45,15 @@ func (cpCtx *ComputePipesContext) LoadFiles(ctx context.Context, dbpool *pgxpool
 	var count, totalRowCount int64
 	var err error
 	inputFormat := cpCtx.CpConfig.CommonRuntimeArgs.SourcesConfig.MainInput.InputFormat
+	compression := cpCtx.CpConfig.CommonRuntimeArgs.SourcesConfig.MainInput.Compression
 	schemaProvider := cpCtx.CpConfig.CommonRuntimeArgs.SourcesConfig.MainInput.SchemaProvider
 	for localInFile := range cpCtx.FileNamesCh {
 		if cpCtx.CpConfig.ClusterConfig.IsDebugMode {
 			log.Printf("%s node %d Loading file '%s'", cpCtx.SessionId, cpCtx.NodeId, localInFile.InFileKey)
 		}
 		switch inputFormat {
-		case "csv", "headerless_csv", "compressed_csv", "compressed_headerless_csv":
-			count, err = cpCtx.ReadCsvFile(&localInFile, inputFormat, schemaProvider, computePipesInputCh)
+		case "csv", "headerless_csv":
+			count, err = cpCtx.ReadCsvFile(&localInFile, inputFormat, compression, schemaProvider, computePipesInputCh)
 		case "parquet", "parquet_select":
 			count, err = cpCtx.ReadParquetFile(&localInFile, computePipesInputCh)
 		default:
@@ -179,7 +180,7 @@ func (cpCtx *ComputePipesContext) ReadParquetFile(filePath *FileName, computePip
 		// Kill Switch - prevent lambda timeout
 		if cpCtx.CpConfig.ClusterConfig.KillSwitchMin > 0 &&
 			time.Since(ComputePipesStart).Minutes() >= float64(cpCtx.CpConfig.ClusterConfig.KillSwitchMin) {
-				return inputRowCount, ErrKillSwitch
+			return inputRowCount, ErrKillSwitch
 		}
 
 		switch {
@@ -208,7 +209,10 @@ func (cpCtx *ComputePipesContext) ReadParquetFile(filePath *FileName, computePip
 	}
 }
 
-func (cpCtx *ComputePipesContext) ReadCsvFile(filePath *FileName, inputFormat, schemaProvider string, computePipesInputCh chan<- []interface{}) (int64, error) {
+func (cpCtx *ComputePipesContext) ReadCsvFile(filePath *FileName,
+	inputFormat, compression, schemaProvider string,
+	computePipesInputCh chan<- []interface{}) (int64, error) {
+
 	var fileHd *os.File
 	var csvReader *csv.Reader
 	var err error
@@ -230,7 +234,8 @@ func (cpCtx *ComputePipesContext) ReadCsvFile(filePath *FileName, inputFormat, s
 	switch cpCtx.CpConfig.CommonRuntimeArgs.CpipesMode {
 	case "sharding":
 		// input columns include the partfile_key_component
-		inputColumns = cpCtx.CpConfig.CommonRuntimeArgs.SourcesConfig.MainInput.InputColumns[:nbrColumns-len(cpCtx.PartFileKeyComponents)]
+		inputColumns = 
+			cpCtx.CpConfig.CommonRuntimeArgs.SourcesConfig.MainInput.InputColumns[:nbrColumns-len(cpCtx.PartFileKeyComponents)]
 		// Prepare the extended columns from partfile_key_component
 		if len(cpCtx.PartFileKeyComponents) > 0 {
 			extColumns = make([]string, len(cpCtx.PartFileKeyComponents))
@@ -255,26 +260,20 @@ func (cpCtx *ComputePipesContext) ReadCsvFile(filePath *FileName, inputFormat, s
 		}
 	}
 
-	switch inputFormat {
-	case "csv":
+	switch compression {
+	case "none":
 		csvReader = csv.NewReader(fileHd)
-		csvReader.Comma = sepFlag
-		// skip header row (first row)
-		_, err = csvReader.Read()
-	case "compressed_csv":
+	case "snappy":
 		csvReader = csv.NewReader(snappy.NewReader(fileHd))
-		csvReader.Comma = sepFlag
-		// skip header row (first row)
-		_, err = csvReader.Read()
-	case "headerless_csv":
-		csvReader = csv.NewReader(fileHd)
-		csvReader.Comma = sepFlag
-	case "compressed_headerless_csv":
-		csvReader = csv.NewReader(snappy.NewReader(fileHd))
-		csvReader.Comma = sepFlag
 	default:
-		return 0, fmt.Errorf("error: unknown input format in ReadCsvFile: %s", inputFormat)
+		return 0, fmt.Errorf("error: unknown compression in ReadCsvFile: %s", compression)
 	}
+	csvReader.Comma = sepFlag
+	if inputFormat == "csv" {
+		// skip header row (first row)
+		_, err = csvReader.Read()
+	}
+
 	if err == io.EOF {
 		// empty file
 		return 0, nil
@@ -317,7 +316,7 @@ func (cpCtx *ComputePipesContext) ReadCsvFile(filePath *FileName, inputFormat, s
 		// Kill Switch - prevent lambda timeout
 		if cpCtx.CpConfig.ClusterConfig.KillSwitchMin > 0 &&
 			time.Since(ComputePipesStart).Minutes() >= float64(cpCtx.CpConfig.ClusterConfig.KillSwitchMin) {
-				return inputRowCount, ErrKillSwitch
+			return inputRowCount, ErrKillSwitch
 		}
 
 		switch {

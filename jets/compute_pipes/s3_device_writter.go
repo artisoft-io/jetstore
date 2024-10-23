@@ -127,17 +127,18 @@ func (ctx *S3DeviceWriter) WriteCsvPartition() {
 	}
 	defer fileHd.Close()
 
-	switch ctx.spec.OutputChannel.Format {
-	case "csv", "headerless_csv":
-		// Open a csv writer
+	switch ctx.spec.OutputChannel.Compression {
+	case "none":
 		csvWriter = csv.NewWriter(fileHd)
-
-	default:
-		// default is compressed_headerless_csv / compressed_csv (write headers is separate)
+	case "snappy":
 		// Open a snappy compressor
 		snWriter = snappy.NewBufferedWriter(fileHd)
 		// Open a csv writer
 		csvWriter = csv.NewWriter(snWriter)
+	default:
+		cpErr = fmt.Errorf("error: unknown compression %s in WriteCsvPartition",
+			ctx.spec.OutputChannel.Compression)
+		goto gotError
 	}
 	if ctx.spec.WriteHeaders {
 		if err = csvWriter.Write(ctx.outputCh.config.Columns); err != nil {

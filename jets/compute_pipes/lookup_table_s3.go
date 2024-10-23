@@ -57,7 +57,10 @@ func NewLookupTableS3(_ *pgxpool.Pool, spec *LookupSpec, env map[string]interfac
 			source.JetsPartitionLabel = env["$JETS_PARTITION_LABEL"].(string)
 		}
 		if len(source.InputFormat) == 0 {
-			source.InputFormat = "compressed_headerless_csv"
+			source.InputFormat = "headerless_csv"
+		}
+		if len(source.Compression) == 0 {
+			source.Compression = "snappy"
 		}
 		fileKeys, err := GetS3FileKeys(source.ProcessName, source.SessionId,
 			source.ReadStepId, source.JetsPartitionLabel)
@@ -142,24 +145,32 @@ func (tbl *LookupTableS3) readCsvLookup(localFileName string) (int64, error) {
 		tbl.columnsMap[valueColumn] = i
 	}
 
-	// Read the csv file and package the lookup table
 	source := tbl.spec.CsvSource
-	switch source.InputFormat {
-	case "csv":
-		csvReader = csv.NewReader(fileHd)
-		// skip header row (first row)
-		_, err = csvReader.Read()
-	case "compressed_csv":
-		csvReader = csv.NewReader(snappy.NewReader(fileHd))
-		// skip header row (first row)
-		_, err = csvReader.Read()
-	case "headerless_csv":
-		csvReader = csv.NewReader(fileHd)
-	case "compressed_headerless_csv":
-		csvReader = csv.NewReader(snappy.NewReader(fileHd))
-	default:
-		return 0, fmt.Errorf("error: unknown input format in readCsvLookup: %s", source.InputFormat)
+	sepFlag := ','
+	if len(source.Delimiter) > 0 {
+		sepFlag = []rune(source.Delimiter)[0]
 	}
+
+	// Read the csv file and package the lookup table
+	switch source.Compression {
+	case "none":
+		csvReader = csv.NewReader(fileHd)
+		csvReader.Comma = sepFlag
+		if source.InputFormat == "csv" {
+			// skip header row (first row)
+			_, err = csvReader.Read()
+		}
+	case "snappy":
+		csvReader = csv.NewReader(snappy.NewReader(fileHd))
+		csvReader.Comma = sepFlag
+		if source.InputFormat == "csv" {
+			// skip header row (first row)
+			_, err = csvReader.Read()
+		}
+	default:
+		return 0, fmt.Errorf("error: unknown compression in readCsvLookup: %s", source.Compression)
+	}
+
 	if err == io.EOF {
 		// empty file
 		return 0, nil

@@ -70,9 +70,12 @@ type CsvSourceSpec struct {
 	// This is used for lookup tables only
 	// Type range: cpipes, csv_file (future)
 	// Default values are taken from current pipeline
-	// InputFormat: csv, headerless_csv, compressed_csv, compressed_headerless_csv
+	// InputFormat: csv, headerless_csv
+	// Compression: none, snappy
 	Type               string `json:"type"`
 	InputFormat        string `json:"input_format"`
+	Compression        string `json:"compression"`
+	Delimiter          string `json:"delimiter"`      // default ','
 	ProcessName        string `json:"process_name"`   // for cpipes
 	ReadStepId         string `json:"read_step_id"`   // for cpipes
 	JetsPartitionLabel string `json:"jets_partition"` // for cpipes
@@ -95,9 +98,10 @@ type SchemaProviderSpec struct {
 	// Type range: default
 	// InputFormat: csv, headerless_csv, fixed_width, parquet, parquet_select,
 	//              xlsx, headerless_xlsx
+	// Compression: none, snappy
 	// InputFormatDataJson: json config based on InputFormat
 	// example: {"currentSheet": "Daily entry for Approvals"} (for xlsx).
-  // SourceType range: main_input, merged_input, historical_input (from input_source table)
+	// SourceType range: main_input, merged_input, historical_input (from input_source table)
 	//*TODO domain_keys_json
 	//*TODO code_values_mapping_json
 	Type                string             `json:"type"`
@@ -108,6 +112,7 @@ type SchemaProviderSpec struct {
 	ObjectType          string             `json:"object_type"`
 	SchemaName          string             `json:"schema_name"`
 	InputFormat         string             `json:"input_format"`
+	Compression         string             `json:"compression"`
 	InputFormatDataJson string             `json:"input_format_data_json"`
 	Delimiter           string             `json:"delimiter"`
 	IsPartFiles         bool               `json:"is_part_files"`
@@ -181,21 +186,25 @@ type TransformationSpec struct {
 
 type InputChannelConfig struct {
 	// Type range: input, stage (default)
-	// Format: csv, headerless_csv, compressed_csv, compressed_headerless_csv, etc
-  // SchemaProvider is provided via ComputePipesCommonArgs.SourcesConfig (ie input_registry table)
-	Type           string `json:"type"`
-	Name           string `json:"name"`
-	Format         string `json:"format"`          // Type input
-	ReadStepId     string `json:"read_step_id"`
-	SamplingRate   int    `json:"sampling_rate"`
+	// Format: csv, headerless_csv, etc
+	// Compression: none, snappy
+	// SchemaProvider is provided via ComputePipesCommonArgs.SourcesConfig (ie input_registry table)
+	Type         string `json:"type"`
+	Name         string `json:"name"`
+	Format       string `json:"format"`      // Type input
+	Compression  string `json:"compression"` // Type Input
+	ReadStepId   string `json:"read_step_id"`
+	SamplingRate int    `json:"sampling_rate"`
 }
 
 type OutputChannelConfig struct {
 	// Type range: stage (default), output, sql
-	// Format: csv, headerless_csv, compressed_csv, compressed_headerless_csv, etc
+	// Format: csv, headerless_csv, etc
+	// Compression: none, snappy (default)
 	Type           string `json:"type"`
 	Name           string `json:"name"`
 	Format         string `json:"format"`           // Type output
+	Compression    string `json:"compression"`      // Type output
 	SchemaProvider string `json:"schema_provider"`  // Type output, alt to Format
 	WriteStepId    string `json:"write_step_id"`    // Type stage
 	OutputTableKey string `json:"output_table_key"` // Type sql

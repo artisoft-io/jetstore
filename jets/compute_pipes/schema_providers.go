@@ -34,6 +34,7 @@ type SchemaProvider interface {
 	ObjectType() string
 	SchemaName() string
 	InputFormat() string
+	Compression() string
 	InputFormatDataJson() string
 	IsPartFiles() bool
 	Delimiter() rune
@@ -78,6 +79,10 @@ func (sp *DefaultSchemaProvider) Initialize(_ *pgxpool.Pool, spec *SchemaProvide
 	envSettings map[string]interface{}, isDebugMode bool) error {
 	sp.spec = spec
 	sp.isDebugMode = isDebugMode
+	// Ensure a default compression algo
+	if sp.spec.Compression == "" {
+		sp.spec.Compression = "none"
+	}
 	return nil
 }
 
@@ -121,6 +126,13 @@ func (sp *DefaultSchemaProvider) InputFormat() string {
 		return ""
 	}
 	return sp.spec.InputFormat
+}
+
+func (sp *DefaultSchemaProvider) Compression() string {
+	if sp == nil {
+		return ""
+	}
+	return sp.spec.Compression
 }
 
 func (sp *DefaultSchemaProvider) InputFormatDataJson() string {

@@ -50,7 +50,8 @@ func (args *StartComputePipesArgs) StartReducingComputePipes(ctx context.Context
 
 	// get pe info and pipeline config
 	// cpipesConfigFN is file name within workspace
-	var client, org, objectType, processName, inputFormat, inputSessionId, userEmail, schemaProviderJson string
+	var client, org, objectType, processName, inputFormat, compression string
+	var inputSessionId, userEmail, schemaProviderJson string
 	var sourcePeriodKey, pipelineConfigKey int
 	var cpipesConfigFN sql.NullString
 	log.Println("CPIPES, loading pipeline configuration")
@@ -75,11 +76,6 @@ func (args *StartComputePipesArgs) StartReducingComputePipes(ctx context.Context
 	if !cpipesConfigFN.Valid || len(cpipesConfigFN.String) == 0 {
 		return result, fmt.Errorf("error: process_config table does not have a cpipes config file name in main_rules column")
 	}
-
-	// File format: csv, headerless_csv, fixed_width, parquet, parquet_select, xlsx, headerless_xlsx
-	// Additional file format for internal use (for now): compressed_csv, compressed_headerless_csv
-	// Reducing steps uses compressed_headerless_csv except when inputChannel is 'input_row', see below
-	inputFormat = "compressed_headerless_csv"
 
 	// Get the cpipes_config json from workspace
 	configFile := fmt.Sprintf("%s/%s/%s", workspaceHome, wsPrefix, cpipesConfigFN.String)
@@ -136,7 +132,19 @@ func (args *StartComputePipesArgs) StartReducingComputePipes(ctx context.Context
 		// we're past the last step - most likely there was only a sharding step
 		return result, ErrNoReducingStep
 	}
-	mainInputStepId := cpConfig.ReducingPipesConfig[stepId][0].InputChannel.ReadStepId
+
+	// By default reducing steps uses compression 'snappy' with 'headerless_csv', 
+	// unless specified in InputChannelConfig or when inputChannel is 'input_row' then use 'csv', see below
+	inputFormat = "headerless_csv"
+	compression = "snappy"
+	inputChannelConfig := &cpConfig.ReducingPipesConfig[stepId][0].InputChannel
+	if inputChannelConfig.Format != "" {
+		inputFormat = inputChannelConfig.Format
+	}
+	if inputChannelConfig.Compression != "" {
+		compression = inputChannelConfig.Compression
+	}
+	mainInputStepId := inputChannelConfig.ReadStepId
 	if len(mainInputStepId) == 0 {
 		return result, fmt.Errorf("error: missing input_channel.read_step_id for first pipe at step %d", stepId)
 	}
@@ -216,10 +224,10 @@ func (args *StartComputePipesArgs) StartReducingComputePipes(ctx context.Context
 	var inputChannel string
 	sepFlag := jcsv.Chartype(',') // always use ',' in reduce mode
 	if !isMergeFiles {
-		inputChannel = cpConfig.ReducingPipesConfig[stepId][0].InputChannel.Name
+		inputChannel = inputChannelConfig.Name
 		if inputChannel == "input_row" {
 			// special case, need to get the input columns from file of first partition
-			inputFormat = "compressed_csv"
+			inputFormat = "csv"
 			fileKeys, err := GetS3FileKeys(processName, args.SessionId, mainInputStepId, partitions[0])
 			if err != nil {
 				return result, err
@@ -227,7 +235,7 @@ func (args *StartComputePipesArgs) StartReducingComputePipes(ctx context.Context
 			if len(fileKeys) == 0 {
 				return result, fmt.Errorf("error: no files found in partition %s", partitions[0])
 			}
-			err = FetchHeadersAndDelimiterFromFile(fileKeys[0], inputFormat, &inputColumns, &sepFlag, "")
+			err = FetchHeadersAndDelimiterFromFile(fileKeys[0], inputFormat, compression, &inputColumns, &sepFlag, "")
 			if err != nil {
 				return result, fmt.Errorf("error: could not get input columns from file (reduce mode): %v", err)
 			}
@@ -272,6 +280,7 @@ func (args *StartComputePipesArgs) StartReducingComputePipes(ctx context.Context
 				MainInput: &InputSourceSpec{
 					InputColumns: inputColumns,
 					InputFormat:  inputFormat,
+					Compression: compression,
 				},
 			},
 			PipelineConfigKey: pipelineConfigKey,
