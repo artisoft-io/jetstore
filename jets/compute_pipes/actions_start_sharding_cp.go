@@ -220,6 +220,11 @@ func (args *StartComputePipesArgs) StartShardingComputePipes(ctx context.Context
 	if len(schemaProviderConfig.Delimiter) > 0 {
 		sepFlag.Set(schemaProviderConfig.Delimiter)
 	}
+	if len(icPosCsv.String) > 0 {
+		// Set the fixed_width column spec to the schema provider
+		schemaProviderConfig.FixedWidthColumnsCsv = icPosCsv.String
+	}
+
 	stepId := 0
 	outputTables, err := SelectActiveOutputTable(cpConfig.OutputTables, cpConfig.ReducingPipesConfig[stepId])
 	if err != nil {
@@ -227,11 +232,20 @@ func (args *StartComputePipesArgs) StartShardingComputePipes(ctx context.Context
 	}
 
 	// Get the input columns info
-	if len(ic) == 0 && icJson.Valid && len(icJson.String) > 0 {
+	if len(ic) == 0 && len(icJson.String) > 0 {
 		err = json.Unmarshal([]byte(icJson.String), &ic)
 		if err != nil {
 			return result, fmt.Errorf("while unmarshaling input_columns_json: %s", err)
 		}
+	}
+	if len(ic) == 0 && len(schemaProviderConfig.FixedWidthColumnsCsv) > 0 {
+		// Need to initialize the schema provider to get the column info
+		sp := NewDefaultSchemaProvider()
+		err = sp.Initialize(dbpool, schemaProviderConfig, nil, cpConfig.ClusterConfig.IsDebugMode)
+		if err != nil {
+			return result, fmt.Errorf("while initializing schemap provider to get fixed_width headers: %s", err)
+		}
+		ic, _ = sp.FixedWidthFileHeaders()
 	}
 
 	result.ReportsCommand = []string{
@@ -571,20 +585,35 @@ func SelectActiveOutputTable(tableConfig []*TableSpec, pipeConfig []PipeSpec) ([
 
 // Function to validate the PipeSpec output channel config
 // Apply a default snappy compression if not compression is not specified
+// and channel Type 'stage'
 func ValidatePipeSpecOutputChannels(pipeConfig []PipeSpec) error {
 	for i := range pipeConfig {
 		for j := range pipeConfig[i].Apply {
 			config := &pipeConfig[i].Apply[j].OutputChannel
-			if len(config.OutputTableKey) > 0 {
+			if config.Type == "" {
+				config.Type = "stage"
+			}
+			switch config.Type {
+			case "sql":
+				if len(config.OutputTableKey) == 0 {
+					return fmt.Errorf("error: invalid cpipes config, must provide output_table_key when output_channel type is 'sql'")
+				}
 				config.Name = config.OutputTableKey
 				config.SpecName = config.OutputTableKey
-			} else {
+			default:
 				if len(config.Name) == 0 || config.Name == config.SpecName {
 					return fmt.Errorf("error: invalid cpipes config, output_channel.name must not be empty or same as output_channel.channel_spec_name")
 				}
-			}
-			if config.Compression == "" {
-				config.Compression = "snappy"
+				switch config.Type {
+				case "stage":
+					if config.Compression == "" {
+						config.Compression = "snappy"
+					}
+				default:
+					if config.Compression == "" {
+						config.Compression = "none"
+					}
+				}
 			}
 		}
 	}

@@ -1,6 +1,7 @@
 package compute_pipes
 
 import (
+	"bufio"
 	"context"
 	"encoding/csv"
 	"errors"
@@ -9,6 +10,7 @@ import (
 	"log"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 
 	goparquet "github.com/fraugster/parquet-go"
@@ -56,6 +58,8 @@ func (cpCtx *ComputePipesContext) LoadFiles(ctx context.Context, dbpool *pgxpool
 			count, err = cpCtx.ReadCsvFile(&localInFile, inputFormat, compression, schemaProvider, computePipesInputCh)
 		case "parquet", "parquet_select":
 			count, err = cpCtx.ReadParquetFile(&localInFile, computePipesInputCh)
+		case "fixed_width":
+			count, err = cpCtx.ReadFixedWidthFile(&localInFile, schemaProvider, computePipesInputCh)
 		default:
 			log.Println(cpCtx.SessionId, "node", cpCtx.NodeId, "error: unsupported file format: %s", inputFormat)
 			cpCtx.ChResults.LoadFromS3FilesResultCh <- LoadFromS3FilesResult{LoadRowCount: totalRowCount, BadRowCount: 0, Err: err}
@@ -234,7 +238,7 @@ func (cpCtx *ComputePipesContext) ReadCsvFile(filePath *FileName,
 	switch cpCtx.CpConfig.CommonRuntimeArgs.CpipesMode {
 	case "sharding":
 		// input columns include the partfile_key_component
-		inputColumns = 
+		inputColumns =
 			cpCtx.CpConfig.CommonRuntimeArgs.SourcesConfig.MainInput.InputColumns[:nbrColumns-len(cpCtx.PartFileKeyComponents)]
 		// Prepare the extended columns from partfile_key_component
 		if len(cpCtx.PartFileKeyComponents) > 0 {
@@ -338,6 +342,171 @@ func (cpCtx *ComputePipesContext) ReadCsvFile(filePath *FileName,
 			case computePipesInputCh <- record:
 			case <-cpCtx.Done:
 				log.Println("loading input row from file interrupted")
+				return inputRowCount, nil
+			}
+			inputRowCount += 1
+		}
+	}
+}
+
+func (cpCtx *ComputePipesContext) ReadFixedWidthFile(filePath *FileName,
+	schemaProvider string, computePipesInputCh chan<- []interface{}) (int64, error) {
+
+	var fileHd *os.File
+	var fwScanner *bufio.Scanner
+	var err error
+	samplingRate := cpCtx.CpConfig.PipesConfig[0].InputChannel.SamplingRate
+
+	fileHd, err = os.Open(filePath.LocalFileName)
+	if err != nil {
+		return 0, fmt.Errorf("while opening temp file '%s' (loadFiles): %v", *filePath, err)
+	}
+	defer func() {
+		fileHd.Close()
+		os.Remove(filePath.LocalFileName)
+	}()
+
+	// log.Println("**!@@",cpCtx.SessionId,"partfile_key_component GOT",len(cpCtx.PartFileKeyComponents))
+	nbrColumns := len(cpCtx.CpConfig.CommonRuntimeArgs.SourcesConfig.MainInput.InputColumns)
+	var inputColumns []string
+	var extColumns []string
+	switch cpCtx.CpConfig.CommonRuntimeArgs.CpipesMode {
+	case "sharding":
+		// input columns include the partfile_key_component
+		inputColumns =
+			cpCtx.CpConfig.CommonRuntimeArgs.SourcesConfig.MainInput.InputColumns[:nbrColumns-len(cpCtx.PartFileKeyComponents)]
+		// Prepare the extended columns from partfile_key_component
+		if len(cpCtx.PartFileKeyComponents) > 0 {
+			extColumns = make([]string, len(cpCtx.PartFileKeyComponents))
+			for i := range cpCtx.PartFileKeyComponents {
+				result := cpCtx.PartFileKeyComponents[i].Regex.FindStringSubmatch(filePath.InFileKey)
+				if len(result) > 0 {
+					extColumns[i] = result[1]
+				}
+			}
+		}
+	case "reducing":
+		inputColumns = cpCtx.CpConfig.CommonRuntimeArgs.SourcesConfig.MainInput.InputColumns
+	default:
+		return 0, fmt.Errorf("error: unknown cpipes mode in ReadFixedWidthFile: %s", cpCtx.CpConfig.CommonRuntimeArgs.CpipesMode)
+	}
+	// Get the csv delimiter from the schema provider, if no schema provider exist assume it's ','
+	var fwEncodingInfo *FixedWidthEncodingInfo
+	if len(schemaProvider) > 0 {
+		sp := cpCtx.SchemaManager.GetSchemaProvider(schemaProvider)
+		if sp != nil {
+			fwEncodingInfo = sp.FixedWidthEncodingInfo()
+		}
+	}
+	if fwEncodingInfo == nil {
+		return 0, fmt.Errorf("error: loading fixed_width file, no encodeding info available")
+	}
+	// // Remove the Byte Order Mark (BOM) at beggining of the file if present
+	// sr, enc := utfbom.Skip(fileHd)
+	// fmt.Printf("Detected encoding: %s\n", enc)
+	// Setup a fixed-width reader
+	fwScanner = bufio.NewScanner(fileHd)
+
+	if err == io.EOF {
+		// empty file
+		return 0, nil
+	}
+	if err != nil {
+		return 0, fmt.Errorf("error while reading first fixed_width records: %v", err)
+	}
+
+	var inputRowCount int64
+	var record []interface{}
+	var recordTypeOffset int
+	for {
+		err = nil
+		// read and put the rows into computePipesInputCh
+		ok := fwScanner.Scan()
+		if ok {
+			cpCtx.SamplingCount += 1
+			if inputRowCount > 0 && samplingRate > 0 && cpCtx.SamplingCount < samplingRate {
+				continue
+			}
+			cpCtx.SamplingCount = 0
+			record = make([]interface{}, nbrColumns)
+
+			line := fwScanner.Text()
+			ll := len(line)
+			// split the line into the record according to the record type
+			var recordType string
+			if fwEncodingInfo.RecordTypeColumn != nil {
+				s := fwEncodingInfo.RecordTypeColumn.Start
+				e := fwEncodingInfo.RecordTypeColumn.End
+				if s < ll && e <= ll {
+					recordType = strings.TrimSpace(line[s:e])
+				}
+			}
+			columnsInfo, ok := fwEncodingInfo.ColumnsMap[recordType]
+			if !ok || columnsInfo == nil {
+				return 0, fmt.Errorf("error: No record info for record type '%s' in read fixed_width record", recordType)
+			} else {
+				recordTypeOffset, ok = fwEncodingInfo.ColumnsOffsetMap[recordType]
+				if !ok {
+					return 0, fmt.Errorf("error: bad fixed-width record: unknown record type '%s'", recordType)
+				} else {
+					for i := range *columnsInfo {
+						columnInfo := (*columnsInfo)[i]
+						if columnInfo.Start < ll && columnInfo.End <= ll {
+							s := strings.TrimSpace(line[columnInfo.Start:columnInfo.End])
+							if len(s) == 0 {
+								record[recordTypeOffset+i] = nil
+							} else {
+								record[recordTypeOffset+i] = s
+							}
+						}
+						// if cpCtx.CpConfig.ClusterConfig.IsDebugMode {
+						// 	fmt.Printf("*** record[%d] = %s, idx %d:%d, record type: %s, offset: %d\n",
+						// 		recordTypeOffset+i, record[recordTypeOffset+i], columnInfo.Start, columnInfo.End, recordType, recordTypeOffset)
+						// }
+					}
+				}
+			}
+		} else {
+			err = fwScanner.Err()
+			if err == nil {
+				err = io.EOF
+			}
+		}
+
+		// Add the columns from the partfile_key_component
+		if len(extColumns) > 0 {
+			offset := len(inputColumns)
+			// log.Println("**!@@",cpCtx.SessionId,"partfile_key_component GOT[0]",cpCtx.PartFileKeyComponents[0].ColumnName,"offset",offset,"InputColumn",cpCtx.InputColumns[offset])
+			for i := range extColumns {
+				record[offset+i] = extColumns[i]
+			}
+		}
+
+		// Kill Switch - prevent lambda timeout
+		if cpCtx.CpConfig.ClusterConfig.KillSwitchMin > 0 &&
+			time.Since(ComputePipesStart).Minutes() >= float64(cpCtx.CpConfig.ClusterConfig.KillSwitchMin) {
+			return inputRowCount, ErrKillSwitch
+		}
+
+		switch {
+		case err == io.EOF:
+			// expected exit route
+			// ---------------------------------------------------
+			return inputRowCount, nil
+
+		case err != nil:
+			return 0, fmt.Errorf("error while reading input fixed_width records: %v", err)
+
+		default:
+			// // Remove invalid utf-8 sequence from input record
+			// for i := range record {
+			// 	record[i] = strings.ToValidUTF8(record[i], "")
+			// }
+			// log.Println(cpCtx.SessionId,"node",cpCtx.NodeId, "push record to computePipesInputCh with",len(record),"columns")
+			select {
+			case computePipesInputCh <- record:
+			case <-cpCtx.Done:
+				log.Println("loading input fixed_width row from file interrupted")
 				return inputRowCount, nil
 			}
 			inputRowCount += 1

@@ -102,27 +102,29 @@ type SchemaProviderSpec struct {
 	// InputFormatDataJson: json config based on InputFormat
 	// example: {"currentSheet": "Daily entry for Approvals"} (for xlsx).
 	// SourceType range: main_input, merged_input, historical_input (from input_source table)
+	// Columns may be ommitted if fixed_width_columns_csv is provided
 	//*TODO domain_keys_json
 	//*TODO code_values_mapping_json
-	Type                string             `json:"type"`
-	SourceType          string             `json:"source_type"`
-	Key                 string             `json:"key"`
-	Client              string             `json:"client"`
-	Vendor              string             `json:"vendor"`
-	ObjectType          string             `json:"object_type"`
-	SchemaName          string             `json:"schema_name"`
-	InputFormat         string             `json:"input_format"`
-	Compression         string             `json:"compression"`
-	InputFormatDataJson string             `json:"input_format_data_json"`
-	Delimiter           string             `json:"delimiter"`
-	IsPartFiles         bool               `json:"is_part_files"`
-	Columns             []SchemaColumnSpec `json:"columns"`
+	Type                 string             `json:"type"`
+	SourceType           string             `json:"source_type"`
+	Key                  string             `json:"key"`
+	Client               string             `json:"client"`
+	Vendor               string             `json:"vendor"`
+	ObjectType           string             `json:"object_type"`
+	SchemaName           string             `json:"schema_name"`
+	InputFormat          string             `json:"input_format"`
+	Compression          string             `json:"compression"`
+	InputFormatDataJson  string             `json:"input_format_data_json"`
+	Delimiter            string             `json:"delimiter"`
+	IsPartFiles          bool               `json:"is_part_files"`
+	FixedWidthColumnsCsv string             `json:"fixed_width_columns_csv"`
+	Columns              []SchemaColumnSpec `json:"columns"`
 }
 
 type SchemaColumnSpec struct {
 	Name      string `json:"name"`
-	Length    int    `json:"length"`
-	Precision *int   `json:"precision"`
+	Length    int    `json:"length"`    // for fixed_width
+	Precision *int   `json:"precision"` // for fixed_width
 }
 
 type TableSpec struct {
@@ -186,13 +188,13 @@ type TransformationSpec struct {
 
 type InputChannelConfig struct {
 	// Type range: input, stage (default)
-	// Format: csv, headerless_csv, etc
+	// Format: csv, headerless_csv
 	// Compression: none, snappy
 	// SchemaProvider is provided via ComputePipesCommonArgs.SourcesConfig (ie input_registry table)
 	Type         string `json:"type"`
 	Name         string `json:"name"`
-	Format       string `json:"format"`      // Type input
-	Compression  string `json:"compression"` // Type Input
+	Format       string `json:"format"`      // Override default behavior
+	Compression  string `json:"compression"` // Override default behavior
 	ReadStepId   string `json:"read_step_id"`
 	SamplingRate int    `json:"sampling_rate"`
 }

@@ -18,10 +18,10 @@ type SchemaManager struct {
 func NewSchemaManager(spec []*SchemaProviderSpec,
 	envSettings map[string]interface{}, isDebugMode bool) *SchemaManager {
 	return &SchemaManager{
-		spec:        spec,
-		envSettings: envSettings,
-		isDebugMode: isDebugMode,
-    schemaProviders: make(map[string]SchemaProvider),
+		spec:            spec,
+		envSettings:     envSettings,
+		isDebugMode:     isDebugMode,
+		schemaProviders: make(map[string]SchemaProvider),
 	}
 }
 
@@ -39,40 +39,46 @@ type SchemaProvider interface {
 	IsPartFiles() bool
 	Delimiter() rune
 	Columns() []SchemaColumnSpec
+	FixedWidthFileHeaders() ([]string, string)
+	FixedWidthEncodingInfo() *FixedWidthEncodingInfo
 }
 
+// fwHeaders is the list of file headers for fixed_width
+// fwColumnPrefix is for fixed_width with multiple record type, prefix for making table columns (dkInfo)
 type DefaultSchemaProvider struct {
-	spec        *SchemaProviderSpec
-	isDebugMode bool
+	spec           *SchemaProviderSpec
+	isDebugMode    bool
+	fwHeaders      []string
+	fwColumnPrefix string
+	fwColumnInfo   *FixedWidthEncodingInfo
 }
 
 func NewDefaultSchemaProvider() SchemaProvider {
 	return &DefaultSchemaProvider{}
 }
 
-
 func (sm *SchemaManager) PrepareSchemaProviders(dbpool *pgxpool.Pool) error {
-  if sm == nil || sm.spec == nil {
-    return nil
-  }
-  for _, spec := range sm.spec {
-    switch spec.Type {
-    case "default":
-      sp := NewDefaultSchemaProvider()
-      sp.Initialize(dbpool, spec, sm.envSettings, sm.isDebugMode)
-      sm.schemaProviders[sp.Key()] = sp
-    default:
-      return fmt.Errorf("error: unknown Schema Provider Type %s", spec.Type)
-    }
-  }
-  return nil
+	if sm == nil || sm.spec == nil {
+		return nil
+	}
+	for _, spec := range sm.spec {
+		switch spec.Type {
+		case "default":
+			sp := NewDefaultSchemaProvider()
+			sp.Initialize(dbpool, spec, sm.envSettings, sm.isDebugMode)
+			sm.schemaProviders[sp.Key()] = sp
+		default:
+			return fmt.Errorf("error: unknown Schema Provider Type %s", spec.Type)
+		}
+	}
+	return nil
 }
 
 func (sm *SchemaManager) GetSchemaProvider(key string) SchemaProvider {
-  if sm == nil || sm.schemaProviders == nil {
-    return nil
-  }
-  return sm.schemaProviders[key]
+	if sm == nil || sm.schemaProviders == nil {
+		return nil
+	}
+	return sm.schemaProviders[key]
 }
 
 func (sp *DefaultSchemaProvider) Initialize(_ *pgxpool.Pool, spec *SchemaProviderSpec,
@@ -83,7 +89,24 @@ func (sp *DefaultSchemaProvider) Initialize(_ *pgxpool.Pool, spec *SchemaProvide
 	if sp.spec.Compression == "" {
 		sp.spec.Compression = "none"
 	}
+	if spec.InputFormat == "fixed_width" {
+		return sp.initializeFixedWidthInfo()
+	}
 	return nil
+}
+
+func (sp *DefaultSchemaProvider) FixedWidthFileHeaders() ([]string, string) {
+	if sp == nil {
+		return nil, ""
+	}
+	return sp.fwHeaders, sp.fwColumnPrefix
+}
+
+func (sp *DefaultSchemaProvider) FixedWidthEncodingInfo() *FixedWidthEncodingInfo {
+	if sp == nil {
+		return nil
+	}
+	return sp.fwColumnInfo
 }
 
 func (sp *DefaultSchemaProvider) Key() string {
