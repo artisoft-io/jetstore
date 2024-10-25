@@ -589,7 +589,17 @@ func SelectActiveOutputTable(tableConfig []*TableSpec, pipeConfig []PipeSpec) ([
 func ValidatePipeSpecOutputChannels(pipeConfig []PipeSpec) error {
 	for i := range pipeConfig {
 		for j := range pipeConfig[i].Apply {
-			config := &pipeConfig[i].Apply[j].OutputChannel
+			transformationConfig := &pipeConfig[i].Apply[j]
+			// validate transformation pipe config
+			switch transformationConfig.Type {
+			case "partition_writer":
+				if transformationConfig.DeviceWriterType == nil && transformationConfig.OutputChannel.SchemaProvider == "" {
+					return fmt.Errorf(
+						"error: invalid cpipes config, must provide 'device_writer_type' or 'output_channel.schema_provider'"+
+						" for transformation pipe of type 'partition_writer'")
+				}
+			}
+			config := &transformationConfig.OutputChannel
 			if config.Type == "" {
 				config.Type = "stage"
 			}
@@ -609,10 +619,22 @@ func ValidatePipeSpecOutputChannels(pipeConfig []PipeSpec) error {
 					if config.Compression == "" {
 						config.Compression = "snappy"
 					}
-				default:
+					// if the parent transformation pipe is partition_writer, it must have a device_writer_type 'csv_writer'
+					if transformationConfig.Type == "partition_writer" && *transformationConfig.DeviceWriterType != "csv_writer" {
+						return fmt.Errorf(
+							"error: invalid cpipes config, 'partition_writer' with output_channel of type 'stage' must have a device writer of type 'csv_writer'")
+					}
+					if len(config.WriteStepId) == 0 {
+						return fmt.Errorf("error: invalid cpipes config, write_step_id is not specified in output_channel of type 'stage'")
+					}
+				
+				case "output":
 					if config.Compression == "" {
 						config.Compression = "none"
 					}
+				default:
+					return fmt.Errorf(
+						"error: invalid cpipes config, unknown output_channel config type: %s (expecting: stage, output, sql)", config.Type)
 				}
 			}
 		}

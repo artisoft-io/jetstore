@@ -168,6 +168,7 @@ type SplitterSpec struct {
 
 type TransformationSpec struct {
 	// Type range: map_record, aggregate, analyze, high_freq, partition_writer, anonymize, distinct
+	// DeviceWriterType range: csv_writer, parquet_writer, fixed_width_writer
 	Type                  string                     `json:"type"`
 	NewRecord             bool                       `json:"new_record"`
 	PartitionSize         *int                       `json:"partition_size"`
@@ -175,7 +176,7 @@ type TransformationSpec struct {
 	FilePathSubstitutions *[]PathSubstitution        `json:"file_path_substitutions"`
 	Columns               []TransformationColumnSpec `json:"columns"`
 	DataSchema            *[]DataSchemaSpec          `json:"data_schema"`
-	DeviceWriterType      *string                    `json:"device_writer_type"`
+	DeviceWriterType      *string                    `json:"device_writer_type"` // Type partition_writer
 	WriteHeaders          bool                       `json:"write_headers"`
 	RegexTokens           *[]RegexNode               `json:"regex_tokens"`      // Type analyze
 	LookupTokens          *[]LookupTokenNode         `json:"lookup_tokens"`     // Type analyze
@@ -188,7 +189,7 @@ type TransformationSpec struct {
 
 type InputChannelConfig struct {
 	// Type range: input, stage (default)
-	// Format: csv, headerless_csv
+	// Format: csv, headerless_csv, etc.
 	// Compression: none, snappy
 	// SchemaProvider is provided via ComputePipesCommonArgs.SourcesConfig (ie input_registry table)
 	Type         string `json:"type"`

@@ -39,16 +39,17 @@ type SchemaProvider interface {
 	IsPartFiles() bool
 	Delimiter() rune
 	Columns() []SchemaColumnSpec
+	ColumnNames() []string
 	FixedWidthFileHeaders() ([]string, string)
 	FixedWidthEncodingInfo() *FixedWidthEncodingInfo
 }
 
-// fwHeaders is the list of file headers for fixed_width
+// columnNames is the list of file headers for fixed_width
 // fwColumnPrefix is for fixed_width with multiple record type, prefix for making table columns (dkInfo)
 type DefaultSchemaProvider struct {
 	spec           *SchemaProviderSpec
 	isDebugMode    bool
-	fwHeaders      []string
+	columnNames      []string
 	fwColumnPrefix string
 	fwColumnInfo   *FixedWidthEncodingInfo
 }
@@ -92,6 +93,12 @@ func (sp *DefaultSchemaProvider) Initialize(_ *pgxpool.Pool, spec *SchemaProvide
 	if spec.InputFormat == "fixed_width" {
 		return sp.initializeFixedWidthInfo()
 	}
+	if len(sp.spec.Columns) > 0 {
+		sp.columnNames = make([]string, 0, len(sp.spec.Columns))
+		for i := range sp.spec.Columns {
+			sp.columnNames = append(sp.columnNames, sp.spec.Columns[i].Name)
+		}
+	}
 	return nil
 }
 
@@ -99,7 +106,7 @@ func (sp *DefaultSchemaProvider) FixedWidthFileHeaders() ([]string, string) {
 	if sp == nil {
 		return nil, ""
 	}
-	return sp.fwHeaders, sp.fwColumnPrefix
+	return sp.columnNames, sp.fwColumnPrefix
 }
 
 func (sp *DefaultSchemaProvider) FixedWidthEncodingInfo() *FixedWidthEncodingInfo {
@@ -187,4 +194,11 @@ func (sp *DefaultSchemaProvider) Columns() []SchemaColumnSpec {
 		return nil
 	}
 	return sp.spec.Columns
+}
+
+func (sp *DefaultSchemaProvider) ColumnNames() []string {
+	if sp == nil {
+		return nil
+	}
+	return sp.columnNames
 }

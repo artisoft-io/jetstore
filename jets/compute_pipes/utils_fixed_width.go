@@ -145,7 +145,7 @@ func (sp *DefaultSchemaProvider) initializeFixedWidthInfo() error {
 		}
 	}
 	// Make the rawHeaders list from the sp.fwColumnInfo
-	sp.fwHeaders = make([]string, 0)
+	sp.columnNames = make([]string, 0)
 	columnOffset := 0
 	for _, recordType := range sp.fwColumnInfo.RecordTypeList {
 		columnList, ok := sp.fwColumnInfo.ColumnsMap[recordType]
@@ -157,7 +157,7 @@ func (sp *DefaultSchemaProvider) initializeFixedWidthInfo() error {
 		}
 		sp.fwColumnInfo.ColumnsOffsetMap[recordType] = columnOffset
 		for i := range *columnList {
-			sp.fwHeaders = append(sp.fwHeaders, (*columnList)[i].ColumnName)
+			sp.columnNames = append(sp.columnNames, (*columnList)[i].ColumnName)
 			columnOffset += 1
 		}
 	}

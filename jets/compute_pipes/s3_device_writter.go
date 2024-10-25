@@ -18,6 +18,8 @@ import (
 type S3DeviceWriter struct {
 	s3DeviceManager *S3DeviceManager
 	source          *InputChannel
+	schemaProvider  SchemaProvider
+	columnNames     []string
 	parquetSchema   []string
 	localTempDir    *string
 	s3BasePath      *string
@@ -141,7 +143,7 @@ func (ctx *S3DeviceWriter) WriteCsvPartition() {
 		goto gotError
 	}
 	if ctx.spec.WriteHeaders || ctx.spec.OutputChannel.Format == "csv" {
-		if err = csvWriter.Write(ctx.outputCh.config.Columns); err != nil {
+		if err = csvWriter.Write(ctx.columnNames); err != nil {
 			cpErr = fmt.Errorf("while writing headers to local csv file: %v", err)
 			goto gotError
 		}
