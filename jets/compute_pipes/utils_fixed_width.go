@@ -13,11 +13,11 @@ import (
 
 // Utilities for Fixed Width Files
 
-// Struct to hold column names and positions for fixed-width file encoding
-// ColumnsMap key is record type or empty string if single record type (RecordTypeColumn = nil)
-// In ColumnsMap elements, ColumnName is <record type>.<record column name> to make it unique across record types
-// However RecordTypeColumn.ColumnName is <record column name> without prefix
-// Note that all record type MUST have RecordTypeColumn.ColumnName with same start and end position
+// Struct to hold column names and positions for fixed-width file encoding. 
+// ColumnsMap key is record type or empty string if single record type (RecordTypeColumn = nil in that case). 
+// In ColumnsMap elements, ColumnName is <record type>.<record column name> to make it unique across record types.
+// However RecordTypeColumn.ColumnName is <record column name> without prefix.
+// Note that all record type MUST have RecordTypeColumn.ColumnName with same start and end position.
 // Any record having a unrecognized record type (ie not found in ColumnsMap) are ignored.
 type FixedWidthColumn struct {
 	Start      int

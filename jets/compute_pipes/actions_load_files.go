@@ -390,7 +390,7 @@ func (cpCtx *ComputePipesContext) ReadFixedWidthFile(filePath *FileName,
 	default:
 		return 0, fmt.Errorf("error: unknown cpipes mode in ReadFixedWidthFile: %s", cpCtx.CpConfig.CommonRuntimeArgs.CpipesMode)
 	}
-	// Get the csv delimiter from the schema provider, if no schema provider exist assume it's ','
+	// Get the FixedWidthEncodingInfo from the schema provider
 	var fwEncodingInfo *FixedWidthEncodingInfo
 	if len(schemaProvider) > 0 {
 		sp := cpCtx.SchemaManager.GetSchemaProvider(schemaProvider)

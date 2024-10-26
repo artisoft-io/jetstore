@@ -1,10 +1,12 @@
 package compute_pipes
 
 import (
+	"bufio"
 	"encoding/csv"
 	"fmt"
 	"log"
 	"os"
+	"strings"
 
 	"github.com/artisoft-io/jetstore/jets/run_reports/delegate"
 	"github.com/golang/snappy"
@@ -187,6 +189,137 @@ func (ctx *S3DeviceWriter) WriteCsvPartition() {
 	}:
 	case <-ctx.doneCh:
 		log.Printf("WriteCsvPartition: sending file to S3DeviceManager interrupted")
+	}
+	// All good!
+	return
+gotError:
+	log.Println(cpErr)
+	ctx.errCh <- cpErr
+	close(ctx.doneCh)
+}
+
+func (ctx *S3DeviceWriter) WriteFixedWidthPartition() {
+	var cpErr, err error
+	var fileHd *os.File
+	var snWriter *snappy.Writer
+	var fwWriter *bufio.Writer
+	var fwColumnsInfo *[]*FixedWidthColumn
+	var columnPos []int
+	var value string
+
+	tempFileName := fmt.Sprintf("%s/%s", *ctx.localTempDir, *ctx.fileName)
+	s3FileName := fmt.Sprintf("%s/%s", *ctx.s3BasePath, *ctx.fileName)
+
+	// Get the FixedWidthEncodingInfo from the schema provider
+	var fwEncodingInfo *FixedWidthEncodingInfo
+	sp := ctx.schemaProvider
+	if sp != nil {
+		fwEncodingInfo = sp.FixedWidthEncodingInfo()
+	}
+	if fwEncodingInfo == nil {
+		cpErr = fmt.Errorf("error: writing fixed_width file, no encodeding info available")
+		goto gotError
+	}
+
+	//*TODO support multiple record type for writing fixed_width files
+	if fwEncodingInfo.RecordTypeColumn != nil {
+		cpErr = fmt.Errorf("error: writing fixed_width file, currently supporting single record type")
+		goto gotError
+	}
+	fwColumnsInfo = fwEncodingInfo.ColumnsMap[""]
+	if fwColumnsInfo == nil {
+		cpErr = fmt.Errorf("error: writing fixed_width file, currently supporting single record type (2)")
+		goto gotError
+	}
+
+	// Getting the column position for the output fw columns
+	columnPos = make([]int, 0, len(*fwColumnsInfo))
+	for _, fwColumn := range *fwColumnsInfo {
+		columnPos = append(columnPos, ctx.outputCh.columns[fwColumn.ColumnName])
+	}
+
+	// fmt.Println("**&@@ WriteFixedWidthPartition *1: fileName:", *ctx.fileName)
+	if ctx.s3DeviceManager == nil {
+		cpErr = fmt.Errorf("error: s3DeviceManager is nil")
+		goto gotError
+	}
+
+	// open the local temp file for the writer
+	fileHd, err = os.Create(tempFileName)
+	if err != nil {
+		cpErr = fmt.Errorf("while opening local file for fixed_width write %v", err)
+		goto gotError
+	}
+	defer fileHd.Close()
+
+	switch ctx.spec.OutputChannel.Compression {
+	case "none":
+		fwWriter = bufio.NewWriter(fileHd)
+	case "snappy":
+		// Open a snappy compressor
+		snWriter = snappy.NewBufferedWriter(fileHd)
+		// Open a buffered writer
+		fwWriter = bufio.NewWriter(snWriter)
+	default:
+		cpErr = fmt.Errorf("error: unknown compression %s in WriteFixedWidthPartition",
+			ctx.spec.OutputChannel.Compression)
+		goto gotError
+	}
+
+	// Write the rows into the temp file
+	for inRow := range ctx.source.channel {
+		//*$1
+		// replace null with empty string, convert to string
+		for i, fwColumn := range *fwColumnsInfo {
+			l := fwColumn.End - fwColumn.Start
+			switch vv := inRow[columnPos[i]].(type) {
+			case string:
+				value = vv
+			case nil:
+				value = ""
+			default:
+				value = fmt.Sprintf("%v", vv)
+			}
+			lv := len(value)
+			if lv >= l {
+				_, err := fwWriter.WriteString(value[:l])
+				if err != nil {
+					cpErr = fmt.Errorf("while writing to local fixed_width file: %v", err)
+					goto gotError
+				}
+			} else {
+				_, err := fwWriter.WriteString(value)
+				if err != nil {
+					cpErr = fmt.Errorf("while writing to local fixed_width file: %v", err)
+					goto gotError
+				}
+				_, err = fwWriter.WriteString(strings.Repeat(" ", l-lv))
+				if err != nil {
+					cpErr = fmt.Errorf("while writing to local fixed_width file: %v", err)
+					goto gotError
+				}
+			}
+		}
+		_, err := fwWriter.WriteString("\n")
+		if err != nil {
+			cpErr = fmt.Errorf("while writing to local fixed_width file: %v", err)
+			goto gotError
+		}
+	}
+
+	// fmt.Println("**&@@ WriteFixedWidthPartition: DONE writing local file for fileName:", *ctx.fileName)
+	fwWriter.Flush()
+	if snWriter != nil {
+		snWriter.Flush()
+	}
+	// schedule the file to be moved to s3
+	select {
+	case ctx.s3DeviceManager.WorkersTaskCh <- S3Object{
+		FileKey:       s3FileName,
+		LocalFilePath: tempFileName,
+	}:
+	case <-ctx.doneCh:
+		log.Printf("WriteFixedWidthPartition: sending file to S3DeviceManager interrupted")
 	}
 	// All good!
 	return

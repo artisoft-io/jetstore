@@ -53,6 +53,7 @@ type PartitionWriterTransformationPipe struct {
 	sessionId            string
 	nodeId               int
 	s3DeviceManager      *S3DeviceManager
+	env                  map[string]interface{}
 }
 
 func MakeJetsPartitionLabel(jetsPartitionKey interface{}) string {
@@ -91,9 +92,8 @@ func (ctx *PartitionWriterTransformationPipe) apply(input *[]interface{}) error 
 
 		var partitionFileName string
 		if len(ctx.spec.OutputChannel.FileName) > 0 {
-			//* APPLY substitutions...
-			XXX
-			partitionFileName = ctx.spec.OutputChannel.FileName
+			// APPLY substitutions
+			partitionFileName = doSubstitution(ctx.spec.OutputChannel.FileName, ctx.jetsPartitionLabel, ctx.env)
 		} else {
 			var fileEx string
 			switch ctx.deviceWriterType {
@@ -317,17 +317,7 @@ func (ctx *BuilderContext) NewPartitionWriterTransformationPipe(source *InputCha
 		baseOutputPath = fmt.Sprintf("%s/process_name=%s/session_id=%s/step_id=%s/jets_partition=%s",
 			jetsS3StagePrefix, ctx.processName, ctx.sessionId, spec.OutputChannel.WriteStepId, jetsPartitionLabel)
 	case "output":
-		baseOutputPath = spec.OutputChannel.KeyPrefix
-		if strings.Contains(baseOutputPath, "$") {
-			for key, v := range ctx.env {
-				value, ok := v.(string)
-				if ok {
-					baseOutputPath = strings.ReplaceAll(baseOutputPath, key, value)
-				}
-			}
-			baseOutputPath = strings.ReplaceAll(baseOutputPath, "$CURRENT_PARTITION_LABEL", jetsPartitionLabel)
-			baseOutputPath = strings.ReplaceAll(baseOutputPath, jetsS3InputPrefix, jetsS3OutputPrefix)
-		}
+		baseOutputPath = doSubstitution(spec.OutputChannel.KeyPrefix, jetsPartitionLabel, ctx.env)
 	default:
 		return nil, fmt.Errorf("error: unknown output channel type for partition_writer: %s", spec.OutputChannel.Type)
 	}
@@ -372,5 +362,25 @@ func (ctx *BuilderContext) NewPartitionWriterTransformationPipe(source *InputCha
 		sessionId:            ctx.sessionId,
 		nodeId:               ctx.nodeId,
 		s3DeviceManager:      ctx.s3DeviceManager,
+		env:                  ctx.env,
 	}, nil
+}
+
+func doSubstitution(value, jetsPartitionLabel string, env map[string]interface{}) string {
+	if strings.Contains(value, "$") {
+		for key, v := range env {
+			value, ok := v.(string)
+			if ok {
+				value = strings.ReplaceAll(value, key, value)
+			}
+			if !strings.Contains(value, "$") {
+				break
+			}
+		}
+		if strings.Contains(value, "$") {
+			value = strings.ReplaceAll(value, "$CURRENT_PARTITION_LABEL", jetsPartitionLabel)
+			value = strings.ReplaceAll(value, jetsS3InputPrefix, jetsS3OutputPrefix)
+		}
+	}
+	return value
 }
