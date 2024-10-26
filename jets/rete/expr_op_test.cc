@@ -501,6 +501,18 @@ TEST_F(ExprOpTest, SubstringOfVisitor1) {
   auto res = boost::apply_visitor(op, rdf::RdfAstType(lhs), rdf::RdfAstType(rhs));
   EXPECT_EQ(res, rdf::RdfAstType(rdf::LString("Allo")));
 }
+TEST_F(ExprOpTest, SubstringOfVisitor3) {
+  auto sess = this->rete_session->rdf_session();
+  auto rmgr = sess->rmgr();
+  rdf::r_index config = rmgr->create_resource("config");
+  sess->insert(config, rmgr->jets()->jets__from, rmgr->create_literal(2));
+  sess->insert(config, rmgr->jets()->jets__length, rmgr->create_literal(-3));
+  SubstringOfVisitor op(this->rete_session.get(), nullptr);
+  rdf::NamedResource lhs("config");
+  rdf::LString rhs("==Allo===");
+  auto res = boost::apply_visitor(op, rdf::RdfAstType(lhs), rdf::RdfAstType(rhs));
+  EXPECT_EQ(res, rdf::RdfAstType(rdf::LString("Allo")));
+}
 TEST_F(ExprOpTest, SubstringOfVisitor2) {
   auto sess = this->rete_session->rdf_session();
   auto rmgr = sess->rmgr();

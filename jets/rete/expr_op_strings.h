@@ -206,6 +206,7 @@ struct SubstringOfVisitor: public boost::static_visitor<RDFTTYPE>, public NoCall
     //    - jets:from int value for start position of substring
     //    - jets:length int value for length of substring.
     // Note: if jets:from + jets:length > rhs.data.size() then return the available characters of rhs.data
+    // Note: if jets:length < 0 then remove jets:length from the end of the string
     // Get from and length from the config object
     auto * sess = rs->rdf_session();
     auto rmgr = sess->rmgr();
@@ -225,6 +226,10 @@ struct SubstringOfVisitor: public boost::static_visitor<RDFTTYPE>, public NoCall
     }
     auto from = boost::get<rdf::LInt32>(from_obj)->data;
     auto length = boost::get<rdf::LInt32>(length_obj)->data;
+    if (length < 0) {
+      auto sz = rhs.data.size();
+      length = sz + length - from;
+    }
     return rdf::LString{ rhs.data.substr(from, length) };
   }
 

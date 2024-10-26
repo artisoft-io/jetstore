@@ -33,6 +33,9 @@ type PartitionWriterTransformationPipe struct {
 	cpConfig             *ComputePipesConfig
 	dbpool               *pgxpool.Pool
 	spec                 *TransformationSpec
+	schemaProvider       SchemaProvider
+	columnNames          []string
+	deviceWriterType     string
 	localTempDir         *string
 	baseOutputPath       *string
 	jetsPartitionLabel   string
@@ -50,6 +53,7 @@ type PartitionWriterTransformationPipe struct {
 	sessionId            string
 	nodeId               int
 	s3DeviceManager      *S3DeviceManager
+	env                  map[string]interface{}
 }
 
 func MakeJetsPartitionLabel(jetsPartitionKey interface{}) string {
@@ -85,15 +89,21 @@ func (ctx *PartitionWriterTransformationPipe) apply(input *[]interface{}) error 
 
 		// Start the device writter for the partition
 		ctx.filePartitionNumber += 1
-		isParquetWriter := ctx.spec.DeviceWriterType == nil || *ctx.spec.DeviceWriterType == "parquet_writer"
-		fileEx := "csv"
-		if isParquetWriter {
-			fileEx = "parquet"
-		}
+
 		var partitionFileName string
 		if len(ctx.spec.OutputChannel.FileName) > 0 {
-			partitionFileName = ctx.spec.OutputChannel.FileName
+			// APPLY substitutions
+			partitionFileName = doSubstitution(ctx.spec.OutputChannel.FileName, ctx.jetsPartitionLabel, ctx.env)
 		} else {
+			var fileEx string
+			switch ctx.deviceWriterType {
+			case "csv_writer":
+				fileEx = "csv"
+			case "parquet_writer":
+				fileEx = "parquet"
+			case "fixed_width_writer":
+				fileEx = "fixed_width"
+			}
 			partitionFileName = fmt.Sprintf("part%04d-%07d.%s", ctx.nodeId, ctx.filePartitionNumber, fileEx)
 		}
 		s3DeviceWriter := &S3DeviceWriter{
@@ -103,29 +113,34 @@ func (ctx *PartitionWriterTransformationPipe) apply(input *[]interface{}) error 
 				columns: ctx.outputCh.columns,
 				config:  &ChannelSpec{Name: fmt.Sprintf("input channel for partition_writer for %s", partitionFileName)},
 			},
-			spec:          ctx.spec,
-			outputCh:      ctx.outputCh,
-			parquetSchema: ctx.parquetSchema,
-			localTempDir:  ctx.localTempDir,
-			s3BasePath:    ctx.baseOutputPath,
-			fileName:      &partitionFileName,
-			doneCh:        ctx.doneCh,
-			errCh:         ctx.errCh,
+			spec:           ctx.spec,
+			schemaProvider: ctx.schemaProvider,
+			columnNames:    ctx.columnNames,
+			outputCh:       ctx.outputCh,
+			parquetSchema:  ctx.parquetSchema,
+			localTempDir:   ctx.localTempDir,
+			s3BasePath:     ctx.baseOutputPath,
+			fileName:       &partitionFileName,
+			doneCh:         ctx.doneCh,
+			errCh:          ctx.errCh,
 		}
 		ctx.s3DeviceManager.ClientsWg.Add(1)
 		go func() {
 			defer ctx.s3DeviceManager.ClientsWg.Done()
-			if isParquetWriter {
-				s3DeviceWriter.WriteParquetPartition()
-			} else {
+			switch ctx.deviceWriterType {
+			case "csv_writer":
 				s3DeviceWriter.WriteCsvPartition()
+			case "parquet_writer":
+				s3DeviceWriter.WriteParquetPartition()
+			case "fixed_width_writer":
+				s3DeviceWriter.WriteFixedWidthPartition()
 			}
 		}()
 	}
 	// currentValue is either the input row or a new row based on ctx.NewRecord flag
 	var currentValues *[]interface{}
 	if ctx.spec.NewRecord {
-		v := make([]interface{}, len(ctx.outputCh.config.Columns))
+		v := make([]interface{}, len(ctx.columnNames))
 		currentValues = &v
 		// initialize the column evaluators
 		for i := range ctx.columnEvaluators {
@@ -153,8 +168,8 @@ func (ctx *PartitionWriterTransformationPipe) apply(input *[]interface{}) error 
 	}
 	if !ctx.spec.NewRecord {
 		// resize the slice in case we're dropping column on the output
-		if len(*currentValues) > len(ctx.outputCh.config.Columns) {
-			*currentValues = (*currentValues)[:len(ctx.outputCh.config.Columns)]
+		if len(*currentValues) > len(ctx.columnNames) {
+			*currentValues = (*currentValues)[:len(ctx.columnNames)]
 		}
 	}
 	// Send the result to output
@@ -226,14 +241,7 @@ func (ctx *BuilderContext) NewPartitionWriterTransformationPipe(source *InputCha
 		log.Println(err)
 		return nil, err
 	}
-	if spec.OutputChannel.Type == "" {
-		spec.OutputChannel.Type = "stage"
-	}
-	if spec.OutputChannel.Type == "stage" && len(spec.OutputChannel.WriteStepId) == 0 {
-		err = fmt.Errorf("error:  write_step_id is not specified in output_channel in NewPartitionWriterTransformationPipe")
-		log.Println(err)
-		return nil, err
-	}
+	var parquetSchema []string
 	// log.Println("NewPartitionWriterTransformationPipe called for partition key:",jetsPartitionKey)
 	if jetsPartitionKey == nil && spec.JetsPartitionKey != nil {
 		jetsPartitionKey = *spec.JetsPartitionKey
@@ -253,31 +261,50 @@ func (ctx *BuilderContext) NewPartitionWriterTransformationPipe(source *InputCha
 	// close the underlying channel of outputCh since it will be replaced
 	ctx.channelRegistry.CloseChannel(outputCh.config.Name)
 
-	// Prepare the parquet schema -- saving rows based on specified data type
-	schema := make(map[string]string)
-	if spec.DataSchema != nil {
-		for i := range *spec.DataSchema {
-			schema[(*spec.DataSchema)[i].Columns] = (*spec.DataSchema)[i].RdfType
+	// NOTE: parquet schema -- saving data as text
+	// NOTE (future) To write parquet using typed data, get the data type from the schema provider.
+	// Check if the DeviceWriterType is specified by the Schema Provider
+	var sp SchemaProvider
+	if spec.OutputChannel.SchemaProvider != "" {
+		sp = ctx.schemaManager.GetSchemaProvider(spec.OutputChannel.SchemaProvider)
+		if sp == nil {
+			err = fmt.Errorf("schema provider %s not found (in NewPartitionWriterTransformationPipe)", spec.OutputChannel.SchemaProvider)
+			log.Println(err)
+			return nil, err
 		}
 	}
-	parquetSchema := make([]string, len(outputCh.config.Columns))
-	if spec.DeviceWriterType == nil || *spec.DeviceWriterType == "parquet_writer" {
-		for i := range outputCh.config.Columns {
-			//*$1
-			// rdfType := schema[outputCh.config.Columns[i]]
-			// switch rdfType {
-			// case "int", "int32":
-			// 	parquetSchema[i] = fmt.Sprintf("name=%s, type=INT32, repetitiontype=OPTIONAL",	outputCh.config.Columns[i])
-			// case "long", "int64", "timestamp":
-			// 	parquetSchema[i] = fmt.Sprintf("name=%s, type=INT64, repetitiontype=OPTIONAL",	outputCh.config.Columns[i])
-			// case "double", "float64":
-			// 	parquetSchema[i] = fmt.Sprintf("name=%s, type=DOUBLE, repetitiontype=OPTIONAL",	outputCh.config.Columns[i])
-			// default:
-			// 	parquetSchema[i] = fmt.Sprintf("name=%s, type=BYTE_ARRAY, convertedtype=UTF8, encoding=PLAIN_DICTIONARY, repetitiontype=OPTIONAL",
-			// 	outputCh.config.Columns[i])
-			// }
-			parquetSchema[i] = fmt.Sprintf("name=%s, type=BYTE_ARRAY, convertedtype=UTF8, encoding=PLAIN_DICTIONARY",
-				outputCh.config.Columns[i])
+	var deviceWriterType string
+	if spec.DeviceWriterType != nil {
+		deviceWriterType = *spec.DeviceWriterType
+	}
+	if deviceWriterType == "" {
+		switch sp.InputFormat() {
+		case "csv", "headerless_csv":
+			deviceWriterType = "csv_writer"
+		case "parquet", "parquet_select":
+			deviceWriterType = "parquet_writer"
+		case "fixed_width":
+			deviceWriterType = "fixed_width_writer"
+		default:
+			err = fmt.Errorf("unsupported output file format: %s (in NewPartitionWriterTransformationPipe)", sp.InputFormat())
+			log.Println(err)
+			return nil, err
+		}
+	}
+	var columnNames []string
+	if sp != nil {
+		columnNames = sp.ColumnNames()
+	}
+	// Note: column may or may not be provided by the schema provider
+	if len(columnNames) == 0 {
+		columnNames = outputCh.config.Columns
+	}
+
+	switch deviceWriterType {
+	case "parquet_writer":
+		parquetSchema = make([]string, len(columnNames))
+		for i := range columnNames {
+			parquetSchema[i] = fmt.Sprintf("name=%s, type=BYTE_ARRAY, convertedtype=UTF8, encoding=PLAIN_DICTIONARY", columnNames[i])
 		}
 	}
 
@@ -290,17 +317,7 @@ func (ctx *BuilderContext) NewPartitionWriterTransformationPipe(source *InputCha
 		baseOutputPath = fmt.Sprintf("%s/process_name=%s/session_id=%s/step_id=%s/jets_partition=%s",
 			jetsS3StagePrefix, ctx.processName, ctx.sessionId, spec.OutputChannel.WriteStepId, jetsPartitionLabel)
 	case "output":
-		baseOutputPath = spec.OutputChannel.KeyPrefix
-		if strings.Contains(baseOutputPath, "$") {
-			for key, v := range ctx.env {
-				value, ok := v.(string)
-				if ok {
-					baseOutputPath = strings.ReplaceAll(baseOutputPath, key, value)
-				}
-			}
-			baseOutputPath = strings.ReplaceAll(baseOutputPath, "$CURRENT_PARTITION_LABEL", jetsPartitionLabel)
-			baseOutputPath = strings.ReplaceAll(baseOutputPath, jetsS3InputPrefix, jetsS3OutputPrefix)
-		}
+		baseOutputPath = doSubstitution(spec.OutputChannel.KeyPrefix, jetsPartitionLabel, ctx.env)
 	default:
 		return nil, fmt.Errorf("error: unknown output channel type for partition_writer: %s", spec.OutputChannel.Type)
 	}
@@ -330,6 +347,9 @@ func (ctx *BuilderContext) NewPartitionWriterTransformationPipe(source *InputCha
 		cpConfig:             ctx.cpConfig,
 		dbpool:               ctx.dbpool,
 		spec:                 spec,
+		schemaProvider:       sp,
+		columnNames:          columnNames,
+		deviceWriterType:     deviceWriterType,
 		baseOutputPath:       &baseOutputPath,
 		localTempDir:         &localTempDir,
 		jetsPartitionLabel:   jetsPartitionLabel,
@@ -342,5 +362,25 @@ func (ctx *BuilderContext) NewPartitionWriterTransformationPipe(source *InputCha
 		sessionId:            ctx.sessionId,
 		nodeId:               ctx.nodeId,
 		s3DeviceManager:      ctx.s3DeviceManager,
+		env:                  ctx.env,
 	}, nil
+}
+
+func doSubstitution(value, jetsPartitionLabel string, env map[string]interface{}) string {
+	if strings.Contains(value, "$") {
+		for key, v := range env {
+			value, ok := v.(string)
+			if ok {
+				value = strings.ReplaceAll(value, key, value)
+			}
+			if !strings.Contains(value, "$") {
+				break
+			}
+		}
+		if strings.Contains(value, "$") {
+			value = strings.ReplaceAll(value, "$CURRENT_PARTITION_LABEL", jetsPartitionLabel)
+			value = strings.ReplaceAll(value, jetsS3InputPrefix, jetsS3OutputPrefix)
+		}
+	}
+	return value
 }

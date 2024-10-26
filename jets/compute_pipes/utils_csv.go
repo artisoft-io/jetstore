@@ -34,26 +34,28 @@ func DetectCsvDelimitor(fileHd *os.File, fileName string) (d jcsv.Chartype, err 
 
 // Get the raw headers from fileHd, put them in *ic
 // Use *sepFlag as the csv delimiter
-func GetRawHeadersCsv(fileHd *os.File, fileName, fileFormat string, ic *[]string, sepFlag *jcsv.Chartype) error {
+func GetRawHeadersCsv(fileHd *os.File, fileName, fileFormat, compression string, ic *[]string, sepFlag *jcsv.Chartype) error {
 	// Get field delimiters used in files and rawHeaders
 	if ic == nil || sepFlag == nil {
 		return fmt.Errorf("error: GetRawHeadersCsv must have ic and sepFlag arguments non nil")
 	}
 	var err error
 	var csvReader *csv.Reader
-	switch fileFormat {
-	case "csv":
+	switch compression {
+	case "none":
 		// // Remove the Byte Order Mark (BOM) at beggining of the file if present
 		// sr, _ := utfbom.Skip(fileHd)
 		// Setup a csv reader
 		// csvReader = csv.NewReader(sr)
 		csvReader = csv.NewReader(fileHd)
-		csvReader.Comma = rune(*sepFlag)
 
-	case "compressed_csv":
+	case "snappy":
 		csvReader = csv.NewReader(snappy.NewReader(fileHd))
-		csvReader.Comma = rune(*sepFlag)
+	default:
+		return fmt.Errorf("error: unknown compression: %s (GetRawHeadersCsv)", compression)
 	}
+	csvReader.Comma = rune(*sepFlag)
+
 	// Read the file headers
 	*ic, err = csvReader.Read()
 	if err == io.EOF {

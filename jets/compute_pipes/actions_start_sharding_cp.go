@@ -82,14 +82,16 @@ func (args *StartComputePipesArgs) StartShardingComputePipes(ctx context.Context
 
 	// get pe info and pipeline config
 	// cpipesConfigFN is file name within workspace
-	var client, org, objectType, processName, inputFormat, inputSessionId, userEmail, schemaProviderJson string
+	var client, org, objectType, processName, inputFormat, compression string
+	var inputSessionId, userEmail, schemaProviderJson string
 	var sourcePeriodKey, pipelineConfigKey, isPartFile int
 	var cpipesConfigFN, icJson, icPosCsv, inputFormatDataJson sql.NullString
-	log.Println("CPIPES, loading pipeline configuration")
+	log.Println("CPIPES, loading pipeline configurations")
 	stmt := `
 	SELECT	ir.client, ir.org, ir.object_type, ir.source_period_key, ir.schema_provider_json, 
 		pe.pipeline_config_key, pe.process_name, pe.input_session_id, pe.user_email,
-		sc.input_columns_json, sc.input_columns_positions_csv, sc.input_format, sc.is_part_files, sc.input_format_data_json,
+		sc.input_columns_json, sc.input_columns_positions_csv, sc.input_format, sc.compression, 
+		sc.is_part_files, sc.input_format_data_json,
 		pc.main_rules
 	FROM 
 		jetsapi.pipeline_execution_status pe,
@@ -105,10 +107,10 @@ func (args *StartComputePipesArgs) StartShardingComputePipes(ctx context.Context
 	err = dbpool.QueryRow(context.Background(), stmt, args.PipelineExecKey).Scan(
 		&client, &org, &objectType, &sourcePeriodKey, &schemaProviderJson,
 		&pipelineConfigKey, &processName, &inputSessionId, &userEmail,
-		&icJson, &icPosCsv, &inputFormat, &isPartFile, &inputFormatDataJson,
+		&icJson, &icPosCsv, &inputFormat, &compression, &isPartFile, &inputFormatDataJson,
 		&cpipesConfigFN)
 	if err != nil {
-		return result, fmt.Errorf("query table_name, domain_keys_json, input_columns_json, input_columns_positions_csv, input_format_data_json from jetsapi.source_config failed: %v", err)
+		return result, fmt.Errorf("query pipeline configurations failed: %v", err)
 	}
 	if !cpipesConfigFN.Valid || len(cpipesConfigFN.String) == 0 {
 		return result, fmt.Errorf("error: process_config table does not have a cpipes config file name in main_rules column")
@@ -154,7 +156,7 @@ func (args *StartComputePipesArgs) StartShardingComputePipes(ctx context.Context
 	var ic []string
 	// Get the schema provider from schemaProviderJson:
 	//   - Populate the input columns (ic)
-	//   - Populate inputFormat
+	//   - Populate inputFormat, compression
 	//   - Populate inputFormatDataJson for fixed_width
 	//   - Put SchemaName into env (done in CoordinateComputePipes)
 	//   - Put the schema provider in compute pipes json
@@ -178,6 +180,7 @@ func (args *StartComputePipesArgs) StartShardingComputePipes(ctx context.Context
 			Key:                 "_main_input_",
 			SourceType:          "main_input",
 			InputFormat:         inputFormat,
+			Compression:         compression,
 			InputFormatDataJson: inputFormatDataJson.String,
 		}
 		if isPartFile == 1 {
@@ -209,11 +212,19 @@ func (args *StartComputePipesArgs) StartShardingComputePipes(ctx context.Context
 		if len(schemaProviderConfig.InputFormat) > 0 {
 			inputFormat = schemaProviderConfig.InputFormat
 		}
+		if len(schemaProviderConfig.Compression) > 0 {
+			compression = schemaProviderConfig.Compression
+		}
 		schemaProviderKey = schemaProviderConfig.Key
 	}
 	if len(schemaProviderConfig.Delimiter) > 0 {
 		sepFlag.Set(schemaProviderConfig.Delimiter)
 	}
+	if len(icPosCsv.String) > 0 {
+		// Set the fixed_width column spec to the schema provider
+		schemaProviderConfig.FixedWidthColumnsCsv = icPosCsv.String
+	}
+
 	stepId := 0
 	outputTables, err := SelectActiveOutputTable(cpConfig.OutputTables, cpConfig.ReducingPipesConfig[stepId])
 	if err != nil {
@@ -221,11 +232,20 @@ func (args *StartComputePipesArgs) StartShardingComputePipes(ctx context.Context
 	}
 
 	// Get the input columns info
-	if len(ic) == 0 && icJson.Valid && len(icJson.String) > 0 {
+	if len(ic) == 0 && len(icJson.String) > 0 {
 		err = json.Unmarshal([]byte(icJson.String), &ic)
 		if err != nil {
 			return result, fmt.Errorf("while unmarshaling input_columns_json: %s", err)
 		}
+	}
+	if len(ic) == 0 && len(schemaProviderConfig.FixedWidthColumnsCsv) > 0 {
+		// Need to initialize the schema provider to get the column info
+		sp := NewDefaultSchemaProvider()
+		err = sp.Initialize(dbpool, schemaProviderConfig, nil, cpConfig.ClusterConfig.IsDebugMode)
+		if err != nil {
+			return result, fmt.Errorf("while initializing schemap provider to get fixed_width headers: %s", err)
+		}
+		ic, _ = sp.FixedWidthFileHeaders()
 	}
 
 	result.ReportsCommand = []string{
@@ -258,9 +278,10 @@ func (args *StartComputePipesArgs) StartShardingComputePipes(ctx context.Context
 	// Check if headers where provided in source_config record or need to determine the csv delimiter
 	if len(ic) == 0 || (sepFlag == 0 && strings.HasSuffix(inputFormat, "csv")) {
 		// Get the input columns / column separator from the first file
-		err := FetchHeadersAndDelimiterFromFile(firstKey, inputFormat, &ic, &sepFlag, inputFormatDataJson.String)
+		err := FetchHeadersAndDelimiterFromFile(firstKey, inputFormat, compression, &ic, &sepFlag, inputFormatDataJson.String)
 		if err != nil {
-			return result, fmt.Errorf("while calling FetchHeadersAndDelimiterFromFile(%s, %s): %v", firstKey, inputFormat, err)
+			return result,
+				fmt.Errorf("while calling FetchHeadersAndDelimiterFromFile('%s', '%s', '%s'): %v", firstKey, inputFormat, compression, err)
 		}
 		if sepFlag != 0 {
 			schemaProviderConfig.Delimiter = sepFlag.String()
@@ -396,6 +417,7 @@ func (args *StartComputePipesArgs) StartShardingComputePipes(ctx context.Context
 				MainInput: &InputSourceSpec{
 					InputColumns:        ic,
 					InputFormat:         inputFormat,
+					Compression:         compression,
 					InputFormatDataJson: inputFormatDataJson.String,
 					SchemaProvider:      schemaProviderKey,
 				},
@@ -562,16 +584,57 @@ func SelectActiveOutputTable(tableConfig []*TableSpec, pipeConfig []PipeSpec) ([
 }
 
 // Function to validate the PipeSpec output channel config
+// Apply a default snappy compression if not compression is not specified
+// and channel Type 'stage'
 func ValidatePipeSpecOutputChannels(pipeConfig []PipeSpec) error {
 	for i := range pipeConfig {
 		for j := range pipeConfig[i].Apply {
-			config := &pipeConfig[i].Apply[j].OutputChannel
-			if len(config.OutputTableKey) > 0 {
+			transformationConfig := &pipeConfig[i].Apply[j]
+			// validate transformation pipe config
+			switch transformationConfig.Type {
+			case "partition_writer":
+				if transformationConfig.DeviceWriterType == nil && transformationConfig.OutputChannel.SchemaProvider == "" {
+					return fmt.Errorf(
+						"error: invalid cpipes config, must provide 'device_writer_type' or 'output_channel.schema_provider'"+
+						" for transformation pipe of type 'partition_writer'")
+				}
+			}
+			config := &transformationConfig.OutputChannel
+			if config.Type == "" {
+				config.Type = "stage"
+			}
+			switch config.Type {
+			case "sql":
+				if len(config.OutputTableKey) == 0 {
+					return fmt.Errorf("error: invalid cpipes config, must provide output_table_key when output_channel type is 'sql'")
+				}
 				config.Name = config.OutputTableKey
 				config.SpecName = config.OutputTableKey
-			} else {
+			default:
 				if len(config.Name) == 0 || config.Name == config.SpecName {
 					return fmt.Errorf("error: invalid cpipes config, output_channel.name must not be empty or same as output_channel.channel_spec_name")
+				}
+				switch config.Type {
+				case "stage":
+					if config.Compression == "" {
+						config.Compression = "snappy"
+					}
+					// if the parent transformation pipe is partition_writer, it must have a device_writer_type 'csv_writer'
+					if transformationConfig.Type == "partition_writer" && *transformationConfig.DeviceWriterType != "csv_writer" {
+						return fmt.Errorf(
+							"error: invalid cpipes config, 'partition_writer' with output_channel of type 'stage' must have a device writer of type 'csv_writer'")
+					}
+					if len(config.WriteStepId) == 0 {
+						return fmt.Errorf("error: invalid cpipes config, write_step_id is not specified in output_channel of type 'stage'")
+					}
+				
+				case "output":
+					if config.Compression == "" {
+						config.Compression = "none"
+					}
+				default:
+					return fmt.Errorf(
+						"error: invalid cpipes config, unknown output_channel config type: %s (expecting: stage, output, sql)", config.Type)
 				}
 			}
 		}

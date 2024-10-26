@@ -394,12 +394,15 @@ func (ctx *CleansingFunctionContext) ApplyCleasingFunction(functionName *string,
 
 	case "split_on":
 		if argument != nil {
-			vv := strings.Split(*inputValue, *argument)
-			if len(vv) == 0 {
-				obj = nil
-			} else {
-				obj = vv
-			}
+			obj = SplitOn(inputValue, argument)
+		} else {
+			// configuration error, bailing out
+			log.Panicf("ERROR missing argument for function split_on for input column pos %d", inputPos)
+		}
+
+	case "unique_split_on":
+		if argument != nil {
+			obj = UniqueSplitOn(inputValue, argument)
 		} else {
 			// configuration error, bailing out
 			log.Panicf("ERROR missing argument for function split_on for input column pos %d", inputPos)
@@ -410,4 +413,44 @@ func (ctx *CleansingFunctionContext) ApplyCleasingFunction(functionName *string,
 	}
 
 	return obj, errMsg
+}
+
+func SplitOn(inputValue, argument *string) interface{} {
+	if inputValue == nil || argument == nil || *inputValue == "" {
+		return nil
+	}
+	return strings.Split(*inputValue, *argument)
+}
+
+func UniqueSplitOn(inputValue, argument *string) interface{} {
+	if inputValue == nil || argument == nil || *inputValue == "" {
+		return nil
+	}
+	vv := strings.Split(*inputValue, *argument)
+	// vv may contains duplicated value, to make each value unique we append -%d to the
+	// value, where %d is the value of a counter such that:
+	//   if *inputValue is "value1,value2,value1,value3"
+	//   then the parsed values will be:
+	//     value1-0
+	//     value1-1
+	//     value2-0
+	//     value3-0
+	// Group the common values
+	cm := make(map[string]*[]string)
+	for _, v := range vv {
+		cv := cm[v]
+		if cv == nil {
+			cv = &[]string{}
+			cm[v] = cv
+		}
+		*cv = append(*cv, v)
+	}
+	// reuse vv
+	vv = vv[:0]
+	for _, cv := range cm {
+		for i := range (*cv) {
+			vv = append(vv, fmt.Sprintf("%s-%d", (*cv)[i], i))
+		}
+	}
+	return vv
 }

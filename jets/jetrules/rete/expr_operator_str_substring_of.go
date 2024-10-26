@@ -40,10 +40,10 @@ func (op *SubstringOfOp) Eval(reteSession *ReteSession, row *BetaRow, lhs, rhs *
 	}
 	sz := len(rhsv)
 
-	// get the start position and lenght of the substring
+	// get the start position and length of the substring
 	fromNode := sess.GetObject(lhs, jr.Jets__from)
-	lenghtNode := sess.GetObject(lhs, jr.Jets__length)
-	if fromNode == nil || lenghtNode == nil {
+	lengthNode := sess.GetObject(lhs, jr.Jets__length)
+	if fromNode == nil || lengthNode == nil {
 		return nil
 	}
 	from, ok := fromNode.Value.(int)
@@ -53,15 +53,15 @@ func (op *SubstringOfOp) Eval(reteSession *ReteSession, row *BetaRow, lhs, rhs *
 	if from >= sz {
 		return rdf.S("")
 	}
-	lenght, ok := lenghtNode.Value.(int)
+	length, ok := lengthNode.Value.(int)
 	if !ok {
 		return nil
 	}
 	var endPos int
-	if lenght < 0 {
-		endPos = sz + lenght
+	if length < 0 {
+		endPos = sz + length
 	} else {
-		endPos = from + lenght
+		endPos = from + length
 	}
 	if endPos > sz {
 		endPos = sz

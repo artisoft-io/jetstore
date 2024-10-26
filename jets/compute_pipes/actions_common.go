@@ -81,12 +81,13 @@ type SourcesConfigSpec struct {
 
 // InputSourceSpec contains carry over configuration from
 // table source_config.
-// See SchemaProviderSpec for details
-// InputSourceSpec proverties override SchemaProviderSpec
+// See SchemaProviderSpec for details on SchemaProvider
+// InputSourceSpec properties override SchemaProviderSpec
 // properties.
 type InputSourceSpec struct {
 	InputColumns        []string `json:"input_columns"`
 	InputFormat         string   `json:"input_format"`
+	Compression         string   `json:"compression"`
 	InputFormatDataJson string   `json:"input_format_data_json"`
 	SchemaProvider      string   `json:"schema_provider"`
 }

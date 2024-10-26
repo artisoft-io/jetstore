@@ -18,7 +18,8 @@ import (
 // if len(*ic) == 0 then fetch headers from file
 // if *sepFlag == 0 then fetch column separator from file
 // error if ic == nil or sepFlag == nil
-func FetchHeadersAndDelimiterFromFile(fileKey, fileFormat string, ic *[]string, sepFlag *jcsv.Chartype, fileFormatDataJson string) error {
+func FetchHeadersAndDelimiterFromFile(fileKey, fileFormat, compression string, ic *[]string,
+	sepFlag *jcsv.Chartype, fileFormatDataJson string) error {
 	var fileHd *os.File
 	var err error
 	if ic == nil || sepFlag == nil {
@@ -29,16 +30,16 @@ func FetchHeadersAndDelimiterFromFile(fileKey, fileFormat string, ic *[]string, 
 		return fmt.Errorf("failed to open temp file: %v", err)
 	}
 	// fmt.Println("Temp error file name:", fileHd.Name())
-	defer func() { 
+	defer func() {
 		if fileHd != nil {
 			fn := fileHd.Name()
 			fileHd.Close()
-			os.Remove(fn) 
+			os.Remove(fn)
 		}
 	}()
 	var byteRange *string
 	switch fileFormat {
-	case "csv", "compressed_csv":
+	case "csv":
 		s := "bytes=0-50000"
 		byteRange = &s
 	}
@@ -56,22 +57,22 @@ do_retry:
 	}
 	log.Printf("Reading headers from file %s, size %.3f Kb", fileHd.Name(), float64(fileSize)/1024)
 
-	switch  {
+	switch {
 	case strings.HasSuffix(fileFormat, "csv"):
 		if *sepFlag == 0 {
 			// determine the csv separator
-			if strings.HasPrefix(fileFormat, "compressed") {
-				*sepFlag = ','
+			if compression != "none" {
+				*sepFlag = ','		//*TODO should we allow determine the delimitor for compressed csv file?
 			} else {
 				*sepFlag, err = DetectCsvDelimitor(fileHd, fileKey)
 				if err != nil {
 					return err
 				}
-				fmt.Println("Detected sep_flag:", sepFlag)	
+				fmt.Println("Detected sep_flag:", sepFlag)
 			}
 		}
-		if len(*ic) == 0 && !strings.HasSuffix(fileFormat, "headerless_csv") {
-			return GetRawHeadersCsv(fileHd, fileKey, fileFormat, ic, sepFlag)
+		if len(*ic) == 0 && fileFormat == "csv" {
+			return GetRawHeadersCsv(fileHd, fileKey, fileFormat, compression, ic, sepFlag)
 		}
 		return nil
 
