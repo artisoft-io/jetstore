@@ -192,6 +192,23 @@ struct StartsWithVisitor: public boost::static_visitor<RDFTTYPE>, public NoCallb
   BetaRow const* br;
 };
 
+// EndsWithVisitor
+// --------------------------------------------------------------------------------------
+struct EndsWithVisitor: public boost::static_visitor<RDFTTYPE>, public NoCallbackNeeded
+{
+  EndsWithVisitor(ReteSession * rs, BetaRow const* br): rs(rs), br(br) {}
+  EndsWithVisitor(): rs(nullptr), br(nullptr) {}
+  template<class T, class U> RDFTTYPE operator()(T lhs, U rhs)const{if(br==nullptr) return rdf::Null(); else RETE_EXCEPTION("Invalid arguments for starts_with: ("<<lhs<<", "<<rhs<<")");};
+
+  RDFTTYPE operator()(rdf::LString       lhs, rdf::LString       rhs)const
+  {
+    return rdf::LInt32{ boost::ends_with(lhs.data, rhs.data) };
+  }
+
+  ReteSession * rs;
+  BetaRow const* br;
+};
+
 // SubstringOfVisitor
 // --------------------------------------------------------------------------------------
 struct SubstringOfVisitor: public boost::static_visitor<RDFTTYPE>, public NoCallbackNeeded
