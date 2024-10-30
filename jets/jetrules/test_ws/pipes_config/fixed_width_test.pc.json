@@ -157,7 +157,8 @@
               "type": "output",
               "name": "data.out",
               "schema_provider": "_main_input_",
-              "key_prefix": "$FILE_KEY/session_id=$SESSIONID",
+              "key_prefix": "$PATH_FILE_KEY/session_id=$SESSIONID",
+              "file_name": "$NAME_FILE_KEY",
               "channel_spec_name": "input_row"
             }
           }

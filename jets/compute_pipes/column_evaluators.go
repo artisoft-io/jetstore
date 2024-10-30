@@ -17,7 +17,7 @@ func (ctx *BuilderContext) parseValue(expr *string) (interface{}, error) {
 		value = math.NaN()
 
 	case strings.HasPrefix(*expr, "$"):
-		// value is an env var, e.g. $FILE_KEY_DATE
+		// value is an env var, e.g. $DATE_FILE_KEY
 		value = ctx.env[*expr]
 
 	case strings.HasPrefix(*expr, "'"):

@@ -6,6 +6,7 @@ import (
 	"log"
 	"os"
 	"regexp"
+	"strings"
 	"time"
 
 	"github.com/artisoft-io/jetstore/jets/datatable"
@@ -19,11 +20,12 @@ func (args *ComputePipesNodeArgs) CoordinateComputePipes(ctx context.Context, ds
 	var inFolderPath string
 	var cpContext *ComputePipesContext
 	var fileKeyComponents map[string]interface{}
+	var fileKeyPath, fileKeyName string // Components extracted from File_Key based on is_part_file
 	var fileKeyDate time.Time
 	var fileKeys []string
 	var cpipesConfigJson string
 	var cpConfig *ComputePipesConfig
-	var mainSchemaName interface{}
+	var mainSchemaProviderConfig *SchemaProviderSpec
 	var envSettings map[string]interface{}
 	var schemaManager *SchemaManager
 
@@ -96,24 +98,6 @@ func (args *ComputePipesNodeArgs) CoordinateComputePipes(ctx context.Context, ds
 		fileKeyDate = time.Date(year, time.Month(month), day, 14, 0, 0, 0, time.UTC)
 		// log.Println("fileKeyDate:", fileKeyDate)
 	}
-	for i := range cpConfig.SchemaProviders {
-		if cpConfig.SchemaProviders[i].SourceType == "main_input" {
-			if len(cpConfig.SchemaProviders[i].SchemaName) > 0 {
-				mainSchemaName = cpConfig.SchemaProviders[i].SchemaName
-			}
-			break
-		}
-	}
-
-	envSettings = map[string]interface{}{
-		"$FILE_KEY":             cpConfig.CommonRuntimeArgs.FileKey,
-		"$SESSIONID":            cpConfig.CommonRuntimeArgs.SessionId,
-		"$SHARD_ID":             args.NodeId,
-		"$PROCESS_NAME":         cpConfig.CommonRuntimeArgs.ProcessName,
-		"$FILE_KEY_DATE":        fileKeyDate,
-		"$JETS_PARTITION_LABEL": args.JetsPartitionLabel,
-		"$MAIN_SCHEMA_NAME":     mainSchemaName,
-	}
 
 	// Create the SchemaManager and prepare the providers
 	schemaManager = NewSchemaManager(cpConfig.SchemaProviders, envSettings, cpConfig.ClusterConfig.IsDebugMode)
@@ -121,6 +105,46 @@ func (args *ComputePipesNodeArgs) CoordinateComputePipes(ctx context.Context, ds
 	if err != nil {
 		cpErr = fmt.Errorf("while calling schemaManager.PrepareSchemaProviders: %v", err)
 		goto gotError
+	}
+	// Get the main_input schema provider. Don't use the key "_main_input_" as it is not guarantee to have
+	// that specific key
+	for i := range cpConfig.SchemaProviders {
+		if cpConfig.SchemaProviders[i].SourceType == "main_input" {
+			mainSchemaProviderConfig = cpConfig.SchemaProviders[i]
+			break
+		}
+	}
+	if mainSchemaProviderConfig == nil {
+		// Did not find the main_input schema provider
+		cpErr = fmt.Errorf("error: bug in CoordinateComputePipes, could not find the main_input schema provider")
+		goto gotError
+	}
+
+	if mainSchemaProviderConfig.IsPartFiles {
+		fileKeyPath = cpConfig.CommonRuntimeArgs.FileKey
+	} else {
+		fileKey := cpConfig.CommonRuntimeArgs.FileKey
+		idx := strings.LastIndex(fileKey, "/")
+		if idx >= 0 && idx < len(fileKey)-1 {
+			fileKeyName = fileKey[idx+1:]
+			fileKeyPath = fileKey[0:idx]
+		} else {
+			fileKeyPath = fileKey
+		}
+	}
+	//* IMPORTANT: Make sure a key is not the prefix of another key
+	//  e.g. $FILE_KEY and $FILE_KEY_PATH is BAD since $FILE_KEY_PATH may get
+	//  the value of $FILE_KEY with a dandling _PATH
+	envSettings = map[string]interface{}{
+		"$FILE_KEY":             cpConfig.CommonRuntimeArgs.FileKey,
+		"$PATH_FILE_KEY":        fileKeyPath,
+		"$NAME_FILE_KEY":        fileKeyName,
+		"$DATE_FILE_KEY":        fileKeyDate,
+		"$SESSIONID":            cpConfig.CommonRuntimeArgs.SessionId,
+		"$SHARD_ID":             args.NodeId,
+		"$PROCESS_NAME":         cpConfig.CommonRuntimeArgs.ProcessName,
+		"$JETS_PARTITION_LABEL": args.JetsPartitionLabel,
+		"$MAIN_SCHEMA_NAME":     mainSchemaProviderConfig.SchemaName,
 	}
 
 	cpContext = &ComputePipesContext{

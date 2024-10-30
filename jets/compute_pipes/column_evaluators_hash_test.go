@@ -32,13 +32,8 @@ func TestHashColumnEval(t *testing.T) {
 			t.Errorf("error unknown PreprocessingFunction implementation: %v", err)
 		}
 	}
-	ctx := &hashColumnEval{
-		inputPos:    0,
-		outputPos:   0,
-		partitions:  1,
-		altInputKey: pfnc,
-	}
-	out, err := makeAlternateKey(&ctx.altInputKey, &[]interface{}{nil, "name", "6-14-2024"})
+
+	out, err := makeAlternateKey(&pfnc, &[]interface{}{nil, "name", "6-14-2024"})
 	if err != nil {
 		t.Errorf("while calling makeAlternateKey: %v", err)
 	}

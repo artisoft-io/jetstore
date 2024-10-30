@@ -94,7 +94,8 @@ func (ctx *PartitionWriterTransformationPipe) apply(input *[]interface{}) error 
 		if len(ctx.spec.OutputChannel.FileName) > 0 {
 			// APPLY substitutions
 			partitionFileName = doSubstitution(ctx.spec.OutputChannel.FileName, ctx.jetsPartitionLabel, ctx.env)
-		} else {
+		} 
+		if partitionFileName == "" {
 			var fileEx string
 			switch ctx.deviceWriterType {
 			case "csv_writer":

@@ -264,10 +264,13 @@ func (server *Server) checkWorkspaceVersion() error {
 	workspaceName := os.Getenv("WORKSPACE")
 
 	// Copy the workspace files to a stash location (needed when we delete/revert file changes)
-	err = wsfile.StashFiles(workspaceName)
-	if err != nil {
-		//* TODO Log to a new workspace error table to report in UI
-		log.Printf("Error while stashing workspace file: %v", err)
+	// Skip when in globalDevMode
+	if !globalDevMode {
+		err = wsfile.StashFiles(workspaceName)
+		if err != nil {
+			//* TODO Log to a new workspace error table to report in UI
+			log.Printf("Error while stashing workspace file: %v", err)
+		}	
 	}
 
 	// Put the active workspace entry into workspace_registry table if ACTIVE_WORKSPACE_URI is set

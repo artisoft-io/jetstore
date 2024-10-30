@@ -407,14 +407,6 @@ func (cpCtx *ComputePipesContext) ReadFixedWidthFile(filePath *FileName,
 	// Setup a fixed-width reader
 	fwScanner = bufio.NewScanner(fileHd)
 
-	if err == io.EOF {
-		// empty file
-		return 0, nil
-	}
-	if err != nil {
-		return 0, fmt.Errorf("error while reading first fixed_width records: %v", err)
-	}
-
 	var inputRowCount int64
 	var record []interface{}
 	var recordTypeOffset int
