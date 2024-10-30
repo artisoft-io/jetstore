@@ -102,7 +102,6 @@ func InitializeBaseJetsapiDb(dbpool *pgxpool.Pool, jetsDbInitPath *string) error
 
 func InitializeJetsapiDb4Clients(dbpool *pgxpool.Pool, jetsDbInitPath *string, clients *string) error {
 	// initialize jetsapi database for the clients
-	// jetsDbInitPath using base__workspace_init_db.sql
 	if clients == nil {
 		return fmt.Errorf("InitializeJetsapiDb4Clients: Invalid argument, clients cannot be nil")
 	}

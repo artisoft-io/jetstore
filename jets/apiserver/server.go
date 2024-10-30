@@ -176,27 +176,15 @@ func (server *Server) checkJetStoreDbVersion() error {
 
 		case !version.Valid || jetstoreVersion > version.String:
 			log.Println("JetStore deployed version (in database) is", version.String)
-			if strings.Contains(os.Getenv("JETS_RESET_DOMAIN_TABLE_ON_STARTUP"), "yes") {
-				log.Println("New JetStore Release deployed, rebuilding all tables")
-				_, _, err = server.ResetDomainTables(&PurgeDataAction{
-					Action:            "reset_domain_tables",
-					RunUiDbInitScript: false,
-					Data:              []map[string]interface{}{},
-				})
-				if err != nil {
-					return fmt.Errorf("while calling ResetDomainTables for new release: %v", err)
-				}
-			} else {
-				log.Println("New JetStore Release deployed, migrating tables to latest schema")
-				serverArgs = []string{"-migrateDb"}
-				if *usingSshTunnel {
-					serverArgs = append(serverArgs, "-usingSshTunnel")
-				}
-				_,err = datatable.RunUpdateDb(os.Getenv("WORKSPACE"), &serverArgs)
-				if err != nil {
-					return fmt.Errorf("while calling RunUpdateDb: %v", err)
-				}		
+			log.Println("New JetStore Release deployed, running workspace db init script and migrating tables to latest schema")
+			serverArgs = []string{"-initBaseWorkspaceDb", "-migrateDb"}
+			if *usingSshTunnel {
+				serverArgs = append(serverArgs, "-usingSshTunnel")
 			}
+			_,err = datatable.RunUpdateDb(os.Getenv("WORKSPACE"), &serverArgs)
+			if err != nil {
+				return fmt.Errorf("while calling RunUpdateDb: %v", err)
+			}		
 
 		default:
 			log.Println("JetStore deployed version (in database) is", version)

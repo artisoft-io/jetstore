@@ -61,7 +61,7 @@ func (ctx *Context) WorkspaceInsertRows(dataTableAction *DataTableAction, token 
 	for irow := range dataTableAction.Data {
 		// Pre-Processing hook
 		// -----------------------------------------------------------------------
-		var gitLog string
+		var gitLog, status string
 		switch {
 		case strings.HasPrefix(dataTableAction.FromClauses[0].Table, "WORKSPACE/"):
 			sqlStmt.Stmt = strings.ReplaceAll(sqlStmt.Stmt, "$SCHEMA", dataTableAction.FromClauses[0].Schema)
@@ -107,7 +107,6 @@ func (ctx *Context) WorkspaceInsertRows(dataTableAction *DataTableAction, token 
 				gitProfile.GitToken,
 				wsPreviousName,
 			)
-			var status string
 			if err != nil {
 				log.Printf("Error while updating local workspace: %s\n", gitLog)
 				httpStatus = http.StatusBadRequest
@@ -136,8 +135,6 @@ func (ctx *Context) WorkspaceInsertRows(dataTableAction *DataTableAction, token 
 			//	- Delete workspace overrides
 			//	  (except for workspace.db, workspace.tgz, lookup.db, and reports.tgz)
 			//	- Compile workspace must be done manually
-			var gitLog string
-			status := ""
 			wsCM := dataTableAction.Data[irow]["git.commit.message"]
 			var wsCommitMessage string
 			if(wsCM != nil) {
@@ -228,7 +225,6 @@ func (ctx *Context) WorkspaceInsertRows(dataTableAction *DataTableAction, token 
 			if(wsUri == "" || gitUser == "" || gitToken == "") {
 					return nil, http.StatusBadRequest, fmt.Errorf("invalid request for push_only_workspace, missing git information")
 			}
-			var status string
 			workspaceGit := git.InitWorkspaceGit(&git.WorkspaceGit{
 				WorkspaceName   : dataTableAction.WorkspaceName,
 				WorkspaceUri    : wsUri,
@@ -260,7 +256,6 @@ func (ctx *Context) WorkspaceInsertRows(dataTableAction *DataTableAction, token 
 			if(wsUri == "" || gitUser == "" || gitToken == "") {
 				return nil, http.StatusBadRequest, fmt.Errorf("invalid request for pull_workspace, missing git information")
 			}
-			var status string
 			gitLog, err = pullWorkspaceAction(ctx.Dbpool, irow, &gitProfile, dataTableAction)
 			if err != nil {
 				log.Printf("Error while pull workspace: %v\nLog: %s\n", err, gitLog)
@@ -297,7 +292,6 @@ func (ctx *Context) WorkspaceInsertRows(dataTableAction *DataTableAction, token 
 			if dataTableAction.WorkspaceName == "" {
 				return nil, http.StatusBadRequest, fmt.Errorf("invaid request for compile_workspace, missing workspace_name")
 			}
-			dataTableAction.Data[irow]["last_git_log"] = gitLog
 			dataTableAction.Data[irow]["status"] = "Compile in progress"
 
 		case strings.HasPrefix(dataTableAction.FromClauses[0].Table, "load_workspace_config"):
@@ -311,7 +305,6 @@ func (ctx *Context) WorkspaceInsertRows(dataTableAction *DataTableAction, token 
 			if dataTableAction.WorkspaceName == "" {
 				return nil, http.StatusBadRequest, fmt.Errorf("invaid request for unit_test, missing workspace_name")
 			}
-			dataTableAction.Data[irow]["last_git_log"] = gitLog
 			dataTableAction.Data[irow]["status"] = "Unit Test in progress"
 
 		case dataTableAction.FromClauses[0].Table == "delete_workspace":

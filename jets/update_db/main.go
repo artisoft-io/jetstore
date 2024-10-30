@@ -34,7 +34,7 @@ var initWorkspaceDb = flag.Bool("initWorkspaceDb", false, "initialize the jetsap
 var initBaseWorkspaceDb = flag.Bool("initBaseWorkspaceDb", false, "initialize the jetsapi database, base init only (default: false)")
 var dsn, dsnJson, jetsDbInitPath, jetsDbInitScriptPath, awsRegion, awsDsnSecret string
 var dbPoolSize int = 5
-var workspaceHome, wprefix, workspaceControlPath string
+var workspaceHome, wprefix string
 
 func init() {
 	workspaceHome = os.Getenv("WORKSPACES_HOME")
@@ -45,7 +45,6 @@ func init() {
 	awsRegion = os.Getenv("JETS_REGION")
 	jetsDbInitScriptPath = os.Getenv("JETS_INIT_DB_SCRIPT")
 	jetsDbInitPath = fmt.Sprintf("%s/%s/process_config", workspaceHome, wprefix)
-	workspaceControlPath = fmt.Sprintf("%s/%s/workspace_control.json", workspaceHome, wprefix)
 }
 
 // Main function
@@ -56,18 +55,28 @@ func doJob() error {
 		return fmt.Errorf("while opening db connection: %v", err)
 	}
 	defer dbpool.Close()
+
 	// JetStore system table migration
 	if *migrateDb {
-		log.Println("Migrating jetsapi database to latest schema")
+		log.Println("Migrating jetsapi system tables to latest schema")
 		err = MigrateDb(dbpool)
 		if err != nil {
 			return err
 		}
 	}
 
-	// Initialize jetsapi database with workspace-specific initalization
+	// Perform the base workspace initialozation
+	if *initBaseWorkspaceDb {
+		log.Println("Initialize jetsapi database using base initalization script only")
+		err = InitializeBaseJetsapiDb(dbpool, &jetsDbInitPath)
+		if err != nil {
+			return err
+		}
+	}
+
+	// Initialize jetsapi database with all client-specific initalization only
 	if *initWorkspaceDb {
-		log.Println("Initialize jetsapi database with ALL workspace-specific initalization")
+		log.Println("Initialize jetsapi database with all client-specific initalization only")
 		err = InitializeJetsapiDb(dbpool, &jetsDbInitPath)
 		if err != nil {
 			return err
@@ -80,16 +89,9 @@ func doJob() error {
 			return err
 		}
 	}
-	if *initBaseWorkspaceDb {
-		log.Println("Initialize jetsapi database using base initalization script only")
-		err = InitializeBaseJetsapiDb(dbpool, &jetsDbInitPath)
-		if err != nil {
-			return err
-		}
-	}
 
 	if *migrateDb {
-		log.Println("Applying update db scripts")
+		log.Println("Applying release-specific update db scripts")
 		err = UpdateScripts(dbpool)
 		if err != nil {
 			return err
@@ -167,10 +169,6 @@ func main() {
 	if os.Getenv("WORKSPACES_HOME") == "" || os.Getenv("WORKSPACE") == "" {
 		hasErr = true
 		errMsg = append(errMsg, "Workspace env WORKSPACES_HOME & WORKSPACE must be provided")
-	}
-	if *initWorkspaceDb && *initBaseWorkspaceDb {
-		hasErr = true
-		errMsg = append(errMsg, "Cannot provide both -initWorkspaceDb and -initBaseWorkspaceDb, both are provided.")
 	}
 	if *initWorkspaceDb && len(*clients) > 0 {
 		hasErr = true

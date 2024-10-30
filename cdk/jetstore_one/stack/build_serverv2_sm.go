@@ -51,7 +51,6 @@ func (jsComp *JetStoreStackComponents) BuildServerv2SM(scope constructs.Construc
 			"JETS_LOADER_CHUNCK_SIZE":                  jsii.String(os.Getenv("JETS_LOADER_CHUNCK_SIZE")),
 			"JETS_LOADER_SM_ARN":                       jsii.String(jsComp.LoaderSmArn),
 			"JETS_REGION":                              jsii.String(os.Getenv("AWS_REGION")),
-			"JETS_RESET_DOMAIN_TABLE_ON_STARTUP":       jsii.String(os.Getenv("JETS_RESET_DOMAIN_TABLE_ON_STARTUP")),
 			"JETS_s3_INPUT_PREFIX":                     jsii.String(os.Getenv("JETS_s3_INPUT_PREFIX")),
 			"JETS_s3_OUTPUT_PREFIX":                    jsii.String(os.Getenv("JETS_s3_OUTPUT_PREFIX")),
 			"JETS_s3_STAGE_PREFIX":                     jsii.String(GetS3StagePrefix()),
