@@ -71,7 +71,7 @@
             "value": "owl:Thing",
             "source_file_name": "predefined",
             "key": 8,
-            "db_key": 77
+            "db_key": 64
         },
         {
             "id": "jets:client",
@@ -87,7 +87,7 @@
             "value": "jets:key",
             "source_file_name": "predefined",
             "key": 10,
-            "db_key": 34
+            "db_key": 71
         },
         {
             "id": "jets:org",
@@ -111,7 +111,7 @@
             "value": "rdf:type",
             "source_file_name": "predefined",
             "key": 13,
-            "db_key": 9
+            "db_key": 30
         },
         {
             "id": "jets:InputRecord",
@@ -127,7 +127,7 @@
             "value": "jets:State",
             "source_file_name": "predefined",
             "key": 15,
-            "db_key": 26
+            "db_key": 10
         },
         {
             "id": "jets:completed",
@@ -135,7 +135,7 @@
             "value": "jets:completed",
             "source_file_name": "predefined",
             "key": 16,
-            "db_key": 53
+            "db_key": 60
         },
         {
             "id": "jets:currentSourcePeriod",
@@ -159,7 +159,7 @@
             "value": "jets:exception",
             "source_file_name": "predefined",
             "key": 19,
-            "db_key": 17
+            "db_key": 74
         },
         {
             "id": "jets:from",
@@ -183,7 +183,7 @@
             "value": "jets:loop",
             "source_file_name": "predefined",
             "key": 22,
-            "db_key": 12
+            "db_key": 8
         },
         {
             "id": "jets:max_vertex_visits",

@@ -615,7 +615,6 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 // JETS_LOADER_TASK_CPU allocated cpu in vCPU units
 // JETS_LOADER_TASK_MEM_LIMIT_MB memory limit, based on fargate table
 // JETS_NBR_NAT_GATEWAY (optional, default to 0), set to 1 to be able to reach out to github for git integration
-// JETS_RESET_DOMAIN_TABLE_ON_STARTUP (optional, if is yes will reset the domain table on startup if build version is more recent than db version)
 // JETS_s3_INPUT_PREFIX (required)
 // JETS_s3_OUTPUT_PREFIX (required)
 // JETS_s3_STAGE_PREFIX (optional) required for cpipes, default replace '/input' with '/stage' in JETS_s3_INPUT_PREFIX
@@ -690,7 +689,6 @@ func main() {
 	fmt.Println("env JETS_INVALID_CODE:", os.Getenv("JETS_INVALID_CODE"))
 	fmt.Println("env JETS_LOADER_CHUNCK_SIZE:", os.Getenv("JETS_LOADER_CHUNCK_SIZE"))
 	fmt.Println("env JETS_NBR_NAT_GATEWAY:", os.Getenv("JETS_NBR_NAT_GATEWAY"))
-	fmt.Println("env JETS_RESET_DOMAIN_TABLE_ON_STARTUP:", os.Getenv("JETS_RESET_DOMAIN_TABLE_ON_STARTUP"))
 	fmt.Println("env JETS_s3_INPUT_PREFIX:", os.Getenv("JETS_s3_INPUT_PREFIX"))
 	fmt.Println("env JETS_s3_OUTPUT_PREFIX:", os.Getenv("JETS_s3_OUTPUT_PREFIX"))
 	fmt.Println("env JETS_s3_STAGE_PREFIX:", os.Getenv("JETS_s3_STAGE_PREFIX"))

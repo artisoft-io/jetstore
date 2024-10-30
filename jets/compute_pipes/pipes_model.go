@@ -172,7 +172,7 @@ type TransformationSpec struct {
 	Type                  string                     `json:"type"`
 	NewRecord             bool                       `json:"new_record"`
 	PartitionSize         *int                       `json:"partition_size"`
-	JetsPartitionKey      *string                    `json:"jets_partition_key"`
+	JetsPartitionKey      *string                    `json:"jets_partition_key"` // Type partition_writer, default partition key
 	FilePathSubstitutions *[]PathSubstitution        `json:"file_path_substitutions"`
 	Columns               []TransformationColumnSpec `json:"columns"`
 	DataSchema            *[]DataSchemaSpec          `json:"data_schema"`

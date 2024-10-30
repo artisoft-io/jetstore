@@ -99,37 +99,38 @@ func compileWorkspaceAction(ctx *Context, dataTableAction *DataTableAction) {
 		} else {
 			dataTableAction.Data[irow]["last_git_log"] = gitLog
 		}
-		// Check if load workspace config
+
+		// Load base workspace config
 		if status != "error" {
-			didLoadWorkspaceConfig := false
+			// Load the base workspace config in case domain schema or process config changed
+			log.Printf("Loading base Workspace Config for workspace: %s\n", dataTableAction.WorkspaceName)
+			serverArgs := []string{"-initBaseWorkspaceDb"}
+			if ctx.UsingSshTunnel {
+				serverArgs = append(serverArgs, "-usingSshTunnel")
+			}
+			gitLog, err = RunUpdateDb(dataTableAction.WorkspaceName, &serverArgs)
+			if err != nil {
+				status = "error"
+			}
+			lastLog = dataTableAction.Data[irow]["last_git_log"]
+			if lastLog != nil {
+				dataTableAction.Data[irow]["last_git_log"] = fmt.Sprintf("%v\n%s", lastLog, gitLog)
+			} else {
+				dataTableAction.Data[irow]["last_git_log"] = gitLog
+			}
+		}
+
+		// Check if load client-specific config
+		if status != "error" {
 			otherActions := dataTableAction.Data[irow]["otherWorkspaceActionOptions"]
 			if(otherActions != nil) {
 				l := otherActions.([]interface{})
 				for i := range l {
 					if l[i] != nil && (l[i] == "wpLoadClientConfgOption" || l[i] == "wpLoadSelectedClientConfgOption") {
 						status = "Loading client config in progress"
-						didLoadWorkspaceConfig = true
 						go loadWorkspaceConfigAction(ctx, dataTableAction)
 					}
 				}
-			}
-			if !didLoadWorkspaceConfig {
-				// Load the base workspace config in case domain schema or config changed
-				log.Printf("Loading base Workspace Config for workspace: %s\n", dataTableAction.WorkspaceName)
-				serverArgs := []string{"-initBaseWorkspaceDb"}
-				if ctx.UsingSshTunnel {
-					serverArgs = append(serverArgs, "-usingSshTunnel")
-				}
-				gitLog, err = RunUpdateDb(dataTableAction.WorkspaceName, &serverArgs)
-				if err != nil {
-					status = "error"
-				}
-				lastLog = dataTableAction.Data[irow]["last_git_log"]
-				if lastLog != nil {
-					dataTableAction.Data[irow]["last_git_log"] = fmt.Sprintf("%v\n%s", lastLog, gitLog)
-				} else {
-					dataTableAction.Data[irow]["last_git_log"] = gitLog
-				}					
 			}
 		}
 		dataTableAction.Data[irow]["status"] = status
@@ -150,7 +151,7 @@ func compileWorkspaceAction(ctx *Context, dataTableAction *DataTableAction) {
 func loadWorkspaceConfigAction(ctx *Context, dataTableAction *DataTableAction) {
 	// using update_db script
 	log.Printf("Loading Workspace Config for workspace: %s\n", dataTableAction.WorkspaceName)
-	serverArgs := []string{"-migrateDb"}
+	serverArgs := make([]string, 0)
 	if ctx.UsingSshTunnel {
 		serverArgs = append(serverArgs, "-usingSshTunnel")
 	}
@@ -164,9 +165,11 @@ func loadWorkspaceConfigAction(ctx *Context, dataTableAction *DataTableAction) {
 	// update_db script
 	clients := dataTableAction.Data[irow]["updateDbClients"]
 	if clients != nil {
+		// Load specific clients
 		serverArgs = append(serverArgs, "-clients")
 		serverArgs = append(serverArgs, clients.(string))
 	} else {
+		// Load all clients
 		serverArgs = append(serverArgs, "-initWorkspaceDb")
 	}
 	gitLog, err = RunUpdateDb(dataTableAction.WorkspaceName, &serverArgs)

@@ -55,7 +55,6 @@ import (
 // JETS_S3_KMS_KEY_ARN optional for server side s3 object encryption
 // JETS_DOMAIN_KEY_HASH_ALGO (values: md5, sha1, none (default))
 // JETS_DOMAIN_KEY_HASH_SEED (required for md5 and sha1. MUST be a valid uuid )
-// JETS_RESET_DOMAIN_TABLE_ON_STARTUP (value: yes, will reset the domain table, run workspace db init script, and upgrade system tables if database version is less than build version)
 // JETS_DOMAIN_KEY_SEPARATOR 
 // JETS_SCHEMA_FILE location of jetstore db schema file
 // JETS_INIT_DB_SCRIPT path to jets_init_db.sql files (not workspace specific)
@@ -232,7 +231,6 @@ func main() {
 	log.Println("ENV JETS_VERSION:",os.Getenv("JETS_VERSION"))
 	log.Println("ENV JETS_DOMAIN_KEY_HASH_ALGO:",os.Getenv("JETS_DOMAIN_KEY_HASH_ALGO"))
 	log.Println("ENV JETS_DOMAIN_KEY_HASH_SEED:",os.Getenv("JETS_DOMAIN_KEY_HASH_SEED"))
-	log.Println("ENV JETS_RESET_DOMAIN_TABLE_ON_STARTUP:",os.Getenv("JETS_RESET_DOMAIN_TABLE_ON_STARTUP"))
 	log.Println("ENV JETS_DOMAIN_KEY_SEPARATOR:",os.Getenv("JETS_DOMAIN_KEY_SEPARATOR"))
 	log.Println("ENV len JETS_ENCRYPTION_KEY:",len(os.Getenv("JETS_ENCRYPTION_KEY")))
 	log.Fatal(listenAndServe())

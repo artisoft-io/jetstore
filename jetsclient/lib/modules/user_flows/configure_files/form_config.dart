@@ -296,40 +296,6 @@ final Map<String, FormConfig> _formConfigurations = {
     formValidatorDelegate: configureFilesFormValidator,
     formActionsDelegate: doNothingAction,
   ),
-  FormKeys.scEditComputePipesJsonUF: FormConfig(
-    key: FormKeys.scEditComputePipesJsonUF,
-    useListView: true,
-    actions: standardActions,
-    inputFields: [
-      [
-        PaddingConfig(height: 2 * defaultPadding),
-      ],
-      [
-        TextFieldConfig(
-            label: "Paste or enter the Compute Pipes Configuration as json:",
-            maxLines: 1,
-            topMargin: 0,
-            bottomMargin: 0),
-      ],
-      [
-        FormInputFieldConfig(
-            key: FSK.computePipesJson,
-            label: "Compute Pipes Configuration (json)",
-            hint: "Compute Pipes is an alternate compute engine of JetStore",
-            flex: 1,
-            autofocus: false,
-            obscureText: false,
-            textRestriction: TextRestriction.none,
-            maxLines: 13,
-            maxLength: 102400),
-      ],
-      [
-        PaddingConfig(height: 2 * defaultPadding),
-      ],
-    ],
-    formValidatorDelegate: configureFilesFormValidator,
-    formActionsDelegate: doNothingAction,
-  ),
   FormKeys.scEditAutomatedModeUF: FormConfig(
     key: FormKeys.scEditAutomatedModeUF,
     useListView: true,
@@ -355,7 +321,7 @@ final Map<String, FormConfig> _formConfigurations = {
               DropdownItemConfig(label: 'Manual', value: '0'),
             ],
             flex: 1,
-            defaultItemPos: 0),
+            defaultItemPos: 1),
       ],
       [
         PaddingConfig(height: 2 * defaultPadding),
@@ -446,11 +412,15 @@ final Map<String, FormConfig> _formConfigurations = {
               DropdownItemConfig(label: 'CSV', value: 'csv'),
               DropdownItemConfig(
                   label: 'Headerless CSV', value: 'headerless_csv'),
+              DropdownItemConfig(
+                  label: 'Headerless CSV (with a Schema Provider)', value: 'headerless_csv_with_schema_provider'),
               DropdownItemConfig(label: 'XLSX', value: 'xlsx'),
               DropdownItemConfig(
                   label: 'Headerless XLSX', value: 'headerless_xlsx'),
               DropdownItemConfig(
                   label: 'Fixed-Width Columns', value: 'fixed_width'),
+              DropdownItemConfig(
+                  label: 'Fixed-Width Columns (with a Schema Provider)', value: 'fixed_width_with_schema_provider'),
               DropdownItemConfig(label: 'Parquet', value: 'parquet'),
               DropdownItemConfig(
                   label: 'Parquet, Selected Columns', value: 'parquet_select'),

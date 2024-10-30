@@ -1,0 +1,19 @@
+{
+  "type": "default",
+  "source_type": "main_input",
+  "client": "test1",
+  "vendor": "test1",
+  "object_type": "test1",
+  "schema_name": "test1",
+  "input_format": "fixed_width",
+  "compression": "none",
+  "columns": [
+    {"name": "first_name", "length": 25},
+    {"name": "last_name", "length": 25},
+    {"name": "other1", "length": 25},
+    {"name": "city", "length": 25},
+    {"name": "mbr_id", "length": 10},
+    {"name": "other2", "length": 25},
+    {"name": "other3", "length": 25}
+  ]
+}

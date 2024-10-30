@@ -64,7 +64,6 @@ String? configureFilesFormValidator(
       }
       return null;
     case FSK.codeValuesMappingJson:
-    case FSK.computePipesJson:
       //* codeValuesMappingJson can be json or csv, not validating csv so not validating json here
       // String? value = v;
       // if (value == null || value.isEmpty) {
@@ -78,8 +77,9 @@ String? configureFilesFormValidator(
       // }
       return null;
     case FSK.inputColumnsJson:
-      // this field is nullable unless FSK.scFileTypeOption is Headerless CSV or Parquet Select
+      // this field is nullable unless FSK.scFileTypeOption is Headerless CSV or Parquet Select or xlsx
       if ((fileType != FSK.scHeaderlessCsvOption) &&
+          (fileType != FSK.scHeaderlessXlsxOption) &&
           (fileType != FSK.scParquetSelectOption)) return null;
       String? value = unpack(v);
       if (value == null || value.isEmpty) {
@@ -177,7 +177,7 @@ Future<String?> configureFilesFormActions(
         print(
             "*** ERROR Invalid value for 'is_part_files': ${unpack(state['is_part_files'])}");
       }
-      // Backward compatibility on input_type
+      // Backward compatibility on input_type and consideration for schema provider
       final fileType = state[FSK.scFileTypeOption];
       if (fileType == '') {
         if (state[FSK.inputColumnsJson] != null) {
@@ -189,6 +189,10 @@ Future<String?> configureFilesFormActions(
         } else {
           formState.setValue(group, FSK.scFileTypeOption, FSK.scCsvOption);
         }
+      } else if (fileType == FSK.scHeaderlessCsvOption && state[FSK.inputColumnsJson] == null) {
+        formState.setValue(group, FSK.scFileTypeOption, FSK.scHeaderlessCsvOptionWithSchemaProvider);
+      } else if (fileType == FSK.scFixedWidthOption && state[FSK.inputColumnsPositionsCsv] == null) {
+        formState.setValue(group, FSK.scFileTypeOption, FSK.scFixedWidthOptionWithSchemaProvider);
       }
       // input file options
       final scOptions = unpack(state[FSK.scInputFormatDataJson]);
@@ -225,8 +229,10 @@ Future<String?> configureFilesFormActions(
       }
       switch (unpack(stateCopy[FSK.scFileTypeOption])) {
         case FSK.scXlsxOption:
-        case FSK.scHeaderlessXlsxOption:
           stateCopy[FSK.inputColumnsJson] = null;
+          stateCopy[FSK.inputColumnsPositionsCsv] = null;
+          break;
+        case FSK.scHeaderlessXlsxOption:
           stateCopy[FSK.inputColumnsPositionsCsv] = null;
           break;
         case FSK.scCsvOption:
@@ -240,7 +246,19 @@ Future<String?> configureFilesFormActions(
           stateCopy[FSK.inputColumnsPositionsCsv] = null;
           stateCopy[FSK.scInputFormatDataJson] = '';
           break;
+        case FSK.scHeaderlessCsvOptionWithSchemaProvider:
+          stateCopy[FSK.scFileTypeOption] = FSK.scHeaderlessCsvOption;
+          stateCopy[FSK.inputColumnsJson] = null;
+          stateCopy[FSK.inputColumnsPositionsCsv] = null;
+          stateCopy[FSK.scInputFormatDataJson] = '';
+          break;
         case FSK.scFixedWidthOption:
+          stateCopy[FSK.inputColumnsJson] = null;
+          stateCopy[FSK.scInputFormatDataJson] = '';
+          break;
+        case FSK.scFixedWidthOptionWithSchemaProvider:
+          stateCopy[FSK.scFileTypeOption] = FSK.scFixedWidthOption;
+          stateCopy[FSK.inputColumnsPositionsCsv] = null;
           stateCopy[FSK.inputColumnsJson] = null;
           stateCopy[FSK.scInputFormatDataJson] = '';
           break;
