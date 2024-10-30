@@ -307,7 +307,8 @@ func (ctx *S3DeviceWriter) WriteFixedWidthPartition() {
 		}
 	}
 
-	// fmt.Println("**&@@ WriteFixedWidthPartition: DONE writing local file for fileName:", *ctx.fileName)
+	// fmt.Println("**&@@ WriteFixedWidthPartition: DONE writing local file for fileName:", *ctx.fileName,
+	// "...file key:",s3FileName)
 	fwWriter.Flush()
 	if snWriter != nil {
 		snWriter.Flush()

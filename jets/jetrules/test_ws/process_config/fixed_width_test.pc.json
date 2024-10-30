@@ -1,0 +1,155 @@
+{
+  "cluster_config": {
+    "default_max_concurrency": 40,
+    "s3_worker_pool_size": 40,
+    "nbr_nodes": 500,
+    "kill_switch_min": 13
+  },
+  "context": [
+    {
+      "type": "value",
+      "key": "$REPORT",
+      "expr": "fixed_width_test_sample"
+    }
+  ],
+  "schema_providers": [
+    {
+      "type": "default",
+      "source_type": "main_input",
+      "client": "test1",
+      "vendor": "test1",
+      "object_type": "test1",
+      "schema_name": "test1",
+      "input_format": "fixed_width",
+      "compression": "none",
+      "columns": [
+        {"name": "first_name", "length": 25},
+        {"name": "last_name", "length": 25},
+        {"name": "other1", "length": 25},
+        {"name": "city", "length": 25},
+        {"name": "mbr_id", "length": 10},
+        {"name": "other2", "length": 25},
+        {"name": "other3", "length": 25}
+      ]
+    }
+  ],
+  "output_tables": [
+    {
+      "key": "$EXTRACT_OUTPUT",
+      "name": "$REPORT",
+      "columns": [
+        {
+          "name": "first_name",
+          "rdf_type": "text"
+        },
+        {
+          "name": "last_name",
+          "rdf_type": "text"
+        },
+        {
+          "name": "other1",
+          "rdf_type": "text"
+        },
+        {
+          "name": "city",
+          "rdf_type": "text"
+        },
+        {
+          "name": "mbr_id",
+          "rdf_type": "text"
+        },
+        {
+          "name": "other2",
+          "rdf_type": "text"
+        },
+        {
+          "name": "other3",
+          "rdf_type": "text"
+        },
+        {
+          "name": "session_id",
+          "rdf_type": "text"
+        }
+      ]
+    }
+  ],
+  "channels": [
+    {
+      "name": "$EXTRACT_OUTPUT",
+      "columns": [
+        "first_name",
+        "last_name",
+        "other1",
+        "city",
+        "mbr_id",
+        "other2",
+        "other3",
+        "session_id"
+      ]
+    }
+  ],
+  "reducing_pipes_config": [
+    [
+      {
+        "type": "fan_out",
+        "input_channel": {
+          "type": "input",
+          "name": "input_row",
+          "sampling_rate": 0
+        },
+        "apply": [
+          {
+            "type": "map_record",
+            "new_record": true,
+            "columns": [
+              {
+                "name": "first_name",
+                "type": "select",
+                "expr": "first_name"
+              },
+              {
+                "name": "last_name",
+                "type": "select",
+                "expr": "last_name"
+              },
+              {
+                "name": "other1",
+                "type": "select",
+                "expr": "other1"
+              },
+              {
+                "name": "city",
+                "type": "select",
+                "expr": "city"
+              },
+              {
+                "name": "mbr_id",
+                "type": "select",
+                "expr": "mbr_id"
+              },
+              {
+                "name": "other2",
+                "type": "select",
+                "expr": "other2"
+              },
+              {
+                "name": "other3",
+                "type": "select",
+                "expr": "other3"
+              },
+              {
+                "name": "session_id",
+                "type": "value",
+                "expr": "$SESSIONID"
+              }
+            ],
+            "output_channel": {
+              "type": "sql",
+              "output_table_key": "$EXTRACT_OUTPUT"
+            }
+          }
+        ]
+      }
+    ]
+  ]
+}

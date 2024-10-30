@@ -14,7 +14,7 @@
   ],
   "output_tables": [
     {
-      "key": "$HIGH_FREQ_OUTPUT",
+      "key": "high_freq_output",
       "name": "$HF_REPORT",
       "columns": [
         {
@@ -52,7 +52,7 @@
   ],
   "channels": [
     {
-      "name": "$HIGH_FREQ_OUTPUT",
+      "name": "high_freq_output",
       "columns": [
         "column_name",
         "freq_count",
@@ -124,7 +124,7 @@
             ],
             "output_channel": {
               "type": "sql",
-              "output_table_key": "$HIGH_FREQ_OUTPUT"
+              "output_table_key": "high_freq_output"
             }
           }
         ]

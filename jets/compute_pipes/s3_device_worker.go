@@ -77,7 +77,7 @@ do_retry:
 			retry++
 			goto do_retry
 		}
-		cpErr = fmt.Errorf("while copying compressed csv jets_partition to s3: %v", err)
+		cpErr = fmt.Errorf("while copying file to s3: %v", err)
 		goto gotError
 	}
 	return nil

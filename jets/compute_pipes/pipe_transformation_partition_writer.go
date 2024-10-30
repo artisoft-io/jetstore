@@ -369,9 +369,9 @@ func (ctx *BuilderContext) NewPartitionWriterTransformationPipe(source *InputCha
 func doSubstitution(value, jetsPartitionLabel string, env map[string]interface{}) string {
 	if strings.Contains(value, "$") {
 		for key, v := range env {
-			value, ok := v.(string)
+			vv, ok := v.(string)
 			if ok {
-				value = strings.ReplaceAll(value, key, value)
+				value = strings.ReplaceAll(value, key, vv)
 			}
 			if !strings.Contains(value, "$") {
 				break
@@ -379,8 +379,8 @@ func doSubstitution(value, jetsPartitionLabel string, env map[string]interface{}
 		}
 		if strings.Contains(value, "$") {
 			value = strings.ReplaceAll(value, "$CURRENT_PARTITION_LABEL", jetsPartitionLabel)
-			value = strings.ReplaceAll(value, jetsS3InputPrefix, jetsS3OutputPrefix)
 		}
 	}
+	value = strings.ReplaceAll(value, jetsS3InputPrefix, jetsS3OutputPrefix)
 	return value
 }
