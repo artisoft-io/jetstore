@@ -46,6 +46,7 @@ final Map<String, TableConfig> _tableConfigurations = {
       noFooter: true,
       noCopy2Clipboard: true,
       rowsPerPage: 1000000),
+
   FSK.scSingleOrMultiPartFileOption: TableConfig(
       key: FSK.scSingleOrMultiPartFileOption,
       fromClauses: [],
@@ -302,11 +303,13 @@ final Map<String, TableConfig> _tableConfigurations = {
       staticTableModel: [
         ['CSV file with headers (most common)', 'csv', '0'],
         ['Headerless CSV file', 'headerless_csv', '1'],
-        ['XLSX file with header row', 'xlsx', '2'],
-        ['Headerless XLSX file', 'headerless_xlsx', '3'],
-        ['Fixed-width file', 'fixed_width', '4'],
-        ['Parquet file', 'parquet', '5'],
-        ['Parquet file with selected columns', 'parquet_select', '6'],
+        ['Headerless CSV file (using a Schema Provider)', 'headerless_csv_with_schema_provider', '2'],
+        ['XLSX file with header row', 'xlsx', '3'],
+        ['Headerless XLSX file', 'headerless_xlsx', '4'],
+        ['Fixed-width file', 'fixed_width', '5'],
+        ['Fixed-width file (using a Schema Provider)', 'fixed_width_with_schema_provider', '6'],
+        ['Parquet file', 'parquet', '7'],
+        ['Parquet file with selected columns', 'parquet_select', '8'],
       ],
       formStateConfig:
           DataTableFormStateConfig(keyColumnIdx: 1, otherColumns: []),

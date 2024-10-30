@@ -215,7 +215,7 @@ final Map<String, FormConfig> _formConfigurations = {
               DropdownItemConfig(label: 'Daily', value: 'day_period'),
             ],
             flex: 1,
-            defaultItemPos: 0),
+            defaultItemPos: 1),
         FormDropdownFieldConfig(
             key: FSK.automated,
             items: [
@@ -224,7 +224,7 @@ final Map<String, FormConfig> _formConfigurations = {
               DropdownItemConfig(label: 'Manual', value: '0'),
             ],
             flex: 1,
-            defaultItemPos: 0),
+            defaultItemPos: 1),
       ],
       [
         TextFieldConfig(

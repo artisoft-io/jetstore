@@ -233,7 +233,6 @@ class FormKeys {
   static const scEditFixedWidthLayoutUF = "scEditFixedWidthLayoutUF";
   static const scEditDomainKeysUF = "scEditDomainKeysUF";
   static const scEditCodeValueMappingUF = "scEditCodeValueMappingUF";
-  static const scEditComputePipesJsonUF = "scEditComputePipesJsonUF";
   static const scEditAutomatedModeUF = "scEditAutomatedModeUF";
   static const scSummaryUF = "scSummaryUF";
   // File Mapping UF Forms
@@ -461,7 +460,9 @@ class FSK {
   static const scFileTypeOption = "input_format";
   static const scCsvOption = "csv";
   static const scHeaderlessCsvOption = "headerless_csv";
+  static const scHeaderlessCsvOptionWithSchemaProvider = "headerless_csv_with_schema_provider";
   static const scFixedWidthOption = "fixed_width";
+  static const scFixedWidthOptionWithSchemaProvider = "fixed_width_with_schema_provider";
   static const scParquetOption = "parquet";
   static const scParquetSelectOption = "parquet_select";
   static const scXlsxOption = "xlsx";

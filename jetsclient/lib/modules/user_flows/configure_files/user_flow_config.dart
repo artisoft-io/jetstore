@@ -61,6 +61,12 @@ final Map<String, UserFlowConfig> _userFlowConfigurations = {
           Expression(
               lhsStateKey: FSK.scFileTypeOption,
               op: Operator.equals,
+              rhsValue: FSK.scHeaderlessCsvOptionWithSchemaProvider,
+              isRhsStateKey: false,
+              nextState: 'select_single_or_multi_part_file'),
+          Expression(
+              lhsStateKey: FSK.scFileTypeOption,
+              op: Operator.equals,
               rhsValue: FSK.scXlsxOption,
               isRhsStateKey: false,
               nextState: 'edit_xlsx_options'),
@@ -76,6 +82,12 @@ final Map<String, UserFlowConfig> _userFlowConfigurations = {
               rhsValue: FSK.scFixedWidthOption,
               isRhsStateKey: false,
               nextState: 'edit_fixed_width_layout'),
+          Expression(
+              lhsStateKey: FSK.scFileTypeOption,
+              op: Operator.equals,
+              rhsValue: FSK.scFixedWidthOptionWithSchemaProvider,
+              isRhsStateKey: false,
+              nextState: 'select_single_or_multi_part_file'),
           Expression(
               lhsStateKey: FSK.scFileTypeOption,
               op: Operator.equals,
@@ -133,12 +145,6 @@ final Map<String, UserFlowConfig> _userFlowConfigurations = {
         key: "edit_code_value_mapping",
         description: 'Edit Code Value Mapping',
         formConfig: getFormConfig(FormKeys.scEditCodeValueMappingUF),
-        actionDelegate: configureFilesFormActions,
-        defaultNextState: "edit_compute_pipe_json"),
-    "edit_compute_pipe_json": UserFlowState(
-        key: "edit_compute_pipe_json",
-        description: 'Edit Compute Pipes Configuration',
-        formConfig: getFormConfig(FormKeys.scEditComputePipesJsonUF),
         actionDelegate: configureFilesFormActions,
         defaultNextState: "edit_automated_mode"),
     "edit_automated_mode": UserFlowState(
