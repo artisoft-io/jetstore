@@ -1,9 +1,11 @@
 package compute_pipes
 
 import (
+	"errors"
 	"fmt"
 	"log"
 	"runtime/debug"
+	"strings"
 )
 
 func (ctx *BuilderContext) StartFanOutPipe(spec *PipeSpec, source *InputChannel, writePartitionsResultCh chan ComputePipesResult) {
@@ -13,9 +15,11 @@ func (ctx *BuilderContext) StartFanOutPipe(spec *PipeSpec, source *InputChannel,
 	defer func() {
 		// Catch the panic that might be generated downstream
 		if r := recover(); r != nil {
-			cpErr := fmt.Errorf("StartFanOutPipe: recovered error: %v", r)
+			var buf strings.Builder
+			buf.WriteString(fmt.Sprintf("StartFanOutPipe: recovered error: %v\n", r))
+			buf.WriteString(string(debug.Stack()))
+			cpErr := errors.New(buf.String())
 			log.Println(cpErr)
-			debug.PrintStack()
 			ctx.errCh <- cpErr
 			// Avoid closing a closed channel
 			select {

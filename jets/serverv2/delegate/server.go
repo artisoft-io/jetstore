@@ -1,10 +1,12 @@
 package delegate
 
 import (
+	"errors"
 	"fmt"
 	"log"
 	"os"
 	"runtime/debug"
+	"strings"
 
 	"github.com/jackc/pgx/v4/pgxpool"
 )
@@ -42,7 +44,6 @@ var completedMetric string
 var failedMetric string
 var glogv int          // taken from env GLOG_v
 var processName string // put it as global var since there is always one and only one process per invocation
-var devMode bool
 
 type CommandArguments struct {
 	AwsRegion           string
@@ -69,8 +70,11 @@ type ServerContext struct {
 func doJob(dbpool *pgxpool.Pool, ca *CommandArguments) (pipelineResult *PipelineResult, err error) {
 	defer func() {
 		if r := recover(); r != nil {
-			err = fmt.Errorf("recovered error: %v", r)
-			debug.PrintStack()
+			var buf strings.Builder
+			buf.WriteString(fmt.Sprintf("doJob: recovered error: %v\n", r))
+			buf.WriteString(string(debug.Stack()))
+			err = errors.New(buf.String())
+			log.Println(err)
 		}
 	}()
 
@@ -115,7 +119,6 @@ func DoJobAndReportStatus(dbpool *pgxpool.Pool, ca *CommandArguments) error {
 	shardId = ca.ShardId
 	completedMetric = ca.CompletedMetric
 	failedMetric = ca.FailedMetric
-	devMode = ca.DevMode
 
 	switch os.Getenv("JETS_LOG_DEBUG") {
 	case "1":

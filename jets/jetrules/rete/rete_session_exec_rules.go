@@ -2,9 +2,11 @@ package rete
 
 import (
 	"container/heap"
+	"errors"
 	"fmt"
 	"log"
 	"runtime/debug"
+	"strings"
 
 	"github.com/artisoft-io/jetstore/jets/jetrules/rdf"
 )
@@ -13,8 +15,11 @@ func (rs *ReteSession) ExecuteRules() (err error) {
 	// log.Println("Entering ReteSession.ExecuteRules")
 	defer func() {
 		if r := recover(); r != nil {
-			err = fmt.Errorf("ExecuteRules recovered error: %v", r)
-			debug.PrintStack()
+			var buf strings.Builder
+			buf.WriteString(fmt.Sprintf("ExecuteRules: recovered error: %v\n", r))
+			buf.WriteString(string(debug.Stack()))
+			err = errors.New(buf.String())
+			log.Println(err)
 		}
 	}()
 
