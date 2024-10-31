@@ -601,7 +601,7 @@ func ValidatePipeSpecOutputChannels(pipeConfig []PipeSpec) error {
 			}
 			config := &transformationConfig.OutputChannel
 			if config.Type == "" {
-				config.Type = "stage"
+				config.Type = "memory"
 			}
 			switch config.Type {
 			case "sql":
@@ -632,9 +632,12 @@ func ValidatePipeSpecOutputChannels(pipeConfig []PipeSpec) error {
 					if config.Compression == "" {
 						config.Compression = "none"
 					}
+				
+				case "memory":
+					config.Compression = "" 
 				default:
 					return fmt.Errorf(
-						"error: invalid cpipes config, unknown output_channel config type: %s (expecting: stage, output, sql)", config.Type)
+						"error: invalid cpipes config, unknown output_channel config type: %s (expecting: memory (default), stage, output, sql)", config.Type)
 				}
 			}
 		}
