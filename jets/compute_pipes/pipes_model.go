@@ -201,7 +201,7 @@ type InputChannelConfig struct {
 }
 
 type OutputChannelConfig struct {
-	// Type range: stage (default), output, sql
+	// Type range: memory (default), stage, output, sql
 	// Format: csv, headerless_csv, etc
 	// Compression: none, snappy (default)
 	Type           string `json:"type"`
