@@ -3,6 +3,7 @@ package compute_pipes
 import (
 	"encoding/gob"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"runtime/debug"
@@ -26,10 +27,11 @@ func (cpCtx *ComputePipesContext) StartComputePipes(dbpool *pgxpool.Pool, comput
 	defer func() {
 		// Catch the panic that might be generated downstream
 		if r := recover(); r != nil {
-			cpErr := fmt.Errorf("StartComputePipes: recovered error: %v", r)
+			var buf strings.Builder
+			buf.WriteString(fmt.Sprintf("StartComputePipes: recovered error: %v\n", r))
+			buf.WriteString(string(debug.Stack()))
+			cpErr := errors.New(buf.String())
 			log.Println(cpErr)
-			// debug.Stack()
-			debug.PrintStack()
 			cpCtx.ErrCh <- cpErr
 			close(cpCtx.Done)
 			close(cpCtx.ChResults.Copy2DbResultCh)

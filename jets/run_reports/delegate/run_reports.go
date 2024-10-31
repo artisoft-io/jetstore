@@ -123,8 +123,11 @@ func (ca *CommandArguments) RunReports(dbpool *pgxpool.Pool) (err error) {
 	}
 	defer func() {
 		if r := recover(); r != nil {
-			err = fmt.Errorf("recovered error: %v", r)
-			debug.PrintStack()
+			var buf strings.Builder
+			buf.WriteString(fmt.Sprintf("RunReports: recovered error: %v\n", r))
+			buf.WriteString(string(debug.Stack()))
+			err = errors.New(buf.String())
+			log.Println(err)
 		}
 		os.RemoveAll(tempDir)
 	}()

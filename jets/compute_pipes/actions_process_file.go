@@ -40,12 +40,13 @@ func (cpCtx *ComputePipesContext) ProcessFilesAndReportStatus(ctx context.Contex
 		close(cpCtx.ChResults.WritePartitionsResultCh)
 		close(cpCtx.ChResults.S3PutObjectResultCh)
 		err = cpCtx.StartMergeFiles(dbpool)
-		if err != nil {
-			processingErrors = append(processingErrors, err.Error())
-		}
 	} else {
-		cpCtx.LoadFiles(ctx, dbpool)
+		err = cpCtx.LoadFiles(ctx, dbpool)
 	}
+	if err != nil {
+		processingErrors = append(processingErrors, err.Error())
+	}
+
 	// // Collect the results of each pipes and save it to database
 	// saveResultsCtx := NewSaveResultsContext(dbpool)
 	// saveResultsCtx.JetsPartition = cpCtx.JetsPartitionLabel

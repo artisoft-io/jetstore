@@ -131,7 +131,9 @@ func (ctx *BuilderContext) NewAnonymizeTransformationPipe(source *InputChannel, 
 	var anonymActions []*AnonymizationAction
 	var hasher maphash.Hasher[string]
 	var columnEvaluators []TransformationColumnEvaluator
+	var anonymizeType string
 	var err error
+	var ok bool
 	// Get the channel for sending the keys
 	keysOutCh, err = ctx.channelRegistry.GetOutputChannel(config.KeysOutputChannel.Name)
 	if err != nil {
@@ -158,13 +160,26 @@ func (ctx *BuilderContext) NewAnonymizeTransformationPipe(source *InputChannel, 
 		if metaRow == nil {
 			return nil, fmt.Errorf("error: metadata row not found for column %s", name)
 		}
-		anonymizeType := (*metaRow)[metaLookupColumnsMap[config.AnonymizeType]].(string)
+		anonymizeTypeI := (*metaRow)[metaLookupColumnsMap[config.AnonymizeType]]
+		if anonymizeTypeI == nil {
+			anonymizeType = ""	
+		} else {
+			anonymizeType, ok = anonymizeTypeI.(string)
+			if !ok {
+				return nil, fmt.Errorf("error: expecting string for anonymize type (e.g. text, date), got %v", anonymizeTypeI)
+			}
+		}
 		switch anonymizeType {
 		case "text", "date":
+			keyPrefixI := (*metaRow)[metaLookupColumnsMap[config.KeyPrefix]]
+			keyPrefix, ok := keyPrefixI.(string)
+			if !ok {
+				return nil, fmt.Errorf("error: expecting string for key prefix (e.g. ssn, dob, etc), got %v", keyPrefixI)
+			}
 			anonymActions = append(anonymActions, &AnonymizationAction{
 				inputColumn:   ipos,
 				anonymizeType: anonymizeType,
-				keyPrefix:     (*metaRow)[metaLookupColumnsMap[config.KeyPrefix]].(string),
+				keyPrefix:     keyPrefix,
 			})
 		case "":
 			// Not anonymized

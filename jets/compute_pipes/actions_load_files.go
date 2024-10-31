@@ -9,6 +9,7 @@ import (
 	"io"
 	"log"
 	"os"
+	"runtime/debug"
 	"strconv"
 	"strings"
 	"time"
@@ -24,18 +25,20 @@ var (
 	ComputePipesStart = time.Now()
 )
 
-func (cpCtx *ComputePipesContext) LoadFiles(ctx context.Context, dbpool *pgxpool.Pool) {
+func (cpCtx *ComputePipesContext) LoadFiles(ctx context.Context, dbpool *pgxpool.Pool) (err error) {
 
 	// Create a channel to use as a buffer between the file loader and the copy to db
 	// This gives the opportunity to use Compute Pipes to transform the data before writing to the db
 	computePipesInputCh := make(chan []interface{}, 10)
 
 	defer func() {
-		// if r := recover(); r != nil {
-		// 	loadFromS3FilesResultCh <- LoadFromS3FilesResult{Err: fmt.Errorf("recovered error: %v", r)}
-		// 	debug.PrintStack()
-		// 	close(done)
-		// }
+		if r := recover(); r != nil {
+			var buf strings.Builder
+			buf.WriteString(fmt.Sprintf("LoadFiles: recovered error: %v\n", r))
+			buf.WriteString(string(debug.Stack()))
+			err = errors.New(buf.String())
+			log.Println(err)
+		}
 		close(computePipesInputCh)
 		close(cpCtx.ChResults.LoadFromS3FilesResultCh)
 	}()
@@ -45,7 +48,6 @@ func (cpCtx *ComputePipesContext) LoadFiles(ctx context.Context, dbpool *pgxpool
 
 	// Load the files
 	var count, totalRowCount int64
-	var err error
 	inputFormat := cpCtx.CpConfig.CommonRuntimeArgs.SourcesConfig.MainInput.InputFormat
 	compression := cpCtx.CpConfig.CommonRuntimeArgs.SourcesConfig.MainInput.Compression
 	schemaProvider := cpCtx.CpConfig.CommonRuntimeArgs.SourcesConfig.MainInput.SchemaProvider
@@ -73,6 +75,7 @@ func (cpCtx *ComputePipesContext) LoadFiles(ctx context.Context, dbpool *pgxpool
 		}
 	}
 	cpCtx.ChResults.LoadFromS3FilesResultCh <- LoadFromS3FilesResult{LoadRowCount: totalRowCount, BadRowCount: 0}
+	return
 }
 
 func (cpCtx *ComputePipesContext) ReadParquetFile(filePath *FileName, computePipesInputCh chan<- []interface{}) (int64, error) {

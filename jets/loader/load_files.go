@@ -9,6 +9,7 @@ import (
 	"log"
 	"os"
 	"reflect"
+	"runtime/debug"
 	"strconv"
 	"strings"
 	"time"
@@ -29,7 +30,7 @@ import (
 // Backward compatibility: when compute pipe graph config is null or empty, the input file content is save in database, meaning the
 // compute transformation is the identity operator.
 
-func loadFiles(dbpool *pgxpool.Pool, headersDKInfo *schema.HeadersAndDomainKeysInfo, done chan struct{}, errCh chan error,
+func loadFiles(dbpool *pgxpool.Pool, headersDKInfo *schema.HeadersAndDomainKeysInfo, done chan struct{}, _ chan error,
 	fileNamesCh <-chan string, chResults *compute_pipes.ChannelResults, badRowsWriter *bufio.Writer) {
 
 	// Create a channel to use as a buffer between the file loader and the copy to db
@@ -38,11 +39,15 @@ func loadFiles(dbpool *pgxpool.Pool, headersDKInfo *schema.HeadersAndDomainKeysI
 	computePipesInputCh := make(chan []interface{}, 10)
 
 	defer func() {
-		// if r := recover(); r != nil {
-		// 	loadFromS3FilesResultCh <- LoadFromS3FilesResult{Err: fmt.Errorf("recovered error: %v", r)}
-		// 	debug.PrintStack()
-		// 	close(done)
-		// }
+		if r := recover(); r != nil {
+			var buf strings.Builder
+			buf.WriteString(fmt.Sprintf("LoadFiles: recovered error: %v\n", r))
+			buf.WriteString(string(debug.Stack()))
+			err := errors.New(buf.String())
+			log.Println(err)
+			chResults.LoadFromS3FilesResultCh <- compute_pipes.LoadFromS3FilesResult{Err: err}
+			close(done)
+		}
 		fmt.Println("Closing computePipesInputCh **")
 		close(computePipesInputCh)
 	}()
@@ -65,7 +70,7 @@ func loadFiles(dbpool *pgxpool.Pool, headersDKInfo *schema.HeadersAndDomainKeysI
 
 	} else {
 		log.Println("Compute Pipes identified")
-		err := fmt.Errorf("Compute Pipes no longer supported in loader")
+		err := fmt.Errorf("error: Compute Pipes no longer supported in loader")
 		fmt.Println(err)
 		chResults.LoadFromS3FilesResultCh <- compute_pipes.LoadFromS3FilesResult{LoadRowCount: 0, BadRowCount: 0, Err: err}
 		return

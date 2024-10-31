@@ -1,6 +1,7 @@
 package compute_pipes
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -26,10 +27,11 @@ func (cpCtx *ComputePipesContext) StartMergeFiles(dbpool *pgxpool.Pool) error {
 	defer func() {
 		// Catch the panic that might be generated downstream
 		if r := recover(); r != nil {
-			cpErr := fmt.Errorf("StartMergeFiles: recovered error: %v", r)
+			var buf strings.Builder
+			buf.WriteString(fmt.Sprintf("StartMergeFiles: recovered error: %v\n", r))
+			buf.WriteString(string(debug.Stack()))
+			cpErr := errors.New(buf.String())
 			log.Println(cpErr)
-			// debug.Stack()
-			debug.PrintStack()
 			cpCtx.ErrCh <- cpErr
 			close(cpCtx.Done)
 		}
