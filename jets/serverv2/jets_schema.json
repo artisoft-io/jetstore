@@ -1593,7 +1593,7 @@
   {
     "schemaName": "jetsapi",
     "tableName": "compute_pipes_shard_registry",
-    "description": "Assignment of files to node for processing. Shard (legacy name) makes reference to a node in the cluster. is_file is always 1.",
+    "description": "Assignment of files to node for processing. Shard (legacy name) makes reference to a node in the cluster.",
     "columns": [
       {
         "columnName": "session_id",
@@ -1606,21 +1606,22 @@
         "isNotNull": true
       },
       {
-        "columnName": "is_file",
-        "dataType": "int",
-        "default": "1",
-        "isNotNull": true,
-        "deprecated": true
-      },
-      {
         "columnName": "file_size",
         "dataType": "long",
         "default": "0",
         "isNotNull": true
       },
       {
-        "columnName": "jets_partition",
-        "dataType": "text"
+        "columnName": "shard_start",
+        "dataType": "long",
+        "default": "0",
+        "isNotNull": true
+      },
+      {
+        "columnName": "shard_end",
+        "dataType": "long",
+        "default": "0",
+        "isNotNull": true
       },
       {
         "columnName": "shard_id",
@@ -1628,6 +1629,19 @@
         "dataType": "int",
         "default": "0",
         "isNotNull": true
+      },
+      {
+        "columnName": "is_file",
+        "dataType": "int",
+        "default": "1",
+        "isNotNull": true,
+        "deprecated": true,
+        "deleted": true
+      },
+      {
+        "columnName": "jets_partition",
+        "dataType": "text",
+        "deleted": true
       },
       {
         "columnName": "sc_node_id",
@@ -1669,12 +1683,6 @@
       {
         "indexName": "compute_pipes_shard_registry3_idx_v2",
         "indexDef": "INDEX compute_pipes_shard_registry3_idx_v2 ON jetsapi.compute_pipes_shard_registry (session_id)"
-      }
-    ],
-    "tableConstraints": [
-      {
-        "name": "compute_pipes_shard_registry_unique_cstraint_v5",
-        "definition": "CONSTRAINT compute_pipes_shard_registry_unique_cstraint_v5 UNIQUE (session_id,file_key,shard_id)"
       }
     ]
   },

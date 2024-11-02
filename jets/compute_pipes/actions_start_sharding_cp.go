@@ -157,7 +157,7 @@ func (args *StartComputePipesArgs) StartShardingComputePipes(ctx context.Context
 	// Get the schema provider from schemaProviderJson:
 	//   - Populate the input columns (ic)
 	//   - Populate inputFormat, compression
-	//   - Populate inputFormatDataJson for fixed_width
+	//   - Populate inputFormatDataJson for xlsx
 	//   - Put SchemaName into env (done in CoordinateComputePipes)
 	//   - Put the schema provider in compute pipes json
 	var schemaProviderConfig *SchemaProviderSpec
@@ -186,7 +186,6 @@ func (args *StartComputePipesArgs) StartShardingComputePipes(ctx context.Context
 		if isPartFile == 1 {
 			schemaProviderConfig.IsPartFiles = true
 		}
-		schemaProviderKey = schemaProviderConfig.Key
 		if cpConfig.SchemaProviders == nil {
 			cpConfig.SchemaProviders = make([]*SchemaProviderSpec, 0)
 		}
@@ -199,23 +198,19 @@ func (args *StartComputePipesArgs) StartShardingComputePipes(ctx context.Context
 		if err != nil {
 			return result, fmt.Errorf("while unmarshaling schema_provider_json: %s", err)
 		}
-		if len(schemaProviderConfig.Columns) > 0 {
-			ic = make([]string, 0, len(schemaProviderConfig.Columns))
-			for _, c := range schemaProviderConfig.Columns {
-				ic = append(ic, c.Name)
-			}
+	}
+
+	// The main_input schema provider should always have the key _main_input_.
+	// Using this as the default
+	if schemaProviderKey == "" {
+		schemaProviderKey = "_main_input_"
+	}
+	// Get the input columns from the schema provider if avail
+	if len(schemaProviderConfig.Columns) > 0 {
+		ic = make([]string, 0, len(schemaProviderConfig.Columns))
+		for _, c := range schemaProviderConfig.Columns {
+			ic = append(ic, c.Name)
 		}
-		if len(schemaProviderConfig.InputFormatDataJson) > 0 {
-			inputFormatDataJson.String = schemaProviderConfig.InputFormatDataJson
-			inputFormatDataJson.Valid = true
-		}
-		if len(schemaProviderConfig.InputFormat) > 0 {
-			inputFormat = schemaProviderConfig.InputFormat
-		}
-		if len(schemaProviderConfig.Compression) > 0 {
-			compression = schemaProviderConfig.Compression
-		}
-		schemaProviderKey = schemaProviderConfig.Key
 	}
 	if len(schemaProviderConfig.Delimiter) > 0 {
 		sepFlag.Set(schemaProviderConfig.Delimiter)
@@ -276,12 +271,14 @@ func (args *StartComputePipesArgs) StartShardingComputePipes(ctx context.Context
 		return result, err
 	}
 	// Check if headers where provided in source_config record or need to determine the csv delimiter
-	if len(ic) == 0 || (sepFlag == 0 && strings.HasSuffix(inputFormat, "csv")) {
+	if len(ic) == 0 || (sepFlag == 0 && strings.HasSuffix(schemaProviderConfig.InputFormat, "csv")) {
 		// Get the input columns / column separator from the first file
-		err := FetchHeadersAndDelimiterFromFile(firstKey, inputFormat, compression, &ic, &sepFlag, inputFormatDataJson.String)
+		err := FetchHeadersAndDelimiterFromFile(firstKey, schemaProviderConfig.InputFormat, schemaProviderConfig.Compression, &ic, 
+			&sepFlag, schemaProviderConfig.InputFormatDataJson)
 		if err != nil {
 			return result,
-				fmt.Errorf("while calling FetchHeadersAndDelimiterFromFile('%s', '%s', '%s'): %v", firstKey, inputFormat, compression, err)
+				fmt.Errorf("while calling FetchHeadersAndDelimiterFromFile('%s', '%s', '%s'): %v", firstKey, 
+				schemaProviderConfig.InputFormat, schemaProviderConfig.Compression, err)
 		}
 		if sepFlag != 0 {
 			schemaProviderConfig.Delimiter = sepFlag.String()
@@ -416,9 +413,9 @@ func (args *StartComputePipesArgs) StartShardingComputePipes(ctx context.Context
 			SourcesConfig: SourcesConfigSpec{
 				MainInput: &InputSourceSpec{
 					InputColumns:        ic,
-					InputFormat:         inputFormat,
-					Compression:         compression,
-					InputFormatDataJson: inputFormatDataJson.String,
+					InputFormat:         schemaProviderConfig.InputFormat,
+					Compression:         schemaProviderConfig.Compression,
+					InputFormatDataJson: schemaProviderConfig.InputFormatDataJson,
 					SchemaProvider:      schemaProviderKey,
 				},
 			},
@@ -584,7 +581,7 @@ func SelectActiveOutputTable(tableConfig []*TableSpec, pipeConfig []PipeSpec) ([
 }
 
 // Function to validate the PipeSpec output channel config
-// Apply a default snappy compression if not compression is not specified
+// Apply a default snappy compression if compression is not specified
 // and channel Type 'stage'
 func ValidatePipeSpecOutputChannels(pipeConfig []PipeSpec) error {
 	for i := range pipeConfig {
