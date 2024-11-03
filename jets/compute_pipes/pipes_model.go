@@ -20,23 +20,30 @@ type ComputePipesConfig struct {
 // Cluster configuration
 // DefaultMaxConcurrency is to override the env var MAX_CONCURRENCY
 type ClusterSpec struct {
-	NbrNodes              int                  `json:"nbr_nodes"`
-	DefaultMaxConcurrency int                  `json:"default_max_concurrency"`
-	S3WorkerPoolSize      int                  `json:"s3_worker_pool_size"`
-	NbrNodesLookup        *[]ClusterSizingSpec `json:"nbr_nodes_lookup"`
-	IsDebugMode           bool                 `json:"is_debug_mode"`
-	KillSwitchMin         int                  `json:"kill_switch_min"`
+	NbrPartitions         int                    `json:"nbr_partitons"`
+	DefaultShardSizeMb    int                    `json:"default_shard_size_mb"`
+	DefaultShardMaxSizeMb int                    `json:"default_shard_max_size_mb"`
+	DefaultMaxConcurrency int                    `json:"default_max_concurrency"`
+	S3WorkerPoolSize      int                    `json:"s3_worker_pool_size"`
+	ClusterShardingTiers  *[]ClusterShardingSpec `json:"cluster_sharding_tiers"`
+	IsDebugMode           bool                   `json:"is_debug_mode"`
+	KillSwitchMin         int                    `json:"kill_switch_min"`
 }
 
 // Cluster sizing configuration
 // Allows to dynamically determine the NbrNodes based on total size of input files.
-// UseEcsTasks and MaxConcurrency is used for step id 'reducing0'
+// UseEcsTasks is used for step id 'reducing0'
 // When UseEcsTasks == true, MaxConcurrency applies to ECS cluster (reducing0 step id).
+// otherwise MaxConcurrency is the number of concurrent lambda functions executing.
 // Note that S3WorkerPoolSize is used for reducing01, all other reducing steps use the
 // S3WorkerPoolSize set at the ClusterSpec level.
-type ClusterSizingSpec struct {
+// Use either NbrPartitions or ShardSizeMb/ShardMaxSizeMb to determine the nbr of nodes.
+// ShardSizeMb/ShardMaxSizeMb takes precedence over NbrPartitions.
+type ClusterShardingSpec struct {
 	WhenTotalSizeGe  int  `json:"when_total_size_ge_mb"`
-	NbrNodes         int  `json:"nbr_nodes"`
+	NbrPartitions    int  `json:"nbr_partitions"`
+	ShardSizeMb      int  `json:"shard_size_mb"`
+	ShardMaxSizeMb   int  `json:"shard_max_size_mb"`
 	S3WorkerPoolSize int  `json:"s3_worker_pool_size"`
 	UseEcsTasks      bool `json:"use_ecs_tasks"`
 	MaxConcurrency   int  `json:"max_concurrency"`

@@ -264,21 +264,21 @@ func (args *StartComputePipesArgs) StartShardingComputePipes(ctx context.Context
 		"failureDetails": "",
 	}
 
-	// Prepare the cpipes commands, get the file count and size
-	// Step 1: load the file_key and file_size into the table
-	totalPartfileCount, totalSize, firstKey, err := ShardFileKeysP1(ctx, dbpool, args.FileKey, args.SessionId)
-	if err != nil {
-		return result, err
+	// Shard the input file keys, determine the number of shards and associated configuration
+	shardResult := ShardFileKeys(ctx, dbpool, args.FileKey, args.SessionId, &cpConfig, schemaProviderConfig)
+	if shardResult.err != nil {
+		return result, shardResult.err
 	}
+
 	// Check if headers where provided in source_config record or need to determine the csv delimiter
 	if len(ic) == 0 || (sepFlag == 0 && strings.HasSuffix(schemaProviderConfig.InputFormat, "csv")) {
 		// Get the input columns / column separator from the first file
-		err := FetchHeadersAndDelimiterFromFile(firstKey, schemaProviderConfig.InputFormat, schemaProviderConfig.Compression, &ic, 
+		err := FetchHeadersAndDelimiterFromFile(shardResult.firstKey, schemaProviderConfig.InputFormat, schemaProviderConfig.Compression, &ic,
 			&sepFlag, schemaProviderConfig.InputFormatDataJson)
 		if err != nil {
 			return result,
-				fmt.Errorf("while calling FetchHeadersAndDelimiterFromFile('%s', '%s', '%s'): %v", firstKey, 
-				schemaProviderConfig.InputFormat, schemaProviderConfig.Compression, err)
+				fmt.Errorf("while calling FetchHeadersAndDelimiterFromFile('%s', '%s', '%s'): %v", shardResult.firstKey,
+					schemaProviderConfig.InputFormat, schemaProviderConfig.Compression, err)
 		}
 		if sepFlag != 0 {
 			schemaProviderConfig.Delimiter = sepFlag.String()
@@ -292,40 +292,8 @@ func (args *StartComputePipesArgs) StartShardingComputePipes(ctx context.Context
 		}
 	}
 
-	// Determine the number of nodes for sharding
-	shardingNbrNodes := cpConfig.ClusterConfig.NbrNodes
-	// Set a default cluster spec
-	clusterSpec := &ClusterSizingSpec{
-		NbrNodes:         shardingNbrNodes,
-		S3WorkerPoolSize: cpConfig.ClusterConfig.S3WorkerPoolSize,
-	}
-	if shardingNbrNodes == 0 {
-		if cpConfig.ClusterConfig.NbrNodesLookup == nil {
-			return result, fmt.Errorf("error: invalid cpipes config, NbrNodes or NbrNodesLookup must be specified")
-		}
-		clusterSpec = calculateNbrNodes(int(totalSize/1024/1024), cpConfig.ClusterConfig.NbrNodesLookup)
-		shardingNbrNodes = clusterSpec.NbrNodes
-		if clusterSpec.S3WorkerPoolSize == 0 {
-			clusterSpec.S3WorkerPoolSize = cpConfig.ClusterConfig.S3WorkerPoolSize
-		}
-	}
-	nbrPartitions := uint64(shardingNbrNodes)
-	if clusterSpec.S3WorkerPoolSize == 0 {
-		clusterSpec.S3WorkerPoolSize = shardingNbrNodes
-	}
-	if clusterSpec.MaxConcurrency > 0 {
-		result.CpipesMaxConcurrency = clusterSpec.MaxConcurrency
-	} else {
-		result.CpipesMaxConcurrency = GetMaxConcurrency(shardingNbrNodes, cpConfig.ClusterConfig.DefaultMaxConcurrency)
-	}
-
-	// Adjust the nbr of sharding nodes based on the nbr of input files
-	if totalPartfileCount < shardingNbrNodes {
-		shardingNbrNodes = totalPartfileCount
-	}
-
-	// Build CpipesShardingCommands
-	cpipesCommands := make([]ComputePipesNodeArgs, shardingNbrNodes)
+	// Build CpipesShardingCommands, arguments to each nodes
+	cpipesCommands := make([]ComputePipesNodeArgs, shardResult.nbrShardingNodes)
 	for i := range cpipesCommands {
 		cpipesCommands[i] = ComputePipesNodeArgs{
 			NodeId:          i,
@@ -353,8 +321,8 @@ func (args *StartComputePipesArgs) StartShardingComputePipes(ctx context.Context
 			FileKey:         args.FileKey,
 			SessionId:       args.SessionId,
 			StepId:          &nextStepId,
-			UseECSTask:      clusterSpec.UseEcsTasks,
-			MaxConcurrency:  clusterSpec.MaxConcurrency,
+			UseECSTask:      shardResult.clusterSpec.UseEcsTasks,
+			MaxConcurrency:  shardResult.clusterSpec.MaxConcurrency,
 		}
 	}
 
@@ -370,7 +338,8 @@ func (args *StartComputePipesArgs) StartShardingComputePipes(ctx context.Context
 						trsfColumnSpec := &transformationSpec.Columns[k]
 						if trsfColumnSpec.Type == "hash" {
 							if trsfColumnSpec.HashExpr != nil && trsfColumnSpec.HashExpr.NbrJetsPartitions == nil {
-								trsfColumnSpec.HashExpr.NbrJetsPartitions = &nbrPartitions
+								var n uint64 = uint64(shardResult.nbrPartitions)
+								trsfColumnSpec.HashExpr.NbrJetsPartitions = &n
 								// log.Println("********** Setting trsfColumnSpec.HashExpr.NbrJetsPartitions to", nbrPartitions)
 							}
 						}
@@ -423,8 +392,8 @@ func (args *StartComputePipesArgs) StartShardingComputePipes(ctx context.Context
 			UserEmail:         userEmail,
 		},
 		ClusterConfig: &ClusterSpec{
-			NbrNodes:              shardingNbrNodes,
-			S3WorkerPoolSize:      clusterSpec.S3WorkerPoolSize,
+			NbrPartitions:         shardResult.nbrShardingNodes,
+			S3WorkerPoolSize:      shardResult.clusterSpec.S3WorkerPoolSize,
 			DefaultMaxConcurrency: cpConfig.ClusterConfig.DefaultMaxConcurrency,
 			IsDebugMode:           cpConfig.ClusterConfig.IsDebugMode,
 		},
@@ -451,24 +420,7 @@ func (args *StartComputePipesArgs) StartShardingComputePipes(ctx context.Context
 	if err2 != nil {
 		return result, fmt.Errorf("error inserting in jetsapi.cpipes_execution_status table: %v", err2)
 	}
-
-	// Step 2: assign shard_id (aka node_id) using round robin based on file size
-	err = ShardFileKeysP2(ctx, dbpool, args.FileKey, args.SessionId, shardingNbrNodes)
-	return result, err
-}
-
-func calculateNbrNodes(totalSizeMb int, sizingSpec *[]ClusterSizingSpec) *ClusterSizingSpec {
-	if sizingSpec == nil {
-		return &ClusterSizingSpec{}
-	}
-	for _, spec := range *sizingSpec {
-		if totalSizeMb >= spec.WhenTotalSizeGe {
-			log.Printf("calculateNbrNodes: totalSizeMb: %d, spec.WhenTotalSizeGe: %d, got NbrNodes: %d, MaxConcurrency: %d",
-				totalSizeMb, spec.WhenTotalSizeGe, spec.NbrNodes, spec.MaxConcurrency)
-			return &spec
-		}
-	}
-	return &ClusterSizingSpec{}
+	return result, nil
 }
 
 func GetMaxConcurrency(nbrNodes, defaultMaxConcurrency int) int {
@@ -592,8 +544,8 @@ func ValidatePipeSpecOutputChannels(pipeConfig []PipeSpec) error {
 			case "partition_writer":
 				if transformationConfig.DeviceWriterType == nil && transformationConfig.OutputChannel.SchemaProvider == "" {
 					return fmt.Errorf(
-						"error: invalid cpipes config, must provide 'device_writer_type' or 'output_channel.schema_provider'"+
-						" for transformation pipe of type 'partition_writer'")
+						"error: invalid cpipes config, must provide 'device_writer_type' or 'output_channel.schema_provider'" +
+							" for transformation pipe of type 'partition_writer'")
 				}
 			}
 			config := &transformationConfig.OutputChannel
@@ -624,14 +576,14 @@ func ValidatePipeSpecOutputChannels(pipeConfig []PipeSpec) error {
 					if len(config.WriteStepId) == 0 {
 						return fmt.Errorf("error: invalid cpipes config, write_step_id is not specified in output_channel of type 'stage'")
 					}
-				
+
 				case "output":
 					if config.Compression == "" {
 						config.Compression = "none"
 					}
-				
+
 				case "memory":
-					config.Compression = "" 
+					config.Compression = ""
 				default:
 					return fmt.Errorf(
 						"error: invalid cpipes config, unknown output_channel config type: %s (expecting: memory (default), stage, output, sql)", config.Type)
