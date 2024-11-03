@@ -45,42 +45,23 @@ func downloadS3Files(done <-chan struct{}) (<-chan string, <-chan string, <-chan
 		var err error
 		if isPartFiles == 1 {
 			var fileKeys []string
-			switch cpipesMode {
-			//* REMOVE THIS - "reducing" and cpipesShardWithNoFileKeys
-			case "loader", "reducing":
-				// Case loader mode (loaderSM) or cpipes reducing mode, get the file keys from s3
-				if cpipesShardWithNoFileKeys {
-					log.Printf("Getting first file key from s3 folder for headers only: %s", *inFile)
-				} else {
-					log.Printf("Getting file keys from s3 folder: %s", *inFile)
-				}
-				s3Objects, err := awsi.ListS3Objects(inFile)
-				if err != nil || s3Objects == nil {
-					downloadS3ResultCh <- DownloadS3Result{
-						err: fmt.Errorf("failed to download list of files from s3: %v", err),
-					}
-					return
-				}
-				if len(s3Objects) == 0 {
-					downloadS3ResultCh <- DownloadS3Result{}
-					return
-				}
-				fileKeys = make([]string, 0)
-				for i := range s3Objects {
-					if s3Objects[i].Size > 0 {
-						fileKeys = append(fileKeys, s3Objects[i].Key)
-					}
-				}
-
-			case "sharding":
-				// Process the fileKeys in the global variable cpipesFileKeys
-				fileKeys = cpipesFileKeys
-
-			default:
+			log.Printf("Getting file keys from s3 folder: %s", *inFile)
+			s3Objects, err := awsi.ListS3Objects(inFile)
+			if err != nil || s3Objects == nil {
 				downloadS3ResultCh <- DownloadS3Result{
-					err: fmt.Errorf("error: invalid cpipesMode in downloadS3Files: %s", cpipesMode),
+					err: fmt.Errorf("failed to download list of files from s3: %v", err),
 				}
 				return
+			}
+			if len(s3Objects) == 0 {
+				downloadS3ResultCh <- DownloadS3Result{}
+				return
+			}
+			fileKeys = make([]string, 0)
+			for i := range s3Objects {
+				if s3Objects[i].Size > 0 {
+					fileKeys = append(fileKeys, s3Objects[i].Key)
+				}
 			}
 			log.Printf("Downloading multi-part file from s3 folder: %s", *inFile)
 			gotHeaders := false
@@ -104,11 +85,6 @@ func downloadS3Files(done <-chan struct{}) (<-chan string, <-chan string, <-chan
 					if !gotHeaders {
 						headersFileCh <- inFilePath
 						gotHeaders = true
-						if cpipesShardWithNoFileKeys {
-							// Got the header file, it's all we need
-							downloadS3ResultCh <- DownloadS3Result{}
-							return
-						}
 					}
 					select {
 					case fileNamesCh <- inFilePath:
