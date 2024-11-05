@@ -335,7 +335,11 @@ func (cpCtx *ComputePipesContext) ReadCsvFile(filePath *FileName,
 		// read and put the rows into computePipesInputCh
 		if dropLastRow {
 			nextInRow, err = csvReader.Read()
-      // log.Println("**Next Row -dropLast", nextInRow)
+      // log.Println("**Next Row -dropLast", nextInRow, "err:", err)
+			if errors.Is(err, csv.ErrFieldCount) {
+				// Got a partial read, the next read will give the io.EOF
+				err = nil
+			}
 		} else {
 			inRow, err = csvReader.Read()
       // log.Println("**Row", inRow)
@@ -346,7 +350,7 @@ func (cpCtx *ComputePipesContext) ReadCsvFile(filePath *FileName,
 				continue
 			}
     }
-		if err == nil || errors.Is(err, csv.ErrFieldCount) {
+		if err == nil {
       // log.Println("** Processing inRow", inRow)
 			cpCtx.SamplingCount = 0
       record = make([]interface{}, nbrColumns)
@@ -380,7 +384,7 @@ func (cpCtx *ComputePipesContext) ReadCsvFile(filePath *FileName,
 			// ---------------------------------------------------
 			return inputRowCount, nil
 
-		case err != nil && !(errors.Is(err, csv.ErrFieldCount) && (filePath.InFileKeyInfo.start > 0 || filePath.InFileKeyInfo.end > 0)):
+		case err != nil:
 			return 0, fmt.Errorf("error while reading input records (ReadCsvFile): %v", err)
 
 		default:
