@@ -104,7 +104,8 @@ func ShardFileKeys(exeCtx context.Context, dbpool *pgxpool.Pool, baseFileKey str
 	if result.nbrPartitions == 0 {
 		result.nbrPartitions = result.nbrShardingNodes
 	}
-	if result.nbrPartitions > cpConfig.ClusterConfig.NbrPartitions {
+	// Caping the nbr of partitions (used by the hash operator)
+	if cpConfig.ClusterConfig.NbrPartitions > 0 && result.nbrPartitions > cpConfig.ClusterConfig.NbrPartitions {
 		result.nbrPartitions = cpConfig.ClusterConfig.NbrPartitions
 	}
 
