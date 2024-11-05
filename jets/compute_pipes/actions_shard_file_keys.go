@@ -210,9 +210,8 @@ func selectClusterShardingTier(totalSizeMb int, clusterConfig *ClusterSpec) *Clu
 					spec.ShardMaxSizeMb = clusterConfig.DefaultShardMaxSizeMb
 					spec.ShardMaxSizeBy = clusterConfig.DefaultShardMaxSizeBy
 				}
-				if spec.NbrPartitions == 0 {
-					spec.NbrPartitions = clusterConfig.NbrPartitions
-				}
+				// Note, if spec.NbrPartitions == 0, spec.NbrPartitions will be set to the
+				// number of sharding node and capped to clusterConfig.NbrPartitions
 			return &spec
 		}
 	}
