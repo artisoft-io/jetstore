@@ -40,7 +40,7 @@ func NewLookupTableS3(_ *pgxpool.Pool, spec *LookupSpec, env map[string]interfac
 	}
 	defer os.Remove(inFolderPath)
 
-	var fileKey string
+	var fileKey *FileKeyInfo
 	source := spec.CsvSource
 	switch source.Type {
 	case "cpipes":
@@ -76,7 +76,7 @@ func NewLookupTableS3(_ *pgxpool.Pool, spec *LookupSpec, env map[string]interfac
 	default:
 		return nil, fmt.Errorf("error: unknown s3_csv_lookup type: %s", source.Type)
 	}
-	log.Printf("Got file key %s from s3 as lookup table: %s", fileKey, spec.Key)
+	log.Printf("Got file key %s from s3 as lookup table: %s", fileKey.key, spec.Key)
 
 	// Fetch the file from s3, save it locally
 	retry := 0

@@ -242,6 +242,12 @@ func (args *StartComputePipesArgs) StartShardingComputePipes(ctx context.Context
 		}
 		ic, _ = sp.FixedWidthFileHeaders()
 	}
+	if len(ic) == 0 && len(schemaProviderConfig.Columns) > 0 && strings.HasSuffix(schemaProviderConfig.InputFormat, "csv") {
+		ic = make([]string, 0, len(schemaProviderConfig.Columns))
+		for i := range schemaProviderConfig.Columns {
+			ic = append(ic, schemaProviderConfig.Columns[i].Name)
+		}
+	}
 
 	result.ReportsCommand = []string{
 		"-client", client,
@@ -393,6 +399,7 @@ func (args *StartComputePipesArgs) StartShardingComputePipes(ctx context.Context
 		},
 		ClusterConfig: &ClusterSpec{
 			NbrPartitions:         shardResult.nbrShardingNodes,
+			ShardOffset:           cpConfig.ClusterConfig.ShardOffset,
 			S3WorkerPoolSize:      shardResult.clusterSpec.S3WorkerPoolSize,
 			DefaultMaxConcurrency: cpConfig.ClusterConfig.DefaultMaxConcurrency,
 			IsDebugMode:           cpConfig.ClusterConfig.IsDebugMode,

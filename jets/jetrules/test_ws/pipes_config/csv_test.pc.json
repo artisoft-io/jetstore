@@ -2,25 +2,30 @@
   "cluster_config": {
     "default_max_concurrency": 40,
     "s3_worker_pool_size": 40,
-    "nbr_nodes": 500,
-    "kill_switch_min": 13
+    "default_shard_size_by": 170,
+    "default_shard_max_size_by": 175,
+    "shard_offset": 55,
+    "kill_switch_min": 5,
+    "is_debug_mode": true
   },
   "context": [
     {
       "type": "value",
       "key": "$REPORT",
-      "expr": "fixed_width_test_sample"
+      "expr": "csv_test_sample"
     }
   ],
   "schema_providers": [
     {
       "type": "default",
+      "key": "_main_input_",
       "source_type": "main_input",
-      "client": "test1",
-      "vendor": "test1",
-      "object_type": "test1",
-      "schema_name": "test1",
-      "input_format": "fixed_width",
+      "client": "test2",
+      "vendor": "test2",
+      "object_type": "test2",
+      "schema_name": "test2",
+      "input_format": "csv",
+      "delimiter": ",",
       "compression": "none",
       "columns": [
         {"name": "first_name", "length": 25},
@@ -35,7 +40,7 @@
   ],
   "output_tables": [
     {
-      "key": "$EXTRACT_OUTPUT",
+      "key": "extract_output",
       "name": "$REPORT",
       "columns": [
         {
@@ -75,7 +80,7 @@
   ],
   "channels": [
     {
-      "name": "$EXTRACT_OUTPUT",
+      "name": "extract_output",
       "columns": [
         "first_name",
         "last_name",
@@ -145,7 +150,20 @@
             ],
             "output_channel": {
               "type": "sql",
-              "output_table_key": "$EXTRACT_OUTPUT"
+              "output_table_key": "extract_output"
+            }
+          },
+          {
+            "type": "partition_writer",
+            "device_writer_type": "csv_writer",
+            "jets_partition_key": "csv_test",
+            "output_channel": {
+              "type": "output",
+              "name": "data.out",
+              "schema_provider": "_main_input_",
+              "key_prefix": "$PATH_FILE_KEY/session_id=$SESSIONID",
+              "file_name": "$NAME_FILE_KEY",
+              "channel_spec_name": "input_row"
             }
           }
         ]

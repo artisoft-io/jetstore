@@ -235,7 +235,7 @@ func (args *StartComputePipesArgs) StartReducingComputePipes(ctx context.Context
 			if len(fileKeys) == 0 {
 				return result, fmt.Errorf("error: no files found in partition %s", partitions[0])
 			}
-			err = FetchHeadersAndDelimiterFromFile(fileKeys[0], inputFormat, compression, &inputColumns, &sepFlag, "")
+			err = FetchHeadersAndDelimiterFromFile(fileKeys[0].key, inputFormat, compression, &inputColumns, &sepFlag, "")
 			if err != nil {
 				return result, fmt.Errorf("error: could not get input columns from file (reduce mode): %v", err)
 			}

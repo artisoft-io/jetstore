@@ -7,7 +7,7 @@ import (
 	"github.com/artisoft-io/jetstore/jets/awsi"
 )
 
-func TestAssignShardInfo1(t *testing.T) {
+func TestAssignShardInfo10(t *testing.T) {
 
 	// func assignShardInfo(s3Objects []*awsi.S3Object, shardSize, maxShardSize int64,
 	// 	doSplitFiles bool, sessionId string) ([][]any, int) {
@@ -15,7 +15,7 @@ func TestAssignShardInfo1(t *testing.T) {
 	rows, nShards := assignShardInfo(
 		[]*awsi.S3Object{
 			{Key: "file_key1", Size: 100},
-		}, 20, 35, true, "012345")
+		}, 20, 35, 0, true, "012345")
 
 	if len(rows) != 5 {
 		t.Errorf("Expecting 5 row, got %d", len(rows))
@@ -41,6 +41,37 @@ func TestAssignShardInfo1(t *testing.T) {
 	}
 }
 
+func TestAssignShardInfo11(t *testing.T) {
+  // shard_offset = 10
+	rows, nShards := assignShardInfo(
+		[]*awsi.S3Object{
+			{Key: "file_key1", Size: 100},
+		}, 20, 35, 10, true, "012345")
+
+	if len(rows) != 5 {
+		t.Errorf("Expecting 5 row, got %d", len(rows))
+	}
+	if nShards != 5 {
+		t.Errorf("error, expecting 5 shard, got %d", nShards)
+	}
+	expected := [][]any{
+		{"012345", "file_key1", int64(100), int64(0), int64(20), 0},
+		{"012345", "file_key1", int64(100), int64(11), int64(41), 1},
+		{"012345", "file_key1", int64(100), int64(32), int64(62), 2},
+		{"012345", "file_key1", int64(100), int64(53), int64(83), 3},
+		{"012345", "file_key1", int64(100), int64(74), int64(100), 4},
+	}
+
+	for i, row := range rows {
+		fmt.Printf("Got row[%d]: %v\n", i, row)
+		for j, elm := range row {
+			if expected[i][j] != elm {
+				t.Errorf("error at (%d, %d), expecting %v got %v", i, j, expected[i][j], elm)
+			}
+		}
+	}
+}
+
 func TestAssignShardInfo2(t *testing.T) {
 
 	// func assignShardInfo(s3Objects []*awsi.S3Object, shardSize, maxShardSize int64,
@@ -51,7 +82,7 @@ func TestAssignShardInfo2(t *testing.T) {
 			{Key: "file_key1", Size: 20},
 			{Key: "file_key2", Size: 20},
 			{Key: "file_key3", Size: 20},
-		}, 100, 135, true, "012345")
+		}, 100, 135, 10, true, "012345")
 
 	if len(rows) != 3 {
 		t.Errorf("Expecting 3 row, got %d", len(rows))
@@ -85,7 +116,7 @@ func TestAssignShardInfo3(t *testing.T) {
 			{Key: "file_key1", Size: 10},
 			{Key: "file_key2", Size: 20},
 			{Key: "file_key3", Size: 20},
-		}, 20, 35, true, "012345")
+		}, 20, 35, 0, true, "012345")
 
 	if len(rows) != 3 {
 		t.Errorf("Expecting 3 row, got %d", len(rows))
@@ -119,7 +150,7 @@ func TestAssignShardInfo4(t *testing.T) {
 			{Key: "file_key1", Size: 10},
 			{Key: "file_key2", Size: 50},
 			{Key: "file_key3", Size: 20},
-		}, 20, 35, true, "012345")
+		}, 20, 35, 0, true, "012345")
 
 	if len(rows) != 5 {
 		t.Errorf("Expecting 5 row, got %d", len(rows))

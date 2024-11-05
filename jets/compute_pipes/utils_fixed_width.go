@@ -168,6 +168,9 @@ func (sp *DefaultSchemaProvider) initializeFixedWidthInfo() error {
 }
 
 func (c *FixedWidthColumn) String() string {
+	if c == nil {
+		return "N/A"
+	}
 	return fmt.Sprintf("Start: %d, End: %d, ColumnName: %s", c.Start, c.End, c.ColumnName)
 }
 

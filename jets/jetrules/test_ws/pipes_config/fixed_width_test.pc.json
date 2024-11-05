@@ -2,8 +2,11 @@
   "cluster_config": {
     "default_max_concurrency": 40,
     "s3_worker_pool_size": 40,
-    "nbr_nodes": 500,
-    "kill_switch_min": 13
+    "default_shard_size_by": 485,
+    "default_shard_max_size_by": 500,
+    "shard_offset": 170,
+    "kill_switch_min": 5,
+    "is_debug_mode": true
   },
   "context": [
     {

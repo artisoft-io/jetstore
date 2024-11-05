@@ -8,7 +8,8 @@ INSERT INTO jetsapi.object_type_registry
   ('TestLookup',        'tl:Patient',       '{TestLookup}',          'Test Lookup UC'),
   ('TestLooping',       'lp:Person',        '{TestLooping}',         'Test Looping UC'),
   ('HF_Person',         'hf:Person',        '{HF_Person}',           'Test CPIPES UC'),
-  ('FW_Thing',          'fw:Thing',         '{FW_Thing}',            'Test CPIPES UC')
+  ('FW_Thing',          'fw:Thing',         '{FW_Thing}',            'Test CPIPES UC'),
+  ('CSV_Thing',         'fw:Thing',         '{CSV_Thing}',           'Test CPIPES UC')
 ON CONFLICT DO NOTHING 
 ;
 
@@ -22,10 +23,10 @@ DELETE FROM jetsapi.domain_keys_registry WHERE entity_rdf_type IN
 ('tl:Patient', 'lp:Person', 'hf:Person', 'fw:Thing');
 INSERT INTO jetsapi.domain_keys_registry 
   (entity_rdf_type,   object_types,        domain_keys_json) VALUES
-  ('tl:Patient',     '{"TestLookup"}',    '{"TestLookup":"jets:key","jets:hashing_override":"none"}'),
-  ('lp:Person',      '{"TestLooping"}',   '{"TestLooping":"jets:key","jets:hashing_override":"none"}'),
-  ('hf:Person',      '{"HF_Person"}',     '{"HF_Person":"jets:key","jets:hashing_override":"none"}'),
-  ('fw:Thing',       '{"FW_Thing"}',      '{"FW_Thing":"jets:key","jets:hashing_override":"none"}')
+  ('tl:Patient',     '{"TestLookup"}',             '{"TestLookup":"jets:key","jets:hashing_override":"none"}'),
+  ('lp:Person',      '{"TestLooping"}',            '{"TestLooping":"jets:key","jets:hashing_override":"none"}'),
+  ('hf:Person',      '{"HF_Person"}',              '{"HF_Person":"jets:key","jets:hashing_override":"none"}'),
+  ('fw:Thing',       '{"FW_Thing","CSV_Thing"}',   '{"FW_Thing":"jets:key","CSV_Thing":"jets:key","jets:hashing_override":"none"}')
 ON CONFLICT DO NOTHING
 ;
 
@@ -37,7 +38,8 @@ INSERT INTO jetsapi.process_config
   ('TestLookup',       'jet_rules/test_lookup_main.jr',          1,    '{tl:Patient}',  'run_server_only', 'serverv2SM',        '{tl:Patient}', 'admin'),
   ('TestLooping',      'jet_rules/test_looping_main.jr',         1,    '{lp:Person}',   'run_server_only', 'serverv2SM',        '{lp:Person}',  'admin'),
   ('Test_HF_Analysis', 'pipes_config/hf_token_analysis.pc.json', 1,    '{hf:Person}',   'run_cpipes_only', 'cpipesSM',          '{}',           'admin'),
-  ('Test_FW_Schema',   'pipes_config/fixed_width_test.pc.json',  1,    '{fw:Thing}',    'run_cpipes_only', 'cpipesSM',          '{}',           'admin')
+  ('Test_FW_Schema',   'pipes_config/fixed_width_test.pc.json',  1,    '{fw:Thing}',    'run_cpipes_only', 'cpipesSM',          '{}',           'admin'),
+  ('Test_CSV_Schema',  'pipes_config/csv_test.pc.json',          1,    '{fw:Thing}',    'run_cpipes_only', 'cpipesSM',          '{}',           'admin')
 ON CONFLICT DO NOTHING
 ;
 

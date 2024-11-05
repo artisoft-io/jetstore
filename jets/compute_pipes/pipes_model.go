@@ -23,6 +23,9 @@ type ClusterSpec struct {
 	NbrPartitions         int                    `json:"nbr_partitons"`
 	DefaultShardSizeMb    int                    `json:"default_shard_size_mb"`
 	DefaultShardMaxSizeMb int                    `json:"default_shard_max_size_mb"`
+	DefaultShardSizeBy    int                    `json:"default_shard_size_by"`     // for testing only
+	DefaultShardMaxSizeBy int                    `json:"default_shard_max_size_by"` // for testing only
+	ShardOffset           int                    `json:"shard_offset"`
 	DefaultMaxConcurrency int                    `json:"default_max_concurrency"`
 	S3WorkerPoolSize      int                    `json:"s3_worker_pool_size"`
 	ClusterShardingTiers  *[]ClusterShardingSpec `json:"cluster_sharding_tiers"`
@@ -44,6 +47,8 @@ type ClusterShardingSpec struct {
 	NbrPartitions    int  `json:"nbr_partitions"`
 	ShardSizeMb      int  `json:"shard_size_mb"`
 	ShardMaxSizeMb   int  `json:"shard_max_size_mb"`
+	ShardSizeBy      int  `json:"shard_size_by"`			// for testing only
+	ShardMaxSizeBy   int  `json:"shard_max_size_by"`	// for testing only
 	S3WorkerPoolSize int  `json:"s3_worker_pool_size"`
 	UseEcsTasks      bool `json:"use_ecs_tasks"`
 	MaxConcurrency   int  `json:"max_concurrency"`
