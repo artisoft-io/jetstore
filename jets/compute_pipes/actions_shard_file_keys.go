@@ -71,6 +71,16 @@ func ShardFileKeys(exeCtx context.Context, dbpool *pgxpool.Pool, baseFileKey str
 		doSplitFiles = false
 	}
 
+	// Validate ClusterShardingSpec
+	if shardSize == 0 {
+		result.err = fmt.Errorf(
+			"error: invalid cluster config, need to specify shard_size_mb/shard_max_size_mb or their default values")
+		return
+	}
+	if maxShardSize < shardSize {
+		maxShardSize = shardSize
+	}
+
 	// shardRegistryRow row of jetsapi.compute_pipes_shard_registry
 	var shardRegistryRows [][]any
 	columns := []string{"session_id", "file_key", "file_size", "shard_start", "shard_end", "shard_id"}
@@ -192,6 +202,17 @@ func selectClusterShardingTier(totalSizeMb int, clusterConfig *ClusterSpec) *Clu
 		if totalSizeMb >= spec.WhenTotalSizeGe {
 			log.Printf("selectClusterShardingTier: totalSizeMb: %d, spec.WhenTotalSizeGe: %d, got NbrPartions: %d, shard size: %d, MaxConcurrency: %d",
 				totalSizeMb, spec.WhenTotalSizeGe, spec.NbrPartitions, spec.ShardSizeMb, spec.MaxConcurrency)
+				if spec.ShardSizeMb == 0 && spec.ShardMaxSizeBy == 0 {
+					spec.ShardMaxSizeMb = clusterConfig.DefaultShardSizeMb
+					spec.ShardMaxSizeBy = clusterConfig.DefaultShardSizeBy
+				}
+				if spec.ShardMaxSizeMb == 0 && spec.ShardMaxSizeBy == 0 {
+					spec.ShardMaxSizeMb = clusterConfig.DefaultShardMaxSizeMb
+					spec.ShardMaxSizeBy = clusterConfig.DefaultShardMaxSizeBy
+				}
+				if spec.NbrPartitions == 0 {
+					spec.NbrPartitions = clusterConfig.NbrPartitions
+				}
 			return &spec
 		}
 	}

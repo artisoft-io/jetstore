@@ -19,6 +19,13 @@ type ComputePipesConfig struct {
 
 // Cluster configuration
 // DefaultMaxConcurrency is to override the env var MAX_CONCURRENCY
+// NbrPartitions is the default value when not specified at ClusterShardingSpec level.
+// NbrPartitions is used for the hash operator in the sharding step (step 0).
+// DefaultShardSizeMb is the default value when not specified at ClusterShardingSpec level.
+// DefaultShardMaxSizeMb is the default value when not specified at ClusterShardingSpec level.
+// DefaultShardSizeBy is the default value when not specified at ClusterShardingSpec level.
+// DefaultShardMaxSizeBy is the default value when not specified at ClusterShardingSpec level.
+// NOTE: ShardSizeMb / ShardMaxSizeMb must be spefified for the sharding to take place.
 type ClusterSpec struct {
 	NbrPartitions         int                    `json:"nbr_partitons"`
 	DefaultShardSizeMb    int                    `json:"default_shard_size_mb"`
@@ -40,8 +47,9 @@ type ClusterSpec struct {
 // otherwise MaxConcurrency is the number of concurrent lambda functions executing.
 // Note that S3WorkerPoolSize is used for reducing01, all other reducing steps use the
 // S3WorkerPoolSize set at the ClusterSpec level.
-// Use either NbrPartitions or ShardSizeMb/ShardMaxSizeMb to determine the nbr of nodes.
-// ShardSizeMb/ShardMaxSizeMb takes precedence over NbrPartitions.
+// NbrPartitions is used by the hash operator.
+// ShardSizeMb/ShardMaxSizeMb must be spcified to determine the nbr of nodes and to allocate files
+// to shards.
 type ClusterShardingSpec struct {
 	WhenTotalSizeGe  int  `json:"when_total_size_ge_mb"`
 	NbrPartitions    int  `json:"nbr_partitions"`
