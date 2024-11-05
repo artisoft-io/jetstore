@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/artisoft-io/jetstore/jets/awsi"
-	"github.com/artisoft-io/jetstore/jets/compute_pipes"
 	"github.com/artisoft-io/jetstore/jets/datatable/jcsv"
 	"github.com/artisoft-io/jetstore/jets/user"
 )
@@ -19,7 +18,6 @@ import (
 
 // Loader env variable:
 // AWS_API_SECRET or API_SECRET
-// CPIPES_SERVER_ADDR cpipes listerner addr for peer connections
 // JETS_ADMIN_EMAIL (set as admin in dockerfile)
 // JETS_BUCKET
 // JETS_S3_KMS_KEY_ARN
@@ -67,11 +65,6 @@ var pipelineExecKey = flag.Int("peKey", -1, "Pipeline execution key (required fo
 var shardId = flag.Int("shardId", -1, "Run the cpipes process for this single shard. (required when peKey is provided)")
 var jetsPartition = flag.String("jetsPartition", "", "the jets_partition to process (case cpipes reducing mode)")
 var inputSessionId string		// needed to read the file_keys from sharding table when peKey is provided
-var cpipesMode string // values: loader, sharding, reducing, standalone :: set in coordinateWork()
-var cpipesFileKeys []string
-var cpipesShardWithNoFileKeys bool	// Indicate the table compute_pipes_shard_registry has no file keys for this session_id & shardId
-var cpipesServerAddr string
-var cpConfig *compute_pipes.ComputePipesConfig
 
 var tableName string
 var domainKeysJson string
@@ -95,10 +88,6 @@ var fileKeyDate time.Time
 func init() {
 	flag.Var(&sep_flag, "sep", "Field separator for csv files, default is auto detect between pipe ('|'), tilda ('~'), tab ('\t') or comma (',')")
 	processingErrors = make([]string, 0)
-	cpipesServerAddr = os.Getenv("CPIPES_SERVER_ADDR")
-	if len(cpipesServerAddr) == 0 {
-		cpipesServerAddr = ":8085"
-	}
 }
 
 func main() {

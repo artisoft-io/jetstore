@@ -139,7 +139,7 @@ func (ctx *BuilderContext) buildHashEvaluator(source *InputChannel, outCh *Outpu
 	if spec.HashExpr.NbrJetsPartitions != nil {
 		partitions = *spec.HashExpr.NbrJetsPartitions
 	} else {
-		partitions = uint64(ctx.cpConfig.ClusterConfig.NbrNodes)
+		partitions = uint64(ctx.cpConfig.ClusterConfig.NbrPartitions)
 	}
 	var altInputKey []PreprocessingFunction
 	if spec.HashExpr.AlternateCompositeExpr != nil {

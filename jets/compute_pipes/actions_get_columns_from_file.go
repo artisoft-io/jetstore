@@ -39,7 +39,7 @@ func FetchHeadersAndDelimiterFromFile(fileKey, fileFormat, compression string, i
 	}()
 	var byteRange *string
 	switch fileFormat {
-	case "csv":
+	case "csv", "headerless_csv":
 		s := "bytes=0-50000"
 		byteRange = &s
 	}

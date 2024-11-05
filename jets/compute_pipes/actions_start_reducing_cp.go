@@ -133,7 +133,7 @@ func (args *StartComputePipesArgs) StartReducingComputePipes(ctx context.Context
 		return result, ErrNoReducingStep
 	}
 
-	// By default reducing steps uses compression 'snappy' with 'headerless_csv', 
+	// By default reducing steps uses compression 'snappy' with 'headerless_csv',
 	// unless specified in InputChannelConfig or when inputChannel is 'input_row' then use 'csv', see below
 	inputFormat = "headerless_csv"
 	compression = "snappy"
@@ -209,7 +209,7 @@ func (args *StartComputePipesArgs) StartReducingComputePipes(ctx context.Context
 	// Note that S3WorkerPoolSize is set to the  value set at the ClusterSpec
 	// with a default of len(partitions)
 	clusterSpec := &ClusterSpec{
-		NbrNodes:              len(partitions),
+		NbrPartitions:         len(partitions),
 		DefaultMaxConcurrency: cpConfig.ClusterConfig.DefaultMaxConcurrency,
 		S3WorkerPoolSize:      cpConfig.ClusterConfig.S3WorkerPoolSize,
 		IsDebugMode:           cpConfig.ClusterConfig.IsDebugMode,
@@ -235,7 +235,7 @@ func (args *StartComputePipesArgs) StartReducingComputePipes(ctx context.Context
 			if len(fileKeys) == 0 {
 				return result, fmt.Errorf("error: no files found in partition %s", partitions[0])
 			}
-			err = FetchHeadersAndDelimiterFromFile(fileKeys[0], inputFormat, compression, &inputColumns, &sepFlag, "")
+			err = FetchHeadersAndDelimiterFromFile(fileKeys[0].key, inputFormat, compression, &inputColumns, &sepFlag, "")
 			if err != nil {
 				return result, fmt.Errorf("error: could not get input columns from file (reduce mode): %v", err)
 			}
@@ -280,7 +280,7 @@ func (args *StartComputePipesArgs) StartReducingComputePipes(ctx context.Context
 				MainInput: &InputSourceSpec{
 					InputColumns: inputColumns,
 					InputFormat:  inputFormat,
-					Compression: compression,
+					Compression:  compression,
 				},
 			},
 			PipelineConfigKey: pipelineConfigKey,

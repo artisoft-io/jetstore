@@ -52,29 +52,20 @@ func loadFiles(dbpool *pgxpool.Pool, headersDKInfo *schema.HeadersAndDomainKeysI
 		close(computePipesInputCh)
 	}()
 
-	if cpConfig == nil {
-		// Loader in classic mode, no compute pipes defined
-		log.Println("Loader in classic mode, no compute pipes defined")
-		tableIdentifier, err := compute_pipes.SplitTableName(headersDKInfo.TableName)
-		if err != nil {
-			err = fmt.Errorf("while splitting table name: %s", err)
-			fmt.Println(err)
-			chResults.LoadFromS3FilesResultCh <- compute_pipes.LoadFromS3FilesResult{LoadRowCount: 0, BadRowCount: 0, Err: err}
-			return
-		}
-		wt := compute_pipes.NewWriteTableSource(computePipesInputCh, tableIdentifier, headersDKInfo.Headers)
-		table := make(chan compute_pipes.ComputePipesResult, 1)
-		chResults.Copy2DbResultCh <- table
-		close(chResults.Copy2DbResultCh)
-		go wt.WriteTable(dbpool, done, table)
-
-	} else {
-		log.Println("Compute Pipes identified")
-		err := fmt.Errorf("error: Compute Pipes no longer supported in loader")
+	// Loader in classic mode, no compute pipes defined
+	log.Println("Loader in classic mode, no compute pipes defined")
+	tableIdentifier, err := compute_pipes.SplitTableName(headersDKInfo.TableName)
+	if err != nil {
+		err = fmt.Errorf("while splitting table name: %s", err)
 		fmt.Println(err)
 		chResults.LoadFromS3FilesResultCh <- compute_pipes.LoadFromS3FilesResult{LoadRowCount: 0, BadRowCount: 0, Err: err}
 		return
 	}
+	wt := compute_pipes.NewWriteTableSource(computePipesInputCh, tableIdentifier, headersDKInfo.Headers)
+	table := make(chan compute_pipes.ComputePipesResult, 1)
+	chResults.Copy2DbResultCh <- table
+	close(chResults.Copy2DbResultCh)
+	go wt.WriteTable(dbpool, done, table)
 
 	var totalRowCount, badRowCount int64
 	for localInFile := range fileNamesCh {
@@ -185,12 +176,9 @@ func loadFile2DB(headersDKInfo *schema.HeadersAndDomainKeysInfo, filePath *strin
 	lastUpdate := time.Now().UTC()
 
 	// Get the list of ObjectType from domainKeysJson if it's an elm, detault to *objectType
-	var objTypes *[]string
-	if cpipesMode == "loader" {
-		objTypes, err = schema.GetObjectTypesFromDominsKeyJson(domainKeysJson, *objectType)
-		if err != nil {
-			return 0, 0, err
-		}
+	objTypes, err := schema.GetObjectTypesFromDominsKeyJson(domainKeysJson, *objectType)
+	if err != nil {
+		return 0, 0, err
 	}
 	var inputRowCount int64
 	var record []string
@@ -374,57 +362,54 @@ func loadFile2DB(headersDKInfo *schema.HeadersAndDomainKeysInfo, filePath *strin
 			jetsKeyStr := uuid.New().String()
 			copyRec[lastUpdatePos] = lastUpdate
 
-			//*TODO fusion of cpipes and jets:Entity
-			// No need to compute jets:Entity attributes when in cpipes mode
-			if cpipesMode == "loader" {
-				var mainDomainKey string
-				var mainDomainKeyPos int
-				var mainShardIdPos int
-				for _, ot := range *objTypes {
-					groupingKey, shardId, err := headersDKInfo.ComputeGroupingKey(*nbrShards, &ot, &record, recordTypeOffset, &jetsKeyStr)
-					if err != nil {
-						badRowsPos = append(badRowsPos, currentLineNumber)
-						processingErrors = append(processingErrors, err.Error())
-						goto NextRow
-					}
-					if jetsDebug >= 2 {
-						fmt.Printf("**=* Grouping Key Value: %s\n", groupingKey)
-					}
-					domainKeyPos := headersDKInfo.DomainKeysInfoMap[ot].DomainKeyPos
-					copyRec[domainKeyPos] = groupingKey
-					shardIdPos := headersDKInfo.DomainKeysInfoMap[ot].ShardIdPos
-					copyRec[shardIdPos] = shardId
-					if ot == *objectType {
-						mainDomainKey = groupingKey
-						mainDomainKeyPos = domainKeyPos
-						mainShardIdPos = shardIdPos
-					}
+			var mainDomainKey string
+			var mainDomainKeyPos int
+			var mainShardIdPos int
+			for _, ot := range *objTypes {
+				groupingKey, shardId, err := headersDKInfo.ComputeGroupingKey(*nbrShards, &ot, &record, recordTypeOffset, &jetsKeyStr)
+				if err != nil {
+					badRowsPos = append(badRowsPos, currentLineNumber)
+					processingErrors = append(processingErrors, err.Error())
+					goto NextRow
 				}
-				var buf strings.Builder
-				switch jetsInputRowJetsKeyAlgo {
-				case "row_hash":
-					// Add sourcePeriodKey in row_hash calculation so if same record in input
-					// for 2 different period, they get different jets:key
-					buf.WriteString(strconv.Itoa(*sourcePeriodKey))
-					for _, h := range headersDKInfo.Headers {
-						ipos := headersDKInfo.HeadersPosMap[h]
-						if !headersDKInfo.ReservedColumns[h] && !headersDKInfo.FillerColumns[h] {
-							buf.WriteString(record[ipos])
-						}
-					}
-					jetsKeyStr = uuid.NewSHA1(headersDKInfo.HashingSeed, []byte(buf.String())).String()
-					if jetsDebug >= 2 {
-						fmt.Println("COMPUTING ROW HASH WITH", buf.String())
-						fmt.Println("row_hash jetsKeyStr", jetsKeyStr)
-					}
-				case "domain_key":
-					jetsKeyStr = mainDomainKey
+				if jetsDebug >= 2 {
+					fmt.Printf("**=* Grouping Key Value: %s\n", groupingKey)
 				}
-				if headersDKInfo.IsDomainKeyIsJetsKey(objectType) {
-					copyRec[mainDomainKeyPos] = jetsKeyStr
-					copyRec[mainShardIdPos] = schema.ComputeShardId(*nbrShards, jetsKeyStr)
+				domainKeyPos := headersDKInfo.DomainKeysInfoMap[ot].DomainKeyPos
+				copyRec[domainKeyPos] = groupingKey
+				shardIdPos := headersDKInfo.DomainKeysInfoMap[ot].ShardIdPos
+				copyRec[shardIdPos] = shardId
+				if ot == *objectType {
+					mainDomainKey = groupingKey
+					mainDomainKeyPos = domainKeyPos
+					mainShardIdPos = shardIdPos
 				}
 			}
+			var buf strings.Builder
+			switch jetsInputRowJetsKeyAlgo {
+			case "row_hash":
+				// Add sourcePeriodKey in row_hash calculation so if same record in input
+				// for 2 different period, they get different jets:key
+				buf.WriteString(strconv.Itoa(*sourcePeriodKey))
+				for _, h := range headersDKInfo.Headers {
+					ipos := headersDKInfo.HeadersPosMap[h]
+					if !headersDKInfo.ReservedColumns[h] && !headersDKInfo.FillerColumns[h] {
+						buf.WriteString(record[ipos])
+					}
+				}
+				jetsKeyStr = uuid.NewSHA1(headersDKInfo.HashingSeed, []byte(buf.String())).String()
+				if jetsDebug >= 2 {
+					fmt.Println("COMPUTING ROW HASH WITH", buf.String())
+					fmt.Println("row_hash jetsKeyStr", jetsKeyStr)
+				}
+			case "domain_key":
+				jetsKeyStr = mainDomainKey
+			}
+			if headersDKInfo.IsDomainKeyIsJetsKey(objectType) {
+				copyRec[mainDomainKeyPos] = jetsKeyStr
+				copyRec[mainShardIdPos] = schema.ComputeShardId(*nbrShards, jetsKeyStr)
+			}
+
 			copyRec[jetsKeyPos] = jetsKeyStr
 			select {
 			case computePipesInputCh <- copyRec:

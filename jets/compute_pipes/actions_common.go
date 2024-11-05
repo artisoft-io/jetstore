@@ -20,12 +20,12 @@ import (
 // for starting the cp cluster
 // MaxConcurrency is to have a specified value of max concurrency
 type StartComputePipesArgs struct {
-	PipelineExecKey int                    `json:"pipeline_execution_key"`
-	FileKey         string                 `json:"file_key"`
-	SessionId       string                 `json:"session_id"`
-	StepId          *int                   `json:"step_id"`
-	UseECSTask      bool                   `json:"use_ecs_tasks"`
-	MaxConcurrency  int                    `json:"max_concurrency"`
+	PipelineExecKey int    `json:"pipeline_execution_key"`
+	FileKey         string `json:"file_key"`
+	SessionId       string `json:"session_id"`
+	StepId          *int   `json:"step_id"`
+	UseECSTask      bool   `json:"use_ecs_tasks"`
+	MaxConcurrency  int    `json:"max_concurrency"`
 }
 
 type InputStats struct {
@@ -49,10 +49,10 @@ type ComputePipesNodeArgs struct {
 // This will use a single node since merge_files has a single partition
 // to read from (the step_id prior to merge_files writes a single partition).
 // Note: Client and Org are the pipeline execution client and org and may
-//       be different than the client/vendor of the actual data (case using
-//       stand-in client/org name). In that situation the actual 
-//       client/vendor of the data is specified at run time via the SchemaProviders
-//       on table input_registry.
+//	be different than the client/vendor of the actual data (case using
+//	stand-in client/org name). In that situation the actual
+//	client/vendor of the data is specified at run time via the SchemaProviders
+//	on table input_registry.
 type ComputePipesCommonArgs struct {
 	CpipesMode        string            `json:"cpipes_mode"`
 	Client            string            `json:"client"`
@@ -90,6 +90,13 @@ type InputSourceSpec struct {
 	Compression         string   `json:"compression"`
 	InputFormatDataJson string   `json:"input_format_data_json"`
 	SchemaProvider      string   `json:"schema_provider"`
+}
+
+type FileKeyInfo struct {
+	key   string
+	size  int
+	start int
+	end   int
 }
 
 // Full arguments to cp_node for sharding and reducing
@@ -186,7 +193,7 @@ type ComputePipesRun struct {
 
 type FileName struct {
 	LocalFileName string
-	InFileKey     string
+	InFileKeyInfo FileKeyInfo
 }
 
 type CompiledPartFileComponent struct {

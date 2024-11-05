@@ -301,13 +301,13 @@ func (tableDefinition *TableDefinition) UpdateTable(dbpool *pgxpool.Pool, existi
 		if !isFirst {
 			buf.WriteString(", ")
 		}
+    isFirst = false
 		if col.Deleted {
 			// Drop deleted columns
 			buf.WriteString("\nDROP COLUMN IF EXISTS ")
 			buf.WriteString(pgx.Identifier{col.ColumnName}.Sanitize())
 			buf.WriteString(" ")
 		} else {
-			isFirst = false
 			buf.WriteString("\nADD COLUMN IF NOT EXISTS ")
 			buf.WriteString(pgx.Identifier{col.ColumnName}.Sanitize())
 			buf.WriteString(" ")

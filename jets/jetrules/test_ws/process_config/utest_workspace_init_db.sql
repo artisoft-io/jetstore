@@ -1,6 +1,6 @@
 -- =============================================================================================================
 -- UTest
--- generated on 2024-10-22 13:06:19.909230291 -0400 EDT m=+1184.105948914
+-- generated on 2024-11-04 16:07:59.495309267 -0500 EST m=+4797.561954749
 -- =============================================================================================================
 -- Jets Database Init Script
 
@@ -20,7 +20,7 @@ ON CONFLICT DO NOTHING;
 
 -- Table source_config
 DELETE FROM jetsapi."source_config" WHERE "client" = 'UTest';
-INSERT INTO jetsapi."source_config" (object_type,client,org,automated,table_name,domain_keys_json,domain_keys,code_values_mapping_json,input_columns_json,input_columns_positions_csv,input_format,input_format_data_json,is_part_files,compute_pipes_json,user_email) VALUES
+INSERT INTO jetsapi."source_config" (object_type,client,org,automated,table_name,domain_keys_json,domain_keys,code_values_mapping_json,input_columns_json,input_columns_positions_csv,input_format,compression,input_format_data_json,is_part_files,compute_pipes_json,user_email) VALUES
   ('TestLookup',
    'UTest',
    'Test',
@@ -32,6 +32,23 @@ INSERT INTO jetsapi."source_config" (object_type,client,org,automated,table_name
    NULL,
    NULL,
    'csv',
+   'none',
+   '',
+   0,
+   NULL,
+   'michel@artisoft.io'),
+  ('FW_Thing',
+   'UTest',
+   'Test',
+   0,
+   'UTest_Test_FW_Thing',
+   NULL,
+   '{FW_Thing}',
+   NULL,
+   NULL,
+   NULL,
+   'fixed_width',
+   'none',
    '',
    0,
    NULL,
@@ -47,6 +64,7 @@ INSERT INTO jetsapi."source_config" (object_type,client,org,automated,table_name
    NULL,
    NULL,
    'csv',
+   'none',
    '',
    0,
    NULL,
@@ -62,6 +80,7 @@ INSERT INTO jetsapi."source_config" (object_type,client,org,automated,table_name
    NULL,
    NULL,
    'csv',
+   'none',
    '',
    0,
    NULL,
@@ -82,7 +101,8 @@ DELETE FROM jetsapi."process_input" WHERE "client" = 'UTest';
 INSERT INTO jetsapi."process_input" (key,client,org,object_type,table_name,source_type,lookback_periods,entity_rdf_type,key_column,status,user_email) VALUES
   (320667, 'UTest', 'Test', 'TestLookup', 'UTest_Test_TestLookup', 'file', 0, 'tl:Patient', NULL, 'created', 'michel@artisoft.io'),
   (320668, 'UTest', 'Test', 'TestLooping', 'UTest_Test_TestLooping', 'file', 0, 'lp:Person', NULL, 'created', 'michel@artisoft.io'),
-  (320669, 'UTest', 'Test', 'HF_Person', 'UTest_Test_HF_Person', 'file', 0, 'hf:Person', NULL, 'created', 'michel@artisoft.io')
+  (320669, 'UTest', 'Test', 'HF_Person', 'UTest_Test_HF_Person', 'file', 0, 'hf:Person', NULL, 'created', 'michel@artisoft.io'),
+  (320700, 'UTest', 'Test', 'FW_Thing', 'UTest_Test_FW_Thing', 'file', 0, 'fw:Thing', NULL, 'created', 'michel@artisoft.io')
 ON CONFLICT DO NOTHING;
 
 SELECT setval(pg_get_serial_sequence('jetsapi.process_input', 'key'), max(key)) FROM jetsapi.process_input;
@@ -103,6 +123,20 @@ INSERT INTO jetsapi."pipeline_config" (process_name,client,process_config_key,ma
    0,
    '[]',
    'Unit testing lookups',
+   'michel@artisoft.io'),
+  ('Test_FW_Schema',
+   'UTest',
+   106,
+   320700,
+   '{}',
+   '{}',
+   'FW_Thing',
+   'file',
+   'month_period',
+   0,
+   0,
+   '[]',
+   'Test cpipes with fixed_width file',
    'michel@artisoft.io'),
   ('TestLooping',
    'UTest',
@@ -143,6 +177,10 @@ INSERT INTO jetsapi."process_mapping" (table_name,data_property,input_column,fun
   ('UTest_Test_TestLookup', 'tl:diagnosis', NULL, NULL, NULL, NULL, NULL, 'michel@artisoft.io')
 ON CONFLICT DO NOTHING;
 
+
+-- Table process_mapping
+DELETE FROM jetsapi."process_mapping" WHERE "table_name" = 'UTest_Test_FW_Thing';
+-- Table process_mapping has no row for table_name = UTest_Test_FW_Thing
 
 -- Table process_mapping
 DELETE FROM jetsapi."process_mapping" WHERE "table_name" = 'UTest_Test_TestLooping';
