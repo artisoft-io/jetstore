@@ -91,6 +91,7 @@ type JetStoreStackComponents struct {
 	CpipesStartShardingLambda awslambdago.GoFunction
 	CpipesStartReducingLambda awslambdago.GoFunction
 	RegisterKeyLambda         awslambda.Function
+	SqsRegisterKeyLambda      awslambdago.GoFunction
 
 	LoaderSM    sfn.StateMachine
 	ReportsSM   sfn.StateMachine
