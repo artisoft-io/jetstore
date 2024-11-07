@@ -2,9 +2,10 @@ package compute_pipes
 
 import (
 	"fmt"
+	"hash"
+	"hash/fnv"
 	"log"
 
-	"github.com/dolthub/maphash"
 	"github.com/dolthub/swiss"
 )
 
@@ -13,7 +14,7 @@ type AnonymizeTransformationPipe struct {
 	source           *InputChannel
 	outputCh         *OutputChannel
 	keysOutputCh     *OutputChannel
-	hasher           *maphash.Hasher[string]
+	hasher           hash.Hash64
 	keysMap          *swiss.Map[uint64, [2]string]
 	metaLookupTbl    LookupTable
 	anonymActions    []*AnonymizationAction
@@ -53,10 +54,12 @@ func (ctx *AnonymizeTransformationPipe) apply(input *[]interface{}) error {
 		}
 		switch action.anonymizeType {
 		case "text":
+			ctx.hasher.Reset()
+			ctx.hasher.Write([]byte(inputStr))
 			if len(action.keyPrefix) > 0 {
-				hashedValue = fmt.Sprintf("%s.%x", action.keyPrefix, ctx.hasher.Hash(inputStr))
+				hashedValue = fmt.Sprintf("%s.%x", action.keyPrefix, ctx.hasher.Sum64())
 			} else {
-				hashedValue = fmt.Sprintf("%x", ctx.hasher.Hash(inputStr))
+				hashedValue = fmt.Sprintf("%x", ctx.hasher.Sum64())
 			}
 		case "date":
 			date, err := ParseDate(inputStr)
@@ -67,7 +70,10 @@ func (ctx *AnonymizeTransformationPipe) apply(input *[]interface{}) error {
 			}
 		}
 		(*input)[action.inputColumn] = hashedValue
-		ctx.keysMap.Put(ctx.hasher.Hash(inputStr+hashedValue), [2]string{inputStr, hashedValue})
+		ctx.hasher.Reset()
+		ctx.hasher.Write([]byte(inputStr))
+		ctx.hasher.Write([]byte(hashedValue))
+		ctx.keysMap.Put(ctx.hasher.Sum64(), [2]string{inputStr, hashedValue})
 	}
 	// Send the result to output
 	select {
@@ -129,7 +135,7 @@ func (ctx *BuilderContext) NewAnonymizeTransformationPipe(source *InputChannel, 
 	var keysOutCh *OutputChannel
 	var metaLookupTbl LookupTable
 	var anonymActions []*AnonymizationAction
-	var hasher maphash.Hasher[string]
+	var hasher hash.Hash64
 	var columnEvaluators []TransformationColumnEvaluator
 	var anonymizeType string
 	var err error
@@ -162,7 +168,7 @@ func (ctx *BuilderContext) NewAnonymizeTransformationPipe(source *InputChannel, 
 		}
 		anonymizeTypeI := (*metaRow)[metaLookupColumnsMap[config.AnonymizeType]]
 		if anonymizeTypeI == nil {
-			anonymizeType = ""	
+			anonymizeType = ""
 		} else {
 			anonymizeType, ok = anonymizeTypeI.(string)
 			if !ok {
@@ -187,7 +193,7 @@ func (ctx *BuilderContext) NewAnonymizeTransformationPipe(source *InputChannel, 
 			return nil, fmt.Errorf("error: unknown anonymize type '%s', known values: test, date", anonymizeType)
 		}
 	}
-	hasher = maphash.NewHasher[string]()
+	hasher = fnv.New64a()
 
 	// Prepare the column evaluators
 	columnEvaluators = make([]TransformationColumnEvaluator, len(spec.Columns))
@@ -207,7 +213,7 @@ func (ctx *BuilderContext) NewAnonymizeTransformationPipe(source *InputChannel, 
 		source:           source,
 		outputCh:         outputCh,
 		keysOutputCh:     keysOutCh,
-		hasher:           &hasher,
+		hasher:           hasher,
 		keysMap:          swiss.NewMap[uint64, [2]string](2048),
 		metaLookupTbl:    metaLookupTbl,
 		anonymActions:    anonymActions,

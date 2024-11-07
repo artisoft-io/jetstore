@@ -144,8 +144,10 @@ func (ctx *S3DeviceWriter) WriteCsvPartition() {
 			ctx.spec.OutputChannel.Compression)
 		goto gotError
 	}
-	if ctx.spec.WriteHeaders || ctx.spec.OutputChannel.Format == "csv" {
-		if err = csvWriter.Write(ctx.columnNames); err != nil {
+	if !ctx.spec.WriteHeaderless &&
+		(ctx.spec.WriteHeaders || ctx.spec.OutputChannel.Format == "csv") {
+		err = csvWriter.Write(ctx.columnNames)
+		if err != nil {
 			cpErr = fmt.Errorf("while writing headers to local csv file: %v", err)
 			goto gotError
 		}
