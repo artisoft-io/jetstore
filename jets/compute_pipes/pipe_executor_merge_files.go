@@ -51,16 +51,35 @@ func (cpCtx *ComputePipesContext) StartMergeFiles(dbpool *pgxpool.Pool) error {
 	if outputFileConfig == nil {
 		return fmt.Errorf("error: OutputFile config not found for key %s in StartMergeFiles", *outputFileKey)
 	}
-	// Output s3 file key: <JETS_s3_OUTPUT_PREFIX>/<input file_key dir>/<outputFileConfig.Name>
+	// outputFileConfig.KeyPrefix is the s3 output folder, when empty use:
+	//     <JETS_s3_OUTPUT_PREFIX>/<input file_key dir>/
+	// outputFileConfig.Name is the file name (required)
+	var fileFolder string
 	fileName := outputFileConfig.Name
 	for k, v := range cpCtx.EnvSettings {
 		fileName = strings.ReplaceAll(fileName, k, fmt.Sprintf("%v", v))
 	}
-	fileFolder := strings.Replace(cpCtx.CpConfig.CommonRuntimeArgs.FileKey,
-		os.Getenv("JETS_s3_INPUT_PREFIX"), os.Getenv("JETS_s3_OUTPUT_PREFIX"), 1)
+	if len(outputFileConfig.KeyPrefix) > 0 {
+		fileFolder = outputFileConfig.KeyPrefix
+		for k, v := range cpCtx.EnvSettings {
+			fileFolder = strings.ReplaceAll(fileFolder, k, fmt.Sprintf("%v", v))
+		}
+	} else {
+		fileFolder = strings.Replace(cpCtx.CpConfig.CommonRuntimeArgs.FileKey,
+			os.Getenv("JETS_s3_INPUT_PREFIX"), os.Getenv("JETS_s3_OUTPUT_PREFIX"), 1)
+	}
 	outputS3FileKey := fmt.Sprintf("%s/%s", fileFolder, fileName)
 
 	// Create a reader to stream the data to s3
+	if len(outputFileConfig.Headers) == 0 {
+		sp := cpCtx.SchemaManager.GetSchemaProvider(outputFileConfig.SchemaProvider)
+		if sp == nil {
+		return fmt.Errorf(
+			"error: merge_files operator using output_file %s has no headers or schema_provider defined", 
+			outputFileConfig.Key)
+		}
+		outputFileConfig.Headers = sp.ColumnNames()
+	}
 	r := cpCtx.NewMergeFileReader(outputFileConfig.Headers)
 
 	// put content of file to s3

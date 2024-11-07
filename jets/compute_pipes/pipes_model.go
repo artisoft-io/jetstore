@@ -50,7 +50,7 @@ type ClusterSpec struct {
 // Note that S3WorkerPoolSize is used for reducing01, all other reducing steps use the
 // S3WorkerPoolSize set at the ClusterSpec level.
 // NbrPartitions is used by the hash operator.
-// If NbrPartitions == 0, it will be set to the number of sharding node 
+// If NbrPartitions == 0, it will be set to the number of sharding node
 // and capped to clusterConfig.NbrPartitions
 // ShardSizeMb/ShardMaxSizeMb must be spcified to determine the nbr of nodes and to allocate files
 // to shards.
@@ -59,8 +59,8 @@ type ClusterShardingSpec struct {
 	NbrPartitions    int  `json:"nbr_partitions"`
 	ShardSizeMb      int  `json:"shard_size_mb"`
 	ShardMaxSizeMb   int  `json:"shard_max_size_mb"`
-	ShardSizeBy      int  `json:"shard_size_by"`			// for testing only
-	ShardMaxSizeBy   int  `json:"shard_max_size_by"`	// for testing only
+	ShardSizeBy      int  `json:"shard_size_by"`     // for testing only
+	ShardMaxSizeBy   int  `json:"shard_max_size_by"` // for testing only
 	S3WorkerPoolSize int  `json:"s3_worker_pool_size"`
 	UseEcsTasks      bool `json:"use_ecs_tasks"`
 	MaxConcurrency   int  `json:"max_concurrency"`
@@ -159,9 +159,13 @@ type TableSpec struct {
 }
 
 type OutputFileSpec struct {
-	Key     string   `json:"key"`
-	Name    string   `json:"name"`
-	Headers []string `json:"headers"`
+	// KeyPrefix is optional, default to input file key path
+	// Name is required
+	Key            string   `json:"key"`
+	Name           string   `json:"name"`
+	SchemaProvider string   `json:"schema_provider"`
+	KeyPrefix      string   `json:"key_prefix"`
+	Headers        []string `json:"headers"`
 }
 
 type TableColumnSpec struct {
@@ -193,19 +197,22 @@ type SplitterSpec struct {
 type TransformationSpec struct {
 	// Type range: map_record, aggregate, analyze, high_freq, partition_writer, anonymize, distinct
 	// DeviceWriterType range: csv_writer, parquet_writer, fixed_width_writer
+	// JetsPartitionKey used by partition_writer as the default value for jet_partition
+	// WriteHeaders / WriteHeaderless takes precedence over SchemaProvider and Format (from OutputChannelConfig)
 	Type                  string                     `json:"type"`
 	NewRecord             bool                       `json:"new_record"`
 	PartitionSize         *int                       `json:"partition_size"`
-	JetsPartitionKey      *string                    `json:"jets_partition_key"` // Type partition_writer, default partition key
+	JetsPartitionKey      *string                    `json:"jets_partition_key"`
 	FilePathSubstitutions *[]PathSubstitution        `json:"file_path_substitutions"`
 	Columns               []TransformationColumnSpec `json:"columns"`
 	DataSchema            *[]DataSchemaSpec          `json:"data_schema"`
 	DeviceWriterType      *string                    `json:"device_writer_type"` // Type partition_writer
-	WriteHeaders          bool                       `json:"write_headers"`
-	RegexTokens           *[]RegexNode               `json:"regex_tokens"`      // Type analyze
-	LookupTokens          *[]LookupTokenNode         `json:"lookup_tokens"`     // Type analyze
-	KeywordTokens         *[]KeywordTokenNode        `json:"keyword_tokens"`    // Type analyze
-	HighFreqColumns       *[]*HighFreqSpec           `json:"high_freq_columns"` // Type high_freq
+	WriteHeaders          bool                       `json:"write_headers"`      // Type partition_writer
+	WriteHeaderless       bool                       `json:"write_headerless"`   // Type partition_writer
+	RegexTokens           *[]RegexNode               `json:"regex_tokens"`       // Type analyze
+	LookupTokens          *[]LookupTokenNode         `json:"lookup_tokens"`      // Type analyze
+	KeywordTokens         *[]KeywordTokenNode        `json:"keyword_tokens"`     // Type analyze
+	HighFreqColumns       *[]*HighFreqSpec           `json:"high_freq_columns"`  // Type high_freq
 	AnonymizeConfig       *AnonymizeSpec             `json:"anonymize_config"`
 	DistinctConfig        *DistinctSpec              `json:"distinct_config"`
 	OutputChannel         OutputChannelConfig        `json:"output_channel"`
