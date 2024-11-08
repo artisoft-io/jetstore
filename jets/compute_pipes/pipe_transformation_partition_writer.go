@@ -245,6 +245,14 @@ func (ctx *BuilderContext) NewPartitionWriterTransformationPipe(source *InputCha
 	var parquetSchema []string
 	// log.Println("NewPartitionWriterTransformationPipe called for partition key:",jetsPartitionKey)
 	if jetsPartitionKey == nil && spec.JetsPartitionKey != nil {
+		if strings.Contains(*spec.JetsPartitionKey, "$") {
+			for k, v := range ctx.env {
+				value, ok := v.(string)
+				if ok {
+					*spec.JetsPartitionKey = strings.ReplaceAll(*spec.JetsPartitionKey, k, value)
+				}
+			}
+		}
 		jetsPartitionKey = *spec.JetsPartitionKey
 	}
 	// Prepare the column evaluators
