@@ -140,6 +140,7 @@ type SchemaProviderSpec struct {
 	Compression          string             `json:"compression"`
 	InputFormatDataJson  string             `json:"input_format_data_json"`
 	Delimiter            string             `json:"delimiter"`
+	TrimColumns          bool               `json:"trim_columns"`
 	IsPartFiles          bool               `json:"is_part_files"`
 	FixedWidthColumnsCsv string             `json:"fixed_width_columns_csv"`
 	Columns              []SchemaColumnSpec `json:"columns"`

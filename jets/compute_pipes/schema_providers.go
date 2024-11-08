@@ -38,6 +38,7 @@ type SchemaProvider interface {
 	InputFormatDataJson() string
 	IsPartFiles() bool
 	Delimiter() rune
+	TrimColumns() bool
 	Columns() []SchemaColumnSpec
 	ColumnNames() []string
 	FixedWidthFileHeaders() ([]string, string)
@@ -187,6 +188,13 @@ func (sp *DefaultSchemaProvider) Delimiter() rune {
 		return '€'
 	}
 	return []rune(sp.spec.Delimiter)[0]
+}
+
+func (sp *DefaultSchemaProvider) TrimColumns() bool {
+	if sp == nil {
+		return false
+	}
+	return sp.spec.TrimColumns
 }
 
 func (sp *DefaultSchemaProvider) Columns() []SchemaColumnSpec {
