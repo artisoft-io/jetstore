@@ -333,18 +333,19 @@ func (cpCtx *ComputePipesContext) ReadCsvFile(filePath *FileName,
 	}
 	// Determine if trim the columns
 	trimColumns := false
-	if cpCtx.CpConfig.CommonRuntimeArgs.CpipesMode == "reducing" && sp != nil {
+	if cpCtx.CpConfig.CommonRuntimeArgs.CpipesMode == "sharding" && sp != nil {
 		trimColumns = sp.TrimColumns()
 	}
-
+	lastLineFlag := false
 	for {
 		// read and put the rows into computePipesInputCh
 		if dropLastRow {
 			nextInRow, err = csvReader.Read()
 			// log.Println("**Next Row -dropLast", nextInRow, "err:", err)
-			if errors.Is(err, csv.ErrFieldCount) {
+			if errors.Is(err, csv.ErrFieldCount) && !lastLineFlag {
 				// Got a partial read, the next read will give the io.EOF
 				err = nil
+				lastLineFlag = true
 			}
 		} else {
 			inRow, err = csvReader.Read()
