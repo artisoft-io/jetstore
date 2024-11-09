@@ -261,8 +261,9 @@ func (cpCtx *ComputePipesContext) ReadCsvFile(filePath *FileName,
 	}
 	// Get the csv delimiter from the schema provider, if no schema provider exist assume it's ','
 	var sepFlag rune = ','
+	var sp SchemaProvider
 	if len(schemaProvider) > 0 {
-		sp := cpCtx.SchemaManager.GetSchemaProvider(schemaProvider)
+		sp = cpCtx.SchemaManager.GetSchemaProvider(schemaProvider)
 		if sp != nil {
 			sepFlag = sp.Delimiter()
 		}
@@ -307,7 +308,7 @@ func (cpCtx *ComputePipesContext) ReadCsvFile(filePath *FileName,
 		switch {
 		case err == io.EOF: // empty file
 			return 0, nil
-        
+
 		case err != nil:
 			return 0, fmt.Errorf("error while reading input record header line (ReadCsvFile): %v", err)
 		}
@@ -315,7 +316,7 @@ func (cpCtx *ComputePipesContext) ReadCsvFile(filePath *FileName,
 
 	var inputRowCount int64
 	var nextInRow, inRow []string
-  var record []interface{}
+	var record []interface{}
 	// CHECK FOR OFFSET POSITIONING -- check if we drop the last record
 	dropLastRow := false
 	if filePath.InFileKeyInfo.end > 0 && filePath.InFileKeyInfo.end < filePath.InFileKeyInfo.size {
@@ -328,37 +329,47 @@ func (cpCtx *ComputePipesContext) ReadCsvFile(filePath *FileName,
 		case err != nil:
 			return 0, fmt.Errorf("error while reading first input record (ReadCsvFile): %v", err)
 		}
-    // log.Println("**First Row -dropLast", inRow)
+		// log.Println("**First Row -dropLast", inRow)
 	}
-
+	// Determine if trim the columns
+	trimColumns := false
+	if cpCtx.CpConfig.CommonRuntimeArgs.CpipesMode == "sharding" && sp != nil {
+		trimColumns = sp.TrimColumns()
+	}
+	lastLineFlag := false
 	for {
 		// read and put the rows into computePipesInputCh
 		if dropLastRow {
 			nextInRow, err = csvReader.Read()
-      // log.Println("**Next Row -dropLast", nextInRow, "err:", err)
-			if errors.Is(err, csv.ErrFieldCount) {
+			// log.Println("**Next Row -dropLast", nextInRow, "err:", err)
+			if errors.Is(err, csv.ErrFieldCount) && !lastLineFlag {
 				// Got a partial read, the next read will give the io.EOF
 				err = nil
+				lastLineFlag = true
 			}
 		} else {
 			inRow, err = csvReader.Read()
-      // log.Println("**Row", inRow)
+			// log.Println("**Row", inRow)
 		}
 		if err == nil && inputRowCount > 0 && samplingRate > 0 {
 			cpCtx.SamplingCount += 1
 			if inputRowCount > 0 && samplingRate > 0 && cpCtx.SamplingCount < samplingRate {
 				continue
 			}
-    }
+		}
 		if err == nil {
-      // log.Println("** Processing inRow", inRow)
+			// log.Println("** Processing inRow", inRow)
 			cpCtx.SamplingCount = 0
-      record = make([]interface{}, nbrColumns)
+			record = make([]interface{}, nbrColumns)
 			for i := range inputColumns {
 				if len(inRow[i]) == 0 {
 					record[i] = nil
 				} else {
-					record[i] = inRow[i]
+					if trimColumns {
+						record[i] = strings.TrimSpace(inRow[i])
+					} else {
+						record[i] = inRow[i]
+					}
 				}
 			}
 			// Add the columns from the partfile_key_component
@@ -393,7 +404,7 @@ func (cpCtx *ComputePipesContext) ReadCsvFile(filePath *FileName,
 			// 	record[i] = strings.ToValidUTF8(record[i], "")
 			// }
 			// log.Println(cpCtx.SessionId,"node",cpCtx.NodeId, "push record to computePipesInputCh with",len(record),"columns")
-      // log.Println("*Sending Record:",record)
+			// log.Println("*Sending Record:",record)
 			select {
 			case computePipesInputCh <- record:
 			case <-cpCtx.Done:
@@ -462,7 +473,7 @@ func (cpCtx *ComputePipesContext) ReadFixedWidthFile(filePath *FileName, shardOf
 	// Setup a fixed-width reader
 	//* Note: No compression supported for fixed_width files
 	// CHECK FOR OFFSET POSITIONING
-  // log.Println("*** InFileKeyInfo",filePath.InFileKeyInfo,"shard offset",shardOffset)
+	// log.Println("*** InFileKeyInfo",filePath.InFileKeyInfo,"shard offset",shardOffset)
 	if filePath.InFileKeyInfo.start > 0 && shardOffset > 0 {
 		buf := make([]byte, shardOffset)
 		n, err := fileHd.Read(buf)
@@ -479,7 +490,7 @@ func (cpCtx *ComputePipesContext) ReadFixedWidthFile(filePath *FileName, shardOf
 			return 0, fmt.Errorf("error: could not find end of previous record in ReadFixedWidthFile: key %s", filePath.InFileKeyInfo.key)
 		}
 		// seek to first character after the last '\n'
-    // log.Println("SEEKING TO FIRST LINE @", l+1,":: start at",filePath.InFileKeyInfo.start,"which is", filePath.InFileKeyInfo.start+l+1)
+		// log.Println("SEEKING TO FIRST LINE @", l+1,":: start at",filePath.InFileKeyInfo.start,"which is", filePath.InFileKeyInfo.start+l+1)
 		_, err = fileHd.Seek(int64(l+1), 0)
 		if err != nil {
 			return 0, fmt.Errorf("error while seeking to start of shard in ReadFixedWidthFile: %v", err)
@@ -488,7 +499,7 @@ func (cpCtx *ComputePipesContext) ReadFixedWidthFile(filePath *FileName, shardOf
 	fwScanner = bufio.NewScanner(fileHd)
 
 	var inputRowCount int64
-  var record []interface{}
+	var record []interface{}
 	var line, nextLine string
 	var recordTypeOffset int
 	// CHECK FOR OFFSET POSITIONING -- check if we drop the last record
@@ -509,8 +520,8 @@ func (cpCtx *ComputePipesContext) ReadFixedWidthFile(filePath *FileName, shardOf
 				return 0, fmt.Errorf("error while reading first input record (ReadFixedWidthFile): %v", err)
 			}
 		}
-    line = fwScanner.Text()
-    // log.Println("FIRST LINE:", line,"size:",len(line))
+		line = fwScanner.Text()
+		// log.Println("FIRST LINE:", line,"size:",len(line))
 	}
 	for {
 		// read and put the rows into computePipesInputCh
@@ -521,14 +532,14 @@ func (cpCtx *ComputePipesContext) ReadFixedWidthFile(filePath *FileName, shardOf
 				continue
 			}
 			cpCtx.SamplingCount = 0
-      record = make([]interface{}, nbrColumns)
-      if dropLastRow {
-        nextLine = fwScanner.Text()
-        // log.Println("NEXT LINE:", nextLine,"size:",len(nextLine))
-        } else {
-        line = fwScanner.Text()
-      }
-      // log.Println("CURRENT LINE:", line,"size:",len(line))
+			record = make([]interface{}, nbrColumns)
+			if dropLastRow {
+				nextLine = fwScanner.Text()
+				// log.Println("NEXT LINE:", nextLine,"size:",len(nextLine))
+			} else {
+				line = fwScanner.Text()
+			}
+			// log.Println("CURRENT LINE:", line,"size:",len(line))
 			ll := len(line)
 			// split the line into the record according to the record type
 			var recordType string
@@ -564,7 +575,7 @@ func (cpCtx *ComputePipesContext) ReadFixedWidthFile(filePath *FileName, shardOf
 					}
 				}
 			}
-      line = nextLine
+			line = nextLine
 		} else {
 			err = fwScanner.Err()
 			if err == nil {
@@ -602,7 +613,7 @@ func (cpCtx *ComputePipesContext) ReadFixedWidthFile(filePath *FileName, shardOf
 			// 	record[i] = strings.ToValidUTF8(record[i], "")
 			// }
 			// log.Println(cpCtx.SessionId,"node",cpCtx.NodeId, "push record to computePipesInputCh with",len(record),"columns")
-      // log.Println("PUSH RECORD:", record)
+			// log.Println("PUSH RECORD:", record)
 			select {
 			case computePipesInputCh <- record:
 			case <-cpCtx.Done:

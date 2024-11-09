@@ -29,19 +29,18 @@ type SchemaProvider interface {
 	Initialize(dbpool *pgxpool.Pool, spec *SchemaProviderSpec,
 		envSettings map[string]interface{}, isDebugMode bool) error
 	Key() string
-	Client() string
-	Vendor() string
-	ObjectType() string
 	SchemaName() string
 	InputFormat() string
 	Compression() string
 	InputFormatDataJson() string
 	IsPartFiles() bool
 	Delimiter() rune
+	TrimColumns() bool
 	Columns() []SchemaColumnSpec
 	ColumnNames() []string
 	FixedWidthFileHeaders() ([]string, string)
 	FixedWidthEncodingInfo() *FixedWidthEncodingInfo
+	Env() map[string]string
 }
 
 // columnNames is the list of file headers for fixed_width
@@ -49,7 +48,7 @@ type SchemaProvider interface {
 type DefaultSchemaProvider struct {
 	spec           *SchemaProviderSpec
 	isDebugMode    bool
-	columnNames      []string
+	columnNames    []string
 	fwColumnPrefix string
 	fwColumnInfo   *FixedWidthEncodingInfo
 }
@@ -123,25 +122,11 @@ func (sp *DefaultSchemaProvider) Key() string {
 	return sp.spec.Key
 }
 
-func (sp *DefaultSchemaProvider) Client() string {
+func (sp *DefaultSchemaProvider) Env() map[string]string {
 	if sp == nil {
-		return ""
+		return nil
 	}
-	return sp.spec.Client
-}
-
-func (sp *DefaultSchemaProvider) Vendor() string {
-	if sp == nil {
-		return ""
-	}
-	return sp.spec.Vendor
-}
-
-func (sp *DefaultSchemaProvider) ObjectType() string {
-	if sp == nil {
-		return ""
-	}
-	return sp.spec.ObjectType
+	return sp.spec.Env
 }
 
 func (sp *DefaultSchemaProvider) SchemaName() string {
@@ -187,6 +172,13 @@ func (sp *DefaultSchemaProvider) Delimiter() rune {
 		return '€'
 	}
 	return []rune(sp.spec.Delimiter)[0]
+}
+
+func (sp *DefaultSchemaProvider) TrimColumns() bool {
+	if sp == nil {
+		return false
+	}
+	return sp.spec.TrimColumns
 }
 
 func (sp *DefaultSchemaProvider) Columns() []SchemaColumnSpec {

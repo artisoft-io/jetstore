@@ -132,17 +132,16 @@ type SchemaProviderSpec struct {
 	Type                 string             `json:"type"`
 	SourceType           string             `json:"source_type"`
 	Key                  string             `json:"key"`
-	Client               string             `json:"client"`
-	Vendor               string             `json:"vendor"`
-	ObjectType           string             `json:"object_type"`
 	SchemaName           string             `json:"schema_name"`
 	InputFormat          string             `json:"input_format"`
 	Compression          string             `json:"compression"`
 	InputFormatDataJson  string             `json:"input_format_data_json"`
 	Delimiter            string             `json:"delimiter"`
+	TrimColumns          bool               `json:"trim_columns"`
 	IsPartFiles          bool               `json:"is_part_files"`
 	FixedWidthColumnsCsv string             `json:"fixed_width_columns_csv"`
 	Columns              []SchemaColumnSpec `json:"columns"`
+	Env                  map[string]string  `json:"env"`
 }
 
 type SchemaColumnSpec struct {
@@ -202,7 +201,7 @@ type TransformationSpec struct {
 	Type                  string                     `json:"type"`
 	NewRecord             bool                       `json:"new_record"`
 	PartitionSize         *int                       `json:"partition_size"`
-	JetsPartitionKey      *string                    `json:"jets_partition_key"`
+	JetsPartitionKey      *string                    `json:"jets_partition_key"` // Type partition_writer
 	FilePathSubstitutions *[]PathSubstitution        `json:"file_path_substitutions"`
 	Columns               []TransformationColumnSpec `json:"columns"`
 	DataSchema            *[]DataSchemaSpec          `json:"data_schema"`
