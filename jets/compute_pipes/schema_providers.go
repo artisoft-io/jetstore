@@ -29,9 +29,6 @@ type SchemaProvider interface {
 	Initialize(dbpool *pgxpool.Pool, spec *SchemaProviderSpec,
 		envSettings map[string]interface{}, isDebugMode bool) error
 	Key() string
-	Client() string
-	Vendor() string
-	ObjectType() string
 	SchemaName() string
 	InputFormat() string
 	Compression() string
@@ -43,6 +40,7 @@ type SchemaProvider interface {
 	ColumnNames() []string
 	FixedWidthFileHeaders() ([]string, string)
 	FixedWidthEncodingInfo() *FixedWidthEncodingInfo
+	Env() map[string]string
 }
 
 // columnNames is the list of file headers for fixed_width
@@ -50,7 +48,7 @@ type SchemaProvider interface {
 type DefaultSchemaProvider struct {
 	spec           *SchemaProviderSpec
 	isDebugMode    bool
-	columnNames      []string
+	columnNames    []string
 	fwColumnPrefix string
 	fwColumnInfo   *FixedWidthEncodingInfo
 }
@@ -124,25 +122,11 @@ func (sp *DefaultSchemaProvider) Key() string {
 	return sp.spec.Key
 }
 
-func (sp *DefaultSchemaProvider) Client() string {
+func (sp *DefaultSchemaProvider) Env() map[string]string {
 	if sp == nil {
-		return ""
+		return nil
 	}
-	return sp.spec.Client
-}
-
-func (sp *DefaultSchemaProvider) Vendor() string {
-	if sp == nil {
-		return ""
-	}
-	return sp.spec.Vendor
-}
-
-func (sp *DefaultSchemaProvider) ObjectType() string {
-	if sp == nil {
-		return ""
-	}
-	return sp.spec.ObjectType
+	return sp.spec.Env
 }
 
 func (sp *DefaultSchemaProvider) SchemaName() string {

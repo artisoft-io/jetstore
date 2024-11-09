@@ -146,6 +146,11 @@ func (args *ComputePipesNodeArgs) CoordinateComputePipes(ctx context.Context, ds
 		"$JETS_PARTITION_LABEL": args.JetsPartitionLabel,
 		"$MAIN_SCHEMA_NAME":     mainSchemaProviderConfig.SchemaName,
 	}
+	if mainSchemaProviderConfig.Env != nil {
+		for k,v := range mainSchemaProviderConfig.Env {
+			envSettings[k] = v
+		}
+	}
 
 	cpContext = &ComputePipesContext{
 		ComputePipesArgs: ComputePipesArgs{

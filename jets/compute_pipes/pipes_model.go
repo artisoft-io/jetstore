@@ -132,9 +132,6 @@ type SchemaProviderSpec struct {
 	Type                 string             `json:"type"`
 	SourceType           string             `json:"source_type"`
 	Key                  string             `json:"key"`
-	Client               string             `json:"client"`
-	Vendor               string             `json:"vendor"`
-	ObjectType           string             `json:"object_type"`
 	SchemaName           string             `json:"schema_name"`
 	InputFormat          string             `json:"input_format"`
 	Compression          string             `json:"compression"`
@@ -144,6 +141,7 @@ type SchemaProviderSpec struct {
 	IsPartFiles          bool               `json:"is_part_files"`
 	FixedWidthColumnsCsv string             `json:"fixed_width_columns_csv"`
 	Columns              []SchemaColumnSpec `json:"columns"`
+	Env                  map[string]string  `json:"env"`
 }
 
 type SchemaColumnSpec struct {
