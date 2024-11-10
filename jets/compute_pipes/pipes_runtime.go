@@ -207,6 +207,9 @@ func (ctx *BuilderContext) buildPipeTransformationEvaluator(source *InputChannel
 	case "high_freq":
 		return ctx.NewHighFreqTransformationPipe(source, outCh, spec)
 
+	case "shuffling":
+		return ctx.NewShufflingTransformationPipe(source, outCh, spec)
+
 	default:
 		return nil, fmt.Errorf("error: unknown TransformationSpec type: %s", spec.Type)
 	}

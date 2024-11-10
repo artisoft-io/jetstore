@@ -84,6 +84,7 @@ func (cpCtx *ComputePipesContext) ReadParquetFile(filePath *FileName, computePip
 	var parquetReader *goparquet.FileReader
 	var err error
 	samplingRate := cpCtx.CpConfig.PipesConfig[0].InputChannel.SamplingRate
+	samplingMaxCount := cpCtx.CpConfig.PipesConfig[0].InputChannel.SamplingMaxCount
 
 	fileHd, err = os.Open(filePath.LocalFileName)
 	if err != nil {
@@ -124,6 +125,9 @@ func (cpCtx *ComputePipesContext) ReadParquetFile(filePath *FileName, computePip
 		if err == nil {
 			cpCtx.SamplingCount += 1
 			if samplingRate > 0 && cpCtx.SamplingCount < samplingRate {
+				continue
+			}
+			if samplingMaxCount > 0 && inputRowCount >= int64(samplingMaxCount) {
 				continue
 			}
 			cpCtx.SamplingCount = 0
@@ -225,6 +229,7 @@ func (cpCtx *ComputePipesContext) ReadCsvFile(filePath *FileName,
 	var csvReader *csv.Reader
 	var err error
 	samplingRate := cpCtx.CpConfig.PipesConfig[0].InputChannel.SamplingRate
+	samplingMaxCount := cpCtx.CpConfig.PipesConfig[0].InputChannel.SamplingMaxCount
 
 	fileHd, err = os.Open(filePath.LocalFileName)
 	if err != nil {
@@ -356,6 +361,9 @@ func (cpCtx *ComputePipesContext) ReadCsvFile(filePath *FileName,
 			if inputRowCount > 0 && samplingRate > 0 && cpCtx.SamplingCount < samplingRate {
 				continue
 			}
+			if samplingMaxCount > 0 && inputRowCount >= int64(samplingMaxCount) {
+				continue
+			}
 		}
 		if err == nil {
 			// log.Println("** Processing inRow", inRow)
@@ -423,6 +431,7 @@ func (cpCtx *ComputePipesContext) ReadFixedWidthFile(filePath *FileName, shardOf
 	var fwScanner *bufio.Scanner
 	var err error
 	samplingRate := cpCtx.CpConfig.PipesConfig[0].InputChannel.SamplingRate
+	samplingMaxCount := cpCtx.CpConfig.PipesConfig[0].InputChannel.SamplingMaxCount
 
 	fileHd, err = os.Open(filePath.LocalFileName)
 	if err != nil {
@@ -529,6 +538,9 @@ func (cpCtx *ComputePipesContext) ReadFixedWidthFile(filePath *FileName, shardOf
 		if ok {
 			cpCtx.SamplingCount += 1
 			if inputRowCount > 0 && samplingRate > 0 && cpCtx.SamplingCount < samplingRate {
+				continue
+			}
+			if samplingMaxCount > 0 && inputRowCount >= int64(samplingMaxCount) {
 				continue
 			}
 			cpCtx.SamplingCount = 0

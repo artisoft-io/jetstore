@@ -194,7 +194,7 @@ type SplitterSpec struct {
 }
 
 type TransformationSpec struct {
-	// Type range: map_record, aggregate, analyze, high_freq, partition_writer, anonymize, distinct
+	// Type range: map_record, aggregate, analyze, high_freq, partition_writer, anonymize, distinct, shuffling
 	// DeviceWriterType range: csv_writer, parquet_writer, fixed_width_writer
 	// JetsPartitionKey used by partition_writer as the default value for jet_partition
 	// WriteHeaders / WriteHeaderless takes precedence over SchemaProvider and Format (from OutputChannelConfig)
@@ -214,6 +214,7 @@ type TransformationSpec struct {
 	HighFreqColumns       *[]*HighFreqSpec           `json:"high_freq_columns"`  // Type high_freq
 	AnonymizeConfig       *AnonymizeSpec             `json:"anonymize_config"`
 	DistinctConfig        *DistinctSpec              `json:"distinct_config"`
+	ShufflingConfig       *ShufflingSpec             `json:"shuffling_config"`
 	OutputChannel         OutputChannelConfig        `json:"output_channel"`
 }
 
@@ -222,12 +223,13 @@ type InputChannelConfig struct {
 	// Format: csv, headerless_csv, etc.
 	// Compression: none, snappy
 	// SchemaProvider is provided via ComputePipesCommonArgs.SourcesConfig (ie input_registry table)
-	Type         string `json:"type"`
-	Name         string `json:"name"`
-	Format       string `json:"format"`      // Override default behavior
-	Compression  string `json:"compression"` // Override default behavior
-	ReadStepId   string `json:"read_step_id"`
-	SamplingRate int    `json:"sampling_rate"`
+	Type             string `json:"type"`
+	Name             string `json:"name"`
+	Format           string `json:"format"`      // Override default behavior
+	Compression      string `json:"compression"` // Override default behavior
+	ReadStepId       string `json:"read_step_id"`
+	SamplingRate     int    `json:"sampling_rate"`
+	SamplingMaxCount int    `json:"sampling_max_count"`
 }
 
 type OutputChannelConfig struct {
@@ -289,6 +291,11 @@ type AnonymizeSpec struct {
 
 type DistinctSpec struct {
 	DistinctOn []string `json:"distinct_on"`
+}
+
+type ShufflingSpec struct {
+	MaxInputSampleSize int `json:"max_input_sample_size"`
+	OutputSampleSize   int `json:"output_sample_size"`
 }
 
 type TransformationColumnSpec struct {
