@@ -46,7 +46,7 @@ var workspaceDb = flag.String("workspaceDb", "", "workspace db path, if not prov
 var lookupDb = flag.String("lookupDb", "", "lookup data path (if not provided will use env WORKSPACES_HOME/WORKSPACE if defined")
 var pipelineExecKey = flag.Int("peKey", -1, "Pipeline execution key (required or -pcKey)")
 var poolSize = flag.Int("poolSize", 10, "Coroutines pool size constraint")
-var outSessionId = flag.String("sessionId", "", "Process session ID for the output Domain Tables. Use 'autogen' to generate a new sessionId (required)")
+var outSessionId = flag.String("sessionId", "", "Process session ID for the output Domain Tables. (required)")
 var limit = flag.Int("limit", -1, "Limit the number of input row (rete sessions), default no limit.")
 var nbrShards = flag.Int("nbrShards", 1, "Number of shards to use in sharding the created output entities (required, default 1")
 var shardId = flag.Int("shardId", -1, "Run the server process for this single shard. (required)")
@@ -124,9 +124,6 @@ func main() {
 	if *nbrShards < 1 {
 		hasErr = true
 		errMsg = append(errMsg, "The number of shards (-nbrShards) for the output entities must at least be 1.")
-	}
-	if *outSessionId == "autogen" {
-		*outSessionId = strconv.FormatInt(time.Now().UnixMilli(), 10)
 	}
 	if *outSessionId == "" && *pipelineExecKey < 0 {
 		hasErr = true

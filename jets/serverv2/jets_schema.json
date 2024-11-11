@@ -1978,6 +1978,19 @@
   },
   {
     "schemaName": "jetsapi",
+    "tableName": "session_reservation",
+    "description": "Table to ensure we allocate the session_id to a single process.",
+    "columns": [
+      {
+        "columnName": "session_id",
+        "dataType": "text",
+        "isPK": true,
+        "isNotNull": true
+      }
+    ]
+  },
+  {
+    "schemaName": "jetsapi",
     "tableName": "session_registry",
     "columns": [
       {
