@@ -99,7 +99,8 @@ func (ctx *Context) RegisterFileKeys(registerFileKeyAction *RegisterFileKeyActio
 		return nil, http.StatusInternalServerError, errors.New("error cannot find file_key_staging stmt")
 	}
 	sentinelFileName := os.Getenv("JETS_SENTINEL_FILE_NAME")
-	sessionId := time.Now().UnixMilli()
+	baseSessionId := time.Now().UnixMilli()
+	var sessionId string
 	row := make([]interface{}, len(sqlStmt.ColumnKeys))
 	for irow := range registerFileKeyAction.Data {
 		var schemaProviderJson string
@@ -252,10 +253,13 @@ func (ctx *Context) RegisterFileKeys(registerFileKeyAction *RegisterFileKeyActio
 		}
 		// //***
 		// log.Printf("*** RegisterFileKey for object_type %s, having cpipesSM: %d and other SM: %d", objectType, hasCpipesSM, hasOtherSM)
+		// Reserve a session_id
+		sessionId, err = reserveSessionId(ctx.Dbpool, &baseSessionId)
+		if err != nil {
+			return nil, http.StatusInternalServerError, err
+		}
 		switch {
 		case hasOtherSM > 0 && automated > 0 && !strings.Contains(fileKey, "/test_") && !registerFileKeyAction.NoAutomatedLoad:
-			// make sure we don't duplicate session_id
-			sessionId += 1
 			// insert into input_loader_status and kick off loader
 			dataTableAction := DataTableAction{
 				Action:      "insert_rows",
@@ -266,7 +270,7 @@ func (ctx *Context) RegisterFileKeys(registerFileKeyAction *RegisterFileKeyActio
 					"client":                client,
 					"org":                   org,
 					"object_type":           objectType,
-					"session_id":            strconv.FormatInt(sessionId, 10),
+					"session_id":            sessionId,
 					"source_period_key":     source_period_key,
 					"status":                "submitted",
 					"user_email":            "system",
@@ -278,9 +282,6 @@ func (ctx *Context) RegisterFileKeys(registerFileKeyAction *RegisterFileKeyActio
 				return nil, httpStatus, fmt.Errorf("while starting loader automatically for key %s: %v", fileKey, err)
 			}
 		case hasCpipesSM > 0:
-			// make sure we don't duplicate session_id
-			sessionId += 1
-			sessionIdStr := strconv.FormatInt(sessionId, 10)
 			// Insert into input registry (essentially we are bypassing loader here by registering the fileKey
 			// and invoke StartPipelineOnInputRegistryInsert)
 			var inputRegistryKey int
@@ -292,7 +293,7 @@ func (ctx *Context) RegisterFileKeys(registerFileKeyAction *RegisterFileKeyActio
 							ON CONFLICT DO NOTHING
 							RETURNING key`
 			err = ctx.Dbpool.QueryRow(context.Background(), stmt,
-				client, org, objectType, fileKey, source_period_key, tableName, sessionIdStr, schemaProviderJson).Scan(&inputRegistryKey)
+				client, org, objectType, fileKey, source_period_key, tableName, sessionId, schemaProviderJson).Scan(&inputRegistryKey)
 			if err != nil {
 				return nil, http.StatusInternalServerError, fmt.Errorf("error inserting in jetsapi.input_registry table: %v", err)
 			}
@@ -310,7 +311,7 @@ func (ctx *Context) RegisterFileKeys(registerFileKeyAction *RegisterFileKeyActio
 				}, token)
 			}
 			// for completness register the session_id
-			err = schema.RegisterSession(ctx.Dbpool, "file", client.(string), sessionIdStr, source_period_key)
+			err = schema.RegisterSession(ctx.Dbpool, "file", client.(string), sessionId, source_period_key)
 			if err != nil {
 				log.Println("Error while registering session_id")
 				err = nil
@@ -325,7 +326,7 @@ func (ctx *Context) RegisterFileKeys(registerFileKeyAction *RegisterFileKeyActio
 // Load All Files for client/org/object_type from a given day_period
 func (ctx *Context) LoadAllFiles(registerFileKeyAction *RegisterFileKeyAction, token string) (*map[string]interface{}, int, error) {
 	var err error
-	sessionId := time.Now().UnixMilli()
+	baseSessionId := time.Now().UnixMilli()
 	for irow := range registerFileKeyAction.Data {
 
 		// Get the staging table name
@@ -397,15 +398,18 @@ func (ctx *Context) LoadAllFiles(registerFileKeyAction *RegisterFileKeyAction, t
 			Data:        make([]map[string]interface{}, 0),
 		}
 		for i := range fileKeys {
-			// Make sure we don't duplicate session_id
-			sessionId += 1
+			// Reserve a session_id
+			sessionId, err := reserveSessionId(ctx.Dbpool, &baseSessionId)
+			if err != nil {
+				return nil, http.StatusInternalServerError, err
+			}
 			dataTableAction.Data = append(dataTableAction.Data, map[string]interface{}{
 				"file_key":              fileKeys[i],
 				"table_name":            tableName,
 				"client":                client,
 				"org":                   org,
 				"object_type":           objectType,
-				"session_id":            strconv.FormatInt(sessionId, 10),
+				"session_id":            sessionId,
 				"source_period_key":     sourcePeriodKeys[i],
 				"status":                "submitted",
 				"user_email":            userEmail,
@@ -657,11 +661,16 @@ func (ctx *Context) StartPipelineOnInputRegistryInsert(registerFileKeyAction *Re
 		// Get details of the pipeline_config that are ready to execute to make entries in pipeline_execution_status
 		payload := make([]map[string]interface{}, 0)
 		baseSessionId := time.Now().UnixMilli()
-		for i, pcKey := range *pipelineConfigKeys {
+		for _, pcKey := range *pipelineConfigKeys {
+			// Reserve a session_id
+			sessionId, err := reserveSessionId(ctx.Dbpool, &baseSessionId)
+			if err != nil {
+				return nil, http.StatusInternalServerError, err
+			}
 			data := map[string]interface{}{
 				"pipeline_config_key":   strconv.Itoa(pcKey),
 				"input_session_id":      nil,
-				"session_id":            strconv.FormatInt(baseSessionId+int64(i), 10),
+				"session_id":            sessionId,
 				"source_period_key":     sourcePeriodKey,
 				"status":                "submitted",
 				"user_email":            "system",
@@ -755,6 +764,29 @@ func (ctx *Context) StartPipelineOnInputRegistryInsert(registerFileKeyAction *Re
 		results = append(results, *result)
 	}
 	return &results, http.StatusOK, nil
+}
+
+// Reserve a session_id by inserting a row in table jetsapi.session_reservation
+// returns the string version of baseSessionId if it successfully reserve it,
+// otherwize baseSessionId + 1 until it succeed (will make 100 attemps before giving up)
+// baseSessionId is updated to match the returned session_id + 1
+func reserveSessionId(dbpool *pgxpool.Pool, baseSessionId *int64) (string, error) {
+	stmt := "INSERT INTO jetsapi.session_reservation (session_id) VALUES ($1)"
+	retry := 0
+do_retry:
+	sessionId := strconv.FormatInt(*baseSessionId, 10)
+	_, err := dbpool.Exec(context.Background(), stmt, sessionId)
+	if err != nil {
+		if retry < 1000 {
+			time.Sleep(500 * time.Millisecond)
+			retry++
+			*baseSessionId += 1
+			goto do_retry
+		}
+		return "", fmt.Errorf("error: failed to reserve a session id")
+	}
+	*baseSessionId += 1
+	return sessionId, nil
 }
 
 func splitFileKey(keyMap map[string]interface{}, fileKey *string) map[string]interface{} {

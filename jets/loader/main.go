@@ -51,7 +51,7 @@ var objectType = flag.String("objectType", "", "The type of object contained in 
 var userEmail = flag.String("userEmail", "", "User identifier to register the load (required)")
 var nbrShards = flag.Int("nbrShards", 1, "Number of shards to use in sharding the input file")
 var sourcePeriodKey = flag.Int("sourcePeriodKey", -1, "Source period key associated with the in_file (fileKey)")
-var sessionId = flag.String("sessionId", "", "Process session ID, is needed as -inSessionId for the server process (must be unique), default based on timestamp.")
+var sessionId = flag.String("sessionId", "", "Process session ID, is needed as -inSessionId for the server process (must be unique, required)")
 var completedMetric = flag.String("loaderCompletedMetric", "loaderCompleted", "Metric name to register the loader successfull completion (default: loaderCompleted)")
 var failedMetric = flag.String("loaderFailedMetric", "loaderFailed", "Metric name to register the load failure [success load metric: loaderCompleted] (default: loaderFailed)")
 var cpipesCompletedMetric = flag.String("serverCompletedMetric", "", "Metric name to register the server/cpipes successfull completion")
@@ -165,6 +165,10 @@ func main() {
 		hasErr = true
 		errMsg = append(errMsg, "aws JETS_REGION and JETS_BUCKET are required")
 	}
+	if *sessionId == "" {
+		hasErr = true
+		errMsg = append(errMsg, "argument -sessionId is required.")
+	}
 
 	errOutDir = os.Getenv("LOADER_ERR_DIR")
 	adminEmail = os.Getenv("JETS_ADMIN_EMAIL")
@@ -197,12 +201,6 @@ func main() {
 			log.Println("**", msg)
 		}
 		panic("Invalid arguments")
-	}
-	sessId := ""
-	if *sessionId == "" {
-		sessId = strconv.FormatInt(time.Now().UnixMilli(), 10)
-		sessionId = &sessId
-		log.Println("sessionId is set to", *sessionId)
 	}
 	if *clientOrg == "''" {
 		*clientOrg = ""
