@@ -132,6 +132,9 @@ func (jsComp *JetStoreStackComponents) BuildRegisterKeyLambdas(scope constructs.
 			// Needed to use ALL resources to avoid circular depedency
 			Resources: jsii.Strings("*"),
 		}))
+	}
+	sqsArn := os.Getenv("EXTERNAL_SQS_ARN")
+	if len(sqsArn) > 0 &&  jsComp.SqsRegisterKeyLambda != nil {
 		// Provide the ability to read sqs queue
 		jsComp.SqsRegisterKeyLambda.AddToRolePolicy(awsiam.NewPolicyStatement(&awsiam.PolicyStatementProps{
 			Actions: &[]*string{
@@ -139,13 +142,13 @@ func (jsComp *JetStoreStackComponents) BuildRegisterKeyLambdas(scope constructs.
 				jsii.String("sqs:ReceiveMessage"),
 				jsii.String("sqs:GetQueueAttributes"),
 			},
-			Resources: jsii.Strings(os.Getenv("EXTERNAL_SQS_ARN")),
+			Resources: jsii.Strings(sqsArn),
 		}))
 		// Setup the sqs event trigger
 		awslambda.NewEventSourceMapping(stack, jsii.String("SqsEventSource4Lambda"), &awslambda.EventSourceMappingProps{
 			BatchSize:      jsii.Number(1),
 			Enabled:        jsii.Bool(true),
-			EventSourceArn: jsii.String(os.Getenv("EXTERNAL_SQS_ARN")),
+			EventSourceArn: jsii.String(sqsArn),
 			Target:         jsComp.SqsRegisterKeyLambda,
 		})
 	}
