@@ -110,7 +110,7 @@ func (jsComp *JetStoreStackComponents) BuildRegisterKeyLambdas(scope constructs.
 			},
 			MemorySize: jsii.Number(128),
 			// EphemeralStorageSize: awscdk.Size_Mebibytes(jsii.Number(2048)),
-			Timeout:    awscdk.Duration_Seconds(jsii.Number(20)),
+			Timeout:    awscdk.Duration_Minutes(jsii.Number(15)),
 			Vpc:        jsComp.Vpc,
 			VpcSubnets: jsComp.IsolatedSubnetSelection,
 		})
