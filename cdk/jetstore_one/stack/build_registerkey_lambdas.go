@@ -112,7 +112,8 @@ func (jsComp *JetStoreStackComponents) BuildRegisterKeyLambdas(scope constructs.
 			// EphemeralStorageSize: awscdk.Size_Mebibytes(jsii.Number(2048)),
 			Timeout:    awscdk.Duration_Minutes(jsii.Number(15)),
 			Vpc:        jsComp.Vpc,
-			VpcSubnets: jsComp.IsolatedSubnetSelection,
+			VpcSubnets: jsComp.PrivateSubnetSelection,
+			SecurityGroups: &[]awsec2.ISecurityGroup{jsComp.PrivateSecurityGroup},
 		})
 		if phiTagName != nil {
 			awscdk.Tags_Of(jsComp.SqsRegisterKeyLambda).Add(phiTagName, jsii.String("false"), nil)
@@ -134,7 +135,7 @@ func (jsComp *JetStoreStackComponents) BuildRegisterKeyLambdas(scope constructs.
 		}))
 	}
 	sqsArn := os.Getenv("EXTERNAL_SQS_ARN")
-	if len(sqsArn) > 0 &&  jsComp.SqsRegisterKeyLambda != nil {
+	if len(sqsArn) > 0 && jsComp.SqsRegisterKeyLambda != nil {
 		// Provide the ability to read sqs queue
 		jsComp.SqsRegisterKeyLambda.AddToRolePolicy(awsiam.NewPolicyStatement(&awsiam.PolicyStatementProps{
 			Actions: &[]*string{
