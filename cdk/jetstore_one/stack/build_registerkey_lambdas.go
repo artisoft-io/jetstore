@@ -110,9 +110,10 @@ func (jsComp *JetStoreStackComponents) BuildRegisterKeyLambdas(scope constructs.
 			},
 			MemorySize: jsii.Number(128),
 			// EphemeralStorageSize: awscdk.Size_Mebibytes(jsii.Number(2048)),
-			Timeout:    awscdk.Duration_Seconds(jsii.Number(20)),
+			Timeout:    awscdk.Duration_Minutes(jsii.Number(15)),
 			Vpc:        jsComp.Vpc,
-			VpcSubnets: jsComp.IsolatedSubnetSelection,
+			VpcSubnets: jsComp.PrivateSubnetSelection,
+			SecurityGroups: &[]awsec2.ISecurityGroup{jsComp.PrivateSecurityGroup},
 		})
 		if phiTagName != nil {
 			awscdk.Tags_Of(jsComp.SqsRegisterKeyLambda).Add(phiTagName, jsii.String("false"), nil)
@@ -132,6 +133,9 @@ func (jsComp *JetStoreStackComponents) BuildRegisterKeyLambdas(scope constructs.
 			// Needed to use ALL resources to avoid circular depedency
 			Resources: jsii.Strings("*"),
 		}))
+	}
+	sqsArn := os.Getenv("EXTERNAL_SQS_ARN")
+	if len(sqsArn) > 0 && jsComp.SqsRegisterKeyLambda != nil {
 		// Provide the ability to read sqs queue
 		jsComp.SqsRegisterKeyLambda.AddToRolePolicy(awsiam.NewPolicyStatement(&awsiam.PolicyStatementProps{
 			Actions: &[]*string{
@@ -139,13 +143,13 @@ func (jsComp *JetStoreStackComponents) BuildRegisterKeyLambdas(scope constructs.
 				jsii.String("sqs:ReceiveMessage"),
 				jsii.String("sqs:GetQueueAttributes"),
 			},
-			Resources: jsii.Strings(os.Getenv("EXTERNAL_SQS_ARN")),
+			Resources: jsii.Strings(sqsArn),
 		}))
 		// Setup the sqs event trigger
 		awslambda.NewEventSourceMapping(stack, jsii.String("SqsEventSource4Lambda"), &awslambda.EventSourceMappingProps{
 			BatchSize:      jsii.Number(1),
 			Enabled:        jsii.Bool(true),
-			EventSourceArn: jsii.String(os.Getenv("EXTERNAL_SQS_ARN")),
+			EventSourceArn: jsii.String(sqsArn),
 			Target:         jsComp.SqsRegisterKeyLambda,
 		})
 	}

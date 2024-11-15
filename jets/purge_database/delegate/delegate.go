@@ -98,6 +98,7 @@ func DoPurgeSessions() error {
 	tableNames = append(tableNames, "jetsapi.cpipes_results")
 	tableNames = append(tableNames, "jetsapi.cpipes_metrics")
 	tableNames = append(tableNames, "jetsapi.session_registry")
+	tableNames = append(tableNames, "jetsapi.session_reservation")
 
 	for _,s := range tableNames {
 		fmt.Println("   Purge data from", s)
