@@ -230,61 +230,6 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 	}))
 	jsComp.SourceBucket.GrantReadWrite(jsComp.EcsTaskRole, nil)
 
-	// // =================================================================================================================================
-	// // DEFINE SAMPLE TASK -- SHOW HOW TO BUILD CONTAINER OR PULL IMAGE FROM ECR
-	// ecsSampleTaskDefinition := awsecs.NewFargateTaskDefinition(stack, jsii.String("taskDefinition"), &awsecs.FargateTaskDefinitionProps{
-	// 	MemoryLimitMiB: jsii.Number(512),
-	// 	Cpu:            jsii.Number(256),
-	// 	ExecutionRole:  jsComp.EcsTaskExecutionRole,
-	// 	TaskRole:       jsComp.EcsTaskRole,
-	// })
-	// ecsSampleTaskContainer := ecsSampleTaskDefinition.AddContainer(jsii.String("ecsSampleTaskContainer"), &awsecs.ContainerDefinitionOptions{
-	// 	// Build and use the Dockerfile that's in the `../task` directory.
-	// 	Image: awsecs.AssetImage_FromAsset(jsii.String("../task"), &awsecs.AssetImageProps{}),
-	// 	// // Use Image in ecr
-	// 	// Image: awsecs.AssetImage_FromEcrRepository(
-	// 	// 	awsecr.Repository_FromRepositoryArn(stack, jsii.String("jetstore-ui"), jsii.String("arn:aws:ecr:us-east-1:470601442608:repository/jetstore_usi_ws")),
-	// 	// 	jsii.String("20221207a")),
-	// 	Logging: awsecs.LogDriver_AwsLogs(&awsecs.AwsLogDriverProps{
-	// 		StreamPrefix: jsii.String("task"),
-	// 	}),
-	// })
-
-	// // The Lambda function needs a role that can start the task.
-	// taskStarterLambdaRole := awsiam.NewRole(stack, jsii.String("taskStarterLambdaRole"), &awsiam.RoleProps{
-	// 	AssumedBy: awsiam.NewServicePrincipal(jsii.String("lambda.amazonaws.com"), &awsiam.ServicePrincipalOpts{}),
-	// })
-	// taskStarterLambdaRole.AddManagedPolicy(awsiam.ManagedPolicy_FromAwsManagedPolicyName(jsii.String("service-role/AWSLambdaBasicExecutionRole")))
-	// taskStarterLambdaRole.AddToPolicy(awsiam.NewPolicyStatement(&awsiam.PolicyStatementProps{
-	// 	Actions:   jsii.Strings("ecs:RunTask"),
-	// 	Resources: jsii.Strings(*jsComp.EcsCluster.ClusterArn(), *ecsSampleTaskDefinition.TaskDefinitionArn()),
-	// }))
-	// // Grant the Lambda permission to PassRole to enable it to tell ECS to start a task that uses the task execution role and task role.
-	// ecsSampleTaskDefinition.ExecutionRole().GrantPassRole(taskStarterLambdaRole)
-	// ecsSampleTaskDefinition.TaskRole().GrantPassRole(taskStarterLambdaRole)
-
-	// // Create a Sample Lambda function to start the sample container task.
-	// jsComp.RegisterKeyLambda := awslambdago.NewGoFunction(stack, jsii.String("jsComp.RegisterKeyLambda"), &awslambdago.GoFunctionProps{
-	// 	Runtime: awslambda.Runtime_PROVIDED_AL2023(),
-	// 	Entry:   jsii.String("../taskrunner"),
-	// 	Bundling: &awslambdago.BundlingOptions{
-	// 		GoBuildFlags: &[]*string{jsii.String(`-ldflags "-s -w"`)},
-	// 	},
-	// 	Environment: &map[string]*string{
-	// 		"CLUSTER_ARN":         jsComp.EcsCluster.ClusterArn(),
-	// 		"CONTAINER_NAME":      ecsSampleTaskContainer.ContainerName(),
-	// 		"TASK_DEFINITION_ARN": ecsSampleTaskDefinition.TaskDefinitionArn(),
-	// 		"SUBNETS":             jsii.String(strings.Join(*getSubnetIDs(jsComp.Vpc.IsolatedSubnets()), ",")),
-	// 		"S3_BUCKET":           jsComp.SourceBucket.BucketName(),
-	// 	},
-	// 	MemorySize: jsii.Number(512),
-	// 	Role:       taskStarterLambdaRole,
-	// 	Timeout:    awscdk.Duration_Millis(jsii.Number(60000)),
-	// })
-	// // //*
-	// // fmt.Println(*ecsSampleTaskContainer.ContainerName())
-	// // =================================================================================================================================
-
 	// JetStore Image from ecr -- referenced in most tasks
 	jsComp.JetStoreImage = awsecs.AssetImage_FromEcrRepository(
 		//* example: arn:aws:ecr:us-east-1:470601442608:repository/jetstore_test_ws
@@ -621,6 +566,7 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 // JETS_s3_INPUT_PREFIX (required)
 // JETS_s3_OUTPUT_PREFIX (required)
 // JETS_s3_STAGE_PREFIX (optional) required for cpipes, default replace '/input' with '/stage' in JETS_s3_INPUT_PREFIX
+// JETS_s3_SCHEMA_TRIGGERS (optional) required for cpipes using schema managers, default replace '/input' with '/schema_triggers' in JETS_s3_INPUT_PREFIX
 // JETS_S3_KMS_KEY_ARN (optional, default to account default KMS key) Server side encryption of s3 objects
 // JETS_SENTINEL_FILE_NAME (optional, fixed file name for multipart sentinel file - file of size 0)
 // JETS_SERVER_TASK_CPU allocated cpu in vCPU units
@@ -696,6 +642,7 @@ func main() {
 	fmt.Println("env JETS_s3_INPUT_PREFIX:", os.Getenv("JETS_s3_INPUT_PREFIX"))
 	fmt.Println("env JETS_s3_OUTPUT_PREFIX:", os.Getenv("JETS_s3_OUTPUT_PREFIX"))
 	fmt.Println("env JETS_s3_STAGE_PREFIX:", os.Getenv("JETS_s3_STAGE_PREFIX"))
+	fmt.Println("env JETS_s3_SCHEMA_TRIGGERS:", os.Getenv("JETS_s3_SCHEMA_TRIGGERS"))
 	fmt.Println("env JETS_S3_KMS_KEY_ARN:", os.Getenv("JETS_S3_KMS_KEY_ARN"))
 	fmt.Println("env JETS_SENTINEL_FILE_NAME:", os.Getenv("JETS_SENTINEL_FILE_NAME"))
 	fmt.Println("env JETS_SERVER_TASK_CPU:", os.Getenv("JETS_SERVER_TASK_CPU"))

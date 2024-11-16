@@ -115,3 +115,11 @@ func GetS3StagePrefix() string {
 	}
 	return strings.Replace(os.Getenv("JETS_s3_INPUT_PREFIX"), "/input", "/stage", 1)
 }
+
+func GetS3SchemaTriggersPrefix() string {
+	prefix := os.Getenv("JETS_s3_SCHEMA_TRIGGERS")
+	if prefix != "" {
+		return prefix
+	}
+	return strings.Replace(os.Getenv("JETS_s3_INPUT_PREFIX"), "/input", "/schema_triggers", 1)
+}

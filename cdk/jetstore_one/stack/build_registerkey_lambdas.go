@@ -90,6 +90,7 @@ func (jsComp *JetStoreStackComponents) BuildRegisterKeyLambdas(scope constructs.
 				"JETS_s3_INPUT_PREFIX":                     jsii.String(os.Getenv("JETS_s3_INPUT_PREFIX")),
 				"JETS_s3_OUTPUT_PREFIX":                    jsii.String(os.Getenv("JETS_s3_OUTPUT_PREFIX")),
 				"JETS_s3_STAGE_PREFIX":                     jsii.String(GetS3StagePrefix()),
+				"JETS_s3_SCHEMA_TRIGGERS":                  jsii.String(GetS3SchemaTriggersPrefix()),
 				"JETS_S3_KMS_KEY_ARN":                      jsii.String(os.Getenv("JETS_S3_KMS_KEY_ARN")),
 				"JETS_SENTINEL_FILE_NAME":                  jsii.String(os.Getenv("JETS_SENTINEL_FILE_NAME")),
 				"CPIPES_STATUS_NOTIFICATION_ENDPOINT":      jsii.String(os.Getenv("CPIPES_STATUS_NOTIFICATION_ENDPOINT")),
@@ -110,9 +111,9 @@ func (jsComp *JetStoreStackComponents) BuildRegisterKeyLambdas(scope constructs.
 			},
 			MemorySize: jsii.Number(128),
 			// EphemeralStorageSize: awscdk.Size_Mebibytes(jsii.Number(2048)),
-			Timeout:    awscdk.Duration_Minutes(jsii.Number(15)),
-			Vpc:        jsComp.Vpc,
-			VpcSubnets: jsComp.PrivateSubnetSelection,
+			Timeout:        awscdk.Duration_Minutes(jsii.Number(15)),
+			Vpc:            jsComp.Vpc,
+			VpcSubnets:     jsComp.PrivateSubnetSelection,
 			SecurityGroups: &[]awsec2.ISecurityGroup{jsComp.PrivateSecurityGroup},
 		})
 		if phiTagName != nil {

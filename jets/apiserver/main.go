@@ -52,6 +52,7 @@ import (
 // JETS_s3_INPUT_PREFIX Input file key prefix
 // JETS_s3_OUTPUT_PREFIX Output file key prefix
 // JETS_s3_STAGE_PREFIX file key prefix for stage files (no notification is registered for those files)
+// JETS_s3_SCHEMA_TRIGGERS file key prefix for schema provider files
 // JETS_S3_KMS_KEY_ARN optional for server side s3 object encryption
 // JETS_DOMAIN_KEY_HASH_ALGO (values: md5, sha1, none (default))
 // JETS_DOMAIN_KEY_HASH_SEED (required for md5 and sha1. MUST be a valid uuid )
@@ -227,6 +228,7 @@ func main() {
 	log.Println("ENV JETS_s3_INPUT_PREFIX:",os.Getenv("JETS_s3_INPUT_PREFIX"))
 	log.Println("ENV JETS_s3_OUTPUT_PREFIX:",os.Getenv("JETS_s3_OUTPUT_PREFIX"))
 	log.Println("ENV JETS_s3_STAGE_PREFIX:",os.Getenv("JETS_s3_STAGE_PREFIX"))
+	log.Println("ENV JETS_s3_SCHEMA_TRIGGERS:",os.Getenv("JETS_s3_SCHEMA_TRIGGERS"))
 	log.Println("ENV JETS_S3_KMS_KEY_ARN:",os.Getenv("JETS_S3_KMS_KEY_ARN"))
 	log.Println("ENV JETS_VERSION:",os.Getenv("JETS_VERSION"))
 	log.Println("ENV JETS_DOMAIN_KEY_HASH_ALGO:",os.Getenv("JETS_DOMAIN_KEY_HASH_ALGO"))

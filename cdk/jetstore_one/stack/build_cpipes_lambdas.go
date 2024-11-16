@@ -130,7 +130,8 @@ func (jsComp *JetStoreStackComponents) BuildCpipesLambdas(scope constructs.Const
 		MemorySize: jsii.Number(128),
 		Timeout:    awscdk.Duration_Minutes(jsii.Number(15)),
 		Vpc:        jsComp.Vpc,
-		VpcSubnets: jsComp.IsolatedSubnetSelection,
+		VpcSubnets: jsComp.PrivateSubnetSelection,
+		SecurityGroups: &[]awsec2.ISecurityGroup{jsComp.PrivateSecurityGroup},
 	})
 	if phiTagName != nil {
 		awscdk.Tags_Of(jsComp.CpipesStartShardingLambda).Add(phiTagName, jsii.String("true"), nil)

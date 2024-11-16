@@ -57,10 +57,11 @@ func (jsComp *JetStoreStackComponents) BuildLambdas(scope constructs.Construct, 
 			"ENVIRONMENT":                              jsii.String(os.Getenv("ENVIRONMENT")),
 			"SYSTEM_USER":                              jsii.String("admin"),
 		},
-		MemorySize: jsii.Number(128),
-		Timeout:    awscdk.Duration_Millis(jsii.Number(60000)),
-		Vpc:        jsComp.Vpc,
-		VpcSubnets: jsComp.IsolatedSubnetSelection,
+		MemorySize:     jsii.Number(128),
+		Timeout:        awscdk.Duration_Millis(jsii.Number(60000)),
+		Vpc:            jsComp.Vpc,
+		VpcSubnets:     jsComp.PrivateSubnetSelection,
+		SecurityGroups: &[]awsec2.ISecurityGroup{jsComp.PrivateSecurityGroup},
 	})
 	if phiTagName != nil {
 		awscdk.Tags_Of(jsComp.StatusUpdateLambda).Add(phiTagName, jsii.String("false"), nil)
@@ -73,9 +74,6 @@ func (jsComp *JetStoreStackComponents) BuildLambdas(scope constructs.Construct, 
 	}
 	jsComp.StatusUpdateLambda.Connections().AllowTo(jsComp.RdsCluster, awsec2.Port_Tcp(jsii.Number(5432)), jsii.String("Allow connection from StatusUpdateLambda"))
 	jsComp.RdsSecret.GrantRead(jsComp.StatusUpdateLambda, nil)
-	// NOTE following added deferred due to dependency
-	// jsComp.StatusUpdateLambda.Connections().AllowTo(jsComp.ApiLoadBalancer, awsec2.Port_Tcp(&p), jsii.String("Allow connection from jsComp.RegisterKeyLambda"))
-	// jsComp.AdminPwdSecret.GrantRead(jsComp.StatusUpdateLambda, nil)
 
 	// -----------------------------------------------
 	// Define the Run Reports lambda, used in jsComp.CpipesSM, jsComp.Serverv2SM and eventually to others
