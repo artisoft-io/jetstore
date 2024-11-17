@@ -14,7 +14,7 @@ import (
 	"github.com/jackc/pgx/v4/pgxpool"
 )
 
-// Common functions and types for s3, rerwite of loader's version
+// Common functions and types for s3, rewite of loader's version
 
 var bucketName, regionName, kmsKeyArn string
 var downloader *manager.Downloader

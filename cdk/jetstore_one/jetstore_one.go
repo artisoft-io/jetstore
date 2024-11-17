@@ -16,15 +16,9 @@ import (
 	"github.com/aws/aws-cdk-go/awscdk/v2/awsecs"
 	awselb "github.com/aws/aws-cdk-go/awscdk/v2/awselasticloadbalancingv2"
 	"github.com/aws/aws-cdk-go/awscdk/v2/awsiam"
-	"github.com/aws/aws-cdk-go/awscdk/v2/awslambda"
-
-	// "github.com/aws/aws-cdk-go/awscdk/v2/awss3assets"
 	"github.com/aws/aws-cdk-go/awscdk/v2/awssns"
-
-	// "github.com/aws/aws-cdk-go/awscdk/v2/awslambdaeventsources"
 	"github.com/aws/aws-cdk-go/awscdk/v2/awsrds"
 	"github.com/aws/aws-cdk-go/awscdk/v2/awss3"
-	awss3n "github.com/aws/aws-cdk-go/awscdk/v2/awss3notifications"
 	constructs "github.com/aws/constructs-go/constructs/v10"
 	jsii "github.com/aws/jsii-runtime-go"
 )
@@ -230,61 +224,6 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 	}))
 	jsComp.SourceBucket.GrantReadWrite(jsComp.EcsTaskRole, nil)
 
-	// // =================================================================================================================================
-	// // DEFINE SAMPLE TASK -- SHOW HOW TO BUILD CONTAINER OR PULL IMAGE FROM ECR
-	// ecsSampleTaskDefinition := awsecs.NewFargateTaskDefinition(stack, jsii.String("taskDefinition"), &awsecs.FargateTaskDefinitionProps{
-	// 	MemoryLimitMiB: jsii.Number(512),
-	// 	Cpu:            jsii.Number(256),
-	// 	ExecutionRole:  jsComp.EcsTaskExecutionRole,
-	// 	TaskRole:       jsComp.EcsTaskRole,
-	// })
-	// ecsSampleTaskContainer := ecsSampleTaskDefinition.AddContainer(jsii.String("ecsSampleTaskContainer"), &awsecs.ContainerDefinitionOptions{
-	// 	// Build and use the Dockerfile that's in the `../task` directory.
-	// 	Image: awsecs.AssetImage_FromAsset(jsii.String("../task"), &awsecs.AssetImageProps{}),
-	// 	// // Use Image in ecr
-	// 	// Image: awsecs.AssetImage_FromEcrRepository(
-	// 	// 	awsecr.Repository_FromRepositoryArn(stack, jsii.String("jetstore-ui"), jsii.String("arn:aws:ecr:us-east-1:470601442608:repository/jetstore_usi_ws")),
-	// 	// 	jsii.String("20221207a")),
-	// 	Logging: awsecs.LogDriver_AwsLogs(&awsecs.AwsLogDriverProps{
-	// 		StreamPrefix: jsii.String("task"),
-	// 	}),
-	// })
-
-	// // The Lambda function needs a role that can start the task.
-	// taskStarterLambdaRole := awsiam.NewRole(stack, jsii.String("taskStarterLambdaRole"), &awsiam.RoleProps{
-	// 	AssumedBy: awsiam.NewServicePrincipal(jsii.String("lambda.amazonaws.com"), &awsiam.ServicePrincipalOpts{}),
-	// })
-	// taskStarterLambdaRole.AddManagedPolicy(awsiam.ManagedPolicy_FromAwsManagedPolicyName(jsii.String("service-role/AWSLambdaBasicExecutionRole")))
-	// taskStarterLambdaRole.AddToPolicy(awsiam.NewPolicyStatement(&awsiam.PolicyStatementProps{
-	// 	Actions:   jsii.Strings("ecs:RunTask"),
-	// 	Resources: jsii.Strings(*jsComp.EcsCluster.ClusterArn(), *ecsSampleTaskDefinition.TaskDefinitionArn()),
-	// }))
-	// // Grant the Lambda permission to PassRole to enable it to tell ECS to start a task that uses the task execution role and task role.
-	// ecsSampleTaskDefinition.ExecutionRole().GrantPassRole(taskStarterLambdaRole)
-	// ecsSampleTaskDefinition.TaskRole().GrantPassRole(taskStarterLambdaRole)
-
-	// // Create a Sample Lambda function to start the sample container task.
-	// jsComp.RegisterKeyLambda := awslambdago.NewGoFunction(stack, jsii.String("jsComp.RegisterKeyLambda"), &awslambdago.GoFunctionProps{
-	// 	Runtime: awslambda.Runtime_PROVIDED_AL2023(),
-	// 	Entry:   jsii.String("../taskrunner"),
-	// 	Bundling: &awslambdago.BundlingOptions{
-	// 		GoBuildFlags: &[]*string{jsii.String(`-ldflags "-s -w"`)},
-	// 	},
-	// 	Environment: &map[string]*string{
-	// 		"CLUSTER_ARN":         jsComp.EcsCluster.ClusterArn(),
-	// 		"CONTAINER_NAME":      ecsSampleTaskContainer.ContainerName(),
-	// 		"TASK_DEFINITION_ARN": ecsSampleTaskDefinition.TaskDefinitionArn(),
-	// 		"SUBNETS":             jsii.String(strings.Join(*getSubnetIDs(jsComp.Vpc.IsolatedSubnets()), ",")),
-	// 		"S3_BUCKET":           jsComp.SourceBucket.BucketName(),
-	// 	},
-	// 	MemorySize: jsii.Number(512),
-	// 	Role:       taskStarterLambdaRole,
-	// 	Timeout:    awscdk.Duration_Millis(jsii.Number(60000)),
-	// })
-	// // //*
-	// // fmt.Println(*ecsSampleTaskContainer.ContainerName())
-	// // =================================================================================================================================
-
 	// JetStore Image from ecr -- referenced in most tasks
 	jsComp.JetStoreImage = awsecs.AssetImage_FromEcrRepository(
 		//* example: arn:aws:ecr:us-east-1:470601442608:repository/jetstore_test_ws
@@ -400,22 +339,6 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 		if descriptionTagName != nil {
 			awscdk.Tags_Of(jsComp.UiLoadBalancer).Add(descriptionTagName, jsii.String("Application Load Balancer for JetStore Platform microservices and UI"), nil)
 		}
-		jsComp.ServiceLoadBalancer = awselb.NewApplicationLoadBalancer(stack, jsii.String("ServiceELB"), &awselb.ApplicationLoadBalancerProps{
-			Vpc:            jsComp.Vpc,
-			InternetFacing: jsii.Bool(false),
-			VpcSubnets:     jsComp.IsolatedSubnetSelection,
-			IdleTimeout:    awscdk.Duration_Minutes(jsii.Number(10)),
-		})
-		if phiTagName != nil {
-			awscdk.Tags_Of(jsComp.ServiceLoadBalancer).Add(phiTagName, jsii.String("false"), nil)
-		}
-		if piiTagName != nil {
-			awscdk.Tags_Of(jsComp.ServiceLoadBalancer).Add(piiTagName, jsii.String("false"), nil)
-		}
-		if descriptionTagName != nil {
-			awscdk.Tags_Of(jsComp.ServiceLoadBalancer).Add(descriptionTagName, jsii.String("Application Load Balancer for S3 notification listener lambda"), nil)
-		}
-		jsComp.ApiLoadBalancer = jsComp.ServiceLoadBalancer
 	} else {
 		jsComp.UiLoadBalancer = awselb.NewApplicationLoadBalancer(stack, jsii.String("UIELB"), &awselb.ApplicationLoadBalancerProps{
 			Vpc:            jsComp.Vpc,
@@ -432,7 +355,6 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 		if descriptionTagName != nil {
 			awscdk.Tags_Of(jsComp.UiLoadBalancer).Add(descriptionTagName, jsii.String("Application Load Balancer for JetStore Platform microservices and UI"), nil)
 		}
-		jsComp.ApiLoadBalancer = jsComp.UiLoadBalancer
 	}
 	var err error
 	var uiPort float64 = 8080
@@ -442,8 +364,7 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 			uiPort = 8080
 		}
 	}
-	var listener, serviceListener awselb.ApplicationListener
-	// When TLS is used, lambda function use a different port w/o tls protocol via jsComp.ApiLoadBalancer
+	var listener awselb.ApplicationListener
 	if os.Getenv("JETS_ELB_MODE") == "public" {
 		listener = jsComp.UiLoadBalancer.AddListener(jsii.String("Listener"), &awselb.BaseApplicationListenerProps{
 			Port:     jsii.Number(uiPort),
@@ -453,11 +374,6 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 				awselb.NewListenerCertificate(jsii.String(os.Getenv("JETS_CERT_ARN"))),
 			},
 		})
-		serviceListener = jsComp.ServiceLoadBalancer.AddListener(jsii.String("ServiceListener"), &awselb.BaseApplicationListenerProps{
-			Port:     jsii.Number(uiPort + 1),
-			Open:     jsii.Bool(false),
-			Protocol: awselb.ApplicationProtocol_HTTP,
-		})
 	} else {
 		listener = jsComp.UiLoadBalancer.AddListener(jsii.String("Listener"), &awselb.BaseApplicationListenerProps{
 			Port:     jsii.Number(uiPort),
@@ -465,7 +381,7 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 			Protocol: awselb.ApplicationProtocol_HTTP,
 		})
 	}
-
+	// Register the UI service to the ELB
 	jsComp.EcsUiService.RegisterLoadBalancerTargets(&awsecs.EcsTarget{
 		ContainerName:    jsComp.UiTaskContainer.ContainerName(),
 		ContainerPort:    jsii.Number(8080),
@@ -475,50 +391,9 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 			Protocol: awselb.ApplicationProtocol_HTTP,
 		}),
 	})
-	if os.Getenv("JETS_ELB_MODE") == "public" {
-		jsComp.EcsUiService.RegisterLoadBalancerTargets(&awsecs.EcsTarget{
-			ContainerName:    jsComp.UiTaskContainer.ContainerName(),
-			ContainerPort:    jsii.Number(8080),
-			Protocol:         awsecs.Protocol_TCP,
-			NewTargetGroupId: jsii.String("ServiceUI"),
-			Listener: awsecs.ListenerConfig_ApplicationListener(serviceListener, &awselb.AddApplicationTargetsProps{
-				Protocol: awselb.ApplicationProtocol_HTTP,
-			}),
-		})
-	}
-
-	// Connectivity info for lambda functions to apiserver
-	p := uiPort
-	s := jsComp.ApiLoadBalancer.LoadBalancerDnsName()
-	if os.Getenv("JETS_ELB_MODE") == "public" {
-		p = uiPort + 1
-	}
-	props.JetsApiUrl = fmt.Sprintf("http://%s:%.0f", *s, p)
-	// Status Update Lambda Function
-	jsComp.StatusUpdateLambda.Connections().AllowTo(jsComp.ApiLoadBalancer, awsec2.Port_Tcp(&p), jsii.String("Allow connection from StatusUpdateLambda"))
-	jsComp.AdminPwdSecret.GrantRead(jsComp.StatusUpdateLambda, nil)
-	jsComp.StatusUpdateLambda.AddEnvironment(
-		jsii.String("SYSTEM_PWD_SECRET"),
-		jsComp.AdminPwdSecret.SecretName(),
-		&awslambda.EnvironmentOptions{},
-	)
-	jsComp.ApiSecret.GrantRead(jsComp.StatusUpdateLambda, nil)
-	jsComp.StatusUpdateLambda.AddEnvironment(
-		jsii.String("AWS_API_SECRET"),
-		jsComp.ApiSecret.SecretName(),
-		&awslambda.EnvironmentOptions{},
-	)
-	jsComp.StatusUpdateLambda.AddEnvironment(
-		jsii.String("JETS_API_URL"),
-		jsii.String(props.JetsApiUrl),
-		&awslambda.EnvironmentOptions{},
-	)
 
 	// Add the ELB alerts
 	jetstorestack.AddElbAlarms(stack, "UiElb", jsComp.UiLoadBalancer, alarmAction, props)
-	if os.Getenv("JETS_ELB_MODE") == "public" {
-		jetstorestack.AddElbAlarms(stack, "ServiceElb", jsComp.ServiceLoadBalancer, alarmAction, props)
-	}
 	jetstorestack.AddJetStoreAlarms(stack, alarmAction, props)
 
 	// Add the RDS alerts
@@ -547,33 +422,8 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 
 	// RegisterKey Lambda
 	jsComp.BuildRegisterKeyLambdas(scope, stack, props)
-	jsComp.RegisterKeyLambda.Connections().AllowTo(jsComp.ApiLoadBalancer, awsec2.Port_Tcp(&p), jsii.String("Allow connection from jsComp.RegisterKeyLambda"))
-	jsComp.AdminPwdSecret.GrantRead(jsComp.RegisterKeyLambda, nil)
-
-	// Run the task starter Lambda when an object is added to the S3 bucket.
-	if len(os.Getenv("JETS_SENTINEL_FILE_NAME")) > 0 {
-		jsComp.SourceBucket.AddEventNotification(awss3.EventType_OBJECT_CREATED, awss3n.NewLambdaDestination(jsComp.RegisterKeyLambda), &awss3.NotificationKeyFilter{
-			Prefix: jsii.String(os.Getenv("JETS_s3_INPUT_PREFIX")),
-			Suffix: jsii.String(os.Getenv("JETS_SENTINEL_FILE_NAME")),
-		})
-	} else {
-		jsComp.SourceBucket.AddEventNotification(awss3.EventType_OBJECT_CREATED, awss3n.NewLambdaDestination(jsComp.RegisterKeyLambda), &awss3.NotificationKeyFilter{
-			Prefix: jsii.String(os.Getenv("JETS_s3_INPUT_PREFIX")),
-		})
-	}
-
 	return stack
 }
-
-// // not used - for demo task above
-// func getSubnetIDs(subnets *[]awsec2.ISubnet) *[]string {
-// 	sns := *subnets
-// 	rv := make([]string, len(sns))
-// 	for i := 0; i < len(sns); i++ {
-// 		rv[i] = *sns[i].SubnetId()
-// 	}
-// 	return &rv
-// }
 
 // Expected Env Variables
 // ----------------------
@@ -587,6 +437,7 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 // EXTERNAL_BUCKET (optional, third party bucket to read/write file for cpipes)
 // EXTERNAL_S3_KMS_KEY_ARN (optional, kms key for external bucket)
 // EXTERNAL_SQS_ARN (optional, sqs queue for sqs register key lambda)
+// JETS_ADMIN_EMAIL (optional, email of build-in admin, default: admin)
 // JETS_BUCKET_NAME (optional, use existing bucket by name, create new bucket if empty)
 // JETS_CERT_ARN (not required unless JETS_ELB_MODE==public)
 // JETS_CPIPES_TASK_CPU allocated cpu in vCPU units
@@ -621,6 +472,7 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 // JETS_s3_INPUT_PREFIX (required)
 // JETS_s3_OUTPUT_PREFIX (required)
 // JETS_s3_STAGE_PREFIX (optional) required for cpipes, default replace '/input' with '/stage' in JETS_s3_INPUT_PREFIX
+// JETS_s3_SCHEMA_TRIGGERS (optional) required for cpipes using schema managers, default replace '/input' with '/schema_triggers' in JETS_s3_INPUT_PREFIX
 // JETS_S3_KMS_KEY_ARN (optional, default to account default KMS key) Server side encryption of s3 objects
 // JETS_SENTINEL_FILE_NAME (optional, fixed file name for multipart sentinel file - file of size 0)
 // JETS_SERVER_TASK_CPU allocated cpu in vCPU units
@@ -664,6 +516,7 @@ func main() {
 	fmt.Println("env AWS_REGION:", os.Getenv("AWS_REGION"))
 	fmt.Println("env BASTION_HOST_KEYPAIR_NAME:", os.Getenv("BASTION_HOST_KEYPAIR_NAME"))
 	fmt.Println("env ENVIRONMENT:", os.Getenv("ENVIRONMENT"))
+	fmt.Println("env JETS_ADMIN_EMAIL:", os.Getenv("JETS_ADMIN_EMAIL"))
 	fmt.Println("env JETS_BUCKET_NAME:", os.Getenv("JETS_BUCKET_NAME"))
 	fmt.Println("env JETS_CERT_ARN:", os.Getenv("JETS_CERT_ARN"))
 	fmt.Println("env JETS_CPIPES_TASK_CPU:", os.Getenv("JETS_CPIPES_TASK_CPU"))
@@ -696,6 +549,7 @@ func main() {
 	fmt.Println("env JETS_s3_INPUT_PREFIX:", os.Getenv("JETS_s3_INPUT_PREFIX"))
 	fmt.Println("env JETS_s3_OUTPUT_PREFIX:", os.Getenv("JETS_s3_OUTPUT_PREFIX"))
 	fmt.Println("env JETS_s3_STAGE_PREFIX:", os.Getenv("JETS_s3_STAGE_PREFIX"))
+	fmt.Println("env JETS_s3_SCHEMA_TRIGGERS:", os.Getenv("JETS_s3_SCHEMA_TRIGGERS"))
 	fmt.Println("env JETS_S3_KMS_KEY_ARN:", os.Getenv("JETS_S3_KMS_KEY_ARN"))
 	fmt.Println("env JETS_SENTINEL_FILE_NAME:", os.Getenv("JETS_SENTINEL_FILE_NAME"))
 	fmt.Println("env JETS_SERVER_TASK_CPU:", os.Getenv("JETS_SERVER_TASK_CPU"))

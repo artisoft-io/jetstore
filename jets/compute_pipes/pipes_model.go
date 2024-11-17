@@ -120,18 +120,31 @@ type ContextSpec struct {
 
 type SchemaProviderSpec struct {
 	// Type range: default
+	// Key is schema provider key for reference by compute pipes steps
 	// InputFormat: csv, headerless_csv, fixed_width, parquet, parquet_select,
 	//              xlsx, headerless_xlsx
 	// Compression: none, snappy
-	// InputFormatDataJson: json config based on InputFormat
+	// InputFormatDataJson: json config based on InputFormat (typically used for xlsx)
 	// example: {"currentSheet": "Daily entry for Approvals"} (for xlsx).
 	// SourceType range: main_input, merged_input, historical_input (from input_source table)
 	// Columns may be ommitted if fixed_width_columns_csv is provided
+	// Bucket and FileKey are location and source object (fileKey may be directory if IsPartFiles is true)
+	// KmsKey is kms key to use when writing output data. May be empty.
+	// Contains properties to register FileKey with input_registry table:
+	// Client, Vendor, ObjectType, FileDate
 	//*TODO domain_keys_json
 	//*TODO code_values_mapping_json
-	Type                 string             `json:"type"`
-	SourceType           string             `json:"source_type"`
 	Key                  string             `json:"key"`
+	Type                 string             `json:"type"`
+	Bucket               string             `json:"bucket"`
+	FileKey              string             `json:"file_key"`
+	FileSize             int64              `json:"file_size"`
+	KmsKey               string             `json:"kms_key_arn"`
+	Client               string             `json:"client"`
+	Vendor               string             `json:"vendor"`
+	ObjectType           string             `json:"object_type"`
+	FileDate             string             `json:"file_date"`
+	SourceType           string             `json:"source_type"`
 	SchemaName           string             `json:"schema_name"`
 	InputFormat          string             `json:"input_format"`
 	Compression          string             `json:"compression"`
