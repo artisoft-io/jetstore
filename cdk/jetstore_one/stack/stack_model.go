@@ -10,7 +10,6 @@ import (
 	"github.com/aws/aws-cdk-go/awscdk/v2/awsecs"
 	awselb "github.com/aws/aws-cdk-go/awscdk/v2/awselasticloadbalancingv2"
 	"github.com/aws/aws-cdk-go/awscdk/v2/awsiam"
-	"github.com/aws/aws-cdk-go/awscdk/v2/awslambda"
 	"github.com/aws/aws-cdk-go/awscdk/v2/awsrds"
 	"github.com/aws/aws-cdk-go/awscdk/v2/awss3"
 	awssm "github.com/aws/aws-cdk-go/awscdk/v2/awssecretsmanager"
@@ -29,7 +28,6 @@ type JetstoreOneStackProps struct {
 	SnsAlarmTopicArn             *string
 	NbrShards                    string
 	MaxConcurrency               float64
-	JetsApiUrl                   string
 }
 
 func (props *JetstoreOneStackProps) MkId(name string) *string {
@@ -80,8 +78,6 @@ type JetStoreStackComponents struct {
 	EcsUiService            awsecs.FargateService
 
 	UiLoadBalancer      awselb.ApplicationLoadBalancer
-	ServiceLoadBalancer awselb.ApplicationLoadBalancer
-	ApiLoadBalancer     awselb.ApplicationLoadBalancer
 
 	StatusUpdateLambda        awslambdago.GoFunction
 	RunReportsLambda          awslambdago.GoFunction
@@ -90,7 +86,7 @@ type JetStoreStackComponents struct {
 	CpipesNodeLambda          awslambdago.GoFunction
 	CpipesStartShardingLambda awslambdago.GoFunction
 	CpipesStartReducingLambda awslambdago.GoFunction
-	RegisterKeyLambda         awslambda.Function
+	RegisterKeyV2Lambda       awslambdago.GoFunction
 	SqsRegisterKeyLambda      awslambdago.GoFunction
 
 	LoaderSM    sfn.StateMachine

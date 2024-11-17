@@ -16,15 +16,9 @@ import (
 	"github.com/aws/aws-cdk-go/awscdk/v2/awsecs"
 	awselb "github.com/aws/aws-cdk-go/awscdk/v2/awselasticloadbalancingv2"
 	"github.com/aws/aws-cdk-go/awscdk/v2/awsiam"
-	"github.com/aws/aws-cdk-go/awscdk/v2/awslambda"
-
-	// "github.com/aws/aws-cdk-go/awscdk/v2/awss3assets"
 	"github.com/aws/aws-cdk-go/awscdk/v2/awssns"
-
-	// "github.com/aws/aws-cdk-go/awscdk/v2/awslambdaeventsources"
 	"github.com/aws/aws-cdk-go/awscdk/v2/awsrds"
 	"github.com/aws/aws-cdk-go/awscdk/v2/awss3"
-	awss3n "github.com/aws/aws-cdk-go/awscdk/v2/awss3notifications"
 	constructs "github.com/aws/constructs-go/constructs/v10"
 	jsii "github.com/aws/jsii-runtime-go"
 )
@@ -345,22 +339,6 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 		if descriptionTagName != nil {
 			awscdk.Tags_Of(jsComp.UiLoadBalancer).Add(descriptionTagName, jsii.String("Application Load Balancer for JetStore Platform microservices and UI"), nil)
 		}
-		jsComp.ServiceLoadBalancer = awselb.NewApplicationLoadBalancer(stack, jsii.String("ServiceELB"), &awselb.ApplicationLoadBalancerProps{
-			Vpc:            jsComp.Vpc,
-			InternetFacing: jsii.Bool(false),
-			VpcSubnets:     jsComp.IsolatedSubnetSelection,
-			IdleTimeout:    awscdk.Duration_Minutes(jsii.Number(10)),
-		})
-		if phiTagName != nil {
-			awscdk.Tags_Of(jsComp.ServiceLoadBalancer).Add(phiTagName, jsii.String("false"), nil)
-		}
-		if piiTagName != nil {
-			awscdk.Tags_Of(jsComp.ServiceLoadBalancer).Add(piiTagName, jsii.String("false"), nil)
-		}
-		if descriptionTagName != nil {
-			awscdk.Tags_Of(jsComp.ServiceLoadBalancer).Add(descriptionTagName, jsii.String("Application Load Balancer for S3 notification listener lambda"), nil)
-		}
-		jsComp.ApiLoadBalancer = jsComp.ServiceLoadBalancer
 	} else {
 		jsComp.UiLoadBalancer = awselb.NewApplicationLoadBalancer(stack, jsii.String("UIELB"), &awselb.ApplicationLoadBalancerProps{
 			Vpc:            jsComp.Vpc,
@@ -377,7 +355,6 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 		if descriptionTagName != nil {
 			awscdk.Tags_Of(jsComp.UiLoadBalancer).Add(descriptionTagName, jsii.String("Application Load Balancer for JetStore Platform microservices and UI"), nil)
 		}
-		jsComp.ApiLoadBalancer = jsComp.UiLoadBalancer
 	}
 	var err error
 	var uiPort float64 = 8080
@@ -387,8 +364,7 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 			uiPort = 8080
 		}
 	}
-	var listener, serviceListener awselb.ApplicationListener
-	// When TLS is used, lambda function use a different port w/o tls protocol via jsComp.ApiLoadBalancer
+	var listener awselb.ApplicationListener
 	if os.Getenv("JETS_ELB_MODE") == "public" {
 		listener = jsComp.UiLoadBalancer.AddListener(jsii.String("Listener"), &awselb.BaseApplicationListenerProps{
 			Port:     jsii.Number(uiPort),
@@ -398,11 +374,6 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 				awselb.NewListenerCertificate(jsii.String(os.Getenv("JETS_CERT_ARN"))),
 			},
 		})
-		serviceListener = jsComp.ServiceLoadBalancer.AddListener(jsii.String("ServiceListener"), &awselb.BaseApplicationListenerProps{
-			Port:     jsii.Number(uiPort + 1),
-			Open:     jsii.Bool(false),
-			Protocol: awselb.ApplicationProtocol_HTTP,
-		})
 	} else {
 		listener = jsComp.UiLoadBalancer.AddListener(jsii.String("Listener"), &awselb.BaseApplicationListenerProps{
 			Port:     jsii.Number(uiPort),
@@ -410,7 +381,7 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 			Protocol: awselb.ApplicationProtocol_HTTP,
 		})
 	}
-
+	// Register the UI service to the ELB
 	jsComp.EcsUiService.RegisterLoadBalancerTargets(&awsecs.EcsTarget{
 		ContainerName:    jsComp.UiTaskContainer.ContainerName(),
 		ContainerPort:    jsii.Number(8080),
@@ -420,50 +391,9 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 			Protocol: awselb.ApplicationProtocol_HTTP,
 		}),
 	})
-	if os.Getenv("JETS_ELB_MODE") == "public" {
-		jsComp.EcsUiService.RegisterLoadBalancerTargets(&awsecs.EcsTarget{
-			ContainerName:    jsComp.UiTaskContainer.ContainerName(),
-			ContainerPort:    jsii.Number(8080),
-			Protocol:         awsecs.Protocol_TCP,
-			NewTargetGroupId: jsii.String("ServiceUI"),
-			Listener: awsecs.ListenerConfig_ApplicationListener(serviceListener, &awselb.AddApplicationTargetsProps{
-				Protocol: awselb.ApplicationProtocol_HTTP,
-			}),
-		})
-	}
-
-	// Connectivity info for lambda functions to apiserver
-	p := uiPort
-	s := jsComp.ApiLoadBalancer.LoadBalancerDnsName()
-	if os.Getenv("JETS_ELB_MODE") == "public" {
-		p = uiPort + 1
-	}
-	props.JetsApiUrl = fmt.Sprintf("http://%s:%.0f", *s, p)
-	// Status Update Lambda Function
-	jsComp.StatusUpdateLambda.Connections().AllowTo(jsComp.ApiLoadBalancer, awsec2.Port_Tcp(&p), jsii.String("Allow connection from StatusUpdateLambda"))
-	jsComp.AdminPwdSecret.GrantRead(jsComp.StatusUpdateLambda, nil)
-	jsComp.StatusUpdateLambda.AddEnvironment(
-		jsii.String("SYSTEM_PWD_SECRET"),
-		jsComp.AdminPwdSecret.SecretName(),
-		&awslambda.EnvironmentOptions{},
-	)
-	jsComp.ApiSecret.GrantRead(jsComp.StatusUpdateLambda, nil)
-	jsComp.StatusUpdateLambda.AddEnvironment(
-		jsii.String("AWS_API_SECRET"),
-		jsComp.ApiSecret.SecretName(),
-		&awslambda.EnvironmentOptions{},
-	)
-	jsComp.StatusUpdateLambda.AddEnvironment(
-		jsii.String("JETS_API_URL"),
-		jsii.String(props.JetsApiUrl),
-		&awslambda.EnvironmentOptions{},
-	)
 
 	// Add the ELB alerts
 	jetstorestack.AddElbAlarms(stack, "UiElb", jsComp.UiLoadBalancer, alarmAction, props)
-	if os.Getenv("JETS_ELB_MODE") == "public" {
-		jetstorestack.AddElbAlarms(stack, "ServiceElb", jsComp.ServiceLoadBalancer, alarmAction, props)
-	}
 	jetstorestack.AddJetStoreAlarms(stack, alarmAction, props)
 
 	// Add the RDS alerts
@@ -492,33 +422,8 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 
 	// RegisterKey Lambda
 	jsComp.BuildRegisterKeyLambdas(scope, stack, props)
-	jsComp.RegisterKeyLambda.Connections().AllowTo(jsComp.ApiLoadBalancer, awsec2.Port_Tcp(&p), jsii.String("Allow connection from jsComp.RegisterKeyLambda"))
-	jsComp.AdminPwdSecret.GrantRead(jsComp.RegisterKeyLambda, nil)
-
-	// Run the task starter Lambda when an object is added to the S3 bucket.
-	if len(os.Getenv("JETS_SENTINEL_FILE_NAME")) > 0 {
-		jsComp.SourceBucket.AddEventNotification(awss3.EventType_OBJECT_CREATED, awss3n.NewLambdaDestination(jsComp.RegisterKeyLambda), &awss3.NotificationKeyFilter{
-			Prefix: jsii.String(os.Getenv("JETS_s3_INPUT_PREFIX")),
-			Suffix: jsii.String(os.Getenv("JETS_SENTINEL_FILE_NAME")),
-		})
-	} else {
-		jsComp.SourceBucket.AddEventNotification(awss3.EventType_OBJECT_CREATED, awss3n.NewLambdaDestination(jsComp.RegisterKeyLambda), &awss3.NotificationKeyFilter{
-			Prefix: jsii.String(os.Getenv("JETS_s3_INPUT_PREFIX")),
-		})
-	}
-
 	return stack
 }
-
-// // not used - for demo task above
-// func getSubnetIDs(subnets *[]awsec2.ISubnet) *[]string {
-// 	sns := *subnets
-// 	rv := make([]string, len(sns))
-// 	for i := 0; i < len(sns); i++ {
-// 		rv[i] = *sns[i].SubnetId()
-// 	}
-// 	return &rv
-// }
 
 // Expected Env Variables
 // ----------------------
@@ -532,6 +437,7 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 // EXTERNAL_BUCKET (optional, third party bucket to read/write file for cpipes)
 // EXTERNAL_S3_KMS_KEY_ARN (optional, kms key for external bucket)
 // EXTERNAL_SQS_ARN (optional, sqs queue for sqs register key lambda)
+// JETS_ADMIN_EMAIL (optional, email of build-in admin, default: admin)
 // JETS_BUCKET_NAME (optional, use existing bucket by name, create new bucket if empty)
 // JETS_CERT_ARN (not required unless JETS_ELB_MODE==public)
 // JETS_CPIPES_TASK_CPU allocated cpu in vCPU units
@@ -610,6 +516,7 @@ func main() {
 	fmt.Println("env AWS_REGION:", os.Getenv("AWS_REGION"))
 	fmt.Println("env BASTION_HOST_KEYPAIR_NAME:", os.Getenv("BASTION_HOST_KEYPAIR_NAME"))
 	fmt.Println("env ENVIRONMENT:", os.Getenv("ENVIRONMENT"))
+	fmt.Println("env JETS_ADMIN_EMAIL:", os.Getenv("JETS_ADMIN_EMAIL"))
 	fmt.Println("env JETS_BUCKET_NAME:", os.Getenv("JETS_BUCKET_NAME"))
 	fmt.Println("env JETS_CERT_ARN:", os.Getenv("JETS_CERT_ARN"))
 	fmt.Println("env JETS_CPIPES_TASK_CPU:", os.Getenv("JETS_CPIPES_TASK_CPU"))

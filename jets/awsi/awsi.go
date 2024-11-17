@@ -223,6 +223,37 @@ func DownloadFromS3v2(downloader *manager.Downloader, bucket, objKey string, byt
 	return nsz, nil
 }
 
+// Use a shared Downloader to download obj from s3 into w
+// using concurrent GET requests. The int64 returned is the size of the object downloaded
+// in bytes.
+//
+// The w io.WriterAt can be satisfied by an os.File to do multipart concurrent
+// downloads, or in memory []byte wrapper using aws.WriteAtBuffer. In case you download
+// files into memory do not forget to pre-allocate memory to avoid additional allocations
+// and GC runs.
+//
+// Example:
+//
+//	// pre-allocate in memory buffer, where n is the object size
+//	buf := make([]byte, n)
+//	// wrap with aws.WriteAtBuffer
+//	w := manager.NewWriteAtBuffer(buf)
+func DownloadFromS3WithRetry(downloader *manager.Downloader, bucket, objKey string, byteRange *string, w io.WriterAt) (n int64, err error) {
+	retry := 0
+do_retry:
+	// Download the object
+	n, err = downloader.Download(context.TODO(), w, &s3.GetObjectInput{Bucket: &bucket, Key: &objKey, Range: byteRange})
+	if err != nil {
+		if retry < 6 {
+			time.Sleep(500 * time.Millisecond)
+			retry++
+			goto do_retry
+		}
+		return n, fmt.Errorf("failed to download s3 file %s: %v", objKey, err)
+	}
+	return n, nil
+}
+
 // upload object to S3, reading the obj from fileHd (from current position to EOF)
 func UploadToS3(bucket, region, objKey string, fileHd *os.File) error {
 	cfg, err := config.LoadDefaultConfig(context.TODO(), config.WithRegion(region))
