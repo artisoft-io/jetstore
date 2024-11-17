@@ -24,7 +24,7 @@ func (jsComp *JetStoreStackComponents) BuildRegisterKeyLambdas(scope constructs.
 		Runtime:     awslambda.Runtime_PROVIDED_AL2023(),
 		Entry:       jsii.String("lambdas/register_keys/register_keys_v2"),
 		Bundling: &awslambdago.BundlingOptions{
-			GoBuildFlags: &[]*string{jsii.String(`-ldflags "-s -w"`)},
+			GoBuildFlags: &[]*string{jsii.String(`-buildvcs=false -ldflags "-s -w"`)},
 		},
 		Environment: &map[string]*string{
 			"JETS_BUCKET":                              jsComp.SourceBucket.BucketName(),
