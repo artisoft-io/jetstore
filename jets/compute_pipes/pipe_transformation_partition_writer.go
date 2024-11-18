@@ -94,7 +94,7 @@ func (ctx *PartitionWriterTransformationPipe) apply(input *[]interface{}) error 
 		if len(ctx.spec.OutputChannel.FileName) > 0 {
 			// APPLY substitutions
 			partitionFileName = doSubstitution(ctx.spec.OutputChannel.FileName, ctx.jetsPartitionLabel, ctx.env)
-		} 
+		}
 		if partitionFileName == "" {
 			var fileEx string
 			switch ctx.deviceWriterType {
@@ -282,24 +282,13 @@ func (ctx *BuilderContext) NewPartitionWriterTransformationPipe(source *InputCha
 			return nil, err
 		}
 	}
-	var deviceWriterType string
-	if spec.DeviceWriterType != nil {
-		deviceWriterType = *spec.DeviceWriterType
+	// DeviceWriterType is required, may have been taken from schema provider in ValidatePipeSpecConfig
+	if spec.DeviceWriterType == nil {
+		err = fmt.Errorf("unexpected error:  spec.DeviceWriterType == nil in NewPartitionWriterTransformationPipe")
+		log.Println(err)
+		return nil, err
 	}
-	if deviceWriterType == "" {
-		switch sp.InputFormat() {
-		case "csv", "headerless_csv":
-			deviceWriterType = "csv_writer"
-		case "parquet", "parquet_select":
-			deviceWriterType = "parquet_writer"
-		case "fixed_width":
-			deviceWriterType = "fixed_width_writer"
-		default:
-			err = fmt.Errorf("unsupported output file format: %s (in NewPartitionWriterTransformationPipe)", sp.InputFormat())
-			log.Println(err)
-			return nil, err
-		}
-	}
+
 	var columnNames []string
 	if sp != nil {
 		columnNames = sp.ColumnNames()
@@ -309,7 +298,7 @@ func (ctx *BuilderContext) NewPartitionWriterTransformationPipe(source *InputCha
 		columnNames = outputCh.config.Columns
 	}
 
-	switch deviceWriterType {
+	switch *spec.DeviceWriterType {
 	case "parquet_writer":
 		parquetSchema = make([]string, len(columnNames))
 		for i := range columnNames {
@@ -358,7 +347,7 @@ func (ctx *BuilderContext) NewPartitionWriterTransformationPipe(source *InputCha
 		spec:                 spec,
 		schemaProvider:       sp,
 		columnNames:          columnNames,
-		deviceWriterType:     deviceWriterType,
+		deviceWriterType:     *spec.DeviceWriterType,
 		baseOutputPath:       &baseOutputPath,
 		localTempDir:         &localTempDir,
 		jetsPartitionLabel:   jetsPartitionLabel,
