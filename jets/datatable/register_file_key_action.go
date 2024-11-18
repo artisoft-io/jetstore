@@ -112,6 +112,8 @@ func (ctx *Context) RegisterFileKeys(registerFileKeyAction *RegisterFileKeyActio
 			"day":   1,
 		}
 		// Get the value from the incoming obj, convert to correct types
+		//***
+		log.Println("*** GOT OBJ:", registerFileKeyAction.Data[irow])
 		for k, v := range registerFileKeyAction.Data[irow] {
 			switch k {
 			case "client", "vendor", "org", "object_type", "file_key":
@@ -213,7 +215,7 @@ func (ctx *Context) RegisterFileKeys(registerFileKeyAction *RegisterFileKeyActio
 			row[jcol], ok = fileKeyObject[colKey]
 			if !ok {
 				allOk = false
-				// log.Printf("RegisterFileKey: Missing column %s in fileKeyObject", colKey)
+				log.Printf("RegisterFileKey: Missing column %s in fileKeyObject", colKey)
 			}
 		}
 		if strings.Contains(fileKey, "/err_") {
@@ -227,7 +229,7 @@ func (ctx *Context) RegisterFileKeys(registerFileKeyAction *RegisterFileKeyActio
 				return nil, http.StatusInternalServerError, fmt.Errorf("while inserting file keys in file_key_staging table: %v", err)
 			}
 		} else {
-			// log.Println("while SyncFileKeys: skipping file key:", fileKeyObject["file_key"])
+			log.Println("while SyncFileKeys: skipping file key:", fileKeyObject["file_key"])
 			goto NextKey
 		}
 		// If there is an entry in source_config (ie len(tableName) > 0):
@@ -251,8 +253,8 @@ func (ctx *Context) RegisterFileKeys(registerFileKeyAction *RegisterFileKeyActio
 		if err != nil {
 			return nil, http.StatusInternalServerError, fmt.Errorf("while determining hasCpipesSM and hasOtherSM: %v", err)
 		}
-		// //***
-		// log.Printf("*** RegisterFileKey for object_type %s, having cpipesSM: %d and other SM: %d", objectType, hasCpipesSM, hasOtherSM)
+		//***
+		log.Printf("*** RegisterFileKey for object_type %s, having cpipesSM: %d and other SM: %d", objectType, hasCpipesSM, hasOtherSM)
 		// Reserve a session_id
 		sessionId, err = reserveSessionId(ctx.Dbpool, &baseSessionId)
 		if err != nil {
