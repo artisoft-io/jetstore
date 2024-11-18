@@ -61,7 +61,7 @@ func handler(ctx context.Context, s3Event events.S3Event) error {
 func processMessage(record events.S3EventRecord) error {
 	fileKey := record.S3.Object.Key
 	fileSize := record.S3.Object.Size
-
+	log.Printf("S3 event: key: %s, size: %d\n", fileKey, fileSize)
 	if strings.HasSuffix(fileKey, "/") {
 		// bailing out
 		return nil
