@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"net/url"
 	"os"
 	"strconv"
 	"strings"
@@ -54,12 +55,14 @@ func handler(ctx context.Context, s3Event events.S3Event) error {
 			return err
 		}
 	}
-	log.Println("done")
 	return nil
 }
 
 func processMessage(record events.S3EventRecord) error {
-	fileKey := record.S3.Object.Key
+	fileKey, err := url.QueryUnescape(record.S3.Object.Key)
+	if err != nil {
+		return fmt.Errorf("while unescaping file key: %v", err)
+	}
 	fileSize := record.S3.Object.Size
 	log.Printf("S3 event: key: %s, size: %d\n", fileKey, fileSize)
 	if strings.HasSuffix(fileKey, "/") {
@@ -132,7 +135,6 @@ func main() {
 		log.Panicf("while opening db connection: %v", err)
 	}
 	defer dbpool.Close()
-
 	lambda.Start(handler)
 }
 
@@ -142,8 +144,6 @@ func doFileKey(dbpool *pgxpool.Pool, fileKey string, fileSize int64) error {
 	if err != nil {
 		return fmt.Errorf("error creating jwt token: %v", err)
 	}
-	var code int
-
 	// Extract processing date from file key inFile
 	fileKeyComponents := make(map[string]any)
 	fileKeyComponents = datatable.SplitFileKeyIntoComponents(fileKeyComponents, &fileKey)
@@ -154,8 +154,7 @@ func doFileKey(dbpool *pgxpool.Pool, fileKey string, fileSize int64) error {
 		Data:   []map[string]any{fileKeyComponents},
 	}
 	context := datatable.NewContext(dbpool, false, false, nil, 5, &adminEmail)
-	_, code, err = context.RegisterFileKeys(&registerFileKeyAction, token)
-	log.Printf("Register Key v2, status code %d, err? %v", code, err)
+	_, _, err = context.RegisterFileKeys(&registerFileKeyAction, token)
 	return err
 }
 
@@ -206,13 +205,11 @@ func doFileSchema(dbpool *pgxpool.Pool, fileKey string, fileSize int64) error {
 	if err != nil {
 		return fmt.Errorf("error creating jwt token: %v", err)
 	}
-	var code int
 	registerFileKeyAction := datatable.RegisterFileKeyAction{
 		Action: "register_keys",
 		Data:   []map[string]any{fileKeyComponents},
 	}
 	context := datatable.NewContext(dbpool, false, false, nil, 5, &adminEmail)
-	_, code, err = context.RegisterFileKeys(&registerFileKeyAction, token)
-	log.Printf("Register Key v2 with file schema: status code %d, err? %v", code, err)
+	_, _, err = context.RegisterFileKeys(&registerFileKeyAction, token)
 	return err
 }
