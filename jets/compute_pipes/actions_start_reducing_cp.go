@@ -258,7 +258,7 @@ func (args *StartComputePipesArgs) StartReducingComputePipes(ctx context.Context
 	}
 	// Validate the PipeSpec.TransformationSpec.OutputChannel configuration
 	pipeConfig := cpConfig.ReducingPipesConfig[stepId]
-	err = ValidatePipeSpecOutputChannels(pipeConfig)
+	err = ValidatePipeSpecConfig(&cpConfig, pipeConfig)
 	if err != nil {
 		return result, err
 	}

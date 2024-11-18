@@ -368,7 +368,7 @@ func (args *StartComputePipesArgs) StartShardingComputePipes(ctx context.Context
 		return result, fmt.Errorf("error: invalid cpipes config, reducing_pipes_config[0][0].input must be 'input_row'")
 	}
 	// Validate the PipeSpec.TransformationSpec.OutputChannel configuration
-	err = ValidatePipeSpecOutputChannels(pipeConfig)
+	err = ValidatePipeSpecConfig(&cpConfig, pipeConfig)
 	if err != nil {
 		return result, err
 	}
@@ -542,60 +542,117 @@ func SelectActiveOutputTable(tableConfig []*TableSpec, pipeConfig []PipeSpec) ([
 // Function to validate the PipeSpec output channel config
 // Apply a default snappy compression if compression is not specified
 // and channel Type 'stage'
-func ValidatePipeSpecOutputChannels(pipeConfig []PipeSpec) error {
+func ValidatePipeSpecConfig(cpConfig *ComputePipesConfig, pipeConfig []PipeSpec) error {
 	for i := range pipeConfig {
 		for j := range pipeConfig[i].Apply {
+			var sp *SchemaProviderSpec
 			transformationConfig := &pipeConfig[i].Apply[j]
+			outputChConfig := &transformationConfig.OutputChannel
+			if len(outputChConfig.SchemaProvider) > 0 {
+				sp = getSchemaProvider(cpConfig.SchemaProviders, outputChConfig.SchemaProvider)
+			}
 			// validate transformation pipe config
 			switch transformationConfig.Type {
 			case "partition_writer":
-				if transformationConfig.DeviceWriterType == nil && transformationConfig.OutputChannel.SchemaProvider == "" {
+				if transformationConfig.DeviceWriterType == nil && sp == nil {
 					return fmt.Errorf(
 						"error: invalid cpipes config, must provide 'device_writer_type' or 'output_channel.schema_provider'" +
 							" for transformation pipe of type 'partition_writer'")
 				}
+				if transformationConfig.DeviceWriterType == nil || *transformationConfig.DeviceWriterType == "" {
+					if sp == nil {
+						return fmt.Errorf(
+							"error: device writer type not specified and no schema provider found for output channel %s (in NewPartitionWriterTransformationPipe)",
+							outputChConfig.Name)
+					}
+					var deviceWriterType string
+					switch sp.InputFormat {
+					case "csv", "headerless_csv":
+						deviceWriterType = "csv_writer"
+					case "parquet", "parquet_select":
+						deviceWriterType = "parquet_writer"
+					case "fixed_width":
+						deviceWriterType = "fixed_width_writer"
+					default:
+						err := fmt.Errorf("error: unsupported output file format: %s (in NewPartitionWriterTransformationPipe)", sp.InputFormat)
+						log.Println(err)
+						return err
+					}
+					transformationConfig.DeviceWriterType = &deviceWriterType
+					outputChConfig.Format = sp.InputFormat
+				}
 			}
-			config := &transformationConfig.OutputChannel
-			if config.Type == "" {
-				config.Type = "memory"
+			if outputChConfig.Type == "" {
+				outputChConfig.Type = "memory"
 			}
-			switch config.Type {
+			switch outputChConfig.Type {
 			case "sql":
-				if len(config.OutputTableKey) == 0 {
+				if len(outputChConfig.OutputTableKey) == 0 {
 					return fmt.Errorf("error: invalid cpipes config, must provide output_table_key when output_channel type is 'sql'")
 				}
-				config.Name = config.OutputTableKey
-				config.SpecName = config.OutputTableKey
+				outputChConfig.Name = outputChConfig.OutputTableKey
+				outputChConfig.SpecName = outputChConfig.OutputTableKey
 			default:
-				if len(config.Name) == 0 || config.Name == config.SpecName {
+				if len(outputChConfig.Name) == 0 || outputChConfig.Name == outputChConfig.SpecName {
 					return fmt.Errorf("error: invalid cpipes config, output_channel.name must not be empty or same as output_channel.channel_spec_name")
 				}
-				switch config.Type {
+				switch outputChConfig.Type {
 				case "stage":
-					if config.Compression == "" {
-						config.Compression = "snappy"
+					if outputChConfig.Format == "" {
+						if sp != nil {
+							outputChConfig.Format = sp.InputFormat
+						}
+						if outputChConfig.Format == "" {
+							outputChConfig.Format = "headerless_csv"
+						}
 					}
-					// if the parent transformation pipe is partition_writer, it must have a device_writer_type 'csv_writer'
-					if transformationConfig.Type == "partition_writer" && *transformationConfig.DeviceWriterType != "csv_writer" {
-						return fmt.Errorf(
-							"error: invalid cpipes config, 'partition_writer' with output_channel of type 'stage' must have a device writer of type 'csv_writer'")
+					if outputChConfig.Compression == "" {
+						if sp != nil && sp.Compression != "" {
+							outputChConfig.Compression = sp.Compression
+						}
+						if outputChConfig.Compression == "" {
+							outputChConfig.Compression = "snappy"
+						}
 					}
-					if len(config.WriteStepId) == 0 {
+					if len(outputChConfig.WriteStepId) == 0 {
 						return fmt.Errorf("error: invalid cpipes config, write_step_id is not specified in output_channel of type 'stage'")
 					}
-
 				case "output":
-					if config.Compression == "" {
-						config.Compression = "none"
+					if outputChConfig.Format == "" {
+						if sp != nil {
+							outputChConfig.Format = sp.InputFormat
+						}
+						if outputChConfig.Format == "" {
+							return fmt.Errorf("error: invalid cpipes config, format is not specified in output_channel of type 'output'")
+						}
+					}
+					if outputChConfig.Compression == "" {
+						if sp != nil && sp.Compression != "" {
+							outputChConfig.Compression = sp.Compression
+						}
+						if outputChConfig.Compression == "" {
+							outputChConfig.Compression = "none"
+						}
 					}
 
 				case "memory":
-					config.Compression = ""
+          outputChConfig.Format = ""
+					outputChConfig.Compression = ""
 				default:
 					return fmt.Errorf(
-						"error: invalid cpipes config, unknown output_channel config type: %s (expecting: memory (default), stage, output, sql)", config.Type)
+						"error: invalid cpipes config, unknown output_channel config type: %s (expecting: memory (default), stage, output, sql)",
+						outputChConfig.Type)
 				}
 			}
+		}
+	}
+	return nil
+}
+
+func getSchemaProvider(schemaProviders []*SchemaProviderSpec, key string) *SchemaProviderSpec {
+	for _, sp := range schemaProviders {
+		if sp.Key == key {
+			return sp
 		}
 	}
 	return nil

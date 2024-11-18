@@ -251,9 +251,9 @@ type OutputChannelConfig struct {
 	// Compression: none, snappy (default)
 	Type           string `json:"type"`
 	Name           string `json:"name"`
-	Format         string `json:"format"`           // Type output
-	Compression    string `json:"compression"`      // Type output
-	SchemaProvider string `json:"schema_provider"`  // Type output, alt to Format
+	Format         string `json:"format"`           // Type stage,output
+	Compression    string `json:"compression"`      // Type stage,output
+	SchemaProvider string `json:"schema_provider"`  // Type stage,output, alt to Format
 	WriteStepId    string `json:"write_step_id"`    // Type stage
 	OutputTableKey string `json:"output_table_key"` // Type sql
 	KeyPrefix      string `json:"key_prefix"`       // Type output
