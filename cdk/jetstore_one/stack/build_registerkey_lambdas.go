@@ -70,6 +70,7 @@ func (jsComp *JetStoreStackComponents) BuildRegisterKeyLambdas(scope constructs.
 	jsComp.RdsSecret.GrantRead(jsComp.RegisterKeyV2Lambda, nil)
 	jsComp.SourceBucket.GrantReadWrite(jsComp.RegisterKeyV2Lambda, nil)
 
+	// Adding the s3 event binding
 	// Run the task starter Lambda when an object is added to the S3 bucket.
 	if len(os.Getenv("JETS_SENTINEL_FILE_NAME")) > 0 {
 		jsComp.SourceBucket.AddEventNotification(awss3.EventType_OBJECT_CREATED, awss3n.NewLambdaDestination(jsComp.RegisterKeyV2Lambda), &awss3.NotificationKeyFilter{
