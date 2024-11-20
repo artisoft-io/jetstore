@@ -43,6 +43,9 @@ type PartitionWriterTransformationPipe struct {
 	partitionRowCount    int64
 	totalRowCount        int64
 	filePartitionNumber  int
+	samplingRate         int
+	samplingMaxCount     int
+	samplingCount        int
 	outputCh             *OutputChannel
 	currentDeviceCh      chan []interface{}
 	parquetSchema        []string
@@ -73,8 +76,14 @@ func (ctx *PartitionWriterTransformationPipe) apply(input *[]interface{}) error 
 		return err
 	}
 
+	// Check if we got the max sample records
+	if ctx.samplingMaxCount > 0 && ctx.totalRowCount >= int64(ctx.samplingMaxCount) {
+		return nil
+	}
+
 	// Check if partition is complete, if so close current output channel and start a new one
-	if ctx.rowCountPerPartition > 0 && ctx.partitionRowCount >= ctx.rowCountPerPartition {
+	if (ctx.rowCountPerPartition > 0 && ctx.partitionRowCount >= ctx.rowCountPerPartition) ||
+	   (ctx.samplingMaxCount > 0 && ctx.totalRowCount+ctx.partitionRowCount >= int64(ctx.samplingMaxCount)) {
 		close(ctx.currentDeviceCh)
 		ctx.currentDeviceCh = nil
 		ctx.totalRowCount += ctx.partitionRowCount
@@ -138,6 +147,17 @@ func (ctx *PartitionWriterTransformationPipe) apply(input *[]interface{}) error 
 			}
 		}()
 	}
+
+	// Check if we are sampling records on the output
+	if ctx.totalRowCount+ctx.partitionRowCount > 0 && ctx.samplingRate > 0 {
+		ctx.samplingCount += 1
+		if ctx.samplingCount < ctx.samplingRate {
+			return nil
+		}
+	}
+	ctx.samplingCount = 0
+
+
 	// currentValue is either the input row or a new row based on ctx.NewRecord flag
 	var currentValues *[]interface{}
 	if ctx.spec.NewRecord {
@@ -356,6 +376,8 @@ func (ctx *BuilderContext) NewPartitionWriterTransformationPipe(source *InputCha
 		localTempDir:         &localTempDir,
 		jetsPartitionLabel:   jetsPartitionLabel,
 		rowCountPerPartition: rowCountPerPartition,
+		samplingRate:         config.SamplingRate,
+		samplingMaxCount:     config.SamplingMaxCount,
 		outputCh:             outputCh,
 		parquetSchema:        parquetSchema,
 		columnEvaluators:     columnEvaluators,

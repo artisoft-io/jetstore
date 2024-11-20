@@ -358,7 +358,7 @@ func (cpCtx *ComputePipesContext) ReadCsvFile(filePath *FileName,
 		}
 		if err == nil && inputRowCount > 0 && samplingRate > 0 {
 			cpCtx.SamplingCount += 1
-			if inputRowCount > 0 && samplingRate > 0 && cpCtx.SamplingCount < samplingRate {
+			if cpCtx.SamplingCount < samplingRate {
 				continue
 			}
 			if samplingMaxCount > 0 && inputRowCount >= int64(samplingMaxCount) {
