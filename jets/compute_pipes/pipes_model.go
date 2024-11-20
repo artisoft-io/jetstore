@@ -171,13 +171,15 @@ type TableSpec struct {
 }
 
 type OutputFileSpec struct {
+	// OutputLocation: jetstore_s3_input, jetstore_s3_output (default)
 	// KeyPrefix is optional, default to input file key path
-	// Name is required
+	// Name is file name (required)
 	// Headers overrides the headers from the input_channel's spec
-	Key       string   `json:"key"`
-	Name      string   `json:"name"`
-	KeyPrefix string   `json:"key_prefix"`
-	Headers   []string `json:"headers"`
+	Key            string   `json:"key"`
+	Name           string   `json:"name"`
+	KeyPrefix      string   `json:"key_prefix"`
+	OutputLocation string   `json:"output_location"`
+	Headers        []string `json:"headers"`
 }
 
 type TableColumnSpec struct {
@@ -251,6 +253,7 @@ type OutputChannelConfig struct {
 	// Type range: memory (default), stage, output, sql
 	// Format: csv, headerless_csv, etc
 	// Compression: none, snappy (default)
+	// OutputLocation: jetstore_s3_input, jetstore_s3_output (default)
 	Type           string `json:"type"`
 	Name           string `json:"name"`
 	Format         string `json:"format"`           // Type stage,output
@@ -260,6 +263,7 @@ type OutputChannelConfig struct {
 	OutputTableKey string `json:"output_table_key"` // Type sql
 	KeyPrefix      string `json:"key_prefix"`       // Type output
 	FileName       string `json:"file_name"`        // Type output
+	OutputLocation string `json:"output_location"`  // Type output
 	SpecName       string `json:"channel_spec_name"`
 }
 

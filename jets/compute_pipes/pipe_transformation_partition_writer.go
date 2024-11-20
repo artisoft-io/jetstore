@@ -93,7 +93,7 @@ func (ctx *PartitionWriterTransformationPipe) apply(input *[]interface{}) error 
 		var partitionFileName string
 		if len(ctx.spec.OutputChannel.FileName) > 0 {
 			// APPLY substitutions
-			partitionFileName = doSubstitution(ctx.spec.OutputChannel.FileName, ctx.jetsPartitionLabel, ctx.env)
+			partitionFileName = doSubstitution(ctx.spec.OutputChannel.FileName, ctx.jetsPartitionLabel, "", ctx.env)
 		}
 		if partitionFileName == "" {
 			var fileEx string
@@ -315,7 +315,8 @@ func (ctx *BuilderContext) NewPartitionWriterTransformationPipe(source *InputCha
 		baseOutputPath = fmt.Sprintf("%s/process_name=%s/session_id=%s/step_id=%s/jets_partition=%s",
 			jetsS3StagePrefix, ctx.processName, ctx.sessionId, spec.OutputChannel.WriteStepId, jetsPartitionLabel)
 	case "output":
-		baseOutputPath = doSubstitution(spec.OutputChannel.KeyPrefix, jetsPartitionLabel, ctx.env)
+		baseOutputPath = doSubstitution(spec.OutputChannel.KeyPrefix, jetsPartitionLabel,
+			spec.OutputChannel.OutputLocation, ctx.env)
 	default:
 		return nil, fmt.Errorf("error: unknown output channel type for partition_writer: %s", spec.OutputChannel.Type)
 	}
@@ -364,7 +365,8 @@ func (ctx *BuilderContext) NewPartitionWriterTransformationPipe(source *InputCha
 	}, nil
 }
 
-func doSubstitution(value, jetsPartitionLabel string, env map[string]interface{}) string {
+func doSubstitution(value, jetsPartitionLabel string, s3OutputLocation string,
+	env map[string]interface{}) string {
 	if strings.Contains(value, "$") {
 		for key, v := range env {
 			vv, ok := v.(string)
@@ -379,6 +381,8 @@ func doSubstitution(value, jetsPartitionLabel string, env map[string]interface{}
 			value = strings.ReplaceAll(value, "$CURRENT_PARTITION_LABEL", jetsPartitionLabel)
 		}
 	}
-	value = strings.ReplaceAll(value, jetsS3InputPrefix, jetsS3OutputPrefix)
+	if s3OutputLocation == "jetstore_s3_output" {
+		value = strings.ReplaceAll(value, jetsS3InputPrefix, jetsS3OutputPrefix)
+	}
 	return value
 }

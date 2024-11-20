@@ -63,10 +63,10 @@ func (cpCtx *ComputePipesContext) StartMergeFiles(dbpool *pgxpool.Pool) (cpErr e
 		fileName = strings.ReplaceAll(fileName, k, fmt.Sprintf("%v", v))
 	}
 	if len(outputFileConfig.KeyPrefix) > 0 {
-		fileFolder = outputFileConfig.KeyPrefix
-		for k, v := range cpCtx.EnvSettings {
-			fileFolder = strings.ReplaceAll(fileFolder, k, fmt.Sprintf("%v", v))
-		}
+		fileFolder = doSubstitution(
+			outputFileConfig.KeyPrefix, "",
+			outputFileConfig.OutputLocation,
+			cpCtx.EnvSettings)
 	} else {
 		fileFolder = strings.Replace(cpCtx.CpConfig.CommonRuntimeArgs.FileKey,
 			os.Getenv("JETS_s3_INPUT_PREFIX"), os.Getenv("JETS_s3_OUTPUT_PREFIX"), 1)

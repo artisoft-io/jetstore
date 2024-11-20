@@ -658,6 +658,17 @@ func ValidatePipeSpecConfig(cpConfig *ComputePipesConfig, pipeConfig []PipeSpec)
 							outputChConfig.Compression = "none"
 						}
 					}
+					if len(outputChConfig.OutputLocation) == 0 {
+						outputChConfig.OutputLocation = "jetstore_s3_output"
+					}
+					switch outputChConfig.OutputLocation {
+					case "jetstore_s3_input", "jetstore_s3_output":
+					default:
+						return fmt.Errorf(
+							"error: invalid cpipes config, invalid output_location %s in output_channel of type"+
+								" 'output', expecting jetstore_s3_input or jetstore_s3_output",
+							outputChConfig.OutputLocation)
+					}
 
 				case "memory":
 					outputChConfig.Format = ""
