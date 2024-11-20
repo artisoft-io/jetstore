@@ -571,9 +571,9 @@ func ValidatePipeSpecConfig(cpConfig *ComputePipesConfig, pipeConfig []PipeSpec)
 		// Check that we don't have two input channel reading from the same channel,
 		// this creates record lost since they steal records from each other
 		for k := range pipeConfig {
-			if pipeSpec.InputChannel.Name == pipeConfig[k].InputChannel.Name {
+			if i != k && pipeSpec.InputChannel.Name == pipeConfig[k].InputChannel.Name {
 				return fmt.Errorf("error: invalid cpipes config. two input_channel reading from "+
-				"the same channel %s, this will create record loss", pipeSpec.InputChannel.Name)
+					"the same channel %s, this will create record loss", pipeSpec.InputChannel.Name)
 			}
 		}
 		for j := range pipeSpec.Apply {
