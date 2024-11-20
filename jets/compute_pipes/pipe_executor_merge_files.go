@@ -20,7 +20,7 @@ import (
 // Function to merge the partfiles into a single file by streaming the content
 // to s3 using a channel. This is run in the main thread, so no need to have
 // a result channel back to the caller.
-func (cpCtx *ComputePipesContext) StartMergeFiles(dbpool *pgxpool.Pool) error {
+func (cpCtx *ComputePipesContext) StartMergeFiles(dbpool *pgxpool.Pool) (cpErr error) {
 
 	log.Println("Entering StartMergeFiles")
 
@@ -30,16 +30,18 @@ func (cpCtx *ComputePipesContext) StartMergeFiles(dbpool *pgxpool.Pool) error {
 			var buf strings.Builder
 			buf.WriteString(fmt.Sprintf("StartMergeFiles: recovered error: %v\n", r))
 			buf.WriteString(string(debug.Stack()))
-			cpErr := errors.New(buf.String())
+			cpErr = errors.New(buf.String())
 			log.Println(cpErr)
 			cpCtx.ErrCh <- cpErr
 			close(cpCtx.Done)
 		}
 	}()
 	// Validate the pipe config
-	outputFileKey := cpCtx.CpConfig.PipesConfig[0].OutputFile
-	if cpCtx.CpConfig.PipesConfig[0].Type != "merge_files" || outputFileKey == nil {
-		return fmt.Errorf("error: StartMergeFiles called but the PipeConfig does not have a valid merge_files component")
+	pipeSpec := &cpCtx.CpConfig.PipesConfig[0]
+	outputFileKey := pipeSpec.OutputFile
+	if pipeSpec.Type != "merge_files" || outputFileKey == nil {
+		cpErr = fmt.Errorf("error: StartMergeFiles called but the PipeConfig does not have a valid merge_files component")
+		return
 	}
 	var outputFileConfig *OutputFileSpec
 	for i := range cpCtx.CpConfig.OutputFiles {
@@ -49,7 +51,8 @@ func (cpCtx *ComputePipesContext) StartMergeFiles(dbpool *pgxpool.Pool) error {
 		}
 	}
 	if outputFileConfig == nil {
-		return fmt.Errorf("error: OutputFile config not found for key %s in StartMergeFiles", *outputFileKey)
+		cpErr = fmt.Errorf("error: OutputFile config not found for key %s in StartMergeFiles", *outputFileKey)
+		return
 	}
 	// outputFileConfig.KeyPrefix is the s3 output folder, when empty use:
 	//     <JETS_s3_OUTPUT_PREFIX>/<input file_key dir>/
@@ -71,25 +74,31 @@ func (cpCtx *ComputePipesContext) StartMergeFiles(dbpool *pgxpool.Pool) error {
 	outputS3FileKey := fmt.Sprintf("%s/%s", fileFolder, fileName)
 
 	// Create a reader to stream the data to s3
+	compression := pipeSpec.InputChannel.Compression
+	sp := cpCtx.SchemaManager.GetSchemaProvider(pipeSpec.InputChannel.SchemaProvider)
+	if len(compression) == 0 {
+		compression = sp.Compression()
+	}
 	if len(outputFileConfig.Headers) == 0 {
-		sp := cpCtx.SchemaManager.GetSchemaProvider(outputFileConfig.SchemaProvider)
 		if sp == nil {
-		return fmt.Errorf(
-			"error: merge_files operator using output_file %s has no headers or schema_provider defined", 
-			outputFileConfig.Key)
+			cpErr = fmt.Errorf(
+				"error: merge_files operator using output_file %s has no headers or schema_provider defined",
+				outputFileConfig.Key)
+			return
 		}
 		outputFileConfig.Headers = sp.ColumnNames()
 	}
-	r := cpCtx.NewMergeFileReader(outputFileConfig.Headers)
+	r := cpCtx.NewMergeFileReader(outputFileConfig.Headers, compression)
 
 	// put content of file to s3
 	if err := awsi.UploadToS3FromReader(outputS3FileKey, r); err != nil {
-		return fmt.Errorf("while copying to s3: %v", err)
+		cpErr = fmt.Errorf("while copying to s3: %v", err)
+		return
 	}
 	if cpCtx.CpConfig.ClusterConfig.IsDebugMode {
 		log.Printf("%s node %d merging files to '%s' completed", cpCtx.SessionId, cpCtx.NodeId, outputS3FileKey)
 	}
-	return nil
+	return
 }
 
 // MergeFileReader provides a reader that conforms to io.Reader interface
@@ -98,20 +107,22 @@ func (cpCtx *ComputePipesContext) StartMergeFiles(dbpool *pgxpool.Pool) error {
 type MergeFileReader struct {
 	currentFile   FileName
 	currentFileHd *os.File
-	reader        *snappy.Reader
+	reader        io.Reader
 	headers       []byte
+	compression   string
 	cpCtx         *ComputePipesContext
 }
 
-func (cpCtx *ComputePipesContext) NewMergeFileReader(headers []string) io.Reader {
+func (cpCtx *ComputePipesContext) NewMergeFileReader(headers []string, compression string) io.Reader {
 	var h []byte
 	if len(headers) > 0 {
 		v := fmt.Sprintf("%s\n", strings.Join(headers, ","))
 		h = []byte(v)
 	}
 	return &MergeFileReader{
-		cpCtx:   cpCtx,
-		headers: h,
+		cpCtx:       cpCtx,
+		headers:     h,
+		compression: compression,
 	}
 }
 
@@ -134,14 +145,20 @@ func (r *MergeFileReader) Read(buf []byte) (int, error) {
 		if r.currentFile.LocalFileName == "" {
 			return 0, io.EOF
 		}
-
 		// open the reader for currentFile
 		r.currentFileHd, err = os.Open(r.currentFile.LocalFileName)
 		if err != nil {
 			return 0, fmt.Errorf("while opening temp file '%s' (MergeFileReader.Read): %v",
 				r.currentFile.LocalFileName, err)
 		}
-		r.reader = snappy.NewReader(r.currentFileHd)
+		switch r.compression {
+		case "snappy":
+			r.reader = snappy.NewReader(r.currentFileHd)
+		case "none", "":
+			r.reader = r.currentFileHd
+		default:
+			return 0, fmt.Errorf("error: unknown compression %s (merge_files)", r.compression)
+		}
 		// read from file, delegate to itself
 		return r.Read(buf)
 

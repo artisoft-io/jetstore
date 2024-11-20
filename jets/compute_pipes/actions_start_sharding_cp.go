@@ -544,7 +544,31 @@ func SelectActiveOutputTable(tableConfig []*TableSpec, pipeConfig []PipeSpec) ([
 // and channel Type 'stage'
 func ValidatePipeSpecConfig(cpConfig *ComputePipesConfig, pipeConfig []PipeSpec) error {
 	for i := range pipeConfig {
-		for j := range pipeConfig[i].Apply {
+		pipeSpec := &pipeConfig[i]
+		switch pipeSpec.InputChannel.Type {
+		case "input":
+			if len(pipeSpec.InputChannel.Format) > 0 ||
+				len(pipeSpec.InputChannel.Compression) > 0 ||
+				len(pipeSpec.InputChannel.SchemaProvider) > 0 {
+				return fmt.Errorf("error: invalid cpipes config. input_channel of type 'input'" +
+					" must not have format, compression, or schema_provider specified")
+			}
+		case "stage":
+			if len(pipeSpec.InputChannel.SchemaProvider) > 0 {
+				sp := getSchemaProvider(cpConfig.SchemaProviders, pipeSpec.InputChannel.SchemaProvider)
+				if sp == nil {
+					return fmt.Errorf("error: invalid cpipes config. input_channel has reference to"+
+						"schema_provider %s, but does not exists", pipeSpec.InputChannel.SchemaProvider)
+				}
+				if len(pipeSpec.InputChannel.Format) == 0 {
+					pipeSpec.InputChannel.Format = sp.InputFormat
+				}
+				if len(pipeSpec.InputChannel.Compression) == 0 {
+					pipeSpec.InputChannel.Compression = sp.Compression
+				}
+			}
+		}
+		for j := range pipeSpec.Apply {
 			var sp *SchemaProviderSpec
 			transformationConfig := &pipeConfig[i].Apply[j]
 			outputChConfig := &transformationConfig.OutputChannel
@@ -636,7 +660,7 @@ func ValidatePipeSpecConfig(cpConfig *ComputePipesConfig, pipeConfig []PipeSpec)
 					}
 
 				case "memory":
-          outputChConfig.Format = ""
+					outputChConfig.Format = ""
 					outputChConfig.Compression = ""
 				default:
 					return fmt.Errorf(
@@ -650,6 +674,9 @@ func ValidatePipeSpecConfig(cpConfig *ComputePipesConfig, pipeConfig []PipeSpec)
 }
 
 func getSchemaProvider(schemaProviders []*SchemaProviderSpec, key string) *SchemaProviderSpec {
+	if key == "" {
+		return nil
+	}
 	for _, sp := range schemaProviders {
 		if sp.Key == key {
 			return sp

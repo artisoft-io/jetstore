@@ -173,11 +173,11 @@ type TableSpec struct {
 type OutputFileSpec struct {
 	// KeyPrefix is optional, default to input file key path
 	// Name is required
-	Key            string   `json:"key"`
-	Name           string   `json:"name"`
-	SchemaProvider string   `json:"schema_provider"`
-	KeyPrefix      string   `json:"key_prefix"`
-	Headers        []string `json:"headers"`
+	// Headers overrides the headers from the input_channel's spec
+	Key       string   `json:"key"`
+	Name      string   `json:"name"`
+	KeyPrefix string   `json:"key_prefix"`
+	Headers   []string `json:"headers"`
 }
 
 type TableColumnSpec struct {
@@ -232,14 +232,16 @@ type TransformationSpec struct {
 }
 
 type InputChannelConfig struct {
-	// Type range: input, stage (default)
+	// Type range: memory (default), input, stage
 	// Format: csv, headerless_csv, etc.
 	// Compression: none, snappy
-	// SchemaProvider is provided via ComputePipesCommonArgs.SourcesConfig (ie input_registry table)
+	// Note: SchemaProvider, Compression, Format for Type input are provided via
+	// ComputePipesCommonArgs.SourcesConfig (ie input_registry table).
 	Type             string `json:"type"`
 	Name             string `json:"name"`
-	Format           string `json:"format"`      // Override default behavior
-	Compression      string `json:"compression"` // Override default behavior
+	Format           string `json:"format"`          // Type stage
+	Compression      string `json:"compression"`     // Type stage
+	SchemaProvider   string `json:"schema_provider"` // Type stage
 	ReadStepId       string `json:"read_step_id"`
 	SamplingRate     int    `json:"sampling_rate"`
 	SamplingMaxCount int    `json:"sampling_max_count"`

@@ -138,12 +138,26 @@ func (args *StartComputePipesArgs) StartReducingComputePipes(ctx context.Context
 	inputFormat = "headerless_csv"
 	compression = "snappy"
 	inputChannelConfig := &cpConfig.ReducingPipesConfig[stepId][0].InputChannel
+	inputChannelSP := getSchemaProvider(cpConfig.SchemaProviders, inputChannelConfig.SchemaProvider)
+	if inputChannelSP != nil {
+		if len(inputChannelSP.InputFormat) > 0 {
+			inputFormat = inputChannelSP.InputFormat
+		}
+		if len(inputChannelSP.Compression) > 0 {
+			compression = inputChannelSP.Compression
+		}
+	}
 	if inputChannelConfig.Format != "" {
 		inputFormat = inputChannelConfig.Format
 	}
 	if inputChannelConfig.Compression != "" {
 		compression = inputChannelConfig.Compression
 	}
+	// Set the input channel with the determined value, so to be consistent with what will be done in
+	// ValidatePipeSpecConfig
+	inputChannelConfig.Format = inputFormat
+	inputChannelConfig.Compression = compression
+
 	mainInputStepId := inputChannelConfig.ReadStepId
 	if len(mainInputStepId) == 0 {
 		return result, fmt.Errorf("error: missing input_channel.read_step_id for first pipe at step %d", stepId)
