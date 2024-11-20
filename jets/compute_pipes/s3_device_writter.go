@@ -113,6 +113,7 @@ func (ctx *S3DeviceWriter) WriteCsvPartition() {
 	var fileHd *os.File
 	var snWriter *snappy.Writer
 	var csvWriter *csv.Writer
+	config := ctx.spec.PartitionWriterConfig
 
 	tempFileName := fmt.Sprintf("%s/%s", *ctx.localTempDir, *ctx.fileName)
 	s3FileName := fmt.Sprintf("%s/%s", *ctx.s3BasePath, *ctx.fileName)
@@ -147,8 +148,8 @@ func (ctx *S3DeviceWriter) WriteCsvPartition() {
 	if ctx.schemaProvider != nil && ctx.schemaProvider.Delimiter() != 0 {
 		csvWriter.Comma = ctx.schemaProvider.Delimiter()
 	}
-	if !ctx.spec.WriteHeaderless &&
-		(ctx.spec.WriteHeaders || ctx.spec.OutputChannel.Format == "csv") {
+	if !config.WriteHeaderless &&
+		(config.WriteHeaders || ctx.spec.OutputChannel.Format == "csv") {
 		err = csvWriter.Write(ctx.columnNames)
 		if err != nil {
 			cpErr = fmt.Errorf("while writing headers to local csv file: %v", err)
