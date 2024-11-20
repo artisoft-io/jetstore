@@ -557,7 +557,7 @@ func ValidatePipeSpecConfig(cpConfig *ComputePipesConfig, pipeConfig []PipeSpec)
 			if len(pipeSpec.InputChannel.SchemaProvider) > 0 {
 				sp := getSchemaProvider(cpConfig.SchemaProviders, pipeSpec.InputChannel.SchemaProvider)
 				if sp == nil {
-					return fmt.Errorf("error: invalid cpipes config. input_channel has reference to"+
+					return fmt.Errorf("error: invalid cpipes config. input_channel has reference to "+
 						"schema_provider %s, but does not exists", pipeSpec.InputChannel.SchemaProvider)
 				}
 				if len(pipeSpec.InputChannel.Format) == 0 {
@@ -572,7 +572,7 @@ func ValidatePipeSpecConfig(cpConfig *ComputePipesConfig, pipeConfig []PipeSpec)
 		// this creates record lost since they steal records from each other
 		for k := range pipeConfig {
 			if pipeSpec.InputChannel.Name == pipeConfig[k].InputChannel.Name {
-				return fmt.Errorf("error: invalid cpipes config. two input_channel reading from"+
+				return fmt.Errorf("error: invalid cpipes config. two input_channel reading from "+
 				"the same channel %s, this will create record loss", pipeSpec.InputChannel.Name)
 			}
 		}
