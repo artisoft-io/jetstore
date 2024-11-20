@@ -568,6 +568,14 @@ func ValidatePipeSpecConfig(cpConfig *ComputePipesConfig, pipeConfig []PipeSpec)
 				}
 			}
 		}
+		// Check that we don't have two input channel reading from the same channel,
+		// this creates record lost since they steal records from each other
+		for k := range pipeConfig {
+			if pipeSpec.InputChannel.Name == pipeConfig[k].InputChannel.Name {
+				return fmt.Errorf("error: invalid cpipes config. two input_channel reading from"+
+				"the same channel %s, this will create record loss", pipeSpec.InputChannel.Name)
+			}
+		}
 		for j := range pipeSpec.Apply {
 			var sp *SchemaProviderSpec
 			transformationConfig := &pipeConfig[i].Apply[j]
@@ -578,12 +586,18 @@ func ValidatePipeSpecConfig(cpConfig *ComputePipesConfig, pipeConfig []PipeSpec)
 			// validate transformation pipe config
 			switch transformationConfig.Type {
 			case "partition_writer":
-				if transformationConfig.DeviceWriterType == nil && sp == nil {
+				if transformationConfig.PartitionWriterConfig == nil {
+					return fmt.Errorf(
+						"error: invalid cpipes config, must provide 'partition_writer_config'" +
+							" for transformation pipe of type 'partition_writer'")
+				}
+				config := transformationConfig.PartitionWriterConfig
+				if config.DeviceWriterType == "" && sp == nil {
 					return fmt.Errorf(
 						"error: invalid cpipes config, must provide 'device_writer_type' or 'output_channel.schema_provider'" +
 							" for transformation pipe of type 'partition_writer'")
 				}
-				if transformationConfig.DeviceWriterType == nil || *transformationConfig.DeviceWriterType == "" {
+				if config.DeviceWriterType == "" {
 					if sp == nil {
 						return fmt.Errorf(
 							"error: device writer type not specified and no schema provider found for output channel %s (in NewPartitionWriterTransformationPipe)",
@@ -602,7 +616,7 @@ func ValidatePipeSpecConfig(cpConfig *ComputePipesConfig, pipeConfig []PipeSpec)
 						log.Println(err)
 						return err
 					}
-					transformationConfig.DeviceWriterType = &deviceWriterType
+					config.DeviceWriterType = deviceWriterType
 					outputChConfig.Format = sp.InputFormat
 				}
 			}
@@ -657,6 +671,17 @@ func ValidatePipeSpecConfig(cpConfig *ComputePipesConfig, pipeConfig []PipeSpec)
 						if outputChConfig.Compression == "" {
 							outputChConfig.Compression = "none"
 						}
+					}
+					if len(outputChConfig.OutputLocation) == 0 {
+						outputChConfig.OutputLocation = "jetstore_s3_output"
+					}
+					switch outputChConfig.OutputLocation {
+					case "jetstore_s3_input", "jetstore_s3_output":
+					default:
+						return fmt.Errorf(
+							"error: invalid cpipes config, invalid output_location %s in output_channel of type"+
+								" 'output', expecting jetstore_s3_input or jetstore_s3_output",
+							outputChConfig.OutputLocation)
 					}
 
 				case "memory":

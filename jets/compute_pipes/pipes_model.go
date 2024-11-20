@@ -171,13 +171,15 @@ type TableSpec struct {
 }
 
 type OutputFileSpec struct {
+	// OutputLocation: jetstore_s3_input, jetstore_s3_output (default)
 	// KeyPrefix is optional, default to input file key path
-	// Name is required
+	// Name is file name (required)
 	// Headers overrides the headers from the input_channel's spec
-	Key       string   `json:"key"`
-	Name      string   `json:"name"`
-	KeyPrefix string   `json:"key_prefix"`
-	Headers   []string `json:"headers"`
+	Key            string   `json:"key"`
+	Name           string   `json:"name"`
+	KeyPrefix      string   `json:"key_prefix"`
+	OutputLocation string   `json:"output_location"`
+	Headers        []string `json:"headers"`
 }
 
 type TableColumnSpec struct {
@@ -209,22 +211,16 @@ type SplitterSpec struct {
 type TransformationSpec struct {
 	// Type range: map_record, aggregate, analyze, high_freq, partition_writer, anonymize, distinct, shuffling
 	// DeviceWriterType range: csv_writer, parquet_writer, fixed_width_writer
-	// JetsPartitionKey used by partition_writer as the default value for jet_partition
 	// WriteHeaders / WriteHeaderless takes precedence over SchemaProvider and Format (from OutputChannelConfig)
 	Type                  string                     `json:"type"`
 	NewRecord             bool                       `json:"new_record"`
-	PartitionSize         *int                       `json:"partition_size"`
-	JetsPartitionKey      *string                    `json:"jets_partition_key"` // Type partition_writer
 	FilePathSubstitutions *[]PathSubstitution        `json:"file_path_substitutions"`
 	Columns               []TransformationColumnSpec `json:"columns"`
-	DataSchema            *[]DataSchemaSpec          `json:"data_schema"`
-	DeviceWriterType      *string                    `json:"device_writer_type"` // Type partition_writer
-	WriteHeaders          bool                       `json:"write_headers"`      // Type partition_writer
-	WriteHeaderless       bool                       `json:"write_headerless"`   // Type partition_writer
-	RegexTokens           *[]RegexNode               `json:"regex_tokens"`       // Type analyze
-	LookupTokens          *[]LookupTokenNode         `json:"lookup_tokens"`      // Type analyze
-	KeywordTokens         *[]KeywordTokenNode        `json:"keyword_tokens"`     // Type analyze
-	HighFreqColumns       *[]*HighFreqSpec           `json:"high_freq_columns"`  // Type high_freq
+	RegexTokens           *[]RegexNode               `json:"regex_tokens"`      // Type analyze
+	LookupTokens          *[]LookupTokenNode         `json:"lookup_tokens"`     // Type analyze
+	KeywordTokens         *[]KeywordTokenNode        `json:"keyword_tokens"`    // Type analyze
+	HighFreqColumns       *[]*HighFreqSpec           `json:"high_freq_columns"` // Type high_freq
+	PartitionWriterConfig *PartitionWriterSpec       `json:"partition_writer_config"`
 	AnonymizeConfig       *AnonymizeSpec             `json:"anonymize_config"`
 	DistinctConfig        *DistinctSpec              `json:"distinct_config"`
 	ShufflingConfig       *ShufflingSpec             `json:"shuffling_config"`
@@ -251,6 +247,7 @@ type OutputChannelConfig struct {
 	// Type range: memory (default), stage, output, sql
 	// Format: csv, headerless_csv, etc
 	// Compression: none, snappy (default)
+	// OutputLocation: jetstore_s3_input, jetstore_s3_output (default)
 	Type           string `json:"type"`
 	Name           string `json:"name"`
 	Format         string `json:"format"`           // Type stage,output
@@ -260,6 +257,7 @@ type OutputChannelConfig struct {
 	OutputTableKey string `json:"output_table_key"` // Type sql
 	KeyPrefix      string `json:"key_prefix"`       // Type output
 	FileName       string `json:"file_name"`        // Type output
+	OutputLocation string `json:"output_location"`  // Type output
 	SpecName       string `json:"channel_spec_name"`
 }
 
@@ -295,6 +293,16 @@ type HighFreqSpec struct {
 	TopPercentile int    `json:"top_pct"`
 	TopRank       int    `json:"top_rank"`
 	re            *regexp.Regexp
+}
+
+// JetsPartitionKey used by partition_writer as the default value for jet_partition
+type PartitionWriterSpec struct {
+	DataSchema       *[]DataSchemaSpec `json:"data_schema"`
+	DeviceWriterType string            `json:"device_writer_type"`
+	JetsPartitionKey *string           `json:"jets_partition_key"`
+	PartitionSize    int               `json:"partition_size"`
+	WriteHeaderless  bool              `json:"write_headerless"`
+	WriteHeaders     bool              `json:"write_headers"`
 }
 
 type AnonymizeSpec struct {
