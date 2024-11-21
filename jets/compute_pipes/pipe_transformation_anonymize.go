@@ -5,6 +5,7 @@ import (
 	"hash"
 	"hash/fnv"
 	"log"
+	"time"
 
 	"github.com/dolthub/swiss"
 )
@@ -21,6 +22,8 @@ type AnonymizeTransformationPipe struct {
 	columnEvaluators []TransformationColumnEvaluator
 	firstInputRow    *[]interface{}
 	spec             *TransformationSpec
+	dateFormat       string
+	keyMapDateFormat string
 	channelRegistry  *ChannelRegistry
 	env              map[string]interface{}
 	doneCh           chan struct{}
@@ -40,7 +43,9 @@ func (ctx *AnonymizeTransformationPipe) apply(input *[]interface{}) error {
 	if ctx.firstInputRow == nil {
 		ctx.firstInputRow = input
 	}
-	var inputStr, hashedValue string
+	// hashedValue4KeyFile is the value to use in the crosswalk file, it is
+	// the same as hashedValue, except for dates it may use a different date formatter.
+	var inputStr, hashedValue, hashedValue4KeyFile string
 	for _, action := range ctx.anonymActions {
 		value := (*input)[action.inputColumn]
 		if value == nil {
@@ -61,19 +66,28 @@ func (ctx *AnonymizeTransformationPipe) apply(input *[]interface{}) error {
 			} else {
 				hashedValue = fmt.Sprintf("%x", ctx.hasher.Sum64())
 			}
+			hashedValue4KeyFile = hashedValue
 		case "date":
 			date, err := ParseDate(inputStr)
 			if err == nil {
-				hashedValue = fmt.Sprintf("%d/%02d/01", date.Year(), date.Month())
+				// hashedValue = fmt.Sprintf("%d/%02d/01", date.Year(), date.Month())
+				anonymizeDate := time.Date(date.Year(), date.Month(), 1, 0, 0, 0, 0, time.UTC)
+				hashedValue = anonymizeDate.Format(ctx.dateFormat)
+				if ctx.keyMapDateFormat == "" {
+					hashedValue4KeyFile = hashedValue
+				} else {
+					hashedValue4KeyFile = anonymizeDate.Format(ctx.keyMapDateFormat)
+				}
 			} else {
 				hashedValue = inputStr
+				hashedValue4KeyFile = hashedValue
 			}
 		}
 		(*input)[action.inputColumn] = hashedValue
 		ctx.hasher.Reset()
 		ctx.hasher.Write([]byte(inputStr))
-		ctx.hasher.Write([]byte(hashedValue))
-		ctx.keysMap.Put(ctx.hasher.Sum64(), [2]string{inputStr, hashedValue})
+		ctx.hasher.Write([]byte(hashedValue4KeyFile))
+		ctx.keysMap.Put(ctx.hasher.Sum64(), [2]string{inputStr, hashedValue4KeyFile})
 	}
 	// Send the result to output
 	select {
@@ -194,6 +208,26 @@ func (ctx *BuilderContext) NewAnonymizeTransformationPipe(source *InputChannel, 
 		}
 	}
 	hasher = fnv.New64a()
+	// Determine the date format to use, start with default value
+	dateFormat := "2006/01/02"
+	var keyDateFormat string
+	// Check if the schema provider is specified
+	var sp SchemaProvider
+	if len(config.SchemaProvider) > 0 {
+		sp = ctx.schemaManager.GetSchemaProvider(config.SchemaProvider)
+		if sp == nil {
+			return nil, fmt.Errorf("error: anonymize_config has schema_provider '%s', but it is not found", config.SchemaProvider)
+		}
+	}
+	if sp != nil && sp.DateFormat() != "" {
+		dateFormat = sp.DateFormat()
+	}
+	if config.DateFormat != "" {
+		dateFormat = config.DateFormat
+	}
+	if config.KeyDateFormat != "" {
+		keyDateFormat = config.KeyDateFormat
+	}
 
 	// Prepare the column evaluators
 	columnEvaluators = make([]TransformationColumnEvaluator, len(spec.Columns))
@@ -220,6 +254,8 @@ func (ctx *BuilderContext) NewAnonymizeTransformationPipe(source *InputChannel, 
 		columnEvaluators: columnEvaluators,
 		channelRegistry:  ctx.channelRegistry,
 		spec:             spec,
+		dateFormat:       dateFormat,
+		keyMapDateFormat: keyDateFormat,
 		env:              ctx.env,
 		doneCh:           ctx.done,
 	}, nil

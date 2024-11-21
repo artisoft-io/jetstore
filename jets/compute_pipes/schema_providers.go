@@ -38,6 +38,7 @@ type SchemaProvider interface {
 	TrimColumns() bool
 	Columns() []SchemaColumnSpec
 	ColumnNames() []string
+	DateFormat() string
 	FixedWidthFileHeaders() ([]string, string)
 	FixedWidthEncodingInfo() *FixedWidthEncodingInfo
 	Env() map[string]string
@@ -193,4 +194,11 @@ func (sp *DefaultSchemaProvider) ColumnNames() []string {
 		return nil
 	}
 	return sp.columnNames
+}
+
+func (sp *DefaultSchemaProvider) DateFormat() string {
+	if sp == nil {
+		return ""
+	}
+	return sp.spec.DateFormat
 }

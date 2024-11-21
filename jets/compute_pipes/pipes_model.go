@@ -150,6 +150,7 @@ type SchemaProviderSpec struct {
 	Compression          string             `json:"compression"`
 	InputFormatDataJson  string             `json:"input_format_data_json"`
 	Delimiter            string             `json:"delimiter"`
+	DateFormat           string             `json:"date_format"`
 	TrimColumns          bool               `json:"trim_columns"`
 	IsPartFiles          bool               `json:"is_part_files"`
 	FixedWidthColumnsCsv string             `json:"fixed_width_columns_csv"`
@@ -307,10 +308,21 @@ type PartitionWriterSpec struct {
 	SamplingMaxCount int               `json:"sampling_max_count"`
 }
 
+// LookupName is name of lookup table containing the file metadata from analyze operator
+// AnonymizeType is column name in lookup table that specifiy how to anonymize (value: date, text)
+// KeyPrefix is column name of lookup table to use as prefix of the anonymized value
+// DateFormat is the format to use for anonymized date, will be set at 1st of the month of the original date
+// KeyDateFormat is the format to use in the key mapping file (crosswalk file)
+// SchemaProvider is used to get the DateFormat / KeyDateFormat if not specified here.
+// If date format is not specified, the default format for both DateFormat and KeyDateFormat
+// is "2006/01/02", ie. yyyy/MM/dd
 type AnonymizeSpec struct {
 	LookupName        string              `json:"lookup_name"`
 	AnonymizeType     string              `json:"anonymize_type"`
 	KeyPrefix         string              `json:"key_prefix"`
+	DateFormat        string              `json:"date_format"`
+	KeyDateFormat     string              `json:"key_date_format"`
+	SchemaProvider    string              `json:"schema_provider"`
 	KeysOutputChannel OutputChannelConfig `json:"keys_output_channel"`
 }
 
