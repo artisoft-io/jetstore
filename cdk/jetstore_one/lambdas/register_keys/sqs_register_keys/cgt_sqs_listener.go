@@ -189,33 +189,40 @@ func main() {
 	lambda.Start(handler)
 }
 
-func getFileMapperLayout(requestUrl string) (*CgtLayoutResp, error) {
-	retry := 0
-do_retry:
-	resp, err := http.Get(requestUrl)
+func getWithTimeout(requestUrl string) ([]byte, error) {
+	// resp, err := http.Get(requestUrl)
+	req, err := http.NewRequest("GET", requestUrl, nil)
 	if err != nil {
-		if retry < 10 {
-			log.Printf("File Mapper response with err %v, retrying\n", err)
-			time.Sleep(1 * time.Second)
-			retry++
-			goto do_retry
-		}
-		return nil, fmt.Errorf("failed go get layout from File Mapper: %v", err)
+		return nil, fmt.Errorf("while creating request with context: %v", err)
+	}
+	client := &http.Client{Timeout: time.Duration(2) * time.Minute}
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("while sending get request: %s: %v", requestUrl, err)
 	}
 	if resp.StatusCode != 200 {
-		if retry < 10 {
-			log.Printf("File Mapper response status code is %d, retrying\n", resp.StatusCode)
-			resp.Body.Close()
-			time.Sleep(1 * time.Second)
-			retry++
-			goto do_retry
-		}
-		return nil, fmt.Errorf("failed go get layout from File Mapper, bad status code: %d", resp.StatusCode)
+		return nil, fmt.Errorf("error: File Mapper response status code is %d (expecting 200)", resp.StatusCode)
 	}
 	defer resp.Body.Close()
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, fmt.Errorf("while reading the response body from File Mapper: %v", err)
+	}
+	return body, nil
+}
+
+func getFileMapperLayout(requestUrl string) (*CgtLayoutResp, error) {
+	retry := 0
+do_retry:
+	body, err := getWithTimeout(requestUrl)
+	if err != nil {
+		if retry < 10 {
+			log.Printf("while calling File Mapper: %v, retrying\n", err)
+			time.Sleep(1 * time.Second)
+			retry++
+			goto do_retry
+		}
+		return nil, fmt.Errorf("failed go get layout from File Mapper: %v", err)
 	}
 	//** print the response
 	log.Println("*** Response from FM:", string(body))
@@ -293,7 +300,7 @@ do_retry:
 }
 
 func postRequest(apiEndpoint string, body url.Values, validStatusCode int) (string, error) {
-	client := &http.Client{}
+	client := &http.Client{Timeout: time.Duration(2) * time.Minute}
 	resp, err := client.PostForm(apiEndpoint, body)
 	if err != nil {
 		err = fmt.Errorf("while posting request to %s: %v", apiEndpoint, err)
