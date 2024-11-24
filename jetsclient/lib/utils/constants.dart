@@ -151,6 +151,7 @@ class ScreenKeys {
   static const ufMappingForm = "ufMappingFormScreenUF";
   static const ufPipelineConfig = "pipelineConfigScreenUF";
   static const ufLoadFiles = "ufLoadFilesScreenUF";
+  static const ufRegisterFileKey = "ufRegisterFileKey";
   static const ufStartPipeline = "ufStartPipelineScreenUF";
   static const ufPullWorkspace = "ufPullWorkspaceScreenUF";
   static const ufLoadConfig = "ufLoadConfigScreenUF";
@@ -259,6 +260,8 @@ class FormKeys {
   // Load Files UF Forms
   static const lfSelectSourceConfigUF = "lfSelectSourceConfigUF";
   static const lfSelectFileKeysUF = "lfSelectFileKeysUF";
+  // Register File Key UF Forms
+  static const rfkSubmitSchemaEvent = "rfkSubmitSchemaEvent";
   // Start Pipeline UF Forms
   static const spSelectPipelineConfigUF = "spSelectPipelineConfigUF";
   static const spSelectMainDataSourceUF = "spSelectMainDataSourceUF";
@@ -460,9 +463,11 @@ class FSK {
   static const scFileTypeOption = "input_format";
   static const scCsvOption = "csv";
   static const scHeaderlessCsvOption = "headerless_csv";
-  static const scHeaderlessCsvOptionWithSchemaProvider = "headerless_csv_with_schema_provider";
+  static const scHeaderlessCsvOptionWithSchemaProvider =
+      "headerless_csv_with_schema_provider";
   static const scFixedWidthOption = "fixed_width";
-  static const scFixedWidthOptionWithSchemaProvider = "fixed_width_with_schema_provider";
+  static const scFixedWidthOptionWithSchemaProvider =
+      "fixed_width_with_schema_provider";
   static const scParquetOption = "parquet";
   static const scParquetSelectOption = "parquet_select";
   static const scXlsxOption = "xlsx";
@@ -481,6 +486,9 @@ class FSK {
   // update_db argument: -clients
   static const updateDbClients = "updateDbClients";
   static const wpClientListRO = "wpClientListRO";
+
+  // Register File Key / Schema Event
+  static const schemaEventJson = "schemaEventJson";
 
   // Start Pipeline UF
   static const spAllDataSourceKeys = "spAllDataSourceKeys";
@@ -668,6 +676,9 @@ class ActionKeys {
   static const lfDropTable = "lfDropTable";
   static const lfSyncFileKey = "lfSyncFileKey";
 
+  // Register File Key UF
+  static const rfkSubmitSchemaEventUF = "rfkSubmitSchemaEventUF";
+
   // Start Pipeline UF ActionKeys
   static const spPipelineSelected = "spPipelineSelected";
   static const spStartPipelineUF = "spStartPipelineUF";
@@ -693,6 +704,7 @@ class UserFlowKeys {
   static const mapFileUF = "mapFileUF";
   static const pipelineConfigUF = "pipelineConfigUF";
   static const loadFilesUF = "loadFilesUF";
+  static const registerFileKeyUF = "registerFileKeyUF";
   static const startPipelineUF = "startPipelineUF";
   static const workspacePullUF = "workspacePullUF";
   static const loadConfigUF = "loadConfigUF";

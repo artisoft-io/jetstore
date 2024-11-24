@@ -2,6 +2,7 @@ import 'package:jetsclient/modules/user_flows/client_registry/data_table_config.
 import 'package:jetsclient/modules/user_flows/configure_files/data_table_config.dart';
 import 'package:jetsclient/modules/user_flows/file_mapping/data_table_config.dart';
 import 'package:jetsclient/modules/user_flows/load_files/data_table_config.dart';
+import 'package:jetsclient/modules/user_flows/register_file_key/data_table_config.dart';
 import 'package:jetsclient/modules/user_flows/pipeline_config/data_table_config.dart';
 import 'package:jetsclient/modules/user_flows/start_pipeline/data_table_config.dart';
 import 'package:jetsclient/modules/user_flows/workspace_pull/data_table_config.dart';
@@ -1739,6 +1740,8 @@ TableConfig getTableConfig(String key) {
   config = getPipelineConfigTableConfig(key);
   if (config != null) return config;
   config = getLoadFilesTableConfig(key);
+  if (config != null) return config;
+  config = getRegisterFileKeyTableConfig(key);
   if (config != null) return config;
   config = getStartPipelineTableConfig(key);
   if (config != null) return config;

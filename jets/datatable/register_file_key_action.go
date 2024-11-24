@@ -91,6 +91,27 @@ func (ctx *Context) updateFileKeyComponentCase(fileKeyObjectPtr *map[string]inte
 	// log.Println("updateFileKeyComponentCase UPDATED:",fileKeyObject)
 }
 
+var jetsS3SchemaTriggers string = os.Getenv("JETS_s3_SCHEMA_TRIGGERS")
+
+// Submit Schema Event to S3 (which will call RegisterFileKEys as side effect)
+func (ctx *Context) PutSchemaEventToS3(action *RegisterFileKeyAction, token string) (*map[string]interface{}, int, error) {
+	for irow := range action.Data {
+		var schemaProviderJson string
+		e := action.Data[irow]["event"]
+		key := action.Data[irow]["file_key"]
+		if e != nil && key != nil {
+			schemaProviderJson = e.(string)
+			if len(schemaProviderJson) > 0 {
+				err := awsi.UploadBufToS3(fmt.Sprintf("%s/%v", jetsS3SchemaTriggers, key), []byte(schemaProviderJson))
+				if err != nil {
+					return nil, http.StatusInternalServerError, fmt.Errorf("while calling UploadBufToS3: %v", err)
+				}
+			}
+		}
+	}
+	return &map[string]interface{}{}, http.StatusOK, nil
+}
+
 // Register file_key with file_key_staging table
 func (ctx *Context) RegisterFileKeys(registerFileKeyAction *RegisterFileKeyAction, token string) (*map[string]interface{}, int, error) {
 	var err error
