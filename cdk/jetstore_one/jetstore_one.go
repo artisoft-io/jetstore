@@ -287,8 +287,20 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 			jsComp.ReportsSM.StateMachineArn(),
 		},
 	}))
-	// Also to status update lambda
+	// Also to status update & register key lambda
 	jsComp.StatusUpdateLambda.AddToRolePolicy(awsiam.NewPolicyStatement(&awsiam.PolicyStatementProps{
+		Actions: jsii.Strings("states:StartExecution"),
+		// Needed to use ALL resources to avoid circular depedency
+		Resources: jsii.Strings("*"),
+		// Resources: &[]*string{
+		// 	jsComp.LoaderSM.StateMachineArn(),
+		// 	jsComp.ServerSM.StateMachineArn(),
+		// 	jsComp.Serverv2SM.StateMachineArn(),
+		// 	jsComp.CpipesSM.StateMachineArn(),
+		// 	jsComp.ReportsSM.StateMachineArn(),
+		// },
+	}))
+	jsComp.RegisterKeyV2Lambda.AddToRolePolicy(awsiam.NewPolicyStatement(&awsiam.PolicyStatementProps{
 		Actions: jsii.Strings("states:StartExecution"),
 		// Needed to use ALL resources to avoid circular depedency
 		Resources: jsii.Strings("*"),
