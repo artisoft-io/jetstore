@@ -50,14 +50,17 @@ func (ctx *mapColumnEval) update(currentValue *[]interface{}, input *[]interface
 			// humm, was expecting a string
 			inputV = fmt.Sprintf("%v", inputVal)
 		}
-		if len(inputV) > 0 && ctx.mapConfig.mapConfig.CleansingFunction != nil {
-			outputVal, errMsg =
-				ctx.cleansingCtx.ApplyCleasingFunction(ctx.mapConfig.mapConfig.CleansingFunction,
-					ctx.mapConfig.mapConfig.Argument, &inputV, ctx.mapConfig.inputPos, input)
-			if len(errMsg) > 0 {
-				//*TODO Report error on cleansing function
-				// fmt.Println("*** Error while applying cleansing function:", errMsg)
-				outputVal = nil
+		if len(inputV) > 0 {
+			outputVal = inputV
+			if ctx.mapConfig.mapConfig.CleansingFunction != nil {
+				outputVal, errMsg =
+					ctx.cleansingCtx.ApplyCleasingFunction(ctx.mapConfig.mapConfig.CleansingFunction,
+						ctx.mapConfig.mapConfig.Argument, &inputV, ctx.mapConfig.inputPos, input)
+				if len(errMsg) > 0 {
+					//*TODO Report error on cleansing function
+					// fmt.Println("*** Error while applying cleansing function:", errMsg)
+					outputVal = nil
+				}
 			}
 		}
 	}
