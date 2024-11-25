@@ -89,7 +89,7 @@ func (ctx *Context) updateFileKeyComponentCase(fileKeyObjectPtr *map[string]inte
 			// log.Printf("updateFileKeyComponentCase: object_type %s not found in object_type_registry\n", objectType)
 		}
 	}
-	// log.Println("updateFileKeyComponentCase UPDATED:",fileKeyObject)
+	log.Println("updateFileKeyComponentCase UPDATED:",fileKeyObject)
 }
 
 var jetsS3SchemaTriggers string = os.Getenv("JETS_s3_SCHEMA_TRIGGERS")
@@ -205,6 +205,7 @@ func (ctx *Context) RegisterFileKeys(registerFileKeyAction *RegisterFileKeyActio
 		err = ctx.Dbpool.QueryRow(context.Background(), stmt, client, org, objectType).Scan(&tableName, &automated, &isPartFile)
 		if err == nil {
 			// process - entry found
+			log.Printf("*** source_config found, automated: %v, is part file: %v\n", automated, isPartFile)
 			if isPartFile == 1 {
 				// Multi Part File
 				size := fileKeyObject["size"].(int64)
@@ -236,7 +237,7 @@ func (ctx *Context) RegisterFileKeys(registerFileKeyAction *RegisterFileKeyActio
 			row[jcol], ok = fileKeyObject[colKey]
 			if !ok {
 				allOk = false
-				// log.Printf("RegisterFileKey: Missing column %s in fileKeyObject", colKey)
+				log.Printf("***RegisterFileKey: Missing column %s in fileKeyObject", colKey)
 			}
 		}
 		if strings.Contains(fileKey, "/err_") {
@@ -250,7 +251,7 @@ func (ctx *Context) RegisterFileKeys(registerFileKeyAction *RegisterFileKeyActio
 				return nil, http.StatusInternalServerError, fmt.Errorf("while inserting file keys in file_key_staging table: %v", err)
 			}
 		} else {
-			// log.Println("while SyncFileKeys: skipping file key:", fileKeyObject["file_key"])
+			log.Println("***while RegisterFileKeys: skipping file key:", fileKeyObject["file_key"])
 			goto NextKey
 		}
 		// If there is an entry in source_config (ie len(tableName) > 0):
@@ -274,8 +275,8 @@ func (ctx *Context) RegisterFileKeys(registerFileKeyAction *RegisterFileKeyActio
 		if err != nil {
 			return nil, http.StatusInternalServerError, fmt.Errorf("while determining hasCpipesSM and hasOtherSM: %v", err)
 		}
-		// //***
-		// log.Printf("*** RegisterFileKey for object_type %s, having cpipesSM: %d and other SM: %d", objectType, hasCpipesSM, hasOtherSM)
+		//***
+		log.Printf("*** RegisterFileKey for object_type %s, having cpipesSM: %d and other SM: %d", objectType, hasCpipesSM, hasOtherSM)
 		// Reserve a session_id
 		sessionId, err = reserveSessionId(ctx.Dbpool, &baseSessionId)
 		if err != nil {
