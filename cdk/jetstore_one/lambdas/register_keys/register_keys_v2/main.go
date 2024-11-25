@@ -26,7 +26,7 @@ import (
 var (
 	s3InputPrefix  string = os.Getenv("JETS_s3_INPUT_PREFIX")
 	s3SchemaPrefix string = os.Getenv("JETS_s3_SCHEMA_TRIGGERS")
-	adminEmail     string = os.Getenv("JETS_ADMIN_EMAIL")
+	systemUser     string = "system"
 	awsDsnSecret   string = os.Getenv("JETS_DSN_SECRET")
 	awsRegion      string = os.Getenv("JETS_REGION")
 	awsBucket      string = os.Getenv("JETS_BUCKET")
@@ -36,9 +36,6 @@ var (
 )
 
 func init() {
-	if adminEmail == "" {
-		adminEmail = "admin"
-	}
 	var err error
 	downloader, err = awsi.NewDownloader(awsRegion)
 	if err != nil {
@@ -140,7 +137,7 @@ func main() {
 
 func doFileKey(dbpool *pgxpool.Pool, fileKey string, fileSize int64) error {
 
-	token, err := user.CreateToken(adminEmail)
+	token, err := user.CreateToken(systemUser)
 	if err != nil {
 		return fmt.Errorf("error creating jwt token: %v", err)
 	}
@@ -153,7 +150,7 @@ func doFileKey(dbpool *pgxpool.Pool, fileKey string, fileSize int64) error {
 		Action: "register_keys",
 		Data:   []map[string]any{fileKeyComponents},
 	}
-	context := datatable.NewContext(dbpool, false, false, nil, 5, &adminEmail)
+	context := datatable.NewContext(dbpool, false, false, nil, 5, &systemUser)
 	_, _, err = context.RegisterFileKeys(&registerFileKeyAction, token)
 	return err
 }
@@ -201,7 +198,7 @@ func doFileSchema(dbpool *pgxpool.Pool, fileKey string, fileSize int64) error {
   fileKeyComponents["size"] = schemaInfo.FileSize
   fileKeyComponents["schema_provider_json"] = string(buf)
 
-	token, err := user.CreateToken(adminEmail)
+	token, err := user.CreateToken(systemUser)
 	if err != nil {
 		return fmt.Errorf("error creating jwt token: %v", err)
 	}
@@ -209,7 +206,7 @@ func doFileSchema(dbpool *pgxpool.Pool, fileKey string, fileSize int64) error {
 		Action: "register_keys",
 		Data:   []map[string]any{fileKeyComponents},
 	}
-	context := datatable.NewContext(dbpool, false, false, nil, 5, &adminEmail)
+	context := datatable.NewContext(dbpool, false, false, nil, 5, &systemUser)
 	_, _, err = context.RegisterFileKeys(&registerFileKeyAction, token)
 	return err
 }
