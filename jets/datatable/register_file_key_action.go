@@ -318,7 +318,7 @@ func (ctx *Context) RegisterFileKeys(registerFileKeyAction *RegisterFileKeyActio
 			if err != nil {
 				return nil, http.StatusInternalServerError, fmt.Errorf("error inserting in jetsapi.input_registry table: %v", err)
 			}
-			if automated > 0 && !strings.Contains(fileKey, "/test_") && !registerFileKeyAction.NoAutomatedLoad {
+			if !strings.Contains(fileKey, "/test_") && !registerFileKeyAction.NoAutomatedLoad {
 				// Check for any process that are ready to kick off
 				ctx.StartPipelineOnInputRegistryInsert(&RegisterFileKeyAction{
 					Action: "register_keys",
