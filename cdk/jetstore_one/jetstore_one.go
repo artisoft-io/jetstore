@@ -272,6 +272,9 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 	// Build the cpipes State Machine (cpipesSM)
 	jsComp.BuildCpipesSM(scope, stack, props)
 
+	// RegisterKey Lambda
+	jsComp.BuildRegisterKeyLambdas(scope, stack, props)
+
 	// ---------------------------------------
 	// Allow JetStore Tasks Running in JetStore Container
 	// permission to execute the StateMachines
@@ -431,9 +434,6 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 			awscdk.Tags_Of(jsComp.BastionHost).Add(descriptionTagName, jsii.String("Bastion host for JetStore Platform"), nil)
 		}
 	}
-
-	// RegisterKey Lambda
-	jsComp.BuildRegisterKeyLambdas(scope, stack, props)
 	return stack
 }
 
