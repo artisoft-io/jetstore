@@ -45,6 +45,7 @@ func init() {
 
 func handler(ctx context.Context, s3Event events.S3Event) error {
 	// Process the records
+	log.Print("***Register Key v2 called with", s3Event)
 	for _, record := range s3Event.Records {
 		err := processMessage(record)
 		if err != nil {
@@ -77,6 +78,8 @@ func processMessage(record events.S3EventRecord) error {
 		return doFileSchema(dbpool, fileKey, fileSize)
 	default:
 		// untracked file
+		log.Printf("Register Key v2: got untracked file?? %s", fileKey)
+		log.Printf("Note: s3InputPrefix: %s, s3SchemaPrefix: %s",s3InputPrefix ,s3SchemaPrefix)
 		return nil
 	}
 }
@@ -132,6 +135,7 @@ func main() {
 		log.Panicf("while opening db connection: %v", err)
 	}
 	defer dbpool.Close()
+	log.Println("Register Key v2 ready!")
 	lambda.Start(handler)
 }
 
@@ -204,6 +208,7 @@ func doFileSchema(dbpool *pgxpool.Pool, fileKey string, fileSize int64) error {
 	}
 	registerFileKeyAction := datatable.RegisterFileKeyAction{
 		Action: "register_keys",
+		IsSchemaEvent: true,
 		Data:   []map[string]any{fileKeyComponents},
 	}
 	context := datatable.NewContext(dbpool, false, false, nil, 5, &systemUser)
