@@ -23,6 +23,7 @@ type RegisterFileKeyAction struct {
 	Action          string                   `json:"action"`
 	Data            []map[string]interface{} `json:"data"`
 	NoAutomatedLoad bool                     `json:"noAutomatedLoad"`
+	IsSchemaEvent   bool                     `json:"isSchemaEvent"`
 }
 
 // Function to match the case for client, org, and object_type based on jetstore
@@ -212,7 +213,8 @@ func (ctx *Context) RegisterFileKeys(registerFileKeyAction *RegisterFileKeyActio
 					goto NextKey
 				} else {
 					// Check if we restrict sentinel files by name
-					if len(sentinelFileName) > 0 && !strings.HasSuffix(fileKey, sentinelFileName) {
+					if len(sentinelFileName) > 0 && !registerFileKeyAction.IsSchemaEvent &&
+						!strings.HasSuffix(fileKey, sentinelFileName) {
 						// case of accepting only sentinel file with specific name, this one does not have it
 						// log.Println("Register File Key: data source with multiple parts: skipping 0-size file key:", fileKeyObject["file_key"],"size",fileKeyObject["size"],"Do not match the sentinel file name:",sentinelFileName)
 						goto NextKey

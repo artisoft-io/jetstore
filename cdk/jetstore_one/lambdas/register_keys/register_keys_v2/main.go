@@ -204,6 +204,7 @@ func doFileSchema(dbpool *pgxpool.Pool, fileKey string, fileSize int64) error {
 	}
 	registerFileKeyAction := datatable.RegisterFileKeyAction{
 		Action: "register_keys",
+		IsSchemaEvent: true,
 		Data:   []map[string]any{fileKeyComponents},
 	}
 	context := datatable.NewContext(dbpool, false, false, nil, 5, &systemUser)
