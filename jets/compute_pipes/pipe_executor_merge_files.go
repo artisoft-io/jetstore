@@ -76,7 +76,7 @@ func (cpCtx *ComputePipesContext) StartMergeFiles(dbpool *pgxpool.Pool) (cpErr e
 	// Create a reader to stream the data to s3
 	compression := pipeSpec.InputChannel.Compression
 	sp := cpCtx.SchemaManager.GetSchemaProvider(pipeSpec.InputChannel.SchemaProvider)
-	if len(compression) == 0 {
+	if len(compression) == 0 && sp != nil {
 		compression = sp.Compression()
 	}
 	if len(outputFileConfig.Headers) == 0 {
@@ -88,7 +88,11 @@ func (cpCtx *ComputePipesContext) StartMergeFiles(dbpool *pgxpool.Pool) (cpErr e
 		}
 		outputFileConfig.Headers = sp.ColumnNames()
 	}
-	r := cpCtx.NewMergeFileReader(outputFileConfig.Headers, compression)
+	var delimit rune
+	if sp != nil {
+		delimit = sp.Delimiter()
+	}
+	r := cpCtx.NewMergeFileReader(outputFileConfig.Headers, delimit, compression)
 
 	// put content of file to s3
 	if err := awsi.UploadToS3FromReader(outputS3FileKey, r); err != nil {
@@ -113,10 +117,14 @@ type MergeFileReader struct {
 	cpCtx         *ComputePipesContext
 }
 
-func (cpCtx *ComputePipesContext) NewMergeFileReader(headers []string, compression string) io.Reader {
+func (cpCtx *ComputePipesContext) NewMergeFileReader(headers []string, delimit rune, compression string) io.Reader {
 	var h []byte
 	if len(headers) > 0 {
-		v := fmt.Sprintf("%s\n", strings.Join(headers, ","))
+		sep := ","
+		if delimit > 0 {
+			sep = string(delimit)
+		}
+		v := fmt.Sprintf("%s\n", strings.Join(headers, sep))
 		h = []byte(v)
 	}
 	return &MergeFileReader{
