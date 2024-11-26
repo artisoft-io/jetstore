@@ -98,6 +98,14 @@ func (jsComp *JetStoreStackComponents) BuildRegisterKeyLambdas(scope constructs.
 	jsComp.SourceBucket.AddEventNotification(awss3.EventType_OBJECT_CREATED, awss3n.NewLambdaDestination(jsComp.RegisterKeyV2Lambda), &awss3.NotificationKeyFilter{
 		Prefix: jsii.String(GetS3SchemaTriggersPrefix()),
 	})
+	kmsArn := os.Getenv("JETS_S3_KMS_KEY_ARN")
+	if len(kmsArn) > 0 {
+		// Provide the ability to use the kms key
+		jsComp.RegisterKeyV2Lambda.AddToRolePolicy(awsiam.NewPolicyStatement(&awsiam.PolicyStatementProps{
+			Actions:   jsii.Strings("kms:Encrypt", "kms:Decrypt", "kms:DescribeKey"),
+			Resources: jsii.Strings(kmsArn),
+		}))
+	}
 	// END Create a Lambda function to register File Keys with JetStore DB
 
 	// Lambda Function for client-specific integration for Register Key from SQS Event or other
@@ -109,14 +117,14 @@ func (jsComp *JetStoreStackComponents) BuildRegisterKeyLambdas(scope constructs.
 		var sqsSecurityGroups *[]awsec2.ISecurityGroup
 		sqsVpcId := os.Getenv("JETS_SQS_REGISTER_KEY_VPC_ID")
 		if len(sqsVpcId) > 0 {
-			sqsVpc = awsec2.Vpc_FromLookup(scope, jsii.String("SqsRegisterKeyVpc"), &awsec2.VpcLookupOptions{
+			sqsVpc = awsec2.Vpc_FromLookup(stack, jsii.String("SqsRegisterKeyVpc"), &awsec2.VpcLookupOptions{
 				VpcId: jsii.String(sqsVpcId),
 			})
 			sqsVpcSubnets = jsComp.PrivateSubnetSelection
 			sqsSGId := os.Getenv("JETS_SQS_REGISTER_KEY_SG_ID")
 			if len(sqsSGId) > 0 {
 				sqsSecurityGroups = &[]awsec2.ISecurityGroup{
-					awsec2.SecurityGroup_FromLookupById(scope, jsii.String("SqsRegisterKeySG"), jsii.String(sqsSGId))}
+					awsec2.SecurityGroup_FromLookupById(stack, jsii.String("SqsRegisterKeySG"), jsii.String(sqsSGId))}
 			}
 		}
 
@@ -186,11 +194,7 @@ func (jsComp *JetStoreStackComponents) BuildRegisterKeyLambdas(scope constructs.
 		if len(sqsArn) > 0 {
 			// Provide the ability to read sqs queue
 			jsComp.SqsRegisterKeyLambda.AddToRolePolicy(awsiam.NewPolicyStatement(&awsiam.PolicyStatementProps{
-				Actions: &[]*string{
-					jsii.String("sqs:DeleteMessage"),
-					jsii.String("sqs:ReceiveMessage"),
-					jsii.String("sqs:GetQueueAttributes"),
-				},
+				Actions:   jsii.Strings("sqs:DeleteMessage", "sqs:ReceiveMessage", "sqs:GetQueueAttributes"),
 				Resources: jsii.Strings(sqsArn),
 			}))
 			// Setup the sqs event trigger
@@ -200,6 +204,14 @@ func (jsComp *JetStoreStackComponents) BuildRegisterKeyLambdas(scope constructs.
 				EventSourceArn: jsii.String(sqsArn),
 				Target:         jsComp.SqsRegisterKeyLambda,
 			})
-		}		
+		}
+		kmsArn := os.Getenv("JETS_S3_KMS_KEY_ARN")
+		if len(kmsArn) > 0 {
+			// Provide the ability to use the kms key
+			jsComp.SqsRegisterKeyLambda.AddToRolePolicy(awsiam.NewPolicyStatement(&awsiam.PolicyStatementProps{
+				Actions:   jsii.Strings("kms:Encrypt", "kms:Decrypt", "kms:DescribeKey"),
+				Resources: jsii.Strings(kmsArn),
+			}))
+		}
 	}
 }
