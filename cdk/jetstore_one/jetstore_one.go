@@ -492,6 +492,8 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 // JETS_SERVER_SM_TIMEOUT_MIN (optional) state machine timeout for SERVER_SM, default 60 min
 // JETS_SNS_ALARM_TOPIC_ARN (optional, sns topic for sending alarm)
 // JETS_SQS_REGISTER_KEY_LAMBDA_ENTRY (optional, path to handler code for sqs register key lambda)
+// JETS_SQS_REGISTER_KEY_VPC_ID (optional, external vpc to attached the sqs register key lambda)
+// JETS_SQS_REGISTER_KEY_SG_ID (optional, external security group for the sqs register key vpc)
 // JETS_STACK_ID (optional, stack id, default: JetstoreOneStack)
 // JETS_STACK_SUFFIX (optional, component suffix (when JETS_STACK_ID is not part of component id), default no suffix)
 // JETS_STACK_TAGS_JSON (optional, stack-level tags name/value as json)
@@ -571,6 +573,8 @@ func main() {
 	fmt.Println("env JETS_LOADER_TASK_MEM_LIMIT_MB:", os.Getenv("JETS_LOADER_TASK_MEM_LIMIT_MB"))
 	fmt.Println("env JETS_SNS_ALARM_TOPIC_ARN:", os.Getenv("JETS_SNS_ALARM_TOPIC_ARN"))
 	fmt.Println("env JETS_SQS_REGISTER_KEY_LAMBDA_ENTRY:", os.Getenv("JETS_SQS_REGISTER_KEY_LAMBDA_ENTRY"))
+	fmt.Println("env JETS_SQS_REGISTER_KEY_VPC_ID:", os.Getenv("JETS_SQS_REGISTER_KEY_VPC_ID"))
+	fmt.Println("env JETS_SQS_REGISTER_KEY_SG_ID:", os.Getenv("JETS_SQS_REGISTER_KEY_SG_ID"))
 	fmt.Println("env JETS_STACK_ID:", os.Getenv("JETS_STACK_ID"))
 	fmt.Println("env JETS_STACK_SUFFIX:", os.Getenv("JETS_STACK_SUFFIX"))
 	fmt.Println("env JETS_STACK_TAGS_JSON:", os.Getenv("JETS_STACK_TAGS_JSON"))
