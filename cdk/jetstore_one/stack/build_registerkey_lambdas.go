@@ -59,10 +59,7 @@ func (jsComp *JetStoreStackComponents) BuildRegisterKeyLambdas(scope constructs.
 			"ENVIRONMENT":                              jsii.String(os.Getenv("ENVIRONMENT")),
 			"WORKSPACES_HOME":                          jsii.String("/tmp/jetstore/workspaces"),
 			"WORKSPACE":                                jsii.String(os.Getenv("WORKSPACE")),
-			// Specific env for sqs register key events
-			"EXTERNAL_BUCKET":         jsii.String(os.Getenv("EXTERNAL_BUCKET")),
-			"EXTERNAL_S3_KMS_KEY_ARN": jsii.String(os.Getenv("EXTERNAL_S3_KMS_KEY_ARN")),
-			"EXTERNAL_SQS_ARN":        jsii.String(os.Getenv("EXTERNAL_SQS_ARN")),
+			"EXTERNAL_SQS_ARN":                         jsii.String(os.Getenv("EXTERNAL_SQS_ARN")),
 		},
 		MemorySize:     jsii.Number(128),
 		Timeout:        awscdk.Duration_Seconds(jsii.Number(900)),
@@ -168,10 +165,6 @@ func (jsComp *JetStoreStackComponents) BuildRegisterKeyLambdas(scope constructs.
 				"ENVIRONMENT":                              jsii.String(os.Getenv("ENVIRONMENT")),
 				"WORKSPACES_HOME":                          jsii.String("/tmp/jetstore/workspaces"),
 				"WORKSPACE":                                jsii.String(os.Getenv("WORKSPACE")),
-				// Specific env for sqs register key events
-				"EXTERNAL_BUCKET":         jsii.String(os.Getenv("EXTERNAL_BUCKET")),
-				"EXTERNAL_S3_KMS_KEY_ARN": jsii.String(os.Getenv("EXTERNAL_S3_KMS_KEY_ARN")),
-				"EXTERNAL_SQS_ARN":        jsii.String(os.Getenv("EXTERNAL_SQS_ARN")),
 			},
 			MemorySize: jsii.Number(128),
 			// EphemeralStorageSize: awscdk.Size_Mebibytes(jsii.Number(2048)),

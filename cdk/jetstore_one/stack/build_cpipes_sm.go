@@ -258,5 +258,6 @@ func (jsComp *JetStoreStackComponents) BuildCpipesSM(scope constructs.Construct,
 		awscdk.Tags_Of(jsComp.CpipesSM).Add(descriptionTagName, jsii.String("State Machine to execute Compute Pipes in the JetStore Platform"), nil)
 	}
 	jsComp.SourceBucket.GrantReadWrite(jsComp.CpipesSM.Role(), nil)
+	jsComp.GrantReadWriteFromExternalBuckets(stack, jsComp.CpipesSM.Role())
 	jsComp.RdsSecret.GrantRead(jsComp.CpipesSM.Role(), nil)
 }

@@ -51,6 +51,7 @@ type JetStoreStackComponents struct {
 	EncryptionKeySecret awssm.Secret
 
 	SourceBucket            awss3.IBucket
+	ExternalBuckets         []awss3.IBucket
 	Vpc                     awsec2.Vpc
 	PublicSubnetSelection   *awsec2.SubnetSelection
 	PrivateSubnetSelection  *awsec2.SubnetSelection
@@ -77,7 +78,7 @@ type JetStoreStackComponents struct {
 	UiTaskContainer         awsecs.ContainerDefinition
 	EcsUiService            awsecs.FargateService
 
-	UiLoadBalancer      awselb.ApplicationLoadBalancer
+	UiLoadBalancer awselb.ApplicationLoadBalancer
 
 	StatusUpdateLambda        awslambdago.GoFunction
 	RunReportsLambda          awslambdago.GoFunction
@@ -118,4 +119,28 @@ func GetS3SchemaTriggersPrefix() string {
 		return prefix
 	}
 	return strings.Replace(os.Getenv("JETS_s3_INPUT_PREFIX"), "/input", "/schema_triggers", 1)
+}
+
+func (jsComp *JetStoreStackComponents) ResolveExternalBuckets(stack awscdk.Stack)  {
+	externalBuckets := os.Getenv("EXTERNAL_BUCKETS")
+	if externalBuckets == "" {
+		return
+	}
+	bucketNames := strings.Split(externalBuckets, ",")
+	jsComp.ExternalBuckets = make([]awss3.IBucket, 0)
+	for i, bucketName := range bucketNames {
+		b := awss3.Bucket_FromBucketName(stack, jsii.String(fmt.Sprintf("ExternalBucket%d", i)), jsii.String(bucketName))
+		if b != nil {
+			jsComp.ExternalBuckets = append(jsComp.ExternalBuckets, b)
+		}
+	}
+}
+
+func (jsComp *JetStoreStackComponents) GrantReadWriteFromExternalBuckets(stack awscdk.Stack, identity awsiam.IGrantable) {
+	if jsComp.ExternalBuckets == nil {
+		return 
+	}
+	for _, ibucket := range jsComp.ExternalBuckets {
+		ibucket.GrantReadWrite(identity, nil)
+	}
 }
