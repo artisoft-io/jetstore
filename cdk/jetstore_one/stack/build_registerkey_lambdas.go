@@ -198,13 +198,17 @@ func (jsComp *JetStoreStackComponents) BuildRegisterKeyLambdas(scope constructs.
 				Target:         jsComp.SqsRegisterKeyLambda,
 			})
 		}
-		kmsArn := os.Getenv("JETS_S3_KMS_KEY_ARN")
-		if len(kmsArn) > 0 {
-			// Provide the ability to use the kms key
-			jsComp.SqsRegisterKeyLambda.AddToRolePolicy(awsiam.NewPolicyStatement(&awsiam.PolicyStatementProps{
-				Actions:   jsii.Strings("kms:Encrypt", "kms:Decrypt", "kms:DescribeKey"),
-				Resources: jsii.Strings(kmsArn),
-			}))
+		if jsComp.ExternalKmsKey != nil {
+			jsComp.ExternalKmsKey.GrantEncryptDecrypt(jsComp.SqsRegisterKeyLambda)
 		}
+		// kmsArn := os.Getenv("JETS_S3_KMS_KEY_ARN")
+		// if len(kmsArn) > 0 {
+		// 	// Provide the ability to use the kms key
+		// 	kmsKey := awskms.Key_FromKeyArn(stack, jsii.String("existingKmsKey"), jsii.String(kmsArn))
+		// 	jsComp.SqsRegisterKeyLambda.AddToRolePolicy(awsiam.NewPolicyStatement(&awsiam.PolicyStatementProps{
+		// 		Actions:   jsii.Strings("kms:Encrypt", "kms:Decrypt", "kms:DescribeKey"),
+		// 		Resources: jsii.Strings(kmsArn),
+		// 	}))
+		// }
 	}
 }

@@ -10,6 +10,7 @@ import (
 	"github.com/aws/aws-cdk-go/awscdk/v2/awsecs"
 	awselb "github.com/aws/aws-cdk-go/awscdk/v2/awselasticloadbalancingv2"
 	"github.com/aws/aws-cdk-go/awscdk/v2/awsiam"
+	"github.com/aws/aws-cdk-go/awscdk/v2/awskms"
 	"github.com/aws/aws-cdk-go/awscdk/v2/awsrds"
 	"github.com/aws/aws-cdk-go/awscdk/v2/awss3"
 	awssm "github.com/aws/aws-cdk-go/awscdk/v2/awssecretsmanager"
@@ -50,8 +51,10 @@ type JetStoreStackComponents struct {
 	AdminPwdSecret      awssm.Secret
 	EncryptionKeySecret awssm.Secret
 
-	SourceBucket            awss3.IBucket
-	ExternalBuckets         []awss3.IBucket
+	SourceBucket    awss3.IBucket
+	ExternalBuckets []awss3.IBucket
+	ExternalKmsKey  awskms.IKey
+
 	Vpc                     awsec2.Vpc
 	PublicSubnetSelection   *awsec2.SubnetSelection
 	PrivateSubnetSelection  *awsec2.SubnetSelection
@@ -121,7 +124,7 @@ func GetS3SchemaTriggersPrefix() string {
 	return strings.Replace(os.Getenv("JETS_s3_INPUT_PREFIX"), "/input", "/schema_triggers", 1)
 }
 
-func (jsComp *JetStoreStackComponents) ResolveExternalBuckets(stack awscdk.Stack)  {
+func (jsComp *JetStoreStackComponents) ResolveExternalBuckets(stack awscdk.Stack) {
 	externalBuckets := os.Getenv("EXTERNAL_BUCKETS")
 	if externalBuckets == "" {
 		return
@@ -136,9 +139,17 @@ func (jsComp *JetStoreStackComponents) ResolveExternalBuckets(stack awscdk.Stack
 	}
 }
 
+func (jsComp *JetStoreStackComponents) ResolveExternalKmsKey(stack awscdk.Stack) {
+  kmsArn := os.Getenv("JETS_S3_KMS_KEY_ARN")
+  if len(kmsArn) > 0 {
+    // Provide the ability to use the kms key
+    jsComp.ExternalKmsKey = awskms.Key_FromKeyArn(stack, jsii.String("existingKmsKey"), jsii.String(kmsArn))
+  }
+}
+
 func (jsComp *JetStoreStackComponents) GrantReadWriteFromExternalBuckets(stack awscdk.Stack, identity awsiam.IGrantable) {
 	if jsComp.ExternalBuckets == nil {
-		return 
+		return
 	}
 	for _, ibucket := range jsComp.ExternalBuckets {
 		ibucket.GrantReadWrite(identity, nil)

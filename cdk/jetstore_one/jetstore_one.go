@@ -75,6 +75,7 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 	}
 	// Identify external buckets for exchanging data with external systems
 	jsComp.ResolveExternalBuckets(stack)
+	jsComp.ResolveExternalKmsKey(stack)
 
 	// Build Secrets
 	//	- ApiSecret
