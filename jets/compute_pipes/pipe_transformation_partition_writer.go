@@ -83,7 +83,7 @@ func (ctx *PartitionWriterTransformationPipe) apply(input *[]interface{}) error 
 
 	// Check if partition is complete, if so close current output channel and start a new one
 	if (ctx.rowCountPerPartition > 0 && ctx.partitionRowCount >= ctx.rowCountPerPartition) ||
-	   (ctx.samplingMaxCount > 0 && ctx.totalRowCount+ctx.partitionRowCount >= int64(ctx.samplingMaxCount)) {
+		(ctx.samplingMaxCount > 0 && ctx.totalRowCount+ctx.partitionRowCount >= int64(ctx.samplingMaxCount)) {
 		close(ctx.currentDeviceCh)
 		ctx.currentDeviceCh = nil
 		ctx.totalRowCount += ctx.partitionRowCount
@@ -156,7 +156,6 @@ func (ctx *PartitionWriterTransformationPipe) apply(input *[]interface{}) error 
 		}
 	}
 	ctx.samplingCount = 0
-
 
 	// currentValue is either the input row or a new row based on ctx.NewRecord flag
 	var currentValues *[]interface{}
@@ -266,7 +265,9 @@ func (ctx *BuilderContext) NewPartitionWriterTransformationPipe(source *InputCha
 	config := spec.PartitionWriterConfig
 	// log.Println("NewPartitionWriterTransformationPipe called for partition key:",jetsPartitionKey)
 	if jetsPartitionKey == nil && config.JetsPartitionKey != nil {
-		if strings.Contains(*config.JetsPartitionKey, "$") {
+		lc := 0
+		for strings.Contains(*config.JetsPartitionKey, "$") && lc < 5 && ctx.env != nil {
+			lc += 1
 			for k, v := range ctx.env {
 				value, ok := v.(string)
 				if ok {
@@ -392,7 +393,9 @@ func (ctx *BuilderContext) NewPartitionWriterTransformationPipe(source *InputCha
 
 func doSubstitution(value, jetsPartitionLabel string, s3OutputLocation string,
 	env map[string]interface{}) string {
-	if strings.Contains(value, "$") {
+	lc := 0
+	for strings.Contains(value, "$") && lc < 5 && env != nil {
+		lc += 1
 		for key, v := range env {
 			vv, ok := v.(string)
 			if ok {
@@ -402,9 +405,7 @@ func doSubstitution(value, jetsPartitionLabel string, s3OutputLocation string,
 				break
 			}
 		}
-		if strings.Contains(value, "$") {
-			value = strings.ReplaceAll(value, "$CURRENT_PARTITION_LABEL", jetsPartitionLabel)
-		}
+		value = strings.ReplaceAll(value, "$CURRENT_PARTITION_LABEL", jetsPartitionLabel)
 	}
 	if s3OutputLocation == "jetstore_s3_output" {
 		value = strings.ReplaceAll(value, jetsS3InputPrefix, jetsS3OutputPrefix)

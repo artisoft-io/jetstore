@@ -175,11 +175,16 @@ type OutputFileSpec struct {
 	// OutputLocation: jetstore_s3_input, jetstore_s3_output (default)
 	// KeyPrefix is optional, default to input file key path
 	// Name is file name (required)
-	// Headers overrides the headers from the input_channel's spec
+	// Headers overrides the headers from the input_channel's spec or
+	// from the schema_provider
+	// Schema provider indicates if put the header line or not
+	// The input channel's schema provider indicates what delimiter
+	// to use on the header line.
 	Key            string   `json:"key"`
 	Name           string   `json:"name"`
 	KeyPrefix      string   `json:"key_prefix"`
 	OutputLocation string   `json:"output_location"`
+	SchemaProvider string   `json:"schema_provider"`
 	Headers        []string `json:"headers"`
 }
 

@@ -174,7 +174,9 @@ func (cpCtx *ComputePipesContext) StartComputePipes(dbpool *pgxpool.Pool, comput
 	// Prepare the output tables
 	for i := range cpCtx.CpConfig.OutputTables {
 		tableName := cpCtx.CpConfig.OutputTables[i].Name
-		if strings.Contains(tableName, "$") {
+		lc := 0
+		for strings.Contains(tableName, "$") && lc < 5 && cpCtx.EnvSettings != nil {
+			lc += 1
 			for k, v := range cpCtx.EnvSettings {
 				value, ok := v.(string)
 				if ok {
