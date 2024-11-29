@@ -260,4 +260,7 @@ func (jsComp *JetStoreStackComponents) BuildCpipesSM(scope constructs.Construct,
 	jsComp.SourceBucket.GrantReadWrite(jsComp.CpipesSM.Role(), nil)
 	jsComp.GrantReadWriteFromExternalBuckets(stack, jsComp.CpipesSM.Role())
 	jsComp.RdsSecret.GrantRead(jsComp.CpipesSM.Role(), nil)
+	if jsComp.ExternalKmsKey != nil {
+		jsComp.ExternalKmsKey.GrantEncryptDecrypt(jsComp.CpipesSM.Role())
+	}
 }

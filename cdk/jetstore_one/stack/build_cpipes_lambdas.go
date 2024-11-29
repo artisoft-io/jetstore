@@ -75,15 +75,15 @@ func (jsComp *JetStoreStackComponents) BuildCpipesLambdas(scope constructs.Const
 			"NBR_SHARDS":                               jsii.String(props.NbrShards),
 			"ENVIRONMENT":                              jsii.String(os.Getenv("ENVIRONMENT")),
 			//NOTE: SET WORKSPACES_HOME HERE - lambda function uses a local temp
-			"WORKSPACES_HOME":                          jsii.String("/tmp/jetstore/workspaces"),
-			"WORKSPACE":                                jsii.String(os.Getenv("WORKSPACE")),
+			"WORKSPACES_HOME": jsii.String("/tmp/jetstore/workspaces"),
+			"WORKSPACE":       jsii.String(os.Getenv("WORKSPACE")),
 		},
 		MemorySize:           jsii.Number(memLimit),
 		EphemeralStorageSize: awscdk.Size_Mebibytes(jsii.Number(2048)),
 		Timeout:              awscdk.Duration_Minutes(jsii.Number(15)),
 		Vpc:                  jsComp.Vpc,
 		VpcSubnets:           jsComp.IsolatedSubnetSelection,
-		// InitialPolicy: &[]awsiam.PolicyStatement{			
+		// InitialPolicy: &[]awsiam.PolicyStatement{
 		// },
 	})
 	if phiTagName != nil {
@@ -99,6 +99,9 @@ func (jsComp *JetStoreStackComponents) BuildCpipesLambdas(scope constructs.Const
 	jsComp.RdsSecret.GrantRead(jsComp.CpipesNodeLambda, nil)
 	jsComp.SourceBucket.GrantReadWrite(jsComp.CpipesNodeLambda, nil)
 	jsComp.GrantReadWriteFromExternalBuckets(stack, jsComp.CpipesNodeLambda)
+	if jsComp.ExternalKmsKey != nil {
+		jsComp.ExternalKmsKey.GrantEncryptDecrypt(jsComp.CpipesNodeLambda)
+	}
 
 	// CpipesStartShardingLambda
 	jsComp.CpipesStartShardingLambda = awslambdago.NewGoFunction(stack, jsii.String("CpipesStartShardingLambda"), &awslambdago.GoFunctionProps{
@@ -128,13 +131,13 @@ func (jsComp *JetStoreStackComponents) BuildCpipesLambdas(scope constructs.Const
 			"NBR_SHARDS":                               jsii.String(props.NbrShards),
 			"ENVIRONMENT":                              jsii.String(os.Getenv("ENVIRONMENT")),
 			//NOTE: SET WORKSPACES_HOME HERE - lambda function uses a local temp
-			"WORKSPACES_HOME":                          jsii.String("/tmp/jetstore/workspaces"),
-			"WORKSPACE":                                jsii.String(os.Getenv("WORKSPACE")),
+			"WORKSPACES_HOME": jsii.String("/tmp/jetstore/workspaces"),
+			"WORKSPACE":       jsii.String(os.Getenv("WORKSPACE")),
 		},
-		MemorySize: jsii.Number(128),
-		Timeout:    awscdk.Duration_Minutes(jsii.Number(15)),
-		Vpc:        jsComp.Vpc,
-		VpcSubnets: jsComp.PrivateSubnetSelection,
+		MemorySize:     jsii.Number(128),
+		Timeout:        awscdk.Duration_Minutes(jsii.Number(15)),
+		Vpc:            jsComp.Vpc,
+		VpcSubnets:     jsComp.PrivateSubnetSelection,
 		SecurityGroups: &[]awsec2.ISecurityGroup{jsComp.PrivateSecurityGroup},
 	})
 	if phiTagName != nil {
@@ -150,6 +153,9 @@ func (jsComp *JetStoreStackComponents) BuildCpipesLambdas(scope constructs.Const
 	jsComp.RdsSecret.GrantRead(jsComp.CpipesStartShardingLambda, nil)
 	jsComp.SourceBucket.GrantReadWrite(jsComp.CpipesStartShardingLambda, nil)
 	jsComp.GrantReadWriteFromExternalBuckets(stack, jsComp.CpipesStartShardingLambda)
+	if jsComp.ExternalKmsKey != nil {
+		jsComp.ExternalKmsKey.GrantEncryptDecrypt(jsComp.CpipesStartShardingLambda)
+	}
 
 	// CpipesStartReducingLambda
 	jsComp.CpipesStartReducingLambda = awslambdago.NewGoFunction(stack, jsii.String("CpipesStartReducingLambda"), &awslambdago.GoFunctionProps{
@@ -179,8 +185,8 @@ func (jsComp *JetStoreStackComponents) BuildCpipesLambdas(scope constructs.Const
 			"NBR_SHARDS":                               jsii.String(props.NbrShards),
 			"ENVIRONMENT":                              jsii.String(os.Getenv("ENVIRONMENT")),
 			//NOTE: SET WORKSPACES_HOME HERE - lambda function uses a local temp
-			"WORKSPACES_HOME":                          jsii.String("/tmp/jetstore/workspaces"),
-			"WORKSPACE":                                jsii.String(os.Getenv("WORKSPACE")),
+			"WORKSPACES_HOME": jsii.String("/tmp/jetstore/workspaces"),
+			"WORKSPACE":       jsii.String(os.Getenv("WORKSPACE")),
 		},
 		MemorySize: jsii.Number(128),
 		Timeout:    awscdk.Duration_Minutes(jsii.Number(15)),
@@ -200,4 +206,7 @@ func (jsComp *JetStoreStackComponents) BuildCpipesLambdas(scope constructs.Const
 	jsComp.RdsSecret.GrantRead(jsComp.CpipesStartReducingLambda, nil)
 	jsComp.SourceBucket.GrantReadWrite(jsComp.CpipesStartReducingLambda, nil)
 	jsComp.GrantReadWriteFromExternalBuckets(stack, jsComp.CpipesStartReducingLambda)
+	if jsComp.ExternalKmsKey != nil {
+		jsComp.ExternalKmsKey.GrantEncryptDecrypt(jsComp.CpipesStartReducingLambda)
+	}
 }

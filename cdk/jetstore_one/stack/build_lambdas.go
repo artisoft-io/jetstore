@@ -131,6 +131,9 @@ func (jsComp *JetStoreStackComponents) BuildLambdas(scope constructs.Construct, 
 	jsComp.RdsSecret.GrantRead(jsComp.RunReportsLambda, nil)
 	jsComp.SourceBucket.GrantReadWrite(jsComp.RunReportsLambda, nil)
 	jsComp.GrantReadWriteFromExternalBuckets(stack, jsComp.RunReportsLambda)
+	if jsComp.ExternalKmsKey != nil {
+		jsComp.ExternalKmsKey.GrantEncryptDecrypt(jsComp.RunReportsLambda)
+	}
 
 	// Purge Data lambda function
 	// --------------------------------------------------------------------------------------------------------------

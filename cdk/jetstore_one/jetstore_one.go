@@ -227,6 +227,9 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 	}))
 	jsComp.SourceBucket.GrantReadWrite(jsComp.EcsTaskRole, nil)
 	jsComp.GrantReadWriteFromExternalBuckets(stack, jsComp.EcsTaskRole)
+	if jsComp.ExternalKmsKey != nil {
+		jsComp.ExternalKmsKey.GrantEncryptDecrypt(jsComp.EcsTaskRole)
+	}
 
 	// JetStore Image from ecr -- referenced in most tasks
 	jsComp.JetStoreImage = awsecs.AssetImage_FromEcrRepository(
