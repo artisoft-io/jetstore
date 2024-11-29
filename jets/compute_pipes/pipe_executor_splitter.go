@@ -94,7 +94,9 @@ func (ctx *BuilderContext) StartSplitterPipe(spec *PipeSpec, source *InputChanne
 		spliterColumnIdx = -1
 	}
 	if len(config.DefaultSplitterValue) > 0 {
-		if strings.Contains(config.DefaultSplitterValue, "$") {
+		lc := 0
+		for strings.Contains(config.DefaultSplitterValue, "$") && lc < 5 && ctx.env != nil {
+			lc += 1
 			for key, v := range ctx.env {
 				value, ok := v.(string)
 				if ok {

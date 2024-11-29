@@ -98,6 +98,7 @@ func (jsComp *JetStoreStackComponents) BuildCpipesLambdas(scope constructs.Const
 	jsComp.CpipesNodeLambda.Connections().AllowTo(jsComp.RdsCluster, awsec2.Port_Tcp(jsii.Number(5432)), jsii.String("Allow connection from CpipesNodeLambda"))
 	jsComp.RdsSecret.GrantRead(jsComp.CpipesNodeLambda, nil)
 	jsComp.SourceBucket.GrantReadWrite(jsComp.CpipesNodeLambda, nil)
+	jsComp.GrantReadWriteFromExternalBuckets(stack, jsComp.CpipesNodeLambda)
 
 	// CpipesStartShardingLambda
 	jsComp.CpipesStartShardingLambda = awslambdago.NewGoFunction(stack, jsii.String("CpipesStartShardingLambda"), &awslambdago.GoFunctionProps{
@@ -148,6 +149,7 @@ func (jsComp *JetStoreStackComponents) BuildCpipesLambdas(scope constructs.Const
 	jsComp.CpipesStartShardingLambda.Connections().AllowTo(jsComp.RdsCluster, awsec2.Port_Tcp(jsii.Number(5432)), jsii.String("Allow connection from CpipesStartShardingLambda"))
 	jsComp.RdsSecret.GrantRead(jsComp.CpipesStartShardingLambda, nil)
 	jsComp.SourceBucket.GrantReadWrite(jsComp.CpipesStartShardingLambda, nil)
+	jsComp.GrantReadWriteFromExternalBuckets(stack, jsComp.CpipesStartShardingLambda)
 
 	// CpipesStartReducingLambda
 	jsComp.CpipesStartReducingLambda = awslambdago.NewGoFunction(stack, jsii.String("CpipesStartReducingLambda"), &awslambdago.GoFunctionProps{
@@ -197,5 +199,5 @@ func (jsComp *JetStoreStackComponents) BuildCpipesLambdas(scope constructs.Const
 	jsComp.CpipesStartReducingLambda.Connections().AllowTo(jsComp.RdsCluster, awsec2.Port_Tcp(jsii.Number(5432)), jsii.String("Allow connection from CpipesStartReducingLambda"))
 	jsComp.RdsSecret.GrantRead(jsComp.CpipesStartReducingLambda, nil)
 	jsComp.SourceBucket.GrantReadWrite(jsComp.CpipesStartReducingLambda, nil)
-
+	jsComp.GrantReadWriteFromExternalBuckets(stack, jsComp.CpipesStartReducingLambda)
 }

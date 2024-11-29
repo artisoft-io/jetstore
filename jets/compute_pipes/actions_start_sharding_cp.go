@@ -132,7 +132,9 @@ func (args *StartComputePipesArgs) StartShardingComputePipes(ctx context.Context
 	// Update output table schema
 	for i := range cpConfig.OutputTables {
 		tableName := cpConfig.OutputTables[i].Name
-		if strings.Contains(tableName, "$") && cpConfig.Context != nil {
+		lc := 0
+		for strings.Contains(tableName, "$") && lc < 5 && cpConfig.Context != nil {
+			lc += 1
 			for i := range *cpConfig.Context {
 				if (*cpConfig.Context)[i].Type == "value" {
 					key := (*cpConfig.Context)[i].Key

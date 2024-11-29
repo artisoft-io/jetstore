@@ -59,10 +59,7 @@ func (jsComp *JetStoreStackComponents) BuildRegisterKeyLambdas(scope constructs.
 			"ENVIRONMENT":                              jsii.String(os.Getenv("ENVIRONMENT")),
 			"WORKSPACES_HOME":                          jsii.String("/tmp/jetstore/workspaces"),
 			"WORKSPACE":                                jsii.String(os.Getenv("WORKSPACE")),
-			// Specific env for sqs register key events
-			"EXTERNAL_BUCKET":         jsii.String(os.Getenv("EXTERNAL_BUCKET")),
-			"EXTERNAL_S3_KMS_KEY_ARN": jsii.String(os.Getenv("EXTERNAL_S3_KMS_KEY_ARN")),
-			"EXTERNAL_SQS_ARN":        jsii.String(os.Getenv("EXTERNAL_SQS_ARN")),
+			"EXTERNAL_SQS_ARN":                         jsii.String(os.Getenv("EXTERNAL_SQS_ARN")),
 		},
 		MemorySize:     jsii.Number(128),
 		Timeout:        awscdk.Duration_Seconds(jsii.Number(900)),
@@ -98,11 +95,36 @@ func (jsComp *JetStoreStackComponents) BuildRegisterKeyLambdas(scope constructs.
 	jsComp.SourceBucket.AddEventNotification(awss3.EventType_OBJECT_CREATED, awss3n.NewLambdaDestination(jsComp.RegisterKeyV2Lambda), &awss3.NotificationKeyFilter{
 		Prefix: jsii.String(GetS3SchemaTriggersPrefix()),
 	})
+	kmsArn := os.Getenv("JETS_S3_KMS_KEY_ARN")
+	if len(kmsArn) > 0 {
+		// Provide the ability to use the kms key
+		jsComp.RegisterKeyV2Lambda.AddToRolePolicy(awsiam.NewPolicyStatement(&awsiam.PolicyStatementProps{
+			Actions:   jsii.Strings("kms:Encrypt", "kms:Decrypt", "kms:DescribeKey"),
+			Resources: jsii.Strings(kmsArn),
+		}))
+	}
 	// END Create a Lambda function to register File Keys with JetStore DB
 
 	// Lambda Function for client-specific integration for Register Key from SQS Event or other
 	lambdaEntry := os.Getenv("JETS_SQS_REGISTER_KEY_LAMBDA_ENTRY")
 	if len(lambdaEntry) > 0 {
+		// Check if we attach it to a vpc
+		var sqsVpc awsec2.IVpc
+		var sqsVpcSubnets *awsec2.SubnetSelection
+		var sqsSecurityGroups *[]awsec2.ISecurityGroup
+		sqsVpcId := os.Getenv("JETS_SQS_REGISTER_KEY_VPC_ID")
+		if len(sqsVpcId) > 0 {
+			sqsVpc = awsec2.Vpc_FromLookup(stack, jsii.String("SqsRegisterKeyVpc"), &awsec2.VpcLookupOptions{
+				VpcId: jsii.String(sqsVpcId),
+			})
+			sqsVpcSubnets = jsComp.PrivateSubnetSelection
+			sqsSGId := os.Getenv("JETS_SQS_REGISTER_KEY_SG_ID")
+			if len(sqsSGId) > 0 {
+				sqsSecurityGroups = &[]awsec2.ISecurityGroup{
+					awsec2.SecurityGroup_FromLookupById(stack, jsii.String("SqsRegisterKeySG"), jsii.String(sqsSGId))}
+			}
+		}
+
 		jsComp.SqsRegisterKeyLambda = awslambdago.NewGoFunction(stack, jsii.String("SqsRegisterKeyLambda"), &awslambdago.GoFunctionProps{
 			Description: jsii.String("JetStore One Lambda function to Register File Key from SQS Events"),
 			Runtime:     awslambda.Runtime_PROVIDED_AL2023(),
@@ -143,14 +165,13 @@ func (jsComp *JetStoreStackComponents) BuildRegisterKeyLambdas(scope constructs.
 				"ENVIRONMENT":                              jsii.String(os.Getenv("ENVIRONMENT")),
 				"WORKSPACES_HOME":                          jsii.String("/tmp/jetstore/workspaces"),
 				"WORKSPACE":                                jsii.String(os.Getenv("WORKSPACE")),
-				// Specific env for sqs register key events
-				"EXTERNAL_BUCKET":         jsii.String(os.Getenv("EXTERNAL_BUCKET")),
-				"EXTERNAL_S3_KMS_KEY_ARN": jsii.String(os.Getenv("EXTERNAL_S3_KMS_KEY_ARN")),
-				"EXTERNAL_SQS_ARN":        jsii.String(os.Getenv("EXTERNAL_SQS_ARN")),
 			},
 			MemorySize: jsii.Number(128),
 			// EphemeralStorageSize: awscdk.Size_Mebibytes(jsii.Number(2048)),
-			Timeout: awscdk.Duration_Minutes(jsii.Number(15)),
+			Timeout:        awscdk.Duration_Minutes(jsii.Number(15)),
+			Vpc:            sqsVpc,
+			VpcSubnets:     sqsVpcSubnets,
+			SecurityGroups: sqsSecurityGroups,
 		})
 		if phiTagName != nil {
 			awscdk.Tags_Of(jsComp.SqsRegisterKeyLambda).Add(phiTagName, jsii.String("false"), nil)
@@ -162,24 +183,32 @@ func (jsComp *JetStoreStackComponents) BuildRegisterKeyLambdas(scope constructs.
 			awscdk.Tags_Of(jsComp.SqsRegisterKeyLambda).Add(descriptionTagName, jsii.String("JetStore lambda for sqs events"), nil)
 		}
 		jsComp.SourceBucket.GrantReadWrite(jsComp.SqsRegisterKeyLambda, nil)
-	}
-	sqsArn := os.Getenv("EXTERNAL_SQS_ARN")
-	if len(sqsArn) > 0 && jsComp.SqsRegisterKeyLambda != nil {
-		// Provide the ability to read sqs queue
-		jsComp.SqsRegisterKeyLambda.AddToRolePolicy(awsiam.NewPolicyStatement(&awsiam.PolicyStatementProps{
-			Actions: &[]*string{
-				jsii.String("sqs:DeleteMessage"),
-				jsii.String("sqs:ReceiveMessage"),
-				jsii.String("sqs:GetQueueAttributes"),
-			},
-			Resources: jsii.Strings(sqsArn),
-		}))
-		// Setup the sqs event trigger
-		awslambda.NewEventSourceMapping(stack, jsii.String("SqsEventSource4Lambda"), &awslambda.EventSourceMappingProps{
-			BatchSize:      jsii.Number(1),
-			Enabled:        jsii.Bool(true),
-			EventSourceArn: jsii.String(sqsArn),
-			Target:         jsComp.SqsRegisterKeyLambda,
-		})
+		sqsArn := os.Getenv("EXTERNAL_SQS_ARN")
+		if len(sqsArn) > 0 {
+			// Provide the ability to read sqs queue
+			jsComp.SqsRegisterKeyLambda.AddToRolePolicy(awsiam.NewPolicyStatement(&awsiam.PolicyStatementProps{
+				Actions:   jsii.Strings("sqs:DeleteMessage", "sqs:ReceiveMessage", "sqs:GetQueueAttributes"),
+				Resources: jsii.Strings(sqsArn),
+			}))
+			// Setup the sqs event trigger
+			awslambda.NewEventSourceMapping(stack, jsii.String("SqsEventSource4Lambda"), &awslambda.EventSourceMappingProps{
+				BatchSize:      jsii.Number(1),
+				Enabled:        jsii.Bool(true),
+				EventSourceArn: jsii.String(sqsArn),
+				Target:         jsComp.SqsRegisterKeyLambda,
+			})
+		}
+		if jsComp.ExternalKmsKey != nil {
+			jsComp.ExternalKmsKey.GrantEncryptDecrypt(jsComp.SqsRegisterKeyLambda)
+		}
+		// kmsArn := os.Getenv("JETS_S3_KMS_KEY_ARN")
+		// if len(kmsArn) > 0 {
+		// 	// Provide the ability to use the kms key
+		// 	kmsKey := awskms.Key_FromKeyArn(stack, jsii.String("existingKmsKey"), jsii.String(kmsArn))
+		// 	jsComp.SqsRegisterKeyLambda.AddToRolePolicy(awsiam.NewPolicyStatement(&awsiam.PolicyStatementProps{
+		// 		Actions:   jsii.Strings("kms:Encrypt", "kms:Decrypt", "kms:DescribeKey"),
+		// 		Resources: jsii.Strings(kmsArn),
+		// 	}))
+		// }
 	}
 }

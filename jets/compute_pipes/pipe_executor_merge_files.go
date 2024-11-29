@@ -59,8 +59,15 @@ func (cpCtx *ComputePipesContext) StartMergeFiles(dbpool *pgxpool.Pool) (cpErr e
 	// outputFileConfig.Name is the file name (required)
 	var fileFolder string
 	fileName := outputFileConfig.Name
-	for k, v := range cpCtx.EnvSettings {
-		fileName = strings.ReplaceAll(fileName, k, fmt.Sprintf("%v", v))
+	lc := 0
+	for strings.Contains(fileName, "$") && lc < 5 && cpCtx.EnvSettings != nil {
+		lc += 1
+		for key, v := range cpCtx.EnvSettings {
+			value, ok := v.(string)
+			if ok {
+				fileName = strings.ReplaceAll(fileName, key, value)
+			}
+		}
 	}
 	if len(outputFileConfig.KeyPrefix) > 0 {
 		fileFolder = doSubstitution(
@@ -75,20 +82,29 @@ func (cpCtx *ComputePipesContext) StartMergeFiles(dbpool *pgxpool.Pool) (cpErr e
 
 	// Create a reader to stream the data to s3
 	compression := pipeSpec.InputChannel.Compression
-	sp := cpCtx.SchemaManager.GetSchemaProvider(pipeSpec.InputChannel.SchemaProvider)
-	if len(compression) == 0 {
-		compression = sp.Compression()
+	inputSp := cpCtx.SchemaManager.GetSchemaProvider(pipeSpec.InputChannel.SchemaProvider)
+	if len(compression) == 0 && inputSp != nil {
+		compression = inputSp.Compression()
 	}
-	if len(outputFileConfig.Headers) == 0 {
-		if sp == nil {
+	outputSp := cpCtx.SchemaManager.GetSchemaProvider(outputFileConfig.SchemaProvider)
+	writeHeaders := true
+	if outputSp != nil && outputSp.InputFormat() != "csv" {
+		writeHeaders = false
+	}
+	if len(outputFileConfig.Headers) == 0 && writeHeaders{
+		if inputSp == nil {
 			cpErr = fmt.Errorf(
 				"error: merge_files operator using output_file %s has no headers or schema_provider defined",
 				outputFileConfig.Key)
 			return
 		}
-		outputFileConfig.Headers = sp.ColumnNames()
+		outputFileConfig.Headers = inputSp.ColumnNames()
 	}
-	r := cpCtx.NewMergeFileReader(outputFileConfig.Headers, compression)
+	var delimit rune
+	if inputSp != nil {
+		delimit = inputSp.Delimiter()
+	}
+	r := cpCtx.NewMergeFileReader(outputFileConfig.Headers, writeHeaders, delimit, compression)
 
 	// put content of file to s3
 	if err := awsi.UploadToS3FromReader(outputS3FileKey, r); err != nil {
@@ -113,10 +129,14 @@ type MergeFileReader struct {
 	cpCtx         *ComputePipesContext
 }
 
-func (cpCtx *ComputePipesContext) NewMergeFileReader(headers []string, compression string) io.Reader {
+func (cpCtx *ComputePipesContext) NewMergeFileReader(headers []string, writeHeaders bool, delimit rune, compression string) io.Reader {
 	var h []byte
-	if len(headers) > 0 {
-		v := fmt.Sprintf("%s\n", strings.Join(headers, ","))
+	if len(headers) > 0 && writeHeaders {
+		sep := ","
+		if delimit > 0 {
+			sep = string(delimit)
+		}
+		v := fmt.Sprintf("%s\n", strings.Join(headers, sep))
 		h = []byte(v)
 	}
 	return &MergeFileReader{

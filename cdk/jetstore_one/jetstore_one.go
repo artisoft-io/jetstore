@@ -16,9 +16,9 @@ import (
 	"github.com/aws/aws-cdk-go/awscdk/v2/awsecs"
 	awselb "github.com/aws/aws-cdk-go/awscdk/v2/awselasticloadbalancingv2"
 	"github.com/aws/aws-cdk-go/awscdk/v2/awsiam"
-	"github.com/aws/aws-cdk-go/awscdk/v2/awssns"
 	"github.com/aws/aws-cdk-go/awscdk/v2/awsrds"
 	"github.com/aws/aws-cdk-go/awscdk/v2/awss3"
+	"github.com/aws/aws-cdk-go/awscdk/v2/awssns"
 	constructs "github.com/aws/constructs-go/constructs/v10"
 	jsii "github.com/aws/jsii-runtime-go"
 )
@@ -73,6 +73,9 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 		ReportsSmArn: fmt.Sprintf("arn:aws:states:%s:%s:stateMachine:%s",
 			os.Getenv("AWS_REGION"), os.Getenv("AWS_ACCOUNT"), *props.MkId("reportsSM")),
 	}
+	// Identify external buckets for exchanging data with external systems
+	jsComp.ResolveExternalBuckets(stack)
+	jsComp.ResolveExternalKmsKey(stack)
 
 	// Build Secrets
 	//	- ApiSecret
@@ -223,6 +226,7 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 		Resources: jsii.Strings("*"),
 	}))
 	jsComp.SourceBucket.GrantReadWrite(jsComp.EcsTaskRole, nil)
+	jsComp.GrantReadWriteFromExternalBuckets(stack, jsComp.EcsTaskRole)
 
 	// JetStore Image from ecr -- referenced in most tasks
 	jsComp.JetStoreImage = awsecs.AssetImage_FromEcrRepository(
@@ -446,7 +450,7 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 // AWS_REGION (required)
 // BASTION_HOST_KEYPAIR_NAME (optional, no keys deployed if not defined)
 // ENVIRONMENT (used by run_report)
-// EXTERNAL_BUCKET (optional, third party bucket to read/write file for cpipes)
+// EXTERNAL_BUCKETS (optional, list of third party buckets to read/write file for cpipes)
 // EXTERNAL_S3_KMS_KEY_ARN (optional, kms key for external bucket)
 // EXTERNAL_SQS_ARN (optional, sqs queue for sqs register key lambda)
 // JETS_ADMIN_EMAIL (optional, email of build-in admin, default: admin)
@@ -492,6 +496,8 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 // JETS_SERVER_SM_TIMEOUT_MIN (optional) state machine timeout for SERVER_SM, default 60 min
 // JETS_SNS_ALARM_TOPIC_ARN (optional, sns topic for sending alarm)
 // JETS_SQS_REGISTER_KEY_LAMBDA_ENTRY (optional, path to handler code for sqs register key lambda)
+// JETS_SQS_REGISTER_KEY_VPC_ID (optional, external vpc to attached the sqs register key lambda)
+// JETS_SQS_REGISTER_KEY_SG_ID (optional, external security group for the sqs register key vpc)
 // JETS_STACK_ID (optional, stack id, default: JetstoreOneStack)
 // JETS_STACK_SUFFIX (optional, component suffix (when JETS_STACK_ID is not part of component id), default no suffix)
 // JETS_STACK_TAGS_JSON (optional, stack-level tags name/value as json)
@@ -571,6 +577,8 @@ func main() {
 	fmt.Println("env JETS_LOADER_TASK_MEM_LIMIT_MB:", os.Getenv("JETS_LOADER_TASK_MEM_LIMIT_MB"))
 	fmt.Println("env JETS_SNS_ALARM_TOPIC_ARN:", os.Getenv("JETS_SNS_ALARM_TOPIC_ARN"))
 	fmt.Println("env JETS_SQS_REGISTER_KEY_LAMBDA_ENTRY:", os.Getenv("JETS_SQS_REGISTER_KEY_LAMBDA_ENTRY"))
+	fmt.Println("env JETS_SQS_REGISTER_KEY_VPC_ID:", os.Getenv("JETS_SQS_REGISTER_KEY_VPC_ID"))
+	fmt.Println("env JETS_SQS_REGISTER_KEY_SG_ID:", os.Getenv("JETS_SQS_REGISTER_KEY_SG_ID"))
 	fmt.Println("env JETS_STACK_ID:", os.Getenv("JETS_STACK_ID"))
 	fmt.Println("env JETS_STACK_SUFFIX:", os.Getenv("JETS_STACK_SUFFIX"))
 	fmt.Println("env JETS_STACK_TAGS_JSON:", os.Getenv("JETS_STACK_TAGS_JSON"))
@@ -593,7 +601,7 @@ func main() {
 	fmt.Println("env WORKSPACE_URI:", os.Getenv("WORKSPACE_URI"))
 	fmt.Println("env WORKSPACE:", os.Getenv("WORKSPACE"))
 	fmt.Println("env WORKSPACES_HOME:", os.Getenv("WORKSPACES_HOME"))
-	fmt.Println("env EXTERNAL_BUCKET:", os.Getenv("EXTERNAL_BUCKET"))
+	fmt.Println("env EXTERNAL_BUCKETS:", os.Getenv("EXTERNAL_BUCKETS"))
 	fmt.Println("env EXTERNAL_S3_KMS_KEY_ARN:", os.Getenv("EXTERNAL_S3_KMS_KEY_ARN"))
 	fmt.Println("env EXTERNAL_SQS_ARN:", os.Getenv("EXTERNAL_SQS_ARN"))
 

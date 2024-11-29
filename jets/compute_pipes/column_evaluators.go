@@ -16,9 +16,20 @@ func (ctx *BuilderContext) parseValue(expr *string) (interface{}, error) {
 	case *expr == "NaN" || *expr == "NAN":
 		value = math.NaN()
 
-	case strings.HasPrefix(*expr, "$"):
-		// value is an env var, e.g. $DATE_FILE_KEY
-		value = ctx.env[*expr]
+	case strings.Contains(*expr, "$"):
+		// value contains an env var, e.g. $DATE_FILE_KEY
+		valueStr := *expr
+		lc := 0
+		for strings.Contains(valueStr, "$") && lc < 3 {
+			lc += 1
+			for k, v := range ctx.env {
+				v, ok := v.(string)
+				if ok {
+					valueStr = strings.ReplaceAll(valueStr, k, v)
+				}
+			}
+		}
+		value = valueStr
 
 	case strings.HasPrefix(*expr, "'"):
 		// value is a string
