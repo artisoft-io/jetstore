@@ -15,7 +15,7 @@ import (
 
 // Compute Pipes Actions
 
-func (args *ComputePipesNodeArgs) CoordinateComputePipes(ctx context.Context, dsn string) error {
+func (args *ComputePipesNodeArgs) CoordinateComputePipes(ctx context.Context, dbpool *pgxpool.Pool) error {
 	var cpErr, err error
 	var inFolderPath string
 	var cpContext *ComputePipesContext
@@ -35,14 +35,6 @@ func (args *ComputePipesNodeArgs) CoordinateComputePipes(ctx context.Context, ds
 	}
 
 	stmt := "SELECT cpipes_config_json FROM jetsapi.cpipes_execution_status WHERE pipeline_execution_status_key = %d"
-
-	// open db connection
-	dbpool, err := pgxpool.Connect(ctx, dsn)
-	if err != nil {
-		cpErr = fmt.Errorf("while opening db connection: %v", err)
-		goto gotError
-	}
-	defer dbpool.Close()
 
 	// Get the cpipes config from cpipes_execution_status
 	err = dbpool.QueryRow(ctx, fmt.Sprintf(stmt, args.PipelineExecKey)).Scan(&cpipesConfigJson)

@@ -3,12 +3,17 @@ package main
 import (
 	"context"
 	"fmt"
+	"log"
+
 	// "log"
 	"os"
 
 	"github.com/artisoft-io/jetstore/jets/awsi"
 	"github.com/artisoft-io/jetstore/jets/compute_pipes"
+	"github.com/artisoft-io/jetstore/jets/dbutils"
+	"github.com/artisoft-io/jetstore/jets/workspace"
 	"github.com/aws/aws-lambda-go/lambda"
+	"github.com/jackc/pgx/v4/pgxpool"
 )
 
 // lambda function to shard or assign file keys to nodes
@@ -28,6 +33,7 @@ var usingSshTunnel bool
 var awsRegion string
 var awsBucket string
 var dsn string
+var dbpool *pgxpool.Pool
 
 func main() {
 	hasErr := false
@@ -74,6 +80,26 @@ func main() {
 		panic("Invalid argument(s)")
 	}
 
+	// open db connection
+	dbpool, err = pgxpool.Connect(context.Background(), dsn)
+	if err != nil {
+		log.Fatalf("while opening db connection: %v", err)
+	}
+	defer dbpool.Close()
+
+	// Sync workspace files
+	// Fetch overriten workspace files if not in dev mode
+	// When in dev mode, the apiserver refreshes the overriten workspace files
+	_, devMode := os.LookupEnv("JETSTORE_DEV_MODE")
+	if !devMode {
+		err = workspace.SyncWorkspaceFiles(dbpool, os.Getenv("WORKSPACE"), dbutils.FO_Open, "workspace.tgz", true, false)
+		if err != nil {
+			log.Panicf("Error while synching workspace file from db:", err)
+		}
+	} else {
+		log.Println("We are in DEV_MODE, do not sync workspace file from db")
+	}
+
 	// log.Println("CP Starter:")
 	// log.Println("-----------")
 	// log.Println("Got argument: awsDsnSecret", awsDsnSecret)
@@ -87,5 +113,5 @@ func main() {
 
 // Compute Pipes Sharding Handler
 func handler(ctx context.Context, arg compute_pipes.StartComputePipesArgs) (compute_pipes.ComputePipesRun, error) {
-	return (&arg).StartReducingComputePipes(ctx, dsn)
+	return (&arg).StartReducingComputePipes(ctx, dbpool)
 }

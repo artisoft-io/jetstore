@@ -11,41 +11,18 @@ import (
 	"strings"
 
 	"github.com/artisoft-io/jetstore/jets/datatable/jcsv"
-	"github.com/artisoft-io/jetstore/jets/dbutils"
-	"github.com/artisoft-io/jetstore/jets/workspace"
 	"github.com/jackc/pgx/v4/pgxpool"
 )
 
 var ErrNoReducingStep = fmt.Errorf("ErrNoReducingStep")
 
-func (args *StartComputePipesArgs) StartReducingComputePipes(ctx context.Context, dsn string) (ComputePipesRun, error) {
+func (args *StartComputePipesArgs) StartReducingComputePipes(ctx context.Context, dbpool *pgxpool.Pool) (ComputePipesRun, error) {
 	var result ComputePipesRun
 	var err error
 	// validate the args
 	if args.FileKey == "" || args.SessionId == "" || args.StepId == nil {
 		log.Println("error: missing file_key or session_id or step_id as input args of StartComputePipes (reducing mode)")
 		return result, fmt.Errorf("error: missing file_key or session_id or step_id as input args of StartComputePipes (reducing mode)")
-	}
-
-	// open db connection
-	dbpool, err := pgxpool.Connect(ctx, dsn)
-	if err != nil {
-		return result, fmt.Errorf("while opening db connection: %v", err)
-	}
-	defer dbpool.Close()
-
-	// Sync workspace files
-	// Fetch overriten workspace files if not in dev mode
-	// When in dev mode, the apiserver refreshes the overriten workspace files
-	_, devMode := os.LookupEnv("JETSTORE_DEV_MODE")
-	if !devMode {
-		err = workspace.SyncWorkspaceFiles(dbpool, wsPrefix, dbutils.FO_Open, "workspace.tgz", true, false)
-		if err != nil {
-			log.Println("Error while synching workspace file from db:", err)
-			return result, fmt.Errorf("while synching workspace file from db: %v", err)
-		}
-	} else {
-		log.Println("We are in DEV_MODE, do not sync workspace file from db")
 	}
 
 	// get pe info and pipeline config
