@@ -12,9 +12,7 @@ import (
 
 	"github.com/artisoft-io/jetstore/jets/datatable"
 	"github.com/artisoft-io/jetstore/jets/datatable/jcsv"
-	"github.com/artisoft-io/jetstore/jets/dbutils"
 	"github.com/artisoft-io/jetstore/jets/schema"
-	"github.com/artisoft-io/jetstore/jets/workspace"
 	"github.com/jackc/pgx/v4/pgxpool"
 )
 
@@ -25,7 +23,7 @@ func init() {
 	wsPrefix = os.Getenv("WORKSPACE")
 }
 
-func (args *StartComputePipesArgs) StartShardingComputePipes(ctx context.Context, dsn string) (ComputePipesRun, error) {
+func (args *StartComputePipesArgs) StartShardingComputePipes(ctx context.Context, dbpool *pgxpool.Pool) (ComputePipesRun, error) {
 	var result ComputePipesRun
 	var err error
 	// validate the args
@@ -49,13 +47,6 @@ func (args *StartComputePipesArgs) StartShardingComputePipes(ctx context.Context
 		datatable.DoNotifyApiGateway(args.FileKey, apiEndpoint, apiEndpointJson, notificationTemplate, customFileKeys, "")
 	}
 
-	// open db connection
-	dbpool, err := pgxpool.Connect(ctx, dsn)
-	if err != nil {
-		return result, fmt.Errorf("while opening db connection: %v", err)
-	}
-	defer dbpool.Close()
-
 	// check the session is not already used
 	// ---------------------------------------
 	isInUse, err := schema.IsSessionExists(dbpool, args.SessionId)
@@ -64,20 +55,6 @@ func (args *StartComputePipesArgs) StartShardingComputePipes(ctx context.Context
 	}
 	if isInUse {
 		return result, fmt.Errorf("error: the session id is already used")
-	}
-
-	// Sync workspace files
-	// Fetch overriten workspace files if not in dev mode
-	// When in dev mode, the apiserver refreshes the overriten workspace files
-	_, devMode := os.LookupEnv("JETSTORE_DEV_MODE")
-	if !devMode {
-		err = workspace.SyncWorkspaceFiles(dbpool, wsPrefix, dbutils.FO_Open, "workspace.tgz", true, false)
-		if err != nil {
-			log.Println("Error while synching workspace file from db:", err)
-			return result, fmt.Errorf("while synching workspace file from db: %v", err)
-		}
-	} else {
-		log.Println("We are in DEV_MODE, do not sync workspace file from db")
 	}
 
 	// get pe info and pipeline config
@@ -482,9 +459,9 @@ func SelectActiveLookupTable(lookupConfig []*LookupSpec, pipeConfig []PipeSpec) 
 				}
 			}
 			// Check for Analyze transformation using lookup tables
-			if transformationSpec.LookupTokens != nil {
-				for k := range *transformationSpec.LookupTokens {
-					lookupTokenNode := &(*transformationSpec.LookupTokens)[k]
+			if transformationSpec.AnalyzeConfig != nil && transformationSpec.AnalyzeConfig.LookupTokens != nil {
+				for k := range *transformationSpec.AnalyzeConfig.LookupTokens {
+					lookupTokenNode := &(*transformationSpec.AnalyzeConfig.LookupTokens)[k]
 					spec := lookupMap[lookupTokenNode.Name]
 					if spec == nil {
 						return nil,

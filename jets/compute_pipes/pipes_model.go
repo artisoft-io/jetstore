@@ -215,22 +215,29 @@ type SplitterSpec struct {
 }
 
 type TransformationSpec struct {
-	// Type range: map_record, aggregate, analyze, high_freq, partition_writer, anonymize, distinct, shuffling
+	// Type range: map_record, aggregate, analyze, high_freq, partition_writer,
+	//	anonymize, distinct, shuffling, group_by, jetrules
 	// DeviceWriterType range: csv_writer, parquet_writer, fixed_width_writer
 	// WriteHeaders / WriteHeaderless takes precedence over SchemaProvider and Format (from OutputChannelConfig)
 	Type                  string                     `json:"type"`
 	NewRecord             bool                       `json:"new_record"`
 	FilePathSubstitutions *[]PathSubstitution        `json:"file_path_substitutions"`
 	Columns               []TransformationColumnSpec `json:"columns"`
-	RegexTokens           *[]RegexNode               `json:"regex_tokens"`      // Type analyze
-	LookupTokens          *[]LookupTokenNode         `json:"lookup_tokens"`     // Type analyze
-	KeywordTokens         *[]KeywordTokenNode        `json:"keyword_tokens"`    // Type analyze
+	AnalyzeConfig         *AnalyzeSpec               `json:"analyze_config"`
 	HighFreqColumns       *[]*HighFreqSpec           `json:"high_freq_columns"` // Type high_freq
 	PartitionWriterConfig *PartitionWriterSpec       `json:"partition_writer_config"`
 	AnonymizeConfig       *AnonymizeSpec             `json:"anonymize_config"`
 	DistinctConfig        *DistinctSpec              `json:"distinct_config"`
 	ShufflingConfig       *ShufflingSpec             `json:"shuffling_config"`
+	GroupByConfig         *GroupBySpec               `json:"group_by_config"`
+	JetrulesConfig        *JetrulesSpec              `json:"jetrules_config"`
 	OutputChannel         OutputChannelConfig        `json:"output_channel"`
+}
+
+type AnalyzeSpec struct {
+	RegexTokens   *[]RegexNode        `json:"regex_tokens"`   // Type analyze
+	LookupTokens  *[]LookupTokenNode  `json:"lookup_tokens"`  // Type analyze
+	KeywordTokens *[]KeywordTokenNode `json:"keyword_tokens"` // Type analyze
 }
 
 type InputChannelConfig struct {
@@ -338,6 +345,26 @@ type DistinctSpec struct {
 type ShufflingSpec struct {
 	MaxInputSampleSize int `json:"max_input_sample_size"`
 	OutputSampleSize   int `json:"output_sample_size"`
+}
+
+// Specify either group_by_name or group_by_pos. group_by_name wins when both are
+// specified. When none is specified, then group by pos 0 is used
+type GroupBySpec struct {
+	GroupByName []string `json:"group_by_name"`
+	GroupByPos  []int    `json:"group_by_pos"`
+}
+
+type JetrulesSpec struct {
+	ProcessName          string               `json:"process_name"`
+	MaxInputCount        int                  `json:"max_input_count"`
+	PoolSize             int                  `json:"pool_size"`
+	MaxReteSessionsSaved int                  `json:"max_rete_sessions_saved"`
+	RuleConfig           []map[string]any     `json:"rule_config"`
+	OutputChannels       []JetrulesOutputSpec `json:"output_channels"`
+}
+type JetrulesOutputSpec struct {
+	ClassName   string `json:"class_name"`
+	ChannelName string `json:"channel_name"`
 }
 
 type TransformationColumnSpec struct {

@@ -88,10 +88,14 @@ func NewLookupTokensState(lookupTbl LookupTable, keyRe string, tokens []string) 
 }
 
 func (ctx *BuilderContext) NewAnalyzeState(columnName string, columnPos int, spec *TransformationSpec) (*AnalyzeState, error) {
+	if spec == nil || spec.AnalyzeConfig == nil {
+		return nil, fmt.Errorf("error: analyse Pipe Transformation spec is missing analyze_config section")
+	}
+
 	regexMatch := make(map[string]*RegexCount)
-	if spec.RegexTokens != nil {
-		for i := range *spec.RegexTokens {
-			conf := &(*spec.RegexTokens)[i]
+	if spec.AnalyzeConfig.RegexTokens != nil {
+		for i := range *spec.AnalyzeConfig.RegexTokens {
+			conf := &(*spec.AnalyzeConfig.RegexTokens)[i]
 			rexp, err := regexp.Compile(conf.Rexpr)
 			if err != nil {
 				return nil, fmt.Errorf("while compiling regex %s: %v", conf.Name, err)
@@ -100,9 +104,9 @@ func (ctx *BuilderContext) NewAnalyzeState(columnName string, columnPos int, spe
 		}
 	}
 	lookupState := make([]*LookupTokensState, 0)
-	if spec.LookupTokens != nil && ctx.lookupTableManager != nil {
-		for i := range *spec.LookupTokens {
-			lookupNode := &(*spec.LookupTokens)[i]
+	if spec.AnalyzeConfig.LookupTokens != nil && ctx.lookupTableManager != nil {
+		for i := range *spec.AnalyzeConfig.LookupTokens {
+			lookupNode := &(*spec.AnalyzeConfig.LookupTokens)[i]
 			lookupTable := ctx.lookupTableManager.LookupTableMap[lookupNode.Name]
 			if lookupTable == nil {
 				return nil, fmt.Errorf("error: lookup table %s not found (NewAlalyzeState)", lookupNode.Name)
@@ -115,9 +119,9 @@ func (ctx *BuilderContext) NewAnalyzeState(columnName string, columnPos int, spe
 		}
 	}
 	keywordMatch := make(map[string]*KeywordCount)
-	if spec.KeywordTokens != nil {
-		for i := range *spec.KeywordTokens {
-			kw := &(*spec.KeywordTokens)[i]
+	if spec.AnalyzeConfig.KeywordTokens != nil {
+		for i := range *spec.AnalyzeConfig.KeywordTokens {
+			kw := &(*spec.AnalyzeConfig.KeywordTokens)[i]
 			keywordMatch[kw.Name] = NewKeywordCount(kw.Name, kw.Keywords)
 		}
 	}
@@ -280,8 +284,8 @@ func (ctx *AnalyzeTransformationPipe) done() error {
 			return fmt.Errorf("error: expecting type *AnalyzeState in AnalyzeTransformationPipe.done()")
 		}
 		var n int
-		for i := range *ctx.spec.LookupTokens {
-			n += len((*ctx.spec.LookupTokens)[i].Tokens)
+		for i := range *ctx.spec.AnalyzeConfig.LookupTokens {
+			n += len((*ctx.spec.AnalyzeConfig.LookupTokens)[i].Tokens)
 		}
 		outputRow := make([]interface{}, len(ctx.outputCh.columns))
 
@@ -411,7 +415,7 @@ func (ctx *AnalyzeTransformationPipe) finally() {}
 
 func (ctx *BuilderContext) NewAnalyzeTransformationPipe(source *InputChannel, outputCh *OutputChannel, spec *TransformationSpec) (*AnalyzeTransformationPipe, error) {
 	var err error
-	if spec == nil || spec.RegexTokens == nil || spec.LookupTokens == nil || spec.KeywordTokens == nil {
+	if spec == nil || spec.AnalyzeConfig.RegexTokens == nil || spec.AnalyzeConfig.LookupTokens == nil || spec.AnalyzeConfig.KeywordTokens == nil {
 		return nil, fmt.Errorf("error: Analyze Pipe Transformation spec is missing regex, lookup, and/or keywords definition")
 	}
 	// Validate the config: must have NewRecord set to true
