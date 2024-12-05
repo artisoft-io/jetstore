@@ -9,6 +9,7 @@ import (
 
 	"github.com/artisoft-io/jetstore/jets/awsi"
 	"github.com/artisoft-io/jetstore/jets/compute_pipes"
+	"github.com/jackc/pgx/v4/pgxpool"
 )
 
 // Compute Pipe Node Executor as a Container Server
@@ -63,11 +64,18 @@ func main() {
 		errMsg = append(errMsg, fmt.Sprintf("while unmarshaling command line json (arguments): %s", err))
 	}
 
+	// open db connection
+	dbpool, err := pgxpool.Connect(context.Background(), dsn)
+	if err != nil {
+		errMsg = append(errMsg, fmt.Sprintf("while opening db connection: %s", err))
+	}
+	defer dbpool.Close()
+
 	if hasErr {
 		for _, msg := range errMsg {
 			fmt.Println("**", msg)
 		}
-		// panic("Invalid argument(s)")
+		panic("Invalid argument(s)")
 	}
 
 	log.Println("CPIPES Server:")
@@ -75,14 +83,8 @@ func main() {
 	log.Println("Got argument: dbPoolSize", dbPoolSize)
 	log.Println("Got argument: awsRegion", awsRegion)
 	log.Println("Got env: JETS_S3_KMS_KEY_ARN", os.Getenv("JETS_S3_KMS_KEY_ARN"))
-
-	// vv, err := json.Marshal(cpArgs)
-	// if err != nil {
-	// 	log.Panic("Invalid json argument")
-	// }
-	// log.Println(string(vv))
 	
-	err = (&cpArgs).CoordinateComputePipes(context.Background(), dsn)
+	err = (&cpArgs).CoordinateComputePipes(context.Background(), dbpool)
 	if err != nil {
 		log.Panicf("cpipes_server: while calling CoordinateComputePipes: %v", err)
 	}
