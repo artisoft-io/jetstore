@@ -3,6 +3,7 @@ package main
 // Test lambda that register file keys from sqs events
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 	"log"
@@ -13,13 +14,17 @@ import (
 	"github.com/aws/aws-lambda-go/lambda"
 )
 
-func handler(event events.SQSEvent) error {
-	for _, record := range event.Records {
-		err := processMessage(record)
-		if err != nil {
-			return err
-		}
-	}
+// func handler(event events.SQSEvent) error {
+func handler(event map[string]any) error {
+	log.Println("event received:")
+	b, _ := json.MarshalIndent(event, "", " ")
+	log.Println(string(b))
+	// for _, record := range event.Records {
+	// 	err := processMessage(record)
+	// 	if err != nil {
+	// 		return err
+	// 	}
+	// }
 	fmt.Println("done")
 	return nil
 }
