@@ -5,6 +5,7 @@ import (
 	"hash"
 	"hash/fnv"
 	"log"
+	"strings"
 	"time"
 
 	"github.com/dolthub/swiss"
@@ -53,6 +54,9 @@ func (ctx *AnonymizeTransformationPipe) apply(input *[]interface{}) error {
 		}
 		switch vv := value.(type) {
 		case string:
+			if strings.ToUpper(vv) == "NULL" {
+				continue
+			}
 			inputStr = vv
 		default:
 			inputStr = fmt.Sprintf("%v", vv)

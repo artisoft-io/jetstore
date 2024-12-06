@@ -146,6 +146,10 @@ func (state *AnalyzeState) NewValue(value interface{}) error {
 	}
 	switch vv := value.(type) {
 	case string:
+		if strings.ToUpper(vv) == "NULL" {
+			state.NullCount += 1
+			return nil	
+		}
 		return state.NewToken(vv)
 	default:
 		return state.NewToken(fmt.Sprintf("%v", value))
