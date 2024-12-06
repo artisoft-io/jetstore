@@ -223,10 +223,16 @@ func extractSessionData(rdfSession *rdf.RdfSession, outChannel *JetrulesOutputCh
 		}
 		// extract entity if we keep it (i.e. not an historical entity)
 		if keepObj {
-			XXX
+
+			// HERE
+			
 		}
 	}
 	ctor.Done()
+
+	// HERE
+
+	return nil
 }
 
 func assertInputRecords(config *JetrulesSpec, source *InputChannel, rdfSession *rdf.RdfSession, inputRecords *[]any) (err error) {
