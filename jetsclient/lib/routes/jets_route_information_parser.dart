@@ -7,7 +7,7 @@ JetsRouteData jetsRoutesParser(String pathFromUrl) {
   final List<String> pathUriList = Uri.parse(pathFromUrl).pathSegments;
 
   if (pathUriList.isEmpty) {
-    return JetsRouteData(homePath);
+    return const JetsRouteData(homePath);
   }
 
   for (var route in jetsRoutesMap.keys) {
@@ -32,7 +32,7 @@ JetsRouteData jetsRoutesParser(String pathFromUrl) {
     }
   }
 
-  return JetsRouteData(pageNotFoundPath);
+  return const JetsRouteData(pageNotFoundPath);
 }
 
 String buildRouteLocation(JetsRouteData route) {

@@ -112,6 +112,26 @@ func (cpCtx *ComputePipesContext) StartComputePipes(dbpool *pgxpool.Pool, comput
 			case "anonymize":
 				outputChannel := &cpCtx.CpConfig.PipesConfig[i].Apply[j].AnonymizeConfig.KeysOutputChannel
 				outputChannels = append(outputChannels, outputChannel)
+			case "jetrules":
+				processName := cpCtx.CpConfig.PipesConfig[i].Apply[j].JetrulesConfig.ProcessName
+				for k := range cpCtx.CpConfig.PipesConfig[i].Apply[j].JetrulesConfig.JetrulesOutput {
+					outputChannel := &cpCtx.CpConfig.PipesConfig[i].Apply[j].JetrulesConfig.JetrulesOutput[k].OutputChannel
+					// Check if the channel spec needs to be created from class info
+					if outputChannel.SpecName == "" || channelsSpec[outputChannel.SpecName] == nil {
+						// Get the channel spec from the workspace class info
+						outputChannel.SpecName = cpCtx.CpConfig.PipesConfig[i].Apply[j].JetrulesConfig.JetrulesOutput[k].ClassName
+						columns, err := GetJetClassProperties(dbpool, outputChannel.SpecName, processName)
+						if err != nil {
+							cpErr = fmt.Errorf("while getting jetrules class properties for output channel %s, %v", outputChannel.SpecName, err)
+							goto gotError
+						}
+						channelsSpec[outputChannel.SpecName] = &ChannelSpec{
+							Name:    outputChannel.SpecName,
+							Columns: columns,
+						}
+					}
+					outputChannels = append(outputChannels, outputChannel)
+				}
 			}
 		}
 	}

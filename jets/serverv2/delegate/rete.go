@@ -305,7 +305,7 @@ func (rw *ReteWorkspace) ExecuteRules(
 				// entities created during the rule session, identified with jets:source_period_sequence is null
 				// Additional Measure: entities with jets:source_period_sequence == 0, must have jets:InputRecord
 				// as rdf:type to ensure it's a mapped entity and not an injected entity.
-				// Note: Do not save the jets:InputEntity marker type
+				// Note: Do not save the jets:InputEntity marker type on the extracted obj.
 				keepObj := true
 				obj, err := rdfSession.GetObject(bridgego.NewResource(subject), ri.jets__source_period_sequence)
 				if err != nil {
@@ -317,12 +317,13 @@ func (rw *ReteWorkspace) ExecuteRules(
 						return &result, fmt.Errorf("range of predicate jets:source_period_sequence is not int for an entity of type %s: %v", tableSpec.TableInfo.ClassName, err)
 					}
 					if v == 0 {
-						// Check if obj has marker type jets:InputRecord, if not don't extract obj
+						// Check if obj has marker type jets:InputRecord, extract obj if it does.
 						isInputRecord, err := rdfSession.Contains(bridgego.NewResource(subject), ri.rdf__type, ri.jets__input_record)
 						if err != nil {
 							return &result, fmt.Errorf("while checking if entity has marker class jets:InputRecord for an entity of type %s: %v", tableSpec.TableInfo.ClassName, err)
 						}
 						if isInputRecord == 0 {
+							// jets:InputEntity marker is missing, don't extract the obj
 							keepObj = false
 						}
 					} else {
