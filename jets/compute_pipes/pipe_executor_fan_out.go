@@ -69,6 +69,10 @@ func (ctx *BuilderContext) StartFanOutPipe(spec *PipeSpec, source *InputChannel,
 				log.Println(cpErr)
 				goto gotError
 			}
+		}
+	}
+	for i := range evaluators {
+		if evaluators[i] != nil {
 			evaluators[i].finally()
 		}
 	}

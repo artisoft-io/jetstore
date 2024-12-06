@@ -22,6 +22,22 @@ func (cpCtx *ComputePipesContext) ProcessFilesAndReportStatus(ctx context.Contex
 		WritePartitionsResultCh: make(chan chan ComputePipesResult, 10),
 		S3PutObjectResultCh:     make(chan ComputePipesResult, 1),
 	}
+	// Check if we have the jetrule operator in the pipes config, if so
+	// create the JetrulesWorkerResultCh channel
+	gotJetrules := false
+	for i := range cpCtx.CpConfig.PipesConfig {
+		for j := range cpCtx.CpConfig.PipesConfig[i].Apply {
+			if cpCtx.CpConfig.PipesConfig[i].Apply[j].Type == "jetrules" {
+				gotJetrules = true
+				goto checkJetrulesDone
+			}
+		}
+	}
+	checkJetrulesDone:
+	if gotJetrules {
+		cpCtx.ChResults.JetrulesWorkerResultCh = make(chan JetrulesWorkerResult, 99)
+	}
+
 
 	key, err := cpCtx.InsertPipelineExecutionStatus(dbpool)
 	if err != nil {
@@ -100,6 +116,26 @@ func (cpCtx *ComputePipesContext) ProcessFilesAndReportStatus(ctx context.Contex
 		}
 	}
 	// log.Println("**!@@ CP RESULT = Loaded from s3: DONE")
+	
+	// get jetrules results from JetrulesWorkerResultCh
+	var reteSessionCount int64
+	var reteSessionErrors int64
+	if cpCtx.ChResults.JetrulesWorkerResultCh != nil {
+		for jrResults := range cpCtx.ChResults.JetrulesWorkerResultCh {
+			reteSessionCount += jrResults.ReteSessionCount
+			reteSessionErrors += jrResults.ErrorsCount
+			if jrResults.Err != nil {
+				processingErrors = append(processingErrors, jrResults.Err.Error())
+				if err == nil {
+					err = jrResults.Err
+				}
+			}
+		}	
+	}
+	if reteSessionErrors > 0 {
+		log.Printf("WARNING: rete session got %d data errors", reteSessionErrors)
+	}
+
 	// log.Println("**!@@ CP RESULT = Copy2DbResultCh:")
 	var outputRowCount int64
 	for table := range cpCtx.ChResults.Copy2DbResultCh {
@@ -189,7 +225,7 @@ func (cpCtx *ComputePipesContext) ProcessFilesAndReportStatus(ctx context.Contex
 	// Register the result of this shard with pipeline_execution_details
 	err2 := cpCtx.UpdatePipelineExecutionStatus(dbpool, key,
 		loadedRowCount, int(totalInputFileSize/1024/1024), totalInputFileCount,
-		int(outputRowCount), cpCtx.MainInputStepId, status, errMessage)
+		int(reteSessionCount), int(outputRowCount), cpCtx.MainInputStepId, status, errMessage)
 	if err2 != nil {
 		return fmt.Errorf("error while registering the load (cpipesSM): %v", err2)
 	}
@@ -214,7 +250,8 @@ func (cpCtx *ComputePipesContext) InsertPipelineExecutionStatus(dbpool *pgxpool.
 	}
 	return key, nil
 }
-func (cpCtx *ComputePipesContext) UpdatePipelineExecutionStatus(dbpool *pgxpool.Pool, key int, inputRowCount, totalFilesSizeMb, inputFilesCount, outputRowCount int,
+func (cpCtx *ComputePipesContext) UpdatePipelineExecutionStatus(dbpool *pgxpool.Pool, key int, inputRowCount, 
+	totalFilesSizeMb, inputFilesCount, reteSessionCount, outputRowCount int,
 	cpipesStepId, status, errMessage string) error {
 	// log.Printf("Updating status '%s' to pipeline_execution_details table", status)
 	stmt := `UPDATE jetsapi.pipeline_execution_details SET (
@@ -222,7 +259,7 @@ func (cpCtx *ComputePipesContext) UpdatePipelineExecutionStatus(dbpool *pgxpool.
 							input_files_size_mb, input_files_count, rete_sessions_count, output_records_count) 
 							= ($1, $2, $3, $4, $5, $6, $7, $8) WHERE key = $9`
 	_, err := dbpool.Exec(context.Background(), stmt,
-		cpipesStepId, status, errMessage, inputRowCount, totalFilesSizeMb, inputFilesCount, 0, outputRowCount, key)
+		cpipesStepId, status, errMessage, inputRowCount, totalFilesSizeMb, inputFilesCount, reteSessionCount, outputRowCount, key)
 	if err != nil {
 		return fmt.Errorf("error updating in jetsapi.pipeline_execution_details table: %v", err)
 	}
