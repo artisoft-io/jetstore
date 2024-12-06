@@ -1,4 +1,3 @@
-import 'package:jetsclient/models/user_flow_config.dart';
 import 'package:jetsclient/modules/user_flows/register_file_key/form_action_delegates.dart';
 import 'package:jetsclient/utils/constants.dart';
 import 'package:jetsclient/models/form_config.dart';

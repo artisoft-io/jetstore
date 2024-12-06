@@ -171,14 +171,17 @@ func (ctx *JrPoolWorker) executeRules(inputRecords *[]any,
 		ctor.Done()
 
 		// Extract data from the rdf session based on class names
-		// for _, outChannel := range ctx.outputChannels {
-		// 	// HERE
-		// }
-
+		for _, outChannel := range ctx.outputChannels {
+			err = ctx.extractSessionData(rdfSession, outChannel)
+      cpErr = fmt.Errorf(
+        "while extraction entity from jetrules for class %s: %v",
+        outChannel.className, err)
+      goto gotError
+    }
 		reteSession.Done()
 	}
-
 	return
+
 gotError:
 	log.Println(cpErr)
 	resultCh <- JetrulesWorkerResult{Err: cpErr}
@@ -192,9 +195,14 @@ gotError:
 	return 0, cpErr
 }
 
-func extractSessionData(rdfSession *rdf.RdfSession, outChannel *JetrulesOutputChan) error {
+func (ctx *JrPoolWorker) extractSessionData(rdfSession *rdf.RdfSession, outChannel *JetrulesOutputChan) error {
 	rm := rdfSession.ResourceMgr
 	jr := rm.JetsResources
+  entityCount := 0
+  columns := outChannel.outputCh.config.Columns
+  var data any
+  var dataArr *[]any
+  var isArray bool
 	// Extract entity by rdf type
 	ctor := rdfSession.FindSPO(nil, jr.Rdf__type, rm.NewResource(outChannel.className))
 	for t3 := range ctor.Itor {
@@ -223,18 +231,64 @@ func extractSessionData(rdfSession *rdf.RdfSession, outChannel *JetrulesOutputCh
 		}
 		// extract entity if we keep it (i.e. not an historical entity)
 		if keepObj {
-
-			// HERE
-			
+      entityRow := make([]any, len(columns))
+			for i, p := range columns {
+        data = nil
+        isArray = false
+        itor := rdfSession.FindSP(subject, rm.NewResource(p))
+        for t3 := range itor.Itor {
+          if data == nil {
+            data = getValue(t3[2])
+          } else {
+            if isArray {
+              *dataArr = append(*dataArr, getValue(t3[2]))
+            } else {
+              dataArr = &[]any{data, getValue(t3[2])}
+              data = *dataArr
+              isArray = true
+            }
+          }
+        }
+        itor.Done()
+        entityRow[i] = data
+      }
+      // Send the record to output channel
+      select {
+      case outChannel.outputCh.channel <- entityRow:
+        entityCount += 1
+      case <-ctx.done:
+        log.Printf("jetrule extractSessionData writing to '%s' interrupted", outChannel.outputCh.config.Name)
+        return nil
+      }
 		}
 	}
 	ctor.Done()
-
-	// HERE
-
+  log.Printf("jetrules: Extracted %d entities for class %s", entityCount, outChannel.className)
 	return nil
 }
 
+func getValue(r *rdf.Node) any {
+	switch vv := r.Value.(type) {
+  case int, float64, string:
+		return r.Value
+	case rdf.LDate:
+		return *vv.Date
+	case rdf.NamedResource:
+		return vv.Name
+	case rdf.LDatetime:
+		return *vv.Datetime
+	case rdf.RdfNull:
+		return nil
+	case rdf.BlankNode:
+		return fmt.Sprintf("BN%d", vv.Key)
+  case int64:
+		return int(vv)
+  case int32:
+		return int(vv)
+	default:
+		return nil
+	}
+}
 func assertInputRecords(config *JetrulesSpec, source *InputChannel, rdfSession *rdf.RdfSession, inputRecords *[]any) (err error) {
 	rm := rdfSession.ResourceMgr
 	jr := rm.JetsResources

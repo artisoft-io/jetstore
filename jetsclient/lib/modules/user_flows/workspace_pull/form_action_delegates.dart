@@ -143,8 +143,9 @@ Future<String?> loadConfigFormActions(
       formState.getState(group).remove(FSK.wpClientList);
       final result = await loadConfigInternal(
           context, formKey, formState, actionKey, group);
-      if (result != 200)
+      if (result != 200) {
         print("OOps, loading all client config http result is $result");
+      }
       if (context.mounted) {
         Navigator.of(context).pop();
       }
@@ -152,8 +153,9 @@ Future<String?> loadConfigFormActions(
     case ActionKeys.wpLoadConfigOkUF:
       final result = await loadConfigInternal(
           context, formKey, formState, actionKey, group);
-      if (result != 200)
+      if (result != 200) {
         print("OOps, loading specific client config http result is $result");
+      }
       break;
 
     // Cancel Dialog / Form

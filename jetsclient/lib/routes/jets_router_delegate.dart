@@ -49,7 +49,7 @@ class JetsRouterDelegate extends RouterDelegate<JetsRouteData>
     if (!routeData.authRequired || user.isAuthenticated) {
       _pages = routesPagesMap[routeData.path]!;
     } else {
-      this.routeData = JetsRouteData(loginPath);
+      this.routeData = const JetsRouteData(loginPath);
       _pages = routesPagesMap[loginPath]!;
     }
   }

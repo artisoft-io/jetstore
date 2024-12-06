@@ -216,7 +216,7 @@ Future<String?> registrationFormActions(BuildContext context,
         if (context.mounted) {
           messenger.showSnackBar(snackBar);
         }
-        JetsRouterDelegate()(JetsRouteData(loginPath));
+        JetsRouterDelegate()(const JetsRouteData(loginPath));
       } else if (result.statusCode == 406 || result.statusCode == 422) {
         // http Not Acceptable / Unprocessable
         if (context.mounted) {
@@ -330,7 +330,7 @@ Future<String?> gitProfileFormActions(BuildContext context,
           if (context.mounted) {
             messenger.showSnackBar(snackBar);
           }
-          JetsRouterDelegate()(JetsRouteData(homePath));
+          JetsRouterDelegate()(const JetsRouteData(homePath));
         } else {
           if (context.mounted) {
             showAlertDialog(context, 'Something went wrong. Please try again.');
