@@ -356,28 +356,3 @@ func assertInputRecords(config *JetrulesSpec, source *InputChannel, rdfSession *
 	}
 	return
 }
-
-func AssertSourcePeriodInfo(config *JetrulesSpec, graph *rdf.RdfGraph, rm *rdf.ResourceManager) (err error) {
-	jr := rm.JetsResources
-	_, err = graph.Insert(jr.Jets__istate, jr.Jets__currentSourcePeriod, rm.NewIntLiteral(config.CurrentSourcePeriod))
-	if err != nil {
-		return
-	}
-	if config.CurrentSourcePeriodDate != "" {
-		d, err2 := rdf.NewLDate(config.CurrentSourcePeriodDate)
-		if err2 == nil {
-			_, err = graph.Insert(jr.Jets__istate, jr.Jets__currentSourcePeriodDate, rm.NewDateLiteral(d))
-			if err != nil {
-				return
-			}
-		}
-	}
-	if config.CurrentSourcePeriodType != "" {
-		_, err = graph.Insert(jr.Jets__istate, jr.Jets__currentSourcePeriodDate,
-			rm.NewTextLiteral(config.CurrentSourcePeriodType))
-		if err != nil {
-			return
-		}
-	}
-	return
-}

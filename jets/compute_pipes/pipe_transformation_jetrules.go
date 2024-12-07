@@ -85,20 +85,25 @@ func (ctx *BuilderContext) NewJetrulesTransformationPipe(source *InputChannel, _
 	}
 
 	// Assert rule config to meta graph from the pipeline configuration
-	// HERE
-	// Setup a worker pool
-	// HERE
+	err = AssertRuleConfiguration(reteMetaStore, config)
+	if err != nil {
+		return nil, fmt.Errorf("while assertRuleConfiguration: %v", err)
+	}
 
+	// Setup a worker pool
+	var jrPoolManager *JrPoolManager
+	jrPoolManager, err = ctx.NewJrPoolManager(config, source, reteMetaStore, jetrulesOutputChan)
 
 	return &JetrulesTransformationPipe{
 		cpConfig:       ctx.cpConfig,
 		source:         source,
 		reteMetaStore:  reteMetaStore,
+		jrPoolManager:  jrPoolManager,
 		outputChannels: jetrulesOutputChan,
 		spec:           spec,
 		env:            ctx.env,
 		doneCh:         ctx.done,
-	}, nil
+	}, err
 }
 
 // Function to get the properties (aka predicates) of the jetrules class
