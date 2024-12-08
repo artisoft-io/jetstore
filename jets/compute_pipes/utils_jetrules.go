@@ -62,7 +62,7 @@ func AssertRuleConfiguration(reteMetaStore *rete.ReteMetaStoreFactory, 	config *
 				return err2
 			}
 			predicate := reteMetaStore.ResourceMgr.NewResource(predicateTxt)
-			object, err = parseObject(reteMetaStore.ResourceMgr, value, rdfType)
+			object, err = ParseObject(reteMetaStore.ResourceMgr, value, rdfType)
 			if err != nil {
 				return
 			}
@@ -109,7 +109,7 @@ func extractValue(e interface{}) (value, rdfType string, err error) {
 	}
 }
 
-func parseObject(rm *rdf.ResourceManager, object, rdfType string) (node *rdf.Node, err error) {
+func ParseObject(rm *rdf.ResourceManager, object, rdfType string) (node *rdf.Node, err error) {
 	var key int
 	var date rdf.LDate
 	var datetime rdf.LDatetime
@@ -168,7 +168,7 @@ func parseObject(rm *rdf.ResourceManager, object, rdfType string) (node *rdf.Nod
 		datetime, err = rdf.NewLDatetime(object)
 		node = rm.NewDatetimeLiteral(datetime)
 	default:
-		err = fmt.Errorf("ERROR parseObject: unknown rdf type for object: %s", rdfType)
+		err = fmt.Errorf("ERROR ParseObject: unknown rdf type for object: %s", rdfType)
 	}
 	return
 }

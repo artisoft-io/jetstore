@@ -88,6 +88,7 @@ func (cpCtx *ComputePipesContext) StartComputePipes(dbpool *pgxpool.Pool, comput
 				Name:    "input_row",
 				Columns: inputRowChSpec.Columns,
 			},
+			hasGroupedRows: cpCtx.CpConfig.PipesConfig[0].InputChannel.HasGroupedRows,
 		}
 	}
 	// Collect all the channel that are in use in PipeConfig, looking at PipeConfig.TransformationSpec.OutputChannel
@@ -182,6 +183,7 @@ func (cpCtx *ComputePipesContext) StartComputePipes(dbpool *pgxpool.Pool, comput
 				Name:    "input_row",
 				Columns: inChannel.config.Columns,
 			},
+			hasGroupedRows: cpCtx.CpConfig.PipesConfig[0].InputChannel.HasGroupedRows,
 		}
 		cpCtx.CpConfig.PipesConfig[0].InputChannel.Name = "input_row"
 		channelRegistry.inputRowChannel = inputRowChannel

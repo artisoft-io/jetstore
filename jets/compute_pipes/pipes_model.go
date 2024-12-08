@@ -23,10 +23,10 @@ type ComputePipesConfig struct {
 // spefified it will be set to the nbr of sharding nodes, capped by the value
 // specified here at the cluster level.
 // NbrPartitions is used for the hash operator in the sharding step (step 0).
-// DefaultShardSizeMb is the default value when not specified at ClusterShardingSpec level.
-// DefaultShardMaxSizeMb is the default value when not specified at ClusterShardingSpec level.
-// DefaultShardSizeBy is the default value when not specified at ClusterShardingSpec level.
-// DefaultShardMaxSizeBy is the default value when not specified at ClusterShardingSpec level.
+// DefaultShardSizeMb is the default value (in MB) when not specified at ClusterShardingSpec level.
+// DefaultShardMaxSizeMb is the default value (in MB) when not specified at ClusterShardingSpec level.
+// DefaultShardSizeBy is the default value (in bytes) when not specified at ClusterShardingSpec level.
+// DefaultShardMaxSizeBy is the default value (in bytes) when not specified at ClusterShardingSpec level.
 // NOTE: ShardSizeMb / ShardMaxSizeMb must be spefified for the sharding to take place.
 type ClusterSpec struct {
 	NbrPartitions         int                    `json:"nbr_partitons"`
@@ -223,6 +223,7 @@ type TransformationSpec struct {
 	NewRecord             bool                       `json:"new_record"`
 	FilePathSubstitutions *[]PathSubstitution        `json:"file_path_substitutions"`
 	Columns               []TransformationColumnSpec `json:"columns"`
+	MapRecordConfig       *MapRecordSpec             `json:"map_record_config"`
 	AnalyzeConfig         *AnalyzeSpec               `json:"analyze_config"`
 	HighFreqColumns       *[]*HighFreqSpec           `json:"high_freq_columns"` // Type high_freq
 	PartitionWriterConfig *PartitionWriterSpec       `json:"partition_writer_config"`
@@ -232,6 +233,10 @@ type TransformationSpec struct {
 	GroupByConfig         *GroupBySpec               `json:"group_by_config"`
 	JetrulesConfig        *JetrulesSpec              `json:"jetrules_config"`
 	OutputChannel         OutputChannelConfig        `json:"output_channel"`
+}
+
+type MapRecordSpec struct {
+	FileMappingTableName string `json:"file_mapping_table_name"`
 }
 
 type AnalyzeSpec struct {
@@ -246,6 +251,8 @@ type InputChannelConfig struct {
 	// Compression: none, snappy
 	// Note: SchemaProvider, Compression, Format for Type input are provided via
 	// ComputePipesCommonArgs.SourcesConfig (ie input_registry table).
+	// HasGroupedRow indicates that the channel contains grouped rows,
+	// most likely from the group_by operator.
 	Type             string `json:"type"`
 	Name             string `json:"name"`
 	Format           string `json:"format"`          // Type stage
@@ -254,6 +261,7 @@ type InputChannelConfig struct {
 	ReadStepId       string `json:"read_step_id"`
 	SamplingRate     int    `json:"sampling_rate"`
 	SamplingMaxCount int    `json:"sampling_max_count"`
+	HasGroupedRows   bool   `json:"has_grouped_rows"`
 }
 
 type OutputChannelConfig struct {
@@ -347,11 +355,14 @@ type ShufflingSpec struct {
 	OutputSampleSize   int `json:"output_sample_size"`
 }
 
-// Specify either group_by_name or group_by_pos. group_by_name wins when both are
-// specified. When none is specified, then group by pos 0 is used
+// Specify either group_by_name, group_by_pos or group_by_count.
+// group_by_count has priority over other mode of grouping.
+// group_by_name wins when both group_by_name and group_by_pos are specified.
+// At least one must be specified.
 type GroupBySpec struct {
-	GroupByName []string `json:"group_by_name"`
-	GroupByPos  []int    `json:"group_by_pos"`
+	GroupByName  []string `json:"group_by_name"`
+	GroupByPos   []int    `json:"group_by_pos"`
+	GroupByCount int      `json:"group_by_count"`
 }
 
 // MaxLooping overrides the value in the jetrules metastore

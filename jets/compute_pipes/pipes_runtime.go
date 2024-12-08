@@ -12,7 +12,7 @@ import (
 
 type ChannelRegistry struct {
 	// Compute Pipes input channel (inputRowChannel), called input_row
-	// Used for sharding mode only
+	// correspond to the input file
 	inputRowChannel      *InputChannel
 	computeChannels      map[string]*Channel
 	outputTableChannels  []string
@@ -57,8 +57,16 @@ func (r *ChannelRegistry) CloseChannel(name string) {
 	r.closedChannels[name] = true
 }
 
-func (r *ChannelRegistry) GetInputChannel(name string) (*InputChannel, error) {
+func (r *ChannelRegistry) GetInputChannel(name string, hasGroupedRows bool) (*InputChannel, error) {
 	if name == "input_row" {
+		if r.inputRowChannel.hasGroupedRows != hasGroupedRows {
+			return &InputChannel{
+				channel:        r.inputRowChannel.channel,
+				config:         r.inputRowChannel.config,
+				columns:        r.inputRowChannel.columns,
+				hasGroupedRows: hasGroupedRows,
+			}, nil
+		}
 		return r.inputRowChannel, nil
 	}
 	ch, ok := r.computeChannels[name]
@@ -66,9 +74,10 @@ func (r *ChannelRegistry) GetInputChannel(name string) (*InputChannel, error) {
 		return nil, fmt.Errorf("error: input channel '%s' not found in ChannelRegistry", name)
 	}
 	return &InputChannel{
-		channel: ch.channel,
-		config:  ch.config,
-		columns: ch.columns,
+		channel:        ch.channel,
+		config:         ch.config,
+		columns:        ch.columns,
+		hasGroupedRows: hasGroupedRows,
 	}, nil
 }
 func (r *ChannelRegistry) GetOutputChannel(name string) (*OutputChannel, error) {
@@ -89,9 +98,10 @@ type Channel struct {
 	config  *ChannelSpec
 }
 type InputChannel struct {
-	channel <-chan []interface{}
-	columns map[string]int
-	config  *ChannelSpec
+	channel        <-chan []interface{}
+	columns        map[string]int
+	config         *ChannelSpec
+	hasGroupedRows bool
 }
 type OutputChannel struct {
 	channel chan<- []interface{}
@@ -140,7 +150,7 @@ func (ctx *BuilderContext) buildComputeGraph() error {
 	for i := range ctx.cpConfig.PipesConfig {
 		pipeSpec := &ctx.cpConfig.PipesConfig[i]
 		input := pipeSpec.InputChannel.Name
-		source, err := ctx.channelRegistry.GetInputChannel(input)
+		source, err := ctx.channelRegistry.GetInputChannel(input, pipeSpec.InputChannel.HasGroupedRows)
 		if err != nil {
 			return fmt.Errorf("while building Pipe: %v", err)
 		}
