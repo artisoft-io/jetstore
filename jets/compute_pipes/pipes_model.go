@@ -106,9 +106,15 @@ type CsvSourceSpec struct {
 	SessionId          string `json:"session_id"`     // for cpipes
 }
 
+// ChannelSpec specifies the collumns of a channel
+// The columns can be obtained from a domain class from the
+// local workspace using class_name. In that case, the columns
+// that are specified in the slice, are added to the columns of 
+// the domain class.
 type ChannelSpec struct {
-	Name    string   `json:"name"`
-	Columns []string `json:"columns"`
+	Name      string   `json:"name"`
+	Columns   []string `json:"columns"`
+	ClassName string   `json:"class_name"`
 }
 
 type ContextSpec struct {

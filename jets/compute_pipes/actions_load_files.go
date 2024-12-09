@@ -347,8 +347,8 @@ func (cpCtx *ComputePipesContext) ReadCsvFile(filePath *FileName,
 		if dropLastRow {
 			nextInRow, err = csvReader.Read()
 			// log.Println("**Next Row -dropLast", nextInRow, "err:", err)
-			if errors.Is(err, csv.ErrFieldCount) && !lastLineFlag {
-				// Got a partial read, the next read will give the io.EOF
+			if (errors.Is(err, csv.ErrFieldCount) || errors.Is(err, csv.ErrQuote)) && !lastLineFlag {
+				// Got a partial read, the next read should give the io.EOF unless there is an error
 				err = nil
 				lastLineFlag = true
 			}
@@ -370,14 +370,13 @@ func (cpCtx *ComputePipesContext) ReadCsvFile(filePath *FileName,
 			cpCtx.SamplingCount = 0
 			record = make([]interface{}, nbrColumns)
 			for i := range inputColumns {
+				if trimColumns {
+					inRow[i] = strings.TrimSpace(inRow[i])
+				}
 				if len(inRow[i]) == 0 {
 					record[i] = nil
 				} else {
-					if trimColumns {
-						record[i] = strings.TrimSpace(inRow[i])
-					} else {
-						record[i] = inRow[i]
-					}
+					record[i] = inRow[i]
 				}
 			}
 			// Add the columns from the partfile_key_component

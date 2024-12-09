@@ -97,8 +97,31 @@ func (cpCtx *ComputePipesContext) StartComputePipes(dbpool *pgxpool.Pool, comput
 	// Get the channels in used based on transformation pipe config, prime the channels using the provided channel spec
 	channelsInUse = make(map[string]*ChannelSpec)
 	for i := range cpCtx.CpConfig.Channels {
-		channelsSpec[cpCtx.CpConfig.Channels[i].Name] = &cpCtx.CpConfig.Channels[i]
-		channelsInUse[cpCtx.CpConfig.Channels[i].Name] = &cpCtx.CpConfig.Channels[i]
+		chSpec := &cpCtx.CpConfig.Channels[i]
+		if len(chSpec.ClassName) > 0 {
+			// Get the columns from the local workspace
+			domainTablesMap, err := GetWorkspaceDomainTables()
+			if err != nil {
+				cpErr = fmt.Errorf("while getting domain tables from local workspace: %v", err)
+				goto gotError
+			}
+			tableInfo := domainTablesMap[chSpec.ClassName]
+			if tableInfo == nil {
+				cpErr = fmt.Errorf("error: domain table/class %s is not found in the local workspace",
+					chSpec.ClassName)
+				goto gotError
+			}
+			columns := make([]string, 0, len(tableInfo.Columns)+len(chSpec.Columns))
+			for i := range tableInfo.Columns {
+				columns = append(columns, tableInfo.Columns[i].PropertyName)
+			}
+			if len(chSpec.Columns) > 0 {
+				columns = append(columns, chSpec.Columns...)
+			}
+			chSpec.Columns = columns
+		}
+		channelsSpec[cpCtx.CpConfig.Channels[i].Name] = chSpec
+		channelsInUse[cpCtx.CpConfig.Channels[i].Name] = chSpec
 	}
 	if inputRowChSpec != nil {
 		channelsSpec[inputRowChSpec.Name] = inputRowChSpec
@@ -114,23 +137,8 @@ func (cpCtx *ComputePipesContext) StartComputePipes(dbpool *pgxpool.Pool, comput
 				outputChannel := &cpCtx.CpConfig.PipesConfig[i].Apply[j].AnonymizeConfig.KeysOutputChannel
 				outputChannels = append(outputChannels, outputChannel)
 			case "jetrules":
-				processName := cpCtx.CpConfig.PipesConfig[i].Apply[j].JetrulesConfig.ProcessName
 				for k := range cpCtx.CpConfig.PipesConfig[i].Apply[j].JetrulesConfig.JetrulesOutput {
 					outputChannel := &cpCtx.CpConfig.PipesConfig[i].Apply[j].JetrulesConfig.JetrulesOutput[k].OutputChannel
-					// Check if the channel spec needs to be created from class info
-					if outputChannel.SpecName == "" || channelsSpec[outputChannel.SpecName] == nil {
-						// Get the channel spec from the workspace class info
-						outputChannel.SpecName = cpCtx.CpConfig.PipesConfig[i].Apply[j].JetrulesConfig.JetrulesOutput[k].ClassName
-						columns, err := GetJetClassProperties(dbpool, outputChannel.SpecName, processName)
-						if err != nil {
-							cpErr = fmt.Errorf("while getting jetrules class properties for output channel %s, %v", outputChannel.SpecName, err)
-							goto gotError
-						}
-						channelsSpec[outputChannel.SpecName] = &ChannelSpec{
-							Name:    outputChannel.SpecName,
-							Columns: columns,
-						}
-					}
 					outputChannels = append(outputChannels, outputChannel)
 				}
 			}

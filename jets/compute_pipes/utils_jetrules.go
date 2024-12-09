@@ -24,6 +24,8 @@ var metaStoreFactoryMap *sync.Map = new(sync.Map)
 var inputMappingCache *sync.Map = new(sync.Map)
 var dataPropertyInfoMap map[string]*rete.DataPropertyNode
 var dataPropertyInfoMx sync.Mutex
+var domainTablesMap map[string]*rete.TableNode
+var domainTablesMx sync.Mutex
 
 // Assert source period info (date, period, type) to rdf graph
 func AssertSourcePeriodInfo(config *JetrulesSpec, graph *rdf.RdfGraph, rm *rdf.ResourceManager) (err error) {
@@ -191,6 +193,7 @@ func GetJetrulesFactory(dbpool *pgxpool.Pool, processName string) (reteMetaStore
 	// Get the Rete MetaStore for the mainRules
 	msf, _ := metaStoreFactoryMap.Load(processName)
 	if msf == nil {
+		// Get the jetrule process info -- the mainRule name or ruleSequence name
 		var mainRules string
 		stmt := `SELECT	pc.main_rules FROM jetsapi.process_config pc WHERE pc.process_name = $1`
 		err := dbpool.QueryRow(context.Background(), stmt, processName).Scan(&mainRules)
@@ -217,6 +220,32 @@ func GetJetrulesFactory(dbpool *pgxpool.Pool, processName string) (reteMetaStore
 	return
 }
 
+// Function to get domain classes info from the local workspace
+func GetWorkspaceDomainTables() (map[string]*rete.TableNode, error) {
+	if domainTablesMap == nil {
+		domainTablesMx.Lock()
+		defer domainTablesMx.Unlock()
+		fmt.Println("Load Domain Tables from local Workspace")
+		domainTablesMap = make(map[string]*rete.TableNode)
+		fpath := fmt.Sprintf("%s/%s/build/tables.json", workspaceHome, wsPrefix)
+		log.Println("Reading Domain Tables definitions from:", fpath)
+		file, err := os.ReadFile(fpath)
+		if err != nil {
+			err = fmt.Errorf("while reading tables.json file (GetWorkspaceDomainTables):%v", err)
+			log.Println(err)
+			return nil, err
+		}
+		err = json.Unmarshal(file, &domainTablesMap)
+		if err != nil {
+			err = fmt.Errorf("while unmarshaling tables.json (GetWorkspaceDomainTables):%v", err)
+			log.Println(err)
+			return nil, err
+		}
+	}
+	return domainTablesMap, nil
+}
+
+// Function to get the domain properties info from the local workspace
 func GetWorkspaceDataProperties() (map[string]*rete.DataPropertyNode, error) {
 	if dataPropertyInfoMap == nil {
 		dataPropertyInfoMx.Lock()
@@ -224,7 +253,7 @@ func GetWorkspaceDataProperties() (map[string]*rete.DataPropertyNode, error) {
 		fmt.Println("Load Data Properties from local Workspace")
 		dataPropertyInfoMap = make(map[string]*rete.DataPropertyNode)
 		fpath := fmt.Sprintf("%s/%s/build/properties.json", workspaceHome, wsPrefix)
-		log.Println("Reading JetStore tables definitions from:", fpath)
+		log.Println("Reading Data Properties definitions from:", fpath)
 		file, err := os.ReadFile(fpath)
 		if err != nil {
 			err = fmt.Errorf("while reading properties.json file (GetWorkspaceDataProperties):%v", err)
