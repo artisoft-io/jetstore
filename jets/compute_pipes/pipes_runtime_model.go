@@ -131,21 +131,21 @@ func (ctx *BuilderContext) FileKey() string {
 }
 
 type PipeTransformationEvaluator interface {
-	apply(input *[]interface{}) error
-	done() error
-	finally()
+	Apply(input *[]interface{}) error
+	Done() error
+	Finally()
 }
 
 type TransformationColumnEvaluator interface {
-	initializeCurrentValue(currentValue *[]interface{})
-	update(currentValue *[]interface{}, input *[]interface{}) error
-	done(currentValue *[]interface{}) error
+	InitializeCurrentValue(currentValue *[]interface{})
+	Update(currentValue *[]interface{}, input *[]interface{}) error
+	Done(currentValue *[]interface{}) error
 }
 
 type PipeSet map[*PipeSpec]bool
 type Input2PipeSet map[string]*PipeSet
 
-func (ctx *BuilderContext) buildComputeGraph() error {
+func (ctx *BuilderContext) BuildComputeGraph() error {
 
 	for i := range ctx.cpConfig.PipesConfig {
 		pipeSpec := &ctx.cpConfig.PipesConfig[i]
@@ -181,16 +181,16 @@ func (ctx *BuilderContext) buildComputeGraph() error {
 // Build the PipeTransformationEvaluator: one of map_record, aggregate, or partition_writer
 // The partitionResultCh argument is used only by partition_writer to return the number of rows written and
 // the error that might occur
-func (ctx *BuilderContext) buildPipeTransformationEvaluator(source *InputChannel, jetsPartitionKey interface{},
+func (ctx *BuilderContext) BuildPipeTransformationEvaluator(source *InputChannel, jetsPartitionKey interface{},
 	partitionResultCh chan ComputePipesResult, spec *TransformationSpec) (PipeTransformationEvaluator, error) {
 
 	// Construct the pipe transformation
-	// log.Println("**& buildPipeTransformationEvaluator for", spec.Type, "source:", source.config.Name, "jetsPartitionKey:", jetsPartitionKey, "output:", spec.Output)
+	// log.Println("**& BuildPipeTransformationEvaluator for", spec.Type, "source:", source.config.Name, "jetsPartitionKey:", jetsPartitionKey, "output:", spec.Output)
 
 	// Get the output channel
 	outCh, err := ctx.channelRegistry.GetOutputChannel(spec.OutputChannel.Name)
 	if err != nil {
-		err = fmt.Errorf("while in buildPipeTransformationEvaluator for %s from source %s requesting output channel %s: %v",
+		err = fmt.Errorf("while in BuildPipeTransformationEvaluator for %s from source %s requesting output channel %s: %v",
 			spec.Type, source.config.Name, spec.OutputChannel.Name, err)
 		log.Println(err)
 		return nil, err

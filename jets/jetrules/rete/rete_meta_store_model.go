@@ -3,21 +3,21 @@ package rete
 // Data model for ReteMetaStore / ReteMetaStoreFactory
 
 type JetruleModel struct {
-	MainRuleFileName     string                   `json:"main_rule_file_name"`
+	MainRuleFileName string `json:"main_rule_file_name"`
 	// SupportRuleFileNames []string                 `json:"support_rule_file_names"`
-	Resources            []ResourceNode           `json:"resources"`
-	LookupTables         []LookupTableNode        `json:"lookup_tables"`
+	Resources    []ResourceNode    `json:"resources"`
+	LookupTables []LookupTableNode `json:"lookup_tables"`
 	// Jetrules             []JetruleNode            `json:"jet_rules"`
-	ReteNodes            []RuleTerm               `json:"rete_nodes"`
+	ReteNodes []RuleTerm `json:"rete_nodes"`
 	// Imports              map[string][]string      `json:"imports"`
-	JetstoreConfig       map[string]string        `json:"jetstore_config"`
-	RuleSequences        []map[string]interface{} `json:"rule_sequences"`
-	Classes              []ClassNode              `json:"classes"`
-	Tables               []TableNode              `json:"tables"`
-	Triples              []TripleNode             `json:"triples"`
-	HeadRuleTerm         *RuleTerm
-	Antecedents          []*RuleTerm
-	Consequents          []*RuleTerm
+	JetstoreConfig map[string]string        `json:"jetstore_config"`
+	RuleSequences  []map[string]interface{} `json:"rule_sequences"`
+	Classes        []ClassNode              `json:"classes"`
+	Tables         []TableNode              `json:"tables"`
+	Triples        []TripleNode             `json:"triples"`
+	HeadRuleTerm   *RuleTerm
+	Antecedents    []*RuleTerm
+	Consequents    []*RuleTerm
 }
 
 type ResourceNode struct {
@@ -117,10 +117,10 @@ type ClassNode struct {
 }
 
 type DataPropertyNode struct {
-	Type           string `json:"type"`
-	DomainClassKey int    `json:"domain_class_key"`
-	Name           string `json:"name"`
-	AsArray        bool   `json:"as_array"`
+	Type      string `json:"type"`
+	Name      string `json:"name"`
+	ClassName string `json:"class_name"`
+	AsArray   bool   `json:"as_array"`
 }
 
 type TableNode struct {

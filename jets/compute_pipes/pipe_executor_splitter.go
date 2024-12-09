@@ -184,7 +184,7 @@ func (ctx *BuilderContext) StartSplitterPipe(spec *PipeSpec, source *InputChanne
 	}
 doneSplitterLoop:
 	// Close all the opened intermediate channels
-	chanState.Iter(func(key interface{}, v *ChannelState) (stop bool){
+	chanState.Iter(func(key interface{}, v *ChannelState) (stop bool) {
 		// fmt.Println("**!@@ startSplitterPipe closing intermediate channel", key)
 		close(v.data)
 		return false
@@ -233,18 +233,18 @@ func (ctx *BuilderContext) startSplitterChannelHandler(spec *PipeSpec, source *I
 	// Build the PipeTransformationEvaluator
 	evaluators = make([]PipeTransformationEvaluator, len(spec.Apply))
 	for j := range spec.Apply {
-		evaluators[j], err = ctx.buildPipeTransformationEvaluator(source, jetsPartitionKey, partitionResultCh, &spec.Apply[j])
+		evaluators[j], err = ctx.BuildPipeTransformationEvaluator(source, jetsPartitionKey, partitionResultCh, &spec.Apply[j])
 		if err != nil {
-			cpErr = fmt.Errorf("while calling buildPipeTransformationEvaluator for %s: %v", spec.Apply[j].Type, err)
+			cpErr = fmt.Errorf("while calling BuildPipeTransformationEvaluator for %s: %v", spec.Apply[j].Type, err)
 			goto gotError
 		}
 	}
 	// Process the channel
 	for inRow := range source.channel {
 		for i := range evaluators {
-			err = evaluators[i].apply(&inRow)
+			err = evaluators[i].Apply(&inRow)
 			if err != nil {
-				cpErr = fmt.Errorf("while calling apply on PipeTransformationEvaluator (in startSplitterChannelHandler): %v", err)
+				cpErr = fmt.Errorf("while calling Apply on PipeTransformationEvaluator (in startSplitterChannelHandler): %v", err)
 				goto gotError
 			}
 		}
@@ -252,11 +252,11 @@ func (ctx *BuilderContext) startSplitterChannelHandler(spec *PipeSpec, source *I
 	// Done, close the evaluators
 	for i := range spec.Apply {
 		if evaluators[i] != nil {
-			err = evaluators[i].done()
+			err = evaluators[i].Done()
 			if err != nil {
 				log.Printf("while calling done on PipeTransformationEvaluator (in startSplitterChannelHandler): %v", err)
 			}
-			evaluators[i].finally()
+			evaluators[i].Finally()
 		}
 	}
 	// fmt.Println("**!@@ SPLITTER *1 startSplitterChannelHandler ~ All good!")
@@ -266,7 +266,7 @@ func (ctx *BuilderContext) startSplitterChannelHandler(spec *PipeSpec, source *I
 gotError:
 	for i := range spec.Apply {
 		if evaluators[i] != nil {
-			evaluators[i].finally()
+			evaluators[i].Finally()
 		}
 	}
 	log.Println(cpErr)

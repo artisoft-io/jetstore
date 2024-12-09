@@ -1,16 +1,29 @@
 package compute_pipes
 
 import (
+	"context"
+	"database/sql"
+	"encoding/json"
 	"fmt"
+	"log"
+	"os"
 	"strconv"
 	"strings"
+	"sync"
 
 	"github.com/artisoft-io/jetstore/jets/jetrules/rdf"
 	"github.com/artisoft-io/jetstore/jets/jetrules/rete"
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v4/pgxpool"
 )
 
 // Utility functions for jetrules transformation pipes operator
+
+// metaStoreFactoryMap is a map mainRuleName -> *ReteMetaStoreFactory
+var metaStoreFactoryMap *sync.Map = new(sync.Map)
+var inputMappingCache *sync.Map = new(sync.Map)
+var dataPropertyInfoMap map[string]*rete.DataPropertyNode
+var dataPropertyInfoMx sync.Mutex
 
 // Assert source period info (date, period, type) to rdf graph
 func AssertSourcePeriodInfo(config *JetrulesSpec, graph *rdf.RdfGraph, rm *rdf.ResourceManager) (err error) {
@@ -39,7 +52,7 @@ func AssertSourcePeriodInfo(config *JetrulesSpec, graph *rdf.RdfGraph, rm *rdf.R
 }
 
 // Assert rule config to meta graph from the pipeline configuration
-func AssertRuleConfiguration(reteMetaStore *rete.ReteMetaStoreFactory, 	config *JetrulesSpec) (err error) {
+func AssertRuleConfiguration(reteMetaStore *rete.ReteMetaStoreFactory, config *JetrulesSpec) (err error) {
 	var object *rdf.Node
 	for _, rc := range config.RuleConfig {
 
@@ -49,13 +62,13 @@ func AssertRuleConfiguration(reteMetaStore *rete.ReteMetaStoreFactory, 	config *
 		if ok {
 			subjectTxt, _, err = extractValue(s)
 			if err != nil {
-				return 
+				return
 			}
 		} else {
 			subjectTxt = uuid.New().String()
 		}
 		subject := reteMetaStore.ResourceMgr.NewResource(subjectTxt)
-		
+
 		for predicateTxt := range rc {
 			value, rdfType, err2 := extractValue(rc[predicateTxt])
 			if err2 != nil {
@@ -71,7 +84,7 @@ func AssertRuleConfiguration(reteMetaStore *rete.ReteMetaStoreFactory, 	config *
 			if err != nil {
 				return
 			}
-		}		
+		}
 	}
 	return
 }
@@ -171,4 +184,106 @@ func ParseObject(rm *rdf.ResourceManager, object, rdfType string) (node *rdf.Nod
 		err = fmt.Errorf("ERROR ParseObject: unknown rdf type for object: %s", rdfType)
 	}
 	return
+}
+
+// Function to get the jetrules factory for a rule process
+func GetJetrulesFactory(dbpool *pgxpool.Pool, processName string) (reteMetaStore *rete.ReteMetaStoreFactory, err error) {
+	// Get the Rete MetaStore for the mainRules
+	msf, _ := metaStoreFactoryMap.Load(processName)
+	if msf == nil {
+		var mainRules string
+		stmt := `SELECT	pc.main_rules FROM jetsapi.process_config pc WHERE pc.process_name = $1`
+		err := dbpool.QueryRow(context.Background(), stmt, processName).Scan(&mainRules)
+		if err != nil {
+			return nil,
+				fmt.Errorf("quering main rule file name for process %s from jetsapi.process_config failed: %v",
+					processName, err)
+		}
+		if len(mainRules) == 0 {
+			return nil, fmt.Errorf("error: main rule file name is empty for process %s", processName)
+		}
+		log.Printf("Rete Meta Store for ruleset '%s' for process '%s' not loaded, loading from local workspace",
+			mainRules, processName)
+		reteMetaStore, err = rete.NewReteMetaStoreFactory(mainRules)
+		if err != nil {
+			return nil,
+				fmt.Errorf("while loading ruleset '%s' for process '%s' from local workspace via NewReteMetaStoreFactory: %v",
+					mainRules, processName, err)
+		}
+		metaStoreFactoryMap.Store(processName, reteMetaStore)
+	} else {
+		reteMetaStore = msf.(*rete.ReteMetaStoreFactory)
+	}
+	return
+}
+
+func GetWorkspaceDataProperties() (map[string]*rete.DataPropertyNode, error) {
+	if dataPropertyInfoMap == nil {
+		dataPropertyInfoMx.Lock()
+		defer dataPropertyInfoMx.Unlock()
+		fmt.Println("Load Data Properties from local Workspace")
+		dataPropertyInfoMap = make(map[string]*rete.DataPropertyNode)
+		fpath := fmt.Sprintf("%s/%s/build/properties.json", workspaceHome, wsPrefix)
+		log.Println("Reading JetStore tables definitions from:", fpath)
+		file, err := os.ReadFile(fpath)
+		if err != nil {
+			err = fmt.Errorf("while reading properties.json file (GetWorkspaceDataProperties):%v", err)
+			log.Println(err)
+			return nil, err
+		}
+		err = json.Unmarshal(file, &dataPropertyInfoMap)
+		if err != nil {
+			err = fmt.Errorf("while unmarshaling properties.json (GetWorkspaceDataProperties):%v", err)
+			log.Println(err)
+			return nil, err
+		}
+	}
+	return dataPropertyInfoMap, nil
+}
+
+type InputMappingExpr struct {
+	InputColumn           sql.NullString
+	DataProperty          string
+	CleansingFunctionName sql.NullString
+	Argument              sql.NullString
+	DefaultValue          sql.NullString
+	ErrorMessage          sql.NullString
+}
+
+// read mapping definitions
+func GetInputMapping(dbpool *pgxpool.Pool, tableName string) ([]InputMappingExpr, error) {
+	item, _ := inputMappingCache.Load(tableName)
+	if item == nil {
+		rows, err := dbpool.Query(context.Background(),
+			`SELECT input_column, data_property, function_name, argument, default_value, error_message
+		FROM jetsapi.process_mapping WHERE table_name=$1`, tableName)
+		if err != nil {
+			return nil, err
+		}
+		defer rows.Close()
+		// Loop through rows, using Scan to assign column data to struct fields.
+		result := make([]InputMappingExpr, 0)
+		for rows.Next() {
+			var pm InputMappingExpr
+			if err := rows.Scan(&pm.InputColumn, &pm.DataProperty, &pm.CleansingFunctionName,
+				&pm.Argument, &pm.DefaultValue, &pm.ErrorMessage); err != nil {
+				return nil, err
+			}
+			// validate that we don't have both a default and an error message
+			if pm.ErrorMessage.Valid && pm.DefaultValue.Valid {
+				if len(pm.DefaultValue.String) > 0 && len(pm.ErrorMessage.String) > 0 {
+					log.Printf(
+						"WARNING: Cannot have both a default value and an error message in table %s jetsapi.process_mapping\n",
+						tableName)
+				}
+			}
+			result = append(result, pm)
+		}
+		if err = rows.Err(); err != nil {
+			return nil, err
+		}
+		item = result
+		inputMappingCache.Store(tableName, item)
+	}
+	return item.([]InputMappingExpr), nil
 }

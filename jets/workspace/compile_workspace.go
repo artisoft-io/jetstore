@@ -161,6 +161,7 @@ func CompileWorkspace(dbpool *pgxpool.Pool, workspaceName, version string) (stri
 	// definition
 	domainClasses := make(map[string]*rete.ClassNode)
 	domainTables := make(map[string]*rete.TableNode)
+	domainProperties := make(map[string]*rete.DataPropertyNode)
 	for name := range mainRules {
 		fpath := fmt.Sprintf("%s/%s/build/%s.model.json", workspaceHome,
 			wprefix, strings.TrimSuffix(name, ".jr"))
@@ -179,17 +180,18 @@ func CompileWorkspace(dbpool *pgxpool.Pool, workspaceName, version string) (stri
 		for i := range model.Classes {
 			class := &model.Classes[i]
 			domainClasses[class.Name] = class
+			for j := range class.DataProperties {
+				class.DataProperties[j].ClassName = class.Name
+				domainProperties[class.DataProperties[j].Name] = &class.DataProperties[j]
+			}
 		}
 		for i := range model.Tables {
 			table := &model.Tables[i]
 			domainTables[table.TableName] = table
 		}
 	}
-	// Save the unique list of classes and tables to the root of build directory
-	classes := make([]*rete.ClassNode, 0, len(domainClasses))
-	for _, class := range domainClasses {
-		classes = append(classes, class)
-	}
+
+	// Save the indexed list of classes, properties and tables to the root of build directory
 	fpath := fmt.Sprintf("%s/%s/build/classes.json", workspaceHome,	wprefix)
 	log.Println("Writing JetStore Classes to:", fpath)
 	file, err := os.OpenFile(fpath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
@@ -198,13 +200,22 @@ func CompileWorkspace(dbpool *pgxpool.Pool, workspaceName, version string) (stri
 		return err.Error(), err
 	}
 	encoder := json.NewEncoder(file)
-	encoder.Encode(classes)
+	encoder.Encode(domainClasses)
 	file.Close()
-	// Tables
-	tables := make([]*rete.TableNode, 0, len(domainTables))
-	for _, table := range domainTables {
-		tables = append(tables, table)
+
+	// Properties
+	fpath = fmt.Sprintf("%s/%s/build/properties.json", workspaceHome,	wprefix)
+	log.Println("Writing JetStore Properties to:", fpath)
+	file, err = os.OpenFile(fpath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
+	if err != nil {
+		err = fmt.Errorf("while opening properties.json for write (compile_workspace):%v", err)
+		return err.Error(), err
 	}
+	encoder = json.NewEncoder(file)
+	encoder.Encode(domainProperties)
+	file.Close()
+
+	// Tables
 	fpath = fmt.Sprintf("%s/%s/build/tables.json", workspaceHome,	wprefix)
 	log.Println("Writing JetStore Tables to:", fpath)
 	file, err = os.OpenFile(fpath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
@@ -213,7 +224,7 @@ func CompileWorkspace(dbpool *pgxpool.Pool, workspaceName, version string) (stri
 		return err.Error(), err
 	}
 	encoder = json.NewEncoder(file)
-	encoder.Encode(tables)
+	encoder.Encode(domainTables)
 	file.Close()
 
 	// Archive the build rules and cpipes config

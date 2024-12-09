@@ -28,7 +28,7 @@ type HighFreqTransformationPipe struct {
 }
 
 // Implementing interface PipeTransformationEvaluator
-func (ctx *HighFreqTransformationPipe) apply(input *[]interface{}) error {
+func (ctx *HighFreqTransformationPipe) Apply(input *[]interface{}) error {
 	if input == nil {
 		return fmt.Errorf("error: unexpected null input arg in HighFreqTransformationPipe")
 	}
@@ -64,7 +64,7 @@ func (ctx *HighFreqTransformationPipe) apply(input *[]interface{}) error {
 					}
 					highFreqMap[token] = dv
 				}
-				dv.Count += 1	
+				dv.Count += 1
 			}
 		}
 	}
@@ -76,7 +76,7 @@ func (ctx *HighFreqTransformationPipe) apply(input *[]interface{}) error {
 // A row is produced for each column and each high freq value.
 // High freq values are those in top 80 percentile, cap at 500 values
 
-func (ctx *HighFreqTransformationPipe) done() error {
+func (ctx *HighFreqTransformationPipe) Done() error {
 	// For each tracked columns, send out the top 80 percentile values
 	for _, column := range *ctx.spec.HighFreqColumns {
 		highFreqMap := ctx.highFreqState[column.Name]
@@ -116,7 +116,7 @@ func (ctx *HighFreqTransformationPipe) done() error {
 			// NOTE there is no initialize and done called on the column evaluators
 			//      since they should be only of type 'select' or 'value'
 			for i := range ctx.columnEvaluators {
-				err := ctx.columnEvaluators[i].update(&outputRow, ctx.firstInputRow)
+				err := ctx.columnEvaluators[i].Update(&outputRow, ctx.firstInputRow)
 				if err != nil {
 					err = fmt.Errorf("while calling column transformation from high_freq operator: %v", err)
 					log.Println(err)
@@ -140,7 +140,7 @@ func (ctx *HighFreqTransformationPipe) done() error {
 	return nil
 }
 
-func (ctx *HighFreqTransformationPipe) finally() {}
+func (ctx *HighFreqTransformationPipe) Finally() {}
 
 func (ctx *BuilderContext) NewHighFreqTransformationPipe(source *InputChannel, outputCh *OutputChannel, spec *TransformationSpec) (*HighFreqTransformationPipe, error) {
 	var err error
@@ -168,9 +168,9 @@ func (ctx *BuilderContext) NewHighFreqTransformationPipe(source *InputChannel, o
 	columnEvaluators := make([]TransformationColumnEvaluator, len(spec.Columns))
 	for i := range spec.Columns {
 		// log.Printf("**& build TransformationColumn[%d] of type %s for output %s", i, spec.Type, spec.Output)
-		columnEvaluators[i], err = ctx.buildTransformationColumnEvaluator(source, outputCh, &spec.Columns[i])
+		columnEvaluators[i], err = ctx.BuildTransformationColumnEvaluator(source, outputCh, &spec.Columns[i])
 		if err != nil {
-			err = fmt.Errorf("while buildTransformationColumnEvaluator (in NewHighFreqTransformationPipe) %v", err)
+			err = fmt.Errorf("while BuildTransformationColumnEvaluator (in NewHighFreqTransformationPipe) %v", err)
 			log.Println(err)
 			return nil, err
 		}

@@ -272,13 +272,13 @@ func (cpCtx *ComputePipesContext) StartComputePipes(dbpool *pgxpool.Pool, comput
 	// Wait until the lookup tables are ready
 	managersWg.Wait()
 
-	// log.Println("Calling ctx.buildComputeGraph()")
-	err = ctx.buildComputeGraph()
+	// log.Println("Calling ctx.BuildComputeGraph()")
+	err = ctx.BuildComputeGraph()
 	if err != nil {
 		cpErr = fmt.Errorf("while building the compute graph: %s", err)
 		goto gotError
 	}
-	// log.Println("Calling ctx.buildComputeGraph() completed")
+	// log.Println("Calling ctx.BuildComputeGraph() completed")
 
 	// All done!
 	close(cpCtx.ChResults.Copy2DbResultCh)

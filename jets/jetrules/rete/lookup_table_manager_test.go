@@ -21,7 +21,7 @@ func NewTestLookupTableManagerContext() *TestLookupTableManagerContext {
 		return nil
 	}
 	metaGraph := rdf.NewRdfGraph("META")
-	if rm == nil {
+	if metaGraph == nil {
 		log.Println("error: nil returned by NewRdfGraph")
 		return nil
 	}
@@ -76,7 +76,7 @@ func TestLookupTable1(t *testing.T) {
 	if lookupMgr == nil {
 		t.Fatalf("error: NewLookupTableManager returned nil")
 	}
-	if lookupMgr.LookupTableMap == nil || len(lookupMgr.LookupTableMap) == 0 {
+	if len(lookupMgr.LookupTableMap) == 0 {
 		t.Fatalf("error: LookupTableManager has nil or empty LookupTableMap")
 	}
 	lookupTable := lookupMgr.LookupTableMap["common_zipcode"]
@@ -131,7 +131,7 @@ func TestLookupTable2(t *testing.T) {
 	if lookupMgr == nil {
 		t.Fatalf("error: NewLookupTableManager returned nil")
 	}
-	if lookupMgr.LookupTableMap == nil || len(lookupMgr.LookupTableMap) == 0 {
+	if len(lookupMgr.LookupTableMap) == 0 {
 		t.Fatalf("error: LookupTableManager has nil or empty LookupTableMap")
 	}
 	lookupTable := lookupMgr.LookupTableMap["IM_Exclusion_Type"]
@@ -187,7 +187,7 @@ func TestLookupRand1(t *testing.T) {
 	if lookupMgr == nil {
 		t.Fatalf("error: NewLookupTableManager returned nil")
 	}
-	if lookupMgr.LookupTableMap == nil || len(lookupMgr.LookupTableMap) == 0 {
+	if len(lookupMgr.LookupTableMap) == 0 {
 		t.Fatalf("error: LookupTableManager has nil or empty LookupTableMap")
 	}
 	lookupTable := lookupMgr.LookupTableMap["IM_Exclusion_Type"]
@@ -242,7 +242,7 @@ func TestLookupMultiRand1(t *testing.T) {
 	if lookupMgr == nil {
 		t.Fatalf("error: NewLookupTableManager returned nil")
 	}
-	if lookupMgr.LookupTableMap == nil || len(lookupMgr.LookupTableMap) == 0 {
+	if len(lookupMgr.LookupTableMap) == 0 {
 		t.Fatalf("error: LookupTableManager has nil or empty LookupTableMap")
 	}
 	lookupTable := lookupMgr.LookupTableMap["IM_Exclusion_Type"]

@@ -148,7 +148,7 @@ func (state *AnalyzeState) NewValue(value interface{}) error {
 	case string:
 		if strings.ToUpper(vv) == "NULL" {
 			state.NullCount += 1
-			return nil	
+			return nil
 		}
 		return state.NewToken(vv)
 	default:
@@ -259,7 +259,7 @@ type AnalyzeTransformationPipe struct {
 }
 
 // Implementing interface PipeTransformationEvaluator
-func (ctx *AnalyzeTransformationPipe) apply(input *[]interface{}) error {
+func (ctx *AnalyzeTransformationPipe) Apply(input *[]interface{}) error {
 	var err error
 	if input == nil {
 		return fmt.Errorf("error: unexpected null input arg in AnalyzeTransformationPipe")
@@ -280,12 +280,12 @@ func (ctx *AnalyzeTransformationPipe) apply(input *[]interface{}) error {
 // Analysis complete, now send out the results to ctx.outputCh.
 // A row is produced for each column state in ctx.analyzeState.
 
-func (ctx *AnalyzeTransformationPipe) done() error {
+func (ctx *AnalyzeTransformationPipe) Done() error {
 	// For each column state in ctx.analyzeState, send out a row to ctx.outputCh
 	for i := range ctx.analyzeState {
 		state, ok := ctx.analyzeState[i].(*AnalyzeState)
 		if !ok {
-			return fmt.Errorf("error: expecting type *AnalyzeState in AnalyzeTransformationPipe.done()")
+			return fmt.Errorf("error: expecting type *AnalyzeState in AnalyzeTransformationPipe.Done()")
 		}
 		var n int
 		for i := range *ctx.spec.AnalyzeConfig.LookupTokens {
@@ -394,7 +394,7 @@ func (ctx *AnalyzeTransformationPipe) done() error {
 		// NOTE there is no initialize and done called on the column evaluators
 		//      since they should be only of type 'select' or 'value'
 		for i := range ctx.columnEvaluators {
-			err := ctx.columnEvaluators[i].update(&outputRow, ctx.firstInputRow)
+			err := ctx.columnEvaluators[i].Update(&outputRow, ctx.firstInputRow)
 			if err != nil {
 				err = fmt.Errorf("while calling column transformation from analyze operator: %v", err)
 				log.Println(err)
@@ -415,7 +415,7 @@ func (ctx *AnalyzeTransformationPipe) done() error {
 	return nil
 }
 
-func (ctx *AnalyzeTransformationPipe) finally() {}
+func (ctx *AnalyzeTransformationPipe) Finally() {}
 
 func (ctx *BuilderContext) NewAnalyzeTransformationPipe(source *InputChannel, outputCh *OutputChannel, spec *TransformationSpec) (*AnalyzeTransformationPipe, error) {
 	var err error
@@ -439,9 +439,9 @@ func (ctx *BuilderContext) NewAnalyzeTransformationPipe(source *InputChannel, ou
 	columnEvaluators := make([]TransformationColumnEvaluator, len(spec.Columns))
 	for i := range spec.Columns {
 		// log.Printf("**& build TransformationColumn[%d] of type %s for output %s", i, spec.Type, spec.Output)
-		columnEvaluators[i], err = ctx.buildTransformationColumnEvaluator(source, outputCh, &spec.Columns[i])
+		columnEvaluators[i], err = ctx.BuildTransformationColumnEvaluator(source, outputCh, &spec.Columns[i])
 		if err != nil {
-			err = fmt.Errorf("while buildTransformationColumnEvaluator (in NewAnalyzeTransformationPipe) %v", err)
+			err = fmt.Errorf("while BuildTransformationColumnEvaluator (in NewAnalyzeTransformationPipe) %v", err)
 			log.Println(err)
 			return nil, err
 		}

@@ -35,7 +35,7 @@ func (ctx *GroupByTransformationPipe) groupValueOf(input *[]interface{}) any {
 }
 
 // Implementing interface PipeTransformationEvaluator
-func (ctx *GroupByTransformationPipe) apply(input *[]interface{}) error {
+func (ctx *GroupByTransformationPipe) Apply(input *[]interface{}) error {
 	if input == nil {
 		return fmt.Errorf("error: unexpected null input arg in GroupByTransformationPipe")
 	}
@@ -80,7 +80,7 @@ func (ctx *GroupByTransformationPipe) sendBundle(input *[]interface{}) {
 	ctx.currentBundle = append(ctx.currentBundle, *input)
 }
 
-func (ctx *GroupByTransformationPipe) done() error {
+func (ctx *GroupByTransformationPipe) Done() error {
 	// Send the last bundle
 	if len(ctx.currentBundle) > 0 {
 		// Send the bundle out the last bundle
@@ -94,7 +94,7 @@ func (ctx *GroupByTransformationPipe) done() error {
 	return nil
 }
 
-func (ctx *GroupByTransformationPipe) finally() {}
+func (ctx *GroupByTransformationPipe) Finally() {}
 
 func (ctx *BuilderContext) NewGroupByTransformationPipe(source *InputChannel, outputCh *OutputChannel, spec *TransformationSpec) (*GroupByTransformationPipe, error) {
 	if spec == nil || spec.GroupByConfig == nil {

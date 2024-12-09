@@ -19,7 +19,7 @@ type ShufflingTransformationPipe struct {
 }
 
 // Implementing interface PipeTransformationEvaluator
-func (ctx *ShufflingTransformationPipe) apply(input *[]interface{}) error {
+func (ctx *ShufflingTransformationPipe) Apply(input *[]interface{}) error {
 	if input == nil {
 		return fmt.Errorf("error: unexpected null input arg in ShufflingTransformationPipe")
 	}
@@ -30,7 +30,7 @@ func (ctx *ShufflingTransformationPipe) apply(input *[]interface{}) error {
 }
 
 // Analysis complete, now send out the results to ctx.outputCh.
-func (ctx *ShufflingTransformationPipe) done() error {
+func (ctx *ShufflingTransformationPipe) Done() error {
 	nbrRecIn := len(ctx.sourceData)
 	for range ctx.spec.ShufflingConfig.OutputSampleSize {
 		outputRow := make([]interface{}, len(ctx.outputCh.columns))
@@ -49,7 +49,7 @@ func (ctx *ShufflingTransformationPipe) done() error {
 	return nil
 }
 
-func (ctx *ShufflingTransformationPipe) finally() {}
+func (ctx *ShufflingTransformationPipe) Finally() {}
 
 func (ctx *BuilderContext) NewShufflingTransformationPipe(source *InputChannel, outputCh *OutputChannel, spec *TransformationSpec) (*ShufflingTransformationPipe, error) {
 	if spec == nil || spec.ShufflingConfig == nil {
