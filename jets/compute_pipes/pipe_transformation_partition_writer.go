@@ -68,10 +68,10 @@ func MakeJetsPartitionLabel(jetsPartitionKey interface{}) string {
 }
 
 // Implementing interface PipeTransformationEvaluator
-func (ctx *PartitionWriterTransformationPipe) apply(input *[]interface{}) error {
+func (ctx *PartitionWriterTransformationPipe) Apply(input *[]interface{}) error {
 	var err error
 	if input == nil {
-		err = fmt.Errorf("error: input record is nil in PartitionWriterTransformationPipe.apply")
+		err = fmt.Errorf("error: input record is nil in PartitionWriterTransformationPipe.Apply")
 		log.Println(err)
 		return err
 	}
@@ -164,15 +164,15 @@ func (ctx *PartitionWriterTransformationPipe) apply(input *[]interface{}) error 
 		currentValues = &v
 		// initialize the column evaluators
 		for i := range ctx.columnEvaluators {
-			ctx.columnEvaluators[i].initializeCurrentValue(currentValues)
+			ctx.columnEvaluators[i].InitializeCurrentValue(currentValues)
 		}
 	} else {
 		currentValues = input
 	}
 
-	// apply the column transformation for each column
+	// Apply the column transformation for each column
 	for i := range ctx.columnEvaluators {
-		err = ctx.columnEvaluators[i].update(currentValues, input)
+		err = ctx.columnEvaluators[i].Update(currentValues, input)
 		if err != nil {
 			err = fmt.Errorf("while calling column transformation from partition_writer: %v", err)
 			log.Println(err)
@@ -181,7 +181,7 @@ func (ctx *PartitionWriterTransformationPipe) apply(input *[]interface{}) error 
 	}
 	// Notify the column evaluator that we're done
 	for i := range ctx.columnEvaluators {
-		err := ctx.columnEvaluators[i].done(currentValues)
+		err := ctx.columnEvaluators[i].Done(currentValues)
 		if err != nil {
 			return fmt.Errorf("while calling done on column evaluator from partition_writer: %v", err)
 		}
@@ -210,7 +210,7 @@ func (ctx *PartitionWriterTransformationPipe) apply(input *[]interface{}) error 
 //   - Send the total row count to ctx.copy2DeviceResultCh
 //
 // Not called if the process has error upstream (see pipe_executor_splitter.go)
-func (ctx *PartitionWriterTransformationPipe) done() error {
+func (ctx *PartitionWriterTransformationPipe) Done() error {
 	// Flush the current partition
 	if ctx.currentDeviceCh != nil {
 		close(ctx.currentDeviceCh)
@@ -238,7 +238,7 @@ func (ctx *PartitionWriterTransformationPipe) done() error {
 }
 
 // Always called, if error or not upstream
-func (ctx *PartitionWriterTransformationPipe) finally() {
+func (ctx *PartitionWriterTransformationPipe) Finally() {
 	if ctx == nil || ctx.s3DeviceManager == nil {
 		return
 	}
@@ -281,9 +281,9 @@ func (ctx *BuilderContext) NewPartitionWriterTransformationPipe(source *InputCha
 	columnEvaluators := make([]TransformationColumnEvaluator, len(spec.Columns))
 	for i := range spec.Columns {
 		// log.Printf("**& build TransformationColumn[%d] of type %s for output %s", i, spec.Type, spec.Output)
-		columnEvaluators[i], err = ctx.buildTransformationColumnEvaluator(source, outputCh, &spec.Columns[i])
+		columnEvaluators[i], err = ctx.BuildTransformationColumnEvaluator(source, outputCh, &spec.Columns[i])
 		if err != nil {
-			err = fmt.Errorf("while buildTransformationColumnEvaluator (in NewPartitionWriterTransformationPipe) %v", err)
+			err = fmt.Errorf("while BuildTransformationColumnEvaluator (in NewPartitionWriterTransformationPipe) %v", err)
 			log.Println(err)
 			return nil, err
 		}

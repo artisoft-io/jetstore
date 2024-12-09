@@ -12,7 +12,7 @@ import (
 
 type ChannelRegistry struct {
 	// Compute Pipes input channel (inputRowChannel), called input_row
-	// Used for sharding mode only
+	// correspond to the input file
 	inputRowChannel      *InputChannel
 	computeChannels      map[string]*Channel
 	outputTableChannels  []string
@@ -57,8 +57,16 @@ func (r *ChannelRegistry) CloseChannel(name string) {
 	r.closedChannels[name] = true
 }
 
-func (r *ChannelRegistry) GetInputChannel(name string) (*InputChannel, error) {
+func (r *ChannelRegistry) GetInputChannel(name string, hasGroupedRows bool) (*InputChannel, error) {
 	if name == "input_row" {
+		if r.inputRowChannel.hasGroupedRows != hasGroupedRows {
+			return &InputChannel{
+				channel:        r.inputRowChannel.channel,
+				config:         r.inputRowChannel.config,
+				columns:        r.inputRowChannel.columns,
+				hasGroupedRows: hasGroupedRows,
+			}, nil
+		}
 		return r.inputRowChannel, nil
 	}
 	ch, ok := r.computeChannels[name]
@@ -66,9 +74,10 @@ func (r *ChannelRegistry) GetInputChannel(name string) (*InputChannel, error) {
 		return nil, fmt.Errorf("error: input channel '%s' not found in ChannelRegistry", name)
 	}
 	return &InputChannel{
-		channel: ch.channel,
-		config:  ch.config,
-		columns: ch.columns,
+		channel:        ch.channel,
+		config:         ch.config,
+		columns:        ch.columns,
+		hasGroupedRows: hasGroupedRows,
 	}, nil
 }
 func (r *ChannelRegistry) GetOutputChannel(name string) (*OutputChannel, error) {
@@ -89,9 +98,10 @@ type Channel struct {
 	config  *ChannelSpec
 }
 type InputChannel struct {
-	channel <-chan []interface{}
-	columns map[string]int
-	config  *ChannelSpec
+	channel        <-chan []interface{}
+	columns        map[string]int
+	config         *ChannelSpec
+	hasGroupedRows bool
 }
 type OutputChannel struct {
 	channel chan<- []interface{}
@@ -121,26 +131,26 @@ func (ctx *BuilderContext) FileKey() string {
 }
 
 type PipeTransformationEvaluator interface {
-	apply(input *[]interface{}) error
-	done() error
-	finally()
+	Apply(input *[]interface{}) error
+	Done() error
+	Finally()
 }
 
 type TransformationColumnEvaluator interface {
-	initializeCurrentValue(currentValue *[]interface{})
-	update(currentValue *[]interface{}, input *[]interface{}) error
-	done(currentValue *[]interface{}) error
+	InitializeCurrentValue(currentValue *[]interface{})
+	Update(currentValue *[]interface{}, input *[]interface{}) error
+	Done(currentValue *[]interface{}) error
 }
 
 type PipeSet map[*PipeSpec]bool
 type Input2PipeSet map[string]*PipeSet
 
-func (ctx *BuilderContext) buildComputeGraph() error {
+func (ctx *BuilderContext) BuildComputeGraph() error {
 
 	for i := range ctx.cpConfig.PipesConfig {
 		pipeSpec := &ctx.cpConfig.PipesConfig[i]
 		input := pipeSpec.InputChannel.Name
-		source, err := ctx.channelRegistry.GetInputChannel(input)
+		source, err := ctx.channelRegistry.GetInputChannel(input, pipeSpec.InputChannel.HasGroupedRows)
 		if err != nil {
 			return fmt.Errorf("while building Pipe: %v", err)
 		}
@@ -171,16 +181,16 @@ func (ctx *BuilderContext) buildComputeGraph() error {
 // Build the PipeTransformationEvaluator: one of map_record, aggregate, or partition_writer
 // The partitionResultCh argument is used only by partition_writer to return the number of rows written and
 // the error that might occur
-func (ctx *BuilderContext) buildPipeTransformationEvaluator(source *InputChannel, jetsPartitionKey interface{},
+func (ctx *BuilderContext) BuildPipeTransformationEvaluator(source *InputChannel, jetsPartitionKey interface{},
 	partitionResultCh chan ComputePipesResult, spec *TransformationSpec) (PipeTransformationEvaluator, error) {
 
 	// Construct the pipe transformation
-	// log.Println("**& buildPipeTransformationEvaluator for", spec.Type, "source:", source.config.Name, "jetsPartitionKey:", jetsPartitionKey, "output:", spec.Output)
+	// log.Println("**& BuildPipeTransformationEvaluator for", spec.Type, "source:", source.config.Name, "jetsPartitionKey:", jetsPartitionKey, "output:", spec.Output)
 
 	// Get the output channel
 	outCh, err := ctx.channelRegistry.GetOutputChannel(spec.OutputChannel.Name)
 	if err != nil {
-		err = fmt.Errorf("while in buildPipeTransformationEvaluator for %s from source %s requesting output channel %s: %v",
+		err = fmt.Errorf("while in BuildPipeTransformationEvaluator for %s from source %s requesting output channel %s: %v",
 			spec.Type, source.config.Name, spec.OutputChannel.Name, err)
 		log.Println(err)
 		return nil, err

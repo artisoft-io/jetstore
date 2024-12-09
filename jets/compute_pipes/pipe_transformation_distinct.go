@@ -20,7 +20,7 @@ type DistinctTransformationPipe struct {
 }
 
 // Implementing interface PipeTransformationEvaluator
-func (ctx *DistinctTransformationPipe) apply(input *[]interface{}) error {
+func (ctx *DistinctTransformationPipe) Apply(input *[]interface{}) error {
 	if input == nil {
 		return fmt.Errorf("error: unexpected null input arg in DistinctTransformationPipe")
 	}
@@ -47,11 +47,11 @@ func (ctx *DistinctTransformationPipe) apply(input *[]interface{}) error {
 	return nil
 }
 
-func (ctx *DistinctTransformationPipe) done() error {
+func (ctx *DistinctTransformationPipe) Done() error {
 	return nil
 }
 
-func (ctx *DistinctTransformationPipe) finally() {}
+func (ctx *DistinctTransformationPipe) Finally() {}
 
 func (ctx *BuilderContext) NewDistinctTransformationPipe(source *InputChannel, outputCh *OutputChannel, spec *TransformationSpec) (*DistinctTransformationPipe, error) {
 	if spec == nil || spec.DistinctConfig == nil {

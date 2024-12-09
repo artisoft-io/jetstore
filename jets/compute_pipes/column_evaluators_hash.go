@@ -76,8 +76,8 @@ func EvalHash(key interface{}, partitions uint64) *uint64 {
 	return &hashedValue
 }
 
-func (ctx *hashColumnEval) initializeCurrentValue(currentValue *[]interface{}) {}
-func (ctx *hashColumnEval) update(currentValue *[]interface{}, input *[]interface{}) error {
+func (ctx *hashColumnEval) InitializeCurrentValue(currentValue *[]interface{}) {}
+func (ctx *hashColumnEval) Update(currentValue *[]interface{}, input *[]interface{}) error {
 	var err error
 	if currentValue == nil || input == nil {
 		return fmt.Errorf("error hashColumnEval.update cannot have nil currentValue or input")
@@ -106,7 +106,7 @@ func (ctx *hashColumnEval) update(currentValue *[]interface{}, input *[]interfac
 	(*currentValue)[ctx.outputPos] = hashedValue
 	return err
 }
-func (ctx *hashColumnEval) done(currentValue *[]interface{}) error {
+func (ctx *hashColumnEval) Done(currentValue *[]interface{}) error {
 	return nil
 }
 
@@ -122,7 +122,9 @@ func (ctx *hashColumnEval) done(currentValue *[]interface{}) error {
 //		}
 //
 // jets_partition will be of type uint64
-func (ctx *BuilderContext) buildHashEvaluator(source *InputChannel, outCh *OutputChannel, spec *TransformationColumnSpec) (TransformationColumnEvaluator, error) {
+func (ctx *BuilderContext) BuildHashTCEvaluator(source *InputChannel, outCh *OutputChannel, 
+	spec *TransformationColumnSpec) (TransformationColumnEvaluator, error) {
+
 	var err error
 	if spec == nil || spec.HashExpr == nil {
 		return nil, fmt.Errorf("error: Type map must have HashExpr != nil")

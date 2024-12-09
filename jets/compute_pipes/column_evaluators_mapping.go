@@ -23,8 +23,8 @@ type mapColumnConfig struct {
 	mapConfig    *MapExpression
 }
 
-func (ctx *mapColumnEval) initializeCurrentValue(currentValue *[]interface{}) {}
-func (ctx *mapColumnEval) update(currentValue *[]interface{}, input *[]interface{}) error {
+func (ctx *mapColumnEval) InitializeCurrentValue(currentValue *[]interface{}) {}
+func (ctx *mapColumnEval) Update(currentValue *[]interface{}, input *[]interface{}) error {
 	if currentValue == nil || input == nil {
 		return fmt.Errorf("error mapColumnEval.update cannot have nil currentValue or input")
 	}
@@ -84,60 +84,64 @@ func (ctx *mapColumnEval) update(currentValue *[]interface{}, input *[]interface
 	return nil
 }
 
-func (ctx *mapColumnEval) done(currentValue *[]interface{}) error {
+func (ctx *mapColumnEval) Done(currentValue *[]interface{}) error {
 	return nil
 }
 
-func (ctx *BuilderContext) buildMapEvaluator(source *InputChannel, outCh *OutputChannel, spec *TransformationColumnSpec) (TransformationColumnEvaluator, error) {
+func (ctx *BuilderContext) BuildMapTCEvaluator(source *InputChannel, outCh *OutputChannel, 
+	spec *TransformationColumnSpec) (TransformationColumnEvaluator, error) {
+
 	if spec == nil || spec.MapExpr == nil {
 		return nil, fmt.Errorf("error: Type map must have MapExpr != nil")
 	}
 	var defaultValue interface{}
 	var err error
+	meRdfType := spec.MapExpr.RdfType
+	meDefault := spec.MapExpr.Default
 	switch {
-	case spec.MapExpr.Default == nil:
+	case meDefault == nil:
 		defaultValue = nil
-	case spec.MapExpr.RdfType == "int", spec.MapExpr.RdfType == "bool":
+	case meRdfType == "int", meRdfType == "bool":
 		switch {
-		case *spec.MapExpr.Default == "true" || *spec.MapExpr.Default == "TRUE":
+		case *meDefault == "true" || *meDefault == "TRUE":
 			defaultValue = 1
-		case *spec.MapExpr.Default == "false" || *spec.MapExpr.Default == "FALSE":
+		case *meDefault == "false" || *meDefault == "FALSE":
 			defaultValue = 0
 		default:
-			defaultValue, err = strconv.Atoi(*spec.MapExpr.Default)
+			defaultValue, err = strconv.Atoi(*meDefault)
 			if err != nil {
 				return nil, err
 			}
 		}
-	case spec.MapExpr.RdfType == "double", spec.MapExpr.RdfType == "float64":
-		defaultValue, err = strconv.ParseFloat(*spec.MapExpr.Default, 64)
+	case meRdfType == "double", meRdfType == "float64":
+		defaultValue, err = strconv.ParseFloat(*meDefault, 64)
 		if err != nil {
 			return nil, err
 		}
-	case spec.MapExpr.RdfType == "string", spec.MapExpr.RdfType == "text":
-		defaultValue = *spec.MapExpr.Default
+	case meRdfType == "string", meRdfType == "text":
+		defaultValue = *meDefault
 
-	case spec.MapExpr.RdfType == "date":
-		temp, err := ParseDate(*spec.MapExpr.Default)
+	case meRdfType == "date":
+		temp, err := ParseDate(*meDefault)
 		if err != nil || temp == nil {
-			fmt.Println("default value is not date:", *spec.MapExpr.Default)
+			fmt.Println("default value is not date:", *meDefault)
 			defaultValue = nil
 			err = nil
 		} else {
 			defaultValue = *temp
 		}
-	case spec.MapExpr.RdfType == "datetime":
-		temp, err := ParseDatetime(*spec.MapExpr.Default)
+	case meRdfType == "datetime":
+		temp, err := ParseDatetime(*meDefault)
 		if err != nil || temp == nil {
-			fmt.Println("default value is not datetime:", *spec.MapExpr.Default)
+			fmt.Println("default value is not datetime:", *meDefault)
 			defaultValue = nil
 			err = nil
 		} else {
 			defaultValue = *temp
 		}
 
-	case spec.MapExpr.RdfType == "int64", spec.MapExpr.RdfType == "long":
-		defaultValue, err = strconv.ParseInt(*spec.MapExpr.Default, 10, 64)
+	case meRdfType == "int64", meRdfType == "long":
+		defaultValue, err = strconv.ParseInt(*meDefault, 10, 64)
 		if err != nil {
 			return nil, err
 		}

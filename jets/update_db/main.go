@@ -99,7 +99,7 @@ func doJob() error {
 	}
 
 	fmt.Println("-- Create / Update JetStore Domain Tables")
-	tables := make([]*rete.TableNode, 0)
+	tableMap := make(map[string]*rete.TableNode)
 	fpath := fmt.Sprintf("%s/%s/build/tables.json", workspaceHome, wprefix)
 	log.Println("Reading JetStore tables definitions from:", fpath)
 	file, err := os.ReadFile(fpath)
@@ -108,15 +108,11 @@ func doJob() error {
 		log.Println(err)
 		return err
 	}
-	err = json.Unmarshal(file, &tables)
+	err = json.Unmarshal(file, &tableMap)
 	if err != nil {
 		err = fmt.Errorf("while unmarshaling tables.json (update_db):%v", err)
 		log.Println(err)
 		return err
-	}
-	tableMap := make(map[string]*rete.TableNode, len(tables))
-	for _, table := range tables {
-		tableMap[table.TableName] = table
 	}
 	tableSpecs, err := workspace.DomainTableDefinitions(dbpool, tableMap)
 	if err != nil {

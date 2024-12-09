@@ -37,7 +37,7 @@ type AnonymizationAction struct {
 }
 
 // Implementing interface PipeTransformationEvaluator
-func (ctx *AnonymizeTransformationPipe) apply(input *[]interface{}) error {
+func (ctx *AnonymizeTransformationPipe) Apply(input *[]interface{}) error {
 	if input == nil {
 		return fmt.Errorf("error: unexpected null input arg in AnonymizeTransformationPipe")
 	}
@@ -104,7 +104,7 @@ func (ctx *AnonymizeTransformationPipe) apply(input *[]interface{}) error {
 }
 
 // Anonymization complete, now send out the keys mapping to keys_output_channel
-func (ctx *AnonymizeTransformationPipe) done() error {
+func (ctx *AnonymizeTransformationPipe) Done() error {
 	var err error
 	ctx.keysMap.Iter(func(k uint64, v [2]string) (stop bool) {
 		outputRow := make([]interface{}, len(ctx.keysOutputCh.columns))
@@ -116,7 +116,7 @@ func (ctx *AnonymizeTransformationPipe) done() error {
 		// NOTE there is no initialize and done called on the column evaluators
 		//      since they should be only of type 'select' or 'value'
 		for i := range ctx.columnEvaluators {
-			err2 := ctx.columnEvaluators[i].update(&outputRow, ctx.firstInputRow)
+			err2 := ctx.columnEvaluators[i].Update(&outputRow, ctx.firstInputRow)
 			if err2 != nil {
 				err2 = fmt.Errorf("while calling column transformation from anonymize operator: %v", err)
 				log.Println(err2)
@@ -140,7 +140,7 @@ func (ctx *AnonymizeTransformationPipe) done() error {
 	return err
 }
 
-func (ctx *AnonymizeTransformationPipe) finally() {}
+func (ctx *AnonymizeTransformationPipe) Finally() {}
 
 func (ctx *BuilderContext) NewAnonymizeTransformationPipe(source *InputChannel, outputCh *OutputChannel, spec *TransformationSpec) (*AnonymizeTransformationPipe, error) {
 	if spec == nil || spec.AnonymizeConfig == nil {
@@ -237,9 +237,9 @@ func (ctx *BuilderContext) NewAnonymizeTransformationPipe(source *InputChannel, 
 	columnEvaluators = make([]TransformationColumnEvaluator, len(spec.Columns))
 	for i := range spec.Columns {
 		// log.Printf("**& build TransformationColumn[%d] of type %s for output %s", i, spec.Type, spec.Output)
-		columnEvaluators[i], err = ctx.buildTransformationColumnEvaluator(source, keysOutCh, &spec.Columns[i])
+		columnEvaluators[i], err = ctx.BuildTransformationColumnEvaluator(source, keysOutCh, &spec.Columns[i])
 		if err != nil {
-			err = fmt.Errorf("while buildTransformationColumnEvaluator (in NewAnonymizeTransformationPipe) %v", err)
+			err = fmt.Errorf("while BuildTransformationColumnEvaluator (in NewAnonymizeTransformationPipe) %v", err)
 			log.Println(err)
 			return nil, err
 		}

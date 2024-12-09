@@ -53,7 +53,7 @@ func (ctx *BuilderContext) parseValue(expr *string) (interface{}, error) {
 }
 
 // build the runtime evaluator for the column transformation
-func (ctx *BuilderContext) buildTransformationColumnEvaluator(source *InputChannel, outCh *OutputChannel, spec *TransformationColumnSpec) (TransformationColumnEvaluator, error) {
+func (ctx *BuilderContext) BuildTransformationColumnEvaluator(source *InputChannel, outCh *OutputChannel, spec *TransformationColumnSpec) (TransformationColumnEvaluator, error) {
 
 	switch spec.Type {
 	// select, value, eval, map, count, distinct_count, sum, min, case, hash, map_reduce, lookup
@@ -106,51 +106,51 @@ func (ctx *BuilderContext) buildTransformationColumnEvaluator(source *InputChann
 		}, nil
 
 	case "map":
-		mapEvaluator, err := ctx.buildMapEvaluator(source, outCh, spec)
+		mapEvaluator, err := ctx.BuildMapTCEvaluator(source, outCh, spec)
 		if err != nil {
-			return nil, fmt.Errorf("while calling buildMapEvaluator: %v", err)
+			return nil, fmt.Errorf("while calling BuildMapTCEvaluator: %v", err)
 		}
 		return mapEvaluator, nil
 
 	case "count":
-		countEvaluator, err := ctx.buildCountEvaluator(source, outCh, spec)
+		countEvaluator, err := ctx.BuildCountTCEvaluator(source, outCh, spec)
 		if err != nil {
-			return nil, fmt.Errorf("while calling buildCountEvaluator: %v", err)
+			return nil, fmt.Errorf("while calling BuildCountTCEvaluator: %v", err)
 		}
 		return countEvaluator, nil
 
 	case "distinct_count":
-		distinctCountEvaluator, err := ctx.buildDistinctCountEvaluator(source, outCh, spec)
+		distinctCountEvaluator, err := ctx.BuildDistinctCountTCEvaluator(source, outCh, spec)
 		if err != nil {
-			return nil, fmt.Errorf("while calling buildDistinctCountEvaluator: %v", err)
+			return nil, fmt.Errorf("while calling BuildDistinctCountTCEvaluator: %v", err)
 		}
 		return distinctCountEvaluator, nil
 
 	case "sum":
-		sumEvaluator, err := ctx.buildSumEvaluator(source, outCh, spec)
+		sumEvaluator, err := ctx.BuildSumTCEvaluator(source, outCh, spec)
 		if err != nil {
-			return nil, fmt.Errorf("while calling buildSumEvaluator: %v", err)
+			return nil, fmt.Errorf("while calling BuildSumTCEvaluator: %v", err)
 		}
 		return sumEvaluator, nil
 
 	case "min":
-		minEvaluator, err := ctx.buildMinEvaluator(source, outCh, spec)
+		minEvaluator, err := ctx.BuildMinTCEvaluator(source, outCh, spec)
 		if err != nil {
-			return nil, fmt.Errorf("while calling buildMinEvaluator: %v", err)
+			return nil, fmt.Errorf("while calling BuildMinTCEvaluator: %v", err)
 		}
 		return minEvaluator, nil
 
 	case "case":
-		return ctx.buildCaseExprEvaluator(source, outCh, spec)
+		return ctx.BuildCaseExprTCEvaluator(source, outCh, spec)
 
 	case "hash":
-		return ctx.buildHashEvaluator(source, outCh, spec)
+		return ctx.BuildHashTCEvaluator(source, outCh, spec)
 
 	case "map_reduce":
-		return ctx.buildMapReduceEvaluator(source, outCh, spec)
+		return ctx.BuildMapReduceTCEvaluator(source, outCh, spec)
 
 	case "lookup":
-		return ctx.buildLookupEvaluator(source, outCh, spec)
+		return ctx.BuildLookupTCEvaluator(source, outCh, spec)
 	}
 	return nil, fmt.Errorf("error: unknown TransformationColumnSpec Type: %v", spec.Type)
 }
@@ -161,8 +161,8 @@ type evalExprColumnEval struct {
 	outputPos int
 }
 
-func (ctx *evalExprColumnEval) initializeCurrentValue(currentValue *[]interface{}) {}
-func (ctx *evalExprColumnEval) update(currentValue *[]interface{}, input *[]interface{}) error {
+func (ctx *evalExprColumnEval) InitializeCurrentValue(currentValue *[]interface{}) {}
+func (ctx *evalExprColumnEval) Update(currentValue *[]interface{}, input *[]interface{}) error {
 	value, err := ctx.expr.eval(input)
 	if err != nil {
 		return err
@@ -170,7 +170,7 @@ func (ctx *evalExprColumnEval) update(currentValue *[]interface{}, input *[]inte
 	(*currentValue)[ctx.outputPos] = value
 	return nil
 }
-func (ctx *evalExprColumnEval) done(currentValue *[]interface{}) error {
+func (ctx *evalExprColumnEval) Done(currentValue *[]interface{}) error {
 	return nil
 }
 
@@ -180,12 +180,12 @@ type valueColumnEval struct {
 	outputPos int
 }
 
-func (ctx *valueColumnEval) done(currentValue *[]interface{}) error {
+func (ctx *valueColumnEval) Done(currentValue *[]interface{}) error {
 	return nil
 }
 
-func (ctx *valueColumnEval) initializeCurrentValue(currentValue *[]interface{}) {}
-func (ctx *valueColumnEval) update(currentValue *[]interface{}, input *[]interface{}) error {
+func (ctx *valueColumnEval) InitializeCurrentValue(currentValue *[]interface{}) {}
+func (ctx *valueColumnEval) Update(currentValue *[]interface{}, input *[]interface{}) error {
 	if currentValue == nil || input == nil {
 		return fmt.Errorf("error valueColumnEval.update cannot have nil currentValue or input")
 	}
@@ -199,12 +199,12 @@ type selectColumnEval struct {
 	outputPos int
 }
 
-func (ctx *selectColumnEval) done(currentValue *[]interface{}) error {
+func (ctx *selectColumnEval) Done(currentValue *[]interface{}) error {
 	return nil
 }
 
-func (ctx *selectColumnEval) initializeCurrentValue(currentValue *[]interface{}) {}
-func (ctx *selectColumnEval) update(currentValue *[]interface{}, input *[]interface{}) error {
+func (ctx *selectColumnEval) InitializeCurrentValue(currentValue *[]interface{}) {}
+func (ctx *selectColumnEval) Update(currentValue *[]interface{}, input *[]interface{}) error {
 	if currentValue == nil || input == nil {
 		return fmt.Errorf("error selectColumnEval.update cannot have nil currentValue or input")
 	}

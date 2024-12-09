@@ -11,13 +11,13 @@ type countColumnEval struct {
 	outputPos int
 	where evalExpression
 }
-func (ctx *countColumnEval) initializeCurrentValue(currentValue *[]interface{}) {
+func (ctx *countColumnEval) InitializeCurrentValue(currentValue *[]interface{}) {
 	if currentValue == nil {
 		return
 	}
 	(*currentValue)[ctx.outputPos] = int64(0)
 }
-func (ctx *countColumnEval) update(currentValue *[]interface{}, input *[]interface{}) error {
+func (ctx *countColumnEval) Update(currentValue *[]interface{}, input *[]interface{}) error {
 	if currentValue == nil || input == nil {
 		return fmt.Errorf("error countColumnEval.update cannot have nil currentValue or input")
 	}
@@ -42,11 +42,13 @@ func (ctx *countColumnEval) update(currentValue *[]interface{}, input *[]interfa
 	(*currentValue)[ctx.outputPos] = count + 1
 	return nil
 }
-func (ctx *countColumnEval) done(currentValue *[]interface{}) error {
+func (ctx *countColumnEval) Done(currentValue *[]interface{}) error {
 	return nil
 }
 
-func (ctx *BuilderContext) buildCountEvaluator(source *InputChannel, outCh *OutputChannel,  spec *TransformationColumnSpec) (TransformationColumnEvaluator, error) {
+func (ctx *BuilderContext) BuildCountTCEvaluator(source *InputChannel, outCh *OutputChannel,  
+	spec *TransformationColumnSpec) (TransformationColumnEvaluator, error) {
+		
 	if spec == nil || spec.Expr == nil {
 		return nil, fmt.Errorf("error: Type count must have Expr != nil")
 	}
@@ -85,13 +87,13 @@ type distinctCountColumnEval struct {
 	distinctValues map[string]bool
 	where evalExpression
 }
-func (ctx *distinctCountColumnEval) initializeCurrentValue(currentValue *[]interface{}) {
+func (ctx *distinctCountColumnEval) InitializeCurrentValue(currentValue *[]interface{}) {
 	if currentValue == nil {
 		return
 	}
 	(*currentValue)[ctx.outputPos] = int64(0)
 }
-func (ctx *distinctCountColumnEval) update(currentValue *[]interface{}, input *[]interface{}) error {
+func (ctx *distinctCountColumnEval) Update(currentValue *[]interface{}, input *[]interface{}) error {
 	if currentValue == nil || input == nil {
 		return fmt.Errorf("error countColumnEval.update cannot have nil currentValue or input")
 	}
@@ -120,11 +122,13 @@ func (ctx *distinctCountColumnEval) update(currentValue *[]interface{}, input *[
 	}
 	return nil
 }
-func (ctx *distinctCountColumnEval) done(currentValue *[]interface{}) error {
+func (ctx *distinctCountColumnEval) Done(currentValue *[]interface{}) error {
 	return nil
 }
 
-func (ctx *BuilderContext) buildDistinctCountEvaluator(source *InputChannel, outCh *OutputChannel,  spec *TransformationColumnSpec) (TransformationColumnEvaluator, error) {
+func (ctx *BuilderContext) BuildDistinctCountTCEvaluator(source *InputChannel, outCh *OutputChannel,  
+	spec *TransformationColumnSpec) (TransformationColumnEvaluator, error) {
+
 	if spec == nil || spec.Expr == nil {
 		return nil, fmt.Errorf("error: Type distinct_count must have Expr != nil")
 	}
@@ -226,11 +230,11 @@ type sumColumnEval struct {
 	outputPos int
 	where evalExpression
 }
-func (ctx *sumColumnEval) initializeCurrentValue(currentValue *[]interface{}) {
+func (ctx *sumColumnEval) InitializeCurrentValue(currentValue *[]interface{}) {
 	// by default use int64, may change to float64 based on data
 	(*currentValue)[ctx.outputPos] = int64(0)
 }
-func (ctx *sumColumnEval) update(currentValue *[]interface{}, input *[]interface{}) error {
+func (ctx *sumColumnEval) Update(currentValue *[]interface{}, input *[]interface{}) error {
 	if currentValue == nil || input == nil {
 		return fmt.Errorf("error sumColumnEval.update cannot have nil currentValue or input")
 	}
@@ -258,11 +262,13 @@ func (ctx *sumColumnEval) update(currentValue *[]interface{}, input *[]interface
 	(*currentValue)[ctx.outputPos] = cv
 	return nil
 }
-func (ctx *sumColumnEval) done(currentValue *[]interface{}) error {
+func (ctx *sumColumnEval) Done(currentValue *[]interface{}) error {
 	return nil
 }
 
-func (ctx *BuilderContext) buildSumEvaluator(source *InputChannel, outCh *OutputChannel,  spec *TransformationColumnSpec) (TransformationColumnEvaluator, error) {
+func (ctx *BuilderContext) BuildSumTCEvaluator(source *InputChannel, outCh *OutputChannel,  
+	spec *TransformationColumnSpec) (TransformationColumnEvaluator, error) {
+
 	if spec == nil || spec.Expr == nil {
 		return nil, fmt.Errorf("error: Type sum must have Expr != nil")
 	}
@@ -347,8 +353,8 @@ type minColumnEval struct {
 	outputPos int
 	where evalExpression
 }
-func (ctx *minColumnEval) initializeCurrentValue(currentValue *[]interface{}) {}
-func (ctx *minColumnEval) update(currentValue *[]interface{}, input *[]interface{}) error {
+func (ctx *minColumnEval) InitializeCurrentValue(currentValue *[]interface{}) {}
+func (ctx *minColumnEval) Update(currentValue *[]interface{}, input *[]interface{}) error {
 	if currentValue == nil || input == nil {
 		return fmt.Errorf("error minColumnEval.update cannot have nil currentValue or input")
 	}
@@ -372,11 +378,12 @@ func (ctx *minColumnEval) update(currentValue *[]interface{}, input *[]interface
 	}
 	return nil
 }
-func (ctx *minColumnEval) done(currentValue *[]interface{}) error {
+func (ctx *minColumnEval) Done(currentValue *[]interface{}) error {
 	return nil
 }
 
-func (ctx *BuilderContext) buildMinEvaluator(source *InputChannel, outCh *OutputChannel,  spec *TransformationColumnSpec) (*minColumnEval, error) {
+func (ctx *BuilderContext) BuildMinTCEvaluator(source *InputChannel, outCh *OutputChannel,  
+	spec *TransformationColumnSpec) (TransformationColumnEvaluator, error) {
 	if spec == nil || spec.Expr == nil {
 		return nil, fmt.Errorf("error: Type min must have Expr != nil")
 	}

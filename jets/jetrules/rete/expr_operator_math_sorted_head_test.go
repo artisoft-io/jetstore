@@ -11,7 +11,7 @@ import (
 func TestMathSortedHead1(t *testing.T) {
 	rm := rdf.NewResourceManager(nil)
 	if rm == nil {
-		t.Errorf("error: nil returned by NewResourceManager")
+		t.Fatalf("error: nil returned by NewResourceManager")
 	}
 	jr := rm.JetsResources
 	config := rm.NewResource("config")
@@ -54,7 +54,7 @@ func TestMathSortedHead1(t *testing.T) {
 func TestMathSortedHead2(t *testing.T) {
 	rm := rdf.NewResourceManager(nil)
 	if rm == nil {
-		t.Errorf("error: nil returned by NewResourceManager")
+		t.Fatalf("error: nil returned by NewResourceManager")
 	}
 	jr := rm.JetsResources
 	config := rm.NewResource("config")

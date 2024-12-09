@@ -14,6 +14,7 @@ type GroupByTransformationPipe struct {
 	outputCh      *OutputChannel
 	currentValue  any
 	currentBundle []any
+	groupByCount  int
 	groupByPos    []int
 	spec          *TransformationSpec
 	env           map[string]interface{}
@@ -34,10 +35,21 @@ func (ctx *GroupByTransformationPipe) groupValueOf(input *[]interface{}) any {
 }
 
 // Implementing interface PipeTransformationEvaluator
-func (ctx *GroupByTransformationPipe) apply(input *[]interface{}) error {
+func (ctx *GroupByTransformationPipe) Apply(input *[]interface{}) error {
 	if input == nil {
 		return fmt.Errorf("error: unexpected null input arg in GroupByTransformationPipe")
 	}
+	if ctx.groupByCount > 0 {
+		// Group row by count
+		if len(ctx.currentBundle) < ctx.groupByCount {
+			ctx.currentBundle = append(ctx.currentBundle, *input)
+			return nil
+		}
+		// Got value past end of bundle
+		ctx.sendBundle(input)
+		return nil
+	}
+	// Group by value
 	groupByValue := ctx.groupValueOf(input)
 	switch {
 	case ctx.currentValue == nil:
@@ -47,15 +59,7 @@ func (ctx *GroupByTransformationPipe) apply(input *[]interface{}) error {
 
 	case ctx.currentValue != groupByValue:
 		// Got value past end of bundle
-		// Send the bundle out
-		select {
-		case ctx.outputCh.channel <- ctx.currentBundle:
-		case <-ctx.doneCh:
-			log.Println("GroupByTransform interrupted")
-		}
-		// Prepare the next bundle
-		ctx.currentBundle = make([]any, 0)
-		ctx.currentBundle = append(ctx.currentBundle, *input)
+		ctx.sendBundle(input)
 
 	default:
 		// Adding to the bundle
@@ -64,9 +68,21 @@ func (ctx *GroupByTransformationPipe) apply(input *[]interface{}) error {
 	return nil
 }
 
-func (ctx *GroupByTransformationPipe) done() error {
+func (ctx *GroupByTransformationPipe) sendBundle(input *[]interface{}) {
+	// Send the bundle out
+	select {
+	case ctx.outputCh.channel <- ctx.currentBundle:
+	case <-ctx.doneCh:
+		log.Println("GroupByTransform interrupted")
+	}
+	// Prepare the next bundle
+	ctx.currentBundle = make([]any, 0)
+	ctx.currentBundle = append(ctx.currentBundle, *input)
+}
+
+func (ctx *GroupByTransformationPipe) Done() error {
 	// Send the last bundle
-	if len(ctx.currentBundle)	> 0 {
+	if len(ctx.currentBundle) > 0 {
 		// Send the bundle out the last bundle
 		select {
 		case ctx.outputCh.channel <- ctx.currentBundle:
@@ -78,7 +94,7 @@ func (ctx *GroupByTransformationPipe) done() error {
 	return nil
 }
 
-func (ctx *GroupByTransformationPipe) finally() {}
+func (ctx *GroupByTransformationPipe) Finally() {}
 
 func (ctx *BuilderContext) NewGroupByTransformationPipe(source *InputChannel, outputCh *OutputChannel, spec *TransformationSpec) (*GroupByTransformationPipe, error) {
 	if spec == nil || spec.GroupByConfig == nil {
@@ -87,21 +103,26 @@ func (ctx *BuilderContext) NewGroupByTransformationPipe(source *InputChannel, ou
 	// Validate the config: must have NewRecord set to true
 	spec.NewRecord = true
 	config := spec.GroupByConfig
-	groupByPos := config.GroupByPos
-	if len(config.GroupByName) > 0 {
-		groupByPos = make([]int, 0)
-		for _, name := range config.GroupByName {
-			groupByPos = append(groupByPos, source.columns[name])
+	groupByCount := config.GroupByCount
+	var groupByPos []int
+	if groupByCount == 0 {
+		groupByPos = config.GroupByPos
+		if len(config.GroupByName) > 0 {
+			groupByPos = make([]int, 0)
+			for _, name := range config.GroupByName {
+				groupByPos = append(groupByPos, source.columns[name])
+			}
 		}
 	}
-	if groupByPos == nil {
-		groupByPos = []int{1}
+	if groupByCount == 0 && len(groupByPos) == 0 {
+		return nil, fmt.Errorf("error: group_by operator must specify one of: group_by_name, group_by_pos, group_by_count")
 	}
 
 	return &GroupByTransformationPipe{
 		cpConfig:      ctx.cpConfig,
 		source:        source,
 		outputCh:      outputCh,
+		groupByCount:  groupByCount,
 		groupByPos:    groupByPos,
 		currentBundle: make([]any, 0),
 		spec:          spec,

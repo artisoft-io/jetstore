@@ -88,6 +88,7 @@ func (cpCtx *ComputePipesContext) StartComputePipes(dbpool *pgxpool.Pool, comput
 				Name:    "input_row",
 				Columns: inputRowChSpec.Columns,
 			},
+			hasGroupedRows: cpCtx.CpConfig.PipesConfig[0].InputChannel.HasGroupedRows,
 		}
 	}
 	// Collect all the channel that are in use in PipeConfig, looking at PipeConfig.TransformationSpec.OutputChannel
@@ -182,6 +183,7 @@ func (cpCtx *ComputePipesContext) StartComputePipes(dbpool *pgxpool.Pool, comput
 				Name:    "input_row",
 				Columns: inChannel.config.Columns,
 			},
+			hasGroupedRows: cpCtx.CpConfig.PipesConfig[0].InputChannel.HasGroupedRows,
 		}
 		cpCtx.CpConfig.PipesConfig[0].InputChannel.Name = "input_row"
 		channelRegistry.inputRowChannel = inputRowChannel
@@ -270,13 +272,13 @@ func (cpCtx *ComputePipesContext) StartComputePipes(dbpool *pgxpool.Pool, comput
 	// Wait until the lookup tables are ready
 	managersWg.Wait()
 
-	// log.Println("Calling ctx.buildComputeGraph()")
-	err = ctx.buildComputeGraph()
+	// log.Println("Calling ctx.BuildComputeGraph()")
+	err = ctx.BuildComputeGraph()
 	if err != nil {
 		cpErr = fmt.Errorf("while building the compute graph: %s", err)
 		goto gotError
 	}
-	// log.Println("Calling ctx.buildComputeGraph() completed")
+	// log.Println("Calling ctx.BuildComputeGraph() completed")
 
 	// All done!
 	close(cpCtx.ChResults.Copy2DbResultCh)

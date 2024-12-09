@@ -21,8 +21,8 @@ type columnExpression struct {
 	evalExpr  evalExpression
 }
 
-func (ctx *caseExprEvaluator) initializeCurrentValue(currentValue *[]interface{}) {}
-func (ctx *caseExprEvaluator) update(currentValue *[]interface{}, input *[]interface{}) error {
+func (ctx *caseExprEvaluator) InitializeCurrentValue(currentValue *[]interface{}) {}
+func (ctx *caseExprEvaluator) Update(currentValue *[]interface{}, input *[]interface{}) error {
 	if currentValue == nil || input == nil {
 		return fmt.Errorf("error caseExprEvaluator.update cannot have nil currentValue or input")
 	}
@@ -55,10 +55,12 @@ func (ctx *caseExprEvaluator) update(currentValue *[]interface{}, input *[]inter
 	}
 	return nil
 }
-func (ctx *caseExprEvaluator) done(currentValue *[]interface{}) error {
+func (ctx *caseExprEvaluator) Done(currentValue *[]interface{}) error {
 	return nil
 }
-func (ctx *BuilderContext) buildCaseExprEvaluator(source *InputChannel, outCh *OutputChannel, spec *TransformationColumnSpec) (TransformationColumnEvaluator, error) {
+func (ctx *BuilderContext) BuildCaseExprTCEvaluator(source *InputChannel, outCh *OutputChannel, 
+	spec *TransformationColumnSpec) (TransformationColumnEvaluator, error) {
+
 	if spec == nil || spec.CaseExpr == nil {
 		return nil, fmt.Errorf("error: Type case_expr must have CaseExpr != nil")
 	}

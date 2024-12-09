@@ -1,19 +1,14 @@
 package compute_pipes
 
 import (
-	"context"
 	"fmt"
 	"log"
-	"sync"
 
 	"github.com/artisoft-io/jetstore/jets/jetrules/rete"
 	"github.com/jackc/pgx/v4/pgxpool"
 )
 
 // Jetrules operator. Execute rules for each record group (bundle) recieved from input chan
-
-// metaStoreFactoryMap is a map mainRuleName -> *ReteMetaStoreFactory
-var metaStoreFactoryMap *sync.Map = new(sync.Map)
 
 type JetrulesTransformationPipe struct {
 	cpConfig       *ComputePipesConfig
@@ -32,23 +27,28 @@ type JetrulesOutputChan struct {
 }
 
 // Implementing interface PipeTransformationEvaluator
-// Each call to apply, the input correspond to a rdf session on which to apply the jetrules
+// Each call to Apply, the input correspond to a rdf session on which to Apply the jetrules
 // see jetrules_pool_worker.go for worker implementation
-func (ctx *JetrulesTransformationPipe) apply(input *[]interface{}) error {
+func (ctx *JetrulesTransformationPipe) Apply(input *[]interface{}) error {
 	if input == nil {
 		return fmt.Errorf("error: unexpected null input arg in JetrulesTransformationPipe")
 	}
-	// HERE
+	// Send out the input to the worker pool
+	select {
+	case ctx.jrPoolManager.WorkersTaskCh <- *input:
+	case <-ctx.doneCh:
+		log.Println("JetrulesTransformationPipe interrupted")
+	}
 	return nil
 }
 
-func (ctx *JetrulesTransformationPipe) done() error {
-
+func (ctx *JetrulesTransformationPipe) Done() error {
+	close(ctx.jrPoolManager.WorkersTaskCh)
 	// log.Println("**!@@ ** Send ANALYZE Result to", ctx.outputCh.config.Name, "DONE")
 	return nil
 }
 
-func (ctx *JetrulesTransformationPipe) finally() {}
+func (ctx *JetrulesTransformationPipe) Finally() {}
 
 func (ctx *BuilderContext) NewJetrulesTransformationPipe(source *InputChannel, _ *OutputChannel, spec *TransformationSpec) (*JetrulesTransformationPipe, error) {
 	if spec == nil || spec.JetrulesConfig == nil {
@@ -127,35 +127,4 @@ func GetJetClassProperties(dbpool *pgxpool.Pool, className, processName string) 
 		}
 	}
 	return nil, fmt.Errorf("error: Class '%s' not found in workspace for process name '%s'", className, processName)
-}
-
-// Function to get the jetrules factory for a rule process
-func GetJetrulesFactory(dbpool *pgxpool.Pool, processName string) (reteMetaStore *rete.ReteMetaStoreFactory, err error) {
-	// Get the Rete MetaStore for the mainRules
-	msf, _ := metaStoreFactoryMap.Load(processName)
-	if msf == nil {
-		var mainRules string
-		stmt := `SELECT	pc.main_rules FROM jetsapi.process_config pc WHERE pc.process_name = $1`
-		err := dbpool.QueryRow(context.Background(), stmt, processName).Scan(&mainRules)
-		if err != nil {
-			return nil,
-				fmt.Errorf("quering main rule file name for process %s from jetsapi.process_config failed: %v",
-					processName, err)
-		}
-		if len(mainRules) == 0 {
-			return nil, fmt.Errorf("error: main rule file name is empty for process %s", processName)
-		}
-		log.Printf("Rete Meta Store for ruleset '%s' for process '%s' not loaded, loading from local workspace",
-			mainRules, processName)
-		reteMetaStore, err = rete.NewReteMetaStoreFactory(mainRules)
-		if err != nil {
-			return nil,
-				fmt.Errorf("while loading ruleset '%s' for process '%s' from local workspace via NewReteMetaStoreFactory: %v",
-					mainRules, processName, err)
-		}
-		metaStoreFactoryMap.Store(processName, reteMetaStore)
-	} else {
-		reteMetaStore = msf.(*rete.ReteMetaStoreFactory)
-	}
-	return
 }

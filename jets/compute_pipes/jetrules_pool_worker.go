@@ -24,8 +24,10 @@ type JrPoolWorker struct {
 	errCh          chan error
 }
 
-func NewJrPoolWorker(config *JetrulesSpec, source *InputChannel, reteMetaStore *rete.ReteMetaStoreFactory, outputChannels []*JetrulesOutputChan,
+func NewJrPoolWorker(config *JetrulesSpec, source *InputChannel,
+	reteMetaStore *rete.ReteMetaStoreFactory, outputChannels []*JetrulesOutputChan,
 	done chan struct{}, errCh chan error) *JrPoolWorker {
+
 	return &JrPoolWorker{
 		config:         config,
 		source:         source,
@@ -92,13 +94,15 @@ func (ctx *JrPoolWorker) executeRules(inputRecords *[]any,
 
 	var cpErr error
 	// var reteSessionSaved bool
-	rdfSession := rdf.NewRdfSession(ctx.reteMetaStore.ResourceMgr, ctx.reteMetaStore.MetaGraph)
+	rdfSession := rdf.NewRdfSession(ctx.reteMetaStore.ResourceMgr,
+		ctx.reteMetaStore.MetaGraph)
 	rm := rdfSession.ResourceMgr
 	jr := rm.JetsResources
 	var maxLooping, iloop int
 
 	// Assert the input records to rdf session
-	err = assertInputRecords(ctx.config, ctx.source, rdfSession, inputRecords)
+	err = assertInputRecords(ctx.config, ctx.source, rm, jr,
+		rdfSession.AssertedGraph, inputRecords)
 
 	// Loop over all rulesets
 	for _, ruleset := range ctx.reteMetaStore.MainRuleFileNames {
@@ -173,11 +177,11 @@ func (ctx *JrPoolWorker) executeRules(inputRecords *[]any,
 		// Extract data from the rdf session based on class names
 		for _, outChannel := range ctx.outputChannels {
 			err = ctx.extractSessionData(rdfSession, outChannel)
-      cpErr = fmt.Errorf(
-        "while extraction entity from jetrules for class %s: %v",
-        outChannel.className, err)
-      goto gotError
-    }
+			cpErr = fmt.Errorf(
+				"while extraction entity from jetrules for class %s: %v",
+				outChannel.className, err)
+			goto gotError
+		}
 		reteSession.Done()
 	}
 	return
@@ -195,14 +199,16 @@ gotError:
 	return 0, cpErr
 }
 
-func (ctx *JrPoolWorker) extractSessionData(rdfSession *rdf.RdfSession, outChannel *JetrulesOutputChan) error {
+func (ctx *JrPoolWorker) extractSessionData(rdfSession *rdf.RdfSession,
+	outChannel *JetrulesOutputChan) error {
+
 	rm := rdfSession.ResourceMgr
 	jr := rm.JetsResources
-  entityCount := 0
-  columns := outChannel.outputCh.config.Columns
-  var data any
-  var dataArr *[]any
-  var isArray bool
+	entityCount := 0
+	columns := outChannel.outputCh.config.Columns
+	var data any
+	var dataArr *[]any
+	var isArray bool
 	// Extract entity by rdf type
 	ctor := rdfSession.FindSPO(nil, jr.Rdf__type, rm.NewResource(outChannel.className))
 	for t3 := range ctor.Itor {
@@ -231,45 +237,45 @@ func (ctx *JrPoolWorker) extractSessionData(rdfSession *rdf.RdfSession, outChann
 		}
 		// extract entity if we keep it (i.e. not an historical entity)
 		if keepObj {
-      entityRow := make([]any, len(columns))
+			entityRow := make([]any, len(columns))
 			for i, p := range columns {
-        data = nil
-        isArray = false
-        itor := rdfSession.FindSP(subject, rm.NewResource(p))
-        for t3 := range itor.Itor {
-          if data == nil {
-            data = getValue(t3[2])
-          } else {
-            if isArray {
-              *dataArr = append(*dataArr, getValue(t3[2]))
-            } else {
-              dataArr = &[]any{data, getValue(t3[2])}
-              data = *dataArr
-              isArray = true
-            }
-          }
-        }
-        itor.Done()
-        entityRow[i] = data
-      }
-      // Send the record to output channel
-      select {
-      case outChannel.outputCh.channel <- entityRow:
-        entityCount += 1
-      case <-ctx.done:
-        log.Printf("jetrule extractSessionData writing to '%s' interrupted", outChannel.outputCh.config.Name)
-        return nil
-      }
+				data = nil
+				isArray = false
+				itor := rdfSession.FindSP(subject, rm.NewResource(p))
+				for t3 := range itor.Itor {
+					if data == nil {
+						data = getValue(t3[2])
+					} else {
+						if isArray {
+							*dataArr = append(*dataArr, getValue(t3[2]))
+						} else {
+							dataArr = &[]any{data, getValue(t3[2])}
+							data = *dataArr
+							isArray = true
+						}
+					}
+				}
+				itor.Done()
+				entityRow[i] = data
+			}
+			// Send the record to output channel
+			select {
+			case outChannel.outputCh.channel <- entityRow:
+				entityCount += 1
+			case <-ctx.done:
+				log.Printf("jetrule extractSessionData writing to '%s' interrupted", outChannel.outputCh.config.Name)
+				return nil
+			}
 		}
 	}
 	ctor.Done()
-  log.Printf("jetrules: Extracted %d entities for class %s", entityCount, outChannel.className)
+	log.Printf("jetrules: Extracted %d entities for class %s", entityCount, outChannel.className)
 	return nil
 }
 
 func getValue(r *rdf.Node) any {
 	switch vv := r.Value.(type) {
-  case int, float64, string:
+	case int, float64, string:
 		return r.Value
 	case rdf.LDate:
 		return *vv.Date
@@ -281,77 +287,89 @@ func getValue(r *rdf.Node) any {
 		return nil
 	case rdf.BlankNode:
 		return fmt.Sprintf("BN%d", vv.Key)
-  case int64:
+	case int64:
 		return int(vv)
-  case int32:
+	case int32:
 		return int(vv)
 	default:
 		return nil
 	}
 }
-func assertInputRecords(config *JetrulesSpec, source *InputChannel, rdfSession *rdf.RdfSession, inputRecords *[]any) (err error) {
-	rm := rdfSession.ResourceMgr
-	jr := rm.JetsResources
-	graph := rdfSession.AssertedGraph
+
+func assertInputRecords(config *JetrulesSpec, source *InputChannel,
+	rm *rdf.ResourceManager, jr *rdf.JetResources, graph *rdf.RdfGraph,
+	inputRecords *[]any) (err error) {
+
 	columns := source.config.Columns
-	nbrCol := len(columns)
+	if source.hasGroupedRows {
+		for i := range *inputRecords {
+			row, ok := (*inputRecords)[i].([]any)
+			if !ok {
+				return fmt.Errorf("error: inputRecords are invalid")
+			}
+			err = assertInputRow(config, rm, jr, graph, &row, &columns)
+		}
+	} else {
+		err = assertInputRow(config, rm, jr, graph, inputRecords, &columns)
+	}
+	return
+}
+
+func assertInputRow(config *JetrulesSpec, rm *rdf.ResourceManager, jr *rdf.JetResources,
+	graph *rdf.RdfGraph, row *[]any, columns *[]string) (err error) {
+
+	nbrCol := len(*columns)
 	var predicate *rdf.Node
-	for i := range *inputRecords {
-		row, ok := (*inputRecords)[i].([]any)
-		if !ok {
-			return fmt.Errorf("error: inputRecords are invalid")
+	// assert record i
+	jetsKey := uuid.New().String()
+	subject := rm.NewResource(jetsKey)
+	// Assert the rdf type if provided in config, otherwise it must be part of the data
+	if config.InputRdfType != "" {
+		_, err = graph.Insert(subject, jr.Rdf__type, rm.NewResource(config.InputRdfType))
+		if err != nil {
+			return
 		}
-		// assert record i
-		jetsKey := uuid.New().String()
-		subject := rm.NewResource(jetsKey)
-		// Assert the rdf type if provided in config, otherwise it must be part of the data
-		if config.InputRdfType != "" {
-			_, err = graph.Insert(subject, jr.Rdf__type, rm.NewResource(config.InputRdfType))
-			if err != nil {
-				return
+	}
+	for j := range *row {
+		if j < nbrCol {
+			predicate = rm.NewResource((*columns)[j])
+		} else {
+			predicate = rm.NewResource(fmt.Sprintf("column%d", j))
+		}
+		switch vv := (*row)[j].(type) {
+		case string:
+			_, err = graph.Insert(subject, predicate, rm.NewTextLiteral(vv))
+		case []string:
+			for k := range vv {
+				_, err = graph.Insert(subject, predicate, rm.NewTextLiteral(vv[k]))
+			}
+		case int:
+			_, err = graph.Insert(subject, predicate, rm.NewIntLiteral(vv))
+		case []int:
+			for k := range vv {
+				_, err = graph.Insert(subject, predicate, rm.NewIntLiteral(vv[k]))
+			}
+		case float64:
+			_, err = graph.Insert(subject, predicate, rm.NewDoubleLiteral(vv))
+		case []float64:
+			for k := range vv {
+				_, err = graph.Insert(subject, predicate, rm.NewDoubleLiteral(vv[k]))
+			}
+		case rdf.LDate:
+			_, err = graph.Insert(subject, predicate, rm.NewDateLiteral(vv))
+		case []rdf.LDate:
+			for k := range vv {
+				_, err = graph.Insert(subject, predicate, rm.NewDateLiteral(vv[k]))
+			}
+		case rdf.LDatetime:
+			_, err = graph.Insert(subject, predicate, rm.NewDatetimeLiteral(vv))
+		case []rdf.LDatetime:
+			for k := range vv {
+				_, err = graph.Insert(subject, predicate, rm.NewDatetimeLiteral(vv[k]))
 			}
 		}
-		for j := range row {
-			if j < nbrCol {
-				predicate = rm.NewResource(columns[j])
-			} else {
-				predicate = rm.NewResource(fmt.Sprintf("column%d", j))
-			}
-			switch vv := row[j].(type) {
-			case string:
-				_, err = graph.Insert(subject, predicate, rm.NewTextLiteral(vv))
-			case []string:
-				for k := range vv {
-					_, err = graph.Insert(subject, predicate, rm.NewTextLiteral(vv[k]))
-				}
-			case int:
-				_, err = graph.Insert(subject, predicate, rm.NewIntLiteral(vv))
-			case []int:
-				for k := range vv {
-					_, err = graph.Insert(subject, predicate, rm.NewIntLiteral(vv[k]))
-				}
-			case float64:
-				_, err = graph.Insert(subject, predicate, rm.NewDoubleLiteral(vv))
-			case []float64:
-				for k := range vv {
-					_, err = graph.Insert(subject, predicate, rm.NewDoubleLiteral(vv[k]))
-				}
-			case rdf.LDate:
-				_, err = graph.Insert(subject, predicate, rm.NewDateLiteral(vv))
-			case []rdf.LDate:
-				for k := range vv {
-					_, err = graph.Insert(subject, predicate, rm.NewDateLiteral(vv[k]))
-				}
-			case rdf.LDatetime:
-				_, err = graph.Insert(subject, predicate, rm.NewDatetimeLiteral(vv))
-			case []rdf.LDatetime:
-				for k := range vv {
-					_, err = graph.Insert(subject, predicate, rm.NewDatetimeLiteral(vv[k]))
-				}
-			}
-			if err != nil {
-				return
-			}
+		if err != nil {
+			return
 		}
 	}
 	return

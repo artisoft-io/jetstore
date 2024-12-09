@@ -77,8 +77,8 @@ func (lce *lceValue) EvalValue(output *[]interface{}, _ *[]interface{}) error {
 	return nil
 }
 
-func (ctx *lookupColumnTransformationEval) initializeCurrentValue(currentValue *[]interface{}) {}
-func (ctx *lookupColumnTransformationEval) update(output *[]interface{}, input *[]interface{}) error {
+func (ctx *lookupColumnTransformationEval) InitializeCurrentValue(currentValue *[]interface{}) {}
+func (ctx *lookupColumnTransformationEval) Update(output *[]interface{}, input *[]interface{}) error {
 	// lookup update
 	// build the lookup key using input row
 	// get the lookup record, update output row with lookup values
@@ -115,11 +115,13 @@ func (ctx *lookupColumnTransformationEval) update(output *[]interface{}, input *
 	}
 	return nil
 }
-func (ctx *lookupColumnTransformationEval) done(currentValue *[]interface{}) error {
+func (ctx *lookupColumnTransformationEval) Done(currentValue *[]interface{}) error {
 	return nil
 }
 
-func (ctx *BuilderContext) buildLookupEvaluator(source *InputChannel, outCh *OutputChannel, spec *TransformationColumnSpec) (TransformationColumnEvaluator, error) {
+func (ctx *BuilderContext) BuildLookupTCEvaluator(source *InputChannel, outCh *OutputChannel, 
+	spec *TransformationColumnSpec) (TransformationColumnEvaluator, error) {
+
 	if spec == nil || spec.LookupName == nil || spec.LookupKey == nil || spec.LookupValues == nil {
 		return nil, fmt.Errorf("error: Type lookup must have LookupName, LookupKey and LookupValues not nil")
 	}

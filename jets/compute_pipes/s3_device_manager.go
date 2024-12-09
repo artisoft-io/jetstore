@@ -16,7 +16,7 @@ import (
 
 // S3DeviceManager manage a pool of workers to put file to s3.
 // ClientWg is a wait group of the partition writers created during
-// buildComputeGraph function. The WorkersTaskCh is closed in process_file.go
+// BuildComputeGraph function. The WorkersTaskCh is closed in process_file.go
 type S3DeviceManager struct {
 	cpConfig         *ComputePipesConfig
 	s3WorkerPoolSize int
