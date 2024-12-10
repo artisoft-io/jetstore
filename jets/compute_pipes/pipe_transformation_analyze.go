@@ -419,8 +419,8 @@ func (ctx *AnalyzeTransformationPipe) Finally() {}
 
 func (ctx *BuilderContext) NewAnalyzeTransformationPipe(source *InputChannel, outputCh *OutputChannel, spec *TransformationSpec) (*AnalyzeTransformationPipe, error) {
 	var err error
-	if spec == nil || spec.AnalyzeConfig.RegexTokens == nil || spec.AnalyzeConfig.LookupTokens == nil || spec.AnalyzeConfig.KeywordTokens == nil {
-		return nil, fmt.Errorf("error: Analyze Pipe Transformation spec is missing regex, lookup, and/or keywords definition")
+	if spec == nil || spec.AnalyzeConfig == nil || spec.AnalyzeConfig.RegexTokens == nil || spec.AnalyzeConfig.LookupTokens == nil || spec.AnalyzeConfig.KeywordTokens == nil {
+		return nil, fmt.Errorf("error: Analyze Pipe Transformation spec (analyze_config) is missing regex, lookup, and/or keywords definition")
 	}
 	// Validate the config: must have NewRecord set to true
 	spec.NewRecord = true

@@ -212,34 +212,30 @@ func (args *StartComputePipesArgs) StartReducingComputePipes(ctx context.Context
 
 	// Get the input columns from Pipes Config, from the first pipes channel
 	var inputColumns []string
-	var inputChannel string
 	sepFlag := jcsv.Chartype(',') // always use ',' in reduce mode
-	if !isMergeFiles {
-		inputChannel = inputChannelConfig.Name
-		if inputChannel == "input_row" {
-			// special case, need to get the input columns from file of first partition
-			inputFormat = "csv"
-			fileKeys, err := GetS3FileKeys(processName, args.SessionId, mainInputStepId, partitions[0])
-			if err != nil {
-				return result, err
+	inputChannel := inputChannelConfig.Name
+	if inputChannel == "input_row" && inputFormat == "csv" {
+		// special case, need to get the input columns from file of first partition
+		fileKeys, err := GetS3FileKeys(processName, args.SessionId, mainInputStepId, partitions[0])
+		if err != nil {
+			return result, err
+		}
+		if len(fileKeys) == 0 {
+			return result, fmt.Errorf("error: no files found in partition %s", partitions[0])
+		}
+		err = FetchHeadersAndDelimiterFromFile(fileKeys[0].key, inputFormat, compression, &inputColumns, &sepFlag, "")
+		if err != nil {
+			return result, fmt.Errorf("error: could not get input columns from file (reduce mode): %v", err)
+		}
+	} else {
+		for i := range cpConfig.Channels {
+			if cpConfig.Channels[i].Name == inputChannel {
+				inputColumns = cpConfig.Channels[i].Columns
+				break
 			}
-			if len(fileKeys) == 0 {
-				return result, fmt.Errorf("error: no files found in partition %s", partitions[0])
-			}
-			err = FetchHeadersAndDelimiterFromFile(fileKeys[0].key, inputFormat, compression, &inputColumns, &sepFlag, "")
-			if err != nil {
-				return result, fmt.Errorf("error: could not get input columns from file (reduce mode): %v", err)
-			}
-		} else {
-			for i := range cpConfig.Channels {
-				if cpConfig.Channels[i].Name == inputChannel {
-					inputColumns = cpConfig.Channels[i].Columns
-					break
-				}
-			}
-			if len(inputColumns) == 0 {
-				return result, fmt.Errorf("error: cpipes config is missing channel config for input %s", inputChannel)
-			}
+		}
+		if !isMergeFiles && len(inputColumns) == 0 {
+			return result, fmt.Errorf("error: cpipes config is missing channel config for input %s", inputChannel)
 		}
 	}
 
