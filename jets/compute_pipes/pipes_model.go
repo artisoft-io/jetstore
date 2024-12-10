@@ -328,8 +328,6 @@ type PartitionWriterSpec struct {
 	DeviceWriterType string            `json:"device_writer_type"`
 	JetsPartitionKey *string           `json:"jets_partition_key"`
 	PartitionSize    int               `json:"partition_size"`
-	WriteHeaderless  bool              `json:"write_headerless"`
-	WriteHeaders     bool              `json:"write_headers"`
 	SamplingRate     int               `json:"sampling_rate"`
 	SamplingMaxCount int               `json:"sampling_max_count"`
 }
