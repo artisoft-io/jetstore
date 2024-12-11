@@ -5,7 +5,6 @@ import (
 	"log"
 
 	"github.com/artisoft-io/jetstore/jets/jetrules/rete"
-	"github.com/jackc/pgx/v4/pgxpool"
 )
 
 // Jetrules operator. Execute rules for each record group (bundle) recieved from input chan
@@ -57,8 +56,6 @@ func (ctx *BuilderContext) NewJetrulesTransformationPipe(source *InputChannel, _
 	spec.NewRecord = true
 	config := spec.JetrulesConfig
 
-	// Get the jetrule process info -- the mainRule name or ruleSequence name
-
 	// Get the rete meta store
 	reteMetaStore, err := GetJetrulesFactory(ctx.dbpool, config.ProcessName)
 	if err != nil {
@@ -104,27 +101,4 @@ func (ctx *BuilderContext) NewJetrulesTransformationPipe(source *InputChannel, _
 		env:            ctx.env,
 		doneCh:         ctx.done,
 	}, err
-}
-
-// Function to get the properties (aka predicates) of the jetrules class
-// used for the output channel
-func GetJetClassProperties(dbpool *pgxpool.Pool, className, processName string) ([]string, error) {
-	metaStore, err := GetJetrulesFactory(dbpool, processName)
-	if err != nil {
-		return nil, err
-	}
-	model := metaStore.ReteModelLookup[metaStore.MainRuleFileNames[0]]
-	if model == nil {
-		return nil, fmt.Errorf("error: bug in getting class properties for class '%s' (GetJetClassProperties)", className)
-	}
-	for i := range model.Tables {
-		if model.Tables[i].ClassName == className {
-			result := make([]string, 0, len(model.Tables[i].Columns))
-			for j := range model.Tables[i].Columns {
-				result = append(result, model.Tables[i].Columns[j].PropertyName)
-			}
-			return result, nil
-		}
-	}
-	return nil, fmt.Errorf("error: Class '%s' not found in workspace for process name '%s'", className, processName)
 }

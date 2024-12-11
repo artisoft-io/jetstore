@@ -23,7 +23,8 @@ type AnonymizeTransformationPipe struct {
 	columnEvaluators []TransformationColumnEvaluator
 	firstInputRow    *[]interface{}
 	spec             *TransformationSpec
-	dateFormat       string
+	inputDateFormat  string
+	outputDateFormat string
 	keyMapDateFormat string
 	channelRegistry  *ChannelRegistry
 	env              map[string]interface{}
@@ -38,6 +39,7 @@ type AnonymizationAction struct {
 
 // Implementing interface PipeTransformationEvaluator
 func (ctx *AnonymizeTransformationPipe) Apply(input *[]interface{}) error {
+	var err error
 	if input == nil {
 		return fmt.Errorf("error: unexpected null input arg in AnonymizeTransformationPipe")
 	}
@@ -72,11 +74,20 @@ func (ctx *AnonymizeTransformationPipe) Apply(input *[]interface{}) error {
 			}
 			hashedValue4KeyFile = hashedValue
 		case "date":
-			date, err := ParseDate(inputStr)
+			var date time.Time
+			if len(ctx.inputDateFormat) > 0 {
+				date, err = time.Parse(ctx.inputDateFormat, inputStr)
+			} else {
+				var d *time.Time
+				d, err = ParseDate(inputStr)
+				if d != nil {
+					date = *d
+				}
+			}
 			if err == nil {
 				// hashedValue = fmt.Sprintf("%d/%02d/01", date.Year(), date.Month())
 				anonymizeDate := time.Date(date.Year(), date.Month(), 1, 0, 0, 0, 0, time.UTC)
-				hashedValue = anonymizeDate.Format(ctx.dateFormat)
+				hashedValue = anonymizeDate.Format(ctx.outputDateFormat)
 				if ctx.keyMapDateFormat == "" {
 					hashedValue4KeyFile = hashedValue
 				} else {
@@ -213,21 +224,23 @@ func (ctx *BuilderContext) NewAnonymizeTransformationPipe(source *InputChannel, 
 	}
 	hasher = fnv.New64a()
 	// Determine the date format to use, start with default value
-	dateFormat := "2006/01/02"
+	outputDateFormat := "2006/01/02"
+	inputDateFormat := ""
 	var keyDateFormat string
 	// Check if the schema provider is specified
-	var sp SchemaProvider
-	if len(config.SchemaProvider) > 0 {
-		sp = ctx.schemaManager.GetSchemaProvider(config.SchemaProvider)
-		if sp == nil {
-			return nil, fmt.Errorf("error: anonymize_config has schema_provider '%s', but it is not found", config.SchemaProvider)
+	sp := ctx.schemaManager.GetSchemaProvider(config.SchemaProvider)
+	if sp.DateFormat() != "" {
+		outputDateFormat = sp.DateFormat()
+		inputDateFormat = sp.DateFormat()
+	}
+	if config.InputDateFormat != "" {
+		inputDateFormat = config.InputDateFormat
+		if config.OutputDateFormat == "" {
+			outputDateFormat = inputDateFormat
 		}
 	}
-	if sp != nil && sp.DateFormat() != "" {
-		dateFormat = sp.DateFormat()
-	}
-	if config.DateFormat != "" {
-		dateFormat = config.DateFormat
+	if config.OutputDateFormat != "" {
+		outputDateFormat = config.OutputDateFormat
 	}
 	if config.KeyDateFormat != "" {
 		keyDateFormat = config.KeyDateFormat
@@ -258,7 +271,8 @@ func (ctx *BuilderContext) NewAnonymizeTransformationPipe(source *InputChannel, 
 		columnEvaluators: columnEvaluators,
 		channelRegistry:  ctx.channelRegistry,
 		spec:             spec,
-		dateFormat:       dateFormat,
+		inputDateFormat:  inputDateFormat,
+		outputDateFormat: outputDateFormat,
 		keyMapDateFormat: keyDateFormat,
 		env:              ctx.env,
 		doneCh:           ctx.done,

@@ -1,6 +1,7 @@
 package compute_pipes
 
 import (
+	"bufio"
 	"errors"
 	"fmt"
 	"io"
@@ -36,6 +37,7 @@ func (cpCtx *ComputePipesContext) StartMergeFiles(dbpool *pgxpool.Pool) (cpErr e
 			close(cpCtx.Done)
 		}
 	}()
+
 	// Validate the pipe config
 	pipeSpec := &cpCtx.CpConfig.PipesConfig[0]
 	outputFileKey := pipeSpec.OutputFile
@@ -86,25 +88,39 @@ func (cpCtx *ComputePipesContext) StartMergeFiles(dbpool *pgxpool.Pool) (cpErr e
 	if len(compression) == 0 && inputSp != nil {
 		compression = inputSp.Compression()
 	}
+
+	// Determine if we put a header row
 	outputSp := cpCtx.SchemaManager.GetSchemaProvider(outputFileConfig.SchemaProvider)
 	writeHeaders := true
 	if outputSp != nil && outputSp.InputFormat() != "csv" {
 		writeHeaders = false
 	}
-	if len(outputFileConfig.Headers) == 0 && writeHeaders{
-		if inputSp == nil {
+	if len(outputFileConfig.Headers) == 0 && writeHeaders {
+		outputFileConfig.Headers = inputSp.ColumnNames()
+
+		if len(outputFileConfig.Headers) == 0 {
+			// Get the headers from the main input source (as a fallback)
+			// This is for the case where the headers are in the input file
+			inputChannelName := cpCtx.CpConfig.PipesConfig[0].InputChannel.Name
+			if inputChannelName == "input_row" {
+				outputFileConfig.Headers =
+					cpCtx.CpConfig.CommonRuntimeArgs.SourcesConfig.MainInput.InputColumns
+			}
+		}
+		if len(outputFileConfig.Headers) == 0 {
 			cpErr = fmt.Errorf(
-				"error: merge_files operator using output_file %s has no headers or schema_provider defined",
+				"error: merge_files operator using output_file %s, no headers avaliable",
 				outputFileConfig.Key)
 			return
 		}
-		outputFileConfig.Headers = inputSp.ColumnNames()
 	}
+	// Delimiter for the header row
 	var delimit rune
 	if inputSp != nil {
 		delimit = inputSp.Delimiter()
 	}
-	r := cpCtx.NewMergeFileReader(outputFileConfig.Headers, writeHeaders, delimit, compression)
+	inputFormat := cpCtx.CpConfig.PipesConfig[0].InputChannel.Format
+	r := cpCtx.NewMergeFileReader(inputFormat, outputFileConfig.Headers, writeHeaders, delimit, compression)
 
 	// put content of file to s3
 	if err := awsi.UploadToS3FromReader(outputS3FileKey, r); err != nil {
@@ -121,15 +137,19 @@ func (cpCtx *ComputePipesContext) StartMergeFiles(dbpool *pgxpool.Pool) (cpErr e
 // that reads content from partfiles and makes it available to the s3 manager
 // via the Read interface
 type MergeFileReader struct {
-	currentFile   FileName
-	currentFileHd *os.File
-	reader        io.Reader
-	headers       []byte
-	compression   string
-	cpCtx         *ComputePipesContext
+	currentFile    FileName
+	currentFileHd  *os.File
+	reader         *bufio.Reader
+	headers        []byte
+	compression    string
+	skipHeaderLine bool
+	skipHeaderFlag bool
+	cpCtx          *ComputePipesContext
 }
 
-func (cpCtx *ComputePipesContext) NewMergeFileReader(headers []string, writeHeaders bool, delimit rune, compression string) io.Reader {
+func (cpCtx *ComputePipesContext) NewMergeFileReader(inputFormat string, headers []string,
+	writeHeaders bool, delimit rune, compression string) io.Reader {
+
 	var h []byte
 	if len(headers) > 0 && writeHeaders {
 		sep := ","
@@ -140,9 +160,10 @@ func (cpCtx *ComputePipesContext) NewMergeFileReader(headers []string, writeHead
 		h = []byte(v)
 	}
 	return &MergeFileReader{
-		cpCtx:       cpCtx,
-		headers:     h,
-		compression: compression,
+		cpCtx:          cpCtx,
+		headers:        h,
+		compression:    compression,
+		skipHeaderLine: inputFormat == "csv",
 	}
 }
 
@@ -173,27 +194,41 @@ func (r *MergeFileReader) Read(buf []byte) (int, error) {
 		}
 		switch r.compression {
 		case "snappy":
-			r.reader = snappy.NewReader(r.currentFileHd)
+			r.reader = bufio.NewReader(snappy.NewReader(r.currentFileHd))
 		case "none", "":
-			r.reader = r.currentFileHd
+			r.reader = bufio.NewReader(r.currentFileHd)
 		default:
 			return 0, fmt.Errorf("error: unknown compression %s (merge_files)", r.compression)
+		}
+		// skip headerline if needed
+		if r.skipHeaderLine {
+			r.skipHeaderFlag = true
 		}
 		// read from file, delegate to itself
 		return r.Read(buf)
 
 	default:
 		// Delegate to the reader
-		n, err2 := r.reader.Read(buf)
-		if err2 == io.EOF {
+		if r.skipHeaderFlag {
+			_, err = r.reader.ReadString('\n')
+			if err != nil && err != io.EOF {
+				return 0, err
+			}
+			r.skipHeaderFlag = false
+		}
+		var n int
+		var err2 error
+		if err == nil {
+			n, err2 = r.reader.Read(buf)
+			if err2 != nil && err2 != io.EOF {
+				return n, err2
+			}	
+		}
+		if err == io.EOF || err2 == io.EOF {
 			r.currentFileHd.Close()
 			os.Remove(r.currentFile.LocalFileName)
 			r.currentFileHd = nil
 			r.reader = nil
-		}
-		if err2 != nil && err2 != io.EOF {
-			// Got error while reading file
-			return n, err2
 		}
 		if n == 0 {
 			// check for next file

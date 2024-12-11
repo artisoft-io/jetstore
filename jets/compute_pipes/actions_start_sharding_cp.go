@@ -460,8 +460,8 @@ func SelectActiveLookupTable(lookupConfig []*LookupSpec, pipeConfig []PipeSpec) 
 			}
 			// Check for Analyze transformation using lookup tables
 			if transformationSpec.AnalyzeConfig != nil && transformationSpec.AnalyzeConfig.LookupTokens != nil {
-				for k := range *transformationSpec.AnalyzeConfig.LookupTokens {
-					lookupTokenNode := &(*transformationSpec.AnalyzeConfig.LookupTokens)[k]
+				for k := range transformationSpec.AnalyzeConfig.LookupTokens {
+					lookupTokenNode := &transformationSpec.AnalyzeConfig.LookupTokens[k]
 					spec := lookupMap[lookupTokenNode.Name]
 					if spec == nil {
 						return nil,
