@@ -1,0 +1,318 @@
+package compute_pipes
+
+import (
+	"fmt"
+	"regexp"
+	"strings"
+	"time"
+)
+
+// Utility function and components for Analyze operator
+
+type DistinctCount struct {
+	Value string
+	Count int
+}
+
+type RegexCount struct {
+	Rexpr *regexp.Regexp
+	Count int
+}
+
+func NewRegexCount(re *regexp.Regexp) *RegexCount {
+	return &RegexCount{Rexpr: re}
+}
+
+type LookupCount struct {
+	Name  string
+	Count int
+}
+
+func NewLookupCount(name string) *LookupCount {
+	return &LookupCount{
+		Name: name,
+	}
+}
+
+type KeywordCount struct {
+	Name     string
+	Keywords []string
+	Count    int
+}
+
+func NewKeywordCount(name string, keywords []string) *KeywordCount {
+	return &KeywordCount{
+		Name:     name,
+		Keywords: keywords,
+	}
+}
+
+type MatchFunction interface {
+	Match(value string) bool
+}
+
+type FunctionCount struct {
+	Function MatchFunction
+	Count    int
+}
+
+func NewFunctionCount(fspec *FunctionTokenNode, sp SchemaProvider) (*FunctionCount, error) {
+	var fnc MatchFunction
+	var err error
+	switch fspec.FunctionName {
+	case "parse_date":
+		fnc, err = NewParseDateMatchFunction(fspec, sp)
+		if err != nil {
+			return nil, err
+		}
+	default:
+		return nil, fmt.Errorf("error: unknown function_name '%s' in Analyze operator", fspec.FunctionName)
+	}
+	return &FunctionCount{
+		Function: fnc,
+	}, nil
+}
+
+// Analyze data TransformationSpec implementing PipeTransformationEvaluator interface
+type AnalyzeState struct {
+	ColumnName     string
+	ColumnPos      int
+	DistinctValues map[string]*DistinctCount
+	NullCount      int
+	Welford        *WelfordAlgo
+	RegexMatch     map[string]*RegexCount
+	LookupState    []*LookupTokensState
+	KeywordMatch   map[string]*KeywordCount
+	FunctionMatch  map[string]*FunctionCount
+	// RegexTokens    []string
+	// LookupTokens   []string
+	TotalRowCount int
+	Spec          *TransformationSpec
+}
+
+type LookupTokensState struct {
+	LookupTbl   LookupTable
+	KeyRe       *regexp.Regexp
+	LookupMatch map[string]*LookupCount
+}
+
+func NewLookupTokensState(lookupTbl LookupTable, keyRe string, tokens []string) (*LookupTokensState, error) {
+	var err error
+	lookupMatch := make(map[string]*LookupCount)
+	for _, token := range tokens {
+		lookupMatch[token] = NewLookupCount(token)
+	}
+	var re *regexp.Regexp
+	if len(keyRe) > 0 {
+		re, err = regexp.Compile(keyRe)
+		if err != nil {
+			return nil, fmt.Errorf("while compiling regex %s: %v", keyRe, err)
+		}
+	}
+	return &LookupTokensState{
+		LookupTbl:   lookupTbl,
+		KeyRe:       re,
+		LookupMatch: lookupMatch,
+	}, nil
+}
+
+func (ctx *BuilderContext) NewAnalyzeState(columnName string, columnPos int, spec *TransformationSpec) (*AnalyzeState, error) {
+
+	if spec == nil || spec.AnalyzeConfig == nil {
+		return nil, fmt.Errorf("error: analyse Pipe Transformation spec is missing analyze_config section")
+	}
+	config := spec.AnalyzeConfig
+	sp := ctx.schemaManager.schemaProviders[config.SchemaProvider]
+	// Create analyze actions
+	regexMatch := make(map[string]*RegexCount)
+	for i := range config.RegexTokens {
+		conf := &config.RegexTokens[i]
+		rexp, err := regexp.Compile(conf.Rexpr)
+		if err != nil {
+			return nil, fmt.Errorf("while compiling regex %s: %v", conf.Name, err)
+		}
+		regexMatch[conf.Name] = NewRegexCount(rexp)
+	}
+	lookupState := make([]*LookupTokensState, 0)
+	if len(config.LookupTokens) > 0 && ctx.lookupTableManager != nil {
+		for i := range config.LookupTokens {
+			lookupNode := &config.LookupTokens[i]
+			lookupTable := ctx.lookupTableManager.LookupTableMap[lookupNode.Name]
+			if lookupTable == nil {
+				return nil, fmt.Errorf("error: lookup table %s not found (NewAlalyzeState)", lookupNode.Name)
+			}
+			state, err := NewLookupTokensState(lookupTable, lookupNode.KeyRe, lookupNode.Tokens)
+			if err != nil {
+				return nil, err
+			}
+			lookupState = append(lookupState, state)
+		}
+	}
+	keywordMatch := make(map[string]*KeywordCount)
+	for i := range config.KeywordTokens {
+		kw := &config.KeywordTokens[i]
+		keywordMatch[kw.Name] = NewKeywordCount(kw.Name, kw.Keywords)
+	}
+	functionMatch := make(map[string]*FunctionCount)
+	for i := range config.FunctionTokens {
+		conf := &config.FunctionTokens[i]
+		f, err := NewFunctionCount(conf, sp)
+		if err != nil {
+			return nil, err
+		}
+		functionMatch[conf.Name] = f
+	}
+
+	return &AnalyzeState{
+		ColumnName:     columnName,
+		ColumnPos:      columnPos,
+		DistinctValues: make(map[string]*DistinctCount),
+		Welford:        NewWelfordAlgo(),
+		RegexMatch:     regexMatch,
+		LookupState:    lookupState,
+		KeywordMatch:   keywordMatch,
+		FunctionMatch:  functionMatch,
+		Spec:           spec,
+	}, nil
+}
+
+func (state *AnalyzeState) NewValue(value interface{}) error {
+	state.TotalRowCount += 1
+	if value == nil {
+		state.NullCount += 1
+		return nil
+	}
+	switch vv := value.(type) {
+	case string:
+		if strings.ToUpper(vv) == "NULL" {
+			state.NullCount += 1
+			return nil
+		}
+		return state.NewToken(vv)
+	default:
+		return state.NewToken(fmt.Sprintf("%v", value))
+	}
+}
+
+func (state *AnalyzeState) NewToken(value string) error {
+	// work on the upper case value of the token
+	value = strings.ToUpper(value)
+	// Distinct Values
+	dv := state.DistinctValues[value]
+	if dv == nil {
+		dv = &DistinctCount{
+			Value: value,
+		}
+		state.DistinctValues[value] = dv
+	}
+	dv.Count += 1
+	// Welford's Algo
+	if state.Welford != nil {
+		state.Welford.Update(float64(len(value)))
+	}
+	// Regex matches
+	for _, reCount := range state.RegexMatch {
+		if reCount.Rexpr.MatchString(value) {
+			reCount.Count += 1
+		}
+	}
+	// Lookup matches
+	var row *[]interface{}
+	var err error
+	for _, lookupState := range state.LookupState {
+		if lookupState.KeyRe != nil {
+			key := lookupState.KeyRe.FindStringSubmatch(value)
+			if len(key) > 1 {
+				row, err = lookupState.LookupTbl.Lookup(&key[1])
+			}
+		} else {
+			row, err = lookupState.LookupTbl.Lookup(&value)
+		}
+		if err != nil {
+			return fmt.Errorf("while calling lookup, with key %s: %v", value, err)
+		}
+		// The first and only column returned is called tokens and is an array of string
+		if row != nil {
+			tokens, ok := (*row)[0].([]string)
+			if !ok {
+				return fmt.Errorf("error: lookup row first elm is not []string in AnalyzeState.NewToken")
+			}
+			for _, token := range tokens {
+				lkCount := lookupState.LookupMatch[token]
+				if lkCount != nil {
+					lkCount.Count += 1
+				}
+			}
+		}
+	}
+	// Keyword set matches
+	for _, kwm := range state.KeywordMatch {
+		for _, kw := range kwm.Keywords {
+			if strings.Contains(value, kw) {
+				kwm.Count += 1
+				break
+			}
+		}
+	}
+	// Function matches
+	for _, fm := range state.FunctionMatch {
+		if fm.Function.Match(value) {
+			fm.Count += 1
+		}
+	}
+
+	return nil
+}
+
+// ParseDateMatchFunction is a match function to vaidate a date
+type ParseDateMatchFunction struct {
+	dateLayout      string
+	yearLessThan    int
+	yearGreaterThan int
+}
+
+// Match implements MatchFunction.
+func (p *ParseDateMatchFunction) Match(value string) bool {
+	if p == nil {
+		return false
+	}
+	d, err := time.Parse(p.dateLayout, value)
+	if err != nil {
+		return false
+	}
+	if p.yearLessThan > 0 && d.Year() >= p.yearLessThan {
+		return false
+	}
+	if p.yearGreaterThan > 0 && d.Year() < p.yearGreaterThan {
+		return false
+	}
+	return true
+}
+
+func NewParseDateMatchFunction(fspec *FunctionTokenNode, sp SchemaProvider) (MatchFunction, error) {
+	var ok bool
+	layout := sp.DateFormat()
+	if layout == "" && fspec.Arguments != nil {
+		layout, ok = fspec.Arguments["default_date_format"].(string)
+		if !ok {
+			return nil, fmt.Errorf("error: no date format available in NewParseDateMatchFunction")
+		}
+	}
+	yearLT := 0
+	yearGT := 0
+	if fspec.Arguments != nil {
+		yearLT, ok = fspec.Arguments["year_less_than"].(int)
+		if !ok {
+			yearLT = 0
+		}
+		yearGT, ok = fspec.Arguments["year_greater_than"].(int)
+		if !ok {
+			yearGT = 0
+		}
+	}
+	return &ParseDateMatchFunction{
+		dateLayout:      layout,
+		yearLessThan:    yearLT,
+		yearGreaterThan: yearGT,
+	}, nil
+}

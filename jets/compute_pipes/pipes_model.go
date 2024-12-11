@@ -109,7 +109,7 @@ type CsvSourceSpec struct {
 // ChannelSpec specifies the collumns of a channel
 // The columns can be obtained from a domain class from the
 // local workspace using class_name. In that case, the columns
-// that are specified in the slice, are added to the columns of 
+// that are specified in the slice, are added to the columns of
 // the domain class.
 type ChannelSpec struct {
 	Name      string   `json:"name"`
@@ -224,7 +224,7 @@ type TransformationSpec struct {
 	// Type range: map_record, aggregate, analyze, high_freq, partition_writer,
 	//	anonymize, distinct, shuffling, group_by, jetrules
 	// DeviceWriterType range: csv_writer, parquet_writer, fixed_width_writer
-	// WriteHeaders / WriteHeaderless takes precedence over SchemaProvider and Format (from OutputChannelConfig)
+	// Format takes precedence over SchemaProvider's Format (from OutputChannelConfig)
 	Type                  string                     `json:"type"`
 	NewRecord             bool                       `json:"new_record"`
 	FilePathSubstitutions *[]PathSubstitution        `json:"file_path_substitutions"`
@@ -245,10 +245,13 @@ type MapRecordSpec struct {
 	FileMappingTableName string `json:"file_mapping_table_name"`
 }
 
+// SchemaProvider is used for external configuration, such as date format
 type AnalyzeSpec struct {
-	RegexTokens   *[]RegexNode        `json:"regex_tokens"`   // Type analyze
-	LookupTokens  *[]LookupTokenNode  `json:"lookup_tokens"`  // Type analyze
-	KeywordTokens *[]KeywordTokenNode `json:"keyword_tokens"` // Type analyze
+	SchemaProvider string              `json:"schema_provider"`
+	RegexTokens    []RegexNode         `json:"regex_tokens"`
+	LookupTokens   []LookupTokenNode   `json:"lookup_tokens"`
+	KeywordTokens  []KeywordTokenNode  `json:"keyword_tokens"`
+	FunctionTokens []FunctionTokenNode `json:"function_tokens"`
 }
 
 type InputChannelConfig struct {
@@ -314,6 +317,20 @@ type KeywordTokenNode struct {
 	Keywords []string `json:"keywords"`
 }
 
+// Available FunctionName: parse_date
+// parse_date arguments: default_date_format (string)
+// parse_date arguments: year_less_than (int)
+// parse_date arguments: year_greater_than (int)
+// The date format is using a reference date of
+// Mon Jan 2 15:04:05 MST 2006 (see https://pkg.go.dev/time#Layout)
+// It will take the date format from the schema provider when available.
+// year_less_than is an additional condition to the match result.
+type FunctionTokenNode struct {
+	Name         string         `json:"name"`
+	FunctionName string         `json:"function_name"`
+	Arguments    map[string]any `json:"arguments"`
+}
+
 type HighFreqSpec struct {
 	Name          string `json:"name"`
 	KeyRe         string `json:"key_re"`
@@ -335,16 +352,19 @@ type PartitionWriterSpec struct {
 // LookupName is name of lookup table containing the file metadata from analyze operator
 // AnonymizeType is column name in lookup table that specifiy how to anonymize (value: date, text)
 // KeyPrefix is column name of lookup table to use as prefix of the anonymized value
-// DateFormat is the format to use for anonymized date, will be set at 1st of the month of the original date
+// InputDateFormat is the format for parsing the input date (incoming data)
+// OutputDateFormat is the format to use for anonymized date, will be set at 1st of the month of the original date
 // KeyDateFormat is the format to use in the key mapping file (crosswalk file)
+// OutputDateFormat defaults to InputDateFormat.
 // SchemaProvider is used to get the DateFormat / KeyDateFormat if not specified here.
-// If date format is not specified, the default format for both DateFormat and KeyDateFormat
-// is "2006/01/02", ie. yyyy/MM/dd
+// If date format is not specified, the default format for both OutputDateFormat and KeyDateFormat
+// is "2006/01/02", ie. yyyy/MM/dd and the rdf.ParseDate() is used to parse the input date.
 type AnonymizeSpec struct {
 	LookupName        string              `json:"lookup_name"`
 	AnonymizeType     string              `json:"anonymize_type"`
 	KeyPrefix         string              `json:"key_prefix"`
-	DateFormat        string              `json:"date_format"`
+	InputDateFormat   string              `json:"input_date_format"`
+	OutputDateFormat  string              `json:"output_date_format"`
 	KeyDateFormat     string              `json:"key_date_format"`
 	SchemaProvider    string              `json:"schema_provider"`
 	KeysOutputChannel OutputChannelConfig `json:"keys_output_channel"`
