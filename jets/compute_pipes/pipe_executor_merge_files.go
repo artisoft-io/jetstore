@@ -96,7 +96,9 @@ func (cpCtx *ComputePipesContext) StartMergeFiles(dbpool *pgxpool.Pool) (cpErr e
 		writeHeaders = false
 	}
 	if len(outputFileConfig.Headers) == 0 && writeHeaders {
-		outputFileConfig.Headers = inputSp.ColumnNames()
+		if inputSp != nil {
+			outputFileConfig.Headers = inputSp.ColumnNames()
+		}
 
 		if len(outputFileConfig.Headers) == 0 {
 			// Get the headers from the main input source (as a fallback)

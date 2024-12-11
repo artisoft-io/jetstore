@@ -229,7 +229,7 @@ func (ctx *BuilderContext) NewAnonymizeTransformationPipe(source *InputChannel, 
 	var keyDateFormat string
 	// Check if the schema provider is specified
 	sp := ctx.schemaManager.GetSchemaProvider(config.SchemaProvider)
-	if sp.DateFormat() != "" {
+	if sp != nil && sp.DateFormat() != "" {
 		outputDateFormat = sp.DateFormat()
 		inputDateFormat = sp.DateFormat()
 	}
