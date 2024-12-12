@@ -305,8 +305,11 @@ func (cpCtx *ComputePipesContext) ReadCsvFile(filePath *FileName,
 	default:
 		return 0, fmt.Errorf("error: unknown compression in ReadCsvFile: %s", compression)
 	}
-	// csvReader.ReuseRecord = true
 	csvReader.Comma = sepFlag
+	csvReader.LazyQuotes = sp != nil && sp.UseLazyQuotes()
+	if sp != nil && sp.VariableFieldsPerRecord() {
+		csvReader.FieldsPerRecord = -1
+	}
 	if inputFormat == "csv" && filePath.InFileKeyInfo.start == 0 {
 		// skip header row (first row)
 		_, err = csvReader.Read()

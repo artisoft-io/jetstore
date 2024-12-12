@@ -133,35 +133,38 @@ type SchemaProviderSpec struct {
 	// InputFormatDataJson: json config based on InputFormat (typically used for xlsx)
 	// example: {"currentSheet": "Daily entry for Approvals"} (for xlsx).
 	// SourceType range: main_input, merged_input, historical_input (from input_source table)
-	// Columns may be ommitted if fixed_width_columns_csv is provided
+	// Columns may be ommitted if fixed_width_columns_csv is provided or is a csv format
+  // UseLazyQuotes, VariableFieldsPerRecord see https://pkg.go.dev/encoding/csv#NewReader
 	// Bucket and FileKey are location and source object (fileKey may be directory if IsPartFiles is true)
 	// KmsKey is kms key to use when writing output data. May be empty.
 	// Contains properties to register FileKey with input_registry table:
 	// Client, Vendor, ObjectType, FileDate
 	//*TODO domain_keys_json
 	//*TODO code_values_mapping_json
-	Key                  string             `json:"key"`
-	Type                 string             `json:"type"`
-	Bucket               string             `json:"bucket"`
-	FileKey              string             `json:"file_key"`
-	FileSize             int64              `json:"file_size"`
-	KmsKey               string             `json:"kms_key_arn"`
-	Client               string             `json:"client"`
-	Vendor               string             `json:"vendor"`
-	ObjectType           string             `json:"object_type"`
-	FileDate             string             `json:"file_date"`
-	SourceType           string             `json:"source_type"`
-	SchemaName           string             `json:"schema_name"`
-	InputFormat          string             `json:"input_format"`
-	Compression          string             `json:"compression"`
-	InputFormatDataJson  string             `json:"input_format_data_json"`
-	Delimiter            string             `json:"delimiter"`
-	DateFormat           string             `json:"date_format"`
-	TrimColumns          bool               `json:"trim_columns"`
-	IsPartFiles          bool               `json:"is_part_files"`
-	FixedWidthColumnsCsv string             `json:"fixed_width_columns_csv"`
-	Columns              []SchemaColumnSpec `json:"columns"`
-	Env                  map[string]string  `json:"env"`
+	Key                     string             `json:"key"`
+	Type                    string             `json:"type"`
+	Bucket                  string             `json:"bucket"`
+	FileKey                 string             `json:"file_key"`
+	FileSize                int64              `json:"file_size"`
+	KmsKey                  string             `json:"kms_key_arn"`
+	Client                  string             `json:"client"`
+	Vendor                  string             `json:"vendor"`
+	ObjectType              string             `json:"object_type"`
+	FileDate                string             `json:"file_date"`
+	SourceType              string             `json:"source_type"`
+	SchemaName              string             `json:"schema_name"`
+	InputFormat             string             `json:"input_format"`
+	Compression             string             `json:"compression"`
+	InputFormatDataJson     string             `json:"input_format_data_json"`
+	Delimiter               string             `json:"delimiter"`
+	UseLazyQuotes           bool               `json:"use_lazy_quotes"`
+	VariableFieldsPerRecord bool               `json:"variable_fields_per_record"`
+	DateFormat              string             `json:"date_format"`
+	TrimColumns             bool               `json:"trim_columns"`
+	IsPartFiles             bool               `json:"is_part_files"`
+	FixedWidthColumnsCsv    string             `json:"fixed_width_columns_csv"`
+	Columns                 []SchemaColumnSpec `json:"columns"`
+	Env                     map[string]string  `json:"env"`
 }
 
 type SchemaColumnSpec struct {

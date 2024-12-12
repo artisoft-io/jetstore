@@ -35,6 +35,8 @@ type SchemaProvider interface {
 	InputFormatDataJson() string
 	IsPartFiles() bool
 	Delimiter() rune
+	UseLazyQuotes() bool
+	VariableFieldsPerRecord() bool
 	TrimColumns() bool
 	Columns() []SchemaColumnSpec
 	ColumnNames() []string
@@ -173,6 +175,20 @@ func (sp *DefaultSchemaProvider) Delimiter() rune {
 		return '€'
 	}
 	return []rune(sp.spec.Delimiter)[0]
+}
+
+func (sp *DefaultSchemaProvider) UseLazyQuotes() bool {
+	if sp == nil {
+		return false
+	}
+	return sp.spec.UseLazyQuotes
+}
+
+func (sp *DefaultSchemaProvider) VariableFieldsPerRecord() bool {
+	if sp == nil {
+		return false
+	}
+	return sp.spec.VariableFieldsPerRecord
 }
 
 func (sp *DefaultSchemaProvider) TrimColumns() bool {

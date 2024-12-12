@@ -301,13 +301,17 @@ func NewParseDateMatchFunction(fspec *FunctionTokenNode, sp SchemaProvider) (Mat
 	yearLT := 0
 	yearGT := 0
 	if fspec.Arguments != nil {
-		yearLT, ok = fspec.Arguments["year_less_than"].(int)
+		flt, ok := fspec.Arguments["year_less_than"].(float64)
 		if !ok {
 			yearLT = 0
+		} else {
+			yearLT = int(flt)
 		}
-		yearGT, ok = fspec.Arguments["year_greater_than"].(int)
+		fgt, ok := fspec.Arguments["year_greater_than"].(float64)
 		if !ok {
 			yearGT = 0
+		} else {
+			yearGT = int(fgt)
 		}
 	}
 	return &ParseDateMatchFunction{
