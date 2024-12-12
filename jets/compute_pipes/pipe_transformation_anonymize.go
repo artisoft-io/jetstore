@@ -23,9 +23,9 @@ type AnonymizeTransformationPipe struct {
 	columnEvaluators []TransformationColumnEvaluator
 	firstInputRow    *[]interface{}
 	spec             *TransformationSpec
-	inputDateFormat  string
-	outputDateFormat string
-	keyMapDateFormat string
+	inputDateLayout  string
+	outputDateLayout string
+	keyMapDateLayout string
 	channelRegistry  *ChannelRegistry
 	env              map[string]interface{}
 	doneCh           chan struct{}
@@ -75,8 +75,8 @@ func (ctx *AnonymizeTransformationPipe) Apply(input *[]interface{}) error {
 			hashedValue4KeyFile = hashedValue
 		case "date":
 			var date time.Time
-			if len(ctx.inputDateFormat) > 0 {
-				date, err = time.Parse(ctx.inputDateFormat, inputStr)
+			if len(ctx.inputDateLayout) > 0 {
+				date, err = time.Parse(ctx.inputDateLayout, inputStr)
 			} else {
 				var d *time.Time
 				d, err = ParseDate(inputStr)
@@ -87,11 +87,11 @@ func (ctx *AnonymizeTransformationPipe) Apply(input *[]interface{}) error {
 			if err == nil {
 				// hashedValue = fmt.Sprintf("%d/%02d/01", date.Year(), date.Month())
 				anonymizeDate := time.Date(date.Year(), date.Month(), 1, 0, 0, 0, 0, time.UTC)
-				hashedValue = anonymizeDate.Format(ctx.outputDateFormat)
-				if ctx.keyMapDateFormat == "" {
+				hashedValue = anonymizeDate.Format(ctx.outputDateLayout)
+				if ctx.keyMapDateLayout == "" {
 					hashedValue4KeyFile = hashedValue
 				} else {
-					hashedValue4KeyFile = anonymizeDate.Format(ctx.keyMapDateFormat)
+					hashedValue4KeyFile = anonymizeDate.Format(ctx.keyMapDateLayout)
 				}
 			} else {
 				hashedValue = inputStr
@@ -224,26 +224,30 @@ func (ctx *BuilderContext) NewAnonymizeTransformationPipe(source *InputChannel, 
 	}
 	hasher = fnv.New64a()
 	// Determine the date format to use, start with default value
-	outputDateFormat := "2006/01/02"
-	inputDateFormat := ""
-	var keyDateFormat string
+	outputDateLayout := "2006/01/02"
+	inputDateLayout := ""
+	var keyDateLayout string
 	// Check if the schema provider is specified
 	sp := ctx.schemaManager.GetSchemaProvider(config.SchemaProvider)
-	if sp != nil && sp.DateFormat() != "" {
-		outputDateFormat = sp.DateFormat()
-		inputDateFormat = sp.DateFormat()
-	}
-	if config.InputDateFormat != "" {
-		inputDateFormat = config.InputDateFormat
-		if config.OutputDateFormat == "" {
-			outputDateFormat = inputDateFormat
+	if sp != nil {
+		if sp.ReadDateLayout() != "" {
+			inputDateLayout = sp.ReadDateLayout()
+		}
+		if sp.WriteDateLayout() != "" {
+			outputDateLayout = sp.WriteDateLayout()
 		}
 	}
-	if config.OutputDateFormat != "" {
-		outputDateFormat = config.OutputDateFormat
+	if config.InputDateLayout != "" {
+		inputDateLayout = config.InputDateLayout
+		if config.OutputDateLayout == "" {
+			outputDateLayout = inputDateLayout
+		}
 	}
-	if config.KeyDateFormat != "" {
-		keyDateFormat = config.KeyDateFormat
+	if config.OutputDateLayout != "" {
+		outputDateLayout = config.OutputDateLayout
+	}
+	if config.KeyDateLayout != "" {
+		keyDateLayout = config.KeyDateLayout
 	}
 
 	// Prepare the column evaluators
@@ -271,9 +275,9 @@ func (ctx *BuilderContext) NewAnonymizeTransformationPipe(source *InputChannel, 
 		columnEvaluators: columnEvaluators,
 		channelRegistry:  ctx.channelRegistry,
 		spec:             spec,
-		inputDateFormat:  inputDateFormat,
-		outputDateFormat: outputDateFormat,
-		keyMapDateFormat: keyDateFormat,
+		inputDateLayout:  inputDateLayout,
+		outputDateLayout: outputDateLayout,
+		keyMapDateLayout: keyDateLayout,
 		env:              ctx.env,
 		doneCh:           ctx.done,
 	}, nil

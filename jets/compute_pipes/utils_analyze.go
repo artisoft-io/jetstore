@@ -291,7 +291,7 @@ func (p *ParseDateMatchFunction) Match(value string) bool {
 
 func NewParseDateMatchFunction(fspec *FunctionTokenNode, sp SchemaProvider) (MatchFunction, error) {
 	var ok bool
-	layout := sp.DateFormat()
+	layout := sp.ReadDateLayout()
 	if layout == "" && fspec.Arguments != nil {
 		layout, ok = fspec.Arguments["default_date_format"].(string)
 		if !ok {

@@ -134,7 +134,7 @@ type SchemaProviderSpec struct {
 	// example: {"currentSheet": "Daily entry for Approvals"} (for xlsx).
 	// SourceType range: main_input, merged_input, historical_input (from input_source table)
 	// Columns may be ommitted if fixed_width_columns_csv is provided or is a csv format
-  // UseLazyQuotes, VariableFieldsPerRecord see https://pkg.go.dev/encoding/csv#NewReader
+	// UseLazyQuotes, VariableFieldsPerRecord see https://pkg.go.dev/encoding/csv#NewReader
 	// Bucket and FileKey are location and source object (fileKey may be directory if IsPartFiles is true)
 	// KmsKey is kms key to use when writing output data. May be empty.
 	// Contains properties to register FileKey with input_registry table:
@@ -159,7 +159,8 @@ type SchemaProviderSpec struct {
 	Delimiter               string             `json:"delimiter"`
 	UseLazyQuotes           bool               `json:"use_lazy_quotes"`
 	VariableFieldsPerRecord bool               `json:"variable_fields_per_record"`
-	DateFormat              string             `json:"date_format"`
+	ReadDateLayout          string             `json:"read_date_layout"`
+	WriteDateLayout         string             `json:"write_date_layout"`
 	TrimColumns             bool               `json:"trim_columns"`
 	IsPartFiles             bool               `json:"is_part_files"`
 	FixedWidthColumnsCsv    string             `json:"fixed_width_columns_csv"`
@@ -366,9 +367,9 @@ type AnonymizeSpec struct {
 	LookupName        string              `json:"lookup_name"`
 	AnonymizeType     string              `json:"anonymize_type"`
 	KeyPrefix         string              `json:"key_prefix"`
-	InputDateFormat   string              `json:"input_date_format"`
-	OutputDateFormat  string              `json:"output_date_format"`
-	KeyDateFormat     string              `json:"key_date_format"`
+	InputDateLayout   string              `json:"input_date_layout"`
+	OutputDateLayout  string              `json:"output_date_layout"`
+	KeyDateLayout     string              `json:"key_date_layout"`
 	SchemaProvider    string              `json:"schema_provider"`
 	KeysOutputChannel OutputChannelConfig `json:"keys_output_channel"`
 }
