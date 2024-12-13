@@ -114,9 +114,17 @@ func (ctx *BuilderContext) buildExprNodeEvaluator(source *InputChannel, outCh *O
 			if err != nil {
 				return nil, err
 			}
+			if spec.AsRdfType != nil {
+				valueStr, ok := value.(string)
+				if !ok {
+					// humm, was expecting a string
+					valueStr = fmt.Sprintf("%v", value)
+				}
+				value, err = CastToRdfType(valueStr, *spec.AsRdfType)
+			}
 			return &expressionValueLeaf{
 				value: value,
-			}, nil
+			}, err
 
 		case "select":
 			if spec.Expr == nil {
