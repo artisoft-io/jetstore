@@ -6,7 +6,7 @@ import (
 )
 
 // map_record TransformationSpec implementing PipeTransformationEvaluator interface
-// map_record: each input record is mapped to the output, done calls the close on the output channel
+// map_record: each input record is mapped to the output
 
 type MapRecordTransformationPipe struct {
 	outputCh         *OutputChannel

@@ -107,6 +107,13 @@ func (cpCtx *ComputePipesContext) StartMergeFiles(dbpool *pgxpool.Pool) (cpErr e
 			if inputChannelName == "input_row" {
 				outputFileConfig.Headers =
 					cpCtx.CpConfig.CommonRuntimeArgs.SourcesConfig.MainInput.InputColumns
+			} else {
+				for i := range cpCtx.CpConfig.Channels {
+					if cpCtx.CpConfig.Channels[i].Name == inputChannelName {
+						outputFileConfig.Headers = cpCtx.CpConfig.Channels[i].Columns
+						break
+					}
+				}
 			}
 		}
 		if len(outputFileConfig.Headers) == 0 {

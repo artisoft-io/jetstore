@@ -226,7 +226,7 @@ type SplitterSpec struct {
 
 type TransformationSpec struct {
 	// Type range: map_record, aggregate, analyze, high_freq, partition_writer,
-	//	anonymize, distinct, shuffling, group_by, jetrules
+	//	anonymize, distinct, shuffling, group_by, filter, jetrules
 	// DeviceWriterType range: csv_writer, parquet_writer, fixed_width_writer
 	// Format takes precedence over SchemaProvider's Format (from OutputChannelConfig)
 	Type                  string                     `json:"type"`
@@ -241,6 +241,7 @@ type TransformationSpec struct {
 	DistinctConfig        *DistinctSpec              `json:"distinct_config"`
 	ShufflingConfig       *ShufflingSpec             `json:"shuffling_config"`
 	GroupByConfig         *GroupBySpec               `json:"group_by_config"`
+	FilterConfig          *FilterSpec                `json:"filter_config"`
 	JetrulesConfig        *JetrulesSpec              `json:"jetrules_config"`
 	OutputChannel         OutputChannelConfig        `json:"output_channel"`
 }
@@ -393,6 +394,12 @@ type GroupBySpec struct {
 	GroupByCount int      `json:"group_by_count"`
 }
 
+// Filter row base on a when criteria
+type FilterSpec struct {
+	When           ExpressionNode `json:"when"`
+	MaxOutputCount int            `json:"max_output_records"`
+}
+
 // MaxLooping overrides the value in the jetrules metastore
 type JetrulesSpec struct {
 	ProcessName             string               `json:"process_name"`
@@ -413,12 +420,13 @@ type JetrulesOutputSpec struct {
 }
 
 type TransformationColumnSpec struct {
-	// Type range: select, value, eval, map, hash
+	// Type range: select, multi_select, value, eval, map, hash
 	// count, distinct_count, sum, min, case,
 	// map_reduce, lookup
 	Name           string                      `json:"name"`
 	Type           string                      `json:"type"`
 	Expr           *string                     `json:"expr"`
+	ExprArray      []string                    `json:"expr_array"`
 	MapExpr        *MapExpression              `json:"map_expr"`
 	EvalExpr       *ExpressionNode             `json:"eval_expr"`
 	HashExpr       *HashExpression             `json:"hash_expr"`

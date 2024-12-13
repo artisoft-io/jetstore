@@ -217,6 +217,9 @@ func (ctx *BuilderContext) BuildPipeTransformationEvaluator(source *InputChannel
 	case "distinct":
 		return ctx.NewDistinctTransformationPipe(source, outCh, spec)
 
+	case "filter":
+		return ctx.NewFilterTransformationPipe(source, outCh, spec)
+
 	case "high_freq":
 		return ctx.NewHighFreqTransformationPipe(source, outCh, spec)
 
