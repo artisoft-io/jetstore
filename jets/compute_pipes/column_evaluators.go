@@ -56,7 +56,7 @@ func (ctx *BuilderContext) parseValue(expr *string) (interface{}, error) {
 func (ctx *BuilderContext) BuildTransformationColumnEvaluator(source *InputChannel, outCh *OutputChannel, spec *TransformationColumnSpec) (TransformationColumnEvaluator, error) {
 
 	switch spec.Type {
-	// select, value, eval, map, count, distinct_count, sum, min, case, hash, map_reduce, lookup
+	// select, multi_select, value, eval, map, count, distinct_count, sum, min, case, hash, map_reduce, lookup
 	case "select":
 		if spec.Expr == nil {
 			return nil, fmt.Errorf("error: Type select must have Expr != nil")
@@ -70,6 +70,23 @@ func (ctx *BuilderContext) BuildTransformationColumnEvaluator(source *InputChann
 			return nil, fmt.Errorf("error column %s not found in output source %s", spec.Name, outCh.config.Name)
 		}
 		return &selectColumnEval{
+			inputPos:  inputPos,
+			outputPos: outputPos,
+		}, nil
+
+	case "multi_select":
+		if len(spec.ExprArray) == 0 {
+			return nil, fmt.Errorf("error: Type multi_select must have expr_array specified")
+		}
+		inputPos := make([]int, 0, len(spec.ExprArray))
+		for _, columnName := range spec.ExprArray {
+			inputPos = append(inputPos, source.columns[columnName])
+		}
+		outputPos, ok := outCh.columns[spec.Name]
+		if !ok {
+			return nil, fmt.Errorf("error column %s not found in output source %s", spec.Name, outCh.config.Name)
+		}
+		return &multiSelectColumnEval{
 			inputPos:  inputPos,
 			outputPos: outputPos,
 		}, nil
@@ -209,5 +226,28 @@ func (ctx *selectColumnEval) Update(currentValue *[]interface{}, input *[]interf
 		return fmt.Errorf("error selectColumnEval.update cannot have nil currentValue or input")
 	}
 	(*currentValue)[ctx.outputPos] = (*input)[ctx.inputPos]
+	return nil
+}
+
+// TransformationColumnSpec Type multi_select
+type multiSelectColumnEval struct {
+	inputPos  []int
+	outputPos int
+}
+
+func (ctx *multiSelectColumnEval) Done(currentValue *[]interface{}) error {
+	return nil
+}
+
+func (ctx *multiSelectColumnEval) InitializeCurrentValue(currentValue *[]interface{}) {}
+func (ctx *multiSelectColumnEval) Update(currentValue *[]interface{}, input *[]interface{}) error {
+	if currentValue == nil || input == nil {
+		return fmt.Errorf("error selectColumnEval.update cannot have nil currentValue or input")
+	}
+	value := make([]any, 0, len(ctx.inputPos))
+	for _, ipos := range ctx.inputPos {
+		value = append(value, (*input)[ipos])
+	}
+	(*currentValue)[ctx.outputPos] = value
 	return nil
 }
