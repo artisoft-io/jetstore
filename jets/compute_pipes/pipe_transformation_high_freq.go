@@ -36,7 +36,7 @@ func (ctx *HighFreqTransformationPipe) Apply(input *[]interface{}) error {
 		ctx.firstInputRow = input
 	}
 	var token string
-	for _, c := range *ctx.spec.HighFreqColumns {
+	for _, c := range ctx.spec.HighFreqColumns {
 		highFreqMap := ctx.highFreqState[c.Name]
 		value := (*input)[ctx.source.columns[c.Name]]
 		if value != nil {
@@ -78,7 +78,7 @@ func (ctx *HighFreqTransformationPipe) Apply(input *[]interface{}) error {
 
 func (ctx *HighFreqTransformationPipe) Done() error {
 	// For each tracked columns, send out the top 80 percentile values
-	for _, column := range *ctx.spec.HighFreqColumns {
+	for _, column := range ctx.spec.HighFreqColumns {
 		highFreqMap := ctx.highFreqState[column.Name]
 		totalCount := 0
 		// log.Printf("HighFreqTransformationPipe.done: sending results for column: %s, got %d distinct values", columnName, len(highFreqMap))
@@ -144,7 +144,7 @@ func (ctx *HighFreqTransformationPipe) Finally() {}
 
 func (ctx *BuilderContext) NewHighFreqTransformationPipe(source *InputChannel, outputCh *OutputChannel, spec *TransformationSpec) (*HighFreqTransformationPipe, error) {
 	var err error
-	if spec == nil || spec.HighFreqColumns == nil {
+	if spec == nil || len(spec.HighFreqColumns) == 0 {
 		return nil, fmt.Errorf("error: High Freq Pipe Transformation spec is missing columns definition")
 	}
 	if source == nil || outputCh == nil {
@@ -154,7 +154,7 @@ func (ctx *BuilderContext) NewHighFreqTransformationPipe(source *InputChannel, o
 	spec.NewRecord = true
 	// Set up the High Freq State for each input column that are tracked
 	analyzeState := make(map[string]map[string]*DistinctCount)
-	for _, c := range *spec.HighFreqColumns {
+	for _, c := range spec.HighFreqColumns {
 		analyzeState[c.Name] = make(map[string]*DistinctCount)
 		// Compile the key extraction regex
 		if len(c.KeyRe) > 0 {

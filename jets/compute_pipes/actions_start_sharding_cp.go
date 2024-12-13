@@ -110,12 +110,12 @@ func (args *StartComputePipesArgs) StartShardingComputePipes(ctx context.Context
 	for i := range cpConfig.OutputTables {
 		tableName := cpConfig.OutputTables[i].Name
 		lc := 0
-		for strings.Contains(tableName, "$") && lc < 5 && cpConfig.Context != nil {
+		for strings.Contains(tableName, "$") && lc < 5 && len(cpConfig.Context) != 0 {
 			lc += 1
-			for i := range *cpConfig.Context {
-				if (*cpConfig.Context)[i].Type == "value" {
-					key := (*cpConfig.Context)[i].Key
-					value := (*cpConfig.Context)[i].Expr
+			for i := range cpConfig.Context {
+				if cpConfig.Context[i].Type == "value" {
+					key := cpConfig.Context[i].Key
+					value := cpConfig.Context[i].Expr
 					tableName = strings.ReplaceAll(tableName, key, value)
 				}
 			}
@@ -271,9 +271,9 @@ func (args *StartComputePipesArgs) StartShardingComputePipes(ctx context.Context
 	}
 
 	// Add the headers from the partfile_key_component
-	for i := range *cpConfig.Context {
-		if (*cpConfig.Context)[i].Type == "partfile_key_component" {
-			ic = append(ic, (*cpConfig.Context)[i].Key)
+	for i := range cpConfig.Context {
+		if cpConfig.Context[i].Type == "partfile_key_component" {
+			ic = append(ic, cpConfig.Context[i].Key)
 		}
 	}
 

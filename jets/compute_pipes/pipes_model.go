@@ -11,7 +11,7 @@ type ComputePipesConfig struct {
 	OutputFiles         []OutputFileSpec        `json:"output_files"`
 	LookupTables        []*LookupSpec           `json:"lookup_tables"`
 	Channels            []ChannelSpec           `json:"channels"`
-	Context             *[]ContextSpec          `json:"context"`
+	Context             []ContextSpec           `json:"context"`
 	SchemaProviders     []*SchemaProviderSpec   `json:"schema_providers"`
 	PipesConfig         []PipeSpec              `json:"pipes_config"`
 	ReducingPipesConfig [][]PipeSpec            `json:"reducing_pipes_config"`
@@ -29,17 +29,17 @@ type ComputePipesConfig struct {
 // DefaultShardMaxSizeBy is the default value (in bytes) when not specified at ClusterShardingSpec level.
 // NOTE: ShardSizeMb / ShardMaxSizeMb must be spefified for the sharding to take place.
 type ClusterSpec struct {
-	NbrPartitions         int                    `json:"nbr_partitons"`
-	DefaultShardSizeMb    int                    `json:"default_shard_size_mb"`
-	DefaultShardMaxSizeMb int                    `json:"default_shard_max_size_mb"`
-	DefaultShardSizeBy    int                    `json:"default_shard_size_by"`     // for testing only
-	DefaultShardMaxSizeBy int                    `json:"default_shard_max_size_by"` // for testing only
-	ShardOffset           int                    `json:"shard_offset"`
-	DefaultMaxConcurrency int                    `json:"default_max_concurrency"`
-	S3WorkerPoolSize      int                    `json:"s3_worker_pool_size"`
-	ClusterShardingTiers  *[]ClusterShardingSpec `json:"cluster_sharding_tiers"`
-	IsDebugMode           bool                   `json:"is_debug_mode"`
-	KillSwitchMin         int                    `json:"kill_switch_min"`
+	NbrPartitions         int                   `json:"nbr_partitons"`
+	DefaultShardSizeMb    int                   `json:"default_shard_size_mb"`
+	DefaultShardMaxSizeMb int                   `json:"default_shard_max_size_mb"`
+	DefaultShardSizeBy    int                   `json:"default_shard_size_by"`     // for testing only
+	DefaultShardMaxSizeBy int                   `json:"default_shard_max_size_by"` // for testing only
+	ShardOffset           int                   `json:"shard_offset"`
+	DefaultMaxConcurrency int                   `json:"default_max_concurrency"`
+	S3WorkerPoolSize      int                   `json:"s3_worker_pool_size"`
+	ClusterShardingTiers  []ClusterShardingSpec `json:"cluster_sharding_tiers"`
+	IsDebugMode           bool                  `json:"is_debug_mode"`
+	KillSwitchMin         int                   `json:"kill_switch_min"`
 }
 
 // Cluster sizing configuration
@@ -231,11 +231,10 @@ type TransformationSpec struct {
 	// Format takes precedence over SchemaProvider's Format (from OutputChannelConfig)
 	Type                  string                     `json:"type"`
 	NewRecord             bool                       `json:"new_record"`
-	FilePathSubstitutions *[]PathSubstitution        `json:"file_path_substitutions"`
 	Columns               []TransformationColumnSpec `json:"columns"`
 	MapRecordConfig       *MapRecordSpec             `json:"map_record_config"`
 	AnalyzeConfig         *AnalyzeSpec               `json:"analyze_config"`
-	HighFreqColumns       *[]*HighFreqSpec           `json:"high_freq_columns"` // Type high_freq
+	HighFreqColumns       []*HighFreqSpec            `json:"high_freq_columns"` // Type high_freq
 	PartitionWriterConfig *PartitionWriterSpec       `json:"partition_writer_config"`
 	AnonymizeConfig       *AnonymizeSpec             `json:"anonymize_config"`
 	DistinctConfig        *DistinctSpec              `json:"distinct_config"`
@@ -346,12 +345,11 @@ type HighFreqSpec struct {
 
 // JetsPartitionKey used by partition_writer as the default value for jet_partition
 type PartitionWriterSpec struct {
-	DataSchema       *[]DataSchemaSpec `json:"data_schema"`
-	DeviceWriterType string            `json:"device_writer_type"`
-	JetsPartitionKey *string           `json:"jets_partition_key"`
-	PartitionSize    int               `json:"partition_size"`
-	SamplingRate     int               `json:"sampling_rate"`
-	SamplingMaxCount int               `json:"sampling_max_count"`
+	DeviceWriterType string  `json:"device_writer_type"`
+	JetsPartitionKey *string `json:"jets_partition_key"`
+	PartitionSize    int     `json:"partition_size"`
+	SamplingRate     int     `json:"sampling_rate"`
+	SamplingMaxCount int     `json:"sampling_max_count"`
 }
 
 // LookupName is name of lookup table containing the file metadata from analyze operator
@@ -423,23 +421,23 @@ type TransformationColumnSpec struct {
 	// Type range: select, multi_select, value, eval, map, hash
 	// count, distinct_count, sum, min, case,
 	// map_reduce, lookup
-	Name           string                      `json:"name"`
-	Type           string                      `json:"type"`
-	Expr           *string                     `json:"expr"`
-	ExprArray      []string                    `json:"expr_array"`
-	MapExpr        *MapExpression              `json:"map_expr"`
-	EvalExpr       *ExpressionNode             `json:"eval_expr"`
-	HashExpr       *HashExpression             `json:"hash_expr"`
-	Where          *ExpressionNode             `json:"where"`
-	CaseExpr       []CaseExpression            `json:"case_expr"` // case operator
-	ElseExpr       []*ExpressionNode           `json:"else_expr"` // case operator
-	MapOn          *string                     `json:"map_on"`
-	AlternateMapOn *[]string                   `json:"alternate_map_on"`
-	ApplyMap       *[]TransformationColumnSpec `json:"apply_map"`
-	ApplyReduce    *[]TransformationColumnSpec `json:"apply_reduce"`
-	LookupName     *string                     `json:"lookup_name"`
-	LookupKey      *[]LookupColumnSpec         `json:"key"`
-	LookupValues   *[]LookupColumnSpec         `json:"values"`
+	Name           string                     `json:"name"`
+	Type           string                     `json:"type"`
+	Expr           *string                    `json:"expr"`
+	ExprArray      []string                   `json:"expr_array"`
+	MapExpr        *MapExpression             `json:"map_expr"`
+	EvalExpr       *ExpressionNode            `json:"eval_expr"`
+	HashExpr       *HashExpression            `json:"hash_expr"`
+	Where          *ExpressionNode            `json:"where"`
+	CaseExpr       []CaseExpression           `json:"case_expr"` // case operator
+	ElseExpr       []*ExpressionNode          `json:"else_expr"` // case operator
+	MapOn          *string                    `json:"map_on"`
+	AlternateMapOn []string                   `json:"alternate_map_on"`
+	ApplyMap       []TransformationColumnSpec `json:"apply_map"`
+	ApplyReduce    []TransformationColumnSpec `json:"apply_reduce"`
+	LookupName     *string                    `json:"lookup_name"`
+	LookupKey      []LookupColumnSpec         `json:"key"`
+	LookupValues   []LookupColumnSpec         `json:"values"`
 }
 
 type LookupColumnSpec struct {
@@ -450,9 +448,9 @@ type LookupColumnSpec struct {
 }
 
 type HashExpression struct {
-	Expr                   string    `json:"expr"`
-	NbrJetsPartitions      *uint64   `json:"nbr_jets_partitions"`
-	AlternateCompositeExpr *[]string `json:"alternate_composite_expr"`
+	Expr                   string   `json:"expr"`
+	NbrJetsPartitions      *uint64  `json:"nbr_jets_partitions"`
+	AlternateCompositeExpr []string `json:"alternate_composite_expr"`
 }
 
 type MapExpression struct {

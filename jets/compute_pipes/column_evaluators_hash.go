@@ -144,9 +144,8 @@ func (ctx *BuilderContext) BuildHashTCEvaluator(source *InputChannel, outCh *Out
 		partitions = uint64(ctx.cpConfig.ClusterConfig.NbrPartitions)
 	}
 	var altInputKey []PreprocessingFunction
-	if spec.HashExpr.AlternateCompositeExpr != nil {
-		altExpr := *spec.HashExpr.AlternateCompositeExpr
-		altInputKey, err = ParseAltKeyDefinition(altExpr, source.columns)
+	if len(spec.HashExpr.AlternateCompositeExpr) > 0 {
+		altInputKey, err = ParseAltKeyDefinition(spec.HashExpr.AlternateCompositeExpr, source.columns)
 		if err != nil {
 			return nil, fmt.Errorf("%v in source name %s", err, source.config.Name)
 		}
