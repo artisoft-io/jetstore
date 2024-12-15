@@ -37,13 +37,22 @@ func (ctx *BuilderContext) StartSplitterPipe(spec *PipeSpec, source *InputChanne
 		}
 		close(writePartitionsResultCh)
 		// Closing the output channels
-		// fmt.Println("**!@@ SPLITTER: Closing Output Channels")
+		fmt.Println("**!@@ SPLITTER: Closing Output Channels")
 		oc := make(map[string]bool)
 		for i := range spec.Apply {
-			oc[spec.Apply[i].OutputChannel.Name] = true
+			// Make sure the output chan config is used
+			if len(spec.Apply[i].OutputChannel.Name) > 0 {
+				oc[spec.Apply[i].OutputChannel.Name] = true
+			}
+			if spec.Apply[i].Type == "jetrules" {
+				// Get the output channels of jetrules
+				for j := range spec.Apply[i].JetrulesConfig.OutputChannels {
+					oc[spec.Apply[i].JetrulesConfig.OutputChannels[j].Name] = true
+				}
+			}
 		}
 		for i := range oc {
-			// fmt.Println("**!@@ SPLITTER: Closing Output Channel", i)
+			fmt.Println("**!@@ SPLITTER: Closing Output Channel", i)
 			ctx.channelRegistry.CloseChannel(i)
 		}
 	}()

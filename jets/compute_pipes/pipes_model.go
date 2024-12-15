@@ -400,23 +400,19 @@ type FilterSpec struct {
 
 // MaxLooping overrides the value in the jetrules metastore
 type JetrulesSpec struct {
-	ProcessName             string               `json:"process_name"`
-	InputRdfType            string               `json:"input_rdf_type"`
-	MaxInputCount           int                  `json:"max_input_count"`
-	PoolSize                int                  `json:"pool_size"`
-	MaxReteSessionsSaved    int                  `json:"max_rete_sessions_saved"`
-	MaxLooping              int                  `json:"max_looping"`
-	CurrentSourcePeriod     int                  `json:"current_source_period"`
-	CurrentSourcePeriodDate string               `json:"current_source_period_date"`
-	CurrentSourcePeriodType string               `json:"current_source_period_type"`
-	RuleConfig              []map[string]any     `json:"rule_config"`
-	MetadataInputSources    []CsvSourceSpec      `json:"metadata_input_sources"`
-	IsDebug                 bool                 `json:"is_debug"`
-	JetrulesOutput          []JetrulesOutputSpec `json:"jetrules_output"`
-}
-type JetrulesOutputSpec struct {
-	ClassName     string              `json:"class_name"`
-	OutputChannel OutputChannelConfig `json:"output_channel"`
+	ProcessName             string                `json:"process_name"`
+	InputRdfType            string                `json:"input_rdf_type"`
+	MaxInputCount           int                   `json:"max_input_count"`
+	PoolSize                int                   `json:"pool_size"`
+	MaxReteSessionsSaved    int                   `json:"max_rete_sessions_saved"`
+	MaxLooping              int                   `json:"max_looping"`
+	CurrentSourcePeriod     int                   `json:"current_source_period"`
+	CurrentSourcePeriodDate string                `json:"current_source_period_date"`
+	CurrentSourcePeriodType string                `json:"current_source_period_type"`
+	RuleConfig              []map[string]any      `json:"rule_config"`
+	MetadataInputSources    []CsvSourceSpec       `json:"metadata_input_sources"`
+	IsDebug                 bool                  `json:"is_debug"`
+	OutputChannels          []OutputChannelConfig `json:"output_channels"`
 }
 
 type TransformationColumnSpec struct {

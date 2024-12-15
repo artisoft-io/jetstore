@@ -21,21 +21,7 @@ func (cpCtx *ComputePipesContext) ProcessFilesAndReportStatus(ctx context.Contex
 		Copy2DbResultCh:         make(chan chan ComputePipesResult, 101),
 		WritePartitionsResultCh: make(chan chan ComputePipesResult, 10),
 		S3PutObjectResultCh:     make(chan ComputePipesResult, 1),
-	}
-	// Check if we have the jetrule operator in the pipes config, if so
-	// create the JetrulesWorkerResultCh channel
-	gotJetrules := false
-	for i := range cpCtx.CpConfig.PipesConfig {
-		for j := range cpCtx.CpConfig.PipesConfig[i].Apply {
-			if cpCtx.CpConfig.PipesConfig[i].Apply[j].Type == "jetrules" {
-				gotJetrules = true
-				goto checkJetrulesDone
-			}
-		}
-	}
-	checkJetrulesDone:
-	if gotJetrules {
-		cpCtx.ChResults.JetrulesWorkerResultCh = make(chan JetrulesWorkerResult, 99)
+		JetrulesWorkerResultCh:  make(chan chan JetrulesWorkerResult, 99),
 	}
 
 
@@ -55,6 +41,7 @@ func (cpCtx *ComputePipesContext) ProcessFilesAndReportStatus(ctx context.Contex
 		close(cpCtx.ChResults.Copy2DbResultCh)
 		close(cpCtx.ChResults.WritePartitionsResultCh)
 		close(cpCtx.ChResults.S3PutObjectResultCh)
+		close(cpCtx.ChResults.JetrulesWorkerResultCh)
 		err = cpCtx.StartMergeFiles(dbpool)
 	} else {
 		err = cpCtx.LoadFiles(ctx, dbpool)
@@ -77,7 +64,7 @@ func (cpCtx *ComputePipesContext) ProcessFilesAndReportStatus(ctx context.Contex
 	for downloadResult := range cpCtx.DownloadS3ResultCh {
 		if cpCtx.CpConfig.ClusterConfig.IsDebugMode {
 			log.Println(cpCtx.SessionId, "node", cpCtx.NodeId, "Downloaded", downloadResult.InputFilesCount,
-				"files from s3, total size:", downloadResult.TotalFilesSize/1024/1024, "MB, err:", downloadResult.Err)
+				"files from s3, total size:", float64(downloadResult.TotalFilesSize)/1024/1024, "MB, err:", downloadResult.Err)
 		}
 		totalInputFileSize += downloadResult.TotalFilesSize
 		totalInputFileCount += downloadResult.InputFilesCount
@@ -115,13 +102,13 @@ func (cpCtx *ComputePipesContext) ProcessFilesAndReportStatus(ctx context.Contex
 			}
 		}
 	}
-	// log.Println("**!@@ CP RESULT = Loaded from s3: DONE")
+	// log.Println("** CHECKING jetrules results from JetrulesWorkerResultCh")
 	
 	// get jetrules results from JetrulesWorkerResultCh
 	var reteSessionCount int64
 	var reteSessionErrors int64
-	if cpCtx.ChResults.JetrulesWorkerResultCh != nil {
-		for jrResults := range cpCtx.ChResults.JetrulesWorkerResultCh {
+	for workerResultCh := range cpCtx.ChResults.JetrulesWorkerResultCh {
+		for jrResults := range workerResultCh {
 			reteSessionCount += jrResults.ReteSessionCount
 			reteSessionErrors += jrResults.ErrorsCount
 			if jrResults.Err != nil {
@@ -174,9 +161,12 @@ func (cpCtx *ComputePipesContext) ProcessFilesAndReportStatus(ctx context.Contex
 	// Get the result from S3DeviceManager
 	// cpCtx.S3DeviceMgr == nil when cpCtx.ComputePipesArgs.MergeFiles == true
 	if cpCtx.S3DeviceMgr != nil {
+		// log.Println("Waiting on S3DeviceMgr.ClientsWg.Wait")
 		cpCtx.S3DeviceMgr.ClientsWg.Wait()
 		close(cpCtx.S3DeviceMgr.WorkersTaskCh)
+		// log.Println("Waiting on S3DeviceMgr.ClientsWg.Wait DONE")
 	}
+	// log.Println("**!@@ CP RESULT = S3PutObjectResultCh:")
 	for s3DeviceManagerResult := range cpCtx.ChResults.S3PutObjectResultCh {
 		if cpCtx.CpConfig.ClusterConfig.IsDebugMode {
 			log.Printf("%s node %d Put %d part files to s3", cpCtx.SessionId, cpCtx.NodeId, s3DeviceManagerResult.PartsCount)
@@ -188,6 +178,7 @@ func (cpCtx *ComputePipesContext) ProcessFilesAndReportStatus(ctx context.Contex
 			}
 		}
 	}
+	// log.Println("**!@@ CP RESULT = S3PutObjectResultCh DONE")
 
 	// Check for error from compute pipes
 	close(cpCtx.ErrCh)

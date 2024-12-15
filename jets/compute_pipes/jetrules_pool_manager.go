@@ -21,14 +21,13 @@ type JrPoolManager struct {
 // Create the JrPoolManager, it will be set to the receiving BuilderContext
 func (ctx *BuilderContext) NewJrPoolManager(
 	config *JetrulesSpec, source *InputChannel, reteMetaStore *rete.ReteMetaStoreFactory,
-	outputChannels []*JetrulesOutputChan) (jrpm *JrPoolManager, err error) {
+	outputChannels []*JetrulesOutputChan, jetrulesWorkerResultCh chan JetrulesWorkerResult) (jrpm *JrPoolManager, err error) {
 
 	// Create the pool manager
-	var jrPoolWg sync.WaitGroup
 	jrpm = &JrPoolManager{
 		config:        config,
 		WorkersTaskCh: make(chan []interface{}, 1),
-		JrPoolWg:      &jrPoolWg,
+		JrPoolWg:      new(sync.WaitGroup),
 	}
 
 	// Create a channel for the workers to report results
@@ -48,7 +47,7 @@ func (ctx *BuilderContext) NewJrPoolManager(
 		}
 		// Send out the collected result
 		select {
-		case ctx.chResults.JetrulesWorkerResultCh <- JetrulesWorkerResult{
+		case jetrulesWorkerResultCh <- JetrulesWorkerResult{
 			ReteSessionCount: sessionCount,
 			ErrorsCount: errorCount,
 			Err:        err}:
@@ -64,22 +63,21 @@ func (ctx *BuilderContext) NewJrPoolManager(
 		case <-ctx.done:
 			log.Printf("Collecting results from JrPoolWorkers interrupted")
 		}
-		close(ctx.chResults.JetrulesWorkerResultCh)
+		close(jetrulesWorkerResultCh)
 	}()
 
 	// Set up all the workers, use a wait group to track when they are all done
 	// to close workersResultCh
 	go func() {
-		var wg sync.WaitGroup
 		for i := 0; i < ctx.s3DeviceManager.s3WorkerPoolSize; i++ {
-			wg.Add(1)
+			jrpm.JrPoolWg.Add(1)
 			go func() {
-				defer wg.Done()
+				defer jrpm.JrPoolWg.Done()
 				worker := NewJrPoolWorker(config, source, reteMetaStore, outputChannels, ctx.done, ctx.errCh)
 				worker.DoWork(jrpm, workersResultCh)
 			}()
 		}
-		wg.Wait()
+		jrpm.JrPoolWg.Wait()
 		close(workersResultCh)
 	}()
 	return

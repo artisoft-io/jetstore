@@ -188,12 +188,16 @@ func (ctx *BuilderContext) BuildPipeTransformationEvaluator(source *InputChannel
 	// log.Println("**& BuildPipeTransformationEvaluator for", spec.Type, "source:", source.config.Name, "jetsPartitionKey:", jetsPartitionKey, "output:", spec.Output)
 
 	// Get the output channel
-	outCh, err := ctx.channelRegistry.GetOutputChannel(spec.OutputChannel.Name)
-	if err != nil {
-		err = fmt.Errorf("while in BuildPipeTransformationEvaluator for %s from source %s requesting output channel %s: %v",
-			spec.Type, source.config.Name, spec.OutputChannel.Name, err)
-		log.Println(err)
-		return nil, err
+	var outCh *OutputChannel
+	var err error
+	if len(spec.OutputChannel.Name) > 0 {
+		outCh, err = ctx.channelRegistry.GetOutputChannel(spec.OutputChannel.Name)
+		if err != nil {
+			err = fmt.Errorf("while in BuildPipeTransformationEvaluator for %s from source %s requesting output channel %s: %v",
+				spec.Type, source.config.Name, spec.OutputChannel.Name, err)
+			log.Println(err)
+			return nil, err
+		}	
 	}
 	switch spec.Type {
 	case "map_record":
@@ -208,17 +212,20 @@ func (ctx *BuilderContext) BuildPipeTransformationEvaluator(source *InputChannel
 	case "group_by":
 		return ctx.NewGroupByTransformationPipe(source, outCh, spec)
 
-	case "analyze":
-		return ctx.NewAnalyzeTransformationPipe(source, outCh, spec)
-
-	case "anonymize":
-		return ctx.NewAnonymizeTransformationPipe(source, outCh, spec)
-
 	case "distinct":
 		return ctx.NewDistinctTransformationPipe(source, outCh, spec)
 
 	case "filter":
 		return ctx.NewFilterTransformationPipe(source, outCh, spec)
+
+	case "jetrules":
+		return ctx.NewJetrulesTransformationPipe(source, outCh, spec)
+
+	case "analyze":
+		return ctx.NewAnalyzeTransformationPipe(source, outCh, spec)
+
+	case "anonymize":
+		return ctx.NewAnonymizeTransformationPipe(source, outCh, spec)
 
 	case "high_freq":
 		return ctx.NewHighFreqTransformationPipe(source, outCh, spec)

@@ -61,6 +61,7 @@ func AssertMetadataSource(reteMetaStore *rete.ReteMetaStoreFactory, config *Jetr
 		if err != nil {
 			return err
 		}
+		log.Println("Loading metadata source from:", metadataSource.fileKey.key)
 		err = metadataSource.ReadFileToMetaGraph(reteMetaStore, config)
 		if err != nil {
 			return err

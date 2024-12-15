@@ -559,9 +559,7 @@ func ValidatePipeSpecConfig(cpConfig *ComputePipesConfig, pipeConfig []PipeSpec)
 			var sp *SchemaProviderSpec
 			transformationConfig := &pipeConfig[i].Apply[j]
 			outputChConfig := &transformationConfig.OutputChannel
-			if len(outputChConfig.SchemaProvider) > 0 {
-				sp = getSchemaProvider(cpConfig.SchemaProviders, outputChConfig.SchemaProvider)
-			}
+			sp = getSchemaProvider(cpConfig.SchemaProviders, outputChConfig.SchemaProvider)
 			// validate transformation pipe config
 			switch transformationConfig.Type {
 			case "partition_writer":
@@ -598,80 +596,116 @@ func ValidatePipeSpecConfig(cpConfig *ComputePipesConfig, pipeConfig []PipeSpec)
 					config.DeviceWriterType = deviceWriterType
 					outputChConfig.Format = sp.InputFormat
 				}
-			}
-			if outputChConfig.Type == "" {
-				outputChConfig.Type = "memory"
-			}
-			switch outputChConfig.Type {
-			case "sql":
-				if len(outputChConfig.OutputTableKey) == 0 {
-					return fmt.Errorf("error: invalid cpipes config, must provide output_table_key when output_channel type is 'sql'")
+			case "anonymize":
+				if transformationConfig.AnonymizeConfig == nil {
+					return fmt.Errorf("error: cpipes config is missing anonymize_config for anonymize operator")
 				}
-				outputChConfig.Name = outputChConfig.OutputTableKey
-				outputChConfig.SpecName = outputChConfig.OutputTableKey
-			default:
-				if len(outputChConfig.Name) == 0 || outputChConfig.Name == outputChConfig.SpecName {
-					return fmt.Errorf("error: invalid cpipes config, output_channel.name must not be empty or same as output_channel.channel_spec_name")
+				keyOutputChannel := &transformationConfig.AnonymizeConfig.KeysOutputChannel
+				err := validateOutputChConfig(keyOutputChannel, getSchemaProvider(cpConfig.SchemaProviders, keyOutputChannel.SchemaProvider))
+				if err != nil {
+					return err
 				}
-				switch outputChConfig.Type {
-				case "stage":
-					if outputChConfig.Format == "" {
-						if sp != nil {
-							outputChConfig.Format = sp.InputFormat
-						}
-						if outputChConfig.Format == "" {
-							outputChConfig.Format = "headerless_csv"
-						}
+			case "jetrules":
+				if transformationConfig.JetrulesConfig == nil {
+					return fmt.Errorf("error: cpipes config is missing jetrules_config for jetrules operator")
+				}
+				outputChConfig = nil // The outputChannel is replaced by JetrulesConfig.JetrulesOutput channels
+				for k := range transformationConfig.JetrulesConfig.OutputChannels {
+					outCh := &transformationConfig.JetrulesConfig.OutputChannels[k]
+					err := validateOutputChConfig(outCh, getSchemaProvider(cpConfig.SchemaProviders, outCh.SchemaProvider))
+					if err != nil {
+						return err
 					}
-					if outputChConfig.Compression == "" {
-						if sp != nil && sp.Compression != "" {
-							outputChConfig.Compression = sp.Compression
-						}
-						if outputChConfig.Compression == "" {
-							outputChConfig.Compression = "snappy"
-						}
-					}
-					if len(outputChConfig.WriteStepId) == 0 {
-						return fmt.Errorf("error: invalid cpipes config, write_step_id is not specified in output_channel of type 'stage'")
-					}
-				case "output":
-					if outputChConfig.Format == "" {
-						if sp != nil {
-							outputChConfig.Format = sp.InputFormat
-						}
-						if outputChConfig.Format == "" {
-							return fmt.Errorf("error: invalid cpipes config, format is not specified in output_channel of type 'output'")
-						}
-					}
-					if outputChConfig.Compression == "" {
-						if sp != nil && sp.Compression != "" {
-							outputChConfig.Compression = sp.Compression
-						}
-						if outputChConfig.Compression == "" {
-							outputChConfig.Compression = "none"
-						}
-					}
-					if len(outputChConfig.OutputLocation) == 0 {
-						outputChConfig.OutputLocation = "jetstore_s3_output"
-					}
-					switch outputChConfig.OutputLocation {
-					case "jetstore_s3_input", "jetstore_s3_output":
-					default:
-						return fmt.Errorf(
-							"error: invalid cpipes config, invalid output_location %s in output_channel of type"+
-								" 'output', expecting jetstore_s3_input or jetstore_s3_output",
-							outputChConfig.OutputLocation)
-					}
+				}
+			}
+			err := validateOutputChConfig(outputChConfig, sp)
+			if err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
 
-				case "memory":
-					outputChConfig.Format = ""
-					outputChConfig.Compression = ""
-				default:
-					return fmt.Errorf(
-						"error: invalid cpipes config, unknown output_channel config type: %s (expecting: memory (default), stage, output, sql)",
-						outputChConfig.Type)
+func validateOutputChConfig(outputChConfig *OutputChannelConfig, sp *SchemaProviderSpec) error {
+	if outputChConfig == nil {
+		return nil
+	}
+	if outputChConfig.Type == "" {
+		outputChConfig.Type = "memory"
+	}
+	switch outputChConfig.Type {
+	case "sql":
+		if len(outputChConfig.OutputTableKey) == 0 {
+			return fmt.Errorf("error: invalid cpipes config, must provide output_table_key when output_channel type is 'sql'")
+		}
+		outputChConfig.Name = outputChConfig.OutputTableKey
+		outputChConfig.SpecName = outputChConfig.OutputTableKey
+	default:
+		if len(outputChConfig.Name) == 0 || outputChConfig.Name == outputChConfig.SpecName {
+			return fmt.Errorf(
+				"error: invalid cpipes config, output_channel.name '%s' must not be empty or same as output_channel.channel_spec_name '%s'",
+				outputChConfig.Name, outputChConfig.SpecName)
+		}
+		switch outputChConfig.Type {
+		case "stage":
+			if outputChConfig.Format == "" {
+				if sp != nil {
+					outputChConfig.Format = sp.InputFormat
+				}
+				if outputChConfig.Format == "" {
+					outputChConfig.Format = "headerless_csv"
 				}
 			}
+			if outputChConfig.Compression == "" {
+				if sp != nil && sp.Compression != "" {
+					outputChConfig.Compression = sp.Compression
+				}
+				if outputChConfig.Compression == "" {
+					outputChConfig.Compression = "snappy"
+				}
+			}
+			if len(outputChConfig.WriteStepId) == 0 {
+				return fmt.Errorf("error: invalid cpipes config, write_step_id is not specified in output_channel '%s' of type 'stage'",
+					outputChConfig.Name)
+			}
+		case "output":
+			if outputChConfig.Format == "" {
+				if sp != nil {
+					outputChConfig.Format = sp.InputFormat
+				}
+				if outputChConfig.Format == "" {
+					return fmt.Errorf("error: invalid cpipes config, format is not specified in output_channel '%s' of type 'output'",
+						outputChConfig.Name)
+				}
+			}
+			if outputChConfig.Compression == "" {
+				if sp != nil && sp.Compression != "" {
+					outputChConfig.Compression = sp.Compression
+				}
+				if outputChConfig.Compression == "" {
+					outputChConfig.Compression = "none"
+				}
+			}
+			if len(outputChConfig.OutputLocation) == 0 {
+				outputChConfig.OutputLocation = "jetstore_s3_output"
+			}
+			switch outputChConfig.OutputLocation {
+			case "jetstore_s3_input", "jetstore_s3_output":
+			default:
+				return fmt.Errorf(
+					"error: invalid cpipes config, invalid output_location '%s' in output_channel '%s' of type"+
+						" 'output', expecting jetstore_s3_input or jetstore_s3_output",
+					outputChConfig.OutputLocation, outputChConfig.Name)
+			}
+
+		case "memory":
+			outputChConfig.Format = ""
+			outputChConfig.Compression = ""
+		default:
+			return fmt.Errorf(
+				"error: invalid cpipes config, unknown output_channel config type: %s (expecting: memory (default), stage, output, sql)",
+				outputChConfig.Type)
 		}
 	}
 	return nil

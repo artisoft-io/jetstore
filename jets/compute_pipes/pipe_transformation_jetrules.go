@@ -42,12 +42,12 @@ func (ctx *JetrulesTransformationPipe) Apply(input *[]interface{}) error {
 }
 
 func (ctx *JetrulesTransformationPipe) Done() error {
-	close(ctx.jrPoolManager.WorkersTaskCh)
-	// log.Println("**!@@ ** Send ANALYZE Result to", ctx.outputCh.config.Name, "DONE")
 	return nil
 }
 
-func (ctx *JetrulesTransformationPipe) Finally() {}
+func (ctx *JetrulesTransformationPipe) Finally() {
+	close(ctx.jrPoolManager.WorkersTaskCh)
+}
 
 func (ctx *BuilderContext) NewJetrulesTransformationPipe(source *InputChannel, _ *OutputChannel, spec *TransformationSpec) (*JetrulesTransformationPipe, error) {
 	if spec == nil || spec.JetrulesConfig == nil {
@@ -62,15 +62,14 @@ func (ctx *BuilderContext) NewJetrulesTransformationPipe(source *InputChannel, _
 		return nil, err
 	}
 	// Create the output channels for each of the exported rdf type
-	jetrulesOutputChan := make([]*JetrulesOutputChan, 0, len(config.JetrulesOutput))
-	for i := range config.JetrulesOutput {
-		name := config.JetrulesOutput[i].OutputChannel.Name
-		outCh, err := ctx.channelRegistry.GetOutputChannel(name)
+	jetrulesOutputChan := make([]*JetrulesOutputChan, 0, len(config.OutputChannels))
+	for i := range config.OutputChannels {
+		outCh, err := ctx.channelRegistry.GetOutputChannel(config.OutputChannels[i].Name)
 		if err != nil {
 			return nil, err
 		}
 		jetrulesOutputChan = append(jetrulesOutputChan, &JetrulesOutputChan{
-			className: config.JetrulesOutput[i].ClassName,
+			className: outCh.config.ClassName,
 			outputCh:  outCh,
 		})
 	}
@@ -95,7 +94,9 @@ func (ctx *BuilderContext) NewJetrulesTransformationPipe(source *InputChannel, _
 
 	// Setup a worker pool
 	var jrPoolManager *JrPoolManager
-	jrPoolManager, err = ctx.NewJrPoolManager(config, source, reteMetaStore, jetrulesOutputChan)
+	workerResultCh := make(chan JetrulesWorkerResult, 10)
+	ctx.chResults.JetrulesWorkerResultCh <- workerResultCh
+	jrPoolManager, err = ctx.NewJrPoolManager(config, source, reteMetaStore, jetrulesOutputChan, workerResultCh)
 
 	return &JetrulesTransformationPipe{
 		cpConfig:       ctx.cpConfig,
