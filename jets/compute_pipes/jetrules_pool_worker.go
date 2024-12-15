@@ -174,6 +174,14 @@ func (ctx *JrPoolWorker) executeRules(inputRecords *[]any,
 		}
 		ctor.Done()
 
+		// Print rdf session if in debug mode
+		if ctx.config.IsDebug {
+			log.Println("ASSERTED GRAPH")
+			log.Println(strings.Join(rdfSession.AssertedGraph.ToTriples(), "\n"))
+			log.Println("INFERRED GRAPH")
+			log.Println(strings.Join(rdfSession.InferredGraph.ToTriples(), "\n"))
+		}
+
 		// Extract data from the rdf session based on class names
 		for _, outChannel := range ctx.outputChannels {
 			err = ctx.extractSessionData(rdfSession, outChannel)

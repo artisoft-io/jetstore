@@ -411,6 +411,7 @@ type JetrulesSpec struct {
 	CurrentSourcePeriodType string               `json:"current_source_period_type"`
 	RuleConfig              []map[string]any     `json:"rule_config"`
 	MetadataInputSources    []CsvSourceSpec      `json:"metadata_input_sources"`
+	IsDebug                 bool                 `json:"is_debug"`
 	JetrulesOutput          []JetrulesOutputSpec `json:"jetrules_output"`
 }
 type JetrulesOutputSpec struct {
