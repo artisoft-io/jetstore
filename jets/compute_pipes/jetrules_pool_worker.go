@@ -330,6 +330,12 @@ func assertInputRow(config *JetrulesSpec, rm *rdf.ResourceManager, jr *rdf.JetRe
 			return
 		}
 	}
+	// Assert the jets:InputRecord rdf:type
+	_, err = graph.Insert(subject, jr.Rdf__type, jr.Jets__input_record)
+	if err != nil {
+		return
+	}
+
 	for j := range *row {
 		if j < nbrCol {
 			predicate = rm.NewResource((*columns)[j])

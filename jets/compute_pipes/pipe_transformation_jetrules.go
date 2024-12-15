@@ -78,13 +78,19 @@ func (ctx *BuilderContext) NewJetrulesTransformationPipe(source *InputChannel, _
 	// Assert current source period to meta graph
 	err = AssertSourcePeriodInfo(config, reteMetaStore.MetaGraph, reteMetaStore.ResourceMgr)
 	if err != nil {
-		return nil, fmt.Errorf("while assertSourcePeriodInfo: %v", err)
+		return nil, fmt.Errorf("while AssertSourcePeriodInfo: %v", err)
 	}
 
 	// Assert rule config to meta graph from the pipeline configuration
 	err = AssertRuleConfiguration(reteMetaStore, config)
 	if err != nil {
-		return nil, fmt.Errorf("while assertRuleConfiguration: %v", err)
+		return nil, fmt.Errorf("while AssertRuleConfiguration: %v", err)
+	}
+
+	// Assert metadata source
+	err = AssertMetadataSource(reteMetaStore, config, ctx.env)
+	if err != nil {
+		return nil, fmt.Errorf("while AssertMetadataSource: %v", err)
 	}
 
 	// Setup a worker pool

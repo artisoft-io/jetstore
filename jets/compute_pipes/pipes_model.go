@@ -410,6 +410,7 @@ type JetrulesSpec struct {
 	CurrentSourcePeriodDate string               `json:"current_source_period_date"`
 	CurrentSourcePeriodType string               `json:"current_source_period_type"`
 	RuleConfig              []map[string]any     `json:"rule_config"`
+	MetadataInputSources    []CsvSourceSpec      `json:"metadata_input_sources"`
 	JetrulesOutput          []JetrulesOutputSpec `json:"jetrules_output"`
 }
 type JetrulesOutputSpec struct {

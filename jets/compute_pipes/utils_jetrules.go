@@ -54,6 +54,22 @@ func AssertSourcePeriodInfo(config *JetrulesSpec, graph *rdf.RdfGraph, rm *rdf.R
 }
 
 // Assert rule config to meta graph from the pipeline configuration
+func AssertMetadataSource(reteMetaStore *rete.ReteMetaStoreFactory, config *JetrulesSpec, env map[string]any) error {
+	for i := range config.MetadataInputSources {
+		sourceSpec := &config.MetadataInputSources[i]
+		metadataSource, err := NewCsvSourceS3(sourceSpec, env)
+		if err != nil {
+			return err
+		}
+		err = metadataSource.ReadFileToMetaGraph(reteMetaStore, config)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// Assert rule config to meta graph from the pipeline configuration
 func AssertRuleConfiguration(reteMetaStore *rete.ReteMetaStoreFactory, config *JetrulesSpec) (err error) {
 	var object *rdf.Node
 	for _, rc := range config.RuleConfig {
