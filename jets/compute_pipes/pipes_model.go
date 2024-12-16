@@ -104,6 +104,7 @@ type CsvSourceSpec struct {
 	ReadStepId         string `json:"read_step_id"`   // for cpipes
 	JetsPartitionLabel string `json:"jets_partition"` // for cpipes
 	SessionId          string `json:"session_id"`     // for cpipes
+	ClassName          string `json:"class_name"`     // used by jetrules_config
 }
 
 // ChannelSpec specifies the collumns of a channel

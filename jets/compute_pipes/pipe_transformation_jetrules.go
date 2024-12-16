@@ -3,6 +3,7 @@ package compute_pipes
 import (
 	"fmt"
 	"log"
+	"strings"
 
 	"github.com/artisoft-io/jetstore/jets/jetrules/rete"
 )
@@ -46,6 +47,7 @@ func (ctx *JetrulesTransformationPipe) Done() error {
 }
 
 func (ctx *JetrulesTransformationPipe) Finally() {
+	// log.Println("Entering JetrulesTransformationPipe.Finally")
 	close(ctx.jrPoolManager.WorkersTaskCh)
 }
 
@@ -61,6 +63,7 @@ func (ctx *BuilderContext) NewJetrulesTransformationPipe(source *InputChannel, _
 	if err != nil {
 		return nil, err
 	}
+
 	// Create the output channels for each of the exported rdf type
 	jetrulesOutputChan := make([]*JetrulesOutputChan, 0, len(config.OutputChannels))
 	for i := range config.OutputChannels {
@@ -92,12 +95,20 @@ func (ctx *BuilderContext) NewJetrulesTransformationPipe(source *InputChannel, _
 		return nil, fmt.Errorf("while AssertMetadataSource: %v", err)
 	}
 
+	// Print rdf session if in debug mode
+	if config.IsDebug {
+		log.Println("METADATA GRAPH")
+		log.Println(strings.Join(reteMetaStore.MetaGraph.ToTriples(), "\n"))
+	}
+
 	// Setup a worker pool
 	var jrPoolManager *JrPoolManager
 	workerResultCh := make(chan JetrulesWorkerResult, 10)
 	ctx.chResults.JetrulesWorkerResultCh <- workerResultCh
 	jrPoolManager, err = ctx.NewJrPoolManager(config, source, reteMetaStore, jetrulesOutputChan, workerResultCh)
-
+	if err != nil {
+		return nil, err
+	}
 	return &JetrulesTransformationPipe{
 		cpConfig:       ctx.cpConfig,
 		source:         source,
@@ -107,5 +118,5 @@ func (ctx *BuilderContext) NewJetrulesTransformationPipe(source *InputChannel, _
 		spec:           spec,
 		env:            ctx.env,
 		doneCh:         ctx.done,
-	}, err
+	}, nil
 }

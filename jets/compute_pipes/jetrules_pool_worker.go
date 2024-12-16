@@ -27,7 +27,7 @@ type JrPoolWorker struct {
 func NewJrPoolWorker(config *JetrulesSpec, source *InputChannel,
 	reteMetaStore *rete.ReteMetaStoreFactory, outputChannels []*JetrulesOutputChan,
 	done chan struct{}, errCh chan error) *JrPoolWorker {
-
+	// log.Println("New Pool Worker Created")
 	return &JrPoolWorker{
 		config:         config,
 		source:         source,
@@ -43,6 +43,7 @@ func (ctx *JrPoolWorker) DoWork(mgr *JrPoolManager, resultCh chan JetrulesWorker
 	var errCount int64
 	var err error
 	for task := range mgr.WorkersTaskCh {
+		// log.Println("Pool Worker Calling executeRules")
 		errCount, err = ctx.executeRules(&task, resultCh)
 		if err != nil {
 			return
@@ -107,6 +108,7 @@ func (ctx *JrPoolWorker) executeRules(inputRecords *[]any,
 	// Loop over all rulesets
 	for _, ruleset := range ctx.reteMetaStore.MainRuleFileNames {
 		// Create the rete session
+		log.Println("executeRules: Creating Rete Session")
 		ms := ctx.reteMetaStore.MetaStoreLookup[ruleset]
 		if ms == nil {
 			cpErr = fmt.Errorf("error: metastore not found for %s", ruleset)

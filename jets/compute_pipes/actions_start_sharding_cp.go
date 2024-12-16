@@ -609,6 +609,10 @@ func ValidatePipeSpecConfig(cpConfig *ComputePipesConfig, pipeConfig []PipeSpec)
 				if transformationConfig.JetrulesConfig == nil {
 					return fmt.Errorf("error: cpipes config is missing jetrules_config for jetrules operator")
 				}
+				if transformationConfig.JetrulesConfig.PoolSize < 1 {
+					log.Println("WARNING: jetrules pool worker size is unset, setting to 1")
+					transformationConfig.JetrulesConfig.PoolSize = 1
+				}
 				outputChConfig = nil // The outputChannel is replaced by JetrulesConfig.JetrulesOutput channels
 				for k := range transformationConfig.JetrulesConfig.OutputChannels {
 					outCh := &transformationConfig.JetrulesConfig.OutputChannels[k]

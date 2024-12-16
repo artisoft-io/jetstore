@@ -1,6 +1,7 @@
 package compute_pipes
 
 import (
+	"fmt"
 	"log"
 	"sync"
 
@@ -22,7 +23,11 @@ type JrPoolManager struct {
 func (ctx *BuilderContext) NewJrPoolManager(
 	config *JetrulesSpec, source *InputChannel, reteMetaStore *rete.ReteMetaStoreFactory,
 	outputChannels []*JetrulesOutputChan, jetrulesWorkerResultCh chan JetrulesWorkerResult) (jrpm *JrPoolManager, err error) {
-
+	log.Println("Starting the Pool Manager")
+	if config.PoolSize < 1 {
+		close(jetrulesWorkerResultCh)
+		return nil, fmt.Errorf("error: cannot have a worker pool of size less than 1")
+	}
 	// Create the pool manager
 	jrpm = &JrPoolManager{
 		config:        config,
@@ -69,7 +74,8 @@ func (ctx *BuilderContext) NewJrPoolManager(
 	// Set up all the workers, use a wait group to track when they are all done
 	// to close workersResultCh
 	go func() {
-		for i := 0; i < ctx.s3DeviceManager.s3WorkerPoolSize; i++ {
+		log.Println("Starting a Worker Pool of size", config.PoolSize)
+		for i := 0; i < config.PoolSize; i++ {
 			jrpm.JrPoolWg.Add(1)
 			go func() {
 				defer jrpm.JrPoolWg.Done()
@@ -80,5 +86,6 @@ func (ctx *BuilderContext) NewJrPoolManager(
 		jrpm.JrPoolWg.Wait()
 		close(workersResultCh)
 	}()
+	// log.Println("Starting the Pool Manager DONE")
 	return
 }

@@ -146,7 +146,7 @@ type PipeSet map[*PipeSpec]bool
 type Input2PipeSet map[string]*PipeSet
 
 func (ctx *BuilderContext) BuildComputeGraph() error {
-
+	var wg sync.WaitGroup
 	for i := range ctx.cpConfig.PipesConfig {
 		pipeSpec := &ctx.cpConfig.PipesConfig[i]
 		input := pipeSpec.InputChannel.Name
@@ -162,19 +162,31 @@ func (ctx *BuilderContext) BuildComputeGraph() error {
 			// it would write a single partition, the ch will contain the number of rows for the partition
 			writePartitionsResultCh := make(chan ComputePipesResult, 10)
 			ctx.chResults.WritePartitionsResultCh <- writePartitionsResultCh
-			go ctx.StartFanOutPipe(pipeSpec, source, writePartitionsResultCh)
+			wg.Add(1)
+			go func ()  {
+				defer wg.Done()
+				ctx.StartFanOutPipe(pipeSpec, source, writePartitionsResultCh)
+			}()
 
 		case "splitter":
 			// log.Println("**& starting PipeConfig", i, "splitter", "on source", source.config.Name)
 			// Create the writePartitionResultCh that will contain the number of rows for each partition
 			writePartitionsResultCh := make(chan ComputePipesResult, 15000) // NOTE Max number of partitions
 			ctx.chResults.WritePartitionsResultCh <- writePartitionsResultCh
-			go ctx.StartSplitterPipe(pipeSpec, source, writePartitionsResultCh)
+			wg.Add(1)
+			go func ()  {
+				defer wg.Done()
+				ctx.StartSplitterPipe(pipeSpec, source, writePartitionsResultCh)
+			}()
 
 		default:
 			return fmt.Errorf("error: unknown PipeSpec type: %s", pipeSpec.Type)
 		}
 	}
+	// Wait for the graph to build
+	// log.Println("Waiting for the graph to be build")
+	wg.Wait()
+	// log.Println("Waiting for the graph to be build DONE")
 	return nil
 }
 

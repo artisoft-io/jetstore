@@ -106,6 +106,7 @@ do_retry:
 	var inputRowCount int64
 	var inRow []string
 	var predicates []*rdf.Node
+	var rdfTypes []string
 
 	fileHd, err = os.Open(localFileName)
 	if err != nil {
@@ -125,43 +126,44 @@ do_retry:
 	switch source.Compression {
 	case "none":
 		csvReader = csv.NewReader(fileHd)
-		csvReader.Comma = sepFlag
-		if source.InputFormat == "csv" {
-			// get the header row (first row)
-			headers, err := csvReader.Read()
-			if err != nil {
-				return err
-			}
-			// Make the property resource (the predicate of the triple)
-			predicates = make([]*rdf.Node, 0, len(headers))
-			for _, h := range headers {
-				predicates = append(predicates, reteMetaStore.ResourceMgr.NewResource(h))
-			}
-		}
 	case "snappy":
 		csvReader = csv.NewReader(snappy.NewReader(fileHd))
-		csvReader.Comma = sepFlag
-		if source.InputFormat == "csv" {
-			// skip header row (first row)
-			// get the header row (first row)
-			headers, err := csvReader.Read()
-			if err != nil {
-				return err
-			}
-			// Make the property resource (the predicate of the triple)
-			predicates = make([]*rdf.Node, 0, len(headers))
-			for _, h := range headers {
-				predicates = append(predicates, reteMetaStore.ResourceMgr.NewResource(h))
-			}
-		}
 	default:
 		return fmt.Errorf("error: unknown compression in readCsvLookup: %s", source.Compression)
+	}
+	csvReader.Comma = sepFlag
+	if source.InputFormat == "csv" {
+		// get the header row (first row)
+		headers, err := csvReader.Read()
+		if err != nil {
+			return fmt.Errorf("while in ReadFileToMetaGraph: %v", err)
+		}
+		rdfTypes = make([]string, 0, len(headers))
+		dataPropertyMap, err := GetWorkspaceDataProperties()
+		if err != nil {
+			return fmt.Errorf("error get data properties from local workspace")
+		}
+		// Make the property resource (the predicate of the triple)
+		predicates = make([]*rdf.Node, 0, len(headers))
+		var dataType string
+		for _, h := range headers {
+			predicates = append(predicates, reteMetaStore.ResourceMgr.NewResource(h))
+			nd := dataPropertyMap[h]
+			dataType = "text"
+			if nd != nil {
+				dataType = nd.Type
+			}
+			rdfTypes = append(rdfTypes, dataType)
+		}
+	} else {
+		return fmt.Errorf("error: currently only supporting csv format in readCsvLookup, not supporting: %s", source.InputFormat)
 	}
 
 	if err == io.EOF {
 		// empty file
 		return nil
 	}
+	// Check the should be impossible condition
 	if err != nil {
 		return fmt.Errorf("error while reading first input records in readCsvLookup: %v", err)
 	}
@@ -170,19 +172,34 @@ do_retry:
 		return fmt.Errorf("error: bug nil JetsResources")
 	}
 
+	var object *rdf.Node
+	var rdfClass *rdf.Node
+	if len(ctx.spec.ClassName) > 0 {
+		rdfClass = reteMetaStore.ResourceMgr.NewResource(ctx.spec.ClassName)
+	}
+
 	for {
 		// read and put the rows as rdf an entity (rdf type assertion must be in the data)
 		err = nil
 		inRow, err = csvReader.Read()
 		if err == nil {
-			//TODO*** Assert as text value, need input source for rdf schema?
 			subjectTxt := uuid.New().String()
 			subject := reteMetaStore.ResourceMgr.NewResource(subjectTxt)
-
+			if rdfClass != nil {
+				_, err = reteMetaStore.MetaGraph.Insert(subject, jr.Rdf__type, rdfClass)
+				if err != nil {
+					return err
+				}
+			}
 			for i, value := range inRow {
+				// Parse the value to the rdfType
+				object, err = ParseObject(reteMetaStore.ResourceMgr, value, rdfTypes[i])
+				if err != nil {
+					log.Printf("WARNING: Cannot parse value to rdf type %s\n", rdfTypes[i])
+					object = rdf.Null()
+				}
 				// Assert the triple
-				_, err = reteMetaStore.MetaGraph.Insert(subject, predicates[i],
-					reteMetaStore.ResourceMgr.NewTextLiteral(value))
+				_, err = reteMetaStore.MetaGraph.Insert(subject, predicates[i], object)
 				if err != nil {
 					return err
 				}

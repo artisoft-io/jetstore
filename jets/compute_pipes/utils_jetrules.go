@@ -63,6 +63,7 @@ func AssertMetadataSource(reteMetaStore *rete.ReteMetaStoreFactory, config *Jetr
 		}
 		log.Println("Loading metadata source from:", metadataSource.fileKey.key)
 		err = metadataSource.ReadFileToMetaGraph(reteMetaStore, config)
+		// log.Println("DONE Loading metadata source from:", metadataSource.fileKey.key,"with err:",err)
 		if err != nil {
 			return err
 		}
@@ -145,6 +146,7 @@ func ParseObject(rm *rdf.ResourceManager, object, rdfType string) (node *rdf.Nod
 	var key int
 	var date rdf.LDate
 	var datetime rdf.LDatetime
+	// log.Println("**PARSE OBJECT:",object,"TO TYPE:",rdfType)
 	switch strings.TrimSpace(rdfType) {
 	case "null":
 		node = rdf.Null()
