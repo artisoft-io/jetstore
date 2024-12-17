@@ -187,10 +187,12 @@ func (ctx *JrPoolWorker) executeRules(inputRecords *[]any,
 		// Extract data from the rdf session based on class names
 		for _, outChannel := range ctx.outputChannels {
 			err = ctx.extractSessionData(rdfSession, outChannel)
-			cpErr = fmt.Errorf(
-				"while extraction entity from jetrules for class %s: %v",
-				outChannel.className, err)
-			goto gotError
+			if err != nil {
+				cpErr = fmt.Errorf(
+					"while extraction entity from jetrules for class %s: %v",
+					outChannel.className, err)
+				goto gotError
+			}
 		}
 		reteSession.Done()
 	}
@@ -268,7 +270,20 @@ func (ctx *JrPoolWorker) extractSessionData(rdfSession *rdf.RdfSession,
 				itor.Done()
 				entityRow[i] = data
 			}
+			// Apply the TransformationColumn, these are const values
+			// NOTE there is no initialize and done called on the column evaluators
+			//      since they should be only of type 'select' or 'value'
+			// Note: using entityRow as both current value and input for the purpose of these operators
+			for i := range outChannel.columnEvaluators {
+				err := outChannel.columnEvaluators[i].Update(&entityRow, &entityRow)
+				if err != nil {
+					err = fmt.Errorf("while calling column transformation from jetrules extract session data: %v", err)
+					log.Println(err)
+					return err
+				}
+			}
 			// Send the record to output channel
+			// log.Println("ENTITY_ROW:", entityRow)
 			select {
 			case outChannel.outputCh.channel <- entityRow:
 				entityCount += 1

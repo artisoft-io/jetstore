@@ -254,6 +254,13 @@ func (args *StartComputePipesArgs) StartShardingComputePipes(ctx context.Context
 	if shardResult.err != nil {
 		return result, shardResult.err
 	}
+	if shardResult.clusterSpec.S3WorkerPoolSize == 0 {
+		if shardResult.nbrPartitions > 20 {
+			shardResult.clusterSpec.S3WorkerPoolSize = 20
+		} else {
+			shardResult.clusterSpec.S3WorkerPoolSize = shardResult.nbrPartitions
+		}
+	}
 
 	// Check if headers where provided in source_config record or need to determine the csv delimiter
 	if len(ic) == 0 || (sepFlag == 0 && strings.HasSuffix(schemaProviderConfig.InputFormat, "csv")) {
@@ -367,6 +374,7 @@ func (args *StartComputePipesArgs) StartShardingComputePipes(ctx context.Context
 			SourcesConfig: SourcesConfigSpec{
 				MainInput: &InputSourceSpec{
 					InputColumns:        ic,
+					ClassName:           pipeConfig[0].InputChannel.ClassName,
 					InputFormat:         schemaProviderConfig.InputFormat,
 					Compression:         schemaProviderConfig.Compression,
 					InputFormatDataJson: schemaProviderConfig.InputFormatDataJson,

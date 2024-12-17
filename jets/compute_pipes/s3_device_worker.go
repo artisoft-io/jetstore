@@ -32,6 +32,7 @@ func NewS3DeviceWorker(s3Uploader *manager.Uploader, done chan struct{}, errCh c
 
 func (ctx *S3DeviceWorker) DoWork(mgr *S3DeviceManager, resultCh chan ComputePipesResult) {
 	var count int64
+	// log.Printf("S3Device Worker Entering DoWork")
 	for task := range mgr.WorkersTaskCh {
 		err := ctx.processTask(&task, mgr, resultCh)
 		if err != nil {

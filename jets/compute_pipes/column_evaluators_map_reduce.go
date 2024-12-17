@@ -79,7 +79,7 @@ func (ctx *mapReduceColumnEval) Done(currentValue *[]interface{}) error {
 	return nil
 }
 
-func (ctx *BuilderContext) BuildMapReduceTCEvaluator(source *InputChannel, outCh *OutputChannel, 
+func (ctx *BuilderContext) BuildMapReduceTCEvaluator(source *InputChannel, outCh *OutputChannel,
 	spec *TransformationColumnSpec) (TransformationColumnEvaluator, error) {
 
 	if spec == nil || spec.MapOn == nil || len(spec.ApplyMap) == 0 || len(spec.ApplyReduce) == 0 {
@@ -106,7 +106,10 @@ func (ctx *BuilderContext) BuildMapReduceTCEvaluator(source *InputChannel, outCh
 	mapColumnEval := make([]TransformationColumnEvaluator, len(spec.ApplyMap))
 	intermediateOutputChannel := &OutputChannel{
 		columns: intermediateColumns,
-		config:  &ChannelSpec{Name: "map_reduce.intermediateOutputChannel"},
+		config: &ChannelSpec{
+			Name:      "map_reduce.intermediateOutputChannel",
+			ClassName: source.config.ClassName,
+		},
 	}
 	for i := range spec.ApplyMap {
 		mapColumnEval[i], err = ctx.BuildTransformationColumnEvaluator(source, intermediateOutputChannel, &spec.ApplyMap[i])
@@ -119,7 +122,10 @@ func (ctx *BuilderContext) BuildMapReduceTCEvaluator(source *InputChannel, outCh
 	reduceColumnEval := make([]TransformationColumnEvaluator, len(spec.ApplyReduce))
 	intermediateInputChannel := &InputChannel{
 		columns: intermediateColumns,
-		config:  &ChannelSpec{Name: "map_reduce.intermediateInputChannel"},
+		config: &ChannelSpec{
+			Name:      "map_reduce.intermediateInputChannel",
+			ClassName: source.config.ClassName,
+		},
 	}
 	for i := range spec.ApplyReduce {
 		reduceColumnEval[i], err = ctx.BuildTransformationColumnEvaluator(intermediateInputChannel, outCh, &spec.ApplyReduce[i])

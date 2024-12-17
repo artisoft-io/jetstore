@@ -198,7 +198,7 @@ func (args *StartComputePipesArgs) StartReducingComputePipes(ctx context.Context
 
 	// Make the reducing pipeline config
 	// Note that S3WorkerPoolSize is set to the  value set at the ClusterSpec
-	// with a default of len(partitions)
+	// with a default of max(len(partitions), 20)
 	clusterSpec := &ClusterSpec{
 		NbrPartitions:         len(partitions),
 		DefaultMaxConcurrency: cpConfig.ClusterConfig.DefaultMaxConcurrency,
@@ -206,7 +206,11 @@ func (args *StartComputePipesArgs) StartReducingComputePipes(ctx context.Context
 		IsDebugMode:           cpConfig.ClusterConfig.IsDebugMode,
 	}
 	if clusterSpec.S3WorkerPoolSize == 0 {
-		clusterSpec.S3WorkerPoolSize = len(partitions)
+		if len(partitions) > 20 {
+			clusterSpec.S3WorkerPoolSize = 20
+		} else {
+			clusterSpec.S3WorkerPoolSize = len(partitions)
+		}
 	}
 	result.CpipesMaxConcurrency = GetMaxConcurrency(len(partitions), cpConfig.ClusterConfig.DefaultMaxConcurrency)
 
@@ -268,6 +272,7 @@ func (args *StartComputePipesArgs) StartReducingComputePipes(ctx context.Context
 					InputColumns: inputColumns,
 					InputFormat:  inputFormat,
 					Compression:  compression,
+					ClassName:    inputChannelConfig.ClassName,
 				},
 			},
 			PipelineConfigKey: pipelineConfigKey,

@@ -158,7 +158,10 @@ func (ctx *BuilderContext) StartSplitterPipe(spec *PipeSpec, source *InputChanne
 			go ctx.startSplitterChannelHandler(spec, &InputChannel{
 				channel: splitCh.data,
 				columns: source.columns,
-				config:  &ChannelSpec{Name: fmt.Sprintf("splitter channel from %s", source.config.Name)},
+				config: &ChannelSpec{
+					Name:      fmt.Sprintf("splitter channel from %s", source.config.Name),
+					ClassName: source.config.ClassName,
+				},
 			}, writePartitionsResultCh, jetsPartitionKey, &wg)
 		}
 
@@ -175,7 +178,10 @@ func (ctx *BuilderContext) StartSplitterPipe(spec *PipeSpec, source *InputChanne
 				go ctx.startSplitterChannelHandler(spec, &InputChannel{
 					channel: splitCh.data,
 					columns: source.columns,
-					config:  &ChannelSpec{Name: fmt.Sprintf("splitter channel from %s", source.config.Name)},
+					config: &ChannelSpec{
+						Name:      fmt.Sprintf("splitter channel from %s", source.config.Name),
+						ClassName: source.config.ClassName,
+					},
 				}, writePartitionsResultCh, jetsPartitionKey, &wg)
 			}
 		}

@@ -109,6 +109,7 @@ gotError:
 }
 
 func (ctx *S3DeviceWriter) WriteCsvPartition() {
+	var count int
 	var cpErr, err error
 	var fileHd *os.File
 	var snWriter *snappy.Writer
@@ -156,6 +157,7 @@ func (ctx *S3DeviceWriter) WriteCsvPartition() {
 	}
 	// Write the rows into the temp file
 	for inRow := range ctx.source.channel {
+		count++
 		//*$1
 		// replace null with empty string, convert to string
 		row := make([]string, len(inRow))
@@ -180,7 +182,7 @@ func (ctx *S3DeviceWriter) WriteCsvPartition() {
 		}
 	}
 
-	// fmt.Println("**&@@ WriteCsvPartition: DONE writing local csv file for fileName:", *ctx.fileName)
+	// log.Printf("**&@@ WriteCsvPartition: DONE writing %d records to local csv file %s", count, *ctx.fileName)
 	csvWriter.Flush()
 	if snWriter != nil {
 		snWriter.Flush()

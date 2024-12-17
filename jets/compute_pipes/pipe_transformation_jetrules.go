@@ -22,8 +22,9 @@ type JetrulesTransformationPipe struct {
 }
 
 type JetrulesOutputChan struct {
-	className string
-	outputCh  *OutputChannel
+	className        string
+	columnEvaluators []TransformationColumnEvaluator
+	outputCh         *OutputChannel
 }
 
 // Implementing interface PipeTransformationEvaluator
@@ -49,6 +50,10 @@ func (ctx *JetrulesTransformationPipe) Done() error {
 func (ctx *JetrulesTransformationPipe) Finally() {
 	// log.Println("Entering JetrulesTransformationPipe.Finally")
 	close(ctx.jrPoolManager.WorkersTaskCh)
+	// Wait till the pool workers are done
+	// This is to avoid to close the output channel too early since the pool workers
+	// are writing to the output channel async
+	ctx.jrPoolManager.JrPoolWg.Wait()
 }
 
 func (ctx *BuilderContext) NewJetrulesTransformationPipe(source *InputChannel, _ *OutputChannel, spec *TransformationSpec) (*JetrulesTransformationPipe, error) {
@@ -71,9 +76,25 @@ func (ctx *BuilderContext) NewJetrulesTransformationPipe(source *InputChannel, _
 		if err != nil {
 			return nil, err
 		}
+		if len(outCh.config.ClassName) == 0 {
+			return nil, fmt.Errorf("error: missing class name on jetrules output channel named %s",
+				config.OutputChannels[i].Name)
+		}
+		// Make a set of TransformationColumnEvaluator for each of the output channel
+		columnEvaluators := make([]TransformationColumnEvaluator, len(spec.Columns))
+		for i := range spec.Columns {
+			// log.Printf("**& *JETRULES* build TransformationColumn[%d] of type %s for output %s", i, spec.Type, config.OutputChannels[i].Name)
+			columnEvaluators[i], err = ctx.BuildTransformationColumnEvaluator(source, outCh, &spec.Columns[i])
+			if err != nil {
+				err = fmt.Errorf("while BuildTransformationColumnEvaluator (in NewAnalyzeTransformationPipe) %v", err)
+				log.Println(err)
+				return nil, err
+			}
+		}
 		jetrulesOutputChan = append(jetrulesOutputChan, &JetrulesOutputChan{
-			className: outCh.config.ClassName,
-			outputCh:  outCh,
+			className:        outCh.config.ClassName,
+			columnEvaluators: columnEvaluators,
+			outputCh:         outCh,
 		})
 	}
 

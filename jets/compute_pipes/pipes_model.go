@@ -107,15 +107,19 @@ type CsvSourceSpec struct {
 	ClassName          string `json:"class_name"`     // used by jetrules_config
 }
 
-// ChannelSpec specifies the collumns of a channel
+// ChannelSpec specifies the columns of a channel
 // The columns can be obtained from a domain class from the
-// local workspace using class_name. In that case, the columns
+// local workspace using class_name.
+// In that case, the columns
 // that are specified in the slice, are added to the columns of
 // the domain class.
+// When direct_properties_only is true, only take the data properties
+// of the class, not including the properties of the parent classes.
 type ChannelSpec struct {
-	Name      string   `json:"name"`
-	Columns   []string `json:"columns"`
-	ClassName string   `json:"class_name"`
+	Name                 string   `json:"name"`
+	Columns              []string `json:"columns"`
+	ClassName            string   `json:"class_name"`
+	DirectPropertiesOnly bool     `json:"direct_properties_only"`
 }
 
 type ContextSpec struct {
@@ -276,6 +280,7 @@ type InputChannelConfig struct {
 	SamplingRate     int    `json:"sampling_rate"`
 	SamplingMaxCount int    `json:"sampling_max_count"`
 	HasGroupedRows   bool   `json:"has_grouped_rows"`
+	ClassName        string `json:"class_name"`
 }
 
 type OutputChannelConfig struct {

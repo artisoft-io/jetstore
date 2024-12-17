@@ -86,6 +86,7 @@ type SourcesConfigSpec struct {
 // properties.
 type InputSourceSpec struct {
 	InputColumns        []string `json:"input_columns"`
+	ClassName           string   `json:"class_name"`
 	InputFormat         string   `json:"input_format"`
 	Compression         string   `json:"compression"`
 	InputFormatDataJson string   `json:"input_format_data_json"`
