@@ -64,7 +64,7 @@ func ShardFileKeys(exeCtx context.Context, dbpool *pgxpool.Pool, baseFileKey str
 
 	// Allocate file keys to nodes
 	// Determine if we can split large files
-	switch schemaProviderConfig.InputFormat {
+	switch schemaProviderConfig.Format {
 	case "csv", "headerless_csv", "fixed_width":
 		doSplitFiles = true
 	default:
@@ -110,7 +110,7 @@ func ShardFileKeys(exeCtx context.Context, dbpool *pgxpool.Pool, baseFileKey str
 	}
 
 	// Write to database
-	copyCount, err := dbpool.CopyFrom(exeCtx, pgx.Identifier{"jetsapi","compute_pipes_shard_registry"}, columns,
+	copyCount, err := dbpool.CopyFrom(exeCtx, pgx.Identifier{"jetsapi", "compute_pipes_shard_registry"}, columns,
 		pgx.CopyFromRows(shardRegistryRows))
 	if err != nil {
 		result.err = fmt.Errorf("while copying shard registry row to compute_pipes_shard_registry table: %v", err)
@@ -203,16 +203,16 @@ func selectClusterShardingTier(totalSizeMb int, clusterConfig *ClusterSpec) *Clu
 		if totalSizeMb >= spec.WhenTotalSizeGe {
 			log.Printf("selectClusterShardingTier: totalSizeMb: %d, spec.WhenTotalSizeGe: %d, got NbrPartions: %d, shard size: %d, MaxConcurrency: %d",
 				totalSizeMb, spec.WhenTotalSizeGe, spec.NbrPartitions, spec.ShardSizeMb, spec.MaxConcurrency)
-				if spec.ShardSizeMb == 0 && spec.ShardMaxSizeBy == 0 {
-					spec.ShardMaxSizeMb = clusterConfig.DefaultShardSizeMb
-					spec.ShardMaxSizeBy = clusterConfig.DefaultShardSizeBy
-				}
-				if spec.ShardMaxSizeMb == 0 && spec.ShardMaxSizeBy == 0 {
-					spec.ShardMaxSizeMb = clusterConfig.DefaultShardMaxSizeMb
-					spec.ShardMaxSizeBy = clusterConfig.DefaultShardMaxSizeBy
-				}
-				// Note, if spec.NbrPartitions == 0, spec.NbrPartitions will be set to the
-				// number of sharding node and capped to clusterConfig.NbrPartitions
+			if spec.ShardSizeMb == 0 && spec.ShardMaxSizeBy == 0 {
+				spec.ShardMaxSizeMb = clusterConfig.DefaultShardSizeMb
+				spec.ShardMaxSizeBy = clusterConfig.DefaultShardSizeBy
+			}
+			if spec.ShardMaxSizeMb == 0 && spec.ShardMaxSizeBy == 0 {
+				spec.ShardMaxSizeMb = clusterConfig.DefaultShardMaxSizeMb
+				spec.ShardMaxSizeBy = clusterConfig.DefaultShardMaxSizeBy
+			}
+			// Note, if spec.NbrPartitions == 0, spec.NbrPartitions will be set to the
+			// number of sharding node and capped to clusterConfig.NbrPartitions
 			return &spec
 		}
 	}

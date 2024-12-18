@@ -173,7 +173,7 @@ func (args *StartComputePipesArgs) StartShardingComputePipes(ctx context.Context
 			Type:                "default",
 			Key:                 "_main_input_",
 			SourceType:          "main_input",
-			InputFormat:         inputFormat,
+			Format:              inputFormat,
 			Compression:         compression,
 			InputFormatDataJson: inputFormatDataJson.String,
 		}
@@ -227,7 +227,7 @@ func (args *StartComputePipesArgs) StartShardingComputePipes(ctx context.Context
 			return result, fmt.Errorf("while unmarshaling input_columns_json: %s", err)
 		}
 	}
-	if len(ic) == 0 && schemaProviderConfig.InputFormat == "fixed_width" {
+	if len(ic) == 0 && schemaProviderConfig.Format == "fixed_width" {
 		// Need to initialize the schema provider to get the column info
 		sp := NewDefaultSchemaProvider()
 		err = sp.Initialize(dbpool, schemaProviderConfig, nil, cpConfig.ClusterConfig.IsDebugMode)
@@ -236,7 +236,7 @@ func (args *StartComputePipesArgs) StartShardingComputePipes(ctx context.Context
 		}
 		ic, _ = sp.FixedWidthFileHeaders()
 	}
-	if len(ic) == 0 && len(schemaProviderConfig.Columns) > 0 && strings.HasSuffix(schemaProviderConfig.InputFormat, "csv") {
+	if len(ic) == 0 && len(schemaProviderConfig.Columns) > 0 && strings.HasSuffix(schemaProviderConfig.Format, "csv") {
 		ic = make([]string, 0, len(schemaProviderConfig.Columns))
 		for i := range schemaProviderConfig.Columns {
 			ic = append(ic, schemaProviderConfig.Columns[i].Name)
@@ -278,14 +278,14 @@ func (args *StartComputePipesArgs) StartShardingComputePipes(ctx context.Context
 	}
 
 	// Check if headers where provided in source_config record or need to determine the csv delimiter
-	if len(ic) == 0 || (sepFlag == 0 && strings.HasSuffix(schemaProviderConfig.InputFormat, "csv")) {
+	if len(ic) == 0 || (sepFlag == 0 && strings.HasSuffix(schemaProviderConfig.Format, "csv")) {
 		// Get the input columns / column separator from the first file
-		err := FetchHeadersAndDelimiterFromFile(shardResult.firstKey, schemaProviderConfig.InputFormat, schemaProviderConfig.Compression, &ic,
+		err := FetchHeadersAndDelimiterFromFile(shardResult.firstKey, schemaProviderConfig.Format, schemaProviderConfig.Compression, &ic,
 			&sepFlag, schemaProviderConfig.InputFormatDataJson)
 		if err != nil {
 			return result,
 				fmt.Errorf("while calling FetchHeadersAndDelimiterFromFile('%s', '%s', '%s'): %v", shardResult.firstKey,
-					schemaProviderConfig.InputFormat, schemaProviderConfig.Compression, err)
+					schemaProviderConfig.Format, schemaProviderConfig.Compression, err)
 		}
 		if sepFlag != 0 {
 			schemaProviderConfig.Delimiter = sepFlag.String()
@@ -390,7 +390,7 @@ func (args *StartComputePipesArgs) StartShardingComputePipes(ctx context.Context
 				MainInput: &InputSourceSpec{
 					InputColumns:        ic,
 					ClassName:           pipeConfig[0].InputChannel.ClassName,
-					InputFormat:         schemaProviderConfig.InputFormat,
+					Format:              schemaProviderConfig.Format,
 					Compression:         schemaProviderConfig.Compression,
 					InputFormatDataJson: schemaProviderConfig.InputFormatDataJson,
 					SchemaProvider:      schemaProviderKey,
@@ -563,7 +563,7 @@ func ValidatePipeSpecConfig(cpConfig *ComputePipesConfig, pipeConfig []PipeSpec)
 						"schema_provider %s, but does not exists", pipeSpec.InputChannel.SchemaProvider)
 				}
 				if len(pipeSpec.InputChannel.Format) == 0 {
-					pipeSpec.InputChannel.Format = sp.InputFormat
+					pipeSpec.InputChannel.Format = sp.Format
 				}
 				if len(pipeSpec.InputChannel.Compression) == 0 {
 					pipeSpec.InputChannel.Compression = sp.Compression
@@ -604,7 +604,7 @@ func ValidatePipeSpecConfig(cpConfig *ComputePipesConfig, pipeConfig []PipeSpec)
 							outputChConfig.Name)
 					}
 					var deviceWriterType string
-					switch sp.InputFormat {
+					switch sp.Format {
 					case "csv", "headerless_csv":
 						deviceWriterType = "csv_writer"
 					case "parquet", "parquet_select":
@@ -612,12 +612,12 @@ func ValidatePipeSpecConfig(cpConfig *ComputePipesConfig, pipeConfig []PipeSpec)
 					case "fixed_width":
 						deviceWriterType = "fixed_width_writer"
 					default:
-						err := fmt.Errorf("error: unsupported output file format: %s (in NewPartitionWriterTransformationPipe)", sp.InputFormat)
+						err := fmt.Errorf("error: unsupported output file format: %s (in NewPartitionWriterTransformationPipe)", sp.Format)
 						log.Println(err)
 						return err
 					}
 					config.DeviceWriterType = deviceWriterType
-					outputChConfig.Format = sp.InputFormat
+					outputChConfig.Format = sp.Format
 				}
 			case "anonymize":
 				if transformationConfig.AnonymizeConfig == nil {
@@ -678,7 +678,7 @@ func validateOutputChConfig(outputChConfig *OutputChannelConfig, sp *SchemaProvi
 		case "stage":
 			if outputChConfig.Format == "" {
 				if sp != nil {
-					outputChConfig.Format = sp.InputFormat
+					outputChConfig.Format = sp.Format
 				}
 				if outputChConfig.Format == "" {
 					outputChConfig.Format = "headerless_csv"
@@ -699,7 +699,7 @@ func validateOutputChConfig(outputChConfig *OutputChannelConfig, sp *SchemaProvi
 		case "output":
 			if outputChConfig.Format == "" {
 				if sp != nil {
-					outputChConfig.Format = sp.InputFormat
+					outputChConfig.Format = sp.Format
 				}
 				if outputChConfig.Format == "" {
 					return fmt.Errorf("error: invalid cpipes config, format is not specified in output_channel '%s' of type 'output'",

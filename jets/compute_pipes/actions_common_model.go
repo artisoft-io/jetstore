@@ -49,6 +49,7 @@ type ComputePipesNodeArgs struct {
 // This will use a single node since merge_files has a single partition
 // to read from (the step_id prior to merge_files writes a single partition).
 // Note: Client and Org are the pipeline execution client and org and may
+//
 //	be different than the client/vendor of the actual data (case using
 //	stand-in client/org name). In that situation the actual
 //	client/vendor of the data is specified at run time via the SchemaProviders
@@ -87,7 +88,7 @@ type SourcesConfigSpec struct {
 type InputSourceSpec struct {
 	InputColumns        []string `json:"input_columns"`
 	ClassName           string   `json:"class_name"`
-	InputFormat         string   `json:"input_format"`
+	Format              string   `json:"format"`
 	Compression         string   `json:"compression"`
 	InputFormatDataJson string   `json:"input_format_data_json"`
 	SchemaProvider      string   `json:"schema_provider"`

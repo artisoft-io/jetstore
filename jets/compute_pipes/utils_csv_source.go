@@ -49,8 +49,8 @@ func NewCsvSourceS3(spec *CsvSourceSpec, env map[string]any) (*CsvSourceS3, erro
 		} else {
 			spec.JetsPartitionLabel = replaceEnvVars(spec.JetsPartitionLabel, env)
 		}
-		if len(spec.InputFormat) == 0 {
-			spec.InputFormat = "headerless_csv"
+		if len(spec.Format) == 0 {
+			spec.Format = "headerless_csv"
 		}
 		if len(spec.Compression) == 0 {
 			spec.Compression = "snappy"
@@ -77,7 +77,7 @@ func NewCsvSourceS3(spec *CsvSourceSpec, env map[string]any) (*CsvSourceS3, erro
 	}, nil
 }
 
-//*TODO Refactor this ReadFileToMetaGraph func
+// *TODO Refactor this ReadFileToMetaGraph func
 func (ctx *CsvSourceS3) ReadFileToMetaGraph(reteMetaStore *rete.ReteMetaStoreFactory, config *JetrulesSpec) error {
 
 	// Create a local temp directory to hold the file
@@ -132,7 +132,7 @@ do_retry:
 		return fmt.Errorf("error: unknown compression in readCsvLookup: %s", source.Compression)
 	}
 	csvReader.Comma = sepFlag
-	if source.InputFormat == "csv" {
+	if source.Format == "csv" {
 		// get the header row (first row)
 		headers, err := csvReader.Read()
 		if err != nil {
@@ -156,7 +156,7 @@ do_retry:
 			rdfTypes = append(rdfTypes, dataType)
 		}
 	} else {
-		return fmt.Errorf("error: currently only supporting csv format in readCsvLookup, not supporting: %s", source.InputFormat)
+		return fmt.Errorf("error: currently only supporting csv format in readCsvLookup, not supporting: %s", source.Format)
 	}
 
 	if err == io.EOF {

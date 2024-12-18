@@ -92,7 +92,7 @@ func (cpCtx *ComputePipesContext) StartMergeFiles(dbpool *pgxpool.Pool) (cpErr e
 	// Determine if we put a header row
 	outputSp := cpCtx.SchemaManager.GetSchemaProvider(outputFileConfig.SchemaProvider)
 	writeHeaders := true
-	if outputSp != nil && outputSp.InputFormat() != "csv" {
+	if outputSp != nil && outputSp.Format() != "csv" {
 		writeHeaders = false
 	}
 	if len(outputFileConfig.Headers) == 0 && writeHeaders {
@@ -231,7 +231,7 @@ func (r *MergeFileReader) Read(buf []byte) (int, error) {
 			n, err2 = r.reader.Read(buf)
 			if err2 != nil && err2 != io.EOF {
 				return n, err2
-			}	
+			}
 		}
 		if err == io.EOF || err2 == io.EOF {
 			r.currentFileHd.Close()

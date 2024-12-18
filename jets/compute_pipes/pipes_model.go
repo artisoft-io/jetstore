@@ -94,10 +94,10 @@ type CsvSourceSpec struct {
 	// This is used for lookup tables only
 	// Type range: cpipes, csv_file (future)
 	// Default values are taken from current pipeline
-	// InputFormat: csv, headerless_csv
+	// Format: csv, headerless_csv
 	// Compression: none, snappy
 	Type               string `json:"type"`
-	InputFormat        string `json:"input_format"`
+	Format             string `json:"format"`
 	Compression        string `json:"compression"`
 	Delimiter          string `json:"delimiter"`      // default ','
 	ProcessName        string `json:"process_name"`   // for cpipes
@@ -132,10 +132,10 @@ type ContextSpec struct {
 type SchemaProviderSpec struct {
 	// Type range: default
 	// Key is schema provider key for reference by compute pipes steps
-	// InputFormat: csv, headerless_csv, fixed_width, parquet, parquet_select,
+	// Format: csv, headerless_csv, fixed_width, parquet, parquet_select,
 	//              xlsx, headerless_xlsx
 	// Compression: none, snappy
-	// InputFormatDataJson: json config based on InputFormat (typically used for xlsx)
+	// InputFormatDataJson: json config based on Format (typically used for xlsx)
 	// example: {"currentSheet": "Daily entry for Approvals"} (for xlsx).
 	// SourceType range: main_input, merged_input, historical_input (from input_source table)
 	// Columns may be ommitted if fixed_width_columns_csv is provided or is a csv format
@@ -158,7 +158,7 @@ type SchemaProviderSpec struct {
 	FileDate                string             `json:"file_date"`
 	SourceType              string             `json:"source_type"`
 	SchemaName              string             `json:"schema_name"`
-	InputFormat             string             `json:"input_format"`
+	Format                  string             `json:"format"`
 	Compression             string             `json:"compression"`
 	InputFormatDataJson     string             `json:"input_format_data_json"`
 	Delimiter               string             `json:"delimiter"`

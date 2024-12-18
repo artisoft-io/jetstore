@@ -48,7 +48,7 @@ func (cpCtx *ComputePipesContext) LoadFiles(ctx context.Context, dbpool *pgxpool
 
 	// Load the files
 	var count, totalRowCount int64
-	inputFormat := cpCtx.CpConfig.CommonRuntimeArgs.SourcesConfig.MainInput.InputFormat
+	inputFormat := cpCtx.CpConfig.CommonRuntimeArgs.SourcesConfig.MainInput.Format
 	compression := cpCtx.CpConfig.CommonRuntimeArgs.SourcesConfig.MainInput.Compression
 	shardOffset := cpCtx.CpConfig.ClusterConfig.ShardOffset
 	schemaProvider := cpCtx.CpConfig.CommonRuntimeArgs.SourcesConfig.MainInput.SchemaProvider
@@ -314,7 +314,7 @@ func (cpCtx *ComputePipesContext) ReadCsvFile(filePath *FileName,
 
 	var inputRowCount int64
 	var nextInRow, inRow []string
-  var value any
+	var value any
 	var record []interface{}
 	// CHECK FOR OFFSET POSITIONING -- check if we drop the last record
 	dropLastRow := false
@@ -351,13 +351,13 @@ func (cpCtx *ComputePipesContext) ReadCsvFile(filePath *FileName,
 			// log.Println("**Row", inRow)
 		}
 		if err == nil && inputRowCount > 0 {
-      if samplingRate > 0 {
-        cpCtx.SamplingCount += 1
-        if cpCtx.SamplingCount < samplingRate {
-          continue
-        }
-      }
-      if samplingMaxCount > 0 && inputRowCount >= int64(samplingMaxCount) {
+			if samplingRate > 0 {
+				cpCtx.SamplingCount += 1
+				if cpCtx.SamplingCount < samplingRate {
+					continue
+				}
+			}
+			if samplingMaxCount > 0 && inputRowCount >= int64(samplingMaxCount) {
 				continue
 			}
 		}
@@ -369,17 +369,17 @@ func (cpCtx *ComputePipesContext) ReadCsvFile(filePath *FileName,
 				if trimColumns {
 					inRow[i] = strings.TrimSpace(inRow[i])
 				}
-        value = inRow[i]
+				value = inRow[i]
 				if len(inRow[i]) == 0 {
 					value = nil
 				}
-        record = append(record, value)
+				record = append(record, value)
 			}
 			// Add the columns from the partfile_key_component
 			if len(extColumns) > 0 {
 				// log.Println("**!@@",cpCtx.SessionId,"partfile_key_component GOT[0]",cpCtx.PartFileKeyComponents[0].ColumnName,"offset",offset,"InputColumn",cpCtx.InputColumns[offset])
 				for i := range extColumns {
-          record = append(record, extColumns[i])
+					record = append(record, extColumns[i])
 				}
 			}
 			inRow = nextInRow
