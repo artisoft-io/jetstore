@@ -190,7 +190,7 @@ func assignShardInfo(s3Objects []*awsi.S3Object, shardSize, maxShardSize, offset
 }
 
 func selectClusterShardingTier(totalSizeMb int, clusterConfig *ClusterSpec) *ClusterShardingSpec {
-	if clusterConfig.ClusterShardingTiers == nil {
+	if len(clusterConfig.ClusterShardingTiers) == 0 {
 		return &ClusterShardingSpec{
 			NbrPartitions:  clusterConfig.NbrPartitions,
 			ShardSizeMb:    clusterConfig.DefaultShardSizeMb,
@@ -199,7 +199,7 @@ func selectClusterShardingTier(totalSizeMb int, clusterConfig *ClusterSpec) *Clu
 			ShardMaxSizeBy: clusterConfig.DefaultShardMaxSizeBy,
 		}
 	}
-	for _, spec := range *clusterConfig.ClusterShardingTiers {
+	for _, spec := range clusterConfig.ClusterShardingTiers {
 		if totalSizeMb >= spec.WhenTotalSizeGe {
 			log.Printf("selectClusterShardingTier: totalSizeMb: %d, spec.WhenTotalSizeGe: %d, got NbrPartions: %d, shard size: %d, MaxConcurrency: %d",
 				totalSizeMb, spec.WhenTotalSizeGe, spec.NbrPartitions, spec.ShardSizeMb, spec.MaxConcurrency)

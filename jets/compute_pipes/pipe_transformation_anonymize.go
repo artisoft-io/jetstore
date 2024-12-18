@@ -146,12 +146,13 @@ func (ctx *AnonymizeTransformationPipe) Done() error {
 		}
 		return false // continue
 	})
-	// Done sending the keys, closing the keys output channel
-	ctx.channelRegistry.CloseChannel(ctx.keysOutputCh.config.Name)
 	return err
 }
 
-func (ctx *AnonymizeTransformationPipe) Finally() {}
+func (ctx *AnonymizeTransformationPipe) Finally() {
+	// Done sending the keys, closing the keys output channel
+	ctx.channelRegistry.CloseChannel(ctx.keysOutputCh.config.Name)
+}
 
 func (ctx *BuilderContext) NewAnonymizeTransformationPipe(source *InputChannel, outputCh *OutputChannel, spec *TransformationSpec) (*AnonymizeTransformationPipe, error) {
 	if spec == nil || spec.AnonymizeConfig == nil {

@@ -144,7 +144,7 @@ func (args *ComputePipesNodeArgs) CoordinateComputePipes(ctx context.Context, db
 		"$MAIN_SCHEMA_NAME":     mainSchemaProviderConfig.SchemaName,
 	}
 	if mainSchemaProviderConfig.Env != nil {
-		for k,v := range mainSchemaProviderConfig.Env {
+		for k, v := range mainSchemaProviderConfig.Env {
 			envSettings[k] = v
 		}
 	}
@@ -166,18 +166,16 @@ func (args *ComputePipesNodeArgs) CoordinateComputePipes(ctx context.Context, db
 	}
 
 	// Add to envSettings based on compute pipe config
-	if cpConfig.Context != nil {
-		for _, contextSpec := range *cpConfig.Context {
-			switch contextSpec.Type {
-			case "file_key_component":
-				cpContext.EnvSettings[contextSpec.Key] = cpContext.FileKeyComponents[contextSpec.Expr]
-			case "value":
-				cpContext.EnvSettings[contextSpec.Key] = contextSpec.Expr
-			case "partfile_key_component":
-			default:
-				cpErr = fmt.Errorf("error: unknown ContextSpec Type: %v", contextSpec.Type)
-				goto gotError
-			}
+	for _, contextSpec := range cpConfig.Context {
+		switch contextSpec.Type {
+		case "file_key_component":
+			cpContext.EnvSettings[contextSpec.Key] = cpContext.FileKeyComponents[contextSpec.Expr]
+		case "value":
+			cpContext.EnvSettings[contextSpec.Key] = contextSpec.Expr
+		case "partfile_key_component":
+		default:
+			cpErr = fmt.Errorf("error: unknown ContextSpec Type: %v", contextSpec.Type)
+			goto gotError
 		}
 	}
 
@@ -188,14 +186,14 @@ func (args *ComputePipesNodeArgs) CoordinateComputePipes(ctx context.Context, db
 		//		Expr is key in partfile file_key
 		// Prepare the regex for the partfile_key_component
 		cpContext.PartFileKeyComponents = make([]CompiledPartFileComponent, 0)
-		for i := range *cpContext.CpConfig.Context {
-			if (*cpContext.CpConfig.Context)[i].Type == "partfile_key_component" {
-				regex_query := fmt.Sprintf(`%s=(.*?)\/`, (*cpContext.CpConfig.Context)[i].Expr)
-				// log.Println("**!@@",args.SessionId,"partfile_key_component Got regex_query",regex_query,"for column",(*cpContext.CpConfig.Context)[i].Key)
+		for i := range cpContext.CpConfig.Context {
+			if cpContext.CpConfig.Context[i].Type == "partfile_key_component" {
+				regex_query := fmt.Sprintf(`%s=(.*?)\/`, cpContext.CpConfig.Context[i].Expr)
+				// log.Println("**!@@",args.SessionId,"partfile_key_component Got regex_query",regex_query,"for column",cpContext.CpConfig.Context[i].Key)
 				re, err := regexp.Compile(regex_query)
 				if err == nil {
 					cpContext.PartFileKeyComponents = append(cpContext.PartFileKeyComponents, CompiledPartFileComponent{
-						ColumnName: (*cpContext.CpConfig.Context)[i].Key,
+						ColumnName: cpContext.CpConfig.Context[i].Key,
 						Regex:      re,
 					})
 				} else {

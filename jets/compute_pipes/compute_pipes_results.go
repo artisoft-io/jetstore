@@ -37,7 +37,7 @@ type ChannelResults struct {
 	Copy2DbResultCh         chan chan ComputePipesResult
 	WritePartitionsResultCh chan chan ComputePipesResult
 	S3PutObjectResultCh     chan ComputePipesResult
-	JetrulesWorkerResultCh  chan JetrulesWorkerResult
+	JetrulesWorkerResultCh  chan chan JetrulesWorkerResult
 }
 
 type SaveResultsContext struct {

@@ -657,6 +657,27 @@ struct ToDoubleVisitor: public boost::static_visitor<RDFTTYPE>, public NoCallbac
   BetaRow const* br;
 };
 
+// ToTextVisitor
+// --------------------------------------------------------------------------------------
+struct ToTextVisitor: public boost::static_visitor<RDFTTYPE>, public NoCallbackNeeded
+{
+  ToTextVisitor(ReteSession * rs, BetaRow const* br): rs(rs), br(br) {}
+  template<class T> RDFTTYPE operator()(T lhs) const {if(br==nullptr) return rdf::Null(); else RETE_EXCEPTION("Invalid arguments for to_text: ("<<lhs<<")");};
+
+  RDFTTYPE operator()(rdf::RDFNull   lhs)const{return rdf::LString{std::string("null")};}
+  RDFTTYPE operator()(rdf::LInt32    lhs)const{return rdf::LString{std::to_string(lhs.data)};}
+  RDFTTYPE operator()(rdf::LUInt32   lhs)const{return rdf::LString{std::to_string(lhs.data)};}
+  RDFTTYPE operator()(rdf::LInt64    lhs)const{return rdf::LString{std::to_string(lhs.data)};}
+  RDFTTYPE operator()(rdf::LUInt64   lhs)const{return rdf::LString{std::to_string(lhs.data)};}
+  RDFTTYPE operator()(rdf::LDouble   lhs)const{return rdf::LString{std::to_string(lhs.data)};}
+  RDFTTYPE operator()(rdf::LString   lhs)const{return lhs;}
+  RDFTTYPE operator()(rdf::LDate     lhs)const{return rdf::LString{rdf::to_string(lhs.data)};}
+  RDFTTYPE operator()(rdf::LDatetime lhs)const{return rdf::LString{rdf::to_string(lhs.data)};}
+  RDFTTYPE operator()(rdf::NamedResource lhs)const{return rdf::LString{lhs.name};}
+  ReteSession * rs;
+  BetaRow const* br;
+};
+
 
 
 } // namespace jets::rete

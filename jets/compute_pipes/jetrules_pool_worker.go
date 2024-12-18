@@ -27,7 +27,7 @@ type JrPoolWorker struct {
 func NewJrPoolWorker(config *JetrulesSpec, source *InputChannel,
 	reteMetaStore *rete.ReteMetaStoreFactory, outputChannels []*JetrulesOutputChan,
 	done chan struct{}, errCh chan error) *JrPoolWorker {
-
+	// log.Println("New Pool Worker Created")
 	return &JrPoolWorker{
 		config:         config,
 		source:         source,
@@ -43,6 +43,7 @@ func (ctx *JrPoolWorker) DoWork(mgr *JrPoolManager, resultCh chan JetrulesWorker
 	var errCount int64
 	var err error
 	for task := range mgr.WorkersTaskCh {
+		// log.Println("Pool Worker Calling executeRules")
 		errCount, err = ctx.executeRules(&task, resultCh)
 		if err != nil {
 			return
@@ -107,6 +108,7 @@ func (ctx *JrPoolWorker) executeRules(inputRecords *[]any,
 	// Loop over all rulesets
 	for _, ruleset := range ctx.reteMetaStore.MainRuleFileNames {
 		// Create the rete session
+		log.Println("executeRules: Creating Rete Session")
 		ms := ctx.reteMetaStore.MetaStoreLookup[ruleset]
 		if ms == nil {
 			cpErr = fmt.Errorf("error: metastore not found for %s", ruleset)
@@ -174,13 +176,23 @@ func (ctx *JrPoolWorker) executeRules(inputRecords *[]any,
 		}
 		ctor.Done()
 
+		// Print rdf session if in debug mode
+		if ctx.config.IsDebug {
+			log.Println("ASSERTED GRAPH")
+			log.Printf("\n%s\n", strings.Join(rdfSession.AssertedGraph.ToTriples(),"\n"))
+			log.Println("INFERRED GRAPH")
+			log.Printf("\n%s\n", strings.Join(rdfSession.InferredGraph.ToTriples(), "\n"))
+		}
+
 		// Extract data from the rdf session based on class names
 		for _, outChannel := range ctx.outputChannels {
 			err = ctx.extractSessionData(rdfSession, outChannel)
-			cpErr = fmt.Errorf(
-				"while extraction entity from jetrules for class %s: %v",
-				outChannel.className, err)
-			goto gotError
+			if err != nil {
+				cpErr = fmt.Errorf(
+					"while extraction entity from jetrules for class %s: %v",
+					outChannel.className, err)
+				goto gotError
+			}
 		}
 		reteSession.Done()
 	}
@@ -258,7 +270,20 @@ func (ctx *JrPoolWorker) extractSessionData(rdfSession *rdf.RdfSession,
 				itor.Done()
 				entityRow[i] = data
 			}
+			// Apply the TransformationColumn, these are const values
+			// NOTE there is no initialize and done called on the column evaluators
+			//      since they should be only of type 'select' or 'value'
+			// Note: using entityRow as both current value and input for the purpose of these operators
+			for i := range outChannel.columnEvaluators {
+				err := outChannel.columnEvaluators[i].Update(&entityRow, &entityRow)
+				if err != nil {
+					err = fmt.Errorf("while calling column transformation from jetrules extract session data: %v", err)
+					log.Println(err)
+					return err
+				}
+			}
 			// Send the record to output channel
+			// log.Println("ENTITY_ROW:", entityRow)
 			select {
 			case outChannel.outputCh.channel <- entityRow:
 				entityCount += 1
@@ -330,6 +355,12 @@ func assertInputRow(config *JetrulesSpec, rm *rdf.ResourceManager, jr *rdf.JetRe
 			return
 		}
 	}
+	// Assert the jets:InputRecord rdf:type
+	_, err = graph.Insert(subject, jr.Rdf__type, jr.Jets__input_record)
+	if err != nil {
+		return
+	}
+
 	for j := range *row {
 		if j < nbrCol {
 			predicate = rm.NewResource((*columns)[j])

@@ -122,18 +122,15 @@ func (ctx *lookupColumnTransformationEval) Done(currentValue *[]interface{}) err
 func (ctx *BuilderContext) BuildLookupTCEvaluator(source *InputChannel, outCh *OutputChannel, 
 	spec *TransformationColumnSpec) (TransformationColumnEvaluator, error) {
 
-	if spec == nil || spec.LookupName == nil || spec.LookupKey == nil || spec.LookupValues == nil {
-		return nil, fmt.Errorf("error: Type lookup must have LookupName, LookupKey and LookupValues not nil")
+	if spec == nil || spec.LookupName == nil || len(spec.LookupKey) == 0 || len(spec.LookupValues) == 0 {
+		return nil, fmt.Errorf("error: Type lookup must have LookupName, LookupKey and LookupValues not empty")
 	}
-	if len(*spec.LookupKey) == 0 || len(*spec.LookupValues) == 0 {
-		return nil, fmt.Errorf("error: Type lookup must have non empty LookupKey and LookupValues")
-	}
-	keyEvaluator := make([]lookupColumnEval, len(*spec.LookupKey))
-	valueEvaluator := make([]lookupColumnEval, len(*spec.LookupValues))
+	keyEvaluator := make([]lookupColumnEval, len(spec.LookupKey))
+	valueEvaluator := make([]lookupColumnEval, len(spec.LookupValues))
 
 	// build the key evaluators
-	for i := range *spec.LookupKey {
-		columnSpec := &(*spec.LookupKey)[i]
+	for i := range spec.LookupKey {
+		columnSpec := &spec.LookupKey[i]
 		switch columnSpec.Type {
 		case "select":
 			keyEvaluator[i] = &lceSelect{
@@ -157,8 +154,8 @@ func (ctx *BuilderContext) BuildLookupTCEvaluator(source *InputChannel, outCh *O
 		return nil, fmt.Errorf("error: lookup table '%s' not found in lookup table manager", *spec.LookupName)
 	}
 	// build the lookup value evaluators
-	for i := range *spec.LookupValues {
-		columnSpec := &(*spec.LookupValues)[i]
+	for i := range spec.LookupValues {
+		columnSpec := &spec.LookupValues[i]
 		switch columnSpec.Type {
 		case "select":
 			inputPos, ok := lookupTable.ColumnMap()[*columnSpec.Expr]

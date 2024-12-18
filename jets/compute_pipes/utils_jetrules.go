@@ -26,6 +26,8 @@ var dataPropertyInfoMap map[string]*rete.DataPropertyNode
 var dataPropertyInfoMx sync.Mutex
 var domainTablesMap map[string]*rete.TableNode
 var domainTablesMx sync.Mutex
+var domainClassesMap map[string]*rete.ClassNode
+var domainClassesMx sync.Mutex
 
 // Assert source period info (date, period, type) to rdf graph
 func AssertSourcePeriodInfo(config *JetrulesSpec, graph *rdf.RdfGraph, rm *rdf.ResourceManager) (err error) {
@@ -51,6 +53,24 @@ func AssertSourcePeriodInfo(config *JetrulesSpec, graph *rdf.RdfGraph, rm *rdf.R
 		}
 	}
 	return
+}
+
+// Assert rule config to meta graph from the pipeline configuration
+func AssertMetadataSource(reteMetaStore *rete.ReteMetaStoreFactory, config *JetrulesSpec, env map[string]any) error {
+	for i := range config.MetadataInputSources {
+		sourceSpec := &config.MetadataInputSources[i]
+		metadataSource, err := NewCsvSourceS3(sourceSpec, env)
+		if err != nil {
+			return err
+		}
+		log.Println("Loading metadata source from:", metadataSource.fileKey.key)
+		err = metadataSource.ReadFileToMetaGraph(reteMetaStore, config)
+		// log.Println("DONE Loading metadata source from:", metadataSource.fileKey.key,"with err:",err)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // Assert rule config to meta graph from the pipeline configuration
@@ -128,6 +148,7 @@ func ParseObject(rm *rdf.ResourceManager, object, rdfType string) (node *rdf.Nod
 	var key int
 	var date rdf.LDate
 	var datetime rdf.LDatetime
+	// log.Println("**PARSE OBJECT:",object,"TO TYPE:",rdfType)
 	switch strings.TrimSpace(rdfType) {
 	case "null":
 		node = rdf.Null()
@@ -221,6 +242,31 @@ func GetJetrulesFactory(dbpool *pgxpool.Pool, processName string) (reteMetaStore
 }
 
 // Function to get domain classes info from the local workspace
+func GetWorkspaceDomainClasses() (map[string]*rete.ClassNode, error) {
+	if domainClassesMap == nil {
+		domainClassesMx.Lock()
+		defer domainClassesMx.Unlock()
+		fmt.Println("Load Domain Tables from local Workspace")
+		domainClassesMap = make(map[string]*rete.ClassNode)
+		fpath := fmt.Sprintf("%s/%s/build/classes.json", workspaceHome, wsPrefix)
+		log.Println("Reading Domain Classes definitions from:", fpath)
+		file, err := os.ReadFile(fpath)
+		if err != nil {
+			err = fmt.Errorf("while reading classes.json file (GetWorkspaceDomainClasses):%v", err)
+			log.Println(err)
+			return nil, err
+		}
+		err = json.Unmarshal(file, &domainClassesMap)
+		if err != nil {
+			err = fmt.Errorf("while unmarshaling classes.json (GetWorkspaceDomainClasses):%v", err)
+			log.Println(err)
+			return nil, err
+		}
+	}
+	return domainClassesMap, nil
+}
+
+// Function to get domain classes info from the local workspace
 func GetWorkspaceDomainTables() (map[string]*rete.TableNode, error) {
 	if domainTablesMap == nil {
 		domainTablesMx.Lock()
@@ -268,6 +314,42 @@ func GetWorkspaceDataProperties() (map[string]*rete.DataPropertyNode, error) {
 		}
 	}
 	return dataPropertyInfoMap, nil
+}
+
+// Get the domain properties for className.
+// If directPropertiesOnly is true, return only the direct properties
+// of the class, not the inherited ones.
+func GetDomainProperties(className string, directPropertitesOnly bool) ([]string, error) {
+	var columns []string
+	// Get the columns from the local workspace
+	if directPropertitesOnly {
+		domainClassesMap, err := GetWorkspaceDomainClasses()
+		if err != nil {
+			return nil, fmt.Errorf("while getting domain classes from local workspace: %v", err)
+		}
+		classInfo := domainClassesMap[className]
+		if classInfo == nil {
+			return nil, fmt.Errorf("error: domain class %s is not found in the local workspace", className)
+		}
+		columns = make([]string, 0, len(classInfo.DataProperties))
+		for i := range classInfo.DataProperties {
+			columns = append(columns, classInfo.DataProperties[i].Name)
+		}
+	} else {
+		domainTablesMap, err := GetWorkspaceDomainTables()
+		if err != nil {
+			return nil, fmt.Errorf("while getting domain tables from local workspace: %v", err)
+		}
+		tableInfo := domainTablesMap[className]
+		if tableInfo == nil {
+			return nil, fmt.Errorf("error: domain table/class %s is not found in the local workspace", className)
+		}
+		columns = make([]string, 0, len(tableInfo.Columns))
+		for i := range tableInfo.Columns {
+			columns = append(columns, tableInfo.Columns[i].PropertyName)
+		}
+	}
+	return columns, nil
 }
 
 type InputMappingExpr struct {

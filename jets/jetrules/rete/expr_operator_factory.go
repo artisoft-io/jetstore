@@ -100,6 +100,8 @@ func (ctx *ReteBuilderContext) CreateUnaryOperator(op string) UnaryOperator {
 		return NewToDateOp()
 	case "to_datetime":
 		return NewToDatetimeOp()
+	case "to_text":
+		return NewToTextOp()
 
 		// Date/Datetime operators
 	case "to_timestamp":

@@ -32,8 +32,10 @@ type S3Object struct {
 
 // Create the S3DeviceManager, it will be set to the receiving BuilderContext
 func (ctx *BuilderContext) NewS3DeviceManager() error {
-
 	// log.Println("Entering NewS3DeviceManager")
+	if ctx.cpConfig.ClusterConfig.S3WorkerPoolSize < 1 {
+		return fmt.Errorf("error: S3DeviceManager cannot have s3_worker_pool_size < 1")
+	}
 	// Create the s3 uploader that will be used by all the workers
 	cfg, err := config.LoadDefaultConfig(context.TODO(), config.WithRegion(regionName))
 	if err != nil {
@@ -86,6 +88,7 @@ func (ctx *BuilderContext) NewS3DeviceManager() error {
 
 	// Set up all the workers, use a wait group to track when they are all done
 	// to close s3WorkersResultCh
+	log.Printf("NewS3DeviceManager: Creating %d s3 workers", ctx.s3DeviceManager.s3WorkerPoolSize)
 	go func() {
 		var wg sync.WaitGroup
 		for i := 0; i < ctx.s3DeviceManager.s3WorkerPoolSize; i++ {

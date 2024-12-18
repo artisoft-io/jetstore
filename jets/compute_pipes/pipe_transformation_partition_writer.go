@@ -121,7 +121,9 @@ func (ctx *PartitionWriterTransformationPipe) Apply(input *[]interface{}) error 
 			source: &InputChannel{
 				channel: ctx.currentDeviceCh,
 				columns: ctx.outputCh.columns,
-				config:  &ChannelSpec{Name: fmt.Sprintf("input channel for partition_writer for %s", partitionFileName)},
+				config: &ChannelSpec{
+					Name:      fmt.Sprintf("input channel for partition_writer for %s", partitionFileName),
+					ClassName: ctx.outputCh.config.ClassName},
 			},
 			spec:           ctx.spec,
 			schemaProvider: ctx.schemaProvider,
@@ -193,6 +195,7 @@ func (ctx *PartitionWriterTransformationPipe) Apply(input *[]interface{}) error 
 		}
 	}
 	// Send the result to output
+	// log.Printf("PARTITION WRITER (%s) ROW %v", ctx.outputCh.config.Name, *currentValues)
 	select {
 	case ctx.outputCh.channel <- *currentValues:
 	case <-ctx.doneCh:
@@ -313,14 +316,14 @@ func (ctx *BuilderContext) NewPartitionWriterTransformationPipe(source *InputCha
 	}
 
 	var columnNames []string
-	if sp != nil {
+	// Use the column specified from the output channel, if none are specified, look at the schema provider
+	columnNames = outputCh.config.Columns
+	if len(columnNames) == 0 && sp != nil {
 		columnNames = sp.ColumnNames()
 	}
-	// Note: column may or may not be provided by the schema provider
 	if len(columnNames) == 0 {
-		columnNames = outputCh.config.Columns
+		return nil, fmt.Errorf("error: output channel '%s' have no columns specified", outputCh.config.Name)
 	}
-
 	switch config.DeviceWriterType {
 	case "parquet_writer":
 		parquetSchema = make([]string, len(columnNames))

@@ -1,6 +1,7 @@
 package compute_pipes
 
 import (
+	"fmt"
 	"log"
 	"sync"
 
@@ -10,26 +11,32 @@ import (
 // JrPoolManager manages a pool of JrPoolWorkers for jetrules execution
 
 // JrPoolManager manage a pool of workers to execute rules in parallel
-// JrPoolWg is a wait group of the workers.
+// jrPoolWg is a wait group of the workers.
 // The WorkersTaskCh is closed in jetrules operator
 type JrPoolManager struct {
 	config        *JetrulesSpec
 	WorkersTaskCh chan []interface{}
-	JrPoolWg      *sync.WaitGroup
+	jrPoolWg      *sync.WaitGroup
+	WaitForDone   *sync.WaitGroup
 }
 
 // Create the JrPoolManager, it will be set to the receiving BuilderContext
 func (ctx *BuilderContext) NewJrPoolManager(
 	config *JetrulesSpec, source *InputChannel, reteMetaStore *rete.ReteMetaStoreFactory,
-	outputChannels []*JetrulesOutputChan) (jrpm *JrPoolManager, err error) {
-
+	outputChannels []*JetrulesOutputChan, jetrulesWorkerResultCh chan JetrulesWorkerResult) (jrpm *JrPoolManager, err error) {
+	log.Println("Starting the Pool Manager")
+	if config.PoolSize < 1 {
+		close(jetrulesWorkerResultCh)
+		return nil, fmt.Errorf("error: cannot have a worker pool of size less than 1")
+	}
 	// Create the pool manager
-	var jrPoolWg sync.WaitGroup
 	jrpm = &JrPoolManager{
 		config:        config,
 		WorkersTaskCh: make(chan []interface{}, 1),
-		JrPoolWg:      &jrPoolWg,
+		jrPoolWg:      new(sync.WaitGroup),
+		WaitForDone:   new(sync.WaitGroup),
 	}
+	jrpm.WaitForDone.Add(1)
 
 	// Create a channel for the workers to report results
 	workersResultCh := make(chan JetrulesWorkerResult)
@@ -48,10 +55,10 @@ func (ctx *BuilderContext) NewJrPoolManager(
 		}
 		// Send out the collected result
 		select {
-		case ctx.chResults.JetrulesWorkerResultCh <- JetrulesWorkerResult{
+		case jetrulesWorkerResultCh <- JetrulesWorkerResult{
 			ReteSessionCount: sessionCount,
-			ErrorsCount: errorCount,
-			Err:        err}:
+			ErrorsCount:      errorCount,
+			Err:              err}:
 			if err != nil {
 				// Interrupt the whole process, there's been an error while executing rules
 				// Avoid closing a closed channel
@@ -64,23 +71,25 @@ func (ctx *BuilderContext) NewJrPoolManager(
 		case <-ctx.done:
 			log.Printf("Collecting results from JrPoolWorkers interrupted")
 		}
-		close(ctx.chResults.JetrulesWorkerResultCh)
+		close(jetrulesWorkerResultCh)
 	}()
 
 	// Set up all the workers, use a wait group to track when they are all done
 	// to close workersResultCh
 	go func() {
-		var wg sync.WaitGroup
-		for i := 0; i < ctx.s3DeviceManager.s3WorkerPoolSize; i++ {
-			wg.Add(1)
+		log.Println("Starting a Worker Pool of size", config.PoolSize)
+		for i := 0; i < config.PoolSize; i++ {
+			jrpm.jrPoolWg.Add(1)
 			go func() {
-				defer wg.Done()
+				defer jrpm.jrPoolWg.Done()
 				worker := NewJrPoolWorker(config, source, reteMetaStore, outputChannels, ctx.done, ctx.errCh)
 				worker.DoWork(jrpm, workersResultCh)
 			}()
 		}
-		wg.Wait()
+		jrpm.jrPoolWg.Wait()
+		jrpm.WaitForDone.Done()
 		close(workersResultCh)
+		log.Println("Jetrules Worker Pool Completed")
 	}()
 	return
 }

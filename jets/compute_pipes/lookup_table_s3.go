@@ -33,13 +33,6 @@ func NewLookupTableS3(_ *pgxpool.Pool, spec *LookupSpec, env map[string]interfac
 		columnsMap: make(map[string]int),
 	}
 
-	// Create a local temp directory to hold the file
-	inFolderPath, err := os.MkdirTemp("", "jetstore")
-	if err != nil {
-		return nil, fmt.Errorf("failed to create local temp directory: %v", err)
-	}
-	defer os.Remove(inFolderPath)
-
 	var fileKey *FileKeyInfo
 	source := spec.CsvSource
 	switch source.Type {
@@ -77,6 +70,13 @@ func NewLookupTableS3(_ *pgxpool.Pool, spec *LookupSpec, env map[string]interfac
 		return nil, fmt.Errorf("error: unknown s3_csv_lookup type: %s", source.Type)
 	}
 	log.Printf("Got file key %s from s3 as lookup table: %s", fileKey.key, spec.Key)
+
+	// Create a local temp directory to hold the file
+	inFolderPath, err := os.MkdirTemp("", "jetstore")
+	if err != nil {
+		return nil, fmt.Errorf("failed to create local temp directory: %v", err)
+	}
+	defer os.Remove(inFolderPath)
 
 	// Fetch the file from s3, save it locally
 	retry := 0

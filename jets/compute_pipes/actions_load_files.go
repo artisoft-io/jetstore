@@ -240,15 +240,9 @@ func (cpCtx *ComputePipesContext) ReadCsvFile(filePath *FileName,
 		os.Remove(filePath.LocalFileName)
 	}()
 
-	// log.Println("**!@@",cpCtx.SessionId,"partfile_key_component GOT",len(cpCtx.PartFileKeyComponents))
-	nbrColumns := len(cpCtx.CpConfig.CommonRuntimeArgs.SourcesConfig.MainInput.InputColumns)
-	var inputColumns []string
 	var extColumns []string
 	switch cpCtx.CpConfig.CommonRuntimeArgs.CpipesMode {
 	case "sharding":
-		// input columns include the partfile_key_component
-		inputColumns =
-			cpCtx.CpConfig.CommonRuntimeArgs.SourcesConfig.MainInput.InputColumns[:nbrColumns-len(cpCtx.PartFileKeyComponents)]
 		// Prepare the extended columns from partfile_key_component
 		if len(cpCtx.PartFileKeyComponents) > 0 {
 			extColumns = make([]string, len(cpCtx.PartFileKeyComponents))
@@ -259,10 +253,6 @@ func (cpCtx *ComputePipesContext) ReadCsvFile(filePath *FileName,
 				}
 			}
 		}
-	case "reducing":
-		inputColumns = cpCtx.CpConfig.CommonRuntimeArgs.SourcesConfig.MainInput.InputColumns
-	default:
-		return 0, fmt.Errorf("error: unknown cpipes mode in ReadCsvFile: %s", cpCtx.CpConfig.CommonRuntimeArgs.CpipesMode)
 	}
 	// Get the csv delimiter from the schema provider, if no schema provider exist assume it's ','
 	var sepFlag rune = ','
@@ -324,6 +314,7 @@ func (cpCtx *ComputePipesContext) ReadCsvFile(filePath *FileName,
 
 	var inputRowCount int64
 	var nextInRow, inRow []string
+  var value any
 	var record []interface{}
 	// CHECK FOR OFFSET POSITIONING -- check if we drop the last record
 	dropLastRow := false
@@ -359,35 +350,36 @@ func (cpCtx *ComputePipesContext) ReadCsvFile(filePath *FileName,
 			inRow, err = csvReader.Read()
 			// log.Println("**Row", inRow)
 		}
-		if err == nil && inputRowCount > 0 && samplingRate > 0 {
-			cpCtx.SamplingCount += 1
-			if cpCtx.SamplingCount < samplingRate {
-				continue
-			}
-			if samplingMaxCount > 0 && inputRowCount >= int64(samplingMaxCount) {
+		if err == nil && inputRowCount > 0 {
+      if samplingRate > 0 {
+        cpCtx.SamplingCount += 1
+        if cpCtx.SamplingCount < samplingRate {
+          continue
+        }
+      }
+      if samplingMaxCount > 0 && inputRowCount >= int64(samplingMaxCount) {
 				continue
 			}
 		}
 		if err == nil {
 			// log.Println("** Processing inRow", inRow)
 			cpCtx.SamplingCount = 0
-			record = make([]interface{}, nbrColumns)
-			for i := range inputColumns {
+			record = make([]interface{}, 0, len(inRow)+len(extColumns))
+			for i := range inRow {
 				if trimColumns {
 					inRow[i] = strings.TrimSpace(inRow[i])
 				}
+        value = inRow[i]
 				if len(inRow[i]) == 0 {
-					record[i] = nil
-				} else {
-					record[i] = inRow[i]
+					value = nil
 				}
+        record = append(record, value)
 			}
 			// Add the columns from the partfile_key_component
 			if len(extColumns) > 0 {
-				offset := len(inputColumns)
 				// log.Println("**!@@",cpCtx.SessionId,"partfile_key_component GOT[0]",cpCtx.PartFileKeyComponents[0].ColumnName,"offset",offset,"InputColumn",cpCtx.InputColumns[offset])
 				for i := range extColumns {
-					record[offset+i] = extColumns[i]
+          record = append(record, extColumns[i])
 				}
 			}
 			inRow = nextInRow

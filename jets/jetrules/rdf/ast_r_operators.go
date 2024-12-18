@@ -115,7 +115,7 @@ func createEntity(rdfSession *RdfSession, name string) *Node {
 	entity := rm.NewResource(name)
 	_, err := rdfSession.InsertInferred(entity, rm.JetsResources.Jets__key, rm.NewTextLiteral(name))
 	if err != nil {
-		log.Panicf("wile calling InsertInferred (createEntity operator): %v", err)
+		log.Panicf("while calling InsertInferred (createEntity operator): %v", err)
 	}
 	return entity
 }

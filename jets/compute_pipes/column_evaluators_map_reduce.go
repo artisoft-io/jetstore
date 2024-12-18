@@ -79,11 +79,11 @@ func (ctx *mapReduceColumnEval) Done(currentValue *[]interface{}) error {
 	return nil
 }
 
-func (ctx *BuilderContext) BuildMapReduceTCEvaluator(source *InputChannel, outCh *OutputChannel, 
+func (ctx *BuilderContext) BuildMapReduceTCEvaluator(source *InputChannel, outCh *OutputChannel,
 	spec *TransformationColumnSpec) (TransformationColumnEvaluator, error) {
 
-	if spec == nil || spec.MapOn == nil || spec.ApplyMap == nil || spec.ApplyReduce == nil {
-		return nil, fmt.Errorf("error: Type map_reduce must have MapOn, ApplyMap and ApplyReduce not nil")
+	if spec == nil || spec.MapOn == nil || len(spec.ApplyMap) == 0 || len(spec.ApplyReduce) == 0 {
+		return nil, fmt.Errorf("error: Type map_reduce must have MapOn, ApplyMap and ApplyReduce not empty")
 	}
 	var err error
 	mapOnColumnIdx, ok := source.columns[*spec.MapOn]
@@ -91,41 +91,47 @@ func (ctx *BuilderContext) BuildMapReduceTCEvaluator(source *InputChannel, outCh
 		return nil, fmt.Errorf("error column %s not found in input source %s", *spec.MapOn, source.config.Name)
 	}
 	var altInputKey []PreprocessingFunction
-	if spec.AlternateMapOn != nil {
-		altInputKey, err = ParseAltKeyDefinition(*spec.AlternateMapOn, source.columns)
+	if len(spec.AlternateMapOn) > 0 {
+		altInputKey, err = ParseAltKeyDefinition(spec.AlternateMapOn, source.columns)
 		if err != nil {
 			return nil, fmt.Errorf("buildMapReduceEvaluator: %v in source name %s", err, source.config.Name)
 		}
 	}
 
 	intermediateColumns := make(map[string]int)
-	for i := range *spec.ApplyMap {
-		intermediateColumns[(*spec.ApplyMap)[i].Name] = i
+	for i := range spec.ApplyMap {
+		intermediateColumns[spec.ApplyMap[i].Name] = i
 	}
 
-	mapColumnEval := make([]TransformationColumnEvaluator, len(*spec.ApplyMap))
+	mapColumnEval := make([]TransformationColumnEvaluator, len(spec.ApplyMap))
 	intermediateOutputChannel := &OutputChannel{
 		columns: intermediateColumns,
-		config:  &ChannelSpec{Name: "map_reduce.intermediateOutputChannel"},
+		config: &ChannelSpec{
+			Name:      "map_reduce.intermediateOutputChannel",
+			ClassName: source.config.ClassName,
+		},
 	}
-	for i := range *spec.ApplyMap {
-		mapColumnEval[i], err = ctx.BuildTransformationColumnEvaluator(source, intermediateOutputChannel, &(*spec.ApplyMap)[i])
+	for i := range spec.ApplyMap {
+		mapColumnEval[i], err = ctx.BuildTransformationColumnEvaluator(source, intermediateOutputChannel, &spec.ApplyMap[i])
 		if err != nil {
 			return nil,
-				fmt.Errorf("while building Column Transformation Evaluator (map of map_reduce) for column %s: %v", (*spec.ApplyMap)[i].Name, err)
+				fmt.Errorf("while building Column Transformation Evaluator (map of map_reduce) for column %s: %v", spec.ApplyMap[i].Name, err)
 		}
 	}
 
-	reduceColumnEval := make([]TransformationColumnEvaluator, len(*spec.ApplyReduce))
+	reduceColumnEval := make([]TransformationColumnEvaluator, len(spec.ApplyReduce))
 	intermediateInputChannel := &InputChannel{
 		columns: intermediateColumns,
-		config:  &ChannelSpec{Name: "map_reduce.intermediateInputChannel"},
+		config: &ChannelSpec{
+			Name:      "map_reduce.intermediateInputChannel",
+			ClassName: source.config.ClassName,
+		},
 	}
-	for i := range *spec.ApplyReduce {
-		reduceColumnEval[i], err = ctx.BuildTransformationColumnEvaluator(intermediateInputChannel, outCh, &(*spec.ApplyReduce)[i])
+	for i := range spec.ApplyReduce {
+		reduceColumnEval[i], err = ctx.BuildTransformationColumnEvaluator(intermediateInputChannel, outCh, &spec.ApplyReduce[i])
 		if err != nil {
 			return nil,
-				fmt.Errorf("while building Column Transformation Evaluator (reduce of map_reduce) for column %s: %v", (*spec.ApplyReduce)[i].Name, err)
+				fmt.Errorf("while building Column Transformation Evaluator (reduce of map_reduce) for column %s: %v", spec.ApplyReduce[i].Name, err)
 		}
 	}
 

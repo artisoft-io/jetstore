@@ -90,6 +90,7 @@ ReteMetaStoreFactory::create_unary_expr(int key, std::string const& op, ExprBase
   if(op == "abs")               return create_expr_unary_operator<AbsVisitor>(key, arg);
   if(op == "to_int")            return create_expr_unary_operator<ToIntVisitor>(key, arg);
   if(op == "to_double")         return create_expr_unary_operator<ToDoubleVisitor>(key, arg);
+  if(op == "to_text")           return create_expr_unary_operator<ToTextVisitor>(key, arg);
   
   // Date/Datetime operators
   if(op == "to_timestamp")      return create_expr_unary_operator<ToTimestampVisitor>(key, arg);
