@@ -113,7 +113,9 @@ func (workspaceDb *WorkspaceDb) GetRangeDataType(dataProperty string) (string, b
 		var asArray bool
 		err := workspaceDb.db.QueryRow("SELECT type, as_array FROM data_properties WHERE name = ?", dataProperty).Scan(&dataType, &asArray)
 		if err != nil {
-			return dataType, asArray, fmt.Errorf("while looking up range data type for data_property %s: %v", dataProperty, err)
+			log.Printf("WARNING: Unknown data property '%s' when looking up it's data type. Assuming it's functional text", dataProperty)
+			return "text", false, nil
+			// return dataType, asArray, fmt.Errorf("while looking up range data type for data_property %s: %v", dataProperty, err)
 		}
 		return dataType, asArray, nil
 	}
