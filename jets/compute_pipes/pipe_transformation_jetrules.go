@@ -53,7 +53,7 @@ func (ctx *JetrulesTransformationPipe) Finally() {
 	// Wait till the pool workers are done
 	// This is to avoid to close the output channel too early since the pool workers
 	// are writing to the output channel async
-	ctx.jrPoolManager.JrPoolWg.Wait()
+	ctx.jrPoolManager.WaitForDone.Wait()
 }
 
 func (ctx *BuilderContext) NewJetrulesTransformationPipe(source *InputChannel, _ *OutputChannel, spec *TransformationSpec) (*JetrulesTransformationPipe, error) {

@@ -100,18 +100,6 @@ func (cpCtx *ComputePipesContext) StartComputePipes(dbpool *pgxpool.Pool, comput
 	channelsInUse = make(map[string]*ChannelSpec)
 	for i := range cpCtx.CpConfig.Channels {
 		chSpec := &cpCtx.CpConfig.Channels[i]
-		if len(chSpec.ClassName) > 0 {
-			// Get the columns from the local workspace
-			columns, err := GetDomainProperties(chSpec.ClassName, chSpec.DirectPropertiesOnly)
-			if err != nil {
-				cpErr = fmt.Errorf("while getting domain properties for channel spec class name %s", chSpec.ClassName)
-				goto gotError	
-			}
-			if len(chSpec.Columns) > 0 {
-				columns = append(columns, chSpec.Columns...)
-			}
-			chSpec.Columns = columns
-		}
 		channelsSpec[cpCtx.CpConfig.Channels[i].Name] = chSpec
 		channelsInUse[cpCtx.CpConfig.Channels[i].Name] = chSpec
 	}
@@ -148,9 +136,9 @@ func (cpCtx *ComputePipesContext) StartComputePipes(dbpool *pgxpool.Pool, comput
 			goto gotError
 		}
 		channelsInUse[outputChannel.Name] = &ChannelSpec{
-			Name:      outputChannel.Name,
-			Columns:   spec.Columns,
-			ClassName: spec.ClassName,
+			Name:                 outputChannel.Name,
+			Columns:              spec.Columns,
+			ClassName:            spec.ClassName,
 			DirectPropertiesOnly: spec.DirectPropertiesOnly,
 		}
 	}
@@ -186,9 +174,10 @@ func (cpCtx *ComputePipesContext) StartComputePipes(dbpool *pgxpool.Pool, comput
 			channel: computePipesInputCh,
 			columns: inChannel.columns,
 			config: &ChannelSpec{
-				Name:      "input_row",
-				Columns:   inChannel.config.Columns,
-				ClassName: inChannel.config.ClassName,
+				Name:                 "input_row",
+				Columns:              inChannel.config.Columns,
+				ClassName:            inChannel.config.ClassName,
+				DirectPropertiesOnly: inChannel.config.DirectPropertiesOnly,
 			},
 			hasGroupedRows: cpCtx.CpConfig.PipesConfig[0].InputChannel.HasGroupedRows,
 		}

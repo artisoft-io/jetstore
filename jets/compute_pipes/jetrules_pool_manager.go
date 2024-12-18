@@ -11,12 +11,13 @@ import (
 // JrPoolManager manages a pool of JrPoolWorkers for jetrules execution
 
 // JrPoolManager manage a pool of workers to execute rules in parallel
-// JrPoolWg is a wait group of the workers.
+// jrPoolWg is a wait group of the workers.
 // The WorkersTaskCh is closed in jetrules operator
 type JrPoolManager struct {
 	config        *JetrulesSpec
 	WorkersTaskCh chan []interface{}
-	JrPoolWg      *sync.WaitGroup
+	jrPoolWg      *sync.WaitGroup
+	WaitForDone   *sync.WaitGroup
 }
 
 // Create the JrPoolManager, it will be set to the receiving BuilderContext
@@ -32,8 +33,10 @@ func (ctx *BuilderContext) NewJrPoolManager(
 	jrpm = &JrPoolManager{
 		config:        config,
 		WorkersTaskCh: make(chan []interface{}, 1),
-		JrPoolWg:      new(sync.WaitGroup),
+		jrPoolWg:      new(sync.WaitGroup),
+		WaitForDone:   new(sync.WaitGroup),
 	}
+	jrpm.WaitForDone.Add(1)
 
 	// Create a channel for the workers to report results
 	workersResultCh := make(chan JetrulesWorkerResult)
@@ -54,8 +57,8 @@ func (ctx *BuilderContext) NewJrPoolManager(
 		select {
 		case jetrulesWorkerResultCh <- JetrulesWorkerResult{
 			ReteSessionCount: sessionCount,
-			ErrorsCount: errorCount,
-			Err:        err}:
+			ErrorsCount:      errorCount,
+			Err:              err}:
 			if err != nil {
 				// Interrupt the whole process, there's been an error while executing rules
 				// Avoid closing a closed channel
@@ -76,16 +79,17 @@ func (ctx *BuilderContext) NewJrPoolManager(
 	go func() {
 		log.Println("Starting a Worker Pool of size", config.PoolSize)
 		for i := 0; i < config.PoolSize; i++ {
-			jrpm.JrPoolWg.Add(1)
+			jrpm.jrPoolWg.Add(1)
 			go func() {
-				defer jrpm.JrPoolWg.Done()
+				defer jrpm.jrPoolWg.Done()
 				worker := NewJrPoolWorker(config, source, reteMetaStore, outputChannels, ctx.done, ctx.errCh)
 				worker.DoWork(jrpm, workersResultCh)
 			}()
 		}
-		jrpm.JrPoolWg.Wait()
+		jrpm.jrPoolWg.Wait()
+		jrpm.WaitForDone.Done()
 		close(workersResultCh)
+		log.Println("Jetrules Worker Pool Completed")
 	}()
-	// log.Println("Starting the Pool Manager DONE")
 	return
 }

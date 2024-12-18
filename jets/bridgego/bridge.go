@@ -577,6 +577,8 @@ func DumpGraph(g *rdf.RdfGraph) {
 	}
 }
 func (rs *RDFSession) DumpRdfGraph() error {
+	// log.Printf("Meta Graph Contains %d triples (go version):\n", rs.rdfSession.MetaGraph.Size())
+	// DumpGraph(rs.rdfSession.MetaGraph)
 	log.Printf("Asserted Graph Contains %d triples (go version):", rs.rdfSession.AssertedGraph.Size())
 	DumpGraph(rs.rdfSession.AssertedGraph)
 	log.Printf("Inferred Graph Contains %d triples (go version):", rs.rdfSession.InferredGraph.Size())

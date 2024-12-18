@@ -104,6 +104,21 @@ func (args *StartComputePipesArgs) StartShardingComputePipes(ctx context.Context
 	if err != nil {
 		return result, fmt.Errorf("while unmarshaling compute pipes json (StartShardingComputePipes): %s", err)
 	}
+	// Adjust ChannelSpec that have their columns specified by a jetrules class
+	for i := range cpConfig.Channels {
+		chSpec := &cpConfig.Channels[i]
+		if len(chSpec.ClassName) > 0 {
+			// Get the columns from the local workspace
+			columns, err := GetDomainProperties(chSpec.ClassName, chSpec.DirectPropertiesOnly)
+			if err != nil {
+				return result, fmt.Errorf("while getting domain properties for channel spec class name %s", chSpec.ClassName)
+			}
+			if len(chSpec.Columns) > 0 {
+				columns = append(columns, chSpec.Columns...)
+			}
+			chSpec.Columns = columns
+		}
+	}
 
 	log.Println("Start SHARDING", args.SessionId, "file_key:", args.FileKey)
 	// Update output table schema
