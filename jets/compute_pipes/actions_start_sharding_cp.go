@@ -547,6 +547,7 @@ func SelectActiveOutputTable(tableConfig []*TableSpec, pipeConfig []PipeSpec) ([
 func ValidatePipeSpecConfig(cpConfig *ComputePipesConfig, pipeConfig []PipeSpec) error {
 	for i := range pipeConfig {
 		pipeSpec := &pipeConfig[i]
+		// log.Printf("VALIDATE PIPESPEC %s\n", pipeSpec.Type)
 		switch pipeSpec.InputChannel.Type {
 		case "input":
 			if len(pipeSpec.InputChannel.Format) > 0 ||
@@ -579,10 +580,10 @@ func ValidatePipeSpecConfig(cpConfig *ComputePipesConfig, pipeConfig []PipeSpec)
 			}
 		}
 		for j := range pipeSpec.Apply {
-			var sp *SchemaProviderSpec
-			transformationConfig := &pipeConfig[i].Apply[j]
+			transformationConfig := &pipeSpec.Apply[j]
 			outputChConfig := &transformationConfig.OutputChannel
-			sp = getSchemaProvider(cpConfig.SchemaProviders, outputChConfig.SchemaProvider)
+			// log.Printf("VALIDATE PIPESPEC %s APPLY %s OUTPUT %s SP %s\n", pipeSpec.Type, transformationConfig.Type, transformationConfig.OutputChannel.Name, transformationConfig.OutputChannel.SchemaProvider)
+			sp := getSchemaProvider(cpConfig.SchemaProviders, outputChConfig.SchemaProvider)
 			// validate transformation pipe config
 			switch transformationConfig.Type {
 			case "partition_writer":
