@@ -106,6 +106,10 @@ func (ctx *lookupColumnTransformationEval) Update(output *[]interface{}, input *
 	if err != nil {
 		return fmt.Errorf("while fetching the lookup row: %v", err)
 	}
+	if row == nil {
+		// No match in the lookup
+		return nil
+	}
 	// Update the output row
 	for i := range ctx.valueEvaluator {
 		err = ctx.valueEvaluator[i].EvalValue(output, row)

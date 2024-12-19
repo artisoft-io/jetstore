@@ -269,8 +269,14 @@ func (ctx *BuilderContext) startSplitterChannelHandler(spec *PipeSpec, source *I
 		if evaluators[i] != nil {
 			err = evaluators[i].Done()
 			if err != nil {
-				log.Printf("while calling done on PipeTransformationEvaluator (in startSplitterChannelHandler): %v", err)
+				cpErr = fmt.Errorf("while calling done on PipeTransformationEvaluator (in startSplitterChannelHandler): %v", err)
+				log.Println(cpErr)
+				goto gotError
 			}
+		}
+	}
+	for i := range evaluators {
+		if evaluators[i] != nil {
 			evaluators[i].Finally()
 		}
 	}

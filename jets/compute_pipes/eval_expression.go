@@ -40,12 +40,7 @@ func (node *expressionSelectLeaf) eval(input *[]interface{}) (interface{}, error
 		return nil, fmt.Errorf("error expressionSelectLeaf index %d >= len(*input) %d", node.index, len(*input))
 	}
 	if node.rdfType != nil {
-		inputV, ok := (*input)[node.index].(string)
-		if !ok {
-			// humm, was expecting a string
-			inputV = fmt.Sprintf("%v", (*input)[node.index])
-		}
-		return CastToRdfType(inputV, *node.rdfType)
+		return CastToRdfType((*input)[node.index], *node.rdfType)
 	}
 	return (*input)[node.index], nil
 }
@@ -115,12 +110,7 @@ func (ctx *BuilderContext) buildExprNodeEvaluator(source *InputChannel, outCh *O
 				return nil, err
 			}
 			if spec.AsRdfType != nil {
-				valueStr, ok := value.(string)
-				if !ok {
-					// humm, was expecting a string
-					valueStr = fmt.Sprintf("%v", value)
-				}
-				value, err = CastToRdfType(valueStr, *spec.AsRdfType)
+				value, err = CastToRdfType(value, *spec.AsRdfType)
 			}
 			return &expressionValueLeaf{
 				value: value,
