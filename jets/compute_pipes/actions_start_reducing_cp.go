@@ -132,8 +132,8 @@ func (args *StartComputePipesArgs) StartReducingComputePipes(ctx context.Context
 	inputChannelConfig := &cpConfig.ReducingPipesConfig[stepId][0].InputChannel
 	inputChannelSP := getSchemaProvider(cpConfig.SchemaProviders, inputChannelConfig.SchemaProvider)
 	if inputChannelSP != nil {
-		if len(inputChannelSP.InputFormat) > 0 {
-			inputFormat = inputChannelSP.InputFormat
+		if len(inputChannelSP.Format) > 0 {
+			inputFormat = inputChannelSP.Format
 		}
 		if len(inputChannelSP.Compression) > 0 {
 			compression = inputChannelSP.Compression
@@ -285,7 +285,7 @@ func (args *StartComputePipesArgs) StartReducingComputePipes(ctx context.Context
 			SourcesConfig: SourcesConfigSpec{
 				MainInput: &InputSourceSpec{
 					InputColumns: inputColumns,
-					InputFormat:  inputFormat,
+					Format:       inputFormat,
 					Compression:  compression,
 					ClassName:    inputChannelConfig.ClassName,
 				},

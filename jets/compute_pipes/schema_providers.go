@@ -30,7 +30,7 @@ type SchemaProvider interface {
 		envSettings map[string]interface{}, isDebugMode bool) error
 	Key() string
 	SchemaName() string
-	InputFormat() string
+	Format() string
 	Compression() string
 	InputFormatDataJson() string
 	IsPartFiles() bool
@@ -93,7 +93,7 @@ func (sp *DefaultSchemaProvider) Initialize(_ *pgxpool.Pool, spec *SchemaProvide
 	if sp.spec.Compression == "" {
 		sp.spec.Compression = "none"
 	}
-	if spec.InputFormat == "fixed_width" {
+	if spec.Format == "fixed_width" {
 		return sp.initializeFixedWidthInfo()
 	}
 	if len(sp.spec.Columns) > 0 {
@@ -140,11 +140,11 @@ func (sp *DefaultSchemaProvider) SchemaName() string {
 	return sp.spec.SchemaName
 }
 
-func (sp *DefaultSchemaProvider) InputFormat() string {
+func (sp *DefaultSchemaProvider) Format() string {
 	if sp == nil {
 		return ""
 	}
-	return sp.spec.InputFormat
+	return sp.spec.Format
 }
 
 func (sp *DefaultSchemaProvider) Compression() string {

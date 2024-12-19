@@ -88,7 +88,7 @@ func (ctx *mapColumnEval) Done(currentValue *[]interface{}) error {
 	return nil
 }
 
-func (ctx *BuilderContext) BuildMapTCEvaluator(source *InputChannel, outCh *OutputChannel, 
+func (ctx *BuilderContext) BuildMapTCEvaluator(source *InputChannel, outCh *OutputChannel,
 	spec *TransformationColumnSpec) (TransformationColumnEvaluator, error) {
 
 	if spec == nil || spec.MapExpr == nil {
@@ -168,8 +168,20 @@ func (ctx *BuilderContext) BuildMapTCEvaluator(source *InputChannel, outCh *Outp
 // Utility function for casting to specified rdf type
 func CastToRdfType(input interface{}, rdfType string) (interface{}, error) {
 	if input == nil {
-		return nil, nil
+		switch rdfType {
+		case "string", "text":
+			return "", nil
+		case "int", "integer", "int64", "long", "bool":
+			return 0, nil
+		case "float64", "double":
+			return 0.0, nil
+		case "date", "datetime":
+			return nil, nil
+		default:
+			return nil, fmt.Errorf("error: unknown rdf_type %s while mapping column value", rdfType)
+		}
 	}
+
 	var inputV string
 	var inputArr []string
 	switch vv := input.(type) {
@@ -183,6 +195,7 @@ func CastToRdfType(input interface{}, rdfType string) (interface{}, error) {
 			return nil, nil
 		}
 		inputArr = vv
+
 	default:
 		// humm, expecting string or []string
 		inputV = fmt.Sprintf("%v", vv)
@@ -190,7 +203,6 @@ func CastToRdfType(input interface{}, rdfType string) (interface{}, error) {
 	switch rdfType {
 	case "string", "text":
 		return input, nil
-
 	case "int", "integer", "int64", "long":
 		if inputArr == nil {
 			return strconv.Atoi(inputV)

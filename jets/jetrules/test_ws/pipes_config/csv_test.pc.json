@@ -24,7 +24,7 @@
       "vendor": "test2",
       "object_type": "test2",
       "schema_name": "test2",
-      "input_format": "csv",
+      "format": "csv",
       "delimiter": ",",
       "compression": "none",
       "columns": [

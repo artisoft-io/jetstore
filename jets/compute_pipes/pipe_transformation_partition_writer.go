@@ -214,12 +214,6 @@ func (ctx *PartitionWriterTransformationPipe) Apply(input *[]interface{}) error 
 //
 // Not called if the process has error upstream (see pipe_executor_splitter.go)
 func (ctx *PartitionWriterTransformationPipe) Done() error {
-	// Flush the current partition
-	if ctx.currentDeviceCh != nil {
-		close(ctx.currentDeviceCh)
-		ctx.currentDeviceCh = nil
-		ctx.totalRowCount += ctx.partitionRowCount
-	}
 
 	// Write to db the jets_partition and nodeId of this partition w/ session_id
 	stmt := `INSERT INTO jetsapi.compute_pipes_partitions_registry 
@@ -231,12 +225,6 @@ func (ctx *PartitionWriterTransformationPipe) Done() error {
 		return fmt.Errorf("error inserting in jetsapi.compute_pipes_partitions_registry table: %v", err)
 	}
 
-	// Send the total row count to ctx.copy2DeviceResultCh
-	ctx.copy2DeviceResultCh <- ComputePipesResult{
-		TableName:    fmt.Sprintf("jets_partition=%s", ctx.jetsPartitionLabel),
-		CopyRowCount: ctx.totalRowCount,
-		PartsCount:   int64(ctx.filePartitionNumber),
-	}
 	return nil
 }
 
@@ -245,6 +233,19 @@ func (ctx *PartitionWriterTransformationPipe) Finally() {
 	if ctx == nil || ctx.s3DeviceManager == nil {
 		return
 	}
+	// Flush the current partition
+	if ctx.currentDeviceCh != nil {
+		close(ctx.currentDeviceCh)
+		ctx.currentDeviceCh = nil
+		ctx.totalRowCount += ctx.partitionRowCount
+	}
+	// Send the total row count to ctx.copy2DeviceResultCh
+	ctx.copy2DeviceResultCh <- ComputePipesResult{
+		TableName:    fmt.Sprintf("jets_partition=%s", ctx.jetsPartitionLabel),
+		CopyRowCount: ctx.totalRowCount,
+		PartsCount:   int64(ctx.filePartitionNumber),
+	}
+
 	// Indicate to S3DeviceManager that we're done using it
 	if ctx.s3DeviceManager.ClientsWg != nil {
 		ctx.s3DeviceManager.ClientsWg.Done()

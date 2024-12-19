@@ -5,7 +5,7 @@
   "vendor": "test1",
   "object_type": "test1",
   "schema_name": "test1",
-  "input_format": "fixed_width",
+  "format": "fixed_width",
   "compression": "none",
   "columns": [
     {"name": "first_name", "length": 25},

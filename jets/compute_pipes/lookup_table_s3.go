@@ -49,8 +49,8 @@ func NewLookupTableS3(_ *pgxpool.Pool, spec *LookupSpec, env map[string]interfac
 		if len(source.JetsPartitionLabel) == 0 {
 			source.JetsPartitionLabel = env["$JETS_PARTITION_LABEL"].(string)
 		}
-		if len(source.InputFormat) == 0 {
-			source.InputFormat = "headerless_csv"
+		if len(source.Format) == 0 {
+			source.Format = "headerless_csv"
 		}
 		if len(source.Compression) == 0 {
 			source.Compression = "snappy"
@@ -156,14 +156,14 @@ func (tbl *LookupTableS3) readCsvLookup(localFileName string) (int64, error) {
 	case "none":
 		csvReader = csv.NewReader(fileHd)
 		csvReader.Comma = sepFlag
-		if source.InputFormat == "csv" {
+		if source.Format == "csv" {
 			// skip header row (first row)
 			_, err = csvReader.Read()
 		}
 	case "snappy":
 		csvReader = csv.NewReader(snappy.NewReader(fileHd))
 		csvReader.Comma = sepFlag
-		if source.InputFormat == "csv" {
+		if source.Format == "csv" {
 			// skip header row (first row)
 			_, err = csvReader.Read()
 		}
