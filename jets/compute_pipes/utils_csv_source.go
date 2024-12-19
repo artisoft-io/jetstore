@@ -58,16 +58,23 @@ func NewCsvSourceS3(spec *CsvSourceSpec, env map[string]any) (*CsvSourceS3, erro
 		fileKeys, err := GetS3FileKeys(spec.ProcessName, spec.SessionId,
 			spec.ReadStepId, spec.JetsPartitionLabel)
 		if err != nil {
-			return nil, fmt.Errorf("failed to file keys for s3_csv_source of type cpipes: %v", err)
+			return nil, fmt.Errorf("failed to file keys for CsvSourceS3 of type cpipes: %v", err)
 		}
 		if len(fileKeys) == 0 {
+			if spec.MakeEmptyWhenNoFile {
+				return &CsvSourceS3{
+					fileKey: nil,
+					spec:    spec,
+					env:     env,
+				}, nil			
+			}
 			return nil, fmt.Errorf(
-				"error: no file keys found for s3_csv_lookup of type cpipes, ReadStepId: %s, JetPartitionLabel: %s",
+				"error: no file keys found for CsvSourceS3 of type cpipes, ReadStepId: %s, JetPartitionLabel: %s",
 				spec.ReadStepId, spec.JetsPartitionLabel)
 		}
 		fileKey = fileKeys[0]
 	default:
-		return nil, fmt.Errorf("error: unknown s3_csv_source type: %s", spec.Type)
+		return nil, fmt.Errorf("error: unknown CsvSourceS3 type: %s", spec.Type)
 	}
 	log.Printf("Got file key %s from s3 as csv source", fileKey.key)
 	return &CsvSourceS3{

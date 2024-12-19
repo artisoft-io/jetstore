@@ -91,20 +91,25 @@ type LookupSpec struct {
 }
 
 type CsvSourceSpec struct {
-	// This is used for lookup tables only
+	// This is used for lookup tables and loading metadata in jetrules.
+	// This is a single file source, the first file found is taken.
 	// Type range: cpipes, csv_file (future)
 	// Default values are taken from current pipeline
 	// Format: csv, headerless_csv
 	// Compression: none, snappy
-	Type               string `json:"type"`
-	Format             string `json:"format"`
-	Compression        string `json:"compression"`
-	Delimiter          string `json:"delimiter"`      // default ','
-	ProcessName        string `json:"process_name"`   // for cpipes
-	ReadStepId         string `json:"read_step_id"`   // for cpipes
-	JetsPartitionLabel string `json:"jets_partition"` // for cpipes
-	SessionId          string `json:"session_id"`     // for cpipes
-	ClassName          string `json:"class_name"`     // used by jetrules_config
+	// MakeEmptyWhenNoFile: Do not make an error when no files
+	// are found, make empty source. Default: generate an error when no files
+	// are found in s3.
+	Type                string `json:"type"`
+	Format              string `json:"format"`
+	Compression         string `json:"compression"`
+	Delimiter           string `json:"delimiter"`      // default ','
+	ProcessName         string `json:"process_name"`   // for cpipes
+	ReadStepId          string `json:"read_step_id"`   // for cpipes
+	JetsPartitionLabel  string `json:"jets_partition"` // for cpipes
+	SessionId           string `json:"session_id"`     // for cpipes
+	ClassName           string `json:"class_name"`     // used by jetrules_config
+	MakeEmptyWhenNoFile bool   `json:"make_empty_source_when_no_files_found"`
 }
 
 // ChannelSpec specifies the columns of a channel
