@@ -22,6 +22,8 @@ type LookupTable interface {
 	LookupValue(row *[]interface{}, columnName string) (interface{}, error)
 	// Returns the mapping between column name to pos in the returned row
 	ColumnMap() map[string]int
+	// Return true if the table is empty, ColumnMap is empty as well
+	IsEmptyTable() bool
 }
 
 func NewLookupTableManager(spec []*LookupSpec, envSettings map[string]interface{}, isVerbose bool) *LookupTableManager {

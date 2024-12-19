@@ -18,9 +18,10 @@ import (
 // data is the mapping of the looup key -> values
 // columnsMap is the mapping of the return column name -> position in the returned row (values)
 type LookupTableS3 struct {
-	spec       *LookupSpec
-	data       map[string]*[]interface{}
-	columnsMap map[string]int
+	spec         *LookupSpec
+	isEmptyTable bool
+	data         map[string]*[]interface{}
+	columnsMap   map[string]int
 }
 
 func NewLookupTableS3(_ *pgxpool.Pool, spec *LookupSpec, env map[string]interface{}, isVerbose bool) (LookupTable, error) {
@@ -33,43 +34,15 @@ func NewLookupTableS3(_ *pgxpool.Pool, spec *LookupSpec, env map[string]interfac
 		columnsMap: make(map[string]int),
 	}
 
-	var fileKey *FileKeyInfo
-	source := spec.CsvSource
-	switch source.Type {
-	case "cpipes":
-		if len(source.ReadStepId) == 0 {
-			return nil, fmt.Errorf("error: s3_csv_lookup of type cpipes must have read_step_id provided in cpipes config")
-		}
-		if len(source.ProcessName) == 0 {
-			source.ProcessName = env["$PROCESS_NAME"].(string)
-		}
-		if len(source.SessionId) == 0 {
-			source.SessionId = env["$SESSIONID"].(string)
-		}
-		if len(source.JetsPartitionLabel) == 0 {
-			source.JetsPartitionLabel = env["$JETS_PARTITION_LABEL"].(string)
-		}
-		if len(source.Format) == 0 {
-			source.Format = "headerless_csv"
-		}
-		if len(source.Compression) == 0 {
-			source.Compression = "snappy"
-		}
-		fileKeys, err := GetS3FileKeys(source.ProcessName, source.SessionId,
-			source.ReadStepId, source.JetsPartitionLabel)
-		if err != nil {
-			return nil, fmt.Errorf("failed to file keys for s3_csv_lookup of type cpipes: %v", err)
-		}
-		if len(fileKeys) == 0 {
-			return nil, fmt.Errorf(
-				"error: no file keys found for s3_csv_lookup of type cpipes, ReadStepId: %s, JetPartitionLabel: %s",
-				source.ReadStepId, source.JetsPartitionLabel)
-		}
-		fileKey = fileKeys[0]
-	default:
-		return nil, fmt.Errorf("error: unknown s3_csv_lookup type: %s", source.Type)
+	csvSource, err := NewCsvSourceS3(spec.CsvSource, env)
+	if err != nil {
+		return nil, fmt.Errorf("while calling NewCsvSourceS3 (NewLookupTableS3): %v", err)
 	}
-	log.Printf("Got file key %s from s3 as lookup table: %s", fileKey.key, spec.Key)
+	// Check if this is an empty source (no file found and spec indicates not to error out)
+	if csvSource.fileKey == nil {
+		tbl.isEmptyTable = true
+		return tbl, nil
+	}
 
 	// Create a local temp directory to hold the file
 	inFolderPath, err := os.MkdirTemp("", "jetstore")
@@ -81,7 +54,7 @@ func NewLookupTableS3(_ *pgxpool.Pool, spec *LookupSpec, env map[string]interfac
 	// Fetch the file from s3, save it locally
 	retry := 0
 do_retry:
-	inFilePath, _, err := DownloadS3Object(fileKey, inFolderPath, 1)
+	inFilePath, _, err := DownloadS3Object(csvSource.fileKey, inFolderPath, 1)
 	if err != nil {
 		if retry < 6 {
 			time.Sleep(500 * time.Millisecond)
@@ -106,10 +79,16 @@ func (tbl *LookupTableS3) Lookup(key *string) (*[]interface{}, error) {
 	if key == nil {
 		return nil, fmt.Errorf("error: cannot do a lookup with a null key for lookup table %s", tbl.spec.Key)
 	}
+	if tbl.isEmptyTable {
+		return nil, nil
+	}
 	return tbl.data[*key], nil
 }
 
 func (tbl *LookupTableS3) LookupValue(row *[]interface{}, columnName string) (interface{}, error) {
+	if tbl.isEmptyTable {
+		return nil, nil
+	}
 	pos, ok := tbl.columnsMap[columnName]
 	if !ok {
 		return nil, fmt.Errorf("error: column named %s is not a column returned by the lookup table %s",
@@ -120,6 +99,11 @@ func (tbl *LookupTableS3) LookupValue(row *[]interface{}, columnName string) (in
 
 func (tbl *LookupTableS3) ColumnMap() map[string]int {
 	return tbl.columnsMap
+}
+
+// Return true only if there was no files found on s3
+func (tbl *LookupTableS3) IsEmptyTable() bool {
+	return tbl.isEmptyTable
 }
 
 func (tbl *LookupTableS3) readCsvLookup(localFileName string) (int64, error) {
