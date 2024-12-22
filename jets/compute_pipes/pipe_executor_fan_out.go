@@ -42,6 +42,10 @@ func (ctx *BuilderContext) StartFanOutPipe(spec *PipeSpec, source *InputChannel,
 					oc[spec.Apply[i].JetrulesConfig.OutputChannels[j].Name] = true
 				}
 			}
+			if spec.Apply[i].Type == "clustering" {
+				// Get the output channels of clustering
+				oc[spec.Apply[i].ClusteringConfig.CorrelationOutputChannel.Name] = true
+			}
 		}
 		for name := range oc {
 			fmt.Println("**!@@ FanOutPipe: Closing Output Channel", name)

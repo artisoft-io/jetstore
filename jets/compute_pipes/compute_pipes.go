@@ -122,6 +122,11 @@ func (cpCtx *ComputePipesContext) StartComputePipes(dbpool *pgxpool.Pool, comput
 					outputChannel := &cpCtx.CpConfig.PipesConfig[i].Apply[j].JetrulesConfig.OutputChannels[k]
 					outputChannels = append(outputChannels, outputChannel)
 				}
+			case "clustering":
+				outputChannel := &cpCtx.CpConfig.PipesConfig[i].Apply[j].OutputChannel
+				outputChannels = append(outputChannels, outputChannel)
+				outputChannel = cpCtx.CpConfig.PipesConfig[i].Apply[j].ClusteringConfig.CorrelationOutputChannel
+				outputChannels = append(outputChannels, outputChannel)
 			default:
 				outputChannel := &cpCtx.CpConfig.PipesConfig[i].Apply[j].OutputChannel
 				outputChannels = append(outputChannels, outputChannel)
@@ -280,6 +285,7 @@ func (cpCtx *ComputePipesContext) StartComputePipes(dbpool *pgxpool.Pool, comput
 	close(cpCtx.ChResults.Copy2DbResultCh)
 	close(cpCtx.ChResults.WritePartitionsResultCh)
 	close(cpCtx.ChResults.JetrulesWorkerResultCh)
+	close(cpCtx.ChResults.ClusteringResultCh)
 	return
 
 gotError:
@@ -289,6 +295,7 @@ gotError:
 	close(cpCtx.ChResults.Copy2DbResultCh)
 	close(cpCtx.ChResults.WritePartitionsResultCh)
 	close(cpCtx.ChResults.JetrulesWorkerResultCh)
+	close(cpCtx.ChResults.ClusteringResultCh)
 	if cpCtx.S3DeviceMgr == nil {
 		// Got error before the s3 device manager was created, close the chan manually
 		close(cpCtx.ChResults.S3PutObjectResultCh)

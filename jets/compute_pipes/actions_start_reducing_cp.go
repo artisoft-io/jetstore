@@ -72,7 +72,9 @@ func (args *StartComputePipesArgs) StartReducingComputePipes(ctx context.Context
 			// Get the columns from the local workspace
 			columns, err := GetDomainProperties(chSpec.ClassName, chSpec.DirectPropertiesOnly)
 			if err != nil {
-				return result, fmt.Errorf("while getting domain properties for channel spec class name %s", chSpec.ClassName)
+				return result, fmt.Errorf(
+					"while getting domain properties for channel spec class name %s: %v (does workspace_control.json needs to be updated?)",
+					chSpec.ClassName, err)
 			}
 			if len(chSpec.Columns) > 0 {
 				columns = append(columns, chSpec.Columns...)

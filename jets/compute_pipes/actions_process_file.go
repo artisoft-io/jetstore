@@ -22,8 +22,8 @@ func (cpCtx *ComputePipesContext) ProcessFilesAndReportStatus(ctx context.Contex
 		WritePartitionsResultCh: make(chan chan ComputePipesResult, 10),
 		S3PutObjectResultCh:     make(chan ComputePipesResult, 1),
 		JetrulesWorkerResultCh:  make(chan chan JetrulesWorkerResult, 99),
+		ClusteringResultCh:      make(chan chan ClusteringResult, 99),
 	}
-
 
 	key, err := cpCtx.InsertPipelineExecutionStatus(dbpool)
 	if err != nil {
@@ -42,6 +42,7 @@ func (cpCtx *ComputePipesContext) ProcessFilesAndReportStatus(ctx context.Contex
 		close(cpCtx.ChResults.WritePartitionsResultCh)
 		close(cpCtx.ChResults.S3PutObjectResultCh)
 		close(cpCtx.ChResults.JetrulesWorkerResultCh)
+		close(cpCtx.ChResults.ClusteringResultCh)
 		err = cpCtx.StartMergeFiles(dbpool)
 	} else {
 		err = cpCtx.LoadFiles(ctx, dbpool)
@@ -102,8 +103,8 @@ func (cpCtx *ComputePipesContext) ProcessFilesAndReportStatus(ctx context.Contex
 			}
 		}
 	}
-	// log.Println("** CHECKING jetrules results from JetrulesWorkerResultCh")
 	
+	// log.Println("** CHECKING jetrules results from JetrulesWorkerResultCh")
 	// get jetrules results from JetrulesWorkerResultCh
 	var reteSessionCount int64
 	var reteSessionErrors int64
@@ -117,11 +118,25 @@ func (cpCtx *ComputePipesContext) ProcessFilesAndReportStatus(ctx context.Contex
 					err = jrResults.Err
 				}
 			}
-		}	
+		}
 	}
 	if reteSessionErrors > 0 {
-		log.Printf("WARNING: rete session got %d data errors", reteSessionErrors)
+		log.Printf("WARNING: rete session got %d data errors\n", reteSessionErrors)
 	}
+
+	log.Println("** CHECKING clustering results from ClusteringResultCh")
+	// get clustering results from ClusteringResultCh
+	for clusteringResultCh := range cpCtx.ChResults.ClusteringResultCh {
+		for clusteringResult := range clusteringResultCh {
+			if clusteringResult.Err != nil {
+				processingErrors = append(processingErrors, clusteringResult.Err.Error())
+				if err == nil {
+					err = clusteringResult.Err
+				}
+			}
+		}
+	}
+	log.Println("** CHECKING clustering results DONE :: err?", err)
 
 	// log.Println("**!@@ CP RESULT = Copy2DbResultCh:")
 	var outputRowCount int64
@@ -195,7 +210,7 @@ func (cpCtx *ComputePipesContext) ProcessFilesAndReportStatus(ctx context.Contex
 		// saveResultsCtx.Save("CP Errors", r)
 		processingErrors = append(processingErrors, fmt.Sprintf("got error from Compute Pipes processing: %v", cpErr))
 	}
-	
+
 	// registering the load
 	// ---------------------------------------
 	var status string
@@ -241,7 +256,7 @@ func (cpCtx *ComputePipesContext) InsertPipelineExecutionStatus(dbpool *pgxpool.
 	}
 	return key, nil
 }
-func (cpCtx *ComputePipesContext) UpdatePipelineExecutionStatus(dbpool *pgxpool.Pool, key int, inputRowCount, 
+func (cpCtx *ComputePipesContext) UpdatePipelineExecutionStatus(dbpool *pgxpool.Pool, key int, inputRowCount,
 	totalFilesSizeMb, inputFilesCount, reteSessionCount, outputRowCount int,
 	cpipesStepId, status, errMessage string) error {
 	// log.Printf("Updating status '%s' to pipeline_execution_details table", status)

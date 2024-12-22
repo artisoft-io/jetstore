@@ -50,9 +50,13 @@ func (ctx *JrPoolWorker) DoWork(mgr *JrPoolManager, resultCh chan JetrulesWorker
 		}
 		count += 1
 	}
-	resultCh <- JetrulesWorkerResult{
+	select {
+	case resultCh <- JetrulesWorkerResult{
 		ReteSessionCount: count,
 		ErrorsCount:      errCount,
+	}:
+	case <-ctx.done:
+		log.Println("jetrules pool worker interrupted")
 	}
 }
 
