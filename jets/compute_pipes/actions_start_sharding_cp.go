@@ -483,30 +483,48 @@ func SelectActiveLookupTable(lookupConfig []*LookupSpec, pipeConfig []PipeSpec) 
 					activeTables = append(activeTables, spec)
 				}
 			}
-			// Check for Analyze transformation using lookup tables
-			if transformationSpec.AnalyzeConfig != nil && transformationSpec.AnalyzeConfig.LookupTokens != nil {
-				for k := range transformationSpec.AnalyzeConfig.LookupTokens {
-					lookupTokenNode := &transformationSpec.AnalyzeConfig.LookupTokens[k]
-					spec := lookupMap[lookupTokenNode.Name]
-					if spec == nil {
-						return nil,
-							fmt.Errorf(
-								"error: lookup table '%s' is not defined, please verify the column transformation", lookupTokenNode.Name)
+			switch transformationSpec.Type {
+			case "analyze":
+				// Check for Analyze transformation using lookup tables
+				if transformationSpec.AnalyzeConfig != nil && transformationSpec.AnalyzeConfig.LookupTokens != nil {
+					for k := range transformationSpec.AnalyzeConfig.LookupTokens {
+						lookupTokenNode := &transformationSpec.AnalyzeConfig.LookupTokens[k]
+						spec := lookupMap[lookupTokenNode.Name]
+						if spec == nil {
+							return nil,
+								fmt.Errorf(
+									"error: lookup table '%s' is not defined, please verify the column transformation", lookupTokenNode.Name)
+						}
+						activeTables = append(activeTables, spec)
 					}
-					activeTables = append(activeTables, spec)
 				}
-			}
-			// Check for Anonymize transformation using lookup tables
-			if transformationSpec.AnonymizeConfig != nil {
-				name := transformationSpec.AnonymizeConfig.LookupName
-				if len(name) > 0 {
-					spec := lookupMap[name]
-					if spec == nil {
-						return nil,
-							fmt.Errorf(
-								"error: lookup table '%s' used by anonymize operator is not defined, please verify the configuration", name)
+			case "anonymize":
+				// Check for Anonymize transformation using lookup tables
+				if transformationSpec.AnonymizeConfig != nil {
+					name := transformationSpec.AnonymizeConfig.LookupName
+					if len(name) > 0 {
+						spec := lookupMap[name]
+						if spec == nil {
+							return nil,
+								fmt.Errorf(
+									"error: lookup table '%s' used by anonymize operator is not defined, please verify the configuration", name)
+						}
+						activeTables = append(activeTables, spec)
 					}
-					activeTables = append(activeTables, spec)
+				}
+			case "clustering":
+				// Check for Clustering transformation using lookup tables
+				if transformationSpec.ClusteringConfig != nil {
+					name := transformationSpec.ClusteringConfig.TargetColumnsLookup.LookupName
+					if len(name) > 0 {
+						spec := lookupMap[name]
+						if spec == nil {
+							return nil,
+								fmt.Errorf(
+									"error: lookup table '%s' used by clustering operator is not defined, please verify the configuration", name)
+						}
+						activeTables = append(activeTables, spec)
+					}
 				}
 			}
 		}
@@ -646,6 +664,17 @@ func ValidatePipeSpecConfig(cpConfig *ComputePipesConfig, pipeConfig []PipeSpec)
 					if err != nil {
 						return err
 					}
+				}
+			case "clustering":
+				if transformationConfig.ClusteringConfig == nil ||
+					transformationConfig.ClusteringConfig.CorrelationOutputChannel == nil {
+					return fmt.Errorf(
+						"error: cpipes config is missing clustering_config or correlation_output_channel for clustering operator")
+				}
+				outCh := transformationConfig.ClusteringConfig.CorrelationOutputChannel
+				err := validateOutputChConfig(outCh, getSchemaProvider(cpConfig.SchemaProviders, outCh.SchemaProvider))
+				if err != nil {
+					return err
 				}
 			}
 			err := validateOutputChConfig(outputChConfig, sp)

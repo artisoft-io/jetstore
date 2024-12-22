@@ -122,6 +122,11 @@ func (cpCtx *ComputePipesContext) StartComputePipes(dbpool *pgxpool.Pool, comput
 					outputChannel := &cpCtx.CpConfig.PipesConfig[i].Apply[j].JetrulesConfig.OutputChannels[k]
 					outputChannels = append(outputChannels, outputChannel)
 				}
+			case "clustering":
+				outputChannel := &cpCtx.CpConfig.PipesConfig[i].Apply[j].OutputChannel
+				outputChannels = append(outputChannels, outputChannel)
+				outputChannel = cpCtx.CpConfig.PipesConfig[i].Apply[j].ClusteringConfig.CorrelationOutputChannel
+				outputChannels = append(outputChannels, outputChannel)
 			default:
 				outputChannel := &cpCtx.CpConfig.PipesConfig[i].Apply[j].OutputChannel
 				outputChannels = append(outputChannels, outputChannel)

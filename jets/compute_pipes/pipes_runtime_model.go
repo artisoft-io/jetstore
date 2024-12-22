@@ -239,6 +239,9 @@ func (ctx *BuilderContext) BuildPipeTransformationEvaluator(source *InputChannel
 	case "anonymize":
 		return ctx.NewAnonymizeTransformationPipe(source, outCh, spec)
 
+	case "clustering":
+		return ctx.NewClusteringTransformationPipe(source, outCh, spec)
+
 	case "high_freq":
 		return ctx.NewHighFreqTransformationPipe(source, outCh, spec)
 

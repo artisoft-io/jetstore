@@ -18,7 +18,7 @@ import (
 //	"column_name",
 //	"column_pos",
 //	"distinct_count",
-//	"distinct_count_pct",
+//	"total_non_null_count",
 //	"null_count",
 //	"null_count_pct",
 //	"total_count",
@@ -90,7 +90,7 @@ func (ctx *AnalyzeTransformationPipe) Done() error {
 		if ok {
 			outputRow[ipos] = distinctCount
 		}
-		ipos, ok = ctx.outputCh.columns["distinct_count_pct"]
+		ipos, ok = ctx.outputCh.columns["total_non_null_count"]
 		if ok {
 			if ratioFactor > 0 {
 				outputRow[ipos] = float64(distinctCount) * ratioFactor

@@ -98,9 +98,9 @@ func (ctx *BuilderContext) NewClusteringTransformationPipe(source *InputChannel,
 	if !ok {
 		return nil, fmt.Errorf("error: the clustering operator's correlation_output_channel is missing column 'distinct_count'")
 	}
-	_, ok = correlationOutputCh.columns["distinct_count_pct"]
+	_, ok = correlationOutputCh.columns["total_non_null_count"]
 	if !ok {
-		return nil, fmt.Errorf("error: the clustering operator's correlation_output_channel is missing column 'distinct_count_pct'")
+		return nil, fmt.Errorf("error: the clustering operator's correlation_output_channel is missing column 'total_non_null_count'")
 	}
 
 	// Setup a worker pool
