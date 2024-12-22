@@ -236,7 +236,7 @@ type SplitterSpec struct {
 
 type TransformationSpec struct {
 	// Type range: map_record, aggregate, analyze, high_freq, partition_writer,
-	//	anonymize, distinct, shuffling, group_by, filter, jetrules
+	//	anonymize, distinct, shuffling, group_by, filter, jetrules, clustering
 	// DeviceWriterType range: csv_writer, parquet_writer, fixed_width_writer
 	// Format takes precedence over SchemaProvider's Format (from OutputChannelConfig)
 	Type                  string                     `json:"type"`
@@ -252,6 +252,7 @@ type TransformationSpec struct {
 	GroupByConfig         *GroupBySpec               `json:"group_by_config"`
 	FilterConfig          *FilterSpec                `json:"filter_config"`
 	JetrulesConfig        *JetrulesSpec              `json:"jetrules_config"`
+	ClusteringConfig      *ClusteringSpec            `json:"clustering_config"`
 	OutputChannel         OutputChannelConfig        `json:"output_channel"`
 }
 
@@ -424,6 +425,24 @@ type JetrulesSpec struct {
 	MetadataInputSources    []CsvSourceSpec       `json:"metadata_input_sources"`
 	IsDebug                 bool                  `json:"is_debug"`
 	OutputChannels          []OutputChannelConfig `json:"output_channels"`
+}
+
+// If is_debug is true, correlation results are forwarded to s3 otherwise
+// the correlation_output_channel is only used to specify the intermediate
+// channels between the pool manager and the workers.
+type ClusteringSpec struct {
+	MaxInputCount            int                     `json:"max_input_count"`
+  CorrelationThresholdPct  int                     `json:"correlation_threshold_pct"`
+	TargetColumnsLookup      TargetColumnsLookupSpec `json:"target_columns_lookup"`
+	IsDebug                  bool                    `json:"is_debug"`
+	CorrelationOutputChannel *OutputChannelConfig    `json:"correlation_output_channel"`
+}
+
+type TargetColumnsLookupSpec struct {
+	LookupName                  string   `json:"lookup_name"`
+	DataClassificationColumn    string   `json:"data_classification_column"`
+	Column1ClassificationValues []string `json:"column1_classification_values"`
+	Column2ClassificationValues []string `json:"column2_classification_values"`
 }
 
 type TransformationColumnSpec struct {
