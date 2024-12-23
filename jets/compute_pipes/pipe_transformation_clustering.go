@@ -102,6 +102,10 @@ func (ctx *BuilderContext) NewClusteringTransformationPipe(source *InputChannel,
 	if !ok {
 		return nil, fmt.Errorf("error: the clustering operator's correlation_output_channel is missing column 'total_non_null_count'")
 	}
+	if config.MinNonNilCount < 2 {
+		log.Printf("WARNING: clustering_config with min_non_null_count < 2, defaulting to 2")
+		config.MinNonNilCount = 2
+	}
 
 	// Setup a worker pool
 	var poolManager *ClusteringPoolManager
