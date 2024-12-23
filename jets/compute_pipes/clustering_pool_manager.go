@@ -213,14 +213,6 @@ func (ctx *BuilderContext) NewClusteringPoolManager(config *ClusteringSpec,
 		// Use this variable as an accumulator to reduce all column1_value
 		columnCorrelationAccumulator := make(map[string]*columnCorrelation)
 		for correlationresult := range poolMgr.distributionResultCh {
-			if poolMgr.config.IsDebug {
-				// Send the correlation result to the output channel so it makes it's way to s3
-				select {
-				case poolMgr.correlationOutputCh.channel <- correlationresult:
-				case <-ctx.done:
-					log.Println("Clustering Pool Manager interrupted")
-				}
-			}
 			// save the result so it can be used to determine the clusters
 			key := fmt.Sprintf("%v__%v", correlationresult[col1Pos], correlationresult[col2Pos])
 			cc := columnCorrelationAccumulator[key]
@@ -245,6 +237,17 @@ func (ctx *BuilderContext) NewClusteringPoolManager(config *ClusteringSpec,
 			poolMgr.columnsCorrelation[column1][column2] = correlationPct
 			if config.IsDebug {
 				log.Printf("COLUMN CORRELATION: %s -> %s: %v  (%v, %v)\n", cc.column1, cc.column2, correlationPct, cc.distinctCount, cc.totalNonNilCount)
+			}
+			// Send the correlation result to the output channel so it makes it's way to s3
+			correlationresult := make([]any, len(poolMgr.correlationOutputCh.config.Columns))
+			correlationresult[col1Pos] = cc.column1
+			correlationresult[col2Pos] = cc.column2
+			correlationresult[countPos] = cc.distinctCount
+			correlationresult[totalNonNilPos] = cc.totalNonNilCount
+			select {
+			case poolMgr.correlationOutputCh.channel <- correlationresult:
+			case <-ctx.done:
+				log.Println("Clustering Pool Manager interrupted")
 			}
 		}
 
