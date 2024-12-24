@@ -430,12 +430,18 @@ type JetrulesSpec struct {
 // If is_debug is true, correlation results are forwarded to s3 otherwise
 // the correlation_output_channel is only used to specify the intermediate
 // channels between the pool manager and the workers.
+// MinNonNilCount is the min nbr of records for a worker to report the correlation.
+// ClusterDataSubclassification contains data_classification values, when found in a
+// cluster all columns member of the cluster get that value as data_subclassification.
 type ClusteringSpec struct {
-	MaxInputCount            int                     `json:"max_input_count"`
-  CorrelationThresholdPct  int                     `json:"correlation_threshold_pct"`
-	TargetColumnsLookup      TargetColumnsLookupSpec `json:"target_columns_lookup"`
-	IsDebug                  bool                    `json:"is_debug"`
-	CorrelationOutputChannel *OutputChannelConfig    `json:"correlation_output_channel"`
+	MaxInputCount                 int                     `json:"max_input_count"`
+	MinNonNilCount                int                     `json:"min_non_null_count"`
+	CorrelationThresholdPct       int                     `json:"correlation_threshold_pct"`
+	MaxAvrCorrelationThresholdPct int                     `json:"max_avr_correlation_threshold_pct"`
+	TargetColumnsLookup           TargetColumnsLookupSpec `json:"target_columns_lookup"`
+	ClusterDataSubclassification  []string                `json:"cluster_data_subclassification"`
+	IsDebug                       bool                    `json:"is_debug"`
+	CorrelationOutputChannel      *OutputChannelConfig    `json:"correlation_output_channel"`
 }
 
 type TargetColumnsLookupSpec struct {

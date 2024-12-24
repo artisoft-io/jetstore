@@ -56,7 +56,7 @@ func (ctx *ClusteringWorker) DoWork(inputCh <-chan []any, outputCh chan<- []any,
 	}
 	// done, send the result out
 	for _, evaluator := range ctx.correlationEvaluators {
-		if evaluator.nonNilCount > 2 {
+		if evaluator.nonNilCount > ctx.config.MinNonNilCount {
 			result := make([]any, len(ctx.outputChannel.config.Columns))
 			result[ctx.outputChannel.columns["column_name_1"]] = *ctx.column1
 			result[ctx.outputChannel.columns["column1_value"]] = ctx.column1Value

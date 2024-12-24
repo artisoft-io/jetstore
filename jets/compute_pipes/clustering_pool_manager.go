@@ -23,6 +23,7 @@ type ClusteringPoolManager struct {
 	distributors         []*ClusteringDistributor
 	distributionResultCh chan []any
 	columnsCorrelation   [][]float64
+	analysisLookup       LookupTable
 	correlationOutputCh  *OutputChannel
 	poolWg               *sync.WaitGroup
 	WaitForDone          *sync.WaitGroup
@@ -45,6 +46,13 @@ func (ctx *BuilderContext) NewClusteringPoolManager(config *ClusteringSpec,
 		}
 	}()
 	log.Println("Starting the Clustering Pool Manager")
+	targetConfig := &config.TargetColumnsLookup
+	analysisLookup := ctx.lookupTableManager.LookupTableMap[targetConfig.LookupName]
+	if analysisLookup == nil {
+		err = fmt.Errorf("error: clustering operator lookup table %s is not found", targetConfig.LookupName)
+		return
+	}
+
 	// Create the pool manager
 	poolMgr = &ClusteringPoolManager{
 		config:               config,
@@ -52,21 +60,16 @@ func (ctx *BuilderContext) NewClusteringPoolManager(config *ClusteringSpec,
 		distributors:         make([]*ClusteringDistributor, 0),
 		distributionResultCh: make(chan []any, 100),
 		correlationOutputCh:  correlationOutputCh,
+		analysisLookup:       analysisLookup,
 		poolWg:               new(sync.WaitGroup),
 		WaitForDone:          new(sync.WaitGroup),
 	}
 
 	// Identify the columns that match column1 and column2 criteria
-	targetConfig := &config.TargetColumnsLookup
 	columns1 := make([]string, 0)
 	columns2 := make([]string, 0)
 	columns1Pos := make(map[string]int)
 	columns2Pos := make(map[string]int)
-	analysisLookup := ctx.lookupTableManager.LookupTableMap[targetConfig.LookupName]
-	if analysisLookup == nil {
-		err = fmt.Errorf("error: clustering operator lookup table %s is not found", targetConfig.LookupName)
-		return
-	}
 	tag1map := make(map[any]bool)
 	tag2map := make(map[any]bool)
 	for _, tag := range targetConfig.Column1ClassificationValues {
@@ -148,11 +151,18 @@ func (ctx *BuilderContext) NewClusteringPoolManager(config *ClusteringSpec,
 	// Set up all the workers, use a wait group to track when they are all done
 	// to close workersResultCh
 	// Clustering algo:
-	// For each column with column1_classification_values compute the correlation
-	// with the columns with column2_classification_values.
-	// The correlation is calculated for each unique non nil value of column1 as
-	//    100 * (nbr_distinct_value / total_non_nil_values)
-	// Lower is the ratio, more correlated is column1 with column2.
+	//   - For each column with column1_classification_values compute the correlation
+	//     with the columns having column2_classification_values.
+	//   - The correlation is calculated for aggregated value of column1 as
+	//        100 * (nbr_distinct_value / total_non_nil_values)
+	//     Lower is the ratio, more correlated is column1 with column2.
+	//   - The clustering status is calculated as:
+	//		   - When all clusters are of size 1 (single member): invalid
+	//       - When the average of all correlation values > max_avr_correlation_threshold_pct: invalid
+	//       - Otherwise: valid
+	//   - When a cluster contains a node with a data_classification contained in
+	//     cluster_data_subclassification then each node of the cluster get that
+	//     node classification as
 	go func() {
 		if config.IsDebug {
 			log.Println("Starting the clustering Worker Pool")
@@ -213,14 +223,6 @@ func (ctx *BuilderContext) NewClusteringPoolManager(config *ClusteringSpec,
 		// Use this variable as an accumulator to reduce all column1_value
 		columnCorrelationAccumulator := make(map[string]*columnCorrelation)
 		for correlationresult := range poolMgr.distributionResultCh {
-			if poolMgr.config.IsDebug {
-				// Send the correlation result to the output channel so it makes it's way to s3
-				select {
-				case poolMgr.correlationOutputCh.channel <- correlationresult:
-				case <-ctx.done:
-					log.Println("Clustering Pool Manager interrupted")
-				}
-			}
 			// save the result so it can be used to determine the clusters
 			key := fmt.Sprintf("%v__%v", correlationresult[col1Pos], correlationresult[col2Pos])
 			cc := columnCorrelationAccumulator[key]
@@ -238,18 +240,45 @@ func (ctx *BuilderContext) NewClusteringPoolManager(config *ClusteringSpec,
 			}
 		}
 		// Determine the column correlation
+		var avrCorrelationPct float64
+		var nbrVariables int
 		for _, cc := range columnCorrelationAccumulator {
 			column1 := columns1Pos[cc.column1]
 			column2 := columns2Pos[cc.column2]
 			correlationPct := 100 * float64(cc.distinctCount) / float64(cc.totalNonNilCount)
+			avrCorrelationPct += correlationPct
+			nbrVariables += 1
 			poolMgr.columnsCorrelation[column1][column2] = correlationPct
 			if config.IsDebug {
 				log.Printf("COLUMN CORRELATION: %s -> %s: %v  (%v, %v)\n", cc.column1, cc.column2, correlationPct, cc.distinctCount, cc.totalNonNilCount)
 			}
+			// Send the correlation result to the output channel so it makes it's way to s3
+			correlationresult := make([]any, len(poolMgr.correlationOutputCh.config.Columns))
+			correlationresult[col1Pos] = cc.column1
+			correlationresult[col2Pos] = cc.column2
+			correlationresult[countPos] = cc.distinctCount
+			correlationresult[totalNonNilPos] = cc.totalNonNilCount
+			select {
+			case poolMgr.correlationOutputCh.channel <- correlationresult:
+			case <-ctx.done:
+				log.Println("Clustering Pool Manager interrupted")
+			}
+		}
+		avrCorrelationPct /= float64(nbrVariables)
+		clusterStatus := "valid"
+		if int(avrCorrelationPct+0.5) > config.MaxAvrCorrelationThresholdPct {
+			log.Printf("Clustering algo failure: avr correlation is %v, exceeding max thresold of %v",
+				avrCorrelationPct, config.MaxAvrCorrelationThresholdPct)
+			clusterStatus = "invalid"
+		} else {
+			if config.IsDebug {
+				log.Printf("Clustering algo: avr correlation is %v, below max thresold of %v",
+					avrCorrelationPct, config.MaxAvrCorrelationThresholdPct)
+			}
 		}
 
 		if config.IsDebug {
-			log.Println("POOL MANAGER - Determine the clusters")
+			log.Println("POOL MANAGER - Determine the clusters, clustering status:", clusterStatus)
 		}
 		// Determine the clusters
 		threshold := float64(config.CorrelationThresholdPct)
@@ -283,17 +312,67 @@ func (ctx *BuilderContext) NewClusteringPoolManager(config *ClusteringSpec,
 			// Add cluster into the set of clusters
 			clusters = append(clusters, cluster)
 		}
+		// Validate the cluster structure, make sure the clustering did not breakdown
+		maxMembership := 0
+		for _, cluster := range clusters {
+			c := len(cluster)
+			if c > maxMembership {
+				maxMembership = c
+			}
+		}
+		if maxMembership == 1 {
+			log.Println("Clustering algo failure: all cluster are of size 1")
+			clusterStatus = "invalid"
+		}
 		// Send out the cluster information
+		var subClassification string
 		for i, cluster := range clusters {
 			label := fmt.Sprintf("cluster%d", i)
+			// Determine cluster member's subclassification
+			subClassification = ""
+			if clusterStatus == "valid" {
+				columnClassificationMap := make(map[string]string)
+				for _, tag := range config.ClusterDataSubclassification {
+					for column, b := range cluster {
+						if b {
+							row, err := poolMgr.analysisLookup.Lookup(&column)
+							if err == nil {
+								dc, err := poolMgr.analysisLookup.LookupValue(row, poolMgr.config.TargetColumnsLookup.DataClassificationColumn)
+								if err == nil {
+									dataClassification, ok := dc.(string)
+									if ok {
+										if dataClassification == tag {
+											subClassification = tag
+											goto subclassificationDone
+										}
+										columnClassificationMap[column] = dataClassification
+									}
+								} else {
+									log.Printf("WARNING: ignoring error while calling clustering lookup value for key %s: %v\n", column, err)
+								}
+							} else {
+								log.Printf("WARNING: ignoring error while calling clustering lookup with key %s: %v\n", column, err)
+							}
+						}
+					}
+				}
+			}
+		subclassificationDone:
 			for column, b := range cluster {
 				if b {
-					row := make([]any, 2)
-					row[0] = label
-					row[1] = column
+					row := make([]any, len(outputCh.config.Columns))
+					row[outputCh.columns["cluster_id"]] = label
+					row[outputCh.columns["column_name"]] = column
+					row[outputCh.columns["status"]] = clusterStatus
+					if len(subClassification) == 0 && len(cluster) == 1 {
+						row[outputCh.columns["data_subclassification"]] = "__SOLO__"
+					} else {
+						row[outputCh.columns["data_subclassification"]] = subClassification
+					}
 					// Send the cluster membership to output channel
 					if config.IsDebug {
-						log.Printf("Cluster '%s', member: '%s'\n", label, column)
+						log.Printf("Cluster '%s' (%s), member: '%s', subsclassification: '%s'\n", label, clusterStatus,
+							column, subClassification)
 					}
 					select {
 					case outputCh.channel <- row:
