@@ -118,12 +118,6 @@ func (tbl *LookupTableS3) readCsvLookup(localFileName string) (int64, error) {
 		fileHd.Close()
 	}()
 
-	// keep track of the column name and their pos in the returned csv row
-	csvColumnsPos := make(map[string]int)
-	for i := range tbl.spec.Columns {
-		csvColumnsPos[tbl.spec.Columns[i].Name] = i
-	}
-
 	// Keep a mapping of the returned column names to their position in the returned row
 	for i, valueColumn := range tbl.spec.LookupValues {
 		tbl.columnsMap[valueColumn] = i
@@ -140,29 +134,55 @@ func (tbl *LookupTableS3) readCsvLookup(localFileName string) (int64, error) {
 	case "none":
 		csvReader = csv.NewReader(fileHd)
 		csvReader.Comma = sepFlag
-		if source.Format == "csv" {
-			// skip header row (first row)
-			_, err = csvReader.Read()
-		}
 	case "snappy":
 		csvReader = csv.NewReader(snappy.NewReader(fileHd))
 		csvReader.Comma = sepFlag
-		if source.Format == "csv" {
-			// skip header row (first row)
-			_, err = csvReader.Read()
-		}
 	default:
 		return 0, fmt.Errorf("error: unknown compression in readCsvLookup: %s", source.Compression)
 	}
 
-	if err == io.EOF {
-		// empty file
-		return 0, nil
-	}
-	if err != nil {
-		return 0, fmt.Errorf("error while reading first input records in readCsvLookup: %v", err)
+	if source.Format == "csv" {
+		// Make a lookup of the current column spec
+		overrides := make(map[string]*TableColumnSpec)
+		for i := range tbl.spec.Columns {
+			tblSpec := &tbl.spec.Columns[i]
+			overrides[tblSpec.Name] = tblSpec
+		}
+		// get the header row (first row)
+		headers, err := csvReader.Read()
+		if err != nil {
+			if err == io.EOF {
+				// empty file
+				return 0, nil
+			}
+			return 0, fmt.Errorf("while in reading the header row in readCsvLookup: %v", err)
+		}
+		columns := make([]TableColumnSpec, 0, len(headers))
+		for _, h := range headers {
+			override := overrides[h]
+			rdfType := "text"
+			isArray := false
+			if override != nil {
+				rdfType = override.RdfType
+				isArray = override.IsArray
+			}
+			columns = append(columns, TableColumnSpec{
+				Name:    h,
+				RdfType: rdfType,
+				IsArray: isArray,
+			})
+		}
+		// set the column spec
+		tbl.spec.Columns = columns
 	}
 
+	// keep track of the column name and their pos in the returned csv row
+	csvColumnsPos := make(map[string]int)
+	for i := range tbl.spec.Columns {
+		csvColumnsPos[tbl.spec.Columns[i].Name] = i
+	}
+	
+	// Read the file
 	var inputRowCount int64
 	var inRow []string
 	keys := make([]string, len(tbl.spec.LookupKey))

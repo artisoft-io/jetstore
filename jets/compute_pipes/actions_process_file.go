@@ -124,7 +124,7 @@ func (cpCtx *ComputePipesContext) ProcessFilesAndReportStatus(ctx context.Contex
 		log.Printf("WARNING: rete session got %d data errors\n", reteSessionErrors)
 	}
 
-	log.Println("** CHECKING clustering results from ClusteringResultCh")
+	// log.Println("** CHECKING clustering results from ClusteringResultCh")
 	// get clustering results from ClusteringResultCh
 	for clusteringResultCh := range cpCtx.ChResults.ClusteringResultCh {
 		for clusteringResult := range clusteringResultCh {
@@ -136,7 +136,7 @@ func (cpCtx *ComputePipesContext) ProcessFilesAndReportStatus(ctx context.Contex
 			}
 		}
 	}
-	log.Println("** CHECKING clustering results DONE :: err?", err)
+	// log.Println("** CHECKING clustering results DONE :: err?", err)
 
 	// log.Println("**!@@ CP RESULT = Copy2DbResultCh:")
 	var outputRowCount int64

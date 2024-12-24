@@ -74,6 +74,10 @@ func (ctx *BuilderContext) NewClusteringTransformationPipe(source *InputChannel,
 		len(config.TargetColumnsLookup.Column2ClassificationValues) == 0 {
 		return nil, fmt.Errorf("error: clustering_config is missing lookup_name and/or data_classification_column or values")
 	}
+	if config.MaxAvrCorrelationThresholdPct == 0 {
+		log.Println("WARNING: clustering_config has no value for max_avr_correlation_threshold_pct, setting to 50")
+		config.MaxAvrCorrelationThresholdPct = 50
+	}
 
 	// Get the output channel for the column correlation.
 	var correlationOutputCh *OutputChannel
