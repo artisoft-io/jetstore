@@ -481,8 +481,13 @@ type LookupColumnSpec struct {
 	Expr *string `json:"expr"`
 }
 
+// Hash using values from columns. 
+// Case single column, use Expr
+// Case multi column, use CompositeExpr
+// Expr takes precedence if both are populated.
 type HashExpression struct {
 	Expr                   string   `json:"expr"`
+	CompositeExpr          []string `json:"composite_expr"`
 	NbrJetsPartitions      *uint64  `json:"nbr_jets_partitions"`
 	AlternateCompositeExpr []string `json:"alternate_composite_expr"`
 }

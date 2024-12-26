@@ -10,17 +10,20 @@ import (
 
 	"github.com/artisoft-io/jetstore/jets/jetrules/rdf"
 )
+
 var preprocessingFncRe *regexp.Regexp
+
 func init() {
 	preprocessingFncRe = regexp.MustCompile(`^(.*?)\((.*?)\)$`)
 }
 
 // TransformationColumnSpec Type hash
 type hashColumnEval struct {
-	inputPos    int
-	outputPos   int
-	partitions  uint64
-	altInputKey []PreprocessingFunction
+	inputPos          int
+	compositeInputKey []PreprocessingFunction
+	outputPos         int
+	partitions        uint64
+	altInputKey       []PreprocessingFunction
 }
 
 func Hash(key []byte, partitions uint64) uint64 {
@@ -83,8 +86,17 @@ func (ctx *hashColumnEval) Update(currentValue *[]interface{}, input *[]interfac
 		return fmt.Errorf("error hashColumnEval.update cannot have nil currentValue or input")
 	}
 	// compute the hash of value @ inputPos, if it's nil use the alternate (composite) key
-	var hashedValue interface{}
-	inputVal := (*input)[ctx.inputPos]
+	var inputVal, hashedValue interface{}
+	if ctx.inputPos > -1 {
+		inputVal = (*input)[ctx.inputPos]
+	} else {
+		// Use the composite key
+		inputVal, err = makeAlternateKey(&ctx.compositeInputKey, input)
+		// fmt.Printf("##### # makeCompositeKey: %v\n", inputVal)
+		if err != nil {
+			return err
+		}
+	}
 	// fmt.Printf("##### # inputVal: %v\n", inputVal)
 	if inputVal == nil && ctx.altInputKey != nil {
 		// Make the alternate key to hash
@@ -99,8 +111,8 @@ func (ctx *hashColumnEval) Update(currentValue *[]interface{}, input *[]interfac
 	if h != nil {
 		hashedValue = *h
 		// fmt.Printf("##### # EvalHash k: %v, nbr partitions: %d => %v\n", inputVal, ctx.partitions, hashedValue)
-	// } else {
-	// 	fmt.Printf("##### # EvalHash k: %v, nbr partitions: %d => NULL\n", inputVal, ctx.partitions)
+		// } else {
+		// 	fmt.Printf("##### # EvalHash k: %v, nbr partitions: %d => NULL\n", inputVal, ctx.partitions)
 	}
 
 	(*currentValue)[ctx.outputPos] = hashedValue
@@ -117,21 +129,40 @@ func (ctx *hashColumnEval) Done(currentValue *[]interface{}) error {
 //		"type": "hash",
 //		"hash_expr": {
 //			"expr": "dw_rawfilename",
+//			"composite_expr": ["partion", "dw_rawfilename"],
 //			"nbr_jets_partitions": 3,
 //			"alternate_composite_expr": ["name", "gender", "format_date(dob)"],
 //		}
 //
 // jets_partition will be of type uint64
-func (ctx *BuilderContext) BuildHashTCEvaluator(source *InputChannel, outCh *OutputChannel, 
+func (ctx *BuilderContext) BuildHashTCEvaluator(source *InputChannel, outCh *OutputChannel,
 	spec *TransformationColumnSpec) (TransformationColumnEvaluator, error) {
 
 	var err error
 	if spec == nil || spec.HashExpr == nil {
 		return nil, fmt.Errorf("error: Type map must have HashExpr != nil")
 	}
-	inputPos, ok := source.columns[spec.HashExpr.Expr]
-	if !ok {
-		return nil, fmt.Errorf("error column %s not found in input source %s", *spec.Expr, source.config.Name)
+	// Do validation
+	exprLen := len(spec.HashExpr.Expr)
+	compositeLen := len(spec.HashExpr.CompositeExpr)
+	if exprLen == 0  && compositeLen == 0 {
+		return nil, fmt.Errorf("error: must specify expr or composite_expr in hash operator")
+	}
+	inputPos := -1
+	var compositeInputKey []PreprocessingFunction
+	var ok bool
+	switch {
+	case exprLen > 0:
+		inputPos, ok = source.columns[spec.HashExpr.Expr]
+		if !ok {
+			return nil, fmt.Errorf("error column %s not found in input source %s", *spec.Expr, source.config.Name)
+		}
+	case compositeLen > 0:
+		compositeInputKey, err = ParseAltKeyDefinition(spec.HashExpr.CompositeExpr, source.columns)
+		if err != nil {
+			return nil, fmt.Errorf("%v in source name %s", err, source.config.Name)
+		}
+
 	}
 	outputPos, ok := outCh.columns[spec.Name]
 	if !ok {
@@ -151,10 +182,11 @@ func (ctx *BuilderContext) BuildHashTCEvaluator(source *InputChannel, outCh *Out
 		}
 	}
 	return &hashColumnEval{
-		inputPos:    inputPos,
-		outputPos:   outputPos,
-		partitions:  partitions,
-		altInputKey: altInputKey,
+		inputPos:          inputPos,
+		compositeInputKey: compositeInputKey,
+		outputPos:         outputPos,
+		partitions:        partitions,
+		altInputKey:       altInputKey,
 	}, nil
 }
 
@@ -167,7 +199,7 @@ func ParseAltKeyDefinition(altExpr []string, columns map[string]int) ([]Preproce
 			pos, ok := columns[altExpr[i]]
 			if !ok {
 				return nil, fmt.Errorf("error: alt column %s not found", altExpr[i])
-			}	
+			}
 			altInputKey[i] = &DefaultPF{inputPos: pos}
 		} else {
 			pos, ok := columns[v[2]]
