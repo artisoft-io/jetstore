@@ -285,6 +285,11 @@ func (ctx *BuilderContext) NewClusteringPoolManager(config *ClusteringSpec,
 		if threshold < 1 {
 			threshold = 1
 		}
+		// make a lookup of the transitive data classification
+		transitiveDC := make(map[string]bool)
+		for _, dc := range config.TransitiveDataClassification {
+			transitiveDC[dc] = true
+		}
 		clusters := make([]map[string]bool, 0)
 		var cluster map[string]bool
 		for i, column1 := range columns1 {
@@ -299,7 +304,7 @@ func (ctx *BuilderContext) NewClusteringPoolManager(config *ClusteringSpec,
 			for j, column2 := range columns2 {
 				if poolMgr.columnsCorrelation[i][j] > 0 && poolMgr.columnsCorrelation[i][j] <= threshold {
 					c2 := getClusterOf(column2, clusters)
-					if c2 < 0 {
+					if c2 < 0 || !transitiveDC[column2] {
 						// column2 is not yet in a cluster, put it in the current cluster
 						cluster[column2] = true
 					} else {

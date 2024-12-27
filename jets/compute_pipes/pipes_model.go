@@ -440,6 +440,7 @@ type ClusteringSpec struct {
 	MaxAvrCorrelationThresholdPct int                     `json:"max_avr_correlation_threshold_pct"`
 	TargetColumnsLookup           TargetColumnsLookupSpec `json:"target_columns_lookup"`
 	ClusterDataSubclassification  []string                `json:"cluster_data_subclassification"`
+	TransitiveDataClassification  []string                `json:"transitive_data_classification"`
 	IsDebug                       bool                    `json:"is_debug"`
 	CorrelationOutputChannel      *OutputChannelConfig    `json:"correlation_output_channel"`
 }
