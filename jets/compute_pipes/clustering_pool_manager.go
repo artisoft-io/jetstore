@@ -22,7 +22,7 @@ type ClusteringPoolManager struct {
 	WorkersTaskCh        chan []any
 	distributors         []*ClusteringDistributor
 	distributionResultCh chan []any
-	columnsCorrelation   [][]float64
+	columnsCorrelation   [][]int
 	analysisLookup       LookupTable
 	correlationOutputCh  *OutputChannel
 	poolWg               *sync.WaitGroup
@@ -113,9 +113,12 @@ func (ctx *BuilderContext) NewClusteringPoolManager(config *ClusteringSpec,
 
 	// Create a channel for the workers to report results
 	workersResultCh := make(chan ClusteringResult)
-	poolMgr.columnsCorrelation = make([][]float64, len(columns1))
+	poolMgr.columnsCorrelation = make([][]int, len(columns1))
 	for i := range columns1 {
-		poolMgr.columnsCorrelation[i] = make([]float64, len(columns2))
+		poolMgr.columnsCorrelation[i] = make([]int, len(columns2))
+		for j := range columns2 {
+			poolMgr.columnsCorrelation[i][j] = -1
+		}
 	}
 
 	// Collect the results from all the workers
@@ -248,7 +251,7 @@ func (ctx *BuilderContext) NewClusteringPoolManager(config *ClusteringSpec,
 			correlationPct := 100 * float64(cc.distinctCount) / float64(cc.totalNonNilCount)
 			avrCorrelationPct += correlationPct
 			nbrVariables += 1
-			poolMgr.columnsCorrelation[column1][column2] = correlationPct
+			poolMgr.columnsCorrelation[column1][column2] = int(correlationPct)
 			if config.IsDebug {
 				log.Printf("COLUMN CORRELATION: %s -> %s: %v  (%v, %v)\n", cc.column1, cc.column2, correlationPct, cc.distinctCount, cc.totalNonNilCount)
 			}
@@ -281,7 +284,7 @@ func (ctx *BuilderContext) NewClusteringPoolManager(config *ClusteringSpec,
 			log.Println("POOL MANAGER - Determine the clusters, clustering status:", clusterStatus)
 		}
 		// Determine the clusters
-		threshold := float64(config.CorrelationThresholdPct)
+		threshold := config.CorrelationThresholdPct
 		if threshold < 1 {
 			threshold = 1
 		}
@@ -302,7 +305,7 @@ func (ctx *BuilderContext) NewClusteringPoolManager(config *ClusteringSpec,
 				clusters = remove(clusters, c1)
 			}
 			for j, column2 := range columns2 {
-				if poolMgr.columnsCorrelation[i][j] > 0 && poolMgr.columnsCorrelation[i][j] <= threshold {
+				if poolMgr.columnsCorrelation[i][j] > -1 && poolMgr.columnsCorrelation[i][j] <= threshold {
 					c2 := getClusterOf(column2, clusters)
 					if c2 < 0 || !transitiveDC[column2] {
 						// column2 is not yet in a cluster, put it in the current cluster
