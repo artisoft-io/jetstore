@@ -18,15 +18,16 @@ import (
 // The distributionResultCh is used to collect the correlation resultts from the workers by the pool manager.
 // The correlationOutputCh is to send the correlation results to s3, this is done when is_debug is true
 type ClusteringPoolManager struct {
-	config               *ClusteringSpec
-	WorkersTaskCh        chan []any
-	distributors         []*ClusteringDistributor
-	distributionResultCh chan []any
-	columnsCorrelation   [][]int
-	analysisLookup       LookupTable
-	correlationOutputCh  *OutputChannel
-	poolWg               *sync.WaitGroup
-	WaitForDone          *sync.WaitGroup
+	config                  *ClusteringSpec
+	WorkersTaskCh           chan []any
+	distributors            []*ClusteringDistributor
+	distributionResultCh    chan []any
+	columnsCorrelation      [][]int
+	analysisLookup          LookupTable
+	columnClassificationMap map[string]string
+	correlationOutputCh     *OutputChannel
+	poolWg                  *sync.WaitGroup
+	WaitForDone             *sync.WaitGroup
 }
 
 type ClusteringDistributor struct {
@@ -55,14 +56,15 @@ func (ctx *BuilderContext) NewClusteringPoolManager(config *ClusteringSpec,
 
 	// Create the pool manager
 	poolMgr = &ClusteringPoolManager{
-		config:               config,
-		WorkersTaskCh:        make(chan []any, 1),
-		distributors:         make([]*ClusteringDistributor, 0),
-		distributionResultCh: make(chan []any, 100),
-		correlationOutputCh:  correlationOutputCh,
-		analysisLookup:       analysisLookup,
-		poolWg:               new(sync.WaitGroup),
-		WaitForDone:          new(sync.WaitGroup),
+		config:                  config,
+		WorkersTaskCh:           make(chan []any, 1),
+		distributors:            make([]*ClusteringDistributor, 0),
+		distributionResultCh:    make(chan []any, 100),
+		correlationOutputCh:     correlationOutputCh,
+		analysisLookup:          analysisLookup,
+		columnClassificationMap: make(map[string]string),
+		poolWg:                  new(sync.WaitGroup),
+		WaitForDone:             new(sync.WaitGroup),
 	}
 
 	// Identify the columns that match column1 and column2 criteria
@@ -90,6 +92,10 @@ func (ctx *BuilderContext) NewClusteringPoolManager(config *ClusteringSpec,
 			err = fmt.Errorf("NewClusteringPoolManager: while getting '%s' lookup row value: %v",
 				targetConfig.DataClassificationColumn, err2)
 			return
+		}
+		dataClassification, ok := columnTag.(string)
+		if ok {
+			poolMgr.columnClassificationMap[column] = dataClassification
 		}
 		if tag1map[columnTag] {
 			columns1Pos[column] = len(columns1)
@@ -339,31 +345,29 @@ func (ctx *BuilderContext) NewClusteringPoolManager(config *ClusteringSpec,
 			// Determine cluster member's subclassification
 			subClassification = ""
 			if clusterStatus == "valid" {
-				columnClassificationMap := make(map[string]string)
-				for _, tag := range config.ClusterDataSubclassification {
-					for column, b := range cluster {
-						if b {
-							row, err := poolMgr.analysisLookup.Lookup(&column)
-							if err == nil {
-								dc, err := poolMgr.analysisLookup.LookupValue(row, poolMgr.config.TargetColumnsLookup.DataClassificationColumn)
-								if err == nil {
-									dataClassification, ok := dc.(string)
-									if ok {
-										if dataClassification == tag {
-											subClassification = tag
-											goto subclassificationDone
-										}
-										columnClassificationMap[column] = dataClassification
-									}
-								} else {
-									log.Printf("WARNING: ignoring error while calling clustering lookup value for key %s: %v\n", column, err)
-								}
-							} else {
-								log.Printf("WARNING: ignoring error while calling clustering lookup with key %s: %v\n", column, err)
-							}
-						}
-					}
-				}
+        if len(cluster) == 1 {
+          for _, tag := range config.SoloDataSubclassification {
+            for column, b := range cluster {
+              if b {
+                if poolMgr.columnClassificationMap[column] == tag {
+                  subClassification = tag
+                  goto subclassificationDone
+                }
+              }
+            }
+          }  
+        } else {
+          for _, tag := range config.ClusterDataSubclassification {
+            for column, b := range cluster {
+              if b {
+                if poolMgr.columnClassificationMap[column] == tag {
+                  subClassification = tag
+                  goto subclassificationDone
+                }
+              }
+            }
+          }  
+        }
 			}
 		subclassificationDone:
 			for column, b := range cluster {
