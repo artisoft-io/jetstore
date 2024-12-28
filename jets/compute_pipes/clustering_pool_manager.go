@@ -229,6 +229,7 @@ func (ctx *BuilderContext) NewClusteringPoolManager(config *ClusteringSpec,
 		col2Pos := correlationOutputCh.columns["column_name_2"]
 		countPos := correlationOutputCh.columns["distinct_count"]
 		totalNonNilPos := correlationOutputCh.columns["total_non_null_count"]
+		correlationPos := correlationOutputCh.columns["correlation_pct"]
 		// Use this variable as an accumulator to reduce all column1_value
 		columnCorrelationAccumulator := make(map[string]*columnCorrelation)
 		for correlationresult := range poolMgr.distributionResultCh {
@@ -248,46 +249,50 @@ func (ctx *BuilderContext) NewClusteringPoolManager(config *ClusteringSpec,
 				cc.totalNonNilCount += correlationresult[totalNonNilPos].(int)
 			}
 		}
-		// Determine the column correlation
-		var avrCorrelationPct float64
-		var nbrVariables int
+		// Get the max of total_non_null_count, min and max of ratio float64(cc.distinctCount) / float64(cc.totalNonNilCount)
+		var maxTotalNonNilCount int
+		minRatio := 2.0
+		maxRatio := 0.0
 		for _, cc := range columnCorrelationAccumulator {
-			column1 := columns1Pos[cc.column1]
-			column2 := columns2Pos[cc.column2]
-			correlationPct := 100 * float64(cc.distinctCount) / float64(cc.totalNonNilCount)
-			avrCorrelationPct += correlationPct
-			nbrVariables += 1
-			poolMgr.columnsCorrelation[column1][column2] = int(correlationPct)
-			if config.IsDebug {
-				log.Printf("COLUMN CORRELATION: %s -> %s: %v  (%v, %v)\n", cc.column1, cc.column2, correlationPct, cc.distinctCount, cc.totalNonNilCount)
+			correlation := float64(cc.distinctCount) / float64(cc.totalNonNilCount)
+			if correlation < minRatio {
+				minRatio = correlation
 			}
-			// Send the correlation result to the output channel so it makes it's way to s3
-			correlationresult := make([]any, len(poolMgr.correlationOutputCh.config.Columns))
-			correlationresult[col1Pos] = cc.column1
-			correlationresult[col2Pos] = cc.column2
-			correlationresult[countPos] = cc.distinctCount
-			correlationresult[totalNonNilPos] = cc.totalNonNilCount
-			select {
-			case poolMgr.correlationOutputCh.channel <- correlationresult:
-			case <-ctx.done:
-				log.Println("Clustering Pool Manager interrupted")
+			if correlation > maxRatio {
+				maxRatio = correlation
+			}
+			if cc.totalNonNilCount > maxTotalNonNilCount {
+				maxTotalNonNilCount = cc.totalNonNilCount
 			}
 		}
-		avrCorrelationPct /= float64(nbrVariables)
-		clusterStatus := "valid"
-		if int(avrCorrelationPct+0.5) > config.MaxAvrCorrelationThresholdPct {
-			log.Printf("Clustering algo failure: avr correlation is %v, exceeding max thresold of %v",
-				avrCorrelationPct, config.MaxAvrCorrelationThresholdPct)
-			clusterStatus = "invalid"
-		} else {
-			if config.IsDebug {
-				log.Printf("Clustering algo: avr correlation is %v, below max thresold of %v",
-					avrCorrelationPct, config.MaxAvrCorrelationThresholdPct)
-			}
-		}
+		nonNilCountThreshold := int(float64(maxTotalNonNilCount * config.NonNilCountThresholdPct) / 100)
 
+		// Determine the column correlation
+		for _, cc := range columnCorrelationAccumulator {
+			if cc.totalNonNilCount > nonNilCountThreshold {
+				column1 := columns1Pos[cc.column1]
+				column2 := columns2Pos[cc.column2]
+				correlationPct := 100 * (float64(cc.distinctCount) / float64(cc.totalNonNilCount) - minRatio) / maxRatio
+				poolMgr.columnsCorrelation[column1][column2] = int(correlationPct)
+				if config.IsDebug {
+					log.Printf("COLUMN CORRELATION: %s -> %s: %v  (%v, %v)\n", cc.column1, cc.column2, correlationPct, cc.distinctCount, cc.totalNonNilCount)
+				}
+				// Send the correlation result to the output channel so it makes it's way to s3
+				correlationresult := make([]any, len(poolMgr.correlationOutputCh.config.Columns))
+				correlationresult[col1Pos] = cc.column1
+				correlationresult[col2Pos] = cc.column2
+				correlationresult[countPos] = cc.distinctCount
+				correlationresult[totalNonNilPos] = cc.totalNonNilCount
+				correlationresult[correlationPos] = correlationPct
+				select {
+				case poolMgr.correlationOutputCh.channel <- correlationresult:
+				case <-ctx.done:
+					log.Println("Clustering Pool Manager interrupted")
+				}	
+			}
+		}
 		if config.IsDebug {
-			log.Println("POOL MANAGER - Determine the clusters, clustering status:", clusterStatus)
+			log.Println("POOL MANAGER - Determine the clusters:")
 		}
 		// Determine the clusters
 		threshold := config.CorrelationThresholdPct
@@ -311,7 +316,7 @@ func (ctx *BuilderContext) NewClusteringPoolManager(config *ClusteringSpec,
 				clusters = remove(clusters, c1)
 			}
 			for j, column2 := range columns2 {
-				if poolMgr.columnsCorrelation[i][j] > -1 && poolMgr.columnsCorrelation[i][j] <= threshold {
+				if poolMgr.columnsCorrelation[i][j] > -1 && poolMgr.columnsCorrelation[i][j] < threshold {
 					c2 := getClusterOf(column2, clusters)
 					if c2 < 0 || !transitiveDC[column2] {
 						// column2 is not yet in a cluster, put it in the current cluster
@@ -327,6 +332,7 @@ func (ctx *BuilderContext) NewClusteringPoolManager(config *ClusteringSpec,
 			clusters = append(clusters, cluster)
 		}
 		// Validate the cluster structure, make sure the clustering did not breakdown
+		clusterStatus := "valid"
 		maxMembership := 0
 		for _, cluster := range clusters {
 			c := len(cluster)

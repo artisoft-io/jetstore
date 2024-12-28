@@ -50,29 +50,28 @@ func NewClusteringWorker(config *ClusteringSpec, source *InputChannel,
 
 func (ctx *ClusteringWorker) DoWork(inputCh <-chan []any, outputCh chan<- []any, resultCh chan ClusteringResult) {
 	for row := range inputCh {
-		for _, evaluator := range ctx.correlationEvaluators {
-			evaluator.Apply(row)
-      // Check if we have a batch of result to send
-      if evaluator.nonNilCount >= ctx.config.MinNonNilCount {
-        result := make([]any, len(ctx.outputChannel.config.Columns))
-        result[ctx.outputChannel.columns["column_name_1"]] = *ctx.column1
-        result[ctx.outputChannel.columns["column1_value"]] = ctx.column1Value
-        result[ctx.outputChannel.columns["column_name_2"]] = *evaluator.column2
-        result[ctx.outputChannel.columns["distinct_count"]] = len(evaluator.distinctValues)
-        result[ctx.outputChannel.columns["total_non_null_count"]] = evaluator.nonNilCount
-        // Send the out the result
-        select {
-        case outputCh <- result:
-        case <-ctx.done:
-          log.Println("Clustering Pool Worker interrupted while DoWork")
-          return
-        }
-        // Reset the evaluator
-        evaluator.Reset()
-      } 
+		for _, eval := range ctx.correlationEvaluators {
+			eval.Apply(row)
 		}
 	}
-	// done, clustering status result
+	// done, send the result out
+	for _, evaluator := range ctx.correlationEvaluators {
+		if evaluator.nonNilCount > ctx.config.MinNonNilCount {
+			result := make([]any, len(ctx.outputChannel.config.Columns))
+			result[ctx.outputChannel.columns["column_name_1"]] = *ctx.column1
+			result[ctx.outputChannel.columns["column1_value"]] = ctx.column1Value
+			result[ctx.outputChannel.columns["column_name_2"]] = *evaluator.column2
+			result[ctx.outputChannel.columns["distinct_count"]] = len(evaluator.distinctValues)
+			result[ctx.outputChannel.columns["total_non_null_count"]] = evaluator.nonNilCount
+			// Send the out the result
+			select {
+			case outputCh <- result:
+			case <-ctx.done:
+				log.Println("Clustering Pool Worker interrupted while DoWork")
+				return
+			}
+		}
+	}
 	select {
 	case resultCh <- ClusteringResult{}:
 	case <-ctx.done:
@@ -101,9 +100,4 @@ func (eval *distinctCountCorrelationEval) Apply(input []interface{}) {
 			eval.nonNilCount += 1
 		}
 	}
-}
-// Reset the evaluator to start a new batch
-func (eval *distinctCountCorrelationEval) Reset() {
-  clear(eval.distinctValues)
-  eval.nonNilCount = 0
 }
