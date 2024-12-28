@@ -435,16 +435,16 @@ type JetrulesSpec struct {
 // ClusterDataSubclassification contains data_classification values, when found in a
 // cluster all columns member of the cluster get that value as data_subclassification.
 type ClusteringSpec struct {
-	MaxInputCount                 int                     `json:"max_input_count"`
-	MinNonNilCount                int                     `json:"min_non_null_count"`
-	CorrelationThresholdPct       int                     `json:"correlation_threshold_pct"`
-  NonNilCountThresholdPct       int                     `json:"non_nil_count_threshold_pct"`
-	TargetColumnsLookup           TargetColumnsLookupSpec `json:"target_columns_lookup"`
-	ClusterDataSubclassification  []string                `json:"cluster_data_subclassification"`
-	SoloDataSubclassification     []string                `json:"solo_data_subclassification"`
-	TransitiveDataClassification  []string                `json:"transitive_data_classification"`
-	IsDebug                       bool                    `json:"is_debug"`
-	CorrelationOutputChannel      *OutputChannelConfig    `json:"correlation_output_channel"`
+	MaxInputCount                int                     `json:"max_input_count"`
+	MinNonNilCount               int                     `json:"min_non_null_count"`
+	CorrelationThresholdPct      float64                 `json:"correlation_threshold_pct"`
+	NonNilCountThresholdPct      int                     `json:"non_nil_count_threshold_pct"`
+	TargetColumnsLookup          TargetColumnsLookupSpec `json:"target_columns_lookup"`
+	ClusterDataSubclassification []string                `json:"cluster_data_subclassification"`
+	SoloDataSubclassification    []string                `json:"solo_data_subclassification"`
+	TransitiveDataClassification []string                `json:"transitive_data_classification"`
+	IsDebug                      bool                    `json:"is_debug"`
+	CorrelationOutputChannel     *OutputChannelConfig    `json:"correlation_output_channel"`
 }
 
 type TargetColumnsLookupSpec struct {

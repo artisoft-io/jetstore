@@ -22,7 +22,7 @@ type ClusteringPoolManager struct {
 	WorkersTaskCh           chan []any
 	distributors            []*ClusteringDistributor
 	distributionResultCh    chan []any
-	columnsCorrelation      [][]int
+	columnsCorrelation      [][]float64
 	analysisLookup          LookupTable
 	columnClassificationMap map[string]string
 	correlationOutputCh     *OutputChannel
@@ -119,9 +119,9 @@ func (ctx *BuilderContext) NewClusteringPoolManager(config *ClusteringSpec,
 
 	// Create a channel for the workers to report results
 	workersResultCh := make(chan ClusteringResult)
-	poolMgr.columnsCorrelation = make([][]int, len(columns1))
+	poolMgr.columnsCorrelation = make([][]float64, len(columns1))
 	for i := range columns1 {
-		poolMgr.columnsCorrelation[i] = make([]int, len(columns2))
+		poolMgr.columnsCorrelation[i] = make([]float64, len(columns2))
 		for j := range columns2 {
 			poolMgr.columnsCorrelation[i][j] = -1
 		}
@@ -272,8 +272,8 @@ func (ctx *BuilderContext) NewClusteringPoolManager(config *ClusteringSpec,
 			if cc.totalNonNilCount > nonNilCountThreshold {
 				column1 := columns1Pos[cc.column1]
 				column2 := columns2Pos[cc.column2]
-				correlationPct := 100 * (float64(cc.distinctCount) / float64(cc.totalNonNilCount) - minRatio) / maxRatio
-				poolMgr.columnsCorrelation[column1][column2] = int(correlationPct)
+				correlationPct := 100 * (float64(cc.distinctCount) / float64(cc.totalNonNilCount) - minRatio) / (maxRatio - minRatio)
+				poolMgr.columnsCorrelation[column1][column2] = correlationPct
 				if config.IsDebug {
 					log.Printf("COLUMN CORRELATION: %s -> %s: %v  (%v, %v)\n", cc.column1, cc.column2, correlationPct, cc.distinctCount, cc.totalNonNilCount)
 				}
