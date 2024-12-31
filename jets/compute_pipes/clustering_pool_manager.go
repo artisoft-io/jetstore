@@ -31,7 +31,7 @@ type ClusteringPoolManager struct {
 }
 
 type ColumnCorrelation struct {
-	cramerV        float64
+	varCardinality float64
 	avrCardinality float64
 }
 
@@ -182,10 +182,10 @@ func (ctx *BuilderContext) NewClusteringPoolManager(config *ClusteringSpec,
 		config: &ChannelSpec{
 			Name: "workers_out",
 			Columns: []string{
-        "column_name_1",
-        "column_name_2",
+				"column_name_1",
+				"column_name_2",
 				"value_1",
-        "distinct_count",
+				"distinct_count",
 			},
 		},
 	}
@@ -254,7 +254,7 @@ func (ctx *BuilderContext) NewClusteringPoolManager(config *ClusteringSpec,
 		col1Pos := correlationOutputCh.columns["column_name_1"]
 		col2Pos := correlationOutputCh.columns["column_name_2"]
 		countPos := correlationOutputCh.columns["observations_count"]
-		cramervPos := correlationOutputCh.columns["cramerv"]
+		varCardinalityPos := correlationOutputCh.columns["cardinality_var"]
 		avrCardinalityPos := correlationOutputCh.columns["cardinality_avr"]
 		// Use this variable as an accumulator to reduce all column1_value
 		columnCorrelationAccumulator := make(map[string]*ClusterCorrelation)
@@ -262,10 +262,10 @@ func (ctx *BuilderContext) NewClusteringPoolManager(config *ClusteringSpec,
 			// save the result so it can be used to determine the clusters
 			key := fmt.Sprintf("%v__%v", correlationresult[wName1], correlationresult[wName2])
 			// //***
-			// fmt.Printf("Got Worker Result: %v value %v, %v distinct_count %v\n", 
-			// correlationresult[wName1], 
-			// correlationresult[wValue1], 
-			// correlationresult[wName2], 
+			// fmt.Printf("Got Worker Result: %v value %v, %v distinct_count %v\n",
+			// correlationresult[wName1],
+			// correlationresult[wValue1],
+			// correlationresult[wName2],
 			// correlationresult[WCount])
 			cc := columnCorrelationAccumulator[key]
 			if cc == nil {
@@ -278,14 +278,14 @@ func (ctx *BuilderContext) NewClusteringPoolManager(config *ClusteringSpec,
 
 		// Determine the column correlation
 		for _, cc := range columnCorrelationAccumulator {
-			cramerV, avrCardinality := cc.CramerV()
+			avrCardinality, varCardinality := cc.MeanAndVariance()
 
 			// Send the correlation result to the output channel so it makes it's way to s3
 			correlationresult := make([]any, len(poolMgr.correlationOutputCh.config.Columns))
 			correlationresult[col1Pos] = cc.column1
 			correlationresult[col2Pos] = cc.column2
 			correlationresult[countPos] = cc.ObservationsCount()
-			correlationresult[cramervPos] = cramerV
+			correlationresult[varCardinalityPos] = varCardinality
 			correlationresult[avrCardinalityPos] = avrCardinality
 			select {
 			case poolMgr.correlationOutputCh.channel <- correlationresult:
@@ -294,12 +294,12 @@ func (ctx *BuilderContext) NewClusteringPoolManager(config *ClusteringSpec,
 			}
 			if config.IsDebug {
 				log.Printf("COLUMN CORRELATION: %s -> %s: %v  (%v, %v)\n",
-					cc.column1, cc.column2, cramerV, cc.ObservationsCount(), avrCardinality)
+					cc.column1, cc.column2, varCardinality, cc.ObservationsCount(), avrCardinality)
 			}
 
 			column1 := columns1Pos[cc.column1]
 			column2 := columns2Pos[cc.column2]
-			poolMgr.columnsCorrelation[column1][column2].cramerV = cramerV
+			poolMgr.columnsCorrelation[column1][column2].varCardinality = varCardinality
 			poolMgr.columnsCorrelation[column1][column2].avrCardinality = avrCardinality
 		}
 		if config.IsDebug {
@@ -325,8 +325,11 @@ func (ctx *BuilderContext) NewClusteringPoolManager(config *ClusteringSpec,
 			}
 			for j, column2 := range columns2 {
 				// Check column correlation
-				if (poolMgr.columnsCorrelation[i][j].cramerV < 1E-6 || poolMgr.columnsCorrelation[i][j].cramerV >= config.CorrelationThreshold) && 
-				  poolMgr.columnsCorrelation[i][j].avrCardinality <= config.CardinalityThreshold {
+				avrCardinality := poolMgr.columnsCorrelation[i][j].avrCardinality
+				varCardinality := poolMgr.columnsCorrelation[i][j].varCardinality
+				if avrCardinality > 0 && avrCardinality <= config.CardinalityThreshold &&
+					varCardinality <= config.CorrelationThreshold {
+
 					c2 := getClusterOf(column2, clusters)
 					if c2 < 0 || !transitiveDC[column2] {
 						// column2 is not yet in a cluster, put it in the current cluster

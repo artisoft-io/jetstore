@@ -21,11 +21,11 @@ func TestClusterCorrelation01(t *testing.T) {
 	clusterCorrelation.AddObservation(3)
 	clusterCorrelation.AddObservation(4)
 
-	cramerV, _ := clusterCorrelation.CramerV()
-	if cramerV < 0 {
-		t.Errorf("Expecting correlated columns, got %v", cramerV)
+	mean, variance := clusterCorrelation.MeanAndVariance()
+	if mean > 0 {
+		t.Errorf("Expecting correlated columns, got %v", mean)
 	}
-	fmt.Printf("Got correlation of: %v\n", cramerV)
+	fmt.Printf("Got correlation of: (%v, %v)\n", mean, variance)
 }
 
 func TestClusterCorrelation02(t *testing.T) {
@@ -45,11 +45,11 @@ func TestClusterCorrelation02(t *testing.T) {
 	clusterCorrelation.AddObservation(4)
 	clusterCorrelation.AddObservation(4)
 
-	cramerV, _ := clusterCorrelation.CramerV()
-	if cramerV < 0 {
-		t.Errorf("Expecting correlated columns, got %v", cramerV)
+	mean, variance := clusterCorrelation.MeanAndVariance()
+	if mean > 0 {
+		t.Errorf("Expecting correlated columns, got %v", mean)
 	}
-	fmt.Printf("Got correlation of: %v\n", cramerV)
+	fmt.Printf("Got correlation of: (%v, %v)\n", mean, variance)
 }
 
 func TestClusterCorrelation03(t *testing.T) {
@@ -68,11 +68,11 @@ func TestClusterCorrelation03(t *testing.T) {
 	clusterCorrelation.AddObservation(4)
 	clusterCorrelation.AddObservation(4)
 
-	cramerV, _ := clusterCorrelation.CramerV()
-	if cramerV < 0 {
-		t.Errorf("Expecting correlated columns, got %v", cramerV)
+	mean, variance := clusterCorrelation.MeanAndVariance()
+	if mean > 0 {
+		t.Errorf("Expecting correlated columns, got %v", mean)
 	}
-	fmt.Printf("Got correlation of: %v\n", cramerV)
+	fmt.Printf("Got correlation of: (%v, %v)\n", mean, variance)
 }
 
 func TestClusterCorrelation04(t *testing.T) {
@@ -83,9 +83,9 @@ func TestClusterCorrelation04(t *testing.T) {
 	clusterCorrelation.AddObservation(2)
 	clusterCorrelation.AddObservation(2)
 
-	cramerV, _ := clusterCorrelation.CramerV()
-	if cramerV > 0 {
-		t.Errorf("Expecting correlated columns, got %v", cramerV)
+	mean, variance := clusterCorrelation.MeanAndVariance()
+	if mean < 0 {
+		t.Errorf("Expecting correlated columns, got %v", mean)
 	}
-	fmt.Printf("Got correlation of: %v\n", cramerV)
+	fmt.Printf("Got correlation of: (%v, %v)\n", mean, variance)
 }
