@@ -104,9 +104,9 @@ func (ctx *BuilderContext) NewClusteringTransformationPipe(source *InputChannel,
 	if !ok {
 		return nil, fmt.Errorf("error: the clustering operator's correlation_output_channel is missing column 'observations_count'")
 	}
-	_, ok = correlationOutputCh.columns["cramerv"]
+	_, ok = correlationOutputCh.columns["cardinality_var"]
 	if !ok {
-		return nil, fmt.Errorf("error: the clustering operator's correlation_output_channel is missing column 'cramerv'")
+		return nil, fmt.Errorf("error: the clustering operator's correlation_output_channel is missing column 'cardinality_var'")
 	}
 	_, ok = correlationOutputCh.columns["cardinality_avr"]
 	if !ok {
