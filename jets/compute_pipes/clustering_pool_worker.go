@@ -55,14 +55,17 @@ func (ctx *ClusteringWorker) DoWork(inputCh <-chan []any, outputCh chan<- []any,
 		}
 	}
 	// done, send the result out
+	name1Pos := ctx.outputChannel.columns["column_name_1"]
+	name2Pos := ctx.outputChannel.columns["column_name_2"]
+	value1Pos := ctx.outputChannel.columns["value_1"]
+	countPos := ctx.outputChannel.columns["distinct_count"]
 	for _, evaluator := range ctx.correlationEvaluators {
 		if evaluator.nonNilCount > ctx.config.MinNonNilCount {
 			result := make([]any, len(ctx.outputChannel.config.Columns))
-			result[ctx.outputChannel.columns["column_name_1"]] = *ctx.column1
-			result[ctx.outputChannel.columns["column1_value"]] = ctx.column1Value
-			result[ctx.outputChannel.columns["column_name_2"]] = *evaluator.column2
-			result[ctx.outputChannel.columns["distinct_count"]] = len(evaluator.distinctValues)
-			result[ctx.outputChannel.columns["total_non_null_count"]] = evaluator.nonNilCount
+			result[name1Pos] = *ctx.column1
+			result[value1Pos] = ctx.column1Value
+			result[name2Pos] = *evaluator.column2
+			result[countPos] = len(evaluator.distinctValues)
 			// Send the out the result
 			select {
 			case outputCh <- result:

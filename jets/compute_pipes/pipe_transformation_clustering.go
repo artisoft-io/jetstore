@@ -74,11 +74,11 @@ func (ctx *BuilderContext) NewClusteringTransformationPipe(source *InputChannel,
 		len(config.TargetColumnsLookup.Column2ClassificationValues) == 0 {
 		return nil, fmt.Errorf("error: clustering_config is missing lookup_name and/or data_classification_column or values")
 	}
-	if config.CorrelationThresholdPct == 0 {
-		return nil, fmt.Errorf("error: clustering_config is missing value for correlation_threshold_pct")
+	if config.CorrelationThreshold == 0 {
+		return nil, fmt.Errorf("error: clustering_config is missing value for correlation_threshold")
 	}
-	if config.NonNilCountThresholdPct == 0 {
-		return nil, fmt.Errorf("error: clustering_config is missing value for non_nil_count_threshold_pct")
+	if config.CardinalityThreshold == 0 {
+		return nil, fmt.Errorf("error: clustering_config is missing value for cardinality_threshold")
 	}
 
 	// Get the output channel for the column correlation.
@@ -100,17 +100,21 @@ func (ctx *BuilderContext) NewClusteringTransformationPipe(source *InputChannel,
 	if !ok {
 		return nil, fmt.Errorf("error: the clustering operator's correlation_output_channel is missing column 'column_name_2'")
 	}
-	_, ok = correlationOutputCh.columns["distinct_count"]
+	_, ok = correlationOutputCh.columns["observations_count"]
 	if !ok {
-		return nil, fmt.Errorf("error: the clustering operator's correlation_output_channel is missing column 'distinct_count'")
+		return nil, fmt.Errorf("error: the clustering operator's correlation_output_channel is missing column 'observations_count'")
 	}
-	_, ok = correlationOutputCh.columns["total_non_null_count"]
+	_, ok = correlationOutputCh.columns["cramerv"]
 	if !ok {
-		return nil, fmt.Errorf("error: the clustering operator's correlation_output_channel is missing column 'total_non_null_count'")
+		return nil, fmt.Errorf("error: the clustering operator's correlation_output_channel is missing column 'cramerv'")
 	}
-	if config.MinNonNilCount < 2 {
-		log.Printf("WARNING: clustering_config with min_non_null_count < 2, defaulting to 2")
-		config.MinNonNilCount = 2
+	_, ok = correlationOutputCh.columns["cardinality_avr"]
+	if !ok {
+		return nil, fmt.Errorf("error: the clustering operator's correlation_output_channel is missing column 'cardinality_avr'")
+	}
+	if config.MinNonNilCount < 3 {
+		log.Printf("WARNING: clustering_config with min_non_null_count < 3, defaulting to 3")
+		config.MinNonNilCount = 3
 	}
 
 	// Setup a worker pool
