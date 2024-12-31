@@ -325,7 +325,7 @@ func (ctx *BuilderContext) NewClusteringPoolManager(config *ClusteringSpec,
 			}
 			for j, column2 := range columns2 {
 				// Check column correlation
-				if poolMgr.columnsCorrelation[i][j].cramerV <= config.CorrelationThreshold && 
+				if (poolMgr.columnsCorrelation[i][j].cramerV < 1E-6 || poolMgr.columnsCorrelation[i][j].cramerV >= config.CorrelationThreshold) && 
 				  poolMgr.columnsCorrelation[i][j].avrCardinality <= config.CardinalityThreshold {
 					c2 := getClusterOf(column2, clusters)
 					if c2 < 0 || !transitiveDC[column2] {
