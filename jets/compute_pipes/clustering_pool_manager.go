@@ -3,7 +3,6 @@ package compute_pipes
 import (
 	"fmt"
 	"log"
-	"slices"
 	"strings"
 	"sync"
 )
@@ -37,6 +36,16 @@ type ColumnCorrelation struct {
 	distinct1Count   int
 	distinct2Count   int
 	observationCount int
+}
+
+func NewColumnCorrelation(c1, c2 string, dc1, dc2, oc int) *ColumnCorrelation {
+	return &ColumnCorrelation{
+		column1:          c1,
+		column2:          c2,
+		distinct1Count:   dc1,
+		distinct2Count:   dc2,
+		observationCount: oc,
+	}
 }
 
 type ClusteringDistributor struct {
@@ -309,77 +318,10 @@ func (ctx *BuilderContext) NewClusteringPoolManager(config *ClusteringSpec,
 				})
 			}
 		}
-		// Sort the columnsCorrelation result, in decreasing value of probability the columns are correlated
-		slices.SortFunc(poolMgr.columnsCorrelation, func(a, b *ColumnCorrelation) int {
-			valueA := float64(a.distinct2Count) / float64(a.observationCount)
-			valueB := float64(b.distinct2Count) / float64(b.observationCount)
-			switch {
-			case valueA < valueB:
-				return -1
-			case valueA > valueB:
-				return 1
-			default:
-				return 0
-			}
-		})
-    // //***
-    // for _, cc := range poolMgr.columnsCorrelation {
-    //   log.Printf("SORTED COLUMN CORRELATION: %s -> %s: (%v, %v, %v)\n",
-    //   cc.column1, cc.column2, cc.distinct1Count, cc.distinct2Count, cc.observationCount)
-    // }
-    // //***
 		if config.IsDebug {
 			log.Println("POOL MANAGER - Determine the clusters:")
 		}
-		// Determine the clusters
-    // make a lookup of the transitive data classification
-		transitiveDC := make(map[string]bool)
-		for _, dc := range config.TransitiveDataClassification {
-			transitiveDC[dc] = true
-		}
-		// make the clusters
-		clusters := make([]*ClusterInfo, 0)
-		var cluster *ClusterInfo
-		for _, cc := range poolMgr.columnsCorrelation {
-      // log.Printf("Considering (%s, %s)\n", cc.column1, cc.column2)
-			c1 := getClusterOf(cc.column1, clusters)
-			if c1 < 0 {
-				cluster = NewClusterInfo(poolMgr.columnClassificationMap, config)
-				cluster.AddMember(cc.column1)
-			} else {
-				cluster = clusters[c1]
-				clusters = remove(clusters, c1)
-			}
-
-			c2 := getClusterOf(cc.column2, clusters)
-			if c2 < 0 || !transitiveDC[cc.column2] {
-				// column2 is not yet in a cluster, put it in the current cluster
-				cluster.AddMember(cc.column2)
-			} else {
-				// Merge c2 into cluster, check if this will breakdown the clusters structure
-				if canMerge(cluster, c2, clusters) {
-					cluster = merge(cluster, clusters[c2])
-					// Remove c2 from clusters
-					clusters = remove(clusters, c2)
-				} else {
-          // log.Printf("Cannot merge %s with %s\n", cluster, clusters[c2])
-					// cluster structure complete
-					//*TODO may continue for unseen columns
-					// Add cluster into the set of clusters
-					clusters = append(clusters, cluster)
-					goto clustersComplete
-				}
-      }
-      // Add cluster into the set of clusters
-      clusters = append(clusters, cluster)
-		}
-	clustersComplete:
-    // //***
-    // log.Println("Clustering Complete, the clusters are:")
-    // for _, cluster := range clusters {
-    //   log.Println(cluster)
-    // }
-    // //***
+		clusters := MakeClusters(poolMgr.columnsCorrelation, poolMgr.columnClassificationMap, config)
 
 		// Validate the cluster structure, make sure the clustering did not breakdown
 		clusterStatus := "valid"
