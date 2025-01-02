@@ -74,11 +74,11 @@ func (ctx *BuilderContext) NewClusteringTransformationPipe(source *InputChannel,
 		len(config.TargetColumnsLookup.Column2ClassificationValues) == 0 {
 		return nil, fmt.Errorf("error: clustering_config is missing lookup_name and/or data_classification_column or values")
 	}
-	if config.CorrelationThreshold == 0 {
-		return nil, fmt.Errorf("error: clustering_config is missing value for correlation_threshold")
+	if config.MinColumn1NonNilCount == 0 {
+		return nil, fmt.Errorf("error: clustering_config is missing value for min_column1_non_null_count")
 	}
-	if config.CardinalityThreshold == 0 {
-		return nil, fmt.Errorf("error: clustering_config is missing value for cardinality_threshold")
+	if config.MinColumn2NonNilCount == 0 {
+		return nil, fmt.Errorf("error: clustering_config is missing value for min_column2_non_null_count")
 	}
 
 	// Get the output channel for the column correlation.
@@ -104,17 +104,13 @@ func (ctx *BuilderContext) NewClusteringTransformationPipe(source *InputChannel,
 	if !ok {
 		return nil, fmt.Errorf("error: the clustering operator's correlation_output_channel is missing column 'observations_count'")
 	}
-	_, ok = correlationOutputCh.columns["cardinality_var"]
+	_, ok = correlationOutputCh.columns["distinct_column_1_count"]
 	if !ok {
-		return nil, fmt.Errorf("error: the clustering operator's correlation_output_channel is missing column 'cardinality_var'")
+		return nil, fmt.Errorf("error: the clustering operator's correlation_output_channel is missing column 'distinct_column_1_count'")
 	}
-	_, ok = correlationOutputCh.columns["cardinality_avr"]
+	_, ok = correlationOutputCh.columns["distinct_column_2_count"]
 	if !ok {
-		return nil, fmt.Errorf("error: the clustering operator's correlation_output_channel is missing column 'cardinality_avr'")
-	}
-	if config.MinNonNilCount < 3 {
-		log.Printf("WARNING: clustering_config with min_non_null_count < 3, defaulting to 3")
-		config.MinNonNilCount = 3
+		return nil, fmt.Errorf("error: the clustering operator's correlation_output_channel is missing column 'distinct_column_2_count'")
 	}
 
 	// Setup a worker pool

@@ -430,18 +430,14 @@ type JetrulesSpec struct {
 // If is_debug is true, correlation results are forwarded to s3 otherwise
 // the correlation_output_channel is only used to specify the intermediate
 // channels between the pool manager and the workers.
-// MinNonNilCount is the min nbr of records for a worker to report the correlation.
-// CorrelationThreshold is the min crameV for column correlation
-// CardinalityThreshold is the max average cardinality for column correlation
-// MinObservationCount is min nbr of column1 distinct values observed
+// MinColumn1NonNilCount is min nbr of column1 distinct values observed
+// MinColumn2NonNilCount is min nbr of non nil values of column2 for a worker to report the correlation.
 // ClusterDataSubclassification contains data_classification values, when found in a
 // cluster all columns member of the cluster get that value as data_subclassification.
 type ClusteringSpec struct {
 	MaxInputCount                int                     `json:"max_input_count"`
-	MinNonNilCount               int                     `json:"min_non_null_count"`
-	CorrelationThreshold         float64                 `json:"correlation_threshold"`
-	CardinalityThreshold         float64                 `json:"cardinality_threshold"`
-	MinObservationCount          int                     `json:"min_observations_count"`
+	MinColumn1NonNilCount        int                     `json:"min_column1_non_null_count"`
+	MinColumn2NonNilCount        int                     `json:"min_column2_non_null_count"`
 	TargetColumnsLookup          TargetColumnsLookupSpec `json:"target_columns_lookup"`
 	ClusterDataSubclassification []string                `json:"cluster_data_subclassification"`
 	SoloDataSubclassification    []string                `json:"solo_data_subclassification"`

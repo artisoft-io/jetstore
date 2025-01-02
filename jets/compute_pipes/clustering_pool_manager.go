@@ -3,6 +3,7 @@ package compute_pipes
 import (
 	"fmt"
 	"log"
+	"slices"
 	"strings"
 	"sync"
 )
@@ -22,7 +23,7 @@ type ClusteringPoolManager struct {
 	WorkersTaskCh           chan []any
 	distributors            []*ClusteringDistributor
 	distributionResultCh    chan []any
-	columnsCorrelation      [][]*ColumnCorrelation
+	columnsCorrelation      []*ColumnCorrelation
 	analysisLookup          LookupTable
 	columnClassificationMap map[string]string
 	correlationOutputCh     *OutputChannel
@@ -31,8 +32,11 @@ type ClusteringPoolManager struct {
 }
 
 type ColumnCorrelation struct {
-	varCardinality float64
-	avrCardinality float64
+	column1          string
+	column2          string
+	distinct1Count   int
+	distinct2Count   int
+	observationCount int
 }
 
 type ClusteringDistributor struct {
@@ -124,13 +128,6 @@ func (ctx *BuilderContext) NewClusteringPoolManager(config *ClusteringSpec,
 
 	// Create a channel for the workers to report results
 	workersResultCh := make(chan ClusteringResult)
-	poolMgr.columnsCorrelation = make([][]*ColumnCorrelation, len(columns1))
-	for i := range columns1 {
-		poolMgr.columnsCorrelation[i] = make([]*ColumnCorrelation, len(columns2))
-		for j := range columns2 {
-			poolMgr.columnsCorrelation[i][j] = &ColumnCorrelation{}
-		}
-	}
 
 	// Collect the results from all the workers
 	go func() {
@@ -168,7 +165,7 @@ func (ctx *BuilderContext) NewClusteringPoolManager(config *ClusteringSpec,
 	//   - For each column with column1_classification_values compute the correlation
 	//     with the columns having column2_classification_values.
 	//   - The correlation is calculated for aggregated value of column1 as
-	//        100 * (nbr_distinct_value / total_non_nil_values)
+	//        (nbr_distinct_value / total_non_nil_values)
 	//     Lower is the ratio, more correlated is column1 with column2.
 	//   - The clustering status is calculated as:
 	//		   - When all clusters are of size 1 (single member): invalid
@@ -184,8 +181,8 @@ func (ctx *BuilderContext) NewClusteringPoolManager(config *ClusteringSpec,
 			Columns: []string{
 				"column_name_1",
 				"column_name_2",
-				"value_1",
 				"distinct_count",
+				"total_non_nil_count",
 			},
 		},
 	}
@@ -210,12 +207,13 @@ func (ctx *BuilderContext) NewClusteringPoolManager(config *ClusteringSpec,
 				// log.Println("POOL MANAGER - Waiting on workers to finish (poolWg) DONE")
 				close(poolMgr.distributionResultCh)
 			}()
+			// Distribute the input rows to the distributors
 			for input := range poolMgr.WorkersTaskCh {
 				for _, distributor := range poolMgr.distributors {
 					if len(input) > distributor.column1Pos {
 						value := input[distributor.column1Pos]
 						str, ok := value.(string)
-						if ok {
+						if ok && len(str) > 0 {
 							workerCh := distributor.distributionTaskMap[str]
 							if workerCh == nil {
 								// Got an unseen value, create a worker
@@ -225,7 +223,7 @@ func (ctx *BuilderContext) NewClusteringPoolManager(config *ClusteringSpec,
 								go func() {
 									defer poolMgr.poolWg.Done()
 									worker := NewClusteringWorker(config, source, distributor.column1,
-										value, columns2, workerOutputCh, ctx.done, ctx.errCh)
+										columns2, workerOutputCh, ctx.done, ctx.errCh)
 									worker.DoWork(workerCh, poolMgr.distributionResultCh, workersResultCh)
 								}()
 							}
@@ -247,108 +245,147 @@ func (ctx *BuilderContext) NewClusteringPoolManager(config *ClusteringSpec,
 		// Collect the results from the workers
 		// Worker's output columns positions
 		wName1 := workerOutputCh.columns["column_name_1"]
-		// wValue1 := workerOutputCh.columns["value_1"]
 		wName2 := workerOutputCh.columns["column_name_2"]
 		WCount := workerOutputCh.columns["distinct_count"]
+		WTotal := workerOutputCh.columns["total_non_nil_count"]
 		// Manager's output columns positions
 		col1Pos := correlationOutputCh.columns["column_name_1"]
 		col2Pos := correlationOutputCh.columns["column_name_2"]
-		countPos := correlationOutputCh.columns["observations_count"]
-		varCardinalityPos := correlationOutputCh.columns["cardinality_var"]
-		avrCardinalityPos := correlationOutputCh.columns["cardinality_avr"]
+		distinct1Pos := correlationOutputCh.columns["distinct_column_1_count"]
+		distinct2Pos := correlationOutputCh.columns["distinct_column_2_count"]
+		totalPos := correlationOutputCh.columns["observations_count"]
 		// Use this variable as an accumulator to reduce all column1_value
 		columnCorrelationAccumulator := make(map[string]*ClusterCorrelation)
 		for correlationresult := range poolMgr.distributionResultCh {
 			// save the result so it can be used to determine the clusters
 			key := fmt.Sprintf("%v__%v", correlationresult[wName1], correlationresult[wName2])
 			// //***
-			// fmt.Printf("Got Worker Result: %v value %v, %v distinct_count %v\n",
+			// fmt.Printf("Got Worker Result: %v, %v distinct_count: %v, total: %v\n",
 			// correlationresult[wName1],
-			// correlationresult[wValue1],
 			// correlationresult[wName2],
-			// correlationresult[WCount])
+			// correlationresult[WCount],
+			// correlationresult[WTotal])
 			cc := columnCorrelationAccumulator[key]
 			if cc == nil {
 				cc = NewClusterCorrelation(correlationresult[wName1].(string),
-					correlationresult[wName2].(string), config.MinObservationCount)
+					correlationresult[wName2].(string), config.MinColumn2NonNilCount)
 				columnCorrelationAccumulator[key] = cc
 			}
-			cc.AddObservation(correlationresult[WCount].(int))
+			cc.AddObservation(correlationresult[WCount].(int), correlationresult[WTotal].(int))
 		}
 
 		// Determine the column correlation
+		poolMgr.columnsCorrelation = make([]*ColumnCorrelation, 0, len(columns1)*len(columns2))
 		for _, cc := range columnCorrelationAccumulator {
-			avrCardinality, varCardinality := cc.MeanAndVariance()
-
+			distinctC2Count, totalCount := cc.CumulatedCounts()
+			// Get the column positions in slice columns1
+			column1 := columns1Pos[cc.column1]
 			// Send the correlation result to the output channel so it makes it's way to s3
+			distinctC1Count := len(poolMgr.distributors[column1].distributionTaskMap)
 			correlationresult := make([]any, len(poolMgr.correlationOutputCh.config.Columns))
 			correlationresult[col1Pos] = cc.column1
 			correlationresult[col2Pos] = cc.column2
-			correlationresult[countPos] = cc.ObservationsCount()
-			correlationresult[varCardinalityPos] = varCardinality
-			correlationresult[avrCardinalityPos] = avrCardinality
+			correlationresult[distinct1Pos] = distinctC1Count
+			correlationresult[distinct2Pos] = distinctC2Count
+			correlationresult[totalPos] = totalCount
 			select {
 			case poolMgr.correlationOutputCh.channel <- correlationresult:
 			case <-ctx.done:
 				log.Println("Clustering Pool Manager interrupted")
 			}
 			if config.IsDebug {
-				log.Printf("COLUMN CORRELATION: %s -> %s: %v  (%v, %v)\n",
-					cc.column1, cc.column2, varCardinality, cc.ObservationsCount(), avrCardinality)
+				log.Printf("COLUMN CORRELATION: %s -> %s: (%v, %v, %v)\n",
+					correlationresult[col1Pos], correlationresult[col2Pos], correlationresult[distinct1Pos],
+					correlationresult[distinct2Pos], correlationresult[totalPos])
 			}
-
-			column1 := columns1Pos[cc.column1]
-			column2 := columns2Pos[cc.column2]
-			poolMgr.columnsCorrelation[column1][column2].varCardinality = varCardinality
-			poolMgr.columnsCorrelation[column1][column2].avrCardinality = avrCardinality
+			// Save the result to determine the clusters
+			if totalCount >= config.MinColumn1NonNilCount {
+				poolMgr.columnsCorrelation = append(poolMgr.columnsCorrelation, &ColumnCorrelation{
+					column1:          cc.column1,
+					column2:          cc.column2,
+					distinct1Count:   distinctC1Count,
+					distinct2Count:   distinctC2Count,
+					observationCount: totalCount,
+				})
+			}
 		}
+		// Sort the columnsCorrelation result, in decreasing value of probability the columns are correlated
+		slices.SortFunc(poolMgr.columnsCorrelation, func(a, b *ColumnCorrelation) int {
+			valueA := float64(a.distinct2Count) / float64(a.observationCount)
+			valueB := float64(b.distinct2Count) / float64(b.observationCount)
+			switch {
+			case valueA < valueB:
+				return -1
+			case valueA > valueB:
+				return 1
+			default:
+				return 0
+			}
+		})
+    // //***
+    // for _, cc := range poolMgr.columnsCorrelation {
+    //   log.Printf("SORTED COLUMN CORRELATION: %s -> %s: (%v, %v, %v)\n",
+    //   cc.column1, cc.column2, cc.distinct1Count, cc.distinct2Count, cc.observationCount)
+    // }
+    // //***
 		if config.IsDebug {
 			log.Println("POOL MANAGER - Determine the clusters:")
 		}
 		// Determine the clusters
-		// make a lookup of the transitive data classification
+    // make a lookup of the transitive data classification
 		transitiveDC := make(map[string]bool)
 		for _, dc := range config.TransitiveDataClassification {
 			transitiveDC[dc] = true
 		}
 		// make the clusters
-		clusters := make([]map[string]bool, 0)
-		var cluster map[string]bool
-		for i, column1 := range columns1 {
-			c1 := getClusterOf(column1, clusters)
+		clusters := make([]*ClusterInfo, 0)
+		var cluster *ClusterInfo
+		for _, cc := range poolMgr.columnsCorrelation {
+      // log.Printf("Considering (%s, %s)\n", cc.column1, cc.column2)
+			c1 := getClusterOf(cc.column1, clusters)
 			if c1 < 0 {
-				cluster = make(map[string]bool)
-				cluster[column1] = true
+				cluster = NewClusterInfo(poolMgr.columnClassificationMap, config)
+				cluster.AddMember(cc.column1)
 			} else {
 				cluster = clusters[c1]
 				clusters = remove(clusters, c1)
 			}
-			for j, column2 := range columns2 {
-				// Check column correlation
-				avrCardinality := poolMgr.columnsCorrelation[i][j].avrCardinality
-				varCardinality := poolMgr.columnsCorrelation[i][j].varCardinality
-				if avrCardinality > 0 && avrCardinality <= config.CardinalityThreshold &&
-					varCardinality <= config.CorrelationThreshold {
 
-					c2 := getClusterOf(column2, clusters)
-					if c2 < 0 || !transitiveDC[column2] {
-						// column2 is not yet in a cluster, put it in the current cluster
-						cluster[column2] = true
-					} else {
-						// Merge c2 into cluster, remove c2 from clusters
-						cluster = merge(cluster, clusters[c2])
-						clusters = remove(clusters, c2)
-					}
+			c2 := getClusterOf(cc.column2, clusters)
+			if c2 < 0 || !transitiveDC[cc.column2] {
+				// column2 is not yet in a cluster, put it in the current cluster
+				cluster.AddMember(cc.column2)
+			} else {
+				// Merge c2 into cluster, check if this will breakdown the clusters structure
+				if canMerge(cluster, c2, clusters) {
+					cluster = merge(cluster, clusters[c2])
+					// Remove c2 from clusters
+					clusters = remove(clusters, c2)
+				} else {
+          // log.Printf("Cannot merge %s with %s\n", cluster, clusters[c2])
+					// cluster structure complete
+					//*TODO may continue for unseen columns
+					// Add cluster into the set of clusters
+					clusters = append(clusters, cluster)
+					goto clustersComplete
 				}
-			}
-			// Add cluster into the set of clusters
-			clusters = append(clusters, cluster)
+      }
+      // Add cluster into the set of clusters
+      clusters = append(clusters, cluster)
 		}
+	clustersComplete:
+    // //***
+    // log.Println("Clustering Complete, the clusters are:")
+    // for _, cluster := range clusters {
+    //   log.Println(cluster)
+    // }
+    // //***
+
 		// Validate the cluster structure, make sure the clustering did not breakdown
 		clusterStatus := "valid"
 		maxMembership := 0
 		for _, cluster := range clusters {
-			c := len(cluster)
+			c := len(cluster.membership)
 			if c > maxMembership {
 				maxMembership = c
 			}
@@ -364,52 +401,43 @@ func (ctx *BuilderContext) NewClusteringPoolManager(config *ClusteringSpec,
 			// Determine cluster member's subclassification
 			subClassification = ""
 			if clusterStatus == "valid" {
-				if len(cluster) == 1 {
+				if len(cluster.membership) == 1 {
 					for _, tag := range config.SoloDataSubclassification {
-						for column, b := range cluster {
-							if b {
-								if poolMgr.columnClassificationMap[column] == tag {
-									subClassification = tag
-									goto subclassificationDone
-								}
+						for column, _ := range cluster.membership {
+							if poolMgr.columnClassificationMap[column] == tag {
+								subClassification = tag
+								goto subclassificationDone
 							}
 						}
 					}
 				} else {
-					for _, tag := range config.ClusterDataSubclassification {
-						for column, b := range cluster {
-							if b {
-								if poolMgr.columnClassificationMap[column] == tag {
-									subClassification = tag
-									goto subclassificationDone
-								}
-							}
-						}
+					//*TODO Could there be more than one tag?
+					for tag, _ := range cluster.clusterTags {
+						subClassification = tag
+						goto subclassificationDone
 					}
 				}
 			}
 		subclassificationDone:
-			for column, b := range cluster {
-				if b {
-					row := make([]any, len(outputCh.config.Columns))
-					row[outputCh.columns["cluster_id"]] = label
-					row[outputCh.columns["column_name"]] = column
-					row[outputCh.columns["status"]] = clusterStatus
-					if len(subClassification) == 0 && len(cluster) == 1 {
-						row[outputCh.columns["data_subclassification"]] = "__SOLO__"
-					} else {
-						row[outputCh.columns["data_subclassification"]] = subClassification
-					}
-					// Send the cluster membership to output channel
-					if config.IsDebug {
-						log.Printf("Cluster '%s' (%s), member: '%s', subsclassification: '%s'\n", label, clusterStatus,
-							column, subClassification)
-					}
-					select {
-					case outputCh.channel <- row:
-					case <-ctx.done:
-						log.Println("Clustering Pool Manager sending cluster membership interrupted")
-					}
+			for column := range cluster.membership {
+				row := make([]any, len(outputCh.config.Columns))
+				row[outputCh.columns["cluster_id"]] = label
+				row[outputCh.columns["column_name"]] = column
+				row[outputCh.columns["status"]] = clusterStatus
+				if len(subClassification) == 0 && len(cluster.membership) == 1 {
+					row[outputCh.columns["data_subclassification"]] = "__SOLO__"
+				} else {
+					row[outputCh.columns["data_subclassification"]] = subClassification
+				}
+				// Send the cluster membership to output channel
+				if config.IsDebug {
+					log.Printf("Cluster '%s' (%s), member: '%s', subsclassification: '%s'\n", label, clusterStatus,
+						column, subClassification)
+				}
+				select {
+				case outputCh.channel <- row:
+				case <-ctx.done:
+					log.Println("Clustering Pool Manager sending cluster membership interrupted")
 				}
 			}
 		}
@@ -419,25 +447,4 @@ func (ctx *BuilderContext) NewClusteringPoolManager(config *ClusteringSpec,
 		log.Println("Clustering Worker Pool Completed")
 	}()
 	return
-}
-
-func getClusterOf(column string, clusters []map[string]bool) int {
-	for i, c := range clusters {
-		if c[column] {
-			return i
-		}
-	}
-	return -1
-}
-
-func remove(s []map[string]bool, i int) []map[string]bool {
-	s[len(s)-1], s[i] = nil, s[len(s)-1]
-	return s[:len(s)-1]
-}
-
-func merge(s1, s2 map[string]bool) map[string]bool {
-	for k, v := range s2 {
-		s1[k] = v
-	}
-	return s1
 }
