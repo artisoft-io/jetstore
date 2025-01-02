@@ -209,6 +209,17 @@ func ParseObject(rm *rdf.ResourceManager, object, rdfType string) (node *rdf.Nod
 	return
 }
 
+// Function to clear local caches, needed for when workspace have been updated and need to force the lambda to
+// reload the worspace metadata from jetstore db
+// Note: This must be called before starting goroutines as it is not thread safe.
+func ClearJetrulesCaches() {
+	metaStoreFactoryMap = new(sync.Map)
+	inputMappingCache = new(sync.Map)
+	dataPropertyInfoMap = nil
+	domainTablesMap = nil
+	domainClassesMap = nil
+}
+
 // Function to get the jetrules factory for a rule process
 func GetJetrulesFactory(dbpool *pgxpool.Pool, processName string) (reteMetaStore *rete.ReteMetaStoreFactory, err error) {
 	// Get the Rete MetaStore for the mainRules

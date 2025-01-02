@@ -10,7 +10,6 @@ import (
 
 	"github.com/artisoft-io/jetstore/jets/awsi"
 	"github.com/artisoft-io/jetstore/jets/compute_pipes"
-	"github.com/artisoft-io/jetstore/jets/dbutils"
 	"github.com/artisoft-io/jetstore/jets/workspace"
 	"github.com/aws/aws-lambda-go/lambda"
 	"github.com/jackc/pgx/v4/pgxpool"
@@ -94,18 +93,11 @@ func main() {
 
 	// Sync workspace files
 	// Fetch the jetrules and lookup db
-	// When in dev mode, the apiserver refreshes the overriten workspace files
 	_, devMode := os.LookupEnv("JETSTORE_DEV_MODE")
 	if !devMode {
-		// Get the compiled rules
-		err = workspace.SyncWorkspaceFiles(dbpool, os.Getenv("WORKSPACE"), dbutils.FO_Open, "workspace.tgz", true, false)
+		_, err := workspace.SyncComputePipesWorkspace(dbpool)
 		if err != nil {
-			log.Panicf("Error while synching workspace file from db:", err)
-		}
-		// Get the compiled lookups
-		err = workspace.SyncWorkspaceFiles(dbpool, os.Getenv("WORKSPACE"), dbutils.FO_Open, "sqlite", false, true)
-		if err != nil {
-			log.Panicf("Error while synching workspace file from db:", err)
+			log.Panicf("error while synching workspace files from db: %v", err)
 		}
 	} else {
 		log.Println("We are in DEV_MODE, do not sync workspace file from db")

@@ -412,7 +412,7 @@ func (ctx *BuilderContext) NewClusteringPoolManager(config *ClusteringSpec,
 					}
 				} else {
 					//*TODO Could there be more than one tag?
-					for tag, _ := range cluster.clusterTags {
+					for tag := range cluster.clusterTags {
 						subClassification = tag
 						goto subclassificationDone
 					}

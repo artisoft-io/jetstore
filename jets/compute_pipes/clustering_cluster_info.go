@@ -1,6 +1,9 @@
 package compute_pipes
 
-import "strings"
+import (
+	"slices"
+	"strings"
+)
 
 // Utility types and functions for clustering operator
 
@@ -54,8 +57,7 @@ func getClusterOf(column string, clusters []*ClusterInfo) int {
 }
 
 func remove(s []*ClusterInfo, i int) []*ClusterInfo {
-	s[len(s)-1], s[i] = nil, s[len(s)-1]
-	return s[:len(s)-1]
+	return slices.Delete(s, i, i+1)
 }
 
 func merge(c1, c2 *ClusterInfo) *ClusterInfo {

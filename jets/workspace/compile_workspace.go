@@ -17,7 +17,7 @@ import (
 )
 
 // Active workspace prefix and control file path
-var workspaceHome, wprefix, workspaceControlPath string
+var workspaceHome, wprefix, workspaceControlPath, workspaceVersion string
 
 func init() {
 	workspaceHome = os.Getenv("WORKSPACES_HOME")
@@ -92,6 +92,34 @@ func SyncWorkspaceFiles(dbpool *pgxpool.Pool, workspaceName, status, contentType
 	}
 	log.Println("Done synching overriten workspace file from database")
 	return nil
+}
+
+// Sync the workspace files if a new version of the workspace exist since the last call.
+func SyncComputePipesWorkspace(dbpool *pgxpool.Pool) (bool, error) {
+	// Get the latest workspace version
+	// Check the workspace release in database vs current release
+	var version string
+	stmt := "SELECT MAX(version) FROM jetsapi.workspace_version"
+	err := dbpool.QueryRow(context.Background(), stmt).Scan(&version)
+	if err != nil {
+		return false, fmt.Errorf("while checking latest workspace version: %v", err)
+	}
+	didSync := false
+	if version != workspaceVersion {
+		// Get the compiled rules
+		err = SyncWorkspaceFiles(dbpool, os.Getenv("WORKSPACE"), dbutils.FO_Open, "workspace.tgz", true, false)
+		if err != nil {
+			return false, fmt.Errorf("error while synching workspace file from db: %v", err)
+		}
+		// Get the compiled lookups
+		err = SyncWorkspaceFiles(dbpool, os.Getenv("WORKSPACE"), dbutils.FO_Open, "sqlite", false, true)
+		if err != nil {
+			return false, fmt.Errorf("error while synching workspace file from db: %v", err)
+		}
+		workspaceVersion = version
+		didSync = true
+	}
+	return didSync, nil
 }
 
 func UpdateWorkspaceVersionDb(dbpool *pgxpool.Pool, workspaceName, version string) error {

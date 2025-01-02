@@ -13,6 +13,7 @@ import (
 	"github.com/artisoft-io/jetstore/jets/datatable"
 	"github.com/artisoft-io/jetstore/jets/datatable/jcsv"
 	"github.com/artisoft-io/jetstore/jets/schema"
+	"github.com/artisoft-io/jetstore/jets/workspace"
 	"github.com/jackc/pgx/v4/pgxpool"
 )
 
@@ -26,6 +27,13 @@ func init() {
 func (args *StartComputePipesArgs) StartShardingComputePipes(ctx context.Context, dbpool *pgxpool.Pool) (ComputePipesRun, error) {
 	var result ComputePipesRun
 	var err error
+
+	// Check if we need to sync the workspace files
+	_, err = workspace.SyncComputePipesWorkspace(dbpool)
+	if err != nil {
+		log.Panicf("error while synching workspace files from db: %v", err)
+	}
+
 	// validate the args
 	if args.FileKey == "" || args.SessionId == "" {
 		log.Println("error: missing file_key or session_id as input args of StartComputePipes (sharding mode)")
