@@ -18,11 +18,14 @@ import (
 
 // Active workspace prefix and control file path
 var workspaceHome, wprefix, workspaceControlPath, workspaceVersion string
+var devMode bool
 
 func init() {
 	workspaceHome = os.Getenv("WORKSPACES_HOME")
 	wprefix = os.Getenv("WORKSPACE")
 	workspaceControlPath = fmt.Sprintf("%s/%s/workspace_control.json", workspaceHome, wprefix)
+	_, devMode = os.LookupEnv("JETSTORE_DEV_MODE")
+
 }
 
 // This file contains functions to compile and sync the workspace
@@ -38,6 +41,9 @@ func init() {
 //   - starting rule server to get the latest lookup.db and workspace.db
 func SyncWorkspaceFiles(dbpool *pgxpool.Pool, workspaceName, status, contentType string, skipSqliteFiles bool, skipTgzFiles bool) error {
 	// sync workspace files from db to locally
+	if devMode {
+		return nil
+	}
 	// Get all file_name that are modified
 	if len(contentType) > 0 {
 		log.Printf("Start synching overriten workspace file with status '%s' and content_type '%s' from database", status, contentType)

@@ -147,7 +147,8 @@ func MakeClusters(columnsCorrelation []*ColumnCorrelation,
 	// make the clusters
 	clusters := make([]*ClusterInfo, 0)
 	var cluster *ClusterInfo
-	for _, cc := range columnsCorrelation {
+	count := len(columnsCorrelation)
+	for i, cc := range columnsCorrelation {
 		// log.Printf("Considering (%s, %s)\n", cc.column1, cc.column2)
 		c1 := getClusterOf(cc.column1, clusters)
 		if c1 < 0 {
@@ -164,7 +165,7 @@ func MakeClusters(columnsCorrelation []*ColumnCorrelation,
 			cluster.AddMember(cc.column2)
 		} else {
 			// Merge c2 into cluster, check if this will breakdown the clusters structure
-			if canMerge(cluster, c2, clusters) {
+			if i*10 < count || canMerge(cluster, c2, clusters) {
 				cluster = merge(cluster, clusters[c2])
 				// Remove c2 from clusters
 				clusters = remove(clusters, c2)
