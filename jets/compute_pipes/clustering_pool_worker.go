@@ -11,7 +11,6 @@ type ClusteringWorker struct {
 	config                *ClusteringSpec
 	source                *InputChannel
 	column1               *string
-	column1Value          any
 	columns2              []string
 	correlationEvaluators []*distinctCountCorrelationEval
 	outputChannel         *OutputChannel
@@ -22,7 +21,7 @@ type ClusteringWorker struct {
 // source and outputChannel are provided for their spec, the data is sent and recieved
 // via inputCh and outputCh
 func NewClusteringWorker(config *ClusteringSpec, source *InputChannel,
-	column1 *string, column1Value any, columns2 []string, outputChannel *OutputChannel,
+	column1 *string, columns2 []string, outputChannel *OutputChannel,
 	done chan struct{}, errCh chan error) *ClusteringWorker {
 	// Create the evaluators
 	evaluators := make([]*distinctCountCorrelationEval, 0, len(columns2))
@@ -39,7 +38,6 @@ func NewClusteringWorker(config *ClusteringSpec, source *InputChannel,
 		config:                config,
 		source:                source,
 		column1:               column1,
-		column1Value:          column1Value,
 		columns2:              columns2,
 		correlationEvaluators: evaluators,
 		outputChannel:         outputChannel,
@@ -55,14 +53,17 @@ func (ctx *ClusteringWorker) DoWork(inputCh <-chan []any, outputCh chan<- []any,
 		}
 	}
 	// done, send the result out
+	name1Pos := ctx.outputChannel.columns["column_name_1"]
+	name2Pos := ctx.outputChannel.columns["column_name_2"]
+	countPos := ctx.outputChannel.columns["distinct_count"]
+	totalPos := ctx.outputChannel.columns["total_non_nil_count"]
 	for _, evaluator := range ctx.correlationEvaluators {
-		if evaluator.nonNilCount > ctx.config.MinNonNilCount {
+		if evaluator.nonNilCount > ctx.config.MinColumn2NonNilCount {
 			result := make([]any, len(ctx.outputChannel.config.Columns))
-			result[ctx.outputChannel.columns["column_name_1"]] = *ctx.column1
-			result[ctx.outputChannel.columns["column1_value"]] = ctx.column1Value
-			result[ctx.outputChannel.columns["column_name_2"]] = *evaluator.column2
-			result[ctx.outputChannel.columns["distinct_count"]] = len(evaluator.distinctValues)
-			result[ctx.outputChannel.columns["total_non_null_count"]] = evaluator.nonNilCount
+			result[name1Pos] = *ctx.column1
+			result[name2Pos] = *evaluator.column2
+			result[countPos] = len(evaluator.distinctValues)
+			result[totalPos] = evaluator.nonNilCount
 			// Send the out the result
 			select {
 			case outputCh <- result:

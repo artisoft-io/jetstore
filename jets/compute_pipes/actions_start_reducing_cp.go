@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/artisoft-io/jetstore/jets/datatable/jcsv"
+	"github.com/artisoft-io/jetstore/jets/workspace"
 	"github.com/jackc/pgx/v4/pgxpool"
 )
 
@@ -23,6 +24,11 @@ func (args *StartComputePipesArgs) StartReducingComputePipes(ctx context.Context
 	if args.FileKey == "" || args.SessionId == "" || args.StepId == nil {
 		log.Println("error: missing file_key or session_id or step_id as input args of StartComputePipes (reducing mode)")
 		return result, fmt.Errorf("error: missing file_key or session_id or step_id as input args of StartComputePipes (reducing mode)")
+	}
+	// Check if we need to sync the workspace files
+	_, err = workspace.SyncComputePipesWorkspace(dbpool)
+	if err != nil {
+		log.Panicf("error while synching workspace files from db: %v", err)
 	}
 
 	// get pe info and pipeline config

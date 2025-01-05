@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/artisoft-io/jetstore/jets/datatable"
+	"github.com/artisoft-io/jetstore/jets/workspace"
 	"github.com/jackc/pgx/v4/pgxpool"
 )
 
@@ -17,6 +18,7 @@ import (
 
 func (args *ComputePipesNodeArgs) CoordinateComputePipes(ctx context.Context, dbpool *pgxpool.Pool) error {
 	var cpErr, err error
+	var didSync bool
 	var inFolderPath string
 	var cpContext *ComputePipesContext
 	var fileKeyComponents map[string]interface{}
@@ -28,6 +30,15 @@ func (args *ComputePipesNodeArgs) CoordinateComputePipes(ctx context.Context, db
 	var mainSchemaProviderConfig *SchemaProviderSpec
 	var envSettings map[string]interface{}
 	var schemaManager *SchemaManager
+
+	// Check if we need to sync the workspace files
+	didSync, err = workspace.SyncComputePipesWorkspace(dbpool)
+	if err != nil {
+		log.Panicf("error while synching workspace files from db: %v", err)
+	}
+	if didSync {
+		ClearJetrulesCaches()
+	}
 
 	// Make sure we have a jet partition key set
 	if len(args.JetsPartitionLabel) == 0 {

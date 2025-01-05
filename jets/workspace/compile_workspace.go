@@ -17,12 +17,15 @@ import (
 )
 
 // Active workspace prefix and control file path
-var workspaceHome, wprefix, workspaceControlPath string
+var workspaceHome, wprefix, workspaceControlPath, workspaceVersion string
+var devMode bool
 
 func init() {
 	workspaceHome = os.Getenv("WORKSPACES_HOME")
 	wprefix = os.Getenv("WORKSPACE")
 	workspaceControlPath = fmt.Sprintf("%s/%s/workspace_control.json", workspaceHome, wprefix)
+	_, devMode = os.LookupEnv("JETSTORE_DEV_MODE")
+
 }
 
 // This file contains functions to compile and sync the workspace
@@ -38,6 +41,9 @@ func init() {
 //   - starting rule server to get the latest lookup.db and workspace.db
 func SyncWorkspaceFiles(dbpool *pgxpool.Pool, workspaceName, status, contentType string, skipSqliteFiles bool, skipTgzFiles bool) error {
 	// sync workspace files from db to locally
+	if devMode {
+		return nil
+	}
 	// Get all file_name that are modified
 	if len(contentType) > 0 {
 		log.Printf("Start synching overriten workspace file with status '%s' and content_type '%s' from database", status, contentType)
@@ -92,6 +98,34 @@ func SyncWorkspaceFiles(dbpool *pgxpool.Pool, workspaceName, status, contentType
 	}
 	log.Println("Done synching overriten workspace file from database")
 	return nil
+}
+
+// Sync the workspace files if a new version of the workspace exist since the last call.
+func SyncComputePipesWorkspace(dbpool *pgxpool.Pool) (bool, error) {
+	// Get the latest workspace version
+	// Check the workspace release in database vs current release
+	var version string
+	stmt := "SELECT MAX(version) FROM jetsapi.workspace_version"
+	err := dbpool.QueryRow(context.Background(), stmt).Scan(&version)
+	if err != nil {
+		return false, fmt.Errorf("while checking latest workspace version: %v", err)
+	}
+	didSync := false
+	if version != workspaceVersion {
+		// Get the compiled rules
+		err = SyncWorkspaceFiles(dbpool, os.Getenv("WORKSPACE"), dbutils.FO_Open, "workspace.tgz", true, false)
+		if err != nil {
+			return false, fmt.Errorf("error while synching workspace file from db: %v", err)
+		}
+		// Get the compiled lookups
+		err = SyncWorkspaceFiles(dbpool, os.Getenv("WORKSPACE"), dbutils.FO_Open, "sqlite", false, true)
+		if err != nil {
+			return false, fmt.Errorf("error while synching workspace file from db: %v", err)
+		}
+		workspaceVersion = version
+		didSync = true
+	}
+	return didSync, nil
 }
 
 func UpdateWorkspaceVersionDb(dbpool *pgxpool.Pool, workspaceName, version string) error {

@@ -1,28 +1,18 @@
 package main
 
 import (
-	"encoding/hex"
 	"fmt"
-
-	"github.com/google/uuid"
+	"regexp"
 )
 
-func anonymize(space uuid.UUID, data string) string {
-	encoded := uuid.NewSHA1(space, []byte(data))
-	// encodedText := fmt.Sprintf("%s", encoded)
-	return hex.EncodeToString(encoded[:])
-}
-
 func main() {
-	space := uuid.New()
-	fmt.Println("space is",space)
-	encodedText := anonymize(space, "michel")
-	fmt.Println("got michel","->",encodedText,"len",len(encodedText))
+	expr := "^\\d{1,5}\\s(M[^CG](\\w*)|[^M\\[{#}](\\w*))"
 
-	encodedText = anonymize(space, "0123456789")
-	fmt.Println("got 0123456789","->",encodedText,"len",len(encodedText))
+	r, err := regexp.Compile(expr)
+	fmt.Println(err)
+	fmt.Println(r.MatchString("123 #123]"))
 
-	encodedText = anonymize(space, "123 main street #1")
-	fmt.Println("got '123 main street #1","->",encodedText,"len",len(encodedText))
+	// match, _ := regexp.MatchString("^\\d{1,5}\\s\\w*", "123 [123]")
+	// fmt.Println(match)
 
 }

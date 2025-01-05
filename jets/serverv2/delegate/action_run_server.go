@@ -7,6 +7,7 @@ import (
 	"os"
 	"strconv"
 
+	"github.com/artisoft-io/jetstore/jets/workspace"
 	"github.com/jackc/pgx/v4/pgxpool"
 )
 
@@ -70,6 +71,12 @@ func (args *ServerNodeArgs) RunServer(ctx context.Context, dsn string, dbpool *p
 	}
 	_, devMode := os.LookupEnv("JETSTORE_DEV_MODE")
 
+	// Check if we need to sync the workspace files
+	_, err := workspace.SyncComputePipesWorkspace(dbpool)
+	if err != nil {
+		log.Panicf("error while synching workspace files from db: %v", err)
+	}
+
 	ca := &CommandArguments{
 		AwsRegion:       os.Getenv("JETS_REGION"),
 		LookupDb:        fmt.Sprintf("%s/%s/lookup.db", os.Getenv("WORKSPACES_HOME"), os.Getenv("WORKSPACE")),
@@ -83,7 +90,7 @@ func (args *ServerNodeArgs) RunServer(ctx context.Context, dsn string, dbpool *p
 		DevMode:         devMode,
 	}
 
-	err := DoJobAndReportStatus(dbpool, ca)
+	err = DoJobAndReportStatus(dbpool, ca)
 	if err != nil {
 		fmt.Println(err)
 	}
