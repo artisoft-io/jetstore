@@ -54,7 +54,7 @@ func NewLookupTableS3(_ *pgxpool.Pool, spec *LookupSpec, env map[string]interfac
 	// Fetch the file from s3, save it locally
 	retry := 0
 do_retry:
-	inFilePath, _, err := DownloadS3Object(csvSource.fileKey, inFolderPath, 1)
+	inFilePath, _, err := DownloadS3Object("", csvSource.fileKey, inFolderPath, 1)
 	if err != nil {
 		if retry < 6 {
 			time.Sleep(500 * time.Millisecond)

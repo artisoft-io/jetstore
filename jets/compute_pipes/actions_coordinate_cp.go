@@ -30,6 +30,7 @@ func (args *ComputePipesNodeArgs) CoordinateComputePipes(ctx context.Context, db
 	var mainSchemaProviderConfig *SchemaProviderSpec
 	var envSettings map[string]interface{}
 	var schemaManager *SchemaManager
+	var externalBucket string
 
 	// Check if we need to sync the workspace files
 	didSync, err = workspace.SyncComputePipesWorkspace(dbpool)
@@ -126,6 +127,9 @@ func (args *ComputePipesNodeArgs) CoordinateComputePipes(ctx context.Context, db
 		// Did not find the main_input schema provider
 		cpErr = fmt.Errorf("error: bug in CoordinateComputePipes, could not find the main_input schema provider")
 		goto gotError
+	}
+	if cpConfig.CommonRuntimeArgs.CpipesMode == "sharding" {
+		externalBucket = mainSchemaProviderConfig.Bucket
 	}
 
 	if mainSchemaProviderConfig.IsPartFiles {
@@ -235,7 +239,7 @@ func (args *ComputePipesNodeArgs) CoordinateComputePipes(ctx context.Context, db
 	defer os.Remove(inFolderPath)
 
 	// Download files from s3
-	err = cpContext.DownloadS3Files(inFolderPath, fileKeys)
+	err = cpContext.DownloadS3Files(inFolderPath, externalBucket, fileKeys)
 	if err != nil {
 		cpErr = fmt.Errorf("while DownloadingS3Files (in CoordinateComputePipes): %v", err)
 		goto gotError

@@ -12,7 +12,7 @@ func GetS3FileKeys(processName, sessionId, mainInputStepId, jetsPartitionLabel s
 	s3BaseFolder := fmt.Sprintf("%s/process_name=%s/session_id=%s/step_id=%s/jets_partition=%s",
 		jetsS3StagePrefix, processName, sessionId, mainInputStepId, jetsPartitionLabel)
 
-	s3Objects, err := awsi.ListS3Objects(&s3BaseFolder)
+	s3Objects, err := awsi.ListS3Objects("", &s3BaseFolder)
 	if err != nil || s3Objects == nil {
 		return nil, fmt.Errorf("failed to download list of files from s3: %v", err)
 	}

@@ -71,8 +71,7 @@ func GetFileKeys(ctx context.Context, dbpool *pgxpool.Pool, sessionId string, no
 	return fileKeys, nil
 }
 
-func (cpCtx *ComputePipesContext) DownloadS3Files(inFolderPath string, fileKeys []*FileKeyInfo) error {
-
+func (cpCtx *ComputePipesContext) DownloadS3Files(inFolderPath, externalBucket string, fileKeys []*FileKeyInfo) error {
 	go func() {
 		defer close(cpCtx.FileNamesCh)
 		defer close(cpCtx.DownloadS3ResultCh)
@@ -90,7 +89,7 @@ func (cpCtx *ComputePipesContext) DownloadS3Files(inFolderPath string, fileKeys 
 			}
 			retry := 0
 		do_retry:
-			inFilePath, fileSize, err = DownloadS3Object(fileKeys[i], inFolderPath, 1)
+			inFilePath, fileSize, err = DownloadS3Object(externalBucket, fileKeys[i], inFolderPath, 1)
 			if err != nil {
 				if retry < 6 {
 					time.Sleep(500 * time.Millisecond)
@@ -127,7 +126,7 @@ func (cpCtx *ComputePipesContext) DownloadS3Files(inFolderPath string, fileKeys 
 	return nil
 }
 
-func DownloadS3Object(s3Key *FileKeyInfo, localDir string, minSize int64) (string, int64, error) {
+func DownloadS3Object(externalBucket string, s3Key *FileKeyInfo, localDir string, minSize int64) (string, int64, error) {
 	// Download object(s) using a download manager to a temp file (fileHd)
 	var inFilePath string
 	var fileHd *os.File
@@ -136,6 +135,10 @@ func DownloadS3Object(s3Key *FileKeyInfo, localDir string, minSize int64) (strin
 	if err != nil {
 		return "", 0, fmt.Errorf("failed to open temp input file: %v", err)
 	}
+	if externalBucket == "" {
+		externalBucket = bucketName
+	}
+
 	defer fileHd.Close()
 	inFilePath = fileHd.Name()
 
@@ -146,9 +149,9 @@ func DownloadS3Object(s3Key *FileKeyInfo, localDir string, minSize int64) (strin
 	}
 
 	// Download the object
-	nsz, err := awsi.DownloadFromS3v2(downloader, bucketName, s3Key.key, byteRange, fileHd)
+	nsz, err := awsi.DownloadFromS3v2(downloader, externalBucket, s3Key.key, byteRange, fileHd)
 	if err != nil {
-		return "", 0, fmt.Errorf("failed to download input file: %v", err)
+		return "", 0, fmt.Errorf("failed to download input file from bucket %s: %v", externalBucket, err)
 	}
 	if minSize > 0 && nsz < minSize {
 		log.Printf("Ignoring sentinel file %s", s3Key.key)

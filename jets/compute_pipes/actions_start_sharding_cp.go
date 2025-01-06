@@ -290,12 +290,14 @@ func (args *StartComputePipesArgs) StartShardingComputePipes(ctx context.Context
 	// Check if headers where provided in source_config record or need to determine the csv delimiter
 	if len(ic) == 0 || (sepFlag == 0 && strings.HasSuffix(schemaProviderConfig.Format, "csv")) {
 		// Get the input columns / column separator from the first file
-		err := FetchHeadersAndDelimiterFromFile(shardResult.firstKey, schemaProviderConfig.Format, schemaProviderConfig.Compression, &ic,
-			&sepFlag, schemaProviderConfig.InputFormatDataJson)
+		err := FetchHeadersAndDelimiterFromFile(schemaProviderConfig.Bucket, shardResult.firstKey,
+			schemaProviderConfig.Format, schemaProviderConfig.Compression, &ic, &sepFlag,
+			schemaProviderConfig.InputFormatDataJson)
 		if err != nil {
 			return result,
-				fmt.Errorf("while calling FetchHeadersAndDelimiterFromFile('%s', '%s', '%s'): %v", shardResult.firstKey,
-					schemaProviderConfig.Format, schemaProviderConfig.Compression, err)
+				fmt.Errorf("while calling FetchHeadersAndDelimiterFromFile('%s', '%s', '%s', '%s'): %v",
+					schemaProviderConfig.Bucket, shardResult.firstKey, schemaProviderConfig.Format,
+					schemaProviderConfig.Compression, err)
 		}
 		if sepFlag != 0 {
 			schemaProviderConfig.Delimiter = sepFlag.String()

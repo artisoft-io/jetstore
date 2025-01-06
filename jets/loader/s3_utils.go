@@ -46,7 +46,7 @@ func downloadS3Files(done <-chan struct{}) (<-chan string, <-chan string, <-chan
 		if isPartFiles == 1 {
 			var fileKeys []string
 			log.Printf("Getting file keys from s3 folder: %s", *inFile)
-			s3Objects, err := awsi.ListS3Objects(inFile)
+			s3Objects, err := awsi.ListS3Objects("", inFile)
 			if err != nil || s3Objects == nil {
 				downloadS3ResultCh <- DownloadS3Result{
 					err: fmt.Errorf("failed to download list of files from s3: %v", err),

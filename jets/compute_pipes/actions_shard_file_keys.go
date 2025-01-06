@@ -32,7 +32,7 @@ func ShardFileKeys(exeCtx context.Context, dbpool *pgxpool.Pool, baseFileKey str
 
 	// Get all the file keys having baseFileKey as prefix
 	log.Printf("Downloading file keys from s3 folder: %s", baseFileKey)
-	s3Objects, err := awsi.ListS3Objects(&baseFileKey)
+	s3Objects, err := awsi.ListS3Objects(schemaProviderConfig.Bucket, &baseFileKey)
 	if err != nil || len(s3Objects) == 0 {
 		result.err = fmt.Errorf("failed to download list of files from s3 (or folder is empty): %v", err)
 		return

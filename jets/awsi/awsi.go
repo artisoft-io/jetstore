@@ -148,7 +148,8 @@ type S3Object struct {
 }
 
 // ListObjects lists the objects in a bucket with prefix if not nil.
-func ListS3Objects(prefix *string) ([]*S3Object, error) {
+// Read from externalBucket if not empty, otherwise read from jetstore default bucket
+func ListS3Objects(externalBucket string, prefix *string) ([]*S3Object, error) {
 	cfg, err := config.LoadDefaultConfig(context.TODO(), config.WithRegion(region))
 	if err != nil {
 		return nil, fmt.Errorf("while loading aws configuration: %v", err)
@@ -157,12 +158,16 @@ func ListS3Objects(prefix *string) ([]*S3Object, error) {
 	// Create a s3 client
 	s3Client := s3.NewFromConfig(cfg)
 
+	if externalBucket == "" {
+		externalBucket = bucket
+	}
+
 	// Download the keys
 	keys := make([]*S3Object, 0)
 	var token *string
 	for isTruncated := true; isTruncated; {
 		result, err := s3Client.ListObjectsV2(context.TODO(), &s3.ListObjectsV2Input{
-			Bucket:            aws.String(bucket),
+			Bucket:            aws.String(externalBucket),
 			Prefix:            prefix,
 			ContinuationToken: token,
 		})
