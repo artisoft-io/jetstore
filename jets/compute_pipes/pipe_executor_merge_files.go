@@ -89,6 +89,12 @@ func (cpCtx *ComputePipesContext) StartMergeFiles(dbpool *pgxpool.Pool) (cpErr e
 		compression = inputSp.Compression()
 	}
 
+	// Determine if we write the file in the source bucket of the schema provider
+	var externalBucket string
+	if inputSp != nil && outputFileConfig.OutputLocation == "jetstore_s3_input" {
+		externalBucket = inputSp.Bucket()
+	}
+
 	// Determine if we put a header row
 	outputSp := cpCtx.SchemaManager.GetSchemaProvider(outputFileConfig.SchemaProvider)
 	writeHeaders := true
@@ -132,7 +138,7 @@ func (cpCtx *ComputePipesContext) StartMergeFiles(dbpool *pgxpool.Pool) (cpErr e
 	r := cpCtx.NewMergeFileReader(inputFormat, outputFileConfig.Headers, writeHeaders, delimit, compression)
 
 	// put content of file to s3
-	if err := awsi.UploadToS3FromReader(outputS3FileKey, r); err != nil {
+	if err := awsi.UploadToS3FromReader(externalBucket, outputS3FileKey, r); err != nil {
 		cpErr = fmt.Errorf("while copying to s3: %v", err)
 		return
 	}

@@ -60,8 +60,11 @@ func (ctx *S3DeviceWorker) processTask(task *S3Object, _ *S3DeviceManager, resul
 		os.Remove(task.LocalFilePath)
 	}()
 
+	if task.ExternalBucket == "" {
+		task.ExternalBucket = bucketName
+	}
 	putObjInput = &s3.PutObjectInput{
-		Bucket: &bucketName,
+		Bucket: &task.ExternalBucket,
 		Key:    &task.FileKey,
 		Body:   bufio.NewReader(fileHd),
 	}

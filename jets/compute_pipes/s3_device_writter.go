@@ -24,6 +24,7 @@ type S3DeviceWriter struct {
 	columnNames     []string
 	parquetSchema   []string
 	localTempDir    *string
+	externalBucket  *string
 	s3BasePath      *string
 	fileName        *string
 	spec            *TransformationSpec
@@ -94,8 +95,9 @@ func (ctx *S3DeviceWriter) WriteParquetPartition() {
 	// schedule the file to be moved to s3
 	select {
 	case ctx.s3DeviceManager.WorkersTaskCh <- S3Object{
-		FileKey:       s3FileName,
-		LocalFilePath: tempFileName,
+		ExternalBucket: *ctx.externalBucket,
+		FileKey:        s3FileName,
+		LocalFilePath:  tempFileName,
 	}:
 	case <-ctx.doneCh:
 		log.Printf("WriteParquetPartition: sending file to S3DeviceManager interrupted")
@@ -190,8 +192,9 @@ func (ctx *S3DeviceWriter) WriteCsvPartition() {
 	// schedule the file to be moved to s3
 	select {
 	case ctx.s3DeviceManager.WorkersTaskCh <- S3Object{
-		FileKey:       s3FileName,
-		LocalFilePath: tempFileName,
+		ExternalBucket: *ctx.externalBucket,
+		FileKey:        s3FileName,
+		LocalFilePath:  tempFileName,
 	}:
 	case <-ctx.doneCh:
 		log.Printf("WriteCsvPartition: sending file to S3DeviceManager interrupted")
@@ -322,8 +325,9 @@ func (ctx *S3DeviceWriter) WriteFixedWidthPartition() {
 	// schedule the file to be moved to s3
 	select {
 	case ctx.s3DeviceManager.WorkersTaskCh <- S3Object{
-		FileKey:       s3FileName,
-		LocalFilePath: tempFileName,
+		ExternalBucket: *ctx.externalBucket,
+		FileKey:        s3FileName,
+		LocalFilePath:  tempFileName,
 	}:
 	case <-ctx.doneCh:
 		log.Printf("WriteFixedWidthPartition: sending file to S3DeviceManager interrupted")
