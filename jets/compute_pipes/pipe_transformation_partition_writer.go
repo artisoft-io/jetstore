@@ -37,6 +37,7 @@ type PartitionWriterTransformationPipe struct {
 	columnNames          []string
 	deviceWriterType     string
 	localTempDir         *string
+	externalBucket       string
 	baseOutputPath       *string
 	jetsPartitionLabel   string
 	rowCountPerPartition int64
@@ -131,6 +132,7 @@ func (ctx *PartitionWriterTransformationPipe) Apply(input *[]interface{}) error 
 			outputCh:       ctx.outputCh,
 			parquetSchema:  ctx.parquetSchema,
 			localTempDir:   ctx.localTempDir,
+			externalBucket: &ctx.externalBucket,
 			s3BasePath:     ctx.baseOutputPath,
 			fileName:       &partitionFileName,
 			doneCh:         ctx.doneCh,
@@ -336,6 +338,7 @@ func (ctx *BuilderContext) NewPartitionWriterTransformationPipe(source *InputCha
 
 	jetsPartitionLabel := MakeJetsPartitionLabel(jetsPartitionKey)
 	var baseOutputPath string
+	var externalBucket string
 	switch spec.OutputChannel.Type {
 	case "stage":
 		// s3 partitioning, write the partition files in the JetStore's stage path defined by the env var JETS_s3_STAGE_PREFIX
@@ -343,6 +346,17 @@ func (ctx *BuilderContext) NewPartitionWriterTransformationPipe(source *InputCha
 		baseOutputPath = fmt.Sprintf("%s/process_name=%s/session_id=%s/step_id=%s/jets_partition=%s",
 			jetsS3StagePrefix, ctx.processName, ctx.sessionId, spec.OutputChannel.WriteStepId, jetsPartitionLabel)
 	case "output":
+		switch {
+		case len(spec.OutputChannel.Bucket) > 0:
+			if spec.OutputChannel.Bucket != "jetstore_bucket" {
+				externalBucket = spec.OutputChannel.Bucket
+			}
+			case sp != nil && spec.OutputChannel.OutputLocation == "jetstore_s3_input":
+			externalBucket = sp.Bucket()
+		}
+		if len(externalBucket) > 0 {
+			externalBucket = doSubstitution(externalBucket, "",	"", ctx.env)
+		}
 		baseOutputPath = doSubstitution(spec.OutputChannel.KeyPrefix, jetsPartitionLabel,
 			spec.OutputChannel.OutputLocation, ctx.env)
 	default:
@@ -377,6 +391,7 @@ func (ctx *BuilderContext) NewPartitionWriterTransformationPipe(source *InputCha
 		schemaProvider:       sp,
 		columnNames:          columnNames,
 		deviceWriterType:     config.DeviceWriterType,
+		externalBucket:       externalBucket,
 		baseOutputPath:       &baseOutputPath,
 		localTempDir:         &localTempDir,
 		jetsPartitionLabel:   jetsPartitionLabel,

@@ -97,7 +97,7 @@ func (ctx *CsvSourceS3) ReadFileToMetaGraph(reteMetaStore *rete.ReteMetaStoreFac
 	// Fetch the file from s3, save it locally
 	retry := 0
 do_retry:
-	localFileName, _, err := DownloadS3Object(ctx.fileKey, inFolderPath, 1)
+	localFileName, _, err := DownloadS3Object("", ctx.fileKey, inFolderPath, 1)
 	if err != nil {
 		if retry < 6 {
 			time.Sleep(500 * time.Millisecond)

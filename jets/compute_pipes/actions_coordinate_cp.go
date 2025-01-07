@@ -30,6 +30,7 @@ func (args *ComputePipesNodeArgs) CoordinateComputePipes(ctx context.Context, db
 	var mainSchemaProviderConfig *SchemaProviderSpec
 	var envSettings map[string]interface{}
 	var schemaManager *SchemaManager
+	var externalBucket string
 
 	// Check if we need to sync the workspace files
 	didSync, err = workspace.SyncComputePipesWorkspace(dbpool)
@@ -127,6 +128,9 @@ func (args *ComputePipesNodeArgs) CoordinateComputePipes(ctx context.Context, db
 		cpErr = fmt.Errorf("error: bug in CoordinateComputePipes, could not find the main_input schema provider")
 		goto gotError
 	}
+	if cpConfig.CommonRuntimeArgs.CpipesMode == "sharding" {
+		externalBucket = mainSchemaProviderConfig.Bucket
+	}
 
 	if mainSchemaProviderConfig.IsPartFiles {
 		fileKeyPath = cpConfig.CommonRuntimeArgs.FileKey
@@ -144,6 +148,7 @@ func (args *ComputePipesNodeArgs) CoordinateComputePipes(ctx context.Context, db
 	//  e.g. $FILE_KEY and $FILE_KEY_PATH is BAD since $FILE_KEY_PATH may get
 	//  the value of $FILE_KEY with a dandling _PATH
 	envSettings = map[string]interface{}{
+		"$INPUT_BUCKET":         mainSchemaProviderConfig.Bucket,
 		"$FILE_KEY":             cpConfig.CommonRuntimeArgs.FileKey,
 		"$PATH_FILE_KEY":        fileKeyPath,
 		"$NAME_FILE_KEY":        fileKeyName,
@@ -235,7 +240,7 @@ func (args *ComputePipesNodeArgs) CoordinateComputePipes(ctx context.Context, db
 	defer os.Remove(inFolderPath)
 
 	// Download files from s3
-	err = cpContext.DownloadS3Files(inFolderPath, fileKeys)
+	err = cpContext.DownloadS3Files(inFolderPath, externalBucket, fileKeys)
 	if err != nil {
 		cpErr = fmt.Errorf("while DownloadingS3Files (in CoordinateComputePipes): %v", err)
 		goto gotError

@@ -26,8 +26,9 @@ type S3DeviceManager struct {
 
 // S3Object is the worker's task payload to put a file to s3
 type S3Object struct {
-	FileKey       string
-	LocalFilePath string
+	ExternalBucket string
+	FileKey        string
+	LocalFilePath  string
 }
 
 // Create the S3DeviceManager, it will be set to the receiving BuilderContext

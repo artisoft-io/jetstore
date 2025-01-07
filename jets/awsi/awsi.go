@@ -148,7 +148,8 @@ type S3Object struct {
 }
 
 // ListObjects lists the objects in a bucket with prefix if not nil.
-func ListS3Objects(prefix *string) ([]*S3Object, error) {
+// Read from externalBucket if not empty, otherwise read from jetstore default bucket
+func ListS3Objects(externalBucket string, prefix *string) ([]*S3Object, error) {
 	cfg, err := config.LoadDefaultConfig(context.TODO(), config.WithRegion(region))
 	if err != nil {
 		return nil, fmt.Errorf("while loading aws configuration: %v", err)
@@ -157,12 +158,16 @@ func ListS3Objects(prefix *string) ([]*S3Object, error) {
 	// Create a s3 client
 	s3Client := s3.NewFromConfig(cfg)
 
+	if externalBucket == "" {
+		externalBucket = bucket
+	}
+
 	// Download the keys
 	keys := make([]*S3Object, 0)
 	var token *string
 	for isTruncated := true; isTruncated; {
 		result, err := s3Client.ListObjectsV2(context.TODO(), &s3.ListObjectsV2Input{
-			Bucket:            aws.String(bucket),
+			Bucket:            aws.String(externalBucket),
 			Prefix:            prefix,
 			ContinuationToken: token,
 		})
@@ -287,7 +292,7 @@ func UploadToS3(bucket, region, objKey string, fileHd *os.File) error {
 }
 
 // upload object to S3, reading the obj from reader (from current position to EOF)
-func UploadToS3FromReader(objKey string, reader io.Reader) error {
+func UploadToS3FromReader(externalBucket, objKey string, reader io.Reader) error {
 	cfg, err := config.LoadDefaultConfig(context.TODO(), config.WithRegion(region))
 	if err != nil {
 		return fmt.Errorf("while loading aws configuration: %v", err)
@@ -296,10 +301,15 @@ func UploadToS3FromReader(objKey string, reader io.Reader) error {
 	// Create a s3 client
 	s3Client := s3.NewFromConfig(cfg)
 
+	// check if we write to an external bucket
+	if externalBucket == "" {
+		externalBucket = bucket
+	}
+
 	// Create an uploader with the client and custom options
 	uploader := manager.NewUploader(s3Client)
 	putObjInput := &s3.PutObjectInput{
-		Bucket: &bucket,
+		Bucket: &externalBucket,
 		Key:    &objKey,
 		Body:   reader,
 	}
@@ -310,7 +320,7 @@ func UploadToS3FromReader(objKey string, reader io.Reader) error {
 	// uout, err := uploader.Upload(context.TODO(), putObjInput)
 	_, err = uploader.Upload(context.TODO(), putObjInput)
 	if err != nil {
-		return fmt.Errorf("failed to upload file to s3: %v", err)
+		return fmt.Errorf("failed to upload file to s3 bucket %s: %v", externalBucket, err)
 	}
 	// if uout != nil {
 	// 	log.Println("Uploaded",*uout.Key,"to location",uout.Location)

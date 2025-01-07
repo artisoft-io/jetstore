@@ -16,9 +16,9 @@ import (
 // Sample lambda function in go for future needs
 
 type config struct {
-	AWSRegion         string
-	AWSDnsSecret      string
-	IsValid           bool
+	AWSRegion    string
+	AWSDnsSecret string
+	IsValid      bool
 }
 
 var logger *zap.Logger
@@ -95,14 +95,30 @@ func handler(ctx context.Context, arguments map[string]interface{}) (err error) 
 	case string:
 		ca.FailureDetails = failureDetails
 	case map[string]interface{}:
-		var details map[string]interface{}	
-		if err = json.Unmarshal([]byte(failureDetails["Cause"].(string)), &details); err != nil {
-			ca.FailureDetails = failureDetails["Cause"].(string)
+		txt, ok := failureDetails["Cause"].(string)
+		if ok {
+			// see if txt is an embeded json
+			var errCause map[string]interface{}
+			err = json.Unmarshal([]byte(txt), &errCause)
+			if err == nil {
+				txt2, ok2 := errCause["errorMessage"].(string)
+				if ok2 {
+					// got down to the error message
+					ca.FailureDetails = txt2
+				} else {
+					// unknown error structure, keep the whole thing
+					ca.FailureDetails = txt
+				}
+			} else {
+				// must have been a simple string
+				ca.FailureDetails = txt
+			}
 		} else {
-			b, _ := json.MarshalIndent(details, "", " ")
+			// failure details has an unknown structure
+			b, _ := json.MarshalIndent(failureDetails, "", " ")
 			ca.FailureDetails = string(b)
 		}
-		
+
 	default:
 		fmt.Println("Unknown type for failureDetails")
 	}
@@ -112,8 +128,8 @@ func handler(ctx context.Context, arguments map[string]interface{}) (err error) 
 	}
 	// dbPoolSize = 3
 	ca.DbPoolSize = 3
-	fmt.Println("Got peKey:",ca.PeKey,"fileKey:", fileKey,"failureDetails:", ca.FailureDetails, "dbPoolSize:", ca.DbPoolSize)
-	
+	fmt.Println("Got peKey:", ca.PeKey, "fileKey:", fileKey, "failureDetails:", ca.FailureDetails, "dbPoolSize:", ca.DbPoolSize)
+
 	errors := ca.ValidateArguments()
 	for _, m := range errors {
 		logger.Error("Validation Error:", zap.String("errMsg", m))

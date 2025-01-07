@@ -28,6 +28,7 @@ func NewSchemaManager(spec []*SchemaProviderSpec,
 type SchemaProvider interface {
 	Initialize(dbpool *pgxpool.Pool, spec *SchemaProviderSpec,
 		envSettings map[string]interface{}, isDebugMode bool) error
+	Bucket() string
 	Key() string
 	SchemaName() string
 	Format() string
@@ -124,6 +125,13 @@ func (sp *DefaultSchemaProvider) Key() string {
 		return ""
 	}
 	return sp.spec.Key
+}
+
+func (sp *DefaultSchemaProvider) Bucket() string {
+	if sp == nil {
+		return ""
+	}
+	return sp.spec.Bucket
 }
 
 func (sp *DefaultSchemaProvider) Env() map[string]string {

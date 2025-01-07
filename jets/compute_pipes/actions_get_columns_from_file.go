@@ -18,7 +18,7 @@ import (
 // if len(*ic) == 0 then fetch headers from file
 // if *sepFlag == 0 then fetch column separator from file
 // error if ic == nil or sepFlag == nil
-func FetchHeadersAndDelimiterFromFile(fileKey, fileFormat, compression string, ic *[]string,
+func FetchHeadersAndDelimiterFromFile(externalBucket, fileKey, fileFormat, compression string, ic *[]string,
 	sepFlag *jcsv.Chartype, fileFormatDataJson string) error {
 	var fileHd *os.File
 	var err error
@@ -37,6 +37,9 @@ func FetchHeadersAndDelimiterFromFile(fileKey, fileFormat, compression string, i
 			os.Remove(fn)
 		}
 	}()
+	if externalBucket == "" {
+		externalBucket = bucketName
+	}
 	var byteRange *string
 	switch fileFormat {
 	case "csv", "headerless_csv":
@@ -46,7 +49,7 @@ func FetchHeadersAndDelimiterFromFile(fileKey, fileFormat, compression string, i
 	retry := 0
 do_retry:
 	// Download the object
-	fileSize, err := awsi.DownloadFromS3v2(downloader, bucketName, fileKey, byteRange, fileHd)
+	fileSize, err := awsi.DownloadFromS3v2(downloader, externalBucket, fileKey, byteRange, fileHd)
 	if err != nil {
 		if retry < 6 {
 			time.Sleep(500 * time.Millisecond)
