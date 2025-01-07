@@ -348,10 +348,15 @@ func (ctx *BuilderContext) NewPartitionWriterTransformationPipe(source *InputCha
 	case "output":
 		switch {
 		case len(spec.OutputChannel.Bucket) > 0:
-			externalBucket = spec.OutputChannel.Bucket
-		case sp != nil && spec.OutputChannel.OutputLocation == "jetstore_s3_input":
+			if spec.OutputChannel.Bucket != "jetstore_bucket" {
+				externalBucket = spec.OutputChannel.Bucket
+			}
+			case sp != nil && spec.OutputChannel.OutputLocation == "jetstore_s3_input":
 			externalBucket = sp.Bucket()
-		}		
+		}
+		if len(externalBucket) > 0 {
+			externalBucket = doSubstitution(externalBucket, "",	"", ctx.env)
+		}
 		baseOutputPath = doSubstitution(spec.OutputChannel.KeyPrefix, jetsPartitionLabel,
 			spec.OutputChannel.OutputLocation, ctx.env)
 	default:

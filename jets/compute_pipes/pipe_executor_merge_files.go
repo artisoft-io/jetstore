@@ -93,9 +93,14 @@ func (cpCtx *ComputePipesContext) StartMergeFiles(dbpool *pgxpool.Pool) (cpErr e
 	var externalBucket string
 	switch {
 	case len(outputFileConfig.Bucket) > 0:
-		externalBucket = outputFileConfig.Bucket
+		if outputFileConfig.Bucket != "jetstore_bucket" {
+			externalBucket = outputFileConfig.Bucket
+		}
 	case inputSp != nil && outputFileConfig.OutputLocation == "jetstore_s3_input":
 		externalBucket = inputSp.Bucket()
+	}
+	if len(externalBucket) > 0 {
+		externalBucket = doSubstitution(externalBucket, "", "",	cpCtx.EnvSettings)
 	}
 
 	// Determine if we put a header row
