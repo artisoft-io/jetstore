@@ -148,6 +148,7 @@ func (args *ComputePipesNodeArgs) CoordinateComputePipes(ctx context.Context, db
 	//  e.g. $FILE_KEY and $FILE_KEY_PATH is BAD since $FILE_KEY_PATH may get
 	//  the value of $FILE_KEY with a dandling _PATH
 	envSettings = map[string]interface{}{
+		"$INPUT_BUCKET":         mainSchemaProviderConfig.Bucket,
 		"$FILE_KEY":             cpConfig.CommonRuntimeArgs.FileKey,
 		"$PATH_FILE_KEY":        fileKeyPath,
 		"$NAME_FILE_KEY":        fileKeyName,

@@ -346,9 +346,12 @@ func (ctx *BuilderContext) NewPartitionWriterTransformationPipe(source *InputCha
 		baseOutputPath = fmt.Sprintf("%s/process_name=%s/session_id=%s/step_id=%s/jets_partition=%s",
 			jetsS3StagePrefix, ctx.processName, ctx.sessionId, spec.OutputChannel.WriteStepId, jetsPartitionLabel)
 	case "output":
-		if sp != nil && spec.OutputChannel.OutputLocation == "jetstore_s3_input" {
+		switch {
+		case len(spec.OutputChannel.Bucket) > 0:
+			externalBucket = spec.OutputChannel.Bucket
+		case sp != nil && spec.OutputChannel.OutputLocation == "jetstore_s3_input":
 			externalBucket = sp.Bucket()
-		}
+		}		
 		baseOutputPath = doSubstitution(spec.OutputChannel.KeyPrefix, jetsPartitionLabel,
 			spec.OutputChannel.OutputLocation, ctx.env)
 	default:

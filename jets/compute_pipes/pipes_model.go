@@ -202,6 +202,7 @@ type OutputFileSpec struct {
 	// to use on the header line.
 	Key            string   `json:"key"`
 	Name           string   `json:"name"`
+	Bucket         string   `json:"bucket"`
 	KeyPrefix      string   `json:"key_prefix"`
 	OutputLocation string   `json:"output_location"`
 	SchemaProvider string   `json:"schema_provider"`
@@ -301,6 +302,7 @@ type OutputChannelConfig struct {
 	SchemaProvider string `json:"schema_provider"`  // Type stage,output, alt to Format
 	WriteStepId    string `json:"write_step_id"`    // Type stage
 	OutputTableKey string `json:"output_table_key"` // Type sql
+	Bucket         string `json:"bucket"`           // type output
 	KeyPrefix      string `json:"key_prefix"`       // Type output
 	FileName       string `json:"file_name"`        // Type output
 	OutputLocation string `json:"output_location"`  // Type output

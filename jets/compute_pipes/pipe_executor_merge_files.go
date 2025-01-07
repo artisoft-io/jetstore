@@ -91,7 +91,10 @@ func (cpCtx *ComputePipesContext) StartMergeFiles(dbpool *pgxpool.Pool) (cpErr e
 
 	// Determine if we write the file in the source bucket of the schema provider
 	var externalBucket string
-	if inputSp != nil && outputFileConfig.OutputLocation == "jetstore_s3_input" {
+	switch {
+	case len(outputFileConfig.Bucket) > 0:
+		externalBucket = outputFileConfig.Bucket
+	case inputSp != nil && outputFileConfig.OutputLocation == "jetstore_s3_input":
 		externalBucket = inputSp.Bucket()
 	}
 
