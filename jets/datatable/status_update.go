@@ -39,6 +39,7 @@ import (
 // are not needed.
 type StatusUpdate struct {
 	CpipesMode     bool
+	CpipesEnv      map[string]any
 	AwsDsnSecret   string
 	DbPoolSize     int
 	UsingSshTunnel bool
@@ -161,6 +162,8 @@ func (ca *StatusUpdate) ValidateArguments() []string {
 	log.Println("Got argument: status", ca.Status)
 	log.Println("Got argument: fileKey", ca.FileKey)
 	log.Println("Got argument: failureDetails", ca.FailureDetails)
+	log.Println("Got argument: cpipesMode", ca.CpipesMode)
+	log.Println("Got argument: cpipesEnv", ca.CpipesEnv)
 	log.Printf("ENV JETS_s3_INPUT_PREFIX: %s", os.Getenv("JETS_s3_INPUT_PREFIX"))
 	log.Println("env CPIPES_STATUS_NOTIFICATION_ENDPOINT:", os.Getenv("CPIPES_STATUS_NOTIFICATION_ENDPOINT"))
 	log.Println("env CPIPES_STATUS_NOTIFICATION_ENDPOINT_JSON:", os.Getenv("CPIPES_STATUS_NOTIFICATION_ENDPOINT_JSON"))
@@ -172,7 +175,8 @@ func (ca *StatusUpdate) ValidateArguments() []string {
 	return errMsg
 }
 
-func DoNotifyApiGateway(fileKey, apiEndpoint, apiEndpointJson, notificationTemplate string, customFileKeys []string, errMsg string) error {
+func DoNotifyApiGateway(fileKey, apiEndpoint, apiEndpointJson, notificationTemplate string, 
+	customFileKeys []string, errMsg string, envSettings map[string]any) error {
 	var (
 		ctx    context.Context
 		cancel context.CancelFunc
@@ -227,6 +231,14 @@ func DoNotifyApiGateway(fileKey, apiEndpoint, apiEndpointJson, notificationTempl
 	if len(errMsg) > 0 {
 		errMsg = strings.ReplaceAll(errMsg, `"`, `\"`)
 		notificationTemplate = strings.ReplaceAll(notificationTemplate, "{{error}}", errMsg)
+	}
+
+	// Do substitution using key/value provided by cpipes config and main schema provider
+	for key, value := range envSettings {
+		str, ok := value.(string)
+		if ok && strings.HasPrefix(key, "$") {
+			notificationTemplate = strings.ReplaceAll(notificationTemplate, fmt.Sprintf("{{%s}}", key[1:]), str)
+		}
 	}
 
 	// Identify the endpoint where to send the request
@@ -299,7 +311,7 @@ func (ca *StatusUpdate) CoordinateWork() error {
 			notificationTemplate = os.Getenv("CPIPES_COMPLETED_NOTIFICATION_JSON")
 		}
 		// ignore returned err
-		DoNotifyApiGateway(ca.FileKey, apiEndpoint, apiEndpointJson, notificationTemplate, customFileKeys, errMsg)
+		DoNotifyApiGateway(ca.FileKey, apiEndpoint, apiEndpointJson, notificationTemplate, customFileKeys, errMsg, ca.CpipesEnv)
 	}
 	// open db connection, if not already opened
 	var err error
