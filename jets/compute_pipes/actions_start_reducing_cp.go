@@ -337,6 +337,7 @@ func (args *StartComputePipesArgs) StartReducingComputePipes(ctx context.Context
 		}
 	}
 
+	envSettings := PrepareCpipesEnv(&cpConfig, schemaProviderConfig)
 	result.ReportsCommand = []string{
 		"-client", client,
 		"-processName", processName,
@@ -345,6 +346,7 @@ func (args *StartComputePipesArgs) StartReducingComputePipes(ctx context.Context
 	}
 	result.SuccessUpdate = map[string]interface{}{
 		"cpipesMode":     true,
+		"cpipesEnv":      envSettings,
 		"-peKey":         strconv.Itoa(args.PipelineExecKey),
 		"-status":        "completed",
 		"file_key":       args.FileKey,
@@ -352,6 +354,7 @@ func (args *StartComputePipesArgs) StartReducingComputePipes(ctx context.Context
 	}
 	result.ErrorUpdate = map[string]interface{}{
 		"cpipesMode":     true,
+		"cpipesEnv":      envSettings,
 		"-peKey":         strconv.Itoa(args.PipelineExecKey),
 		"-status":        "failed",
 		"file_key":       args.FileKey,

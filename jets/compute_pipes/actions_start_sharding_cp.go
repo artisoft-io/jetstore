@@ -40,21 +40,6 @@ func (args *StartComputePipesArgs) StartShardingComputePipes(ctx context.Context
 		return result, fmt.Errorf("error: missing file_key or session_id as input args of StartComputePipes (sharding mode)")
 	}
 
-	// Send CPIPES start notification to api gateway (install specific)
-	// NOTE 2024-05-13 Added Notification to API Gateway via env var CPIPES_STATUS_NOTIFICATION_ENDPOINT or CPIPES_STATUS_NOTIFICATION_ENDPOINT_JSON
-	apiEndpoint := os.Getenv("CPIPES_STATUS_NOTIFICATION_ENDPOINT")
-	apiEndpointJson := os.Getenv("CPIPES_STATUS_NOTIFICATION_ENDPOINT_JSON")
-	if apiEndpoint != "" || apiEndpointJson != "" {
-		customFileKeys := make([]string, 0)
-		ck := os.Getenv("CPIPES_CUSTOM_FILE_KEY_NOTIFICATION")
-		if len(ck) > 0 {
-			customFileKeys = strings.Split(ck, ",")
-		}
-		notificationTemplate := os.Getenv("CPIPES_START_NOTIFICATION_JSON")
-		// ignore returned err
-		datatable.DoNotifyApiGateway(args.FileKey, apiEndpoint, apiEndpointJson, notificationTemplate, customFileKeys, "")
-	}
-
 	// check the session is not already used
 	// ---------------------------------------
 	isInUse, err := schema.IsSessionExists(dbpool, args.SessionId)
@@ -196,6 +181,22 @@ func (args *StartComputePipesArgs) StartShardingComputePipes(ctx context.Context
 		cpConfig.SchemaProviders = append(cpConfig.SchemaProviders, schemaProviderConfig)
 	}
 
+	envSettings := PrepareCpipesEnv(&cpConfig, schemaProviderConfig)
+	// Send CPIPES start notification to api gateway (install specific)
+	// NOTE 2024-05-13 Added Notification to API Gateway via env var CPIPES_STATUS_NOTIFICATION_ENDPOINT or CPIPES_STATUS_NOTIFICATION_ENDPOINT_JSON
+	apiEndpoint := os.Getenv("CPIPES_STATUS_NOTIFICATION_ENDPOINT")
+	apiEndpointJson := os.Getenv("CPIPES_STATUS_NOTIFICATION_ENDPOINT_JSON")
+	if apiEndpoint != "" || apiEndpointJson != "" {
+		customFileKeys := make([]string, 0)
+		ck := os.Getenv("CPIPES_CUSTOM_FILE_KEY_NOTIFICATION")
+		if len(ck) > 0 {
+			customFileKeys = strings.Split(ck, ",")
+		}
+		notificationTemplate := os.Getenv("CPIPES_START_NOTIFICATION_JSON")
+		// ignore returned err
+		datatable.DoNotifyApiGateway(args.FileKey, apiEndpoint, apiEndpointJson, notificationTemplate, customFileKeys, "", envSettings)
+	}
+
 	var sepFlag jcsv.Chartype
 	if len(schemaProviderJson) > 0 {
 		err = json.Unmarshal([]byte(schemaProviderJson), schemaProviderConfig)
@@ -263,6 +264,7 @@ func (args *StartComputePipesArgs) StartShardingComputePipes(ctx context.Context
 		"-peKey":         strconv.Itoa(args.PipelineExecKey),
 		"-status":        "completed",
 		"cpipesMode":     true,
+		"cpipesEnv":      envSettings,
 		"file_key":       args.FileKey,
 		"failureDetails": "",
 	}
@@ -270,6 +272,7 @@ func (args *StartComputePipesArgs) StartShardingComputePipes(ctx context.Context
 		"-peKey":         strconv.Itoa(args.PipelineExecKey),
 		"-status":        "failed",
 		"cpipesMode":     true,
+		"cpipesEnv":      envSettings,
 		"file_key":       args.FileKey,
 		"failureDetails": "",
 	}
@@ -790,4 +793,30 @@ func getSchemaProvider(schemaProviders []*SchemaProviderSpec, key string) *Schem
 		}
 	}
 	return nil
+}
+
+// Function to collect env settings from cpipes config and main schema provider.
+// Important for site specific configuration, in particular used in API gateway notification
+func PrepareCpipesEnv(cpConfig *ComputePipesConfig, mainSchemaProviderConfig *SchemaProviderSpec) map[string]any {
+	//* IMPORTANT: Make sure a key is not the prefix of another key
+	//  e.g. $FILE_KEY and $FILE_KEY_PATH is BAD since $FILE_KEY_PATH may get
+	//  the value of $FILE_KEY with a dandling _PATH
+	envSettings := map[string]any{
+		"$INPUT_BUCKET":     mainSchemaProviderConfig.Bucket,
+		"$MAIN_SCHEMA_NAME": mainSchemaProviderConfig.SchemaName,
+	}
+
+	for i := range cpConfig.Context {
+		if cpConfig.Context[i].Type == "value" {
+			envSettings[cpConfig.Context[i].Key] = cpConfig.Context[i].Expr
+		}
+	}
+	for k, v := range mainSchemaProviderConfig.Env {
+		envSettings[k] = v
+	}
+	if cpConfig.ClusterConfig.IsDebugMode {
+		b, err := json.Marshal(envSettings)
+		log.Printf(" Cpipes Env: %s, err? %v\n", string(b), err)
+	}
+	return envSettings
 }

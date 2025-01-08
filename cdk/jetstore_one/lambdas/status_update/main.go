@@ -52,20 +52,6 @@ func main() {
 	lambda.Start(handler)
 }
 
-// apiserver:
-// with loaderCommand:
-// runReportsCommand := []string{
-// 	"-client", client.(string),
-// 	"-sessionId", sessionId.(string),
-// 	"-reportName", reportName,
-// 	"-filePath", strings.Replace(fileKey.(string), os.Getenv("JETS_s3_INPUT_PREFIX"), os.Getenv("JETS_s3_OUTPUT_PREFIX"), 1),
-// }
-// with serverCommands:
-// runReportsCommand := []string{
-// 	"-processName", processName.(string),
-// 	"-sessionId", sessionId.(string),
-// 	"-filePath", strings.Replace(fileKey.(string), os.Getenv("JETS_s3_INPUT_PREFIX"), os.Getenv("JETS_s3_OUTPUT_PREFIX"), 1),
-// }
 // status_update arguments:
 // map[string]interface{}
 // {
@@ -73,7 +59,10 @@ func main() {
 //  "cpipesMode": true/false,
 //  "-status": "completed",
 //  "file_key": "...",
-//  "failureDetails": {...}
+//  "failureDetails": {...},
+//  "cpipesEnv": {
+//		"key": "value"
+//	}
 // }
 // fileKey is optional, needed for cpipes api notification
 
@@ -91,6 +80,11 @@ func handler(ctx context.Context, arguments map[string]interface{}) (err error) 
 		return err
 	}
 	ca.PeKey = v
+	// Check if cpipes env was passed, nneded for API gateway notification (if configured at deployment)
+	env, ok := arguments["cpipesEnv"].(map[string]any)
+	if ok {
+		ca.CpipesEnv = env
+	}
 	switch failureDetails := arguments["failureDetails"].(type) {
 	case string:
 		ca.FailureDetails = failureDetails

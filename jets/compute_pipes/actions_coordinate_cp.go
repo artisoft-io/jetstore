@@ -147,18 +147,16 @@ func (args *ComputePipesNodeArgs) CoordinateComputePipes(ctx context.Context, db
 	//* IMPORTANT: Make sure a key is not the prefix of another key
 	//  e.g. $FILE_KEY and $FILE_KEY_PATH is BAD since $FILE_KEY_PATH may get
 	//  the value of $FILE_KEY with a dandling _PATH
-	envSettings = map[string]interface{}{
-		"$INPUT_BUCKET":         mainSchemaProviderConfig.Bucket,
-		"$FILE_KEY":             cpConfig.CommonRuntimeArgs.FileKey,
-		"$PATH_FILE_KEY":        fileKeyPath,
-		"$NAME_FILE_KEY":        fileKeyName,
-		"$DATE_FILE_KEY":        fileKeyDate,
-		"$SESSIONID":            cpConfig.CommonRuntimeArgs.SessionId,
-		"$SHARD_ID":             args.NodeId,
-		"$PROCESS_NAME":         cpConfig.CommonRuntimeArgs.ProcessName,
-		"$JETS_PARTITION_LABEL": args.JetsPartitionLabel,
-		"$MAIN_SCHEMA_NAME":     mainSchemaProviderConfig.SchemaName,
-	}
+	envSettings = PrepareCpipesEnv(cpConfig, mainSchemaProviderConfig)
+	envSettings["$FILE_KEY"] = cpConfig.CommonRuntimeArgs.FileKey
+	envSettings["$SESSIONID"] = cpConfig.CommonRuntimeArgs.SessionId
+	envSettings["$PROCESS_NAME"] = cpConfig.CommonRuntimeArgs.ProcessName
+	envSettings["$PATH_FILE_KEY"] = fileKeyPath
+	envSettings["$NAME_FILE_KEY"] = fileKeyName
+	envSettings["$DATE_FILE_KEY"] = fileKeyDate
+	envSettings["$SHARD_ID"] = args.NodeId
+	envSettings["$JETS_PARTITION_LABEL"] = args.JetsPartitionLabel
+
 	if mainSchemaProviderConfig.Env != nil {
 		for k, v := range mainSchemaProviderConfig.Env {
 			envSettings[k] = v
