@@ -34,7 +34,6 @@ RUN go get all
 RUN go mod download
 
 RUN go install jetstore/jets/loader
-RUN go install jetstore/jets/status_update
 RUN go install jetstore/jets/server
 RUN go install jetstore/jets/serverv2
 RUN go install jetstore/jets/run_reports
