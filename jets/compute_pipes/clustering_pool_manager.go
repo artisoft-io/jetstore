@@ -345,7 +345,7 @@ func (ctx *BuilderContext) NewClusteringPoolManager(config *ClusteringSpec,
 			if clusterStatus == "valid" {
 				if len(cluster.membership) == 1 {
 					for _, tag := range config.SoloDataSubclassification {
-						for column, _ := range cluster.membership {
+						for column := range cluster.membership {
 							if poolMgr.columnClassificationMap[column] == tag {
 								subClassification = tag
 								goto subclassificationDone
