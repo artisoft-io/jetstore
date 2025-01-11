@@ -365,6 +365,36 @@ func UploadBufToS3(objKey string, buf []byte) error {
 	return nil
 }
 
+// upload buf to S3, reading the obj from in-memory buffer
+func DownloadBufFromS3(objKey string) ([]byte, error) {
+	cfg, err := config.LoadDefaultConfig(context.TODO(), config.WithRegion(region))
+	if err != nil {
+		return nil, fmt.Errorf("while loading aws configuration: %v", err)
+	}
+	// Create a s3 client
+	s3Client := s3.NewFromConfig(cfg)
+	// Download the object
+	downloader := manager.NewDownloader(s3Client)
+
+	retry := 0
+do_retry:
+	// Download the object
+	// pre-allocate in memory buffer, where n is the object size
+	buf := make([]byte, 2048)
+	// wrap with aws.WriteAtBuffer
+	w := manager.NewWriteAtBuffer(buf)
+	_, err = downloader.Download(context.TODO(), w, &s3.GetObjectInput{Bucket: &bucket, Key: &objKey})
+	if err != nil {
+		if retry < 6 {
+			time.Sleep(500 * time.Millisecond)
+			retry++
+			goto do_retry
+		}
+		return nil, fmt.Errorf("failed to download s3 file %s: %v", objKey, err)
+	}
+	return w.Bytes(), nil
+}
+
 func StartExecution(stateMachineARN string, stateMachineInput map[string]interface{}, name string) (string, error) {
 	// Load the SDK's configuration from environment and shared config, and
 	// create the client with this.

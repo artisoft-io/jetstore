@@ -172,6 +172,7 @@ func (args *ComputePipesNodeArgs) CoordinateComputePipes(ctx context.Context, db
 		EnvSettings:        envSettings,
 		FileKeyComponents:  fileKeyComponents,
 		SchemaManager:      schemaManager,
+		InputFileKeys:      fileKeys,
 		KillSwitch:         make(chan struct{}),
 		Done:               make(chan struct{}),
 		ErrCh:              make(chan error, 1000),

@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"context"
 	"encoding/csv"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -14,6 +15,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/artisoft-io/jetstore/jets/awsi"
 	goparquet "github.com/fraugster/parquet-go"
 	"github.com/golang/snappy"
 	"github.com/jackc/pgx/v4/pgxpool"
@@ -43,15 +45,22 @@ func (cpCtx *ComputePipesContext) LoadFiles(ctx context.Context, dbpool *pgxpool
 		close(cpCtx.ChResults.LoadFromS3FilesResultCh)
 	}()
 
-	// Start the Compute Pipes async
-	go cpCtx.StartComputePipes(dbpool, computePipesInputCh)
-
-	// Load the files
-	var count, totalRowCount int64
+	// Prepare to same the input schema
 	inputFormat := cpCtx.CpConfig.CommonRuntimeArgs.SourcesConfig.MainInput.Format
+	saveParquetSchema := cpCtx.CpConfig.CommonRuntimeArgs.SourcesConfig.MainInput.SaveParquetSchema
 	compression := cpCtx.CpConfig.CommonRuntimeArgs.SourcesConfig.MainInput.Compression
 	shardOffset := cpCtx.CpConfig.ClusterConfig.ShardOffset
 	schemaProvider := cpCtx.CpConfig.CommonRuntimeArgs.SourcesConfig.MainInput.SchemaProvider
+	var inputSchemaCh chan any
+	if saveParquetSchema && strings.HasPrefix(inputFormat, "parquet") {
+		inputSchemaCh = make(chan any, 1)
+	}
+
+	// Start the Compute Pipes async
+	go cpCtx.StartComputePipes(dbpool, inputSchemaCh, computePipesInputCh)
+
+	// Load the files
+	var count, totalRowCount int64
 	for localInFile := range cpCtx.FileNamesCh {
 		if cpCtx.CpConfig.ClusterConfig.IsDebugMode {
 			// log.Printf("%s node %d Loading file '%s'", cpCtx.SessionId, cpCtx.NodeId, localInFile.InFileKeyInfo.key)
@@ -60,7 +69,8 @@ func (cpCtx *ComputePipesContext) LoadFiles(ctx context.Context, dbpool *pgxpool
 		case "csv", "headerless_csv":
 			count, err = cpCtx.ReadCsvFile(&localInFile, inputFormat, compression, shardOffset, schemaProvider, computePipesInputCh)
 		case "parquet", "parquet_select":
-			count, err = cpCtx.ReadParquetFile(&localInFile, computePipesInputCh)
+			count, err = cpCtx.ReadParquetFile(&localInFile, saveParquetSchema, inputSchemaCh, computePipesInputCh)
+			saveParquetSchema = false
 		case "fixed_width":
 			count, err = cpCtx.ReadFixedWidthFile(&localInFile, shardOffset, schemaProvider, computePipesInputCh)
 		default:
@@ -79,7 +89,9 @@ func (cpCtx *ComputePipesContext) LoadFiles(ctx context.Context, dbpool *pgxpool
 	return
 }
 
-func (cpCtx *ComputePipesContext) ReadParquetFile(filePath *FileName, computePipesInputCh chan<- []interface{}) (int64, error) {
+func (cpCtx *ComputePipesContext) ReadParquetFile(filePath *FileName, saveParquetSchema bool, inputSchemaCh chan<- any,
+	computePipesInputCh chan<- []any) (int64, error) {
+
 	var fileHd *os.File
 	var parquetReader *goparquet.FileReader
 	var err error
@@ -96,12 +108,48 @@ func (cpCtx *ComputePipesContext) ReadParquetFile(filePath *FileName, computePip
 	}()
 
 	// log.Println("**!@@",cpCtx.SessionId,"partfile_key_component GOT",len(cpCtx.PartFileKeyComponents))
+	//*TODO get the columns from the parquet schema (see below)
 	nbrColumns := len(cpCtx.CpConfig.CommonRuntimeArgs.SourcesConfig.MainInput.InputColumns)
 	inputColumns := cpCtx.CpConfig.CommonRuntimeArgs.SourcesConfig.MainInput.InputColumns[:nbrColumns-len(cpCtx.PartFileKeyComponents)]
 	parquetReader, err = goparquet.NewFileReader(fileHd, inputColumns...)
 	if err != nil {
 		return 0, err
 	}
+	// Save the parquet schema to s3 on request
+	if saveParquetSchema {
+
+		// Get the schema
+		parquetMetaInfo := ParquetSchemaInfo{
+			Schema: parquetReader.GetSchemaDefinition().String(),
+		}
+
+		// Get the codec/compression of the first row group
+		err = parquetReader.SeekToRowGroup(1)
+		if err != nil {
+			return 0, fmt.Errorf("while seeking to first row group of parquet file: %v", err)
+		}
+		parquetMetaInfo.Compression = parquetReader.CurrentRowGroup().Columns[0].MetaData.Codec.String()
+
+		// Make the schema avail to channel registry
+		inputSchemaCh <- parquetMetaInfo
+		close(inputSchemaCh)
+
+		if cpCtx.ComputePipesArgs.NodeId == 0 {
+			// save schema info to s3
+			schemaInfo, err := json.Marshal(parquetMetaInfo)
+			if err != nil {
+				return 0, fmt.Errorf("while making json from parquet schema info: %v", err)
+			}
+			fileKey := fmt.Sprintf("%s/process_name=%s/session_id=%s/input_parquet_schema.json",
+				jetsS3StagePrefix, cpCtx.ProcessName, cpCtx.SessionId)
+			log.Printf("Saving parquet schema to: %s", fileKey)
+			err = awsi.UploadBufToS3(fileKey, schemaInfo)
+			if err != nil {
+				return 0, fmt.Errorf("while uploading parquet schema info to s3: %v", err)
+			}
+		}
+	}
+
 	// Prepare the extended columns from partfile_key_component
 	var extColumns []string
 	if len(cpCtx.PartFileKeyComponents) > 0 {

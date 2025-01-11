@@ -8,10 +8,10 @@ import (
 	"os"
 	"strings"
 
-	"github.com/artisoft-io/jetstore/jets/run_reports/delegate"
+	goparquet "github.com/fraugster/parquet-go"
+	"github.com/fraugster/parquet-go/parquet"
+	"github.com/fraugster/parquet-go/parquetschema"
 	"github.com/golang/snappy"
-	"github.com/xitongsys/parquet-go/source"
-	"github.com/xitongsys/parquet-go/writer"
 )
 
 // S3DeviceWriter is the component that reads the rows comming the PipeTransformationEvaluator
@@ -22,7 +22,7 @@ type S3DeviceWriter struct {
 	source          *InputChannel
 	schemaProvider  SchemaProvider
 	columnNames     []string
-	parquetSchema   []string
+	parquetSchema    *ParquetSchemaInfo
 	localTempDir    *string
 	externalBucket  *string
 	s3BasePath      *string
@@ -35,8 +35,10 @@ type S3DeviceWriter struct {
 
 func (ctx *S3DeviceWriter) WriteParquetPartition() {
 	var cpErr, err error
-	var pw *writer.CSVWriter
-	var fw source.ParquetFile
+	var fout *os.File
+	var  schemaDef *parquetschema.SchemaDefinition
+	var fw *goparquet.FileWriter
+	var codec parquet.CompressionCodec
 
 	tempFileName := fmt.Sprintf("%s/%s", *ctx.localTempDir, *ctx.fileName)
 	s3FileName := fmt.Sprintf("%s/%s", *ctx.s3BasePath, *ctx.fileName)
@@ -48,24 +50,37 @@ func (ctx *S3DeviceWriter) WriteParquetPartition() {
 	}
 
 	// open the local temp file for the parquet writer
-	fw, err = delegate.NewLocalFileWriter(tempFileName)
+	fout, err = os.OpenFile(tempFileName, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0644)
 	if err != nil {
-		cpErr = fmt.Errorf("while opening local parquet file for write %v", err)
+		cpErr = fmt.Errorf("opening output file failed: %v", err)
 		goto gotError
 	}
-	defer fw.Close()
+	defer fout.Close()
+
+	schemaDef, err = parquetschema.ParseSchemaDefinition(ctx.parquetSchema.Schema)
+	if err != nil {
+		cpErr = fmt.Errorf("parsing schema definition failed: %v", err)
+		goto gotError
+	}
 
 	// Create the parquet writer with the provided schema
-	pw, err = writer.NewCSVWriter(ctx.parquetSchema, fw, 4)
+	codec, err = parquet.CompressionCodecFromString(ctx.parquetSchema.Compression)
 	if err != nil {
-		fw.Close()
-		cpErr = fmt.Errorf("while opening local parquet csv writer %v", err)
+		cpErr = fmt.Errorf("parsing compression codec failed: %v", err)
 		goto gotError
 	}
+
+	fw = goparquet.NewFileWriter(fout,
+		goparquet.WithCompressionCodec(codec),
+		goparquet.WithSchemaDefinition(schemaDef),
+		goparquet.WithCreator("jetstore"),
+	)
 
 	// Write the rows into the temp file
 	for inRow := range ctx.source.channel {
 		//*$1
+		// Map data into types as per the schema definition
+		//HERE
 		// replace null with empty string, convert to string
 		for i := range inRow {
 			switch vv := inRow[i].(type) {
@@ -76,7 +91,12 @@ func (ctx *S3DeviceWriter) WriteParquetPartition() {
 				inRow[i] = fmt.Sprintf("%v", vv)
 			}
 		}
-		if err = pw.Write(inRow); err != nil {
+		rowData := make(map[string]any)
+		for col, pos := range ctx.source.columns {
+			rowData[col] = inRow[pos]
+		}
+		err = fw.AddData(rowData)
+		if err != nil {
 			// fmt.Println("ERROR")
 			// for i := range inRow {
 			// 	fmt.Println(inRow[i], reflect.TypeOf(inRow[i]).Kind())
@@ -87,7 +107,8 @@ func (ctx *S3DeviceWriter) WriteParquetPartition() {
 		}
 	}
 
-	if err = pw.WriteStop(); err != nil {
+	err = fw.Close()
+	if err != nil {
 		cpErr = fmt.Errorf("while writing parquet stop (trailer): %v", err)
 		goto gotError
 	}

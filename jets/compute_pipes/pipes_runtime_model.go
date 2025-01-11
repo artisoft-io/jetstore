@@ -118,6 +118,7 @@ type BuilderContext struct {
 	lookupTableManager *LookupTableManager
 	schemaManager      *SchemaManager
 	channelRegistry    *ChannelRegistry
+	inputParquetSchema *ParquetSchemaInfo
 	done               chan struct{}
 	errCh              chan error
 	chResults          *ChannelResults

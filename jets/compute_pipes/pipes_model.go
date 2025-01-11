@@ -83,8 +83,8 @@ type LookupSpec struct {
 	// type range: sql_lookup, s3_csv_lookup
 	Key          string            `json:"key"`
 	Type         string            `json:"type"`
-	Query        string            `json:"query"`      // for sql_lookup
-	CsvSource    *CsvSourceSpec    `json:"csv_source"` //for s3_csv_lookup
+	Query        string            `json:"query,omitempty"`      // for sql_lookup
+	CsvSource    *CsvSourceSpec    `json:"csv_source,omitempty"` //for s3_csv_lookup
 	Columns      []TableColumnSpec `json:"columns"`
 	LookupKey    []string          `json:"lookup_key"`
 	LookupValues []string          `json:"lookup_values"`
@@ -101,14 +101,14 @@ type CsvSourceSpec struct {
 	// are found, make empty source. Default: generate an error when no files
 	// are found in s3.
 	Type                string `json:"type"`
-	Format              string `json:"format"`
-	Compression         string `json:"compression"`
-	Delimiter           string `json:"delimiter"`      // default ','
-	ProcessName         string `json:"process_name"`   // for cpipes
-	ReadStepId          string `json:"read_step_id"`   // for cpipes
-	JetsPartitionLabel  string `json:"jets_partition"` // for cpipes
-	SessionId           string `json:"session_id"`     // for cpipes
-	ClassName           string `json:"class_name"`     // used by jetrules_config
+	Format              string `json:"format,omitempty"`
+	Compression         string `json:"compression,omitempty"`
+	Delimiter           string `json:"delimiter,omitempty"`      // default ','
+	ProcessName         string `json:"process_name,omitempty"`   // for cpipes
+	ReadStepId          string `json:"read_step_id,omitempty"`   // for cpipes
+	JetsPartitionLabel  string `json:"jets_partition,omitempty"` // for cpipes
+	SessionId           string `json:"session_id,omitempty"`     // for cpipes
+	ClassName           string `json:"class_name,omitempty"`     // used by jetrules_config
 	MakeEmptyWhenNoFile bool   `json:"make_empty_source_when_no_files_found"`
 }
 
@@ -123,7 +123,7 @@ type CsvSourceSpec struct {
 type ChannelSpec struct {
 	Name                 string   `json:"name"`
 	Columns              []string `json:"columns"`
-	ClassName            string   `json:"class_name"`
+	ClassName            string   `json:"class_name,omitempty"`
 	DirectPropertiesOnly bool     `json:"direct_properties_only"`
 }
 
@@ -153,27 +153,27 @@ type SchemaProviderSpec struct {
 	//*TODO code_values_mapping_json
 	Key                     string             `json:"key"`
 	Type                    string             `json:"type"`
-	Bucket                  string             `json:"bucket"`
-	FileKey                 string             `json:"file_key"`
+	Bucket                  string             `json:"bucket,omitempty"`
+	FileKey                 string             `json:"file_key,omitempty"`
 	FileSize                int64              `json:"file_size"`
-	KmsKey                  string             `json:"kms_key_arn"`
+	KmsKey                  string             `json:"kms_key_arn,omitempty"`
 	Client                  string             `json:"client"`
 	Vendor                  string             `json:"vendor"`
 	ObjectType              string             `json:"object_type"`
-	FileDate                string             `json:"file_date"`
+	FileDate                string             `json:"file_date,omitempty"`
 	SourceType              string             `json:"source_type"`
-	SchemaName              string             `json:"schema_name"`
-	Format                  string             `json:"format"`
-	Compression             string             `json:"compression"`
-	InputFormatDataJson     string             `json:"input_format_data_json"`
-	Delimiter               string             `json:"delimiter"`
+	SchemaName              string             `json:"schema_name,omitempty"`
+	Format                  string             `json:"format,omitempty"`
+	Compression             string             `json:"compression,omitempty"`
+	InputFormatDataJson     string             `json:"input_format_data_json,omitempty"`
+	Delimiter               string             `json:"delimiter,omitempty"`
 	UseLazyQuotes           bool               `json:"use_lazy_quotes"`
 	VariableFieldsPerRecord bool               `json:"variable_fields_per_record"`
-	ReadDateLayout          string             `json:"read_date_layout"`
-	WriteDateLayout         string             `json:"write_date_layout"`
+	ReadDateLayout          string             `json:"read_date_layout,omitempty"`
+	WriteDateLayout         string             `json:"write_date_layout,omitempty"`
 	TrimColumns             bool               `json:"trim_columns"`
 	IsPartFiles             bool               `json:"is_part_files"`
-	FixedWidthColumnsCsv    string             `json:"fixed_width_columns_csv"`
+	FixedWidthColumnsCsv    string             `json:"fixed_width_columns_csv,omitempty"`
 	Columns                 []SchemaColumnSpec `json:"columns"`
 	Env                     map[string]string  `json:"env"`
 }
@@ -202,10 +202,10 @@ type OutputFileSpec struct {
 	// to use on the header line.
 	Key            string   `json:"key"`
 	Name           string   `json:"name"`
-	Bucket         string   `json:"bucket"`
-	KeyPrefix      string   `json:"key_prefix"`
-	OutputLocation string   `json:"output_location"`
-	SchemaProvider string   `json:"schema_provider"`
+	Bucket         string   `json:"bucket,omitempty"`
+	KeyPrefix      string   `json:"key_prefix,omitempty"`
+	OutputLocation string   `json:"output_location,omitempty"`
+	SchemaProvider string   `json:"schema_provider,omitempty"`
 	Headers        []string `json:"headers"`
 }
 
@@ -230,9 +230,9 @@ type SplitterSpec struct {
 	// ext_count: split on Column / DefaultSplitterValue + N, N = 0..ExtPartitionsCount-1
 	//            where each partition has up to RowCount rows
 	Type                 string `json:"type"`
-	Column               string `json:"column"`                 // splitter column
-	DefaultSplitterValue string `json:"default_splitter_value"` // splitter default value
-	PartitionRowCount    int    `json:"partition_row_count"`    // nbr of row for each ext partition
+	Column               string `json:"column,omitempty"`                 // splitter column
+	DefaultSplitterValue string `json:"default_splitter_value,omitempty"` // splitter default value
+	PartitionRowCount    int    `json:"partition_row_count"`              // nbr of row for each ext partition
 }
 
 type TransformationSpec struct {
@@ -243,17 +243,17 @@ type TransformationSpec struct {
 	Type                  string                     `json:"type"`
 	NewRecord             bool                       `json:"new_record"`
 	Columns               []TransformationColumnSpec `json:"columns"`
-	MapRecordConfig       *MapRecordSpec             `json:"map_record_config"`
-	AnalyzeConfig         *AnalyzeSpec               `json:"analyze_config"`
+	MapRecordConfig       *MapRecordSpec             `json:"map_record_config,omitempty"`
+	AnalyzeConfig         *AnalyzeSpec               `json:"analyze_config,omitempty"`
 	HighFreqColumns       []*HighFreqSpec            `json:"high_freq_columns"` // Type high_freq
-	PartitionWriterConfig *PartitionWriterSpec       `json:"partition_writer_config"`
-	AnonymizeConfig       *AnonymizeSpec             `json:"anonymize_config"`
-	DistinctConfig        *DistinctSpec              `json:"distinct_config"`
-	ShufflingConfig       *ShufflingSpec             `json:"shuffling_config"`
-	GroupByConfig         *GroupBySpec               `json:"group_by_config"`
-	FilterConfig          *FilterSpec                `json:"filter_config"`
-	JetrulesConfig        *JetrulesSpec              `json:"jetrules_config"`
-	ClusteringConfig      *ClusteringSpec            `json:"clustering_config"`
+	PartitionWriterConfig *PartitionWriterSpec       `json:"partition_writer_config,omitempty"`
+	AnonymizeConfig       *AnonymizeSpec             `json:"anonymize_config,omitempty"`
+	DistinctConfig        *DistinctSpec              `json:"distinct_config,omitempty"`
+	ShufflingConfig       *ShufflingSpec             `json:"shuffling_config,omitempty"`
+	GroupByConfig         *GroupBySpec               `json:"group_by_config,omitempty"`
+	FilterConfig          *FilterSpec                `json:"filter_config,omitempty"`
+	JetrulesConfig        *JetrulesSpec              `json:"jetrules_config,omitempty"`
+	ClusteringConfig      *ClusteringSpec            `json:"clustering_config,omitempty"`
 	OutputChannel         OutputChannelConfig        `json:"output_channel"`
 }
 
@@ -278,35 +278,39 @@ type InputChannelConfig struct {
 	// ComputePipesCommonArgs.SourcesConfig (ie input_registry table).
 	// HasGroupedRow indicates that the channel contains grouped rows,
 	// most likely from the group_by operator.
-	Type             string `json:"type"`
-	Name             string `json:"name"`
-	Format           string `json:"format"`          // Type stage
-	Compression      string `json:"compression"`     // Type stage
-	SchemaProvider   string `json:"schema_provider"` // Type stage
-	ReadStepId       string `json:"read_step_id"`
-	SamplingRate     int    `json:"sampling_rate"`
-	SamplingMaxCount int    `json:"sampling_max_count"`
-	HasGroupedRows   bool   `json:"has_grouped_rows"`
-	ClassName        string `json:"class_name"`
+	Type              string `json:"type"`
+	Name              string `json:"name"`
+	Format            string `json:"format,omitempty"`          // Type stage
+	Compression       string `json:"compression,omitempty"`     // Type stage
+	SchemaProvider    string `json:"schema_provider,omitempty"` // Type stage
+	ReadStepId        string `json:"read_step_id"`
+	SamplingRate      int    `json:"sampling_rate"`
+	SamplingMaxCount  int    `json:"sampling_max_count"`
+	SaveParquetSchema bool   `json:"save_parquet_schema"`
+	HasGroupedRows    bool   `json:"has_grouped_rows"`
+	ClassName         string `json:"class_name,omitempty"`
 }
 
 type OutputChannelConfig struct {
 	// Type range: memory (default), stage, output, sql
 	// Format: csv, headerless_csv, etc
 	// Compression: none, snappy (default)
+	// UseInputParquetSchema to use the same schema as the input file.
+	// Must have save_parquet_schema = true in the cpipes first input_channel.
 	// OutputLocation: jetstore_s3_input, jetstore_s3_output (default)
-	Type           string `json:"type"`
-	Name           string `json:"name"`
-	Format         string `json:"format"`           // Type stage,output
-	Compression    string `json:"compression"`      // Type stage,output
-	SchemaProvider string `json:"schema_provider"`  // Type stage,output, alt to Format
-	WriteStepId    string `json:"write_step_id"`    // Type stage
-	OutputTableKey string `json:"output_table_key"` // Type sql
-	Bucket         string `json:"bucket"`           // type output
-	KeyPrefix      string `json:"key_prefix"`       // Type output
-	FileName       string `json:"file_name"`        // Type output
-	OutputLocation string `json:"output_location"`  // Type output
-	SpecName       string `json:"channel_spec_name"`
+	Type                  string `json:"type"`
+	Name                  string `json:"name"`
+	Format                string `json:"format,omitempty"`           // Type stage,output
+	Compression           string `json:"compression,omitempty"`      // Type stage,output
+	UseInputParquetSchema bool   `json:"use_input_parquet_schema"`   // Type stage,output
+	SchemaProvider        string `json:"schema_provider,omitempty"`  // Type stage,output, alt to Format
+	WriteStepId           string `json:"write_step_id"`              // Type stage
+	OutputTableKey        string `json:"output_table_key,omitempty"` // Type sql
+	Bucket                string `json:"bucket,omitempty"`           // type output
+	KeyPrefix             string `json:"key_prefix,omitempty"`       // Type output
+	FileName              string `json:"file_name,omitempty"`        // Type output
+	OutputLocation        string `json:"output_location,omitempty"`  // Type output
+	SpecName              string `json:"channel_spec_name"`
 }
 
 type PathSubstitution struct {
@@ -358,6 +362,7 @@ type HighFreqSpec struct {
 }
 
 // JetsPartitionKey used by partition_writer as the default value for jet_partition
+// use $JETS_PARTITION_LABEL for current node input partition
 type PartitionWriterSpec struct {
 	DeviceWriterType string  `json:"device_writer_type"`
 	JetsPartitionKey *string `json:"jets_partition_key"`
@@ -380,8 +385,8 @@ type AnonymizeSpec struct {
 	LookupName        string              `json:"lookup_name"`
 	AnonymizeType     string              `json:"anonymize_type"`
 	KeyPrefix         string              `json:"key_prefix"`
-	InputDateLayout   string              `json:"input_date_layout"`
-	OutputDateLayout  string              `json:"output_date_layout"`
+	InputDateLayout   string              `json:"input_date_layout,omitempty"`
+	OutputDateLayout  string              `json:"output_date_layout,omitempty"`
 	KeyDateLayout     string              `json:"key_date_layout"`
 	SchemaProvider    string              `json:"schema_provider"`
 	KeysOutputChannel OutputChannelConfig `json:"keys_output_channel"`
@@ -421,8 +426,8 @@ type JetrulesSpec struct {
 	MaxReteSessionsSaved    int                   `json:"max_rete_sessions_saved"`
 	MaxLooping              int                   `json:"max_looping"`
 	CurrentSourcePeriod     int                   `json:"current_source_period"`
-	CurrentSourcePeriodDate string                `json:"current_source_period_date"`
-	CurrentSourcePeriodType string                `json:"current_source_period_type"`
+	CurrentSourcePeriodDate string                `json:"current_source_period_date,omitempty"`
+	CurrentSourcePeriodType string                `json:"current_source_period_type,omitempty"`
 	RuleConfig              []map[string]any      `json:"rule_config"`
 	MetadataInputSources    []CsvSourceSpec       `json:"metadata_input_sources"`
 	IsDebug                 bool                  `json:"is_debug"`
@@ -461,19 +466,19 @@ type TransformationColumnSpec struct {
 	// map_reduce, lookup
 	Name           string                     `json:"name"`
 	Type           string                     `json:"type"`
-	Expr           *string                    `json:"expr"`
+	Expr           *string                    `json:"expr,omitempty"`
 	ExprArray      []string                   `json:"expr_array"`
-	MapExpr        *MapExpression             `json:"map_expr"`
-	EvalExpr       *ExpressionNode            `json:"eval_expr"`
-	HashExpr       *HashExpression            `json:"hash_expr"`
-	Where          *ExpressionNode            `json:"where"`
+	MapExpr        *MapExpression             `json:"map_expr,omitempty"`
+	EvalExpr       *ExpressionNode            `json:"eval_expr,omitempty"`
+	HashExpr       *HashExpression            `json:"hash_expr,omitempty"`
+	Where          *ExpressionNode            `json:"where,omitempty"`
 	CaseExpr       []CaseExpression           `json:"case_expr"` // case operator
 	ElseExpr       []*ExpressionNode          `json:"else_expr"` // case operator
-	MapOn          *string                    `json:"map_on"`
+	MapOn          *string                    `json:"map_on,omitempty"`
 	AlternateMapOn []string                   `json:"alternate_map_on"`
 	ApplyMap       []TransformationColumnSpec `json:"apply_map"`
 	ApplyReduce    []TransformationColumnSpec `json:"apply_reduce"`
-	LookupName     *string                    `json:"lookup_name"`
+	LookupName     *string                    `json:"lookup_name,omitempty"`
 	LookupKey      []LookupColumnSpec         `json:"key"`
 	LookupValues   []LookupColumnSpec         `json:"values"`
 }
@@ -492,30 +497,30 @@ type LookupColumnSpec struct {
 type HashExpression struct {
 	Expr                   string   `json:"expr"`
 	CompositeExpr          []string `json:"composite_expr"`
-	NbrJetsPartitions      *uint64  `json:"nbr_jets_partitions"`
+	NbrJetsPartitions      *uint64  `json:"nbr_jets_partitions,omitempty"`
 	AlternateCompositeExpr []string `json:"alternate_composite_expr"`
 }
 
 type MapExpression struct {
-	CleansingFunction *string `json:"cleansing_function"`
-	Argument          *string `json:"argument"`
-	Default           *string `json:"default"`
-	ErrMsg            *string `json:"err_msg"`
-	RdfType           string  `json:"rdf_type"`
+	CleansingFunction *string `json:"cleansing_function,omitempty"`
+	Argument          *string `json:"argument,omitempty"`
+	Default           *string `json:"default,omitempty"`
+	ErrMsg            *string `json:"err_msg,omitempty"`
+	RdfType           string  `json:"rdf_type,omitempty"`
 }
 
 type ExpressionNode struct {
 	// Type is for leaf nodes: select, value
 	// Name is for CaseExpression.Then and TransformationColumnSpec.ElseExpr
 	// to indicate which column to set the calculated value
-	Name      *string         `json:"name"` // TransformationColumnSpec case operator
-	Type      *string         `json:"type"`
-	Expr      *string         `json:"expr"`
-	AsRdfType *string         `json:"as_rdf_type"`
-	Arg       *ExpressionNode `json:"arg"`
-	Lhs       *ExpressionNode `json:"lhs"`
-	Op        *string         `json:"op"`
-	Rhs       *ExpressionNode `json:"rhs"`
+	Name      *string         `json:"name,omitempty"` // TransformationColumnSpec case operator
+	Type      *string         `json:"type,omitempty"`
+	Expr      *string         `json:"expr,omitempty"`
+	AsRdfType *string         `json:"as_rdf_type,omitempty"`
+	Arg       *ExpressionNode `json:"arg,omitempty"`
+	Lhs       *ExpressionNode `json:"lhs,omitempty"`
+	Op        *string         `json:"op,omitempty"`
+	Rhs       *ExpressionNode `json:"rhs,omitempty"`
 }
 
 type CaseExpression struct {

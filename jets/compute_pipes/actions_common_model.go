@@ -82,16 +82,25 @@ type SourcesConfigSpec struct {
 
 // InputSourceSpec contains carry over configuration from
 // table source_config.
+// SaveParquetSchema applied to parquet input files, it saves
+// the schema at the root of the stage area under the current session_id.
 // See SchemaProviderSpec for details on SchemaProvider
 // InputSourceSpec properties override SchemaProviderSpec
 // properties.
 type InputSourceSpec struct {
-	InputColumns        []string `json:"input_columns"`
-	ClassName           string   `json:"class_name"`
-	Format              string   `json:"format"`
-	Compression         string   `json:"compression"`
-	InputFormatDataJson string   `json:"input_format_data_json"`
-	SchemaProvider      string   `json:"schema_provider"`
+	InputColumns        []string           `json:"input_columns"`
+	ClassName           string             `json:"class_name,omitempty"`
+	Format              string             `json:"format,omitempty"`
+	SaveParquetSchema   bool               `json:"save_parquet_schema,omitempty"`
+	Compression         string             `json:"compression,omitempty"`
+	InputFormatDataJson string             `json:"input_format_data_json,omitempty"`
+	SchemaProvider      string             `json:"schema_provider,omitempty"`
+	InputParquetSchema  *ParquetSchemaInfo `json:"input_parquet_schema,omitempty"`
+}
+
+type ParquetSchemaInfo struct {
+	Schema      string `json:"schema"`
+	Compression string `json:"compression,omitempty"`
 }
 
 type FileKeyInfo struct {
@@ -210,6 +219,7 @@ type ComputePipesContext struct {
 	PartFileKeyComponents []CompiledPartFileComponent
 	EnvSettings           map[string]interface{}
 	SamplingCount         int
+	InputFileKeys         []*FileKeyInfo
 	ChResults             *ChannelResults
 	KillSwitch            chan struct{}
 	Done                  chan struct{}

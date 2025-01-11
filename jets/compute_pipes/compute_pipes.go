@@ -20,7 +20,7 @@ func init() {
 }
 
 // Function to write transformed row to database
-func (cpCtx *ComputePipesContext) StartComputePipes(dbpool *pgxpool.Pool, computePipesInputCh <-chan []interface{}) {
+func (cpCtx *ComputePipesContext) StartComputePipes(dbpool *pgxpool.Pool, inputSchemaCh <-chan any, computePipesInputCh <-chan []any) {
 
 	// log.Println("Entering StartComputePipes")
 
@@ -69,18 +69,32 @@ func (cpCtx *ComputePipesContext) StartComputePipes(dbpool *pgxpool.Pool, comput
 
 	// Prepare the channel registry
 	// ----------------------------
+	mainInput := cpCtx.CpConfig.CommonRuntimeArgs.SourcesConfig.MainInput
+	inputParquetSchema := mainInput.InputParquetSchema
+	if inputParquetSchema == nil && mainInput.SaveParquetSchema {
+		// Get the parquet schema from the channel as it is being extracted from the
+		// first input file
+		for is := range inputSchemaCh {
+			v, ok := is.(ParquetSchemaInfo)
+			if ok {
+				inputParquetSchema = &v
+			} else {
+				log.Panicln("error: bug - invalid type for input parquet schema")
+			}
+		}
+	}
 	inputChannelName = cpCtx.CpConfig.PipesConfig[0].InputChannel.Name
 	if inputChannelName == "input_row" {
 		// case sharding or reducing
 		// Setup the input channel for input_row
 		headersPosMap := make(map[string]int)
-		for i, c := range cpCtx.CpConfig.CommonRuntimeArgs.SourcesConfig.MainInput.InputColumns {
+		for i, c := range mainInput.InputColumns {
 			headersPosMap[c] = i
 		}
 		inputRowChSpec = &ChannelSpec{
 			Name:      "input_row",
-			Columns:   cpCtx.CpConfig.CommonRuntimeArgs.SourcesConfig.MainInput.InputColumns,
-			ClassName: cpCtx.CpConfig.CommonRuntimeArgs.SourcesConfig.MainInput.ClassName,
+			Columns:   mainInput.InputColumns,
+			ClassName: mainInput.ClassName,
 		}
 		inputRowChannel = &InputChannel{
 			channel: computePipesInputCh,
@@ -240,6 +254,7 @@ func (cpCtx *ComputePipesContext) StartComputePipes(dbpool *pgxpool.Pool, comput
 		channelRegistry:    channelRegistry,
 		lookupTableManager: lookupManager,
 		schemaManager:      cpCtx.SchemaManager,
+		inputParquetSchema: inputParquetSchema,
 		done:               cpCtx.Done,
 		errCh:              cpCtx.ErrCh,
 		chResults:          cpCtx.ChResults,
