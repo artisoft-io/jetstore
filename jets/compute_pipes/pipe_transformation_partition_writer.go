@@ -361,7 +361,7 @@ func (ctx *BuilderContext) NewPartitionWriterTransformationPipe(source *InputCha
 			var buf strings.Builder
 			buf.WriteString(fmt.Sprintf("message %s {\n", spec.OutputChannel.Name))
       for i := range columnNames {
-        buf.WriteString(fmt.Sprintf("optional binary %s (STRING);\n", columnNames[i]))
+        buf.WriteString(fmt.Sprintf("optional binary %s (UTF8);\n", columnNames[i]))
       }
 			buf.WriteString("}\n")
       var compression string
