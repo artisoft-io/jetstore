@@ -6,12 +6,14 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strconv"
 	"strings"
 
-	"github.com/artisoft-io/jetstore/jets/run_reports/delegate"
+	"github.com/artisoft-io/jetstore/jets/jetrules/rdf"
+	goparquet "github.com/fraugster/parquet-go"
+	"github.com/fraugster/parquet-go/parquet"
+	"github.com/fraugster/parquet-go/parquetschema"
 	"github.com/golang/snappy"
-	"github.com/xitongsys/parquet-go/source"
-	"github.com/xitongsys/parquet-go/writer"
 )
 
 // S3DeviceWriter is the component that reads the rows comming the PipeTransformationEvaluator
@@ -22,7 +24,7 @@ type S3DeviceWriter struct {
 	source          *InputChannel
 	schemaProvider  SchemaProvider
 	columnNames     []string
-	parquetSchema   []string
+	parquetSchema   *ParquetSchemaInfo
 	localTempDir    *string
 	externalBucket  *string
 	s3BasePath      *string
@@ -35,8 +37,10 @@ type S3DeviceWriter struct {
 
 func (ctx *S3DeviceWriter) WriteParquetPartition() {
 	var cpErr, err error
-	var pw *writer.CSVWriter
-	var fw source.ParquetFile
+	var fout *os.File
+	var schemaDef *parquetschema.SchemaDefinition
+	var fw *goparquet.FileWriter
+	var codec parquet.CompressionCodec
 
 	tempFileName := fmt.Sprintf("%s/%s", *ctx.localTempDir, *ctx.fileName)
 	s3FileName := fmt.Sprintf("%s/%s", *ctx.s3BasePath, *ctx.fileName)
@@ -48,46 +52,55 @@ func (ctx *S3DeviceWriter) WriteParquetPartition() {
 	}
 
 	// open the local temp file for the parquet writer
-	fw, err = delegate.NewLocalFileWriter(tempFileName)
+	fout, err = os.OpenFile(tempFileName, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0644)
 	if err != nil {
-		cpErr = fmt.Errorf("while opening local parquet file for write %v", err)
+		cpErr = fmt.Errorf("opening output file failed: %v", err)
 		goto gotError
 	}
-	defer fw.Close()
+	defer fout.Close()
+
+	schemaDef, err = parquetschema.ParseSchemaDefinition(ctx.parquetSchema.Schema)
+	if err != nil {
+		cpErr = fmt.Errorf("parsing schema definition failed: %v", err)
+		goto gotError
+	}
 
 	// Create the parquet writer with the provided schema
-	pw, err = writer.NewCSVWriter(ctx.parquetSchema, fw, 4)
+	codec, err = parquet.CompressionCodecFromString(ctx.parquetSchema.Compression)
 	if err != nil {
-		fw.Close()
-		cpErr = fmt.Errorf("while opening local parquet csv writer %v", err)
+		cpErr = fmt.Errorf("parsing compression codec failed: %v", err)
 		goto gotError
 	}
+
+	fw = goparquet.NewFileWriter(fout,
+		goparquet.WithCompressionCodec(codec),
+		goparquet.WithSchemaDefinition(schemaDef),
+		goparquet.WithCreator("jetstore"),
+	)
 
 	// Write the rows into the temp file
 	for inRow := range ctx.source.channel {
-		//*$1
-		// replace null with empty string, convert to string
-		for i := range inRow {
-			switch vv := inRow[i].(type) {
-			case string:
-			case nil:
-				inRow[i] = ""
-			default:
-				inRow[i] = fmt.Sprintf("%v", vv)
+
+		rowData := make(map[string]any)
+		for _, colDef := range schemaDef.RootColumn.Children {
+			se := colDef.SchemaElement
+			pos := ctx.source.columns[se.Name]
+			value, err := ConvertToSchema(inRow[pos], se)
+			if err != nil {
+				cpErr = fmt.Errorf("converting to parquet type failed: %v", err)
+				goto gotError
 			}
+			rowData[se.Name] = value
 		}
-		if err = pw.Write(inRow); err != nil {
-			// fmt.Println("ERROR")
-			// for i := range inRow {
-			// 	fmt.Println(inRow[i], reflect.TypeOf(inRow[i]).Kind())
-			// }
-			// fmt.Println("ERROR")
+		err = fw.AddData(rowData)
+		if err != nil {
 			cpErr = fmt.Errorf("while writing row to local parquet file: %v", err)
 			goto gotError
 		}
 	}
 
-	if err = pw.WriteStop(); err != nil {
+	err = fw.Close()
+	if err != nil {
 		cpErr = fmt.Errorf("while writing parquet stop (trailer): %v", err)
 		goto gotError
 	}
@@ -108,6 +121,116 @@ gotError:
 	log.Println(cpErr)
 	ctx.errCh <- cpErr
 	close(ctx.doneCh)
+}
+
+func ConvertToSchema(v any, se *parquet.SchemaElement) (any, error) {
+	if v == nil {
+		return nil, nil
+	}
+	switch *se.Type {
+	case parquet.Type_BOOLEAN:
+		switch vv := v.(type) {
+		case string:
+			return !(vv == "false" || vv == "FALSE" || vv == "0"), nil
+		case int:
+			return vv != 0, nil
+		default:
+			return false, nil
+		}
+	case parquet.Type_INT32:
+		switch vv := v.(type) {
+		case string:
+			// Check if it's a date
+			if se.ConvertedType != nil && *se.ConvertedType == parquet.ConvertedType_DATE {
+				return rdf.ParseDate(vv)
+				// tm, err := rdf.ParseDate(vv)
+				// if err != nil {
+				// 	// Couln't parse the date, return 1970/01/01
+				// 	return 0, nil
+				// }
+				// return tm, nil
+			}
+			return strconv.Atoi(vv)
+		case int:
+			return int32(vv), nil
+		case int32:
+			return vv, nil
+		case int64:
+			return int32(vv), nil
+		default:
+			return 0, fmt.Errorf("error: WriteParquet invalid data for int32: %v", v)
+		}
+
+	case parquet.Type_INT64:
+		switch vv := v.(type) {
+		case string:
+			return strconv.ParseInt(vv, 10, 64)
+		case int:
+			return int64(vv), nil
+		case int32:
+			return int64(vv), nil
+		case int64:
+			return vv, nil
+		default:
+			return 0, fmt.Errorf("error: WriteParquet invalid data for int64: %v", v)
+		}
+
+	case parquet.Type_FLOAT:
+		switch vv := v.(type) {
+		case string:
+			f, err := strconv.ParseFloat(vv, 32)
+			if err != nil {
+				return float32(0), err
+			}
+			return float32(f), nil
+		case int:
+			return float32(vv), nil
+		case int32:
+			return float32(vv), nil
+		case int64:
+			return float32(vv), nil
+		default:
+			return 0, fmt.Errorf("error: WriteParquet invalid data for float32: %v", v)
+		}
+
+	case parquet.Type_DOUBLE:
+		switch vv := v.(type) {
+		case string:
+			return strconv.ParseFloat(vv, 64)
+		case int:
+			return float64(vv), nil
+		case int32:
+			return float64(vv), nil
+		case int64:
+			return float64(vv), nil
+		default:
+			return 0, fmt.Errorf("error: WriteParquet invalid data for float64: %v", v)
+		}
+
+	case parquet.Type_BYTE_ARRAY, parquet.Type_FIXED_LEN_BYTE_ARRAY:
+		// Check if it's a string
+		if se.ConvertedType != nil && *se.ConvertedType == parquet.ConvertedType_UTF8 {
+			switch vv := v.(type) {
+			case string:
+				return vv, nil
+			case []byte:
+				return string(vv), nil
+			default:
+				return fmt.Sprintf("%v", v), nil
+			}
+		}
+		switch vv := v.(type) {
+		case string:
+			return []byte(vv), nil
+		case []byte:
+			return vv, nil
+		default:
+			return nil, fmt.Errorf("error: WriteParquet invalid data for []byte: %v", v)
+		}
+
+	default:
+		return nil, fmt.Errorf("error: WriteParquet unknown parquet type: %v", *se.Type)
+	}
 }
 
 func (ctx *S3DeviceWriter) WriteCsvPartition() {

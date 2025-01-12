@@ -10,6 +10,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/artisoft-io/jetstore/jets/awsi"
 	"github.com/artisoft-io/jetstore/jets/datatable/jcsv"
 	"github.com/artisoft-io/jetstore/jets/workspace"
 	"github.com/jackc/pgx/v4/pgxpool"
@@ -270,11 +271,31 @@ func (args *StartComputePipesArgs) StartReducingComputePipes(ctx context.Context
 	if err != nil {
 		return result, err
 	}
+
 	// Validate the PipeSpec.TransformationSpec.OutputChannel configuration
 	pipeConfig := cpConfig.ReducingPipesConfig[stepId]
 	err = ValidatePipeSpecConfig(&cpConfig, pipeConfig)
 	if err != nil {
 		return result, err
+	}
+
+	var inputParquetSchema *ParquetSchemaInfo
+	if cpConfig.ReducingPipesConfig[0][0].InputChannel.SaveParquetSchema {
+		// Get the saved parquet schema of main input file from s3
+		fileKey := fmt.Sprintf("%s/process_name=%s/session_id=%s/input_parquet_schema.json",
+			jetsS3StagePrefix, processName, args.SessionId)
+		log.Printf("Loading parquet schema from: %s", fileKey)
+		schemaBuf, err := awsi.DownloadBufFromS3(fileKey)
+		if err != nil {
+			return result, err
+		}
+		inputParquetSchema = &ParquetSchemaInfo{}
+		err = json.Unmarshal(schemaBuf, inputParquetSchema)
+		if err != nil {
+			fmt.Println("Parquet Schema:\n", string(schemaBuf))
+			return result, fmt.Errorf("while unmarshalling parquet schema from %s: %v",
+				fileKey, err)
+		}
 	}
 
 	cpReducingConfig := &ComputePipesConfig{
@@ -292,10 +313,11 @@ func (args *StartComputePipesArgs) StartReducingComputePipes(ctx context.Context
 			ProcessName:     processName,
 			SourcesConfig: SourcesConfigSpec{
 				MainInput: &InputSourceSpec{
-					InputColumns: inputColumns,
-					Format:       inputFormat,
-					Compression:  compression,
-					ClassName:    inputChannelConfig.ClassName,
+					InputColumns:       inputColumns,
+					Format:             inputFormat,
+					Compression:        compression,
+					ClassName:          inputChannelConfig.ClassName,
+					InputParquetSchema: inputParquetSchema,
 				},
 			},
 			PipelineConfigKey: pipelineConfigKey,

@@ -2,11 +2,14 @@ package compute_pipes
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log"
 	"os"
+	"runtime/debug"
 	"strings"
 
+	"github.com/fraugster/parquet-go/parquet"
 	"github.com/jackc/pgx/v4/pgxpool"
 )
 
@@ -49,7 +52,7 @@ type PartitionWriterTransformationPipe struct {
 	samplingCount        int
 	outputCh             *OutputChannel
 	currentDeviceCh      chan []interface{}
-	parquetSchema        []string
+	parquetSchema         *ParquetSchemaInfo
 	columnEvaluators     []TransformationColumnEvaluator
 	doneCh               chan struct{}
 	errCh                chan error
@@ -89,6 +92,10 @@ func (ctx *PartitionWriterTransformationPipe) Apply(input *[]interface{}) error 
 		ctx.currentDeviceCh = nil
 		ctx.totalRowCount += ctx.partitionRowCount
 		ctx.partitionRowCount = 0
+		// Check again if we got the max nbr of sample record to avoid opening another partition
+		if ctx.samplingMaxCount > 0 && ctx.totalRowCount >= int64(ctx.samplingMaxCount) {
+			return nil
+		}	
 	}
 
 	// Check if this is the first call or the start of a new file partition, if so setup the device writer channel
@@ -140,6 +147,25 @@ func (ctx *PartitionWriterTransformationPipe) Apply(input *[]interface{}) error 
 		}
 		ctx.s3DeviceManager.ClientsWg.Add(1)
 		go func() {
+
+      defer func() {
+        // Catch the panic that might be generated downstream
+        if r := recover(); r != nil {
+          var buf strings.Builder
+          buf.WriteString(fmt.Sprintf("s3DeviceWriter: recovered error: %v\n", r))
+          buf.WriteString(string(debug.Stack()))
+          cpErr := errors.New(buf.String())
+          log.Println(cpErr)
+          ctx.errCh <- cpErr
+          // Avoid closing a closed channel
+          select {
+          case <-ctx.doneCh:
+          default:
+            close(ctx.doneCh)
+          }
+        }
+      }()      
+
 			defer ctx.s3DeviceManager.ClientsWg.Done()
 			switch ctx.deviceWriterType {
 			case "csv_writer":
@@ -267,7 +293,7 @@ func (ctx *BuilderContext) NewPartitionWriterTransformationPipe(source *InputCha
 		log.Println(err)
 		return nil, err
 	}
-	var parquetSchema []string
+  var parquetSchema *ParquetSchemaInfo
 	config := spec.PartitionWriterConfig
 	// log.Println("NewPartitionWriterTransformationPipe called for partition key:",jetsPartitionKey)
 	if jetsPartitionKey == nil && config.JetsPartitionKey != nil {
@@ -329,11 +355,29 @@ func (ctx *BuilderContext) NewPartitionWriterTransformationPipe(source *InputCha
 	}
 	switch config.DeviceWriterType {
 	case "parquet_writer":
-		parquetSchema = make([]string, len(columnNames))
-		for i := range columnNames {
-			parquetSchema[i] = fmt.Sprintf("name=%s, type=BYTE_ARRAY, convertedtype=UTF8, encoding=PLAIN_DICTIONARY",
-				columnNames[i])
-		}
+    if spec.OutputChannel.UseInputParquetSchema {
+      parquetSchema = ctx.inputParquetSchema
+    } else {
+			var buf strings.Builder
+			buf.WriteString(fmt.Sprintf("message %s {\n", spec.OutputChannel.Name))
+      for i := range columnNames {
+        buf.WriteString(fmt.Sprintf("optional binary %s (UTF8);\n", columnNames[i]))
+      }
+			buf.WriteString("}\n")
+      var compression string
+      switch spec.OutputChannel.Compression {
+      case "snappy":
+        compression = parquet.CompressionCodec_SNAPPY.String()
+      case "none":
+        compression = parquet.CompressionCodec_UNCOMPRESSED.String()
+      default:
+        compression = parquet.CompressionCodec_UNCOMPRESSED.String()
+      }
+      parquetSchema = &ParquetSchemaInfo{
+        Schema: buf.String(),
+        Compression: compression,
+      }
+    }
 	}
 
 	jetsPartitionLabel := MakeJetsPartitionLabel(jetsPartitionKey)

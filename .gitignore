@@ -104,3 +104,5 @@ jets/jetrules/test_ws/workspace.db
 jets/jetrules/test_ws/lookup.db
 jets/jetrules/test_ws/workspace.tgz
 cdk/jetstore_one/lambdas/sqs_listener/cgt_sqs_listerner.go
+jets/copytest/parquettest/output.parquet
+jets/copytest/parquetschema/parquetschema

@@ -379,8 +379,9 @@ func (args *StartComputePipesArgs) StartShardingComputePipes(ctx context.Context
 	if len(pipeConfig) == 0 {
 		return result, fmt.Errorf("error: invalid cpipes config, reducing_pipes_config is incomplete")
 	}
+	inputChannelConfig := pipeConfig[0].InputChannel
 	// Validate that the first PipeSpec[0].Input == "input_row"
-	if pipeConfig[0].InputChannel.Name != "input_row" {
+	if inputChannelConfig.Name != "input_row" {
 		return result, fmt.Errorf("error: invalid cpipes config, reducing_pipes_config[0][0].input must be 'input_row'")
 	}
 	// Validate the PipeSpec.TransformationSpec.OutputChannel configuration
@@ -404,10 +405,11 @@ func (args *StartComputePipesArgs) StartShardingComputePipes(ctx context.Context
 			SourcesConfig: SourcesConfigSpec{
 				MainInput: &InputSourceSpec{
 					InputColumns:        ic,
-					ClassName:           pipeConfig[0].InputChannel.ClassName,
+					ClassName:           inputChannelConfig.ClassName,
 					Format:              schemaProviderConfig.Format,
 					Compression:         schemaProviderConfig.Compression,
 					InputFormatDataJson: schemaProviderConfig.InputFormatDataJson,
+					SaveParquetSchema:   inputChannelConfig.SaveParquetSchema,
 					SchemaProvider:      schemaProviderKey,
 				},
 			},

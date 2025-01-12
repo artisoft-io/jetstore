@@ -100,7 +100,7 @@ func (cpCtx *ComputePipesContext) StartMergeFiles(dbpool *pgxpool.Pool) (cpErr e
 		externalBucket = inputSp.Bucket()
 	}
 	if len(externalBucket) > 0 {
-		externalBucket = doSubstitution(externalBucket, "", "",	cpCtx.EnvSettings)
+		externalBucket = doSubstitution(externalBucket, "", "", cpCtx.EnvSettings)
 	}
 
 	// Determine if we put a header row
@@ -143,6 +143,16 @@ func (cpCtx *ComputePipesContext) StartMergeFiles(dbpool *pgxpool.Pool) (cpErr e
 		delimit = inputSp.Delimiter()
 	}
 	inputFormat := cpCtx.CpConfig.PipesConfig[0].InputChannel.Format
+	if inputFormat == "parquet" {
+		//*TODO support merging parquet files into a single file
+		// SPECIAL CASE = Currently only supporting single parquet file in the input
+		// to be sent to s3
+		if len(cpCtx.InputFileKeys) != 1 {
+			cpErr = fmt.Errorf("error: merge_file operator currently cannot merge multiple parquet file, got %d input files",
+				len(cpCtx.InputFileKeys))
+				return
+		}
+	}
 	r := cpCtx.NewMergeFileReader(inputFormat, outputFileConfig.Headers, writeHeaders, delimit, compression)
 
 	// put content of file to s3
