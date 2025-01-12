@@ -28,10 +28,14 @@ func writeFile(file string) {
 	defer f.Close()
 
 	schemaDef, err := parquetschema.ParseSchemaDefinition(
-		`message test {
-			required int64 id;
-			required binary city (STRING);
-			optional int64 population;
+		`message example1 {
+			optional binary aco (UTF8);
+			optional int32 start_date (DATE);
+			optional double amount;
+			optional int32 status;
+			optional int64 count;
+			optional binary notes;
+			optional binary name (STRING);
 		}`)
 	if err != nil {
 		log.Fatalf("Parsing schema definition failed: %v", err)
@@ -43,25 +47,22 @@ func writeFile(file string) {
 		goparquet.WithCreator("write-lowlevel"),
 	)
 
-	inputData := []struct {
-		ID   int
-		City string
-		Pop  int
-	}{
-		{ID: 1, City: "Berlin", Pop: 3520031},
-		{ID: 2, City: "Hamburg", Pop: 1787408},
-		{ID: 3, City: "Munich", Pop: 1450381},
-		{ID: 4, City: "Cologne", Pop: 1060582},
-		{ID: 5, City: "Frankfurt", Pop: 732688},
+	inputData := []map[string]any {
+		{"aco": "aco1", "start_date": int32(22), "amount": float64(10.99), "status": int32(23), "count": int64(202), "notes": "something", "name": "some name"},
+		{"aco": "aco1", "start_date": int32(22), "amount": float64(10.99), "status": int32(23), "count": int64(202), "notes": "something", "name": "some name"},
+		{"aco": "aco1", "start_date": int32(22), "amount": float64(10.99), "status": int32(23), "count": int64(202), "notes": "something", "name": "some name"},
+		{"aco": "aco1", "start_date": int32(22), "amount": float64(10.99), "status": int32(23), "count": int64(202), "notes": "something", "name": "some name"},
+		{"aco": "aco1", "start_date": int32(22), "amount": float64(10.99), "status": int32(23), "count": int64(202), "notes": "something", "name": "some name"},
+		{"aco": "aco1", "start_date": int32(22), "amount": float64(10.99), "status": int32(23), "count": int64(202), "notes": "something", "name": "some name"},
+		{"aco": "aco1", "start_date": int32(22), "amount": float64(10.99), "status": int32(23), "count": int64(202), "notes": "something", "name": "some name"},
+		{"aco": "aco1", "start_date": int32(22), "amount": float64(10.99), "status": int32(23), "count": int64(202), "notes": "something", "name": "some name"},
+		{"aco": "aco1", "start_date": int32(22), "amount": float64(10.99), "status": int32(23), "count": int64(202), "notes": "something", "name": "some name"},
+		{"aco": "aco1", "start_date": int32(22), "amount": float64(10.99), "status": int32(23), "count": int64(202), "notes": "something", "name": "some name"},
 	}
 
-	for _, input := range inputData {
-		if err := fw.AddData(map[string]interface{}{
-			"id":         int64(input.ID),
-			"city":       []byte(input.City),
-			"population": int64(input.Pop),
-		}); err != nil {
-			log.Fatalf("Failed to add input %v to parquet file: %v", input, err)
+	for i := range inputData {
+		if err := fw.AddData(inputData[i]); err != nil {
+			log.Fatalf("Failed to add input %v to parquet file: %v", inputData[i], err)
 		}
 	}
 

@@ -292,6 +292,7 @@ func (args *StartComputePipesArgs) StartReducingComputePipes(ctx context.Context
 		inputParquetSchema = &ParquetSchemaInfo{}
 		err = json.Unmarshal(schemaBuf, inputParquetSchema)
 		if err != nil {
+			fmt.Println("Parquet Schema:\n", string(schemaBuf))
 			return result, fmt.Errorf("while unmarshalling parquet schema from %s: %v",
 				fileKey, err)
 		}

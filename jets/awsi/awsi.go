@@ -392,7 +392,7 @@ do_retry:
 		}
 		return nil, fmt.Errorf("failed to download s3 file %s: %v", objKey, err)
 	}
-	return w.Bytes(), nil
+	return bytes.TrimSpace(w.Bytes()), nil
 }
 
 func StartExecution(stateMachineARN string, stateMachineInput map[string]interface{}, name string) (string, error) {
