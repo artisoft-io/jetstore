@@ -88,6 +88,7 @@ func (ctx *S3DeviceWriter) WriteParquetPartition() {
 			value, err := ConvertToSchema(inRow[pos], se)
 			if err != nil {
 				cpErr = fmt.Errorf("converting to parquet type failed: %v", err)
+				// log.Println(cpErr, "...Ignored")
 				goto gotError
 			}
 			rowData[se.Name] = value
@@ -95,8 +96,9 @@ func (ctx *S3DeviceWriter) WriteParquetPartition() {
 		err = fw.AddData(rowData)
 		if err != nil {
 			cpErr = fmt.Errorf("while writing row to local parquet file: %v", err)
+			// log.Println(cpErr, "...Ignored")
 			goto gotError
-		}
+	}
 	}
 
 	err = fw.Close()
@@ -142,15 +144,19 @@ func ConvertToSchema(v any, se *parquet.SchemaElement) (any, error) {
 		case string:
 			// Check if it's a date
 			if se.ConvertedType != nil && *se.ConvertedType == parquet.ConvertedType_DATE {
-				return rdf.ParseDate(vv)
-				// tm, err := rdf.ParseDate(vv)
-				// if err != nil {
-				// 	// Couln't parse the date, return 1970/01/01
-				// 	return 0, nil
-				// }
-				// return tm, nil
+				d, err := rdf.ParseDate(vv)
+				if err != nil {
+					// Couln't parse the date, return 1970/01/01
+					return int32(0), nil
+				}
+        tm := int32(d.Unix())
+        if tm > 24 * 60 * 60 {
+          return tm / (42 * 60 * 60), nil
+        }
+				return int32(0), nil
 			}
-			return strconv.Atoi(vv)
+      i, err := strconv.Atoi(vv)
+			return int32(i), err
 		case int:
 			return int32(vv), nil
 		case int32:
@@ -158,7 +164,7 @@ func ConvertToSchema(v any, se *parquet.SchemaElement) (any, error) {
 		case int64:
 			return int32(vv), nil
 		default:
-			return 0, fmt.Errorf("error: WriteParquet invalid data for int32: %v", v)
+			return int32(0), fmt.Errorf("error: WriteParquet invalid data for int32: %v", v)
 		}
 
 	case parquet.Type_INT64:
@@ -172,17 +178,14 @@ func ConvertToSchema(v any, se *parquet.SchemaElement) (any, error) {
 		case int64:
 			return vv, nil
 		default:
-			return 0, fmt.Errorf("error: WriteParquet invalid data for int64: %v", v)
+			return int64(0), fmt.Errorf("error: WriteParquet invalid data for int64: %v", v)
 		}
 
 	case parquet.Type_FLOAT:
 		switch vv := v.(type) {
 		case string:
 			f, err := strconv.ParseFloat(vv, 32)
-			if err != nil {
-				return float32(0), err
-			}
-			return float32(f), nil
+			return float32(f), err
 		case int:
 			return float32(vv), nil
 		case int32:
@@ -190,7 +193,7 @@ func ConvertToSchema(v any, se *parquet.SchemaElement) (any, error) {
 		case int64:
 			return float32(vv), nil
 		default:
-			return 0, fmt.Errorf("error: WriteParquet invalid data for float32: %v", v)
+			return float32(0), fmt.Errorf("error: WriteParquet invalid data for float32: %v", v)
 		}
 
 	case parquet.Type_DOUBLE:
@@ -204,7 +207,7 @@ func ConvertToSchema(v any, se *parquet.SchemaElement) (any, error) {
 		case int64:
 			return float64(vv), nil
 		default:
-			return 0, fmt.Errorf("error: WriteParquet invalid data for float64: %v", v)
+			return float64(0), fmt.Errorf("error: WriteParquet invalid data for float64: %v", v)
 		}
 
 	case parquet.Type_BYTE_ARRAY, parquet.Type_FIXED_LEN_BYTE_ARRAY:

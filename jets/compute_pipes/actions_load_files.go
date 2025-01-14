@@ -11,12 +11,13 @@ import (
 	"log"
 	"os"
 	"runtime/debug"
-	"strconv"
 	"strings"
 	"time"
 
 	"github.com/artisoft-io/jetstore/jets/awsi"
 	goparquet "github.com/fraugster/parquet-go"
+	"github.com/fraugster/parquet-go/parquet"
+	"github.com/fraugster/parquet-go/parquetschema"
 	"github.com/golang/snappy"
 	"github.com/jackc/pgx/v4/pgxpool"
 )
@@ -45,14 +46,14 @@ func (cpCtx *ComputePipesContext) LoadFiles(ctx context.Context, dbpool *pgxpool
 		close(cpCtx.ChResults.LoadFromS3FilesResultCh)
 	}()
 
-	// Prepare to same the input schema
-	inputFormat := cpCtx.CpConfig.CommonRuntimeArgs.SourcesConfig.MainInput.Format
-	saveParquetSchema := cpCtx.CpConfig.CommonRuntimeArgs.SourcesConfig.MainInput.SaveParquetSchema
-	compression := cpCtx.CpConfig.CommonRuntimeArgs.SourcesConfig.MainInput.Compression
+	inputChannelConfig := &cpCtx.CpConfig.PipesConfig[0].InputChannel
+	inputFormat := inputChannelConfig.Format
+	saveParquetSchema := strings.HasPrefix(inputFormat, "parquet")
+	compression := inputChannelConfig.Compression
 	shardOffset := cpCtx.CpConfig.ClusterConfig.ShardOffset
-	schemaProvider := cpCtx.CpConfig.CommonRuntimeArgs.SourcesConfig.MainInput.SchemaProvider
+	schemaProvider := inputChannelConfig.SchemaProvider
 	var inputSchemaCh chan any
-	if saveParquetSchema && strings.HasPrefix(inputFormat, "parquet") {
+	if saveParquetSchema {
 		inputSchemaCh = make(chan any, 1)
 	}
 
@@ -94,6 +95,7 @@ func (cpCtx *ComputePipesContext) ReadParquetFile(filePath *FileName, saveParque
 
 	var fileHd *os.File
 	var parquetReader *goparquet.FileReader
+	var inputColumns []string
 	var err error
 	samplingRate := cpCtx.CpConfig.PipesConfig[0].InputChannel.SamplingRate
 	samplingMaxCount := cpCtx.CpConfig.PipesConfig[0].InputChannel.SamplingMaxCount
@@ -110,25 +112,53 @@ func (cpCtx *ComputePipesContext) ReadParquetFile(filePath *FileName, saveParque
 	// log.Println("**!@@",cpCtx.SessionId,"partfile_key_component GOT",len(cpCtx.PartFileKeyComponents))
 	//*TODO get the columns from the parquet schema (see below)
 	nbrColumns := len(cpCtx.CpConfig.CommonRuntimeArgs.SourcesConfig.MainInput.InputColumns)
-	inputColumns := cpCtx.CpConfig.CommonRuntimeArgs.SourcesConfig.MainInput.InputColumns[:nbrColumns-len(cpCtx.PartFileKeyComponents)]
-	parquetReader, err = goparquet.NewFileReader(fileHd, inputColumns...)
+	if nbrColumns == 0 {
+		// Read all columns
+		parquetReader, err = goparquet.NewFileReader(fileHd)
+	} else {
+		// Read specified columns
+		inputColumns = cpCtx.CpConfig.CommonRuntimeArgs.SourcesConfig.MainInput.InputColumns[:nbrColumns-len(cpCtx.PartFileKeyComponents)]
+		parquetReader, err = goparquet.NewFileReader(fileHd, inputColumns...)
+	}
 	if err != nil {
 		return 0, err
 	}
+
+	// Get the schema
+	schemaDef := parquetReader.GetSchemaDefinition()
+  schemaIdx := make(map[string]*parquetschema.ColumnDefinition)
+  for _, colDef := range schemaDef.RootColumn.Children {
+    schemaIdx[colDef.SchemaElement.Name] = colDef
+  }
+
 	// Save the parquet schema to s3 on request
 	if saveParquetSchema {
-
-		// Get the schema
-		parquetMetaInfo := ParquetSchemaInfo{
-			Schema: parquetReader.GetSchemaDefinition().String(),
-		}
-
+    parquetMetaInfo := ParquetSchemaInfo{
+      Schema: schemaDef.String(),
+    }
+  
 		// Get the codec/compression of the first row group
 		err = parquetReader.SeekToRowGroup(1)
 		if err != nil {
 			return 0, fmt.Errorf("while seeking to first row group of parquet file: %v", err)
 		}
 		parquetMetaInfo.Compression = parquetReader.CurrentRowGroup().Columns[0].MetaData.Codec.String()
+
+		// Save the input columns if none were provided in configuration
+		if nbrColumns == 0 {
+			ic := &cpCtx.CpConfig.CommonRuntimeArgs.SourcesConfig.MainInput.InputColumns
+			*ic = make([]string, 0, len(schemaDef.RootColumn.Children)+len(cpCtx.PartFileKeyComponents))
+			for _, colDef := range schemaDef.RootColumn.Children {
+				*ic = append(*ic, colDef.SchemaElement.Name)
+			}
+			// inputColumn is a slice of the columns to load from the parquet file
+			inputColumns = *ic
+			// Add the part file component if in sharding mode
+			for i := range cpCtx.PartFileKeyComponents {
+				*ic = append(*ic, cpCtx.PartFileKeyComponents[i].ColumnName)
+			}
+			nbrColumns = len(*ic)
+		}
 
 		// Make the schema avail to channel registry
 		inputSchemaCh <- parquetMetaInfo
@@ -164,7 +194,7 @@ func (cpCtx *ComputePipesContext) ReadParquetFile(filePath *FileName, saveParque
 
 	var inputRowCount int64
 	var record []interface{}
-	isShardingMode := cpCtx.CpConfig.CommonRuntimeArgs.CpipesMode == "sharding"
+	// isShardingMode := cpCtx.CpConfig.CommonRuntimeArgs.CpipesMode == "sharding"
 	for {
 		// read and put the rows into computePipesInputCh
 		err = nil
@@ -180,53 +210,14 @@ func (cpCtx *ComputePipesContext) ReadParquetFile(filePath *FileName, saveParque
 			}
 			cpCtx.SamplingCount = 0
 			record = make([]interface{}, nbrColumns)
+      // fmt.Println("Input Parquet Record: ")
 			for i := range inputColumns {
 				rawValue := parquetRow[inputColumns[i]]
-				if isShardingMode {
-					if rawValue != nil {
-						// Read all fields as string
-						switch vv := rawValue.(type) {
-						case string:
-							if len(vv) > 0 {
-								record[i] = vv
-							}
-						case []byte:
-							if len(vv) > 0 {
-								record[i] = string(vv)
-							}
-						case int:
-							record[i] = strconv.Itoa(vv)
-						case int32:
-							record[i] = strconv.FormatInt(int64(vv), 10)
-						case int64:
-							record[i] = strconv.FormatInt(vv, 10)
-						case float64:
-							record[i] = strconv.FormatFloat(vv, 'G', -1, 64)
-						case float32:
-							record[i] = strconv.FormatFloat(float64(vv), 'G', -1, 32)
-						case bool:
-							if vv {
-								record[i] = "1"
-							} else {
-								record[i] = "0"
-							}
-						default:
-							record[i] = fmt.Sprintf("%v", rawValue)
-						}
-					}
-				} else {
-					// Read fields and preserve their types
-					// NOTES: Dates are saved as strings, must be converted to dates as needed downstream
-					switch vv := rawValue.(type) {
-					case []byte:
-						record[i] = string(vv)
-					case float32:
-						record[i] = float64(vv)
-					default:
-						record[i] = vv
-					}
-				}
+        se := schemaIdx[inputColumns[i]].SchemaElement
+        record[i] = ConvertWithSchemaV0(rawValue, se)
+				// fmt.Printf(" %s: %v, ", inputColumns[i], record[i])
 			}
+			// fmt.Println()
 			// Add the columns from the partfile_key_component
 			if len(extColumns) > 0 {
 				offset := len(inputColumns)
@@ -266,6 +257,65 @@ func (cpCtx *ComputePipesContext) ReadParquetFile(filePath *FileName, saveParque
 			}
 			inputRowCount += 1
 		}
+	}
+}
+
+func ConvertWithSchemaV0(v any, se *parquet.SchemaElement) string {
+	if v == nil {
+		return ""
+	}
+	switch *se.Type {
+	case parquet.Type_BOOLEAN:
+		switch vv := v.(type) {
+		case bool:
+      if vv {
+        return "1"
+      } else {
+        return "0"
+      }
+		default:
+			return "0"
+		}
+	case parquet.Type_INT32:
+    // Check if it's a date
+    if se.ConvertedType != nil && *se.ConvertedType == parquet.ConvertedType_DATE {
+      // return date(Jan 1 1970) + vv days
+      switch vv := v.(type) {
+      case int32:
+        d := time.Unix(int64(vv) * 24 * 60 * 60, 0)
+        // fmt.Println("*** READING", vv, "AS DATE:",d)
+        return d.Format("2006-01-02")
+        default:
+          return fmt.Sprintf("%v", v)
+        }
+    }
+    return fmt.Sprintf("%v", v)
+
+	case parquet.Type_INT64:
+    return fmt.Sprintf("%v", v)
+
+	case parquet.Type_FLOAT:
+    return fmt.Sprintf("%v", v)
+
+	case parquet.Type_DOUBLE:
+    return fmt.Sprintf("%v", v)
+
+	case parquet.Type_BYTE_ARRAY, parquet.Type_FIXED_LEN_BYTE_ARRAY:
+    // Make it a string for now...
+		// if se.ConvertedType != nil && *se.ConvertedType == parquet.ConvertedType_UTF8 {
+		// }
+    switch vv := v.(type) {
+    case string:
+      return vv
+    case []byte:
+      return string(vv)
+    default:
+      return fmt.Sprintf("%v", v)
+    }
+
+	default:
+    return fmt.Sprintf("%v", v)
+		// return nil, fmt.Errorf("error: WriteParquet unknown parquet type: %v", *se.Type)
 	}
 }
 
