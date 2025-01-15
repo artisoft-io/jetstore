@@ -71,7 +71,7 @@ func (cpCtx *ComputePipesContext) StartComputePipes(dbpool *pgxpool.Pool, inputS
 	// ----------------------------
 	mainInput := cpCtx.CpConfig.CommonRuntimeArgs.SourcesConfig.MainInput
 	inputParquetSchema := mainInput.InputParquetSchema
-	if inputParquetSchema == nil && mainInput.SaveParquetSchema {
+	if inputSchemaCh != nil {
 		// Get the parquet schema from the channel as it is being extracted from the
 		// first input file
 		for is := range inputSchemaCh {
@@ -94,7 +94,7 @@ func (cpCtx *ComputePipesContext) StartComputePipes(dbpool *pgxpool.Pool, inputS
 		inputRowChSpec = &ChannelSpec{
 			Name:      "input_row",
 			Columns:   mainInput.InputColumns,
-			ClassName: mainInput.ClassName,
+			ClassName: cpCtx.CpConfig.PipesConfig[0].InputChannel.ClassName,
 		}
 		inputRowChannel = &InputChannel{
 			channel: computePipesInputCh,

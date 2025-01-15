@@ -320,3 +320,51 @@ func NewParseDateMatchFunction(fspec *FunctionTokenNode, sp SchemaProvider) (Mat
 		yearGreaterThan: yearGT,
 	}, nil
 }
+
+// Welford's online algorithm
+// https://en.wikipedia.org/wiki/Algorithms_for_calculating_variance#Online
+// An example Python implementation for Welford's algorithm is given below.
+//
+// # For a new value new_value, compute the new count, new mean, the new M2.
+// # mean accumulates the mean of the entire dataset
+// # M2 aggregates the squared distance from the mean
+// # count aggregates the number of samples seen so far
+// def update(existing_aggregate, new_value):
+//     (count, mean, M2) = existing_aggregate
+//     count += 1
+//     delta = new_value - mean
+//     mean += delta / count
+//     delta2 = new_value - mean
+//     M2 += delta * delta2
+//     return (count, mean, M2)
+
+// # Retrieve the mean, variance and sample variance from an aggregate
+// def finalize(existing_aggregate):
+//     (count, mean, M2) = existing_aggregate
+//     if count < 2:
+//         return float("nan")
+//     else:
+//         (mean, variance, sample_variance) = (mean, M2 / count, M2 / (count - 1))
+//         return (mean, variance, sample_variance)
+
+type WelfordAlgo struct {
+	Mean  float64
+	M2    float64
+	Count int
+}
+
+func NewWelfordAlgo() *WelfordAlgo {
+	return &WelfordAlgo{}
+}
+
+func (w *WelfordAlgo) Update(value float64) {
+	w.Count += 1
+	delta := value - w.Mean
+	w.Mean += delta / float64(w.Count)
+	delta2 := value - w.Mean
+	w.M2 += delta * delta2
+}
+
+func (w *WelfordAlgo) Finalize() (mean, variance float64) {
+	return w.Mean, w.M2 / float64(w.Count)
+}

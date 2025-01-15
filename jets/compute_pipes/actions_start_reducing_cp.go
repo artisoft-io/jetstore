@@ -2,7 +2,6 @@ package compute_pipes
 
 import (
 	"context"
-	"database/sql"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -12,7 +11,6 @@ import (
 
 	"github.com/artisoft-io/jetstore/jets/awsi"
 	"github.com/artisoft-io/jetstore/jets/datatable/jcsv"
-	"github.com/artisoft-io/jetstore/jets/workspace"
 	"github.com/jackc/pgx/v4/pgxpool"
 )
 
@@ -26,120 +24,25 @@ func (args *StartComputePipesArgs) StartReducingComputePipes(ctx context.Context
 		log.Println("error: missing file_key or session_id or step_id as input args of StartComputePipes (reducing mode)")
 		return result, fmt.Errorf("error: missing file_key or session_id or step_id as input args of StartComputePipes (reducing mode)")
 	}
-	// Check if we need to sync the workspace files
-	_, err = workspace.SyncComputePipesWorkspace(dbpool)
+	cpipesStartup, err := args.initializeCpipes(ctx, dbpool)
 	if err != nil {
-		log.Panicf("error while synching workspace files from db: %v", err)
-	}
-
-	// get pe info and pipeline config
-	// cpipesConfigFN is file name within workspace
-	var client, org, objectType, processName, inputFormat, compression string
-	var inputSessionId, userEmail, schemaProviderJson string
-	var sourcePeriodKey, pipelineConfigKey int
-	var cpipesConfigFN sql.NullString
-	log.Println("CPIPES, loading pipeline configuration")
-	stmt := `
-	SELECT	ir.client, ir.org, ir.object_type, ir.source_period_key, ir.schema_provider_json, 
-		pe.pipeline_config_key, pe.process_name, pe.input_session_id, pe.user_email,
-		pc.main_rules
-	FROM 
-		jetsapi.pipeline_execution_status pe,
-		jetsapi.input_registry ir,
-		jetsapi.process_config pc
-	WHERE pe.main_input_registry_key = ir.key
-		AND pe.key = $1
-		AND pc.process_name = pe.process_name`
-	err = dbpool.QueryRow(context.Background(), stmt, args.PipelineExecKey).Scan(
-		&client, &org, &objectType, &sourcePeriodKey, &schemaProviderJson,
-		&pipelineConfigKey, &processName, &inputSessionId, &userEmail,
-		&cpipesConfigFN)
-	if err != nil {
-		return result, fmt.Errorf("query table_name, domain_keys_json, input_columns_json, input_columns_positions_csv, input_format_data_json from jetsapi.source_config failed: %v", err)
-	}
-	if !cpipesConfigFN.Valid || len(cpipesConfigFN.String) == 0 {
-		return result, fmt.Errorf("error: process_config table does not have a cpipes config file name in main_rules column")
-	}
-
-	// Get the cpipes_config json from workspace
-	configFile := fmt.Sprintf("%s/%s/%s", workspaceHome, wsPrefix, cpipesConfigFN.String)
-	cpJson, err := os.ReadFile(configFile)
-	if err != nil {
-		return result, fmt.Errorf("while reading cpipes config from workspace: %v", err)
-	}
-	var cpConfig ComputePipesConfig
-	err = json.Unmarshal(cpJson, &cpConfig)
-	if err != nil {
-		return result, fmt.Errorf("while unmarshaling compute pipes json (StartReducingComputePipes): %s", err)
-	}
-	// Adjust ChannelSpec that have their columns specified by a jetrules class
-	for i := range cpConfig.Channels {
-		chSpec := &cpConfig.Channels[i]
-		if len(chSpec.ClassName) > 0 {
-			// Get the columns from the local workspace
-			columns, err := GetDomainProperties(chSpec.ClassName, chSpec.DirectPropertiesOnly)
-			if err != nil {
-				return result, fmt.Errorf(
-					"while getting domain properties for channel spec class name %s: %v (does workspace_control.json needs to be updated?)",
-					chSpec.ClassName, err)
-			}
-			if len(chSpec.Columns) > 0 {
-				columns = append(columns, chSpec.Columns...)
-			}
-			chSpec.Columns = columns
-		}
-	}
-
-	// Get the schema provider from schemaProviderJson:
-	//   - Put SchemaName into env (done in CoordinateComputePipes)
-	//   - Put the schema provider in compute pipes json
-	var schemaProviderConfig *SchemaProviderSpec
-	// First find if a schema provider already exist for "main_input"
-	for _, sp := range cpConfig.SchemaProviders {
-		if sp.SourceType == "main_input" {
-			schemaProviderConfig = sp
-			if sp.Key == "" {
-				sp.Key = "_main_input_"
-			}
-			break
-		}
-	}
-	if schemaProviderConfig == nil {
-		// Create and initialize a default SchemaProviderSpec
-		schemaProviderConfig = &SchemaProviderSpec{
-			Type:       "default",
-			Key:        "_main_input_",
-			SourceType: "main_input",
-		}
-		if cpConfig.SchemaProviders == nil {
-			cpConfig.SchemaProviders = make([]*SchemaProviderSpec, 0)
-		}
-		cpConfig.SchemaProviders = append(cpConfig.SchemaProviders, schemaProviderConfig)
-	}
-
-	// Deserialize the schema provider from the main input source
-	if len(schemaProviderJson) > 0 {
-		err = json.Unmarshal([]byte(schemaProviderJson), schemaProviderConfig)
-		if err != nil {
-			return result, fmt.Errorf("while unmarshaling schema_provider_json: %s", err)
-		}
-		schemaProviderConfig.SourceType = "main_input"
+		return result, err
 	}
 
 	// Get the source for input_row channel, given by the first input_channel node
 	stepId := *args.StepId
 	// Validate that there is such stepId
-	if stepId >= len(cpConfig.ReducingPipesConfig) {
+	if stepId >= len(cpipesStartup.CpConfig.ReducingPipesConfig) {
 		// we're past the last step - most likely there was only a sharding step
 		return result, ErrNoReducingStep
 	}
 
 	// By default reducing steps uses compression 'snappy' with 'headerless_csv',
 	// unless specified in InputChannelConfig or when inputChannel is 'input_row' then use 'csv', see below
-	inputFormat = "headerless_csv"
-	compression = "snappy"
-	inputChannelConfig := &cpConfig.ReducingPipesConfig[stepId][0].InputChannel
-	inputChannelSP := getSchemaProvider(cpConfig.SchemaProviders, inputChannelConfig.SchemaProvider)
+	inputFormat := "headerless_csv"
+	compression := "snappy"
+	inputChannelConfig := &cpipesStartup.CpConfig.ReducingPipesConfig[stepId][0].InputChannel
+	inputChannelSP := getSchemaProvider(cpipesStartup.CpConfig.SchemaProviders, inputChannelConfig.SchemaProvider)
 	if inputChannelSP != nil {
 		if len(inputChannelSP.Format) > 0 {
 			inputFormat = inputChannelSP.Format
@@ -154,8 +57,7 @@ func (args *StartComputePipesArgs) StartReducingComputePipes(ctx context.Context
 	if inputChannelConfig.Compression != "" {
 		compression = inputChannelConfig.Compression
 	}
-	// Set the input channel with the determined value, so to be consistent with what will be done in
-	// ValidatePipeSpecConfig
+	// Set the input channel with the determined value
 	inputChannelConfig.Format = inputFormat
 	inputChannelConfig.Compression = compression
 
@@ -171,7 +73,7 @@ func (args *StartComputePipesArgs) StartReducingComputePipes(ctx context.Context
 	//		<JETS_s3_STAGE_PREFIX>/process_name=QcProcess/session_id=123456789/step_id=reducing01/jets_partition=22p/
 	// Get the partition key from compute_pipes_partitions_registry
 	partitions := make([]string, 0)
-	stmt = `SELECT jets_partition 
+	stmt := `SELECT jets_partition 
 			FROM jetsapi.compute_pipes_partitions_registry 
 			WHERE session_id = $1 AND step_id = $2`
 	rows, err := dbpool.Query(context.Background(), stmt, args.SessionId, mainInputStepId)
@@ -190,23 +92,19 @@ func (args *StartComputePipesArgs) StartReducingComputePipes(ctx context.Context
 		partitions = append(partitions, jetsPartition)
 	}
 
-	// Set the nbr of concurrent map tasks
-	if args.MaxConcurrency == 0 {
-		result.CpipesMaxConcurrency = GetMaxConcurrency(len(partitions), cpConfig.ClusterConfig.DefaultMaxConcurrency)
-	} else {
-		result.CpipesMaxConcurrency = args.MaxConcurrency
-	}
-	result.UseECSReducingTask = args.UseECSTask
-	outputTables, err := SelectActiveOutputTable(cpConfig.OutputTables, cpConfig.ReducingPipesConfig[stepId])
+  // Identify the output tables for this step
+	outputTables, err := SelectActiveOutputTable(cpipesStartup.CpConfig.OutputTables, cpipesStartup.CpConfig.ReducingPipesConfig[stepId])
 	if err != nil {
 		return result, fmt.Errorf("while calling SelectActiveOutputTable for stepId %d: %v", stepId, err)
 	}
+
+  // Check if at last step
 	isLastReducing := false
 	isMergeFiles := false
-	if stepId == len(cpConfig.ReducingPipesConfig)-1 {
+	if stepId == len(cpipesStartup.CpConfig.ReducingPipesConfig)-1 {
 		isLastReducing = true
 		// Check and validate if we're on a merge_files step
-		if cpConfig.ReducingPipesConfig[stepId][0].Type == "merge_files" {
+		if cpipesStartup.CpConfig.ReducingPipesConfig[stepId][0].Type == "merge_files" {
 			isMergeFiles = true
 			// perform validation
 			if len(partitions) != 1 {
@@ -225,9 +123,9 @@ func (args *StartComputePipesArgs) StartReducingComputePipes(ctx context.Context
 	// with a default of max(len(partitions), 20)
 	clusterSpec := &ClusterSpec{
 		NbrPartitions:         len(partitions),
-		DefaultMaxConcurrency: cpConfig.ClusterConfig.DefaultMaxConcurrency,
-		S3WorkerPoolSize:      cpConfig.ClusterConfig.S3WorkerPoolSize,
-		IsDebugMode:           cpConfig.ClusterConfig.IsDebugMode,
+		DefaultMaxConcurrency: cpipesStartup.CpConfig.ClusterConfig.DefaultMaxConcurrency,
+		S3WorkerPoolSize:      cpipesStartup.CpConfig.ClusterConfig.S3WorkerPoolSize,
+		IsDebugMode:           cpipesStartup.CpConfig.ClusterConfig.IsDebugMode,
 	}
 	if clusterSpec.S3WorkerPoolSize == 0 {
 		if len(partitions) > 20 {
@@ -236,15 +134,21 @@ func (args *StartComputePipesArgs) StartReducingComputePipes(ctx context.Context
 			clusterSpec.S3WorkerPoolSize = len(partitions)
 		}
 	}
-	result.CpipesMaxConcurrency = GetMaxConcurrency(len(partitions), cpConfig.ClusterConfig.DefaultMaxConcurrency)
+
+	// Set the nbr of concurrent map tasks
+	result.UseECSReducingTask = args.UseECSTask
+	result.CpipesMaxConcurrency = GetMaxConcurrency(len(partitions), cpipesStartup.CpConfig.ClusterConfig.DefaultMaxConcurrency)
 
 	// Get the input columns from Pipes Config, from the first pipes channel
 	var inputColumns []string
-	sepFlag := jcsv.Chartype(',') // always use ',' in reduce mode
 	inputChannel := inputChannelConfig.Name
 	if inputChannel == "input_row" && inputFormat == "csv" {
+    sepFlag := jcsv.Chartype(',') // defaults to ',' in reduce mode input unless specified by schema provider
+    if inputChannelSP != nil && len(inputChannelSP.Delimiter) > 0 {
+      sepFlag.Set(inputChannelSP.Delimiter)
+    }
 		// special case, need to get the input columns from file of first partition
-		fileKeys, err := GetS3FileKeys(processName, args.SessionId, mainInputStepId, partitions[0])
+		fileKeys, err := GetS3FileKeys(cpipesStartup.ProcessName, args.SessionId, mainInputStepId, partitions[0])
 		if err != nil {
 			return result, err
 		}
@@ -256,9 +160,10 @@ func (args *StartComputePipesArgs) StartReducingComputePipes(ctx context.Context
 			return result, fmt.Errorf("error: could not get input columns from file (reduce mode): %v", err)
 		}
 	} else {
-		for i := range cpConfig.Channels {
-			if cpConfig.Channels[i].Name == inputChannel {
-				inputColumns = cpConfig.Channels[i].Columns
+    // Get the columns from the channel spec
+		for i := range cpipesStartup.CpConfig.Channels {
+			if cpipesStartup.CpConfig.Channels[i].Name == inputChannel {
+				inputColumns = cpipesStartup.CpConfig.Channels[i].Columns
 				break
 			}
 		}
@@ -267,23 +172,24 @@ func (args *StartComputePipesArgs) StartReducingComputePipes(ctx context.Context
 		}
 	}
 
-	lookupTables, err := SelectActiveLookupTable(cpConfig.LookupTables, cpConfig.ReducingPipesConfig[stepId])
+	lookupTables, err := SelectActiveLookupTable(cpipesStartup.CpConfig.LookupTables, cpipesStartup.CpConfig.ReducingPipesConfig[stepId])
 	if err != nil {
 		return result, err
 	}
 
 	// Validate the PipeSpec.TransformationSpec.OutputChannel configuration
-	pipeConfig := cpConfig.ReducingPipesConfig[stepId]
-	err = ValidatePipeSpecConfig(&cpConfig, pipeConfig)
+	pipeConfig := cpipesStartup.CpConfig.ReducingPipesConfig[stepId]
+	err = ValidatePipeSpecConfig(&cpipesStartup.CpConfig, pipeConfig)
 	if err != nil {
 		return result, err
 	}
 
 	var inputParquetSchema *ParquetSchemaInfo
-	if cpConfig.ReducingPipesConfig[0][0].InputChannel.SaveParquetSchema {
+  mainInputSchemaProvider := cpipesStartup.MainInputSchemaProviderConfig
+	if strings.HasPrefix(mainInputSchemaProvider.Format, "parquet") {
 		// Get the saved parquet schema of main input file from s3
 		fileKey := fmt.Sprintf("%s/process_name=%s/session_id=%s/input_parquet_schema.json",
-			jetsS3StagePrefix, processName, args.SessionId)
+			jetsS3StagePrefix, cpipesStartup.ProcessName, args.SessionId)
 		log.Printf("Loading parquet schema from: %s", fileKey)
 		schemaBuf, err := awsi.DownloadBufFromS3(fileKey)
 		if err != nil {
@@ -297,40 +203,38 @@ func (args *StartComputePipesArgs) StartReducingComputePipes(ctx context.Context
 				fileKey, err)
 		}
 	}
-
 	cpReducingConfig := &ComputePipesConfig{
 		CommonRuntimeArgs: &ComputePipesCommonArgs{
 			CpipesMode:      "reducing",
-			Client:          client,
-			Org:             org,
-			ObjectType:      objectType,
+			Client:          mainInputSchemaProvider.Client,
+			Org:             mainInputSchemaProvider.Vendor,
+			ObjectType:      mainInputSchemaProvider.ObjectType,
 			FileKey:         args.FileKey,
 			SessionId:       args.SessionId,
 			MainInputStepId: mainInputStepId,
 			MergeFiles:      isMergeFiles,
-			InputSessionId:  inputSessionId,
-			SourcePeriodKey: sourcePeriodKey,
-			ProcessName:     processName,
+			InputSessionId:  cpipesStartup.InputSessionId,
+			SourcePeriodKey: cpipesStartup.SourcePeriodKey,
+			ProcessName:     cpipesStartup.ProcessName,
 			SourcesConfig: SourcesConfigSpec{
 				MainInput: &InputSourceSpec{
 					InputColumns:       inputColumns,
-					Format:             inputFormat,
-					Compression:        compression,
-					ClassName:          inputChannelConfig.ClassName,
+					InputFormatDataJson: mainInputSchemaProvider.InputFormatDataJson,
+					SchemaProvider:      mainInputSchemaProvider.Key,
 					InputParquetSchema: inputParquetSchema,
 				},
 			},
-			PipelineConfigKey: pipelineConfigKey,
-			UserEmail:         userEmail,
+			PipelineConfigKey: cpipesStartup.PipelineConfigKey,
+			UserEmail:         cpipesStartup.OperatorEmail,
 		},
 		ClusterConfig:   clusterSpec,
-		MetricsConfig:   cpConfig.MetricsConfig,
+		MetricsConfig:   cpipesStartup.CpConfig.MetricsConfig,
 		OutputTables:    outputTables,
-		OutputFiles:     cpConfig.OutputFiles,
+		OutputFiles:     cpipesStartup.CpConfig.OutputFiles,
 		LookupTables:    lookupTables,
-		Channels:        cpConfig.Channels,
-		Context:         cpConfig.Context,
-		SchemaProviders: cpConfig.SchemaProviders,
+		Channels:        cpipesStartup.CpConfig.Channels,
+		Context:         cpipesStartup.CpConfig.Context,
+		SchemaProviders: cpipesStartup.CpConfig.SchemaProviders,
 		PipesConfig:     pipeConfig,
 	}
 
@@ -359,16 +263,15 @@ func (args *StartComputePipesArgs) StartReducingComputePipes(ctx context.Context
 		}
 	}
 
-	envSettings := PrepareCpipesEnv(&cpConfig, schemaProviderConfig)
 	result.ReportsCommand = []string{
-		"-client", client,
-		"-processName", processName,
+		"-client", cpipesStartup.MainInputSchemaProviderConfig.Client,
+		"-processName", cpipesStartup.ProcessName,
 		"-sessionId", args.SessionId,
 		"-filePath", strings.Replace(args.FileKey, os.Getenv("JETS_s3_INPUT_PREFIX"), os.Getenv("JETS_s3_OUTPUT_PREFIX"), 1),
 	}
 	result.SuccessUpdate = map[string]interface{}{
 		"cpipesMode":     true,
-		"cpipesEnv":      envSettings,
+		"cpipesEnv":      cpipesStartup.EnvSettings,
 		"-peKey":         strconv.Itoa(args.PipelineExecKey),
 		"-status":        "completed",
 		"file_key":       args.FileKey,
@@ -376,7 +279,7 @@ func (args *StartComputePipesArgs) StartReducingComputePipes(ctx context.Context
 	}
 	result.ErrorUpdate = map[string]interface{}{
 		"cpipesMode":     true,
-		"cpipesEnv":      envSettings,
+		"cpipesEnv":      cpipesStartup.EnvSettings,
 		"-peKey":         strconv.Itoa(args.PipelineExecKey),
 		"-status":        "failed",
 		"file_key":       args.FileKey,

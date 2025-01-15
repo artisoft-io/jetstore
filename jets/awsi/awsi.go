@@ -27,8 +27,9 @@ import (
 
 // This module provides aws integration for JetStore
 
-//*TODO no need to pass bucket and region to this module
+// *TODO no need to pass bucket and region to this module
 var bucket, region, kmsKeyArn string
+
 func init() {
 	kmsKeyArn = os.Getenv("JETS_S3_KMS_KEY_ARN")
 	bucket = os.Getenv("JETS_BUCKET")
@@ -343,9 +344,9 @@ func UploadBufToS3(objKey string, buf []byte) error {
 	reader := bytes.NewReader(buf)
 	contentLen := int64(len(buf))
 	putObjInput := &s3.PutObjectInput{
-		Bucket: &bucket,
-		Key:    &objKey,
-		Body:   reader,
+		Bucket:        &bucket,
+		Key:           &objKey,
+		Body:          reader,
 		ContentLength: &contentLen,
 	}
 	if len(kmsKeyArn) > 0 {
@@ -392,7 +393,7 @@ do_retry:
 		}
 		return nil, fmt.Errorf("failed to download s3 file %s: %v", objKey, err)
 	}
-	return bytes.TrimSpace(w.Bytes()), nil
+	return bytes.TrimRightFunc(w.Bytes(), func(r rune) bool { return r == '\x00' }), nil
 }
 
 func StartExecution(stateMachineARN string, stateMachineInput map[string]interface{}, name string) (string, error) {

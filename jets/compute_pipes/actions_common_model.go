@@ -18,14 +18,13 @@ import (
 
 // Argument to start_cp (start_sharding_cp, start_reducing_cp)
 // for starting the cp cluster
-// MaxConcurrency is to have a specified value of max concurrency
+// UseECSTask is currently used only for 'reducing' mode
 type StartComputePipesArgs struct {
 	PipelineExecKey int    `json:"pipeline_execution_key"`
 	FileKey         string `json:"file_key"`
 	SessionId       string `json:"session_id"`
 	StepId          *int   `json:"step_id"`
 	UseECSTask      bool   `json:"use_ecs_tasks"`
-	MaxConcurrency  int    `json:"max_concurrency"`
 }
 
 type InputStats struct {
@@ -82,17 +81,14 @@ type SourcesConfigSpec struct {
 
 // InputSourceSpec contains carry over configuration from
 // table source_config.
-// SaveParquetSchema applied to parquet input files, it saves
-// the schema at the root of the stage area under the current session_id.
+// SchemaProvider correspond to the _main_input_ schema provider,
+// ie, the one from the main input file of sharding step.
 // See SchemaProviderSpec for details on SchemaProvider
-// InputSourceSpec properties override SchemaProviderSpec
-// properties.
+// InputColumns correspond to columns in the input files, this
+// applies to reducing as well as sharding steps.
+// For the case of sharding step, it includes columns from part files key.
 type InputSourceSpec struct {
 	InputColumns        []string           `json:"input_columns"`
-	ClassName           string             `json:"class_name,omitempty"`
-	Format              string             `json:"format,omitempty"`
-	SaveParquetSchema   bool               `json:"save_parquet_schema,omitempty"`
-	Compression         string             `json:"compression,omitempty"`
 	InputFormatDataJson string             `json:"input_format_data_json,omitempty"`
 	SchemaProvider      string             `json:"schema_provider,omitempty"`
 	InputParquetSchema  *ParquetSchemaInfo `json:"input_parquet_schema,omitempty"`

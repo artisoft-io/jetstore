@@ -286,7 +286,6 @@ type InputChannelConfig struct {
 	ReadStepId        string `json:"read_step_id"`
 	SamplingRate      int    `json:"sampling_rate"`
 	SamplingMaxCount  int    `json:"sampling_max_count"`
-	SaveParquetSchema bool   `json:"save_parquet_schema"`
 	HasGroupedRows    bool   `json:"has_grouped_rows"`
 	ClassName         string `json:"class_name,omitempty"`
 }

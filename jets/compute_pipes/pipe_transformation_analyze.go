@@ -3,6 +3,9 @@ package compute_pipes
 import (
 	"fmt"
 	"log"
+
+	"github.com/fraugster/parquet-go/parquet"
+	"github.com/fraugster/parquet-go/parquetschema"
 )
 
 // firstInputRow is the first row from the input channel.
@@ -31,10 +34,15 @@ import (
 //	ratio = <domain count>/(totalCount - nullCount) * 100.0
 //
 // Note that if totalCount - nullCount == 0, then ratio = -1
+// inputDataType contains the data type for each column according to the parquet schema.
+// inputDataType is a map of column name -> input data type
+// Range of value for input data type: string (default if not parquet), bool, int32, int64,
+// float32, float64, date, unknown
 type AnalyzeTransformationPipe struct {
 	cpConfig         *ComputePipesConfig
 	source           *InputChannel
 	outputCh         *OutputChannel
+	inputDataType    map[string]string
 	analyzeState     []*AnalyzeState
 	columnEvaluators []TransformationColumnEvaluator
 	firstInputRow    *[]interface{}
@@ -80,6 +88,10 @@ func (ctx *AnalyzeTransformationPipe) Done() error {
 		ipos, ok = ctx.outputCh.columns["column_pos"]
 		if ok {
 			outputRow[ipos] = state.ColumnPos
+		}
+		ipos, ok = ctx.outputCh.columns["input_data_type"]
+		if ok {
+			outputRow[ipos] = ctx.inputDataType[state.ColumnName]
 		}
 		distinctCount := len(state.DistinctValues)
 		var ratioFactor float64
@@ -221,8 +233,26 @@ func (ctx *BuilderContext) NewAnalyzeTransformationPipe(source *InputChannel, ou
 		return nil, fmt.Errorf(
 			"error: Analyze Pipe Transformation spec (analyze_config) is missing regex, lookup, and/or keywords definition")
 	}
-	// Validate the config: must have NewRecord set to true
+	// Must have NewRecord set to true
 	spec.NewRecord = true
+
+	// Get the input parquet schema, if avail
+	inputDataType := make(map[string]string, len(source.config.Columns))
+	parquetSchemaInfo := ctx.inputParquetSchema
+	if parquetSchemaInfo != nil {
+		schemaDef, err := parquetschema.ParseSchemaDefinition(parquetSchemaInfo.Schema)
+		if err != nil {
+			return nil, fmt.Errorf("parsing schema definition failed in NewAnalyzeTransformationPipe: %v", err)
+		}
+		for _, colDef := range schemaDef.RootColumn.Children {
+			se := colDef.SchemaElement
+			inputDataType[se.Name] = SchemaElementDataType(se)
+		}
+	} else {
+		for i := range source.config.Columns {
+			inputDataType[source.config.Columns[i]] = "string"
+		}
+	}
 
 	// Set up the AnalyzeState for each input column
 	analyzeState := make([]*AnalyzeState, len(source.config.Columns))
@@ -251,6 +281,7 @@ func (ctx *BuilderContext) NewAnalyzeTransformationPipe(source *InputChannel, ou
 		cpConfig:         ctx.cpConfig,
 		source:           source,
 		outputCh:         outputCh,
+		inputDataType:    inputDataType,
 		analyzeState:     analyzeState,
 		columnEvaluators: columnEvaluators,
 		spec:             spec,
@@ -259,50 +290,30 @@ func (ctx *BuilderContext) NewAnalyzeTransformationPipe(source *InputChannel, ou
 	}, nil
 }
 
-// Welford's online algorithm
-// https://en.wikipedia.org/wiki/Algorithms_for_calculating_variance#Online
-// An example Python implementation for Welford's algorithm is given below.
-//
-// # For a new value new_value, compute the new count, new mean, the new M2.
-// # mean accumulates the mean of the entire dataset
-// # M2 aggregates the squared distance from the mean
-// # count aggregates the number of samples seen so far
-// def update(existing_aggregate, new_value):
-//     (count, mean, M2) = existing_aggregate
-//     count += 1
-//     delta = new_value - mean
-//     mean += delta / count
-//     delta2 = new_value - mean
-//     M2 += delta * delta2
-//     return (count, mean, M2)
+func SchemaElementDataType(se *parquet.SchemaElement) string {
+	switch *se.Type {
+	case parquet.Type_BOOLEAN:
+		return "bool"
+	case parquet.Type_INT32:
+		// Check if it's a date
+		if se.ConvertedType != nil && *se.ConvertedType == parquet.ConvertedType_DATE {
+			return "date"
+		}
+		return "int32"
 
-// # Retrieve the mean, variance and sample variance from an aggregate
-// def finalize(existing_aggregate):
-//     (count, mean, M2) = existing_aggregate
-//     if count < 2:
-//         return float("nan")
-//     else:
-//         (mean, variance, sample_variance) = (mean, M2 / count, M2 / (count - 1))
-//         return (mean, variance, sample_variance)
+	case parquet.Type_INT64:
+		return "int64"
 
-type WelfordAlgo struct {
-	Mean  float64
-	M2    float64
-	Count int
-}
+	case parquet.Type_FLOAT:
+		return "float32"
 
-func NewWelfordAlgo() *WelfordAlgo {
-	return &WelfordAlgo{}
-}
+	case parquet.Type_DOUBLE:
+		return "float64"
 
-func (w *WelfordAlgo) Update(value float64) {
-	w.Count += 1
-	delta := value - w.Mean
-	w.Mean += delta / float64(w.Count)
-	delta2 := value - w.Mean
-	w.M2 += delta * delta2
-}
+	case parquet.Type_BYTE_ARRAY, parquet.Type_FIXED_LEN_BYTE_ARRAY:
+		return "string"
 
-func (w *WelfordAlgo) Finalize() (mean, variance float64) {
-	return w.Mean, w.M2 / float64(w.Count)
+	default:
+		return "unknown"
+	}
 }
