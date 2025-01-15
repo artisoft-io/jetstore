@@ -255,7 +255,7 @@ func (ctx *Context) RegisterFileKeys(registerFileKeyAction *RegisterFileKeyActio
 			goto NextKey
 		}
 		// If there is an entry in source_config (ie len(tableName) > 0):
-		// 	- Start the loader if hasOtherSM > 0 and automated flag is set on source_config table and if not a test file
+		// 	- Start the loader if hasCpipesSM == 0 and automated flag is set on source_config table and if not a test file
 		//	- Register the file key in input_registry if hasCpipesSM > 0 AND kick off cpipes pipelines ready to start
 		// Check if current objectType is associated with cpipesSM and/or other state machines
 		stmt = `
@@ -283,7 +283,7 @@ func (ctx *Context) RegisterFileKeys(registerFileKeyAction *RegisterFileKeyActio
 			return nil, http.StatusInternalServerError, err
 		}
 		switch {
-		case hasOtherSM > 0 && automated > 0 && !strings.Contains(fileKey, "/test_") && !registerFileKeyAction.NoAutomatedLoad:
+		case hasCpipesSM == 0 && automated > 0 && !strings.Contains(fileKey, "/test_") && !registerFileKeyAction.NoAutomatedLoad:
 			// insert into input_loader_status and kick off loader
 			dataTableAction := DataTableAction{
 				Action:      "insert_rows",
