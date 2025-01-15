@@ -238,6 +238,7 @@ func DoNotifyApiGateway(fileKey, apiEndpoint, apiEndpointJson, notificationTempl
 		str, ok := value.(string)
 		if ok && strings.HasPrefix(key, "$") {
 			notificationTemplate = strings.ReplaceAll(notificationTemplate, fmt.Sprintf("{{%s}}", key[1:]), str)
+			apiEndpointJson = strings.ReplaceAll(apiEndpointJson, fmt.Sprintf("{{%s}}", key[1:]), str)
 		}
 	}
 
@@ -251,15 +252,21 @@ func DoNotifyApiGateway(fileKey, apiEndpoint, apiEndpointJson, notificationTempl
 			return err
 		}
 		key := routes["key"]
-		if key == "" {
-			log.Println("Invalid routing json, key is missing")
-			return fmt.Errorf("error: invalid routing json, key is missing")
+		altKey := routes["alt_env_key"]
+		if key == "" && altKey == "" {
+			log.Println("Invalid routing json, key and alt_env_key are both missing, need at leat one to be set.")
+			return fmt.Errorf("error: invalid routing json, key and alt_env_key are missing, need at least one to be set")
 		}
 		v = keyMap[key]
 		if v == nil {
-			err = fmt.Errorf("error: routing file key component '%v' not found on file key", v)
-			log.Println(err)
-			return err
+			// Check for alt key based on env
+			if altKey == "" {
+				err = fmt.Errorf(
+					"error: routing file key component '%v' not found on file key and no alt_env_key found", key)
+				log.Println(err)
+				return err	
+			}
+			v = altKey
 		}
 		apiEndpoint = routes[v.(string)]
 		if apiEndpoint == "" {
