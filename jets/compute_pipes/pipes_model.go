@@ -352,6 +352,17 @@ type FunctionTokenNode struct {
 	Arguments    map[string]any `json:"arguments"`
 }
 
+// top_pct correspond the top percentile of the data,
+// ie, retain the distinct values that correspond to 
+//   totalCount * top_pct / 100
+// where totalCount is all the count of value for the column.
+// If top_pct then all distinct alues are retained.
+// top_rank correspond to the percentage of the distinct
+// values to retain. That is:
+//   nbrDistinctValues * top_rank / 100
+// where nbrDistinctValues is the number of distinct values
+// for the column. Note that the distinct values are by descending
+// frequence of occurence.
 type HighFreqSpec struct {
 	Name          string `json:"name"`
 	KeyRe         string `json:"key_re"`
