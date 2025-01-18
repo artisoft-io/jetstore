@@ -192,12 +192,12 @@ type TableSpec struct {
 }
 
 type OutputFileSpec struct {
-	// OutputLocation: jetstore_s3_input, jetstore_s3_output (default)
-	// KeyPrefix is optional, default to input file key path
-	// Name is file name (required)
+	// OutputLocation: jetstore_s3_input, jetstore_s3_output (default).
+	// KeyPrefix is optional, default to input file key path in OutputLocation.
+	// Name is file name (required).
 	// Headers overrides the headers from the input_channel's spec or
-	// from the schema_provider
-	// Schema provider indicates if put the header line or not
+	// from the schema_provider.
+	// Schema provider indicates if put the header line or not.
 	// The input channel's schema provider indicates what delimiter
 	// to use on the header line.
 	Key            string   `json:"key"`
@@ -292,11 +292,23 @@ type InputChannelConfig struct {
 
 type OutputChannelConfig struct {
 	// Type range: memory (default), stage, output, sql
-	// Format: csv, headerless_csv, etc
-	// Compression: none, snappy (default)
+	// Format: csv, headerless_csv, etc.
+	// Compression: none, snappy (default).
 	// UseInputParquetSchema to use the same schema as the input file.
 	// Must have save_parquet_schema = true in the cpipes first input_channel.
-	// OutputLocation: jetstore_s3_input, jetstore_s3_output (default)
+	// OutputLocation: jetstore_s3_input, jetstore_s3_output (default), when
+	// use jetstore_s3_input it will also write to the input bucket.
+	// KeyPrefix is optional, default to $PATH_FILE_KEY.
+	// Use $CURRENT_PARTITION_LABEL in KeyPrefix and FileName to substitute with
+	// current partition label.
+	// Other available env substitution:
+	// $FILE_KEY main input file key.
+	// $SESSIONID current session id.
+	// $PROCESS_NAME current process name.
+	// $PATH_FILE_KEY file key path portion.
+	// $NAME_FILE_KEY file key file name portion (empty when in part files mode).
+	// $SHARD_ID current node id.
+	// $JETS_PARTITION_LABEL current node partition label.
 	Type                  string `json:"type"`
 	Name                  string `json:"name"`
 	Format                string `json:"format,omitempty"`           // Type stage,output

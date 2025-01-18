@@ -403,8 +403,13 @@ func (ctx *BuilderContext) NewPartitionWriterTransformationPipe(source *InputCha
 		if len(externalBucket) > 0 {
 			externalBucket = doSubstitution(externalBucket, "", "", ctx.env)
 		}
-		baseOutputPath = doSubstitution(spec.OutputChannel.KeyPrefix, jetsPartitionLabel,
-			spec.OutputChannel.OutputLocation, ctx.env)
+		if len(spec.OutputChannel.KeyPrefix) > 0 {
+			baseOutputPath = doSubstitution(spec.OutputChannel.KeyPrefix, jetsPartitionLabel,
+				spec.OutputChannel.OutputLocation, ctx.env)
+		} else {
+			baseOutputPath = doSubstitution("$PATH_FILE_KEY", jetsPartitionLabel,
+				spec.OutputChannel.OutputLocation, ctx.env)
+		}
 	default:
 		return nil, fmt.Errorf("error: unknown output channel type for partition_writer: %s", spec.OutputChannel.Type)
 	}
