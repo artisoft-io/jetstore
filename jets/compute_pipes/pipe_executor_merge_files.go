@@ -42,7 +42,7 @@ func (cpCtx *ComputePipesContext) StartMergeFiles(dbpool *pgxpool.Pool) (cpErr e
 	pipeSpec := &cpCtx.CpConfig.PipesConfig[0]
 	outputFileKey := pipeSpec.OutputFile
 	if pipeSpec.Type != "merge_files" || outputFileKey == nil {
-		cpErr = fmt.Errorf("error: StartMergeFiles called but the PipeConfig does not have a valid merge_files component")
+		cpErr = fmt.Errorf("error: StartMergeFiles called but the PipeConfig does not have a valid output_file component")
 		return
 	}
 	var outputFileConfig *OutputFileSpec
