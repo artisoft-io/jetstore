@@ -264,6 +264,7 @@ type MapRecordSpec struct {
 // SchemaProvider is used for external configuration, such as date format
 type AnalyzeSpec struct {
 	SchemaProvider string              `json:"schema_provider"`
+	EntityHints    []*EntityHint       `json:"entity_hints"`
 	RegexTokens    []RegexNode         `json:"regex_tokens"`
 	LookupTokens   []LookupTokenNode   `json:"lookup_tokens"`
 	KeywordTokens  []KeywordTokenNode  `json:"keyword_tokens"`
@@ -278,16 +279,16 @@ type InputChannelConfig struct {
 	// ComputePipesCommonArgs.SourcesConfig (ie input_registry table).
 	// HasGroupedRow indicates that the channel contains grouped rows,
 	// most likely from the group_by operator.
-	Type              string `json:"type"`
-	Name              string `json:"name"`
-	Format            string `json:"format,omitempty"`          // Type stage
-	Compression       string `json:"compression,omitempty"`     // Type stage
-	SchemaProvider    string `json:"schema_provider,omitempty"` // Type stage
-	ReadStepId        string `json:"read_step_id"`
-	SamplingRate      int    `json:"sampling_rate"`
-	SamplingMaxCount  int    `json:"sampling_max_count"`
-	HasGroupedRows    bool   `json:"has_grouped_rows"`
-	ClassName         string `json:"class_name,omitempty"`
+	Type             string `json:"type"`
+	Name             string `json:"name"`
+	Format           string `json:"format,omitempty"`          // Type stage
+	Compression      string `json:"compression,omitempty"`     // Type stage
+	SchemaProvider   string `json:"schema_provider,omitempty"` // Type stage
+	ReadStepId       string `json:"read_step_id"`
+	SamplingRate     int    `json:"sampling_rate"`
+	SamplingMaxCount int    `json:"sampling_max_count"`
+	HasGroupedRows   bool   `json:"has_grouped_rows"`
+	ClassName        string `json:"class_name,omitempty"`
 }
 
 type OutputChannelConfig struct {
@@ -334,6 +335,11 @@ type DataSchemaSpec struct {
 	RdfType string `json:"rdf_type"`
 }
 
+type EntityHint struct {
+	Entity        string   `json:"entity"`
+	NameFragments []string `json:"column_name_fragments"`
+}
+
 type RegexNode struct {
 	Name  string `json:"name"`
 	Rexpr string `json:"re"`
@@ -365,13 +371,17 @@ type FunctionTokenNode struct {
 }
 
 // top_pct correspond the top percentile of the data,
-// ie, retain the distinct values that correspond to 
-//   totalCount * top_pct / 100
+// ie, retain the distinct values that correspond to
+//
+//	totalCount * top_pct / 100
+//
 // where totalCount is all the count of value for the column.
 // If top_pct then all distinct alues are retained.
 // top_rank correspond to the percentage of the distinct
 // values to retain. That is:
-//   nbrDistinctValues * top_rank / 100
+//
+//	nbrDistinctValues * top_rank / 100
+//
 // where nbrDistinctValues is the number of distinct values
 // for the column. Note that the distinct values are by descending
 // frequence of occurence.
