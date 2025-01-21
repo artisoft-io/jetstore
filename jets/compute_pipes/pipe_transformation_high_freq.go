@@ -74,37 +74,39 @@ func (ctx *HighFreqTransformationPipe) Apply(input *[]interface{}) error {
 
 // Analysis complete, now send out the results to ctx.outputCh.
 // A row is produced for each column and each high freq value.
-// High freq values are those in top 80 percentile, cap at 500 values
+// High freq values are those in top top_pct percentile
 
 func (ctx *HighFreqTransformationPipe) Done() error {
-	// For each tracked columns, send out the top 80 percentile values
+	// For each tracked columns, send out the top percentile values
 	for _, column := range ctx.spec.HighFreqColumns {
 		highFreqMap := ctx.highFreqState[column.Name]
 		totalCount := 0
-		// log.Printf("HighFreqTransformationPipe.done: sending results for column: %s, got %d distinct values", columnName, len(highFreqMap))
-		dcSlice := make([]*DistinctCount, 0, len(highFreqMap))
+		nbrDistinctValues := len(highFreqMap)
+		dcSlice := make([]*DistinctCount, 0, nbrDistinctValues)
 		for _, dc := range highFreqMap {
 			dcSlice = append(dcSlice, dc)
 			totalCount += dc.Count
 		}
+		log.Printf("HighFreqTransformationPipe.done: sending results for column: %s, got %d distinct values out of %d values\n", 
+			column.Name, nbrDistinctValues, totalCount)
 		sort.Slice(dcSlice, func(i, j int) bool {
 			return dcSlice[i].Count > dcSlice[j].Count
 		})
-		var topPctFact float64 = 0.80
+		var topPctFactor float64 = 1
 		if column.TopPercentile > 0 {
-			topPctFact = float64(column.TopPercentile) / 100
+			topPctFactor = float64(column.TopPercentile) / 100
 		}
-		topPct := int(float64(totalCount)*topPctFact + 0.5)
-		var pctCount int
-		maxCount := 100
+		maxTotalCount := int(float64(totalCount)*topPctFactor + 0.5)
+		maxDistinctValueCount := nbrDistinctValues
 		if column.TopRank > 0 {
-			maxCount = column.TopRank
+			topRankFactor := float64(column.TopRank) / 100
+			maxDistinctValueCount = nbrDistinctValues * int(float64(nbrDistinctValues) * topRankFactor + 0.5)
+			if maxDistinctValueCount > nbrDistinctValues {
+				maxDistinctValueCount = nbrDistinctValues
+			}
 		}
-		l := len(dcSlice)
-		if l < maxCount {
-			maxCount = l
-		}
-		for i := 0; i < maxCount; i++ {
+		var valueCount int
+		for i := 0; i < maxDistinctValueCount; i++ {
 			// make the output row
 			outputRow := make([]interface{}, len(ctx.outputCh.columns))
 			outputRow[ctx.outputCh.columns["column_name"]] = column.Name
@@ -130,13 +132,13 @@ func (ctx *HighFreqTransformationPipe) Done() error {
 				log.Println("HighFreqTransform interrupted")
 			}
 			// see if we have enough value
-			pctCount += dc.Count
-			if pctCount > topPct {
+			valueCount += dc.Count
+			if valueCount > maxTotalCount {
 				break
 			}
 		}
 	}
-	// fmt.Println("**!@@ ** Send Freq Count Result to", ctx.outputCh.config.Name, "DONE")
+	fmt.Println("**!@@ ** Send Freq Count Result to", ctx.outputCh.config.Name, "DONE")
 	return nil
 }
 

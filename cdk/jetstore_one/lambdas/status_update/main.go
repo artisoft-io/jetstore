@@ -80,7 +80,7 @@ func handler(ctx context.Context, arguments map[string]interface{}) (err error) 
 		return err
 	}
 	ca.PeKey = v
-	// Check if cpipes env was passed, nneded for API gateway notification (if configured at deployment)
+	// Check if cpipes env was passed, needed for API gateway notification (if configured at deployment)
 	env, ok := arguments["cpipesEnv"].(map[string]any)
 	if ok {
 		ca.CpipesEnv = env

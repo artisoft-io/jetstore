@@ -192,12 +192,12 @@ type TableSpec struct {
 }
 
 type OutputFileSpec struct {
-	// OutputLocation: jetstore_s3_input, jetstore_s3_output (default)
-	// KeyPrefix is optional, default to input file key path
-	// Name is file name (required)
+	// OutputLocation: jetstore_s3_input, jetstore_s3_output (default).
+	// KeyPrefix is optional, default to input file key path in OutputLocation.
+	// Name is file name (required).
 	// Headers overrides the headers from the input_channel's spec or
-	// from the schema_provider
-	// Schema provider indicates if put the header line or not
+	// from the schema_provider.
+	// Schema provider indicates if put the header line or not.
 	// The input channel's schema provider indicates what delimiter
 	// to use on the header line.
 	Key            string   `json:"key"`
@@ -264,6 +264,7 @@ type MapRecordSpec struct {
 // SchemaProvider is used for external configuration, such as date format
 type AnalyzeSpec struct {
 	SchemaProvider string              `json:"schema_provider"`
+	EntityHints    []*EntityHint       `json:"entity_hints"`
 	RegexTokens    []RegexNode         `json:"regex_tokens"`
 	LookupTokens   []LookupTokenNode   `json:"lookup_tokens"`
 	KeywordTokens  []KeywordTokenNode  `json:"keyword_tokens"`
@@ -278,25 +279,37 @@ type InputChannelConfig struct {
 	// ComputePipesCommonArgs.SourcesConfig (ie input_registry table).
 	// HasGroupedRow indicates that the channel contains grouped rows,
 	// most likely from the group_by operator.
-	Type              string `json:"type"`
-	Name              string `json:"name"`
-	Format            string `json:"format,omitempty"`          // Type stage
-	Compression       string `json:"compression,omitempty"`     // Type stage
-	SchemaProvider    string `json:"schema_provider,omitempty"` // Type stage
-	ReadStepId        string `json:"read_step_id"`
-	SamplingRate      int    `json:"sampling_rate"`
-	SamplingMaxCount  int    `json:"sampling_max_count"`
-	HasGroupedRows    bool   `json:"has_grouped_rows"`
-	ClassName         string `json:"class_name,omitempty"`
+	Type             string `json:"type"`
+	Name             string `json:"name"`
+	Format           string `json:"format,omitempty"`          // Type stage
+	Compression      string `json:"compression,omitempty"`     // Type stage
+	SchemaProvider   string `json:"schema_provider,omitempty"` // Type stage
+	ReadStepId       string `json:"read_step_id"`
+	SamplingRate     int    `json:"sampling_rate"`
+	SamplingMaxCount int    `json:"sampling_max_count"`
+	HasGroupedRows   bool   `json:"has_grouped_rows"`
+	ClassName        string `json:"class_name,omitempty"`
 }
 
 type OutputChannelConfig struct {
 	// Type range: memory (default), stage, output, sql
-	// Format: csv, headerless_csv, etc
-	// Compression: none, snappy (default)
+	// Format: csv, headerless_csv, etc.
+	// Compression: none, snappy (default).
 	// UseInputParquetSchema to use the same schema as the input file.
 	// Must have save_parquet_schema = true in the cpipes first input_channel.
-	// OutputLocation: jetstore_s3_input, jetstore_s3_output (default)
+	// OutputLocation: jetstore_s3_input, jetstore_s3_output (default), when
+	// use jetstore_s3_input it will also write to the input bucket.
+	// KeyPrefix is optional, default to $PATH_FILE_KEY.
+	// Use $CURRENT_PARTITION_LABEL in KeyPrefix and FileName to substitute with
+	// current partition label.
+	// Other available env substitution:
+	// $FILE_KEY main input file key.
+	// $SESSIONID current session id.
+	// $PROCESS_NAME current process name.
+	// $PATH_FILE_KEY file key path portion.
+	// $NAME_FILE_KEY file key file name portion (empty when in part files mode).
+	// $SHARD_ID current node id.
+	// $JETS_PARTITION_LABEL current node partition label.
 	Type                  string `json:"type"`
 	Name                  string `json:"name"`
 	Format                string `json:"format,omitempty"`           // Type stage,output
@@ -320,6 +333,11 @@ type PathSubstitution struct {
 type DataSchemaSpec struct {
 	Columns string `json:"column"`
 	RdfType string `json:"rdf_type"`
+}
+
+type EntityHint struct {
+	Entity        string   `json:"entity"`
+	NameFragments []string `json:"column_name_fragments"`
 }
 
 type RegexNode struct {
@@ -352,6 +370,21 @@ type FunctionTokenNode struct {
 	Arguments    map[string]any `json:"arguments"`
 }
 
+// top_pct correspond the top percentile of the data,
+// ie, retain the distinct values that correspond to
+//
+//	totalCount * top_pct / 100
+//
+// where totalCount is all the count of value for the column.
+// If top_pct then all distinct alues are retained.
+// top_rank correspond to the percentage of the distinct
+// values to retain. That is:
+//
+//	nbrDistinctValues * top_rank / 100
+//
+// where nbrDistinctValues is the number of distinct values
+// for the column. Note that the distinct values are by descending
+// frequence of occurence.
 type HighFreqSpec struct {
 	Name          string `json:"name"`
 	KeyRe         string `json:"key_re"`

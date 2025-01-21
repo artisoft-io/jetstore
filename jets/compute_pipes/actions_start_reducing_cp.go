@@ -92,28 +92,31 @@ func (args *StartComputePipesArgs) StartReducingComputePipes(ctx context.Context
 		partitions = append(partitions, jetsPartition)
 	}
 
-  // Identify the output tables for this step
+	// Identify the output tables for this step
 	outputTables, err := SelectActiveOutputTable(cpipesStartup.CpConfig.OutputTables, cpipesStartup.CpConfig.ReducingPipesConfig[stepId])
 	if err != nil {
 		return result, fmt.Errorf("while calling SelectActiveOutputTable for stepId %d: %v", stepId, err)
 	}
 
-  // Check if at last step
-	isLastReducing := false
+	// Check if have a merge_files operator
 	isMergeFiles := false
-	if stepId == len(cpipesStartup.CpConfig.ReducingPipesConfig)-1 {
-		isLastReducing = true
-		// Check and validate if we're on a merge_files step
-		if cpipesStartup.CpConfig.ReducingPipesConfig[stepId][0].Type == "merge_files" {
-			isMergeFiles = true
-			// perform validation
-			if len(partitions) != 1 {
-				return result,
-					fmt.Errorf("error: last step of type 'merge_files' requires a single partition, currently has %d partitons",
-						len(partitions))
-			}
+	// Check and validate if we're on a merge_files step
+	if cpipesStartup.CpConfig.ReducingPipesConfig[stepId][0].Type == "merge_files" {
+		isMergeFiles = true
+		// perform validation
+		if len(partitions) != 1 {
+			return result,
+				fmt.Errorf("error: last step of type 'merge_files' requires a single partition, currently has %d partitons",
+					len(partitions))
 		}
 	}
+
+	// Check if at last step
+	isLastReducing := false
+	if stepId == len(cpipesStartup.CpConfig.ReducingPipesConfig)-1 {
+		isLastReducing = true
+	}
+	
 	if len(partitions) == 0 {
 		return result, fmt.Errorf("error: no partitions found during start reducing for step %d", stepId)
 	}
@@ -143,10 +146,10 @@ func (args *StartComputePipesArgs) StartReducingComputePipes(ctx context.Context
 	var inputColumns []string
 	inputChannel := inputChannelConfig.Name
 	if inputChannel == "input_row" && inputFormat == "csv" {
-    sepFlag := jcsv.Chartype(',') // defaults to ',' in reduce mode input unless specified by schema provider
-    if inputChannelSP != nil && len(inputChannelSP.Delimiter) > 0 {
-      sepFlag.Set(inputChannelSP.Delimiter)
-    }
+		sepFlag := jcsv.Chartype(',') // defaults to ',' in reduce mode input unless specified by schema provider
+		if inputChannelSP != nil && len(inputChannelSP.Delimiter) > 0 {
+			sepFlag.Set(inputChannelSP.Delimiter)
+		}
 		// special case, need to get the input columns from file of first partition
 		fileKeys, err := GetS3FileKeys(cpipesStartup.ProcessName, args.SessionId, mainInputStepId, partitions[0])
 		if err != nil {
@@ -160,7 +163,7 @@ func (args *StartComputePipesArgs) StartReducingComputePipes(ctx context.Context
 			return result, fmt.Errorf("error: could not get input columns from file (reduce mode): %v", err)
 		}
 	} else {
-    // Get the columns from the channel spec
+		// Get the columns from the channel spec
 		for i := range cpipesStartup.CpConfig.Channels {
 			if cpipesStartup.CpConfig.Channels[i].Name == inputChannel {
 				inputColumns = cpipesStartup.CpConfig.Channels[i].Columns
@@ -185,7 +188,7 @@ func (args *StartComputePipesArgs) StartReducingComputePipes(ctx context.Context
 	}
 
 	var inputParquetSchema *ParquetSchemaInfo
-  mainInputSchemaProvider := cpipesStartup.MainInputSchemaProviderConfig
+	mainInputSchemaProvider := cpipesStartup.MainInputSchemaProviderConfig
 	if strings.HasPrefix(mainInputSchemaProvider.Format, "parquet") {
 		// Get the saved parquet schema of main input file from s3
 		fileKey := fmt.Sprintf("%s/process_name=%s/session_id=%s/input_parquet_schema.json",
@@ -218,10 +221,10 @@ func (args *StartComputePipesArgs) StartReducingComputePipes(ctx context.Context
 			ProcessName:     cpipesStartup.ProcessName,
 			SourcesConfig: SourcesConfigSpec{
 				MainInput: &InputSourceSpec{
-					InputColumns:       inputColumns,
+					InputColumns:        inputColumns,
 					InputFormatDataJson: mainInputSchemaProvider.InputFormatDataJson,
 					SchemaProvider:      mainInputSchemaProvider.Key,
-					InputParquetSchema: inputParquetSchema,
+					InputParquetSchema:  inputParquetSchema,
 				},
 			},
 			PipelineConfigKey: cpipesStartup.PipelineConfigKey,

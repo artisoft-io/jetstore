@@ -42,7 +42,7 @@ func (cpCtx *ComputePipesContext) StartMergeFiles(dbpool *pgxpool.Pool) (cpErr e
 	pipeSpec := &cpCtx.CpConfig.PipesConfig[0]
 	outputFileKey := pipeSpec.OutputFile
 	if pipeSpec.Type != "merge_files" || outputFileKey == nil {
-		cpErr = fmt.Errorf("error: StartMergeFiles called but the PipeConfig does not have a valid merge_files component")
+		cpErr = fmt.Errorf("error: StartMergeFiles called but the PipeConfig does not have a valid output_file component")
 		return
 	}
 	var outputFileConfig *OutputFileSpec
@@ -58,27 +58,25 @@ func (cpCtx *ComputePipesContext) StartMergeFiles(dbpool *pgxpool.Pool) (cpErr e
 	}
 	// outputFileConfig.KeyPrefix is the s3 output folder, when empty use:
 	//     <JETS_s3_OUTPUT_PREFIX>/<input file_key dir>/
-	// outputFileConfig.Name is the file name (required)
-	var fileFolder string
-	fileName := outputFileConfig.Name
-	lc := 0
-	for strings.Contains(fileName, "$") && lc < 5 && cpCtx.EnvSettings != nil {
-		lc += 1
-		for key, v := range cpCtx.EnvSettings {
-			value, ok := v.(string)
-			if ok {
-				fileName = strings.ReplaceAll(fileName, key, value)
-			}
-		}
+	// outputFileConfig.Name is the file name, defaults to $NAME_FILE_KEY (a file name is required)
+	var fileName string
+	if len(outputFileConfig.Name) > 0 {
+		fileName = doSubstitution(outputFileConfig.Name, "",	"",	cpCtx.EnvSettings)
+	} else {
+		fileName = doSubstitution("$NAME_FILE_KEY", "",	"",	cpCtx.EnvSettings)
 	}
+	if len(fileName) == 0 {
+		cpErr = fmt.Errorf("error: OutputFile config is missing file_name in StartMergeFile")
+		return
+	}
+
+	var fileFolder string
 	if len(outputFileConfig.KeyPrefix) > 0 {
-		fileFolder = doSubstitution(
-			outputFileConfig.KeyPrefix, "",
-			outputFileConfig.OutputLocation,
+		fileFolder = doSubstitution(outputFileConfig.KeyPrefix, "",	outputFileConfig.OutputLocation,
 			cpCtx.EnvSettings)
 	} else {
-		fileFolder = strings.Replace(cpCtx.CpConfig.CommonRuntimeArgs.FileKey,
-			os.Getenv("JETS_s3_INPUT_PREFIX"), os.Getenv("JETS_s3_OUTPUT_PREFIX"), 1)
+		fileFolder = doSubstitution("$PATH_FILE_KEY", "",	outputFileConfig.OutputLocation,
+			cpCtx.EnvSettings)
 	}
 	outputS3FileKey := fmt.Sprintf("%s/%s", fileFolder, fileName)
 

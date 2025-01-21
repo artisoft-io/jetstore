@@ -3,6 +3,7 @@ package compute_pipes
 import (
 	"fmt"
 	"log"
+	"strings"
 
 	"github.com/fraugster/parquet-go/parquet"
 	"github.com/fraugster/parquet-go/parquetschema"
@@ -85,10 +86,12 @@ func (ctx *AnalyzeTransformationPipe) Done() error {
 		if ok {
 			outputRow[ipos] = state.ColumnName
 		}
+		
 		ipos, ok = ctx.outputCh.columns["column_pos"]
 		if ok {
 			outputRow[ipos] = state.ColumnPos
 		}
+
 		ipos, ok = ctx.outputCh.columns["input_data_type"]
 		if ok {
 			outputRow[ipos] = ctx.inputDataType[state.ColumnName]
@@ -98,10 +101,25 @@ func (ctx *AnalyzeTransformationPipe) Done() error {
 		if state.TotalRowCount != state.NullCount {
 			ratioFactor = 100.0 / float64(state.TotalRowCount-state.NullCount)
 		}
+
+		ipos, ok = ctx.outputCh.columns["entity_hint"]
+		if ok {
+			for _, ehint := range ctx.spec.AnalyzeConfig.EntityHints {
+				for _, frag := range ehint.NameFragments {
+					if strings.Contains(strings.ToUpper(state.ColumnName), strings.ToUpper(frag)) {
+						outputRow[ipos] = ehint.Entity
+						goto doneEntityHint
+					}
+				}
+			}
+		}
+		doneEntityHint:
+
 		ipos, ok = ctx.outputCh.columns["distinct_count"]
 		if ok {
 			outputRow[ipos] = distinctCount
 		}
+
 		ipos, ok = ctx.outputCh.columns["distinct_count_pct"]
 		if ok {
 			if ratioFactor > 0 {
@@ -110,14 +128,17 @@ func (ctx *AnalyzeTransformationPipe) Done() error {
 				outputRow[ipos] = -1.0
 			}
 		}
+
 		ipos, ok = ctx.outputCh.columns["null_count"]
 		if ok {
 			outputRow[ipos] = state.NullCount
 		}
+
 		ipos, ok = ctx.outputCh.columns["null_count_pct"]
 		if ok {
 			outputRow[ipos] = float64(state.NullCount) / float64(state.TotalRowCount) * 100
 		}
+
 		ipos, ok = ctx.outputCh.columns["total_count"]
 		if ok {
 			outputRow[ipos] = state.TotalRowCount

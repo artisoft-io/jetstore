@@ -1218,6 +1218,29 @@ func (ctx *Context) InsertRows(dataTableAction *DataTableAction, token string) (
 
 				case "cpipesSM":
 					// State Machine input for new cpipesSM all-in-one
+					// Need to get the main input schema provider to get the envsettings
+					// for API Notification in errorUpdate arguments
+					stmt := "SELECT schema_provider_json FROM jetsapi.input_registry WHERE key = $1"
+					var spJson string
+					envSettings := make(map[string]any)
+					err = ctx.Dbpool.QueryRow(context.Background(), stmt, dataTableAction.Data[irow]["main_input_registry_key"]).Scan(&spJson)
+					if err != nil {
+						// oh well, let's not fail on this one since it's for notification purpose
+						log.Printf("WARNING while getting schema_provider_json from inut_registry: %v", err)
+					} else {
+						err = json.Unmarshal([]byte(spJson), &envSettings)
+						if err != nil {
+							// oh well, let's not fail on this one since it's for notification purpose
+							log.Printf("WARNING while unmarshalling schema_provider_json from inut_registry: %v", err)
+						} else {
+							var ok bool
+							envSettings, ok = envSettings["env"].(map[string]any)
+							if !ok {
+								envSettings = make(map[string]any)
+							}	
+						}
+					}
+		
 					smInput = map[string]interface{}{
 						"startSharding": map[string]interface{}{
 							"pipeline_execution_key": peKeyInt,
@@ -1228,6 +1251,8 @@ func (ctx *Context) InsertRows(dataTableAction *DataTableAction, token string) (
 							"-peKey":         peKey, // string for this one! - legacy alert!
 							"-status":        "failed",
 							"file_key":       fileKey,
+							"cpipesMode":     true,
+							"cpipesEnv":      envSettings,
 							"failureDetails": "",
 						},
 					}

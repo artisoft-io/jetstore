@@ -147,14 +147,13 @@ func (args *StartComputePipesArgs) initializeCpipes(ctx context.Context, dbpool 
 		cpipesStartup.CpConfig.SchemaProviders = append(cpipesStartup.CpConfig.SchemaProviders, cpipesStartup.MainInputSchemaProviderConfig)
 	}
 	mainInputSchemaProvider := cpipesStartup.MainInputSchemaProviderConfig
-
-	cpipesStartup.EnvSettings = PrepareCpipesEnv(&cpipesStartup.CpConfig, mainInputSchemaProvider)
 	if len(schemaProviderJson) > 0 {
 		err = json.Unmarshal([]byte(schemaProviderJson), mainInputSchemaProvider)
 		if err != nil {
 			return cpipesStartup, fmt.Errorf("while unmarshaling schema_provider_json: %s", err)
 		}
 	}
+	cpipesStartup.EnvSettings = PrepareCpipesEnv(&cpipesStartup.CpConfig, mainInputSchemaProvider)
 
 	// The main_input schema provider should always have the key _main_input_.
 	mainInputSchemaProvider.Key = "_main_input_"
@@ -554,7 +553,7 @@ func PrepareCpipesEnv(cpConfig *ComputePipesConfig, mainSchemaProviderConfig *Sc
 	}
 	if cpConfig.ClusterConfig.IsDebugMode {
 		b, err := json.Marshal(envSettings)
-		log.Printf(" Cpipes Env: %s, err? %v\n", string(b), err)
+		log.Printf("PrepareCpipesEnv: Cpipes Env: %s, err? %v\n", string(b), err)
 	}
 	return envSettings
 }
