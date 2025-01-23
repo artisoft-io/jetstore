@@ -273,8 +273,8 @@ func (ctx *S3DeviceWriter) WriteCsvPartition() {
 			ctx.spec.OutputChannel.Compression)
 		goto gotError
 	}
-	if ctx.schemaProvider != nil && ctx.schemaProvider.Delimiter() != 0 {
-		csvWriter.Comma = ctx.schemaProvider.Delimiter()
+	if ctx.spec.OutputChannel.Delimiter != "" {
+		csvWriter.Comma = []rune(ctx.spec.OutputChannel.Delimiter)[0]
 	}
 	if ctx.spec.OutputChannel.Format == "csv" {
 		err = csvWriter.Write(ctx.columnNames)

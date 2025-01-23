@@ -10,7 +10,6 @@ import (
 	"strings"
 
 	"github.com/artisoft-io/jetstore/jets/awsi"
-	"github.com/artisoft-io/jetstore/jets/datatable/jcsv"
 	"github.com/jackc/pgx/v4/pgxpool"
 )
 
@@ -146,9 +145,9 @@ func (args *StartComputePipesArgs) StartReducingComputePipes(ctx context.Context
 	var inputColumns []string
 	inputChannel := inputChannelConfig.Name
 	if inputChannel == "input_row" && inputFormat == "csv" {
-		sepFlag := jcsv.Chartype(',') // defaults to ',' in reduce mode input unless specified by schema provider
+		delimitor := "," // defaults to ',' in reduce mode input unless specified by schema provider
 		if inputChannelSP != nil && len(inputChannelSP.Delimiter) > 0 {
-			sepFlag.Set(inputChannelSP.Delimiter)
+			delimitor = inputChannelSP.Delimiter
 		}
 		// special case, need to get the input columns from file of first partition
 		fileKeys, err := GetS3FileKeys(cpipesStartup.ProcessName, args.SessionId, mainInputStepId, partitions[0])
@@ -158,10 +157,11 @@ func (args *StartComputePipesArgs) StartReducingComputePipes(ctx context.Context
 		if len(fileKeys) == 0 {
 			return result, fmt.Errorf("error: no files found in partition %s", partitions[0])
 		}
-		err = FetchHeadersAndDelimiterFromFile("", fileKeys[0].key, inputFormat, compression, &inputColumns, &sepFlag, "")
+		fileInfo, err := FetchHeadersAndDelimiterFromFile("", fileKeys[0].key, inputFormat, compression, "", delimitor, true, false, false, "")
 		if err != nil {
 			return result, fmt.Errorf("error: could not get input columns from file (reduce mode): %v", err)
 		}
+		inputColumns = fileInfo.headers
 	} else {
 		// Get the columns from the channel spec
 		for i := range cpipesStartup.CpConfig.Channels {

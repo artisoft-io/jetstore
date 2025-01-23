@@ -32,6 +32,8 @@ type SchemaProvider interface {
 	Key() string
 	SchemaName() string
 	Format() string
+	Encoding() string
+	DetectEncoding() bool
 	Compression() string
 	InputFormatDataJson() string
 	IsPartFiles() bool
@@ -155,11 +157,25 @@ func (sp *DefaultSchemaProvider) Format() string {
 	return sp.spec.Format
 }
 
+func (sp *DefaultSchemaProvider) Encoding() string {
+	if sp == nil {
+		return ""
+	}
+	return sp.spec.Encoding
+}
+
 func (sp *DefaultSchemaProvider) Compression() string {
 	if sp == nil {
 		return ""
 	}
 	return sp.spec.Compression
+}
+
+func (sp *DefaultSchemaProvider) DetectEncoding() bool {
+	if sp == nil {
+		return false
+	}
+	return sp.spec.DetectEncoding
 }
 
 func (sp *DefaultSchemaProvider) InputFormatDataJson() string {
@@ -181,7 +197,7 @@ func (sp *DefaultSchemaProvider) Delimiter() rune {
 		return 0
 	}
 	if sp.spec.Delimiter == "" {
-		return '€'
+		return 0
 	}
 	return []rune(sp.spec.Delimiter)[0]
 }

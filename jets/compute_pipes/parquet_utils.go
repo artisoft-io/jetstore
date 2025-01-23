@@ -9,22 +9,22 @@ import (
 
 // Utility function for reading parquet files
 
-func GetRawHeadersParquet(fileHd *os.File, fileName, fileFormat string, ic *[]string) error {
+func GetRawHeadersParquet(fileHd *os.File, fileName, fileFormat string) ([]string, error) {
 	// Get rawHeaders
 	var err error
 		// Get the file headers from the parquet schema
 		parquetReader, err := goparquet.NewFileReader(fileHd)
 		if err != nil {
-			return err
+			return nil, err
 		}
-		*ic, err = getParquetFileHeaders(parquetReader)
+		ic, err := getParquetFileHeaders(parquetReader)
 		if err != nil {
-			return fmt.Errorf("while reading parquet headers: %v", err)
+			return nil, fmt.Errorf("while reading parquet headers: %v", err)
 		}
 		// Make sure we don't have empty names in rawHeaders
-		AdjustFillers(ic)
-		fmt.Println("Got input columns (rawHeaders) from parquet file:", *ic)
-		return nil
+		AdjustFillers(&ic)
+		fmt.Println("Got input columns (rawHeaders) from parquet file:", ic)
+		return ic, nil
 }
 
 func getParquetFileHeaders(parquetReader *goparquet.FileReader) ([]string, error) {

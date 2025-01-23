@@ -51,7 +51,7 @@ func (cpCtx *ComputePipesContext) LoadFiles(ctx context.Context, dbpool *pgxpool
 	saveParquetSchema := strings.HasPrefix(inputFormat, "parquet")
 	compression := inputChannelConfig.Compression
 	shardOffset := cpCtx.CpConfig.ClusterConfig.ShardOffset
-	schemaProvider := inputChannelConfig.SchemaProvider
+	sp := cpCtx.SchemaManager.GetSchemaProvider(inputChannelConfig.SchemaProvider)
 	var inputSchemaCh chan any
 	if saveParquetSchema {
 		inputSchemaCh = make(chan any, 1)
@@ -64,16 +64,16 @@ func (cpCtx *ComputePipesContext) LoadFiles(ctx context.Context, dbpool *pgxpool
 	var count, totalRowCount int64
 	for localInFile := range cpCtx.FileNamesCh {
 		if cpCtx.CpConfig.ClusterConfig.IsDebugMode {
-			// log.Printf("%s node %d Loading file '%s'", cpCtx.SessionId, cpCtx.NodeId, localInFile.InFileKeyInfo.key)
+			log.Printf("%s node %d Loading file '%s'", cpCtx.SessionId, cpCtx.NodeId, localInFile.InFileKeyInfo.key)
 		}
 		switch inputFormat {
 		case "csv", "headerless_csv":
-			count, err = cpCtx.ReadCsvFile(&localInFile, inputFormat, compression, shardOffset, schemaProvider, computePipesInputCh)
+			count, err = cpCtx.ReadCsvFile(&localInFile, inputFormat, compression, shardOffset, sp, computePipesInputCh)
 		case "parquet", "parquet_select":
 			count, err = cpCtx.ReadParquetFile(&localInFile, saveParquetSchema, inputSchemaCh, computePipesInputCh)
 			saveParquetSchema = false
 		case "fixed_width":
-			count, err = cpCtx.ReadFixedWidthFile(&localInFile, shardOffset, schemaProvider, computePipesInputCh)
+			count, err = cpCtx.ReadFixedWidthFile(&localInFile, shardOffset, sp, computePipesInputCh)
 		default:
 			log.Println(cpCtx.SessionId, "node", cpCtx.NodeId, "error: unsupported file format: %s", inputFormat)
 			cpCtx.ChResults.LoadFromS3FilesResultCh <- LoadFromS3FilesResult{LoadRowCount: totalRowCount, BadRowCount: 0, Err: err}
@@ -126,17 +126,17 @@ func (cpCtx *ComputePipesContext) ReadParquetFile(filePath *FileName, saveParque
 
 	// Get the schema
 	schemaDef := parquetReader.GetSchemaDefinition()
-  schemaIdx := make(map[string]*parquetschema.ColumnDefinition)
-  for _, colDef := range schemaDef.RootColumn.Children {
-    schemaIdx[colDef.SchemaElement.Name] = colDef
-  }
+	schemaIdx := make(map[string]*parquetschema.ColumnDefinition)
+	for _, colDef := range schemaDef.RootColumn.Children {
+		schemaIdx[colDef.SchemaElement.Name] = colDef
+	}
 
 	// Save the parquet schema to s3 on request
 	if saveParquetSchema {
-    parquetMetaInfo := ParquetSchemaInfo{
-      Schema: schemaDef.String(),
-    }
-  
+		parquetMetaInfo := ParquetSchemaInfo{
+			Schema: schemaDef.String(),
+		}
+
 		// Get the codec/compression of the first row group
 		err = parquetReader.SeekToRowGroup(1)
 		if err != nil {
@@ -210,11 +210,11 @@ func (cpCtx *ComputePipesContext) ReadParquetFile(filePath *FileName, saveParque
 			}
 			cpCtx.SamplingCount = 0
 			record = make([]interface{}, nbrColumns)
-      // fmt.Println("Input Parquet Record: ")
+			// fmt.Println("Input Parquet Record: ")
 			for i := range inputColumns {
 				rawValue := parquetRow[inputColumns[i]]
-        se := schemaIdx[inputColumns[i]].SchemaElement
-        record[i] = ConvertWithSchemaV0(rawValue, se)
+				se := schemaIdx[inputColumns[i]].SchemaElement
+				record[i] = ConvertWithSchemaV0(rawValue, se)
 				// fmt.Printf(" %s: %v, ", inputColumns[i], record[i])
 			}
 			// fmt.Println()
@@ -268,59 +268,59 @@ func ConvertWithSchemaV0(v any, se *parquet.SchemaElement) string {
 	case parquet.Type_BOOLEAN:
 		switch vv := v.(type) {
 		case bool:
-      if vv {
-        return "1"
-      } else {
-        return "0"
-      }
+			if vv {
+				return "1"
+			} else {
+				return "0"
+			}
 		default:
 			return "0"
 		}
 	case parquet.Type_INT32:
-    // Check if it's a date
-    if se.ConvertedType != nil && *se.ConvertedType == parquet.ConvertedType_DATE {
-      // return date(Jan 1 1970) + vv days
-      switch vv := v.(type) {
-      case int32:
-        d := time.Unix(int64(vv) * 24 * 60 * 60, 0)
-        // fmt.Println("*** READING", vv, "AS DATE:",d)
-        return d.Format("2006-01-02")
-        default:
-          return fmt.Sprintf("%v", v)
-        }
-    }
-    return fmt.Sprintf("%v", v)
+		// Check if it's a date
+		if se.ConvertedType != nil && *se.ConvertedType == parquet.ConvertedType_DATE {
+			// return date(Jan 1 1970) + vv days
+			switch vv := v.(type) {
+			case int32:
+				d := time.Unix(int64(vv)*24*60*60, 0)
+				// fmt.Println("*** READING", vv, "AS DATE:",d)
+				return d.Format("2006-01-02")
+			default:
+				return fmt.Sprintf("%v", v)
+			}
+		}
+		return fmt.Sprintf("%v", v)
 
 	case parquet.Type_INT64:
-    return fmt.Sprintf("%v", v)
+		return fmt.Sprintf("%v", v)
 
 	case parquet.Type_FLOAT:
-    return fmt.Sprintf("%v", v)
+		return fmt.Sprintf("%v", v)
 
 	case parquet.Type_DOUBLE:
-    return fmt.Sprintf("%v", v)
+		return fmt.Sprintf("%v", v)
 
 	case parquet.Type_BYTE_ARRAY, parquet.Type_FIXED_LEN_BYTE_ARRAY:
-    // Make it a string for now...
+		// Make it a string for now...
 		// if se.ConvertedType != nil && *se.ConvertedType == parquet.ConvertedType_UTF8 {
 		// }
-    switch vv := v.(type) {
-    case string:
-      return vv
-    case []byte:
-      return string(vv)
-    default:
-      return fmt.Sprintf("%v", v)
-    }
+		switch vv := v.(type) {
+		case string:
+			return vv
+		case []byte:
+			return string(vv)
+		default:
+			return fmt.Sprintf("%v", v)
+		}
 
 	default:
-    return fmt.Sprintf("%v", v)
+		return fmt.Sprintf("%v", v)
 		// return nil, fmt.Errorf("error: WriteParquet unknown parquet type: %v", *se.Type)
 	}
 }
 
 func (cpCtx *ComputePipesContext) ReadCsvFile(filePath *FileName,
-	inputFormat, compression string, shardOffset int, schemaProvider string,
+	inputFormat, compression string, shardOffset int, sp SchemaProvider,
 	computePipesInputCh chan<- []interface{}) (int64, error) {
 
 	var fileHd *os.File
@@ -354,20 +354,21 @@ func (cpCtx *ComputePipesContext) ReadCsvFile(filePath *FileName,
 	}
 	// Get the csv delimiter from the schema provider, if no schema provider exist assume it's ','
 	var sepFlag rune = ','
-	var sp SchemaProvider
-	if len(schemaProvider) > 0 {
-		sp = cpCtx.SchemaManager.GetSchemaProvider(schemaProvider)
-		if sp != nil {
-			sepFlag = sp.Delimiter()
-		}
+	if sp != nil {
+		sepFlag = sp.Delimiter()
 	}
 
 	switch compression {
 	case "none":
+
 		// CHECK FOR OFFSET POSITIONING
 		if filePath.InFileKeyInfo.start > 0 && shardOffset > 0 {
+			utfReader, err := WrapReaderWithDecoder(fileHd, sp.Encoding())
+			if err != nil {
+				return 0, fmt.Errorf("while WrapReaderWithDecoder for encoding '%s': %v", sp.Encoding(), err)
+			}
 			buf := make([]byte, shardOffset)
-			n, err := fileHd.Read(buf)
+			n, err := utfReader.Read(buf)
 			if n != shardOffset || err != nil {
 				return 0, fmt.Errorf("error while reading shard offset bytes in ReadCsvFile: %v", err)
 			}
@@ -386,10 +387,18 @@ func (cpCtx *ComputePipesContext) ReadCsvFile(filePath *FileName,
 				return 0, fmt.Errorf("error while seeking to start of shard in ReadCsvFile: %v", err)
 			}
 		}
-		csvReader = csv.NewReader(fileHd)
+		utfReader, err := WrapReaderWithDecoder(fileHd, sp.Encoding())
+		if err != nil {
+			return 0, fmt.Errorf("while2 WrapReaderWithDecoder for encoding '%s': %v", sp.Encoding(), err)
+		}
+		csvReader = csv.NewReader(utfReader)
 	case "snappy":
 		// No support for sharding on read when compressed.
-		csvReader = csv.NewReader(snappy.NewReader(fileHd))
+		utfReader, err := WrapReaderWithDecoder(snappy.NewReader(fileHd), sp.Encoding())
+		if err != nil {
+			return 0, fmt.Errorf("while3 WrapReaderWithDecoder for encoding '%s': %v", sp.Encoding(), err)
+		}
+		csvReader = csv.NewReader(utfReader)
 	default:
 		return 0, fmt.Errorf("error: unknown compression in ReadCsvFile: %s", compression)
 	}
@@ -517,7 +526,7 @@ func (cpCtx *ComputePipesContext) ReadCsvFile(filePath *FileName,
 }
 
 func (cpCtx *ComputePipesContext) ReadFixedWidthFile(filePath *FileName, shardOffset int,
-	schemaProvider string, computePipesInputCh chan<- []interface{}) (int64, error) {
+	sp SchemaProvider, computePipesInputCh chan<- []interface{}) (int64, error) {
 
 	var fileHd *os.File
 	var fwScanner *bufio.Scanner
@@ -559,25 +568,23 @@ func (cpCtx *ComputePipesContext) ReadFixedWidthFile(filePath *FileName, shardOf
 	}
 	// Get the FixedWidthEncodingInfo from the schema provider
 	var fwEncodingInfo *FixedWidthEncodingInfo
-	if len(schemaProvider) > 0 {
-		sp := cpCtx.SchemaManager.GetSchemaProvider(schemaProvider)
-		if sp != nil {
-			fwEncodingInfo = sp.FixedWidthEncodingInfo()
-		}
+	if sp != nil {
+		fwEncodingInfo = sp.FixedWidthEncodingInfo()
 	}
 	if fwEncodingInfo == nil {
 		return 0, fmt.Errorf("error: loading fixed_width file, no encodeding info available")
 	}
-	// // Remove the Byte Order Mark (BOM) at beggining of the file if present
-	// sr, enc := utfbom.Skip(fileHd)
-	// fmt.Printf("Detected encoding: %s\n", enc)
 	// Setup a fixed-width reader
 	//* Note: No compression supported for fixed_width files
 	// CHECK FOR OFFSET POSITIONING
 	// log.Println("*** InFileKeyInfo",filePath.InFileKeyInfo,"shard offset",shardOffset)
 	if filePath.InFileKeyInfo.start > 0 && shardOffset > 0 {
+		utfReader, err := WrapReaderWithDecoder(fileHd, sp.Encoding())
+		if err != nil {
+			return 0, fmt.Errorf("while4 WrapReaderWithDecoder for encoding '%s': %v", sp.Encoding(), err)
+		}
 		buf := make([]byte, shardOffset)
-		n, err := fileHd.Read(buf)
+		n, err := utfReader.Read(buf)
 		if n != shardOffset || err != nil {
 			return 0, fmt.Errorf("error while reading shard offset bytes in ReadFixedWidthFile: %v", err)
 		}
@@ -597,7 +604,11 @@ func (cpCtx *ComputePipesContext) ReadFixedWidthFile(filePath *FileName, shardOf
 			return 0, fmt.Errorf("error while seeking to start of shard in ReadFixedWidthFile: %v", err)
 		}
 	}
-	fwScanner = bufio.NewScanner(fileHd)
+	utfReader, err := WrapReaderWithDecoder(fileHd, sp.Encoding())
+	if err != nil {
+		return 0, fmt.Errorf("while5 WrapReaderWithDecoder for encoding '%s': %v", sp.Encoding(), err)
+	}
+	fwScanner = bufio.NewScanner(utfReader)
 
 	var inputRowCount int64
 	var record []interface{}

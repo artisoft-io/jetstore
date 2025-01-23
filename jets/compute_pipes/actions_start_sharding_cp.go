@@ -10,7 +10,6 @@ import (
 	"strings"
 
 	"github.com/artisoft-io/jetstore/jets/datatable"
-	"github.com/artisoft-io/jetstore/jets/datatable/jcsv"
 	"github.com/artisoft-io/jetstore/jets/schema"
 	"github.com/jackc/pgx/v4/pgxpool"
 )
@@ -128,28 +127,32 @@ func (args *StartComputePipesArgs) StartShardingComputePipes(ctx context.Context
 
 	// Check if headers where provided in source_config record or need to determine the csv delimiter
 	fetchHeaders := false
-	switch {
-	case mainInputSchemaProvider.Format == "csv" && len(cpipesStartup.InputColumns) == 0:
-		fetchHeaders = true
-	case strings.HasSuffix(mainInputSchemaProvider.Format, "csv") && len(mainInputSchemaProvider.Delimiter) == 0:
+	fetchDelimitor := false
+	format := &mainInputSchemaProvider.Format
+	if (*format == "csv" || *format == "parquet") && len(cpipesStartup.InputColumns) == 0 {
 		fetchHeaders = true
 	}
-	if fetchHeaders {
+	if strings.HasSuffix(*format, "csv") && len(mainInputSchemaProvider.Delimiter) == 0 {
+		fetchDelimitor = true
+	}
+	if fetchHeaders || fetchDelimitor || mainInputSchemaProvider.DetectEncoding {
 		// Get the input columns / column separator from the first file
 		sp := mainInputSchemaProvider
-		var sepFlag jcsv.Chartype
-		if len(sp.Delimiter) > 0 {
-			sepFlag.Set(sp.Delimiter)
-		}
-		err = FetchHeadersAndDelimiterFromFile(sp.Bucket, shardResult.firstKey,
-			sp.Format, sp.Compression, &cpipesStartup.InputColumns, &sepFlag, sp.InputFormatDataJson)
+		fileInfo, err := FetchHeadersAndDelimiterFromFile(sp.Bucket, shardResult.firstKey, sp.Format, 
+			sp.Compression, sp.Encoding, sp.Delimiter, fetchHeaders, fetchDelimitor, sp.DetectEncoding, sp.InputFormatDataJson)
 		if err != nil {
 			return result,
 				fmt.Errorf("while calling FetchHeadersAndDelimiterFromFile('%s', '%s', '%s', '%s'): %v",
 					sp.Bucket, shardResult.firstKey, sp.Format, sp.Compression, err)
 		}
-		if sepFlag != 0 {
-			sp.Delimiter = sepFlag.String()
+		if len(fileInfo.headers) > 0 {
+			cpipesStartup.InputColumns = fileInfo.headers
+		}
+		if fileInfo.sepFlag != 0 {
+			sp.Delimiter = fileInfo.sepFlag.String()
+		}
+		if len(fileInfo.encoding) > 0 {
+			sp.Encoding = fileInfo.encoding
 		}
 	}
 
@@ -235,18 +238,6 @@ func (args *StartComputePipesArgs) StartShardingComputePipes(ctx context.Context
 	if inputChannelConfig.Name != "input_row" {
 		return result, fmt.Errorf("error: invalid cpipes config, reducing_pipes_config[0][0].input must be 'input_row'")
 	}
-
-	// Since we are on the sharding step, update the input channel spec file format and compression.
-	// Take the values specified by the input channel, if not specifid use the values from
-	// the input schema provider (which has the defaults comming from source_config table)
-	if inputChannelConfig.Format == "" {
-		inputChannelConfig.Format = mainInputSchemaProvider.Format
-	}
-	if inputChannelConfig.Compression == "" {
-		inputChannelConfig.Compression = mainInputSchemaProvider.Compression
-	}
-	// Input channel for sharding step always have the _main_input_ schema provider
-	inputChannelConfig.SchemaProvider = mainInputSchemaProvider.Key
 
 	// Validate the PipeSpec.TransformationSpec.OutputChannel configuration
 	err = ValidatePipeSpecConfig(&cpipesStartup.CpConfig, pipeConfig)

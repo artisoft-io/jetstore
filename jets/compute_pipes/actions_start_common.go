@@ -9,7 +9,6 @@ import (
 	"os"
 	"strconv"
 
-	"github.com/artisoft-io/jetstore/jets/datatable/jcsv"
 	"github.com/artisoft-io/jetstore/jets/workspace"
 	"github.com/jackc/pgx/v4/pgxpool"
 )
@@ -114,7 +113,7 @@ func (args *StartComputePipesArgs) initializeCpipes(ctx context.Context, dbpool 
 
 	// Get the schema provider from schemaProviderJson:
 	//   - Populate the input columns (cpipesStartup.InputColumns)
-	//   - Populate inputFormat, compression
+	//   - Populate inputFormat, compression, delimiter, detect_encoding
 	//   - Populate inputFormatDataJson for xlsx
 	//   - Put SchemaName into env (done in CoordinateComputePipes)
 	//   - Put the schema provider in compute pipes json
@@ -157,13 +156,39 @@ func (args *StartComputePipesArgs) initializeCpipes(ctx context.Context, dbpool 
 
 	// The main_input schema provider should always have the key _main_input_.
 	mainInputSchemaProvider.Key = "_main_input_"
+	ic := &cpipesStartup.CpConfig.ReducingPipesConfig[0][0].InputChannel
 
-	var sepFlag jcsv.Chartype
-	if len(mainInputSchemaProvider.Delimiter) > 0 {
-		sepFlag.Set(mainInputSchemaProvider.Delimiter)
+	// The file compression is specified from input_channel, if not take it from main schema provider,
+	// if not it taken from input_source table above
+	if ic.Compression == "" {
+		ic.Compression = mainInputSchemaProvider.Compression
+	} else {
+		// Override the compression from schema provider and from input_source table
+		// Note: not expected to have to do this, usually the schema provider will have
+		// the right value. This is for completness and to ensure everything is in sync
+		mainInputSchemaProvider.Compression = ic.Compression
 	}
+
+	// The csv delimiter is specified from input_channel, if not take it from main schema provider
+	if ic.Delimiter == "" {
+		ic.Delimiter = mainInputSchemaProvider.Delimiter
+	} else {
+		// Override schema provider with value specified in input_channel config
+		mainInputSchemaProvider.Delimiter = ic.Delimiter
+	}
+
+	// File format
+	if ic.Format == "" {
+		ic.Format = mainInputSchemaProvider.Format
+	} else {
+		mainInputSchemaProvider.Format = ic.Format
+	}
+
+	// Input channel for sharding step always have the _main_input_ schema provider
+	ic.SchemaProvider = mainInputSchemaProvider.Key
+
+	// Set the fixed_width column spec to the schema provider
 	if len(icPosCsv.String) > 0 {
-		// Set the fixed_width column spec to the schema provider
 		mainInputSchemaProvider.FixedWidthColumnsCsv = icPosCsv.String
 	}
 
@@ -341,6 +366,9 @@ func ValidatePipeSpecConfig(cpConfig *ComputePipesConfig, pipeConfig []PipeSpec)
 				if len(pipeSpec.InputChannel.Format) == 0 {
 					pipeSpec.InputChannel.Format = sp.Format
 				}
+				if len(pipeSpec.InputChannel.Delimiter) == 0 {
+					pipeSpec.InputChannel.Delimiter = sp.Delimiter
+				}
 				if len(pipeSpec.InputChannel.Compression) == 0 {
 					pipeSpec.InputChannel.Compression = sp.Compression
 				}
@@ -467,11 +495,16 @@ func validateOutputChConfig(outputChConfig *OutputChannelConfig, sp *SchemaProvi
 				}
 			}
 			if outputChConfig.Compression == "" {
-				if sp != nil && sp.Compression != "" {
+				if sp != nil {
 					outputChConfig.Compression = sp.Compression
 				}
 				if outputChConfig.Compression == "" {
 					outputChConfig.Compression = "snappy"
+				}
+			}
+			if outputChConfig.Delimiter == "" {
+				if sp != nil {
+					outputChConfig.Delimiter = sp.Delimiter
 				}
 			}
 			if len(outputChConfig.WriteStepId) == 0 {
@@ -488,8 +521,13 @@ func validateOutputChConfig(outputChConfig *OutputChannelConfig, sp *SchemaProvi
 						outputChConfig.Name)
 				}
 			}
+			if outputChConfig.Delimiter == "" {
+				if sp != nil {
+					outputChConfig.Delimiter = sp.Delimiter
+				}
+			}
 			if outputChConfig.Compression == "" {
-				if sp != nil && sp.Compression != "" {
+				if sp != nil {
 					outputChConfig.Compression = sp.Compression
 				}
 				if outputChConfig.Compression == "" {
@@ -511,10 +549,15 @@ func validateOutputChConfig(outputChConfig *OutputChannelConfig, sp *SchemaProvi
 		case "memory":
 			outputChConfig.Format = ""
 			outputChConfig.Compression = ""
+			outputChConfig.Delimiter = ""
 		default:
 			return fmt.Errorf(
 				"error: invalid cpipes config, unknown output_channel config type: %s (expecting: memory (default), stage, output, sql)",
 				outputChConfig.Type)
+		}
+		if len(outputChConfig.Delimiter) > 1 {
+			return fmt.Errorf("error: output channel '%s' has an invalid csv delimiter '%s' (should be single char)",
+				outputChConfig.Name, outputChConfig.Delimiter)
 		}
 	}
 	return nil
