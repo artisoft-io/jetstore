@@ -372,7 +372,7 @@ func (cpCtx *ComputePipesContext) ReadCsvFile(filePath *FileName,
 			}
 			buf := make([]byte, shardOffset)
 			n, err := utfReader.Read(buf)
-			if n != shardOffset || err != nil {
+			if n == 0 || err != nil {
 				return 0, fmt.Errorf("error while reading shard offset bytes in ReadCsvFile, got %d bytes, expecting %d: %v",
 					n, shardOffset, err)
 			}
@@ -386,7 +386,8 @@ func (cpCtx *ComputePipesContext) ReadCsvFile(filePath *FileName,
 				return 0, fmt.Errorf("error: could not find end of previous record in ReadCsvFile: key %s", filePath.InFileKeyInfo.key)
 			}
 			// seek to first character after the last '\n'
-			_, err = fileHd.Seek(int64(l+1), 0)
+			buf = []byte(str[:l+1])
+			_, err = fileHd.Seek(int64(len(buf)), 0)
 			if err != nil {
 				return 0, fmt.Errorf("error while seeking to start of shard in ReadCsvFile: %v", err)
 			}
@@ -612,7 +613,8 @@ func (cpCtx *ComputePipesContext) ReadFixedWidthFile(filePath *FileName, shardOf
 		}
 		// seek to first character after the last '\n'
 		// log.Println("SEEKING TO FIRST LINE @", l+1,":: start at",filePath.InFileKeyInfo.start,"which is", filePath.InFileKeyInfo.start+l+1)
-		_, err = fileHd.Seek(int64(l+1), 0)
+		buf = []byte(str[:l+1])
+		_, err = fileHd.Seek(int64(len(buf)), 0)
 		if err != nil {
 			return 0, fmt.Errorf("error while seeking to start of shard in ReadFixedWidthFile: %v", err)
 		}
