@@ -47,7 +47,9 @@ func (ctx *BuilderContext) buildEvalOperator(op string) (evalOperator, error) {
 	case "ABS":
 		return opABS{}, nil
 	// Special Operators
-	case "DISTANCE_MONTHS":
+case "LENGTH":
+	return opLength{}, nil
+case "DISTANCE_MONTHS":
 		return opDMonths{}, nil
 	case "APPLY_FORMAT":
 		return opApplyFormat{}, nil
