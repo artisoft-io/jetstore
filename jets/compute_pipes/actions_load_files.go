@@ -402,12 +402,14 @@ func (cpCtx *ComputePipesContext) ReadCsvFile(filePath *FileName,
 		csvReader = csv.NewReader(utfReader)
 	case "snappy":
 		// No support for sharding on read when compressed.
-		var utfReader io.Reader = fileHd
+		var utfReader io.Reader
 		if sp != nil {
 			utfReader, err = WrapReaderWithDecoder(snappy.NewReader(fileHd), sp.Encoding())
 			if err != nil {
 				return 0, fmt.Errorf("while3 WrapReaderWithDecoder for encoding '%s': %v", sp.Encoding(), err)
 			}
+		} else {
+			utfReader = snappy.NewReader(fileHd)
 		}
 		csvReader = csv.NewReader(utfReader)
 	default:
@@ -586,7 +588,7 @@ func (cpCtx *ComputePipesContext) ReadFixedWidthFile(filePath *FileName, shardOf
 		return 0, fmt.Errorf("error: loading fixed_width file, no encodeding info available")
 	}
 	// Setup a fixed-width reader
-	//* Note: No compression supported for fixed_width files
+	//* TODO: No compression supported for fixed_width files, add support for it
 	// CHECK FOR OFFSET POSITIONING
 	// log.Println("*** InFileKeyInfo",filePath.InFileKeyInfo,"shard offset",shardOffset)
 	if filePath.InFileKeyInfo.start > 0 && shardOffset > 0 {

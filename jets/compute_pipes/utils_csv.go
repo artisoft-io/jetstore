@@ -3,6 +3,7 @@ package compute_pipes
 import (
 	"fmt"
 	"io"
+	"log"
 	"os"
 	"strings"
 
@@ -78,7 +79,7 @@ func WrapReaderWithDecompressor(r io.Reader, compression string) io.Reader {
 }
 
 func WrapReaderWithDecoder(r io.Reader, encoding string) (utfReader io.Reader, err error) {
-
+	log.Printf("WrapReaderWithDecoder for encoding '%s'", encoding)
 	switch encoding {
 	case "":
 		// passthrough
