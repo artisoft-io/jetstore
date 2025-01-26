@@ -107,10 +107,19 @@ func (ctx *AnalyzeTransformationPipe) Done() error {
 			for _, ehint := range ctx.spec.AnalyzeConfig.EntityHints {
 				for _, frag := range ehint.NameFragments {
 					if strings.Contains(strings.ToUpper(state.ColumnName), strings.ToUpper(frag)) {
-						outputRow[ipos] = ehint.Entity
-						goto doneEntityHint
+						goto continueHint
 					}
 				}
+				goto nextHint
+				continueHint:
+				for _, frag := range ehint.ExclusionFragments {
+					if strings.Contains(strings.ToUpper(state.ColumnName), strings.ToUpper(frag)) {
+						goto nextHint
+					}
+				}
+				outputRow[ipos] = ehint.Entity
+				goto doneEntityHint
+				nextHint:
 			}
 		}
 		doneEntityHint:

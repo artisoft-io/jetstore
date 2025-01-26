@@ -352,23 +352,25 @@ func (cpCtx *ComputePipesContext) ReadCsvFile(filePath *FileName,
 			}
 		}
 	}
-	// Get the csv delimiter from the schema provider, if no schema provider exist assume it's ','
+	// Get the encoding and csv delimiter from the schema provider, if no schema provider exist assume it's ','
+	var encoding string
 	var sepFlag rune = ','
 	if sp != nil {
+		encoding = sp.Encoding()
 		sepFlag = sp.Delimiter()
+		log.Printf("*** ReadCsvFile: got delimiter '%v' or '%s' and encoding '%s' from schema provider\n", sepFlag, string(sepFlag), encoding)
 	}
+	log.Printf("*** ReadCsvFile: read file from %d to %d of file size %d\n", filePath.InFileKeyInfo.start, filePath.InFileKeyInfo.end, filePath.InFileKeyInfo.size)
 
 	switch compression {
-	case "none":
 
+	case "none":
+		var utfReader io.Reader = fileHd
 		// CHECK FOR OFFSET POSITIONING
 		if filePath.InFileKeyInfo.start > 0 && shardOffset > 0 {
-			var utfReader io.Reader = fileHd
-			if sp != nil {
-				utfReader, err = WrapReaderWithDecoder(fileHd, sp.Encoding())
-				if err != nil {
-					return 0, fmt.Errorf("while WrapReaderWithDecoder for encoding '%s': %v", sp.Encoding(), err)
-				}
+			beOffset := 0
+			if strings.Contains(encoding, "BE") {
+				beOffset = -1
 			}
 			buf := make([]byte, shardOffset)
 			n, err := utfReader.Read(buf)
@@ -376,40 +378,37 @@ func (cpCtx *ComputePipesContext) ReadCsvFile(filePath *FileName,
 				return 0, fmt.Errorf("error while reading shard offset bytes in ReadCsvFile, got %d bytes, expecting %d: %v",
 					n, shardOffset, err)
 			}
-			str := string(buf)
-			// if str ends with '\n', remove the last one
-			if strings.HasSuffix(str, "\n") {
-				str = str[:n-1]
+			if buf[n-1] == '\n' {
+				log.Printf("*** removed the last \\n!!")
+				buf = buf[:n-1]
+			} else {
+				buf = buf[:n]
 			}
-			l := strings.LastIndex(str, "\n")
+			log.Printf("*** OFFSET POSITIONING buf resized to %d\n", len(buf))
+			// Get to the last \n
+			l := LastIndexByte(buf, '\n')
 			if l < 0 {
 				return 0, fmt.Errorf("error: could not find end of previous record in ReadCsvFile: key %s", filePath.InFileKeyInfo.key)
 			}
 			// seek to first character after the last '\n'
-			buf = []byte(str[:l+1])
-			_, err = fileHd.Seek(int64(len(buf)), 0)
+			log.Printf("*** OFFSET POSITIONING SEEKING to pos %d\n", l+beOffset)
+			_, err = fileHd.Seek(int64(l+beOffset), 0)
 			if err != nil {
 				return 0, fmt.Errorf("error while seeking to start of shard in ReadCsvFile: %v", err)
 			}
 		}
-		var utfReader io.Reader = fileHd
-		if sp != nil {
-			utfReader, err = WrapReaderWithDecoder(fileHd, sp.Encoding())
-			if err != nil {
-				return 0, fmt.Errorf("while2 WrapReaderWithDecoder for encoding '%s': %v", sp.Encoding(), err)
-			}
+
+		utfReader, err = WrapReaderWithDecoder(fileHd, encoding)
+		if err != nil {
+			return 0, fmt.Errorf("while2 WrapReaderWithDecoder for encoding '%s': %v", encoding, err)
 		}
 		csvReader = csv.NewReader(utfReader)
+
 	case "snappy":
 		// No support for sharding on read when compressed.
-		var utfReader io.Reader
-		if sp != nil {
-			utfReader, err = WrapReaderWithDecoder(snappy.NewReader(fileHd), sp.Encoding())
-			if err != nil {
-				return 0, fmt.Errorf("while3 WrapReaderWithDecoder for encoding '%s': %v", sp.Encoding(), err)
-			}
-		} else {
-			utfReader = snappy.NewReader(fileHd)
+		utfReader, err := WrapReaderWithDecoder(snappy.NewReader(fileHd), encoding)
+		if err != nil {
+			return 0, fmt.Errorf("while3 WrapReaderWithDecoder for encoding '%s': %v", encoding, err)
 		}
 		csvReader = csv.NewReader(utfReader)
 	default:
@@ -422,11 +421,11 @@ func (cpCtx *ComputePipesContext) ReadCsvFile(filePath *FileName,
 	}
 	if inputFormat == "csv" && filePath.InFileKeyInfo.start == 0 {
 		// skip header row (first row)
-		_, err = csvReader.Read()
+		hrow, err := csvReader.Read()
+		log.Printf("*** ReadCsvFile: skip header row of %d headers, err?: %v\n", len(hrow), err)
 		switch {
 		case err == io.EOF: // empty file
 			return 0, nil
-
 		case err != nil:
 			return 0, fmt.Errorf("error while reading input record header line (ReadCsvFile): %v", err)
 		}
@@ -442,25 +441,31 @@ func (cpCtx *ComputePipesContext) ReadCsvFile(filePath *FileName,
 		dropLastRow = true
 		// Read first record
 		inRow, err = csvReader.Read()
+		log.Printf("** Read First Row -dropLast contains %d columns, err?: %v\n", len(inRow), err)
 		switch {
 		case err == io.EOF: // empty file
 			return 0, nil
 		case err != nil:
 			return 0, fmt.Errorf("error while reading first input record (ReadCsvFile): %v", err)
 		}
-		// log.Println("**First Row -dropLast", inRow)
 	}
+
 	// Determine if trim the columns
 	trimColumns := false
 	if cpCtx.CpConfig.CommonRuntimeArgs.CpipesMode == "sharding" && sp != nil {
 		trimColumns = sp.TrimColumns()
 	}
 	lastLineFlag := false
+	var meCount int
 	for {
 		// read and put the rows into computePipesInputCh
 		if dropLastRow {
 			nextInRow, err = csvReader.Read()
 			// log.Println("**Next Row -dropLast", nextInRow, "err:", err)
+			meCount++
+			if meCount < 5 {
+				log.Printf("** Read Next Row -dropLast contains %d columns, err?: %v\n", len(nextInRow), err)
+			}
 			if (errors.Is(err, csv.ErrFieldCount) || errors.Is(err, csv.ErrQuote)) && !lastLineFlag {
 				// Got a partial read, the next read should give the io.EOF unless there is an error
 				err = nil
@@ -468,6 +473,10 @@ func (cpCtx *ComputePipesContext) ReadCsvFile(filePath *FileName,
 			}
 		} else {
 			inRow, err = csvReader.Read()
+			meCount++
+			if meCount < 5 {
+				log.Printf("** Read Row contains %d columns, err?: %v\n", len(inRow), err)
+			}
 			// log.Println("**Row", inRow)
 		}
 		if err == nil && inputRowCount > 0 {
@@ -538,6 +547,15 @@ func (cpCtx *ComputePipesContext) ReadCsvFile(filePath *FileName,
 	}
 }
 
+func LastIndexByte(s []byte, c byte) int {
+	for i := len(s) - 1; i >= 0; i-- {
+		if s[i] == c {
+			return i
+		}
+	}
+	return -1
+}
+
 func (cpCtx *ComputePipesContext) ReadFixedWidthFile(filePath *FileName, shardOffset int,
 	sp SchemaProvider, computePipesInputCh chan<- []interface{}) (int64, error) {
 
@@ -555,6 +573,10 @@ func (cpCtx *ComputePipesContext) ReadFixedWidthFile(filePath *FileName, shardOf
 		fileHd.Close()
 		os.Remove(filePath.LocalFileName)
 	}()
+	var encoding string
+	if sp != nil {
+		encoding = sp.Encoding()
+	}
 
 	nbrColumns := len(cpCtx.CpConfig.CommonRuntimeArgs.SourcesConfig.MainInput.InputColumns)
 	var inputColumns []string
@@ -589,44 +611,42 @@ func (cpCtx *ComputePipesContext) ReadFixedWidthFile(filePath *FileName, shardOf
 	}
 	// Setup a fixed-width reader
 	//* TODO: No compression supported for fixed_width files, add support for it
+
 	// CHECK FOR OFFSET POSITIONING
 	// log.Println("*** InFileKeyInfo",filePath.InFileKeyInfo,"shard offset",shardOffset)
+	var utfReader io.Reader = fileHd
 	if filePath.InFileKeyInfo.start > 0 && shardOffset > 0 {
-		var utfReader io.Reader = fileHd
-		if sp != nil {
-			utfReader, err = WrapReaderWithDecoder(fileHd, sp.Encoding())
-			if err != nil {
-				return 0, fmt.Errorf("while4 WrapReaderWithDecoder for encoding '%s': %v", sp.Encoding(), err)
-			}
+		beOffset := 0
+		if strings.Contains(encoding, "BE") {
+			beOffset = -1
 		}
 		buf := make([]byte, shardOffset)
 		n, err := utfReader.Read(buf)
-		if n != shardOffset || err != nil {
+		if n == 0 || err != nil {
 			return 0, fmt.Errorf("error while reading shard offset bytes in ReadFixedWidthFile: %v", err)
 		}
-		str := string(buf)
-		// if str ends with '\n', remove the last one
-		if strings.HasSuffix(str, "\n") {
-			str = str[:n-1]
+		if buf[n-1] == '\n' {
+			log.Printf("*** removed the last \\n!!")
+			buf = buf[:n-1]
+		} else {
+			buf = buf[:n]
 		}
-		l := strings.LastIndex(str, "\n")
+		log.Printf("*** OFFSET POSITIONING buf resized to %d\n", len(buf))
+		// Get to the last \n
+		l := LastIndexByte(buf, '\n')
 		if l < 0 {
 			return 0, fmt.Errorf("error: could not find end of previous record in ReadFixedWidthFile: key %s", filePath.InFileKeyInfo.key)
 		}
 		// seek to first character after the last '\n'
-		// log.Println("SEEKING TO FIRST LINE @", l+1,":: start at",filePath.InFileKeyInfo.start,"which is", filePath.InFileKeyInfo.start+l+1)
-		buf = []byte(str[:l+1])
-		_, err = fileHd.Seek(int64(len(buf)), 0)
+		log.Printf("*** OFFSET POSITIONING SEEKING to pos %d\n", l+beOffset)
+		_, err = fileHd.Seek(int64(l+beOffset), 0)
 		if err != nil {
-			return 0, fmt.Errorf("error while seeking to start of shard in ReadFixedWidthFile: %v", err)
+			return 0, fmt.Errorf("error while seeking to start of shard in ReadCsvFile: %v", err)
 		}
 	}
-	var utfReader io.Reader = fileHd
-	if sp != nil {
-		utfReader, err = WrapReaderWithDecoder(fileHd, sp.Encoding())
-		if err != nil {
-			return 0, fmt.Errorf("while5 WrapReaderWithDecoder for encoding '%s': %v", sp.Encoding(), err)
-		}
+	utfReader, err = WrapReaderWithDecoder(fileHd, encoding)
+	if err != nil {
+		return 0, fmt.Errorf("while4 WrapReaderWithDecoder for encoding '%s': %v", encoding, err)
 	}
 	fwScanner = bufio.NewScanner(utfReader)
 

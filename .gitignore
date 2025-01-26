@@ -107,3 +107,5 @@ cdk/jetstore_one/lambdas/sqs_listener/cgt_sqs_listerner.go
 jets/copytest/parquettest/output.parquet
 jets/copytest/parquetschema/parquetschema
 jets/copytest/scratchpad/outputFile.txt
+jets/copytest/encodingtest/outputFile.txt
+jets/copytest/encodingtest/encodingtest

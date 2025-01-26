@@ -30,7 +30,9 @@ func FetchHeadersAndDelimiterFromFile(externalBucket, fileKey, fileFormat, compr
 	var err error
 	var sepFlag jcsv.Chartype
 	if len(delimitor) > 0 {
+    log.Printf("*** FetchHeadersAndDelimiterFromFile: provided delimiter '%s'\n", delimitor)
 		sepFlag = jcsv.Chartype([]rune(delimitor)[0])
+    log.Printf("*** FetchHeadersAndDelimiterFromFile: provided delimiter as rune '%v' (back as string '%s')\n", rune(sepFlag), string(sepFlag))
 	}
 	fileInfo := &FileInfo{
 		encoding: encoding,
@@ -127,6 +129,7 @@ func GetRawHeadersCsv(fileHd *os.File, fileName, fileFormat, compression string,
 
 	// Read the file headers
 	ic, err := csvReader.Read()
+  log.Printf("*** GetRawHeadersCsv: got %d headers, err?: %v\n", len(ic), err)
 	if err == io.EOF {
 		return nil, errors.New("input csv file is empty")
 	} else if err != nil {

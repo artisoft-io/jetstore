@@ -340,8 +340,9 @@ type DataSchemaSpec struct {
 }
 
 type EntityHint struct {
-	Entity        string   `json:"entity"`
-	NameFragments []string `json:"column_name_fragments"`
+	Entity             string   `json:"entity"`
+	NameFragments      []string `json:"column_name_fragments"`
+	ExclusionFragments []string `json:"exclusion_fragments"`
 }
 
 type RegexNode struct {
