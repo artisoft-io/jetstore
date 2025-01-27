@@ -254,6 +254,7 @@ func (pf *DefaultPF) ApplyPF(buf *bytes.Buffer, input *[]interface{}) error {
 
 // FormatDatePF is writing a date field using YYYYMMDD format
 // This assume the date in the input is a valid date as string
+// Returns no error if date is empty or not valid
 type FormatDatePF struct {
 	inputPos int
 }
@@ -265,11 +266,13 @@ func (pf *FormatDatePF) ApplyPF(buf *bytes.Buffer, input *[]interface{}) error {
 	}
 	vv, ok := v.(string)
 	if !ok {
-		return fmt.Errorf("error: in FormatDatePF the input date is not a string: %v", v)
+		// return fmt.Errorf("error: in FormatDatePF the input date is not a string: %v", v)
+		return nil
 	}
 	y, m, d, err := rdf.ParseDateComponents(vv)
 	if err != nil {
-		return fmt.Errorf("error: in FormatDatePF the input date is not a valid date: %v", err)
+		// return fmt.Errorf("error: in FormatDatePF the input date is not a valid date: %v", err)
+		return nil
 	}
 	buf.WriteString(fmt.Sprintf("%d%02d%02d", y, m, d))
 	return nil
