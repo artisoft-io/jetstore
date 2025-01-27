@@ -24,15 +24,14 @@ type FileInfo struct {
 }
 
 // Main function
-func FetchHeadersAndDelimiterFromFile(externalBucket, fileKey, fileFormat, compression, encoding, delimitor string,
+func FetchHeadersAndDelimiterFromFile(externalBucket, fileKey, fileFormat, compression, encoding string, delimitor rune,
 	fetchHeaders, fetchDelimitor, fetchEncoding bool, fileFormatDataJson string) (*FileInfo, error) {
 	var fileHd *os.File
 	var err error
 	var sepFlag jcsv.Chartype
-	if len(delimitor) > 0 {
-    log.Printf("*** FetchHeadersAndDelimiterFromFile: provided delimiter '%s'\n", delimitor)
-		sepFlag = jcsv.Chartype([]rune(delimitor)[0])
-    log.Printf("*** FetchHeadersAndDelimiterFromFile: provided delimiter as rune '%v' (back as string '%s')\n", rune(sepFlag), string(sepFlag))
+	if delimitor > 0 {
+    // log.Printf("*** FetchHeadersAndDelimiterFromFile: provided delimiter %d is %s\n", delimitor, string([]rune{delimitor}))
+		sepFlag = jcsv.Chartype(delimitor)
 	}
 	fileInfo := &FileInfo{
 		encoding: encoding,

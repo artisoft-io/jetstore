@@ -170,7 +170,7 @@ func (args *StartComputePipesArgs) initializeCpipes(ctx context.Context, dbpool 
 	}
 
 	// The csv delimiter is specified from input_channel, if not take it from main schema provider
-	if ic.Delimiter == "" {
+	if ic.Delimiter == 0 {
 		ic.Delimiter = mainInputSchemaProvider.Delimiter
 	} else {
 		// Override schema provider with value specified in input_channel config
@@ -366,7 +366,7 @@ func ValidatePipeSpecConfig(cpConfig *ComputePipesConfig, pipeConfig []PipeSpec)
 				if len(pipeSpec.InputChannel.Format) == 0 {
 					pipeSpec.InputChannel.Format = sp.Format
 				}
-				if len(pipeSpec.InputChannel.Delimiter) == 0 {
+				if pipeSpec.InputChannel.Delimiter == 0 {
 					pipeSpec.InputChannel.Delimiter = sp.Delimiter
 				}
 				if len(pipeSpec.InputChannel.Compression) == 0 {
@@ -502,7 +502,7 @@ func validateOutputChConfig(outputChConfig *OutputChannelConfig, sp *SchemaProvi
 					outputChConfig.Compression = "snappy"
 				}
 			}
-			if outputChConfig.Delimiter == "" {
+			if outputChConfig.Delimiter == 0 {
 				if sp != nil {
 					outputChConfig.Delimiter = sp.Delimiter
 				}
@@ -521,7 +521,7 @@ func validateOutputChConfig(outputChConfig *OutputChannelConfig, sp *SchemaProvi
 						outputChConfig.Name)
 				}
 			}
-			if outputChConfig.Delimiter == "" {
+			if outputChConfig.Delimiter == 0 {
 				if sp != nil {
 					outputChConfig.Delimiter = sp.Delimiter
 				}
@@ -549,15 +549,11 @@ func validateOutputChConfig(outputChConfig *OutputChannelConfig, sp *SchemaProvi
 		case "memory":
 			outputChConfig.Format = ""
 			outputChConfig.Compression = ""
-			outputChConfig.Delimiter = ""
+			outputChConfig.Delimiter = 0
 		default:
 			return fmt.Errorf(
 				"error: invalid cpipes config, unknown output_channel config type: %s (expecting: memory (default), stage, output, sql)",
 				outputChConfig.Type)
-		}
-		if len(outputChConfig.Delimiter) > 1 {
-			return fmt.Errorf("error: output channel '%s' has an invalid csv delimiter '%s' (should be single char)",
-				outputChConfig.Name, outputChConfig.Delimiter)
 		}
 	}
 	return nil

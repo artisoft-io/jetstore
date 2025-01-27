@@ -196,10 +196,7 @@ func (sp *DefaultSchemaProvider) Delimiter() rune {
 	if sp == nil {
 		return 0
 	}
-	if sp.spec.Delimiter == "" {
-		return 0
-	}
-	return []rune(sp.spec.Delimiter)[0]
+	return sp.spec.Delimiter
 }
 
 func (sp *DefaultSchemaProvider) UseLazyQuotes() bool {

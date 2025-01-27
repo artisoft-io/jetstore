@@ -310,6 +310,7 @@ func (ctx *Context) RegisterFileKeys(registerFileKeyAction *RegisterFileKeyActio
 			// and invoke StartPipelineOnInputRegistryInsert)
 			var inputRegistryKey int
 			log.Println("Write to input_registry for cpipes input files object type:", objectType, "client", client, "org", org)
+			// log.Println("Write to input_registry for cpipes with schemaProviderJson:", schemaProviderJson)
 			stmt = `INSERT INTO jetsapi.input_registry 
 							(client, org, object_type, file_key, source_period_key, table_name, 
 							 source_type, session_id, user_email, schema_provider_json
@@ -321,6 +322,12 @@ func (ctx *Context) RegisterFileKeys(registerFileKeyAction *RegisterFileKeyActio
 			if err != nil {
 				return nil, http.StatusInternalServerError, fmt.Errorf("error inserting in jetsapi.input_registry table: %v", err)
 			}
+			// //***
+			// log.Println("Read back the schema provider from in_registry with key", inputRegistryKey)
+			// var xxx string
+			// ctx.Dbpool.QueryRow(context.Background(), "select schema_provider_json from jetsapi.input_registry where key=$1", inputRegistryKey).Scan(&xxx)
+			// log.Println(xxx)
+			// //***
 			if !strings.Contains(fileKey, "/test_") && !registerFileKeyAction.NoAutomatedLoad {
 				// Check for any process that are ready to kick off
 				ctx.StartPipelineOnInputRegistryInsert(&RegisterFileKeyAction{

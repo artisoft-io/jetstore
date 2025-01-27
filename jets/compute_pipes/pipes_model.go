@@ -103,7 +103,7 @@ type CsvSourceSpec struct {
 	Type                string `json:"type"`
 	Format              string `json:"format,omitempty"`
 	Compression         string `json:"compression,omitempty"`
-	Delimiter           string `json:"delimiter,omitempty"`      // default ','
+	Delimiter           rune   `json:"delimiter"`                // default ','
 	ProcessName         string `json:"process_name,omitempty"`   // for cpipes
 	ReadStepId          string `json:"read_step_id,omitempty"`   // for cpipes
 	JetsPartitionLabel  string `json:"jets_partition,omitempty"` // for cpipes
@@ -166,7 +166,7 @@ type SchemaProviderSpec struct {
 	Format                  string             `json:"format,omitempty"`
 	Encoding                string             `json:"encoding,omitempty"`
 	DetectEncoding          bool               `json:"detect_encoding"`
-	Delimiter               string             `json:"delimiter,omitempty"`
+	Delimiter               rune               `json:"delimiter"`
 	Compression             string             `json:"compression,omitempty"`
 	InputFormatDataJson     string             `json:"input_format_data_json,omitempty"`
 	UseLazyQuotes           bool               `json:"use_lazy_quotes"`
@@ -284,7 +284,7 @@ type InputChannelConfig struct {
 	Type             string `json:"type"`
 	Name             string `json:"name"`
 	Format           string `json:"format,omitempty"`
-	Delimiter        string `json:"delimiter,omitempty"`
+	Delimiter        rune   `json:"delimiter"`
 	Compression      string `json:"compression,omitempty"`
 	SchemaProvider   string `json:"schema_provider,omitempty"`
 	ReadStepId       string `json:"read_step_id"`
@@ -316,7 +316,7 @@ type OutputChannelConfig struct {
 	Type                  string `json:"type"`
 	Name                  string `json:"name"`
 	Format                string `json:"format,omitempty"`           // Type stage,output
-	Delimiter             string `json:"delimiter,omitempty"`        // Type stage,output
+	Delimiter             rune   `json:"delimiter"`                  // Type stage,output
 	Compression           string `json:"compression,omitempty"`      // Type stage,output
 	UseInputParquetSchema bool   `json:"use_input_parquet_schema"`   // Type stage,output
 	SchemaProvider        string `json:"schema_provider,omitempty"`  // Type stage,output, alt to Format

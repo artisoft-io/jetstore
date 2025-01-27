@@ -145,8 +145,8 @@ func (args *StartComputePipesArgs) StartReducingComputePipes(ctx context.Context
 	var inputColumns []string
 	inputChannel := inputChannelConfig.Name
 	if inputChannel == "input_row" && inputFormat == "csv" {
-		delimitor := "," // defaults to ',' in reduce mode input unless specified by schema provider
-		if inputChannelSP != nil && len(inputChannelSP.Delimiter) > 0 {
+		delimitor := rune(',') // defaults to ',' in reduce mode input unless specified by schema provider
+		if inputChannelSP != nil && inputChannelSP.Delimiter > 0 {
 			delimitor = inputChannelSP.Delimiter
 		}
 		// special case, need to get the input columns from file of first partition

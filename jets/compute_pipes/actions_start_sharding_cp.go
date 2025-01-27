@@ -132,7 +132,7 @@ func (args *StartComputePipesArgs) StartShardingComputePipes(ctx context.Context
 	if (*format == "csv" || *format == "parquet") && len(cpipesStartup.InputColumns) == 0 {
 		fetchHeaders = true
 	}
-	if strings.HasSuffix(*format, "csv") && len(mainInputSchemaProvider.Delimiter) == 0 {
+	if strings.HasSuffix(*format, "csv") && mainInputSchemaProvider.Delimiter == 0 {
 		fetchDelimitor = true
 	}
 	if fetchHeaders || fetchDelimitor || mainInputSchemaProvider.DetectEncoding {
@@ -149,7 +149,7 @@ func (args *StartComputePipesArgs) StartShardingComputePipes(ctx context.Context
 			cpipesStartup.InputColumns = fileInfo.headers
 		}
 		if fileInfo.sepFlag != 0 {
-			sp.Delimiter = fileInfo.sepFlag.String()
+			sp.Delimiter = rune(fileInfo.sepFlag)
 		}
 		if len(fileInfo.encoding) > 0 {
 			sp.Encoding = fileInfo.encoding
