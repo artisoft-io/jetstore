@@ -286,7 +286,7 @@ func (args *StartComputePipesArgs) StartShardingComputePipes(ctx context.Context
 	if err != nil {
 		return result, err
 	}
-	// log.Println("*** shardingConfigJson ***")
+	// log.Println("*** shardingConfigJson")
 	// log.Println(string(shardingConfigJson))
 	// Create entry in cpipes_execution_status
 	stmt := `INSERT INTO jetsapi.cpipes_execution_status 

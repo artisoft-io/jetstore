@@ -358,9 +358,9 @@ func (cpCtx *ComputePipesContext) ReadCsvFile(filePath *FileName,
 	if sp != nil {
 		encoding = sp.Encoding()
 		sepFlag = sp.Delimiter()
-		log.Printf("*** ReadCsvFile: got delimiter '%v' or '%s' and encoding '%s' from schema provider\n", sepFlag, string(sepFlag), encoding)
+		// log.Printf("*** ReadCsvFile: got delimiter '%v' or '%s' and encoding '%s' from schema provider\n", sepFlag, string(sepFlag), encoding)
 	}
-	log.Printf("*** ReadCsvFile: read file from %d to %d of file size %d\n", filePath.InFileKeyInfo.start, filePath.InFileKeyInfo.end, filePath.InFileKeyInfo.size)
+	// log.Printf("*** ReadCsvFile: read file from %d to %d of file size %d\n", filePath.InFileKeyInfo.start, filePath.InFileKeyInfo.end, filePath.InFileKeyInfo.size)
 
 	switch compression {
 
@@ -379,19 +379,19 @@ func (cpCtx *ComputePipesContext) ReadCsvFile(filePath *FileName,
 					n, shardOffset, err)
 			}
 			if buf[n-1] == '\n' {
-				log.Printf("*** removed the last \\n!!")
+				// log.Printf("*** removed the last \\n!!")
 				buf = buf[:n-1]
 			} else {
 				buf = buf[:n]
 			}
-			log.Printf("*** OFFSET POSITIONING buf resized to %d\n", len(buf))
+			// log.Printf("*** OFFSET POSITIONING buf resized to %d\n", len(buf))
 			// Get to the last \n
 			l := LastIndexByte(buf, '\n')
 			if l < 0 {
 				return 0, fmt.Errorf("error: could not find end of previous record in ReadCsvFile: key %s", filePath.InFileKeyInfo.key)
 			}
 			// seek to first character after the last '\n'
-			log.Printf("*** OFFSET POSITIONING SEEKING to pos %d\n", l+beOffset)
+			// log.Printf("*** OFFSET POSITIONING SEEKING to pos %d\n", l+beOffset)
 			_, err = fileHd.Seek(int64(l+beOffset), 0)
 			if err != nil {
 				return 0, fmt.Errorf("error while seeking to start of shard in ReadCsvFile: %v", err)
@@ -421,8 +421,8 @@ func (cpCtx *ComputePipesContext) ReadCsvFile(filePath *FileName,
 	}
 	if inputFormat == "csv" && filePath.InFileKeyInfo.start == 0 {
 		// skip header row (first row)
-		hrow, err := csvReader.Read()
-		log.Printf("*** ReadCsvFile: skip header row of %d headers, err?: %v\n", len(hrow), err)
+		_, err := csvReader.Read()
+		// log.Printf("*** ReadCsvFile: skip header row of %d headers, err?: %v\n", len(hrow), err)
 		switch {
 		case err == io.EOF: // empty file
 			return 0, nil
@@ -441,7 +441,7 @@ func (cpCtx *ComputePipesContext) ReadCsvFile(filePath *FileName,
 		dropLastRow = true
 		// Read first record
 		inRow, err = csvReader.Read()
-		log.Printf("** Read First Row -dropLast contains %d columns, err?: %v\n", len(inRow), err)
+		// log.Printf("*** Read First Row -dropLast contains %d columns, err?: %v\n", len(inRow), err)
 		switch {
 		case err == io.EOF: // empty file
 			return 0, nil
@@ -456,16 +456,11 @@ func (cpCtx *ComputePipesContext) ReadCsvFile(filePath *FileName,
 		trimColumns = sp.TrimColumns()
 	}
 	lastLineFlag := false
-	var meCount int
 	for {
 		// read and put the rows into computePipesInputCh
 		if dropLastRow {
 			nextInRow, err = csvReader.Read()
 			// log.Println("**Next Row -dropLast", nextInRow, "err:", err)
-			meCount++
-			if meCount < 5 {
-				log.Printf("** Read Next Row -dropLast contains %d columns, err?: %v\n", len(nextInRow), err)
-			}
 			if (errors.Is(err, csv.ErrFieldCount) || errors.Is(err, csv.ErrQuote)) && !lastLineFlag {
 				// Got a partial read, the next read should give the io.EOF unless there is an error
 				err = nil
@@ -473,10 +468,6 @@ func (cpCtx *ComputePipesContext) ReadCsvFile(filePath *FileName,
 			}
 		} else {
 			inRow, err = csvReader.Read()
-			meCount++
-			if meCount < 5 {
-				log.Printf("** Read Row contains %d columns, err?: %v\n", len(inRow), err)
-			}
 			// log.Println("**Row", inRow)
 		}
 		if err == nil && inputRowCount > 0 {
@@ -626,19 +617,19 @@ func (cpCtx *ComputePipesContext) ReadFixedWidthFile(filePath *FileName, shardOf
 			return 0, fmt.Errorf("error while reading shard offset bytes in ReadFixedWidthFile: %v", err)
 		}
 		if buf[n-1] == '\n' {
-			log.Printf("*** removed the last \\n!!")
+			// log.Printf("*** removed the last \\n!!")
 			buf = buf[:n-1]
 		} else {
 			buf = buf[:n]
 		}
-		log.Printf("*** OFFSET POSITIONING buf resized to %d\n", len(buf))
+		// log.Printf("*** OFFSET POSITIONING buf resized to %d\n", len(buf))
 		// Get to the last \n
 		l := LastIndexByte(buf, '\n')
 		if l < 0 {
 			return 0, fmt.Errorf("error: could not find end of previous record in ReadFixedWidthFile: key %s", filePath.InFileKeyInfo.key)
 		}
 		// seek to first character after the last '\n'
-		log.Printf("*** OFFSET POSITIONING SEEKING to pos %d\n", l+beOffset)
+		// log.Printf("*** OFFSET POSITIONING SEEKING to pos %d\n", l+beOffset)
 		_, err = fileHd.Seek(int64(l+beOffset), 0)
 		if err != nil {
 			return 0, fmt.Errorf("error while seeking to start of shard in ReadCsvFile: %v", err)
