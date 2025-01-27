@@ -103,7 +103,7 @@ type CsvSourceSpec struct {
 	Type                string `json:"type"`
 	Format              string `json:"format,omitempty"`
 	Compression         string `json:"compression,omitempty"`
-	Delimiter           string `json:"delimiter,omitempty"`      // default ','
+	Delimiter           rune   `json:"delimiter"`                // default ','
 	ProcessName         string `json:"process_name,omitempty"`   // for cpipes
 	ReadStepId          string `json:"read_step_id,omitempty"`   // for cpipes
 	JetsPartitionLabel  string `json:"jets_partition,omitempty"` // for cpipes
@@ -164,9 +164,11 @@ type SchemaProviderSpec struct {
 	SourceType              string             `json:"source_type"`
 	SchemaName              string             `json:"schema_name,omitempty"`
 	Format                  string             `json:"format,omitempty"`
+	Encoding                string             `json:"encoding,omitempty"`
+	DetectEncoding          bool               `json:"detect_encoding"`
+	Delimiter               rune               `json:"delimiter"`
 	Compression             string             `json:"compression,omitempty"`
 	InputFormatDataJson     string             `json:"input_format_data_json,omitempty"`
-	Delimiter               string             `json:"delimiter,omitempty"`
 	UseLazyQuotes           bool               `json:"use_lazy_quotes"`
 	VariableFieldsPerRecord bool               `json:"variable_fields_per_record"`
 	ReadDateLayout          string             `json:"read_date_layout,omitempty"`
@@ -281,9 +283,10 @@ type InputChannelConfig struct {
 	// most likely from the group_by operator.
 	Type             string `json:"type"`
 	Name             string `json:"name"`
-	Format           string `json:"format,omitempty"`          // Type stage
-	Compression      string `json:"compression,omitempty"`     // Type stage
-	SchemaProvider   string `json:"schema_provider,omitempty"` // Type stage
+	Format           string `json:"format,omitempty"`
+	Delimiter        rune   `json:"delimiter"`
+	Compression      string `json:"compression,omitempty"`
+	SchemaProvider   string `json:"schema_provider,omitempty"`
 	ReadStepId       string `json:"read_step_id"`
 	SamplingRate     int    `json:"sampling_rate"`
 	SamplingMaxCount int    `json:"sampling_max_count"`
@@ -313,6 +316,7 @@ type OutputChannelConfig struct {
 	Type                  string `json:"type"`
 	Name                  string `json:"name"`
 	Format                string `json:"format,omitempty"`           // Type stage,output
+	Delimiter             rune   `json:"delimiter"`                  // Type stage,output
 	Compression           string `json:"compression,omitempty"`      // Type stage,output
 	UseInputParquetSchema bool   `json:"use_input_parquet_schema"`   // Type stage,output
 	SchemaProvider        string `json:"schema_provider,omitempty"`  // Type stage,output, alt to Format
@@ -336,8 +340,9 @@ type DataSchemaSpec struct {
 }
 
 type EntityHint struct {
-	Entity        string   `json:"entity"`
-	NameFragments []string `json:"column_name_fragments"`
+	Entity             string   `json:"entity"`
+	NameFragments      []string `json:"column_name_fragments"`
+	ExclusionFragments []string `json:"exclusion_fragments"`
 }
 
 type RegexNode struct {

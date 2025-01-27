@@ -125,8 +125,8 @@ do_retry:
 
 	source := ctx.spec
 	sepFlag := ','
-	if len(source.Delimiter) > 0 {
-		sepFlag = []rune(source.Delimiter)[0]
+	if source.Delimiter != 0 {
+		sepFlag = source.Delimiter
 	}
 
 	// Read the csv file and package the lookup table

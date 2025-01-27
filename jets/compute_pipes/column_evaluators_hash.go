@@ -252,7 +252,7 @@ func (pf *DefaultPF) ApplyPF(buf *bytes.Buffer, input *[]interface{}) error {
 	return nil
 }
 
-// FormatDatePF is writing a date field using YYYMMDD format
+// FormatDatePF is writing a date field using YYYYMMDD format
 // This assume the date in the input is a valid date as string
 type FormatDatePF struct {
 	inputPos int

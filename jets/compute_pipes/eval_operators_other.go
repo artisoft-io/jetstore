@@ -55,3 +55,17 @@ func (op opApplyFormat) eval(lhs interface{}, rhs interface{}) (interface{}, err
 		}
 	}
 }
+
+
+// Operator length() -- unary operator
+type opLength struct {}
+func (op opLength) eval(lhs interface{}, _ interface{}) (interface{}, error) {
+	if lhs == nil {
+		return 0, nil
+	}
+	switch lhsv := lhs.(type) {
+	case string:
+		return len(lhsv), nil
+	}
+	return nil, fmt.Errorf("opLength expecting string argument, rejected")
+}

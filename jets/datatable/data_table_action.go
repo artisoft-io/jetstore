@@ -1269,7 +1269,7 @@ func (ctx *Context) InsertRows(dataTableAction *DataTableAction, token string) (
 
 				// StartExecution execute rule
 				log.Printf("calling StartExecution on processArn: %s", processArn)
-				log.Printf("calling StartExecution with: %s", smInput)
+				log.Printf("calling StartExecution with: %v", smInput)
 				name, err = awsi.StartExecution(processArn, smInput, sessionId.(string))
 				if err != nil {
 					log.Printf("while calling StartExecution on processUrn '%s': %v", processArn, err)

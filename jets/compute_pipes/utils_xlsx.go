@@ -20,18 +20,18 @@ func parseInputFormatDataXlsx(inputDataFormatJson *string) error {
 	return nil
 }
 
-func GetRawHeadersXlsx(fileName string, fileFormatDataJson string, ic *[]string) error {
+func GetRawHeadersXlsx(fileName string, fileFormatDataJson string) ([]string, error) {
 	// Parse the file type specific options
 	err := parseInputFormatDataXlsx(&fileFormatDataJson)
 	if err != nil {
-		return fmt.Errorf("while parsing input_data_format_json for xlsx files: %v", err)
+		return nil, fmt.Errorf("while parsing input_data_format_json for xlsx files: %v", err)
 	}
 
 	// Get rawHeaders from file
 	// open the file, need to get the sheet structure
 	xl, err := xlsxreader.OpenFile(fileName)
 	if err != nil {
-		return fmt.Errorf("while opening file %s using xlsx reader: %v", fileName, err)
+		return nil, fmt.Errorf("while opening file %s using xlsx reader: %v", fileName, err)
 	}
 	defer xl.Close()
 
@@ -52,7 +52,7 @@ func GetRawHeadersXlsx(fileName string, fileFormatDataJson string, ic *[]string)
 			}
 			if currentSheetPos < 0 {
 				// Current Sheet not found
-				return fmt.Errorf("error: could not find sheet named %s in xlsx file", sheet)
+				return nil, fmt.Errorf("error: could not find sheet named %s in xlsx file", sheet)
 			}
 		}
 		inputFormatData["currentSheetPos"] = currentSheetPos
@@ -66,7 +66,7 @@ func GetRawHeadersXlsx(fileName string, fileFormatDataJson string, ic *[]string)
 	for {
 		row, ok = <-xlCh
 		if !ok || row.Error != nil {
-			return fmt.Errorf("error: could not read headers from xlsx file: %v", row.Error)
+			return nil, fmt.Errorf("error: could not read headers from xlsx file: %v", row.Error)
 		}
 		if len(row.Cells) > 1 {
 			// ok got headers
@@ -85,7 +85,6 @@ func GetRawHeadersXlsx(fileName string, fileFormatDataJson string, ic *[]string)
 	}
 	// Make sure we don't have empty names in rawHeaders
 	AdjustFillers(&rawHeaders)
-	*ic = rawHeaders
-	fmt.Println("Got input columns (rawHeaders) from xls file:", *ic)
-	return nil
+	fmt.Println("Got input columns (rawHeaders) from xls file:", rawHeaders)
+	return rawHeaders, nil
 }
