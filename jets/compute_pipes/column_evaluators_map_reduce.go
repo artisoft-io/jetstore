@@ -86,15 +86,15 @@ func (ctx *BuilderContext) BuildMapReduceTCEvaluator(source *InputChannel, outCh
 		return nil, fmt.Errorf("error: Type map_reduce must have MapOn, ApplyMap and ApplyReduce not empty")
 	}
 	var err error
-	mapOnColumnIdx, ok := source.columns[*spec.MapOn]
+	mapOnColumnIdx, ok := (*source.columns)[*spec.MapOn]
 	if !ok {
-		return nil, fmt.Errorf("error column %s not found in input source %s", *spec.MapOn, source.config.Name)
+		return nil, fmt.Errorf("error column %s not found in input source %s", *spec.MapOn, source.name)
 	}
 	var altInputKey []PreprocessingFunction
 	if len(spec.AlternateMapOn) > 0 {
 		altInputKey, err = ParseAltKeyDefinition(spec.AlternateMapOn, source.columns)
 		if err != nil {
-			return nil, fmt.Errorf("buildMapReduceEvaluator: %v in source name %s", err, source.config.Name)
+			return nil, fmt.Errorf("buildMapReduceEvaluator: %v in source name %s", err, source.name)
 		}
 	}
 
@@ -105,7 +105,7 @@ func (ctx *BuilderContext) BuildMapReduceTCEvaluator(source *InputChannel, outCh
 
 	mapColumnEval := make([]TransformationColumnEvaluator, len(spec.ApplyMap))
 	intermediateOutputChannel := &OutputChannel{
-		columns: intermediateColumns,
+		columns: &intermediateColumns,
 		config: &ChannelSpec{
 			Name:      "map_reduce.intermediateOutputChannel",
 			ClassName: source.config.ClassName,
@@ -121,7 +121,7 @@ func (ctx *BuilderContext) BuildMapReduceTCEvaluator(source *InputChannel, outCh
 
 	reduceColumnEval := make([]TransformationColumnEvaluator, len(spec.ApplyReduce))
 	intermediateInputChannel := &InputChannel{
-		columns: intermediateColumns,
+		columns: &intermediateColumns,
 		config: &ChannelSpec{
 			Name:      "map_reduce.intermediateInputChannel",
 			ClassName: source.config.ClassName,

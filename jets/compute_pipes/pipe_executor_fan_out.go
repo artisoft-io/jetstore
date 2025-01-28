@@ -63,7 +63,7 @@ func (ctx *BuilderContext) StartFanOutPipe(spec *PipeSpec, source *InputChannel,
 		evaluators[j] = eval
 	}
 
-	// fmt.Println("**!@@ start fan_out loop on source:", source.config.Name)
+	// fmt.Println("**!@@ start fan_out loop on source:", source.name)
 	for inRow := range source.channel {
 		for i := range spec.Apply {
 			err = evaluators[i].Apply(&inRow)

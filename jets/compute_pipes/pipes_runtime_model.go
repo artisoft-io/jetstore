@@ -32,12 +32,10 @@ func (r *ChannelRegistry) AddDistributionChannel(input string) string {
 	*channels = append(*channels, echo)
 	// create the echo channel
 	r.computeChannels[echo] = &Channel{
+		name:    echo,
 		channel: make(chan []interface{}),
 		columns: r.computeChannels[input].columns,
-		config: &ChannelSpec{
-			Name:    echo,
-			Columns: r.computeChannels[input].config.Columns,
-		},
+		config:  r.computeChannels[input].config,
 	}
 	log.Printf("AddDistributionChannel %s -> %s", input, echo)
 	return echo
@@ -61,6 +59,7 @@ func (r *ChannelRegistry) GetInputChannel(name string, hasGroupedRows bool) (*In
 	if name == "input_row" {
 		if r.inputRowChannel.hasGroupedRows != hasGroupedRows {
 			return &InputChannel{
+				name:           name,
 				channel:        r.inputRowChannel.channel,
 				config:         r.inputRowChannel.config,
 				columns:        r.inputRowChannel.columns,
@@ -74,6 +73,7 @@ func (r *ChannelRegistry) GetInputChannel(name string, hasGroupedRows bool) (*In
 		return nil, fmt.Errorf("error: input channel '%s' not found in ChannelRegistry", name)
 	}
 	return &InputChannel{
+		name:           name,
 		channel:        ch.channel,
 		config:         ch.config,
 		columns:        ch.columns,
@@ -86,6 +86,7 @@ func (r *ChannelRegistry) GetOutputChannel(name string) (*OutputChannel, error) 
 		return nil, fmt.Errorf("error: output channel '%s' not found in ChannelRegistry", name)
 	}
 	return &OutputChannel{
+		name:    name,
 		channel: ch.channel,
 		config:  ch.config,
 		columns: ch.columns,
@@ -93,19 +94,22 @@ func (r *ChannelRegistry) GetOutputChannel(name string) (*OutputChannel, error) 
 }
 
 type Channel struct {
+	name    string
 	channel chan []interface{}
-	columns map[string]int
+	columns *map[string]int
 	config  *ChannelSpec
 }
 type InputChannel struct {
+	name           string
 	channel        <-chan []interface{}
-	columns        map[string]int
+	columns        *map[string]int
 	config         *ChannelSpec
 	hasGroupedRows bool
 }
 type OutputChannel struct {
+	name    string
 	channel chan<- []interface{}
-	columns map[string]int
+	columns *map[string]int
 	config  *ChannelSpec
 }
 
@@ -158,24 +162,24 @@ func (ctx *BuilderContext) BuildComputeGraph() error {
 
 		switch pipeSpec.Type {
 		case "fan_out":
-			// log.Println("**& starting PipeConfig", i, "fan_out", "on source", source.config.Name)
+			// log.Println("**& starting PipeConfig", i, "fan_out", "on source", source.name)
 			// Create the writePartitionResultCh in case it contains a partition_writter,
 			// it would write a single partition, the ch will contain the number of rows for the partition
 			writePartitionsResultCh := make(chan ComputePipesResult, 10)
 			ctx.chResults.WritePartitionsResultCh <- writePartitionsResultCh
 			wg.Add(1)
-			go func ()  {
+			go func() {
 				defer wg.Done()
 				ctx.StartFanOutPipe(pipeSpec, source, writePartitionsResultCh)
 			}()
 
 		case "splitter":
-			// log.Println("**& starting PipeConfig", i, "splitter", "on source", source.config.Name)
+			// log.Println("**& starting PipeConfig", i, "splitter", "on source", source.name)
 			// Create the writePartitionResultCh that will contain the number of rows for each partition
 			writePartitionsResultCh := make(chan ComputePipesResult, 15000) // NOTE Max number of partitions
 			ctx.chResults.WritePartitionsResultCh <- writePartitionsResultCh
 			wg.Add(1)
-			go func ()  {
+			go func() {
 				defer wg.Done()
 				ctx.StartSplitterPipe(pipeSpec, source, writePartitionsResultCh)
 			}()
@@ -198,7 +202,7 @@ func (ctx *BuilderContext) BuildPipeTransformationEvaluator(source *InputChannel
 	partitionResultCh chan ComputePipesResult, spec *TransformationSpec) (PipeTransformationEvaluator, error) {
 
 	// Construct the pipe transformation
-	// log.Println("**& BuildPipeTransformationEvaluator for", spec.Type, "source:", source.config.Name, "jetsPartitionKey:", jetsPartitionKey, "output:", spec.Output)
+	// log.Println("**& BuildPipeTransformationEvaluator for", spec.Type, "source:", source.name, "jetsPartitionKey:", jetsPartitionKey, "output:", spec.Output)
 
 	// Get the output channel
 	var outCh *OutputChannel
@@ -207,10 +211,10 @@ func (ctx *BuilderContext) BuildPipeTransformationEvaluator(source *InputChannel
 		outCh, err = ctx.channelRegistry.GetOutputChannel(spec.OutputChannel.Name)
 		if err != nil {
 			err = fmt.Errorf("while in BuildPipeTransformationEvaluator for %s from source %s requesting output channel %s: %v",
-				spec.Type, source.config.Name, spec.OutputChannel.Name, err)
+				spec.Type, source.name, spec.OutputChannel.Name, err)
 			log.Println(err)
 			return nil, err
-		}	
+		}
 	}
 	switch spec.Type {
 	case "map_record":

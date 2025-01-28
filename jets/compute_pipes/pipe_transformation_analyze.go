@@ -78,21 +78,21 @@ func (ctx *AnalyzeTransformationPipe) Done() error {
 	// For each column state in ctx.analyzeState, send out a row to ctx.outputCh
 	var ok bool
 	for _, state := range ctx.analyzeState {
-		outputRow := make([]interface{}, len(ctx.outputCh.columns))
+		outputRow := make([]interface{}, len(*ctx.outputCh.columns))
 
 		// The first base columns
 		var ipos int
-		ipos, ok = ctx.outputCh.columns["column_name"]
+		ipos, ok = (*ctx.outputCh.columns)["column_name"]
 		if ok {
 			outputRow[ipos] = state.ColumnName
 		}
-		
-		ipos, ok = ctx.outputCh.columns["column_pos"]
+
+		ipos, ok = (*ctx.outputCh.columns)["column_pos"]
 		if ok {
 			outputRow[ipos] = state.ColumnPos
 		}
 
-		ipos, ok = ctx.outputCh.columns["input_data_type"]
+		ipos, ok = (*ctx.outputCh.columns)["input_data_type"]
 		if ok {
 			outputRow[ipos] = ctx.inputDataType[state.ColumnName]
 		}
@@ -102,7 +102,7 @@ func (ctx *AnalyzeTransformationPipe) Done() error {
 			ratioFactor = 100.0 / float64(state.TotalRowCount-state.NullCount)
 		}
 
-		ipos, ok = ctx.outputCh.columns["entity_hint"]
+		ipos, ok = (*ctx.outputCh.columns)["entity_hint"]
 		if ok {
 			for _, ehint := range ctx.spec.AnalyzeConfig.EntityHints {
 				for _, frag := range ehint.NameFragments {
@@ -111,7 +111,7 @@ func (ctx *AnalyzeTransformationPipe) Done() error {
 					}
 				}
 				goto nextHint
-				continueHint:
+			continueHint:
 				for _, frag := range ehint.ExclusionFragments {
 					if strings.Contains(strings.ToUpper(state.ColumnName), strings.ToUpper(frag)) {
 						goto nextHint
@@ -119,17 +119,17 @@ func (ctx *AnalyzeTransformationPipe) Done() error {
 				}
 				outputRow[ipos] = ehint.Entity
 				goto doneEntityHint
-				nextHint:
+			nextHint:
 			}
 		}
-		doneEntityHint:
+	doneEntityHint:
 
-		ipos, ok = ctx.outputCh.columns["distinct_count"]
+		ipos, ok = (*ctx.outputCh.columns)["distinct_count"]
 		if ok {
 			outputRow[ipos] = distinctCount
 		}
 
-		ipos, ok = ctx.outputCh.columns["distinct_count_pct"]
+		ipos, ok = (*ctx.outputCh.columns)["distinct_count_pct"]
 		if ok {
 			if ratioFactor > 0 {
 				outputRow[ipos] = float64(distinctCount) * ratioFactor
@@ -138,27 +138,27 @@ func (ctx *AnalyzeTransformationPipe) Done() error {
 			}
 		}
 
-		ipos, ok = ctx.outputCh.columns["null_count"]
+		ipos, ok = (*ctx.outputCh.columns)["null_count"]
 		if ok {
 			outputRow[ipos] = state.NullCount
 		}
 
-		ipos, ok = ctx.outputCh.columns["null_count_pct"]
+		ipos, ok = (*ctx.outputCh.columns)["null_count_pct"]
 		if ok {
 			outputRow[ipos] = float64(state.NullCount) / float64(state.TotalRowCount) * 100
 		}
 
-		ipos, ok = ctx.outputCh.columns["total_count"]
+		ipos, ok = (*ctx.outputCh.columns)["total_count"]
 		if ok {
 			outputRow[ipos] = state.TotalRowCount
 		}
 
 		avrLen, avrVar := state.Welford.Finalize()
-		ipos, ok = ctx.outputCh.columns["avr_length"]
+		ipos, ok = (*ctx.outputCh.columns)["avr_length"]
 		if ok {
 			outputRow[ipos] = avrLen
 		}
-		ipos, ok = ctx.outputCh.columns["length_var"]
+		ipos, ok = (*ctx.outputCh.columns)["length_var"]
 		if ok {
 			outputRow[ipos] = avrVar
 		}
@@ -169,7 +169,7 @@ func (ctx *AnalyzeTransformationPipe) Done() error {
 
 		// The regex tokens
 		for name, m := range state.RegexMatch {
-			ipos, ok = ctx.outputCh.columns[name]
+			ipos, ok = (*ctx.outputCh.columns)[name]
 			if ok {
 				if ratioFactor > 0 {
 					outputRow[ipos] = float64(m.Count) * ratioFactor
@@ -187,7 +187,7 @@ func (ctx *AnalyzeTransformationPipe) Done() error {
 		// The lookup tokens
 		for _, lookupState := range state.LookupState {
 			for name, m := range lookupState.LookupMatch {
-				ipos, ok := ctx.outputCh.columns[name]
+				ipos, ok := (*ctx.outputCh.columns)[name]
 				if ok {
 					if ratioFactor > 0 {
 						outputRow[ipos] = float64(m.Count) * ratioFactor
@@ -200,7 +200,7 @@ func (ctx *AnalyzeTransformationPipe) Done() error {
 
 		// The keywords match
 		for name, m := range state.KeywordMatch {
-			ipos, ok = ctx.outputCh.columns[name]
+			ipos, ok = (*ctx.outputCh.columns)[name]
 			if ok {
 				if ratioFactor > 0 {
 					outputRow[ipos] = float64(m.Count) * ratioFactor
@@ -212,7 +212,7 @@ func (ctx *AnalyzeTransformationPipe) Done() error {
 
 		// The functions tokens
 		for name, m := range state.FunctionMatch {
-			ipos, ok = ctx.outputCh.columns[name]
+			ipos, ok = (*ctx.outputCh.columns)[name]
 			if ok {
 				if ratioFactor > 0 {
 					outputRow[ipos] = float64(m.Count) * ratioFactor
@@ -235,7 +235,7 @@ func (ctx *AnalyzeTransformationPipe) Done() error {
 		}
 
 		// Send the column result to output
-		// log.Println("**!@@ ** Send AGGREGATE Result to", ctx.outputCh.config.Name)
+		// log.Println("**!@@ ** Send AGGREGATE Result to", ctx.outputCh.name)
 		select {
 		case ctx.outputCh.channel <- outputRow:
 		case <-ctx.doneCh:
@@ -243,7 +243,7 @@ func (ctx *AnalyzeTransformationPipe) Done() error {
 		}
 	}
 
-	// log.Println("**!@@ ** Send ANALYZE Result to", ctx.outputCh.config.Name, "DONE")
+	// log.Println("**!@@ ** Send ANALYZE Result to", ctx.outputCh.name, "DONE")
 	return nil
 }
 

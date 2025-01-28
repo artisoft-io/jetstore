@@ -23,7 +23,6 @@ type S3DeviceWriter struct {
 	s3DeviceManager *S3DeviceManager
 	source          *InputChannel
 	schemaProvider  SchemaProvider
-	columnNames     []string
 	parquetSchema   *ParquetSchemaInfo
 	localTempDir    *string
 	externalBucket  *string
@@ -84,7 +83,7 @@ func (ctx *S3DeviceWriter) WriteParquetPartition() {
 		rowData := make(map[string]any)
 		for _, colDef := range schemaDef.RootColumn.Children {
 			se := colDef.SchemaElement
-			pos := ctx.source.columns[se.Name]
+			pos := (*ctx.source.columns)[se.Name]
 			value, err := ConvertToSchema(inRow[pos], se)
 			if err != nil {
 				cpErr = fmt.Errorf("converting to parquet type failed: %v", err)
@@ -98,7 +97,7 @@ func (ctx *S3DeviceWriter) WriteParquetPartition() {
 			cpErr = fmt.Errorf("while writing row to local parquet file: %v", err)
 			// log.Println(cpErr, "...Ignored")
 			goto gotError
-	}
+		}
 	}
 
 	err = fw.Close()
@@ -149,13 +148,13 @@ func ConvertToSchema(v any, se *parquet.SchemaElement) (any, error) {
 					// Couln't parse the date, return 1970/01/01
 					return int32(0), nil
 				}
-        tm := int32(d.Unix())
-        if tm > 24 * 60 * 60 {
-          return tm / (42 * 60 * 60), nil
-        }
+				tm := int32(d.Unix())
+				if tm > 24*60*60 {
+					return tm / (42 * 60 * 60), nil
+				}
 				return int32(0), nil
 			}
-      i, err := strconv.Atoi(vv)
+			i, err := strconv.Atoi(vv)
 			return int32(i), err
 		case int:
 			return int32(vv), nil
@@ -247,6 +246,7 @@ func (ctx *S3DeviceWriter) WriteCsvPartition() {
 	s3FileName := fmt.Sprintf("%s/%s", *ctx.s3BasePath, *ctx.fileName)
 
 	// fmt.Println("**&@@ WriteCsvPartition *1: fileName:", *ctx.fileName)
+	// fmt.Println("*** WriteCsvPartition OUTPUT COLUMNS:",ctx.outputCh.config.Columns)
 	if ctx.s3DeviceManager == nil {
 		cpErr = fmt.Errorf("error: s3DeviceManager is nil")
 		goto gotError
@@ -277,7 +277,7 @@ func (ctx *S3DeviceWriter) WriteCsvPartition() {
 		csvWriter.Comma = ctx.spec.OutputChannel.Delimiter
 	}
 	if ctx.spec.OutputChannel.Format == "csv" {
-		err = csvWriter.Write(ctx.columnNames)
+		err = csvWriter.Write(ctx.outputCh.config.Columns)
 		if err != nil {
 			cpErr = fmt.Errorf("while writing headers to local csv file: %v", err)
 			goto gotError
@@ -370,7 +370,7 @@ func (ctx *S3DeviceWriter) WriteFixedWidthPartition() {
 	// Getting the column position for the output fw columns
 	columnPos = make([]int, 0, len(*fwColumnsInfo))
 	for _, fwColumn := range *fwColumnsInfo {
-		columnPos = append(columnPos, ctx.outputCh.columns[fwColumn.ColumnName])
+		columnPos = append(columnPos, (*ctx.outputCh.columns)[fwColumn.ColumnName])
 	}
 
 	// fmt.Println("**&@@ WriteFixedWidthPartition *1: fileName:", *ctx.fileName)

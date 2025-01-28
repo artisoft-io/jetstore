@@ -54,8 +54,8 @@ func (ctx *ClusteringTransformationPipe) Finally() {
 	ctx.poolManager.WaitForDone.Wait()
 	if ctx.correlationOutputCh != nil {
 		log.Printf("ClusteringTransformationPipe: Closing Correlation Output Channel %s\n",
-			ctx.correlationOutputCh.config.Name)
-		ctx.channelRegistry.CloseChannel(ctx.correlationOutputCh.config.Name)
+			ctx.correlationOutputCh.name)
+		ctx.channelRegistry.CloseChannel(ctx.correlationOutputCh.name)
 	}
 }
 
@@ -92,23 +92,23 @@ func (ctx *BuilderContext) NewClusteringTransformationPipe(source *InputChannel,
 		return nil, err
 	}
 	// Make sure to have the expected columns in the correlationOutputCh channel
-	_, ok := correlationOutputCh.columns["column_name_1"]
+	_, ok := (*correlationOutputCh.columns)["column_name_1"]
 	if !ok {
 		return nil, fmt.Errorf("error: the clustering operator's correlation_output_channel is missing column 'column_name_1'")
 	}
-	_, ok = correlationOutputCh.columns["column_name_2"]
+	_, ok = (*correlationOutputCh.columns)["column_name_2"]
 	if !ok {
 		return nil, fmt.Errorf("error: the clustering operator's correlation_output_channel is missing column 'column_name_2'")
 	}
-	_, ok = correlationOutputCh.columns["observations_count"]
+	_, ok = (*correlationOutputCh.columns)["observations_count"]
 	if !ok {
 		return nil, fmt.Errorf("error: the clustering operator's correlation_output_channel is missing column 'observations_count'")
 	}
-	_, ok = correlationOutputCh.columns["distinct_column_1_count"]
+	_, ok = (*correlationOutputCh.columns)["distinct_column_1_count"]
 	if !ok {
 		return nil, fmt.Errorf("error: the clustering operator's correlation_output_channel is missing column 'distinct_column_1_count'")
 	}
-	_, ok = correlationOutputCh.columns["distinct_column_2_count"]
+	_, ok = (*correlationOutputCh.columns)["distinct_column_2_count"]
 	if !ok {
 		return nil, fmt.Errorf("error: the clustering operator's correlation_output_channel is missing column 'distinct_column_2_count'")
 	}

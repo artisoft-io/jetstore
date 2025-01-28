@@ -61,13 +61,13 @@ func (ctx *BuilderContext) BuildTransformationColumnEvaluator(source *InputChann
 		if spec.Expr == nil {
 			return nil, fmt.Errorf("error: Type select must have Expr != nil")
 		}
-		inputPos, ok := source.columns[*spec.Expr]
+		inputPos, ok := (*source.columns)[*spec.Expr]
 		if !ok {
-			return nil, fmt.Errorf("error column %s not found in input source %s", *spec.Expr, source.config.Name)
+			return nil, fmt.Errorf("error column %s not found in input source %s", *spec.Expr, source.name)
 		}
-		outputPos, ok := outCh.columns[spec.Name]
+		outputPos, ok := (*outCh.columns)[spec.Name]
 		if !ok {
-			return nil, fmt.Errorf("error column %s not found in output source %s", spec.Name, outCh.config.Name)
+			return nil, fmt.Errorf("error column %s not found in output source %s", spec.Name, outCh.name)
 		}
 		return &selectColumnEval{
 			inputPos:  inputPos,
@@ -80,11 +80,11 @@ func (ctx *BuilderContext) BuildTransformationColumnEvaluator(source *InputChann
 		}
 		inputPos := make([]int, 0, len(spec.ExprArray))
 		for _, columnName := range spec.ExprArray {
-			inputPos = append(inputPos, source.columns[columnName])
+			inputPos = append(inputPos, (*source.columns)[columnName])
 		}
-		outputPos, ok := outCh.columns[spec.Name]
+		outputPos, ok := (*outCh.columns)[spec.Name]
 		if !ok {
-			return nil, fmt.Errorf("error column %s not found in output source %s", spec.Name, outCh.config.Name)
+			return nil, fmt.Errorf("error column %s not found in output source %s", spec.Name, outCh.name)
 		}
 		return &multiSelectColumnEval{
 			inputPos:  inputPos,
@@ -99,9 +99,9 @@ func (ctx *BuilderContext) BuildTransformationColumnEvaluator(source *InputChann
 		if err != nil {
 			return nil, err
 		}
-		outputPos, ok := outCh.columns[spec.Name]
+		outputPos, ok := (*outCh.columns)[spec.Name]
 		if !ok {
-			return nil, fmt.Errorf("error column %s not found in output source %s", spec.Name, outCh.config.Name)
+			return nil, fmt.Errorf("error column %s not found in output source %s", spec.Name, outCh.name)
 		}
 		return &valueColumnEval{
 			value:     value,
@@ -113,9 +113,9 @@ func (ctx *BuilderContext) BuildTransformationColumnEvaluator(source *InputChann
 		if err != nil {
 			return nil, fmt.Errorf("while calling buildExprNodeEvaluator: %v", err)
 		}
-		outputPos, ok := outCh.columns[spec.Name]
+		outputPos, ok := (*outCh.columns)[spec.Name]
 		if !ok {
-			return nil, fmt.Errorf("error column %s not found in output source %s", spec.Name, outCh.config.Name)
+			return nil, fmt.Errorf("error column %s not found in output source %s", spec.Name, outCh.name)
 		}
 		return &evalExprColumnEval{
 			expr:      evalEpr,

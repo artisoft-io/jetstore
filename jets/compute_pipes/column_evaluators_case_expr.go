@@ -58,7 +58,7 @@ func (ctx *caseExprEvaluator) Update(currentValue *[]interface{}, input *[]inter
 func (ctx *caseExprEvaluator) Done(currentValue *[]interface{}) error {
 	return nil
 }
-func (ctx *BuilderContext) BuildCaseExprTCEvaluator(source *InputChannel, outCh *OutputChannel, 
+func (ctx *BuilderContext) BuildCaseExprTCEvaluator(source *InputChannel, outCh *OutputChannel,
 	spec *TransformationColumnSpec) (TransformationColumnEvaluator, error) {
 
 	if spec == nil || spec.CaseExpr == nil {
@@ -80,9 +80,9 @@ func (ctx *BuilderContext) BuildCaseExprTCEvaluator(source *InputChannel, outCh 
 			if node.Name == nil {
 				return nil, fmt.Errorf("error: case operator is missing column name in then clause")
 			}
-			outputPos, ok := outCh.columns[*node.Name]
+			outputPos, ok := (*outCh.columns)[*node.Name]
 			if !ok {
-				return nil, fmt.Errorf("error column %s not found in output source %s", *node.Name, outCh.config.Name)
+				return nil, fmt.Errorf("error column %s not found in output source %s", *node.Name, outCh.name)
 			}
 			thenCases[i] = &columnExpression{
 				outputPos: outputPos,
@@ -90,7 +90,7 @@ func (ctx *BuilderContext) BuildCaseExprTCEvaluator(source *InputChannel, outCh 
 			}
 		}
 		caseExpr[i] = caseExprClause{
-			whenCase: whenCase,
+			whenCase:  whenCase,
 			thenCases: thenCases,
 		}
 	}
@@ -104,13 +104,13 @@ func (ctx *BuilderContext) BuildCaseExprTCEvaluator(source *InputChannel, outCh 
 		if node.Name == nil {
 			return nil, fmt.Errorf("error: case operator is missing column name in else clause")
 		}
-		outputPos, ok := outCh.columns[*node.Name]
+		outputPos, ok := (*outCh.columns)[*node.Name]
 		if !ok {
-			return nil, fmt.Errorf("error column %s not found in output source %s", *node.Name, outCh.config.Name)
+			return nil, fmt.Errorf("error column %s not found in output source %s", *node.Name, outCh.name)
 		}
 		elseExpr[i] = &columnExpression{
 			outputPos: outputPos,
-			evalExpr: expr,
+			evalExpr:  expr,
 		}
 	}
 	return &caseExprEvaluator{

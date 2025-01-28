@@ -147,13 +147,13 @@ func (ctx *BuilderContext) BuildMapTCEvaluator(source *InputChannel, outCh *Outp
 		}
 	}
 
-	inputPos, ok := source.columns[*spec.Expr]
+	inputPos, ok := (*source.columns)[*spec.Expr]
 	if !ok {
-		return nil, fmt.Errorf("mapping column: error column %s not found in input source %s", *spec.Expr, source.config.Name)
+		return nil, fmt.Errorf("mapping column: error column %s not found in input source %s", *spec.Expr, source.name)
 	}
-	outputPos, ok := outCh.columns[spec.Name]
+	outputPos, ok := (*outCh.columns)[spec.Name]
 	if !ok {
-		return nil, fmt.Errorf("mapping column: error column %s not found in output source %s", spec.Name, outCh.config.Name)
+		return nil, fmt.Errorf("mapping column: error column %s not found in output source %s", spec.Name, outCh.name)
 	}
 	return &mapColumnEval{
 		mapConfig: &mapColumnConfig{
