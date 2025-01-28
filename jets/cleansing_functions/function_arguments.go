@@ -17,7 +17,7 @@ type ConcatFunctionArg struct {
 	ColumnPositions []int
 }
 
-func ParseConcatFunctionArgument(rawArg *string, functionName string, inputColumnName2Pos map[string]int, 
+func ParseConcatFunctionArgument(rawArg *string, functionName string, inputColumnName2Pos *map[string]int, 
 	cache map[string]interface{}, input *[]interface{}) (*ConcatFunctionArg, error) {
 	// rawArg is csv-encoded
 	if rawArg == nil {
@@ -45,7 +45,7 @@ func ParseConcatFunctionArgument(rawArg *string, functionName string, inputColum
 		if i == 0 && functionName == "concat_with" {
 			results.Delimit = rows[0][i]
 		} else {
-			colPos, ok := inputColumnName2Pos[rows[0][i]]
+			colPos, ok := (*inputColumnName2Pos)[rows[0][i]]
 			// fmt.Println("*** concat:",row[i],"value @:", colPos,"ok?",ok)
 			if !ok {
 				// Column not found

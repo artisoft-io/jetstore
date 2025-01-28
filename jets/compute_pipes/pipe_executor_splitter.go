@@ -64,7 +64,7 @@ func (ctx *BuilderContext) StartSplitterPipe(spec *PipeSpec, source *InputChanne
 	var jetsPartitionKey interface{}
 
 	if spec.SplitterConfig == nil {
-		cpErr = fmt.Errorf("error: missing splitter_config for splitter with source channel %s", source.config.Name)
+		cpErr = fmt.Errorf("error: missing splitter_config for splitter with source channel %s", source.name)
 		goto gotError
 	}
 	config = spec.SplitterConfig
@@ -74,7 +74,7 @@ func (ctx *BuilderContext) StartSplitterPipe(spec *PipeSpec, source *InputChanne
 	if config.Column == "" && config.DefaultSplitterValue == "" {
 		cpErr = fmt.Errorf(
 			"error: invalid splitter_config for splitter with source channel %s, must specify column or default_splitter_value",
-			source.config.Name)
+			source.name)
 		goto gotError
 	}
 	switch config.Type {
@@ -83,20 +83,20 @@ func (ctx *BuilderContext) StartSplitterPipe(spec *PipeSpec, source *InputChanne
 		if config.PartitionRowCount == 0 {
 			cpErr = fmt.Errorf(
 				"error: splitter config type ext_count, with source channel %s must have partition_row_count specified",
-				source.config.Name)
+				source.name)
 			goto gotError
 		}
 	default:
-		cpErr = fmt.Errorf("error: unknown splitter config type %s, with source channel %s", config.Type, source.config.Name)
+		cpErr = fmt.Errorf("error: unknown splitter config type %s, with source channel %s", config.Type, source.name)
 		goto gotError
 	}
 
 	// the map containing all the intermediate channels corresponding to values @ spliterColumnIdx
 	chanState = swiss.NewMap[interface{}, *ChannelState](1000)
 	if len(config.Column) > 0 {
-		spliterColumnIdx, ok = source.columns[config.Column]
+		spliterColumnIdx, ok = (*source.columns)[config.Column]
 		if !ok {
-			cpErr = fmt.Errorf("error: invalid column name %s for splitter with source channel %s", config.Column, source.config.Name)
+			cpErr = fmt.Errorf("error: invalid column name %s for splitter with source channel %s", config.Column, source.name)
 			goto gotError
 		}
 	} else {
@@ -115,7 +115,7 @@ func (ctx *BuilderContext) StartSplitterPipe(spec *PipeSpec, source *InputChanne
 		}
 	}
 
-	// fmt.Println("**!@@ start splitter loop on source:",source.config.Name)
+	// fmt.Println("**!@@ start splitter loop on source:",source.name)
 	for inRow := range source.channel {
 		baseKey = nil
 		if spliterColumnIdx >= 0 {
@@ -132,7 +132,7 @@ func (ctx *BuilderContext) StartSplitterPipe(spec *PipeSpec, source *InputChanne
 			chanState.Put(baseKey, splitCh)
 			if ctx.cpConfig.ClusterConfig.IsDebugMode {
 				if chanState.Count()%5 == 0 {
-					log.Println(ctx.sessionId, "node", ctx.nodeId, "splitter size:", chanState.Count(), " on source", source.config.Name)
+					log.Println(ctx.sessionId, "node", ctx.nodeId, "splitter size:", chanState.Count(), " on source", source.name)
 				}
 			}
 			// start a goroutine to manage the channel
@@ -148,18 +148,18 @@ func (ctx *BuilderContext) StartSplitterPipe(spec *PipeSpec, source *InputChanne
 					jetsPartitionKey = 0
 				}
 			default:
-				cpErr = fmt.Errorf("error: unknown splitter config type %s, with source channel %s", config.Type, source.config.Name)
+				cpErr = fmt.Errorf("error: unknown splitter config type %s, with source channel %s", config.Type, source.name)
 				goto gotError
 			}
 			if jetsPartitionKey == nil {
-				log.Println(ctx.sessionId, "node", ctx.nodeId, "*WARNING* splitter with nil jetsPartitionKey, with source channel", source.config.Name)
+				log.Println(ctx.sessionId, "node", ctx.nodeId, "*WARNING* splitter with nil jetsPartitionKey, with source channel", source.name)
 			}
 			wg.Add(1)
 			go ctx.startSplitterChannelHandler(spec, &InputChannel{
 				channel: splitCh.data,
 				columns: source.columns,
 				config: &ChannelSpec{
-					Name:      fmt.Sprintf("splitter channel from %s", source.config.Name),
+					Name:      fmt.Sprintf("splitter channel from %s", source.name),
 					ClassName: source.config.ClassName,
 				},
 			}, writePartitionsResultCh, jetsPartitionKey, &wg)
@@ -179,7 +179,7 @@ func (ctx *BuilderContext) StartSplitterPipe(spec *PipeSpec, source *InputChanne
 					channel: splitCh.data,
 					columns: source.columns,
 					config: &ChannelSpec{
-						Name:      fmt.Sprintf("splitter channel from %s", source.config.Name),
+						Name:      fmt.Sprintf("splitter channel from %s", source.name),
 						ClassName: source.config.ClassName,
 					},
 				}, writePartitionsResultCh, jetsPartitionKey, &wg)
@@ -192,7 +192,7 @@ func (ctx *BuilderContext) StartSplitterPipe(spec *PipeSpec, source *InputChanne
 		case <-ctx.done:
 			log.Printf(
 				"startSplitterPipe writing to splitter intermediate channel with baseKey %s (jetsPartitionKey %s) from '%s' interrupted",
-				baseKey, jetsPartitionKey, source.config.Name)
+				baseKey, jetsPartitionKey, source.name)
 			goto doneSplitterLoop
 		}
 		splitCh.rowCount += 1

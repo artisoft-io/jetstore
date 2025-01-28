@@ -120,10 +120,10 @@ func (ctx *BuilderContext) buildExprNodeEvaluator(source *InputChannel, outCh *O
 			if spec.Expr == nil {
 				return nil, fmt.Errorf("error: Type select must have Expr != nil")
 			}
-			inputPos, ok := source.columns[*spec.Expr]
+			inputPos, ok := (*source.columns)[*spec.Expr]
 			var err error
 			if !ok {
-				err = fmt.Errorf("error column %s not found in input source %s", *spec.Expr, source.config.Name)
+				err = fmt.Errorf("error column %s not found in input source %s", *spec.Expr, source.name)
 			}
 			return &expressionSelectLeaf{
 				index:   inputPos,

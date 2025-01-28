@@ -16,10 +16,10 @@ type CleansingFunctionContext struct {
 	reMap                   map[string]*regexp.Regexp
 	argdMap                 map[string]float64
 	parsedFunctionArguments map[string]interface{}
-	inputColumns            map[string]int
+	inputColumns            *map[string]int
 }
 
-func NewCleansingFunctionContext(inputColumns map[string]int) *CleansingFunctionContext {
+func NewCleansingFunctionContext(inputColumns *map[string]int) *CleansingFunctionContext {
 	return &CleansingFunctionContext{
 		reMap:                   make(map[string]*regexp.Regexp),
 		argdMap:                 make(map[string]float64),
@@ -27,7 +27,7 @@ func NewCleansingFunctionContext(inputColumns map[string]int) *CleansingFunction
 		inputColumns:            inputColumns,
 	}
 }
-func (ctx *CleansingFunctionContext) With(inputColumns map[string]int) *CleansingFunctionContext {
+func (ctx *CleansingFunctionContext) With(inputColumns *map[string]int) *CleansingFunctionContext {
 	return &CleansingFunctionContext{
 		reMap:                   ctx.reMap,
 		argdMap:                 ctx.argdMap,

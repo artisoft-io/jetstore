@@ -135,7 +135,7 @@ func (rw *ReteWorkspace) ExecuteRules(
 	}
 
 	// Cleansing Function Context - argument caches
-	ri.cleansingFunctionContext = cleansing_functions.NewCleansingFunctionContext(rw.pipelineConfig.mainProcessInput.inputColumnName2Pos)
+	ri.cleansingFunctionContext = cleansing_functions.NewCleansingFunctionContext(&rw.pipelineConfig.mainProcessInput.inputColumnName2Pos)
 	var session_count int64
 
 	for inBundle := range dataInputc {

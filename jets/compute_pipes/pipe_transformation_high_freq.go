@@ -38,7 +38,7 @@ func (ctx *HighFreqTransformationPipe) Apply(input *[]interface{}) error {
 	var token string
 	for _, c := range ctx.spec.HighFreqColumns {
 		highFreqMap := ctx.highFreqState[c.Name]
-		value := (*input)[ctx.source.columns[c.Name]]
+		value := (*input)[(*ctx.source.columns)[c.Name]]
 		if value != nil {
 			switch vv := value.(type) {
 			case string:
@@ -87,7 +87,7 @@ func (ctx *HighFreqTransformationPipe) Done() error {
 			dcSlice = append(dcSlice, dc)
 			totalCount += dc.Count
 		}
-		log.Printf("HighFreqTransformationPipe.done: sending results for column: %s, got %d distinct values out of %d values\n", 
+		log.Printf("HighFreqTransformationPipe.done: sending results for column: %s, got %d distinct values out of %d values\n",
 			column.Name, nbrDistinctValues, totalCount)
 		sort.Slice(dcSlice, func(i, j int) bool {
 			return dcSlice[i].Count > dcSlice[j].Count
@@ -100,7 +100,7 @@ func (ctx *HighFreqTransformationPipe) Done() error {
 		maxDistinctValueCount := nbrDistinctValues
 		if column.TopRank > 0 {
 			topRankFactor := float64(column.TopRank) / 100
-			maxDistinctValueCount = nbrDistinctValues * int(float64(nbrDistinctValues) * topRankFactor + 0.5)
+			maxDistinctValueCount = nbrDistinctValues * int(float64(nbrDistinctValues)*topRankFactor+0.5)
 			if maxDistinctValueCount > nbrDistinctValues {
 				maxDistinctValueCount = nbrDistinctValues
 			}
@@ -108,12 +108,12 @@ func (ctx *HighFreqTransformationPipe) Done() error {
 		var valueCount int
 		for i := 0; i < maxDistinctValueCount; i++ {
 			// make the output row
-			outputRow := make([]interface{}, len(ctx.outputCh.columns))
-			outputRow[ctx.outputCh.columns["column_name"]] = column.Name
+			outputRow := make([]interface{}, len(*ctx.outputCh.columns))
+			outputRow[(*ctx.outputCh.columns)["column_name"]] = column.Name
 			// The freq count columns
 			dc := dcSlice[i]
-			outputRow[ctx.outputCh.columns["freq_count"]] = dc.Count
-			outputRow[ctx.outputCh.columns["freq_value"]] = dc.Value
+			outputRow[(*ctx.outputCh.columns)["freq_count"]] = dc.Count
+			outputRow[(*ctx.outputCh.columns)["freq_value"]] = dc.Value
 			// Add the carry over select and const values
 			// NOTE there is no initialize and done called on the column evaluators
 			//      since they should be only of type 'select' or 'value'
@@ -138,7 +138,7 @@ func (ctx *HighFreqTransformationPipe) Done() error {
 			}
 		}
 	}
-	fmt.Println("**!@@ ** Send Freq Count Result to", ctx.outputCh.config.Name, "DONE")
+	fmt.Println("**!@@ ** Send Freq Count Result to", ctx.outputCh.name, "DONE")
 	return nil
 }
 

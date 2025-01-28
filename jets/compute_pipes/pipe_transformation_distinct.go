@@ -60,7 +60,7 @@ func (ctx *BuilderContext) NewDistinctTransformationPipe(source *InputChannel, o
 	// Make the composite key
 	compositeKey := make([]int, 0, len(spec.DistinctConfig.DistinctOn))
 	for _, column := range spec.DistinctConfig.DistinctOn {
-		pos, ok := source.columns[column]
+		pos, ok := (*source.columns)[column]
 		if !ok {
 			return nil, fmt.Errorf("error: key column %s is not in the input channel (distinct operator)", column)
 		}

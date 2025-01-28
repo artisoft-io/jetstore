@@ -21,8 +21,8 @@ import (
 // UseECSTask is currently used only for 'reducing' mode
 type StartComputePipesArgs struct {
 	PipelineExecKey int    `json:"pipeline_execution_key"`
-	FileKey         string `json:"file_key"`
-	SessionId       string `json:"session_id"`
+	FileKey         string `json:"file_key,omitempty"`
+	SessionId       string `json:"session_id,omitempty"`
 	StepId          *int   `json:"step_id"`
 	UseECSTask      bool   `json:"use_ecs_tasks"`
 }
@@ -37,7 +37,7 @@ type InputStats struct {
 // to call the lambda functions
 type ComputePipesNodeArgs struct {
 	NodeId             int    `json:"id"`
-	JetsPartitionLabel string `json:"jp"`
+	JetsPartitionLabel string `json:"jp,omitempty"`
 	PipelineExecKey    int    `json:"pe"`
 }
 
@@ -54,20 +54,20 @@ type ComputePipesNodeArgs struct {
 //	client/vendor of the data is specified at run time via the SchemaProviders
 //	on table input_registry.
 type ComputePipesCommonArgs struct {
-	CpipesMode        string            `json:"cpipes_mode"`
-	Client            string            `json:"client"`
-	Org               string            `json:"org"`
-	ObjectType        string            `json:"object_type"`
-	FileKey           string            `json:"file_key"`
-	SessionId         string            `json:"session_id"`
-	MainInputStepId   string            `json:"read_step_id"`
+	CpipesMode        string            `json:"cpipes_mode,omitempty"`
+	Client            string            `json:"client,omitempty"`
+	Org               string            `json:"org,omitempty"`
+	ObjectType        string            `json:"object_type,omitempty"`
+	FileKey           string            `json:"file_key,omitempty"`
+	SessionId         string            `json:"session_id,omitempty"`
+	MainInputStepId   string            `json:"read_step_id,omitempty"`
 	MergeFiles        bool              `json:"merge_files"`
-	InputSessionId    string            `json:"input_session_id"`
+	InputSessionId    string            `json:"input_session_id,omitempty"`
 	SourcePeriodKey   int               `json:"source_period_key"`
-	ProcessName       string            `json:"process_name"`
+	ProcessName       string            `json:"process_name,omitempty"`
 	SourcesConfig     SourcesConfigSpec `json:"sources_config"`
 	PipelineConfigKey int               `json:"pipeline_config_key"`
-	UserEmail         string            `json:"user_email"`
+	UserEmail         string            `json:"user_email,omitempty"`
 }
 
 // SourcesConfigSpec contains carry over configuration from
@@ -188,7 +188,7 @@ func ReadCpipesArgsFromS3(s3Location string) ([]ComputePipesNodeArgs, error) {
 // CpipesCommandsS3Key is for Distributed Map, currently not used
 type ComputePipesRun struct {
 	CpipesCommands       interface{}            `json:"cpipesCommands"`
-	CpipesCommandsS3Key  string                 `json:"cpipesCommandsS3Key"`
+	CpipesCommandsS3Key  string                 `json:"cpipesCommandsS3Key,omitempty"`
 	CpipesMaxConcurrency int                    `json:"cpipesMaxConcurrency"`
 	StartReducing        StartComputePipesArgs  `json:"startReducing"`
 	IsLastReducing       bool                   `json:"isLastReducing"`

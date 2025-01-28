@@ -13,7 +13,7 @@ func TestHashColumnEval(t *testing.T) {
 		"name",
 		"format_date(dob)",
 	}
-	columns := map[string]int{
+	columns := &map[string]int{
 		"key":  0,
 		"name": 1,
 		"dob":  2,

@@ -145,7 +145,7 @@ func (ctx *BuilderContext) BuildHashTCEvaluator(source *InputChannel, outCh *Out
 	// Do validation
 	exprLen := len(spec.HashExpr.Expr)
 	compositeLen := len(spec.HashExpr.CompositeExpr)
-	if exprLen == 0  && compositeLen == 0 {
+	if exprLen == 0 && compositeLen == 0 {
 		return nil, fmt.Errorf("error: must specify expr or composite_expr in hash operator")
 	}
 	inputPos := -1
@@ -153,20 +153,20 @@ func (ctx *BuilderContext) BuildHashTCEvaluator(source *InputChannel, outCh *Out
 	var ok bool
 	switch {
 	case exprLen > 0:
-		inputPos, ok = source.columns[spec.HashExpr.Expr]
+		inputPos, ok = (*source.columns)[spec.HashExpr.Expr]
 		if !ok {
-			return nil, fmt.Errorf("error column %s not found in input source %s", *spec.Expr, source.config.Name)
+			return nil, fmt.Errorf("error column %s not found in input source %s", *spec.Expr, source.name)
 		}
 	case compositeLen > 0:
 		compositeInputKey, err = ParseAltKeyDefinition(spec.HashExpr.CompositeExpr, source.columns)
 		if err != nil {
-			return nil, fmt.Errorf("%v in source name %s", err, source.config.Name)
+			return nil, fmt.Errorf("%v in source name %s", err, source.name)
 		}
 
 	}
-	outputPos, ok := outCh.columns[spec.Name]
+	outputPos, ok := (*outCh.columns)[spec.Name]
 	if !ok {
-		return nil, fmt.Errorf("error column %s not found in output source %s", spec.Name, outCh.config.Name)
+		return nil, fmt.Errorf("error column %s not found in output source %s", spec.Name, outCh.name)
 	}
 	var partitions uint64
 	if spec.HashExpr.NbrJetsPartitions != nil {
@@ -178,7 +178,7 @@ func (ctx *BuilderContext) BuildHashTCEvaluator(source *InputChannel, outCh *Out
 	if len(spec.HashExpr.AlternateCompositeExpr) > 0 {
 		altInputKey, err = ParseAltKeyDefinition(spec.HashExpr.AlternateCompositeExpr, source.columns)
 		if err != nil {
-			return nil, fmt.Errorf("%v in source name %s", err, source.config.Name)
+			return nil, fmt.Errorf("%v in source name %s", err, source.name)
 		}
 	}
 	return &hashColumnEval{
@@ -190,19 +190,19 @@ func (ctx *BuilderContext) BuildHashTCEvaluator(source *InputChannel, outCh *Out
 	}, nil
 }
 
-func ParseAltKeyDefinition(altExpr []string, columns map[string]int) ([]PreprocessingFunction, error) {
+func ParseAltKeyDefinition(altExpr []string, columns *map[string]int) ([]PreprocessingFunction, error) {
 	altInputKey := make([]PreprocessingFunction, len(altExpr))
 	for i := range altExpr {
 		// Get the processing function, if any, and the column name
 		v := preprocessingFncRe.FindStringSubmatch(altExpr[i])
 		if len(v) < 3 {
-			pos, ok := columns[altExpr[i]]
+			pos, ok := (*columns)[altExpr[i]]
 			if !ok {
 				return nil, fmt.Errorf("error: alt column %s not found", altExpr[i])
 			}
 			altInputKey[i] = &DefaultPF{inputPos: pos}
 		} else {
-			pos, ok := columns[v[2]]
+			pos, ok := (*columns)[v[2]]
 			if !ok {
 				return nil, fmt.Errorf("error: alt column %s not found, taken from %s", v[2], altExpr[i])
 			}
@@ -254,6 +254,7 @@ func (pf *DefaultPF) ApplyPF(buf *bytes.Buffer, input *[]interface{}) error {
 
 // FormatDatePF is writing a date field using YYYYMMDD format
 // This assume the date in the input is a valid date as string
+// Returns no error if date is empty or not valid
 type FormatDatePF struct {
 	inputPos int
 }
@@ -265,11 +266,13 @@ func (pf *FormatDatePF) ApplyPF(buf *bytes.Buffer, input *[]interface{}) error {
 	}
 	vv, ok := v.(string)
 	if !ok {
-		return fmt.Errorf("error: in FormatDatePF the input date is not a string: %v", v)
+		// return fmt.Errorf("error: in FormatDatePF the input date is not a string: %v", v)
+		return nil
 	}
 	y, m, d, err := rdf.ParseDateComponents(vv)
 	if err != nil {
-		return fmt.Errorf("error: in FormatDatePF the input date is not a valid date: %v", err)
+		// return fmt.Errorf("error: in FormatDatePF the input date is not a valid date: %v", err)
+		return nil
 	}
 	buf.WriteString(fmt.Sprintf("%d%02d%02d", y, m, d))
 	return nil

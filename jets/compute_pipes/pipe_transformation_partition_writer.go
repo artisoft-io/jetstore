@@ -37,7 +37,6 @@ type PartitionWriterTransformationPipe struct {
 	dbpool               *pgxpool.Pool
 	spec                 *TransformationSpec
 	schemaProvider       SchemaProvider
-	columnNames          []string
 	deviceWriterType     string
 	localTempDir         *string
 	externalBucket       string
@@ -135,7 +134,6 @@ func (ctx *PartitionWriterTransformationPipe) Apply(input *[]interface{}) error 
 			},
 			spec:           ctx.spec,
 			schemaProvider: ctx.schemaProvider,
-			columnNames:    ctx.columnNames,
 			outputCh:       ctx.outputCh,
 			parquetSchema:  ctx.parquetSchema,
 			localTempDir:   ctx.localTempDir,
@@ -191,7 +189,7 @@ func (ctx *PartitionWriterTransformationPipe) Apply(input *[]interface{}) error 
 	// currentValue is either the input row or a new row based on ctx.NewRecord flag
 	var currentValues *[]interface{}
 	if ctx.spec.NewRecord {
-		v := make([]interface{}, len(ctx.columnNames))
+		v := make([]interface{}, len(ctx.outputCh.config.Columns))
 		currentValues = &v
 		// initialize the column evaluators
 		for i := range ctx.columnEvaluators {
@@ -219,16 +217,16 @@ func (ctx *PartitionWriterTransformationPipe) Apply(input *[]interface{}) error 
 	}
 	if !ctx.spec.NewRecord {
 		// resize the slice in case we're dropping column on the output
-		if len(*currentValues) > len(ctx.columnNames) {
-			*currentValues = (*currentValues)[:len(ctx.columnNames)]
+		if len(*currentValues) > len(ctx.outputCh.config.Columns) {
+			*currentValues = (*currentValues)[:len(ctx.outputCh.config.Columns)]
 		}
 	}
 	// Send the result to output
-	// log.Printf("PARTITION WRITER (%s) ROW %v", ctx.outputCh.config.Name, *currentValues)
+	// log.Printf("PARTITION WRITER (%s) ROW %v", ctx.outputCh.name, *currentValues)
 	select {
 	case ctx.outputCh.channel <- *currentValues:
 	case <-ctx.doneCh:
-		log.Printf("PartitionWriterTransformationPipe writing to '%s' interrupted", ctx.outputCh.config.Name)
+		log.Printf("PartitionWriterTransformationPipe writing to '%s' interrupted", ctx.outputCh.name)
 		return nil
 	}
 	ctx.partitionRowCount += 1
@@ -324,7 +322,7 @@ func (ctx *BuilderContext) NewPartitionWriterTransformationPipe(source *InputCha
 	}
 
 	// close the underlying channel of outputCh since it will be replaced
-	ctx.channelRegistry.CloseChannel(outputCh.config.Name)
+	ctx.channelRegistry.CloseChannel(outputCh.name)
 
 	// NOTE: parquet schema -- saving data as text
 	// NOTE (future) To write parquet using typed data, get the data type from the schema provider.
@@ -346,38 +344,46 @@ func (ctx *BuilderContext) NewPartitionWriterTransformationPipe(source *InputCha
 		return nil, err
 	}
 
-	var columnNames []string
 	// Use the column specified from the output channel, if none are specified, look at the schema provider
-	columnNames = outputCh.config.Columns
-	if len(columnNames) == 0 && sp != nil {
-		columnNames = sp.ColumnNames()
+	// Note this does not apply to output channel with dynamic columns since they have placeholder at config time
+	if outputCh.config.HasDynamicColumns && config.DeviceWriterType == "parquet_writer" {
+		err = fmt.Errorf("error: parquet writer is not supported with output_channel with dynamic columns")
+		log.Println(err)
+		return nil, err
 	}
-	if len(columnNames) == 0 {
-		return nil, fmt.Errorf("error: output channel '%s' have no columns specified", outputCh.config.Name)
-	}
-	switch config.DeviceWriterType {
-	case "parquet_writer":
-		if spec.OutputChannel.UseInputParquetSchema {
-			parquetSchema = ctx.inputParquetSchema
-		} else {
-			var buf strings.Builder
-			buf.WriteString(fmt.Sprintf("message %s {\n", spec.OutputChannel.Name))
-			for i := range columnNames {
-				buf.WriteString(fmt.Sprintf("optional binary %s (UTF8);\n", columnNames[i]))
-			}
-			buf.WriteString("}\n")
-			var compression string
-			switch spec.OutputChannel.Compression {
-			case "snappy":
-				compression = parquet.CompressionCodec_SNAPPY.String()
-			case "none":
-				compression = parquet.CompressionCodec_UNCOMPRESSED.String()
-			default:
-				compression = parquet.CompressionCodec_UNCOMPRESSED.String()
-			}
-			parquetSchema = &ParquetSchemaInfo{
-				Schema:      buf.String(),
-				Compression: compression,
+	if !outputCh.config.HasDynamicColumns {
+		if len(outputCh.config.Columns) == 0 && sp != nil {
+			outputCh.config.Columns = sp.ColumnNames()
+		}
+		if len(outputCh.config.Columns) == 0 {
+			//*TODO Cannot use parquet with output_channel with dynamic columns, need to defer the construction of the schema
+			return nil, fmt.Errorf("error: output channel '%s' have no columns specified", outputCh.name)
+		}
+		//*TODO Cannot use parquet with output_channel with dynamic columns, need to defer the construction of the schema
+		switch config.DeviceWriterType {
+		case "parquet_writer":
+			if spec.OutputChannel.UseInputParquetSchema {
+				parquetSchema = ctx.inputParquetSchema
+			} else {
+				var buf strings.Builder
+				buf.WriteString(fmt.Sprintf("message %s {\n", spec.OutputChannel.Name))
+				for i := range outputCh.config.Columns {
+					buf.WriteString(fmt.Sprintf("optional binary %s (UTF8);\n", outputCh.config.Columns[i]))
+				}
+				buf.WriteString("}\n")
+				var compression string
+				switch spec.OutputChannel.Compression {
+				case "snappy":
+					compression = parquet.CompressionCodec_SNAPPY.String()
+				case "none":
+					compression = parquet.CompressionCodec_UNCOMPRESSED.String()
+				default:
+					compression = parquet.CompressionCodec_UNCOMPRESSED.String()
+				}
+				parquetSchema = &ParquetSchemaInfo{
+					Schema:      buf.String(),
+					Compression: compression,
+				}
 			}
 		}
 	}
@@ -440,7 +446,6 @@ func (ctx *BuilderContext) NewPartitionWriterTransformationPipe(source *InputCha
 		dbpool:               ctx.dbpool,
 		spec:                 spec,
 		schemaProvider:       sp,
-		columnNames:          columnNames,
 		deviceWriterType:     config.DeviceWriterType,
 		externalBucket:       externalBucket,
 		baseOutputPath:       &baseOutputPath,

@@ -183,7 +183,7 @@ func (ctx *JrPoolWorker) executeRules(inputRecords *[]any,
 		// Print rdf session if in debug mode
 		if ctx.config.IsDebug {
 			log.Println("ASSERTED GRAPH")
-			log.Printf("\n%s\n", strings.Join(rdfSession.AssertedGraph.ToTriples(),"\n"))
+			log.Printf("\n%s\n", strings.Join(rdfSession.AssertedGraph.ToTriples(), "\n"))
 			log.Println("INFERRED GRAPH")
 			log.Printf("\n%s\n", strings.Join(rdfSession.InferredGraph.ToTriples(), "\n"))
 		}
@@ -292,7 +292,7 @@ func (ctx *JrPoolWorker) extractSessionData(rdfSession *rdf.RdfSession,
 			case outChannel.outputCh.channel <- entityRow:
 				entityCount += 1
 			case <-ctx.done:
-				log.Printf("jetrule extractSessionData writing to '%s' interrupted", outChannel.outputCh.config.Name)
+				log.Printf("jetrule extractSessionData writing to '%s' interrupted", outChannel.outputCh.name)
 				return nil
 			}
 		}

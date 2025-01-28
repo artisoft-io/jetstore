@@ -120,11 +120,14 @@ type CsvSourceSpec struct {
 // the domain class.
 // When direct_properties_only is true, only take the data properties
 // of the class, not including the properties of the parent classes.
+// columnsMap is added in StartComputePipes
 type ChannelSpec struct {
 	Name                 string   `json:"name"`
 	Columns              []string `json:"columns"`
 	ClassName            string   `json:"class_name,omitempty"`
 	DirectPropertiesOnly bool     `json:"direct_properties_only"`
+	HasDynamicColumns    bool     `json:"has_dynamic_columns"`
+	columnsMap           *map[string]int
 }
 
 type ContextSpec struct {
@@ -424,8 +427,8 @@ type AnonymizeSpec struct {
 	KeyPrefix         string              `json:"key_prefix"`
 	InputDateLayout   string              `json:"input_date_layout,omitempty"`
 	OutputDateLayout  string              `json:"output_date_layout,omitempty"`
-	KeyDateLayout     string              `json:"key_date_layout"`
-	SchemaProvider    string              `json:"schema_provider"`
+	KeyDateLayout     string              `json:"key_date_layout,omitempty"`
+	SchemaProvider    string              `json:"schema_provider,omitempty"`
 	KeysOutputChannel OutputChannelConfig `json:"keys_output_channel"`
 }
 
@@ -434,8 +437,15 @@ type DistinctSpec struct {
 }
 
 type ShufflingSpec struct {
-	MaxInputSampleSize int `json:"max_input_sample_size"`
-	OutputSampleSize   int `json:"output_sample_size"`
+	MaxInputSampleSize int               `json:"max_input_sample_size"`
+	OutputSampleSize   int               `json:"output_sample_size"`
+	FilterColumns      *FilterColumnSpec `json:"filter_columns"`
+}
+
+type FilterColumnSpec struct {
+	LookupName     string   `json:"lookup_name,omitempty"`
+	LookupColumn   string   `json:"lookup_column,omitempty"`
+	RetainOnValues []string `json:"retain_on_values,omitempty"`
 }
 
 // Specify either group_by_name, group_by_pos or group_by_count.

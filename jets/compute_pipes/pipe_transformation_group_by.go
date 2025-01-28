@@ -90,7 +90,7 @@ func (ctx *GroupByTransformationPipe) Done() error {
 			log.Println("GroupByTransform interrupted")
 		}
 	}
-	// log.Println("**!@@ ** Send ANALYZE Result to", ctx.outputCh.config.Name, "DONE")
+	// log.Println("**!@@ ** Send ANALYZE Result to", ctx.outputCh.name, "DONE")
 	return nil
 }
 
@@ -110,7 +110,7 @@ func (ctx *BuilderContext) NewGroupByTransformationPipe(source *InputChannel, ou
 		if len(config.GroupByName) > 0 {
 			groupByPos = make([]int, 0)
 			for _, name := range config.GroupByName {
-				groupByPos = append(groupByPos, source.columns[name])
+				groupByPos = append(groupByPos, (*source.columns)[name])
 			}
 		}
 	}

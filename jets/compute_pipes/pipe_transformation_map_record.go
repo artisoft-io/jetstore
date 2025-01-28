@@ -41,7 +41,7 @@ func (ctx *MapRecordTransformationPipe) Apply(input *[]interface{}) error {
 		}
 	}
 	// Notify the column evaluator that we're done
-	// fmt.Println("**!@@ calling done on column evaluator from MapRecordTransformationPipe for output", ctx.outputCh.config.Name)
+	// fmt.Println("**!@@ calling done on column evaluator from MapRecordTransformationPipe for output", ctx.outputCh.name)
 	for i := range ctx.columnEvaluators {
 		err := ctx.columnEvaluators[i].Done(currentValues)
 		if err != nil {
@@ -58,7 +58,7 @@ func (ctx *MapRecordTransformationPipe) Apply(input *[]interface{}) error {
 	select {
 	case ctx.outputCh.channel <- *currentValues:
 	case <-ctx.doneCh:
-		log.Printf("MapRecordTransformationPipe writing to '%s' interrupted", ctx.outputCh.config.Name)
+		log.Printf("MapRecordTransformationPipe writing to '%s' interrupted", ctx.outputCh.name)
 		return nil
 	}
 	return nil
@@ -70,7 +70,7 @@ func (ctx *MapRecordTransformationPipe) Done() error {
 
 func (ctx *MapRecordTransformationPipe) Finally() {}
 
-func (ctx *BuilderContext) NewMapRecordTransformationPipe(source *InputChannel, outputCh *OutputChannel, 
+func (ctx *BuilderContext) NewMapRecordTransformationPipe(source *InputChannel, outputCh *OutputChannel,
 	spec *TransformationSpec) (*MapRecordTransformationPipe, error) {
 
 	config := spec.MapRecordConfig
@@ -82,7 +82,7 @@ func (ctx *BuilderContext) NewMapRecordTransformationPipe(source *InputChannel, 
 		inputMappingItems, err := GetInputMapping(ctx.dbpool, config.FileMappingTableName)
 		if err != nil {
 			return nil, fmt.Errorf("while getting mapping details from jetstore db: %v", err)
-		}		
+		}
 		// Get the domain data properties from local workspace to get the rdf type
 		propertyMap, err := GetWorkspaceDataProperties()
 		if err != nil {
@@ -93,8 +93,8 @@ func (ctx *BuilderContext) NewMapRecordTransformationPipe(source *InputChannel, 
 			mappingExp := &inputMappingItems[i]
 			node := propertyMap[mappingExp.DataProperty]
 			if node == nil {
-				return nil, fmt.Errorf("error: property name not found in workspace metastore: %v", 
-				mappingExp.DataProperty)
+				return nil, fmt.Errorf("error: property name not found in workspace metastore: %v",
+					mappingExp.DataProperty)
 			}
 			ce, err := ctx.BuildMapTCEvaluator(source, outputCh, &TransformationColumnSpec{
 				Name: mappingExp.DataProperty,
@@ -102,21 +102,21 @@ func (ctx *BuilderContext) NewMapRecordTransformationPipe(source *InputChannel, 
 				Expr: &mappingExp.InputColumn.String,
 				MapExpr: &MapExpression{
 					CleansingFunction: &mappingExp.CleansingFunctionName.String,
-					Argument: &mappingExp.Argument.String,
-					Default: &mappingExp.DefaultValue.String,
-					ErrMsg: &mappingExp.ErrorMessage.String,
-					RdfType: node.Type,
+					Argument:          &mappingExp.Argument.String,
+					Default:           &mappingExp.DefaultValue.String,
+					ErrMsg:            &mappingExp.ErrorMessage.String,
+					RdfType:           node.Type,
 				},
 			})
 			if err != nil {
 				return nil, fmt.Errorf("while creating the map column evaluator (BuildMapTCEvaluator): %v", err)
-			}	
+			}
 			columnEvaluators = append(columnEvaluators, ce)
 		}
 	}
 	for i := range spec.Columns {
 		// log.Printf("**& build TransformationColumn[%d] of type %s for output %s", i, spec.Type, spec.Output)
-		ce, err := ctx.BuildTransformationColumnEvaluator(source, outputCh, &spec.Columns[i]) 
+		ce, err := ctx.BuildTransformationColumnEvaluator(source, outputCh, &spec.Columns[i])
 		if err != nil {
 			err = fmt.Errorf("while BuildTransformationColumnEvaluator (in NewMapRecordTransformationPipe) %v", err)
 			log.Println(err)

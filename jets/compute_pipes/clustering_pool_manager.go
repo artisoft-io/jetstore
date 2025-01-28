@@ -120,7 +120,7 @@ func (ctx *BuilderContext) NewClusteringPoolManager(config *ClusteringSpec,
 			columns1 = append(columns1, column)
 			poolMgr.distributors = append(poolMgr.distributors, &ClusteringDistributor{
 				column1:             &column,
-				column1Pos:          source.columns[column],
+				column1Pos:          (*source.columns)[column],
 				distributionTaskMap: make(map[string]chan []any),
 			})
 		}
@@ -184,7 +184,7 @@ func (ctx *BuilderContext) NewClusteringPoolManager(config *ClusteringSpec,
 	//     cluster_data_subclassification then each node of the cluster get that
 	//     node classification as
 	workerOutputCh := &OutputChannel{
-		columns: make(map[string]int),
+		columns: &map[string]int{},
 		config: &ChannelSpec{
 			Name: "workers_out",
 			Columns: []string{
@@ -196,7 +196,7 @@ func (ctx *BuilderContext) NewClusteringPoolManager(config *ClusteringSpec,
 		},
 	}
 	for i, c := range workerOutputCh.config.Columns {
-		workerOutputCh.columns[c] = i
+		(*workerOutputCh.columns)[c] = i
 	}
 	go func() {
 		if config.IsDebug {
@@ -253,16 +253,16 @@ func (ctx *BuilderContext) NewClusteringPoolManager(config *ClusteringSpec,
 
 		// Collect the results from the workers
 		// Worker's output columns positions
-		wName1 := workerOutputCh.columns["column_name_1"]
-		wName2 := workerOutputCh.columns["column_name_2"]
-		WCount := workerOutputCh.columns["distinct_count"]
-		WTotal := workerOutputCh.columns["total_non_nil_count"]
+		wName1 := (*workerOutputCh.columns)["column_name_1"]
+		wName2 := (*workerOutputCh.columns)["column_name_2"]
+		WCount := (*workerOutputCh.columns)["distinct_count"]
+		WTotal := (*workerOutputCh.columns)["total_non_nil_count"]
 		// Manager's output columns positions
-		col1Pos := correlationOutputCh.columns["column_name_1"]
-		col2Pos := correlationOutputCh.columns["column_name_2"]
-		distinct1Pos := correlationOutputCh.columns["distinct_column_1_count"]
-		distinct2Pos := correlationOutputCh.columns["distinct_column_2_count"]
-		totalPos := correlationOutputCh.columns["observations_count"]
+		col1Pos := (*correlationOutputCh.columns)["column_name_1"]
+		col2Pos := (*correlationOutputCh.columns)["column_name_2"]
+		distinct1Pos := (*correlationOutputCh.columns)["distinct_column_1_count"]
+		distinct2Pos := (*correlationOutputCh.columns)["distinct_column_2_count"]
+		totalPos := (*correlationOutputCh.columns)["observations_count"]
 		// Use this variable as an accumulator to reduce all column1_value
 		columnCorrelationAccumulator := make(map[string]*ClusterCorrelation)
 		for correlationresult := range poolMgr.distributionResultCh {
@@ -363,13 +363,13 @@ func (ctx *BuilderContext) NewClusteringPoolManager(config *ClusteringSpec,
 		subclassificationDone:
 			for column := range cluster.membership {
 				row := make([]any, len(outputCh.config.Columns))
-				row[outputCh.columns["cluster_id"]] = label
-				row[outputCh.columns["column_name"]] = column
-				row[outputCh.columns["status"]] = clusterStatus
+				row[(*outputCh.columns)["cluster_id"]] = label
+				row[(*outputCh.columns)["column_name"]] = column
+				row[(*outputCh.columns)["status"]] = clusterStatus
 				if len(subClassification) == 0 && len(cluster.membership) == 1 {
-					row[outputCh.columns["data_subclassification"]] = "__SOLO__"
+					row[(*outputCh.columns)["data_subclassification"]] = "__SOLO__"
 				} else {
-					row[outputCh.columns["data_subclassification"]] = subClassification
+					row[(*outputCh.columns)["data_subclassification"]] = subClassification
 				}
 				// Send the cluster membership to output channel
 				if config.IsDebug {

@@ -299,6 +299,20 @@ func SelectActiveLookupTable(lookupConfig []*LookupSpec, pipeConfig []PipeSpec) 
 						activeTables = append(activeTables, spec)
 					}
 				}
+			case "shuffling":
+				// Check for Shuffling transformation using lookup tables
+				if transformationSpec.ShufflingConfig != nil && transformationSpec.ShufflingConfig.FilterColumns != nil {
+					name := transformationSpec.ShufflingConfig.FilterColumns.LookupName
+					if len(name) > 0 {
+						spec := lookupMap[name]
+						if spec == nil {
+							return nil,
+								fmt.Errorf(
+									"error: lookup table '%s' used by shuffling operator is not defined, please verify the configuration", name)
+						}
+						activeTables = append(activeTables, spec)
+					}
+				}
 			case "clustering":
 				// Check for Clustering transformation using lookup tables
 				if transformationSpec.ClusteringConfig != nil {
