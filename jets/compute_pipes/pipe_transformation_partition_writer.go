@@ -344,6 +344,28 @@ func (ctx *BuilderContext) NewPartitionWriterTransformationPipe(source *InputCha
 		return nil, err
 	}
 
+	// Verify that the device writer supports the file format
+	switch config.DeviceWriterType {
+	case "csv_writer":
+		switch spec.OutputChannel.Format {
+		case "csv", "headerless_csv", "xlsx", "headerless_xlsx":
+		default:
+			return nil, fmt.Errorf("error: csv_writer does not support file format '%s'", spec.OutputChannel.Format)
+		}
+	case "parquet_writer":
+		switch spec.OutputChannel.Format {
+		case "parquet", "parquet_select":
+		default:
+			return nil, fmt.Errorf("error: parquet_writer does not support file format '%s'", spec.OutputChannel.Format)
+		}
+	case "fixed_width_writer":
+		switch spec.OutputChannel.Format {
+		case "fixed_width":
+		default:
+			return nil, fmt.Errorf("error: fixed_width_writer does not support file format '%s'", spec.OutputChannel.Format)
+		}
+	}
+
 	// Use the column specified from the output channel, if none are specified, look at the schema provider
 	// Note this does not apply to output channel with dynamic columns since they have placeholder at config time
 	if outputCh.config.HasDynamicColumns && config.DeviceWriterType == "parquet_writer" {

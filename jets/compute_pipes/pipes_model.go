@@ -243,7 +243,6 @@ type SplitterSpec struct {
 type TransformationSpec struct {
 	// Type range: map_record, aggregate, analyze, high_freq, partition_writer,
 	//	anonymize, distinct, shuffling, group_by, filter, jetrules, clustering
-	// DeviceWriterType range: csv_writer, parquet_writer, fixed_width_writer
 	// Format takes precedence over SchemaProvider's Format (from OutputChannelConfig)
 	Type                  string                     `json:"type"`
 	NewRecord             bool                       `json:"new_record"`
@@ -401,6 +400,7 @@ type HighFreqSpec struct {
 	re            *regexp.Regexp
 }
 
+// DeviceWriterType range: csv_writer, parquet_writer, fixed_width_writer
 // JetsPartitionKey used by partition_writer as the default value for jet_partition
 // use $JETS_PARTITION_LABEL for current node input partition
 type PartitionWriterSpec struct {
