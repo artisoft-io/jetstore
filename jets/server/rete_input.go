@@ -245,7 +245,7 @@ func (ri *ReteInputContext) assertInputTextRecord(reteSession *bridge.ReteSessio
 	v, _ = reteSession.NewTextLiteral(aJetRow.processInput.organization)
 	reteSession.Insert(subject, ri.jets__org, v)
 	// Set the column name to pos according to aJetRow.processInput
-	ri.cleansingFunctionContext = ri.cleansingFunctionContext.With(aJetRow.processInput.inputColumnName2Pos)
+	ri.cleansingFunctionContext = ri.cleansingFunctionContext.With(&aJetRow.processInput.inputColumnName2Pos)
 	// Assert domain columns of the row
 	for icol := 0; icol < ncol; icol++ {
 		// asserting input row with mapping spec
