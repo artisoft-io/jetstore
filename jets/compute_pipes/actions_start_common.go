@@ -362,6 +362,15 @@ func SelectActiveOutputTable(tableConfig []*TableSpec, pipeConfig []PipeSpec) ([
 	return activeTables, nil
 }
 
+func GetOutputFileConfig(cpConfig *ComputePipesConfig, outputFileKey string ) *OutputFileSpec {
+	for i := range cpConfig.OutputFiles {
+		if outputFileKey == cpConfig.OutputFiles[i].Key {
+			return &cpConfig.OutputFiles[i]
+		}
+	}
+	return nil
+}
+
 // Function to validate the PipeSpec output channel config
 // Apply a default snappy compression if compression is not specified
 // and channel Type 'stage'
@@ -394,6 +403,20 @@ func ValidatePipeSpecConfig(cpConfig *ComputePipesConfig, pipeConfig []PipeSpec)
 			if i != k && pipeSpec.InputChannel.Name == pipeConfig[k].InputChannel.Name {
 				return fmt.Errorf("error: invalid cpipes config. two input_channel reading from "+
 					"the same channel %s, this will create record loss", pipeSpec.InputChannel.Name)
+			}
+		}
+		// PipeSpec Type specific validations
+		switch pipeSpec.Type {
+		case "merge_files":
+			if pipeSpec.OutputFile == nil || len(*pipeSpec.OutputFile) == 0 {
+				return fmt.Errorf("error: merge_file must have output_file set")
+			}
+			outputFileSpec := GetOutputFileConfig(cpConfig, *pipeSpec.OutputFile)
+			if outputFileSpec == nil {
+				return fmt.Errorf("error: Output file config '%s' not found", *pipeSpec.OutputFile)
+			}
+			if outputFileSpec.OutputLocation == "" {
+				outputFileSpec.OutputLocation = "jetstore_s3_output"
 			}
 		}
 		for j := range pipeSpec.Apply {
