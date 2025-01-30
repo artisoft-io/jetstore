@@ -75,19 +75,20 @@ func NewFunctionCount(fspec *FunctionTokenNode, sp SchemaProvider) (*FunctionCou
 
 // Analyze data TransformationSpec implementing PipeTransformationEvaluator interface
 type AnalyzeState struct {
-	ColumnName     string
-	ColumnPos      int
-	DistinctValues map[string]*DistinctCount
-	NullCount      int
-	Welford        *WelfordAlgo
-	RegexMatch     map[string]*RegexCount
-	LookupState    []*LookupTokensState
-	KeywordMatch   map[string]*KeywordCount
-	FunctionMatch  map[string]*FunctionCount
-	// RegexTokens    []string
-	// LookupTokens   []string
-	TotalRowCount int
-	Spec          *TransformationSpec
+	ColumnName         string
+	ColumnPos          int
+	DistinctValues     map[string]*DistinctCount
+	NullCount          int
+	LenWelford         *WelfordAlgo
+	ValueToDouble      func(d any) (float64, error)
+	ValueAsDoubleCount int
+	ValueWelford       *WelfordAlgo
+	RegexMatch         map[string]*RegexCount
+	LookupState        []*LookupTokensState
+	KeywordMatch       map[string]*KeywordCount
+	FunctionMatch      map[string]*FunctionCount
+	TotalRowCount      int
+	Spec               *TransformationSpec
 }
 
 type LookupTokensState struct {
@@ -116,10 +117,10 @@ func NewLookupTokensState(lookupTbl LookupTable, keyRe string, tokens []string) 
 	}, nil
 }
 
-func (ctx *BuilderContext) NewAnalyzeState(columnName string, columnPos int, spec *TransformationSpec) (*AnalyzeState, error) {
+func (ctx *BuilderContext) NewAnalyzeState(columnName string, columnPos int, inputColumns *map[string]int, spec *TransformationSpec) (*AnalyzeState, error) {
 
-	if spec == nil || spec.AnalyzeConfig == nil {
-		return nil, fmt.Errorf("error: analyse Pipe Transformation spec is missing analyze_config section")
+	if spec == nil || spec.AnalyzeConfig == nil || inputColumns == nil {
+		return nil, fmt.Errorf("error: analyse Pipe Transformation spec is missing analyze_config section or input columns map is nil")
 	}
 	config := spec.AnalyzeConfig
 	sp := ctx.schemaManager.schemaProviders[config.SchemaProvider]
@@ -163,11 +164,42 @@ func (ctx *BuilderContext) NewAnalyzeState(columnName string, columnPos int, spe
 		functionMatch[conf.Name] = f
 	}
 
+	// Determine which Wellford algo we need
+	var lenWelford, valueWelford *WelfordAlgo
+	cmap := *inputColumns
+
+	// Column length
+	_, ok := cmap["avr_length"]
+	if !ok {
+		_, ok = cmap["length_var"]
+	}
+	if ok {
+		lenWelford = NewWelfordAlgo()
+	}
+
+	// Column value
+	_, ok = cmap["avr_value"]
+	if !ok {
+		_, ok = cmap["value_var"]
+	}
+	if ok {
+		valueWelford = NewWelfordAlgo()
+	}
+
+	var valueToDouble func(d any) (float64, error)
+	_, ok1 := cmap["is_value_numeric_count"]
+	_, ok2 := cmap["is_value_numeric_count_pct"]
+	if ok1 || ok2 || valueWelford != nil {
+		valueToDouble = ToDouble
+	}
+
 	return &AnalyzeState{
 		ColumnName:     columnName,
 		ColumnPos:      columnPos,
 		DistinctValues: make(map[string]*DistinctCount),
-		Welford:        NewWelfordAlgo(),
+		LenWelford:     lenWelford,
+		ValueToDouble:  valueToDouble,
+		ValueWelford:   valueWelford,
 		RegexMatch:     regexMatch,
 		LookupState:    lookupState,
 		KeywordMatch:   keywordMatch,
@@ -197,6 +229,7 @@ func (state *AnalyzeState) NewValue(value interface{}) error {
 func (state *AnalyzeState) NewToken(value string) error {
 	// work on the upper case value of the token
 	value = strings.ToUpper(value)
+	
 	// Distinct Values
 	dv := state.DistinctValues[value]
 	if dv == nil {
@@ -206,16 +239,30 @@ func (state *AnalyzeState) NewToken(value string) error {
 		state.DistinctValues[value] = dv
 	}
 	dv.Count += 1
-	// Welford's Algo
-	if state.Welford != nil {
-		state.Welford.Update(float64(len(value)))
+
+	// length Welford's Algo
+	if state.LenWelford != nil {
+		state.LenWelford.Update(float64(len(value)))
 	}
+
+	// Numeric Value / value Welford
+	if state.ValueToDouble != nil {
+		vv, err2 := state.ValueToDouble(value)
+		if err2 == nil {
+			state.ValueAsDoubleCount += 1
+			if state.ValueWelford != nil {
+				state.ValueWelford.Update(vv)
+			}
+		}
+	}
+	
 	// Regex matches
 	for _, reCount := range state.RegexMatch {
 		if reCount.Rexpr.MatchString(value) {
 			reCount.Count += 1
 		}
 	}
+	
 	// Lookup matches
 	var row *[]interface{}
 	var err error
@@ -245,6 +292,7 @@ func (state *AnalyzeState) NewToken(value string) error {
 			}
 		}
 	}
+
 	// Keyword set matches
 	for _, kwm := range state.KeywordMatch {
 		for _, kw := range kwm.Keywords {
@@ -254,6 +302,7 @@ func (state *AnalyzeState) NewToken(value string) error {
 			}
 		}
 	}
+
 	// Function matches
 	for _, fm := range state.FunctionMatch {
 		if fm.Function.Match(value) {

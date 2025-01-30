@@ -69,6 +69,8 @@ func ToBool(b interface{}) bool {
 		return v > 0
 	case float64:
 		return v > 0
+	case float32:
+		return v > 0
 	}
 	return false
 }
@@ -83,6 +85,8 @@ func ToDouble(d interface{}) (float64, error) {
 		return float64(v), nil
 	case float64:
 		return v, nil
+	case float32:
+		return float64(v), nil
 	}
 	return 0, fmt.Errorf("invalid data: not a double: %v", d)
 }
