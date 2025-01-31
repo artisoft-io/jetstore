@@ -80,9 +80,6 @@ type AnalyzeState struct {
 	DistinctValues     map[string]*DistinctCount
 	NullCount          int
 	LenWelford         *WelfordAlgo
-	ValueToDouble      func(d any) (float64, error)
-	ValueAsDoubleCount int
-	ValueWelford       *WelfordAlgo
 	RegexMatch         map[string]*RegexCount
 	LookupState        []*LookupTokensState
 	KeywordMatch       map[string]*KeywordCount
@@ -165,7 +162,7 @@ func (ctx *BuilderContext) NewAnalyzeState(columnName string, columnPos int, inp
 	}
 
 	// Determine which Wellford algo we need
-	var lenWelford, valueWelford *WelfordAlgo
+	var lenWelford *WelfordAlgo
 	cmap := *inputColumns
 
 	// Column length
@@ -177,29 +174,11 @@ func (ctx *BuilderContext) NewAnalyzeState(columnName string, columnPos int, inp
 		lenWelford = NewWelfordAlgo()
 	}
 
-	// Column value
-	_, ok = cmap["avr_value"]
-	if !ok {
-		_, ok = cmap["value_var"]
-	}
-	if ok {
-		valueWelford = NewWelfordAlgo()
-	}
-
-	var valueToDouble func(d any) (float64, error)
-	_, ok1 := cmap["is_value_numeric_count"]
-	_, ok2 := cmap["is_value_numeric_count_pct"]
-	if ok1 || ok2 || valueWelford != nil {
-		valueToDouble = ToDouble
-	}
-
 	return &AnalyzeState{
 		ColumnName:     columnName,
 		ColumnPos:      columnPos,
 		DistinctValues: make(map[string]*DistinctCount),
 		LenWelford:     lenWelford,
-		ValueToDouble:  valueToDouble,
-		ValueWelford:   valueWelford,
 		RegexMatch:     regexMatch,
 		LookupState:    lookupState,
 		KeywordMatch:   keywordMatch,
@@ -216,10 +195,6 @@ func (state *AnalyzeState) NewValue(value interface{}) error {
 	}
 	switch vv := value.(type) {
 	case string:
-		if strings.ToUpper(vv) == "NULL" {
-			state.NullCount += 1
-			return nil
-		}
 		return state.NewToken(vv)
 	default:
 		return state.NewToken(fmt.Sprintf("%v", value))
@@ -229,7 +204,18 @@ func (state *AnalyzeState) NewValue(value interface{}) error {
 func (state *AnalyzeState) NewToken(value string) error {
 	// work on the upper case value of the token
 	value = strings.ToUpper(value)
-	
+	if value == "NULL" {
+		state.NullCount += 1
+		return nil
+	}
+	// Remove leading 0 when there is 4 or more of them
+	if strings.HasPrefix(value, "0000") {
+		value = strings.TrimLeft(value, "0")
+		if len(value) == 0 {
+			value = "0"
+		}
+	}
+
 	// Distinct Values
 	dv := state.DistinctValues[value]
 	if dv == nil {
@@ -243,17 +229,6 @@ func (state *AnalyzeState) NewToken(value string) error {
 	// length Welford's Algo
 	if state.LenWelford != nil {
 		state.LenWelford.Update(float64(len(value)))
-	}
-
-	// Numeric Value / value Welford
-	if state.ValueToDouble != nil {
-		vv, err2 := state.ValueToDouble(value)
-		if err2 == nil {
-			state.ValueAsDoubleCount += 1
-			if state.ValueWelford != nil {
-				state.ValueWelford.Update(vv)
-			}
-		}
 	}
 	
 	// Regex matches

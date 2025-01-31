@@ -172,32 +172,6 @@ func (ctx *AnalyzeTransformationPipe) Done() error {
 			}
 		}
 
-		if state.ValueToDouble != nil {
-			ipos, ok = (*ctx.outputCh.columns)["is_value_numeric_count"]
-			if ok {
-				outputRow[ipos] = float64(state.ValueAsDoubleCount)
-			}
-			ipos, ok = (*ctx.outputCh.columns)["is_value_numeric_count_pct"]
-			if ok {
-				if ratioFactor > 0 {
-					outputRow[ipos] = float64(state.ValueAsDoubleCount) * ratioFactor
-				} else {
-					outputRow[ipos] = -1.0
-				}
-			}
-			if state.ValueWelford != nil {
-				avrVal, avrVar := state.ValueWelford.Finalize()
-				ipos, ok = (*ctx.outputCh.columns)["avr_value"]
-				if ok {
-					outputRow[ipos] = avrVal
-				}
-				ipos, ok = (*ctx.outputCh.columns)["value_var"]
-				if ok {
-					outputRow[ipos] = avrVar
-				}
-			}
-		}
-
 		// The value of the domain counts are expressed in percentage of the non null count:
 		//		ratio = 100 * <domain count>/(totalCount - nullCount)
 		// Note that if totalCount - nullCount == 0, then ratio = -1
@@ -323,7 +297,7 @@ func (ctx *BuilderContext) NewAnalyzeTransformationPipe(source *InputChannel, ou
 	analyzeState := make([]*AnalyzeState, len(source.config.Columns))
 	for i := range analyzeState {
 		analyzeState[i], err =
-			ctx.NewAnalyzeState(source.config.Columns[i], i, source.columns, spec)
+			ctx.NewAnalyzeState(source.config.Columns[i], i, outputCh.columns, spec)
 		if err != nil {
 			return nil, fmt.Errorf("while calling NewAnalyzeState for column %s: %v",
 				source.config.Columns[i], err)
