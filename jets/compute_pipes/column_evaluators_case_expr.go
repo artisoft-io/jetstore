@@ -77,12 +77,12 @@ func (ctx *BuilderContext) BuildCaseExprTCEvaluator(source *InputChannel, outCh 
 			if err != nil {
 				return nil, fmt.Errorf("while building then clause for item %d: %v", i, err)
 			}
-			if node.Name == nil {
+			if node.Name == "" {
 				return nil, fmt.Errorf("error: case operator is missing column name in then clause")
 			}
-			outputPos, ok := (*outCh.columns)[*node.Name]
+			outputPos, ok := (*outCh.columns)[node.Name]
 			if !ok {
-				return nil, fmt.Errorf("error column %s not found in output source %s", *node.Name, outCh.name)
+				return nil, fmt.Errorf("error column %s not found in output source %s", node.Name, outCh.name)
 			}
 			thenCases[i] = &columnExpression{
 				outputPos: outputPos,
@@ -101,12 +101,12 @@ func (ctx *BuilderContext) BuildCaseExprTCEvaluator(source *InputChannel, outCh 
 		if err != nil {
 			return nil, fmt.Errorf("while building else clause for case_expr: %v", err)
 		}
-		if node.Name == nil {
+		if node.Name == "" {
 			return nil, fmt.Errorf("error: case operator is missing column name in else clause")
 		}
-		outputPos, ok := (*outCh.columns)[*node.Name]
+		outputPos, ok := (*outCh.columns)[node.Name]
 		if !ok {
-			return nil, fmt.Errorf("error column %s not found in output source %s", *node.Name, outCh.name)
+			return nil, fmt.Errorf("error column %s not found in output source %s", node.Name, outCh.name)
 		}
 		elseExpr[i] = &columnExpression{
 			outputPos: outputPos,

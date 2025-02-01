@@ -549,24 +549,25 @@ type HashExpression struct {
 }
 
 type MapExpression struct {
-	CleansingFunction *string `json:"cleansing_function,omitempty"`
-	Argument          *string `json:"argument,omitempty"`
-	Default           *string `json:"default,omitempty"`
-	ErrMsg            *string `json:"err_msg,omitempty"`
-	RdfType           string  `json:"rdf_type,omitempty"`
+	CleansingFunction string `json:"cleansing_function,omitempty"`
+	Argument          string `json:"argument,omitempty"`
+	Default           string `json:"default,omitempty"`
+	ErrMsg            string `json:"err_msg,omitempty"`
+	RdfType           string `json:"rdf_type,omitempty"`
 }
 
 type ExpressionNode struct {
 	// Type is for leaf nodes: select, value
 	// Name is for CaseExpression.Then and TransformationColumnSpec.ElseExpr
 	// to indicate which column to set the calculated value
-	Name      *string         `json:"name,omitempty"` // TransformationColumnSpec case operator
-	Type      *string         `json:"type,omitempty"`
-	Expr      *string         `json:"expr,omitempty"`
-	AsRdfType *string         `json:"as_rdf_type,omitempty"`
+	Name      string          `json:"name,omitempty"` // TransformationColumnSpec case operator
+	Type      string          `json:"type,omitempty"`
+	Expr      string          `json:"expr,omitempty"`
+	ExprList  []string        `json:"expr_list,omitempty"`
+	AsRdfType string          `json:"as_rdf_type,omitempty"`
 	Arg       *ExpressionNode `json:"arg,omitempty"`
 	Lhs       *ExpressionNode `json:"lhs,omitempty"`
-	Op        *string         `json:"op,omitempty"`
+	Op        string          `json:"op,omitempty"`
 	Rhs       *ExpressionNode `json:"rhs,omitempty"`
 }
 

@@ -52,10 +52,10 @@ func (ctx *mapColumnEval) Update(currentValue *[]interface{}, input *[]interface
 		}
 		if len(inputV) > 0 {
 			outputVal = inputV
-			if ctx.mapConfig.mapConfig.CleansingFunction != nil {
+			if ctx.mapConfig.mapConfig.CleansingFunction != "" {
 				outputVal, errMsg =
 					ctx.cleansingCtx.ApplyCleasingFunction(ctx.mapConfig.mapConfig.CleansingFunction,
-						ctx.mapConfig.mapConfig.Argument, &inputV, ctx.mapConfig.inputPos, input)
+						ctx.mapConfig.mapConfig.Argument, inputV, ctx.mapConfig.inputPos, input)
 				if len(errMsg) > 0 {
 					//*TODO Report error on cleansing function
 					// fmt.Println("*** Error while applying cleansing function:", errMsg)
@@ -67,9 +67,9 @@ func (ctx *mapColumnEval) Update(currentValue *[]interface{}, input *[]interface
 	if outputVal == nil {
 		// Apply default if defined
 		outputVal = ctx.mapConfig.defaultValue
-		if outputVal == nil && (ctx.mapConfig.mapConfig.ErrMsg != nil || errMsg != "") {
+		if outputVal == nil && (ctx.mapConfig.mapConfig.ErrMsg != "" || errMsg != "") {
 			if errMsg == "" {
-				errMsg = *ctx.mapConfig.mapConfig.ErrMsg
+				errMsg = ctx.mapConfig.mapConfig.ErrMsg
 			}
 			fmt.Println("TODO Report Error, null on input and have errMsg:", errMsg)
 		}
@@ -99,41 +99,41 @@ func (ctx *BuilderContext) BuildMapTCEvaluator(source *InputChannel, outCh *Outp
 	meRdfType := spec.MapExpr.RdfType
 	meDefault := spec.MapExpr.Default
 	switch {
-	case meDefault == nil:
+	case meDefault == "":
 		defaultValue = nil
 	case meRdfType == "int", meRdfType == "bool":
 		switch {
-		case *meDefault == "true" || *meDefault == "TRUE":
+		case meDefault == "true" || meDefault == "TRUE":
 			defaultValue = 1
-		case *meDefault == "false" || *meDefault == "FALSE":
+		case meDefault == "false" || meDefault == "FALSE":
 			defaultValue = 0
 		default:
-			defaultValue, err = strconv.Atoi(*meDefault)
+			defaultValue, err = strconv.Atoi(meDefault)
 			if err != nil {
 				return nil, err
 			}
 		}
 	case meRdfType == "double", meRdfType == "float64":
-		defaultValue, err = strconv.ParseFloat(*meDefault, 64)
+		defaultValue, err = strconv.ParseFloat(meDefault, 64)
 		if err != nil {
 			return nil, err
 		}
 	case meRdfType == "string", meRdfType == "text":
-		defaultValue = *meDefault
+		defaultValue = meDefault
 
 	case meRdfType == "date":
-		temp, err := ParseDate(*meDefault)
+		temp, err := ParseDate(meDefault)
 		if err != nil || temp == nil {
-			fmt.Println("default value is not date:", *meDefault)
+			fmt.Println("default value is not date:", meDefault)
 			defaultValue = nil
 			err = nil
 		} else {
 			defaultValue = *temp
 		}
 	case meRdfType == "datetime":
-		temp, err := ParseDatetime(*meDefault)
+		temp, err := ParseDatetime(meDefault)
 		if err != nil || temp == nil {
-			fmt.Println("default value is not datetime:", *meDefault)
+			fmt.Println("default value is not datetime:", meDefault)
 			defaultValue = nil
 			err = nil
 		} else {
@@ -141,7 +141,7 @@ func (ctx *BuilderContext) BuildMapTCEvaluator(source *InputChannel, outCh *Outp
 		}
 
 	case meRdfType == "int64", meRdfType == "long":
-		defaultValue, err = strconv.ParseInt(*meDefault, 10, 64)
+		defaultValue, err = strconv.ParseInt(meDefault, 10, 64)
 		if err != nil {
 			return nil, err
 		}

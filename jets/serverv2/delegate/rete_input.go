@@ -259,8 +259,8 @@ func (ri *ReteInputContext) assertInputTextRecord(reteSession *bridgego.ReteSess
 			if inputColumnSpec.functionName.Valid {
 				// Apply cleansing function
 				obj, errMsg =
-					ri.cleansingFunctionContext.ApplyCleasingFunction(&inputColumnSpec.functionName.String,
-						&inputColumnSpec.argument.String, &row[icol].String, icol, &aJetRow.rowData)
+					ri.cleansingFunctionContext.ApplyCleasingFunction(inputColumnSpec.functionName.String,
+						inputColumnSpec.argument.String, row[icol].String, icol, &aJetRow.rowData)
 			} else {
 				if len(row[icol].String) > 0 {
 					obj = row[icol].String
