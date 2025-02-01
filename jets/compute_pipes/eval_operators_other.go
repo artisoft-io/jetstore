@@ -76,5 +76,9 @@ func (op opIn) eval(lhs interface{}, rhs interface{}) (interface{}, error) {
 	if !ok {
 		return 0, fmt.Errorf("error: operator IN is expecting static_list as rhs argument")
 	}
-	return values[lhs], nil
+	v := 0
+	if values[lhs] {
+		v = 1
+	}
+	return v, nil
 }
