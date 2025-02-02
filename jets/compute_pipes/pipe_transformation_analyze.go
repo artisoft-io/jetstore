@@ -220,13 +220,16 @@ func (ctx *AnalyzeTransformationPipe) Done() error {
 		}
 
 		// The functions tokens
-		for name, m := range state.FunctionMatch {
-			ipos, ok = (*ctx.outputCh.columns)[name]
-			if ok {
-				if ratioFactor > 0 {
-					outputRow[ipos] = float64(m.Count) * ratioFactor
-				} else {
-					outputRow[ipos] = -1.0
+		for _, fc := range state.FunctionMatch {
+			m := fc.GetMatchToken()
+			for token, count := range m {
+				ipos, ok = (*ctx.outputCh.columns)[token]
+				if ok {
+					if ratioFactor > 0 {
+						outputRow[ipos] = float64(count) * ratioFactor
+					} else {
+						outputRow[ipos] = -1.0
+					}
 				}
 			}
 		}

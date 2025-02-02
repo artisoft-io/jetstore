@@ -363,18 +363,27 @@ type KeywordTokenNode struct {
 	Keywords []string `json:"keywords"`
 }
 
-// Available FunctionName: parse_date
-// parse_date arguments: default_date_format (string)
-// parse_date arguments: year_less_than (int)
-// parse_date arguments: year_greater_than (int)
+// Type: parse_date
+type FunctionTokenNode struct {
+	Type               string            `json:"type"`
+	ParseDateArguments []ParseDateFTSpec `json:"parse_date_args"`
+}
+
 // The date format is using a reference date of
 // Mon Jan 2 15:04:05 MST 2006 (see https://pkg.go.dev/time#Layout)
-// It will take the date format from the schema provider when available.
-// year_less_than is an additional condition to the match result.
-type FunctionTokenNode struct {
-	Name         string         `json:"name"`
-	FunctionName string         `json:"function_name"`
-	Arguments    map[string]any `json:"arguments"`
+// Will use DateFormat when provided, otherwise take the format from
+// the Schema Provider when avail. Will default to DefaultDateFormat
+// or will use the jetstore date parser if no default provided or
+// if UseJetstoreParser is true. 
+// year_less_than and year_greater_than is an additional condition 
+// to the match result.
+type ParseDateFTSpec struct {
+	Token             string `json:"token"`
+	DefaultDateFormat string `json:"default_date_format"`
+	DateFormat        string `json:"date_format"`
+	UseJetstoreParser bool   `json:"use_jetstore_date_parser"`
+	YearLessThan      int    `json:"year_less_than"`
+	YearGreaterThan   int    `json:"year_greater_than"`
 }
 
 // top_pct correspond the top percentile of the data,
