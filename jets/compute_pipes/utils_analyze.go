@@ -5,6 +5,8 @@ import (
 	"regexp"
 	"strings"
 	"time"
+
+	"github.com/artisoft-io/jetstore/jets/jetrules/rdf"
 )
 
 // Utility function and components for Analyze operator
@@ -47,30 +49,24 @@ func NewKeywordCount(name string, keywords []string) *KeywordCount {
 	}
 }
 
-type MatchFunction interface {
-	Match(value string) bool
+type FunctionCount interface {
+	NewValue(value string)
+	GetMatchToken() map[string]int
 }
 
-type FunctionCount struct {
-	Function MatchFunction
-	Count    int
-}
-
-func NewFunctionCount(fspec *FunctionTokenNode, sp SchemaProvider) (*FunctionCount, error) {
-	var fnc MatchFunction
+func NewFunctionCount(fspec *FunctionTokenNode, sp SchemaProvider) (FunctionCount, error) {
+	var fnc FunctionCount
 	var err error
-	switch fspec.FunctionName {
+	switch fspec.Type {
 	case "parse_date":
 		fnc, err = NewParseDateMatchFunction(fspec, sp)
 		if err != nil {
 			return nil, err
 		}
 	default:
-		return nil, fmt.Errorf("error: unknown function_name '%s' in Analyze operator", fspec.FunctionName)
+		return nil, fmt.Errorf("error: unknown function_name '%s' in Analyze operator", fspec.Type)
 	}
-	return &FunctionCount{
-		Function: fnc,
-	}, nil
+	return fnc, nil
 }
 
 // Analyze data TransformationSpec implementing PipeTransformationEvaluator interface
@@ -79,15 +75,13 @@ type AnalyzeState struct {
 	ColumnPos      int
 	DistinctValues map[string]*DistinctCount
 	NullCount      int
-	Welford        *WelfordAlgo
+	LenWelford     *WelfordAlgo
 	RegexMatch     map[string]*RegexCount
 	LookupState    []*LookupTokensState
 	KeywordMatch   map[string]*KeywordCount
-	FunctionMatch  map[string]*FunctionCount
-	// RegexTokens    []string
-	// LookupTokens   []string
-	TotalRowCount int
-	Spec          *TransformationSpec
+	FunctionMatch  []FunctionCount
+	TotalRowCount  int
+	Spec           *TransformationSpec
 }
 
 type LookupTokensState struct {
@@ -116,10 +110,10 @@ func NewLookupTokensState(lookupTbl LookupTable, keyRe string, tokens []string) 
 	}, nil
 }
 
-func (ctx *BuilderContext) NewAnalyzeState(columnName string, columnPos int, spec *TransformationSpec) (*AnalyzeState, error) {
+func (ctx *BuilderContext) NewAnalyzeState(columnName string, columnPos int, inputColumns *map[string]int, spec *TransformationSpec) (*AnalyzeState, error) {
 
-	if spec == nil || spec.AnalyzeConfig == nil {
-		return nil, fmt.Errorf("error: analyse Pipe Transformation spec is missing analyze_config section")
+	if spec == nil || spec.AnalyzeConfig == nil || inputColumns == nil {
+		return nil, fmt.Errorf("error: analyse Pipe Transformation spec is missing analyze_config section or input columns map is nil")
 	}
 	config := spec.AnalyzeConfig
 	sp := ctx.schemaManager.schemaProviders[config.SchemaProvider]
@@ -153,21 +147,34 @@ func (ctx *BuilderContext) NewAnalyzeState(columnName string, columnPos int, spe
 		kw := &config.KeywordTokens[i]
 		keywordMatch[kw.Name] = NewKeywordCount(kw.Name, kw.Keywords)
 	}
-	functionMatch := make(map[string]*FunctionCount)
+	functionMatch := make([]FunctionCount, 0, len(config.FunctionTokens))
 	for i := range config.FunctionTokens {
 		conf := &config.FunctionTokens[i]
 		f, err := NewFunctionCount(conf, sp)
 		if err != nil {
 			return nil, err
 		}
-		functionMatch[conf.Name] = f
+		functionMatch = append(functionMatch, f)
+	}
+
+	// Determine which Wellford algo we need
+	var lenWelford *WelfordAlgo
+	cmap := *inputColumns
+
+	// Column length
+	_, ok := cmap["avr_length"]
+	if !ok {
+		_, ok = cmap["length_var"]
+	}
+	if ok {
+		lenWelford = NewWelfordAlgo()
 	}
 
 	return &AnalyzeState{
 		ColumnName:     columnName,
 		ColumnPos:      columnPos,
 		DistinctValues: make(map[string]*DistinctCount),
-		Welford:        NewWelfordAlgo(),
+		LenWelford:     lenWelford,
 		RegexMatch:     regexMatch,
 		LookupState:    lookupState,
 		KeywordMatch:   keywordMatch,
@@ -184,10 +191,6 @@ func (state *AnalyzeState) NewValue(value interface{}) error {
 	}
 	switch vv := value.(type) {
 	case string:
-		if strings.ToUpper(vv) == "NULL" {
-			state.NullCount += 1
-			return nil
-		}
 		return state.NewToken(vv)
 	default:
 		return state.NewToken(fmt.Sprintf("%v", value))
@@ -197,6 +200,18 @@ func (state *AnalyzeState) NewValue(value interface{}) error {
 func (state *AnalyzeState) NewToken(value string) error {
 	// work on the upper case value of the token
 	value = strings.ToUpper(value)
+	if value == "NULL" {
+		state.NullCount += 1
+		return nil
+	}
+	// Remove leading 0 when there is 4 or more of them
+	if strings.HasPrefix(value, "0000") {
+		value = strings.TrimLeft(value, "0")
+		if len(value) == 0 {
+			value = "0"
+		}
+	}
+
 	// Distinct Values
 	dv := state.DistinctValues[value]
 	if dv == nil {
@@ -206,16 +221,19 @@ func (state *AnalyzeState) NewToken(value string) error {
 		state.DistinctValues[value] = dv
 	}
 	dv.Count += 1
-	// Welford's Algo
-	if state.Welford != nil {
-		state.Welford.Update(float64(len(value)))
+
+	// length Welford's Algo
+	if state.LenWelford != nil {
+		state.LenWelford.Update(float64(len(value)))
 	}
+
 	// Regex matches
 	for _, reCount := range state.RegexMatch {
 		if reCount.Rexpr.MatchString(value) {
 			reCount.Count += 1
 		}
 	}
+
 	// Lookup matches
 	var row *[]interface{}
 	var err error
@@ -245,6 +263,7 @@ func (state *AnalyzeState) NewToken(value string) error {
 			}
 		}
 	}
+
 	// Keyword set matches
 	for _, kwm := range state.KeywordMatch {
 		for _, kw := range kwm.Keywords {
@@ -254,70 +273,110 @@ func (state *AnalyzeState) NewToken(value string) error {
 			}
 		}
 	}
+
 	// Function matches
 	for _, fm := range state.FunctionMatch {
-		if fm.Function.Match(value) {
-			fm.Count += 1
-		}
+		fm.NewValue(value)
 	}
 
 	return nil
 }
 
-// ParseDateMatchFunction is a match function to vaidate a date
+// ParseDateMatchFunction is a match function to vaidate dates.
+// ParseDateMatchFunction implements FunctionCount interface
 type ParseDateMatchFunction struct {
+	matchers []*ParseDateMatcher
+	matches  map[string]int
+}
+
+type ParseDateMatcher struct {
+	token           string
 	dateLayout      string
 	yearLessThan    int
 	yearGreaterThan int
 }
 
-// Match implements MatchFunction.
-func (p *ParseDateMatchFunction) Match(value string) bool {
-	if p == nil {
+// Match implements the match function.
+func (pd *ParseDateMatcher) Match(value string, parsedDate map[string]*time.Time) bool {
+	if pd == nil {
 		return false
 	}
-	d, err := time.Parse(p.dateLayout, value)
-	if err != nil {
+	var err error
+	d, ok := parsedDate[pd.dateLayout]
+	if !ok {
+		if len(pd.dateLayout) == 0 {
+			// Use jetstore date parser
+			d, err = rdf.ParseDate(value)
+			if err != nil {
+				d = nil
+			}
+		} else {
+			v, err := time.Parse(pd.dateLayout, value)
+			if err != nil {
+				d = nil
+			} else {
+				d = &v
+			}
+		}
+		parsedDate[pd.dateLayout] = d
+	}
+	if d == nil {
 		return false
 	}
-	if p.yearLessThan > 0 && d.Year() >= p.yearLessThan {
+	if pd.yearLessThan > 0 && d.Year() >= pd.yearLessThan {
 		return false
 	}
-	if p.yearGreaterThan > 0 && d.Year() < p.yearGreaterThan {
+	if pd.yearGreaterThan > 0 && d.Year() < pd.yearGreaterThan {
 		return false
 	}
 	return true
 }
 
-func NewParseDateMatchFunction(fspec *FunctionTokenNode, sp SchemaProvider) (MatchFunction, error) {
-	var ok bool
-	layout := sp.ReadDateLayout()
-	if layout == "" && fspec.Arguments != nil {
-		layout, ok = fspec.Arguments["default_date_format"].(string)
-		if !ok {
-			return nil, fmt.Errorf("error: no date format available in NewParseDateMatchFunction")
+// ParseDateMatchFunction implements FunctionCount interface
+func (p *ParseDateMatchFunction) NewValue(value string) {
+	parsedDate := make(map[string]*time.Time)
+	for _, pd := range p.matchers {
+		if pd.Match(value, parsedDate) {
+			p.matches[pd.token] += 1
 		}
 	}
-	yearLT := 0
-	yearGT := 0
-	if fspec.Arguments != nil {
-		flt, ok := fspec.Arguments["year_less_than"].(float64)
-		if !ok {
-			yearLT = 0
-		} else {
-			yearLT = int(flt)
+}
+
+func (p *ParseDateMatchFunction) GetMatchToken() map[string]int {
+	if p == nil {
+		return nil
+	}
+	return p.matches
+}
+
+func NewParseDateMatchFunction(fspec *FunctionTokenNode, sp SchemaProvider) (FunctionCount, error) {
+	spLayout := sp.ReadDateLayout()
+	matches := make(map[string]int)
+	matchers := make([]*ParseDateMatcher, 0, len(fspec.ParseDateArguments))
+	for i := range fspec.ParseDateArguments {
+		config := &fspec.ParseDateArguments[i]
+		var layout string
+
+		switch {
+		case config.UseJetstoreParser:
+		case len(config.DateFormat) > 0:
+			layout = config.DateFormat
+		case len(spLayout) > 0:
+			layout = spLayout
+		case len(config.DefaultDateFormat) > 0:
+			layout = config.DefaultDateFormat
 		}
-		fgt, ok := fspec.Arguments["year_greater_than"].(float64)
-		if !ok {
-			yearGT = 0
-		} else {
-			yearGT = int(fgt)
-		}
+		matches[config.Token] = 0
+		matchers = append(matchers, &ParseDateMatcher{
+			token:           config.Token,
+			dateLayout:      layout,
+			yearLessThan:    config.YearLessThan,
+			yearGreaterThan: config.YearGreaterThan,
+		})
 	}
 	return &ParseDateMatchFunction{
-		dateLayout:      layout,
-		yearLessThan:    yearLT,
-		yearGreaterThan: yearGT,
+		matchers: matchers,
+		matches:  matches,
 	}, nil
 }
 

@@ -56,7 +56,6 @@ func (op opApplyFormat) eval(lhs interface{}, rhs interface{}) (interface{}, err
 	}
 }
 
-
 // Operator length() -- unary operator
 type opLength struct {}
 func (op opLength) eval(lhs interface{}, _ interface{}) (interface{}, error) {
@@ -68,4 +67,18 @@ func (op opLength) eval(lhs interface{}, _ interface{}) (interface{}, error) {
 		return len(lhsv), nil
 	}
 	return nil, fmt.Errorf("opLength expecting string argument, rejected")
+}
+
+// Operator IN
+type opIn struct {}
+func (op opIn) eval(lhs interface{}, rhs interface{}) (interface{}, error) {
+	values, ok := rhs.(map[any]bool)
+	if !ok {
+		return 0, fmt.Errorf("error: operator IN is expecting static_list as rhs argument")
+	}
+	v := 0
+	if values[lhs] {
+		v = 1
+	}
+	return v, nil
 }

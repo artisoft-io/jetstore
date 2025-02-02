@@ -258,8 +258,8 @@ func (ri *ReteInputContext) assertInputTextRecord(reteSession *bridge.ReteSessio
 		if row[icol].Valid && sz > 0 {
 			if inputColumnSpec.functionName.Valid {
 				// Apply cleansing function
-				obj, errMsg = ri.cleansingFunctionContext.ApplyCleasingFunction(&inputColumnSpec.functionName.String,
-					&inputColumnSpec.argument.String, &row[icol].String, icol, &aJetRow.rowData)
+				obj, errMsg = ri.cleansingFunctionContext.ApplyCleasingFunction(inputColumnSpec.functionName.String,
+					inputColumnSpec.argument.String, row[icol].String, icol, &aJetRow.rowData)
 			} else {
 				if len(row[icol].String) > 0 {
 					obj = row[icol].String

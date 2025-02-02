@@ -8,14 +8,14 @@ import (
 func TestSplitOn(t *testing.T) {
 	inputValue := ""
 	argument := ","
-	obj := SplitOn(&inputValue, &argument)
+	obj := SplitOn(inputValue, argument)
 	if obj != nil {
 		t.Errorf("error: expecting nil")
 	}
 	// another test
 	inputValue = "value1,value2,value3"
 	argument = ","
-	obj = SplitOn(&inputValue, &argument)
+	obj = SplitOn(inputValue, argument)
 	objV := obj.([]string)
 	fmt.Println("objV=",objV)
 	if len(objV) != 3 {
@@ -37,7 +37,7 @@ func TestSplitOn(t *testing.T) {
 	// another test
 	inputValue = "value1,value2,value1"
 	argument = ","
-	obj = SplitOn(&inputValue, &argument)
+	obj = SplitOn(inputValue, argument)
 	objV = obj.([]string)
 	fmt.Println("objV=",objV)
 	if len(objV) != 3 {
@@ -61,7 +61,7 @@ func TestSplitOn(t *testing.T) {
 func TestUniqueSplitOn(t *testing.T) {
 	inputValue := ""
 	argument := ","
-	obj := UniqueSplitOn(&inputValue, &argument)
+	obj := UniqueSplitOn(inputValue, argument)
 	fmt.Println("obj=",obj)
 	if obj != nil {
 		t.Errorf("error: expecting nil")
@@ -69,7 +69,7 @@ func TestUniqueSplitOn(t *testing.T) {
 	// another test
 	inputValue = "value1,value2,value3"
 	argument = ","
-	obj = UniqueSplitOn(&inputValue, &argument)
+	obj = UniqueSplitOn(inputValue, argument)
 	objV := obj.([]string)
 	fmt.Println("objV=",objV)
 	if len(objV) != 3 {
@@ -94,7 +94,7 @@ func TestUniqueSplitOn(t *testing.T) {
 	// another test
 	inputValue = "value1,value2,value1"
 	argument = ","
-	obj = UniqueSplitOn(&inputValue, &argument)
+	obj = UniqueSplitOn(inputValue, argument)
 	objV = obj.([]string)
 	fmt.Println("objV=",objV)
 	if len(objV) != 3 {

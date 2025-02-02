@@ -33,7 +33,7 @@ func (ctx *BuilderContext) buildEvalOperator(op string) (evalOperator, error) {
 		return opAND{}, nil
 	case "OR":
 		return opOR{}, nil
-	case "NOT":	// unary op
+	case "NOT": // unary op
 		return opNot{}, nil
 	// Arithemtic operators
 	case "/":
@@ -46,10 +46,12 @@ func (ctx *BuilderContext) buildEvalOperator(op string) (evalOperator, error) {
 		return opMUL{}, nil
 	case "ABS":
 		return opABS{}, nil
-	// Special Operators
-case "LENGTH":
-	return opLength{}, nil
-case "DISTANCE_MONTHS":
+		// Special Operators
+	case "IN":
+		return opIn{}, nil
+	case "LENGTH":
+		return opLength{}, nil
+	case "DISTANCE_MONTHS":
 		return opDMonths{}, nil
 	case "APPLY_FORMAT":
 		return opApplyFormat{}, nil
@@ -69,6 +71,8 @@ func ToBool(b interface{}) bool {
 		return v > 0
 	case float64:
 		return v > 0
+	case float32:
+		return v > 0
 	}
 	return false
 }
@@ -83,12 +87,15 @@ func ToDouble(d interface{}) (float64, error) {
 		return float64(v), nil
 	case float64:
 		return v, nil
+	case float32:
+		return float64(v), nil
 	}
 	return 0, fmt.Errorf("invalid data: not a double: %v", d)
 }
 
 // Operator ==
-type opEqual struct {}
+type opEqual struct{}
+
 func (op opEqual) eval(lhs interface{}, rhs interface{}) (interface{}, error) {
 	if lhs == nil || rhs == nil {
 		return 0, nil
@@ -124,7 +131,7 @@ func (op opEqual) eval(lhs interface{}, rhs interface{}) (interface{}, error) {
 		case time.Time:
 			return nil, fmt.Errorf("opEqual string and datetime, rejected")
 		}
-	
+
 	case int:
 		switch rhsv := rhs.(type) {
 		case string:
@@ -223,14 +230,15 @@ func (op opEqual) eval(lhs interface{}, rhs interface{}) (interface{}, error) {
 }
 
 // Operator !=
-type opNotEqual struct {}
+type opNotEqual struct{}
+
 func (op opNotEqual) eval(lhs interface{}, rhs interface{}) (interface{}, error) {
 	if lhs == nil || rhs == nil {
 		return 0, nil
 	}
 	v, err := opEqual{}.eval(lhs, rhs)
 	if err != nil {
-		return nil, fmt.Errorf("opNotEqual eval using opEqual: %v", err)	
+		return nil, fmt.Errorf("opNotEqual eval using opEqual: %v", err)
 	}
 	switch vv := v.(type) {
 	case int:
@@ -244,7 +252,8 @@ func (op opNotEqual) eval(lhs interface{}, rhs interface{}) (interface{}, error)
 }
 
 // Operator AND
-type opAND struct {}
+type opAND struct{}
+
 func (op opAND) eval(lhs interface{}, rhs interface{}) (interface{}, error) {
 	if lhs == nil || rhs == nil {
 		return 0, nil
@@ -263,7 +272,8 @@ func (op opAND) eval(lhs interface{}, rhs interface{}) (interface{}, error) {
 }
 
 // Operator OR
-type opOR struct {}
+type opOR struct{}
+
 func (op opOR) eval(lhs interface{}, rhs interface{}) (interface{}, error) {
 	if lhs == nil || rhs == nil {
 		return 0, nil
@@ -281,9 +291,9 @@ func (op opOR) eval(lhs interface{}, rhs interface{}) (interface{}, error) {
 	return nil, fmt.Errorf("opOR incompatible types, rejected")
 }
 
-
 // Boolean not
-type opNot struct {}
+type opNot struct{}
+
 func (op opNot) eval(lhs interface{}, _ interface{}) (interface{}, error) {
 	if lhs == nil {
 		return nil, nil
@@ -311,8 +321,8 @@ func (op opNot) eval(lhs interface{}, _ interface{}) (interface{}, error) {
 	return nil, fmt.Errorf("opNot incompatible types, rejected")
 }
 
+type opIS struct{}
 
-type opIS struct {}
 func (op opIS) eval(lhs interface{}, rhs interface{}) (interface{}, error) {
 	if lhs == nil && rhs == nil {
 		return 1, nil
@@ -321,7 +331,7 @@ func (op opIS) eval(lhs interface{}, rhs interface{}) (interface{}, error) {
 	case float64:
 		switch rhsv := rhs.(type) {
 		case float64:
-			if(math.IsNaN(lhsv) && math.IsNaN(rhsv)) {
+			if math.IsNaN(lhsv) && math.IsNaN(rhsv) {
 				return 1, nil
 			}
 		}
@@ -329,8 +339,8 @@ func (op opIS) eval(lhs interface{}, rhs interface{}) (interface{}, error) {
 	return 0, nil
 }
 
+type opLT struct{}
 
-type opLT struct {}
 func (op opLT) eval(lhs interface{}, rhs interface{}) (interface{}, error) {
 	if lhs == nil || rhs == nil {
 		return 0, nil
@@ -374,7 +384,7 @@ func (op opLT) eval(lhs interface{}, rhs interface{}) (interface{}, error) {
 		case time.Time:
 			return nil, fmt.Errorf("opLT string and datetime, rejected")
 		}
-	
+
 	case int:
 		switch rhsv := rhs.(type) {
 		case string:
@@ -480,8 +490,8 @@ func (op opLT) eval(lhs interface{}, rhs interface{}) (interface{}, error) {
 	return nil, fmt.Errorf("opLT incompatible types, rejected")
 }
 
+type opLE struct{}
 
-type opLE struct {}
 func (op opLE) eval(lhs interface{}, rhs interface{}) (interface{}, error) {
 	if lhs == nil || rhs == nil {
 		return 0, nil
@@ -525,7 +535,7 @@ func (op opLE) eval(lhs interface{}, rhs interface{}) (interface{}, error) {
 		case time.Time:
 			return nil, fmt.Errorf("opLE string and datetime, rejected")
 		}
-	
+
 	case int:
 		switch rhsv := rhs.(type) {
 		case string:
@@ -635,8 +645,8 @@ func (op opLE) eval(lhs interface{}, rhs interface{}) (interface{}, error) {
 	return nil, fmt.Errorf("opLE incompatible types, rejected")
 }
 
+type opGT struct{}
 
-type opGT struct {}
 func (op opGT) eval(lhs interface{}, rhs interface{}) (interface{}, error) {
 	if lhs == nil || rhs == nil {
 		return 0, nil
@@ -680,7 +690,7 @@ func (op opGT) eval(lhs interface{}, rhs interface{}) (interface{}, error) {
 		case time.Time:
 			return nil, fmt.Errorf("opGT string and datetime, rejected")
 		}
-	
+
 	case int:
 		switch rhsv := rhs.(type) {
 		case string:
@@ -786,8 +796,8 @@ func (op opGT) eval(lhs interface{}, rhs interface{}) (interface{}, error) {
 	return nil, fmt.Errorf("opGT incompatible types, rejected")
 }
 
+type opGE struct{}
 
-type opGE struct {}
 func (op opGE) eval(lhs interface{}, rhs interface{}) (interface{}, error) {
 	if lhs == nil || rhs == nil {
 		return 0, nil
@@ -831,7 +841,7 @@ func (op opGE) eval(lhs interface{}, rhs interface{}) (interface{}, error) {
 		case time.Time:
 			return nil, fmt.Errorf("opGE string and datetime, rejected")
 		}
-	
+
 	case int:
 		switch rhsv := rhs.(type) {
 		case string:
@@ -941,8 +951,8 @@ func (op opGE) eval(lhs interface{}, rhs interface{}) (interface{}, error) {
 	return nil, fmt.Errorf("opGE incompatible types, rejected")
 }
 
+type opDIV struct{}
 
-type opDIV struct {}
 func (op opDIV) eval(lhs interface{}, rhs interface{}) (interface{}, error) {
 	if lhs == nil || rhs == nil {
 		return nil, nil
@@ -961,8 +971,8 @@ func (op opDIV) eval(lhs interface{}, rhs interface{}) (interface{}, error) {
 	return lhsv / rhsv, nil
 }
 
+type opADD struct{}
 
-type opADD struct {}
 func (op opADD) eval(lhs interface{}, rhs interface{}) (interface{}, error) {
 	if lhs == nil || rhs == nil {
 		return nil, nil
@@ -973,17 +983,17 @@ func (op opADD) eval(lhs interface{}, rhs interface{}) (interface{}, error) {
 		case string:
 			return fmt.Sprintf("%s%s", lhsv, rhsv), nil
 		case int:
-			return fmt.Sprintf("%s%v",lhsv,rhsv), nil
+			return fmt.Sprintf("%s%v", lhsv, rhsv), nil
 		case int64:
-			return fmt.Sprintf("%s%v",lhsv,rhsv), nil
+			return fmt.Sprintf("%s%v", lhsv, rhsv), nil
 		case float64:
-			return fmt.Sprintf("%s%v",lhsv,rhsv), nil
+			return fmt.Sprintf("%s%v", lhsv, rhsv), nil
 		}
-	
+
 	case int:
 		switch rhsv := rhs.(type) {
 		case string:
-			return fmt.Sprintf("%v%v",lhsv,rhsv), nil
+			return fmt.Sprintf("%v%v", lhsv, rhsv), nil
 		case int:
 			return lhsv + rhsv, nil
 		case int64:
@@ -996,7 +1006,7 @@ func (op opADD) eval(lhs interface{}, rhs interface{}) (interface{}, error) {
 	case int64:
 		switch rhsv := rhs.(type) {
 		case string:
-			return fmt.Sprintf("%v%v",lhsv,rhsv), nil
+			return fmt.Sprintf("%v%v", lhsv, rhsv), nil
 		case int:
 			return lhsv + int64(rhsv), nil
 		case int64:
@@ -1009,7 +1019,7 @@ func (op opADD) eval(lhs interface{}, rhs interface{}) (interface{}, error) {
 	case float64:
 		switch rhsv := rhs.(type) {
 		case string:
-			return fmt.Sprintf("%v%v",lhsv,rhsv), nil
+			return fmt.Sprintf("%v%v", lhsv, rhsv), nil
 		case int:
 			return lhsv + float64(rhsv), nil
 		case int64:
@@ -1034,8 +1044,8 @@ func (op opADD) eval(lhs interface{}, rhs interface{}) (interface{}, error) {
 	return nil, fmt.Errorf("opADD incompatible types: '%v' and '%v', rejected", lhs, rhs)
 }
 
+type opSUB struct{}
 
-type opSUB struct {}
 func (op opSUB) eval(lhs interface{}, rhs interface{}) (interface{}, error) {
 	if lhs == nil || rhs == nil {
 		return nil, nil
@@ -1094,8 +1104,8 @@ func (op opSUB) eval(lhs interface{}, rhs interface{}) (interface{}, error) {
 	return nil, fmt.Errorf("opSUB incompatible types, rejected")
 }
 
+type opMUL struct{}
 
-type opMUL struct {}
 func (op opMUL) eval(lhs interface{}, rhs interface{}) (interface{}, error) {
 	if lhs == nil || rhs == nil {
 		return nil, nil
@@ -1134,9 +1144,9 @@ func (op opMUL) eval(lhs interface{}, rhs interface{}) (interface{}, error) {
 	return nil, fmt.Errorf("opMUL incompatible types, rejected")
 }
 
-
 // Operator abs()
-type opABS struct {}
+type opABS struct{}
+
 func (op opABS) eval(lhs interface{}, _ interface{}) (interface{}, error) {
 	if lhs == nil {
 		return 0, nil

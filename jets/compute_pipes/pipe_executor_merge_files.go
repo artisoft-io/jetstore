@@ -45,13 +45,7 @@ func (cpCtx *ComputePipesContext) StartMergeFiles(dbpool *pgxpool.Pool) (cpErr e
 		cpErr = fmt.Errorf("error: StartMergeFiles called but the PipeConfig does not have a valid output_file component")
 		return
 	}
-	var outputFileConfig *OutputFileSpec
-	for i := range cpCtx.CpConfig.OutputFiles {
-		if *outputFileKey == cpCtx.CpConfig.OutputFiles[i].Key {
-			outputFileConfig = &cpCtx.CpConfig.OutputFiles[i]
-			break
-		}
-	}
+	outputFileConfig := GetOutputFileConfig(cpCtx.CpConfig, *outputFileKey)
 	if outputFileConfig == nil {
 		cpErr = fmt.Errorf("error: OutputFile config not found for key %s in StartMergeFiles", *outputFileKey)
 		return
@@ -59,6 +53,9 @@ func (cpCtx *ComputePipesContext) StartMergeFiles(dbpool *pgxpool.Pool) (cpErr e
 	// outputFileConfig.KeyPrefix is the s3 output folder, when empty use:
 	//     <JETS_s3_OUTPUT_PREFIX>/<input file_key dir>/
 	// outputFileConfig.Name is the file name, defaults to $NAME_FILE_KEY (a file name is required)
+	if outputFileConfig.OutputLocation == "" {
+		outputFileConfig.OutputLocation = "jetstore_s3_output"
+	}
 	var fileName string
 	if len(outputFileConfig.Name) > 0 {
 		fileName = doSubstitution(outputFileConfig.Name, "",	"",	cpCtx.EnvSettings)
@@ -158,9 +155,7 @@ func (cpCtx *ComputePipesContext) StartMergeFiles(dbpool *pgxpool.Pool) (cpErr e
 		cpErr = fmt.Errorf("while copying to s3: %v", err)
 		return
 	}
-	if cpCtx.CpConfig.ClusterConfig.IsDebugMode {
-		log.Printf("%s node %d merging files to '%s' completed", cpCtx.SessionId, cpCtx.NodeId, outputS3FileKey)
-	}
+	log.Printf("%s node %d merging files to '%s' completed", cpCtx.SessionId, cpCtx.NodeId, outputS3FileKey)
 	return
 }
 

@@ -17,26 +17,26 @@ type ConcatFunctionArg struct {
 	ColumnPositions []int
 }
 
-func ParseConcatFunctionArgument(rawArg *string, functionName string, inputColumnName2Pos *map[string]int, 
+func ParseConcatFunctionArgument(rawArg string, functionName string, inputColumnName2Pos *map[string]int, 
 	cache map[string]interface{}, input *[]interface{}) (*ConcatFunctionArg, error) {
 	// rawArg is csv-encoded
-	if rawArg == nil {
+	if rawArg == "" {
 		return nil, fmt.Errorf("unexpected null argument to %s function", functionName)
 	}
 	if input == nil {
 		return nil, fmt.Errorf("error: input row is required for concat and concat_with cleansing functions")
 	}
 	// Check if we have it cached
-	v := cache[*rawArg]
+	v := cache[rawArg]
 	if v != nil {
-		// fmt.Println("*** OK Got Cached value for", *rawArg)
+		// fmt.Println("*** OK Got Cached value for", rawArg)
 		return v.(*ConcatFunctionArg), nil
 	}
 	// Parsed the raw argument into ConcatFunctionArg and put it in the cache
-	rows, err := jcsv.Parse(*rawArg)
+	rows, err := jcsv.Parse(rawArg)
 	if len(rows) == 0 || len(rows[0]) == 0 || err != nil {
 		// It's not csv or there's no data
-		return nil, fmt.Errorf("error:no-data: argument %s cannot be parsed as csv: %v (%s function)", *rawArg, err, functionName)
+		return nil, fmt.Errorf("error:no-data: argument %s cannot be parsed as csv: %v (%s function)", rawArg, err, functionName)
 	}
 	results := &ConcatFunctionArg{
 		ColumnPositions: make([]int, 0),
@@ -49,12 +49,12 @@ func ParseConcatFunctionArgument(rawArg *string, functionName string, inputColum
 			// fmt.Println("*** concat:",row[i],"value @:", colPos,"ok?",ok)
 			if !ok {
 				// Column not found
-				return nil, fmt.Errorf("error:column-not-fount: argument %s is not an input column name (%s function)", *rawArg, functionName)
+				return nil, fmt.Errorf("error:column-not-fount: argument %s is not an input column name (%s function)", rawArg, functionName)
 			}
 			results.ColumnPositions = append(results.ColumnPositions, colPos)
 		}
 	}
-	cache[*rawArg] = results
+	cache[rawArg] = results
 	return results, nil
 }
 
@@ -63,36 +63,36 @@ type SubStringFunctionArg struct {
 	End   int
 }
 
-func ParseSubStringFunctionArgument(rawArg *string, functionName string, cache map[string]interface{}) (*SubStringFunctionArg, error) {
+func ParseSubStringFunctionArgument(rawArg string, functionName string, cache map[string]interface{}) (*SubStringFunctionArg, error) {
 	// rawArg is comma separated as: start,end
-	if rawArg == nil {
+	if rawArg == "" {
 		return nil, fmt.Errorf("unexpected null argument to %s function", functionName)
 	}
 	// Check if we have it cached
-	v := cache[*rawArg]
+	v := cache[rawArg]
 	if v != nil {
-		// fmt.Println("*** OK Got Cached value for", *rawArg,":",v)
+		// fmt.Println("*** OK Got Cached value for", rawArg,":",v)
 		return v.(*SubStringFunctionArg), nil
 	}
 	// Parsed the raw argument into SubStringFunctionArg and put it in the cache
-	row := strings.Split(*rawArg, ",")
+	row := strings.Split(rawArg, ",")
 	if len(row) != 2 {
 		// The argument is not valid
-		return nil, fmt.Errorf("error: argument %s cannot be parsed as start,end (%s function)", *rawArg, functionName)
+		return nil, fmt.Errorf("error: argument %s cannot be parsed as start,end (%s function)", rawArg, functionName)
 	}
 	start, err := strconv.Atoi(strings.TrimSpace(row[0]))
 	if err != nil {
-		return nil, fmt.Errorf("error: argument %s cannot be parsed as start,end: %v (%s function)", *rawArg, err, functionName)
+		return nil, fmt.Errorf("error: argument %s cannot be parsed as start,end: %v (%s function)", rawArg, err, functionName)
 	}
 	end, err := strconv.Atoi(strings.TrimSpace(row[1]))
 	if err != nil || (end > 0 && end <= start) {
-		return nil, fmt.Errorf("error: argument %s cannot be parsed as start,end: %v (%s function)", *rawArg, err, functionName)
+		return nil, fmt.Errorf("error: argument %s cannot be parsed as start,end: %v (%s function)", rawArg, err, functionName)
 	}
 	results := &SubStringFunctionArg{
 		Start: start,
 		End:   end,
 	}
-	cache[*rawArg] = results
+	cache[rawArg] = results
 	return results, nil
 }
 
@@ -101,29 +101,29 @@ type FindReplaceFunctionArg struct {
 	ReplaceWith string
 }
 
-func ParseFindReplaceFunctionArgument(rawArg *string, functionName string, cache map[string]interface{}) (*FindReplaceFunctionArg, error) {
+func ParseFindReplaceFunctionArgument(rawArg string, functionName string, cache map[string]interface{}) (*FindReplaceFunctionArg, error) {
 	// rawArg is csv-encoded: "text to find","text to replace with"
-	if rawArg == nil {
+	if rawArg == "" {
 		return nil, fmt.Errorf("unexpected null argument to %s function", functionName)
 	}
 	// Check if we have it cached
-	v := cache[*rawArg]
+	v := cache[rawArg]
 	if v != nil {
-		// fmt.Println("*** OK Got Cached value for", *rawArg,":",v)
+		// fmt.Println("*** OK Got Cached value for", rawArg,":",v)
 		return v.(*FindReplaceFunctionArg), nil
 	}
 	// Parsed the raw argument into FindReplaceFunctionArg and put it in the cache
-	rows, err := jcsv.Parse(*rawArg)
+	rows, err := jcsv.Parse(rawArg)
 	if len(rows) == 0 || len(rows[0]) != 2 || err != nil {
 		// It's not csv or there's no data
-		return nil, fmt.Errorf("error:no-data: argument %s cannot be parsed as csv: %v (%s function)", *rawArg, err, functionName)
+		return nil, fmt.Errorf("error:no-data: argument %s cannot be parsed as csv: %v (%s function)", rawArg, err, functionName)
 	}
 
 	results := &FindReplaceFunctionArg{
 		Find:        rows[0][0],
 		ReplaceWith: rows[0][1],
 	}
-	cache[*rawArg] = results
+	cache[rawArg] = results
 	return results, nil
 }
 

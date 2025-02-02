@@ -37,14 +37,14 @@ func (ctx *CleansingFunctionContext) With(inputColumns *map[string]int) *Cleansi
 }
 
 // inputColumnName can be null
-func (ctx *CleansingFunctionContext) ApplyCleasingFunction(functionName *string, argument *string, inputValue *string,
+func (ctx *CleansingFunctionContext) ApplyCleasingFunction(functionName string, argument string, inputValue string,
 	inputPos int, inputRow *[]interface{}) (obj interface{}, errMsg string) {
 	var err error
 	var sz int
-	switch *functionName {
+	switch functionName {
 
 	case "trim":
-		vv := strings.TrimSpace(*inputValue)
+		vv := strings.TrimSpace(inputValue)
 		if len(vv) == 0 {
 			obj = nil
 		} else {
@@ -52,19 +52,19 @@ func (ctx *CleansingFunctionContext) ApplyCleasingFunction(functionName *string,
 		}
 
 	case "validate_date":
-		_, err2 := rdf.ParseDate(*inputValue)
+		_, err2 := rdf.ParseDate(inputValue)
 		if err2 == nil {
-			obj = *inputValue
+			obj = inputValue
 		} else {
 			errMsg = err2.Error()
 		}
 
 	case "to_upper":
-		obj = strings.ToUpper(*inputValue)
+		obj = strings.ToUpper(inputValue)
 
 	case "to_zip5":
 		// Remove non digits characters
-		inVal := filterDigits(*inputValue)
+		inVal := filterDigits(inputValue)
 		sz = len(inVal)
 		switch {
 		case sz == 0:
@@ -106,7 +106,7 @@ func (ctx *CleansingFunctionContext) ApplyCleasingFunction(functionName *string,
 
 	case "to_zipext4_from_zip9": // from a zip9 input
 		// Remove non digits characters
-		inVal := filterDigits(*inputValue)
+		inVal := filterDigits(inputValue)
 		sz = len(inVal)
 		switch {
 		case sz == 0:
@@ -132,7 +132,7 @@ func (ctx *CleansingFunctionContext) ApplyCleasingFunction(functionName *string,
 
 	case "to_zipext4": // from a zip ext4 input
 		// Remove non digits characters
-		inVal := filterDigits(*inputValue)
+		inVal := filterDigits(inputValue)
 		sz = len(inVal)
 		switch {
 		case sz == 0:
@@ -162,7 +162,7 @@ func (ctx *CleansingFunctionContext) ApplyCleasingFunction(functionName *string,
 		// exchange_code: 3 digits, 1st digit is not 0 or 1
 		// subscriber_nbr: 4 digits
 		// Optional function argument is fmt.Sprintf formatter, expecting 3 string arguments (area_code, exchange_code, subscriber_nbr)
-		inVal := filterDigits(*inputValue)
+		inVal := filterDigits(inputValue)
 		if len(inVal) < 10 {
 			errMsg = "too few digits"
 			return obj, errMsg
@@ -188,22 +188,22 @@ func (ctx *CleansingFunctionContext) ApplyCleasingFunction(functionName *string,
 			errMsg = "invalid exchange code"
 			return obj, errMsg
 		}
-		if len(*argument) == 0 {
-			*argument = "+1%s%s%s"
+		if len(argument) == 0 {
+			argument = "+1%s%s%s"
 		}
-		obj = fmt.Sprintf(*argument, areaCode, exchangeCode, subscriberNbr)
+		obj = fmt.Sprintf(argument, areaCode, exchangeCode, subscriberNbr)
 
 	case "reformat0":
-		if argument != nil {
+		if argument != "" {
 			// Remove non digits characters
-			inVal := filterDigits(*inputValue)
+			inVal := filterDigits(inputValue)
 			var v int
 			if len(inVal) == 0 {
 				obj = nil
 			} else {
 				v, err = strconv.Atoi(inVal)
 				if err == nil {
-					obj = fmt.Sprintf(*argument, v)
+					obj = fmt.Sprintf(argument, v)
 				} else {
 					errMsg = err.Error()
 				}
@@ -214,12 +214,12 @@ func (ctx *CleansingFunctionContext) ApplyCleasingFunction(functionName *string,
 		}
 
 	case "overpunch_number":
-		if argument != nil {
+		if argument != "" {
 			// Get the number of decimal position
 			var npos int
-			npos, err = strconv.Atoi(*argument)
+			npos, err = strconv.Atoi(argument)
 			if err == nil {
-				vv, err := OverpunchNumber(*inputValue, npos)
+				vv, err := OverpunchNumber(inputValue, npos)
 				if err != nil {
 					obj = nil
 					errMsg = err.Error()
@@ -240,17 +240,17 @@ func (ctx *CleansingFunctionContext) ApplyCleasingFunction(functionName *string,
 		}
 
 	case "apply_regex":
-		if argument != nil {
-			re, ok := ctx.reMap[*argument]
+		if argument != "" {
+			re, ok := ctx.reMap[argument]
 			if !ok {
-				re, err = regexp.Compile(*argument)
+				re, err = regexp.Compile(argument)
 				if err != nil {
 					// configuration error, bailing out
-					log.Panicf("ERROR regex argument does not compile: %s", *argument)
+					log.Panicf("ERROR regex argument does not compile: %s", argument)
 				}
-				ctx.reMap[*argument] = re
+				ctx.reMap[argument] = re
 			}
-			vv := re.FindString(*inputValue)
+			vv := re.FindString(inputValue)
 			if len(vv) == 0 {
 				obj = nil
 			} else {
@@ -262,26 +262,26 @@ func (ctx *CleansingFunctionContext) ApplyCleasingFunction(functionName *string,
 		}
 
 	case "scale_units":
-		if argument != nil {
-			if *argument == "1" {
-				vv := filterDouble(*inputValue)
+		if argument != "" {
+			if argument == "1" {
+				vv := filterDouble(inputValue)
 				if len(vv) == 0 {
 					obj = nil
 				} else {
 					obj = vv
 				}
 			} else {
-				divisor, ok := ctx.argdMap[*argument]
+				divisor, ok := ctx.argdMap[argument]
 				if !ok {
-					divisor, err = strconv.ParseFloat(*argument, 64)
+					divisor, err = strconv.ParseFloat(argument, 64)
 					if err != nil {
 						// configuration error, bailing out
-						log.Panicf("ERROR divisor argument to function scale_units is not a double: %s", *argument)
+						log.Panicf("ERROR divisor argument to function scale_units is not a double: %s", argument)
 					}
-					ctx.argdMap[*argument] = divisor
+					ctx.argdMap[argument] = divisor
 				}
 				// Remove non digits characters
-				inVal := filterDouble(*inputValue)
+				inVal := filterDouble(inputValue)
 				var unit float64
 				unit, err = strconv.ParseFloat(inVal, 64)
 				if err == nil {
@@ -298,19 +298,19 @@ func (ctx *CleansingFunctionContext) ApplyCleasingFunction(functionName *string,
 
 	case "parse_amount":
 		// clean up the amount
-		inVal := filterDouble(*inputValue)
+		inVal := filterDouble(inputValue)
 		if len(inVal) > 0 {
 			obj = inVal
 			// argument is optional, assume divisor is 1 if absent
-			if argument != nil && *argument != "1" {
-				divisor, ok := ctx.argdMap[*argument]
+			if argument != "" && argument != "1" {
+				divisor, ok := ctx.argdMap[argument]
 				if !ok {
-					divisor, err = strconv.ParseFloat(*argument, 64)
+					divisor, err = strconv.ParseFloat(argument, 64)
 					if err != nil {
 						// configuration error, bailing out
-						log.Panicf("ERROR divisor argument to function scale_units is not a double: %s", *argument)
+						log.Panicf("ERROR divisor argument to function scale_units is not a double: %s", argument)
 					}
-					ctx.argdMap[*argument] = divisor
+					ctx.argdMap[argument] = divisor
 				}
 				var amt float64
 				amt, err = strconv.ParseFloat(inVal, 64)
@@ -326,12 +326,12 @@ func (ctx *CleansingFunctionContext) ApplyCleasingFunction(functionName *string,
 	case "concat", "concat_with":
 		// Cleansing function that concatenate inputRow columns w delimiter
 		// Get the parsed argument
-		arg, err := ParseConcatFunctionArgument(argument, *functionName, ctx.inputColumns, ctx.parsedFunctionArguments, inputRow)
+		arg, err := ParseConcatFunctionArgument(argument, functionName, ctx.inputColumns, ctx.parsedFunctionArguments, inputRow)
 		if err != nil {
 			errMsg = err.Error()
 		} else {
 			var buf strings.Builder
-			buf.WriteString(*inputValue)
+			buf.WriteString(inputValue)
 			for i := range arg.ColumnPositions {
 				// fmt.Println("=== concat value @pos:",arg.ColumnPositions[i])
 				if (*inputRow)[arg.ColumnPositions[i]] != nil {
@@ -362,11 +362,11 @@ func (ctx *CleansingFunctionContext) ApplyCleasingFunction(functionName *string,
 	case "find_and_replace":
 		// Cleansing function that replace portion of the input column
 		// Get the parsed argument
-		arg, err := ParseFindReplaceFunctionArgument(argument, *functionName, ctx.parsedFunctionArguments)
+		arg, err := ParseFindReplaceFunctionArgument(argument, functionName, ctx.parsedFunctionArguments)
 		if err != nil {
 			errMsg = err.Error()
 		} else {
-			vv := strings.ReplaceAll(*inputValue, arg.Find, arg.ReplaceWith)
+			vv := strings.ReplaceAll(inputValue, arg.Find, arg.ReplaceWith)
 			if len(vv) == 0 {
 				obj = nil
 			} else {
@@ -377,23 +377,23 @@ func (ctx *CleansingFunctionContext) ApplyCleasingFunction(functionName *string,
 	case "substring":
 		// Cleansing function that takes a substring of input columns
 		// Get the parsed argument
-		arg, err := ParseSubStringFunctionArgument(argument, *functionName, ctx.parsedFunctionArguments)
+		arg, err := ParseSubStringFunctionArgument(argument, functionName, ctx.parsedFunctionArguments)
 		if err != nil {
 			errMsg = err.Error()
 		} else {
 			end := arg.End
 			if end < 0 {
-				end = len(*inputValue) + end
+				end = len(inputValue) + end
 			}
-			if end > len(*inputValue) || end <= arg.Start {
+			if end > len(inputValue) || end <= arg.Start {
 				obj = nil
 			} else {
-				obj = (*inputValue)[arg.Start:end]
+				obj = (inputValue)[arg.Start:end]
 			}
 		}
 
 	case "split_on":
-		if argument != nil {
+		if argument != "" {
 			obj = SplitOn(inputValue, argument)
 		} else {
 			// configuration error, bailing out
@@ -401,7 +401,7 @@ func (ctx *CleansingFunctionContext) ApplyCleasingFunction(functionName *string,
 		}
 
 	case "unique_split_on":
-		if argument != nil {
+		if argument != "" {
 			obj = UniqueSplitOn(inputValue, argument)
 		} else {
 			// configuration error, bailing out
@@ -409,27 +409,27 @@ func (ctx *CleansingFunctionContext) ApplyCleasingFunction(functionName *string,
 		}
 
 	default:
-		log.Panicf("ERROR unknown mapping function: %s", *functionName)
+		log.Panicf("ERROR unknown mapping function: %s", functionName)
 	}
 
 	return obj, errMsg
 }
 
-func SplitOn(inputValue, argument *string) interface{} {
-	if inputValue == nil || argument == nil || *inputValue == "" {
+func SplitOn(inputValue, argument string) interface{} {
+	if inputValue == "" || argument == "" {
 		return nil
 	}
-	return strings.Split(*inputValue, *argument)
+	return strings.Split(inputValue, argument)
 }
 
-func UniqueSplitOn(inputValue, argument *string) interface{} {
-	if inputValue == nil || argument == nil || *inputValue == "" {
+func UniqueSplitOn(inputValue, argument string) interface{} {
+	if inputValue == "" || argument == "" {
 		return nil
 	}
-	vv := strings.Split(*inputValue, *argument)
+	vv := strings.Split(inputValue, argument)
 	// vv may contains duplicated value, to make each value unique we append -%d to the
 	// value, where %d is the value of a counter such that:
-	//   if *inputValue is "value1,value2,value1,value3"
+	//   if inputValue is "value1,value2,value1,value3"
 	//   then the parsed values will be:
 	//     value1-0
 	//     value1-1

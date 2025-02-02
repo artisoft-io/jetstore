@@ -87,11 +87,11 @@ func (ctx *AnonymizeTransformationPipe) Apply(input *[]interface{}) error {
 			if err == nil {
 				// hashedValue = fmt.Sprintf("%d/%02d/01", date.Year(), date.Month())
 				anonymizeDate := time.Date(date.Year(), date.Month(), 1, 0, 0, 0, 0, time.UTC)
-				hashedValue = anonymizeDate.Format(ctx.outputDateLayout)
+				hashedValue = strings.ToUpper(anonymizeDate.Format(ctx.outputDateLayout))
 				if ctx.keyMapDateLayout == "" {
 					hashedValue4KeyFile = hashedValue
 				} else {
-					hashedValue4KeyFile = anonymizeDate.Format(ctx.keyMapDateLayout)
+					hashedValue4KeyFile = strings.ToUpper(anonymizeDate.Format(ctx.keyMapDateLayout))
 				}
 			} else {
 				hashedValue = inputStr
