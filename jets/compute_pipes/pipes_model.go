@@ -147,7 +147,7 @@ type SchemaProviderSpec struct {
 	// example: {"currentSheet": "Daily entry for Approvals"} (for xlsx).
 	// SourceType range: main_input, merged_input, historical_input (from input_source table)
 	// Columns may be ommitted if fixed_width_columns_csv is provided or is a csv format
-	// UseLazyQuotes, VariableFieldsPerRecord see https://pkg.go.dev/encoding/csv#NewReader
+	// UseLazyQuotes, VariableFieldsPerRecord see csv.NewReader
 	// Bucket and FileKey are location and source object (fileKey may be directory if IsPartFiles is true)
 	// KmsKey is kms key to use when writing output data. May be empty.
 	// Contains properties to register FileKey with input_registry table:

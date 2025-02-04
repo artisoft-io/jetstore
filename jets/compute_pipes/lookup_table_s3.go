@@ -1,7 +1,6 @@
 package compute_pipes
 
 import (
-	"encoding/csv"
 	"fmt"
 	"io"
 	"log"
@@ -9,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/artisoft-io/jetstore/jets/csv"
 	"github.com/golang/snappy"
 	"github.com/jackc/pgx/v4/pgxpool"
 )

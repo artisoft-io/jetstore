@@ -2,12 +2,12 @@ package main
 
 import (
 	"bytes"
-	"encoding/csv"
 	"fmt"
 	"io"
 	"strconv"
 	"strings"
 
+	"github.com/artisoft-io/jetstore/jets/csv"
 	"github.com/artisoft-io/jetstore/jets/datatable/jcsv"
 )
 
