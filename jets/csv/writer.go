@@ -29,10 +29,17 @@ import (
 // [Writer.Flush] method to guarantee all data has been forwarded to
 // the underlying [io.Writer].  Any errors that occurred should
 // be checked by calling the [Writer.Error] method.
+//
+// Modification made by jetstore:
+//   - Make the quote character configurable (TODO)
+//   - Add flag NoQuotes to write the data as is (do not escape quotes in data)
+//   - Add flag QuoteAll to quote every fields
 type Writer struct {
-	Comma   rune // Field delimiter (set to ',' by NewWriter)
-	UseCRLF bool // True to use \r\n as the line terminator
-	w       *bufio.Writer
+	Comma    rune // Field delimiter (set to ',' by NewWriter)
+	UseCRLF  bool // True to use \r\n as the line terminator
+	NoQuotes bool
+	QuoteAll bool
+	w        *bufio.Writer
 }
 
 // NewWriter returns a new Writer that writes to w.
@@ -61,7 +68,7 @@ func (w *Writer) Write(record []string) error {
 
 		// If we don't have to have a quoted field then just
 		// write out the field and continue to the next field.
-		if !w.fieldNeedsQuotes(field) {
+		if w.NoQuotes || (!w.QuoteAll && !w.fieldNeedsQuotes(field)) {
 			if _, err := w.w.WriteString(field); err != nil {
 				return err
 			}

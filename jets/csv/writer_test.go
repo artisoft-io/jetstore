@@ -12,11 +12,13 @@ import (
 )
 
 var writeTests = []struct {
-	Input   [][]string
-	Output  string
-	Error   error
-	UseCRLF bool
-	Comma   rune
+	Input    [][]string
+	Output   string
+	Error    error
+	UseCRLF  bool
+	Comma    rune
+	NoQuotes bool
+	QuoteAll bool
 }{
 	{Input: [][]string{{"abc"}}, Output: "abc\n"},
 	{Input: [][]string{{"abc"}}, Output: "abc\r\n", UseCRLF: true},
@@ -47,6 +49,8 @@ var writeTests = []struct {
 	{Input: [][]string{{"a", "a", ""}}, Output: "a|a|\n", Comma: '|'},
 	{Input: [][]string{{",", ",", ""}}, Output: ",|,|\n", Comma: '|'},
 	{Input: [][]string{{"foo"}}, Comma: '"', Error: errInvalidDelim},
+	{Input: [][]string{{"a", "a", ""}}, Output: "\"a\"|\"a\"|\"\"\n", Comma: '|', QuoteAll: true},
+	{Input: [][]string{{"a", "a\"b", ""}}, Output: "a|a\"b|\n", Comma: '|', NoQuotes: true},
 }
 
 func TestWrite(t *testing.T) {
@@ -57,6 +61,8 @@ func TestWrite(t *testing.T) {
 		if tt.Comma != 0 {
 			f.Comma = tt.Comma
 		}
+		f.QuoteAll = tt.QuoteAll
+		f.NoQuotes = tt.NoQuotes
 		err := f.WriteAll(tt.Input)
 		if err != tt.Error {
 			t.Errorf("Unexpected error:\ngot  %v\nwant %v", err, tt.Error)

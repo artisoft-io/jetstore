@@ -40,6 +40,8 @@ type SchemaProvider interface {
 	Delimiter() rune
 	UseLazyQuotes() bool
 	VariableFieldsPerRecord() bool
+	QuoteAllRecords() bool
+	NoQuotes() bool
 	TrimColumns() bool
 	Columns() []SchemaColumnSpec
 	ColumnNames() []string
@@ -211,6 +213,20 @@ func (sp *DefaultSchemaProvider) VariableFieldsPerRecord() bool {
 		return false
 	}
 	return sp.spec.VariableFieldsPerRecord
+}
+
+func (sp *DefaultSchemaProvider) QuoteAllRecords() bool {
+	if sp == nil {
+		return false
+	}
+	return sp.spec.QuoteAllRecords
+}
+
+func (sp *DefaultSchemaProvider) NoQuotes() bool {
+	if sp == nil {
+		return false
+	}
+	return sp.spec.NoQuotes
 }
 
 func (sp *DefaultSchemaProvider) TrimColumns() bool {

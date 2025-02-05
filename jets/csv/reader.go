@@ -108,6 +108,9 @@ func validDelim(r rune) bool {
 // The Reader converts all \r\n sequences in its input to plain \n,
 // including in multiline field values, so that the returned data does
 // not depend on which line-ending convention an input file uses.
+//
+// Modification made by jetstore:
+//   - Make the quote character configurable (TODO)
 type Reader struct {
 	// Comma is the field delimiter.
 	// It is set to comma (',') by NewReader.
