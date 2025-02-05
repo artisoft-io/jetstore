@@ -61,8 +61,15 @@ func (cpCtx *ComputePipesContext) LoadFiles(ctx context.Context, dbpool *pgxpool
 	go cpCtx.StartComputePipes(dbpool, inputSchemaCh, computePipesInputCh)
 
 	// Load the files
+	samplingMaxCount := int64(cpCtx.CpConfig.PipesConfig[0].InputChannel.SamplingMaxCount)
 	var count, totalRowCount int64
+	gotMaxRecordCount := false
 	for localInFile := range cpCtx.FileNamesCh {
+		if gotMaxRecordCount {
+			// Don't read more records
+			os.Remove(localInFile.LocalFileName)
+			continue
+		}
 		if cpCtx.CpConfig.ClusterConfig.IsDebugMode {
 			log.Printf("%s node %d Loading file '%s'", cpCtx.SessionId, cpCtx.NodeId, localInFile.InFileKeyInfo.key)
 		}
@@ -85,6 +92,9 @@ func (cpCtx *ComputePipesContext) LoadFiles(ctx context.Context, dbpool *pgxpool
 			cpCtx.ChResults.LoadFromS3FilesResultCh <- LoadFromS3FilesResult{LoadRowCount: totalRowCount, BadRowCount: 0, Err: err}
 			return
 		}
+		if samplingMaxCount > 0 && totalRowCount >= samplingMaxCount {
+			gotMaxRecordCount = true
+		}
 	}
 	cpCtx.ChResults.LoadFromS3FilesResultCh <- LoadFromS3FilesResult{LoadRowCount: totalRowCount, BadRowCount: 0}
 	return
@@ -98,7 +108,7 @@ func (cpCtx *ComputePipesContext) ReadParquetFile(filePath *FileName, saveParque
 	var inputColumns []string
 	var err error
 	samplingRate := cpCtx.CpConfig.PipesConfig[0].InputChannel.SamplingRate
-	samplingMaxCount := cpCtx.CpConfig.PipesConfig[0].InputChannel.SamplingMaxCount
+	samplingMaxCount := int64(cpCtx.CpConfig.PipesConfig[0].InputChannel.SamplingMaxCount)
 
 	fileHd, err = os.Open(filePath.LocalFileName)
 	if err != nil {
@@ -205,7 +215,7 @@ func (cpCtx *ComputePipesContext) ReadParquetFile(filePath *FileName, saveParque
 			if samplingRate > 0 && cpCtx.SamplingCount < samplingRate {
 				continue
 			}
-			if samplingMaxCount > 0 && inputRowCount >= int64(samplingMaxCount) {
+			if samplingMaxCount > 0 && inputRowCount >= samplingMaxCount {
 				continue
 			}
 			cpCtx.SamplingCount = 0
@@ -327,7 +337,7 @@ func (cpCtx *ComputePipesContext) ReadCsvFile(filePath *FileName,
 	var csvReader *csv.Reader
 	var err error
 	samplingRate := cpCtx.CpConfig.PipesConfig[0].InputChannel.SamplingRate
-	samplingMaxCount := cpCtx.CpConfig.PipesConfig[0].InputChannel.SamplingMaxCount
+	samplingMaxCount := int64(cpCtx.CpConfig.PipesConfig[0].InputChannel.SamplingMaxCount)
 
 	fileHd, err = os.Open(filePath.LocalFileName)
 	if err != nil {
@@ -477,7 +487,7 @@ func (cpCtx *ComputePipesContext) ReadCsvFile(filePath *FileName,
 					continue
 				}
 			}
-			if samplingMaxCount > 0 && inputRowCount >= int64(samplingMaxCount) {
+			if samplingMaxCount > 0 && inputRowCount >= samplingMaxCount {
 				continue
 			}
 		}
@@ -554,7 +564,7 @@ func (cpCtx *ComputePipesContext) ReadFixedWidthFile(filePath *FileName, shardOf
 	var fwScanner *bufio.Scanner
 	var err error
 	samplingRate := cpCtx.CpConfig.PipesConfig[0].InputChannel.SamplingRate
-	samplingMaxCount := cpCtx.CpConfig.PipesConfig[0].InputChannel.SamplingMaxCount
+	samplingMaxCount := int64(cpCtx.CpConfig.PipesConfig[0].InputChannel.SamplingMaxCount)
 
 	fileHd, err = os.Open(filePath.LocalFileName)
 	if err != nil {
@@ -674,7 +684,7 @@ func (cpCtx *ComputePipesContext) ReadFixedWidthFile(filePath *FileName, shardOf
 			if inputRowCount > 0 && samplingRate > 0 && cpCtx.SamplingCount < samplingRate {
 				continue
 			}
-			if samplingMaxCount > 0 && inputRowCount >= int64(samplingMaxCount) {
+			if samplingMaxCount > 0 && inputRowCount >= samplingMaxCount {
 				continue
 			}
 			cpCtx.SamplingCount = 0
