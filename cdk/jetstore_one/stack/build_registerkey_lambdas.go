@@ -177,7 +177,13 @@ func (jsComp *JetStoreStackComponents) BuildRegisterKeyLambdas(scope constructs.
 		if descriptionTagName != nil {
 			awscdk.Tags_Of(jsComp.SqsRegisterKeyLambda).Add(descriptionTagName, jsii.String("JetStore lambda for sqs events"), nil)
 		}
+
 		jsComp.SourceBucket.GrantReadWrite(jsComp.SqsRegisterKeyLambda, nil)
+		jsComp.GrantReadWriteFromExternalBuckets(stack, jsComp.SqsRegisterKeyLambda)
+		if jsComp.ExternalKmsKey != nil {
+			jsComp.ExternalKmsKey.GrantEncryptDecrypt(jsComp.SqsRegisterKeyLambda)
+		}
+	
 		sqsArn := os.Getenv("EXTERNAL_SQS_ARN")
 		if len(sqsArn) > 0 {
 			// Provide the ability to read sqs queue

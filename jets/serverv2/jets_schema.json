@@ -477,6 +477,12 @@
         "isNotNull": true
       },
       {
+        "columnName": "file_size",
+        "dataType": "int64",
+        "default": "0",
+        "isNotNull": true
+      },
+      {
         "columnName": "source_period_key",
         "dataType": "int",
         "isNotNull": true

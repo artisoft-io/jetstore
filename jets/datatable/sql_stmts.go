@@ -201,12 +201,12 @@ var sqlInsertStmts = map[string]*SqlInsertDefinition{
 	// file_key_staging -- for DoRegisterFileKeyAction
 	"file_key_staging": {
 		Stmt: `INSERT INTO jetsapi.file_key_staging 
-			(client, org, object_type, file_key, source_period_key) 
-			VALUES ($1, $2, $3, $4, $5)
+			(client, org, object_type, file_key, file_size, source_period_key) 
+			VALUES ($1, $2, $3, $4, $5, $6)
 			ON CONFLICT ON CONSTRAINT file_key_staging_unique_cstraintv3 
-			DO UPDATE SET (client, org, object_type, last_update) = 
-			(EXCLUDED.client, EXCLUDED.org, EXCLUDED.object_type, DEFAULT)`,
-		ColumnKeys: []string{"client", "org", "object_type", "file_key", "source_period_key"},
+			DO UPDATE SET (client, org, object_type, file_size, last_update) = 
+			(EXCLUDED.client, EXCLUDED.org, EXCLUDED.object_type, EXCLUDED.file_size, DEFAULT)`,
+		ColumnKeys: []string{"client", "org", "object_type", "file_key", "file_size", "source_period_key"},
 		Capability: "jetstore_read",
 	},
 
