@@ -44,6 +44,7 @@ func (jsComp *JetStoreStackComponents) BuildRegisterKeyLambdas(scope constructs.
 			"JETS_s3_SCHEMA_TRIGGERS":                  jsii.String(GetS3SchemaTriggersPrefix()),
 			"JETS_S3_KMS_KEY_ARN":                      jsii.String(os.Getenv("JETS_S3_KMS_KEY_ARN")),
 			"JETS_SENTINEL_FILE_NAME":                  jsii.String(os.Getenv("JETS_SENTINEL_FILE_NAME")),
+			"JETS_PIPELINE_THROTTLING_JSON":            jsii.String(os.Getenv("JETS_PIPELINE_THROTTLING_JSON")),
 			"JETS_SERVER_SM_ARN":                       jsii.String(jsComp.ServerSmArn),
 			"JETS_SERVER_SM_ARNv2":                     jsii.String(jsComp.ServerSmArnv2),
 			"JETS_CPIPES_SM_ARN":                       jsii.String(jsComp.CpipesSmArn),
@@ -145,6 +146,7 @@ func (jsComp *JetStoreStackComponents) BuildRegisterKeyLambdas(scope constructs.
 				"JETS_s3_SCHEMA_TRIGGERS":                  jsii.String(GetS3SchemaTriggersPrefix()),
 				"JETS_S3_KMS_KEY_ARN":                      jsii.String(os.Getenv("JETS_S3_KMS_KEY_ARN")),
 				"JETS_SENTINEL_FILE_NAME":                  jsii.String(os.Getenv("JETS_SENTINEL_FILE_NAME")),
+				"JETS_PIPELINE_THROTTLING_JSON":            jsii.String(os.Getenv("JETS_PIPELINE_THROTTLING_JSON")),
 				"JETS_SERVER_SM_ARN":                       jsii.String(jsComp.ServerSmArn),
 				"JETS_SERVER_SM_ARNv2":                     jsii.String(jsComp.ServerSmArnv2),
 				"JETS_CPIPES_SM_ARN":                       jsii.String(jsComp.CpipesSmArn),
@@ -177,7 +179,13 @@ func (jsComp *JetStoreStackComponents) BuildRegisterKeyLambdas(scope constructs.
 		if descriptionTagName != nil {
 			awscdk.Tags_Of(jsComp.SqsRegisterKeyLambda).Add(descriptionTagName, jsii.String("JetStore lambda for sqs events"), nil)
 		}
+
 		jsComp.SourceBucket.GrantReadWrite(jsComp.SqsRegisterKeyLambda, nil)
+		jsComp.GrantReadWriteFromExternalBuckets(stack, jsComp.SqsRegisterKeyLambda)
+		if jsComp.ExternalKmsKey != nil {
+			jsComp.ExternalKmsKey.GrantEncryptDecrypt(jsComp.SqsRegisterKeyLambda)
+		}
+	
 		sqsArn := os.Getenv("EXTERNAL_SQS_ARN")
 		if len(sqsArn) > 0 {
 			// Provide the ability to read sqs queue

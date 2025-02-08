@@ -2,11 +2,12 @@ package jcsv
 
 import (
 	"bytes"
-	"encoding/csv"
 	"errors"
 	"fmt"
 	"io"
 	"strings"
+
+	"github.com/artisoft-io/jetstore/jets/csv"
 )
 
 // Utility functions to parse small csv buffer in memory

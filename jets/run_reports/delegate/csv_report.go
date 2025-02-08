@@ -3,12 +3,12 @@ package delegate
 import (
 	"context"
 	"database/sql"
-	"encoding/csv"
 	"fmt"
 	"log"
 	"os"
 
 	"github.com/artisoft-io/jetstore/jets/awsi"
+	"github.com/artisoft-io/jetstore/jets/csv"
 	"github.com/artisoft-io/jetstore/jets/dbutils"
 	"github.com/jackc/pgx/v4/pgxpool"
 )

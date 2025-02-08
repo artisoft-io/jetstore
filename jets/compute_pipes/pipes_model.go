@@ -147,7 +147,9 @@ type SchemaProviderSpec struct {
 	// example: {"currentSheet": "Daily entry for Approvals"} (for xlsx).
 	// SourceType range: main_input, merged_input, historical_input (from input_source table)
 	// Columns may be ommitted if fixed_width_columns_csv is provided or is a csv format
-	// UseLazyQuotes, VariableFieldsPerRecord see https://pkg.go.dev/encoding/csv#NewReader
+	// UseLazyQuotes, VariableFieldsPerRecord see csv.NewReader
+	// QuoteAllRecords will quote all records for csv writer
+	// NoQuotes will no quote any records for csv writer (even if the record contains '"')
 	// Bucket and FileKey are location and source object (fileKey may be directory if IsPartFiles is true)
 	// KmsKey is kms key to use when writing output data. May be empty.
 	// Contains properties to register FileKey with input_registry table:
@@ -174,6 +176,8 @@ type SchemaProviderSpec struct {
 	InputFormatDataJson     string             `json:"input_format_data_json,omitempty"`
 	UseLazyQuotes           bool               `json:"use_lazy_quotes"`
 	VariableFieldsPerRecord bool               `json:"variable_fields_per_record"`
+	QuoteAllRecords         bool               `json:"quote_all_records"`
+	NoQuotes                bool               `json:"no_quotes"`
 	ReadDateLayout          string             `json:"read_date_layout,omitempty"`
 	WriteDateLayout         string             `json:"write_date_layout,omitempty"`
 	TrimColumns             bool               `json:"trim_columns"`
@@ -374,8 +378,8 @@ type FunctionTokenNode struct {
 // Will use DateFormat when provided, otherwise take the format from
 // the Schema Provider when avail. Will default to DefaultDateFormat
 // or will use the jetstore date parser if no default provided or
-// if UseJetstoreParser is true. 
-// year_less_than and year_greater_than is an additional condition 
+// if UseJetstoreParser is true.
+// year_less_than and year_greater_than is an additional condition
 // to the match result.
 type ParseDateFTSpec struct {
 	Token             string `json:"token"`

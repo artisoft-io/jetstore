@@ -57,6 +57,7 @@ func (jsComp *JetStoreStackComponents) BuildServerv2SM(scope constructs.Construc
 			"JETS_S3_KMS_KEY_ARN":                      jsii.String(os.Getenv("JETS_S3_KMS_KEY_ARN")),
 			"JETS_SENTINEL_FILE_NAME":                  jsii.String(os.Getenv("JETS_SENTINEL_FILE_NAME")),
 			"JETS_DOMAIN_KEY_SEPARATOR":                jsii.String(os.Getenv("JETS_DOMAIN_KEY_SEPARATOR")),
+			"JETS_PIPELINE_THROTTLING_JSON":            jsii.String(os.Getenv("JETS_PIPELINE_THROTTLING_JSON")),
 			"JETS_SERVER_SM_ARN":                       jsii.String(jsComp.ServerSmArn),
 			"JETS_SERVER_SM_ARNv2":                     jsii.String(jsComp.ServerSmArnv2),
 			"JETS_CPIPES_SM_ARN":                       jsii.String(jsComp.CpipesSmArn),

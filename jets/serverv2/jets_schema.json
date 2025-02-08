@@ -477,6 +477,12 @@
         "isNotNull": true
       },
       {
+        "columnName": "file_size",
+        "dataType": "int64",
+        "default": "0",
+        "isNotNull": true
+      },
+      {
         "columnName": "source_period_key",
         "dataType": "int",
         "isNotNull": true
@@ -1357,6 +1363,27 @@
       {
         "indexName": "pipeline_execution_status_last_update_idx",
         "indexDef": "INDEX pipeline_execution_status_last_update_idx ON jetsapi.pipeline_execution_status (last_update DESC)"
+      },
+      {
+        "indexName": "pipeline_execution_status_status_idx",
+        "indexDef": "INDEX pipeline_execution_status_status_idx ON jetsapi.pipeline_execution_status (status)"
+      }
+    ]
+  },
+  {
+    "schemaName": "jetsapi",
+    "tableName": "pipeline_lock",
+    "columns": [
+      {
+        "columnName": "state_machine_name",
+        "dataType": "text",
+        "isNotNull": true,
+        "isPK": true
+      },
+      {
+        "columnName": "session_id",
+        "dataType": "text",
+        "isNotNull": true
       }
     ]
   },

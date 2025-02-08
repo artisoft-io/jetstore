@@ -3,6 +3,7 @@ package datatable
 import (
 	"context"
 	"database/sql"
+
 	// "encoding/json"
 	"errors"
 	"fmt"
@@ -89,7 +90,7 @@ func (ctx *Context) updateFileKeyComponentCase(fileKeyObjectPtr *map[string]inte
 			// log.Printf("updateFileKeyComponentCase: object_type %s not found in object_type_registry\n", objectType)
 		}
 	}
-	log.Println("updateFileKeyComponentCase UPDATED:",fileKeyObject)
+	log.Println("updateFileKeyComponentCase UPDATED:", fileKeyObject)
 }
 
 var jetsS3SchemaTriggers string = os.Getenv("JETS_s3_SCHEMA_TRIGGERS")
@@ -151,17 +152,17 @@ func (ctx *Context) RegisterFileKeys(registerFileKeyAction *RegisterFileKeyActio
 			case "size":
 				switch vv := v.(type) {
 				case int:
-					fileKeyObject[k] = int64(vv)
+					fileKeyObject["file_size"] = int64(vv)
 				case int32:
-					fileKeyObject[k] = int64(vv)
+					fileKeyObject["file_size"] = int64(vv)
 				case int64:
-					fileKeyObject[k] = vv
+					fileKeyObject["file_size"] = vv
 				case float64:
-					fileKeyObject[k] = int64(vv)
+					fileKeyObject["file_size"] = int64(vv)
 				case float32:
-					fileKeyObject[k] = int64(vv)
+					fileKeyObject["file_size"] = int64(vv)
 				case string:
-					fileKeyObject[k], err = strconv.ParseInt(vv, 10, 64)
+					fileKeyObject["file_size"], err = strconv.ParseInt(vv, 10, 64)
 					if err != nil {
 						return nil, http.StatusBadRequest, fmt.Errorf("while converting %s (%s) to int64: %v", k, vv, err)
 					}
@@ -236,8 +237,13 @@ func (ctx *Context) RegisterFileKeys(registerFileKeyAction *RegisterFileKeyActio
 		for jcol, colKey := range sqlStmt.ColumnKeys {
 			row[jcol], ok = fileKeyObject[colKey]
 			if !ok {
-				allOk = false
-				// log.Printf("***RegisterFileKey: Missing column %s in fileKeyObject", colKey)
+				if colKey == "file_size" {
+					// put the default so it won't error out
+					row[jcol] = int64(0)
+				} else {
+					allOk = false
+					// log.Printf("***RegisterFileKey: Missing column %s in fileKeyObject", colKey)
+				}
 			}
 		}
 		if strings.Contains(fileKey, "/err_") {

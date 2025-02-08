@@ -1,7 +1,6 @@
 package compute_pipes
 
 import (
-	"encoding/csv"
 	"errors"
 	"fmt"
 	"io"
@@ -11,6 +10,7 @@ import (
 	"time"
 
 	"github.com/artisoft-io/jetstore/jets/awsi"
+	"github.com/artisoft-io/jetstore/jets/csv"
 	"github.com/artisoft-io/jetstore/jets/datatable/jcsv"
 )
 

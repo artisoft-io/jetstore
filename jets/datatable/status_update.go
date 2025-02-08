@@ -55,11 +55,11 @@ type StatusUpdate struct {
 // Support Functions
 // --------------------------------------------------------------------------------------
 func getStatusCount(dbpool *pgxpool.Pool, pipelineExecutionKey int) (map[string]int, error) {
-	statusCountMap := make(map[string] int)
+	statusCountMap := make(map[string]int)
 	var status string
 	var count int
 	stmt := "SELECT count(*) AS count, status FROM jetsapi.pipeline_execution_details WHERE pipeline_execution_status_key=$1 GROUP BY status"
-	rows, err := dbpool.Query(context.Background(),	stmt,	pipelineExecutionKey)
+	rows, err := dbpool.Query(context.Background(), stmt, pipelineExecutionKey)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return statusCountMap, nil
@@ -175,7 +175,7 @@ func (ca *StatusUpdate) ValidateArguments() []string {
 	return errMsg
 }
 
-func DoNotifyApiGateway(fileKey, apiEndpoint, apiEndpointJson, notificationTemplate string, 
+func DoNotifyApiGateway(fileKey, apiEndpoint, apiEndpointJson, notificationTemplate string,
 	customFileKeys []string, errMsg string, envSettings map[string]any) error {
 	var (
 		ctx    context.Context
@@ -264,7 +264,7 @@ func DoNotifyApiGateway(fileKey, apiEndpoint, apiEndpointJson, notificationTempl
 				err = fmt.Errorf(
 					"error: routing file key component '%v' not found on file key and no alt_env_key found", key)
 				log.Println(err)
-				return err	
+				return err
 			}
 			v = altKey
 		}
@@ -401,10 +401,26 @@ func (ca *StatusUpdate) CoordinateWork() error {
 		if err != nil {
 			return fmt.Errorf("while inserting in jetsapi.cpipes_execution_status_details: %v", err)
 		}
+		// Check for pending tasks ready to start
+		// Get the stateMachineName of the current task
+		var stateMachineName string
+		err := ca.Dbpool.QueryRow(context.Background(),
+			`SELECT pc.state_machine_name	FROM jetsapi.process_config pc, jetsapi.pipeline_execution_status pe 
+		   WHERE pc.process_name = pe.process_name AND pe.key = $1`,
+			ca.PeKey).Scan(&stateMachineName)
+		if err != nil {
+			log.Fatalf("QueryRow on pipeline_execution_status failed: %v", err)
+		}
+		ctx := NewContext(ca.Dbpool, ca.UsingSshTunnel, ca.UsingSshTunnel, nil, 100, nil)
+		err = ctx.StartPendingTasks(stateMachineName)
+		if err != nil {
+			//*TODO If get an error while starting pending task. Fail current task for now...
+			return err
+		}
 	}
 
 	// CpipesMode - don't register outTables
-	if !ca.CpipesMode { // CPIPES_MODE is empty, ie false
+	if !ca.CpipesMode {
 		//* TODO OPTIMIZE THIS SQL, do not getPeInfo
 		_, _, _, outTables := getPeInfo(ca.Dbpool, ca.PeKey)
 		// Register out tables

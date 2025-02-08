@@ -2,13 +2,13 @@ package compute_pipes
 
 import (
 	"bufio"
-	"encoding/csv"
 	"fmt"
 	"log"
 	"os"
 	"strconv"
 	"strings"
 
+	"github.com/artisoft-io/jetstore/jets/csv"
 	"github.com/artisoft-io/jetstore/jets/jetrules/rdf"
 	goparquet "github.com/fraugster/parquet-go"
 	"github.com/fraugster/parquet-go/parquet"
@@ -275,6 +275,10 @@ func (ctx *S3DeviceWriter) WriteCsvPartition() {
 	}
 	if ctx.spec.OutputChannel.Delimiter != 0 {
 		csvWriter.Comma = ctx.spec.OutputChannel.Delimiter
+	}
+	if ctx.schemaProvider != nil {
+		csvWriter.QuoteAll = ctx.schemaProvider.QuoteAllRecords()
+		csvWriter.NoQuotes = ctx.schemaProvider.NoQuotes()
 	}
 	if ctx.spec.OutputChannel.Format == "csv" {
 		err = csvWriter.Write(ctx.outputCh.config.Columns)
