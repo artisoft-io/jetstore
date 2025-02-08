@@ -517,6 +517,7 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 // JETS_DB_POOL_SIZE (optional, default is 8, min allowed is 5, used for serverv2 running standalone as ecs task or lambda function)
 // CPIPES_DB_POOL_SIZE (optional, default is 3, used for cpipes node, may run jetrules as cpipes operator)
 // NBR_SHARDS (defaults to 1)
+// JETS_PIPELINE_THROTTLING_JSON json configuration ThrottlingSpec
 // RETENTION_DAYS site global rentention days, delete sessions if > 0
 // PURGE_DATA_SCHEDULED_HOUR_UTC hour of day to run purge_data, default 7 UTC
 // TASK_MAX_CONCURRENCY (defaults to 1)
@@ -596,6 +597,7 @@ func main() {
 	fmt.Println("env JETS_VPC_CIDR:", os.Getenv("JETS_VPC_CIDR"))
 	fmt.Println("env JETS_VPC_INTERNET_GATEWAY:", os.Getenv("JETS_VPC_INTERNET_GATEWAY"))
 	fmt.Println("env NBR_SHARDS:", os.Getenv("NBR_SHARDS"))
+	fmt.Println("env JETS_PIPELINE_THROTTLING_JSON:", os.Getenv("JETS_PIPELINE_THROTTLING_JSON"))
 	fmt.Println("env RETENTION_DAYS:", os.Getenv("RETENTION_DAYS"))
 	fmt.Println("env PURGE_DATA_SCHEDULED_HOUR_UTC:", os.Getenv("PURGE_DATA_SCHEDULED_HOUR_UTC"))
 	fmt.Println("env TASK_MAX_CONCURRENCY:", os.Getenv("TASK_MAX_CONCURRENCY"))

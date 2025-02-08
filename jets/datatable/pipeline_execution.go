@@ -28,16 +28,23 @@ type ThrottlingSpec struct {
 	Size                   int `json:"size"`
 }
 
+func (t ThrottlingSpec) String() string {
+	return fmt.Sprintf(
+		"ThrottlingSpec{MaxConcurrentPipelines:%d, MaxPipeline: %d, Size: %d}",
+		t.MaxConcurrentPipelines, t.MaxPipeline, t.Size)
+}
+
 var throttlingConfig ThrottlingSpec
 
 func init() {
-	tj := os.Getenv("JETSTORE_PIPELINE_THROTTLING_JSON")
+	tj := os.Getenv("JETS_PIPELINE_THROTTLING_JSON")
 	if len(tj) == 0 {
 		throttlingConfig = ThrottlingSpec{MaxConcurrentPipelines: 6}
 	} else {
 		err := json.Unmarshal([]byte(tj), &throttlingConfig)
+		log.Println("Got JETS_PIPELINE_THROTTLING_JSON:", throttlingConfig.String())
 		if err != nil {
-			log.Printf("while unmarshalling JETSTORE_PIPELINE_THROTTLING_JSON: %v\n", err)
+			log.Printf("while unmarshalling JETS_PIPELINE_THROTTLING_JSON: %v\n", err)
 			log.Println("A default value will be used.")
 			throttlingConfig = ThrottlingSpec{MaxConcurrentPipelines: 6}
 		}
