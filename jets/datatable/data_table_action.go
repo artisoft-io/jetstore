@@ -54,6 +54,7 @@ func NewContext(dbpool *pgxpool.Pool, devMode bool, usingSshTunnel bool,
 }
 
 // sql access builder
+// SkipThrottling indicates not to put pipeline in pending
 type DataTableAction struct {
 	Action            string            `json:"action"`
 	WorkspaceName     string            `json:"workspaceName"`
@@ -72,7 +73,9 @@ type DataTableAction struct {
 	Offset            int               `json:"offset"`
 	Limit             int               `json:"limit"`
 	// used for raw_query & raw_query_tool action only
-	RequestColumnDef bool                     `json:"requestColumnDef"`
+	RequestColumnDef bool               `json:"requestColumnDef"`
+	// other non-query properties
+	SkipThrottling   bool               `json:"skipThrottling"`
 	Data             []map[string]interface{} `json:"data"`
 }
 type Column struct {

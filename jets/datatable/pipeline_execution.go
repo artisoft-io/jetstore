@@ -2,9 +2,11 @@ package datatable
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"time"
 
 	"log"
 	"net/http"
@@ -19,12 +21,44 @@ import (
 // This file contains functions to update table pipeline_execution_status,
 // mainly to start pipelines
 
-// Insert into pipeline_execution_status and in loader_execution_status (the latter will be depricated)
-func (ctx *Context) InsertPipelineExecutionStatus(dataTableAction *DataTableAction) (results *map[string]interface{}, httpStatus int, err error) {
-	returnedKey := make([]int, len(dataTableAction.Data))
-	results = &map[string]interface{}{
-		"returned_keys": &returnedKey,
+// Size in GiB
+type ThrottlingSpec struct {
+	MaxConcurrentPipelines int `json:"max_concurrent"`
+	MaxPipeline            int `json:"max_for_size"`
+	Size                   int `json:"size"`
+}
+
+var throttlingConfig ThrottlingSpec
+
+func init() {
+	tj := os.Getenv("JETSTORE_PIPELINE_THROTTLING_JSON")
+	if len(tj) == 0 {
+		throttlingConfig = ThrottlingSpec{MaxConcurrentPipelines: 6}
+	} else {
+		err := json.Unmarshal([]byte(tj), &throttlingConfig)
+		if err != nil {
+			log.Printf("while unmarshalling JETSTORE_PIPELINE_THROTTLING_JSON: %v\n", err)
+			log.Println("A default value will be used.")
+			throttlingConfig = ThrottlingSpec{MaxConcurrentPipelines: 6}
+		}
 	}
+}
+
+type PendingTask struct {
+	Key                  int64
+	MainInputRegistryKey sql.NullInt64
+	MainInputFileKey     sql.NullString
+	Client               string
+	ProcessName          string
+	SessionId            string
+	Status               string
+	UserEmail            string
+	FileSize             sql.NullInt64
+}
+
+// Insert into pipeline_execution_status and in loader_execution_status (the latter will be depricated)
+func (ctx *Context) InsertPipelineExecutionStatus(dataTableAction *DataTableAction, irow int, results *map[string]any) (peKey int, httpStatus int, err error) {
+	var processName, devModeCode, stateMachineName string
 	httpStatus = http.StatusOK
 	sqlStmt, ok := sqlInsertStmts[dataTableAction.FromClauses[0].Table]
 	if !ok {
@@ -34,187 +68,347 @@ func (ctx *Context) InsertPipelineExecutionStatus(dataTableAction *DataTableActi
 	}
 
 	row := make([]interface{}, len(sqlStmt.ColumnKeys))
-	for irow := range dataTableAction.Data {
-		dbUpdateDone := false
-		switch {
-		case strings.HasSuffix(dataTableAction.FromClauses[0].Table, "pipeline_execution_status"):
-			if dataTableAction.Data[irow]["input_session_id"] == nil {
-				inSessionId := dataTableAction.Data[irow]["session_id"]
-				inputRegistryKey := dataTableAction.Data[irow]["main_input_registry_key"]
-				if inputRegistryKey != nil {
-					stmt := "SELECT session_id FROM jetsapi.input_registry WHERE key = $1"
-					err = ctx.Dbpool.QueryRow(context.Background(), stmt, inputRegistryKey).Scan(&inSessionId)
-					if err != nil {
-						log.Printf("While getting session_id from input_registry table %s: %v", dataTableAction.FromClauses[0].Table, err)
-						httpStatus = http.StatusInternalServerError
-						err = errors.New("error while reading from a table")
-						return
-					}
+	var status, sessionId string
+	sessionId, ok = dataTableAction.Data[irow]["session_id"].(string)
+	if !ok {
+		httpStatus = http.StatusBadRequest
+		err = errors.New("error: missing session_id to insert in table pipeline_execution_status")
+		return
+	}
+	status, ok = dataTableAction.Data[irow]["status"].(string)
+	if !ok {
+		// hum, this is not expected, let's put the expected default
+		status = "submitted"
+		dataTableAction.Data[irow]["status"] = status
+	}
+
+	switch {
+	case strings.HasSuffix(dataTableAction.FromClauses[0].Table, "pipeline_execution_status"):
+		if dataTableAction.Data[irow]["input_session_id"] == nil {
+			inSessionId := sessionId
+			inputRegistryKey := dataTableAction.Data[irow]["main_input_registry_key"]
+			if inputRegistryKey != nil {
+				stmt := "SELECT session_id FROM jetsapi.input_registry WHERE key = $1"
+				err = ctx.Dbpool.QueryRow(context.Background(), stmt, inputRegistryKey).Scan(&inSessionId)
+				if err != nil {
+					log.Printf("While getting session_id from input_registry table %s: %v", dataTableAction.FromClauses[0].Table, err)
+					httpStatus = http.StatusInternalServerError
+					err = errors.New("error while reading from a table")
+					return
 				}
-				dataTableAction.Data[irow]["input_session_id"] = inSessionId
+			}
+			dataTableAction.Data[irow]["input_session_id"] = inSessionId
+		}
+		//=============
+		// Need to get:
+		//	- DevMode: run_report_only, run_server_only, run_server_reports
+		//  - State Machine URI: serverSM, serverv2SM, reportsSM, and cpipesSM
+		// from process_config table
+		// ----------------------------
+		processName, ok = dataTableAction.Data[irow]["process_name"].(string)
+		if !ok {
+			httpStatus = http.StatusBadRequest
+			err = errors.New("missing column process_name in request")
+			return
+		}
+		stmt := "SELECT devmode_code, state_machine_name FROM jetsapi.process_config WHERE process_name = $1"
+		err = ctx.Dbpool.QueryRow(context.Background(), stmt, processName).Scan(&devModeCode, &stateMachineName)
+		if err != nil {
+			httpStatus = http.StatusInternalServerError
+			err = fmt.Errorf("while getting devModeCode, stateMachineName from process_config WHERE process_name = '%v': %v", processName, err)
+			return
+		}
+
+		// Check for pipeline throttling
+		fileKey, ok := dataTableAction.Data[irow]["file_key"].(string)
+		if !ok {
+			// hum, unusual but not impossible
+			dataTableAction.SkipThrottling = true
+		}
+		if !ctx.DevMode && !dataTableAction.SkipThrottling && status == "submitted" {
+
+			// Put a lock on the stateMachineName
+			err = ctx.lockStateMachine(stateMachineName, sessionId)
+			if err != nil {
+				httpStatus = http.StatusInternalServerError
+				err = fmt.Errorf("while getting a lock on stateMachineName '%s': %v", stateMachineName, err)
+				return
+			}
+			defer ctx.unlockStateMachine(stateMachineName)
+			ok, err = ctx.checkThrottling(stateMachineName, fileKey)
+			if err != nil {
+				httpStatus = http.StatusInternalServerError
+				err = fmt.Errorf("while checking for throttling on stateMachineName '%s': %v", stateMachineName, err)
+				return
+			}
+			if ok {
+				status = "pending"
+				dataTableAction.Data[irow]["status"] = status
 			}
 		}
-		if !dbUpdateDone {
-			// Proceed at doing the db update
-			for jcol, colKey := range sqlStmt.ColumnKeys {
-				row[jcol] = dataTableAction.Data[irow][colKey]
-			}
+	}
+	// Proceed at doing the db update
+	for jcol, colKey := range sqlStmt.ColumnKeys {
+		row[jcol] = dataTableAction.Data[irow][colKey]
+	}
 
-			// fmt.Printf("Insert Row with stmt %s\n", sqlStmt.Stmt)
-			// fmt.Printf("Insert Row on table %s: %v\n", dataTableAction.FromClauses[0].Table, row)
-			// Executing the InserRow Stmt
-			if strings.Contains(sqlStmt.Stmt, "RETURNING key") {
-				err = ctx.Dbpool.QueryRow(context.Background(), sqlStmt.Stmt, row...).Scan(&returnedKey[irow])
-			} else {
-				_, err = ctx.Dbpool.Exec(context.Background(), sqlStmt.Stmt, row...)
-			}
-			if err != nil {
-				log.Printf("While inserting in table %s: %v", dataTableAction.FromClauses[0].Table, err)
-				if strings.Contains(err.Error(), "duplicate key value") {
-					httpStatus = http.StatusConflict
-					err = errors.New("duplicate key value")
-					return
-				} else {
-					httpStatus = http.StatusInternalServerError
-					err = errors.New("error while inserting into a table")
-					return
-				}
-			}
+	// fmt.Printf("Insert Row with stmt %s\n", sqlStmt.Stmt)
+	// fmt.Printf("Insert Row on table %s: %v\n", dataTableAction.FromClauses[0].Table, row)
+	// Executing the InserRow Stmt
+	if strings.Contains(sqlStmt.Stmt, "RETURNING key") {
+		err = ctx.Dbpool.QueryRow(context.Background(), sqlStmt.Stmt, row...).Scan(&peKey)
+	} else {
+		_, err = ctx.Dbpool.Exec(context.Background(), sqlStmt.Stmt, row...)
+	}
+	if err != nil {
+		log.Printf("While inserting in table %s: %v", dataTableAction.FromClauses[0].Table, err)
+		if strings.Contains(err.Error(), "duplicate key value") {
+			httpStatus = http.StatusConflict
+			err = errors.New("duplicate key value")
+			return
+		} else {
+			httpStatus = http.StatusInternalServerError
+			err = errors.New("error while inserting into a table")
+			return
 		}
 	}
 
 	// Post Processing Hook
 	switch dataTableAction.FromClauses[0].Table {
 	case "input_loader_status":
-		return ctx.startLoader(dataTableAction, sqlStmt, results)
+		httpStatus, err = ctx.startLoader(dataTableAction, irow, sqlStmt, results)
 
 	case "pipeline_execution_status", "short/pipeline_execution_status":
-		return ctx.startPipeline(dataTableAction, sqlStmt, returnedKey, results)
+		if status == "submitted" {
+			task := &PendingTask{
+				Key:                  int64(peKey),
+				MainInputRegistryKey: sql.NullInt64{Int64: int64(dataTableAction.Data[irow]["main_input_registry_key"].(int)), Valid: true},
+				MainInputFileKey:     sql.NullString{String: dataTableAction.Data[irow]["file_key"].(string), Valid: true},
+				Client:               dataTableAction.Data[irow]["client"].(string),
+				ProcessName:          dataTableAction.Data[irow]["process_name"].(string),
+				SessionId:            dataTableAction.Data[irow]["session_id"].(string),
+				Status:               status,
+				UserEmail:            dataTableAction.Data[irow]["user_email"].(string),
+				FileSize:             sql.NullInt64{},
+			}
+			err = ctx.startPipeline(devModeCode, stateMachineName, task, results)
+			if err != nil {
+				httpStatus = http.StatusInternalServerError
+				return
+			}
+		}
 	}
 	return
 }
 
-func (ctx *Context) startPipeline(dataTableAction *DataTableAction, sqlStmt *SqlInsertDefinition, returnedKey []int, results *map[string]interface{}) (*map[string]interface{}, int, error) {
-	var httpStatus int
-	var err error
-	httpStatus = http.StatusOK
-	// Run the server -- prepare the command line arguments
-	row := make(map[string]interface{}, len(sqlStmt.ColumnKeys))
-	for irow := range dataTableAction.Data {
+func (ctx *Context) StartPendingTasks(stateMachineName string) (err error) {
+	// Get a lock on stateMachineName
+	// Get the tasks that are pending
+	// Identify pending tasks ready to start
+	// Update their status
+	// Start their state machine / pipeline
 
-		// returnedKey is the key of the row inserted in the db, here it correspond to peKey
-		if returnedKey[irow] <= 0 {
-			log.Printf(
-				"error while preparing to run server/serverv2: unexpected value for returnedKey from insert to pipeline_execution_status table: %v", returnedKey)
-			httpStatus = http.StatusInternalServerError
-			err = errors.New("error while preparing server command")
-			return results, httpStatus, err
-		}
-		for _, colKey := range sqlStmt.ColumnKeys {
-			v := dataTableAction.Data[irow][colKey]
-			if v != nil {
-				switch vv := v.(type) {
-				case string:
-					row[colKey] = vv
-				case int:
-					row[colKey] = strconv.Itoa(vv)
-				}
-			}
-		}
-		switch {
-		// Call server synchronously
-		case ctx.DevMode:
-			return ctx.runPipelineLocally(dataTableAction, irow, row, returnedKey, results)
+	// Check if we have any pending tasks
+	var pendCount int64
+	err = ctx.Dbpool.QueryRow(context.Background(),
+		`SELECT COUNT(*) 
+    FROM jetsapi.pipeline_execution_status pe, jetsapi.process_config pc
+    WHERE pe.status = $1 
+      AND pe.process_name = pc.process_name
+      AND pc.state_machine_name = $2`,
+	).Scan(&pendCount)
+	if err != nil {
+		err = fmt.Errorf("while getting count of pending tasks: %v", err)
+		return
+	}
+	if pendCount == 0 {
+		// No pending task, nothig to do
+		return
+	}
 
-		default:
-			return ctx.startStateMachine(dataTableAction, irow, row, returnedKey, results)
-		}
-	} // irow := range dataTableAction.Data
+	// Lock the state machine tasks
+	err = ctx.lockStateMachine(stateMachineName, "0")
+	if err != nil {
+		return
+	}
+	defer ctx.unlockStateMachine(stateMachineName)
 
-	return results, httpStatus, err
+	// Get the count of running pipelines and the size of their main input file
+	var submRc, submT1c int64
+	submRc, submT1c, err = ctx.GetTaskThrottlingInfo(stateMachineName, "submitted")
+	if err != nil {
+		return
+	}
+	// Get the pending task info
+	stmt := `
+    SELECT 
+      pe.key, pe.main_input_registry_key, pe.main_input_file_key, pe.client, 
+      pe.process_name, pe.session_id, pe.status, pe.user_email,
+      fk.file_size
+    FROM jetsapi.pipeline_execution_status pe, jetsapi.file_key_staging fk, jetsapi.process_config pc
+    WHERE pe.main_input_file_key = fk.file_key
+      AND pe.status = $1
+      AND pe.process_name = pc.process_name
+      AND pc.state_machine_name = $2
+    ORDER BY pe.last_update ASC;`
+
+	// Get the pending tasks info
+	rows, err := ctx.Dbpool.Query(context.Background(), stmt, "pending", stateMachineName)
+	if err != nil {
+		err = fmt.Errorf("while getting pending tasks info: %v", err)
+	}
+	defer rows.Close()
+	// Start pending tasks that qualifies
+	var doThrottling bool
+	for rows.Next() {
+		var task PendingTask
+		if err = rows.Scan(&task.Key, &task.MainInputRegistryKey, &task.MainInputFileKey, &task.Client,
+			&task.ProcessName, &task.SessionId, &task.UserEmail, &task.FileSize); err != nil {
+			return
+		}
+		// Submit task that qualify
+		submRc += 1
+		size := int(task.FileSize.Int64 / 1024 / 1024 / 1024)
+		if throttlingConfig.Size > 0 && size >= throttlingConfig.Size {
+			submT1c += 1
+		}
+		doThrottling, err = EvalThrotting(submRc, submT1c)
+		if doThrottling || err != nil {
+			// Do throttling or there is an error, don't submit more tasks
+			return
+		}
+		// Start the state machine
+		err = ctx.startStateMachine(stateMachineName, &task)
+		if err != nil {
+			return
+		}
+		// Update the status of the task to submitted and start the state machine
+		_, err = ctx.Dbpool.Exec(context.Background(),
+			`UPDATE jetsapi.pipeline_execution_status SET (status, last_update) VALUES ($1, DEFAULT) WHERE key = $2`,
+			"submitted", task.Key)
+		if err != nil {
+			return fmt.Errorf("failed to update pipeline status: %v", err)
+		}
+	}
+	return rows.Err()
 }
 
-func (ctx *Context) startStateMachine(dataTableAction *DataTableAction, irow int, row map[string]interface{}, returnedKey []int, results *map[string]interface{}) (*map[string]interface{}, int, error) {
-	var httpStatus int
+func (ctx *Context) lockStateMachine(stateMachineName, sessionId string) error {
+	stmt := "INSERT INTO jetsapi.pipeline_lock (state_machine_name, session_id) VALUES ($1, $2)"
+	retry := 0
+	var t time.Duration = 1 * time.Second
+do_retry:
+	// Try to insert the lock
+	_, err := ctx.Dbpool.Exec(context.Background(), stmt, stateMachineName, sessionId)
+	if err != nil {
+		if retry < 10 {
+			time.Sleep(t)
+			retry++
+			t *= 2
+			goto do_retry
+		}
+		return fmt.Errorf("failed to lock the pipeline %s: %v", stateMachineName, err)
+	}
+	return nil
+}
+
+func (ctx *Context) unlockStateMachine(stateMachineName string) {
+	stmt := "DELETE FROM jetsapi.pipeline_lock WHERE state_machine_name = $1"
+	_, err := ctx.Dbpool.Exec(context.Background(), stmt, stateMachineName)
+	if err != nil {
+		log.Printf("failed to unlock pipeline '%s': %v", stateMachineName, err)
+	}
+}
+
+// Returns [true] if throttling is required for [fileKey]
+func (ctx *Context) checkThrottling(stateMachineName, fileKey string) (bool, error) {
+	// Get the fileKey size from file_key_staging table
+	var fileSize int64
+	stmt := "SELECT file_size FROM jetsapi.file_key_staging WHERE file_key = $1"
+	err := ctx.Dbpool.QueryRow(context.Background(), stmt, fileKey).Scan(&fileSize)
+	if err != nil {
+		err = fmt.Errorf("while getting file_size from file_key_staging WHERE file_key = '%s': %v", fileKey, err)
+		return false, err
+	}
+
+	// Get the count of running pipelines and the size of their main input file
+	var submRc, submT1c int64
+	submRc, submT1c, err = ctx.GetTaskThrottlingInfo(stateMachineName, "submitted")
+	if err != nil {
+		return false, err
+	}
+	return EvalThrotting(submRc, submT1c)
+}
+
+func EvalThrotting(submRc, submT1c int64) (bool, error) {
+	switch {
+	case submRc >= int64(throttlingConfig.MaxConcurrentPipelines):
+		// Put the current task into pending
+		return true, nil
+	case throttlingConfig.MaxPipeline > 0 && submT1c >= int64(throttlingConfig.MaxPipeline):
+		// Put the current task into pending
+		return true, nil
+	default:
+		// Submit current task, no throttling
+		return false, nil
+	}
+}
+
+func (ctx *Context) GetTaskThrottlingInfo(stateMachineName, taskStatus string) (runningCnt, t1Count int64, err error) {
+	stmt := `
+    SELECT 
+      COUNT(pe.key) AS pipeline_cnt, 
+      SUM(CASE WHEN fk.file_size/1024/1024/1024 >= $1 THEN 1 ELSE 0 END) AS t1_cnt
+    FROM jetsapi.pipeline_execution_status pe, jetsapi.process_config pc, jetsapi.file_key_staging fk
+    WHERE pe.main_input_file_key = fk.file_key
+      AND pe.status = $2
+      AND pe.process_name = pc.process_name
+      AND pc.state_machine_name = $3
+    ORDER BY pe.last_update ASC;`
+
+	// Get the running tasks count
+	err = ctx.Dbpool.QueryRow(context.Background(),
+		stmt, throttlingConfig.Size, taskStatus, stateMachineName).Scan(&runningCnt, &t1Count)
+	if err != nil {
+		err = fmt.Errorf("while getting submitted tasks info with status '%s': %v", taskStatus, err)
+	}
+	return
+}
+
+func (ctx *Context) startPipeline(devModeCode, stateMachineName string, task *PendingTask, results *map[string]interface{}) error {
+	if ctx.DevMode {
+		return ctx.runPipelineLocally(devModeCode, stateMachineName, task, results)
+	}
+	return ctx.startStateMachine(stateMachineName, task)
+}
+
+func (ctx *Context) startStateMachine(stateMachineName string, task *PendingTask) error {
 	var err error
 	var name string
-	var serverCompletedMetric, serverFailedMetric string
-	httpStatus = http.StatusOK
-
-	nbrClusterNodes := 0
-
-	//***=============
-	// Need to get:
-	//	- DevMode: run_report_only, run_server_only, run_server_reports
-	//  - State Machine URI: serverSM, serverv2SM, reportsSM, and cpipesSM
-	// from process_config table
-	// ----------------------------
-	var devModeCode, stateMachineName string
-	processName := dataTableAction.Data[irow]["process_name"]
-	if processName == nil {
-		httpStatus = http.StatusBadRequest
-		err = errors.New("missing column process_name in request")
-		return results, httpStatus, err
-	}
-	// devModeCode, stateMachineName, err = getDevModeCode(ctx.Dbpool, processName.(string))
-	stmt := "SELECT devmode_code, state_machine_name FROM jetsapi.process_config WHERE process_name = $1"
-	err = ctx.Dbpool.QueryRow(context.Background(), stmt, processName).Scan(&devModeCode, &stateMachineName)
-	if err != nil {
-		httpStatus = http.StatusInternalServerError
-		err = fmt.Errorf("while getting devModeCode, stateMachineName from process_config WHERE process_name = '%v': %v", processName, err)
-		return results, httpStatus, err
-	}
-
-	peKey := strconv.Itoa(returnedKey[irow])
-	client := row["client"]
-	fileKey := dataTableAction.Data[irow]["file_key"]
-	sessionId := row["session_id"]
-	userEmail := row["user_email"]
-	v := dataTableAction.Data[irow]["serverFailedMetric"]
-	if v != nil {
-		serverFailedMetric = v.(string)
-	}
-	v = dataTableAction.Data[irow]["serverCompletedMetric"]
-	if v != nil {
-		serverCompletedMetric = v.(string)
-	}
+	nbrClusterNodes := ctx.NbrShards
+	peKey := strconv.Itoa(int(task.Key))
 
 	runReportsCommand := []string{
-		"-client", client.(string),
-		"-processName", processName.(string),
-		"-sessionId", sessionId.(string),
-		"-filePath", strings.Replace(fileKey.(string), os.Getenv("JETS_s3_INPUT_PREFIX"), os.Getenv("JETS_s3_OUTPUT_PREFIX"), 1),
+		"-client", task.Client,
+		"-processName", task.ProcessName,
+		"-sessionId", task.SessionId,
+		"-filePath", strings.Replace(task.MainInputFileKey.String, os.Getenv("JETS_s3_INPUT_PREFIX"), os.Getenv("JETS_s3_OUTPUT_PREFIX"), 1),
 	}
 
 	// Invoke states to execute a pipeline
-	if nbrClusterNodes == 0 {
-		nbrClusterNodes = ctx.NbrShards
-	}
 	serverCommands := make([][]string, 0)
 
 	var processArn string
 	var smInput map[string]interface{}
-	peKeyInt, err2 := strconv.Atoi(peKey)
-	if err2 != nil {
-		peKeyInt = 0
-	}
 	switch stateMachineName {
 	case "serverSM":
 		processArn = os.Getenv("JETS_SERVER_SM_ARN")
 		for shardId := 0; shardId < nbrClusterNodes; shardId++ {
 			serverArgs := []string{
 				"-peKey", peKey,
-				"-userEmail", userEmail.(string),
+				"-userEmail", task.UserEmail,
 				"-shardId", strconv.Itoa(shardId),
 				"-nbrShards", strconv.Itoa(nbrClusterNodes),
-			}
-			if serverCompletedMetric != "" {
-				serverArgs = append(serverArgs, "-serverCompletedMetric")
-				serverArgs = append(serverArgs, serverCompletedMetric)
-			}
-			if serverFailedMetric != "" {
-				serverArgs = append(serverArgs, "-serverFailedMetric")
-				serverArgs = append(serverArgs, serverFailedMetric)
 			}
 			serverCommands = append(serverCommands, serverArgs)
 		}
@@ -224,13 +418,13 @@ func (ctx *Context) startStateMachine(dataTableAction *DataTableAction, irow int
 			"successUpdate": map[string]interface{}{
 				"-peKey":         peKey,
 				"-status":        "completed",
-				"file_key":       fileKey,
+				"file_key":       task.MainInputFileKey.String,
 				"failureDetails": "",
 			},
 			"errorUpdate": map[string]interface{}{
 				"-peKey":         peKey,
 				"-status":        "failed",
-				"file_key":       fileKey,
+				"file_key":       task.MainInputFileKey.String,
 				"failureDetails": "",
 			},
 		}
@@ -241,7 +435,7 @@ func (ctx *Context) startStateMachine(dataTableAction *DataTableAction, irow int
 		for i := range serverArgs {
 			serverArgs[i] = map[string]interface{}{
 				"id": i,
-				"pe": peKeyInt,
+				"pe": task.Key,
 			}
 		}
 		smInput = map[string]interface{}{
@@ -250,13 +444,13 @@ func (ctx *Context) startStateMachine(dataTableAction *DataTableAction, irow int
 			"successUpdate": map[string]interface{}{
 				"-peKey":         peKey,
 				"-status":        "completed",
-				"file_key":       fileKey,
+				"file_key":       task.MainInputFileKey.String,
 				"failureDetails": "",
 			},
 			"errorUpdate": map[string]interface{}{
 				"-peKey":         peKey,
 				"-status":        "failed",
-				"file_key":       fileKey,
+				"file_key":       task.MainInputFileKey.String,
 				"failureDetails": "",
 			},
 		}
@@ -268,7 +462,7 @@ func (ctx *Context) startStateMachine(dataTableAction *DataTableAction, irow int
 		stmt := "SELECT schema_provider_json FROM jetsapi.input_registry WHERE key = $1"
 		var spJson string
 		envSettings := make(map[string]any)
-		err = ctx.Dbpool.QueryRow(context.Background(), stmt, dataTableAction.Data[irow]["main_input_registry_key"]).Scan(&spJson)
+		err = ctx.Dbpool.QueryRow(context.Background(), stmt, task.MainInputRegistryKey.Int64).Scan(&spJson)
 		if err != nil {
 			// oh well, let's not fail on this one since it's for notification purpose
 			log.Printf("WARNING while getting schema_provider_json from inut_registry: %v", err)
@@ -288,14 +482,14 @@ func (ctx *Context) startStateMachine(dataTableAction *DataTableAction, irow int
 
 		smInput = map[string]interface{}{
 			"startSharding": map[string]interface{}{
-				"pipeline_execution_key": peKeyInt,
-				"file_key":               fileKey,
-				"session_id":             sessionId,
+				"pipeline_execution_key": task.Key,
+				"file_key":               task.MainInputFileKey.String,
+				"session_id":             task.SessionId,
 			},
 			"errorUpdate": map[string]interface{}{
 				"-peKey":         peKey, // string for this one! - legacy alert!
 				"-status":        "failed",
-				"file_key":       fileKey,
+				"file_key":       task.MainInputFileKey.String,
 				"cpipesMode":     true,
 				"cpipesEnv":      envSettings,
 				"failureDetails": "",
@@ -307,81 +501,42 @@ func (ctx *Context) startStateMachine(dataTableAction *DataTableAction, irow int
 		processArn = os.Getenv("JETS_REPORTS_SM_ARN")
 	default:
 		log.Printf("error: unknown stateMachineName: %s", stateMachineName)
-		httpStatus = http.StatusInternalServerError
 		err = fmt.Errorf("error: unknown stateMachineName: %s", stateMachineName)
-		return results, httpStatus, err
+		return err
 	}
 
 	// StartExecution execute rule
 	log.Printf("calling StartExecution on processArn: %s", processArn)
 	log.Printf("calling StartExecution with: %v", smInput)
-	name, err = awsi.StartExecution(processArn, smInput, sessionId.(string))
+	name, err = awsi.StartExecution(processArn, smInput, task.SessionId)
 	if err != nil {
 		log.Printf("while calling StartExecution on processUrn '%s': %v", processArn, err)
-		httpStatus = http.StatusInternalServerError
 		err = errors.New("error while calling StartExecution")
-		return results, httpStatus, err
+		return err
 	}
 	fmt.Println("Server State Machine", name, "started")
-
-	return results, httpStatus, err
+	return nil
 }
-func (ctx *Context) runPipelineLocally(dataTableAction *DataTableAction, irow int, row map[string]interface{}, returnedKey []int, results *map[string]interface{}) (*map[string]interface{}, int, error) {
-	var httpStatus int
+
+func (ctx *Context) runPipelineLocally(devModeCode, stateMachineName string, task *PendingTask, results *map[string]any) error {
+
 	var err error
-	var serverCompletedMetric, serverFailedMetric string
-	httpStatus = http.StatusOK
 	workspaceName := os.Getenv("WORKSPACE")
-
-	// Need to get:
-	//	- DevMode: run_report_only, run_server_only, run_server_reports
-	//  - State Machine URI: serverSM, serverv2SM, reportsSM, and cpipesSM
-	// from process_config table
-	// ----------------------------
-	var devModeCode, stateMachineName string
-	processName := dataTableAction.Data[irow]["process_name"]
-	if processName == nil {
-		httpStatus = http.StatusBadRequest
-		err = errors.New("missing column process_name in request")
-		return results, httpStatus, err
-	}
-	// devModeCode, stateMachineName, err = getDevModeCode(ctx.Dbpool, processName.(string))
-	stmt := "SELECT devmode_code, state_machine_name FROM jetsapi.process_config WHERE process_name = $1"
-	err = ctx.Dbpool.QueryRow(context.Background(), stmt, processName).Scan(&devModeCode, &stateMachineName)
-	if err != nil {
-		httpStatus = http.StatusInternalServerError
-		err = fmt.Errorf("while getting devModeCode, stateMachineName from process_config WHERE process_name = '%v': %v", processName, err)
-		return results, httpStatus, err
-	}
-
-	peKey := strconv.Itoa(returnedKey[irow])
-	client := row["client"]
-	fileKey := dataTableAction.Data[irow]["file_key"]
-	sessionId := row["session_id"]
-	userEmail := row["user_email"]
-	v := dataTableAction.Data[irow]["serverFailedMetric"]
-	if v != nil {
-		serverFailedMetric = v.(string)
-	}
-	v = dataTableAction.Data[irow]["serverCompletedMetric"]
-	if v != nil {
-		serverCompletedMetric = v.(string)
-	}
+	peKey := strconv.Itoa(int(task.Key))
 
 	runReportsCommand := []string{
-		"-client", client.(string),
-		"-processName", processName.(string),
-		"-sessionId", sessionId.(string),
-		"-filePath", strings.Replace(fileKey.(string), os.Getenv("JETS_s3_INPUT_PREFIX"), os.Getenv("JETS_s3_OUTPUT_PREFIX"), 1),
+		"-client", task.Client,
+		"-processName", task.ProcessName,
+		"-sessionId", task.SessionId,
+		"-filePath", strings.Replace(task.MainInputFileKey.String, os.Getenv("JETS_s3_INPUT_PREFIX"), os.Getenv("JETS_s3_OUTPUT_PREFIX"), 1),
 	}
 
 	var buf strings.Builder
-	peKeyInt, _ := strconv.Atoi(peKey)
 	ca := StatusUpdate{
 		Status:         "completed",
 		Dbpool:         ctx.Dbpool,
 		UsingSshTunnel: ctx.UsingSshTunnel,
-		PeKey:          peKeyInt,
+		PeKey:          int(task.Key),
 	}
 	if devModeCode == "run_server_only" || devModeCode == "run_server_reports" ||
 		devModeCode == "run_cpipes_only" || devModeCode == "run_cpipes_reports" {
@@ -398,24 +553,15 @@ func (ctx *Context) runPipelineLocally(dataTableAction *DataTableAction, irow in
 				execName = "/usr/local/bin/serverv2"
 			default:
 				log.Printf("error: unknown state machine name: %s", stateMachineName)
-				httpStatus = http.StatusInternalServerError
 				err = fmt.Errorf("error: unknown stateMachineName: %s", stateMachineName)
-				return results, httpStatus, err
+				return err
 			}
 			for shardId := 0; shardId < ctx.NbrShards && err == nil; shardId++ {
 				serverArgs := []string{
 					"-peKey", peKey,
-					"-userEmail", userEmail.(string),
+					"-userEmail", task.UserEmail,
 					"-shardId", strconv.Itoa(shardId),
 					"-nbrShards", strconv.Itoa(ctx.NbrShards),
-				}
-				if serverCompletedMetric != "" {
-					serverArgs = append(serverArgs, "-serverCompletedMetric")
-					serverArgs = append(serverArgs, serverCompletedMetric)
-				}
-				if serverFailedMetric != "" {
-					serverArgs = append(serverArgs, "-serverFailedMetric")
-					serverArgs = append(serverArgs, serverFailedMetric)
 				}
 				if ctx.UsingSshTunnel {
 					serverArgs = append(serverArgs, "-usingSshTunnel")
@@ -440,8 +586,8 @@ func (ctx *Context) runPipelineLocally(dataTableAction *DataTableAction, irow in
 			// Using the local test driver
 			cpipesArgs := []string{
 				"-pipeline_execution_key", peKey,
-				"-file_key", fileKey.(string),
-				"-session_id", sessionId.(string),
+				"-file_key", task.MainInputFileKey.String,
+				"-session_id", task.SessionId,
 			}
 			log.Printf("Run local cpipes driver: %s", cpipesArgs)
 			lable = "CPIPES"
@@ -458,9 +604,8 @@ func (ctx *Context) runPipelineLocally(dataTableAction *DataTableAction, irow in
 
 		default:
 			log.Printf("error: unknown devModeCode: %s", devModeCode)
-			httpStatus = http.StatusInternalServerError
 			err = fmt.Errorf("error: unknown devModeCode: %s", devModeCode)
-			return results, httpStatus, err
+			return err
 		}
 		if err != nil {
 			log.Printf("while executing server command: %v", err)
@@ -477,8 +622,7 @@ func (ctx *Context) runPipelineLocally(dataTableAction *DataTableAction, irow in
 			// Update pipeline execution status table
 			ca.ValidateArguments()
 			ca.CoordinateWork()
-			httpStatus = http.StatusInternalServerError
-			return results, httpStatus, err
+			return err
 		}
 	}
 
@@ -507,14 +651,13 @@ func (ctx *Context) runPipelineLocally(dataTableAction *DataTableAction, irow in
 			log.Println("=*=*=*=*=*=*=*=*=*=*=*=*=*=*")
 			log.Println("SERVER & REPORTS CAPTURED OUTPUT END")
 			log.Println("=*=*=*=*=*=*=*=*=*=*=*=*=*=*")
-			httpStatus = http.StatusInternalServerError
 			err = errors.New("error while running run_reports command")
 			ca.Status = "failed"
 			ca.FailureDetails = fmt.Sprintf("Error while running reports command in test mode: %s", (*results)["log"])
 			// Update server execution status table
 			ca.ValidateArguments()
 			ca.CoordinateWork()
-			return results, httpStatus, err
+			return err
 		}
 	}
 	log.Println("============================")
@@ -527,12 +670,10 @@ func (ctx *Context) runPipelineLocally(dataTableAction *DataTableAction, irow in
 	// all good, update server execution status table
 	ca.ValidateArguments()
 	ca.CoordinateWork()
-	return results, httpStatus, err
+	return err
 }
 
-func (ctx *Context) startLoader(dataTableAction *DataTableAction, sqlStmt *SqlInsertDefinition, results *map[string]interface{}) (*map[string]interface{}, int, error) {
-	var httpStatus int
-	var err error
+func (ctx *Context) startLoader(dataTableAction *DataTableAction, irow int, sqlStmt *SqlInsertDefinition, results *map[string]interface{}) (httpStatus int, err error) {
 	var loaderCompletedMetric, loaderFailedMetric string
 	httpStatus = http.StatusOK
 	var name string
@@ -540,158 +681,155 @@ func (ctx *Context) startLoader(dataTableAction *DataTableAction, sqlStmt *SqlIn
 
 	// Run the loader
 	row := make(map[string]interface{}, len(sqlStmt.ColumnKeys))
-	for irow := range dataTableAction.Data {
-		for _, colKey := range sqlStmt.ColumnKeys {
-			v := dataTableAction.Data[irow][colKey]
-			if v != nil {
-				switch vv := v.(type) {
-				case string:
-					row[colKey] = vv
-				case int:
-					row[colKey] = strconv.Itoa(vv)
-				}
-			}
-		}
-		// extract the columns we need for the loader
-		objType := row["object_type"]
-		client := row["client"]
-		clientOrg := row["org"]
-		sourcePeriodKey := row["source_period_key"]
-		fileKey := row["file_key"]
-		sessionId := row["session_id"]
-		userEmail := row["user_email"]
-		v := dataTableAction.Data[irow]["loaderFailedMetric"]
+	for _, colKey := range sqlStmt.ColumnKeys {
+		v := dataTableAction.Data[irow][colKey]
 		if v != nil {
-			loaderFailedMetric = v.(string)
-		}
-		v = dataTableAction.Data[irow]["loaderCompletedMetric"]
-		if v != nil {
-			loaderCompletedMetric = v.(string)
-		}
-		if objType == nil || client == nil || fileKey == nil || sessionId == nil || userEmail == nil {
-			log.Printf(
-				"error while preparing to run loader: unexpected nil among: objType: %v, client: %v, fileKey: %v, sessionId: %v, userEmail %v",
-				objType, client, fileKey, sessionId, userEmail)
-			httpStatus = http.StatusInternalServerError
-			err = errors.New("error while running loader command")
-			return results, httpStatus, err
-		}
-		org := clientOrg.(string)
-		if org == "" {
-			org = "''"
-		}
-		loaderCommand := []string{
-			"-in_file", fileKey.(string),
-			"-client", client.(string),
-			"-org", org,
-			"-objectType", objType.(string),
-			"-sourcePeriodKey", sourcePeriodKey.(string),
-			"-sessionId", sessionId.(string),
-			"-userEmail", userEmail.(string),
-			"-nbrShards", strconv.Itoa(ctx.NbrShards),
-		}
-		if loaderCompletedMetric != "" {
-			loaderCommand = append(loaderCommand, "-loaderCompletedMetric")
-			loaderCommand = append(loaderCommand, loaderCompletedMetric)
-		}
-		if loaderFailedMetric != "" {
-			loaderCommand = append(loaderCommand, "-loaderFailedMetric")
-			loaderCommand = append(loaderCommand, loaderFailedMetric)
-		}
-		var reportName string
-		if clientOrg.(string) != "" {
-			reportName = fmt.Sprintf("loader/client=%s/object_type=%s/org=%s", client.(string), objType.(string), clientOrg.(string))
-		} else {
-			reportName = fmt.Sprintf("loader/client=%s/object_type=%s", client.(string), objType.(string))
-		}
-		runReportsCommand := []string{
-			"-client", client.(string),
-			"-sessionId", sessionId.(string),
-			"-reportName", reportName,
-			"-filePath", strings.Replace(fileKey.(string), os.Getenv("JETS_s3_INPUT_PREFIX"), os.Getenv("JETS_s3_OUTPUT_PREFIX"), 1),
-		}
-		switch {
-		// Call loader synchronously
-		case ctx.DevMode:
-			if ctx.UsingSshTunnel {
-				loaderCommand = append(loaderCommand, "-usingSshTunnel")
-				runReportsCommand = append(runReportsCommand, "-usingSshTunnel")
+			switch vv := v.(type) {
+			case string:
+				row[colKey] = vv
+			case int:
+				row[colKey] = strconv.Itoa(vv)
 			}
-			// Call loader synchronously
-			cmd := exec.Command("/usr/local/bin/loader", loaderCommand...)
-			cmd.Env = append(os.Environ(),
-				fmt.Sprintf("WORKSPACE=%s", workspaceName),
-				"JETSTORE_DEV_MODE=1",
-			)
-			var buf strings.Builder
-			cmd.Stdout = &buf
-			cmd.Stderr = &buf
-			log.Printf("Executing loader command '%v'", loaderCommand)
-			err = cmd.Run()
-			if err != nil {
-				log.Printf("while executing loader command '%v': %v", loaderCommand, err)
-				log.Println("=*=*=*=*=*=*=*=*=*=*=*=*=*=*")
-				log.Println("LOADER CAPTURED OUTPUT BEGIN")
-				log.Println("=*=*=*=*=*=*=*=*=*=*=*=*=*=*")
-				(*results)["log"] = buf.String()
-				log.Println((*results)["log"])
-				log.Println("=*=*=*=*=*=*=*=*=*=*=*=*=*=*")
-				log.Println("LOADER CAPTURED OUTPUT END")
-				log.Println("=*=*=*=*=*=*=*=*=*=*=*=*=*=*")
-				httpStatus = http.StatusInternalServerError
-				err = errors.New("error while running loader command")
-				return results, httpStatus, err
-			}
-
-			// Call run_report synchronously
-			cmd = exec.Command("/usr/local/bin/run_reports", runReportsCommand...)
-			cmd.Env = append(os.Environ(),
-				fmt.Sprintf("WORKSPACE=%s", workspaceName),
-				"JETSTORE_DEV_MODE=1",
-			)
-			cmd.Stdout = &buf
-			cmd.Stderr = &buf
-			log.Printf("Executing run_reports command '%v'", runReportsCommand)
-			err = cmd.Run()
-			(*results)["log"] = buf.String()
-			if err != nil {
-				log.Printf("while executing run_reports command '%v': %v", runReportsCommand, err)
-				log.Println("=*=*=*=*=*=*=*=*=*=*=*=*=*=*")
-				log.Println("LOADER & REPORTS CAPTURED OUTPUT BEGIN")
-				log.Println("=*=*=*=*=*=*=*=*=*=*=*=*=*=*")
-				log.Println((*results)["log"])
-				log.Println("=*=*=*=*=*=*=*=*=*=*=*=*=*=*")
-				log.Println("LOADER & REPORTS CAPTURED OUTPUT END")
-				log.Println("=*=*=*=*=*=*=*=*=*=*=*=*=*=*")
-				httpStatus = http.StatusInternalServerError
-				err = errors.New("error while running run_reports command")
-				return results, httpStatus, err
-			}
-			log.Println("============================")
-			log.Println("LOADER & REPORTS CAPTURED OUTPUT BEGIN")
-			log.Println("============================")
-			log.Println((*results)["log"])
-			log.Println("============================")
-			log.Println("LOADER & REPORTS CAPTURED OUTPUT END")
-			log.Println("============================")
-
-		default:
-			// StartExecution load file
-			log.Printf("calling StartExecution loaderSM loaderCommand: %s", loaderCommand)
-			name, err = awsi.StartExecution(os.Getenv("JETS_LOADER_SM_ARN"),
-				map[string]interface{}{
-					"loaderCommand":  loaderCommand,
-					"reportsCommand": runReportsCommand,
-				}, sessionId.(string))
-			if err != nil {
-				log.Printf("while calling StartExecution '%v': %v", loaderCommand, err)
-				httpStatus = http.StatusInternalServerError
-				err = errors.New("error while calling StartExecution")
-				return results, httpStatus, err
-			}
-			fmt.Println("Loader State Machine", name, "started")
 		}
 	}
+	// extract the columns we need for the loader
+	objType := row["object_type"]
+	client := row["client"]
+	clientOrg := row["org"]
+	sourcePeriodKey := row["source_period_key"]
+	fileKey := row["file_key"]
+	sessionId := row["session_id"]
+	userEmail := row["user_email"]
+	v := dataTableAction.Data[irow]["loaderFailedMetric"]
+	if v != nil {
+		loaderFailedMetric = v.(string)
+	}
+	v = dataTableAction.Data[irow]["loaderCompletedMetric"]
+	if v != nil {
+		loaderCompletedMetric = v.(string)
+	}
+	if objType == nil || client == nil || fileKey == nil || sessionId == nil || userEmail == nil {
+		log.Printf(
+			"error while preparing to run loader: unexpected nil among: objType: %v, client: %v, fileKey: %v, sessionId: %v, userEmail %v",
+			objType, client, fileKey, sessionId, userEmail)
+		httpStatus = http.StatusInternalServerError
+		err = errors.New("error while running loader command")
+		return
+	}
+	org := clientOrg.(string)
+	if org == "" {
+		org = "''"
+	}
+	loaderCommand := []string{
+		"-in_file", fileKey.(string),
+		"-client", client.(string),
+		"-org", org,
+		"-objectType", objType.(string),
+		"-sourcePeriodKey", sourcePeriodKey.(string),
+		"-sessionId", sessionId.(string),
+		"-userEmail", userEmail.(string),
+		"-nbrShards", strconv.Itoa(ctx.NbrShards),
+	}
+	if loaderCompletedMetric != "" {
+		loaderCommand = append(loaderCommand, "-loaderCompletedMetric")
+		loaderCommand = append(loaderCommand, loaderCompletedMetric)
+	}
+	if loaderFailedMetric != "" {
+		loaderCommand = append(loaderCommand, "-loaderFailedMetric")
+		loaderCommand = append(loaderCommand, loaderFailedMetric)
+	}
+	var reportName string
+	if clientOrg.(string) != "" {
+		reportName = fmt.Sprintf("loader/client=%s/object_type=%s/org=%s", client.(string), objType.(string), clientOrg.(string))
+	} else {
+		reportName = fmt.Sprintf("loader/client=%s/object_type=%s", client.(string), objType.(string))
+	}
+	runReportsCommand := []string{
+		"-client", client.(string),
+		"-sessionId", sessionId.(string),
+		"-reportName", reportName,
+		"-filePath", strings.Replace(fileKey.(string), os.Getenv("JETS_s3_INPUT_PREFIX"), os.Getenv("JETS_s3_OUTPUT_PREFIX"), 1),
+	}
+	switch {
+	// Call loader synchronously
+	case ctx.DevMode:
+		if ctx.UsingSshTunnel {
+			loaderCommand = append(loaderCommand, "-usingSshTunnel")
+			runReportsCommand = append(runReportsCommand, "-usingSshTunnel")
+		}
+		// Call loader synchronously
+		cmd := exec.Command("/usr/local/bin/loader", loaderCommand...)
+		cmd.Env = append(os.Environ(),
+			fmt.Sprintf("WORKSPACE=%s", workspaceName),
+			"JETSTORE_DEV_MODE=1",
+		)
+		var buf strings.Builder
+		cmd.Stdout = &buf
+		cmd.Stderr = &buf
+		log.Printf("Executing loader command '%v'", loaderCommand)
+		err = cmd.Run()
+		if err != nil {
+			log.Printf("while executing loader command '%v': %v", loaderCommand, err)
+			log.Println("=*=*=*=*=*=*=*=*=*=*=*=*=*=*")
+			log.Println("LOADER CAPTURED OUTPUT BEGIN")
+			log.Println("=*=*=*=*=*=*=*=*=*=*=*=*=*=*")
+			(*results)["log"] = buf.String()
+			log.Println((*results)["log"])
+			log.Println("=*=*=*=*=*=*=*=*=*=*=*=*=*=*")
+			log.Println("LOADER CAPTURED OUTPUT END")
+			log.Println("=*=*=*=*=*=*=*=*=*=*=*=*=*=*")
+			httpStatus = http.StatusInternalServerError
+			err = errors.New("error while running loader command")
+			return
+		}
 
-	return results, httpStatus, err
+		// Call run_report synchronously
+		cmd = exec.Command("/usr/local/bin/run_reports", runReportsCommand...)
+		cmd.Env = append(os.Environ(),
+			fmt.Sprintf("WORKSPACE=%s", workspaceName),
+			"JETSTORE_DEV_MODE=1",
+		)
+		cmd.Stdout = &buf
+		cmd.Stderr = &buf
+		log.Printf("Executing run_reports command '%v'", runReportsCommand)
+		err = cmd.Run()
+		(*results)["log"] = buf.String()
+		if err != nil {
+			log.Printf("while executing run_reports command '%v': %v", runReportsCommand, err)
+			log.Println("=*=*=*=*=*=*=*=*=*=*=*=*=*=*")
+			log.Println("LOADER & REPORTS CAPTURED OUTPUT BEGIN")
+			log.Println("=*=*=*=*=*=*=*=*=*=*=*=*=*=*")
+			log.Println((*results)["log"])
+			log.Println("=*=*=*=*=*=*=*=*=*=*=*=*=*=*")
+			log.Println("LOADER & REPORTS CAPTURED OUTPUT END")
+			log.Println("=*=*=*=*=*=*=*=*=*=*=*=*=*=*")
+			httpStatus = http.StatusInternalServerError
+			err = errors.New("error while running run_reports command")
+			return
+		}
+		log.Println("============================")
+		log.Println("LOADER & REPORTS CAPTURED OUTPUT BEGIN")
+		log.Println("============================")
+		log.Println((*results)["log"])
+		log.Println("============================")
+		log.Println("LOADER & REPORTS CAPTURED OUTPUT END")
+		log.Println("============================")
+
+	default:
+		// StartExecution load file
+		log.Printf("calling StartExecution loaderSM loaderCommand: %s", loaderCommand)
+		name, err = awsi.StartExecution(os.Getenv("JETS_LOADER_SM_ARN"),
+			map[string]interface{}{
+				"loaderCommand":  loaderCommand,
+				"reportsCommand": runReportsCommand,
+			}, sessionId.(string))
+		if err != nil {
+			log.Printf("while calling StartExecution '%v': %v", loaderCommand, err)
+			httpStatus = http.StatusInternalServerError
+			err = errors.New("error while calling StartExecution")
+			return
+		}
+		fmt.Println("Loader State Machine", name, "started")
+	}
+	return
 }
