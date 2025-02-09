@@ -209,7 +209,7 @@ func (ctx *Context) RegisterFileKeys(registerFileKeyAction *RegisterFileKeyActio
 			// log.Printf("*** source_config found, automated: %v, is part file: %v\n", automated, isPartFile)
 			if isPartFile == 1 {
 				// Multi Part File
-				size := fileKeyObject["size"].(int64)
+				size := fileKeyObject["file_size"].(int64)
 				if size > 1 {
 					// log.Println("Register File Key: data source with multiple parts: skipping file key:", fileKeyObject["file_key"],"size",fileKeyObject["size"])
 					goto NextKey
@@ -227,6 +227,17 @@ func (ctx *Context) RegisterFileKeys(registerFileKeyAction *RegisterFileKeyActio
 						// Removing file name
 						fileKey = (fileKey)[0:idx]
 						fileKeyObject["file_key"] = fileKey
+					}
+					// Get the size of the folder as the file_size
+					s3Objs, err := awsi.ListS3Objects("", &fileKey)
+					if err == nil {
+						var size int64
+						for _, obj := range s3Objs {
+							size += obj.Size
+						}
+						fileKeyObject["file_size"] = size
+					} else {
+						log.Printf("Warding, got error while getting s3 folder size: %v\n", err)
 					}
 				}
 			}
