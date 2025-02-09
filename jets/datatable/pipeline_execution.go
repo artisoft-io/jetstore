@@ -370,8 +370,7 @@ func (ctx *Context) GetTaskThrottlingInfo(stateMachineName, taskStatus string) (
     WHERE pe.main_input_file_key = fk.file_key
       AND pe.status = $2
       AND pe.process_name = pc.process_name
-      AND pc.state_machine_name = $3
-    ORDER BY pe.last_update ASC;`
+      AND pc.state_machine_name = $3;`
 
 	// Get the running tasks count
 	err = ctx.Dbpool.QueryRow(context.Background(),
