@@ -249,7 +249,7 @@ func (ctx *Context) StartPendingTasks(stateMachineName string) (err error) {
 	// Identify pending tasks ready to start
 	// Update their status
 	// Start their state machine / pipeline
-
+	log.Println("StartPendingTasks Called")
 	// Identify timeout tasks
 	res, err := ctx.Dbpool.Exec(context.Background(),
 		`UPDATE jetsapi.pipeline_execution_status 
@@ -268,8 +268,7 @@ func (ctx *Context) StartPendingTasks(stateMachineName string) (err error) {
     FROM jetsapi.pipeline_execution_status pe, jetsapi.process_config pc
     WHERE pe.status = $1 
       AND pe.process_name = pc.process_name
-      AND pc.state_machine_name = $2`,
-	"pending", stateMachineName).Scan(&pendCount)
+      AND pc.state_machine_name = $2`, "pending", stateMachineName).Scan(&pendCount)
 	if err != nil {
 		err = fmt.Errorf("while getting count of pending tasks: %v", err)
 		return
