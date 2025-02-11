@@ -415,6 +415,7 @@ func (ca *StatusUpdate) CoordinateWork() error {
 		err = ctx.StartPendingTasks(stateMachineName)
 		if err != nil {
 			//*TODO If get an error while starting pending task. Fail current task for now...
+			log.Println("Get an error while starting pending task. Fail current task for now...")
 			return err
 		}
 	}

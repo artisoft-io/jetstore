@@ -249,9 +249,9 @@ func (ctx *Context) StartPendingTasks(stateMachineName string) (err error) {
 	// Identify pending tasks ready to start
 	// Update their status
 	// Start their state machine / pipeline
-
+	log.Println("StartPendingTasks Called")
 	// Identify timeout tasks
-	_, err = ctx.Dbpool.Exec(context.Background(),
+	res, err := ctx.Dbpool.Exec(context.Background(),
 		`UPDATE jetsapi.pipeline_execution_status 
 		SET status = 'timed_out'
 		WHERE status = 'submitted'
@@ -259,6 +259,7 @@ func (ctx *Context) StartPendingTasks(stateMachineName string) (err error) {
 	if err != nil {
 		log.Println("Warning: while updating timed out tasks from pipeline_execution_status:", err)
 	}
+	log.Println("*** Updated timed_out tasks:", res)
 
 	// Check if we have any pending tasks
 	var pendCount sql.NullInt64
@@ -267,12 +268,12 @@ func (ctx *Context) StartPendingTasks(stateMachineName string) (err error) {
     FROM jetsapi.pipeline_execution_status pe, jetsapi.process_config pc
     WHERE pe.status = $1 
       AND pe.process_name = pc.process_name
-      AND pc.state_machine_name = $2`,
-	).Scan(&pendCount)
+      AND pc.state_machine_name = $2`, "pending", stateMachineName).Scan(&pendCount)
 	if err != nil {
 		err = fmt.Errorf("while getting count of pending tasks: %v", err)
 		return
 	}
+	log.Println("*** Number of pending tasks:", pendCount.Int64)
 	if pendCount.Int64 == 0 {
 		// No pending task, nothig to do
 		log.Println("StartPendingTasks: No pending tasks found")
