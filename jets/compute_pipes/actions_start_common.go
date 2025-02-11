@@ -21,7 +21,7 @@ func init() {
 }
 
 // Collect and prepare cpipes configuration for both sharding and reducing steps.
-// InputColumns corresponf to the domain column in the main input file, which
+// InputColumns correspond to the domain column in the main input file, which
 // can be a subset of the columns in the main_input schema provider based on
 // source_config table.
 // InputColumns can be empty if needs to be read from the input file.
@@ -144,6 +144,26 @@ func (args *StartComputePipesArgs) initializeCpipes(ctx context.Context, dbpool 
 			cpipesStartup.CpConfig.SchemaProviders = make([]*SchemaProviderSpec, 0)
 		}
 		cpipesStartup.CpConfig.SchemaProviders = append(cpipesStartup.CpConfig.SchemaProviders, cpipesStartup.MainInputSchemaProviderConfig)
+	} else {
+		// Initialize unspecified value in main schema provider using the source_config table values
+		if cpipesStartup.MainInputSchemaProviderConfig.Client == "" {
+			cpipesStartup.MainInputSchemaProviderConfig.Client = client
+		}
+		if cpipesStartup.MainInputSchemaProviderConfig.Vendor == "" {
+			cpipesStartup.MainInputSchemaProviderConfig.Vendor = org
+		}
+		if cpipesStartup.MainInputSchemaProviderConfig.ObjectType == "" {
+			cpipesStartup.MainInputSchemaProviderConfig.ObjectType = objectType
+		}
+		if cpipesStartup.MainInputSchemaProviderConfig.Format == "" {
+			cpipesStartup.MainInputSchemaProviderConfig.Format = inputFormat
+		}
+		if cpipesStartup.MainInputSchemaProviderConfig.Compression == "" {
+			cpipesStartup.MainInputSchemaProviderConfig.Compression = compression
+		}
+		if cpipesStartup.MainInputSchemaProviderConfig.InputFormatDataJson == "" {
+			cpipesStartup.MainInputSchemaProviderConfig.InputFormatDataJson = inputFormatDataJson.String
+		}
 	}
 	mainInputSchemaProvider := cpipesStartup.MainInputSchemaProviderConfig
 	if len(schemaProviderJson) > 0 {
@@ -192,7 +212,7 @@ func (args *StartComputePipesArgs) initializeCpipes(ctx context.Context, dbpool 
 		mainInputSchemaProvider.FixedWidthColumnsCsv = icPosCsv.String
 	}
 
-	// InputColumns - the main input file domian columns, order of priority:
+	// InputColumns - the main input file domain columns, order of priority:
 	//	- Take the columns from source_config table if specified.
 	//	- Take the columns from schema provider if specified.
 	//  - Otherwise, leave it empty. They will be taken from the first input file.
