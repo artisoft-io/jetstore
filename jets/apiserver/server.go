@@ -11,6 +11,7 @@ import (
 	"net/url"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/artisoft-io/jetstore/jets/awsi"
 	"github.com/artisoft-io/jetstore/jets/datatable"
@@ -584,6 +585,20 @@ func listenAndServe() error {
 	// server.Router.HandleFunc("/users/{id}", jsonh(authh(server.GetUser))).Methods("GET")
 	// server.Router.HandleFunc("/users/{id}", jsonh(authh(server.UpdateUser))).Methods("PUT")
 	// server.Router.HandleFunc("/users/{id}", authh(server.DeleteUser)).Methods("DELETE")
+
+	// Start a background tasks to identify timed out and pending tasks
+	if !globalDevMode {
+		go func () {
+			ctx := datatable.NewContext(server.dbpool, false, false, nil, 10, nil)
+			for {
+				time.Sleep(1 * time.Hour)
+				err := ctx.StartPendingTasks("cpipesSM")
+				if err != nil {
+					log.Println("Warning: while StartPendingTasks for cpipesSM:", err)
+				}
+			}
+		}()
+	}
 
 	log.Println("Listening to address ", *serverAddr)
 	return http.ListenAndServe(*serverAddr, server.Router)

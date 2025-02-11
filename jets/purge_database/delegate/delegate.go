@@ -21,8 +21,8 @@ import (
 // USING_SSH_TUNNEL for testing or running locally
 // RETENTION_DAYS site global rentention days, delete session if > 0
 
-//* TODO call DoPurgeSession from DoPurgeDataAction (apiServer)
-//* TODO set retention_days at client level (client_registry)
+// * TODO call DoPurgeSession from DoPurgeDataAction (apiServer)
+// * TODO set retention_days at client level (client_registry)
 func DoPurgeSessions() error {
 	rd := os.Getenv("RETENTION_DAYS")
 	if len(rd) == 0 {
@@ -35,8 +35,8 @@ func DoPurgeSessions() error {
 	}
 
 	if retentionDays < 1 {
-		log.Println("Retention days must be at least 1, we have",retentionDays)
-		return fmt.Errorf("retention days must be at least 1, we have %d",retentionDays)
+		log.Println("Retention days must be at least 1, we have", retentionDays)
+		return fmt.Errorf("retention days must be at least 1, we have %d", retentionDays)
 	}
 
 	// Date from which we delete all sessions
@@ -46,12 +46,12 @@ func DoPurgeSessions() error {
 	}
 	purgeFrom := time.Now().Add(d)
 	log.Println("Purging all sessions prior to", purgeFrom)
-	
+
 	// open db connection
 	// Get the dsn from the aws secret
 	dsn, err := awsi.GetDsnFromSecret(
-		os.Getenv("JETS_DSN_SECRET"), 
-		len(os.Getenv("USING_SSH_TUNNEL")) > 0, 
+		os.Getenv("JETS_DSN_SECRET"),
+		len(os.Getenv("USING_SSH_TUNNEL")) > 0,
 		5)
 	if err != nil {
 		return fmt.Errorf("while getting dsn from aws secret: %v", err)
@@ -70,8 +70,9 @@ func DoPurgeSessions() error {
 	//    - Delete rows in domain tables (via input_registry)
 	//    - Delete rows in input_registry
 	//    - Delete rows in compute_pipes_shard_registry
-	//		- Compact the database
-	
+	//  - Delete rows in pipeline_execution_status that are older than 6 months
+	//  - Compact the database
+
 	// Get all session_id prior to purgeFrom
 	sessionIds, err := readSessionIds(dbpool, &purgeFrom)
 	if err != nil {
@@ -100,17 +101,24 @@ func DoPurgeSessions() error {
 	tableNames = append(tableNames, "jetsapi.session_registry")
 	tableNames = append(tableNames, "jetsapi.session_reservation")
 
-	for _,s := range tableNames {
+	for _, s := range tableNames {
 		fmt.Println("   Purge data from", s)
 		err = purgeMatchingRows(dbpool, sessionIds, s)
 		if err != nil {
 			return fmt.Errorf("while purging data from table %s: %v", s, err)
 		}
-	}	
+	}
+
+	// Purge records that are more than 6 months old on pipeline_execution_status table
+	_, err = dbpool.Exec(context.Background(),
+		"DELETE FROM jetsapi.pipeline_execution_status WHERE EXTRACT(EPOCH FROM AGE(NOW(), last_update)) > 60*60*24*30*6")
+	if err != nil {
+		log.Println("Warning: while purging old records from pipeline_execution_status:", err)
+	}
 
 	// Perform Vaccum on database
 	fmt.Println("   Performing VACUUM")
-	_, err = dbpool.Exec(context.Background(), "VACUUM")	
+	_, err = dbpool.Exec(context.Background(), "VACUUM")
 	if err != nil {
 		return fmt.Errorf("while performing VACUUM: %v", err)
 	}
@@ -158,7 +166,7 @@ func readTableNames(dbpool *pgxpool.Pool) ([]string, error) {
 		if err := rows.Scan(&tableName); err != nil {
 			return result, err
 		}
-		result = append(result, fmt.Sprintf("\"%s\"",tableName))
+		result = append(result, fmt.Sprintf("\"%s\"", tableName))
 	}
 	if err = rows.Err(); err != nil {
 		return result, err
@@ -180,12 +188,12 @@ func purgeMatchingRows(dbpool *pgxpool.Pool, sessionIds []string, tableName stri
 		buf.WriteString("'")
 		buf.WriteString(sessionIds[i])
 		buf.WriteString("'")
-		isFirst = false	
+		isFirst = false
 	}
 	buf.WriteString(");")
 	sqlstmt := buf.String()
 	// fmt.Println(sqlstmt)
-	fmt.Printf("Purging %d sessions from table %s",len(sessionIds), tableName)
+	fmt.Printf("Purging %d sessions from table %s", len(sessionIds), tableName)
 	// ignore returned error, due to tableName that does not exis (virtual table)
 	dbpool.Exec(context.Background(), sqlstmt)
 	return nil

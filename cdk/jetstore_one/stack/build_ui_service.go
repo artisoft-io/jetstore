@@ -66,6 +66,7 @@ func (jsComp *JetStoreStackComponents) BuildUiService(scope constructs.Construct
 			"ACTIVE_WORKSPACE_URI":          jsii.String(os.Getenv("ACTIVE_WORKSPACE_URI")),
 			"ENVIRONMENT":                   jsii.String(os.Getenv("ENVIRONMENT")),
 			"JETS_PIPELINE_THROTTLING_JSON": jsii.String(os.Getenv("JETS_PIPELINE_THROTTLING_JSON")),
+			"JETS_CPIPES_SM_TIMEOUT_MIN":    jsii.String(os.Getenv("JETS_CPIPES_SM_TIMEOUT_MIN")),
 			"JETS_SERVER_SM_ARN":            jsii.String(jsComp.ServerSmArn),
 			"JETS_SERVER_SM_ARNv2":          jsii.String(jsComp.ServerSmArnv2),
 			"NBR_SHARDS":                    jsii.String(props.NbrShards),
