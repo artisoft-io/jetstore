@@ -2,6 +2,7 @@ package compute_pipes
 
 import (
 	"bufio"
+	"bytes"
 	"errors"
 	"fmt"
 	"io"
@@ -11,6 +12,7 @@ import (
 	"strings"
 
 	"github.com/artisoft-io/jetstore/jets/awsi"
+	"github.com/artisoft-io/jetstore/jets/csv"
 	"github.com/golang/snappy"
 	"github.com/jackc/pgx/v4/pgxpool"
 )
@@ -148,7 +150,11 @@ func (cpCtx *ComputePipesContext) StartMergeFiles(dbpool *pgxpool.Pool) (cpErr e
 				return
 		}
 	}
-	r := cpCtx.NewMergeFileReader(inputFormat, outputFileConfig.Headers, writeHeaders, delimit, compression)
+	r, err := cpCtx.NewMergeFileReader(inputFormat, outputSp, outputFileConfig.Headers, writeHeaders, delimit, compression)
+	if err != nil {
+		cpErr = err
+		return
+	}
 
 	// put content of file to s3
 	if err := awsi.UploadToS3FromReader(externalBucket, outputS3FileKey, r); err != nil {
@@ -173,24 +179,42 @@ type MergeFileReader struct {
 	cpCtx          *ComputePipesContext
 }
 
-func (cpCtx *ComputePipesContext) NewMergeFileReader(inputFormat string, headers []string,
-	writeHeaders bool, delimit rune, compression string) io.Reader {
+// outputSp is needed to determine if we quote all or non fields. It also provided the writeHeaders value.
+func (cpCtx *ComputePipesContext) NewMergeFileReader(inputFormat string, outputSp SchemaProvider, headers []string,
+	writeHeaders bool, delimit rune, compression string) (io.Reader, error) {
 
 	var h []byte
 	if len(headers) > 0 && writeHeaders {
-		sep := ","
+		var sep rune = ','
 		if delimit > 0 {
-			sep = string(delimit)
+			sep = delimit
 		}
-		v := fmt.Sprintf("%s\n", strings.Join(headers, sep))
-		h = []byte(v)
+		// Write the header into a byte slice. Using a csv.Writer to make sure
+		// the delimiter is escaped correctly
+		var buf bytes.Buffer
+		w := csv.NewWriter(&buf)
+		w.Comma = sep
+		if outputSp != nil {
+			if outputSp.QuoteAllRecords() {
+				w.QuoteAll = true
+			}
+			if outputSp.NoQuotes() {
+				w.NoQuotes = true
+			}
+		}
+		err := w.Write(headers)
+		if err != nil {
+			return nil, fmt.Errorf("while writing headers in merge_files op: %v", err)
+		}
+		w.Flush()
+		h = buf.Bytes()
 	}
 	return &MergeFileReader{
 		cpCtx:          cpCtx,
 		headers:        h,
 		compression:    compression,
 		skipHeaderLine: inputFormat == "csv",
-	}
+	}, nil
 }
 
 func (r *MergeFileReader) Read(buf []byte) (int, error) {
