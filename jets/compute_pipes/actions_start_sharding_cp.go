@@ -40,6 +40,9 @@ func (args *StartComputePipesArgs) StartShardingComputePipes(ctx context.Context
 	mainInputSchemaProvider := cpipesStartup.MainInputSchemaProviderConfig
 
 	log.Println("Start SHARDING", args.SessionId, "file_key:", args.FileKey)
+	b, _ := json.Marshal(*mainInputSchemaProvider)
+	log.Printf("*** Main Input Schema Provider:%s\n", string(b))
+
 	// Update output table schema
 	for i := range cpipesStartup.CpConfig.OutputTables {
 		tableName := cpipesStartup.CpConfig.OutputTables[i].Name
