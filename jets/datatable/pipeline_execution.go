@@ -201,9 +201,30 @@ func (ctx *Context) InsertPipelineExecutionStatus(dataTableAction *DataTableActi
 
 	case "pipeline_execution_status", "short/pipeline_execution_status":
 		if status == "submitted" {
+			var mainInputRegistryKey int64
+			switch vv := dataTableAction.Data[irow]["main_input_registry_key"].(type) {
+			case string:
+				mainInputRegistryKey, err =  strconv.ParseInt(vv, 10, 64)
+				if err != nil {
+					httpStatus = http.StatusInternalServerError
+					err = fmt.Errorf("while converting main_input_registry_key to int64: %v", err)
+					return							
+				}
+			case int:
+				mainInputRegistryKey = int64(vv)
+			case int64:
+				mainInputRegistryKey = vv
+			default:
+				mainInputRegistryKey, err =  strconv.ParseInt(fmt.Sprintf("%v", vv), 10, 64)
+				if err != nil {
+					httpStatus = http.StatusInternalServerError
+					err = fmt.Errorf("while converting main_input_registry_key to int64: %v", err)
+					return
+				}
+			}
 			task := &PendingTask{
 				Key:                  int64(peKey),
-				MainInputRegistryKey: sql.NullInt64{Int64: int64(dataTableAction.Data[irow]["main_input_registry_key"].(int)), Valid: true},
+				MainInputRegistryKey: sql.NullInt64{Int64: mainInputRegistryKey, Valid: true},
 				MainInputFileKey:     sql.NullString{String: dataTableAction.Data[irow]["file_key"].(string), Valid: true},
 				Client:               dataTableAction.Data[irow]["client"].(string),
 				ProcessName:          dataTableAction.Data[irow]["process_name"].(string),
