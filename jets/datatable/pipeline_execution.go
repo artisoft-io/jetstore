@@ -35,8 +35,22 @@ func (t ThrottlingSpec) String() string {
 }
 
 var throttlingConfig ThrottlingSpec
+var cpipesTimeoutMin int
 
 func init() {
+	var err error
+	tx := os.Getenv("JETS_CPIPES_SM_TIMEOUT_MIN")
+	if len(tx) == 0 {
+		cpipesTimeoutMin = 70
+	} else {
+		cpipesTimeoutMin, err = strconv.Atoi(tx)
+		if err != nil {
+			log.Println("Warning: Invalid JETS_CPIPES_SM_TIMEOUT_MIN, set to default of 60")
+			cpipesTimeoutMin = 60
+		}
+		// Add 10 min to make sure it did timed out
+		cpipesTimeoutMin += 10
+	}
 	tj := os.Getenv("JETS_PIPELINE_THROTTLING_JSON")
 	if len(tj) == 0 {
 		throttlingConfig = ThrottlingSpec{MaxConcurrentPipelines: 6}
@@ -215,8 +229,18 @@ func (ctx *Context) StartPendingTasks(stateMachineName string) (err error) {
 	// Update their status
 	// Start their state machine / pipeline
 
+	// Identify timeout tasks
+	_, err = ctx.Dbpool.Exec(context.Background(),
+		`UPDATE jetsapi.pipeline_execution_status 
+		SET status = 'timed_out'
+		WHERE status = 'submitted'
+  	  AND EXTRACT(EPOCH FROM AGE(NOW(), last_update)) > $1`, 60*cpipesTimeoutMin)
+	if err != nil {
+		log.Println("Warning: while updating timed out tasks from pipeline_execution_status:", err)
+	}
+
 	// Check if we have any pending tasks
-	var pendCount int64
+	var pendCount sql.NullInt64
 	err = ctx.Dbpool.QueryRow(context.Background(),
 		`SELECT COUNT(*) 
     FROM jetsapi.pipeline_execution_status pe, jetsapi.process_config pc
@@ -228,8 +252,9 @@ func (ctx *Context) StartPendingTasks(stateMachineName string) (err error) {
 		err = fmt.Errorf("while getting count of pending tasks: %v", err)
 		return
 	}
-	if pendCount == 0 {
+	if pendCount.Int64 == 0 {
 		// No pending task, nothig to do
+		log.Println("StartPendingTasks: No pending tasks found")
 		return
 	}
 
@@ -289,7 +314,7 @@ func (ctx *Context) StartPendingTasks(stateMachineName string) (err error) {
 		if err != nil {
 			return
 		}
-		// Update the status of the task to submitted and start the state machine
+		// Update the status of the task to submitted
 		_, err = ctx.Dbpool.Exec(context.Background(),
 			`UPDATE jetsapi.pipeline_execution_status SET (status, last_update) VALUES ($1, DEFAULT) WHERE key = $2`,
 			"submitted", task.Key)
@@ -361,7 +386,8 @@ func EvalThrotting(submRc, submT1c int64) (bool, error) {
 	}
 }
 
-func (ctx *Context) GetTaskThrottlingInfo(stateMachineName, taskStatus string) (runningCnt, t1Count int64, err error) {
+func (ctx *Context) GetTaskThrottlingInfo(stateMachineName, taskStatus string) (int64, int64, error) {
+	var err error
 	stmt := `
     SELECT 
       COUNT(pe.key) AS pipeline_cnt, 
@@ -373,12 +399,15 @@ func (ctx *Context) GetTaskThrottlingInfo(stateMachineName, taskStatus string) (
       AND pc.state_machine_name = $3;`
 
 	// Get the running tasks count
+	var pipelineCount, t1Count sql.NullInt64
 	err = ctx.Dbpool.QueryRow(context.Background(),
-		stmt, throttlingConfig.Size, taskStatus, stateMachineName).Scan(&runningCnt, &t1Count)
+		stmt, throttlingConfig.Size, taskStatus, stateMachineName).Scan(&pipelineCount, &t1Count)
 	if err != nil {
 		err = fmt.Errorf("while getting submitted tasks info with status '%s': %v", taskStatus, err)
 	}
-	return
+	//
+	log.Printf("*** GetTaskThrottlingInfo: status %s, count %d, t1: %d\n", taskStatus, pipelineCount.Int64, t1Count.Int64)
+	return pipelineCount.Int64, t1Count.Int64, err
 }
 
 func (ctx *Context) startPipeline(devModeCode, stateMachineName string, task *PendingTask, results *map[string]interface{}) error {

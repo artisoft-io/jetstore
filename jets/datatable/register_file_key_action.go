@@ -237,7 +237,7 @@ func (ctx *Context) RegisterFileKeys(registerFileKeyAction *RegisterFileKeyActio
 						}
 						fileKeyObject["file_size"] = size
 					} else {
-						log.Printf("Warding, got error while getting s3 folder size: %v\n", err)
+						log.Printf("Warning, got error while getting s3 folder size: %v\n", err)
 					}
 				}
 			}

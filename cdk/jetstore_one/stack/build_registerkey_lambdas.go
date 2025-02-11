@@ -4,6 +4,7 @@ package stack
 
 import (
 	"os"
+	"strings"
 
 	awscdk "github.com/aws/aws-cdk-go/awscdk/v2"
 	"github.com/aws/aws-cdk-go/awscdk/v2/awsec2"
@@ -45,6 +46,7 @@ func (jsComp *JetStoreStackComponents) BuildRegisterKeyLambdas(scope constructs.
 			"JETS_S3_KMS_KEY_ARN":                      jsii.String(os.Getenv("JETS_S3_KMS_KEY_ARN")),
 			"JETS_SENTINEL_FILE_NAME":                  jsii.String(os.Getenv("JETS_SENTINEL_FILE_NAME")),
 			"JETS_PIPELINE_THROTTLING_JSON":            jsii.String(os.Getenv("JETS_PIPELINE_THROTTLING_JSON")),
+			"JETS_CPIPES_SM_TIMEOUT_MIN":               jsii.String(os.Getenv("JETS_CPIPES_SM_TIMEOUT_MIN")),
 			"JETS_SERVER_SM_ARN":                       jsii.String(jsComp.ServerSmArn),
 			"JETS_SERVER_SM_ARNv2":                     jsii.String(jsComp.ServerSmArnv2),
 			"JETS_CPIPES_SM_ARN":                       jsii.String(jsComp.CpipesSmArn),
@@ -109,7 +111,25 @@ func (jsComp *JetStoreStackComponents) BuildRegisterKeyLambdas(scope constructs.
 		var sqsVpcSubnets *awsec2.SubnetSelection
 		var sqsSecurityGroups *[]awsec2.ISecurityGroup
 		sqsVpcId := os.Getenv("JETS_SQS_REGISTER_KEY_VPC_ID")
-		if len(sqsVpcId) > 0 {
+		switch strings.ToUpper(sqsVpcId) {
+		case "JETSTORE_VPC_WITH_INTERNET_ACCESS":
+			sqsVpc = jsComp.Vpc
+			sqsVpcSubnets = jsComp.PrivateSubnetSelection
+			sqsSecurityGroups = &[]awsec2.ISecurityGroup{
+				jsComp.PrivateSecurityGroup,
+				awsec2.NewSecurityGroup(stack, jsii.String("SqsLambdaAccesInternet"), &awsec2.SecurityGroupProps{
+					Vpc:              sqsVpc,
+					Description:      jsii.String("Allow network access to internet"),
+					AllowAllOutbound: jsii.Bool(true),
+				})}
+		case "JETSTORE_VPC":
+			sqsVpc = jsComp.Vpc
+			sqsVpcSubnets = jsComp.PrivateSubnetSelection
+			sqsSecurityGroups = &[]awsec2.ISecurityGroup{jsComp.PrivateSecurityGroup}
+		case "":
+			// Not attached to a vpc
+		default:
+			// Attached to an external vpc
 			sqsVpc = awsec2.Vpc_FromLookup(stack, jsii.String("SqsRegisterKeyVpc"), &awsec2.VpcLookupOptions{
 				VpcId: jsii.String(sqsVpcId),
 			})
@@ -147,6 +167,7 @@ func (jsComp *JetStoreStackComponents) BuildRegisterKeyLambdas(scope constructs.
 				"JETS_S3_KMS_KEY_ARN":                      jsii.String(os.Getenv("JETS_S3_KMS_KEY_ARN")),
 				"JETS_SENTINEL_FILE_NAME":                  jsii.String(os.Getenv("JETS_SENTINEL_FILE_NAME")),
 				"JETS_PIPELINE_THROTTLING_JSON":            jsii.String(os.Getenv("JETS_PIPELINE_THROTTLING_JSON")),
+				"JETS_CPIPES_SM_TIMEOUT_MIN":               jsii.String(os.Getenv("JETS_CPIPES_SM_TIMEOUT_MIN")),
 				"JETS_SERVER_SM_ARN":                       jsii.String(jsComp.ServerSmArn),
 				"JETS_SERVER_SM_ARNv2":                     jsii.String(jsComp.ServerSmArnv2),
 				"JETS_CPIPES_SM_ARN":                       jsii.String(jsComp.CpipesSmArn),
@@ -185,7 +206,7 @@ func (jsComp *JetStoreStackComponents) BuildRegisterKeyLambdas(scope constructs.
 		if jsComp.ExternalKmsKey != nil {
 			jsComp.ExternalKmsKey.GrantEncryptDecrypt(jsComp.SqsRegisterKeyLambda)
 		}
-	
+
 		sqsArn := os.Getenv("EXTERNAL_SQS_ARN")
 		if len(sqsArn) > 0 {
 			// Provide the ability to read sqs queue
