@@ -317,7 +317,7 @@ func (ctx *Context) StartPendingTasks(stateMachineName string) (err error) {
 	for rows.Next() {
 		var task PendingTask
 		if err = rows.Scan(&task.Key, &task.MainInputRegistryKey, &task.MainInputFileKey, &task.Client,
-			&task.ProcessName, &task.SessionId, &task.UserEmail, &task.FileSize); err != nil {
+			&task.ProcessName, &task.SessionId, &task.Status, &task.UserEmail, &task.FileSize); err != nil {
 			return
 		}
 		// Submit task that qualify
