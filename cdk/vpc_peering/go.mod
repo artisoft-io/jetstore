@@ -1,6 +1,6 @@
 module vpc_peering
 
-go 1.24
+go 1.23
 
 require (
 	github.com/aws/aws-cdk-go/awscdk/v2 v2.106.0
