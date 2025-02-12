@@ -204,18 +204,18 @@ func (ctx *Context) InsertPipelineExecutionStatus(dataTableAction *DataTableActi
 			var mainInputRegistryKey int64
 			switch vv := dataTableAction.Data[irow]["main_input_registry_key"].(type) {
 			case string:
-				mainInputRegistryKey, err =  strconv.ParseInt(vv, 10, 64)
+				mainInputRegistryKey, err = strconv.ParseInt(vv, 10, 64)
 				if err != nil {
 					httpStatus = http.StatusInternalServerError
 					err = fmt.Errorf("while converting main_input_registry_key to int64: %v", err)
-					return							
+					return
 				}
 			case int:
 				mainInputRegistryKey = int64(vv)
 			case int64:
 				mainInputRegistryKey = vv
 			default:
-				mainInputRegistryKey, err =  strconv.ParseInt(fmt.Sprintf("%v", vv), 10, 64)
+				mainInputRegistryKey, err = strconv.ParseInt(fmt.Sprintf("%v", vv), 10, 64)
 				if err != nil {
 					httpStatus = http.StatusInternalServerError
 					err = fmt.Errorf("while converting main_input_registry_key to int64: %v", err)
@@ -377,7 +377,7 @@ func (ctx *Context) unlockStateMachine(stateMachineName string) {
 // Returns [true] if throttling is required for [fileKey]
 func (ctx *Context) checkThrottling(stateMachineName, fileKey string) (bool, error) {
 	// Get the fileKey size from file_key_staging table
-	var fileSize int64
+	var fileSize sql.NullInt64
 	stmt := "SELECT file_size FROM jetsapi.file_key_staging WHERE file_key = $1"
 	err := ctx.Dbpool.QueryRow(context.Background(), stmt, fileKey).Scan(&fileSize)
 	if err != nil {
@@ -390,6 +390,11 @@ func (ctx *Context) checkThrottling(stateMachineName, fileKey string) (bool, err
 	submRc, submT1c, err = ctx.GetTaskThrottlingInfo(stateMachineName, "submitted")
 	if err != nil {
 		return false, err
+	}
+	submRc += 1
+	size := int(fileSize.Int64 / 1024 / 1024 / 1024)
+	if throttlingConfig.Size > 0 && size >= throttlingConfig.Size {
+		submT1c += 1
 	}
 	return EvalThrotting(submRc, submT1c)
 }
