@@ -45,7 +45,7 @@ func init() {
 
 func handler(ctx context.Context, s3Event events.S3Event) error {
 	// Process the records
-	log.Print("***Register Key v2 called with", s3Event)
+	// log.Print("***Register Key v2 called with", s3Event)
 	for _, record := range s3Event.Records {
 		err := processMessage(record)
 		if err != nil {
@@ -169,8 +169,7 @@ func doFileSchema(dbpool *pgxpool.Pool, fileKey string, fileSize int64) error {
   if err != nil {
     return fmt.Errorf("while downloading file schema from s3: %v", err)
   }
-  //***
-  log.Printf("*** Got file schema from s3:\n%s\n", string(buf))
+  // log.Printf("*** Got file schema from s3:\n%s\n", string(buf))
   schemaInfo := &compute_pipes.SchemaProviderSpec{}
   err = json.Unmarshal(buf, schemaInfo)
   if err != nil {

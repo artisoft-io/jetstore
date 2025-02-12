@@ -259,7 +259,7 @@ func (ctx *Context) StartPendingTasks(stateMachineName string) (err error) {
 	if err != nil {
 		log.Println("Warning: while updating timed out tasks from pipeline_execution_status:", err)
 	}
-	log.Println("*** Updated timed_out tasks:", res)
+	log.Println("Updated timed_out tasks:", res)
 
 	// Check if we have any pending tasks
 	var pendCount sql.NullInt64
@@ -273,7 +273,7 @@ func (ctx *Context) StartPendingTasks(stateMachineName string) (err error) {
 		err = fmt.Errorf("while getting count of pending tasks: %v", err)
 		return
 	}
-	log.Println("*** Number of pending tasks:", pendCount.Int64)
+	log.Println("Number of pending tasks:", pendCount.Int64)
 	if pendCount.Int64 == 0 {
 		// No pending task, nothig to do
 		log.Println("StartPendingTasks: No pending tasks found")
@@ -428,7 +428,7 @@ func (ctx *Context) GetTaskThrottlingInfo(stateMachineName, taskStatus string) (
 		err = fmt.Errorf("while getting submitted tasks info with status '%s': %v", taskStatus, err)
 	}
 	//
-	log.Printf("*** GetTaskThrottlingInfo: status %s, count %d, t1: %d\n", taskStatus, pipelineCount.Int64, t1Count.Int64)
+	log.Printf("GetTaskThrottlingInfo: status %s, count %d, t1: %d\n", taskStatus, pipelineCount.Int64, t1Count.Int64)
 	return pipelineCount.Int64, t1Count.Int64, err
 }
 

@@ -1,4 +1,4 @@
-ARG BASE_CONTAINER=golang:1.23-bullseye
+ARG BASE_CONTAINER=golang:1.24-bullseye
 FROM ${BASE_CONTAINER} as builder
 ARG BASE_CONTAINER
 
@@ -10,10 +10,6 @@ SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 USER root
 
 ENV DEBIAN_FRONTEND noninteractive
-
-# # Add postgres repo for server dev
-# RUN apt install postgresql-common \
-#      && sh /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -s
 
 RUN \
     apt-get update \
@@ -32,7 +28,6 @@ RUN \
     gnupg \
     less \
     libboost-all-dev \
-    # libevent-dev \
     lib32stdc++6 \
     libgconf-2-4 \
     libglu1-mesa \
@@ -44,9 +39,6 @@ RUN \
     make \
     # miller \
     pkg-config \
-    # postgresql-$PG_MAJOR \
-    # postgresql-plpython3-$PG_MAJOR \
-    # postgresql-server-dev-$PG_MAJOR \
     python3-dev \
     python3-pip \
     python3-setuptools \

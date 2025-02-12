@@ -1,6 +1,6 @@
 module github.com/artisoft-io/jetstore
 
-go 1.23
+go 1.24
 
 require github.com/jackc/pgx/v4 v4.18.3
 
@@ -38,10 +38,10 @@ require (
 	github.com/cdklabs/awscdk-asset-kubectl-go/kubectlv20/v2 v2.1.3 // indirect
 	github.com/cdklabs/awscdk-asset-node-proxy-agent-go/nodeproxyagentv6/v2 v2.1.0 // indirect
 	github.com/cdklabs/cloud-assembly-schema-go/awscdkcloudassemblyschema/v38 v38.0.1 // indirect
+	github.com/dolthub/maphash v0.1.0 // indirect
 	github.com/dustin/go-humanize v1.0.1 // indirect
 	github.com/fatih/color v1.18.0 // indirect
 	github.com/hashicorp/golang-lru/v2 v2.0.7 // indirect
-	github.com/jmespath/go-jmespath v0.4.0 // indirect
 	github.com/klauspost/compress v1.17.11 // indirect
 	github.com/mattn/go-colorable v0.1.13 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
@@ -51,6 +51,7 @@ require (
 	github.com/xitongsys/parquet-go-source v0.0.0-20241021075129-b732d2ac9c9b // indirect
 	github.com/yuin/goldmark v1.7.8 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
+	golang.org/x/exp v0.0.0-20241204233417-43b7b7cde48d // indirect
 	golang.org/x/lint v0.0.0-20241112194109-818c5a804067 // indirect
 	golang.org/x/mod v0.22.0 // indirect
 	golang.org/x/sync v0.10.0 // indirect
@@ -87,18 +88,15 @@ require (
 	github.com/mattn/go-sqlite3 v1.14.24
 	github.com/prozz/aws-embedded-metrics-golang v1.2.0
 	golang.org/x/crypto v0.30.0
-	golang.org/x/text v0.21.0 // indirect
+	golang.org/x/text v0.21.0
 )
 
 require (
-	github.com/dolthub/maphash v0.1.0
 	github.com/dolthub/swiss v0.2.1
 	github.com/fraugster/parquet-go v0.12.0
 	github.com/golang/snappy v0.0.4
-	github.com/saintfish/chardet v0.0.0-20230101081208-5e3ef4b5456d
 	github.com/thedatashed/xlsxreader v1.2.8
 	github.com/xhit/go-str2duration/v2 v2.1.0
 	github.com/xitongsys/parquet-go v1.6.2
-	golang.org/x/exp v0.0.0-20241204233417-43b7b7cde48d
 	modernc.org/sqlite v1.34.2
 )
