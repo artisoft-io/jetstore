@@ -338,7 +338,7 @@ func (ctx *Context) StartPendingTasks(stateMachineName string) (err error) {
 		}
 		// Update the status of the task to submitted
 		_, err = ctx.Dbpool.Exec(context.Background(),
-			`UPDATE jetsapi.pipeline_execution_status SET (status, last_update) VALUES ($1, DEFAULT) WHERE key = $2`,
+			`UPDATE jetsapi.pipeline_execution_status SET (status, last_update) = ($1, DEFAULT) WHERE key = $2`,
 			"submitted", task.Key)
 		if err != nil {
 			return fmt.Errorf("failed to update pipeline status: %v", err)
