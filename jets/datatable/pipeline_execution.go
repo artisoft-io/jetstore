@@ -396,10 +396,10 @@ func (ctx *Context) checkThrottling(stateMachineName, fileKey string) (bool, err
 
 func EvalThrotting(submRc, submT1c int64) (bool, error) {
 	switch {
-	case submRc >= int64(throttlingConfig.MaxConcurrentPipelines):
+	case submRc > int64(throttlingConfig.MaxConcurrentPipelines):
 		// Put the current task into pending
 		return true, nil
-	case throttlingConfig.MaxPipeline > 0 && submT1c >= int64(throttlingConfig.MaxPipeline):
+	case throttlingConfig.MaxPipeline > 0 && submT1c > int64(throttlingConfig.MaxPipeline):
 		// Put the current task into pending
 		return true, nil
 	default:
