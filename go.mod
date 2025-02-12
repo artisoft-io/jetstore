@@ -1,6 +1,6 @@
 module github.com/artisoft-io/jetstore
 
-go 1.24
+go 1.23
 
 require github.com/jackc/pgx/v4 v4.18.3
 
