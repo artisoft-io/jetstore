@@ -15,16 +15,15 @@ import (
 // Assign file_key to shard into jetsapi.compute_pipes_shard_registry
 
 type ShardFileKeyResult struct {
+	totalFileSize    int64
 	nbrShardingNodes int
 	nbrPartitions    int
 	firstKey         string
 	clusterSpec      *ClusterShardingSpec
-	err              error
 }
 
-func ShardFileKeys(exeCtx context.Context, dbpool *pgxpool.Pool, baseFileKey string,
-	sessionId string, cpConfig *ComputePipesConfig, schemaProviderConfig *SchemaProviderSpec) (
-	result ShardFileKeyResult) {
+func ShardFileKeys(exeCtx context.Context, dbpool *pgxpool.Pool, baseFileKey string, sessionId string, 
+	cpConfig *ComputePipesConfig, schemaProviderConfig *SchemaProviderSpec) (result ShardFileKeyResult, cpErr error) {
 
 	var totalSizeMb int
 	var maxShardSize, shardSize, offset int64
@@ -33,16 +32,23 @@ func ShardFileKeys(exeCtx context.Context, dbpool *pgxpool.Pool, baseFileKey str
 	// Get all the file keys having baseFileKey as prefix
 	log.Printf("Downloading file keys from s3 folder: %s", baseFileKey)
 	s3Objects, err := awsi.ListS3Objects(schemaProviderConfig.Bucket, &baseFileKey)
-	if err != nil || len(s3Objects) == 0 {
-		result.err = fmt.Errorf("failed to download list of files from s3 (or folder is empty): %v", err)
+	if err != nil {
+		cpErr = fmt.Errorf("failed to download list of files from s3: %v", err)
+		return
+	}
+	if len(s3Objects) == 0 {
+		cpErr = fmt.Errorf("error: input folder contains no data files")
 		return
 	}
 	// Get the total file size
-	var totalSize int64
 	for _, obj := range s3Objects {
-		totalSize += obj.Size
+		result.totalFileSize += obj.Size
 	}
-	totalSizeMb = int(totalSize / 1024 / 1024)
+	if result.totalFileSize == 0 {
+		cpErr = fmt.Errorf("error: input folder contains no data files")
+		return
+	}
+	totalSizeMb = int(result.totalFileSize / 1024 / 1024)
 
 	// Determine the tier of sharding
 	result.clusterSpec = selectClusterShardingTier(totalSizeMb, cpConfig.ClusterConfig)
@@ -73,7 +79,7 @@ func ShardFileKeys(exeCtx context.Context, dbpool *pgxpool.Pool, baseFileKey str
 
 	// Validate ClusterShardingSpec
 	if shardSize == 0 {
-		result.err = fmt.Errorf(
+		cpErr = fmt.Errorf(
 			"error: invalid cluster config, need to specify shard_size_mb/shard_max_size_mb or their default values")
 		return
 	}
@@ -113,11 +119,11 @@ func ShardFileKeys(exeCtx context.Context, dbpool *pgxpool.Pool, baseFileKey str
 	copyCount, err := dbpool.CopyFrom(exeCtx, pgx.Identifier{"jetsapi", "compute_pipes_shard_registry"}, columns,
 		pgx.CopyFromRows(shardRegistryRows))
 	if err != nil {
-		result.err = fmt.Errorf("while copying shard registry row to compute_pipes_shard_registry table: %v", err)
+		cpErr = fmt.Errorf("while copying shard registry row to compute_pipes_shard_registry table: %v", err)
 		return
 	}
 	if int(copyCount) != len(shardRegistryRows) {
-		result.err = fmt.Errorf("error: expecting %d copied rows to compute_pipes_shard_registry table but got %d",
+		cpErr = fmt.Errorf("error: expecting %d copied rows to compute_pipes_shard_registry table but got %d",
 			len(shardRegistryRows), copyCount)
 		return
 	}

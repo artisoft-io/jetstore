@@ -115,10 +115,10 @@ func (args *StartComputePipesArgs) StartShardingComputePipes(ctx context.Context
 	}
 
 	// Shard the input file keys, determine the number of shards and associated configuration
-	shardResult := ShardFileKeys(ctx, dbpool, args.FileKey, args.SessionId,
+	shardResult, err := ShardFileKeys(ctx, dbpool, args.FileKey, args.SessionId,
 		&cpipesStartup.CpConfig, mainInputSchemaProvider)
-	if shardResult.err != nil {
-		return result, shardResult.err
+	if err != nil {
+		return result, err
 	}
 	if shardResult.clusterSpec.S3WorkerPoolSize == 0 {
 		if shardResult.nbrPartitions > 20 {
