@@ -48,11 +48,10 @@ type ComputePipesNodeArgs struct {
 // This will use a single node since merge_files has a single partition
 // to read from (the step_id prior to merge_files writes a single partition).
 // Note: Client and Org are the pipeline execution client and org and may
-//
-//	be different than the client/vendor of the actual data (case using
-//	stand-in client/org name). In that situation the actual
-//	client/vendor of the data is specified at run time via the SchemaProviders
-//	on table input_registry.
+// be different than the client/vendor of the actual data (case using
+// stand-in client/org name). In that situation the actual
+// client/vendor of the data is specified at run time via the SchemaProviders
+// on table input_registry.
 type ComputePipesCommonArgs struct {
 	CpipesMode        string            `json:"cpipes_mode,omitempty"`
 	Client            string            `json:"client,omitempty"`
