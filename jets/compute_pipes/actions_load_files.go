@@ -370,10 +370,12 @@ func (cpCtx *ComputePipesContext) ReadCsvFile(filePath *FileName,
 	// Get the encoding and csv delimiter from the schema provider, if no schema provider exist assume it's ','
 	var encoding string
 	var sepFlag rune = ','
+	var noQuote bool
 	if sp != nil {
 		encoding = sp.Encoding()
 		sepFlag = sp.Delimiter()
-		// log.Printf("*** ReadCsvFile: got delimiter '%v' or '%s' and encoding '%s' from schema provider\n", sepFlag, string(sepFlag), encoding)
+		noQuote = sp.NoQuotes()
+		// log.Printf("*** ReadCsvFile: got delimiter '%v' or '%s', encoding '%s', noQuote '%v' from schema provider\n", sepFlag, string(sepFlag), encoding, noQuote)
 	}
 	// log.Printf("*** ReadCsvFile: read file from %d to %d of file size %d\n", filePath.InFileKeyInfo.start, filePath.InFileKeyInfo.end, filePath.InFileKeyInfo.size)
 
@@ -430,6 +432,7 @@ func (cpCtx *ComputePipesContext) ReadCsvFile(filePath *FileName,
 		return 0, fmt.Errorf("error: unknown compression in ReadCsvFile: %s", compression)
 	}
 	csvReader.Comma = sepFlag
+	csvReader.NoQuotes = noQuote
 	csvReader.LazyQuotes = sp != nil && sp.UseLazyQuotes()
 	if sp != nil && sp.VariableFieldsPerRecord() {
 		csvReader.FieldsPerRecord = -1
