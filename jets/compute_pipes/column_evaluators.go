@@ -2,55 +2,7 @@ package compute_pipes
 
 import (
 	"fmt"
-	"math"
-	"strconv"
-	"strings"
 )
-
-func (ctx *BuilderContext) parseValue(expr *string) (interface{}, error) {
-	var value interface{}
-	var err error
-	switch {
-	case *expr == "NULL":
-		value = nil
-	case *expr == "NaN" || *expr == "NAN":
-		value = math.NaN()
-
-	case strings.Contains(*expr, "$"):
-		// value contains an env var, e.g. $DATE_FILE_KEY
-		valueStr := *expr
-		lc := 0
-		for strings.Contains(valueStr, "$") && lc < 3 {
-			lc += 1
-			for k, v := range ctx.env {
-				v, ok := v.(string)
-				if ok {
-					valueStr = strings.ReplaceAll(valueStr, k, v)
-				}
-			}
-		}
-		value = valueStr
-
-	case strings.HasPrefix(*expr, "'"):
-		// value is a string
-		value = strings.TrimSuffix(strings.TrimPrefix(*expr, "'"), "'")
-
-	case strings.Contains(*expr, "."):
-		// value is double
-		value, err = strconv.ParseFloat(*expr, 64)
-		if err != nil {
-			return nil, fmt.Errorf("error: expecting a double: %s", *expr)
-		}
-	default:
-		// default to int
-		value, err = strconv.ParseInt(*expr, 10, 64)
-		if err != nil {
-			return nil, fmt.Errorf("error: expecting an int: %s", *expr)
-		}
-	}
-	// fmt.Printf("**!@@ PARSEVALUE: %s => = %v of type %T\n", *expr, value, value)
-	return value, err
-}
 
 // build the runtime evaluator for the column transformation
 func (ctx *BuilderContext) BuildTransformationColumnEvaluator(source *InputChannel, outCh *OutputChannel, spec *TransformationColumnSpec) (TransformationColumnEvaluator, error) {
@@ -109,9 +61,9 @@ func (ctx *BuilderContext) BuildTransformationColumnEvaluator(source *InputChann
 		}, nil
 
 	case "eval":
-		evalEpr, err := ctx.buildExprNodeEvaluator(source, outCh, spec.EvalExpr)
+		evalEpr, err := ctx.BuildExprNodeEvaluator(source.name, *source.columns, spec.EvalExpr)
 		if err != nil {
-			return nil, fmt.Errorf("while calling buildExprNodeEvaluator: %v", err)
+			return nil, fmt.Errorf("while calling BuildExprNodeEvaluator: %v", err)
 		}
 		outputPos, ok := (*outCh.columns)[spec.Name]
 		if !ok {

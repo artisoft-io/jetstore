@@ -2,6 +2,8 @@ package compute_pipes
 
 import (
 	"fmt"
+	"math"
+	"strconv"
 	"strings"
 )
 
@@ -65,19 +67,65 @@ func (node *expressionStaticListLeaf) eval(_ *[]interface{}) (interface{}, error
 }
 
 // main builder, builds expression evaluator
+type ExprBuilderContext map[string]any
 
-func (ctx *BuilderContext) buildExprNodeEvaluator(source *InputChannel, outCh *OutputChannel, spec *ExpressionNode) (evalExpression, error) {
+func (ctx ExprBuilderContext) parseValue(expr *string) (interface{}, error) {
+	var value interface{}
+	var err error
+	switch {
+	case *expr == "NULL":
+		value = nil
+	case *expr == "NaN" || *expr == "NAN":
+		value = math.NaN()
+
+	case strings.Contains(*expr, "$"):
+		// value contains an env var, e.g. $DATE_FILE_KEY
+		valueStr := *expr
+		lc := 0
+		for strings.Contains(valueStr, "$") && lc < 3 {
+			lc += 1
+			for k, v := range ctx {
+				v, ok := v.(string)
+				if ok {
+					valueStr = strings.ReplaceAll(valueStr, k, v)
+				}
+			}
+		}
+		value = valueStr
+
+	case strings.HasPrefix(*expr, "'"):
+		// value is a string
+		value = strings.TrimSuffix(strings.TrimPrefix(*expr, "'"), "'")
+
+	case strings.Contains(*expr, "."):
+		// value is double
+		value, err = strconv.ParseFloat(*expr, 64)
+		if err != nil {
+			return nil, fmt.Errorf("error: expecting a double: %s", *expr)
+		}
+	default:
+		// default to int
+		value, err = strconv.ParseInt(*expr, 10, 64)
+		if err != nil {
+			return nil, fmt.Errorf("error: expecting an int: %s", *expr)
+		}
+	}
+	// fmt.Printf("**!@@ PARSEVALUE: %s => = %v of type %T\n", *expr, value, value)
+	return value, err
+}
+
+func (ctx ExprBuilderContext) BuildExprNodeEvaluator(sourceName string, columns map[string]int, spec *ExpressionNode) (evalExpression, error) {
 	switch {
 	case spec.Arg != nil:
 		// Case of unary operator node
 		if spec.Op == "" {
 			return nil, fmt.Errorf("error: case unary operator node, must have arg, and op != nil")
 		}
-		arg, err := ctx.buildExprNodeEvaluator(source, outCh, spec.Arg)
+		arg, err := ctx.BuildExprNodeEvaluator(sourceName, columns, spec.Arg)
 		if err != nil {
 			return nil, err
 		}
-		op, err := ctx.buildEvalOperator(spec.Op)
+		op, err := BuildEvalOperator(spec.Op)
 		if err != nil {
 			return nil, err
 		}
@@ -95,15 +143,15 @@ func (ctx *BuilderContext) buildExprNodeEvaluator(source *InputChannel, outCh *O
 		if strings.ToUpper(spec.Op) == "IN" && spec.Rhs.Type != "static_list" {
 			return nil, fmt.Errorf("error: operator IN must have static_list as rhs argument")
 		}
-		lhs, err := ctx.buildExprNodeEvaluator(source, outCh, spec.Lhs)
+		lhs, err := ctx.BuildExprNodeEvaluator(sourceName, columns, spec.Lhs)
 		if err != nil {
 			return nil, err
 		}
-		rhs, err := ctx.buildExprNodeEvaluator(source, outCh, spec.Rhs)
+		rhs, err := ctx.BuildExprNodeEvaluator(sourceName, columns, spec.Rhs)
 		if err != nil {
 			return nil, err
 		}
-		op, err := ctx.buildEvalOperator(spec.Op)
+		op, err := BuildEvalOperator(spec.Op)
 		if err != nil {
 			return nil, err
 		}
@@ -135,10 +183,10 @@ func (ctx *BuilderContext) buildExprNodeEvaluator(source *InputChannel, outCh *O
 			if spec.Expr == "" {
 				return nil, fmt.Errorf("error: Type select must have Expr != nil")
 			}
-			inputPos, ok := (*source.columns)[spec.Expr]
+			inputPos, ok := columns[spec.Expr]
 			var err error
 			if !ok {
-				err = fmt.Errorf("error column %s not found in input source %s", spec.Expr, source.name)
+				err = fmt.Errorf("error column %s not found in input source %s", spec.Expr, sourceName)
 			}
 			return &expressionSelectLeaf{
 				index:   inputPos,
@@ -162,5 +210,5 @@ func (ctx *BuilderContext) buildExprNodeEvaluator(source *InputChannel, outCh *O
 			}, nil
 		}
 	}
-	return nil, fmt.Errorf("error buildExprNodeEvaluator: cannot determine if expr is node or leaf? spec type %v", spec.Type)
+	return nil, fmt.Errorf("error BuildExprNodeEvaluator: cannot determine if expr is node or leaf? spec type %v", spec.Type)
 }

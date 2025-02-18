@@ -1,45 +1,147 @@
 package compute_pipes
 
-import "regexp"
+import (
+	"fmt"
+	"regexp"
+)
 
 // This file contains the Compute Pipes configuration model
 type ComputePipesConfig struct {
-	CommonRuntimeArgs   *ComputePipesCommonArgs `json:"common_runtime_args"`
-	MetricsConfig       *MetricsSpec            `json:"metrics_config"`
-	ClusterConfig       *ClusterSpec            `json:"cluster_config"`
-	OutputTables        []*TableSpec            `json:"output_tables"`
-	OutputFiles         []OutputFileSpec        `json:"output_files"`
-	LookupTables        []*LookupSpec           `json:"lookup_tables"`
-	Channels            []ChannelSpec           `json:"channels"`
-	Context             []ContextSpec           `json:"context"`
-	SchemaProviders     []*SchemaProviderSpec   `json:"schema_providers"`
-	PipesConfig         []PipeSpec              `json:"pipes_config"`
-	ReducingPipesConfig [][]PipeSpec            `json:"reducing_pipes_config"`
+	CommonRuntimeArgs      *ComputePipesCommonArgs `json:"common_runtime_args"`
+	MetricsConfig          *MetricsSpec            `json:"metrics_config"`
+	ClusterConfig          *ClusterSpec            `json:"cluster_config"`
+	OutputTables           []*TableSpec            `json:"output_tables"`
+	OutputFiles            []OutputFileSpec        `json:"output_files"`
+	LookupTables           []*LookupSpec           `json:"lookup_tables"`
+	Channels               []ChannelSpec           `json:"channels"`
+	Context                []ContextSpec           `json:"context"`
+	SchemaProviders        []*SchemaProviderSpec   `json:"schema_providers"`
+	PipesConfig            []PipeSpec              `json:"pipes_config"`
+	ReducingPipesConfig    [][]PipeSpec            `json:"reducing_pipes_config"`
+	ConditionalPipesConfig []ConditionalPipeSpec   `json:"conditional_pipes_config"`
+}
+
+func (cp *ComputePipesConfig) MainInputChannel() *InputChannelConfig {
+	switch {
+	case len(cp.ReducingPipesConfig) > 0 && len(cp.ReducingPipesConfig[0]) > 0:
+		return &cp.ReducingPipesConfig[0][0].InputChannel
+	case len(cp.ConditionalPipesConfig) > 0 && len(cp.ConditionalPipesConfig[0].PipesConfig) > 0:
+		return &cp.ConditionalPipesConfig[0].PipesConfig[0].InputChannel
+	}
+	return nil
+}
+
+func (cp *ComputePipesConfig) NbrComputePipes() int {
+	l := len(cp.ReducingPipesConfig)
+	if l > 0 {
+		return l
+	}
+	return len(cp.ConditionalPipesConfig)
+}
+
+// This function is called once per compute pipes step (sharding or redicung)
+// so we construct the ExprNodeEvaluator as needed.
+func (cp *ComputePipesConfig) GetComputePipes(stepId int,
+	clusterShardingInfo *ClusterShardingInfo, env map[string]any) ([]PipeSpec, int, error) {
+	switch {
+	case len(cp.ReducingPipesConfig) > stepId:
+		return cp.ReducingPipesConfig[stepId], stepId, nil
+	case len(cp.ConditionalPipesConfig) > stepId:
+		if cp.ConditionalPipesConfig[stepId].When != nil {
+			// Check if condition is met
+			columns := make(map[string]int)
+			values := make([]any, 0)
+			// Available expr variables:
+			// multi_step_sharding as int, when > 0, nbr of shards is nbr_partition**2
+			// total_file_size in bytes
+			// nbr_partitions as int (assuming each sharding step has the same nbr of partitions?)
+			columns["multi_step_sharding"] = 0
+			values = append(values, clusterShardingInfo.MultiStepSharding)
+			columns["total_file_size"] = 1
+			values = append(values, clusterShardingInfo.TotalFileSize)
+			columns["nbr_partitions"] = 2
+			values = append(values, clusterShardingInfo.NbrPartitions)
+			builderContext := ExprBuilderContext(env)
+			for {
+				if cp.ConditionalPipesConfig[stepId].When != nil {
+					evaluator, err := builderContext.BuildExprNodeEvaluator("conditional_steps", columns,
+						cp.ConditionalPipesConfig[stepId].When)
+					if err != nil {
+						return nil, 0, err
+					}
+					v, err := evaluator.eval(&values)
+					if err != nil {
+						return nil, 0, err
+					}
+					if ToBool(v) {
+						return cp.ConditionalPipesConfig[stepId].PipesConfig, stepId, nil
+					}
+					stepId += 1
+					if len(cp.ConditionalPipesConfig) == stepId {
+						// Got no steps
+						return nil, 0, fmt.Errorf("error: found no conditional steps with matching condition")
+					}
+				} else {
+					return cp.ConditionalPipesConfig[stepId].PipesConfig, stepId, nil
+				}
+			}
+		}
+		return cp.ConditionalPipesConfig[stepId].PipesConfig, stepId, nil
+	}
+	return nil, stepId, nil
 }
 
 // Cluster configuration
-// DefaultMaxConcurrency is to override the env var MAX_CONCURRENCY
-// NbrPartitions is specified at ClusterShardingSpec level, if not
-// spefified it will be set to the nbr of sharding nodes, capped by the value
-// specified here at the cluster level.
-// NbrPartitions is used for the hash operator in the sharding step (step 0).
-// DefaultShardSizeMb is the default value (in MB) when not specified at ClusterShardingSpec level.
-// DefaultShardMaxSizeMb is the default value (in MB) when not specified at ClusterShardingSpec level.
-// DefaultShardSizeBy is the default value (in bytes) when not specified at ClusterShardingSpec level.
-// DefaultShardMaxSizeBy is the default value (in bytes) when not specified at ClusterShardingSpec level.
-// NOTE: ShardSizeMb / ShardMaxSizeMb must be spefified for the sharding to take place.
+// [DefaultMaxConcurrency] is to override the env var MAX_CONCURRENCY
+// [nbrPartitions] is specified at ClusterShardingSpec level otherwise at the
+// ClusterSpec level. [nbrPartitions] is determined by the nbr of sharding nodes,
+// capped by MaxNbrPartitions.
+// [DefaultShardSizeMb] is the default value (in MB) when not specified at ClusterShardingSpec level.
+// [DefaultShardMaxSizeMb] is the default value (in MB) when not specified at ClusterShardingSpec level.
+// [DefaultShardSizeBy] is the default value (in bytes) when not specified at ClusterShardingSpec level.
+// [DefaultShardMaxSizeBy] is the default value (in bytes) when not specified at ClusterShardingSpec level.
+// NOTE: [ShardSizeMb] / [ShardMaxSizeMb] must be spefified for the sharding to take place.
+// [MultiStepShardingThresholds] is the number of partitions to trigger the use of multi step sharding.
+// When [MultiStepShardingThresholds] > 0 then [nbrPartitions] is sqrt(nbr of sharding nodes).
+// [ShardingInfo] is calculated based on input files.
+// [ShardingInfo] is used by the hash operator.
+// Do not set [ShardingInfo] at configuration time, it will be ignored and replaced with the calculated values.
+// Note: Make sure that ClusterShardingSpec is in decreasing order of WhenTotalSizeGe.
 type ClusterSpec struct {
-	NbrPartitions         int                   `json:"nbr_partitons"`
-	DefaultShardSizeMb    int                   `json:"default_shard_size_mb"`
-	DefaultShardMaxSizeMb int                   `json:"default_shard_max_size_mb"`
-	DefaultShardSizeBy    int                   `json:"default_shard_size_by"`     // for testing only
-	DefaultShardMaxSizeBy int                   `json:"default_shard_max_size_by"` // for testing only
-	ShardOffset           int                   `json:"shard_offset"`
-	DefaultMaxConcurrency int                   `json:"default_max_concurrency"`
-	S3WorkerPoolSize      int                   `json:"s3_worker_pool_size"`
-	ClusterShardingTiers  []ClusterShardingSpec `json:"cluster_sharding_tiers"`
-	IsDebugMode           bool                  `json:"is_debug_mode"`
-	KillSwitchMin         int                   `json:"kill_switch_min"`
+	MaxNbrPartitions            int                   `json:"max_nbr_partitons,omitzero"`
+	MultiStepShardingThresholds int                   `json:"multi_step_sharding_thresholds,omitzero"`
+	DefaultShardSizeMb          int                   `json:"default_shard_size_mb,omitzero"`
+	DefaultShardMaxSizeMb       int                   `json:"default_shard_max_size_mb,omitzero"`
+	DefaultShardSizeBy          int                   `json:"default_shard_size_by,omitzero"`     // for testing only
+	DefaultShardMaxSizeBy       int                   `json:"default_shard_max_size_by,omitzero"` // for testing only
+	ShardOffset                 int                   `json:"shard_offset,omitzero"`
+	DefaultMaxConcurrency       int                   `json:"default_max_concurrency,omitzero"`
+	S3WorkerPoolSize            int                   `json:"s3_worker_pool_size,omitzero"`
+	ClusterShardingTiers        []ClusterShardingSpec `json:"cluster_sharding_tiers,omitzero"`
+	IsDebugMode                 bool                  `json:"is_debug_mode,omitzero"`
+	KillSwitchMin               int                   `json:"kill_switch_min,omitzero"`
+	ShardingInfo                *ClusterShardingInfo  `json:"sharding_info,omitzero"`
+}
+
+func (cs *ClusterSpec) NbrPartitions(mode string) int {
+	switch mode {
+	case "limited_range":
+		return cs.ShardingInfo.NbrPartitions
+	case "full_range":
+		if cs.ShardingInfo.MultiStepSharding > 0 {
+			return cs.ShardingInfo.NbrPartitions * cs.ShardingInfo.NbrPartitions
+		}
+		return cs.ShardingInfo.NbrPartitions
+	default:
+		if cs.ShardingInfo.MultiStepSharding > 0 {
+			n := cs.ShardingInfo.NbrPartitions * cs.ShardingInfo.NbrPartitions
+			if n > cs.ShardingInfo.MaxNbrPartitions {
+				return cs.ShardingInfo.MaxNbrPartitions
+			}
+			return n
+		}
+		return cs.ShardingInfo.NbrPartitions
+	}
 }
 
 // Cluster sizing configuration
@@ -49,21 +151,20 @@ type ClusterSpec struct {
 // otherwise MaxConcurrency is the number of concurrent lambda functions executing.
 // Note that S3WorkerPoolSize is used for reducing01, all other reducing steps use the
 // S3WorkerPoolSize set at the ClusterSpec level.
-// NbrPartitions is used by the hash operator.
-// If NbrPartitions == 0, it will be set to the number of sharding node
-// and capped to clusterConfig.NbrPartitions
 // ShardSizeMb/ShardMaxSizeMb must be spcified to determine the nbr of nodes and to allocate files
 // to shards.
+// When [MaxNbrPartitions] is not specified, the value at the ClusterSpec level is taken.
 type ClusterShardingSpec struct {
-	WhenTotalSizeGe  int  `json:"when_total_size_ge_mb"`
-	NbrPartitions    int  `json:"nbr_partitions"`
-	ShardSizeMb      int  `json:"shard_size_mb"`
-	ShardMaxSizeMb   int  `json:"shard_max_size_mb"`
-	ShardSizeBy      int  `json:"shard_size_by"`     // for testing only
-	ShardMaxSizeBy   int  `json:"shard_max_size_by"` // for testing only
-	S3WorkerPoolSize int  `json:"s3_worker_pool_size"`
-	UseEcsTasks      bool `json:"use_ecs_tasks"`
-	MaxConcurrency   int  `json:"max_concurrency"`
+	WhenTotalSizeGe             int  `json:"when_total_size_ge_mb"`
+	MaxNbrPartitions            int  `json:"max_nbr_partitions"`
+	MultiStepShardingThresholds int  `json:"multi_step_sharding_thresholds"`
+	ShardSizeMb                 int  `json:"shard_size_mb"`
+	ShardMaxSizeMb              int  `json:"shard_max_size_mb"`
+	ShardSizeBy                 int  `json:"shard_size_by"`     // for testing only
+	ShardMaxSizeBy              int  `json:"shard_max_size_by"` // for testing only
+	S3WorkerPoolSize            int  `json:"s3_worker_pool_size"`
+	UseEcsTasks                 bool `json:"use_ecs_tasks"`
+	MaxConcurrency              int  `json:"max_concurrency"`
 }
 
 type MetricsSpec struct {
@@ -184,7 +285,7 @@ type SchemaProviderSpec struct {
 	IsPartFiles             bool               `json:"is_part_files"`
 	FixedWidthColumnsCsv    string             `json:"fixed_width_columns_csv,omitempty"`
 	Columns                 []SchemaColumnSpec `json:"columns"`
-	Env                     map[string]string  `json:"env"`
+	Env                     map[string]any     `json:"env"`
 }
 
 type SchemaColumnSpec struct {
@@ -231,6 +332,17 @@ type PipeSpec struct {
 	SplitterConfig *SplitterSpec        `json:"splitter_config"`
 	Apply          []TransformationSpec `json:"apply"`
 	OutputFile     *string              `json:"output_file"` // for merge_files
+}
+
+// ConditionalPipe: Each step are executed conditionally
+// When is nil, the step is always executed.
+// Available expr variables (see above):
+// multi_step_sharding as int, when > 0, nbr of shards is nbr_partition**2
+// total_file_size in bytes
+// nbr_partitions as int (used for hashing purpose)
+type ConditionalPipeSpec struct {
+	PipesConfig []PipeSpec      `json:"pipes_config"`
+	When        *ExpressionNode `json:"when"`
 }
 
 type SplitterSpec struct {
@@ -554,10 +666,13 @@ type LookupColumnSpec struct {
 // Case single column, use Expr
 // Case multi column, use CompositeExpr
 // Expr takes precedence if both are populated.
+// AlternateCompositeExpr is used when Expr or CompositeExpr returns nil or empty.
+// MultiStepShardingMode values: 'limited_range', 'full_range' or empty
 type HashExpression struct {
-	Expr                   string   `json:"expr"`
-	CompositeExpr          []string `json:"composite_expr"`
-	NbrJetsPartitions      *uint64  `json:"nbr_jets_partitions,omitempty"`
+	Expr                   string   `json:"expr,omitempty"`
+	CompositeExpr          []string `json:"composite_expr,omitzero"`
+	NbrJetsPartitions      *uint64  `json:"nbr_jets_partitions,omitzero"`
+	MultiStepShardingMode  string   `json:"multi_step_sharding_mode,omitempty"`
 	AlternateCompositeExpr []string `json:"alternate_composite_expr"`
 }
 

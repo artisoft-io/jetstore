@@ -1,11 +1,16 @@
 package compute_pipes
 
 import (
+	"context"
+	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"strings"
 
+	"github.com/artisoft-io/jetstore/jets/datatable/jcsv"
 	"github.com/artisoft-io/jetstore/jets/jetrules/rete"
+	"github.com/jackc/pgx/v4"
 )
 
 // Jetrules operator. Execute rules for each record group (bundle) recieved from input chan
@@ -104,6 +109,49 @@ func (ctx *BuilderContext) NewJetrulesTransformationPipe(source *InputChannel, _
 		return nil, fmt.Errorf("while AssertSourcePeriodInfo: %v", err)
 	}
 
+	// Get rule_config, there is 3 sources of rule configuration:
+	// 	- cpipes_config_json: This rule configuration is pipeline specific.
+	//    This rule configuration is used for all clients and is json encoded.
+	//    This rule configuratin is embeded in the cpipes config.
+
+	// 	- Table rule_configv2: This rule configuration is process & client specific and
+	//    is used across all pipelines using this process. This configuration is either csv or json encoded.
+	//
+	// 	- Table pipeline_config: This rule configuration is pipeline & client specific.
+	//    This configuration is either csv or json encoded.
+
+	// Get process / client specific rule configuration from rule_configv2
+	var ruleConfigJson string
+	err = ctx.dbpool.QueryRow(context.Background(),
+		`SELECT rule_config_json FROM jetsapi.rule_configv2 WHERE process_name = $1 AND client = $2`,
+		ctx.processName, ctx.cpConfig.CommonRuntimeArgs.Client).Scan(&ruleConfigJson)
+	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+		return nil, fmt.Errorf("while reading rule_config_json from jetsapi.rule_configv2: %v", err)
+	}
+	if len(ruleConfigJson) > 0 {
+		// parse and append to ruleConfig
+		config.RuleConfig, err = appendRuleConfig(config.RuleConfig, &ruleConfigJson)
+		if err != nil {
+			return nil, fmt.Errorf("while parsing and appending rule config from rule_configv2: %v", err)
+		}
+	}
+
+	// Get pipeline / client specific rule config from pipeline_config
+	ruleConfigJson = ""
+	err = ctx.dbpool.QueryRow(context.Background(),
+		`SELECT rule_config_json FROM jetsapi.pipeline_config WHERE key = $1`, 
+		ctx.cpConfig.CommonRuntimeArgs.PipelineConfigKey).Scan(&ruleConfigJson)
+	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+		return nil, fmt.Errorf("while reading rule_config_json from pipeline_config table: %v", err)
+	}
+	if len(ruleConfigJson) > 0 {
+		// parse and append to ruleConfig
+		config.RuleConfig, err = appendRuleConfig(config.RuleConfig, &ruleConfigJson)
+		if err != nil {
+			return nil, fmt.Errorf("while parsing and appending rule config from rule_configv2: %v", err)
+		}
+	}
+	
 	// Assert rule config to meta graph from the pipeline configuration
 	err = AssertRuleConfiguration(reteMetaStore, config)
 	if err != nil {
@@ -140,4 +188,65 @@ func (ctx *BuilderContext) NewJetrulesTransformationPipe(source *InputChannel, _
 		env:            ctx.env,
 		doneCh:         ctx.done,
 	}, nil
+}
+
+func appendRuleConfig(ruleConfig []map[string]any, configJson *string) ([]map[string]any, error) {
+  if len(*configJson) > 0 {
+    config := make([]map[string]any, 0)
+		if err := json.Unmarshal([]byte(*configJson), &config); err != nil {
+			// Assume it's csv
+      var err2 error
+			config, err2 = parseRuleConfigCsv(config, configJson)
+			if err2 != nil {
+				return nil, fmt.Errorf("while reading jetsapi.pipeline_config table, invalid rule_config_json\nJSON ERR:%v\nCSV ERR: %v", err, err2)
+			}
+			log.Println("Got pipeline-specific rule config in csv format")
+		} else {
+			if len(config) > 0 {
+				log.Println("Got pipeline-specific rule config in json format")
+			}
+		}
+    ruleConfig = append(ruleConfig, config...)
+  }
+  return ruleConfig, nil
+}
+
+func parseRuleConfigCsv(config []map[string]any, ruleConfig *string) ([]map[string]any, error) {
+	rows, err := jcsv.Parse(*ruleConfig)
+	if len(rows) > 1 && len(rows[0]) > 3 && err == nil {
+    entities := make(map[string]map[string]any)
+		for i := range rows {
+			// Skip the header
+			if i > 0 {
+        // Transform triples:
+        // subject:   rows[i][0],
+        // predicate: rows[i][1],
+        // object:    rows[i][2],
+        // rdfType:   rows[i][3],
+        // Into json struct:
+        // [
+        //   {
+        //   "usi_sm:clientName": {
+        //     "value": "Local 138",
+        //     "type": "text"
+        //   }
+        // ]
+        entity := entities[rows[i][0]]
+        if entity == nil {
+          entity = make(map[string]any)
+          entities[rows[i][0]] = entity
+        }
+        // predicate to value / type
+        entity[rows[i][1]] = map[string]any{
+          "value": rows[i][2],
+          "type": rows[i][3],
+        }
+			}
+		}
+    // Get the list of entities into config
+    for _, entity := range entities {
+      config = append(config, entity)
+    }
+	}
+	return config, err
 }

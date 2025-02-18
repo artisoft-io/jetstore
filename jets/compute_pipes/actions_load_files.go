@@ -223,8 +223,13 @@ func (cpCtx *ComputePipesContext) ReadParquetFile(filePath *FileName, saveParque
 			// fmt.Println("Input Parquet Record: ")
 			for i := range inputColumns {
 				rawValue := parquetRow[inputColumns[i]]
-				se := schemaIdx[inputColumns[i]].SchemaElement
-				record[i] = ConvertWithSchemaV0(rawValue, se)
+				cd := schemaIdx[inputColumns[i]]
+				if cd != nil {
+					se := cd.SchemaElement
+					record[i] = ConvertWithSchemaV0(rawValue, se)	
+				} else {
+					return 0, fmt.Errorf("error: column '%s' is not found in parquet file", inputColumns[i])
+				}
 				// fmt.Printf(" %s: %v, ", inputColumns[i], record[i])
 			}
 			// fmt.Println()

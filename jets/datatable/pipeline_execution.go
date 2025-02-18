@@ -204,18 +204,18 @@ func (ctx *Context) InsertPipelineExecutionStatus(dataTableAction *DataTableActi
 			var mainInputRegistryKey int64
 			switch vv := dataTableAction.Data[irow]["main_input_registry_key"].(type) {
 			case string:
-				mainInputRegistryKey, err =  strconv.ParseInt(vv, 10, 64)
+				mainInputRegistryKey, err = strconv.ParseInt(vv, 10, 64)
 				if err != nil {
 					httpStatus = http.StatusInternalServerError
 					err = fmt.Errorf("while converting main_input_registry_key to int64: %v", err)
-					return							
+					return
 				}
 			case int:
 				mainInputRegistryKey = int64(vv)
 			case int64:
 				mainInputRegistryKey = vv
 			default:
-				mainInputRegistryKey, err =  strconv.ParseInt(fmt.Sprintf("%v", vv), 10, 64)
+				mainInputRegistryKey, err = strconv.ParseInt(fmt.Sprintf("%v", vv), 10, 64)
 				if err != nil {
 					httpStatus = http.StatusInternalServerError
 					err = fmt.Errorf("while converting main_input_registry_key to int64: %v", err)
@@ -338,7 +338,7 @@ func (ctx *Context) StartPendingTasks(stateMachineName string) (err error) {
 		}
 		// Update the status of the task to submitted
 		_, err = ctx.Dbpool.Exec(context.Background(),
-			`UPDATE jetsapi.pipeline_execution_status SET (status, last_update) VALUES ($1, DEFAULT) WHERE key = $2`,
+			`UPDATE jetsapi.pipeline_execution_status SET (status, last_update) = ($1, DEFAULT) WHERE key = $2`,
 			"submitted", task.Key)
 		if err != nil {
 			return fmt.Errorf("failed to update pipeline status: %v", err)
@@ -377,7 +377,7 @@ func (ctx *Context) unlockStateMachine(stateMachineName string) {
 // Returns [true] if throttling is required for [fileKey]
 func (ctx *Context) checkThrottling(stateMachineName, fileKey string) (bool, error) {
 	// Get the fileKey size from file_key_staging table
-	var fileSize int64
+	var fileSize sql.NullInt64
 	stmt := "SELECT file_size FROM jetsapi.file_key_staging WHERE file_key = $1"
 	err := ctx.Dbpool.QueryRow(context.Background(), stmt, fileKey).Scan(&fileSize)
 	if err != nil {
@@ -391,15 +391,20 @@ func (ctx *Context) checkThrottling(stateMachineName, fileKey string) (bool, err
 	if err != nil {
 		return false, err
 	}
+	submRc += 1
+	size := int(fileSize.Int64 / 1024 / 1024 / 1024)
+	if throttlingConfig.Size > 0 && size >= throttlingConfig.Size {
+		submT1c += 1
+	}
 	return EvalThrotting(submRc, submT1c)
 }
 
 func EvalThrotting(submRc, submT1c int64) (bool, error) {
 	switch {
-	case submRc >= int64(throttlingConfig.MaxConcurrentPipelines):
+	case submRc > int64(throttlingConfig.MaxConcurrentPipelines):
 		// Put the current task into pending
 		return true, nil
-	case throttlingConfig.MaxPipeline > 0 && submT1c >= int64(throttlingConfig.MaxPipeline):
+	case throttlingConfig.MaxPipeline > 0 && submT1c > int64(throttlingConfig.MaxPipeline):
 		// Put the current task into pending
 		return true, nil
 	default:

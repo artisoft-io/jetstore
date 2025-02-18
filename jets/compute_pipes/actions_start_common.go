@@ -176,7 +176,7 @@ func (args *StartComputePipesArgs) initializeCpipes(ctx context.Context, dbpool 
 
 	// The main_input schema provider should always have the key _main_input_.
 	mainInputSchemaProvider.Key = "_main_input_"
-	ic := &cpipesStartup.CpConfig.ReducingPipesConfig[0][0].InputChannel
+	ic := cpipesStartup.CpConfig.MainInputChannel()
 
 	// The file compression is specified from input_channel, if not take it from main schema provider,
 	// if not it taken from input_source table above

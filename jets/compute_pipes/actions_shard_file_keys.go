@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"math"
 
 	"github.com/artisoft-io/jetstore/jets/awsi"
 	"github.com/jackc/pgx/v4"
@@ -15,38 +16,43 @@ import (
 // Assign file_key to shard into jetsapi.compute_pipes_shard_registry
 
 type ShardFileKeyResult struct {
-	nbrShardingNodes int
-	nbrPartitions    int
-	firstKey         string
-	clusterSpec      *ClusterShardingSpec
-	err              error
+	clusterShardingInfo *ClusterShardingInfo
+	nbrShardingNodes    int
+	firstKey            string
+	clusterSpec         *ClusterShardingSpec
 }
 
-func ShardFileKeys(exeCtx context.Context, dbpool *pgxpool.Pool, baseFileKey string,
-	sessionId string, cpConfig *ComputePipesConfig, schemaProviderConfig *SchemaProviderSpec) (
-	result ShardFileKeyResult) {
+func ShardFileKeys(exeCtx context.Context, dbpool *pgxpool.Pool, baseFileKey string, sessionId string,
+	cpConfig *ComputePipesConfig, schemaProviderConfig *SchemaProviderSpec) (result ShardFileKeyResult, cpErr error) {
 
 	var totalSizeMb int
 	var maxShardSize, shardSize, offset int64
 	var doSplitFiles bool
+	result.clusterShardingInfo = &ClusterShardingInfo{}
 
 	// Get all the file keys having baseFileKey as prefix
 	log.Printf("Downloading file keys from s3 folder: %s", baseFileKey)
 	s3Objects, err := awsi.ListS3Objects(schemaProviderConfig.Bucket, &baseFileKey)
-	if err != nil || len(s3Objects) == 0 {
-		result.err = fmt.Errorf("failed to download list of files from s3 (or folder is empty): %v", err)
+	if err != nil {
+		cpErr = fmt.Errorf("failed to download list of files from s3: %v", err)
+		return
+	}
+	if len(s3Objects) == 0 {
+		cpErr = fmt.Errorf("error: input folder contains no data files")
 		return
 	}
 	// Get the total file size
-	var totalSize int64
 	for _, obj := range s3Objects {
-		totalSize += obj.Size
+		result.clusterShardingInfo.TotalFileSize += obj.Size
 	}
-	totalSizeMb = int(totalSize / 1024 / 1024)
+	if result.clusterShardingInfo.TotalFileSize == 0 {
+		cpErr = fmt.Errorf("error: input folder contains no data files")
+		return
+	}
+	totalSizeMb = int(result.clusterShardingInfo.TotalFileSize / 1024 / 1024)
 
 	// Determine the tier of sharding
 	result.clusterSpec = selectClusterShardingTier(totalSizeMb, cpConfig.ClusterConfig)
-	result.nbrPartitions = result.clusterSpec.NbrPartitions
 
 	if result.clusterSpec.ShardSizeBy > 0 {
 		shardSize = int64(result.clusterSpec.ShardSizeBy)
@@ -73,7 +79,7 @@ func ShardFileKeys(exeCtx context.Context, dbpool *pgxpool.Pool, baseFileKey str
 
 	// Validate ClusterShardingSpec
 	if shardSize == 0 {
-		result.err = fmt.Errorf(
+		cpErr = fmt.Errorf(
 			"error: invalid cluster config, need to specify shard_size_mb/shard_max_size_mb or their default values")
 		return
 	}
@@ -83,10 +89,10 @@ func ShardFileKeys(exeCtx context.Context, dbpool *pgxpool.Pool, baseFileKey str
 
 	// shardRegistryRow row of jetsapi.compute_pipes_shard_registry
 	var shardRegistryRows [][]any
-	columns := []string{"session_id", "file_key", "file_size", "shard_start", "shard_end", "shard_id"}
 	shardRegistryRows, result.nbrShardingNodes = assignShardInfo(s3Objects, shardSize, maxShardSize,
 		offset, doSplitFiles, sessionId)
 
+	columns := []string{"session_id", "file_key", "file_size", "shard_start", "shard_end", "shard_id"}
 	if cpConfig.ClusterConfig.IsDebugMode {
 		log.Println("Sharding File Keys:")
 		log.Println(columns)
@@ -101,23 +107,38 @@ func ShardFileKeys(exeCtx context.Context, dbpool *pgxpool.Pool, baseFileKey str
 		result.clusterSpec.S3WorkerPoolSize = cpConfig.ClusterConfig.S3WorkerPoolSize
 	}
 
-	if result.nbrPartitions == 0 {
-		result.nbrPartitions = result.nbrShardingNodes
+	multiStepThreshold := cpConfig.ClusterConfig.MultiStepShardingThresholds
+	if result.clusterSpec.MultiStepShardingThresholds > 0 {
+		multiStepThreshold = result.clusterSpec.MultiStepShardingThresholds
 	}
-	// Caping the nbr of partitions (used by the hash operator)
-	if cpConfig.ClusterConfig.NbrPartitions > 0 && result.nbrPartitions > cpConfig.ClusterConfig.NbrPartitions {
-		result.nbrPartitions = cpConfig.ClusterConfig.NbrPartitions
+
+	// Determine the NbrPartitions
+	result.clusterShardingInfo.NbrPartitions = result.nbrShardingNodes
+	if multiStepThreshold > 0 && result.nbrShardingNodes >= multiStepThreshold {
+		// Got multi step sharding enable
+		result.clusterShardingInfo.MultiStepSharding = 1
+		result.clusterShardingInfo.NbrPartitions = int(math.Sqrt(float64(result.nbrShardingNodes))) + 1
+	}
+
+	// Caping the nbr of partitions
+	maxPartitions := cpConfig.ClusterConfig.MaxNbrPartitions
+	if result.clusterSpec.MaxNbrPartitions > 0 {
+		maxPartitions = result.clusterSpec.MaxNbrPartitions
+	}
+	result.clusterShardingInfo.MaxNbrPartitions = maxPartitions
+	if maxPartitions > 0 && result.clusterShardingInfo.NbrPartitions > maxPartitions {
+		result.clusterShardingInfo.NbrPartitions = maxPartitions
 	}
 
 	// Write to database
 	copyCount, err := dbpool.CopyFrom(exeCtx, pgx.Identifier{"jetsapi", "compute_pipes_shard_registry"}, columns,
 		pgx.CopyFromRows(shardRegistryRows))
 	if err != nil {
-		result.err = fmt.Errorf("while copying shard registry row to compute_pipes_shard_registry table: %v", err)
+		cpErr = fmt.Errorf("while copying shard registry row to compute_pipes_shard_registry table: %v", err)
 		return
 	}
 	if int(copyCount) != len(shardRegistryRows) {
-		result.err = fmt.Errorf("error: expecting %d copied rows to compute_pipes_shard_registry table but got %d",
+		cpErr = fmt.Errorf("error: expecting %d copied rows to compute_pipes_shard_registry table but got %d",
 			len(shardRegistryRows), copyCount)
 		return
 	}
@@ -192,17 +213,17 @@ func assignShardInfo(s3Objects []*awsi.S3Object, shardSize, maxShardSize, offset
 func selectClusterShardingTier(totalSizeMb int, clusterConfig *ClusterSpec) *ClusterShardingSpec {
 	if len(clusterConfig.ClusterShardingTiers) == 0 {
 		return &ClusterShardingSpec{
-			NbrPartitions:  clusterConfig.NbrPartitions,
-			ShardSizeMb:    clusterConfig.DefaultShardSizeMb,
-			ShardSizeBy:    clusterConfig.DefaultShardSizeBy,
-			ShardMaxSizeMb: clusterConfig.DefaultShardMaxSizeMb,
-			ShardMaxSizeBy: clusterConfig.DefaultShardMaxSizeBy,
+			MaxNbrPartitions: clusterConfig.MaxNbrPartitions,
+			ShardSizeMb:      clusterConfig.DefaultShardSizeMb,
+			ShardSizeBy:      clusterConfig.DefaultShardSizeBy,
+			ShardMaxSizeMb:   clusterConfig.DefaultShardMaxSizeMb,
+			ShardMaxSizeBy:   clusterConfig.DefaultShardMaxSizeBy,
 		}
 	}
 	for _, spec := range clusterConfig.ClusterShardingTiers {
 		if totalSizeMb >= spec.WhenTotalSizeGe {
-			log.Printf("selectClusterShardingTier: totalSizeMb: %d, spec.WhenTotalSizeGe: %d, got NbrPartions: %d, shard size: %d, MaxConcurrency: %d",
-				totalSizeMb, spec.WhenTotalSizeGe, spec.NbrPartitions, spec.ShardSizeMb, spec.MaxConcurrency)
+			log.Printf("selectClusterShardingTier: totalSizeMb: %d, spec.WhenTotalSizeGe: %d, select MaxNbrPartions: %d, shard size: %d, MaxConcurrency: %d",
+				totalSizeMb, spec.WhenTotalSizeGe, spec.MaxNbrPartitions, spec.ShardSizeMb, spec.MaxConcurrency)
 			if spec.ShardSizeMb == 0 && spec.ShardMaxSizeBy == 0 {
 				spec.ShardMaxSizeMb = clusterConfig.DefaultShardSizeMb
 				spec.ShardMaxSizeBy = clusterConfig.DefaultShardSizeBy
@@ -212,15 +233,15 @@ func selectClusterShardingTier(totalSizeMb int, clusterConfig *ClusterSpec) *Clu
 				spec.ShardMaxSizeBy = clusterConfig.DefaultShardMaxSizeBy
 			}
 			// Note, if spec.NbrPartitions == 0, spec.NbrPartitions will be set to the
-			// number of sharding node and capped to clusterConfig.NbrPartitions
+			// number of sharding node and capped to clusterConfig.MaxNbrPartitions
 			return &spec
 		}
 	}
 	return &ClusterShardingSpec{
-		NbrPartitions:  clusterConfig.NbrPartitions,
-		ShardSizeMb:    clusterConfig.DefaultShardSizeMb,
-		ShardSizeBy:    clusterConfig.DefaultShardSizeBy,
-		ShardMaxSizeMb: clusterConfig.DefaultShardMaxSizeMb,
-		ShardMaxSizeBy: clusterConfig.DefaultShardMaxSizeBy,
+		MaxNbrPartitions: clusterConfig.MaxNbrPartitions,
+		ShardSizeMb:      clusterConfig.DefaultShardSizeMb,
+		ShardSizeBy:      clusterConfig.DefaultShardSizeBy,
+		ShardMaxSizeMb:   clusterConfig.DefaultShardMaxSizeMb,
+		ShardMaxSizeBy:   clusterConfig.DefaultShardMaxSizeBy,
 	}
 }
