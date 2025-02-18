@@ -67,13 +67,13 @@ func (ctx *BuilderContext) BuildCaseExprTCEvaluator(source *InputChannel, outCh 
 
 	caseExpr := make([]caseExprClause, len(spec.CaseExpr))
 	for i := range spec.CaseExpr {
-		whenCase, err := ctx.buildExprNodeEvaluator(source, outCh, &spec.CaseExpr[i].When)
+		whenCase, err := ctx.BuildExprNodeEvaluator(source.name, *source.columns, &spec.CaseExpr[i].When)
 		if err != nil {
 			return nil, fmt.Errorf("while building when clause for item %d: %v", i, err)
 		}
 		thenCases := make([]*columnExpression, len(spec.CaseExpr[i].Then))
 		for i, node := range spec.CaseExpr[i].Then {
-			expr, err := ctx.buildExprNodeEvaluator(source, outCh, node)
+			expr, err := ctx.BuildExprNodeEvaluator(source.name, *source.columns, node)
 			if err != nil {
 				return nil, fmt.Errorf("while building then clause for item %d: %v", i, err)
 			}
@@ -97,7 +97,7 @@ func (ctx *BuilderContext) BuildCaseExprTCEvaluator(source *InputChannel, outCh 
 
 	elseExpr := make([]*columnExpression, len(spec.ElseExpr))
 	for i, node := range spec.ElseExpr {
-		expr, err := ctx.buildExprNodeEvaluator(source, outCh, node)
+		expr, err := ctx.BuildExprNodeEvaluator(source.name, *source.columns, node)
 		if err != nil {
 			return nil, fmt.Errorf("while building else clause for case_expr: %v", err)
 		}

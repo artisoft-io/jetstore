@@ -49,7 +49,7 @@ type SchemaProvider interface {
 	WriteDateLayout() string
 	FixedWidthFileHeaders() ([]string, string)
 	FixedWidthEncodingInfo() *FixedWidthEncodingInfo
-	Env() map[string]string
+	Env() map[string]any
 }
 
 // columnNames is the list of file headers for fixed_width
@@ -138,7 +138,7 @@ func (sp *DefaultSchemaProvider) Bucket() string {
 	return sp.spec.Bucket
 }
 
-func (sp *DefaultSchemaProvider) Env() map[string]string {
+func (sp *DefaultSchemaProvider) Env() map[string]any {
 	if sp == nil {
 		return nil
 	}

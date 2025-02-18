@@ -57,7 +57,7 @@ func (ctx *BuilderContext) NewFilterTransformationPipe(source *InputChannel, out
 		return nil, fmt.Errorf("error: Filter Pipe Transformation spec is missing filter_config settings")
 	}
 	config := spec.FilterConfig
-	whenExpr, err := ctx.buildExprNodeEvaluator(source, outputCh, &config.When)
+	whenExpr, err := ctx.BuildExprNodeEvaluator(source.name, *source.columns, &config.When)
 	if err != nil {
 		return nil, fmt.Errorf("while building when clause: %v", err)
 	}

@@ -11,7 +11,7 @@ import (
 )
 
 // build the runtime evaluator for the column transformation
-func (ctx *BuilderContext) buildEvalOperator(op string) (evalOperator, error) {
+func BuildEvalOperator(op string) (evalOperator, error) {
 
 	switch strings.ToUpper(op) {
 	// Boolean operators

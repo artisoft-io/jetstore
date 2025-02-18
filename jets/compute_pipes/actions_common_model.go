@@ -20,16 +20,22 @@ import (
 // for starting the cp cluster
 // UseECSTask is currently used only for 'reducing' mode
 type StartComputePipesArgs struct {
-	PipelineExecKey int    `json:"pipeline_execution_key"`
-	FileKey         string `json:"file_key,omitempty"`
-	SessionId       string `json:"session_id,omitempty"`
-	StepId          *int   `json:"step_id"`
-	UseECSTask      bool   `json:"use_ecs_tasks"`
+	PipelineExecKey int                  `json:"pipeline_execution_key"`
+	FileKey         string               `json:"file_key,omitempty"`
+	SessionId       string               `json:"session_id,omitempty"`
+	StepId          *int                 `json:"step_id"`
+	ClusterInfo     *ClusterShardingInfo `json:"cluster_sharding_info"`
+	UseECSTask      bool                 `json:"use_ecs_tasks"`
 }
 
-type InputStats struct {
-	TotalPartfileCount int
-	TotalSizeMb        int
+// Contains info about the clustersharding. This info
+// is determined during the sharding phase in [ShardFileKeys]
+// and passed to the StartReducing actions via [StartComputePipesArgs]
+type ClusterShardingInfo struct {
+	TotalFileSize     int64 `json:"total_file_size"`
+	MaxNbrPartitions  int   `json:"max_nbr_partitions"`
+	NbrPartitions     int   `json:"nbr_partitions"`
+	MultiStepSharding int   `json:"multi_step_sharding"`
 }
 
 // Arguments to start cp_node for sharding and reducing

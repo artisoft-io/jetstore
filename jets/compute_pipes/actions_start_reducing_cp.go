@@ -31,16 +31,21 @@ func (args *StartComputePipesArgs) StartReducingComputePipes(ctx context.Context
 	// Get the source for input_row channel, given by the first input_channel node
 	stepId := *args.StepId
 	// Validate that there is such stepId
-	if stepId >= len(cpipesStartup.CpConfig.ReducingPipesConfig) {
+	if stepId >= cpipesStartup.CpConfig.NbrComputePipes() {
 		// we're past the last step - most likely there was only a sharding step
 		return result, ErrNoReducingStep
+	}
+	pipeConfig, stepId, err := cpipesStartup.CpConfig.GetComputePipes(stepId, args.ClusterInfo,
+		cpipesStartup.MainInputSchemaProviderConfig.Env)
+	if err != nil {
+		return result, fmt.Errorf("while getting compute pipes steps: %v", err)
 	}
 
 	// By default reducing steps uses compression 'snappy' with 'headerless_csv',
 	// unless specified in InputChannelConfig or when inputChannel is 'input_row' then use 'csv', see below
 	inputFormat := "headerless_csv"
 	compression := "snappy"
-	inputChannelConfig := &cpipesStartup.CpConfig.ReducingPipesConfig[stepId][0].InputChannel
+	inputChannelConfig := &pipeConfig[0].InputChannel
 	inputChannelSP := getSchemaProvider(cpipesStartup.CpConfig.SchemaProviders, inputChannelConfig.SchemaProvider)
 	if inputChannelSP != nil {
 		if len(inputChannelSP.Format) > 0 {
@@ -92,7 +97,7 @@ func (args *StartComputePipesArgs) StartReducingComputePipes(ctx context.Context
 	}
 
 	// Identify the output tables for this step
-	outputTables, err := SelectActiveOutputTable(cpipesStartup.CpConfig.OutputTables, cpipesStartup.CpConfig.ReducingPipesConfig[stepId])
+	outputTables, err := SelectActiveOutputTable(cpipesStartup.CpConfig.OutputTables, pipeConfig)
 	if err != nil {
 		return result, fmt.Errorf("while calling SelectActiveOutputTable for stepId %d: %v", stepId, err)
 	}
@@ -100,7 +105,7 @@ func (args *StartComputePipesArgs) StartReducingComputePipes(ctx context.Context
 	// Check if have a merge_files operator
 	isMergeFiles := false
 	// Check and validate if we're on a merge_files step
-	if cpipesStartup.CpConfig.ReducingPipesConfig[stepId][0].Type == "merge_files" {
+	if pipeConfig[0].Type == "merge_files" {
 		isMergeFiles = true
 		// perform validation
 		if len(partitions) != 1 {
@@ -112,10 +117,10 @@ func (args *StartComputePipesArgs) StartReducingComputePipes(ctx context.Context
 
 	// Check if at last step
 	isLastReducing := false
-	if stepId == len(cpipesStartup.CpConfig.ReducingPipesConfig)-1 {
+	if stepId == cpipesStartup.CpConfig.NbrComputePipes()-1 {
 		isLastReducing = true
 	}
-	
+
 	if len(partitions) == 0 {
 		return result, fmt.Errorf("error: no partitions found during start reducing for step %d", stepId)
 	}
@@ -124,7 +129,7 @@ func (args *StartComputePipesArgs) StartReducingComputePipes(ctx context.Context
 	// Note that S3WorkerPoolSize is set to the  value set at the ClusterSpec
 	// with a default of max(len(partitions), 20)
 	clusterSpec := &ClusterSpec{
-		NbrPartitions:         len(partitions),
+		ShardingInfo:          args.ClusterInfo,
 		DefaultMaxConcurrency: cpipesStartup.CpConfig.ClusterConfig.DefaultMaxConcurrency,
 		S3WorkerPoolSize:      cpipesStartup.CpConfig.ClusterConfig.S3WorkerPoolSize,
 		IsDebugMode:           cpipesStartup.CpConfig.ClusterConfig.IsDebugMode,
@@ -175,13 +180,12 @@ func (args *StartComputePipesArgs) StartReducingComputePipes(ctx context.Context
 		}
 	}
 
-	lookupTables, err := SelectActiveLookupTable(cpipesStartup.CpConfig.LookupTables, cpipesStartup.CpConfig.ReducingPipesConfig[stepId])
+	lookupTables, err := SelectActiveLookupTable(cpipesStartup.CpConfig.LookupTables, pipeConfig)
 	if err != nil {
 		return result, err
 	}
 
 	// Validate the PipeSpec.TransformationSpec.OutputChannel configuration
-	pipeConfig := cpipesStartup.CpConfig.ReducingPipesConfig[stepId]
 	err = ValidatePipeSpecConfig(&cpipesStartup.CpConfig, pipeConfig)
 	if err != nil {
 		return result, err
@@ -261,6 +265,7 @@ func (args *StartComputePipesArgs) StartReducingComputePipes(ctx context.Context
 		result.StartReducing = StartComputePipesArgs{
 			PipelineExecKey: args.PipelineExecKey,
 			FileKey:         args.FileKey,
+			ClusterInfo:     args.ClusterInfo,
 			SessionId:       args.SessionId,
 			StepId:          &nextStepId,
 		}

@@ -85,8 +85,30 @@ func (args *StartComputePipesArgs) StartShardingComputePipes(ctx context.Context
 			notificationTemplate, customFileKeys, "", cpipesStartup.EnvSettings)
 	}
 
+	// Shard the input file keys, determine the number of shards and associated configuration
+	shardResult, err := ShardFileKeys(ctx, dbpool, args.FileKey, args.SessionId,
+		&cpipesStartup.CpConfig, mainInputSchemaProvider)
+	if err != nil {
+		return result, err
+	}
+	if shardResult.clusterSpec.S3WorkerPoolSize == 0 {
+		if shardResult.clusterShardingInfo.NbrPartitions > 20 {
+			shardResult.clusterSpec.S3WorkerPoolSize = 20
+		} else {
+			shardResult.clusterSpec.S3WorkerPoolSize = shardResult.clusterShardingInfo.NbrPartitions
+		}
+	}
+
 	stepId := 0
-	outputTables, err := SelectActiveOutputTable(cpipesStartup.CpConfig.OutputTables, cpipesStartup.CpConfig.ReducingPipesConfig[stepId])
+	pipeConfig, stepId, err := cpipesStartup.CpConfig.GetComputePipes(stepId, shardResult.clusterShardingInfo,
+		mainInputSchemaProvider.Env)
+	if err != nil {
+		return result, fmt.Errorf("while getting compute pipes steps: %v", err)
+	}
+	if len(pipeConfig) == 0 {
+		return result, fmt.Errorf("error: compute pipes config contains no steps")
+	}
+	outputTables, err := SelectActiveOutputTable(cpipesStartup.CpConfig.OutputTables, pipeConfig)
 	if err != nil {
 		return result, fmt.Errorf("while calling SelectActiveOutputTable for stepId %d: %v", stepId, err)
 	}
@@ -114,20 +136,6 @@ func (args *StartComputePipesArgs) StartShardingComputePipes(ctx context.Context
 		"failureDetails": "",
 	}
 
-	// Shard the input file keys, determine the number of shards and associated configuration
-	shardResult, err := ShardFileKeys(ctx, dbpool, args.FileKey, args.SessionId,
-		&cpipesStartup.CpConfig, mainInputSchemaProvider)
-	if err != nil {
-		return result, err
-	}
-	if shardResult.clusterSpec.S3WorkerPoolSize == 0 {
-		if shardResult.nbrPartitions > 20 {
-			shardResult.clusterSpec.S3WorkerPoolSize = 20
-		} else {
-			shardResult.clusterSpec.S3WorkerPoolSize = shardResult.nbrPartitions
-		}
-	}
-
 	// Check if headers where provided in source_config record or need to determine the csv delimiter
 	fetchHeaders := false
 	fetchDelimitor := false
@@ -141,7 +149,7 @@ func (args *StartComputePipesArgs) StartShardingComputePipes(ctx context.Context
 	if fetchHeaders || fetchDelimitor || mainInputSchemaProvider.DetectEncoding {
 		// Get the input columns / column separator from the first file
 		sp := mainInputSchemaProvider
-		fileInfo, err := FetchHeadersAndDelimiterFromFile(sp.Bucket, shardResult.firstKey, sp.Format, 
+		fileInfo, err := FetchHeadersAndDelimiterFromFile(sp.Bucket, shardResult.firstKey, sp.Format,
 			sp.Compression, sp.Encoding, sp.Delimiter, fetchHeaders, fetchDelimitor, sp.DetectEncoding, sp.InputFormatDataJson)
 		if err != nil {
 			return result,
@@ -193,48 +201,23 @@ func (args *StartComputePipesArgs) StartShardingComputePipes(ctx context.Context
 	// WriteCpipesArgsToS3(cpipesCommands, result.CpipesCommandsS3Key)
 
 	// Args for start_reducing_cp lambda
-	nextStepId := 1
-	result.IsLastReducing = len(cpipesStartup.CpConfig.ReducingPipesConfig) == 1
+	nextStepId := stepId + 1
+	result.IsLastReducing = cpipesStartup.CpConfig.NbrComputePipes() == nextStepId
 	if !result.IsLastReducing {
 		result.StartReducing = StartComputePipesArgs{
 			PipelineExecKey: args.PipelineExecKey,
 			FileKey:         args.FileKey,
 			SessionId:       args.SessionId,
 			StepId:          &nextStepId,
+			ClusterInfo:     shardResult.clusterShardingInfo,
 			UseECSTask:      shardResult.clusterSpec.UseEcsTasks,
 		}
 	}
 
-	// Make the sharding pipeline config
-	// Set the number of partitions when sharding
-	for i := range cpipesStartup.CpConfig.ReducingPipesConfig[0] {
-		pipeSpec := &cpipesStartup.CpConfig.ReducingPipesConfig[0][i]
-		if pipeSpec.Type == "fan_out" {
-			for j := range pipeSpec.Apply {
-				transformationSpec := &pipeSpec.Apply[j]
-				if transformationSpec.Type == "map_record" {
-					for k := range transformationSpec.Columns {
-						trsfColumnSpec := &transformationSpec.Columns[k]
-						if trsfColumnSpec.Type == "hash" {
-							if trsfColumnSpec.HashExpr != nil && trsfColumnSpec.HashExpr.NbrJetsPartitions == nil {
-								var n uint64 = uint64(shardResult.nbrPartitions)
-								trsfColumnSpec.HashExpr.NbrJetsPartitions = &n
-								// log.Println("********** Setting trsfColumnSpec.HashExpr.NbrJetsPartitions to", nbrPartitions)
-							}
-						}
-					}
-				}
-			}
-		}
-	}
 	mainInputStepId := "reducing00"
-	lookupTables, err := SelectActiveLookupTable(cpipesStartup.CpConfig.LookupTables, cpipesStartup.CpConfig.ReducingPipesConfig[0])
+	lookupTables, err := SelectActiveLookupTable(cpipesStartup.CpConfig.LookupTables, pipeConfig)
 	if err != nil {
 		return result, err
-	}
-	pipeConfig := cpipesStartup.CpConfig.ReducingPipesConfig[0]
-	if len(pipeConfig) == 0 {
-		return result, fmt.Errorf("error: invalid cpipes config, reducing_pipes_config is incomplete")
 	}
 	inputChannelConfig := &pipeConfig[0].InputChannel
 	// Validate that the first PipeSpec[0].Input == "input_row"
@@ -270,7 +253,7 @@ func (args *StartComputePipesArgs) StartShardingComputePipes(ctx context.Context
 			UserEmail:         cpipesStartup.OperatorEmail,
 		},
 		ClusterConfig: &ClusterSpec{
-			NbrPartitions:         shardResult.nbrShardingNodes,
+			ShardingInfo:          shardResult.clusterShardingInfo,
 			ShardOffset:           cpipesStartup.CpConfig.ClusterConfig.ShardOffset,
 			S3WorkerPoolSize:      shardResult.clusterSpec.S3WorkerPoolSize,
 			DefaultMaxConcurrency: cpipesStartup.CpConfig.ClusterConfig.DefaultMaxConcurrency,

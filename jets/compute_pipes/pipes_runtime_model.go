@@ -135,6 +135,23 @@ func (ctx *BuilderContext) FileKey() string {
 	return ctx.cpConfig.CommonRuntimeArgs.FileKey
 }
 
+// Delegate to ExprBuilderContext
+func (ctx *BuilderContext) BuildExprNodeEvaluator(sourceName string, columns map[string]int, spec *ExpressionNode) (evalExpression, error) {
+	if ctx == nil {
+		m := make(map[string]any)
+		return ExprBuilderContext(m).BuildExprNodeEvaluator(sourceName, columns, spec)
+	}
+	return ExprBuilderContext(ctx.env).BuildExprNodeEvaluator(sourceName, columns, spec)
+}
+
+// Delegate to ExprBuilderContext
+func (ctx *BuilderContext) parseValue(expr *string) (interface{}, error) {
+	if ctx == nil {
+		m := make(map[string]any)
+		return ExprBuilderContext(m).parseValue(expr)
+	}
+	return ExprBuilderContext(ctx.env).parseValue(expr)
+}
 type PipeTransformationEvaluator interface {
 	Apply(input *[]interface{}) error
 	Done() error

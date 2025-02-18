@@ -172,7 +172,7 @@ func (ctx *BuilderContext) BuildHashTCEvaluator(source *InputChannel, outCh *Out
 	if spec.HashExpr.NbrJetsPartitions != nil {
 		partitions = *spec.HashExpr.NbrJetsPartitions
 	} else {
-		partitions = uint64(ctx.cpConfig.ClusterConfig.NbrPartitions)
+		partitions = uint64(ctx.cpConfig.ClusterConfig.NbrPartitions(spec.HashExpr.MultiStepShardingMode))
 	}
 	var altInputKey []PreprocessingFunction
 	if len(spec.HashExpr.AlternateCompositeExpr) > 0 {

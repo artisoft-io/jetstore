@@ -64,7 +64,7 @@ func (ctx *BuilderContext) BuildCountTCEvaluator(source *InputChannel, outCh *Ou
 	var where evalExpression
 	var err error
 	if spec.Where != nil {
-		where, err = ctx.buildExprNodeEvaluator(source, outCh, spec.Where)
+		where, err = ctx.BuildExprNodeEvaluator(source.name, *source.columns, spec.Where)
 		if err != nil {
 			return nil, fmt.Errorf("while building where expression: %v", err)
 		}
@@ -140,7 +140,7 @@ func (ctx *BuilderContext) BuildDistinctCountTCEvaluator(source *InputChannel, o
 	var where evalExpression
 	var err error
 	if spec.Where != nil {
-		where, err = ctx.buildExprNodeEvaluator(source, outCh, spec.Where)
+		where, err = ctx.BuildExprNodeEvaluator(source.name, *source.columns, spec.Where)
 		if err != nil {
 			return nil, fmt.Errorf("while building where expression: %v", err)
 		}
@@ -281,7 +281,7 @@ func (ctx *BuilderContext) BuildSumTCEvaluator(source *InputChannel, outCh *Outp
 	var where evalExpression
 	var err error
 	if spec.Where != nil {
-		where, err = ctx.buildExprNodeEvaluator(source, outCh, spec.Where)
+		where, err = ctx.BuildExprNodeEvaluator(source.name, *source.columns, spec.Where)
 		if err != nil {
 			return nil, fmt.Errorf("while building where expression for sum aggregate: %v", err)
 		}
@@ -396,7 +396,7 @@ func (ctx *BuilderContext) BuildMinTCEvaluator(source *InputChannel, outCh *Outp
 	var where evalExpression
 	var err error
 	if spec.Where != nil {
-		where, err = ctx.buildExprNodeEvaluator(source, outCh, spec.Where)
+		where, err = ctx.BuildExprNodeEvaluator(source.name, *source.columns, spec.Where)
 		if err != nil {
 			return nil, fmt.Errorf("while building where expression for min aggregate: %v", err)
 		}
