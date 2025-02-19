@@ -30,12 +30,12 @@ func FetchHeadersAndDelimiterFromFile(externalBucket, fileKey, fileFormat, compr
 	var err error
 	var sepFlag jcsv.Chartype
 	if delimitor > 0 {
-    // log.Printf("*** FetchHeadersAndDelimiterFromFile: provided delimiter %d is %s\n", delimitor, string([]rune{delimitor}))
+		// log.Printf("*** FetchHeadersAndDelimiterFromFile: provided delimiter %d is %s\n", delimitor, string([]rune{delimitor}))
 		sepFlag = jcsv.Chartype(delimitor)
 	}
 	fileInfo := &FileInfo{
 		encoding: encoding,
-		sepFlag: sepFlag,
+		sepFlag:  sepFlag,
 	}
 	fileHd, err = os.CreateTemp("", "jetstore_headers")
 	if err != nil {
@@ -90,23 +90,49 @@ do_retry:
 			fmt.Println("Detected encoding:", fileInfo.encoding)
 		}
 		if fetchHeaders {
-			fileInfo.headers, err = GetRawHeadersCsv(fileHd, fileKey, fileFormat, 
+			fileInfo.headers, err = GetRawHeadersCsv(fileHd, fileKey, fileFormat,
 				compression, fileInfo.sepFlag, fileInfo.encoding)
 		}
 		return fileInfo, err
 
 	case fileFormat == "parquet":
-		// Get the file headers from the parquet schema
-		fileInfo.headers, err = GetRawHeadersParquet(fileHd, fileKey, fileFormat)
-		return fileInfo, err
+		if fetchHeaders {
+			// Get the file headers from the parquet schema
+			fileInfo.headers, err = GetRawHeadersParquet(fileHd, fileKey, fileFormat)
+			return fileInfo, err
+		} else {
+			return nil,
+				fmt.Errorf("error: in FetchHeadersAndDelimiterFromFile for parquet file called, but fetchHeaders is false (bug), filekey: %s",
+					fileKey)
+		}
 
+	case fileFormat == "fixed_width":
+		if fetchEncoding {
+			fileInfo.encoding, err = DetectFileEncoding(fileHd)
+			if err != nil {
+				return nil, err
+			}
+			fmt.Println("Detected encoding:", fileInfo.encoding)
+			return fileInfo, err
+		} else {
+			return nil,
+				fmt.Errorf("error: in FetchHeadersAndDelimiterFromFile for fixed_width file called, but fetchEncoding is false (bug), filekey: %s",
+					fileKey)
+		}
 	case fileFormat == "xlsx":
-		fileName := fileHd.Name()
-		fileHd.Close()
-		fileHd = nil
-		fileInfo.headers, err = GetRawHeadersXlsx(fileName, fileFormatDataJson)
-		os.Remove(fileName)
-		return fileInfo, err
+		//*TODO detect encoding on xlxs?
+		if fetchHeaders {
+			fileName := fileHd.Name()
+			fileHd.Close()
+			fileHd = nil
+			fileInfo.headers, err = GetRawHeadersXlsx(fileName, fileFormatDataJson)
+			os.Remove(fileName)
+			return fileInfo, err
+		} else {
+			return nil,
+				fmt.Errorf("error: in FetchHeadersAndDelimiterFromFile for xlxs file called, but fetchHeaders is false (bug), filekey: %s",
+					fileKey)
+		}
 	default:
 		return nil, fmt.Errorf("error: unknown file format: %s for getting headers or delimiter from file", fileFormat)
 	}
@@ -128,7 +154,7 @@ func GetRawHeadersCsv(fileHd *os.File, fileName, fileFormat, compression string,
 
 	// Read the file headers
 	ic, err := csvReader.Read()
-  // log.Printf("*** GetRawHeadersCsv: got %d headers, err?: %v\n", len(ic), err)
+	// log.Printf("*** GetRawHeadersCsv: got %d headers, err?: %v\n", len(ic), err)
 	if err == io.EOF {
 		return nil, errors.New("input csv file is empty")
 	} else if err != nil {
