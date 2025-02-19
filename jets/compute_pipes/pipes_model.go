@@ -384,6 +384,7 @@ type MapRecordSpec struct {
 // SchemaProvider is used for external configuration, such as date format
 type AnalyzeSpec struct {
 	SchemaProvider string              `json:"schema_provider"`
+	ScrubChars     string              `json:"scrub_chars"`
 	EntityHints    []*EntityHint       `json:"entity_hints"`
 	RegexTokens    []RegexNode         `json:"regex_tokens"`
 	LookupTokens   []LookupTokenNode   `json:"lookup_tokens"`
@@ -464,8 +465,9 @@ type EntityHint struct {
 }
 
 type RegexNode struct {
-	Name  string `json:"name"`
-	Rexpr string `json:"re"`
+	Name             string `json:"name"`
+	Rexpr            string `json:"re"`
+	UseScrubbedValue bool   `json:"use_scrubbed_value,omitzero"`
 }
 
 type LookupTokenNode struct {

@@ -17,12 +17,16 @@ type DistinctCount struct {
 }
 
 type RegexCount struct {
-	Rexpr *regexp.Regexp
-	Count int
+	Rexpr            *regexp.Regexp
+	UseScrubbedValue bool
+	Count            int
 }
 
-func NewRegexCount(re *regexp.Regexp) *RegexCount {
-	return &RegexCount{Rexpr: re}
+func NewRegexCount(re *regexp.Regexp, useScrubbedValue bool) *RegexCount {
+	return &RegexCount{
+		Rexpr:            re,
+		UseScrubbedValue: useScrubbedValue,
+	}
 }
 
 type LookupCount struct {
@@ -76,6 +80,7 @@ type AnalyzeState struct {
 	DistinctValues map[string]*DistinctCount
 	NullCount      int
 	LenWelford     *WelfordAlgo
+	CharToScrub    map[rune]bool
 	RegexMatch     map[string]*RegexCount
 	LookupState    []*LookupTokensState
 	KeywordMatch   map[string]*KeywordCount
@@ -125,7 +130,7 @@ func (ctx *BuilderContext) NewAnalyzeState(columnName string, columnPos int, inp
 		if err != nil {
 			return nil, fmt.Errorf("while compiling regex %s: %v", conf.Name, err)
 		}
-		regexMatch[conf.Name] = NewRegexCount(rexp)
+		regexMatch[conf.Name] = NewRegexCount(rexp, conf.UseScrubbedValue)
 	}
 	lookupState := make([]*LookupTokensState, 0)
 	if len(config.LookupTokens) > 0 && ctx.lookupTableManager != nil {
@@ -169,11 +174,17 @@ func (ctx *BuilderContext) NewAnalyzeState(columnName string, columnPos int, inp
 	if ok {
 		lenWelford = NewWelfordAlgo()
 	}
+	// make a map of rune to scrub
+	toScrub := make(map[rune]bool)
+	for _, r := range config.ScrubChars {
+		toScrub[r] = true
+	}
 
 	return &AnalyzeState{
 		ColumnName:     columnName,
 		ColumnPos:      columnPos,
 		DistinctValues: make(map[string]*DistinctCount),
+		CharToScrub:    toScrub,
 		LenWelford:     lenWelford,
 		RegexMatch:     regexMatch,
 		LookupState:    lookupState,
@@ -211,6 +222,18 @@ func (state *AnalyzeState) NewToken(value string) error {
 			value = "0"
 		}
 	}
+	// Scrub some unmeaningful chars
+	// Note: assuming ascii, so working with bytes
+	scrubbedValue := value
+	if len(state.CharToScrub) > 0 {
+		scrubbed := make([]rune, 0, len(value))
+		for _, r := range value {
+			if !state.CharToScrub[r] {
+				scrubbed = append(scrubbed, r)
+			}
+		}
+		scrubbedValue = string(scrubbed)
+	}
 
 	// Distinct Values
 	dv := state.DistinctValues[value]
@@ -229,8 +252,14 @@ func (state *AnalyzeState) NewToken(value string) error {
 
 	// Regex matches
 	for _, reCount := range state.RegexMatch {
-		if reCount.Rexpr.MatchString(value) {
-			reCount.Count += 1
+		if reCount.UseScrubbedValue {
+			if reCount.Rexpr.MatchString(scrubbedValue) {
+				reCount.Count += 1
+			}
+		} else {
+			if reCount.Rexpr.MatchString(value) {
+				reCount.Count += 1
+			}
 		}
 	}
 
