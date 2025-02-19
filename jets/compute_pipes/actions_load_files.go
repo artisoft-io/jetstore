@@ -226,7 +226,7 @@ func (cpCtx *ComputePipesContext) ReadParquetFile(filePath *FileName, saveParque
 				cd := schemaIdx[inputColumns[i]]
 				if cd != nil {
 					se := cd.SchemaElement
-					record[i] = ConvertWithSchemaV0(rawValue, se)	
+					record[i] = ConvertWithSchemaV0(rawValue, se)
 				} else {
 					return 0, fmt.Errorf("error: column '%s' is not found in parquet file", inputColumns[i])
 				}
@@ -437,9 +437,10 @@ func (cpCtx *ComputePipesContext) ReadCsvFile(filePath *FileName,
 	if sp != nil && sp.VariableFieldsPerRecord() {
 		csvReader.FieldsPerRecord = -1
 	}
+	var headers []string
 	if inputFormat == "csv" && filePath.InFileKeyInfo.start == 0 {
 		// skip header row (first row)
-		_, err := csvReader.Read()
+		headers, err = csvReader.Read()
 		// log.Printf("*** ReadCsvFile: skip header row of %d headers, err?: %v\n", len(hrow), err)
 		switch {
 		case err == io.EOF: // empty file
@@ -464,7 +465,8 @@ func (cpCtx *ComputePipesContext) ReadCsvFile(filePath *FileName,
 		case err == io.EOF: // empty file
 			return 0, nil
 		case err != nil:
-			return 0, fmt.Errorf("error while reading first input record (ReadCsvFile): %v", err)
+			return 0, fmt.Errorf("error while reading first input record (ReadCsvFile), got %d fields in records with %d headers: %v",
+				len(inRow), len(headers), err)
 		}
 	}
 
