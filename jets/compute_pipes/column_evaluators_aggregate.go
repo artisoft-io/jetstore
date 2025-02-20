@@ -27,7 +27,7 @@ func (ctx *countColumnEval) Update(currentValue *[]interface{}, input *[]interfa
 		return nil
 	}
 	if ctx.where != nil {
-		w, err := ctx.where.eval(input)
+		w, err := ctx.where.eval(*input)
 		if err != nil {
 			return fmt.Errorf("while evaluating where on count aggregate: %v", err)
 		}
@@ -104,7 +104,7 @@ func (ctx *distinctCountColumnEval) Update(currentValue *[]interface{}, input *[
 		return nil
 	}
 	if ctx.where != nil {
-		w, err := ctx.where.eval(input)
+		w, err := ctx.where.eval(*input)
 		if err != nil {
 			return fmt.Errorf("while evaluating where on distinct_count aggregate: %v", err)
 		}
@@ -246,7 +246,7 @@ func (ctx *sumColumnEval) Update(currentValue *[]interface{}, input *[]interface
 		return nil
 	}
 	if ctx.where != nil {
-		w, err := ctx.where.eval(input)
+		w, err := ctx.where.eval(*input)
 		if err != nil {
 			return fmt.Errorf("while evaluating where on sum aggregate: %v", err)
 		}
@@ -365,7 +365,7 @@ func (ctx *minColumnEval) Update(currentValue *[]interface{}, input *[]interface
 		return nil
 	}
 	if ctx.where != nil {
-		w, err := ctx.where.eval(input)
+		w, err := ctx.where.eval(*input)
 		if err != nil {
 			return fmt.Errorf("while evaluating where on min aggregate: %v", err)
 		}

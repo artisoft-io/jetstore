@@ -49,27 +49,22 @@ func (cp *ComputePipesConfig) GetComputePipes(stepId int,
 	case len(cp.ConditionalPipesConfig) > stepId:
 		if cp.ConditionalPipesConfig[stepId].When != nil {
 			// Check if condition is met
-			columns := make(map[string]int)
-			values := make([]any, 0)
 			// Available expr variables:
 			// multi_step_sharding as int, when > 0, nbr of shards is nbr_partition**2
 			// total_file_size in bytes
 			// nbr_partitions as int (assuming each sharding step has the same nbr of partitions?)
-			columns["multi_step_sharding"] = 0
-			values = append(values, clusterShardingInfo.MultiStepSharding)
-			columns["total_file_size"] = 1
-			values = append(values, clusterShardingInfo.TotalFileSize)
-			columns["nbr_partitions"] = 2
-			values = append(values, clusterShardingInfo.NbrPartitions)
+			env["multi_step_sharding"] = clusterShardingInfo.MultiStepSharding
+			env["total_file_size"] = clusterShardingInfo.TotalFileSize
+			env["nbr_partitions"] = clusterShardingInfo.NbrPartitions
 			builderContext := ExprBuilderContext(env)
 			for {
 				if cp.ConditionalPipesConfig[stepId].When != nil {
-					evaluator, err := builderContext.BuildExprNodeEvaluator("conditional_steps", columns,
+					evaluator, err := builderContext.BuildExprNodeEvaluator("conditional_steps", nil,
 						cp.ConditionalPipesConfig[stepId].When)
 					if err != nil {
 						return nil, 0, err
 					}
-					v, err := evaluator.eval(&values)
+					v, err := evaluator.eval(env)
 					if err != nil {
 						return nil, 0, err
 					}

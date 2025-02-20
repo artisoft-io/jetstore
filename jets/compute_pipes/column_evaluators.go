@@ -132,7 +132,7 @@ type evalExprColumnEval struct {
 
 func (ctx *evalExprColumnEval) InitializeCurrentValue(currentValue *[]interface{}) {}
 func (ctx *evalExprColumnEval) Update(currentValue *[]interface{}, input *[]interface{}) error {
-	value, err := ctx.expr.eval(input)
+	value, err := ctx.expr.eval(*input)
 	if err != nil {
 		return err
 	}
