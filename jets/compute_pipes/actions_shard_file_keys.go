@@ -69,12 +69,13 @@ func ShardFileKeys(exeCtx context.Context, dbpool *pgxpool.Pool, baseFileKey str
 	offset = int64(cpConfig.ClusterConfig.ShardOffset)
 
 	// Allocate file keys to nodes
-	// Determine if we can split large files
-	switch schemaProviderConfig.Format {
-	case "csv", "headerless_csv", "fixed_width":
-		doSplitFiles = true
-	default:
-		doSplitFiles = false
+	doSplitFiles = false
+	if offset > 0 {
+		// Determine if we can split large files
+		switch schemaProviderConfig.Format {
+		case "csv", "headerless_csv", "fixed_width":
+			doSplitFiles = true
+		}
 	}
 
 	// Validate ClusterShardingSpec

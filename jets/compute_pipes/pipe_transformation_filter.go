@@ -27,7 +27,7 @@ func (ctx *FilterTransformationPipe) Apply(input *[]interface{}) error {
 	if ctx.nbrSentRows >= ctx.spec.FilterConfig.MaxOutputCount {
 		return nil
 	}
-	resp, err := ctx.whenExpr.eval(input)
+	resp, err := ctx.whenExpr.eval(*input)
 	if err != nil {
 		return fmt.Errorf("while evaluating when clause of filter: %v", err)
 	}

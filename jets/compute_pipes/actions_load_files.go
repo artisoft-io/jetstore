@@ -226,7 +226,7 @@ func (cpCtx *ComputePipesContext) ReadParquetFile(filePath *FileName, saveParque
 				cd := schemaIdx[inputColumns[i]]
 				if cd != nil {
 					se := cd.SchemaElement
-					record[i] = ConvertWithSchemaV0(rawValue, se)	
+					record[i] = ConvertWithSchemaV0(rawValue, se)
 				} else {
 					return 0, fmt.Errorf("error: column '%s' is not found in parquet file", inputColumns[i])
 				}
@@ -370,10 +370,12 @@ func (cpCtx *ComputePipesContext) ReadCsvFile(filePath *FileName,
 	// Get the encoding and csv delimiter from the schema provider, if no schema provider exist assume it's ','
 	var encoding string
 	var sepFlag rune = ','
+	var noQuote bool
 	if sp != nil {
 		encoding = sp.Encoding()
 		sepFlag = sp.Delimiter()
-		// log.Printf("*** ReadCsvFile: got delimiter '%v' or '%s' and encoding '%s' from schema provider\n", sepFlag, string(sepFlag), encoding)
+		noQuote = sp.NoQuotes()
+		// log.Printf("*** ReadCsvFile: got delimiter '%v' or '%s', encoding '%s', noQuote '%v' from schema provider\n", sepFlag, string(sepFlag), encoding, noQuote)
 	}
 	// log.Printf("*** ReadCsvFile: read file from %d to %d of file size %d\n", filePath.InFileKeyInfo.start, filePath.InFileKeyInfo.end, filePath.InFileKeyInfo.size)
 
@@ -430,13 +432,15 @@ func (cpCtx *ComputePipesContext) ReadCsvFile(filePath *FileName,
 		return 0, fmt.Errorf("error: unknown compression in ReadCsvFile: %s", compression)
 	}
 	csvReader.Comma = sepFlag
+	csvReader.NoQuotes = noQuote
 	csvReader.LazyQuotes = sp != nil && sp.UseLazyQuotes()
 	if sp != nil && sp.VariableFieldsPerRecord() {
 		csvReader.FieldsPerRecord = -1
 	}
+	var headers []string
 	if inputFormat == "csv" && filePath.InFileKeyInfo.start == 0 {
 		// skip header row (first row)
-		_, err := csvReader.Read()
+		headers, err = csvReader.Read()
 		// log.Printf("*** ReadCsvFile: skip header row of %d headers, err?: %v\n", len(hrow), err)
 		switch {
 		case err == io.EOF: // empty file
@@ -461,7 +465,8 @@ func (cpCtx *ComputePipesContext) ReadCsvFile(filePath *FileName,
 		case err == io.EOF: // empty file
 			return 0, nil
 		case err != nil:
-			return 0, fmt.Errorf("error while reading first input record (ReadCsvFile): %v", err)
+			return 0, fmt.Errorf("error while reading first input record (ReadCsvFile), got %d fields in records with %d headers: %v",
+				len(inRow), len(headers), err)
 		}
 	}
 

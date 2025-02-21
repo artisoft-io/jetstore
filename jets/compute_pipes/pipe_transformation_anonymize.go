@@ -77,6 +77,14 @@ func (ctx *AnonymizeTransformationPipe) Apply(input *[]interface{}) error {
 			var date time.Time
 			if len(ctx.inputDateLayout) > 0 {
 				date, err = time.Parse(ctx.inputDateLayout, inputStr)
+				if err != nil {
+					// try jetstore date parser
+					var d *time.Time
+					d, err = ParseDate(inputStr)
+					if d != nil {
+						date = *d
+					}
+				}
 			} else {
 				var d *time.Time
 				d, err = ParseDate(inputStr)

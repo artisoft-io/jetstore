@@ -8,10 +8,10 @@ import (
 )
 
 type evalExpression interface {
-	eval(input *[]interface{}) (interface{}, error)
+	eval(input any) (any, error)
 }
 type evalOperator interface {
-	eval(lhs interface{}, rhs interface{}) (interface{}, error)
+	eval(lhs any, rhs any) (any, error)
 }
 
 type expressionNodeEvaluator struct {
@@ -20,12 +20,12 @@ type expressionNodeEvaluator struct {
 	rhs evalExpression
 }
 
-func (node *expressionNodeEvaluator) eval(input *[]interface{}) (interface{}, error) {
+func (node *expressionNodeEvaluator) eval(input any) (any, error) {
 	lhs, err := node.lhs.eval(input)
 	if err != nil {
 		return nil, err
 	}
-	var rhs interface{}
+	var rhs any
 	if node.rhs != nil {
 		rhs, err = node.rhs.eval(input)
 		if err != nil {
@@ -37,24 +37,34 @@ func (node *expressionNodeEvaluator) eval(input *[]interface{}) (interface{}, er
 
 type expressionSelectLeaf struct {
 	index   int
+	colName string
 	rdfType string
 }
 
-func (node *expressionSelectLeaf) eval(input *[]interface{}) (interface{}, error) {
-	if node.index >= len(*input) {
-		return nil, fmt.Errorf("error expressionSelectLeaf index %d >= len(*input) %d", node.index, len(*input))
+func (node *expressionSelectLeaf) eval(in any) (any, error) {
+	var value any
+	switch input := in.(type) {
+	case []any:
+		if node.index >= len(input) {
+			return nil, fmt.Errorf("error expressionSelectLeaf index %d >= len(input) %d", node.index, len(input))
+		}
+		value = input[node.index]
+	case map[string]any:
+		value = input[node.colName]
+	default:
+		return nil, fmt.Errorf("error: invalid type passed to expression.eval for input: %v", in)
 	}
 	if node.rdfType != "" {
-		return CastToRdfType((*input)[node.index], node.rdfType)
+		return CastToRdfType(value, node.rdfType)
 	}
-	return (*input)[node.index], nil
+	return value, nil
 }
 
 type expressionValueLeaf struct {
-	value interface{}
+	value any
 }
 
-func (node *expressionValueLeaf) eval(_ *[]interface{}) (interface{}, error) {
+func (node *expressionValueLeaf) eval(_ any) (any, error) {
 	return node.value, nil
 }
 
@@ -62,15 +72,15 @@ type expressionStaticListLeaf struct {
 	values map[any]bool
 }
 
-func (node *expressionStaticListLeaf) eval(_ *[]interface{}) (interface{}, error) {
+func (node *expressionStaticListLeaf) eval(_ any) (any, error) {
 	return node.values, nil
 }
 
 // main builder, builds expression evaluator
 type ExprBuilderContext map[string]any
 
-func (ctx ExprBuilderContext) parseValue(expr *string) (interface{}, error) {
-	var value interface{}
+func (ctx ExprBuilderContext) parseValue(expr *string) (any, error) {
+	var value any
 	var err error
 	switch {
 	case *expr == "NULL":
@@ -114,6 +124,7 @@ func (ctx ExprBuilderContext) parseValue(expr *string) (interface{}, error) {
 	return value, err
 }
 
+// Note that columns can be nil when evalExtression is having map[string]any as argument.
 func (ctx ExprBuilderContext) BuildExprNodeEvaluator(sourceName string, columns map[string]int, spec *ExpressionNode) (evalExpression, error) {
 	switch {
 	case spec.Arg != nil:
@@ -181,7 +192,13 @@ func (ctx ExprBuilderContext) BuildExprNodeEvaluator(sourceName string, columns 
 
 		case "select":
 			if spec.Expr == "" {
-				return nil, fmt.Errorf("error: Type select must have Expr != nil")
+				return nil, fmt.Errorf("error: Type select must have Expr not nil")
+			}
+			if columns == nil {
+				return &expressionSelectLeaf{
+					colName: spec.Expr,
+					rdfType: spec.AsRdfType,
+				}, nil
 			}
 			inputPos, ok := columns[spec.Expr]
 			var err error

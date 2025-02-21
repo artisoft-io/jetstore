@@ -110,13 +110,18 @@ func validDelim(r rune) bool {
 // not depend on which line-ending convention an input file uses.
 //
 // Modification made by jetstore:
-//   - Make the quote character configurable (TODO)
+//   - Added NoQuotes field to indicate not to consider the quote char.
 type Reader struct {
 	// Comma is the field delimiter.
 	// It is set to comma (',') by NewReader.
 	// Comma must be a valid rune and must not be \r, \n,
 	// or the Unicode replacement character (0xFFFD).
 	Comma rune
+
+	// If NoQuotes is true, do not consider the Quote character.
+	// This implies that there should not be any comma character in the
+	// field data.
+	NoQuotes bool
 
 	// Comment, if not 0, is the comment character. Lines beginning with the
 	// Comment character without preceding whitespace are ignored.
@@ -343,7 +348,7 @@ parseField:
 			line = line[i:]
 			pos.col += i
 		}
-		if len(line) == 0 || line[0] != '"' {
+		if r.NoQuotes || len(line) == 0 || line[0] != '"' {
 			// Non-quoted string field
 			i := bytes.IndexRune(line, r.Comma)
 			field := line
@@ -353,7 +358,7 @@ parseField:
 				field = field[:len(field)-lengthNL(field)]
 			}
 			// Check to make sure a quote does not appear in field.
-			if !r.LazyQuotes {
+			if !r.LazyQuotes && !r.NoQuotes {
 				if j := bytes.IndexByte(field, '"'); j >= 0 {
 					col := pos.col + j
 					err = &ParseError{StartLine: recLine, Line: r.numLine, Column: col, Err: ErrBareQuote}
