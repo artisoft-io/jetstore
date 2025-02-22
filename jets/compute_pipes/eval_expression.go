@@ -83,10 +83,14 @@ func (ctx ExprBuilderContext) parseValue(expr *string) (any, error) {
 	var value any
 	var err error
 	switch {
-	case *expr == "NULL":
+	case *expr == "NULL" || *expr == "null":
 		value = nil
 	case *expr == "NaN" || *expr == "NAN":
 		value = math.NaN()
+
+	case strings.HasPrefix(*expr, "'") && strings.HasSuffix(*expr, "'"):
+		// value is a string
+		value = strings.TrimSuffix(strings.TrimPrefix(*expr, "'"), "'")
 
 	case strings.Contains(*expr, "$"):
 		// value contains an env var, e.g. $DATE_FILE_KEY
@@ -102,10 +106,6 @@ func (ctx ExprBuilderContext) parseValue(expr *string) (any, error) {
 			}
 		}
 		value = valueStr
-
-	case strings.HasPrefix(*expr, "'"):
-		// value is a string
-		value = strings.TrimSuffix(strings.TrimPrefix(*expr, "'"), "'")
 
 	case strings.Contains(*expr, "."):
 		// value is double
@@ -151,7 +151,7 @@ func (ctx ExprBuilderContext) BuildExprNodeEvaluator(sourceName string, columns 
 			return nil, fmt.Errorf("error: case node, must have lhs, rhs, and op != nil")
 		}
 		// Check for special IN operator who must have a static_list as rhs
-		if strings.ToUpper(spec.Op) == "IN" && spec.Rhs.Type != "static_list" {
+		if strings.ToUpper(spec.Op) == "IN" && strings.ToUpper(spec.Rhs.Type) != "STATIC_LIST" {
 			return nil, fmt.Errorf("error: operator IN must have static_list as rhs argument")
 		}
 		lhs, err := ctx.BuildExprNodeEvaluator(sourceName, columns, spec.Lhs)
@@ -174,8 +174,8 @@ func (ctx ExprBuilderContext) BuildExprNodeEvaluator(sourceName string, columns 
 
 	case spec.Type != "":
 		// Case leaf node
-		switch spec.Type {
-		case "value":
+		switch strings.ToUpper(spec.Type) {
+		case "VALUE":
 			if spec.Expr == "" {
 				return nil, fmt.Errorf("error: Type value must have Expr != nil")
 			}
@@ -190,7 +190,7 @@ func (ctx ExprBuilderContext) BuildExprNodeEvaluator(sourceName string, columns 
 				value: value,
 			}, err
 
-		case "select":
+		case "SELECT":
 			if spec.Expr == "" {
 				return nil, fmt.Errorf("error: Type select must have Expr not nil")
 			}
@@ -210,7 +210,7 @@ func (ctx ExprBuilderContext) BuildExprNodeEvaluator(sourceName string, columns 
 				rdfType: spec.AsRdfType,
 			}, err
 
-		case "static_list":
+		case "STATIC_LIST":
 			if len(spec.ExprList) == 0 {
 				return nil, fmt.Errorf("error: Type select must have non empty expr_list")
 			}
@@ -225,6 +225,8 @@ func (ctx ExprBuilderContext) BuildExprNodeEvaluator(sourceName string, columns 
 			return &expressionStaticListLeaf{
 				values: values,
 			}, nil
+		default:
+			return nil, fmt.Errorf("error: unknown expression leaf node type: %s", spec.Type)
 		}
 	}
 	return nil, fmt.Errorf("error BuildExprNodeEvaluator: cannot determine if expr is node or leaf? spec type %v", spec.Type)
