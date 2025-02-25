@@ -545,14 +545,16 @@ type PartitionWriterSpec struct {
 // If date format is not specified, the default format for both OutputDateFormat and KeyDateFormat
 // is "2006/01/02", ie. yyyy/MM/dd and the rdf.ParseDate() is used to parse the input date.
 type AnonymizeSpec struct {
-	LookupName        string              `json:"lookup_name"`
-	AnonymizeType     string              `json:"anonymize_type"`
-	KeyPrefix         string              `json:"key_prefix"`
-	InputDateLayout   string              `json:"input_date_layout,omitempty"`
-	OutputDateLayout  string              `json:"output_date_layout,omitempty"`
-	KeyDateLayout     string              `json:"key_date_layout,omitempty"`
-	SchemaProvider    string              `json:"schema_provider,omitempty"`
-	KeysOutputChannel OutputChannelConfig `json:"keys_output_channel"`
+	LookupName           string              `json:"lookup_name"`
+	AnonymizeType        string              `json:"anonymize_type"`
+	KeyPrefix            string              `json:"key_prefix"`
+	InputDateLayout      string              `json:"input_date_layout,omitempty"`
+	OutputDateLayout     string              `json:"output_date_layout,omitempty"`
+	KeyDateLayout        string              `json:"key_date_layout,omitempty"`
+	SchemaProvider       string              `json:"schema_provider,omitempty"`
+	AdjustFieldWidthOnFW bool                `json:"adjust_field_width_on_fixed_width_file,omitempty"`
+	OmitPrefixOnFW       bool                `json:"omit_prefix_on_fixed_width_file,omitempty"`
+	KeysOutputChannel    OutputChannelConfig `json:"keys_output_channel"`
 }
 
 type DistinctSpec struct {

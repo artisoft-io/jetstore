@@ -61,6 +61,13 @@ func (cpCtx *ComputePipesContext) LoadFiles(ctx context.Context, dbpool *pgxpool
 	go cpCtx.StartComputePipes(dbpool, inputSchemaCh, computePipesInputCh)
 
 	// Load the files
+	// Get the FixedWidthEncodingInfo from the schema provider in case it is modified
+	// downstream (aka anonymize operator)
+	var fwEncodingInfo *FixedWidthEncodingInfo
+	if sp != nil {
+		fwEncodingInfo = sp.FixedWidthEncodingInfo()
+	}
+
 	samplingMaxCount := int64(cpCtx.CpConfig.PipesConfig[0].InputChannel.SamplingMaxCount)
 	var count, totalRowCount int64
 	gotMaxRecordCount := false
@@ -80,7 +87,7 @@ func (cpCtx *ComputePipesContext) LoadFiles(ctx context.Context, dbpool *pgxpool
 			count, err = cpCtx.ReadParquetFile(&localInFile, saveParquetSchema, inputSchemaCh, computePipesInputCh)
 			saveParquetSchema = false
 		case "fixed_width":
-			count, err = cpCtx.ReadFixedWidthFile(&localInFile, shardOffset, sp, computePipesInputCh)
+			count, err = cpCtx.ReadFixedWidthFile(&localInFile, shardOffset, sp, fwEncodingInfo, computePipesInputCh)
 		default:
 			log.Println(cpCtx.SessionId, "node", cpCtx.NodeId, "error: unsupported file format: %s", inputFormat)
 			cpCtx.ChResults.LoadFromS3FilesResultCh <- LoadFromS3FilesResult{LoadRowCount: totalRowCount, BadRowCount: 0, Err: err}
@@ -568,7 +575,8 @@ func LastIndexByte(s []byte, c byte) int {
 }
 
 func (cpCtx *ComputePipesContext) ReadFixedWidthFile(filePath *FileName, shardOffset int,
-	sp SchemaProvider, computePipesInputCh chan<- []interface{}) (int64, error) {
+	sp SchemaProvider, fwEncodingInfo *FixedWidthEncodingInfo, 
+	computePipesInputCh chan<- []interface{}) (int64, error) {
 
 	var fileHd *os.File
 	var fwScanner *bufio.Scanner
@@ -612,11 +620,7 @@ func (cpCtx *ComputePipesContext) ReadFixedWidthFile(filePath *FileName, shardOf
 	default:
 		return 0, fmt.Errorf("error: unknown cpipes mode in ReadFixedWidthFile: %s", cpCtx.CpConfig.CommonRuntimeArgs.CpipesMode)
 	}
-	// Get the FixedWidthEncodingInfo from the schema provider
-	var fwEncodingInfo *FixedWidthEncodingInfo
-	if sp != nil {
-		fwEncodingInfo = sp.FixedWidthEncodingInfo()
-	}
+
 	if fwEncodingInfo == nil {
 		return 0, fmt.Errorf("error: loading fixed_width file, no encodeding info available")
 	}

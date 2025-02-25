@@ -190,6 +190,17 @@ func (ctx *BuilderContext) NewAnonymizeTransformationPipe(source *InputChannel, 
 		}
 	}()
 	// Prepare the actions to anonymize marked columns
+	sp := ctx.schemaManager.GetSchemaProvider(config.SchemaProvider)
+	omitPrefix := false
+	var newWidth map[string]int
+	if sp != nil && sp.Format() == "fixed_width" {
+		if config.OmitPrefixOnFW {
+			omitPrefix = true
+		}
+		if config.AdjustFieldWidthOnFW {
+			newWidth = make(map[string]int)
+		}
+	}
 	metaLookupTbl = ctx.lookupTableManager.LookupTableMap[config.LookupName]
 	if metaLookupTbl == nil {
 		return nil, fmt.Errorf("error: anonymize metadata lookup table %s not found", config.LookupName)
@@ -213,12 +224,20 @@ func (ctx *BuilderContext) NewAnonymizeTransformationPipe(source *InputChannel, 
 				return nil, fmt.Errorf("error: expecting string for anonymize type (e.g. text, date), got %v", anonymizeTypeI)
 			}
 		}
+		var keyPrefix string
 		switch anonymizeType {
 		case "text", "date":
-			keyPrefixI := (*metaRow)[metaLookupColumnsMap[config.KeyPrefix]]
-			keyPrefix, ok := keyPrefixI.(string)
-			if !ok {
-				return nil, fmt.Errorf("error: expecting string for key prefix (e.g. ssn, dob, etc), got %v", keyPrefixI)
+			w := 16
+			if !omitPrefix {
+				keyPrefixI := (*metaRow)[metaLookupColumnsMap[config.KeyPrefix]]
+				keyPrefix, ok = keyPrefixI.(string)
+				if !ok {
+					return nil, fmt.Errorf("error: expecting string for key prefix (e.g. ssn, dob, etc), got %v", keyPrefixI)
+				}
+				w = 28
+			}
+			if newWidth != nil {
+				newWidth[name] = w
 			}
 			anonymActions = append(anonymActions, &AnonymizationAction{
 				inputColumn:   ipos,
@@ -231,13 +250,18 @@ func (ctx *BuilderContext) NewAnonymizeTransformationPipe(source *InputChannel, 
 			return nil, fmt.Errorf("error: unknown anonymize type '%s', known values: test, date", anonymizeType)
 		}
 	}
+	if newWidth != nil {
+		err = sp.AdjustColumnWidth(newWidth)
+		if err != nil {
+			return nil, fmt.Errorf("while adjusting column width of fixed-width file: %v", err)
+		}
+	}
 	hasher = fnv.New64a()
 	// Determine the date format to use, start with default value
 	outputDateLayout := "2006/01/02"
 	inputDateLayout := ""
 	var keyDateLayout string
 	// Check if the schema provider is specified
-	sp := ctx.schemaManager.GetSchemaProvider(config.SchemaProvider)
 	if sp != nil {
 		if sp.ReadDateLayout() != "" {
 			inputDateLayout = sp.ReadDateLayout()
