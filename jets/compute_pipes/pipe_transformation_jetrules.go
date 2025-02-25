@@ -91,7 +91,7 @@ func (ctx *BuilderContext) NewJetrulesTransformationPipe(source *InputChannel, _
 			// log.Printf("**& *JETRULES* build TransformationColumn[%d] of type %s for output %s", i, spec.Type, config.OutputChannels[i].Name)
 			columnEvaluators[i], err = ctx.BuildTransformationColumnEvaluator(source, outCh, &spec.Columns[i])
 			if err != nil {
-				err = fmt.Errorf("while BuildTransformationColumnEvaluator (in NewAnalyzeTransformationPipe) %v", err)
+				err = fmt.Errorf("while BuildTransformationColumnEvaluator (in NewJetrulesTransformationPipe) %v", err)
 				log.Println(err)
 				return nil, err
 			}

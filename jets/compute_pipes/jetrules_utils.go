@@ -330,6 +330,7 @@ func GetWorkspaceDataProperties() (map[string]*rete.DataPropertyNode, error) {
 // Get the domain properties for className.
 // If directPropertiesOnly is true, return only the direct properties
 // of the class, not the inherited ones.
+// When directPropertiesOnly is false, the return slice will have jets:key and rdf:type at position 0 and 1 resp.
 func GetDomainProperties(className string, directPropertitesOnly bool) ([]string, error) {
 	var columns []string
 	// Get the columns from the local workspace
@@ -356,8 +357,13 @@ func GetDomainProperties(className string, directPropertitesOnly bool) ([]string
 			return nil, fmt.Errorf("error: domain table/class %s is not found in the local workspace", className)
 		}
 		columns = make([]string, 0, len(tableInfo.Columns))
+		columns = append(columns, "jets:key")
+		columns = append(columns, "rdf:type")
 		for i := range tableInfo.Columns {
-			columns = append(columns, tableInfo.Columns[i].PropertyName)
+			p := tableInfo.Columns[i].PropertyName
+			if p != "jets:key" && p != "rdf:type" {
+				columns = append(columns, p)
+			}
 		}
 	}
 	return columns, nil

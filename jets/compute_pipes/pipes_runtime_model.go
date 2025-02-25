@@ -252,6 +252,9 @@ func (ctx *BuilderContext) BuildPipeTransformationEvaluator(source *InputChannel
 	case "filter":
 		return ctx.NewFilterTransformationPipe(source, outCh, spec)
 
+	case "sort":
+		return ctx.NewSortTransformationPipe(source, outCh, spec)
+
 	case "jetrules":
 		return ctx.NewJetrulesTransformationPipe(source, outCh, spec)
 

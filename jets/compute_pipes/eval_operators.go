@@ -16,45 +16,47 @@ func BuildEvalOperator(op string) (evalOperator, error) {
 	switch strings.ToUpper(op) {
 	// Boolean operators
 	case "==":
-		return opEqual{}, nil
+		return &opEqual{}, nil
 	case "!=":
-		return opNotEqual{}, nil
+		return &opNotEqual{}, nil
 	case "IS":
-		return opIS{}, nil
+		return &opIS{}, nil
 	case "<":
-		return opLT{}, nil
+		return &opLT{}, nil
 	case "<=":
-		return opLE{}, nil
+		return &opLE{}, nil
 	case ">":
-		return opGT{}, nil
+		return &opGT{}, nil
 	case ">=":
-		return opGE{}, nil
+		return &opGE{}, nil
 	case "AND":
-		return opAND{}, nil
+		return &opAND{}, nil
 	case "OR":
-		return opOR{}, nil
+		return &opOR{}, nil
 	case "NOT": // unary op
-		return opNot{}, nil
+		return &opNot{}, nil
 	// Arithemtic operators
 	case "/":
-		return opDIV{}, nil
+		return &opDIV{}, nil
 	case "+":
-		return opADD{}, nil
+		return &opADD{}, nil
 	case "-":
-		return opSUB{}, nil
+		return &opSUB{}, nil
 	case "*":
-		return opMUL{}, nil
+		return &opMUL{}, nil
 	case "ABS":
-		return opABS{}, nil
+		return &opABS{}, nil
 		// Special Operators
 	case "IN":
-		return opIn{}, nil
+		return &opIn{}, nil
 	case "LENGTH":
-		return opLength{}, nil
+		return &opLength{}, nil
 	case "DISTANCE_MONTHS":
-		return opDMonths{}, nil
+		return &opDMonths{}, nil
 	case "APPLY_FORMAT":
-		return opApplyFormat{}, nil
+		return &opApplyFormat{}, nil
+	case "APPLY_REGEX":
+		return &opApplyRegex{}, nil
 	}
 	return nil, fmt.Errorf("error: unknown operator: %v", op)
 }
@@ -96,7 +98,7 @@ func ToDouble(d interface{}) (float64, error) {
 // Operator ==
 type opEqual struct{}
 
-func (op opEqual) eval(lhs interface{}, rhs interface{}) (interface{}, error) {
+func (op *opEqual) eval(lhs interface{}, rhs interface{}) (interface{}, error) {
 	if lhs == nil || rhs == nil {
 		return 0, nil
 	}
@@ -232,11 +234,11 @@ func (op opEqual) eval(lhs interface{}, rhs interface{}) (interface{}, error) {
 // Operator !=
 type opNotEqual struct{}
 
-func (op opNotEqual) eval(lhs interface{}, rhs interface{}) (interface{}, error) {
+func (op *opNotEqual) eval(lhs interface{}, rhs interface{}) (interface{}, error) {
 	if lhs == nil || rhs == nil {
 		return 0, nil
 	}
-	v, err := opEqual{}.eval(lhs, rhs)
+	v, err := (&opEqual{}).eval(lhs, rhs)
 	if err != nil {
 		return nil, fmt.Errorf("opNotEqual eval using opEqual: %v", err)
 	}
@@ -254,7 +256,7 @@ func (op opNotEqual) eval(lhs interface{}, rhs interface{}) (interface{}, error)
 // Operator AND
 type opAND struct{}
 
-func (op opAND) eval(lhs interface{}, rhs interface{}) (interface{}, error) {
+func (op *opAND) eval(lhs interface{}, rhs interface{}) (interface{}, error) {
 	if lhs == nil || rhs == nil {
 		return 0, nil
 	}
@@ -274,7 +276,7 @@ func (op opAND) eval(lhs interface{}, rhs interface{}) (interface{}, error) {
 // Operator OR
 type opOR struct{}
 
-func (op opOR) eval(lhs interface{}, rhs interface{}) (interface{}, error) {
+func (op *opOR) eval(lhs interface{}, rhs interface{}) (interface{}, error) {
 	if lhs == nil || rhs == nil {
 		return 0, nil
 	}
@@ -294,7 +296,7 @@ func (op opOR) eval(lhs interface{}, rhs interface{}) (interface{}, error) {
 // Boolean not
 type opNot struct{}
 
-func (op opNot) eval(lhs interface{}, _ interface{}) (interface{}, error) {
+func (op *opNot) eval(lhs interface{}, _ interface{}) (interface{}, error) {
 	if lhs == nil {
 		return nil, nil
 	}
@@ -323,7 +325,7 @@ func (op opNot) eval(lhs interface{}, _ interface{}) (interface{}, error) {
 
 type opIS struct{}
 
-func (op opIS) eval(lhs interface{}, rhs interface{}) (interface{}, error) {
+func (op *opIS) eval(lhs interface{}, rhs interface{}) (interface{}, error) {
 	if lhs == nil && rhs == nil {
 		return 1, nil
 	}
@@ -339,9 +341,138 @@ func (op opIS) eval(lhs interface{}, rhs interface{}) (interface{}, error) {
 	return 0, nil
 }
 
+// This cmpInt64 is not guaranteed to be stable.
+// cmp(a, b) should return a negative number when a < b,
+// a positive number when a > b and
+// zero when a == b or
+// a and b are incomparable in the sense of a strict weak ordering.
+func cmpInt64(l, r int64) int {
+	switch {
+	case l < r:
+		return -1
+	case l > r:
+		return 1
+	default:
+		return 0
+	}
+}
+// This cmpFloat64 is not guaranteed to be stable.
+// cmp(a, b) should return a negative number when a < b,
+// a positive number when a > b and
+// zero when a == b or
+// a and b are incomparable in the sense of a strict weak ordering.
+func cmpFloat64(l, r float64) int {
+	switch {
+	case l < r:
+		return -1
+	case l > r:
+		return 1
+	default:
+		return 0
+	}
+}
+
+// *TODO Migrate to this cmp function
+// satisfy sort.SortFunc:
+// SortFunc sorts the slice x in ascending order as determined by the cmp function.
+// This sort is not guaranteed to be stable.
+// cmp(a, b) should return a negative number when a < b,
+// a positive number when a > b and
+// zero when a == b or
+// a and b are incomparable in the sense of a strict weak ordering.
+// SortFunc requires that cmp is a strict weak ordering.
+// See https://en.wikipedia.org/wiki/Weak_ordering#Strict_weak_orderings.
+// The function should return 0 for incomparable items.
+func CmpRecord(lhs any, rhs any) int {
+	var err error
+	if lhs == nil || rhs == nil {
+		return 0
+	}
+	switch lhsv := lhs.(type) {
+	case string:
+		switch rhsv := rhs.(type) {
+		case string:
+			return strings.Compare(lhsv, rhsv)
+		default:
+			vv := fmt.Sprintf("%v", rhsv)
+			return strings.Compare(lhsv, vv)
+		}
+
+	case int:
+		var vv int64
+		switch rhsv := rhs.(type) {
+		case string:
+			vv, err = strconv.ParseInt(rhsv, 10, 64)
+			if err != nil {
+				return 0
+			}
+		case int:
+			vv = int64(rhsv)
+		case int64:
+			vv = rhsv
+		case float64:
+			vv = int64(rhsv)
+		case time.Time:
+			vv = rhsv.Unix()
+		}
+		return cmpInt64(int64(lhsv), vv)
+
+	case int64:
+		var vv int64
+		switch rhsv := rhs.(type) {
+		case string:
+			vv, err = strconv.ParseInt(rhsv, 10, 64)
+			if err != nil {
+				return 0
+			}
+		case int:
+			vv = int64(rhsv)
+		case int64:
+			vv = rhsv
+		case float64:
+			vv = int64(rhsv)
+		case time.Time:
+			vv = rhsv.Unix()
+		}
+		return cmpInt64(lhsv, vv)
+
+	case float64:
+		var vv float64
+		switch rhsv := rhs.(type) {
+		case string:
+			vv, err = strconv.ParseFloat(rhsv, 64)
+			if err != nil {
+				return 0
+			}
+		case int:
+			vv = float64(rhsv)
+		case int64:
+			vv = float64(rhsv)
+		case float64:
+			vv =rhsv 
+		case time.Time:
+			vv = float64(rhsv.Unix())
+		}
+		return cmpFloat64(lhsv, vv)
+
+	case time.Time:
+		switch rhsv := rhs.(type) {
+		case time.Time:
+			return lhsv.Compare(rhsv)
+		case int:
+			return cmpInt64(lhsv.Unix(), int64(rhsv))
+		case int64:
+			return cmpInt64(lhsv.Unix(), rhsv)
+		case float64:
+			return cmpFloat64(float64(lhsv.Unix()), rhsv)
+		}
+	}
+	return 0
+}
+
 type opLT struct{}
 
-func (op opLT) eval(lhs interface{}, rhs interface{}) (interface{}, error) {
+func (op *opLT) eval(lhs interface{}, rhs interface{}) (interface{}, error) {
 	if lhs == nil || rhs == nil {
 		return 0, nil
 	}
@@ -492,7 +623,7 @@ func (op opLT) eval(lhs interface{}, rhs interface{}) (interface{}, error) {
 
 type opLE struct{}
 
-func (op opLE) eval(lhs interface{}, rhs interface{}) (interface{}, error) {
+func (op *opLE) eval(lhs interface{}, rhs interface{}) (interface{}, error) {
 	if lhs == nil || rhs == nil {
 		return 0, nil
 	}
@@ -647,7 +778,7 @@ func (op opLE) eval(lhs interface{}, rhs interface{}) (interface{}, error) {
 
 type opGT struct{}
 
-func (op opGT) eval(lhs interface{}, rhs interface{}) (interface{}, error) {
+func (op *opGT) eval(lhs interface{}, rhs interface{}) (interface{}, error) {
 	if lhs == nil || rhs == nil {
 		return 0, nil
 	}
@@ -798,7 +929,7 @@ func (op opGT) eval(lhs interface{}, rhs interface{}) (interface{}, error) {
 
 type opGE struct{}
 
-func (op opGE) eval(lhs interface{}, rhs interface{}) (interface{}, error) {
+func (op *opGE) eval(lhs interface{}, rhs interface{}) (interface{}, error) {
 	if lhs == nil || rhs == nil {
 		return 0, nil
 	}
@@ -953,7 +1084,7 @@ func (op opGE) eval(lhs interface{}, rhs interface{}) (interface{}, error) {
 
 type opDIV struct{}
 
-func (op opDIV) eval(lhs interface{}, rhs interface{}) (interface{}, error) {
+func (op *opDIV) eval(lhs interface{}, rhs interface{}) (interface{}, error) {
 	if lhs == nil || rhs == nil {
 		return nil, nil
 	}
@@ -973,7 +1104,7 @@ func (op opDIV) eval(lhs interface{}, rhs interface{}) (interface{}, error) {
 
 type opADD struct{}
 
-func (op opADD) eval(lhs interface{}, rhs interface{}) (interface{}, error) {
+func (op *opADD) eval(lhs interface{}, rhs interface{}) (interface{}, error) {
 	if lhs == nil || rhs == nil {
 		return nil, nil
 	}
@@ -1046,7 +1177,7 @@ func (op opADD) eval(lhs interface{}, rhs interface{}) (interface{}, error) {
 
 type opSUB struct{}
 
-func (op opSUB) eval(lhs interface{}, rhs interface{}) (interface{}, error) {
+func (op *opSUB) eval(lhs interface{}, rhs interface{}) (interface{}, error) {
 	if lhs == nil || rhs == nil {
 		return nil, nil
 	}
@@ -1106,7 +1237,7 @@ func (op opSUB) eval(lhs interface{}, rhs interface{}) (interface{}, error) {
 
 type opMUL struct{}
 
-func (op opMUL) eval(lhs interface{}, rhs interface{}) (interface{}, error) {
+func (op *opMUL) eval(lhs interface{}, rhs interface{}) (interface{}, error) {
 	if lhs == nil || rhs == nil {
 		return nil, nil
 	}
@@ -1147,7 +1278,7 @@ func (op opMUL) eval(lhs interface{}, rhs interface{}) (interface{}, error) {
 // Operator abs()
 type opABS struct{}
 
-func (op opABS) eval(lhs interface{}, _ interface{}) (interface{}, error) {
+func (op *opABS) eval(lhs interface{}, _ interface{}) (interface{}, error) {
 	if lhs == nil {
 		return 0, nil
 	}

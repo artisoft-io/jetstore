@@ -3,6 +3,8 @@ package compute_pipes
 import (
 	"fmt"
 	"log"
+
+	"github.com/artisoft-io/jetstore/jets/jetrules/rete"
 )
 
 // map_record TransformationSpec implementing PipeTransformationEvaluator interface
@@ -93,8 +95,14 @@ func (ctx *BuilderContext) NewMapRecordTransformationPipe(source *InputChannel, 
 			mappingExp := &inputMappingItems[i]
 			node := propertyMap[mappingExp.DataProperty]
 			if node == nil {
-				return nil, fmt.Errorf("error: property name not found in workspace metastore: %v",
+				// Check if this is a "local variable for rules", ie if it's added to the input class
+				_, ok := (*outputCh.columns)[mappingExp.DataProperty]
+				if ok {
+					node = &rete.DataPropertyNode{Type: "text"}
+				} else {
+					return nil, fmt.Errorf("error: property name not found in workspace metastore or input channel: %v",
 					mappingExp.DataProperty)
+				}
 			}
 			ce, err := ctx.BuildMapTCEvaluator(source, outputCh, &TransformationColumnSpec{
 				Name: mappingExp.DataProperty,
