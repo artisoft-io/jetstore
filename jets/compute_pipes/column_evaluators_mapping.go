@@ -39,11 +39,13 @@ func (ctx *mapColumnEval) Update(currentValue *[]interface{}, input *[]interface
 	// - update currentValue using input applying cleansing function and default value
 	// - map inputV to correct rdf type if specified
 	//
-	inputVal := (*input)[ctx.mapConfig.inputPos]
-	var outputVal interface{}
+	var inputVal, outputVal interface{}
 	var inputV, errMsg string
 	var ok bool
 	var err error
+	if ctx.mapConfig.inputPos >= 0 {
+		inputVal = (*input)[ctx.mapConfig.inputPos]
+	}
 	if inputVal != nil {
 		inputV, ok = inputVal.(string)
 		if !ok {
@@ -149,7 +151,13 @@ func (ctx *BuilderContext) BuildMapTCEvaluator(source *InputChannel, outCh *Outp
 
 	inputPos, ok := (*source.columns)[*spec.Expr]
 	if !ok {
-		return nil, fmt.Errorf("mapping column: error column %s not found in input source %s", *spec.Expr, source.name)
+		// Check for special jetstore properties
+		if *spec.Expr == "jets:key" {
+			// Assign to nil when column not on input
+			inputPos = -1
+		} else {
+			return nil, fmt.Errorf("mapping column: error column %s not found in input source %s", *spec.Expr, source.name)
+		}
 	}
 	outputPos, ok := (*outCh.columns)[spec.Name]
 	if !ok {

@@ -353,7 +353,7 @@ type SplitterSpec struct {
 
 type TransformationSpec struct {
 	// Type range: map_record, aggregate, analyze, high_freq, partition_writer,
-	//	anonymize, distinct, shuffling, group_by, filter, jetrules, clustering
+	//	anonymize, distinct, shuffling, group_by, filter, sort, jetrules, clustering
 	// Format takes precedence over SchemaProvider's Format (from OutputChannelConfig)
 	Type                  string                     `json:"type"`
 	NewRecord             bool                       `json:"new_record"`
@@ -367,6 +367,7 @@ type TransformationSpec struct {
 	ShufflingConfig       *ShufflingSpec             `json:"shuffling_config,omitempty"`
 	GroupByConfig         *GroupBySpec               `json:"group_by_config,omitempty"`
 	FilterConfig          *FilterSpec                `json:"filter_config,omitempty"`
+	SortConfig            *SortSpec                  `json:"sort_config,omitempty"`
 	JetrulesConfig        *JetrulesSpec              `json:"jetrules_config,omitempty"`
 	ClusteringConfig      *ClusteringSpec            `json:"clustering_config,omitempty"`
 	OutputChannel         OutputChannelConfig        `json:"output_channel"`
@@ -584,6 +585,11 @@ type GroupBySpec struct {
 type FilterSpec struct {
 	When           ExpressionNode `json:"when"`
 	MaxOutputCount int            `json:"max_output_records"`
+}
+
+// Sort using composite key
+type SortSpec struct {
+	SortByColumn []string `json:"sort_by,omitempty"`
 }
 
 // MaxLooping overrides the value in the jetrules metastore

@@ -7,6 +7,7 @@ import (
 	"runtime/debug"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/artisoft-io/jetstore/jets/jetrules/rdf"
 	"github.com/artisoft-io/jetstore/jets/jetrules/rete"
@@ -43,7 +44,6 @@ func (ctx *JrPoolWorker) DoWork(mgr *JrPoolManager, resultCh chan JetrulesWorker
 	var errCount int64
 	var err error
 	for task := range mgr.WorkersTaskCh {
-		// log.Println("Pool Worker Calling executeRules")
 		errCount, err = ctx.executeRules(&task, resultCh)
 		if err != nil {
 			return
@@ -97,6 +97,8 @@ func (ctx *JrPoolWorker) executeRules(inputRecords *[]any,
 		}
 	}()
 
+	// log.Println("*** Pool Worker == Entering executeRules")
+
 	var cpErr error
 	// var reteSessionSaved bool
 	rdfSession := rdf.NewRdfSession(ctx.reteMetaStore.ResourceMgr,
@@ -112,7 +114,7 @@ func (ctx *JrPoolWorker) executeRules(inputRecords *[]any,
 	// Loop over all rulesets
 	for _, ruleset := range ctx.reteMetaStore.MainRuleFileNames {
 		// Create the rete session
-		log.Println("executeRules: Creating Rete Session")
+		// log.Printf("*** executeRules: Creating Rete Session for %s\n", ruleset)
 		ms := ctx.reteMetaStore.MetaStoreLookup[ruleset]
 		if ms == nil {
 			cpErr = fmt.Errorf("error: metastore not found for %s", ruleset)
@@ -179,27 +181,30 @@ func (ctx *JrPoolWorker) executeRules(inputRecords *[]any,
 			}
 		}
 		ctor.Done()
-
-		// Print rdf session if in debug mode
-		if ctx.config.IsDebug {
-			log.Println("ASSERTED GRAPH")
-			log.Printf("\n%s\n", strings.Join(rdfSession.AssertedGraph.ToTriples(), "\n"))
-			log.Println("INFERRED GRAPH")
-			log.Printf("\n%s\n", strings.Join(rdfSession.InferredGraph.ToTriples(), "\n"))
-		}
-
-		// Extract data from the rdf session based on class names
-		for _, outChannel := range ctx.outputChannels {
-			err = ctx.extractSessionData(rdfSession, outChannel)
-			if err != nil {
-				cpErr = fmt.Errorf(
-					"while extraction entity from jetrules for class %s: %v",
-					outChannel.className, err)
-				goto gotError
-			}
-		}
 		reteSession.Done()
 	}
+
+	// log.Println("*** Pool Worker == Done executing the rulesets, inferred graph contains", rdfSession.InferredGraph.Size(), "triples")
+
+	// Print rdf session if in debug mode
+	if ctx.config.IsDebug {
+		log.Println("ASSERTED GRAPH")
+		log.Printf("\n%s\n", strings.Join(rdfSession.AssertedGraph.ToTriples(), "\n"))
+		log.Println("INFERRED GRAPH")
+		log.Printf("\n%s\n", strings.Join(rdfSession.InferredGraph.ToTriples(), "\n"))
+	}
+
+	// Extract data from the rdf session based on class names
+	for _, outChannel := range ctx.outputChannels {
+		err = ctx.extractSessionData(rdfSession, outChannel)
+		if err != nil {
+			cpErr = fmt.Errorf(
+				"while extraction entity from jetrules for class %s: %v",
+				outChannel.className, err)
+			goto gotError
+		}
+	}
+
 	return
 
 gotError:
@@ -259,19 +264,28 @@ func (ctx *JrPoolWorker) extractSessionData(rdfSession *rdf.RdfSession,
 				isArray = false
 				itor := rdfSession.FindSP(subject, rm.NewResource(p))
 				for t3 := range itor.Itor {
+					value := getValue(t3[2])
+					if p == "rdf:type" {
+						c, ok := value.(string)
+						if ok && c == "jets:InputRecord" {
+							continue
+						}
+					}
 					if data == nil {
-						data = getValue(t3[2])
+						data = value
 					} else {
 						if isArray {
-							*dataArr = append(*dataArr, getValue(t3[2]))
+							*dataArr = append(*dataArr, value)
 						} else {
-							dataArr = &[]any{data, getValue(t3[2])}
-							data = *dataArr
+							dataArr = &[]any{data, value}
 							isArray = true
 						}
 					}
 				}
 				itor.Done()
+				if isArray {
+					data = *dataArr
+				}
 				entityRow[i] = data
 			}
 			// Apply the TransformationColumn, these are const values
@@ -331,6 +345,7 @@ func assertInputRecords(config *JetrulesSpec, source *InputChannel,
 
 	columns := source.config.Columns
 	if source.hasGroupedRows {
+		log.Printf("*** Pool Worker == Asserting bundle of %d entities\n", len(*inputRecords))
 		for i := range *inputRecords {
 			row, ok := (*inputRecords)[i].([]any)
 			if !ok {
@@ -339,6 +354,7 @@ func assertInputRecords(config *JetrulesSpec, source *InputChannel,
 			err = assertInputRow(config, rm, jr, graph, &row, &columns)
 		}
 	} else {
+		// log.Printf("*** Pool Worker == Asserting single entities\n")
 		err = assertInputRow(config, rm, jr, graph, inputRecords, &columns)
 	}
 	return
@@ -350,15 +366,31 @@ func assertInputRow(config *JetrulesSpec, rm *rdf.ResourceManager, jr *rdf.JetRe
 	nbrCol := len(*columns)
 	var predicate *rdf.Node
 	// assert record i
-	jetsKey := uuid.New().String()
-	subject := rm.NewResource(jetsKey)
+	var jetsKey, rdfType string
+	var subject *rdf.Node
 	// Assert the rdf type if provided in config, otherwise it must be part of the data
 	if config.InputRdfType != "" {
-		_, err = graph.Insert(subject, jr.Rdf__type, rm.NewResource(config.InputRdfType))
-		if err != nil {
-			return
+		jetsKey = uuid.New().String()
+		rdfType = config.InputRdfType
+	} else {
+		// Input channel must have a class name, which will have jets:key and rdf:type in pos 1 and 1 resp.
+		var ok1, ok2 bool
+		jetsKey, ok1 = (*row)[0].(string)
+		rdfType, ok2 = (*row)[1].(string)
+		if !ok1 || !ok2 {
+			return fmt.Errorf("error: invalid type for jets:key or rdf:type as first 2 elements of row")
 		}
 	}
+	subject = rm.NewResource(jetsKey)
+	_, err = graph.Insert(subject, jr.Jets__key, rm.NewTextLiteral(jetsKey))
+	if err != nil {
+		return
+	}
+	_, err = graph.Insert(subject, jr.Rdf__type, rm.NewResource(rdfType))
+	if err != nil {
+		return
+	}
+
 	// Assert the jets:InputRecord rdf:type
 	_, err = graph.Insert(subject, jr.Rdf__type, jr.Jets__input_record)
 	if err != nil {
@@ -366,6 +398,9 @@ func assertInputRow(config *JetrulesSpec, rm *rdf.ResourceManager, jr *rdf.JetRe
 	}
 
 	for j := range *row {
+		if (*row)[j] == nil {
+			continue
+		}
 		if j < nbrCol {
 			predicate = rm.NewResource((*columns)[j])
 		} else {
@@ -402,6 +437,20 @@ func assertInputRow(config *JetrulesSpec, rm *rdf.ResourceManager, jr *rdf.JetRe
 			for k := range vv {
 				_, err = graph.Insert(subject, predicate, rm.NewDatetimeLiteral(vv[k]))
 			}
+		case time.Time:
+			_, err = graph.Insert(subject, predicate, rm.NewDateLiteral(rdf.LDate{Date: &vv}))
+		case []time.Time:
+			for k := range vv {
+				_, err = graph.Insert(subject, predicate, rm.NewDateLiteral(rdf.LDate{Date: &vv[k]}))
+			}
+		case int64:
+			_, err = graph.Insert(subject, predicate, rm.NewIntLiteral(int(vv)))
+		case int32:
+			_, err = graph.Insert(subject, predicate, rm.NewIntLiteral(int(vv)))
+		case float32:
+			_, err = graph.Insert(subject, predicate, rm.NewDoubleLiteral(float64(vv)))
+		default:
+			log.Printf("WARNING unknown type for value %v for predicate %s", vv, predicate)
 		}
 		if err != nil {
 			return

@@ -341,6 +341,135 @@ func (op *opIS) eval(lhs interface{}, rhs interface{}) (interface{}, error) {
 	return 0, nil
 }
 
+// This cmpInt64 is not guaranteed to be stable.
+// cmp(a, b) should return a negative number when a < b,
+// a positive number when a > b and
+// zero when a == b or
+// a and b are incomparable in the sense of a strict weak ordering.
+func cmpInt64(l, r int64) int {
+	switch {
+	case l < r:
+		return -1
+	case l > r:
+		return 1
+	default:
+		return 0
+	}
+}
+// This cmpFloat64 is not guaranteed to be stable.
+// cmp(a, b) should return a negative number when a < b,
+// a positive number when a > b and
+// zero when a == b or
+// a and b are incomparable in the sense of a strict weak ordering.
+func cmpFloat64(l, r float64) int {
+	switch {
+	case l < r:
+		return -1
+	case l > r:
+		return 1
+	default:
+		return 0
+	}
+}
+
+// *TODO Migrate to this cmp function
+// satisfy sort.SortFunc:
+// SortFunc sorts the slice x in ascending order as determined by the cmp function.
+// This sort is not guaranteed to be stable.
+// cmp(a, b) should return a negative number when a < b,
+// a positive number when a > b and
+// zero when a == b or
+// a and b are incomparable in the sense of a strict weak ordering.
+// SortFunc requires that cmp is a strict weak ordering.
+// See https://en.wikipedia.org/wiki/Weak_ordering#Strict_weak_orderings.
+// The function should return 0 for incomparable items.
+func CmpRecord(lhs any, rhs any) int {
+	var err error
+	if lhs == nil || rhs == nil {
+		return 0
+	}
+	switch lhsv := lhs.(type) {
+	case string:
+		switch rhsv := rhs.(type) {
+		case string:
+			return strings.Compare(lhsv, rhsv)
+		default:
+			vv := fmt.Sprintf("%v", rhsv)
+			return strings.Compare(lhsv, vv)
+		}
+
+	case int:
+		var vv int64
+		switch rhsv := rhs.(type) {
+		case string:
+			vv, err = strconv.ParseInt(rhsv, 10, 64)
+			if err != nil {
+				return 0
+			}
+		case int:
+			vv = int64(rhsv)
+		case int64:
+			vv = rhsv
+		case float64:
+			vv = int64(rhsv)
+		case time.Time:
+			vv = rhsv.Unix()
+		}
+		return cmpInt64(int64(lhsv), vv)
+
+	case int64:
+		var vv int64
+		switch rhsv := rhs.(type) {
+		case string:
+			vv, err = strconv.ParseInt(rhsv, 10, 64)
+			if err != nil {
+				return 0
+			}
+		case int:
+			vv = int64(rhsv)
+		case int64:
+			vv = rhsv
+		case float64:
+			vv = int64(rhsv)
+		case time.Time:
+			vv = rhsv.Unix()
+		}
+		return cmpInt64(lhsv, vv)
+
+	case float64:
+		var vv float64
+		switch rhsv := rhs.(type) {
+		case string:
+			vv, err = strconv.ParseFloat(rhsv, 64)
+			if err != nil {
+				return 0
+			}
+		case int:
+			vv = float64(rhsv)
+		case int64:
+			vv = float64(rhsv)
+		case float64:
+			vv =rhsv 
+		case time.Time:
+			vv = float64(rhsv.Unix())
+		}
+		return cmpFloat64(lhsv, vv)
+
+	case time.Time:
+		switch rhsv := rhs.(type) {
+		case time.Time:
+			return lhsv.Compare(rhsv)
+		case int:
+			return cmpInt64(lhsv.Unix(), int64(rhsv))
+		case int64:
+			return cmpInt64(lhsv.Unix(), rhsv)
+		case float64:
+			return cmpFloat64(float64(lhsv.Unix()), rhsv)
+		}
+	}
+	return 0
+}
+
 type opLT struct{}
 
 func (op *opLT) eval(lhs interface{}, rhs interface{}) (interface{}, error) {

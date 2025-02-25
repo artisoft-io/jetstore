@@ -60,6 +60,7 @@ func (ctx *GroupByTransformationPipe) Apply(input *[]interface{}) error {
 	case ctx.currentValue != groupByValue:
 		// Got value past end of bundle
 		ctx.sendBundle(input)
+		ctx.currentValue = groupByValue
 
 	default:
 		// Adding to the bundle
