@@ -48,7 +48,23 @@ func ParseDateComponents(date string) (int, int, int, error) {
 			return 0, 0, 0, fmt.Errorf("ParseDate: error parsing the day %s: %v", token2, err)
 		}
 	}
-	return y, m, d, nil
+	return y, m, d, validateYMD(y, m, d)
+}
+
+func validateYMD(y, m, d int) error {
+	// Expecting year to be between 1900 and 2100, or 2099
+	if y < 1900 || (y > 2100 && y != 2099) {
+		return fmt.Errorf("ParseDate: error, invalid year %d", y)
+	}
+	// Expecting month to be between 1 and 12
+	if m < 1 || m > 12 {
+		return fmt.Errorf("ParseDate: error, invalid month %d", m)
+	}
+	// Expecting day to be between 1 and 31
+	if d < 1 || d > 31 {
+		return fmt.Errorf("ParseDate: error, invalid day %d", d)
+	}
+	return nil
 }
 
 func ParseDate(date string) (*time.Time, error) {
@@ -66,7 +82,7 @@ func ParseDate(date string) (*time.Time, error) {
 func ParseDatetime(datetime string) (*time.Time, error) {
 	ntok := datetimeRe.FindStringSubmatch(strings.ToUpper(datetime))
 	if len(ntok) < 4 {
-		return nil, fmt.Errorf("ParseDatetime: Argument is not a date: %s", datetime)
+		return nil, fmt.Errorf("ParseDatetime: Argument is not a datetime: %s", datetime)
 	}
 	// Get the date portion
 	token1 := ntok[1]
@@ -95,9 +111,15 @@ func ParseDatetime(datetime string) (*time.Time, error) {
 			return nil, fmt.Errorf("ParseDatetime: error parsing the day %s: %v", token2, err)
 		}
 	}
+
+	err = validateYMD(y, m, d)
+	if err != nil {
+		return nil, err
+	}
+
 	if len(ntok) < 5 || len(ntok[4]) == 0 {
 		result := time.Date(y, time.Month(m), d, 0, 0, 0, 0, time.UTC)
-		return &result, nil	
+		return &result, nil
 	}
 
 	// Get the duration portion
@@ -106,33 +128,33 @@ func ParseDatetime(datetime string) (*time.Time, error) {
 	if len(ntok) > 4 && len(ntok[4]) > 0 {
 		if hr, err = strconv.Atoi(ntok[4]); err != nil {
 			return nil, fmt.Errorf("ParseDatetime: error parsing the hours %s: %v", ntok[4], err)
-		}	
+		}
 	}
 	if len(ntok) > 5 && len(ntok[5]) > 0 {
 		if min, err = strconv.Atoi(ntok[5]); err != nil {
 			return nil, fmt.Errorf("ParseDatetime: error parsing the minutes %s: %v", ntok[5], err)
-		}	
+		}
 	}
 	if len(ntok) > 6 && len(ntok[6]) > 0 {
 		if sec, err = strconv.Atoi(ntok[6]); err != nil {
 			return nil, fmt.Errorf("ParseDatetime: error parsing the seconds %s: %v", ntok[6], err)
-		}	
+		}
 	}
 	if len(ntok) > 7 && len(ntok[7]) > 0 {
 		fracStr := ntok[7]
-		if(len(fracStr) >= precision) {
+		if len(fracStr) >= precision {
 			// Drop excess digits
 			fracStr = fracStr[0:precision]
 		}
 		if frac, err = strconv.Atoi(fracStr); err != nil {
 			return nil, fmt.Errorf("ParseDatetime: error parsing the fraction %s: %v", fracStr, err)
-		}	
+		}
 		if len(fracStr) < precision {
 			// trailing zeros get dropped from the string,
 			// "1:01:01.1" would yield .000001 instead of .100000
 			// the power() compensates for the missing decimal
 			// places
-			frac *= int(math.Pow10(precision - len(fracStr)));
+			frac *= int(math.Pow10(precision - len(fracStr)))
 		}
 	}
 	// timezone
