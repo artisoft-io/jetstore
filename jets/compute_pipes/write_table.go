@@ -105,6 +105,9 @@ func PrepareOutoutTable(dbpool *pgxpool.Pool, tableIdentifier pgx.Identifier, ta
 		return fmt.Errorf("while verifying if output table exists: %v", err)
 	}
 	if !tblExists {
+		if len(tableSpec.Columns) == 0 {
+			return fmt.Errorf("error: Table '%s' does not exists and cannot be created since no column info is available", tableIdentifier.Sanitize())
+		}
 		err = CreateOutputTable(dbpool, tableIdentifier, tableSpec)
 		if err != nil {
 			return fmt.Errorf("while creating table: %v", err)
@@ -151,6 +154,9 @@ func PrepareOutoutTable(dbpool *pgxpool.Pool, tableIdentifier pgx.Identifier, ta
 
 // Create the Output Table
 func CreateOutputTable(dbpool *pgxpool.Pool, tableName pgx.Identifier, tableSpec *TableSpec) error {
+	if len(tableSpec.Columns) == 0 {
+		return fmt.Errorf("error: Cannot create table '%s' without column info", tableName.Sanitize())
+	}
 	stmt := fmt.Sprintf("DROP TABLE IF EXISTS %s", tableName.Sanitize())
 	_, err := dbpool.Exec(context.Background(), stmt)
 	if err != nil {
