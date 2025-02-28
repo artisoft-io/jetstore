@@ -68,9 +68,9 @@ func (ctx *AnonymizeTransformationPipe) Apply(input *[]interface{}) error {
 			ctx.hasher.Reset()
 			ctx.hasher.Write([]byte(inputStr))
 			if len(action.keyPrefix) > 0 {
-				hashedValue = fmt.Sprintf("%s.%x", action.keyPrefix, ctx.hasher.Sum64())
+				hashedValue = fmt.Sprintf("%s.%015x", action.keyPrefix, ctx.hasher.Sum64())
 			} else {
-				hashedValue = fmt.Sprintf("%x", ctx.hasher.Sum64())
+				hashedValue = fmt.Sprintf("%015x", ctx.hasher.Sum64())
 			}
 			hashedValue4KeyFile = hashedValue
 		case "date":
@@ -103,7 +103,7 @@ func (ctx *AnonymizeTransformationPipe) Apply(input *[]interface{}) error {
 				}
 			} else {
 				hashedValue = inputStr
-				hashedValue4KeyFile = hashedValue
+				hashedValue4KeyFile = inputStr
 			}
 		}
 		(*input)[action.inputColumn] = hashedValue
@@ -227,17 +227,20 @@ func (ctx *BuilderContext) NewAnonymizeTransformationPipe(source *InputChannel, 
 		var keyPrefix string
 		switch anonymizeType {
 		case "text", "date":
-			w := 16
-			if !omitPrefix {
-				keyPrefixI := (*metaRow)[metaLookupColumnsMap[config.KeyPrefix]]
-				keyPrefix, ok = keyPrefixI.(string)
-				if !ok {
-					return nil, fmt.Errorf("error: expecting string for key prefix (e.g. ssn, dob, etc), got %v", keyPrefixI)
+			keyPrefix = ""
+			if anonymizeType == "text" {
+				w := 16
+				if !omitPrefix {
+					keyPrefixI := (*metaRow)[metaLookupColumnsMap[config.KeyPrefix]]
+					keyPrefix, ok = keyPrefixI.(string)
+					if !ok {
+						return nil, fmt.Errorf("error: expecting string for key prefix (e.g. ssn, dob, etc), got %v", keyPrefixI)
+					}
+					w = 28
 				}
-				w = 28
-			}
-			if newWidth != nil {
-				newWidth[name] = w
+				if newWidth != nil {
+					newWidth[name] = w
+				}
 			}
 			anonymActions = append(anonymActions, &AnonymizationAction{
 				inputColumn:   ipos,

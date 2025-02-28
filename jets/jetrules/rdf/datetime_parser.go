@@ -9,11 +9,12 @@ import (
 	"time"
 )
 
-var dateRe *regexp.Regexp
+var dateRe, dateStrictRe *regexp.Regexp
 var datetimeRe *regexp.Regexp
 
 func init() {
 	dateRe = regexp.MustCompile(`(\d{1,4})-?\/?(JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC|\d{1,2})-?\/?(\d{1,4})`)
+	dateStrictRe = regexp.MustCompile(`^(\d{1,4})-?\/?(JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC|\d{1,2})-?\/?(\d{1,4})$`)
 	datetimeRe = regexp.MustCompile(`(\d{1,4})-?\/?(JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC|\d{1,2})-?\/?(\d{1,4})[T-]?\s?(\d{1,2})?[:.]?(\d{1,2})?[:.]?(\d{1,2})?[.,]?(\d+)?\s?([+-])?(\d{1,2})?[:.]?(\d{1,2})?`)
 }
 
@@ -25,6 +26,29 @@ func ParseDateComponents(date string) (int, int, int, error) {
 	token1 := ntok[1]
 	token2 := ntok[2]
 	token3 := ntok[3]
+	y, m, d, err := getDateComponents(token1, token2, token3)
+	if err != nil {
+		return 0, 0, 0, err
+	}
+	return y, m, d, validateYMD(y, m, d)
+}
+
+func ParseDateStrictComponents(date string) (int, int, int, error) {
+	ntok := dateStrictRe.FindStringSubmatch(strings.ToUpper(date))
+	if len(ntok) < 4 {
+		return 0, 0, 0, fmt.Errorf("ParseDate: Argument is not a date: %s", date)
+	}
+	token1 := ntok[1]
+	token2 := ntok[2]
+	token3 := ntok[3]
+	y, m, d, err := getDateComponents(token1, token2, token3)
+	if err != nil {
+		return 0, 0, 0, err
+	}
+	return y, m, d, validateYMD(y, m, d)
+}
+
+func getDateComponents(token1, token2, token3 string) (int, int, int, error) {
 	var y, m, d int
 	var err error
 	if len(token1) == 4 {
@@ -72,6 +96,19 @@ func ParseDate(date string) (*time.Time, error) {
 		return nil, fmt.Errorf("ParseDate: Argument is not in a valid date format (min 8 char): %s", date)
 	}
 	y, m, d, err := ParseDateComponents(date)
+	if err != nil {
+		return nil, err
+	}
+	result := time.Date(y, time.Month(m), d, 0, 0, 0, 0, time.UTC)
+	return &result, nil
+}
+
+// This version validate if the argument is only a date, no extra charaters before or after
+func ParseDateStrict(date string) (*time.Time, error) {
+	if len(date) < 8 {
+		return nil, fmt.Errorf("ParseDate: Argument is not in a valid date format (min 8 char): %s", date)
+	}
+	y, m, d, err := ParseDateStrictComponents(date)
 	if err != nil {
 		return nil, err
 	}

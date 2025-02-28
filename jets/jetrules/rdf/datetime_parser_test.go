@@ -99,3 +99,65 @@ func TestParseDate4(t *testing.T) {
 		t.Error("Expected that date IS not valid")
 	}
 }
+
+func TestParseDate5(t *testing.T) {
+	_, err := ParseDateStrict("D20020324-01")
+	if err == nil {
+		t.Error("Expected that date IS not valid")
+	}
+}
+
+func TestParseDate51(t *testing.T) {
+	_, err := ParseDateStrict("2017/01/11/2017")
+	if err == nil {
+		t.Error("Expected that date IS not valid")
+	}
+}
+
+func TestParseDate52(t *testing.T) {
+	dt, err := ParseDateStrict("01/11/2017")
+	if err != nil {
+		t.Error("date not valid:", err)
+	}
+	if dt.Year() != 2017 {
+		t.Error("invalid year:", dt.Year())
+	}
+	if dt.Month() != 1 {
+		t.Error("invalid month:", dt.Month())
+	}
+	if dt.Day() != 11 {
+		t.Error("invalid day:", dt.Day())
+	}
+}
+
+func TestParseDate53(t *testing.T) {
+	dt, err := ParseDateStrict("20170111")
+	if err != nil {
+		t.Error("date not valid:", err)
+	}
+	if dt.Year() != 2017 {
+		t.Error("invalid year:", dt.Year())
+	}
+	if dt.Month() != 1 {
+		t.Error("invalid month:", dt.Month())
+	}
+	if dt.Day() != 11 {
+		t.Error("invalid day:", dt.Day())
+	}
+}
+
+func TestParseDate54(t *testing.T) {
+	dt, err := ParseDateStrict("2017-01-11")
+	if err != nil {
+		t.Error("date not valid:", err)
+	}
+	if dt.Year() != 2017 {
+		t.Error("invalid year:", dt.Year())
+	}
+	if dt.Month() != 1 {
+		t.Error("invalid month:", dt.Month())
+	}
+	if dt.Day() != 11 {
+		t.Error("invalid day:", dt.Day())
+	}
+}
