@@ -68,9 +68,9 @@ func (ctx *AnonymizeTransformationPipe) Apply(input *[]interface{}) error {
 			ctx.hasher.Reset()
 			ctx.hasher.Write([]byte(inputStr))
 			if len(action.keyPrefix) > 0 {
-				hashedValue = fmt.Sprintf("%s.%015x", action.keyPrefix, ctx.hasher.Sum64())
+				hashedValue = fmt.Sprintf("%s.%016x", action.keyPrefix, ctx.hasher.Sum64())
 			} else {
-				hashedValue = fmt.Sprintf("%015x", ctx.hasher.Sum64())
+				hashedValue = fmt.Sprintf("%016x", ctx.hasher.Sum64())
 			}
 			hashedValue4KeyFile = hashedValue
 		case "date":
