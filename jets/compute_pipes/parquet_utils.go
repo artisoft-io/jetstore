@@ -9,7 +9,7 @@ import (
 
 // Utility function for reading parquet files
 
-func GetRawHeadersParquet(fileHd *os.File, fileName, fileFormat string) ([]string, error) {
+func GetRawHeadersParquet(fileHd *os.File, fileName string) ([]string, error) {
 	// Get rawHeaders
 	var err error
 		// Get the file headers from the parquet schema

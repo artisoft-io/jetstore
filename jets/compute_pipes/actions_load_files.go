@@ -81,6 +81,7 @@ func (cpCtx *ComputePipesContext) LoadFiles(ctx context.Context, dbpool *pgxpool
 			log.Printf("%s node %d Loading file '%s'", cpCtx.SessionId, cpCtx.NodeId, localInFile.InFileKeyInfo.key)
 		}
 		switch inputFormat {
+		//*TODO Read xlsx files
 		case "csv", "headerless_csv":
 			count, err = cpCtx.ReadCsvFile(&localInFile, inputFormat, compression, shardOffset, sp, computePipesInputCh)
 		case "parquet", "parquet_select":
@@ -129,14 +130,9 @@ func (cpCtx *ComputePipesContext) ReadParquetFile(filePath *FileName, saveParque
 	// log.Println("**!@@",cpCtx.SessionId,"partfile_key_component GOT",len(cpCtx.PartFileKeyComponents))
 	//*TODO get the columns from the parquet schema (see below)
 	nbrColumns := len(cpCtx.CpConfig.CommonRuntimeArgs.SourcesConfig.MainInput.InputColumns)
-	if nbrColumns == 0 {
-		// Read all columns
-		parquetReader, err = goparquet.NewFileReader(fileHd)
-	} else {
-		// Read specified columns
-		inputColumns = cpCtx.CpConfig.CommonRuntimeArgs.SourcesConfig.MainInput.InputColumns[:nbrColumns-len(cpCtx.PartFileKeyComponents)]
-		parquetReader, err = goparquet.NewFileReader(fileHd, inputColumns...)
-	}
+	// Read specified columns
+	inputColumns = cpCtx.CpConfig.CommonRuntimeArgs.SourcesConfig.MainInput.InputColumns[:nbrColumns-len(cpCtx.PartFileKeyComponents)-len(cpCtx.AddionalInputHeaders)]
+	parquetReader, err = goparquet.NewFileReader(fileHd, inputColumns...)
 	if err != nil {
 		return 0, err
 	}
@@ -160,22 +156,6 @@ func (cpCtx *ComputePipesContext) ReadParquetFile(filePath *FileName, saveParque
 			return 0, fmt.Errorf("while seeking to first row group of parquet file: %v", err)
 		}
 		parquetMetaInfo.Compression = parquetReader.CurrentRowGroup().Columns[0].MetaData.Codec.String()
-
-		// Save the input columns if none were provided in configuration
-		if nbrColumns == 0 {
-			ic := &cpCtx.CpConfig.CommonRuntimeArgs.SourcesConfig.MainInput.InputColumns
-			*ic = make([]string, 0, len(schemaDef.RootColumn.Children)+len(cpCtx.PartFileKeyComponents))
-			for _, colDef := range schemaDef.RootColumn.Children {
-				*ic = append(*ic, colDef.SchemaElement.Name)
-			}
-			// inputColumn is a slice of the columns to load from the parquet file
-			inputColumns = *ic
-			// Add the part file component if in sharding mode
-			for i := range cpCtx.PartFileKeyComponents {
-				*ic = append(*ic, cpCtx.PartFileKeyComponents[i].ColumnName)
-			}
-			nbrColumns = len(*ic)
-		}
 
 		// Make the schema avail to channel registry
 		inputSchemaCh <- parquetMetaInfo
@@ -575,7 +555,7 @@ func LastIndexByte(s []byte, c byte) int {
 }
 
 func (cpCtx *ComputePipesContext) ReadFixedWidthFile(filePath *FileName, shardOffset int,
-	sp SchemaProvider, fwEncodingInfo *FixedWidthEncodingInfo, 
+	sp SchemaProvider, fwEncodingInfo *FixedWidthEncodingInfo,
 	computePipesInputCh chan<- []interface{}) (int64, error) {
 
 	var fileHd *os.File
@@ -604,7 +584,7 @@ func (cpCtx *ComputePipesContext) ReadFixedWidthFile(filePath *FileName, shardOf
 	case "sharding":
 		// input columns include the partfile_key_component
 		inputColumns =
-			cpCtx.CpConfig.CommonRuntimeArgs.SourcesConfig.MainInput.InputColumns[:nbrColumns-len(cpCtx.PartFileKeyComponents)]
+			cpCtx.CpConfig.CommonRuntimeArgs.SourcesConfig.MainInput.InputColumns[:nbrColumns-len(cpCtx.PartFileKeyComponents)-len(cpCtx.AddionalInputHeaders)]
 		// Prepare the extended columns from partfile_key_component
 		if len(cpCtx.PartFileKeyComponents) > 0 {
 			extColumns = make([]string, len(cpCtx.PartFileKeyComponents))

@@ -382,7 +382,7 @@ func SelectActiveOutputTable(tableConfig []*TableSpec, pipeConfig []PipeSpec) ([
 	return activeTables, nil
 }
 
-func GetOutputFileConfig(cpConfig *ComputePipesConfig, outputFileKey string ) *OutputFileSpec {
+func GetOutputFileConfig(cpConfig *ComputePipesConfig, outputFileKey string) *OutputFileSpec {
 	for i := range cpConfig.OutputFiles {
 		if outputFileKey == cpConfig.OutputFiles[i].Key {
 			return &cpConfig.OutputFiles[i]
@@ -613,6 +613,11 @@ func validateOutputChConfig(outputChConfig *OutputChannelConfig, sp *SchemaProvi
 				outputChConfig.Type)
 		}
 	}
+	// Check if the Format is parquet_select, this would be the case if the Format came from
+	// the _main_input_ schema provider
+	if outputChConfig.Format == "parquet_select" {
+		outputChConfig.Format = "parquet"
+	}
 	return nil
 }
 
@@ -652,4 +657,19 @@ func PrepareCpipesEnv(cpConfig *ComputePipesConfig, mainSchemaProviderConfig *Sc
 		log.Printf("PrepareCpipesEnv: Cpipes Env: %s, err? %v\n", string(b), err)
 	}
 	return envSettings
+}
+
+// Function to get the column to add to the input file(s),
+// these columns are added to the input_row channel.
+// They are taken from the channel config with name input_row.
+func GetAdditionalInputColumns(cpConfig *ComputePipesConfig) []string {
+	if cpConfig == nil {
+		return nil
+	}
+	for i := range cpConfig.Channels {
+		if cpConfig.Channels[i].Name == "input_row" {
+			return cpConfig.Channels[i].Columns
+		}
+	}
+	return nil
 }

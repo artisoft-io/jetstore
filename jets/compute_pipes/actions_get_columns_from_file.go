@@ -98,7 +98,7 @@ do_retry:
 	case fileFormat == "parquet":
 		if fetchHeaders {
 			// Get the file headers from the parquet schema
-			fileInfo.headers, err = GetRawHeadersParquet(fileHd, fileKey, fileFormat)
+			fileInfo.headers, err = GetRawHeadersParquet(fileHd, fileKey)
 			return fileInfo, err
 		} else {
 			return nil,
