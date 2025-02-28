@@ -218,6 +218,7 @@ type ComputePipesContext struct {
 	CpConfig              *ComputePipesConfig
 	FileKeyComponents     map[string]interface{}
 	PartFileKeyComponents []CompiledPartFileComponent
+	AddionalInputHeaders  []string
 	EnvSettings           map[string]interface{}
 	SamplingCount         int
 	InputFileKeys         []*FileKeyInfo

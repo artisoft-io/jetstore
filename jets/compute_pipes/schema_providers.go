@@ -47,6 +47,7 @@ type SchemaProvider interface {
 	ColumnNames() []string
 	ReadDateLayout() string
 	WriteDateLayout() string
+	AdjustColumnWidth(width map[string]int) error
 	FixedWidthFileHeaders() ([]string, string)
 	FixedWidthEncodingInfo() *FixedWidthEncodingInfo
 	Env() map[string]any
@@ -115,6 +116,24 @@ func (sp *DefaultSchemaProvider) FixedWidthFileHeaders() ([]string, string) {
 		return nil, ""
 	}
 	return sp.columnNames, sp.fwColumnPrefix
+}
+
+func (sp *DefaultSchemaProvider) AdjustColumnWidth(width map[string]int) error {
+	if sp == nil || width == nil {
+		return fmt.Errorf("error: schema provider or argument to AdjustColumnWidth is nil")
+	}
+	if len(sp.spec.Columns) == 0 {
+		return fmt.Errorf("error: Cannot adjust column width of Schema Provider without column info")
+	}
+	for i := range sp.spec.Columns {
+		c := &sp.spec.Columns[i]
+		w, ok := width[c.Name]
+		if ok {
+			c.Length = w
+		}		
+	}
+	sp.spec.FixedWidthColumnsCsv = ""
+	return sp.initializeFixedWidthInfo()
 }
 
 func (sp *DefaultSchemaProvider) FixedWidthEncodingInfo() *FixedWidthEncodingInfo {

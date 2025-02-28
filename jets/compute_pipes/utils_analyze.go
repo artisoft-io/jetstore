@@ -335,7 +335,7 @@ func (pd *ParseDateMatcher) Match(value string, parsedDate map[string]*time.Time
 	if !ok {
 		if len(pd.dateLayout) == 0 {
 			// Use jetstore date parser
-			d, err = rdf.ParseDate(value)
+			d, err = rdf.ParseDateStrict(value)
 			if err != nil {
 				d = nil
 			}

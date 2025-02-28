@@ -112,6 +112,11 @@ func (cpCtx *ComputePipesContext) StartComputePipes(dbpool *pgxpool.Pool, inputS
 	channelsInUse = make(map[string]*ChannelSpec)
 	for i := range cpCtx.CpConfig.Channels {
 		chSpec := &cpCtx.CpConfig.Channels[i]
+		if chSpec.Name == "input_row" {
+			// Skip this one since this input_row is to indicate columns to add to the input file which is done
+			// in start_sharding step
+			continue
+		}
 		// Make the lookup of column name to pos
 		cm := make(map[string]int)
 		for j, c := range chSpec.Columns {

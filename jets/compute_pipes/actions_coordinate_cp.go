@@ -195,6 +195,9 @@ func (args *ComputePipesNodeArgs) CoordinateComputePipes(ctx context.Context, db
 	}
 
 	if cpConfig.CommonRuntimeArgs.CpipesMode == "sharding" {
+		// Prepare the extended input_row columns, ie column added to input file
+		cpContext.AddionalInputHeaders = GetAdditionalInputColumns(cpConfig)
+
 		// partfile_key_component :: explained
 		// ContextSpec.Type == partfile_key_component:
 		//		Key is column name of input_row to put the key component (must be at end of columns comming from parquet parfiles)
