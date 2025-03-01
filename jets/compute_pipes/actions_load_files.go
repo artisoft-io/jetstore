@@ -206,7 +206,7 @@ func (cpCtx *ComputePipesContext) ReadParquetFile(filePath *FileName, saveParque
 				continue
 			}
 			cpCtx.SamplingCount = 0
-			record = make([]interface{}, nbrColumns)
+			record = make([]interface{}, nbrColumns, nbrColumns+len(cpCtx.AddionalInputHeaders))
 			// fmt.Println("Input Parquet Record: ")
 			for i := range inputColumns {
 				rawValue := parquetRow[inputColumns[i]]
@@ -226,6 +226,12 @@ func (cpCtx *ComputePipesContext) ReadParquetFile(filePath *FileName, saveParque
 				// log.Println("**!@@",cpCtx.SessionId,"partfile_key_component GOT[0]",cpCtx.PartFileKeyComponents[0].ColumnName,"offset",offset,"InputColumn",cpCtx.InputColumns[offset])
 				for i := range extColumns {
 					record[offset+i] = extColumns[i]
+				}
+			}
+			// Add placeholders for the additional input headers/columns
+			if len(cpCtx.AddionalInputHeaders) > 0 {
+				for range cpCtx.AddionalInputHeaders {
+					record = append(record, nil)
 				}
 			}
 		}
@@ -509,6 +515,12 @@ func (cpCtx *ComputePipesContext) ReadCsvFile(filePath *FileName,
 					record = append(record, extColumns[i])
 				}
 			}
+			// Add placeholders for the additional input headers/columns
+			if len(cpCtx.AddionalInputHeaders) > 0 {
+				for range cpCtx.AddionalInputHeaders {
+					record = append(record, nil)
+				}
+			}
 			inRow = nextInRow
 		}
 
@@ -739,6 +751,12 @@ func (cpCtx *ComputePipesContext) ReadFixedWidthFile(filePath *FileName, shardOf
 			// log.Println("**!@@",cpCtx.SessionId,"partfile_key_component GOT[0]",cpCtx.PartFileKeyComponents[0].ColumnName,"offset",offset,"InputColumn",cpCtx.InputColumns[offset])
 			for i := range extColumns {
 				record[offset+i] = extColumns[i]
+			}
+		}
+		// Add placeholders for the additional input headers/columns
+		if len(cpCtx.AddionalInputHeaders) > 0 {
+			for range cpCtx.AddionalInputHeaders {
+				record = append(record, nil)
 			}
 		}
 

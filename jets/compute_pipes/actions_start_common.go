@@ -399,7 +399,14 @@ func ValidatePipeSpecConfig(cpConfig *ComputePipesConfig, pipeConfig []PipeSpec)
 		pipeSpec := &pipeConfig[i]
 		// log.Printf("VALIDATE PIPESPEC %s\n", pipeSpec.Type)
 		switch pipeSpec.InputChannel.Type {
+		case "input":
+			if i != 0 {
+				return fmt.Errorf("error: invalid configuration. Only the first input_channel can be of type 'input'")
+			}
 		case "stage":
+			if i != 0 {
+				return fmt.Errorf("error: invalid configuration. Only the first input_channel can be of type 'stage'")
+			}
 			if len(pipeSpec.InputChannel.SchemaProvider) > 0 {
 				sp := getSchemaProvider(cpConfig.SchemaProviders, pipeSpec.InputChannel.SchemaProvider)
 				if sp == nil {
@@ -453,27 +460,35 @@ func ValidatePipeSpecConfig(cpConfig *ComputePipesConfig, pipeConfig []PipeSpec)
 							" for transformation pipe of type 'partition_writer'")
 				}
 				config := transformationConfig.PartitionWriterConfig
-				if config.DeviceWriterType == "" && sp == nil {
-					return fmt.Errorf(
-						"error: invalid cpipes config, must provide 'device_writer_type' or 'output_channel.schema_provider'"+
-							" for output channel %s of transformation pipe of type 'partition_writer'", outputChConfig.Name)
-				}
-				if config.DeviceWriterType == "" {
-					var deviceWriterType string
-					switch sp.Format {
-					case "csv", "headerless_csv":
-						deviceWriterType = "csv_writer"
-					case "parquet", "parquet_select":
-						deviceWriterType = "parquet_writer"
-					case "fixed_width":
-						deviceWriterType = "fixed_width_writer"
-					default:
-						err := fmt.Errorf("error: unsupported output file format: %s (in NewPartitionWriterTransformationPipe)", sp.Format)
-						log.Println(err)
-						return err
+				switch config.DeviceWriterType {
+				case "csv_writer", "parquet_writer", "fixed_width_writer":
+				default:
+					if config.DeviceWriterType == "" && sp == nil {
+						return fmt.Errorf(
+							"error: invalid cpipes config, must provide 'device_writer_type' or 'output_channel.schema_provider'"+
+								" for output channel %s of transformation pipe of type 'partition_writer'", outputChConfig.Name)
 					}
-					config.DeviceWriterType = deviceWriterType
-					outputChConfig.Format = sp.Format
+					if config.DeviceWriterType == "" {
+						var deviceWriterType string
+						switch sp.Format {
+						case "csv", "headerless_csv":
+							deviceWriterType = "csv_writer"
+						case "parquet", "parquet_select":
+							deviceWriterType = "parquet_writer"
+						case "fixed_width":
+							deviceWriterType = "fixed_width_writer"
+						default:
+							err := fmt.Errorf("error: unsupported output file format: %s (in NewPartitionWriterTransformationPipe)", sp.Format)
+							log.Println(err)
+							return err
+						}
+						config.DeviceWriterType = deviceWriterType
+						outputChConfig.Format = sp.Format
+					} else {
+						return fmt.Errorf(
+							"configuration error: unknown/invalid device_writer_type '%s' for partition_writer (valid type: csv_writer, parquet_writer, fixed_width_writer)",
+							config.DeviceWriterType)
+					}
 				}
 			case "anonymize":
 				if transformationConfig.AnonymizeConfig == nil {

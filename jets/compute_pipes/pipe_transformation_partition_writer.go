@@ -438,8 +438,6 @@ func (ctx *BuilderContext) NewPartitionWriterTransformationPipe(source *InputCha
 			baseOutputPath = doSubstitution("$PATH_FILE_KEY", jetsPartitionLabel,
 				spec.OutputChannel.OutputLocation, ctx.env)
 		}
-	default:
-		return nil, fmt.Errorf("error: unknown output channel type for partition_writer: %s", spec.OutputChannel.Type)
 	}
 
 	// Check if we limit the file part size
