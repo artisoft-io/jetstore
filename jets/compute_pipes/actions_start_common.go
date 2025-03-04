@@ -8,6 +8,7 @@ import (
 	"log"
 	"os"
 	"strconv"
+	"strings"
 
 	"github.com/artisoft-io/jetstore/jets/workspace"
 	"github.com/jackc/pgx/v4/pgxpool"
@@ -25,11 +26,16 @@ func init() {
 // can be a subset of the columns in the main_input schema provider based on
 // source_config table.
 // InputColumns can be empty if needs to be read from the input file.
+// MainInputDomainKeysSpec contains the domain keys spec based on source_config
+// table, which can be overriden by value from the main schema provider.
+// MainInputDomainClass applies when input_registry.input_type = 'domain_table'
 type CpipesStartup struct {
 	CpConfig                      ComputePipesConfig
 	ProcessName                   string
 	InputColumns                  []string
 	MainInputSchemaProviderConfig *SchemaProviderSpec
+	MainInputDomainKeysSpec       *DomainKeysSpec
+	MainInputDomainClass          string
 	EnvSettings                   map[string]any
 	PipelineConfigKey             int
 	InputSessionId                string
@@ -48,17 +54,19 @@ func (args *StartComputePipesArgs) initializeCpipes(ctx context.Context, dbpool 
 	}
 
 	// get pe info and pipeline config
-	// cpipesConfigFN is file name within workspace
-	var client, org, objectType, inputFormat, compression string
+	// cpipesConfigFN is cpipes config file name within workspace
+	// tableName is the input_registry.table_name, needed when source_type = 'domain_table' since it correspond to className
+	var client, org, objectType, inputFormat, compression, tableName, sourceType string
 	var schemaProviderJson string
 	var isPartFile int
-	var cpipesConfigFN, icJson, icPosCsv, inputFormatDataJson sql.NullString
+	var cpipesConfigFN, icJson, icPosCsv, icDomainKeys, inputFormatDataJson sql.NullString
 	log.Println("CPIPES, loading pipeline configurations")
 	stmt := `
 	SELECT	ir.client, ir.org, ir.object_type, ir.source_period_key, ir.schema_provider_json, 
+		ir.table_name, ir.source_type,
 		pe.pipeline_config_key, pe.process_name, pe.input_session_id, pe.user_email,
-		sc.input_columns_json, sc.input_columns_positions_csv, sc.input_format, sc.compression, 
-		sc.is_part_files, sc.input_format_data_json,
+		sc.input_columns_json, sc.input_columns_positions_csv, sc.domain_keys_json, 
+		sc.input_format, sc.compression, sc.is_part_files, sc.input_format_data_json,
 		pc.main_rules
 	FROM 
 		jetsapi.pipeline_execution_status pe,
@@ -72,9 +80,9 @@ func (args *StartComputePipesArgs) initializeCpipes(ctx context.Context, dbpool 
 		AND sc.object_type = ir.object_type
 		AND pc.process_name = pe.process_name`
 	err = dbpool.QueryRow(ctx, stmt, args.PipelineExecKey).Scan(
-		&client, &org, &objectType, &cpipesStartup.SourcePeriodKey, &schemaProviderJson,
+		&client, &org, &objectType, &cpipesStartup.SourcePeriodKey, &schemaProviderJson, &tableName, &sourceType,
 		&cpipesStartup.PipelineConfigKey, &cpipesStartup.ProcessName, &cpipesStartup.InputSessionId, &cpipesStartup.OperatorEmail,
-		&icJson, &icPosCsv, &inputFormat, &compression, &isPartFile, &inputFormatDataJson,
+		&icJson, &icPosCsv, &icDomainKeys, &inputFormat, &compression, &isPartFile, &inputFormatDataJson,
 		&cpipesConfigFN)
 	if err != nil {
 		return cpipesStartup, fmt.Errorf("query pipeline configurations failed: %v", err)
@@ -94,6 +102,10 @@ func (args *StartComputePipesArgs) initializeCpipes(ctx context.Context, dbpool 
 		return cpipesStartup, fmt.Errorf("while unmarshaling compute pipes json (StartShardingComputePipes): %s", err)
 	}
 	// Adjust ChannelSpec having columns specified by a jetrules class
+	classNames := make(map[string]bool)
+	if sourceType == "domain_table" {
+		classNames[tableName] = true // since domain class name is the table_name for source_type = 'domain_table'
+	}
 	for i := range cpipesStartup.CpConfig.Channels {
 		chSpec := &cpipesStartup.CpConfig.Channels[i]
 		if len(chSpec.ClassName) > 0 {
@@ -108,6 +120,75 @@ func (args *StartComputePipesArgs) initializeCpipes(ctx context.Context, dbpool 
 				columns = append(columns, chSpec.Columns...)
 			}
 			chSpec.Columns = columns
+			if len(chSpec.DomainKeys) == 0 {
+				// Only get the DomainKeyInfo from domain_keys_registry if not specified
+				// in cpipes config via DomainKeys
+				classNames[chSpec.ClassName] = true
+			}
+		}
+	}
+
+	dkMap := make(map[string]*DomainKeysSpec)
+	if len(classNames) > 0 {
+		// Get the domain_key_json from domain_keys_registry table
+		// Example of how this table is populated from base__workspace_init_db.sql:
+		// INSERT INTO jetsapi.domain_keys_registry (entity_rdf_type, object_types, domain_keys_json) VALUES
+		// ('wrs:Eligibility', '{"Eligibility"}', '{"Eligibility":"wrs:Generated_ID","jets:hashing_override":"none"}'),
+		var buf strings.Builder
+		buf.WriteString("SELECT entity_rdf_type, domain_keys_json FROM jetsapi.domain_keys_registry WHERE entity_rdf_type IN (")
+		first := true
+		for c, _ := range classNames {
+			if !first {
+				buf.WriteString(",")
+			}
+			first = false
+			buf.WriteString("'")
+			buf.WriteString(c)
+			buf.WriteString("'")
+		}
+		buf.WriteString(")")
+		rows, err := dbpool.Query(ctx, buf.String())
+		if err == nil {
+			defer rows.Close()
+			for rows.Next() {
+				// scan the row
+				var className, domainKeysJson string
+				if err = rows.Scan(&className, &domainKeysJson); err != nil {
+					return cpipesStartup, fmt.Errorf("while querying domain_keys_json from domain_keys_registry: %s", err)
+				}
+				if len(domainKeysJson) > 0 {
+					var v any
+					err = json.Unmarshal([]byte(domainKeysJson), &v)
+					if err != nil {
+						return cpipesStartup, fmt.Errorf(
+							"while unmarshaling domain_keys_json from domain_keys_registry for class %s: %v", className, err)
+					}
+					if v != nil {
+						dkSpec, err := ParseDomainKeyInfo("", v)
+						if err != nil {
+							return cpipesStartup, fmt.Errorf("while parsing domain_keys_info2: %s", err)
+						}
+						dkMap[className] = dkSpec
+					}
+				}
+			}
+		} else {
+			log.Printf("WARNING: Error while querying table domain_keys_registry: %v\n", err)
+		}
+	}
+	// Set the DomainKeysSpec to the ChannelSpec
+	for i := range cpipesStartup.CpConfig.Channels {
+		chSpec := &cpipesStartup.CpConfig.Channels[i]
+		if len(chSpec.DomainKeys) > 0 {
+			dkSpec, err := ParseDomainKeyInfo("", chSpec.DomainKeys)
+			if err != nil {
+				return cpipesStartup, fmt.Errorf("while parsing domain_keys_info2: %s", err)
+			}
+			chSpec.DomainKeysSpec = dkSpec
+		} else {
+			if len(chSpec.ClassName) > 0 {
+				chSpec.DomainKeysSpec = dkMap[chSpec.ClassName]
+			}	
 		}
 	}
 
@@ -174,7 +255,39 @@ func (args *StartComputePipesArgs) initializeCpipes(ctx context.Context, dbpool 
 	}
 	cpipesStartup.EnvSettings = PrepareCpipesEnv(&cpipesStartup.CpConfig, mainInputSchemaProvider)
 
+	// Parse the Domain Key Info from source_config and main input schema provider
+	var dkInfo any
+	switch sourceType {
+	case "file":
+		// Main input file is an external file
+		switch {
+		case len(mainInputSchemaProvider.DomainKeys) > 0:
+			dkInfo = mainInputSchemaProvider.DomainKeys
+
+		case icDomainKeys.Valid && len(icDomainKeys.String) > 0:
+			err = json.Unmarshal([]byte(icDomainKeys.String), &dkInfo)
+			if err != nil {
+				return cpipesStartup,
+					fmt.Errorf("while unmarshaling domain_keys_json for the main input source (case source_type is file): %s", err)
+			}
+			if dkInfo != nil {
+				dkSpec, err := ParseDomainKeyInfo(objectType, dkInfo)
+				if err != nil {
+					return cpipesStartup, fmt.Errorf("while parsing domain_keys_info for the main input source (case source_type is file): %s", err)
+				}
+				cpipesStartup.MainInputDomainKeysSpec = dkSpec
+			}
+		}
+	case "domain_table":
+		// Main input file is a domain entity, ie, an entity mapped into a jetstore data model
+		cpipesStartup.MainInputDomainClass = tableName
+		cpipesStartup.MainInputDomainKeysSpec = dkMap[tableName]
+	}
+
 	// The main_input schema provider should always have the key _main_input_.
+	// Note: cpipesStartup.CpConfig.MainInputChannel() returns the sharding first input channel
+	// regardless if we are currently in reducing step.
+	// This is to ensure mainInputSchemaProvider is always in sync at each step.
 	mainInputSchemaProvider.Key = "_main_input_"
 	ic := cpipesStartup.CpConfig.MainInputChannel()
 
@@ -394,23 +507,35 @@ func GetOutputFileConfig(cpConfig *ComputePipesConfig, outputFileKey string) *Ou
 // Function to validate the PipeSpec output channel config
 // Apply a default snappy compression if compression is not specified
 // and channel Type 'stage'
-func ValidatePipeSpecConfig(cpConfig *ComputePipesConfig, pipeConfig []PipeSpec) error {
+func (args *CpipesStartup) ValidatePipeSpecConfig(cpConfig *ComputePipesConfig, pipeConfig []PipeSpec) error {
 	for i := range pipeConfig {
 		pipeSpec := &pipeConfig[i]
 		// log.Printf("VALIDATE PIPESPEC %s\n", pipeSpec.Type)
+		if pipeSpec.InputChannel.Type == "" {
+			pipeSpec.InputChannel.Type = "memory"
+		}
 		switch pipeSpec.InputChannel.Type {
 		case "input":
 			if i != 0 {
-				return fmt.Errorf("error: invalid configuration. Only the first input_channel can be of type 'input'")
+				return fmt.Errorf("configuration error: Only the first input_channel can be of type 'input'")
+			}
+			if pipeSpec.InputChannel.CastToDomainTypes && len(args.MainInputDomainClass) == 0 {
+				return fmt.Errorf(
+					"configuration error: input_channel '%s' has cast_to_domain_types set to true but class_name is not availalbe",
+					pipeSpec.InputChannel.Name)
 			}
 		case "stage":
 			if i != 0 {
-				return fmt.Errorf("error: invalid configuration. Only the first input_channel can be of type 'stage'")
+				return fmt.Errorf("configuration error: Only the first input_channel can be of type 'stage'")
+			}
+			if pipeSpec.InputChannel.CastToDomainTypes {
+				return fmt.Errorf(
+					"configuration error: Only the input_channel of type 'input' can have cast_to_domain_types set to true")
 			}
 			if len(pipeSpec.InputChannel.SchemaProvider) > 0 {
 				sp := getSchemaProvider(cpConfig.SchemaProviders, pipeSpec.InputChannel.SchemaProvider)
 				if sp == nil {
-					return fmt.Errorf("error: invalid cpipes config. input_channel has reference to "+
+					return fmt.Errorf("configuration error: input_channel has reference to "+
 						"schema_provider %s, but does not exists", pipeSpec.InputChannel.SchemaProvider)
 				}
 				if len(pipeSpec.InputChannel.Format) == 0 {
@@ -423,12 +548,19 @@ func ValidatePipeSpecConfig(cpConfig *ComputePipesConfig, pipeConfig []PipeSpec)
 					pipeSpec.InputChannel.Compression = sp.Compression
 				}
 			}
+		case "memory":
+			if pipeSpec.InputChannel.CastToDomainTypes {
+				return fmt.Errorf(
+					"configuration error: Only the input_channel of type 'input' can have cast_to_domain_types set to true")
+			}
+		default:
+			return fmt.Errorf("configuration error: unknown input_channel.type: %s", pipeSpec.InputChannel.Type)
 		}
 		// Check that we don't have two input channel reading from the same channel,
 		// this creates record lost since they steal records from each other
 		for k := range pipeConfig {
 			if i != k && pipeSpec.InputChannel.Name == pipeConfig[k].InputChannel.Name {
-				return fmt.Errorf("error: invalid cpipes config. two input_channel reading from "+
+				return fmt.Errorf("configuration error: two input_channel reading from "+
 					"the same channel %s, this will create record loss", pipeSpec.InputChannel.Name)
 			}
 		}
@@ -436,11 +568,11 @@ func ValidatePipeSpecConfig(cpConfig *ComputePipesConfig, pipeConfig []PipeSpec)
 		switch pipeSpec.Type {
 		case "merge_files":
 			if pipeSpec.OutputFile == nil || len(*pipeSpec.OutputFile) == 0 {
-				return fmt.Errorf("error: merge_file must have output_file set")
+				return fmt.Errorf("configuration error: merge_file must have output_file set")
 			}
 			outputFileSpec := GetOutputFileConfig(cpConfig, *pipeSpec.OutputFile)
 			if outputFileSpec == nil {
-				return fmt.Errorf("error: Output file config '%s' not found", *pipeSpec.OutputFile)
+				return fmt.Errorf("configuration error: Output file config '%s' not found", *pipeSpec.OutputFile)
 			}
 			if outputFileSpec.OutputLocation == "" {
 				outputFileSpec.OutputLocation = "jetstore_s3_output"
@@ -456,7 +588,7 @@ func ValidatePipeSpecConfig(cpConfig *ComputePipesConfig, pipeConfig []PipeSpec)
 			case "partition_writer":
 				if transformationConfig.PartitionWriterConfig == nil {
 					return fmt.Errorf(
-						"error: invalid cpipes config, must provide 'partition_writer_config'" +
+						"configuration error: must provide 'partition_writer_config'" +
 							" for transformation pipe of type 'partition_writer'")
 				}
 				config := transformationConfig.PartitionWriterConfig
@@ -465,7 +597,7 @@ func ValidatePipeSpecConfig(cpConfig *ComputePipesConfig, pipeConfig []PipeSpec)
 				default:
 					if config.DeviceWriterType == "" && sp == nil {
 						return fmt.Errorf(
-							"error: invalid cpipes config, must provide 'device_writer_type' or 'output_channel.schema_provider'"+
+							"configuration error: must provide 'device_writer_type' or 'output_channel.schema_provider'"+
 								" for output channel %s of transformation pipe of type 'partition_writer'", outputChConfig.Name)
 					}
 					if config.DeviceWriterType == "" {
@@ -478,7 +610,7 @@ func ValidatePipeSpecConfig(cpConfig *ComputePipesConfig, pipeConfig []PipeSpec)
 						case "fixed_width":
 							deviceWriterType = "fixed_width_writer"
 						default:
-							err := fmt.Errorf("error: unsupported output file format: %s (in NewPartitionWriterTransformationPipe)", sp.Format)
+							err := fmt.Errorf("configuration error: unsupported output file format: %s (in NewPartitionWriterTransformationPipe)", sp.Format)
 							log.Println(err)
 							return err
 						}
@@ -492,7 +624,7 @@ func ValidatePipeSpecConfig(cpConfig *ComputePipesConfig, pipeConfig []PipeSpec)
 				}
 			case "anonymize":
 				if transformationConfig.AnonymizeConfig == nil {
-					return fmt.Errorf("error: cpipes config is missing anonymize_config for anonymize operator")
+					return fmt.Errorf("configuration error: missing anonymize_config for anonymize operator")
 				}
 				keyOutputChannel := &transformationConfig.AnonymizeConfig.KeysOutputChannel
 				err := validateOutputChConfig(keyOutputChannel, getSchemaProvider(cpConfig.SchemaProviders, keyOutputChannel.SchemaProvider))
@@ -501,7 +633,7 @@ func ValidatePipeSpecConfig(cpConfig *ComputePipesConfig, pipeConfig []PipeSpec)
 				}
 			case "jetrules":
 				if transformationConfig.JetrulesConfig == nil {
-					return fmt.Errorf("error: cpipes config is missing jetrules_config for jetrules operator")
+					return fmt.Errorf("configuration error: missing jetrules_config for jetrules operator")
 				}
 				if transformationConfig.JetrulesConfig.PoolSize < 1 {
 					log.Println("WARNING: jetrules pool worker size is unset, setting to 1")
@@ -519,7 +651,7 @@ func ValidatePipeSpecConfig(cpConfig *ComputePipesConfig, pipeConfig []PipeSpec)
 				if transformationConfig.ClusteringConfig == nil ||
 					transformationConfig.ClusteringConfig.CorrelationOutputChannel == nil {
 					return fmt.Errorf(
-						"error: cpipes config is missing clustering_config or correlation_output_channel for clustering operator")
+						"configuration error: missing clustering_config or correlation_output_channel for clustering operator")
 				}
 				outCh := transformationConfig.ClusteringConfig.CorrelationOutputChannel
 				err := validateOutputChConfig(outCh, getSchemaProvider(cpConfig.SchemaProviders, outCh.SchemaProvider))
@@ -546,14 +678,14 @@ func validateOutputChConfig(outputChConfig *OutputChannelConfig, sp *SchemaProvi
 	switch outputChConfig.Type {
 	case "sql":
 		if len(outputChConfig.OutputTableKey) == 0 {
-			return fmt.Errorf("error: invalid cpipes config, must provide output_table_key when output_channel type is 'sql'")
+			return fmt.Errorf("configuration error: must provide output_table_key when output_channel type is 'sql'")
 		}
 		outputChConfig.Name = outputChConfig.OutputTableKey
 		outputChConfig.SpecName = outputChConfig.OutputTableKey
 	default:
 		if len(outputChConfig.Name) == 0 || outputChConfig.Name == outputChConfig.SpecName {
 			return fmt.Errorf(
-				"error: invalid cpipes config, output_channel.name '%s' must not be empty or same as output_channel.channel_spec_name '%s'",
+				"configuration error: output_channel.name '%s' must not be empty or same as output_channel.channel_spec_name '%s'",
 				outputChConfig.Name, outputChConfig.SpecName)
 		}
 		switch outputChConfig.Type {
@@ -580,7 +712,7 @@ func validateOutputChConfig(outputChConfig *OutputChannelConfig, sp *SchemaProvi
 				}
 			}
 			if len(outputChConfig.WriteStepId) == 0 {
-				return fmt.Errorf("error: invalid cpipes config, write_step_id is not specified in output_channel '%s' of type 'stage'",
+				return fmt.Errorf("configuration error: write_step_id is not specified in output_channel '%s' of type 'stage'",
 					outputChConfig.Name)
 			}
 		case "output":
@@ -589,7 +721,7 @@ func validateOutputChConfig(outputChConfig *OutputChannelConfig, sp *SchemaProvi
 					outputChConfig.Format = sp.Format
 				}
 				if outputChConfig.Format == "" {
-					return fmt.Errorf("error: invalid cpipes config, format is not specified in output_channel '%s' of type 'output'",
+					return fmt.Errorf("configuration error: format is not specified in output_channel '%s' of type 'output'",
 						outputChConfig.Name)
 				}
 			}
@@ -613,7 +745,7 @@ func validateOutputChConfig(outputChConfig *OutputChannelConfig, sp *SchemaProvi
 			case "jetstore_s3_input", "jetstore_s3_output":
 			default:
 				return fmt.Errorf(
-					"error: invalid cpipes config, invalid output_location '%s' in output_channel '%s' of type"+
+					"configuration error: invalid output_location '%s' in output_channel '%s' of type"+
 						" 'output', expecting jetstore_s3_input or jetstore_s3_output",
 					outputChConfig.OutputLocation, outputChConfig.Name)
 			}
@@ -624,7 +756,7 @@ func validateOutputChConfig(outputChConfig *OutputChannelConfig, sp *SchemaProvi
 			outputChConfig.Delimiter = 0
 		default:
 			return fmt.Errorf(
-				"error: invalid cpipes config, unknown output_channel config type: %s (expecting: memory (default), stage, output, sql)",
+				"configuration error: unknown output_channel config type: %s (expecting: memory (default), stage, output, sql)",
 				outputChConfig.Type)
 		}
 	}
@@ -643,6 +775,18 @@ func getSchemaProvider(schemaProviders []*SchemaProviderSpec, key string) *Schem
 	for _, sp := range schemaProviders {
 		if sp.Key == key {
 			return sp
+		}
+	}
+	return nil
+}
+
+func GetChannelSpec(channels []ChannelSpec, name string) *ChannelSpec {
+	if name == "" {
+		return nil
+	}
+	for i := range channels {
+		if channels[i].Name == name {
+			return &channels[i]
 		}
 	}
 	return nil

@@ -92,10 +92,11 @@ func (cpCtx *ComputePipesContext) StartComputePipes(dbpool *pgxpool.Pool, inputS
 			headersPosMap[c] = i
 		}
 		inputRowChSpec = &ChannelSpec{
-			Name:       "input_row",
-			Columns:    mainInput.InputColumns,
-			ClassName:  cpCtx.CpConfig.PipesConfig[0].InputChannel.ClassName,
-			columnsMap: &headersPosMap,
+			Name:           "input_row",
+			Columns:        mainInput.InputColumns,
+			ClassName:      mainInput.DomainClass,
+			DomainKeysSpec: mainInput.DomainKeys,
+			columnsMap:     &headersPosMap,
 		}
 		inputRowChannel = &InputChannel{
 			name:           "input_row",
@@ -175,10 +176,11 @@ func (cpCtx *ComputePipesContext) StartComputePipes(dbpool *pgxpool.Pool, inputS
 	}
 	for name, spec := range channelsInUse {
 		channelRegistry.computeChannels[name] = &Channel{
-			name:    name,
-			channel: make(chan []interface{}),
-			columns: spec.columnsMap,
-			config:  spec,
+			name:          name,
+			channel:       make(chan []interface{}),
+			columns:       spec.columnsMap,
+			domainKeySpec: spec.DomainKeysSpec,
+			config:        spec,
 		}
 	}
 	if inputChannelName != "input_row" {
@@ -194,6 +196,7 @@ func (cpCtx *ComputePipesContext) StartComputePipes(dbpool *pgxpool.Pool, inputS
 			name:           "input_row",
 			channel:        computePipesInputCh,
 			columns:        inChannel.columns,
+			domainKeySpec:  inChannel.domainKeySpec,
 			config:         inChannel.config,
 			hasGroupedRows: cpCtx.CpConfig.PipesConfig[0].InputChannel.HasGroupedRows,
 		}
@@ -223,13 +226,14 @@ func (cpCtx *ComputePipesContext) StartComputePipes(dbpool *pgxpool.Pool, inputS
 			cpErr = fmt.Errorf("while splitting table name: %s", err)
 			goto gotError
 		}
-		outChannel = channelRegistry.computeChannels[cpCtx.CpConfig.OutputTables[i].Key]
+		outChannel = channelRegistry.computeChannels[cpCtx.CpConfig.OutputTables[i].ChannelSpecName]
 		if outChannel == nil {
-			cpErr = fmt.Errorf("error: invalid Compute Pipes configuration: Output table %s does not have a channel configuration",
+			cpErr = fmt.Errorf("error: invalid Compute Pipes configuration: channel_spec_name %s not found for Output table %s",
+				cpCtx.CpConfig.OutputTables[i].ChannelSpecName,
 				cpCtx.CpConfig.OutputTables[i].Name)
 			goto gotError
 		}
-		channelRegistry.outputTableChannels = append(channelRegistry.outputTableChannels, cpCtx.CpConfig.OutputTables[i].Key)
+		channelRegistry.outputTableChannels = append(channelRegistry.outputTableChannels, cpCtx.CpConfig.OutputTables[i].ChannelSpecName)
 		// log.Println("*** Channel for Output Table", tableIdentifier, "is:", outChannel.name)
 		wt = WriteTableSource{
 			source:          outChannel.channel,

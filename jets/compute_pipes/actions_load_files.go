@@ -48,7 +48,7 @@ func (cpCtx *ComputePipesContext) LoadFiles(ctx context.Context, dbpool *pgxpool
 
 	inputChannelConfig := &cpCtx.CpConfig.PipesConfig[0].InputChannel
 	inputFormat := inputChannelConfig.Format
-	saveParquetSchema := strings.HasPrefix(inputFormat, "parquet")
+	saveParquetSchema := strings.HasPrefix(inputFormat, "parquet") && cpCtx.CpConfig.CommonRuntimeArgs.CpipesMode == "sharding"
 	compression := inputChannelConfig.Compression
 	shardOffset := cpCtx.CpConfig.ClusterConfig.ShardOffset
 	sp := cpCtx.SchemaManager.GetSchemaProvider(inputChannelConfig.SchemaProvider)
@@ -56,11 +56,19 @@ func (cpCtx *ComputePipesContext) LoadFiles(ctx context.Context, dbpool *pgxpool
 	if saveParquetSchema {
 		inputSchemaCh = make(chan any, 1)
 	}
+	castToDomainTypes := inputChannelConfig.CastToDomainTypes	
 
 	// Start the Compute Pipes async
 	go cpCtx.StartComputePipes(dbpool, inputSchemaCh, computePipesInputCh)
 
 	// Load the files
+  if castToDomainTypes {
+    //*TODO castToDomainType is not implemented yet
+    err = fmt.Errorf("error: castToDomainTypes not implemented yet")
+    log.Println(cpCtx.SessionId, "node", cpCtx.NodeId, err)
+    cpCtx.ChResults.LoadFromS3FilesResultCh <- LoadFromS3FilesResult{LoadRowCount: 0, BadRowCount: 0, Err: err}
+    return
+  }
 	// Get the FixedWidthEncodingInfo from the schema provider in case it is modified
 	// downstream (aka anonymize operator)
 	var fwEncodingInfo *FixedWidthEncodingInfo
@@ -68,7 +76,7 @@ func (cpCtx *ComputePipesContext) LoadFiles(ctx context.Context, dbpool *pgxpool
 		fwEncodingInfo = sp.FixedWidthEncodingInfo()
 	}
 
-	samplingMaxCount := int64(cpCtx.CpConfig.PipesConfig[0].InputChannel.SamplingMaxCount)
+	samplingMaxCount := int64(inputChannelConfig.SamplingMaxCount)
 	var count, totalRowCount int64
 	gotMaxRecordCount := false
 	for localInFile := range cpCtx.FileNamesCh {
@@ -252,10 +260,6 @@ func (cpCtx *ComputePipesContext) ReadParquetFile(filePath *FileName, saveParque
 			return 0, fmt.Errorf("error while reading input records (ReadParquetFile): %v", err)
 
 		default:
-			// // Remove invalid utf-8 sequence from input record
-			// for i := range record {
-			// 	record[i] = strings.ToValidUTF8(record[i], "")
-			// }
 			// log.Println(cpCtx.SessionId,"node",cpCtx.NodeId, "push record to computePipesInputCh with",len(record),"columns")
 			select {
 			case computePipesInputCh <- record:

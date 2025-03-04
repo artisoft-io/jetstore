@@ -307,7 +307,7 @@
       },
       {
         "columnName": "domain_key_object_types",
-        "description": "Domain key expected for the source_config",
+        "description": "Domain key expected for the source_config. This column is not used yet, could be for validation.",
         "dataType": "text",
         "isArray": true,
         "default": "'{}'",
@@ -570,7 +570,7 @@
       },
       {
         "columnName": "compression",
-        "description": "Compression algo: none, snappy. Applies to format: csv, headerless_csv, fixed_width, parquet?, parquet_select?",
+        "description": "Compression algo: none, snappy. Applies to format: csv, headerless_csv, fixed_width, (parquet and parquet_select is specified in the parquet schema in the file)?",
         "dataType": "text",
         "default": "'none'",
         "isNotNull": true

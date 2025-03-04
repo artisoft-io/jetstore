@@ -96,7 +96,7 @@ func (ctx *hashColumnEval) Update(currentValue *[]interface{}, input *[]interfac
 		if ctx.inputPos < len(*input) {
 			inputVal = (*input)[ctx.inputPos]
 		} else {
-			err = fmt.Errorf("error: hash operator called with invalid read key position of %d for len of %d",ctx.inputPos, len(*input))
+			err = fmt.Errorf("error: hash operator called with invalid read key position of %d for len of %d", ctx.inputPos, len(*input))
 		}
 	} else {
 		// Use the composite key
@@ -126,7 +126,7 @@ func (ctx *hashColumnEval) Update(currentValue *[]interface{}, input *[]interfac
 	if ctx.outputPos < len(*currentValue) {
 		(*currentValue)[ctx.outputPos] = hashedValue
 	} else {
-		err = fmt.Errorf("error: EvalHash called with invalid write key position of %d for len of %d",ctx.outputPos, len(*currentValue))
+		err = fmt.Errorf("error: EvalHash called with invalid write key position of %d for len of %d", ctx.outputPos, len(*currentValue))
 	}
 	return err
 }
@@ -157,7 +157,8 @@ func (ctx *BuilderContext) BuildHashTCEvaluator(source *InputChannel, outCh *Out
 	// Do validation
 	exprLen := len(spec.HashExpr.Expr)
 	compositeLen := len(spec.HashExpr.CompositeExpr)
-	if exprLen == 0 && compositeLen == 0 {
+	domainKeyLen := len(spec.HashExpr.DomainKey)
+	if exprLen == 0 && compositeLen == 0 && domainKeyLen == 0 {
 		return nil, fmt.Errorf("error: must specify expr or composite_expr in hash operator")
 	}
 	inputPos := -1
@@ -169,12 +170,27 @@ func (ctx *BuilderContext) BuildHashTCEvaluator(source *InputChannel, outCh *Out
 		if !ok {
 			return nil, fmt.Errorf("error column %s not found in input source %s", *spec.Expr, source.name)
 		}
-	case compositeLen > 0:
-		compositeInputKey, err = ParseAltKeyDefinition(spec.HashExpr.CompositeExpr, source.columns)
-		if err != nil {
-			return nil, fmt.Errorf("%v in source name %s", err, source.name)
+	case compositeLen > 0 || domainKeyLen > 0:
+		var keys []string
+		if domainKeyLen > 0 {
+			dk := source.domainKeySpec
+			if dk == nil {
+				return nil, fmt.Errorf("error: hash operator is configured with domain key but no domain key spec available")
+			}
+			info, ok := dk.DomainKeys[spec.HashExpr.DomainKey]
+			if ok {
+				keys = info.KeyExpr
+			}
+		} else {
+			keys = spec.HashExpr.CompositeExpr
 		}
-
+		if len(keys) == 0 {
+			return nil, fmt.Errorf("error: hash operator configured as domain key or composite key has no columns")
+		}
+		compositeInputKey, err = ParseAltKeyDefinition(keys, source.columns)
+		if err != nil {
+			return nil, fmt.Errorf("while calling ParseAltKeyDefinition (input channel name %s): %v", source.name, err)
+		}
 	}
 	outputPos, ok := (*outCh.columns)[spec.Name]
 	if !ok {

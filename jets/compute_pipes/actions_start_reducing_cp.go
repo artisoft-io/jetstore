@@ -169,11 +169,9 @@ func (args *StartComputePipesArgs) StartReducingComputePipes(ctx context.Context
 		inputColumns = fileInfo.headers
 	} else {
 		// Get the columns from the channel spec
-		for i := range cpipesStartup.CpConfig.Channels {
-			if cpipesStartup.CpConfig.Channels[i].Name == inputChannel {
-				inputColumns = cpipesStartup.CpConfig.Channels[i].Columns
-				break
-			}
+		chSpec := GetChannelSpec(cpipesStartup.CpConfig.Channels, inputChannel)
+		if chSpec != nil {
+			inputColumns = chSpec.Columns
 		}
 		if !isMergeFiles && len(inputColumns) == 0 {
 			return result, fmt.Errorf("error: cpipes config is missing channel config for input %s", inputChannel)
@@ -186,7 +184,7 @@ func (args *StartComputePipesArgs) StartReducingComputePipes(ctx context.Context
 	}
 
 	// Validate the PipeSpec.TransformationSpec.OutputChannel configuration
-	err = ValidatePipeSpecConfig(&cpipesStartup.CpConfig, pipeConfig)
+	err = cpipesStartup.ValidatePipeSpecConfig(&cpipesStartup.CpConfig, pipeConfig)
 	if err != nil {
 		return result, err
 	}
@@ -225,10 +223,10 @@ func (args *StartComputePipesArgs) StartReducingComputePipes(ctx context.Context
 			ProcessName:     cpipesStartup.ProcessName,
 			SourcesConfig: SourcesConfigSpec{
 				MainInput: &InputSourceSpec{
-					InputColumns:        inputColumns,
-					InputFormatDataJson: mainInputSchemaProvider.InputFormatDataJson,
-					SchemaProvider:      mainInputSchemaProvider.Key,
-					InputParquetSchema:  inputParquetSchema,
+					InputColumns:       inputColumns,
+					InputParquetSchema: inputParquetSchema,
+					DomainKeys:         cpipesStartup.MainInputDomainKeysSpec,
+					DomainClass:        cpipesStartup.MainInputDomainClass,
 				},
 			},
 			PipelineConfigKey: cpipesStartup.PipelineConfigKey,

@@ -182,7 +182,7 @@ func (args *StartComputePipesArgs) StartShardingComputePipes(ctx context.Context
 	// Add extra headers to input_row if specified in the channels spec
 	extraInputColumns := GetAdditionalInputColumns(&cpipesStartup.CpConfig)
 	if len(extraInputColumns) > 0 {
-		cpipesStartup.InputColumns = append(cpipesStartup.InputColumns,	extraInputColumns...)
+		cpipesStartup.InputColumns = append(cpipesStartup.InputColumns, extraInputColumns...)
 	}
 
 	// Set the nbr of concurrent map tasks
@@ -234,7 +234,7 @@ func (args *StartComputePipesArgs) StartShardingComputePipes(ctx context.Context
 	}
 
 	// Validate the PipeSpec.TransformationSpec.OutputChannel configuration
-	err = ValidatePipeSpecConfig(&cpipesStartup.CpConfig, pipeConfig)
+	err = cpipesStartup.ValidatePipeSpecConfig(&cpipesStartup.CpConfig, pipeConfig)
 	if err != nil {
 		return result, err
 	}
@@ -252,9 +252,9 @@ func (args *StartComputePipesArgs) StartShardingComputePipes(ctx context.Context
 			ProcessName:     cpipesStartup.ProcessName,
 			SourcesConfig: SourcesConfigSpec{
 				MainInput: &InputSourceSpec{
-					InputColumns:        cpipesStartup.InputColumns,
-					InputFormatDataJson: mainInputSchemaProvider.InputFormatDataJson,
-					SchemaProvider:      mainInputSchemaProvider.Key,
+					InputColumns: cpipesStartup.InputColumns,
+					DomainKeys:   cpipesStartup.MainInputDomainKeysSpec,
+					DomainClass:  cpipesStartup.MainInputDomainClass,
 				},
 			},
 			PipelineConfigKey: cpipesStartup.PipelineConfigKey,
