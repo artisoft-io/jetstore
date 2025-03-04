@@ -402,14 +402,16 @@ func (p *ParseDateMatchFunction) NewValue(value string) {
 	}
 	if gotMatch {
 		for _, d := range parsedDate {
-			if p.minMax.minValue == nil || d.Before(*p.minMax.minValue) {
-				p.minMax.minValue = d
+			if d != nil {
+				if p.minMax.minValue == nil || d.Before(*p.minMax.minValue) {
+					p.minMax.minValue = d
+				}
+				if p.minMax.maxValue == nil || d.After(*p.minMax.maxValue) {
+					p.minMax.maxValue = d
+				}
+				p.minMax.count += 1
+				break	
 			}
-			if p.minMax.maxValue == nil || d.After(*p.minMax.maxValue) {
-				p.minMax.maxValue = d
-			}
-			p.minMax.count += 1
-			break
 		}
 	}
 }
