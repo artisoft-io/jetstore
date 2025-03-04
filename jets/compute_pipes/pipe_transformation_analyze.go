@@ -19,23 +19,36 @@ import (
 // Base columns available on the output (only columns specified in outputCh
 // are actually send out):
 //
-//		"column_name",
-//		"column_pos",
-//		"distinct_count",
-//		"distinct_count_pct",
-//		"null_count",
-//		"null_count_pct",
-//		"total_count",
-//		"avr_length",
-//		"length_var",
-//	 "is_value_numeric_count",
-//	 "is_value_numeric_count_pct",
-//		"avr_value",
-//		"value_var",
+//	"column_name",
+//	"column_pos",
+//	"input_data_type",
+//	"entity_hint",
+//	"distinct_count",
+//	"distinct_count_pct",
+//	"null_count",
+//	"null_count_pct",
+//	"total_count",
+//	"avr_length",
+//	"length_var"
 //
-// is_value_numeric_pct = <count of value parsed as float> / (totalCount - nullCount) * 100.0
+// Other base columns available when using parse function (parse_date, parse_double, parse_text)
 //
-// Other columns are added based on regex_tokens, lookup_tokens, and keyword_tokens
+//	"min_date",
+//	"max_date",
+//	"min_double",
+//	"max_double",
+//	"min_length",
+//	"max_length",
+//	"min_value",
+//	"max_value",
+//	"minmax_type"
+//
+// Note for min_value/max_value are determined based on this priority rule:
+//  1. min_date/max_date if more than 50% of values are valid dates;
+//  2. min_double/max_double if more than 75% of values are valid double;
+//  3. otherwise it's the text min/max length.
+//
+// Other columns are added based on regex_tokens, lookup_tokens, keyword_tokens, and parse functions
 // The value of the domain counts are expressed in percentage of the non null count:
 //
 //	ratio = <domain count>/(totalCount - nullCount) * 100.0
@@ -220,6 +233,7 @@ func (ctx *AnalyzeTransformationPipe) Done() error {
 		}
 
 		// The functions tokens
+		var dateMinMax, doubleMinMax, textMinMax, winningValue *MinMaxValue
 		for _, fc := range state.FunctionMatch {
 			m := fc.GetMatchToken()
 			for token, count := range m {
@@ -230,6 +244,75 @@ func (ctx *AnalyzeTransformationPipe) Done() error {
 					} else {
 						outputRow[ipos] = -1.0
 					}
+				}
+			}
+			minMax := fc.GetMinMaxValues()
+			if minMax != nil {
+				switch minMax.MinMaxType {
+				case "date":
+					dateMinMax = minMax
+				case "double":
+					doubleMinMax = minMax
+				case "text":
+					textMinMax = minMax
+				}
+			}
+		}
+		// Pick the winning minmax results
+		nonNilCount := state.TotalRowCount - state.NullCount
+		if nonNilCount > 0 {
+			switch {
+			case dateMinMax != nil && 2*dateMinMax.HitCount > nonNilCount:
+				winningValue = dateMinMax
+			case doubleMinMax != nil && 4*doubleMinMax.HitCount > 3*nonNilCount:
+				winningValue = doubleMinMax
+			default:
+				winningValue = textMinMax
+			}
+
+			// Assign to output columns
+			if dateMinMax != nil {
+				ipos, ok = (*ctx.outputCh.columns)["min_date"]
+				if ok {
+					outputRow[ipos] = dateMinMax.MinValue
+				}
+				ipos, ok = (*ctx.outputCh.columns)["max_date"]
+				if ok {
+					outputRow[ipos] = dateMinMax.MaxValue
+				}
+			}
+			if doubleMinMax != nil {
+				ipos, ok = (*ctx.outputCh.columns)["min_double"]
+				if ok {
+					outputRow[ipos] = doubleMinMax.MinValue
+				}
+				ipos, ok = (*ctx.outputCh.columns)["max_double"]
+				if ok {
+					outputRow[ipos] = doubleMinMax.MaxValue
+				}
+			}
+			if textMinMax != nil {
+				ipos, ok = (*ctx.outputCh.columns)["min_length"]
+				if ok {
+					outputRow[ipos] = textMinMax.MinValue
+				}
+				ipos, ok = (*ctx.outputCh.columns)["max_length"]
+				if ok {
+					outputRow[ipos] = textMinMax.MaxValue
+				}
+			}
+			if winningValue != nil {
+				ipos, ok = (*ctx.outputCh.columns)["min_value"]
+				if ok {
+					outputRow[ipos] = winningValue.MinValue
+				}
+				ipos, ok = (*ctx.outputCh.columns)["max_value"]
+				if ok {
+					outputRow[ipos] = winningValue.MaxValue
+				}
+				ipos, ok = (*ctx.outputCh.columns)["minmax_type"]
+				if ok {
+					outputRow[ipos] = winningValue.MinMaxType
 				}
 			}
 		}
