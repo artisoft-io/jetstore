@@ -6,7 +6,9 @@ import (
 	"hash/fnv"
 	"math/rand"
 	"regexp"
+	"strconv"
 	"strings"
+	"time"
 
 	"github.com/artisoft-io/jetstore/jets/jetrules/rdf"
 )
@@ -73,6 +75,9 @@ func EvalHash(key interface{}, partitions uint64) *uint64 {
 		} else {
 			hashedValue = uint64(0)
 		}
+	case time.Time:
+		hashedValue = partition(uint64(vv.Unix()), partitions)
+
 	default:
 		hashedValue = Hash([]byte(fmt.Sprintf("%v", vv)), partitions)
 	}
@@ -88,7 +93,11 @@ func (ctx *hashColumnEval) Update(currentValue *[]interface{}, input *[]interfac
 	// compute the hash of value @ inputPos, if it's nil use the alternate (composite) key
 	var inputVal, hashedValue interface{}
 	if ctx.inputPos > -1 {
-		inputVal = (*input)[ctx.inputPos]
+		if ctx.inputPos < len(*input) {
+			inputVal = (*input)[ctx.inputPos]
+		} else {
+			err = fmt.Errorf("error: hash operator called with invalid read key position of %d for len of %d", ctx.inputPos, len(*input))
+		}
 	} else {
 		// Use the composite key
 		inputVal, err = makeAlternateKey(&ctx.compositeInputKey, input)
@@ -114,8 +123,11 @@ func (ctx *hashColumnEval) Update(currentValue *[]interface{}, input *[]interfac
 		// } else {
 		// 	fmt.Printf("##### # EvalHash k: %v, nbr partitions: %d => NULL\n", inputVal, ctx.partitions)
 	}
-
-	(*currentValue)[ctx.outputPos] = hashedValue
+	if ctx.outputPos < len(*currentValue) {
+		(*currentValue)[ctx.outputPos] = hashedValue
+	} else {
+		err = fmt.Errorf("error: EvalHash called with invalid write key position of %d for len of %d", ctx.outputPos, len(*currentValue))
+	}
 	return err
 }
 func (ctx *hashColumnEval) Done(currentValue *[]interface{}) error {
@@ -145,7 +157,8 @@ func (ctx *BuilderContext) BuildHashTCEvaluator(source *InputChannel, outCh *Out
 	// Do validation
 	exprLen := len(spec.HashExpr.Expr)
 	compositeLen := len(spec.HashExpr.CompositeExpr)
-	if exprLen == 0 && compositeLen == 0 {
+	domainKeyLen := len(spec.HashExpr.DomainKey)
+	if exprLen == 0 && compositeLen == 0 && domainKeyLen == 0 {
 		return nil, fmt.Errorf("error: must specify expr or composite_expr in hash operator")
 	}
 	inputPos := -1
@@ -157,12 +170,27 @@ func (ctx *BuilderContext) BuildHashTCEvaluator(source *InputChannel, outCh *Out
 		if !ok {
 			return nil, fmt.Errorf("error column %s not found in input source %s", *spec.Expr, source.name)
 		}
-	case compositeLen > 0:
-		compositeInputKey, err = ParseAltKeyDefinition(spec.HashExpr.CompositeExpr, source.columns)
-		if err != nil {
-			return nil, fmt.Errorf("%v in source name %s", err, source.name)
+	case compositeLen > 0 || domainKeyLen > 0:
+		var keys []string
+		if domainKeyLen > 0 {
+			dk := source.domainKeySpec
+			if dk == nil {
+				return nil, fmt.Errorf("error: hash operator is configured with domain key but no domain key spec available")
+			}
+			info, ok := dk.DomainKeys[spec.HashExpr.DomainKey]
+			if ok {
+				keys = info.KeyExpr
+			}
+		} else {
+			keys = spec.HashExpr.CompositeExpr
 		}
-
+		if len(keys) == 0 {
+			return nil, fmt.Errorf("error: hash operator configured as domain key or composite key has no columns")
+		}
+		compositeInputKey, err = ParseAltKeyDefinition(keys, source.columns)
+		if err != nil {
+			return nil, fmt.Errorf("while calling ParseAltKeyDefinition (input channel name %s): %v", source.name, err)
+		}
 	}
 	outputPos, ok := (*outCh.columns)[spec.Name]
 	if !ok {
@@ -246,6 +274,8 @@ func (pf *DefaultPF) ApplyPF(buf *bytes.Buffer, input *[]interface{}) error {
 		buf.Write(vv)
 	case nil:
 		// do nothing
+	case time.Time:
+		buf.WriteString(strconv.FormatInt(vv.Unix(), 10))
 	default:
 		buf.WriteString(fmt.Sprintf("%v", vv))
 	}

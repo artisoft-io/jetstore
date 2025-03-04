@@ -36,6 +36,8 @@ type SchemaProvider interface {
 	DetectEncoding() bool
 	Compression() string
 	InputFormatDataJson() string
+	DomainClass() string
+	DomainKeys() map[string]any
 	IsPartFiles() bool
 	Delimiter() rune
 	UseLazyQuotes() bool
@@ -130,7 +132,7 @@ func (sp *DefaultSchemaProvider) AdjustColumnWidth(width map[string]int) error {
 		w, ok := width[c.Name]
 		if ok {
 			c.Length = w
-		}		
+		}
 	}
 	sp.spec.FixedWidthColumnsCsv = ""
 	return sp.initializeFixedWidthInfo()
@@ -204,6 +206,20 @@ func (sp *DefaultSchemaProvider) InputFormatDataJson() string {
 		return ""
 	}
 	return sp.spec.InputFormatDataJson
+}
+
+func (sp *DefaultSchemaProvider) DomainClass() string {
+	if sp == nil {
+		return ""
+	}
+	return sp.spec.DomainClass
+}
+
+func (sp *DefaultSchemaProvider) DomainKeys() map[string]any {
+	if sp == nil {
+		return nil
+	}
+	return sp.spec.DomainKeys
 }
 
 func (sp *DefaultSchemaProvider) IsPartFiles() bool {

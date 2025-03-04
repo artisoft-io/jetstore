@@ -5,7 +5,7 @@ import (
 	"log"
 )
 
-// Worker to perform jetrules execute rules function
+// Worker for clustering operator
 
 type ClusteringWorker struct {
 	config                *ClusteringSpec

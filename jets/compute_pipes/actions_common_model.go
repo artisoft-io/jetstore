@@ -84,19 +84,22 @@ type SourcesConfigSpec struct {
 	InjectedInput []*InputSourceSpec `json:"injected_inputs"`
 }
 
-// InputSourceSpec contains carry over configuration from
-// table source_config.
-// SchemaProvider correspond to the _main_input_ schema provider,
-// ie, the one from the main input file of sharding step.
-// See SchemaProviderSpec for details on SchemaProvider
 // InputColumns correspond to columns in the input files, this
 // applies to reducing as well as sharding steps.
 // For the case of sharding step, it includes columns from part files key.
+// DomainKeys is taken from:
+//   - source_config table or main schema provider for source_type = 'file'
+//   - domain_keys_registry table or schema_provider / input_source_spec for source_type = 'domain_table'
+//
+// DomainClass is taken from:
+//   - domain_keys_registry table or schema_provider / input_source_spec for source_type = 'domain_table'
+//
+// Note: for source_type = 'file', DomainClass does not apply, the file needs to be mapped first.
 type InputSourceSpec struct {
-	InputColumns        []string           `json:"input_columns"`
-	InputFormatDataJson string             `json:"input_format_data_json,omitempty"`
-	SchemaProvider      string             `json:"schema_provider,omitempty"`
-	InputParquetSchema  *ParquetSchemaInfo `json:"input_parquet_schema,omitempty"`
+	InputColumns       []string           `json:"input_columns"`
+	InputParquetSchema *ParquetSchemaInfo `json:"input_parquet_schema,omitempty"`
+	DomainClass        string             `json:"domain_class,omitempty"`
+	DomainKeys         *DomainKeysSpec    `json:"domain_keys_spec,omitempty"`
 }
 
 type ParquetSchemaInfo struct {

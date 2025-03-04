@@ -216,13 +216,18 @@ type CsvSourceSpec struct {
 // the domain class.
 // When direct_properties_only is true, only take the data properties
 // of the class, not including the properties of the parent classes.
+// DomainKeys provide the ability to configure the domain keys in the cpipes config document.
+// DomainKeysSpec is parsed version of DomainKeys or the spec from the domain_keys_registry table.
+// DomainKeysSpec is derived from DomainKeys when provided.
 // columnsMap is added in StartComputePipes
 type ChannelSpec struct {
-	Name                 string   `json:"name"`
-	Columns              []string `json:"columns"`
-	ClassName            string   `json:"class_name,omitempty"`
-	DirectPropertiesOnly bool     `json:"direct_properties_only"`
-	HasDynamicColumns    bool     `json:"has_dynamic_columns"`
+	Name                 string          `json:"name"`
+	Columns              []string        `json:"columns"`
+	ClassName            string          `json:"class_name,omitempty"`
+	DirectPropertiesOnly bool            `json:"direct_properties_only"`
+	HasDynamicColumns    bool            `json:"has_dynamic_columns"`
+	DomainKeys           map[string]any  `json:"domain_keys,omitempty"`
+	DomainKeysSpec       *DomainKeysSpec `json:"domain_keys_spec,omitempty"`
 	columnsMap           *map[string]int
 }
 
@@ -269,6 +274,8 @@ type SchemaProviderSpec struct {
 	DetectEncoding          bool               `json:"detect_encoding"`
 	Delimiter               rune               `json:"delimiter"`
 	Compression             string             `json:"compression,omitempty"`
+	DomainClass             string             `json:"domain_class,omitempty"`
+	DomainKeys              map[string]any     `json:"domain_keys,omitempty"`
 	InputFormatDataJson     string             `json:"input_format_data_json,omitempty"`
 	UseLazyQuotes           bool               `json:"use_lazy_quotes"`
 	VariableFieldsPerRecord bool               `json:"variable_fields_per_record"`
@@ -289,11 +296,14 @@ type SchemaColumnSpec struct {
 	Precision *int   `json:"precision"` // for fixed_width
 }
 
+// ChannelSpecName specify the channel spec.
+// Column provides metadata info
 type TableSpec struct {
 	Key                string            `json:"key"`
 	Name               string            `json:"name"`
 	CheckSchemaChanged bool              `json:"check_schema_changed"`
 	Columns            []TableColumnSpec `json:"columns"`
+	ChannelSpecName    string            `json:"channel_spec_name"`
 }
 
 type OutputFileSpec struct {
@@ -396,17 +406,20 @@ type InputChannelConfig struct {
 	// ComputePipesCommonArgs.SourcesConfig (ie input_registry table).
 	// HasGroupedRow indicates that the channel contains grouped rows,
 	// most likely from the group_by operator.
-	Type             string `json:"type"`
-	Name             string `json:"name"`
-	Format           string `json:"format,omitempty"`
-	Delimiter        rune   `json:"delimiter"`
-	Compression      string `json:"compression,omitempty"`
-	SchemaProvider   string `json:"schema_provider,omitempty"`
-	ReadStepId       string `json:"read_step_id"`
-	SamplingRate     int    `json:"sampling_rate"`
-	SamplingMaxCount int    `json:"sampling_max_count"`
-	HasGroupedRows   bool   `json:"has_grouped_rows"`
-	ClassName        string `json:"class_name,omitempty"`
+	// When CastToDomainTypes is true, the channel records are cast to domain data types,
+	// which are specified from DomainClass of MainInput. 
+	// CastToDomainTypes is applicable for Type 'input' only
+	Type              string `json:"type"`
+	Name              string `json:"name"`
+	Format            string `json:"format,omitempty"`
+	Delimiter         rune   `json:"delimiter"`
+	Compression       string `json:"compression,omitempty"`
+	SchemaProvider    string `json:"schema_provider,omitempty"`
+	ReadStepId        string `json:"read_step_id"`
+	SamplingRate      int    `json:"sampling_rate"`
+	SamplingMaxCount  int    `json:"sampling_max_count"`
+	HasGroupedRows    bool   `json:"has_grouped_rows"`
+	CastToDomainTypes bool   `json:"cast_to_domain_types,omitempty"`
 }
 
 type OutputChannelConfig struct {
@@ -671,11 +684,14 @@ type LookupColumnSpec struct {
 // Case single column, use Expr
 // Case multi column, use CompositeExpr
 // Expr takes precedence if both are populated.
+// DomainKey is specified as an object_type. DomainKeysJson provides the
+// mapping between domain keys and columns.
 // AlternateCompositeExpr is used when Expr or CompositeExpr returns nil or empty.
 // MultiStepShardingMode values: 'limited_range', 'full_range' or empty
 type HashExpression struct {
 	Expr                   string   `json:"expr,omitempty"`
 	CompositeExpr          []string `json:"composite_expr,omitzero"`
+	DomainKey              string   `json:"domain_key,omitempty"`
 	NbrJetsPartitions      *uint64  `json:"nbr_jets_partitions,omitzero"`
 	MultiStepShardingMode  string   `json:"multi_step_sharding_mode,omitempty"`
 	AlternateCompositeExpr []string `json:"alternate_composite_expr"`

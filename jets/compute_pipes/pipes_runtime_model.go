@@ -94,23 +94,25 @@ func (r *ChannelRegistry) GetOutputChannel(name string) (*OutputChannel, error) 
 }
 
 type Channel struct {
-	name    string
-	channel chan []interface{}
-	columns *map[string]int
-	config  *ChannelSpec
+	name          string
+	channel       chan []interface{}
+	columns       *map[string]int
+	domainKeySpec *DomainKeysSpec
+	config        *ChannelSpec
 }
 type InputChannel struct {
 	name           string
 	channel        <-chan []interface{}
 	columns        *map[string]int
+	domainKeySpec  *DomainKeysSpec
 	config         *ChannelSpec
 	hasGroupedRows bool
 }
 type OutputChannel struct {
-	name    string
-	channel chan<- []interface{}
-	columns *map[string]int
-	config  *ChannelSpec
+	name          string
+	channel       chan<- []interface{}
+	columns       *map[string]int
+	config        *ChannelSpec
 }
 
 type BuilderContext struct {
@@ -152,6 +154,7 @@ func (ctx *BuilderContext) parseValue(expr *string) (interface{}, error) {
 	}
 	return ExprBuilderContext(ctx.env).parseValue(expr)
 }
+
 type PipeTransformationEvaluator interface {
 	Apply(input *[]interface{}) error
 	Done() error
