@@ -3,6 +3,7 @@ package compute_pipes
 import (
 	"fmt"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 
@@ -53,9 +54,20 @@ func NewKeywordCount(name string, keywords []string) *KeywordCount {
 	}
 }
 
+// MinValue and MaxValue are expressed as string but represent one of:
+//   - min/max date when MinMaxType == "date"
+//   - min/max double when MinMaxType == "double"
+//   - min/max length when MinMaxType == "text"
+type MinMaxValue struct {
+	MinValue   string
+	MaxValue   string
+	MinMaxType string
+	HitCount   int
+}
 type FunctionCount interface {
 	NewValue(value string)
 	GetMatchToken() map[string]int
+	GetMinMaxValues() *MinMaxValue
 }
 
 func NewFunctionCount(fspec *FunctionTokenNode, sp SchemaProvider) (FunctionCount, error) {
@@ -64,13 +76,17 @@ func NewFunctionCount(fspec *FunctionTokenNode, sp SchemaProvider) (FunctionCoun
 	switch fspec.Type {
 	case "parse_date":
 		fnc, err = NewParseDateMatchFunction(fspec, sp)
-		if err != nil {
-			return nil, err
-		}
+
+	case "parse_double":
+		fnc, err = NewParseDoubleMatchFunction(fspec)
+
+	case "parse_text":
+		fnc, err = NewParseTextMatchFunction(fspec)
+
 	default:
 		return nil, fmt.Errorf("error: unknown function_name '%s' in Analyze operator", fspec.Type)
 	}
-	return fnc, nil
+	return fnc, err
 }
 
 // Analyze data TransformationSpec implementing PipeTransformationEvaluator interface
@@ -122,6 +138,7 @@ func (ctx *BuilderContext) NewAnalyzeState(columnName string, columnPos int, inp
 	}
 	config := spec.AnalyzeConfig
 	sp := ctx.schemaManager.schemaProviders[config.SchemaProvider]
+
 	// Create analyze actions
 	regexMatch := make(map[string]*RegexCount)
 	for i := range config.RegexTokens {
@@ -132,6 +149,7 @@ func (ctx *BuilderContext) NewAnalyzeState(columnName string, columnPos int, inp
 		}
 		regexMatch[conf.Name] = NewRegexCount(rexp, conf.UseScrubbedValue)
 	}
+
 	lookupState := make([]*LookupTokensState, 0)
 	if len(config.LookupTokens) > 0 && ctx.lookupTableManager != nil {
 		for i := range config.LookupTokens {
@@ -147,11 +165,13 @@ func (ctx *BuilderContext) NewAnalyzeState(columnName string, columnPos int, inp
 			lookupState = append(lookupState, state)
 		}
 	}
+
 	keywordMatch := make(map[string]*KeywordCount)
 	for i := range config.KeywordTokens {
 		kw := &config.KeywordTokens[i]
 		keywordMatch[kw.Name] = NewKeywordCount(kw.Name, kw.Keywords)
 	}
+
 	functionMatch := make([]FunctionCount, 0, len(config.FunctionTokens))
 	for i := range config.FunctionTokens {
 		conf := &config.FunctionTokens[i]
@@ -311,11 +331,15 @@ func (state *AnalyzeState) NewToken(value string) error {
 	return nil
 }
 
+// Parse Date Match Function
+
 // ParseDateMatchFunction is a match function to vaidate dates.
 // ParseDateMatchFunction implements FunctionCount interface
 type ParseDateMatchFunction struct {
-	matchers []*ParseDateMatcher
-	matches  map[string]int
+	matchers         []*ParseDateMatcher
+	matches          map[string]int
+	minMaxDateFormat string
+	minMax           *minMaxDateValue
 }
 
 type ParseDateMatcher struct {
@@ -323,6 +347,11 @@ type ParseDateMatcher struct {
 	dateLayout      string
 	yearLessThan    int
 	yearGreaterThan int
+}
+type minMaxDateValue struct {
+	minValue *time.Time
+	maxValue *time.Time
+	count    int
 }
 
 // Match implements the match function.
@@ -363,10 +392,24 @@ func (pd *ParseDateMatcher) Match(value string, parsedDate map[string]*time.Time
 
 // ParseDateMatchFunction implements FunctionCount interface
 func (p *ParseDateMatchFunction) NewValue(value string) {
+	gotMatch := false
 	parsedDate := make(map[string]*time.Time)
 	for _, pd := range p.matchers {
 		if pd.Match(value, parsedDate) {
 			p.matches[pd.token] += 1
+			gotMatch = true
+		}
+	}
+	if gotMatch {
+		for _, d := range parsedDate {
+			if p.minMax.minValue == nil || d.Before(*p.minMax.minValue) {
+				p.minMax.minValue = d
+			}
+			if p.minMax.maxValue == nil || d.After(*p.minMax.maxValue) {
+				p.minMax.maxValue = d
+			}
+			p.minMax.count += 1
+			break
 		}
 	}
 }
@@ -378,8 +421,26 @@ func (p *ParseDateMatchFunction) GetMatchToken() map[string]int {
 	return p.matches
 }
 
+func (p *ParseDateMatchFunction) GetMinMaxValues() *MinMaxValue {
+	if p == nil || p.minMax == nil {
+		return nil
+	}
+	if p.minMax.minValue == nil || p.minMax.maxValue == nil {
+		return nil
+	}
+	return &MinMaxValue{
+		MinValue:   p.minMax.minValue.Format(p.minMaxDateFormat),
+		MaxValue:   p.minMax.maxValue.Format(p.minMaxDateFormat),
+		MinMaxType: "date",
+		HitCount:   p.minMax.count,
+	}
+}
+
 func NewParseDateMatchFunction(fspec *FunctionTokenNode, sp SchemaProvider) (FunctionCount, error) {
-	spLayout := sp.ReadDateLayout()
+	var spLayout string
+	if sp != nil {
+		spLayout = sp.ReadDateLayout()
+	}
 	matches := make(map[string]int)
 	matchers := make([]*ParseDateMatcher, 0, len(fspec.ParseDateArguments))
 	for i := range fspec.ParseDateArguments {
@@ -403,9 +464,115 @@ func NewParseDateMatchFunction(fspec *FunctionTokenNode, sp SchemaProvider) (Fun
 			yearGreaterThan: config.YearGreaterThan,
 		})
 	}
+	format := "2006-01-02"
+	if len(fspec.MinMaxDateFormat) > 0 {
+		format = fspec.MinMaxDateFormat
+	}
 	return &ParseDateMatchFunction{
-		matchers: matchers,
-		matches:  matches,
+		matchers:         matchers,
+		matches:          matches,
+		minMaxDateFormat: format,
+		minMax:           &minMaxDateValue{},
+	}, nil
+}
+
+// Parse Double Match Function
+
+type ParseDoubleMatchFunction struct {
+	minMax *minMaxDoubleValue
+}
+
+type minMaxDoubleValue struct {
+	minValue *float64
+	maxValue *float64
+	count    int
+}
+
+// ParseDoubleMatchFunction implements FunctionCount interface
+func (p *ParseDoubleMatchFunction) NewValue(value string) {
+	fvalue, err := strconv.ParseFloat(value, 64)
+	if err == nil {
+		if p.minMax.minValue == nil || fvalue < *p.minMax.minValue {
+			p.minMax.minValue = &fvalue
+		}
+		if p.minMax.maxValue == nil || fvalue > *p.minMax.maxValue {
+			p.minMax.maxValue = &fvalue
+		}
+		p.minMax.count += 1
+	}
+}
+
+func (p *ParseDoubleMatchFunction) GetMatchToken() map[string]int {
+	return nil
+}
+
+func (p *ParseDoubleMatchFunction) GetMinMaxValues() *MinMaxValue {
+	if p == nil || p.minMax == nil {
+		return nil
+	}
+	if p.minMax.minValue == nil || p.minMax.maxValue == nil {
+		return nil
+	}
+	return &MinMaxValue{
+		MinValue:   strconv.FormatFloat(*p.minMax.minValue, 'f', -1, 64),
+		MaxValue:   strconv.FormatFloat(*p.minMax.maxValue, 'f', -1, 64),
+		MinMaxType: "double",
+		HitCount:   p.minMax.count,
+	}
+}
+
+func NewParseDoubleMatchFunction(fspec *FunctionTokenNode) (FunctionCount, error) {
+	return &ParseDoubleMatchFunction{
+		minMax: &minMaxDoubleValue{},
+	}, nil
+}
+
+// Parse Text Match Function
+
+type ParseTextMatchFunction struct {
+	minMax *minMaxLength
+}
+
+type minMaxLength struct {
+	minValue *int
+	maxValue *int
+	count    int
+}
+
+// ParseTextMatchFunction implements FunctionCount interface
+func (p *ParseTextMatchFunction) NewValue(value string) {
+	length := len(value)
+	if p.minMax.minValue == nil || length < *p.minMax.minValue {
+		p.minMax.minValue = &length
+	}
+	if p.minMax.maxValue == nil || length > *p.minMax.maxValue {
+		p.minMax.maxValue = &length
+	}
+	p.minMax.count += 1
+}
+
+func (p *ParseTextMatchFunction) GetMatchToken() map[string]int {
+	return nil
+}
+
+func (p *ParseTextMatchFunction) GetMinMaxValues() *MinMaxValue {
+	if p == nil || p.minMax == nil {
+		return nil
+	}
+	if p.minMax.minValue == nil || p.minMax.maxValue == nil {
+		return nil
+	}
+	return &MinMaxValue{
+		MinValue:   strconv.FormatInt(int64(*p.minMax.minValue), 10),
+		MaxValue:   strconv.FormatInt(int64(*p.minMax.maxValue), 10),
+		MinMaxType: "text",
+		HitCount:   p.minMax.count,
+	}
+}
+
+func NewParseTextMatchFunction(fspec *FunctionTokenNode) (FunctionCount, error) {
+	return &ParseTextMatchFunction{
+		minMax: &minMaxLength{},
 	}, nil
 }
 

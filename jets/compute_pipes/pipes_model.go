@@ -493,7 +493,8 @@ type KeywordTokenNode struct {
 // Type: parse_date
 type FunctionTokenNode struct {
 	Type               string            `json:"type"`
-	ParseDateArguments []ParseDateFTSpec `json:"parse_date_args"`
+  MinMaxDateFormat   string            `json:"minmax_date_format,omitempty"`
+	ParseDateArguments []ParseDateFTSpec `json:"parse_date_args,omitempty"`
 }
 
 // The date format is using a reference date of
