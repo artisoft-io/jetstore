@@ -12,23 +12,25 @@ import (
 )
 
 type AnonymizeTransformationPipe struct {
-	cpConfig         *ComputePipesConfig
-	source           *InputChannel
-	outputCh         *OutputChannel
-	keysOutputCh     *OutputChannel
-	hasher           hash.Hash64
-	keysMap          *swiss.Map[uint64, [2]string]
-	metaLookupTbl    LookupTable
-	anonymActions    []*AnonymizationAction
-	columnEvaluators []TransformationColumnEvaluator
-	firstInputRow    *[]interface{}
-	spec             *TransformationSpec
-	inputDateLayout  string
-	outputDateLayout string
-	keyMapDateLayout string
-	channelRegistry  *ChannelRegistry
-	env              map[string]interface{}
-	doneCh           chan struct{}
+	cpConfig          *ComputePipesConfig
+	source            *InputChannel
+	outputCh          *OutputChannel
+	keysOutputCh      *OutputChannel
+	hasher            hash.Hash64
+	keysMap           *swiss.Map[uint64, [2]string]
+	metaLookupTbl     LookupTable
+	anonymActions     []*AnonymizationAction
+	columnEvaluators  []TransformationColumnEvaluator
+	firstInputRow     *[]interface{}
+	spec              *TransformationSpec
+	inputDateLayout   string
+	outputDateLayout  string
+	keyMapDateLayout  string
+	outputInvalidDate string
+	keyInvalidDate    string
+	channelRegistry   *ChannelRegistry
+	env               map[string]interface{}
+	doneCh            chan struct{}
 }
 
 type AnonymizationAction struct {
@@ -96,14 +98,19 @@ func (ctx *AnonymizeTransformationPipe) Apply(input *[]interface{}) error {
 				// hashedValue = fmt.Sprintf("%d/%02d/01", date.Year(), date.Month())
 				anonymizeDate := time.Date(date.Year(), date.Month(), 1, 0, 0, 0, 0, time.UTC)
 				hashedValue = strings.ToUpper(anonymizeDate.Format(ctx.outputDateLayout))
-				if ctx.keyMapDateLayout == "" {
+				if len(ctx.keyMapDateLayout) == 0 {
 					hashedValue4KeyFile = hashedValue
 				} else {
 					hashedValue4KeyFile = strings.ToUpper(anonymizeDate.Format(ctx.keyMapDateLayout))
 				}
 			} else {
-				hashedValue = inputStr
-				hashedValue4KeyFile = inputStr
+				if len(ctx.outputInvalidDate) > 0 {
+					hashedValue = ctx.outputInvalidDate
+					hashedValue4KeyFile = ctx.keyInvalidDate
+				} else {
+					hashedValue = inputStr
+					hashedValue4KeyFile = inputStr
+				}
 			}
 		}
 		(*input)[action.inputColumn] = hashedValue
@@ -262,8 +269,7 @@ func (ctx *BuilderContext) NewAnonymizeTransformationPipe(source *InputChannel, 
 	hasher = fnv.New64a()
 	// Determine the date format to use, start with default value
 	outputDateLayout := "2006/01/02"
-	inputDateLayout := ""
-	var keyDateLayout string
+	var inputDateLayout, keyDateLayout string
 	// Check if the schema provider is specified
 	if sp != nil {
 		if sp.ReadDateLayout() != "" {
@@ -285,6 +291,25 @@ func (ctx *BuilderContext) NewAnonymizeTransformationPipe(source *InputChannel, 
 	if config.KeyDateLayout != "" {
 		keyDateLayout = config.KeyDateLayout
 	}
+	// Note: keyDateLayout defaults to outputDateLayout, keyDateLayout is left empty to re-use the output date value.
+	// Format the default invalid date to the key date format
+	var outputInvalidDate, keyInvalidDate string
+	if len(config.DefaultInvalidDate) > 0 {
+		d, err := ParseDate(config.DefaultInvalidDate)
+		if err != nil {
+			err = fmt.Errorf(
+				"configuration error: anonymize_config.default_invalid_date '%s' is not a valid date (use YYYY/MM/DD format)",
+				config.DefaultInvalidDate)
+			log.Println(err)
+			return nil, err
+		}
+		outputInvalidDate = d.Format(outputDateLayout)
+		if len(keyDateLayout) == 0 {
+			keyInvalidDate = outputInvalidDate
+		} else {
+			keyInvalidDate = d.Format(keyDateLayout)
+		}
+	}
 
 	// Prepare the column evaluators
 	columnEvaluators = make([]TransformationColumnEvaluator, len(spec.Columns))
@@ -300,21 +325,23 @@ func (ctx *BuilderContext) NewAnonymizeTransformationPipe(source *InputChannel, 
 	// All good, no errors
 	closeIfNotNil = nil
 	return &AnonymizeTransformationPipe{
-		cpConfig:         ctx.cpConfig,
-		source:           source,
-		outputCh:         outputCh,
-		keysOutputCh:     keysOutCh,
-		hasher:           hasher,
-		keysMap:          swiss.NewMap[uint64, [2]string](2048),
-		metaLookupTbl:    metaLookupTbl,
-		anonymActions:    anonymActions,
-		columnEvaluators: columnEvaluators,
-		channelRegistry:  ctx.channelRegistry,
-		spec:             spec,
-		inputDateLayout:  inputDateLayout,
-		outputDateLayout: outputDateLayout,
-		keyMapDateLayout: keyDateLayout,
-		env:              ctx.env,
-		doneCh:           ctx.done,
+		cpConfig:          ctx.cpConfig,
+		source:            source,
+		outputCh:          outputCh,
+		keysOutputCh:      keysOutCh,
+		hasher:            hasher,
+		keysMap:           swiss.NewMap[uint64, [2]string](2048),
+		metaLookupTbl:     metaLookupTbl,
+		anonymActions:     anonymActions,
+		columnEvaluators:  columnEvaluators,
+		channelRegistry:   ctx.channelRegistry,
+		spec:              spec,
+		inputDateLayout:   inputDateLayout,
+		outputDateLayout:  outputDateLayout,
+		keyMapDateLayout:  keyDateLayout,
+		outputInvalidDate: outputInvalidDate,
+		keyInvalidDate:    keyInvalidDate,
+		env:               ctx.env,
+		doneCh:            ctx.done,
 	}, nil
 }
