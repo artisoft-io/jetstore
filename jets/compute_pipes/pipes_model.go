@@ -551,11 +551,18 @@ type PartitionWriterSpec struct {
 // LookupName is name of lookup table containing the file metadata from analyze operator
 // AnonymizeType is column name in lookup table that specifiy how to anonymize (value: date, text)
 // KeyPrefix is column name of lookup table to use as prefix of the anonymized value
-// InputDateFormat is the format for parsing the input date (incoming data)
-// OutputDateFormat is the format to use for anonymized date, will be set at 1st of the month of the original date
-// KeyDateFormat is the format to use in the key mapping file (crosswalk file)
-// OutputDateFormat defaults to InputDateFormat.
-// SchemaProvider is used to get the DateFormat / KeyDateFormat if not specified here.
+// InputDateLayout is the format for parsing the input date (incoming data)
+// OutputDateLayout is the format to use for anonymized date, will be set at 1st of the month of the original date
+// KeyDateLayout is the format to use in the key mapping file (crosswalk file)
+// DefaultInvalidDate is a placeholder to use as the anonymized date when the input date
+// (the date to anonymize) is not valid. If unspecified, the input value is used unchanged
+// as the output value.
+// DefaultInvalidDate must be a valid date in the format YYYY/MM/DD or MM/DD/YYYY
+// so it can be parsed using JetStore default date parser. The date will be formatted
+// according to KeyDateLayout.
+// OutputDateLayout defaults to InputDateLayout.
+// KeyDateLayout defaults to OutputDateLayout.
+// SchemaProvider is used to get the DateLayout / KeyDateLayout if not specified here.
 // If date format is not specified, the default format for both OutputDateFormat and KeyDateFormat
 // is "2006/01/02", ie. yyyy/MM/dd and the rdf.ParseDate() is used to parse the input date.
 type AnonymizeSpec struct {
@@ -565,6 +572,7 @@ type AnonymizeSpec struct {
 	InputDateLayout      string              `json:"input_date_layout,omitempty"`
 	OutputDateLayout     string              `json:"output_date_layout,omitempty"`
 	KeyDateLayout        string              `json:"key_date_layout,omitempty"`
+  DefaultInvalidDate   string              `json:"default_invalid_date,omitempty"`
 	SchemaProvider       string              `json:"schema_provider,omitempty"`
 	AdjustFieldWidthOnFW bool                `json:"adjust_field_width_on_fixed_width_file,omitempty"`
 	OmitPrefixOnFW       bool                `json:"omit_prefix_on_fixed_width_file,omitempty"`
