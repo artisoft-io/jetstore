@@ -109,3 +109,6 @@ jets/copytest/parquetschema/parquetschema
 jets/copytest/scratchpad/outputFile.txt
 jets/copytest/encodingtest/outputFile.txt
 jets/copytest/encodingtest/encodingtest
+jets/copytest/test.snappy
+jets/copytest/snappy/snappy
+jets/copytest/unsnappy/unsnappy
