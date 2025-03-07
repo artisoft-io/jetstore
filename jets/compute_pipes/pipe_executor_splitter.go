@@ -65,7 +65,6 @@ func (ctx *BuilderContext) StartSplitterPipe(spec *PipeSpec, source *InputChanne
 	var baseKey interface{}
 	var jetsPartitionKey interface{}
 	var splitOnColumn, splitOnDefault, splitOnHash bool
-	var checksum int
 	var hashEvaluator *HashEvaluator
 
 	if spec.SplitterConfig == nil {
@@ -99,7 +98,6 @@ func (ctx *BuilderContext) StartSplitterPipe(spec *PipeSpec, source *InputChanne
 	// the map containing all the intermediate channels corresponding to values @ spliterColumnIdx
 	if len(config.Column) > 0 {
 		splitOnColumn = true
-		checksum += 1
 		spliterColumnIdx, ok = (*source.columns)[config.Column]
 		if !ok {
 			cpErr = fmt.Errorf("error: invalid column name %s for splitter with source channel %s", config.Column, source.name)
@@ -121,7 +119,6 @@ func (ctx *BuilderContext) StartSplitterPipe(spec *PipeSpec, source *InputChanne
 		}
 		mapSize = 1
 		splitOnDefault = true
-		checksum += 1
 	}
 	if config.ShardOn != nil {
 		hashEvaluator, err = ctx.NewHashEvaluator(source, config.ShardOn)
@@ -130,12 +127,7 @@ func (ctx *BuilderContext) StartSplitterPipe(spec *PipeSpec, source *InputChanne
 			goto gotError
 		}
 		splitOnHash = true
-		checksum += 1
 		mapSize = uint32(hashEvaluator.partitions)
-	}
-	if checksum != 1 {
-		cpErr = fmt.Errorf("configuration error for splitter with source channel %s: splitter scheme invalid", source.name)
-		goto gotError
 	}
 	chanState = swiss.NewMap[interface{}, *ChannelState](mapSize)
 

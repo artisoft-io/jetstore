@@ -346,6 +346,8 @@ type PipeSpec struct {
 // total_file_size in bytes
 // nbr_partitions as int (used for hashing purpose)
 type ConditionalPipeSpec struct {
+	StepName    string          `json:"step_name,omitempty"`
+	UseEcsTasks bool            `json:"use_ecs_tasks,omitzero"`
 	PipesConfig []PipeSpec      `json:"pipes_config"`
 	When        *ExpressionNode `json:"when"`
 }
