@@ -74,6 +74,7 @@ func (ctx *S3DeviceWriter) WriteParquetPartition() {
 	fw = goparquet.NewFileWriter(fout,
 		goparquet.WithCompressionCodec(codec),
 		goparquet.WithSchemaDefinition(schemaDef),
+		goparquet.WithMaxRowGroupSize(1024),
 		goparquet.WithCreator("jetstore"),
 	)
 
