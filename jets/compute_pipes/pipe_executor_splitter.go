@@ -56,12 +56,16 @@ func (ctx *BuilderContext) StartSplitterPipe(spec *PipeSpec, source *InputChanne
 			ctx.channelRegistry.CloseChannel(i)
 		}
 	}()
+	var err error
+	var mapSize uint32 = 1000
 	var chanState *swiss.Map[interface{}, *ChannelState]
 	var spliterColumnIdx int
 	var ok bool
 	var config *SplitterSpec
 	var baseKey interface{}
 	var jetsPartitionKey interface{}
+	var splitOnColumn, splitOnDefault, splitOnHash bool
+	var hashEvaluator *HashEvaluator
 
 	if spec.SplitterConfig == nil {
 		cpErr = fmt.Errorf("error: missing splitter_config for splitter with source channel %s", source.name)
@@ -71,9 +75,9 @@ func (ctx *BuilderContext) StartSplitterPipe(spec *PipeSpec, source *InputChanne
 	if config.Type == "" {
 		config.Type = "standard"
 	}
-	if config.Column == "" && config.DefaultSplitterValue == "" {
+	if config.Column == "" && config.DefaultSplitterValue == "" && config.ShardOn == nil {
 		cpErr = fmt.Errorf(
-			"error: invalid splitter_config for splitter with source channel %s, must specify column or default_splitter_value",
+			"error: invalid splitter_config for splitter with source channel %s, must specify column, shard_on or default_splitter_value",
 			source.name)
 		goto gotError
 	}
@@ -92,8 +96,8 @@ func (ctx *BuilderContext) StartSplitterPipe(spec *PipeSpec, source *InputChanne
 	}
 
 	// the map containing all the intermediate channels corresponding to values @ spliterColumnIdx
-	chanState = swiss.NewMap[interface{}, *ChannelState](1000)
 	if len(config.Column) > 0 {
+		splitOnColumn = true
 		spliterColumnIdx, ok = (*source.columns)[config.Column]
 		if !ok {
 			cpErr = fmt.Errorf("error: invalid column name %s for splitter with source channel %s", config.Column, source.name)
@@ -113,17 +117,39 @@ func (ctx *BuilderContext) StartSplitterPipe(spec *PipeSpec, source *InputChanne
 				}
 			}
 		}
+		mapSize = 1
+		splitOnDefault = true
 	}
+	if config.ShardOn != nil {
+		hashEvaluator, err = ctx.NewHashEvaluator(source, config.ShardOn)
+		if err != nil {
+			cpErr = fmt.Errorf("while calling NewHashEvaluator for splitter with source channel %s: %v", source.name, err)
+			goto gotError
+		}
+		splitOnHash = true
+		mapSize = uint32(hashEvaluator.partitions)
+	}
+	chanState = swiss.NewMap[interface{}, *ChannelState](mapSize)
 
 	// fmt.Println("**!@@ start splitter loop on source:",source.name)
 	for inRow := range source.channel {
 		baseKey = nil
-		if spliterColumnIdx >= 0 {
+		switch {
+
+		case splitOnColumn:
 			baseKey = inRow[spliterColumnIdx]
-		}
-		if baseKey == nil && len(config.DefaultSplitterValue) > 0 {
+
+		case splitOnHash:
+			baseKey, err = hashEvaluator.ComputeHash(inRow)
+			if err != nil {
+				cpErr = fmt.Errorf("while computing hash key on input record in splitter with source channel %s: %v", source.name, err)
+				goto gotError
+			}
+
+		case splitOnDefault:
 			baseKey = config.DefaultSplitterValue
 		}
+
 		splitCh, ok := chanState.Get(baseKey)
 		if !ok {
 			// unseen value, create an slot with an intermediate channel

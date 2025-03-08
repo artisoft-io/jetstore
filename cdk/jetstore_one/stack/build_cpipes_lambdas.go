@@ -46,7 +46,7 @@ func (jsComp *JetStoreStackComponents) BuildCpipesLambdas(scope constructs.Const
 	} else {
 		memLimit = 8192
 	}
-	fmt.Println("Using memory limit of", memLimit, " (from env JETS_CPIPES_LAMBDA_MEM_LIMIT_MB)")
+	fmt.Println("Using memory limit of", memLimit, "for CpipesNodeLambda (from env JETS_CPIPES_LAMBDA_MEM_LIMIT_MB)")
 	jsComp.CpipesNodeLambda = awslambdago.NewGoFunction(stack, jsii.String("CpipesNodeLambda"), &awslambdago.GoFunctionProps{
 		Description: jsii.String("JetStore One Lambda function cpipes execution"),
 		Runtime:     awslambda.Runtime_PROVIDED_AL2023(),

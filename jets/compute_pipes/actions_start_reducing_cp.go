@@ -40,6 +40,10 @@ func (args *StartComputePipesArgs) StartReducingComputePipes(ctx context.Context
 	if err != nil {
 		return result, fmt.Errorf("while getting compute pipes steps: %v", err)
 	}
+	if pipeConfig == nil {
+		// Got past last step, nothing to do
+		return result, ErrNoReducingStep
+	}
 
 	// By default reducing steps uses compression 'snappy' with 'headerless_csv',
 	// unless specified in InputChannelConfig or when inputChannel is 'input_row' then use 'csv', see below
@@ -260,12 +264,28 @@ func (args *StartComputePipesArgs) StartReducingComputePipes(ctx context.Context
 	if !isLastReducing {
 		// next iteration
 		nextStepId := stepId + 1
-		result.StartReducing = StartComputePipesArgs{
-			PipelineExecKey: args.PipelineExecKey,
-			FileKey:         args.FileKey,
-			ClusterInfo:     args.ClusterInfo,
-			SessionId:       args.SessionId,
-			StepId:          &nextStepId,
+		// check if next step is using a fargate tasks rather than lambda functions
+		nextPipeConfig, nextStepId, err := cpipesStartup.CpConfig.GetComputePipes(nextStepId, args.ClusterInfo,
+			cpipesStartup.MainInputSchemaProviderConfig.Env)
+		if err != nil {
+			return result, fmt.Errorf("while getting compute pipes for nextsteps: %v", err)
+		}
+		if nextPipeConfig == nil {
+			// There is no next step
+			result.IsLastReducing = true
+		} else {
+			useEcsTasks := false
+			if len(cpipesStartup.CpConfig.ConditionalPipesConfig) > nextStepId {
+				useEcsTasks = cpipesStartup.CpConfig.ConditionalPipesConfig[nextStepId].UseEcsTasks
+			}
+			result.StartReducing = StartComputePipesArgs{
+				PipelineExecKey: args.PipelineExecKey,
+				FileKey:         args.FileKey,
+				ClusterInfo:     args.ClusterInfo,
+				SessionId:       args.SessionId,
+				StepId:          &nextStepId,
+				UseECSTask:      useEcsTasks,
+			}
 		}
 	}
 

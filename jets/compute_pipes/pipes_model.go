@@ -346,19 +346,22 @@ type PipeSpec struct {
 // total_file_size in bytes
 // nbr_partitions as int (used for hashing purpose)
 type ConditionalPipeSpec struct {
+	StepName    string          `json:"step_name,omitempty"`
+	UseEcsTasks bool            `json:"use_ecs_tasks,omitzero"`
 	PipesConfig []PipeSpec      `json:"pipes_config"`
 	When        *ExpressionNode `json:"when"`
 }
 
 type SplitterSpec struct {
 	// Type range: standard (default), ext_count
-	// standard: split on Column / DefaultSplitterValue, create partition for each value
-	// ext_count: split on Column / DefaultSplitterValue + N, N = 0..ExtPartitionsCount-1
-	//            where each partition has up to RowCount rows
-	Type                 string `json:"type"`
-	Column               string `json:"column,omitempty"`                 // splitter column
-	DefaultSplitterValue string `json:"default_splitter_value,omitempty"` // splitter default value
-	PartitionRowCount    int    `json:"partition_row_count"`              // nbr of row for each ext partition
+	// standard: split on Column / DefaultSplitterValue / ShardOn, create partition for each value
+	// ext_count: split on Column / DefaultSplitterValue / ShardOn + N, N = 0..ExtPartitionsCount-1
+	//            where each partition has up to PartitionRowCount rows
+	Type                 string          `json:"type"`
+	Column               string          `json:"column,omitempty"`                 // splitter column
+	DefaultSplitterValue string          `json:"default_splitter_value,omitempty"` // splitter default value
+	ShardOn              *HashExpression `json:"shard_on,omitzero"`                // splitter hash on the fly
+	PartitionRowCount    int             `json:"partition_row_count"`              // nbr of row for each ext partition
 }
 
 type TransformationSpec struct {
@@ -407,7 +410,7 @@ type InputChannelConfig struct {
 	// HasGroupedRow indicates that the channel contains grouped rows,
 	// most likely from the group_by operator.
 	// When CastToDomainTypes is true, the channel records are cast to domain data types,
-	// which are specified from DomainClass of MainInput. 
+	// which are specified from DomainClass of MainInput.
 	// CastToDomainTypes is applicable for Type 'input' only
 	Type              string `json:"type"`
 	Name              string `json:"name"`
@@ -493,7 +496,7 @@ type KeywordTokenNode struct {
 // Type: parse_date
 type FunctionTokenNode struct {
 	Type               string            `json:"type"`
-  MinMaxDateFormat   string            `json:"minmax_date_format,omitempty"`
+	MinMaxDateFormat   string            `json:"minmax_date_format,omitempty"`
 	ParseDateArguments []ParseDateFTSpec `json:"parse_date_args,omitempty"`
 }
 
@@ -572,7 +575,7 @@ type AnonymizeSpec struct {
 	InputDateLayout      string              `json:"input_date_layout,omitempty"`
 	OutputDateLayout     string              `json:"output_date_layout,omitempty"`
 	KeyDateLayout        string              `json:"key_date_layout,omitempty"`
-  DefaultInvalidDate   string              `json:"default_invalid_date,omitempty"`
+	DefaultInvalidDate   string              `json:"default_invalid_date,omitempty"`
 	SchemaProvider       string              `json:"schema_provider,omitempty"`
 	AdjustFieldWidthOnFW bool                `json:"adjust_field_width_on_fixed_width_file,omitempty"`
 	OmitPrefixOnFW       bool                `json:"omit_prefix_on_fixed_width_file,omitempty"`
@@ -699,7 +702,7 @@ type LookupColumnSpec struct {
 // MultiStepShardingMode values: 'limited_range', 'full_range' or empty
 type HashExpression struct {
 	Expr                   string   `json:"expr,omitempty"`
-	CompositeExpr          []string `json:"composite_expr,omitzero"`
+	CompositeExpr          []string `json:"composite_expr,omitempty"`
 	DomainKey              string   `json:"domain_key,omitempty"`
 	NbrJetsPartitions      *uint64  `json:"nbr_jets_partitions,omitzero"`
 	MultiStepShardingMode  string   `json:"multi_step_sharding_mode,omitempty"`
