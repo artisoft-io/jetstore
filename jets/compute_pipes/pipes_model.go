@@ -543,12 +543,15 @@ type HighFreqSpec struct {
 // DeviceWriterType range: csv_writer, parquet_writer, fixed_width_writer
 // JetsPartitionKey used by partition_writer as the default value for jet_partition
 // use $JETS_PARTITION_LABEL for current node input partition
+// When StreamDataOut is true, data is stream to s3 rather than written locally
+// and then copied to s3. Useful for large files that would exceed local storage capacity.
 type PartitionWriterSpec struct {
-	DeviceWriterType string  `json:"device_writer_type"`
-	JetsPartitionKey *string `json:"jets_partition_key"`
-	PartitionSize    int     `json:"partition_size"`
-	SamplingRate     int     `json:"sampling_rate"`
-	SamplingMaxCount int     `json:"sampling_max_count"`
+	DeviceWriterType string  `json:"device_writer_type,omitempty"`
+	JetsPartitionKey *string `json:"jets_partition_key,omitzero"`
+	PartitionSize    int     `json:"partition_size,omitzero"`
+	SamplingRate     int     `json:"sampling_rate,omitzero"`
+	SamplingMaxCount int     `json:"sampling_max_count,omitzero"`
+	StreamDataOut    bool    `json:"stream_data_out,omitzero"`
 }
 
 // LookupName is name of lookup table containing the file metadata from analyze operator

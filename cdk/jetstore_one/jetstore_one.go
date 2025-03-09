@@ -151,7 +151,7 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 
 	jsComp.RdsCluster = awsrds.NewDatabaseCluster(stack, jsii.String("pgCluster"), &awsrds.DatabaseClusterProps{
 		Engine: awsrds.DatabaseClusterEngine_AuroraPostgres(&awsrds.AuroraPostgresClusterEngineProps{
-			Version: awsrds.AuroraPostgresEngineVersion_VER_14_6(),
+			Version: awsrds.AuroraPostgresEngineVersion_VER_15_10(),
 		}),
 		Credentials:             awsrds.Credentials_FromSecret(jsComp.RdsSecret, username),
 		ClusterIdentifier:       props.MkId("jetstoreDb"),
