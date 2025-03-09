@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"log"
 	"os"
 	"runtime/debug"
@@ -166,14 +167,16 @@ func (ctx *PartitionWriterTransformationPipe) Apply(input *[]interface{}) error 
 				ctx.s3DeviceManager.ClientsWg.Done()
 			}()
 
+			var fnc func (io.Writer)
 			switch ctx.deviceWriterType {
 			case "csv_writer":
-				s3DeviceWriter.WriteCsvPartition()
+				fnc = s3DeviceWriter.WriteCsvPartition
 			case "parquet_writer":
-				s3DeviceWriter.WriteParquetPartition()
+				fnc = s3DeviceWriter.WriteParquetPartition
 			case "fixed_width_writer":
-				s3DeviceWriter.WriteFixedWidthPartition()
+				fnc = s3DeviceWriter.WriteFixedWidthPartition
 			}
+			s3DeviceWriter.WritePartition(fnc)
 		}()
 	}
 

@@ -3,11 +3,13 @@ package compute_pipes
 import (
 	"bufio"
 	"fmt"
+	"io"
 	"log"
 	"os"
 	"strconv"
 	"strings"
 
+	"github.com/artisoft-io/jetstore/jets/awsi"
 	"github.com/artisoft-io/jetstore/jets/csv"
 	"github.com/artisoft-io/jetstore/jets/jetrules/rdf"
 	goparquet "github.com/fraugster/parquet-go"
@@ -34,29 +36,73 @@ type S3DeviceWriter struct {
 	errCh           chan error
 }
 
-func (ctx *S3DeviceWriter) WriteParquetPartition() {
+// WritePartition is main write function that coordinates between
+// writing the partition to a temp file locally or stream the
+// data directly to s3.
+func (ctx *S3DeviceWriter) WritePartition(writer func(w io.Writer)) {
 	var cpErr, err error
-	var fout *os.File
+	if ctx.spec.PartitionWriterConfig.StreamDataOut {
+		// Stream the data directly to s3
+		s3FileName := fmt.Sprintf("%s/%s", *ctx.s3BasePath, *ctx.fileName)
+		pin, pout := io.Pipe()
+
+		go func() {
+			writer(pout)
+			pout.Close()
+		}()
+
+		// Write to s3 from pin
+		awsi.UploadToS3FromReader(*ctx.externalBucket, s3FileName, pin)
+
+	} else {
+		// Write the data to a local temp file and then copy it to s3
+		var fout *os.File
+		tempFileName := fmt.Sprintf("%s/%s", *ctx.localTempDir, *ctx.fileName)
+		s3FileName := fmt.Sprintf("%s/%s", *ctx.s3BasePath, *ctx.fileName)
+		// fmt.Println("**&@@ WritePartition *1: fileName:", *ctx.fileName)
+		if ctx.s3DeviceManager == nil {
+			cpErr = fmt.Errorf("error: s3DeviceManager is nil")
+			goto gotError
+		}
+
+		// open the local temp file
+		fout, err = os.Create(tempFileName)
+		if err != nil {
+			cpErr = fmt.Errorf("opening output file failed: %v", err)
+			goto gotError
+		}
+		defer fout.Close()
+
+		// Write the partition
+		writer(fout)
+
+		// fmt.Println("**&@@ WritePartition: DONE writing local file for fileName:", *ctx.fileName)
+		// schedule the file to be moved to s3
+		select {
+		case ctx.s3DeviceManager.WorkersTaskCh <- S3Object{
+			ExternalBucket: *ctx.externalBucket,
+			FileKey:        s3FileName,
+			LocalFilePath:  tempFileName,
+		}:
+		case <-ctx.doneCh:
+			log.Printf("WritePartition: sending file to S3DeviceManager interrupted")
+		}
+	}
+
+	// All good!
+	return
+gotError:
+	log.Println(cpErr)
+	ctx.errCh <- cpErr
+	close(ctx.doneCh)
+
+}
+
+func (ctx *S3DeviceWriter) WriteParquetPartition(fout io.Writer) {
+	var cpErr, err error
 	var schemaDef *parquetschema.SchemaDefinition
 	var fw *goparquet.FileWriter
 	var codec parquet.CompressionCodec
-
-	tempFileName := fmt.Sprintf("%s/%s", *ctx.localTempDir, *ctx.fileName)
-	s3FileName := fmt.Sprintf("%s/%s", *ctx.s3BasePath, *ctx.fileName)
-
-	// fmt.Println("**&@@ WriteParquetPartition *1: fileName:", *ctx.fileName)
-	if ctx.s3DeviceManager == nil {
-		cpErr = fmt.Errorf("error: s3DeviceManager is nil")
-		goto gotError
-	}
-
-	// open the local temp file for the parquet writer
-	fout, err = os.OpenFile(tempFileName, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0644)
-	if err != nil {
-		cpErr = fmt.Errorf("opening output file failed: %v", err)
-		goto gotError
-	}
-	defer fout.Close()
 
 	schemaDef, err = parquetschema.ParseSchemaDefinition(ctx.parquetSchema.Schema)
 	if err != nil {
@@ -106,17 +152,7 @@ func (ctx *S3DeviceWriter) WriteParquetPartition() {
 		cpErr = fmt.Errorf("while writing parquet stop (trailer): %v", err)
 		goto gotError
 	}
-	// fmt.Println("**&@@ WriteParquetPartition: DONE writing local parquet file for fileName:", *ctx.fileName)
-	// schedule the file to be moved to s3
-	select {
-	case ctx.s3DeviceManager.WorkersTaskCh <- S3Object{
-		ExternalBucket: *ctx.externalBucket,
-		FileKey:        s3FileName,
-		LocalFilePath:  tempFileName,
-	}:
-	case <-ctx.doneCh:
-		log.Printf("WriteParquetPartition: sending file to S3DeviceManager interrupted")
-	}
+
 	// All good!
 	return
 gotError:
@@ -236,37 +272,18 @@ func ConvertToSchema(v any, se *parquet.SchemaElement) (any, error) {
 	}
 }
 
-func (ctx *S3DeviceWriter) WriteCsvPartition() {
+func (ctx *S3DeviceWriter) WriteCsvPartition(fout io.Writer) {
 	var count int
 	var cpErr, err error
-	var fileHd *os.File
 	var snWriter *snappy.Writer
 	var csvWriter *csv.Writer
 
-	tempFileName := fmt.Sprintf("%s/%s", *ctx.localTempDir, *ctx.fileName)
-	s3FileName := fmt.Sprintf("%s/%s", *ctx.s3BasePath, *ctx.fileName)
-
-	// fmt.Println("**&@@ WriteCsvPartition *1: fileName:", *ctx.fileName)
-	// fmt.Println("*** WriteCsvPartition OUTPUT COLUMNS:",ctx.outputCh.config.Columns)
-	if ctx.s3DeviceManager == nil {
-		cpErr = fmt.Errorf("error: s3DeviceManager is nil")
-		goto gotError
-	}
-
-	// open the local temp file for the writer
-	fileHd, err = os.Create(tempFileName)
-	if err != nil {
-		cpErr = fmt.Errorf("while opening local file for write %v", err)
-		goto gotError
-	}
-	defer fileHd.Close()
-
 	switch ctx.spec.OutputChannel.Compression {
 	case "none":
-		csvWriter = csv.NewWriter(fileHd)
+		csvWriter = csv.NewWriter(fout)
 	case "snappy":
 		// Open a snappy compressor
-		snWriter = snappy.NewBufferedWriter(fileHd)
+		snWriter = snappy.NewBufferedWriter(fout)
 		// Open a csv writer
 		csvWriter = csv.NewWriter(snWriter)
 	default:
@@ -320,16 +337,7 @@ func (ctx *S3DeviceWriter) WriteCsvPartition() {
 	if snWriter != nil {
 		snWriter.Flush()
 	}
-	// schedule the file to be moved to s3
-	select {
-	case ctx.s3DeviceManager.WorkersTaskCh <- S3Object{
-		ExternalBucket: *ctx.externalBucket,
-		FileKey:        s3FileName,
-		LocalFilePath:  tempFileName,
-	}:
-	case <-ctx.doneCh:
-		log.Printf("WriteCsvPartition: sending file to S3DeviceManager interrupted")
-	}
+
 	// All good!
 	return
 gotError:
@@ -338,21 +346,18 @@ gotError:
 	close(ctx.doneCh)
 }
 
-func (ctx *S3DeviceWriter) WriteFixedWidthPartition() {
-	var cpErr, err error
-	var fileHd *os.File
+func (ctx *S3DeviceWriter) WriteFixedWidthPartition(fout io.Writer) {
+	var cpErr error
 	var snWriter *snappy.Writer
 	var fwWriter *bufio.Writer
 	var fwColumnsInfo *[]*FixedWidthColumn
 	var columnPos []int
 	var value string
-
-	tempFileName := fmt.Sprintf("%s/%s", *ctx.localTempDir, *ctx.fileName)
-	s3FileName := fmt.Sprintf("%s/%s", *ctx.s3BasePath, *ctx.fileName)
+	var fwEncodingInfo *FixedWidthEncodingInfo
+	var sp SchemaProvider
 
 	// Get the FixedWidthEncodingInfo from the schema provider
-	var fwEncodingInfo *FixedWidthEncodingInfo
-	sp := ctx.schemaProvider
+	sp = ctx.schemaProvider
 	if sp != nil {
 		fwEncodingInfo = sp.FixedWidthEncodingInfo()
 	}
@@ -378,26 +383,12 @@ func (ctx *S3DeviceWriter) WriteFixedWidthPartition() {
 		columnPos = append(columnPos, (*ctx.outputCh.columns)[fwColumn.ColumnName])
 	}
 
-	// fmt.Println("**&@@ WriteFixedWidthPartition *1: fileName:", *ctx.fileName)
-	if ctx.s3DeviceManager == nil {
-		cpErr = fmt.Errorf("error: s3DeviceManager is nil")
-		goto gotError
-	}
-
-	// open the local temp file for the writer
-	fileHd, err = os.Create(tempFileName)
-	if err != nil {
-		cpErr = fmt.Errorf("while opening local file for fixed_width write %v", err)
-		goto gotError
-	}
-	defer fileHd.Close()
-
 	switch ctx.spec.OutputChannel.Compression {
 	case "none":
-		fwWriter = bufio.NewWriter(fileHd)
+		fwWriter = bufio.NewWriter(fout)
 	case "snappy":
 		// Open a snappy compressor
-		snWriter = snappy.NewBufferedWriter(fileHd)
+		snWriter = snappy.NewBufferedWriter(fout)
 		// Open a buffered writer
 		fwWriter = bufio.NewWriter(snWriter)
 	default:
@@ -453,16 +444,7 @@ func (ctx *S3DeviceWriter) WriteFixedWidthPartition() {
 	if snWriter != nil {
 		snWriter.Flush()
 	}
-	// schedule the file to be moved to s3
-	select {
-	case ctx.s3DeviceManager.WorkersTaskCh <- S3Object{
-		ExternalBucket: *ctx.externalBucket,
-		FileKey:        s3FileName,
-		LocalFilePath:  tempFileName,
-	}:
-	case <-ctx.doneCh:
-		log.Printf("WriteFixedWidthPartition: sending file to S3DeviceManager interrupted")
-	}
+
 	// All good!
 	return
 gotError:
