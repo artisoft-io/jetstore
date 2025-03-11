@@ -206,6 +206,12 @@ func (server *Server) checkJetStoreDbVersion() error {
 func (server *Server) getUnitTestFileKeys() ([]string, error) {
 	workspaceName := os.Getenv("WORKSPACE")
 	root := os.Getenv("WORKSPACES_HOME") + "/" + workspaceName
+	// Check that the workspace contains a unit_test directory
+	_, err := os.Open(root + "/data/test_data")
+	if err != nil {
+		log.Println("Folder 'data/test_data' does not exists in workspace, skipping copying unit test files")
+		return nil, nil
+	}
 	workspaceNode, err := wsfile.VisitDirWrapper(root, "data/test_data", "Unit Test Data", &[]string{".txt", ".csv"}, workspaceName)
 	if err != nil {
 		log.Println("while walking workspace unit test folder structure:", err)
