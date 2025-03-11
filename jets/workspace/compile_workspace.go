@@ -162,17 +162,20 @@ func CompileWorkspace(dbpool *pgxpool.Pool, workspaceName, version string) (stri
 	}
 
 	// Archive reports
-	command := "tar"
-	args := []string{"cfvz", "reports.tgz", "reports/"}
+	inputPath := []string{fmt.Sprintf("%s/%s/reports/", workspaceHome, workspaceName)}
+	outputPath := fmt.Sprintf("%s/%s/reports.tgz", workspaceHome, workspaceName)
+	err = tarextract.CreateTarGz(fmt.Sprintf("%s/%s", workspaceHome, workspaceName), inputPath, outputPath)
+	// command := "tar"
+	// args := []string{"cfvz", "reports.tgz", "reports/"}
 	buf.WriteString("\nArchiving the reports\n")
-	err = wsfile.RunCommand(&buf, command, &args, workspaceName)
-	cmdLog := buf.String()
+	// err = wsfile.RunCommand(&buf, command, &args, workspaceName)
+	// cmdLog := buf.String()
 	if err != nil {
-		log.Println("=*=*=*=*=*=*=*=*=*=*=*=*=*=*")
-		log.Println(cmdLog)
-		log.Println("=*=*=*=*=*=*=*=*=*=*=*=*=*=*")
-		return cmdLog, fmt.Errorf("while archiving the reports folder : %v", err)
+		buf.WriteString(fmt.Sprintf("While creating reports.tgz: %v", err))
+		log.Println(err)
+		return buf.String(), err
 	}
+	log.Println("Workspace reports archived in retports.tgz")
 
 	// Compile the workspace-wide classes and tables, save it in the workspace build directory
 	// Get all the main rule files from the workspace_control.json
@@ -262,10 +265,23 @@ func CompileWorkspace(dbpool *pgxpool.Pool, workspaceName, version string) (stri
 	file.Close()
 
 	// Archive the build rules and cpipes config
-	args = []string{"cfvz", "workspace.tgz", "workspace_control.json", "build/", "pipes_config/"}
+	inputPath = []string{
+		fmt.Sprintf("%s/%s/workspace_control.json", workspaceHome, workspaceName),
+		fmt.Sprintf("%s/%s/build/", workspaceHome, workspaceName),
+		fmt.Sprintf("%s/%s/pipes_config/", workspaceHome, workspaceName),
+	}
+	outputPath = fmt.Sprintf("%s/%s/workspace.tgz", workspaceHome, workspaceName)
 	buf.WriteString("\nArchiving the build and cpipes config directories\n")
-	err = wsfile.RunCommand(&buf, command, &args, workspaceName)
-	cmdLog = buf.String()
+	err = tarextract.CreateTarGz(fmt.Sprintf("%s/%s", workspaceHome, workspaceName), inputPath, outputPath)
+	if err != nil {
+		buf.WriteString("Error:")
+		buf.WriteString(err.Error())
+	}
+	// command := "tar"
+	// args := []string{"cfvz", "workspace.tgz", "workspace_control.json", "build/", "pipes_config/"}
+	// buf.WriteString("\nArchiving the build and cpipes config directories\n")
+	// err = wsfile.RunCommand(&buf, command, &args, workspaceName)
+	cmdLog := buf.String()
 	if err != nil {
 		log.Println("=*=*=*=*=*=*=*=*=*=*=*=*=*=*")
 		log.Println(cmdLog)
