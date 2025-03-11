@@ -401,23 +401,23 @@ func (ca *StatusUpdate) CoordinateWork() error {
 		if err != nil {
 			return fmt.Errorf("while inserting in jetsapi.cpipes_execution_status_details: %v", err)
 		}
-		// Check for pending tasks ready to start
-		// Get the stateMachineName of the current task
-		var stateMachineName string
-		err := ca.Dbpool.QueryRow(context.Background(),
-			`SELECT pc.state_machine_name	FROM jetsapi.process_config pc, jetsapi.pipeline_execution_status pe 
+	}
+	// Check for pending tasks ready to start
+	// Get the stateMachineName of the current task
+	var stateMachineName string
+	err = ca.Dbpool.QueryRow(context.Background(),
+		`SELECT pc.state_machine_name	FROM jetsapi.process_config pc, jetsapi.pipeline_execution_status pe 
 		   WHERE pc.process_name = pe.process_name AND pe.key = $1`,
-			ca.PeKey).Scan(&stateMachineName)
-		if err != nil {
-			log.Fatalf("QueryRow on pipeline_execution_status failed: %v", err)
-		}
-		ctx := NewContext(ca.Dbpool, ca.UsingSshTunnel, ca.UsingSshTunnel, nil, 100, nil)
-		err = ctx.StartPendingTasks(stateMachineName)
-		if err != nil {
-			//*TODO If get an error while starting pending task. Fail current task for now...
-			log.Println("Get an error while starting pending task. Fail current task for now...", err)
-			return err
-		}
+		ca.PeKey).Scan(&stateMachineName)
+	if err != nil {
+		log.Fatalf("QueryRow on pipeline_execution_status failed: %v", err)
+	}
+	ctx := NewContext(ca.Dbpool, ca.UsingSshTunnel, ca.UsingSshTunnel, nil, 100, nil)
+	err = ctx.StartPendingTasks(stateMachineName)
+	if err != nil {
+		//*TODO If get an error while starting pending task. Fail current task for now...
+		log.Println("Get an error while starting pending task. Fail current task for now...", err)
+		return err
 	}
 
 	// CpipesMode - don't register outTables
