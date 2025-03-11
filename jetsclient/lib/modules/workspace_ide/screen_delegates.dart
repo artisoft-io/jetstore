@@ -590,7 +590,7 @@ Future<String?> workspaceHomeFormActions(BuildContext context,
       if (result.statusCode != 200 && result.statusCode != 401) {
         print('Something went wrong while saving file: $result');
         if (context.mounted) {
-          showAlertDialog(context, "Something went wrong. Please try again.");
+          showAlertDialog(context, result.body["error"]);
         }
       } else {
         //* Would be nice to close the active file tab
