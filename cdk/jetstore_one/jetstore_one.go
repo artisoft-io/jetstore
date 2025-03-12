@@ -149,9 +149,19 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 		Username: username,
 	})
 
+	// Need to accomodate for different version in different env, 
+	// default is the latest used by jetstore
+	dbVersion := awsrds.AuroraPostgresEngineVersion_VER_15_10()
+	switch os.Getenv("JETS_DB_VERSION") {
+	case "14.5":
+		dbVersion = awsrds.AuroraPostgresEngineVersion_VER_14_5()
+	case "15.10":
+		dbVersion = awsrds.AuroraPostgresEngineVersion_VER_15_10()
+	}
+
 	jsComp.RdsCluster = awsrds.NewDatabaseCluster(stack, jsii.String("pgCluster"), &awsrds.DatabaseClusterProps{
 		Engine: awsrds.DatabaseClusterEngine_AuroraPostgres(&awsrds.AuroraPostgresClusterEngineProps{
-			Version: awsrds.AuroraPostgresEngineVersion_VER_15_10(),
+			Version: dbVersion,
 		}),
 		Credentials:             awsrds.Credentials_FromSecret(jsComp.RdsSecret, username),
 		ClusterIdentifier:       props.MkId("jetstoreDb"),
@@ -514,6 +524,7 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 // JETS_UI_PORT (defaults 8080)
 // JETS_VPC_CIDR VPC cidr block, default 10.10.0.0/16
 // JETS_VPC_INTERNET_GATEWAY (optional, default to false), set to true to create VPC with internet gateway, if false JETS_NBR_NAT_GATEWAY is set to 0
+// JETS_DB_VERSION (optional, default to latest version supported by jetstore, expected values are 14.5, 15.10 etc. only specific versions are supported)
 // JETS_DB_POOL_SIZE (optional, default is 8, min allowed is 5, used for serverv2 running standalone as ecs task or lambda function)
 // CPIPES_DB_POOL_SIZE (optional, default is 3, used for cpipes node, may run jetrules as cpipes operator)
 // NBR_SHARDS (defaults to 1)
@@ -553,6 +564,9 @@ func main() {
 	fmt.Println("env JETS_CPU_UTILIZATION_ALARM_THRESHOLD:", os.Getenv("JETS_CPU_UTILIZATION_ALARM_THRESHOLD"))
 	fmt.Println("env JETS_DB_MAX_CAPACITY:", os.Getenv("JETS_DB_MAX_CAPACITY"))
 	fmt.Println("env JETS_DB_MIN_CAPACITY:", os.Getenv("JETS_DB_MIN_CAPACITY"))
+	fmt.Println("env JETS_DB_VERSION:", os.Getenv("JETS_DB_VERSION"))
+	fmt.Println("env JETS_DB_POOL_SIZE:", os.Getenv("JETS_DB_POOL_SIZE"))
+	fmt.Println("env CPIPES_DB_POOL_SIZE:", os.Getenv("CPIPES_DB_POOL_SIZE"))
 	fmt.Println("env JETS_DOMAIN_KEY_HASH_ALGO:", os.Getenv("JETS_DOMAIN_KEY_HASH_ALGO"))
 	fmt.Println("env JETS_DOMAIN_KEY_HASH_SEED:", os.Getenv("JETS_DOMAIN_KEY_HASH_SEED"))
 	fmt.Println("env JETS_DOMAIN_KEY_SEPARATOR:", os.Getenv("JETS_DOMAIN_KEY_SEPARATOR"))
