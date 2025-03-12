@@ -71,7 +71,7 @@ func (args *StartComputePipesArgs) StartReducingComputePipes(ctx context.Context
 
 	mainInputStepId := inputChannelConfig.ReadStepId
 	if len(mainInputStepId) == 0 {
-		return result, fmt.Errorf("error: missing input_channel.read_step_id for first pipe at step %d", stepId)
+		return result, fmt.Errorf("configuration error: missing input_channel.read_step_id for first pipe at step %d", stepId)
 	}
 	log.Println("Start REDUCING", args.SessionId, "StepId:", *args.StepId,
 		"MainInputStepId", mainInputStepId, "file_key:", args.FileKey)
@@ -126,7 +126,8 @@ func (args *StartComputePipesArgs) StartReducingComputePipes(ctx context.Context
 	}
 
 	if len(partitions) == 0 {
-		return result, fmt.Errorf("error: no partitions found during start reducing for step %d", stepId)
+		log.Println("WARNING: no partitions found during start reducing for step", stepId, "exit silently")
+		return result, ErrNoReducingStep
 	}
 
 	// Make the reducing pipeline config
