@@ -77,7 +77,7 @@ setPullGitLog:
 }
 
 // Compile workspace changes, update workspace_registry table and delete overrides in workspace_changes
-func compileWorkspaceAction(ctx *Context, dataTableAction *DataTableAction) {
+func compileWorkspaceAction(ctx *DataTableContext, dataTableAction *DataTableAction) {
 
 	var err error
 	sqlStmt := sqlInsertStmts[dataTableAction.FromClauses[0].Table]
@@ -148,7 +148,7 @@ func compileWorkspaceAction(ctx *Context, dataTableAction *DataTableAction) {
 
 // LoadWorkspaceConfigAction to load client config into JetStore db
 // Update the workspace_registry table with status
-func loadWorkspaceConfigAction(ctx *Context, dataTableAction *DataTableAction) {
+func loadWorkspaceConfigAction(ctx *DataTableContext, dataTableAction *DataTableAction) {
 	// using update_db script
 	log.Printf("Loading Workspace Config for workspace: %s\n", dataTableAction.WorkspaceName)
 	serverArgs := make([]string, 0)
@@ -195,7 +195,7 @@ func loadWorkspaceConfigAction(ctx *Context, dataTableAction *DataTableAction) {
 }
 
 // Execute pipeline in unit test mode
-func UnitTestWorkspaceAction(ctx *Context, dataTableAction *DataTableAction, token string) {
+func UnitTestWorkspaceAction(ctx *DataTableContext, dataTableAction *DataTableAction, token string) {
 
 	dataTableAction.Action = "insert_rows"
 	dataTableAction.FromClauses[0].Table = "pipeline_execution_status"

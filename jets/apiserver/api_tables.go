@@ -37,7 +37,7 @@ func (server *Server) DoDataTableAction(w http.ResponseWriter, r *http.Request) 
 		ERROR(w, http.StatusUnprocessableEntity, err)
 		return
 	}
-	context := datatable.NewContext(server.dbpool, globalDevMode, *usingSshTunnel, unitTestDir, nbrShards, adminEmail)
+	context := datatable.NewDataTableContext(server.dbpool, globalDevMode, *usingSshTunnel, unitTestDir, adminEmail)
 	// Intercept specific dataTable action
 	switch dataTableAction.Action {
 	case "raw_query", "raw_query_tool":

@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"strconv"
 
 	"github.com/artisoft-io/jetstore/jets/user"
 	"github.com/artisoft-io/jetstore/jets/workspace"
@@ -25,15 +24,7 @@ func RegisterDomainTables(dbpool *pgxpool.Pool, usingSshTunnel bool, pipelineExe
 	var sessionId string
 	var sourcePeriodKey int
 	adminEmail := os.Getenv("JETS_ADMIN_EMAIL")
-	nbrShards := 1
-	ns, ok := os.LookupEnv("NBR_SHARDS")
 	var err error
-	if ok {
-		nbrShards, err = strconv.Atoi(ns)
-		if err != nil {
-			log.Println("Invalid ENV NBR_SHARDS, expecting an int, got", ns)
-		}
-	}
 	_, globalDevMode := os.LookupEnv("JETSTORE_DEV_MODE")
 
 	var mainInputFileKey string
@@ -57,7 +48,7 @@ func RegisterDomainTables(dbpool *pgxpool.Pool, usingSshTunnel bool, pipelineExe
 	prefix := os.Getenv("JETS_s3_INPUT_PREFIX")
 
 	// Register the domain tables
-	ctx := NewContext(dbpool, globalDevMode, usingSshTunnel, nil, nbrShards, &adminEmail)
+	ctx := NewDataTableContext(dbpool, globalDevMode, usingSshTunnel, nil, &adminEmail)
 	token, err := user.CreateToken(userEmail)
 	if err != nil {
 		return fmt.Errorf("error creating jwt token: %v", err)

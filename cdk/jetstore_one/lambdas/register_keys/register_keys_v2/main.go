@@ -154,7 +154,7 @@ func doFileKey(dbpool *pgxpool.Pool, fileKey string, fileSize int64) error {
 		Action: "register_keys",
 		Data:   []map[string]any{fileKeyComponents},
 	}
-	context := datatable.NewContext(dbpool, false, false, nil, 5, &systemUser)
+	context := datatable.NewDataTableContext(dbpool, false, false, nil, &systemUser)
 	_, _, err = context.RegisterFileKeys(&registerFileKeyAction, token)
 	return err
 }
@@ -210,7 +210,7 @@ func doFileSchema(dbpool *pgxpool.Pool, fileKey string, fileSize int64) error {
 		IsSchemaEvent: true,
 		Data:   []map[string]any{fileKeyComponents},
 	}
-	context := datatable.NewContext(dbpool, false, false, nil, 5, &systemUser)
+	context := datatable.NewDataTableContext(dbpool, false, false, nil, &systemUser)
 	_, _, err = context.RegisterFileKeys(&registerFileKeyAction, token)
 	return err
 }

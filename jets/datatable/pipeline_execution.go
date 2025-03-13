@@ -78,7 +78,7 @@ type PendingTask struct {
 }
 
 // Insert into pipeline_execution_status and in loader_execution_status (the latter will be depricated)
-func (ctx *Context) InsertPipelineExecutionStatus(dataTableAction *DataTableAction, irow int, results *map[string]any) (peKey int, httpStatus int, err error) {
+func (ctx *DataTableContext) InsertPipelineExecutionStatus(dataTableAction *DataTableAction, irow int, results *map[string]any) (peKey int, httpStatus int, err error) {
 	var processName, devModeCode, stateMachineName string
 	httpStatus = http.StatusOK
 	sqlStmt, ok := sqlInsertStmts[dataTableAction.FromClauses[0].Table]
@@ -243,7 +243,7 @@ func (ctx *Context) InsertPipelineExecutionStatus(dataTableAction *DataTableActi
 	return
 }
 
-func (ctx *Context) StartPendingTasks(stateMachineName string) (err error) {
+func (ctx *DataTableContext) StartPendingTasks(stateMachineName string) (err error) {
 	// Get a lock on stateMachineName
 	// Get the tasks that are pending
 	// Identify pending tasks ready to start
@@ -347,7 +347,7 @@ func (ctx *Context) StartPendingTasks(stateMachineName string) (err error) {
 	return rows.Err()
 }
 
-func (ctx *Context) lockStateMachine(stateMachineName, sessionId string) error {
+func (ctx *DataTableContext) lockStateMachine(stateMachineName, sessionId string) error {
 	stmt := "INSERT INTO jetsapi.pipeline_lock (state_machine_name, session_id) VALUES ($1, $2)"
 	retry := 0
 	var t time.Duration = 1 * time.Second
@@ -366,7 +366,7 @@ do_retry:
 	return nil
 }
 
-func (ctx *Context) unlockStateMachine(stateMachineName string) {
+func (ctx *DataTableContext) unlockStateMachine(stateMachineName string) {
 	stmt := "DELETE FROM jetsapi.pipeline_lock WHERE state_machine_name = $1"
 	_, err := ctx.Dbpool.Exec(context.Background(), stmt, stateMachineName)
 	if err != nil {
@@ -375,7 +375,7 @@ func (ctx *Context) unlockStateMachine(stateMachineName string) {
 }
 
 // Returns [true] if throttling is required for [fileKey]
-func (ctx *Context) checkThrottling(stateMachineName, fileKey string) (bool, error) {
+func (ctx *DataTableContext) checkThrottling(stateMachineName, fileKey string) (bool, error) {
 	// Get the fileKey size from file_key_staging table
 	var fileSize sql.NullInt64
 	stmt := "SELECT file_size FROM jetsapi.file_key_staging WHERE file_key = $1"
@@ -413,7 +413,7 @@ func EvalThrotting(submRc, submT1c int64) (bool, error) {
 	}
 }
 
-func (ctx *Context) GetTaskThrottlingInfo(stateMachineName, taskStatus string) (int64, int64, error) {
+func (ctx *DataTableContext) GetTaskThrottlingInfo(stateMachineName, taskStatus string) (int64, int64, error) {
 	var err error
 	stmt := `
     SELECT 
@@ -437,17 +437,16 @@ func (ctx *Context) GetTaskThrottlingInfo(stateMachineName, taskStatus string) (
 	return pipelineCount.Int64, t1Count.Int64, err
 }
 
-func (ctx *Context) startPipeline(devModeCode, stateMachineName string, task *PendingTask, results *map[string]interface{}) error {
+func (ctx *DataTableContext) startPipeline(devModeCode, stateMachineName string, task *PendingTask, results *map[string]interface{}) error {
 	if ctx.DevMode {
 		return ctx.runPipelineLocally(devModeCode, stateMachineName, task, results)
 	}
 	return ctx.startStateMachine(stateMachineName, task)
 }
 
-func (ctx *Context) startStateMachine(stateMachineName string, task *PendingTask) error {
+func (ctx *DataTableContext) startStateMachine(stateMachineName string, task *PendingTask) error {
 	var err error
 	var name string
-	nbrClusterNodes := ctx.NbrShards
 	peKey := strconv.Itoa(int(task.Key))
 
 	runReportsCommand := []string{
@@ -465,12 +464,11 @@ func (ctx *Context) startStateMachine(stateMachineName string, task *PendingTask
 	switch stateMachineName {
 	case "serverSM":
 		processArn = os.Getenv("JETS_SERVER_SM_ARN")
-		for shardId := 0; shardId < nbrClusterNodes; shardId++ {
+		for shardId := range nbrShards {
 			serverArgs := []string{
 				"-peKey", peKey,
 				"-userEmail", task.UserEmail,
 				"-shardId", strconv.Itoa(shardId),
-				"-nbrShards", strconv.Itoa(nbrClusterNodes),
 			}
 			serverCommands = append(serverCommands, serverArgs)
 		}
@@ -493,7 +491,7 @@ func (ctx *Context) startStateMachine(stateMachineName string, task *PendingTask
 
 	case "serverv2SM":
 		processArn = os.Getenv("JETS_SERVER_SM_ARNv2")
-		serverArgs := make([]map[string]interface{}, ctx.NbrShards)
+		serverArgs := make([]map[string]interface{}, nbrShards)
 		for i := range serverArgs {
 			serverArgs[i] = map[string]interface{}{
 				"id": i,
@@ -580,7 +578,7 @@ func (ctx *Context) startStateMachine(stateMachineName string, task *PendingTask
 	return nil
 }
 
-func (ctx *Context) runPipelineLocally(devModeCode, stateMachineName string, task *PendingTask, results *map[string]any) error {
+func (ctx *DataTableContext) runPipelineLocally(devModeCode, stateMachineName string, task *PendingTask, results *map[string]any) error {
 
 	var err error
 	workspaceName := os.Getenv("WORKSPACE")
@@ -618,12 +616,11 @@ func (ctx *Context) runPipelineLocally(devModeCode, stateMachineName string, tas
 				err = fmt.Errorf("error: unknown stateMachineName: %s", stateMachineName)
 				return err
 			}
-			for shardId := 0; shardId < ctx.NbrShards && err == nil; shardId++ {
+			for shardId := 0; shardId < nbrShards && err == nil; shardId++ {
 				serverArgs := []string{
 					"-peKey", peKey,
 					"-userEmail", task.UserEmail,
 					"-shardId", strconv.Itoa(shardId),
-					"-nbrShards", strconv.Itoa(ctx.NbrShards),
 				}
 				if ctx.UsingSshTunnel {
 					serverArgs = append(serverArgs, "-usingSshTunnel")
@@ -735,7 +732,7 @@ func (ctx *Context) runPipelineLocally(devModeCode, stateMachineName string, tas
 	return err
 }
 
-func (ctx *Context) startLoader(dataTableAction *DataTableAction, irow int, sqlStmt *SqlInsertDefinition, results *map[string]interface{}) (httpStatus int, err error) {
+func (ctx *DataTableContext) startLoader(dataTableAction *DataTableAction, irow int, sqlStmt *SqlInsertDefinition, results *map[string]interface{}) (httpStatus int, err error) {
 	var loaderCompletedMetric, loaderFailedMetric string
 	httpStatus = http.StatusOK
 	var name string
@@ -790,7 +787,6 @@ func (ctx *Context) startLoader(dataTableAction *DataTableAction, irow int, sqlS
 		"-sourcePeriodKey", sourcePeriodKey.(string),
 		"-sessionId", sessionId.(string),
 		"-userEmail", userEmail.(string),
-		"-nbrShards", strconv.Itoa(ctx.NbrShards),
 	}
 	if loaderCompletedMetric != "" {
 		loaderCommand = append(loaderCommand, "-loaderCompletedMetric")

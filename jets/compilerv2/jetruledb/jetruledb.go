@@ -227,7 +227,7 @@ func WriteJetrule(dbpool *pgxpool.Pool, compileJetruleAction *CompileJetruleActi
 	// if err != nil {
 	// 	return nil, http.StatusInternalServerError, fmt.Errorf("while calling InsertSourcePeriod: %v", err)
 	// }
-	datatableCtx := &datatable.Context{
+	datatableCtx := &datatable.DataTableContext{
 		Dbpool: dbpool,
 	}
 	writeWorkspaceCtx := &writeWorkspaceContext{
@@ -396,7 +396,7 @@ func WriteJetrule(dbpool *pgxpool.Pool, compileJetruleAction *CompileJetruleActi
 }
 
 // utility functions
-func (ctx *writeWorkspaceContext) insertRuleFileName(datatableCtx *datatable.Context, ruleFileName string, isMain bool, workspace string, token *string) (int, error) {
+func (ctx *writeWorkspaceContext) insertRuleFileName(datatableCtx *datatable.DataTableContext, ruleFileName string, isMain bool, workspace string, token *string) (int, error) {
 	keys, err := ctx.insertRows(datatableCtx, &[]map[string]interface{}{
 		{"source_file_name": ruleFileName, "is_main": isMain},
 	}, "workspace_control", workspace, token)
@@ -411,7 +411,7 @@ func (ctx *writeWorkspaceContext) insertRuleFileName(datatableCtx *datatable.Con
 	return key, nil
 }
 
-func (ctx *writeWorkspaceContext) insertRows(datatableCtx *datatable.Context, data *[]map[string]interface{}, table string, workspace string, token *string) (returnedKeys *[]int, err error) {
+func (ctx *writeWorkspaceContext) insertRows(datatableCtx *datatable.DataTableContext, data *[]map[string]interface{}, table string, workspace string, token *string) (returnedKeys *[]int, err error) {
 	// check if data has key 'source_file_name' and convert it into 'source_file_key'
 	if table != "workspace_control" {
 		for i := range *data {
@@ -449,7 +449,7 @@ func (ctx *writeWorkspaceContext) insertRows(datatableCtx *datatable.Context, da
 // JetruleModel Methods
 // --------------------
 // WriteResources
-func (ctx *writeWorkspaceContext) WriteResources(datatableCtx *datatable.Context, workspace string, token *string) error {
+func (ctx *writeWorkspaceContext) WriteResources(datatableCtx *datatable.DataTableContext, workspace string, token *string) error {
 
 	data := []map[string]interface{}{}
 	for i := range ctx.model.Resources {
@@ -506,7 +506,7 @@ func (ctx *writeWorkspaceContext) getDataPropertyKey(name *string) int {
 }
 
 // WriteDomainClasses
-func (ctx *writeWorkspaceContext) WriteDomainClasses(datatableCtx *datatable.Context, workspace string, token *string) error {
+func (ctx *writeWorkspaceContext) WriteDomainClasses(datatableCtx *datatable.DataTableContext, workspace string, token *string) error {
 	// write to domain_classes
 	data := []map[string]interface{}{}
 	for i := range ctx.model.Classes {
@@ -584,7 +584,7 @@ func (ctx *writeWorkspaceContext) WriteDomainClasses(datatableCtx *datatable.Con
 }
 
 // WriteDomainTables
-func (ctx *writeWorkspaceContext) WriteDomainTables(datatableCtx *datatable.Context, workspace string, token *string) error {
+func (ctx *writeWorkspaceContext) WriteDomainTables(datatableCtx *datatable.DataTableContext, workspace string, token *string) error {
 	// write to domain_tables
 	data := []map[string]interface{}{}
 	for i := range ctx.model.Tables {
@@ -630,7 +630,7 @@ func (ctx *writeWorkspaceContext) WriteDomainTables(datatableCtx *datatable.Cont
 }
 
 // WriteJetStoreConfig
-func (ctx *writeWorkspaceContext) WriteJetStoreConfig(datatableCtx *datatable.Context, workspace string, token *string) error {
+func (ctx *writeWorkspaceContext) WriteJetStoreConfig(datatableCtx *datatable.DataTableContext, workspace string, token *string) error {
 	// write to jetstore_config
 	data := []map[string]interface{}{}
 	sourceFileName := ctx.model.JetstoreConfig["source_file_name"]
@@ -654,7 +654,7 @@ func (ctx *writeWorkspaceContext) WriteJetStoreConfig(datatableCtx *datatable.Co
 }
 
 // WriteRuleSequences
-func (ctx *writeWorkspaceContext) WriteRuleSequences(datatableCtx *datatable.Context, workspace string, token *string) error {
+func (ctx *writeWorkspaceContext) WriteRuleSequences(datatableCtx *datatable.DataTableContext, workspace string, token *string) error {
 	// write to rule_sequences
 	returnedKeys, err := ctx.insertRows(datatableCtx, &ctx.model.RuleSequences, "rule_sequences", workspace, token)
 	if returnedKeys == nil || err != nil {
@@ -692,7 +692,7 @@ func (ctx *writeWorkspaceContext) WriteRuleSequences(datatableCtx *datatable.Con
 }
 
 // WriteLookupTables
-func (ctx *writeWorkspaceContext) WriteLookupTables(datatableCtx *datatable.Context, workspace string, token *string) error {
+func (ctx *writeWorkspaceContext) WriteLookupTables(datatableCtx *datatable.DataTableContext, workspace string, token *string) error {
 	// NOT USED = TODO REMOVE DB PERSISTENCE
 	// // write to lookup_tables
 	// data := []map[string]interface{}{}
@@ -733,7 +733,7 @@ func (ctx *writeWorkspaceContext) WriteLookupTables(datatableCtx *datatable.Cont
 	return nil
 }
 
-func (ctx *writeWorkspaceContext) expr2Key(datatableCtx *datatable.Context, expr *interface{}, workspace string, token *string) (int, error) {
+func (ctx *writeWorkspaceContext) expr2Key(datatableCtx *datatable.DataTableContext, expr *interface{}, workspace string, token *string) (int, error) {
 	if expr == nil {
 		return 0, fmt.Errorf("error, nil expr argument to expr2Key")
 	}
@@ -808,7 +808,7 @@ func (ctx *writeWorkspaceContext) applyDefaults2Expressions(data *[]map[string]i
 	return data, nil
 }
 
-func (ctx *writeWorkspaceContext) persistExpr(datatableCtx *datatable.Context, expr *interface{}, workspace string, token *string) (int, error) {
+func (ctx *writeWorkspaceContext) persistExpr(datatableCtx *datatable.DataTableContext, expr *interface{}, workspace string, token *string) (int, error) {
 	if expr == nil {
 		return 0, fmt.Errorf("error, nil expr argument to persistExpr")
 	}
@@ -843,7 +843,7 @@ func (ctx *writeWorkspaceContext) persistExpr(datatableCtx *datatable.Context, e
 }
 
 // WriteExpr
-func (ctx *writeWorkspaceContext) WriteExpr(datatableCtx *datatable.Context, workspace string, token *string) error {
+func (ctx *writeWorkspaceContext) WriteExpr(datatableCtx *datatable.DataTableContext, workspace string, token *string) error {
 	// write to expressions
 	var err error
 	var expr interface{}
@@ -879,7 +879,7 @@ func minSalience(v []int) int {
 }
 
 // WriteReteNodes
-func (ctx *writeWorkspaceContext) WriteReteNodes(datatableCtx *datatable.Context, workspace string, token *string) error {
+func (ctx *writeWorkspaceContext) WriteReteNodes(datatableCtx *datatable.DataTableContext, workspace string, token *string) error {
 	// write to rete_nodes from RuleTerm struct
 	sourceFileName := ctx.model.JetstoreConfig["source_file_name"]
 	data := []map[string]interface{}{}
@@ -960,7 +960,7 @@ func (ctx *writeWorkspaceContext) WriteReteNodes(datatableCtx *datatable.Context
 }
 
 // WriteJetRules
-func (ctx *writeWorkspaceContext) WriteJetRules(datatableCtx *datatable.Context, workspace string, token *string) error {
+func (ctx *writeWorkspaceContext) WriteJetRules(datatableCtx *datatable.DataTableContext, workspace string, token *string) error {
 	// write to jet_rules
 	data := []map[string]interface{}{}
 	for i := range ctx.model.Jetrules {
@@ -1053,7 +1053,7 @@ func (ctx *writeWorkspaceContext) WriteJetRules(datatableCtx *datatable.Context,
 }
 
 // WriteTriples
-func (ctx *writeWorkspaceContext) WriteTriples(datatableCtx *datatable.Context, workspace string, token *string) error {
+func (ctx *writeWorkspaceContext) WriteTriples(datatableCtx *datatable.DataTableContext, workspace string, token *string) error {
 	// write to triples
 	data := []map[string]interface{}{}
 	for i := range ctx.model.Triples {

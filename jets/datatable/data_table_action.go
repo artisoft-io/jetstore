@@ -29,25 +29,30 @@ import (
 	"github.com/jackc/pgx/v4/pgxpool"
 )
 
+var nbrShards int
+
+func init() {
+	nbrShards, _ = strconv.Atoi(os.Getenv("NBR_SHARDS"))
+	if nbrShards == 0 {
+		nbrShards = 1
+	}
+}
 // Environment and settings needed
-type Context struct {
+type DataTableContext struct {
 	Dbpool         *pgxpool.Pool
 	DevMode        bool
 	UsingSshTunnel bool
 	UnitTestDir    *string
-	NbrShards      int
 	AdminEmail     *string
 }
 
-func NewContext(dbpool *pgxpool.Pool, devMode bool, usingSshTunnel bool,
-	unitTestDir *string, nbrShards int,
-	adminEmail *string) *Context {
-	return &Context{
+func NewDataTableContext(dbpool *pgxpool.Pool, devMode bool, usingSshTunnel bool,
+	unitTestDir *string, adminEmail *string) *DataTableContext {
+	return &DataTableContext{
 		Dbpool:         dbpool,
 		DevMode:        devMode,
 		UsingSshTunnel: usingSshTunnel,
 		UnitTestDir:    unitTestDir,
-		NbrShards:      nbrShards,
 		AdminEmail:     adminEmail,
 	}
 }
@@ -391,7 +396,7 @@ type SqlInsertDefinition struct {
 }
 
 // Check that the user has the required permission to execute the action
-func (ctx *Context) VerifyUserPermission(sqlStmt *SqlInsertDefinition, token string) (*user.User, error) {
+func (ctx *DataTableContext) VerifyUserPermission(sqlStmt *SqlInsertDefinition, token string) (*user.User, error) {
 	// RBAC check
 	if sqlStmt.Capability == "" {
 		return nil, errors.New("error: unauthorized, configuration error: missing capability on sql statement")
@@ -428,7 +433,7 @@ func (ctx *Context) VerifyUserPermission(sqlStmt *SqlInsertDefinition, token str
 
 // ExecRawQuery ------------------------------------------------------
 // These are queries to load reference data for widget, e.g. dropdown list of items
-func (ctx *Context) ExecRawQuery(dataTableAction *DataTableAction, token string) (results *map[string]interface{}, httpStatus int, err error) {
+func (ctx *DataTableContext) ExecRawQuery(dataTableAction *DataTableAction, token string) (results *map[string]interface{}, httpStatus int, err error) {
 	// fmt.Println("*** ExecRawQuery called, query:",dataTableAction.RawQuery)
 
 	resultRows, columnDefs, err2 := execQuery(ctx.Dbpool, dataTableAction, &dataTableAction.RawQuery)
@@ -447,7 +452,7 @@ func (ctx *Context) ExecRawQuery(dataTableAction *DataTableAction, token string)
 	return
 }
 
-func (ctx *Context) ExecDataManagementStatement(dataTableAction *DataTableAction, token string) (results *map[string]interface{}, httpStatus int, err error) {
+func (ctx *DataTableContext) ExecDataManagementStatement(dataTableAction *DataTableAction, token string) (results *map[string]interface{}, httpStatus int, err error) {
 	// fmt.Println("*** ExecDataManagementStatement called, query:",dataTableAction.RawQuery)
 	_, err2 := ctx.VerifyUserPermission(&SqlInsertDefinition{Capability: "workspace_ide"}, token)
 	if err2 != nil {
@@ -473,7 +478,7 @@ func (ctx *Context) ExecDataManagementStatement(dataTableAction *DataTableAction
 
 // ExecRawQueryMap ------------------------------------------------------
 // These are queries to load reference data for widget, e.g. dropdown list of items
-func (ctx *Context) ExecRawQueryMap(dataTableAction *DataTableAction, token string) (results *map[string]interface{}, httpStatus int, err error) {
+func (ctx *DataTableContext) ExecRawQueryMap(dataTableAction *DataTableAction, token string) (results *map[string]interface{}, httpStatus int, err error) {
 	// fmt.Println("ExecRawQueryMap:")
 	resultMap := make(map[string]interface{}, len(dataTableAction.RawQueryMap))
 	for k, v := range dataTableAction.RawQueryMap {
@@ -501,7 +506,7 @@ func (ctx *Context) ExecRawQueryMap(dataTableAction *DataTableAction, token stri
 // InsertRawRows ------------------------------------------------------
 // Insert row function using a raw text buffer containing cst/tsv rows
 // Delegates to InsertRows
-func (ctx *Context) InsertRawRows(dataTableAction *DataTableAction, token string) (results *map[string]interface{}, httpStatus int, err error) {
+func (ctx *DataTableContext) InsertRawRows(dataTableAction *DataTableAction, token string) (results *map[string]interface{}, httpStatus int, err error) {
 	httpStatus = http.StatusOK
 	// Copy Data so to re-use dataTableAction with different sets of Data
 	requestTable := dataTableAction.FromClauses[0].Table
@@ -627,7 +632,7 @@ func (ctx *Context) InsertRawRows(dataTableAction *DataTableAction, token string
 // Main insert row function with pre processing hooks for validating/authorizing the request
 // Main insert row function with post processing hooks for starting pipelines
 // Inserting rows using pre-defined sql statements, keyed by table name provided in dataTableAction
-func (ctx *Context) InsertRows(dataTableAction *DataTableAction, token string) (results *map[string]interface{}, httpStatus int, err error) {
+func (ctx *DataTableContext) InsertRows(dataTableAction *DataTableAction, token string) (results *map[string]interface{}, httpStatus int, err error) {
 	returnedKey := make([]int, len(dataTableAction.Data))
 	results = &map[string]interface{}{
 		"returned_keys": &returnedKey,
@@ -872,7 +877,7 @@ func execDDL(dbpool *pgxpool.Pool, _ *DataTableAction, query *string) (*[][]inte
 }
 
 // DoReadAction ------------------------------------------------------
-func (ctx *Context) DoReadAction(dataTableAction *DataTableAction, token string) (*map[string]interface{}, int, error) {
+func (ctx *DataTableContext) DoReadAction(dataTableAction *DataTableAction, token string) (*map[string]interface{}, int, error) {
 
 	// to package up the result
 	results := make(map[string]interface{})
@@ -967,7 +972,7 @@ gotRolesPos:
 }
 
 // DoPreviewFileAction ------------------------------------------------------
-func (ctx *Context) DoPreviewFileAction(dataTableAction *DataTableAction, token string) (*map[string]interface{}, int, error) {
+func (ctx *DataTableContext) DoPreviewFileAction(dataTableAction *DataTableAction, token string) (*map[string]interface{}, int, error) {
 
 	// Validation
 	if len(dataTableAction.WhereClauses) == 0 ||
@@ -1035,7 +1040,7 @@ func (ctx *Context) DoPreviewFileAction(dataTableAction *DataTableAction, token 
 
 // DropTable ------------------------------------------------------
 // These are queries to load reference data for widget, e.g. dropdown list of items
-func (ctx *Context) DropTable(dataTableAction *DataTableAction, token string) (results *map[string]interface{}, httpStatus int, err error) {
+func (ctx *DataTableContext) DropTable(dataTableAction *DataTableAction, token string) (results *map[string]interface{}, httpStatus int, err error) {
 	//* TODO NEED TO APPLY FILTER ON TABLE NAME
 	for ipos := range dataTableAction.Data {
 		tableName := dataTableAction.Data[ipos]["tableName"]
@@ -1076,7 +1081,7 @@ func (ctx *Context) DropTable(dataTableAction *DataTableAction, token string) (r
 	return
 }
 
-// func (ctx *Context) readLocalFiles(dataTableAction *DataTableAction) (*map[string]interface{}, int, error) {
+// func (ctx *DataTableContext) readLocalFiles(dataTableAction *DataTableAction) (*map[string]interface{}, int, error) {
 // 	fileSystem := os.DirFS(*ctx.unitTestDir)
 // 	dirData := make([]map[string]string, 0)
 // 	key := 1

@@ -63,7 +63,6 @@ var outSessionId = flag.String("sessionId", "", "Process session ID for the outp
 var inSessionIdOverride = flag.String("inSessionId", "", "Session ID for input domain tables, defaults to latest in input_registry table.")
 var limit = flag.Int("limit", -1, "Limit the number of input row (rete sessions), default no limit.")
 var nodeId = flag.Int("nodeId", 0, "DB node id associated to this processing node, can be overriden by -shardId.")
-var nbrShards = flag.Int("nbrShards", 1, "Number of shards to use in sharding the created output entities (required, default 1")
 var outTables = flag.String("outTables", "", "Comma-separed list of output tables (override pipeline config).")
 var shardId = flag.Int("shardId", -1, "Run the server process for this single shard, overrides -nodeId. (required unless no sharding)")
 var userEmail = flag.String("userEmail", "", "User identifier to register the execution results (required)")
@@ -76,6 +75,7 @@ var dbc dbConnections
 var nbrDbNodes int
 var processName string // put it as global var since there is always one and only one process per invocation
 var devMode bool
+var nbrShards int
 
 func init() {
 	extTables = make(map[string][]string)
@@ -93,6 +93,10 @@ func init() {
 		extTables[split1[0]] = split2
 		return nil
 	})
+	nbrShards, _ = strconv.Atoi(os.Getenv("NBR_SHARDS"))
+	if nbrShards == 0 {
+		nbrShards = 1
+	}
 }
 
 // doJob main function
@@ -182,7 +186,7 @@ func doJobAndReportStatus() error {
 	log.Printf("Command Line Argument: limit: %d\n", *limit)
 	log.Printf("Command Line Argument: lookupDb: %s\n", *lookupDb)
 	log.Printf("Command Line Argument: nbrDbNodes: %d\n", nbrDbNodes)
-	log.Printf("Command Line Argument: nbrShards: %d\n", *nbrShards)
+	log.Printf("Command Line Argument: nbrShards: %d\n", nbrShards)
 	log.Printf("Command Line Argument: nodeId: %d\n", *nodeId)
 	log.Printf("Command Line Argument: outTables: %s\n", *outTables)
 	log.Printf("Command Line Argument: poolSize: %d\n", *poolSize)
@@ -206,6 +210,7 @@ func doJobAndReportStatus() error {
 	log.Printf("ENV JETSTORE_DEV_MODE: %s\n", os.Getenv("JETSTORE_DEV_MODE"))
 	log.Printf("ENV JETS_DOMAIN_KEY_SEPARATOR: %s\n", os.Getenv("JETS_DOMAIN_KEY_SEPARATOR"))
 	log.Printf("ENV JETS_S3_KMS_KEY_ARN: %s\n", os.Getenv("JETS_S3_KMS_KEY_ARN"))
+	log.Printf("ENV NBR_SHARDS: %s\n", os.Getenv("NBR_SHARDS"))
 	log.Printf("Command Line Argument: GLOG_v is set to %d\n", glogv)
 	dsn := dsnSplit[*nodeId%nbrDbNodes]
 	dbpool, err := pgxpool.Connect(context.Background(), dsn)
@@ -334,10 +339,6 @@ func main() {
 	if *nodeId < 0 {
 		hasErr = true
 		errMsg = append(errMsg, "The db node id (-nodeId) must be an index in the list of -dsn.")
-	}
-	if *nbrShards < 1 {
-		hasErr = true
-		errMsg = append(errMsg, "The number of shards (-nbrShards) for the output entities must at least be 1.")
 	}
 	if *outSessionId == "" && *pipelineExecKey < 0 {
 		hasErr = true

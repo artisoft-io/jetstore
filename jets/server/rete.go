@@ -357,7 +357,7 @@ func (rw *ReteWorkspace) ExecuteRules(
 
 						case strings.HasSuffix(domainColumn.ColumnName, ":domain_key"):
 							objectType := strings.Split(domainColumn.ColumnName, ":")[0]
-							domainKey, _, err := tableSpec.DomainKeysInfo.ComputeGroupingKeyI(*nbrShards, &objectType, &entityRow)
+							domainKey, _, err := tableSpec.DomainKeysInfo.ComputeGroupingKeyI(nbrShards, &objectType, &entityRow)
 							if err != nil {
 								return &result, fmt.Errorf("while ComputeGroupingKeyI: %v", err)
 							}
@@ -365,7 +365,7 @@ func (rw *ReteWorkspace) ExecuteRules(
 
 						case strings.HasSuffix(domainColumn.ColumnName, ":shard_id"):
 							objectType := strings.Split(domainColumn.ColumnName, ":")[0]
-							_, shardId, err := tableSpec.DomainKeysInfo.ComputeGroupingKeyI(*nbrShards, &objectType, &entityRow)
+							_, shardId, err := tableSpec.DomainKeysInfo.ComputeGroupingKeyI(nbrShards, &objectType, &entityRow)
 							if err != nil {
 								return &result, fmt.Errorf("while ComputeGroupingKeyI: %v", err)
 							}

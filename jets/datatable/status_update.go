@@ -412,7 +412,7 @@ func (ca *StatusUpdate) CoordinateWork() error {
 	if err != nil {
 		log.Fatalf("QueryRow on pipeline_execution_status failed: %v", err)
 	}
-	ctx := NewContext(ca.Dbpool, ca.UsingSshTunnel, ca.UsingSshTunnel, nil, 100, nil)
+	ctx := NewDataTableContext(ca.Dbpool, ca.UsingSshTunnel, ca.UsingSshTunnel, nil, nil)
 	err = ctx.StartPendingTasks(stateMachineName)
 	if err != nil {
 		//*TODO If get an error while starting pending task. Fail current task for now...
