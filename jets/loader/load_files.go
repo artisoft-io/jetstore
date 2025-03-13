@@ -366,7 +366,7 @@ func loadFile2DB(headersDKInfo *schema.HeadersAndDomainKeysInfo, filePath *strin
 			var mainDomainKeyPos int
 			var mainShardIdPos int
 			for _, ot := range *objTypes {
-				groupingKey, shardId, err := headersDKInfo.ComputeGroupingKey(*nbrShards, &ot, &record, recordTypeOffset, &jetsKeyStr)
+				groupingKey, shardId, err := headersDKInfo.ComputeGroupingKey(nbrShards, &ot, &record, recordTypeOffset, &jetsKeyStr)
 				if err != nil {
 					badRowsPos = append(badRowsPos, currentLineNumber)
 					processingErrors = append(processingErrors, err.Error())
@@ -407,7 +407,7 @@ func loadFile2DB(headersDKInfo *schema.HeadersAndDomainKeysInfo, filePath *strin
 			}
 			if headersDKInfo.IsDomainKeyIsJetsKey(objectType) {
 				copyRec[mainDomainKeyPos] = jetsKeyStr
-				copyRec[mainShardIdPos] = schema.ComputeShardId(*nbrShards, jetsKeyStr)
+				copyRec[mainShardIdPos] = schema.ComputeShardId(nbrShards, jetsKeyStr)
 			}
 
 			copyRec[jetsKeyPos] = jetsKeyStr

@@ -39,12 +39,12 @@ func (wt *WriteTableSource) Next() bool {
 	return ok
 }
 func (wt *WriteTableSource) Values() ([]interface{}, error) {
-	fmt.Println("*** WriteTable Row ***")
-	for _, v := range wt.pending {
-		fmt.Printf("%v (%T), ", v, v)
-	}
-	fmt.Println()
-	fmt.Println()
+	// fmt.Println("*** WriteTable Row ***")
+	// for _, v := range wt.pending {
+	// 	fmt.Printf("%v (%T), ", v, v)
+	// }
+	// fmt.Println()
+	// fmt.Println()
 	return wt.pending, nil
 }
 func (wt *WriteTableSource) Err() error {

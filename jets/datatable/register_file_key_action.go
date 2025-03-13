@@ -28,7 +28,7 @@ type RegisterFileKeyAction struct {
 }
 
 // Function to match the case for client, org, and object_type based on jetstore
-func (ctx *Context) updateFileKeyComponentCase(fileKeyObjectPtr *map[string]interface{}) {
+func (ctx *DataTableContext) updateFileKeyComponentCase(fileKeyObjectPtr *map[string]interface{}) {
 	fileKeyObject := *fileKeyObjectPtr
 	var err error
 	// log.Println("updateFileKeyComponentCase CALLED:",fileKeyObject)
@@ -96,7 +96,7 @@ func (ctx *Context) updateFileKeyComponentCase(fileKeyObjectPtr *map[string]inte
 var jetsS3SchemaTriggers string = os.Getenv("JETS_s3_SCHEMA_TRIGGERS")
 
 // Submit Schema Event to S3 (which will call RegisterFileKEys as side effect)
-func (ctx *Context) PutSchemaEventToS3(action *RegisterFileKeyAction, token string) (*map[string]interface{}, int, error) {
+func (ctx *DataTableContext) PutSchemaEventToS3(action *RegisterFileKeyAction, token string) (*map[string]interface{}, int, error) {
 	for irow := range action.Data {
 		var schemaProviderJson string
 		e := action.Data[irow]["event"]
@@ -115,7 +115,7 @@ func (ctx *Context) PutSchemaEventToS3(action *RegisterFileKeyAction, token stri
 }
 
 // Register file_key with file_key_staging table
-func (ctx *Context) RegisterFileKeys(registerFileKeyAction *RegisterFileKeyAction, token string) (*map[string]interface{}, int, error) {
+func (ctx *DataTableContext) RegisterFileKeys(registerFileKeyAction *RegisterFileKeyAction, token string) (*map[string]interface{}, int, error) {
 	var err error
 	sqlStmt, ok := sqlInsertStmts["file_key_staging"]
 	if !ok {
@@ -371,7 +371,7 @@ func (ctx *Context) RegisterFileKeys(registerFileKeyAction *RegisterFileKeyActio
 }
 
 // Load All Files for client/org/object_type from a given day_period
-func (ctx *Context) LoadAllFiles(registerFileKeyAction *RegisterFileKeyAction, token string) (*map[string]interface{}, int, error) {
+func (ctx *DataTableContext) LoadAllFiles(registerFileKeyAction *RegisterFileKeyAction, token string) (*map[string]interface{}, int, error) {
 	var err error
 	baseSessionId := time.Now().UnixMilli()
 	for irow := range registerFileKeyAction.Data {
@@ -623,7 +623,7 @@ func PipelineConfigReady2Execute(dbpool *pgxpool.Pool, processInputKeys *[]int, 
 // Start process based on matching criteria:
 //   - find processes that are ready to start with one of the input input_registry key.
 //   - Pipeline must have automated flag on
-func (ctx *Context) StartPipelineOnInputRegistryInsert(registerFileKeyAction *RegisterFileKeyAction, token string) (*[]map[string]interface{}, int, error) {
+func (ctx *DataTableContext) StartPipelineOnInputRegistryInsert(registerFileKeyAction *RegisterFileKeyAction, token string) (*[]map[string]interface{}, int, error) {
 	// // // DEV
 	// fmt.Println("StartPipelineOnInputRegistryInsert called with registerFileKeyAction:", *registerFileKeyAction)
 
@@ -884,7 +884,7 @@ func SplitFileKeyIntoComponents(keyMap map[string]interface{}, fileKey *string) 
 
 // SyncFileKeys ------------------------------------------------------
 // 12/17/2023: Replacing all keys in file_key_staging to be able to reset keys from source_config that are Part File sources
-func (ctx *Context) SyncFileKeys(registerFileKeyAction *RegisterFileKeyAction, token string) (*map[string]interface{}, int, error) {
+func (ctx *DataTableContext) SyncFileKeys(registerFileKeyAction *RegisterFileKeyAction, token string) (*map[string]interface{}, int, error) {
 	// RegisterFileKeyAction.Data is not used in this action
 
 	log.Println("Syncing File Keys with s3")

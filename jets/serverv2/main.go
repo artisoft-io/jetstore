@@ -47,12 +47,19 @@ var pipelineExecKey = flag.Int("peKey", -1, "Pipeline execution key (required or
 var poolSize = flag.Int("poolSize", 10, "Coroutines pool size constraint")
 var outSessionId = flag.String("sessionId", "", "Process session ID for the output Domain Tables. (required)")
 var limit = flag.Int("limit", -1, "Limit the number of input row (rete sessions), default no limit.")
-var nbrShards = flag.Int("nbrShards", 1, "Number of shards to use in sharding the created output entities (required, default 1")
 var shardId = flag.Int("shardId", -1, "Run the server process for this single shard. (required)")
 var userEmail = flag.String("userEmail", "", "User identifier to register the execution results (argument no longer used)")
 var completedMetric = flag.String("serverCompletedMetric", "serverCompleted", "Metric name to register the server execution successfull completion (default: serverCompleted)")
 var failedMetric = flag.String("serverFailedMetric", "serverFailed", "Metric name to register the server execution failure (default: serverFailed)")
 var devMode bool
+var nbrShards int
+
+func init() {
+	nbrShards, _ = strconv.Atoi(os.Getenv("NBR_SHARDS"))
+	if nbrShards == 0 {
+		nbrShards = 1
+	}
+}
 
 func main() {
 	fmt.Println("serverv2 CMD LINE ARGS:", os.Args[1:])
@@ -119,10 +126,6 @@ func main() {
 			errMsg = append(errMsg, "Workspace db path (-workspaceDb) must be provided or env WORKSPACES_HOME and WORKSPACE.")
 		}
 		*lookupDb = fmt.Sprintf("%s/%s/lookup.db", os.Getenv("WORKSPACES_HOME"), os.Getenv("WORKSPACE"))
-	}
-	if *nbrShards < 1 {
-		hasErr = true
-		errMsg = append(errMsg, "The number of shards (-nbrShards) for the output entities must at least be 1.")
 	}
 	if *outSessionId == "" && *pipelineExecKey < 0 {
 		hasErr = true
@@ -196,7 +199,7 @@ func main() {
 		PoolSize:            *poolSize,
 		OutSessionId:        *outSessionId,
 		Limit:               *limit,
-		NbrShards:           *nbrShards,
+		NbrShards:           nbrShards,
 		ShardId:             *shardId,
 		CompletedMetric:     *completedMetric,
 		FailedMetric:        *failedMetric,

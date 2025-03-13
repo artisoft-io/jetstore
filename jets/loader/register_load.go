@@ -48,7 +48,7 @@ func registerCurrentLoad(loadCount int64, badRowCount int64, dbpool *pgxpool.Poo
 			}
 		}
 		// Check for any process that are ready to kick off
-		context := datatable.NewContext(dbpool, devMode, *usingSshTunnel, nil, *nbrShards, &adminEmail)
+		context := datatable.NewDataTableContext(dbpool, devMode, *usingSshTunnel, nil, &adminEmail)
 		token, err := user.CreateToken(*userEmail)
 		if err != nil {
 			return fmt.Errorf("error creating jwt token: %v", err)

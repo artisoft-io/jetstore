@@ -33,7 +33,7 @@ func (server *Server) DoRegisterFileKeyAction(w http.ResponseWriter, r *http.Req
 		ERROR(w, http.StatusUnprocessableEntity, err)
 		return
 	}
-	context := datatable.NewContext(server.dbpool, globalDevMode, *usingSshTunnel, unitTestDir,nbrShards, adminEmail)
+	context := datatable.NewDataTableContext(server.dbpool, globalDevMode, *usingSshTunnel, unitTestDir, adminEmail)
 
 	// Intercept specific dataTable action
 	switch registerFileKeyAction.Action {

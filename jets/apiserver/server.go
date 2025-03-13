@@ -595,7 +595,7 @@ func listenAndServe() error {
 	// Start a background tasks to identify timed out and pending tasks
 	if !globalDevMode {
 		go func () {
-			ctx := datatable.NewContext(server.dbpool, false, false, nil, 10, nil)
+			ctx := datatable.NewDataTableContext(server.dbpool, false, false, nil, nil)
 			for {
 				time.Sleep(1 * time.Hour)
 				err := ctx.StartPendingTasks("cpipesSM")
