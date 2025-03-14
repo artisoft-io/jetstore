@@ -91,6 +91,7 @@ func handler(ctx context.Context, arguments map[string]interface{}) (err error) 
 	case map[string]interface{}:
 		txt, ok := failureDetails["Cause"].(string)
 		if ok {
+			// Looks like an error in a lambda function
 			// see if txt is an embeded json
 			var errCause map[string]interface{}
 			err = json.Unmarshal([]byte(txt), &errCause)
@@ -108,9 +109,20 @@ func handler(ctx context.Context, arguments map[string]interface{}) (err error) 
 				ca.FailureDetails = txt
 			}
 		} else {
-			// failure details has an unknown structure
-			b, _ := json.MarshalIndent(failureDetails, "", " ")
-			ca.FailureDetails = string(b)
+			reason, ok := failureDetails["StoppedReason"].(string)
+			if ok {
+			// Looks like an error in a task container
+			group, ok := failureDetails["Group"].(string)
+				if ok {
+					ca.FailureDetails = fmt.Sprintf("%s from %s", reason, group)
+				} else {
+					ca.FailureDetails = reason
+				}
+			} else {
+				// failure details has an unknown structure
+				b, _ := json.MarshalIndent(failureDetails, "", " ")
+				ca.FailureDetails = string(b)
+			}
 		}
 
 	default:
