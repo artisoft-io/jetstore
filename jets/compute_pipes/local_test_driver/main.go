@@ -178,7 +178,7 @@ func main() {
 		iter += 1
 		cpReducingRun, err := cpRun.StartReducing.StartReducingComputePipes(ctx, dbpool)
 		switch {
-		case err == compute_pipes.ErrNoReducingStep:
+		case cpReducingRun.NoMoreTask:
 			goto completed
 		case err != nil:
 			log.Fatalf("while calling StartReducingComputePipes: %v", err)

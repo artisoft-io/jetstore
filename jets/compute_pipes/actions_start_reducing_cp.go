@@ -13,8 +13,6 @@ import (
 	"github.com/jackc/pgx/v4/pgxpool"
 )
 
-var ErrNoReducingStep = fmt.Errorf("ErrNoReducingStep")
-
 func (args *StartComputePipesArgs) StartReducingComputePipes(ctx context.Context, dbpool *pgxpool.Pool) (ComputePipesRun, error) {
 	var result ComputePipesRun
 	var err error
@@ -28,12 +26,42 @@ func (args *StartComputePipesArgs) StartReducingComputePipes(ctx context.Context
 		return result, err
 	}
 
-	// Get the source for input_row channel, given by the first input_channel node
+	// Current  stepID, will automatically move to the next step is there is nothing to do on current step
 	stepId := *args.StepId
+
+	// Prepare the arguments for RunReports and StatusUpdate
+	result.ReportsCommand = []string{
+		"-client", cpipesStartup.MainInputSchemaProviderConfig.Client,
+		"-processName", cpipesStartup.ProcessName,
+		"-sessionId", args.SessionId,
+		"-filePath", strings.Replace(args.FileKey, os.Getenv("JETS_s3_INPUT_PREFIX"), os.Getenv("JETS_s3_OUTPUT_PREFIX"), 1),
+	}
+	result.SuccessUpdate = map[string]interface{}{
+		"cpipesMode":     true,
+		"cpipesEnv":      cpipesStartup.EnvSettings,
+		"-peKey":         strconv.Itoa(args.PipelineExecKey),
+		"-status":        "completed",
+		"file_key":       args.FileKey,
+		"failureDetails": "",
+	}
+	result.ErrorUpdate = map[string]interface{}{
+		"cpipesMode":     true,
+		"cpipesEnv":      cpipesStartup.EnvSettings,
+		"-peKey":         strconv.Itoa(args.PipelineExecKey),
+		"-status":        "failed",
+		"file_key":       args.FileKey,
+		"failureDetails": "",
+	}
+
+	// start the stepId, we comeback here with next step if there is nothing to do on current step
+	startStepId:
+
 	// Validate that there is such stepId
 	if stepId >= cpipesStartup.CpConfig.NbrComputePipes() {
 		// we're past the last step - most likely there was only a sharding step
-		return result, ErrNoReducingStep
+		// This is the exit point when we find out there is nothing to do
+		result.NoMoreTask = true
+		return result, nil
 	}
 	pipeConfig, stepId, err := cpipesStartup.CpConfig.GetComputePipes(stepId, args.ClusterInfo,
 		cpipesStartup.MainInputSchemaProviderConfig.Env)
@@ -42,9 +70,12 @@ func (args *StartComputePipesArgs) StartReducingComputePipes(ctx context.Context
 	}
 	if pipeConfig == nil {
 		// Got past last step, nothing to do
-		return result, ErrNoReducingStep
+		// The last step must have a when that is not realized.
+		result.NoMoreTask = true
+		return result, nil
 	}
 
+	// Get the source for input_row channel, given by the first input_channel node
 	// By default reducing steps uses compression 'snappy' with 'headerless_csv',
 	// unless specified in InputChannelConfig or when inputChannel is 'input_row' then use 'csv', see below
 	inputFormat := "headerless_csv"
@@ -126,8 +157,9 @@ func (args *StartComputePipesArgs) StartReducingComputePipes(ctx context.Context
 	}
 
 	if len(partitions) == 0 {
-		log.Println("WARNING: no partitions found during start reducing for step", stepId, "exit silently")
-		return result, ErrNoReducingStep
+		log.Println("WARNING: no partitions found during start reducing for step", stepId, "moving on to next step")
+		stepId += 1
+		goto startStepId
 	}
 
 	// Make the reducing pipeline config
@@ -290,28 +322,6 @@ func (args *StartComputePipesArgs) StartReducingComputePipes(ctx context.Context
 		}
 	}
 
-	result.ReportsCommand = []string{
-		"-client", cpipesStartup.MainInputSchemaProviderConfig.Client,
-		"-processName", cpipesStartup.ProcessName,
-		"-sessionId", args.SessionId,
-		"-filePath", strings.Replace(args.FileKey, os.Getenv("JETS_s3_INPUT_PREFIX"), os.Getenv("JETS_s3_OUTPUT_PREFIX"), 1),
-	}
-	result.SuccessUpdate = map[string]interface{}{
-		"cpipesMode":     true,
-		"cpipesEnv":      cpipesStartup.EnvSettings,
-		"-peKey":         strconv.Itoa(args.PipelineExecKey),
-		"-status":        "completed",
-		"file_key":       args.FileKey,
-		"failureDetails": "",
-	}
-	result.ErrorUpdate = map[string]interface{}{
-		"cpipesMode":     true,
-		"cpipesEnv":      cpipesStartup.EnvSettings,
-		"-peKey":         strconv.Itoa(args.PipelineExecKey),
-		"-status":        "failed",
-		"file_key":       args.FileKey,
-		"failureDetails": "",
-	}
 	// Build CpipesReducingCommands
 	log.Printf("%s Got %d partitions, use_ecs_tasks: %v", args.SessionId, len(partitions), args.UseECSTask)
 	if args.UseECSTask {

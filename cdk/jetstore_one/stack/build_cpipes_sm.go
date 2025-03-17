@@ -70,11 +70,11 @@ func (jsComp *JetStoreStackComponents) BuildCpipesSM(scope constructs.Construct,
 	// })
 	// BELOW IS THE ALTERNATIVE USING AN INLINED MAP
 	runShardingMap := sfn.NewMap(stack, jsii.String("run-sharding-map"), &sfn.MapProps{
-		Comment:        jsii.String("Run JetStore Sharding Lambda Task"),
-		ItemsPath:      sfn.JsonPath_StringAt(jsii.String("$.cpipesCommands")),
+		Comment:   jsii.String("Run JetStore Sharding Lambda Task"),
+		ItemsPath: sfn.JsonPath_StringAt(jsii.String("$.cpipesCommands")),
 		// MaxConcurrency: jsii.Number(props.MaxConcurrency),
 		MaxConcurrencyPath: jsii.String("$.cpipesMaxConcurrency"),
-		ResultPath:     sfn.JsonPath_DISCARD(),
+		ResultPath:         sfn.JsonPath_DISCARD(),
 	})
 
 	// 3) Start Reducing Task
@@ -110,11 +110,11 @@ func (jsComp *JetStoreStackComponents) BuildCpipesSM(scope constructs.Construct,
 	// })
 	// BELOW IS THE ALTERNATIVE USING AN INLINED MAP
 	runReducingMap := sfn.NewMap(stack, jsii.String("run-reducing-map"), &sfn.MapProps{
-		Comment:        jsii.String("Run JetStore Reducing Lambda Task"),
-		ItemsPath:      sfn.JsonPath_StringAt(jsii.String("$.cpipesCommands")),
+		Comment:   jsii.String("Run JetStore Reducing Lambda Task"),
+		ItemsPath: sfn.JsonPath_StringAt(jsii.String("$.cpipesCommands")),
 		// MaxConcurrency: jsii.Number(props.MaxConcurrency),
 		MaxConcurrencyPath: jsii.String("$.cpipesMaxConcurrency"),
-		ResultPath:     sfn.JsonPath_DISCARD(),
+		ResultPath:         sfn.JsonPath_DISCARD(),
 	})
 
 	// ECS Task Option
@@ -140,13 +140,13 @@ func (jsComp *JetStoreStackComponents) BuildCpipesSM(scope constructs.Construct,
 	})
 	runReducingECSTask.Connections().AllowTo(jsComp.RdsCluster, awsec2.Port_Tcp(jsii.Number(5432)),
 		jsii.String("Allow connection from runReducingECSTask"))
-	
+
 	runReducingECSMap := sfn.NewMap(stack, jsii.String("run-cpipes-server-map"), &sfn.MapProps{
-		Comment:        jsii.String("Run CPIPES JetStore Rule Server Task"),
-		ItemsPath:      sfn.JsonPath_StringAt(jsii.String("$.cpipesCommands")),
+		Comment:   jsii.String("Run CPIPES JetStore Rule Server Task"),
+		ItemsPath: sfn.JsonPath_StringAt(jsii.String("$.cpipesCommands")),
 		// MaxConcurrency: jsii.Number(props.MaxConcurrency),
 		MaxConcurrencyPath: jsii.String("$.cpipesMaxConcurrency"),
-		ResultPath:     sfn.JsonPath_DISCARD(),
+		ResultPath:         sfn.JsonPath_DISCARD(),
 	})
 
 	// 5) Run Reports Task
@@ -208,6 +208,10 @@ func (jsComp *JetStoreStackComponents) BuildCpipesSM(scope constructs.Construct,
 		jsii.Bool(true)), runReducingECSMap, &sfn.ChoiceTransitionOptions{
 		Comment: jsii.String("When useECSReducingTask is true, use ECS Task for Reducing"),
 	})
+	ecsOrLambdaChoice.When(sfn.Condition_BooleanEquals(jsii.String("$.noMoreTask"),
+		jsii.Bool(true)), runReportsLambdaTask, &sfn.ChoiceTransitionOptions{
+		Comment: jsii.String("When noMoreTask is true, stop looping and run reports"),
+	})
 	ecsOrLambdaChoice.Otherwise(runReducingMap)
 
 	runReducingECSMap.ItemProcessor(runReducingECSTask, &sfn.ProcessorConfig{}).AddCatch(
@@ -233,6 +237,7 @@ func (jsComp *JetStoreStackComponents) BuildCpipesSM(scope constructs.Construct,
 	runReportsLambdaTask.AddCatch(runErrorStatusLambdaTask, MkCatchProps()).Next(runSuccessStatusLambdaTask)
 
 	// Define the State Machine
+	//* NOTE 1h DEFAULT TIMEOUT
 	timeout := 60
 	if len(os.Getenv("JETS_CPIPES_SM_TIMEOUT_MIN")) > 0 {
 		var err error
@@ -245,8 +250,7 @@ func (jsComp *JetStoreStackComponents) BuildCpipesSM(scope constructs.Construct,
 	jsComp.CpipesSM = sfn.NewStateMachine(stack, props.MkId("cpipesSM"), &sfn.StateMachineProps{
 		StateMachineName: props.MkId("cpipesSM"),
 		DefinitionBody:   sfn.DefinitionBody_FromChainable(runStartSharingTask),
-		//* NOTE 1h TIMEOUT
-		Timeout: awscdk.Duration_Minutes(jsii.Number(timeout)),
+		Timeout:          awscdk.Duration_Minutes(jsii.Number(timeout)),
 	})
 	if phiTagName != nil {
 		awscdk.Tags_Of(jsComp.CpipesSM).Add(phiTagName, jsii.String("true"), nil)

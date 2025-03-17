@@ -106,6 +106,22 @@ func (ctx *BuilderContext) NewGroupByTransformationPipe(source *InputChannel, ou
 	config := spec.GroupByConfig
 	groupByCount := config.GroupByCount
 	var groupByPos []int
+
+	// Check if group by domain_key
+	if len(config.DomainKey) > 0 {
+		dk := source.domainKeySpec
+		if dk == nil {
+			return nil, fmt.Errorf("error: group_by operator is configured with domain key but no domain key spec available")
+		}
+		info, ok := dk.DomainKeys[config.DomainKey]
+		if ok {
+			// use config.GroupByName to hold the source of the domain key
+			config.GroupByName = info.KeyExpr
+		} else {
+			return nil, fmt.Errorf("error: group_by operator is configured with domain key, but no domain key defined for %s", config.DomainKey)
+		}
+	}
+	
 	if groupByCount == 0 {
 		groupByPos = config.GroupByPos
 		if len(config.GroupByName) > 0 {
