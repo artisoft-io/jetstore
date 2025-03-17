@@ -127,7 +127,7 @@ func handler(ctx context.Context, arg compute_pipes.StartComputePipesArgs) (comp
 		apiEndpoint := os.Getenv("CPIPES_STATUS_NOTIFICATION_ENDPOINT")
 		apiEndpointJson := os.Getenv("CPIPES_STATUS_NOTIFICATION_ENDPOINT_JSON")
 		if (apiEndpoint != "" || apiEndpointJson != "") && result.ErrorUpdate != nil {
-			notificationTemplate := os.Getenv("CPIPES_COMPLETED_NOTIFICATION_JSON")
+			notificationTemplate := os.Getenv("CPIPES_FAILED_NOTIFICATION_JSON")
 			customFileKeys := make([]string, 0)
 			ck := os.Getenv("CPIPES_CUSTOM_FILE_KEY_NOTIFICATION")
 			if len(ck) > 0 {
