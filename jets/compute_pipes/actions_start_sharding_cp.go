@@ -39,6 +39,29 @@ func (args *StartComputePipesArgs) StartShardingComputePipes(ctx context.Context
 	}
 	mainInputSchemaProvider := cpipesStartup.MainInputSchemaProviderConfig
 
+	result.ReportsCommand = []string{
+		"-client", mainInputSchemaProvider.Client,
+		"-processName", cpipesStartup.ProcessName,
+		"-sessionId", args.SessionId,
+		"-filePath", strings.Replace(args.FileKey, os.Getenv("JETS_s3_INPUT_PREFIX"), os.Getenv("JETS_s3_OUTPUT_PREFIX"), 1),
+	}
+	result.SuccessUpdate = map[string]interface{}{
+		"-peKey":         strconv.Itoa(args.PipelineExecKey),
+		"-status":        "completed",
+		"cpipesMode":     true,
+		"cpipesEnv":      cpipesStartup.EnvSettings,
+		"file_key":       args.FileKey,
+		"failureDetails": "",
+	}
+	result.ErrorUpdate = map[string]interface{}{
+		"-peKey":         strconv.Itoa(args.PipelineExecKey),
+		"-status":        "failed",
+		"cpipesMode":     true,
+		"cpipesEnv":      cpipesStartup.EnvSettings,
+		"file_key":       args.FileKey,
+		"failureDetails": "",
+	}
+
 	log.Println("Start SHARDING", args.SessionId, "file_key:", args.FileKey)
 	b, _ := json.Marshal(*mainInputSchemaProvider)
 	log.Printf("*** Main Input Schema Provider:%s\n", string(b))
@@ -111,29 +134,6 @@ func (args *StartComputePipesArgs) StartShardingComputePipes(ctx context.Context
 	outputTables, err := SelectActiveOutputTable(cpipesStartup.CpConfig.OutputTables, pipeConfig)
 	if err != nil {
 		return result, fmt.Errorf("while calling SelectActiveOutputTable for stepId %d: %v", stepId, err)
-	}
-
-	result.ReportsCommand = []string{
-		"-client", mainInputSchemaProvider.Client,
-		"-processName", cpipesStartup.ProcessName,
-		"-sessionId", args.SessionId,
-		"-filePath", strings.Replace(args.FileKey, os.Getenv("JETS_s3_INPUT_PREFIX"), os.Getenv("JETS_s3_OUTPUT_PREFIX"), 1),
-	}
-	result.SuccessUpdate = map[string]interface{}{
-		"-peKey":         strconv.Itoa(args.PipelineExecKey),
-		"-status":        "completed",
-		"cpipesMode":     true,
-		"cpipesEnv":      cpipesStartup.EnvSettings,
-		"file_key":       args.FileKey,
-		"failureDetails": "",
-	}
-	result.ErrorUpdate = map[string]interface{}{
-		"-peKey":         strconv.Itoa(args.PipelineExecKey),
-		"-status":        "failed",
-		"cpipesMode":     true,
-		"cpipesEnv":      cpipesStartup.EnvSettings,
-		"file_key":       args.FileKey,
-		"failureDetails": "",
 	}
 
 	// Check if headers where provided in source_config record or need to determine the csv delimiter
