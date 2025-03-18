@@ -71,6 +71,22 @@ func (ctx *BuilderContext) NewSortTransformationPipe(source *InputChannel, outpu
 		return nil, fmt.Errorf("error: Sort Pipe Transformation spec is missing sort_config settings")
 	}
 	config := spec.SortConfig
+
+	// Check if group by domain_key
+	if len(config.DomainKey) > 0 {
+		dk := source.domainKeySpec
+		if dk == nil {
+			return nil, fmt.Errorf("error: sort operator is configured with domain key but no domain key spec available")
+		}
+		info, ok := dk.DomainKeys[config.DomainKey]
+		if ok {
+			// use config.SortByColumn to hold the source of the domain key
+			config.SortByColumn = info.KeyExpr
+		} else {
+			return nil, fmt.Errorf("error: sort operator is configured with domain key, but no domain key defined for %s", config.DomainKey)
+		}
+	}
+
 	sortBy := make([]int, 0, len(config.SortByColumn))
 	for _, c := range config.SortByColumn {
 		pos, ok := (*source.columns)[c]

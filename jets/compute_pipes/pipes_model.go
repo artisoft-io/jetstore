@@ -601,14 +601,16 @@ type FilterColumnSpec struct {
 	RetainOnValues []string `json:"retain_on_values,omitempty"`
 }
 
-// Specify either group_by_name, group_by_pos or group_by_count.
+// Specify either domain_key, group_by_name, group_by_pos or group_by_count.
 // group_by_count has priority over other mode of grouping.
 // group_by_name wins when both group_by_name and group_by_pos are specified.
+// domain_key use the domain key info to compute the composite key
 // At least one must be specified.
 type GroupBySpec struct {
 	GroupByName  []string `json:"group_by_name"`
 	GroupByPos   []int    `json:"group_by_pos"`
 	GroupByCount int      `json:"group_by_count"`
+	DomainKey    string   `json:"domain_key,omitempty"`
 }
 
 // Filter row base on a when criteria
@@ -618,7 +620,10 @@ type FilterSpec struct {
 }
 
 // Sort using composite key
+// sort_by column names making the composite key
+// domain_key use the domain key info to compute the composite key
 type SortSpec struct {
+	DomainKey    string   `json:"domain_key,omitempty"`
 	SortByColumn []string `json:"sort_by,omitempty"`
 }
 

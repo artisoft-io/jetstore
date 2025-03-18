@@ -192,14 +192,22 @@ func ReadCpipesArgsFromS3(s3Location string) ([]ComputePipesNodeArgs, error) {
 //  "failureDetails": {...}
 // }
 
-// Returned by the cp_starter for a cpipes run
-// CpipesCommandsS3Key is for Distributed Map, currently not used
+// Returned by the cp_starter for a cpipes run.
+// CpipesCommandsS3Key is for Distributed Map, currently not used.
+// CpipesMaxConcurrency is passed to step function.
+// IsLastReducing is true when StartReducing is the last step.
+// NoMoreTask is true when StartReducing turned out to have nothing to do and we're past the last step,
+// the step function will go directly to ReportsCommand.
+// UseECSReducingTask is true when to use fargate task rather than lambda functions.
+// ReportsCommand contains the argument for RunReport
+// SuccessUpdate / ErrorUpdate are the arguments for status update.
 type ComputePipesRun struct {
 	CpipesCommands       interface{}            `json:"cpipesCommands"`
 	CpipesCommandsS3Key  string                 `json:"cpipesCommandsS3Key,omitempty"`
 	CpipesMaxConcurrency int                    `json:"cpipesMaxConcurrency"`
 	StartReducing        StartComputePipesArgs  `json:"startReducing"`
 	IsLastReducing       bool                   `json:"isLastReducing"`
+	NoMoreTask           bool                   `json:"noMoreTask"`
 	UseECSReducingTask   bool                   `json:"useECSReducingTask"`
 	ReportsCommand       []string               `json:"reportsCommand"`
 	SuccessUpdate        map[string]interface{} `json:"successUpdate"`

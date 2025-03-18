@@ -38,18 +38,19 @@ import (
 // and then the connection properties (AwsDsnSecret, DbPoolSize, UsingSshTunnel, AwsRegion)
 // are not needed.
 type StatusUpdate struct {
-	CpipesMode     bool
-	CpipesEnv      map[string]any
-	AwsDsnSecret   string
-	DbPoolSize     int
-	UsingSshTunnel bool
-	AwsRegion      string
-	Dsn            string
-	Dbpool         *pgxpool.Pool
-	PeKey          int
-	Status         string
-	FileKey        string
-	FailureDetails string
+	CpipesMode            bool
+	CpipesEnv             map[string]any
+	AwsDsnSecret          string
+	DbPoolSize            int
+	UsingSshTunnel        bool
+	AwsRegion             string
+	Dsn                   string
+	Dbpool                *pgxpool.Pool
+	PeKey                 int
+	Status                string
+	FileKey               string
+	FailureDetails        string
+	DoNotNotifyApiGateway bool
 }
 
 // Support Functions
@@ -164,6 +165,7 @@ func (ca *StatusUpdate) ValidateArguments() []string {
 	log.Println("Got argument: failureDetails", ca.FailureDetails)
 	log.Println("Got argument: cpipesMode", ca.CpipesMode)
 	log.Println("Got argument: cpipesEnv", ca.CpipesEnv)
+	log.Println("Got argument: doNotNotifyApiGateway", ca.DoNotNotifyApiGateway)
 	log.Printf("ENV JETS_s3_INPUT_PREFIX: %s", os.Getenv("JETS_s3_INPUT_PREFIX"))
 	log.Println("env CPIPES_STATUS_NOTIFICATION_ENDPOINT:", os.Getenv("CPIPES_STATUS_NOTIFICATION_ENDPOINT"))
 	log.Println("env CPIPES_STATUS_NOTIFICATION_ENDPOINT_JSON:", os.Getenv("CPIPES_STATUS_NOTIFICATION_ENDPOINT_JSON"))
@@ -303,7 +305,7 @@ func (ca *StatusUpdate) CoordinateWork() error {
 	// ALSO set a deadline to calls to database to avoid locks, don't fail the call when database fails
 	apiEndpoint := os.Getenv("CPIPES_STATUS_NOTIFICATION_ENDPOINT")
 	apiEndpointJson := os.Getenv("CPIPES_STATUS_NOTIFICATION_ENDPOINT_JSON")
-	if apiEndpoint != "" || apiEndpointJson != "" {
+	if (apiEndpoint != "" || apiEndpointJson != "") && !ca.DoNotNotifyApiGateway {
 		var notificationTemplate string
 		customFileKeys := make([]string, 0)
 		ck := os.Getenv("CPIPES_CUSTOM_FILE_KEY_NOTIFICATION")

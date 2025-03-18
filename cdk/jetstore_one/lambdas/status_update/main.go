@@ -57,6 +57,7 @@ func main() {
 // {
 //  "-peKey": peKey,
 //  "cpipesMode": true/false,
+//  "doNotNotifyApiGateway": true/false,
 //  "-status": "completed",
 //  "file_key": "...",
 //  "failureDetails": {...},
@@ -74,6 +75,21 @@ func handler(ctx context.Context, arguments map[string]interface{}) (err error) 
 	if arguments["cpipesMode"] != nil {
 		ca.CpipesMode = true
 	}
+	
+	switch vv := arguments["doNotNotifyApiGateway"].(type) {
+	case string:
+		switch vv {
+		case "true", "TRUE", "1":
+			ca.DoNotNotifyApiGateway = true			
+		}
+	case int:
+		if vv == 1 {
+			ca.DoNotNotifyApiGateway = true
+		}
+	case bool:
+		ca.DoNotNotifyApiGateway = vv
+	}
+
 	v, err := strconv.Atoi(arguments["-peKey"].(string))
 	if err != nil {
 		logger.Error("while parsing peKey:", zap.NamedError("error", err))

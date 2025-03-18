@@ -4,12 +4,14 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"strings"
 
 	// "log"
 	"os"
 
 	"github.com/artisoft-io/jetstore/jets/awsi"
 	"github.com/artisoft-io/jetstore/jets/compute_pipes"
+	"github.com/artisoft-io/jetstore/jets/datatable"
 	"github.com/artisoft-io/jetstore/jets/workspace"
 	"github.com/aws/aws-lambda-go/lambda"
 	"github.com/jackc/pgx/v4/pgxpool"
@@ -119,5 +121,24 @@ func main() {
 
 // Compute Pipes Sharding Handler
 func handler(ctx context.Context, arg compute_pipes.StartComputePipesArgs) (compute_pipes.ComputePipesRun, error) {
-	return (&arg).StartShardingComputePipes(ctx, dbpool)
+	result, err := (&arg).StartShardingComputePipes(ctx, dbpool)
+	if err != nil {
+		// Perform api gateway notification
+		apiEndpoint := os.Getenv("CPIPES_STATUS_NOTIFICATION_ENDPOINT")
+		apiEndpointJson := os.Getenv("CPIPES_STATUS_NOTIFICATION_ENDPOINT_JSON")
+		if (apiEndpoint != "" || apiEndpointJson != "") && result.ErrorUpdate != nil {
+			notificationTemplate := os.Getenv("CPIPES_FAILED_NOTIFICATION_JSON")
+			customFileKeys := make([]string, 0)
+			ck := os.Getenv("CPIPES_CUSTOM_FILE_KEY_NOTIFICATION")
+			if len(ck) > 0 {
+				customFileKeys = strings.Split(ck, ",")
+			}
+			// ignore returned err
+			env, ok := result.ErrorUpdate["cpipesEnv"].(map[string]any)
+			if ok {
+				datatable.DoNotifyApiGateway(arg.FileKey, apiEndpoint, apiEndpointJson, notificationTemplate, customFileKeys, err.Error(), env)
+			}
+		}
+	}
+	return result, err
 }

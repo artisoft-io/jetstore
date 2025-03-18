@@ -517,29 +517,9 @@ func (ctx *DataTableContext) startStateMachine(stateMachineName string, task *Pe
 
 	case "cpipesSM":
 		// State Machine input for new cpipesSM all-in-one
-		// Need to get the main input schema provider to get the envsettings
-		// for API Notification in errorUpdate arguments
-		stmt := "SELECT schema_provider_json FROM jetsapi.input_registry WHERE key = $1"
-		var spJson string
-		envSettings := make(map[string]any)
-		err = ctx.Dbpool.QueryRow(context.Background(), stmt, task.MainInputRegistryKey.Int64).Scan(&spJson)
-		if err != nil {
-			// oh well, let's not fail on this one since it's for notification purpose
-			log.Printf("WARNING while getting schema_provider_json from inut_registry: %v", err)
-		} else {
-			err = json.Unmarshal([]byte(spJson), &envSettings)
-			if err != nil {
-				// oh well, let's not fail on this one since it's for notification purpose
-				log.Printf("WARNING while unmarshalling schema_provider_json from inut_registry: %v", err)
-			} else {
-				var ok bool
-				envSettings, ok = envSettings["env"].(map[string]any)
-				if !ok {
-					envSettings = make(map[string]any)
-				}
-			}
-		}
-
+		// Set DoNotNotifyApiGateway to true, since we don't have the cpipesEnv when
+		// calling start Sharding, api notification will be done in by sharding task
+		// as needed.
 		smInput = map[string]interface{}{
 			"startSharding": map[string]interface{}{
 				"pipeline_execution_key": task.Key,
@@ -547,12 +527,12 @@ func (ctx *DataTableContext) startStateMachine(stateMachineName string, task *Pe
 				"session_id":             task.SessionId,
 			},
 			"errorUpdate": map[string]interface{}{
-				"-peKey":         peKey, // string for this one! - legacy alert!
-				"-status":        "failed",
-				"file_key":       task.MainInputFileKey.String,
-				"cpipesMode":     true,
-				"cpipesEnv":      envSettings,
-				"failureDetails": "",
+				"-peKey":                peKey, // string for this one! - legacy alert!
+				"-status":               "failed",
+				"file_key":              task.MainInputFileKey.String,
+				"cpipesMode":            true,
+				"doNotNotifyApiGateway": true,
+				"failureDetails":        "",
 			},
 		}
 
