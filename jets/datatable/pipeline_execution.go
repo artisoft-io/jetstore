@@ -539,6 +539,21 @@ func (ctx *DataTableContext) startStateMachine(stateMachineName string, task *Pe
 		processArn = os.Getenv("JETS_CPIPES_SM_ARN")
 	case "reportsSM":
 		processArn = os.Getenv("JETS_REPORTS_SM_ARN")
+		smInput = map[string]interface{}{
+			"reportsCommand": runReportsCommand,
+			"successUpdate": map[string]interface{}{
+				"-peKey":         peKey,
+				"-status":        "completed",
+				"file_key":       task.MainInputFileKey.String,
+				"failureDetails": "",
+			},
+			"errorUpdate": map[string]interface{}{
+				"-peKey":         peKey,
+				"-status":        "failed",
+				"file_key":       task.MainInputFileKey.String,
+				"failureDetails": "",
+			},
+		}
 	default:
 		log.Printf("error: unknown stateMachineName: %s", stateMachineName)
 		err = fmt.Errorf("error: unknown stateMachineName: %s", stateMachineName)
