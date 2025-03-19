@@ -16,6 +16,7 @@ import (
 	"github.com/jackc/pgx/v4"
 	"github.com/jackc/pgx/v4/pgxpool"
 )
+
 type GitProfile struct {
 	Name      string `json:"git_name"`
 	Email     string `json:"git_email"`
@@ -23,25 +24,33 @@ type GitProfile struct {
 	GitToken  string `json:"git_token"`
 }
 
-var jetsEncriptionKey string
+var JetsEncriptionKey string
 var DevMode bool
-func init() {
-	jetsEncriptionKey = os.Getenv("JETS_ENCRYPTION_KEY")
-	if jetsEncriptionKey == "" {
-		log.Println("user.init(): Could not load value for JETS_ENCRYPTION_KEY")
-	}
 
+func init() {
+	var err error
+	JetsEncriptionKey = os.Getenv("JETS_ENCRYPTION_KEY")
+	if JetsEncriptionKey == "" {
+		secret := os.Getenv("JETS_ENCRYPTION_KEY_SECRET")
+		if secret != "" {
+			JetsEncriptionKey, err = awsi.GetSecretValue(secret)
+			if err != nil {
+				log.Printf("user.init(): while getting JETS_ENCRYPTION_KEY_SECRET from aws secret: %v\n", err)
+			}
+		} else {
+			log.Println("user.init(): Could not load value for JETS_ENCRYPTION_KEY or JETS_ENCRYPTION_KEY_SECRET")
+		}
+	}
 	AdminEmail = os.Getenv("JETS_ADMIN_EMAIL")
 	_, DevMode = os.LookupEnv("JETSTORE_DEV_MODE")
 
 	// Get secret to sign jwt tokens
-	var err error
 	awsApiSecret := os.Getenv("AWS_API_SECRET")
 	apiSecret := os.Getenv("API_SECRET")
 	if apiSecret == "" && awsApiSecret != "" {
 		apiSecret, err = awsi.GetSecretValue(awsApiSecret)
 		if err != nil {
-			log.Println("user.init(): could not get secret value for AWS_API_SECRET")
+			log.Printf("user.init(): could not get secret value for AWS_API_SECRET: %v\n", err)
 		}
 	}
 	ApiSecret = apiSecret
@@ -51,7 +60,7 @@ func init() {
 func GetGitProfile(dbpool *pgxpool.Pool, userEmail string) (GitProfile, error) {
 	var gitProfile GitProfile
 	stmt := fmt.Sprintf(
-		"SELECT git_name, git_email, git_handle, git_token FROM jetsapi.users WHERE user_email = '%s'", 
+		"SELECT git_name, git_email, git_handle, git_token FROM jetsapi.users WHERE user_email = '%s'",
 		userEmail)
 	err := dbpool.QueryRow(context.Background(), stmt).Scan(
 		&gitProfile.Name, &gitProfile.Email, &gitProfile.GitHandle, &gitProfile.GitToken)
@@ -69,30 +78,13 @@ func GetGitProfile(dbpool *pgxpool.Pool, userEmail string) (GitProfile, error) {
 	return gitProfile, nil
 }
 
-// func EncryptWithEmail(dataToEncrypt, email string) string {
-// 	encryptedEmail := encrypt(email, jetsEncriptionKey)
-// 	if len(encryptedEmail) < 32 {
-// 		return ""
-// 	}
-// 	return encrypt(dataToEncrypt, encryptedEmail[:32])
-// }
-
 func EncryptGitToken(gitToken string) string {
-	return encrypt(gitToken, jetsEncriptionKey)
+	return encrypt(gitToken, JetsEncriptionKey)
 }
-
-// func DecryptWithEmail(encryptedData, email string) string {
-// 	encryptedEmail := encrypt(email, jetsEncriptionKey)
-// 	if len(encryptedEmail) < 32 {
-// 		return ""
-// 	}
-// 	return decrypt(encryptedData, encryptedEmail[:32])
-// }
 
 func DecryptGitToken(encryptedGitToken string) string {
-	return decrypt(encryptedGitToken, jetsEncriptionKey)
+	return decrypt(encryptedGitToken, JetsEncriptionKey)
 }
-
 
 // From: https://www.melvinvivas.com/how-to-encrypt-and-decrypt-data-using-aes
 func encrypt(stringToEncrypt string, keyString string) (encryptedString string) {
@@ -137,7 +129,7 @@ func decrypt(encryptedString string, keyString string) (decryptedString string) 
 		log.Println("ERROR: decrypt called with empty encryptedString or len(key) != 32")
 		return ""
 	}
-	
+
 	key := []byte(keyString)
 	enc, _ := hex.DecodeString(encryptedString)
 

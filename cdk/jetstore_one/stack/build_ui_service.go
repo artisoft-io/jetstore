@@ -8,6 +8,7 @@ import (
 	awscdk "github.com/aws/aws-cdk-go/awscdk/v2"
 	"github.com/aws/aws-cdk-go/awscdk/v2/awsec2"
 	"github.com/aws/aws-cdk-go/awscdk/v2/awsecs"
+	"github.com/aws/aws-cdk-go/awscdk/v2/awsiam"
 	constructs "github.com/aws/constructs-go/constructs/v10"
 	jsii "github.com/aws/jsii-runtime-go"
 )
@@ -29,6 +30,29 @@ func (jsComp *JetStoreStackComponents) BuildUiService(scope constructs.Construct
 			CpuArchitecture:       awsecs.CpuArchitecture_X86_64(),
 		},
 	})
+	// Add permissions for secrets rotation
+	jsComp.UiTaskDefinition.AddToTaskRolePolicy(awsiam.NewPolicyStatement(&awsiam.PolicyStatementProps{
+		Actions: jsii.Strings("secretsmanager:DescribeSecret",
+			"secretsmanager:GetSecretValue",
+			"secretsmanager:PutSecretValue",
+			"secretsmanager:UpdateSecretVersionStage"),
+		Resources: jsii.Strings(*jsComp.AdminPwdSecret.ArnForPolicies(),
+			*jsComp.ApiSecret.ArnForPolicies(),
+			*jsComp.RdsSecret.ArnForPolicies(),
+			*jsComp.EncryptionKeySecret.ArnForPolicies()),
+	}))
+	jsComp.UiTaskDefinition.AddToTaskRolePolicy(awsiam.NewPolicyStatement(&awsiam.PolicyStatementProps{
+		Actions:   jsii.Strings("secretsmanager:GetRandomPassword"),
+		Resources: jsii.Strings("*"),
+	}))
+	jsComp.UiTaskDefinition.AddToTaskRolePolicy(awsiam.NewPolicyStatement(&awsiam.PolicyStatementProps{
+		Actions: jsii.Strings("ec2:CreateNetworkInterface",
+			"ec2:DeleteNetworkInterface",
+			"ec2:DescribeNetworkInterfaces",
+			"ec2:DetachNetworkInterface"),
+		Resources: jsii.Strings("*"),
+	}))
+
 	jsComp.UiTaskContainer = jsComp.UiTaskDefinition.AddContainer(jsii.String("uiContainer"), &awsecs.ContainerDefinitionOptions{
 		// Use JetStore Image in ecr
 		Image:         jsComp.JetStoreImage,
@@ -45,6 +69,10 @@ func (jsComp *JetStoreStackComponents) BuildUiService(scope constructs.Construct
 		},
 		Environment: &map[string]*string{
 			"JETS_BUCKET":                   jsComp.SourceBucket.BucketName(),
+			"JETS_DSN_SECRET":               jsComp.RdsSecret.SecretName(),
+			"AWS_API_SECRET":                jsComp.ApiSecret.SecretName(),
+			"AWS_JETS_ADMIN_PWD_SECRET":     jsComp.AdminPwdSecret.SecretName(),
+			"JETS_ENCRYPTION_KEY_SECRET":    jsComp.EncryptionKeySecret.SecretName(),
 			"JETS_DOMAIN_KEY_HASH_ALGO":     jsii.String(os.Getenv("JETS_DOMAIN_KEY_HASH_ALGO")),
 			"JETS_DOMAIN_KEY_HASH_SEED":     jsii.String(os.Getenv("JETS_DOMAIN_KEY_HASH_SEED")),
 			"JETS_INPUT_ROW_JETS_KEY_ALGO":  jsii.String(os.Getenv("JETS_INPUT_ROW_JETS_KEY_ALGO")),
@@ -73,12 +101,11 @@ func (jsComp *JetStoreStackComponents) BuildUiService(scope constructs.Construct
 			"JETS_CPIPES_SM_ARN":            jsii.String(jsComp.CpipesSmArn),
 			"JETS_REPORTS_SM_ARN":           jsii.String(jsComp.ReportsSmArn),
 		},
-		Secrets: &map[string]awsecs.Secret{
-			"JETS_DSN_JSON_VALUE": awsecs.Secret_FromSecretsManager(jsComp.RdsSecret, nil),
-			"API_SECRET":          awsecs.Secret_FromSecretsManager(jsComp.ApiSecret, nil),
-			"JETS_ADMIN_PWD":      awsecs.Secret_FromSecretsManager(jsComp.AdminPwdSecret, nil),
-			"JETS_ENCRYPTION_KEY": awsecs.Secret_FromSecretsManager(jsComp.EncryptionKeySecret, nil),
-		},
+		// Secrets: &map[string]awsecs.Secret{
+		// 	"API_SECRET":          awsecs.Secret_FromSecretsManager(jsComp.ApiSecret, nil),
+		// 	"JETS_ADMIN_PWD":      awsecs.Secret_FromSecretsManager(jsComp.AdminPwdSecret, nil),
+		// 	"JETS_ENCRYPTION_KEY": awsecs.Secret_FromSecretsManager(jsComp.EncryptionKeySecret, nil),
+		// },
 		Logging: awsecs.LogDriver_AwsLogs(&awsecs.AwsLogDriverProps{
 			StreamPrefix: jsii.String("task"),
 		}),

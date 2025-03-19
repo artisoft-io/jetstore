@@ -73,21 +73,28 @@ func GetConfig() (aws.Config, error) {
 	return config.LoadDefaultConfig(ctx)
 }
 
-func GetSecretValue(secret string) (string, error) {
+type SecretManagerClient struct {
+	smClient *secretsmanager.Client
+}
+func NewSecretManagerClient() (*SecretManagerClient, error) {
 	cfg, err := GetConfig()
 	if err != nil {
-		return "", fmt.Errorf("while loading aws configuration: %v", err)
+		return nil, fmt.Errorf("while loading aws configuration: %v", err)
 	}
 
 	// Create Secrets Manager client
-	smClient := secretsmanager.NewFromConfig(cfg)
+	return &SecretManagerClient{
+	smClient: secretsmanager.NewFromConfig(cfg),		
+	}, nil
+}
 
+func (c *SecretManagerClient) GetSecretValue(secret string) (string, error) {
 	input := &secretsmanager.GetSecretValueInput{
 		SecretId:     aws.String(secret),
 		VersionStage: aws.String("AWSCURRENT"), // VersionStage defaults to AWSCURRENT if unspecified
 	}
 
-	result, err := smClient.GetSecretValue(context.TODO(), input)
+	result, err := c.smClient.GetSecretValue(context.TODO(), input)
 	if err != nil {
 		// For a list of exceptions thrown, see
 		// https://docs.aws.amazon.com/secretsmanager/latest/apireference/API_GetSecretValue.html
@@ -95,8 +102,30 @@ func GetSecretValue(secret string) (string, error) {
 	}
 
 	// Decrypts secret using the associated KMS key.
-	secretString := *result.SecretString
-	return secretString, nil
+	return *result.SecretString, nil
+}
+
+// func (c *SecretManagerClient) PutSecretValue(secret, value string) (string, error) {
+// 	input := &secretsmanager.PutSecretValueInput{
+// 		SecretId:     aws.String(secret),
+// 		VersionStages: []string{"AWSCURRENT"}, // VersionStage defaults to AWSCURRENT if unspecified
+// 	}
+// 	result, err := c.smClient.GetSecretValue(context.TODO(), input)
+// 	if err != nil {
+// 		// For a list of exceptions thrown, see
+// 		// https://docs.aws.amazon.com/secretsmanager/latest/apireference/API_GetSecretValue.html
+// 		return "", fmt.Errorf("while getting aws secret value for dsn: %v", err)
+// 	}
+// 	// Decrypts secret using the associated KMS key.
+// 	return *result.SecretString, nil
+// }
+
+func GetSecretValue(secret string) (string, error) {
+	c, err := NewSecretManagerClient()
+	if err != nil {
+		return "", err
+	}
+	return c.GetSecretValue(secret)
 }
 
 func GetDsnFromJson(dsnJson string, useLocalhost bool, poolSize int) (string, error) {
