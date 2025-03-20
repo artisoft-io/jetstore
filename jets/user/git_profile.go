@@ -33,7 +33,7 @@ func init() {
 	if JetsEncriptionKey == "" {
 		secret := os.Getenv("JETS_ENCRYPTION_KEY_SECRET")
 		if secret != "" {
-			JetsEncriptionKey, err = awsi.GetSecretValue(secret)
+			JetsEncriptionKey, err = awsi.GetCurrentSecretValue(secret)
 			if err != nil {
 				log.Printf("user.init(): while getting JETS_ENCRYPTION_KEY_SECRET from aws secret: %v\n", err)
 			}
@@ -48,7 +48,7 @@ func init() {
 	awsApiSecret := os.Getenv("AWS_API_SECRET")
 	apiSecret := os.Getenv("API_SECRET")
 	if apiSecret == "" && awsApiSecret != "" {
-		apiSecret, err = awsi.GetSecretValue(awsApiSecret)
+		apiSecret, err = awsi.GetCurrentSecretValue(awsApiSecret)
 		if err != nil {
 			log.Printf("user.init(): could not get secret value for AWS_API_SECRET: %v\n", err)
 		}

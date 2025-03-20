@@ -100,6 +100,7 @@ func (jsComp *JetStoreStackComponents) BuildUiService(scope constructs.Construct
 			"NBR_SHARDS":                    jsii.String(props.NbrShards),
 			"JETS_CPIPES_SM_ARN":            jsii.String(jsComp.CpipesSmArn),
 			"JETS_REPORTS_SM_ARN":           jsii.String(jsComp.ReportsSmArn),
+			"JETS_ADMIN_EMAIL":              jsii.String(os.Getenv("JETS_ADMIN_EMAIL")),
 		},
 		// Secrets: &map[string]awsecs.Secret{
 		// 	"API_SECRET":          awsecs.Secret_FromSecretsManager(jsComp.ApiSecret, nil),
