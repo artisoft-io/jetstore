@@ -134,7 +134,35 @@ func handler(event RotateSecretEvent) error {
 		return SetSecret(smClient, &event)
 
 	case "test_secret", "testSecret":
-		return TestSecret(smClient, &event)
+		err = TestSecret(smClient, &event)
+		if err != nil {
+			log.Printf("Failed to test secret %s: %v\n", event.SecretId, err)
+			if secretBeingRotated == jetsDnsSecret {
+				log.Println("Reverting database passord to previous value")
+				previousValue, err2 := smClient.GetSecretValue(jetsDnsSecret, "AWSPREVIOUS")
+				if err2 != nil {
+					err2 = fmt.Errorf("failed to get previous value of secret %s: %v", jetsDnsSecret, err2)
+					log.Println(err2)
+					return err2
+				}
+				dbpool, err2 := OpenDbConn(previousValue)
+				if err2 != nil {
+					return err2
+				}
+				// revert the postgres user password in database
+				var m map[string]any
+				err2 = json.Unmarshal([]byte(previousValue), &m)
+				if err2 != nil {
+					return fmt.Errorf("while unmarshalling previous value of secret %s: %v", event.SecretId, err2)
+				}
+				_, err2 = dbpool.Exec(context.Background(),
+					fmt.Sprintf("ALTER USER %v PASSWORD '%v';", m["username"], m["password"]))
+				if err2 != nil {
+					return fmt.Errorf("error: failed to revert the user password in database: %v", err2)
+				}
+			}
+		}
+		return err
 
 	case "finish_secret", "finishSecret":
 		// Get the AWSCURRENT version of the secret
@@ -358,13 +386,13 @@ func TestSecret(smClient *awsi.SecretManagerClient, event *RotateSecretEvent) er
 		log.Println(err)
 		return err
 	}
-	dbpool.Close()
 
 	// Test the database connection to ensure that permission are correct
 	_, err = dbpool.Exec(context.Background(), "SELECT NOW();")
 	if err != nil {
 		return fmt.Errorf("error: failed to test the database connection: %v", err)
 	}
+	dbpool.Close()
 	return nil
 }
 
