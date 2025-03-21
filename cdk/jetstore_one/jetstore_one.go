@@ -240,6 +240,11 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 	if jsComp.ExternalKmsKey != nil {
 		jsComp.ExternalKmsKey.GrantEncryptDecrypt(jsComp.EcsTaskRole)
 	}
+	// Provide access to the secrets
+	jsComp.RdsSecret.GrantRead(jsComp.EcsTaskRole, nil)
+	jsComp.ApiSecret.GrantRead(jsComp.EcsTaskRole, nil)
+	jsComp.AdminPwdSecret.GrantRead(jsComp.EcsTaskRole, nil)
+	jsComp.EncryptionKeySecret.GrantRead(jsComp.EcsTaskRole, nil)
 
 	// JetStore Image from ecr -- referenced in most tasks
 	jsComp.JetStoreImage = awsecs.AssetImage_FromEcrRepository(
