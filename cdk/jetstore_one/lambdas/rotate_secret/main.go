@@ -127,16 +127,16 @@ func handler(event RotateSecretEvent) error {
 	}
 
 	switch event.Step {
-	case "create_secret":
+	case "create_secret", "createSecret":
 		return CreateSecret(smClient, &event)
 
-	case "set_secret":
+	case "set_secret", "setSecret":
 		return SetSecret(smClient, &event)
 
-	case "test_secret":
+	case "test_secret", "testSecret":
 		return TestSecret(smClient, &event)
 
-	case "finish_secret":
+	case "finish_secret", "finishSecret":
 		// Get the AWSCURRENT version of the secret
 		for version, labels := range secretInfo.VersionIdsToStages {
 			for _, label := range labels {
