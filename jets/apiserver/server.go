@@ -630,13 +630,17 @@ func listenAndServe() error {
 }
 
 func (server *Server) GetLastSecretRotation() (tm *time.Time, err error) {
-	err = server.dbpool.QueryRow(context.Background(), "SELECT MAX(last_update) FROM jetsapi.secret_rotation").Scan(tm)
+	var sqltm sql.NullTime
+	err = server.dbpool.QueryRow(context.Background(), "SELECT MAX(last_update) FROM jetsapi.secret_rotation").Scan(&sqltm)
 	if err != nil {
 		if !errors.Is(err, pgx.ErrNoRows) {
 			return nil, fmt.Errorf("while querying last_update from secret_rotation table: %v", err)
 		} else {
 			tm = nil
 		}
+	}
+	if sqltm.Valid {
+		*tm = sqltm.Time
 	}
 	return
 }

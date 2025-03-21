@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -146,7 +147,7 @@ func handler(event RotateSecretEvent) error {
 						return fmt.Errorf("while moving the AWSPENDING version as AWSCURRENT for secret %s: %v", event.SecretId, err)
 					}
 					// Update database with last update time
-					return UpdateLastUpdate()
+					return RecordSecretRotation()
 				}
 			}
 		}
@@ -155,42 +156,6 @@ func handler(event RotateSecretEvent) error {
 	default:
 		return fmt.Errorf("error: unknown step %s while rotating secret %s", event.Step, event.SecretId)
 	}
-}
-
-func UpdateLastUpdate() error {
-	// Get a db connection
-	dsn, err := awsi.GetDsnFromSecret(jetsDnsSecret, false, 1)
-	if err != nil {
-		return fmt.Errorf("while getting dsn from secret: %v", err)
-	}
-	dbpool, err := pgxpool.Connect(context.Background(), dsn)
-	if err != nil {
-		err = fmt.Errorf("error: failed to connect to database using current dsn: %v", err)
-		log.Println(err)
-		return err
-	}
-	defer dbpool.Close()
-
-	// Check if no value exists in db
-	_, err = dbpool.Exec(context.Background(),
-		"INSERT INTO jetsapi.secret_rotation (secret, last_update) VALUES ($1, DEFAULT)", secretBeingRotated)
-	if err != nil {
-		// Already got an entry, update it
-		_, err = dbpool.Exec(context.Background(),
-		"UPDATE jetsapi.secret_rotation SET last_update = DEFAULT WHERE secret = $1", secretBeingRotated)
-		if err != nil {
-			return fmt.Errorf("while updating last_update in secret_rotation table: %v", err)
-		}
-	}
-	return nil
-}
-
-func OpenDbConn(dnsJson string) (*pgxpool.Pool, error) {
-	dns, err := awsi.GetDsnFromJson(dnsJson, false, 1)
-	if err != nil {
-		return nil, fmt.Errorf("while getting dns from json: %v", err)
-	}
-	return pgxpool.Connect(context.Background(), dns)
 }
 
 func CreateSecret(smClient *awsi.SecretManagerClient, event *RotateSecretEvent) error {
@@ -256,7 +221,7 @@ func CreateSecret(smClient *awsi.SecretManagerClient, event *RotateSecretEvent) 
 }
 
 func SetSecret(smClient *awsi.SecretManagerClient, event *RotateSecretEvent) error {
-	// update postgres password of rotating db pwd,
+	// update postgres password if rotating db pwd,
 	// update the jetstore admin password in db if rotating jets admin pwd
 
 	// Get the pending value of the secret
@@ -265,7 +230,7 @@ func SetSecret(smClient *awsi.SecretManagerClient, event *RotateSecretEvent) err
 		return fmt.Errorf("while getting pending value of secret %s: %v", event.SecretId, err)
 	}
 	if strings.Contains(event.SecretId, jetsDnsSecret) {
-		// Check if password is already set in db to the pending version
+		// Check if the password is already set in db to the pending version
 		dbpool, err := OpenDbConn(pendingValue)
 		if err == nil {
 			log.Printf("set_secret: AWSPENDING secret is already set as password in PostgreSQL DB for secret %s", event.SecretId)
@@ -275,13 +240,9 @@ func SetSecret(smClient *awsi.SecretManagerClient, event *RotateSecretEvent) err
 	}
 
 	// Open db connection using the current value of the db credentials
-	currentValue, err := smClient.GetSecretValue(jetsDnsSecret, "AWSCURRENT")
+	dbpool, err := OpenCurrentDbConn()
 	if err != nil {
-		return fmt.Errorf("while getting current value of secret %s: %v", event.SecretId, err)
-	}
-	dbpool, err := OpenDbConn(currentValue)
-	if err != nil {
-		return fmt.Errorf("while opening db connection using current secret value: %v", err)
+		return err
 	}
 	defer dbpool.Close()
 
@@ -318,6 +279,64 @@ func SetSecret(smClient *awsi.SecretManagerClient, event *RotateSecretEvent) err
 			log.Println(err)
 			return err
 		}
+
+	case strings.Contains(event.SecretId, jetsEncryptionKeySecret):
+		// Decrypt and re-encrypt the git tokens in database
+		// Get the current encrypted values
+		gitUserTokens, err := getGitTokens(dbpool)
+		if err != nil {
+			return err
+		}
+		err = updateGitTokens(dbpool, gitUserTokens)
+		if err != nil {
+			log.Println(err)
+			return err
+		}
+	}
+	return nil
+}
+
+func getGitTokens(dbpool *pgxpool.Pool) (gitUserTokens map[string]string, err error) {
+	gitUserTokens = make(map[string]string)
+	rows, err := dbpool.Query(context.Background(),
+		"SELECT git_token, user_email FROM jetsapi.users")
+	if err != nil {
+		err = fmt.Errorf("while querying git_token from users table: %v", err)
+		log.Println(err)
+		return
+	}
+	defer rows.Close()
+	for rows.Next() {
+		// scan the row
+		var token, user sql.NullString
+		if err = rows.Scan(&token, &user); err != nil {
+			err = fmt.Errorf("while scanning users table: %v", err)
+			log.Println(err)
+			return
+		}
+		if token.Valid && len(token.String) > 0 && user.Valid {
+			gitUserTokens[user.String] = token.String
+		}
+	}
+	return
+}
+
+func updateGitTokens(dbpool *pgxpool.Pool, gitUserTokens map[string]string) error {
+	stmt := "UPDATE jetsapi.users SET git_token = $1 WHERE user_email = $2"
+	for userEmail, token := range gitUserTokens {
+		tok, err := user.DecryptGitToken(token)
+		if err != nil {
+			return fmt.Errorf("while decrypting user git token: %v", err)
+		}
+		token, err = user.EncryptGitToken(tok)
+		if err != nil {
+			return fmt.Errorf("while encrypting user git token: %v", err)
+		}
+		// put it back in the database
+		_, err = dbpool.Exec(context.Background(), stmt, token, userEmail)
+		if err != nil {
+			return fmt.Errorf("while updating git_token in db: %v", err)
+		}
 	}
 	return nil
 }
@@ -347,6 +366,55 @@ func TestSecret(smClient *awsi.SecretManagerClient, event *RotateSecretEvent) er
 		return fmt.Errorf("error: failed to test the database connection: %v", err)
 	}
 	return nil
+}
+
+// Put a record in secret_rotation table to record the secret rotation
+func RecordSecretRotation() error {
+	dbpool, err := OpenCurrentDbConn()
+	if err != nil {
+		return err
+	}
+	defer dbpool.Close()
+
+	// Check if no value exists in db
+	_, err = dbpool.Exec(context.Background(),
+		"INSERT INTO jetsapi.secret_rotation (secret, last_update) VALUES ($1, DEFAULT)", secretBeingRotated)
+	if err != nil {
+		// Already got an entry, update it
+		_, err = dbpool.Exec(context.Background(),
+			"UPDATE jetsapi.secret_rotation SET last_update = DEFAULT WHERE secret = $1", secretBeingRotated)
+		if err != nil {
+			return fmt.Errorf("while updating last_update in secret_rotation table: %v", err)
+		}
+	}
+	return nil
+}
+
+// Open a DB connection using the current value of credentials
+func OpenCurrentDbConn() (*pgxpool.Pool, error) {
+	// Get a db connection
+	dsn, err := awsi.GetDsnFromSecret(jetsDnsSecret, false, 1)
+	if err != nil {
+		err = fmt.Errorf("while getting dsn from secret: %v", err)
+		log.Println(err)
+		return nil, err
+	}
+	dbpool, err := pgxpool.Connect(context.Background(), dsn)
+	if err != nil {
+		err = fmt.Errorf("error: failed to connect to database using current dsn: %v", err)
+		log.Println(err)
+		return nil, err
+	}
+	return dbpool, nil
+}
+
+// Open a DB connection using the provided dsn json
+func OpenDbConn(dnsJson string) (*pgxpool.Pool, error) {
+	dns, err := awsi.GetDsnFromJson(dnsJson, false, 1)
+	if err != nil {
+		return nil, fmt.Errorf("while getting dns from json: %v", err)
+	}
+	return pgxpool.Connect(context.Background(), dns)
 }
 
 func main() {

@@ -8,7 +8,6 @@ import (
 	awscdk "github.com/aws/aws-cdk-go/awscdk/v2"
 	"github.com/aws/aws-cdk-go/awscdk/v2/awsec2"
 	"github.com/aws/aws-cdk-go/awscdk/v2/awsecs"
-	"github.com/aws/aws-cdk-go/awscdk/v2/awsiam"
 	constructs "github.com/aws/constructs-go/constructs/v10"
 	jsii "github.com/aws/jsii-runtime-go"
 )
@@ -30,28 +29,6 @@ func (jsComp *JetStoreStackComponents) BuildUiService(scope constructs.Construct
 			CpuArchitecture:       awsecs.CpuArchitecture_X86_64(),
 		},
 	})
-	// Add permissions for secrets rotation
-	jsComp.UiTaskDefinition.AddToTaskRolePolicy(awsiam.NewPolicyStatement(&awsiam.PolicyStatementProps{
-		Actions: jsii.Strings("secretsmanager:DescribeSecret",
-			"secretsmanager:GetSecretValue",
-			"secretsmanager:PutSecretValue",
-			"secretsmanager:UpdateSecretVersionStage"),
-		Resources: jsii.Strings(*jsComp.AdminPwdSecret.ArnForPolicies(),
-			*jsComp.ApiSecret.ArnForPolicies(),
-			*jsComp.RdsSecret.ArnForPolicies(),
-			*jsComp.EncryptionKeySecret.ArnForPolicies()),
-	}))
-	jsComp.UiTaskDefinition.AddToTaskRolePolicy(awsiam.NewPolicyStatement(&awsiam.PolicyStatementProps{
-		Actions:   jsii.Strings("secretsmanager:GetRandomPassword"),
-		Resources: jsii.Strings("*"),
-	}))
-	jsComp.UiTaskDefinition.AddToTaskRolePolicy(awsiam.NewPolicyStatement(&awsiam.PolicyStatementProps{
-		Actions: jsii.Strings("ec2:CreateNetworkInterface",
-			"ec2:DeleteNetworkInterface",
-			"ec2:DescribeNetworkInterfaces",
-			"ec2:DetachNetworkInterface"),
-		Resources: jsii.Strings("*"),
-	}))
 
 	jsComp.UiTaskContainer = jsComp.UiTaskDefinition.AddContainer(jsii.String("uiContainer"), &awsecs.ContainerDefinitionOptions{
 		// Use JetStore Image in ecr

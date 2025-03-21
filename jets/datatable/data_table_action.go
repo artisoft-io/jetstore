@@ -703,7 +703,11 @@ func (ctx *DataTableContext) InsertRows(dataTableAction *DataTableAction, token 
 			gitToken := dataTableAction.Data[irow]["git_token"]
 			if gitToken != nil && gitToken != "" {
 				// Update with encrypted token
-				dataTableAction.Data[irow]["git_token"] = user.EncryptGitToken(gitToken.(string))
+				dataTableAction.Data[irow]["git_token"], err = user.EncryptGitToken(gitToken.(string))
+				if err != nil {
+					err = fmt.Errorf("while encrypting the git token: %v", err)
+					return
+				}
 			}
 		case dataTableAction.FromClauses[0].Table == "update/users":
 			// encrypt roles and put them in column encrypted_roles
