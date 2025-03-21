@@ -386,13 +386,13 @@ func TestSecret(smClient *awsi.SecretManagerClient, event *RotateSecretEvent) er
 		log.Println(err)
 		return err
 	}
+	defer dbpool.Close()
 
 	// Test the database connection to ensure that permission are correct
 	_, err = dbpool.Exec(context.Background(), "SELECT NOW();")
 	if err != nil {
 		return fmt.Errorf("error: failed to test the database connection: %v", err)
 	}
-	dbpool.Close()
 	return nil
 }
 
