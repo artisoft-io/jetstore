@@ -89,6 +89,7 @@ func (jsComp *JetStoreStackComponents) BuildUiService(scope constructs.Construct
 		}),
 	})
 
+
 	jsComp.EcsUiService = awsecs.NewFargateService(stack, jsii.String("jetstore-ui"), &awsecs.FargateServiceProps{
 		Cluster:        jsComp.EcsCluster,
 		ServiceName:    jsii.String("jetstore-ui"),
