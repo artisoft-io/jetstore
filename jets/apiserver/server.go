@@ -599,7 +599,6 @@ func listenAndServe() error {
 	// Start a background tasks to identify timed out and pending tasks and watch for secret rotation
 	if !globalDevMode {
 		go func() {
-			ctx := datatable.NewDataTableContext(server.dbpool, false, false, nil, nil)
 			for {
 				time.Sleep(1 * time.Hour)
 
@@ -617,7 +616,7 @@ func listenAndServe() error {
 				}
 
 				// Start pending task and check for timeouts
-				err = ctx.StartPendingTasks("cpipesSM")
+				err = datatable.NewDataTableContext(server.dbpool, false, false, nil, nil).StartPendingTasks("cpipesSM")
 				if err != nil {
 					log.Println("Warning: while StartPendingTasks for cpipesSM:", err)
 				}
