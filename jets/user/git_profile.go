@@ -61,7 +61,7 @@ func getEncryptionKeyFromSecret() (key string, err error) {
 			err = fmt.Errorf("while getting JETS_ENCRYPTION_KEY_SECRET from aws secret: %v", err)
 		}
 	} else {
-		err = fmt.Errorf("Could not load value for JETS_ENCRYPTION_KEY or JETS_ENCRYPTION_KEY_SECRET")
+		err = fmt.Errorf("error: could not load value for JETS_ENCRYPTION_KEY or JETS_ENCRYPTION_KEY_SECRET")
 	}
 	return
 }
