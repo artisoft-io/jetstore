@@ -251,6 +251,7 @@ func CreateSecret(smClient *awsi.SecretManagerClient, event *RotateSecretEvent) 
 func SetSecret(smClient *awsi.SecretManagerClient, event *RotateSecretEvent) error {
 	// update postgres password if rotating db pwd,
 	// update the jetstore admin password in db if rotating jets admin pwd
+	// Decrypt and re-encrypt the git tokens in database if rotating encryption key
 
 	// Get the pending value of the secret
 	pendingValue, err := smClient.GetSecretValue(event.SecretId, "AWSPENDING")
@@ -309,13 +310,24 @@ func SetSecret(smClient *awsi.SecretManagerClient, event *RotateSecretEvent) err
 		}
 
 	case strings.Contains(event.SecretId, jetsEncryptionKeySecret):
-		// Decrypt and re-encrypt the git tokens in database
-		// Get the current encrypted values
-		gitUserTokens, err := getGitTokens(dbpool)
+		currentValue, err := smClient.GetCurrentSecretValue(event.SecretId)
 		if err != nil {
-			return err
+			return fmt.Errorf("while getting current value of secret %s: %v", event.SecretId, err)
 		}
-		err = updateGitTokens(dbpool, gitUserTokens)
+		return updateEncryptedToken(dbpool, pendingValue, currentValue)
+	}
+	return nil
+}
+
+func updateEncryptedToken(dbpool *pgxpool.Pool, encryptKey, decryptKey string) error {
+	// Decrypt and re-encrypt the git tokens in database
+	// Get the current encrypted values
+	gitUserTokens, err := getGitTokens(dbpool)
+	if err != nil {
+		return err
+	}
+	if len(gitUserTokens) > 0 {
+		err = updateGitTokens(dbpool, encryptKey, decryptKey, gitUserTokens)
 		if err != nil {
 			log.Println(err)
 			return err
@@ -349,14 +361,14 @@ func getGitTokens(dbpool *pgxpool.Pool) (gitUserTokens map[string]string, err er
 	return
 }
 
-func updateGitTokens(dbpool *pgxpool.Pool, gitUserTokens map[string]string) error {
+func updateGitTokens(dbpool *pgxpool.Pool, encryptKey, decryptKey string, gitUserTokens map[string]string) error {
 	stmt := "UPDATE jetsapi.users SET git_token = $1 WHERE user_email = $2"
 	for userEmail, token := range gitUserTokens {
-		tok, err := user.DecryptGitToken(token)
+		tok, err := user.DecryptValue(token, decryptKey)
 		if err != nil {
 			return fmt.Errorf("while decrypting user git token: %v", err)
 		}
-		token, err = user.EncryptGitToken(tok)
+		token, err = user.EncryptValue(tok, encryptKey)
 		if err != nil {
 			return fmt.Errorf("while encrypting user git token: %v", err)
 		}

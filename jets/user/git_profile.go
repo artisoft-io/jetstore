@@ -11,6 +11,7 @@ import (
 	"io"
 	"log"
 	"os"
+	"strings"
 
 	"github.com/artisoft-io/jetstore/jets/awsi"
 	"github.com/jackc/pgx/v4"
@@ -31,14 +32,9 @@ func init() {
 	var err error
 	JetsEncriptionKey = os.Getenv("JETS_ENCRYPTION_KEY")
 	if JetsEncriptionKey == "" {
-		secret := os.Getenv("JETS_ENCRYPTION_KEY_SECRET")
-		if secret != "" {
-			JetsEncriptionKey, err = awsi.GetCurrentSecretValue(secret)
-			if err != nil {
-				log.Printf("user.init(): while getting JETS_ENCRYPTION_KEY_SECRET from aws secret: %v\n", err)
-			}
-		} else {
-			log.Println("user.init(): Could not load value for JETS_ENCRYPTION_KEY or JETS_ENCRYPTION_KEY_SECRET")
+		JetsEncriptionKey, err = getEncryptionKeyFromSecret()
+		if err != nil {
+			log.Println("user.init():", err)
 		}
 	}
 	AdminEmail = os.Getenv("JETS_ADMIN_EMAIL")
@@ -55,6 +51,19 @@ func init() {
 	}
 	ApiSecret = apiSecret
 	TokenExpiration = 60
+}
+
+func getEncryptionKeyFromSecret() (key string, err error) {
+	secret := os.Getenv("JETS_ENCRYPTION_KEY_SECRET")
+	if secret != "" {
+		key, err = awsi.GetCurrentSecretValue(secret)
+		if err != nil {
+			err = fmt.Errorf("while getting JETS_ENCRYPTION_KEY_SECRET from aws secret: %v", err)
+		}
+	} else {
+		err = fmt.Errorf("error: could not load value for JETS_ENCRYPTION_KEY or JETS_ENCRYPTION_KEY_SECRET")
+	}
+	return
 }
 
 func GetGitProfile(dbpool *pgxpool.Pool, userEmail string) (GitProfile, error) {
@@ -83,7 +92,30 @@ func EncryptGitToken(gitToken string) (string, error) {
 }
 
 func DecryptGitToken(encryptedGitToken string) (string, error) {
-	return decrypt(encryptedGitToken, JetsEncriptionKey)
+	token, err := decrypt(encryptedGitToken, JetsEncriptionKey)
+	if err != nil && strings.Contains(err.Error(), "cipher: message authentication failed") {
+		// Check if encryption key has changed
+		currentValue := JetsEncriptionKey
+		JetsEncriptionKey, err = getEncryptionKeyFromSecret()
+		if err != nil {
+			// unable to get the new key, secret may not be set
+			log.Println("WARNING: unable to refresh encryption key from secret (in DecryptGitToken):", err)
+			return "", err
+		}
+		if currentValue != JetsEncriptionKey {
+			log.Println("Encryption key have been rotated, identified in DecryptGitToken")
+			return decrypt(encryptedGitToken, JetsEncriptionKey)
+		}
+	}
+	return token, err
+}
+
+func EncryptValue(value, encryptionKey string) (string, error) {
+	return encrypt(value, encryptionKey)
+}
+
+func DecryptValue(value, encryptionKey string) (string, error) {
+	return decrypt(value, encryptionKey)
 }
 
 // From: https://www.melvinvivas.com/how-to-encrypt-and-decrypt-data-using-aes
@@ -109,7 +141,7 @@ func encrypt(stringToEncrypt string, keyString string) (encryptedString string, 
 	//https://golang.org/pkg/crypto/cipher/#NewGCM
 	aesGCM, err := cipher.NewGCM(block)
 	if err != nil {
-		panic(err.Error())
+		return "", err
 	}
 
 	//Create a nonce. Nonce should be from GCM
@@ -156,7 +188,7 @@ func decrypt(encryptedString string, keyString string) (decryptedString string, 
 	//Decrypt the data
 	plaintext, err := aesGCM.Open(nil, nonce, ciphertext, nil)
 	if err != nil {
-		panic(err.Error())
+		return "", err
 	}
 
 	return string(plaintext), nil
