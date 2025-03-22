@@ -230,7 +230,7 @@ func CreateSecret(smClient *awsi.SecretManagerClient, event *RotateSecretEvent) 
 			}
 
 		case jetsEncryptionKeySecret:
-			pendingValue, err = smClient.GetRandomPassword(" !\"#$%&'()*+,-./:;<=>?@[\\]^_`{|}~", 32)
+			pendingValue, err = smClient.GetRandomPassword(" !\"#$%&'()*+,./:;<=>?@[\\]^_`{|}~", 32)
 			if err != nil {
 				return fmt.Errorf("while GetRandomPassword for secret %s: %v", event.SecretId, err)
 			}
