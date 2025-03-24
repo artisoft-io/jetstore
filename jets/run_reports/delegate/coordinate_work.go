@@ -9,7 +9,6 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/artisoft-io/jetstore/jets/dbutils"
 	"github.com/artisoft-io/jetstore/jets/workspace"
 	"github.com/jackc/pgx/v4/pgxpool"
 )
@@ -47,13 +46,12 @@ func CoordinateWorkAndUpdateStatus(ctx context.Context, dbpool *pgxpool.Pool, ca
 
 	// Fetch reports.tgz from overriten workspace files (here we want the reports definitions in particular)
 	// We don't care about /lookup.db and /workspace.db, hence the argument skipSqliteFiles = true
+	// See if it worth to do a check
 	var err error
 	if !devMode {
-		log.Println("Synching reports.tgz from db")
-		err = workspace.SyncWorkspaceFiles(dbpool, wprefix, dbutils.FO_Open, "reports.tgz", true, false)
+		_, err = workspace.SyncRunReportsWorkspace(dbpool)
 		if err != nil {
-			log.Println("Error while synching workspace file from db:", err)
-			return err
+			return fmt.Errorf("error while synching reports.tgz files from db: %v", err)
 		}
 	}
 
@@ -99,7 +97,7 @@ func CoordinateWorkAndUpdateStatus(ctx context.Context, dbpool *pgxpool.Pool, ca
 	case ca.CurrentReportDirectives.OutputS3Prefix != "":
 		// Write output file to a location based on a custom s3 prefix
 		ca.OutputPath = strings.ReplaceAll(ca.OutputPath,
-			jetsS3OutputPrefix,	ca.CurrentReportDirectives.OutputS3Prefix)
+			jetsS3OutputPrefix, ca.CurrentReportDirectives.OutputS3Prefix)
 	case ca.CurrentReportDirectives.OutputPath != "":
 		// Write output file to a specified s3 location
 		ca.OutputPath = ca.CurrentReportDirectives.OutputPath

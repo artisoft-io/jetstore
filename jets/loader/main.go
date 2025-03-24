@@ -63,7 +63,7 @@ var processName string    // used only to register with pipeline_execution_detai
 var pipelineExecKey = flag.Int("peKey", -1, "Pipeline execution key (required for cpipes with multipart files)")
 var shardId = flag.Int("shardId", -1, "Run the cpipes process for this single shard. (required when peKey is provided)")
 var jetsPartition = flag.String("jetsPartition", "", "the jets_partition to process (case cpipes reducing mode)")
-var inputSessionId string		// needed to read the file_keys from sharding table when peKey is provided
+var inputSessionId string // needed to read the file_keys from sharding table when peKey is provided
 
 var tableName string
 var domainKeysJson string
@@ -71,6 +71,7 @@ var inputColumnsJson string
 var inputColumnsPositionsCsv string
 var inputFormat string
 var inputFormatDataJson string
+
 // var computePipesJson string
 var isPartFiles int
 var sep_flag jcsv.Chartype = '€'
@@ -137,12 +138,12 @@ func main() {
 		if *objectType == "" {
 			hasErr = true
 			errMsg = append(errMsg, "Object type of the input file must be provided (-objectType).")
-		}	
+		}
 	} else {
 		if *shardId == -1 {
 			hasErr = true
 			errMsg = append(errMsg, "-shardId must be provided when -peKey is provided.")
-		}	
+		}
 	}
 	if *dsn == "" && *awsDsnSecret == "" {
 		*dsn = os.Getenv("JETS_DSN_URI_VALUE")
@@ -183,7 +184,7 @@ func main() {
 	awsApiSecret := os.Getenv("AWS_API_SECRET")
 	apiSecret := os.Getenv("API_SECRET")
 	if apiSecret == "" && awsApiSecret != "" {
-		apiSecret, err = awsi.GetSecretValue(awsApiSecret)
+		apiSecret, err = awsi.GetCurrentSecretValue(awsApiSecret)
 		if err != nil {
 			hasErr = true
 			errMsg = append(errMsg, fmt.Sprintf("while getting apiSecret from aws secret: %v", err))

@@ -9,6 +9,7 @@ import (
 	"github.com/aws/aws-cdk-go/awscdk/v2/awsec2"
 	"github.com/aws/aws-cdk-go/awscdk/v2/awsevents"
 	"github.com/aws/aws-cdk-go/awscdk/v2/awseventstargets"
+	"github.com/aws/aws-cdk-go/awscdk/v2/awsiam"
 	"github.com/aws/aws-cdk-go/awscdk/v2/awslambda"
 	awslambdago "github.com/aws/aws-cdk-go/awscdklambdagoalpha/v2"
 	constructs "github.com/aws/constructs-go/constructs/v10"
@@ -76,6 +77,67 @@ func (jsComp *JetStoreStackComponents) BuildLambdas(scope constructs.Construct, 
 	}
 	jsComp.StatusUpdateLambda.Connections().AllowTo(jsComp.RdsCluster, awsec2.Port_Tcp(jsii.Number(5432)), jsii.String("Allow connection from StatusUpdateLambda"))
 	jsComp.RdsSecret.GrantRead(jsComp.StatusUpdateLambda, nil)
+
+	// -----------------------------------------------
+	// Define the Secret Rotation lambda,rotating all secrets that require rotation
+	// Secret Rotation Lambda Definition
+	// --------------------------------------------------------------------------------------------------------------
+	jsComp.SecretRotationLambda = awslambdago.NewGoFunction(stack, jsii.String("SecretRotationLambda"), &awslambdago.GoFunctionProps{
+		Description: jsii.String("Lambda function to rotate JetStore secrets"),
+		Runtime:     awslambda.Runtime_PROVIDED_AL2023(),
+		Entry:       jsii.String("lambdas/rotate_secret"),
+		Bundling: &awslambdago.BundlingOptions{
+			GoBuildFlags: &[]*string{jsii.String(`-buildvcs=false -ldflags "-s -w"`)},
+		},
+		Environment: &map[string]*string{
+			"JETS_DSN_SECRET":            jsComp.RdsSecret.SecretName(),
+			"AWS_API_SECRET":             jsComp.ApiSecret.SecretName(),
+			"AWS_JETS_ADMIN_PWD_SECRET":  jsComp.AdminPwdSecret.SecretName(),
+			"JETS_ENCRYPTION_KEY_SECRET": jsComp.EncryptionKeySecret.SecretName(),
+			"JETS_REGION":                jsii.String(os.Getenv("AWS_REGION")),
+			"ENVIRONMENT":                jsii.String(os.Getenv("ENVIRONMENT")),
+			"JETS_ADMIN_EMAIL":           jsii.String(os.Getenv("JETS_ADMIN_EMAIL")),
+		},
+		MemorySize:     jsii.Number(128),
+		Timeout:        awscdk.Duration_Minutes(jsii.Number(3)),
+		Vpc:            jsComp.Vpc,
+		VpcSubnets:     jsComp.PrivateSubnetSelection,
+		SecurityGroups: &[]awsec2.ISecurityGroup{jsComp.PrivateSecurityGroup},
+	})
+	if phiTagName != nil {
+		awscdk.Tags_Of(jsComp.SecretRotationLambda).Add(phiTagName, jsii.String("false"), nil)
+	}
+	if piiTagName != nil {
+		awscdk.Tags_Of(jsComp.SecretRotationLambda).Add(piiTagName, jsii.String("false"), nil)
+	}
+	if descriptionTagName != nil {
+		awscdk.Tags_Of(jsComp.SecretRotationLambda).Add(descriptionTagName, jsii.String("JetStore lambda to rotate JetStore secrets"), nil)
+	}
+	jsComp.SecretRotationLambda.Connections().AllowTo(jsComp.RdsCluster, awsec2.Port_Tcp(jsii.Number(5432)), jsii.String("Allow connection from SecretRotationLambda"))
+	jsComp.RdsSecret.GrantRead(jsComp.SecretRotationLambda, nil)
+	jsComp.RdsSecret.GrantWrite(jsComp.SecretRotationLambda)
+	// Add permissions for secrets rotation
+	jsComp.SecretRotationLambda.AddToRolePolicy(awsiam.NewPolicyStatement(&awsiam.PolicyStatementProps{
+		Actions: jsii.Strings("secretsmanager:DescribeSecret",
+			"secretsmanager:GetSecretValue",
+			"secretsmanager:PutSecretValue",
+			"secretsmanager:UpdateSecretVersionStage"),
+		Resources: jsii.Strings(*jsComp.AdminPwdSecret.ArnForPolicies(),
+			*jsComp.ApiSecret.ArnForPolicies(),
+			*jsComp.RdsSecret.ArnForPolicies(),
+			*jsComp.EncryptionKeySecret.ArnForPolicies()),
+	}))
+	jsComp.SecretRotationLambda.AddToRolePolicy(awsiam.NewPolicyStatement(&awsiam.PolicyStatementProps{
+		Actions:   jsii.Strings("secretsmanager:GetRandomPassword"),
+		Resources: jsii.Strings("*"),
+	}))
+	jsComp.SecretRotationLambda.AddToRolePolicy(awsiam.NewPolicyStatement(&awsiam.PolicyStatementProps{
+		Actions: jsii.Strings("ec2:CreateNetworkInterface",
+			"ec2:DeleteNetworkInterface",
+			"ec2:DescribeNetworkInterfaces",
+			"ec2:DetachNetworkInterface"),
+		Resources: jsii.Strings("*"),
+	}))
 
 	// -----------------------------------------------
 	// Define the Run Reports lambda, used in jsComp.CpipesSM, jsComp.Serverv2SM and eventually to others
@@ -166,7 +228,7 @@ func (jsComp *JetStoreStackComponents) BuildLambdas(scope constructs.Construct, 
 			Vpc:        jsComp.Vpc,
 			VpcSubnets: jsComp.IsolatedSubnetSelection,
 		})
-		jsComp.PurgeDataLambda.Connections().AllowTo(jsComp.RdsCluster, awsec2.Port_Tcp(jsii.Number(5432)), jsii.String("Allow connection from StatusUpdateLambda"))
+		jsComp.PurgeDataLambda.Connections().AllowTo(jsComp.RdsCluster, awsec2.Port_Tcp(jsii.Number(5432)), jsii.String("Allow connection from PurgeDataLambda"))
 		jsComp.RdsSecret.GrantRead(jsComp.PurgeDataLambda, nil)
 		if phiTagName != nil {
 			awscdk.Tags_Of(jsComp.PurgeDataLambda).Add(phiTagName, jsii.String("false"), nil)

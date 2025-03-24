@@ -50,7 +50,7 @@ func (args *StartComputePipesArgs) initializeCpipes(ctx context.Context, dbpool 
 	// Check if we need to sync the workspace files
 	_, err = workspace.SyncComputePipesWorkspace(dbpool)
 	if err != nil {
-		log.Panicf("error while synching workspace files from db: %v", err)
+		return nil, fmt.Errorf("error while synching workspace files from db: %v", err)
 	}
 
 	// get pe info and pipeline config

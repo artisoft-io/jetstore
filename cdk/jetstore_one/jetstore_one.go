@@ -240,6 +240,11 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 	if jsComp.ExternalKmsKey != nil {
 		jsComp.ExternalKmsKey.GrantEncryptDecrypt(jsComp.EcsTaskRole)
 	}
+	// Provide access to the secrets
+	jsComp.RdsSecret.GrantRead(jsComp.EcsTaskRole, nil)
+	jsComp.ApiSecret.GrantRead(jsComp.EcsTaskRole, nil)
+	jsComp.AdminPwdSecret.GrantRead(jsComp.EcsTaskRole, nil)
+	jsComp.EncryptionKeySecret.GrantRead(jsComp.EcsTaskRole, nil)
 
 	// JetStore Image from ecr -- referenced in most tasks
 	jsComp.JetStoreImage = awsecs.AssetImage_FromEcrRepository(
@@ -262,6 +267,7 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 
 	// Build JetStore general prupose Lambdas:
 	//	- StatusUpdateLambda
+	//	- SecretRotationLambda
 	//	- RunReportsLambda
 	//	- PurgeDataLambda
 	jsComp.BuildLambdas(scope, stack, props)
@@ -332,6 +338,11 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 		// 	jsComp.ReportsSM.StateMachineArn(),
 		// },
 	}))
+
+	// ---------------------------------------
+	// Add Scret Rotation Schedules
+	// ---------------------------------------
+	jsComp.AddSecretRotationSchedules(scope, stack, props)
 
 	// ---------------------------------------
 	// Define the JetStore UI Service
@@ -503,6 +514,7 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 // JETS_s3_STAGE_PREFIX (optional) required for cpipes, default replace '/input' with '/stage' in JETS_s3_INPUT_PREFIX
 // JETS_s3_SCHEMA_TRIGGERS (optional) required for cpipes using schema managers, default replace '/input' with '/schema_triggers' in JETS_s3_INPUT_PREFIX
 // JETS_S3_KMS_KEY_ARN (optional, default to account default KMS key) Server side encryption of s3 objects
+// JETS_SECRETS_ROTATION_DAYS (required, nbr of days to trigger secret rotation, default 30 days)
 // JETS_SENTINEL_FILE_NAME (optional, fixed file name for multipart sentinel file - file of size 0)
 // JETS_SERVER_TASK_CPU allocated cpu in vCPU units
 // JETS_SERVER_TASK_MEM_LIMIT_MB memory limit, based on fargate table

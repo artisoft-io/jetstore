@@ -29,6 +29,7 @@ func (jsComp *JetStoreStackComponents) BuildUiService(scope constructs.Construct
 			CpuArchitecture:       awsecs.CpuArchitecture_X86_64(),
 		},
 	})
+
 	jsComp.UiTaskContainer = jsComp.UiTaskDefinition.AddContainer(jsii.String("uiContainer"), &awsecs.ContainerDefinitionOptions{
 		// Use JetStore Image in ecr
 		Image:         jsComp.JetStoreImage,
@@ -45,6 +46,10 @@ func (jsComp *JetStoreStackComponents) BuildUiService(scope constructs.Construct
 		},
 		Environment: &map[string]*string{
 			"JETS_BUCKET":                   jsComp.SourceBucket.BucketName(),
+			"JETS_DSN_SECRET":               jsComp.RdsSecret.SecretName(),
+			"AWS_API_SECRET":                jsComp.ApiSecret.SecretName(),
+			"AWS_JETS_ADMIN_PWD_SECRET":     jsComp.AdminPwdSecret.SecretName(),
+			"JETS_ENCRYPTION_KEY_SECRET":    jsComp.EncryptionKeySecret.SecretName(),
 			"JETS_DOMAIN_KEY_HASH_ALGO":     jsii.String(os.Getenv("JETS_DOMAIN_KEY_HASH_ALGO")),
 			"JETS_DOMAIN_KEY_HASH_SEED":     jsii.String(os.Getenv("JETS_DOMAIN_KEY_HASH_SEED")),
 			"JETS_INPUT_ROW_JETS_KEY_ALGO":  jsii.String(os.Getenv("JETS_INPUT_ROW_JETS_KEY_ALGO")),
@@ -72,17 +77,18 @@ func (jsComp *JetStoreStackComponents) BuildUiService(scope constructs.Construct
 			"NBR_SHARDS":                    jsii.String(props.NbrShards),
 			"JETS_CPIPES_SM_ARN":            jsii.String(jsComp.CpipesSmArn),
 			"JETS_REPORTS_SM_ARN":           jsii.String(jsComp.ReportsSmArn),
+			"JETS_ADMIN_EMAIL":              jsii.String(os.Getenv("JETS_ADMIN_EMAIL")),
 		},
-		Secrets: &map[string]awsecs.Secret{
-			"JETS_DSN_JSON_VALUE": awsecs.Secret_FromSecretsManager(jsComp.RdsSecret, nil),
-			"API_SECRET":          awsecs.Secret_FromSecretsManager(jsComp.ApiSecret, nil),
-			"JETS_ADMIN_PWD":      awsecs.Secret_FromSecretsManager(jsComp.AdminPwdSecret, nil),
-			"JETS_ENCRYPTION_KEY": awsecs.Secret_FromSecretsManager(jsComp.EncryptionKeySecret, nil),
-		},
+		// Secrets: &map[string]awsecs.Secret{
+		// 	"API_SECRET":          awsecs.Secret_FromSecretsManager(jsComp.ApiSecret, nil),
+		// 	"JETS_ADMIN_PWD":      awsecs.Secret_FromSecretsManager(jsComp.AdminPwdSecret, nil),
+		// 	"JETS_ENCRYPTION_KEY": awsecs.Secret_FromSecretsManager(jsComp.EncryptionKeySecret, nil),
+		// },
 		Logging: awsecs.LogDriver_AwsLogs(&awsecs.AwsLogDriverProps{
 			StreamPrefix: jsii.String("task"),
 		}),
 	})
+
 
 	jsComp.EcsUiService = awsecs.NewFargateService(stack, jsii.String("jetstore-ui"), &awsecs.FargateServiceProps{
 		Cluster:        jsComp.EcsCluster,

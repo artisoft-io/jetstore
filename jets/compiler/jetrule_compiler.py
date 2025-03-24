@@ -359,18 +359,11 @@ def main(argv):
   # Save the JetRule data structure
   # path = os.path.join(base_path, out_fname)
   in_tup = os.path.splitext(in_fname)
-  # if save_json:
-  #   jetrules_path = os.path.join(base_path, in_tup[0]+'.jr.json')
-  #   jetrete_path = os.path.join(base_path, in_tup[0]+'.jrc.json')
-    
-  #   with open(jetrules_path, 'wt', encoding='utf-8') as f:
-  #     f.write(json.dumps(compiler.jetrule_ctx.jetRules, indent=4))
-  #   print('JetRules saved to {0}'.format(os.path.abspath(jetrules_path)))
-
-  #   # Save the JetRete data structure
-  #   with open(jetrete_path, 'wt', encoding='utf-8') as f:
-  #     f.write(json.dumps(compiler.jetrule_ctx.jetReteNodes, indent=4))
-  #   print('JetRete saved to {0}'.format(os.path.abspath(jetrete_path)))
+  if save_json:
+    jetrules_path = os.path.join(base_path, in_tup[0]+'.jr.json')    
+    with open(jetrules_path, 'wt', encoding='utf-8') as f:
+      f.write(json.dumps(compiler.jetrule_ctx.jetRules, indent=4))
+    print('JetRules saved to {0}'.format(os.path.abspath(jetrules_path)))
 
   if error:
     sys.exit(error)

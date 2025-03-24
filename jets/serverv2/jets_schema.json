@@ -19,6 +19,24 @@
   },
   {
     "schemaName": "jetsapi",
+    "tableName": "secret_rotation",
+    "columns": [
+      {
+        "columnName": "secret",
+        "dataType": "text",
+        "isPK": true,
+        "isNotNull": true
+      },
+      {
+        "columnName": "last_update",
+        "dataType": "datetime",
+        "default": "now()",
+        "isNotNull": true
+      }
+    ]
+  },
+  {
+    "schemaName": "jetsapi",
     "tableName": "workspace_version",
     "columns": [
       {

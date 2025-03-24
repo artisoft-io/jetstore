@@ -35,7 +35,7 @@ func (args *ComputePipesNodeArgs) CoordinateComputePipes(ctx context.Context, db
 	// Check if we need to sync the workspace files
 	didSync, err = workspace.SyncComputePipesWorkspace(dbpool)
 	if err != nil {
-		log.Panicf("error while synching workspace files from db: %v", err)
+		return fmt.Errorf("error while synching workspace files from db: %v", err)
 	}
 	if didSync {
 		ClearJetrulesCaches()

@@ -27,9 +27,10 @@ import (
 )
 
 type Server struct {
-	dbpool *pgxpool.Pool
-	Router *mux.Router
-	AuditLogger *zap.Logger
+	dbpool             *pgxpool.Pool
+	Router             *mux.Router
+	AuditLogger        *zap.Logger
+	LastSecretRotation *time.Time
 }
 
 var server = Server{}
@@ -159,40 +160,40 @@ func (server *Server) checkJetStoreDbVersion() error {
 	jetstoreVersion := os.Getenv("JETS_VERSION")
 	log.Println("JetStore image version JETS_VERSION is", jetstoreVersion)
 
-		// Check the release in database vs current release
-		stmt := "SELECT MAX(version) FROM jetsapi.jetstore_release"
+	// Check the release in database vs current release
+	stmt := "SELECT MAX(version) FROM jetsapi.jetstore_release"
 
-		err := server.dbpool.QueryRow(context.Background(), stmt).Scan(&version)
-		switch {
-		case err != nil:
-			log.Println("JetStore version is not defined in jetstore_release table, rebuilding all tables and running workspace db init script")
-			_, _, err = server.ResetDomainTables(&PurgeDataAction{
-				Action:            "reset_domain_tables",
-				RunUiDbInitScript: true,
-				Data:              []map[string]interface{}{},
-			})
-			if err != nil {
-				return fmt.Errorf("while calling ResetDomainTables to initialize db (no version exist in db): %v", err)
-			}
-
-		case !version.Valid || jetstoreVersion > version.String:
-			log.Println("JetStore deployed version (in database) is", version.String)
-			log.Println("New JetStore Release deployed, running workspace db init script and migrating tables to latest schema")
-			serverArgs = []string{"-initBaseWorkspaceDb", "-migrateDb"}
-			if *usingSshTunnel {
-				serverArgs = append(serverArgs, "-usingSshTunnel")
-			}
-			_,err = datatable.RunUpdateDb(os.Getenv("WORKSPACE"), &serverArgs)
-			if err != nil {
-				return fmt.Errorf("while calling RunUpdateDb: %v", err)
-			}		
-
-		default:
-			log.Println("JetStore deployed version (in database) is", version)
-			log.Println("JetStore version in database", version, ">=", "JetStore image version", jetstoreVersion)
-			// DO NOT UPDATE version in database, hence return here
-			return nil
+	err := server.dbpool.QueryRow(context.Background(), stmt).Scan(&version)
+	switch {
+	case err != nil:
+		log.Println("JetStore version is not defined in jetstore_release table, rebuilding all tables and running workspace db init script")
+		_, _, err = server.ResetDomainTables(&PurgeDataAction{
+			Action:            "reset_domain_tables",
+			RunUiDbInitScript: true,
+			Data:              []map[string]interface{}{},
+		})
+		if err != nil {
+			return fmt.Errorf("while calling ResetDomainTables to initialize db (no version exist in db): %v", err)
 		}
+
+	case !version.Valid || jetstoreVersion > version.String:
+		log.Println("JetStore deployed version (in database) is", version.String)
+		log.Println("New JetStore Release deployed, running workspace db init script and migrating tables to latest schema")
+		serverArgs = []string{"-initBaseWorkspaceDb", "-migrateDb"}
+		if *usingSshTunnel {
+			serverArgs = append(serverArgs, "-usingSshTunnel")
+		}
+		_, err = datatable.RunUpdateDb(os.Getenv("WORKSPACE"), &serverArgs)
+		if err != nil {
+			return fmt.Errorf("while calling RunUpdateDb: %v", err)
+		}
+
+	default:
+		log.Println("JetStore deployed version (in database) is", version)
+		log.Println("JetStore version in database", version, ">=", "JetStore image version", jetstoreVersion)
+		// DO NOT UPDATE version in database, hence return here
+		return nil
+	}
 
 	// Updating JetStore version in database
 	err = server.addVersionToDb(jetstoreVersion)
@@ -225,7 +226,7 @@ func (server *Server) getUnitTestFileKeys() ([]string, error) {
 		str, err := url.QueryUnescape(item.RouteParams["file_name"])
 		if err != nil {
 			log.Println("while walking workspace unit test folder structure:", err)
-			return nil, err	
+			return nil, err
 		}
 		if len(str) > 0 {
 			fileKeys = append(fileKeys, str)
@@ -233,7 +234,7 @@ func (server *Server) getUnitTestFileKeys() ([]string, error) {
 		if item.Children != nil {
 			*stack = append(*stack, *item.Children...)
 		}
-	} 
+	}
 	return fileKeys, nil
 }
 
@@ -257,10 +258,10 @@ func (server *Server) syncUnitTestFiles() {
 			} else {
 				if err = awsi.UploadToS3(bucket, region, strings.Replace(fileKeys[i], "data/test_data", s3Prefix, 1), fileHd); err != nil {
 					log.Println("Error while copying to s3:", err)
-				}	
+				}
 				fileHd.Close()
 			}
-		}	
+		}
 	}
 }
 
@@ -277,7 +278,7 @@ func (server *Server) checkWorkspaceVersion() error {
 		if err != nil {
 			//* TODO Log to a new workspace error table to report in UI
 			log.Printf("Error while stashing workspace file: %v", err)
-		}	
+		}
 	}
 
 	// Put the active workspace entry into workspace_registry table if ACTIVE_WORKSPACE_URI is set
@@ -290,15 +291,15 @@ func (server *Server) checkWorkspaceVersion() error {
 				('%s', '%s', '%s', 'system')
 				ON CONFLICT ON CONSTRAINT workspace_name_unique_cstraintv3
 				DO UPDATE SET (workspace_uri, workspace_branch, user_email, last_update) =
-				(EXCLUDED.workspace_uri, EXCLUDED.workspace_branch, EXCLUDED.user_email, DEFAULT)`, 
+				(EXCLUDED.workspace_uri, EXCLUDED.workspace_branch, EXCLUDED.user_email, DEFAULT)`,
 			workspaceName, activeWorkspaceUri, workspaceBranch)
 		_, err = server.dbpool.Exec(context.Background(), stmt)
 		if err != nil {
 			log.Printf("while inserting active workspace into workspace_registry table: %v, ignored", err)
-		}	
+		}
 	}
 
-	// Check if need to Download overriten workspace files from database & recompile workspace, 
+	// Check if need to Download overriten workspace files from database & recompile workspace,
 	// skip if in dev mode
 	if globalDevMode {
 		// Local development, do not sync and compile workspace
@@ -372,7 +373,7 @@ func (server *Server) initUsers() error {
 		var adminPassword string = *adminPwd
 		var err error
 		if *awsAdminPwdSecret != "" {
-			adminPassword, err = awsi.GetSecretValue(*awsAdminPwdSecret)
+			adminPassword, err = awsi.GetCurrentSecretValue(*awsAdminPwdSecret)
 			if err != nil {
 				return fmt.Errorf("while getting apiSecret from aws secret: %v", err)
 			}
@@ -404,7 +405,7 @@ func listenAndServe() error {
 	var err error
 	// Get secret to sign jwt tokens
 	if *awsApiSecret != "" {
-		*apiSecret, err = awsi.GetSecretValue(*awsApiSecret)
+		*apiSecret, err = awsi.GetCurrentSecretValue(*awsApiSecret)
 		if err != nil {
 			return fmt.Errorf("while getting apiSecret from aws secret: %v", err)
 		}
@@ -466,11 +467,10 @@ func listenAndServe() error {
 
 	var cfg zap.Config
 	if err = json.Unmarshal(rawJSON, &cfg); err != nil {
-		panic(err)
+		return fmt.Errorf("while unmarshalling audit logger config: %v", err)
 	}
 	server.AuditLogger = zap.Must(cfg.Build())
 	defer server.AuditLogger.Sync()
-
 
 	// setup the http routes
 	server.Router = mux.NewRouter()
@@ -516,8 +516,6 @@ func listenAndServe() error {
 	server.Router.Handle("/assets/assets/fonts/Roboto-BoldItalic.ttf", fs).Methods("GET")
 	server.Router.Handle("/assets/assets/fonts/Roboto-Bold.ttf", fs).Methods("GET")
 	server.Router.Handle("/assets/assets/fonts/Roboto-Black.ttf", fs).Methods("GET")
-	server.Router.Handle("/assets/assets/fonts/Roboto-LightItalic.ttf", fs).Methods("GET")
-
 	server.Router.Handle("/assets/assets/fonts/Roboto-LightItalic.ttf", fs).Methods("GET")
 	server.Router.Handle("/assets/assets/fonts/VictorMono-BoldItalic.ttf", fs).Methods("GET")
 	server.Router.Handle("/assets/assets/fonts/VictorMono-Bold.ttf", fs).Methods("GET")
@@ -592,13 +590,33 @@ func listenAndServe() error {
 	// server.Router.HandleFunc("/users/{id}", jsonh(authh(server.UpdateUser))).Methods("PUT")
 	// server.Router.HandleFunc("/users/{id}", authh(server.DeleteUser)).Methods("DELETE")
 
-	// Start a background tasks to identify timed out and pending tasks
+	// Get the secret rotation version from db
+	server.LastSecretRotation, err = server.GetLastSecretRotation()
+	if err != nil {
+		return fmt.Errorf("while getting last rotation from database: %v", err)
+	}
+
+	// Start a background tasks to identify timed out and pending tasks and watch for secret rotation
 	if !globalDevMode {
-		go func () {
-			ctx := datatable.NewDataTableContext(server.dbpool, false, false, nil, nil)
+		go func() {
 			for {
 				time.Sleep(1 * time.Hour)
-				err := ctx.StartPendingTasks("cpipesSM")
+
+				// Check if the secrets have rotated
+				tm, err := server.GetLastSecretRotation()
+				if err != nil {
+					log.Println("Warning: while getting last time the secret were rotated from db:", err)
+				}
+				if tm != nil {
+					if server.LastSecretRotation == nil || tm.After(*server.LastSecretRotation) {
+						// The secrets have rotated, update the cached value of the secerts
+						server.SecretsRotated()
+						server.LastSecretRotation = tm
+					}
+				}
+
+				// Start pending task and check for timeouts
+				err = datatable.NewDataTableContext(server.dbpool, false, false, nil, nil).StartPendingTasks("cpipesSM")
 				if err != nil {
 					log.Println("Warning: while StartPendingTasks for cpipesSM:", err)
 				}
@@ -608,4 +626,24 @@ func listenAndServe() error {
 
 	log.Println("Listening to address ", *serverAddr)
 	return http.ListenAndServe(*serverAddr, server.Router)
+}
+
+func (server *Server) GetLastSecretRotation() (tm *time.Time, err error) {
+	var sqltm sql.NullTime
+	err = server.dbpool.QueryRow(context.Background(), "SELECT MAX(last_update) FROM jetsapi.secret_rotation").Scan(&sqltm)
+	if err != nil {
+		switch {
+		case strings.Contains(err.Error(), "password authentication failed"):
+			now := time.Now()
+			return &now, nil
+		case !errors.Is(err, pgx.ErrNoRows):
+			return nil, fmt.Errorf("while querying last_update from secret_rotation table: %v", err)
+		default:
+			return nil, nil
+		}
+	}
+	if sqltm.Valid {
+		return &sqltm.Time, nil
+	}
+	return nil, nil
 }

@@ -73,30 +73,108 @@ func GetConfig() (aws.Config, error) {
 	return config.LoadDefaultConfig(ctx)
 }
 
-func GetSecretValue(secret string) (string, error) {
+type SecretManagerClient struct {
+	smClient *secretsmanager.Client
+}
+
+func NewSecretManagerClient() (*SecretManagerClient, error) {
 	cfg, err := GetConfig()
 	if err != nil {
-		return "", fmt.Errorf("while loading aws configuration: %v", err)
+		return nil, fmt.Errorf("while loading aws configuration: %v", err)
 	}
 
 	// Create Secrets Manager client
-	smClient := secretsmanager.NewFromConfig(cfg)
+	return &SecretManagerClient{
+		smClient: secretsmanager.NewFromConfig(cfg),
+	}, nil
+}
 
+func (c *SecretManagerClient) GetSecretValue(secret, label string) (string, error) {
+	input := &secretsmanager.GetSecretValueInput{
+		SecretId:     aws.String(secret),
+		VersionStage: aws.String(label), //  AWSCURRENT, AWSPREVIOUS, AWSPENDING
+	}
+
+	result, err := c.smClient.GetSecretValue(context.TODO(), input)
+	if err != nil {
+		// For a list of exceptions thrown, see
+		// https://docs.aws.amazon.com/secretsmanager/latest/apireference/API_GetSecretValue.html
+		return "", err
+	}
+
+	// Decrypts secret using the associated KMS key.
+	return *result.SecretString, nil
+}
+
+func (c *SecretManagerClient) GetRandomPassword(excludeCharacters string, length int) (string, error) {
+	input := &secretsmanager.GetRandomPasswordInput{
+		ExcludeCharacters: aws.String(excludeCharacters),
+		PasswordLength:    aws.Int64(int64(length)),
+	}
+	result, err := c.smClient.GetRandomPassword(context.TODO(), input)
+	if err != nil {
+		return "", err
+	}
+	return *result.RandomPassword, nil
+}
+
+func (c *SecretManagerClient) DescribeSecret(secret string) (*secretsmanager.DescribeSecretOutput, error) {
+	input := &secretsmanager.DescribeSecretInput{
+		SecretId: aws.String(secret),
+	}
+	result, err := c.smClient.DescribeSecret(context.TODO(), input)
+	if err != nil {
+		return nil, err
+	}
+	return result, nil
+}
+
+func (c *SecretManagerClient) GetCurrentSecretValue(secret string) (string, error) {
 	input := &secretsmanager.GetSecretValueInput{
 		SecretId:     aws.String(secret),
 		VersionStage: aws.String("AWSCURRENT"), // VersionStage defaults to AWSCURRENT if unspecified
 	}
 
-	result, err := smClient.GetSecretValue(context.TODO(), input)
+	result, err := c.smClient.GetSecretValue(context.TODO(), input)
 	if err != nil {
 		// For a list of exceptions thrown, see
 		// https://docs.aws.amazon.com/secretsmanager/latest/apireference/API_GetSecretValue.html
-		return "", fmt.Errorf("while getting aws secret value for dsn: %v", err)
+		return "", fmt.Errorf("while getting aws secret value for %s: %v", secret, err)
 	}
 
 	// Decrypts secret using the associated KMS key.
-	secretString := *result.SecretString
-	return secretString, nil
+	return *result.SecretString, nil
+}
+
+func (c *SecretManagerClient) PutSecretValue(secret, value, stageLabel, clientRequestToken string) error {
+	input := &secretsmanager.PutSecretValueInput{
+		SecretId:           aws.String(secret),
+		ClientRequestToken: aws.String(clientRequestToken),
+		SecretString:       aws.String(value),
+		VersionStages:      []string{stageLabel},
+	}
+	_, err := c.smClient.PutSecretValue(context.TODO(), input)
+	return err
+}
+
+func (c *SecretManagerClient) UpdateSecretVersionStage(secret, stageLabel, moveToVersion,
+	removeFromVersion string) error {
+	input := &secretsmanager.UpdateSecretVersionStageInput{
+		SecretId:            aws.String(secret),
+		VersionStage:        aws.String(stageLabel),
+		MoveToVersionId:     aws.String(moveToVersion),
+		RemoveFromVersionId: aws.String(removeFromVersion),
+	}
+	_, err := c.smClient.UpdateSecretVersionStage(context.TODO(), input)
+	return err
+}
+
+func GetCurrentSecretValue(secret string) (string, error) {
+	c, err := NewSecretManagerClient()
+	if err != nil {
+		return "", err
+	}
+	return c.GetCurrentSecretValue(secret)
 }
 
 func GetDsnFromJson(dsnJson string, useLocalhost bool, poolSize int) (string, error) {
@@ -131,7 +209,7 @@ func GetDsnFromJson(dsnJson string, useLocalhost bool, poolSize int) (string, er
 }
 
 func GetDsnFromSecret(secret string, useLocalhost bool, poolSize int) (string, error) {
-	secretString, err := GetSecretValue(secret)
+	secretString, err := GetCurrentSecretValue(secret)
 	if err != nil {
 		return "", fmt.Errorf("while calling GetSecretValue: %v", err)
 	}

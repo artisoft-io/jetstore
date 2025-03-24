@@ -84,6 +84,7 @@ type JetStoreStackComponents struct {
 	UiLoadBalancer awselb.ApplicationLoadBalancer
 
 	StatusUpdateLambda        awslambdago.GoFunction
+	SecretRotationLambda      awslambdago.GoFunction
 	RunReportsLambda          awslambdago.GoFunction
 	PurgeDataLambda           awslambdago.GoFunction
 	serverv2NodeLambda        awslambdago.GoFunction
