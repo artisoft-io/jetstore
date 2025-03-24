@@ -366,7 +366,8 @@ func updateGitTokens(dbpool *pgxpool.Pool, encryptKey, decryptKey string, gitUse
 	for userEmail, token := range gitUserTokens {
 		tok, err := user.DecryptValue(token, decryptKey)
 		if err != nil {
-			return fmt.Errorf("while decrypting user git token: %v", err)
+			log.Printf("while decrypting user git token: %v, skipping user %s", err, userEmail)
+			continue
 		}
 		token, err = user.EncryptValue(tok, encryptKey)
 		if err != nil {

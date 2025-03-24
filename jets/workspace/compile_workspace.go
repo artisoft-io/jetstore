@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/artisoft-io/jetstore/jets/datatable/wsfile"
 	"github.com/artisoft-io/jetstore/jets/dbutils"
@@ -19,6 +20,7 @@ import (
 // Active workspace prefix and control file path
 var workspaceHome, wprefix, workspaceControlPath, workspaceVersion string
 var devMode bool
+var lastWorkspaceSyncCheck *time.Time
 
 func init() {
 	workspaceHome = os.Getenv("WORKSPACES_HOME")
@@ -100,15 +102,58 @@ func SyncWorkspaceFiles(dbpool *pgxpool.Pool, workspaceName, status, contentType
 	return nil
 }
 
-// Sync the workspace files if a new version of the workspace exist since the last call.
-func SyncComputePipesWorkspace(dbpool *pgxpool.Pool) (bool, error) {
+// Sync the workspace files for run report lambdas if a new version of the workspace exist since the last call.
+// Return true if a sync was performed
+func SyncRunReportsWorkspace(dbpool *pgxpool.Pool) (bool, error) {
+	if devMode {
+		return false, nil
+	}
+	// See if it worth to do a check
+	if lastWorkspaceSyncCheck != nil && time.Since(*lastWorkspaceSyncCheck) < time.Duration(1)*time.Minute {
+		// No need to check since it was check less than a min ago
+		return false, nil
+	}
+	now := time.Now()
+	lastWorkspaceSyncCheck = &now
+
 	// Get the latest workspace version
 	// Check the workspace release in database vs current release
-	var version string
-	stmt := "SELECT MAX(version) FROM jetsapi.workspace_version"
-	err := dbpool.QueryRow(context.Background(), stmt).Scan(&version)
+	version, err := getWorkspaceVersion(dbpool)
 	if err != nil {
-		return false, fmt.Errorf("while checking latest workspace version: %v", err)
+		return false, err
+	}
+	didSync := false
+	if version != workspaceVersion {
+		// Get the reports
+		err = SyncWorkspaceFiles(dbpool, wprefix, dbutils.FO_Open, "reports.tgz", true, false)
+		if err != nil {
+			return false, fmt.Errorf("error while synching reports.tgz file from db: %v", err)
+		}
+		workspaceVersion = version
+		didSync = true
+	}
+	return didSync, nil
+}
+
+// Sync the workspace files for cpipes lambdas if a new version of the workspace exist since the last call.
+// Return true if a sync was performed
+func SyncComputePipesWorkspace(dbpool *pgxpool.Pool) (bool, error) {
+	if devMode {
+		return false, nil
+	}
+	// See if it worth to do a check
+	if lastWorkspaceSyncCheck != nil && time.Since(*lastWorkspaceSyncCheck) < time.Duration(1)*time.Minute {
+		// No need to check since it was check less than a min ago
+		return false, nil
+	}
+	now := time.Now()
+	lastWorkspaceSyncCheck = &now
+
+	// Get the latest workspace version
+	// Check the workspace release in database vs current release
+	version, err := getWorkspaceVersion(dbpool)
+	if err != nil {
+		return false, err
 	}
 	didSync := false
 	if version != workspaceVersion {
@@ -126,6 +171,16 @@ func SyncComputePipesWorkspace(dbpool *pgxpool.Pool) (bool, error) {
 		didSync = true
 	}
 	return didSync, nil
+}
+
+func getWorkspaceVersion(dbpool *pgxpool.Pool) (string, error) {
+	var version string
+	stmt := "SELECT MAX(version) FROM jetsapi.workspace_version"
+	err := dbpool.QueryRow(context.Background(), stmt).Scan(&version)
+	if err != nil {
+		return "", fmt.Errorf("while checking latest workspace version: %v", err)
+	}
+	return version, nil
 }
 
 func UpdateWorkspaceVersionDb(dbpool *pgxpool.Pool, workspaceName, version string) error {
