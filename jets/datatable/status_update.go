@@ -13,7 +13,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/artisoft-io/jetstore/jets/awsi"
 	"github.com/jackc/pgx/v4"
 	"github.com/jackc/pgx/v4/pgxpool"
 )
@@ -23,8 +22,6 @@ import (
 // JETS_DSN_SECRET
 // JETS_REGION
 // JETS_BUCKET
-// JETS_DSN_URI_VALUE
-// JETS_DSN_JSON_VALUE
 // JETS_s3_INPUT_PREFIX
 // CPIPES_STATUS_NOTIFICATION_ENDPOINT
 // CPIPES_STATUS_NOTIFICATION_ENDPOINT_JSON
@@ -40,11 +37,7 @@ import (
 type StatusUpdate struct {
 	CpipesMode            bool
 	CpipesEnv             map[string]any
-	AwsDsnSecret          string
-	DbPoolSize            int
 	UsingSshTunnel        bool
-	AwsRegion             string
-	Dsn                   string
 	Dbpool                *pgxpool.Pool
 	PeKey                 int
 	Status                string
@@ -126,26 +119,8 @@ func (ca *StatusUpdate) ValidateArguments() []string {
 	if ca.PeKey < 0 {
 		errMsg = append(errMsg, "Pipeline Execution Status key must be provided (-peKey).")
 	}
-	if ca.Dsn == "" && ca.AwsDsnSecret == "" && ca.Dbpool == nil {
-		ca.Dsn = os.Getenv("JETS_DSN_URI_VALUE")
-		if ca.Dsn == "" {
-			var err error
-			ca.Dsn, err = awsi.GetDsnFromJson(os.Getenv("JETS_DSN_JSON_VALUE"), ca.UsingSshTunnel, ca.DbPoolSize)
-			if err != nil {
-				log.Printf("while calling GetDsnFromJson: %v", err)
-				ca.Dsn = ""
-			}
-		}
-		ca.AwsDsnSecret = os.Getenv("JETS_DSN_SECRET")
-		if ca.Dsn == "" && ca.AwsDsnSecret == "" {
-			errMsg = append(errMsg, "Connection string must be provided using either -awsDsnSecret or -dsn.")
-		}
-	}
-	if ca.AwsRegion == "" {
-		ca.AwsRegion = os.Getenv("JETS_REGION")
-	}
-	if ca.AwsDsnSecret != "" && ca.AwsRegion == "" {
-		errMsg = append(errMsg, "aws region (-awsRegion) must be provided when -awsDnsSecret is provided.")
+	if ca.Dbpool == nil {
+		errMsg = append(errMsg, "db connection must be provided to StatusUpdate")
 	}
 	// Check we have required env var
 	if os.Getenv("JETS_s3_INPUT_PREFIX") == "" {
@@ -154,10 +129,6 @@ func (ca *StatusUpdate) ValidateArguments() []string {
 
 	log.Println("Status Update Arguments:")
 	log.Println("----------------")
-	log.Println("Got argument: dsn, len", len(ca.Dsn))
-	log.Println("Got argument: awsRegion", ca.AwsRegion)
-	log.Println("Got argument: awsDsnSecret", ca.AwsDsnSecret)
-	log.Println("Got argument: dbPoolSize", ca.DbPoolSize)
 	log.Println("Got argument: usingSshTunnel", ca.UsingSshTunnel)
 	log.Println("Got argument: peKey", ca.PeKey)
 	log.Println("Got argument: status", ca.Status)
@@ -173,6 +144,7 @@ func (ca *StatusUpdate) ValidateArguments() []string {
 	log.Println("env CPIPES_START_NOTIFICATION_JSON:", os.Getenv("CPIPES_START_NOTIFICATION_JSON"))
 	log.Println("env CPIPES_COMPLETED_NOTIFICATION_JSON:", os.Getenv("CPIPES_COMPLETED_NOTIFICATION_JSON"))
 	log.Println("env CPIPES_FAILED_NOTIFICATION_JSON:", os.Getenv("CPIPES_FAILED_NOTIFICATION_JSON"))
+	log.Println("env JETS_DSN_SECRET:", os.Getenv("JETS_DSN_SECRET"))
 
 	return errMsg
 }
@@ -195,7 +167,7 @@ func DoNotifyApiGateway(fileKey, apiEndpoint, apiEndpointJson, notificationTempl
 	} else {
 		ctx, cancel = context.WithCancel(context.Background())
 	}
-	defer cancel() // Cancel ctx as soon as CoordinateWork returns.
+	defer cancel() // Cancel ctx as soon as DoNotifyApiGateway returns.
 	// Prepare the API request.
 	var value string
 	// Extract file key components
@@ -322,24 +294,9 @@ func (ca *StatusUpdate) CoordinateWork() error {
 		// ignore returned err
 		DoNotifyApiGateway(ca.FileKey, apiEndpoint, apiEndpointJson, notificationTemplate, customFileKeys, errMsg, ca.CpipesEnv)
 	}
-	// open db connection, if not already opened
-	var err error
+	// Expecting to have an open db connection
 	if ca.Dbpool == nil {
-		if ca.AwsDsnSecret != "" {
-			// Get the dsn from the aws secret
-			ca.Dsn, err = awsi.GetDsnFromSecret(ca.AwsDsnSecret, ca.UsingSshTunnel, ca.DbPoolSize)
-			if err != nil {
-				return fmt.Errorf("while getting dsn from aws secret: %v", err)
-			}
-		}
-		ca.Dbpool, err = pgxpool.Connect(context.Background(), ca.Dsn)
-		if err != nil {
-			return fmt.Errorf("while opening db connection: %v", err)
-		}
-		defer func() {
-			ca.Dbpool.Close()
-			ca.Dbpool = nil
-		}()
+		return fmt.Errorf("error: StatusUpdate.CoordinateWork is expecting to have an opened db connections")
 	}
 
 	// Update the pipeline_execution_status based on worst case status

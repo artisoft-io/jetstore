@@ -4,25 +4,26 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log"
 	"os"
 	"strconv"
 
-	// "github.com/aws/aws-lambda-go/events"
+	"github.com/artisoft-io/jetstore/cdk/jetstore_one/lambdas/dbc"
 	"github.com/artisoft-io/jetstore/jets/datatable"
 	"github.com/aws/aws-lambda-go/lambda"
 	"go.uber.org/zap"
 )
 
-// Sample lambda function in go for future needs
+// Lambda to perform Status Update at end of pipeline
 
 type config struct {
 	AWSRegion    string
-	AWSDnsSecret string
 	IsValid      bool
 }
 
 var logger *zap.Logger
 var c config
+var dbConnection *dbc.DbConnection
 
 func main() {
 	// Create logger.
@@ -39,14 +40,20 @@ func main() {
 		logger.Error("env JETS_REGION not set")
 		c.IsValid = false
 	}
-	c.AWSDnsSecret = os.Getenv("JETS_DSN_SECRET")
-	if c.AWSDnsSecret == "" {
+	if os.Getenv("JETS_DSN_SECRET") == "" {
 		logger.Error("env JETS_DSN_SECRET not set")
 		c.IsValid = false
 	}
 	if !c.IsValid {
 		logger.Fatal("Invalid configuration, exiting program")
 	}
+
+	// open db connection
+	dbConnection, err = dbc.NewDbConnection(3)
+	if err != nil {
+		log.Panicf("while opening db connection: %v", err)
+	}
+	defer dbConnection.ReleaseConnection()
 
 	// Start handler.
 	lambda.Start(handler)
@@ -148,9 +155,13 @@ func handler(ctx context.Context, arguments map[string]interface{}) (err error) 
 	if fileKey != nil {
 		ca.FileKey = fileKey.(string)
 	}
-	// dbPoolSize = 3
-	ca.DbPoolSize = 3
-	fmt.Println("Got peKey:", ca.PeKey, "fileKey:", fileKey, "failureDetails:", ca.FailureDetails, "dbPoolSize:", ca.DbPoolSize)
+	fmt.Println("Got peKey:", ca.PeKey, "fileKey:", fileKey, "failureDetails:", ca.FailureDetails)
+
+	// Check if the db credential have been updated
+	ca.Dbpool, err = dbConnection.GetConnection()
+	if err != nil {
+		return fmt.Errorf("while checking if db credential have been updated: %v", err)
+	}
 
 	errors := ca.ValidateArguments()
 	for _, m := range errors {
