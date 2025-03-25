@@ -53,8 +53,14 @@ func (args *StartComputePipesArgs) StartReducingComputePipes(ctx context.Context
 		"failureDetails": "",
 	}
 
+	// Augment cpipesStartup.EnvSettings with cluster info, used in When statements
+	cpipesStartup.EnvSettings["multi_step_sharding"] = args.ClusterInfo.MultiStepSharding
+	cpipesStartup.EnvSettings["total_file_size"] = args.ClusterInfo.TotalFileSize
+	cpipesStartup.EnvSettings["total_file_size_gb"] = float64(args.ClusterInfo.TotalFileSize) / 1024 / 1024 / 1024
+	cpipesStartup.EnvSettings["nbr_partitions"] = args.ClusterInfo.NbrPartitions
+
 	// start the stepId, we comeback here with next step if there is nothing to do on current step
-	startStepId:
+startStepId:
 
 	// Validate that there is such stepId
 	if stepId >= cpipesStartup.CpConfig.NbrComputePipes() {
@@ -63,8 +69,7 @@ func (args *StartComputePipesArgs) StartReducingComputePipes(ctx context.Context
 		result.NoMoreTask = true
 		return result, nil
 	}
-	pipeConfig, stepId, err := cpipesStartup.CpConfig.GetComputePipes(stepId, args.ClusterInfo,
-		cpipesStartup.MainInputSchemaProviderConfig.Env)
+	pipeConfig, stepId, err := cpipesStartup.CpConfig.GetComputePipes(stepId, cpipesStartup.EnvSettings)
 	if err != nil {
 		return result, fmt.Errorf("while getting compute pipes steps: %v", err)
 	}
@@ -104,8 +109,6 @@ func (args *StartComputePipesArgs) StartReducingComputePipes(ctx context.Context
 	if len(mainInputStepId) == 0 {
 		return result, fmt.Errorf("configuration error: missing input_channel.read_step_id for first pipe at step %d", stepId)
 	}
-	log.Println("Start REDUCING", args.SessionId, "StepId:", *args.StepId,
-		"MainInputStepId", mainInputStepId, "file_key:", args.FileKey)
 
 	// Read the partitions file keys, this will give us the nbr of nodes for reducing
 	// Root dir of each partition:
@@ -130,6 +133,15 @@ func (args *StartComputePipesArgs) StartReducingComputePipes(ctx context.Context
 		}
 		partitions = append(partitions, jetsPartition)
 	}
+
+	// Check if there is no partitions for the step, if so move to next step
+	if len(partitions) == 0 {
+		log.Println("WARNING: no partitions found during start reducing for step", stepId, "moving on to next step")
+		stepId += 1
+		goto startStepId
+	}
+
+	log.Println("Start REDUCING", args.SessionId, "StepId:", stepId, "MainInputStepId", mainInputStepId, "file_key:", args.FileKey)
 
 	// Identify the output tables for this step
 	outputTables, err := SelectActiveOutputTable(cpipesStartup.CpConfig.OutputTables, pipeConfig)
@@ -156,12 +168,6 @@ func (args *StartComputePipesArgs) StartReducingComputePipes(ctx context.Context
 		isLastReducing = true
 	}
 
-	if len(partitions) == 0 {
-		log.Println("WARNING: no partitions found during start reducing for step", stepId, "moving on to next step")
-		stepId += 1
-		goto startStepId
-	}
-
 	// Make the reducing pipeline config
 	// Note that S3WorkerPoolSize is set to the  value set at the ClusterSpec
 	// with a default of max(len(partitions), 20)
@@ -179,8 +185,13 @@ func (args *StartComputePipesArgs) StartReducingComputePipes(ctx context.Context
 		}
 	}
 
+	// Determine if using esc tasks for this stepId
+	result.UseECSReducingTask, err = cpipesStartup.EvalUseEcsTask(stepId)
+	if err != nil {
+		return result, fmt.Errorf("while calling UseECSReducingTask: %v", err)
+	}
+
 	// Set the nbr of concurrent map tasks
-	result.UseECSReducingTask = args.UseECSTask
 	result.CpipesMaxConcurrency = GetMaxConcurrency(len(partitions), cpipesStartup.CpConfig.ClusterConfig.DefaultMaxConcurrency)
 
 	// Get the input columns from Pipes Config, from the first pipes channel
@@ -297,34 +308,18 @@ func (args *StartComputePipesArgs) StartReducingComputePipes(ctx context.Context
 	if !isLastReducing {
 		// next iteration
 		nextStepId := stepId + 1
-		// check if next step is using a fargate tasks rather than lambda functions
-		nextPipeConfig, nextStepId, err := cpipesStartup.CpConfig.GetComputePipes(nextStepId, args.ClusterInfo,
-			cpipesStartup.MainInputSchemaProviderConfig.Env)
-		if err != nil {
-			return result, fmt.Errorf("while getting compute pipes for nextsteps: %v", err)
-		}
-		if nextPipeConfig == nil {
-			// There is no next step
-			result.IsLastReducing = true
-		} else {
-			useEcsTasks := false
-			if len(cpipesStartup.CpConfig.ConditionalPipesConfig) > nextStepId {
-				useEcsTasks = cpipesStartup.CpConfig.ConditionalPipesConfig[nextStepId].UseEcsTasks
-			}
-			result.StartReducing = StartComputePipesArgs{
-				PipelineExecKey: args.PipelineExecKey,
-				FileKey:         args.FileKey,
-				ClusterInfo:     args.ClusterInfo,
-				SessionId:       args.SessionId,
-				StepId:          &nextStepId,
-				UseECSTask:      useEcsTasks,
-			}
+		result.StartReducing = StartComputePipesArgs{
+			PipelineExecKey: args.PipelineExecKey,
+			FileKey:         args.FileKey,
+			ClusterInfo:     args.ClusterInfo,
+			SessionId:       args.SessionId,
+			StepId:          &nextStepId,
 		}
 	}
 
 	// Build CpipesReducingCommands
-	log.Printf("%s Got %d partitions, use_ecs_tasks: %v", args.SessionId, len(partitions), args.UseECSTask)
-	if args.UseECSTask {
+	log.Printf("%s Got %d partitions, use_ecs_tasks: %v", args.SessionId, len(partitions), result.UseECSReducingTask)
+	if result.UseECSReducingTask {
 		// Using ecs tasks for reducing, cpipesCommands must be of type [][]string
 		cpipesCommands := make([][]string, len(partitions))
 		template, err := json.Marshal(ComputePipesNodeArgs{

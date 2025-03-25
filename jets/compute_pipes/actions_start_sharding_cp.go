@@ -122,9 +122,14 @@ func (args *StartComputePipesArgs) StartShardingComputePipes(ctx context.Context
 		}
 	}
 
+	// Augment cpipesStartup.EnvSettings with cluster info, used in When statements
+	cpipesStartup.EnvSettings["multi_step_sharding"] = shardResult.clusterShardingInfo.MultiStepSharding
+	cpipesStartup.EnvSettings["total_file_size"] = shardResult.clusterShardingInfo.TotalFileSize
+	cpipesStartup.EnvSettings["total_file_size_gb"] = float64(shardResult.clusterShardingInfo.TotalFileSize) / 1024 / 1024 / 1024
+	cpipesStartup.EnvSettings["nbr_partitions"] = shardResult.clusterShardingInfo.NbrPartitions
+
 	stepId := 0
-	pipeConfig, stepId, err := cpipesStartup.CpConfig.GetComputePipes(stepId, shardResult.clusterShardingInfo,
-		mainInputSchemaProvider.Env)
+	pipeConfig, stepId, err := cpipesStartup.CpConfig.GetComputePipes(stepId, cpipesStartup.EnvSettings)
 	if err != nil {
 		return result, fmt.Errorf("while getting compute pipes steps: %v", err)
 	}
@@ -188,6 +193,13 @@ func (args *StartComputePipesArgs) StartShardingComputePipes(ctx context.Context
 	// Set the nbr of concurrent map tasks
 	result.CpipesMaxConcurrency = GetMaxConcurrency(shardResult.nbrShardingNodes, cpipesStartup.CpConfig.ClusterConfig.DefaultMaxConcurrency)
 
+	// //*TODO Determine if using esc tasks for this stepId (sharding step)
+	// result.UseECSReducingTask, err = cpipesStartup.EvalUseEcsTask(stepId)
+	// if err != nil {
+	// 	return result, fmt.Errorf("while calling UseECSReducingTask: %v", err)
+	// }
+	// //* NOTE see action_start_reducing for task arguments vs lambda arguments
+
 	// Build CpipesShardingCommands, arguments to each nodes
 	cpipesCommands := make([]ComputePipesNodeArgs, shardResult.nbrShardingNodes)
 	for i := range cpipesCommands {
@@ -218,7 +230,6 @@ func (args *StartComputePipesArgs) StartShardingComputePipes(ctx context.Context
 			SessionId:       args.SessionId,
 			StepId:          &nextStepId,
 			ClusterInfo:     shardResult.clusterShardingInfo,
-			UseECSTask:      shardResult.clusterSpec.UseEcsTasks,
 		}
 	}
 
