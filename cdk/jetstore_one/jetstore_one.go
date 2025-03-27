@@ -149,7 +149,7 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 		Username: username,
 	})
 
-	// Need to accomodate for different version in different env, 
+	// Need to accomodate for different version in different env,
 	// default is the latest used by jetstore
 	dbVersion := awsrds.AuroraPostgresEngineVersion_VER_15_10()
 	switch os.Getenv("JETS_DB_VERSION") {
@@ -367,11 +367,12 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 			})
 		}
 		jsComp.UiLoadBalancer = awselb.NewApplicationLoadBalancer(stack, jsii.String("UIELB"), &awselb.ApplicationLoadBalancerProps{
-			Vpc:            jsComp.Vpc,
-			InternetFacing: jsii.Bool(internetFacing),
-			VpcSubnets:     elbSubnetSelection,
-			SecurityGroup:  elbSecurityGroup,
-			IdleTimeout:    awscdk.Duration_Minutes(jsii.Number(20)),
+			Vpc:                                  jsComp.Vpc,
+			InternetFacing:                       jsii.Bool(internetFacing),
+			VpcSubnets:                           elbSubnetSelection,
+			SecurityGroup:                        elbSecurityGroup,
+			XAmznTlsVersionAndCipherSuiteHeaders: jsii.Bool(true),
+			IdleTimeout:                          awscdk.Duration_Minutes(jsii.Number(20)),
 		})
 		if phiTagName != nil {
 			awscdk.Tags_Of(jsComp.UiLoadBalancer).Add(phiTagName, jsii.String("true"), nil)
@@ -384,10 +385,11 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 		}
 	} else {
 		jsComp.UiLoadBalancer = awselb.NewApplicationLoadBalancer(stack, jsii.String("UIELB"), &awselb.ApplicationLoadBalancerProps{
-			Vpc:            jsComp.Vpc,
-			InternetFacing: jsii.Bool(false),
-			VpcSubnets:     jsComp.IsolatedSubnetSelection,
-			IdleTimeout:    awscdk.Duration_Minutes(jsii.Number(20)),
+			Vpc:                                  jsComp.Vpc,
+			InternetFacing:                       jsii.Bool(false),
+			VpcSubnets:                           jsComp.IsolatedSubnetSelection,
+			XAmznTlsVersionAndCipherSuiteHeaders: jsii.Bool(true),
+			IdleTimeout:                          awscdk.Duration_Minutes(jsii.Number(20)),
 		})
 		if phiTagName != nil {
 			awscdk.Tags_Of(jsComp.UiLoadBalancer).Add(phiTagName, jsii.String("true"), nil)
@@ -410,9 +412,10 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 	var listener awselb.ApplicationListener
 	if os.Getenv("JETS_ELB_MODE") == "public" {
 		listener = jsComp.UiLoadBalancer.AddListener(jsii.String("Listener"), &awselb.BaseApplicationListenerProps{
-			Port:     jsii.Number(uiPort),
-			Open:     jsii.Bool(true),
-			Protocol: awselb.ApplicationProtocol_HTTPS,
+			Port:      jsii.Number(uiPort),
+			Open:      jsii.Bool(true),
+			Protocol:  awselb.ApplicationProtocol_HTTPS,
+			SslPolicy: awselb.SslPolicy_TLS13_EXT1,
 			Certificates: &[]awselb.IListenerCertificate{
 				awselb.NewListenerCertificate(jsii.String(os.Getenv("JETS_CERT_ARN"))),
 			},
