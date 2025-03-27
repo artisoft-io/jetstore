@@ -86,7 +86,6 @@ ENV JETRULE_LOOKUP_LOADER /usr/local/lib/jets/compiler/jetrule_lookup_loader.py
 ENV UI_PORT 5001
 # apiserver
 ENV API_SECRET 'JetStore Dev Mode - Override This'
-ENV API_SERVER_ADDR ':8080'
 ENV API_TOKEN_EXPIRATION_MIN 60
 ENV WORKSPACES_HOME /go/workspaces
 ENV WORK_HOME /go/work
