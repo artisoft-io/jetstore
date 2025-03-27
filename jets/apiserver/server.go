@@ -624,14 +624,18 @@ func listenAndServe() error {
 		}()
 	}
 
-	err = GenerateCert()
-	if err != nil {
-		err = fmt.Errorf("while calling GenerateCert: %v", err)
-		log.Println(err)
-		return err
+	log.Println("Listening to address ", serverAddr)
+	if *usingSshTunnel {
+		return http.ListenAndServe(serverAddr, server.Router)
+	} else {
+		err = GenerateCert()
+		if err != nil {
+			err = fmt.Errorf("while calling GenerateCert: %v", err)
+			log.Println(err)
+			return err
+		}	
+		return http.ListenAndServeTLS(serverAddr, "cert.pem", "key.pem", server.Router)
 	}
-	log.Println("Listening to address ", *serverAddr)
-	return http.ListenAndServeTLS(*serverAddr, "cert.pem", "key.pem", server.Router)
 }
 
 func (server *Server) GetLastSecretRotation() (tm *time.Time, err error) {
