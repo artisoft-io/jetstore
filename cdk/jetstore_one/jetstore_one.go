@@ -427,11 +427,11 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 	// Register the UI service to the ELB
 	jsComp.EcsUiService.RegisterLoadBalancerTargets(&awsecs.EcsTarget{
 		ContainerName:    jsComp.UiTaskContainer.ContainerName(),
-		ContainerPort:    jsii.Number(8080),
+		ContainerPort:    jsii.Number(8443),
 		Protocol:         awsecs.Protocol_TCP,
 		NewTargetGroupId: jsii.String("UI"),
 		Listener: awsecs.ListenerConfig_ApplicationListener(listener, &awselb.AddApplicationTargetsProps{
-			Protocol: awselb.ApplicationProtocol_HTTP,
+			Protocol: awselb.ApplicationProtocol_HTTPS,
 		}),
 	})
 
