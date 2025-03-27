@@ -112,3 +112,6 @@ jets/copytest/encodingtest/encodingtest
 jets/copytest/test.snappy
 jets/copytest/snappy/snappy
 jets/copytest/unsnappy/unsnappy
+jets/copytest/generate_cert/generate_cert
+jets/apiserver/cert.pem
+jets/apiserver/key.pem

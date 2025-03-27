@@ -17,7 +17,6 @@ import (
 //   -awsApiSecret "${AWS_API_SECRET}" \
 //   -apiSecret "${API_SECRET}" \
 //   -awsRegion "${JETS_REGION}" \
-//   -serverAddr "${API_SERVER_ADDR}" \
 //   -tokenExpiration "${API_TOKEN_EXPIRATION_MIN}" \
 //   -WEB_APP_DEPLOYMENT_DIR "${WEB_APP_DEPLOYMENT_DIR}" \
 //   -adminEmail "${JETS_ADMIN_EMAIL}" \
@@ -26,7 +25,6 @@ import (
 //
 // Env Variables
 // API_SECRET
-// API_SERVER_ADDR
 // API_TOKEN_EXPIRATION_MIN
 // AWS_API_SECRET
 // AWS_JETS_ADMIN_PWD_SECRET
@@ -69,7 +67,6 @@ var dbPoolSize = flag.Int("dbPoolSize", 10, "DB connection pool size, used for -
 var usingSshTunnel = flag.Bool("usingSshTunnel", false, "Connect  to DB using ssh tunnel (expecting the ssh open)")
 var awsRegion = flag.String("awsRegion", "", "aws region to connect to for aws secret and bucket (aws integration) (required if -awsDsnSecret is provided)")
 var dsn = flag.String("dsn", "", "primary database connection string (required unless -awsDsnSecret is provided)")
-var serverAddr = flag.String("serverAddr", ":8080", "server address to ListenAndServe (required)")
 var tokenExpiration = flag.Int("tokenExpiration", 60, "Token expiration in min, must be more than 5 min (default 60)")
 var unitTestDir = flag.String("unitTestDir", "", "Unit Test Data directory, will be prefixed by ${WORKSPACES_HOME}/${WORKSPACE} if defined and unitTestDir starts with '.' e.g. ./data/test_data (dev mode only)")
 var uiWebDir = flag.String("WEB_APP_DEPLOYMENT_DIR", "/usr/local/lib/web", "UI static web app directory")
@@ -78,11 +75,18 @@ var awsAdminPwdSecret = flag.String("awsAdminPwdSecret", "", "aws secret with Ad
 var adminPwd = flag.String("adminPwd", "", "Admin password (required unless -awsAdminPwdSecret is provided)")
 var globalDevMode bool
 var nbrShards int
+var serverAddr string
 
 func main() {
 	flag.Parse()
 	hasErr := false
 	var errMsg []string
+
+	if *usingSshTunnel {
+		serverAddr = ":8080"
+	} else {
+		serverAddr = ":8443"
+	}
 
 	webAppDirEnv := os.Getenv("WEB_APP_DEPLOYMENT_DIR")
 	if webAppDirEnv != "" {
@@ -136,13 +140,6 @@ func main() {
 	if (*awsApiSecret != "" || *awsDsnSecret != "" || *awsAdminPwdSecret != "") && *awsRegion == "" {
 		hasErr = true
 		errMsg = append(errMsg, "aws region (-awsRegion) must be provided when -awsDnsSecret, -awsAdminPwdSecret or -awsApiSecret is provided.")
-	}
-	if *serverAddr == "" {
-		*serverAddr = os.Getenv("API_SERVER_ADDR")
-		if *serverAddr == "" {
-			hasErr = true
-			errMsg = append(errMsg, "Server address (-serverAddr) must be provided.")
-		}
 	}
 	if os.Getenv("JETS_s3_INPUT_PREFIX") == "" || os.Getenv("JETS_s3_OUTPUT_PREFIX") == "" {
 		hasErr = true
@@ -208,7 +205,7 @@ func main() {
 	log.Println("Got argument: dbPoolSize", *dbPoolSize)
 	log.Println("Got argument: usingSshTunnel", *usingSshTunnel)
 	log.Println("Got argument: awsRegion", *awsRegion)
-	log.Println("Got argument: serverAddr", *serverAddr)
+	log.Println("Got argument: serverAddr", serverAddr)
 	log.Println("Got argument: tokenExpiration", *tokenExpiration, "min")
 	log.Println("Got argument: adminEmail len", len(*adminEmail))
 	log.Println("Got argument: awsAdminPwdSecret", *awsAdminPwdSecret)

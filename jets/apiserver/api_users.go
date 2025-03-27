@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"log"
 	"net/http"
@@ -29,7 +30,7 @@ func (server *Server) Login(w http.ResponseWriter, r *http.Request) {
 		ERROR(w, http.StatusUnprocessableEntity, FormatError(err.Error()))
 		return
 	}
-	server.AuditLogger.Info("user login", zap.String("user", jetsUser.Email),zap.String("time", time.Now().Format(time.RFC3339)))
+	server.AuditLogger.Info("user login", zap.String("user", jetsUser.Email), zap.String("time", time.Now().Format(time.RFC3339)))
 
 	jetsUser.Prepare()
 	err = jetsUser.Validate("login")
@@ -42,8 +43,25 @@ func (server *Server) Login(w http.ResponseWriter, r *http.Request) {
 	// get user details including pwd for verification from db
 	jetsUser, err = user.GetUserByEmail(server.dbpool, jetsUser.Email)
 	if err != nil {
-		ERROR(w, http.StatusUnprocessableEntity, FormatError(err.Error()))
-		return
+		switch {
+		case strings.Contains(err.Error(), "password authentication failed"):
+			// re-open db connection
+			err = server.SecretsRotated()
+			if err != nil {
+				err = fmt.Errorf("while re-opening db connection after secret rotation: %v", err)
+				ERROR(w, http.StatusUnprocessableEntity, FormatError(err.Error()))
+				return
+			}
+			// try again
+			jetsUser, err = user.GetUserByEmail(server.dbpool, jetsUser.Email)
+			if err != nil {
+				ERROR(w, http.StatusUnprocessableEntity, FormatError(err.Error()))
+				return
+			}
+		default:
+			ERROR(w, http.StatusUnprocessableEntity, FormatError(err.Error()))
+			return
+		}
 	}
 	if jetsUser.IsActive != 1 {
 		ERROR(w, http.StatusUnprocessableEntity, errors.New("User is not active, please contact your Administrator"))
@@ -52,7 +70,7 @@ func (server *Server) Login(w http.ResponseWriter, r *http.Request) {
 	err = user.VerifyPassword(jetsUser.Password, password)
 	jetsUser.Password = ""
 	if err != nil && err == bcrypt.ErrMismatchedHashAndPassword {
-		log.Println("ERROR",err)
+		log.Println("ERROR", err)
 		ERROR(w, http.StatusUnprocessableEntity, errors.New("Invalid User or Password"))
 		return
 	}
@@ -65,14 +83,14 @@ func (server *Server) Login(w http.ResponseWriter, r *http.Request) {
 		jetsUser.DevMode = "true"
 	}
 	data := map[string]interface{}{
-		"name": jetsUser.Name,
-		"user_email": jetsUser.Email,
-		"is_admin": jetsUser.IsAdmin(),
-		"is_active": jetsUser.IsActive,
-		"dev_mode": jetsUser.DevMode,
-		"capabilities": jetsUser.GetCapabilities(),
-		"token": jetsUser.Token,
-		"gitProfile": jetsUser.UserGitProfile,
+		"name":             jetsUser.Name,
+		"user_email":       jetsUser.Email,
+		"is_admin":         jetsUser.IsAdmin(),
+		"is_active":        jetsUser.IsActive,
+		"dev_mode":         jetsUser.DevMode,
+		"capabilities":     jetsUser.GetCapabilities(),
+		"token":            jetsUser.Token,
+		"gitProfile":       jetsUser.UserGitProfile,
 		"jetstore_version": os.Getenv("JETS_VERSION"),
 	}
 	JSON(w, http.StatusOK, data)
@@ -83,7 +101,7 @@ func IsDuplicateUserError(err string) bool {
 }
 
 func FormatError(err string) error {
-	log.Println("ERROR:",err)
+	log.Println("ERROR:", err)
 	// if strings.Contains(err, "name") {
 	// 	return errors.New("Name Already Taken")
 	// }

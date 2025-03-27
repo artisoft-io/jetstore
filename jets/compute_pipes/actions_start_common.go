@@ -12,6 +12,7 @@ import (
 
 	"github.com/artisoft-io/jetstore/jets/workspace"
 	"github.com/jackc/pgx/v4/pgxpool"
+	"maps"
 )
 
 var workspaceHome, wsPrefix string
@@ -188,7 +189,7 @@ func (args *StartComputePipesArgs) initializeCpipes(ctx context.Context, dbpool 
 		} else {
 			if len(chSpec.ClassName) > 0 {
 				chSpec.DomainKeysSpec = dkMap[chSpec.ClassName]
-			}	
+			}
 		}
 	}
 
@@ -808,14 +809,34 @@ func PrepareCpipesEnv(cpConfig *ComputePipesConfig, mainSchemaProviderConfig *Sc
 			envSettings[cpConfig.Context[i].Key] = cpConfig.Context[i].Expr
 		}
 	}
-	for k, v := range mainSchemaProviderConfig.Env {
-		envSettings[k] = v
-	}
+	maps.Copy(envSettings, mainSchemaProviderConfig.Env)
+
 	if cpConfig.ClusterConfig.IsDebugMode {
 		b, err := json.Marshal(envSettings)
 		log.Printf("PrepareCpipesEnv: Cpipes Env: %s, err? %v\n", string(b), err)
 	}
 	return envSettings
+}
+
+func (cpipesStartup *CpipesStartup) EvalUseEcsTask(stepId int) (bool, error) {
+	pipeSpec := cpipesStartup.CpConfig.ConditionalPipesConfig
+	result := false
+	if len(pipeSpec) > stepId {
+		result = pipeSpec[stepId].UseEcsTasks
+		if pipeSpec[stepId].UseEcsTasksWhen != nil {
+			builderContext := ExprBuilderContext(cpipesStartup.EnvSettings)
+			evaluator, err := builderContext.BuildExprNodeEvaluator("use_ecs_tasks", nil, pipeSpec[stepId].UseEcsTasksWhen)
+			if err != nil {
+				return false, err
+			}
+			v, err := evaluator.eval(cpipesStartup.EnvSettings)
+			if err != nil {
+				return false, err
+			}
+			return ToBool(v), nil
+		}
+	}
+	return result, nil
 }
 
 // Function to get the column to add to the input file(s),

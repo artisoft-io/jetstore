@@ -39,8 +39,8 @@ func (jsComp *JetStoreStackComponents) BuildUiService(scope constructs.Construct
 		PortMappings: &[]*awsecs.PortMapping{
 			{
 				Name:          jsii.String("ui-port-mapping"),
-				ContainerPort: jsii.Number(8080),
-				HostPort:      jsii.Number(8080),
+				ContainerPort: jsii.Number(8443),
+				HostPort:      jsii.Number(8443),
 				AppProtocol:   awsecs.AppProtocol_Http(),
 			},
 		},

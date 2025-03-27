@@ -25,7 +25,6 @@ type StartComputePipesArgs struct {
 	SessionId       string               `json:"session_id,omitempty"`
 	StepId          *int                 `json:"step_id"`
 	ClusterInfo     *ClusterShardingInfo `json:"cluster_sharding_info"`
-	UseECSTask      bool                 `json:"use_ecs_tasks"`
 }
 
 // Contains info about the clustersharding. This info
