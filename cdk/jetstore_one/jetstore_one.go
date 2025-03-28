@@ -442,6 +442,9 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 		NewTargetGroupId: jsii.String("UI"),
 		Listener: awsecs.ListenerConfig_ApplicationListener(listener, &awselb.AddApplicationTargetsProps{
 			Protocol: awselb.ApplicationProtocol_HTTPS,
+			HealthCheck: &awselb.HealthCheck{
+				Path: jsii.String("/healthcheck/status"),
+			},
 		}),
 	})
 
