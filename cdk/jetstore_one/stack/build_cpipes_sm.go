@@ -8,6 +8,7 @@ import (
 	awscdk "github.com/aws/aws-cdk-go/awscdk/v2"
 	"github.com/aws/aws-cdk-go/awscdk/v2/awsec2"
 	"github.com/aws/aws-cdk-go/awscdk/v2/awsecs"
+	"github.com/aws/aws-cdk-go/awscdk/v2/awslogs"
 	sfn "github.com/aws/aws-cdk-go/awscdk/v2/awsstepfunctions"
 	sfntask "github.com/aws/aws-cdk-go/awscdk/v2/awsstepfunctionstasks"
 	constructs "github.com/aws/constructs-go/constructs/v10"
@@ -251,6 +252,11 @@ func (jsComp *JetStoreStackComponents) BuildCpipesSM(scope constructs.Construct,
 		StateMachineName: props.MkId("cpipesSM"),
 		DefinitionBody:   sfn.DefinitionBody_FromChainable(runStartSharingTask),
 		Timeout:          awscdk.Duration_Minutes(jsii.Number(timeout)),
+		Logs: &sfn.LogOptions{
+			Destination: awslogs.NewLogGroup(stack, props.MkId("cpipesLogs"), &awslogs.LogGroupProps{
+				Retention: awslogs.RetentionDays_THREE_MONTHS,
+			}),
+		},
 	})
 	if phiTagName != nil {
 		awscdk.Tags_Of(jsComp.CpipesSM).Add(phiTagName, jsii.String("true"), nil)

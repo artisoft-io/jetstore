@@ -8,6 +8,7 @@ import (
 	"github.com/aws/aws-cdk-go/awscdk/v2/awsec2"
 	"github.com/aws/aws-cdk-go/awscdk/v2/awsecs"
 	"github.com/aws/aws-cdk-go/awscdk/v2/awsiam"
+	"github.com/aws/aws-cdk-go/awscdk/v2/awslogs"
 	sfn "github.com/aws/aws-cdk-go/awscdk/v2/awsstepfunctions"
 	sfntask "github.com/aws/aws-cdk-go/awscdk/v2/awsstepfunctionstasks"
 	constructs "github.com/aws/constructs-go/constructs/v10"
@@ -125,6 +126,11 @@ func (jsComp *JetStoreStackComponents) BuildServerSM(scope constructs.Construct,
 		DefinitionBody:   sfn.DefinitionBody_FromChainable(runServerMap),
 		//* NOTE 2h TIMEOUT of exec rules
 		Timeout: awscdk.Duration_Hours(jsii.Number(2)),
+		Logs: &sfn.LogOptions{
+			Destination: awslogs.NewLogGroup(stack, props.MkId("serverLogs"), &awslogs.LogGroupProps{
+				Retention: awslogs.RetentionDays_THREE_MONTHS,
+			}),
+		},
 	})
 	if phiTagName != nil {
 		awscdk.Tags_Of(jsComp.ServerSM).Add(phiTagName, jsii.String("true"), nil)

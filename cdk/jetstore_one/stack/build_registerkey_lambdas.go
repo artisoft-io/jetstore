@@ -10,6 +10,7 @@ import (
 	"github.com/aws/aws-cdk-go/awscdk/v2/awsec2"
 	"github.com/aws/aws-cdk-go/awscdk/v2/awsiam"
 	"github.com/aws/aws-cdk-go/awscdk/v2/awslambda"
+	"github.com/aws/aws-cdk-go/awscdk/v2/awslogs"
 	"github.com/aws/aws-cdk-go/awscdk/v2/awss3"
 	awss3n "github.com/aws/aws-cdk-go/awscdk/v2/awss3notifications"
 	awslambdago "github.com/aws/aws-cdk-go/awscdklambdagoalpha/v2"
@@ -69,6 +70,7 @@ func (jsComp *JetStoreStackComponents) BuildRegisterKeyLambdas(scope constructs.
 		Vpc:            jsComp.Vpc,
 		VpcSubnets:     jsComp.PrivateSubnetSelection,
 		SecurityGroups: &[]awsec2.ISecurityGroup{jsComp.PrivateSecurityGroup},
+		LogRetention:   awslogs.RetentionDays_THREE_MONTHS,
 	})
 	if phiTagName != nil {
 		awscdk.Tags_Of(jsComp.RegisterKeyV2Lambda).Add(phiTagName, jsii.String("false"), nil)
@@ -190,6 +192,7 @@ func (jsComp *JetStoreStackComponents) BuildRegisterKeyLambdas(scope constructs.
 			Vpc:            sqsVpc,
 			VpcSubnets:     sqsVpcSubnets,
 			SecurityGroups: sqsSecurityGroups,
+			LogRetention:   awslogs.RetentionDays_THREE_MONTHS,
 		})
 		if phiTagName != nil {
 			awscdk.Tags_Of(jsComp.SqsRegisterKeyLambda).Add(phiTagName, jsii.String("false"), nil)

@@ -11,6 +11,7 @@ import (
 	"github.com/aws/aws-cdk-go/awscdk/v2/awseventstargets"
 	"github.com/aws/aws-cdk-go/awscdk/v2/awsiam"
 	"github.com/aws/aws-cdk-go/awscdk/v2/awslambda"
+	"github.com/aws/aws-cdk-go/awscdk/v2/awslogs"
 	awslambdago "github.com/aws/aws-cdk-go/awscdklambdagoalpha/v2"
 	constructs "github.com/aws/constructs-go/constructs/v10"
 	jsii "github.com/aws/jsii-runtime-go"
@@ -65,6 +66,7 @@ func (jsComp *JetStoreStackComponents) BuildLambdas(scope constructs.Construct, 
 		Vpc:            jsComp.Vpc,
 		VpcSubnets:     jsComp.PrivateSubnetSelection,
 		SecurityGroups: &[]awsec2.ISecurityGroup{jsComp.PrivateSecurityGroup},
+		LogRetention:   awslogs.RetentionDays_THREE_MONTHS,
 	})
 	if phiTagName != nil {
 		awscdk.Tags_Of(jsComp.StatusUpdateLambda).Add(phiTagName, jsii.String("false"), nil)
@@ -103,6 +105,7 @@ func (jsComp *JetStoreStackComponents) BuildLambdas(scope constructs.Construct, 
 		Vpc:            jsComp.Vpc,
 		VpcSubnets:     jsComp.PrivateSubnetSelection,
 		SecurityGroups: &[]awsec2.ISecurityGroup{jsComp.PrivateSecurityGroup},
+		LogRetention:   awslogs.RetentionDays_THREE_MONTHS,
 	})
 	if phiTagName != nil {
 		awscdk.Tags_Of(jsComp.SecretRotationLambda).Add(phiTagName, jsii.String("false"), nil)
@@ -183,6 +186,7 @@ func (jsComp *JetStoreStackComponents) BuildLambdas(scope constructs.Construct, 
 		Vpc:                  jsComp.Vpc,
 		VpcSubnets:           jsComp.IsolatedSubnetSelection,
 		EphemeralStorageSize: awscdk.Size_Mebibytes(jsii.Number(4096)),
+		LogRetention:         awslogs.RetentionDays_THREE_MONTHS,
 	})
 	if phiTagName != nil {
 		awscdk.Tags_Of(jsComp.RunReportsLambda).Add(phiTagName, jsii.String("false"), nil)
@@ -223,10 +227,11 @@ func (jsComp *JetStoreStackComponents) BuildLambdas(scope constructs.Construct, 
 				"JETS_s3_OUTPUT_PREFIX": jsii.String(os.Getenv("JETS_s3_OUTPUT_PREFIX")),
 				"JETS_s3_STAGE_PREFIX":  jsii.String(GetS3StagePrefix()),
 			},
-			MemorySize: jsii.Number(128),
-			Timeout:    awscdk.Duration_Millis(jsii.Number(60000 * 15)),
-			Vpc:        jsComp.Vpc,
-			VpcSubnets: jsComp.IsolatedSubnetSelection,
+			MemorySize:   jsii.Number(128),
+			Timeout:      awscdk.Duration_Millis(jsii.Number(60000 * 15)),
+			Vpc:          jsComp.Vpc,
+			VpcSubnets:   jsComp.IsolatedSubnetSelection,
+			LogRetention: awslogs.RetentionDays_THREE_MONTHS,
 		})
 		jsComp.PurgeDataLambda.Connections().AllowTo(jsComp.RdsCluster, awsec2.Port_Tcp(jsii.Number(5432)), jsii.String("Allow connection from PurgeDataLambda"))
 		jsComp.RdsSecret.GrantRead(jsComp.PurgeDataLambda, nil)

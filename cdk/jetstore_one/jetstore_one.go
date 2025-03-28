@@ -16,6 +16,7 @@ import (
 	"github.com/aws/aws-cdk-go/awscdk/v2/awsecs"
 	awselb "github.com/aws/aws-cdk-go/awscdk/v2/awselasticloadbalancingv2"
 	"github.com/aws/aws-cdk-go/awscdk/v2/awsiam"
+	"github.com/aws/aws-cdk-go/awscdk/v2/awslogs"
 	"github.com/aws/aws-cdk-go/awscdk/v2/awsrds"
 	"github.com/aws/aws-cdk-go/awscdk/v2/awss3"
 	"github.com/aws/aws-cdk-go/awscdk/v2/awssns"
@@ -163,11 +164,15 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 		Engine: awsrds.DatabaseClusterEngine_AuroraPostgres(&awsrds.AuroraPostgresClusterEngineProps{
 			Version: dbVersion,
 		}),
-		Credentials:             awsrds.Credentials_FromSecret(jsComp.RdsSecret, username),
-		ClusterIdentifier:       props.MkId("jetstoreDb"),
-		DefaultDatabaseName:     jsii.String("postgres"),
-		DeletionProtection:      jsii.Bool(true),
-		Writer:                  awsrds.ClusterInstance_ServerlessV2(jsii.String("ClusterInstance"), &awsrds.ServerlessV2ClusterInstanceProps{}),
+		Credentials:         awsrds.Credentials_FromSecret(jsComp.RdsSecret, username),
+		ClusterIdentifier:   props.MkId("jetstoreDb"),
+		DefaultDatabaseName: jsii.String("postgres"),
+		DeletionProtection:  jsii.Bool(true),
+		Writer: awsrds.ClusterInstance_ServerlessV2(jsii.String("ClusterInstance"), &awsrds.ServerlessV2ClusterInstanceProps{
+			AllowMajorVersionUpgrade: jsii.Bool(true),
+			AutoMinorVersionUpgrade:  jsii.Bool(true),
+			PubliclyAccessible:       jsii.Bool(false),
+		}),
 		ServerlessV2MinCapacity: props.DbMinCapacity,
 		ServerlessV2MaxCapacity: props.DbMaxCapacity,
 		Vpc:                     jsComp.Vpc,
@@ -178,7 +183,8 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 		S3ImportBuckets: &[]awss3.IBucket{
 			jsComp.SourceBucket,
 		},
-		StorageEncrypted: jsii.Bool(true),
+		StorageEncrypted:        jsii.Bool(true),
+		CloudwatchLogsRetention: awslogs.RetentionDays_THREE_MONTHS,
 	})
 	if phiTagName != nil {
 		awscdk.Tags_Of(jsComp.RdsCluster).Add(phiTagName, jsii.String("true"), nil)
@@ -341,7 +347,7 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 	}))
 
 	// ---------------------------------------
-	// Add Scret Rotation Schedules
+	// Add Secret Rotation Schedules
 	// ---------------------------------------
 	jsComp.AddSecretRotationSchedules(scope, stack, props)
 

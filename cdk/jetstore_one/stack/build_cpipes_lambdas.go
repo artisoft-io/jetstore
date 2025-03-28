@@ -9,6 +9,8 @@ import (
 
 	awscdk "github.com/aws/aws-cdk-go/awscdk/v2"
 	"github.com/aws/aws-cdk-go/awscdk/v2/awsec2"
+	"github.com/aws/aws-cdk-go/awscdk/v2/awslogs"
+
 	// "github.com/aws/aws-cdk-go/awscdk/v2/awsiam"
 	"github.com/aws/aws-cdk-go/awscdk/v2/awslambda"
 	awslambdago "github.com/aws/aws-cdk-go/awscdklambdagoalpha/v2"
@@ -83,8 +85,7 @@ func (jsComp *JetStoreStackComponents) BuildCpipesLambdas(scope constructs.Const
 		Timeout:              awscdk.Duration_Minutes(jsii.Number(15)),
 		Vpc:                  jsComp.Vpc,
 		VpcSubnets:           jsComp.IsolatedSubnetSelection,
-		// InitialPolicy: &[]awsiam.PolicyStatement{
-		// },
+		LogRetention:         awslogs.RetentionDays_THREE_MONTHS,
 	})
 	if phiTagName != nil {
 		awscdk.Tags_Of(jsComp.CpipesNodeLambda).Add(phiTagName, jsii.String("true"), nil)
@@ -139,6 +140,7 @@ func (jsComp *JetStoreStackComponents) BuildCpipesLambdas(scope constructs.Const
 		Vpc:            jsComp.Vpc,
 		VpcSubnets:     jsComp.PrivateSubnetSelection,
 		SecurityGroups: &[]awsec2.ISecurityGroup{jsComp.PrivateSecurityGroup},
+		LogRetention:   awslogs.RetentionDays_THREE_MONTHS,
 	})
 	if phiTagName != nil {
 		awscdk.Tags_Of(jsComp.CpipesStartShardingLambda).Add(phiTagName, jsii.String("true"), nil)
@@ -188,10 +190,11 @@ func (jsComp *JetStoreStackComponents) BuildCpipesLambdas(scope constructs.Const
 			"WORKSPACES_HOME": jsii.String("/tmp/jetstore/workspaces"),
 			"WORKSPACE":       jsii.String(os.Getenv("WORKSPACE")),
 		},
-		MemorySize: jsii.Number(128),
-		Timeout:    awscdk.Duration_Minutes(jsii.Number(15)),
-		Vpc:        jsComp.Vpc,
-		VpcSubnets: jsComp.IsolatedSubnetSelection,
+		MemorySize:   jsii.Number(128),
+		Timeout:      awscdk.Duration_Minutes(jsii.Number(15)),
+		Vpc:          jsComp.Vpc,
+		VpcSubnets:   jsComp.IsolatedSubnetSelection,
+		LogRetention: awslogs.RetentionDays_THREE_MONTHS,
 	})
 	if phiTagName != nil {
 		awscdk.Tags_Of(jsComp.CpipesStartReducingLambda).Add(phiTagName, jsii.String("true"), nil)
