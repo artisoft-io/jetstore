@@ -8,6 +8,7 @@ import (
 	awscdk "github.com/aws/aws-cdk-go/awscdk/v2"
 	"github.com/aws/aws-cdk-go/awscdk/v2/awsec2"
 	"github.com/aws/aws-cdk-go/awscdk/v2/awslambda"
+	"github.com/aws/aws-cdk-go/awscdk/v2/awslogs"
 	sfn "github.com/aws/aws-cdk-go/awscdk/v2/awsstepfunctions"
 	sfntask "github.com/aws/aws-cdk-go/awscdk/v2/awsstepfunctionstasks"
 	awslambdago "github.com/aws/aws-cdk-go/awscdklambdagoalpha/v2"
@@ -82,6 +83,7 @@ func (jsComp *JetStoreStackComponents) BuildServerv2SM(scope constructs.Construc
 		Timeout:              awscdk.Duration_Minutes(jsii.Number(15)),
 		Vpc:                  jsComp.Vpc,
 		VpcSubnets:           jsComp.IsolatedSubnetSelection,
+		LogRetention:         awslogs.RetentionDays_THREE_MONTHS,
 	})
 	if phiTagName != nil {
 		awscdk.Tags_Of(jsComp.serverv2NodeLambda).Add(phiTagName, jsii.String("true"), nil)
@@ -186,6 +188,11 @@ func (jsComp *JetStoreStackComponents) BuildServerv2SM(scope constructs.Construc
 		DefinitionBody:   sfn.DefinitionBody_FromChainable(runServerv2Map),
 		//* NOTE 1h TIMEOUT of exec rules
 		Timeout: awscdk.Duration_Minutes(jsii.Number(timeout)),
+		Logs: &sfn.LogOptions{
+			Destination: awslogs.NewLogGroup(stack, props.MkId("serverV2Logs"), &awslogs.LogGroupProps{
+				Retention: awslogs.RetentionDays_THREE_MONTHS,
+			}),
+		},
 	})
 	if phiTagName != nil {
 		awscdk.Tags_Of(jsComp.Serverv2SM).Add(phiTagName, jsii.String("true"), nil)
