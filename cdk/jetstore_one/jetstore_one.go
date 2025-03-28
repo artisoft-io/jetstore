@@ -166,6 +166,7 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 		Credentials:             awsrds.Credentials_FromSecret(jsComp.RdsSecret, username),
 		ClusterIdentifier:       props.MkId("jetstoreDb"),
 		DefaultDatabaseName:     jsii.String("postgres"),
+		DeletionProtection:      jsii.Bool(true),
 		Writer:                  awsrds.ClusterInstance_ServerlessV2(jsii.String("ClusterInstance"), &awsrds.ServerlessV2ClusterInstanceProps{}),
 		ServerlessV2MinCapacity: props.DbMinCapacity,
 		ServerlessV2MaxCapacity: props.DbMaxCapacity,
@@ -758,8 +759,9 @@ func main() {
 	}
 	NewJetstoreOneStack(app, stackId, &jetstorestack.JetstoreOneStackProps{
 		StackProps: awscdk.StackProps{
-			Env:         env(),
-			Description: stackDescription,
+			Env:                   env(),
+			Description:           stackDescription,
+			TerminationProtection: jsii.Bool(true),
 		},
 		StackId:                      stackId,
 		StackSuffix:                  os.Getenv("JETS_STACK_SUFFIX"),
