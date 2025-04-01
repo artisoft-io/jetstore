@@ -146,15 +146,15 @@ func (cs *ClusterSpec) NbrPartitions(mode string) int {
 // to shards.
 // When [MaxNbrPartitions] is not specified, the value at the ClusterSpec level is taken.
 type ClusterShardingSpec struct {
-	WhenTotalSizeGe             int  `json:"when_total_size_ge_mb"`
-	MaxNbrPartitions            int  `json:"max_nbr_partitions"`
-	MultiStepShardingThresholds int  `json:"multi_step_sharding_thresholds"`
-	ShardSizeMb                 int  `json:"shard_size_mb"`
-	ShardMaxSizeMb              int  `json:"shard_max_size_mb"`
-	ShardSizeBy                 int  `json:"shard_size_by"`     // for testing only
-	ShardMaxSizeBy              int  `json:"shard_max_size_by"` // for testing only
-	S3WorkerPoolSize            int  `json:"s3_worker_pool_size"`
-	MaxConcurrency              int  `json:"max_concurrency"`
+	WhenTotalSizeGe             int `json:"when_total_size_ge_mb"`
+	MaxNbrPartitions            int `json:"max_nbr_partitions"`
+	MultiStepShardingThresholds int `json:"multi_step_sharding_thresholds"`
+	ShardSizeMb                 int `json:"shard_size_mb"`
+	ShardMaxSizeMb              int `json:"shard_max_size_mb"`
+	ShardSizeBy                 int `json:"shard_size_by"`     // for testing only
+	ShardMaxSizeBy              int `json:"shard_max_size_by"` // for testing only
+	S3WorkerPoolSize            int `json:"s3_worker_pool_size"`
+	MaxConcurrency              int `json:"max_concurrency"`
 }
 
 type MetricsSpec struct {
@@ -699,13 +699,14 @@ type LookupColumnSpec struct {
 }
 
 // Hash using values from columns.
-// Case single column, use Expr
-// Case multi column, use CompositeExpr
+// Case single column, use Expr.
+// Case multi column, use CompositeExpr.
 // Expr takes precedence if both are populated.
 // DomainKey is specified as an object_type. DomainKeysJson provides the
 // mapping between domain keys and columns.
 // AlternateCompositeExpr is used when Expr or CompositeExpr returns nil or empty.
-// MultiStepShardingMode values: 'limited_range', 'full_range' or empty
+// MultiStepShardingMode values: 'limited_range', 'full_range' or empty.
+// NoPartitions indicated not to assign the hash to a partition (no modulo operation).
 type HashExpression struct {
 	Expr                   string   `json:"expr,omitempty"`
 	CompositeExpr          []string `json:"composite_expr,omitempty"`
@@ -713,6 +714,7 @@ type HashExpression struct {
 	NbrJetsPartitions      *uint64  `json:"nbr_jets_partitions,omitzero"`
 	MultiStepShardingMode  string   `json:"multi_step_sharding_mode,omitempty"`
 	AlternateCompositeExpr []string `json:"alternate_composite_expr"`
+	NoPartitions           bool     `json:"no_partitions,omitzero"`
 }
 
 type MapExpression struct {

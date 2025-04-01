@@ -102,7 +102,7 @@ func (ctx *BuilderContext) NewHashEvaluator(source *InputChannel,
 	compositeLen := len(spec.CompositeExpr)
 	domainKeyLen := len(spec.DomainKey)
 	if exprLen == 0 && compositeLen == 0 && domainKeyLen == 0 {
-		return nil, fmt.Errorf("error: must specify expr or composite_expr in hash operator")
+		return nil, fmt.Errorf("error: must specify one of expr, composite_expr, or domain_key in hash operator")
 	}
 	inputPos := -1
 	var compositeInputKey []PreprocessingFunction
@@ -136,10 +136,12 @@ func (ctx *BuilderContext) NewHashEvaluator(source *InputChannel,
 		}
 	}
 	var partitions uint64
-	if spec.NbrJetsPartitions != nil {
-		partitions = *spec.NbrJetsPartitions
-	} else {
-		partitions = uint64(ctx.cpConfig.ClusterConfig.NbrPartitions(spec.MultiStepShardingMode))
+	if !spec.NoPartitions {
+		if spec.NbrJetsPartitions != nil {
+			partitions = *spec.NbrJetsPartitions
+		} else {
+			partitions = uint64(ctx.cpConfig.ClusterConfig.NbrPartitions(spec.MultiStepShardingMode))
+		}
 	}
 	var altInputKey []PreprocessingFunction
 	if len(spec.AlternateCompositeExpr) > 0 {
@@ -246,9 +248,9 @@ func (ctx *HashEvaluator) ComputeHash(input []any) (any, error) {
 	h := EvalHash(inputVal, ctx.partitions)
 	if h != nil {
 		hashedValue = *h
-		// fmt.Printf("##### # EvalHash k: %v, nbr partitions: %d => %v\n", inputVal, ctx.partitions, hashedValue)
-		// } else {
-		// 	fmt.Printf("##### # EvalHash k: %v, nbr partitions: %d => NULL\n", inputVal, ctx.partitions)
+	// 	fmt.Printf("##### # EvalHash k: %v, nbr partitions: %d => %v\n", inputVal, ctx.partitions, hashedValue)
+	// } else {
+	// 	fmt.Printf("##### # EvalHash k: %v, nbr partitions: %d => NULL\n", inputVal, ctx.partitions)
 	}
 	return hashedValue, nil
 }

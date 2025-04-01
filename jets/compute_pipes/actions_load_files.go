@@ -93,7 +93,7 @@ func (cpCtx *ComputePipesContext) LoadFiles(ctx context.Context, dbpool *pgxpool
 		case "csv", "headerless_csv":
 			count, err = cpCtx.ReadCsvFile(&localInFile, inputFormat, compression, shardOffset, sp, computePipesInputCh)
 		case "parquet", "parquet_select":
-			count, err = cpCtx.ReadParquetFile(&localInFile, saveParquetSchema, inputSchemaCh, computePipesInputCh)
+			count, err = cpCtx.ReadParquetFile(&localInFile, saveParquetSchema, sp, inputSchemaCh, computePipesInputCh)
 			saveParquetSchema = false
 		case "fixed_width":
 			count, err = cpCtx.ReadFixedWidthFile(&localInFile, shardOffset, sp, fwEncodingInfo, computePipesInputCh)
@@ -116,7 +116,7 @@ func (cpCtx *ComputePipesContext) LoadFiles(ctx context.Context, dbpool *pgxpool
 	return
 }
 
-func (cpCtx *ComputePipesContext) ReadParquetFile(filePath *FileName, saveParquetSchema bool, inputSchemaCh chan<- any,
+func (cpCtx *ComputePipesContext) ReadParquetFile(filePath *FileName, saveParquetSchema bool, sp SchemaProvider, inputSchemaCh chan<- any,
 	computePipesInputCh chan<- []any) (int64, error) {
 
 	var fileHd *os.File
@@ -197,6 +197,12 @@ func (cpCtx *ComputePipesContext) ReadParquetFile(filePath *FileName, saveParque
 		}
 	}
 
+	// Determine if trim the columns
+	trimColumns := false
+	if cpCtx.CpConfig.CommonRuntimeArgs.CpipesMode == "sharding" && sp != nil {
+		trimColumns = sp.TrimColumns()
+	}
+
 	var inputRowCount int64
 	var record []interface{}
 	// isShardingMode := cpCtx.CpConfig.CommonRuntimeArgs.CpipesMode == "sharding"
@@ -221,7 +227,7 @@ func (cpCtx *ComputePipesContext) ReadParquetFile(filePath *FileName, saveParque
 				cd := schemaIdx[inputColumns[i]]
 				if cd != nil {
 					se := cd.SchemaElement
-					record[i] = ConvertWithSchemaV0(rawValue, se)
+					record[i] = ConvertWithSchemaV0(rawValue, trimColumns, se)
 				} else {
 					return 0, fmt.Errorf("error: column '%s' is not found in parquet file", inputColumns[i])
 				}
@@ -272,9 +278,10 @@ func (cpCtx *ComputePipesContext) ReadParquetFile(filePath *FileName, saveParque
 	}
 }
 
-func ConvertWithSchemaV0(v any, se *parquet.SchemaElement) string {
+// return value is either nil or a string representing the input v
+func ConvertWithSchemaV0(v any, trimStrings bool, se *parquet.SchemaElement) any {
 	if v == nil {
-		return ""
+		return nil
 	}
 	switch *se.Type {
 	case parquet.Type_BOOLEAN:
@@ -316,14 +323,22 @@ func ConvertWithSchemaV0(v any, se *parquet.SchemaElement) string {
 		// Make it a string for now...
 		// if se.ConvertedType != nil && *se.ConvertedType == parquet.ConvertedType_UTF8 {
 		// }
+		var valStr string
 		switch vv := v.(type) {
 		case string:
-			return vv
+			valStr = vv
 		case []byte:
-			return string(vv)
+			valStr = string(vv)
 		default:
-			return fmt.Sprintf("%v", v)
+			valStr =  fmt.Sprintf("%v", v)
 		}
+		if trimStrings {
+			valStr = strings.TrimSpace(valStr)
+		}
+		if len(valStr) == 0 {
+			return nil
+		}
+		return valStr
 
 	default:
 		return fmt.Sprintf("%v", v)
