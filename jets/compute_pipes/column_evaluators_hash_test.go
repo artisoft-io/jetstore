@@ -16,36 +16,37 @@ func TestHashColumnEvalFull01(t *testing.T) {
 			ClusterConfig: &ClusterSpec{
 				ShardingInfo: &ClusterShardingInfo{
 					MaxNbrPartitions: 400,
-					NbrPartitions: 131,
+					NbrPartitions:    131,
 				},
 			},
 		},
 	}
 	inputColumns := map[string]int{
-		"key":  0,
-		"name": 1,
+		"key":    0,
+		"name":   1,
 		"gender": 2,
-		"dob":  3,
+		"dob":    3,
 	}
 	outputColumns := map[string]int{
-		"jets_partition":  0,
+		"jets_partition": 0,
 	}
 	// Build the Column Transformation Evaluator
 	trsfEvaluator, err := ctx.BuildHashTCEvaluator(
 		&InputChannel{
-			name: "input",
+			name:    "input",
 			columns: &inputColumns,
 		},
 		&OutputChannel{
-			name: "output",
+			name:    "output",
 			columns: &outputColumns,
 		},
 		&TransformationColumnSpec{
 			Type: "hash",
 			Name: "jets_partition",
 			HashExpr: &HashExpression{
-				Expr: "key",
+				Expr:                   "key",
 				AlternateCompositeExpr: []string{"name", "gender", "format_date(dob)"},
+				NoPartitions:           true,
 			},
 		},
 	)
@@ -55,17 +56,17 @@ func TestHashColumnEvalFull01(t *testing.T) {
 	// Evaluate the column transformation operator
 	currentOutputValue := make([]any, 1)
 	inputValues := &[][]any{
-		{"TRANM19690604", "TRAN","M","1969-06-04"},
-		{nil, "TRAN","M","1969-06-04"},
+		{"NAME1M19690101", "NAME1", "M", "1969-01-01"},
+		{nil, "NAME1", "M", "1969-01-01"},
 	}
 	for _, inputRow := range *inputValues {
 		err = trsfEvaluator.Update(&currentOutputValue, &inputRow)
 		if err != nil {
 			t.Errorf("while calling Update: %v", err)
 		}
-		fmt.Println("*** Got hased value:", currentOutputValue[0])
+		fmt.Println("*** For", inputRow, ",Got:", currentOutputValue[0])
 	}
-	// t.Error("done")
+	t.Error("done")
 }
 
 // Simplified tests
@@ -108,7 +109,7 @@ func TestHashColumnEvalSimple01(t *testing.T) {
 }
 
 func TestEvalHash(t *testing.T) {
-	v := EvalHash(nil, 0) 
+	v := EvalHash(nil, 0)
 	if v == nil {
 		t.Fatal("error: got nil from EvalHash (1)")
 	}
