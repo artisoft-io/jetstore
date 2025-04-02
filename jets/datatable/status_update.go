@@ -137,7 +137,7 @@ func (ca *StatusUpdate) ValidateArguments() []string {
 	log.Println("Got argument: cpipesMode", ca.CpipesMode)
 	log.Println("Got argument: cpipesEnv", ca.CpipesEnv)
 	log.Println("Got argument: doNotNotifyApiGateway", ca.DoNotNotifyApiGateway)
-	log.Printf("ENV JETS_s3_INPUT_PREFIX: %s", os.Getenv("JETS_s3_INPUT_PREFIX"))
+	log.Println("env JETS_s3_INPUT_PREFIX:", os.Getenv("JETS_s3_INPUT_PREFIX"))
 	log.Println("env CPIPES_STATUS_NOTIFICATION_ENDPOINT:", os.Getenv("CPIPES_STATUS_NOTIFICATION_ENDPOINT"))
 	log.Println("env CPIPES_STATUS_NOTIFICATION_ENDPOINT_JSON:", os.Getenv("CPIPES_STATUS_NOTIFICATION_ENDPOINT_JSON"))
 	log.Println("env CPIPES_CUSTOM_FILE_KEY_NOTIFICATION:", os.Getenv("CPIPES_CUSTOM_FILE_KEY_NOTIFICATION"))
@@ -369,7 +369,7 @@ func (ca *StatusUpdate) CoordinateWork() error {
 		   WHERE pc.process_name = pe.process_name AND pe.key = $1`,
 		ca.PeKey).Scan(&stateMachineName)
 	if err != nil {
-		log.Fatalf("QueryRow on pipeline_execution_status failed: %v", err)
+		return fmt.Errorf("while queryRow on pipeline_execution_status failed: %v", err)
 	}
 	ctx := NewDataTableContext(ca.Dbpool, ca.UsingSshTunnel, ca.UsingSshTunnel, nil, nil)
 	err = ctx.StartPendingTasks(stateMachineName)
