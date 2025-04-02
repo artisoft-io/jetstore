@@ -68,10 +68,15 @@ func (args *StartComputePipesArgs) StartReducingComputePipes(ctx context.Context
 
 	// Augment cpipesStartup.EnvSettings with cluster info, used in When statements
 	cpipesStartup.EnvSettings["multi_step_sharding"] = args.ClusterInfo.MultiStepSharding
+	cpipesStartup.EnvSettings["$MULTI_STEP_SHARDING"] = args.ClusterInfo.MultiStepSharding
 	cpipesStartup.EnvSettings["total_file_size"] = args.ClusterInfo.TotalFileSize
+	cpipesStartup.EnvSettings["$TOTAL_FILE_SIZE"] = args.ClusterInfo.TotalFileSize
 	cpipesStartup.EnvSettings["total_file_size_gb"] = float64(args.ClusterInfo.TotalFileSize) / 1024 / 1024 / 1024
+	cpipesStartup.EnvSettings["$TOTAL_FILE_SIZE_GB"] = cpipesStartup.EnvSettings["total_file_size_gb"]
 	cpipesStartup.EnvSettings["nbr_partitions"] = args.ClusterInfo.NbrPartitions
+	cpipesStartup.EnvSettings["$NBR_PARTITIONS"] = args.ClusterInfo.NbrPartitions
 	cpipesStartup.EnvSettings["main_input_row_count"] = args.MainInputRowCount
+	cpipesStartup.EnvSettings["$MAIN_INPUT_ROW_COUNT"] = args.MainInputRowCount
 
 	// start the stepId, we comeback here with next step if there is nothing to do on current step
 startStepId:
