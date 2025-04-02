@@ -1520,6 +1520,10 @@
         "indexDef": "INDEX pipeline_execution_details_pe_key_status_idx ON jetsapi.pipeline_execution_details (pipeline_execution_status_key, status)"
       },
       {
+        "indexName": "pipeline_execution_details_pe_key_step_id_idx",
+        "indexDef": "INDEX pipeline_execution_details_pe_key_step_id_idx ON jetsapi.pipeline_execution_details (pipeline_execution_status_key, cpipes_step_id)"
+      },
+      {
         "indexName": "pipeline_execution_details_last_update_idx",
         "indexDef": "INDEX pipeline_execution_details_last_update_idx ON jetsapi.pipeline_execution_details (last_update DESC)"
       }

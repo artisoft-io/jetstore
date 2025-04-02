@@ -233,6 +233,7 @@ func (args *StartComputePipesArgs) StartShardingComputePipes(ctx context.Context
 		}
 	}
 
+	// Beware if changing step id reducing00, this is used by name to get the main_input_row_count
 	mainInputStepId := "reducing00"
 	lookupTables, err := SelectActiveLookupTable(cpipesStartup.CpConfig.LookupTables, pipeConfig)
 	if err != nil {

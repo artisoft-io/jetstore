@@ -53,11 +53,25 @@ func (args *StartComputePipesArgs) StartReducingComputePipes(ctx context.Context
 		"failureDetails": "",
 	}
 
+	if args.MainInputRowCount == 0 {
+		// Get the total input records from the main input source from step id 'reducing00'
+		err = dbpool.QueryRow(context.Background(),
+			`SELECT sum(input_records_count) 
+			  FROM  jetsapi.pipeline_execution_details
+				WHERE pipeline_execution_status_key = $1 
+				  AND cpipes_step_id = 'reducing00'`,
+			args.PipelineExecKey).Scan(&args.MainInputRowCount)
+		if err != nil {
+			return result, fmt.Errorf("while query sum(input_records_count) on pipeline_execution_details failed: %v", err)
+		}
+	}
+
 	// Augment cpipesStartup.EnvSettings with cluster info, used in When statements
 	cpipesStartup.EnvSettings["multi_step_sharding"] = args.ClusterInfo.MultiStepSharding
 	cpipesStartup.EnvSettings["total_file_size"] = args.ClusterInfo.TotalFileSize
 	cpipesStartup.EnvSettings["total_file_size_gb"] = float64(args.ClusterInfo.TotalFileSize) / 1024 / 1024 / 1024
 	cpipesStartup.EnvSettings["nbr_partitions"] = args.ClusterInfo.NbrPartitions
+	cpipesStartup.EnvSettings["main_input_row_count"] = args.MainInputRowCount
 
 	// start the stepId, we comeback here with next step if there is nothing to do on current step
 startStepId:
@@ -309,11 +323,12 @@ startStepId:
 		// next iteration
 		nextStepId := stepId + 1
 		result.StartReducing = StartComputePipesArgs{
-			PipelineExecKey: args.PipelineExecKey,
-			FileKey:         args.FileKey,
-			ClusterInfo:     args.ClusterInfo,
-			SessionId:       args.SessionId,
-			StepId:          &nextStepId,
+			PipelineExecKey:   args.PipelineExecKey,
+			FileKey:           args.FileKey,
+			MainInputRowCount: args.MainInputRowCount,
+			ClusterInfo:       args.ClusterInfo,
+			SessionId:         args.SessionId,
+			StepId:            &nextStepId,
 		}
 	}
 
