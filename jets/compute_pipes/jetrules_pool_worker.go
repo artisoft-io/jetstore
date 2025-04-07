@@ -238,7 +238,7 @@ func (ctx *JrPoolWorker) extractSessionData(rdfSession *rdf.RdfSession,
 		// i.e. is not an historical entity comming from the lookback period
 		// We don't extract historical entities but only one from the current source period
 		// identified with jets:source_period_sequence == 0 or
-		// entities created during the rule session, identified with jets:source_period_sequence is null
+		// entities created during the rule session, identified with jets:source_period_sequence is null.
 		// Additional Measure: entities with jets:source_period_sequence == 0, must have jets:InputRecord
 		// as rdf:type to ensure it's a mapped entity and not an injected entity.
 		// Note: Do not save the jets:InputEntity marker type on the extracted obj.
@@ -318,7 +318,7 @@ func (ctx *JrPoolWorker) extractSessionData(rdfSession *rdf.RdfSession,
 
 func getValue(r *rdf.Node) any {
 	switch vv := r.Value.(type) {
-	case int, float64, string:
+	case int, uint, float64, string:
 		return r.Value
 	case rdf.LDate:
 		return *vv.Date
@@ -334,6 +334,10 @@ func getValue(r *rdf.Node) any {
 		return int(vv)
 	case int32:
 		return int(vv)
+	case uint64:
+		return uint(vv)
+	case uint32:
+		return uint(vv)
 	default:
 		return nil
 	}
@@ -373,7 +377,7 @@ func assertInputRow(config *JetrulesSpec, rm *rdf.ResourceManager, jr *rdf.JetRe
 		jetsKey = uuid.New().String()
 		rdfType = config.InputRdfType
 	} else {
-		// Input channel must have a class name, which will have jets:key and rdf:type in pos 1 and 1 resp.
+		// Input channel must have a class name, which will have jets:key and rdf:type in pos 0 and 1 resp.
 		var ok1, ok2 bool
 		jetsKey, ok1 = (*row)[0].(string)
 		rdfType, ok2 = (*row)[1].(string)
@@ -415,9 +419,16 @@ func assertInputRow(config *JetrulesSpec, rm *rdf.ResourceManager, jr *rdf.JetRe
 			}
 		case int:
 			_, err = graph.Insert(subject, predicate, rm.NewIntLiteral(vv))
+		case uint:
+			//*TODO add uint as rdf type
+		_, err = graph.Insert(subject, predicate, rm.NewIntLiteral(int(vv)))
 		case []int:
 			for k := range vv {
 				_, err = graph.Insert(subject, predicate, rm.NewIntLiteral(vv[k]))
+			}
+		case []uint:
+			for k := range vv {
+				_, err = graph.Insert(subject, predicate, rm.NewIntLiteral(int(vv[k])))
 			}
 		case float64:
 			_, err = graph.Insert(subject, predicate, rm.NewDoubleLiteral(vv))
@@ -445,7 +456,12 @@ func assertInputRow(config *JetrulesSpec, rm *rdf.ResourceManager, jr *rdf.JetRe
 			}
 		case int64:
 			_, err = graph.Insert(subject, predicate, rm.NewIntLiteral(int(vv)))
+		case uint64:
+			//*TODO add uint as rdf type
+		_, err = graph.Insert(subject, predicate, rm.NewIntLiteral(int(vv)))
 		case int32:
+			_, err = graph.Insert(subject, predicate, rm.NewIntLiteral(int(vv)))
+		case uint32:
 			_, err = graph.Insert(subject, predicate, rm.NewIntLiteral(int(vv)))
 		case float32:
 			_, err = graph.Insert(subject, predicate, rm.NewDoubleLiteral(float64(vv)))

@@ -254,7 +254,8 @@ func ConvertToSchema(v any, se *parquet.SchemaElement) (any, error) {
 				return vv, nil
 			case []byte:
 				return string(vv), nil
-			default:
+			//*** case []any convert it to string ***
+	  	default:
 				return fmt.Sprintf("%v", v), nil
 			}
 		}
@@ -263,6 +264,7 @@ func ConvertToSchema(v any, se *parquet.SchemaElement) (any, error) {
 			return []byte(vv), nil
 		case []byte:
 			return vv, nil
+		//*** case []any convert it to string ***
 		default:
 			return nil, fmt.Errorf("error: WriteParquet invalid data for []byte: %v", v)
 		}
@@ -317,6 +319,7 @@ func (ctx *S3DeviceWriter) WriteCsvPartition(fout io.Writer) {
 				row[i] = vv
 			case nil:
 				row[i] = ""
+			//*** case []any convert it to string ***
 			default:
 				row[i] = fmt.Sprintf("%v", vv)
 			}
@@ -408,7 +411,8 @@ func (ctx *S3DeviceWriter) WriteFixedWidthPartition(fout io.Writer) {
 				value = vv
 			case nil:
 				value = ""
-			default:
+			//*** case []any convert it to string ***
+		default:
 				value = fmt.Sprintf("%v", vv)
 			}
 			lv := len(value)

@@ -5,6 +5,7 @@ import (
 	"log"
 	"math"
 	"reflect"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -99,7 +100,9 @@ func (v *Node) GetType() int {
 	case LDatetime:
 		return 10
 	case int:
-		return 3
+		return 5
+	case uint:
+		return 6
 	case float64:
 		return 7
 	case string:
@@ -126,6 +129,8 @@ func (v *Node) GetTypeName() string {
 		return "datetime"
 	case int:
 		return "int"
+	case uint:
+		return "uint"
 	case float64:
 		return "double"
 	case string:
@@ -150,6 +155,8 @@ func (v *Node) Bool() bool {
 		return true
 	case int:
 		return vv != 0
+	case uint:
+		return vv != 0
 	case float64:
 		return !NearlyEqual(vv, 0)
 	case string:
@@ -173,7 +180,9 @@ func (v *Node) String() string {
 	case LDatetime:
 		return fmt.Sprintf("%v", vv)
 	case int:
-		return fmt.Sprintf("%v", vv)
+		return strconv.Itoa(vv)
+	case uint:
+		return strconv.FormatUint(uint64(vv), 10)
 	case float64:
 		return fmt.Sprintf("%v", vv)
 	case string:
@@ -221,6 +230,19 @@ func (v *Node) MarshalBinary() ([]byte, error) {
 		// int is 8 bytes
 		return []byte{
 			'I', '0', '0',
+			byte(vv >> 56),
+			byte(vv >> 48),
+			byte(vv >> 40),
+			byte(vv >> 32),
+			byte(vv >> 24),
+			byte(vv >> 16),
+			byte(vv >> 8),
+			byte(vv),
+		}, nil
+	case uint:
+		// int is 8 bytes
+		return []byte{
+			'U', '0', '0',
 			byte(vv >> 56),
 			byte(vv >> 48),
 			byte(vv >> 40),
@@ -316,6 +338,10 @@ func DDT(datetime string) *Node {
 }
 
 func I(v int) *Node {
+	return &Node{Value: v}
+}
+
+func UI(v uint) *Node {
 	return &Node{Value: v}
 }
 

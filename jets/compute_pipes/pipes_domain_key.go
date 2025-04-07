@@ -5,7 +5,7 @@ import "fmt"
 // This file contains the DomainKey, aka DomainKeyInfo to
 // calculate a domain key as a composite key with pre-processing function
 
-// DomainKeysSpec cotains the overall information, with overriding hashing method.
+// DomainKeysSpec contains the overall information, with overriding hashing method.
 type DomainKeysSpec struct {
 	HashingOverride string                   `json:"hasing_override,omitempty"`
 	DomainKeys      map[string]DomainKeyInfo `json:"domain_keys_info,omitempty"`

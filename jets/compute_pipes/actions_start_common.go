@@ -520,18 +520,9 @@ func (args *CpipesStartup) ValidatePipeSpecConfig(cpConfig *ComputePipesConfig, 
 			if i != 0 {
 				return fmt.Errorf("configuration error: Only the first input_channel can be of type 'input'")
 			}
-			if pipeSpec.InputChannel.CastToDomainTypes && len(args.MainInputDomainClass) == 0 {
-				return fmt.Errorf(
-					"configuration error: input_channel '%s' has cast_to_domain_types set to true but class_name is not availalbe",
-					pipeSpec.InputChannel.Name)
-			}
 		case "stage":
 			if i != 0 {
 				return fmt.Errorf("configuration error: Only the first input_channel can be of type 'stage'")
-			}
-			if pipeSpec.InputChannel.CastToDomainTypes {
-				return fmt.Errorf(
-					"configuration error: Only the input_channel of type 'input' can have cast_to_domain_types set to true")
 			}
 			if len(pipeSpec.InputChannel.SchemaProvider) > 0 {
 				sp := getSchemaProvider(cpConfig.SchemaProviders, pipeSpec.InputChannel.SchemaProvider)
@@ -550,10 +541,6 @@ func (args *CpipesStartup) ValidatePipeSpecConfig(cpConfig *ComputePipesConfig, 
 				}
 			}
 		case "memory":
-			if pipeSpec.InputChannel.CastToDomainTypes {
-				return fmt.Errorf(
-					"configuration error: Only the input_channel of type 'input' can have cast_to_domain_types set to true")
-			}
 		default:
 			return fmt.Errorf("configuration error: unknown input_channel.type: %s", pipeSpec.InputChannel.Type)
 		}

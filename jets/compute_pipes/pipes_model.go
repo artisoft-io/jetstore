@@ -407,9 +407,8 @@ type InputChannelConfig struct {
 	// ComputePipesCommonArgs.SourcesConfig (ie input_registry table).
 	// HasGroupedRow indicates that the channel contains grouped rows,
 	// most likely from the group_by operator.
-	// When CastToDomainTypes is true, the channel records are cast to domain data types,
-	// which are specified from DomainClass of MainInput.
-	// CastToDomainTypes is applicable for Type 'input' only
+	// Note: The input_row channel (main input) will be cast to the
+	// rdf type specified by the domain class of the main input source.
 	Type              string `json:"type"`
 	Name              string `json:"name"`
 	Format            string `json:"format,omitempty"`
@@ -420,7 +419,6 @@ type InputChannelConfig struct {
 	SamplingRate      int    `json:"sampling_rate"`
 	SamplingMaxCount  int    `json:"sampling_max_count"`
 	HasGroupedRows    bool   `json:"has_grouped_rows"`
-	CastToDomainTypes bool   `json:"cast_to_domain_types,omitempty"`
 }
 
 type OutputChannelConfig struct {
