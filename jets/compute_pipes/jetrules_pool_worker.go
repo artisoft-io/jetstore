@@ -7,7 +7,6 @@ import (
 	"runtime/debug"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/artisoft-io/jetstore/jets/jetrules/rdf"
 	"github.com/artisoft-io/jetstore/jets/jetrules/rete"
@@ -372,6 +371,7 @@ func assertInputRow(config *JetrulesSpec, rm *rdf.ResourceManager, jr *rdf.JetRe
 	// assert record i
 	var jetsKey, rdfType string
 	var subject *rdf.Node
+	var node *rdf.Node
 	// Assert the rdf type if provided in config, otherwise it must be part of the data
 	if config.InputRdfType != "" {
 		jetsKey = uuid.New().String()
@@ -411,65 +411,20 @@ func assertInputRow(config *JetrulesSpec, rm *rdf.ResourceManager, jr *rdf.JetRe
 			predicate = rm.NewResource(fmt.Sprintf("column%d", j))
 		}
 		switch vv := (*row)[j].(type) {
-		case string:
-			_, err = graph.Insert(subject, predicate, rm.NewTextLiteral(vv))
-		case []string:
-			for k := range vv {
-				_, err = graph.Insert(subject, predicate, rm.NewTextLiteral(vv[k]))
+		case []any:
+			for _, value := range vv {
+				node, err = NewRdfNode(value, rm)
+				if err != nil {
+					return fmt.Errorf("while NewRdfNode for value in array: %v", err)
+				}
+				_, err = graph.Insert(subject, predicate, node)	
 			}
-		case int:
-			_, err = graph.Insert(subject, predicate, rm.NewIntLiteral(vv))
-		case uint:
-			//*TODO add uint as rdf type
-		_, err = graph.Insert(subject, predicate, rm.NewIntLiteral(int(vv)))
-		case []int:
-			for k := range vv {
-				_, err = graph.Insert(subject, predicate, rm.NewIntLiteral(vv[k]))
-			}
-		case []uint:
-			for k := range vv {
-				_, err = graph.Insert(subject, predicate, rm.NewIntLiteral(int(vv[k])))
-			}
-		case float64:
-			_, err = graph.Insert(subject, predicate, rm.NewDoubleLiteral(vv))
-		case []float64:
-			for k := range vv {
-				_, err = graph.Insert(subject, predicate, rm.NewDoubleLiteral(vv[k]))
-			}
-		case rdf.LDate:
-			_, err = graph.Insert(subject, predicate, rm.NewDateLiteral(vv))
-		case []rdf.LDate:
-			for k := range vv {
-				_, err = graph.Insert(subject, predicate, rm.NewDateLiteral(vv[k]))
-			}
-		case rdf.LDatetime:
-			_, err = graph.Insert(subject, predicate, rm.NewDatetimeLiteral(vv))
-		case []rdf.LDatetime:
-			for k := range vv {
-				_, err = graph.Insert(subject, predicate, rm.NewDatetimeLiteral(vv[k]))
-			}
-		case time.Time:
-			_, err = graph.Insert(subject, predicate, rm.NewDateLiteral(rdf.LDate{Date: &vv}))
-		case []time.Time:
-			for k := range vv {
-				_, err = graph.Insert(subject, predicate, rm.NewDateLiteral(rdf.LDate{Date: &vv[k]}))
-			}
-		case int64:
-			_, err = graph.Insert(subject, predicate, rm.NewIntLiteral(int(vv)))
-		case uint64:
-			//*TODO add uint as rdf type
-		_, err = graph.Insert(subject, predicate, rm.NewIntLiteral(int(vv)))
-		case int32:
-			_, err = graph.Insert(subject, predicate, rm.NewIntLiteral(int(vv)))
-		case uint32:
-			_, err = graph.Insert(subject, predicate, rm.NewIntLiteral(int(vv)))
-		case float32:
-			_, err = graph.Insert(subject, predicate, rm.NewDoubleLiteral(float64(vv)))
 		default:
-			log.Printf("WARNING unknown type for value %v for predicate %s", vv, predicate)
-		}
-		if err != nil {
-			return
+			node, err = NewRdfNode(vv, rm)
+			if err != nil {
+				return fmt.Errorf("while NewRdfNode: %v", err)
+			}
+			_, err = graph.Insert(subject, predicate, node)	
 		}
 	}
 	return
