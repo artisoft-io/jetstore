@@ -344,7 +344,7 @@ func NewRdfNode(inValue any, rm *rdf.ResourceManager) (*rdf.Node, error) {
 	case int64:
 		return rm.NewIntLiteral(int(vv)), nil
 	case uint64:
-		return rm.NewUIntLiteral(int(vv)), nil
+		return rm.NewUIntLiteral(uint(vv)), nil
 	case int32:
 		return rm.NewIntLiteral(int(vv)), nil
 	case uint32:
