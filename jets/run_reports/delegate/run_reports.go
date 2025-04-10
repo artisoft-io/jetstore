@@ -134,7 +134,7 @@ func (ca *CommandArguments) RunReports(dbpool *pgxpool.Pool) (err error) {
 
 	// Keep track of files (reports) written to s3 (use case UpdateLookupTables)
 	updatedKeys := make([]string, 0)
-	reportDirectives := *ca.CurrentReportDirectives
+	reportDirectives := ca.CurrentReportDirectives
 
 	// Run the reports
 	var dbRecordCount, outputRecordCount int64
@@ -159,13 +159,13 @@ func (ca *CommandArguments) RunReports(dbpool *pgxpool.Pool) (err error) {
 			}
 			if reportProps.RunWhen[i].HasNonZeroOutputRecords {
 				if !gotRecordCount {
-					dbRecordCount, outputRecordCount = GetOutputRecordCount(dbpool, ca.SessionId)	
+					dbRecordCount, outputRecordCount = GetOutputRecordCount(dbpool, ca.SessionId)
 					gotRecordCount = true
 				}
 				if dbRecordCount > 0 && outputRecordCount == 0 {
 					log.Println("This report is requiring having non zero output records and no output records are found, skipping report")
 					doIt = false
-				}		
+				}
 			}
 			if !doIt {
 				break
@@ -320,7 +320,7 @@ func (ca *CommandArguments) runReportsDelegate(dbpool *pgxpool.Pool, tempDir str
 	file, err := os.Open(reportScriptPath)
 	if err != nil {
 		if os.IsNotExist(err) {
-			log.Printf("Report definitions file %s does not exist, exiting silently", reportScriptPath)
+			log.Printf("Report definitions file %s does not exist, skipping", reportScriptPath)
 			return nil
 		}
 		return fmt.Errorf("error while opening report definitions file %s: %v", reportScriptPath, err)

@@ -92,7 +92,7 @@ func (ctx *BuilderContext) NewS3DeviceManager() error {
 	log.Printf("NewS3DeviceManager: Creating %d s3 workers", ctx.s3DeviceManager.s3WorkerPoolSize)
 	go func() {
 		var wg sync.WaitGroup
-		for i := 0; i < ctx.s3DeviceManager.s3WorkerPoolSize; i++ {
+		for range ctx.s3DeviceManager.s3WorkerPoolSize {
 			wg.Add(1)
 			go func() {
 				defer wg.Done()

@@ -289,8 +289,8 @@ type SchemaProviderSpec struct {
 // Commands for the run_report step
 // Type range: s3_copy_file
 type ReportCmdSpec struct {
-	Type             string         `json:"type"`
-	S3CopyFileConfig S3CopyFileSpec `json:"s3_copy_file_config,omitzero"`
+	Type             string          `json:"type"`
+	S3CopyFileConfig *S3CopyFileSpec `json:"s3_copy_file_config,omitzero"`
 }
 
 type S3CopyFileSpec struct {

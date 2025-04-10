@@ -125,11 +125,6 @@ func CoordinateWorkAndUpdateStatus(ctx context.Context, dbpool *pgxpool.Pool, ca
 		ca.CurrentReportDirectives.ReportScripts = []string{ca.ReportName}
 	}
 
-	if len(ca.ReportScriptPaths) == 0 {
-		log.Println("No report to execute, exiting silently...")
-		return nil
-	}
-
 	fmt.Println("Reports available for execution:")
 	for i := range ca.ReportScriptPaths {
 		fmt.Println("  -", ca.ReportScriptPaths[i])
