@@ -45,6 +45,15 @@ func (cpCtx *ComputePipesContext) LoadFiles(ctx context.Context, dbpool *pgxpool
 		}
 		close(computePipesInputCh)
 		close(cpCtx.ChResults.LoadFromS3FilesResultCh)
+		if err != nil {
+			cpCtx.ErrCh <- err
+			// Avoid closing a closed channel
+			select {
+			case <-cpCtx.Done:
+			default:
+				close(cpCtx.Done)
+			}
+		}
 	}()
 
 	inputChannelConfig := &cpCtx.CpConfig.PipesConfig[0].InputChannel
@@ -108,7 +117,7 @@ func (cpCtx *ComputePipesContext) LoadFiles(ctx context.Context, dbpool *pgxpool
 		}
 		totalRowCount += count
 		if err != nil {
-			log.Println(cpCtx.SessionId, "node", cpCtx.NodeId, "loadFile2Db returned error", err)
+			log.Println(cpCtx.SessionId, "node", cpCtx.NodeId, "LoadFile returned error", err)
 			cpCtx.ChResults.LoadFromS3FilesResultCh <- LoadFromS3FilesResult{LoadRowCount: totalRowCount, BadRowCount: 0, Err: err}
 			return
 		}
@@ -133,7 +142,7 @@ func (cpCtx *ComputePipesContext) ReadParquetFile(filePath *FileName, saveParque
 
 	fileHd, err = os.Open(filePath.LocalFileName)
 	if err != nil {
-		return 0, fmt.Errorf("while opening temp file '%s' (loadFiles): %v", filePath.LocalFileName, err)
+		return 0, fmt.Errorf("while opening temp file '%s' (LoadFiles): %v", filePath.LocalFileName, err)
 	}
 	defer func() {
 		fileHd.Close()
