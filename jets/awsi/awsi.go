@@ -233,7 +233,6 @@ func NewS3Client() (*s3.Client, error) {
 	}
 	// Create a s3 client
 	return s3.NewFromConfig(cfg), nil
-
 }
 
 func GetObjectSize(s3Client *s3.Client, s3bucket string, key string) (int64, error) {

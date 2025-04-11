@@ -114,7 +114,7 @@ type CommandArguments struct {
 
 // Main Functions
 // --------------------------------------------------------------------------------------
-func (ca *CommandArguments) RunReports(dbpool *pgxpool.Pool) (err error) {
+func (ca *CommandArguments) RunReports(dbpool *pgxpool.Pool) (returnedErr error) {
 
 	// Create temp directory for the local temp files
 	tempDir, err := os.MkdirTemp("", "jetstore")
@@ -131,6 +131,36 @@ func (ca *CommandArguments) RunReports(dbpool *pgxpool.Pool) (err error) {
 		}
 		os.RemoveAll(tempDir)
 	}()
+
+	// Start the Report Commands
+	errCh := make(chan error)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer func() {
+		// Check if there was any error while executing the commands.
+		// This will make RunReport to return when the command execution is completed.
+		jobCancelled := false
+		for err := range errCh {
+			if err != nil {
+				if !jobCancelled {
+					cancel()
+				}
+				jobCancelled = true
+				if returnedErr != nil {
+					returnedErr = fmt.Errorf("%v, %v", returnedErr, err)
+				} else {
+					returnedErr = err
+				}
+			}
+		}
+		if !jobCancelled {
+			cancel()
+		}
+	}()
+
+	err = ca.RunSchemaProviderReportsCmds(ctx, dbpool, errCh)
+	if err != nil {
+		return fmt.Errorf("while RunSchemaProviderReportsCmds: %v", err)
+	}
 
 	// Keep track of files (reports) written to s3 (use case UpdateLookupTables)
 	updatedKeys := make([]string, 0)
@@ -194,7 +224,7 @@ func (ca *CommandArguments) RunReports(dbpool *pgxpool.Pool) (err error) {
 	if !didAnyReport {
 		// Did no report, bailing out
 		log.Println("Done no reports, bailing out")
-		return
+		return nil
 	}
 
 	// Register reports
@@ -272,7 +302,7 @@ func (ca *CommandArguments) RunReports(dbpool *pgxpool.Pool) (err error) {
 			return err
 		}
 	}
-	return
+	return nil
 }
 
 // Support Functions
