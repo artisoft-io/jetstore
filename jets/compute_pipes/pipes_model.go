@@ -293,11 +293,14 @@ type ReportCmdSpec struct {
 	S3CopyFileConfig *S3CopyFileSpec `json:"s3_copy_file_config,omitzero"`
 }
 
+// ReportCommand to copy file from s3 to s3
+// Default WorkerPoolSize is calculated based on number of tasks
 type S3CopyFileSpec struct {
 	SourceBucket      string `json:"src_bucket,omitempty"`
 	SourceKey         string `json:"src_key,omitempty"`
 	DestinationBucket string `json:"dest_bucket,omitempty"`
 	DestinationKey    string `json:"dest_key,omitempty"`
+	WorkerPoolSize    int    `json:"worker_pool_size,omitempty"`
 }
 
 type SchemaColumnSpec struct {

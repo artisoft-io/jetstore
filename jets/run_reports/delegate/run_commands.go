@@ -13,6 +13,9 @@ import (
 	"github.com/jackc/pgx/v4/pgxpool"
 )
 
+var s3CopyFileTotalPoolSize int = 40
+var commandWorkerMaxPoolSize int = 10
+
 type CommandWorker struct {
 	ctx      context.Context
 	s3Client *s3.Client
@@ -20,7 +23,8 @@ type CommandWorker struct {
 	errCh    chan<- error
 }
 
-func NewCommandWorker(ctx context.Context, s3Client *s3.Client, done chan struct{}, errCh chan<- error) *CommandWorker {
+func NewCommandWorker(ctx context.Context, s3Client *s3.Client, 
+	done chan struct{},	errCh chan<- error) *CommandWorker {
 	return &CommandWorker{
 		ctx:      ctx,
 		s3Client: s3Client,
@@ -34,7 +38,8 @@ func (ctx *CommandWorker) DoWork(workersTaskCh <-chan any) {
 		switch vv := task.(type) {
 		case compute_pipes.S3CopyFileSpec:
 			// Do work here
-			err := awsi.CopyS3File(ctx.ctx, ctx.s3Client, vv.SourceBucket, vv.SourceKey, vv.DestinationBucket, vv.DestinationKey)
+			err := awsi.CopyS3File(ctx.ctx, ctx.s3Client, vv.WorkerPoolSize, ctx.done, vv.SourceBucket,
+				vv.SourceKey, vv.DestinationBucket, vv.DestinationKey)
 			ctx.sendError(fmt.Errorf("while awsi.CopyS3File: %v", err))
 
 		default:
@@ -57,9 +62,11 @@ func (ctx *CommandWorker) sendError(err error) {
 
 // Run report commands specified by the schema provider of the main input source
 // Note the errCh will be closed by this func either synchronously or async when the worker pool completes
-func (ca *CommandArguments) RunSchemaProviderReportsCmds(ctx context.Context, dbpool *pgxpool.Pool, errCh chan<- error) (err error) {
+func (ca *CommandArguments) RunSchemaProviderReportsCmds(ctx context.Context, dbpool *pgxpool.Pool,
+	errCh chan<- error) (err error) {
+
 	closeErrCh := true
-	defer func () {
+	defer func() {
 		if closeErrCh {
 			close(errCh)
 		}
@@ -106,15 +113,15 @@ func (ca *CommandArguments) RunSchemaProviderReportsCmds(ctx context.Context, db
 	closeErrCh = false // the errCh will be closed in the go func below
 	done := make(chan struct{})
 
-	// Create a pool of 10 workers
+	// Create a pool of workers
+	workerPoolSize := min(len(schemaProvider.ReportCmds), commandWorkerMaxPoolSize)
 	go func() {
 		var wg sync.WaitGroup
-		for range 10 {
+		for range workerPoolSize {
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
-				worker := NewCommandWorker(ctx, s3Client, done, errCh)
-				worker.DoWork(workersTaskCh)
+				NewCommandWorker(ctx, s3Client, done, errCh).DoWork(workersTaskCh)
 			}()
 		}
 		wg.Wait()
@@ -129,10 +136,14 @@ func (ca *CommandArguments) RunSchemaProviderReportsCmds(ctx context.Context, db
 			if copyConfig == nil {
 				return fmt.Errorf("error: report command 's3_copy_file' is missing s3_copy_file_config")
 			}
+			if copyConfig.WorkerPoolSize == 0 {
+				copyConfig.WorkerPoolSize = s3CopyFileTotalPoolSize / commandWorkerMaxPoolSize
+			}
 			select {
 			case workersTaskCh <- *copyConfig:
 			case <-done:
 				log.Println("reportCommand pool worker interrupted")
+				return
 			}
 		default:
 			return fmt.Errorf("error: unknown report command type: %s", schemaProvider.ReportCmds[i].Type)
