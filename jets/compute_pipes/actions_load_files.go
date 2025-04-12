@@ -10,6 +10,7 @@ import (
 	"log"
 	"os"
 	"runtime/debug"
+	"strconv"
 	"strings"
 	"time"
 
@@ -44,6 +45,15 @@ func (cpCtx *ComputePipesContext) LoadFiles(ctx context.Context, dbpool *pgxpool
 		}
 		close(computePipesInputCh)
 		close(cpCtx.ChResults.LoadFromS3FilesResultCh)
+		if err != nil {
+			cpCtx.ErrCh <- err
+			// Avoid closing a closed channel
+			select {
+			case <-cpCtx.Done:
+			default:
+				close(cpCtx.Done)
+			}
+		}
 	}()
 
 	inputChannelConfig := &cpCtx.CpConfig.PipesConfig[0].InputChannel
@@ -56,19 +66,22 @@ func (cpCtx *ComputePipesContext) LoadFiles(ctx context.Context, dbpool *pgxpool
 	if saveParquetSchema {
 		inputSchemaCh = make(chan any, 1)
 	}
-	castToDomainTypes := inputChannelConfig.CastToDomainTypes	
+	mainInputDomainClass := cpCtx.CpConfig.CommonRuntimeArgs.SourcesConfig.MainInput.DomainClass
 
 	// Start the Compute Pipes async
 	go cpCtx.StartComputePipes(dbpool, inputSchemaCh, computePipesInputCh)
 
 	// Load the files
-  if castToDomainTypes {
-    //*TODO castToDomainType is not implemented yet
-    err = fmt.Errorf("error: castToDomainTypes not implemented yet")
-    log.Println(cpCtx.SessionId, "node", cpCtx.NodeId, err)
-    cpCtx.ChResults.LoadFromS3FilesResultCh <- LoadFromS3FilesResult{LoadRowCount: 0, BadRowCount: 0, Err: err}
-    return
-  }
+	var castToRdfTxtTypeFncs []CastToRdfTxtFnc
+	if len(mainInputDomainClass) > 0 {
+		castToRdfTxtTypeFncs, err = BuildCastToRdfTxtFunctions(mainInputDomainClass,
+			cpCtx.CpConfig.CommonRuntimeArgs.SourcesConfig.MainInput.InputColumns)
+		if err != nil {
+			cpCtx.ChResults.LoadFromS3FilesResultCh <- LoadFromS3FilesResult{LoadRowCount: 0, BadRowCount: 0, Err: err}
+			return
+		}
+	}
+
 	// Get the FixedWidthEncodingInfo from the schema provider in case it is modified
 	// downstream (aka anonymize operator)
 	var fwEncodingInfo *FixedWidthEncodingInfo
@@ -91,12 +104,12 @@ func (cpCtx *ComputePipesContext) LoadFiles(ctx context.Context, dbpool *pgxpool
 		switch inputFormat {
 		//*TODO Read xlsx files
 		case "csv", "headerless_csv":
-			count, err = cpCtx.ReadCsvFile(&localInFile, inputFormat, compression, shardOffset, sp, computePipesInputCh)
+			count, err = cpCtx.ReadCsvFile(&localInFile, inputFormat, compression, shardOffset, sp, castToRdfTxtTypeFncs, computePipesInputCh)
 		case "parquet", "parquet_select":
-			count, err = cpCtx.ReadParquetFile(&localInFile, saveParquetSchema, sp, inputSchemaCh, computePipesInputCh)
+			count, err = cpCtx.ReadParquetFile(&localInFile, saveParquetSchema, sp, castToRdfTxtTypeFncs, inputSchemaCh, computePipesInputCh)
 			saveParquetSchema = false
 		case "fixed_width":
-			count, err = cpCtx.ReadFixedWidthFile(&localInFile, shardOffset, sp, fwEncodingInfo, computePipesInputCh)
+			count, err = cpCtx.ReadFixedWidthFile(&localInFile, shardOffset, sp, fwEncodingInfo, castToRdfTxtTypeFncs, computePipesInputCh)
 		default:
 			log.Println(cpCtx.SessionId, "node", cpCtx.NodeId, "error: unsupported file format: %s", inputFormat)
 			cpCtx.ChResults.LoadFromS3FilesResultCh <- LoadFromS3FilesResult{LoadRowCount: totalRowCount, BadRowCount: 0, Err: err}
@@ -104,7 +117,7 @@ func (cpCtx *ComputePipesContext) LoadFiles(ctx context.Context, dbpool *pgxpool
 		}
 		totalRowCount += count
 		if err != nil {
-			log.Println(cpCtx.SessionId, "node", cpCtx.NodeId, "loadFile2Db returned error", err)
+			log.Println(cpCtx.SessionId, "node", cpCtx.NodeId, "LoadFile returned error", err)
 			cpCtx.ChResults.LoadFromS3FilesResultCh <- LoadFromS3FilesResult{LoadRowCount: totalRowCount, BadRowCount: 0, Err: err}
 			return
 		}
@@ -116,7 +129,8 @@ func (cpCtx *ComputePipesContext) LoadFiles(ctx context.Context, dbpool *pgxpool
 	return
 }
 
-func (cpCtx *ComputePipesContext) ReadParquetFile(filePath *FileName, saveParquetSchema bool, sp SchemaProvider, inputSchemaCh chan<- any,
+func (cpCtx *ComputePipesContext) ReadParquetFile(filePath *FileName, saveParquetSchema bool, sp SchemaProvider,
+	castToRdfTxtTypeFncs []CastToRdfTxtFnc, inputSchemaCh chan<- any,
 	computePipesInputCh chan<- []any) (int64, error) {
 
 	var fileHd *os.File
@@ -128,7 +142,7 @@ func (cpCtx *ComputePipesContext) ReadParquetFile(filePath *FileName, saveParque
 
 	fileHd, err = os.Open(filePath.LocalFileName)
 	if err != nil {
-		return 0, fmt.Errorf("while opening temp file '%s' (loadFiles): %v", filePath.LocalFileName, err)
+		return 0, fmt.Errorf("while opening temp file '%s' (LoadFiles): %v", filePath.LocalFileName, err)
 	}
 	defer func() {
 		fileHd.Close()
@@ -222,12 +236,20 @@ func (cpCtx *ComputePipesContext) ReadParquetFile(filePath *FileName, saveParque
 			cpCtx.SamplingCount = 0
 			record = make([]interface{}, nbrColumns, nbrColumns+len(cpCtx.AddionalInputHeaders))
 			// fmt.Println("Input Parquet Record: ")
+			var errCol error
+			var castFnc CastToRdfTxtFnc
 			for i := range inputColumns {
 				rawValue := parquetRow[inputColumns[i]]
 				cd := schemaIdx[inputColumns[i]]
 				if cd != nil {
 					se := cd.SchemaElement
-					record[i] = ConvertWithSchemaV0(rawValue, trimColumns, se)
+					if castToRdfTxtTypeFncs != nil {
+						castFnc = castToRdfTxtTypeFncs[i]
+					}
+					record[i], errCol = ConvertWithSchemaV0(rawValue, trimColumns, castFnc, se)
+					if errCol != nil {
+						err = errCol
+					}
 				} else {
 					return 0, fmt.Errorf("error: column '%s' is not found in parquet file", inputColumns[i])
 				}
@@ -279,45 +301,97 @@ func (cpCtx *ComputePipesContext) ReadParquetFile(filePath *FileName, saveParque
 }
 
 // return value is either nil or a string representing the input v
-func ConvertWithSchemaV0(v any, trimStrings bool, se *parquet.SchemaElement) any {
+func ConvertWithSchemaV0(v any, trimStrings bool, castToRdfTxtFnc CastToRdfTxtFnc, se *parquet.SchemaElement) (any, error) {
 	if v == nil {
-		return nil
+		return nil, nil
 	}
 	switch *se.Type {
 	case parquet.Type_BOOLEAN:
-		switch vv := v.(type) {
-		case bool:
+		vv, ok := v.(bool)
+		if ok {
 			if vv {
-				return "1"
+				if castToRdfTxtFnc == nil {
+					return "1", nil
+				}
+				return castToRdfTxtFnc("1")
 			} else {
-				return "0"
+				if castToRdfTxtFnc == nil {
+					return "0", nil
+				}
+				return castToRdfTxtFnc("0")
 			}
-		default:
-			return "0"
+		} else {
+			return nil, fmt.Errorf("error: ConvertWithSchemaV0 expecting a bool got %T", v)
 		}
+
 	case parquet.Type_INT32:
-		// Check if it's a date
-		if se.ConvertedType != nil && *se.ConvertedType == parquet.ConvertedType_DATE {
-			// return date(Jan 1 1970) + vv days
-			switch vv := v.(type) {
-			case int32:
-				d := time.Unix(int64(vv)*24*60*60, 0)
-				// fmt.Println("*** READING", vv, "AS DATE:",d)
-				return d.Format("2006-01-02")
-			default:
-				return fmt.Sprintf("%v", v)
+		vv, ok := v.(int32)
+		if ok {
+			// Check the logical type
+			if se.ConvertedType != nil {
+				switch *se.ConvertedType {
+				case parquet.ConvertedType_DATE:
+					// return date(Jan 1 1970) + vv days
+					d := time.Unix(int64(vv)*24*60*60, 0)
+					// fmt.Println("*** READING", vv, "AS DATE:",d)
+					if castToRdfTxtFnc == nil {
+						return d.Format("2006-01-02"), nil
+					}
+					return castToRdfTxtFnc(d.Format("2006-01-02"))
+				case parquet.ConvertedType_UINT_32:
+					if castToRdfTxtFnc == nil {
+						return strconv.FormatUint(uint64(vv), 10), nil
+					}
+					return castToRdfTxtFnc(strconv.FormatUint(uint64(vv), 10))
+				}
 			}
+			if castToRdfTxtFnc == nil {
+				return strconv.Itoa(int(vv)), nil
+			}
+			return castToRdfTxtFnc(strconv.Itoa(int(vv)))
+		} else {
+			return nil, fmt.Errorf("error: ConvertWithSchemaV0 expecting a int32 got %T", v)
 		}
-		return fmt.Sprintf("%v", v)
 
 	case parquet.Type_INT64:
-		return fmt.Sprintf("%v", v)
+		vv, ok := v.(int64)
+		if ok {
+			// Check the logical type
+			if se.ConvertedType != nil && *se.ConvertedType == parquet.ConvertedType_UINT_64 {
+				if castToRdfTxtFnc == nil {
+					return strconv.FormatUint(uint64(vv), 10), nil
+				}
+				return castToRdfTxtFnc(strconv.FormatUint(uint64(vv), 10))
+			}
+			if castToRdfTxtFnc == nil {
+				return strconv.FormatInt(vv, 10), nil
+			}
+			return castToRdfTxtFnc(strconv.FormatInt(vv, 10))
+		} else {
+			return nil, fmt.Errorf("error: ConvertWithSchemaV0 expecting a int64 got %T", v)
+		}
 
 	case parquet.Type_FLOAT:
-		return fmt.Sprintf("%v", v)
+		vv, ok := v.(float32)
+		if ok {
+			if castToRdfTxtFnc == nil {
+				return strconv.FormatFloat(float64(vv), 'f', -1, 32), nil
+			}
+			return castToRdfTxtFnc(strconv.FormatFloat(float64(vv), 'f', -1, 32))
+		} else {
+			return nil, fmt.Errorf("error: ConvertWithSchemaV0 expecting a float32 got %T", v)
+		}
 
 	case parquet.Type_DOUBLE:
-		return fmt.Sprintf("%v", v)
+		vv, ok := v.(float64)
+		if ok {
+			if castToRdfTxtFnc == nil {
+				return strconv.FormatFloat(float64(vv), 'f', -1, 64), nil
+			}
+			return castToRdfTxtFnc(strconv.FormatFloat(float64(vv), 'f', -1, 64))
+		} else {
+			return nil, fmt.Errorf("error: ConvertWithSchemaV0 expecting a float64 got %T", v)
+		}
 
 	case parquet.Type_BYTE_ARRAY, parquet.Type_FIXED_LEN_BYTE_ARRAY:
 		// Make it a string for now...
@@ -330,24 +404,26 @@ func ConvertWithSchemaV0(v any, trimStrings bool, se *parquet.SchemaElement) any
 		case []byte:
 			valStr = string(vv)
 		default:
-			valStr =  fmt.Sprintf("%v", v)
+			valStr = fmt.Sprintf("%v", v)
 		}
 		if trimStrings {
 			valStr = strings.TrimSpace(valStr)
 		}
 		if len(valStr) == 0 {
-			return nil
+			return nil, nil
 		}
-		return valStr
+		if castToRdfTxtFnc == nil {
+			return valStr, nil
+		}
+		return castToRdfTxtFnc(valStr)
 
 	default:
-		return fmt.Sprintf("%v", v)
-		// return nil, fmt.Errorf("error: WriteParquet unknown parquet type: %v", *se.Type)
+		return nil, fmt.Errorf("error: ConvertWithSchemaV0 unknown parquet type: %v", *se.Type)
 	}
 }
 
 func (cpCtx *ComputePipesContext) ReadCsvFile(filePath *FileName,
-	inputFormat, compression string, shardOffset int, sp SchemaProvider,
+	inputFormat, compression string, shardOffset int, sp SchemaProvider, castToRdfTxtTypeFncs []CastToRdfTxtFnc,
 	computePipesInputCh chan<- []interface{}) (int64, error) {
 
 	var fileHd *os.File
@@ -517,6 +593,7 @@ func (cpCtx *ComputePipesContext) ReadCsvFile(filePath *FileName,
 			// log.Println("** Processing inRow", inRow)
 			cpCtx.SamplingCount = 0
 			record = make([]interface{}, 0, len(inRow)+len(extColumns))
+			var errCol error
 			for i := range inRow {
 				if trimColumns {
 					inRow[i] = strings.TrimSpace(inRow[i])
@@ -524,6 +601,13 @@ func (cpCtx *ComputePipesContext) ReadCsvFile(filePath *FileName,
 				value = inRow[i]
 				if len(inRow[i]) == 0 {
 					value = nil
+				} else {
+					if castToRdfTxtTypeFncs != nil && castToRdfTxtTypeFncs[i] != nil {
+						value, errCol = castToRdfTxtTypeFncs[i](inRow[i])
+						if errCol != nil {
+							err = errCol
+						}
+					}
 				}
 				record = append(record, value)
 			}
@@ -586,7 +670,7 @@ func LastIndexByte(s []byte, c byte) int {
 }
 
 func (cpCtx *ComputePipesContext) ReadFixedWidthFile(filePath *FileName, shardOffset int,
-	sp SchemaProvider, fwEncodingInfo *FixedWidthEncodingInfo,
+	sp SchemaProvider, fwEncodingInfo *FixedWidthEncodingInfo, castToRdfTxtTypeFncs []CastToRdfTxtFnc,
 	computePipesInputCh chan<- []interface{}) (int64, error) {
 
 	var fileHd *os.File
@@ -739,13 +823,20 @@ func (cpCtx *ComputePipesContext) ReadFixedWidthFile(filePath *FileName, shardOf
 				if !ok {
 					return 0, fmt.Errorf("error: bad fixed-width record: unknown record type '%s'", recordType)
 				} else {
+					var errCol error
 					for i := range *columnsInfo {
 						columnInfo := (*columnsInfo)[i]
 						if columnInfo.Start < ll && columnInfo.End <= ll {
 							s := strings.TrimSpace(line[columnInfo.Start:columnInfo.End])
-							if len(s) == 0 {
+							switch {
+							case len(s) == 0:
 								record[recordTypeOffset+i] = nil
-							} else {
+							case castToRdfTxtTypeFncs != nil && castToRdfTxtTypeFncs[i] != nil:
+								record[recordTypeOffset+i], errCol = castToRdfTxtTypeFncs[i](s)
+								if errCol != nil {
+									err = errCol
+								}
+							default:
 								record[recordTypeOffset+i] = s
 							}
 						}

@@ -283,6 +283,24 @@ type SchemaProviderSpec struct {
 	FixedWidthColumnsCsv    string             `json:"fixed_width_columns_csv,omitempty"`
 	Columns                 []SchemaColumnSpec `json:"columns"`
 	Env                     map[string]any     `json:"env"`
+	ReportCmds              []ReportCmdSpec    `json:"report_cmds"`
+}
+
+// Commands for the run_report step
+// Type range: s3_copy_file
+type ReportCmdSpec struct {
+	Type             string          `json:"type"`
+	S3CopyFileConfig *S3CopyFileSpec `json:"s3_copy_file_config,omitzero"`
+}
+
+// ReportCommand to copy file from s3 to s3
+// Default WorkerPoolSize is calculated based on number of tasks
+type S3CopyFileSpec struct {
+	SourceBucket      string `json:"src_bucket,omitempty"`
+	SourceKey         string `json:"src_key,omitempty"`
+	DestinationBucket string `json:"dest_bucket,omitempty"`
+	DestinationKey    string `json:"dest_key,omitempty"`
+	WorkerPoolSize    int    `json:"worker_pool_size,omitempty"`
 }
 
 type SchemaColumnSpec struct {
@@ -407,20 +425,18 @@ type InputChannelConfig struct {
 	// ComputePipesCommonArgs.SourcesConfig (ie input_registry table).
 	// HasGroupedRow indicates that the channel contains grouped rows,
 	// most likely from the group_by operator.
-	// When CastToDomainTypes is true, the channel records are cast to domain data types,
-	// which are specified from DomainClass of MainInput.
-	// CastToDomainTypes is applicable for Type 'input' only
-	Type              string `json:"type"`
-	Name              string `json:"name"`
-	Format            string `json:"format,omitempty"`
-	Delimiter         rune   `json:"delimiter"`
-	Compression       string `json:"compression,omitempty"`
-	SchemaProvider    string `json:"schema_provider,omitempty"`
-	ReadStepId        string `json:"read_step_id"`
-	SamplingRate      int    `json:"sampling_rate"`
-	SamplingMaxCount  int    `json:"sampling_max_count"`
-	HasGroupedRows    bool   `json:"has_grouped_rows"`
-	CastToDomainTypes bool   `json:"cast_to_domain_types,omitempty"`
+	// Note: The input_row channel (main input) will be cast to the
+	// rdf type specified by the domain class of the main input source.
+	Type             string `json:"type"`
+	Name             string `json:"name"`
+	Format           string `json:"format,omitempty"`
+	Delimiter        rune   `json:"delimiter"`
+	Compression      string `json:"compression,omitempty"`
+	SchemaProvider   string `json:"schema_provider,omitempty"`
+	ReadStepId       string `json:"read_step_id"`
+	SamplingRate     int    `json:"sampling_rate"`
+	SamplingMaxCount int    `json:"sampling_max_count"`
+	HasGroupedRows   bool   `json:"has_grouped_rows"`
 }
 
 type OutputChannelConfig struct {
