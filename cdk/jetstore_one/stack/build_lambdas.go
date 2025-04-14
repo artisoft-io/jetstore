@@ -3,6 +3,7 @@ package stack
 // Build JetStore One Stack Lambdas
 
 import (
+	"log"
 	"os"
 
 	awscdk "github.com/aws/aws-cdk-go/awscdk/v2"
@@ -204,12 +205,14 @@ func (jsComp *JetStoreStackComponents) BuildLambdas(scope constructs.Construct, 
 	if jsComp.ExternalKmsKey != nil {
 		jsComp.ExternalKmsKey.GrantEncryptDecrypt(jsComp.RunReportsLambda)
 	}
-	jsComp.SourceBucket.AddToResourcePolicy(awsiam.NewPolicyStatement(&awsiam.PolicyStatementProps{
+	result := jsComp.SourceBucket.AddToResourcePolicy(awsiam.NewPolicyStatement(&awsiam.PolicyStatementProps{
 		Actions: jsii.Strings("s3:GetObjectAttributes"),
 		Principals: &[]awsiam.IPrincipal{
 			jsComp.RunReportsLambda.GrantPrincipal(),
 		},
+		Resources: jsii.Strings("*"),
 	}))
+	log.Println("*** SourceBucket.AddToResourcePolicy 's3:GetObjectAttributes' *** result.StatementAdded:", *result.StatementAdded)
 
 
 	// Purge Data lambda function
