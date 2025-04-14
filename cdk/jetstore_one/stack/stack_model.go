@@ -154,5 +154,11 @@ func (jsComp *JetStoreStackComponents) GrantReadWriteFromExternalBuckets(stack a
 	}
 	for _, ibucket := range jsComp.ExternalBuckets {
 		ibucket.GrantReadWrite(identity, nil)
+		ibucket.AddToResourcePolicy(awsiam.NewPolicyStatement(&awsiam.PolicyStatementProps{
+			Actions: jsii.Strings("s3:GetObjectAttributes"),
+			Principals: &[]awsiam.IPrincipal{
+				identity.GrantPrincipal(),
+			},
+		}))
 	}
 }
