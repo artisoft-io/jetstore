@@ -93,9 +93,9 @@ func CopyS3File(ctx context.Context, s3Client *s3.Client, poolSize int, done cha
 	log.Printf("Creating a part upload worker pool of size %d", poolSize)
 	go func() {
 		var wg sync.WaitGroup
-		for range poolSize {
+		for i := range poolSize {
 			wg.Add(1)
-			go func() {
+			go func(iworker int) {
 				defer wg.Done()
 				// Do work - upload the part
 				for task := range tasksCh {
@@ -105,12 +105,14 @@ func CopyS3File(ctx context.Context, s3Client *s3.Client, poolSize int, done cha
 					uploadOutput, err := s3Client.UploadPartCopy(ctx, &task)
 					if err != nil {
 						if retry < 4 {
+							log.Printf("Got error in s3Client.UploadPartCopy '%v' for part %d (retrying)", err, *task.PartNumber)
 							retry++
 							time.Sleep(sleepDuration)
 							sleepDuration *= 2
 							goto do_retry
 						}
 						// Unable to complete, send the err and bail
+						log.Printf("*** Got error in s3Client.UploadPartCopy '%v' for part %d (too many tries)", err, *task.PartNumber)
 						select {
 						case taskResultsCh <- completedTask{
 							completedPart: nil,
@@ -134,7 +136,8 @@ func CopyS3File(ctx context.Context, s3Client *s3.Client, poolSize int, done cha
 						return
 					}
 				}
-			}()
+				log.Println("All done for part upload worker", iworker)
+			}(i)
 		}
 		log.Printf("Waiting on part upload workers task (pool of size %d) to complete", poolSize)
 		wg.Wait()
@@ -176,6 +179,7 @@ func CopyS3File(ctx context.Context, s3Client *s3.Client, poolSize int, done cha
 	copyResponses := make([]types.CompletedPart, 0, fileSize/partSize)
 	for result := range taskResultsCh {
 		if result.err != nil {
+			log.Printf("*** Got error from taskResultsCh (copy part): %v, for part %d", result.err, *result.completedPart.PartNumber)
 			uploadErr = err
 			return uploadErr
 		}
