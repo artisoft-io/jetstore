@@ -204,6 +204,13 @@ func (jsComp *JetStoreStackComponents) BuildLambdas(scope constructs.Construct, 
 	if jsComp.ExternalKmsKey != nil {
 		jsComp.ExternalKmsKey.GrantEncryptDecrypt(jsComp.RunReportsLambda)
 	}
+	jsComp.SourceBucket.AddToResourcePolicy(awsiam.NewPolicyStatement(&awsiam.PolicyStatementProps{
+		Actions: jsii.Strings("s3:GetObjectAttributes"),
+		Principals: &[]awsiam.IPrincipal{
+			jsComp.RunReportsLambda.GrantPrincipal(),
+		},
+	}))
+
 
 	// Purge Data lambda function
 	// --------------------------------------------------------------------------------------------------------------
