@@ -2,7 +2,6 @@ package stack
 
 import (
 	"fmt"
-	"log"
 	"os"
 	"strings"
 
@@ -155,13 +154,5 @@ func (jsComp *JetStoreStackComponents) GrantReadWriteFromExternalBuckets(stack a
 	}
 	for _, ibucket := range jsComp.ExternalBuckets {
 		ibucket.GrantReadWrite(identity, nil)
-		result := ibucket.AddToResourcePolicy(awsiam.NewPolicyStatement(&awsiam.PolicyStatementProps{
-			Actions: jsii.Strings("s3:GetObjectAttributes"),
-			Principals: &[]awsiam.IPrincipal{
-				identity.GrantPrincipal(),
-			},
-			Resources: jsii.Strings("*"),
-		}))
-		log.Println("*** EXTERNALBucket.AddToResourcePolicy 's3:GetObjectAttributes' *** result.StatementAdded:", *result.StatementAdded)
 	}
 }

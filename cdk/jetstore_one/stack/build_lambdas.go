@@ -3,7 +3,7 @@ package stack
 // Build JetStore One Stack Lambdas
 
 import (
-	"log"
+	"fmt"
 	"os"
 
 	awscdk "github.com/aws/aws-cdk-go/awscdk/v2"
@@ -205,14 +205,23 @@ func (jsComp *JetStoreStackComponents) BuildLambdas(scope constructs.Construct, 
 	if jsComp.ExternalKmsKey != nil {
 		jsComp.ExternalKmsKey.GrantEncryptDecrypt(jsComp.RunReportsLambda)
 	}
-	result := jsComp.SourceBucket.AddToResourcePolicy(awsiam.NewPolicyStatement(&awsiam.PolicyStatementProps{
+	//***
+	jsComp.RunReportsLambda.AddToRolePolicy(awsiam.NewPolicyStatement(&awsiam.PolicyStatementProps{
 		Actions: jsii.Strings("s3:GetObjectAttributes"),
-		Principals: &[]awsiam.IPrincipal{
-			jsComp.RunReportsLambda.GrantPrincipal(),
-		},
-		Resources: jsii.Strings("*"),
+		Resources: jsii.Strings(
+			*jsComp.SourceBucket.BucketArn(),
+			fmt.Sprintf("arn:aws:s3:::%s/*",*jsComp.SourceBucket.BucketName()),
+		),
 	}))
-	log.Println("*** SourceBucket.AddToResourcePolicy 's3:GetObjectAttributes' *** result.StatementAdded:", *result.StatementAdded)
+	// //***
+	// result := jsComp.SourceBucket.AddToResourcePolicy(awsiam.NewPolicyStatement(&awsiam.PolicyStatementProps{
+	// 	Actions: jsii.Strings("s3:GetObjectAttributes"),
+	// 	Principals: &[]awsiam.IPrincipal{
+	// 		jsComp.RunReportsLambda.GrantPrincipal(),
+	// 	},
+	// 	Resources: jsii.Strings("*"),
+	// }))
+	// log.Println("*** SourceBucket.AddToResourcePolicy 's3:GetObjectAttributes' *** result.StatementAdded:", *result.StatementAdded)
 
 
 	// Purge Data lambda function
