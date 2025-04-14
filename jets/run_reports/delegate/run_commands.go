@@ -40,7 +40,9 @@ func (ctx *CommandWorker) DoWork(workersTaskCh <-chan any) {
 			// Do work here
 			err := awsi.CopyS3File(ctx.ctx, ctx.s3Client, vv.WorkerPoolSize, ctx.done, vv.SourceBucket,
 				vv.SourceKey, vv.DestinationBucket, vv.DestinationKey)
-			ctx.sendError(fmt.Errorf("while awsi.CopyS3File: %v", err))
+			if err != nil {
+				ctx.sendError(fmt.Errorf("while awsi.CopyS3File: %v", err))
+			}
 
 		default:
 			// Unknown task type
