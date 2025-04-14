@@ -133,11 +133,13 @@ func (ca *CommandArguments) RunReports(dbpool *pgxpool.Pool) (returnedErr error)
 	}()
 
 	// Start the Report Commands
+	log.Println("Start the Report Commands async")
 	errCh := make(chan error)
 	ctx, cancel := context.WithCancel(context.Background())
 	defer func() {
 		// Check if there was any error while executing the commands.
 		// This will make RunReport to return when the command execution is completed.
+		log.Println("Report done, checking for errCh")
 		jobCancelled := false
 		for err := range errCh {
 			if err != nil {
@@ -155,6 +157,7 @@ func (ca *CommandArguments) RunReports(dbpool *pgxpool.Pool) (returnedErr error)
 		if !jobCancelled {
 			cancel()
 		}
+		log.Println("Report done, returnErr:", returnedErr)
 	}()
 
 	err = ca.RunSchemaProviderReportsCmds(ctx, dbpool, errCh)
