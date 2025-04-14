@@ -90,7 +90,7 @@ func CopyS3File(ctx context.Context, s3Client *s3.Client, poolSize int, done cha
 	taskResultsCh := make(chan completedTask, 1)
 
 	// Create a pool of workers
-	log.Printf("Creating a worker pool of size %d", poolSize)
+	log.Printf("Creating a part upload worker pool of size %d", poolSize)
 	go func() {
 		var wg sync.WaitGroup
 		for range poolSize {
@@ -136,7 +136,9 @@ func CopyS3File(ctx context.Context, s3Client *s3.Client, poolSize int, done cha
 				}
 			}()
 		}
+		log.Printf("Waiting on part upload workers task (pool of size %d) to complete", poolSize)
 		wg.Wait()
+		log.Printf("DONE - Part upload workers task (pool of size %d) completed", poolSize)
 		close(taskResultsCh)
 	}()
 

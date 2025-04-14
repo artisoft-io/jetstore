@@ -126,7 +126,9 @@ func (ca *CommandArguments) RunSchemaProviderReportsCmds(ctx context.Context, db
 				NewCommandWorker(ctx, s3Client, done, errCh).DoWork(workersTaskCh)
 			}()
 		}
+		log.Printf("Waiting on report command workers task (pool of size %d) to complete", workerPoolSize)
 		wg.Wait()
+		log.Printf("Done waiting on report command workers task (pool of size %d)", workerPoolSize)
 		close(errCh)
 	}()
 
@@ -139,7 +141,7 @@ func (ca *CommandArguments) RunSchemaProviderReportsCmds(ctx context.Context, db
 				return fmt.Errorf("error: report command 's3_copy_file' is missing s3_copy_file_config")
 			}
 			if copyConfig.WorkerPoolSize == 0 {
-				copyConfig.WorkerPoolSize = s3CopyFileTotalPoolSize / commandWorkerMaxPoolSize
+				copyConfig.WorkerPoolSize = s3CopyFileTotalPoolSize / workerPoolSize
 			}
 			select {
 			case workersTaskCh <- *copyConfig:
