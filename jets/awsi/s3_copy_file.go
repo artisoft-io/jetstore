@@ -25,7 +25,7 @@ type completedTask struct {
 
 // Copy a file from s3 to s3.
 // Do a copy in a single action if the file is less than fileSizeCutoff, otherwise do a multi-part copy.
-func CopyS3File(ctx context.Context, s3Client *s3.Client, poolSize int, done chan struct{}, srcBucket, srcKey, destBucket, destKey string) error {
+func CopyS3File(ctx context.Context, s3Client *s3.Client, poolSize int, done chan struct{}, srcBucket, srcKey, destBucket, destKey string) (uploadErr error) {
 	// Get the size of the source file
 	fileSize, err := GetObjectSize(s3Client, srcBucket, srcKey)
 	if err != nil {
@@ -68,7 +68,6 @@ func CopyS3File(ctx context.Context, s3Client *s3.Client, poolSize int, done cha
 	}
 	var bytePosition int64
 	var partNbr int32
-	var uploadErr error
 
 	defer func() {
 		if uploadErr != nil {
@@ -180,15 +179,14 @@ func CopyS3File(ctx context.Context, s3Client *s3.Client, poolSize int, done cha
 	for result := range taskResultsCh {
 		if result.err != nil {
 			log.Printf("*** Got error from taskResultsCh (copy part): %v, for part %d", result.err, *result.completedPart.PartNumber)
-			uploadErr = err
-			return uploadErr
+			return err
 		}
 		copyResponses = append(copyResponses, *result.completedPart)
 	}
 
 	// Complete the multi part upload / copy
 	log.Println("Completing multi part copy")
-	_, uploadErr = s3Client.CompleteMultipartUpload(ctx, &s3.CompleteMultipartUploadInput{
+	_, err = s3Client.CompleteMultipartUpload(ctx, &s3.CompleteMultipartUploadInput{
 		Bucket:   aws.String(destBucket),
 		Key:      aws.String(destKey),
 		UploadId: uploader.UploadId,
@@ -196,5 +194,5 @@ func CopyS3File(ctx context.Context, s3Client *s3.Client, poolSize int, done cha
 			Parts: copyResponses,
 		},
 	})
-	return uploadErr
+	return err
 }
