@@ -25,11 +25,24 @@ type completedTask struct {
 
 // Copy a file from s3 to s3.
 // Do a copy in a single action if the file is less than fileSizeCutoff, otherwise do a multi-part copy.
-func CopyS3File(ctx context.Context, s3Client *s3.Client, poolSize int, done chan struct{}, srcBucket, srcKey, destBucket, destKey string) (uploadErr error) {
+func CopyS3File(ctx context.Context, s3Client *s3.Client, poolSize int, done chan struct{}, errCh chan<- error, srcBucket, srcKey, destBucket, destKey string) {
+	sendError := func(err error) {
+		if err == nil {
+			return
+		}
+		errCh <- err
+		// Interrupt the process, avoid closing a closed channel
+		select {
+		case <-done:
+		default:
+			close(done)
+		}
+	}
 	// Get the size of the source file
 	fileSize, err := GetObjectSize(s3Client, srcBucket, srcKey)
 	if err != nil {
-		return fmt.Errorf("while getting the file size: %v", err)
+		sendError(fmt.Errorf("while getting the file size: %v", err))
+		return 
 	}
 	if fileSize < fileSizeCutoff {
 		// Do the copy in one shot
@@ -44,7 +57,8 @@ func CopyS3File(ctx context.Context, s3Client *s3.Client, poolSize int, done cha
 			copyInput.SSEKMSKeyId = aws.String(kmsKeyArn)
 		}
 		_, err = s3Client.CopyObject(ctx, copyInput)
-		return err
+		sendError(err)
+		return
 	}
 
 	// Copy using a multi-part copy action
@@ -60,34 +74,38 @@ func CopyS3File(ctx context.Context, s3Client *s3.Client, poolSize int, done cha
 	// Initiate the multi-part upload / copy
 	uploader, err := s3Client.CreateMultipartUpload(ctx, copyInput)
 	if err != nil {
-		return fmt.Errorf("while CreateMultipartUpload: %v", err)
+		sendError(fmt.Errorf("while CreateMultipartUpload: %v", err))
+		return 
 	}
-	log.Println("CreateMultipartUpload called, got Upload Id:", uploader.UploadId)
+	log.Println("CreateMultipartUpload called, got Upload Id:", *uploader.UploadId)
 	partSize := smallChunk
 	if fileSize > fileSizeMidPoint {
 		partSize = bigChunk
 	}
 
-	defer func() {
-		if uploadErr != nil {
-			// Cancel the whole thing
-			log.Printf("Get error: %v, aborting multipart upload", uploadErr)
-			_, err := s3Client.AbortMultipartUpload(ctx, &s3.AbortMultipartUploadInput{
-				Bucket:   aws.String(destBucket),
-				Key:      aws.String(destKey),
-				UploadId: uploader.UploadId,
-			})
-			if err != nil {
-				log.Println("WARNING: while AbortMultipartUpload:", err)
-			}
+	abort := func(err error) {
+		sendError(err)
+		// Cancel the whole thing
+		log.Printf("Get error: %v, aborting multipart upload", err)
+		_, err = s3Client.AbortMultipartUpload(ctx, &s3.AbortMultipartUploadInput{
+			Bucket:   aws.String(destBucket),
+			Key:      aws.String(destKey),
+			UploadId: uploader.UploadId,
+		})
+		if err != nil {
+			log.Println("WARNING: while AbortMultipartUpload:", err)
 		}
-	}()
+	}
 
 	// Use a channel to distribute the part upload to a pool of workers
 	tasksCh := make(chan s3.UploadPartCopyInput, 1)
 	taskResultsCh := make(chan completedTask, 1)
 
 	// Create a pool of workers
+	//***
+	poolSize = 1
+	//*** maxRetry = 4
+	maxRetry := 0
 	log.Printf("Creating a part upload worker pool of size %d", poolSize)
 	go func() {
 		var wg sync.WaitGroup
@@ -103,7 +121,7 @@ func CopyS3File(ctx context.Context, s3Client *s3.Client, poolSize int, done cha
 					log.Printf("Calling s3Client.UploadPartCopy for Upload Id %s, for part %d", *task.UploadId, *task.PartNumber)
 					uploadOutput, err := s3Client.UploadPartCopy(ctx, &task)
 					if err != nil {
-						if retry < 4 {
+						if retry < maxRetry {
 							log.Printf("Got error in s3Client.UploadPartCopy '%v' for part %d (retrying)", err, *task.PartNumber)
 							retry++
 							time.Sleep(sleepDuration)
@@ -184,8 +202,10 @@ func CopyS3File(ctx context.Context, s3Client *s3.Client, poolSize int, done cha
 	for result := range taskResultsCh {
 		if result.err != nil {
 			log.Printf("*** Got error from taskResultsCh (copy part): %v, for part %d", result.err, *result.completedPart.PartNumber)
-			return err
+			abort(err)
+			return
 		}
+		log.Printf("Got from taskResultsCh OK (copy part) for part %d", *result.completedPart.PartNumber)
 		copyResponses = append(copyResponses, *result.completedPart)
 	}
 
@@ -199,5 +219,8 @@ func CopyS3File(ctx context.Context, s3Client *s3.Client, poolSize int, done cha
 			Parts: copyResponses,
 		},
 	})
-	return err
+	if err != nil {
+		abort(err)
+	}
+	return
 }
