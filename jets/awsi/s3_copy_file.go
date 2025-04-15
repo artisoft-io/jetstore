@@ -2,225 +2,171 @@ package awsi
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log"
 	"net/url"
-	"sync"
+	"strings"
 	"time"
 
-	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/aws/aws-sdk-go-v2/service/s3/types"
 )
 
-var fileSizeCutoff int64 = 500 * 1024 * 1024 // file less than 500 MB using single shot copy
+// ***
+// var fileSizeCutoff int64 = 500 * 1024 * 1024 // file less than 500 MB using single shot copy
+var fileSizeCutoff int64 = 5 * 1024 * 1024 // file less than 5 MB using single shot copy
 var fileSizeMidPoint int64 = 10 * 1024 * 1024 * 1024
-var smallChunk int64 = 25 * 1024 * 1024 // multi part: part size of 25 MB for file size < 10 GB
-var bigChunk int64 = 100 * 1024 * 1024  // multi part: part size of 100 MB for files > 10 GB
 
-type completedTask struct {
-	completedPart *types.CompletedPart
-	err           error
+// var smallChunk int64 = 25 * 1024 * 1024 // multi part: part size of 25 MB for file size < 10 GB
+var smallChunk int64 = 5 * 1024 * 1024 // multi part: part size of 25 MB for file size < 10 GB
+var bigChunk int64 = 100 * 1024 * 1024 // multi part: part size of 100 MB for files > 10 GB
+
+// helper function to build the string for the range of bits to copy
+func buildCopySourceRange(start, partSize, objectSize int64) string {
+	end := start + partSize - 1
+	if end > objectSize {
+		end = objectSize - 1
+	}
+	return fmt.Sprintf("bytes=%d-%d", start, end)
 }
 
-// Copy a file from s3 to s3.
-// Do a copy in a single action if the file is less than fileSizeCutoff, otherwise do a multi-part copy.
-func CopyS3File(ctx context.Context, s3Client *s3.Client, poolSize int, done chan struct{}, errCh chan<- error, srcBucket, srcKey, destBucket, destKey string) {
-	sendError := func(err error) {
-		if err == nil {
-			return
-		}
-		errCh <- err
-		// Interrupt the process, avoid closing a closed channel
-		select {
-		case <-done:
-		default:
-			close(done)
-		}
-	}
+// function that starts, perform each part upload, and completes the copy
+func MultiPartCopy(ctx context.Context, svc *s3.Client, srcBucket string, srcKey string, destBucket string, destKey string) error {
+
 	// Get the size of the source file
-	fileSize, err := GetObjectSize(s3Client, srcBucket, srcKey)
+	fileSize, err := GetObjectSize(svc, srcBucket, srcKey)
 	if err != nil {
-		sendError(fmt.Errorf("while getting the file size: %v", err))
-		return 
+		return fmt.Errorf("while getting the file size: %v", err)
 	}
+	copySource := url.QueryEscape(fmt.Sprintf("/%s/%s", srcBucket, srcKey))
+
 	if fileSize < fileSizeCutoff {
 		// Do the copy in one shot
 		log.Printf("Copying using single part for file %s of size %d", srcKey, fileSize)
 		copyInput := &s3.CopyObjectInput{
-			CopySource: aws.String(url.QueryEscape(fmt.Sprintf("%s/%s", srcBucket, srcKey))),
-			Bucket:     aws.String(destBucket),
-			Key:        aws.String(destKey),
+			CopySource: &copySource,
+			Bucket:     &destBucket,
+			Key:        &destKey,
 		}
 		if len(kmsKeyArn) > 0 {
 			copyInput.ServerSideEncryption = types.ServerSideEncryptionAwsKms
-			copyInput.SSEKMSKeyId = aws.String(kmsKeyArn)
+			copyInput.SSEKMSKeyId = &kmsKeyArn
 		}
-		_, err = s3Client.CopyObject(ctx, copyInput)
-		sendError(err)
-		return
+		_, err = svc.CopyObject(ctx, copyInput)
+		return err
 	}
 
 	// Copy using a multi-part copy action
 	log.Printf("Copying using a multi-part copy for file %s of size %d", srcKey, fileSize)
-	copyInput := &s3.CreateMultipartUploadInput{
-		Bucket: aws.String(srcBucket),
-		Key:    aws.String(srcKey),
-	}
-	if len(kmsKeyArn) > 0 {
-		copyInput.ServerSideEncryption = types.ServerSideEncryptionAwsKms
-		copyInput.SSEKMSKeyId = aws.String(kmsKeyArn)
-	}
-	// Initiate the multi-part upload / copy
-	uploader, err := s3Client.CreateMultipartUpload(ctx, copyInput)
+
+	// Create the multipart upload: get the upload id as it is needed later
+	var uploadId string
+	createOutput, err := svc.CreateMultipartUpload(ctx, &s3.CreateMultipartUploadInput{
+		Bucket: &destBucket,
+		Key:    &destKey,
+	})
 	if err != nil {
-		sendError(fmt.Errorf("while CreateMultipartUpload: %v", err))
-		return 
+		return err
 	}
-	log.Println("CreateMultipartUpload called, got Upload Id:", *uploader.UploadId)
+	if createOutput != nil && createOutput.UploadId != nil {
+		uploadId = *createOutput.UploadId
+	}
+	if uploadId == "" {
+		return errors.New("no upload id found in start upload request")
+	}
+
+	var i int64
+	var partNumber int32 = 1
+	maxRetry := 4
+	parts := make([]types.CompletedPart, 0)
 	partSize := smallChunk
 	if fileSize > fileSizeMidPoint {
 		partSize = bigChunk
 	}
-
-	abort := func(err error) {
-		sendError(err)
-		// Cancel the whole thing
-		log.Printf("Get error: %v, aborting multipart upload", err)
-		_, err = s3Client.AbortMultipartUpload(ctx, &s3.AbortMultipartUploadInput{
-			Bucket:   aws.String(destBucket),
-			Key:      aws.String(destKey),
-			UploadId: uploader.UploadId,
-		})
+	numUploads := fileSize/partSize + 1
+	abort := func(errMsg string) {
+		log.Printf("%s, attempting to abort upload\n", errMsg)
+		abortIn := s3.AbortMultipartUploadInput{
+			Bucket:   &destBucket,
+			Key:      &destKey,
+			UploadId: &uploadId,
+		}
+		// ignoring any errors with aborting the copy
+		_, err := svc.AbortMultipartUpload(context.TODO(), &abortIn)
 		if err != nil {
-			log.Println("WARNING: while AbortMultipartUpload:", err)
+			log.Printf("WARNING: Abort upload failed: %v\n", err)
+		} else {
+			log.Printf("Upload aborted")
 		}
 	}
+	log.Printf("Will attempt upload in %d number of parts to %s", numUploads, destKey)
 
-	// Use a channel to distribute the part upload to a pool of workers
-	tasksCh := make(chan s3.UploadPartCopyInput, 1)
-	taskResultsCh := make(chan completedTask, 1)
-
-	// Create a pool of workers
-	//***
-	poolSize = 1
-	//*** maxRetry = 4
-	maxRetry := 0
-	log.Printf("Creating a part upload worker pool of size %d", poolSize)
-	go func() {
-		var wg sync.WaitGroup
-		for i := range poolSize {
-			wg.Add(1)
-			go func(iworker int) {
-				defer wg.Done()
-				// Do work - upload the part
-				for task := range tasksCh {
-					sleepDuration := 500 * time.Millisecond
-					retry := 0
-				do_retry:
-					log.Printf("Calling s3Client.UploadPartCopy for Upload Id %s, for part %d", *task.UploadId, *task.PartNumber)
-					uploadOutput, err := s3Client.UploadPartCopy(ctx, &task)
-					if err != nil {
-						if retry < maxRetry {
-							log.Printf("Got error in s3Client.UploadPartCopy '%v' for part %d (retrying)", err, *task.PartNumber)
-							retry++
-							time.Sleep(sleepDuration)
-							sleepDuration *= 2
-							goto do_retry
-						}
-						// Unable to complete, send the err and bail
-						log.Printf("*** Got error in s3Client.UploadPartCopy '%v' for part %d (too many tries)", err, *task.PartNumber)
-						select {
-						case taskResultsCh <- completedTask{
-							completedPart: &types.CompletedPart{
-								ETag:       aws.String(""),
-								PartNumber: aws.Int32(*task.PartNumber),
-							},
-							err: err,
-						}:
-						case <-done:
-							log.Println("CopyS3File pool worker interrupted")
-						}
-						return
-					}
-					select {
-					case taskResultsCh <- completedTask{
-						completedPart: &types.CompletedPart{
-							ETag:       aws.String(*uploadOutput.CopyPartResult.ETag),
-							PartNumber: aws.Int32(*task.PartNumber),
-						},
-						err: nil,
-					}:
-					case <-done:
-						log.Println("CopyS3File pool worker interrupted (2)")
-						return
-					}
-				}
-				log.Println("All done for part upload worker", iworker)
-			}(i)
+	for i = 0; i < fileSize; i += partSize {
+		copyRange := buildCopySourceRange(i, partSize, fileSize)
+		partNum := partNumber
+		partInput := s3.UploadPartCopyInput{
+			Bucket:          &destBucket,
+			CopySource:      &copySource,
+			CopySourceRange: &copyRange,
+			Key:             &destKey,
+			PartNumber:      &partNum,
+			UploadId:        &uploadId,
 		}
-		log.Printf("Waiting on part upload workers task (pool of size %d) to complete", poolSize)
-		wg.Wait()
-		log.Printf("DONE - Part upload workers task (pool of size %d) completed", poolSize)
-		close(taskResultsCh)
-	}()
 
-	// Prepare a task for each part
-	log.Printf("Preparing %d copy tasks", fileSize/partSize)
-	go func() {
-		defer close(tasksCh)
-		var bytePosition int64
-		var partNbr int32
-		for bytePosition < fileSize {
-			// The last part might be smaller than partSize, so check to make sure
-			// that lastByte isn't beyond the end of the object.
-			lastByte := min(bytePosition+partSize-1, fileSize-1)
-			partNbr++
-			uploadInput := s3.UploadPartCopyInput{
-				CopySource:      aws.String(url.QueryEscape(fmt.Sprintf("%s/%s", srcBucket, srcKey))),
-				Bucket:          aws.String(destBucket),
-				Key:             aws.String(destKey),
-				CopySourceRange: aws.String(fmt.Sprintf("bytes=%d-%d", bytePosition, lastByte)),
-				PartNumber:      aws.Int32(partNbr),
-				UploadId:        uploader.UploadId,
+		log.Printf("Attempting to upload part %d with range: %s", partNumber, copyRange)
+		sleepDuration := 500 * time.Millisecond
+		retry := 0
+	do_retry:
+		partResp, err := svc.UploadPartCopy(ctx, &partInput)
+		//*** TESTING
+		if err == nil && strings.HasSuffix(destKey, "1.csv") && retry == 0 {
+			err = fmt.Errorf("error: simulated part upload error")
+		}
+		if err != nil {
+			if retry < maxRetry {
+				log.Printf("Got error in s3Client.UploadPartCopy '%v' for part %d (retrying)", err, partNum)
+				retry++
+				time.Sleep(sleepDuration)
+				sleepDuration *= 2
+				goto do_retry
 			}
-			bytePosition += partSize
+			abort(fmt.Sprintf("Upload part %d failed", partNum))
+			return fmt.Errorf("while uploading part %d: %v", partNumber, err)
+		}
 
-			// send the task to the worker pool
-			select {
-			case tasksCh <- uploadInput:
-			case <-done:
-				log.Println("sending tasks to pool worker interrupted")
-				return
+		//copy etag and part number from response as it is needed for completion
+		if partResp != nil && partResp.CopyPartResult != nil {
+			etag := *partResp.CopyPartResult.ETag
+			cPart := types.CompletedPart{
+				ETag:       &etag,
+				PartNumber: &partNum,
 			}
+			parts = append(parts, cPart)
+		} else {
+			return fmt.Errorf("error: upload part had no error but did not returned CopyPartResult")
 		}
-	}()
-
-	// Collect the tasks results
-	log.Println("Collecting tasks results")
-	copyResponses := make([]types.CompletedPart, 0, fileSize/partSize)
-	for result := range taskResultsCh {
-		if result.err != nil {
-			log.Printf("*** Got error from taskResultsCh (copy part): %v, for part %d", result.err, *result.completedPart.PartNumber)
-			abort(err)
-			return
-		}
-		log.Printf("Got from taskResultsCh OK (copy part) for part %d", *result.completedPart.PartNumber)
-		copyResponses = append(copyResponses, *result.completedPart)
+		log.Printf("Successfully upload part %d of %s", partNumber, uploadId)
+		partNumber++
 	}
 
-	// Complete the multi part upload / copy
-	log.Println("Completing multi part copy")
-	_, err = s3Client.CompleteMultipartUpload(ctx, &s3.CompleteMultipartUploadInput{
-		Bucket:   aws.String(destBucket),
-		Key:      aws.String(destKey),
-		UploadId: uploader.UploadId,
+	//complete actual upload
+	//does not actually copy if the complete command is not received
+	complete := s3.CompleteMultipartUploadInput{
+		Bucket:   &destBucket,
+		Key:      &destKey,
+		UploadId: &uploadId,
 		MultipartUpload: &types.CompletedMultipartUpload{
-			Parts: copyResponses,
+			Parts: parts,
 		},
-	})
-	if err != nil {
-		abort(err)
 	}
-	return
+	compOutput, err := svc.CompleteMultipartUpload(ctx, &complete)
+	if err != nil {
+		abort("error while completing the upload")
+		return fmt.Errorf("while completing upload: %v", err)
+	}
+	if compOutput != nil {
+		log.Printf("Successfully copied Bucket: %s Key: %s to Bucket: %s Key: %s", srcBucket, srcKey, destBucket, destKey)
+	}
+	return nil
 }
