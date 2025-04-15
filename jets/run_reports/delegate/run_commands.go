@@ -71,6 +71,7 @@ func (ca *CommandArguments) RunSchemaProviderReportsCmds(ctx context.Context, db
 	closeErrCh := true
 	defer func() {
 		if closeErrCh {
+			log.Println("Closing errCh as no report commands to execute")
 			close(errCh)
 		}
 	}()
@@ -103,6 +104,10 @@ func (ca *CommandArguments) RunSchemaProviderReportsCmds(ctx context.Context, db
 	err = json.Unmarshal([]byte(schemaProviderJson), &schemaProvider)
 	if err != nil {
 		return fmt.Errorf("while unmarshaling schema_provider_json: %s", err)
+	}
+	if len(schemaProvider.ReportCmds) == 0 {
+		// No Report Command to Execute
+		return nil
 	}
 	s3Client, err := awsi.NewS3Client()
 	if err != nil {

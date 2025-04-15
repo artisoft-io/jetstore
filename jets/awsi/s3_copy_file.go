@@ -62,12 +62,11 @@ func CopyS3File(ctx context.Context, s3Client *s3.Client, poolSize int, done cha
 	if err != nil {
 		return fmt.Errorf("while CreateMultipartUpload: %v", err)
 	}
+	log.Println("CreateMultipartUpload called, got Upload Id:", uploader.UploadId)
 	partSize := smallChunk
 	if fileSize > fileSizeMidPoint {
 		partSize = bigChunk
 	}
-	var bytePosition int64
-	var partNbr int32
 
 	defer func() {
 		if uploadErr != nil {
@@ -101,6 +100,7 @@ func CopyS3File(ctx context.Context, s3Client *s3.Client, poolSize int, done cha
 					sleepDuration := 500 * time.Millisecond
 					retry := 0
 				do_retry:
+					log.Printf("Calling s3Client.UploadPartCopy for Upload Id %s, for part %d", *task.UploadId, *task.PartNumber)
 					uploadOutput, err := s3Client.UploadPartCopy(ctx, &task)
 					if err != nil {
 						if retry < 4 {
@@ -114,8 +114,11 @@ func CopyS3File(ctx context.Context, s3Client *s3.Client, poolSize int, done cha
 						log.Printf("*** Got error in s3Client.UploadPartCopy '%v' for part %d (too many tries)", err, *task.PartNumber)
 						select {
 						case taskResultsCh <- completedTask{
-							completedPart: nil,
-							err:           err,
+							completedPart: &types.CompletedPart{
+								ETag:       aws.String(""),
+								PartNumber: aws.Int32(*task.PartNumber),
+							},
+							err: err,
 						}:
 						case <-done:
 							log.Println("CopyS3File pool worker interrupted")
@@ -126,7 +129,7 @@ func CopyS3File(ctx context.Context, s3Client *s3.Client, poolSize int, done cha
 					case taskResultsCh <- completedTask{
 						completedPart: &types.CompletedPart{
 							ETag:       aws.String(*uploadOutput.CopyPartResult.ETag),
-							PartNumber: aws.Int32(partNbr),
+							PartNumber: aws.Int32(*task.PartNumber),
 						},
 						err: nil,
 					}:
@@ -148,10 +151,12 @@ func CopyS3File(ctx context.Context, s3Client *s3.Client, poolSize int, done cha
 	log.Printf("Preparing %d copy tasks", fileSize/partSize)
 	go func() {
 		defer close(tasksCh)
+		var bytePosition int64
+		var partNbr int32
 		for bytePosition < fileSize {
 			// The last part might be smaller than partSize, so check to make sure
 			// that lastByte isn't beyond the end of the object.
-			lastByte := min(bytePosition + partSize - 1, fileSize - 1)
+			lastByte := min(bytePosition+partSize-1, fileSize-1)
 			partNbr++
 			uploadInput := s3.UploadPartCopyInput{
 				CopySource:      aws.String(url.QueryEscape(fmt.Sprintf("%s/%s", srcBucket, srcKey))),
