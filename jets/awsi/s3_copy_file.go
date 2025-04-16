@@ -19,7 +19,7 @@ var fileSizeCutoff int64 = 500 * 1024 * 1024 // file less than 500 MB using sing
 var fileSizeMidPoint int64 = 10 * 1024 * 1024 * 1024
 
 var smallChunk int64 = 25 * 1024 * 1024 // multi part: part size of 25 MB for file size < 10 GB
-var bigChunk int64 = 100 * 1024 * 1024 // multi part: part size of 100 MB for files > 10 GB
+var bigChunk int64 = 100 * 1024 * 1024  // multi part: part size of 100 MB for files > 10 GB
 
 // helper function to build the string for the range of bits to copy
 func buildCopySourceRange(start, partSize, objectSize int64) string {
@@ -37,6 +37,12 @@ func MultiPartCopy(ctx context.Context, svc *s3.Client, maxPoolSize int,
 	// Get the size of the source file
 	fileSize, err := GetObjectSize(svc, srcBucket, srcKey)
 	if err != nil {
+		if strings.Contains(err.Error(), "NoSuchKey") {
+			log.Printf(
+				"warning: in MultiPartCopy, source file key %s/%s does not exist, skipping file copy",
+				srcBucket, srcKey)
+			return nil
+		}
 		return fmt.Errorf("while getting the file size: %v", err)
 	}
 	copySource := url.QueryEscape(fmt.Sprintf("/%s/%s", srcBucket, srcKey))
