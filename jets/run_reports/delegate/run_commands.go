@@ -23,8 +23,8 @@ type CommandWorker struct {
 	errCh    chan<- error
 }
 
-func NewCommandWorker(ctx context.Context, s3Client *s3.Client, 
-	done chan struct{},	errCh chan<- error) *CommandWorker {
+func NewCommandWorker(ctx context.Context, s3Client *s3.Client,
+	done chan struct{}, errCh chan<- error) *CommandWorker {
 	return &CommandWorker{
 		ctx:      ctx,
 		s3Client: s3Client,
@@ -38,8 +38,11 @@ func (ctx *CommandWorker) DoWork(workersTaskCh <-chan any) {
 		switch vv := task.(type) {
 		case compute_pipes.S3CopyFileSpec:
 			// Do work here
-			awsi.CopyS3File(ctx.ctx, ctx.s3Client, vv.WorkerPoolSize, ctx.done, ctx.errCh, vv.SourceBucket,
-				vv.SourceKey, vv.DestinationBucket, vv.DestinationKey)
+			err := awsi.MultiPartCopy(ctx.ctx, ctx.s3Client, vv.WorkerPoolSize,
+				vv.SourceBucket, vv.SourceKey, vv.DestinationBucket, vv.DestinationKey)
+			if err != nil {
+				ctx.sendError(err)
+			}
 
 		default:
 			// Unknown task type
@@ -62,8 +65,8 @@ func (ctx *CommandWorker) sendError(err error) {
 // Run report commands specified by the schema provider of the main input source
 // Note the errCh will be closed by this func either synchronously or async when the worker pool completes
 func (ca *CommandArguments) RunSchemaProviderReportsCmds(ctx context.Context, dbpool *pgxpool.Pool,
-	errCh chan<- error) (err error) {
-
+	errCh chan<- error) {
+	var err error
 	closeErrCh := true
 	defer func() {
 		if closeErrCh {
@@ -74,7 +77,7 @@ func (ca *CommandArguments) RunSchemaProviderReportsCmds(ctx context.Context, db
 
 	// Validate we have a pipeline execution uc
 	if len(ca.SessionId) == 0 {
-		return nil
+		return
 	}
 	var schemaProviderJson string
 	log.Println("Getting the schema provider of the main input source")
@@ -87,11 +90,12 @@ func (ca *CommandArguments) RunSchemaProviderReportsCmds(ctx context.Context, db
 		AND pe.session_id = $1`
 	err = dbpool.QueryRow(ctx, stmt, ca.SessionId).Scan(&schemaProviderJson)
 	if err != nil {
-		return fmt.Errorf("query pipeline_execution_status failed: %v", err)
+		errCh <- fmt.Errorf("query pipeline_execution_status failed: %v", err)
 	}
 	if len(schemaProviderJson) == 0 {
 		// Nothing to do here
-		return nil
+		log.Println("Input surce has no schema provider, bailing out")
+		return
 	}
 	type SchemaProviderShort struct {
 		ReportCmds []compute_pipes.ReportCmdSpec `json:"report_cmds"`
@@ -99,15 +103,18 @@ func (ca *CommandArguments) RunSchemaProviderReportsCmds(ctx context.Context, db
 	schemaProvider := SchemaProviderShort{}
 	err = json.Unmarshal([]byte(schemaProviderJson), &schemaProvider)
 	if err != nil {
-		return fmt.Errorf("while unmarshaling schema_provider_json: %s", err)
+		errCh <- fmt.Errorf("while unmarshaling schema_provider_json: %s", err)
+		return
 	}
 	if len(schemaProvider.ReportCmds) == 0 {
 		// No Report Command to Execute
-		return nil
+		log.Println("Schema provider has no Report Commands to execute, bailing out")
+		return 
 	}
 	s3Client, err := awsi.NewS3Client()
 	if err != nil {
-		return err
+		errCh <- err
+		return 
 	}
 	log.Println("Starting the execution of the Schema Provider's report commands")
 
@@ -116,9 +123,20 @@ func (ca *CommandArguments) RunSchemaProviderReportsCmds(ctx context.Context, db
 	defer close(workersTaskCh)
 	closeErrCh = false // the errCh will be closed in the go func below
 	done := make(chan struct{})
+	sendError := func(err error) {
+		errCh <- err
+		// Interrupt the process, avoid closing a closed channel
+		select {
+		case <-done:
+		default:
+			close(done)
+		}
+	}
 
 	// Create a pool of workers
 	workerPoolSize := min(len(schemaProvider.ReportCmds), commandWorkerMaxPoolSize)
+	// //*** TESTING
+	// workerPoolSize = 1
 	go func() {
 		var wg sync.WaitGroup
 		for range workerPoolSize {
@@ -140,7 +158,8 @@ func (ca *CommandArguments) RunSchemaProviderReportsCmds(ctx context.Context, db
 		case "s3_copy_file":
 			copyConfig := schemaProvider.ReportCmds[i].S3CopyFileConfig
 			if copyConfig == nil {
-				return fmt.Errorf("error: report command 's3_copy_file' is missing s3_copy_file_config")
+				sendError(fmt.Errorf("error: report command 's3_copy_file' is missing s3_copy_file_config"))
+				return 
 			}
 			if copyConfig.WorkerPoolSize == 0 {
 				copyConfig.WorkerPoolSize = s3CopyFileTotalPoolSize / workerPoolSize
@@ -152,8 +171,9 @@ func (ca *CommandArguments) RunSchemaProviderReportsCmds(ctx context.Context, db
 				return
 			}
 		default:
-			return fmt.Errorf("error: unknown report command type: %s", schemaProvider.ReportCmds[i].Type)
+			sendError(fmt.Errorf("error: unknown report command type: %s", schemaProvider.ReportCmds[i].Type))
+			return
 		}
 	}
-	return nil
+	return
 }

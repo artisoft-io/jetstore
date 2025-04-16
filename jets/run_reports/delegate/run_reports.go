@@ -132,9 +132,9 @@ func (ca *CommandArguments) RunReports(dbpool *pgxpool.Pool) (returnedErr error)
 		os.RemoveAll(tempDir)
 	}()
 
-	// Start the Report Commands
+	// Start the Report Commands async
 	log.Println("Start the Report Commands async")
-	errCh := make(chan error)
+	errCh := make(chan error, 5)
 	ctx, cancel := context.WithCancel(context.Background())
 	defer func() {
 		// Check if there was any error while executing the commands.
@@ -159,11 +159,7 @@ func (ca *CommandArguments) RunReports(dbpool *pgxpool.Pool) (returnedErr error)
 		}
 		log.Println("Report done, returnErr:", returnedErr)
 	}()
-
-	err = ca.RunSchemaProviderReportsCmds(ctx, dbpool, errCh)
-	if err != nil {
-		return fmt.Errorf("while RunSchemaProviderReportsCmds: %v", err)
-	}
+	go ca.RunSchemaProviderReportsCmds(ctx, dbpool, errCh)
 
 	// Keep track of files (reports) written to s3 (use case UpdateLookupTables)
 	updatedKeys := make([]string, 0)
