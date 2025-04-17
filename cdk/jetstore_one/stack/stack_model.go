@@ -2,6 +2,7 @@ package stack
 
 import (
 	"fmt"
+	"log"
 	"os"
 	"strings"
 
@@ -136,6 +137,9 @@ func (jsComp *JetStoreStackComponents) ResolveExternalBuckets(stack awscdk.Stack
 		b := awss3.Bucket_FromBucketName(stack, jsii.String(fmt.Sprintf("ExternalBucket%d", i)), jsii.String(bucketName))
 		if b != nil {
 			jsComp.ExternalBuckets = append(jsComp.ExternalBuckets, b)
+			log.Printf("Resolved external bucket '%s'\n", *b.BucketArn())
+		} else {
+			log.Printf("WARNING: External bucket '%s' not found, skipping\n", bucketName)
 		}
 	}
 }

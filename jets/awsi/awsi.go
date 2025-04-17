@@ -274,7 +274,7 @@ func ListS3Objects(externalBucket string, prefix *string) ([]*S3Object, error) {
 			ContinuationToken: token,
 		})
 		if err != nil {
-			log.Printf("Couldn't list objects in bucket %v. Here's why: %v\n", bucket, err)
+			log.Printf("Couldn't list objects in bucket %v. Here's why: %v\n", externalBucket, err)
 			return nil, err
 		}
 		for i := range result.Contents {
