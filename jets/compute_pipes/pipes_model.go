@@ -324,9 +324,10 @@ type TableSpec struct {
 }
 
 type OutputFileSpec struct {
-	// OutputLocation: jetstore_s3_input, jetstore_s3_output (default).
+	// OutputLocation: jetstore_s3_input, jetstore_s3_output (default), or custom file key.
+	// When OutputLocation has a custom file key, it replace Name and KeyPrefix.
 	// KeyPrefix is optional, default to input file key path in OutputLocation.
-	// Name is file name (required).
+	// Name is file name (required or via OutputLocation).
 	// Headers overrides the headers from the input_channel's spec or
 	// from the schema_provider.
 	// Schema provider indicates if put the header line or not.
@@ -449,8 +450,10 @@ type OutputChannelConfig struct {
 	// Compression: none, snappy (default).
 	// UseInputParquetSchema to use the same schema as the input file.
 	// Must have save_parquet_schema = true in the cpipes first input_channel.
-	// OutputLocation: jetstore_s3_input, jetstore_s3_output (default), when
-	// use jetstore_s3_input it will also write to the input bucket.
+	// OutputLocation: jetstore_s3_input, jetstore_s3_output (default), or custom location.
+	// When OutputLocation is jetstore_s3_input it will also write to the input bucket.
+	// When OutputLocation uses a custom location, it replaces KeyPrefix and FileName.
+	// OutputLocation must ends with "/" if we want to use default file name.
 	// KeyPrefix is optional, default to $PATH_FILE_KEY.
 	// Use $CURRENT_PARTITION_LABEL in KeyPrefix and FileName to substitute with
 	// current partition label.

@@ -190,7 +190,7 @@ func (ctx *DataTableContext) InsertPipelineExecutionStatus(dataTableAction *Data
 			return
 		} else {
 			httpStatus = http.StatusInternalServerError
-			err = errors.New("error while inserting into a table")
+			err = fmt.Errorf("while inserting in table %s: %v", dataTableAction.FromClauses[0].Table, err)
 			return
 		}
 	}
