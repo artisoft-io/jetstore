@@ -9,6 +9,7 @@ import (
 
 	"github.com/artisoft-io/jetstore/jets/awsi"
 	"github.com/artisoft-io/jetstore/jets/compute_pipes"
+	"github.com/artisoft-io/jetstore/jets/datatable"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/jackc/pgx/v4/pgxpool"
 )
@@ -80,15 +81,7 @@ func (ca *CommandArguments) RunSchemaProviderReportsCmds(ctx context.Context, db
 		return
 	}
 	var schemaProviderJson string
-	log.Println("Getting the schema provider of the main input source")
-	stmt := `
-	SELECT	ir.schema_provider_json
-	FROM 
-		jetsapi.pipeline_execution_status pe,
-		jetsapi.input_registry ir
-	WHERE pe.main_input_registry_key = ir.key
-		AND pe.session_id = $1`
-	err = dbpool.QueryRow(ctx, stmt, ca.SessionId).Scan(&schemaProviderJson)
+	schemaProviderJson, err = datatable.GetSchemaProviderJsonFromPipelineSession(dbpool, ca.SessionId)
 	if err != nil {
 		errCh <- fmt.Errorf("query pipeline_execution_status failed: %v", err)
 	}

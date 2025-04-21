@@ -167,7 +167,7 @@ func (ctx *PartitionWriterTransformationPipe) Apply(input *[]interface{}) error 
 				ctx.s3DeviceManager.ClientsWg.Done()
 			}()
 
-			var fnc func (io.Writer)
+			var fnc func(io.Writer)
 			switch ctx.deviceWriterType {
 			case "csv_writer":
 				fnc = s3DeviceWriter.WriteCsvPartition
@@ -423,6 +423,22 @@ func (ctx *BuilderContext) NewPartitionWriterTransformationPipe(source *InputCha
 		baseOutputPath = fmt.Sprintf("%s/process_name=%s/session_id=%s/step_id=%s/jets_partition=%s",
 			jetsS3StagePrefix, ctx.processName, ctx.sessionId, spec.OutputChannel.WriteStepId, jetsPartitionLabel)
 	case "output":
+		if len(spec.OutputChannel.OutputLocation) > 0 &&
+			spec.OutputChannel.OutputLocation != "jetstore_s3_input" &&
+			spec.OutputChannel.OutputLocation != "jetstore_s3_output" {
+			if !strings.HasSuffix(spec.OutputChannel.OutputLocation, "/") {
+				pos := strings.LastIndex(spec.OutputChannel.OutputLocation, "/")
+				if pos < 0 {
+					spec.OutputChannel.KeyPrefix = spec.OutputChannel.OutputLocation
+				} else {
+					spec.OutputChannel.FileName = spec.OutputChannel.OutputLocation[pos+1:]
+					spec.OutputChannel.KeyPrefix = spec.OutputChannel.OutputLocation[:pos]	
+				}
+			} else {
+				pos := len(spec.OutputChannel.OutputLocation)
+				spec.OutputChannel.KeyPrefix = spec.OutputChannel.OutputLocation[:pos-1]
+			}
+		}
 		switch {
 		case len(spec.OutputChannel.Bucket) > 0:
 			if spec.OutputChannel.Bucket != "jetstore_bucket" {

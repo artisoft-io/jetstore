@@ -140,8 +140,8 @@ var sqlInsertStmts = map[string]*SqlInsertDefinition{
 	},
 	"rule_configv2": {
 		Stmt: `INSERT INTO jetsapi.rule_configv2 
-			(process_name, client, rule_config_json, user_email) 
-			VALUES ($1, $2, $3, $4)`,
+			(process_config_key, process_name, client, rule_config_json, user_email) 
+			VALUES ((SELECT key FROM jetsapi.process_config WHERE process_name = $1), $1, $2, $3, $4)`,
 		ColumnKeys: []string{"process_name", "client", "rule_config_json", "user_email"},
 		Capability: "client_config",
 	},

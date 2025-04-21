@@ -250,40 +250,44 @@ type SchemaProviderSpec struct {
 	// KmsKey is kms key to use when writing output data. May be empty.
 	// Contains properties to register FileKey with input_registry table:
 	// Client, Vendor, ObjectType, FileDate
+	// NotificationTemplatesOverrides have the following keys to override the templates defined
+	// in the deployment environment var: CPIPES_START_NOTIFICATION_JSON,
+	// CPIPES_COMPLETED_NOTIFICATION_JSON, and CPIPES_FAILED_NOTIFICATION_JSON.
 	//*TODO domain_keys_json
 	//*TODO code_values_mapping_json
-	Key                     string             `json:"key"`
-	Type                    string             `json:"type"`
-	Bucket                  string             `json:"bucket,omitempty"`
-	FileKey                 string             `json:"file_key,omitempty"`
-	FileSize                int64              `json:"file_size"`
-	KmsKey                  string             `json:"kms_key_arn,omitempty"`
-	Client                  string             `json:"client"`
-	Vendor                  string             `json:"vendor"`
-	ObjectType              string             `json:"object_type"`
-	FileDate                string             `json:"file_date,omitempty"`
-	SourceType              string             `json:"source_type"`
-	SchemaName              string             `json:"schema_name,omitempty"`
-	Format                  string             `json:"format,omitempty"`
-	Encoding                string             `json:"encoding,omitempty"`
-	DetectEncoding          bool               `json:"detect_encoding"`
-	Delimiter               rune               `json:"delimiter"`
-	Compression             string             `json:"compression,omitempty"`
-	DomainClass             string             `json:"domain_class,omitempty"`
-	DomainKeys              map[string]any     `json:"domain_keys,omitempty"`
-	InputFormatDataJson     string             `json:"input_format_data_json,omitempty"`
-	UseLazyQuotes           bool               `json:"use_lazy_quotes"`
-	VariableFieldsPerRecord bool               `json:"variable_fields_per_record"`
-	QuoteAllRecords         bool               `json:"quote_all_records"`
-	NoQuotes                bool               `json:"no_quotes"`
-	ReadDateLayout          string             `json:"read_date_layout,omitempty"`
-	WriteDateLayout         string             `json:"write_date_layout,omitempty"`
-	TrimColumns             bool               `json:"trim_columns"`
-	IsPartFiles             bool               `json:"is_part_files"`
-	FixedWidthColumnsCsv    string             `json:"fixed_width_columns_csv,omitempty"`
-	Columns                 []SchemaColumnSpec `json:"columns"`
-	Env                     map[string]any     `json:"env"`
-	ReportCmds              []ReportCmdSpec    `json:"report_cmds"`
+	Key                            string             `json:"key"`
+	Type                           string             `json:"type"`
+	Bucket                         string             `json:"bucket,omitempty"`
+	FileKey                        string             `json:"file_key,omitempty"`
+	FileSize                       int64              `json:"file_size"`
+	KmsKey                         string             `json:"kms_key_arn,omitempty"`
+	Client                         string             `json:"client"`
+	Vendor                         string             `json:"vendor"`
+	ObjectType                     string             `json:"object_type"`
+	FileDate                       string             `json:"file_date,omitempty"`
+	SourceType                     string             `json:"source_type"`
+	SchemaName                     string             `json:"schema_name,omitempty"`
+	Format                         string             `json:"format,omitempty"`
+	Encoding                       string             `json:"encoding,omitempty"`
+	DetectEncoding                 bool               `json:"detect_encoding"`
+	Delimiter                      rune               `json:"delimiter"`
+	Compression                    string             `json:"compression,omitempty"`
+	DomainClass                    string             `json:"domain_class,omitempty"`
+	DomainKeys                     map[string]any     `json:"domain_keys,omitempty"`
+	InputFormatDataJson            string             `json:"input_format_data_json,omitempty"`
+	UseLazyQuotes                  bool               `json:"use_lazy_quotes"`
+	VariableFieldsPerRecord        bool               `json:"variable_fields_per_record"`
+	QuoteAllRecords                bool               `json:"quote_all_records"`
+	NoQuotes                       bool               `json:"no_quotes"`
+	ReadDateLayout                 string             `json:"read_date_layout,omitempty"`
+	WriteDateLayout                string             `json:"write_date_layout,omitempty"`
+	TrimColumns                    bool               `json:"trim_columns"`
+	IsPartFiles                    bool               `json:"is_part_files"`
+	FixedWidthColumnsCsv           string             `json:"fixed_width_columns_csv,omitempty"`
+	Columns                        []SchemaColumnSpec `json:"columns,omitempty"`
+	Env                            map[string]any     `json:"env,omitempty"`
+	ReportCmds                     []ReportCmdSpec    `json:"report_cmds,omitempty"`
+	NotificationTemplatesOverrides map[string]string  `json:"notification_templates_overrides"`
 }
 
 // Commands for the run_report step
@@ -320,9 +324,10 @@ type TableSpec struct {
 }
 
 type OutputFileSpec struct {
-	// OutputLocation: jetstore_s3_input, jetstore_s3_output (default).
+	// OutputLocation: jetstore_s3_input, jetstore_s3_output (default), or custom file key.
+	// When OutputLocation has a custom file key, it replace Name and KeyPrefix.
 	// KeyPrefix is optional, default to input file key path in OutputLocation.
-	// Name is file name (required).
+	// Name is file name (required or via OutputLocation).
 	// Headers overrides the headers from the input_channel's spec or
 	// from the schema_provider.
 	// Schema provider indicates if put the header line or not.
@@ -445,8 +450,10 @@ type OutputChannelConfig struct {
 	// Compression: none, snappy (default).
 	// UseInputParquetSchema to use the same schema as the input file.
 	// Must have save_parquet_schema = true in the cpipes first input_channel.
-	// OutputLocation: jetstore_s3_input, jetstore_s3_output (default), when
-	// use jetstore_s3_input it will also write to the input bucket.
+	// OutputLocation: jetstore_s3_input, jetstore_s3_output (default), or custom location.
+	// When OutputLocation is jetstore_s3_input it will also write to the input bucket.
+	// When OutputLocation uses a custom location, it replaces KeyPrefix and FileName.
+	// OutputLocation must ends with "/" if we want to use default file name.
 	// KeyPrefix is optional, default to $PATH_FILE_KEY.
 	// Use $CURRENT_PARTITION_LABEL in KeyPrefix and FileName to substitute with
 	// current partition label.

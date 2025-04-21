@@ -52,32 +52,41 @@ func (cpCtx *ComputePipesContext) StartMergeFiles(dbpool *pgxpool.Pool) (cpErr e
 		cpErr = fmt.Errorf("error: OutputFile config not found for key %s in StartMergeFiles", *outputFileKey)
 		return
 	}
+	// outputFileConfig.OutputLocation may have 3 values:
+	//	- jetstore_s3_input, to indicate to put the output file in JetStore input path.
+	//	- jetstore_s3_output (default), to indicate to put the output file in JetStore output path.
+	//	- custom file path, indicates a custom file key location (path and file name) in this case
+	//    it replaces KeyPrefix and Name attributes.
 	// outputFileConfig.KeyPrefix is the s3 output folder, when empty use:
 	//     <JETS_s3_OUTPUT_PREFIX>/<input file_key dir>/
 	// outputFileConfig.Name is the file name, defaults to $NAME_FILE_KEY (a file name is required)
 	if outputFileConfig.OutputLocation == "" {
 		outputFileConfig.OutputLocation = "jetstore_s3_output"
 	}
-	var fileName string
-	if len(outputFileConfig.Name) > 0 {
-		fileName = doSubstitution(outputFileConfig.Name, "",	"",	cpCtx.EnvSettings)
-	} else {
-		fileName = doSubstitution("$NAME_FILE_KEY", "",	"",	cpCtx.EnvSettings)
-	}
-	if len(fileName) == 0 {
-		cpErr = fmt.Errorf("error: OutputFile config is missing file_name in StartMergeFile")
-		return
-	}
+	var fileFolder, fileName, outputS3FileKey string
+	switch outputFileConfig.OutputLocation {
+	case "jetstore_s3_input", "jetstore_s3_output":
+		if len(outputFileConfig.Name) > 0 {
+			fileName = doSubstitution(outputFileConfig.Name, "",	"",	cpCtx.EnvSettings)
+		} else {
+			fileName = doSubstitution("$NAME_FILE_KEY", "",	"",	cpCtx.EnvSettings)
+		}
+		if len(fileName) == 0 {
+			cpErr = fmt.Errorf("error: OutputFile config is missing file_name in StartMergeFile")
+			return
+		}
+		if len(outputFileConfig.KeyPrefix) > 0 {
+			fileFolder = doSubstitution(outputFileConfig.KeyPrefix, "",	outputFileConfig.OutputLocation,
+				cpCtx.EnvSettings)
+		} else {
+			fileFolder = doSubstitution("$PATH_FILE_KEY", "",	outputFileConfig.OutputLocation,
+				cpCtx.EnvSettings)
+		}
+		outputS3FileKey = fmt.Sprintf("%s/%s", fileFolder, fileName)
 
-	var fileFolder string
-	if len(outputFileConfig.KeyPrefix) > 0 {
-		fileFolder = doSubstitution(outputFileConfig.KeyPrefix, "",	outputFileConfig.OutputLocation,
-			cpCtx.EnvSettings)
-	} else {
-		fileFolder = doSubstitution("$PATH_FILE_KEY", "",	outputFileConfig.OutputLocation,
-			cpCtx.EnvSettings)
+	default:
+		outputS3FileKey = outputFileConfig.OutputLocation
 	}
-	outputS3FileKey := fmt.Sprintf("%s/%s", fileFolder, fileName)
 
 	// Create a reader to stream the data to s3
 	compression := pipeSpec.InputChannel.Compression
