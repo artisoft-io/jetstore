@@ -1,7 +1,6 @@
 package compute_pipes
 
 import (
-	"fmt"
 	"regexp"
 )
 
@@ -70,8 +69,8 @@ func (cp *ComputePipesConfig) GetComputePipes(stepId int, env map[string]any) ([
 					}
 					stepId += 1
 					if len(cp.ConditionalPipesConfig) == stepId {
-						// Got no steps
-						return nil, 0, fmt.Errorf("error: found no conditional steps with matching condition")
+						// Got no more steps
+						return nil, stepId, nil
 					}
 				} else {
 					return cp.ConditionalPipesConfig[stepId].PipesConfig, stepId, nil
