@@ -426,17 +426,18 @@ func (ctx *BuilderContext) NewPartitionWriterTransformationPipe(source *InputCha
 		if len(spec.OutputChannel.OutputLocation) > 0 &&
 			spec.OutputChannel.OutputLocation != "jetstore_s3_input" &&
 			spec.OutputChannel.OutputLocation != "jetstore_s3_output" {
-			if !strings.HasSuffix(spec.OutputChannel.OutputLocation, "/") {
-				pos := strings.LastIndex(spec.OutputChannel.OutputLocation, "/")
+				outputLocation := doSubstitution(spec.OutputChannel.OutputLocation, "", "", ctx.env)
+			if !strings.HasSuffix(outputLocation, "/") {
+				pos := strings.LastIndex(outputLocation, "/")
 				if pos < 0 {
-					spec.OutputChannel.KeyPrefix = spec.OutputChannel.OutputLocation
+					spec.OutputChannel.KeyPrefix = outputLocation
 				} else {
-					spec.OutputChannel.FileName = spec.OutputChannel.OutputLocation[pos+1:]
-					spec.OutputChannel.KeyPrefix = spec.OutputChannel.OutputLocation[:pos]	
+					spec.OutputChannel.FileName = outputLocation[pos+1:]
+					spec.OutputChannel.KeyPrefix = outputLocation[:pos]	
 				}
 			} else {
-				pos := len(spec.OutputChannel.OutputLocation)
-				spec.OutputChannel.KeyPrefix = spec.OutputChannel.OutputLocation[:pos-1]
+				pos := len(outputLocation)
+				spec.OutputChannel.KeyPrefix = outputLocation[:pos-1]
 			}
 		}
 		switch {

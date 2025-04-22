@@ -85,7 +85,7 @@ func (cpCtx *ComputePipesContext) StartMergeFiles(dbpool *pgxpool.Pool) (cpErr e
 		outputS3FileKey = fmt.Sprintf("%s/%s", fileFolder, fileName)
 
 	default:
-		outputS3FileKey = outputFileConfig.OutputLocation
+		outputS3FileKey = doSubstitution(outputFileConfig.OutputLocation, "",	"",	cpCtx.EnvSettings)
 	}
 
 	// Create a reader to stream the data to s3
