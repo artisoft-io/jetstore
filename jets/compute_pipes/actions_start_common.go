@@ -729,14 +729,6 @@ func validateOutputChConfig(outputChConfig *OutputChannelConfig, sp *SchemaProvi
 			if len(outputChConfig.OutputLocation) == 0 {
 				outputChConfig.OutputLocation = "jetstore_s3_output"
 			}
-			switch outputChConfig.OutputLocation {
-			case "jetstore_s3_input", "jetstore_s3_output":
-			default:
-				return fmt.Errorf(
-					"configuration error: invalid output_location '%s' in output_channel '%s' of type"+
-						" 'output', expecting jetstore_s3_input or jetstore_s3_output",
-					outputChConfig.OutputLocation, outputChConfig.Name)
-			}
 
 		case "memory":
 			outputChConfig.Format = ""
