@@ -115,3 +115,7 @@ jets/copytest/unsnappy/unsnappy
 jets/copytest/generate_cert/generate_cert
 jets/apiserver/cert.pem
 jets/apiserver/key.pem
+cdk/jetstore_one/lambdas/sqs_listener/cgt_sqs_listener_test.go
+jets/copytest/upload-copy/upload-copy
+jets/awsi/s3_copy_file.go.bak
+jets/run_reports/delegate/run_commands copy.go.bak

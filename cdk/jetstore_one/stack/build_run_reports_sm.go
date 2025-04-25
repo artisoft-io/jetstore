@@ -5,6 +5,7 @@ import (
 	"github.com/aws/aws-cdk-go/awscdk/v2/awsec2"
 	"github.com/aws/aws-cdk-go/awscdk/v2/awsecs"
 	"github.com/aws/aws-cdk-go/awscdk/v2/awsiam"
+	"github.com/aws/aws-cdk-go/awscdk/v2/awslogs"
 	sfn "github.com/aws/aws-cdk-go/awscdk/v2/awsstepfunctions"
 	sfntask "github.com/aws/aws-cdk-go/awscdk/v2/awsstepfunctionstasks"
 	constructs "github.com/aws/constructs-go/constructs/v10"
@@ -65,7 +66,12 @@ func (jsComp *JetStoreStackComponents) BuildRunReportsSM(scope constructs.Constr
 	jsComp.ReportsSM = sfn.NewStateMachine(stack, props.MkId("reportsSM"), &sfn.StateMachineProps{
 		StateMachineName: props.MkId("reportsSM"),
 		DefinitionBody:   sfn.DefinitionBody_FromChainable(runReportsTask),
-		Timeout:          awscdk.Duration_Hours(jsii.Number(4)),
+		Timeout:          awscdk.Duration_Hours(jsii.Number(1)),
+		Logs: &sfn.LogOptions{
+			Destination: awslogs.NewLogGroup(stack, props.MkId("reportsLogs"), &awslogs.LogGroupProps{
+				Retention: awslogs.RetentionDays_THREE_MONTHS,
+			}),
+		},
 	})
 	if phiTagName != nil {
 		awscdk.Tags_Of(jsComp.ReportsSM).Add(phiTagName, jsii.String("true"), nil)

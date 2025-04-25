@@ -82,7 +82,9 @@ func (cpCtx *ComputePipesContext) ProcessFilesAndReportStatus(ctx context.Contex
 		}
 	}
 
-	// log.Println("**@= CP RESULT = Loaded from s3:")
+	if cpCtx.CpConfig.ClusterConfig.IsDebugMode {
+		log.Println("**@= CP RESULT = Loaded from s3:")
+	}
 	var loadedRowCount int
 	for loadFromS3FilesResult := range cpCtx.ChResults.LoadFromS3FilesResultCh {
 		if cpCtx.CpConfig.ClusterConfig.IsDebugMode {
@@ -104,7 +106,9 @@ func (cpCtx *ComputePipesContext) ProcessFilesAndReportStatus(ctx context.Contex
 		}
 	}
 	
-	// log.Println("**@= CHECKING jetrules results from JetrulesWorkerResultCh")
+	if cpCtx.CpConfig.ClusterConfig.IsDebugMode {
+		log.Println("**@= CHECKING jetrules results from JetrulesWorkerResultCh:")
+	}
 	// get jetrules results from JetrulesWorkerResultCh
 	var reteSessionCount int64
 	var reteSessionErrors int64
@@ -124,7 +128,9 @@ func (cpCtx *ComputePipesContext) ProcessFilesAndReportStatus(ctx context.Contex
 		log.Printf("WARNING: rete session got %d data errors\n", reteSessionErrors)
 	}
 
-	// log.Println("**@= CHECKING clustering results from ClusteringResultCh")
+	if cpCtx.CpConfig.ClusterConfig.IsDebugMode {
+		log.Println("**@= CHECKING clustering results from ClusteringResultCh:")
+	}
 	// get clustering results from ClusteringResultCh
 	for clusteringResultCh := range cpCtx.ChResults.ClusteringResultCh {
 		for clusteringResult := range clusteringResultCh {
@@ -138,7 +144,9 @@ func (cpCtx *ComputePipesContext) ProcessFilesAndReportStatus(ctx context.Contex
 	}
 	// log.Println("** CHECKING clustering results DONE :: err?", err)
 
-	// log.Println("**@= CP RESULT = Copy2DbResultCh:")
+	if cpCtx.CpConfig.ClusterConfig.IsDebugMode {
+		log.Println("**@= CP RESULT = Copy2DbResultCh:")
+	}
 	var outputRowCount int64
 	for table := range cpCtx.ChResults.Copy2DbResultCh {
 		// log.Println("**@= Read table results:")
@@ -156,7 +164,9 @@ func (cpCtx *ComputePipesContext) ProcessFilesAndReportStatus(ctx context.Contex
 	}
 	// log.Println("**@= CP RESULT = Copy2DbResultCh: DONE")
 
-	// log.Println("**@= CP RESULT = WritePartitionsResultCh:")
+	if cpCtx.CpConfig.ClusterConfig.IsDebugMode {
+		log.Println("**@= CP RESULT = WritePartitionsResultCh:")
+	}
 	for splitter := range cpCtx.ChResults.WritePartitionsResultCh {
 		// log.Println("**@= Read SPLITTER ComputePipesResult from writePartitionsResultCh:")
 		for partitionWriterResult := range splitter {
@@ -176,12 +186,18 @@ func (cpCtx *ComputePipesContext) ProcessFilesAndReportStatus(ctx context.Contex
 	// Get the result from S3DeviceManager
 	// cpCtx.S3DeviceMgr == nil when cpCtx.ComputePipesArgs.MergeFiles == true
 	if cpCtx.S3DeviceMgr != nil {
-		// log.Println("**@= Waiting on S3DeviceMgr.ClientsWg.Wait")
+		if cpCtx.CpConfig.ClusterConfig.IsDebugMode {
+			log.Println("**@= Waiting on S3DeviceMgr.ClientsWg.Wait")
+		}
 		cpCtx.S3DeviceMgr.ClientsWg.Wait()
 		close(cpCtx.S3DeviceMgr.WorkersTaskCh)
-		// log.Println("**@= Waiting on S3DeviceMgr.ClientsWg.Wait DONE")
+		if cpCtx.CpConfig.ClusterConfig.IsDebugMode {
+			log.Println("**@= Waiting on S3DeviceMgr.ClientsWg.Wait DONE")
+		}
 	}
-	// log.Println("**@= CP RESULT = S3PutObjectResultCh:")
+	if cpCtx.CpConfig.ClusterConfig.IsDebugMode {
+		log.Println("**@= CP RESULT = S3PutObjectResultCh:")
+	}
 	for s3DeviceManagerResult := range cpCtx.ChResults.S3PutObjectResultCh {
 		if cpCtx.CpConfig.ClusterConfig.IsDebugMode {
 			log.Printf("%s node %d Put %d part files to s3", cpCtx.SessionId, cpCtx.NodeId, s3DeviceManagerResult.PartsCount)

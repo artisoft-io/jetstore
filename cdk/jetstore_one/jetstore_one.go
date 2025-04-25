@@ -16,9 +16,11 @@ import (
 	"github.com/aws/aws-cdk-go/awscdk/v2/awsecs"
 	awselb "github.com/aws/aws-cdk-go/awscdk/v2/awselasticloadbalancingv2"
 	"github.com/aws/aws-cdk-go/awscdk/v2/awsiam"
+	"github.com/aws/aws-cdk-go/awscdk/v2/awslogs"
 	"github.com/aws/aws-cdk-go/awscdk/v2/awsrds"
 	"github.com/aws/aws-cdk-go/awscdk/v2/awss3"
 	"github.com/aws/aws-cdk-go/awscdk/v2/awssns"
+	"github.com/aws/aws-sdk-go-v2/aws"
 	constructs "github.com/aws/constructs-go/constructs/v10"
 	jsii "github.com/aws/jsii-runtime-go"
 )
@@ -163,10 +165,16 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 		Engine: awsrds.DatabaseClusterEngine_AuroraPostgres(&awsrds.AuroraPostgresClusterEngineProps{
 			Version: dbVersion,
 		}),
-		Credentials:             awsrds.Credentials_FromSecret(jsComp.RdsSecret, username),
-		ClusterIdentifier:       props.MkId("jetstoreDb"),
-		DefaultDatabaseName:     jsii.String("postgres"),
-		Writer:                  awsrds.ClusterInstance_ServerlessV2(jsii.String("ClusterInstance"), &awsrds.ServerlessV2ClusterInstanceProps{}),
+		Credentials:         awsrds.Credentials_FromSecret(jsComp.RdsSecret, username),
+		ClusterIdentifier:   props.MkId("jetstoreDb"),
+		DefaultDatabaseName: jsii.String("postgres"),
+		DeletionProtection:  jsii.Bool(true),
+		Writer: awsrds.ClusterInstance_ServerlessV2(jsii.String("ClusterInstance"), &awsrds.ServerlessV2ClusterInstanceProps{
+			AllowMajorVersionUpgrade: jsii.Bool(true),
+			AutoMinorVersionUpgrade:  jsii.Bool(true),
+			PubliclyAccessible:       jsii.Bool(false),
+		}),
+		Parameters:              &map[string]*string{"rds.force_ssl": aws.String("1")},
 		ServerlessV2MinCapacity: props.DbMinCapacity,
 		ServerlessV2MaxCapacity: props.DbMaxCapacity,
 		Vpc:                     jsComp.Vpc,
@@ -177,7 +185,8 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 		S3ImportBuckets: &[]awss3.IBucket{
 			jsComp.SourceBucket,
 		},
-		StorageEncrypted: jsii.Bool(true),
+		StorageEncrypted:        jsii.Bool(true),
+		CloudwatchLogsRetention: awslogs.RetentionDays_THREE_MONTHS,
 	})
 	if phiTagName != nil {
 		awscdk.Tags_Of(jsComp.RdsCluster).Add(phiTagName, jsii.String("true"), nil)
@@ -340,7 +349,7 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 	}))
 
 	// ---------------------------------------
-	// Add Scret Rotation Schedules
+	// Add Secret Rotation Schedules
 	// ---------------------------------------
 	jsComp.AddSecretRotationSchedules(scope, stack, props)
 
@@ -435,6 +444,9 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 		NewTargetGroupId: jsii.String("UI"),
 		Listener: awsecs.ListenerConfig_ApplicationListener(listener, &awselb.AddApplicationTargetsProps{
 			Protocol: awselb.ApplicationProtocol_HTTPS,
+			HealthCheck: &awselb.HealthCheck{
+				Path: jsii.String("/healthcheck/status"),
+			},
 		}),
 	})
 
@@ -758,8 +770,9 @@ func main() {
 	}
 	NewJetstoreOneStack(app, stackId, &jetstorestack.JetstoreOneStackProps{
 		StackProps: awscdk.StackProps{
-			Env:         env(),
-			Description: stackDescription,
+			Env:                   env(),
+			Description:           stackDescription,
+			TerminationProtection: jsii.Bool(true),
 		},
 		StackId:                      stackId,
 		StackSuffix:                  os.Getenv("JETS_STACK_SUFFIX"),

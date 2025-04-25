@@ -16,6 +16,7 @@ import (
 	"strings"
 
 	"github.com/artisoft-io/jetstore/jets/awsi"
+	"github.com/jackc/pgx/v4"
 )
 
 // This file contains functions to update table pipeline_execution_status,
@@ -189,7 +190,7 @@ func (ctx *DataTableContext) InsertPipelineExecutionStatus(dataTableAction *Data
 			return
 		} else {
 			httpStatus = http.StatusInternalServerError
-			err = errors.New("error while inserting into a table")
+			err = fmt.Errorf("while inserting in table %s: %v", dataTableAction.FromClauses[0].Table, err)
 			return
 		}
 	}
@@ -381,6 +382,10 @@ func (ctx *DataTableContext) checkThrottling(stateMachineName, fileKey string) (
 	stmt := "SELECT file_size FROM jetsapi.file_key_staging WHERE file_key = $1"
 	err := ctx.Dbpool.QueryRow(context.Background(), stmt, fileKey).Scan(&fileSize)
 	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			// hum this is usually due to jetstore home path have changed, exit silently
+			return false, nil
+		}
 		err = fmt.Errorf("while getting file_size from file_key_staging WHERE file_key = '%s': %v", fileKey, err)
 		return false, err
 	}

@@ -546,6 +546,14 @@ func listenAndServe() error {
 	server.Router.Handle("/manifest.json", fs).Methods("GET")
 	// server.Router.Handle("", fs).Methods("GET")
 
+	// Health Check
+	healthCheckOptions := OptionConfig{Origin: "",
+		AllowedMethods: "GET, OPTIONS",
+		AllowedHeaders: "Content-Type"}
+	server.Router.HandleFunc("/healthcheck/status", healthCheckOptions.options).Methods("OPTIONS")
+	server.Router.HandleFunc("/healthcheck/status",
+		jsonh(corsh(func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(http.StatusOK) }))).Methods("GET")
+
 	// Login Route
 	loginOptions := OptionConfig{Origin: "",
 		AllowedMethods: "POST, OPTIONS",
@@ -633,7 +641,7 @@ func listenAndServe() error {
 			err = fmt.Errorf("while calling GenerateCert: %v", err)
 			log.Println(err)
 			return err
-		}	
+		}
 		return http.ListenAndServeTLS(serverAddr, "cert.pem", "key.pem", server.Router)
 	}
 }

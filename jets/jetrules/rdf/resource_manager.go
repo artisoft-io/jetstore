@@ -182,6 +182,8 @@ func (rm *ResourceManager) ReifyResource(r *Node) *Node {
 		return rm.NewDatetimeLiteral(vv)
 	case int:
 		return rm.NewIntLiteral(vv)
+	case uint:
+		return rm.NewUIntLiteral(vv)
 	case string:
 		return rm.NewTextLiteral(vv)
 	case float64:
@@ -202,13 +204,15 @@ func (rm *ResourceManager) ReifyResource(r *Node) *Node {
 	return globalNull
 }
 
-// This applies to basic literal types: int, string, float64
+// This applies to basic literal types: int, uint, string, float64
 // It does not applies to dates of other resource types
-// Thisis only used by GetLiteral
+// This is only used by GetLiteral
 func toValidData(data interface{}) interface{} {
 	var validData interface{}
 	switch vv := data.(type) {
 	case int:
+		validData = vv
+	case uint:
 		validData = vv
 	case int32:
 		validData = int(vv)
@@ -230,7 +234,7 @@ func toValidData(data interface{}) interface{} {
 	return validData
 }
 
-// This applies ONLY to basic literal types: int, string, double
+// This applies ONLY to basic literal types: int, uint, string, double
 // This func is used for testing only
 func (rm *ResourceManager) GetLiteral(data interface{}) *Node {
 	validData := toValidData(data)
@@ -257,6 +261,20 @@ func (rm *ResourceManager) NewIntLiteral(data int) *Node {
 	}
 	if rm.isLocked {
 		log.Println("error: NewIntLiteral called when ResourceManger is locked")
+		return nil
+	}
+	r := &Node{Value: data}
+	rm.literalMap[data] = r
+	return r
+}
+
+func (rm *ResourceManager) NewUIntLiteral(data uint) *Node {
+	v := rm.getLiteralInternal(data)
+	if v != nil {
+		return v
+	}
+	if rm.isLocked {
+		log.Println("error: NewUIntLiteral called when ResourceManger is locked")
 		return nil
 	}
 	r := &Node{Value: data}

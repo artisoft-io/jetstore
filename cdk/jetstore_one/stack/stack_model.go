@@ -2,6 +2,7 @@ package stack
 
 import (
 	"fmt"
+	"log"
 	"os"
 	"strings"
 
@@ -136,16 +137,19 @@ func (jsComp *JetStoreStackComponents) ResolveExternalBuckets(stack awscdk.Stack
 		b := awss3.Bucket_FromBucketName(stack, jsii.String(fmt.Sprintf("ExternalBucket%d", i)), jsii.String(bucketName))
 		if b != nil {
 			jsComp.ExternalBuckets = append(jsComp.ExternalBuckets, b)
+			log.Printf("Resolved external bucket '%s'\n", *b.BucketArn())
+		} else {
+			log.Printf("WARNING: External bucket '%s' not found, skipping\n", bucketName)
 		}
 	}
 }
 
 func (jsComp *JetStoreStackComponents) ResolveExternalKmsKey(stack awscdk.Stack) {
-  kmsArn := os.Getenv("JETS_S3_KMS_KEY_ARN")
-  if len(kmsArn) > 0 {
-    // Provide the ability to use the kms key
-    jsComp.ExternalKmsKey = awskms.Key_FromKeyArn(stack, jsii.String("existingKmsKey"), jsii.String(kmsArn))
-  }
+	kmsArn := os.Getenv("JETS_S3_KMS_KEY_ARN")
+	if len(kmsArn) > 0 {
+		// Provide the ability to use the kms key
+		jsComp.ExternalKmsKey = awskms.Key_FromKeyArn(stack, jsii.String("existingKmsKey"), jsii.String(kmsArn))
+	}
 }
 
 func (jsComp *JetStoreStackComponents) GrantReadWriteFromExternalBuckets(stack awscdk.Stack, identity awsiam.IGrantable) {

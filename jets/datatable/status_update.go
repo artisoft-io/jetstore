@@ -137,7 +137,7 @@ func (ca *StatusUpdate) ValidateArguments() []string {
 	log.Println("Got argument: cpipesMode", ca.CpipesMode)
 	log.Println("Got argument: cpipesEnv", ca.CpipesEnv)
 	log.Println("Got argument: doNotNotifyApiGateway", ca.DoNotNotifyApiGateway)
-	log.Printf("ENV JETS_s3_INPUT_PREFIX: %s", os.Getenv("JETS_s3_INPUT_PREFIX"))
+	log.Println("env JETS_s3_INPUT_PREFIX:", os.Getenv("JETS_s3_INPUT_PREFIX"))
 	log.Println("env CPIPES_STATUS_NOTIFICATION_ENDPOINT:", os.Getenv("CPIPES_STATUS_NOTIFICATION_ENDPOINT"))
 	log.Println("env CPIPES_STATUS_NOTIFICATION_ENDPOINT_JSON:", os.Getenv("CPIPES_STATUS_NOTIFICATION_ENDPOINT_JSON"))
 	log.Println("env CPIPES_CUSTOM_FILE_KEY_NOTIFICATION:", os.Getenv("CPIPES_CUSTOM_FILE_KEY_NOTIFICATION"))
@@ -272,6 +272,11 @@ func DoNotifyApiGateway(fileKey, apiEndpoint, apiEndpointJson, notificationTempl
 }
 
 func (ca *StatusUpdate) CoordinateWork() error {
+	// Expecting to have an open db connection
+	if ca.Dbpool == nil {
+		return fmt.Errorf("error: StatusUpdate.CoordinateWork is expecting to have an opened db connections")
+	}
+
 	// NOTE 2024-05-13 Added Notification to API Gateway via env var CPIPES_STATUS_NOTIFICATION_ENDPOINT
 	// or CPIPES_STATUS_NOTIFICATION_ENDPOINT_JSON
 	// ALSO set a deadline to calls to database to avoid locks, don't fail the call when database fails
@@ -279,24 +284,45 @@ func (ca *StatusUpdate) CoordinateWork() error {
 	apiEndpointJson := os.Getenv("CPIPES_STATUS_NOTIFICATION_ENDPOINT_JSON")
 	if (apiEndpoint != "" || apiEndpointJson != "") && !ca.DoNotNotifyApiGateway {
 		var notificationTemplate string
+		var errMsg string
 		customFileKeys := make([]string, 0)
 		ck := os.Getenv("CPIPES_CUSTOM_FILE_KEY_NOTIFICATION")
 		if len(ck) > 0 {
 			customFileKeys = strings.Split(ck, ",")
 		}
-		var errMsg string
-		if ca.Status == "failed" {
-			notificationTemplate = os.Getenv("CPIPES_FAILED_NOTIFICATION_JSON")
-			errMsg = ca.FailureDetails
-		} else {
-			notificationTemplate = os.Getenv("CPIPES_COMPLETED_NOTIFICATION_JSON")
+
+		// Need to get the main input schema provider to see if there is an override on the notification template
+		schemaProviderJson, err := GetSchemaProviderJsonFromPipelineKey(ca.Dbpool, ca.PeKey)
+		if err != nil {
+			return fmt.Errorf("while getting schema provider json from peKey %d in status_update: %v", ca.PeKey, err)
 		}
+		if len(schemaProviderJson) > 0 {
+			type SchemaProviderShort struct {
+				NotificationTemplatesOverrides map[string]string `json:"notification_templates_overrides"`
+			}
+			schemaProvider := SchemaProviderShort{}
+			err = json.Unmarshal([]byte(schemaProviderJson), &schemaProvider)
+			if err == nil && schemaProvider.NotificationTemplatesOverrides != nil {
+				if ca.Status == "failed" {
+					notificationTemplate = schemaProvider.NotificationTemplatesOverrides["CPIPES_FAILED_NOTIFICATION_JSON"]
+					errMsg = ca.FailureDetails
+				} else {
+					notificationTemplate = schemaProvider.NotificationTemplatesOverrides["CPIPES_COMPLETED_NOTIFICATION_JSON"]
+				}		
+			}
+		}
+		// Get the template defined at deployment if no override was found
+		if len(notificationTemplate) == 0 {
+			if ca.Status == "failed" {
+				notificationTemplate = os.Getenv("CPIPES_FAILED_NOTIFICATION_JSON")
+				errMsg = ca.FailureDetails
+			} else {
+				notificationTemplate = os.Getenv("CPIPES_COMPLETED_NOTIFICATION_JSON")
+			}	
+		}
+
 		// ignore returned err
 		DoNotifyApiGateway(ca.FileKey, apiEndpoint, apiEndpointJson, notificationTemplate, customFileKeys, errMsg, ca.CpipesEnv)
-	}
-	// Expecting to have an open db connection
-	if ca.Dbpool == nil {
-		return fmt.Errorf("error: StatusUpdate.CoordinateWork is expecting to have an opened db connections")
 	}
 
 	// Update the pipeline_execution_status based on worst case status
@@ -369,7 +395,7 @@ func (ca *StatusUpdate) CoordinateWork() error {
 		   WHERE pc.process_name = pe.process_name AND pe.key = $1`,
 		ca.PeKey).Scan(&stateMachineName)
 	if err != nil {
-		log.Fatalf("QueryRow on pipeline_execution_status failed: %v", err)
+		return fmt.Errorf("while queryRow on pipeline_execution_status failed: %v", err)
 	}
 	ctx := NewDataTableContext(ca.Dbpool, ca.UsingSshTunnel, ca.UsingSshTunnel, nil, nil)
 	err = ctx.StartPendingTasks(stateMachineName)

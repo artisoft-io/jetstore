@@ -148,7 +148,7 @@ func (ctx *BuilderContext) NewJetrulesTransformationPipe(source *InputChannel, _
 		// parse and append to ruleConfig
 		config.RuleConfig, err = appendRuleConfig(config.RuleConfig, &ruleConfigJson)
 		if err != nil {
-			return nil, fmt.Errorf("while parsing and appending rule config from rule_configv2: %v", err)
+			return nil, fmt.Errorf("while parsing and appending rule config from pipeline_config table: %v", err)
 		}
 	}
 	

@@ -226,16 +226,39 @@ type S3Object struct {
 	Size int64
 }
 
-// ListObjects lists the objects in a bucket with prefix if not nil.
-// Read from externalBucket if not empty, otherwise read from jetstore default bucket
-func ListS3Objects(externalBucket string, prefix *string) ([]*S3Object, error) {
+func NewS3Client() (*s3.Client, error) {
 	cfg, err := config.LoadDefaultConfig(context.TODO(), config.WithRegion(region))
 	if err != nil {
 		return nil, fmt.Errorf("while loading aws configuration: %v", err)
 	}
-
 	// Create a s3 client
-	s3Client := s3.NewFromConfig(cfg)
+	return s3.NewFromConfig(cfg), nil
+}
+
+func GetObjectSize(s3Client *s3.Client, s3bucket string, key string) (int64, error) {
+	if len(s3bucket) == 0 {
+		s3bucket = bucket
+	}
+	result, err := s3Client.GetObjectAttributes(context.TODO(), &s3.GetObjectAttributesInput{
+		Bucket: aws.String(s3bucket),
+		Key: aws.String(key),
+		ObjectAttributes: []types.ObjectAttributes{
+			types.ObjectAttributesObjectSize,
+		},
+	})
+	if err != nil {
+		return 0, err
+	}
+	return *result.ObjectSize, nil
+}
+
+// ListObjects lists the objects in a bucket with prefix if not nil.
+// Read from externalBucket if not empty, otherwise read from jetstore default bucket
+func ListS3Objects(externalBucket string, prefix *string) ([]*S3Object, error) {
+	s3Client, err := NewS3Client()
+	if err != nil {
+		return nil, fmt.Errorf("while creating s3 client: %v", err)
+	}
 
 	if externalBucket == "" {
 		externalBucket = bucket
@@ -251,7 +274,7 @@ func ListS3Objects(externalBucket string, prefix *string) ([]*S3Object, error) {
 			ContinuationToken: token,
 		})
 		if err != nil {
-			log.Printf("Couldn't list objects in bucket %v. Here's why: %v\n", bucket, err)
+			log.Printf("Couldn't list objects in bucket %v. Here's why: %v\n", externalBucket, err)
 			return nil, err
 		}
 		for i := range result.Contents {
@@ -271,13 +294,10 @@ func ListS3Objects(externalBucket string, prefix *string) ([]*S3Object, error) {
 
 // Download obj from s3 into fileHd (must be writable), return size of download in bytes
 func DownloadFromS3(bucket, region, objKey string, fileHd *os.File) (int64, error) {
-	cfg, err := config.LoadDefaultConfig(context.TODO(), config.WithRegion(region))
+	s3Client, err := NewS3Client()
 	if err != nil {
-		return 0, fmt.Errorf("while loading aws configuration: %v", err)
+		return 0, fmt.Errorf("while creating s3 client: %v", err)
 	}
-
-	// Create a s3 client
-	s3Client := s3.NewFromConfig(cfg)
 
 	// Download the object
 	downloader := manager.NewDownloader(s3Client)
@@ -289,12 +309,10 @@ func DownloadFromS3(bucket, region, objKey string, fileHd *os.File) (int64, erro
 }
 
 func NewDownloader(region string) (*manager.Downloader, error) {
-	cfg, err := config.LoadDefaultConfig(context.TODO(), config.WithRegion(region))
+	s3Client, err := NewS3Client()
 	if err != nil {
-		return nil, fmt.Errorf("while loading aws configuration: %v", err)
+		return nil, fmt.Errorf("while creating s3 client: %v", err)
 	}
-	// Create a s3 client
-	s3Client := s3.NewFromConfig(cfg)
 	return manager.NewDownloader(s3Client), nil
 }
 
@@ -340,13 +358,10 @@ do_retry:
 
 // upload object to S3, reading the obj from fileHd (from current position to EOF)
 func UploadToS3(bucket, region, objKey string, fileHd *os.File) error {
-	cfg, err := config.LoadDefaultConfig(context.TODO(), config.WithRegion(region))
+	s3Client, err := NewS3Client()
 	if err != nil {
-		return fmt.Errorf("while loading aws configuration: %v", err)
+		return fmt.Errorf("while creating s3 client: %v", err)
 	}
-
-	// Create a s3 client
-	s3Client := s3.NewFromConfig(cfg)
 
 	// Create an uploader with the client and custom options
 	uploader := manager.NewUploader(s3Client)
@@ -372,13 +387,10 @@ func UploadToS3(bucket, region, objKey string, fileHd *os.File) error {
 
 // upload object to S3, reading the obj from reader (from current position to EOF)
 func UploadToS3FromReader(externalBucket, objKey string, reader io.Reader) error {
-	cfg, err := config.LoadDefaultConfig(context.TODO(), config.WithRegion(region))
+	s3Client, err := NewS3Client()
 	if err != nil {
-		return fmt.Errorf("while loading aws configuration: %v", err)
+		return fmt.Errorf("while creating s3 client: %v", err)
 	}
-
-	// Create a s3 client
-	s3Client := s3.NewFromConfig(cfg)
 
 	// check if we write to an external bucket
 	if externalBucket == "" {
@@ -409,13 +421,10 @@ func UploadToS3FromReader(externalBucket, objKey string, reader io.Reader) error
 
 // upload buf to S3, reading the obj from in-memory buffer
 func UploadBufToS3(objKey string, buf []byte) error {
-	cfg, err := config.LoadDefaultConfig(context.TODO(), config.WithRegion(region))
+	s3Client, err := NewS3Client()
 	if err != nil {
-		return fmt.Errorf("while loading aws configuration: %v", err)
+		return fmt.Errorf("while creating s3 client: %v", err)
 	}
-
-	// Create a s3 client
-	s3Client := s3.NewFromConfig(cfg)
 
 	// Create an uploader with the client and custom options
 	// uploader := manager.NewUploader(s3Client)
@@ -446,12 +455,10 @@ func UploadBufToS3(objKey string, buf []byte) error {
 
 // upload buf to S3, reading the obj from in-memory buffer
 func DownloadBufFromS3(objKey string) ([]byte, error) {
-	cfg, err := config.LoadDefaultConfig(context.TODO(), config.WithRegion(region))
+	s3Client, err := NewS3Client()
 	if err != nil {
-		return nil, fmt.Errorf("while loading aws configuration: %v", err)
+		return nil, fmt.Errorf("while creating s3 client: %v", err)
 	}
-	// Create a s3 client
-	s3Client := s3.NewFromConfig(cfg)
 	// Download the object
 	downloader := manager.NewDownloader(s3Client)
 

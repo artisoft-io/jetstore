@@ -124,7 +124,7 @@ func CreateJetStoreVPC(stack awscdk.Stack) awsec2.Vpc {
 			Principals: &[]awsiam.IPrincipal{
 				awsiam.NewAnyPrincipal(),
 			},
-			Actions:   jsii.Strings("s3:ListBucket", "s3:GetObject", "s3:PutObject"),
+			Actions:   jsii.Strings("s3:ListBucket", "s3:ListObjectsV2", "s3:GetObject", "s3:PutObject", "s3:GetObjectAttributes"),
 			Resources: jsii.Strings("*"),
 		}))
 
