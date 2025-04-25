@@ -20,6 +20,7 @@ import (
 	"github.com/aws/aws-cdk-go/awscdk/v2/awsrds"
 	"github.com/aws/aws-cdk-go/awscdk/v2/awss3"
 	"github.com/aws/aws-cdk-go/awscdk/v2/awssns"
+	"github.com/aws/aws-sdk-go-v2/aws"
 	constructs "github.com/aws/constructs-go/constructs/v10"
 	jsii "github.com/aws/jsii-runtime-go"
 )
@@ -173,6 +174,7 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 			AutoMinorVersionUpgrade:  jsii.Bool(true),
 			PubliclyAccessible:       jsii.Bool(false),
 		}),
+		Parameters:              &map[string]*string{"rds.force_ssl": aws.String("1")},
 		ServerlessV2MinCapacity: props.DbMinCapacity,
 		ServerlessV2MaxCapacity: props.DbMaxCapacity,
 		Vpc:                     jsComp.Vpc,
