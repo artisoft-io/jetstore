@@ -92,7 +92,7 @@ func (ctx *BuilderContext) BuildMapReduceTCEvaluator(source *InputChannel, outCh
 	}
 	var altInputKey []PreprocessingFunction
 	if len(spec.AlternateMapOn) > 0 {
-		altInputKey, err = ParseAltKeyDefinition(spec.AlternateMapOn, source.columns)
+		altInputKey, err = ParsePreprocessingExpressions(spec.AlternateMapOn, true, source.columns)
 		if err != nil {
 			return nil, fmt.Errorf("buildMapReduceEvaluator: %v in source name %s", err, source.name)
 		}

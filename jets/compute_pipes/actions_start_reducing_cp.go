@@ -67,6 +67,7 @@ func (args *StartComputePipesArgs) StartReducingComputePipes(ctx context.Context
 	}
 
 	// Augment cpipesStartup.EnvSettings with cluster info, used in When statements
+	log.Printf("Main input row count is %d\n", args.MainInputRowCount)
 	cpipesStartup.EnvSettings["multi_step_sharding"] = args.ClusterInfo.MultiStepSharding
 	cpipesStartup.EnvSettings["$MULTI_STEP_SHARDING"] = args.ClusterInfo.MultiStepSharding
 	cpipesStartup.EnvSettings["total_file_size"] = args.ClusterInfo.TotalFileSize
@@ -160,7 +161,12 @@ startStepId:
 		goto startStepId
 	}
 
-	log.Println("Start REDUCING", args.SessionId, "StepId:", stepId, "MainInputStepId", mainInputStepId, "file_key:", args.FileKey)
+	stepName := ""
+	if len(cpipesStartup.CpConfig.ConditionalPipesConfig) > 0 {
+		stepName = cpipesStartup.CpConfig.ConditionalPipesConfig[stepId].StepName
+	}
+	log.Printf("Start REDUCING %s StepId %d (%s), Read from: %s, file key: %s",
+		args.SessionId, stepId, stepName, mainInputStepId, args.FileKey)
 
 	// Identify the output tables for this step
 	outputTables, err := SelectActiveOutputTable(cpipesStartup.CpConfig.OutputTables, pipeConfig)

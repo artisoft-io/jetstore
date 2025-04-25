@@ -249,25 +249,9 @@ func ConvertToSchema(v any, se *parquet.SchemaElement) (any, error) {
 	case parquet.Type_BYTE_ARRAY, parquet.Type_FIXED_LEN_BYTE_ARRAY:
 		// Check if it's a string
 		if se.ConvertedType != nil && *se.ConvertedType == parquet.ConvertedType_UTF8 {
-			switch vv := v.(type) {
-			case string:
-				return vv, nil
-			case []byte:
-				return string(vv), nil
-			//*** case []any convert it to string ***
-	  	default:
-				return fmt.Sprintf("%v", v), nil
-			}
+			return encodeRdfTypeToTxt(v), nil
 		}
-		switch vv := v.(type) {
-		case string:
-			return []byte(vv), nil
-		case []byte:
-			return vv, nil
-		//*** case []any convert it to string ***
-		default:
-			return nil, fmt.Errorf("error: WriteParquet invalid data for []byte: %v", v)
-		}
+		return []byte(encodeRdfTypeToTxt(v)), nil
 
 	default:
 		return nil, fmt.Errorf("error: WriteParquet unknown parquet type: %v", *se.Type)
@@ -314,15 +298,7 @@ func (ctx *S3DeviceWriter) WriteCsvPartition(fout io.Writer) {
 		// replace null with empty string, convert to string
 		row := make([]string, len(inRow))
 		for i := range inRow {
-			switch vv := inRow[i].(type) {
-			case string:
-				row[i] = vv
-			case nil:
-				row[i] = ""
-			//*** case []any convert it to string ***
-			default:
-				row[i] = fmt.Sprintf("%v", vv)
-			}
+			inRow[i] = encodeRdfTypeToTxt(inRow[i])
 		}
 		if err = csvWriter.Write(row); err != nil {
 			// fmt.Println("ERROR")
@@ -357,10 +333,9 @@ func (ctx *S3DeviceWriter) WriteFixedWidthPartition(fout io.Writer) {
 	var columnPos []int
 	var value string
 	var fwEncodingInfo *FixedWidthEncodingInfo
-	var sp SchemaProvider
 
 	// Get the FixedWidthEncodingInfo from the schema provider
-	sp = ctx.schemaProvider
+	sp := ctx.schemaProvider
 	if sp != nil {
 		fwEncodingInfo = sp.FixedWidthEncodingInfo()
 	}
@@ -406,15 +381,7 @@ func (ctx *S3DeviceWriter) WriteFixedWidthPartition(fout io.Writer) {
 		// replace null with empty string, convert to string
 		for i, fwColumn := range *fwColumnsInfo {
 			l := fwColumn.End - fwColumn.Start
-			switch vv := inRow[columnPos[i]].(type) {
-			case string:
-				value = vv
-			case nil:
-				value = ""
-			//*** case []any convert it to string ***
-		default:
-				value = fmt.Sprintf("%v", vv)
-			}
+			value = encodeRdfTypeToTxt(inRow[columnPos[i]])
 			lv := len(value)
 			if lv >= l {
 				_, err := fwWriter.WriteString(value[:l])

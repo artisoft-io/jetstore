@@ -1,7 +1,6 @@
 package compute_pipes
 
 import (
-	"fmt"
 	"regexp"
 )
 
@@ -70,8 +69,8 @@ func (cp *ComputePipesConfig) GetComputePipes(stepId int, env map[string]any) ([
 					}
 					stepId += 1
 					if len(cp.ConditionalPipesConfig) == stepId {
-						// Got no steps
-						return nil, 0, fmt.Errorf("error: found no conditional steps with matching condition")
+						// Got no more steps
+						return nil, stepId, nil
 					}
 				} else {
 					return cp.ConditionalPipesConfig[stepId].PipesConfig, stepId, nil
@@ -730,6 +729,8 @@ type LookupColumnSpec struct {
 // AlternateCompositeExpr is used when Expr or CompositeExpr returns nil or empty.
 // MultiStepShardingMode values: 'limited_range', 'full_range' or empty.
 // NoPartitions indicated not to assign the hash to a partition (no modulo operation).
+// ComputeDomainKey flag indicate to compute the domain key rather than a simple hash.
+// This consider the hashing algo used and delimitor between the key components.
 type HashExpression struct {
 	Expr                   string   `json:"expr,omitempty"`
 	CompositeExpr          []string `json:"composite_expr,omitempty"`
@@ -738,6 +739,7 @@ type HashExpression struct {
 	MultiStepShardingMode  string   `json:"multi_step_sharding_mode,omitempty"`
 	AlternateCompositeExpr []string `json:"alternate_composite_expr"`
 	NoPartitions           bool     `json:"no_partitions,omitzero"`
+	ComputeDomainKey       bool     `json:"compute_domain_key,omitzero"`
 }
 
 type MapExpression struct {

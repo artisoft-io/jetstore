@@ -6,7 +6,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/artisoft-io/jetstore/jets/csv"
 	"github.com/artisoft-io/jetstore/jets/jetrules/rdf"
 )
 
@@ -132,14 +131,14 @@ func castToRdfTypeFromTxt(inValue string, rdfType string, isArray bool) (any, er
 		return nil, nil
 	}
 	if isArray {
-		// expecting a slice
+		// expecting a slice in inValue
 		if strings.HasPrefix(inValue, "{") && strings.HasSuffix(inValue, "}") {
-			r := csv.NewReader(strings.NewReader(inValue[1 : len(inValue)-1]))
-			r.LazyQuotes = true
-			values, err := r.Read()
-			if err != nil {
-				return nil, fmt.Errorf("while parsing array: %v", err)
+			if len(inValue) == 2 {
+				return nil, nil
 			}
+			inValue = strings.TrimPrefix(inValue, "{\"")
+			inValue = strings.TrimSuffix(inValue, "\"}")
+			values := strings.Split(inValue, "\",\"")
 			results := make([]any, 0, len(values))
 			for i := range values {
 				v, err := castToRdfTypeFromTxt(values[i], rdfType, false)
@@ -151,6 +150,12 @@ func castToRdfTypeFromTxt(inValue string, rdfType string, isArray bool) (any, er
 				}
 			}
 			return results, nil
+		} else {
+			v, err := castToRdfTypeFromTxt(inValue, rdfType, false)
+			if err != nil {
+				return nil, fmt.Errorf("while casting array value(2): %v", err)
+			}
+			return []any{v}, nil
 		}
 	}
 
@@ -180,6 +185,51 @@ func castToRdfTypeFromTxt(inValue string, rdfType string, isArray bool) (any, er
 		return *dt, nil
 	}
 	return nil, fmt.Errorf("error: unknown rdfTyoe %s for conversion from string", rdfType)
+}
+
+// The reverse function to castToRdfTypeFromTxt
+// Serialize to text, encoding arrays to be postgresql-compatible
+// Which simplifies the encoding / decoding process since
+// the array's delimiters is "," (all three charaters).
+// Replace null with empty string, convert to string
+func encodeRdfTypeToTxt(inValue any) string {
+	switch vv := inValue.(type) {
+	case string:
+		return vv
+	case nil:
+		return ""
+	case []any:
+		outValue := make([]string, 0, len(vv))
+		for _, v := range vv {
+			outValue = append(outValue, encodeRdfTypeToTxt(v))
+		}
+		return "{\"" + strings.Join(outValue, "\",\"") + "\"}"
+	case int:
+		return strconv.Itoa(vv)
+	case int32:
+		return strconv.Itoa(int(vv))
+	case int64:
+		return strconv.Itoa(int(vv))
+	case float64:
+		return strconv.FormatFloat(vv, 'f', -1, 64)
+	case float32:
+		return strconv.FormatFloat(float64(vv), 'f', -1, 32)
+	case time.Time:
+		return vv.Format("2006-01-02T15:04:05")
+	case uint:
+		return strconv.FormatUint(uint64(vv), 10)
+	case uint32:
+		return strconv.FormatUint(uint64(vv), 10)
+	case uint64:
+		return strconv.FormatUint(uint64(vv), 10)
+	case bool:
+		if vv {
+			return "1"
+		}
+		return "0"
+	default:
+		return fmt.Sprintf("%v", vv)
+	}
 }
 
 func castToRdfTypeFromInt(inValue int, rdfType string, isArray bool) (any, error) {

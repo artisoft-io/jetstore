@@ -4,20 +4,14 @@ import (
 	"bytes"
 	"fmt"
 	"hash/fnv"
+	"log"
 	"math/rand"
-	"regexp"
-	"strconv"
+	"os"
 	"strings"
 	"time"
 
-	"github.com/artisoft-io/jetstore/jets/jetrules/rdf"
+	"github.com/google/uuid"
 )
-
-var preprocessingFncRe *regexp.Regexp
-
-func init() {
-	preprocessingFncRe = regexp.MustCompile(`^(.*?)\((.*?)\)$`)
-}
 
 // TransformationColumnSpec Type hash
 // This construct is split in two parts:
@@ -50,19 +44,31 @@ func (ctx *hashColumnEval) Done(currentValue *[]interface{}) error {
 	return nil
 }
 
-// The Hash operator full example (dw_rawfilename is string):
+// The Hash operator example (dw_rawfilename is string):
 //
-//	{
-//		"name": "jets_partition",
-//		"type": "hash",
-//		"hash_expr": {
-//			"expr": "dw_rawfilename",
-//			"composite_expr": ["partion", "dw_rawfilename"],
-//			"nbr_jets_partitions": 3,
-//			"alternate_composite_expr": ["name", "gender", "format_date(dob)"],
-//		}
+//	 case hash function:
+//		{
+//			"name": "jets_partition",
+//			"type": "hash",
+//			"hash_expr": {
+//				"expr": "dw_rawfilename",
+//				"composite_expr": ["partion", "dw_rawfilename"],
+//				"nbr_jets_partitions": 3,
+//				"alternate_composite_expr": ["name", "gender", "format_date(dob)"],
+//			}
 //
 // jets_partition will be of type uint64
+//
+//	 case compute domain key:
+//		{
+//			"name": "Claim:domain_key",
+//			"type": "hash",
+//			"hash_expr": {
+//				"domain_key": "Claim",
+//				"compute_domain_key": true
+//			}
+//
+// Claim:domain_key will be of type string
 func (ctx *BuilderContext) BuildHashTCEvaluator(source *InputChannel, outCh *OutputChannel,
 	spec *TransformationColumnSpec) (TransformationColumnEvaluator, error) {
 
@@ -81,12 +87,38 @@ func (ctx *BuilderContext) BuildHashTCEvaluator(source *InputChannel, outCh *Out
 	}, err
 }
 
+// Hashing Algo for computing Domain Key
+type HashingAlgoEnum int
+
+const (
+	HashingAlgo_None HashingAlgoEnum = iota
+	HashingAlgo_SHA1
+	HashingAlgo_MD5
+)
+
 // HashEvaluator is a type to compute a hask key based on an input record.
 type HashEvaluator struct {
 	inputPos          int
 	compositeInputKey []PreprocessingFunction
 	partitions        uint64
 	altInputKey       []PreprocessingFunction
+	computeDomainKey  bool
+	hashingAlgo       HashingAlgoEnum
+	delimit           string
+}
+
+var HashingSeed uuid.UUID
+var HashingAlgo string = strings.ToLower(os.Getenv("JETS_DOMAIN_KEY_HASH_ALGO"))
+var DomainKeyDelimit string = os.Getenv("JETS_DOMAIN_KEY_SEPARATOR")
+func init() {
+	var err error
+	seed := os.Getenv("JETS_DOMAIN_KEY_HASH_SEED")
+	if len(seed) > 0 {
+		HashingSeed, err = uuid.Parse(seed)
+		if err != nil {
+			log.Panicf("while initializing HashingSeed (uuid) from JETS_DOMAIN_KEY_HASH_SEED: %v", err)
+		}
+	}
 }
 
 // Build the HashEvaluator, see BuildHashTCEvaluator
@@ -104,9 +136,21 @@ func (ctx *BuilderContext) NewHashEvaluator(source *InputChannel,
 	if exprLen == 0 && compositeLen == 0 && domainKeyLen == 0 {
 		return nil, fmt.Errorf("error: must specify one of expr, composite_expr, or domain_key in hash operator")
 	}
+	if spec.ComputeDomainKey {
+		if domainKeyLen == 0 {
+			return nil, fmt.Errorf("error: domain_key in hash operator not set while compute_domain_key is true")
+		}
+		if exprLen > 0 || compositeLen > 0 {
+			return nil, fmt.Errorf("error: compute domain key in hash operator with exprLen > 0 || compositeLen > 0")
+		}
+	}
 	inputPos := -1
 	var compositeInputKey []PreprocessingFunction
 	var ok bool
+	var domainKeyInfo *DomainKeyInfo
+	hashingAlgo := HashingAlgo
+	hashingEnum := HashingAlgo_None
+
 	switch {
 	case exprLen > 0:
 		inputPos, ok = (*source.columns)[spec.Expr]
@@ -120,9 +164,9 @@ func (ctx *BuilderContext) NewHashEvaluator(source *InputChannel,
 			if dk == nil {
 				return nil, fmt.Errorf("error: hash operator is configured with domain key but no domain key spec available")
 			}
-			info, ok := dk.DomainKeys[spec.DomainKey]
+			domainKeyInfo, ok = dk.DomainKeys[spec.DomainKey]
 			if ok {
-				keys = info.KeyExpr
+				keys = domainKeyInfo.KeyExpr
 			}
 		} else {
 			keys = spec.CompositeExpr
@@ -130,9 +174,34 @@ func (ctx *BuilderContext) NewHashEvaluator(source *InputChannel,
 		if len(keys) == 0 {
 			return nil, fmt.Errorf("error: hash operator configured as domain key or composite key has no columns")
 		}
-		compositeInputKey, err = ParseAltKeyDefinition(keys, source.columns)
+		toUpper := true
+		if spec.ComputeDomainKey {
+			toUpper = len(keys) > 1
+			if len(source.domainKeySpec.HashingOverride) > 0 {
+				if source.domainKeySpec.HashingOverride == "none" {
+					// This is the case of domain_table
+					hashingAlgo = "none"
+				} else {
+					hashingAlgo = source.domainKeySpec.HashingOverride
+				}
+			}
+			switch hashingAlgo {
+			case "sha1":
+				hashingEnum = HashingAlgo_SHA1
+			case "md5":
+				hashingEnum = HashingAlgo_MD5
+			case "none":
+				hashingEnum = HashingAlgo_None
+			default:
+				return nil, fmt.Errorf(
+					"error: unknown hasing also '%s' for computing domain key, expecting sha1, md5 or none, check JETS_DOMAIN_KEY_HASH_ALGO",
+					hashingAlgo)
+			}
+		}
+	
+		compositeInputKey, err = ParsePreprocessingExpressions(keys, toUpper, source.columns)
 		if err != nil {
-			return nil, fmt.Errorf("while calling ParseAltKeyDefinition (input channel name %s): %v", source.name, err)
+			return nil, fmt.Errorf("while calling ParsePreprocessingExpressions (input channel name %s): %v", source.name, err)
 		}
 	}
 	var partitions uint64
@@ -145,16 +214,20 @@ func (ctx *BuilderContext) NewHashEvaluator(source *InputChannel,
 	}
 	var altInputKey []PreprocessingFunction
 	if len(spec.AlternateCompositeExpr) > 0 {
-		altInputKey, err = ParseAltKeyDefinition(spec.AlternateCompositeExpr, source.columns)
+		altInputKey, err = ParsePreprocessingExpressions(spec.AlternateCompositeExpr, true, source.columns)
 		if err != nil {
 			return nil, fmt.Errorf("%v in source name %s", err, source.name)
 		}
 	}
+
 	return &HashEvaluator{
 		inputPos:          inputPos,
 		compositeInputKey: compositeInputKey,
 		partitions:        partitions,
 		altInputKey:       altInputKey,
+		computeDomainKey:  spec.ComputeDomainKey,
+		hashingAlgo:       hashingEnum,
+		delimit:           DomainKeyDelimit,
 	}, nil
 }
 
@@ -219,6 +292,10 @@ func (ctx *HashEvaluator) ComputeHash(input []any) (any, error) {
 	if input == nil {
 		return nil, fmt.Errorf("error HashEvaluator.ComputeHash cannot have nil input")
 	}
+	if ctx.computeDomainKey {
+		return ctx.ComputeDomainKey(input)
+	}
+
 	// compute the hash of value @ inputPos, if it's nil use the alternate (composite) key
 	var inputVal, hashedValue any
 	if ctx.inputPos > -1 {
@@ -248,38 +325,34 @@ func (ctx *HashEvaluator) ComputeHash(input []any) (any, error) {
 	h := EvalHash(inputVal, ctx.partitions)
 	if h != nil {
 		hashedValue = *h
-	// 	fmt.Printf("##### # EvalHash k: %v, nbr partitions: %d => %v\n", inputVal, ctx.partitions, hashedValue)
-	// } else {
-	// 	fmt.Printf("##### # EvalHash k: %v, nbr partitions: %d => NULL\n", inputVal, ctx.partitions)
+		// 	fmt.Printf("##### # EvalHash k: %v, nbr partitions: %d => %v\n", inputVal, ctx.partitions, hashedValue)
+		// } else {
+		// 	fmt.Printf("##### # EvalHash k: %v, nbr partitions: %d => NULL\n", inputVal, ctx.partitions)
 	}
 	return hashedValue, nil
 }
 
-func ParseAltKeyDefinition(altExpr []string, columns *map[string]int) ([]PreprocessingFunction, error) {
-	altInputKey := make([]PreprocessingFunction, len(altExpr))
-	for i := range altExpr {
-		// Get the processing function, if any, and the column name
-		v := preprocessingFncRe.FindStringSubmatch(altExpr[i])
-		if len(v) < 3 {
-			pos, ok := (*columns)[altExpr[i]]
-			if !ok {
-				return nil, fmt.Errorf("error: alt column %s not found", altExpr[i])
-			}
-			altInputKey[i] = &DefaultPF{inputPos: pos}
-		} else {
-			pos, ok := (*columns)[v[2]]
-			if !ok {
-				return nil, fmt.Errorf("error: alt column %s not found, taken from %s", v[2], altExpr[i])
-			}
-			switch v[1] {
-			case "format_date":
-				altInputKey[i] = &FormatDatePF{inputPos: pos}
-			default:
-				return nil, fmt.Errorf("error: alt key definition has an unknown preprocessing function %s", altExpr[i])
-			}
+func (ctx *HashEvaluator) ComputeDomainKey(input []any) (any, error) {
+	var buf bytes.Buffer
+	var err error
+	sz := len(ctx.delimit)
+	for i, pf := range ctx.compositeInputKey {
+		if i > 0 && sz > 0 {
+			buf.WriteString(ctx.delimit)
+		}
+		err = pf.ApplyPF(&buf, &input)
+		if err != nil {
+			return nil, err
 		}
 	}
-	return altInputKey, nil
+	switch ctx.hashingAlgo {
+	case HashingAlgo_SHA1:
+		return uuid.NewSHA1(HashingSeed, buf.Bytes()).String(), nil
+	case HashingAlgo_MD5:
+		return uuid.NewMD5(HashingSeed, buf.Bytes()).String(), nil
+	default:
+		return buf.String(), nil
+	}
 }
 
 func makeAlternateKey(altInputKey *[]PreprocessingFunction, input *[]interface{}) (interface{}, error) {
@@ -292,55 +365,4 @@ func makeAlternateKey(altInputKey *[]PreprocessingFunction, input *[]interface{}
 		}
 	}
 	return buf.String(), nil
-}
-
-type PreprocessingFunction interface {
-	ApplyPF(buf *bytes.Buffer, input *[]interface{}) error
-}
-
-// DefaultPF is when there is no preprocessing function, simply add the value to the byte buffer
-type DefaultPF struct {
-	inputPos int
-}
-
-func (pf *DefaultPF) ApplyPF(buf *bytes.Buffer, input *[]interface{}) error {
-	switch vv := (*input)[pf.inputPos].(type) {
-	case string:
-		buf.WriteString(strings.ToUpper(vv))
-	case []byte:
-		buf.Write(vv)
-	case nil:
-		// do nothing
-	case time.Time:
-		buf.WriteString(strconv.FormatInt(vv.Unix(), 10))
-	default:
-		buf.WriteString(fmt.Sprintf("%v", vv))
-	}
-	return nil
-}
-
-// FormatDatePF is writing a date field using YYYYMMDD format
-// This assume the date in the input is a valid date as string
-// Returns no error if date is empty or not valid
-type FormatDatePF struct {
-	inputPos int
-}
-
-func (pf *FormatDatePF) ApplyPF(buf *bytes.Buffer, input *[]interface{}) error {
-	v := (*input)[pf.inputPos]
-	if v == nil {
-		return nil
-	}
-	vv, ok := v.(string)
-	if !ok {
-		// return fmt.Errorf("error: in FormatDatePF the input date is not a string: %v", v)
-		return nil
-	}
-	y, m, d, err := rdf.ParseDateComponents(vv)
-	if err != nil {
-		// return fmt.Errorf("error: in FormatDatePF the input date is not a valid date: %v", err)
-		return nil
-	}
-	buf.WriteString(fmt.Sprintf("%d%02d%02d", y, m, d))
-	return nil
 }
