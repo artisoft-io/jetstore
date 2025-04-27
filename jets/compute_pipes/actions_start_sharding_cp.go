@@ -175,6 +175,9 @@ func (args *StartComputePipesArgs) StartShardingComputePipes(ctx context.Context
 			sp.Encoding = fileInfo.encoding
 		}
 	}
+	// log.Printf("*** cpipesStartup.MainInputDomainKeysSpec: %v, cpipesStartup.MainInputDomainClass: %v\n",
+	// 	cpipesStartup.MainInputDomainKeysSpec, cpipesStartup.MainInputDomainClass)
+
 	// NOTE: At this point we should have the headers of the input file
 	if len(cpipesStartup.InputColumns) == 0 {
 		return result, fmt.Errorf("configuration error: no header information available for the input file(s)")
@@ -273,8 +276,9 @@ func (args *StartComputePipesArgs) StartShardingComputePipes(ctx context.Context
 					DomainClass:  cpipesStartup.MainInputDomainClass,
 				},
 			},
-			PipelineConfigKey: cpipesStartup.PipelineConfigKey,
-			UserEmail:         cpipesStartup.OperatorEmail,
+			DomainKeysSpecByClass: cpipesStartup.DomainKeysSpecByClass,
+			PipelineConfigKey:     cpipesStartup.PipelineConfigKey,
+			UserEmail:             cpipesStartup.OperatorEmail,
 		},
 		ClusterConfig: &ClusterSpec{
 			ShardingInfo:          shardResult.clusterShardingInfo,

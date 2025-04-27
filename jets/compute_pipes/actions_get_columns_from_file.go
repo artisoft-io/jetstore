@@ -29,6 +29,7 @@ func FetchHeadersAndDelimiterFromFile(externalBucket, fileKey, fileFormat, compr
 	var fileHd *os.File
 	var err error
 	var sepFlag jcsv.Chartype
+	// log.Printf("*** FetchHeadersAndDelimiterFromFile called, fetchHeaders: %v, fetchDelimitor: %v,  \n", fetchHeaders, fetchDelimitor)
 	if delimitor > 0 {
 		// log.Printf("*** FetchHeadersAndDelimiterFromFile: provided delimiter %d is %s\n", delimitor, string([]rune{delimitor}))
 		sepFlag = jcsv.Chartype(delimitor)

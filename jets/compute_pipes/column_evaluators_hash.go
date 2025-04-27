@@ -162,7 +162,8 @@ func (ctx *BuilderContext) NewHashEvaluator(source *InputChannel,
 		if domainKeyLen > 0 {
 			dk := source.domainKeySpec
 			if dk == nil {
-				return nil, fmt.Errorf("error: hash operator is configured with domain key but no domain key spec available")
+				return nil, fmt.Errorf(
+					"error: hash operator is configured with domain key but no domain key spec available on source '%s'", source.config.Name)
 			}
 			domainKeyInfo, ok = dk.DomainKeys[spec.DomainKey]
 			if ok {

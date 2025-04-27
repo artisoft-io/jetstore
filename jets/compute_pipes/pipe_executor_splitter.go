@@ -184,6 +184,8 @@ func (ctx *BuilderContext) StartSplitterPipe(spec *PipeSpec, source *InputChanne
 			go ctx.startSplitterChannelHandler(spec, &InputChannel{
 				channel: splitCh.data,
 				columns: source.columns,
+				domainKeySpec: source.domainKeySpec,
+				hasGroupedRows: source.hasGroupedRows,
 				config: &ChannelSpec{
 					Name:      fmt.Sprintf("splitter channel from %s", source.name),
 					ClassName: source.config.ClassName,
@@ -217,7 +219,7 @@ func (ctx *BuilderContext) StartSplitterPipe(spec *PipeSpec, source *InputChanne
 		case splitCh.data <- inRow:
 		case <-ctx.done:
 			log.Printf(
-				"startSplitterPipe writing to splitter intermediate channel with baseKey %s (jetsPartitionKey %s) from '%s' interrupted",
+				"startSplitterPipe writing to splitter intermediate channel with baseKey %v (jetsPartitionKey %v) from '%v' interrupted",
 				baseKey, jetsPartitionKey, source.name)
 			goto doneSplitterLoop
 		}

@@ -52,6 +52,7 @@ func (cpCtx *ComputePipesContext) StartComputePipes(dbpool *pgxpool.Pool, inputS
 	var channelsSpec map[string]*ChannelSpec
 	var channelsInUse map[string]*ChannelSpec
 	var outputChannels []*OutputChannelConfig
+	var domainKeysByClass map[string]*DomainKeysSpec
 
 	// Create the LookupTableManager and prepare the lookups async
 	lookupManager := NewLookupTableManager(cpCtx.CpConfig.LookupTables, cpCtx.EnvSettings,
@@ -70,6 +71,7 @@ func (cpCtx *ComputePipesContext) StartComputePipes(dbpool *pgxpool.Pool, inputS
 	// Prepare the channel registry
 	// ----------------------------
 	mainInput := cpCtx.CpConfig.CommonRuntimeArgs.SourcesConfig.MainInput
+	// log.Printf("*** StartComputePipes: mainInput.DomainKeys: %v, mainInput.DomainClass: %v\n", *mainInput.DomainKeys, mainInput.DomainClass)
 	inputParquetSchema := mainInput.InputParquetSchema
 	if inputSchemaCh != nil {
 		// Get the parquet schema from the channel as it is being extracted from the
@@ -95,13 +97,14 @@ func (cpCtx *ComputePipesContext) StartComputePipes(dbpool *pgxpool.Pool, inputS
 			Name:           "input_row",
 			Columns:        mainInput.InputColumns,
 			ClassName:      mainInput.DomainClass,
-			DomainKeysSpec: mainInput.DomainKeys,
+			DomainKeysInfo: mainInput.DomainKeys,
 			columnsMap:     &headersPosMap,
 		}
 		inputRowChannel = &InputChannel{
 			name:           "input_row",
 			channel:        computePipesInputCh,
 			columns:        &headersPosMap,
+			domainKeySpec:  inputRowChSpec.DomainKeysInfo,
 			config:         inputRowChSpec,
 			hasGroupedRows: cpCtx.CpConfig.PipesConfig[0].InputChannel.HasGroupedRows,
 		}
@@ -166,6 +169,7 @@ func (cpCtx *ComputePipesContext) StartComputePipes(dbpool *pgxpool.Pool, inputS
 		}
 		channelsInUse[outputChannel.Name] = spec
 	}
+	domainKeysByClass = cpCtx.ComputePipesCommonArgs.DomainKeysSpecByClass
 	// Use the channelsInUse map to create the Channel Registry
 	channelRegistry = &ChannelRegistry{
 		inputRowChannel:      inputRowChannel,
@@ -179,8 +183,15 @@ func (cpCtx *ComputePipesContext) StartComputePipes(dbpool *pgxpool.Pool, inputS
 			name:          name,
 			channel:       make(chan []interface{}),
 			columns:       spec.columnsMap,
-			domainKeySpec: spec.DomainKeysSpec,
+			domainKeySpec: spec.DomainKeysInfo,
 			config:        spec,
+		}
+		if len(spec.ClassName) > 0 {
+			// log.Printf("*** Channel '%s' for domain class %s, domain_keys: %v\n",
+			// 	name, spec.ClassName, domainKeysByClass[spec.ClassName])
+			if spec.DomainKeysInfo == nil && domainKeysByClass != nil {
+				channelRegistry.computeChannels[name].domainKeySpec = domainKeysByClass[spec.ClassName]
+			}
 		}
 	}
 	if inputChannelName != "input_row" {
@@ -226,9 +237,14 @@ func (cpCtx *ComputePipesContext) StartComputePipes(dbpool *pgxpool.Pool, inputS
 			cpErr = fmt.Errorf("while splitting table name: %s", err)
 			goto gotError
 		}
+		if len(cpCtx.CpConfig.OutputTables[i].ChannelSpecName) == 0 {
+			cpErr = fmt.Errorf("error: invalid Compute Pipes configuration: channel_spec_name missing for Output table %s",
+				cpCtx.CpConfig.OutputTables[i].Name)
+			goto gotError
+		}
 		outChannel = channelRegistry.computeChannels[cpCtx.CpConfig.OutputTables[i].ChannelSpecName]
 		if outChannel == nil {
-			cpErr = fmt.Errorf("error: invalid Compute Pipes configuration: channel_spec_name %s not found for Output table %s",
+			cpErr = fmt.Errorf("error: invalid Compute Pipes configuration: channel_spec_name '%s' not found for Output table %s",
 				cpCtx.CpConfig.OutputTables[i].ChannelSpecName,
 				cpCtx.CpConfig.OutputTables[i].Name)
 			goto gotError

@@ -60,20 +60,21 @@ type ComputePipesNodeArgs struct {
 // client/vendor of the data is specified at run time via the SchemaProviders
 // on table input_registry.
 type ComputePipesCommonArgs struct {
-	CpipesMode        string            `json:"cpipes_mode,omitempty"`
-	Client            string            `json:"client,omitempty"`
-	Org               string            `json:"org,omitempty"`
-	ObjectType        string            `json:"object_type,omitempty"`
-	FileKey           string            `json:"file_key,omitempty"`
-	SessionId         string            `json:"session_id,omitempty"`
-	MainInputStepId   string            `json:"read_step_id,omitempty"`
-	MergeFiles        bool              `json:"merge_files"`
-	InputSessionId    string            `json:"input_session_id,omitempty"`
-	SourcePeriodKey   int               `json:"source_period_key"`
-	ProcessName       string            `json:"process_name,omitempty"`
-	SourcesConfig     SourcesConfigSpec `json:"sources_config"`
-	PipelineConfigKey int               `json:"pipeline_config_key"`
-	UserEmail         string            `json:"user_email,omitempty"`
+	CpipesMode            string                     `json:"cpipes_mode,omitempty"`
+	Client                string                     `json:"client,omitempty"`
+	Org                   string                     `json:"org,omitempty"`
+	ObjectType            string                     `json:"object_type,omitempty"`
+	FileKey               string                     `json:"file_key,omitempty"`
+	SessionId             string                     `json:"session_id,omitempty"`
+	MainInputStepId       string                     `json:"read_step_id,omitempty"`
+	MergeFiles            bool                       `json:"merge_files"`
+	InputSessionId        string                     `json:"input_session_id,omitempty"`
+	SourcePeriodKey       int                        `json:"source_period_key"`
+	ProcessName           string                     `json:"process_name,omitempty"`
+	SourcesConfig         SourcesConfigSpec          `json:"sources_config"`
+	DomainKeysSpecByClass map[string]*DomainKeysSpec `json:"domain_keys_by_class,omitempty"`
+	PipelineConfigKey     int                        `json:"pipeline_config_key"`
+	UserEmail             string                     `json:"user_email,omitempty"`
 }
 
 // SourcesConfigSpec contains carry over configuration from

@@ -221,7 +221,7 @@ type ChannelSpec struct {
 	DirectPropertiesOnly bool            `json:"direct_properties_only"`
 	HasDynamicColumns    bool            `json:"has_dynamic_columns"`
 	DomainKeys           map[string]any  `json:"domain_keys,omitempty"`
-	DomainKeysSpec       *DomainKeysSpec `json:"domain_keys_spec,omitempty"`
+	DomainKeysInfo       *DomainKeysSpec `json:"domain_keys_spec,omitempty"`
 	columnsMap           *map[string]int
 }
 

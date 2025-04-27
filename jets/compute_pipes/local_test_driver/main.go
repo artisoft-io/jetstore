@@ -160,7 +160,7 @@ func main() {
 	cpipesCommands := cpShardingRun.CpipesCommands.([]compute_pipes.ComputePipesNodeArgs)
 	for i := range cpipesCommands {
 		cpipesCommand := cpipesCommands[i]
-		fmt.Println("## Sharding Node", i)
+		fmt.Println("## Sharding Node", i, "Calling CoordinateComputePipes")
 		err = (&cpipesCommand).CoordinateComputePipes(ctx, dbpool)
 		if err != nil {
 			log.Fatalf("while sharding node %d: %v", i, err)
@@ -174,7 +174,7 @@ func main() {
 	iter = 1
 	cpRun = &cpShardingRun
 	for {
-		fmt.Println("REDUCING ITER", iter)
+		fmt.Println("*** REDUCING ITER", iter, "Calling StartReducingComputePipes")
 		iter += 1
 		cpReducingRun, err := cpRun.StartReducing.StartReducingComputePipes(ctx, dbpool)
 		switch {
@@ -196,7 +196,7 @@ func main() {
 			cpipesCommands = cpReducingRun.CpipesCommands.([]compute_pipes.ComputePipesNodeArgs)
 			for i := range cpipesCommands {
 				cpipesCommand := cpipesCommands[i]
-				fmt.Println("## Reducing Node", i)
+				fmt.Println("## Reducing Node", i, "Calling CoordinateComputePipes")
 				err = (&cpipesCommand).CoordinateComputePipes(ctx, dbpool)
 				if err != nil {
 					log.Fatalf("while reducing node %d: %v", i, err)

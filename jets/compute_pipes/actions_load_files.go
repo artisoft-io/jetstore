@@ -66,7 +66,16 @@ func (cpCtx *ComputePipesContext) LoadFiles(ctx context.Context, dbpool *pgxpool
 	if saveParquetSchema {
 		inputSchemaCh = make(chan any, 1)
 	}
-	mainInputDomainClass := cpCtx.CpConfig.CommonRuntimeArgs.SourcesConfig.MainInput.DomainClass
+	var mainInputDomainClass string
+	if inputChannelConfig.Name == "input_row" {
+		mainInputDomainClass = cpCtx.CpConfig.CommonRuntimeArgs.SourcesConfig.MainInput.DomainClass
+	} else {
+		channelInfo := GetChannelSpec(cpCtx.CpConfig.Channels, inputChannelConfig.Name)
+		if channelInfo == nil {
+			log.Panicf("unexpected error: Channel info not found for channel '%s'", inputChannelConfig.Name)
+		}
+		mainInputDomainClass = channelInfo.ClassName
+	}
 
 	// Start the Compute Pipes async
 	go cpCtx.StartComputePipes(dbpool, inputSchemaCh, computePipesInputCh)
@@ -529,7 +538,7 @@ func (cpCtx *ComputePipesContext) ReadCsvFile(filePath *FileName,
 	if inputFormat == "csv" && filePath.InFileKeyInfo.start == 0 {
 		// skip header row (first row)
 		headers, err = csvReader.Read()
-		// log.Printf("*** ReadCsvFile: skip header row of %d headers, err?: %v\n", len(hrow), err)
+		// log.Printf("*** ReadCsvFile: skip header row: %v, err?: %v\n", headers, err)
 		switch {
 		case err == io.EOF: // empty file
 			return 0, nil
@@ -576,7 +585,6 @@ func (cpCtx *ComputePipesContext) ReadCsvFile(filePath *FileName,
 			}
 		} else {
 			inRow, err = csvReader.Read()
-			// log.Println("**Row", inRow)
 		}
 		if err == nil && inputRowCount > 0 {
 			if samplingRate > 0 {
@@ -590,7 +598,7 @@ func (cpCtx *ComputePipesContext) ReadCsvFile(filePath *FileName,
 			}
 		}
 		if err == nil {
-			// log.Println("** Processing inRow", inRow)
+			// log.Println("*** CSV.READ:", inRow)
 			cpCtx.SamplingCount = 0
 			record = make([]interface{}, 0, len(inRow)+len(extColumns))
 			var errCol error
@@ -618,6 +626,7 @@ func (cpCtx *ComputePipesContext) ReadCsvFile(filePath *FileName,
 					record = append(record, extColumns[i])
 				}
 			}
+			// log.Println("*** Casted to RDF TYPE:", record)
 			// Add placeholders for the additional input headers/columns
 			if len(cpCtx.AddionalInputHeaders) > 0 {
 				for range cpCtx.AddionalInputHeaders {
