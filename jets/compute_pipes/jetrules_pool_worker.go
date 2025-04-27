@@ -300,7 +300,7 @@ func (ctx *JrPoolWorker) extractSessionData(rdfSession *rdf.RdfSession,
 				}
 			}
 			// Send the record to output channel
-			// log.Println("ENTITY_ROW:", entityRow)
+			// log.Println("*** Extracted ENTITY_ROW:", entityRow)
 			select {
 			case outChannel.outputCh.channel <- entityRow:
 				entityCount += 1
@@ -348,7 +348,7 @@ func assertInputRecords(config *JetrulesSpec, source *InputChannel,
 
 	columns := source.config.Columns
 	if source.hasGroupedRows {
-		log.Printf("*** Pool Worker == Asserting bundle of %d entities\n", len(*inputRecords))
+		// log.Printf("*** Pool Worker == Asserting bundle of %d entities\n", len(*inputRecords))
 		for i := range *inputRecords {
 			row, ok := (*inputRecords)[i].([]any)
 			if !ok {

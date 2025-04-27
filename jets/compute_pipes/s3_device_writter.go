@@ -294,12 +294,13 @@ func (ctx *S3DeviceWriter) WriteCsvPartition(fout io.Writer) {
 	// Write the rows into the temp file
 	for inRow := range ctx.source.channel {
 		count++
-		//*$1
+		// log.Printf("*** CSV.WRITE %d:%v\n", count, inRow)
 		// replace null with empty string, convert to string
 		row := make([]string, len(inRow))
 		for i := range inRow {
-			inRow[i] = encodeRdfTypeToTxt(inRow[i])
+			row[i] = encodeRdfTypeToTxt(inRow[i])
 		}
+		// log.Printf("*** Cast WRITE RDF TYPE %d:%v\n", count, row)
 		if err = csvWriter.Write(row); err != nil {
 			// fmt.Println("ERROR")
 			// for i := range inRow {

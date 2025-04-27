@@ -63,6 +63,7 @@ func (r *ChannelRegistry) GetInputChannel(name string, hasGroupedRows bool) (*In
 				channel:        r.inputRowChannel.channel,
 				config:         r.inputRowChannel.config,
 				columns:        r.inputRowChannel.columns,
+				domainKeySpec:  r.inputRowChannel.domainKeySpec,
 				hasGroupedRows: hasGroupedRows,
 			}, nil
 		}
@@ -77,6 +78,7 @@ func (r *ChannelRegistry) GetInputChannel(name string, hasGroupedRows bool) (*In
 		channel:        ch.channel,
 		config:         ch.config,
 		columns:        ch.columns,
+		domainKeySpec:  ch.domainKeySpec,
 		hasGroupedRows: hasGroupedRows,
 	}, nil
 }
@@ -109,10 +111,10 @@ type InputChannel struct {
 	hasGroupedRows bool
 }
 type OutputChannel struct {
-	name          string
-	channel       chan<- []interface{}
-	columns       *map[string]int
-	config        *ChannelSpec
+	name    string
+	channel chan<- []interface{}
+	columns *map[string]int
+	config  *ChannelSpec
 }
 
 type BuilderContext struct {

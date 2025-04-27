@@ -1,7 +1,6 @@
 package compute_pipes
 
 import (
-	"fmt"
 	"reflect"
 	"testing"
 
@@ -67,7 +66,7 @@ func TestHashColumnEvalFull01(t *testing.T) {
 		if err != nil {
 			t.Errorf("while calling Update: %v", err)
 		}
-		fmt.Println("*** For", inputRow, ",Got:", currentOutputValue[0])
+		// fmt.Println("*** For", inputRow, ",Got:", currentOutputValue[0])
 		if expectedHash != currentOutputValue[0] {
 			t.Errorf("hash failed")
 		}
@@ -138,7 +137,7 @@ func TestComputeDomainKeyFull01(t *testing.T) {
 		if err != nil {
 			t.Errorf("while calling Update: %v", err)
 		}
-		fmt.Println("*** Got:", currentOutputValue[0])
+		// fmt.Println("*** Got:", currentOutputValue[0])
 		if expectedKey != currentOutputValue[0] {
 			t.Errorf("hash failed")
 		}
@@ -208,7 +207,7 @@ func TestComputeDomainKeyFull02(t *testing.T) {
 		if err != nil {
 			t.Errorf("while calling Update: %v", err)
 		}
-		fmt.Println("*** Got:", currentOutputValue[0])
+		// fmt.Println("*** Got:", currentOutputValue[0])
 		if expectedKey != currentOutputValue[0] {
 			t.Errorf("hash failed")
 		}
@@ -278,7 +277,7 @@ func TestComputeDomainKeyFull03(t *testing.T) {
 		if err != nil {
 			t.Errorf("while calling Update: %v", err)
 		}
-		fmt.Println("*** Got:", currentOutputValue[0])
+		// fmt.Println("*** Got:", currentOutputValue[0])
 		if expectedKey != currentOutputValue[0] {
 			t.Errorf("hash failed")
 		}
@@ -315,7 +314,7 @@ func TestComputeDomainKey01(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	fmt.Println("*** DomainKey:", domainKey)
+	// fmt.Println("*** DomainKey:", domainKey)
 	if domainKey != "NAME-M-19690101" {
 		t.Error("expecting NAME-M-19690101")
 	}
@@ -350,7 +349,7 @@ func TestComputeDomainKey02(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	fmt.Println("*** DomainKey:", domainKey)
+	// fmt.Println("*** DomainKey:", domainKey)
 	if domainKey != "a1366cc9-38bb-50aa-b6dc-9d91f0249039" {
 		t.Error("not good")
 	}
@@ -385,7 +384,7 @@ func TestComputeDomainKey03(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	fmt.Println("*** DomainKey:", domainKey)
+	// fmt.Println("*** DomainKey:", domainKey)
 	if domainKey != "38dfae30-f8c9-51ae-9dfe-62e96ab8a622" {
 		t.Error("not good")
 	}
