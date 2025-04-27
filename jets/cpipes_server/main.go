@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strconv"
 
 	"github.com/artisoft-io/jetstore/jets/awsi"
 	"github.com/artisoft-io/jetstore/jets/compute_pipes"
@@ -24,6 +25,7 @@ import (
 // JETS_REGION
 // NBR_SHARDS default nbr_nodes of cluster
 // JETS_S3_KMS_KEY_ARN
+// JETS_DB_POOL_SIZE
 
 var dbPoolSize int
 var usingSshTunnel bool
@@ -38,7 +40,18 @@ func main() {
 	hasErr := false
 	var errMsg []string
 	var err error
-	dbPoolSize = 4
+	dbPoolSize = 3
+	v := os.Getenv("JETS_DB_POOL_SIZE")
+	if len(v) > 0 {
+		vv, err := strconv.Atoi(v)
+		if err == nil {
+			dbPoolSize = vv
+		}
+	}
+	if dbPoolSize < 3 {
+		dbPoolSize = 3
+		log.Println("WARNING DB pool size must be a least 3, using env JETS_DB_POOL_SIZE, setting to 3")
+	}
 	awsRegion = os.Getenv("JETS_REGION")
 	if awsRegion == "" {
 		hasErr = true
