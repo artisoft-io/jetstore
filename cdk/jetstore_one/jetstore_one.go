@@ -173,7 +173,6 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 			AllowMajorVersionUpgrade: jsii.Bool(true),
 			AutoMinorVersionUpgrade:  jsii.Bool(true),
 			PubliclyAccessible:       jsii.Bool(false),
-			Parameters:               &map[string]*string{"rds.force_ssl": aws.String("1")},
 		}),
 		Parameters:              &map[string]*string{"rds.force_ssl": aws.String("1")},
 		ServerlessV2MinCapacity: props.DbMinCapacity,
