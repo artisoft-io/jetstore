@@ -45,6 +45,10 @@ func (g *RdfGraph) Size() int {
 	return g.spoGraph.Size()
 }
 
+func (g *RdfGraph) IsLocked() bool {
+	return g.isLocked
+}
+
 func (g *RdfGraph) Contains(s, p, o *Node) bool {
 	return g.spoGraph.Contains(s, p, o)
 }
