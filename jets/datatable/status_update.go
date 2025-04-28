@@ -89,7 +89,7 @@ func GetOutputTables(dbpool *pgxpool.Pool, pipelineExecutionKey int) ([]string, 
 	err := dbpool.QueryRow(context.Background(),
 		`SELECT pc.output_tables 
 		 FROM jetsapi.process_config pc, jetsapi.pipeline_execution_status pe 
-		 WHERE pc.process_name = pe.pipeline_config_key AND pe.key = $1`,
+		 WHERE pc.process_name = pe.process_name AND pe.key = $1`,
 		pipelineExecutionKey).Scan(&outTables)
 	if err != nil {
 		return nil, fmt.Errorf("while query output_tables from process_config: %v", err)
@@ -398,7 +398,7 @@ func (ca *StatusUpdate) CoordinateWork() error {
 	ctx := NewDataTableContext(ca.Dbpool, ca.UsingSshTunnel, ca.UsingSshTunnel, nil, nil)
 	err = ctx.StartPendingTasks(stateMachineName)
 	if err != nil {
-		//*TODO If get an error while starting pending task. Fail current task for now...
+		//*TODO *** If get an error while starting pending task. Fail current task for now...
 		log.Println("Get an error while starting pending task. Fail current task for now...", err)
 		return err
 	}
