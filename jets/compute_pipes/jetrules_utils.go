@@ -31,6 +31,10 @@ var domainClassesMx sync.Mutex
 
 // Assert source period info (date, period, type) to rdf graph
 func AssertSourcePeriodInfo(config *JetrulesSpec, graph *rdf.RdfGraph, rm *rdf.ResourceManager) (err error) {
+	if graph.IsLocked() {
+		log.Println("Warning: AssertSourcePeriodInfo called on locked graph")
+		return nil
+	}
 	jr := rm.JetsResources
 	_, err = graph.Insert(jr.Jets__istate, jr.Jets__currentSourcePeriod, rm.NewIntLiteral(config.CurrentSourcePeriod))
 	if err != nil {
@@ -75,6 +79,10 @@ func AssertMetadataSource(reteMetaStore *rete.ReteMetaStoreFactory, config *Jetr
 
 // Assert rule config to meta graph from the pipeline configuration
 func AssertRuleConfiguration(reteMetaStore *rete.ReteMetaStoreFactory, config *JetrulesSpec) (err error) {
+	if reteMetaStore.MetaGraph.IsLocked() {
+		log.Println("Warning: AssertRuleConfiguration called on locked graph")
+		return nil
+	}
 	var object *rdf.Node
 	for _, rc := range config.RuleConfig {
 

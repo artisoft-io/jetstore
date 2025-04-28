@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"time"
 
 	"github.com/artisoft-io/jetstore/jets/awsi"
 	"github.com/artisoft-io/jetstore/jets/compute_pipes"
@@ -46,6 +47,10 @@ var dbpool *pgxpool.Pool
 func main() {
 	fmt.Println("LOCAL TEST DRIVER CMD LINE ARGS:", os.Args[1:])
 	flag.Parse()
+	start := time.Now()
+	defer func ()  {
+		log.Printf("*** COMPLETED in %v ***", time.Since(start))
+	}()
 	hasErr := false
 	var errMsg []string
 	var err error
