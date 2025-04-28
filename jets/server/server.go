@@ -10,6 +10,7 @@ import (
 	"runtime/debug"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/artisoft-io/jetstore/jets/awsi"
 	"github.com/artisoft-io/jetstore/jets/dbutils"
@@ -272,6 +273,10 @@ func doJobAndReportStatus() error {
 func main() {
 	fmt.Println("CMD LINE ARGS:", os.Args[1:])
 	flag.Parse()
+	start := time.Now()
+	defer func ()  {
+		log.Printf("Completed in %v", time.Since(start))
+	}()
 
 	// validate command line arguments
 	hasErr := false
