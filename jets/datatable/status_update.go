@@ -84,19 +84,17 @@ func getOutputRecordCount(dbpool *pgxpool.Pool, pipelineExecutionKey int) int64 
 	}
 	return count.Int64
 }
-func getPeInfo(dbpool *pgxpool.Pool, pipelineExecutionKey int) (string, string, int, []string) {
-	var client, sessionId string
+func GetOutputTables(dbpool *pgxpool.Pool, pipelineExecutionKey int) ([]string, error) {
 	outTables := make([]string, 0)
-	var sourcePeriodKey int
 	err := dbpool.QueryRow(context.Background(),
-		`SELECT pe.client, pc.output_tables, pe.session_id, pe.source_period_key 
-		FROM jetsapi.process_config pc, jetsapi.pipeline_config plnc, jetsapi.pipeline_execution_status pe 
-		WHERE pc.process_name = plnc.process_name AND plnc.key = pe.pipeline_config_key AND pe.key = $1`,
-		pipelineExecutionKey).Scan(&client, &outTables, &sessionId, &sourcePeriodKey)
+		`SELECT pc.output_tables 
+		 FROM jetsapi.process_config pc, jetsapi.pipeline_execution_status pe 
+		 WHERE pc.process_name = pe.pipeline_config_key AND pe.key = $1`,
+		pipelineExecutionKey).Scan(&outTables)
 	if err != nil {
-		log.Fatalf("QueryRow on pipeline_execution_status failed: %v", err)
+		return nil, fmt.Errorf("while query output_tables from process_config: %v", err)
 	}
-	return client, sessionId, sourcePeriodKey, outTables
+	return outTables, nil
 }
 func updateStatus(dbpool *pgxpool.Pool, pipelineExecutionKey int, status string, failureDetails *string) error {
 	// Record the status of the pipeline execution
@@ -308,7 +306,7 @@ func (ca *StatusUpdate) CoordinateWork() error {
 					errMsg = ca.FailureDetails
 				} else {
 					notificationTemplate = schemaProvider.NotificationTemplatesOverrides["CPIPES_COMPLETED_NOTIFICATION_JSON"]
-				}		
+				}
 			}
 		}
 		// Get the template defined at deployment if no override was found
@@ -318,7 +316,7 @@ func (ca *StatusUpdate) CoordinateWork() error {
 				errMsg = ca.FailureDetails
 			} else {
 				notificationTemplate = os.Getenv("CPIPES_COMPLETED_NOTIFICATION_JSON")
-			}	
+			}
 		}
 
 		// ignore returned err
@@ -405,16 +403,17 @@ func (ca *StatusUpdate) CoordinateWork() error {
 		return err
 	}
 
-	// CpipesMode - don't register outTables
-	if !ca.CpipesMode {
-		//* TODO OPTIMIZE THIS SQL, do not getPeInfo
-		_, _, _, outTables := getPeInfo(ca.Dbpool, ca.PeKey)
-		// Register out tables
-		if ca.Status != "failed" && len(outTables) > 0 && getOutputRecordCount(ca.Dbpool, ca.PeKey) > 0 {
-			err = RegisterDomainTables(ca.Dbpool, ca.UsingSshTunnel, ca.PeKey)
-			if err != nil {
-				return fmt.Errorf("while registrying out tables to input_registry: %v", err)
-			}
+	// Register outTables
+	outTables, err := GetOutputTables(ca.Dbpool, ca.PeKey)
+	if err != nil {
+		log.Println(err)
+		return err
+	}
+	// Register out tables
+	if ca.Status != "failed" && len(outTables) > 0 && getOutputRecordCount(ca.Dbpool, ca.PeKey) > 0 {
+		err = RegisterDomainTables(ca.Dbpool, ca.UsingSshTunnel, ca.PeKey)
+		if err != nil {
+			return fmt.Errorf("while registrying out tables to input_registry: %v", err)
 		}
 	}
 
