@@ -115,12 +115,9 @@ func (args *StartComputePipesArgs) StartShardingComputePipes(ctx context.Context
 		return result, err
 	}
 	if shardResult.clusterSpec.S3WorkerPoolSize == 0 {
-		if shardResult.clusterShardingInfo.NbrPartitions > 20 {
-			shardResult.clusterSpec.S3WorkerPoolSize = 20
-		} else {
-			shardResult.clusterSpec.S3WorkerPoolSize = shardResult.clusterShardingInfo.NbrPartitions
-		}
+		shardResult.clusterSpec.S3WorkerPoolSize = min(shardResult.clusterShardingInfo.NbrPartitions, 20)
 	}
+	log.Printf("SHARDING using %d nodes", shardResult.nbrShardingNodes)
 
 	// Augment cpipesStartup.EnvSettings with cluster info, used in When statements
 	cpipesStartup.EnvSettings["multi_step_sharding"] = shardResult.clusterShardingInfo.MultiStepSharding
