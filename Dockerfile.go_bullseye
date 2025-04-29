@@ -3,9 +3,7 @@ FROM ${BASE_CONTAINER}
 ARG BASE_CONTAINER
 
 # JetStore Build
-ENV JETS_SOURCE_DIR /usr/local/go/src/jetstore
-ENV JETS_BUILD_DIR /usr/local/go/build
-ENV JETS_BIN_DIR /usr/local/go/bin
+ENV JETS_SOURCE_DIR=/usr/local/go/src/jetstore JETS_BUILD_DIR=/usr/local/go/build JETS_BIN_DIR=/usr/local/go/bin
 
 RUN mkdir -p ${JETS_SOURCE_DIR}
 WORKDIR ${JETS_SOURCE_DIR}
@@ -27,8 +25,7 @@ RUN \
 # python puts it in ${JETS_SOURCE_DIR}/build
 RUN python3 setup.py build
   
-ENV GOOS linux
-ENV CGO_ENABLED 1
+ENV GOOS=linux CGO_ENABLED=1
 RUN go mod tidy
 RUN go get all
 RUN go mod download

@@ -1,4 +1,4 @@
-FROM jetstore_builder:go-bullseye as builder
+FROM jetstore_builder:go-bullseye AS builder
 
 FROM jetstore_base:bullseye
 
@@ -20,9 +20,7 @@ RUN echo "----------------JetStore-Version------------------" >> /VERSION.txt &&
     echo "JETS_GIT_SHA: ${JETS_GIT_SHA}"                      && \
     echo "----------------*********************-------------" 
 # Copy libraries and apps from builder
-ENV JETS_BUILD_DIR /usr/local/go/build
-ENV JETS_BIN_DIR /usr/local/go/bin
-ENV JETS_PY_BUILD_DIR /usr/local/go/src/jetstore/build
+ENV JETS_BUILD_DIR=/usr/local/go/build JETS_BIN_DIR=/usr/local/go/bin JETS_PY_BUILD_DIR=/usr/local/go/src/jetstore/build
 COPY --from=builder ${JETS_PY_BUILD_DIR}/lib /usr/local/lib
 COPY --from=builder ${JETS_BUILD_DIR}/jets/jets_test /usr/local/bin/
 COPY --from=builder ${JETS_BUILD_DIR}/jets/test_data /usr/local/bin/test_data
@@ -41,20 +39,19 @@ COPY --from=builder ${JETS_BIN_DIR}/test_data_generator /usr/local/bin/
 # COPY --from=builder ${JETS_BIN_DIR}/cpipes_booter /usr/local/bin/
 
 # Copy the jetsclient source for building the flutter app
-ENV JETS_SOURCE_DIR /usr/local/go/src/jetstore
+ENV JETS_SOURCE_DIR=/usr/local/go/src/jetstore
 COPY --from=builder ${JETS_SOURCE_DIR}/jetsclient /usr/local/jetsclient
 
 # Resource files
 COPY --from=builder ${JETS_BUILD_DIR}/jets_schema.json /usr/local/bin/
 COPY --from=builder ${JETS_BUILD_DIR}/jets_init_db.sql /usr/local/bin/
 # Set env to find the jets_schema.json by update_db (migrate_db.go)
-ENV JETS_SCHEMA_FILE /usr/local/bin/jets_schema.json
+ENV JETS_SCHEMA_FILE=/usr/local/bin/jets_schema.json
 # *TODO Not used, it's now integrated into the workspace_init_db.sql script
-ENV JETS_INIT_DB_SCRIPT /usr/local/bin/jets_init_db.sql
+ENV JETS_INIT_DB_SCRIPT=/usr/local/bin/jets_init_db.sql
 
 # Install Client UI == Flutter App ==
-ENV JETS_SOURCE_DIR /usr/local/go/src/jetstore
-ENV WEB_APP_DEPLOYMENT_DIR /usr/local/lib/web
+ENV JETS_SOURCE_DIR=/usr/local/go/src/jetstore WEB_APP_DEPLOYMENT_DIR=/usr/local/lib/web
 COPY --from=builder ${JETS_SOURCE_DIR}/jetsclient/build/web $WEB_APP_DEPLOYMENT_DIR
 
 RUN \
@@ -72,25 +69,18 @@ ARG GROUP_ID="1000"
 RUN groupadd -g ${GROUP_ID} jsuser \
     && useradd -r -u ${USER_ID} -g jsuser jsuser
 
-ENV PYTHONPATH "$PYTHONPATH:/go/lib:/usr/local/lib"
-ENV CLASSPATH ".:/usr/local/lib/antlr-${ANTLR4_VERSION}-complete.jar:$CLASSPATH"
+ENV PYTHONPATH="/go/lib:/usr/local/lib" CLASSPATH=".:/usr/local/lib/antlr-${ANTLR4_VERSION}-complete.jar"
 
 # Path for JetStore Workspace compilation
-ENV JETRULE_COMPILER /usr/local/lib/jets/compiler/jetrule_compiler.py
-ENV JETRULE_LOOKUP_LOADER /usr/local/lib/jets/compiler/jetrule_lookup_loader.py
+ENV JETRULE_COMPILER=/usr/local/lib/jets/compiler/jetrule_compiler.py JETRULE_LOOKUP_LOADER=/usr/local/lib/jets/compiler/jetrule_lookup_loader.py
 
 # Jets Application ENV Variable
 # These are set via cdk when the stack is deployed and overrides these defaults.
 # We need the defaults here for when we do local development
 # jetsclient ui
-ENV UI_PORT 5001
+ENV UI_PORT=5001
 # apiserver
-ENV API_SECRET 'JetStore Dev Mode - Override This'
-ENV API_TOKEN_EXPIRATION_MIN 60
-ENV WORKSPACES_HOME /go/workspaces
-ENV WORK_HOME /go/work
-ENV LOADER_ERR_DIR /go/work/errors
-ENV JETS_ADMIN_EMAIL admin
+ENV WORKSPACES_HOME=/go/workspaces WORK_HOME=/go/work LOADER_ERR_DIR=/go/work/errors JETS_ADMIN_EMAIL=admin
 
 RUN \
   mkdir -p ${WORKSPACES_HOME}           \
