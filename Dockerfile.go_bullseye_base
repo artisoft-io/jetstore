@@ -92,7 +92,7 @@ RUN sqlite3 --version
 
 # Abseil
 RUN wget -q "https://github.com/abseil/abseil-cpp/releases/download/20250127.1/abseil-cpp-20250127.1.tar.gz"  \
-    && tar xf "20250127.1.tar.gz"  \
+    && tar xf "abseil-cpp-20250127.1.tar.gz"  \
     && cd "abseil-cpp-20250127.1"  \
     && mkdir build && cd build \
     && cmake -DCMAKE_CXX_FLAGS=-fPIC -DABSL_BUILD_TESTING=OFF -DCMAKE_CXX_STANDARD=20 .. \
@@ -103,7 +103,7 @@ RUN wget -q "https://github.com/abseil/abseil-cpp/releases/download/20250127.1/a
 # Google Test
 ARG GOOGLETEST_PATH="${EXTERNALS}/googletest-1.16.0"
 RUN wget -q "https://github.com/google/googletest/releases/download/v1.16.0/googletest-1.16.0.tar.gz"  \
-    && tar xf "v1.16.0.tar.gz"  \
+    && tar xf "googletest-1.16.0.tar.gz"  \
     && cd "googletest-1.16.0"  \
     && mkdir build && cd build \
     && cmake -DCMAKE_CXX_FLAGS=-fPIC -DCMAKE_CXX_STANDARD=20 .. \
@@ -113,7 +113,7 @@ RUN wget -q "https://github.com/google/googletest/releases/download/v1.16.0/goog
 
 # Google Flags
 RUN wget -q "https://github.com/gflags/gflags/releases/download/v2.2.2/gflags-2.2.2.tar.gz.asc"  \
-    && tar xf "v2.2.2.tar.gz"  \
+    && tar xf "gflags-2.2.2.tar.gz"  \
     && cd "gflags-2.2.2"  \
     && mkdir build && cd build \
     && cmake cmake -DCMAKE_CXX_FLAGS=-fPIC -DCMAKE_CXX_STANDARD=20 .. \
