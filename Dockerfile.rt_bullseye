@@ -26,7 +26,7 @@ COPY --from=builder ${JETS_BUILD_DIR}/jets/jets_test /usr/local/bin/
 COPY --from=builder ${JETS_BUILD_DIR}/jets/test_data /usr/local/bin/test_data
 COPY --from=builder ${JETS_BUILD_DIR}/jets/libjets.so /usr/local/lib/
 #* Verify lib version when upgrading dependencies
-COPY --from=builder /usr/local/lib/libsqlite3.so.3.49.1 /usr/local/lib/
+COPY --from=builder /usr/local/lib/libsqlite3.so.0.8.6 /usr/local/lib/
 COPY --from=builder /usr/local/lib/libglog.so.0.6.0 /usr/local/lib/
 # Go commands
 COPY --from=builder ${JETS_BIN_DIR}/loader /usr/local/bin/
@@ -56,7 +56,7 @@ COPY --from=builder ${JETS_SOURCE_DIR}/jetsclient/build/web $WEB_APP_DEPLOYMENT_
 
 RUN \
     cd /usr/local/lib/ \
-    && ldconfig \
+    && ldconfig -v \
     && echo "USR LOCAL LIB DIRECTORY Contains" \
     && ls -la \
     && echo "USR LOCAL BIN DIRECTORY Contains" \
