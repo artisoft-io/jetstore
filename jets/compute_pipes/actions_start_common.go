@@ -101,7 +101,7 @@ func (args *StartComputePipesArgs) initializeCpipes(ctx context.Context, dbpool 
 	}
 	err = json.Unmarshal(cpJson, &cpipesStartup.CpConfig)
 	if err != nil {
-		return cpipesStartup, fmt.Errorf("while unmarshaling compute pipes json (StartShardingComputePipes): %s", err)
+		return cpipesStartup, fmt.Errorf("while unmarshaling compute pipes json (initializeCpipes): %s", err)
 	}
 
 	// Adjust ChannelSpec having columns specified by a jetrules class

@@ -30,7 +30,7 @@ type FileDbObject struct {
 
 // FileDbObject.Status mapping
 const (
-	FO_Open    string = "open"
+	FO_Open string = "open"
 	// FO_Merged  string = "merged"
 	// FO_Deleted string = "deleted"
 )
@@ -53,11 +53,11 @@ func QueryFileObject(dbpool *pgxpool.Pool, workspaceName, status, contentType st
 		return nil, err
 	}
 	defer rows.Close()
-	fileObjects := make([]*FileDbObject,0)
+	fileObjects := make([]*FileDbObject, 0)
 	for rows.Next() {
 		fo := FileDbObject{
 			WorkspaceName: workspaceName,
-			Status: status,
+			Status:        status,
 		}
 		if err := rows.Scan(&fo.Key, &fo.Oid, &fo.FileName, &fo.ContentType, &fo.UserEmail); err != nil {
 			return nil, err
@@ -92,8 +92,8 @@ func (fo *FileDbObject) UpdateFileObject(txWrite pgx.Tx, ctx context.Context) er
 		DO UPDATE SET (oid, status, user_email, last_update) = 
 		(EXCLUDED.oid, EXCLUDED.status, EXCLUDED.user_email, DEFAULT)
 		RETURNING key`
-	err := txWrite.QueryRow(ctx, stmt, 
-		fo.WorkspaceName, 
+	err := txWrite.QueryRow(ctx, stmt,
+		fo.WorkspaceName,
 		fo.Oid,
 		fo.FileName,
 		fo.ContentType,
@@ -133,11 +133,18 @@ func (fo *FileDbObject) WriteObject(dbpool *pgxpool.Pool, fd *os.File) (int64, e
 	}
 
 	loWrite := txWrite.LargeObjects()
-	if fo.Oid == 0 {
-		fo.Oid, err = loWrite.Create(ctx, 0)
+	if fo.Oid != 0 {
+		// Object exist in db, remove it, will get a new oid
+		err = loWrite.Unlink(ctx, fo.Oid)
 		if err != nil {
-			return 0, err
-		}	
+			return 0, fmt.Errorf("while removing large object from database: %v", err)
+		}
+	}
+
+	// Get an oid fro the object
+	fo.Oid, err = loWrite.Create(ctx, 0)
+	if err != nil {
+		return 0, err
 	}
 
 	err = fo.UpdateFileObject(txWrite, ctx)
@@ -162,17 +169,20 @@ func (fo *FileDbObject) WriteObject(dbpool *pgxpool.Pool, fd *os.File) (int64, e
 }
 
 // Case fo.Oid == 0:
-//   Expect to have fo.WorkspaceName and fo.FileName available
-//   (alternatively could use fo.Key in future)
-//   Returns fo with Oid, ContentType, Status, and UserEmail populated
-//   and write the object in fd
+//
+//	Expect to have fo.WorkspaceName and fo.FileName available
+//	(alternatively could use fo.Key in future)
+//	Returns fo with Oid, ContentType, Status, and UserEmail populated
+//	and write the object in fd
+//
 // Case fo.Oid != 0:
-//   Write the object in fd. Does not change fo.
-func (fo *FileDbObject)ReadObject(dbpool *pgxpool.Pool, fd *os.File) (int64, error) {
+//
+//	Write the object in fd. Does not change fo.
+func (fo *FileDbObject) ReadObject(dbpool *pgxpool.Pool, fd *os.File) (int64, error) {
 	ctx := context.Background()
 	txRead, err := dbpool.Begin(ctx)
 	if err != nil {
-			return 0, err
+		return 0, err
 	}
 	defer txRead.Rollback(ctx)
 
@@ -190,7 +200,7 @@ func (fo *FileDbObject)ReadObject(dbpool *pgxpool.Pool, fd *os.File) (int64, err
 	loRead := txRead.LargeObjects()
 	obj, err := loRead.Open(ctx, fo.Oid, pgx.LargeObjectModeRead)
 	if err != nil {
-			return 0, err
+		return 0, err
 	}
 
 	writer := bufio.NewWriter(fd)
