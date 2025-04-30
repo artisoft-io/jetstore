@@ -112,8 +112,8 @@ RUN wget -q "https://github.com/google/googletest/releases/download/v1.16.0/goog
     && ldconfig
 
 # Google Flags
-RUN wget -q "https://github.com/gflags/gflags/releases/download/v2.2.2/gflags-2.2.2.tar.gz.asc"  \
-    && tar xf "gflags-2.2.2.tar.gz"  \
+RUN wget -q "https://github.com/gflags/gflags/archive/refs/tags/v2.2.2.tar.gz"  \
+    && tar xf "v2.2.2.tar.gz"  \
     && cd "gflags-2.2.2"  \
     && mkdir build && cd build \
     && cmake cmake -DCMAKE_CXX_FLAGS=-fPIC -DCMAKE_CXX_STANDARD=20 .. \
@@ -122,9 +122,9 @@ RUN wget -q "https://github.com/gflags/gflags/releases/download/v2.2.2/gflags-2.
     && ldconfig
 
 # Google Log
-RUN wget -q "https://github.com/google/glog/archive/refs/tags/v0.7.1.tar.gz"  \
-    && tar xf "v0.7.1.tar.gz"  \
-    && cd "glog-0.7.1/"  \
+RUN wget -q "https://github.com/google/glog/archive/refs/tags/v0.6.0.tar.gz"  \
+    && tar xf "v0.6.0.tar.gz"  \
+    && cd "glog-0.6.0/"  \
     && mkdir build && cd build \
     && cmake -DCMAKE_CXX_FLAGS=-fPIC -DCMAKE_CXX_STANDARD=20 .. \
     && make -j6  \
