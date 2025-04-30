@@ -67,17 +67,20 @@ func QueryFileObject(dbpool *pgxpool.Pool, workspaceName, status, contentType st
 	return fileObjects, nil
 }
 
-// // Workspace Changes - keeping track of assets changed
-// "workspace_changes": {
-// 	Stmt: `INSERT INTO jetsapi.workspace_changes 
-// 		(workspace_name, oid, file_name, content_type, status, user_email) 
-// 		VALUES ($1, $2, $3, $4, $5, $6)
-// 		ON CONFLICT ON CONSTRAINT workspace_changes_unique_cstraint
-// 		DO UPDATE SET (oid, status, user_email, last_update) = 
-// 		(EXCLUDED.oid, EXCLUDED.status, EXCLUDED.user_email, DEFAULT)
-// 		RETURNING key`,
-// 	ColumnKeys: []string{"workspace_name", "oid", "file_name", "content_type", "status", "user_email"},
-// },
+// Write Db Object, identified by fo.Oid to local file system
+func (fo *FileDbObject) WriteDbObject2LocalFile(dbpool *pgxpool.Pool, localFileName string) error {
+	fileHd, err := os.Create(localFileName)
+	if err != nil {
+		return fmt.Errorf("failed to os.Create on local workspace file %s for write: %v", fo.FileName, err)
+	}
+	defer fileHd.Close()
+	n, err := fo.ReadObject(dbpool, fileHd)
+	if err != nil {
+		return fmt.Errorf("failed to read file object %s from database for write: %v", fo.FileName, err)
+	}
+	log.Println("Updated local file", fo.FileName, "size", n)
+	return nil
+}
 
 func (fo *FileDbObject) UpdateFileObject(txWrite pgx.Tx, ctx context.Context) error {
 	// Update FileDbObject metadata
@@ -192,6 +195,10 @@ func (fo *FileDbObject)ReadObject(dbpool *pgxpool.Pool, fd *os.File) (int64, err
 
 	writer := bufio.NewWriter(fd)
 	n, err := io.Copy(writer, obj)
+	if err != nil {
+		return 0, err
+	}
+	err = writer.Flush()
 	if err != nil {
 		return 0, err
 	}

@@ -40,22 +40,31 @@ func ExtractTarGz(gzipStream io.Reader, baseDir string) error {
 				log.Printf("ExtractTarGz: Mkdir() failed, folder probably already exist: %s", err.Error())
 			}
 		case tar.TypeReg:
-			outFile, err := os.OpenFile(fmt.Sprintf("%s/%s", baseDir, header.Name), os.O_RDWR|os.O_CREATE, 0755)
+			err = extractFile(fmt.Sprintf("%s/%s", baseDir, header.Name), tarReader)
 			if err != nil {
-				return fmt.Errorf("ExtractTarGz: OpenFile() failed: %s", err.Error())
-			}
-			defer outFile.Close()
-			if _, err := io.Copy(outFile, tarReader); err != nil {
-				return fmt.Errorf("ExtractTarGz: Copy() failed: %s", err.Error())
+				return err
 			}
 		default:
-			err := fmt.Errorf(
+			err = fmt.Errorf(
 				"ExtractTarGz: uknown type: %v in %s",
 				header.Typeflag,
 				header.Name)
 			log.Println(err)
 			return err
 		}
+	}
+	return nil
+}
+
+func extractFile(localFileName string, tarReader *tar.Reader) error {
+	outFile, err := os.OpenFile(localFileName, os.O_RDWR|os.O_CREATE, 0755)
+	if err != nil {
+		return fmt.Errorf("ExtractTarGz: OpenFile() failed: %v", err)
+	}
+	defer outFile.Close()
+	_, err = io.Copy(outFile, tarReader)
+	if err != nil {
+		return fmt.Errorf("ExtractTarGz: Copy() failed: %v", err)
 	}
 	return nil
 }

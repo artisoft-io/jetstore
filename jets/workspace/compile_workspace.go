@@ -67,38 +67,36 @@ func SyncWorkspaceFiles(dbpool *pgxpool.Pool, workspaceName, status, contentType
 			if err = os.MkdirAll(fileDir, 0770); err != nil {
 				return fmt.Errorf("while creating file directory structure: %v", err)
 			}
-
-			fileHd, err := os.Create(localFileName)
+			// Put obj to local file system
+			err = fo.WriteDbObject2LocalFile(dbpool, localFileName)
 			if err != nil {
-				return fmt.Errorf("failed to os.Create on local workspace file %s for write: %v", fo.FileName, err)
+				return err
 			}
-			n, err := fo.ReadObject(dbpool, fileHd)
-			if err != nil {
-				return fmt.Errorf("failed to read file object %s from database for write: %v", fo.FileName, err)
-			}
-			log.Println("Updated file", fo.FileName, "size", n)
-			fileHd.Close()
-
 			// If FileName ends with .tgz, extract files from archive
 			if strings.HasSuffix(fo.FileName, ".tgz") {
-				fileHd, err := os.Open(localFileName)
-				defer func() {
-					fileHd.Close()
-				}()
+				err = extractTgz(localFileName, fmt.Sprintf("%s/%s", workspaceHome, workspaceName))
 				if err != nil {
-					return fmt.Errorf("failed to open tgz file %s for read: %v", fo.FileName, err)
-				}
-				err = tarextract.ExtractTarGz(fileHd, fmt.Sprintf("%s/%s", workspaceHome, workspaceName))
-				if err != nil {
-					return fmt.Errorf("failed to extract content from tgz file %s for read: %v", fo.FileName, err)
+					return err
 				}
 			}
-
 		} else {
 			log.Println("Skipping file", fo.FileName)
 		}
 	}
 	log.Println("Done synching overriten workspace file from database")
+	return nil
+}
+
+func extractTgz(sourceFileName, destBaseDir string) error {
+	fileHd, err := os.Open(sourceFileName)
+	if err != nil {
+		return fmt.Errorf("failed to open tgz file %s for read: %v", sourceFileName, err)
+	}
+	defer fileHd.Close()
+	err = tarextract.ExtractTarGz(fileHd, destBaseDir)
+	if err != nil {
+		return fmt.Errorf("failed to extract content from tgz file %s for read: %v", sourceFileName, err)
+	}
 	return nil
 }
 
