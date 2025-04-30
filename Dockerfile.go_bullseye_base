@@ -77,19 +77,6 @@ ENV EXTERNALS=/externals
 RUN mkdir -p ${EXTERNALS}
 WORKDIR ${EXTERNALS}
 
-ARG SQLITE3_VERSION="3490100"
-ENV SQLITE3_VERSION=${SQLITE3_VERSION}
-
-RUN wget -q "https://www.sqlite.org/2025/sqlite-autoconf-${SQLITE3_VERSION}.tar.gz"  \
-    && tar xf "sqlite-autoconf-${SQLITE3_VERSION}.tar.gz"  \
-    && cd "sqlite-autoconf-${SQLITE3_VERSION}"  \
-    && ./configure   \
-    && make -j6  \
-    && make install \
-    && ldconfig
-
-RUN sqlite3 --version
-
 # Abseil
 RUN wget -q "https://github.com/abseil/abseil-cpp/releases/download/20250127.1/abseil-cpp-20250127.1.tar.gz"  \
     && tar xf "abseil-cpp-20250127.1.tar.gz"  \
@@ -140,3 +127,21 @@ RUN wget -q "https://github.com/google/benchmark/archive/refs/tags/v1.9.2.tar.gz
     && make -j6  \
     && make install \
     && ldconfig
+
+# sqlite3
+ARG SQLITE3_VERSION="3430200"
+ENV SQLITE3_VERSION=${SQLITE3_VERSION}
+RUN wget -q "https://www.sqlite.org/2023/sqlite-autoconf-${SQLITE3_VERSION}.tar.gz"  \
+    && tar xf "sqlite-autoconf-${SQLITE3_VERSION}.tar.gz"  \
+    && cd "sqlite-autoconf-${SQLITE3_VERSION}"  \
+    && ./configure   \
+    && make -j6  \
+    && make install \
+    && ldconfig
+RUN sqlite3 --version
+
+RUN \
+    echo "DIRECTORY /usr/local/lib/ Contains" \
+    && ls -la /usr/local/lib/ \
+    && echo "DIRECTORY /usr/local/bin Contains" \
+    && ls -la /usr/local/bin
