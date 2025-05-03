@@ -87,6 +87,7 @@ require (
 )
 
 require (
+	github.com/antlr4-go/antlr/v4 v4.13.1
 	github.com/dolthub/swiss v0.2.1
 	github.com/fraugster/parquet-go v0.12.0
 	github.com/golang/snappy v1.0.0
