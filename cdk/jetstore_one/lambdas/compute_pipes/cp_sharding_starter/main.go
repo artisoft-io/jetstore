@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 	"log"
-	"strings"
 	"os"
+	"strings"
 
 	"github.com/artisoft-io/jetstore/cdk/jetstore_one/lambdas/dbc"
 	"github.com/artisoft-io/jetstore/jets/compute_pipes"
@@ -93,13 +93,26 @@ func handler(ctx context.Context, arg compute_pipes.StartComputePipesArgs) (comp
 	if err != nil {
 		return compute_pipes.ComputePipesRun{}, fmt.Errorf("while checking if db credential have been updated: %v", err)
 	}
-	result, err := (&arg).StartShardingComputePipes(ctx, dbpool)
+	result, schemaProvider, err := (&arg).StartShardingComputePipes(ctx, dbpool)
 	if err != nil {
+		var apiEndpointJson string
 		// Perform api gateway notification
 		apiEndpoint := os.Getenv("CPIPES_STATUS_NOTIFICATION_ENDPOINT")
-		apiEndpointJson := os.Getenv("CPIPES_STATUS_NOTIFICATION_ENDPOINT_JSON")
+		if len(apiEndpoint) == 0 {
+			if schemaProvider != nil && len(schemaProvider.NotificationRoutingOverridesJson) > 0 {
+				apiEndpointJson = schemaProvider.NotificationRoutingOverridesJson
+			} else {
+				apiEndpointJson = os.Getenv("CPIPES_STATUS_NOTIFICATION_ENDPOINT_JSON")
+			}
+		}
 		if (apiEndpoint != "" || apiEndpointJson != "") && result.ErrorUpdate != nil {
-			notificationTemplate := os.Getenv("CPIPES_FAILED_NOTIFICATION_JSON")
+			var notificationTemplate string
+			if schemaProvider != nil && schemaProvider.NotificationTemplatesOverrides != nil {
+				notificationTemplate = schemaProvider.NotificationTemplatesOverrides["CPIPES_FAILED_NOTIFICATION_JSON"]
+			}
+			if len(notificationTemplate) == 0 {
+				notificationTemplate = os.Getenv("CPIPES_FAILED_NOTIFICATION_JSON")
+			}
 			customFileKeys := make([]string, 0)
 			ck := os.Getenv("CPIPES_CUSTOM_FILE_KEY_NOTIFICATION")
 			if len(ck) > 0 {

@@ -169,28 +169,28 @@ func DoNotifyApiGateway(fileKey, apiEndpoint, apiEndpointJson, notificationTempl
 	// Prepare the API request.
 	var value string
 	// Extract file key components
-	keyMap := make(map[string]interface{})
-	keyMap = SplitFileKeyIntoComponents(keyMap, &fileKey)
-	v := keyMap["client"]
+	fileKeyComponents := make(map[string]any)
+	fileKeyComponents = SplitFileKeyIntoComponents(fileKeyComponents, &fileKey)
+	v := fileKeyComponents["client"]
 	if v != nil {
 		notificationTemplate = strings.ReplaceAll(notificationTemplate, "{{client}}", v.(string))
 	} else {
 		notificationTemplate = strings.ReplaceAll(notificationTemplate, "{{client}}", "")
 	}
-	v = keyMap["org"]
+	v = fileKeyComponents["org"]
 	if v != nil {
 		notificationTemplate = strings.ReplaceAll(notificationTemplate, "{{org}}", v.(string))
 	} else {
 		notificationTemplate = strings.ReplaceAll(notificationTemplate, "{{org}}", "")
 	}
-	v = keyMap["object_type"]
+	v = fileKeyComponents["object_type"]
 	if v != nil {
 		notificationTemplate = strings.ReplaceAll(notificationTemplate, "{{object_type}}", v.(string))
 	} else {
 		notificationTemplate = strings.ReplaceAll(notificationTemplate, "{{object_type}}", "")
 	}
 	for _, key := range customFileKeys {
-		switch vv := keyMap[key].(type) {
+		switch vv := fileKeyComponents[key].(type) {
 		case string:
 			value = vv
 		default:
@@ -198,6 +198,7 @@ func DoNotifyApiGateway(fileKey, apiEndpoint, apiEndpointJson, notificationTempl
 		}
 		value = strings.ReplaceAll(value, `"`, `\"`)
 		notificationTemplate = strings.ReplaceAll(notificationTemplate, fmt.Sprintf("{{%s}}", key), value)
+		apiEndpointJson = strings.ReplaceAll(apiEndpointJson, fmt.Sprintf("{{%s}}", key), value)
 	}
 
 	if len(errMsg) > 0 {
@@ -210,12 +211,14 @@ func DoNotifyApiGateway(fileKey, apiEndpoint, apiEndpointJson, notificationTempl
 		str, ok := value.(string)
 		if ok && strings.HasPrefix(key, "$") {
 			notificationTemplate = strings.ReplaceAll(notificationTemplate, fmt.Sprintf("{{%s}}", key[1:]), str)
-			apiEndpointJson = strings.ReplaceAll(apiEndpointJson, fmt.Sprintf("{{%s}}", key[1:]), str)
+			if len(apiEndpoint) == 0 {
+				apiEndpointJson = strings.ReplaceAll(apiEndpointJson, fmt.Sprintf("{{%s}}", key[1:]), str)
+			}
 		}
 	}
 
 	// Identify the endpoint where to send the request
-	if apiEndpoint == "" {
+	if len(apiEndpoint) == 0 {
 		routes := make(map[string]string)
 		err = json.Unmarshal([]byte(apiEndpointJson), &routes)
 		if err != nil {
@@ -223,26 +226,35 @@ func DoNotifyApiGateway(fileKey, apiEndpoint, apiEndpointJson, notificationTempl
 			log.Println(err)
 			return err
 		}
-		key := routes["key"]
-		altKey := routes["alt_env_key"]
-		if key == "" && altKey == "" {
-			log.Println("Invalid routing json, key and alt_env_key are both missing, need at leat one to be set.")
-			return fmt.Errorf("error: invalid routing json, key and alt_env_key are missing, need at least one to be set")
+		// key := routes["key"]
+		// altKey := routes["alt_key"]
+		if len(routes["key"]) == 0 && len(routes["alt_key"]) == 0 {
+			log.Println("Invalid routing json, key and alt_key are both missing, need at leat one to be set.")
+			return fmt.Errorf("error: invalid routing json, key and alt_key are missing, need at least one to be set")
 		}
-		v = keyMap[key]
-		if v == nil {
-			// Check for alt key based on env
-			if altKey == "" {
-				err = fmt.Errorf(
-					"error: routing file key component '%v' not found on file key and no alt_env_key found", key)
-				log.Println(err)
-				return err
+		keys := []string{routes["key"], routes["alt_key"]}
+		for _, key := range keys {
+			if len(key) == 0 {
+				continue
 			}
-			v = altKey
+			// Check if it's a fileKeyComponents
+			routingObj := fileKeyComponents[key]
+			routingKey, ok := routingObj.(string)
+			if ok {
+				apiEndpoint = routes[strings.ToUpper(routingKey)]
+				if len(apiEndpoint) > 0 {
+					break
+				}
+			}
+			// Check if can route with key
+			apiEndpoint = routes[strings.ToUpper(key)]
+			if len(apiEndpoint) > 0 {
+				break
+			}
 		}
-		apiEndpoint = routes[v.(string)]
-		if apiEndpoint == "" {
-			err = fmt.Errorf("error: notification rendpoint not found for file key component '%s' with value %v", key, v)
+
+		if len(apiEndpoint) == 0 {
+			err = fmt.Errorf("error: notification endpoint not found for routing keys: %v", keys)
 			log.Println(err)
 			return err
 		}
@@ -296,16 +308,22 @@ func (ca *StatusUpdate) CoordinateWork() error {
 		}
 		if len(schemaProviderJson) > 0 {
 			type SchemaProviderShort struct {
-				NotificationTemplatesOverrides map[string]string `json:"notification_templates_overrides"`
+				NotificationTemplatesOverrides   map[string]string `json:"notification_templates_overrides"`
+				NotificationRoutingOverridesJson string            `json:"notification_routing_overrides_json"`
 			}
 			schemaProvider := SchemaProviderShort{}
 			err = json.Unmarshal([]byte(schemaProviderJson), &schemaProvider)
-			if err == nil && schemaProvider.NotificationTemplatesOverrides != nil {
-				if ca.Status == "failed" {
-					notificationTemplate = schemaProvider.NotificationTemplatesOverrides["CPIPES_FAILED_NOTIFICATION_JSON"]
-					errMsg = ca.FailureDetails
-				} else {
-					notificationTemplate = schemaProvider.NotificationTemplatesOverrides["CPIPES_COMPLETED_NOTIFICATION_JSON"]
+			if err == nil {
+				if schemaProvider.NotificationTemplatesOverrides != nil {
+					if ca.Status == "failed" {
+						notificationTemplate = schemaProvider.NotificationTemplatesOverrides["CPIPES_FAILED_NOTIFICATION_JSON"]
+						errMsg = ca.FailureDetails
+					} else {
+						notificationTemplate = schemaProvider.NotificationTemplatesOverrides["CPIPES_COMPLETED_NOTIFICATION_JSON"]
+					}
+				}
+				if len(schemaProvider.NotificationRoutingOverridesJson) > 0 {
+					apiEndpointJson = schemaProvider.NotificationRoutingOverridesJson
 				}
 			}
 		}

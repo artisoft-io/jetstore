@@ -143,11 +143,6 @@ func (cpCtx *ComputePipesContext) StartMergeFiles(dbpool *pgxpool.Pool) (cpErr e
 			return
 		}
 	}
-	// Delimiter for the header row
-	var delimit rune
-	if inputSp != nil {
-		delimit = inputSp.Delimiter()
-	}
 	inputFormat := cpCtx.CpConfig.PipesConfig[0].InputChannel.Format
 	if inputFormat == "parquet" {
 		//*TODO support merging parquet files into a single file
@@ -159,7 +154,7 @@ func (cpCtx *ComputePipesContext) StartMergeFiles(dbpool *pgxpool.Pool) (cpErr e
 				return
 		}
 	}
-	r, err := cpCtx.NewMergeFileReader(inputFormat, outputSp, outputFileConfig.Headers, writeHeaders, delimit, compression)
+	r, err := cpCtx.NewMergeFileReader(inputFormat, outputSp, outputFileConfig.Headers, writeHeaders, compression)
 	if err != nil {
 		cpErr = err
 		return
@@ -190,20 +185,19 @@ type MergeFileReader struct {
 
 // outputSp is needed to determine if we quote all or non fields. It also provided the writeHeaders value.
 func (cpCtx *ComputePipesContext) NewMergeFileReader(inputFormat string, outputSp SchemaProvider, headers []string,
-	writeHeaders bool, delimit rune, compression string) (io.Reader, error) {
+	writeHeaders bool, compression string) (io.Reader, error) {
 
 	var h []byte
 	if len(headers) > 0 && writeHeaders {
 		var sep rune = ','
-		if delimit > 0 {
-			sep = delimit
-		}
 		// Write the header into a byte slice. Using a csv.Writer to make sure
 		// the delimiter is escaped correctly
 		var buf bytes.Buffer
 		w := csv.NewWriter(&buf)
-		w.Comma = sep
 		if outputSp != nil {
+			if outputSp.Delimiter() > 0 {
+				sep = outputSp.Delimiter()
+			}
 			if outputSp.QuoteAllRecords() {
 				w.QuoteAll = true
 			}
@@ -211,6 +205,7 @@ func (cpCtx *ComputePipesContext) NewMergeFileReader(inputFormat string, outputS
 				w.NoQuotes = true
 			}
 		}
+		w.Comma = sep
 		err := w.Write(headers)
 		if err != nil {
 			return nil, fmt.Errorf("while writing headers in merge_files op: %v", err)

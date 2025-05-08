@@ -145,7 +145,7 @@ func main() {
 	fmt.Println("Start Sharding Arguments")
 	b, _ = json.MarshalIndent(shardingArgs, "", " ")
 	fmt.Println(string(b))
-	cpShardingRun, err := shardingArgs.StartShardingComputePipes(ctx, dbpool)
+	cpShardingRun, _, err := shardingArgs.StartShardingComputePipes(ctx, dbpool)
 	if err != nil {
 		log.Fatalf("while calling StartShardingComputePipes: %v", err)
 	}
