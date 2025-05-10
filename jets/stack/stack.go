@@ -17,6 +17,10 @@ func (s *Stack[T]) IsEmpty() bool {
 	return len(s.stack) == 0
 }
 
+func (s *Stack[T]) Len() int {
+	return len(s.stack)
+}
+
 // Push adds an element to the top of the stack
 func (s *Stack[T]) Push(item *T) {
 	s.stack = append(s.stack, item)
