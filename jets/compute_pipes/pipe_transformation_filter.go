@@ -24,7 +24,7 @@ func (ctx *FilterTransformationPipe) Apply(input *[]interface{}) error {
 		return fmt.Errorf("error: unexpected null input arg in FilterTransformationPipe")
 	}
 	// Check if we reached the max nbr of rows to sent
-	if ctx.nbrSentRows >= ctx.spec.FilterConfig.MaxOutputCount {
+	if ctx.spec.FilterConfig.MaxOutputCount > 0 && ctx.nbrSentRows >= ctx.spec.FilterConfig.MaxOutputCount {
 		return nil
 	}
 	resp, err := ctx.whenExpr.eval(*input)
@@ -34,9 +34,11 @@ func (ctx *FilterTransformationPipe) Apply(input *[]interface{}) error {
 	v, ok := resp.(int)
 	if ok && v == 1 {
 		// Filter out the row
+		// log.Println("*** ROW FILTERED OUT: ", *input)
 		return nil
 	}
 	// Send out the row
+	// log.Println("*** KEEP ROW: ", *input)
 	select {
 	case ctx.outputCh.channel <- *input:
 	case <-ctx.doneCh:
