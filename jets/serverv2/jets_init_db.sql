@@ -28,7 +28,8 @@ INSERT INTO jetsapi.mapping_function_registry (function_name, is_argument_requir
   ('unique_split_on',        '1'),
   ('validate_date',          '0'),
   ('substring',              '1'),
-  ('find_and_replace',       '1')
+  ('find_and_replace',       '1'),
+  ('ndc10_to_11',            '0')
 ;
 
 -- Initialize roles table

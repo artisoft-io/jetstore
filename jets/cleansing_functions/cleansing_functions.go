@@ -408,6 +408,9 @@ func (ctx *CleansingFunctionContext) ApplyCleasingFunction(functionName string, 
 			log.Panicf("ERROR missing argument for function split_on for input column pos %d", inputPos)
 		}
 
+	case "ndc10_to_11":
+		obj = Ndc10To11(inputValue)
+
 	default:
 		log.Panicf("ERROR unknown mapping function: %s", functionName)
 	}
@@ -415,14 +418,47 @@ func (ctx *CleansingFunctionContext) ApplyCleasingFunction(functionName string, 
 	return obj, errMsg
 }
 
-func SplitOn(inputValue, argument string) interface{} {
+// Cleansing function to convert NDC with 10 digits with slash separators
+// to an 11 digits without slashes. The input is expected to contains 2 sliashes.
+// If the input contains no slash, the the input is returned;
+// If the input does not contain 2 slashes, the input is returned unchanged.
+// If the input contains 2 slashes but not the expected number of digits,
+// then the input is returned with the slashes removed.
+// It does not validate the ndc, nor that the resulting string contains
+// only digits. The returned number of digits is not validated either.
+// See the transformation rule at:
+// https://health.maryland.gov/phpa/OIDEOR/IMMUN/Shared%20Documents/Handout%203%20-%20NDC%20conversion%20to%2011%20digits.pdf
+func Ndc10To11(inputValue string) any {
+	if inputValue == "" {
+		return nil
+	}
+	ndcSlice := strings.Split(inputValue, "-")
+	if len(ndcSlice) != 3 {
+		return inputValue
+	}
+	l1 := len(ndcSlice[0])
+	l2 := len(ndcSlice[1])
+	l3 := len(ndcSlice[2])
+	switch {
+	case l1 == 4 && l2 == 4 && l3 == 2:
+		return fmt.Sprintf("0%s%s%s", ndcSlice[0], ndcSlice[1], ndcSlice[2])
+	case l1 == 5 && l2 == 3 && l3 == 2:
+		return fmt.Sprintf("%s0%s%s", ndcSlice[0], ndcSlice[1], ndcSlice[2])
+	case l1 == 5 && l2 == 4 && l3 == 1:
+		return fmt.Sprintf("%s%s0%s", ndcSlice[0], ndcSlice[1], ndcSlice[2])
+	default:
+		return fmt.Sprintf("%s%s%s", ndcSlice[0], ndcSlice[1], ndcSlice[2])
+	}
+}
+
+func SplitOn(inputValue, argument string) any {
 	if inputValue == "" || argument == "" {
 		return nil
 	}
 	return strings.Split(inputValue, argument)
 }
 
-func UniqueSplitOn(inputValue, argument string) interface{} {
+func UniqueSplitOn(inputValue, argument string) any {
 	if inputValue == "" || argument == "" {
 		return nil
 	}

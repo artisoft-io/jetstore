@@ -5,6 +5,34 @@ import (
 	"testing"
 )
 
+func TestNDC10To11(t *testing.T) {
+	if Ndc10To11("") != nil {
+		t.Errorf("error: expecting nil")
+	}
+	if Ndc10To11("abc") != "abc" {
+		t.Errorf("error: unexpected value")
+	}
+	if Ndc10To11("a-b-c") != "abc" {
+		t.Errorf("error: unexpected value")
+	}
+	// already 11
+	if Ndc10To11("12345-6789-01") != "12345678901" {
+		t.Errorf("error: unexpected value")
+	}
+	// test 10 to 11: 4-4-2
+	if Ndc10To11("1234-5678-90") != "01234567890" {
+		t.Errorf("error: unexpected value")
+	}
+	// test 10 to 11: 5-3-2
+	if Ndc10To11("12345-678-90") != "12345067890" {
+		t.Errorf("error: unexpected value")
+	}
+	// test 10 to 11: 5-4-1
+	if Ndc10To11("12345-6789-0") != "12345678900" {
+		t.Errorf("error: unexpected value")
+	}
+}
+
 func TestSplitOn(t *testing.T) {
 	inputValue := ""
 	argument := ","
