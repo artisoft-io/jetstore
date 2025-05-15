@@ -233,6 +233,7 @@ func (args *StartComputePipesArgs) initializeCpipes(ctx context.Context, dbpool 
 			Bucket:              bucketName,
 			FileKey:             args.FileKey,
 			InputFormatDataJson: inputFormatDataJson.String,
+			Env:                 make(map[string]any),
 		}
 		if isPartFile == 1 {
 			cpipesStartup.MainInputSchemaProviderConfig.IsPartFiles = true
@@ -801,6 +802,9 @@ func PrepareCpipesEnv(cpConfig *ComputePipesConfig, mainSchemaProviderConfig *Sc
 	//  e.g. $FILE_KEY and $FILE_KEY_PATH is BAD since $FILE_KEY_PATH may get
 	//  the value of $FILE_KEY with a dandling _PATH
 	// The main schema provider env is used as the overall env context.
+	if mainSchemaProviderConfig.Env == nil {
+		mainSchemaProviderConfig.Env = make(map[string]any)
+	}
 	mainSchemaProviderConfig.Env["$INPUT_BUCKET"] = mainSchemaProviderConfig.Bucket
 	mainSchemaProviderConfig.Env["$MAIN_SCHEMA_NAME"] = mainSchemaProviderConfig.SchemaName
 
