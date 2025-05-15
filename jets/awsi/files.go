@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/artisoft-io/jetstore/jets/dbutils"
@@ -17,13 +18,19 @@ func SyncS3Files(dbpool *pgxpool.Pool, workspaceName, keyPrefix, trimPrefix, con
 	region := os.Getenv("JETS_REGION")
 	wh := os.Getenv("WORKSPACES_HOME")
 	// sync workspace files from s3 to locally
-	log.Println("Synching overriten workspace file from s3 using keyPrefix",keyPrefix)
+	log.Println("Synching overriten workspace file from s3 using keyPrefix", keyPrefix)
 	keys, err := ListS3Objects(bucket, &keyPrefix)
 	if err != nil {
 		return err
 	}
 	for _, s3Obj := range keys {
-		fileHd, err := os.Create(strings.Replace(s3Obj.Key, "jetstore/workspaces", wh, 1))
+		localFileName := strings.Replace(s3Obj.Key, "jetstore/workspaces", wh, 1)
+		fileDir := filepath.Dir(localFileName)
+		if err = os.MkdirAll(fileDir, 0770); err != nil {
+			return fmt.Errorf("while creating file directory structure: %v", err)
+		}
+
+		fileHd, err := os.Create(localFileName)
 		if err != nil {
 			return fmt.Errorf("failed to open local workspace file for write: %v", err)
 		}
