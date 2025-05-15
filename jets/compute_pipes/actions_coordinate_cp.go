@@ -12,6 +12,7 @@ import (
 	"github.com/artisoft-io/jetstore/jets/datatable"
 	"github.com/artisoft-io/jetstore/jets/workspace"
 	"github.com/jackc/pgx/v4/pgxpool"
+	"maps"
 )
 
 // Compute Pipes Actions
@@ -156,11 +157,11 @@ func (args *ComputePipesNodeArgs) CoordinateComputePipes(ctx context.Context, db
 	envSettings["$DATE_FILE_KEY"] = fileKeyDate
 	envSettings["$SHARD_ID"] = args.NodeId
 	envSettings["$JETS_PARTITION_LABEL"] = args.JetsPartitionLabel
+	envSettings["$FULL_INPUT_FILE_KEY"] = fmt.Sprintf("%s/%s",
+		mainSchemaProviderConfig.Bucket, mainSchemaProviderConfig.FileKey)
 
 	if mainSchemaProviderConfig.Env != nil {
-		for k, v := range mainSchemaProviderConfig.Env {
-			envSettings[k] = v
-		}
+		maps.Copy(envSettings, mainSchemaProviderConfig.Env)
 	}
 
 	cpContext = &ComputePipesContext{

@@ -413,13 +413,14 @@ type MapRecordSpec struct {
 
 // SchemaProvider is used for external configuration, such as date format
 type AnalyzeSpec struct {
-	SchemaProvider string              `json:"schema_provider"`
-	ScrubChars     string              `json:"scrub_chars"`
-	EntityHints    []*EntityHint       `json:"entity_hints"`
-	RegexTokens    []RegexNode         `json:"regex_tokens"`
-	LookupTokens   []LookupTokenNode   `json:"lookup_tokens"`
-	KeywordTokens  []KeywordTokenNode  `json:"keyword_tokens"`
-	FunctionTokens []FunctionTokenNode `json:"function_tokens"`
+	SchemaProvider                  string              `json:"schema_provider,omitempty"`
+	ScrubChars                      string              `json:"scrub_chars,omitempty"`
+	DistinctValuesWhenLessThanCount int                 `json:"distinct_values_when_less_than_count,omitzero"`
+	EntityHints                     []*EntityHint       `json:"entity_hints"`
+	RegexTokens                     []RegexNode         `json:"regex_tokens"`
+	LookupTokens                    []LookupTokenNode   `json:"lookup_tokens"`
+	KeywordTokens                   []KeywordTokenNode  `json:"keyword_tokens"`
+	FunctionTokens                  []FunctionTokenNode `json:"function_tokens"`
 }
 
 type InputChannelConfig struct {

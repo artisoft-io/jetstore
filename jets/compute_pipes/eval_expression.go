@@ -99,13 +99,21 @@ func (ctx ExprBuilderContext) parseValue(expr *string) (any, error) {
 		for strings.Contains(valueStr, "$") && lc < 3 {
 			lc += 1
 			for k, v := range ctx {
-				v, ok := v.(string)
+				vstr, ok := v.(string)
 				if ok {
-					valueStr = strings.ReplaceAll(valueStr, k, v)
+					valueStr = strings.ReplaceAll(valueStr, k, vstr)
+				} else {
+					if strings.Contains(valueStr, k) {
+						// the value is not a string, no further replacement
+						value = v
+						goto Substitution_Done
+					}
 				}
 			}
 		}
 		value = valueStr
+		Substitution_Done:
+		;
 
 	case strings.Contains(*expr, "."):
 		// value is double

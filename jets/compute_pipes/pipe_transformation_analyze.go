@@ -1,10 +1,14 @@
 package compute_pipes
 
 import (
+	"bytes"
 	"fmt"
 	"log"
+	"maps"
+	"slices"
 	"strings"
 
+	"github.com/artisoft-io/jetstore/jets/csv"
 	"github.com/fraugster/parquet-go/parquet"
 	"github.com/fraugster/parquet-go/parquetschema"
 )
@@ -25,6 +29,7 @@ import (
 //	"entity_hint",
 //	"distinct_count",
 //	"distinct_count_pct",
+//	"distinct_values",
 //	"null_count",
 //	"null_count_pct",
 //	"total_count",
@@ -43,10 +48,14 @@ import (
 //	"max_value",
 //	"minmax_type"
 //
-// Note for min_value/max_value are determined based on this priority rule:
+// Note: for min_value/max_value are determined based on this priority rule:
 //  1. min_date/max_date if more than 50% of values are valid dates;
-//  2. min_double/max_double if more than 75% of values are valid double;
+//  2. min_double/max_double if more than 75% of values are valid double (note this includes int as well);
 //  3. otherwise it's the text min/max length.
+//
+// Note: distinct_values will contains a comma-separated list of distinct value
+// if distinct_count < spec.distinct_values_when_less_than_count. There is a hardcoded
+// check that cap distinct_values_when_less_than_count to 20.
 //
 // Other columns are added based on regex_tokens, lookup_tokens, keyword_tokens, and parse functions
 // The value of the domain counts are expressed in percentage of the non null count:
@@ -155,6 +164,22 @@ func (ctx *AnalyzeTransformationPipe) Done() error {
 				outputRow[ipos] = float64(distinctCount) * ratioFactor
 			} else {
 				outputRow[ipos] = -1.0
+			}
+		}
+
+		ipos, ok = (*ctx.outputCh.columns)["distinct_values"]
+		if ok && distinctCount < ctx.spec.AnalyzeConfig.DistinctValuesWhenLessThanCount {
+			distinctValues := slices.Sorted(maps.Keys(state.DistinctValues))
+			buf := new(bytes.Buffer)
+			w := csv.NewWriter(buf)
+			err := w.Write(distinctValues)
+			if err != nil {
+				outputRow[ipos] = err.Error()
+			} else {
+				w.Flush()
+				dv := strings.TrimSuffix(buf.String(), "\n")
+				// fmt.Printf("*** DISTINCT VALUES for %s: %v\n",state.ColumnName, dv)
+				outputRow[ipos] = dv
 			}
 		}
 
@@ -377,6 +402,11 @@ func (ctx *BuilderContext) NewAnalyzeTransformationPipe(source *InputChannel, ou
 		for i := range source.config.Columns {
 			inputDataType[source.config.Columns[i]] = "string"
 		}
+	}
+
+	// Make sure there is a cap on DistinctValuesWhenLessThanCount
+	if config.DistinctValuesWhenLessThanCount == 0 || config.DistinctValuesWhenLessThanCount > 20 {
+		config.DistinctValuesWhenLessThanCount = 20
 	}
 
 	// Set up the AnalyzeState for each input column

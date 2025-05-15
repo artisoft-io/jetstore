@@ -58,6 +58,10 @@ func (cpCtx *ComputePipesContext) LoadFiles(ctx context.Context, dbpool *pgxpool
 
 	inputChannelConfig := &cpCtx.CpConfig.PipesConfig[0].InputChannel
 	inputFormat := inputChannelConfig.Format
+	var delimiter rune = ','
+	if inputChannelConfig.Delimiter > 0 {
+		delimiter = inputChannelConfig.Delimiter
+	}
 	saveParquetSchema := strings.HasPrefix(inputFormat, "parquet") && cpCtx.CpConfig.CommonRuntimeArgs.CpipesMode == "sharding"
 	compression := inputChannelConfig.Compression
 	shardOffset := cpCtx.CpConfig.ClusterConfig.ShardOffset
@@ -113,7 +117,7 @@ func (cpCtx *ComputePipesContext) LoadFiles(ctx context.Context, dbpool *pgxpool
 		switch inputFormat {
 		//*TODO Read xlsx files
 		case "csv", "headerless_csv":
-			count, err = cpCtx.ReadCsvFile(&localInFile, inputFormat, compression, shardOffset, sp, castToRdfTxtTypeFncs, computePipesInputCh)
+			count, err = cpCtx.ReadCsvFile(&localInFile, inputFormat, compression, delimiter, shardOffset, sp, castToRdfTxtTypeFncs, computePipesInputCh)
 		case "parquet", "parquet_select":
 			count, err = cpCtx.ReadParquetFile(&localInFile, saveParquetSchema, sp, castToRdfTxtTypeFncs, inputSchemaCh, computePipesInputCh)
 			saveParquetSchema = false
@@ -432,7 +436,7 @@ func ConvertWithSchemaV0(v any, trimStrings bool, castToRdfTxtFnc CastToRdfTxtFn
 }
 
 func (cpCtx *ComputePipesContext) ReadCsvFile(filePath *FileName,
-	inputFormat, compression string, shardOffset int, sp SchemaProvider, castToRdfTxtTypeFncs []CastToRdfTxtFnc,
+	inputFormat, compression string, delimiter rune, shardOffset int, sp SchemaProvider, castToRdfTxtTypeFncs []CastToRdfTxtFnc,
 	computePipesInputCh chan<- []interface{}) (int64, error) {
 
 	var fileHd *os.File
@@ -466,13 +470,15 @@ func (cpCtx *ComputePipesContext) ReadCsvFile(filePath *FileName,
 	}
 	// Get the encoding and csv delimiter from the schema provider, if no schema provider exist assume it's ','
 	var encoding string
-	var sepFlag rune = ','
 	var noQuote bool
 	if sp != nil {
 		encoding = sp.Encoding()
-		sepFlag = sp.Delimiter()
+		d := sp.Delimiter()
+		if d > 0 {
+			delimiter = d
+		}
 		noQuote = sp.NoQuotes()
-		// log.Printf("*** ReadCsvFile: got delimiter '%v' or '%s', encoding '%s', noQuote '%v' from schema provider\n", sepFlag, string(sepFlag), encoding, noQuote)
+		// log.Printf("*** ReadCsvFile: got delimiter '%v' or '%s', encoding '%s', noQuote '%v' from schema provider\n", delimiter, string(delimiter), encoding, noQuote)
 	}
 	// log.Printf("*** ReadCsvFile: read file from %d to %d of file size %d\n", filePath.InFileKeyInfo.start, filePath.InFileKeyInfo.end, filePath.InFileKeyInfo.size)
 
@@ -528,7 +534,7 @@ func (cpCtx *ComputePipesContext) ReadCsvFile(filePath *FileName,
 	default:
 		return 0, fmt.Errorf("error: unknown compression in ReadCsvFile: %s", compression)
 	}
-	csvReader.Comma = sepFlag
+	csvReader.Comma = delimiter
 	csvReader.NoQuotes = noQuote
 	csvReader.LazyQuotes = sp != nil && sp.UseLazyQuotes()
 	if sp != nil && sp.VariableFieldsPerRecord() {

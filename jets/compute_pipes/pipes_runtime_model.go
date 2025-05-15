@@ -1,6 +1,7 @@
 package compute_pipes
 
 import (
+	"encoding/json"
 	"fmt"
 	"log"
 	"sync"
@@ -33,7 +34,7 @@ func (r *ChannelRegistry) AddDistributionChannel(input string) string {
 	// create the echo channel
 	r.computeChannels[echo] = &Channel{
 		name:    echo,
-		channel: make(chan []interface{}),
+		channel: make(chan []any),
 		columns: r.computeChannels[input].columns,
 		config:  r.computeChannels[input].config,
 	}
@@ -97,14 +98,14 @@ func (r *ChannelRegistry) GetOutputChannel(name string) (*OutputChannel, error) 
 
 type Channel struct {
 	name          string
-	channel       chan []interface{}
+	channel       chan []any
 	columns       *map[string]int
 	domainKeySpec *DomainKeysSpec
 	config        *ChannelSpec
 }
 type InputChannel struct {
 	name           string
-	channel        <-chan []interface{}
+	channel        <-chan []any
 	columns        *map[string]int
 	domainKeySpec  *DomainKeysSpec
 	config         *ChannelSpec
@@ -112,7 +113,7 @@ type InputChannel struct {
 }
 type OutputChannel struct {
 	name    string
-	channel chan<- []interface{}
+	channel chan<- []any
 	columns *map[string]int
 	config  *ChannelSpec
 }
@@ -130,7 +131,7 @@ type BuilderContext struct {
 	done               chan struct{}
 	errCh              chan error
 	chResults          *ChannelResults
-	env                map[string]interface{}
+	env                map[string]any
 	s3DeviceManager    *S3DeviceManager
 	nodeId             int
 }
@@ -149,7 +150,7 @@ func (ctx *BuilderContext) BuildExprNodeEvaluator(sourceName string, columns map
 }
 
 // Delegate to ExprBuilderContext
-func (ctx *BuilderContext) parseValue(expr *string) (interface{}, error) {
+func (ctx *BuilderContext) parseValue(expr *string) (any, error) {
 	if ctx == nil {
 		m := make(map[string]any)
 		return ExprBuilderContext(m).parseValue(expr)
@@ -158,21 +159,26 @@ func (ctx *BuilderContext) parseValue(expr *string) (interface{}, error) {
 }
 
 type PipeTransformationEvaluator interface {
-	Apply(input *[]interface{}) error
+	Apply(input *[]any) error
 	Done() error
 	Finally()
 }
 
 type TransformationColumnEvaluator interface {
-	InitializeCurrentValue(currentValue *[]interface{})
-	Update(currentValue *[]interface{}, input *[]interface{}) error
-	Done(currentValue *[]interface{}) error
+	InitializeCurrentValue(currentValue *[]any)
+	Update(currentValue *[]any, input *[]any) error
+	Done(currentValue *[]any) error
 }
 
 type PipeSet map[*PipeSpec]bool
 type Input2PipeSet map[string]*PipeSet
 
 func (ctx *BuilderContext) BuildComputeGraph() error {
+	if ctx.cpConfig.ClusterConfig.IsDebugMode {
+		b, _ := json.Marshal(ctx.env)
+		log.Printf("Entering BuildComputeGraph: ctx env var: %s\n", string(b))
+	}
+
 	var wg sync.WaitGroup
 	for i := range ctx.cpConfig.PipesConfig {
 		pipeSpec := &ctx.cpConfig.PipesConfig[i]
@@ -220,7 +226,7 @@ func (ctx *BuilderContext) BuildComputeGraph() error {
 // Build the PipeTransformationEvaluator: one of map_record, aggregate, or partition_writer
 // The partitionResultCh argument is used only by partition_writer to return the number of rows written and
 // the error that might occur
-func (ctx *BuilderContext) BuildPipeTransformationEvaluator(source *InputChannel, jetsPartitionKey interface{},
+func (ctx *BuilderContext) BuildPipeTransformationEvaluator(source *InputChannel, jetsPartitionKey any,
 	partitionResultCh chan ComputePipesResult, spec *TransformationSpec) (PipeTransformationEvaluator, error) {
 
 	// Construct the pipe transformation

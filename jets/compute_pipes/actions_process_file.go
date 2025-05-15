@@ -149,7 +149,7 @@ func (cpCtx *ComputePipesContext) ProcessFilesAndReportStatus(ctx context.Contex
 	}
 	var outputRowCount int64
 	for table := range cpCtx.ChResults.Copy2DbResultCh {
-		// log.Println("**@= Read table results:")
+		// log.Println("**@= Write DB table results:")
 		for copy2DbResult := range table {
 			outputRowCount += copy2DbResult.CopyRowCount
 			// saveResultsCtx.Save("DB Inserts", &copy2DbResult)
