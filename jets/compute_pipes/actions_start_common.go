@@ -12,7 +12,6 @@ import (
 
 	"github.com/artisoft-io/jetstore/jets/workspace"
 	"github.com/jackc/pgx/v4/pgxpool"
-	"maps"
 )
 
 var workspaceHome, wsPrefix string
@@ -231,6 +230,8 @@ func (args *StartComputePipesArgs) initializeCpipes(ctx context.Context, dbpool 
 			ObjectType:          objectType,
 			Format:              inputFormat,
 			Compression:         compression,
+			Bucket:              bucketName,
+			FileKey:             args.FileKey,
 			InputFormatDataJson: inputFormatDataJson.String,
 		}
 		if isPartFile == 1 {
@@ -256,6 +257,12 @@ func (args *StartComputePipesArgs) initializeCpipes(ctx context.Context, dbpool 
 		}
 		if cpipesStartup.MainInputSchemaProviderConfig.Compression == "" {
 			cpipesStartup.MainInputSchemaProviderConfig.Compression = compression
+		}
+		if cpipesStartup.MainInputSchemaProviderConfig.Bucket == "" {
+			cpipesStartup.MainInputSchemaProviderConfig.Bucket = bucketName
+		}
+		if cpipesStartup.MainInputSchemaProviderConfig.FileKey == "" {
+			cpipesStartup.MainInputSchemaProviderConfig.FileKey = args.FileKey
 		}
 		if cpipesStartup.MainInputSchemaProviderConfig.InputFormatDataJson == "" {
 			cpipesStartup.MainInputSchemaProviderConfig.InputFormatDataJson = inputFormatDataJson.String
@@ -793,23 +800,21 @@ func PrepareCpipesEnv(cpConfig *ComputePipesConfig, mainSchemaProviderConfig *Sc
 	//* IMPORTANT: Make sure a key is not the prefix of another key
 	//  e.g. $FILE_KEY and $FILE_KEY_PATH is BAD since $FILE_KEY_PATH may get
 	//  the value of $FILE_KEY with a dandling _PATH
-	envSettings := map[string]any{
-		"$INPUT_BUCKET":     mainSchemaProviderConfig.Bucket,
-		"$MAIN_SCHEMA_NAME": mainSchemaProviderConfig.SchemaName,
-	}
+	// The main schema provider env is used as the overall env context.
+	mainSchemaProviderConfig.Env["$INPUT_BUCKET"] = mainSchemaProviderConfig.Bucket
+	mainSchemaProviderConfig.Env["$MAIN_SCHEMA_NAME"] = mainSchemaProviderConfig.SchemaName
 
 	for i := range cpConfig.Context {
 		if cpConfig.Context[i].Type == "value" {
-			envSettings[cpConfig.Context[i].Key] = cpConfig.Context[i].Expr
+			mainSchemaProviderConfig.Env[cpConfig.Context[i].Key] = cpConfig.Context[i].Expr
 		}
 	}
-	maps.Copy(envSettings, mainSchemaProviderConfig.Env)
 
 	if cpConfig.ClusterConfig.IsDebugMode {
-		b, err := json.Marshal(envSettings)
+		b, err := json.Marshal(mainSchemaProviderConfig.Env)
 		log.Printf("PrepareCpipesEnv: Cpipes Env: %s, err? %v\n", string(b), err)
 	}
-	return envSettings
+	return mainSchemaProviderConfig.Env
 }
 
 func (cpipesStartup *CpipesStartup) EvalUseEcsTask(stepId int) (bool, error) {

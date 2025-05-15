@@ -260,7 +260,9 @@ func (cpCtx *ComputePipesContext) StartComputePipes(dbpool *pgxpool.Pool, inputS
 		cpCtx.ChResults.Copy2DbResultCh <- table
 		go wt.WriteTable(dbpool, cpCtx.Done, table)
 	}
-	// log.Println("*** Compute Pipes output tables ready")
+	if cpCtx.CpConfig.ClusterConfig.IsDebugMode {
+		log.Println("Compute Pipes output tables ready")
+	}
 
 	ctx = &BuilderContext{
 		dbpool:             dbpool,

@@ -143,7 +143,13 @@ func (cpCtx *ComputePipesContext) StartMergeFiles(dbpool *pgxpool.Pool) (cpErr e
 			return
 		}
 	}
-	inputFormat := cpCtx.CpConfig.PipesConfig[0].InputChannel.Format
+	inputChannel := cpCtx.CpConfig.PipesConfig[0].InputChannel
+	inputFormat := inputChannel.Format
+	var delimiter rune = ','
+	if inputChannel.Delimiter > 0 {
+		delimiter = inputChannel.Delimiter
+	}
+
 	if inputFormat == "parquet" {
 		//*TODO support merging parquet files into a single file
 		// SPECIAL CASE = Currently only supporting single parquet file in the input
@@ -154,7 +160,7 @@ func (cpCtx *ComputePipesContext) StartMergeFiles(dbpool *pgxpool.Pool) (cpErr e
 				return
 		}
 	}
-	r, err := cpCtx.NewMergeFileReader(inputFormat, outputSp, outputFileConfig.Headers, writeHeaders, compression)
+	r, err := cpCtx.NewMergeFileReader(inputFormat, delimiter, outputSp, outputFileConfig.Headers, writeHeaders, compression)
 	if err != nil {
 		cpErr = err
 		return
@@ -184,19 +190,19 @@ type MergeFileReader struct {
 }
 
 // outputSp is needed to determine if we quote all or non fields. It also provided the writeHeaders value.
-func (cpCtx *ComputePipesContext) NewMergeFileReader(inputFormat string, outputSp SchemaProvider, headers []string,
+func (cpCtx *ComputePipesContext) NewMergeFileReader(inputFormat string, delimiter rune, outputSp SchemaProvider, headers []string,
 	writeHeaders bool, compression string) (io.Reader, error) {
 
 	var h []byte
 	if len(headers) > 0 && writeHeaders {
-		var sep rune = ','
 		// Write the header into a byte slice. Using a csv.Writer to make sure
 		// the delimiter is escaped correctly
 		var buf bytes.Buffer
 		w := csv.NewWriter(&buf)
 		if outputSp != nil {
-			if outputSp.Delimiter() > 0 {
-				sep = outputSp.Delimiter()
+			d := outputSp.Delimiter()
+			if d > 0 {
+				delimiter = d
 			}
 			if outputSp.QuoteAllRecords() {
 				w.QuoteAll = true
@@ -205,7 +211,7 @@ func (cpCtx *ComputePipesContext) NewMergeFileReader(inputFormat string, outputS
 				w.NoQuotes = true
 			}
 		}
-		w.Comma = sep
+		w.Comma = delimiter
 		err := w.Write(headers)
 		if err != nil {
 			return nil, fmt.Errorf("while writing headers in merge_files op: %v", err)
