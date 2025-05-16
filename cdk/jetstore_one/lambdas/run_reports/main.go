@@ -194,7 +194,7 @@ func handler(ctx context.Context, arg []string) error {
 	// Extract file key components and populate the CommandArguments
 	ca := &delegate.CommandArguments{
 		Environment:       os.Getenv("ENVIRONMENT"),
-		WorkspaceName:     workspaceHome,
+		WorkspaceName:     wprefix,
 		SessionId:         rr.SessionId,
 		ProcessName:       rr.ProcessName,
 		ReportName:        rr.ReportName,
