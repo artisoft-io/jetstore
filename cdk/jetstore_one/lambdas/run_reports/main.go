@@ -205,6 +205,7 @@ func handler(ctx context.Context, arg []string) error {
 		BucketName:        awsBucket,
 		RegionName:        awsRegion,
 		FileKeyComponents: datatable.SplitFileKeyIntoComponents(map[string]interface{}{}, &rr.FileKey),
+		SkipCompileWorkspace: true,
 	}
 	if rr.Client != "" {
 		ca.FileKeyComponents["client"] = rr.Client
