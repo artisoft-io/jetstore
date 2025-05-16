@@ -109,6 +109,7 @@ type CommandArguments struct {
 	CurrentReportDirectives *ReportDirectives
 	BucketName              string
 	RegionName              string
+	SkipCompileWorkspace    bool
 	FileKeyComponents       map[string]interface{}
 }
 
@@ -261,10 +262,12 @@ func (ca *CommandArguments) RunReports(dbpool *pgxpool.Pool) (returnedErr error)
 			}
 		}
 
-		version := strconv.FormatInt(time.Now().Unix(), 10)
-		_, err = workspace.CompileWorkspace(dbpool, ca.WorkspaceName, version)
-		if err != nil {
-			return err
+		if !ca.SkipCompileWorkspace {
+			version := strconv.FormatInt(time.Now().Unix(), 10)
+			_, err = workspace.CompileWorkspace(dbpool, ca.WorkspaceName, version)
+			if err != nil {
+				return err
+			}
 		}
 	}
 
