@@ -134,7 +134,7 @@ func NewLookupTokensState(lookupTbl LookupTable, keyRe string, tokens []string) 
 func (ctx *BuilderContext) NewAnalyzeState(columnName string, columnPos int, inputColumns *map[string]int, spec *TransformationSpec) (*AnalyzeState, error) {
 
 	if spec == nil || spec.AnalyzeConfig == nil || inputColumns == nil {
-		return nil, fmt.Errorf("error: analyse Pipe Transformation spec is missing analyze_config section or input columns map is nil")
+		return nil, fmt.Errorf("error: analyze Pipe Transformation spec is missing analyze_config section or input columns map is nil")
 	}
 	config := spec.AnalyzeConfig
 	sp := ctx.schemaManager.schemaProviders[config.SchemaProvider]
