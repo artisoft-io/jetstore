@@ -655,6 +655,14 @@ func (server *Server) GetLastSecretRotation() (tm *time.Time, err error) {
 			now := time.Now()
 			return &now, nil
 		case !errors.Is(err, pgx.ErrNoRows):
+			if strings.Contains(err.Error(), "no pg_hba.conf entry for host") {
+				err = fmt.Errorf("while querying last_update from secret_rotation table: %v", err)
+				err2:= GenerateCert()
+				if err2 != nil {
+					return nil, fmt.Errorf("while GenerateCert to fix: >%s< got: %s", err, err2)
+				}
+				return server.GetLastSecretRotation()
+			}
 			return nil, fmt.Errorf("while querying last_update from secret_rotation table: %v", err)
 		default:
 			return nil, nil
