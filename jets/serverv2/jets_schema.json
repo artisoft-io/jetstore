@@ -1826,6 +1826,11 @@
         "default": "'{}'"
       },
       {
+        "columnName": "input_row_columns_json",
+        "dataType": "text",
+        "default": "'{}'"
+      },
+      {
         "columnName": "sharding_config_json",
         "dataType": "text",
         "isNotNull": true,

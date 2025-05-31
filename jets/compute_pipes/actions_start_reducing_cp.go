@@ -223,23 +223,23 @@ startStepId:
 	var inputColumns []string
 	inputChannel := inputChannelConfig.Name
 	if inputChannel == "input_row" && inputFormat == "csv" {
-		delimitor := rune(',') // defaults to ',' in reduce mode input unless specified by schema provider
-		if inputChannelSP != nil && inputChannelSP.Delimiter > 0 {
-			delimitor = inputChannelSP.Delimiter
-		}
-		// special case, need to get the input columns from file of first partition
-		fileKeys, err := GetS3FileKeys(cpipesStartup.ProcessName, args.SessionId, mainInputStepId, partitions[0])
+		// special case, need to get the input columns from cpipes_execution_status table
+		var inputRowColumnsJson string
+		stmt := `SELECT input_row_columns_json FROM jetsapi.cpipes_execution_status WHERE session_id=$1`
+		err = dbpool.QueryRow(ctx, stmt, args.SessionId).Scan(&inputRowColumnsJson)
 		if err != nil {
-			return result, err
+			return result, fmt.Errorf("while querying input_row_columns_json from table cpipes_execution_status: %v", err)
 		}
-		if len(fileKeys) == 0 {
-			return result, fmt.Errorf("error: no files found in partition %s", partitions[0])
-		}
-		fileInfo, err := FetchHeadersAndDelimiterFromFile("", fileKeys[0].key, inputFormat, compression, "", delimitor, true, false, false, "")
+		var inputRowColumns map[string]any
+		err = json.Unmarshal([]byte(inputRowColumnsJson), &inputRowColumns)
 		if err != nil {
-			return result, fmt.Errorf("error: could not get input columns from file (reduce mode): %v", err)
+			return result, fmt.Errorf("while unmarshalling input_row_columns_json: %v", err)
 		}
-		inputColumns = fileInfo.headers
+		var ok bool
+		inputColumns, ok = inputRowColumns["main_input"].([]string)
+		if !ok {
+			return result, fmt.Errorf("error: input_row_column_json expecting main_input as key with []string as value")
+		}
 	} else {
 		// Get the columns from the channel spec
 		chSpec := GetChannelSpec(cpipesStartup.CpConfig.Channels, inputChannel)

@@ -211,6 +211,13 @@ func (args *StartComputePipesArgs) StartShardingComputePipes(ctx context.Context
 		cpipesStartup.InputColumns = append(cpipesStartup.InputColumns, extraInputColumns...)
 	}
 
+	inputRowColumnsJson, err := json.Marshal(map[string]any {
+		"main_input": cpipesStartup.InputColumns,
+	})
+	if err != nil {
+		return result, mainInputSchemaProvider, err
+	}
+
 	// Set the nbr of concurrent map tasks
 	result.CpipesMaxConcurrency = GetMaxConcurrency(shardResult.nbrShardingNodes, cpipesStartup.CpConfig.ClusterConfig.DefaultMaxConcurrency)
 
@@ -318,9 +325,9 @@ func (args *StartComputePipesArgs) StartShardingComputePipes(ctx context.Context
 	// log.Println(string(shardingConfigJson))
 	// Create entry in cpipes_execution_status
 	stmt := `INSERT INTO jetsapi.cpipes_execution_status 
-						(pipeline_execution_status_key, session_id, cpipes_config_json) 
-						VALUES ($1, $2, $3)`
-	_, err2 := dbpool.Exec(ctx, stmt, args.PipelineExecKey, args.SessionId, string(shardingConfigJson))
+						(pipeline_execution_status_key, session_id, cpipes_config_json, input_row_columns_json) 
+						VALUES ($1, $2, $3, $4)`
+	_, err2 := dbpool.Exec(ctx, stmt, args.PipelineExecKey, args.SessionId, string(shardingConfigJson), string(inputRowColumnsJson))
 	if err2 != nil {
 		return result, mainInputSchemaProvider, fmt.Errorf("error inserting in jetsapi.cpipes_execution_status table: %v", err2)
 	}
