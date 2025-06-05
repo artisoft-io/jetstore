@@ -20,7 +20,7 @@ func init() {
 }
 
 // Function to write transformed row to database
-func (cpCtx *ComputePipesContext) StartComputePipes(dbpool *pgxpool.Pool, inputSchemaCh <-chan any, computePipesInputCh <-chan []any) {
+func (cpCtx *ComputePipesContext) StartComputePipes(dbpool *pgxpool.Pool, inputSchemaCh <-chan ParquetSchemaInfo, computePipesInputCh <-chan []any) {
 
 	// log.Println("Entering StartComputePipes")
 
@@ -77,12 +77,7 @@ func (cpCtx *ComputePipesContext) StartComputePipes(dbpool *pgxpool.Pool, inputS
 		// Get the parquet schema from the channel as it is being extracted from the
 		// first input file
 		for is := range inputSchemaCh {
-			v, ok := is.(ParquetSchemaInfo)
-			if ok {
-				inputParquetSchema = &v
-			} else {
-				log.Panicln("error: bug - invalid type for input parquet schema")
-			}
+				inputParquetSchema = &is
 		}
 	}
 	inputChannelName = cpCtx.CpConfig.PipesConfig[0].InputChannel.Name

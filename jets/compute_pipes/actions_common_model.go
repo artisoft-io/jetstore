@@ -104,11 +104,6 @@ type InputSourceSpec struct {
 	DomainKeys         *DomainKeysSpec    `json:"domain_keys_spec,omitempty"`
 }
 
-type ParquetSchemaInfo struct {
-	Schema      string `json:"schema"`
-	Compression string `json:"compression,omitempty"`
-}
-
 type FileKeyInfo struct {
 	key   string
 	size  int

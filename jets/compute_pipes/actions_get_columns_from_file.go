@@ -56,8 +56,10 @@ func FetchHeadersAndDelimiterFromFile(externalBucket, fileKey, fileFormat, compr
 	var byteRange *string
 	switch fileFormat {
 	case "csv", "headerless_csv", "fixed_width":
-		s := "bytes=0-50000"
-		byteRange = &s
+		if compression == "none" {
+			s := "bytes=0-50000"
+			byteRange = &s
+		}
 	}
 	retry := 0
 do_retry:
