@@ -12,24 +12,25 @@ ON CONFLICT DO NOTHING
 TRUNCATE jetsapi.mapping_function_registry;
 INSERT INTO jetsapi.mapping_function_registry (function_name, is_argument_required) VALUES
   ('apply_regex',            '1'),
-  ('concat',                 '1'),
   ('concat_with',            '1'),
+  ('concat',                 '1'),
+  ('find_and_replace',       '1'),
   ('format_phone',           '0'),
+  ('ndc10_to_11',            '0'),
   ('overpunch_number',       '1'),
   ('parse_amount',           '1'),
   ('reformat0',              '1'),
   ('scale_units',            '1'),
+  ('slice_input',            '1'),
   ('split_on',               '1'),
+  ('substring',              '1'),
   ('to_upper',               '0'),
   ('to_zip5',                '0'),
   ('to_zipext4_from_zip9',   '0'),
   ('to_zipext4',             '0'),
   ('trim',                   '0'),
   ('unique_split_on',        '1'),
-  ('validate_date',          '0'),
-  ('substring',              '1'),
-  ('find_and_replace',       '1'),
-  ('ndc10_to_11',            '0')
+  ('validate_date',          '0')
 ;
 
 -- Initialize roles table
