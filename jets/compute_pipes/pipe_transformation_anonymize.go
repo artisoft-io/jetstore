@@ -51,7 +51,14 @@ func (ctx *AnonymizeTransformationPipe) Apply(input *[]interface{}) error {
 	// hashedValue4KeyFile is the value to use in the crosswalk file, it is
 	// the same as hashedValue, except for dates it may use a different date formatter.
 	var inputStr, hashedValue, hashedValue4KeyFile string
+	inputLen := len(*input)
+	expectedLen := len(*ctx.source.columns)
+	if inputLen != expectedLen {
+		// Skip this row
+		return nil
+	}
 	for _, action := range ctx.anonymActions {
+
 		value := (*input)[action.inputColumn]
 		if value == nil {
 			continue
@@ -212,7 +219,7 @@ func (ctx *BuilderContext) NewAnonymizeTransformationPipe(source *InputChannel, 
 	if metaLookupTbl == nil {
 		return nil, fmt.Errorf("error: anonymize metadata lookup table %s not found", config.LookupName)
 	}
-	anonymActions = make([]*AnonymizationAction, 0)
+	anonymActions = make([]*AnonymizationAction, 0, len(*source.columns))
 	metaLookupColumnsMap := metaLookupTbl.ColumnMap()
 	for name, ipos := range *source.columns {
 		metaRow, err := metaLookupTbl.Lookup(&name)
