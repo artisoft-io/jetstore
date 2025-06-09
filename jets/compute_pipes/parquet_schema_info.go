@@ -1,16 +1,34 @@
 package compute_pipes
 
 import (
+	"fmt"
+
 	"github.com/apache/arrow/go/v17/arrow"
+	"github.com/apache/arrow/go/v17/arrow/array"
+	"github.com/apache/arrow/go/v17/arrow/memory"
+	"github.com/apache/arrow/go/v17/parquet"
+	"github.com/apache/arrow/go/v17/parquet/compress"
+	"github.com/apache/arrow/go/v17/parquet/file"
+	"github.com/apache/arrow/go/v17/parquet/pqarrow"
 )
 
 type ParquetSchemaInfo struct {
+	schema *arrow.Schema
 	Fields []*FieldInfo `json:"fields,omitempty"`
 }
 type FieldInfo struct {
 	Name     string `json:"name"`
 	Type     string `json:"type"`
 	Nullable bool   `json:"nullable,omitzero"`
+}
+
+type ArrayBuilder interface {
+	Reserve(n int)
+	Append(v any)
+	AppendEmptyValue()
+	AppendNull()
+	NewArray() arrow.Array
+	Release()
 }
 
 func NewParquetSchemaInfo(schema *arrow.Schema) *ParquetSchemaInfo {
@@ -23,7 +41,324 @@ func NewParquetSchemaInfo(schema *arrow.Schema) *ParquetSchemaInfo {
 			Nullable: field.Nullable,
 		})
 	}
-	return &ParquetSchemaInfo{Fields: fieldsInfo}
+	return &ParquetSchemaInfo{
+		schema: schema,
+		Fields: fieldsInfo,
+	}
+}
+
+func (psi *ParquetSchemaInfo) ArrowSchema() *arrow.Schema {
+	return psi.schema
+}
+
+func (psi *ParquetSchemaInfo) CreateBuilders(pool *memory.GoAllocator) ([]ArrayBuilder, error) {
+	builders := make([]ArrayBuilder, 0, len(psi.Fields))
+	for _, field := range psi.Fields {
+	switch field.Type {
+
+	case arrow.FixedWidthTypes.Boolean.Name():
+		builders = append(builders, NewBooleanBuilder(pool))
+
+	case arrow.PrimitiveTypes.Date32.Name():
+		builders = append(builders, NewDateBuilder(pool))
+
+	case arrow.PrimitiveTypes.Int32.Name():
+		builders = append(builders, NewInt32Builder(pool))
+
+	case arrow.PrimitiveTypes.Uint32.Name():
+		builders = append(builders, NewUint32Builder(pool))
+
+	case arrow.PrimitiveTypes.Int64.Name():
+		builders = append(builders, NewInt64Builder(pool))
+
+	case arrow.PrimitiveTypes.Uint64.Name():
+		builders = append(builders, NewUint64Builder(pool))
+
+	case arrow.PrimitiveTypes.Float32.Name():
+		builders = append(builders, NewFloat32Builder(pool))
+
+	case arrow.PrimitiveTypes.Float64.Name():
+		builders = append(builders, NewFloat64Builder(pool))
+
+	case arrow.BinaryTypes.String.Name():
+		builders = append(builders, NewStringBuilder(pool))
+
+	default:
+		return nil, fmt.Errorf("error: Create parquet column builders, unknown parquet type: %v", field.Type)
+	}
+	}
+	return builders, nil
+}
+
+type BooleanBuilder struct {
+	builder *array.BooleanBuilder
+}
+func NewBooleanBuilder(mem memory.Allocator) ArrayBuilder {
+	return &BooleanBuilder{
+		builder: array.NewBooleanBuilder(mem),
+	}
+}
+func (b *BooleanBuilder) Reserve(n int) {
+	b.Reserve(n)
+}
+func (b *BooleanBuilder) Append(v any) {
+	b.builder.Append(v.(bool))
+}
+func (b *BooleanBuilder) AppendEmptyValue() {
+	b.builder.AppendEmptyValue()
+}
+func (b *BooleanBuilder) AppendNull() {
+	b.builder.AppendNull()
+}
+func (b *BooleanBuilder) NewArray() arrow.Array {
+	return b.builder.NewArray()
+}
+func (b *BooleanBuilder) Release() {
+	b.builder.Release()
+}
+
+type DateBuilder struct {
+	builder *array.Date32Builder
+}
+func NewDateBuilder(mem memory.Allocator) ArrayBuilder {
+	return &DateBuilder{
+		builder: array.NewDate32Builder(mem),
+	}
+}
+func (b *DateBuilder) Reserve(n int) {
+	b.Reserve(n)
+}
+func (b *DateBuilder) Append(v any) {
+	b.builder.Append(v.(arrow.Date32))
+}
+func (b *DateBuilder) AppendEmptyValue() {
+	b.builder.AppendEmptyValue()
+}
+func (b *DateBuilder) AppendNull() {
+	b.builder.AppendNull()
+}
+func (b *DateBuilder) NewArray() arrow.Array {
+	return b.builder.NewArray()
+}
+func (b *DateBuilder) Release() {
+	b.builder.Release()
+}
+
+type Int32Builder struct {
+	builder *array.Int32Builder
+}
+func NewInt32Builder(mem memory.Allocator) ArrayBuilder {
+	return &Int32Builder{
+		builder: array.NewInt32Builder(mem),
+	}
+}
+func (b *Int32Builder) Reserve(n int) {
+	b.Reserve(n)
+}
+func (b *Int32Builder) Append(v any) {
+	b.builder.Append(v.(int32))
+}
+func (b *Int32Builder) AppendEmptyValue() {
+	b.builder.AppendEmptyValue()
+}
+func (b *Int32Builder) AppendNull() {
+	b.builder.AppendNull()
+}
+func (b *Int32Builder) NewArray() arrow.Array {
+	return b.builder.NewArray()
+}
+func (b *Int32Builder) Release() {
+	b.builder.Release()
+}
+
+type Uint32Builder struct {
+	builder *array.Uint32Builder
+}
+func NewUint32Builder(mem memory.Allocator) ArrayBuilder {
+	return &Uint32Builder{
+		builder: array.NewUint32Builder(mem),
+	}
+}
+func (b *Uint32Builder) Reserve(n int) {
+	b.Reserve(n)
+}
+func (b *Uint32Builder) Append(v any) {
+	b.builder.Append(v.(uint32))
+}
+func (b *Uint32Builder) AppendEmptyValue() {
+	b.builder.AppendEmptyValue()
+}
+func (b *Uint32Builder) AppendNull() {
+	b.builder.AppendNull()
+}
+func (b *Uint32Builder) NewArray() arrow.Array {
+	return b.builder.NewArray()
+}
+func (b *Uint32Builder) Release() {
+	b.builder.Release()
+}
+
+type Int64Builder struct {
+	builder *array.Int64Builder
+}
+func NewInt64Builder(mem memory.Allocator) ArrayBuilder {
+	return &Int64Builder{
+		builder: array.NewInt64Builder(mem),
+	}
+}
+func (b *Int64Builder) Reserve(n int) {
+	b.Reserve(n)
+}
+func (b *Int64Builder) Append(v any) {
+	b.builder.Append(v.(int64))
+}
+func (b *Int64Builder) AppendEmptyValue() {
+	b.builder.AppendEmptyValue()
+}
+func (b *Int64Builder) AppendNull() {
+	b.builder.AppendNull()
+}
+func (b *Int64Builder) NewArray() arrow.Array {
+	return b.builder.NewArray()
+}
+func (b *Int64Builder) Release() {
+	b.builder.Release()
+}
+
+type Uint64Builder struct {
+	builder *array.Uint64Builder
+}
+func NewUint64Builder(mem memory.Allocator) ArrayBuilder {
+	return &Uint64Builder{
+		builder: array.NewUint64Builder(mem),
+	}
+}
+func (b *Uint64Builder) Reserve(n int) {
+	b.Reserve(n)
+}
+func (b *Uint64Builder) Append(v any) {
+	b.builder.Append(v.(uint64))
+}
+func (b *Uint64Builder) AppendEmptyValue() {
+	b.builder.AppendEmptyValue()
+}
+func (b *Uint64Builder) AppendNull() {
+	b.builder.AppendNull()
+}
+func (b *Uint64Builder) NewArray() arrow.Array {
+	return b.builder.NewArray()
+}
+func (b *Uint64Builder) Release() {
+	b.builder.Release()
+}
+
+
+type Float32Builder struct {
+	builder *array.Float32Builder
+}
+func NewFloat32Builder(mem memory.Allocator) ArrayBuilder {
+	return &Float32Builder{
+		builder: array.NewFloat32Builder(mem),
+	}
+}
+func (b *Float32Builder) Reserve(n int) {
+	b.Reserve(n)
+}
+func (b *Float32Builder) Append(v any) {
+	b.builder.Append(v.(float32))
+}
+func (b *Float32Builder) AppendEmptyValue() {
+	b.builder.AppendEmptyValue()
+}
+func (b *Float32Builder) AppendNull() {
+	b.builder.AppendNull()
+}
+func (b *Float32Builder) NewArray() arrow.Array {
+	return b.builder.NewArray()
+}
+func (b *Float32Builder) Release() {
+	b.builder.Release()
+}
+
+type Float64Builder struct {
+	builder *array.Float64Builder
+}
+func NewFloat64Builder(mem memory.Allocator) ArrayBuilder {
+	return &Float64Builder{
+		builder: array.NewFloat64Builder(mem),
+	}
+}
+func (b *Float64Builder) Reserve(n int) {
+	b.Reserve(n)
+}
+func (b *Float64Builder) Append(v any) {
+	b.builder.Append(v.(float64))
+}
+func (b *Float64Builder) AppendEmptyValue() {
+	b.builder.AppendEmptyValue()
+}
+func (b *Float64Builder) AppendNull() {
+	b.builder.AppendNull()
+}
+func (b *Float64Builder) NewArray() arrow.Array {
+	return b.builder.NewArray()
+}
+func (b *Float64Builder) Release() {
+	b.builder.Release()
+}
+
+type TimestampBuilder struct {
+	builder *array.TimestampBuilder
+}
+func NewTimestampBuilder(mem memory.Allocator) ArrayBuilder {
+	return &TimestampBuilder{
+		builder: array.NewTimestampBuilder(mem, &arrow.TimestampType{Unit: arrow.Millisecond, TimeZone: "UTC"}),
+	}
+}
+func (b *TimestampBuilder) Reserve(n int) {
+	b.Reserve(n)
+}
+func (b *TimestampBuilder) Append(v any) {
+	b.builder.Append(v.(arrow.Timestamp))
+}
+func (b *TimestampBuilder) AppendEmptyValue() {
+	b.builder.AppendEmptyValue()
+}
+func (b *TimestampBuilder) AppendNull() {
+	b.builder.AppendNull()
+}
+func (b *TimestampBuilder) NewArray() arrow.Array {
+	return b.builder.NewArray()
+}
+func (b *TimestampBuilder) Release() {
+	b.builder.Release()
+}
+
+type StringBuilder struct {
+	builder *array.StringBuilder
+}
+func NewStringBuilder(mem memory.Allocator) ArrayBuilder {
+	return &StringBuilder{
+		builder: array.NewStringBuilder(mem),
+	}
+}
+func (b *StringBuilder) Reserve(n int) {
+	b.Reserve(n)
+}
+func (b *StringBuilder) Append(v any) {
+	b.builder.Append(v.(string))
+}
+func (b *StringBuilder) AppendEmptyValue() {
+	b.builder.AppendEmptyValue()
+}
+func (b *StringBuilder) AppendNull() {
+	b.builder.AppendNull()
+}
+func (b *StringBuilder) NewArray() arrow.Array {
+	return b.builder.NewArray()
+}
+func (b *StringBuilder) Release() {
+	b.builder.Release()
 }
 
 // return value is either nil or a string representing the input v
