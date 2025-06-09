@@ -24,6 +24,14 @@ func (ctx *DistinctTransformationPipe) Apply(input *[]interface{}) error {
 	if input == nil {
 		return fmt.Errorf("error: unexpected null input arg in DistinctTransformationPipe")
 	}
+	// Skip row that are not valid
+	inputLen := len(*input)
+	expectedLen := len(*ctx.source.columns)
+	if inputLen != expectedLen {
+		// Skip the row
+		return nil
+	}
+
 	// make the key
 	ckeys := make([]string, 0, len(ctx.compositeKey))
 	for i := range ctx.compositeKey {
