@@ -211,8 +211,8 @@ func (args *StartComputePipesArgs) StartShardingComputePipes(ctx context.Context
 		cpipesStartup.InputColumns = append(cpipesStartup.InputColumns, extraInputColumns...)
 	}
 
-	inputRowColumnsJson, err := json.Marshal(map[string]any {
-		"main_input": cpipesStartup.InputColumns,
+	inputRowColumnsJson, err := json.Marshal(InputRowColumns {
+		MainInput: cpipesStartup.InputColumns,
 	})
 	if err != nil {
 		return result, mainInputSchemaProvider, err

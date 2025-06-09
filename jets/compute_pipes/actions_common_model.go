@@ -86,6 +86,14 @@ type SourcesConfigSpec struct {
 	InjectedInput []*InputSourceSpec `json:"injected_inputs"`
 }
 
+// InputRowColumns: used to save the input_row channel column name in 
+// table cpipes_execution_status, column input_row_columns_json
+type InputRowColumns struct {
+	MainInput     []string   `json:"main_input"`
+	MergedInput   [][]string `json:"merged_inputs"`
+	InjectedInput [][]string `json:"injected_inputs"`
+}
+
 // InputColumns correspond to columns in the input files, this
 // applies to reducing as well as sharding steps.
 // For the case of sharding step, it includes columns from part files key.
