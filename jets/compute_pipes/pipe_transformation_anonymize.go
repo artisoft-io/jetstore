@@ -242,19 +242,17 @@ func (ctx *BuilderContext) NewAnonymizeTransformationPipe(source *InputChannel, 
 		switch anonymizeType {
 		case "text", "date":
 			keyPrefix = ""
-			if anonymizeType == "text" {
-				w := 16
-				if !omitPrefix {
-					keyPrefixI := (*metaRow)[metaLookupColumnsMap[config.KeyPrefix]]
-					keyPrefix, ok = keyPrefixI.(string)
-					if !ok {
-						return nil, fmt.Errorf("error: expecting string for key prefix (e.g. ssn, dob, etc), got %v", keyPrefixI)
-					}
-					w = 28
+			w := 16
+			if anonymizeType == "text" && !omitPrefix {
+				keyPrefixI := (*metaRow)[metaLookupColumnsMap[config.KeyPrefix]]
+				keyPrefix, ok = keyPrefixI.(string)
+				if !ok {
+					return nil, fmt.Errorf("error: expecting string for key prefix (e.g. ssn, dob, etc), got %v", keyPrefixI)
 				}
-				if newWidth != nil {
-					newWidth[name] = w
-				}
+				w = 28
+			}
+			if newWidth != nil {
+				newWidth[name] = w
 			}
 			anonymActions = append(anonymActions, &AnonymizationAction{
 				inputColumn:   ipos,
