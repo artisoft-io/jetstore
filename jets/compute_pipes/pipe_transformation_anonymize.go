@@ -55,6 +55,7 @@ func (ctx *AnonymizeTransformationPipe) Apply(input *[]interface{}) error {
 	expectedLen := len(*ctx.source.columns)
 	if inputLen != expectedLen {
 		// Skip this row
+		log.Println(ctx.cpConfig.CommonRuntimeArgs.SessionId,"EXPECTING",expectedLen,"GOT",inputLen,"ROW",*input)
 		return nil
 	}
 	for _, action := range ctx.anonymActions {
