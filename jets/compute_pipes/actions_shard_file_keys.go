@@ -153,6 +153,9 @@ func assignShardInfo(s3Objects []*awsi.S3Object, shardSize, maxShardSize, offset
 	var currentShardId int
 	var currentShardSize int64
 	for _, obj := range s3Objects {
+		if obj.Size == 0 {
+			continue
+		}
 		if obj.Size > maxShardSize && doSplitFiles {
 			// Split the file into chunks
 			var start, nextStart int64
