@@ -253,3 +253,43 @@ func TestSliceInput02(t *testing.T) {
 	}
 	// t.Error("done")
 }
+
+func TestSliceInput03(t *testing.T) {
+	cache := make(map[string]any)
+	results := SliceInput("v1^", "^,3,:", cache)
+	if results != nil {
+		t.Errorf("error: unexpected results")
+	}
+	// t.Error("done")
+}
+
+func TestSliceInput04(t *testing.T) {
+	cache := make(map[string]any)
+	results := SliceInput("v1^", "^,3,:,4", cache)
+	if results != nil {
+		t.Errorf("error: unexpected results")
+	}
+	// t.Error("done")
+}
+
+func TestSliceInput05(t *testing.T) {
+	cache := make(map[string]any)
+	results := SliceInput("", "^,3,:,4", cache)
+	if results != nil {
+		t.Errorf("error: unexpected results")
+	}
+	// t.Error("done")
+}
+
+func TestSliceInput20(t *testing.T) {
+	cache := make(map[string]any)
+	defer func() {
+		// Catch the panic that might be generated downstream
+		if r := recover(); r == nil {
+			t.Errorf("error: expecting a panic!")
+		}
+	}()
+
+	SliceInput("v1^", "^,-1", cache)
+	// t.Error("done")
+}
