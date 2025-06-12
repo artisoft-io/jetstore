@@ -10,7 +10,6 @@ import (
 	"runtime/debug"
 	"strings"
 
-	"github.com/fraugster/parquet-go/parquet"
 	"github.com/jackc/pgx/v4/pgxpool"
 )
 
@@ -172,7 +171,7 @@ func (ctx *PartitionWriterTransformationPipe) Apply(input *[]interface{}) error 
 			case "csv_writer":
 				fnc = s3DeviceWriter.WriteCsvPartition
 			case "parquet_writer":
-				fnc = s3DeviceWriter.WriteParquetPartition
+				fnc = s3DeviceWriter.WriteParquetPartitionV2
 			case "fixed_width_writer":
 				fnc = s3DeviceWriter.WriteFixedWidthPartition
 			}
@@ -390,25 +389,7 @@ func (ctx *BuilderContext) NewPartitionWriterTransformationPipe(source *InputCha
 			if spec.OutputChannel.UseInputParquetSchema {
 				parquetSchema = ctx.inputParquetSchema
 			} else {
-				var buf strings.Builder
-				buf.WriteString(fmt.Sprintf("message %s {\n", spec.OutputChannel.Name))
-				for i := range outputCh.config.Columns {
-					buf.WriteString(fmt.Sprintf("optional binary %s (UTF8);\n", outputCh.config.Columns[i]))
-				}
-				buf.WriteString("}\n")
-				var compression string
-				switch spec.OutputChannel.Compression {
-				case "snappy":
-					compression = parquet.CompressionCodec_SNAPPY.String()
-				case "none":
-					compression = parquet.CompressionCodec_UNCOMPRESSED.String()
-				default:
-					compression = parquet.CompressionCodec_UNCOMPRESSED.String()
-				}
-				parquetSchema = &ParquetSchemaInfo{
-					Schema:      buf.String(),
-					Compression: compression,
-				}
+				parquetSchema = BuildParquetSchemaInfo(outputCh.config.Columns)
 			}
 		}
 	}

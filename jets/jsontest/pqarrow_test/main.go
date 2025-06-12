@@ -46,6 +46,10 @@ func writeParquet() error {
 	ageBuilder := array.NewInt32Builder(pool)
 	dateBuilder := array.NewDate32Builder(pool)
 	datetimeBuilder := array.NewTimestampBuilder(pool, &arrow.TimestampType{Unit: arrow.Millisecond, TimeZone: "UTC"})
+	defer nameBuilder.Release()
+	defer ageBuilder.Release()
+	defer dateBuilder.Release()
+	defer datetimeBuilder.Release()
 
 	names := []string{"Alice", "Bob", "Charlie"}
 	ages := []int32{30, 25, 35}
@@ -81,7 +85,7 @@ func writeParquet() error {
 	dateArray := dateBuilder.NewArray()
 	datetimeArray := datetimeBuilder.NewArray()
 	defer nameArray.Release()
-	defer ageBuilder.Release()
+	defer ageArray.Release()
 	defer dateArray.Release()
 	defer datetimeArray.Release()
 
