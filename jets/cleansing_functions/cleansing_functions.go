@@ -451,11 +451,13 @@ func SliceInput(inputValue, argument string, parsedFunctionArguments map[string]
 		}
 	case sliceArg.From != nil && sliceArg.To == nil:
 		lenValues := l - *sliceArg.From
-		values = make([]string, 0, lenValues)
-		for i := range lenValues {
-			index := *sliceArg.From + i
-			if index < l {
-				values = append(values, sliceValues[index])
+		if lenValues > 0 {
+			values = make([]string, 0, lenValues)
+			for i := range lenValues {
+				index := *sliceArg.From + i
+				if index < l {
+					values = append(values, sliceValues[index])
+				}
 			}
 		}
 	default:
@@ -467,6 +469,9 @@ func SliceInput(inputValue, argument string, parsedFunctionArguments map[string]
 				values = append(values, sliceValues[index])
 			}
 		}
+	}
+	if len(values) == 0 {
+		return nil
 	}
 	return values
 }
