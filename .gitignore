@@ -119,3 +119,5 @@ cdk/jetstore_one/lambdas/sqs_listener/cgt_sqs_listener_test.go
 jets/copytest/upload-copy/upload-copy
 jets/awsi/s3_copy_file.go.bak
 jets/run_reports/delegate/run_commands copy.go.bak
+jets/jsontest/pqarrow_test/output.parquet
+jets/jsontest/pqarrow_test/pqarrow_test

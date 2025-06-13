@@ -9,8 +9,6 @@ import (
 	"strings"
 
 	"github.com/artisoft-io/jetstore/jets/csv"
-	"github.com/fraugster/parquet-go/parquet"
-	"github.com/fraugster/parquet-go/parquetschema"
 )
 
 // firstInputRow is the first row from the input channel.
@@ -66,7 +64,7 @@ import (
 // inputDataType contains the data type for each column according to the parquet schema.
 // inputDataType is a map of column name -> input data type
 // Range of value for input data type: string (default if not parquet), bool, int32, int64,
-// float32, float64, date, unknown
+// float32, float64, date, uint32, uint64
 type AnalyzeTransformationPipe struct {
 	cpConfig         *ComputePipesConfig
 	source           *InputChannel
@@ -397,13 +395,15 @@ func (ctx *BuilderContext) NewAnalyzeTransformationPipe(source *InputChannel, ou
 	inputDataType := make(map[string]string, len(source.config.Columns))
 	parquetSchemaInfo := ctx.inputParquetSchema
 	if parquetSchemaInfo != nil {
-		schemaDef, err := parquetschema.ParseSchemaDefinition(parquetSchemaInfo.Schema)
-		if err != nil {
-			return nil, fmt.Errorf("parsing schema definition failed in NewAnalyzeTransformationPipe: %v", err)
-		}
-		for _, colDef := range schemaDef.RootColumn.Children {
-			se := colDef.SchemaElement
-			inputDataType[se.Name] = SchemaElementDataType(se)
+		for _, field := range parquetSchemaInfo.Fields {
+			switch field.Type {
+			case "utf8":
+				inputDataType[field.Name] = "string"
+			case "date32":
+				inputDataType[field.Name] = "date"
+			default:
+				inputDataType[field.Name] = field.Type
+			}
 		}
 	} else {
 		for i := range source.config.Columns {
@@ -450,32 +450,4 @@ func (ctx *BuilderContext) NewAnalyzeTransformationPipe(source *InputChannel, ou
 		env:              ctx.env,
 		doneCh:           ctx.done,
 	}, nil
-}
-
-func SchemaElementDataType(se *parquet.SchemaElement) string {
-	switch *se.Type {
-	case parquet.Type_BOOLEAN:
-		return "bool"
-	case parquet.Type_INT32:
-		// Check if it's a date
-		if se.ConvertedType != nil && *se.ConvertedType == parquet.ConvertedType_DATE {
-			return "date"
-		}
-		return "int32"
-
-	case parquet.Type_INT64:
-		return "int64"
-
-	case parquet.Type_FLOAT:
-		return "float32"
-
-	case parquet.Type_DOUBLE:
-		return "float64"
-
-	case parquet.Type_BYTE_ARRAY, parquet.Type_FIXED_LEN_BYTE_ARRAY:
-		return "string"
-
-	default:
-		return "unknown"
-	}
 }
