@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log"
 	"os"
 	"time"
@@ -54,7 +55,6 @@ func (cpCtx *ComputePipesContext) ReadParquetFileV2(filePath *FileName, saveParq
 		return 0, fmt.Errorf("while getting the arrow schema for '%s' (LoadFiles): %v", filePath.LocalFileName, err)
 	}
 
-	fmt.Println("*** The reader schema", schema)
 	fmt.Println("*** The file contains", reader.ParquetReader().NumRows(), "rows")
 
 	parquetSchemaInfo := NewParquetSchemaInfo(schema)
@@ -126,6 +126,7 @@ func (cpCtx *ComputePipesContext) ReadParquetFileV2(filePath *FileName, saveParq
 		// read and put the rows into computePipesInputCh
 		err = nil
 		arrowRecord := recordReader.Record()
+		// fmt.Println("*** The Arrow Record contains", arrowRecord.NumRows(), "rows")
 		for irow := range int(arrowRecord.NumRows()) {
 			// Build a record and send it to computePipesInputCh
 			cpCtx.SamplingCount += 1
@@ -133,7 +134,7 @@ func (cpCtx *ComputePipesContext) ReadParquetFileV2(filePath *FileName, saveParq
 				continue
 			}
 			if samplingMaxCount > 0 && inputRowCount >= samplingMaxCount {
-				recordReader.Release()
+				arrowRecord.Release()
 				return inputRowCount, nil
 			}
 			cpCtx.SamplingCount = 0
@@ -163,25 +164,29 @@ func (cpCtx *ComputePipesContext) ReadParquetFileV2(filePath *FileName, saveParq
 					record = append(record, nil)
 				}
 			}
-		}
-		recordReader.Release()
 
-		// Kill Switch - prevent lambda timeout
-		if cpCtx.CpConfig.ClusterConfig.KillSwitchMin > 0 &&
-			time.Since(ComputePipesStart).Minutes() >= float64(cpCtx.CpConfig.ClusterConfig.KillSwitchMin) {
-			return inputRowCount, ErrKillSwitch
-		}
+			// Kill Switch - prevent lambda timeout
+			if cpCtx.CpConfig.ClusterConfig.KillSwitchMin > 0 &&
+				time.Since(ComputePipesStart).Minutes() >= float64(cpCtx.CpConfig.ClusterConfig.KillSwitchMin) {
+				return inputRowCount, ErrKillSwitch
+			}
 
-		// Send out the record
-		// log.Println(cpCtx.SessionId,"node",cpCtx.NodeId, "push record to computePipesInputCh with",len(record),"columns")
-		select {
-		case computePipesInputCh <- record:
-		case <-cpCtx.Done:
-			log.Println(cpCtx.SessionId, "node", cpCtx.NodeId, "loading input row from file interrupted")
-			return inputRowCount, nil
+			// Send out the record
+			// log.Println(cpCtx.SessionId,"node",cpCtx.NodeId, "push record to computePipesInputCh with",len(record),"columns")
+			// log.Println("*** INPUT RECORD:",record)
+			select {
+			case computePipesInputCh <- record:
+			case <-cpCtx.Done:
+				log.Println(cpCtx.SessionId, "node", cpCtx.NodeId, "loading input row from file interrupted")
+				return inputRowCount, nil
+			}
+			inputRowCount += 1
 		}
-		inputRowCount += 1
-
+		arrowRecord.Release()
+	}
+	// fmt.Println("*** OK READ", inputRowCount, "rows")
+	if recordReader.Err() == io.EOF {
+		return inputRowCount, nil
 	}
 	return inputRowCount, recordReader.Err()
 }

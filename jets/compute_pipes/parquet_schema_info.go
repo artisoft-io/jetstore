@@ -2,6 +2,7 @@ package compute_pipes
 
 import (
 	"fmt"
+	"log"
 
 	"github.com/apache/arrow/go/v17/arrow"
 	"github.com/apache/arrow/go/v17/arrow/array"
@@ -70,26 +71,66 @@ func NewParquetSchemaInfo(schema *arrow.Schema) *ParquetSchemaInfo {
 
 func BuildParquetSchemaInfo(columns []string) *ParquetSchemaInfo {
 	fieldsInfo := make([]*FieldInfo, 0, len(columns))
-	arrowFields := make([]arrow.Field, 0, len(columns))
 	for _, c := range columns {
 		fieldsInfo = append(fieldsInfo, &FieldInfo{
 			Name:     c,
 			Type:     arrow.BinaryTypes.String.Name(),
 			Nullable: true,
 		})
-		arrowFields = append(arrowFields, arrow.Field{
-			Name:     c,
-			Type:     arrow.BinaryTypes.String,
-			Nullable: true,
-		})
 	}
 	return &ParquetSchemaInfo{
-		schema: arrow.NewSchema(arrowFields, nil),
 		Fields: fieldsInfo,
 	}
 }
 
+func (psi *ParquetSchemaInfo) buildArrowSchema() {
+	arrowFields := make([]arrow.Field, 0, len(psi.Fields))
+	for _, fieldInfo := range psi.Fields {
+		var fieldType arrow.DataType
+		switch fieldInfo.Type {
+		case arrow.FixedWidthTypes.Boolean.Name():
+			fieldType = arrow.FixedWidthTypes.Boolean
+
+		case arrow.PrimitiveTypes.Date32.Name(), "date":
+			fieldType = arrow.PrimitiveTypes.Date32
+
+		case arrow.PrimitiveTypes.Int32.Name():
+			fieldType = arrow.PrimitiveTypes.Int32
+
+		case arrow.PrimitiveTypes.Uint32.Name():
+			fieldType = arrow.PrimitiveTypes.Uint32
+
+		case arrow.PrimitiveTypes.Int64.Name():
+			fieldType = arrow.PrimitiveTypes.Int64
+
+		case arrow.PrimitiveTypes.Uint64.Name():
+			fieldType = arrow.PrimitiveTypes.Uint64
+
+		case arrow.PrimitiveTypes.Float32.Name():
+			fieldType = arrow.PrimitiveTypes.Float32
+
+		case arrow.PrimitiveTypes.Float64.Name():
+			fieldType = arrow.PrimitiveTypes.Float64
+
+		case arrow.BinaryTypes.String.Name(), "string":
+			fieldType = arrow.BinaryTypes.String
+
+		default:
+			log.Panicf("error: invalid parquet type: %s", fieldInfo.Type)
+		}
+		arrowFields = append(arrowFields, arrow.Field{
+			Name:     fieldInfo.Name,
+			Type:     fieldType,
+			Nullable: fieldInfo.Nullable,
+		})
+	}
+	psi.schema = arrow.NewSchema(arrowFields, nil)
+}
+
 func (psi *ParquetSchemaInfo) ArrowSchema() *arrow.Schema {
+	if psi.schema == nil {
+		psi.buildArrowSchema()
+	}
 	return psi.schema
 }
 
@@ -454,9 +495,6 @@ func (b *StringBuilder) Release() {
 
 // return value is either nil or a string representing the input v
 func ConvertWithSchemaV1(irow int, col arrow.Array, trimStrings bool, castToRdfTxtFnc CastToRdfTxtFnc) (any, error) {
-	if col.IsValid(irow) {
-		return nil, nil
-	}
 	var value string
 	value = col.ValueStr(irow)
 	// // Don't need the rest for now!!

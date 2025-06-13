@@ -230,13 +230,13 @@ startStepId:
 		if err != nil {
 			return result, fmt.Errorf("while querying input_row_columns_json from table cpipes_execution_status: %v", err)
 		}
-		var inputRowColumns map[string]any
+		var inputRowColumns map[string][]string
 		err = json.Unmarshal([]byte(inputRowColumnsJson), &inputRowColumns)
 		if err != nil {
 			return result, fmt.Errorf("while unmarshalling input_row_columns_json: %v", err)
 		}
 		var ok bool
-		inputColumns, ok = inputRowColumns["main_input"].([]string)
+		inputColumns, ok = inputRowColumns["main_input"]
 		if !ok {
 			return result, fmt.Errorf("error: input_row_column_json expecting main_input as key with []string as value")
 		}

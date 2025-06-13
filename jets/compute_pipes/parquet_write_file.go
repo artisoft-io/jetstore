@@ -19,7 +19,7 @@ func (ctx *S3DeviceWriter) WriteParquetPartitionV2(fout io.Writer) {
 	pool := memory.NewGoAllocator()
 	schemaInfo := ctx.parquetSchema
 	var builders []ArrayBuilder
-	var rowCount int
+	var rowCount, totalRowCount int
 	var record *ArrayRecord
 
 	// Prepare the parquet writer
@@ -66,9 +66,22 @@ func (ctx *S3DeviceWriter) WriteParquetPartitionV2(fout io.Writer) {
 				cpErr = fmt.Errorf("while writing parquet record: %v", err)
 				goto gotError
 			}
+			totalRowCount += rowCount
 			rowCount = 0
 		}
 	}
+	if rowCount > 0 {
+		// Flush the last record
+			record = NewArrayRecord(schemaInfo.schema, builders)
+			err = writer.Write(record.Record)
+			record.Release()
+			if err != nil {
+				cpErr = fmt.Errorf("while writing parquet record: %v", err)
+				goto gotError
+			}
+			totalRowCount += rowCount
+	}
+	log.Println("*** Total Row Written to Parquet:",totalRowCount)
 	err = writer.Close()
 	if err != nil {
 		cpErr = fmt.Errorf("while closing parquet file: %v", err)
@@ -168,7 +181,7 @@ func ConvertToSchemaV2(v any, se *FieldInfo) (any, error) {
 		}
 
 	case arrow.BinaryTypes.String.Name():
-		return []byte(encodeRdfTypeToTxt(v)), nil
+		return encodeRdfTypeToTxt(v), nil
 
 	default:
 		return nil, fmt.Errorf("error: WriteParquet unknown parquet type: %v", se.Type)
