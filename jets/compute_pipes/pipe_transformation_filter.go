@@ -5,8 +5,8 @@ import (
 	"log"
 )
 
-// Group By operator. Group the input records into bundles, where each
-// record of the bundle is a rule session.
+// Filter operator. Filter input records based on filter criteria.
+// Note: Automatically filter the bad rows (ie rows w/o the expected number of columns)
 type FilterTransformationPipe struct {
 	cpConfig    *ComputePipesConfig
 	source      *InputChannel
@@ -23,6 +23,13 @@ func (ctx *FilterTransformationPipe) Apply(input *[]interface{}) error {
 	if input == nil {
 		return fmt.Errorf("error: unexpected null input arg in FilterTransformationPipe")
 	}
+	inputLen := len(*input)
+	expectedLen := len(*ctx.source.columns)
+	if inputLen != expectedLen {
+		// Skip the row
+		return nil
+	}
+
 	// Check if we reached the max nbr of rows to sent
 	if ctx.spec.FilterConfig.MaxOutputCount > 0 && ctx.nbrSentRows >= ctx.spec.FilterConfig.MaxOutputCount {
 		return nil

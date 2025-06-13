@@ -405,7 +405,15 @@ func (ctx *CleansingFunctionContext) ApplyCleasingFunction(functionName string, 
 			obj = UniqueSplitOn(inputValue, argument)
 		} else {
 			// configuration error, bailing out
-			log.Panicf("ERROR missing argument for function split_on for input column pos %d", inputPos)
+			log.Panicf("ERROR missing argument for function unique_split_on for input column pos %d", inputPos)
+		}
+
+	case "slice_input":
+		if argument != "" {
+			obj = SliceInput(inputValue, argument, ctx.parsedFunctionArguments)
+		} else {
+			// configuration error, bailing out
+			log.Panicf("ERROR missing argument for function slice_input for input column pos %d", inputPos)
 		}
 
 	case "ndc10_to_11":
@@ -416,6 +424,56 @@ func (ctx *CleansingFunctionContext) ApplyCleasingFunction(functionName string, 
 	}
 
 	return obj, errMsg
+}
+
+func SliceInput(inputValue, argument string, parsedFunctionArguments map[string]any) any {
+	if inputValue == "" {
+		return nil
+	}
+	sliceArg, err := ParseSliceInputFunctionArgument(argument, "slice_input", parsedFunctionArguments)
+	if err != nil {
+		log.Panicf("while parsing arguments for cleansing function parse_input: %v", err)
+	}
+	sliceValues := strings.Split(inputValue, sliceArg.Delimit)
+	l := len(sliceValues)
+	var values []string
+	switch {
+	case l == 0:
+		return nil
+	case sliceArg.From == nil && sliceArg.To == nil && sliceArg.Values == nil:
+		return sliceValues
+	case sliceArg.Values != nil:
+		values = make([]string, 0, len(*sliceArg.Values))
+		for _, i := range *sliceArg.Values {
+			if i < l {
+				values = append(values, sliceValues[i])
+			}
+		}
+	case sliceArg.From != nil && sliceArg.To == nil:
+		lenValues := l - *sliceArg.From
+		if lenValues > 0 {
+			values = make([]string, 0, lenValues)
+			for i := range lenValues {
+				index := *sliceArg.From + i
+				if index < l {
+					values = append(values, sliceValues[index])
+				}
+			}
+		}
+	default:
+		lenValues := *sliceArg.To - *sliceArg.From
+		values = make([]string, 0, lenValues)
+		for i := range lenValues {
+			index := *sliceArg.From + i
+			if index < l {
+				values = append(values, sliceValues[index])
+			}
+		}
+	}
+	if len(values) == 0 {
+		return nil
+	}
+	return values
 }
 
 // Cleansing function to convert NDC with 10 digits with slash separators
@@ -484,7 +542,7 @@ func UniqueSplitOn(inputValue, argument string) any {
 	// reuse vv
 	vv = vv[:0]
 	for _, cv := range cm {
-		for i := range (*cv) {
+		for i := range *cv {
 			vv = append(vv, fmt.Sprintf("%s-%d", (*cv)[i], i))
 		}
 	}

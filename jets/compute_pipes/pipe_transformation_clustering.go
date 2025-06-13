@@ -26,6 +26,14 @@ func (ctx *ClusteringTransformationPipe) Apply(input *[]interface{}) error {
 	if input == nil {
 		return fmt.Errorf("error: unexpected null input arg in ClusteringTransformationPipe")
 	}
+	// Skip invalid row (ie does not have the number of expected columns)
+	inputLen := len(*input)
+	expectedLen := len(*ctx.source.columns)
+	if inputLen != expectedLen {
+		// Skip the row
+		return nil
+	}
+
 	c := ctx.spec.ClusteringConfig.MaxInputCount
 	if c > 0 && ctx.inputRowCount >= c {
 		// Got the max nbr of records, skipping the rest

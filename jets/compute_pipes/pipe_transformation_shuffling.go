@@ -24,6 +24,13 @@ func (ctx *ShufflingTransformationPipe) Apply(input *[]interface{}) error {
 	if input == nil {
 		return fmt.Errorf("error: unexpected null input arg in ShufflingTransformationPipe")
 	}
+	inputLen := len(*input)
+	expectedLen := len(*ctx.source.columns)
+	if inputLen != expectedLen {
+		// Skip the row
+		return nil
+	}
+
 	if len(ctx.sourceData) < ctx.maxInputCount {
 		ctx.sourceData = append(ctx.sourceData, *input)
 	}

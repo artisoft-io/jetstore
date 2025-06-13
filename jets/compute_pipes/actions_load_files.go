@@ -171,7 +171,7 @@ func (cpCtx *ComputePipesContext) ReadCsvFile(filePath *FileName,
 			}
 		}
 	}
-	// Get the encoding and csv delimiter from the schema provider, if no schema provider exist assume it's ','
+	// Get the encoding and csv delimiter from the schema provider, if no schema provider exist assume it's ',' for reducing
 	var encoding string
 	var noQuote bool
 	if sp != nil {
@@ -239,10 +239,15 @@ func (cpCtx *ComputePipesContext) ReadCsvFile(filePath *FileName,
 	}
 	csvReader.Comma = delimiter
 	csvReader.NoQuotes = noQuote
-	csvReader.LazyQuotes = sp != nil && sp.UseLazyQuotes()
-	if sp != nil && sp.VariableFieldsPerRecord() {
-		csvReader.FieldsPerRecord = -1
+	// csvReader.LazyQuotes = sp != nil && sp.UseLazyQuotes()
+	//* NOTE 06/09/2025 Trun on LazyQuotes and VariableFieldsPerRecord
+	if !noQuote {
+		csvReader.LazyQuotes = true
 	}
+	// if sp != nil && sp.VariableFieldsPerRecord() {
+	// 	csvReader.FieldsPerRecord = -1
+	// }
+	csvReader.FieldsPerRecord = -1
 	var headers []string
 	if inputFormat == "csv" && filePath.InFileKeyInfo.start == 0 {
 		// skip header row (first row)

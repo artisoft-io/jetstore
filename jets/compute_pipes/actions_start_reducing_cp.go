@@ -230,15 +230,14 @@ startStepId:
 		if err != nil {
 			return result, fmt.Errorf("while querying input_row_columns_json from table cpipes_execution_status: %v", err)
 		}
-		var inputRowColumns map[string][]string
+		var inputRowColumns InputRowColumns
 		err = json.Unmarshal([]byte(inputRowColumnsJson), &inputRowColumns)
 		if err != nil {
-			return result, fmt.Errorf("while unmarshalling input_row_columns_json: %v", err)
+			return result, fmt.Errorf("while unmarshalling input_row_columns_json ->%s<-: %v", inputRowColumnsJson, err)
 		}
-		var ok bool
-		inputColumns, ok = inputRowColumns["main_input"]
-		if !ok {
-			return result, fmt.Errorf("error: input_row_column_json expecting main_input as key with []string as value")
+		inputColumns = inputRowColumns.MainInput
+		if len(inputColumns) == 0 {
+			return result, fmt.Errorf("error: expecting main input column names from input_row_columns_json: %s", inputRowColumnsJson)
 		}
 	} else {
 		// Get the columns from the channel spec

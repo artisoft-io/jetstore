@@ -84,6 +84,13 @@ func (ctx *AnalyzeTransformationPipe) Apply(input *[]interface{}) error {
 	if input == nil {
 		return fmt.Errorf("error: unexpected null input arg in AnalyzeTransformationPipe")
 	}
+	inputLen := len(*input)
+	expectedLen := len(*ctx.source.columns)
+	if inputLen != expectedLen {
+		// Skip the row
+		return nil
+	}
+
 	if ctx.firstInputRow == nil {
 		ctx.firstInputRow = input
 	}

@@ -51,7 +51,15 @@ func (ctx *AnonymizeTransformationPipe) Apply(input *[]interface{}) error {
 	// hashedValue4KeyFile is the value to use in the crosswalk file, it is
 	// the same as hashedValue, except for dates it may use a different date formatter.
 	var inputStr, hashedValue, hashedValue4KeyFile string
+	inputLen := len(*input)
+	expectedLen := len(*ctx.source.columns)
+	if inputLen != expectedLen {
+		// Skip this row
+		log.Println(ctx.cpConfig.CommonRuntimeArgs.SessionId,"EXPECTING",expectedLen,"GOT",inputLen,"ROW",*input)
+		return nil
+	}
 	for _, action := range ctx.anonymActions {
+
 		value := (*input)[action.inputColumn]
 		if value == nil {
 			continue
@@ -212,7 +220,7 @@ func (ctx *BuilderContext) NewAnonymizeTransformationPipe(source *InputChannel, 
 	if metaLookupTbl == nil {
 		return nil, fmt.Errorf("error: anonymize metadata lookup table %s not found", config.LookupName)
 	}
-	anonymActions = make([]*AnonymizationAction, 0)
+	anonymActions = make([]*AnonymizationAction, 0, len(*source.columns))
 	metaLookupColumnsMap := metaLookupTbl.ColumnMap()
 	for name, ipos := range *source.columns {
 		metaRow, err := metaLookupTbl.Lookup(&name)
@@ -235,19 +243,17 @@ func (ctx *BuilderContext) NewAnonymizeTransformationPipe(source *InputChannel, 
 		switch anonymizeType {
 		case "text", "date":
 			keyPrefix = ""
-			if anonymizeType == "text" {
-				w := 16
-				if !omitPrefix {
-					keyPrefixI := (*metaRow)[metaLookupColumnsMap[config.KeyPrefix]]
-					keyPrefix, ok = keyPrefixI.(string)
-					if !ok {
-						return nil, fmt.Errorf("error: expecting string for key prefix (e.g. ssn, dob, etc), got %v", keyPrefixI)
-					}
-					w = 28
+			w := 16
+			if anonymizeType == "text" && !omitPrefix {
+				keyPrefixI := (*metaRow)[metaLookupColumnsMap[config.KeyPrefix]]
+				keyPrefix, ok = keyPrefixI.(string)
+				if !ok {
+					return nil, fmt.Errorf("error: expecting string for key prefix (e.g. ssn, dob, etc), got %v", keyPrefixI)
 				}
-				if newWidth != nil {
-					newWidth[name] = w
-				}
+				w = 28
+			}
+			if newWidth != nil {
+				newWidth[name] = w
 			}
 			anonymActions = append(anonymActions, &AnonymizationAction{
 				inputColumn:   ipos,
