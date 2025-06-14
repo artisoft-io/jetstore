@@ -417,6 +417,9 @@ int get_int_literal(HJR handle, int*v)
   case rdf_literal_int32_t    : 
     *v = boost::get<LInt32>(r)->data;
     return 0;
+  case rdf_literal_int64_t    : 
+    *v = boost::get<LInt64>(r)->data;
+    return 0;
   default: return -1;
   }
 }
