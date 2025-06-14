@@ -453,8 +453,8 @@ func (r *Resource) GetName() (string, error) {
 }
 
 func (r *Resource) GetInt() (int, error) {
-	// rdf_literal_int32_t
-	if r.GetType() != 3 {
+	// rdf_literal_int32_t or rdf_literal_int64_t
+	if r.GetType() != 3 && r.GetType() != 5 {
 		return 0, errors.New("ERROR GetInt applies to int literal only")
 	}
 	var cint C.int
@@ -651,7 +651,7 @@ func (r *Resource) AsInterface(columnType string) (ret interface{}, err error) {
 			return reportTypeError(r, columnType)
 		}
 		return v, nil
-	case 3:
+	case 3,5:
 		v, err := r.GetInt()
 		if err != nil {
 			fmt.Println("ERROR Can't GetInt", err)

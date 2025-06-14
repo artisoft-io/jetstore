@@ -306,19 +306,40 @@ func (r *Resource) GetName() (string, error) {
 }
 
 func (r *Resource) GetInt() (int, error) {
-	v, ok := r.r.Value.(int)
-	if !ok {
+	switch vv := r.r.Value.(type) {
+	case int:
+		return vv, nil
+	case int32:
+		return int(vv), nil
+	case int64:
+		return int(vv), nil
+	default:
 		return 0, ErrUnexpectedRdfType
 	}
-	return v, nil
+}
+
+func (r *Resource) GetUint() (uint, error) {
+	switch vv := r.r.Value.(type) {
+	case uint:
+		return vv, nil
+	case uint32:
+		return uint(vv), nil
+	case uint64:
+		return uint(vv), nil
+	default:
+		return 0, ErrUnexpectedRdfType
+	}
 }
 
 func (r *Resource) GetDouble() (float64, error) {
-	v, ok := r.r.Value.(float64)
-	if !ok {
+	switch vv := r.r.Value.(type) {
+	case float64:
+		return vv, nil
+	case float32:
+		return float64(vv), nil
+	default:
 		return 0, ErrUnexpectedRdfType
 	}
-	return v, nil
 }
 
 func (r *Resource) GetDateIsoString() (string, error) {
@@ -402,8 +423,18 @@ func (r *Resource) AsInterface(columnType string) (ret interface{}, err error) {
 			return reportTypeError(r, columnType)
 		}
 		return v, nil
-	case 3:
+	case 3,5:
 		v, err := r.GetInt()
+		if err != nil {
+			fmt.Println("ERROR Can't GetInt", err)
+			return ret, fmt.Errorf("while getting int value of literal for AsInterface: %v", err)
+		}
+		if columnType != "integer" && columnType != "int" {
+			return reportTypeError(r, columnType)
+		}
+		return v, nil
+	case 6:
+		v, err := r.GetUint()
 		if err != nil {
 			fmt.Println("ERROR Can't GetInt", err)
 			return ret, fmt.Errorf("while getting int value of literal for AsInterface: %v", err)
