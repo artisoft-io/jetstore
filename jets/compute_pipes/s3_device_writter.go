@@ -93,6 +93,15 @@ gotError:
 
 }
 
+func (ctx *S3DeviceWriter) WriteParquetPartitionV2(fout io.Writer) {
+	gotError := func(err error) {
+		log.Println(err)
+		ctx.errCh <- err
+		close(ctx.doneCh)
+	}
+	WriteParquetPartitionV3(ctx.parquetSchema, fout, ctx.source.channel, gotError)
+}
+
 func (ctx *S3DeviceWriter) WriteCsvPartition(fout io.Writer) {
 	var count int
 	var cpErr, err error

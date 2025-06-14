@@ -69,6 +69,10 @@ func NewParquetSchemaInfo(schema *arrow.Schema) *ParquetSchemaInfo {
 	}
 }
 
+func NewEmptyParquetSchemaInfo() *ParquetSchemaInfo {
+	return &ParquetSchemaInfo{}
+}
+
 func BuildParquetSchemaInfo(columns []string) *ParquetSchemaInfo {
 	fieldsInfo := make([]*FieldInfo, 0, len(columns))
 	for _, c := range columns {
