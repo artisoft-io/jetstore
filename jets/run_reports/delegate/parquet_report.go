@@ -112,9 +112,12 @@ func (ca *CommandArguments) DoParquetReport(dbpool *pgxpool.Pool, tempDir string
 	schemaInfo := compute_pipes.NewEmptyParquetSchemaInfo()
 	schemaInfo.Fields = csvDatatypes
 	inputCh := make(chan []any, 1)
+	doneCh := make(chan struct{})
+
 	var writeErr error
 	gotError := func(err error) {
 		writeErr = err
+		close(doneCh)
 	}
 	var wg sync.WaitGroup
 	wg.Add(1)
@@ -127,8 +130,8 @@ func (ca *CommandArguments) DoParquetReport(dbpool *pgxpool.Pool, tempDir string
 	var rowCount int64
 	// Read from sql and write to parquet file
 	for rows.Next() {
-		dataRow := make([]interface{}, nbrInputColumns)
-		for inPos := 0; inPos < nbrInputColumns; inPos++ {
+		dataRow := make([]any, nbrInputColumns)
+		for inPos := range nbrInputColumns {
 			outPos, ok := outColFromInCol[inPos]
 			if ok {
 				switch csvDatatypes[outPos].Type {
@@ -147,12 +150,12 @@ func (ca *CommandArguments) DoParquetReport(dbpool *pgxpool.Pool, tempDir string
 		}
 		// scan the row
 		if err = rows.Scan(dataRow...); err != nil {
-			fw.Close()
-			return fmt.Errorf("while scanning the row: %v", err)
+			writeErr = fmt.Errorf("while scanning the row: %v", err)
+			goto doneReport
 		}
 		// make a flat row for writing
-		flatRow := make([]interface{}, nbrOutputColumns)
-		for outPos := 0; outPos < nbrOutputColumns; outPos++ {
+		flatRow := make([]any, nbrOutputColumns)
+		for outPos := range nbrOutputColumns {
 			inPos, ok := inColFromOutCol[outPos]
 			if ok {
 				switch csvDatatypes[outPos].Type {
@@ -186,16 +189,24 @@ func (ca *CommandArguments) DoParquetReport(dbpool *pgxpool.Pool, tempDir string
 					}
 				}
 			} else {
-				fw.Close()
-				return fmt.Errorf("unexpected error while scanning the row")
+				writeErr = fmt.Errorf("unexpected error while scanning the row")
+				goto doneReport
 			}
 		}
-		inputCh <- flatRow
+		select {
+		case inputCh <- flatRow:
+		case <-doneCh:
+			log.Printf("DoParquetReport interrupted")
+			goto doneReport
+		}
 		rowCount += 1
 	}
+doneReport:
+	close(inputCh)
 	wg.Wait()
 	if writeErr != nil {
 		log.Println("Got error while writing parquet file", writeErr)
+		fw.Close()
 		return writeErr
 	}
 	log.Println("Parquet Write Finished")
@@ -211,6 +222,5 @@ func (ca *CommandArguments) DoParquetReport(dbpool *pgxpool.Pool, tempDir string
 		return fmt.Errorf("while copying to s3: %v", err)
 	}
 	fmt.Println("Report:", name, "rowsUploaded containing", rowCount, "rows")
-
 	return nil
 }
