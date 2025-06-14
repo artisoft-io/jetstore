@@ -14,10 +14,9 @@ import (
 	"github.com/artisoft-io/jetstore/jets/jetrules/rdf"
 )
 
-func (ctx *S3DeviceWriter) WriteParquetPartitionV2(fout io.Writer) {
+func WriteParquetPartitionV3(schemaInfo *ParquetSchemaInfo, fout io.Writer, inCh <-chan []any, gotError func(error)) {
 	var cpErr, err error
 	pool := memory.NewGoAllocator()
-	schemaInfo := ctx.parquetSchema
 	var builders []ArrayBuilder
 	var rowCount, totalRowCount int
 	var record *ArrayRecord
@@ -43,7 +42,7 @@ func (ctx *S3DeviceWriter) WriteParquetPartitionV2(fout io.Writer) {
 	}()
 
 	// Write the rows into the temp file
-	for inRow := range ctx.source.channel {
+	for inRow := range inCh {
 		if len(inRow) != len(builders) {
 			cpErr = fmt.Errorf("error: len(row) does not match len(builders) in WriteParquetPartitionV2")
 			goto gotError
@@ -72,16 +71,16 @@ func (ctx *S3DeviceWriter) WriteParquetPartitionV2(fout io.Writer) {
 	}
 	if rowCount > 0 {
 		// Flush the last record
-			record = NewArrayRecord(schemaInfo.schema, builders)
-			err = writer.Write(record.Record)
-			record.Release()
-			if err != nil {
-				cpErr = fmt.Errorf("while writing parquet record: %v", err)
-				goto gotError
-			}
-			totalRowCount += rowCount
+		record = NewArrayRecord(schemaInfo.schema, builders)
+		err = writer.Write(record.Record)
+		record.Release()
+		if err != nil {
+			cpErr = fmt.Errorf("while writing parquet record: %v", err)
+			goto gotError
+		}
+		totalRowCount += rowCount
 	}
-	log.Println("*** Total Row Written to Parquet:",totalRowCount)
+	log.Println("*** Total Row Written to Parquet:", totalRowCount)
 	err = writer.Close()
 	if err != nil {
 		cpErr = fmt.Errorf("while closing parquet file: %v", err)
@@ -90,9 +89,7 @@ func (ctx *S3DeviceWriter) WriteParquetPartitionV2(fout io.Writer) {
 	// All good!
 	return
 gotError:
-	log.Println(cpErr)
-	ctx.errCh <- cpErr
-	close(ctx.doneCh)
+	gotError(cpErr)
 }
 
 func ConvertToSchemaV2(v any, se *FieldInfo) (any, error) {
