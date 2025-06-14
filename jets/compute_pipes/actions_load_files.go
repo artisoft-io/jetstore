@@ -239,15 +239,12 @@ func (cpCtx *ComputePipesContext) ReadCsvFile(filePath *FileName,
 	}
 	csvReader.Comma = delimiter
 	csvReader.NoQuotes = noQuote
-	// csvReader.LazyQuotes = sp != nil && sp.UseLazyQuotes()
 	//* NOTE 06/09/2025 Trun on LazyQuotes and VariableFieldsPerRecord
-	if !noQuote {
-		csvReader.LazyQuotes = true
+	//* NOTE 06/14/2025 Reverting to set defaults for LazyQuotes and VariableFieldsPerRecord to false
+	csvReader.LazyQuotes = sp != nil && sp.UseLazyQuotes()
+	if sp != nil && sp.VariableFieldsPerRecord() {
+		csvReader.FieldsPerRecord = -1
 	}
-	// if sp != nil && sp.VariableFieldsPerRecord() {
-	// 	csvReader.FieldsPerRecord = -1
-	// }
-	csvReader.FieldsPerRecord = -1
 	var headers []string
 	if inputFormat == "csv" && filePath.InFileKeyInfo.start == 0 {
 		// skip header row (first row)
