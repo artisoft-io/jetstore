@@ -99,7 +99,11 @@ func (ctx *S3DeviceWriter) WriteParquetPartitionV2(fout io.Writer) {
 		ctx.errCh <- err
 		close(ctx.doneCh)
 	}
-	WriteParquetPartitionV3(ctx.parquetSchema, fout, ctx.source.channel, gotError)
+	nbrRows := ctx.spec.OutputChannel.NbrRowsInRecord
+	if nbrRows == 0 && ctx.schemaProvider != nil {
+		nbrRows = ctx.schemaProvider.NbrRowsInRecord()
+	}
+	WriteParquetPartitionV3(ctx.parquetSchema, nbrRows, fout, ctx.source.channel, gotError)
 }
 
 func (ctx *S3DeviceWriter) WriteCsvPartition(fout io.Writer) {

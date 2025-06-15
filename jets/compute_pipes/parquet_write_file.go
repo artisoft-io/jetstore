@@ -14,16 +14,19 @@ import (
 	"github.com/artisoft-io/jetstore/jets/jetrules/rdf"
 )
 
-func WriteParquetPartitionV3(schemaInfo *ParquetSchemaInfo, fout io.Writer, inCh <-chan []any, gotError func(error)) {
+func WriteParquetPartitionV3(schemaInfo *ParquetSchemaInfo, nrowsInRec int64, fout io.Writer, inCh <-chan []any, gotError func(error)) {
 	var cpErr, err error
 	pool := memory.NewGoAllocator()
 	var builders []ArrayBuilder
-	var rowCount, totalRowCount int
+	var rowCount, totalRowCount int64
 	var record *ArrayRecord
+	if nrowsInRec == 0 {
+		nrowsInRec = 1024
+	}
 
 	// Prepare the parquet writer
 	props := parquet.NewWriterProperties(parquet.WithCompression(compress.Codecs.Snappy), parquet.WithAllocator(pool),
-		parquet.WithBatchSize(1024), parquet.WithMaxRowGroupLength(1024), parquet.WithCreatedBy("jetstore"))
+		parquet.WithBatchSize(nrowsInRec), parquet.WithMaxRowGroupLength(nrowsInRec), parquet.WithCreatedBy("jetstore"))
 	writer, err := pqarrow.NewFileWriter(schemaInfo.ArrowSchema(), fout, props, pqarrow.DefaultWriterProps())
 	if err != nil {
 		cpErr = fmt.Errorf("while calling pqarrow.NewFileWriter: %v", err)
@@ -57,7 +60,7 @@ func WriteParquetPartitionV3(schemaInfo *ParquetSchemaInfo, fout io.Writer, inCh
 			builder.Append(value)
 		}
 		rowCount++
-		if rowCount >= 1024 {
+		if rowCount >= nrowsInRec {
 			record = NewArrayRecord(schemaInfo.schema, builders)
 			err = writer.Write(record.Record)
 			record.Release()

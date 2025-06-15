@@ -237,7 +237,8 @@ type SchemaProviderSpec struct {
 	// Key is schema provider key for reference by compute pipes steps
 	// Format: csv, headerless_csv, fixed_width, parquet, parquet_select,
 	//              xlsx, headerless_xlsx
-	// Compression: none, snappy
+	// Compression: none, snappy (parquet is always snappy)
+	// NbrRows: nbr of rows in record (format: parquet)
 	// InputFormatDataJson: json config based on Format (typically used for xlsx)
 	// example: {"currentSheet": "Daily entry for Approvals"} (for xlsx).
 	// SourceType range: main_input, merged_input, historical_input (from input_source table)
@@ -271,6 +272,7 @@ type SchemaProviderSpec struct {
 	DetectEncoding                   bool               `json:"detect_encoding"`
 	Delimiter                        rune               `json:"delimiter"`
 	Compression                      string             `json:"compression,omitempty"`
+	NbrRowsInRecord                  int64              `json:"nbr_rows_in_record,omitzero"` // Format: parquet
 	DomainClass                      string             `json:"domain_class,omitempty"`
 	DomainKeys                       map[string]any     `json:"domain_keys,omitempty"`
 	InputFormatDataJson              string             `json:"input_format_data_json,omitempty"`
@@ -333,13 +335,15 @@ type OutputFileSpec struct {
 	// Schema provider indicates if put the header line or not.
 	// The input channel's schema provider indicates what delimiter
 	// to use on the header line.
-	Key            string   `json:"key"`
-	Name           string   `json:"name"`
-	Bucket         string   `json:"bucket,omitempty"`
-	KeyPrefix      string   `json:"key_prefix,omitempty"`
-	OutputLocation string   `json:"output_location,omitempty"`
-	SchemaProvider string   `json:"schema_provider,omitempty"`
-	Headers        []string `json:"headers"`
+	// NbrRowsInRecord: nbr of rows in record (format: parquet)
+	Key             string   `json:"key"`
+	Name            string   `json:"name"`
+	Bucket          string   `json:"bucket,omitempty"`
+	KeyPrefix       string   `json:"key_prefix,omitempty"`
+	OutputLocation  string   `json:"output_location,omitempty"`
+	SchemaProvider  string   `json:"schema_provider,omitempty"`
+	Headers         []string `json:"headers"`
+	NbrRowsInRecord int64    `json:"nbr_rows_in_record,omitzero"` // Format: parquet
 }
 
 type TableColumnSpec struct {
@@ -426,7 +430,7 @@ type AnalyzeSpec struct {
 type InputChannelConfig struct {
 	// Type range: memory (default), input, stage
 	// Format: csv, headerless_csv, etc.
-	// Compression: none, snappy
+	// Compression: none, snappy (parquet: always snappy)
 	// Note: SchemaProvider, Compression, Format for Type input are provided via
 	// ComputePipesCommonArgs.SourcesConfig (ie input_registry table).
 	// HasGroupedRow indicates that the channel contains grouped rows,
@@ -448,6 +452,7 @@ type InputChannelConfig struct {
 type OutputChannelConfig struct {
 	// Type range: memory (default), stage, output, sql
 	// Format: csv, headerless_csv, etc.
+	// NbrRowsInRecord: nbr of rows in record (format: parquet)
 	// Compression: none, snappy (default).
 	// UseInputParquetSchema to use the same schema as the input file.
 	// Must have save_parquet_schema = true in the cpipes first input_channel.
@@ -468,17 +473,18 @@ type OutputChannelConfig struct {
 	// $JETS_PARTITION_LABEL current node partition label.
 	Type                  string `json:"type"`
 	Name                  string `json:"name"`
-	Format                string `json:"format,omitempty"`           // Type stage,output
-	Delimiter             rune   `json:"delimiter"`                  // Type stage,output
-	Compression           string `json:"compression,omitempty"`      // Type stage,output
-	UseInputParquetSchema bool   `json:"use_input_parquet_schema"`   // Type stage,output
-	SchemaProvider        string `json:"schema_provider,omitempty"`  // Type stage,output, alt to Format
-	WriteStepId           string `json:"write_step_id"`              // Type stage
-	OutputTableKey        string `json:"output_table_key,omitempty"` // Type sql
-	Bucket                string `json:"bucket,omitempty"`           // type output
-	KeyPrefix             string `json:"key_prefix,omitempty"`       // Type output
-	FileName              string `json:"file_name,omitempty"`        // Type output
-	OutputLocation        string `json:"output_location,omitempty"`  // Type output
+	Format                string `json:"format,omitempty"`            // Type stage,output
+	NbrRowsInRecord       int64  `json:"nbr_rows_in_record,omitzero"` // Format: parquet
+	Delimiter             rune   `json:"delimiter"`                   // Type stage,output
+	Compression           string `json:"compression,omitempty"`       // Type stage,output
+	UseInputParquetSchema bool   `json:"use_input_parquet_schema"`    // Type stage,output
+	SchemaProvider        string `json:"schema_provider,omitempty"`   // Type stage,output, alt to Format
+	WriteStepId           string `json:"write_step_id"`               // Type stage
+	OutputTableKey        string `json:"output_table_key,omitempty"`  // Type sql
+	Bucket                string `json:"bucket,omitempty"`            // type output
+	KeyPrefix             string `json:"key_prefix,omitempty"`        // Type output
+	FileName              string `json:"file_name,omitempty"`         // Type output
+	OutputLocation        string `json:"output_location,omitempty"`   // Type output
 	SpecName              string `json:"channel_spec_name"`
 }
 

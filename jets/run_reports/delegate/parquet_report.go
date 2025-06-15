@@ -123,7 +123,7 @@ func (ca *CommandArguments) DoParquetReport(dbpool *pgxpool.Pool, tempDir string
 	wg.Add(1)
 
 	go func() {
-		compute_pipes.WriteParquetPartitionV3(schemaInfo, fw, inputCh, gotError)
+		compute_pipes.WriteParquetPartitionV3(schemaInfo, 0, fw, inputCh, gotError)
 		wg.Done()
 	}()
 

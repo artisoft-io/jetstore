@@ -32,6 +32,7 @@ type SchemaProvider interface {
 	Key() string
 	SchemaName() string
 	Format() string
+	NbrRowsInRecord() int64
 	Encoding() string
 	DetectEncoding() bool
 	Compression() string
@@ -178,6 +179,13 @@ func (sp *DefaultSchemaProvider) Format() string {
 		return ""
 	}
 	return sp.spec.Format
+}
+
+func (sp *DefaultSchemaProvider) NbrRowsInRecord() int64 {
+	if sp == nil {
+		return 0
+	}
+	return sp.spec.NbrRowsInRecord
 }
 
 func (sp *DefaultSchemaProvider) Encoding() string {
