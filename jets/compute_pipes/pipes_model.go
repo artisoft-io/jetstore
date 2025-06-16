@@ -101,10 +101,10 @@ func (cp *ComputePipesConfig) GetComputePipes(stepId int, env map[string]any) ([
 type ClusterSpec struct {
 	MaxNbrPartitions            int                   `json:"max_nbr_partitons,omitzero"`
 	MultiStepShardingThresholds int                   `json:"multi_step_sharding_thresholds,omitzero"`
-	DefaultShardSizeMb          int                   `json:"default_shard_size_mb,omitzero"`
-	DefaultShardMaxSizeMb       int                   `json:"default_shard_max_size_mb,omitzero"`
-	DefaultShardSizeBy          int                   `json:"default_shard_size_by,omitzero"`     // for testing only
-	DefaultShardMaxSizeBy       int                   `json:"default_shard_max_size_by,omitzero"` // for testing only
+	DefaultShardSizeMb          float64               `json:"default_shard_size_mb,omitzero"`
+	DefaultShardMaxSizeMb       float64               `json:"default_shard_max_size_mb,omitzero"`
+	DefaultShardSizeBy          float64               `json:"default_shard_size_by,omitzero"`     // for testing only
+	DefaultShardMaxSizeBy       float64               `json:"default_shard_max_size_by,omitzero"` // for testing only
 	ShardOffset                 int                   `json:"shard_offset,omitzero"`
 	DefaultMaxConcurrency       int                   `json:"default_max_concurrency,omitzero"`
 	S3WorkerPoolSize            int                   `json:"s3_worker_pool_size,omitzero"`
@@ -145,15 +145,15 @@ func (cs *ClusterSpec) NbrPartitions(mode string) int {
 // to shards.
 // When [MaxNbrPartitions] is not specified, the value at the ClusterSpec level is taken.
 type ClusterShardingSpec struct {
-	WhenTotalSizeGe             int `json:"when_total_size_ge_mb"`
-	MaxNbrPartitions            int `json:"max_nbr_partitions"`
-	MultiStepShardingThresholds int `json:"multi_step_sharding_thresholds"`
-	ShardSizeMb                 int `json:"shard_size_mb"`
-	ShardMaxSizeMb              int `json:"shard_max_size_mb"`
-	ShardSizeBy                 int `json:"shard_size_by"`     // for testing only
-	ShardMaxSizeBy              int `json:"shard_max_size_by"` // for testing only
-	S3WorkerPoolSize            int `json:"s3_worker_pool_size"`
-	MaxConcurrency              int `json:"max_concurrency"`
+	WhenTotalSizeGe             int     `json:"when_total_size_ge_mb"`
+	MaxNbrPartitions            int     `json:"max_nbr_partitions"`
+	MultiStepShardingThresholds int     `json:"multi_step_sharding_thresholds"`
+	ShardSizeMb                 float64 `json:"shard_size_mb"`
+	ShardMaxSizeMb              float64 `json:"shard_max_size_mb"`
+	ShardSizeBy                 float64 `json:"shard_size_by"`     // for testing only
+	ShardMaxSizeBy              float64 `json:"shard_max_size_by"` // for testing only
+	S3WorkerPoolSize            int     `json:"s3_worker_pool_size"`
+	MaxConcurrency              int     `json:"max_concurrency"`
 }
 
 type MetricsSpec struct {
@@ -238,7 +238,8 @@ type SchemaProviderSpec struct {
 	// Format: csv, headerless_csv, fixed_width, parquet, parquet_select,
 	//              xlsx, headerless_xlsx
 	// Compression: none, snappy (parquet is always snappy)
-	// NbrRows: nbr of rows in record (format: parquet)
+	// ReadBatchSize: nbr of rows to read per record (format: parquet)
+	// NbrRowsInRecord: nbr of rows in record (format: parquet)
 	// InputFormatDataJson: json config based on Format (typically used for xlsx)
 	// example: {"currentSheet": "Daily entry for Approvals"} (for xlsx).
 	// SourceType range: main_input, merged_input, historical_input (from input_source table)
@@ -272,6 +273,7 @@ type SchemaProviderSpec struct {
 	DetectEncoding                   bool               `json:"detect_encoding"`
 	Delimiter                        rune               `json:"delimiter"`
 	Compression                      string             `json:"compression,omitempty"`
+	ReadBatchSize                    int64              `json:"read_batch_size,omitzero"`    // Format: parquet
 	NbrRowsInRecord                  int64              `json:"nbr_rows_in_record,omitzero"` // Format: parquet
 	DomainClass                      string             `json:"domain_class,omitempty"`
 	DomainKeys                       map[string]any     `json:"domain_keys,omitempty"`
@@ -335,15 +337,13 @@ type OutputFileSpec struct {
 	// Schema provider indicates if put the header line or not.
 	// The input channel's schema provider indicates what delimiter
 	// to use on the header line.
-	// NbrRowsInRecord: nbr of rows in record (format: parquet)
-	Key             string   `json:"key"`
-	Name            string   `json:"name"`
-	Bucket          string   `json:"bucket,omitempty"`
-	KeyPrefix       string   `json:"key_prefix,omitempty"`
-	OutputLocation  string   `json:"output_location,omitempty"`
-	SchemaProvider  string   `json:"schema_provider,omitempty"`
-	Headers         []string `json:"headers"`
-	NbrRowsInRecord int64    `json:"nbr_rows_in_record,omitzero"` // Format: parquet
+	Key            string   `json:"key"`
+	Name           string   `json:"name"`
+	Bucket         string   `json:"bucket,omitempty"`
+	KeyPrefix      string   `json:"key_prefix,omitempty"`
+	OutputLocation string   `json:"output_location,omitempty"`
+	SchemaProvider string   `json:"schema_provider,omitempty"`
+	Headers        []string `json:"headers"`
 }
 
 type TableColumnSpec struct {
@@ -430,6 +430,7 @@ type AnalyzeSpec struct {
 type InputChannelConfig struct {
 	// Type range: memory (default), input, stage
 	// Format: csv, headerless_csv, etc.
+	// ReadBatchSize: nbr of rows to read per record (format: parquet)
 	// Compression: none, snappy (parquet: always snappy)
 	// Note: SchemaProvider, Compression, Format for Type input are provided via
 	// ComputePipesCommonArgs.SourcesConfig (ie input_registry table).
@@ -440,6 +441,7 @@ type InputChannelConfig struct {
 	Type             string `json:"type"`
 	Name             string `json:"name"`
 	Format           string `json:"format,omitempty"`
+	ReadBatchSize    int64  `json:"read_batch_size,omitzero"` // Format: parquet
 	Delimiter        rune   `json:"delimiter"`
 	Compression      string `json:"compression,omitempty"`
 	SchemaProvider   string `json:"schema_provider,omitempty"`

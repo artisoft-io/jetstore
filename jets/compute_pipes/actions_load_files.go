@@ -97,6 +97,10 @@ func (cpCtx *ComputePipesContext) LoadFiles(ctx context.Context, dbpool *pgxpool
 	}
 
 	samplingMaxCount := int64(inputChannelConfig.SamplingMaxCount)
+	readBatchSize := inputChannelConfig.ReadBatchSize
+	if readBatchSize == 0 && sp != nil {
+		readBatchSize = sp.ReadBatchSize()
+	}
 	var count, totalRowCount int64
 	gotMaxRecordCount := false
 	for localInFile := range cpCtx.FileNamesCh {
@@ -113,7 +117,7 @@ func (cpCtx *ComputePipesContext) LoadFiles(ctx context.Context, dbpool *pgxpool
 		case "csv", "headerless_csv":
 			count, err = cpCtx.ReadCsvFile(&localInFile, inputFormat, compression, delimiter, shardOffset, sp, castToRdfTxtTypeFncs, computePipesInputCh)
 		case "parquet", "parquet_select":
-			count, err = cpCtx.ReadParquetFileV2(&localInFile, saveParquetSchema, sp, castToRdfTxtTypeFncs, inputSchemaCh, computePipesInputCh)
+			count, err = cpCtx.ReadParquetFileV2(&localInFile, readBatchSize, saveParquetSchema, sp, castToRdfTxtTypeFncs, inputSchemaCh, computePipesInputCh)
 			if count > 0 {
 				saveParquetSchema = false
 			}

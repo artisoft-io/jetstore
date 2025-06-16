@@ -86,7 +86,7 @@ type SourcesConfigSpec struct {
 	InjectedInput []*InputSourceSpec `json:"injected_inputs"`
 }
 
-// InputRowColumns: used to save the input_row channel column name in 
+// InputRowColumns: used to save the input_row channel column name in
 // table cpipes_execution_status, column input_row_columns_json
 type InputRowColumns struct {
 	MainInput     []string   `json:"main_input"`
@@ -113,10 +113,11 @@ type InputSourceSpec struct {
 }
 
 type FileKeyInfo struct {
-	key   string
-	size  int
-	start int
-	end   int
+	key          string
+	size         int
+	start        int
+	end          int
+	fullDownload bool
 }
 
 // Full arguments to cp_node for sharding and reducing

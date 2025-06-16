@@ -28,7 +28,7 @@ func MergeParquetPartitions(nrowsInRec int64, columns []string, fout io.Writer, 
 		totalRowCount += count
 	}
 
-	log.Println("*** Total Row Written to Parquet:", totalRowCount)
+	log.Println("MergeParquetPartitions: Total Row Written to Parquet:", totalRowCount)
 	if writer != nil {
 		err = writer.Close()
 		if err != nil {
@@ -39,6 +39,7 @@ func MergeParquetPartitions(nrowsInRec int64, columns []string, fout io.Writer, 
 	// All good!
 	return
 gotError:
+	log.Printf("Got error in MergeParquetPartitions: %v", cpErr)
 	gotError(cpErr)
 }
 
@@ -65,10 +66,14 @@ func mergeFile(writer *pqarrow.FileWriter, nrowsInRec int64, columns []string, f
 	}
 	defer pqFileReader.Close()
 
-	reader, err := pqarrow.NewFileReader(pqFileReader, pqarrow.ArrowReadProperties{BatchSize: 1024}, memory.NewGoAllocator())
+	if nrowsInRec == 0 {
+		nrowsInRec = 1024
+	}
+	reader, err := pqarrow.NewFileReader(pqFileReader, pqarrow.ArrowReadProperties{BatchSize: nrowsInRec}, memory.NewGoAllocator())
 	if err != nil {
 		return nil, 0, fmt.Errorf("while opening the pqarrow file reader for '%s' (mergeFile): %v", filePath.LocalFileName, err)
 	}
+	// log.Println("*** MERGING File with", pqFileReader.NumRows(),"rows")
 	schema, err := reader.Schema()
 	if err != nil {
 		return nil, 0, fmt.Errorf("while getting the arrow schema for '%s' (mergeFile): %v", filePath.LocalFileName, err)
@@ -105,6 +110,7 @@ func mergeFile(writer *pqarrow.FileWriter, nrowsInRec int64, columns []string, f
 	}
 	for recordReader.Next() {
 		arrowRecord := recordReader.Record()
+		// log.Println("***    got record with", arrowRecord.NumRows(),"rows")
 		totalRowCount += arrowRecord.NumRows()
 		err = writer.Write(arrowRecord)
 		arrowRecord.Release()

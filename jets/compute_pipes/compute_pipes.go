@@ -1,6 +1,7 @@
 package compute_pipes
 
 import (
+	"context"
 	"encoding/gob"
 	"encoding/json"
 	"errors"
@@ -77,7 +78,7 @@ func (cpCtx *ComputePipesContext) StartComputePipes(dbpool *pgxpool.Pool, inputS
 		// Get the parquet schema from the channel as it is being extracted from the
 		// first input file
 		for is := range inputSchemaCh {
-				inputParquetSchema = &is
+			inputParquetSchema = &is
 		}
 	}
 	inputChannelName = cpCtx.CpConfig.PipesConfig[0].InputChannel.Name
@@ -85,6 +86,29 @@ func (cpCtx *ComputePipesContext) StartComputePipes(dbpool *pgxpool.Pool, inputS
 		// case sharding or reducing
 		// Setup the input channel for input_row
 		headersPosMap := make(map[string]int)
+		if len(mainInput.InputColumns) == 0 && inputParquetSchema != nil {
+			// Get the columns from the schema
+			mainInput.InputColumns = inputParquetSchema.Columns()
+			mainInput.InputColumns = append(mainInput.InputColumns, cpCtx.AddionalInputHeaders...)
+			// Add the headers from the partfile_key_component
+			for i := range cpCtx.CpConfig.Context {
+				if cpCtx.CpConfig.Context[i].Type == "partfile_key_component" {
+					mainInput.InputColumns = append(mainInput.InputColumns, cpCtx.CpConfig.Context[i].Key)
+				}
+			}
+			// Save the columns to db!
+			inputRowColumnsJson, _ := json.Marshal(InputRowColumns{
+				MainInput: mainInput.InputColumns,
+			})
+			// Update in cpipes_execution_status
+			stmt := `UPDATE jetsapi.cpipes_execution_status SET input_row_columns_json = $1 WHERE session_id = $2`
+			_, err2 := dbpool.Exec(context.TODO(), stmt, string(inputRowColumnsJson), cpCtx.ComputePipesCommonArgs.SessionId)
+			if err2 != nil {
+				cpErr = fmt.Errorf("error inserting in jetsapi.cpipes_execution_status table: %v", err2)
+				goto gotError
+			}
+			log.Println("GETTING COLUMNS FROM SCHEMA:", mainInput.InputColumns)
+		}
 		for i, c := range mainInput.InputColumns {
 			headersPosMap[c] = i
 		}

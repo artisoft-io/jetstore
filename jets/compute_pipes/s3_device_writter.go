@@ -103,6 +103,7 @@ func (ctx *S3DeviceWriter) WriteParquetPartitionV2(fout io.Writer) {
 	if nbrRows == 0 && ctx.schemaProvider != nil {
 		nbrRows = ctx.schemaProvider.NbrRowsInRecord()
 	}
+	// log.Printf("*** WriteParquetPartitionV2: calling WriteParquetPartitionV3 with nbrRowPerRecord of %d\n", nbrRows)
 	WriteParquetPartitionV3(ctx.parquetSchema, nbrRows, fout, ctx.source.channel, gotError)
 }
 

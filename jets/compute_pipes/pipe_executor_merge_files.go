@@ -140,6 +140,7 @@ func (cpCtx *ComputePipesContext) StartMergeFiles(dbpool *pgxpool.Pool) (cpErr e
 			cpErr = fmt.Errorf(
 				"error: merge_files operator using output_file %s, no headers avaliable",
 				outputFileConfig.Key)
+			log.Println(cpErr)
 			return
 		}
 	}
@@ -151,10 +152,12 @@ func (cpCtx *ComputePipesContext) StartMergeFiles(dbpool *pgxpool.Pool) (cpErr e
 	}
 	var fileReader io.Reader
 	var err, mergeErr error
+	var nrowsInRec int64
 
 	if inputFormat == "parquet" && len(cpCtx.InputFileKeys) > 1 {
 		// merge parquet files into a single file
 		// Pipe the writer to a reader to content goes directly to s3
+		// log.Printf("*** MERGE %d files to single parquet file\n", len(cpCtx.InputFileKeys))
 		pin, pout := io.Pipe()
 		gotError := func(err error) {
 			mergeErr = err
@@ -162,14 +165,14 @@ func (cpCtx *ComputePipesContext) StartMergeFiles(dbpool *pgxpool.Pool) (cpErr e
 		}
 		fileReader = pin
 		go func() {
-			nrowsInRec := outputFileConfig.NbrRowsInRecord
-			if nrowsInRec == 0 && outputSp != nil {
+			if outputSp != nil {
 				nrowsInRec = outputSp.NbrRowsInRecord()
 			}
 			MergeParquetPartitions(nrowsInRec, outputFileConfig.Headers, pout, cpCtx.FileNamesCh, gotError)
 			pout.Close()
 		}()
 	} else {
+		// log.Printf("*** MERGE %d files using text format (%s)\n", len(cpCtx.InputFileKeys), inputFormat)
 		fileReader, err = cpCtx.NewMergeFileReader(inputFormat, delimiter, outputSp, outputFileConfig.Headers, writeHeaders, compression)
 		if err != nil {
 			cpErr = err

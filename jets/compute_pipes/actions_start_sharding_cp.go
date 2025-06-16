@@ -163,7 +163,7 @@ func (args *StartComputePipesArgs) StartShardingComputePipes(ctx context.Context
 	fetchHeaders := false
 	fetchDelimitor := false
 	format := &mainInputSchemaProvider.Format
-	if (*format == "csv" || *format == "parquet" || *format == "xlsx") && len(cpipesStartup.InputColumns) == 0 {
+	if (*format == "csv" || *format == "xlsx") && len(cpipesStartup.InputColumns) == 0 {
 		fetchHeaders = true
 	}
 	if strings.HasSuffix(*format, "csv") && mainInputSchemaProvider.Delimiter == 0 {
@@ -194,24 +194,26 @@ func (args *StartComputePipesArgs) StartShardingComputePipes(ctx context.Context
 
 	// NOTE: At this point we should have the headers of the input file
 	if len(cpipesStartup.InputColumns) == 0 {
-		return result, mainInputSchemaProvider, fmt.Errorf("configuration error: no header information available for the input file(s)")
-	}
+		if !strings.HasPrefix(*format, "parquet") {
+			return result, mainInputSchemaProvider, fmt.Errorf("configuration error: no header information available for the input file(s)")
+		}
+	} else {
+		// Add the headers from the partfile_key_component
+		for i := range cpipesStartup.CpConfig.Context {
+			if cpipesStartup.CpConfig.Context[i].Type == "partfile_key_component" {
+				cpipesStartup.InputColumns = append(cpipesStartup.InputColumns,
+					cpipesStartup.CpConfig.Context[i].Key)
+			}
+		}
 
-	// Add the headers from the partfile_key_component
-	for i := range cpipesStartup.CpConfig.Context {
-		if cpipesStartup.CpConfig.Context[i].Type == "partfile_key_component" {
-			cpipesStartup.InputColumns = append(cpipesStartup.InputColumns,
-				cpipesStartup.CpConfig.Context[i].Key)
+		// Add extra headers to input_row if specified in the channels spec
+		extraInputColumns := GetAdditionalInputColumns(&cpipesStartup.CpConfig)
+		if len(extraInputColumns) > 0 {
+			cpipesStartup.InputColumns = append(cpipesStartup.InputColumns, extraInputColumns...)
 		}
 	}
 
-	// Add extra headers to input_row if specified in the channels spec
-	extraInputColumns := GetAdditionalInputColumns(&cpipesStartup.CpConfig)
-	if len(extraInputColumns) > 0 {
-		cpipesStartup.InputColumns = append(cpipesStartup.InputColumns, extraInputColumns...)
-	}
-
-	inputRowColumnsJson, err := json.Marshal(InputRowColumns {
+	inputRowColumnsJson, err := json.Marshal(InputRowColumns{
 		MainInput: cpipesStartup.InputColumns,
 	})
 	if err != nil {

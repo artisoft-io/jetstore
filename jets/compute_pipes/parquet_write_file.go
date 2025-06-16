@@ -3,7 +3,6 @@ package compute_pipes
 import (
 	"fmt"
 	"io"
-	"log"
 	"strconv"
 
 	"github.com/apache/arrow/go/v17/arrow"
@@ -62,6 +61,7 @@ func WriteParquetPartitionV3(schemaInfo *ParquetSchemaInfo, nrowsInRec int64, fo
 		rowCount++
 		if rowCount >= nrowsInRec {
 			record = NewArrayRecord(schemaInfo.schema, builders)
+			// log.Printf("*** Make record @ %d, record has %d rows\n", rowCount, record.Record.NumRows())
 			err = writer.Write(record.Record)
 			record.Release()
 			if err != nil {
@@ -75,6 +75,7 @@ func WriteParquetPartitionV3(schemaInfo *ParquetSchemaInfo, nrowsInRec int64, fo
 	if rowCount > 0 {
 		// Flush the last record
 		record = NewArrayRecord(schemaInfo.schema, builders)
+		// log.Printf("*** Flush last record @ %d, record has %d rows\n", rowCount, record.Record.NumRows())
 		err = writer.Write(record.Record)
 		record.Release()
 		if err != nil {
@@ -83,7 +84,7 @@ func WriteParquetPartitionV3(schemaInfo *ParquetSchemaInfo, nrowsInRec int64, fo
 		}
 		totalRowCount += rowCount
 	}
-	log.Println("*** Total Row Written to Parquet:", totalRowCount)
+	// log.Println("*** Total Row Written to Parquet:", totalRowCount)
 	err = writer.Close()
 	if err != nil {
 		cpErr = fmt.Errorf("while closing parquet file: %v", err)

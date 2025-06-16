@@ -32,6 +32,7 @@ type SchemaProvider interface {
 	Key() string
 	SchemaName() string
 	Format() string
+	ReadBatchSize() int64
 	NbrRowsInRecord() int64
 	Encoding() string
 	DetectEncoding() bool
@@ -186,6 +187,13 @@ func (sp *DefaultSchemaProvider) NbrRowsInRecord() int64 {
 		return 0
 	}
 	return sp.spec.NbrRowsInRecord
+}
+
+func (sp *DefaultSchemaProvider) ReadBatchSize() int64 {
+	if sp == nil {
+		return 0
+	}
+	return sp.spec.ReadBatchSize
 }
 
 func (sp *DefaultSchemaProvider) Encoding() string {

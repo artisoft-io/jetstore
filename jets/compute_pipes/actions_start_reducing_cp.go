@@ -222,7 +222,7 @@ startStepId:
 	// Get the input columns from Pipes Config, from the first pipes channel
 	var inputColumns []string
 	inputChannel := inputChannelConfig.Name
-	if inputChannel == "input_row" && inputFormat == "csv" {
+	if inputChannel == "input_row" {
 		// special case, need to get the input columns from cpipes_execution_status table
 		var inputRowColumnsJson string
 		stmt := `SELECT input_row_columns_json FROM jetsapi.cpipes_execution_status WHERE session_id=$1`
