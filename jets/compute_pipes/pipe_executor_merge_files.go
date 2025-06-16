@@ -67,25 +67,25 @@ func (cpCtx *ComputePipesContext) StartMergeFiles(dbpool *pgxpool.Pool) (cpErr e
 	switch outputFileConfig.OutputLocation {
 	case "jetstore_s3_input", "jetstore_s3_output":
 		if len(outputFileConfig.Name) > 0 {
-			fileName = doSubstitution(outputFileConfig.Name, "",	"",	cpCtx.EnvSettings)
+			fileName = doSubstitution(outputFileConfig.Name, "", "", cpCtx.EnvSettings)
 		} else {
-			fileName = doSubstitution("$NAME_FILE_KEY", "",	"",	cpCtx.EnvSettings)
+			fileName = doSubstitution("$NAME_FILE_KEY", "", "", cpCtx.EnvSettings)
 		}
 		if len(fileName) == 0 {
 			cpErr = fmt.Errorf("error: OutputFile config is missing file_name in StartMergeFile")
 			return
 		}
 		if len(outputFileConfig.KeyPrefix) > 0 {
-			fileFolder = doSubstitution(outputFileConfig.KeyPrefix, "",	outputFileConfig.OutputLocation,
+			fileFolder = doSubstitution(outputFileConfig.KeyPrefix, "", outputFileConfig.OutputLocation,
 				cpCtx.EnvSettings)
 		} else {
-			fileFolder = doSubstitution("$PATH_FILE_KEY", "",	outputFileConfig.OutputLocation,
+			fileFolder = doSubstitution("$PATH_FILE_KEY", "", outputFileConfig.OutputLocation,
 				cpCtx.EnvSettings)
 		}
 		outputS3FileKey = fmt.Sprintf("%s/%s", fileFolder, fileName)
 
 	default:
-		outputS3FileKey = doSubstitution(outputFileConfig.OutputLocation, "",	"",	cpCtx.EnvSettings)
+		outputS3FileKey = doSubstitution(outputFileConfig.OutputLocation, "", "", cpCtx.EnvSettings)
 	}
 
 	// Create a reader to stream the data to s3
@@ -140,6 +140,7 @@ func (cpCtx *ComputePipesContext) StartMergeFiles(dbpool *pgxpool.Pool) (cpErr e
 			cpErr = fmt.Errorf(
 				"error: merge_files operator using output_file %s, no headers avaliable",
 				outputFileConfig.Key)
+			log.Println(cpErr)
 			return
 		}
 	}
@@ -149,26 +150,43 @@ func (cpCtx *ComputePipesContext) StartMergeFiles(dbpool *pgxpool.Pool) (cpErr e
 	if inputChannel.Delimiter > 0 {
 		delimiter = inputChannel.Delimiter
 	}
+	var fileReader io.Reader
+	var err, mergeErr error
+	var nrowsInRec int64
 
-	if inputFormat == "parquet" {
-		//*TODO support merging parquet files into a single file
-		// SPECIAL CASE = Currently only supporting single parquet file in the input
-		// to be sent to s3
-		if len(cpCtx.InputFileKeys) != 1 {
-			cpErr = fmt.Errorf("error: merge_file operator currently cannot merge multiple parquet file, got %d input files",
-				len(cpCtx.InputFileKeys))
-				return
+	if inputFormat == "parquet" && len(cpCtx.InputFileKeys) > 1 {
+		// merge parquet files into a single file
+		// Pipe the writer to a reader to content goes directly to s3
+		// log.Printf("*** MERGE %d files to single parquet file\n", len(cpCtx.InputFileKeys))
+		pin, pout := io.Pipe()
+		gotError := func(err error) {
+			mergeErr = err
+			pin.Close()
 		}
-	}
-	r, err := cpCtx.NewMergeFileReader(inputFormat, delimiter, outputSp, outputFileConfig.Headers, writeHeaders, compression)
-	if err != nil {
-		cpErr = err
-		return
+		fileReader = pin
+		go func() {
+			if outputSp != nil {
+				nrowsInRec = outputSp.NbrRowsInRecord()
+			}
+			MergeParquetPartitions(nrowsInRec, outputFileConfig.Headers, pout, cpCtx.FileNamesCh, gotError)
+			pout.Close()
+		}()
+	} else {
+		// log.Printf("*** MERGE %d files using text format (%s)\n", len(cpCtx.InputFileKeys), inputFormat)
+		fileReader, err = cpCtx.NewMergeFileReader(inputFormat, delimiter, outputSp, outputFileConfig.Headers, writeHeaders, compression)
+		if err != nil {
+			cpErr = err
+			return
+		}
 	}
 
 	// put content of file to s3
-	if err := awsi.UploadToS3FromReader(externalBucket, outputS3FileKey, r); err != nil {
+	if err := awsi.UploadToS3FromReader(externalBucket, outputS3FileKey, fileReader); err != nil {
 		cpErr = fmt.Errorf("while copying to s3: %v", err)
+		return
+	}
+	if mergeErr != nil {
+		cpErr = fmt.Errorf("while merging parquet files: %v", mergeErr)
 		return
 	}
 	log.Printf("%s node %d merging files to '%s' completed", cpCtx.SessionId, cpCtx.NodeId, outputS3FileKey)

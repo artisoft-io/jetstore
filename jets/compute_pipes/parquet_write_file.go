@@ -3,7 +3,6 @@ package compute_pipes
 import (
 	"fmt"
 	"io"
-	"log"
 	"strconv"
 
 	"github.com/apache/arrow/go/v17/arrow"
@@ -14,16 +13,19 @@ import (
 	"github.com/artisoft-io/jetstore/jets/jetrules/rdf"
 )
 
-func WriteParquetPartitionV3(schemaInfo *ParquetSchemaInfo, fout io.Writer, inCh <-chan []any, gotError func(error)) {
+func WriteParquetPartitionV3(schemaInfo *ParquetSchemaInfo, nrowsInRec int64, fout io.Writer, inCh <-chan []any, gotError func(error)) {
 	var cpErr, err error
 	pool := memory.NewGoAllocator()
 	var builders []ArrayBuilder
-	var rowCount, totalRowCount int
+	var rowCount, totalRowCount int64
 	var record *ArrayRecord
+	if nrowsInRec == 0 {
+		nrowsInRec = 1024
+	}
 
 	// Prepare the parquet writer
 	props := parquet.NewWriterProperties(parquet.WithCompression(compress.Codecs.Snappy), parquet.WithAllocator(pool),
-		parquet.WithBatchSize(1024), parquet.WithMaxRowGroupLength(1024), parquet.WithCreatedBy("jetstore"))
+		parquet.WithBatchSize(nrowsInRec), parquet.WithMaxRowGroupLength(nrowsInRec), parquet.WithCreatedBy("jetstore"))
 	writer, err := pqarrow.NewFileWriter(schemaInfo.ArrowSchema(), fout, props, pqarrow.DefaultWriterProps())
 	if err != nil {
 		cpErr = fmt.Errorf("while calling pqarrow.NewFileWriter: %v", err)
@@ -57,8 +59,9 @@ func WriteParquetPartitionV3(schemaInfo *ParquetSchemaInfo, fout io.Writer, inCh
 			builder.Append(value)
 		}
 		rowCount++
-		if rowCount >= 1024 {
+		if rowCount >= nrowsInRec {
 			record = NewArrayRecord(schemaInfo.schema, builders)
+			// log.Printf("*** Make record @ %d, record has %d rows\n", rowCount, record.Record.NumRows())
 			err = writer.Write(record.Record)
 			record.Release()
 			if err != nil {
@@ -72,6 +75,7 @@ func WriteParquetPartitionV3(schemaInfo *ParquetSchemaInfo, fout io.Writer, inCh
 	if rowCount > 0 {
 		// Flush the last record
 		record = NewArrayRecord(schemaInfo.schema, builders)
+		// log.Printf("*** Flush last record @ %d, record has %d rows\n", rowCount, record.Record.NumRows())
 		err = writer.Write(record.Record)
 		record.Release()
 		if err != nil {
@@ -80,7 +84,7 @@ func WriteParquetPartitionV3(schemaInfo *ParquetSchemaInfo, fout io.Writer, inCh
 		}
 		totalRowCount += rowCount
 	}
-	log.Println("*** Total Row Written to Parquet:", totalRowCount)
+	// log.Println("*** Total Row Written to Parquet:", totalRowCount)
 	err = writer.Close()
 	if err != nil {
 		cpErr = fmt.Errorf("while closing parquet file: %v", err)

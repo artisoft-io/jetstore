@@ -57,13 +57,13 @@ func ShardFileKeys(exeCtx context.Context, dbpool *pgxpool.Pool, baseFileKey str
 	if result.clusterSpec.ShardSizeBy > 0 {
 		shardSize = int64(result.clusterSpec.ShardSizeBy)
 	} else {
-		shardSize = int64(result.clusterSpec.ShardSizeMb) * 1024 * 1024
+		shardSize = int64(result.clusterSpec.ShardSizeMb * 1024 * 1024)
 	}
 
 	if result.clusterSpec.ShardMaxSizeBy > 0 {
 		maxShardSize = int64(result.clusterSpec.ShardMaxSizeBy)
 	} else {
-		maxShardSize = int64(result.clusterSpec.ShardMaxSizeMb) * 1024 * 1024
+		maxShardSize = int64(result.clusterSpec.ShardMaxSizeMb * 1024 * 1024)
 	}
 
 	offset = int64(cpConfig.ClusterConfig.ShardOffset)
@@ -73,7 +73,7 @@ func ShardFileKeys(exeCtx context.Context, dbpool *pgxpool.Pool, baseFileKey str
 	if offset > 0 {
 		// Determine if we can split large files
 		switch schemaProviderConfig.Format {
-		case "csv", "headerless_csv", "fixed_width":
+		case "csv", "headerless_csv", "fixed_width", "parquet", "parquet_select":
 			doSplitFiles = true
 		}
 	}
@@ -226,7 +226,7 @@ func selectClusterShardingTier(totalSizeMb int, clusterConfig *ClusterSpec) *Clu
 	}
 	for _, spec := range clusterConfig.ClusterShardingTiers {
 		if totalSizeMb >= spec.WhenTotalSizeGe {
-			log.Printf("selectClusterShardingTier: totalSizeMb: %d, spec.WhenTotalSizeGe: %d, select MaxNbrPartions: %d, shard size: %d, MaxConcurrency: %d",
+			log.Printf("selectClusterShardingTier: totalSizeMb: %d, spec.WhenTotalSizeGe: %d, select MaxNbrPartions: %d, shard size: %v, MaxConcurrency: %d",
 				totalSizeMb, spec.WhenTotalSizeGe, spec.MaxNbrPartitions, spec.ShardSizeMb, spec.MaxConcurrency)
 			if spec.ShardSizeMb == 0 && spec.ShardMaxSizeBy == 0 {
 				spec.ShardMaxSizeMb = clusterConfig.DefaultShardSizeMb

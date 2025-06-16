@@ -101,10 +101,10 @@ func (cp *ComputePipesConfig) GetComputePipes(stepId int, env map[string]any) ([
 type ClusterSpec struct {
 	MaxNbrPartitions            int                   `json:"max_nbr_partitons,omitzero"`
 	MultiStepShardingThresholds int                   `json:"multi_step_sharding_thresholds,omitzero"`
-	DefaultShardSizeMb          int                   `json:"default_shard_size_mb,omitzero"`
-	DefaultShardMaxSizeMb       int                   `json:"default_shard_max_size_mb,omitzero"`
-	DefaultShardSizeBy          int                   `json:"default_shard_size_by,omitzero"`     // for testing only
-	DefaultShardMaxSizeBy       int                   `json:"default_shard_max_size_by,omitzero"` // for testing only
+	DefaultShardSizeMb          float64               `json:"default_shard_size_mb,omitzero"`
+	DefaultShardMaxSizeMb       float64               `json:"default_shard_max_size_mb,omitzero"`
+	DefaultShardSizeBy          float64               `json:"default_shard_size_by,omitzero"`     // for testing only
+	DefaultShardMaxSizeBy       float64               `json:"default_shard_max_size_by,omitzero"` // for testing only
 	ShardOffset                 int                   `json:"shard_offset,omitzero"`
 	DefaultMaxConcurrency       int                   `json:"default_max_concurrency,omitzero"`
 	S3WorkerPoolSize            int                   `json:"s3_worker_pool_size,omitzero"`
@@ -145,15 +145,15 @@ func (cs *ClusterSpec) NbrPartitions(mode string) int {
 // to shards.
 // When [MaxNbrPartitions] is not specified, the value at the ClusterSpec level is taken.
 type ClusterShardingSpec struct {
-	WhenTotalSizeGe             int `json:"when_total_size_ge_mb"`
-	MaxNbrPartitions            int `json:"max_nbr_partitions"`
-	MultiStepShardingThresholds int `json:"multi_step_sharding_thresholds"`
-	ShardSizeMb                 int `json:"shard_size_mb"`
-	ShardMaxSizeMb              int `json:"shard_max_size_mb"`
-	ShardSizeBy                 int `json:"shard_size_by"`     // for testing only
-	ShardMaxSizeBy              int `json:"shard_max_size_by"` // for testing only
-	S3WorkerPoolSize            int `json:"s3_worker_pool_size"`
-	MaxConcurrency              int `json:"max_concurrency"`
+	WhenTotalSizeGe             int     `json:"when_total_size_ge_mb"`
+	MaxNbrPartitions            int     `json:"max_nbr_partitions"`
+	MultiStepShardingThresholds int     `json:"multi_step_sharding_thresholds"`
+	ShardSizeMb                 float64 `json:"shard_size_mb"`
+	ShardMaxSizeMb              float64 `json:"shard_max_size_mb"`
+	ShardSizeBy                 float64 `json:"shard_size_by"`     // for testing only
+	ShardMaxSizeBy              float64 `json:"shard_max_size_by"` // for testing only
+	S3WorkerPoolSize            int     `json:"s3_worker_pool_size"`
+	MaxConcurrency              int     `json:"max_concurrency"`
 }
 
 type MetricsSpec struct {
@@ -237,7 +237,9 @@ type SchemaProviderSpec struct {
 	// Key is schema provider key for reference by compute pipes steps
 	// Format: csv, headerless_csv, fixed_width, parquet, parquet_select,
 	//              xlsx, headerless_xlsx
-	// Compression: none, snappy
+	// Compression: none, snappy (parquet is always snappy)
+	// ReadBatchSize: nbr of rows to read per record (format: parquet)
+	// NbrRowsInRecord: nbr of rows in record (format: parquet)
 	// InputFormatDataJson: json config based on Format (typically used for xlsx)
 	// example: {"currentSheet": "Daily entry for Approvals"} (for xlsx).
 	// SourceType range: main_input, merged_input, historical_input (from input_source table)
@@ -271,6 +273,8 @@ type SchemaProviderSpec struct {
 	DetectEncoding                   bool               `json:"detect_encoding"`
 	Delimiter                        rune               `json:"delimiter"`
 	Compression                      string             `json:"compression,omitempty"`
+	ReadBatchSize                    int64              `json:"read_batch_size,omitzero"`    // Format: parquet
+	NbrRowsInRecord                  int64              `json:"nbr_rows_in_record,omitzero"` // Format: parquet
 	DomainClass                      string             `json:"domain_class,omitempty"`
 	DomainKeys                       map[string]any     `json:"domain_keys,omitempty"`
 	InputFormatDataJson              string             `json:"input_format_data_json,omitempty"`
@@ -426,7 +430,8 @@ type AnalyzeSpec struct {
 type InputChannelConfig struct {
 	// Type range: memory (default), input, stage
 	// Format: csv, headerless_csv, etc.
-	// Compression: none, snappy
+	// ReadBatchSize: nbr of rows to read per record (format: parquet)
+	// Compression: none, snappy (parquet: always snappy)
 	// Note: SchemaProvider, Compression, Format for Type input are provided via
 	// ComputePipesCommonArgs.SourcesConfig (ie input_registry table).
 	// HasGroupedRow indicates that the channel contains grouped rows,
@@ -436,6 +441,7 @@ type InputChannelConfig struct {
 	Type             string `json:"type"`
 	Name             string `json:"name"`
 	Format           string `json:"format,omitempty"`
+	ReadBatchSize    int64  `json:"read_batch_size,omitzero"` // Format: parquet
 	Delimiter        rune   `json:"delimiter"`
 	Compression      string `json:"compression,omitempty"`
 	SchemaProvider   string `json:"schema_provider,omitempty"`
@@ -448,6 +454,7 @@ type InputChannelConfig struct {
 type OutputChannelConfig struct {
 	// Type range: memory (default), stage, output, sql
 	// Format: csv, headerless_csv, etc.
+	// NbrRowsInRecord: nbr of rows in record (format: parquet)
 	// Compression: none, snappy (default).
 	// UseInputParquetSchema to use the same schema as the input file.
 	// Must have save_parquet_schema = true in the cpipes first input_channel.
@@ -468,17 +475,18 @@ type OutputChannelConfig struct {
 	// $JETS_PARTITION_LABEL current node partition label.
 	Type                  string `json:"type"`
 	Name                  string `json:"name"`
-	Format                string `json:"format,omitempty"`           // Type stage,output
-	Delimiter             rune   `json:"delimiter"`                  // Type stage,output
-	Compression           string `json:"compression,omitempty"`      // Type stage,output
-	UseInputParquetSchema bool   `json:"use_input_parquet_schema"`   // Type stage,output
-	SchemaProvider        string `json:"schema_provider,omitempty"`  // Type stage,output, alt to Format
-	WriteStepId           string `json:"write_step_id"`              // Type stage
-	OutputTableKey        string `json:"output_table_key,omitempty"` // Type sql
-	Bucket                string `json:"bucket,omitempty"`           // type output
-	KeyPrefix             string `json:"key_prefix,omitempty"`       // Type output
-	FileName              string `json:"file_name,omitempty"`        // Type output
-	OutputLocation        string `json:"output_location,omitempty"`  // Type output
+	Format                string `json:"format,omitempty"`            // Type stage,output
+	NbrRowsInRecord       int64  `json:"nbr_rows_in_record,omitzero"` // Format: parquet
+	Delimiter             rune   `json:"delimiter"`                   // Type stage,output
+	Compression           string `json:"compression,omitempty"`       // Type stage,output
+	UseInputParquetSchema bool   `json:"use_input_parquet_schema"`    // Type stage,output
+	SchemaProvider        string `json:"schema_provider,omitempty"`   // Type stage,output, alt to Format
+	WriteStepId           string `json:"write_step_id"`               // Type stage
+	OutputTableKey        string `json:"output_table_key,omitempty"`  // Type sql
+	Bucket                string `json:"bucket,omitempty"`            // type output
+	KeyPrefix             string `json:"key_prefix,omitempty"`        // Type output
+	FileName              string `json:"file_name,omitempty"`         // Type output
+	OutputLocation        string `json:"output_location,omitempty"`   // Type output
 	SpecName              string `json:"channel_spec_name"`
 }
 

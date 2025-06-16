@@ -131,6 +131,14 @@ func (psi *ParquetSchemaInfo) buildArrowSchema() {
 	psi.schema = arrow.NewSchema(arrowFields, nil)
 }
 
+func (psi *ParquetSchemaInfo) Columns() []string {
+	columns := make([]string, 0, len(psi.Fields))
+	for _, fi := range psi.Fields {
+		columns = append(columns, fi.Name)
+	}
+	return columns
+}
+
 func (psi *ParquetSchemaInfo) ArrowSchema() *arrow.Schema {
 	if psi.schema == nil {
 		psi.buildArrowSchema()

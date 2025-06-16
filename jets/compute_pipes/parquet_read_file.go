@@ -15,7 +15,7 @@ import (
 	"github.com/artisoft-io/jetstore/jets/awsi"
 )
 
-func (cpCtx *ComputePipesContext) ReadParquetFileV2(filePath *FileName, saveParquetSchema bool, sp SchemaProvider,
+func (cpCtx *ComputePipesContext) ReadParquetFileV2(filePath *FileName, readBatchSize int64, saveParquetSchema bool, sp SchemaProvider,
 	castToRdfTxtTypeFncs []CastToRdfTxtFnc, inputSchemaCh chan<- ParquetSchemaInfo,
 	computePipesInputCh chan<- []any) (int64, error) {
 
@@ -35,8 +35,10 @@ func (cpCtx *ComputePipesContext) ReadParquetFileV2(filePath *FileName, saveParq
 	}()
 
 	nbrColumns := len(cpCtx.CpConfig.CommonRuntimeArgs.SourcesConfig.MainInput.InputColumns)
-	// Read specified columns
-	inputColumns = cpCtx.CpConfig.CommonRuntimeArgs.SourcesConfig.MainInput.InputColumns[:nbrColumns-len(cpCtx.PartFileKeyComponents)-len(cpCtx.AddionalInputHeaders)]
+	if nbrColumns > 0 {
+		// Read specified columns
+		inputColumns = cpCtx.CpConfig.CommonRuntimeArgs.SourcesConfig.MainInput.InputColumns[:nbrColumns-len(cpCtx.PartFileKeyComponents)-len(cpCtx.AddionalInputHeaders)]
+	}
 
 	// Setup the parquet reader and get the arrow schema
 	pqFileReader, err := file.NewParquetReader(fileHd)
@@ -45,7 +47,10 @@ func (cpCtx *ComputePipesContext) ReadParquetFileV2(filePath *FileName, saveParq
 	}
 	defer pqFileReader.Close()
 
-	reader, err := pqarrow.NewFileReader(pqFileReader, pqarrow.ArrowReadProperties{BatchSize: 1024}, memory.NewGoAllocator())
+	if readBatchSize == 0 {
+		readBatchSize = 1024
+	}
+	reader, err := pqarrow.NewFileReader(pqFileReader, pqarrow.ArrowReadProperties{BatchSize: readBatchSize}, memory.NewGoAllocator())
 	if err != nil {
 		return 0, fmt.Errorf("while opening the pqarrow file reader for '%s' (LoadFiles): %v", filePath.LocalFileName, err)
 	}
@@ -55,7 +60,16 @@ func (cpCtx *ComputePipesContext) ReadParquetFileV2(filePath *FileName, saveParq
 		return 0, fmt.Errorf("while getting the arrow schema for '%s' (LoadFiles): %v", filePath.LocalFileName, err)
 	}
 
-	fmt.Println("*** The file contains", reader.ParquetReader().NumRows(), "rows")
+	// Check if we read only some rows
+	var firstRowToRead, nbrRowsToRead int64
+	if filePath.InFileKeyInfo.end > 0 {
+		nbrRowsToRead = reader.ParquetReader().NumRows() / int64(cpCtx.CpConfig.ClusterConfig.ShardingInfo.NbrPartitions)
+		firstRowToRead = int64(cpCtx.ComputePipesNodeArgs.NodeId) * nbrRowsToRead
+	}
+	if cpCtx.ComputePipesNodeArgs.NodeId == cpCtx.CpConfig.ClusterConfig.ShardingInfo.NbrPartitions-1 {
+		nbrRowsToRead = reader.ParquetReader().NumRows() - firstRowToRead
+	}
+	// log.Println("*** The parquet file contains", reader.ParquetReader().NumRows(), "rows, reading from row", firstRowToRead, "reading", nbrRowsToRead, "rows")
 
 	parquetSchemaInfo := NewParquetSchemaInfo(schema)
 	// Save the parquet schema to s3 on request
@@ -100,6 +114,14 @@ func (cpCtx *ComputePipesContext) ReadParquetFileV2(filePath *FileName, saveParq
 	}
 	defer recordReader.Release()
 
+	if nbrColumns == 0 {
+		// Get the columns from the schema
+		for _, fi := range schema.Fields() {
+			inputColumns = append(inputColumns, fi.Name)	
+		}
+		nbrColumns = len(inputColumns)
+	}
+
 	// Prepare the extended columns from partfile_key_component
 	var extColumns []string
 	if len(cpCtx.PartFileKeyComponents) > 0 {
@@ -122,12 +144,31 @@ func (cpCtx *ComputePipesContext) ReadParquetFileV2(filePath *FileName, saveParq
 	var record []any
 	var errCol error
 	var castFnc CastToRdfTxtFnc
+	var currentRow int64
 	for recordReader.Next() {
 		// read and put the rows into computePipesInputCh
 		err = nil
 		arrowRecord := recordReader.Record()
+		if nbrRowsToRead > 0 && firstRowToRead > currentRow+arrowRecord.NumRows() {
+			// skip this record
+			// log.Println("*** SKIP Record of",arrowRecord.NumRows(),"rows")
+			currentRow += arrowRecord.NumRows()
+			continue
+		}
 		// fmt.Println("*** The Arrow Record contains", arrowRecord.NumRows(), "rows")
 		for irow := range int(arrowRecord.NumRows()) {
+			if nbrRowsToRead > 0 {
+				switch {
+				case firstRowToRead > currentRow:
+					currentRow++
+					continue
+				case currentRow > firstRowToRead+nbrRowsToRead-1:
+					// we're done
+					arrowRecord.Release()
+					return inputRowCount, recordReader.Err()
+				}
+			}
+			currentRow++
 			// Build a record and send it to computePipesInputCh
 			cpCtx.SamplingCount += 1
 			if samplingRate > 0 && cpCtx.SamplingCount < samplingRate {
@@ -184,7 +225,6 @@ func (cpCtx *ComputePipesContext) ReadParquetFileV2(filePath *FileName, saveParq
 		}
 		arrowRecord.Release()
 	}
-	// fmt.Println("*** OK READ", inputRowCount, "rows")
 	if recordReader.Err() == io.EOF {
 		return inputRowCount, nil
 	}

@@ -97,6 +97,10 @@ func (cpCtx *ComputePipesContext) LoadFiles(ctx context.Context, dbpool *pgxpool
 	}
 
 	samplingMaxCount := int64(inputChannelConfig.SamplingMaxCount)
+	readBatchSize := inputChannelConfig.ReadBatchSize
+	if readBatchSize == 0 && sp != nil {
+		readBatchSize = sp.ReadBatchSize()
+	}
 	var count, totalRowCount int64
 	gotMaxRecordCount := false
 	for localInFile := range cpCtx.FileNamesCh {
@@ -113,7 +117,7 @@ func (cpCtx *ComputePipesContext) LoadFiles(ctx context.Context, dbpool *pgxpool
 		case "csv", "headerless_csv":
 			count, err = cpCtx.ReadCsvFile(&localInFile, inputFormat, compression, delimiter, shardOffset, sp, castToRdfTxtTypeFncs, computePipesInputCh)
 		case "parquet", "parquet_select":
-			count, err = cpCtx.ReadParquetFileV2(&localInFile, saveParquetSchema, sp, castToRdfTxtTypeFncs, inputSchemaCh, computePipesInputCh)
+			count, err = cpCtx.ReadParquetFileV2(&localInFile, readBatchSize, saveParquetSchema, sp, castToRdfTxtTypeFncs, inputSchemaCh, computePipesInputCh)
 			if count > 0 {
 				saveParquetSchema = false
 			}
@@ -239,15 +243,12 @@ func (cpCtx *ComputePipesContext) ReadCsvFile(filePath *FileName,
 	}
 	csvReader.Comma = delimiter
 	csvReader.NoQuotes = noQuote
-	// csvReader.LazyQuotes = sp != nil && sp.UseLazyQuotes()
 	//* NOTE 06/09/2025 Trun on LazyQuotes and VariableFieldsPerRecord
-	if !noQuote {
-		csvReader.LazyQuotes = true
+	//* NOTE 06/14/2025 Reverting to set defaults for LazyQuotes and VariableFieldsPerRecord to false
+	csvReader.LazyQuotes = sp != nil && sp.UseLazyQuotes()
+	if sp != nil && sp.VariableFieldsPerRecord() {
+		csvReader.FieldsPerRecord = -1
 	}
-	// if sp != nil && sp.VariableFieldsPerRecord() {
-	// 	csvReader.FieldsPerRecord = -1
-	// }
-	csvReader.FieldsPerRecord = -1
 	var headers []string
 	if inputFormat == "csv" && filePath.InFileKeyInfo.start == 0 {
 		// skip header row (first row)
