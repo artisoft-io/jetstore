@@ -154,9 +154,9 @@ func (ctx *valueColumnEval) Done(currentValue *[]interface{}) error {
 }
 
 func (ctx *valueColumnEval) InitializeCurrentValue(currentValue *[]interface{}) {}
-func (ctx *valueColumnEval) Update(currentValue *[]interface{}, input *[]interface{}) error {
-	if currentValue == nil || input == nil {
-		return fmt.Errorf("error valueColumnEval.update cannot have nil currentValue or input")
+func (ctx *valueColumnEval) Update(currentValue *[]interface{}, _ *[]interface{}) error {
+	if currentValue == nil {
+		return fmt.Errorf("error valueColumnEval.update cannot have nil currentValue")
 	}
 	(*currentValue)[ctx.outputPos] = ctx.value
 	return nil
