@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"log"
 	"math"
+	"os"
+	"strings"
 
 	"github.com/artisoft-io/jetstore/jets/awsi"
 	"github.com/jackc/pgx/v4"
@@ -14,6 +16,8 @@ import (
 // Contains action or functions invoked by process tasks
 // Action to assign input file keys to nodes aka shards.
 // Assign file_key to shard into jetsapi.compute_pipes_shard_registry
+
+var sentinelFileName string = os.Getenv("JETS_SENTINEL_FILE_NAME")
 
 type ShardFileKeyResult struct {
 	clusterShardingInfo *ClusterShardingInfo
@@ -150,10 +154,11 @@ func assignShardInfo(s3Objects []*awsi.S3Object, shardSize, maxShardSize, offset
 	doSplitFiles bool, sessionId string) ([][]any, int) {
 
 	shardRegistryRows := make([][]any, 0, len(s3Objects))
+	hasSentinelFile := len(sentinelFileName) > 0
 	var currentShardId int
 	var currentShardSize int64
 	for _, obj := range s3Objects {
-		if obj.Size == 0 {
+		if obj.Size == 0 || (hasSentinelFile && strings.HasSuffix(obj.Key, sentinelFileName)) {
 			continue
 		}
 		if obj.Size > maxShardSize && doSplitFiles {
