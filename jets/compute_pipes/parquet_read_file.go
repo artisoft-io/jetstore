@@ -22,6 +22,17 @@ func (cpCtx *ComputePipesContext) ReadParquetFileV2(filePath *FileName, readBatc
 	var fileHd *os.File
 	var inputColumns []string
 	var err error
+	// To make sure we close the inputSchemaCh in case of err
+	var closeParquetSchemaCh bool
+	if saveParquetSchema {
+		closeParquetSchemaCh = true
+	}
+	defer func () {
+		if closeParquetSchemaCh {
+			close(inputSchemaCh)
+			closeParquetSchemaCh = false
+		}
+	}()
 	samplingRate := cpCtx.CpConfig.PipesConfig[0].InputChannel.SamplingRate
 	samplingMaxCount := int64(cpCtx.CpConfig.PipesConfig[0].InputChannel.SamplingMaxCount)
 
@@ -78,6 +89,7 @@ func (cpCtx *ComputePipesContext) ReadParquetFileV2(filePath *FileName, readBatc
 		// Make the schema avail to channel registry
 		inputSchemaCh <- *parquetSchemaInfo
 		close(inputSchemaCh)
+		closeParquetSchemaCh = false
 
 		if cpCtx.ComputePipesArgs.NodeId == 0 {
 			// save schema info to s3
