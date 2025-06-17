@@ -52,7 +52,7 @@ func (ctx *AnonymizeTransformationPipe) Apply(input *[]interface{}) error {
 	// the same as hashedValue, except for dates it may use a different date formatter.
 	var inputStr, hashedValue, hashedValue4KeyFile string
 	inputLen := len(*input)
-	expectedLen := len(*ctx.source.columns)
+	expectedLen := len(ctx.source.config.Columns)
 	if inputLen != expectedLen {
 		// Skip this row
 		log.Println(ctx.cpConfig.CommonRuntimeArgs.SessionId,"EXPECTING",expectedLen,"GOT",inputLen,"ROW",*input)

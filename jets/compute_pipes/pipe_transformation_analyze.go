@@ -86,7 +86,7 @@ func (ctx *AnalyzeTransformationPipe) Apply(input *[]interface{}) error {
 		return fmt.Errorf("error: unexpected null input arg in AnalyzeTransformationPipe")
 	}
 	inputLen := len(*input)
-	expectedLen := len(*ctx.source.columns)
+	expectedLen := len(ctx.source.config.Columns)
 	if inputLen != expectedLen {
 		// Skip the row
 		log.Println("*** AnalyzeTransformationPipe.Aplyt: INVALID ROW LEN", inputLen, "expecting", expectedLen, "columns")

@@ -34,7 +34,7 @@ func (ctx *HighFreqTransformationPipe) Apply(input *[]interface{}) error {
 	}
 	// Skip invalid row (ie does not have the number of expected columns)
 	inputLen := len(*input)
-	expectedLen := len(*ctx.source.columns)
+	expectedLen := len(ctx.source.config.Columns)
 	if inputLen != expectedLen {
 		// Skip the row
 		return nil
