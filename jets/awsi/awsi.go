@@ -274,7 +274,8 @@ func ListS3Objects(externalBucket string, prefix *string) ([]*S3Object, error) {
 			ContinuationToken: token,
 		})
 		if err != nil {
-			log.Printf("Couldn't list objects in bucket %v. Here's why: %v\n", externalBucket, err)
+			err = fmt.Errorf("while listing objects from bucket '%v': %v", externalBucket, err)
+			log.Println(err)
 			return nil, err
 		}
 		for i := range result.Contents {
@@ -303,7 +304,7 @@ func DownloadFromS3(bucket, region, objKey string, fileHd *os.File) (int64, erro
 	downloader := manager.NewDownloader(s3Client)
 	nsz, err := downloader.Download(context.TODO(), fileHd, &s3.GetObjectInput{Bucket: &bucket, Key: &objKey})
 	if err != nil {
-		return 0, fmt.Errorf("failed to download file from s3: %v", err)
+		return 0, fmt.Errorf("failed to download file from s3 bucket '%s': %v", bucket, err)
 	}
 	return nsz, nil
 }
@@ -320,7 +321,7 @@ func NewDownloader(region string) (*manager.Downloader, error) {
 func DownloadFromS3v2(downloader *manager.Downloader, bucket, objKey string, byteRange *string, fileHd *os.File) (int64, error) {
 	nsz, err := downloader.Download(context.TODO(), fileHd, &s3.GetObjectInput{Bucket: &bucket, Key: &objKey, Range: byteRange})
 	if err != nil {
-		return 0, fmt.Errorf("failed to download file from s3: %v", err)
+		return 0, fmt.Errorf("failed to download file from s3 bucket '%s': %v", bucket, err)
 	}
 	return nsz, nil
 }
@@ -351,7 +352,7 @@ do_retry:
 			retry++
 			goto do_retry
 		}
-		return n, fmt.Errorf("failed to download s3 file %s: %v", objKey, err)
+		return n, fmt.Errorf("failed to download s3 file 's3://%s/%s': %v", bucket, objKey, err)
 	}
 	return n, nil
 }
@@ -377,7 +378,7 @@ func UploadToS3(bucket, region, objKey string, fileHd *os.File) error {
 	// uout, err := uploader.Upload(context.TODO(), putObjInput)
 	_, err = uploader.Upload(context.TODO(), putObjInput)
 	if err != nil {
-		return fmt.Errorf("failed to upload file to s3: %v", err)
+		return fmt.Errorf("failed to upload file to s3 bucket '%s': %v", bucket, err)
 	}
 	// if uout != nil {
 	// 	log.Println("Uploaded",*uout.Key,"to location",uout.Location)
@@ -411,7 +412,7 @@ func UploadToS3FromReader(externalBucket, objKey string, reader io.Reader) error
 	// uout, err := uploader.Upload(context.TODO(), putObjInput)
 	_, err = uploader.Upload(context.TODO(), putObjInput)
 	if err != nil {
-		return fmt.Errorf("failed to upload file to s3 bucket %s: %v", externalBucket, err)
+		return fmt.Errorf("failed to upload file to s3 bucket '%s': %v", externalBucket, err)
 	}
 	// if uout != nil {
 	// 	log.Println("Uploaded",*uout.Key,"to location",uout.Location)
@@ -444,7 +445,7 @@ func UploadBufToS3(objKey string, buf []byte) error {
 	// uout, err := uploader.Upload(context.TODO(), putObjInput)
 	// _, err = uploader.Upload(context.TODO(), putObjInput)
 	if err != nil {
-		return fmt.Errorf("failed to PutObject buf to s3: %v", err)
+		return fmt.Errorf("failed to PutObject buf to s3 bucket '%s': %v", bucket, err)
 	}
 	// log.Println("*** UNREAD PORTION OF BUF:", reader.Len(), "contentLen:", contentLen)
 	// if uout != nil {
@@ -476,7 +477,7 @@ do_retry:
 			retry++
 			goto do_retry
 		}
-		return nil, fmt.Errorf("failed to download s3 file %s: %v", objKey, err)
+		return nil, fmt.Errorf("failed to download s3 file 's3://%s/%s': %v", bucket, objKey, err)
 	}
 	return bytes.TrimRightFunc(w.Bytes(), func(r rune) bool { return r == '\x00' }), nil
 }
