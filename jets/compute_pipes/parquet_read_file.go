@@ -35,10 +35,11 @@ func (cpCtx *ComputePipesContext) ReadParquetFileV2(filePath *FileName, readBatc
 		os.Remove(filePath.LocalFileName)
 	}()
 
-	nbrColumns := len(cpCtx.CpConfig.CommonRuntimeArgs.SourcesConfig.MainInput.InputColumns)
+	// Here nbrColumns is the nbr of columns in the parquet file (excluding the extra columns added by the process)
+	nbrColumns := len(cpCtx.CpConfig.CommonRuntimeArgs.SourcesConfig.MainInput.InputColumns)-len(cpCtx.PartFileKeyComponents)-len(cpCtx.AddionalInputHeaders)
 	if nbrColumns > 0 {
 		// Read specified columns
-		inputColumns = cpCtx.CpConfig.CommonRuntimeArgs.SourcesConfig.MainInput.InputColumns[:nbrColumns-len(cpCtx.PartFileKeyComponents)-len(cpCtx.AddionalInputHeaders)]
+		inputColumns = cpCtx.CpConfig.CommonRuntimeArgs.SourcesConfig.MainInput.InputColumns[:nbrColumns]
 	}
 
 	// Setup the parquet reader and get the arrow schema
@@ -96,8 +97,8 @@ func (cpCtx *ComputePipesContext) ReadParquetFileV2(filePath *FileName, readBatc
 	}
 	// Make the list of column idx to read
 	var columnIndices []int
-	if len(inputColumns) > 0 {
-		columnIndices = make([]int, 0, len(inputColumns))
+	if nbrColumns > 0 {
+		columnIndices = make([]int, 0, nbrColumns)
 		for _, c := range inputColumns {
 			idx := schema.FieldIndices(c)
 			if len(idx) > 0 {
@@ -171,6 +172,7 @@ func (cpCtx *ComputePipesContext) processRecord(computePipesInputCh chan<- []any
 		return currentRow, inputRowCount, false, nil
 	}
 	// fmt.Println("*** The Arrow Record contains", arrowRecord.NumRows(), "rows")
+	nbrPartFileKeyColumns := len(cpCtx.PartFileKeyComponents)
 	for irow := range int(arrowRecord.NumRows()) {
 		if nbrRowsToRead > 0 {
 			switch {
@@ -192,7 +194,7 @@ func (cpCtx *ComputePipesContext) processRecord(computePipesInputCh chan<- []any
 			return currentRow, inputRowCount, false, nil
 		}
 		cpCtx.SamplingCount = 0
-		record := make([]any, nbrColumns, nbrColumns+len(cpCtx.AddionalInputHeaders))
+		record := make([]any, nbrColumns+nbrPartFileKeyColumns, nbrColumns+nbrPartFileKeyColumns+len(cpCtx.AddionalInputHeaders))
 		for jcol, col := range arrowRecord.Columns() {
 			if col.IsValid(irow) {
 				if castToRdfTxtTypeFncs != nil {
