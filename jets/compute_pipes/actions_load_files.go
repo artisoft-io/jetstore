@@ -28,6 +28,7 @@ func (cpCtx *ComputePipesContext) LoadFiles(ctx context.Context, dbpool *pgxpool
 	// Create a channel to use as a buffer between the file loader and the copy to db
 	// This gives the opportunity to use Compute Pipes to transform the data before writing to the db
 	computePipesInputCh := make(chan []interface{}, 10)
+	var inputSchemaCh chan ParquetSchemaInfo
 
 	defer func() {
 		if r := recover(); r != nil {
@@ -36,6 +37,10 @@ func (cpCtx *ComputePipesContext) LoadFiles(ctx context.Context, dbpool *pgxpool
 			buf.WriteString(string(debug.Stack()))
 			err = errors.New(buf.String())
 			log.Println(err)
+		}
+		if inputSchemaCh != nil {
+			close(inputSchemaCh)
+			inputSchemaCh = nil
 		}
 		close(computePipesInputCh)
 		close(cpCtx.ChResults.LoadFromS3FilesResultCh)
@@ -56,12 +61,11 @@ func (cpCtx *ComputePipesContext) LoadFiles(ctx context.Context, dbpool *pgxpool
 	if inputChannelConfig.Delimiter > 0 {
 		delimiter = inputChannelConfig.Delimiter
 	}
-	saveParquetSchema := strings.HasPrefix(inputFormat, "parquet") && cpCtx.CpConfig.CommonRuntimeArgs.CpipesMode == "sharding"
 	compression := inputChannelConfig.Compression
 	shardOffset := cpCtx.CpConfig.ClusterConfig.ShardOffset
 	sp := cpCtx.SchemaManager.GetSchemaProvider(inputChannelConfig.SchemaProvider)
-	var inputSchemaCh chan ParquetSchemaInfo
-	if saveParquetSchema {
+	if strings.HasPrefix(inputFormat, "parquet") && cpCtx.CpConfig.CommonRuntimeArgs.CpipesMode == "sharding" {
+		// Save the parquet schema
 		inputSchemaCh = make(chan ParquetSchemaInfo, 1)
 	}
 	var mainInputDomainClass string
@@ -117,9 +121,10 @@ func (cpCtx *ComputePipesContext) LoadFiles(ctx context.Context, dbpool *pgxpool
 		case "csv", "headerless_csv":
 			count, err = cpCtx.ReadCsvFile(&localInFile, inputFormat, compression, delimiter, shardOffset, sp, castToRdfTxtTypeFncs, computePipesInputCh)
 		case "parquet", "parquet_select":
-			count, err = cpCtx.ReadParquetFileV2(&localInFile, readBatchSize, saveParquetSchema, sp, castToRdfTxtTypeFncs, inputSchemaCh, computePipesInputCh)
-			if count > 0 {
-				saveParquetSchema = false
+			count, err = cpCtx.ReadParquetFileV2(&localInFile, readBatchSize, sp, castToRdfTxtTypeFncs, inputSchemaCh, computePipesInputCh)
+			if inputSchemaCh != nil {
+				close(inputSchemaCh)
+				inputSchemaCh = nil
 			}
 		case "fixed_width":
 			count, err = cpCtx.ReadFixedWidthFile(&localInFile, shardOffset, sp, fwEncodingInfo, castToRdfTxtTypeFncs, computePipesInputCh)

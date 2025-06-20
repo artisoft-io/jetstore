@@ -26,7 +26,7 @@ func (ctx *DistinctTransformationPipe) Apply(input *[]interface{}) error {
 	}
 	// Skip row that are not valid
 	inputLen := len(*input)
-	expectedLen := len(*ctx.source.columns)
+	expectedLen := len(ctx.source.config.Columns)
 	if inputLen != expectedLen {
 		// Skip the row
 		return nil

@@ -72,6 +72,7 @@ type AnalyzeTransformationPipe struct {
 	inputDataType    map[string]string
 	analyzeState     []*AnalyzeState
 	columnEvaluators []TransformationColumnEvaluator
+	nbrRowsAnalyzed  int
 	firstInputRow    *[]interface{}
 	spec             *TransformationSpec
 	env              map[string]interface{}
@@ -85,15 +86,17 @@ func (ctx *AnalyzeTransformationPipe) Apply(input *[]interface{}) error {
 		return fmt.Errorf("error: unexpected null input arg in AnalyzeTransformationPipe")
 	}
 	inputLen := len(*input)
-	expectedLen := len(*ctx.source.columns)
+	expectedLen := len(ctx.source.config.Columns)
 	if inputLen != expectedLen {
 		// Skip the row
+		log.Println("*** AnalyzeTransformationPipe.Aplyt: INVALID ROW LEN", inputLen, "expecting", expectedLen, "columns")
 		return nil
 	}
 
 	if ctx.firstInputRow == nil {
 		ctx.firstInputRow = input
 	}
+	ctx.nbrRowsAnalyzed++
 	for i := range *input {
 		analyzeState := ctx.analyzeState[i]
 		err = analyzeState.NewValue((*input)[i])
@@ -110,6 +113,15 @@ func (ctx *AnalyzeTransformationPipe) Apply(input *[]interface{}) error {
 func (ctx *AnalyzeTransformationPipe) Done() error {
 	// For each column state in ctx.analyzeState, send out a row to ctx.outputCh
 	var ok bool
+	if ctx.firstInputRow == nil {
+		err := fmt.Errorf("error: AnalyzeTransformationPipe.Done firstInputRow is null, nbr rows analyzed is %d", 
+		ctx.nbrRowsAnalyzed)
+		log.Println(err)
+		return err
+	}
+	if ctx.cpConfig.ClusterConfig.IsDebugMode {
+		log.Printf("AnalyzeTransformationPipe.Done: Number of rows analyzed is %d", ctx.nbrRowsAnalyzed)
+	}
 	for _, state := range ctx.analyzeState {
 		outputRow := make([]interface{}, len(*ctx.outputCh.columns))
 
@@ -353,7 +365,11 @@ func (ctx *AnalyzeTransformationPipe) Done() error {
 		for i := range ctx.columnEvaluators {
 			err := ctx.columnEvaluators[i].Update(&outputRow, ctx.firstInputRow)
 			if err != nil {
-				err = fmt.Errorf("while calling column transformation from analyze operator: %v", err)
+				err = fmt.Errorf(
+					"while adding the carry over select and const values from analyze operator for column %s (at pos %d): %v",
+					state.ColumnName,
+					state.ColumnPos,
+					err)
 				log.Println(err)
 				return err
 			}

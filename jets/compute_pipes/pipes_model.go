@@ -432,6 +432,7 @@ type InputChannelConfig struct {
 	// Format: csv, headerless_csv, etc.
 	// ReadBatchSize: nbr of rows to read per record (format: parquet)
 	// Compression: none, snappy (parquet: always snappy)
+	// BadRowsStepId: step id in stage location to output bad rows
 	// Note: SchemaProvider, Compression, Format for Type input are provided via
 	// ComputePipesCommonArgs.SourcesConfig (ie input_registry table).
 	// HasGroupedRow indicates that the channel contains grouped rows,
@@ -444,6 +445,7 @@ type InputChannelConfig struct {
 	ReadBatchSize    int64  `json:"read_batch_size,omitzero"` // Format: parquet
 	Delimiter        rune   `json:"delimiter"`
 	Compression      string `json:"compression,omitempty"`
+	BadRowsStepId    string `json:"bad_rows_step_id,omitempty"`
 	SchemaProvider   string `json:"schema_provider,omitempty"`
 	ReadStepId       string `json:"read_step_id"`
 	SamplingRate     int    `json:"sampling_rate"`
