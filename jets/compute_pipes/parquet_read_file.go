@@ -9,31 +9,21 @@ import (
 	"os"
 	"time"
 
+	"github.com/apache/arrow/go/v17/arrow"
 	"github.com/apache/arrow/go/v17/arrow/memory"
 	"github.com/apache/arrow/go/v17/parquet/file"
 	"github.com/apache/arrow/go/v17/parquet/pqarrow"
 	"github.com/artisoft-io/jetstore/jets/awsi"
 )
 
-func (cpCtx *ComputePipesContext) ReadParquetFileV2(filePath *FileName, readBatchSize int64, saveParquetSchema bool, sp SchemaProvider,
+func (cpCtx *ComputePipesContext) ReadParquetFileV2(filePath *FileName, readBatchSize int64, sp SchemaProvider,
 	castToRdfTxtTypeFncs []CastToRdfTxtFnc, inputSchemaCh chan<- ParquetSchemaInfo,
 	computePipesInputCh chan<- []any) (int64, error) {
 
 	var fileHd *os.File
 	var inputColumns []string
 	var err error
-	// To make sure we close the inputSchemaCh in case of err
-	var closeParquetSchemaCh bool
-	if saveParquetSchema {
-		closeParquetSchemaCh = true
-	}
-	defer func () {
-		if closeParquetSchemaCh {
-			close(inputSchemaCh)
-			closeParquetSchemaCh = false
-		}
-	}()
-	samplingRate := cpCtx.CpConfig.PipesConfig[0].InputChannel.SamplingRate
+	samplingRate := int64(cpCtx.CpConfig.PipesConfig[0].InputChannel.SamplingRate)
 	samplingMaxCount := int64(cpCtx.CpConfig.PipesConfig[0].InputChannel.SamplingMaxCount)
 
 	fileHd, err = os.Open(filePath.LocalFileName)
@@ -84,12 +74,10 @@ func (cpCtx *ComputePipesContext) ReadParquetFileV2(filePath *FileName, readBatc
 
 	parquetSchemaInfo := NewParquetSchemaInfo(schema)
 	// Save the parquet schema to s3 on request
-	if saveParquetSchema {
+	if inputSchemaCh != nil {
 
 		// Make the schema avail to channel registry
 		inputSchemaCh <- *parquetSchemaInfo
-		close(inputSchemaCh)
-		closeParquetSchemaCh = false
 
 		if cpCtx.ComputePipesArgs.NodeId == 0 {
 			// save schema info to s3
@@ -129,7 +117,7 @@ func (cpCtx *ComputePipesContext) ReadParquetFileV2(filePath *FileName, readBatc
 	if nbrColumns == 0 {
 		// Get the columns from the schema
 		for _, fi := range schema.Fields() {
-			inputColumns = append(inputColumns, fi.Name)	
+			inputColumns = append(inputColumns, fi.Name)
 		}
 		nbrColumns = len(inputColumns)
 	}
@@ -153,92 +141,99 @@ func (cpCtx *ComputePipesContext) ReadParquetFileV2(filePath *FileName, readBatc
 	}
 
 	var inputRowCount int64
-	var record []any
-	var errCol error
-	var castFnc CastToRdfTxtFnc
 	var currentRow int64
-	for recordReader.Next() {
+	var done bool
+	for !done && recordReader.Next() {
 		// read and put the rows into computePipesInputCh
-		err = nil
-		arrowRecord := recordReader.Record()
-		if nbrRowsToRead > 0 && firstRowToRead > currentRow+arrowRecord.NumRows() {
-			// skip this record
-			// log.Println("*** SKIP Record of",arrowRecord.NumRows(),"rows")
-			currentRow += arrowRecord.NumRows()
-			continue
+		currentRow, inputRowCount, done, err = cpCtx.processRecord(computePipesInputCh, recordReader.Record(),
+			nbrColumns, extColumns, trimColumns, castToRdfTxtTypeFncs,
+			firstRowToRead, nbrRowsToRead, samplingRate, samplingMaxCount, currentRow, inputRowCount)
+		if err != nil {
+			return inputRowCount, err
 		}
-		// fmt.Println("*** The Arrow Record contains", arrowRecord.NumRows(), "rows")
-		for irow := range int(arrowRecord.NumRows()) {
-			if nbrRowsToRead > 0 {
-				switch {
-				case firstRowToRead > currentRow:
-					currentRow++
-					continue
-				case currentRow > firstRowToRead+nbrRowsToRead-1:
-					// we're done
-					arrowRecord.Release()
-					return inputRowCount, recordReader.Err()
-				}
-			}
-			currentRow++
-			// Build a record and send it to computePipesInputCh
-			cpCtx.SamplingCount += 1
-			if samplingRate > 0 && cpCtx.SamplingCount < samplingRate {
-				continue
-			}
-			if samplingMaxCount > 0 && inputRowCount >= samplingMaxCount {
-				arrowRecord.Release()
-				return inputRowCount, nil
-			}
-			cpCtx.SamplingCount = 0
-			record = make([]any, nbrColumns, nbrColumns+len(cpCtx.AddionalInputHeaders))
-			for jcol, col := range arrowRecord.Columns() {
-				if col.IsValid(irow) {
-					if castToRdfTxtTypeFncs != nil {
-						castFnc = castToRdfTxtTypeFncs[jcol]
-					}
-					record[jcol], errCol = ConvertWithSchemaV1(irow, col, trimColumns, castFnc)
-					if errCol != nil {
-						return 0, fmt.Errorf("error while reading input records (ReadParquetFile): %v", errCol)
-					}
-				}
-			}
-			// Add the columns from the partfile_key_component
-			if len(extColumns) > 0 {
-				offset := len(inputColumns)
-				// log.Println("**!@@",cpCtx.SessionId,"partfile_key_component GOT[0]",cpCtx.PartFileKeyComponents[0].ColumnName,"offset",offset,"InputColumn",cpCtx.InputColumns[offset])
-				for i := range extColumns {
-					record[offset+i] = extColumns[i]
-				}
-			}
-			// Add placeholders for the additional input headers/columns
-			if len(cpCtx.AddionalInputHeaders) > 0 {
-				for range cpCtx.AddionalInputHeaders {
-					record = append(record, nil)
-				}
-			}
-
-			// Kill Switch - prevent lambda timeout
-			if cpCtx.CpConfig.ClusterConfig.KillSwitchMin > 0 &&
-				time.Since(ComputePipesStart).Minutes() >= float64(cpCtx.CpConfig.ClusterConfig.KillSwitchMin) {
-				return inputRowCount, ErrKillSwitch
-			}
-
-			// Send out the record
-			// log.Println(cpCtx.SessionId,"node",cpCtx.NodeId, "push record to computePipesInputCh with",len(record),"columns")
-			// log.Println("*** INPUT RECORD:",record)
-			select {
-			case computePipesInputCh <- record:
-			case <-cpCtx.Done:
-				log.Println(cpCtx.SessionId, "node", cpCtx.NodeId, "loading input row from file interrupted")
-				return inputRowCount, nil
-			}
-			inputRowCount += 1
-		}
-		arrowRecord.Release()
 	}
 	if recordReader.Err() == io.EOF {
 		return inputRowCount, nil
 	}
 	return inputRowCount, recordReader.Err()
+}
+
+func (cpCtx *ComputePipesContext) processRecord(computePipesInputCh chan<- []any, arrowRecord arrow.Record,
+	nbrColumns int, extColumns []string, trimColumns bool, castToRdfTxtTypeFncs []CastToRdfTxtFnc,
+	firstRowToRead, nbrRowsToRead, samplingRate, samplingMaxCount, currentRow, inputRowCount int64) (int64, int64, bool, error) {
+	defer arrowRecord.Release()
+	var castFnc CastToRdfTxtFnc
+	var errCol error
+	if nbrRowsToRead > 0 && firstRowToRead > currentRow+arrowRecord.NumRows() {
+		// skip this record
+		// log.Println("*** SKIP Record of",arrowRecord.NumRows(),"rows")
+		currentRow += arrowRecord.NumRows()
+		return currentRow, inputRowCount, false, nil
+	}
+	// fmt.Println("*** The Arrow Record contains", arrowRecord.NumRows(), "rows")
+	for irow := range int(arrowRecord.NumRows()) {
+		if nbrRowsToRead > 0 {
+			switch {
+			case firstRowToRead > currentRow:
+				currentRow++
+				continue
+			case currentRow > firstRowToRead+nbrRowsToRead-1:
+				// we're done
+				return currentRow, inputRowCount, true, nil
+			}
+		}
+		currentRow++
+		// Build a record and send it to computePipesInputCh
+		cpCtx.SamplingCount += 1
+		if samplingRate > 0 && int64(cpCtx.SamplingCount) < samplingRate {
+			continue
+		}
+		if samplingMaxCount > 0 && inputRowCount >= samplingMaxCount {
+			return currentRow, inputRowCount, false, nil
+		}
+		cpCtx.SamplingCount = 0
+		record := make([]any, nbrColumns, nbrColumns+len(cpCtx.AddionalInputHeaders))
+		for jcol, col := range arrowRecord.Columns() {
+			if col.IsValid(irow) {
+				if castToRdfTxtTypeFncs != nil {
+					castFnc = castToRdfTxtTypeFncs[jcol]
+				}
+				record[jcol], errCol = ConvertWithSchemaV1(irow, col, trimColumns, castFnc)
+				if errCol != nil {
+					return currentRow, inputRowCount, false, fmt.Errorf("error while reading input records (ReadParquetFile): %v", errCol)
+				}
+			}
+		}
+		// Add the columns from the partfile_key_component
+		if len(extColumns) > 0 {
+			// log.Println("**!@@",cpCtx.SessionId,"partfile_key_component GOT[0]",cpCtx.PartFileKeyComponents[0].ColumnName,"offset",offset,"InputColumn",cpCtx.InputColumns[offset])
+			for i := range extColumns {
+				record[nbrColumns+i] = extColumns[i]
+			}
+		}
+		// Add placeholders for the additional input headers/columns
+		if len(cpCtx.AddionalInputHeaders) > 0 {
+			for range cpCtx.AddionalInputHeaders {
+				record = append(record, nil)
+			}
+		}
+
+		// Kill Switch - prevent lambda timeout
+		if cpCtx.CpConfig.ClusterConfig.KillSwitchMin > 0 &&
+			time.Since(ComputePipesStart).Minutes() >= float64(cpCtx.CpConfig.ClusterConfig.KillSwitchMin) {
+			return currentRow, inputRowCount, false, ErrKillSwitch
+		}
+
+		// Send out the record
+		// log.Println(cpCtx.SessionId,"node",cpCtx.NodeId, "push record to computePipesInputCh with",len(record),"columns")
+		// log.Println("*** INPUT RECORD:",record)
+		select {
+		case computePipesInputCh <- record:
+		case <-cpCtx.Done:
+			log.Println(cpCtx.SessionId, "node", cpCtx.NodeId, "loading input row from file interrupted")
+			return currentRow, inputRowCount, true, nil
+		}
+		inputRowCount += 1
+	}
+	return currentRow, inputRowCount, false, nil
 }
