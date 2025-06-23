@@ -234,7 +234,16 @@ func (b *DateBuilder) Append(v any) {
 		b.builder.AppendNull()
 		return
 	}
-	b.builder.Append(v.(arrow.Date32))
+	switch vv := v.(type) {
+	case int32:
+		b.builder.Append(arrow.Date32(vv))
+	case arrow.Date32:
+		b.builder.Append(vv)
+	case int:
+		b.builder.Append(arrow.Date32(vv))
+	default:
+		log.Panicf("invalid data type in NewDateBuilder, unexpected type: %T", v)
+	}
 }
 func (b *DateBuilder) AppendEmptyValue() {
 	b.builder.AppendEmptyValue()
@@ -458,7 +467,17 @@ func (b *TimestampBuilder) Append(v any) {
 		b.builder.AppendNull()
 		return
 	}
-	b.builder.Append(v.(arrow.Timestamp))
+	switch vv := v.(type) {
+	case int64:
+		b.builder.Append(arrow.Timestamp(vv))
+	case arrow.Timestamp:
+		b.builder.Append(vv)
+	case int:
+		b.builder.Append(arrow.Timestamp(vv))
+	default:
+		log.Panicf("invalid data type in NewTimestampBuilder, unexpected type: %T", v)
+	}
+
 }
 func (b *TimestampBuilder) AppendEmptyValue() {
 	b.builder.AppendEmptyValue()

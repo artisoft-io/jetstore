@@ -138,6 +138,40 @@ func ConvertToSchemaV2(v any, se *FieldInfo) (any, error) {
 			return int32(0), fmt.Errorf("error: WriteParquet invalid data for int32: %v", v)
 		}
 
+	case arrow.FixedWidthTypes.Timestamp_s.Name(),
+		arrow.FixedWidthTypes.Timestamp_ms.Name(),
+		arrow.FixedWidthTypes.Timestamp_us.Name(),
+		arrow.FixedWidthTypes.Timestamp_ns.Name():
+		switch vv := v.(type) {
+		case string:
+			// Check if it's a timestamp
+				d, err := rdf.ParseDatetime(vv)
+				if err != nil {
+					// Couln't parse the timestamp, assumed it's already converted to int64
+					return strconv.ParseInt(vv, 10, 64)
+				}
+			switch se.Type {
+			case arrow.FixedWidthTypes.Timestamp_s.Name():
+				return int64(d.Unix()), nil
+			case arrow.FixedWidthTypes.Timestamp_ms.Name():
+				return int64(d.UnixMilli()), nil
+			case arrow.FixedWidthTypes.Timestamp_ns.Name():
+				return int64(d.UnixNano()), nil
+			case arrow.FixedWidthTypes.Timestamp_us.Name():
+				return int64(d.UnixMicro()), nil
+			default:
+				return int64(0), fmt.Errorf("error: WriteParquet invalid parquet data type for timestamp: %s", se.Type)
+			}
+		case int:
+			return int64(vv), nil
+		case int32:
+			return int64(vv), nil
+		case int64:
+			return vv, nil
+		default:
+			return int64(0), fmt.Errorf("error: WriteParquet invalid data type for timestamp: %T", v)
+		}
+
 	case arrow.PrimitiveTypes.Int64.Name():
 		switch vv := v.(type) {
 		case string:
