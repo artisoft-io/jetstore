@@ -237,6 +237,10 @@ func (cpCtx *ComputePipesContext) NewMergeFileReader(inputFormat string, delimit
 		w.Flush()
 		h = buf.Bytes()
 	}
+	if strings.HasPrefix(inputFormat, "parquet") {
+		// compression does not applies to parquet file
+		compression = ""
+	}
 	return &MergeFileReader{
 		cpCtx:          cpCtx,
 		headers:        h,

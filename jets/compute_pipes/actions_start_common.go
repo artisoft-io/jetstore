@@ -709,17 +709,22 @@ func validateOutputChConfig(outputChConfig *OutputChannelConfig, sp *SchemaProvi
 					outputChConfig.Format = "headerless_csv"
 				}
 			}
-			if outputChConfig.Compression == "" {
-				if sp != nil {
-					outputChConfig.Compression = sp.Compression
-				}
+			if strings.HasPrefix(outputChConfig.Format, "parquet") {
+				outputChConfig.Compression = ""
+				outputChConfig.Delimiter = 0
+			} else {
 				if outputChConfig.Compression == "" {
-					outputChConfig.Compression = "snappy"
+					if sp != nil {
+						outputChConfig.Compression = sp.Compression
+					}
+					if outputChConfig.Compression == "" {
+						outputChConfig.Compression = "snappy"
+					}
 				}
-			}
-			if outputChConfig.Delimiter == 0 {
-				if sp != nil {
-					outputChConfig.Delimiter = sp.Delimiter
+				if outputChConfig.Delimiter == 0 {
+					if sp != nil {
+						outputChConfig.Delimiter = sp.Delimiter
+					}
 				}
 			}
 			if len(outputChConfig.WriteStepId) == 0 {
@@ -736,17 +741,22 @@ func validateOutputChConfig(outputChConfig *OutputChannelConfig, sp *SchemaProvi
 						outputChConfig.Name)
 				}
 			}
-			if outputChConfig.Delimiter == 0 {
-				if sp != nil {
-					outputChConfig.Delimiter = sp.Delimiter
-				}
-			}
-			if outputChConfig.Compression == "" {
-				if sp != nil {
-					outputChConfig.Compression = sp.Compression
-				}
+			if strings.HasPrefix(outputChConfig.Format, "parquet") {
+				outputChConfig.Compression = ""
+				outputChConfig.Delimiter = 0
+			} else {
 				if outputChConfig.Compression == "" {
-					outputChConfig.Compression = "none"
+					if sp != nil {
+						outputChConfig.Compression = sp.Compression
+					}
+					if outputChConfig.Compression == "" {
+						outputChConfig.Compression = "none"
+					}
+				}
+				if outputChConfig.Delimiter == 0 {
+					if sp != nil {
+						outputChConfig.Delimiter = sp.Delimiter
+					}
 				}
 			}
 			if len(outputChConfig.OutputLocation) == 0 {
