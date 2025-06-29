@@ -397,8 +397,11 @@ func (cpCtx *ComputePipesContext) ReadCsvFile(
 					}
 					badRowCount += 1
 				} else {
+					if err == nil {
+						err = fmt.Errorf("error: got a bad row or row is not of expected length and length is enforced")
+					}
 					return inputRowCount, badRowCount + 1,
-						fmt.Errorf("while reading input records (ReadCsvFile-2): %v", nextInRowErr)
+						fmt.Errorf("while reading input records (ReadCsvFile-2): %v", err)
 				}
 				// Read next row
 				err = nil
