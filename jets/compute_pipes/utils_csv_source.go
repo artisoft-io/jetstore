@@ -92,7 +92,7 @@ func (ctx *CsvSourceS3) ReadFileToMetaGraph(reteMetaStore *rete.ReteMetaStoreFac
 	if err != nil {
 		return fmt.Errorf("failed to create local temp directory: %v", err)
 	}
-	defer os.Remove(inFolderPath)
+	defer os.RemoveAll(inFolderPath)
 
 	// Fetch the file from s3, save it locally
 	retry := 0

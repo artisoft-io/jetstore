@@ -222,6 +222,14 @@ func (args *ComputePipesNodeArgs) CoordinateComputePipes(ctx context.Context, db
 		}
 	}
 
+	// Create a local temp directory to hold the file(s)
+	inFolderPath, err = os.MkdirTemp("", "jetstore")
+	if err != nil {
+		cpErr = fmt.Errorf("failed to create local temp directory: %v", err)
+		goto gotError
+	}
+	defer os.RemoveAll(inFolderPath)
+
 	defer func() {
 		// log.Printf("##!@@ DONE CoordinateComputePipes closing Done ch")
 		select {
@@ -233,14 +241,6 @@ func (args *ComputePipesNodeArgs) CoordinateComputePipes(ctx context.Context, db
 			// log.Printf("##!@@ Done ch closed")
 		}
 	}()
-
-	// Create a local temp directory to hold the file(s)
-	inFolderPath, err = os.MkdirTemp("", "jetstore")
-	if err != nil {
-		cpErr = fmt.Errorf("failed to create local temp directory: %v", err)
-		goto gotError
-	}
-	defer os.Remove(inFolderPath)
 
 	// Download files from s3
 	err = cpContext.DownloadS3Files(inFolderPath, externalBucket, fileKeys)

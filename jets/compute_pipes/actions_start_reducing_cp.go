@@ -100,31 +100,7 @@ startStepId:
 		return result, nil
 	}
 
-	// Get the source for input_row channel, given by the first input_channel node
-	// By default reducing steps uses compression 'snappy' with 'headerless_csv',
-	// unless specified in InputChannelConfig or when inputChannel is 'input_row' then use 'csv', see below
-	inputFormat := "headerless_csv"
-	compression := "snappy"
 	inputChannelConfig := &pipeConfig[0].InputChannel
-	inputChannelSP := getSchemaProvider(cpipesStartup.CpConfig.SchemaProviders, inputChannelConfig.SchemaProvider)
-	if inputChannelSP != nil {
-		if len(inputChannelSP.Format) > 0 {
-			inputFormat = inputChannelSP.Format
-		}
-		if len(inputChannelSP.Compression) > 0 {
-			compression = inputChannelSP.Compression
-		}
-	}
-	if inputChannelConfig.Format != "" {
-		inputFormat = inputChannelConfig.Format
-	}
-	if inputChannelConfig.Compression != "" {
-		compression = inputChannelConfig.Compression
-	}
-	// Set the input channel with the determined value
-	inputChannelConfig.Format = inputFormat
-	inputChannelConfig.Compression = compression
-
 	mainInputStepId := inputChannelConfig.ReadStepId
 	if len(mainInputStepId) == 0 {
 		return result, fmt.Errorf("configuration error: missing input_channel.read_step_id for first pipe at step %d", stepId)
@@ -143,15 +119,21 @@ startStepId:
 		return result,
 			fmt.Errorf("while querying jets_partition from compute_pipes_partitions_registry: %v", err)
 	}
-	defer rows.Close()
-	for rows.Next() {
-		// scan the row
-		var jetsPartition string
-		if err = rows.Scan(&jetsPartition); err != nil {
-			return result,
-				fmt.Errorf("while scanning jetsPartition from compute_pipes_partitions_registry table: %v", err)
+	err = func() error {
+		defer rows.Close()
+		for rows.Next() {
+			// scan the row
+			var jetsPartition string
+			err := rows.Scan(&jetsPartition)
+			if err != nil {
+				return fmt.Errorf("while scanning jetsPartition from compute_pipes_partitions_registry table: %v", err)
+			}
+			partitions = append(partitions, jetsPartition)
 		}
-		partitions = append(partitions, jetsPartition)
+		return nil
+	}()
+	if err != nil {
+		return result, err
 	}
 
 	// Check if there is no partitions for the step, if so move to next step
@@ -210,7 +192,7 @@ startStepId:
 		}
 	}
 
-	// Determine if using esc tasks for this stepId
+	// Determine if using ecs tasks for this stepId
 	result.UseECSReducingTask, err = cpipesStartup.EvalUseEcsTask(stepId)
 	if err != nil {
 		return result, fmt.Errorf("while calling UseECSReducingTask: %v", err)

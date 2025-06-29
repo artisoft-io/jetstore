@@ -85,7 +85,8 @@ func (cpCtx *ComputePipesContext) ProcessFilesAndReportStatus(ctx context.Contex
 	if cpCtx.CpConfig.ClusterConfig.IsDebugMode {
 		log.Println("**@= CP RESULT = Loaded from s3:")
 	}
-	var loadedRowCount int
+	var loadedRowCount int64
+	var badRowCount int64
 	for loadFromS3FilesResult := range cpCtx.ChResults.LoadFromS3FilesResultCh {
 		if cpCtx.CpConfig.ClusterConfig.IsDebugMode {
 			log.Println(cpCtx.SessionId, "node", cpCtx.NodeId, "Loaded", loadFromS3FilesResult.LoadRowCount,
@@ -97,7 +98,8 @@ func (cpCtx *ComputePipesContext) ProcessFilesAndReportStatus(ctx context.Contex
 		// 	Err:          loadFromS3FilesResult.Err,
 		// }
 		// saveResultsCtx.Save("S3 Readers", r)
-		loadedRowCount += int(loadFromS3FilesResult.LoadRowCount)
+		loadedRowCount += loadFromS3FilesResult.LoadRowCount
+		badRowCount += loadFromS3FilesResult.BadRowCount
 		if loadFromS3FilesResult.Err != nil {
 			processingErrors = append(processingErrors, loadFromS3FilesResult.Err.Error())
 			if err == nil {
@@ -246,7 +248,7 @@ func (cpCtx *ComputePipesContext) ProcessFilesAndReportStatus(ctx context.Contex
 
 	// Register the result of this shard with pipeline_execution_details
 	err2 := cpCtx.UpdatePipelineExecutionStatus(dbpool, key,
-		loadedRowCount, int(totalInputFileSize/1024/1024), totalInputFileCount,
+		int(loadedRowCount), int(badRowCount), int(totalInputFileSize/1024/1024), totalInputFileCount,
 		int(reteSessionCount), int(outputRowCount), cpCtx.MainInputStepId, status, errMessage)
 	if err2 != nil {
 		return fmt.Errorf("error while registering the load (cpipesSM): %v", err2)
@@ -265,23 +267,26 @@ func (cpCtx *ComputePipesContext) InsertPipelineExecutionStatus(dbpool *pgxpool.
 							RETURNING key`
 	var key int
 	err := dbpool.QueryRow(context.Background(), stmt,
-		cpCtx.PipelineConfigKey, cpCtx.PipelineExecKey, cpCtx.Client, cpCtx.ProcessName, cpCtx.InputSessionId, cpCtx.SessionId, cpCtx.SourcePeriodKey,
+		cpCtx.PipelineConfigKey, cpCtx.PipelineExecKey, cpCtx.Client, cpCtx.ProcessName, 
+		cpCtx.InputSessionId, cpCtx.SessionId, cpCtx.SourcePeriodKey,
 		cpCtx.NodeId, cpCtx.JetsPartitionLabel, cpCtx.UserEmail).Scan(&key)
 	if err != nil {
 		return 0, fmt.Errorf("error inserting in jetsapi.pipeline_execution_details table: %v", err)
 	}
 	return key, nil
 }
-func (cpCtx *ComputePipesContext) UpdatePipelineExecutionStatus(dbpool *pgxpool.Pool, key int, inputRowCount,
-	totalFilesSizeMb, inputFilesCount, reteSessionCount, outputRowCount int,
+func (cpCtx *ComputePipesContext) UpdatePipelineExecutionStatus(
+	dbpool *pgxpool.Pool, key int, 
+	inputRowCount, badRowCount, totalFilesSizeMb, inputFilesCount, reteSessionCount, outputRowCount int,
 	cpipesStepId, status, errMessage string) error {
 	// log.Printf("Updating status '%s' to pipeline_execution_details table", status)
 	stmt := `UPDATE jetsapi.pipeline_execution_details SET (
-							cpipes_step_id, status, error_message, input_records_count, 
+							cpipes_step_id, status, error_message, input_records_count, input_bad_records_count,
 							input_files_size_mb, input_files_count, rete_sessions_count, output_records_count) 
-							= ($1, $2, $3, $4, $5, $6, $7, $8) WHERE key = $9`
+							= ($1, $2, $3, $4, $5, $6, $7, $8, $9) WHERE key = $10`
 	_, err := dbpool.Exec(context.Background(), stmt,
-		cpipesStepId, status, errMessage, inputRowCount, totalFilesSizeMb, inputFilesCount, reteSessionCount, outputRowCount, key)
+		cpipesStepId, status, errMessage, inputRowCount, badRowCount, totalFilesSizeMb, inputFilesCount, 
+		reteSessionCount, outputRowCount, key)
 	if err != nil {
 		return fmt.Errorf("error updating in jetsapi.pipeline_execution_details table: %v", err)
 	}

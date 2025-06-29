@@ -6,44 +6,37 @@ import (
 	"fmt"
 	"io"
 	"log"
-	"os"
 	"time"
 
 	"github.com/apache/arrow/go/v17/arrow"
 	"github.com/apache/arrow/go/v17/arrow/memory"
+	"github.com/apache/arrow/go/v17/parquet"
 	"github.com/apache/arrow/go/v17/parquet/file"
 	"github.com/apache/arrow/go/v17/parquet/pqarrow"
 	"github.com/artisoft-io/jetstore/jets/awsi"
 )
 
-func (cpCtx *ComputePipesContext) ReadParquetFileV2(filePath *FileName, readBatchSize int64, sp SchemaProvider,
+func (cpCtx *ComputePipesContext) ReadParquetFileV2(filePath *FileName, 
+	fileReader parquet.ReaderAtSeeker, readBatchSize int64,
 	castToRdfTxtTypeFncs []CastToRdfTxtFnc, inputSchemaCh chan<- ParquetSchemaInfo,
 	computePipesInputCh chan<- []any) (int64, error) {
 
-	var fileHd *os.File
 	var inputColumns []string
 	var err error
 	samplingRate := int64(cpCtx.CpConfig.PipesConfig[0].InputChannel.SamplingRate)
 	samplingMaxCount := int64(cpCtx.CpConfig.PipesConfig[0].InputChannel.SamplingMaxCount)
 
-	fileHd, err = os.Open(filePath.LocalFileName)
-	if err != nil {
-		return 0, fmt.Errorf("while opening temp file '%s' (LoadFiles): %v", filePath.LocalFileName, err)
-	}
-	defer func() {
-		fileHd.Close()
-		os.Remove(filePath.LocalFileName)
-	}()
-
 	// Here nbrColumns is the nbr of columns in the parquet file (excluding the extra columns added by the process)
-	nbrColumns := len(cpCtx.CpConfig.CommonRuntimeArgs.SourcesConfig.MainInput.InputColumns)-len(cpCtx.PartFileKeyComponents)-len(cpCtx.AddionalInputHeaders)
+	nbrColumns := len(cpCtx.CpConfig.CommonRuntimeArgs.SourcesConfig.MainInput.InputColumns)-
+		len(cpCtx.PartFileKeyComponents)-len(cpCtx.AddionalInputHeaders)
 	if nbrColumns > 0 {
 		// Read specified columns
 		inputColumns = cpCtx.CpConfig.CommonRuntimeArgs.SourcesConfig.MainInput.InputColumns[:nbrColumns]
 	}
+	inputChannelConfig := &cpCtx.CpConfig.PipesConfig[0].InputChannel
 
 	// Setup the parquet reader and get the arrow schema
-	pqFileReader, err := file.NewParquetReader(fileHd)
+	pqFileReader, err := file.NewParquetReader(fileReader)
 	if err != nil {
 		return 0, fmt.Errorf("while opening the parquet file reader for '%s' (LoadFiles): %v", filePath.LocalFileName, err)
 	}
@@ -137,8 +130,8 @@ func (cpCtx *ComputePipesContext) ReadParquetFileV2(filePath *FileName, readBatc
 
 	// Determine if trim the columns
 	trimColumns := false
-	if cpCtx.CpConfig.CommonRuntimeArgs.CpipesMode == "sharding" && sp != nil {
-		trimColumns = sp.TrimColumns()
+	if cpCtx.CpConfig.CommonRuntimeArgs.CpipesMode == "sharding" {
+		trimColumns = inputChannelConfig.TrimColumns
 	}
 
 	var inputRowCount int64

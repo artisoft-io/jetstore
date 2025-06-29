@@ -404,17 +404,17 @@ func (ctx *BuilderContext) NewPartitionWriterTransformationPipe(source *InputCha
 		baseOutputPath = fmt.Sprintf("%s/process_name=%s/session_id=%s/step_id=%s/jets_partition=%s",
 			jetsS3StagePrefix, ctx.processName, ctx.sessionId, spec.OutputChannel.WriteStepId, jetsPartitionLabel)
 	case "output":
-		if len(spec.OutputChannel.OutputLocation) > 0 &&
-			spec.OutputChannel.OutputLocation != "jetstore_s3_input" &&
-			spec.OutputChannel.OutputLocation != "jetstore_s3_output" {
-				outputLocation := doSubstitution(spec.OutputChannel.OutputLocation, "", "", ctx.env)
+		if len(spec.OutputChannel.OutputLocation()) > 0 &&
+			spec.OutputChannel.OutputLocation() != "jetstore_s3_input" &&
+			spec.OutputChannel.OutputLocation() != "jetstore_s3_output" {
+			outputLocation := doSubstitution(spec.OutputChannel.OutputLocation(), "", "", ctx.env)
 			if !strings.HasSuffix(outputLocation, "/") {
 				pos := strings.LastIndex(outputLocation, "/")
 				if pos < 0 {
 					spec.OutputChannel.KeyPrefix = outputLocation
 				} else {
 					spec.OutputChannel.FileName = outputLocation[pos+1:]
-					spec.OutputChannel.KeyPrefix = outputLocation[:pos]	
+					spec.OutputChannel.KeyPrefix = outputLocation[:pos]
 				}
 			} else {
 				pos := len(outputLocation)
@@ -426,7 +426,7 @@ func (ctx *BuilderContext) NewPartitionWriterTransformationPipe(source *InputCha
 			if spec.OutputChannel.Bucket != "jetstore_bucket" {
 				externalBucket = spec.OutputChannel.Bucket
 			}
-		case sp != nil && spec.OutputChannel.OutputLocation == "jetstore_s3_input":
+		case sp != nil && spec.OutputChannel.OutputLocation() == "jetstore_s3_input":
 			externalBucket = sp.Bucket()
 		}
 		if len(externalBucket) > 0 {
@@ -434,10 +434,10 @@ func (ctx *BuilderContext) NewPartitionWriterTransformationPipe(source *InputCha
 		}
 		if len(spec.OutputChannel.KeyPrefix) > 0 {
 			baseOutputPath = doSubstitution(spec.OutputChannel.KeyPrefix, jetsPartitionLabel,
-				spec.OutputChannel.OutputLocation, ctx.env)
+				spec.OutputChannel.OutputLocation(), ctx.env)
 		} else {
 			baseOutputPath = doSubstitution("$PATH_FILE_KEY", jetsPartitionLabel,
-				spec.OutputChannel.OutputLocation, ctx.env)
+				spec.OutputChannel.OutputLocation(), ctx.env)
 		}
 	}
 

@@ -132,6 +132,9 @@ type Reader struct {
 	// It must also not be equal to Comma.
 	Comment rune
 
+	// If KeepRawRecord is true, will keep the raw record, accessible via LastRawRecord()
+	KeepRawRecord bool
+
 	// FieldsPerRecord is the number of expected fields per record.
 	// If FieldsPerRecord is positive, Read requires each record to
 	// have the given number of fields. If FieldsPerRecord is 0, Read sets it to
@@ -183,6 +186,9 @@ type Reader struct {
 
 	// lastRecord is a record cache and only used when ReuseRecord == true.
 	lastRecord []string
+
+	// rawRecordBuffer is the raw record as is and only used when KeepRawRecord == true.
+	rawRecordBuffer []byte
 }
 
 // NewReader returns a new Reader that reads from r.
@@ -333,8 +339,13 @@ func (r *Reader) readRecord(dst []string) ([]string, error) {
 	recLine := r.numLine // Starting line for record
 	r.recordBuffer = r.recordBuffer[:0]
 	r.fieldIndexes = r.fieldIndexes[:0]
+	r.rawRecordBuffer = r.rawRecordBuffer[:0]
 	r.fieldPositions = r.fieldPositions[:0]
 	pos := position{line: r.numLine, col: 1}
+	if r.KeepRawRecord {
+		// Keep the raw record
+		r.rawRecordBuffer = append(r.rawRecordBuffer, line...)
+	}
 parseField:
 	for {
 		if r.TrimLeadingSpace {
@@ -423,6 +434,9 @@ parseField:
 					if len(line) > 0 {
 						pos.line++
 						pos.col = 1
+						if r.KeepRawRecord {
+							r.rawRecordBuffer = append(r.rawRecordBuffer, line...)
+						}
 					}
 					if errRead == io.EOF {
 						errRead = nil
@@ -472,4 +486,8 @@ parseField:
 		r.FieldsPerRecord = len(dst)
 	}
 	return dst, err
+}
+
+func (r *Reader) LastRawRecord() []byte {
+	return r.rawRecordBuffer
 }

@@ -60,14 +60,14 @@ func (cpCtx *ComputePipesContext) StartMergeFiles(dbpool *pgxpool.Pool) (cpErr e
 	// outputFileConfig.KeyPrefix is the s3 output folder, when empty use:
 	//     <JETS_s3_OUTPUT_PREFIX>/<input file_key dir>/
 	// outputFileConfig.Name is the file name, defaults to $NAME_FILE_KEY (a file name is required)
-	if outputFileConfig.OutputLocation == "" {
-		outputFileConfig.OutputLocation = "jetstore_s3_output"
+	if outputFileConfig.OutputLocation() == "" {
+		outputFileConfig.SetOutputLocation("jetstore_s3_output")
 	}
 	var fileFolder, fileName, outputS3FileKey string
-	switch outputFileConfig.OutputLocation {
+	switch outputFileConfig.OutputLocation() {
 	case "jetstore_s3_input", "jetstore_s3_output":
-		if len(outputFileConfig.Name) > 0 {
-			fileName = doSubstitution(outputFileConfig.Name, "", "", cpCtx.EnvSettings)
+		if len(outputFileConfig.Name()) > 0 {
+			fileName = doSubstitution(outputFileConfig.Name(), "", "", cpCtx.EnvSettings)
 		} else {
 			fileName = doSubstitution("$NAME_FILE_KEY", "", "", cpCtx.EnvSettings)
 		}
@@ -76,16 +76,16 @@ func (cpCtx *ComputePipesContext) StartMergeFiles(dbpool *pgxpool.Pool) (cpErr e
 			return
 		}
 		if len(outputFileConfig.KeyPrefix) > 0 {
-			fileFolder = doSubstitution(outputFileConfig.KeyPrefix, "", outputFileConfig.OutputLocation,
+			fileFolder = doSubstitution(outputFileConfig.KeyPrefix, "", outputFileConfig.OutputLocation(),
 				cpCtx.EnvSettings)
 		} else {
-			fileFolder = doSubstitution("$PATH_FILE_KEY", "", outputFileConfig.OutputLocation,
+			fileFolder = doSubstitution("$PATH_FILE_KEY", "", outputFileConfig.OutputLocation(),
 				cpCtx.EnvSettings)
 		}
 		outputS3FileKey = fmt.Sprintf("%s/%s", fileFolder, fileName)
 
 	default:
-		outputS3FileKey = doSubstitution(outputFileConfig.OutputLocation, "", "", cpCtx.EnvSettings)
+		outputS3FileKey = doSubstitution(outputFileConfig.OutputLocation(), "", "", cpCtx.EnvSettings)
 	}
 
 	// Create a reader to stream the data to s3
@@ -102,7 +102,7 @@ func (cpCtx *ComputePipesContext) StartMergeFiles(dbpool *pgxpool.Pool) (cpErr e
 		if outputFileConfig.Bucket != "jetstore_bucket" {
 			externalBucket = outputFileConfig.Bucket
 		}
-	case inputSp != nil && outputFileConfig.OutputLocation == "jetstore_s3_input":
+	case inputSp != nil && outputFileConfig.OutputLocation() == "jetstore_s3_input":
 		externalBucket = inputSp.Bucket()
 	}
 	if len(externalBucket) > 0 {

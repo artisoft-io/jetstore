@@ -28,33 +28,36 @@ func NewSchemaManager(spec []*SchemaProviderSpec,
 type SchemaProvider interface {
 	Initialize(dbpool *pgxpool.Pool, spec *SchemaProviderSpec,
 		envSettings map[string]interface{}, isDebugMode bool) error
-	Bucket() string
 	Key() string
-	SchemaName() string
-	Format() string
-	ReadBatchSize() int64
-	NbrRowsInRecord() int64
-	Encoding() string
-	DetectEncoding() bool
+	Env() map[string]any
+	AdjustColumnWidth(width map[string]int) error
+	BadRowsConfig() *BadRowsSpec
+	Bucket() string
+	ColumnNames() []string
+	Columns() []SchemaColumnSpec
 	Compression() string
-	InputFormatDataJson() string
+	Delimiter() rune
+	DetectEncoding() bool
 	DomainClass() string
 	DomainKeys() map[string]any
+	Encoding() string
+	EnforceRowMaxLength() bool
+	EnforceRowMinLength() bool
+	FixedWidthEncodingInfo() *FixedWidthEncodingInfo
+	FixedWidthFileHeaders() ([]string, string)
+	Format() string
+	InputFormatDataJson() string
 	IsPartFiles() bool
-	Delimiter() rune
+	NbrRowsInRecord() int64
+	NoQuotes() bool
+	QuoteAllRecords() bool
+	ReadBatchSize() int64
+	ReadDateLayout() string
+	SchemaName() string
+	TrimColumns() bool
 	UseLazyQuotes() bool
 	VariableFieldsPerRecord() bool
-	QuoteAllRecords() bool
-	NoQuotes() bool
-	TrimColumns() bool
-	Columns() []SchemaColumnSpec
-	ColumnNames() []string
-	ReadDateLayout() string
 	WriteDateLayout() string
-	AdjustColumnWidth(width map[string]int) error
-	FixedWidthFileHeaders() ([]string, string)
-	FixedWidthEncodingInfo() *FixedWidthEncodingInfo
-	Env() map[string]any
 }
 
 // columnNames is the list of file headers for fixed_width
@@ -264,6 +267,27 @@ func (sp *DefaultSchemaProvider) VariableFieldsPerRecord() bool {
 		return false
 	}
 	return sp.spec.VariableFieldsPerRecord
+}
+
+func (sp *DefaultSchemaProvider) EnforceRowMinLength() bool {
+	if sp == nil {
+		return false
+	}
+	return sp.spec.EnforceRowMinLength
+}
+
+func (sp *DefaultSchemaProvider) EnforceRowMaxLength() bool {
+	if sp == nil {
+		return false
+	}
+	return sp.spec.EnforceRowMaxLength
+}
+
+func (sp *DefaultSchemaProvider) BadRowsConfig() *BadRowsSpec {
+	if sp == nil {
+		return nil
+	}
+	return sp.spec.BadRowsConfig
 }
 
 func (sp *DefaultSchemaProvider) QuoteAllRecords() bool {
