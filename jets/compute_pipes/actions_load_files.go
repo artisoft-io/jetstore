@@ -38,6 +38,7 @@ func (cpCtx *ComputePipesContext) LoadFiles(ctx context.Context, dbpool *pgxpool
 	var inputSchemaCh chan ParquetSchemaInfo
 
 	defer func() {
+		log.Printf("*** LoadFile: terminating, err?: %v\n", err)
 		if r := recover(); r != nil {
 			var buf strings.Builder
 			buf.WriteString(fmt.Sprintf("LoadFiles: recovered error: %v\n", r))
@@ -52,10 +53,12 @@ func (cpCtx *ComputePipesContext) LoadFiles(ctx context.Context, dbpool *pgxpool
 		close(computePipesInputCh)
 		close(cpCtx.ChResults.LoadFromS3FilesResultCh)
 		if err != nil {
+			log.Printf("LoadFile: terminating with err %v, closing done channel\n", err)
 			cpCtx.ErrCh <- err
 			// Avoid closing a closed channel
 			select {
 			case <-cpCtx.Done:
+				log.Println("LoadFile: done channel already closed")
 			default:
 				close(cpCtx.Done)
 			}
