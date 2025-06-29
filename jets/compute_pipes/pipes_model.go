@@ -213,7 +213,7 @@ type CsvSourceSpec struct {
 // DomainKeys provide the ability to configure the domain keys in the cpipes config document.
 // DomainKeysSpec is parsed version of DomainKeys or the spec from the domain_keys_registry table.
 // DomainKeysSpec is derived from DomainKeys when provided.
-// columnsMap is added in PrepareComputePipes
+// columnsMap is added in StartComputePipes
 type ChannelSpec struct {
 	Name                 string          `json:"name"`
 	Columns              []string        `json:"columns"`
@@ -370,7 +370,7 @@ func (r OutputFileSpec) OutputLocation() string {
 	return r.FileKey
 }
 func (r *OutputFileSpec) SetOutputLocation(s string) {
-	r.FileKey2 = s
+		r.FileKey2 = s
 }
 
 // Note: refactoring using FileConfig.FileName is synonym to Name
@@ -381,7 +381,7 @@ func (r OutputFileSpec) Name() string {
 	return r.FileName
 }
 func (r *OutputFileSpec) SetName(s string) {
-	r.FileName2 = s
+		r.FileName2 = s
 }
 
 type TableColumnSpec struct {
@@ -482,7 +482,7 @@ type AnalyzeSpec struct {
 // The input row is considered a bad row when any of WhenCriteria applies
 // then the row is sent to bad row channel and remove from the input rows.
 type BadRowsSpec struct {
-	BadRowsStepId string `json:"bad_rows_step_id,omitempty"`
+	BadRowsStepId string            `json:"bad_rows_step_id,omitempty"`
 	// WhenCriteria  []BadRowsCriteria `json:"when_criteria,omitempty"`
 }
 
@@ -550,7 +550,7 @@ func (r OutputChannelConfig) OutputLocation() string {
 	return r.FileKey
 }
 func (r *OutputChannelConfig) SetOutputLocation(s string) {
-	r.FileKey2 = s
+		r.FileKey2 = s
 }
 
 type PathSubstitution struct {
