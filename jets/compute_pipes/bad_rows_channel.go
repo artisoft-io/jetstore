@@ -46,18 +46,18 @@ func (ctx *BadRowsChannel) Write(nodeId int) {
 		log.Panicln("ERROR Expecting ClientsWg not nil")
 	}
 
-	fileName = fmt.Sprintf("part%04d-%07d.%s", nodeId, 1, ".txt")
+	fileName = fmt.Sprintf("part%04d-%07d.%s", nodeId, 1, "txt")
 
 	// Write the data to a local temp file and then copy it to s3
 	tempFileName = fmt.Sprintf("%s/%s", localTempDir, fileName)
 	s3FileName = fmt.Sprintf("%s/%s", ctx.s3BasePath, fileName)
-	// fmt.Println("**&@@ WritePartition *1: fileName:", *ctx.fileName)
 	if ctx.s3DeviceManager == nil {
 		cpErr = fmt.Errorf("error: s3DeviceManager is nil (in BadRowsChannel.Write)")
 		goto gotError
 	}
 
 	// open the local temp file
+	fmt.Println("*** BadRowChannel.Write: create tempFileName:", tempFileName)
 	fout, err = os.Create(tempFileName)
 	if err != nil {
 		cpErr = fmt.Errorf("opening output file failed (in BadRowsChannel.Write): %v", err)
@@ -65,7 +65,6 @@ func (ctx *BadRowsChannel) Write(nodeId int) {
 	}
 	defer func() {
 		fout.Close()
-		os.Remove(tempFileName)
 	}()
 
 	// Write the partition
@@ -74,7 +73,7 @@ func (ctx *BadRowsChannel) Write(nodeId int) {
 		goto gotError
 	}
 
-	// fmt.Println("**&@@ WritePartition: DONE writing local file for fileName:", *ctx.fileName)
+	fmt.Println("*** BadRowsChannel.Write: DONE writing local file:", tempFileName)
 	// schedule the file to be moved to s3
 	select {
 	case ctx.s3DeviceManager.WorkersTaskCh <- S3Object{
@@ -113,10 +112,10 @@ func (ctx *BadRowsChannel) write(fout *os.File) (err error) {
 		if err != nil {
 			return fmt.Errorf("while writing a bad row to local file: %v", err)
 		}
-		err = writer.WriteByte('\n')
-		if err != nil {
-			return fmt.Errorf("while writing a bad row to local file-2: %v", err)
-		}
+		// err = writer.WriteByte('\n')
+		// if err != nil {
+		// 	return fmt.Errorf("while writing a bad row to local file-2: %v", err)
+		// }
 	}
 	return nil
 }
