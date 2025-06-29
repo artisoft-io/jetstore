@@ -1479,6 +1479,10 @@
         "dataType": "int"
       },
       {
+        "columnName": "input_bad_records_count",
+        "dataType": "int"
+      },
+      {
         "columnName": "input_files_size_mb",
         "dataType": "int"
       },

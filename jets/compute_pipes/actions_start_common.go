@@ -222,18 +222,20 @@ func (args *StartComputePipesArgs) initializeCpipes(ctx context.Context, dbpool 
 	if cpipesStartup.MainInputSchemaProviderConfig == nil {
 		// Create and initialize a default SchemaProviderSpec
 		cpipesStartup.MainInputSchemaProviderConfig = &SchemaProviderSpec{
-			Type:                "default",
-			Key:                 "_main_input_",
-			SourceType:          "main_input",
-			Client:              client,
-			Vendor:              org,
-			ObjectType:          objectType,
-			Format:              inputFormat,
-			Compression:         compression,
-			Bucket:              bucketName,
-			FileKey:             args.FileKey,
-			InputFormatDataJson: inputFormatDataJson.String,
-			Env:                 make(map[string]any),
+			Type:       "default",
+			Key:        "_main_input_",
+			SourceType: "main_input",
+			Client:     client,
+			Vendor:     org,
+			ObjectType: objectType,
+			FileConfig: FileConfig{
+				Format:              inputFormat,
+				Compression:         compression,
+				Bucket:              bucketName,
+				FileKey:             args.FileKey,
+				InputFormatDataJson: inputFormatDataJson.String,
+			},
+			Env: make(map[string]any),
 		}
 		if isPartFile == 1 {
 			cpipesStartup.MainInputSchemaProviderConfig.IsPartFiles = true
@@ -311,38 +313,17 @@ func (args *StartComputePipesArgs) initializeCpipes(ctx context.Context, dbpool 
 	// The main_input schema provider should always have the key _main_input_.
 	// Note: cpipesStartup.CpConfig.MainInputChannel() returns the sharding first input channel
 	// regardless if we are currently in reducing step.
-	// This is to ensure mainInputSchemaProvider is always in sync at each step.
+	// This is to ensure mainInputSchemaProvider is always in sync with the mainInputChannel at each step.
 	mainInputSchemaProvider.Key = "_main_input_"
-	ic := cpipesStartup.CpConfig.MainInputChannel()
+	inputChannelConfig := cpipesStartup.CpConfig.MainInputChannel()
 
-	// The file compression is specified from input_channel, if not take it from main schema provider,
-	// if not it taken from input_source table above
-	if ic.Compression == "" {
-		ic.Compression = mainInputSchemaProvider.Compression
-	} else {
-		// Override the compression from schema provider and from input_source table
-		// Note: not expected to have to do this, usually the schema provider will have
-		// the right value. This is for completness and to ensure everything is in sync
-		mainInputSchemaProvider.Compression = ic.Compression
-	}
-
-	// The csv delimiter is specified from input_channel, if not take it from main schema provider
-	if ic.Delimiter == 0 {
-		ic.Delimiter = mainInputSchemaProvider.Delimiter
-	} else {
-		// Override schema provider with value specified in input_channel config
-		mainInputSchemaProvider.Delimiter = ic.Delimiter
-	}
-
-	// File format
-	if ic.Format == "" {
-		ic.Format = mainInputSchemaProvider.Format
-	} else {
-		mainInputSchemaProvider.Format = ic.Format
-	}
+	// Sync the inputChannelConfig and mainInputSchemaProvider
+	// Priority: inputChannelConfig, mainInputSchemaProvider, and then source_config table (which served
+	// as defaults to mainInputSchemaProvider)
+	syncInputChannelWithSchemaProvider(inputChannelConfig, mainInputSchemaProvider)
 
 	// Input channel for sharding step always have the _main_input_ schema provider
-	ic.SchemaProvider = mainInputSchemaProvider.Key
+	inputChannelConfig.SchemaProvider = mainInputSchemaProvider.Key
 
 	// Set the fixed_width column spec to the schema provider
 	if len(icPosCsv.String) > 0 {
@@ -350,7 +331,8 @@ func (args *StartComputePipesArgs) initializeCpipes(ctx context.Context, dbpool 
 	}
 
 	// InputColumns - the main input file domain columns, order of priority:
-	//	- Take the columns from source_config table if specified.
+	//	- Take the columns from source_config table if specified. (this has higher priority in case it's a subset of
+	//    of the columns from schema provider)
 	//	- Take the columns from schema provider if specified.
 	//  - Otherwise, leave it empty. They will be taken from the first input file.
 	// NOTE: case of fixed_width: take the columns from the icPosCsv (fixed width spec)
@@ -553,15 +535,7 @@ func (args *CpipesStartup) ValidatePipeSpecConfig(cpConfig *ComputePipesConfig, 
 					return fmt.Errorf("configuration error: input_channel has reference to "+
 						"schema_provider %s, but does not exists", pipeSpec.InputChannel.SchemaProvider)
 				}
-				if len(pipeSpec.InputChannel.Format) == 0 {
-					pipeSpec.InputChannel.Format = sp.Format
-				}
-				if pipeSpec.InputChannel.Delimiter == 0 {
-					pipeSpec.InputChannel.Delimiter = sp.Delimiter
-				}
-				if len(pipeSpec.InputChannel.Compression) == 0 {
-					pipeSpec.InputChannel.Compression = sp.Compression
-				}
+				syncInputChannelWithSchemaProvider(&pipeSpec.InputChannel, sp)
 			}
 		case "memory":
 		default:
@@ -585,8 +559,8 @@ func (args *CpipesStartup) ValidatePipeSpecConfig(cpConfig *ComputePipesConfig, 
 			if outputFileSpec == nil {
 				return fmt.Errorf("configuration error: Output file config '%s' not found", *pipeSpec.OutputFile)
 			}
-			if outputFileSpec.OutputLocation == "" {
-				outputFileSpec.OutputLocation = "jetstore_s3_output"
+			if outputFileSpec.OutputLocation() == "" {
+				outputFileSpec.SetOutputLocation("jetstore_s3_output")
 			}
 		}
 		for j := range pipeSpec.Apply {
@@ -679,6 +653,227 @@ func (args *CpipesStartup) ValidatePipeSpecConfig(cpConfig *ComputePipesConfig, 
 	return nil
 }
 
+// Sync the following properties from FileConfig betwwen args inputChannel and schemaProvider:
+//   - Compression
+//   - Delimiter
+//   - DetectEncoding
+//   - DomainClass
+//   - DomainKeys
+//   - Encoding
+//   - EnforceRowMaxLength
+//   - EnforceRowMinLength
+//   - Format
+//   - IsPartFiles
+//   - NbrRowsInRecord
+//   - NoQuotes
+//   - QuoteAllRecords
+//   - ReadBatchSize
+//   - ReadDateLayout
+//   - TrimColumns
+//   - UseLazyQuotes
+//   - VariableFieldsPerRecord
+//   - WriteDateLayout
+//
+// Priority: inputChannelConfig, mainInputSchemaProvider, and then source_config table (which served
+// as defaults to mainInputSchemaProvider)
+func syncInputChannelWithSchemaProvider(ic *InputChannelConfig, sp *SchemaProviderSpec) {
+	if ic.Compression == "" {
+		ic.Compression = sp.Compression
+	} else {
+		sp.Compression = ic.Compression
+	}
+
+	if ic.Delimiter == 0 {
+		ic.Delimiter = sp.Delimiter
+	} else {
+		sp.Delimiter = ic.Delimiter
+	}
+
+	if !ic.DetectEncoding {
+		ic.DetectEncoding = sp.DetectEncoding
+	} else {
+		sp.DetectEncoding = ic.DetectEncoding
+	}
+
+	if ic.DomainClass == "" {
+		ic.DomainClass = sp.DomainClass
+	} else {
+		sp.DomainClass = ic.DomainClass
+	}
+
+	if ic.DomainKeys == nil {
+		ic.DomainKeys = sp.DomainKeys
+	} else {
+		sp.DomainKeys = ic.DomainKeys
+	}
+
+	if ic.Encoding == "" {
+		ic.Encoding = sp.Encoding
+	} else {
+		sp.Encoding = ic.Encoding
+	}
+
+	if !ic.EnforceRowMaxLength {
+		ic.EnforceRowMaxLength = sp.EnforceRowMaxLength
+	} else {
+		sp.EnforceRowMaxLength = ic.EnforceRowMaxLength
+	}
+
+	if !ic.EnforceRowMinLength {
+		ic.EnforceRowMinLength = sp.EnforceRowMinLength
+	} else {
+		sp.EnforceRowMinLength = ic.EnforceRowMinLength
+	}
+
+	if ic.Format == "" {
+		ic.Format = sp.Format
+	} else {
+		sp.Format = ic.Format
+	}
+
+	if !ic.IsPartFiles {
+		ic.IsPartFiles = sp.IsPartFiles
+	} else {
+		sp.IsPartFiles = ic.IsPartFiles
+	}
+
+	if ic.NbrRowsInRecord == 0 {
+		ic.NbrRowsInRecord = sp.NbrRowsInRecord
+	} else {
+		sp.NbrRowsInRecord = ic.NbrRowsInRecord
+	}
+
+	if !ic.NoQuotes {
+		ic.NoQuotes = sp.NoQuotes
+	} else {
+		sp.NoQuotes = ic.NoQuotes
+	}
+
+	if !ic.QuoteAllRecords {
+		ic.QuoteAllRecords = sp.QuoteAllRecords
+	} else {
+		sp.QuoteAllRecords = ic.QuoteAllRecords
+	}
+
+	if ic.ReadBatchSize == 0 {
+		ic.ReadBatchSize = sp.ReadBatchSize
+	} else {
+		sp.ReadBatchSize = ic.ReadBatchSize
+	}
+
+	if ic.ReadDateLayout == "" {
+		ic.ReadDateLayout = sp.ReadDateLayout
+	} else {
+		sp.ReadDateLayout = ic.ReadDateLayout
+	}
+
+	if !ic.TrimColumns {
+		ic.TrimColumns = sp.TrimColumns
+	} else {
+		sp.TrimColumns = ic.TrimColumns
+	}
+
+	if !ic.UseLazyQuotes {
+		ic.UseLazyQuotes = sp.UseLazyQuotes
+	} else {
+		sp.UseLazyQuotes = ic.UseLazyQuotes
+	}
+
+	if !ic.VariableFieldsPerRecord {
+		ic.VariableFieldsPerRecord = sp.VariableFieldsPerRecord
+	} else {
+		sp.VariableFieldsPerRecord = ic.VariableFieldsPerRecord
+	}
+
+	if ic.WriteDateLayout == "" {
+		ic.WriteDateLayout = sp.WriteDateLayout
+	} else {
+		sp.WriteDateLayout = ic.WriteDateLayout
+	}
+}
+
+// Sync the following properties from FileConfig betwwen args outputChannel and schemaProvider:
+//   - Compression
+//   - Delimiter
+//   - DomainClass
+//   - DomainKeys
+//   - Format
+//   - NbrRowsInRecord
+//   - NoQuotes
+//   - QuoteAllRecords
+//   - ReadBatchSize
+//   - ReadDateLayout
+//   - WriteDateLayout
+//
+// Priority: outputChannelConfig then schemaProvider
+func syncOutputChannelWithSchemaProvider(ic *OutputChannelConfig, sp *SchemaProviderSpec) {
+	if ic.Compression == "" {
+		ic.Compression = sp.Compression
+	} else {
+		sp.Compression = ic.Compression
+	}
+
+	if ic.Delimiter == 0 {
+		ic.Delimiter = sp.Delimiter
+	} else {
+		sp.Delimiter = ic.Delimiter
+	}
+
+	if ic.DomainClass == "" {
+		ic.DomainClass = sp.DomainClass
+	} else {
+		sp.DomainClass = ic.DomainClass
+	}
+
+	if ic.DomainKeys == nil {
+		ic.DomainKeys = sp.DomainKeys
+	} else {
+		sp.DomainKeys = ic.DomainKeys
+	}
+
+	if ic.Format == "" {
+		ic.Format = sp.Format
+	} else {
+		sp.Format = ic.Format
+	}
+
+	if ic.NbrRowsInRecord == 0 {
+		ic.NbrRowsInRecord = sp.NbrRowsInRecord
+	} else {
+		sp.NbrRowsInRecord = ic.NbrRowsInRecord
+	}
+
+	if !ic.NoQuotes {
+		ic.NoQuotes = sp.NoQuotes
+	} else {
+		sp.NoQuotes = ic.NoQuotes
+	}
+
+	if !ic.QuoteAllRecords {
+		ic.QuoteAllRecords = sp.QuoteAllRecords
+	} else {
+		sp.QuoteAllRecords = ic.QuoteAllRecords
+	}
+
+	if ic.ReadBatchSize == 0 {
+		ic.ReadBatchSize = sp.ReadBatchSize
+	} else {
+		sp.ReadBatchSize = ic.ReadBatchSize
+	}
+
+	if ic.ReadDateLayout == "" {
+		ic.ReadDateLayout = sp.ReadDateLayout
+	} else {
+		sp.ReadDateLayout = ic.ReadDateLayout
+	}
+
+	if ic.WriteDateLayout == "" {
+		ic.WriteDateLayout = sp.WriteDateLayout
+	} else {
+		sp.WriteDateLayout = ic.WriteDateLayout
+	}
+}
+
 func validateOutputChConfig(outputChConfig *OutputChannelConfig, sp *SchemaProviderSpec) error {
 	if outputChConfig == nil {
 		return nil
@@ -701,66 +896,76 @@ func validateOutputChConfig(outputChConfig *OutputChannelConfig, sp *SchemaProvi
 		}
 		switch outputChConfig.Type {
 		case "stage":
-			if outputChConfig.Format == "" {
+			if sp != nil {
+				syncOutputChannelWithSchemaProvider(outputChConfig, sp)
+			}
+			if strings.HasPrefix(outputChConfig.Format, "parquet") {
+				outputChConfig.Format = "parquet"
+				outputChConfig.Compression = ""
+				outputChConfig.Delimiter = 0
 				if sp != nil {
-					outputChConfig.Format = sp.Format
+					sp.Format = "parquet"
+					sp.Compression = ""
+					sp.Delimiter = 0
+				}
+			} else {
+				if outputChConfig.Delimiter == 0 {
+					outputChConfig.Delimiter = ','
+					if sp != nil {
+						sp.Delimiter = ','
+					}
+				}
+				if outputChConfig.Compression == "" {
+					outputChConfig.Compression = "snappy"
+					if sp != nil {
+						sp.Compression = "snappy"
+					}
 				}
 				if outputChConfig.Format == "" {
 					outputChConfig.Format = "headerless_csv"
-				}
-			}
-			if strings.HasPrefix(outputChConfig.Format, "parquet") {
-				outputChConfig.Compression = ""
-				outputChConfig.Delimiter = 0
-			} else {
-				if outputChConfig.Compression == "" {
 					if sp != nil {
-						outputChConfig.Compression = sp.Compression
-					}
-					if outputChConfig.Compression == "" {
-						outputChConfig.Compression = "snappy"
-					}
-				}
-				if outputChConfig.Delimiter == 0 {
-					if sp != nil {
-						outputChConfig.Delimiter = sp.Delimiter
+						sp.Format = "headerless_csv"
 					}
 				}
 			}
+
 			if len(outputChConfig.WriteStepId) == 0 {
 				return fmt.Errorf("configuration error: write_step_id is not specified in output_channel '%s' of type 'stage'",
 					outputChConfig.Name)
 			}
 		case "output":
-			if outputChConfig.Format == "" {
+			if sp != nil {
+				syncOutputChannelWithSchemaProvider(outputChConfig, sp)
+			}
+			if strings.HasPrefix(outputChConfig.Format, "parquet") {
+				outputChConfig.Format = "parquet"
+				outputChConfig.Compression = ""
+				outputChConfig.Delimiter = 0
 				if sp != nil {
-					outputChConfig.Format = sp.Format
+					sp.Format = "parquet"
+					sp.Compression = ""
+					sp.Delimiter = 0
 				}
+			} else {
 				if outputChConfig.Format == "" {
 					return fmt.Errorf("configuration error: format is not specified in output_channel '%s' of type 'output'",
 						outputChConfig.Name)
 				}
-			}
-			if strings.HasPrefix(outputChConfig.Format, "parquet") {
-				outputChConfig.Compression = ""
-				outputChConfig.Delimiter = 0
-			} else {
-				if outputChConfig.Compression == "" {
-					if sp != nil {
-						outputChConfig.Compression = sp.Compression
-					}
-					if outputChConfig.Compression == "" {
-						outputChConfig.Compression = "none"
-					}
-				}
 				if outputChConfig.Delimiter == 0 {
+					outputChConfig.Delimiter = ','
 					if sp != nil {
-						outputChConfig.Delimiter = sp.Delimiter
+						sp.Delimiter = ','
+					}
+				}
+				if outputChConfig.Compression == "" {
+					outputChConfig.Compression = "none"
+					if sp != nil {
+						sp.Compression = "none"
 					}
 				}
 			}
-			if len(outputChConfig.OutputLocation) == 0 {
-				outputChConfig.OutputLocation = "jetstore_s3_output"
+			if len(outputChConfig.OutputLocation()) == 0 {
+				outputChConfig.SetOutputLocation("jetstore_s3_output")
 			}
 
 		case "memory":
@@ -772,11 +977,6 @@ func validateOutputChConfig(outputChConfig *OutputChannelConfig, sp *SchemaProvi
 				"configuration error: unknown output_channel config type: %s (expecting: memory (default), stage, output, sql)",
 				outputChConfig.Type)
 		}
-	}
-	// Check if the Format is parquet_select, this would be the case if the Format came from
-	// the _main_input_ schema provider
-	if outputChConfig.Format == "parquet_select" {
-		outputChConfig.Format = "parquet"
 	}
 	return nil
 }

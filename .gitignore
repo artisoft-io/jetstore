@@ -121,3 +121,4 @@ jets/awsi/s3_copy_file.go.bak
 jets/run_reports/delegate/run_commands copy.go.bak
 jets/jsontest/pqarrow_test/output.parquet
 jets/jsontest/pqarrow_test/pqarrow_test
+jets/jsontest/jsontest

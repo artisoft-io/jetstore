@@ -49,7 +49,7 @@ func NewLookupTableS3(_ *pgxpool.Pool, spec *LookupSpec, env map[string]interfac
 	if err != nil {
 		return nil, fmt.Errorf("failed to create local temp directory: %v", err)
 	}
-	defer os.Remove(inFolderPath)
+	defer os.RemoveAll(inFolderPath)
 
 	// Fetch the file from s3, save it locally
 	retry := 0

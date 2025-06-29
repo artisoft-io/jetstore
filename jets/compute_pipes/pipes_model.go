@@ -232,6 +232,38 @@ type ContextSpec struct {
 	Expr string `json:"expr"`
 }
 
+// Configuration type for factoring out all file settings.
+// This is used by more specific types such as:
+// SchemaProviderSpec, InputChannelConfig, OutputChannelConfig, OutputFileSpec
+type FileConfig struct {
+	BadRowsConfig           *BadRowsSpec   `json:"bad_rows_config,omitempty"`
+	Bucket                  string         `json:"bucket,omitempty"`
+	Compression             string         `json:"compression,omitempty"`
+	Delimiter               rune           `json:"delimiter"`
+	DetectEncoding          bool           `json:"detect_encoding"`
+	DomainClass             string         `json:"domain_class,omitempty"`
+	DomainKeys              map[string]any `json:"domain_keys,omitempty"`
+	Encoding                string         `json:"encoding,omitempty"`
+	EnforceRowMaxLength     bool           `json:"enforce_row_max_length,omitzero"`
+	EnforceRowMinLength     bool           `json:"enforce_row_min_length,omitzero"`
+	FileKey                 string         `json:"file_key,omitempty"`
+	FileName                string         `json:"file_name,omitempty"` // Type output
+	FixedWidthColumnsCsv    string         `json:"fixed_width_columns_csv,omitempty"`
+	Format                  string         `json:"format,omitempty"`
+	InputFormatDataJson     string         `json:"input_format_data_json,omitempty"`
+	IsPartFiles             bool           `json:"is_part_files"`
+	KeyPrefix               string         `json:"key_prefix,omitempty"`
+	NbrRowsInRecord         int64          `json:"nbr_rows_in_record,omitzero"` // Format: parquet
+	NoQuotes                bool           `json:"no_quotes"`
+	QuoteAllRecords         bool           `json:"quote_all_records"`
+	ReadBatchSize           int64          `json:"read_batch_size,omitzero"` // Format: parquet
+	ReadDateLayout          string         `json:"read_date_layout,omitempty"`
+	TrimColumns             bool           `json:"trim_columns"`
+	UseLazyQuotes           bool           `json:"use_lazy_quotes"`
+	VariableFieldsPerRecord bool           `json:"variable_fields_per_record"`
+	WriteDateLayout         string         `json:"write_date_layout,omitempty"`
+}
+
 type SchemaProviderSpec struct {
 	// Type range: default
 	// Key is schema provider key for reference by compute pipes steps
@@ -242,6 +274,9 @@ type SchemaProviderSpec struct {
 	// NbrRowsInRecord: nbr of rows in record (format: parquet)
 	// InputFormatDataJson: json config based on Format (typically used for xlsx)
 	// example: {"currentSheet": "Daily entry for Approvals"} (for xlsx).
+	// EnforceRowMinLength: when true, all columns must be in input record, otherwise missing columns are null
+	// EnforceRowMaxLength: when true, no extra characters must exist past last field (applies to text format)
+	// BadRowsConfig: Specify how to handle bad rows when bot specified on InputChannelConfig.
 	// SourceType range: main_input, merged_input, historical_input (from input_source table)
 	// Columns may be ommitted if fixed_width_columns_csv is provided or is a csv format
 	// UseLazyQuotes, VariableFieldsPerRecord see csv.NewReader
@@ -256,10 +291,9 @@ type SchemaProviderSpec struct {
 	// CPIPES_COMPLETED_NOTIFICATION_JSON, and CPIPES_FAILED_NOTIFICATION_JSON.
 	//*TODO domain_keys_json
 	//*TODO code_values_mapping_json
+	FileConfig
 	Key                              string             `json:"key"`
 	Type                             string             `json:"type"`
-	Bucket                           string             `json:"bucket,omitempty"`
-	FileKey                          string             `json:"file_key,omitempty"`
 	FileSize                         int64              `json:"file_size"`
 	KmsKey                           string             `json:"kms_key_arn,omitempty"`
 	Client                           string             `json:"client"`
@@ -268,25 +302,6 @@ type SchemaProviderSpec struct {
 	FileDate                         string             `json:"file_date,omitempty"`
 	SourceType                       string             `json:"source_type"`
 	SchemaName                       string             `json:"schema_name,omitempty"`
-	Format                           string             `json:"format,omitempty"`
-	Encoding                         string             `json:"encoding,omitempty"`
-	DetectEncoding                   bool               `json:"detect_encoding"`
-	Delimiter                        rune               `json:"delimiter"`
-	Compression                      string             `json:"compression,omitempty"`
-	ReadBatchSize                    int64              `json:"read_batch_size,omitzero"`    // Format: parquet
-	NbrRowsInRecord                  int64              `json:"nbr_rows_in_record,omitzero"` // Format: parquet
-	DomainClass                      string             `json:"domain_class,omitempty"`
-	DomainKeys                       map[string]any     `json:"domain_keys,omitempty"`
-	InputFormatDataJson              string             `json:"input_format_data_json,omitempty"`
-	UseLazyQuotes                    bool               `json:"use_lazy_quotes"`
-	VariableFieldsPerRecord          bool               `json:"variable_fields_per_record"`
-	QuoteAllRecords                  bool               `json:"quote_all_records"`
-	NoQuotes                         bool               `json:"no_quotes"`
-	ReadDateLayout                   string             `json:"read_date_layout,omitempty"`
-	WriteDateLayout                  string             `json:"write_date_layout,omitempty"`
-	TrimColumns                      bool               `json:"trim_columns"`
-	IsPartFiles                      bool               `json:"is_part_files"`
-	FixedWidthColumnsCsv             string             `json:"fixed_width_columns_csv,omitempty"`
 	Columns                          []SchemaColumnSpec `json:"columns,omitempty"`
 	Env                              map[string]any     `json:"env,omitempty"`
 	ReportCmds                       []ReportCmdSpec    `json:"report_cmds,omitempty"`
@@ -330,6 +345,8 @@ type TableSpec struct {
 type OutputFileSpec struct {
 	// OutputLocation: jetstore_s3_input, jetstore_s3_output (default), or custom file key.
 	// When OutputLocation has a custom file key, it replace Name and KeyPrefix.
+	// Note: refactoring using FileConfig.FileKey is synonym to OutputLocation
+	// Note: refactoring using FileConfig.FileName is synonym to Name
 	// KeyPrefix is optional, default to input file key path in OutputLocation.
 	// Name is file name (required or via OutputLocation).
 	// Headers overrides the headers from the input_channel's spec or
@@ -337,13 +354,34 @@ type OutputFileSpec struct {
 	// Schema provider indicates if put the header line or not.
 	// The input channel's schema provider indicates what delimiter
 	// to use on the header line.
+	FileConfig
 	Key            string   `json:"key"`
-	Name           string   `json:"name"`
-	Bucket         string   `json:"bucket,omitempty"`
-	KeyPrefix      string   `json:"key_prefix,omitempty"`
-	OutputLocation string   `json:"output_location,omitempty"`
+	FileName2      string   `json:"name"`
+	FileKey2       string   `json:"output_location,omitempty"`
 	SchemaProvider string   `json:"schema_provider,omitempty"`
 	Headers        []string `json:"headers"`
+}
+
+// Note: refactoring using FileConfig.FileKey is synonym to OutputLocation
+func (r OutputFileSpec) OutputLocation() string {
+	if len(r.FileKey2) > 0 {
+		return r.FileKey2
+	}
+	return r.FileKey
+}
+func (r *OutputFileSpec) SetOutputLocation(s string) {
+		r.FileKey2 = s
+}
+
+// Note: refactoring using FileConfig.FileName is synonym to Name
+func (r OutputFileSpec) Name() string {
+	if len(r.FileName2) > 0 {
+		return r.FileName2
+	}
+	return r.FileName
+}
+func (r *OutputFileSpec) SetName(s string) {
+		r.FileName2 = s
 }
 
 type TableColumnSpec struct {
@@ -427,25 +465,42 @@ type AnalyzeSpec struct {
 	FunctionTokens                  []FunctionTokenNode `json:"function_tokens"`
 }
 
+//*REMOVE THIS
+// // Specify when an input row is considered a bad row.
+// // WhenFormat: specify that criteria applied to specific file format(when not empty)
+// // WhenMissingColumns: row has less columns than headers
+// // WhenTooManyColumns: row has more columns than headers
+// type BadRowsCriteria struct {
+// 	WhenFormat         string `json:"when_format,omitempty"`
+// 	WhenMissingColumns bool   `json:"when_missing_columns,omitzero"`
+// 	WhenTooManyColumns bool   `json:"when_too_many_columns,omitzero"`
+// }
+
+// Defines the identification and handling of bad rows
+// Currently only used for input_row channel
+// BadRowsStepId: step id in stage location to output bad rows
+// The input row is considered a bad row when any of WhenCriteria applies
+// then the row is sent to bad row channel and remove from the input rows.
+type BadRowsSpec struct {
+	BadRowsStepId string            `json:"bad_rows_step_id,omitempty"`
+	// WhenCriteria  []BadRowsCriteria `json:"when_criteria,omitempty"`
+}
+
 type InputChannelConfig struct {
 	// Type range: memory (default), input, stage
 	// Format: csv, headerless_csv, etc.
 	// ReadBatchSize: nbr of rows to read per record (format: parquet)
 	// Compression: none, snappy (parquet: always snappy)
-	// BadRowsStepId: step id in stage location to output bad rows
 	// Note: SchemaProvider, Compression, Format for Type input are provided via
 	// ComputePipesCommonArgs.SourcesConfig (ie input_registry table).
-	// HasGroupedRow indicates that the channel contains grouped rows,
+	// BadRowsConfig: Specify how to handle bad rows.
+	// HasGroupedRows indicates that the channel contains grouped rows,
 	// most likely from the group_by operator.
 	// Note: The input_row channel (main input) will be cast to the
 	// rdf type specified by the domain class of the main input source.
+	FileConfig
 	Type             string `json:"type"`
 	Name             string `json:"name"`
-	Format           string `json:"format,omitempty"`
-	ReadBatchSize    int64  `json:"read_batch_size,omitzero"` // Format: parquet
-	Delimiter        rune   `json:"delimiter"`
-	Compression      string `json:"compression,omitempty"`
-	BadRowsStepId    string `json:"bad_rows_step_id,omitempty"`
 	SchemaProvider   string `json:"schema_provider,omitempty"`
 	ReadStepId       string `json:"read_step_id"`
 	SamplingRate     int    `json:"sampling_rate"`
@@ -464,6 +519,7 @@ type OutputChannelConfig struct {
 	// When OutputLocation is jetstore_s3_input it will also write to the input bucket.
 	// When OutputLocation uses a custom location, it replaces KeyPrefix and FileName.
 	// OutputLocation must ends with "/" if we want to use default file name.
+	// Note: refactoring using FileConfig.FileKey is synonym to OutputLocation
 	// KeyPrefix is optional, default to $PATH_FILE_KEY.
 	// Use $CURRENT_PARTITION_LABEL in KeyPrefix and FileName to substitute with
 	// current partition label.
@@ -475,21 +531,26 @@ type OutputChannelConfig struct {
 	// $NAME_FILE_KEY file key file name portion (empty when in part files mode).
 	// $SHARD_ID current node id.
 	// $JETS_PARTITION_LABEL current node partition label.
+	FileConfig
 	Type                  string `json:"type"`
 	Name                  string `json:"name"`
-	Format                string `json:"format,omitempty"`            // Type stage,output
-	NbrRowsInRecord       int64  `json:"nbr_rows_in_record,omitzero"` // Format: parquet
-	Delimiter             rune   `json:"delimiter"`                   // Type stage,output
-	Compression           string `json:"compression,omitempty"`       // Type stage,output
-	UseInputParquetSchema bool   `json:"use_input_parquet_schema"`    // Type stage,output
-	SchemaProvider        string `json:"schema_provider,omitempty"`   // Type stage,output, alt to Format
-	WriteStepId           string `json:"write_step_id"`               // Type stage
-	OutputTableKey        string `json:"output_table_key,omitempty"`  // Type sql
-	Bucket                string `json:"bucket,omitempty"`            // type output
-	KeyPrefix             string `json:"key_prefix,omitempty"`        // Type output
-	FileName              string `json:"file_name,omitempty"`         // Type output
-	OutputLocation        string `json:"output_location,omitempty"`   // Type output
+	UseInputParquetSchema bool   `json:"use_input_parquet_schema"`   // Type stage,output
+	SchemaProvider        string `json:"schema_provider,omitempty"`  // Type stage,output, alt to Format
+	WriteStepId           string `json:"write_step_id"`              // Type stage
+	OutputTableKey        string `json:"output_table_key,omitempty"` // Type sql
+	FileKey2              string `json:"output_location,omitempty"`  // Type output
 	SpecName              string `json:"channel_spec_name"`
+}
+
+// Note: refactoring using FileConfig.FileKey is synonym to OutputLocation
+func (r OutputChannelConfig) OutputLocation() string {
+	if len(r.FileKey2) > 0 {
+		return r.FileKey2
+	}
+	return r.FileKey
+}
+func (r *OutputChannelConfig) SetOutputLocation(s string) {
+		r.FileKey2 = s
 }
 
 type PathSubstitution struct {

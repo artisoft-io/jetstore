@@ -158,18 +158,28 @@ func (args *StartComputePipesArgs) StartShardingComputePipes(ctx context.Context
 	if err != nil {
 		return result, mainInputSchemaProvider, fmt.Errorf("while calling SelectActiveOutputTable for stepId %d: %v", stepId, err)
 	}
+	inputChannelConfig := &pipeConfig[0].InputChannel
+	// Validate that the first PipeSpec[0].Input == "input_row"
+	if inputChannelConfig.Name != "input_row" {
+		return result, mainInputSchemaProvider, fmt.Errorf("error: invalid cpipes config, reducing_pipes_config[0][0].input must be 'input_row'")
+	}
 
-	// Check if headers where provided in source_config record or need to determine the csv delimiter
+	// Check if need to get headers from file or if need to determine the csv delimiter
+	// Note: inputChannelConfig is in sync with the mainSchemaProvider
 	fetchHeaders := false
 	fetchDelimitor := false
-	format := &mainInputSchemaProvider.Format
-	if (*format == "csv" || *format == "xlsx") && len(cpipesStartup.InputColumns) == 0 {
+	detectEncoding := false
+	if len(inputChannelConfig.Encoding) == 0 && inputChannelConfig.DetectEncoding {
+		detectEncoding = true
+	}
+	format := inputChannelConfig.Format
+	if (format == "csv" || format == "xlsx") && len(cpipesStartup.InputColumns) == 0 {
 		fetchHeaders = true
 	}
-	if strings.HasSuffix(*format, "csv") && mainInputSchemaProvider.Delimiter == 0 {
+	if strings.HasSuffix(format, "csv") && inputChannelConfig.Delimiter == 0 {
 		fetchDelimitor = true
 	}
-	if fetchHeaders || fetchDelimitor || mainInputSchemaProvider.DetectEncoding {
+	if fetchHeaders || fetchDelimitor || detectEncoding {
 		// Get the input columns / column separator from the first file
 		sp := mainInputSchemaProvider
 		fileInfo, err := FetchHeadersAndDelimiterFromFile(sp.Bucket, shardResult.firstKey, sp.Format,
@@ -184,17 +194,19 @@ func (args *StartComputePipesArgs) StartShardingComputePipes(ctx context.Context
 		}
 		if fileInfo.sepFlag != 0 {
 			sp.Delimiter = rune(fileInfo.sepFlag)
+			inputChannelConfig.Delimiter = sp.Delimiter
 		}
 		if len(fileInfo.encoding) > 0 {
 			sp.Encoding = fileInfo.encoding
+			inputChannelConfig.Encoding = fileInfo.encoding
 		}
 	}
 	// log.Printf("*** cpipesStartup.MainInputDomainKeysSpec: %v, cpipesStartup.MainInputDomainClass: %v\n",
 	// 	cpipesStartup.MainInputDomainKeysSpec, cpipesStartup.MainInputDomainClass)
 
-	// NOTE: At this point we should have the headers of the input file
+	// NOTE: At this point we should have the headers of the input file (except potentially for parquet file)
 	if len(cpipesStartup.InputColumns) == 0 {
-		if !strings.HasPrefix(*format, "parquet") {
+		if !strings.HasPrefix(format, "parquet") {
 			return result, mainInputSchemaProvider, fmt.Errorf("configuration error: no header information available for the input file(s)")
 		}
 	} else {
@@ -269,13 +281,8 @@ func (args *StartComputePipesArgs) StartShardingComputePipes(ctx context.Context
 	if err != nil {
 		return result, mainInputSchemaProvider, err
 	}
-	inputChannelConfig := &pipeConfig[0].InputChannel
-	// Validate that the first PipeSpec[0].Input == "input_row"
-	if inputChannelConfig.Name != "input_row" {
-		return result, mainInputSchemaProvider, fmt.Errorf("error: invalid cpipes config, reducing_pipes_config[0][0].input must be 'input_row'")
-	}
 
-	// Validate the PipeSpec.TransformationSpec.OutputChannel configuration
+	// Validate the pipeConfig, including PipeSpec.TransformationSpec.OutputChannel configuration
 	err = cpipesStartup.ValidatePipeSpecConfig(&cpipesStartup.CpConfig, pipeConfig)
 	if err != nil {
 		return result, mainInputSchemaProvider, err
