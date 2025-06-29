@@ -84,12 +84,13 @@ func (cpCtx *ComputePipesContext) LoadFiles(ctx context.Context, dbpool *pgxpool
 	}
 
 	// Start the Compute Pipes async
-	go cpCtx.StartComputePipes(dbpool, inputSchemaCh, computePipesInputCh)
+	builder := cpCtx.PrepareComputePipes(dbpool, inputSchemaCh, computePipesInputCh)
+	go cpCtx.StartComputePipes(builder)
 
 	// Start BadRow Channel if configured
 	var badRowChannel *BadRowsChannel
 	if inputChannelConfig.BadRowsConfig != nil {
-		badRowChannel = NewBadRowChannel(cpCtx.S3DeviceMgr, inputChannelConfig.BadRowsConfig.BadRowsStepId,
+		badRowChannel = NewBadRowChannel(builder.s3DeviceManager, inputChannelConfig.BadRowsConfig.BadRowsStepId,
 			cpCtx.Done, cpCtx.ErrCh)
 		defer badRowChannel.Done()
 		go badRowChannel.Write(cpCtx.NodeId)

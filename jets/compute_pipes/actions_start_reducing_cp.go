@@ -18,8 +18,8 @@ func (args *StartComputePipesArgs) StartReducingComputePipes(ctx context.Context
 	var err error
 	// validate the args
 	if args.FileKey == "" || args.SessionId == "" || args.StepId == nil {
-		log.Println("error: missing file_key or session_id or step_id as input args of StartComputePipes (reducing mode)")
-		return result, fmt.Errorf("error: missing file_key or session_id or step_id as input args of StartComputePipes (reducing mode)")
+		log.Println("error: missing file_key or session_id or step_id as input args of PrepareComputePipes (reducing mode)")
+		return result, fmt.Errorf("error: missing file_key or session_id or step_id as input args of PrepareComputePipes (reducing mode)")
 	}
 	cpipesStartup, err := args.initializeCpipes(ctx, dbpool)
 	if err != nil {
