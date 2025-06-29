@@ -21,7 +21,7 @@ func init() {
 }
 
 // Function to write transformed row to database
-func (cpCtx *ComputePipesContext) StartComputePipes(dbpool *pgxpool.Pool, 
+func (cpCtx *ComputePipesContext) StartComputePipes(dbpool *pgxpool.Pool,
 	inputSchemaCh <-chan ParquetSchemaInfo, computePipesInputCh <-chan []any) {
 
 	// log.Println("Entering StartComputePipes")
@@ -78,7 +78,7 @@ func (cpCtx *ComputePipesContext) StartComputePipes(dbpool *pgxpool.Pool,
 	if inputSchemaCh != nil {
 		// Get the parquet schema from the channel as it is being extracted from the
 		// first input file
-		is := <- inputSchemaCh
+		is := <-inputSchemaCh
 		inputParquetSchema = &is
 	}
 	inputChannelName = cpCtx.CpConfig.PipesConfig[0].InputChannel.Name
@@ -291,6 +291,7 @@ func (cpCtx *ComputePipesContext) StartComputePipes(dbpool *pgxpool.Pool,
 		processName:        cpCtx.ProcessName,
 		channelRegistry:    channelRegistry,
 		lookupTableManager: lookupManager,
+		s3DeviceManager:    cpCtx.S3DeviceMgr,
 		schemaManager:      cpCtx.SchemaManager,
 		inputParquetSchema: inputParquetSchema,
 		done:               cpCtx.Done,
