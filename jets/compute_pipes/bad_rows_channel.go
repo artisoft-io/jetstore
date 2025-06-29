@@ -53,14 +53,14 @@ func (ctx *BadRowsChannel) Write(nodeId int) {
 	s3FileName = fmt.Sprintf("%s/%s", ctx.s3BasePath, fileName)
 	// fmt.Println("**&@@ WritePartition *1: fileName:", *ctx.fileName)
 	if ctx.s3DeviceManager == nil {
-		cpErr = fmt.Errorf("error: s3DeviceManager is nil")
+		cpErr = fmt.Errorf("error: s3DeviceManager is nil (in BadRowsChannel.Write)")
 		goto gotError
 	}
 
 	// open the local temp file
 	fout, err = os.Create(tempFileName)
 	if err != nil {
-		cpErr = fmt.Errorf("opening output file failed: %v", err)
+		cpErr = fmt.Errorf("opening output file failed (in BadRowsChannel.Write): %v", err)
 		goto gotError
 	}
 	defer func() {
@@ -82,7 +82,7 @@ func (ctx *BadRowsChannel) Write(nodeId int) {
 		LocalFilePath: tempFileName,
 	}:
 	case <-ctx.doneCh:
-		log.Printf("WritePartition: sending file to S3DeviceManager interrupted")
+		log.Printf("sending file to S3DeviceManager interrupted (in BadRowsChannel.Write)")
 	}
 
 	// All good!
