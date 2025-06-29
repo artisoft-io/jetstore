@@ -21,16 +21,16 @@ func init() {
 }
 
 // Function to write transformed row to database
-func (cpCtx *ComputePipesContext) PrepareComputePipes(dbpool *pgxpool.Pool,
-	inputSchemaCh <-chan ParquetSchemaInfo, computePipesInputCh <-chan []any) *BuilderContext {
+func (cpCtx *ComputePipesContext) StartComputePipes(dbpool *pgxpool.Pool, 
+	inputSchemaCh <-chan ParquetSchemaInfo, computePipesInputCh <-chan []any) {
 
-	// log.Println("Entering PrepareComputePipes")
+	// log.Println("Entering StartComputePipes")
 
 	defer func() {
 		// Catch the panic that might be generated downstream
 		if r := recover(); r != nil {
 			var buf strings.Builder
-			buf.WriteString(fmt.Sprintf("PrepareComputePipes: recovered error: %v\n", r))
+			buf.WriteString(fmt.Sprintf("StartComputePipes: recovered error: %v\n", r))
 			buf.WriteString(string(debug.Stack()))
 			cpErr := errors.New(buf.String())
 			log.Println(cpErr)
@@ -73,12 +73,12 @@ func (cpCtx *ComputePipesContext) PrepareComputePipes(dbpool *pgxpool.Pool,
 	// Prepare the channel registry
 	// ----------------------------
 	mainInput := cpCtx.CpConfig.CommonRuntimeArgs.SourcesConfig.MainInput
-	// log.Printf("*** PrepareComputePipes: mainInput.DomainKeys: %v, mainInput.DomainClass: %v\n", *mainInput.DomainKeys, mainInput.DomainClass)
+	// log.Printf("*** StartComputePipes: mainInput.DomainKeys: %v, mainInput.DomainClass: %v\n", *mainInput.DomainKeys, mainInput.DomainClass)
 	inputParquetSchema := mainInput.InputParquetSchema
 	if inputSchemaCh != nil {
 		// Get the parquet schema from the channel as it is being extracted from the
 		// first input file
-		is := <-inputSchemaCh
+		is := <- inputSchemaCh
 		inputParquetSchema = &is
 	}
 	inputChannelName = cpCtx.CpConfig.PipesConfig[0].InputChannel.Name
@@ -326,28 +326,8 @@ func (cpCtx *ComputePipesContext) PrepareComputePipes(dbpool *pgxpool.Pool,
 	// Wait until the lookup tables are ready
 	managersWg.Wait()
 
-	log.Println("Exiting PrepareComputePipes(...)")
-	return ctx
-
-gotError:
-	log.Println("error in PrepareComputePipes:", cpErr)
-	cpCtx.ErrCh <- cpErr
-	close(cpCtx.Done)
-	close(cpCtx.ChResults.Copy2DbResultCh)
-	close(cpCtx.ChResults.WritePartitionsResultCh)
-	close(cpCtx.ChResults.JetrulesWorkerResultCh)
-	close(cpCtx.ChResults.ClusteringResultCh)
-	if cpCtx.S3DeviceMgr == nil {
-		// Got error before the s3 device manager was created, close the chan manually
-		close(cpCtx.ChResults.S3PutObjectResultCh)
-	}
-	return nil
-}
-
-func (cpCtx *ComputePipesContext) StartComputePipes(ctx *BuilderContext) {
-	var cpErr error
 	// log.Println("Calling ctx.BuildComputeGraph()")
-	err := ctx.BuildComputeGraph()
+	err = ctx.BuildComputeGraph()
 	if err != nil {
 		cpErr = fmt.Errorf("while building the compute graph: %s", err)
 		goto gotError
