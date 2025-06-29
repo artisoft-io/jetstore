@@ -15,14 +15,13 @@ func (cpCtx *ComputePipesContext) ProcessFilesAndReportStatus(ctx context.Contex
 	inFolderPath string) error {
 
 	cpCtx.ChResults = &ChannelResults{
-		// NOTE: 101 is the limit of nbr of output table
-		// NOTE: 10 is the limit of nbr of splitter operators
-		LoadFromS3FilesResultCh: make(chan LoadFromS3FilesResult, 1),
-		Copy2DbResultCh:         make(chan chan ComputePipesResult, 101),
-		WritePartitionsResultCh: make(chan chan ComputePipesResult, 10),
-		S3PutObjectResultCh:     make(chan ComputePipesResult, 1),
-		JetrulesWorkerResultCh:  make(chan chan JetrulesWorkerResult, 99),
-		ClusteringResultCh:      make(chan chan ClusteringResult, 99),
+		// NOTE 2025/06/29: Removing unneccessary limits, otherwise this will hang when collecting results
+		LoadFromS3FilesResultCh: make(chan LoadFromS3FilesResult, 10000),
+		Copy2DbResultCh:         make(chan chan ComputePipesResult, 10000),
+		WritePartitionsResultCh: make(chan chan ComputePipesResult, 10000),
+		S3PutObjectResultCh:     make(chan ComputePipesResult, 10000),
+		JetrulesWorkerResultCh:  make(chan chan JetrulesWorkerResult, 10000),
+		ClusteringResultCh:      make(chan chan ClusteringResult, 10000),
 	}
 
 	key, err := cpCtx.InsertPipelineExecutionStatus(dbpool)
