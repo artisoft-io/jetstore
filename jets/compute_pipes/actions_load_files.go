@@ -83,6 +83,12 @@ func (cpCtx *ComputePipesContext) LoadFiles(ctx context.Context, dbpool *pgxpool
 		mainInputDomainClass = channelInfo.ClassName
 	}
 
+	// Prepare the S3DeviceManager
+	err = cpCtx.NewS3DeviceManager()
+	if err != nil {
+		return
+	}
+
 	// Start the Compute Pipes async
 	go cpCtx.StartComputePipes(dbpool, inputSchemaCh, computePipesInputCh)
 
