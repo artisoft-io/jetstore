@@ -22,8 +22,8 @@ func (args *StartComputePipesArgs) StartShardingComputePipes(ctx context.Context
 
 	// validate the args
 	if args.FileKey == "" || args.SessionId == "" {
-		log.Println("error: missing file_key or session_id as input args of StartComputePipes (sharding mode)")
-		return result, nil, fmt.Errorf("error: missing file_key or session_id as input args of StartComputePipes (sharding mode)")
+		log.Println("error: missing file_key or session_id as input args of PrepareComputePipes (sharding mode)")
+		return result, nil, fmt.Errorf("error: missing file_key or session_id as input args of PrepareComputePipes (sharding mode)")
 	}
 
 	// check the session is not already used
