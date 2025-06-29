@@ -537,6 +537,13 @@ func (args *CpipesStartup) ValidatePipeSpecConfig(cpConfig *ComputePipesConfig, 
 				}
 				syncInputChannelWithSchemaProvider(&pipeSpec.InputChannel, sp)
 			}
+			// Apply defaults
+			if len(pipeSpec.InputChannel.Format) == 0 {
+				pipeSpec.InputChannel.Format = "headerless_csv"
+			}
+			if len(pipeSpec.InputChannel.Compression) == 0 {
+				pipeSpec.InputChannel.Compression = "snappy"
+			}
 		case "memory":
 		default:
 			return fmt.Errorf("configuration error: unknown input_channel.type: %s", pipeSpec.InputChannel.Type)
@@ -909,23 +916,15 @@ func validateOutputChConfig(outputChConfig *OutputChannelConfig, sp *SchemaProvi
 					sp.Delimiter = 0
 				}
 			} else {
+				// Apply defaults
 				if outputChConfig.Delimiter == 0 {
 					outputChConfig.Delimiter = ','
-					if sp != nil {
-						sp.Delimiter = ','
-					}
 				}
 				if outputChConfig.Compression == "" {
 					outputChConfig.Compression = "snappy"
-					if sp != nil {
-						sp.Compression = "snappy"
-					}
 				}
 				if outputChConfig.Format == "" {
 					outputChConfig.Format = "headerless_csv"
-					if sp != nil {
-						sp.Format = "headerless_csv"
-					}
 				}
 			}
 
@@ -941,11 +940,6 @@ func validateOutputChConfig(outputChConfig *OutputChannelConfig, sp *SchemaProvi
 				outputChConfig.Format = "parquet"
 				outputChConfig.Compression = ""
 				outputChConfig.Delimiter = 0
-				if sp != nil {
-					sp.Format = "parquet"
-					sp.Compression = ""
-					sp.Delimiter = 0
-				}
 			} else {
 				if outputChConfig.Format == "" {
 					return fmt.Errorf("configuration error: format is not specified in output_channel '%s' of type 'output'",
@@ -953,15 +947,9 @@ func validateOutputChConfig(outputChConfig *OutputChannelConfig, sp *SchemaProvi
 				}
 				if outputChConfig.Delimiter == 0 {
 					outputChConfig.Delimiter = ','
-					if sp != nil {
-						sp.Delimiter = ','
-					}
 				}
 				if outputChConfig.Compression == "" {
 					outputChConfig.Compression = "none"
-					if sp != nil {
-						sp.Compression = "none"
-					}
 				}
 			}
 			if len(outputChConfig.OutputLocation()) == 0 {
