@@ -1204,6 +1204,55 @@ func TestReadCsv512(t *testing.T) {
 	// t.Errorf("OK")
 }
 
+// 2 short, 1 long rows, err out, testing second shard (droping first & last row), added columns
+func TestReadCsv612(t *testing.T) {
+	reader, columns, size := dataSet412()
+	columns = append(columns, "add1", "add2", "key1")
+	cpCtx := ComputePipesContextTestBuilder{
+		AddionalInputHeaders: []string{"add1", "add2"},
+		BadRowsConfig:        nil,
+		Compression:          "none",
+		CpipesMode:           "sharding",
+		Delimiter:            ',',
+		DetectEncoding:       false,
+		Encoding:             "",
+		EnforceRowMaxLength:  true,
+		EnforceRowMinLength:  true,
+		Format:               "csv",
+		InputColumns:         columns,
+		NbrRowsInRecord:      0,
+		NoQuotes:             false,
+		PartFileKeyComponents: []CompiledPartFileComponent{
+			{ColumnName: "key1", Regex: regexp.MustCompile(`value=(.*?)\/`)},
+		},
+		ReadBatchSize:           0,
+		SamplingMaxCount:        0,
+		SamplingRate:            0,
+		ShardOffset:             40,
+		TrimColumns:             true,
+		UseLazyQuotes:           false,
+		VariableFieldsPerRecord: false,
+	}.build()
+
+	computePipesInputCh := make(chan []any, 50)
+	_, _, err := cpCtx.ReadCsvFile(
+		&FileName{
+			InFileKeyInfo: FileKeyInfo{
+				key:   "file/value=something/key",
+				size:  size,
+				start: size / 3,
+				end:   2 * size / 3,
+			},
+		}, reader, nil, computePipesInputCh, nil)
+
+	// Close the channels
+	close(computePipesInputCh)
+	if err == nil {
+		t.Fatal(err)
+	}
+	// t.Error(err)
+}
+
 // FW - Positive test
 func TestReadFW01(t *testing.T) {
 	reader, columns, size := dataSetFW01()

@@ -37,7 +37,8 @@ func (ctx *BadRowsChannel) Write(nodeId int) {
 		cpErr = fmt.Errorf("while creating temp dir (in BadRowsChannel.Write) %v", err2)
 		goto gotError
 	}
-	defer os.RemoveAll(localTempDir)
+	// Do not delete this folder since file is schedule to be sent to s3
+	// defer os.RemoveAll(localTempDir)
 
 	// Register as a client to S3DeviceManager
 	if ctx.s3DeviceManager.ClientsWg != nil {
