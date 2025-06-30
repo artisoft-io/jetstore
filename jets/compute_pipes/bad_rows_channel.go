@@ -46,6 +46,7 @@ func (ctx *BadRowsChannel) Write(nodeId int) {
 	} else {
 		log.Panicln("ERROR Expecting ClientsWg not nil")
 	}
+	defer ctx.s3DeviceManager.ClientsWg.Done()
 
 	fileName = fmt.Sprintf("part%04d-%07d.%s", nodeId, 1, "txt")
 
