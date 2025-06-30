@@ -21,7 +21,7 @@ type AnonymizeTransformationPipe struct {
 	metaLookupTbl     LookupTable
 	anonymActions     []*AnonymizationAction
 	columnEvaluators  []TransformationColumnEvaluator
-	firstInputRow     *[]interface{}
+	firstInputRow     *[]any
 	spec              *TransformationSpec
 	inputDateLayout   string
 	outputDateLayout  string
@@ -29,7 +29,7 @@ type AnonymizeTransformationPipe struct {
 	outputInvalidDate string
 	keyInvalidDate    string
 	channelRegistry   *ChannelRegistry
-	env               map[string]interface{}
+	env               map[string]any
 	doneCh            chan struct{}
 }
 
@@ -40,7 +40,7 @@ type AnonymizationAction struct {
 }
 
 // Implementing interface PipeTransformationEvaluator
-func (ctx *AnonymizeTransformationPipe) Apply(input *[]interface{}) error {
+func (ctx *AnonymizeTransformationPipe) Apply(input *[]any) error {
 	var err error
 	if input == nil {
 		return fmt.Errorf("error: unexpected null input arg in AnonymizeTransformationPipe")
@@ -52,14 +52,12 @@ func (ctx *AnonymizeTransformationPipe) Apply(input *[]interface{}) error {
 	// the same as hashedValue, except for dates it may use a different date formatter.
 	var inputStr, hashedValue, hashedValue4KeyFile string
 	inputLen := len(*input)
-	expectedLen := len(ctx.source.config.Columns)
-	if inputLen != expectedLen {
-		// Skip this row
-		log.Println(ctx.cpConfig.CommonRuntimeArgs.SessionId,"EXPECTING",expectedLen,"GOT",inputLen,"ROW",*input)
-		return nil
-	}
+	expectedLen := len(ctx.anonymActions)
+	// NOTE: Must handle rows with less or more columns than expected. Anonymize the extra columns without a prefix
 	for _, action := range ctx.anonymActions {
-
+		if action.inputColumn >= inputLen {
+			continue
+		}
 		value := (*input)[action.inputColumn]
 		if value == nil {
 			continue
@@ -127,6 +125,30 @@ func (ctx *AnonymizeTransformationPipe) Apply(input *[]interface{}) error {
 		ctx.hasher.Write([]byte(hashedValue4KeyFile))
 		ctx.keysMap.Put(ctx.hasher.Sum64(), [2]string{inputStr, hashedValue4KeyFile})
 	}
+	for icol := expectedLen; icol < inputLen; icol++ {
+		value := (*input)[icol]
+		if value == nil {
+			continue
+		}
+		switch vv := value.(type) {
+		case string:
+			if strings.ToUpper(vv) == "NULL" {
+				continue
+			}
+			inputStr = vv
+		default:
+			inputStr = fmt.Sprintf("%v", vv)
+		}
+		ctx.hasher.Reset()
+		ctx.hasher.Write([]byte(inputStr))
+		hashedValue = fmt.Sprintf("%016x", ctx.hasher.Sum64())
+		hashedValue4KeyFile = hashedValue
+		(*input)[icol] = hashedValue
+		ctx.hasher.Reset()
+		ctx.hasher.Write([]byte(inputStr))
+		ctx.hasher.Write([]byte(hashedValue4KeyFile))
+		ctx.keysMap.Put(ctx.hasher.Sum64(), [2]string{inputStr, hashedValue4KeyFile})
+	}
 	// Send the result to output
 	select {
 	case ctx.outputCh.channel <- *input:
@@ -141,7 +163,7 @@ func (ctx *AnonymizeTransformationPipe) Apply(input *[]interface{}) error {
 func (ctx *AnonymizeTransformationPipe) Done() error {
 	var err error
 	ctx.keysMap.Iter(func(k uint64, v [2]string) (stop bool) {
-		outputRow := make([]interface{}, len(*ctx.keysOutputCh.columns))
+		outputRow := make([]any, len(*ctx.keysOutputCh.columns))
 		outputRow[(*ctx.keysOutputCh.columns)["hashed_key"]] = k
 		outputRow[(*ctx.keysOutputCh.columns)["original_value"]] = v[0]
 		outputRow[(*ctx.keysOutputCh.columns)["anonymized_value"]] = v[1]
