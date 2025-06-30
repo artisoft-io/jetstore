@@ -30,6 +30,7 @@ func (ctx *BadRowsChannel) Write(nodeId int) {
 	var cpErr, err error
 	var fout *os.File
 	var tempFileName, s3FileName, fileName string
+	var nrows int64
 
 	// Create a local temp dir to save the file partition for writing to s3
 	localTempDir, err2 := os.MkdirTemp("", "bad_rows")
@@ -59,7 +60,7 @@ func (ctx *BadRowsChannel) Write(nodeId int) {
 	}
 
 	// open the local temp file
-	fmt.Println("*** BadRowChannel.Write: create tempFileName:", tempFileName)
+	// fmt.Println("*** BadRowChannel.Write: create tempFileName:", tempFileName)
 	fout, err = os.Create(tempFileName)
 	if err != nil {
 		cpErr = fmt.Errorf("opening output file failed (in BadRowsChannel.Write): %v", err)
@@ -70,20 +71,22 @@ func (ctx *BadRowsChannel) Write(nodeId int) {
 	}()
 
 	// Write the partition
-	cpErr = ctx.write(fout)
+	nrows, cpErr = ctx.write(fout)
 	if cpErr != nil {
 		goto gotError
 	}
 
-	fmt.Println("*** BadRowsChannel.Write: DONE writing local file:", tempFileName)
-	// schedule the file to be moved to s3
-	select {
-	case ctx.s3DeviceManager.WorkersTaskCh <- S3Object{
-		FileKey:       s3FileName,
-		LocalFilePath: tempFileName,
-	}:
-	case <-ctx.doneCh:
-		log.Printf("sending file to S3DeviceManager interrupted (in BadRowsChannel.Write)")
+	// fmt.Println("*** BadRowsChannel.Write: DONE writing local file:", tempFileName)
+	if nrows > 0 {
+		// schedule the file to be moved to s3
+		select {
+		case ctx.s3DeviceManager.WorkersTaskCh <- S3Object{
+			FileKey:       s3FileName,
+			LocalFilePath: tempFileName,
+		}:
+		case <-ctx.doneCh:
+			log.Printf("sending file to S3DeviceManager interrupted (in BadRowsChannel.Write)")
+		}
 	}
 
 	// All good!
@@ -104,20 +107,21 @@ func (ctx *BadRowsChannel) Done() {
 	close(ctx.OutputCh)
 }
 
-func (ctx *BadRowsChannel) write(fout *os.File) (err error) {
+func (ctx *BadRowsChannel) write(fout *os.File) (nrows int64, err error) {
 	writer := bufio.NewWriter(fout)
 	defer writer.Flush()
-	
+
 	// Write the rows into the temp file
 	for row := range ctx.OutputCh {
 		_, err = writer.Write(row)
 		if err != nil {
-			return fmt.Errorf("while writing a bad row to local file: %v", err)
+			return 0, fmt.Errorf("while writing a bad row to local file: %v", err)
 		}
+		nrows++
 		// err = writer.WriteByte('\n')
 		// if err != nil {
 		// 	return fmt.Errorf("while writing a bad row to local file-2: %v", err)
 		// }
 	}
-	return nil
+	return
 }

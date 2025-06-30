@@ -38,7 +38,6 @@ func (cpCtx *ComputePipesContext) LoadFiles(ctx context.Context, dbpool *pgxpool
 	var inputSchemaCh chan ParquetSchemaInfo
 
 	defer func() {
-		log.Printf("*** LoadFile: terminating, err?: %v\n", err)
 		if r := recover(); r != nil {
 			var buf strings.Builder
 			buf.WriteString(fmt.Sprintf("LoadFiles: recovered error: %v\n", r))
@@ -97,8 +96,10 @@ func (cpCtx *ComputePipesContext) LoadFiles(ctx context.Context, dbpool *pgxpool
 	if inputChannelConfig.BadRowsConfig != nil {
 		// s3 partitioning, write the partition files in the JetStore's stage path defined by the env var JETS_s3_STAGE_PREFIX
 		// baseOutputPath structure is: <JETS_s3_STAGE_PREFIX>/process_name=QcProcess/session_id=123456789/step_id=reduce01/jets_partition=22p/
+		// NOTE: All partitions for bad rows are written to partion '0p' so we can use merge_files operator
+		//       (otherwise use cpCtx.JetsPartitionLabel so save in current partition)
 		baseOutputPath := fmt.Sprintf("%s/process_name=%s/session_id=%s/step_id=%s/jets_partition=%s",
-			jetsS3StagePrefix, cpCtx.ProcessName, cpCtx.SessionId, inputChannelConfig.BadRowsConfig.BadRowsStepId, cpCtx.JetsPartitionLabel)
+			jetsS3StagePrefix, cpCtx.ProcessName, cpCtx.SessionId, inputChannelConfig.BadRowsConfig.BadRowsStepId, "0p")
 
 		badRowChannel = NewBadRowChannel(cpCtx.S3DeviceMgr, baseOutputPath,
 			cpCtx.Done, cpCtx.ErrCh)
@@ -540,6 +541,14 @@ func (cpCtx *ComputePipesContext) ReadFixedWidthFile(
 		// Check if we enforce the row length
 		enforceRowMinLength = inputChannelConfig.EnforceRowMinLength
 		enforceRowMaxLength = inputChannelConfig.EnforceRowMaxLength
+		if cpCtx.CpConfig.ClusterConfig.IsDebugMode {
+			if enforceRowMinLength {
+				log.Println("Enforcing row min length for fixed_width file")
+			}
+			if enforceRowMaxLength {
+				log.Println("Enforcing row max length for fixed_width file")
+			}
+		}
 	case "reducing":
 		inputColumns = cpCtx.CpConfig.CommonRuntimeArgs.SourcesConfig.MainInput.InputColumns
 	default:
@@ -578,8 +587,8 @@ func (cpCtx *ComputePipesContext) ReadFixedWidthFile(
 			return 0, 0, fmt.Errorf("error: could not find end of previous record in ReadFixedWidthFile: key %s", filePath.InFileKeyInfo.key)
 		}
 		// seek to first character after the last '\n'
-		// log.Printf("*** OFFSET POSITIONING SEEKING to pos %d\n", l+beOffset)
-		_, err = fileReader.Seek(int64(l+beOffset), 0)
+		// log.Printf("*** OFFSET POSITIONING SEEKING to pos %d\n", l+beOffset+1)
+		_, err = fileReader.Seek(int64(l+beOffset+1), 0)
 		if err != nil {
 			return 0, 0, fmt.Errorf("error while seeking to start of shard in ReadCsvFile: %v", err)
 		}
@@ -591,7 +600,7 @@ func (cpCtx *ComputePipesContext) ReadFixedWidthFile(
 	fwScanner = bufio.NewScanner(utfReader)
 
 	var inputRowCount, badRowCount int64
-	var record []interface{}
+	var record []any
 	var line, nextLine string
 	var recordTypeOffset int
 	// CHECK FOR OFFSET POSITIONING -- check if we drop the last record
@@ -613,7 +622,7 @@ func (cpCtx *ComputePipesContext) ReadFixedWidthFile(
 			}
 		}
 		line = fwScanner.Text()
-		// log.Println("FIRST LINE:", line,"size:",len(line))
+		// log.Println("***FIRST LINE:", line[0:int(math.Min(40, float64(len(line))))],"size:",len(line))
 	}
 loop_record:
 	for {
@@ -628,14 +637,14 @@ loop_record:
 				continue
 			}
 			cpCtx.SamplingCount = 0
-			record = make([]interface{}, nbrColumns)
+			record = make([]any, nbrColumns)
 			if dropLastRow {
 				nextLine = fwScanner.Text()
 				// log.Println("NEXT LINE:", nextLine,"size:",len(nextLine))
 			} else {
 				line = fwScanner.Text()
 			}
-			// log.Println("CURRENT LINE:", line,"size:",len(line))
+			// log.Println("***CURRENT LINE:", line[:int(math.Min(40, float64(len(line))))],"size:",len(line))
 			ll := len(line)
 			// split the line into the record according to the record type
 			var recordType string
@@ -677,9 +686,10 @@ loop_record:
 						}
 					case enforceRowMinLength:
 						// Input line is too short - got a bad row
+						// fmt.Printf("***TOO SHORT %d/%d **%s\n", len(line), maxEnd, line[:int(math.Min(40, float64(len(line))))])
 						if badRowChannel != nil {
 							select {
-							case badRowChannel.OutputCh <- []byte(line):
+							case badRowChannel.OutputCh <- []byte(line+"\n"):
 							case <-cpCtx.Done:
 								log.Println("Sending bad input row interrupted (ReadFixedWidthFile-1)")
 								return inputRowCount, badRowCount, nil
@@ -700,9 +710,10 @@ loop_record:
 				if maxEnd < ll && enforceRowMaxLength {
 					// Input line is too long, did not used all the input characters
 					// Got a bad row
+					// fmt.Printf("***TOO LONG %d/%d **%s\n", len(line), maxEnd, line[:int(math.Min(40, float64(len(line))))])
 					if badRowChannel != nil {
 						select {
-						case badRowChannel.OutputCh <- []byte(line):
+						case badRowChannel.OutputCh <- []byte(line+"\n"):
 						case <-cpCtx.Done:
 							log.Println("Sending bad input row interrupted (ReadFixedWidthFile-2)")
 							return inputRowCount, badRowCount, nil
