@@ -236,9 +236,6 @@ func (cpCtx *ComputePipesContext) ReadCsvFile(
 	case "reducing":
 		// Bad Rows are identified during the sharding phase only
 		badRowChannel = nil
-		if delimiter == 0 {
-			delimiter = ','
-		}
 	}
 	// log.Printf("*** ReadCsvFile: read file from %d to %d of file size %d\n", filePath.InFileKeyInfo.start, filePath.InFileKeyInfo.end, filePath.InFileKeyInfo.size)
 

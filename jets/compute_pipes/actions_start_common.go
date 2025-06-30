@@ -538,6 +538,9 @@ func (args *CpipesStartup) ValidatePipeSpecConfig(cpConfig *ComputePipesConfig, 
 				syncInputChannelWithSchemaProvider(&pipeSpec.InputChannel, sp)
 			}
 			// Apply defaults
+			if pipeSpec.InputChannel.Delimiter == 0 {
+				pipeSpec.InputChannel.Delimiter = ','
+			}
 			if len(pipeSpec.InputChannel.Format) == 0 {
 				pipeSpec.InputChannel.Format = "headerless_csv"
 			}

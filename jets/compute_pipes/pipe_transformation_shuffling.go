@@ -12,15 +12,15 @@ type ShufflingTransformationPipe struct {
 	source        *InputChannel
 	outputCh      *OutputChannel
 	metaLookupTbl LookupTable
-	sourceData    [][]interface{}
+	sourceData    [][]any
 	maxInputCount int
 	spec          *TransformationSpec
-	env           map[string]interface{}
+	env           map[string]any
 	doneCh        chan struct{}
 }
 
 // Implementing interface PipeTransformationEvaluator
-func (ctx *ShufflingTransformationPipe) Apply(input *[]interface{}) error {
+func (ctx *ShufflingTransformationPipe) Apply(input *[]any) error {
 	if input == nil {
 		return fmt.Errorf("error: unexpected null input arg in ShufflingTransformationPipe")
 	}
@@ -41,7 +41,7 @@ func (ctx *ShufflingTransformationPipe) Apply(input *[]interface{}) error {
 func (ctx *ShufflingTransformationPipe) Done() error {
 	nbrRecIn := len(ctx.sourceData)
 	for range ctx.spec.ShufflingConfig.OutputSampleSize {
-		outputRow := make([]interface{}, len(*ctx.outputCh.columns))
+		outputRow := make([]any, len(*ctx.outputCh.columns))
 		// For each column take a random value from the sourceData set
 		for name, jcol := range *ctx.outputCh.columns {
 			outputRow[jcol] = ctx.sourceData[rand.Intn(nbrRecIn)][(*ctx.source.columns)[name]]
@@ -128,7 +128,7 @@ func (ctx *BuilderContext) NewShufflingTransformationPipe(source *InputChannel, 
 		source:        source,
 		outputCh:      outputCh,
 		metaLookupTbl: metaLookupTbl,
-		sourceData:    make([][]interface{}, 0, nsize),
+		sourceData:    make([][]any, 0, nsize),
 		maxInputCount: config.MaxInputSampleSize,
 		spec:          spec,
 		env:           ctx.env,
