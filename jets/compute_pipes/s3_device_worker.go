@@ -48,7 +48,7 @@ func (ctx *S3DeviceWorker) processTask(task *S3Object, _ *S3DeviceManager, resul
 	var putObjInput *s3.PutObjectInput
 	var retry int
 
-	// log.Println("S3DeviceWorker: Put file to s3 key:",task.FileKey)
+	// log.Printf("*** S3DeviceWorker: Put s3 key %s, from local file %s\n",task.FileKey, task.LocalFilePath)
 	// open the local temp file for the writer
 	fileHd, err := os.Open(task.LocalFilePath)
 	if err != nil {

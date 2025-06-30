@@ -95,7 +95,12 @@ func (cpCtx *ComputePipesContext) LoadFiles(ctx context.Context, dbpool *pgxpool
 	// Start BadRow Channel if configured
 	var badRowChannel *BadRowsChannel
 	if inputChannelConfig.BadRowsConfig != nil {
-		badRowChannel = NewBadRowChannel(cpCtx.S3DeviceMgr, inputChannelConfig.BadRowsConfig.BadRowsStepId,
+		// s3 partitioning, write the partition files in the JetStore's stage path defined by the env var JETS_s3_STAGE_PREFIX
+		// baseOutputPath structure is: <JETS_s3_STAGE_PREFIX>/process_name=QcProcess/session_id=123456789/step_id=reduce01/jets_partition=22p/
+		baseOutputPath := fmt.Sprintf("%s/process_name=%s/session_id=%s/step_id=%s/jets_partition=%s",
+			jetsS3StagePrefix, cpCtx.ProcessName, cpCtx.SessionId, inputChannelConfig.BadRowsConfig.BadRowsStepId, cpCtx.JetsPartitionLabel)
+
+		badRowChannel = NewBadRowChannel(cpCtx.S3DeviceMgr, baseOutputPath,
 			cpCtx.Done, cpCtx.ErrCh)
 		defer badRowChannel.Done()
 		go badRowChannel.Write(cpCtx.NodeId)
