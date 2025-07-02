@@ -24,7 +24,7 @@ var bigChunk int64 = 100 * 1024 * 1024  // multi part: part size of 100 MB for f
 // helper function to build the string for the range of bits to copy
 func buildCopySourceRange(start, partSize, objectSize int64) string {
 	end := start + partSize - 1
-	if end > objectSize {
+	if end >= objectSize {
 		end = objectSize - 1
 	}
 	return fmt.Sprintf("bytes=%d-%d", start, end)
