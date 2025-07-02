@@ -401,6 +401,7 @@ func UploadToS3FromReader(externalBucket, objKey string, reader io.Reader) error
 	// Create an uploader with the client and custom options
 	uploader := manager.NewUploader(s3Client,  func(u *manager.Uploader) {
     u.PartSize = 64 * 1024 * 1024 // 64MB per part
+		u.Concurrency = 10
 	})
 	putObjInput := &s3.PutObjectInput{
 		Bucket: &externalBucket,
