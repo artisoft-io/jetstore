@@ -85,7 +85,7 @@ func (jsComp *JetStoreStackComponents) BuildCpipesLambdas(scope constructs.Const
 			"WORKSPACE":       jsii.String(os.Getenv("WORKSPACE")),
 		},
 		MemorySize:           jsii.Number(memLimit),
-		EphemeralStorageSize: awscdk.Size_Mebibytes(jsii.Number(20*1024)),
+		EphemeralStorageSize: awscdk.Size_Mebibytes(jsii.Number(10240)),
 		Timeout:              awscdk.Duration_Minutes(jsii.Number(15)),
 		Vpc:                  jsComp.Vpc,
 		VpcSubnets:           jsComp.IsolatedSubnetSelection,
