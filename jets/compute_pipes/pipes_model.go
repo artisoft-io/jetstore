@@ -173,7 +173,7 @@ type LookupSpec struct {
 	// type range: sql_lookup, s3_csv_lookup
 	Key          string            `json:"key"`
 	Type         string            `json:"type"`
-	Query        string            `json:"query,omitempty"`      // for sql_lookup
+	Query        string            `json:"query,omitempty"`     // for sql_lookup
 	CsvSource    *CsvSourceSpec    `json:"csv_source,omitzero"` //for s3_csv_lookup
 	Columns      []TableColumnSpec `json:"columns,omitempty"`
 	LookupKey    []string          `json:"lookup_key,omitempty"`
@@ -458,6 +458,7 @@ type AnalyzeSpec struct {
 	SchemaProvider                  string              `json:"schema_provider,omitempty"`
 	ScrubChars                      string              `json:"scrub_chars,omitempty"`
 	DistinctValuesWhenLessThanCount int                 `json:"distinct_values_when_less_than_count,omitzero"`
+	PadShortRowsWithNulls           bool                `json:"pad_short_rows_with_nulls,omitzero"`
 	EntityHints                     []*EntityHint       `json:"entity_hints,omitempty"`
 	RegexTokens                     []RegexNode         `json:"regex_tokens,omitempty"`
 	LookupTokens                    []LookupTokenNode   `json:"lookup_tokens,omitempty"`
@@ -672,9 +673,10 @@ type DistinctSpec struct {
 }
 
 type ShufflingSpec struct {
-	MaxInputSampleSize int               `json:"max_input_sample_size,omitzero"`
-	OutputSampleSize   int               `json:"output_sample_size,omitzero"`
-	FilterColumns      *FilterColumnSpec `json:"filter_columns,omitzero"`
+	MaxInputSampleSize    int               `json:"max_input_sample_size,omitzero"`
+	OutputSampleSize      int               `json:"output_sample_size,omitzero"`
+	PadShortRowsWithNulls bool              `json:"pad_short_rows_with_nulls,omitzero"`
+	FilterColumns         *FilterColumnSpec `json:"filter_columns,omitzero"`
 }
 
 type FilterColumnSpec struct {

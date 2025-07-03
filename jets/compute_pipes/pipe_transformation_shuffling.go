@@ -14,6 +14,7 @@ type ShufflingTransformationPipe struct {
 	metaLookupTbl LookupTable
 	sourceData    [][]any
 	maxInputCount int
+	padShortRows  bool
 	spec          *TransformationSpec
 	env           map[string]any
 	doneCh        chan struct{}
@@ -26,9 +27,15 @@ func (ctx *ShufflingTransformationPipe) Apply(input *[]any) error {
 	}
 	inputLen := len(*input)
 	expectedLen := len(ctx.source.config.Columns)
-	if inputLen != expectedLen {
-		// Skip the row
-		return nil
+	if inputLen < expectedLen {
+		if ctx.padShortRows {
+			for range expectedLen - inputLen {
+				*input = append(*input, nil)
+			}
+		} else {
+			// Skip the row
+			return nil
+		}
 	}
 
 	if len(ctx.sourceData) < ctx.maxInputCount {
@@ -130,6 +137,7 @@ func (ctx *BuilderContext) NewShufflingTransformationPipe(source *InputChannel, 
 		metaLookupTbl: metaLookupTbl,
 		sourceData:    make([][]any, 0, nsize),
 		maxInputCount: config.MaxInputSampleSize,
+		padShortRows:  config.PadShortRowsWithNulls,
 		spec:          spec,
 		env:           ctx.env,
 		doneCh:        ctx.done,

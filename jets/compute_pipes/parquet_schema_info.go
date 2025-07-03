@@ -588,7 +588,7 @@ func ConvertWithSchemaV1(irow int, col arrow.Array, trimStrings bool, castToRdfT
 	case arrow.PrimitiveTypes.Float32.Name():
 		v, ok := col.(*array.Float32)
 		if ok {
-			value = strconv.FormatFloat(float64(v.Value(irow)), 'f', -1, 32)
+			value = strconv.FormatFloat(float64(v.Value(irow)), 'g', -1, 32)
 		} else {
 			return nil, fmt.Errorf("error: ConvertWithSchemaV1 expecting *array.Float32 got %T", v)
 		}
@@ -596,7 +596,7 @@ func ConvertWithSchemaV1(irow int, col arrow.Array, trimStrings bool, castToRdfT
 	case arrow.PrimitiveTypes.Float64.Name():
 		v, ok := col.(*array.Float64)
 		if ok {
-			value = strconv.FormatFloat(v.Value(irow), 'f', -1, 32)
+			value = strconv.FormatFloat(v.Value(irow), 'g', -1, 64)
 		} else {
 			return nil, fmt.Errorf("error: ConvertWithSchemaV1 expecting *array.Float64 got %T", v)
 		}

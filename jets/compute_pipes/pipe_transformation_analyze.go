@@ -73,31 +73,38 @@ type AnalyzeTransformationPipe struct {
 	analyzeState     []*AnalyzeState
 	columnEvaluators []TransformationColumnEvaluator
 	nbrRowsAnalyzed  int
-	firstInputRow    *[]interface{}
+	firstInputRow    *[]any
 	spec             *TransformationSpec
-	env              map[string]interface{}
+	padShortRows     bool
+	env              map[string]any
 	doneCh           chan struct{}
 }
 
 // Implementing interface PipeTransformationEvaluator
-func (ctx *AnalyzeTransformationPipe) Apply(input *[]interface{}) error {
+func (ctx *AnalyzeTransformationPipe) Apply(input *[]any) error {
 	var err error
 	if input == nil {
 		return fmt.Errorf("error: unexpected null input arg in AnalyzeTransformationPipe")
 	}
 	inputLen := len(*input)
 	expectedLen := len(ctx.source.config.Columns)
-	if inputLen != expectedLen {
-		// Skip the row
-		log.Println("*** AnalyzeTransformationPipe.Aplyt: INVALID ROW LEN", inputLen, "expecting", expectedLen, "columns")
-		return nil
+	if inputLen < expectedLen {
+		if ctx.padShortRows {
+			for range expectedLen - inputLen {
+				*input = append(*input, nil)
+			}
+		} else {
+			// Skip the row
+			log.Println("*** AnalyzeTransformationPipe.Aplyt: INVALID ROW LEN", inputLen, "expecting", expectedLen, "columns")
+			return nil
+		}
 	}
 
 	if ctx.firstInputRow == nil {
 		ctx.firstInputRow = input
 	}
 	ctx.nbrRowsAnalyzed++
-	for i := range *input {
+	for i := range expectedLen {
 		analyzeState := ctx.analyzeState[i]
 		err = analyzeState.NewValue((*input)[i])
 		if err != nil {
@@ -114,8 +121,8 @@ func (ctx *AnalyzeTransformationPipe) Done() error {
 	// For each column state in ctx.analyzeState, send out a row to ctx.outputCh
 	var ok bool
 	if ctx.firstInputRow == nil {
-		err := fmt.Errorf("error: AnalyzeTransformationPipe.Done firstInputRow is null, nbr rows analyzed is %d", 
-		ctx.nbrRowsAnalyzed)
+		err := fmt.Errorf("error: AnalyzeTransformationPipe.Done firstInputRow is null, nbr rows analyzed is %d",
+			ctx.nbrRowsAnalyzed)
 		log.Println(err)
 		return err
 	}
@@ -123,7 +130,7 @@ func (ctx *AnalyzeTransformationPipe) Done() error {
 		log.Printf("AnalyzeTransformationPipe.Done: Number of rows analyzed is %d", ctx.nbrRowsAnalyzed)
 	}
 	for _, state := range ctx.analyzeState {
-		outputRow := make([]interface{}, len(*ctx.outputCh.columns))
+		outputRow := make([]any, len(*ctx.outputCh.columns))
 
 		// The first base columns
 		var ipos int
@@ -457,6 +464,7 @@ func (ctx *BuilderContext) NewAnalyzeTransformationPipe(source *InputChannel, ou
 		inputDataType:    inputDataType,
 		analyzeState:     analyzeState,
 		columnEvaluators: columnEvaluators,
+		padShortRows:     config.PadShortRowsWithNulls,
 		spec:             spec,
 		env:              ctx.env,
 		doneCh:           ctx.done,
