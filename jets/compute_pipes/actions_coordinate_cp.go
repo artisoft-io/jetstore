@@ -228,7 +228,12 @@ func (args *ComputePipesNodeArgs) CoordinateComputePipes(ctx context.Context, db
 		cpErr = fmt.Errorf("failed to create local temp directory: %v", err)
 		goto gotError
 	}
-	defer os.RemoveAll(inFolderPath)
+	defer func ()  {
+		err := os.RemoveAll(inFolderPath)
+		if err != nil {
+			log.Printf("%s - WARNING while calling RemoveAll in main temp folder:%v", cpContext.SessionId, err)
+		}
+	}()
 
 	defer func() {
 		// log.Printf("##!@@ DONE CoordinateComputePipes closing Done ch")

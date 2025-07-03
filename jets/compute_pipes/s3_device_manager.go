@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"os"
 	"sync"
 
 	"github.com/aws/aws-sdk-go-v2/config"
@@ -18,10 +19,11 @@ import (
 // ClientWg is a wait group of the partition writers created during
 // BuildComputeGraph function. The WorkersTaskCh is closed in process_file.go
 type S3DeviceManager struct {
-	cpConfig         *ComputePipesConfig
-	s3WorkerPoolSize int
-	WorkersTaskCh    chan S3Object
-	ClientsWg        *sync.WaitGroup
+	cpConfig                 *ComputePipesConfig
+	s3WorkerPoolSize         int
+	WorkersTaskCh            chan S3Object
+	ClientsWg                *sync.WaitGroup
+	ParticipatingTempFolders []string
 }
 
 // S3Object is the worker's task payload to put a file to s3
@@ -48,10 +50,11 @@ func (cpCtx *ComputePipesContext) NewS3DeviceManager() error {
 	// Create the s3 device manager
 	var clientsWg sync.WaitGroup
 	s3DeviceManager := &S3DeviceManager{
-		cpConfig:         cpCtx.CpConfig,
-		s3WorkerPoolSize: cpCtx.CpConfig.ClusterConfig.S3WorkerPoolSize,
-		WorkersTaskCh:    make(chan S3Object, 10),
-		ClientsWg:        &clientsWg,
+		cpConfig:                 cpCtx.CpConfig,
+		s3WorkerPoolSize:         cpCtx.CpConfig.ClusterConfig.S3WorkerPoolSize,
+		WorkersTaskCh:            make(chan S3Object, 10),
+		ParticipatingTempFolders: make([]string, 0),
+		ClientsWg:                &clientsWg,
 	}
 
 	// Create a channel for the workers to report results
@@ -102,8 +105,15 @@ func (cpCtx *ComputePipesContext) NewS3DeviceManager() error {
 		}
 		wg.Wait()
 		close(s3WorkersResultCh)
+		// Cleaned up all participating temp folders
+		for _, folderPath := range s3DeviceManager.ParticipatingTempFolders {
+			err := os.RemoveAll(folderPath)
+			if err != nil {
+				log.Printf("%s - WARNING while calling RemoveAll for s3 Device Manager:%v", cpCtx.SessionId, err)
+			}
+		}
 	}()
-		// Set the S3DeviceManager to ComputePipesContext so it's avail when cpipes wind down
+	// Set the S3DeviceManager to ComputePipesContext so it's avail when cpipes wind down
 	cpCtx.S3DeviceMgr = s3DeviceManager
 	return nil
 }

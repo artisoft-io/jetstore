@@ -44,6 +44,7 @@ func (ctx *BadRowsChannel) Write(nodeId int) {
 	// Register as a client to S3DeviceManager
 	if ctx.s3DeviceManager.ClientsWg != nil {
 		ctx.s3DeviceManager.ClientsWg.Add(1)
+		ctx.s3DeviceManager.ParticipatingTempFolders = append(ctx.s3DeviceManager.ParticipatingTempFolders, localTempDir)
 	} else {
 		log.Panicln("ERROR Expecting ClientsWg not nil")
 	}
