@@ -352,7 +352,7 @@ func (cpCtx *ComputePipesContext) ReadCsvFile(
 			case err == io.EOF:
 				// exit route when use VariableFieldsPerRecord or UseLazyQuotes
 				return inputRowCount, badRowCount, nil
-			case (errors.Is(err, csv.ErrFieldCount) || errors.Is(err, csv.ErrQuote)) && nextInRowErr == nil:
+			case (errors.Is(err, csv.ErrFieldCount) || errors.Is(err, csv.ErrQuote) || errors.Is(err, csv.ErrBareQuote)) && nextInRowErr == nil:
 				nextInRowErr = err
 				rawNextInRow = slices.Clone(csvReader.LastRawRecord())
 				err = nil
@@ -393,7 +393,7 @@ func (cpCtx *ComputePipesContext) ReadCsvFile(
 			case err == io.EOF:
 				// expected exit route when not droping the last row
 				return inputRowCount, badRowCount, nil
-			case errors.Is(err, csv.ErrFieldCount) || errors.Is(err, csv.ErrQuote) ||
+			case errors.Is(err, csv.ErrFieldCount) || errors.Is(err, csv.ErrQuote) || errors.Is(err, csv.ErrBareQuote) ||
 				(enforceRowMinLength && len(inRow) < expectedNbrColumnsInFile) ||
 				(enforceRowMaxLength && len(inRow) > expectedNbrColumnsInFile):
 				// Got a bad row or row is not of expected length and length is enforced

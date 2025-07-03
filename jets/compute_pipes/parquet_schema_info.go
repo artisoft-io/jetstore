@@ -597,6 +597,11 @@ func ConvertWithSchemaV1(irow int, col arrow.Array, trimStrings bool, castToRdfT
 		v, ok := col.(*array.Float64)
 		if ok {
 			value = strconv.FormatFloat(v.Value(irow), 'g', -1, 64)
+			//***CHECK
+			_, e1 := strconv.ParseFloat(value, 64)
+			if e1 != nil {
+				return nil, fmt.Errorf("parse float check: orgiginal float64: %v, value str: %s, conversion err from str:%v", v.Value(irow), value, e1)
+			}
 		} else {
 			return nil, fmt.Errorf("error: ConvertWithSchemaV1 expecting *array.Float64 got %T", v)
 		}
