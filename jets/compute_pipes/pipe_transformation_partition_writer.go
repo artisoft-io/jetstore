@@ -386,9 +386,15 @@ func (ctx *BuilderContext) NewPartitionWriterTransformationPipe(source *InputCha
 		//*TODO Cannot use parquet with output_channel with dynamic columns, need to defer the construction of the schema
 		switch config.DeviceWriterType {
 		case "parquet_writer":
-			if spec.OutputChannel.UseInputParquetSchema {
+			switch {
+			case spec.OutputChannel.UseInputParquetSchema:
+				// log.Println("** parquet_writer: Using schema from input file")
 				parquetSchema = ctx.inputParquetSchema
-			} else {
+			case spec.OutputChannel.ParquetSchema != nil:
+				// log.Println("** parquet_writer: Using schema from output channel config")
+				parquetSchema = spec.OutputChannel.ParquetSchema
+			default:
+				// log.Println("** parquet_writer: Constructing a default schema")
 				parquetSchema = BuildParquetSchemaInfo(outputCh.config.Columns)
 			}
 		}

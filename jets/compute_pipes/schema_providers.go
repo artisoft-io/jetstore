@@ -50,6 +50,7 @@ type SchemaProvider interface {
 	IsPartFiles() bool
 	NbrRowsInRecord() int64
 	NoQuotes() bool
+	ParquetSchema() *ParquetSchemaInfo
 	QuoteAllRecords() bool
 	ReadBatchSize() int64
 	ReadDateLayout() string
@@ -190,6 +191,13 @@ func (sp *DefaultSchemaProvider) NbrRowsInRecord() int64 {
 		return 0
 	}
 	return sp.spec.NbrRowsInRecord
+}
+
+func (sp *DefaultSchemaProvider) ParquetSchema() *ParquetSchemaInfo {
+	if sp == nil {
+		return nil
+	}
+	return sp.spec.ParquetSchema
 }
 
 func (sp *DefaultSchemaProvider) ReadBatchSize() int64 {

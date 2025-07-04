@@ -576,7 +576,9 @@ func (args *CpipesStartup) ValidatePipeSpecConfig(cpConfig *ComputePipesConfig, 
 		for j := range pipeSpec.Apply {
 			transformationConfig := &pipeSpec.Apply[j]
 			outputChConfig := &transformationConfig.OutputChannel
-			// log.Printf("VALIDATE PIPESPEC %s APPLY %s OUTPUT %s SP %s\n", pipeSpec.Type, transformationConfig.Type, transformationConfig.OutputChannel.Name, transformationConfig.OutputChannel.SchemaProvider)
+			// log.Printf("*** VALIDATE PIPESPEC %s APPLY %s OUTPUT %s SP %s\n", 
+			// 	pipeSpec.Type, transformationConfig.Type, transformationConfig.OutputChannel.Name, 
+			// 	transformationConfig.OutputChannel.SchemaProvider)
 			sp := getSchemaProvider(cpConfig.SchemaProviders, outputChConfig.SchemaProvider)
 			// validate transformation pipe config
 			switch transformationConfig.Type {
@@ -676,6 +678,7 @@ func (args *CpipesStartup) ValidatePipeSpecConfig(cpConfig *ComputePipesConfig, 
 //   - IsPartFiles
 //   - NbrRowsInRecord
 //   - NoQuotes
+//   - ParquetSchema
 //   - QuoteAllRecords
 //   - ReadBatchSize
 //   - ReadDateLayout
@@ -759,6 +762,12 @@ func syncInputChannelWithSchemaProvider(ic *InputChannelConfig, sp *SchemaProvid
 		sp.NoQuotes = ic.NoQuotes
 	}
 
+	if ic.ParquetSchema == nil {
+		ic.ParquetSchema = sp.ParquetSchema
+	} else {
+		sp.ParquetSchema = ic.ParquetSchema
+	}
+
 	if !ic.QuoteAllRecords {
 		ic.QuoteAllRecords = sp.QuoteAllRecords
 	} else {
@@ -810,6 +819,7 @@ func syncInputChannelWithSchemaProvider(ic *InputChannelConfig, sp *SchemaProvid
 //   - Format
 //   - NbrRowsInRecord
 //   - NoQuotes
+//   - ParquetSchema
 //   - QuoteAllRecords
 //   - ReadBatchSize
 //   - ReadDateLayout
@@ -857,6 +867,12 @@ func syncOutputChannelWithSchemaProvider(ic *OutputChannelConfig, sp *SchemaProv
 		ic.NoQuotes = sp.NoQuotes
 	} else {
 		sp.NoQuotes = ic.NoQuotes
+	}
+
+	if ic.ParquetSchema == nil {
+		ic.ParquetSchema = sp.ParquetSchema
+	} else {
+		sp.ParquetSchema = ic.ParquetSchema
 	}
 
 	if !ic.QuoteAllRecords {

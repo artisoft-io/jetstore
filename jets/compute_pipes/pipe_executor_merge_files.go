@@ -154,7 +154,7 @@ func (cpCtx *ComputePipesContext) StartMergeFiles(dbpool *pgxpool.Pool) (cpErr e
 	var err, mergeErr error
 	var nrowsInRec int64
 
-	if inputFormat == "parquet" && len(cpCtx.InputFileKeys) > 1 {
+	if inputFormat == "parquet" {
 		// merge parquet files into a single file
 		// Pipe the writer to a reader to content goes directly to s3
 		// log.Printf("*** MERGE %d files to single parquet file\n", len(cpCtx.InputFileKeys))

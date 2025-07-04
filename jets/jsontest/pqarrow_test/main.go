@@ -115,6 +115,7 @@ func writeParquet() error {
 
 func readParquet() error {
 	f, err := os.Open(parquetFile)
+	// f, err := os.Open("/home/michel/Downloads/parquet_sample_data.csv.parquet")
 	if err != nil {
 		return err
 	}
@@ -133,6 +134,9 @@ func readParquet() error {
 	}
 	fmt.Println("The file contains",reader.ParquetReader().NumRows(),"rows")
 	schema, err := reader.Schema()
+	if err != nil {
+		return err
+	}
 	// fmt.Println("The reader schema", schema,"err?", err)
 	for _, field := range schema.Fields() {
 		fmt.Printf("FIELD: %s, type %s, nullable? %v\n", field.Name, field.Type.Name(), field.Nullable)
@@ -145,15 +149,17 @@ func readParquet() error {
 		return err
 	}
 	defer recordReader.Release()
+	fmt.Println("Reading records...")
 
 	for recordReader.Next() {
 		rec := recordReader.Record()
-		fmt.Println("rec schema:", rec.Schema())
+		// fmt.Println("rec schema:", rec.Schema())
 		fmt.Printf("🔹 Record batch with %d rows:\n", rec.NumRows())
 		fmt.Println(rec)
 
 		rec.Release()
 	}
+	fmt.Println("Reading records...DONE", recordReader.Err())
 
 	return nil
 }

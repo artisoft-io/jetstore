@@ -100,9 +100,6 @@ func (ctx *S3DeviceWriter) WriteParquetPartitionV2(fout io.Writer) {
 		close(ctx.doneCh)
 	}
 	nbrRows := ctx.spec.OutputChannel.NbrRowsInRecord
-	if nbrRows == 0 && ctx.schemaProvider != nil {
-		nbrRows = ctx.schemaProvider.NbrRowsInRecord()
-	}
 	// log.Printf("*** WriteParquetPartitionV2: calling WriteParquetPartitionV3 with nbrRowPerRecord of %d\n", nbrRows)
 	WriteParquetPartitionV3(ctx.parquetSchema, nbrRows, fout, ctx.source.channel, gotError)
 }
@@ -129,10 +126,8 @@ func (ctx *S3DeviceWriter) WriteCsvPartition(fout io.Writer) {
 	if ctx.spec.OutputChannel.Delimiter != 0 {
 		csvWriter.Comma = ctx.spec.OutputChannel.Delimiter
 	}
-	if ctx.schemaProvider != nil {
-		csvWriter.QuoteAll = ctx.schemaProvider.QuoteAllRecords()
-		csvWriter.NoQuotes = ctx.schemaProvider.NoQuotes()
-	}
+	csvWriter.QuoteAll = ctx.spec.OutputChannel.QuoteAllRecords
+	csvWriter.NoQuotes = ctx.spec.OutputChannel.NoQuotes
 	if ctx.spec.OutputChannel.Format == "csv" {
 		err = csvWriter.Write(ctx.outputCh.config.Columns)
 		if err != nil {
