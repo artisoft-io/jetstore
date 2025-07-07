@@ -164,7 +164,7 @@ func GetRawHeadersCsv(fileHd *os.File, fileName, fileFormat, compression string,
 		return nil, errors.New("input csv file is empty (GetRawHeadersCsv)")
 	} else if err != nil {
 		err = fmt.Errorf("while reading csv headers (GetRawHeadersCsv): %v", err)
-		b, _ := json.Marshal(csvReader.LastRawRecord())
+		b, _ := json.Marshal(string(csvReader.LastRawRecord()))
 		log.Printf("%v: raw record as json string:\n%s", err, string(b))
 		return nil, err
 	}
