@@ -1,6 +1,7 @@
 package compute_pipes
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -163,7 +164,8 @@ func GetRawHeadersCsv(fileHd *os.File, fileName, fileFormat, compression string,
 		return nil, errors.New("input csv file is empty (GetRawHeadersCsv)")
 	} else if err != nil {
 		err = fmt.Errorf("while reading csv headers (GetRawHeadersCsv): %v", err)
-		log.Printf("%v: raw record:\n%s", err, string(csvReader.LastRawRecord()))
+		b, _ := json.Marshal(csvReader.LastRawRecord())
+		log.Printf("%v: raw record as json string:\n%s", err, string(b))
 		return nil, err
 	}
 	// Make sure we don't have empty names in rawHeaders

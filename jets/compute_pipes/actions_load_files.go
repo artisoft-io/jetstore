@@ -3,6 +3,7 @@ package compute_pipes
 import (
 	"bufio"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -311,7 +312,8 @@ func (cpCtx *ComputePipesContext) ReadCsvFile(
 			return 0, 0, nil
 		case err != nil:
 			err = fmt.Errorf("while reading input record header line (ReadCsvFile): %v", err)
-			log.Printf("%v: raw record:\n%s", err, string(csvReader.LastRawRecord()))
+			b, _ := json.Marshal(csvReader.LastRawRecord())
+			log.Printf("%v: raw record as json string:\n%s", err, string(b))
 			return 0, 0, err
 		}
 	}
