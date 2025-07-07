@@ -160,9 +160,10 @@ func GetRawHeadersCsv(fileHd *os.File, fileName, fileFormat, compression string,
 	ic, err := csvReader.Read()
 	// log.Printf("*** GetRawHeadersCsv: got %d headers, err?: %v\n", len(ic), err)
 	if err == io.EOF {
-		return nil, errors.New("input csv file is empty")
+		return nil, errors.New("input csv file is empty (GetRawHeadersCsv)")
 	} else if err != nil {
-		err = fmt.Errorf("while reading csv headers: %v\n(raw record: %s)", err, string(csvReader.LastRawRecord()))
+		err = fmt.Errorf("while reading csv headers (GetRawHeadersCsv): %v", err)
+		log.Printf("%v: raw record:\n%s", err, string(csvReader.LastRawRecord()))
 		return nil, err
 	}
 	// Make sure we don't have empty names in rawHeaders
