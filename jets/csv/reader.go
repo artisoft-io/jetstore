@@ -111,6 +111,7 @@ func validDelim(r rune) bool {
 //
 // Modification made by jetstore:
 //   - Added NoQuotes field to indicate not to consider the quote char.
+//*TODO   - Added QuoteAll field to indicate all field are quoted, split on `","` and quote not escaped in field.
 type Reader struct {
 	// Comma is the field delimiter.
 	// It is set to comma (',') by NewReader.

@@ -310,7 +310,10 @@ func (cpCtx *ComputePipesContext) ReadCsvFile(
 		case err == io.EOF: // empty file
 			return 0, 0, nil
 		case err != nil:
-			return 0, 0, fmt.Errorf("error while reading input record header line (ReadCsvFile): %v", err)
+			err = fmt.Errorf("while reading input record header line (ReadCsvFile): %v\n(raw record: %s)", 
+			err, string(csvReader.LastRawRecord()))
+			log.Println(err)
+			return 0, 0, err
 		}
 	}
 
