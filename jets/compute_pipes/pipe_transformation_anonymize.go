@@ -52,7 +52,9 @@ func (ctx *AnonymizeTransformationPipe) Apply(input *[]any) error {
 	// the same as hashedValue, except for dates it may use a different date formatter.
 	var inputStr, hashedValue, hashedValue4KeyFile string
 	inputLen := len(*input)
-	expectedLen := len(ctx.anonymActions)
+	expectedLen := len(ctx.source.config.Columns)
+	// log.Println("*** Anonymize Input:",*input)
+	// log.Println("*** Len Input:",inputLen, "Expected Len:", expectedLen)
 	// NOTE: Must handle rows with less or more columns than expected. Anonymize the extra columns without a prefix
 	for _, action := range ctx.anonymActions {
 		if action.inputColumn >= inputLen {
@@ -150,6 +152,7 @@ func (ctx *AnonymizeTransformationPipe) Apply(input *[]any) error {
 		ctx.keysMap.Put(ctx.hasher.Sum64(), [2]string{inputStr, hashedValue4KeyFile})
 	}
 	// Send the result to output
+	// log.Println("*** Anonymize Output:",*input)
 	select {
 	case ctx.outputCh.channel <- *input:
 	case <-ctx.doneCh:

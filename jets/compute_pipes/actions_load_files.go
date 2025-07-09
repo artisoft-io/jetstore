@@ -3,6 +3,7 @@ package compute_pipes
 import (
 	"bufio"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -310,7 +311,10 @@ func (cpCtx *ComputePipesContext) ReadCsvFile(
 		case err == io.EOF: // empty file
 			return 0, 0, nil
 		case err != nil:
-			return 0, 0, fmt.Errorf("error while reading input record header line (ReadCsvFile): %v", err)
+			err = fmt.Errorf("while reading input record header line (ReadCsvFile): %v", err)
+			b, _ := json.Marshal(string(csvReader.LastRawRecord()))
+			log.Printf("%v: raw record as json string:\n%s", err, string(b))
+			return 0, 0, err
 		}
 	}
 
@@ -352,7 +356,7 @@ func (cpCtx *ComputePipesContext) ReadCsvFile(
 			case err == io.EOF:
 				// exit route when use VariableFieldsPerRecord or UseLazyQuotes
 				return inputRowCount, badRowCount, nil
-			case (errors.Is(err, csv.ErrFieldCount) || errors.Is(err, csv.ErrQuote)) && nextInRowErr == nil:
+			case (errors.Is(err, csv.ErrFieldCount) || errors.Is(err, csv.ErrQuote) || errors.Is(err, csv.ErrBareQuote)) && nextInRowErr == nil:
 				nextInRowErr = err
 				rawNextInRow = slices.Clone(csvReader.LastRawRecord())
 				err = nil
@@ -393,7 +397,7 @@ func (cpCtx *ComputePipesContext) ReadCsvFile(
 			case err == io.EOF:
 				// expected exit route when not droping the last row
 				return inputRowCount, badRowCount, nil
-			case errors.Is(err, csv.ErrFieldCount) || errors.Is(err, csv.ErrQuote) ||
+			case errors.Is(err, csv.ErrFieldCount) || errors.Is(err, csv.ErrQuote) || errors.Is(err, csv.ErrBareQuote) ||
 				(enforceRowMinLength && len(inRow) < expectedNbrColumnsInFile) ||
 				(enforceRowMaxLength && len(inRow) > expectedNbrColumnsInFile):
 				// Got a bad row or row is not of expected length and length is enforced

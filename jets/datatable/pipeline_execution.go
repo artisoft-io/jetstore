@@ -292,6 +292,7 @@ func (ctx *DataTableContext) StartPendingTasks(stateMachineName string) (err err
 	var submRc, submT1c int64
 	submRc, submT1c, err = ctx.GetTaskThrottlingInfo(stateMachineName, "submitted")
 	if err != nil {
+		err = fmt.Errorf("while getting the count of running pipelines and the size of their main input file: %v", err)
 		return
 	}
 	// Get the pending task info
@@ -335,7 +336,13 @@ func (ctx *DataTableContext) StartPendingTasks(stateMachineName string) (err err
 		// Start the state machine
 		err = ctx.startStateMachine(stateMachineName, &task)
 		if err != nil {
-			return
+			_, err2 := ctx.Dbpool.Exec(context.Background(),
+				`UPDATE jetsapi.pipeline_execution_status SET (status, failure_details, last_update) = ($1, $2, DEFAULT) WHERE key = $3`,
+				"failed", err.Error(), task.Key)
+			if err2 != nil {
+				return fmt.Errorf("failed to update pipeline status for failed start: %v", err)
+			}
+			continue
 		}
 		// Update the status of the task to submitted
 		_, err = ctx.Dbpool.Exec(context.Background(),

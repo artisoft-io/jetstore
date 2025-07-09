@@ -52,7 +52,8 @@ func WriteParquetPartitionV3(schemaInfo *ParquetSchemaInfo, nrowsInRec int64, fo
 		for i, builder := range builders {
 			value, err := ConvertToSchemaV2(inRow[i], schemaInfo.Fields[i])
 			if err != nil {
-				cpErr = fmt.Errorf("converting to parquet type failed: %v", err)
+				cpErr = fmt.Errorf("converting to parquet type failed for column %d (%s) type %s with value %v of type %T: %v", 
+					i, schemaInfo.Fields[i].Name, schemaInfo.Fields[i].Type, inRow[i], inRow[i], err)
 				// log.Println(cpErr, "...Ignored")
 				goto gotError
 			}

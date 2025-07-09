@@ -51,7 +51,7 @@ func (cpCtx *ComputePipesContext) ReadParquetFileV2(filePath *FileName,
 	}
 
 	schema, err := reader.Schema()
-	if err != nil {
+	if err != nil || schema == nil {
 		return 0, fmt.Errorf("while getting the arrow schema for '%s' (LoadFiles): %v", filePath.LocalFileName, err)
 	}
 
@@ -97,7 +97,7 @@ func (cpCtx *ComputePipesContext) ReadParquetFileV2(filePath *FileName,
 			if len(idx) > 0 {
 				columnIndices = append(columnIndices, idx[0])
 			} else {
-				return 0, fmt.Errorf("error: column %s is not found in the parquet schema of '%s' (LoadFiles)", c, cpCtx.FileKey)
+				return 0, fmt.Errorf("error: column %s is not found in the parquet schema of '%s' (ReadParquetFileV2)", c, cpCtx.FileKey)
 			}
 		}
 	}
@@ -139,7 +139,8 @@ func (cpCtx *ComputePipesContext) ReadParquetFileV2(filePath *FileName,
 	var done bool
 	for !done && recordReader.Next() {
 		// read and put the rows into computePipesInputCh
-		currentRow, inputRowCount, done, err = cpCtx.processRecord(computePipesInputCh, recordReader.Record(),
+		currentRow, inputRowCount, done, err = cpCtx.processRecord(computePipesInputCh, 
+			recordReader.Record(), parquetSchemaInfo,
 			nbrColumns, extColumns, trimColumns, castToRdfTxtTypeFncs,
 			firstRowToRead, nbrRowsToRead, samplingRate, samplingMaxCount, currentRow, inputRowCount)
 		if err != nil {
@@ -153,7 +154,8 @@ func (cpCtx *ComputePipesContext) ReadParquetFileV2(filePath *FileName,
 }
 
 func (cpCtx *ComputePipesContext) processRecord(computePipesInputCh chan<- []any, arrowRecord arrow.Record,
-	nbrColumns int, extColumns []string, trimColumns bool, castToRdfTxtTypeFncs []CastToRdfTxtFnc,
+	parquetSchemaInfo *ParquetSchemaInfo, nbrColumns int, extColumns []string, 
+	trimColumns bool, castToRdfTxtTypeFncs []CastToRdfTxtFnc,
 	firstRowToRead, nbrRowsToRead, samplingRate, samplingMaxCount, currentRow, inputRowCount int64) (int64, int64, bool, error) {
 	defer arrowRecord.Release()
 	var castFnc CastToRdfTxtFnc
@@ -195,7 +197,9 @@ func (cpCtx *ComputePipesContext) processRecord(computePipesInputCh chan<- []any
 				}
 				record[jcol], errCol = ConvertWithSchemaV1(irow, col, trimColumns, castFnc)
 				if errCol != nil {
-					return currentRow, inputRowCount, false, fmt.Errorf("error while reading input records (ReadParquetFile): %v", errCol)
+					return currentRow, inputRowCount, false, fmt.Errorf(
+						"while reading input records (ReadParquetFile) for column %d (%s) with value %v: %v", 
+						jcol, parquetSchemaInfo.Columns()[jcol], col.ValueStr(irow), errCol)
 				}
 			}
 		}

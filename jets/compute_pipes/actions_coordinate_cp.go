@@ -44,7 +44,7 @@ func (args *ComputePipesNodeArgs) CoordinateComputePipes(ctx context.Context, db
 
 	// Make sure we have a jet partition key set
 	if len(args.JetsPartitionLabel) == 0 {
-		args.JetsPartitionLabel = fmt.Sprintf("%dp", args.NodeId)
+		args.JetsPartitionLabel = fmt.Sprintf("%04dp", args.NodeId)
 	}
 
 	stmt := "SELECT cpipes_config_json FROM jetsapi.cpipes_execution_status WHERE pipeline_execution_status_key = %d"
@@ -228,7 +228,12 @@ func (args *ComputePipesNodeArgs) CoordinateComputePipes(ctx context.Context, db
 		cpErr = fmt.Errorf("failed to create local temp directory: %v", err)
 		goto gotError
 	}
-	defer os.RemoveAll(inFolderPath)
+	defer func ()  {
+		err := os.RemoveAll(inFolderPath)
+		if err != nil {
+			log.Printf("%s - WARNING while calling RemoveAll in main temp folder:%v", cpContext.SessionId, err)
+		}
+	}()
 
 	defer func() {
 		// log.Printf("##!@@ DONE CoordinateComputePipes closing Done ch")
