@@ -140,6 +140,7 @@ func (ctx *PartitionWriterTransformationPipe) Apply(input *[]interface{}) error 
 			externalBucket: &ctx.externalBucket,
 			s3BasePath:     ctx.baseOutputPath,
 			fileName:       &partitionFileName,
+			nodeId:         ctx.nodeId,
 			doneCh:         ctx.doneCh,
 			errCh:          ctx.errCh,
 		}

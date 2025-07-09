@@ -25,6 +25,7 @@ type S3DeviceWriter struct {
 	externalBucket  *string
 	s3BasePath      *string
 	fileName        *string
+	nodeId          int
 	spec            *TransformationSpec
 	outputCh        *OutputChannel
 	doneCh          chan struct{}
@@ -128,7 +129,10 @@ func (ctx *S3DeviceWriter) WriteCsvPartition(fout io.Writer) {
 	}
 	csvWriter.QuoteAll = ctx.spec.OutputChannel.QuoteAllRecords
 	csvWriter.NoQuotes = ctx.spec.OutputChannel.NoQuotes
-	if ctx.spec.OutputChannel.Format == "csv" {
+
+	// Writing headers conditionally
+	if ctx.spec.OutputChannel.Format == "csv" &&
+		(!ctx.spec.OutputChannel.PutHeadersOnFirstPartition || ctx.nodeId == 0) {
 		err = csvWriter.Write(ctx.outputCh.config.Columns)
 		if err != nil {
 			cpErr = fmt.Errorf("while writing headers to local csv file: %v", err)

@@ -60,11 +60,11 @@ func GetFileKeys(ctx context.Context, dbpool *pgxpool.Pool, sessionId string, no
 		// scan the row
 		var fileKeyInfo FileKeyInfo
 		if err = rows.Scan(
-			&fileKeyInfo.key, 
+			&fileKeyInfo.key,
 			&fileKeyInfo.size,
 			&fileKeyInfo.start,
 			&fileKeyInfo.end,
-			); err != nil {
+		); err != nil {
 			return nil, err
 		}
 		fileKeys = append(fileKeys, &fileKeyInfo)
@@ -76,6 +76,10 @@ func (cpCtx *ComputePipesContext) DownloadS3Files(inFolderPath, externalBucket s
 	go func() {
 		defer close(cpCtx.FileNamesCh)
 		defer close(cpCtx.DownloadS3ResultCh)
+		// Check if we need to download the files or not (see StartMergeFiles)
+		if !cpCtx.startDownloadFiles() {
+			return
+		}
 		var inFilePath string
 		var fileSize, totalFilesSize int64
 		var err error

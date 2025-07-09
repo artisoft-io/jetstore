@@ -28,12 +28,20 @@ import (
 // This module provides aws integration for JetStore
 
 // *TODO no need to pass bucket and region to this module
-var bucket, region, kmsKeyArn string
+var jetstoreOwnBucket, jetstoreOwnRegion, kmsKeyArn string
 
 func init() {
 	kmsKeyArn = os.Getenv("JETS_S3_KMS_KEY_ARN")
-	bucket = os.Getenv("JETS_BUCKET")
-	region = os.Getenv("JETS_REGION")
+	jetstoreOwnBucket = os.Getenv("JETS_BUCKET")
+	jetstoreOwnRegion = os.Getenv("JETS_REGION")
+}
+
+func JetStoreBucket() string {
+	return jetstoreOwnBucket
+}
+
+func JetStoreRegion() string {
+	return jetstoreOwnRegion
 }
 
 func LogMetric(metricName string, dimentions *map[string]string, count int) {
@@ -227,7 +235,7 @@ type S3Object struct {
 }
 
 func NewS3Client() (*s3.Client, error) {
-	cfg, err := config.LoadDefaultConfig(context.TODO(), config.WithRegion(region))
+	cfg, err := config.LoadDefaultConfig(context.TODO(), config.WithRegion(jetstoreOwnRegion))
 	if err != nil {
 		return nil, fmt.Errorf("while loading aws configuration: %v", err)
 	}
@@ -237,7 +245,7 @@ func NewS3Client() (*s3.Client, error) {
 
 func GetObjectSize(s3Client *s3.Client, s3bucket string, key string) (int64, error) {
 	if len(s3bucket) == 0 {
-		s3bucket = bucket
+		s3bucket = jetstoreOwnBucket
 	}
 	result, err := s3Client.GetObjectAttributes(context.TODO(), &s3.GetObjectAttributesInput{
 		Bucket: aws.String(s3bucket),
@@ -259,9 +267,14 @@ func ListS3Objects(externalBucket string, prefix *string) ([]*S3Object, error) {
 	if err != nil {
 		return nil, fmt.Errorf("while creating s3 client: %v", err)
 	}
+	return ListS3ObjectsV2(s3Client, externalBucket, prefix)
+}
 
+// ListObjects lists the objects in a bucket with prefix if not nil.
+// Read from externalBucket if not empty, otherwise read from jetstore default bucket
+func ListS3ObjectsV2(s3Client *s3.Client, externalBucket string, prefix *string) ([]*S3Object, error) {
 	if externalBucket == "" {
-		externalBucket = bucket
+		externalBucket = jetstoreOwnBucket
 	}
 
 	// Download the keys
@@ -290,7 +303,7 @@ func ListS3Objects(externalBucket string, prefix *string) ([]*S3Object, error) {
 		isTruncated = *result.IsTruncated
 		token = result.NextContinuationToken
 	}
-	return keys, err
+	return keys, nil
 }
 
 // Download obj from s3 into fileHd (must be writable), return size of download in bytes
@@ -395,7 +408,7 @@ func UploadToS3FromReader(externalBucket, objKey string, reader io.Reader) error
 
 	// check if we write to an external bucket
 	if externalBucket == "" {
-		externalBucket = bucket
+		externalBucket = jetstoreOwnBucket
 	}
 
 	// Create an uploader with the client and custom options
@@ -435,7 +448,7 @@ func UploadBufToS3(objKey string, buf []byte) error {
 	reader := bytes.NewReader(buf)
 	contentLen := int64(len(buf))
 	putObjInput := &s3.PutObjectInput{
-		Bucket:        &bucket,
+		Bucket:        &jetstoreOwnBucket,
 		Key:           &objKey,
 		Body:          reader,
 		ContentLength: &contentLen,
@@ -448,7 +461,7 @@ func UploadBufToS3(objKey string, buf []byte) error {
 	// uout, err := uploader.Upload(context.TODO(), putObjInput)
 	// _, err = uploader.Upload(context.TODO(), putObjInput)
 	if err != nil {
-		return fmt.Errorf("failed to PutObject buf to s3 bucket '%s': %v", bucket, err)
+		return fmt.Errorf("failed to PutObject buf to s3 bucket '%s': %v", jetstoreOwnBucket, err)
 	}
 	// log.Println("*** UNREAD PORTION OF BUF:", reader.Len(), "contentLen:", contentLen)
 	// if uout != nil {
@@ -473,14 +486,14 @@ do_retry:
 	buf := make([]byte, 2048)
 	// wrap with aws.WriteAtBuffer
 	w := manager.NewWriteAtBuffer(buf)
-	_, err = downloader.Download(context.TODO(), w, &s3.GetObjectInput{Bucket: &bucket, Key: &objKey})
+	_, err = downloader.Download(context.TODO(), w, &s3.GetObjectInput{Bucket: &jetstoreOwnBucket, Key: &objKey})
 	if err != nil {
 		if retry < 6 {
 			time.Sleep(500 * time.Millisecond)
 			retry++
 			goto do_retry
 		}
-		return nil, fmt.Errorf("failed to download s3 file 's3://%s/%s': %v", bucket, objKey, err)
+		return nil, fmt.Errorf("failed to download s3 file 's3://%s/%s': %v", jetstoreOwnBucket, objKey, err)
 	}
 	return bytes.TrimRightFunc(w.Bytes(), func(r rune) bool { return r == '\x00' }), nil
 }

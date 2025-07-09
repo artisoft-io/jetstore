@@ -14,12 +14,10 @@ import (
 // Functions to sync or copy s3 files to database (and locally) as large objects
 
 func SyncS3Files(dbpool *pgxpool.Pool, workspaceName, keyPrefix, trimPrefix, contentType string) error {
-	bucket := os.Getenv("JETS_BUCKET")
-	region := os.Getenv("JETS_REGION")
 	wh := os.Getenv("WORKSPACES_HOME")
 	// sync workspace files from s3 to locally
 	log.Println("Synching overriten workspace file from s3 using keyPrefix", keyPrefix)
-	keys, err := ListS3Objects(bucket, &keyPrefix)
+	keys, err := ListS3Objects(jetstoreOwnBucket, &keyPrefix)
 	if err != nil {
 		return err
 	}
@@ -36,7 +34,7 @@ func SyncS3Files(dbpool *pgxpool.Pool, workspaceName, keyPrefix, trimPrefix, con
 		}
 
 		// Download the object
-		nsz, err := DownloadFromS3(bucket, region, s3Obj.Key, fileHd)
+		nsz, err := DownloadFromS3(jetstoreOwnBucket, jetstoreOwnRegion, s3Obj.Key, fileHd)
 		if err != nil {
 			fileHd.Close()
 			return fmt.Errorf("failed to download input file: %v", err)

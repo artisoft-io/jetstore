@@ -236,33 +236,34 @@ type ContextSpec struct {
 // This is used by more specific types such as:
 // SchemaProviderSpec, InputChannelConfig, OutputChannelConfig, OutputFileSpec
 type FileConfig struct {
-	BadRowsConfig           *BadRowsSpec       `json:"bad_rows_config,omitzero"`
-	Bucket                  string             `json:"bucket,omitempty"`
-	Compression             string             `json:"compression,omitempty"`
-	Delimiter               rune               `json:"delimiter,omitzero"`
-	DetectEncoding          bool               `json:"detect_encoding,omitzero"`
-	DomainClass             string             `json:"domain_class,omitempty"`
-	DomainKeys              map[string]any     `json:"domain_keys,omitempty"`
-	Encoding                string             `json:"encoding,omitempty"`
-	EnforceRowMaxLength     bool               `json:"enforce_row_max_length,omitzero"`
-	EnforceRowMinLength     bool               `json:"enforce_row_min_length,omitzero"`
-	FileKey                 string             `json:"file_key,omitempty"`
-	FileName                string             `json:"file_name,omitempty"` // Type output
-	FixedWidthColumnsCsv    string             `json:"fixed_width_columns_csv,omitempty"`
-	Format                  string             `json:"format,omitempty"`
-	InputFormatDataJson     string             `json:"input_format_data_json,omitempty"`
-	IsPartFiles             bool               `json:"is_part_files,omitzero"`
-	KeyPrefix               string             `json:"key_prefix,omitempty"`
-	NbrRowsInRecord         int64              `json:"nbr_rows_in_record,omitzero"` // Format: parquet
-	NoQuotes                bool               `json:"no_quotes,omitzero"`
-	ParquetSchema           *ParquetSchemaInfo `json:"parquet_schema,omitzero"`
-	QuoteAllRecords         bool               `json:"quote_all_records,omitzero"`
-	ReadBatchSize           int64              `json:"read_batch_size,omitzero"` // Format: parquet
-	ReadDateLayout          string             `json:"read_date_layout,omitempty"`
-	TrimColumns             bool               `json:"trim_columns,omitzero"`
-	UseLazyQuotes           bool               `json:"use_lazy_quotes,omitzero"`
-	VariableFieldsPerRecord bool               `json:"variable_fields_per_record,omitzero"`
-	WriteDateLayout         string             `json:"write_date_layout,omitempty"`
+	BadRowsConfig              *BadRowsSpec       `json:"bad_rows_config,omitzero"`
+	Bucket                     string             `json:"bucket,omitempty"`
+	Compression                string             `json:"compression,omitempty"`
+	Delimiter                  rune               `json:"delimiter,omitzero"`
+	DetectEncoding             bool               `json:"detect_encoding,omitzero"`
+	DomainClass                string             `json:"domain_class,omitempty"`
+	DomainKeys                 map[string]any     `json:"domain_keys,omitempty"`
+	Encoding                   string             `json:"encoding,omitempty"`
+	EnforceRowMaxLength        bool               `json:"enforce_row_max_length,omitzero"`
+	EnforceRowMinLength        bool               `json:"enforce_row_min_length,omitzero"`
+	FileKey                    string             `json:"file_key,omitempty"`
+	FileName                   string             `json:"file_name,omitempty"` // Type output
+	FixedWidthColumnsCsv       string             `json:"fixed_width_columns_csv,omitempty"`
+	Format                     string             `json:"format,omitempty"`
+	InputFormatDataJson        string             `json:"input_format_data_json,omitempty"`
+	IsPartFiles                bool               `json:"is_part_files,omitzero"`
+	KeyPrefix                  string             `json:"key_prefix,omitempty"`
+	NbrRowsInRecord            int64              `json:"nbr_rows_in_record,omitzero"` // Format: parquet
+	NoQuotes                   bool               `json:"no_quotes,omitzero"`
+	ParquetSchema              *ParquetSchemaInfo `json:"parquet_schema,omitzero"`
+	PutHeadersOnFirstPartition bool               `json:"put_headers_on_first_partition,omitzero"`
+	QuoteAllRecords            bool               `json:"quote_all_records,omitzero"`
+	ReadBatchSize              int64              `json:"read_batch_size,omitzero"` // Format: parquet
+	ReadDateLayout             string             `json:"read_date_layout,omitempty"`
+	TrimColumns                bool               `json:"trim_columns,omitzero"`
+	UseLazyQuotes              bool               `json:"use_lazy_quotes,omitzero"`
+	VariableFieldsPerRecord    bool               `json:"variable_fields_per_record,omitzero"`
+	WriteDateLayout            string             `json:"write_date_layout,omitempty"`
 }
 
 type SchemaProviderSpec struct {

@@ -768,6 +768,12 @@ func syncInputChannelWithSchemaProvider(ic *InputChannelConfig, sp *SchemaProvid
 		sp.ParquetSchema = ic.ParquetSchema
 	}
 
+	if !ic.PutHeadersOnFirstPartition {
+		ic.PutHeadersOnFirstPartition = sp.PutHeadersOnFirstPartition
+	} else {
+		sp.PutHeadersOnFirstPartition = ic.PutHeadersOnFirstPartition
+	}
+
 	if !ic.QuoteAllRecords {
 		ic.QuoteAllRecords = sp.QuoteAllRecords
 	} else {
@@ -873,6 +879,12 @@ func syncOutputChannelWithSchemaProvider(ic *OutputChannelConfig, sp *SchemaProv
 		ic.ParquetSchema = sp.ParquetSchema
 	} else {
 		sp.ParquetSchema = ic.ParquetSchema
+	}
+
+	if !ic.PutHeadersOnFirstPartition {
+		ic.PutHeadersOnFirstPartition = sp.PutHeadersOnFirstPartition
+	} else {
+		sp.PutHeadersOnFirstPartition = ic.PutHeadersOnFirstPartition
 	}
 
 	if !ic.QuoteAllRecords {
