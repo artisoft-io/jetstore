@@ -94,9 +94,14 @@ var (
 )
 
 var errInvalidDelim = errors.New("csv: invalid field or comment delimiter")
+var errInvalidEolByte = errors.New("csv: invalid EOL byte")
 
 func validDelim(r rune) bool {
 	return r != 0 && r != '"' && r != '\r' && r != '\n' && utf8.ValidRune(r) && r != utf8.RuneError
+}
+
+func validEol(eol byte, delimit rune) bool {
+	return eol != 0 && eol != '"' && rune(eol) != delimit
 }
 
 // A Reader reads records from a CSV-encoded file.
@@ -111,13 +116,18 @@ func validDelim(r rune) bool {
 //
 // Modification made by jetstore:
 //   - Added NoQuotes field to indicate not to consider the quote char.
-//*TODO   - Added QuoteAll field to indicate all field are quoted, split on `","` and quote not escaped in field.
+//   - Added EolByte field to indicate the byte to use to mark EOL, defaults to '\n' (use with care!)
+//
+// *TODO   - Added QuoteAll field to indicate all field are quoted, split on `","` and quote not escaped in field.
 type Reader struct {
 	// Comma is the field delimiter.
 	// It is set to comma (',') by NewReader.
 	// Comma must be a valid rune and must not be \r, \n,
 	// or the Unicode replacement character (0xFFFD).
 	Comma rune
+
+	// EolByte indicate the byte marking the EOL, defaults to '\n'
+	EolByte byte
 
 	// If NoQuotes is true, do not consider the Quote character.
 	// This implies that there should not be any comma character in the
@@ -195,8 +205,9 @@ type Reader struct {
 // NewReader returns a new Reader that reads from r.
 func NewReader(r io.Reader) *Reader {
 	return &Reader{
-		Comma: ',',
-		r:     bufio.NewReader(r),
+		Comma:   ',',
+		EolByte: '\n',
+		r:       bufio.NewReader(r),
 	}
 }
 
@@ -268,11 +279,11 @@ func (r *Reader) ReadAll() (records [][]string, err error) {
 // If some bytes were read, then the error is never [io.EOF].
 // The result is only valid until the next call to readLine.
 func (r *Reader) readLine() ([]byte, error) {
-	line, err := r.r.ReadSlice('\n')
+	line, err := r.r.ReadSlice(r.EolByte)
 	if err == bufio.ErrBufferFull {
 		r.rawBuffer = append(r.rawBuffer[:0], line...)
 		for err == bufio.ErrBufferFull {
-			line, err = r.r.ReadSlice('\n')
+			line, err = r.r.ReadSlice(r.EolByte)
 			r.rawBuffer = append(r.rawBuffer, line...)
 		}
 		line = r.rawBuffer
@@ -295,9 +306,9 @@ func (r *Reader) readLine() ([]byte, error) {
 	return line, err
 }
 
-// lengthNL reports the number of bytes for the trailing \n.
-func lengthNL(b []byte) int {
-	if len(b) > 0 && b[len(b)-1] == '\n' {
+// lengthNL reports the number of bytes for the trailing EOL byte.
+func (r *Reader) lengthNL(b []byte) int {
+	if len(b) > 0 && b[len(b)-1] == r.EolByte {
 		return 1
 	}
 	return 0
@@ -313,6 +324,9 @@ func (r *Reader) readRecord(dst []string) ([]string, error) {
 	if r.Comma == r.Comment || !validDelim(r.Comma) || (r.Comment != 0 && !validDelim(r.Comment)) {
 		return nil, errInvalidDelim
 	}
+	if !validEol(r.EolByte, r.Comma) {
+		return nil, errInvalidEolByte
+	}
 
 	// Read line (automatically skipping past empty lines and any comments).
 	var line []byte
@@ -323,7 +337,7 @@ func (r *Reader) readRecord(dst []string) ([]string, error) {
 			line = nil
 			continue // Skip comment lines
 		}
-		if errRead == nil && len(line) == lengthNL(line) {
+		if errRead == nil && len(line) == r.lengthNL(line) {
 			line = nil
 			continue // Skip empty lines
 		}
@@ -355,7 +369,7 @@ parseField:
 			})
 			if i < 0 {
 				i = len(line)
-				pos.col -= lengthNL(line)
+				pos.col -= r.lengthNL(line)
 			}
 			line = line[i:]
 			pos.col += i
@@ -367,7 +381,7 @@ parseField:
 			if i >= 0 {
 				field = field[:i]
 			} else {
-				field = field[:len(field)-lengthNL(field)]
+				field = field[:len(field)-r.lengthNL(field)]
 			}
 			// Check to make sure a quote does not appear in field.
 			if !r.LazyQuotes && !r.NoQuotes {
@@ -411,7 +425,7 @@ parseField:
 						r.fieldIndexes = append(r.fieldIndexes, len(r.recordBuffer))
 						r.fieldPositions = append(r.fieldPositions, fieldPos)
 						continue parseField
-					case lengthNL(line) == len(line):
+					case r.lengthNL(line) == len(line):
 						// `"\n` sequence (end of line).
 						r.fieldIndexes = append(r.fieldIndexes, len(r.recordBuffer))
 						r.fieldPositions = append(r.fieldPositions, fieldPos)

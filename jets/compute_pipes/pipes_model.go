@@ -241,11 +241,13 @@ type FileConfig struct {
 	Compression                string             `json:"compression,omitempty"`
 	Delimiter                  rune               `json:"delimiter,omitzero"`
 	DetectEncoding             bool               `json:"detect_encoding,omitzero"`
+	DetectCrAsEol              bool               `json:"detect_cr_as_eol,omitzero"`
 	DomainClass                string             `json:"domain_class,omitempty"`
 	DomainKeys                 map[string]any     `json:"domain_keys,omitempty"`
 	Encoding                   string             `json:"encoding,omitempty"`
 	EnforceRowMaxLength        bool               `json:"enforce_row_max_length,omitzero"`
 	EnforceRowMinLength        bool               `json:"enforce_row_min_length,omitzero"`
+	EolByte                    byte               `json:"eol_byte,omitzero"`
 	FileKey                    string             `json:"file_key,omitempty"`
 	FileName                   string             `json:"file_name,omitempty"` // Type output
 	FixedWidthColumnsCsv       string             `json:"fixed_width_columns_csv,omitempty"`
@@ -272,6 +274,9 @@ type SchemaProviderSpec struct {
 	// Format: csv, headerless_csv, fixed_width, parquet, parquet_select,
 	//              xlsx, headerless_xlsx
 	// Compression: none, snappy (parquet is always snappy)
+	// DetectEncoding: Detect file encoding (limited) for text file format
+	// DetectCrAsEol: Detect if \r is used as eol (format: csv,headerless_csv)
+	// EolByte: Byte to use as eol (format: csv,headerless_csv)
 	// ReadBatchSize: nbr of rows to read per record (format: parquet)
 	// NbrRowsInRecord: nbr of rows in record (format: parquet)
 	// InputFormatDataJson: json config based on Format (typically used for xlsx)
@@ -485,6 +490,9 @@ type InputChannelConfig struct {
 	// Format: csv, headerless_csv, etc.
 	// ReadBatchSize: nbr of rows to read per record (format: parquet)
 	// Compression: none, snappy (parquet: always snappy)
+	// DetectEncoding: Detect file encoding (limited) for text file format
+	// DetectCrAsEol: Detect if \r is used as eol (format: csv,headerless_csv)
+	// EolByte: Byte to use as eol (format: csv,headerless_csv)
 	// Note: SchemaProvider, Compression, Format for Type input are provided via
 	// ComputePipesCommonArgs.SourcesConfig (ie input_registry table).
 	// BadRowsConfig: Specify how to handle bad rows.

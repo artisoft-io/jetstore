@@ -18,15 +18,16 @@ import (
 // This file contains functions to fetch a file from s3 and read it's columns header.
 // This is all done synchronously.
 
-type FileInfo struct {
+type FetchFileInfoResult struct {
 	headers  []string
 	sepFlag  jcsv.Chartype
 	encoding string
+	eolByte  byte
 }
 
 // Main function
 func FetchHeadersAndDelimiterFromFile(externalBucket, fileKey, fileFormat, compression, encoding string, delimitor rune,
-	fetchHeaders, fetchDelimitor, fetchEncoding bool, fileFormatDataJson string) (*FileInfo, error) {
+	fetchHeaders, fetchDelimitor, fetchEncoding, detectCrAsEol bool, fileFormatDataJson string) (*FetchFileInfoResult, error) {
 	var fileHd *os.File
 	var err error
 	var sepFlag jcsv.Chartype
@@ -35,7 +36,7 @@ func FetchHeadersAndDelimiterFromFile(externalBucket, fileKey, fileFormat, compr
 		// log.Printf("*** FetchHeadersAndDelimiterFromFile: provided delimiter %d is %s\n", delimitor, string([]rune{delimitor}))
 		sepFlag = jcsv.Chartype(delimitor)
 	}
-	fileInfo := &FileInfo{
+	fileInfo := &FetchFileInfoResult{
 		encoding: encoding,
 		sepFlag:  sepFlag,
 	}
@@ -84,18 +85,28 @@ do_retry:
 			if err != nil {
 				return nil, err
 			}
-			fmt.Println("Detected sep_flag:", fileInfo.sepFlag)
+			log.Println("Detected sep_flag:", fileInfo.sepFlag)
 		}
 		if fetchEncoding {
 			fileInfo.encoding, err = DetectFileEncoding(fileHd)
 			if err != nil {
 				return nil, err
 			}
-			fmt.Println("Detected encoding:", fileInfo.encoding)
+			log.Println("Detected encoding:", fileInfo.encoding)
+		}
+		if detectCrAsEol {
+			b, err := DetectCrAsEol(fileHd, compression)
+			if err != nil {
+				return nil, err
+			}
+			if b {
+				log.Println("Warning: the file does not contains \\n, using \\r as eol")
+				fileInfo.eolByte = '\r'
+			}
 		}
 		if fetchHeaders {
 			fileInfo.headers, err = GetRawHeadersCsv(fileHd, fileKey, fileFormat,
-				compression, fileInfo.sepFlag, fileInfo.encoding)
+				compression, fileInfo.sepFlag, fileInfo.encoding, fileInfo.eolByte)
 		}
 		return fileInfo, err
 
@@ -116,7 +127,7 @@ do_retry:
 			if err != nil {
 				return nil, err
 			}
-			fmt.Println("Detected encoding:", fileInfo.encoding)
+			log.Println("Detected encoding:", fileInfo.encoding)
 			return fileInfo, err
 		} else {
 			return nil,
@@ -145,7 +156,7 @@ do_retry:
 // Get the raw headers from fileHd, put them in *ic
 // Use *sepFlag as the csv delimiter
 func GetRawHeadersCsv(fileHd *os.File, fileName, fileFormat, compression string, sepFlag jcsv.Chartype,
-	encoding string) ([]string, error) {
+	encoding string, eolByte byte) ([]string, error) {
 	var err error
 	utfReader, err := WrapReaderWithDecoder(WrapReaderWithDecompressor(fileHd, compression), encoding)
 	if err != nil {
@@ -155,6 +166,9 @@ func GetRawHeadersCsv(fileHd *os.File, fileName, fileFormat, compression string,
 	csvReader.KeepRawRecord = true
 	if sepFlag != 0 {
 		csvReader.Comma = rune(sepFlag)
+	}
+	if eolByte > 0 {
+		csvReader.EolByte = eolByte
 	}
 
 	// Read the file headers

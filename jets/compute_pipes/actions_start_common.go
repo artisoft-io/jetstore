@@ -708,6 +708,12 @@ func syncInputChannelWithSchemaProvider(ic *InputChannelConfig, sp *SchemaProvid
 		sp.DetectEncoding = ic.DetectEncoding
 	}
 
+	if !ic.DetectCrAsEol {
+		ic.DetectCrAsEol = sp.DetectCrAsEol
+	} else {
+		sp.DetectCrAsEol = ic.DetectCrAsEol
+	}
+
 	if ic.DomainClass == "" {
 		ic.DomainClass = sp.DomainClass
 	} else {
