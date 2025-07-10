@@ -212,6 +212,7 @@ func (cpCtx *ComputePipesContext) ReadCsvFile(
 	encoding := inputChannelConfig.Encoding
 	noQuote := inputChannelConfig.NoQuotes
 	delimiter := inputChannelConfig.Delimiter
+	var eolByte byte
 	compression := inputChannelConfig.Compression
 	// log.Printf("*** ReadCsvFile: got delimiter '%v' or '%s', encoding '%s', noQuote '%v' from schema provider\n", delimiter, string(delimiter), encoding, noQuote)
 
@@ -234,6 +235,7 @@ func (cpCtx *ComputePipesContext) ReadCsvFile(
 		// columns on input_row channel)
 		expectedNbrColumnsInFile = len(cpCtx.CpConfig.CommonRuntimeArgs.SourcesConfig.MainInput.InputColumns) -
 			len(cpCtx.AddionalInputHeaders) - len(cpCtx.PartFileKeyComponents)
+		eolByte = inputChannelConfig.EolByte
 	case "reducing":
 		// Bad Rows are identified during the sharding phase only
 		badRowChannel = nil
@@ -293,6 +295,9 @@ func (cpCtx *ComputePipesContext) ReadCsvFile(
 	}
 	csvReader.Comma = delimiter
 	csvReader.NoQuotes = noQuote
+	if eolByte > 0 {
+		csvReader.EolByte = eolByte
+	}
 	// Defaults for LazyQuotes and VariableFieldsPerRecord is false, from inputChannelConfig
 	csvReader.LazyQuotes = inputChannelConfig.UseLazyQuotes
 	if inputChannelConfig.VariableFieldsPerRecord {

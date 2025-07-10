@@ -14,6 +14,7 @@ type ComputePipesContextTestBuilder struct {
 	CpipesMode              string
 	Delimiter               rune
 	DetectEncoding          bool
+	EolByte                 byte
 	Encoding                string
 	EnforceRowMaxLength     bool
 	EnforceRowMinLength     bool
@@ -60,6 +61,7 @@ func (b ComputePipesContextTestBuilder) build() *ComputePipesContext {
 						Compression:             b.Compression,
 						Delimiter:               b.Delimiter,
 						DetectEncoding:          b.DetectEncoding,
+						EolByte:                 b.EolByte,
 						Encoding:                b.Encoding,
 						EnforceRowMaxLength:     b.EnforceRowMaxLength,
 						EnforceRowMinLength:     b.EnforceRowMinLength,
@@ -151,6 +153,92 @@ func TestReadCsv01(t *testing.T) {
 	fmt.Println("Got count", count, "badRowCount", badRowcount)
 	if count != 18 {
 		t.Errorf("expecting 18 rows, got %d", count)
+	}
+	if badRowcount != 0 {
+		t.Errorf("expecting 0 bad rows, got %d", badRowcount)
+	}
+
+	// Check the data
+	fmt.Println("THE DATA")
+	var checkCount int64 = 0
+	for row := range computePipesInputCh {
+		checkCount++
+		fmt.Println(row)
+	}
+	if checkCount != count {
+		t.Errorf("check count does not match, checkCount is %d", checkCount)
+	}
+	fmt.Println("THE BAD ROWS")
+	checkCount = 0
+	for row := range badRowChannel.OutputCh {
+		checkCount++
+		fmt.Println(string(row))
+	}
+	if checkCount != badRowcount {
+		t.Errorf("bad row check count does not match, checkCount is %d", checkCount)
+	}
+	// t.Errorf("OK")
+}
+
+// Positive test w/ eol as '\r'
+func TestReadCsvCR01(t *testing.T) {
+	reader, columns, size := dataSetCR01()
+	cpCtx := ComputePipesContextTestBuilder{
+		AddionalInputHeaders:    nil,
+		BadRowsConfig:           nil,
+		Compression:             "none",
+		CpipesMode:              "sharding",
+		Delimiter:               ',',
+		DetectEncoding:          false,
+		EolByte:                 '\r',
+		Encoding:                "",
+		EnforceRowMaxLength:     false,
+		EnforceRowMinLength:     false,
+		Format:                  "csv",
+		InputColumns:            columns,
+		NbrRowsInRecord:         0,
+		NoQuotes:                false,
+		PartFileKeyComponents:   nil,
+		ReadBatchSize:           0,
+		SamplingMaxCount:        0,
+		SamplingRate:            0,
+		ShardOffset:             20,
+		TrimColumns:             true,
+		UseLazyQuotes:           false,
+		VariableFieldsPerRecord: false,
+	}.build()
+
+	computePipesInputCh := make(chan []any, 50)
+	badRowChannel := &BadRowsChannel{
+		s3DeviceManager: nil,
+		s3BasePath:      "",
+		OutputCh:        make(chan []byte, 50),
+		doneCh:          cpCtx.Done,
+		errCh:           cpCtx.ErrCh,
+	}
+	count, badRowcount, err := cpCtx.ReadCsvFile(
+		&FileName{
+			InFileKeyInfo: FileKeyInfo{
+				key:   "file/key",
+				size:  size,
+				start: 0,
+				end:   0,
+			},
+		}, reader, nil, computePipesInputCh, badRowChannel)
+
+	// Close the channels
+	close(computePipesInputCh)
+	// close(badRowChannel.OutputCh)
+	if badRowChannel != nil {
+		badRowChannel.Done()
+	}
+
+	if err != nil {
+		t.Errorf("got err: %v", err)
+	}
+	fmt.Println("Got count", count, "badRowCount", badRowcount)
+	if count != 2 {
+		t.Errorf("expecting 2 rows, got %d", count)
 	}
 	if badRowcount != 0 {
 		t.Errorf("expecting 0 bad rows, got %d", badRowcount)
@@ -1799,8 +1887,8 @@ func TestReadFW142(t *testing.T) {
 	if count != 2 {
 		t.Errorf("expecting 2 rows, got %d", count)
 	}
-	if badRowcount != 3 {
-		t.Errorf("expecting 3 bad rows, got %d", badRowcount)
+	if badRowcount != 2 {
+		t.Errorf("expecting 2 bad rows, got %d", badRowcount)
 	}
 
 	// Check the data
@@ -1894,8 +1982,8 @@ func TestReadFW143(t *testing.T) {
 	if count != 2 {
 		t.Errorf("expecting 2 rows, got %d", count)
 	}
-	if badRowcount != 4 {
-		t.Errorf("expecting 4 bad rows, got %d", badRowcount)
+	if badRowcount != 3 {
+		t.Errorf("expecting 3 bad rows, got %d", badRowcount)
 	}
 
 	// Check the data
@@ -1993,8 +2081,8 @@ func TestReadFW542(t *testing.T) {
 	if count != 2 {
 		t.Errorf("expecting 2 rows, got %d", count)
 	}
-	if badRowcount != 3 {
-		t.Errorf("expecting 3 bad rows, got %d", badRowcount)
+	if badRowcount != 2 {
+		t.Errorf("expecting 2 bad rows, got %d", badRowcount)
 	}
 
 	// Check the data
@@ -2041,6 +2129,14 @@ row17c1,row17c2,row17c3,row17c4
 row18c1,row18c2,row18c3,row18c4
 row19c1,row19c2,row19c3,row19c4
 `
+	headers := []string{"col1", "col2", "col3", "col4"}
+	buf := bytes.NewReader([]byte(rawData))
+	return buf, headers, len(rawData)
+}
+
+// Good, no bad rows
+func dataSetCR01() (ReaderAtSeeker, []string, int) {
+	rawData := "col1,col2,col3,col4\rrow01c1,row01c2,row01c3,row01c4\rrow02c1,row02c2,row02c3,row02c4"
 	headers := []string{"col1", "col2", "col3", "col4"}
 	buf := bytes.NewReader([]byte(rawData))
 	return buf, headers, len(rawData)

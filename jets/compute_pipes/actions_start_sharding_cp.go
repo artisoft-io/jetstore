@@ -169,6 +169,7 @@ func (args *StartComputePipesArgs) StartShardingComputePipes(ctx context.Context
 	fetchHeaders := false
 	fetchDelimitor := false
 	detectEncoding := false
+	detectCrAsEol := false
 	if len(inputChannelConfig.Encoding) == 0 && inputChannelConfig.DetectEncoding {
 		detectEncoding = true
 	}
@@ -176,14 +177,18 @@ func (args *StartComputePipesArgs) StartShardingComputePipes(ctx context.Context
 	if (format == "csv" || format == "xlsx") && len(cpipesStartup.InputColumns) == 0 {
 		fetchHeaders = true
 	}
-	if strings.HasSuffix(format, "csv") && inputChannelConfig.Delimiter == 0 {
-		fetchDelimitor = true
+	if strings.HasSuffix(format, "csv") {
+		if inputChannelConfig.Delimiter == 0 {
+			fetchDelimitor = true
+		}
+		detectCrAsEol = inputChannelConfig.DetectCrAsEol
 	}
-	if fetchHeaders || fetchDelimitor || detectEncoding {
+	if fetchHeaders || fetchDelimitor || detectEncoding || detectCrAsEol {
 		// Get the input columns / column separator from the first file
 		sp := mainInputSchemaProvider
 		fileInfo, err := FetchHeadersAndDelimiterFromFile(sp.Bucket, shardResult.firstKey, sp.Format,
-			sp.Compression, sp.Encoding, sp.Delimiter, fetchHeaders, fetchDelimitor, sp.DetectEncoding, sp.InputFormatDataJson)
+			sp.Compression, sp.Encoding, sp.Delimiter, fetchHeaders, fetchDelimitor,
+			detectEncoding, detectCrAsEol, sp.InputFormatDataJson)
 		if err != nil {
 			return result, mainInputSchemaProvider,
 				fmt.Errorf("while calling FetchHeadersAndDelimiterFromFile('%s', '%s', '%s', '%s'): %v",
@@ -199,6 +204,10 @@ func (args *StartComputePipesArgs) StartShardingComputePipes(ctx context.Context
 		if len(fileInfo.encoding) > 0 {
 			sp.Encoding = fileInfo.encoding
 			inputChannelConfig.Encoding = fileInfo.encoding
+		}
+		if fileInfo.eolByte > 0 {
+			sp.EolByte = fileInfo.eolByte
+			inputChannelConfig.EolByte = fileInfo.eolByte
 		}
 	}
 	// log.Printf("*** cpipesStartup.MainInputDomainKeysSpec: %v, cpipesStartup.MainInputDomainClass: %v\n",

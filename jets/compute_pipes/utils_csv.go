@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io"
 	"log"
-	"os"
 	"unicode/utf8"
 
 	"github.com/artisoft-io/jetstore/jets/datatable/jcsv"
@@ -17,14 +16,17 @@ import (
 
 // Utilities for CSV Files
 
-func DetectCsvDelimitor(fileHd *os.File, compression string) (d jcsv.Chartype, err error) {
+func DetectCsvDelimitor(fileHd ReaderAtSeeker, compression string) (jcsv.Chartype, error) {
 	// auto detect the separator based on the first 2048 bytes of the file
 	buf := make([]byte, 2048)
-	_, err = WrapReaderWithDecompressor(fileHd, compression).Read(buf)
-	if err != nil {
-		return d, fmt.Errorf("error while ready first few bytes of file: %v", err)
+	n, err := WrapReaderWithDecompressor(fileHd, compression).Read(buf)
+	if n > 0 && err == io.EOF {
+		err = nil
 	}
-	d, err = jcsv.DetectDelimiter(buf)
+	if err != nil {
+		return 0, fmt.Errorf("error while ready first few bytes of file: %v", err)
+	}
+	d, err := jcsv.DetectDelimiter(buf)
 	if err != nil {
 		return d, fmt.Errorf("while calling jcsv.DetectDelimiter: %v", err)
 	}
@@ -32,10 +34,41 @@ func DetectCsvDelimitor(fileHd *os.File, compression string) (d jcsv.Chartype, e
 	if err != nil {
 		return d, fmt.Errorf("error while returning to beginning of file: %v", err)
 	}
-	return
+	return d, nil
 }
 
-func DetectFileEncoding(fileHd *os.File) (encoding string, err error) {
+func DetectCrAsEol(fileHd ReaderAtSeeker, compression string) (bool, error) {
+	// detect if the eol byte is '\r' based on the first 50K bytes of the file
+	buf := make([]byte, 50000)
+	n, err := WrapReaderWithDecompressor(fileHd, compression).Read(buf)
+	if n > 0 && err == io.EOF {
+		err = nil
+	}
+	if err != nil {
+		return false, fmt.Errorf("error while ready first few bytes of file: %v", err)
+	}
+	nCr := 0
+	nLf := 0
+	for i := range buf {
+		switch buf[i] {
+		case '\r':
+			nCr++
+		case '\n':
+			nLf++
+		}
+	}
+	var result bool
+	if nLf == 0 && nCr > 1 {
+		result = true
+	}
+	_, err = fileHd.Seek(0, 0)
+	if err != nil {
+		return false, fmt.Errorf("error while returning to beginning of file: %v", err)
+	}
+	return result, nil
+}
+
+func DetectFileEncoding(fileHd ReaderAtSeeker) (encoding string, err error) {
 	buf := make([]byte, 25000)
 	n, err2 := fileHd.Read(buf)
 	if err2 != nil {
