@@ -205,6 +205,9 @@ func (args *StartComputePipesArgs) StartShardingComputePipes(ctx context.Context
 	// 	cpipesStartup.MainInputDomainKeysSpec, cpipesStartup.MainInputDomainClass)
 
 	// NOTE: At this point we should have the headers of the input file (except potentially for parquet file)
+	if len(cpipesStartup.InputColumns) == 0 && len(mainInputSchemaProvider.Headers) > 0 {
+		cpipesStartup.InputColumns = mainInputSchemaProvider.Headers
+	}
 	if len(cpipesStartup.InputColumns) == 0 {
 		if !strings.HasPrefix(format, "parquet") {
 			return result, mainInputSchemaProvider, fmt.Errorf("configuration error: no header information available for the input file(s)")
