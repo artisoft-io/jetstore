@@ -32,7 +32,7 @@ func buildCopySourceRange(start, partSize, objectSize int64) string {
 
 // function that starts, perform each part upload, and completes the copy
 func MultiPartCopy(ctx context.Context, svc *s3.Client, maxPoolSize int,
-	srcBucket string, srcKey string, destBucket string, destKey string) error {
+	srcBucket string, srcKey string, destBucket string, destKey string, debug bool) error {
 	if maxPoolSize == 0 {
 		maxPoolSize = 20
 	}
@@ -218,6 +218,9 @@ func MultiPartCopy(ctx context.Context, svc *s3.Client, maxPoolSize int,
 		for iobj := range s3Objects {
 			copySource := url.QueryEscape(fmt.Sprintf("%s/%s", srcBucket, s3Objects[iobj].Key))
 			fileSize := s3Objects[iobj].Size
+			if debug {
+				log.Printf("MultiPartCopy: Copy file %s of size %d\n", s3Objects[iobj].Key, s3Objects[iobj].Size)
+			}
 			switch {
 			case fileSize > fileSizeMidPoint:
 				n := fileSize / bigChunk
