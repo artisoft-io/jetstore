@@ -280,7 +280,8 @@ type SchemaProviderSpec struct {
 	// EnforceRowMaxLength: when true, no extra characters must exist past last field (applies to text format)
 	// BadRowsConfig: Specify how to handle bad rows when bot specified on InputChannelConfig.
 	// SourceType range: main_input, merged_input, historical_input (from input_source table)
-	// Columns may be ommitted if fixed_width_columns_csv is provided or is a csv format
+	// Columns: may be ommitted if fixed_width_columns_csv is provided or is a csv format
+	// Headers: alt to Columns, typically for csv format
 	// UseLazyQuotes, VariableFieldsPerRecord see csv.NewReader
 	// QuoteAllRecords will quote all records for csv writer
 	// NoQuotes will no quote any records for csv writer (even if the record contains '"')
@@ -305,6 +306,7 @@ type SchemaProviderSpec struct {
 	SourceType                       string             `json:"source_type,omitempty"`
 	SchemaName                       string             `json:"schema_name,omitempty"`
 	Columns                          []SchemaColumnSpec `json:"columns,omitempty"`
+	Headers                          []string           `json:"headers,omitempty"`
 	Env                              map[string]any     `json:"env,omitempty"`
 	ReportCmds                       []ReportCmdSpec    `json:"report_cmds,omitempty"`
 	NotificationTemplatesOverrides   map[string]string  `json:"notification_templates_overrides,omitempty"`
