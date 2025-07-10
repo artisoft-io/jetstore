@@ -110,11 +110,14 @@ func (sp *DefaultSchemaProvider) Initialize(_ *pgxpool.Pool, spec *SchemaProvide
 	if spec.Format == "fixed_width" {
 		return sp.initializeFixedWidthInfo()
 	}
-	if len(sp.spec.Columns) > 0 {
+	switch {
+	case len(sp.spec.Columns) > 0:
 		sp.columnNames = make([]string, 0, len(sp.spec.Columns))
 		for i := range sp.spec.Columns {
 			sp.columnNames = append(sp.columnNames, sp.spec.Columns[i].Name)
 		}
+	case len(sp.spec.Headers) > 0:
+		sp.columnNames = sp.spec.Headers
 	}
 	return nil
 }
