@@ -40,7 +40,7 @@ func (ctx *CommandWorker) DoWork(workersTaskCh <-chan any) {
 		case compute_pipes.S3CopyFileSpec:
 			// Do work here
 			err := awsi.MultiPartCopy(ctx.ctx, ctx.s3Client, vv.WorkerPoolSize,
-				vv.SourceBucket, vv.SourceKey, vv.DestinationBucket, vv.DestinationKey)
+				vv.SourceBucket, vv.SourceKey, vv.DestinationBucket, vv.DestinationKey, false)
 			if err != nil {
 				ctx.sendError(err)
 			}
