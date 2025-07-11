@@ -287,6 +287,11 @@ func (ca *StatusUpdate) CoordinateWork() error {
 		return fmt.Errorf("error: StatusUpdate.CoordinateWork is expecting to have an opened db connections")
 	}
 
+	// Need to get the main input schema provider to see if there is an override on the notification template
+	// Getting session id as well, so doing the call even if apiEndpoint is not specified
+	schemaProviderJson, sessionId, err := GetSchemaProviderJsonFromPipelineKey(ca.Dbpool, ca.PeKey)
+	log.Printf("%s Status '%s' for %s\n", sessionId, ca.Status, ca.FileKey)
+
 	// NOTE 2024-05-13 Added Notification to API Gateway via env var CPIPES_STATUS_NOTIFICATION_ENDPOINT
 	// or CPIPES_STATUS_NOTIFICATION_ENDPOINT_JSON
 	// ALSO set a deadline to calls to database to avoid locks, don't fail the call when database fails
@@ -301,8 +306,6 @@ func (ca *StatusUpdate) CoordinateWork() error {
 			customFileKeys = strings.Split(ck, ",")
 		}
 
-		// Need to get the main input schema provider to see if there is an override on the notification template
-		schemaProviderJson, err := GetSchemaProviderJsonFromPipelineKey(ca.Dbpool, ca.PeKey)
 		if err != nil {
 			return fmt.Errorf("while getting schema provider json from peKey %d in status_update: %v", ca.PeKey, err)
 		}
@@ -336,7 +339,6 @@ func (ca *StatusUpdate) CoordinateWork() error {
 				notificationTemplate = os.Getenv("CPIPES_COMPLETED_NOTIFICATION_JSON")
 			}
 		}
-
 		// ignore returned err
 		DoNotifyApiGateway(ca.FileKey, apiEndpoint, apiEndpointJson, notificationTemplate, customFileKeys, errMsg, ca.CpipesEnv)
 	}
@@ -366,7 +368,9 @@ func (ca *StatusUpdate) CoordinateWork() error {
 		err = updateStatus(ca.Dbpool, ca.PeKey, "completed", nil)
 	}
 	if err != nil {
-		return fmt.Errorf("while updating process execution status: %v", err)
+		err = fmt.Errorf("while updating process execution status: %v", err)
+		log.Printf("%s %s\n", sessionId, err)
+		return err
 	}
 	if ca.CpipesMode {
 		// Put cpipes run stats in cpipes_execution_status_details table
@@ -416,21 +420,21 @@ func (ca *StatusUpdate) CoordinateWork() error {
 	ctx := NewDataTableContext(ca.Dbpool, ca.UsingSshTunnel, ca.UsingSshTunnel, nil, nil)
 	err = ctx.StartPendingTasks(stateMachineName)
 	if err != nil {
-		//*TODO *** If get an error while starting pending task. Fail current task for now...
-		log.Println("Get an error while starting pending task. Fail current task for now...", err)
-		return err
+		log.Printf("%s Warning: while starting pending task: %v", sessionId, err)
+		err = nil
 	}
 
 	// Register outTables
 	outTables, err := GetOutputTables(ca.Dbpool, ca.PeKey)
 	if err != nil {
-		log.Println(err)
+		log.Printf("%s while getting output tables: %v", sessionId, err)
 		return err
 	}
 	// Register out tables
 	if ca.Status != "failed" && len(outTables) > 0 && getOutputRecordCount(ca.Dbpool, ca.PeKey) > 0 {
 		err = RegisterDomainTables(ca.Dbpool, ca.UsingSshTunnel, ca.PeKey)
 		if err != nil {
+			log.Printf("%s while registrying output tables: %v", sessionId, err)
 			return fmt.Errorf("while registrying out tables to input_registry: %v", err)
 		}
 	}
