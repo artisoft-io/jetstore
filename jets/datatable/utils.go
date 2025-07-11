@@ -36,20 +36,20 @@ func GetSchemaProviderJsonFromPipelineSession(dbpool *pgxpool.Pool, sessionId st
 	return schemaProviderJson, err
 }
 
-// Utility function to get the SchemaProvider json using the pipeline execution session id
-func GetSchemaProviderJsonFromPipelineKey(dbpool *pgxpool.Pool, peKey int) (string, error) {
-	var schemaProviderJson string
+// Utility function to get the SchemaProvider json and session_id using the pipeline execution key
+func GetSchemaProviderJsonFromPipelineKey(dbpool *pgxpool.Pool, peKey int) (string, string, error) {
+	var schemaProviderJson, sessionId string
 	log.Println("Getting the schema provider of the main input source by peKey")
 	stmt := `
-	SELECT	ir.schema_provider_json
+	SELECT	ir.schema_provider_json, pe.session_id
 	FROM 
 		jetsapi.pipeline_execution_status pe,
 		jetsapi.input_registry ir
 	WHERE pe.main_input_registry_key = ir.key
 		AND pe.key = $1`
-	err := dbpool.QueryRow(context.TODO(), stmt, peKey).Scan(&schemaProviderJson)
+	err := dbpool.QueryRow(context.TODO(), stmt, peKey).Scan(&schemaProviderJson, &sessionId)
 	if err != nil {
 		err = fmt.Errorf("query pipeline_execution_status failed: %v", err)
 	}
-	return schemaProviderJson, err
+	return schemaProviderJson, sessionId, err
 }
