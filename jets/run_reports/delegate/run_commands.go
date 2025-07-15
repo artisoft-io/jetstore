@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"strings"
 	"sync"
 
 	"github.com/artisoft-io/jetstore/jets/awsi"
@@ -82,7 +83,7 @@ func (ca *CommandArguments) RunSchemaProviderReportsCmds(ctx context.Context, db
 	}
 	var schemaProviderJson string
 	schemaProviderJson, err = datatable.GetSchemaProviderJsonFromPipelineSession(dbpool, ca.SessionId)
-	if err != nil {
+	if err != nil && !strings.Contains(err.Error(), "no rows in result set") {
 		errCh <- fmt.Errorf("query pipeline_execution_status failed: %v", err)
 	}
 	if len(schemaProviderJson) == 0 {
@@ -168,5 +169,4 @@ func (ca *CommandArguments) RunSchemaProviderReportsCmds(ctx context.Context, db
 			return
 		}
 	}
-	return
 }
