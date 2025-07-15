@@ -2,6 +2,7 @@ package datatable
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"log"
 	"strings"
@@ -31,6 +32,9 @@ func GetSchemaProviderJsonFromPipelineSession(dbpool *pgxpool.Pool, sessionId st
 		AND pe.session_id = $1`
 	err := dbpool.QueryRow(context.TODO(), stmt, sessionId).Scan(&schemaProviderJson)
 	if err != nil {
+		if err == sql.ErrNoRows {
+			return "", nil
+		}
 		err = fmt.Errorf("query pipeline_execution_status failed: %v", err)
 	}
 	return schemaProviderJson, err
@@ -49,6 +53,9 @@ func GetSchemaProviderJsonFromPipelineKey(dbpool *pgxpool.Pool, peKey int) (stri
 		AND pe.key = $1`
 	err := dbpool.QueryRow(context.TODO(), stmt, peKey).Scan(&schemaProviderJson, &sessionId)
 	if err != nil {
+		if err == sql.ErrNoRows {
+			return "", "", nil
+		}
 		err = fmt.Errorf("query pipeline_execution_status failed: %v", err)
 	}
 	return schemaProviderJson, sessionId, err

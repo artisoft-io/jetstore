@@ -33,8 +33,14 @@ func registerCurrentLoad(loadCount int64, badRowCount int64, dbpool *pgxpool.Poo
 	log.Println("Updated input_loader_status table with main object type:", *objectType, "client", *client, "org", *clientOrg, ":: status is", status)
 	// Register loads, except when status == "failed" or loadCount == 0
 	if len(objectTypes) > 0 && loadCount > 0 && status != "failed" {
-		inputRegistryKey = make([]int, len(objectTypes))
-		for ipos, objType := range objectTypes {
+		// Getting ready to kickoff pipelines
+		dataTableCtx := datatable.NewDataTableContext(dbpool, devMode, *usingSshTunnel, nil, &adminEmail)
+		token, err := user.CreateToken(*userEmail)
+		if err != nil {
+			return fmt.Errorf("error creating jwt token: %v", err)
+		}
+		var inputRegistryKey int
+		for _, objType := range objectTypes {
 			log.Println("Registering staging table with object type:", objType, "client", *client, "org", *clientOrg)
 			stmt = `INSERT INTO jetsapi.input_registry (
 				client, org, object_type, file_key, source_period_key, table_name, source_type, session_id, user_email) 
@@ -42,26 +48,17 @@ func registerCurrentLoad(loadCount int64, badRowCount int64, dbpool *pgxpool.Poo
 				ON CONFLICT DO NOTHING
 				RETURNING key`
 			err = dbpool.QueryRow(context.Background(), stmt,
-				*client, *clientOrg, objType, *inFile, *sourcePeriodKey, registerTableName, *sessionId, *userEmail).Scan(&inputRegistryKey[ipos])
+				*client, *clientOrg, objType, *inFile, *sourcePeriodKey, registerTableName, *sessionId, *userEmail).Scan(&inputRegistryKey)
 			if err != nil {
 				return fmt.Errorf("error inserting in jetsapi.input_registry table: %v", err)
 			}
+			err = dataTableCtx.StartPipelinesForInputRegistryV2(inputRegistryKey, *sourcePeriodKey, *sessionId, *client, objType, *inFile, token)
+			if err != nil {
+				status = "errors"
+				processingErrors = append(processingErrors, fmt.Sprintf("error while starting pipelines post load file: %v", err))
+				err = nil
+			}
 		}
-		// Check for any process that are ready to kick off
-		context := datatable.NewDataTableContext(dbpool, devMode, *usingSshTunnel, nil, &adminEmail)
-		token, err := user.CreateToken(*userEmail)
-		if err != nil {
-			return fmt.Errorf("error creating jwt token: %v", err)
-		}
-		context.StartPipelineOnInputRegistryInsert(&datatable.RegisterFileKeyAction{
-			Action: "register_keys",
-			Data: []map[string]interface{}{{
-				"input_registry_keys": inputRegistryKey,
-				"source_period_key":   *sourcePeriodKey,
-				"file_key":            *inFile,
-				"client":              *client,
-			}},
-		}, token)
 	}
 	// Register session_id
 	err = schema.RegisterSession(dbpool, "file", *client, *sessionId, *sourcePeriodKey)

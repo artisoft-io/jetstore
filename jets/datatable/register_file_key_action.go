@@ -2,9 +2,6 @@ package datatable
 
 import (
 	"context"
-	"database/sql"
-
-	// "encoding/json"
 	"errors"
 	"fmt"
 	"log"
@@ -123,7 +120,8 @@ func (ctx *DataTableContext) RegisterFileKeys(registerFileKeyAction *RegisterFil
 	}
 	sentinelFileName := os.Getenv("JETS_SENTINEL_FILE_NAME")
 	baseSessionId := time.Now().UnixMilli()
-	var sessionId string
+	var sessionId, stmt string
+	var allOk bool
 	row := make([]interface{}, len(sqlStmt.ColumnKeys))
 	for irow := range registerFileKeyAction.Data {
 		var schemaProviderJson string
@@ -199,11 +197,17 @@ func (ctx *DataTableContext) RegisterFileKeys(registerFileKeyAction *RegisterFil
 		var automated int
 		var isPartFile int
 		var hasCpipesSM, hasOtherSM int64
+		var domainKeys []string
 
 		fileKey := fileKeyObject["file_key"].(string)
-		stmt := "SELECT table_name, automated, is_part_files FROM jetsapi.source_config WHERE client=$1 AND org=$2 AND object_type=$3"
-		allOk := true
-		err = ctx.Dbpool.QueryRow(context.Background(), stmt, client, org, objectType).Scan(&tableName, &automated, &isPartFile)
+		if strings.Contains(fileKey, "/err_") {
+			// Skip error files
+			// log.Println("File key is an error file, skiping")
+			goto NextKey
+		}
+		stmt = "SELECT table_name, automated, is_part_files, domain_keys FROM jetsapi.source_config WHERE client=$1 AND org=$2 AND object_type=$3"
+		allOk = true
+		err = ctx.Dbpool.QueryRow(context.Background(), stmt, client, org, objectType).Scan(&tableName, &automated, &isPartFile, &domainKeys)
 		if err == nil {
 			// process - entry found
 			// log.Printf("*** source_config found, automated: %v, is part file: %v\n", automated, isPartFile)
@@ -256,11 +260,6 @@ func (ctx *DataTableContext) RegisterFileKeys(registerFileKeyAction *RegisterFil
 					// log.Printf("***RegisterFileKey: Missing column %s in fileKeyObject", colKey)
 				}
 			}
-		}
-		if strings.Contains(fileKey, "/err_") {
-			// Skip error files
-			// log.Println("File key is an error file, skiping")
-			allOk = false
 		}
 		if allOk {
 			_, err = ctx.Dbpool.Exec(context.Background(), sqlStmt.Stmt, row...)
@@ -323,39 +322,28 @@ func (ctx *DataTableContext) RegisterFileKeys(registerFileKeyAction *RegisterFil
 			}
 		case hasCpipesSM > 0:
 			// Insert into input registry (essentially we are bypassing loader here by registering the fileKey
-			// and invoke StartPipelineOnInputRegistryInsert)
+			// Note: Get the jetsapi.source_config.domain_keys (aka indexes for joining tables) to use as the object_type
+			// of the input_registry table
+
 			var inputRegistryKey int
-			log.Println("Write to input_registry for cpipes input files object type:", objectType, "client", client, "org", org)
-			// log.Println("Write to input_registry for cpipes with schemaProviderJson:", schemaProviderJson)
-			stmt = `INSERT INTO jetsapi.input_registry 
+			for _, domainKey := range domainKeys {
+				log.Println(sessionId, "Write to input_registry for cpipes input files object type (aka domain_key):", domainKey, "client:", client, "org:", org)
+				// log.Println("Write to input_registry for cpipes with schemaProviderJson:", schemaProviderJson)
+				stmt = `INSERT INTO jetsapi.input_registry 
 							(client, org, object_type, file_key, source_period_key, table_name, 
 							 source_type, session_id, user_email, schema_provider_json
 							)	VALUES ($1, $2, $3, $4, $5, $6, 'file', $7, 'system', $8) 
 							ON CONFLICT DO NOTHING
 							RETURNING key`
-			err = ctx.Dbpool.QueryRow(context.Background(), stmt,
-				client, org, objectType, fileKey, source_period_key, tableName, sessionId, schemaProviderJson).Scan(&inputRegistryKey)
-			if err != nil {
-				return nil, http.StatusInternalServerError, fmt.Errorf("error inserting in jetsapi.input_registry table: %v", err)
-			}
-			// //***
-			// log.Println("Read back the schema provider from in_registry with key", inputRegistryKey)
-			// var xxx string
-			// ctx.Dbpool.QueryRow(context.Background(), "select schema_provider_json from jetsapi.input_registry where key=$1", inputRegistryKey).Scan(&xxx)
-			// log.Println(xxx)
-			// //***
-			if !strings.Contains(fileKey, "/test_") && !registerFileKeyAction.NoAutomatedLoad {
-				// Check for any process that are ready to kick off
-				ctx.StartPipelineOnInputRegistryInsert(&RegisterFileKeyAction{
-					Action: "register_keys",
-					Data: []map[string]interface{}{{
-						"input_registry_keys": []int{inputRegistryKey},
-						"source_period_key":   source_period_key,
-						"file_key":            fileKey,
-						"client":              client,
-						"state_machine":       "cpipesSM", //TODO use this as filter to only start cpipes pipeline
-					}},
-				}, token)
+				err = ctx.Dbpool.QueryRow(context.Background(), stmt,
+					client, org, domainKey, fileKey, source_period_key, tableName, sessionId, schemaProviderJson).Scan(&inputRegistryKey)
+				if err != nil {
+					return nil, http.StatusInternalServerError, fmt.Errorf("error inserting in jetsapi.input_registry table: %v", err)
+				}
+				if !strings.Contains(fileKey, "/test_") && !registerFileKeyAction.NoAutomatedLoad {
+					// Check for any process that are ready to kick off
+					ctx.StartPipelinesForInputRegistryV2(inputRegistryKey, source_period_key, sessionId, client.(string), domainKey, fileKey, token)
+				}
 			}
 			// for completness register the session_id
 			err = schema.RegisterSession(ctx.Dbpool, "file", client.(string), sessionId, source_period_key)
@@ -510,306 +498,6 @@ func matchingProcessInputKeys(dbpool *pgxpool.Pool, inputRegistryKeys *[]int) (*
 		processInputKeys = append(processInputKeys, piKey)
 	}
 	return &processInputKeys, nil
-}
-
-// Find all pipeline_config matching any of processInputKeys (associated with inputRegistryKeys)
-func matchingPipelineConfigKeys(dbpool *pgxpool.Pool, processInputKeys *[]int) (*[]int, error) {
-	kstr := make([]string, len(*processInputKeys))
-	for i, key := range *processInputKeys {
-		kstr[i] = strconv.Itoa(key)
-	}
-	piKeysString := strings.Join(kstr, ",")
-	var buf strings.Builder
-	buf.WriteString(`SELECT key 
-	  FROM jetsapi.pipeline_config
-	  WHERE main_process_input_key IN (`)
-	buf.WriteString(piKeysString)
-	buf.WriteString(") OR merged_process_input_keys && ARRAY[")
-	buf.WriteString(piKeysString)
-	buf.WriteString("];")
-	pipelineConfigKeys := make([]int, 0)
-	var pcKey int
-	rows, err := dbpool.Query(context.Background(), buf.String())
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	for rows.Next() {
-		// scan the row
-		if err = rows.Scan(&pcKey); err != nil {
-			return nil, err
-		}
-		pipelineConfigKeys = append(pipelineConfigKeys, pcKey)
-	}
-	return &pipelineConfigKeys, nil
-}
-
-// Find all process_input having a matching input_registry where source_period_key = sourcePeriodKey
-// for the given client
-func processInputInPeriod(dbpool *pgxpool.Pool, sourcePeriodKey, maxInputRegistryKey int, client string) (*[]int, error) {
-	stmt := ` SELECT
-              pi.key
-            FROM
-              jetsapi.process_input pi,
-              jetsapi.input_registry ir
-            WHERE pi.client = $3
-              AND ir.client = $3
-              AND pi.org = ir.org
-              AND pi.object_type = ir.object_type
-              AND pi.table_name = ir.table_name
-              AND pi.source_type = ir.source_type
-              AND ir.source_period_key = $1
-              AND ir.key <= $2;`
-	piKeySet := make(map[int]bool, 0)
-	var piKey int
-	rows, err := dbpool.Query(context.Background(), stmt, sourcePeriodKey, maxInputRegistryKey, client)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	for rows.Next() {
-		// scan the row
-		if err = rows.Scan(&piKey); err != nil {
-			return nil, err
-		}
-		piKeySet[piKey] = true
-	}
-	keys := make([]int, 0, len(piKeySet))
-	for k := range piKeySet {
-		keys = append(keys, k)
-	}
-	return &keys, nil
-}
-
-// Find all pipeline_config ready to go among those in pipelineConfigKeys (to ensure we kick off pipeline with one of inputRegistryKeys)
-func PipelineConfigReady2Execute(dbpool *pgxpool.Pool, processInputKeys *[]int, pipelineConfigKeys *[]int) (*[]int, error) {
-	kstr := make([]string, len(*processInputKeys))
-	for i, key := range *processInputKeys {
-		kstr[i] = strconv.Itoa(key)
-	}
-	piKeysString := strings.Join(kstr, ",")
-	kstr = make([]string, len(*pipelineConfigKeys))
-	for i, key := range *pipelineConfigKeys {
-		kstr[i] = strconv.Itoa(key)
-	}
-	pcKeysString := strings.Join(kstr, ",")
-	var buf strings.Builder
-	buf.WriteString(`SELECT key 
-	  FROM jetsapi.pipeline_config
-	  WHERE main_process_input_key IN (`)
-	buf.WriteString(piKeysString)
-	buf.WriteString(") AND merged_process_input_keys <@ ARRAY[")
-	buf.WriteString(piKeysString)
-	buf.WriteString("] AND automated = 1 AND key IN (")
-	buf.WriteString(pcKeysString)
-	buf.WriteString(");")
-	pipelineConfigReady := make([]int, 0)
-	var pcKey int
-	rows, err := dbpool.Query(context.Background(), buf.String())
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	for rows.Next() {
-		// scan the row
-		if err = rows.Scan(&pcKey); err != nil {
-			return nil, err
-		}
-		pipelineConfigReady = append(pipelineConfigReady, pcKey)
-	}
-	return &pipelineConfigReady, nil
-}
-
-// Start process based on matching criteria:
-//   - find processes that are ready to start with one of the input input_registry key.
-//   - Pipeline must have automated flag on
-func (ctx *DataTableContext) StartPipelineOnInputRegistryInsert(registerFileKeyAction *RegisterFileKeyAction, token string) (*[]map[string]interface{}, int, error) {
-	// // // DEV
-	// fmt.Println("StartPipelineOnInputRegistryInsert called with registerFileKeyAction:", *registerFileKeyAction)
-
-	results := make([]map[string]interface{}, 0)
-	for irow := range registerFileKeyAction.Data {
-		// Get the input_registry key
-		inputRegistryKeys := registerFileKeyAction.Data[irow]["input_registry_keys"].([]int)
-		sourcePeriodKey := registerFileKeyAction.Data[irow]["source_period_key"].(int)
-		client := registerFileKeyAction.Data[irow]["client"].(string)
-		maxInputRegistryKey := -1
-		for _, key := range inputRegistryKeys {
-			if key > maxInputRegistryKey {
-				maxInputRegistryKey = key
-			}
-		}
-
-		// Find all pipeline_config with main_process_input_key or merged_process_input_keys matching one of inputRegistryKeys
-		// and ready to execute based on source_period_key
-		// 	- Find all process_input matching any inputRegistryKeys
-		//  - Find all pipeline_config matching any of process_input found
-		//  - Find all process_input having a matching input_registry where source_period_key = sourcePeriodKey
-		//	- Filter the pipeline_config based on those ready to start and automated
-		// We need to make sure that we don't pick up any pipeline_config that are ready to start based on
-		// input_registry key inserted *after* those in this event (inputRegistryKeys) since another event
-		// will follow for those keys. This is to avoid starting the pipeline twice for the same source_period_key.
-		// We use maxInputRegistryKey for this purpose.
-
-		// Find all process_input matching any inputRegistryKeys
-		processInputKeys, err := matchingProcessInputKeys(ctx.Dbpool, &inputRegistryKeys)
-		if err != nil {
-			err2 := fmt.Errorf("in StartPipelineOnInputRegistryInsert while querying matching process_input keys: %v", err)
-			return nil, http.StatusInternalServerError, err2
-		}
-		// DEV
-		// fmt.Println("Found matching processInputKeys:", *processInputKeys)
-
-		if len(*processInputKeys) == 0 {
-			return &[]map[string]interface{}{}, http.StatusOK, nil
-		}
-
-		// Find all pipeline_config matching any of process_input found
-		pipelineConfigKeys, err := matchingPipelineConfigKeys(ctx.Dbpool, processInputKeys)
-		if err != nil {
-			err2 := fmt.Errorf("in StartPipelineOnInputRegistryInsert while querying matching pipeline_config keys: %v", err)
-			return nil, http.StatusInternalServerError, err2
-		}
-		// DEV
-		// fmt.Println("Found any matching pipelineConfigKeys:", *pipelineConfigKeys)
-
-		if len(*pipelineConfigKeys) == 0 {
-			return &[]map[string]interface{}{}, http.StatusOK, nil
-		}
-
-		// Find all process_input having a matching input_registry where source_period_key = sourcePeriodKey
-		// Limit to process_input with matching input_registry with key <= maxInputRegistryKey for client
-		processInputKeys, err = processInputInPeriod(ctx.Dbpool, sourcePeriodKey, maxInputRegistryKey, client)
-		if err != nil {
-			err2 := fmt.Errorf("in StartPipelineOnInputRegistryInsert while querying all process_input in source_period_key: %v", err)
-			return nil, http.StatusInternalServerError, err2
-		}
-		// DEV
-		// fmt.Println("Found matching processInputKeys where source_period_key = sourcePeriodKey:", *processInputKeys)
-
-		if len(*processInputKeys) == 0 {
-			return &[]map[string]interface{}{}, http.StatusOK, nil
-		}
-
-		// Find all pipeline_config ready to go among those in pipelineConfigKeys (to ensure we kick off pipeline with one of inputRegistryKeys)
-		pipelineConfigKeys, err = PipelineConfigReady2Execute(ctx.Dbpool, processInputKeys, pipelineConfigKeys)
-		if err != nil {
-			err2 := fmt.Errorf("in StartPipelineOnInputRegistryInsert while querying all pipeline_config ready to execute: %v", err)
-			return nil, http.StatusInternalServerError, err2
-		}
-
-		// fmt.Println("Found all pipeline_config ready to go:", *pipelineConfigKeys) // DEV
-
-		if len(*pipelineConfigKeys) == 0 {
-			return &[]map[string]interface{}{}, http.StatusOK, nil
-		}
-
-		// Get details of the pipeline_config that are ready to execute to make entries in pipeline_execution_status
-		payload := make([]map[string]interface{}, 0)
-		baseSessionId := time.Now().UnixMilli()
-		for _, pcKey := range *pipelineConfigKeys {
-			// Reserve a session_id
-			sessionId, err := reserveSessionId(ctx.Dbpool, &baseSessionId)
-			if err != nil {
-				return nil, http.StatusInternalServerError, err
-			}
-			data := map[string]interface{}{
-				"pipeline_config_key":   strconv.Itoa(pcKey),
-				"input_session_id":      nil,
-				"session_id":            sessionId,
-				"source_period_key":     sourcePeriodKey,
-				"status":                "submitted",
-				"user_email":            "system",
-				"serverCompletedMetric": "autoServerCompleted",
-				"serverFailedMetric":    "autoServerFailed",
-			}
-			// keys required for insert stmt:
-			//    "pipeline_config_key", "main_input_registry_key", "main_input_file_key", "merged_input_registry_keys",
-			//    "client", "process_name", "main_object_type", "input_session_id", "session_id", "status", "user_email"
-			// Columns to select:
-			//    "process_name", "main_input_registry_key", "main_input_file_key", "main_object_type", "merged_input_registry_keys",
-			// Using QueryRow to make sure only one row is returned with the latest ir.key
-			var process_name, main_object_type string
-			var main_input_registry_key int
-			var file_key sql.NullString
-			merged_process_input_keys := make([]int, 0)
-
-			// SELECT  process_name, main_input_registry_key, file_key, main_object_type, merged_process_input_keys
-			// ir is the main_input_registry record being selected for the pipeline_config (pc) record with the specified source_period_key
-			stmt := `SELECT  pc.process_name, ir.key, ir.file_key, ir.object_type, pc.merged_process_input_keys
-			          FROM jetsapi.pipeline_config pc, jetsapi.process_input pi, jetsapi.input_registry ir
-							 WHERE pc.key = $1 
-							   AND pc.main_process_input_key = pi.key 
-								 AND pi.client = ir.client 
-								 AND pi.org = ir.org 
-								 AND pi.object_type = ir.object_type 
-								 AND pi.source_type = ir.source_type 
-								 AND pi.table_name = ir.table_name 
-								 AND ir.source_period_key = $2
-						ORDER BY ir.key DESC`
-			err = ctx.Dbpool.QueryRow(context.Background(), stmt, pcKey, sourcePeriodKey).Scan(
-				&process_name, &main_input_registry_key, &file_key, &main_object_type, &merged_process_input_keys)
-			if err != nil {
-				return nil, http.StatusInternalServerError,
-					fmt.Errorf("in StartPipelineOnInputRegistryInsert while querying pipeline_config to start a pipeline: %v", err)
-			}
-			// DEV
-			// fmt.Println("GOT pipeline_config w/ main_input_registry_key for execution:")
-			// fmt.Printf("*pcKey: %d, process_name: %s, client: %s, main_input_registry_key: %d, file_key: %s, main_object_type: %s, merged_process_input_keys: %v\n",
-			// 	pcKey, process_name, client, main_input_registry_key, file_key.String, main_object_type, merged_process_input_keys)
-
-			// Lookup merged_input_registry_keys from merged_process_input_keys
-			merged_input_registry_keys := make([]int, len(merged_process_input_keys))
-			var irKey int
-			for ipos, piKey := range merged_process_input_keys {
-				stmt := `SELECT ir.key 
-				          FROM jetsapi.input_registry ir, jetsapi.process_input pi
-				         WHERE pi.key = $1 
-								   AND ir.client = pi.client 
-									 AND ir.org = pi.org 
-									 AND ir.object_type = pi.object_type 
-									 AND ir.source_type = pi.source_type 
-									 AND ir.table_name = pi.table_name 
-									 AND ir.source_period_key = $2
-								 ORDER BY ir.key DESC`
-				err = ctx.Dbpool.QueryRow(context.Background(), stmt, piKey, sourcePeriodKey).Scan(&irKey)
-				if err != nil {
-					return nil, http.StatusInternalServerError,
-						fmt.Errorf("in StartPipelineOnInputRegistryInsert while querying input_registry for merged input: %v", err)
-				}
-				merged_input_registry_keys[ipos] = irKey
-			}
-			// DEV
-			// fmt.Printf("GOT corresponding merged_input_registry_keys: %v\n", merged_input_registry_keys)
-
-			data["process_name"] = process_name
-			data["client"] = client
-			data["main_input_registry_key"] = main_input_registry_key
-			if file_key.Valid {
-				data["main_input_file_key"] = file_key.String
-				data["file_key"] = file_key.String
-			}
-			data["main_object_type"] = main_object_type
-			data["merged_input_registry_keys"] = merged_input_registry_keys
-			payload = append(payload, data)
-		}
-
-		// Start the pipelines by inserting into pipeline_execution_status
-		dataTableAction := DataTableAction{
-			Action:      "insert_rows",
-			FromClauses: []FromClause{{Schema: "jetsapi", Table: "pipeline_execution_status"}},
-			Data:        payload,
-		}
-		// v, _ := json.Marshal(dataTableAction)
-		// fmt.Println("***@@** Calling InsertRow to start pipeline with dataTableAction", string(v))
-		result, httpStatus, err := ctx.InsertRows(&dataTableAction, token)
-		if err != nil {
-			log.Printf("while calling InsertRow for starting pipeline in StartPipelineOnInputRegistryInsert: %v", err)
-			return nil, httpStatus, fmt.Errorf("while starting pipeline in StartPipelineOnInputRegistryInsert: %v", err)
-		}
-		results = append(results, *result)
-	}
-	return &results, http.StatusOK, nil
 }
 
 // Reserve a session_id by inserting a row in table jetsapi.session_reservation

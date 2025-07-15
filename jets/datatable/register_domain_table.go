@@ -80,19 +80,14 @@ func RegisterDomainTables(dbpool *pgxpool.Pool, usingSshTunnel bool, pipelineExe
 			err = dbpool.QueryRow(context.Background(), stmt,
 				client, (*objectTypes)[j], domainTableFileKey, outTables[i], sessionId, sourcePeriodKey, userEmail).Scan(&inputRegistryKey)
 			if err != nil {
-				fmt.Println("error unable to register out tables to input_registry (ignored):", err)
+				log.Println("error unable to register out tables to input_registry (ignored):", err)
 			} else {
 				// Check if automated processes are ready to start
-				fmt.Println("**** Register Domain Table w/ inputRegistryKey:", inputRegistryKey, "object_type", (*objectTypes)[j])
-				ctx.StartPipelineOnInputRegistryInsert(&RegisterFileKeyAction{
-					Action: "register_keys",
-					Data: []map[string]interface{}{{
-						"input_registry_keys": []int{inputRegistryKey},
-						"source_period_key":   sourcePeriodKey,
-						"file_key":            domainTableFileKey,
-						"client":              client,
-					}},
-				}, token)
+				// log.Println("*** Register Domain Table w/ inputRegistryKey:", inputRegistryKey, "object_type", (*objectTypes)[j])
+				err = ctx.StartPipelinesForInputRegistryV2(inputRegistryKey, sourcePeriodKey, sessionId, client, (*objectTypes)[j], domainTableFileKey, token)
+				if err != nil {
+					log.Println("while calling StartPipelinesForInputRegistryV2 (ignored):", err)
+				}
 			}
 		}
 	}
