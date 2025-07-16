@@ -710,7 +710,7 @@ func main() {
 	}
 	CpuUtilizationAlarmThreshold := 80.0
 	if os.Getenv("JETS_CPU_UTILIZATION_ALARM_THRESHOLD") != "" {
-		dBMaxCapacity, err = strconv.ParseFloat(os.Getenv("JETS_CPU_UTILIZATION_ALARM_THRESHOLD"), 64)
+		CpuUtilizationAlarmThreshold, err = strconv.ParseFloat(os.Getenv("JETS_CPU_UTILIZATION_ALARM_THRESHOLD"), 64)
 		if err != nil {
 			hasErr = true
 			errMsg = append(errMsg, fmt.Sprintf("Invalid value for JETS_CPU_UTILIZATION_ALARM_THRESHOLD: %s", os.Getenv("JETS_CPU_UTILIZATION_ALARM_THRESHOLD")))
