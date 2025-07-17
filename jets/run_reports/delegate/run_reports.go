@@ -67,8 +67,9 @@ type ReportDirectives struct {
 }
 
 type ReportProperty struct {
-	ReportOrScript string            `json:"reportOrScript"`
-	RunWhen        []RunWhenCriteria `json:"runWhen"`
+	ReportOrScript  string            `json:"reportOrScript"`
+	UpdatedFileKeys []string          `json:"updatedFileKeys"`
+	RunWhen         []RunWhenCriteria `json:"runWhen"`
 }
 
 type StatementProperty struct {
@@ -135,7 +136,7 @@ func (ca *CommandArguments) RunReports(dbpool *pgxpool.Pool) (returnedErr error)
 
 	// Start the Report Commands async
 	log.Println("Start the Report Commands async")
-	errCh := make(chan error, 5)
+	errCh := make(chan error, 100)
 	ctx, cancel := context.WithCancel(context.Background())
 	defer func() {
 		// Check if there was any error while executing the commands.
@@ -210,6 +211,7 @@ func (ca *CommandArguments) RunReports(dbpool *pgxpool.Pool) (returnedErr error)
 			// Running as sql script
 			log.Println("Running sql script:", ca.ReportScriptPaths[i])
 			err = ca.runSqlScriptDelegate(dbpool, ca.ReportScriptPaths[i])
+			updatedKeys = append(updatedKeys, reportProps.UpdatedFileKeys...)
 		} else {
 			// Running as sql report by default
 			log.Println("Running report:", ca.ReportScriptPaths[i])
