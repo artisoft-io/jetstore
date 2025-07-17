@@ -5,6 +5,7 @@ package stack
 import (
 	"fmt"
 	"os"
+	"strings"
 
 	awscdk "github.com/aws/aws-cdk-go/awscdk/v2"
 	"github.com/aws/aws-cdk-go/awscdk/v2/awsec2"
@@ -23,6 +24,21 @@ func (jsComp *JetStoreStackComponents) BuildLambdas(scope constructs.Construct, 
 	// Define the Status Update lambda, used in jsComp.ServerSM, jsComp.Serverv2SM, jsComp.CpipesSM and jsComp.ReportsSM
 	// Status Update Lambda Definition
 	// --------------------------------------------------------------------------------------------------------------
+	// Define a security group if internet access is required for Status Notification
+	var lambdaSecurityGroups *[]awsec2.ISecurityGroup
+	switch strings.ToUpper(os.Getenv("JETS_SQS_REGISTER_KEY_VPC_ID")) {
+	case "JETSTORE_VPC_WITH_INTERNET_ACCESS":
+		lambdaSecurityGroups = &[]awsec2.ISecurityGroup{
+			jsComp.PrivateSecurityGroup,
+			awsec2.NewSecurityGroup(stack, jsii.String("StatusLambdaAccesInternet"), &awsec2.SecurityGroupProps{
+				Vpc:              jsComp.Vpc,
+				Description:      jsii.String("Allow network access to internet"),
+				AllowAllOutbound: jsii.Bool(true),
+			})}
+	default:
+		lambdaSecurityGroups = &[]awsec2.ISecurityGroup{jsComp.PrivateSecurityGroup}
+	}
+
 	jsComp.StatusUpdateLambda = awslambdago.NewGoFunction(stack, jsii.String("StatusUpdateLambda"), &awslambdago.GoFunctionProps{
 		Description: jsii.String("Lambda function to update job status with jetstore db"),
 		Runtime:     awslambda.Runtime_PROVIDED_AL2023(),
@@ -66,7 +82,7 @@ func (jsComp *JetStoreStackComponents) BuildLambdas(scope constructs.Construct, 
 		Timeout:        awscdk.Duration_Millis(jsii.Number(60000)),
 		Vpc:            jsComp.Vpc,
 		VpcSubnets:     jsComp.PrivateSubnetSelection,
-		SecurityGroups: &[]awsec2.ISecurityGroup{jsComp.PrivateSecurityGroup},
+		SecurityGroups: lambdaSecurityGroups,
 		LogRetention:   awslogs.RetentionDays_THREE_MONTHS,
 	})
 	if phiTagName != nil {

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"strconv"
+	"strings"
 
 	awscdk "github.com/aws/aws-cdk-go/awscdk/v2"
 	"github.com/aws/aws-cdk-go/awscdk/v2/awsec2"
@@ -37,6 +38,22 @@ func (jsComp *JetStoreStackComponents) BuildCpipesLambdas(scope constructs.Const
 	//	- CpipesStartShardingLambda
 	//	- CpipesStartReducingLambda
 	// --------------------------------------------------------------------------------------------------------------
+
+	// Define a security group if internet access is required for Status Notification
+	var cpipesSecurityGroups *[]awsec2.ISecurityGroup
+	switch strings.ToUpper(os.Getenv("JETS_SQS_REGISTER_KEY_VPC_ID")) {
+	case "JETSTORE_VPC_WITH_INTERNET_ACCESS":
+		cpipesSecurityGroups = &[]awsec2.ISecurityGroup{
+			jsComp.PrivateSecurityGroup,
+			awsec2.NewSecurityGroup(stack, jsii.String("CpipesLambdaAccesInternet"), &awsec2.SecurityGroupProps{
+				Vpc:              jsComp.Vpc,
+				Description:      jsii.String("Allow network access to internet"),
+				AllowAllOutbound: jsii.Bool(true),
+			})}
+	default:
+		cpipesSecurityGroups = &[]awsec2.ISecurityGroup{jsComp.PrivateSecurityGroup}
+	}
+
 	var memLimit float64
 	if len(os.Getenv("JETS_CPIPES_LAMBDA_MEM_LIMIT_MB")) > 0 {
 		var err error
@@ -89,6 +106,7 @@ func (jsComp *JetStoreStackComponents) BuildCpipesLambdas(scope constructs.Const
 		Timeout:              awscdk.Duration_Minutes(jsii.Number(15)),
 		Vpc:                  jsComp.Vpc,
 		VpcSubnets:           jsComp.IsolatedSubnetSelection,
+		SecurityGroups:       cpipesSecurityGroups,
 		LogRetention:         awslogs.RetentionDays_THREE_MONTHS,
 	})
 	if phiTagName != nil {
@@ -147,7 +165,7 @@ func (jsComp *JetStoreStackComponents) BuildCpipesLambdas(scope constructs.Const
 		Timeout:        awscdk.Duration_Minutes(jsii.Number(15)),
 		Vpc:            jsComp.Vpc,
 		VpcSubnets:     jsComp.PrivateSubnetSelection,
-		SecurityGroups: &[]awsec2.ISecurityGroup{jsComp.PrivateSecurityGroup},
+		SecurityGroups: cpipesSecurityGroups,
 		LogRetention:   awslogs.RetentionDays_THREE_MONTHS,
 	})
 	if phiTagName != nil {
@@ -202,11 +220,12 @@ func (jsComp *JetStoreStackComponents) BuildCpipesLambdas(scope constructs.Const
 			"WORKSPACES_HOME": jsii.String("/tmp/jetstore/workspaces"),
 			"WORKSPACE":       jsii.String(os.Getenv("WORKSPACE")),
 		},
-		MemorySize:   jsii.Number(128),
-		Timeout:      awscdk.Duration_Minutes(jsii.Number(15)),
-		Vpc:          jsComp.Vpc,
-		VpcSubnets:   jsComp.IsolatedSubnetSelection,
-		LogRetention: awslogs.RetentionDays_THREE_MONTHS,
+		MemorySize:     jsii.Number(128),
+		Timeout:        awscdk.Duration_Minutes(jsii.Number(15)),
+		Vpc:            jsComp.Vpc,
+		VpcSubnets:     jsComp.IsolatedSubnetSelection,
+		SecurityGroups: cpipesSecurityGroups,
+		LogRetention:   awslogs.RetentionDays_THREE_MONTHS,
 	})
 	if phiTagName != nil {
 		awscdk.Tags_Of(jsComp.CpipesStartReducingLambda).Add(phiTagName, jsii.String("true"), nil)

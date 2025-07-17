@@ -21,6 +21,21 @@ import (
 func (jsComp *JetStoreStackComponents) BuildRegisterKeyLambdas(scope constructs.Construct, stack awscdk.Stack, props *JetstoreOneStackProps) {
 	// Create a Lambda function to register File Keys with JetStore DB
 	// Respond to new key event as well as new schema info
+	// Define a security group if internet access is required for Status Notification
+	var lambdaSecurityGroups *[]awsec2.ISecurityGroup
+	switch strings.ToUpper(os.Getenv("JETS_SQS_REGISTER_KEY_VPC_ID")) {
+	case "JETSTORE_VPC_WITH_INTERNET_ACCESS":
+		lambdaSecurityGroups = &[]awsec2.ISecurityGroup{
+			jsComp.PrivateSecurityGroup,
+			awsec2.NewSecurityGroup(stack, jsii.String("RegKeyLambdaAccesInternet"), &awsec2.SecurityGroupProps{
+				Vpc:              jsComp.Vpc,
+				Description:      jsii.String("Allow network access to internet"),
+				AllowAllOutbound: jsii.Bool(true),
+			})}
+	default:
+		lambdaSecurityGroups = &[]awsec2.ISecurityGroup{jsComp.PrivateSecurityGroup}
+	}
+
 	jsComp.RegisterKeyV2Lambda = awslambdago.NewGoFunction(stack, jsii.String("registerKeyV2"), &awslambdago.GoFunctionProps{
 		Description: jsii.String("Lambda function to register file key with jetstore db, v2"),
 		Runtime:     awslambda.Runtime_PROVIDED_AL2023(),
@@ -69,7 +84,7 @@ func (jsComp *JetStoreStackComponents) BuildRegisterKeyLambdas(scope constructs.
 		Timeout:        awscdk.Duration_Seconds(jsii.Number(30)),
 		Vpc:            jsComp.Vpc,
 		VpcSubnets:     jsComp.PrivateSubnetSelection,
-		SecurityGroups: &[]awsec2.ISecurityGroup{jsComp.PrivateSecurityGroup},
+		SecurityGroups: lambdaSecurityGroups,
 		LogRetention:   awslogs.RetentionDays_THREE_MONTHS,
 	})
 	if phiTagName != nil {
