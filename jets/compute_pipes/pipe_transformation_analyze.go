@@ -40,10 +40,12 @@ import (
 //	"max_date",
 //	"min_double",
 //	"max_double",
+//	"large_double_pct",
 //	"min_length",
 //	"max_length",
 //	"min_value",
 //	"max_value",
+//	"large_value_pct",
 //	"minmax_type"
 //
 // Note: for min_value/max_value are determined based on this priority rule:
@@ -283,6 +285,7 @@ func (ctx *AnalyzeTransformationPipe) Done() error {
 
 		// The functions tokens
 		var dateMinMax, doubleMinMax, textMinMax, winningValue *MinMaxValue
+		var dateLargeValue, doubleLargeValue, textLargeValue, winningLargeValue *LargeValue
 		for _, fc := range state.FunctionMatch {
 			m := fc.GetMatchToken()
 			for token, count := range m {
@@ -306,6 +309,17 @@ func (ctx *AnalyzeTransformationPipe) Done() error {
 					textMinMax = minMax
 				}
 			}
+			largeValues := fc.GetLargeValue()
+			if largeValues != nil {
+				switch largeValues.ValueType {
+				case "date":
+					dateLargeValue = largeValues
+				case "double":
+					doubleLargeValue = largeValues
+				case "text":
+					textLargeValue = largeValues
+				}
+			}
 		}
 		// Pick the winning minmax results
 		nonNilCount := state.TotalRowCount - state.NullCount
@@ -313,10 +327,13 @@ func (ctx *AnalyzeTransformationPipe) Done() error {
 			switch {
 			case dateMinMax != nil && 2*dateMinMax.HitCount > nonNilCount:
 				winningValue = dateMinMax
+				winningLargeValue = dateLargeValue
 			case doubleMinMax != nil && 4*doubleMinMax.HitCount > 3*nonNilCount:
 				winningValue = doubleMinMax
+				winningLargeValue = doubleLargeValue
 			default:
 				winningValue = textMinMax
+				winningLargeValue = textLargeValue
 			}
 
 			// Assign to output columns
@@ -330,6 +347,16 @@ func (ctx *AnalyzeTransformationPipe) Done() error {
 					outputRow[ipos] = dateMinMax.MaxValue
 				}
 			}
+			if dateLargeValue != nil {
+				ipos, ok = (*ctx.outputCh.columns)["large_date_pct"]
+				if ok {
+					if ratioFactor > 0 {
+						outputRow[ipos] = dateLargeValue.HitCount * ratioFactor
+					} else {
+						outputRow[ipos] = -1.0
+					}
+				}
+			}
 			if doubleMinMax != nil {
 				ipos, ok = (*ctx.outputCh.columns)["min_double"]
 				if ok {
@@ -340,6 +367,16 @@ func (ctx *AnalyzeTransformationPipe) Done() error {
 					outputRow[ipos] = doubleMinMax.MaxValue
 				}
 			}
+			if doubleLargeValue != nil {
+				ipos, ok = (*ctx.outputCh.columns)["large_double_pct"]
+				if ok {
+					if ratioFactor > 0 {
+						outputRow[ipos] = doubleLargeValue.HitCount * ratioFactor
+					} else {
+						outputRow[ipos] = -1.0
+					}
+				}
+			}
 			if textMinMax != nil {
 				ipos, ok = (*ctx.outputCh.columns)["min_length"]
 				if ok {
@@ -348,6 +385,16 @@ func (ctx *AnalyzeTransformationPipe) Done() error {
 				ipos, ok = (*ctx.outputCh.columns)["max_length"]
 				if ok {
 					outputRow[ipos] = textMinMax.MaxValue
+				}
+			}
+			if textLargeValue != nil {
+				ipos, ok = (*ctx.outputCh.columns)["large_text_pct"]
+				if ok {
+					if ratioFactor > 0 {
+						outputRow[ipos] = textLargeValue.HitCount * ratioFactor
+					} else {
+						outputRow[ipos] = -1.0
+					}
 				}
 			}
 			if winningValue != nil {
@@ -362,6 +409,16 @@ func (ctx *AnalyzeTransformationPipe) Done() error {
 				ipos, ok = (*ctx.outputCh.columns)["minmax_type"]
 				if ok {
 					outputRow[ipos] = winningValue.MinMaxType
+				}
+			}
+			if winningLargeValue != nil {
+				ipos, ok = (*ctx.outputCh.columns)["large_value_pct"]
+				if ok {
+					if ratioFactor > 0 {
+						outputRow[ipos] = winningLargeValue.HitCount * ratioFactor
+					} else {
+						outputRow[ipos] = -1.0
+					}
 				}
 			}
 		}

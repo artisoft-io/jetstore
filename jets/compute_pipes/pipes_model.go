@@ -588,11 +588,15 @@ type KeywordTokenNode struct {
 	Keywords []string `json:"keywords,omitempty"`
 }
 
-// Type: parse_date
+// Type: parse_date, parse_double, parse_text
+// MinMaxDateFormat: Date parser, Type: parse_date
+// ParseDateArguments: for Type: parse_date
+// Large_Double: for Type: parse_double
 type FunctionTokenNode struct {
 	Type               string            `json:"type"`
 	MinMaxDateFormat   string            `json:"minmax_date_format,omitempty"`
 	ParseDateArguments []ParseDateFTSpec `json:"parse_date_args,omitempty"`
+	LargeDouble        *float64          `json:"large_double,omitzero"`
 }
 
 // The date format is using a reference date of
