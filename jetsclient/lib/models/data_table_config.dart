@@ -324,6 +324,8 @@ class WhereClause {
     this.predicate,
     this.lookupColumnInFormState = false,
     this.like,
+    this.ge,
+    this.le,
     this.orWith,
   });
   final String? table;
@@ -334,6 +336,8 @@ class WhereClause {
   final FormStatePredicate? predicate;
   final bool lookupColumnInFormState;
   final String? like; // where with like stmt
+  final String? ge; // where with >= stmt (default values only)
+  final String? le; // where with <= stmt (default values only)
   final WhereClause? orWith;
 }
 

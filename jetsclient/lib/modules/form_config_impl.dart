@@ -8,6 +8,7 @@ import 'package:jetsclient/modules/actions/user_delegates.dart';
 import 'package:jetsclient/modules/user_flows/client_registry/form_config.dart';
 import 'package:jetsclient/modules/user_flows/configure_files/form_config.dart';
 import 'package:jetsclient/modules/user_flows/file_mapping/form_config.dart';
+import 'package:jetsclient/modules/user_flows/home_filters/form_config.dart';
 import 'package:jetsclient/modules/user_flows/load_files/form_config.dart';
 import 'package:jetsclient/modules/user_flows/register_file_key/form_config.dart';
 import 'package:jetsclient/modules/user_flows/pipeline_config/form_config.dart';
@@ -857,6 +858,8 @@ FormConfig getFormConfig(String key) {
   config = getConfigureFileFormConfig(key);
   if (config != null) return config;
   config = getFileMappingFormConfig(key);
+  if (config != null) return config;
+  config = getHomeFiltersFormConfig(key);
   if (config != null) return config;
   config = getPipelineConfigFormConfig(key);
   if (config != null) return config;

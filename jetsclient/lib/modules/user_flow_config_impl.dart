@@ -2,6 +2,7 @@ import 'package:jetsclient/models/user_flow_config.dart';
 import 'package:jetsclient/modules/user_flows/client_registry/user_flow_config.dart';
 import 'package:jetsclient/modules/user_flows/configure_files/user_flow_config.dart';
 import 'package:jetsclient/modules/user_flows/file_mapping/user_flow_config.dart';
+import 'package:jetsclient/modules/user_flows/home_filters/user_flow_config.dart';
 import 'package:jetsclient/modules/user_flows/load_files/user_flow_config.dart';
 import 'package:jetsclient/modules/user_flows/register_file_key/user_flow_config.dart';
 import 'package:jetsclient/modules/user_flows/pipeline_config/user_flow_config.dart';
@@ -14,6 +15,8 @@ UserFlowConfig getUserFlowConfig(String key) {
   config = getConfigureFilesUserFlowConfig(key);
   if (config != null) return config;
   config = getFileMappingUserFlowConfig(key);
+  if (config != null) return config;
+  config = getHomeFiltersUserFlowConfig(key);
   if (config != null) return config;
   config = getPipelineConfigUserFlowConfig(key);
   if (config != null) return config;

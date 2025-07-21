@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:jetsclient/models/data_table_config.dart';
 import 'package:jetsclient/models/form_config.dart';
 import 'package:jetsclient/models/screen_config.dart';
 import 'dart:async';
@@ -27,6 +28,10 @@ class JetsRouterDelegate extends RouterDelegate<JetsRouteData>
   Map<String, String> routePrevMap = {};
   List<double?>? splitViewControllerWeights;
   String? selectedClient;
+
+  // filters for home page
+  List<WhereClause>? homeFilters;
+
   List<DropdownItemConfig> clients = [];
   List<MenuEntry> workspaceMenuState = [];
 

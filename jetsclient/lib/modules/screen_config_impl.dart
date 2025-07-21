@@ -1,6 +1,7 @@
 import 'package:jetsclient/modules/user_flows/client_registry/screen_config.dart';
 import 'package:jetsclient/modules/user_flows/configure_files/screen_config.dart';
 import 'package:jetsclient/modules/user_flows/file_mapping/screen_config.dart';
+import 'package:jetsclient/modules/user_flows/home_filters/screen_config.dart';
 import 'package:jetsclient/modules/user_flows/load_files/screen_config.dart';
 import 'package:jetsclient/modules/user_flows/register_file_key/screen_config.dart';
 import 'package:jetsclient/modules/user_flows/pipeline_config/screen_config.dart';
@@ -325,6 +326,8 @@ ScreenConfig getScreenConfig(String key) {
   config = getConfigureFileScreenConfig(key);
   if (config != null) return config;
   config = getFileMappingScreenConfig(key);
+  if (config != null) return config;
+  config = getHomeFiltersScreenConfig(key);
   if (config != null) return config;
   config = getPipelineConfigScreenConfig(key);
   if (config != null) return config;

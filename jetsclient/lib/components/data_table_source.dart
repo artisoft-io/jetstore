@@ -298,7 +298,7 @@ class JetsDataTableSource extends ChangeNotifier {
       columnName = v;
     }
 
-    // Check if the Wehereclause column is client
+    // Check if the where clause column is client
     if (wc.column == 'client') {
       _addWhereClauseOnClient = false;
     }
@@ -346,6 +346,24 @@ class JetsDataTableSource extends ChangeNotifier {
         'table': wc.table ?? '',
         'column': columnName,
         'like': wc.like,
+      };
+    }
+
+    // Check if where clause contain the >= operator
+    if (wc.ge != null) {      
+      return <String, dynamic>{
+        'table': wc.table ?? '',
+        'column': columnName,
+        'ge': wc.ge,
+      };
+    }
+
+    // Check if where clause contain the <= operator
+    if (wc.le != null) {      
+      return <String, dynamic>{
+        'table': wc.table ?? '',
+        'column': columnName,
+        'le': wc.le,
       };
     }
 
