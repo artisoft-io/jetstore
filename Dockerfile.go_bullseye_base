@@ -54,7 +54,7 @@ RUN dpkg -l
 # Clone the flutter repo
 # RUN git clone https://github.com/flutter/flutter.git /usr/local/flutter
 RUN wget -q "https://storage.googleapis.com/flutter_infra_release/releases/stable/linux/flutter_linux_3.32.7-stable.tar.xz"  \
-    && tar xf "flutter_linux_3.32.7-stable.tar.xz"  -C /usr/local/flutter
+    && mkdir /usr/local/flutter && tar xvf "flutter_linux_3.32.7-stable.tar.xz"  -C /usr/local/flutter
 
 # # Set flutter path
 ENV PATH="${PATH}:/usr/local/flutter/bin:/usr/local/flutter/bin/cache/dart-sdk/bin"
