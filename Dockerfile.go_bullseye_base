@@ -52,16 +52,17 @@ RUN dpkg -l
 
 # Cloning Flutter repo to build the ui for use in DEV MODE
 # Clone the flutter repo
-RUN git clone https://github.com/flutter/flutter.git /usr/local/flutter
-RUN git reset --hard d16e5b9
+# RUN git clone https://github.com/flutter/flutter.git /usr/local/flutter
+RUN wget -q "https://storage.googleapis.com/flutter_infra_release/releases/stable/linux/flutter_linux_3.32.7-stable.tar.xz"  \
+    && tar xf "flutter_linux_3.32.7-stable.tar.xz"  -C /usr/local/flutter
 
 # # Set flutter path
 ENV PATH="${PATH}:/usr/local/flutter/bin:/usr/local/flutter/bin/cache/dart-sdk/bin"
 
 # # Run flutter doctor
-RUN flutter doctor -v
-RUN flutter channel master
-RUN flutter upgrade
+# RUN flutter doctor -v
+# RUN flutter channel master
+# RUN flutter upgrade
 
 # ARG PQXX_VERSION="7.6.0"
 # ENV PQXX_VERSION=${PQXX_VERSION}
