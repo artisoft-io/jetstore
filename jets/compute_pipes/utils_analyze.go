@@ -64,10 +64,23 @@ type MinMaxValue struct {
 	MinMaxType string
 	HitCount   int
 }
+
+// LargeValue is expressed as string but represent one of:
+//   - min/max date when MinMaxType == "date"
+//   - min/max double when MinMaxType == "double"
+//   - min/max length when MinMaxType == "text"
+//
+// Note: currently only MinMaxType == "double" is implementing LargeValue check
+type LargeValue struct {
+	Value     string
+	ValueType string
+	HitCount  float64
+}
 type FunctionCount interface {
 	NewValue(value string)
 	GetMatchToken() map[string]int
 	GetMinMaxValues() *MinMaxValue
+	GetLargeValue() *LargeValue
 }
 
 func NewFunctionCount(fspec *FunctionTokenNode, sp SchemaProvider) (FunctionCount, error) {
@@ -410,7 +423,7 @@ func (p *ParseDateMatchFunction) NewValue(value string) {
 					p.minMax.maxValue = d
 				}
 				p.minMax.count += 1
-				break	
+				break
 			}
 		}
 	}
@@ -436,6 +449,11 @@ func (p *ParseDateMatchFunction) GetMinMaxValues() *MinMaxValue {
 		MinMaxType: "date",
 		HitCount:   p.minMax.count,
 	}
+}
+
+// *TODO ParseDateMatchFunction.GetLargeValue()
+func (p *ParseDateMatchFunction) GetLargeValue() *LargeValue {
+	return nil
 }
 
 func NewParseDateMatchFunction(fspec *FunctionTokenNode, sp SchemaProvider) (FunctionCount, error) {
@@ -481,13 +499,19 @@ func NewParseDateMatchFunction(fspec *FunctionTokenNode, sp SchemaProvider) (Fun
 // Parse Double Match Function
 
 type ParseDoubleMatchFunction struct {
-	minMax *minMaxDoubleValue
+	minMax      *minMaxDoubleValue
+	largeValues *largeDoubleValue
 }
 
 type minMaxDoubleValue struct {
 	minValue *float64
 	maxValue *float64
 	count    int
+}
+
+type largeDoubleValue struct {
+	largeValue float64
+	count      int
 }
 
 // ParseDoubleMatchFunction implements FunctionCount interface
@@ -501,11 +525,25 @@ func (p *ParseDoubleMatchFunction) NewValue(value string) {
 			p.minMax.maxValue = &fvalue
 		}
 		p.minMax.count += 1
+		if p.largeValues != nil && fvalue >= p.largeValues.largeValue {
+			p.largeValues.count++
+		}
 	}
 }
 
 func (p *ParseDoubleMatchFunction) GetMatchToken() map[string]int {
 	return nil
+}
+
+func (p *ParseDoubleMatchFunction) GetLargeValue() *LargeValue {
+	if p.largeValues == nil {
+		return nil
+	}
+	return &LargeValue{
+		Value:     strconv.FormatFloat(p.largeValues.largeValue, 'f', -1, 64),
+		ValueType: "double",
+		HitCount:  float64(p.largeValues.count),
+	}
 }
 
 func (p *ParseDoubleMatchFunction) GetMinMaxValues() *MinMaxValue {
@@ -524,9 +562,15 @@ func (p *ParseDoubleMatchFunction) GetMinMaxValues() *MinMaxValue {
 }
 
 func NewParseDoubleMatchFunction(fspec *FunctionTokenNode) (FunctionCount, error) {
-	return &ParseDoubleMatchFunction{
+	var largeValue largeDoubleValue
+	result := &ParseDoubleMatchFunction{
 		minMax: &minMaxDoubleValue{},
-	}, nil
+	}
+	if fspec.LargeDouble != nil {
+		largeValue.largeValue = *fspec.LargeDouble
+		result.largeValues = &largeValue
+	}
+	return result, nil
 }
 
 // Parse Text Match Function
@@ -554,6 +598,11 @@ func (p *ParseTextMatchFunction) NewValue(value string) {
 }
 
 func (p *ParseTextMatchFunction) GetMatchToken() map[string]int {
+	return nil
+}
+
+// *TODO ParseTextMatchFunction.GetLargeValue()
+func (p *ParseTextMatchFunction) GetLargeValue() *LargeValue {
 	return nil
 }
 
