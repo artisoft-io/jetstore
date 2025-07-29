@@ -1,6 +1,7 @@
 import 'package:jetsclient/modules/user_flows/client_registry/data_table_config.dart';
 import 'package:jetsclient/modules/user_flows/configure_files/data_table_config.dart';
 import 'package:jetsclient/modules/user_flows/file_mapping/data_table_config.dart';
+import 'package:jetsclient/modules/user_flows/home_filters/data_table_config.dart';
 import 'package:jetsclient/modules/user_flows/load_files/data_table_config.dart';
 import 'package:jetsclient/modules/user_flows/register_file_key/data_table_config.dart';
 import 'package:jetsclient/modules/user_flows/pipeline_config/data_table_config.dart';
@@ -269,6 +270,21 @@ final Map<String, TableConfig> _tableConfigurations = {
           key: 'refreshTable',
           label: 'Refresh',
           style: ActionStyle.secondary,
+          isVisibleWhenCheckboxVisible: null,
+          isEnabledWhenHavingSelectedRows: null),
+      ActionConfig(
+          actionType: DataTableActionType.showScreen,
+          key: 'setHomeFilters',
+          label: 'Set Filters',
+          style: ActionStyle.primary,
+          isVisibleWhenCheckboxVisible: null,
+          isEnabledWhenHavingSelectedRows: null,
+          configScreenPath: ufStartPipelinePath),
+      ActionConfig(
+          actionType: DataTableActionType.clearHomeFilters,
+          key: 'clearHomeFilters',
+          label: 'Clear Filters',
+          style: ActionStyle.primary,
           isVisibleWhenCheckboxVisible: null,
           isEnabledWhenHavingSelectedRows: null),
     ],
@@ -1754,6 +1770,8 @@ TableConfig getTableConfig(String key) {
   config = getWorkspacePullTableConfig(key);
   if (config != null) return config;
   config = getFileMappingTableConfig(key);
+  if (config != null) return config;
+  config = getHomeFiltersTableConfig(key);
   if (config != null) return config;
   throw Exception(
       'ERROR: Invalid program configuration: table configuration $key not found');

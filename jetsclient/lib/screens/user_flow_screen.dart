@@ -112,6 +112,11 @@ class UserFlowScreenState extends BaseScreenState {
           formConfig = currentUserFlowState.formConfig;
         }
       }
+
+      // Initialize formState with flow specific initializer
+      if (userFlowConfig.formStateInitializer != null) {
+        userFlowConfig.formStateInitializer!(formState);
+      }
       // reset the updated keys since these updates is to put default values
       // and is not from user interactions
       //* TODO - Stop using group 0 as a special group with validation keys

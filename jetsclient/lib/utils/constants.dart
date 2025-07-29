@@ -148,6 +148,7 @@ class ScreenKeys {
   static const ufClientRegistry = "clientRegistryScreenUF";
   static const ufSourceConfig = "sourceConfigScreenUF";
   static const ufFileMapping = "fileMappingScreenUF";
+  static const ufHomeFilters = "homeFiltersScreenUF";
   static const ufMappingForm = "ufMappingFormScreenUF";
   static const ufPipelineConfig = "pipelineConfigScreenUF";
   static const ufLoadFiles = "ufLoadFilesScreenUF";
@@ -236,6 +237,13 @@ class FormKeys {
   static const scEditCodeValueMappingUF = "scEditCodeValueMappingUF";
   static const scEditAutomatedModeUF = "scEditAutomatedModeUF";
   static const scSummaryUF = "scSummaryUF";
+  // Home Filters UF Forms
+  static const hfSelectProcessUF = "hfSelectProcessUF";
+  static const hfSelectStatusUF = "hfSelectStatusUF";
+  static const hfSelectFileKeyFilterUF = "hfSelectFileKeyFilterUF";
+  static const hfDoneHomeFiltersUF = "hfDoneHomeFiltersUF";
+  static const hfSelectTimeWindowUF = "hfSelectTimeWindowUF";
+  static const hfViewStatusTableUF = "hfViewStatusTableUF";
   // File Mapping UF Forms
   static const fmStartFileMappingUF = "fmStartFileMappingUF";
   static const fmSelectSourceConfigUF = "fmSelectSourceConfigUF";
@@ -493,6 +501,14 @@ class FSK {
   // Start Pipeline UF
   static const spAllDataSourceKeys = "spAllDataSourceKeys";
 
+  // Home Filters UF
+  static const hfFileKeyMatchType = "hfFileKeyMatchType";
+  static const hfFileKeySubstring = "hfFileKeySubstring";
+  static const hfStartTime = "hfStartTime";
+  static const hfStartOffset = "hfStartOffset";
+  static const hfEndTime = "hfEndTime";
+  static const hfEndOffset = "hfEndOffset";
+
   // reserved keys for cache
 
   // inputFieldsCache: cache value is a list<String?>
@@ -651,6 +667,13 @@ class ActionKeys {
   static const fmStartUF = "fmStartUF";
   static const fmSelectSourceConfigUF = "fmSelectSourceConfigUF";
 
+  // Home Filters UF ActionKeys
+  static const hfStartUF = "hfStartUF";
+  static const hfSelectProcessUF = "hfSelectProcessUF";
+  static const hfSelectStatusUF = "hfSelectStatusUF";
+  static const hfSelectFileKeyFilterUF = "hfSelectFileKeyFilterUF";
+  static const hfSelectTimeWindowUF = "hfSelectTimeWindowUF";
+
   // Pipeline Config ActionKeys
   static const pcAddPipelineConfigUF = "pcAddPipelineConfigUF";
   static const pcSelectPipelineConfigUF = "pcSelectPipelineConfigUF";
@@ -701,6 +724,7 @@ class UserFlowKeys {
   static const clientRegistryUF = "clientRegistryUF";
   static const sourceConfigUF = "sourceConfigUF";
   static const fileMappingUF = "fileMappingUF";
+  static const homeFiltersUF = "homeFiltersUF";
   static const mapFileUF = "mapFileUF";
   static const pipelineConfigUF = "pipelineConfigUF";
   static const loadFilesUF = "loadFilesUF";
@@ -802,6 +826,11 @@ class DTKeys {
   static const fmInputSourceMappingUF = "fmInputSourceMappingUF";
   // Table listing the mapping
   static const fmFileMappingTableUF = "fmFileMappingTableUF";
+
+  // Home Filters Tables
+  static const hfProcessTableUF = "hfProcessTableUF";
+  static const hfStatusTableUF = "hfStatusTableUF";
+  static const hfFileKeyFilterTypeTableUF = "hfFileKeyFilterTypeTableUF";
 
   // Pipeline Config UF DTKeys
   static const pcPipelineConfigTable = "pcPipelineConfigTable";
