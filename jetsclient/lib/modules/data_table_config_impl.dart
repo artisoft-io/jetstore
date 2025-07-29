@@ -272,6 +272,21 @@ final Map<String, TableConfig> _tableConfigurations = {
           style: ActionStyle.secondary,
           isVisibleWhenCheckboxVisible: null,
           isEnabledWhenHavingSelectedRows: null),
+      ActionConfig(
+          actionType: DataTableActionType.showScreen,
+          key: 'setHomeFilters',
+          label: 'Set Filters',
+          style: ActionStyle.primary,
+          isVisibleWhenCheckboxVisible: null,
+          isEnabledWhenHavingSelectedRows: null,
+          configScreenPath: ufStartPipelinePath),
+      ActionConfig(
+          actionType: DataTableActionType.clearHomeFilters,
+          key: 'clearHomeFilters',
+          label: 'Clear Filters',
+          style: ActionStyle.primary,
+          isVisibleWhenCheckboxVisible: null,
+          isEnabledWhenHavingSelectedRows: null),
     ],
     secondRowActions: [
       ActionConfig(

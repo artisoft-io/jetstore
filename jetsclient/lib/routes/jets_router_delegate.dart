@@ -31,6 +31,7 @@ class JetsRouterDelegate extends RouterDelegate<JetsRouteData>
 
   // filters for home page
   List<WhereClause>? homeFilters;
+  Map<String, dynamic> homeFiltersState = {};
 
   List<DropdownItemConfig> clients = [];
   List<MenuEntry> workspaceMenuState = [];

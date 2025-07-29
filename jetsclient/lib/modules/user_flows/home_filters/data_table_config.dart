@@ -49,14 +49,15 @@ final Map<String, TableConfig> _tableConfigurations = {
     whereClauses: [],
     actions: [],
     staticTableModel: [
-      ['Submitted', 'submitted', '0'],
-      ['Pending', 'pending', '1'],
-      ['Failed', 'failed', '2'],
-      ['Timed Out', 'timed_out', '3'],
+      ['Completed', 'completed', '0'],
+      ['Submitted', 'submitted', '1'],
+      ['Pending', 'pending', '2'],
+      ['Failed', 'failed', '3'],
+      ['Timed Out', 'timed_out', '4'],
     ],
     formStateConfig: DataTableFormStateConfig(keyColumnIdx: 0, otherColumns: [
       DataTableFormStateOtherColumnConfig(
-          stateKey: FSK.status, columnIdx: 0),
+          stateKey: FSK.status, columnIdx: 1),
     ]),
     columns: [
       ColumnConfig(
@@ -66,7 +67,7 @@ final Map<String, TableConfig> _tableConfigurations = {
           tooltips: 'Status of the pipeline',
           isNumeric: false),
       ColumnConfig(
-          index: 1, name: "status", label: '', tooltips: '', isNumeric: false),
+          index: 1, name: "status", label: '', tooltips: '', isNumeric: false, isHidden: true),
       ColumnConfig(
           index: 2,
           name: "option_order",
@@ -94,13 +95,14 @@ final Map<String, TableConfig> _tableConfigurations = {
     actions: [],
     staticTableModel: [
       ['None', '', '0'],
-      ['Starts With', 'starts_with', '1'],
-      ['Ends With', 'ends_with', '2'],
-      ['Contains', 'contains', '3'],
+      ['Equals Value', 'equals_value', '1'],
+      ['Starts With', 'starts_with', '2'],
+      ['Ends With', 'ends_with', '3'],
+      ['Contains', 'contains', '4'],
     ],
     formStateConfig: DataTableFormStateConfig(keyColumnIdx: 0, otherColumns: [
       DataTableFormStateOtherColumnConfig(
-          stateKey: FSK.hfFileKeyMatchType, columnIdx: 0),
+          stateKey: FSK.hfFileKeyMatchType, columnIdx: 1),
     ]),
     columns: [
       ColumnConfig(
@@ -110,7 +112,7 @@ final Map<String, TableConfig> _tableConfigurations = {
           tooltips: 'Select the File Key filter type',
           isNumeric: false),
       ColumnConfig(
-          index: 1, name: "file_key_filter_type", label: '', tooltips: '', isNumeric: false),
+          index: 1, name: "file_key_filter_type", label: '', tooltips: '', isNumeric: false, isHidden: true),
       ColumnConfig(
           index: 2,
           name: "option_order",

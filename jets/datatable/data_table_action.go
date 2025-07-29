@@ -102,6 +102,8 @@ type WhereClause struct {
 	Values   []string `json:"values"`
 	JoinWith string   `json:"joinWith"`
 	Like     string   `json:"like"`
+	Ge       string   `json:"ge"`
+	Le       string   `json:"le"`
 	// Adding a simple or clause
 	OrWith *WhereClause `json:"orWith"`
 }
@@ -353,7 +355,7 @@ func visitWhereClause(buf *strings.Builder, wc *WhereClause) {
 			}
 		}
 		buf.WriteString(") ")
-	default:
+	case nvalues == 1:
 		value := wc.Values[0]
 		if value == "NULL" {
 			buf.WriteString(" is NULL ")
@@ -362,6 +364,15 @@ func visitWhereClause(buf *strings.Builder, wc *WhereClause) {
 			buf.WriteString(value)
 			buf.WriteString("'")
 		}
+	case len(wc.Ge) > 0:
+		buf.WriteString(" >= ")
+		buf.WriteString(wc.Ge)
+	case len(wc.Le) > 0:
+		buf.WriteString(" <= ")
+		buf.WriteString(wc.Le)
+
+	default:
+		log.Printf("WARNING visitWhereClause called with unknown structure: %v\n", *wc)
 	}
 	if wc.OrWith != nil {
 		buf.WriteString(" OR ")

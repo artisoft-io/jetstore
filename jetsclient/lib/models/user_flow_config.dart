@@ -36,6 +36,8 @@ List<FormActionConfig> standardActions = [
       rightMargin: defaultPadding),
 ];
 
+typedef UserFlowStateInitializer = void Function(JetsFormState formState);
+
 /// User Flow Configuration
 /// The user flow configuration is greatly inspired from the
 /// Amazon States Language spec (https://states-language.net/spec.html)
@@ -46,9 +48,11 @@ class UserFlowConfig {
   UserFlowConfig(
       {required this.startAtKey,
       required this.states,
-      this.exitScreenPath});
+      this.exitScreenPath,
+      this.formStateInitializer});
   final String startAtKey;
   final Map<String, UserFlowState> states;
+  final UserFlowStateInitializer? formStateInitializer;
 
   /// The [JetsRouteData] to visit once the user flow has terminated
   final String? exitScreenPath;

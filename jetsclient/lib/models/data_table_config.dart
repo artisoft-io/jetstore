@@ -85,7 +85,8 @@ enum DataTableActionType {
   refreshTable,
   doAction,
   toggleCopy2Clipboard,
-  doActionShowDialog
+  doActionShowDialog,
+  clearHomeFilters,
 }
 
 /// enum describing the condition when an action button is enabled based on
@@ -339,6 +340,35 @@ class WhereClause {
   final String? ge; // where with >= stmt (default values only)
   final String? le; // where with <= stmt (default values only)
   final WhereClause? orWith;
+  @override
+  String toString() {
+    var result = 'WhereClause(table: $table, column: $column';
+    if (formStateKey != null) {
+      result += ', formStateKey: $formStateKey';
+    }
+    if (defaultValue.isNotEmpty) {
+      result += ', defaultValue: $defaultValue';
+    }
+    if (joinWith != null) {
+      result += ', joinWith: $joinWith';
+    }
+    if (predicate != null) {
+      result += ', predicate: $predicate';
+    }
+    if(lookupColumnInFormState) {
+      result += ', lookupColumnInFormState: $lookupColumnInFormState';
+    }
+    if (like != null) {
+      result += ', like: $like';
+    }
+    if (ge != null) {
+      result += ', ge: $ge';
+    }
+    if (le != null) {
+      result += ', le: $le';
+    }
+    return result;
+  }
 }
 
 class DataTableFormStateConfig {

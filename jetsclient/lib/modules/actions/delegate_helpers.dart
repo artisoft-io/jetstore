@@ -26,7 +26,7 @@ String? unpack(dynamic elm) {
 
 // pack the elm into a list, if the elm is an ecoded list, decode the list
 List<String>? unpackToList(dynamic elm) {
-  print("^^^ entering unpackToList with elm: $elm");
+  // print("^^^ entering unpackToList with elm: $elm");
   if (elm == null) return null;
   if (elm is List<String>) return elm;
   if (elm is List<String?>) {
@@ -41,11 +41,11 @@ List<String>? unpackToList(dynamic elm) {
     if (str == '{}') return [];
     if (str[0] == '{') {
       final val = str.substring(1, str.length - 1).split(',');
-      print("^^^ returning decoded val $val, isEmpty? ${val.isEmpty}");
+      // print("^^^ returning decoded val $val, isEmpty? ${val.isEmpty}");
       return val;
     } else {
-      final val = [str];
-      print("^^^ returning [str] $val, isEmpty? ${val.isEmpty}");
+      // final val = [str];
+      // print("^^^ returning [str] $val, isEmpty? ${val.isEmpty}");
       return [str];
     }
   }

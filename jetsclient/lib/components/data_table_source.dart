@@ -248,13 +248,12 @@ class JetsDataTableSource extends ChangeNotifier {
               ? DataCell(
                   SizedBox(
                       width: e.columnWidth, //SET width
-                      child: Text(_cellValue(index, e),
-                          maxLines: e.maxLines)),
+                      child: Text(_cellValue(index, e), maxLines: e.maxLines)),
                   onLongPress: state.noCopy2Clipboard
                       ? null
                       : () {
-                          Clipboard.setData(ClipboardData(
-                              text: _cellFullValue(index, e)));
+                          Clipboard.setData(
+                              ClipboardData(text: _cellFullValue(index, e)));
                           ScaffoldMessenger.of(state.context).showSnackBar(
                               const SnackBar(
                                   content: Text("Copied to Clipboard")));
@@ -263,8 +262,8 @@ class JetsDataTableSource extends ChangeNotifier {
                   onLongPress: state.noCopy2Clipboard
                       ? null
                       : () {
-                          Clipboard.setData(ClipboardData(
-                              text: _cellFullValue(index, e)));
+                          Clipboard.setData(
+                              ClipboardData(text: _cellFullValue(index, e)));
                           ScaffoldMessenger.of(state.context).showSnackBar(
                               const SnackBar(
                                   content: Text("Copied to Clipboard")));
@@ -350,7 +349,7 @@ class JetsDataTableSource extends ChangeNotifier {
     }
 
     // Check if where clause contain the >= operator
-    if (wc.ge != null) {      
+    if (wc.ge != null) {
       return <String, dynamic>{
         'table': wc.table ?? '',
         'column': columnName,
@@ -359,7 +358,7 @@ class JetsDataTableSource extends ChangeNotifier {
     }
 
     // Check if where clause contain the <= operator
-    if (wc.le != null) {      
+    if (wc.le != null) {
       return <String, dynamic>{
         'table': wc.table ?? '',
         'column': columnName,
@@ -417,6 +416,7 @@ class JetsDataTableSource extends ChangeNotifier {
   dynamic _makeQuery() {
     final columns = state.tableConfig.columns;
     final config = state.formFieldConfig;
+
     // reset _addWhereClauseOnClient
     _addWhereClauseOnClient = true;
     // Check if there is a select client in context
@@ -508,6 +508,19 @@ class JetsDataTableSource extends ChangeNotifier {
         whereClauses.add(wcValue);
       }
     }
+    // Add home filters to where clause
+    final homeFilters = JetsRouterDelegate().homeFilters;
+    if (config != null &&
+        config.key == DTKeys.pipelineExecStatusTable &&
+        homeFilters != null) {
+      for (final wc in homeFilters) {
+        var wcValue = _addOrWith(wc, _makeWhereClause(wc));
+        if (wcValue != null) {
+          whereClauses.add(wcValue);
+        }
+      }
+    }
+
     // if _addWhereClauseOnClient is still true, then add to where clause
     if (_addWhereClauseOnClient) {
       // Add to where clause
