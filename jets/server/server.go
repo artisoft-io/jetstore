@@ -13,7 +13,6 @@ import (
 	"time"
 
 	"github.com/artisoft-io/jetstore/jets/awsi"
-	"github.com/artisoft-io/jetstore/jets/dbutils"
 	"github.com/artisoft-io/jetstore/jets/workspace"
 	"github.com/jackc/pgx/v4/pgxpool"
 )
@@ -120,7 +119,7 @@ func doJob() (pipelineResult *PipelineResult, err error) {
 	if !devMode {
 		// We're not in dev mode, sync the overriten workspace files
 		// We're only interested in /lookup.db and /workspace.db (both have content_type = 'sqlite')
-		err = workspace.SyncWorkspaceFiles(dbpool, os.Getenv("WORKSPACE"), dbutils.FO_Open, "sqlite", false, true)
+		err = workspace.SyncWorkspaceFiles(dbpool, os.Getenv("WORKSPACE"), "sqlite", false, true)
 		if err != nil {
 			log.Println("Error while synching workspace file from db:", err)
 			return

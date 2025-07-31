@@ -16,7 +16,6 @@ import (
 	"github.com/artisoft-io/jetstore/jets/awsi"
 	"github.com/artisoft-io/jetstore/jets/datatable"
 	"github.com/artisoft-io/jetstore/jets/datatable/wsfile"
-	"github.com/artisoft-io/jetstore/jets/dbutils"
 	"github.com/artisoft-io/jetstore/jets/schema"
 	"github.com/artisoft-io/jetstore/jets/user"
 	"github.com/artisoft-io/jetstore/jets/workspace"
@@ -326,7 +325,7 @@ func (server *Server) checkWorkspaceVersion() error {
 
 	case jetstoreVersion > version.String:
 		// Download overriten workspace files from database if any, skipping sqlite and tgz files since we will recompile workspace
-		if err = workspace.SyncWorkspaceFiles(server.dbpool, workspaceName, dbutils.FO_Open, "", true, true); err != nil {
+		if err = workspace.SyncWorkspaceFiles(server.dbpool, workspaceName, "", true, true); err != nil {
 			log.Println("Error (ignored) while synching workspace file from database:", err)
 		}
 		log.Println("Workspace deployed version (in database) is", version.String)
@@ -336,7 +335,7 @@ func (server *Server) checkWorkspaceVersion() error {
 	default:
 		log.Println("Workspace version in database", version, ">=", "JetStore image version", jetstoreVersion, ", no need to recompile workspace")
 		// Download overriten workspace files from database if any, not skipping sqlite/tgz files to get latest in case it was recompiled
-		if err = workspace.SyncWorkspaceFiles(server.dbpool, workspaceName, dbutils.FO_Open, "", false, false); err != nil {
+		if err = workspace.SyncWorkspaceFiles(server.dbpool, workspaceName, "", false, false); err != nil {
 			log.Println("Error (ignored) while synching workspace file from database:", err)
 		}
 		// NOT Recompiling workspace, hence return here

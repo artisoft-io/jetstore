@@ -2135,7 +2135,12 @@
       {
         "columnName": "oid",
         "dataType": "uint",
+        "deprecated": true,
         "isNotNull": true
+      },
+      {
+        "columnName": "data",
+        "dataType": "bytea"
       },
       {
         "columnName": "file_name",
@@ -2150,6 +2155,8 @@
       {
         "columnName": "status",
         "dataType": "text",
+        "deprecated": true,
+        "default": "''",
         "isNotNull": true
       },
       {

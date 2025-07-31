@@ -71,7 +71,6 @@ func SaveContent(dbpool *pgxpool.Pool, workspaceName, fileName, fileContent stri
 	}
 
 	// Write file and metadata to database
-	var fileHd *os.File
 	p := strings.Index(fileName, "/")
 	var contentType string
 	if p > 0 {
@@ -84,16 +83,10 @@ func SaveContent(dbpool *pgxpool.Pool, workspaceName, fileName, fileContent stri
 		WorkspaceName: workspaceName,
 		FileName:      fileName,
 		ContentType:   contentType,
-		Status:        dbutils.FO_Open,
 		UserEmail:     "system",
 	}
-	fileHd, err = os.Open(path)
-	if err != nil {
-		return fmt.Errorf("(2) failed to open local workspace file %s: %v", fileName, err)
-	}
-	defer fileHd.Close()
 
-	n, err := fo.WriteObject(dbpool, fileHd)
+	n, err := fo.WriteObject(dbpool, data)
 	if err != nil {
 		return fmt.Errorf("failed to save local workspace file %s in database: %v", fileName, err)
 	}

@@ -32,25 +32,29 @@ func SyncS3Files(dbpool *pgxpool.Pool, workspaceName, keyPrefix, trimPrefix, con
 		if err != nil {
 			return fmt.Errorf("failed to open local workspace file for write: %v", err)
 		}
-
 		// Download the object
 		nsz, err := DownloadFromS3(jetstoreOwnBucket, jetstoreOwnRegion, s3Obj.Key, fileHd)
 		if err != nil {
 			fileHd.Close()
 			return fmt.Errorf("failed to download input file: %v", err)
 		}
+		fileHd.Close()
 		fmt.Println("downloaded", s3Obj.Key, "size", nsz, "bytes from s3")
 		// Copy file to database
-		fileHd.Seek(0, 0)
+		if nsz > 1024 * 1024 * 1024 {
+			return fmt.Errorf("error: Jetstore does not support workspace file larger than 1 Go, the object size is: %v", nsz)
+		}
+		data, err := os.ReadFile(fileHd.Name())
+		if err != nil {
+			return err
+		}
 		fo := dbutils.FileDbObject{
 			WorkspaceName: workspaceName,
 			FileName:      strings.TrimPrefix(s3Obj.Key, trimPrefix),
 			ContentType:   contentType,
-			Status:        dbutils.FO_Open,
 			UserEmail:     "system",
 		}
-		n, err := fo.WriteObject(dbpool, fileHd)
-		fileHd.Close()
+		n, err := fo.WriteObject(dbpool, data)
 		if err != nil {
 			return err
 		}
