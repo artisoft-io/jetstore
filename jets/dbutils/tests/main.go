@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"os"
 
@@ -32,33 +31,11 @@ func main() {
 		Status: "open",
 		UserEmail: "michel@artisoft.io",
 	}
-	fd, err := os.Open("./test1.jr")
-	if err != nil {
-		panic(err)
-	}
-	n, err := fo.WriteObject(dbpool, fd)
-	fmt.Println("WriteObject done of size",n,"object oid is",fo.Oid,"error is",err)
+	fileContent := "this is the file content"
+	n, err := fo.WriteObject(dbpool, []byte(fileContent))
+	fmt.Println("WriteObject done of size",n,"error is",err)
 
 	n, err = fo.ReadObject(dbpool, os.Stdout)
-	fmt.Println("ReadObject done of size",n,"object oid is",fo.Oid,"error is",err)
-	fmt.Println("The FileDbObject is:")
-	b, _ := json.MarshalIndent(fo, "", " ")
-	fmt.Println(string(b))
-
-	// Updating File Object content with "updated_test1.jr"
-	fmt.Println("\n-------------------")
-	fmt.Println()
-	fmt.Println("Updating FileDbObject content")
-	fd, err = os.Open("./updated_test1.jr")
-	if err != nil {
-		panic(err)
-	}
-	n, err = fo.WriteObject(dbpool, fd)
-	fmt.Println("UPDATED WriteObject done of size",n,"object oid is",fo.Oid,"error is",err)
-	n, err = fo.ReadObject(dbpool, os.Stdout)
-	fmt.Println("UPDATED ReadObject done of size",n,"object oid is",fo.Oid,"error is",err)
-	fmt.Println("The UPDATED FileDbObject is:")
-	b, _ = json.MarshalIndent(fo, "", " ")
-	fmt.Println(string(b))
+	fmt.Println("ReadObject done of size",n,"error is",err)
 
 }

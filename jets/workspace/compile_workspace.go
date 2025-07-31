@@ -41,18 +41,18 @@ func init() {
 //   - starting a task requiring local workspace (e.g. run_report to get latest report definition)
 //   - starting apiserver to get latest override files (e.g. lookup csv files) to compile workspace
 //   - starting rule server to get the latest lookup.db and workspace.db
-func SyncWorkspaceFiles(dbpool *pgxpool.Pool, workspaceName, status, contentType string, skipSqliteFiles bool, skipTgzFiles bool) error {
+func SyncWorkspaceFiles(dbpool *pgxpool.Pool, workspaceName, contentType string, skipSqliteFiles bool, skipTgzFiles bool) error {
 	// sync workspace files from db to locally
 	if devMode {
 		return nil
 	}
 	// Get all file_name that are modified
 	if len(contentType) > 0 {
-		log.Printf("Start synching overriten workspace file with status '%s' and content_type '%s' from database", status, contentType)
+		log.Printf("Start synching overriten workspace file with content_type '%s' from database", contentType)
 	} else {
-		log.Printf("Start synching overriten workspace file with status '%s' from database", status)
+		log.Printf("Start synching overriten workspace file from database")
 	}
-	fileObjects, err := dbutils.QueryFileObject(dbpool, workspaceName, status, contentType)
+	fileObjects, err := dbutils.QueryFileObject(dbpool, workspaceName, contentType)
 	if err != nil {
 		return err
 	}
@@ -123,7 +123,7 @@ func SyncRunReportsWorkspace(dbpool *pgxpool.Pool) (bool, error) {
 	didSync := false
 	if version != workspaceVersion {
 		// Get the reports
-		err = SyncWorkspaceFiles(dbpool, wprefix, dbutils.FO_Open, "reports.tgz", true, false)
+		err = SyncWorkspaceFiles(dbpool, wprefix, "reports.tgz", true, false)
 		if err != nil {
 			return false, fmt.Errorf("error while synching reports.tgz file from db: %v", err)
 		}
@@ -156,12 +156,12 @@ func SyncComputePipesWorkspace(dbpool *pgxpool.Pool) (bool, error) {
 	didSync := false
 	if version != workspaceVersion {
 		// Get the compiled rules
-		err = SyncWorkspaceFiles(dbpool, os.Getenv("WORKSPACE"), dbutils.FO_Open, "workspace.tgz", true, false)
+		err = SyncWorkspaceFiles(dbpool, os.Getenv("WORKSPACE"), "workspace.tgz", true, false)
 		if err != nil {
 			return false, fmt.Errorf("error while synching workspace file from db: %v", err)
 		}
 		// Get the compiled lookups
-		err = SyncWorkspaceFiles(dbpool, os.Getenv("WORKSPACE"), dbutils.FO_Open, "sqlite", false, true)
+		err = SyncWorkspaceFiles(dbpool, os.Getenv("WORKSPACE"), "sqlite", false, true)
 		if err != nil {
 			return false, fmt.Errorf("error while synching workspace file from db: %v", err)
 		}
@@ -361,24 +361,17 @@ func CompileWorkspace(dbpool *pgxpool.Pool, workspaceName, version string) (stri
 		}
 		fileNames := []string{"lookup.db", "workspace.db", "workspace.tgz", "reports.tgz"}
 		fo := []dbutils.FileDbObject{
-			{WorkspaceName: workspaceName, ContentType: "sqlite", Status: dbutils.FO_Open, UserEmail: "system"},
-			{WorkspaceName: workspaceName, ContentType: "sqlite", Status: dbutils.FO_Open, UserEmail: "system"},
-			{WorkspaceName: workspaceName, ContentType: "workspace.tgz", Status: dbutils.FO_Open, UserEmail: "system"},
-			{WorkspaceName: workspaceName, ContentType: "reports.tgz", Status: dbutils.FO_Open, UserEmail: "system"}}
+			{WorkspaceName: workspaceName, ContentType: "sqlite", UserEmail: "system"},
+			{WorkspaceName: workspaceName, ContentType: "sqlite", UserEmail: "system"},
+			{WorkspaceName: workspaceName, ContentType: "workspace.tgz", UserEmail: "system"},
+			{WorkspaceName: workspaceName, ContentType: "reports.tgz", UserEmail: "system"}}
 		for i := range sourcesPath {
-			// Copy the file to db as large objects
-			file, err := os.Open(sourcesPath[i])
-			if err != nil {
-				buf.WriteString("While opening local output file:")
-				buf.WriteString(err.Error())
-				buf.WriteString("\n")
-				log.Printf("While opening local output file: %v", err)
-				return buf.String(), err
-			}
 			fo[i].FileName = fileNames[i]
-			fo[i].Oid = 0
-			_, err = fo[i].WriteObject(dbpool, file)
-			file.Close()
+			data, err := os.ReadFile(sourcesPath[i])
+			if err != nil {
+				return "", err
+			}
+			_, err = fo[i].WriteObject(dbpool, data)
 			if err != nil {
 				buf.WriteString("Failed to upload file to db:")
 				buf.WriteString(err.Error())

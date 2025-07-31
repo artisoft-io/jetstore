@@ -40,6 +40,7 @@ func DataTypeFromOID(oid uint32) string {
 	case 1184,1185:                     return "timestamp" // timestamp with timezone?
 	case 23, 1007:                      return "int"
 	case 20, 1016:                      return "long"
+	case 17:			                      return "bytea"
 	}
 	return "unknown"
 }

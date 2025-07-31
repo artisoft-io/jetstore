@@ -13,7 +13,6 @@ import (
 
 	"github.com/artisoft-io/jetstore/jets/datatable/git"
 	"github.com/artisoft-io/jetstore/jets/datatable/wsfile"
-	"github.com/artisoft-io/jetstore/jets/dbutils"
 	"github.com/artisoft-io/jetstore/jets/user"
 	"github.com/artisoft-io/jetstore/jets/workspace"
 	"github.com/jackc/pgx/v4/pgxpool"
@@ -65,7 +64,7 @@ func pullWorkspaceAction(dbpool *pgxpool.Pool, irow int, gitProfile *user.GitPro
 	}
 
 	// Apply workspace overrides from database, skipping compiled files
-	err = workspace.SyncWorkspaceFiles(dbpool, workspaceName, dbutils.FO_Open, "", true, true)
+	err = workspace.SyncWorkspaceFiles(dbpool, workspaceName, "", true, true)
 	if err != nil {
 		buf.WriteString(fmt.Sprintf("Error while synching workspace file from database: %v (ignored)\n", err))
 		log.Println("Error while synching workspace file from database:", err, "(ignored)")

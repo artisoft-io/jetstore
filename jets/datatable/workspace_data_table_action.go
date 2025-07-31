@@ -975,16 +975,14 @@ func (ctx *DataTableContext) DeleteWorkspaceChanges(dataTableAction *DataTableAc
 	workspaceName := dataTableAction.WorkspaceName
 	for ipos := range dataTableAction.Data {
 		request := dataTableAction.Data[ipos]
-		wsOid := request["oid"]
 		wsFileName := request["file_name"]
-		wsKey := request["key"]
-		if workspaceName == "" || wsOid == nil || wsFileName == nil || wsKey == nil {
+		if workspaceName == "" || wsFileName == nil {
 			err = fmt.Errorf("DeleteWorkspaceChanges: missing workspace_name, oid, key, or file_name")
 			fmt.Println(err)
 			httpStatus = http.StatusBadRequest
 			return
 		}
-		err = wsfile.DeleteFileChange(ctx.Dbpool, wsKey.(string), workspaceName, wsFileName.(string), wsOid.(string))
+		err = wsfile.DeleteFileChange(ctx.Dbpool, workspaceName, wsFileName.(string))
 		if err != nil {
 			httpStatus = http.StatusBadRequest
 			return

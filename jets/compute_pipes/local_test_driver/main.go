@@ -11,7 +11,6 @@ import (
 
 	"github.com/artisoft-io/jetstore/jets/awsi"
 	"github.com/artisoft-io/jetstore/jets/compute_pipes"
-	"github.com/artisoft-io/jetstore/jets/dbutils"
 	"github.com/artisoft-io/jetstore/jets/workspace"
 	"github.com/jackc/pgx/v4/pgxpool"
 )
@@ -113,12 +112,12 @@ func main() {
 	_, devMode := os.LookupEnv("JETSTORE_DEV_MODE")
 	if !devMode {
 		// Get the compiled rules
-		err = workspace.SyncWorkspaceFiles(dbpool, os.Getenv("WORKSPACE"), dbutils.FO_Open, "workspace.tgz", true, false)
+		err = workspace.SyncWorkspaceFiles(dbpool, os.Getenv("WORKSPACE"), "workspace.tgz", true, false)
 		if err != nil {
 			log.Panicf("Error while synching workspace file from db: %v", err)
 		}
 		// Get the compiled lookups
-		err = workspace.SyncWorkspaceFiles(dbpool, os.Getenv("WORKSPACE"), dbutils.FO_Open, "sqlite", false, true)
+		err = workspace.SyncWorkspaceFiles(dbpool, os.Getenv("WORKSPACE"), "sqlite", false, true)
 		if err != nil {
 			log.Panicf("Error while synching workspace file from db: %v", err)
 		}
