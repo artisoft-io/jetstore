@@ -214,7 +214,7 @@ func (cpCtx *ComputePipesContext) ReadCsvFile(
 	delimiter := inputChannelConfig.Delimiter
 	var eolByte byte
 	compression := inputChannelConfig.Compression
-	// log.Printf("*** ReadCsvFile: got delimiter '%v' or '%s', encoding '%s', noQuote '%v' from schema provider\n", delimiter, string(delimiter), encoding, noQuote)
+	log.Printf("ReadCsvFile: got delimiter '%v' or '%s', encoding '%s', noQuote '%v'\n", delimiter, string(delimiter), encoding, noQuote)
 
 	switch cpCtx.CpConfig.CommonRuntimeArgs.CpipesMode {
 	case "sharding":
@@ -311,7 +311,9 @@ func (cpCtx *ComputePipesContext) ReadCsvFile(
 	if inputFormat == "csv" && filePath.InFileKeyInfo.start == 0 {
 		// skip header row (first row)
 		headers, err = csvReader.Read()
-		// log.Printf("*** ReadCsvFile: skip header row: %v, err?: %v\n", headers, err)
+		// log.Printf("*** ReadCsvFile: skip header row using delimiter %d: %v (%d headers), err?: %v\n", csvReader.Comma, headers, len(headers), err)
+		// b, _ := json.Marshal(string(csvReader.LastRawRecord()))
+		// log.Printf("*** ReadCsvFile: header from LastRawRecord as json: %v\n", string(b))
 		switch {
 		case err == io.EOF: // empty file
 			return 0, 0, nil
@@ -356,7 +358,7 @@ func (cpCtx *ComputePipesContext) ReadCsvFile(
 		// read and put the rows into computePipesInputCh
 		if dropLastRow {
 			nextInRow, err = csvReader.Read()
-			// log.Println("**Next Row -dropLast", nextInRow, "err:", err)
+			// log.Printf("***Read Next Row -dropLast, err?: %v\n", err)
 			switch {
 			case err == io.EOF:
 				// exit route when use VariableFieldsPerRecord or UseLazyQuotes
@@ -366,6 +368,7 @@ func (cpCtx *ComputePipesContext) ReadCsvFile(
 				rawNextInRow = slices.Clone(csvReader.LastRawRecord())
 				err = nil
 				// Next read should give io.EOF, otherwise nextInRow is a bad row
+				// log.Printf("***Next read should give io.EOF\n")
 			case nextInRowErr != nil ||
 				(enforceRowMinLength && len(nextInRow) < expectedNbrColumnsInFile) ||
 				(enforceRowMaxLength && len(nextInRow) > expectedNbrColumnsInFile):
