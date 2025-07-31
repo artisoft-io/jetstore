@@ -151,38 +151,7 @@ func (server *Server) checkJetStoreSchema() error {
 	return nil
 }
 
-// Update JetStore Db -- System Tables Only
-// Precondition: db schema exist
-func (server *Server) checkSystemTablesVersion() error {
-	var serverArgs []string
-	var version sql.NullString
-	jetstoreVersion := os.Getenv("JETS_VERSION")
-	log.Println("JetStore image version JETS_VERSION is", jetstoreVersion)
-
-	// Check the release in database vs current release
-	stmt := "SELECT MAX(version) FROM jetsapi.jetstore_release"
-	err := server.dbpool.QueryRow(context.Background(), stmt).Scan(&version)
-	switch {
-	case err != nil:
-		// Do nothing, this will be addressed after the workspace compilation
-		return nil
-
-	case !version.Valid || jetstoreVersion > version.String:
-		log.Println("JetStore deployed version (in database) is", version.String)
-		log.Println("New JetStore Release deployed, migrating tables to latest schema")
-		serverArgs = []string{"-migrateDb"}
-		if *usingSshTunnel {
-			serverArgs = append(serverArgs, "-usingSshTunnel")
-		}
-		_, err = datatable.RunUpdateDb(os.Getenv("WORKSPACE"), &serverArgs)
-		if err != nil {
-			return fmt.Errorf("while calling RunUpdateDb: %v", err)
-		}
-	}
-	return nil
-}
-
-// Update JetStore Db -- Domain Tables Only
+// Update JetStore Db -- Domain Tables and System Tables if needed
 // Precondition: db schema exist
 func (server *Server) checkDomainTablesVersion() error {
 	var serverArgs []string
@@ -208,8 +177,8 @@ func (server *Server) checkDomainTablesVersion() error {
 
 	case !version.Valid || jetstoreVersion > version.String:
 		log.Println("JetStore deployed version (in database) is", version.String)
-		log.Println("New JetStore Release deployed, running workspace db init script")
-		serverArgs = []string{"-initBaseWorkspaceDb"}
+		log.Println("New JetStore Release deployed, update domain and suystem table and run workspace db init script")
+		serverArgs = []string{"-initBaseWorkspaceDb", "-migrateDb"}
 		if *usingSshTunnel {
 			serverArgs = append(serverArgs, "-usingSshTunnel")
 		}
@@ -461,19 +430,13 @@ func listenAndServe() error {
 		return fmt.Errorf("while calling checkJetStoreSchema: %v", err)
 	}
 
-	// Check jetstore version, update system tables if needed
-	err = server.checkSystemTablesVersion()
-	if err != nil {
-		return fmt.Errorf("while calling checkSystemTablesVersion: %v", err)
-	}
-
 	// Check workspace version, compile workspace if needed
 	err = server.checkWorkspaceVersion()
 	if err != nil {
 		return fmt.Errorf("while calling checkWorkspaceVersion: %v", err)
 	}
 
-	// Check jetstore version, update domain tables if needed
+	// Check jetstore version, update domain tables and system if needed
 	err = server.checkDomainTablesVersion()
 	if err != nil {
 		return fmt.Errorf("while calling checkDomainTablesVersion: %v", err)

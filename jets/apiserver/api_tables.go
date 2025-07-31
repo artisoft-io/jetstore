@@ -2,15 +2,11 @@ package main
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
-	"io/fs"
 	"log"
 	"net/http"
 	"os"
-	"strconv"
-	"strings"
 	"time"
 
 	"github.com/artisoft-io/jetstore/jets/datatable"
@@ -132,70 +128,6 @@ func (server *Server) DoDataTableAction(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 	addToken(r, results)
-	JSON(w, http.StatusOK, results)
-}
-
-func (server *Server) readLocalFiles(w http.ResponseWriter, r *http.Request, dataTableAction *datatable.DataTableAction) {
-	fileSystem := os.DirFS(*unitTestDir)
-	dirData := make([]map[string]string, 0)
-	key := 1
-	err := fs.WalkDir(fileSystem, ".", func(path string, info fs.DirEntry, err error) error {
-		if err != nil {
-			log.Printf("ERROR while walking unit test directory %q: %v", path, err)
-			return err
-		}
-		if info.IsDir() {
-			// fmt.Printf("visiting directory: %+v \n", info.Name())
-			return nil
-		}
-		// fmt.Printf("visited file: %q\n", path)
-		pathSplit := strings.Split(path, "/")
-		if len(pathSplit) != 3 {
-			log.Printf("Invalid path found while walking unit test directory %q: skipping it", path)
-			return nil
-		}
-		if strings.HasPrefix(pathSplit[2], "err_") {
-			// log.Printf("Found loader error file while walking unit test directory %q: skipping it", path)
-			return nil
-		}
-		data := make(map[string]string, 5)
-		data["key"] = strconv.Itoa(key)
-		key += 1
-		data["client"] = pathSplit[0]
-		data["object_type"] = pathSplit[1]
-		data["file_key"] = *unitTestDir + "/" + path
-		data["last_update"] = time.Now().Format(time.RFC3339)
-		dirData = append(dirData, data)
-		return nil
-	})
-	if err != nil {
-		log.Printf("error walking the path %q: %v\n", *unitTestDir, err)
-		ERROR(w, http.StatusInternalServerError, errors.New("error while walking the unit test directory"))
-		return
-	}
-
-	// package the result, sending back only the requested collumns
-	resultRows := make([][]string, 0, len(dirData))
-	for iRow := range dirData {
-		var row []string
-		//* Need to port the raw queries to named parametrized queries as non raw queries!
-		if len(dataTableAction.Columns) > 0 {
-			row = make([]string, len(dataTableAction.Columns))
-			for iCol, col := range dataTableAction.Columns {
-				row[iCol] = dirData[iRow][col.Column]
-			}
-		} else {
-			row = make([]string, 1)
-			row[0] = dirData[iRow]["file_key"]
-		}
-		resultRows = append(resultRows, row)
-	}
-
-	results := makeResult(r)
-	results["rows"] = resultRows
-	results["totalRowCount"] = len(dirData)
-	// fmt.Println("file_key_staging DEV MODE:")
-	// json.NewEncoder(os.Stdout).Encode(results)
 	JSON(w, http.StatusOK, results)
 }
 
