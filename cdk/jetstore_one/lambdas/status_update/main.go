@@ -17,8 +17,8 @@ import (
 // Lambda to perform Status Update at end of pipeline
 
 type config struct {
-	AWSRegion    string
-	IsValid      bool
+	AWSRegion string
+	IsValid   bool
 }
 
 var logger *zap.Logger
@@ -60,7 +60,7 @@ func main() {
 }
 
 // status_update arguments:
-// map[string]interface{}
+// map[string]any
 // {
 //  "-peKey": peKey,
 //  "cpipesMode": true/false,
@@ -74,7 +74,7 @@ func main() {
 // }
 // fileKey is optional, needed for cpipes api notification
 
-func handler(ctx context.Context, arguments map[string]interface{}) (err error) {
+func handler(ctx context.Context, arguments map[string]any) (err error) {
 	logger.Info("Starting in ", zap.String("AWS Region", c.AWSRegion))
 	ca := datatable.StatusUpdate{
 		Status: arguments["-status"].(string),
@@ -82,12 +82,12 @@ func handler(ctx context.Context, arguments map[string]interface{}) (err error) 
 	if arguments["cpipesMode"] != nil {
 		ca.CpipesMode = true
 	}
-	
+
 	switch vv := arguments["doNotNotifyApiGateway"].(type) {
 	case string:
 		switch vv {
 		case "true", "TRUE", "1":
-			ca.DoNotNotifyApiGateway = true			
+			ca.DoNotNotifyApiGateway = true
 		}
 	case int:
 		if vv == 1 {
@@ -111,31 +111,43 @@ func handler(ctx context.Context, arguments map[string]interface{}) (err error) 
 	switch failureDetails := arguments["failureDetails"].(type) {
 	case string:
 		ca.FailureDetails = failureDetails
-	case map[string]interface{}:
-		txt, ok := failureDetails["Cause"].(string)
-		if ok {
-			// Looks like an error in a lambda function
+	case map[string]any:
+		cause, causeOk := failureDetails["Cause"].(string)
+		if causeOk {
+			// Looks like an error in a ecs task or lambda function
 			// see if txt is an embeded json
-			var errCause map[string]interface{}
-			err = json.Unmarshal([]byte(txt), &errCause)
+			var causeDetails map[string]any
+			err = json.Unmarshal([]byte(cause), &causeDetails)
 			if err == nil {
-				txt2, ok2 := errCause["errorMessage"].(string)
+				txt2, ok2 := causeDetails["errorMessage"].(string)
 				if ok2 {
-					// got down to the error message
+					// got down to the error message, must have been a lambda
 					ca.FailureDetails = txt2
 				} else {
-					// unknown error structure, keep the whole thing
-					ca.FailureDetails = txt
+					// Check if it was an ecs task
+					taskReason, ok3 := causeDetails["StoppedReason"].(string)
+					if ok3 {
+						// Looks like an error in a task container
+						group, ok := causeDetails["Group"].(string)
+						if ok {
+							ca.FailureDetails = fmt.Sprintf("%s from %s", taskReason, group)
+						} else {
+							ca.FailureDetails = taskReason
+						}
+					} else {
+						// unknown error structure, keep the whole thing
+						ca.FailureDetails = cause
+					}
 				}
 			} else {
 				// must have been a simple string
-				ca.FailureDetails = txt
+				ca.FailureDetails = cause
 			}
 		} else {
 			reason, ok := failureDetails["StoppedReason"].(string)
 			if ok {
-			// Looks like an error in a task container
-			group, ok := failureDetails["Group"].(string)
+				// Looks like an error in a task container
+				group, ok := failureDetails["Group"].(string)
 				if ok {
 					ca.FailureDetails = fmt.Sprintf("%s from %s", reason, group)
 				} else {
