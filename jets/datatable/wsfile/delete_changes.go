@@ -16,11 +16,8 @@ import (
 // Delete the workspace_changes row and the associated large object
 func DeleteFileChange(dbpool *pgxpool.Pool, workspaceName, fileName string) error {
 	fmt.Println("DeleteWorkspaceChanges: Deleting workspaceName", workspaceName, "file name", fileName)
-	stmt := fmt.Sprintf(
-		"DELETE FROM jetsapi.workspace_changes WHERE workspace_name = %s and file_name = %s", 
-		workspaceName, fileName)
-	fmt.Println("DELETE stmt:", stmt)
-	_, err := dbpool.Exec(context.Background(), stmt)
+	stmt := "DELETE FROM jetsapi.workspace_changes WHERE workspace_name = $1 and file_name = $2"
+	_, err := dbpool.Exec(context.Background(), stmt, workspaceName, fileName)
 	if err != nil {
 		log.Printf("While deleting row in workspace_changes table: %v", err)
 		return fmt.Errorf("while deleting row in workspace_changes table: %v", err)
