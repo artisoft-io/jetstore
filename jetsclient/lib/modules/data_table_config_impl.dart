@@ -279,7 +279,7 @@ final Map<String, TableConfig> _tableConfigurations = {
           style: ActionStyle.primary,
           isVisibleWhenCheckboxVisible: null,
           isEnabledWhenHavingSelectedRows: null,
-          configScreenPath: ufStartPipelinePath),
+          configScreenPath: ufHomeFiltersPath),
       ActionConfig(
           actionType: DataTableActionType.clearHomeFilters,
           key: 'clearHomeFilters',
