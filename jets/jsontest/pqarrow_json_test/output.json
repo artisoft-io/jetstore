@@ -1,18 +1,21 @@
 [
   {
     "age": 30,
+    "binaryName": "QkFsaWNl",
     "date": "2024-01-01",
     "datetime": "2024-01-01 09:00:00Z",
     "name": "Alice"
   },
   {
     "age": 25,
+    "binaryName": "QkJvYg==",
     "date": "2024-01-02",
     "datetime": "2024-01-02 10:30:00Z",
     "name": "Bob"
   },
   {
     "age": 35,
+    "binaryName": "QkNoYXJsaWU=",
     "date": "2024-01-03",
     "datetime": "2024-01-03 15:45:00Z",
     "name": "Charlie"

@@ -36,6 +36,7 @@ func writeParquet() error {
 	// Define schema
 	schema := arrow.NewSchema([]arrow.Field{
 		{Name: "name", Type: arrow.BinaryTypes.String, Nullable: true},
+		{Name: "binaryName", Type: arrow.BinaryTypes.Binary, Nullable: true},
 		{Name: "age", Type: arrow.PrimitiveTypes.Int32},
 		{Name: "date", Type: arrow.FixedWidthTypes.Date32},
 		{Name: "datetime", Type: arrow.FixedWidthTypes.Timestamp_ms},
@@ -43,15 +44,18 @@ func writeParquet() error {
 
 	// Build Arrow arrays
 	nameBuilder := array.NewStringBuilder(pool)
+	binaryNameBuilder := array.NewBinaryBuilder(pool, arrow.BinaryTypes.Binary)
 	ageBuilder := array.NewInt32Builder(pool)
 	dateBuilder := array.NewDate32Builder(pool)
 	datetimeBuilder := array.NewTimestampBuilder(pool, &arrow.TimestampType{Unit: arrow.Millisecond, TimeZone: "UTC"})
 	defer nameBuilder.Release()
+	defer binaryNameBuilder.Release()
 	defer ageBuilder.Release()
 	defer dateBuilder.Release()
 	defer datetimeBuilder.Release()
 
 	names := []string{"Alice", "Bob", "Charlie"}
+	binaryNames := []string{"BAlice", "BBob", "BCharlie"}
 	ages := []int32{30, 25, 35}
 	dates := []string{"2024-01-01", "2024-01-02", "2024-01-03"}
 	datetimes := []string{
@@ -62,6 +66,7 @@ func writeParquet() error {
 
 	for i := range names {
 		nameBuilder.Append(names[i])
+		binaryNameBuilder.Append([]byte(binaryNames[i]))
 		ageBuilder.Append(ages[i])
 
 		// Convert string to Date32 (days since Unix epoch)
@@ -81,16 +86,18 @@ func writeParquet() error {
 	}
 
 	nameArray := nameBuilder.NewArray()
+	binaryNameArray := binaryNameBuilder.NewArray()
 	ageArray := ageBuilder.NewArray()
 	dateArray := dateBuilder.NewArray()
 	datetimeArray := datetimeBuilder.NewArray()
 	defer nameArray.Release()
+	defer binaryNameArray.Release()
 	defer ageArray.Release()
 	defer dateArray.Release()
 	defer datetimeArray.Release()
 
 	// Create record
-	record := array.NewRecord(schema, []arrow.Array{nameArray, ageArray, dateArray, datetimeArray}, int64(len(names)))
+	record := array.NewRecord(schema, []arrow.Array{nameArray, binaryNameArray, ageArray, dateArray, datetimeArray}, int64(len(names)))
 	defer record.Release()
 
 	// Write to file
@@ -137,7 +144,7 @@ func readParquet() error {
 	if err != nil {
 		return err
 	}
-	// fmt.Println("The reader schema", schema,"err?", err)
+	fmt.Println("The reader schema", schema,"err?", err)
 	for _, field := range schema.Fields() {
 		fmt.Printf("FIELD: %s, type %s, nullable? %v\n", field.Name, field.Type.Name(), field.Nullable)
 	}

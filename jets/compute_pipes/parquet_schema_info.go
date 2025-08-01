@@ -121,6 +121,9 @@ func (psi *ParquetSchemaInfo) buildArrowSchema() {
 		case arrow.BinaryTypes.String.Name(), "string":
 			fieldType = arrow.BinaryTypes.String
 
+		case arrow.BinaryTypes.Binary.Name():
+			fieldType = arrow.BinaryTypes.Binary
+
 		default:
 			log.Panicf("error: invalid parquet type: %s", fieldInfo.Type)
 		}
@@ -179,6 +182,9 @@ func (psi *ParquetSchemaInfo) CreateBuilders(pool *memory.GoAllocator) ([]ArrayB
 
 		case arrow.BinaryTypes.String.Name():
 			builders = append(builders, NewStringBuilder(pool))
+
+		case arrow.BinaryTypes.Binary.Name():
+			builders = append(builders, NewBinaryBuilder(pool))
 
 		default:
 			return nil, fmt.Errorf("error: Create parquet column builders, unknown parquet type: %v", field.Type)
@@ -526,6 +532,38 @@ func (b *StringBuilder) Release() {
 	b.builder.Release()
 }
 
+type BinaryBuilder struct {
+	builder *array.BinaryBuilder
+}
+
+func NewBinaryBuilder(mem memory.Allocator) ArrayBuilder {
+	return &BinaryBuilder{
+		builder: array.NewBinaryBuilder(mem, arrow.BinaryTypes.Binary),
+	}
+}
+func (b *BinaryBuilder) Reserve(n int) {
+	b.builder.Reserve(n)
+}
+func (b *BinaryBuilder) Append(v any) {
+	if v == nil {
+		b.builder.AppendNull()
+		return
+	}
+	b.builder.Append([]byte(v.(string)))
+}
+func (b *BinaryBuilder) AppendEmptyValue() {
+	b.builder.AppendEmptyValue()
+}
+func (b *BinaryBuilder) AppendNull() {
+	b.builder.AppendNull()
+}
+func (b *BinaryBuilder) NewArray() arrow.Array {
+	return b.builder.NewArray()
+}
+func (b *BinaryBuilder) Release() {
+	b.builder.Release()
+}
+
 // return value is either nil or a string representing the input v
 func ConvertWithSchemaV1(irow int, col arrow.Array, trimStrings bool, castToRdfTxtFnc CastToRdfTxtFnc) (any, error) {
 	var value string
@@ -606,7 +644,7 @@ func ConvertWithSchemaV1(irow int, col arrow.Array, trimStrings bool, castToRdfT
 			return nil, fmt.Errorf("error: ConvertWithSchemaV1 expecting *array.Float64 got %T", v)
 		}
 
-	case arrow.BinaryTypes.String.Name():
+	case arrow.BinaryTypes.String.Name(), arrow.BinaryTypes.Binary.Name():
 		value = col.ValueStr(irow)
 
 	default:

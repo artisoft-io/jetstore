@@ -123,3 +123,4 @@ jets/jsontest/pqarrow_test/output.parquet
 jets/jsontest/pqarrow_test/pqarrow_test
 jets/jsontest/jsontest
 jets/copytest/parquet_reader/main.go
+jets/jsontest/pqarrow_json_test/pqarrow_json_test
