@@ -227,6 +227,8 @@ func encodeRdfTypeToTxt(inValue any) string {
 			return "1"
 		}
 		return "0"
+	case []byte:
+		return string(vv)
 	default:
 		return fmt.Sprintf("%v", vv)
 	}

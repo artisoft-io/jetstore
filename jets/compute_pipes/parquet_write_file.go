@@ -216,7 +216,7 @@ func ConvertToSchemaV2(v any, se *FieldInfo) (any, error) {
 			return float64(0), fmt.Errorf("error: WriteParquet invalid data for float64: %v", v)
 		}
 
-	case arrow.BinaryTypes.String.Name():
+	case arrow.BinaryTypes.String.Name(), arrow.BinaryTypes.Binary.Name():
 		return encodeRdfTypeToTxt(v), nil
 
 	default:
