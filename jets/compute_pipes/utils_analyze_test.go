@@ -7,15 +7,15 @@ import (
 )
 
 func TestParseDateMatchFunction1(t *testing.T) {
-	fspec := &FunctionTokenNode {
-		Type: "parse_date",
+	fspec := &FunctionTokenNode{
+		Type:             "parse_date",
 		MinMaxDateFormat: "2006-01-02",
 		ParseDateArguments: []ParseDateFTSpec{
 			{
-				Token: "dateRe",
+				Token:             "dateRe",
 				DefaultDateFormat: "2006-01-02",
-				YearGreaterThan: 1920,
-				YearLessThan: 2026,
+				YearGreaterThan:   1920,
+				YearLessThan:      2026,
 			},
 		},
 	}
@@ -47,7 +47,7 @@ func TestParseDateMatchFunction1(t *testing.T) {
 }
 
 func TestParseDoubleMatchFunction1(t *testing.T) {
-	fspec := &FunctionTokenNode {
+	fspec := &FunctionTokenNode{
 		Type: "parse_double",
 	}
 	fcount, err := NewParseDoubleMatchFunction(fspec)
@@ -79,7 +79,7 @@ func TestParseDoubleMatchFunction1(t *testing.T) {
 }
 
 func TestParseTextMatchFunction1(t *testing.T) {
-	fspec := &FunctionTokenNode {
+	fspec := &FunctionTokenNode{
 		Type: "parse_text",
 	}
 	fcount, err := NewParseTextMatchFunction(fspec)
@@ -108,4 +108,116 @@ func TestParseTextMatchFunction1(t *testing.T) {
 	if result.HitCount != 6 {
 		t.Errorf("expecting 6, got %d", result.HitCount)
 	}
+}
+
+type LookupTableTest struct {
+	rows map[string]*[]any
+}
+
+// Returns the lookup row associated with key
+func (tbl *LookupTableTest) Lookup(key *string) (*[]interface{}, error) {
+	return tbl.rows[*key], nil
+}
+
+// Returns the row's value associated with the lookup column
+func (tbl *LookupTableTest) LookupValue(row *[]interface{}, columnName string) (interface{}, error) {
+	return nil, nil
+}
+
+// Returns the mapping between column name to pos in the returned row
+func (tbl *LookupTableTest) ColumnMap() map[string]int {
+	return nil
+}
+
+// Return true if the table is empty, ColumnMap is empty as well
+func (tbl *LookupTableTest) IsEmptyTable() bool {
+	return false
+}
+
+func TestLookupTokensState1(t *testing.T) {
+	lookup := &LookupTableTest{
+		rows: map[string]*[]any{
+			"john":  {[]string{"first_name"}},
+			"smith": {[]string{"last_name"}},
+		}}
+	state, err := NewLookupTokensState(lookup, &LookupTokenNode{
+		Name:   "lookupName",
+		Tokens: []string{"first_name", "last_name"},
+		MultiTokensMatch: []MultiTokensNode{
+			{
+				Name: "full_name",
+				NbrTokens: 2,
+				Tokens: []string{"first_name", "last_name"},
+			},
+		},
+	})
+	if err != nil {
+		t.Error(err)
+	}
+	value := "john"
+	err = state.NewValue(&value)
+	if err != nil {
+		t.Error(err)
+	}
+	if state.LookupMatch["first_name"].Count != 1 {
+		t.Error("expecting 1")
+	}
+	if state.LookupMatch["last_name"].Count != 0 {
+		t.Error("expecting 0")
+	}
+	if state.LookupMatch["full_name"].Count != 0 {
+		t.Error("expecting 0")
+	}
+	value = "smith"
+	err = state.NewValue(&value)
+	if err != nil {
+		t.Error(err)
+	}
+	if state.LookupMatch["last_name"].Count != 1 {
+		t.Error("expecting 1")
+	}
+	value = "john smith"
+	err = state.NewValue(&value)
+	if err != nil {
+		t.Error(err)
+	}
+	if state.LookupMatch["first_name"].Count != 1 {
+		t.Error("expecting 1")
+	}
+	if state.LookupMatch["last_name"].Count != 1 {
+		t.Error("expecting 1")
+	}
+	if state.LookupMatch["full_name"].Count != 1 {
+		t.Error("expecting 1")
+	}
+	value = "smith, john"
+	err = state.NewValue(&value)
+	if err != nil {
+		t.Error(err)
+	}
+	if state.LookupMatch["first_name"].Count != 1 {
+		t.Error("expecting 1")
+	}
+	if state.LookupMatch["last_name"].Count != 1 {
+		t.Error("expecting 1")
+	}
+	if state.LookupMatch["full_name"].Count != 2 {
+		t.Error("expecting 2")
+	}
+	value = "smith, john P"
+	err = state.NewValue(&value)
+	if err != nil {
+		t.Error(err)
+	}
+	if state.LookupMatch["first_name"].Count != 1 {
+		t.Error("expecting 1")
+	}
+	if state.LookupMatch["last_name"].Count != 1 {
+		t.Error("expecting 1")
+	}
+	if state.LookupMatch["full_name"].Count != 3 {
+		t.Error("expecting 3")
+	}
+	// t.Error("That's it!")
+
 }
