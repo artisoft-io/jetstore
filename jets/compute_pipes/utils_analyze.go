@@ -3,6 +3,7 @@ package compute_pipes
 import (
 	"fmt"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -119,28 +120,127 @@ type AnalyzeState struct {
 }
 
 type LookupTokensState struct {
-	LookupTbl   LookupTable
-	KeyRe       *regexp.Regexp
-	LookupMatch map[string]*LookupCount
+	LookupTbl        LookupTable
+	KeyRe            *regexp.Regexp
+	LookupMatch      map[string]*LookupCount
+	MultiTokensMatch []MultiTokensNode
 }
 
-func NewLookupTokensState(lookupTbl LookupTable, keyRe string, tokens []string) (*LookupTokensState, error) {
+func (state *LookupTokensState) LookupValue(value *string) ([]string, error) {
+	row, err := state.LookupTbl.Lookup(value)
+	if err != nil {
+		return nil, fmt.Errorf("while calling lookup, with key %s: %v", *value, err)
+	}
+	if row == nil {
+		return nil, nil
+	}
+	// The first and only column returned is called tokens and is an array of string
+	tokens, ok := (*row)[0].([]string)
+	if !ok {
+		return nil, fmt.Errorf("error: lookup row first elm is not []string in LookupTokensState.LookupValue (AnalyzeState)")
+	}
+	return tokens, nil
+}
+func (state *LookupTokensState) NewValue(value *string) error {
+	var tokens []string
+	var err error
+	if state.KeyRe != nil {
+		key := state.KeyRe.FindStringSubmatch(*value)
+		if len(key) > 1 {
+			tokens, err = state.LookupValue(&key[1])
+		}
+	} else {
+		tokens, err = state.LookupValue(value)
+	}
+	if err != nil {
+		return err
+	}
+	for _, token := range tokens {
+		lkCount := state.LookupMatch[token]
+		if lkCount != nil {
+			lkCount.Count += 1
+		}
+	}
+	// fmt.Printf("*** Entering multi token matches\n")
+	// Look for multi token matches
+	if len(state.MultiTokensMatch) == 0 {
+		return nil
+	}
+	splitValues := strings.Fields(*value)
+	if len(splitValues) < 2 {
+		return nil
+	}
+	// Sort the slice by string length in descending order
+	sort.Slice(splitValues, func(i, j int) bool {
+		return len(splitValues[i]) > len(splitValues[j])
+	})
+	// remove single letter words and ',' suffixes
+	for i := range splitValues {
+		if len(splitValues[i]) < 2 {
+			splitValues = splitValues[0:i]
+			break
+		}
+		splitValues[i] = strings.TrimSuffix(splitValues[i], ",")
+	}
+	// check if this match any multi token config
+	n := len(splitValues)
+	// fmt.Printf("*** Got %d split values: %v\n", len(splitValues), splitValues)
+multiTokensLoop:
+	for i := range state.MultiTokensMatch {
+		if state.MultiTokensMatch[i].NbrTokens == n {
+			// fmt.Printf("*** Got MultiTokensMatch %s with split values %v\n", state.MultiTokensMatch[i].Name, splitValues)
+
+		splitValueLoop:
+			for _, value := range splitValues {
+				tokens, _ = state.LookupValue(&value)
+				// fmt.Printf("*** Split value: %s, got tokens %v\n", value, tokens)
+				// fmt.Printf("*** MultiTokensMatch tokenMap: %v\n", state.MultiTokensMatch[i].tokenMap)
+				for _, token := range tokens {
+					if state.MultiTokensMatch[i].tokenMap[token] {
+						continue splitValueLoop
+					}
+				}
+				// Did not match
+				continue multiTokensLoop
+			}
+			// Got multi token to all match
+			// fmt.Printf("*** Got multi token match %s\n", state.MultiTokensMatch[i].Name)
+			lkCount := state.LookupMatch[state.MultiTokensMatch[i].Name]
+			if lkCount != nil {
+				lkCount.Count += 1
+			}
+		}
+	}
+	return nil
+}
+
+func NewLookupTokensState(lookupTbl LookupTable, lookupNode *LookupTokenNode) (*LookupTokensState, error) {
 	var err error
 	lookupMatch := make(map[string]*LookupCount)
-	for _, token := range tokens {
+	for _, token := range lookupNode.Tokens {
 		lookupMatch[token] = NewLookupCount(token)
 	}
+	for i := range lookupNode.MultiTokensMatch {
+		name := lookupNode.MultiTokensMatch[i].Name
+		lookupMatch[name] = NewLookupCount(name)
+		lookupNode.MultiTokensMatch[i].tokenMap = make(map[string]bool,
+			len(lookupNode.MultiTokensMatch[i].Tokens))
+		for _, token := range lookupNode.MultiTokensMatch[i].Tokens {
+			lookupNode.MultiTokensMatch[i].tokenMap[token] = true
+		}
+	}
 	var re *regexp.Regexp
-	if len(keyRe) > 0 {
-		re, err = regexp.Compile(keyRe)
+	if len(lookupNode.KeyRe) > 0 {
+		re, err = regexp.Compile(lookupNode.KeyRe)
 		if err != nil {
-			return nil, fmt.Errorf("while compiling regex %s: %v", keyRe, err)
+			return nil, fmt.Errorf("while compiling regex %s: %v", lookupNode.KeyRe, err)
 		}
 	}
 	return &LookupTokensState{
-		LookupTbl:   lookupTbl,
-		KeyRe:       re,
-		LookupMatch: lookupMatch,
+		LookupTbl:        lookupTbl,
+		KeyRe:            re,
+		LookupMatch:      lookupMatch,
+		MultiTokensMatch: lookupNode.MultiTokensMatch,
 	}, nil
 }
 
@@ -171,7 +271,7 @@ func (ctx *BuilderContext) NewAnalyzeState(columnName string, columnPos int, inp
 			if lookupTable == nil {
 				return nil, fmt.Errorf("error: lookup table %s not found (NewAlalyzeState)", lookupNode.Name)
 			}
-			state, err := NewLookupTokensState(lookupTable, lookupNode.KeyRe, lookupNode.Tokens)
+			state, err := NewLookupTokensState(lookupTable, lookupNode)
 			if err != nil {
 				return nil, err
 			}
@@ -227,7 +327,7 @@ func (ctx *BuilderContext) NewAnalyzeState(columnName string, columnPos int, inp
 	}, nil
 }
 
-func (state *AnalyzeState) NewValue(value interface{}) error {
+func (state *AnalyzeState) NewValue(value any) error {
 	state.TotalRowCount += 1
 	if value == nil {
 		state.NullCount += 1
@@ -257,6 +357,9 @@ func (state *AnalyzeState) NewToken(value string) error {
 	}
 	// Scrub some unmeaningful chars
 	// Note: assuming ascii, so working with bytes
+	// Note: CharToScrub may contain the space char so
+	// the operator MultiTokensNode will use the original value
+	// Note: Some operators use value and other use scrubbedValue
 	scrubbedValue := value
 	if len(state.CharToScrub) > 0 {
 		scrubbed := make([]rune, 0, len(value))
@@ -297,32 +400,11 @@ func (state *AnalyzeState) NewToken(value string) error {
 	}
 
 	// Lookup matches
-	var row *[]interface{}
 	var err error
 	for _, lookupState := range state.LookupState {
-		if lookupState.KeyRe != nil {
-			key := lookupState.KeyRe.FindStringSubmatch(value)
-			if len(key) > 1 {
-				row, err = lookupState.LookupTbl.Lookup(&key[1])
-			}
-		} else {
-			row, err = lookupState.LookupTbl.Lookup(&value)
-		}
+		err = lookupState.NewValue(&value)
 		if err != nil {
-			return fmt.Errorf("while calling lookup, with key %s: %v", value, err)
-		}
-		// The first and only column returned is called tokens and is an array of string
-		if row != nil {
-			tokens, ok := (*row)[0].([]string)
-			if !ok {
-				return fmt.Errorf("error: lookup row first elm is not []string in AnalyzeState.NewToken")
-			}
-			for _, token := range tokens {
-				lkCount := lookupState.LookupMatch[token]
-				if lkCount != nil {
-					lkCount.Count += 1
-				}
-			}
+			return nil
 		}
 	}
 

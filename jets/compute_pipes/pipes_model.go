@@ -577,10 +577,27 @@ type RegexNode struct {
 	UseScrubbedValue bool   `json:"use_scrubbed_value,omitzero"`
 }
 
+// To identify value made of multiple tokens
+// for example, full name. The value is split on
+// spaces and punctuation characters and single
+// character words are removed.
+// Name: the name of the feature (ie output column name)
+// Tokens: each splitted value must match at least one token
+type MultiTokensNode struct {
+	Name      string   `json:"name"`
+	NbrTokens int      `json:"nbr_tokens"`
+	Tokens    []string `json:"tokens"`
+	tokenMap  map[string]bool
+}
+
+// Matching values using a lookup table.
+// Typically values in lookup table does not have spaces.
+// MultiTokensMatch: Matching composite values, separated by space(s)
 type LookupTokenNode struct {
-	Name   string   `json:"lookup_name"`
-	KeyRe  string   `json:"key_re,omitempty"`
-	Tokens []string `json:"tokens,omitempty"`
+	Name             string            `json:"lookup_name"`
+	KeyRe            string            `json:"key_re,omitempty"`
+	Tokens           []string          `json:"tokens,omitempty"`
+	MultiTokensMatch []MultiTokensNode `json:"multi_tokens_match,omitempty"`
 }
 
 type KeywordTokenNode struct {
