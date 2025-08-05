@@ -143,7 +143,7 @@ func readDecimalParquet(filePath string) error {
 				scale := arr.DataType().(*arrow.Decimal128Type).Scale
 				for j := 0; j < int(arr.Len()); j++ {
 					if arr.IsValid(j) {
-						fmt.Printf("  Row %d: %s (scale: %d)\n", j, arr.Value(j).ToString(int32(scale)), scale)
+						fmt.Printf("  Row %d: %s (scale: %d) -- ValueStr: %s\n", j, arr.Value(j).ToString(int32(scale)), scale, col.ValueStr(j))
 					} else {
 						fmt.Printf("  Row %d: NULL\n", j)
 					}

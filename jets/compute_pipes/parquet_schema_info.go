@@ -8,6 +8,8 @@ import (
 
 	"github.com/apache/arrow/go/v17/arrow"
 	"github.com/apache/arrow/go/v17/arrow/array"
+	"github.com/apache/arrow/go/v17/arrow/decimal128"
+	"github.com/apache/arrow/go/v17/arrow/decimal256"
 	"github.com/apache/arrow/go/v17/arrow/memory"
 )
 
@@ -16,9 +18,11 @@ type ParquetSchemaInfo struct {
 	Fields []*FieldInfo `json:"fields,omitempty"`
 }
 type FieldInfo struct {
-	Name     string `json:"name"`
-	Type     string `json:"type"`
-	Nullable bool   `json:"nullable,omitzero"`
+	Name             string `json:"name"`
+	Type             string `json:"type"`
+	Nullable         bool   `json:"nullable,omitzero"`
+	DecimalPrecision int32  `json:"precision,omitzero"`
+	DecimalScale     int32  `json:"scale,omitzero"`
 }
 
 type ArrayBuilder interface {
@@ -58,11 +62,22 @@ func (r *ArrayRecord) Release() {
 func NewParquetSchemaInfo(schema *arrow.Schema) *ParquetSchemaInfo {
 	fields := schema.Fields()
 	fieldsInfo := make([]*FieldInfo, 0, len(fields))
+	var precision, scale int32
 	for _, field := range fields {
+		switch vv := field.Type.(type) {
+		case *arrow.Decimal128Type:
+			precision = vv.Precision
+			scale = vv.Scale
+		case *arrow.Decimal256Type:
+			precision = vv.Precision
+			scale = vv.Scale
+		}
 		fieldsInfo = append(fieldsInfo, &FieldInfo{
-			Name:     field.Name,
-			Type:     field.Type.Name(),
-			Nullable: field.Nullable,
+			Name:             field.Name,
+			Type:             field.Type.Name(),
+			Nullable:         field.Nullable,
+			DecimalPrecision: precision,
+			DecimalScale:     scale,
 		})
 	}
 	return &ParquetSchemaInfo{
@@ -124,8 +139,21 @@ func (psi *ParquetSchemaInfo) buildArrowSchema() {
 		case arrow.BinaryTypes.Binary.Name():
 			fieldType = arrow.BinaryTypes.Binary
 
+		case "decimal", "DECIMAL", "decimal128", arrow.DECIMAL128.String():
+			fieldType = &arrow.Decimal128Type{
+				Precision: fieldInfo.DecimalPrecision,
+				Scale:     fieldInfo.DecimalScale,
+			}
+
+		case "decimal256", arrow.DECIMAL256.String():
+			fieldType = &arrow.Decimal256Type{
+				Precision: fieldInfo.DecimalPrecision,
+				Scale:     fieldInfo.DecimalScale,
+			}
+
 		default:
-			log.Panicf("error: invalid parquet type: %s", fieldInfo.Type)
+			log.Printf("WARNING: unsupported or invalid parquet type: %v -- using string\n", fieldInfo.Type)
+			fieldType = arrow.BinaryTypes.String
 		}
 		arrowFields = append(arrowFields, arrow.Field{
 			Name:     fieldInfo.Name,
@@ -186,8 +214,17 @@ func (psi *ParquetSchemaInfo) CreateBuilders(pool *memory.GoAllocator) ([]ArrayB
 		case arrow.BinaryTypes.Binary.Name():
 			builders = append(builders, NewBinaryBuilder(pool))
 
+		case "decimal", "DECIMAL", "decimal128", arrow.DECIMAL128.String():
+			builders = append(builders, NewDecimal128Builder(pool,
+				field.DecimalPrecision, field.DecimalScale))
+
+		case "decimal256", arrow.DECIMAL256.String():
+			builders = append(builders, NewDecimal256Builder(pool,
+				field.DecimalPrecision, field.DecimalScale))
+
 		default:
-			return nil, fmt.Errorf("error: Create parquet column builders, unknown parquet type: %v", field.Type)
+			log.Printf("WARNING: Create parquet column builders, unknown parquet type: %v -- using string builder\n", field.Type)
+			builders = append(builders, NewStringBuilder(pool))
 		}
 	}
 	return builders, nil
@@ -564,6 +601,126 @@ func (b *BinaryBuilder) Release() {
 	b.builder.Release()
 }
 
+type Decimal128Builder struct {
+	builder   *array.Decimal128Builder
+	Precision int32
+	Scale     int32
+}
+
+func NewDecimal128Builder(mem memory.Allocator, precision, scale int32) ArrayBuilder {
+	return &Decimal128Builder{
+		builder: array.NewDecimal128Builder(mem, &arrow.Decimal128Type{
+			Precision: precision,
+			Scale:     scale,
+		}),
+		Precision: precision,
+		Scale:     scale,
+	}
+}
+func (b *Decimal128Builder) Reserve(n int) {
+	b.builder.Reserve(n)
+}
+func (b *Decimal128Builder) Append(v any) {
+	if v == nil {
+		b.builder.AppendNull()
+		return
+	}
+	switch vv := v.(type) {
+	case int64:
+		b.builder.Append(decimal128.FromI64(vv))
+	case string:
+		if len(vv) == 0 {
+			b.builder.AppendNull()
+			return
+		}
+		value, err := decimal128.FromString(vv, b.Precision, b.Scale)
+		if err != nil {
+			log.Println("WARNING: invalid string for decimal128")
+		} else {
+			b.builder.Append(value)
+		}
+	default:
+		// unknown or unsupported data type, using string value
+		value, err := decimal128.FromString(fmt.Sprintf("%s", v), b.Precision, b.Scale)
+		if err != nil {
+			log.Println("WARNING: invalid string for decimal128")
+		} else {
+			b.builder.Append(value)
+		}
+	}
+}
+func (b *Decimal128Builder) AppendEmptyValue() {
+	b.builder.AppendEmptyValue()
+}
+func (b *Decimal128Builder) AppendNull() {
+	b.builder.AppendNull()
+}
+func (b *Decimal128Builder) NewArray() arrow.Array {
+	return b.builder.NewArray()
+}
+func (b *Decimal128Builder) Release() {
+	b.builder.Release()
+}
+
+type Decimal256Builder struct {
+	builder   *array.Decimal256Builder
+	Precision int32
+	Scale     int32
+}
+
+func NewDecimal256Builder(mem memory.Allocator, precision, scale int32) ArrayBuilder {
+	return &Decimal256Builder{
+		builder: array.NewDecimal256Builder(mem, &arrow.Decimal256Type{
+			Precision: precision,
+			Scale:     scale,
+		}),
+	}
+}
+func (b *Decimal256Builder) Reserve(n int) {
+	b.builder.Reserve(n)
+}
+func (b *Decimal256Builder) Append(v any) {
+	if v == nil {
+		b.builder.AppendNull()
+		return
+	}
+	switch vv := v.(type) {
+	case int64:
+		b.builder.Append(decimal256.FromI64(vv))
+	case string:
+		if len(vv) == 0 {
+			b.builder.AppendNull()
+			return
+		}
+		value, err := decimal256.FromString(vv, b.Precision, b.Scale)
+		if err != nil {
+			log.Println("WARNING: invalid string for decimal256")
+		} else {
+			b.builder.Append(value)
+		}
+	default:
+		// unknown or unsupported data type, using string value
+		value, err := decimal256.FromString(fmt.Sprintf("%s", v), b.Precision, b.Scale)
+		if err != nil {
+			log.Println("WARNING: invalid string for decimal256")
+		} else {
+			b.builder.Append(value)
+		}
+	}
+}
+func (b *Decimal256Builder) AppendEmptyValue() {
+	b.builder.AppendEmptyValue()
+}
+func (b *Decimal256Builder) AppendNull() {
+	b.builder.AppendNull()
+}
+func (b *Decimal256Builder) NewArray() arrow.Array {
+	return b.builder.NewArray()
+}
+func (b *Decimal256Builder) Release() {
+	b.builder.Release()
+}
+
 // return value is either nil or a string representing the input v
 func ConvertWithSchemaV1(irow int, col arrow.Array, trimStrings bool, castToRdfTxtFnc CastToRdfTxtFnc) (any, error) {
 	var value string
@@ -647,8 +804,15 @@ func ConvertWithSchemaV1(irow int, col arrow.Array, trimStrings bool, castToRdfT
 	case arrow.BinaryTypes.String.Name(), arrow.BinaryTypes.Binary.Name():
 		value = col.ValueStr(irow)
 
+	case "decimal", "DECIMAL", "decimal128", arrow.DECIMAL128.String():
+		value = col.ValueStr(irow)
+
+	case "decimal256", arrow.DECIMAL256.String():
+		value = col.ValueStr(irow)
+
 	default:
-		return nil, fmt.Errorf("error: ConvertWithSchemaV1 unknown parquet type: %v", col.DataType().Name())
+		log.Printf("WARNING: unknown or unsupported type in ConvertWithSchemaV1: %s\n", col.DataType().Name())
+		value = col.ValueStr(irow)
 	}
 	if castToRdfTxtFnc == nil {
 		return value, nil
