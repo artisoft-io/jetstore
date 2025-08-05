@@ -3,6 +3,7 @@ package compute_pipes
 import (
 	"fmt"
 	"io"
+	"log"
 	"strconv"
 
 	"github.com/apache/arrow/go/v17/arrow"
@@ -219,7 +220,14 @@ func ConvertToSchemaV2(v any, se *FieldInfo) (any, error) {
 	case arrow.BinaryTypes.String.Name(), arrow.BinaryTypes.Binary.Name():
 		return encodeRdfTypeToTxt(v), nil
 
+	case "decimal", "DECIMAL", "decimal128", arrow.DECIMAL128.String():
+		return encodeRdfTypeToTxt(v), nil
+
+	case "decimal256", arrow.DECIMAL256.String():
+		return encodeRdfTypeToTxt(v), nil
+
 	default:
-		return nil, fmt.Errorf("error: WriteParquet unknown parquet type: %v", se.Type)
+		log.Printf("WARNING: unknown or unsupported arrow type in ConvertToSchemaV2: %s\n", se.Type)
+		return encodeRdfTypeToTxt(v), nil
 	}
 }

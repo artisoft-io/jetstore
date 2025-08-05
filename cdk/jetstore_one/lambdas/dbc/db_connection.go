@@ -35,8 +35,8 @@ func NewDbConnection(poolSize int) (*DbConnection, error) {
 }
 
 func (dbc *DbConnection) GetConnection() (*pgxpool.Pool, error) {
-	if dbc.dbpool == nil {
-		return nil, fmt.Errorf("error: database connection is already released")
+	if dbc == nil || dbc.dbpool == nil {
+		return nil, fmt.Errorf("error: DbConnection not initialized or database connection is already released")
 	}
 	if time.Since(dbc.lastCheck) > time.Minute*time.Duration(5) {
 		// Check if dsn secret was rotated

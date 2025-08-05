@@ -124,3 +124,5 @@ jets/jsontest/pqarrow_test/pqarrow_test
 jets/jsontest/jsontest
 jets/copytest/parquet_reader/main.go
 jets/jsontest/pqarrow_json_test/pqarrow_json_test
+jets/jsontest/pqarrow_decimal_test/pqarrow_decimal_test
+jets/jsontest/pqarrow_decimal_test/sample_decimals_v17.parquet
