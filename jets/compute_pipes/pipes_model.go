@@ -610,10 +610,21 @@ type KeywordTokenNode struct {
 // ParseDateArguments: for Type: parse_date
 // Large_Double: for Type: parse_double
 type FunctionTokenNode struct {
+	Type            string         `json:"type"`
+	ParseDateConfig *ParseDateSpec `json:"parse_date_config,omitzero"`
+	LargeDouble     *float64       `json:"large_double,omitzero"`
+}
+
+// 
+type ParseDateSpec struct {
 	Type               string            `json:"type"`
+	DateFormats        []string          `json:"date_formats,omitempty"`
+	OtherDateFormats   []string          `json:"other_date_formats,omitempty"`
+	DefaultDateFormat  string            `json:"default_date_format,omitempty"`
 	MinMaxDateFormat   string            `json:"minmax_date_format,omitempty"`
+	UsingJavaFormat    bool              `json:"using_java_date_format,omitempty"`
 	ParseDateArguments []ParseDateFTSpec `json:"parse_date_args,omitempty"`
-	LargeDouble        *float64          `json:"large_double,omitzero"`
+	UseJetstoreParser  bool              `json:"use_jetstore_date_parser,omitzero"`
 }
 
 // The date format is using a reference date of
@@ -625,12 +636,9 @@ type FunctionTokenNode struct {
 // year_less_than and year_greater_than is an additional condition
 // to the match result.
 type ParseDateFTSpec struct {
-	Token             string `json:"token"`
-	DefaultDateFormat string `json:"default_date_format,omitempty"`
-	DateFormat        string `json:"date_format,omitempty"`
-	UseJetstoreParser bool   `json:"use_jetstore_date_parser,omitzero"`
-	YearLessThan      int    `json:"year_less_than,omitzero"`
-	YearGreaterThan   int    `json:"year_greater_than,omitzero"`
+	Token           string `json:"token"`
+	YearLessThan    int    `json:"year_less_than,omitzero"`
+	YearGreaterThan int    `json:"year_greater_than,omitzero"`
 }
 
 // top_pct correspond the top percentile of the data,

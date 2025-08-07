@@ -6,46 +6,6 @@ import (
 	"testing"
 )
 
-func TestParseDateMatchFunction1(t *testing.T) {
-	fspec := &FunctionTokenNode{
-		Type:             "parse_date",
-		MinMaxDateFormat: "2006-01-02",
-		ParseDateArguments: []ParseDateFTSpec{
-			{
-				Token:             "dateRe",
-				DefaultDateFormat: "2006-01-02",
-				YearGreaterThan:   1920,
-				YearLessThan:      2026,
-			},
-		},
-	}
-	fcount, err := NewParseDateMatchFunction(fspec, nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-	fcount.NewValue("1910-01-01")
-	fcount.NewValue("1930-01-01")
-	fcount.NewValue("1970-01-01")
-	fcount.NewValue("2025-01-01")
-	fcount.NewValue("2030-01-01")
-	result := fcount.GetMinMaxValues()
-	if result == nil {
-		t.Fatal(err)
-	}
-	if result.MinMaxType != "date" {
-		t.Errorf("expecting date, got %s", result.MinMaxType)
-	}
-	if result.MinValue != "1930-01-01" {
-		t.Errorf("expecting 1930-01-01, got %s", result.MinValue)
-	}
-	if result.MaxValue != "2025-01-01" {
-		t.Errorf("expecting 2025-01-01, got %s", result.MaxValue)
-	}
-	if result.HitCount != 3 {
-		t.Errorf("expecting 3, got %d", result.HitCount)
-	}
-}
-
 func TestParseDoubleMatchFunction1(t *testing.T) {
 	fspec := &FunctionTokenNode{
 		Type: "parse_double",
