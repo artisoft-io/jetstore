@@ -211,7 +211,12 @@ func (ca *CommandArguments) RunReports(dbpool *pgxpool.Pool) (returnedErr error)
 			// Running as sql script
 			log.Println("Running sql script:", ca.ReportScriptPaths[i])
 			err = ca.runSqlScriptDelegate(dbpool, ca.ReportScriptPaths[i])
-			updatedKeys = append(updatedKeys, reportProps.UpdatedFileKeys...)
+			if len(reportProps.UpdatedFileKeys) > 0 {
+				basePath := reportDirectives.OutputPath + "/"
+				for i := range reportProps.UpdatedFileKeys {
+					updatedKeys = append(updatedKeys, basePath+reportProps.UpdatedFileKeys[i])
+				}
+			}
 		} else {
 			// Running as sql report by default
 			log.Println("Running report:", ca.ReportScriptPaths[i])
