@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"regexp"
 	"sort"
-	"strconv"
 	"strings"
 )
 
@@ -60,44 +59,7 @@ type MinMaxValue struct {
 	MinValue   string
 	MaxValue   string
 	MinMaxType string
-	HitCount   int
-}
-
-// LargeValue is expressed as string but represent one of:
-//   - min/max date when MinMaxType == "date"
-//   - min/max double when MinMaxType == "double"
-//   - min/max length when MinMaxType == "text"
-//
-// Note: currently only MinMaxType == "double" is implementing LargeValue check
-type LargeValue struct {
-	Value     string
-	ValueType string
-	HitCount  float64
-}
-type FunctionCount interface {
-	NewValue(value string)
-	GetMatchToken() map[string]int
-	GetMinMaxValues() *MinMaxValue
-	GetLargeValue() *LargeValue
-}
-
-func NewFunctionCount(fspec *FunctionTokenNode, sp SchemaProvider) (FunctionCount, error) {
-	var fnc FunctionCount
-	var err error
-	switch fspec.Type {
-	case "parse_date":
-		fnc, err = NewParseDateMatchFunction(fspec, sp)
-
-	case "parse_double":
-		fnc, err = NewParseDoubleMatchFunction(fspec)
-
-	case "parse_text":
-		fnc, err = NewParseTextMatchFunction(fspec)
-
-	default:
-		return nil, fmt.Errorf("error: unknown function_name '%s' in Analyze operator", fspec.Type)
-	}
-	return fnc, err
+	HitCount   float64
 }
 
 // Analyze data TransformationSpec implementing PipeTransformationEvaluator interface
@@ -111,7 +73,9 @@ type AnalyzeState struct {
 	RegexMatch     map[string]*RegexCount
 	LookupState    []*LookupTokensState
 	KeywordMatch   map[string]*KeywordCount
-	FunctionMatch  []FunctionCount
+	ParseDate      *ParseDateMatchFunction
+	ParseDouble    *ParseDoubleMatchFunction
+	ParseText      *ParseTextMatchFunction
 	TotalRowCount  int
 	Spec           *TransformationSpec
 }
@@ -282,14 +246,28 @@ func (ctx *BuilderContext) NewAnalyzeState(columnName string, columnPos int, inp
 		keywordMatch[kw.Name] = NewKeywordCount(kw.Name, kw.Keywords)
 	}
 
-	functionMatch := make([]FunctionCount, 0, len(config.FunctionTokens))
+	var pdate *ParseDateMatchFunction
+	var pdouble *ParseDoubleMatchFunction
+	var ptext *ParseTextMatchFunction
+	var err error
 	for i := range config.FunctionTokens {
 		conf := &config.FunctionTokens[i]
-		f, err := NewFunctionCount(conf, sp)
+		switch conf.Type {
+		case "parse_date":
+			pdate, err = NewParseDateMatchFunction(conf, sp)
+
+		case "parse_double":
+			pdouble, err = NewParseDoubleMatchFunction(conf)
+
+		case "parse_text":
+			ptext, err = NewParseTextMatchFunction(conf)
+
+		default:
+			return nil, fmt.Errorf("error: unknown function_name '%s' in Analyze operator", conf.Type)
+		}
 		if err != nil {
 			return nil, err
 		}
-		functionMatch = append(functionMatch, f)
 	}
 
 	// Determine which Wellford algo we need
@@ -319,7 +297,9 @@ func (ctx *BuilderContext) NewAnalyzeState(columnName string, columnPos int, inp
 		RegexMatch:     regexMatch,
 		LookupState:    lookupState,
 		KeywordMatch:   keywordMatch,
-		FunctionMatch:  functionMatch,
+		ParseDate:      pdate,
+		ParseDouble:    pdouble,
+		ParseText:      ptext,
 		Spec:           spec,
 	}, nil
 }
@@ -416,142 +396,17 @@ func (state *AnalyzeState) NewToken(value string) error {
 	}
 
 	// Function matches
-	for _, fm := range state.FunctionMatch {
-		fm.NewValue(value)
+	if state.ParseDate != nil {
+		state.ParseDate.NewValue(value)
+	}
+	if state.ParseDouble != nil {
+		state.ParseDouble.NewValue(value)
+	}
+	if state.ParseText != nil {
+		state.ParseText.NewValue(value)
 	}
 
 	return nil
-}
-
-// Parse Double Match Function
-
-type ParseDoubleMatchFunction struct {
-	minMax      *minMaxDoubleValue
-	largeValues *largeDoubleValue
-}
-
-type minMaxDoubleValue struct {
-	minValue *float64
-	maxValue *float64
-	count    int
-}
-
-type largeDoubleValue struct {
-	largeValue float64
-	count      int
-}
-
-// ParseDoubleMatchFunction implements FunctionCount interface
-func (p *ParseDoubleMatchFunction) NewValue(value string) {
-	fvalue, err := strconv.ParseFloat(value, 64)
-	if err == nil {
-		if p.minMax.minValue == nil || fvalue < *p.minMax.minValue {
-			p.minMax.minValue = &fvalue
-		}
-		if p.minMax.maxValue == nil || fvalue > *p.minMax.maxValue {
-			p.minMax.maxValue = &fvalue
-		}
-		p.minMax.count += 1
-		if p.largeValues != nil && fvalue >= p.largeValues.largeValue {
-			p.largeValues.count++
-		}
-	}
-}
-
-func (p *ParseDoubleMatchFunction) GetMatchToken() map[string]int {
-	return nil
-}
-
-func (p *ParseDoubleMatchFunction) GetLargeValue() *LargeValue {
-	if p.largeValues == nil {
-		return nil
-	}
-	return &LargeValue{
-		Value:     strconv.FormatFloat(p.largeValues.largeValue, 'f', -1, 64),
-		ValueType: "double",
-		HitCount:  float64(p.largeValues.count),
-	}
-}
-
-func (p *ParseDoubleMatchFunction) GetMinMaxValues() *MinMaxValue {
-	if p == nil || p.minMax == nil {
-		return nil
-	}
-	if p.minMax.minValue == nil || p.minMax.maxValue == nil {
-		return nil
-	}
-	return &MinMaxValue{
-		MinValue:   strconv.FormatFloat(*p.minMax.minValue, 'f', -1, 64),
-		MaxValue:   strconv.FormatFloat(*p.minMax.maxValue, 'f', -1, 64),
-		MinMaxType: "double",
-		HitCount:   p.minMax.count,
-	}
-}
-
-func NewParseDoubleMatchFunction(fspec *FunctionTokenNode) (FunctionCount, error) {
-	var largeValue largeDoubleValue
-	result := &ParseDoubleMatchFunction{
-		minMax: &minMaxDoubleValue{},
-	}
-	if fspec.LargeDouble != nil {
-		largeValue.largeValue = *fspec.LargeDouble
-		result.largeValues = &largeValue
-	}
-	return result, nil
-}
-
-// Parse Text Match Function
-
-type ParseTextMatchFunction struct {
-	minMax *minMaxLength
-}
-
-type minMaxLength struct {
-	minValue *int
-	maxValue *int
-	count    int
-}
-
-// ParseTextMatchFunction implements FunctionCount interface
-func (p *ParseTextMatchFunction) NewValue(value string) {
-	length := len(value)
-	if p.minMax.minValue == nil || length < *p.minMax.minValue {
-		p.minMax.minValue = &length
-	}
-	if p.minMax.maxValue == nil || length > *p.minMax.maxValue {
-		p.minMax.maxValue = &length
-	}
-	p.minMax.count += 1
-}
-
-func (p *ParseTextMatchFunction) GetMatchToken() map[string]int {
-	return nil
-}
-
-// *TODO ParseTextMatchFunction.GetLargeValue()
-func (p *ParseTextMatchFunction) GetLargeValue() *LargeValue {
-	return nil
-}
-
-func (p *ParseTextMatchFunction) GetMinMaxValues() *MinMaxValue {
-	if p == nil || p.minMax == nil {
-		return nil
-	}
-	if p.minMax.minValue == nil || p.minMax.maxValue == nil {
-		return nil
-	}
-	return &MinMaxValue{
-		MinValue:   strconv.FormatInt(int64(*p.minMax.minValue), 10),
-		MaxValue:   strconv.FormatInt(int64(*p.minMax.maxValue), 10),
-		MinMaxType: "text",
-		HitCount:   p.minMax.count,
-	}
-}
-
-func NewParseTextMatchFunction(fspec *FunctionTokenNode) (FunctionCount, error) {
-	return &ParseTextMatchFunction{
-		minMax: &minMaxLength{},
-	}, nil
 }
 
 // Welford's online algorithm

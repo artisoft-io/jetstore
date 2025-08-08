@@ -1,6 +1,8 @@
 package compute_pipes
 
 import (
+	"fmt"
+	"log"
 	"time"
 
 	"github.com/artisoft-io/jetstore/jets/jetrules/rdf"
@@ -11,149 +13,195 @@ import (
 // ParseDateMatchFunction is a match function to vaidate dates.
 // ParseDateMatchFunction implements FunctionCount interface
 type ParseDateMatchFunction struct {
-	matchers         []*ParseDateMatcher
-	matches          map[string]int
+	parseDateConfig  *ParseDateSpec
+	nbrSamplesSeen   int
+	formatMatch      map[string]int
+	otherFormatMatch map[string]int
+	tokenMatches     map[string]int
 	minMaxDateFormat string
 	minMax           *minMaxDateValue
-}
-
-type ParseDateMatcher struct {
-	token           string
-	dateLayout      string
-	yearLessThan    int
-	yearGreaterThan int
+	seenCache        map[string]*pdCache
 }
 type minMaxDateValue struct {
-	minValue *time.Time
-	maxValue *time.Time
+	minValue time.Time
+	maxValue time.Time
 	count    int
 }
 
+type pdCache struct {
+	tm  time.Time
+	otm time.Time
+	fmt string
+}
+
 // Match implements the match function.
-func (pd *ParseDateMatcher) Match(value string, parsedDate map[string]*time.Time) bool {
-	if pd == nil {
+func (pd ParseDateFTSpec) CheckYearRange(tm time.Time) bool {
+	if pd.YearLessThan > 0 && tm.Year() >= pd.YearLessThan {
 		return false
 	}
-	var err error
-	d, ok := parsedDate[pd.dateLayout]
-	if !ok {
-		if len(pd.dateLayout) == 0 {
-			// Use jetstore date parser
-			d, err = rdf.ParseDateStrict(value)
-			if err != nil {
-				d = nil
-			}
-		} else {
-			v, err := time.Parse(pd.dateLayout, value)
-			if err != nil {
-				d = nil
-			} else {
-				d = &v
-			}
-		}
-		parsedDate[pd.dateLayout] = d
-	}
-	if d == nil {
-		return false
-	}
-	if pd.yearLessThan > 0 && d.Year() >= pd.yearLessThan {
-		return false
-	}
-	if pd.yearGreaterThan > 0 && d.Year() < pd.yearGreaterThan {
+	if pd.YearGreaterThan > 0 && tm.Year() < pd.YearGreaterThan {
 		return false
 	}
 	return true
 }
 
-// ParseDateMatchFunction implements FunctionCount interface
-func (p *ParseDateMatchFunction) NewValue(value string) {
-	gotMatch := false
-	parsedDate := make(map[string]*time.Time)
-	for _, pd := range p.matchers {
-		if pd.Match(value, parsedDate) {
-			p.matches[pd.token] += 1
-			gotMatch = true
+// ParseDateDateFormat returns the first match of [value] amongs the [dateFormats]
+func ParseDateDateFormat(dateFormats []string, value string) (tm time.Time, fmt string) {
+	var err error
+	for _, fmt = range dateFormats {
+		tm, err = time.Parse(fmt, value)
+		if err == nil {
+			return
 		}
 	}
-	if gotMatch {
-		for _, d := range parsedDate {
-			if d != nil {
-				if p.minMax.minValue == nil || d.Before(*p.minMax.minValue) {
-					p.minMax.minValue = d
-				}
-				if p.minMax.maxValue == nil || d.After(*p.minMax.maxValue) {
-					p.minMax.maxValue = d
-				}
-				p.minMax.count += 1
-				break
-			}
-		}
-	}
+	return time.Time{}, ""
 }
 
-func (p *ParseDateMatchFunction) GetMatchToken() map[string]int {
-	if p == nil {
-		return nil
+// ParseDateMatchFunction implements FunctionCount interface
+func (p *ParseDateMatchFunction) NewValue(value string) {
+	if p.nbrSamplesSeen >= p.parseDateConfig.DateSamplingMaxCount {
+		// do nothing
+		return
 	}
-	return p.matches
+	p.nbrSamplesSeen++
+
+	var tm, otm time.Time
+	var fmt string
+	cachedValue := p.seenCache[value]
+	switch {
+	case cachedValue != nil:
+		fmt = cachedValue.fmt
+		tm = cachedValue.tm
+		if !tm.IsZero() && len(fmt) > 0 {
+			p.formatMatch[fmt] += 1
+			goto parse_date_arguments
+		}
+		otm = cachedValue.otm
+		if !otm.IsZero() {
+			p.otherFormatMatch[fmt] += 1
+		}
+		return
+
+	case p.parseDateConfig.UseJetstoreParser:
+		// Use jetstore date parser
+		d, _ := rdf.ParseDateStrict(value)
+		if d != nil {
+			tm = *d
+		}
+		if tm.IsZero() {
+			return
+		}
+		p.seenCache[value] = &pdCache{tm: tm}
+
+	default:
+		// Check if any DateFormats match the value
+		tm, fmt = ParseDateDateFormat(p.parseDateConfig.DateFormats, value)
+		if !tm.IsZero() {
+			p.formatMatch[fmt] += 1
+			p.seenCache[value] = &pdCache{tm: tm, fmt: fmt}
+		}
+	}
+	if tm.IsZero() {
+		// Check Other Date Format
+		otm, fmt = ParseDateDateFormat(p.parseDateConfig.OtherDateFormats, value)
+		if otm.IsZero() {
+			return
+		}
+		p.otherFormatMatch[fmt] += 1
+		p.seenCache[value] = &pdCache{otm: otm, fmt: fmt}
+		return
+	}
+	// Set min/max values
+	if p.minMax.minValue.IsZero() || tm.Before(p.minMax.minValue) {
+		p.minMax.minValue = tm
+	}
+	if p.minMax.maxValue.IsZero() || tm.After(p.minMax.maxValue) {
+		p.minMax.maxValue = tm
+	}
+	p.minMax.count += 1
+
+parse_date_arguments:
+	for _, args := range p.parseDateConfig.ParseDateArguments {
+		if args.CheckYearRange(tm) {
+			p.tokenMatches[args.Token] += 1
+		}
+	}
 }
 
 func (p *ParseDateMatchFunction) GetMinMaxValues() *MinMaxValue {
 	if p == nil || p.minMax == nil {
 		return nil
 	}
-	if p.minMax.minValue == nil || p.minMax.maxValue == nil {
+	if p.minMax.minValue.IsZero() || p.minMax.maxValue.IsZero() {
 		return nil
 	}
 	return &MinMaxValue{
 		MinValue:   p.minMax.minValue.Format(p.minMaxDateFormat),
 		MaxValue:   p.minMax.maxValue.Format(p.minMaxDateFormat),
 		MinMaxType: "date",
-		HitCount:   p.minMax.count,
+		HitCount:   float64(p.minMax.count) / float64(p.nbrSamplesSeen),
 	}
 }
 
-func (p *ParseDateMatchFunction) GetLargeValue() *LargeValue {
+func (p *ParseDateMatchFunction) Done(ctx *AnalyzeTransformationPipe, outputRow []any) error {
+	if p.minMax != nil {
+		ipos, ok := (*ctx.outputCh.columns)["min_date"]
+		if ok {
+			outputRow[ipos] = p.minMax.minValue
+		}
+		ipos, ok = (*ctx.outputCh.columns)["max_date"]
+		if ok {
+			outputRow[ipos] = p.minMax.maxValue
+		}
+	}
+	var ratioFactor float64
+	if p.nbrSamplesSeen == 0 {
+		ratioFactor = 100 / float64(p.nbrSamplesSeen)
+	}
+	for token, count := range p.tokenMatches {
+		ipos, ok := (*ctx.outputCh.columns)[token]
+		if ok {
+			if ratioFactor > 0 {
+				outputRow[ipos] = float64(count) * ratioFactor
+			} else {
+				outputRow[ipos] = -1.0
+			}
+		}
+	}
+	// Find the winning format / other format
+	
 	return nil
 }
 
-func NewParseDateMatchFunction(fspec *FunctionTokenNode, sp SchemaProvider) (FunctionCount, error) {
-	// var spLayout string
-	// if sp != nil {
-	// 	spLayout = sp.ReadDateLayout()
-	// }
-	// matches := make(map[string]int)
-	// matchers := make([]*ParseDateMatcher, 0, len(fspec.ParseDateArguments))
-	// for i := range fspec.ParseDateArguments {
-	// 	config := &fspec.ParseDateArguments[i]
-	// 	var layout string
-
-	// 	switch {
-	// 	case config.UseJetstoreParser:
-	// 	case len(config.DateFormat) > 0:
-	// 		layout = config.DateFormat
-	// 	case len(spLayout) > 0:
-	// 		layout = spLayout
-	// 	case len(config.DefaultDateFormat) > 0:
-	// 		layout = config.DefaultDateFormat
-	// 	}
-	// 	matches[config.Token] = 0
-	// 	matchers = append(matchers, &ParseDateMatcher{
-	// 		token:           config.Token,
-	// 		dateLayout:      layout,
-	// 		yearLessThan:    config.YearLessThan,
-	// 		yearGreaterThan: config.YearGreaterThan,
-	// 	})
-	// }
-	// format := "2006-01-02"
-	// if len(fspec.MinMaxDateFormat) > 0 {
-	// 	format = fspec.MinMaxDateFormat
-	// }
+func NewParseDateMatchFunction(fspec *FunctionTokenNode, sp SchemaProvider) (*ParseDateMatchFunction, error) {
+	parseDateConfig := fspec.ParseDateConfig
+	if parseDateConfig == nil {
+		return nil, fmt.Errorf("configuration error: analyze parse_date function is missing parse_date_config element")
+	}
+	// Determine the date format to use if not provided in DateFormats
+	if !parseDateConfig.UseJetstoreParser && len(parseDateConfig.DateFormats) == 0 {
+		var spLayout string
+		if sp != nil {
+			spLayout = sp.ReadDateLayout()
+		}
+		if len(spLayout) > 0 {
+			parseDateConfig.DateFormats = append(parseDateConfig.DateFormats, spLayout)
+		} else {
+			log.Println("WARNING: analyze parse_date function has no date format configured, using jetstore internal date parser")
+			parseDateConfig.UseJetstoreParser = true
+		}
+	}
+	format := "2006-01-02"
+	if len(parseDateConfig.MinMaxDateFormat) > 0 {
+		format = parseDateConfig.MinMaxDateFormat
+	}
 	return &ParseDateMatchFunction{
-		// matchers:         matchers,
-		// matches:          matches,
-		// minMaxDateFormat: format,
+		parseDateConfig:  parseDateConfig,
+		minMaxDateFormat: format,
 		minMax:           &minMaxDateValue{},
+		tokenMatches:     make(map[string]int),
+		formatMatch:      make(map[string]int),
+		otherFormatMatch: make(map[string]int),
+		seenCache:        make(map[string]*pdCache),
 	}, nil
 }
-

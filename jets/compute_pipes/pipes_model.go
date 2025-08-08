@@ -615,16 +615,17 @@ type FunctionTokenNode struct {
 	LargeDouble     *float64       `json:"large_double,omitzero"`
 }
 
-// 
+// UseJetstoreParser: when true it will use only the jetstore date parser
 type ParseDateSpec struct {
-	Type               string            `json:"type"`
-	DateFormats        []string          `json:"date_formats,omitempty"`
-	OtherDateFormats   []string          `json:"other_date_formats,omitempty"`
-	DefaultDateFormat  string            `json:"default_date_format,omitempty"`
-	MinMaxDateFormat   string            `json:"minmax_date_format,omitempty"`
-	UsingJavaFormat    bool              `json:"using_java_date_format,omitempty"`
-	ParseDateArguments []ParseDateFTSpec `json:"parse_date_args,omitempty"`
-	UseJetstoreParser  bool              `json:"use_jetstore_date_parser,omitzero"`
+	DateFormatToken      string            `json:"date_format_token,omitempty"`
+	OtherDateFormatToken string            `json:"other_date_format_token,omitempty"`
+	DateSamplingMaxCount int               `json:"sampling_max_count,omitzero"`
+	DateFormats          []string          `json:"date_formats,omitempty"`
+	OtherDateFormats     []string          `json:"other_date_formats,omitempty"`
+	MinMaxDateFormat     string            `json:"minmax_date_format,omitempty"`
+	UsingJavaFormat      bool              `json:"using_java_date_format,omitempty"`
+	ParseDateArguments   []ParseDateFTSpec `json:"parse_date_args,omitempty"`
+	UseJetstoreParser    bool              `json:"use_jetstore_date_parser,omitzero"`
 }
 
 // The date format is using a reference date of
