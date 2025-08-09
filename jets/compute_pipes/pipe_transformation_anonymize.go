@@ -1,6 +1,7 @@
 package compute_pipes
 
 import (
+	"bytes"
 	"fmt"
 	"hash"
 	"hash/fnv"
@@ -8,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/artisoft-io/jetstore/jets/csv"
 	"github.com/dolthub/swiss"
 )
 
@@ -35,6 +37,7 @@ type AnonymizeTransformationPipe struct {
 
 type AnonymizationAction struct {
 	inputColumn   int
+	dateLayouts   []string
 	anonymizeType string
 	keyPrefix     string
 }
@@ -85,7 +88,8 @@ func (ctx *AnonymizeTransformationPipe) Apply(input *[]any) error {
 			hashedValue4KeyFile = hashedValue
 		case "date":
 			var date time.Time
-			if len(ctx.inputDateLayout) > 0 {
+			switch {
+			case len(ctx.inputDateLayout) > 0:
 				date, err = time.Parse(ctx.inputDateLayout, inputStr)
 				if err != nil {
 					// try jetstore date parser
@@ -95,7 +99,15 @@ func (ctx *AnonymizeTransformationPipe) Apply(input *[]any) error {
 						date = *d
 					}
 				}
-			} else {
+			case len(action.dateLayouts) > 0:
+				for _, layout := range action.dateLayouts {
+					date, err = time.Parse(layout, inputStr)
+					if err != nil {
+						break
+					}
+				}
+
+			default:
 				var d *time.Time
 				d, err = ParseDate(inputStr)
 				if d != nil {
@@ -265,6 +277,7 @@ func (ctx *BuilderContext) NewAnonymizeTransformationPipe(source *InputChannel, 
 			}
 		}
 		var keyPrefix string
+		var dateLayouts []string
 		switch anonymizeType {
 		case "text", "date":
 			keyPrefix = ""
@@ -280,8 +293,22 @@ func (ctx *BuilderContext) NewAnonymizeTransformationPipe(source *InputChannel, 
 			if newWidth != nil {
 				newWidth[name] = w
 			}
+			// Get the date layouts if any
+			if len(config.DateFormatsColumn) > 0 {
+				dlcI := (*metaRow)[metaLookupColumnsMap[config.DateFormatsColumn]]
+				dateLayoutsCsv, ok := dlcI.(string)
+				if ok {
+					r := csv.NewReader(bytes.NewReader([]byte(dateLayoutsCsv)))
+					dateLayouts, err = r.Read()
+					if err != nil {
+						return nil, fmt.Errorf("while decoding date formats from csv:%v", err)
+					}
+				}
+			}
+
 			anonymActions = append(anonymActions, &AnonymizationAction{
 				inputColumn:   ipos,
+				dateLayouts:   dateLayouts,
 				anonymizeType: anonymizeType,
 				keyPrefix:     keyPrefix,
 			})

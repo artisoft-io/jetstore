@@ -285,118 +285,29 @@ func (ctx *AnalyzeTransformationPipe) Done() error {
 
 		// The functions tokens
 		var dateMinMax, doubleMinMax, textMinMax, winningValue *MinMaxValue
-		var dateLargeValue, doubleLargeValue, textLargeValue, winningLargeValue *LargeValue
-		for _, fc := range state.FunctionMatch {
-			m := fc.GetMatchToken()
-			for token, count := range m {
-				ipos, ok = (*ctx.outputCh.columns)[token]
-				if ok {
-					if ratioFactor > 0 {
-						outputRow[ipos] = float64(count) * ratioFactor
-					} else {
-						outputRow[ipos] = -1.0
-					}
-				}
-			}
-			minMax := fc.GetMinMaxValues()
-			if minMax != nil {
-				switch minMax.MinMaxType {
-				case "date":
-					dateMinMax = minMax
-				case "double":
-					doubleMinMax = minMax
-				case "text":
-					textMinMax = minMax
-				}
-			}
-			largeValues := fc.GetLargeValue()
-			if largeValues != nil {
-				switch largeValues.ValueType {
-				case "date":
-					dateLargeValue = largeValues
-				case "double":
-					doubleLargeValue = largeValues
-				case "text":
-					textLargeValue = largeValues
-				}
-			}
+		if state.ParseDate != nil {
+			dateMinMax = state.ParseDate.GetMinMaxValues()
 		}
+		if state.ParseDouble != nil {
+			doubleMinMax = state.ParseDouble.GetMinMaxValues()
+		}
+		if state.ParseText != nil {
+			textMinMax = state.ParseText.GetMinMaxValues()
+		}
+
 		// Pick the winning minmax results
-		nonNilCount := state.TotalRowCount - state.NullCount
+		nonNilCount := float64(state.TotalRowCount-state.NullCount) / float64(state.TotalRowCount)
 		if nonNilCount > 0 {
 			switch {
 			case dateMinMax != nil && 2*dateMinMax.HitCount > nonNilCount:
 				winningValue = dateMinMax
-				winningLargeValue = dateLargeValue
 			case doubleMinMax != nil && 4*doubleMinMax.HitCount > 3*nonNilCount:
 				winningValue = doubleMinMax
-				winningLargeValue = doubleLargeValue
 			default:
 				winningValue = textMinMax
-				winningLargeValue = textLargeValue
 			}
 
 			// Assign to output columns
-			if dateMinMax != nil {
-				ipos, ok = (*ctx.outputCh.columns)["min_date"]
-				if ok {
-					outputRow[ipos] = dateMinMax.MinValue
-				}
-				ipos, ok = (*ctx.outputCh.columns)["max_date"]
-				if ok {
-					outputRow[ipos] = dateMinMax.MaxValue
-				}
-			}
-			if dateLargeValue != nil {
-				ipos, ok = (*ctx.outputCh.columns)["large_date_pct"]
-				if ok {
-					if ratioFactor > 0 {
-						outputRow[ipos] = dateLargeValue.HitCount * ratioFactor
-					} else {
-						outputRow[ipos] = -1.0
-					}
-				}
-			}
-			if doubleMinMax != nil {
-				ipos, ok = (*ctx.outputCh.columns)["min_double"]
-				if ok {
-					outputRow[ipos] = doubleMinMax.MinValue
-				}
-				ipos, ok = (*ctx.outputCh.columns)["max_double"]
-				if ok {
-					outputRow[ipos] = doubleMinMax.MaxValue
-				}
-			}
-			if doubleLargeValue != nil {
-				ipos, ok = (*ctx.outputCh.columns)["large_double_pct"]
-				if ok {
-					if ratioFactor > 0 {
-						outputRow[ipos] = doubleLargeValue.HitCount * ratioFactor
-					} else {
-						outputRow[ipos] = -1.0
-					}
-				}
-			}
-			if textMinMax != nil {
-				ipos, ok = (*ctx.outputCh.columns)["min_length"]
-				if ok {
-					outputRow[ipos] = textMinMax.MinValue
-				}
-				ipos, ok = (*ctx.outputCh.columns)["max_length"]
-				if ok {
-					outputRow[ipos] = textMinMax.MaxValue
-				}
-			}
-			if textLargeValue != nil {
-				ipos, ok = (*ctx.outputCh.columns)["large_text_pct"]
-				if ok {
-					if ratioFactor > 0 {
-						outputRow[ipos] = textLargeValue.HitCount * ratioFactor
-					} else {
-						outputRow[ipos] = -1.0
-					}
-				}
-			}
 			if winningValue != nil {
 				ipos, ok = (*ctx.outputCh.columns)["min_value"]
 				if ok {
@@ -409,16 +320,6 @@ func (ctx *AnalyzeTransformationPipe) Done() error {
 				ipos, ok = (*ctx.outputCh.columns)["minmax_type"]
 				if ok {
 					outputRow[ipos] = winningValue.MinMaxType
-				}
-			}
-			if winningLargeValue != nil {
-				ipos, ok = (*ctx.outputCh.columns)["large_value_pct"]
-				if ok {
-					if ratioFactor > 0 {
-						outputRow[ipos] = winningLargeValue.HitCount * ratioFactor
-					} else {
-						outputRow[ipos] = -1.0
-					}
 				}
 			}
 		}
