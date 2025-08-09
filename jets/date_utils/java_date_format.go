@@ -36,8 +36,3 @@ func FromJavaDateFormat(format string, forRead bool) string {
 	}
 	return format
 }
-// Qualify as a date:
-// 	- len < 30
-// 	- contains digits, letters, space, comma, dash, slash, column, apostrophe
-// Example of longest date to expect:
-// 23 November 2025 13:10 AM

@@ -620,6 +620,7 @@ type ParseDateSpec struct {
 	DateFormatToken      string            `json:"date_format_token,omitempty"`
 	OtherDateFormatToken string            `json:"other_date_format_token,omitempty"`
 	DateSamplingMaxCount int               `json:"sampling_max_count,omitzero"`
+	TopPCTFormatMatch    int               `json:"top_pct_match,omitzero"`
 	DateFormats          []string          `json:"date_formats,omitempty"`
 	OtherDateFormats     []string          `json:"other_date_formats,omitempty"`
 	MinMaxDateFormat     string            `json:"minmax_date_format,omitempty"`

@@ -33,8 +33,8 @@ func TestParseDoubleMatchFunction1(t *testing.T) {
 	if result.MaxValue != "2030" {
 		t.Errorf("expecting 2030, got %s", result.MaxValue)
 	}
-	if result.HitCount != 4 {
-		t.Errorf("expecting 4, got %d", result.HitCount)
+	if result.HitCount != float64(4)/float64(6) {
+		t.Errorf("expecting 4, got %v", result.HitCount)
 	}
 }
 
@@ -65,8 +65,8 @@ func TestParseTextMatchFunction1(t *testing.T) {
 	if result.MaxValue != "10" {
 		t.Errorf("expecting 10, got %s", result.MaxValue)
 	}
-	if result.HitCount != 6 {
-		t.Errorf("expecting 6, got %d", result.HitCount)
+	if result.HitCount != 1 {
+		t.Errorf("expecting 6, got %v", result.HitCount)
 	}
 }
 
