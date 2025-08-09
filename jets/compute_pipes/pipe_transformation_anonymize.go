@@ -294,13 +294,15 @@ func (ctx *BuilderContext) NewAnonymizeTransformationPipe(source *InputChannel, 
 				newWidth[name] = w
 			}
 			// Get the date layouts if any
-			dlcI := (*metaRow)[metaLookupColumnsMap[config.DateFormatsColumn]]
-			dateLayoutsCsv, ok := dlcI.(string)
-			if ok {
-				r := csv.NewReader(bytes.NewReader([]byte(dateLayoutsCsv)))
-				dateLayouts, err = r.Read()
-				if err != nil {
-					return nil, fmt.Errorf("while decoding date formats from csv:%v", err)
+			if len(config.DateFormatsColumn) > 0 {
+				dlcI := (*metaRow)[metaLookupColumnsMap[config.DateFormatsColumn]]
+				dateLayoutsCsv, ok := dlcI.(string)
+				if ok {
+					r := csv.NewReader(bytes.NewReader([]byte(dateLayoutsCsv)))
+					dateLayouts, err = r.Read()
+					if err != nil {
+						return nil, fmt.Errorf("while decoding date formats from csv:%v", err)
+					}
 				}
 			}
 
