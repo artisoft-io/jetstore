@@ -683,7 +683,8 @@ type PartitionWriterSpec struct {
 // LookupName is name of lookup table containing the file metadata from analyze operator
 // AnonymizeType is column name in lookup table that specifiy how to anonymize (value: date, text)
 // KeyPrefix is column name of lookup table to use as prefix of the anonymized value
-// InputDateLayout is the format for parsing the input date (incoming data)
+// InputDateLayout is the format for parsing the input date (incoming data) when specified
+// DateFormatsColumn is column name of the lookup table having the list of date format (optional)
 // OutputDateLayout is the format to use for anonymized date, will be set at 1st of the month of the original date
 // KeyDateLayout is the format to use in the key mapping file (crosswalk file)
 // DefaultInvalidDate is a placeholder to use as the anonymized date when the input date
@@ -702,6 +703,7 @@ type AnonymizeSpec struct {
 	AnonymizeType        string              `json:"anonymize_type,omitempty"`
 	KeyPrefix            string              `json:"key_prefix,omitempty"`
 	InputDateLayout      string              `json:"input_date_layout,omitempty"`
+	DateFormatsColumn    string              `json:"date_formats_column,omitempty"`
 	OutputDateLayout     string              `json:"output_date_layout,omitempty"`
 	KeyDateLayout        string              `json:"key_date_layout,omitempty"`
 	DefaultInvalidDate   string              `json:"default_invalid_date,omitempty"`

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"slices"
+	"strings"
 	"time"
 	"unicode"
 
@@ -69,7 +70,7 @@ func ParseDateDateFormat(dateFormats []string, value string) (tm time.Time, fmt 
 // 23 November 2025 13:10 AM
 func DoesQualifyAsDate(value string) bool {
 	if len(value) >= 30 {
-		fmt.Printf("*** DoesQualifyAsDate: sample too long\n")
+		// fmt.Printf("*** DoesQualifyAsDate: sample too long\n")
 		return false
 	}
 	for _, c := range value {
@@ -83,7 +84,7 @@ func DoesQualifyAsDate(value string) bool {
 		case c == ':':
 		case c == '\'':
 		default:
-			fmt.Printf("*** DoesQualifyAsDate: invalid char\n")
+			// fmt.Printf("*** DoesQualifyAsDate: invalid char\n")
 			return false
 		}
 	}
@@ -95,7 +96,7 @@ func (p *ParseDateMatchFunction) NewValue(value string) {
 	fmt.Printf("*** Sample: %s\n", value)
 	if p.nbrSamplesSeen >= p.parseDateConfig.DateSamplingMaxCount {
 		// do nothing
-		fmt.Printf("*** Max samples reached @ %d samples, new value: %s\n", p.nbrSamplesSeen, value)
+		// fmt.Printf("*** Max samples reached @ %d samples, new value: %s\n", p.nbrSamplesSeen, value)
 		return
 	}
 	p.nbrSamplesSeen++
@@ -113,13 +114,13 @@ func (p *ParseDateMatchFunction) NewValue(value string) {
 			if len(dateFmt) > 0 {
 				p.formatMatch[dateFmt] += 1
 			}
-			fmt.Printf("*** Got tm from cache w/ fmt: %s\n", dateFmt)
+			// fmt.Printf("*** Got tm from cache w/ fmt: %s\n", dateFmt)
 			goto parse_date_arguments
 		}
 		otm = cachedValue.otm
 		if !otm.IsZero() {
 			p.otherFormatMatch[dateFmt] += 1
-			fmt.Printf("*** Got otm from cache w/ fmt: %s\n", dateFmt)
+			// fmt.Printf("*** Got otm from cache w/ fmt: %s\n", dateFmt)
 		}
 		return
 
@@ -132,7 +133,7 @@ func (p *ParseDateMatchFunction) NewValue(value string) {
 		if tm.IsZero() {
 			return
 		}
-		fmt.Printf("*** Got tm match w/ jetstore date parser\n")
+		// fmt.Printf("*** Got tm match w/ jetstore date parser\n")
 		p.seenCache[value] = &pdCache{tm: tm}
 
 	default:
@@ -141,7 +142,7 @@ func (p *ParseDateMatchFunction) NewValue(value string) {
 		if !tm.IsZero() {
 			p.formatMatch[dateFmt] += 1
 			p.seenCache[value] = &pdCache{tm: tm, fmt: dateFmt}
-			fmt.Printf("*** Got tm Match w/ fmt: %s\n", dateFmt)
+			// fmt.Printf("*** Got tm Match w/ fmt: %s\n", dateFmt)
 		}
 	}
 	if tm.IsZero() {
@@ -152,7 +153,7 @@ func (p *ParseDateMatchFunction) NewValue(value string) {
 		}
 		p.otherFormatMatch[dateFmt] += 1
 		p.seenCache[value] = &pdCache{otm: otm, fmt: dateFmt}
-		fmt.Printf("*** Got otm Match w/ fmt: %s\n", dateFmt)
+		// fmt.Printf("*** Got otm Match w/ fmt: %s\n", dateFmt)
 		return
 	}
 
@@ -170,7 +171,7 @@ parse_date_arguments:
 	for _, args := range p.parseDateConfig.ParseDateArguments {
 		if args.CheckYearRange(tm) {
 			p.tokenMatches[args.Token] += 1
-			fmt.Printf("*** Got CheckYearRange on token: %s\n", args.Token)
+			// fmt.Printf("*** Got CheckYearRange on token: %s\n", args.Token)
 		}
 	}
 }
@@ -179,11 +180,11 @@ func (p *ParseDateMatchFunction) GetMinMaxValues() *MinMaxValue {
 	if p == nil || p.minMax == nil {
 		return nil
 	}
+	// fmt.Printf("*** GetMinMaxValues HitCount: %v/%v = %v\n", p.minMax.count, p.nbrSamplesSeen, float64(p.minMax.count)/float64(p.nbrSamplesSeen))
 	if p.minMax.minValue.IsZero() || p.minMax.maxValue.IsZero() {
 		return nil
 	}
 
-	fmt.Printf("*** GetMinMaxValues HitCount: %v/%v = %v\n", p.minMax.count, p.nbrSamplesSeen, float64(p.minMax.count)/float64(p.nbrSamplesSeen))
 	return &MinMaxValue{
 		MinValue:   p.minMax.minValue.Format(p.minMaxDateFormat),
 		MaxValue:   p.minMax.maxValue.Format(p.minMaxDateFormat),
@@ -195,6 +196,9 @@ func (p *ParseDateMatchFunction) GetMinMaxValues() *MinMaxValue {
 type matchCount struct {
 	token string
 	count int
+}
+func (m matchCount)String() string {
+	return fmt.Sprintf("(%s: %d)", m.token, m.count)
 }
 
 func (p *ParseDateMatchFunction) Done(ctx *AnalyzeTransformationPipe, outputRow []any) error {
@@ -209,7 +213,7 @@ func (p *ParseDateMatchFunction) Done(ctx *AnalyzeTransformationPipe, outputRow 
 		}
 	}
 	var ratioFactor float64
-	if p.nbrSamplesSeen == 0 {
+	if p.nbrSamplesSeen > 0 {
 		ratioFactor = 100 / float64(p.nbrSamplesSeen)
 	}
 	for token, count := range p.tokenMatches {
@@ -251,7 +255,8 @@ func (p *ParseDateMatchFunction) Done(ctx *AnalyzeTransformationPipe, outputRow 
 					return 0
 				}
 			})
-			// Take top matches
+			// fmt.Printf("*** Got matches: %v\n", matches)
+			// Take top matches, if less than 4
 			var formats []string
 			var c int
 			ct := int(float64(p.parseDateConfig.TopPCTFormatMatch) * float64(sumCount) / 100)
@@ -262,9 +267,15 @@ func (p *ParseDateMatchFunction) Done(ctx *AnalyzeTransformationPipe, outputRow 
 				}
 			}
 			// save the formats
-			if ml == 1 {
+			lenf := len(formats)
+			switch {
+			case lenf == 1:
 				outputRow[ipos] = formats[0]
-			} else {
+				// fmt.Printf("*** Top Formats: %v\n", formats[0])
+			case lenf > 1:
+				if lenf > 3 {
+					formats = formats[0:3]
+				}
 				var buf bytes.Buffer
 				w := csv.NewWriter(&buf)
 				err := w.Write(formats)
@@ -272,17 +283,21 @@ func (p *ParseDateMatchFunction) Done(ctx *AnalyzeTransformationPipe, outputRow 
 					return fmt.Errorf("while writing formats: %v", err)
 				}
 				w.Flush()
-				outputRow[ipos] = buf.String()
+				txt := strings.TrimSuffix(buf.String(), "\n")
+				// fmt.Printf("*** Top Formats: %v\n", txt)
+				outputRow[ipos] = txt
+			default:
+				outputRow[ipos] = ""
+				// fmt.Printf("*** Top Formats:\n")
 			}
 		}
 	}
-	// Other formats -- looking if any one is more than p.parseDateConfig.TopPCTFormatMatch
+	// Other formats -- looking if any one is more than p.parseDateConfig.TopPCTFormatMatch of
+	// total accepted samples
 	matches = nil
-	sumCount = 0
 	for token, count := range p.otherFormatMatch {
 		if count > 0 {
 			matches = append(matches, matchCount{token: token, count: count})
-			sumCount += count
 		}
 	}
 	ml = len(matches)
@@ -291,14 +306,18 @@ func (p *ParseDateMatchFunction) Done(ctx *AnalyzeTransformationPipe, outputRow 
 		if ok {
 			// Take matches
 			var formats []string
-			ct := int(float64(p.parseDateConfig.TopPCTFormatMatch) * float64(sumCount) / 100)
+			ct := int(float64(p.parseDateConfig.TopPCTFormatMatch) * float64(p.nbrSamplesSeen) / 100)
 			for i := range matches {
 				if matches[i].count >= ct {
 					formats = append(formats, matches[i].token)
 				}
 			}
 			// save the formats count
-			outputRow[ipos] = len(formats)
+			l := len(formats)
+			if l > 0 {
+				outputRow[ipos] = len(formats)
+			}
+			// fmt.Printf("*** Nbr Other Formats: %d\n", l)
 		}
 	}
 
