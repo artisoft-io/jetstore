@@ -83,6 +83,7 @@ func DoesQualifyAsDate(value string) bool {
 		case c == '/':
 		case c == ':':
 		case c == '\'':
+		case c == '.':
 		default:
 			// fmt.Printf("*** DoesQualifyAsDate: invalid char\n")
 			return false
