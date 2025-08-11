@@ -94,14 +94,15 @@ func DoesQualifyAsDate(value string) bool {
 
 // ParseDateMatchFunction implements FunctionCount interface
 func (p *ParseDateMatchFunction) NewValue(value string) {
-	// fmt.Printf("*** Sample: %s\n", value)
+	fmt.Printf("*** ParseDate NewValue: %s\n", value)
 	if p.nbrSamplesSeen >= p.parseDateConfig.DateSamplingMaxCount {
 		// do nothing
-		// fmt.Printf("*** Max samples reached @ %d samples, new value: %s\n", p.nbrSamplesSeen, value)
+		fmt.Printf("*** Max samples reached @ %d samples, new value: %s\n", p.nbrSamplesSeen, value)
 		return
 	}
 	p.nbrSamplesSeen++
 	if !DoesQualifyAsDate(value) {
+		fmt.Printf("*** ParseDate: %s does not qualify as a date\n", value)
 		return
 	}
 	var tm, otm time.Time
@@ -134,7 +135,7 @@ func (p *ParseDateMatchFunction) NewValue(value string) {
 		if tm.IsZero() {
 			return
 		}
-		// fmt.Printf("*** Got tm match w/ jetstore date parser\n")
+		fmt.Printf("*** Got tm match w/ jetstore date parser\n")
 		p.seenCache[value] = &pdCache{tm: tm}
 
 	default:
@@ -143,7 +144,7 @@ func (p *ParseDateMatchFunction) NewValue(value string) {
 		if !tm.IsZero() {
 			p.formatMatch[dateFmt] += 1
 			p.seenCache[value] = &pdCache{tm: tm, fmt: dateFmt}
-			// fmt.Printf("*** Got tm Match w/ fmt: %s\n", dateFmt)
+			fmt.Printf("*** Got tm Match w/ fmt: %s\n", dateFmt)
 		}
 	}
 	if tm.IsZero() {
@@ -154,7 +155,7 @@ func (p *ParseDateMatchFunction) NewValue(value string) {
 		}
 		p.otherFormatMatch[dateFmt] += 1
 		p.seenCache[value] = &pdCache{otm: otm, fmt: dateFmt}
-		// fmt.Printf("*** Got otm Match w/ fmt: %s\n", dateFmt)
+		fmt.Printf("*** Got otm Match w/ fmt: %s\n", dateFmt)
 		return
 	}
 
@@ -172,7 +173,7 @@ parse_date_arguments:
 	for _, args := range p.parseDateConfig.ParseDateArguments {
 		if args.CheckYearRange(tm) {
 			p.tokenMatches[args.Token] += 1
-			// fmt.Printf("*** Got CheckYearRange on token: %s\n", args.Token)
+			fmt.Printf("*** Got CheckYearRange on token: %s\n", args.Token)
 		}
 	}
 }
@@ -181,7 +182,7 @@ func (p *ParseDateMatchFunction) GetMinMaxValues() *MinMaxValue {
 	if p == nil || p.minMax == nil {
 		return nil
 	}
-	// fmt.Printf("*** GetMinMaxValues HitCount: %v/%v = %v\n", p.minMax.count, p.nbrSamplesSeen, float64(p.minMax.count)/float64(p.nbrSamplesSeen))
+	fmt.Printf("*** GetMinMaxValues HitCount: %v/%v = %v\n", p.minMax.count, p.nbrSamplesSeen, float64(p.minMax.count)/float64(p.nbrSamplesSeen))
 	if p.minMax.minValue.IsZero() || p.minMax.maxValue.IsZero() {
 		return nil
 	}
