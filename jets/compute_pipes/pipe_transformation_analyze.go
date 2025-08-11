@@ -287,12 +287,15 @@ func (ctx *AnalyzeTransformationPipe) Done() error {
 		var dateMinMax, doubleMinMax, textMinMax, winningValue *MinMaxValue
 		if state.ParseDate != nil {
 			dateMinMax = state.ParseDate.GetMinMaxValues()
+			state.ParseDate.Done(ctx, outputRow)
 		}
 		if state.ParseDouble != nil {
 			doubleMinMax = state.ParseDouble.GetMinMaxValues()
+			state.ParseDouble.Done(ctx, outputRow)
 		}
 		if state.ParseText != nil {
 			textMinMax = state.ParseText.GetMinMaxValues()
+			state.ParseText.Done(ctx, outputRow)
 		}
 
 		// Pick the winning minmax results
