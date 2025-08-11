@@ -240,6 +240,7 @@ func (p *ParseDateMatchFunction) Done(ctx *AnalyzeTransformationPipe, outputRow 
 		}
 	}
 	ml := len(matches)
+	fmt.Printf("*** Got %d matches for formatMatches\n", ml)
 	if ml > 0 {
 		ipos, ok := (*ctx.outputCh.columns)[p.parseDateConfig.DateFormatToken]
 		if ok {
@@ -256,7 +257,7 @@ func (p *ParseDateMatchFunction) Done(ctx *AnalyzeTransformationPipe, outputRow 
 					return 0
 				}
 			})
-			// fmt.Printf("*** Got matches: %v\n", matches)
+			fmt.Printf("*** Got matches: %v\n", matches)
 			// Take top matches, if less than 4
 			var formats []string
 			var c int
@@ -272,7 +273,7 @@ func (p *ParseDateMatchFunction) Done(ctx *AnalyzeTransformationPipe, outputRow 
 			switch {
 			case lenf == 1:
 				outputRow[ipos] = formats[0]
-				// fmt.Printf("*** Top Formats: %v\n", formats[0])
+				fmt.Printf("*** Top Formats: %v\n", formats[0])
 			case lenf > 1:
 				if lenf > 3 {
 					formats = formats[0:3]
@@ -285,11 +286,11 @@ func (p *ParseDateMatchFunction) Done(ctx *AnalyzeTransformationPipe, outputRow 
 				}
 				w.Flush()
 				txt := strings.TrimSuffix(buf.String(), "\n")
-				// fmt.Printf("*** Top Formats: %v\n", txt)
+				fmt.Printf("*** Top Formats: %v\n", txt)
 				outputRow[ipos] = txt
 			default:
 				outputRow[ipos] = ""
-				// fmt.Printf("*** Top Formats:\n")
+				fmt.Printf("*** Top Formats:\n")
 			}
 		}
 	}
@@ -302,6 +303,7 @@ func (p *ParseDateMatchFunction) Done(ctx *AnalyzeTransformationPipe, outputRow 
 		}
 	}
 	ml = len(matches)
+	fmt.Printf("*** Got %d matches for otherFormatMatch\n", ml)
 	if ml > 0 {
 		ipos, ok := (*ctx.outputCh.columns)[p.parseDateConfig.OtherDateFormatToken]
 		if ok {
@@ -318,7 +320,7 @@ func (p *ParseDateMatchFunction) Done(ctx *AnalyzeTransformationPipe, outputRow 
 			if l > 0 {
 				outputRow[ipos] = len(formats)
 			}
-			// fmt.Printf("*** Nbr Other Formats: %d\n", l)
+			fmt.Printf("*** Nbr Other Formats: %d\n", l)
 		}
 	}
 
