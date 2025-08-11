@@ -94,7 +94,7 @@ func DoesQualifyAsDate(value string) bool {
 
 // ParseDateMatchFunction implements FunctionCount interface
 func (p *ParseDateMatchFunction) NewValue(value string) {
-	fmt.Printf("*** Sample: %s\n", value)
+	// fmt.Printf("*** Sample: %s\n", value)
 	if p.nbrSamplesSeen >= p.parseDateConfig.DateSamplingMaxCount {
 		// do nothing
 		// fmt.Printf("*** Max samples reached @ %d samples, new value: %s\n", p.nbrSamplesSeen, value)
@@ -240,7 +240,7 @@ func (p *ParseDateMatchFunction) Done(ctx *AnalyzeTransformationPipe, outputRow 
 		}
 	}
 	ml := len(matches)
-	fmt.Printf("*** Got %d matches for formatMatches\n", ml)
+	fmt.Printf("*** Got %d matches for formatMatches for %s\n", ml, outputRow[(*ctx.outputCh.columns)["column_name"]])
 	if ml > 0 {
 		ipos, ok := (*ctx.outputCh.columns)[p.parseDateConfig.DateFormatToken]
 		if ok {
