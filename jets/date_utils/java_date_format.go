@@ -4,6 +4,16 @@ import "strings"
 
 func FromJavaDateFormat(format string, forRead bool) string {
 	if forRead {
+		switch {
+		case !strings.Contains(format, "yyyy"):
+			forRead = false
+		case !strings.Contains(format, "dd"):
+			forRead = false
+		case !strings.ContainsAny(format, "/-"):
+			forRead = false
+		}
+	}
+	if forRead {
 		format = strings.Replace(format, "yyyy", "2006", 1)
 		format = strings.Replace(format, "yy", "06", 1)
 		format = strings.Replace(format, "MMMM", "January", 1)

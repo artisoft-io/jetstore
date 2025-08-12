@@ -10,6 +10,7 @@ import (
 	"unicode"
 
 	"github.com/artisoft-io/jetstore/jets/csv"
+	"github.com/artisoft-io/jetstore/jets/date_utils"
 	"github.com/artisoft-io/jetstore/jets/jetrules/rdf"
 )
 
@@ -63,19 +64,21 @@ func ParseDateDateFormat(dateFormats []string, value string) (tm time.Time, fmt 
 }
 
 // Qualify as a date:
-//   - len < 30
+//   - 6 < len < 30
 //   - contains digits, letters, space, comma, dash, slash, column, apostrophe
 //
 // Example of longest date to expect:
 // 23 November 2025 13:10 AM
 func DoesQualifyAsDate(value string) bool {
-	if len(value) >= 30 {
-		// fmt.Printf("*** DoesQualifyAsDate: sample too long\n")
+	if len(value) > 29 || len(value) < 6 {
+		// fmt.Printf("*** DoesQualifyAsDate: sample too long or too short\n")
 		return false
 	}
+	hasDigits := false
 	for _, c := range value {
 		switch {
 		case unicode.IsDigit(c):
+			hasDigits = true
 		case unicode.IsLetter(c):
 		case c == ' ':
 		case c == ',':
@@ -89,12 +92,12 @@ func DoesQualifyAsDate(value string) bool {
 			return false
 		}
 	}
-	return true
+	return hasDigits
 }
 
 // ParseDateMatchFunction implements FunctionCount interface
 func (p *ParseDateMatchFunction) NewValue(value string) {
-	// fmt.Printf("*** Sample: %s\n", value)
+	// fmt.Printf("*** ParseDate NewValue: %s\n", value)
 	if p.nbrSamplesSeen >= p.parseDateConfig.DateSamplingMaxCount {
 		// do nothing
 		// fmt.Printf("*** Max samples reached @ %d samples, new value: %s\n", p.nbrSamplesSeen, value)
@@ -102,6 +105,7 @@ func (p *ParseDateMatchFunction) NewValue(value string) {
 	}
 	p.nbrSamplesSeen++
 	if !DoesQualifyAsDate(value) {
+		// fmt.Printf("*** ParseDate: %s does not qualify as a date\n", value)
 		return
 	}
 	var tm, otm time.Time
@@ -143,25 +147,28 @@ func (p *ParseDateMatchFunction) NewValue(value string) {
 		if !tm.IsZero() {
 			p.formatMatch[dateFmt] += 1
 			p.seenCache[value] = &pdCache{tm: tm, fmt: dateFmt}
-			// fmt.Printf("*** Got tm Match w/ fmt: %s\n", dateFmt)
+			// fmt.Printf("*** Got tm Match w/ fmt: %s for value %s\n", dateFmt, value)
 		}
 	}
-	if tm.IsZero() {
+
+	if len(p.parseDateConfig.OtherDateFormats) > 0 {
 		// Check Other Date Format
 		otm, dateFmt = ParseDateDateFormat(p.parseDateConfig.OtherDateFormats, value)
-		if otm.IsZero() {
-			return
+		if !otm.IsZero() {
+			p.otherFormatMatch[dateFmt] += 1
+			p.seenCache[value] = &pdCache{otm: otm, fmt: dateFmt}
+			// fmt.Printf("*** Got otm Match w/ fmt: %s for value %s\n", dateFmt, value)
 		}
-		p.otherFormatMatch[dateFmt] += 1
-		p.seenCache[value] = &pdCache{otm: otm, fmt: dateFmt}
-		// fmt.Printf("*** Got otm Match w/ fmt: %s\n", dateFmt)
-		return
 	}
 
 parse_date_arguments:
+	if tm.IsZero() {
+		return
+	}
 
 	// Set min/max values
 	if p.minMax.minValue.IsZero() || tm.Before(p.minMax.minValue) {
+  	// fmt.Printf("*** Set minValue: %v, was %v\n", tm, p.minMax.minValue )
 		p.minMax.minValue = tm
 	}
 	if p.minMax.maxValue.IsZero() || tm.After(p.minMax.maxValue) {
@@ -198,7 +205,8 @@ type matchCount struct {
 	token string
 	count int
 }
-func (m matchCount)String() string {
+
+func (m matchCount) String() string {
 	return fmt.Sprintf("(%s: %d)", m.token, m.count)
 }
 
@@ -240,11 +248,11 @@ func (p *ParseDateMatchFunction) Done(ctx *AnalyzeTransformationPipe, outputRow 
 		}
 	}
 	ml := len(matches)
-	fmt.Printf("*** Got %d matches for formatMatches for %s\n", ml, outputRow[(*ctx.outputCh.columns)["column_name"]])
+	// fmt.Printf("*** Got %d matches for formatMatches for %s\n", ml, outputRow[(*ctx.outputCh.columns)["column_name"]])
 	if ml > 0 {
 		ipos, ok := (*ctx.outputCh.columns)[p.parseDateConfig.DateFormatToken]
 		if ok {
-			// Sort by count decreading, switching alhs and rhs in a and b assignment
+			// Sort by count decreasing, switching lhs and rhs in a and b assignment
 			slices.SortFunc(matches, func(lhs, rhs matchCount) int {
 				a := rhs.count
 				b := lhs.count
@@ -257,23 +265,23 @@ func (p *ParseDateMatchFunction) Done(ctx *AnalyzeTransformationPipe, outputRow 
 					return 0
 				}
 			})
-			fmt.Printf("*** Got matches: %v\n", matches)
+			// fmt.Printf("*** Got matches: %v\n", matches)
 			// Take top matches, if less than 4
 			var formats []string
 			var c int
 			ct := int(float64(p.parseDateConfig.TopPCTFormatMatch) * float64(sumCount) / 100)
 			for i := range matches {
-				c += matches[i].count
 				if c <= ct {
 					formats = append(formats, matches[i].token)
 				}
+				c += matches[i].count
 			}
 			// save the formats
 			lenf := len(formats)
 			switch {
 			case lenf == 1:
 				outputRow[ipos] = formats[0]
-				fmt.Printf("*** Top Formats: %v\n", formats[0])
+				// fmt.Printf("*** Top Formats: %v\n", formats[0])
 			case lenf > 1:
 				if lenf > 3 {
 					formats = formats[0:3]
@@ -286,11 +294,11 @@ func (p *ParseDateMatchFunction) Done(ctx *AnalyzeTransformationPipe, outputRow 
 				}
 				w.Flush()
 				txt := strings.TrimSuffix(buf.String(), "\n")
-				fmt.Printf("*** Top Formats: %v\n", txt)
+				// fmt.Printf("*** Top Formats: %v\n", txt)
 				outputRow[ipos] = txt
 			default:
 				outputRow[ipos] = ""
-				fmt.Printf("*** Top Formats:\n")
+				// fmt.Printf("*** Top Formats:\n")
 			}
 		}
 	}
@@ -303,7 +311,7 @@ func (p *ParseDateMatchFunction) Done(ctx *AnalyzeTransformationPipe, outputRow 
 		}
 	}
 	ml = len(matches)
-	fmt.Printf("*** Got %d matches for otherFormatMatch\n", ml)
+	// fmt.Printf("*** Got %d matches for otherFormatMatch\n", ml)
 	if ml > 0 {
 		ipos, ok := (*ctx.outputCh.columns)[p.parseDateConfig.OtherDateFormatToken]
 		if ok {
@@ -320,7 +328,7 @@ func (p *ParseDateMatchFunction) Done(ctx *AnalyzeTransformationPipe, outputRow 
 			if l > 0 {
 				outputRow[ipos] = len(formats)
 			}
-			fmt.Printf("*** Nbr Other Formats: %d\n", l)
+			// fmt.Printf("*** Nbr Other Formats: %d\n", l)
 		}
 	}
 
@@ -333,7 +341,8 @@ func NewParseDateMatchFunction(fspec *FunctionTokenNode, sp SchemaProvider) (*Pa
 		return nil, fmt.Errorf("configuration error: analyze parse_date function is missing parse_date_config element")
 	}
 	// Determine the date format to use if not provided in DateFormats
-	if !parseDateConfig.UseJetstoreParser && len(parseDateConfig.DateFormats) == 0 {
+	switch {
+	case !parseDateConfig.UseJetstoreParser && len(parseDateConfig.DateFormats) == 0:
 		var spLayout string
 		if sp != nil {
 			spLayout = sp.ReadDateLayout()
@@ -344,7 +353,27 @@ func NewParseDateMatchFunction(fspec *FunctionTokenNode, sp SchemaProvider) (*Pa
 			log.Println("WARNING: analyze parse_date function has no date format configured, using jetstore internal date parser")
 			parseDateConfig.UseJetstoreParser = true
 		}
+	case len(parseDateConfig.DateFormats) > 0:
+		// Make date format in golang format in case they are in java format
+		// fmt.Printf("*** Date Formats: \"%s\"\n", strings.Join(parseDateConfig.DateFormats, "\", \""))
+		for i := range parseDateConfig.DateFormats {
+			parseDateConfig.DateFormats[i] = date_utils.FromJavaDateFormat(parseDateConfig.DateFormats[i], true)
+		}
+		// fmt.Printf("*** GO Date Formats: \"%s\"\n", strings.Join(parseDateConfig.DateFormats, "\", \""))
+
+	default:
+		parseDateConfig.UseJetstoreParser = true
 	}
+
+	if len(parseDateConfig.OtherDateFormats) > 0 {
+		// Make date format in golang format in case they are in java format
+		// fmt.Printf("*** Other Date Formats: \"%s\"\n", strings.Join(parseDateConfig.OtherDateFormats, "\", \""))
+		for i := range parseDateConfig.OtherDateFormats {
+			parseDateConfig.OtherDateFormats[i] = date_utils.FromJavaDateFormat(parseDateConfig.OtherDateFormats[i], false)
+		}
+		// fmt.Printf("*** GO Other Date Formats: \"%s\"\n", strings.Join(parseDateConfig.OtherDateFormats, "\", \""))
+	}
+
 	format := "2006-01-02"
 	if len(parseDateConfig.MinMaxDateFormat) > 0 {
 		format = parseDateConfig.MinMaxDateFormat

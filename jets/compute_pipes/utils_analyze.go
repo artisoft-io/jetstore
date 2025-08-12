@@ -230,7 +230,7 @@ func (ctx *BuilderContext) NewAnalyzeState(columnName string, columnPos int, inp
 			lookupNode := &config.LookupTokens[i]
 			lookupTable := ctx.lookupTableManager.LookupTableMap[lookupNode.Name]
 			if lookupTable == nil {
-				return nil, fmt.Errorf("error: lookup table %s not found (NewAlalyzeState)", lookupNode.Name)
+				return nil, fmt.Errorf("error: lookup table %s not found (NewAnalyzeState)", lookupNode.Name)
 			}
 			state, err := NewLookupTokensState(lookupTable, lookupNode)
 			if err != nil {
