@@ -195,7 +195,7 @@ func (cpCtx *ComputePipesContext) processRecord(computePipesInputCh chan<- []any
 				if castToRdfTxtTypeFncs != nil {
 					castFnc = castToRdfTxtTypeFncs[jcol]
 				}
-				record[jcol], errCol = ConvertWithSchemaV1(irow, col, trimColumns, castFnc)
+				record[jcol], errCol = ConvertWithSchemaV1(irow, col, trimColumns, parquetSchemaInfo.Fields[jcol], castFnc)
 				if errCol != nil {
 					return currentRow, inputRowCount, false, fmt.Errorf(
 						"while reading input records (ReadParquetFile) for column %d (%s) with value %v: %v", 

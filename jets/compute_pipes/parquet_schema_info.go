@@ -722,7 +722,7 @@ func (b *Decimal256Builder) Release() {
 }
 
 // return value is either nil or a string representing the input v
-func ConvertWithSchemaV1(irow int, col arrow.Array, trimStrings bool, castToRdfTxtFnc CastToRdfTxtFnc) (any, error) {
+func ConvertWithSchemaV1(irow int, col arrow.Array, trimStrings bool, fieldInfo *FieldInfo, castToRdfTxtFnc CastToRdfTxtFnc) (any, error) {
 	var value string
 	// value = col.ValueStr(irow)
 	switch col.DataType().Name() {
@@ -801,14 +801,37 @@ func ConvertWithSchemaV1(irow int, col arrow.Array, trimStrings bool, castToRdfT
 			return nil, fmt.Errorf("error: ConvertWithSchemaV1 expecting *array.Float64 got %T", v)
 		}
 
-	case arrow.BinaryTypes.String.Name(), arrow.BinaryTypes.Binary.Name():
-		value = col.ValueStr(irow)
+	case arrow.BinaryTypes.String.Name():
+		v, ok := col.(*array.String)
+		if ok {
+			value = v.Value(irow)
+		} else {
+			return nil, fmt.Errorf("error: ConvertWithSchemaV1 expecting *array.String got %T", v)
+		}
 
-	case "decimal", "DECIMAL", "decimal128", arrow.DECIMAL128.String():
-		value = col.ValueStr(irow)
+	case arrow.BinaryTypes.Binary.Name():
+		v, ok := col.(*array.Binary)
+		if ok {
+			value = string(v.Value(irow))
+		} else {
+			return nil, fmt.Errorf("error: ConvertWithSchemaV1 expecting *array.Binary got %T", v)
+		}
 
-	case "decimal256", arrow.DECIMAL256.String():
-		value = col.ValueStr(irow)
+	case "decimal", "decimal128":
+		v, ok := col.(*array.Decimal128)
+		if ok && fieldInfo != nil {
+			value = v.Value(irow).ToString(fieldInfo.DecimalScale)
+		} else {
+			return nil, fmt.Errorf("error: ConvertWithSchemaV1 expecting *array.Binary got %T or missing schema info (fieldInfo)", v)
+		}
+
+	case "decimal256":
+		v, ok := col.(*array.Decimal256)
+		if ok && fieldInfo != nil {
+			value = v.Value(irow).ToString(fieldInfo.DecimalScale)
+		} else {
+			return nil, fmt.Errorf("error: ConvertWithSchemaV1 expecting *array.Binary got %T or missing schema info (fieldInfo)", v)
+		}
 
 	default:
 		log.Printf("WARNING: unknown or unsupported type in ConvertWithSchemaV1: %s\n", col.DataType().Name())
