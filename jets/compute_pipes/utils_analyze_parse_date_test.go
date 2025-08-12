@@ -156,7 +156,7 @@ func TestParseDateMatchFunction2(t *testing.T) {
 	// Translate the date format to go format
 	for i := range dateFormats {
 		dateFormats[i] = date_utils.FromJavaDateFormat(dateFormats[i], true)
-		// fmt.Println("Format:", dateFormats[i])
+		fmt.Println("Format:", dateFormats[i])
 	}
 
 	fspec := &FunctionTokenNode{
@@ -242,8 +242,8 @@ func TestParseDateMatchFunction2(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(dateFormat) != 2 {
-		t.Errorf("expecting %v, got %v", 2, len(dateFormat))
+	if len(dateFormat) != 3 {
+		t.Errorf("expecting %v, got %v", 3, len(dateFormat))
 	}
 	fmt.Println("Got date_format 1:", dateFormat[0])
 	fmt.Println("Got date_format 2:", dateFormat[1])
@@ -341,8 +341,8 @@ func TestParseDateMatchFunction3(t *testing.T) {
 	}
 	// Read back the top format
 	dfTxt := row[4].(string)
-	if len(dfTxt) > 0 {
-		t.Errorf("expecting no date_formats, got %v", dfTxt)
+	if dfTxt != "2006-1-2" {
+		t.Errorf("expecting 2006-1-2 date_formats, got %v", dfTxt)
 	}
 	// t.Error("done")
 }
