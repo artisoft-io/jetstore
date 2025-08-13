@@ -7,7 +7,7 @@ final Map<String, ScreenConfig> _screenConfigurations = {
   ScreenKeys.ufHomeFilters: ScreenConfig(
       key: ScreenKeys.ufHomeFilters,
       appBarLabel: 'JetStore Workspace',
-      title: 'File Mapping Configuration',
+      title: 'Pipeline Execution Status Filters',
       showLogout: true,
       leftBarLogo: 'assets/images/logo.png',
       menuEntries: defaultMenuEntries,
