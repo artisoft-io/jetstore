@@ -40,7 +40,7 @@ func (p *ParseDoubleMatchFunction) NewValue(value string) {
 }
 
 func (p *ParseDoubleMatchFunction) GetMinMaxValues() *MinMaxValue {
-	if p == nil || p.minMax == nil {
+	if p == nil || p.minMax == nil || p.nbrSamplesSeen == 0 {
 		return nil
 	}
 	if p.minMax.minValue == nil || p.minMax.maxValue == nil {
@@ -50,7 +50,7 @@ func (p *ParseDoubleMatchFunction) GetMinMaxValues() *MinMaxValue {
 		MinValue:   strconv.FormatFloat(*p.minMax.minValue, 'f', -1, 64),
 		MaxValue:   strconv.FormatFloat(*p.minMax.maxValue, 'f', -1, 64),
 		MinMaxType: "double",
-		HitCount:   float64(p.minMax.count)/float64(p.nbrSamplesSeen),
+		HitCount:   float64(p.minMax.count) / float64(p.nbrSamplesSeen),
 	}
 }
 
@@ -66,18 +66,12 @@ func (p *ParseDoubleMatchFunction) Done(ctx *AnalyzeTransformationPipe, outputRo
 		}
 	}
 
-	var ratioFactor float64
-	if p.nbrSamplesSeen == 0 {
-		ratioFactor = 100 / float64(p.nbrSamplesSeen)
-	}
-	if p.largeValues != nil {
-		ipos, ok := (*ctx.outputCh.columns)["large_double_pct"]
-		if ok {
-			if ratioFactor > 0 {
-				outputRow[ipos] = float64(p.largeValues.count) * ratioFactor
-			} else {
-				outputRow[ipos] = -1.0
-			}
+	ipos, ok := (*ctx.outputCh.columns)["large_double_pct"]
+	if ok {
+		if p.nbrSamplesSeen > 0 && p.largeValues != nil {
+			outputRow[ipos] = float64(p.largeValues.count) * 100 / float64(p.nbrSamplesSeen)
+		} else {
+			outputRow[ipos] = -1.0
 		}
 	}
 	return nil
