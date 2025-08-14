@@ -19,15 +19,16 @@ import (
 // This is all done synchronously.
 
 type FetchFileInfoResult struct {
-	headers  []string
-	sepFlag  jcsv.Chartype
-	encoding string
-	eolByte  byte
+	headers      []string
+	sepFlag      jcsv.Chartype
+	encoding     string
+	eolByte      byte
+	multiColumns bool
 }
 
 // Main function
 func FetchHeadersAndDelimiterFromFile(externalBucket, fileKey, fileFormat, compression, encoding string, delimitor rune,
-	fetchHeaders, fetchDelimitor, fetchEncoding, detectCrAsEol bool, fileFormatDataJson string) (*FetchFileInfoResult, error) {
+	multiColumnsInput, fetchHeaders, fetchDelimitor, fetchEncoding, detectCrAsEol bool, fileFormatDataJson string) (*FetchFileInfoResult, error) {
 	var fileHd *os.File
 	var err error
 	var sepFlag jcsv.Chartype
@@ -39,6 +40,7 @@ func FetchHeadersAndDelimiterFromFile(externalBucket, fileKey, fileFormat, compr
 	fileInfo := &FetchFileInfoResult{
 		encoding: encoding,
 		sepFlag:  sepFlag,
+		multiColumns: multiColumnsInput,
 	}
 	fileHd, err = os.CreateTemp("", "jetstore_headers")
 	if err != nil {
@@ -106,7 +108,7 @@ do_retry:
 		}
 		if fetchHeaders {
 			fileInfo.headers, err = GetRawHeadersCsv(fileHd, fileKey, fileFormat,
-				compression, fileInfo.sepFlag, fileInfo.encoding, fileInfo.eolByte)
+				compression, fileInfo.sepFlag, fileInfo.encoding, fileInfo.eolByte, fileInfo.multiColumns)
 		}
 		return fileInfo, err
 
@@ -156,7 +158,7 @@ do_retry:
 // Get the raw headers from fileHd, put them in *ic
 // Use *sepFlag as the csv delimiter
 func GetRawHeadersCsv(fileHd *os.File, fileName, fileFormat, compression string, sepFlag jcsv.Chartype,
-	encoding string, eolByte byte) ([]string, error) {
+	encoding string, eolByte byte, multiColumns bool) ([]string, error) {
 	var err error
 	utfReader, err := WrapReaderWithDecoder(WrapReaderWithDecompressor(fileHd, compression), encoding)
 	if err != nil {
@@ -180,6 +182,11 @@ func GetRawHeadersCsv(fileHd *os.File, fileName, fileFormat, compression string,
 		err = fmt.Errorf("while reading csv headers (GetRawHeadersCsv): %v", err)
 		b, _ := json.Marshal(string(csvReader.LastRawRecord()))
 		log.Printf("%v: raw record as json string:\n%s", err, string(b))
+		return nil, err
+	}
+	if multiColumns && len(ic) < 2 {
+		err = fmt.Errorf("error: delimiter '%s' is not the delimiter used in the file", sepFlag.String())
+		log.Println(err)
 		return nil, err
 	}
 	// Make sure we don't have empty names in rawHeaders

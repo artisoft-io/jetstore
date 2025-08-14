@@ -168,7 +168,7 @@ parse_date_arguments:
 
 	// Set min/max values
 	if p.minMax.minValue.IsZero() || tm.Before(p.minMax.minValue) {
-  	// fmt.Printf("*** Set minValue: %v, was %v\n", tm, p.minMax.minValue )
+		// fmt.Printf("*** Set minValue: %v, was %v\n", tm, p.minMax.minValue )
 		p.minMax.minValue = tm
 	}
 	if p.minMax.maxValue.IsZero() || tm.After(p.minMax.maxValue) {
@@ -312,9 +312,9 @@ func (p *ParseDateMatchFunction) Done(ctx *AnalyzeTransformationPipe, outputRow 
 	}
 	ml = len(matches)
 	// fmt.Printf("*** Got %d matches for otherFormatMatch\n", ml)
-	if ml > 0 {
-		ipos, ok := (*ctx.outputCh.columns)[p.parseDateConfig.OtherDateFormatToken]
-		if ok {
+	ipos, ok := (*ctx.outputCh.columns)[p.parseDateConfig.OtherDateFormatToken]
+	if ok {
+		if ml > 0 {
 			// Take matches
 			var formats []string
 			ct := int(float64(p.parseDateConfig.TopPCTFormatMatch) * float64(p.nbrSamplesSeen) / 100)
@@ -324,11 +324,10 @@ func (p *ParseDateMatchFunction) Done(ctx *AnalyzeTransformationPipe, outputRow 
 				}
 			}
 			// save the formats count
-			l := len(formats)
-			if l > 0 {
-				outputRow[ipos] = len(formats)
-			}
+			outputRow[ipos] = len(formats)
 			// fmt.Printf("*** Nbr Other Formats: %d\n", l)
+		} else {
+			outputRow[ipos] = 0
 		}
 	}
 
@@ -378,11 +377,15 @@ func NewParseDateMatchFunction(fspec *FunctionTokenNode, sp SchemaProvider) (*Pa
 	if len(parseDateConfig.MinMaxDateFormat) > 0 {
 		format = parseDateConfig.MinMaxDateFormat
 	}
+	tokenMatches := make(map[string]int)
+	for _, args := range parseDateConfig.ParseDateArguments {
+		tokenMatches[args.Token] = 0
+	}
 	return &ParseDateMatchFunction{
 		parseDateConfig:  parseDateConfig,
 		minMaxDateFormat: format,
 		minMax:           &minMaxDateValue{},
-		tokenMatches:     make(map[string]int),
+		tokenMatches:     tokenMatches,
 		formatMatch:      make(map[string]int),
 		otherFormatMatch: make(map[string]int),
 		seenCache:        make(map[string]*pdCache),
