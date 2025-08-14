@@ -193,6 +193,15 @@ func (cpCtx *ComputePipesContext) LoadFiles(ctx context.Context, dbpool *pgxpool
 	return
 }
 
+func checkIncorrectDelimiter(singleColumnCount, inputRowCount int64, delimiter rune) (err error) {
+	if float64(singleColumnCount) > 0.9*float64(inputRowCount) {
+		// Got a single column while expecting multiple, must have invalid delimiter
+		err = fmt.Errorf("error: got single column row while expecting file with multiple columns, is the delimiter '%s' the correct one?", string(delimiter))
+		log.Println(err.Error())
+	}
+	return
+}
+
 func (cpCtx *ComputePipesContext) ReadCsvFile(
 	filePath *FileName, fileReader ReaderAtSeeker, castToRdfTxtTypeFncs []CastToRdfTxtFnc,
 	computePipesInputCh chan<- []any, badRowChannel *BadRowsChannel) (int64, int64, error) {
@@ -204,6 +213,7 @@ func (cpCtx *ComputePipesContext) ReadCsvFile(
 	samplingMaxCount := int64(inputChannelConfig.SamplingMaxCount)
 	inputFormat := inputChannelConfig.Format
 	shardOffset := cpCtx.CpConfig.ClusterConfig.ShardOffset
+	multiColumns := inputChannelConfig.MultiColumnsInput
 
 	var extColumns []string
 	var enforceRowMinLength, enforceRowMaxLength bool
@@ -214,7 +224,7 @@ func (cpCtx *ComputePipesContext) ReadCsvFile(
 	delimiter := inputChannelConfig.Delimiter
 	var eolByte byte
 	compression := inputChannelConfig.Compression
-	log.Printf("ReadCsvFile: got delimiter '%v' or '%s', encoding '%s', noQuote '%v'\n", delimiter, string(delimiter), encoding, noQuote)
+	log.Printf("ReadCsvFile: got delimiter '%v' or '%s', encoding '%s', noQuote '%v', multiColumns? %v\n", delimiter, string(delimiter), encoding, noQuote, multiColumns)
 
 	switch cpCtx.CpConfig.CommonRuntimeArgs.CpipesMode {
 	case "sharding":
@@ -325,7 +335,7 @@ func (cpCtx *ComputePipesContext) ReadCsvFile(
 		}
 	}
 
-	var inputRowCount, badRowCount int64
+	var inputRowCount, badRowCount, singleColumnCount int64
 	var nextInRow, inRow []string
 	var rawNextInRow []byte
 	var nextInRowErr error
@@ -358,11 +368,15 @@ func (cpCtx *ComputePipesContext) ReadCsvFile(
 		// read and put the rows into computePipesInputCh
 		if dropLastRow {
 			nextInRow, err = csvReader.Read()
+			if multiColumns && len(nextInRow) < 2 {
+				singleColumnCount++
+			}
 			// log.Printf("***Read Next Row -dropLast, err?: %v\n", err)
 			switch {
 			case err == io.EOF:
-				// exit route when use VariableFieldsPerRecord or UseLazyQuotes
-				return inputRowCount, badRowCount, nil
+				// exit route when droping last row or when use VariableFieldsPerRecord or UseLazyQuotes
+				err = checkIncorrectDelimiter(singleColumnCount, inputRowCount, delimiter)
+				return inputRowCount, badRowCount, err
 			case (errors.Is(err, csv.ErrFieldCount) || errors.Is(err, csv.ErrQuote) || errors.Is(err, csv.ErrBareQuote)) && nextInRowErr == nil:
 				nextInRowErr = err
 				rawNextInRow = slices.Clone(csvReader.LastRawRecord())
@@ -382,6 +396,9 @@ func (cpCtx *ComputePipesContext) ReadCsvFile(
 					}
 					badRowCount += 1
 				} else {
+					if nextInRowErr == nil {
+						nextInRowErr = fmt.Errorf("error: row length is %d, expected is %d, length is enforced", len(nextInRow), expectedNbrColumnsInFile)
+					}
 					return inputRowCount, badRowCount + 1,
 						fmt.Errorf("while reading input records (ReadCsvFile): %v", nextInRowErr)
 				}
@@ -400,11 +417,17 @@ func (cpCtx *ComputePipesContext) ReadCsvFile(
 					fmt.Errorf("unexpected error while reading input records (ReadCsvFile): %v", err)
 			}
 		} else {
+
 			inRow, err = csvReader.Read()
+			if multiColumns && len(inRow) < 2 {
+				singleColumnCount++
+			}
 			switch {
 			case err == io.EOF:
 				// expected exit route when not droping the last row
-				return inputRowCount, badRowCount, nil
+				err = checkIncorrectDelimiter(singleColumnCount, inputRowCount, delimiter)
+				return inputRowCount, badRowCount, err
+
 			case errors.Is(err, csv.ErrFieldCount) || errors.Is(err, csv.ErrQuote) || errors.Is(err, csv.ErrBareQuote) ||
 				(enforceRowMinLength && len(inRow) < expectedNbrColumnsInFile) ||
 				(enforceRowMaxLength && len(inRow) > expectedNbrColumnsInFile):
@@ -427,6 +450,7 @@ func (cpCtx *ComputePipesContext) ReadCsvFile(
 				// Read next row
 				err = nil
 				continue
+
 			case err != nil:
 				// Got unexpected error - err out
 				return inputRowCount, badRowCount,
@@ -441,8 +465,9 @@ func (cpCtx *ComputePipesContext) ReadCsvFile(
 				}
 			}
 			if samplingMaxCount > 0 && inputRowCount >= samplingMaxCount {
-				// No need to continue, reach max samplint count
-				return inputRowCount, badRowCount, nil
+				// No need to continue, reach max sampling count
+				err = checkIncorrectDelimiter(singleColumnCount, inputRowCount, delimiter)
+				return inputRowCount, badRowCount, err
 			}
 		}
 		cpCtx.SamplingCount = 0
@@ -698,7 +723,7 @@ loop_record:
 						// fmt.Printf("***TOO SHORT %d/%d **%s\n", len(line), maxEnd, line[:int(math.Min(40, float64(len(line))))])
 						if badRowChannel != nil {
 							select {
-							case badRowChannel.OutputCh <- []byte(line+"\n"):
+							case badRowChannel.OutputCh <- []byte(line + "\n"):
 							case <-cpCtx.Done:
 								log.Println("Sending bad input row interrupted (ReadFixedWidthFile-1)")
 								return inputRowCount, badRowCount, nil
@@ -722,7 +747,7 @@ loop_record:
 					// fmt.Printf("***TOO LONG %d/%d **%s\n", len(line), maxEnd, line[:int(math.Min(40, float64(len(line))))])
 					if badRowChannel != nil {
 						select {
-						case badRowChannel.OutputCh <- []byte(line+"\n"):
+						case badRowChannel.OutputCh <- []byte(line + "\n"):
 						case <-cpCtx.Done:
 							log.Println("Sending bad input row interrupted (ReadFixedWidthFile-2)")
 							return inputRowCount, badRowCount, nil

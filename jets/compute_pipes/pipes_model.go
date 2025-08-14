@@ -240,8 +240,8 @@ type FileConfig struct {
 	Bucket                     string             `json:"bucket,omitempty"`
 	Compression                string             `json:"compression,omitempty"`
 	Delimiter                  rune               `json:"delimiter,omitzero"`
-	DetectEncoding             bool               `json:"detect_encoding,omitzero"`
 	DetectCrAsEol              bool               `json:"detect_cr_as_eol,omitzero"`
+	DetectEncoding             bool               `json:"detect_encoding,omitzero"`
 	DomainClass                string             `json:"domain_class,omitempty"`
 	DomainKeys                 map[string]any     `json:"domain_keys,omitempty"`
 	Encoding                   string             `json:"encoding,omitempty"`
@@ -255,6 +255,7 @@ type FileConfig struct {
 	InputFormatDataJson        string             `json:"input_format_data_json,omitempty"`
 	IsPartFiles                bool               `json:"is_part_files,omitzero"`
 	KeyPrefix                  string             `json:"key_prefix,omitempty"`
+	MultiColumnsInput          bool               `json:"multi_columns_input,omitzero"`
 	NbrRowsInRecord            int64              `json:"nbr_rows_in_record,omitzero"` // Format: parquet
 	NoQuotes                   bool               `json:"no_quotes,omitzero"`
 	ParquetSchema              *ParquetSchemaInfo `json:"parquet_schema,omitzero"`
@@ -277,6 +278,8 @@ type SchemaProviderSpec struct {
 	// DetectEncoding: Detect file encoding (limited) for text file format
 	// DetectCrAsEol: Detect if \r is used as eol (format: csv,headerless_csv)
 	// EolByte: Byte to use as eol (format: csv,headerless_csv)
+	// MultiColumnsInput: Indicate that input file must have multiple columns,
+	// this is used to detect if the wrong delimiter is used (csv,headerless_csv)
 	// ReadBatchSize: nbr of rows to read per record (format: parquet)
 	// NbrRowsInRecord: nbr of rows in record (format: parquet)
 	// InputFormatDataJson: json config based on Format (typically used for xlsx)
@@ -493,6 +496,8 @@ type InputChannelConfig struct {
 	// DetectEncoding: Detect file encoding (limited) for text file format
 	// DetectCrAsEol: Detect if \r is used as eol (format: csv,headerless_csv)
 	// EolByte: Byte to use as eol (format: csv,headerless_csv)
+	// MultiColumnsInput: Indicate that input file must have multiple columns,
+	// this is used to detect if the wrong delimiter is used (csv,headerless_csv)
 	// Note: SchemaProvider, Compression, Format for Type input are provided via
 	// ComputePipesCommonArgs.SourcesConfig (ie input_registry table).
 	// BadRowsConfig: Specify how to handle bad rows.

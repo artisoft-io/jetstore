@@ -762,6 +762,12 @@ func syncInputChannelWithSchemaProvider(ic *InputChannelConfig, sp *SchemaProvid
 		sp.NbrRowsInRecord = ic.NbrRowsInRecord
 	}
 
+	if ic.MultiColumnsInput {
+		sp.MultiColumnsInput = true
+	} else {
+		ic.MultiColumnsInput = sp.MultiColumnsInput
+	}
+
 	if !ic.NoQuotes {
 		ic.NoQuotes = sp.NoQuotes
 	} else {

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"regexp"
+	"strings"
 	"testing"
 )
 
@@ -20,6 +21,7 @@ type ComputePipesContextTestBuilder struct {
 	EnforceRowMinLength     bool
 	Format                  string
 	InputColumns            []string
+	MultiColumnsInput       bool
 	NbrRowsInRecord         int64
 	NoQuotes                bool
 	PartFileKeyComponents   []CompiledPartFileComponent
@@ -66,6 +68,7 @@ func (b ComputePipesContextTestBuilder) build() *ComputePipesContext {
 						EnforceRowMaxLength:     b.EnforceRowMaxLength,
 						EnforceRowMinLength:     b.EnforceRowMinLength,
 						Format:                  b.Format,
+						MultiColumnsInput:       b.MultiColumnsInput,
 						NbrRowsInRecord:         b.NbrRowsInRecord,
 						NoQuotes:                b.NoQuotes,
 						QuoteAllRecords:         b.QuoteAllRecords,
@@ -177,6 +180,75 @@ func TestReadCsv01(t *testing.T) {
 	if checkCount != badRowcount {
 		t.Errorf("bad row check count does not match, checkCount is %d", checkCount)
 	}
+	// t.Errorf("OK")
+}
+
+// Negative test - wrong delimiter
+func TestReadCsvWrongDelimiter01(t *testing.T) {
+	reader, columns, size := dataSetWrongDelimiter01()
+	cpCtx := ComputePipesContextTestBuilder{
+		AddionalInputHeaders:    nil,
+		BadRowsConfig:           nil,
+		Compression:             "none",
+		CpipesMode:              "sharding",
+		Delimiter:               ',',
+		DetectEncoding:          false,
+		Encoding:                "",
+		EnforceRowMaxLength:     false,
+		EnforceRowMinLength:     false,
+		Format:                  "csv",
+		InputColumns:            columns,
+		MultiColumnsInput:       true,
+		NbrRowsInRecord:         0,
+		NoQuotes:                false,
+		PartFileKeyComponents:   nil,
+		ReadBatchSize:           0,
+		SamplingMaxCount:        0,
+		SamplingRate:            0,
+		ShardOffset:             20,
+		TrimColumns:             true,
+		UseLazyQuotes:           false,
+		VariableFieldsPerRecord: false,
+	}.build()
+
+	computePipesInputCh := make(chan []any, 50)
+	badRowChannel := &BadRowsChannel{
+		s3DeviceManager: nil,
+		s3BasePath:      "",
+		OutputCh:        make(chan []byte, 50),
+		doneCh:          cpCtx.Done,
+		errCh:           cpCtx.ErrCh,
+	}
+	count, badRowcount, err := cpCtx.ReadCsvFile(
+		&FileName{
+			InFileKeyInfo: FileKeyInfo{
+				key:   "file/key",
+				size:  size,
+				start: 0,
+				end:   0,
+			},
+		}, reader, nil, computePipesInputCh, badRowChannel)
+
+	// Close the channels
+	close(computePipesInputCh)
+	// close(badRowChannel.OutputCh)
+	if badRowChannel != nil {
+		badRowChannel.Done()
+	}
+
+	fmt.Println("Got count", count, "badRowCount", badRowcount)
+	if err == nil {
+		t.Error("expecting an error")
+	}
+	if !strings.HasPrefix(err.Error(), "error: got single column row while expecting file with multiple columns") {
+		t.Errorf("Did not get the expected error, got: %v", err)
+	}
+	// // Check the data
+	// fmt.Println("THE DATA")
+	// for row := range computePipesInputCh {
+	// 	fmt.Println(len(row), "::", row)
+	// }
+
 	// t.Errorf("OK")
 }
 
@@ -2128,6 +2200,33 @@ row16c1,row16c2,row16c3,row16c4
 row17c1,row17c2,row17c3,row17c4
 row18c1,row18c2,row18c3,row18c4
 row19c1,row19c2,row19c3,row19c4
+`
+	headers := []string{"col1", "col2", "col3", "col4"}
+	buf := bytes.NewReader([]byte(rawData))
+	return buf, headers, len(rawData)
+}
+
+// Good, no bad rows
+func dataSetWrongDelimiter01() (ReaderAtSeeker, []string, int) {
+	rawData := `col1|col2|col3|col4
+row01c1|row01c2|row01c3|row01c4
+row02c1|row02c2|row02c3|row02c4
+row03c1|row03c2|row03c3|row03c4
+row04c1|row04c2|row04c3|row04c4
+row05c1|row05c2|row05c3|row05c4
+row06c1|row06c2|row06c3|row06c4
+row07c1|row07c2|row07c3|row07c4
+row08c1|row08c2|row08c3|row08c4
+row09c1|row09c2|row09c3|row09c4
+row11c1|row11c2|row11c3|row11c4
+row12c1|row12c2|row12c3|row12c4
+row13c1|row13c2|row13c3|row13c4
+row14c1|row14c2|row14c3|row14c4
+row15c1|row15c2|row15c3|row15c4
+row16c1|row16c2|row16c3|row16c4
+row17c1|row17c2|row17c3|row17c4
+row18c1|row18c2|row18c3|row18c4
+row19c1|row19c2|row19c3|row19c4
 `
 	headers := []string{"col1", "col2", "col3", "col4"}
 	buf := bytes.NewReader([]byte(rawData))
