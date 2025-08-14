@@ -368,7 +368,7 @@ func (cpCtx *ComputePipesContext) ReadCsvFile(
 		// read and put the rows into computePipesInputCh
 		if dropLastRow {
 			nextInRow, err = csvReader.Read()
-			if multiColumns && len(nextInRow) < 2 {
+			if err != io.EOF && multiColumns && len(nextInRow) < 2 {
 				singleColumnCount++
 			}
 			// log.Printf("***Read Next Row -dropLast, err?: %v\n", err)
@@ -419,7 +419,7 @@ func (cpCtx *ComputePipesContext) ReadCsvFile(
 		} else {
 
 			inRow, err = csvReader.Read()
-			if multiColumns && len(inRow) < 2 {
+			if err != io.EOF && multiColumns && len(inRow) < 2 {
 				singleColumnCount++
 			}
 			switch {
