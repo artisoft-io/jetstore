@@ -3,13 +3,16 @@ package compute_pipes
 import (
 	"bufio"
 	"bytes"
+	"errors"
 	"fmt"
 	"io"
 	"log"
+	"strings"
 	"unicode/utf8"
 
 	"github.com/artisoft-io/jetstore/jets/datatable/jcsv"
 	"github.com/golang/snappy"
+	"github.com/saintfish/chardet"
 	"golang.org/x/text/encoding/charmap"
 	"golang.org/x/text/encoding/unicode"
 )
@@ -77,52 +80,86 @@ func DetectFileEncoding(fileHd ReaderAtSeeker) (encoding string, err error) {
 	}
 	buf = buf[:n]
 	defer func() {
-		_, err = fileHd.Seek(0, 0)
+		_, err2 := fileHd.Seek(0, 0)
+		if err == nil && err2 != nil {
+			err = err2
+		}
 	}()
-	encoding = DetectEncoding(buf)
+	encoding, err = DetectEncoding(buf)
 	return
 }
 
 var by rune = []rune("þÿ")[0]
 var yb rune = []rune("ÿþ")[0]
-func DetectEncoding(data []byte) string {
-	var r io.Reader
-	testEncoding := []string{"", "UTF-8", "ISO-8859-1", "UTF-16LE", "UTF-16BE"}
+var ErrEOFTooEarly error = errors.New("error: Cannot determine encoding, got EOF")
+var ErrUnknownEncoding error = errors.New("encoding Unknown, unable to detected the encoding")
+var ErrFileZipArchive error = errors.New("the file is a ZIP archive")
+var testEncoding []string = []string{"UTF-8", "UTF-16LE", "UTF-16BE", "ISO-8859-1", "ISO-8859-2"}
+
+func DetectEncoding(data []byte) (string, error) {
 	log.Println("Detect Encoding called")
+	// Check if chardet gets a high confidence match
+	detector := chardet.NewTextDetector()
+	dresult, err := detector.DetectBest(data)
+	if err == nil && dresult.Confidence > 75 {
+		switch dresult.Charset {
+		case "UTF-8":
+			return "UTF-8", nil
+		case "UTF-16", "UTF-16LE":
+			return "UTF-16LE", nil
+		case "UTF-16BE":
+			return "UTF-16BE", nil
+		case "ISO-8859-1":
+			return "ISO-8859-1", nil
+		case "ISO-8859-2":
+			return "ISO-8859-2", nil
+		default:
+			// continue to homemade detection
+		}
+	}
+	var r io.Reader
 	for _, encoding := range testEncoding {
 		r, _ = WrapReaderWithDecoder(bytes.NewReader(data), encoding)
 		br := bufio.NewScanner(r)
 		// read the first row
 		ok := br.Scan()
 		if !ok {
-			log.Fatalf("ERROR Can't read the first row")
+			return "", ErrEOFTooEarly
 		}
 		txt := br.Text()
+		// fmt.Println("Got this:", txt)
 		// count the nbr of rune error
 		ec := 0
 		zc := 0
 		for i, r := range txt {
 			switch {
 			case r == utf8.RuneError:
+				// fmt.Printf("[%s] ", string(r))
 				ec++
 			case i == 0 && (r == by || r == yb):
 				ec++
 			case r == 0:
 				zc++
+			default:
+				// fmt.Printf("%s ", string(r))
 			}
 		}
-		// Make sure it's valid
-		ok = br.Scan()
-		if !ok {
-			// Got EOF already
-			ec += 2
-		}
+		// // Make sure it's valid
+		// ok = br.Scan()
+		// if !ok {
+		// 	// Got EOF already
+		// 	ec += 2
+		// }
 		log.Printf("Detect Encoding: %s has %d errors and %d zeros", encoding, ec, zc)
-		if ec == 0 && zc < 2 {
-			return encoding
+		if ec == 0 {
+			if strings.HasPrefix(txt, "PK\u0003\u0004") {
+				log.Println(ErrFileZipArchive.Error())
+				return "", ErrFileZipArchive
+			}
+			return encoding, nil
 		}
 	}
-	return ""
+	return "", ErrUnknownEncoding
 }
 
 func WrapReaderWithDecompressor(r io.Reader, compression string) io.Reader {
@@ -142,38 +179,58 @@ func WrapReaderWithDecoder(r io.Reader, encoding string) (utfReader io.Reader, e
 		utfReader = r
 	case "UTF-8":
 		// Make a transformer that assumes UTF-8 but abides by the BOM.
-		// decoder := unicode.UTF8.NewDecoder()
-		// utfReader = transform.NewReader(r, unicode.BOMOverride(decoder))
 		utfReader = unicode.UTF8.NewDecoder().Reader(r)
 
 	case "UTF-16", "UTF-16LE":
 		// Make an tranformer that decodes MS-Windows (16LE) UTF files:
-		// winutf := unicode.UTF16(unicode.LittleEndian, unicode.IgnoreBOM)
-		// Make a transformer that is like winutf, but abides by BOM if found:
-		// decoder := winutf.NewDecoder()
-		// utfReader = transform.NewReader(r, unicode.BOMOverride(decoder))
-		utfReader = unicode.UTF16(unicode.LittleEndian, unicode.IgnoreBOM).NewDecoder().Reader(r)
+		// Make a transformer that abides by BOM if found:
+		utfReader = unicode.UTF16(unicode.LittleEndian, unicode.UseBOM).NewDecoder().Reader(r)
 
 	case "UTF-16BE":
 		// Make an tranformer that decodes UTF-16BE files:
-		// utf16be := unicode.UTF16(unicode.BigEndian, unicode.IgnoreBOM)
-		// Make a transformer that is like utf16be, but abides by BOM if found:
-		// decoder := utf16be.NewDecoder()
-		// utfReader = transform.NewReader(r, unicode.BOMOverride(decoder))
-		utfReader = unicode.UTF16(unicode.BigEndian, unicode.IgnoreBOM).NewDecoder().Reader(r)
+		// Make a transformer that abides by BOM if found:
+		utfReader = unicode.UTF16(unicode.BigEndian, unicode.UseBOM).NewDecoder().Reader(r)
 
 	case "ISO-8859-1":
-	// 	decoder := charmap.ISO8859_1.NewDecoder()
-	// 	utfReader = transform.NewReader(r, unicode.BOMOverride(decoder))
+		// 	decoder := charmap.ISO8859_1.NewDecoder()
 		utfReader = charmap.ISO8859_1.NewDecoder().Reader(r)
 
 	case "ISO-8859-2":
 		// decoder := charmap.ISO8859_2.NewDecoder()
-		// utfReader = transform.NewReader(r, unicode.BOMOverride(decoder))
 		utfReader = charmap.ISO8859_2.NewDecoder().Reader(r)
 
 	default:
-		err = fmt.Errorf("error: unsupported encoding: %s", encoding)
+		err = fmt.Errorf("error: unsupported encoding: %s (WrapReaderWithDecoder)", encoding)
+	}
+	return
+}
+
+func WrapWriterWithEncoder(w io.Writer, encoding string) (utfWriter io.Writer, err error) {
+	// log.Printf("WrapWriterWithEncoder for encoding '%s'", encoding)
+	switch encoding {
+	case "":
+		// passthrough
+		utfWriter = w
+	case "UTF-8":
+		// Make a transformer that assumes UTF-8 but abides by the BOM.
+		utfWriter = unicode.UTF8.NewEncoder().Writer(w)
+
+	case "UTF-16", "UTF-16LE":
+		// Make an tranformer that decodes MS-Windows (16LE) UTF files:
+		utfWriter = unicode.UTF16(unicode.LittleEndian, unicode.UseBOM).NewEncoder().Writer(w)
+
+	case "UTF-16BE":
+		// Make an tranformer that decodes UTF-16BE files:
+		utfWriter = unicode.UTF16(unicode.BigEndian, unicode.UseBOM).NewEncoder().Writer(w)
+
+	case "ISO-8859-1":
+		utfWriter = charmap.ISO8859_1.NewEncoder().Writer(w)
+
+	case "ISO-8859-2":
+		utfWriter = charmap.ISO8859_2.NewEncoder().Writer(w)
+
+	default:
+		err = fmt.Errorf("error: unsupported encoding: %s (WrapWriterWithEncoder)", encoding)
 	}
 	return
 }

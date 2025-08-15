@@ -104,6 +104,7 @@ require (
 	github.com/dolthub/swiss v0.2.1
 	github.com/fraugster/parquet-go v0.12.0
 	github.com/golang/snappy v1.0.0
+	github.com/saintfish/chardet v0.0.0-20230101081208-5e3ef4b5456d
 	github.com/thedatashed/xlsxreader v1.2.8
 	github.com/xhit/go-str2duration/v2 v2.1.0
 	modernc.org/sqlite v1.38.0
