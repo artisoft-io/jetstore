@@ -11,6 +11,7 @@ import (
 
 	"github.com/artisoft-io/jetstore/jets/datatable/jcsv"
 	"github.com/golang/snappy"
+	"github.com/saintfish/chardet"
 	"golang.org/x/text/encoding/charmap"
 	"golang.org/x/text/encoding/unicode"
 )
@@ -91,15 +92,34 @@ var ErrUnknownEncoding error = errors.New("Encoding Unknown, unable to detected 
 var testEncoding []string = []string{"UTF-8", "UTF-16LE", "UTF-16BE", "ISO-8859-1", "ISO-8859-2"}
 
 func DetectEncoding(data []byte) (string, error) {
-	var r io.Reader
 	log.Println("Detect Encoding called")
+	// Check if chardet gets a high confidence match
+	detector := chardet.NewTextDetector()
+	dresult, err := detector.DetectBest(data)
+	if err == nil && dresult.Confidence > 75 {
+		switch dresult.Charset {
+		case "UTF-8":
+			return "UTF-8", nil
+		case "UTF-16", "UTF-16LE":
+			return "UTF-16LE", nil
+		case "UTF-16BE":
+			return "UTF-16BE", nil
+		case "ISO-8859-1":
+			return "ISO-8859-1", nil
+		case "ISO-8859-2":
+			return "ISO-8859-2", nil
+		default:
+			// continue to homemade detection
+		}
+	}
+	var r io.Reader
 	for _, encoding := range testEncoding {
 		r, _ = WrapReaderWithDecoder(bytes.NewReader(data), encoding)
 		br := bufio.NewScanner(r)
 		// read the first row
 		ok := br.Scan()
 		if !ok {
-			return "", ErrEOFTooEarly 
+			return "", ErrEOFTooEarly
 		}
 		txt := br.Text()
 		// fmt.Println("Got this:", txt)

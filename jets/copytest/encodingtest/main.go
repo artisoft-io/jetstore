@@ -6,6 +6,7 @@ import (
 	"os"
 
 	"github.com/artisoft-io/jetstore/jets/compute_pipes"
+	// "github.com/saintfish/chardet"
 )
 
 func check(e error) {
@@ -24,6 +25,25 @@ func main() {
 	log.Println("Input file:", *inputFile)
 	data, err := os.ReadFile(*inputFile)
 	check(err)
+	// size := len(data)
+	// log.Printf("File contains %d bytes", size)
+
+	// // Detect encoding
+	// detector := chardet.NewTextDetector()
+	// results, err := detector.DetectAll(data)
+	// check(err)
+	// for i, result := range results {
+	// 	if result.Confidence > 9 {
+	// 		log.Println("Detected:", i, result)
+	// 	}
+	// }
+	// result, err := detector.DetectBest(data)
+	// check(err)
+	// log.Println("Best Detected:", result)
+	detectEncoding(data)
+}
+
+func detectEncoding(data []byte) {
 	size := len(data)
 	log.Printf("File contains %d bytes", size)
 

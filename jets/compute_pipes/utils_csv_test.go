@@ -154,8 +154,8 @@ func TestDetectEncoding03(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if encoding != "UTF-16LE" {
-		t.Errorf("Expecting UTF-16LE, got %s", encoding)
+	if encoding != "UTF-16BE" {
+		t.Errorf("Expecting UTF-16BE, got %s", encoding)
 	}
 }
 
