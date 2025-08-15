@@ -2,6 +2,7 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"log"
 	"os"
 
@@ -51,4 +52,25 @@ func detectEncoding(data []byte) {
 	encoding, err := compute_pipes.DetectEncoding(data)
 	check(err)
 	log.Println("File encoding is", encoding)
+	
+	letters, numbers := countASCIILettersAndNumbersPct(string(data))
+	// fmt.Printf("String: \"%s\"\n", string(data))
+	fmt.Printf("Number of ASCII letters: %v\n", letters)
+	fmt.Printf("Number of ASCII numbers: %v\n", numbers)
+}
+
+func countASCIILettersAndNumbersPct(s string) (float64, float64) {
+	letterCount := 0
+	numberCount := 0
+	count := 0
+
+	for _, r := range s {
+		count++
+		if (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') {
+			letterCount++
+		} else if r >= '0' && r <= '9' {
+			numberCount++
+		}
+	}
+	return float64(letterCount)/float64(count), float64(numberCount)/float64(count)
 }

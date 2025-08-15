@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"strings"
 	"unicode/utf8"
 
 	"github.com/artisoft-io/jetstore/jets/datatable/jcsv"
@@ -79,7 +80,10 @@ func DetectFileEncoding(fileHd ReaderAtSeeker) (encoding string, err error) {
 	}
 	buf = buf[:n]
 	defer func() {
-		_, err = fileHd.Seek(0, 0)
+		_, err2 := fileHd.Seek(0, 0)
+		if err == nil && err2 != nil {
+			err = err2
+		}
 	}()
 	encoding, err = DetectEncoding(buf)
 	return
@@ -88,7 +92,8 @@ func DetectFileEncoding(fileHd ReaderAtSeeker) (encoding string, err error) {
 var by rune = []rune("þÿ")[0]
 var yb rune = []rune("ÿþ")[0]
 var ErrEOFTooEarly error = errors.New("error: Cannot determine encoding, got EOF")
-var ErrUnknownEncoding error = errors.New("Encoding Unknown, unable to detected the encoding")
+var ErrUnknownEncoding error = errors.New("encoding Unknown, unable to detected the encoding")
+var ErrFileZipArchive error = errors.New("the file is a ZIP archive")
 var testEncoding []string = []string{"UTF-8", "UTF-16LE", "UTF-16BE", "ISO-8859-1", "ISO-8859-2"}
 
 func DetectEncoding(data []byte) (string, error) {
@@ -147,6 +152,10 @@ func DetectEncoding(data []byte) (string, error) {
 		// }
 		log.Printf("Detect Encoding: %s has %d errors and %d zeros", encoding, ec, zc)
 		if ec == 0 {
+			if strings.HasPrefix(txt, "PK\u0003\u0004") {
+				log.Println(ErrFileZipArchive.Error())
+				return "", ErrFileZipArchive
+			}
 			return encoding, nil
 		}
 	}
