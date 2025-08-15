@@ -301,7 +301,9 @@ class BaseScreenState extends State<BaseScreen> with TickerProviderStateMixin {
                             nodes: menuEntries
                                 .map((menuEntry) => _makeTreeNode(
                                     0, context, themeData, menuEntry))
-                                .toList()),
+                                .toList(),
+                            treeController:
+                                TreeController(allNodesExpanded: false)),
                       ),
                     ),
                     if (JetsRouterDelegate().jetstoreVersion != '###')
