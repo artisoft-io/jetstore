@@ -684,6 +684,7 @@ func (args *CpipesStartup) ValidatePipeSpecConfig(cpConfig *ComputePipesConfig, 
 //   - ReadDateLayout
 //   - TrimColumns
 //   - UseLazyQuotes
+//   - UseLazyQuotesSpecial
 //   - VariableFieldsPerRecord
 //   - WriteDateLayout
 //
@@ -814,6 +815,12 @@ func syncInputChannelWithSchemaProvider(ic *InputChannelConfig, sp *SchemaProvid
 		ic.UseLazyQuotes = sp.UseLazyQuotes
 	} else {
 		sp.UseLazyQuotes = ic.UseLazyQuotes
+	}
+
+	if !ic.UseLazyQuotesSpecial {
+		ic.UseLazyQuotesSpecial = sp.UseLazyQuotesSpecial
+	} else {
+		sp.UseLazyQuotesSpecial = ic.UseLazyQuotesSpecial
 	}
 
 	if !ic.VariableFieldsPerRecord {

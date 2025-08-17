@@ -57,6 +57,7 @@ type SchemaProvider interface {
 	SchemaName() string
 	TrimColumns() bool
 	UseLazyQuotes() bool
+	UseLazyQuotesSpecial() bool
 	VariableFieldsPerRecord() bool
 	WriteDateLayout() string
 }
@@ -271,6 +272,13 @@ func (sp *DefaultSchemaProvider) UseLazyQuotes() bool {
 		return false
 	}
 	return sp.spec.UseLazyQuotes
+}
+
+func (sp *DefaultSchemaProvider) UseLazyQuotesSpecial() bool {
+	if sp == nil {
+		return false
+	}
+	return sp.spec.UseLazyQuotesSpecial
 }
 
 func (sp *DefaultSchemaProvider) VariableFieldsPerRecord() bool {

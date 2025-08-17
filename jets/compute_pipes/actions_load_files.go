@@ -310,6 +310,7 @@ func (cpCtx *ComputePipesContext) ReadCsvFile(
 	}
 	// Defaults for LazyQuotes and VariableFieldsPerRecord is false, from inputChannelConfig
 	csvReader.LazyQuotes = inputChannelConfig.UseLazyQuotes
+	csvReader.LazyQuotesSpecial = inputChannelConfig.UseLazyQuotesSpecial
 	if inputChannelConfig.VariableFieldsPerRecord {
 		csvReader.FieldsPerRecord = -1
 	}

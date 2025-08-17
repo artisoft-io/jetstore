@@ -158,6 +158,11 @@ type Reader struct {
 	// non-doubled quote may appear in a quoted field.
 	LazyQuotes bool
 
+	// If LazyQuotesSpecial is true, it behaves like a when LazyQuotes is true
+	// with the exception (and expectation) that no field contains the EOL byte.
+	// Therefore a fields cannot contains multiple lines of the input.
+	LazyQuotesSpecial bool
+
 	// If TrimLeadingSpace is true, leading white space in a field is ignored.
 	// This is done even if the field delimiter, Comma, is white space.
 	TrimLeadingSpace bool
@@ -321,6 +326,9 @@ func nextRune(b []byte) rune {
 }
 
 func (r *Reader) readRecord(dst []string) ([]string, error) {
+	if r.LazyQuotesSpecial {
+		r.LazyQuotes = true
+	}
 	if r.Comma == r.Comment || !validDelim(r.Comma) || (r.Comment != 0 && !validDelim(r.Comment)) {
 		return nil, errInvalidDelim
 	}
@@ -439,12 +447,24 @@ parseField:
 						break parseField
 					}
 				} else if len(line) > 0 {
+					if r.LazyQuotesSpecial {
+						// Consider same as `"\n` sequence (end of line).
+						// remove the trailing EOL
+						line = line[:len(line)-r.lengthNL(line)]
+					}
 					// Hit end of line (copy all data so far).
 					r.recordBuffer = append(r.recordBuffer, line...)
 					if errRead != nil {
 						break parseField
 					}
 					pos.col += len(line)
+					if r.LazyQuotesSpecial {
+						// Consider same as `"\n` sequence (end of line).
+						// close the escaped field
+						r.fieldIndexes = append(r.fieldIndexes, len(r.recordBuffer))
+						r.fieldPositions = append(r.fieldPositions, fieldPos)
+						break parseField
+					}
 					line, errRead = r.readLine()
 					if len(line) > 0 {
 						pos.line++
