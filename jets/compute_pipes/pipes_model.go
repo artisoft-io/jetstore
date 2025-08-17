@@ -265,6 +265,7 @@ type FileConfig struct {
 	ReadDateLayout             string             `json:"read_date_layout,omitempty"`
 	TrimColumns                bool               `json:"trim_columns,omitzero"`
 	UseLazyQuotes              bool               `json:"use_lazy_quotes,omitzero"`
+	UseLazyQuotesSpecial       bool               `json:"use_lazy_quotes_special,omitzero"`
 	VariableFieldsPerRecord    bool               `json:"variable_fields_per_record,omitzero"`
 	WriteDateLayout            string             `json:"write_date_layout,omitempty"`
 }
@@ -290,7 +291,7 @@ type SchemaProviderSpec struct {
 	// SourceType range: main_input, merged_input, historical_input (from input_source table)
 	// Columns: may be ommitted if fixed_width_columns_csv is provided or is a csv format
 	// Headers: alt to Columns, typically for csv format
-	// UseLazyQuotes, VariableFieldsPerRecord see csv.NewReader
+	// UseLazyQuotes, UseLazyQuotesSpecial, VariableFieldsPerRecord: see csv.NewReader
 	// QuoteAllRecords will quote all records for csv writer
 	// NoQuotes will no quote any records for csv writer (even if the record contains '"')
 	// Bucket and FileKey are location and source object (fileKey may be directory if IsPartFiles is true)
