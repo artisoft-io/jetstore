@@ -87,6 +87,7 @@ type JetStoreStackComponents struct {
 	StatusUpdateLambda        awslambdago.GoFunction
 	SecretRotationLambda      awslambdago.GoFunction
 	RunReportsLambda          awslambdago.GoFunction
+	CpipesRunReportsLambda    awslambdago.GoFunction
 	PurgeDataLambda           awslambdago.GoFunction
 	serverv2NodeLambda        awslambdago.GoFunction
 	CpipesNodeLambda          awslambdago.GoFunction

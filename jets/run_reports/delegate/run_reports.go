@@ -66,8 +66,10 @@ type ReportDirectives struct {
 	RegisterReports      []RegisterReportSpec         `json:"registerReport"`
 }
 
+// Type: report, script, function
+// case function, use a deployment-specific function
 type ReportProperty struct {
-	ReportOrScript  string            `json:"reportOrScript"`
+	Type  string            `json:"reportOrScript"`
 	UpdatedFileKeys []string          `json:"updatedFileKeys"`
 	RunWhen         []RunWhenCriteria `json:"runWhen"`
 }
@@ -171,14 +173,15 @@ func (ca *CommandArguments) RunReports(dbpool *pgxpool.Pool) (returnedErr error)
 	var dbRecordCount, outputRecordCount int64
 	gotRecordCount := false
 	didAnyReport := false
-	for i := range ca.ReportScriptPaths {
-		reportProps := reportDirectives.ReportProperties[reportDirectives.ReportScripts[i]]
+	for is := range reportDirectives.ReportScripts {
+		reportScript := reportDirectives.ReportScripts[is]
+		reportProps := reportDirectives.ReportProperties[reportScript]
 		doIt := true
-		for i := range reportProps.RunWhen {
-			value, ok := ca.FileKeyComponents[reportProps.RunWhen[i].FileKeyComponent].(string)
+		for iw := range reportProps.RunWhen {
+			value, ok := ca.FileKeyComponents[reportProps.RunWhen[iw].FileKeyComponent].(string)
 			if ok {
-				hasValue := reportProps.RunWhen[i].HasValue
-				hasNotValue := reportProps.RunWhen[i].HasNotValue
+				hasValue := reportProps.RunWhen[iw].HasValue
+				hasNotValue := reportProps.RunWhen[iw].HasNotValue
 				switch {
 				case len(hasValue) > 0 && value != hasValue:
 					doIt = false
@@ -188,7 +191,7 @@ func (ca *CommandArguments) RunReports(dbpool *pgxpool.Pool) (returnedErr error)
 			} else {
 				doIt = false
 			}
-			if reportProps.RunWhen[i].HasNonZeroOutputRecords {
+			if reportProps.RunWhen[iw].HasNonZeroOutputRecords {
 				if !gotRecordCount {
 					dbRecordCount, outputRecordCount = GetOutputRecordCount(dbpool, ca.SessionId)
 					gotRecordCount = true
@@ -207,10 +210,12 @@ func (ca *CommandArguments) RunReports(dbpool *pgxpool.Pool) (returnedErr error)
 		}
 		// Determine if the file is a sql reports or a sql script, sql script are executed in one go
 		// while sql report are executed statement by statement with results generally saved to s3 (most common)
-		if reportProps.ReportOrScript == "script" {
+		//*** Make it a switch
+		// case reportScript is a registered function:
+		if reportProps.Type == "script" {
 			// Running as sql script
-			log.Println("Running sql script:", ca.ReportScriptPaths[i])
-			err = ca.runSqlScriptDelegate(dbpool, ca.ReportScriptPaths[i])
+			log.Println("Running sql script:", ca.ReportScriptPaths[is])
+			err = ca.runSqlScriptDelegate(dbpool, ca.ReportScriptPaths[is])
 			if len(reportProps.UpdatedFileKeys) > 0 {
 				basePath := reportDirectives.OutputPath + "/"
 				for i := range reportProps.UpdatedFileKeys {
@@ -219,8 +224,8 @@ func (ca *CommandArguments) RunReports(dbpool *pgxpool.Pool) (returnedErr error)
 			}
 		} else {
 			// Running as sql report by default
-			log.Println("Running report:", ca.ReportScriptPaths[i])
-			err = ca.runReportsDelegate(dbpool, tempDir, ca.ReportScriptPaths[i], &updatedKeys)
+			log.Println("Running report:", ca.ReportScriptPaths[is])
+			err = ca.runReportsDelegate(dbpool, tempDir, ca.ReportScriptPaths[is], &updatedKeys)
 		}
 		if err != nil {
 			return err

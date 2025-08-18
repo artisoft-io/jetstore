@@ -120,7 +120,7 @@ func (jsComp *JetStoreStackComponents) BuildRegisterKeyLambdas(scope constructs.
 	}
 	// END Create a Lambda function to register File Keys with JetStore DB
 
-	// Lambda Function for client-specific integration for Register Key from SQS Event or other
+	// Lambda Function for installation-specific integration for Register Key from SQS Event or other
 	lambdaEntry := os.Getenv("JETS_SQS_REGISTER_KEY_LAMBDA_ENTRY")
 	if len(lambdaEntry) > 0 {
 		// Check if we attach it to a vpc
