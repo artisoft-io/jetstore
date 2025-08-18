@@ -187,7 +187,7 @@ func (args *StartComputePipesArgs) StartShardingComputePipes(ctx context.Context
 		// Get the input columns / column separator from the first file
 		sp := mainInputSchemaProvider
 		fileInfo, err := FetchHeadersAndDelimiterFromFile(sp.Bucket, shardResult.firstKey, sp.Format,
-			sp.Compression, sp.Encoding, sp.Delimiter, sp.MultiColumnsInput, fetchHeaders, fetchDelimitor,
+			sp.Compression, sp.Encoding, sp.Delimiter, sp.MultiColumnsInput, sp.NoQuotes, fetchHeaders, fetchDelimitor,
 			detectEncoding, detectCrAsEol, sp.InputFormatDataJson)
 		if err != nil {
 			return result, mainInputSchemaProvider,
