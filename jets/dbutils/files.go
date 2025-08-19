@@ -58,6 +58,7 @@ func QueryFileObject(dbpool *pgxpool.Pool, workspaceName, contentType string) ([
 
 // Write Db Object, identified by fo.Oid to local file system
 func (fo *FileDbObject) WriteDbObject2LocalFile(dbpool *pgxpool.Pool, localFileName string) error {
+	os.Remove(localFileName)
 	fileHd, err := os.Create(localFileName)
 	if err != nil {
 		return fmt.Errorf("failed to os.Create on local workspace file %s for write: %v", fo.FileName, err)
