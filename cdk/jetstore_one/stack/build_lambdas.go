@@ -273,6 +273,7 @@ func (jsComp *JetStoreStackComponents) BuildLambdas(scope constructs.Construct, 
 			VpcSubnets:           jsComp.IsolatedSubnetSelection,
 			EphemeralStorageSize: awscdk.Size_Mebibytes(jsii.Number(4096)),
 			LogRetention:         awslogs.RetentionDays_THREE_MONTHS,
+			Role:                 jsComp.RunReportsLambda.Role(),
 		})
 		if phiTagName != nil {
 			awscdk.Tags_Of(jsComp.CpipesRunReportsLambda).Add(phiTagName, jsii.String("false"), nil)
@@ -283,20 +284,21 @@ func (jsComp *JetStoreStackComponents) BuildLambdas(scope constructs.Construct, 
 		if descriptionTagName != nil {
 			awscdk.Tags_Of(jsComp.CpipesRunReportsLambda).Add(descriptionTagName, jsii.String("JetStore installation-specific lambda to run reports"), nil)
 		}
-		jsComp.CpipesRunReportsLambda.Connections().AllowTo(jsComp.RdsCluster, awsec2.Port_Tcp(jsii.Number(5432)), jsii.String("Allow connection from CpipesRunReportsLambda"))
-		jsComp.RdsSecret.GrantRead(jsComp.CpipesRunReportsLambda, nil)
-		jsComp.SourceBucket.GrantReadWrite(jsComp.CpipesRunReportsLambda, nil)
-		jsComp.GrantReadWriteFromExternalBuckets(stack, jsComp.CpipesRunReportsLambda)
-		if jsComp.ExternalKmsKey != nil {
-			jsComp.ExternalKmsKey.GrantEncryptDecrypt(jsComp.CpipesRunReportsLambda)
-		}
-		jsComp.CpipesRunReportsLambda.AddToRolePolicy(awsiam.NewPolicyStatement(&awsiam.PolicyStatementProps{
-			Actions: jsii.Strings("s3:GetObjectAttributes"),
-			Resources: jsii.Strings(
-				*jsComp.SourceBucket.BucketArn(),
-				fmt.Sprintf("arn:aws:s3:::%s/*", *jsComp.SourceBucket.BucketName()),
-			),
-		}))
+		// Using the role form Run Reports lambda, these access are already given
+		// jsComp.CpipesRunReportsLambda.Connections().AllowTo(jsComp.RdsCluster, awsec2.Port_Tcp(jsii.Number(5432)), jsii.String("Allow connection from CpipesRunReportsLambda"))
+		// jsComp.RdsSecret.GrantRead(jsComp.CpipesRunReportsLambda, nil)
+		// jsComp.SourceBucket.GrantReadWrite(jsComp.CpipesRunReportsLambda, nil)
+		// jsComp.GrantReadWriteFromExternalBuckets(stack, jsComp.CpipesRunReportsLambda)
+		// if jsComp.ExternalKmsKey != nil {
+		// 	jsComp.ExternalKmsKey.GrantEncryptDecrypt(jsComp.CpipesRunReportsLambda)
+		// }
+		// jsComp.CpipesRunReportsLambda.AddToRolePolicy(awsiam.NewPolicyStatement(&awsiam.PolicyStatementProps{
+		// 	Actions: jsii.Strings("s3:GetObjectAttributes"),
+		// 	Resources: jsii.Strings(
+		// 		*jsComp.SourceBucket.BucketArn(),
+		// 		fmt.Sprintf("arn:aws:s3:::%s/*", *jsComp.SourceBucket.BucketName()),
+		// 	),
+		// }))
 	}
 
 	// Purge Data lambda function

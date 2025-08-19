@@ -249,7 +249,7 @@ func GetObjectSize(s3Client *s3.Client, s3bucket string, key string) (int64, err
 	}
 	result, err := s3Client.GetObjectAttributes(context.TODO(), &s3.GetObjectAttributesInput{
 		Bucket: aws.String(s3bucket),
-		Key: aws.String(key),
+		Key:    aws.String(key),
 		ObjectAttributes: []types.ObjectAttributes{
 			types.ObjectAttributesObjectSize,
 		},
@@ -361,8 +361,8 @@ do_retry:
 	n, err = downloader.Download(context.TODO(), w, &s3.GetObjectInput{Bucket: &bucket, Key: &objKey, Range: byteRange})
 	if err != nil {
 		if retry < 6 {
-			time.Sleep(500 * time.Millisecond)
 			retry++
+			time.Sleep(time.Duration(500 * retry) * time.Millisecond)
 			goto do_retry
 		}
 		return n, fmt.Errorf("failed to download s3 file 's3://%s/%s': %v", bucket, objKey, err)
@@ -372,31 +372,7 @@ do_retry:
 
 // upload object to S3, reading the obj from fileHd (from current position to EOF)
 func UploadToS3(bucket, region, objKey string, fileHd *os.File) error {
-	s3Client, err := NewS3Client()
-	if err != nil {
-		return fmt.Errorf("while creating s3 client: %v", err)
-	}
-
-	// Create an uploader with the client and custom options
-	uploader := manager.NewUploader(s3Client)
-	putObjInput := &s3.PutObjectInput{
-		Bucket: &bucket,
-		Key:    &objKey,
-		Body:   bufio.NewReader(fileHd),
-	}
-	if len(kmsKeyArn) > 0 {
-		putObjInput.ServerSideEncryption = types.ServerSideEncryptionAwsKms
-		putObjInput.SSEKMSKeyId = &kmsKeyArn
-	}
-	// uout, err := uploader.Upload(context.TODO(), putObjInput)
-	_, err = uploader.Upload(context.TODO(), putObjInput)
-	if err != nil {
-		return fmt.Errorf("failed to upload file to s3 bucket '%s': %v", bucket, err)
-	}
-	// if uout != nil {
-	// 	log.Println("Uploaded",*uout.Key,"to location",uout.Location)
-	// }
-	return nil
+	return UploadToS3FromReader(bucket, objKey, bufio.NewReader(fileHd))
 }
 
 // upload object to S3, reading the obj from reader (from current position to EOF)
@@ -412,10 +388,12 @@ func UploadToS3FromReader(externalBucket, objKey string, reader io.Reader) error
 	}
 
 	// Create an uploader with the client and custom options
-	uploader := manager.NewUploader(s3Client,  func(u *manager.Uploader) {
-    u.PartSize = 64 * 1024 * 1024 // 64MB per part
+	uploader := manager.NewUploader(s3Client, func(u *manager.Uploader) {
+		u.PartSize = 64 * 1024 * 1024 // 64MB per part
 		u.Concurrency = 10
 	})
+	retry := 0
+do_retry:
 	putObjInput := &s3.PutObjectInput{
 		Bucket: &externalBucket,
 		Key:    &objKey,
@@ -425,49 +403,21 @@ func UploadToS3FromReader(externalBucket, objKey string, reader io.Reader) error
 		putObjInput.ServerSideEncryption = types.ServerSideEncryptionAwsKms
 		putObjInput.SSEKMSKeyId = &kmsKeyArn
 	}
-	// uout, err := uploader.Upload(context.TODO(), putObjInput)
 	_, err = uploader.Upload(context.TODO(), putObjInput)
 	if err != nil {
+		if retry < 6 {
+			retry++
+			time.Sleep(time.Duration(500 * retry) * time.Millisecond)
+			goto do_retry
+		}
 		return fmt.Errorf("failed to upload file to s3 bucket '%s': %v", externalBucket, err)
 	}
-	// if uout != nil {
-	// 	log.Println("Uploaded",*uout.Key,"to location",uout.Location)
-	// }
 	return nil
 }
 
 // upload buf to S3, reading the obj from in-memory buffer
-func UploadBufToS3(objKey string, buf []byte) error {
-	s3Client, err := NewS3Client()
-	if err != nil {
-		return fmt.Errorf("while creating s3 client: %v", err)
-	}
-
-	// Create an uploader with the client and custom options
-	// uploader := manager.NewUploader(s3Client)
-	reader := bytes.NewReader(buf)
-	contentLen := int64(len(buf))
-	putObjInput := &s3.PutObjectInput{
-		Bucket:        &jetstoreOwnBucket,
-		Key:           &objKey,
-		Body:          reader,
-		ContentLength: &contentLen,
-	}
-	if len(kmsKeyArn) > 0 {
-		putObjInput.ServerSideEncryption = types.ServerSideEncryptionAwsKms
-		putObjInput.SSEKMSKeyId = &kmsKeyArn
-	}
-	_, err = s3Client.PutObject(context.TODO(), putObjInput)
-	// uout, err := uploader.Upload(context.TODO(), putObjInput)
-	// _, err = uploader.Upload(context.TODO(), putObjInput)
-	if err != nil {
-		return fmt.Errorf("failed to PutObject buf to s3 bucket '%s': %v", jetstoreOwnBucket, err)
-	}
-	// log.Println("*** UNREAD PORTION OF BUF:", reader.Len(), "contentLen:", contentLen)
-	// if uout != nil {
-	// 	log.Println("Uploaded",*uout.Key,"to location",uout.Location)
-	// }
-	return nil
+func UploadBufToS3(bucket, objKey string, buf []byte) error {
+	return UploadToS3FromReader(bucket, objKey, bytes.NewReader(buf))
 }
 
 // upload buf to S3, reading the obj from in-memory buffer
@@ -489,8 +439,8 @@ do_retry:
 	_, err = downloader.Download(context.TODO(), w, &s3.GetObjectInput{Bucket: &jetstoreOwnBucket, Key: &objKey})
 	if err != nil {
 		if retry < 6 {
-			time.Sleep(500 * time.Millisecond)
 			retry++
+			time.Sleep(time.Duration(500 * retry) * time.Millisecond)
 			goto do_retry
 		}
 		return nil, fmt.Errorf("failed to download s3 file 's3://%s/%s': %v", jetstoreOwnBucket, objKey, err)

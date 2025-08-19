@@ -101,7 +101,7 @@ func (ctx *DataTableContext) PutSchemaEventToS3(action *RegisterFileKeyAction, t
 		if e != nil && key != nil {
 			schemaProviderJson = e.(string)
 			if len(schemaProviderJson) > 0 {
-				err := awsi.UploadBufToS3(fmt.Sprintf("%s/%v", jetsS3SchemaTriggers, key), []byte(schemaProviderJson))
+				err := awsi.UploadBufToS3("", fmt.Sprintf("%s/%v", jetsS3SchemaTriggers, key), []byte(schemaProviderJson))
 				if err != nil {
 					return nil, http.StatusInternalServerError, fmt.Errorf("while calling UploadBufToS3: %v", err)
 				}
