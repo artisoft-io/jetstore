@@ -57,7 +57,8 @@ func ExtractTarGz(gzipStream io.Reader, baseDir string) error {
 }
 
 func extractFile(localFileName string, tarReader *tar.Reader) error {
-	outFile, err := os.OpenFile(localFileName, os.O_RDWR|os.O_CREATE, 0755)
+	os.Remove(localFileName)
+	outFile, err := os.Create(localFileName)
 	if err != nil {
 		return fmt.Errorf("ExtractTarGz: OpenFile() failed: %v", err)
 	}
