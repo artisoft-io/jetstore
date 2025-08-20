@@ -28,6 +28,7 @@ type AnonymizeTransformationPipe struct {
 	inputDateLayout   string
 	outputDateLayout  string
 	keyMapDateLayout  string
+	invalidDate       *time.Time
 	outputInvalidDate string
 	keyInvalidDate    string
 	channelRegistry   *ChannelRegistry
@@ -128,13 +129,18 @@ func (ctx *AnonymizeTransformationPipe) Apply(input *[]any) error {
 					hashedValue4KeyFile = strings.ToUpper(anonymizeDate.Format(ctx.keyMapDateLayout))
 				}
 			} else {
-				if len(ctx.outputInvalidDate) > 0 {
+				switch {
+				case len(action.dateLayouts) > 0 && ctx.invalidDate != nil:
+					hashedValue = strings.ToUpper((*ctx.invalidDate).Format(action.dateLayouts[0]))
+					hashedValue4KeyFile = ctx.keyInvalidDate
+				case len(ctx.outputInvalidDate) > 0:
 					hashedValue = ctx.outputInvalidDate
 					hashedValue4KeyFile = ctx.keyInvalidDate
-				} else {
+				default:
 					hashedValue = inputStr
 					hashedValue4KeyFile = inputStr
 				}
+				// fmt.Println("*** Error while parsing:", err, "will use blinded date:", hashedValue)
 			}
 		}
 		(*input)[action.inputColumn] = hashedValue
@@ -304,6 +310,7 @@ func (ctx *BuilderContext) NewAnonymizeTransformationPipe(source *InputChannel, 
 				if ok {
 					r := csv.NewReader(bytes.NewReader([]byte(dateLayoutsCsv)))
 					dateLayouts, err = r.Read()
+					// fmt.Println("*** Got date layouts:", dateLayouts)
 					if err != nil {
 						return nil, fmt.Errorf("while decoding date formats from csv:%v", err)
 					}
@@ -356,8 +363,9 @@ func (ctx *BuilderContext) NewAnonymizeTransformationPipe(source *InputChannel, 
 	// Note: keyDateLayout defaults to outputDateLayout, keyDateLayout is left empty to re-use the output date value.
 	// Format the default invalid date to the key date format
 	var outputInvalidDate, keyInvalidDate string
+	var invalidDate *time.Time
 	if len(config.DefaultInvalidDate) > 0 {
-		d, err := ParseDate(config.DefaultInvalidDate)
+		invalidDate, err = ParseDate(config.DefaultInvalidDate)
 		if err != nil {
 			err = fmt.Errorf(
 				"configuration error: anonymize_config.default_invalid_date '%s' is not a valid date (use YYYY/MM/DD format)",
@@ -365,11 +373,11 @@ func (ctx *BuilderContext) NewAnonymizeTransformationPipe(source *InputChannel, 
 			log.Println(err)
 			return nil, err
 		}
-		outputInvalidDate = d.Format(outputDateLayout)
+		outputInvalidDate = invalidDate.Format(outputDateLayout)
 		if len(keyDateLayout) == 0 {
 			keyInvalidDate = outputInvalidDate
 		} else {
-			keyInvalidDate = d.Format(keyDateLayout)
+			keyInvalidDate = invalidDate.Format(keyDateLayout)
 		}
 	}
 
@@ -398,6 +406,7 @@ func (ctx *BuilderContext) NewAnonymizeTransformationPipe(source *InputChannel, 
 		columnEvaluators:  columnEvaluators,
 		channelRegistry:   ctx.channelRegistry,
 		spec:              spec,
+		invalidDate:       invalidDate,
 		inputDateLayout:   inputDateLayout,
 		outputDateLayout:  outputDateLayout,
 		keyMapDateLayout:  keyDateLayout,
