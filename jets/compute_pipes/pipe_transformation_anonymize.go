@@ -67,6 +67,7 @@ func (ctx *AnonymizeTransformationPipe) Apply(input *[]any) error {
 		if value == nil {
 			continue
 		}
+		outputDateLayout := ctx.outputDateLayout
 		switch vv := value.(type) {
 		case string:
 			if strings.ToUpper(vv) == "NULL" {
@@ -89,6 +90,16 @@ func (ctx *AnonymizeTransformationPipe) Apply(input *[]any) error {
 		case "date":
 			var date time.Time
 			switch {
+			case len(action.dateLayouts) > 0:
+				// Use the identified date format - also use the same date format for anonymized output date
+				for _, layout := range action.dateLayouts {
+					date, err = time.Parse(layout, inputStr)
+					if err == nil {
+						// Use the same output layout as the input date
+						outputDateLayout = layout
+						break
+					}
+				}
 			case len(ctx.inputDateLayout) > 0:
 				date, err = time.Parse(ctx.inputDateLayout, inputStr)
 				if err != nil {
@@ -99,15 +110,8 @@ func (ctx *AnonymizeTransformationPipe) Apply(input *[]any) error {
 						date = *d
 					}
 				}
-			case len(action.dateLayouts) > 0:
-				for _, layout := range action.dateLayouts {
-					date, err = time.Parse(layout, inputStr)
-					if err != nil {
-						break
-					}
-				}
-
 			default:
+				// Use JetStore date parser
 				var d *time.Time
 				d, err = ParseDate(inputStr)
 				if d != nil {
@@ -117,7 +121,7 @@ func (ctx *AnonymizeTransformationPipe) Apply(input *[]any) error {
 			if err == nil {
 				// hashedValue = fmt.Sprintf("%d/%02d/01", date.Year(), date.Month())
 				anonymizeDate := time.Date(date.Year(), date.Month(), 1, 0, 0, 0, 0, time.UTC)
-				hashedValue = strings.ToUpper(anonymizeDate.Format(ctx.outputDateLayout))
+				hashedValue = strings.ToUpper(anonymizeDate.Format(outputDateLayout))
 				if len(ctx.keyMapDateLayout) == 0 {
 					hashedValue4KeyFile = hashedValue
 				} else {
