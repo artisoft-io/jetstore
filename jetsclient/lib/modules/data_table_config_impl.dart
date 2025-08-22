@@ -329,8 +329,21 @@ final Map<String, TableConfig> _tableConfigurations = {
           isEnabledWhenHavingSelectedRows: true,
           configScreenPath: executionStatsDetailsPath,
           navigationParams: {'session_id': 10}),
+      ActionConfig(
+          actionType: DataTableActionType.doAction,
+          actionName: ActionKeys.resubmitPipeline,
+          key: 'resubmitPipeline',
+          label: 'Resubmit',
+          isVisibleWhenCheckboxVisible: true,
+          isEnabledWhenHavingSelectedRows: true,
+          capability: 'run_pipelines',
+          style: ActionStyle.secondary),
     ],
     formStateConfig: DataTableFormStateConfig(keyColumnIdx: 0, otherColumns: [
+      DataTableFormStateOtherColumnConfig(
+        stateKey: FSK.sessionId,
+        columnIdx: 10,
+      ),
       DataTableFormStateOtherColumnConfig(
         stateKey: FSK.failureDetails,
         columnIdx: 12,

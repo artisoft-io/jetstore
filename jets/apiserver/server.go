@@ -537,6 +537,7 @@ func listenAndServe() error {
 	server.Router.Handle("/assets/packages/cupertino_icons/assets/CupertinoIcons.ttf", fs).Methods("GET")
 	server.Router.Handle("/assets/shaders/ink_sparkle.frag", fs).Methods("GET")
 	server.Router.Handle("/flutter_service_worker.js", fs).Methods("GET")
+	server.Router.Handle("/flutter_bootstrap.js", fs).Methods("GET")
 	server.Router.Handle("/canvaskit/canvaskit.js", fs).Methods("GET")
 	server.Router.Handle("/canvaskit/canvaskit.wasm", fs).Methods("GET")
 	server.Router.Handle("/canvaskit/profiling/canvaskit.js", fs).Methods("GET")
