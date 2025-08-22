@@ -646,6 +646,7 @@ class JetsDataTableState extends FormFieldState<WidgetField> {
       // clear home filters
       case DataTableActionType.clearHomeFilters:
         JetsRouterDelegate().homeFilters = [];
+        JetsRouterDelegate().dataRegistryFilters = [];
         JetsRouterDelegate().homeFiltersState = {};
         _refreshTable();
         break;

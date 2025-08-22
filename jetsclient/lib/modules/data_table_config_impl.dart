@@ -281,12 +281,16 @@ final Map<String, TableConfig> _tableConfigurations = {
           isEnabledWhenHavingSelectedRows: null,
           configScreenPath: ufHomeFiltersPath),
       ActionConfig(
-          actionType: DataTableActionType.clearHomeFilters,
-          key: 'clearHomeFilters',
-          label: 'Clear Filters',
-          style: ActionStyle.primary,
-          isVisibleWhenCheckboxVisible: null,
-          isEnabledWhenHavingSelectedRows: null),
+        actionType: DataTableActionType.clearHomeFilters,
+        key: 'clearHomeFilters',
+        label: 'Clear Filters',
+        style: ActionStyle.primary,
+        isVisibleWhenCheckboxVisible: null,
+        isEnabledWhenHavingSelectedRows: null,
+        isEnabledFnc: (state) =>
+            JetsRouterDelegate().homeFilters != null &&
+            JetsRouterDelegate().homeFilters!.isNotEmpty,
+      ),
     ],
     secondRowActions: [
       ActionConfig(
