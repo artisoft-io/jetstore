@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/artisoft-io/jetstore/jets/csv"
+	"github.com/artisoft-io/jetstore/jets/date_utils"
 	"github.com/dolthub/swiss"
 )
 
@@ -94,7 +95,7 @@ func (ctx *AnonymizeTransformationPipe) Apply(input *[]any) error {
 			case len(action.dateLayouts) > 0:
 				// Use the identified date format - also use the same date format for anonymized output date
 				for _, layout := range action.dateLayouts {
-					date, err = time.Parse(layout, inputStr)
+					date, err = date_utils.ParseDateTime(layout, inputStr)
 					if err == nil {
 						// Use the same output layout as the input date
 						outputDateLayout = layout
@@ -102,7 +103,7 @@ func (ctx *AnonymizeTransformationPipe) Apply(input *[]any) error {
 					}
 				}
 			case len(ctx.inputDateLayout) > 0:
-				date, err = time.Parse(ctx.inputDateLayout, inputStr)
+				date, err = date_utils.ParseDateTime(ctx.inputDateLayout, inputStr)
 				if err != nil {
 					// try jetstore date parser
 					var d *time.Time

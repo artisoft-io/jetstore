@@ -40,14 +40,17 @@ type pdCache struct {
 	fmt string
 }
 
-// Match implements the match function.
+// Match implements the match function, returns true when match.
 func (pd ParseDateFTSpec) CheckYearRange(tm time.Time) bool {
 	if pd.YearLessThan > 0 && tm.Year() >= pd.YearLessThan {
+		// fmt.Printf("*** Year %d not less than %d\n", tm.Year(), pd.YearLessThan)
 		return false
 	}
 	if pd.YearGreaterThan > 0 && tm.Year() < pd.YearGreaterThan {
+		// fmt.Printf("*** Year %d not greater than %d\n", tm.Year(), pd.YearGreaterThan)
 		return false
 	}
+	// fmt.Printf("*** Year %d out of range\n", tm.Year())
 	return true
 }
 
@@ -55,7 +58,7 @@ func (pd ParseDateFTSpec) CheckYearRange(tm time.Time) bool {
 func ParseDateDateFormat(dateFormats []string, value string) (tm time.Time, fmt string) {
 	var err error
 	for _, fmt = range dateFormats {
-		tm, err = time.Parse(fmt, value)
+		tm, err = date_utils.ParseDateTime(fmt, value)
 		if err == nil {
 			return
 		}
@@ -119,13 +122,13 @@ func (p *ParseDateMatchFunction) NewValue(value string) {
 			if len(dateFmt) > 0 {
 				p.formatMatch[dateFmt] += 1
 			}
-			// fmt.Printf("*** Got tm from cache w/ fmt: %s\n", dateFmt)
+			// fmt.Printf("*** Got tm from cache w/ fmt: %s for value %s\n", dateFmt, value)
 			goto parse_date_arguments
 		}
 		otm = cachedValue.otm
 		if !otm.IsZero() {
 			p.otherFormatMatch[dateFmt] += 1
-			// fmt.Printf("*** Got otm from cache w/ fmt: %s\n", dateFmt)
+			// fmt.Printf("*** Got otm from cache w/ fmt: %s for value %s\n", dateFmt, value)
 		}
 		return
 
@@ -157,7 +160,7 @@ func (p *ParseDateMatchFunction) NewValue(value string) {
 		if !otm.IsZero() {
 			p.otherFormatMatch[dateFmt] += 1
 			p.seenCache[value] = &pdCache{otm: otm, fmt: dateFmt}
-			// fmt.Printf("*** Got otm Match w/ fmt: %s for value %s\n", dateFmt, value)
+			fmt.Printf("*** Got otm Match w/ fmt: %s for value %s\n", dateFmt, value)
 		}
 	}
 
@@ -165,6 +168,7 @@ parse_date_arguments:
 	if tm.IsZero() {
 		return
 	}
+	// fmt.Printf("*** Got to parse_date_arguments ***\n")
 
 	// Set min/max values
 	if p.minMax.minValue.IsZero() || tm.Before(p.minMax.minValue) {
