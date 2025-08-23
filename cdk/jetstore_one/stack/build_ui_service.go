@@ -58,6 +58,7 @@ func (jsComp *JetStoreStackComponents) BuildUiService(scope constructs.Construct
 			"JETS_LOADER_CHUNCK_SIZE":       jsii.String(os.Getenv("JETS_LOADER_CHUNCK_SIZE")),
 			"JETS_LOADER_SM_ARN":            jsii.String(jsComp.LoaderSmArn),
 			"JETS_REGION":                   jsii.String(os.Getenv("AWS_REGION")),
+			"JETS_PIVOT_YEAR_TIME_PARSING":  jsii.String(os.Getenv("JETS_PIVOT_YEAR_TIME_PARSING")),
 			"JETS_s3_INPUT_PREFIX":          jsii.String(os.Getenv("JETS_s3_INPUT_PREFIX")),
 			"JETS_s3_OUTPUT_PREFIX":         jsii.String(os.Getenv("JETS_s3_OUTPUT_PREFIX")),
 			"JETS_s3_STAGE_PREFIX":          jsii.String(GetS3StagePrefix()),
