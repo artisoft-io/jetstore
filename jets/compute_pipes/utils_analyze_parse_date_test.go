@@ -27,10 +27,32 @@ func ParseDateDateFormat4Test(dateFormats []string, value string) (tm time.Time,
 	for i := range dateFormats {
 		tm, err = date_utils.ParseDateTime(dateFormats[i], value)
 		if err == nil {
+			fmt.Printf("Match on date %s with Format %s\n", value, dateFormats[i])
 			return
 		}
 	}
 	return time.Time{}, fmt.Errorf("No date match found for %s", value)
+}
+
+func TestParseDateDateFormatBase1(t *testing.T) {
+	var dateFormats []string = []string{
+		"2006-1-2T15:04:05.999Z",
+		"2006-01-02T15:04:05.999Z",
+	}
+	var err error
+	var dateValues []string = []string{
+		"1980-05-09T00:00:00.000Z",
+		"1996-03-13T00:00:00.000Z",
+		"1996-01-05T00:00:00.000Z",
+		"2002-09-18T00:00:00.000Z",
+	}
+	for _, value := range dateValues {
+		_, err = ParseDateDateFormat4Test(dateFormats, value)
+		if err != nil {
+			t.Error(err)
+		}
+	}
+	// t.Error("done")
 }
 
 func TestParseDateDateFormat(b *testing.T) {
@@ -654,8 +676,8 @@ func TestParseDateMatchFunction11(t *testing.T) {
 		"MMMM yyyy",
 		"yyD",
 	}
-	var dateValues []string = []string{"January 2001","January 2008","November 2013","January 2008",
-		"April 2014","January 2024","October 2012","January 2012","January 2024"}
+	var dateValues []string = []string{"January 2001", "January 2008", "November 2013", "January 2008",
+		"April 2014", "January 2024", "October 2012", "January 2012", "January 2024"}
 
 	// Translate the date format to go format
 	for i := range allDateFormats {
@@ -749,8 +771,8 @@ func TestParseDateMatchFunction12(t *testing.T) {
 		"MMMM yyyy",
 		"yyD",
 	}
-	var dateValues []string = []string{"January 9999","January 2008","November 9999","January 9999",
-		"April 2014","January 9999","October 9999","January 9999","January 9999"}
+	var dateValues []string = []string{"January 9999", "January 2008", "November 9999", "January 9999",
+		"April 2014", "January 9999", "October 9999", "January 9999", "January 9999"}
 
 	// Translate the date format to go format
 	for i := range allDateFormats {
@@ -835,78 +857,177 @@ func TestParseDateMatchFunction12(t *testing.T) {
 
 	// t.Error("done")
 }
-
-	var allDateFormats []string = []string{
-		"yyyyMMdd",
-		"MMddyyyy",
-		"dd-MM-yyyy",
-		"yyyy-MM-dd",
-		"yyyy-dd-MM",
-		"MM/dd/yyyy",
-		"yyyy/MM/dd",
-		"dd MMM yyyy",
-		"ddMMMyyyy",
-		"yyyyMMMdd",
-		"dd MMMM yyyy",
-		"ddMMyyyy",
-		"yyyyMMddHHmm",
-		"yyyyMMdd HHmm",
-		"dd-MM-yyyy HH:mm",
-		"yyyy-MM-dd HH:mm",
-		"MM/dd/yyyy HH:mm",
-		"yyyy/MM/dd HH:mm",
-		"dd MMM yyyy HH:mm",
-		"dd MMMM yyyy HH:mm",
-		"yyyyMMddHHmmss",
-		"yyyyMMdd HHmmss",
-		"dd-MM-yyyy HH:mm:ss",
-		"yyyy-MM-dd HH:mm:ss",
-		"MM/dd/yyyy HH:mm:ss",
-		"dd/MM/yyyy HH:mm:ss",
-		"dd/MM/yyyy hh:mm:ss aa",
-		"MM/dd/yyyy hh:mm:ss aa",
-		"yyyy/MM/dd hh:mm:ss aa",
-		"yyyy/dd/MM hh:mm:ss aa",
-		"dd-MM-yyyy hh:mm:ss aa",
-		"MM-dd-yyyy hh:mm:ss aa",
-		"yyyy-MM-dd hh:mm:ss aa",
-		"yyyy-dd-MM hh:mm:ss aa",
-		"ddMMyyyy hh:mm:ss aa",
-		"MMddyyyy hh:mm:ss aa",
-		"yyyyMMdd hh:mm:ss aa",
-		"yyyyddMM hh:mm:ss aa",
-		"yyyy/MM/dd HH:mm:ss",
-		"dd MMM yyyy HH:mm:ss",
-		"dd MMMM yyyy HH:mm:ss",
-		"yyyy-MMM-dd",
-		"MMM dd yyyy",
-		"MM-dd-yy",
-		"MM-yy-dd",
-		"dd-MM-yy",
-		"dd-yy-MM",
-		"yy-MM-dd",
-		"yy-dd-MM",
-		"MM/dd/yy",
-		"MM/yy/dd",
-		"dd/MM/yy",
-		"dd/yy/MM",
-		"yy/MM/dd",
-		"yy/dd/MM",
-		"MM dd yy",
-		"MM yy dd",
-		"dd MM yy",
-		"dd yy MM",
-		"yy MM dd",
-		"yy dd MM",
-		"MM-dd-yyyy",
-		"dd-MMM-yy",
-		"yyMMdd",
-		"dd-MMM-yyyy",
-		"MMM dd, yyyy",
-		"dd/MM/yyyy",
-		"yyyy-MM-dd hh:mmaa",
-		"yyyy-MM-dd'T'HH:mm:ss.SSS'Z'",
-		"MMddyy",
-		"MM/dd/yy HH:mm",
-		"MMM D yyyy",
+func TestParseDateMatchFunction13(t *testing.T) {
+	var otherDateFormats []string = []string{
+		"yyyyMM",
+		"MMyyyy",
+		"yyyy-MM",
+		"yyyyMMM",
+		"MMMM yyyy",
+		"yyD",
 	}
+	var dateValues []string = []string{
+		"1980-05-09T00:00:00.000Z",
+		"1996-03-13T00:00:00.000Z",
+		"1996-01-05T00:00:00.000Z",
+		"2002-09-18T00:00:00.000Z",
+	}
+
+	// Translate the date format to go format
+	for i := range allDateFormats {
+		allDateFormats[i] = date_utils.FromJavaDateFormat(allDateFormats[i], true)
+		// fmt.Println("Format:", allDateFormats[i])
+	}
+
+	fspec := &FunctionTokenNode{
+		Type: "parse_date",
+		ParseDateConfig: &ParseDateSpec{
+			DateSamplingMaxCount: 500,
+			MinMaxDateFormat:     "2006-01-02",
+			DateFormatToken:      "date_format",
+			OtherDateFormatToken: "other_date_format",
+			DateFormats:          allDateFormats,
+			OtherDateFormats:     otherDateFormats,
+			ParseDateArguments: []ParseDateFTSpec{
+				{
+					Token:           "dobRe",
+					YearGreaterThan: 1920,
+					YearLessThan:    2000,
+				},
+				{
+					Token:           "dateRe",
+					YearGreaterThan: 1920,
+				},
+			},
+		},
+	}
+	fcount, err := NewParseDateMatchFunction(fspec, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for i := range dateValues {
+		fcount.NewValue(dateValues[i])
+	}
+	result := fcount.GetMinMaxValues()
+	if result != nil {
+		t.Errorf("GetMinMaxValues expecting nil")
+	}
+	row := make([]any, 100)
+	err = fcount.Done(&AnalyzeTransformationPipe{
+		outputCh: &OutputChannel{
+			columns: &map[string]int{
+				"min_date":          0,
+				"max_date":          1,
+				"dobRe":             2,
+				"dateRe":            3,
+				"date_format":       4,
+				"other_date_format": 5,
+			},
+		},
+	}, row)
+	if err != nil {
+		t.Fatal(err)
+	}
+	fmt.Println("Got min_date:", row[0])
+	fmt.Println("Got max_date:", row[1])
+	fmt.Println("Got dobRe:", row[2])
+	fmt.Println("Got dateRe:", row[3])
+	fmt.Println("Got date_format:", row[4])
+	fmt.Println("Got other_date_format:", row[5])
+	if row[2] == nil {
+		t.Error("not expecting nil")
+	}
+	if row[3] == nil {
+		t.Error("not expecting nil")
+	}
+	// Check the top format
+	if row[4] != nil {
+		t.Error("expecting nil for top formats")
+	}
+	// Check the other format
+	if row[5] == nil {
+		t.Fatal("expecting non nil other format")
+	}
+	if row[5] != 1 {
+		t.Errorf("expecting 1 other format, got %v", row[5])
+	}
+
+	// t.Error("done")
+}
+
+var allDateFormats []string = []string{
+	"yyyyMMdd",
+	"MMddyyyy",
+	"dd-MM-yyyy",
+	"yyyy-MM-dd",
+	"yyyy-dd-MM",
+	"MM/dd/yyyy",
+	"yyyy/MM/dd",
+	"dd MMM yyyy",
+	"ddMMMyyyy",
+	"yyyyMMMdd",
+	"dd MMMM yyyy",
+	"ddMMyyyy",
+	"yyyyMMddHHmm",
+	"yyyyMMdd HHmm",
+	"dd-MM-yyyy HH:mm",
+	"yyyy-MM-dd HH:mm",
+	"MM/dd/yyyy HH:mm",
+	"yyyy/MM/dd HH:mm",
+	"dd MMM yyyy HH:mm",
+	"dd MMMM yyyy HH:mm",
+	"yyyyMMddHHmmss",
+	"yyyyMMdd HHmmss",
+	"dd-MM-yyyy HH:mm:ss",
+	"yyyy-MM-dd HH:mm:ss",
+	"MM/dd/yyyy HH:mm:ss",
+	"dd/MM/yyyy HH:mm:ss",
+	"dd/MM/yyyy hh:mm:ss aa",
+	"MM/dd/yyyy hh:mm:ss aa",
+	"yyyy/MM/dd hh:mm:ss aa",
+	"yyyy/dd/MM hh:mm:ss aa",
+	"dd-MM-yyyy hh:mm:ss aa",
+	"MM-dd-yyyy hh:mm:ss aa",
+	"yyyy-MM-dd hh:mm:ss aa",
+	"yyyy-dd-MM hh:mm:ss aa",
+	"ddMMyyyy hh:mm:ss aa",
+	"MMddyyyy hh:mm:ss aa",
+	"yyyyMMdd hh:mm:ss aa",
+	"yyyyddMM hh:mm:ss aa",
+	"yyyy/MM/dd HH:mm:ss",
+	"dd MMM yyyy HH:mm:ss",
+	"dd MMMM yyyy HH:mm:ss",
+	"yyyy-MMM-dd",
+	"MMM dd yyyy",
+	"MM-dd-yy",
+	"MM-yy-dd",
+	"dd-MM-yy",
+	"dd-yy-MM",
+	"yy-MM-dd",
+	"yy-dd-MM",
+	"MM/dd/yy",
+	"MM/yy/dd",
+	"dd/MM/yy",
+	"dd/yy/MM",
+	"yy/MM/dd",
+	"yy/dd/MM",
+	"MM dd yy",
+	"MM yy dd",
+	"dd MM yy",
+	"dd yy MM",
+	"yy MM dd",
+	"yy dd MM",
+	"MM-dd-yyyy",
+	"dd-MMM-yy",
+	"yyMMdd",
+	"dd-MMM-yyyy",
+	"MMM dd, yyyy",
+	"dd/MM/yyyy",
+	"yyyy-MM-dd hh:mmaa",
+	"yyyy-MM-ddTHH:mm:ss.SSSZ",
+	"yyyy-MM-dd'T'HH:mm:ss.SSS'Z'",
+	"MMddyy",
+	"MM/dd/yy HH:mm",
+	"MMM D yyyy",
+}

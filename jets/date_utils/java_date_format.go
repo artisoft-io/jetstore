@@ -47,6 +47,9 @@ func FromJavaDateFormat(format string, forRead bool) string {
 		format = strings.Replace(format, "mm", "04", 1)
 		format = strings.Replace(format, "ss", "05", 1)
 		format = strings.Replace(format, "aa", "PM", 1)
+		format = strings.Replace(format, "SSSSSSSSS", "999999999", 1)
+		format = strings.Replace(format, "SSSSSS", "999999", 1)
+		format = strings.Replace(format, "SSS", "999", 1)
 	} else {
 		format = strings.Replace(format, "yyyy", "2006", 1)
 		format = strings.Replace(format, "yy", "06", 1)
@@ -62,6 +65,9 @@ func FromJavaDateFormat(format string, forRead bool) string {
 		format = strings.Replace(format, "mm", "04", 1)
 		format = strings.Replace(format, "ss", "05", 1)
 		format = strings.Replace(format, "aa", "PM", 1)
+		format = strings.Replace(format, "SSSSSSSSS", "999999999", 1)
+		format = strings.Replace(format, "SSSSSS", "999999", 1)
+		format = strings.Replace(format, "SSS", "999", 1)
 	}
 	return format
 }
