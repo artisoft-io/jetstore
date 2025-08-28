@@ -24,7 +24,7 @@ import "strings"
 func FromJavaDateFormat(format string, forRead bool) string {
 	if forRead {
 		switch {
-		case !strings.Contains(format, "yyyy"):
+		case !strings.Contains(format, "yy"):
 			forRead = false
 		case !strings.Contains(format, "dd"):
 			forRead = false
