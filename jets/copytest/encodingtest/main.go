@@ -49,7 +49,7 @@ func detectEncoding(data []byte) {
 	log.Printf("File contains %d bytes", size)
 
 	// Detect encoding
-	encoding, err := compute_pipes.DetectEncoding(data)
+	encoding, err := compute_pipes.DetectEncoding(data, 0)
 	check(err)
 	log.Println("File encoding is", encoding)
 	
