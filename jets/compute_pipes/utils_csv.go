@@ -71,7 +71,7 @@ func DetectCrAsEol(fileHd ReaderAtSeeker, compression string) (bool, error) {
 	return result, nil
 }
 
-func DetectFileEncoding(fileHd ReaderAtSeeker) (encoding string, err error) {
+func DetectFileEncoding(fileHd ReaderAtSeeker, delimit rune) (encoding string, err error) {
 	buf := make([]byte, 25000)
 	n, err2 := fileHd.Read(buf)
 	if err2 != nil {
@@ -85,18 +85,19 @@ func DetectFileEncoding(fileHd ReaderAtSeeker) (encoding string, err error) {
 			err = err2
 		}
 	}()
-	encoding, err = DetectEncoding(buf)
+	encoding, err = DetectEncoding(buf, delimit)
 	return
 }
 
 var by rune = []rune("þÿ")[0]
 var yb rune = []rune("ÿþ")[0]
-var ErrEOFTooEarly error = errors.New("error: Cannot determine encoding, got EOF")
-var ErrUnknownEncoding error = errors.New("encoding Unknown, unable to detected the encoding")
+var ErrEOFTooEarly error = errors.New("error: cannot determine encoding, got EOF")
+var ErrUnknownEncoding error = errors.New("encoding unknown, unable to detected the encoding")
+var ErrUnknownEncodingOrWrongDelimit error = errors.New("unable to detected the file encoding or delimiter not used in the file")
 var ErrFileZipArchive error = errors.New("the file is a ZIP archive")
 var testEncoding []string = []string{"UTF-8", "UTF-16LE", "UTF-16BE", "ISO-8859-1", "ISO-8859-2"}
 
-func DetectEncoding(data []byte) (string, error) {
+func DetectEncoding(data []byte, delimit rune) (string, error) {
 	log.Println("Detect Encoding called")
 	// Check if chardet gets a high confidence match
 	detector := chardet.NewTextDetector()
@@ -119,6 +120,7 @@ func DetectEncoding(data []byte) (string, error) {
 	}
 	var r io.Reader
 	for _, encoding := range testEncoding {
+		delimitCount := 0
 		r, _ = WrapReaderWithDecoder(bytes.NewReader(data), encoding)
 		br := bufio.NewScanner(r)
 		// read the first row
@@ -132,6 +134,9 @@ func DetectEncoding(data []byte) (string, error) {
 		ec := 0
 		zc := 0
 		for i, r := range txt {
+			if delimit > 0 && r == delimit {
+				delimitCount++
+			}
 			switch {
 			case r == utf8.RuneError:
 				// fmt.Printf("[%s] ", string(r))
@@ -150,14 +155,25 @@ func DetectEncoding(data []byte) (string, error) {
 		// 	// Got EOF already
 		// 	ec += 2
 		// }
-		log.Printf("Detect Encoding: %s has %d errors and %d zeros", encoding, ec, zc)
+		if delimit > 0 {
+			log.Printf("Detect Encoding: %s has %d errors, %d zeros, delimit count: %d", encoding, ec, zc, delimitCount)
+		} else {
+			log.Printf("Detect Encoding: %s has %d errors and %d zeros", encoding, ec, zc)
+		}
 		if ec == 0 {
-			if strings.HasPrefix(txt, "PK\u0003\u0004") {
+			switch {
+
+			case strings.HasPrefix(txt, "PK\u0003\u0004"):
 				log.Println(ErrFileZipArchive.Error())
 				return "", ErrFileZipArchive
+
+			case delimit == 0 || delimitCount > 0:
+				return encoding, nil
 			}
-			return encoding, nil
 		}
+	}
+	if delimit > 0 {
+		return "", ErrUnknownEncodingOrWrongDelimit
 	}
 	return "", ErrUnknownEncoding
 }

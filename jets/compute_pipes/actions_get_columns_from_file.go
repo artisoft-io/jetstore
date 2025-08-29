@@ -90,7 +90,7 @@ do_retry:
 			log.Println("Detected sep_flag:", fileInfo.sepFlag)
 		}
 		if fetchEncoding {
-			fileInfo.encoding, err = DetectFileEncoding(fileHd)
+			fileInfo.encoding, err = DetectFileEncoding(fileHd, rune(fileInfo.sepFlag))
 			if err != nil {
 				return nil, err
 			}
@@ -125,7 +125,7 @@ do_retry:
 
 	case fileFormat == "fixed_width":
 		if fetchEncoding {
-			fileInfo.encoding, err = DetectFileEncoding(fileHd)
+			fileInfo.encoding, err = DetectFileEncoding(fileHd, 0)
 			if err != nil {
 				return nil, err
 			}
