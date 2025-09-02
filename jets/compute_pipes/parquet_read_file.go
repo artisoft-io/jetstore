@@ -82,7 +82,7 @@ func (cpCtx *ComputePipesContext) ReadParquetFileV2(filePath *FileName,
 			fileKey := fmt.Sprintf("%s/process_name=%s/session_id=%s/input_parquet_schema.json",
 				jetsS3StagePrefix, cpCtx.ProcessName, cpCtx.SessionId)
 			log.Printf("Saving parquet schema to: %s", fileKey)
-			err = awsi.UploadBufToS3(fileKey, schemaInfo)
+			err = awsi.UploadBufToS3("", fileKey, schemaInfo)
 			if err != nil {
 				return 0, fmt.Errorf("while uploading parquet schema info to s3: %v", err)
 			}

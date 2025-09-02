@@ -5,12 +5,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
-	"strings"
 	"sync"
 
 	"github.com/artisoft-io/jetstore/jets/awsi"
 	"github.com/artisoft-io/jetstore/jets/compute_pipes"
-	"github.com/artisoft-io/jetstore/jets/datatable"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/jackc/pgx/v4/pgxpool"
 )
@@ -81,12 +79,7 @@ func (ca *CommandArguments) RunSchemaProviderReportsCmds(ctx context.Context, db
 	if len(ca.SessionId) == 0 {
 		return
 	}
-	var schemaProviderJson string
-	schemaProviderJson, err = datatable.GetSchemaProviderJsonFromPipelineSession(dbpool, ca.SessionId)
-	if err != nil && !strings.Contains(err.Error(), "no rows in result set") {
-		errCh <- fmt.Errorf("query pipeline_execution_status failed: %v", err)
-	}
-	if len(schemaProviderJson) == 0 {
+	if len(ca.SchemaProviderJson) == 0 {
 		// Nothing to do here
 		log.Println("Input surce has no schema provider, bailing out")
 		return
@@ -95,7 +88,7 @@ func (ca *CommandArguments) RunSchemaProviderReportsCmds(ctx context.Context, db
 		ReportCmds []compute_pipes.ReportCmdSpec `json:"report_cmds"`
 	}
 	schemaProvider := SchemaProviderShort{}
-	err = json.Unmarshal([]byte(schemaProviderJson), &schemaProvider)
+	err = json.Unmarshal([]byte(ca.SchemaProviderJson), &schemaProvider)
 	if err != nil {
 		errCh <- fmt.Errorf("while unmarshaling schema_provider_json: %s", err)
 		return

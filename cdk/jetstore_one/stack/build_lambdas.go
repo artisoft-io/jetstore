@@ -215,7 +215,7 @@ func (jsComp *JetStoreStackComponents) BuildLambdas(scope constructs.Construct, 
 		awscdk.Tags_Of(jsComp.RunReportsLambda).Add(piiTagName, jsii.String("false"), nil)
 	}
 	if descriptionTagName != nil {
-		awscdk.Tags_Of(jsComp.RunReportsLambda).Add(descriptionTagName, jsii.String("JetStore lambda to update the pipeline status upon completion"), nil)
+		awscdk.Tags_Of(jsComp.RunReportsLambda).Add(descriptionTagName, jsii.String("JetStore lambda to run reports"), nil)
 	}
 	jsComp.RunReportsLambda.Connections().AllowTo(jsComp.RdsCluster, awsec2.Port_Tcp(jsii.Number(5432)), jsii.String("Allow connection from RunReportsLambda"))
 	jsComp.RdsSecret.GrantRead(jsComp.RunReportsLambda, nil)
@@ -224,7 +224,6 @@ func (jsComp *JetStoreStackComponents) BuildLambdas(scope constructs.Construct, 
 	if jsComp.ExternalKmsKey != nil {
 		jsComp.ExternalKmsKey.GrantEncryptDecrypt(jsComp.RunReportsLambda)
 	}
-	//***
 	jsComp.RunReportsLambda.AddToRolePolicy(awsiam.NewPolicyStatement(&awsiam.PolicyStatementProps{
 		Actions: jsii.Strings("s3:GetObjectAttributes"),
 		Resources: jsii.Strings(
@@ -232,15 +231,78 @@ func (jsComp *JetStoreStackComponents) BuildLambdas(scope constructs.Construct, 
 			fmt.Sprintf("arn:aws:s3:::%s/*", *jsComp.SourceBucket.BucketName()),
 		),
 	}))
-	// //***
-	// result := jsComp.SourceBucket.AddToResourcePolicy(awsiam.NewPolicyStatement(&awsiam.PolicyStatementProps{
-	// 	Actions: jsii.Strings("s3:GetObjectAttributes"),
-	// 	Principals: &[]awsiam.IPrincipal{
-	// 		jsComp.RunReportsLambda.GrantPrincipal(),
-	// 	},
-	// 	Resources: jsii.Strings("*"),
-	// }))
-	// log.Println("*** SourceBucket.AddToResourcePolicy 's3:GetObjectAttributes' *** result.StatementAdded:", *result.StatementAdded)
+
+	// Lambda Function for installation-specific integration for Run Reports
+	lambdaEntry := os.Getenv("JETS_CPIPES_RUN_REPORTS_LAMBDA_ENTRY")
+	if len(lambdaEntry) > 0 {
+		jsComp.CpipesRunReportsLambda = awslambdago.NewGoFunction(stack, jsii.String("CpipesRunReportsLambda"), &awslambdago.GoFunctionProps{
+			Description: jsii.String("Lambda function to run JetStore Workspace reports using instalation specific function"),
+			Runtime:     awslambda.Runtime_PROVIDED_AL2023(),
+			Entry:       jsii.String(lambdaEntry),
+			Bundling: &awslambdago.BundlingOptions{
+				GoBuildFlags: &[]*string{jsii.String(`-buildvcs=false -ldflags "-s -w"`)},
+			},
+			Environment: &map[string]*string{
+				"JETS_BUCKET":                   jsComp.SourceBucket.BucketName(),
+				"JETS_DOMAIN_KEY_HASH_ALGO":     jsii.String(os.Getenv("JETS_DOMAIN_KEY_HASH_ALGO")),
+				"JETS_DOMAIN_KEY_HASH_SEED":     jsii.String(os.Getenv("JETS_DOMAIN_KEY_HASH_SEED")),
+				"JETS_DSN_SECRET":               jsComp.RdsSecret.SecretName(),
+				"JETS_INPUT_ROW_JETS_KEY_ALGO":  jsii.String(os.Getenv("JETS_INPUT_ROW_JETS_KEY_ALGO")),
+				"JETS_INVALID_CODE":             jsii.String(os.Getenv("JETS_INVALID_CODE")),
+				"JETS_LOADER_CHUNCK_SIZE":       jsii.String(os.Getenv("JETS_LOADER_CHUNCK_SIZE")),
+				"JETS_LOADER_SM_ARN":            jsii.String(jsComp.LoaderSmArn),
+				"JETS_REGION":                   jsii.String(os.Getenv("AWS_REGION")),
+				"JETS_s3_INPUT_PREFIX":          jsii.String(os.Getenv("JETS_s3_INPUT_PREFIX")),
+				"JETS_s3_OUTPUT_PREFIX":         jsii.String(os.Getenv("JETS_s3_OUTPUT_PREFIX")),
+				"JETS_s3_STAGE_PREFIX":          jsii.String(GetS3StagePrefix()),
+				"JETS_S3_KMS_KEY_ARN":           jsii.String(os.Getenv("JETS_S3_KMS_KEY_ARN")),
+				"JETS_SENTINEL_FILE_NAME":       jsii.String(os.Getenv("JETS_SENTINEL_FILE_NAME")),
+				"JETS_DOMAIN_KEY_SEPARATOR":     jsii.String(os.Getenv("JETS_DOMAIN_KEY_SEPARATOR")),
+				"JETS_PIPELINE_THROTTLING_JSON": jsii.String(os.Getenv("JETS_PIPELINE_THROTTLING_JSON")),
+				"JETS_CPIPES_SM_TIMEOUT_MIN":    jsii.String(os.Getenv("JETS_CPIPES_SM_TIMEOUT_MIN")),
+				"JETS_SERVER_SM_ARN":            jsii.String(jsComp.ServerSmArn),
+				"JETS_SERVER_SM_ARNv2":          jsii.String(jsComp.ServerSmArnv2),
+				"JETS_CPIPES_SM_ARN":            jsii.String(jsComp.CpipesSmArn),
+				"JETS_REPORTS_SM_ARN":           jsii.String(jsComp.ReportsSmArn),
+				"NBR_SHARDS":                    jsii.String(props.NbrShards),
+				"ENVIRONMENT":                   jsii.String(os.Getenv("ENVIRONMENT")),
+				"JETS_ADMIN_EMAIL":              jsii.String(os.Getenv("JETS_ADMIN_EMAIL")),
+				"WORKSPACE":                     jsii.String(os.Getenv("WORKSPACE")),
+				"WORKSPACES_HOME":               jsii.String("/tmp/workspaces"),
+			},
+			MemorySize:           jsii.Number(3072),
+			Timeout:              awscdk.Duration_Minutes(jsii.Number(15)),
+			Vpc:                  jsComp.Vpc,
+			VpcSubnets:           jsComp.IsolatedSubnetSelection,
+			EphemeralStorageSize: awscdk.Size_Mebibytes(jsii.Number(4096)),
+			LogRetention:         awslogs.RetentionDays_THREE_MONTHS,
+			Role:                 jsComp.RunReportsLambda.Role(),
+		})
+		if phiTagName != nil {
+			awscdk.Tags_Of(jsComp.CpipesRunReportsLambda).Add(phiTagName, jsii.String("false"), nil)
+		}
+		if piiTagName != nil {
+			awscdk.Tags_Of(jsComp.CpipesRunReportsLambda).Add(piiTagName, jsii.String("false"), nil)
+		}
+		if descriptionTagName != nil {
+			awscdk.Tags_Of(jsComp.CpipesRunReportsLambda).Add(descriptionTagName, jsii.String("JetStore installation-specific lambda to run reports"), nil)
+		}
+		// Using the role form Run Reports lambda, these access are already given
+		// jsComp.CpipesRunReportsLambda.Connections().AllowTo(jsComp.RdsCluster, awsec2.Port_Tcp(jsii.Number(5432)), jsii.String("Allow connection from CpipesRunReportsLambda"))
+		// jsComp.RdsSecret.GrantRead(jsComp.CpipesRunReportsLambda, nil)
+		// jsComp.SourceBucket.GrantReadWrite(jsComp.CpipesRunReportsLambda, nil)
+		// jsComp.GrantReadWriteFromExternalBuckets(stack, jsComp.CpipesRunReportsLambda)
+		// if jsComp.ExternalKmsKey != nil {
+		// 	jsComp.ExternalKmsKey.GrantEncryptDecrypt(jsComp.CpipesRunReportsLambda)
+		// }
+		// jsComp.CpipesRunReportsLambda.AddToRolePolicy(awsiam.NewPolicyStatement(&awsiam.PolicyStatementProps{
+		// 	Actions: jsii.Strings("s3:GetObjectAttributes"),
+		// 	Resources: jsii.Strings(
+		// 		*jsComp.SourceBucket.BucketArn(),
+		// 		fmt.Sprintf("arn:aws:s3:::%s/*", *jsComp.SourceBucket.BucketName()),
+		// 	),
+		// }))
+	}
 
 	// Purge Data lambda function
 	// --------------------------------------------------------------------------------------------------------------

@@ -1,108 +1,69 @@
 package main
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"log"
 	"os"
-	"time"
 
 	"github.com/apache/arrow/go/v17/arrow"
 	"github.com/apache/arrow/go/v17/arrow/array"
 	"github.com/apache/arrow/go/v17/arrow/memory"
-	"github.com/apache/arrow/go/v17/parquet/file"
-	"github.com/apache/arrow/go/v17/parquet/pqarrow"
 )
 
-const jsonFile = "output.json"
-
 func main() {
-	if err := writeJson(); err != nil {
-		log.Fatalf("Error writing Json file: %v", err)
-	}
-	fmt.Println("✅ Json file written.")
-
-	// if err := readParquet(); err != nil {
-	// 	log.Fatalf("Error reading Json file: %v", err)
-	// }
-	// fmt.Println("✅ Json file read.")
-}
-
-func writeJson() error {
+	// Create Arrow memory allocator
 	pool := memory.NewGoAllocator()
 
-	// Define schema
+	// Define schema: 3 fields, each a list of strings
 	schema := arrow.NewSchema([]arrow.Field{
-		{Name: "name", Type: arrow.BinaryTypes.String, Nullable: true},
-		{Name: "binaryName", Type: arrow.BinaryTypes.Binary, Nullable: true},
-		{Name: "age", Type: arrow.PrimitiveTypes.Int32},
-		{Name: "date", Type: arrow.FixedWidthTypes.Date32},
-		{Name: "datetime", Type: arrow.FixedWidthTypes.Timestamp_ms},
+		{Name: "field1", Type: arrow.ListOf(arrow.BinaryTypes.String)},
+		{Name: "field2", Type: arrow.ListOf(arrow.BinaryTypes.String)},
+		{Name: "field3", Type: arrow.ListOf(arrow.BinaryTypes.String)},
 	}, nil)
 
-	// Build Arrow arrays
-	nameBuilder := array.NewStringBuilder(pool)
-	binaryNameBuilder := array.NewBinaryBuilder(pool, arrow.BinaryTypes.Binary)
-	ageBuilder := array.NewInt32Builder(pool)
-	dateBuilder := array.NewDate32Builder(pool)
-	datetimeBuilder := array.NewTimestampBuilder(pool, &arrow.TimestampType{Unit: arrow.Millisecond, TimeZone: "UTC"})
-	defer nameBuilder.Release()
-	defer binaryNameBuilder.Release()
-	defer ageBuilder.Release()
-	defer dateBuilder.Release()
-	defer datetimeBuilder.Release()
+	// Builders for each field
+	listBldr1 := array.NewListBuilder(pool, arrow.BinaryTypes.String)
+	listBldr2 := array.NewListBuilder(pool, arrow.BinaryTypes.String)
+	listBldr3 := array.NewListBuilder(pool, arrow.BinaryTypes.String)
 
-	names := []string{"Alice", "Bob", "Charlie"}
-	binaryNames := []string{"BAlice", "BBob", "BCharlie"}
-	ages := []int32{30, 25, 35}
-	dates := []string{"2024-01-01", "2024-01-02", "2024-01-03"}
-	datetimes := []string{
-		"2024-01-01T09:00:00",
-		"2024-01-02T10:30:00",
-		"2024-01-03T15:45:00",
-	}
+	strBldr1 := listBldr1.ValueBuilder().(*array.StringBuilder)
+	strBldr2 := listBldr2.ValueBuilder().(*array.StringBuilder)
+	strBldr3 := listBldr3.ValueBuilder().(*array.StringBuilder)
 
-	for i := range names {
-		nameBuilder.Append(names[i])
-		binaryNameBuilder.Append([]byte(binaryNames[i]))
-		ageBuilder.Append(ages[i])
+	// Append one record
+	// field1 -> ["a1","a2","a3"]
+	listBldr1.Append(true)
+	strBldr1.AppendValues([]string{"a1", "a2", "a3"}, nil)
 
-		// Convert string to Date32 (days since Unix epoch)
-		t, err := time.Parse("2006-01-02", dates[i])
-		if err != nil {
-			return fmt.Errorf("invalid date format: %v", err)
-		}
-		days := int32(t.Unix() / 86400)
-		dateBuilder.Append(arrow.Date32(days))
+	// field2 -> ["b1","b2","b3"]
+	listBldr2.Append(true)
+	strBldr2.AppendValues([]string{"b1", "b2", "b3"}, nil)
 
-		// Parse datetime
-		dtParsed, err := time.Parse("2006-01-02T15:04:05", datetimes[i])
-		if err != nil {
-			return fmt.Errorf("invalid datetime: %v", err)
-		}
-		datetimeBuilder.Append(arrow.Timestamp(dtParsed.UnixMilli())) // Timestamp_ms
-	}
+	// field3 -> ["c1","c2","c3"]
+	listBldr3.Append(true)
+	strBldr3.AppendValues([]string{"c1", "c2", "c3"}, nil)
 
-	nameArray := nameBuilder.NewArray()
-	binaryNameArray := binaryNameBuilder.NewArray()
-	ageArray := ageBuilder.NewArray()
-	dateArray := dateBuilder.NewArray()
-	datetimeArray := datetimeBuilder.NewArray()
-	defer nameArray.Release()
-	defer binaryNameArray.Release()
-	defer ageArray.Release()
-	defer dateArray.Release()
-	defer datetimeArray.Release()
+	// Build arrays
+	arr1 := listBldr1.NewArray()
+	arr2 := listBldr2.NewArray()
+	arr3 := listBldr3.NewArray()
+
+	defer arr1.Release()
+	defer arr2.Release()
+	defer arr3.Release()
+	defer listBldr1.Release()
+	defer listBldr2.Release()
+	defer listBldr3.Release()
 
 	// Create record
-	record := array.NewRecord(schema, []arrow.Array{nameArray, binaryNameArray, ageArray, dateArray, datetimeArray}, int64(len(names)))
+	record := array.NewRecord(schema, []arrow.Array{arr1, arr2, arr3}, 1)
 	defer record.Release()
 
-	// Write to file
-	f, err := os.Create(jsonFile)
+	// Write JSON file
+	f, err := os.Create("output.json")
 	if err != nil {
-		return err
+		log.Fatal(err)
 	}
 	defer f.Close()
 
@@ -110,48 +71,5 @@ func writeJson() error {
 	enc.SetIndent("", "  ")
 	err = enc.Encode(record)
 
-	return err
-}
-
-func readParquet() error {
-	f, err := os.Open(jsonFile)
-	if err != nil {
-		return err
-	}
-	defer f.Close()
-
-	pf, err := file.NewParquetReader(f)
-	if err != nil {
-		return fmt.Errorf("while NewParquetReader: %v", err)
-	}
-	defer pf.Close()
-
-	pool := memory.NewGoAllocator()
-	reader, err := pqarrow.NewFileReader(pf, pqarrow.ArrowReadProperties{BatchSize: 128}, pool)
-	if err != nil {
-		return fmt.Errorf("while NewFileReader: %v", err)
-	}
-	fmt.Println("The file contains", reader.ParquetReader().NumRows(), "rows")
-	schema, err := reader.Schema()
-	fmt.Println("The reader schema", schema,"err?", err)
-	for _, field := range schema.Fields() {
-		fmt.Printf("FIELD: %s, type %s, nullable? %v\n", field.Name, field.Type.Name(), field.Nullable)
-	}
-
-	recordReader, err := reader.GetRecordReader(context.TODO(), nil, nil)
-	if err != nil {
-		return err
-	}
-	defer recordReader.Release()
-
-	for recordReader.Next() {
-		rec := recordReader.Record()
-		fmt.Println("rec schema:", rec.Schema())
-		fmt.Printf("🔹 Record batch with %d rows:\n", rec.NumRows())
-		fmt.Println(rec)
-
-		rec.Release()
-	}
-
-	return nil
+	fmt.Println("JSON file written to output.json")
 }

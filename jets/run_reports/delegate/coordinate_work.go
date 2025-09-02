@@ -9,6 +9,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/artisoft-io/jetstore/jets/datatable"
 	"github.com/artisoft-io/jetstore/jets/workspace"
 	"github.com/jackc/pgx/v4/pgxpool"
 )
@@ -138,6 +139,12 @@ func CoordinateWorkAndUpdateStatus(ctx context.Context, dbpool *pgxpool.Pool, ca
 		} else {
 			ca.SourcePeriodKey = strconv.Itoa(k)
 		}
+	}
+
+	// Get the SchemaProvider from db
+	ca.SchemaProviderJson, err = datatable.GetSchemaProviderJsonFromPipelineSession(dbpool, ca.SessionId)
+	if err != nil && !strings.Contains(err.Error(), "no rows in result set") {
+		return fmt.Errorf("query pipeline_execution_status failed: %v", err)
 	}
 
 	// Do the reports

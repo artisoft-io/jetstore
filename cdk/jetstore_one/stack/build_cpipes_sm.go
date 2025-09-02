@@ -152,9 +152,13 @@ func (jsComp *JetStoreStackComponents) BuildCpipesSM(scope constructs.Construct,
 
 	// 5) Run Reports Task
 	// ----------------------
+	lambdaFnc := jsComp.RunReportsLambda
+	if jsComp.CpipesRunReportsLambda != nil {
+		lambdaFnc = jsComp.CpipesRunReportsLambda
+	}
 	runReportsLambdaTask := sfntask.NewLambdaInvoke(stack, jsii.String("RunReportsLambdaTask"), &sfntask.LambdaInvokeProps{
 		Comment:                  jsii.String("Lambda Task to run reports for cpipes task"),
-		LambdaFunction:           jsComp.RunReportsLambda,
+		LambdaFunction:           lambdaFnc,
 		InputPath:                jsii.String("$.reportsCommand"),
 		ResultPath:               sfn.JsonPath_DISCARD(),
 		RetryOnServiceExceptions: jsii.Bool(false),
