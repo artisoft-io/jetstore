@@ -1,0 +1,92 @@
+package main
+
+import (
+    "github.com/aws/aws-cdk-go/awscdk/v2"
+    "github.com/aws/aws-cdk-go/awscdk/v2/awsquicksight"
+    "github.com/aws/constructs-go/constructs/v10"
+    "github.com/aws/jsii-runtime-go"
+)
+
+type QuickSightTopicStackProps struct {
+    awscdk.StackProps
+}
+
+func NewQuickSightTopicStack(scope constructs.Construct, id string, props *QuickSightTopicStackProps) awscdk.Stack {
+    stack := awscdk.NewStack(scope, &id, &props.StackProps)
+
+    awsquicksight.NewCfnTopic(stack, jsii.String("MyQTopic"),
+        &awsquicksight.CfnTopicProps{
+            AwsAccountId: jsii.String("123456789012"),
+            DataSets: []interface{}{
+                map[string]interface{}{
+                    "DataSetArn":  jsii.String("arn:aws:quicksight:us-east-1:123456789012:dataset/MyDataset"),
+                    "Name":        jsii.String("PrimaryDataSet"),
+                    "Placeholder": jsii.Bool(false),
+                },
+            },
+            Name:    jsii.String("MyExampleQTopic"),
+            TopicId: jsii.String("MyTopicId"),
+
+            TopicDetails: &awsquicksight.CfnTopic_TopicDetailsProperty{
+                Columns: []interface{}{
+                    &awsquicksight.CfnTopic_TopicColumnProperty{
+                        ColumnName:   jsii.String("CST_NAME"),
+                        FriendlyName: jsii.String("Customer Name"),
+                        SemanticType: jsii.String("BUSINESS_NAME"),
+                    },
+                    &awsquicksight.CfnTopic_TopicColumnProperty{
+                        ColumnName:   jsii.String("FIRST_NAME"),
+                        FriendlyName: jsii.String("First Name"),
+                        SemanticType: jsii.String("PERSON_NAME"),
+                    },
+                    &awsquicksight.CfnTopic_TopicColumnProperty{
+                        ColumnName:   jsii.String("LAST_NAME"),
+                        FriendlyName: jsii.String("Last Name"),
+                        SemanticType: jsii.String("PERSON_NAME"),
+                    },
+                },
+
+                CalculatedFields: []interface{}{
+                    // Simple full name
+                    &awsquicksight.CfnTopic_TopicCalculatedFieldProperty{
+                        CalculatedFieldName: jsii.String("Customer Full Name"),
+                        Expression:          jsii.String("concat({FIRST_NAME}, ' ', {LAST_NAME})"),
+                        Description:         jsii.String("Full customer display name"),
+                        SemanticType:        jsii.String("PERSON_NAME"),
+                        Synonyms:            jsii.Strings("Full Name", "Client Name"),
+                    },
+
+                    // Combined business + person
+                    &awsquicksight.CfnTopic_TopicCalculatedFieldProperty{
+                        CalculatedFieldName: jsii.String("Customer Display Label"),
+                        Expression:          jsii.String("concat({CST_NAME}, ' (', {FIRST_NAME}, ' ', {LAST_NAME}, ')')"),
+                        Description:         jsii.String("Business name with associated person"),
+                        SemanticType:        jsii.String("BUSINESS_NAME"),
+                        Synonyms:            jsii.Strings("Customer Label", "Client Display", "Account Display"),
+                    },
+                },
+            },
+        },
+    )
+
+    return stack
+}
+
+func main() {
+    app := awscdk.NewApp(nil)
+
+    NewQuickSightTopicStack(app, "QuickSightTopicStack", &QuickSightTopicStackProps{
+        StackProps: awscdk.StackProps{
+            Env: env(),
+        },
+    })
+
+    app.Synth(nil)
+}
+
+func env() *awscdk.Environment {
+    return &awscdk.Environment{
+        Account: jsii.String("123456789012"),
+        Region:  jsii.String("us-east-1"),
+    }
+}
