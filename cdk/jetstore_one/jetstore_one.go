@@ -492,6 +492,7 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 // EXTERNAL_BUCKETS (optional, list of third party buckets to read/write file for cpipes)
 // EXTERNAL_S3_KMS_KEY_ARN (optional, kms key for external bucket)
 // EXTERNAL_SQS_ARN (optional, sqs queue for sqs register key lambda)
+// JETS_PIVOT_YEAR_TIME_PARSING (optional, pivot year used in date_util.ParseDateTime function)
 // JETS_ADMIN_EMAIL (optional, email of build-in admin, default: admin)
 // JETS_BUCKET_NAME (optional, use existing bucket by name, create new bucket if empty)
 // JETS_CERT_ARN (not required unless JETS_ELB_MODE==public)
@@ -652,6 +653,7 @@ func main() {
 	fmt.Println("env EXTERNAL_BUCKETS:", os.Getenv("EXTERNAL_BUCKETS"))
 	fmt.Println("env EXTERNAL_S3_KMS_KEY_ARN:", os.Getenv("EXTERNAL_S3_KMS_KEY_ARN"))
 	fmt.Println("env EXTERNAL_SQS_ARN:", os.Getenv("EXTERNAL_SQS_ARN"))
+	fmt.Println("env JETS_PIVOT_YEAR_TIME_PARSING:", os.Getenv("JETS_PIVOT_YEAR_TIME_PARSING"))
 
 	// Verify that we have all the required env variables
 	hasErr := false

@@ -2,10 +2,29 @@ package date_utils
 
 import "strings"
 
+// Go Layout Reference
+//	Year: "2006" "06"
+//	Month: "Jan" "January" "01" "1"
+//	Day of the week: "Mon" "Monday"
+//	Day of the month: "2" "_2" "02"
+//	Day of the year: "__2" "002"
+//	Hour: "15" "3" "03" (PM or AM)
+//	Minute: "4" "04"
+//	Second: "5" "05"
+//	AM/PM mark: "PM"
+//
+// Numeric time zone offsets format as follows:
+//
+//	"-0700"     ±hhmm
+//	"-07:00"    ±hh:mm
+//	"-07"       ±hh
+//	"-070000"   ±hhmmss
+//	"-07:00:00" ±hh:mm:ss
+
 func FromJavaDateFormat(format string, forRead bool) string {
 	if forRead {
 		switch {
-		case !strings.Contains(format, "yyyy"):
+		case !strings.Contains(format, "yy"):
 			forRead = false
 		case !strings.Contains(format, "dd"):
 			forRead = false
@@ -28,6 +47,9 @@ func FromJavaDateFormat(format string, forRead bool) string {
 		format = strings.Replace(format, "mm", "04", 1)
 		format = strings.Replace(format, "ss", "05", 1)
 		format = strings.Replace(format, "aa", "PM", 1)
+		format = strings.Replace(format, "SSSSSSSSS", "999999999", 1)
+		format = strings.Replace(format, "SSSSSS", "999999", 1)
+		format = strings.Replace(format, "SSS", "999", 1)
 	} else {
 		format = strings.Replace(format, "yyyy", "2006", 1)
 		format = strings.Replace(format, "yy", "06", 1)
@@ -43,6 +65,9 @@ func FromJavaDateFormat(format string, forRead bool) string {
 		format = strings.Replace(format, "mm", "04", 1)
 		format = strings.Replace(format, "ss", "05", 1)
 		format = strings.Replace(format, "aa", "PM", 1)
+		format = strings.Replace(format, "SSSSSSSSS", "999999999", 1)
+		format = strings.Replace(format, "SSSSSS", "999999", 1)
+		format = strings.Replace(format, "SSS", "999", 1)
 	}
 	return format
 }
