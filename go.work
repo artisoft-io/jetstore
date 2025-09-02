@@ -6,5 +6,5 @@ use (
 	.
 	./cdk/bootstrap_aws
 	./cdk/vpc_peering
-  ../cedargate_ws
+  // ../cedargate_ws
 )
