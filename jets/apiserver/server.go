@@ -609,16 +609,22 @@ func listenAndServe() error {
 		go func() {
 			for {
 				time.Sleep(1 * time.Hour)
+				hbaErrCount = 0
 
 				// Check if the secrets have rotated
 				tm, err := server.GetLastSecretRotation()
 				if err != nil {
 					log.Println("Warning: while getting last time the secret were rotated from db:", err)
+					err = nil
 				}
 				if tm != nil {
 					if server.LastSecretRotation == nil || tm.After(*server.LastSecretRotation) {
 						// The secrets have rotated, update the cached value of the secerts
-						server.SecretsRotated()
+						err = server.SecretsRotated()
+						if err != nil {
+							log.Println("Warning: while SecretsRotated:", err)
+							err = nil
+						}
 						server.LastSecretRotation = tm
 					}
 				}
@@ -627,6 +633,7 @@ func listenAndServe() error {
 				err = datatable.NewDataTableContext(server.dbpool, false, false, nil, nil).StartPendingTasks("cpipesSM")
 				if err != nil {
 					log.Println("Warning: while StartPendingTasks for cpipesSM:", err)
+					err = nil
 				}
 			}
 		}()
@@ -645,7 +652,7 @@ func listenAndServe() error {
 		return http.ListenAndServeTLS(serverAddr, "cert.pem", "key.pem", server.Router)
 	}
 }
-
+var hbaErrCount int
 func (server *Server) GetLastSecretRotation() (tm *time.Time, err error) {
 	var sqltm sql.NullTime
 	err = server.dbpool.QueryRow(context.Background(), "SELECT MAX(last_update) FROM jetsapi.secret_rotation").Scan(&sqltm)
@@ -656,10 +663,25 @@ func (server *Server) GetLastSecretRotation() (tm *time.Time, err error) {
 			return &now, nil
 		case !errors.Is(err, pgx.ErrNoRows):
 			if strings.Contains(err.Error(), "no pg_hba.conf entry for host") {
+				if hbaErrCount > 10 {
+					log.Fatalf("Too many 'no pg_hba.conf entry for host' errors, bailing out. Cause: %v", err)
+				}
 				err = fmt.Errorf("while querying last_update from secret_rotation table: %v", err)
+				log.Println(err)
+				hbaErrCount++
 				err2:= GenerateCert()
 				if err2 != nil {
-					return nil, fmt.Errorf("while GenerateCert to fix: >%s< got: %s", err, err2)
+					err = fmt.Errorf("while GenerateCert to fix: >%s< got: %s", err, err2)
+					log.Println(err)
+					return nil, err
+				}
+				// reset the db connection
+				server.dbpool.Close()
+				server.dbpool, err = pgxpool.Connect(context.Background(), *dsn)
+				if err != nil {
+					err = fmt.Errorf("while re-opening db connection in GetLastSecretRotation: %v", err)
+					log.Println(err)
+					return nil, err
 				}
 				return server.GetLastSecretRotation()
 			}
