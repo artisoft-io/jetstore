@@ -616,6 +616,9 @@ class ActionKeys {
 
   // for pipeline execution dialogs
   static const startPipelineOk = "startPipeline.ok";
+  
+  // for pipeline re-submit table action button
+  static const resubmitPipeline = "resubmitPipeline";
 
   // for process_error data table
   static const setupShowInputRecords = "setupShowInputRecords";

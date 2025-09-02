@@ -13,6 +13,9 @@ String? homeFiltersFormValidator(
       "homeFiltersFormValidator has unexpected data type");
   var homeFiltersState = JetsRouterDelegate().homeFiltersState;
   switch (key) {
+    // not used
+    case DTKeys.pipelineExecStatusTable:
+      return null;
     // optional keys
     case DTKeys.hfProcessTableUF:
       if (v == null) {
@@ -49,7 +52,7 @@ String? homeFiltersFormValidator(
         var fkFilterType = formState.getValue(group, FSK.hfFileKeyMatchType);
         if (fkFilterType != null) {
           homeFiltersState[FSK.hfFileKeyMatchType] = fkFilterType;
-          homeFiltersState[key] = v;
+          homeFiltersState[DTKeys.hfFileKeyFilterTypeTableUF] = v;
           return null;
         }
       }
@@ -62,10 +65,10 @@ String? homeFiltersFormValidator(
         if (fkSubstring == null || fkSubstring.isEmpty) {
           return "Enter a file key fragment";
         } else {
-          homeFiltersState[key] = fkSubstring;
+          homeFiltersState[FSK.hfFileKeySubstring] = fkSubstring;
         }
       } else {
-        homeFiltersState.remove(key);
+        homeFiltersState.remove(FSK.hfFileKeySubstring);
       }
       return null;
 

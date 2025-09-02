@@ -1,3 +1,4 @@
+import 'package:jetsclient/routes/jets_router_delegate.dart';
 import 'package:jetsclient/routes/jets_routes_app.dart';
 import 'package:jetsclient/utils/constants.dart';
 import 'package:jetsclient/models/data_table_config.dart';
@@ -359,7 +360,19 @@ final Map<String, TableConfig> _tableConfigurations = {
       WhereClause(column: "table_name", formStateKey: FSK.mainTableName),
       WhereClause(column: "source_period_key", joinWith: "source_period.key"),
     ],
-    actions: [],
+    actions: [
+      ActionConfig(
+        actionType: DataTableActionType.clearHomeFilters,
+        key: 'clearFilters',
+        label: 'Clear Filters',
+        style: ActionStyle.primary,
+        isVisibleWhenCheckboxVisible: null,
+        isEnabledWhenHavingSelectedRows: null,
+        isEnabledFnc: (state) =>
+            JetsRouterDelegate().dataRegistryFilters != null &&
+            JetsRouterDelegate().dataRegistryFilters!.isNotEmpty,
+      ),
+    ],
     formStateConfig: DataTableFormStateConfig(keyColumnIdx: 0, otherColumns: [
       DataTableFormStateOtherColumnConfig(
           stateKey: FSK.mainInputFileKey, columnIdx: 10),
@@ -405,6 +418,17 @@ final Map<String, TableConfig> _tableConfigurations = {
           style: ActionStyle.secondary,
           isVisibleWhenCheckboxVisible: null,
           isEnabledWhenHavingSelectedRows: null),
+      ActionConfig(
+        actionType: DataTableActionType.clearHomeFilters,
+        key: 'clearFilters',
+        label: 'Clear Filters',
+        style: ActionStyle.primary,
+        isVisibleWhenCheckboxVisible: null,
+        isEnabledWhenHavingSelectedRows: null,
+        isEnabledFnc: (state) =>
+            JetsRouterDelegate().dataRegistryFilters != null &&
+            JetsRouterDelegate().dataRegistryFilters!.isNotEmpty,
+      ),
     ],
     formStateConfig:
         DataTableFormStateConfig(keyColumnIdx: 0, otherColumns: []),
@@ -526,7 +550,19 @@ final Map<String, TableConfig> _tableConfigurations = {
       WhereClause(column: "month", formStateKey: FSK.month),
       WhereClause(column: "source_period_key", joinWith: "source_period.key"),
     ],
-    actions: [],
+    actions: [
+      ActionConfig(
+        actionType: DataTableActionType.clearHomeFilters,
+        key: 'clearFilters',
+        label: 'Clear Filters',
+        style: ActionStyle.primary,
+        isVisibleWhenCheckboxVisible: null,
+        isEnabledWhenHavingSelectedRows: null,
+        isEnabledFnc: (state) =>
+            JetsRouterDelegate().dataRegistryFilters != null &&
+            JetsRouterDelegate().dataRegistryFilters!.isNotEmpty,
+      ),
+    ],
     formStateConfig:
         DataTableFormStateConfig(keyColumnIdx: 0, otherColumns: []),
     columns: inputRegistryColumns,

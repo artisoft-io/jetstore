@@ -520,6 +520,23 @@ class JetsDataTableSource extends ChangeNotifier {
         }
       }
     }
+    // Add data registry filters to where clause
+    // print('makeQuery config.key: ${config?.key}');
+    final dataRegistryFilters = JetsRouterDelegate().dataRegistryFilters;
+    if (config != null && dataRegistryFilters != null) {
+      switch (config.key) {
+        case DTKeys.inputRegistryTable:
+        case FSK.mainInputRegistryKey:
+        case FSK.mergedInputRegistryKeys:
+          // print('makeQuery Adding filter where clause');
+          for (final wc in dataRegistryFilters) {
+            var wcValue = _addOrWith(wc, _makeWhereClause(wc));
+            if (wcValue != null) {
+              whereClauses.add(wcValue);
+            }
+          }
+      }
+    }
 
     // if _addWhereClauseOnClient is still true, then add to where clause
     if (_addWhereClauseOnClient) {

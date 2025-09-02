@@ -128,6 +128,8 @@ class ActionEnableCriteria {
   }
 }
 
+typedef IsEnabledFnc = bool Function(JetsDataTableState state);
+
 /// Table Action Configuration
 /// case isVisibleWhenCheckboxVisible is null, action always visible
 /// case isVisibleWhenCheckboxVisible == false, action visible when table check boxes are NOT visible
@@ -169,6 +171,7 @@ class ActionConfig {
       this.isEnabledWhenHavingSelectedRows,
       this.isEnabledWhenWhereClauseSatisfied,
       this.isEnabledWhenStateHasKeys,
+      this.isEnabledFnc,
       this.navigationParams,
       this.stateFormNavigationParams,
       required this.style,
@@ -194,6 +197,7 @@ class ActionConfig {
   final int stateGroup;
   final List<List<ActionEnableCriteria>>? actionEnableCriterias;
   final String? capability;
+  final IsEnabledFnc? isEnabledFnc;
 
   /// returns true if action button is visible
   bool isVisible(JetsDataTableState widgetState) {
@@ -238,6 +242,9 @@ class ActionConfig {
     if (isEnabledWhenStateHasKeys != null) {
       return widgetState.dataSource
           .stateHasKeys(stateGroup, isEnabledWhenStateHasKeys!);
+    }
+    if (isEnabledFnc != null) {
+      return isEnabledFnc!(widgetState);
     }
     return true;
   }
@@ -355,7 +362,7 @@ class WhereClause {
     if (predicate != null) {
       result += ', predicate: $predicate';
     }
-    if(lookupColumnInFormState) {
+    if (lookupColumnInFormState) {
       result += ', lookupColumnInFormState: $lookupColumnInFormState';
     }
     if (like != null) {

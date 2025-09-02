@@ -110,6 +110,7 @@ void updateHomeFilters(BuildContext context, JetsFormState formState) {
   state[FSK.userEmail] = JetsRouterDelegate().user.email;
 
   List<WhereClause> homeFilters = [];
+  List<WhereClause> dataRegistryFilters = [];
   var processNameList = unpackToList(state[FSK.processName]);
   if (processNameList != null) {
     homeFilters.add(WhereClause(
@@ -135,11 +136,19 @@ void updateHomeFilters(BuildContext context, JetsFormState formState) {
             table: 'pipeline_execution_status',
             column: 'main_input_file_key',
             defaultValue: [fkSubstring]));
+        dataRegistryFilters.add(WhereClause(
+            table: 'input_registry',
+            column: 'file_key',
+            defaultValue: [fkSubstring]));
         break;
       case 'starts_with':
         homeFilters.add(WhereClause(
             table: 'pipeline_execution_status',
             column: 'main_input_file_key',
+            like: '$fkSubstring%'));
+        dataRegistryFilters.add(WhereClause(
+            table: 'input_registry',
+            column: 'file_key',
             like: '$fkSubstring%'));
         break;
       case 'ends_with':
@@ -147,11 +156,19 @@ void updateHomeFilters(BuildContext context, JetsFormState formState) {
             table: 'pipeline_execution_status',
             column: 'main_input_file_key',
             like: '%$fkSubstring'));
+        dataRegistryFilters.add(WhereClause(
+            table: 'input_registry',
+            column: 'file_key',
+            like: '%$fkSubstring'));
         break;
       case 'contains':
         homeFilters.add(WhereClause(
             table: 'pipeline_execution_status',
             column: 'main_input_file_key',
+            like: '%$fkSubstring%'));
+        dataRegistryFilters.add(WhereClause(
+            table: 'input_registry',
+            column: 'file_key',
             like: '%$fkSubstring%'));
         break;
       default:
@@ -174,6 +191,8 @@ void updateHomeFilters(BuildContext context, JetsFormState formState) {
     }
     homeFilters.add(WhereClause(
         table: 'pipeline_execution_status', column: 'start_time', ge: value));
+    dataRegistryFilters.add(WhereClause(
+        table: 'input_registry', column: 'last_update', ge: value));
   }
 
   var hfEndTime = unpack(state[FSK.hfEndTime]);
@@ -191,9 +210,12 @@ void updateHomeFilters(BuildContext context, JetsFormState formState) {
     }
     homeFilters.add(WhereClause(
         table: 'pipeline_execution_status', column: 'start_time', le: value));
+    dataRegistryFilters.add(WhereClause(
+        table: 'input_registry', column: 'last_update', le: value));
   }
   // print('*** Home Filters: $homeFilters');
   JetsRouterDelegate().homeFilters = homeFilters;
+  JetsRouterDelegate().dataRegistryFilters = dataRegistryFilters;
 }
 
 Future<String?> addProcessInput(

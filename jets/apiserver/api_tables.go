@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -33,29 +34,66 @@ func (server *Server) DoDataTableAction(w http.ResponseWriter, r *http.Request) 
 		ERROR(w, http.StatusUnprocessableEntity, err)
 		return
 	}
-	context := datatable.NewDataTableContext(server.dbpool, globalDevMode, *usingSshTunnel, unitTestDir, adminEmail)
+	ctx := datatable.NewDataTableContext(server.dbpool, globalDevMode, *usingSshTunnel, unitTestDir, adminEmail)
 	// Intercept specific dataTable action
 	switch dataTableAction.Action {
 	case "raw_query", "raw_query_tool":
-		results, code, err = context.ExecRawQuery(&dataTableAction, token)
+		results, code, err = ctx.ExecRawQuery(&dataTableAction, token)
 	case "exec_ddl":
-		results, code, err = context.ExecDataManagementStatement(&dataTableAction, token)
+		results, code, err = ctx.ExecDataManagementStatement(&dataTableAction, token)
 	case "raw_query_map":
-		results, code, err = context.ExecRawQueryMap(&dataTableAction, token)
+		results, code, err = ctx.ExecRawQueryMap(&dataTableAction, token)
 	case "insert_raw_rows":
-		results, code, err = context.InsertRawRows(&dataTableAction, token)
+		results, code, err = ctx.InsertRawRows(&dataTableAction, token)
 	case "insert_rows":
-		results, code, err = context.InsertRows(&dataTableAction, token)
+		results, code, err = ctx.InsertRows(&dataTableAction, token)
 	case "test_pipeline":
 		results = &map[string]interface{}{}
 		code = 200
-		datatable.UnitTestWorkspaceAction(context, &dataTableAction, token)
+		datatable.UnitTestWorkspaceAction(ctx, &dataTableAction, token)
+	case "resubmit_pipeline":
+		results = &map[string]interface{}{}
+		code = 200
+		sid, ok := dataTableAction.Data[0]["session_id"].(string)
+		if !ok {
+			err = fmt.Errorf("error: session_id must be string in resubmit_pipeline")
+			log.Printf("Error: %v", err)
+			ERROR(w, 400, err)
+			return
+		}
+		newSessionId, err := datatable.ReserveSessionId(server.dbpool)
+		if err != nil {
+			log.Printf("Error: %v", err)
+			ERROR(w, 400, err)
+			return
+		}
+		stmt := `INSERT INTO jetsapi.pipeline_execution_status (
+								pipeline_config_key, main_input_registry_key, main_input_file_key, 
+								client, process_name, main_object_type, input_session_id, session_id, source_period_key, status, user_email) 
+							(SELECT 
+								pipeline_config_key, main_input_registry_key, main_input_file_key, 
+								client, process_name, main_object_type, input_session_id, $1, source_period_key, 'pending', $2 
+							FROM jetsapi.pipeline_execution_status WHERE session_id = $3 )`
+		_, err = server.dbpool.Exec(context.TODO(), stmt, newSessionId, user, sid)
+		if err != nil {
+			err = fmt.Errorf("error: failed resubmit to database: %v", err)
+			log.Printf("Error: %v", err)
+			ERROR(w, 400, err)
+			return
+		}
+		// Start the pending task and check for timeouts
+		err = ctx.StartPendingTasks("cpipesSM")
+		if err != nil {
+			log.Printf("Error: %v", err)
+			ERROR(w, 400, err)
+			return
+		}
 
 	case "workspace_insert_rows":
-		results, code, err = context.WorkspaceInsertRows(&dataTableAction, token)
+		results, code, err = ctx.WorkspaceInsertRows(&dataTableAction, token)
 	case "workspace_query_structure":
 		// This function returns encoded json ready to return to client
-		resultsB, code, err := context.WorkspaceQueryStructure(&dataTableAction, token)
+		resultsB, code, err := ctx.WorkspaceQueryStructure(&dataTableAction, token)
 		if err != nil {
 			log.Printf("Error: %v", err)
 			ERROR(w, code, err)
@@ -65,7 +103,7 @@ func (server *Server) DoDataTableAction(w http.ResponseWriter, r *http.Request) 
 		return
 
 	case "add_workspace_file":
-		resultsB, code, err := context.AddWorkspaceFile(&dataTableAction, token)
+		resultsB, code, err := ctx.AddWorkspaceFile(&dataTableAction, token)
 		if err != nil {
 			log.Printf("Error: %v", err)
 			ERROR(w, code, err)
@@ -75,7 +113,7 @@ func (server *Server) DoDataTableAction(w http.ResponseWriter, r *http.Request) 
 		return
 
 	case "delete_workspace_files":
-		resultsB, code, err := context.DeleteWorkspaceFile(&dataTableAction, token)
+		resultsB, code, err := ctx.DeleteWorkspaceFile(&dataTableAction, token)
 		if err != nil {
 			log.Printf("Error: %v", err)
 			ERROR(w, code, err)
@@ -85,26 +123,26 @@ func (server *Server) DoDataTableAction(w http.ResponseWriter, r *http.Request) 
 		return
 
 	case "get_workspace_file_content":
-		results, code, err = context.GetWorkspaceFileContent(&dataTableAction, token)
+		results, code, err = ctx.GetWorkspaceFileContent(&dataTableAction, token)
 	case "save_workspace_file_content":
-		results, code, err = context.SaveWorkspaceFileContent(&dataTableAction, token)
+		results, code, err = ctx.SaveWorkspaceFileContent(&dataTableAction, token)
 	case "delete_workspace_changes":
-		results, code, err = context.DeleteWorkspaceChanges(&dataTableAction, token)
+		results, code, err = ctx.DeleteWorkspaceChanges(&dataTableAction, token)
 	case "delete_all_workspace_changes":
-		results, code, err = context.DeleteAllWorkspaceChanges(&dataTableAction, token)
+		results, code, err = ctx.DeleteAllWorkspaceChanges(&dataTableAction, token)
 
 	case "workspace_read":
-		results, code, err = context.DoWorkspaceReadAction(&dataTableAction, token)
+		results, code, err = ctx.DoWorkspaceReadAction(&dataTableAction, token)
 
 	case "save_workspace_client_config":
-		results, code, err = context.SaveWorkspaceClientConfig(&dataTableAction, token)
+		results, code, err = ctx.SaveWorkspaceClientConfig(&dataTableAction, token)
 
 	case "read":
-		results, code, err = context.DoReadAction(&dataTableAction, token)
+		results, code, err = ctx.DoReadAction(&dataTableAction, token)
 	case "preview_file":
-		results, code, err = context.DoPreviewFileAction(&dataTableAction, token)
+		results, code, err = ctx.DoPreviewFileAction(&dataTableAction, token)
 	case "drop_table":
-		results, code, err = context.DropTable(&dataTableAction, token)
+		results, code, err = ctx.DropTable(&dataTableAction, token)
 	case "refresh_token":
 		results = &map[string]interface{}{}
 		code = http.StatusOK

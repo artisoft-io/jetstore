@@ -500,6 +500,11 @@ func matchingProcessInputKeys(dbpool *pgxpool.Pool, inputRegistryKeys *[]int) (*
 	return &processInputKeys, nil
 }
 
+func ReserveSessionId(dbpool *pgxpool.Pool) (string, error) {
+	baseSessionId := time.Now().UnixMilli()
+	return reserveSessionId(dbpool, &baseSessionId)
+}
+
 // Reserve a session_id by inserting a row in table jetsapi.session_reservation
 // returns the string version of baseSessionId if it successfully reserve it,
 // otherwize baseSessionId + 1 until it succeed (will make 100 attemps before giving up)
