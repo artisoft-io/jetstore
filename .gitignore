@@ -127,3 +127,4 @@ jets/jsontest/pqarrow_json_test/pqarrow_json_test
 jets/jsontest/pqarrow_decimal_test/pqarrow_decimal_test
 jets/jsontest/pqarrow_decimal_test/sample_decimals_v17.parquet
 cdk/jetstore_one/lambdas/cpipes_run_reports/cgt_run_reports.go
+cdk/jetstore_one/lambdas/cpipes_run_reports/cgt_reports_func.go
