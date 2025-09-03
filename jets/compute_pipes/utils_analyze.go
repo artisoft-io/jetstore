@@ -112,6 +112,11 @@ func (state *LookupTokensState) NewValue(value *string) error {
 		}
 	} else {
 		tokens, err = state.LookupValue(value)
+		if err == nil && len(tokens) == 0 && len(*value) > 4 && (*value)[len(*value)-2] == ' ' {
+			// Try removing dandling letter
+			v := (*value)[:len(*value)-2]
+			tokens, err = state.LookupValue(&v)
+		}
 	}
 	if err != nil {
 		return err
@@ -137,11 +142,11 @@ func (state *LookupTokensState) NewValue(value *string) error {
 	})
 	// remove single letter words and ',' suffixes
 	for i := range splitValues {
+		splitValues[i] = strings.TrimSuffix(splitValues[i], ",")
 		if len(splitValues[i]) < 2 {
 			splitValues = splitValues[0:i]
 			break
 		}
-		splitValues[i] = strings.TrimSuffix(splitValues[i], ",")
 	}
 	// check if this match any multi token config
 	n := len(splitValues)
