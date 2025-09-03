@@ -174,6 +174,9 @@ func DetectEncoding(data []byte, delimit rune) (string, error) {
 		}
 	}
 	s, _ := json.Marshal(string(data))
+	if len(s) > 500 {
+		s = s[:500]
+	}
 	log.Println("Unable to detect encoding, raw data as json string:", string(s))
 	if delimit > 0 {
 		return "", ErrUnknownEncodingOrWrongDelimit
