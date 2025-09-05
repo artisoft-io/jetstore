@@ -28,9 +28,6 @@ func (jsComp *JetStoreStackComponents) BuildWAFV2(scope constructs.Construct, st
 			{
         Name:     jsii.String("BlockBadBots"),
 				Priority: jsii.Number(0),
-				Action: &awswafv2.CfnWebACL_RuleActionProperty{
-					Block: &awswafv2.CfnWebACL_BlockActionProperty{},
-				},
 				Statement: &awswafv2.CfnWebACL_StatementProperty{
 					ManagedRuleGroupStatement: &awswafv2.CfnWebACL_ManagedRuleGroupStatementProperty{
 						Name:       jsii.String("AWSManagedRulesCommonRuleSet"),
