@@ -36,7 +36,7 @@ func (jsComp *JetStoreStackComponents) BuildWAFV2(scope constructs.Construct, st
 					},
 				},
 				OverrideAction: &awswafv2.CfnWebACL_OverrideActionProperty{
-					None: &none,
+					None: none,
 				},
 				VisibilityConfig: &awswafv2.CfnWebACL_VisibilityConfigProperty{
 					SampledRequestsEnabled:   jsii.Bool(true),
