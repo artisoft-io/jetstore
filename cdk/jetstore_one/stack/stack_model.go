@@ -14,6 +14,7 @@ import (
 	"github.com/aws/aws-cdk-go/awscdk/v2/awskms"
 	"github.com/aws/aws-cdk-go/awscdk/v2/awsrds"
 	"github.com/aws/aws-cdk-go/awscdk/v2/awss3"
+  "github.com/aws/aws-cdk-go/awscdk/v2/awswafv2"
 	awssm "github.com/aws/aws-cdk-go/awscdk/v2/awssecretsmanager"
 	sfn "github.com/aws/aws-cdk-go/awscdk/v2/awsstepfunctions"
 	awslambdago "github.com/aws/aws-cdk-go/awscdklambdagoalpha/v2"
@@ -83,6 +84,7 @@ type JetStoreStackComponents struct {
 	EcsUiService            awsecs.FargateService
 
 	UiLoadBalancer awselb.ApplicationLoadBalancer
+	WebAcl awswafv2.CfnWebACL
 
 	StatusUpdateLambda        awslambdago.GoFunction
 	SecretRotationLambda      awslambdago.GoFunction
