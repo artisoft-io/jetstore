@@ -11,6 +11,7 @@ import (
 
 // functions to build the Web ACL
 // Attach WAF to the ELB
+
 type none struct {}
 func (jsComp *JetStoreStackComponents) BuildWAFV2(scope constructs.Construct, stack awscdk.Stack, props *JetstoreOneStackProps) {
 	// 1. Create a Web ACL (WAFv2)
@@ -33,6 +34,14 @@ func (jsComp *JetStoreStackComponents) BuildWAFV2(scope constructs.Construct, st
 					ManagedRuleGroupStatement: &awswafv2.CfnWebACL_ManagedRuleGroupStatementProperty{
 						Name:       jsii.String("AWSManagedRulesCommonRuleSet"),
 						VendorName: jsii.String("AWS"),
+						RuleActionOverrides: []awswafv2.CfnWebACL_RuleActionOverrideProperty{
+							{
+								Name: jsii.String("SizeRestrictions_BODY"),
+								ActionToUse: &awswafv2.CfnWebACL_RuleActionProperty{
+									Count: &awswafv2.CfnWebACL_CountActionProperty{},
+								},
+							},
+						},
 					},
 				},
 				OverrideAction: &awswafv2.CfnWebACL_OverrideActionProperty{
