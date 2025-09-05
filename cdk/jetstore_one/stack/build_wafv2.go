@@ -14,11 +14,12 @@ import (
 
 func (jsComp *JetStoreStackComponents) BuildWAFV2(scope constructs.Construct, stack awscdk.Stack, props *JetstoreOneStackProps) {
 	// 1. Create a Web ACL (WAFv2)
-	jsComp.WebAcl = awswafv2.NewCfnWebACL(stack, jsii.String("MyWebACL"), &awswafv2.CfnWebACLProps{
+	jsComp.WebAcl = awswafv2.NewCfnWebACL(stack, jsii.String("WebACL"), &awswafv2.CfnWebACLProps{
 		DefaultAction: &awswafv2.CfnWebACL_DefaultActionProperty{
 			Allow: &awswafv2.CfnWebACL_AllowActionProperty{},
 		},
-		Scope: jsii.String("REGIONAL"),
+		Description: jsii.String("WAFv2 Web ACL for JetStore Platform"),
+		Scope:       jsii.String("REGIONAL"),
 		VisibilityConfig: &awswafv2.CfnWebACL_VisibilityConfigProperty{
 			SampledRequestsEnabled:   jsii.Bool(true),
 			CloudWatchMetricsEnabled: jsii.Bool(true),
@@ -26,11 +27,8 @@ func (jsComp *JetStoreStackComponents) BuildWAFV2(scope constructs.Construct, st
 		},
 		Rules: []awswafv2.CfnWebACL_RuleProperty{
 			{
-        Name:     jsii.String("BlockBadBots"),
+				Name:     jsii.String("BlockBadBots"),
 				Priority: jsii.Number(0),
-				Action: &awswafv2.CfnWebACL_RuleActionProperty{
-					Block: &awswafv2.CfnWebACL_BlockActionProperty{},
-				},
 				Statement: &awswafv2.CfnWebACL_StatementProperty{
 					ManagedRuleGroupStatement: &awswafv2.CfnWebACL_ManagedRuleGroupStatementProperty{
 						Name:       jsii.String("AWSManagedRulesCommonRuleSet"),
@@ -47,8 +45,8 @@ func (jsComp *JetStoreStackComponents) BuildWAFV2(scope constructs.Construct, st
 	})
 
 	// 2. Associate the Web ACL with the ALB
-  awswafv2.NewCfnWebACLAssociation(stack, jsii.String("WebACLAssociation"), &awswafv2.CfnWebACLAssociationProps{
-    ResourceArn: jsComp.UiLoadBalancer.LoadBalancerArn(),
-    WebAclArn:   jsComp.WebAcl.AttrArn(),
-  })
+	jsComp.WebACLAssociation = awswafv2.NewCfnWebACLAssociation(stack, jsii.String("WebACLAssociation"), &awswafv2.CfnWebACLAssociationProps{
+		ResourceArn: jsComp.UiLoadBalancer.LoadBalancerArn(),
+		WebAclArn:   jsComp.WebAcl.AttrArn(),
+	})
 }
