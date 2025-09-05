@@ -11,7 +11,7 @@ import (
 
 // functions to build the Web ACL
 // Attach WAF to the ELB
-
+var none any
 func (jsComp *JetStoreStackComponents) BuildWAFV2(scope constructs.Construct, stack awscdk.Stack, props *JetstoreOneStackProps) {
 	// 1. Create a Web ACL (WAFv2)
 	jsComp.WebAcl = awswafv2.NewCfnWebACL(stack, jsii.String("WebACL"), &awswafv2.CfnWebACLProps{
@@ -34,6 +34,9 @@ func (jsComp *JetStoreStackComponents) BuildWAFV2(scope constructs.Construct, st
 						Name:       jsii.String("AWSManagedRulesCommonRuleSet"),
 						VendorName: jsii.String("AWS"),
 					},
+				},
+				OverrideAction: &awswafv2.CfnWebACL_OverrideActionProperty{
+					None: &none,
 				},
 				VisibilityConfig: &awswafv2.CfnWebACL_VisibilityConfigProperty{
 					SampledRequestsEnabled:   jsii.Bool(true),
