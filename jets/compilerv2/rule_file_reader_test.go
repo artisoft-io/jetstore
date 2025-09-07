@@ -29,7 +29,7 @@ func TestRuleFileReader_SimpleFile(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	fmt.Println("Combined Content:", content)
+	fmt.Println("Combined Content:\n", content)
 	if !strings.Contains(content, "rule1") || !strings.Contains(content, "rule2") {
 		t.Errorf("content missing rules: %s", content)
 	}
@@ -49,7 +49,7 @@ func TestRuleFileReader_ImportFile(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	fmt.Println("Combined Content:", content)
+	fmt.Println("Combined Content:\n", content)
 	if !strings.Contains(content, "imp_rule1") || !strings.Contains(content, "imp_rule2") {
 		t.Errorf("imported rules missing: %s", content)
 	}
@@ -72,7 +72,7 @@ func TestRuleFileReader_CircularImport(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	fmt.Println("Combined Content:", content)
+	fmt.Println("Combined Content:\n", content)
 	if strings.Count(content, "@JetCompilerDirective source_file =") != 2 {
 		t.Errorf("circular import should not duplicate: %s", content)
 	}
@@ -106,7 +106,7 @@ func TestRuleFileReader_MultipleImports(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	fmt.Println("Combined Content:", content)
+	fmt.Println("Combined Content:\n", content)
 	if !strings.Contains(content, "imp1_rule") || !strings.Contains(content, "imp2_rule") {
 		t.Errorf("imported rules missing: %s", content)
 	}
@@ -114,4 +114,45 @@ func TestRuleFileReader_MultipleImports(t *testing.T) {
 		t.Errorf("main rule missing: %s", content)
 	}
 	// t.Error("Done")
+}
+
+func TestRuleFileReader_GetLocalFileAndLine(t *testing.T) {
+	files := map[string]string{
+		"main.rules": "line1\nimport \"imp1.rules\"\nline3\nline4",
+		"imp1.rules": "imp_line1\nimp_line2",
+	}
+	r := NewRuleFileReader("", "main.rules", mockReadFile(files))
+	content, err := r.ReadAll()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	fmt.Println("Combined Content:")
+	for i := range strings.Split(content, "\n") {
+		fmt.Printf("%2d: %s\n", i+1, strings.Split(content, "\n")[i])
+	}
+	r.PrintImportedFiles()
+
+	tests := []struct {
+		globalLine int
+		expFile    string
+		expLine    int
+	}{
+		{2, "main.rules", 1},
+		{4, "imp1.rules", 1},
+		{5, "imp1.rules", 2},
+		{6, "main.rules", 3},
+		{7, "main.rules", 4},
+	}
+
+	for _, tt := range tests {
+		fileName, lineNum, err := r.GetLocalFileAndLine(tt.globalLine)
+		if err != nil {
+			t.Errorf("unexpected error for global line %d: %v", tt.globalLine, err)
+			continue
+		}
+		if fileName != tt.expFile || lineNum != tt.expLine {
+			t.Errorf("global line %d: expected (%s,%d), got (%s,%d)", tt.globalLine, tt.expFile, tt.expLine, fileName, lineNum)
+		}
+	}
+	t.Error("Done")
 }

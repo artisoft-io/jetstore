@@ -27,7 +27,7 @@ func NewCustomErrorListener(rfr *RuleFileReader, errLog *strings.Builder) *Custo
 
 func (l *CustomErrorListener) SyntaxError(
 	recognizer antlr.Recognizer,
-	offendingSymbol interface{},
+	offendingSymbol any,
 	line, column int,
 	msg string,
 	e antlr.RecognitionException,

@@ -50,6 +50,10 @@ type ImportedFileInfo struct {
 	LineOffset int // global line number - local line number
 }
 
+func (i *ImportedFileInfo) String() string {
+	return fmt.Sprintf("ImportedFileInfo{FileName: %s, StartLine: %d, EndLine: %d, LineOffset: %d}",
+		i.FileName, i.StartLine, i.EndLine, i.LineOffset)
+}
 func NewImportedFileInfo(fileName string, startLine, lineOffset int) *ImportedFileInfo {
 	return &ImportedFileInfo{
 		FileName:   fileName,
@@ -69,13 +73,42 @@ func (r *RuleFileReader) ReadAll() (string, error) {
 	return r.combinedContent.String(), nil
 }
 
+// Return the local file name and line position of the given global line number
+// The global line number is 1-based as well as the local line number
+func (r *RuleFileReader) GetLocalFileAndLine(globalLineNum int) (string, int, error) {
+	// Use a zero-base global line number for easier comparison
+	globalLineNum--
+	if globalLineNum < 1 {
+		return "", 0, fmt.Errorf("global line number must be > 1 or this reference the first compiler directive line")
+	}
+	// use the imported file info to find the correct file and line number
+	for _, fileInfo := range r.importedFileInfo {
+		if globalLineNum >= fileInfo.StartLine && (fileInfo.EndLine == 0 || globalLineNum < fileInfo.EndLine) {
+			localLineNum := globalLineNum - fileInfo.StartLine + fileInfo.LineOffset
+			return fileInfo.FileName, localLineNum + 1, nil
+		}
+	}
+	return "", 0, fmt.Errorf("global line number %d not found in any imported files", globalLineNum)
+}
+
+func (r *RuleFileReader) PrintImportedFiles() {
+	fmt.Println("Imported Files:")
+	for _, fileInfo := range r.importedFileInfo {
+		fmt.Println(fileInfo)
+	}
+}
+
+// readFileRecursive reads a rule file, processes its import statements recursively,
+// and appends the content to combinedContent.
+// It also updates the global line number and tracks imported files to avoid circular imports.
 func (r *RuleFileReader) readFileRecursive(fileName string) error {
 	if r.importedFileNames[fileName] {
 		// Already imported, skip to avoid circular import
 		return nil
 	}
 
-	// Put jet compiler directive to mark the file
+	// Put jet compiler directive to mark the file, this also replace the import statement
+	// so the imported file starts at the next line
 	r.combinedContent.WriteString(fmt.Sprintf("@JetCompilerDirective source_file = \"%s\";\n", fileName))
 	r.globalLineNum++
 
@@ -91,7 +124,11 @@ func (r *RuleFileReader) readFileRecursive(fileName string) error {
 		return err
 	}
 
-	for _, line := range splitLines(content) {
+	for iLine, line := range splitLines(content) {
+		line = strings.TrimSpace(line)
+		// Check for import statement
+		// If found, pause the current file, read the imported file recursively,
+		// then resume the current file
 		if isImportStatement(line) {
 			importFileName := extractImportFileName(line)
 			if importFileName != "" {
@@ -102,7 +139,7 @@ func (r *RuleFileReader) readFileRecursive(fileName string) error {
 					return fmt.Errorf("failed to peek in progress file stack")
 				}
 				currentFileInfo.EndLine = r.globalLineNum
-				lineOffset := r.globalLineNum - currentFileInfo.StartLine + currentFileInfo.LineOffset
+				// lineOffset := r.globalLineNum - currentFileInfo.StartLine + currentFileInfo.LineOffset
 
 				// Read the imported file
 				err := r.readFileRecursive(importFileName)
@@ -111,7 +148,7 @@ func (r *RuleFileReader) readFileRecursive(fileName string) error {
 				}
 
 				// Resume the current file
-				fileInfo := NewImportedFileInfo(fileName, r.globalLineNum, lineOffset)
+				fileInfo := NewImportedFileInfo(fileName, r.globalLineNum, iLine)
 				r.importedFileInfo = append(r.importedFileInfo, fileInfo)
 				r.inProgressFileStack.Push(fileInfo)
 			}
@@ -129,7 +166,7 @@ func splitLines(content string) []string {
 }
 
 func isImportStatement(line string) bool {
-	return strings.HasPrefix(strings.TrimSpace(line), "import ")
+	return strings.HasPrefix(line, "import ")
 }
 
 func extractImportFileName(line string) string {
