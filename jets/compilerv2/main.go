@@ -16,7 +16,6 @@ import (
 var inputFileName = flag.String("in_file", "", "JetRule file (required)")
 var basePath = flag.String("base_path", "", "Base path for in_file, out_file and all imported files (required)")
 var saveJson = flag.Bool("save_json", false, "Save JetRule json output file")
-var reErrPattern = regexp.MustCompile(`line\s+(\d+):(\d+)\s+(.*)`)
 var reImportPattern = regexp.MustCompile(`import\s*"([a-zA-Z0-9_\/.-]*)"`)
 
 // JetRuleListener to build the tree
@@ -30,8 +29,8 @@ type JetRuleListener struct {
 	outJsonFileName string
 
 	// Internal
-	parseLog                 *strings.Builder
-	errorLog                 *strings.Builder
+	parseLog *strings.Builder
+	errorLog *strings.Builder
 }
 
 func NewJetRuleListener(basePath string, mainRuleFileName string) *JetRuleListener {
