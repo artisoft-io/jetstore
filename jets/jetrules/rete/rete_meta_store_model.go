@@ -7,7 +7,7 @@ type JetruleModel struct {
 	// SupportRuleFileNames []string                 `json:"support_rule_file_names"`
 	Resources    []ResourceNode    `json:"resources"`
 	LookupTables []LookupTableNode `json:"lookup_tables"`
-	// Jetrules             []JetruleNode            `json:"jet_rules"`
+	Jetrules             []JetruleNode            `json:"jet_rules"`
 	ReteNodes []RuleTerm `json:"rete_nodes"`
 	// Imports              map[string][]string      `json:"imports"`
 	JetstoreConfig map[string]string        `json:"jetstore_config"`
