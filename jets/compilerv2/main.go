@@ -38,10 +38,7 @@ func main() {
 		panic("Invalid argument(s)")
 	}
 
-	compiler := NewJetRuleListener(*basePath, *inputFileName)
-	compiler.trace = *trace
-	fmt.Println("** Compiling", *inputFileName, "in base path", *basePath, "trace =", *trace)
-	err := compiler.Compile()
+	compiler, err := CompileJetRuleFiles(*basePath, *inputFileName, *trace)
 	if err != nil {
 		fmt.Println("** ERROR during compilation:")
 		fmt.Println(compiler.errorLog.String())
