@@ -12,6 +12,7 @@ import (
 
 // antlr v4 JetRuleListener interface implementation
 
+// All in one method to compile the main rule file and all its imports and return the listener
 func CompileJetRuleFiles(basePath string, mainRuleFileName string, trace bool) (*JetRuleListener, error) {
 	compiler := NewJetRuleListener(basePath, mainRuleFileName)
 	compiler.trace = trace
