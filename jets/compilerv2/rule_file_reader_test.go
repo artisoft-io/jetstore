@@ -121,38 +121,94 @@ func TestRuleFileReader_GetLocalFileAndLine(t *testing.T) {
 		"main.rules": "line1\nimport \"imp1.rules\"\nline3\nline4",
 		"imp1.rules": "imp_line1\nimp_line2",
 	}
+	filesContent := make(map[string][]string)
+	for k, v := range files {
+		filesContent[k] = strings.Split(v, "\n")
+	}
 	r := NewRuleFileReader("", "main.rules", mockReadFile(files))
 	content, err := r.ReadAll()
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
+
+	fmt.Println("Files Content:")
+	for fileName, lines := range filesContent {
+		fmt.Printf("File: %s\n", fileName)
+		for i, line := range lines {
+			fmt.Printf("%2d: %s\n", i+1, line)
+		}
+	}
+
 	fmt.Println("Combined Content:")
-	for i := range strings.Split(content, "\n") {
-		fmt.Printf("%2d: %s\n", i+1, strings.Split(content, "\n")[i])
+	combinedContent := strings.Split(content, "\n")
+	for i := range combinedContent {
+		fmt.Printf("%2d: %s\n", i+1, combinedContent[i])
 	}
 	r.PrintImportedFiles()
 
-	tests := []struct {
-		globalLine int
-		expFile    string
-		expLine    int
-	}{
-		{2, "main.rules", 1},
-		{4, "imp1.rules", 1},
-		{5, "imp1.rules", 2},
-		{6, "main.rules", 3},
-		{7, "main.rules", 4},
-	}
-
-	for _, tt := range tests {
-		fileName, lineNum, err := r.GetLocalFileAndLine(tt.globalLine)
-		if err != nil {
-			t.Errorf("unexpected error for global line %d: %v", tt.globalLine, err)
+	for i, line := range combinedContent {
+		if strings.HasPrefix(line, "@JetCompilerDirective") || len(line) == 0 {
 			continue
 		}
-		if fileName != tt.expFile || lineNum != tt.expLine {
-			t.Errorf("global line %d: expected (%s,%d), got (%s,%d)", tt.globalLine, tt.expFile, tt.expLine, fileName, lineNum)
+		globalLine := i + 1
+		fileName, localLine, err := r.GetLocalFileAndLine(globalLine)
+		if err != nil {
+			t.Errorf("error getting local file and line for global line %d: %v", globalLine, err)
+			continue
+		}
+		fmt.Printf("Global line %d -> File: %s, Local line: %d\n", globalLine, fileName, localLine)
+		if line != filesContent[fileName][localLine-1] {
+			t.Errorf("line mismatch at global line %d: expected %q, got %q", globalLine, filesContent[fileName][localLine-1], line)
 		}
 	}
-	t.Error("Done")
+	// t.Error("Done")
+}
+
+func TestRuleFileReader_GetLocalFileAndLine2(t *testing.T) {
+	files := map[string]string{
+		"main.rules": "line1\nline2\nimport \"imp1.rules\"\nline3\nline4",
+		"imp1.rules": "imp1_line1\nimp1_line2\nimport \"imp2.rules\"\nimp1_line3\nimp1_line4",
+		"imp2.rules": "imp2_line1\nimp2_line2",
+	}
+	filesContent := make(map[string][]string)
+	for k, v := range files {
+		filesContent[k] = strings.Split(v, "\n")
+	}
+	r := NewRuleFileReader("", "main.rules", mockReadFile(files))
+	content, err := r.ReadAll()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	fmt.Println("Files Content:")
+	for fileName, lines := range filesContent {
+		fmt.Printf("File: %s\n", fileName)
+		for i, line := range lines {
+			fmt.Printf("%2d: %s\n", i+1, line)
+		}
+	}
+
+	fmt.Println("Combined Content:")
+	combinedContent := strings.Split(content, "\n")
+	for i := range combinedContent {
+		fmt.Printf("%2d: %s\n", i+1, combinedContent[i])
+	}
+	r.PrintImportedFiles()
+
+	for i, line := range combinedContent {
+		if strings.HasPrefix(line, "@JetCompilerDirective") || len(line) == 0 {
+			continue
+		}
+		globalLine := i + 1
+		fileName, localLine, err := r.GetLocalFileAndLine(globalLine)
+		if err != nil {
+			t.Errorf("error getting local file and line for global line %d: %v", globalLine, err)
+			continue
+		}
+		fmt.Printf("Global line %d -> File: %s, Local line: %d\n", globalLine, fileName, localLine)
+		if line != filesContent[fileName][localLine-1] {
+			t.Errorf("line mismatch at global line %d: expected %q, got %q", globalLine, filesContent[fileName][localLine-1], line)
+		}
+	}
+	// t.Error("Done")
 }
