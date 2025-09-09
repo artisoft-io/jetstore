@@ -5,10 +5,11 @@ package rete
 type JetruleModel struct {
 	MainRuleFileName string `json:"main_rule_file_name"`
 	// SupportRuleFileNames []string                 `json:"support_rule_file_names"`
-	Resources    []ResourceNode    `json:"resources"`
-	LookupTables []LookupTableNode `json:"lookup_tables"`
-	Jetrules     []JetruleNode     `json:"jet_rules"`
-	ReteNodes    []RuleTerm        `json:"rete_nodes"`
+	CompilerDirectives map[string]string `json:"compiler_directives"`
+	Resources          []ResourceNode    `json:"resources"`
+	LookupTables       []LookupTableNode `json:"lookup_tables"`
+	Jetrules           []JetruleNode     `json:"jet_rules"`
+	ReteNodes          []RuleTerm        `json:"rete_nodes"`
 	// Imports              map[string][]string      `json:"imports"`
 	JetstoreConfig map[string]string        `json:"jetstore_config"`
 	RuleSequences  []map[string]interface{} `json:"rule_sequences"`
@@ -22,17 +23,18 @@ type JetruleModel struct {
 
 func NewJetruleModel() *JetruleModel {
 	return &JetruleModel{
-		Resources:    []ResourceNode{},
-		LookupTables: []LookupTableNode{},
-		Jetrules:     []JetruleNode{},
-		ReteNodes:    []RuleTerm{},
-		JetstoreConfig: make(map[string]string),
-		RuleSequences:  []map[string]any{},
-		Classes:        []ClassNode{},
-		Tables:         []TableNode{},
-		Triples:        []TripleNode{},
-		Antecedents:    []*RuleTerm{},
-		Consequents:    []*RuleTerm{},
+		CompilerDirectives: make(map[string]string),
+		Resources:          []ResourceNode{},
+		LookupTables:       []LookupTableNode{},
+		Jetrules:           []JetruleNode{},
+		ReteNodes:          []RuleTerm{},
+		JetstoreConfig:     make(map[string]string),
+		RuleSequences:      []map[string]any{},
+		Classes:            []ClassNode{},
+		Tables:             []TableNode{},
+		Triples:            []TripleNode{},
+		Antecedents:        []*RuleTerm{},
+		Consequents:        []*RuleTerm{},
 	}
 }
 
