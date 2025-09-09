@@ -49,10 +49,12 @@ type JetRuleListener struct {
 	outJsonFileName string
 	jetRuleModel    *rete.JetruleModel
 
-	// Internal
-	parseLog *strings.Builder
-	errorLog *strings.Builder
-	trace    bool
+	// Internal state
+	currentRuleFileName string
+	currentClass         rete.ClassNode
+	parseLog            *strings.Builder
+	errorLog            *strings.Builder
+	trace               bool
 }
 
 func NewJetRuleListener(basePath string, mainRuleFileName string) *JetRuleListener {
@@ -127,14 +129,25 @@ func readRuleFile(filePath string) (string, error) {
 
 // Trace: Override EnterEveryRule
 func (l *JetRuleListener) EnterEveryRule(ctx antlr.ParserRuleContext) {
-	if l.trace {
-		fmt.Fprintf(l.parseLog, "Entering rule: %s\n", ctx.GetText())
-	}
+	// if l.trace {
+	// 	fmt.Fprintf(l.parseLog, "Entering rule: %s\n", ctx.GetText())
+	// }
 }
 
 // Trace: Override ExitEveryRule
 func (l *JetRuleListener) ExitEveryRule(ctx antlr.ParserRuleContext) {
+	// if l.trace {
+	// 	fmt.Fprintf(l.parseLog, "EXITING RULE: %s\n", ctx.GetText())
+	// }
+}
+func (l *JetRuleListener) EnterJetrule(ctx *parser.JetruleContext) {
 	if l.trace {
-		fmt.Fprintf(l.parseLog, "EXITING RULE: %s\n", ctx.GetText())
+		fmt.Fprintf(l.parseLog, "** EnterJetrule\n")
+	}
+}
+
+func (l *JetRuleListener) ExitJetrule(ctx *parser.JetruleContext) {
+	if l.trace {
+		fmt.Fprintf(l.parseLog, "** ExitJetrule\n")
 	}
 }

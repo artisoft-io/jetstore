@@ -1,8 +1,9 @@
 # ///////////////////////////////////////////////////////////////////////////////////////
 # Simple Rule Test for JetStore Rule Language
 # ---------------------------------------------------------------------------------------
-volatile_resource medicareRateObj261     = "medicareRateObj261";
+@JetCompilerDirective extract_resources_from_rules = "true";
 
+volatile_resource medicareRateObj261     = "medicareRateObj261";
 # =======================================================================================
 # Defining Lookup Tables
 # ---------------------------------------------------------------------------------------
@@ -18,8 +19,22 @@ lookup_table acme:ProcedureLookup {
   ]
 };
 
+# State class used in rule engine working memory (abbreviated)
+class jets:State {
+  $base_classes = [owl:Thing],
+  $data_properties = [
+    jets:completed                  as bool,
+    jets:currentSourcePeriod        as int, 
+    jets:currentSourcePeriodDate    as date, 
+    jets:exception                  as array of text,
+    jets:range_value                as resource
+  ],
+  $as_table = false
+};
+
 resource node1 = "node1";
 resource node2 = "node2";
+triple(jets:iState, rdf:type, jets:State);
 
 # The 2 rules below are the same as rule 4 and 5 in rete_session_test
 [Rule5,s=10]:
