@@ -941,10 +941,6 @@ func validateOutputChConfig(outputChConfig *OutputChannelConfig, sp *SchemaProvi
 	if outputChConfig.Type == "" {
 		outputChConfig.Type = "memory"
 	}
-	if outputChConfig.Type != "output" && outputChConfig.UseOriginalHeaders {
-		return fmt.Errorf(
-			"configuration error: output_channel.use_original_headers can only be true when output_channel.type is 'output'")
-	}
 	switch outputChConfig.Type {
 	case "sql":
 		if len(outputChConfig.OutputTableKey) == 0 {

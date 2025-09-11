@@ -247,7 +247,8 @@ func (args *StartComputePipesArgs) StartShardingComputePipes(ctx context.Context
 	}
 
 	inputRowColumnsJson, err := json.Marshal(InputRowColumns{
-		MainInput: cpipesStartup.InputColumns,
+		OriginalHeaders: cpipesStartup.InputColumnsOriginal,
+		MainInput:       cpipesStartup.InputColumns,
 	})
 	if err != nil {
 		return result, mainInputSchemaProvider, err

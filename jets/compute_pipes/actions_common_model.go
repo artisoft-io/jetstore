@@ -88,10 +88,12 @@ type SourcesConfigSpec struct {
 
 // InputRowColumns: used to save the input_row channel column name in
 // table cpipes_execution_status, column input_row_columns_json
+// OriginalHeaders are the original headers read from the main input file
 type InputRowColumns struct {
-	MainInput     []string   `json:"main_input"`
-	MergedInput   [][]string `json:"merged_inputs"`
-	InjectedInput [][]string `json:"injected_inputs"`
+	OriginalHeaders []string   `json:"original_headers"`
+	MainInput       []string   `json:"main_input"`
+	MergedInput     [][]string `json:"merged_inputs"`
+	InjectedInput   [][]string `json:"injected_inputs"`
 }
 
 // InputColumns correspond to columns in the input files, this

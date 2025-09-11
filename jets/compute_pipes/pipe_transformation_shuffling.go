@@ -7,6 +7,7 @@ import (
 )
 
 // Note: No columnEvaluators is used by this operator.
+// inputColPos is the position of the retained input columns, if any filtering is done.
 type ShufflingTransformationPipe struct {
 	cpConfig      *ComputePipesConfig
 	source        *InputChannel
@@ -15,6 +16,7 @@ type ShufflingTransformationPipe struct {
 	sourceData    [][]any
 	maxInputCount int
 	padShortRows  bool
+	inputColPos   []int
 	spec          *TransformationSpec
 	env           map[string]any
 	doneCh        chan struct{}
@@ -48,10 +50,10 @@ func (ctx *ShufflingTransformationPipe) Apply(input *[]any) error {
 func (ctx *ShufflingTransformationPipe) Done() error {
 	nbrRecIn := len(ctx.sourceData)
 	for range ctx.spec.ShufflingConfig.OutputSampleSize {
-		outputRow := make([]any, len(*ctx.outputCh.columns))
+		outputRow := make([]any, len(ctx.outputCh.config.Columns))
 		// For each column take a random value from the sourceData set
-		for name, jcol := range *ctx.outputCh.columns {
-			outputRow[jcol] = ctx.sourceData[rand.Intn(nbrRecIn)][(*ctx.source.columns)[name]]
+		for jcol := range ctx.outputCh.config.Columns {
+			outputRow[jcol] = ctx.sourceData[rand.Intn(nbrRecIn)][ctx.inputColPos[jcol]]
 		}
 		// Send the result to output
 		// log.Println("**!@@ ** Send SHUFFLING Result to", ctx.outputCh.name)
@@ -81,6 +83,7 @@ func (ctx *BuilderContext) NewShufflingTransformationPipe(source *InputChannel, 
 
 	// Check if the output rows have columns filtered out
 	var metaLookupTbl LookupTable
+	var retainedInputColPos []int
 	if config.FilterColumns != nil {
 		// Determine the columns to retain based on the lookup table
 		// Get the metadata lookup table
@@ -106,12 +109,8 @@ func (ctx *BuilderContext) NewShufflingTransformationPipe(source *InputChannel, 
 
 		// Prepare to replace the output column info
 		outputCh.config.Columns = make([]string, 0)
-		// remove the placeholder columns
-		for k := range *outputCh.columns {
-			delete(*outputCh.columns, k)
-		}
 
-		for _, ipos := range *source.columns {
+		for ipos := range source.config.Columns {
 			columnPosStr := fmt.Sprintf("%d", ipos)
 			// Lookup the metadata row by column position
 			metaRow, err := metaLookupTbl.Lookup(&columnPosStr)
@@ -123,9 +122,10 @@ func (ctx *BuilderContext) NewShufflingTransformationPipe(source *InputChannel, 
 			}
 			value := (*metaRow)[lookupColumn]
 			if retainOnValues[value] {
-				// Retain this column, get the column name from metaRow
+				// Retain this column
+				retainedInputColPos = append(retainedInputColPos, ipos)
+				// get the column name from metaRow
 				name := (*metaRow)[lookupColumnName].(string)
-				(*outputCh.columns)[name] = len(outputCh.config.Columns)
 				outputCh.config.Columns = append(outputCh.config.Columns, name)
 			}
 		}
@@ -135,6 +135,12 @@ func (ctx *BuilderContext) NewShufflingTransformationPipe(source *InputChannel, 
 			outputCh.config.Columns = append(outputCh.config.Columns, "placeholder")
 		}
 		// log.Println("*** Updated SHUFFLING OUTPUT Columns:", outputCh.config.Columns)
+	} else {
+		// Retain all input columns
+		retainedInputColPos = make([]int, len(source.config.Columns))
+		for ipos := range source.config.Columns {
+			retainedInputColPos[ipos] = ipos
+		}
 	}
 
 	return &ShufflingTransformationPipe{
@@ -145,6 +151,7 @@ func (ctx *BuilderContext) NewShufflingTransformationPipe(source *InputChannel, 
 		sourceData:    make([][]any, 0, nsize),
 		maxInputCount: config.MaxInputSampleSize,
 		padShortRows:  config.PadShortRowsWithNulls,
+		inputColPos:   retainedInputColPos,
 		spec:          spec,
 		env:           ctx.env,
 		doneCh:        ctx.done,
