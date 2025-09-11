@@ -388,7 +388,7 @@ func applyPreprocessingFunction(fncName, value string) (string, error) {
 		return value, nil
 
 	default:
-		return "", fmt.Errorf("unknown pre-processing function " + fncName)
+		return "", fmt.Errorf("unknown pre-processing function %s", fncName)
 	}
 }
 func (dkInfo *HeadersAndDomainKeysInfo)ComputeGroupingKey(NumberOfShards int, objectType *string, record *[]string, recordTypeOffset int, jetsKey *string) (string, int, error) {

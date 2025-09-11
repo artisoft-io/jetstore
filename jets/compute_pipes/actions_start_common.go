@@ -26,6 +26,8 @@ func init() {
 // can be a subset of the columns in the main_input schema provider based on
 // source_config table.
 // InputColumns can be empty if needs to be read from the input file.
+// InputColumnsOriginal is the original input columns before uniquefying them.
+// It is empty if InputColumns is empty or already unique.
 // MainInputDomainKeysSpec contains the domain keys spec based on source_config
 // table, which can be overriden by value from the main schema provider.
 // MainInputDomainClass applies when input_registry.input_type = 'domain_table'
@@ -33,6 +35,7 @@ type CpipesStartup struct {
 	CpConfig                      ComputePipesConfig
 	ProcessName                   string
 	InputColumns                  []string
+	InputColumnsOriginal          []string
 	MainInputSchemaProviderConfig *SchemaProviderSpec
 	MainInputDomainKeysSpec       *DomainKeysSpec
 	MainInputDomainClass          string
@@ -576,8 +579,8 @@ func (args *CpipesStartup) ValidatePipeSpecConfig(cpConfig *ComputePipesConfig, 
 		for j := range pipeSpec.Apply {
 			transformationConfig := &pipeSpec.Apply[j]
 			outputChConfig := &transformationConfig.OutputChannel
-			// log.Printf("*** VALIDATE PIPESPEC %s APPLY %s OUTPUT %s SP %s\n", 
-			// 	pipeSpec.Type, transformationConfig.Type, transformationConfig.OutputChannel.Name, 
+			// log.Printf("*** VALIDATE PIPESPEC %s APPLY %s OUTPUT %s SP %s\n",
+			// 	pipeSpec.Type, transformationConfig.Type, transformationConfig.OutputChannel.Name,
 			// 	transformationConfig.OutputChannel.SchemaProvider)
 			sp := getSchemaProvider(cpConfig.SchemaProviders, outputChConfig.SchemaProvider)
 			// validate transformation pipe config
@@ -938,6 +941,10 @@ func validateOutputChConfig(outputChConfig *OutputChannelConfig, sp *SchemaProvi
 	if outputChConfig.Type == "" {
 		outputChConfig.Type = "memory"
 	}
+	if outputChConfig.Type != "output" && outputChConfig.UseOriginalHeaders {
+		return fmt.Errorf(
+			"configuration error: output_channel.use_original_headers can only be true when output_channel.type is 'output'")
+	}
 	switch outputChConfig.Type {
 	case "sql":
 		if len(outputChConfig.OutputTableKey) == 0 {
@@ -985,6 +992,10 @@ func validateOutputChConfig(outputChConfig *OutputChannelConfig, sp *SchemaProvi
 		case "output":
 			if sp != nil {
 				syncOutputChannelWithSchemaProvider(outputChConfig, sp)
+			}
+			if outputChConfig.UseOriginalHeaders && outputChConfig.SpecName != "input_row" {
+				return fmt.Errorf(
+					"configuration error: output_channel.use_original_headers can only be true when output_channel.spec_name is 'input_row'")
 			}
 			if strings.HasPrefix(outputChConfig.Format, "parquet") {
 				outputChConfig.Format = "parquet"

@@ -116,6 +116,7 @@ func (cpCtx *ComputePipesContext) StartMergeFiles(dbpool *pgxpool.Pool) (cpErr e
 	}
 	if len(outputFileConfig.Headers) == 0 && writeHeaders {
 		if inputSp != nil {
+			// This is always the original headers, not the uniquefied ones
 			outputFileConfig.Headers = inputSp.ColumnNames()
 		}
 
@@ -124,8 +125,14 @@ func (cpCtx *ComputePipesContext) StartMergeFiles(dbpool *pgxpool.Pool) (cpErr e
 			// This is for the case where the headers are in the input file
 			inputChannelName := cpCtx.CpConfig.PipesConfig[0].InputChannel.Name
 			if inputChannelName == "input_row" {
-				outputFileConfig.Headers =
-					cpCtx.CpConfig.CommonRuntimeArgs.SourcesConfig.MainInput.InputColumns
+				// Check if we need to use the original headers or the uniquefied ones
+				inputChannelColumns := cpCtx.CpConfig.CommonRuntimeArgs.SourcesConfig.MainInput.InputColumns
+				originalHeaders := cpCtx.CpConfig.CommonRuntimeArgs.SourcesConfig.MainInput.OriginalInputColumns
+				if outputFileConfig.UseOriginalHeaders && len(originalHeaders) > 0 {
+					outputFileConfig.Headers = originalHeaders
+				} else {
+					outputFileConfig.Headers = inputChannelColumns
+				}
 			} else {
 				for i := range cpCtx.CpConfig.Channels {
 					if cpCtx.CpConfig.Channels[i].Name == inputChannelName {

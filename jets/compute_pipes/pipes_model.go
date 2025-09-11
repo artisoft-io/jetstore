@@ -368,11 +368,12 @@ type OutputFileSpec struct {
 	// The input channel's schema provider indicates what delimiter
 	// to use on the header line.
 	FileConfig
-	Key            string   `json:"key"`
-	FileName2      string   `json:"name,omitempty"`
-	FileKey2       string   `json:"output_location,omitempty"`
-	SchemaProvider string   `json:"schema_provider,omitempty"`
-	Headers        []string `json:"headers,omitempty"`
+	Key                string   `json:"key"`
+	FileName2          string   `json:"name,omitempty"`
+	FileKey2           string   `json:"output_location,omitempty"`
+	SchemaProvider     string   `json:"schema_provider,omitempty"`
+	UseOriginalHeaders bool     `json:"use_original_headers,omitzero"`
+	Headers            []string `json:"headers,omitempty"`
 }
 
 // Note: refactoring using FileConfig.FileKey is synonym to OutputLocation
@@ -522,6 +523,7 @@ type OutputChannelConfig struct {
 	// NbrRowsInRecord: nbr of rows in record (format: parquet)
 	// Compression: none, snappy (default).
 	// UseInputParquetSchema to use the same schema as the input file.
+	// UseOriginalHeaders to use the headers from the input file (csv only).
 	// Must have save_parquet_schema = true in the cpipes first input_channel.
 	// OutputLocation: jetstore_s3_input, jetstore_s3_output (default), or custom location.
 	// When OutputLocation is jetstore_s3_input it will also write to the input bucket.
@@ -542,6 +544,7 @@ type OutputChannelConfig struct {
 	FileConfig
 	Type                  string `json:"type"`
 	Name                  string `json:"name,omitempty"`
+	UseOriginalHeaders    bool   `json:"use_original_headers,omitzero"`			// Type output
 	UseInputParquetSchema bool   `json:"use_input_parquet_schema,omitzero"` // Type stage,output
 	SchemaProvider        string `json:"schema_provider,omitempty"`         // Type stage,output, alt to Format
 	WriteStepId           string `json:"write_step_id,omitempty"`           // Type stage
@@ -730,8 +733,14 @@ type ShufflingSpec struct {
 	FilterColumns         *FilterColumnSpec `json:"filter_columns,omitzero"`
 }
 
+// FilterColumnSpec specify how to filter the input rows before shuffling
+// LookupName is the name of the lookup table containing the column metadata, produced by the analyze operator.
+// ColumnName is the name of the column of the lookup table containing the column name to use on the output rows.
+// LookupColumn is the name of the column in the lookup table containing column name of the metadata table to filter on.
+// RetainOnValues is the list of values in the lookup table for LookupColumn to retain, only rows with thosae values are retained.
 type FilterColumnSpec struct {
 	LookupName     string   `json:"lookup_name,omitempty"`
+	ColumnName     string   `json:"column_name,omitempty"`
 	LookupColumn   string   `json:"lookup_column,omitempty"`
 	RetainOnValues []string `json:"retain_on_values,omitempty"`
 }

@@ -57,12 +57,17 @@ import (
 // if distinct_count < spec.distinct_values_when_less_than_count. There is a hardcoded
 // check that cap distinct_values_when_less_than_count to 20.
 //
+// column_name: the name of the column using the original column name if available, otherwise
+// it is the column name from the input channel.
+// entity_hint: is determined based on the hints provided in spec.analyze_config.entity_hints
+//
 // Other columns are added based on regex_tokens, lookup_tokens, keyword_tokens, and parse functions
 // The value of the domain counts are expressed in percentage of the non null count:
 //
 //	ratio = <domain count>/(totalCount - nullCount) * 100.0
 //
-// Note that if totalCount - nullCount == 0, then ratio = -1
+// Note that if totalCount - nullCount == 0, then ratio = -1.
+//
 // inputDataType contains the data type for each column according to the parquet schema.
 // inputDataType is a map of column name -> input data type
 // Range of value for input data type: string (default if not parquet), bool, int32, int64,
@@ -395,11 +400,24 @@ func (ctx *BuilderContext) NewAnalyzeTransformationPipe(source *InputChannel, ou
 		config.DistinctValuesWhenLessThanCount = 20
 	}
 
+	// Check to see if the original column names are available
+	columnNames := source.config.Columns
+	originalColumnNames := ctx.cpConfig.CommonRuntimeArgs.SourcesConfig.MainInput.OriginalInputColumns
+	if len(originalColumnNames) > 0 {
+		columnNames = originalColumnNames
+		if len(columnNames) != len(source.config.Columns) {
+			err = fmt.Errorf("error: number of original column names (%d) is different from number of input channel columns (%d)",
+				len(columnNames), len(source.config.Columns))
+			log.Println(err)
+			return nil, err
+		}
+	}
+
 	// Set up the AnalyzeState for each input column
-	analyzeState := make([]*AnalyzeState, len(source.config.Columns))
+	analyzeState := make([]*AnalyzeState, len(columnNames))
 	for i := range analyzeState {
 		analyzeState[i], err =
-			ctx.NewAnalyzeState(source.config.Columns[i], i, outputCh.columns, spec)
+			ctx.NewAnalyzeState(columnNames[i], i, outputCh.columns, spec)
 		if err != nil {
 			return nil, fmt.Errorf("while calling NewAnalyzeState for column %s: %v",
 				source.config.Columns[i], err)

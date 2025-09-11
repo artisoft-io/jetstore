@@ -93,6 +93,10 @@ func (ctx *BuilderContext) NewShufflingTransformationPipe(source *InputChannel, 
 		if !ok {
 			return nil, fmt.Errorf("error: shuffling operator metadata lookup table does not have column %s", config.FilterColumns.LookupColumn)
 		}
+		lookupColumnName, ok := metaLookupColumnsMap[config.FilterColumns.ColumnName]
+		if !ok {
+			return nil, fmt.Errorf("error: shuffling operator metadata lookup table does not have column %s", config.FilterColumns.ColumnName)
+		}
 
 		// Make a lookup of the value indicating to retain the column
 		retainOnValues := make(map[any]bool)
@@ -107,17 +111,20 @@ func (ctx *BuilderContext) NewShufflingTransformationPipe(source *InputChannel, 
 			delete(*outputCh.columns, k)
 		}
 
-		for name := range *source.columns {
-			metaRow, err := metaLookupTbl.Lookup(&name)
+		for _, ipos := range *source.columns {
+			columnPosStr := fmt.Sprintf("%d", ipos)
+			// Lookup the metadata row by column position
+			metaRow, err := metaLookupTbl.Lookup(&columnPosStr)
 			if err != nil {
-				return nil, fmt.Errorf("while getting the metadata row for column %s: %v", name, err)
+				return nil, fmt.Errorf("while getting the metadata row for column position %d: %v", ipos, err)
 			}
 			if metaRow == nil {
-				return nil, fmt.Errorf("error: metadata row not found for column %s", name)
+				return nil, fmt.Errorf("error: metadata row not found for column position %d", ipos)
 			}
 			value := (*metaRow)[lookupColumn]
 			if retainOnValues[value] {
-				// Retain this column
+				// Retain this column, get the column name from metaRow
+				name := (*metaRow)[lookupColumnName].(string)
 				(*outputCh.columns)[name] = len(outputCh.config.Columns)
 				outputCh.config.Columns = append(outputCh.config.Columns, name)
 			}

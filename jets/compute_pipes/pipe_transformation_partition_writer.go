@@ -372,19 +372,23 @@ func (ctx *BuilderContext) NewPartitionWriterTransformationPipe(source *InputCha
 	// Use the column specified from the output channel, if none are specified, look at the schema provider
 	// Note this does not apply to output channel with dynamic columns since they have placeholder at config time
 	if outputCh.config.HasDynamicColumns && config.DeviceWriterType == "parquet_writer" {
+		//*TODO Cannot use parquet with output_channel with dynamic columns, need to defer the construction of the schema
 		err = fmt.Errorf("error: parquet writer is not supported with output_channel with dynamic columns")
 		log.Println(err)
 		return nil, err
+	}
+	// Check if using original column names on
+	originalColumnNames := ctx.cpConfig.CommonRuntimeArgs.SourcesConfig.MainInput.OriginalInputColumns
+	if len(originalColumnNames) > 0 && spec.OutputChannel.UseOriginalHeaders {
+		outputCh.config.Columns = originalColumnNames
 	}
 	if !outputCh.config.HasDynamicColumns {
 		if len(outputCh.config.Columns) == 0 && sp != nil {
 			outputCh.config.Columns = sp.ColumnNames()
 		}
 		if len(outputCh.config.Columns) == 0 {
-			//*TODO Cannot use parquet with output_channel with dynamic columns, need to defer the construction of the schema
 			return nil, fmt.Errorf("error: output channel '%s' have no columns specified", outputCh.name)
 		}
-		//*TODO Cannot use parquet with output_channel with dynamic columns, need to defer the construction of the schema
 		switch config.DeviceWriterType {
 		case "parquet_writer":
 			switch {

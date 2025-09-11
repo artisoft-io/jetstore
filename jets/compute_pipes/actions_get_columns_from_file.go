@@ -204,7 +204,7 @@ func GetRawHeadersCsv(fileHd *os.File, fileName, fileFormat, compression string,
 func AdjustFillers(rawHeaders *[]string) {
 	for i := range *rawHeaders {
 		if (*rawHeaders)[i] == "" {
-			(*rawHeaders)[i] = "Filler"
+			(*rawHeaders)[i] = "FILLER"
 		}
 	}
 }
