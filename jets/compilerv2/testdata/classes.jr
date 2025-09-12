@@ -1,0 +1,23 @@
+# =======================================================================================
+# Class
+# ---------------------------------------------------------------------------------------
+
+class ClassA {
+  $base_classes = [owl:Thing],
+  $data_properties = [
+    someProperty       as int,
+    someValue          as resource
+  ],
+  $as_table = false
+};
+
+class ClassB {
+  $base_classes = [ClassA],
+  $data_properties = [
+    propertyB       as bool,
+    valueB          as double
+  ],
+  $as_table = false
+};
+
+
