@@ -43,3 +43,14 @@ func TestJetRuleListener_RuleSequence(t *testing.T) {
 	fmt.Printf("** Rule Sequences: \n%v\n", string(b))
 	t.Error("Done")
 }
+
+func TestJetRuleListener_Resources(t *testing.T) {
+
+	listener, err := CompileJetRuleFiles("./testdata", "resources.jr", true)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	b, _ := json.MarshalIndent(listener.jetRuleModel.Resources, "", " ")
+	fmt.Printf("** Resources: \n%v\n", string(b))
+	t.Error("Done")
+}

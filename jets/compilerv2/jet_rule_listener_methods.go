@@ -125,6 +125,154 @@ func (s *JetRuleListener) ExitDefineRuleSeqStmt(ctx *parser.DefineRuleSeqStmtCon
 	}
 }
 
+// =====================================================================================
+// Literals
+// -------------------------------------------------------------------------------------
+// ExitInt32LiteralStmt is called when production int32Literal is exited.
+func (s *JetRuleListener) ExitInt32LiteralStmt(ctx *parser.Int32LiteralStmtContext) {
+	if ctx.GetVarType() != nil && ctx.GetVarName() != nil && ctx.GetDeclValue() != nil {
+		s.jetRuleModel.Resources = append(s.jetRuleModel.Resources, rete.ResourceNode{
+			Type:  ctx.GetVarType().GetText(),
+			Id:    ctx.GetVarName().GetText(),
+			Value: ctx.GetDeclValue().GetText(),
+		})
+	}
+}
+
+// exitUInt32LiteralStmt is called when production uint32Literal is exited.
+func (s *JetRuleListener) ExitUInt32LiteralStmt(ctx *parser.UInt32LiteralStmtContext) {
+	if ctx.GetVarType() != nil && ctx.GetVarName() != nil && ctx.GetDeclValue() != nil {
+		s.jetRuleModel.Resources = append(s.jetRuleModel.Resources, rete.ResourceNode{
+			Type:  ctx.GetVarType().GetText(),
+			Id:    ctx.GetVarName().GetText(),
+			Value: ctx.GetDeclValue().GetText(),
+		})
+	}
+}
+
+// ExitInt64LiteralStmt is called when production int64Literal is exited.
+func (s *JetRuleListener) ExitInt64LiteralStmt(ctx *parser.Int64LiteralStmtContext) {
+	if ctx.GetVarType() != nil && ctx.GetVarName() != nil && ctx.GetDeclValue() != nil {
+		s.jetRuleModel.Resources = append(s.jetRuleModel.Resources, rete.ResourceNode{
+			Type:  ctx.GetVarType().GetText(),
+			Id:    ctx.GetVarName().GetText(),
+			Value: ctx.GetDeclValue().GetText(),
+		})
+	}
+}
+
+// ExitUInt64LiteralStmt is called when production uint64Literal is exited.
+func (s *JetRuleListener) ExitUInt64LiteralStmt(ctx *parser.UInt64LiteralStmtContext) {
+	if ctx.GetVarType() != nil && ctx.GetVarName() != nil && ctx.GetDeclValue() != nil {
+		s.jetRuleModel.Resources = append(s.jetRuleModel.Resources, rete.ResourceNode{
+			Type:  ctx.GetVarType().GetText(),
+			Id:    ctx.GetVarName().GetText(),
+			Value: ctx.GetDeclValue().GetText(),
+		})
+	}
+}
+
+// exitDoubleLiteralStmt is called when production doubleLiteral is exited.
+func (s *JetRuleListener) ExitDoubleLiteralStmt(ctx *parser.DoubleLiteralStmtContext) {
+	if ctx.GetVarType() != nil && ctx.GetVarName() != nil && ctx.GetDeclValue() != nil {
+		s.jetRuleModel.Resources = append(s.jetRuleModel.Resources, rete.ResourceNode{
+			Type:  ctx.GetVarType().GetText(),
+			Id:    ctx.GetVarName().GetText(),
+			Value: ctx.GetDeclValue().GetText(),
+		})
+	}
+}
+
+// exitStringLiteralStmt is called when production stringLiteral is exited.
+func (s *JetRuleListener) ExitStringLiteralStmt(ctx *parser.StringLiteralStmtContext) {
+	if ctx.GetVarType() != nil && ctx.GetVarName() != nil && ctx.GetDeclValue() != nil {
+		s.jetRuleModel.Resources = append(s.jetRuleModel.Resources, rete.ResourceNode{
+			Type:  ctx.GetVarType().GetText(),
+			Id:    ctx.GetVarName().GetText(),
+			Value: StripQuotes(ctx.GetDeclValue().GetText()),
+		})
+	}
+}
+
+// exitDateLiteralStmt is called when production dateLiteral is exited.
+func (s *JetRuleListener) ExitDateLiteralStmt(ctx *parser.DateLiteralStmtContext) {
+	if ctx.GetVarType() != nil && ctx.GetVarName() != nil && ctx.GetDeclValue() != nil {
+		s.jetRuleModel.Resources = append(s.jetRuleModel.Resources, rete.ResourceNode{
+			Type:  ctx.GetVarType().GetText(),
+			Id:    ctx.GetVarName().GetText(),
+			Value: StripQuotes(ctx.GetDeclValue().GetText()),
+		})
+	}
+}
+
+// exitDatetimeLiteralStmt is called when production datetimeLiteral is exited.
+func (s *JetRuleListener) ExitDatetimeLiteralStmt(ctx *parser.DatetimeLiteralStmtContext) {
+	if ctx.GetVarType() != nil && ctx.GetVarName() != nil && ctx.GetDeclValue() != nil {
+		s.jetRuleModel.Resources = append(s.jetRuleModel.Resources, rete.ResourceNode{
+			Type:  ctx.GetVarType().GetText(),
+			Id:    ctx.GetVarName().GetText(),
+			Value: StripQuotes(ctx.GetDeclValue().GetText()),
+		})
+	}
+}
+
+// exitBooleanLiteralStmt is called when production booleanLiteral is exited.
+func (s *JetRuleListener) ExitBooleanLiteralStmt(ctx *parser.BooleanLiteralStmtContext) {
+	if ctx.GetVarType() != nil && ctx.GetVarName() != nil && ctx.GetDeclValue() != nil {
+		s.jetRuleModel.Resources = append(s.jetRuleModel.Resources, rete.ResourceNode{
+			Type:  ctx.GetVarType().GetText(),
+			Id:    ctx.GetVarName().GetText(),
+			Value: ctx.GetDeclValue().GetText(),
+		})
+	}
+}
+
+// =====================================================================================
+// Resource Definitions
+// -------------------------------------------------------------------------------------
+// exitNamedResourceStmt is called when production namedResourceStmt is exited.
+func (s *JetRuleListener) ExitNamedResourceStmt(ctx *parser.NamedResourceStmtContext) {
+	if ctx.GetResCtx() == nil || ctx.GetResName() == nil {
+		return
+	}
+	id := StripQuotes(ctx.GetResName().GetText())
+	var typ, value string
+	switch {
+	case ctx.GetResCtx().GetResVal() != nil:
+		value = StripQuotes(ctx.GetResCtx().GetResVal().GetText())
+		typ = "resource"
+	case ctx.GetResCtx().GetKws() != nil:
+		value = StripQuotes(ctx.GetResCtx().GetKws().GetText())
+		typ = "symbol"
+	}
+	if len(value) == 0 {
+		return
+	}
+	s.jetRuleModel.Resources = append(s.jetRuleModel.Resources, rete.ResourceNode{
+		Type:           typ,
+		Id:             id,
+		Value:          value,
+		SourceFileName: s.currentRuleFileName,
+	})
+}
+
+// exitVolatileResourceStmt is called when production volatileResourceStmt is exited.
+func (s *JetRuleListener) ExitVolatileResourceStmt(ctx *parser.VolatileResourceStmtContext) {
+	var id, value string
+	if ctx.GetResName() != nil {
+		id = StripQuotes(ctx.GetResName().GetText())
+	}
+	if ctx.GetResVal() != nil {
+		value = StripQuotes(ctx.GetResVal().GetText())
+	}
+	s.jetRuleModel.Resources = append(s.jetRuleModel.Resources, rete.ResourceNode{
+		Type:           "volatile_resource",
+		Id:             id,
+		Value:          value,
+		SourceFileName: s.currentRuleFileName,
+	})
+}
+
 // Utility methods
 
 // Escape resource name that conflicts with keywords such as rdf:type becomes rdf:"type"
