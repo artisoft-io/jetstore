@@ -1,0 +1,13 @@
+# =======================================================================================
+# Resources
+# ---------------------------------------------------------------------------------------
+
+resource rrConfig = "sm:RRConfig";
+resource breakOnDomainKey = "sm:breakOnDomainKey";
+
+volatile_resource abstractNegPrice = "hasAbstractNegPrice" ;
+volatile_resource negotiatedPrice = "hasNegotiatedPrice" ;
+
+int five = 5;
+double d = 22.8;
+
