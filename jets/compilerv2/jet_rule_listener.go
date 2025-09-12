@@ -51,7 +51,8 @@ type JetRuleListener struct {
 
 	// Internal state
 	currentRuleFileName string
-	currentClass         rete.ClassNode
+	currentClass        *rete.ClassNode
+	currentRuleSequence *rete.RuleSequence
 	parseLog            *strings.Builder
 	errorLog            *strings.Builder
 	trace               bool

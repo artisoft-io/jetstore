@@ -51,7 +51,7 @@ func (s *JetRuleListener) ExitJetstoreConfigItem(ctx *parser.JetstoreConfigItemC
 // EnterDefineClassStmt is called when production defineClassStmt is entered.
 func (s *JetRuleListener) EnterDefineClassStmt(ctx *parser.DefineClassStmtContext) {
 	if ctx.GetClassName() != nil {
-		s.currentClass = rete.ClassNode{
+		s.currentClass = &rete.ClassNode{
 			Type:           "class",
 			Name:           EscR(ctx.GetClassName().GetText()),
 			BaseClasses:    []string{},
@@ -79,8 +79,10 @@ func (s *JetRuleListener) ExitAsTableStmt(ctx *parser.AsTableStmtContext) {
 
 // ExitDefineClassStmt is called when production defineClassStmt is exited.
 func (s *JetRuleListener) ExitDefineClassStmt(ctx *parser.DefineClassStmtContext) {
-	s.jetRuleModel.Classes = append(s.jetRuleModel.Classes, s.currentClass)
-	s.currentClass = rete.ClassNode{}
+	if s.currentClass != nil {
+		s.jetRuleModel.Classes = append(s.jetRuleModel.Classes, *s.currentClass)
+		s.currentClass = nil
+	}
 }
 
 // ExitDataPropertyDefinitions is called when production dataPropertyDefinitions is exited.
@@ -93,6 +95,33 @@ func (s *JetRuleListener) ExitDataPropertyDefinitions(ctx *parser.DataPropertyDe
 			AsArray:   ctx.GetArray() != nil,
 		}
 		s.currentClass.DataProperties = append(s.currentClass.DataProperties, dp)
+	}
+}
+
+// =====================================================================================
+// Rule Sequence Definition
+// -------------------------------------------------------------------------------------
+// EnterDefineRuleSeqStmt is called when production defineRuleSeqStmt is entered.
+func (s *JetRuleListener) EnterDefineRuleSeqStmt(ctx *parser.DefineRuleSeqStmtContext) {
+	s.currentRuleSequence = &rete.RuleSequence{}
+}
+
+// ExitRuleSetDefinitions is called when production ruleSetDefinitions is exited.
+func (s *JetRuleListener) ExitRuleSetDefinitions(ctx *parser.RuleSetDefinitionsContext) {
+	if ctx.GetRsName() != nil && s.currentRuleSequence != nil {
+		s.currentRuleSequence.RuleSets =
+			append(s.currentRuleSequence.RuleSets, StripQuotes(ctx.GetRsName().GetText()))
+	}
+}
+
+// ExitDefineRuleSeqStmt is called when production defineRuleSeqStmt is exited.
+func (s *JetRuleListener) ExitDefineRuleSeqStmt(ctx *parser.DefineRuleSeqStmtContext) {
+	if s.currentRuleSequence != nil {
+		if ctx.GetRuleseqName() != nil {
+			s.currentRuleSequence.Name = ctx.GetRuleseqName().GetText()
+			s.jetRuleModel.RuleSequences = append(s.jetRuleModel.RuleSequences, *s.currentRuleSequence)
+		}
+		s.currentRuleSequence = nil
 	}
 }
 
