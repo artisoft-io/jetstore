@@ -490,81 +490,37 @@ func (ctx *ReteBuilderContext) loadNodeVertices() error {
 	return nil
 }
 
-func (ctx *ReteBuilderContext) makeExpression(expr map[string]interface{}) (Expression, error) {
-	if len(expr) == 0 {
+func (ctx *ReteBuilderContext) makeExpression(expr *ExpressionNode) (Expression, error) {
+	if expr == nil {
 		return nil, nil
 	}
 	var err error
 	var lhs, rhs Expression
-	exprType, ok := expr["type"].(string)
-	if !ok {
-		return nil, fmt.Errorf("error: makeExpression called with expr without a proper type")
-	}
-	switch exprType {
+	switch expr.Type {
 	case "binary":
-		lhs, err = ctx.makeExpressionArgument(expr, "lhs")
+		lhs, err = ctx.makeExpression(expr.Lhs)
 		if err != nil {
 			return nil, err
 		}
-		rhs, err = ctx.makeExpressionArgument(expr, "rhs")
+		rhs, err = ctx.makeExpression(expr.Rhs)
 		if err != nil {
 			return nil, err
 		}
-		opStr, ok := expr["op"].(string)
-		if !ok {
-			return nil, fmt.Errorf("error: makeExpression called for binary expression without an op")
-		}
-		operator := ctx.CreateBinaryOperator(opStr)
+		operator := ctx.CreateBinaryOperator(expr.Op)
 		if operator == nil {
-			return nil, fmt.Errorf("error: makeExpression called for binary expression with unknown op %s", opStr)
+			return nil, fmt.Errorf("error: makeExpression called for binary expression with unknown op %s", expr.Op)
 		}
 		return NewExprBinaryOp(lhs, operator, rhs), nil
 	case "unary":
-		rhs, err = ctx.makeExpressionArgument(expr, "arg")
+		rhs, err = ctx.makeExpression(expr.Arg)
 		if err != nil {
 			return nil, err
 		}
-		opStr, ok := expr["op"].(string)
-		if !ok {
-			return nil, fmt.Errorf("error: makeExpression called for unary expression without an op")
-		}
-		operator := ctx.CreateUnaryOperator(opStr)
+		operator := ctx.CreateUnaryOperator(expr.Op)
 		if operator == nil {
-			return nil, fmt.Errorf("error: makeExpression called for unary expression with unknown op %s", opStr)
+			return nil, fmt.Errorf("error: makeExpression called for unary expression with unknown op %s", expr.Op)
 		}
 		return NewExprUnaryOp(operator, rhs), nil
 	}
-	return nil, fmt.Errorf("error: makeExpression called with unknown type %s", exprType)
-}
-
-func (ctx *ReteBuilderContext) makeExpressionArgument(expr map[string]interface{}, argv string) (Expression, error) {
-	var lhs Expression
-	var err error
-	switch vv := expr[argv].(type) {
-	case float64:
-		// argv is a resource or a binded var
-		key := int(vv)
-		r, ok := ctx.ResourcesLookup[key]
-		if ok {
-			lhs = NewExprCst(r)
-		} else {
-			v, ok := ctx.VariablesLookup[key]
-			if !ok {
-				return nil, fmt.Errorf("error: makeExpression called with %s as key %d but it's not a resource or a binded variable", argv, key)
-			}
-			if !v.IsBinded {
-				return nil, fmt.Errorf("error: makeExpression called with %s as variable %s, but it's not a binded var", argv, v.Id)
-			}
-			lhs = NewExprBindedVar(v.VarPos, v.Id)
-		}
-	case map[string]interface{}:
-		// argv is an expression
-		lhs, err = ctx.makeExpression(vv)
-		if err != nil {
-			return nil, err
-		}
-	default:
-		return nil, fmt.Errorf("error: makeExpression called with unexpected type for %s, it's %T from expr: %v", argv, expr[argv], expr)
-	}
-	return lhs, nil
+	return nil, fmt.Errorf("error: makeExpression called with unknown type %s", expr.Type)
 }

@@ -8,6 +8,7 @@ import (
 	"github.com/antlr4-go/antlr/v4"
 	"github.com/artisoft-io/jetstore/jets/compilerv2/parser"
 	"github.com/artisoft-io/jetstore/jets/jetrules/rete"
+	"github.com/artisoft-io/jetstore/jets/stack"
 )
 
 // antlr v4 JetRuleListener interface implementation
@@ -27,7 +28,7 @@ func CompileJetRuleFiles(basePath string, mainRuleFileName string, trace bool) (
 		fmt.Println("** Parse Log:\n", compiler.parseLog.String())
 	}
 	if compiler.errorLog.Len() > 0 {
-		fmt.Println("** Errors:\n", compiler.errorLog.String())
+		fmt.Println("** Compilation Errors:\n", compiler.errorLog.String())
 	}
 	// if trace {
 	// 	fmt.Printf("** Generated model has %d rules, %d resources, %d lookup tables\n",
@@ -50,12 +51,21 @@ type JetRuleListener struct {
 	jetRuleModel    *rete.JetruleModel
 
 	// Internal state
-	currentRuleFileName string
-	currentClass        *rete.ClassNode
-	currentRuleSequence *rete.RuleSequence
-	parseLog            *strings.Builder
-	errorLog            *strings.Builder
-	trace               bool
+	nextKey                   int
+	currentRuleFileName       string
+	currentClass              *rete.ClassNode
+	currentRuleSequence       *rete.RuleSequence
+	currentLookupTableColumns []rete.LookupTableColumn
+	currentRuleProperties     map[string]string
+	currentRuleAntecedents    []rete.RuleTerm
+	currentRuleConsequents    []rete.RuleTerm
+	// stack to build expressions in Antecedents and Consequents
+	inProgressExpr            *stack.Stack[rete.ExpressionNode]
+
+	// Logs
+	parseLog *strings.Builder
+	errorLog *strings.Builder
+	trace    bool
 }
 
 func NewJetRuleListener(basePath string, mainRuleFileName string) *JetRuleListener {
@@ -102,11 +112,6 @@ func (j *JetRuleListener) Compile() error {
 
 	// Finally walk the tree
 	antlr.ParseTreeWalkerDefault.Walk(j, tree)
-
-	// Check for errors
-	if j.errorLog.Len() > 0 {
-		return fmt.Errorf("compilation errors:\n%s", j.errorLog.String())
-	}
 	return nil
 }
 
@@ -131,14 +136,14 @@ func readRuleFile(filePath string) (string, error) {
 // Trace: Override EnterEveryRule
 func (l *JetRuleListener) EnterEveryRule(ctx antlr.ParserRuleContext) {
 	// if l.trace {
-	// 	fmt.Fprintf(l.parseLog, "Entering rule: %s\n", ctx.GetText())
+	// 	fmt.Fprintf(l.parseLog, "Entering rule (%T): %s\n", ctx, ctx.GetText())
 	// }
 }
 
 // Trace: Override ExitEveryRule
 func (l *JetRuleListener) ExitEveryRule(ctx antlr.ParserRuleContext) {
 	// if l.trace {
-	// 	fmt.Fprintf(l.parseLog, "EXITING RULE: %s\n", ctx.GetText())
+	// 	fmt.Fprintf(l.parseLog, "EXITING RULE (%T): %s\n", ctx, ctx.GetText())
 	// }
 }
 func (l *JetRuleListener) EnterJetrule(ctx *parser.JetruleContext) {
