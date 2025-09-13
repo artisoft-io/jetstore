@@ -456,6 +456,9 @@ func (s *JetRuleListener) ExitObjectAtomExprTerm(ctx *parser.ObjectAtomExprTermC
 	if resource == nil {
 		return
 	}
+	// Add the node to the resources
+	s.jetRuleModel.Resources = append(s.jetRuleModel.Resources, *resource)
+	
 	// Create a new identifier (resource / volatile_resource) expression node
 	varNode := rete.ExpressionNode{
 		Type:  "identifier",
