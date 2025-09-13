@@ -1,0 +1,17 @@
+# =======================================================================================
+# Lookup Table
+# ---------------------------------------------------------------------------------------
+
+lookup_table DrugClassInterchangeLookup {
+  $csv_file = "lookups/drug_class_interchange_lookup_v1.csv",
+  # Lookup key
+  $key = ["client", "plan_name", "source_drug_class"],
+  # Value columns, corresponding resource automatically created
+  $columns = [
+    "target_drug_class" as text,
+    "paid_unit_cost"    as double,
+    "condition"         as text,
+    "rule_name"         as text,
+    "drug_info"         as text
+  ]
+};

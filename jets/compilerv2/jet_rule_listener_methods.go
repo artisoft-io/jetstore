@@ -5,6 +5,7 @@ import (
 
 	"github.com/artisoft-io/jetstore/jets/compilerv2/parser"
 	"github.com/artisoft-io/jetstore/jets/jetrules/rete"
+	"github.com/artisoft-io/jetstore/jets/stack"
 )
 
 // This file contains the overrides for the listener methods to build the model
@@ -235,7 +236,7 @@ func (s *JetRuleListener) ExitNamedResourceStmt(ctx *parser.NamedResourceStmtCon
 	if ctx.GetResCtx() == nil || ctx.GetResName() == nil {
 		return
 	}
-	id := StripQuotes(ctx.GetResName().GetText())
+	id := EscR(ctx.GetResName().GetText())
 	var typ, value string
 	switch {
 	case ctx.GetResCtx().GetResVal() != nil:
@@ -273,20 +274,335 @@ func (s *JetRuleListener) ExitVolatileResourceStmt(ctx *parser.VolatileResourceS
 	})
 }
 
-// Utility methods
-
-// Escape resource name that conflicts with keywords such as rdf:type becomes rdf:"type"
-// this function removes the quotes
-func EscR(s string) string {
-	if len(s) > 4 && strings.Contains(s, ":\"") {
-		return strings.ReplaceAll(s, "\"", "")
-	}
-	return s
+// =====================================================================================
+// Lookup Table Definitions
+// -------------------------------------------------------------------------------------
+// enterLookupTableStmt is called when production lookupTableStmt is entered.
+func (s *JetRuleListener) EnterLookupTableStmt(ctx *parser.LookupTableStmtContext) {
+	s.currentLookupTableColumns = []rete.LookupTableColumn{}
 }
 
-func StripQuotes(s string) string {
-	if len(s) >= 2 && ((s[0] == '"' && s[len(s)-1] == '"') || (s[0] == '\'' && s[len(s)-1] == '\'')) {
-		return s[1 : len(s)-1]
+// exitColumnDefinitions is called when production columnDefinitions is exited.
+func (s *JetRuleListener) ExitColumnDefinitions(ctx *parser.ColumnDefinitionsContext) {
+	if ctx.GetColumnName() != nil && ctx.GetColumnType() != nil {
+		col := rete.LookupTableColumn{
+			Name:    StripQuotes(ctx.GetColumnName().GetText()),
+			Type:    ctx.GetColumnType().GetText(),
+			IsArray: ctx.GetArray() != nil,
+		}
+		s.currentLookupTableColumns = append(s.currentLookupTableColumns, col)
 	}
-	return s
+}
+
+// exitLookupTableColumn is called when production lookupTableColumn is exited.
+func (s *JetRuleListener) ExitLookupTableStmt(ctx *parser.LookupTableStmtContext) {
+	// Note $table_name (TableName) is not used, all lookups are csv-based ($csv_file)
+	// so for now enforcing that ctx.CsvLocation().GetCsvFileName() != nil
+	if ctx.CsvLocation() == nil || ctx.CsvLocation().GetCsvFileName() == nil || ctx.GetTblKeys() == nil {
+		s.parseLog.WriteString("** Warning: lookup table must have $csv_file and keys defined\n")
+		return
+	}
+	var keys []string
+	for _, key := range ctx.GetTblKeys().GetSeqCtx().GetSlist() {
+		keys = append(keys, StripQuotes(key.GetText()))
+	}
+
+	lookupTbl := rete.LookupTableNode{
+		Type:           "lookup",
+		Name:           ctx.GetLookupName().GetText(),
+		CsvFile:        StripQuotes(ctx.CsvLocation().GetCsvFileName().GetText()),
+		Key:            keys,
+		Columns:        s.currentLookupTableColumns,
+		SourceFileName: s.currentRuleFileName,
+	}
+	s.jetRuleModel.LookupTables = append(s.jetRuleModel.LookupTables, lookupTbl)
+	s.currentLookupTableColumns = nil
+}
+
+// =====================================================================================
+// JetRule Definitions
+// -------------------------------------------------------------------------------------
+// enterJetRuleStmt is called when production jetRuleStmt is entered.
+func (s *JetRuleListener) EnterJetRuleStmt(ctx *parser.JetRuleStmtContext) {
+	s.currentRuleProperties = make(map[string]string)
+}
+
+// exitRuleProperties is called when production ruleProperties is exited.
+func (s *JetRuleListener) ExitRuleProperties(ctx *parser.RulePropertiesContext) {
+	if ctx.GetKey() == nil || ctx.GetValCtx() == nil {
+		return
+	}
+	key := ctx.GetKey().GetText()
+	var value string
+	switch {
+	case ctx.GetValCtx().GetVal() != nil:
+		value = ctx.GetValCtx().GetVal().GetText()
+	case ctx.GetValCtx().GetIntval() != nil:
+		value = ctx.GetValCtx().GetIntval().GetText()
+	}
+	s.currentRuleProperties[key] = value
+}
+
+// Expression Definitions
+// -------------------------------------------------------------------------------------
+// exitBinaryExprTerm is called when production binaryExprTerm is exited.
+func (s *JetRuleListener) ExitBinaryExprTerm(ctx *parser.BinaryExprTermContext) {
+	// Pop the top two expressions from the stack
+	rhs, ok := s.inProgressExpr.Pop()
+	if !ok {
+		return
+	}
+	lhs, ok := s.inProgressExpr.Pop()
+	if !ok {
+		return
+	}
+	// Create a new binary expression node
+	binaryExpr := rete.ExpressionNode{
+		Type: "binary",
+		Op:   ctx.GetOp().GetText(),
+		Lhs:  lhs,
+		Rhs:  rhs,
+	}
+	// Push the new binary expression onto the stack
+	s.inProgressExpr.Push(&binaryExpr)
+}
+
+// exitBinaryExprTerm2 is called when production binaryExprTerm2 is exited.
+func (s *JetRuleListener) ExitBinaryExprTerm2(ctx *parser.BinaryExprTerm2Context) {
+	// Pop the top two expressions from the stack
+	rhs, ok := s.inProgressExpr.Pop()
+	if !ok {
+		return
+	}
+	lhs, ok := s.inProgressExpr.Pop()
+	if !ok {
+		return
+	}
+	// Create a new binary expression node
+	binaryExpr := rete.ExpressionNode{
+		Type: "binary",
+		Op:   ctx.GetOp().GetText(),
+		Lhs:  lhs,
+		Rhs:  rhs,
+	}
+	// Push the new binary expression onto the stack
+	s.inProgressExpr.Push(&binaryExpr)
+}
+
+// exitUnaryExprTerm is called when production unaryExprTerm is exited.
+func (s *JetRuleListener) ExitUnaryExprTerm(ctx *parser.UnaryExprTermContext) {
+	// Pop the top expression from the stack
+	expr, ok := s.inProgressExpr.Pop()
+	if !ok {
+		return
+	}
+	// Create a new unary expression node
+	unaryExpr := rete.ExpressionNode{
+		Type: "unary",
+		Op:   ctx.GetOp().GetText(),
+		Arg:  expr,
+	}
+	// Push the new unary expression onto the stack
+	s.inProgressExpr.Push(&unaryExpr)
+}
+
+// exitUnaryExprTerm2 is called when production unaryExprTerm2 is exited.
+func (s *JetRuleListener) ExitUnaryExprTerm2(ctx *parser.UnaryExprTerm2Context) {
+	// Pop the top expression from the stack
+	expr, ok := s.inProgressExpr.Pop()
+	if !ok {
+		return
+	}
+	// Create a new unary expression node
+	unaryExpr := rete.ExpressionNode{
+		Type: "unary",
+		Op:   ctx.GetOp().GetText(),
+		Arg:  expr,
+	}
+	// Push the new unary expression onto the stack
+	s.inProgressExpr.Push(&unaryExpr)
+}
+
+// exitSelfExprTerm is called when production selfExprTerm is exited.
+func (s *JetRuleListener) ExitSelfExprTerm(ctx *parser.SelfExprTermContext) {
+	// Nothing here since it correspond to a pop and then a push of the same expression
+}
+
+// exitUnaryExprTerm3 is called when production unaryExprTerm3 is exited.
+func (s *JetRuleListener) ExitUnaryExprTerm3(ctx *parser.UnaryExprTerm3Context) {
+	// Pop the top expression from the stack
+	expr, ok := s.inProgressExpr.Pop()
+	if !ok {
+		return
+	}
+	// Create a new unary expression node
+	unaryExpr := rete.ExpressionNode{
+		Type: "unary",
+		Op:   ctx.GetOp().GetText(),
+		Arg:  expr,
+	}
+	// Push the new unary expression onto the stack
+	s.inProgressExpr.Push(&unaryExpr)
+}
+
+// exitObjectAtomExprTerm is called when production objectAtomExprTerm is exited.
+func (s *JetRuleListener) ExitObjectAtomExprTerm(ctx *parser.ObjectAtomExprTermContext) {
+	NodeTxt := StripQuotes(ctx.GetIdent().GetText())
+	kws := ""
+	if ctx.GetIdent().GetKws() != nil {
+		kws = ctx.GetIdent().GetKws().GetText()
+	}
+	resource := s.ParseObjectAtom(NodeTxt, kws)
+	if resource == nil {
+		return
+	}
+	// Create a new identifier (resource / volatile_resource) expression node
+	varNode := rete.ExpressionNode{
+		Type:  "identifier",
+		Value: resource,
+	}
+	// Push the new identifier expression onto the stack
+	s.inProgressExpr.Push(&varNode)
+}
+
+// Antecedent Definition
+// -------------------------------------------------------------------------------------
+// enterAntecedent is called when production antecedent is entered.
+func (s *JetRuleListener) EnterAntecedent(ctx *parser.AntecedentContext) {
+	// Reset the in-progress expression stack
+	s.inProgressExpr = stack.NewStack[rete.ExpressionNode](5)
+}
+
+// exitAntecedent is called when production antecedent is exited.
+func (s *JetRuleListener) ExitAntecedent(ctx *parser.AntecedentContext) {
+	if ctx.GetS() == nil || ctx.GetP() == nil || ctx.GetO() == nil {
+		return
+	}
+	subject := s.ParseObjectAtom(EscR(ctx.GetS().GetText()), "")
+	predicate := s.ParseObjectAtom(EscR(ctx.GetP().GetText()), "")
+	kws := ""
+	if ctx.GetO().GetKws() != nil {
+		kws = ctx.GetO().GetKws().GetText()
+	}
+	object := s.ParseObjectAtom(ctx.GetO().GetText(), kws)
+	// make sure all three are valid
+	if subject == nil || predicate == nil || object == nil {
+		s.parseLog.WriteString("** Warning: invalid antecedent encountered, skipping\n")
+		return
+	}
+	// Add the nodes to the resources
+	s.jetRuleModel.Resources = append(s.jetRuleModel.Resources, *subject, *predicate, *object)
+
+	term := rete.RuleTerm{
+		Type:         "antecedent",
+		IsNot:        ctx.GetN() != nil,
+		SubjectKey:   subject.Key,
+		PredicateKey: predicate.Key,
+		ObjectKey:    object.Key,
+	}
+	// Add filter
+	if s.inProgressExpr.Len() > 0 {
+		expr, ok := s.inProgressExpr.Pop()
+		if ok {
+			term.Filter = expr
+		}
+	}
+	// Clear the in-progress expression stack
+	s.inProgressExpr = nil
+
+	// Append to the current rule antecedents
+	s.currentRuleAntecedents = append(s.currentRuleAntecedents, term)
+}
+
+// Consequent Definition
+// -------------------------------------------------------------------------------------
+// enterConsequent is called when production consequent is entered.
+func (s *JetRuleListener) EnterConsequent(ctx *parser.ConsequentContext) {
+	// Reset the in-progress expression stack
+	s.inProgressExpr = stack.NewStack[rete.ExpressionNode](5)
+}
+
+// exitConsequent is called when production consequent is exited.
+func (s *JetRuleListener) ExitConsequent(ctx *parser.ConsequentContext) {
+	if ctx.GetS() == nil || ctx.GetP() == nil || ctx.GetO() == nil {
+		return
+	}
+	subject := s.ParseObjectAtom(EscR(ctx.GetS().GetText()), "")
+	predicate := s.ParseObjectAtom(EscR(ctx.GetP().GetText()), "")
+	if subject == nil || predicate == nil {
+		s.parseLog.WriteString("** Warning: invalid consequent encountered, skipping\n")
+		return
+	}
+	// Add the nodes to the resources
+	s.jetRuleModel.Resources = append(s.jetRuleModel.Resources, *subject, *predicate)
+
+	term := rete.RuleTerm{
+		Type:         "consequent",
+		SubjectKey:   subject.Key,
+		PredicateKey: predicate.Key,
+	}
+	// Add object expression
+	if s.inProgressExpr.Len() > 0 {
+		expr, ok := s.inProgressExpr.Pop()
+		if ok {
+			term.ObjectExpr = expr
+		}
+	}
+	// Clear the in-progress expression stack
+	s.inProgressExpr = nil
+
+	// Append to the current rule consequents
+	s.currentRuleConsequents = append(s.currentRuleConsequents, term)
+}
+
+// =====================================================================================
+// Triple
+// -------------------------------------------------------------------------------------
+// exitTripleStmt is called when production tripleStmt is exited.
+func (s *JetRuleListener) ExitTripleStmt(ctx *parser.TripleStmtContext) {
+	if ctx.GetS() == nil || ctx.GetP() == nil || ctx.GetO() == nil {
+		return
+	}
+	subject := s.ParseObjectAtom(EscR(ctx.GetS().GetText()), "")
+	predicate := s.ParseObjectAtom(EscR(ctx.GetP().GetText()), "")
+	kws := ""
+	if ctx.GetO().GetKws() != nil {
+		kws = ctx.GetO().GetKws().GetText()
+	}
+	object := s.ParseObjectAtom(ctx.GetO().GetText(), kws)
+	// make sure all three are valid
+	if subject == nil || predicate == nil || object == nil {
+		s.parseLog.WriteString("** Warning: invalid triple encountered, skipping\n")
+		return
+	}
+	// Add the nodes to the resources
+	s.jetRuleModel.Resources = append(s.jetRuleModel.Resources, *subject, *predicate, *object)
+
+	triple := rete.TripleNode{
+		SubjectKey:   subject.Key,
+		PredicateKey: predicate.Key,
+		ObjectKey:    object.Key,
+	}
+	s.jetRuleModel.Triples = append(s.jetRuleModel.Triples, triple)
+}
+
+// =====================================================================================
+// JetRule
+// -------------------------------------------------------------------------------------
+
+// exitJetRuleStmt is called when production jetRuleStmt is exited.
+func (s *JetRuleListener) ExitJetRuleStmt(ctx *parser.JetRuleStmtContext) {
+	// Rule name is required
+	if ctx.GetRuleName() == nil {
+		s.parseLog.WriteString("** Warning: rule without a name encountered, skipping\n")
+		return
+	}
+	rule := rete.JetruleNode{
+		Name:           ctx.GetRuleName().GetText(),
+		Properties:     s.currentRuleProperties,
+		Antecedents:    s.currentRuleAntecedents,
+		Consequents:    s.currentRuleConsequents,
+		SourceFileName: s.currentRuleFileName,
+	}
+	s.jetRuleModel.Jetrules = append(s.jetRuleModel.Jetrules, rule)
 }

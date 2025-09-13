@@ -16,9 +16,9 @@ type JetruleModel struct {
 	Classes        []ClassNode       `json:"classes,omitempty"`
 	Tables         []TableNode       `json:"tables,omitempty"`
 	Triples        []TripleNode      `json:"triples,omitempty"`
-	HeadRuleTerm   *RuleTerm        `json:"head_rule_term,omitzero"`
-	Antecedents    []*RuleTerm      `json:"antecedents,omitempty"`
-	Consequents    []*RuleTerm      `json:"consequents,omitempty"`
+	HeadRuleTerm   *RuleTerm         `json:"head_rule_term,omitzero"`
+	Antecedents    []*RuleTerm       `json:"antecedents,omitempty"`
+	Consequents    []*RuleTerm       `json:"consequents,omitempty"`
 }
 
 func NewJetruleModel() *JetruleModel {
@@ -94,25 +94,34 @@ type JetruleNode struct {
 
 // RulTerm type is either antecedent or consequent
 type RuleTerm struct {
-	Type               string                 `json:"type,omitempty"`
-	IsNot              bool                   `json:"isNot,omitzero"`
-	NormalizedLabel    string                 `json:"normalizedLabel,omitempty"`
-	Vertex             int                    `json:"vertex,omitzero"`
-	ParentVertex       int                    `json:"parent_vertex,omitzero"`
-	BetaRelationVars   []string               `json:"beta_relation_vars,omitempty"`
-	PrunedVars         []string               `json:"pruned_var,omitempty"`
-	BetaVarNodes       []BetaVarNode          `json:"beta_var_nodes,omitempty"`
-	ChildrenVertexes   []int                  `json:"children_vertexes,omitempty"`
-	Rules              []string               `json:"rules,omitempty"`
-	Salience           []int                  `json:"salience,omitempty"`
-	ConsequentSeq      int                    `json:"consequent_seq,omitzero"`
-	ConsequentForRule  string                 `json:"consequent_for_rule,omitempty"`
-	ConsequentSalience int                    `json:"consequent_salience,omitzero"`
-	SubjectKey         int                    `json:"subject_key,omitzero"`
-	PredicateKey       int                    `json:"predicate_key,omitzero"`
-	ObjectKey          int                    `json:"object_key,omitzero"`
-	ObjectExpr         map[string]interface{} `json:"obj_expr,omitempty"`
-	Filter             map[string]interface{} `json:"filter,omitempty"`
+	Type               string          `json:"type,omitempty"`
+	IsNot              bool            `json:"isNot,omitzero"`
+	NormalizedLabel    string          `json:"normalizedLabel,omitempty"`
+	Vertex             int             `json:"vertex,omitzero"`
+	ParentVertex       int             `json:"parent_vertex,omitzero"`
+	BetaRelationVars   []string        `json:"beta_relation_vars,omitempty"`
+	PrunedVars         []string        `json:"pruned_var,omitempty"`
+	BetaVarNodes       []BetaVarNode   `json:"beta_var_nodes,omitempty"`
+	ChildrenVertexes   []int           `json:"children_vertexes,omitempty"`
+	Rules              []string        `json:"rules,omitempty"`
+	Salience           []int           `json:"salience,omitempty"`
+	ConsequentSeq      int             `json:"consequent_seq,omitzero"`
+	ConsequentForRule  string          `json:"consequent_for_rule,omitempty"`
+	ConsequentSalience int             `json:"consequent_salience,omitzero"`
+	SubjectKey         int             `json:"subject_key,omitzero"`
+	PredicateKey       int             `json:"predicate_key,omitzero"`
+	ObjectKey          int             `json:"object_key,omitzero"`
+	ObjectExpr         *ExpressionNode `json:"obj_expr,omitempty"`
+	Filter             *ExpressionNode `json:"filter,omitempty"`
+}
+
+type ExpressionNode struct {
+	Type  string          `json:"type,omitempty"`
+	Op    string          `json:"op,omitempty"`
+	Arg   *ExpressionNode `json:"arg,omitzero"`
+	Lhs   *ExpressionNode `json:"lhs,omitempty"`
+	Rhs   *ExpressionNode `json:"rhs,omitempty"`
+	Value *ResourceNode   `json:"value,omitempty"`
 }
 
 type BetaVarNode struct {
