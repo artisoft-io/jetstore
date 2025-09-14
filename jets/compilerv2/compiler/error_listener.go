@@ -1,4 +1,4 @@
-package main
+package compiler
 
 // antlr v4 ErrorListner interface implementation
 

@@ -3,8 +3,10 @@ package main
 import (
 	"flag"
 	"fmt"
+	"log"
 	"os"
-	"regexp"
+
+	"github.com/artisoft-io/jetstore/jets/compilerv2/compiler"
 )
 
 // Command Line Arguments
@@ -13,7 +15,6 @@ var inputFileName = flag.String("in_file", "", "JetRule file (required)")
 var basePath = flag.String("base_path", "", "Base path for in_file, out_file and all imported files (required)")
 var saveJson = flag.Bool("save_json", false, "Save JetRule json output file")
 var trace = flag.Bool("trace", false, "Enable trace logging")
-var reImportPattern = regexp.MustCompile(`import\s*"([a-zA-Z0-9_\/.-]*)"`)
 
 func main() {
 	saveJson = flag.Bool("s", false, "Save JetRule json output file (short name)")
@@ -38,19 +39,24 @@ func main() {
 		panic("Invalid argument(s)")
 	}
 
-	compiler, err := CompileJetRuleFiles(*basePath, *inputFileName, *trace)
+	jrCompiler, err := compiler.CompileJetRuleFiles(*basePath, *inputFileName, *trace)
 	if err != nil {
-		fmt.Println("** ERROR during compilation:")
-		fmt.Println(compiler.errorLog.String())
-		panic(err)
+		log.Println("** ERROR during compilation:")
+		log.Println(jrCompiler.ErrorLog().String())
+		log.Fatal(err)
 	}
-	fmt.Println("** Compilation successful")
+	log.Println("** Compilation successful")
 	if *saveJson {
-		fmt.Println("** Saving json to", compiler.outJsonFileName)
-		err = os.WriteFile(compiler.outJsonFileName, []byte(compiler.parseLog.String()), 0644)
+		log.Println("Saving json to", jrCompiler.OutJsonFileName())
+		data, err := jrCompiler.JetRuleModel().ToJson()
 		if err != nil {
-			fmt.Println("** ERROR saving json:", err.Error())
-			panic(err)
+			log.Println("** ERROR converting to json:", err.Error())
+			log.Fatal(err)
+		}
+		err = os.WriteFile(jrCompiler.OutJsonFileName(), data, 0644)
+		if err != nil {
+			log.Println("** ERROR saving json:", err.Error())
+			log.Fatal(err)
 		}
 	}
 }
