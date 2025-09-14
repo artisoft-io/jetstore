@@ -1,0 +1,12 @@
+# =======================================================================================
+# JetRule - antecedent without ?var, ?var in consequent must be in antecedents
+# ---------------------------------------------------------------------------------------
+resource rdfType = "rdf:type";
+resource abc:RuleConfig = "abc:RuleConfig";
+resource OutputUnit = "abc:OutputUnit";
+
+[Create_AuthGroup11, o=false, s=50, flag="healthcare"]:
+  (?config rdfType abc:RuleConfig)
+-> 
+  (?config OutputUnit (?config * ?v1))
+;

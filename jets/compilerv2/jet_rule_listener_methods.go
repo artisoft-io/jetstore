@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/artisoft-io/jetstore/jets/compilerv2/parser"
@@ -24,6 +25,28 @@ func (s *JetRuleListener) ExitJetCompilerDirectiveStmt(ctx *parser.JetCompilerDi
 		} else {
 			s.jetRuleModel.CompilerDirectives[name] = StripQuotes(value)
 		}
+	}
+}
+
+// collectVarResourcesFromExpr recursively collects variable resource keys from an ExpressionNode.
+func (s *JetRuleListener) collectVarResourcesFromExpr(expr *rete.ExpressionNode, varSet map[int]bool) {
+	if expr == nil {
+		return
+	}
+	if expr.Type == "identifier" {
+		res := s.Resource(expr.Value)
+		if res != nil && res.Type == "var" {
+			varSet[expr.Value] = true
+		}
+	}
+	if expr.Lhs != nil {
+		s.collectVarResourcesFromExpr(expr.Lhs, varSet)
+	}
+	if expr.Rhs != nil {
+		s.collectVarResourcesFromExpr(expr.Rhs, varSet)
+	}
+	if expr.Arg != nil {
+		s.collectVarResourcesFromExpr(expr.Arg, varSet)
 	}
 }
 
@@ -132,7 +155,7 @@ func (s *JetRuleListener) ExitDefineRuleSeqStmt(ctx *parser.DefineRuleSeqStmtCon
 // ExitInt32LiteralStmt is called when production int32Literal is exited.
 func (s *JetRuleListener) ExitInt32LiteralStmt(ctx *parser.Int32LiteralStmtContext) {
 	if ctx.GetVarType() != nil && ctx.GetVarName() != nil && ctx.GetDeclValue() != nil {
-		s.jetRuleModel.Resources = append(s.jetRuleModel.Resources, rete.ResourceNode{
+		s.AddResource(rete.ResourceNode{
 			Type:  ctx.GetVarType().GetText(),
 			Id:    ctx.GetVarName().GetText(),
 			Value: ctx.GetDeclValue().GetText(),
@@ -143,7 +166,7 @@ func (s *JetRuleListener) ExitInt32LiteralStmt(ctx *parser.Int32LiteralStmtConte
 // exitUInt32LiteralStmt is called when production uint32Literal is exited.
 func (s *JetRuleListener) ExitUInt32LiteralStmt(ctx *parser.UInt32LiteralStmtContext) {
 	if ctx.GetVarType() != nil && ctx.GetVarName() != nil && ctx.GetDeclValue() != nil {
-		s.jetRuleModel.Resources = append(s.jetRuleModel.Resources, rete.ResourceNode{
+		s.AddResource(rete.ResourceNode{
 			Type:  ctx.GetVarType().GetText(),
 			Id:    ctx.GetVarName().GetText(),
 			Value: ctx.GetDeclValue().GetText(),
@@ -154,7 +177,7 @@ func (s *JetRuleListener) ExitUInt32LiteralStmt(ctx *parser.UInt32LiteralStmtCon
 // ExitInt64LiteralStmt is called when production int64Literal is exited.
 func (s *JetRuleListener) ExitInt64LiteralStmt(ctx *parser.Int64LiteralStmtContext) {
 	if ctx.GetVarType() != nil && ctx.GetVarName() != nil && ctx.GetDeclValue() != nil {
-		s.jetRuleModel.Resources = append(s.jetRuleModel.Resources, rete.ResourceNode{
+		s.AddResource(rete.ResourceNode{
 			Type:  ctx.GetVarType().GetText(),
 			Id:    ctx.GetVarName().GetText(),
 			Value: ctx.GetDeclValue().GetText(),
@@ -165,7 +188,7 @@ func (s *JetRuleListener) ExitInt64LiteralStmt(ctx *parser.Int64LiteralStmtConte
 // ExitUInt64LiteralStmt is called when production uint64Literal is exited.
 func (s *JetRuleListener) ExitUInt64LiteralStmt(ctx *parser.UInt64LiteralStmtContext) {
 	if ctx.GetVarType() != nil && ctx.GetVarName() != nil && ctx.GetDeclValue() != nil {
-		s.jetRuleModel.Resources = append(s.jetRuleModel.Resources, rete.ResourceNode{
+		s.AddResource(rete.ResourceNode{
 			Type:  ctx.GetVarType().GetText(),
 			Id:    ctx.GetVarName().GetText(),
 			Value: ctx.GetDeclValue().GetText(),
@@ -176,7 +199,7 @@ func (s *JetRuleListener) ExitUInt64LiteralStmt(ctx *parser.UInt64LiteralStmtCon
 // exitDoubleLiteralStmt is called when production doubleLiteral is exited.
 func (s *JetRuleListener) ExitDoubleLiteralStmt(ctx *parser.DoubleLiteralStmtContext) {
 	if ctx.GetVarType() != nil && ctx.GetVarName() != nil && ctx.GetDeclValue() != nil {
-		s.jetRuleModel.Resources = append(s.jetRuleModel.Resources, rete.ResourceNode{
+		s.AddResource(rete.ResourceNode{
 			Type:  ctx.GetVarType().GetText(),
 			Id:    ctx.GetVarName().GetText(),
 			Value: ctx.GetDeclValue().GetText(),
@@ -187,7 +210,7 @@ func (s *JetRuleListener) ExitDoubleLiteralStmt(ctx *parser.DoubleLiteralStmtCon
 // exitStringLiteralStmt is called when production stringLiteral is exited.
 func (s *JetRuleListener) ExitStringLiteralStmt(ctx *parser.StringLiteralStmtContext) {
 	if ctx.GetVarType() != nil && ctx.GetVarName() != nil && ctx.GetDeclValue() != nil {
-		s.jetRuleModel.Resources = append(s.jetRuleModel.Resources, rete.ResourceNode{
+		s.AddResource(rete.ResourceNode{
 			Type:  ctx.GetVarType().GetText(),
 			Id:    ctx.GetVarName().GetText(),
 			Value: StripQuotes(ctx.GetDeclValue().GetText()),
@@ -198,7 +221,7 @@ func (s *JetRuleListener) ExitStringLiteralStmt(ctx *parser.StringLiteralStmtCon
 // exitDateLiteralStmt is called when production dateLiteral is exited.
 func (s *JetRuleListener) ExitDateLiteralStmt(ctx *parser.DateLiteralStmtContext) {
 	if ctx.GetVarType() != nil && ctx.GetVarName() != nil && ctx.GetDeclValue() != nil {
-		s.jetRuleModel.Resources = append(s.jetRuleModel.Resources, rete.ResourceNode{
+		s.AddResource(rete.ResourceNode{
 			Type:  ctx.GetVarType().GetText(),
 			Id:    ctx.GetVarName().GetText(),
 			Value: StripQuotes(ctx.GetDeclValue().GetText()),
@@ -209,7 +232,7 @@ func (s *JetRuleListener) ExitDateLiteralStmt(ctx *parser.DateLiteralStmtContext
 // exitDatetimeLiteralStmt is called when production datetimeLiteral is exited.
 func (s *JetRuleListener) ExitDatetimeLiteralStmt(ctx *parser.DatetimeLiteralStmtContext) {
 	if ctx.GetVarType() != nil && ctx.GetVarName() != nil && ctx.GetDeclValue() != nil {
-		s.jetRuleModel.Resources = append(s.jetRuleModel.Resources, rete.ResourceNode{
+		s.AddResource(rete.ResourceNode{
 			Type:  ctx.GetVarType().GetText(),
 			Id:    ctx.GetVarName().GetText(),
 			Value: StripQuotes(ctx.GetDeclValue().GetText()),
@@ -220,7 +243,7 @@ func (s *JetRuleListener) ExitDatetimeLiteralStmt(ctx *parser.DatetimeLiteralStm
 // exitBooleanLiteralStmt is called when production booleanLiteral is exited.
 func (s *JetRuleListener) ExitBooleanLiteralStmt(ctx *parser.BooleanLiteralStmtContext) {
 	if ctx.GetVarType() != nil && ctx.GetVarName() != nil && ctx.GetDeclValue() != nil {
-		s.jetRuleModel.Resources = append(s.jetRuleModel.Resources, rete.ResourceNode{
+		s.AddResource(rete.ResourceNode{
 			Type:  ctx.GetVarType().GetText(),
 			Id:    ctx.GetVarName().GetText(),
 			Value: ctx.GetDeclValue().GetText(),
@@ -249,7 +272,7 @@ func (s *JetRuleListener) ExitNamedResourceStmt(ctx *parser.NamedResourceStmtCon
 	if len(value) == 0 {
 		return
 	}
-	s.jetRuleModel.Resources = append(s.jetRuleModel.Resources, rete.ResourceNode{
+	s.AddResource(rete.ResourceNode{
 		Type:           typ,
 		Id:             id,
 		Value:          value,
@@ -266,7 +289,7 @@ func (s *JetRuleListener) ExitVolatileResourceStmt(ctx *parser.VolatileResourceS
 	if ctx.GetResVal() != nil {
 		value = StripQuotes(ctx.GetResVal().GetText())
 	}
-	s.jetRuleModel.Resources = append(s.jetRuleModel.Resources, rete.ResourceNode{
+	s.AddResource(rete.ResourceNode{
 		Type:           "volatile_resource",
 		Id:             id,
 		Value:          value,
@@ -452,17 +475,11 @@ func (s *JetRuleListener) ExitObjectAtomExprTerm(ctx *parser.ObjectAtomExprTermC
 	if ctx.GetIdent().GetKws() != nil {
 		kws = ctx.GetIdent().GetKws().GetText()
 	}
-	resource := s.ParseObjectAtom(NodeTxt, kws)
-	if resource == nil {
-		return
-	}
-	// Add the node to the resources
-	s.jetRuleModel.Resources = append(s.jetRuleModel.Resources, *resource)
-	
+
 	// Create a new identifier (resource / volatile_resource) expression node
 	varNode := rete.ExpressionNode{
 		Type:  "identifier",
-		Value: resource,
+		Value: s.ParseObjectAtom(NodeTxt, kws),
 	}
 	// Push the new identifier expression onto the stack
 	s.inProgressExpr.Push(&varNode)
@@ -481,27 +498,16 @@ func (s *JetRuleListener) ExitAntecedent(ctx *parser.AntecedentContext) {
 	if ctx.GetS() == nil || ctx.GetP() == nil || ctx.GetO() == nil {
 		return
 	}
-	subject := s.ParseObjectAtom(EscR(ctx.GetS().GetText()), "")
-	predicate := s.ParseObjectAtom(EscR(ctx.GetP().GetText()), "")
 	kws := ""
 	if ctx.GetO().GetKws() != nil {
 		kws = ctx.GetO().GetKws().GetText()
 	}
-	object := s.ParseObjectAtom(ctx.GetO().GetText(), kws)
-	// make sure all three are valid
-	if subject == nil || predicate == nil || object == nil {
-		s.parseLog.WriteString("** Warning: invalid antecedent encountered, skipping\n")
-		return
-	}
-	// Add the nodes to the resources
-	s.jetRuleModel.Resources = append(s.jetRuleModel.Resources, *subject, *predicate, *object)
-
 	term := rete.RuleTerm{
 		Type:         "antecedent",
 		IsNot:        ctx.GetN() != nil,
-		SubjectKey:   subject.Key,
-		PredicateKey: predicate.Key,
-		ObjectKey:    object.Key,
+		SubjectKey:   s.ParseObjectAtom(EscR(ctx.GetS().GetText()), ""),
+		PredicateKey: s.ParseObjectAtom(EscR(ctx.GetP().GetText()), ""),
+		ObjectKey:    s.ParseObjectAtom(ctx.GetO().GetText(), kws),
 	}
 	// Add filter
 	if s.inProgressExpr.Len() > 0 {
@@ -510,11 +516,30 @@ func (s *JetRuleListener) ExitAntecedent(ctx *parser.AntecedentContext) {
 			term.Filter = expr
 		}
 	}
+	s.ValidateRuleTerm(&term)
+
 	// Clear the in-progress expression stack
 	s.inProgressExpr = nil
 
 	// Append to the current rule antecedents
 	s.currentRuleAntecedents = append(s.currentRuleAntecedents, term)
+}
+
+// ValidateRuleTerm validates a RuleTerm:
+// Must have at least one of Type "var" among subject, predicate, object
+func (s *JetRuleListener) ValidateRuleTerm(term *rete.RuleTerm) {
+	if term.Type == "antecedent" {
+		// Must have at least one of Type "var" among subject, predicate, object
+		if s.Resource(term.SubjectKey).Type != "var" &&
+			s.Resource(term.PredicateKey).Type != "var" &&
+			s.Resource(term.ObjectKey).Type != "var" {
+			fmt.Fprintf(s.errorLog,
+				"** error: antecedent must have at least one of subject, predicate, object as variable: (%s, %s, %s)\n",
+				s.Resource(term.SubjectKey).SKey(),
+				s.Resource(term.PredicateKey).SKey(),
+				s.Resource(term.ObjectKey).SKey())
+		}
+	}
 }
 
 // Consequent Definition
@@ -530,19 +555,10 @@ func (s *JetRuleListener) ExitConsequent(ctx *parser.ConsequentContext) {
 	if ctx.GetS() == nil || ctx.GetP() == nil || ctx.GetO() == nil {
 		return
 	}
-	subject := s.ParseObjectAtom(EscR(ctx.GetS().GetText()), "")
-	predicate := s.ParseObjectAtom(EscR(ctx.GetP().GetText()), "")
-	if subject == nil || predicate == nil {
-		s.parseLog.WriteString("** Warning: invalid consequent encountered, skipping\n")
-		return
-	}
-	// Add the nodes to the resources
-	s.jetRuleModel.Resources = append(s.jetRuleModel.Resources, *subject, *predicate)
-
 	term := rete.RuleTerm{
 		Type:         "consequent",
-		SubjectKey:   subject.Key,
-		PredicateKey: predicate.Key,
+		SubjectKey:   s.ParseObjectAtom(EscR(ctx.GetS().GetText()), ""),
+		PredicateKey: s.ParseObjectAtom(EscR(ctx.GetP().GetText()), ""),
 	}
 	// Add object expression
 	if s.inProgressExpr.Len() > 0 {
@@ -566,25 +582,14 @@ func (s *JetRuleListener) ExitTripleStmt(ctx *parser.TripleStmtContext) {
 	if ctx.GetS() == nil || ctx.GetP() == nil || ctx.GetO() == nil {
 		return
 	}
-	subject := s.ParseObjectAtom(EscR(ctx.GetS().GetText()), "")
-	predicate := s.ParseObjectAtom(EscR(ctx.GetP().GetText()), "")
 	kws := ""
 	if ctx.GetO().GetKws() != nil {
 		kws = ctx.GetO().GetKws().GetText()
 	}
-	object := s.ParseObjectAtom(ctx.GetO().GetText(), kws)
-	// make sure all three are valid
-	if subject == nil || predicate == nil || object == nil {
-		s.parseLog.WriteString("** Warning: invalid triple encountered, skipping\n")
-		return
-	}
-	// Add the nodes to the resources
-	s.jetRuleModel.Resources = append(s.jetRuleModel.Resources, *subject, *predicate, *object)
-
 	triple := rete.TripleNode{
-		SubjectKey:   subject.Key,
-		PredicateKey: predicate.Key,
-		ObjectKey:    object.Key,
+		SubjectKey:   s.ParseObjectAtom(EscR(ctx.GetS().GetText()), ""),
+		PredicateKey: s.ParseObjectAtom(EscR(ctx.GetP().GetText()), ""),
+		ObjectKey:    s.ParseObjectAtom(ctx.GetO().GetText(), kws),
 	}
 	s.jetRuleModel.Triples = append(s.jetRuleModel.Triples, triple)
 }
@@ -597,7 +602,7 @@ func (s *JetRuleListener) ExitTripleStmt(ctx *parser.TripleStmtContext) {
 func (s *JetRuleListener) ExitJetRuleStmt(ctx *parser.JetRuleStmtContext) {
 	// Rule name is required
 	if ctx.GetRuleName() == nil {
-		s.parseLog.WriteString("** Warning: rule without a name encountered, skipping\n")
+		s.errorLog.WriteString("** error: rule without a name encountered, skipping\n")
 		return
 	}
 	rule := rete.JetruleNode{
@@ -607,5 +612,70 @@ func (s *JetRuleListener) ExitJetRuleStmt(ctx *parser.JetRuleStmtContext) {
 		Consequents:    s.currentRuleConsequents,
 		SourceFileName: s.currentRuleFileName,
 	}
+	s.ValidateJetruleNode(&rule)
+
+	// Reset current rule state
+	s.currentRuleProperties = nil
+	s.currentRuleAntecedents = nil
+	s.currentRuleConsequents = nil
+
+	// Append to the model
 	s.jetRuleModel.Jetrules = append(s.jetRuleModel.Jetrules, rule)
+}
+
+// ValidateJetruleNode validates a JetruleNode
+// All ResourceNode of Type "?var" in the Consequents must appear in the Antecedents
+func (s *JetRuleListener) ValidateJetruleNode(rule *rete.JetruleNode) {
+	// Build a set of variable resource keys from the antecedents
+	varSet := make(map[int]bool)
+	for i := range rule.Antecedents {
+		if s.Resource(rule.Antecedents[i].SubjectKey).Type == "var" {
+			varSet[rule.Antecedents[i].SubjectKey] = true
+		}
+		if s.Resource(rule.Antecedents[i].PredicateKey).Type == "var" {
+			varSet[rule.Antecedents[i].PredicateKey] = true
+		}
+		if s.Resource(rule.Antecedents[i].ObjectKey).Type == "var" {
+			varSet[rule.Antecedents[i].ObjectKey] = true
+		}
+	}
+	// Check that all variable resource keys in the consequents are in the set
+	for i := range rule.Consequents {
+		if s.Resource(rule.Consequents[i].SubjectKey).Type == "var" {
+			if _, exists := varSet[rule.Consequents[i].SubjectKey]; !exists {
+				fmt.Fprintf(s.errorLog,
+					"** error: consequent subject variable %s not found in antecedents\n",
+					s.Resource(rule.Consequents[i].SubjectKey).SKey())
+			}
+		}
+		if s.Resource(rule.Consequents[i].PredicateKey).Type == "var" {
+			if _, exists := varSet[rule.Consequents[i].PredicateKey]; !exists {
+				fmt.Fprintf(s.errorLog,
+					"** error: consequent predicate variable %s not found in antecedents\n",
+					s.Resource(rule.Consequents[i].PredicateKey).SKey())
+			}
+		}
+		o := s.Resource(rule.Consequents[i].ObjectKey)
+		if o != nil && o.Type == "var" {
+			if _, exists := varSet[rule.Consequents[i].ObjectKey]; !exists {
+				fmt.Fprintf(s.errorLog,
+					"** error: consequent object variable %s not found in antecedents\n",
+					s.Resource(rule.Consequents[i].ObjectKey).SKey())
+			}
+		}
+		objExpr := rule.Consequents[i].ObjectExpr
+		if objExpr != nil {
+			// Build a set of variable resource keys from the expression
+			exprVarSet := make(map[int]bool)
+			s.collectVarResourcesFromExpr(objExpr, exprVarSet)
+			// Check that all variable resource keys in the expression are in the antecedent varSet
+			for vKey := range exprVarSet {
+				if _, exists := varSet[vKey]; !exists {
+					fmt.Fprintf(s.errorLog,
+						"** error: consequent object expression variable %s not found in antecedents\n",
+						s.Resource(vKey).SKey())
+				}
+			}
+		}
+	}
 }

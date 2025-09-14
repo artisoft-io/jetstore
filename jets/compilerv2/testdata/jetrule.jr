@@ -1,10 +1,12 @@
 # =======================================================================================
 # JetRule
 # ---------------------------------------------------------------------------------------
+resource rdfType = "rdf:type";
+resource hasItem = "abc:hasItem";
 volatile_resource splitList = "splitList";
 
 [Create_AuthGroup11, o=false, s=50, flag="healthcare"]:
-  (?config rdf:type abc:RuleConfig).
+  (?config rdfType abc:RuleConfig).
   (?config abc:singleOrSplitAuth "split").
   (splitList hasItem ?splitItem).
   (?splitItem cptCode ?cptCodeProperty).

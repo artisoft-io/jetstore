@@ -50,6 +50,9 @@ type JetRuleListener struct {
 	outJsonFileName string
 	jetRuleModel    *rete.JetruleModel
 
+	// ResourceManager
+	resourceManager *rete.ResourceManager
+
 	// Internal state
 	nextKey                   int
 	currentRuleFileName       string
@@ -75,6 +78,7 @@ func NewJetRuleListener(basePath string, mainRuleFileName string) *JetRuleListen
 		basePath:         basePath,
 		outJsonFileName:  outJsonFileName,
 		jetRuleModel:     rete.NewJetruleModel(),
+		resourceManager:  rete.NewResourceManager(),
 		parseLog:         &strings.Builder{},
 		errorLog:         &strings.Builder{},
 	}
