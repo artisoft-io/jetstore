@@ -25,9 +25,9 @@ type JetRuleListener struct {
 
 	// ResourceManager
 	resourceManager *ResourceManager
+	classesByName   map[string]*rete.ClassNode
 
 	// Internal state
-	nextKey                   int
 	currentRuleFileName       string
 	currentClass              *rete.ClassNode
 	currentRuleSequence       *rete.RuleSequence
@@ -35,8 +35,10 @@ type JetRuleListener struct {
 	currentRuleProperties     map[string]string
 	currentRuleAntecedents    []rete.RuleTerm
 	currentRuleConsequents    []rete.RuleTerm
+	currentJetruleNode        *rete.JetruleNode
+	currentRuleVarByValue     map[string]string // map of variable name to normalized name, rule level
 	// stack to build expressions in Antecedents and Consequents
-	inProgressExpr            *stack.Stack[rete.ExpressionNode]
+	inProgressExpr *stack.Stack[rete.ExpressionNode]
 
 	// Logs
 	parseLog *strings.Builder
@@ -46,15 +48,43 @@ type JetRuleListener struct {
 
 func NewJetRuleListener(basePath string, mainRuleFileName string) *JetRuleListener {
 	outJsonFileName := strings.TrimSuffix(mainRuleFileName, ".jetrule") + ".json"
-	return &JetRuleListener{
-		mainRuleFileName: mainRuleFileName,
-		basePath:         basePath,
-		outJsonFileName:  outJsonFileName,
-		jetRuleModel:     rete.NewJetruleModel(),
-		resourceManager:  NewResourceManager(),
-		parseLog:         &strings.Builder{},
-		errorLog:         &strings.Builder{},
+	l := &JetRuleListener{
+		mainRuleFileName:      mainRuleFileName,
+		basePath:              basePath,
+		outJsonFileName:       outJsonFileName,
+		jetRuleModel:          rete.NewJetruleModel(),
+		resourceManager:       NewResourceManager(),
+		classesByName:         make(map[string]*rete.ClassNode),
+		currentRuleVarByValue: make(map[string]string),
+		parseLog:              &strings.Builder{},
+		errorLog:              &strings.Builder{},
 	}
+	l.AddR("jets:client")
+	l.AddR("jets:completed")
+	l.AddR("jets:currentSourcePeriod")
+	l.AddR("jets:currentSourcePeriodDate")
+	l.AddR("jets:entity_property")
+	l.AddR("jets:exception")
+	l.AddR("jets:from")
+	l.AddR("jets:InputRecord")
+	l.AddR("jets:iState")
+	l.AddR("jets:key")
+	l.AddR("jets:length")
+	l.AddR("jets:lookup_multi_rows")
+	l.AddR("jets:lookup_row")
+	l.AddR("jets:loop")
+	l.AddR("jets:max_vertex_visits")
+	l.AddR("jets:operator")
+	l.AddR("jets:org")
+	l.AddR("jets:range_value")
+	l.AddR("jets:replace_chars")
+	l.AddR("jets:replace_with")
+	l.AddR("jets:source_period_sequence")
+	l.AddR("jets:sourcePeriodType")
+	l.AddR("jets:State")
+	l.AddR("jets:value_property")
+	l.AddR("rdf:type")
+	return l
 }
 
 // ResourceManager manages the resources in the model

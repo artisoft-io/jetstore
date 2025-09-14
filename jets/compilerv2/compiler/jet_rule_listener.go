@@ -51,4 +51,6 @@ func (l *JetRuleListener) ExitJetrule(ctx *parser.JetruleContext) {
 	if l.trace {
 		fmt.Fprintf(l.parseLog, "** ExitJetrule\n")
 	}
+	// Compiler post processing and validation
+	l.PostProcessJetruleModel()
 }
