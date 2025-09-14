@@ -13,7 +13,7 @@ import (
 
 func (s *JetRuleListener) ParseObjectAtom(txt string, keywordsContextValue string) int {
 	r := parseObjectAtom(txt, keywordsContextValue)
-	if len(r.Id) > 0 {	// Type == "identifier"
+	if len(r.Id) > 0 { // Type == "identifier"
 		// Type is actually resource or volatile_resource
 		if res, exists := s.resourceManager.ResourceById[r.Id]; exists {
 			return res.Key
@@ -30,7 +30,13 @@ func (s *JetRuleListener) ParseObjectAtom(txt string, keywordsContextValue strin
 		return res.Key
 	}
 	// It's a new Resource
-	r.Inline = true
+	if r.Type == "var" {
+		// Variable - Id is the normalized variable name
+		r.Id = fmt.Sprintf("?x%d", len(s.currentRuleVarByValue)+1)
+		s.currentRuleVarByValue[r.Id] = r.Value
+	} else {
+		r.Inline = true
+	}
 	s.newResource(&r)
 	return r.Key
 }
@@ -41,17 +47,21 @@ func (s *JetRuleListener) ParseObjectAtom(txt string, keywordsContextValue strin
 // returns its key
 func (s *JetRuleListener) AddResource(r rete.ResourceNode) int {
 	if r.Type == "volatile_resource" {
-		r.Value = fmt.Sprintf("_0:%s", r.Value)	// add prefix
+		r.Value = fmt.Sprintf("_0:%s", r.Value) // add prefix
 	}
 	skey := r.SKey()
 	if res, exists := s.resourceManager.Resources[skey]; exists {
-		// Resource already exists - see if we need to make any updates
+		// Resource already exists - see if we need to make any
+		if r.Type == "var" {
+			// Variable - nothing to do
+			return res.Key
+		}
 		// Set Id if was not set
 		if len(res.Id) == 0 && len(r.Id) > 0 {
 			res.Id = r.Id
 		} else {
 			// Check if it's a duplicate resource
-			if len(res.Id) > 0 && res.Id == r.Id {
+			if res.Id == r.Id {
 				return res.Key
 			}
 		}
@@ -72,11 +82,31 @@ func (s *JetRuleListener) AddResource(r rete.ResourceNode) int {
 		}
 	}
 	// It's a new Resource (or Id is different)
+	if r.Type == "var" {
+		// Variable - Id is the normalized variable name
+		r.Id = fmt.Sprintf("?x%d", len(s.currentRuleVarByValue)+1)
+		s.currentRuleVarByValue[r.Id] = r.Value
+	}
 	if len(r.Id) == 0 {
 		r.Inline = true
 	}
 	s.newResource(&r)
 	return r.Key
+}
+
+// Alias for AddResource
+func (s *JetRuleListener) AddR(id string) int {
+	return s.AddResource(rete.ResourceNode{
+		Type:  "resource",
+		Id:    id,
+		Value: id,
+	})
+}
+func (s *JetRuleListener) AddV(name string) int {
+	return s.AddResource(rete.ResourceNode{
+		Type:  "var",
+		Value: name,
+	})
 }
 
 func (s *JetRuleListener) newResource(r *rete.ResourceNode) {
@@ -87,9 +117,9 @@ func (s *JetRuleListener) newResource(r *rete.ResourceNode) {
 	s.resourceManager.ResourceByKey[r.Key] = r
 	s.resourceManager.Resources[fmt.Sprintf("%s|%s", r.Type, r.Value)] = r
 	s.jetRuleModel.Resources = append(s.jetRuleModel.Resources, *r)
-	if s.trace {
-		fmt.Fprintf(s.parseLog, "** New resource: %+v\n", r)
-	}
+	// if s.trace {
+	// 	fmt.Fprintf(s.parseLog, "** New resource: %+v\n", r)
+	// }
 }
 
 func (s *JetRuleListener) Resource(key int) *rete.ResourceNode {

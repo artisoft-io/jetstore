@@ -1,6 +1,7 @@
 package compiler
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/artisoft-io/jetstore/jets/compilerv2/parser"
@@ -52,9 +53,11 @@ func (s *JetRuleListener) ExitJetstoreConfigItem(ctx *parser.JetstoreConfigItemC
 // EnterDefineClassStmt is called when production defineClassStmt is entered.
 func (s *JetRuleListener) EnterDefineClassStmt(ctx *parser.DefineClassStmtContext) {
 	if ctx.GetClassName() != nil {
+		name := EscR(ctx.GetClassName().GetText())
+		s.AddR(name)
 		s.currentClass = &rete.ClassNode{
 			Type:           "class",
-			Name:           EscR(ctx.GetClassName().GetText()),
+			Name:           name,
 			BaseClasses:    []string{},
 			DataProperties: []rete.DataPropertyNode{},
 			SourceFileName: s.currentRuleFileName,
@@ -66,6 +69,7 @@ func (s *JetRuleListener) EnterDefineClassStmt(ctx *parser.DefineClassStmtContex
 func (s *JetRuleListener) ExitSubClassOfStmt(ctx *parser.SubClassOfStmtContext) {
 	if ctx.GetBaseClassName() != nil {
 		baseClass := EscR(ctx.GetBaseClassName().GetText())
+		s.AddR(baseClass)
 		s.currentClass.BaseClasses = append(s.currentClass.BaseClasses, baseClass)
 	}
 }
@@ -89,9 +93,11 @@ func (s *JetRuleListener) ExitDefineClassStmt(ctx *parser.DefineClassStmtContext
 // ExitDataPropertyDefinitions is called when production dataPropertyDefinitions is exited.
 func (s *JetRuleListener) ExitDataPropertyDefinitions(ctx *parser.DataPropertyDefinitionsContext) {
 	if ctx.GetDataPName() != nil && ctx.GetDataPType() != nil {
+		name := EscR(ctx.GetDataPName().GetText())
+		s.AddR(name)
 		dp := rete.DataPropertyNode{
 			Type:      ctx.GetDataPType().GetText(),
-			Name:      EscR(ctx.GetDataPName().GetText()),
+			Name:      name,
 			ClassName: s.currentClass.Name,
 			AsArray:   ctx.GetArray() != nil,
 		}
@@ -285,8 +291,15 @@ func (s *JetRuleListener) EnterLookupTableStmt(ctx *parser.LookupTableStmtContex
 // exitColumnDefinitions is called when production columnDefinitions is exited.
 func (s *JetRuleListener) ExitColumnDefinitions(ctx *parser.ColumnDefinitionsContext) {
 	if ctx.GetColumnName() != nil && ctx.GetColumnType() != nil {
+		name := StripQuotes(ctx.GetColumnName().GetText())
+		// Validate that name can be used as an identifier in rules
+		if !s.IsValidIdentifier(name) {
+			fmt.Fprintf(s.errorLog, "** error: invalid column name for lookup table: %s\n", name)
+			return
+		}
+		s.AddR(name)
 		col := rete.LookupTableColumn{
-			Name:    StripQuotes(ctx.GetColumnName().GetText()),
+			Name:    name,
 			Type:    ctx.GetColumnType().GetText(),
 			IsArray: ctx.GetArray() != nil,
 		}
@@ -307,9 +320,11 @@ func (s *JetRuleListener) ExitLookupTableStmt(ctx *parser.LookupTableStmtContext
 		keys = append(keys, StripQuotes(key.GetText()))
 	}
 
+	name := ctx.GetLookupName().GetText()
+	s.AddR(name)
 	lookupTbl := rete.LookupTableNode{
 		Type:           "lookup",
-		Name:           ctx.GetLookupName().GetText(),
+		Name:           name,
 		CsvFile:        StripQuotes(ctx.CsvLocation().GetCsvFileName().GetText()),
 		Key:            keys,
 		Columns:        s.currentLookupTableColumns,
@@ -325,6 +340,34 @@ func (s *JetRuleListener) ExitLookupTableStmt(ctx *parser.LookupTableStmtContext
 // enterJetRuleStmt is called when production jetRuleStmt is entered.
 func (s *JetRuleListener) EnterJetRuleStmt(ctx *parser.JetRuleStmtContext) {
 	s.currentRuleProperties = make(map[string]string)
+	s.currentRuleVarByValue = make(map[string]string)
+	s.currentJetruleNode = &rete.JetruleNode{}
+}
+
+// exitJetRuleStmt is called when production jetRuleStmt is exited.
+func (s *JetRuleListener) ExitJetRuleStmt(ctx *parser.JetRuleStmtContext) {
+	// Rule name is required
+	if ctx.GetRuleName() == nil {
+		s.errorLog.WriteString("** error: rule without a name encountered, skipping\n")
+		return
+	}
+	s.currentJetruleNode.Name = ctx.GetRuleName().GetText()
+	s.currentJetruleNode.Properties = s.currentRuleProperties
+	s.currentJetruleNode.Antecedents = s.currentRuleAntecedents
+	s.currentJetruleNode.Consequents = s.currentRuleConsequents
+	s.currentJetruleNode.SourceFileName = s.currentRuleFileName
+
+	s.ValidateJetruleNode(s.currentJetruleNode)
+
+	// Reset current rule state
+	s.currentRuleProperties = nil
+	s.currentRuleAntecedents = nil
+	s.currentRuleConsequents = nil
+	s.currentRuleVarByValue = make(map[string]string)
+
+	// Append to the model
+	s.jetRuleModel.Jetrules = append(s.jetRuleModel.Jetrules, *s.currentJetruleNode)
+	s.currentJetruleNode = nil
 }
 
 // exitRuleProperties is called when production ruleProperties is exited.
@@ -552,33 +595,4 @@ func (s *JetRuleListener) ExitTripleStmt(ctx *parser.TripleStmtContext) {
 		ObjectKey:    s.ParseObjectAtom(ctx.GetO().GetText(), kws),
 	}
 	s.jetRuleModel.Triples = append(s.jetRuleModel.Triples, triple)
-}
-
-// =====================================================================================
-// JetRule
-// -------------------------------------------------------------------------------------
-
-// exitJetRuleStmt is called when production jetRuleStmt is exited.
-func (s *JetRuleListener) ExitJetRuleStmt(ctx *parser.JetRuleStmtContext) {
-	// Rule name is required
-	if ctx.GetRuleName() == nil {
-		s.errorLog.WriteString("** error: rule without a name encountered, skipping\n")
-		return
-	}
-	rule := rete.JetruleNode{
-		Name:           ctx.GetRuleName().GetText(),
-		Properties:     s.currentRuleProperties,
-		Antecedents:    s.currentRuleAntecedents,
-		Consequents:    s.currentRuleConsequents,
-		SourceFileName: s.currentRuleFileName,
-	}
-	s.ValidateJetruleNode(&rule)
-
-	// Reset current rule state
-	s.currentRuleProperties = nil
-	s.currentRuleAntecedents = nil
-	s.currentRuleConsequents = nil
-
-	// Append to the model
-	s.jetRuleModel.Jetrules = append(s.jetRuleModel.Jetrules, rule)
 }

@@ -2,6 +2,9 @@ package compiler
 
 import (
 	"fmt"
+	"strconv"
+	"strings"
+	"unicode"
 
 	"github.com/artisoft-io/jetstore/jets/jetrules/rete"
 )
@@ -99,6 +102,201 @@ func (s *JetRuleListener) ValidateJetruleNode(rule *rete.JetruleNode) {
 						"** error: consequent object expression variable %s not found in antecedents\n",
 						s.Resource(vKey).SKey())
 				}
+			}
+		}
+	}
+	// Add rule Label and NormalizedLabel
+	rule.Label = s.makeRuleLabel(rule, false)
+	rule.NormalizedLabel = s.makeRuleLabel(rule, true)
+
+	// Perform post-processing on rule properties:
+	// if property "o" is "true", "t", "1" (case insensitive) then set property "optimization" to "true"
+	// if property "s" is an integer, set property "salience" to that integer
+	rule.Optimization = true // default optimization is true
+	v := strings.ToUpper(rule.Properties["o"])
+	if v == "FALSE" || v == "F" || v == "0" {
+		rule.Optimization = false
+	}
+	rule.Salience = 100 // default salience
+	v = rule.Properties["s"]
+	if len(v) > 0 {
+		salience, err := strconv.Atoi(v)
+		if err != nil {
+			fmt.Fprintf(s.errorLog,
+				"** error: invalid salience value '%s' in rule %s, must be an integer\n",
+				v, rule.Name)
+		} else {
+			rule.Salience = salience
+		}
+	}
+}
+
+func (l *JetRuleListener) makeRuleLabel(rule *rete.JetruleNode, normalize bool) string {
+	label := &strings.Builder{}
+	label.WriteString(fmt.Sprintf("[%s", rule.Name))
+	for k, v := range rule.Properties {
+		fmt.Fprintf(label, ", %s=%s", k, v)
+	}
+	label.WriteString("]: ")
+	// Antecedents
+	for i := range rule.Antecedents {
+		if i > 0 {
+			label.WriteString(".")
+		}
+		a := &rule.Antecedents[i]
+		if a.IsNot {
+			label.WriteString("not")
+		}
+		fmt.Fprintf(label, "(%s %s %s)",
+			l.makeResourceLabel(l.Resource(a.SubjectKey), normalize),
+			l.makeResourceLabel(l.Resource(a.PredicateKey), normalize),
+			l.makeResourceLabel(l.Resource(a.ObjectKey), normalize))
+	}
+	label.WriteString(" -> ")
+	// Consequents
+	for i := range rule.Consequents {
+		if i > 0 {
+			label.WriteString(".")
+		}
+		c := &rule.Consequents[i]
+		fmt.Fprintf(label, "(%s %s ",
+			l.makeResourceLabel(l.Resource(c.SubjectKey), normalize),
+			l.makeResourceLabel(l.Resource(c.PredicateKey), normalize))
+		if c.ObjectExpr != nil {
+			l.makeExpressionLabel(c.ObjectExpr, label, normalize)
+		} else {
+			label.WriteString(l.makeResourceLabel(l.Resource(c.ObjectKey), normalize))
+		}
+		label.WriteString(")")
+	}
+	label.WriteString(";")
+	return label.String()
+}
+
+func (l *JetRuleListener) makeResourceLabel(rule *rete.ResourceNode, normalize bool) string {
+	if rule == nil {
+		return "nil"
+	}
+	txt := rule.Value
+	switch rule.Type {
+	case "var", "resource", "volatile_resource":
+		if normalize {
+			txt = rule.Id
+		}
+		return txt
+	default:
+		return fmt.Sprintf("%s(%s)", rule.Type, txt)
+	}
+}
+
+func (l *JetRuleListener) makeExpressionLabel(expr *rete.ExpressionNode, buf *strings.Builder, normalize bool) {
+	if expr == nil {
+		return
+	}
+	// Recursively build the expression label
+	switch expr.Type {
+	case "binary":
+		buf.WriteString("(")
+		l.makeExpressionLabel(expr.Lhs, buf, normalize)
+		fmt.Fprintf(buf, " %s ", expr.Op)
+		l.makeExpressionLabel(expr.Rhs, buf, normalize)
+		buf.WriteString(")")
+
+	case "unary":
+		fmt.Fprintf(buf, "%s(", expr.Op)
+		l.makeExpressionLabel(expr.Arg, buf, normalize)
+		buf.WriteString(")")
+
+	case "identifier":
+		res := l.Resource(expr.Value)
+		if res != nil {
+			buf.WriteString(l.makeResourceLabel(res, normalize))
+		} else {
+			buf.WriteString("null")
+		}
+	}
+}
+
+func (l *JetRuleListener) PostProcessJetruleModel() {
+	fmt.Fprint(l.parseLog, "** entering PostProcessJetruleModel\n")
+	// Perform post-processing and validation on the Jetrule model
+	l.PostProcessClasses()
+
+	// Create Table for persisted classes
+	//TODO
+}
+
+// IsValidIdentifier checks if a string is a valid identifier
+// A valid identifier starts with a letter, followed by letters, digits, semicolons, or underscores
+func (l *JetRuleListener) IsValidIdentifier(name string) bool {
+	if len(name) == 0 {
+		return false
+	}
+	for i, r := range name {
+		if i == 0 {
+			if !unicode.IsLetter(r) {
+				return false
+			}
+		} else {
+			if !unicode.IsLetter(r) && !unicode.IsDigit(r) && r != '_' && r != ':' {
+				return false
+			}
+		}
+	}
+	return true
+}
+
+func (l *JetRuleListener) PostProcessClasses() {
+	// Add base class owl:Thing
+	l.classesByName["owl:Thing"] = &rete.ClassNode{
+		Type:        "class",
+		Name:        "owl:Thing",
+		BaseClasses: []string{},
+		SubClasses:  []string{},
+	}
+	// Build classesByName map
+	for i := range l.jetRuleModel.Classes {
+		class := &l.jetRuleModel.Classes[i]
+		l.classesByName[class.Name] = class
+	}
+	// Add subClasses to parent Classes
+	for i := range l.jetRuleModel.Classes {
+		class := &l.jetRuleModel.Classes[i]
+		for _, baseClassName := range class.BaseClasses {
+			if baseClass, exists := l.classesByName[baseClassName]; exists {
+				baseClass.SubClasses = append(baseClass.SubClasses, class.Name)
+			} else {
+				fmt.Fprintf(l.errorLog, "** error: base class %s not found for class %s\n", baseClassName, class.Name)
+			}
+		}
+	}
+	// visit classes and create rules for class inheritance axioms
+	for className, class := range l.classesByName {
+		for _, baseClassName := range class.BaseClasses {
+			if _, exists := l.classesByName[baseClassName]; exists {
+				// Create a rule for the class inheritance
+				name := fmt.Sprintf("ClassInh_%s_%s", className, baseClassName)
+
+				rule := &rete.JetruleNode{
+					Name:       name,
+					Properties: map[string]string{},
+					Antecedents: []rete.RuleTerm{{
+						Type:         "antecedent",
+						SubjectKey:   l.AddV("?x"),
+						PredicateKey: l.AddR("rdf:type"),
+						ObjectKey:    l.AddR(className),
+					}},
+					Consequents: []rete.RuleTerm{{
+						Type:         "consequent",
+						SubjectKey:   l.AddV("?x"),
+						PredicateKey: l.AddR("rdf:type"),
+						ObjectKey:    l.AddR(baseClassName),
+					}},
+				}
+				l.ValidateJetruleNode(rule)
+				l.jetRuleModel.Jetrules = append(l.jetRuleModel.Jetrules, *rule)
+			} else {
+				fmt.Fprintf(l.errorLog, "** error: base class %s not found for class %s\n", baseClassName, className)
 			}
 		}
 	}
