@@ -1,6 +1,9 @@
 package rete
 
-import "fmt"
+import (
+	"encoding/json"
+	"fmt"
+)
 
 // Data model for ReteMetaStore / ReteMetaStoreFactory
 
@@ -21,6 +24,10 @@ type JetruleModel struct {
 	HeadRuleTerm   *RuleTerm         `json:"head_rule_term,omitzero"`
 	Antecedents    []*RuleTerm       `json:"antecedents,omitempty"`
 	Consequents    []*RuleTerm       `json:"consequents,omitempty"`
+}
+
+func (j *JetruleModel) ToJson() ([]byte, error) {
+	return json.Marshal(j)
 }
 
 func NewJetruleModel() *JetruleModel {
@@ -59,28 +66,6 @@ type ResourceNode struct {
 
 func (r *ResourceNode) SKey() string {
 	return fmt.Sprintf("%s|%s", r.Type, r.Value)
-}
-
-// ResourceManager manages the resources in the model
-// during the model compilation process performed by the JetRuleListener
-// Resources are stored in a map with key as "type|value" to ensure uniqueness
-// ResourceById is a map of resources by their Id
-// ResourceByKey is a map of resources by their Key
-// see jet_rule_listener_utility.go for usage
-type ResourceManager struct {
-	NextKey       int
-	Resources     map[string]*ResourceNode
-	ResourceById  map[string]*ResourceNode
-	ResourceByKey map[int]*ResourceNode
-}
-
-func NewResourceManager() *ResourceManager {
-	return &ResourceManager{
-		NextKey:       1,
-		Resources:     make(map[string]*ResourceNode),
-		ResourceById:  make(map[string]*ResourceNode),
-		ResourceByKey: make(map[int]*ResourceNode),
-	}
 }
 
 type LookupTableNode struct {

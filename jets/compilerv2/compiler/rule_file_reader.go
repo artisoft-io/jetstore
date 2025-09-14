@@ -1,7 +1,8 @@
-package main
+package compiler
 
 import (
 	"fmt"
+	"regexp"
 	"strings"
 )
 
@@ -11,6 +12,7 @@ import (
 // It must also resolve the global line number to the local
 // line number in each file.
 
+var reImportPattern = regexp.MustCompile(`import\s*"([a-zA-Z0-9_\/.-]*)"`)
 type readFileFunc func(filePath string) (string, error)
 
 // RuleFileReader reads and combines rule files
