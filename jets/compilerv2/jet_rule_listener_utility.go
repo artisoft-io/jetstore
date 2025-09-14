@@ -1,20 +1,110 @@
 package main
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/artisoft-io/jetstore/jets/jetrules/rete"
 )
+
 // antlr v4 JetRuleListener interface implementation
 
-// Utility methods
+// ResourceManager functions and utility methods
+
+func (s *JetRuleListener) ParseObjectAtom(txt string, keywordsContextValue string) int {
+	r := parseObjectAtom(txt, keywordsContextValue)
+	if len(r.Id) > 0 {	// Type == "identifier"
+		// Type is actually resource or volatile_resource
+		if res, exists := s.resourceManager.ResourceById[r.Id]; exists {
+			return res.Key
+		}
+		// Resource not found - log error and create it as inline resource
+		fmt.Fprintf(s.errorLog, "error: identifier '%s' must be defined in a declaration section before use, creating as resource\n", r.Id)
+		fmt.Fprintf(s.parseLog, "error: identifier '%s' must be defined in a declaration section before use, creating as resource\n", r.Id)
+		r.Type = "resource"
+		r.Value = r.Id
+	}
+	skey := r.SKey()
+	if res, exists := s.resourceManager.Resources[skey]; exists {
+		// Resource already exists
+		return res.Key
+	}
+	// It's a new Resource
+	r.Inline = true
+	s.newResource(&r)
+	return r.Key
+}
+
+// AddResource adds a resource to the model if it does not already exist.
+// It performs validation and ensures uniqueness based on type and value.
+// It also validate that two resources with the same Id are identical.
+// returns its key
+func (s *JetRuleListener) AddResource(r rete.ResourceNode) int {
+	if r.Type == "volatile_resource" {
+		r.Value = fmt.Sprintf("_0:%s", r.Value)	// add prefix
+	}
+	skey := r.SKey()
+	if res, exists := s.resourceManager.Resources[skey]; exists {
+		// Resource already exists - see if we need to make any updates
+		// Set Id if was not set
+		if len(res.Id) == 0 && len(r.Id) > 0 {
+			res.Id = r.Id
+		} else {
+			// Check if it's a duplicate resource
+			if len(res.Id) > 0 && res.Id == r.Id {
+				return res.Key
+			}
+		}
+	} else {
+		// Check if Id already exists with different type/value
+		if len(r.Id) > 0 {
+			if resById, existsById := s.resourceManager.ResourceById[r.Id]; existsById {
+				if resById.Type != r.Type || resById.Value != r.Value {
+					// Conflict - same Id with different type/value
+					fmt.Fprintf(s.errorLog, "error: resource Id conflict for Id '%s': existing (%s|%s), new (%s|%s), keeping the existing resource\n",
+						r.Id, resById.Type, resById.Value, r.Type, r.Value)
+					fmt.Fprintf(s.parseLog, "error: resource Id conflict for Id '%s': existing (%s|%s), new (%s|%s), keeping the existing resource\n",
+						r.Id, resById.Type, resById.Value, r.Type, r.Value)
+					// Keep the existing resource
+					return resById.Key
+				}
+			}
+		}
+	}
+	// It's a new Resource (or Id is different)
+	if len(r.Id) == 0 {
+		r.Inline = true
+	}
+	s.newResource(&r)
+	return r.Key
+}
+
+func (s *JetRuleListener) newResource(r *rete.ResourceNode) {
+	s.resourceManager.NextKey++
+	r.Key = s.resourceManager.NextKey
+	r.SourceFileName = s.currentRuleFileName
+	s.resourceManager.ResourceById[r.Id] = r
+	s.resourceManager.ResourceByKey[r.Key] = r
+	s.resourceManager.Resources[fmt.Sprintf("%s|%s", r.Type, r.Value)] = r
+	s.jetRuleModel.Resources = append(s.jetRuleModel.Resources, *r)
+	if s.trace {
+		fmt.Fprintf(s.parseLog, "** New resource: %+v\n", r)
+	}
+}
+
+func (s *JetRuleListener) Resource(key int) *rete.ResourceNode {
+	if res, exists := s.resourceManager.ResourceByKey[key]; exists {
+		return res
+	}
+	return nil
+}
 
 // Parse the triple atom, identify it's type and return it as a ResourceNode
 // possible inputs:
 //
 //	?clm        -> {type: "var", value: "?clm"}
-//	rdf:type    -> {type: "identifier", value: "rdf:type"}
-//	localVal    -> {type: "identifier", value: "localVal"}
+//	rdf:type    -> {type: "identifier", id: "rdf:type"}
+//	localVal    -> {type: "identifier", id: "localVal"}
 //	"XYZ"       -> {type: "text", value: "XYZ"}
 //	text("XYZ") -> {type: "text", value: "XYZ"}
 //	int(1)      -> {type: "int", value: "1"}
@@ -22,26 +112,22 @@ import (
 //	true        -> {type: "keyword", value: "true"}
 //	-123        -> {type: "int", value: "-123"}
 //	+12.3       -> {type: "double", value: "+12.3"}
-func (s *JetRuleListener) ParseObjectAtom(txt string, keywordsContextValue string) *rete.ResourceNode {
+func parseObjectAtom(txt string, keywordsContextValue string) rete.ResourceNode {
 	if len(txt) == 0 && len(keywordsContextValue) == 0 {
-		return nil
+		return rete.ResourceNode{}
 	}
 	switch {
 	case strings.HasPrefix(txt, "?"):
 		// Variable
-		s.nextKey++
-		return &rete.ResourceNode{
+		return rete.ResourceNode{
 			Type:  "var",
 			Value: txt,
-			Key:   s.nextKey,
 		}
 	case strings.HasPrefix(txt, "\"") && strings.HasSuffix(txt, "\""):
 		// String
-		s.nextKey++
-		return &rete.ResourceNode{
+		return rete.ResourceNode{
 			Type:  "text",
 			Value: StripQuotes(txt),
-			Key:   s.nextKey,
 		}
 	case strings.HasSuffix(txt, ")"):
 		// Literal cast
@@ -49,46 +135,37 @@ func (s *JetRuleListener) ParseObjectAtom(txt string, keywordsContextValue strin
 		if len(v) == 2 {
 			typ := v[0]
 			val := strings.TrimSuffix(v[1], ")")
-			s.nextKey++
-			return &rete.ResourceNode{
+			return rete.ResourceNode{
 				Type:  typ,
 				Value: StripQuotes(val),
-				Key:   s.nextKey,
 			}
 		}
 	case len(keywordsContextValue) > 0:
 		// Keyword
-		s.nextKey++
-		return &rete.ResourceNode{
+		return rete.ResourceNode{
 			Type:  "keyword",
 			Value: keywordsContextValue,
-			Key:   s.nextKey,
 		}
 	case isNumeric(txt):
 		// Numeric (int or double)
-		s.nextKey++
 		if strings.Contains(txt, ".") {
-			return &rete.ResourceNode{
+			return rete.ResourceNode{
 				Type:  "double",
 				Value: txt,
-				Key:   s.nextKey,
 			}
 		}
-		return &rete.ResourceNode{
+		return rete.ResourceNode{
 			Type:  "int",
 			Value: txt,
-			Key:   s.nextKey,
 		}
 	default:
 		// Identifier (resource / volatile_resource)
-		s.nextKey++
-		return &rete.ResourceNode{
-			Type:  "identifier",
-			Value: EscR(txt),
-			Key:   s.nextKey,
+		return rete.ResourceNode{
+			Type: "identifier",
+			Id:   EscR(txt),
 		}
 	}
-	return nil
+	return rete.ResourceNode{}
 }
 
 // Determine if the string is numeric (int or double)

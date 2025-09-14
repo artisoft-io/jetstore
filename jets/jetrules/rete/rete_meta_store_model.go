@@ -1,5 +1,7 @@
 package rete
 
+import "fmt"
+
 // Data model for ReteMetaStore / ReteMetaStoreFactory
 
 type JetruleModel struct {
@@ -38,6 +40,10 @@ func NewJetruleModel() *JetruleModel {
 	}
 }
 
+// ResourceNode represents a resource in the model
+// Type can be one of JetStore's rdf types: identifier, string, int, double, boolean, keyword, variable
+// identifier is either resource or volatile_resource.
+// This is resolved by the ResourceManager when adding to the model.
 type ResourceNode struct {
 	Id             string `json:"id,omitempty"`
 	Inline         bool   `json:"inline,omitzero"`
@@ -49,6 +55,32 @@ type ResourceNode struct {
 	Value          string `json:"value,omitempty"`
 	VarPos         int    `json:"var_pos,omitzero"`
 	Vertex         int    `json:"vertex,omitzero"`
+}
+
+func (r *ResourceNode) SKey() string {
+	return fmt.Sprintf("%s|%s", r.Type, r.Value)
+}
+
+// ResourceManager manages the resources in the model
+// during the model compilation process performed by the JetRuleListener
+// Resources are stored in a map with key as "type|value" to ensure uniqueness
+// ResourceById is a map of resources by their Id
+// ResourceByKey is a map of resources by their Key
+// see jet_rule_listener_utility.go for usage
+type ResourceManager struct {
+	NextKey       int
+	Resources     map[string]*ResourceNode
+	ResourceById  map[string]*ResourceNode
+	ResourceByKey map[int]*ResourceNode
+}
+
+func NewResourceManager() *ResourceManager {
+	return &ResourceManager{
+		NextKey:       1,
+		Resources:     make(map[string]*ResourceNode),
+		ResourceById:  make(map[string]*ResourceNode),
+		ResourceByKey: make(map[int]*ResourceNode),
+	}
 }
 
 type LookupTableNode struct {
@@ -121,7 +153,7 @@ type ExpressionNode struct {
 	Arg   *ExpressionNode `json:"arg,omitzero"`
 	Lhs   *ExpressionNode `json:"lhs,omitempty"`
 	Rhs   *ExpressionNode `json:"rhs,omitempty"`
-	Value *ResourceNode   `json:"value,omitempty"`
+	Value int             `json:"value,omitempty"`
 }
 
 type BetaVarNode struct {
