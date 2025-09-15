@@ -2,6 +2,7 @@ package compiler
 
 import (
 	"fmt"
+	"sort"
 	"strconv"
 	"strings"
 	"unicode"
@@ -222,8 +223,13 @@ func (l *JetRuleListener) PostProcessJetruleModel() {
 	// Perform post-processing and validation on the Jetrule model
 	l.PostProcessClasses()
 
-	// Create Table for persisted classes
-	//TODO
+	// Create Table for classes having asTable = true
+	for i := range l.jetRuleModel.Classes {
+		class := &l.jetRuleModel.Classes[i]
+		if class.AsTable {
+			l.MakeTableFromClass(class)
+		}
+	}
 }
 
 // IsValidIdentifier checks if a string is a valid identifier
@@ -298,6 +304,77 @@ func (l *JetRuleListener) PostProcessClasses() {
 			} else {
 				fmt.Fprintf(l.errorLog, "** error: base class %s not found for class %s\n", baseClassName, className)
 			}
+		}
+	}
+}
+
+// MakeTableFromClass creates a TableNode from a ClassNode
+// It visits the ClassNode and its base classes to collect data properties
+// as well as the properties of all its subclasses
+func (l *JetRuleListener) MakeTableFromClass(cls *rete.ClassNode) {
+	if cls == nil {
+		return
+	}
+	// Create a new table for the class
+	table := &rete.TableNode{
+		TableName:      cls.Name,
+		ClassName:      cls.Name,
+		SourceFileName: cls.SourceFileName,
+	}
+
+	// The columns of the table include the data properties of:
+	// - the class itself
+	// - all its base classes, and the base classes of their base classes (recursively upwards)
+	// - all its subclasses, and the subclasses of their subclasses (recursively downwards)
+	// Use a map to avoid duplicates
+	store := make(map[string]*rete.TableColumnNode)
+	visitedClasses := make(map[string]bool)
+	l.visitClass(true, store, visitedClasses, cls)
+	l.visitClass(false, store, visitedClasses, cls)
+	visitedClasses[cls.Name] = true
+
+	// Convert the map to a slice of TableColumnNode and assign it to the table
+	for _, col := range store {
+		table.Columns = append(table.Columns, *col)
+	}
+	// Sort table columns by ColumnName
+	sort.Slice(table.Columns, func(i, j int) bool {
+		return table.Columns[i].ColumnName < table.Columns[j].ColumnName
+	})
+
+	// Add the table to the model
+	l.jetRuleModel.Tables = append(l.jetRuleModel.Tables, *table)
+}
+
+
+// Collect TableColumnNode from the properties of cls and its base classes and subclasses
+func (l *JetRuleListener) visitClass(doUp bool, store map[string]*rete.TableColumnNode, 
+	visitedClasses map[string]bool, cls *rete.ClassNode) {
+		if cls == nil || visitedClasses[cls.Name] {
+		return
+	}
+
+	// Add properties of the class
+	for i := range cls.DataProperties {
+		if _, exists := store[cls.DataProperties[i].Name]; !exists {
+			store[cls.DataProperties[i].Name] = &rete.TableColumnNode{
+				Type:       cls.DataProperties[i].Type,
+				ColumnName: cls.DataProperties[i].Name,
+				AsArray:    cls.DataProperties[i].AsArray,
+			}
+		}
+	}
+	if doUp {
+		// Visit base classes recursively
+		for _, baseClass := range cls.BaseClasses {
+			l.visitClass(doUp, store, visitedClasses, l.classesByName[baseClass])
+			visitedClasses[baseClass] = true
+		}
+	} else {
+		// Visit subclasses recursively
+		for _, subClass := range cls.SubClasses {
+			l.visitClass(doUp, store, visitedClasses, l.classesByName[subClass])
+			visitedClasses[subClass] = true
 		}
 	}
 }
