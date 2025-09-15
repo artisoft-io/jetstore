@@ -47,7 +47,7 @@ func (c *Compiler) Compile() error {
 	p := parser.NewJetRuleParser(stream)
 	p.BuildParseTrees = true
 	p.RemoveErrorListeners() // remove default ConsoleErrorListener
-	errorListener := NewCustomErrorListener(ruleFileReader, c.ErrorLog())
+	errorListener := NewCustomErrorListener(c.ParseLog(), c.ErrorLog())
 	p.AddErrorListener(errorListener)
 
 	// Build the tree
@@ -86,10 +86,6 @@ func (c *Compiler) ErrorLog() *strings.Builder {
 
 func (c *Compiler) OutJsonFileName() string {
 	return c.listener.outJsonFileName
-}
-
-func (c *Compiler) JetruleModel() *rete.JetruleModel {
-	return c.listener.jetRuleModel
 }
 
 // All in one function to compile the rules
