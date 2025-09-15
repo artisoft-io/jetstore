@@ -1,0 +1,8 @@
+# Jet Rules with triples
+date d1 = "03/16/2022";
+datetime dt1 = "03/16/2022 16:08:28.195865";
+
+triple(s1,top:operator,"<");
+triple(s2,_0:yearDistance, 22);
+triple(s3, jet:"int", uint(2));
+triple(s4, dt1, date("01/22/2022"));
