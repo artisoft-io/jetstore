@@ -41,12 +41,38 @@ func TestJetRuleListener_Classes(t *testing.T) {
 	b, _ = json.MarshalIndent(jrCompiler.listener.currentRuleVarByValue, "", " ")
 	fmt.Printf("** Variable by Value: \n%v\n", string(b))
 	fmt.Printf("** Error Log: \n%v\n", jrCompiler.ErrorLog().String())
-	jrCompiler.listener.PostProcessClasses()
+	jrCompiler.listener.PostProcessJetruleModel()
 	fmt.Printf("** owl:Thing sub classes: \n%v\n", jrCompiler.listener.classesByName["owl:Thing"].SubClasses)
 	if jrCompiler.ErrorLog().Len() > 0 {
 		t.Error(jrCompiler.ErrorLog().String())
 	} else {
-		t.Error("Done")
+		// t.Error("Done")
+	}
+}
+
+func TestJetRuleListener_Tables(t *testing.T) {
+
+	jrCompiler, err := CompileJetRuleFiles("./testdata", "tables.jr", true)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	// b, _ := json.MarshalIndent(jrCompiler.JetRuleModel().Resources, "", " ")
+	// fmt.Printf("** Resources: \n%v\n", string(b))
+	b, _ := json.MarshalIndent(jrCompiler.JetRuleModel().Classes, "", " ")
+	fmt.Printf("** Classes: \n%v\n", string(b))
+	b, _ = json.MarshalIndent(jrCompiler.JetRuleModel().Tables, "", " ")
+	fmt.Printf("** Tables: \n%v\n", string(b))
+	// b, _ = json.MarshalIndent(jrCompiler.JetRuleModel().Jetrules, "", " ")
+	// fmt.Printf("** Jet Rules: \n%v\n", string(b))
+	// b, _ = json.MarshalIndent(jrCompiler.listener.currentRuleVarByValue, "", " ")
+	// fmt.Printf("** Variable by Value: \n%v\n", string(b))
+	fmt.Printf("** Error Log: \n%v\n", jrCompiler.ErrorLog().String())
+	jrCompiler.listener.PostProcessJetruleModel()
+	fmt.Printf("** owl:Thing sub classes: \n%v\n", jrCompiler.listener.classesByName["owl:Thing"].SubClasses)
+	if jrCompiler.ErrorLog().Len() > 0 {
+		t.Error(jrCompiler.ErrorLog().String())
+	} else {
+		// t.Error("Done")
 	}
 }
 
@@ -127,7 +153,7 @@ func TestJetRuleListener_JetRule0(t *testing.T) {
 	if jrCompiler.ErrorLog().Len() > 0 {
 		t.Error(jrCompiler.ErrorLog().String())
 	} else {
-		t.Error("Done")
+		// t.Error("Done")
 	}
 }
 
@@ -145,7 +171,7 @@ func TestJetRuleListener_JetRule_err1(t *testing.T) {
 	if jrCompiler.ErrorLog().Len() == 0 {
 		t.Error("Expected error but none found")
 	} else {
-		t.Error("Done")
+		// t.Error("Done")
 	}
 }
 
