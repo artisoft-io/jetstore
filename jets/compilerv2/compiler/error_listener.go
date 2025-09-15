@@ -15,13 +15,14 @@ import (
 // CustomErrorListener implements antlr.ErrorListener
 type CustomErrorListener struct {
 	antlr.DefaultErrorListener // Embeds default implementation
-	RuleFileReader *RuleFileReader
-	ErrorLog       *strings.Builder
+	ParseLog                   *strings.Builder
+	ErrorLog                   *strings.Builder
 }
-func NewCustomErrorListener(rfr *RuleFileReader, errLog *strings.Builder) *CustomErrorListener {
+
+func NewCustomErrorListener(parseLog, errorLog *strings.Builder) *CustomErrorListener {
 	return &CustomErrorListener{
-		RuleFileReader: rfr,
-		ErrorLog:      errLog,
+		ParseLog: parseLog,
+		ErrorLog: errorLog,
 	}
 }
 
@@ -32,7 +33,7 @@ func (l *CustomErrorListener) SyntaxError(
 	msg string,
 	e antlr.RecognitionException,
 ) {
-	fmt.Printf("Syntax error at line %d:%d - %s\n", line, column, msg)
+	fmt.Fprintf(l.ErrorLog, "Syntax error at line %d:%d - %s\n", line, column, msg)
 }
 
 func (l *CustomErrorListener) ReportAmbiguity(
@@ -43,7 +44,7 @@ func (l *CustomErrorListener) ReportAmbiguity(
 	ambigAlts *antlr.BitSet,
 	configs *antlr.ATNConfigSet,
 ) {
-	fmt.Printf("Ambiguity detected from %d to %d\n", startIndex, stopIndex)
+	fmt.Fprintf(l.ParseLog, "Ambiguity detected from %d to %d\n", startIndex, stopIndex)
 }
 
 func (l *CustomErrorListener) ReportAttemptingFullContext(
@@ -53,7 +54,7 @@ func (l *CustomErrorListener) ReportAttemptingFullContext(
 	conflictingAlts *antlr.BitSet,
 	configs *antlr.ATNConfigSet,
 ) {
-	fmt.Printf("Attempting full context from %d to %d\n", startIndex, stopIndex)
+	fmt.Fprintf(l.ParseLog, "Attempting full context from %d to %d\n", startIndex, stopIndex)
 }
 
 func (l *CustomErrorListener) ReportContextSensitivity(
@@ -62,5 +63,5 @@ func (l *CustomErrorListener) ReportContextSensitivity(
 	startIndex, stopIndex, prediction int,
 	configs *antlr.ATNConfigSet,
 ) {
-	fmt.Printf("Context sensitivity from %d to %d\n", startIndex, stopIndex)
+	fmt.Fprintf(l.ParseLog, "Context sensitivity from %d to %d\n", startIndex, stopIndex)
 }
