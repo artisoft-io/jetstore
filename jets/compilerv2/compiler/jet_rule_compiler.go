@@ -2,6 +2,8 @@ package compiler
 
 import (
 	"fmt"
+	"log"
+	"os"
 	"strings"
 
 	"github.com/antlr4-go/antlr/v4"
@@ -13,11 +15,13 @@ import (
 
 type Compiler struct {
 	listener *JetRuleListener
+	saveJson bool
 }
 
-func NewCompiler(basePath string, mainRuleFileName string, trace bool) *Compiler {
+func NewCompiler(basePath string, mainRuleFileName string, saveJson, trace bool) *Compiler {
 	c := &Compiler{
 		listener: NewJetRuleListener(basePath, mainRuleFileName),
+		saveJson: saveJson,
 	}
 	c.listener.trace = trace
 	return c
@@ -64,6 +68,19 @@ func (c *Compiler) Compile() error {
 	if c.ErrorLog().Len() > 0 {
 		fmt.Println("** Compilation Errors:\n", c.ErrorLog().String())
 	}
+	if c.saveJson {
+		log.Println("Saving json to", c.OutJsonFileName())
+		data, err := c.JetRuleModel().ToJson()
+		if err != nil {
+			log.Println("** ERROR converting to json:", err.Error())
+			log.Fatal(err)
+		}
+		err = os.WriteFile(c.OutJsonFileName(), data, 0644)
+		if err != nil {
+			log.Println("** ERROR saving json:", err.Error())
+			log.Fatal(err)
+		}
+	}
 
 	return nil
 }
@@ -89,8 +106,8 @@ func (c *Compiler) OutJsonFileName() string {
 }
 
 // All in one function to compile the rules
-func CompileJetRuleFiles(basePath string, mainRuleFileName string, trace bool) (*Compiler, error) {
-	jrCompiler := NewCompiler(basePath, mainRuleFileName, trace)
+func CompileJetRuleFiles(basePath string, mainRuleFileName string, saveJson, trace bool) (*Compiler, error) {
+	jrCompiler := NewCompiler(basePath, mainRuleFileName, saveJson, trace)
 	err := jrCompiler.Compile()
 	if err != nil {
 		return nil, err
