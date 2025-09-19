@@ -17,9 +17,18 @@ var saveJson = flag.Bool("save_json", false, "Save JetRule json output file")
 var trace = flag.Bool("trace", false, "Enable trace logging")
 
 func main() {
+	inputFileNameSP := flag.String("f", "", "JetRule file (required) short name")
+	basePathSP := flag.String("b", "", "Base path for in_file, out_file and all imported files (required) short name")
 	saveJson = flag.Bool("s", false, "Save JetRule json output file (short name)")
+	trace = flag.Bool("t", false, "Enable trace logging (short name)")
 	fmt.Println("CMD LINE ARGS:", os.Args[1:])
 	flag.Parse()
+	if *inputFileName == "" && *inputFileNameSP != "" {
+		inputFileName = inputFileNameSP
+	}
+	if *basePath == "" && *basePathSP != "" {
+		basePath = basePathSP
+	}
 	hasErr := false
 	var errMsg []string
 	if *inputFileName == "" {
@@ -39,24 +48,16 @@ func main() {
 		panic("Invalid argument(s)")
 	}
 
-	jrCompiler, err := compiler.CompileJetRuleFiles(*basePath, *inputFileName, *trace)
+	jrCompiler, err := compiler.CompileJetRuleFiles(*basePath, *inputFileName, *saveJson, *trace)
 	if err != nil {
 		log.Println("** ERROR during compilation:")
 		log.Println(jrCompiler.ErrorLog().String())
 		log.Fatal(err)
+	} else {
+		if jrCompiler.ErrorLog().Len() > 0 {
+			log.Println("** ERROR during compilation:")
+			log.Println(jrCompiler.ErrorLog().String())
+		}
 	}
 	log.Println("** Compilation successful")
-	if *saveJson {
-		log.Println("Saving json to", jrCompiler.OutJsonFileName())
-		data, err := jrCompiler.JetRuleModel().ToJson()
-		if err != nil {
-			log.Println("** ERROR converting to json:", err.Error())
-			log.Fatal(err)
-		}
-		err = os.WriteFile(jrCompiler.OutJsonFileName(), data, 0644)
-		if err != nil {
-			log.Println("** ERROR saving json:", err.Error())
-			log.Fatal(err)
-		}
-	}
 }

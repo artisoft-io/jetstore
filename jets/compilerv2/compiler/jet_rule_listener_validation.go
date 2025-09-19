@@ -17,6 +17,10 @@ func (s *JetRuleListener) collectVarResourcesFromExpr(expr *rete.ExpressionNode,
 	if expr == nil {
 		return
 	}
+	// ExpressionNode can be of Type "binary", "unary", "identifier"
+	// For "binary", recurse on Lhs and Rhs
+	// For "unary", recurse on Arg
+	// For "identifier", check if it's a variable and add to varSet
 	if expr.Type == "identifier" {
 		res := s.Resource(expr.Value)
 		if res != nil && res.Type == "var" {

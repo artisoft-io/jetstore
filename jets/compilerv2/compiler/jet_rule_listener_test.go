@@ -8,7 +8,7 @@ import (
 
 func TestJetRuleListener_SimpleFile(t *testing.T) {
 
-	jrCompiler, err := CompileJetRuleFiles("./testdata", "simple.jr", true)
+	jrCompiler, err := CompileJetRuleFiles("./testdata", "simple.jr", false, true)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -28,7 +28,7 @@ func TestJetRuleListener_SimpleFile(t *testing.T) {
 
 func TestJetRuleListener_Classes(t *testing.T) {
 
-	jrCompiler, err := CompileJetRuleFiles("./testdata", "classes.jr", true)
+	jrCompiler, err := CompileJetRuleFiles("./testdata", "classes.jr", false, true)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -52,7 +52,7 @@ func TestJetRuleListener_Classes(t *testing.T) {
 
 func TestJetRuleListener_Tables(t *testing.T) {
 
-	jrCompiler, err := CompileJetRuleFiles("./testdata", "tables.jr", true)
+	jrCompiler, err := CompileJetRuleFiles("./testdata", "tables.jr", false, true)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -78,7 +78,7 @@ func TestJetRuleListener_Tables(t *testing.T) {
 
 func TestJetRuleListener_RuleSequence(t *testing.T) {
 
-	jrCompiler, err := CompileJetRuleFiles("./testdata", "rule_sequence.jr", true)
+	jrCompiler, err := CompileJetRuleFiles("./testdata", "rule_sequence.jr", false, true)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -94,7 +94,7 @@ func TestJetRuleListener_RuleSequence(t *testing.T) {
 
 func TestJetRuleListener_Resources(t *testing.T) {
 
-	jrCompiler, err := CompileJetRuleFiles("./testdata", "resources.jr", true)
+	jrCompiler, err := CompileJetRuleFiles("./testdata", "resources.jr", false, true)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -110,7 +110,7 @@ func TestJetRuleListener_Resources(t *testing.T) {
 
 func TestJetRuleListener_Resources_err1(t *testing.T) {
 
-	jrCompiler, err := CompileJetRuleFiles("./testdata", "resources_err1.jr", true)
+	jrCompiler, err := CompileJetRuleFiles("./testdata", "resources_err1.jr", false, true)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -126,7 +126,7 @@ func TestJetRuleListener_Resources_err1(t *testing.T) {
 
 func TestJetRuleListener_Lookup(t *testing.T) {
 
-	jrCompiler, err := CompileJetRuleFiles("./testdata", "lookup.jr", true)
+	jrCompiler, err := CompileJetRuleFiles("./testdata", "lookup.jr", false, true)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -142,7 +142,7 @@ func TestJetRuleListener_Lookup(t *testing.T) {
 
 func TestJetRuleListener_JetRule0(t *testing.T) {
 
-	jrCompiler, err := CompileJetRuleFiles("./testdata", "jetrule0.jr", true)
+	jrCompiler, err := CompileJetRuleFiles("./testdata", "jetrule0.jr", false, true)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -159,7 +159,7 @@ func TestJetRuleListener_JetRule0(t *testing.T) {
 
 func TestJetRuleListener_JetRule_err1(t *testing.T) {
 
-	jrCompiler, err := CompileJetRuleFiles("./testdata", "jetrule_err1.jr", true)
+	jrCompiler, err := CompileJetRuleFiles("./testdata", "jetrule_err1.jr", false, true)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -177,7 +177,7 @@ func TestJetRuleListener_JetRule_err1(t *testing.T) {
 
 func TestJetRuleListener_JetRule_err2(t *testing.T) {
 
-	jrCompiler, err := CompileJetRuleFiles("./testdata", "jetrule_err2.jr", true)
+	jrCompiler, err := CompileJetRuleFiles("./testdata", "jetrule_err2.jr", false, true)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -195,7 +195,7 @@ func TestJetRuleListener_JetRule_err2(t *testing.T) {
 
 func TestJetRuleListener_JetRule(t *testing.T) {
 
-	jrCompiler, err := CompileJetRuleFiles("./testdata", "jetrule.jr", true)
+	jrCompiler, err := CompileJetRuleFiles("./testdata", "jetrule.jr", false, true)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -213,7 +213,7 @@ func TestJetRuleListener_JetRule(t *testing.T) {
 
 func TestJetRuleListener_Triples(t *testing.T) {
 
-	jrCompiler, err := CompileJetRuleFiles("./testdata", "triples.jr", true)
+	jrCompiler, err := CompileJetRuleFiles("./testdata", "triples.jr", false, true)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -223,7 +223,25 @@ func TestJetRuleListener_Triples(t *testing.T) {
 	fmt.Printf("** Triples: \n%v\n", string(b))
 	fmt.Printf("** Error Log: \n%v\n", jrCompiler.ErrorLog().String())
 	if jrCompiler.ErrorLog().Len() > 0 {
-		t.Error("Error")
+		t.Error("unexpected errors found")
+	} else {
+		// t.Error("Done")
+	}
+}
+
+func TestJetRuleListener_Triples_err1(t *testing.T) {
+
+	jrCompiler, err := CompileJetRuleFiles("./testdata", "triples.jr", false, true)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	b, _ := json.MarshalIndent(jrCompiler.JetRuleModel().Resources, "", " ")
+	fmt.Printf("** Resources: \n%v\n", string(b))
+	b, _ = json.MarshalIndent(jrCompiler.JetRuleModel().Triples, "", " ")
+	fmt.Printf("** Triples: \n%v\n", string(b))
+	fmt.Printf("** Error Log: \n%v\n", jrCompiler.ErrorLog().String())
+	if jrCompiler.ErrorLog().Len() == 0 {
+		t.Error("expecting error but none found")
 	} else {
 		// t.Error("Done")
 	}
