@@ -17,12 +17,14 @@ type CustomErrorListener struct {
 	antlr.DefaultErrorListener // Embeds default implementation
 	ParseLog                   *strings.Builder
 	ErrorLog                   *strings.Builder
+	Trace                      bool
 }
 
-func NewCustomErrorListener(parseLog, errorLog *strings.Builder) *CustomErrorListener {
+func NewCustomErrorListener(parseLog, errorLog *strings.Builder, trace bool) *CustomErrorListener {
 	return &CustomErrorListener{
 		ParseLog: parseLog,
 		ErrorLog: errorLog,
+		Trace:    trace,
 	}
 }
 
@@ -33,6 +35,7 @@ func (l *CustomErrorListener) SyntaxError(
 	msg string,
 	e antlr.RecognitionException,
 ) {
+	// allways report syntax errors
 	fmt.Fprintf(l.ErrorLog, "Syntax error at line %d:%d - %s\n", line, column, msg)
 }
 
@@ -44,7 +47,9 @@ func (l *CustomErrorListener) ReportAmbiguity(
 	ambigAlts *antlr.BitSet,
 	configs *antlr.ATNConfigSet,
 ) {
-	fmt.Fprintf(l.ParseLog, "Ambiguity detected from %d to %d\n", startIndex, stopIndex)
+	if l.Trace {
+		fmt.Fprintf(l.ParseLog, "Ambiguity detected from %d to %d\n", startIndex, stopIndex)
+	}
 }
 
 func (l *CustomErrorListener) ReportAttemptingFullContext(
@@ -54,7 +59,9 @@ func (l *CustomErrorListener) ReportAttemptingFullContext(
 	conflictingAlts *antlr.BitSet,
 	configs *antlr.ATNConfigSet,
 ) {
-	fmt.Fprintf(l.ParseLog, "Attempting full context from %d to %d\n", startIndex, stopIndex)
+	if l.Trace {
+		fmt.Fprintf(l.ParseLog, "Attempting full context from %d to %d\n", startIndex, stopIndex)
+	}
 }
 
 func (l *CustomErrorListener) ReportContextSensitivity(
@@ -63,5 +70,7 @@ func (l *CustomErrorListener) ReportContextSensitivity(
 	startIndex, stopIndex, prediction int,
 	configs *antlr.ATNConfigSet,
 ) {
-	fmt.Fprintf(l.ParseLog, "Context sensitivity from %d to %d\n", startIndex, stopIndex)
+	if l.Trace {
+		fmt.Fprintf(l.ParseLog, "Context sensitivity from %d to %d\n", startIndex, stopIndex)
+	}
 }

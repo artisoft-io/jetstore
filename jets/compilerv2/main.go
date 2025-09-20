@@ -15,6 +15,7 @@ var inputFileName = flag.String("in_file", "", "JetRule file (required)")
 var basePath = flag.String("base_path", "", "Base path for in_file, out_file and all imported files (required)")
 var saveJson = flag.Bool("save_json", false, "Save JetRule json output file")
 var trace = flag.Bool("trace", false, "Enable trace logging")
+var autoAddResources = flag.Bool("a", false, "Enable automatic resource addition when an identifier is not defined")
 
 func main() {
 	inputFileNameSP := flag.String("f", "", "JetRule file (required) short name")
@@ -48,7 +49,7 @@ func main() {
 		panic("Invalid argument(s)")
 	}
 
-	jrCompiler, err := compiler.CompileJetRuleFiles(*basePath, *inputFileName, *saveJson, *trace)
+	jrCompiler, err := compiler.CompileJetRuleFiles(*basePath, *inputFileName, *saveJson, *trace, *autoAddResources)
 	if err != nil {
 		log.Println("** ERROR during compilation:")
 		log.Println(jrCompiler.ErrorLog().String())

@@ -24,8 +24,9 @@ type JetRuleListener struct {
 	jetRuleModel    *rete.JetruleModel
 
 	// ResourceManager
-	resourceManager *ResourceManager
-	classesByName   map[string]*rete.ClassNode
+	autoAddResources bool
+	resourceManager  *ResourceManager
+	classesByName    map[string]*rete.ClassNode
 
 	// Internal state
 	currentRuleFileName       string

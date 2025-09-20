@@ -55,23 +55,80 @@ func (s *JetRuleListener) ValidateRuleTerm(term *rete.RuleTerm) {
 	}
 }
 
-// ValidateJetruleNode validates a JetruleNode
-// All ResourceNode of Type "?var" in the Consequents must appear in the Antecedents
+// ValidateJetruleNode validates a JetruleNode:
+// - All RuleTerm in Antecedents must have at least one of subject, predicate, object as variable
+// - All RuleTerm in Consequents must have at least one of subject, predicate, object as variable
+// - All ResourceNode of Type "?var" in the Antecedents that contain a filter expression or
+//   a negation (not operator) must appear in the previous antecedents.
+// - All ResourceNode of Type "?var" in the Consequents must appear in the Antecedents
 func (s *JetRuleListener) ValidateJetruleNode(rule *rete.JetruleNode) {
 	// Build a set of variable resource keys from the antecedents
 	varSet := make(map[int]bool)
 	for i := range rule.Antecedents {
+		// - All RuleTerm in Antecedents must have at least one of subject, predicate, object as variable
+		hasVar := false
 		if s.Resource(rule.Antecedents[i].SubjectKey).Type == "var" {
+			hasVar = true
 			varSet[rule.Antecedents[i].SubjectKey] = true
 		}
 		if s.Resource(rule.Antecedents[i].PredicateKey).Type == "var" {
+			hasVar = true
 			varSet[rule.Antecedents[i].PredicateKey] = true
 		}
 		if s.Resource(rule.Antecedents[i].ObjectKey).Type == "var" {
+			hasVar = true
 			varSet[rule.Antecedents[i].ObjectKey] = true
 		}
+		if !hasVar {
+			fmt.Fprintf(s.errorLog,
+				"** error: antecedent must have at least one of subject, predicate, object as variable: (%s, %s, %s)\n",
+				s.Resource(rule.Antecedents[i].SubjectKey).SKey(),
+				s.Resource(rule.Antecedents[i].PredicateKey).SKey(),
+				s.Resource(rule.Antecedents[i].ObjectKey).SKey())
+		}
+		// - All ResourceNode of Type "?var" in the Antecedents that contain a filter expression or
+		//   a negation (not operator) must appear in the previous antecedents.
+		if rule.Antecedents[i].IsNot || rule.Antecedents[i].Filter != nil {
+			if s.Resource(rule.Antecedents[i].SubjectKey).Type == "var" {
+				if _, exists := varSet[rule.Antecedents[i].SubjectKey]; !exists {
+					fmt.Fprintf(s.errorLog,
+						"** error: antecedent subject variable %s not found in previous antecedents\n",
+						s.Resource(rule.Antecedents[i].SubjectKey).SKey())
+				}
+			}
+			if s.Resource(rule.Antecedents[i].PredicateKey).Type == "var" {
+				if _, exists := varSet[rule.Antecedents[i].PredicateKey]; !exists {
+					fmt.Fprintf(s.errorLog,
+						"** error: antecedent predicate variable %s not found in previous antecedents\n",
+						s.Resource(rule.Antecedents[i].PredicateKey).SKey())
+				}
+			}
+			o := s.Resource(rule.Antecedents[i].ObjectKey)
+			if o != nil && o.Type == "var" {
+				if _, exists := varSet[rule.Antecedents[i].ObjectKey]; !exists {
+					fmt.Fprintf(s.errorLog,
+						"** error: antecedent object variable %s not found in previous antecedents\n",
+						s.Resource(rule.Antecedents[i].ObjectKey).SKey())
+				}
+			}
+			// Check filter expression for variables
+			expr := rule.Antecedents[i].Filter
+			if expr != nil {
+				// Build a set of variable resource keys from the expression
+				exprVarSet := make(map[int]bool)
+				s.collectVarResourcesFromExpr(expr, exprVarSet)
+				// Check that all variable resource keys in the expression are in the antecedent varSet
+				for vKey := range exprVarSet {
+					if _, exists := varSet[vKey]; !exists {
+						fmt.Fprintf(s.errorLog,
+							"** error: antecedent filter expression variable %s not found in previous antecedents\n",
+							s.Resource(vKey).SKey())
+					}
+				}
+			}
+		}
 	}
-	// Check that all variable resource keys in the consequents are in the set
+	// - All RuleTerm in Consequents must have at least one of subject, predicate, object as variable
 	for i := range rule.Consequents {
 		if s.Resource(rule.Consequents[i].SubjectKey).Type == "var" {
 			if _, exists := varSet[rule.Consequents[i].SubjectKey]; !exists {
@@ -136,6 +193,11 @@ func (s *JetRuleListener) ValidateJetruleNode(rule *rete.JetruleNode) {
 	}
 }
 
+// Make rule label string as follows:
+// [ruleName, prop1=val1, prop2=val2]: (subj1 pred1 obj1).(subj2 pred2 obj2) -> (subj3 pred3 obj3).(subj4 pred4 obj4);
+// If normalize is true, variable resources are represented by their Id instead of their Value
+// Example where the Id ?x1 is used:
+// [MyRule, o=true, s=10]: (?x1 rdf:type ex:Person).not(?x1 ex:hasAge ?age) -> (?x1 ex:isAdult true);
 func (l *JetRuleListener) makeRuleLabel(rule *rete.JetruleNode, normalize bool) string {
 	label := &strings.Builder{}
 	label.WriteString(fmt.Sprintf("[%s", rule.Name))
@@ -148,14 +210,26 @@ func (l *JetRuleListener) makeRuleLabel(rule *rete.JetruleNode, normalize bool) 
 		if i > 0 {
 			label.WriteString(".")
 		}
+		// Use a separate string builder for the RuleTerm so we can assign the
+		// normalized label to the RuleTerm's NormalizedLabel field
+		ruleTermLabel := &strings.Builder{}
 		a := &rule.Antecedents[i]
 		if a.IsNot {
-			label.WriteString("not")
+			ruleTermLabel.WriteString("not")
 		}
-		fmt.Fprintf(label, "(%s %s %s)",
+		fmt.Fprintf(ruleTermLabel, "(%s %s %s)",
 			l.makeResourceLabel(l.Resource(a.SubjectKey), normalize),
 			l.makeResourceLabel(l.Resource(a.PredicateKey), normalize),
 			l.makeResourceLabel(l.Resource(a.ObjectKey), normalize))
+		if a.Filter != nil {
+			ruleTermLabel.WriteString(".[")
+			l.makeExpressionLabel(a.Filter, ruleTermLabel, normalize)
+			ruleTermLabel.WriteString("]")
+		}
+		label.WriteString(ruleTermLabel.String())
+		if normalize {
+			a.NormalizedLabel = ruleTermLabel.String()
+		}
 	}
 	label.WriteString(" -> ")
 	// Consequents

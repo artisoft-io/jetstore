@@ -19,8 +19,10 @@ func (s *JetRuleListener) ParseObjectAtom(txt string, keywordsContextValue strin
 			return res.Key
 		}
 		// Resource not found - log error and create it as inline resource
-		fmt.Fprintf(s.errorLog, "error: identifier '%s' must be defined in a declaration section before use, creating as resource\n", r.Id)
-		fmt.Fprintf(s.parseLog, "error: identifier '%s' must be defined in a declaration section before use, creating as resource\n", r.Id)
+		if !s.autoAddResources {
+			fmt.Fprintf(s.errorLog, "error: identifier '%s' must be defined in a declaration section before use, creating as resource\n", r.Id)
+			fmt.Fprintf(s.parseLog, "error: identifier '%s' must be defined in a declaration section before use, creating as resource\n", r.Id)
+		}
 		r.Type = "resource"
 		r.Value = r.Id
 	}
