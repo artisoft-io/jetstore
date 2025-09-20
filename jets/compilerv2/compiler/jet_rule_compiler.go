@@ -16,14 +16,17 @@ import (
 type Compiler struct {
 	listener *JetRuleListener
 	saveJson bool
+	autoAddResources bool
 }
 
-func NewCompiler(basePath string, mainRuleFileName string, saveJson, trace bool) *Compiler {
+func NewCompiler(basePath string, mainRuleFileName string, saveJson, trace, autoAddResources bool) *Compiler {
 	c := &Compiler{
 		listener: NewJetRuleListener(basePath, mainRuleFileName),
 		saveJson: saveJson,
+		autoAddResources: autoAddResources,
 	}
 	c.listener.trace = trace
+	c.listener.autoAddResources = autoAddResources
 	return c
 }
 
@@ -51,7 +54,7 @@ func (c *Compiler) Compile() error {
 	p := parser.NewJetRuleParser(stream)
 	p.BuildParseTrees = true
 	p.RemoveErrorListeners() // remove default ConsoleErrorListener
-	errorListener := NewCustomErrorListener(c.ParseLog(), c.ErrorLog())
+	errorListener := NewCustomErrorListener(c.ParseLog(), c.ErrorLog(), false /* c.Trace */)
 	p.AddErrorListener(errorListener)
 
 	// Build the tree
@@ -69,13 +72,14 @@ func (c *Compiler) Compile() error {
 		fmt.Println("** Compilation Errors:\n", c.ErrorLog().String())
 	}
 	if c.saveJson {
-		log.Println("Saving json to", c.OutJsonFileName())
+		outPath := fmt.Sprintf("%s/%s", c.listener.basePath, c.OutJsonFileName())
+		log.Println("Saving json to", outPath)
 		data, err := c.JetRuleModel().ToJson()
 		if err != nil {
 			log.Println("** ERROR converting to json:", err.Error())
 			log.Fatal(err)
 		}
-		err = os.WriteFile(c.OutJsonFileName(), data, 0644)
+		err = os.WriteFile(outPath, data, 0644)
 		if err != nil {
 			log.Println("** ERROR saving json:", err.Error())
 			log.Fatal(err)
@@ -106,8 +110,8 @@ func (c *Compiler) OutJsonFileName() string {
 }
 
 // All in one function to compile the rules
-func CompileJetRuleFiles(basePath string, mainRuleFileName string, saveJson, trace bool) (*Compiler, error) {
-	jrCompiler := NewCompiler(basePath, mainRuleFileName, saveJson, trace)
+func CompileJetRuleFiles(basePath string, mainRuleFileName string, saveJson, trace, autoAddResources bool) (*Compiler, error) {
+	jrCompiler := NewCompiler(basePath, mainRuleFileName, saveJson, trace, autoAddResources)
 	err := jrCompiler.Compile()
 	if err != nil {
 		return nil, err

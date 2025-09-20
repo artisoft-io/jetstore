@@ -23,7 +23,11 @@ func (s *JetRuleListener) ExitJetCompilerDirectiveStmt(ctx *parser.JetCompilerDi
 			// Strip quotes if present
 			s.currentRuleFileName = StripQuotes(value)
 		} else {
-			s.jetRuleModel.CompilerDirectives[name] = StripQuotes(value)
+			value = StripQuotes(value)
+			s.jetRuleModel.CompilerDirectives[name] = value
+			if name == "extract_resources_from_rules" {
+				s.autoAddResources = value == "true"
+			}
 		}
 	}
 }
