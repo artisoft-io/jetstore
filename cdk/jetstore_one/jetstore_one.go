@@ -500,7 +500,7 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 // WORKSPACE (required, indicate active workspace)
 // WORKSPACE_BRANCH to indicate the active workspace
 // WORKSPACE_URI (optional, if set it will lock the workspace uri and will not take the ui value)
-// WORKSPACES_HOME (required, to copy test files from workspace data folder)
+// WORKSPACES_HOME  this is taken from container env (dockerfile) or hardcoded in lambda definition
 // WORKSPACE_FILE_KEY_LABEL_RE (optional) regex to extract label from file_key in UI
 func main() {
 	defer jsii.Close()
@@ -585,7 +585,7 @@ func main() {
 	fmt.Println("env WORKSPACE_FILE_KEY_LABEL_RE:", os.Getenv("WORKSPACE_FILE_KEY_LABEL_RE"))
 	fmt.Println("env WORKSPACE_URI:", os.Getenv("WORKSPACE_URI"))
 	fmt.Println("env WORKSPACE:", os.Getenv("WORKSPACE"))
-	fmt.Println("env WORKSPACES_HOME:", os.Getenv("WORKSPACES_HOME"))
+	// WORKSPACES_HOME is taken from the container env var
 	fmt.Println("env EXTERNAL_BUCKETS:", os.Getenv("EXTERNAL_BUCKETS"))
 	fmt.Println("env EXTERNAL_S3_KMS_KEY_ARN:", os.Getenv("EXTERNAL_S3_KMS_KEY_ARN"))
 	fmt.Println("env EXTERNAL_SQS_ARN:", os.Getenv("EXTERNAL_SQS_ARN"))
