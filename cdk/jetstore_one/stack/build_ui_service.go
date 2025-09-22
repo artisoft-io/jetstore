@@ -29,6 +29,12 @@ func (jsComp *JetStoreStackComponents) BuildUiService(scope constructs.Construct
 			OperatingSystemFamily: awsecs.OperatingSystemFamily_LINUX(),
 			CpuArchitecture:       awsecs.CpuArchitecture_X86_64(),
 		},
+		Volumes: &[]*awsecs.Volume{
+			{
+				Name: jsii.String("tmp-volume"),
+				// Host is nil because Fargate does not allow host-based volumes
+			},
+		},
 	})
 
 	jsComp.UiTaskContainer = jsComp.UiTaskDefinition.AddContainer(jsii.String("uiContainer"), &awsecs.ContainerDefinitionOptions{
@@ -66,6 +72,7 @@ func (jsComp *JetStoreStackComponents) BuildUiService(scope constructs.Construct
 			"JETS_S3_KMS_KEY_ARN":           jsii.String(os.Getenv("JETS_S3_KMS_KEY_ARN")),
 			"JETS_SENTINEL_FILE_NAME":       jsii.String(os.Getenv("JETS_SENTINEL_FILE_NAME")),
 			"JETS_DOMAIN_KEY_SEPARATOR":     jsii.String(os.Getenv("JETS_DOMAIN_KEY_SEPARATOR")),
+			"WORKSPACES_HOME":               jsii.String("/tmp/workspaces"),
 			"WORKSPACE":                     jsii.String(os.Getenv("WORKSPACE")),
 			"WORKSPACE_BRANCH":              jsii.String(os.Getenv("WORKSPACE_BRANCH")),
 			"WORKSPACE_FILE_KEY_LABEL_RE":   jsii.String(os.Getenv("WORKSPACE_FILE_KEY_LABEL_RE")),
@@ -90,6 +97,12 @@ func (jsComp *JetStoreStackComponents) BuildUiService(scope constructs.Construct
 			StreamPrefix: jsii.String("task"),
 			LogRetention: awslogs.RetentionDays_THREE_MONTHS,
 		}),
+		ReadonlyRootFilesystem: jsii.Bool(true),
+	})
+	jsComp.UiTaskContainer.AddMountPoints(&awsecs.MountPoint{
+		SourceVolume:  jsii.String("tmp-volume"),
+		ContainerPath: jsii.String("/tmp"),
+		ReadOnly:      jsii.Bool(false),
 	})
 
 	jsComp.EcsUiService = awsecs.NewFargateService(stack, jsii.String("jetstore-ui"), &awsecs.FargateServiceProps{

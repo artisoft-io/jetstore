@@ -30,6 +30,12 @@ func (jsComp *JetStoreStackComponents) BuildEcsTasks(scope constructs.Construct,
 			OperatingSystemFamily: awsecs.OperatingSystemFamily_LINUX(),
 			CpuArchitecture:       awsecs.CpuArchitecture_X86_64(),
 		},
+		Volumes: &[]*awsecs.Volume{
+			{
+				Name: jsii.String("tmp-volume"),
+				// Host is nil because Fargate does not allow host-based volumes
+			},
+		},
 	})
 	// Run Reports Task Container
 	jsComp.RunreportsContainerDef = jsComp.RunreportTaskDefinition.AddContainer(jsii.String("runreportsContainerDef"), &awsecs.ContainerDefinitionOptions{
@@ -63,6 +69,8 @@ func (jsComp *JetStoreStackComponents) BuildEcsTasks(scope constructs.Construct,
 			"JETS_CPIPES_SM_ARN":            jsii.String(jsComp.CpipesSmArn),
 			"JETS_REPORTS_SM_ARN":           jsii.String(jsComp.ReportsSmArn),
 			"JETS_DB_POOL_SIZE":             jsii.String(os.Getenv("JETS_DB_POOL_SIZE")),
+			"WORKSPACES_HOME":               jsii.String("/tmp/workspaces"),
+			"WORKSPACE":                     jsii.String(os.Getenv("WORKSPACE")),
 		},
 		Secrets: &map[string]awsecs.Secret{
 			"JETS_DSN_JSON_VALUE": awsecs.Secret_FromSecretsManager(jsComp.RdsSecret, nil),
@@ -72,6 +80,12 @@ func (jsComp *JetStoreStackComponents) BuildEcsTasks(scope constructs.Construct,
 			StreamPrefix: jsii.String("task"),
 			LogRetention: awslogs.RetentionDays_THREE_MONTHS,
 		}),
+		ReadonlyRootFilesystem: jsii.Bool(true),
+	})
+	jsComp.RunreportsContainerDef.AddMountPoints(&awsecs.MountPoint{
+		SourceVolume:  jsii.String("tmp-volume"),
+		ContainerPath: jsii.String("/tmp"),
+		ReadOnly:      jsii.Bool(false),
 	})
 
 	// JetStore Loader ECS Task
@@ -109,6 +123,12 @@ func (jsComp *JetStoreStackComponents) BuildEcsTasks(scope constructs.Construct,
 			OperatingSystemFamily: awsecs.OperatingSystemFamily_LINUX(),
 			CpuArchitecture:       awsecs.CpuArchitecture_X86_64(),
 		},
+		Volumes: &[]*awsecs.Volume{
+			{
+				Name: jsii.String("tmp-volume"),
+				// Host is nil because Fargate does not allow host-based volumes
+			},
+		},
 	})
 
 	// Loader Task Container
@@ -143,6 +163,8 @@ func (jsComp *JetStoreStackComponents) BuildEcsTasks(scope constructs.Construct,
 			"JETS_CPIPES_SM_ARN":            jsii.String(jsComp.CpipesSmArn),
 			"JETS_REPORTS_SM_ARN":           jsii.String(jsComp.ReportsSmArn),
 			"JETS_DB_POOL_SIZE":             jsii.String(os.Getenv("JETS_DB_POOL_SIZE")),
+			"WORKSPACES_HOME":               jsii.String("/tmp/workspaces"),
+			"WORKSPACE":                     jsii.String(os.Getenv("WORKSPACE")),
 		},
 		Secrets: &map[string]awsecs.Secret{
 			"JETS_DSN_JSON_VALUE": awsecs.Secret_FromSecretsManager(jsComp.RdsSecret, nil),
@@ -152,6 +174,12 @@ func (jsComp *JetStoreStackComponents) BuildEcsTasks(scope constructs.Construct,
 			StreamPrefix: jsii.String("task"),
 			LogRetention: awslogs.RetentionDays_THREE_MONTHS,
 		}),
+		ReadonlyRootFilesystem: jsii.Bool(true),
+	})
+	jsComp.LoaderContainerDef.AddMountPoints(&awsecs.MountPoint{
+		SourceVolume:  jsii.String("tmp-volume"),
+		ContainerPath: jsii.String("/tmp"),
+		ReadOnly:      jsii.Bool(false),
 	})
 
 	// Define the ECS Task for cpipes
@@ -186,6 +214,12 @@ func (jsComp *JetStoreStackComponents) BuildEcsTasks(scope constructs.Construct,
 		RuntimePlatform: &awsecs.RuntimePlatform{
 			OperatingSystemFamily: awsecs.OperatingSystemFamily_LINUX(),
 			CpuArchitecture:       awsecs.CpuArchitecture_X86_64(),
+		},
+		Volumes: &[]*awsecs.Volume{
+			{
+				Name: jsii.String("tmp-volume"),
+				// Host is nil because Fargate does not allow host-based volumes
+			},
 		},
 	})
 
@@ -223,6 +257,12 @@ func (jsComp *JetStoreStackComponents) BuildEcsTasks(scope constructs.Construct,
 			OperatingSystemFamily: awsecs.OperatingSystemFamily_LINUX(),
 			CpuArchitecture:       awsecs.CpuArchitecture_X86_64(),
 		},
+		Volumes: &[]*awsecs.Volume{
+			{
+				Name: jsii.String("tmp-volume"),
+				// Host is nil because Fargate does not allow host-based volumes
+			},
+		},
 	})
 	// Server Task Container
 	// ---------------------
@@ -256,6 +296,8 @@ func (jsComp *JetStoreStackComponents) BuildEcsTasks(scope constructs.Construct,
 			"JETS_SERVER_SM_ARNv2":          jsii.String(jsComp.ServerSmArnv2),
 			"JETS_CPIPES_SM_ARN":            jsii.String(jsComp.CpipesSmArn),
 			"JETS_REPORTS_SM_ARN":           jsii.String(jsComp.ReportsSmArn),
+			"WORKSPACES_HOME":               jsii.String("/tmp/workspaces"),
+			"WORKSPACE":                     jsii.String(os.Getenv("WORKSPACE")),
 		},
 		Secrets: &map[string]awsecs.Secret{
 			"JETS_DSN_JSON_VALUE": awsecs.Secret_FromSecretsManager(jsComp.RdsSecret, nil),
@@ -265,6 +307,12 @@ func (jsComp *JetStoreStackComponents) BuildEcsTasks(scope constructs.Construct,
 			StreamPrefix: jsii.String("task"),
 			LogRetention: awslogs.RetentionDays_THREE_MONTHS,
 		}),
+		ReadonlyRootFilesystem: jsii.Bool(true),
+	})
+	jsComp.ServerContainerDef.AddMountPoints(&awsecs.MountPoint{
+		SourceVolume:  jsii.String("tmp-volume"),
+		ContainerPath: jsii.String("/tmp"),
+		ReadOnly:      jsii.Bool(false),
 	})
 
 	// Compute Pipes Task Container
@@ -308,6 +356,8 @@ func (jsComp *JetStoreStackComponents) BuildEcsTasks(scope constructs.Construct,
 			"JETS_CPIPES_SM_ARN":            jsii.String(jsComp.CpipesSmArn),
 			"JETS_REPORTS_SM_ARN":           jsii.String(jsComp.ReportsSmArn),
 			"JETS_DB_POOL_SIZE":             jsii.String(os.Getenv("JETS_DB_POOL_SIZE")),
+			"WORKSPACES_HOME":               jsii.String("/tmp/workspaces"),
+			"WORKSPACE":                     jsii.String(os.Getenv("WORKSPACE")),
 		},
 		Secrets: &map[string]awsecs.Secret{
 			"JETS_DSN_JSON_VALUE": awsecs.Secret_FromSecretsManager(jsComp.RdsSecret, nil),
@@ -317,5 +367,11 @@ func (jsComp *JetStoreStackComponents) BuildEcsTasks(scope constructs.Construct,
 			StreamPrefix: jsii.String("task"),
 			LogRetention: awslogs.RetentionDays_THREE_MONTHS,
 		}),
+		ReadonlyRootFilesystem: jsii.Bool(true),
+	})
+	jsComp.CpipesContainerDef.AddMountPoints(&awsecs.MountPoint{
+		SourceVolume:  jsii.String("tmp-volume"),
+		ContainerPath: jsii.String("/tmp"),
+		ReadOnly:      jsii.Bool(false),
 	})
 }

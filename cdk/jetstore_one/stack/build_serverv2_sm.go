@@ -75,9 +75,8 @@ func (jsComp *JetStoreStackComponents) BuildServerv2SM(scope constructs.Construc
 			"NBR_SHARDS":                               jsii.String(props.NbrShards),
 			"ENVIRONMENT":                              jsii.String(os.Getenv("ENVIRONMENT")),
 			"JETS_ADMIN_EMAIL":                         jsii.String(os.Getenv("JETS_ADMIN_EMAIL")),
-			//NOTE: SET WORKSPACES_HOME HERE - lambda function uses a local temp
-			"WORKSPACES_HOME": jsii.String("/tmp/jetstore/workspaces"),
-			"WORKSPACE":       jsii.String(os.Getenv("WORKSPACE")),
+			"WORKSPACES_HOME":                          jsii.String("/tmp/workspaces"),
+			"WORKSPACE":                                jsii.String(os.Getenv("WORKSPACE")),
 		},
 		MemorySize:           jsii.Number(memLimit),
 		EphemeralStorageSize: awscdk.Size_Mebibytes(jsii.Number(2048)),

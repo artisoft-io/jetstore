@@ -99,7 +99,7 @@ func (jsComp *JetStoreStackComponents) BuildCpipesLambdas(scope constructs.Const
 			"JETS_DOMAIN_KEY_HASH_SEED":                jsii.String(os.Getenv("JETS_DOMAIN_KEY_HASH_SEED")),
 			"JETS_INPUT_ROW_JETS_KEY_ALGO":             jsii.String(os.Getenv("JETS_INPUT_ROW_JETS_KEY_ALGO")),
 			//NOTE: SET WORKSPACES_HOME HERE - lambda function uses a local temp
-			"WORKSPACES_HOME": jsii.String("/tmp/jetstore/workspaces"),
+			"WORKSPACES_HOME": jsii.String("/tmp/workspaces"),
 			"WORKSPACE":       jsii.String(os.Getenv("WORKSPACE")),
 		},
 		MemorySize:           jsii.Number(memLimit),
@@ -160,7 +160,7 @@ func (jsComp *JetStoreStackComponents) BuildCpipesLambdas(scope constructs.Const
 			"JETS_DOMAIN_KEY_HASH_SEED":                jsii.String(os.Getenv("JETS_DOMAIN_KEY_HASH_SEED")),
 			"JETS_INPUT_ROW_JETS_KEY_ALGO":             jsii.String(os.Getenv("JETS_INPUT_ROW_JETS_KEY_ALGO")),
 			//NOTE: SET WORKSPACES_HOME HERE - lambda function uses a local temp
-			"WORKSPACES_HOME": jsii.String("/tmp/jetstore/workspaces"),
+			"WORKSPACES_HOME": jsii.String("/tmp/workspaces"),
 			"WORKSPACE":       jsii.String(os.Getenv("WORKSPACE")),
 		},
 		MemorySize:     jsii.Number(128),
@@ -219,9 +219,8 @@ func (jsComp *JetStoreStackComponents) BuildCpipesLambdas(scope constructs.Const
 			"JETS_DOMAIN_KEY_HASH_ALGO":                jsii.String(os.Getenv("JETS_DOMAIN_KEY_HASH_ALGO")),
 			"JETS_DOMAIN_KEY_HASH_SEED":                jsii.String(os.Getenv("JETS_DOMAIN_KEY_HASH_SEED")),
 			"JETS_INPUT_ROW_JETS_KEY_ALGO":             jsii.String(os.Getenv("JETS_INPUT_ROW_JETS_KEY_ALGO")),
-			//NOTE: SET WORKSPACES_HOME HERE - lambda function uses a local temp
-			"WORKSPACES_HOME": jsii.String("/tmp/jetstore/workspaces"),
-			"WORKSPACE":       jsii.String(os.Getenv("WORKSPACE")),
+			"WORKSPACES_HOME":                          jsii.String("/tmp/workspaces"),
+			"WORKSPACE":                                jsii.String(os.Getenv("WORKSPACE")),
 		},
 		MemorySize:     jsii.Number(128),
 		Timeout:        awscdk.Duration_Minutes(jsii.Number(15)),
