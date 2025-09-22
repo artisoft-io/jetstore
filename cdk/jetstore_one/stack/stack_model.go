@@ -57,12 +57,12 @@ type JetStoreStackComponents struct {
 	ExternalBuckets []awss3.IBucket
 	ExternalKmsKey  awskms.IKey
 
-	Vpc                     awsec2.Vpc
+	Vpc                     awsec2.IVpc
 	PublicSubnetSelection   *awsec2.SubnetSelection
 	PrivateSubnetSelection  *awsec2.SubnetSelection
 	IsolatedSubnetSelection *awsec2.SubnetSelection
 
-	PrivateSecurityGroup awsec2.SecurityGroup
+	PrivateSecurityGroup awsec2.ISecurityGroup
 	RdsSecret            awsrds.DatabaseSecret
 	RdsCluster           awsrds.DatabaseCluster
 	EcsCluster           awsecs.Cluster

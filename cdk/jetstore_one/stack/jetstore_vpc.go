@@ -28,6 +28,58 @@ func init() {
 	}
 }
 
+func LookupJetStoreVPC(stack awscdk.Stack, vpcId string) awsec2.IVpc {
+	if vpcId == "" {
+		log.Fatal("JETS_VPC_ID must be provided to lookup existing VPC")
+	}
+	var vpc awsec2.IVpc
+	if vpcId != "" {
+		vpc = awsec2.Vpc_FromVpcAttributes(stack, jsii.String("ImportedJetStoreVpcById"), &awsec2.VpcAttributes{
+			VpcId: jsii.String(vpcId),
+			IsolatedSubnetIds: &[]*string{},
+			Region: jsii.String(os.Getenv("AWS_REGION")),
+		})
+	}
+	if vpc == nil {
+		log.Fatal("Failed to lookup VPC, please check JETS_VPC_ID")
+	}
+	// // Check if isolated subnets are provided
+	// if vpcId != "" && os.Getenv("JETS_VPC_ISOLATED_SUBNETS") != "" {
+	// 	subnetIds := os.Getenv("JETS_VPC_ISOLATED_SUBNETS")
+	// 	subnetIdList := []*string{}
+	// 	for _, s := range SplitAndTrim(subnetIds, ",") {
+	// 		subnetIdList = append(subnetIdList, jsii.String(s))
+	// 	}
+	// 	if len(subnetIdList) > 0 {
+	// 		vpc = awsec2.Vpc_FromVpcAttributes(stack, jsii.String("ImportedJetStoreVpcWithIsolatedSubnets"), &awsec2.VpcAttributes{
+	// 			VpcId: vpc.VpcId(),
+	// 			IsolatedSubnetIds: &subnetIdList,
+	// 			Region: jsii.String(os.Getenv("AWS_REGION")),
+	// 		})
+	// 	}
+	// }
+	// if vpc == nil {
+	// 	log.Fatal("Failed to import VPC, please check JETS_VPC_ID or JETS_VPC_ARN")
+	// }
+	return vpc
+}
+
+func LookupEcsTasksSecurityGroup(stack awscdk.Stack, sgId string) awsec2.ISecurityGroup {
+	if sgId == "" {
+		log.Fatal("JETS_ECS_TASKS_SG_ID must be provided to lookup existing security group")
+	}
+	var sg awsec2.ISecurityGroup
+	if sgId != "" {
+		sg = awsec2.SecurityGroup_FromSecurityGroupId(stack, jsii.String("ImportedJetStoreEcsTasksSg"), jsii.String(sgId), &awsec2.SecurityGroupImportOptions{
+			Mutable: jsii.Bool(true),
+		})
+	}
+	if sg == nil {
+		log.Fatal("Failed to lookup security group, please check JETS_ECS_TASKS_SG_ID")
+	}
+	return sg
+}
+
 func CreateJetStoreVPC(stack awscdk.Stack) awsec2.Vpc {
 	cidr = os.Getenv("JETS_VPC_CIDR")
 	if cidr == "" {
@@ -155,7 +207,7 @@ func addTag2Endpoint(endpoint awsec2.InterfaceVpcEndpoint) awsec2.InterfaceVpcEn
 	return endpoint
 }
 
-func AddVpcEndpoints(stack awscdk.Stack, vpc awsec2.Vpc, prefix string, subnetSelection *awsec2.SubnetSelection) awsec2.SecurityGroup {
+func AddVpcEndpoints(stack awscdk.Stack, vpc awsec2.IVpc, prefix string, subnetSelection *awsec2.SubnetSelection) awsec2.SecurityGroup {
 	// Returned Security Group for ECS service & tasks
 	securityGroup4EcsTask := awsec2.NewSecurityGroup(stack, jsii.String(prefix + "TaskSecurityGroup"), &awsec2.SecurityGroupProps{
 		Vpc: vpc,

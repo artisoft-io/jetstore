@@ -122,7 +122,7 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 		Value: jsComp.SourceBucket.BucketName(),
 	})
 
-	// Create a VPC to run tasks in.
+	// Create or lookup a VPC to run tasks in.
 	// ----------------------------------------------------------------------------------------------
 	jsComp.PublicSubnetSelection = &awsec2.SubnetSelection{
 		SubnetType: awsec2.SubnetType_PUBLIC,
@@ -133,13 +133,29 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 	jsComp.IsolatedSubnetSelection = &awsec2.SubnetSelection{
 		SubnetType: awsec2.SubnetType_PRIVATE_ISOLATED,
 	}
-	jsComp.Vpc = jetstorestack.CreateJetStoreVPC(stack)
+
+	// Lookup VPC by id if provided otherwise create a new one
+	if os.Getenv("JETS_VPC_ID") != "" {
+		// Lookup existing VPC by id
+		jsComp.Vpc = jetstorestack.LookupJetStoreVPC(stack, os.Getenv("JETS_VPC_ID"))
+		// Lookup the security group by id to use for ecs tasks
+		jsComp.PrivateSecurityGroup = jetstorestack.LookupEcsTasksSecurityGroup(stack, os.Getenv("JETS_ECS_TASKS_SG_ID"))
+	} else {
+		// Create a new VPC
+		jsComp.Vpc = jetstorestack.CreateJetStoreVPC(stack)
+		// Add Endpoints on private subnets and return the security group to use in ecs tasks
+		jsComp.PrivateSecurityGroup = jetstorestack.AddVpcEndpoints(stack, jsComp.Vpc, "Private", jsComp.PrivateSubnetSelection)
+	}
+
+	// Add VPC ID as outputs
 	awscdk.NewCfnOutput(stack, jsii.String("JetStore_VPC_ID"), &awscdk.CfnOutputProps{
 		Value: jsComp.Vpc.VpcId(),
 	})
 
-	// Add Endpoints on private subnets
-	jsComp.PrivateSecurityGroup = jetstorestack.AddVpcEndpoints(stack, jsComp.Vpc, "Private", jsComp.PrivateSubnetSelection)
+	// Add PrivateSecurityGroup ID to outputs
+	awscdk.NewCfnOutput(stack, jsii.String("JetStore_EcsTaskSG_ID"), &awscdk.CfnOutputProps{
+		Value: jsComp.PrivateSecurityGroup.SecurityGroupId(),
+	})
 
 	// Database Cluster
 	// ----------------------------------------------------------------------------------------------
@@ -466,6 +482,11 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 // JETS_TAG_VALUE_OWNER (optional, stack-level tag value for owner)
 // JETS_TAG_VALUE_PROD (optional, stack-level tag value for indicating it's a production env)
 // JETS_UI_PORT (defaults 8080)
+// JETS_VPC_ID (optional, use existing vpc by id, must be in the same region as AWS_REGION)
+// JETS_ECS_TASKS_SG_ID (optional, security group id to use for ecs tasks, required if JETS_VPC_ID is set)
+
+// JETS_VPC_ISOLATED_SUBNETS (optional, comma delimited list of isolated subnet ids, required if JETS_VPC_ID is set)
+
 // JETS_VPC_CIDR VPC cidr block, default 10.10.0.0/16
 // JETS_VPC_INTERNET_GATEWAY (optional, default to false), set to true to create VPC with internet gateway, if false JETS_NBR_NAT_GATEWAY is set to 0
 // JETS_DB_VERSION (optional, default to latest version supported by jetstore, expected values are 14.5, 15.10 etc. only specific versions are supported)
