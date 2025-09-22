@@ -61,7 +61,7 @@ func getBitbucketIps() *[]*string {
 	return results
 }
 
-func NewGitAccessSecurityGroup(stack awscdk.Stack, vpc awsec2.Vpc) awsec2.SecurityGroup {
+func NewGitAccessSecurityGroup(stack awscdk.Stack, vpc awsec2.IVpc) awsec2.SecurityGroup {
 	securityGroup := awsec2.NewSecurityGroup(stack, jsii.String("GitAccessSecurityGroup"), &awsec2.SecurityGroupProps{
 		Vpc: vpc,
 		Description: jsii.String("Allow network access to Git SCM"),
