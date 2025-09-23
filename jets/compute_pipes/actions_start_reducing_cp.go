@@ -202,7 +202,6 @@ startStepId:
 	result.CpipesMaxConcurrency = GetMaxConcurrency(len(partitions), cpipesStartup.CpConfig.ClusterConfig.DefaultMaxConcurrency)
 
 	// Get the input columns from Pipes Config, from the first pipes channel
-	var inputColumns []string
 	inputChannel := inputChannelConfig.Name
 	if inputChannel == "input_row" {
 		// special case, need to get the input columns from cpipes_execution_status table
@@ -217,17 +216,19 @@ startStepId:
 		if err != nil {
 			return result, fmt.Errorf("while unmarshalling input_row_columns_json ->%s<-: %v", inputRowColumnsJson, err)
 		}
-		inputColumns = inputRowColumns.MainInput
-		if len(inputColumns) == 0 {
+		cpipesStartup.InputColumns = inputRowColumns.MainInput
+		cpipesStartup.InputColumnsOriginal = inputRowColumns.OriginalHeaders
+		// Validate we have input columns
+		if len(cpipesStartup.InputColumns) == 0 {
 			return result, fmt.Errorf("error: expecting main input column names from input_row_columns_json: %s", inputRowColumnsJson)
 		}
 	} else {
 		// Get the columns from the channel spec
 		chSpec := GetChannelSpec(cpipesStartup.CpConfig.Channels, inputChannel)
 		if chSpec != nil {
-			inputColumns = chSpec.Columns
+			cpipesStartup.InputColumns = chSpec.Columns
 		}
-		if !isMergeFiles && len(inputColumns) == 0 {
+		if !isMergeFiles && len(cpipesStartup.InputColumns) == 0 {
 			return result, fmt.Errorf("error: cpipes config is missing channel config for input %s", inputChannel)
 		}
 	}
@@ -277,7 +278,8 @@ startStepId:
 			ProcessName:     cpipesStartup.ProcessName,
 			SourcesConfig: SourcesConfigSpec{
 				MainInput: &InputSourceSpec{
-					InputColumns:       inputColumns,
+					OriginalInputColumns: cpipesStartup.InputColumnsOriginal,
+					InputColumns:       cpipesStartup.InputColumns,
 					InputParquetSchema: inputParquetSchema,
 					DomainKeys:         cpipesStartup.MainInputDomainKeysSpec,
 					DomainClass:        cpipesStartup.MainInputDomainClass,

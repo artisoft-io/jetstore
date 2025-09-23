@@ -88,14 +88,18 @@ type SourcesConfigSpec struct {
 
 // InputRowColumns: used to save the input_row channel column name in
 // table cpipes_execution_status, column input_row_columns_json
+// OriginalHeaders are the original headers read from the main input file
 type InputRowColumns struct {
-	MainInput     []string   `json:"main_input"`
-	MergedInput   [][]string `json:"merged_inputs"`
-	InjectedInput [][]string `json:"injected_inputs"`
+	OriginalHeaders []string   `json:"original_headers"`
+	MainInput       []string   `json:"main_input"`
+	MergedInput     [][]string `json:"merged_inputs"`
+	InjectedInput   [][]string `json:"injected_inputs"`
 }
 
 // InputColumns correspond to columns in the input files, this
 // applies to reducing as well as sharding steps.
+// InputColumns is the uniquefied version of OriginalInputColumns
+// OriginalInputColumns is the orignal input file columns
 // For the case of sharding step, it includes columns from part files key.
 // DomainKeys is taken from:
 //   - source_config table or main schema provider for source_type = 'file'
@@ -106,10 +110,11 @@ type InputRowColumns struct {
 //
 // Note: for source_type = 'file', DomainClass does not apply, the file needs to be mapped first.
 type InputSourceSpec struct {
-	InputColumns       []string           `json:"input_columns"`
-	InputParquetSchema *ParquetSchemaInfo `json:"input_parquet_schema,omitempty"`
-	DomainClass        string             `json:"domain_class,omitempty"`
-	DomainKeys         *DomainKeysSpec    `json:"domain_keys_spec,omitempty"`
+	OriginalInputColumns []string           `json:"original_input_columns,omitempty"`
+	InputColumns         []string           `json:"input_columns,omitempty"`
+	InputParquetSchema   *ParquetSchemaInfo `json:"input_parquet_schema,omitempty"`
+	DomainClass          string             `json:"domain_class,omitempty"`
+	DomainKeys           *DomainKeysSpec    `json:"domain_keys_spec,omitempty"`
 }
 
 type FileKeyInfo struct {

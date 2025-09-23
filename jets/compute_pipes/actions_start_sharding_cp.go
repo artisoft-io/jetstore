@@ -222,6 +222,15 @@ func (args *StartComputePipesArgs) StartShardingComputePipes(ctx context.Context
 			return result, mainInputSchemaProvider, fmt.Errorf("configuration error: no header information available for the input file(s)")
 		}
 	} else {
+		// Ensure the input columns are unique, if not make them unique and keep the original in InputColumnsOriginal
+		headersUniquefied := schema.NewHeadersUniquefied(cpipesStartup.InputColumns)
+		if headersUniquefied.Modified {
+			cpipesStartup.InputColumnsOriginal = headersUniquefied.OriginalHeaders
+			log.Printf("*** Uniquefied Input Columns: %v\n", headersUniquefied.UniqueHeaders)
+		}
+		cpipesStartup.InputColumns = headersUniquefied.UniqueHeaders
+
+		// log.Printf("*** Input Columns: %v\n", cpipesStartup.InputColumns)
 		// Add the headers from the partfile_key_component
 		for i := range cpipesStartup.CpConfig.Context {
 			if cpipesStartup.CpConfig.Context[i].Type == "partfile_key_component" {
@@ -238,7 +247,8 @@ func (args *StartComputePipesArgs) StartShardingComputePipes(ctx context.Context
 	}
 
 	inputRowColumnsJson, err := json.Marshal(InputRowColumns{
-		MainInput: cpipesStartup.InputColumns,
+		OriginalHeaders: cpipesStartup.InputColumnsOriginal,
+		MainInput:       cpipesStartup.InputColumns,
 	})
 	if err != nil {
 		return result, mainInputSchemaProvider, err
@@ -313,9 +323,10 @@ func (args *StartComputePipesArgs) StartShardingComputePipes(ctx context.Context
 			ProcessName:     cpipesStartup.ProcessName,
 			SourcesConfig: SourcesConfigSpec{
 				MainInput: &InputSourceSpec{
-					InputColumns: cpipesStartup.InputColumns,
-					DomainKeys:   cpipesStartup.MainInputDomainKeysSpec,
-					DomainClass:  cpipesStartup.MainInputDomainClass,
+					OriginalInputColumns: cpipesStartup.InputColumnsOriginal,
+					InputColumns:         cpipesStartup.InputColumns,
+					DomainKeys:           cpipesStartup.MainInputDomainKeysSpec,
+					DomainClass:          cpipesStartup.MainInputDomainClass,
 				},
 			},
 			DomainKeysSpecByClass: cpipesStartup.DomainKeysSpecByClass,
