@@ -475,6 +475,106 @@ func SelectActiveLookupTable(lookupConfig []*LookupSpec, pipeConfig []PipeSpec) 
 	return activeTables, nil
 }
 
+// Function to apply all conditional transformation spec in the pipeConfig
+func ApplyAllConditionalTransformationSpec(pipeConfig []PipeSpec, env map[string]any) error {
+	// Need to convert the conditional expression to evalExpression for evaluation
+	builderContext := ExprBuilderContext(env)
+
+	// Visit all transformation spec in the pipeConfig
+	for i := range pipeConfig {
+		pipeSpec := &pipeConfig[i]
+		for j := range pipeSpec.Apply {
+			transformationSpec := &pipeSpec.Apply[j]
+			if transformationSpec.ConditionalConfig != nil {
+
+				// build the evalExpression for each when condition
+				for _, conditionalSpec := range transformationSpec.ConditionalConfig {
+					evaluator, err := builderContext.BuildExprNodeEvaluator("conditional_config", nil, &conditionalSpec.When)
+					if err != nil {
+						return fmt.Errorf("error building evaluator for conditional transformation %d: %v", j, err)
+					}
+
+					// Evaluate the when condition
+					v, err := evaluator.eval(env)
+					if err != nil {
+						return fmt.Errorf("error evaluating when condition for transformation %d: %v", j, err)
+					}
+					if ToBool(v) {
+						// Apply the Then spec
+						if len(conditionalSpec.Then.Type) > 0 {
+							// Replace the host transformationSpec altogether
+							*transformationSpec = conditionalSpec.Then
+						} else {
+							// Override the fields in the host transformationSpec
+							err := MergeTransformationSpec(transformationSpec, &conditionalSpec.Then)
+							if err != nil {
+								return fmt.Errorf("error merging conditional transformation %d: %v", j, err)
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+	return nil
+}
+
+func MergeTransformationSpec(host, override *TransformationSpec) error {
+	// Merge the fields from the override spec into the host spec
+	if override == nil || host == nil {
+		return nil
+	}
+	// Check if we replace the host spec altogether
+	if len(override.Type) > 0 {
+		*host = *override
+		return nil
+	}
+	// Merge the non scalar fields
+	if len(override.Columns) > 0 {
+		host.Columns = override.Columns
+	}
+	if override.MapRecordConfig != nil {
+		host.MapRecordConfig = override.MapRecordConfig
+	}
+	if override.AnalyzeConfig != nil {
+		host.AnalyzeConfig = override.AnalyzeConfig
+	}
+	if len(override.HighFreqColumns) > 0 {
+		host.HighFreqColumns = override.HighFreqColumns
+	}
+	if override.PartitionWriterConfig != nil {
+		host.PartitionWriterConfig = override.PartitionWriterConfig
+	}
+	if override.AnonymizeConfig != nil {
+		host.AnonymizeConfig = override.AnonymizeConfig
+	}
+	if override.DistinctConfig != nil {
+		host.DistinctConfig = override.DistinctConfig
+	}
+	if override.ShufflingConfig != nil {
+		host.ShufflingConfig = override.ShufflingConfig
+	}
+	if override.GroupByConfig != nil {
+		host.GroupByConfig = override.GroupByConfig
+	}
+	if override.FilterConfig != nil {
+		host.FilterConfig = override.FilterConfig
+	}
+	if override.SortConfig != nil {
+		host.SortConfig = override.SortConfig
+	}
+	if override.JetrulesConfig != nil {
+		host.JetrulesConfig = override.JetrulesConfig
+	}
+	if override.ClusteringConfig != nil {
+		host.ClusteringConfig = override.ClusteringConfig
+	}
+	if override.OutputChannel.Name != "" {
+		host.OutputChannel = override.OutputChannel
+	}
+	return nil
+}
+
 // Function to prune the output tables and return only the tables used in pipeConfig
 // Returns an error if pipeConfig makes reference to a non-existent table
 func SelectActiveOutputTable(tableConfig []*TableSpec, pipeConfig []PipeSpec) ([]*TableSpec, error) {

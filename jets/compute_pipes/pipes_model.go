@@ -445,22 +445,33 @@ type TransformationSpec struct {
 	// Type range: map_record, aggregate, analyze, high_freq, partition_writer,
 	//	anonymize, distinct, shuffling, group_by, filter, sort, jetrules, clustering
 	// Format takes precedence over SchemaProvider's Format (from OutputChannelConfig)
-	Type                  string                     `json:"type"`
-	NewRecord             bool                       `json:"new_record,omitzero"`
-	Columns               []TransformationColumnSpec `json:"columns,omitempty"`
-	MapRecordConfig       *MapRecordSpec             `json:"map_record_config,omitzero"`
-	AnalyzeConfig         *AnalyzeSpec               `json:"analyze_config,omitzero"`
-	HighFreqColumns       []*HighFreqSpec            `json:"high_freq_columns,omitempty"` // Type high_freq
-	PartitionWriterConfig *PartitionWriterSpec       `json:"partition_writer_config,omitzero"`
-	AnonymizeConfig       *AnonymizeSpec             `json:"anonymize_config,omitzero"`
-	DistinctConfig        *DistinctSpec              `json:"distinct_config,omitzero"`
-	ShufflingConfig       *ShufflingSpec             `json:"shuffling_config,omitzero"`
-	GroupByConfig         *GroupBySpec               `json:"group_by_config,omitzero"`
-	FilterConfig          *FilterSpec                `json:"filter_config,omitzero"`
-	SortConfig            *SortSpec                  `json:"sort_config,omitzero"`
-	JetrulesConfig        *JetrulesSpec              `json:"jetrules_config,omitzero"`
-	ClusteringConfig      *ClusteringSpec            `json:"clustering_config,omitzero"`
-	OutputChannel         OutputChannelConfig        `json:"output_channel"`
+	Type                  string                           `json:"type"`
+	NewRecord             bool                             `json:"new_record,omitzero"`
+	Columns               []TransformationColumnSpec       `json:"columns,omitempty"`
+	MapRecordConfig       *MapRecordSpec                   `json:"map_record_config,omitzero"`
+	AnalyzeConfig         *AnalyzeSpec                     `json:"analyze_config,omitzero"`
+	HighFreqColumns       []*HighFreqSpec                  `json:"high_freq_columns,omitempty"` // Type high_freq
+	PartitionWriterConfig *PartitionWriterSpec             `json:"partition_writer_config,omitzero"`
+	AnonymizeConfig       *AnonymizeSpec                   `json:"anonymize_config,omitzero"`
+	DistinctConfig        *DistinctSpec                    `json:"distinct_config,omitzero"`
+	ShufflingConfig       *ShufflingSpec                   `json:"shuffling_config,omitzero"`
+	GroupByConfig         *GroupBySpec                     `json:"group_by_config,omitzero"`
+	FilterConfig          *FilterSpec                      `json:"filter_config,omitzero"`
+	SortConfig            *SortSpec                        `json:"sort_config,omitzero"`
+	JetrulesConfig        *JetrulesSpec                    `json:"jetrules_config,omitzero"`
+	ClusteringConfig      *ClusteringSpec                  `json:"clustering_config,omitzero"`
+	OutputChannel         OutputChannelConfig              `json:"output_channel"`
+	ConditionalConfig     []*ConditionalTransformationSpec `json:"conditional_config,omitzero"`
+}
+
+// This type is to provide conditional TransformationSpec
+// such that the host TransformationSpec has fields overriden
+// based on the condition.
+// When is the condition to evaluate, if true then apply the Then spec.
+// Note: when Then.Type is not empty, replace the host TransformationSpec altogether.
+type ConditionalTransformationSpec struct {
+	When ExpressionNode     `json:"when"`
+	Then TransformationSpec `json:"then"`
 }
 
 type MapRecordSpec struct {
@@ -544,7 +555,7 @@ type OutputChannelConfig struct {
 	FileConfig
 	Type                  string `json:"type"`
 	Name                  string `json:"name,omitempty"`
-	UseOriginalHeaders    bool   `json:"use_original_headers,omitzero"`			// Type output
+	UseOriginalHeaders    bool   `json:"use_original_headers,omitzero"`     // Type output
 	UseInputParquetSchema bool   `json:"use_input_parquet_schema,omitzero"` // Type stage,output
 	SchemaProvider        string `json:"schema_provider,omitempty"`         // Type stage,output, alt to Format
 	WriteStepId           string `json:"write_step_id,omitempty"`           // Type stage
