@@ -154,6 +154,14 @@ func (args *StartComputePipesArgs) StartShardingComputePipes(ctx context.Context
 	if len(pipeConfig) == 0 {
 		return result, mainInputSchemaProvider, fmt.Errorf("error: compute pipes config contains no steps")
 	}
+
+	// Apply all conditional transformation specs
+	err = ApplyAllConditionalTransformationSpec(pipeConfig, cpipesStartup.EnvSettings)
+	if err != nil {
+		return result, mainInputSchemaProvider, fmt.Errorf("while applying conditional transformation spec: %v", err)
+	}
+
+	// Select the active output tables for this step
 	outputTables, err := SelectActiveOutputTable(cpipesStartup.CpConfig.OutputTables, pipeConfig)
 	if err != nil {
 		return result, mainInputSchemaProvider, fmt.Errorf("while calling SelectActiveOutputTable for stepId %d: %v", stepId, err)

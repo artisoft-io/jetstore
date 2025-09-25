@@ -306,6 +306,44 @@ func ListS3ObjectsV2(s3Client *s3.Client, externalBucket string, prefix *string)
 	return keys, nil
 }
 
+// CountS3ObjectsWithPrefix counts non-"folder" objects in the given bucket matching the prefix,
+// and skips any objects with size 0. If externalBucket is empty, it uses the JetStore default bucket.
+func CountS3ObjectsWithPrefix(s3Client *s3.Client, externalBucket, prefix string) (int64, error) {
+	if externalBucket == "" {
+		externalBucket = jetstoreOwnBucket
+	}
+
+	var count int64
+	p := s3.NewListObjectsV2Paginator(s3Client, &s3.ListObjectsV2Input{
+		Bucket: aws.String(externalBucket),
+		Prefix: aws.String(prefix),
+	})
+
+	for p.HasMorePages() {
+		out, err := p.NextPage(context.TODO())
+		if err != nil {
+			return 0, fmt.Errorf("while listing objects from bucket '%s': %v", externalBucket, err)
+		}
+		for _, obj := range out.Contents {
+			// Skip common-prefix "folders" and zero-sized objects
+			if strings.HasSuffix(aws.ToString(obj.Key), "/") || aws.ToInt64(obj.Size) == 0 {
+				continue
+			}
+			count++
+		}
+	}
+	return count, nil
+}
+
+// CountS3Objects is a convenience wrapper that creates a client and uses the default bucket.
+func CountS3Objects(prefix string) (int64, error) {
+	s3Client, err := NewS3Client()
+	if err != nil {
+		return 0, fmt.Errorf("while creating s3 client: %v", err)
+	}
+	return CountS3ObjectsWithPrefix(s3Client, "", prefix)
+}
+
 // Download obj from s3 into fileHd (must be writable), return size of download in bytes
 func DownloadFromS3(bucket, region, objKey string, fileHd *os.File) (int64, error) {
 	s3Client, err := NewS3Client()
@@ -362,7 +400,7 @@ do_retry:
 	if err != nil {
 		if retry < 6 {
 			retry++
-			time.Sleep(time.Duration(500 * retry) * time.Millisecond)
+			time.Sleep(time.Duration(500*retry) * time.Millisecond)
 			goto do_retry
 		}
 		return n, fmt.Errorf("failed to download s3 file 's3://%s/%s': %v", bucket, objKey, err)
@@ -407,7 +445,7 @@ do_retry:
 	if err != nil {
 		if retry < 6 {
 			retry++
-			time.Sleep(time.Duration(500 * retry) * time.Millisecond)
+			time.Sleep(time.Duration(500*retry) * time.Millisecond)
 			goto do_retry
 		}
 		return fmt.Errorf("failed to upload file to s3 bucket '%s': %v", externalBucket, err)
@@ -440,7 +478,7 @@ do_retry:
 	if err != nil {
 		if retry < 6 {
 			retry++
-			time.Sleep(time.Duration(500 * retry) * time.Millisecond)
+			time.Sleep(time.Duration(500*retry) * time.Millisecond)
 			goto do_retry
 		}
 		return nil, fmt.Errorf("failed to download s3 file 's3://%s/%s': %v", jetstoreOwnBucket, objKey, err)
