@@ -100,6 +100,12 @@ startStepId:
 		return result, nil
 	}
 
+	// Apply all conditional transformation specs
+	err = ApplyAllConditionalTransformationSpec(pipeConfig, cpipesStartup.EnvSettings)
+	if err != nil {
+		return result, fmt.Errorf("while applying conditional transformation spec: %v", err)
+	}
+
 	inputChannelConfig := &pipeConfig[0].InputChannel
 	mainInputStepId := inputChannelConfig.ReadStepId
 	if len(mainInputStepId) == 0 {
