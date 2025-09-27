@@ -142,7 +142,7 @@ func (s *JetRuleListener) ExitDefineRuleSeqStmt(ctx *parser.DefineRuleSeqStmtCon
 // ExitInt32LiteralStmt is called when production int32Literal is exited.
 func (s *JetRuleListener) ExitInt32LiteralStmt(ctx *parser.Int32LiteralStmtContext) {
 	if ctx.GetVarType() != nil && ctx.GetVarName() != nil && ctx.GetDeclValue() != nil {
-		s.AddResource(rete.ResourceNode{
+		s.AddResource(&rete.ResourceNode{
 			Type:  ctx.GetVarType().GetText(),
 			Id:    ctx.GetVarName().GetText(),
 			Value: ctx.GetDeclValue().GetText(),
@@ -153,7 +153,7 @@ func (s *JetRuleListener) ExitInt32LiteralStmt(ctx *parser.Int32LiteralStmtConte
 // exitUInt32LiteralStmt is called when production uint32Literal is exited.
 func (s *JetRuleListener) ExitUInt32LiteralStmt(ctx *parser.UInt32LiteralStmtContext) {
 	if ctx.GetVarType() != nil && ctx.GetVarName() != nil && ctx.GetDeclValue() != nil {
-		s.AddResource(rete.ResourceNode{
+		s.AddResource(&rete.ResourceNode{
 			Type:  ctx.GetVarType().GetText(),
 			Id:    ctx.GetVarName().GetText(),
 			Value: ctx.GetDeclValue().GetText(),
@@ -164,7 +164,7 @@ func (s *JetRuleListener) ExitUInt32LiteralStmt(ctx *parser.UInt32LiteralStmtCon
 // ExitInt64LiteralStmt is called when production int64Literal is exited.
 func (s *JetRuleListener) ExitInt64LiteralStmt(ctx *parser.Int64LiteralStmtContext) {
 	if ctx.GetVarType() != nil && ctx.GetVarName() != nil && ctx.GetDeclValue() != nil {
-		s.AddResource(rete.ResourceNode{
+		s.AddResource(&rete.ResourceNode{
 			Type:  ctx.GetVarType().GetText(),
 			Id:    ctx.GetVarName().GetText(),
 			Value: ctx.GetDeclValue().GetText(),
@@ -175,7 +175,7 @@ func (s *JetRuleListener) ExitInt64LiteralStmt(ctx *parser.Int64LiteralStmtConte
 // ExitUInt64LiteralStmt is called when production uint64Literal is exited.
 func (s *JetRuleListener) ExitUInt64LiteralStmt(ctx *parser.UInt64LiteralStmtContext) {
 	if ctx.GetVarType() != nil && ctx.GetVarName() != nil && ctx.GetDeclValue() != nil {
-		s.AddResource(rete.ResourceNode{
+		s.AddResource(&rete.ResourceNode{
 			Type:  ctx.GetVarType().GetText(),
 			Id:    ctx.GetVarName().GetText(),
 			Value: ctx.GetDeclValue().GetText(),
@@ -186,7 +186,7 @@ func (s *JetRuleListener) ExitUInt64LiteralStmt(ctx *parser.UInt64LiteralStmtCon
 // exitDoubleLiteralStmt is called when production doubleLiteral is exited.
 func (s *JetRuleListener) ExitDoubleLiteralStmt(ctx *parser.DoubleLiteralStmtContext) {
 	if ctx.GetVarType() != nil && ctx.GetVarName() != nil && ctx.GetDeclValue() != nil {
-		s.AddResource(rete.ResourceNode{
+		s.AddResource(&rete.ResourceNode{
 			Type:  ctx.GetVarType().GetText(),
 			Id:    ctx.GetVarName().GetText(),
 			Value: ctx.GetDeclValue().GetText(),
@@ -197,7 +197,7 @@ func (s *JetRuleListener) ExitDoubleLiteralStmt(ctx *parser.DoubleLiteralStmtCon
 // exitStringLiteralStmt is called when production stringLiteral is exited.
 func (s *JetRuleListener) ExitStringLiteralStmt(ctx *parser.StringLiteralStmtContext) {
 	if ctx.GetVarType() != nil && ctx.GetVarName() != nil && ctx.GetDeclValue() != nil {
-		s.AddResource(rete.ResourceNode{
+		s.AddResource(&rete.ResourceNode{
 			Type:  ctx.GetVarType().GetText(),
 			Id:    ctx.GetVarName().GetText(),
 			Value: StripQuotes(ctx.GetDeclValue().GetText()),
@@ -208,7 +208,7 @@ func (s *JetRuleListener) ExitStringLiteralStmt(ctx *parser.StringLiteralStmtCon
 // exitDateLiteralStmt is called when production dateLiteral is exited.
 func (s *JetRuleListener) ExitDateLiteralStmt(ctx *parser.DateLiteralStmtContext) {
 	if ctx.GetVarType() != nil && ctx.GetVarName() != nil && ctx.GetDeclValue() != nil {
-		s.AddResource(rete.ResourceNode{
+		s.AddResource(&rete.ResourceNode{
 			Type:  ctx.GetVarType().GetText(),
 			Id:    ctx.GetVarName().GetText(),
 			Value: StripQuotes(ctx.GetDeclValue().GetText()),
@@ -219,7 +219,7 @@ func (s *JetRuleListener) ExitDateLiteralStmt(ctx *parser.DateLiteralStmtContext
 // exitDatetimeLiteralStmt is called when production datetimeLiteral is exited.
 func (s *JetRuleListener) ExitDatetimeLiteralStmt(ctx *parser.DatetimeLiteralStmtContext) {
 	if ctx.GetVarType() != nil && ctx.GetVarName() != nil && ctx.GetDeclValue() != nil {
-		s.AddResource(rete.ResourceNode{
+		s.AddResource(&rete.ResourceNode{
 			Type:  ctx.GetVarType().GetText(),
 			Id:    ctx.GetVarName().GetText(),
 			Value: StripQuotes(ctx.GetDeclValue().GetText()),
@@ -230,7 +230,7 @@ func (s *JetRuleListener) ExitDatetimeLiteralStmt(ctx *parser.DatetimeLiteralStm
 // exitBooleanLiteralStmt is called when production booleanLiteral is exited.
 func (s *JetRuleListener) ExitBooleanLiteralStmt(ctx *parser.BooleanLiteralStmtContext) {
 	if ctx.GetVarType() != nil && ctx.GetVarName() != nil && ctx.GetDeclValue() != nil {
-		s.AddResource(rete.ResourceNode{
+		s.AddResource(&rete.ResourceNode{
 			Type:  ctx.GetVarType().GetText(),
 			Id:    ctx.GetVarName().GetText(),
 			Value: ctx.GetDeclValue().GetText(),
@@ -259,7 +259,7 @@ func (s *JetRuleListener) ExitNamedResourceStmt(ctx *parser.NamedResourceStmtCon
 	if len(value) == 0 {
 		return
 	}
-	s.AddResource(rete.ResourceNode{
+	s.AddResource(&rete.ResourceNode{
 		Type:           typ,
 		Id:             id,
 		Value:          value,
@@ -276,7 +276,7 @@ func (s *JetRuleListener) ExitVolatileResourceStmt(ctx *parser.VolatileResourceS
 	if ctx.GetResVal() != nil {
 		value = StripQuotes(ctx.GetResVal().GetText())
 	}
-	s.AddResource(rete.ResourceNode{
+	s.AddResource(&rete.ResourceNode{
 		Type:           "volatile_resource",
 		Id:             id,
 		Value:          value,
@@ -344,7 +344,7 @@ func (s *JetRuleListener) ExitLookupTableStmt(ctx *parser.LookupTableStmtContext
 // enterJetRuleStmt is called when production jetRuleStmt is entered.
 func (s *JetRuleListener) EnterJetRuleStmt(ctx *parser.JetRuleStmtContext) {
 	s.currentRuleProperties = make(map[string]string)
-	s.currentRuleVarByValue = make(map[string]string)
+	s.currentRuleVarByValue = make(map[string]*rete.ResourceNode)
 	s.currentJetruleNode = &rete.JetruleNode{}
 }
 
@@ -361,13 +361,21 @@ func (s *JetRuleListener) ExitJetRuleStmt(ctx *parser.JetRuleStmtContext) {
 	s.currentJetruleNode.Consequents = s.currentRuleConsequents
 	s.currentJetruleNode.SourceFileName = s.currentRuleFileName
 
-	s.ValidateJetruleNode(s.currentJetruleNode)
+	// Post process the rule properties
+	s.PostProcessJetruleProperties(s.currentJetruleNode)
+
+	// Validate the rule and optimize it if valid
+	if s.ValidateJetruleNode(s.currentJetruleNode) && s.currentJetruleNode.Optimization {
+		s.OptimizeJetruleNode(s.currentJetruleNode)
+	}
+	// Add rule Label and NormalizedLabel
+	s.PostProcessJetruleNode(s.currentJetruleNode)
 
 	// Reset current rule state
 	s.currentRuleProperties = nil
 	s.currentRuleAntecedents = nil
 	s.currentRuleConsequents = nil
-	s.currentRuleVarByValue = make(map[string]string)
+	s.currentRuleVarByValue = make(map[string]*rete.ResourceNode)
 
 	// Append to the model
 	s.jetRuleModel.Jetrules = append(s.jetRuleModel.Jetrules, *s.currentJetruleNode)

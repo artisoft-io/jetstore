@@ -42,7 +42,10 @@ func (c *Compiler) Compile() error {
 	if c.Trace() {
 		fmt.Printf("** Combined Rule File Content (%d lines):\n%s\n", len(strings.Split(combinedContent, "\n")), combinedContent)
 	}
+	return c.CompileBuffer(combinedContent)
+}
 
+func (c *Compiler) CompileBuffer(combinedContent string) error {
 	// Setup the input
 	is := antlr.NewInputStream(combinedContent)
 
