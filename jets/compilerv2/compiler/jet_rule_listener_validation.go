@@ -56,12 +56,12 @@ func (s *JetRuleListener) ValidateRuleTerm(term *rete.RuleTerm) {
 }
 
 // ValidateJetruleNode validates a JetruleNode:
-// - All RuleTerm in Antecedents must have at least one of subject, predicate, object as variable
-// - All RuleTerm in Consequents must have at least one of subject, predicate, object as variable
-// - All ResourceNode of Type "?var" in the Antecedents that contain a filter expression or
-//   a negation (not operator) must appear in the previous antecedents.
-// - All ResourceNode of Type "?var" in the Consequents must appear in the Antecedents
-func (s *JetRuleListener) ValidateJetruleNode(rule *rete.JetruleNode) {
+//   - All RuleTerm in Antecedents must have at least one of subject, predicate, object as variable
+//   - All ResourceNode of Type "?var" in the Antecedents that contain a filter expression or
+//     a negation (not operator) must appear in the previous antecedents.
+//   - All ResourceNode of Type "?var" in the Consequents must appear in the Antecedents
+func (s *JetRuleListener) ValidateJetruleNode(rule *rete.JetruleNode) bool {
+	isValid := true
 	// Build a set of variable resource keys from the antecedents
 	varSet := make(map[int]bool)
 	for i := range rule.Antecedents {
@@ -85,6 +85,7 @@ func (s *JetRuleListener) ValidateJetruleNode(rule *rete.JetruleNode) {
 				s.Resource(rule.Antecedents[i].SubjectKey).SKey(),
 				s.Resource(rule.Antecedents[i].PredicateKey).SKey(),
 				s.Resource(rule.Antecedents[i].ObjectKey).SKey())
+			isValid = false
 		}
 		// - All ResourceNode of Type "?var" in the Antecedents that contain a filter expression or
 		//   a negation (not operator) must appear in the previous antecedents.
@@ -94,6 +95,7 @@ func (s *JetRuleListener) ValidateJetruleNode(rule *rete.JetruleNode) {
 					fmt.Fprintf(s.errorLog,
 						"** error: antecedent subject variable %s not found in previous antecedents\n",
 						s.Resource(rule.Antecedents[i].SubjectKey).SKey())
+					isValid = false
 				}
 			}
 			if s.Resource(rule.Antecedents[i].PredicateKey).Type == "var" {
@@ -101,6 +103,7 @@ func (s *JetRuleListener) ValidateJetruleNode(rule *rete.JetruleNode) {
 					fmt.Fprintf(s.errorLog,
 						"** error: antecedent predicate variable %s not found in previous antecedents\n",
 						s.Resource(rule.Antecedents[i].PredicateKey).SKey())
+					isValid = false
 				}
 			}
 			o := s.Resource(rule.Antecedents[i].ObjectKey)
@@ -109,6 +112,7 @@ func (s *JetRuleListener) ValidateJetruleNode(rule *rete.JetruleNode) {
 					fmt.Fprintf(s.errorLog,
 						"** error: antecedent object variable %s not found in previous antecedents\n",
 						s.Resource(rule.Antecedents[i].ObjectKey).SKey())
+					isValid = false
 				}
 			}
 			// Check filter expression for variables
@@ -123,18 +127,20 @@ func (s *JetRuleListener) ValidateJetruleNode(rule *rete.JetruleNode) {
 						fmt.Fprintf(s.errorLog,
 							"** error: antecedent filter expression variable %s not found in previous antecedents\n",
 							s.Resource(vKey).SKey())
+						isValid = false
 					}
 				}
 			}
 		}
 	}
-	// - All RuleTerm in Consequents must have at least one of subject, predicate, object as variable
+	// - All ResourceNode of Type "?var" in the Consequents must appear in the Antecedents
 	for i := range rule.Consequents {
 		if s.Resource(rule.Consequents[i].SubjectKey).Type == "var" {
 			if _, exists := varSet[rule.Consequents[i].SubjectKey]; !exists {
 				fmt.Fprintf(s.errorLog,
 					"** error: consequent subject variable %s not found in antecedents\n",
 					s.Resource(rule.Consequents[i].SubjectKey).SKey())
+				isValid = false
 			}
 		}
 		if s.Resource(rule.Consequents[i].PredicateKey).Type == "var" {
@@ -142,6 +148,7 @@ func (s *JetRuleListener) ValidateJetruleNode(rule *rete.JetruleNode) {
 				fmt.Fprintf(s.errorLog,
 					"** error: consequent predicate variable %s not found in antecedents\n",
 					s.Resource(rule.Consequents[i].PredicateKey).SKey())
+				isValid = false
 			}
 		}
 		o := s.Resource(rule.Consequents[i].ObjectKey)
@@ -150,6 +157,7 @@ func (s *JetRuleListener) ValidateJetruleNode(rule *rete.JetruleNode) {
 				fmt.Fprintf(s.errorLog,
 					"** error: consequent object variable %s not found in antecedents\n",
 					s.Resource(rule.Consequents[i].ObjectKey).SKey())
+				isValid = false
 			}
 		}
 		objExpr := rule.Consequents[i].ObjectExpr
@@ -163,17 +171,28 @@ func (s *JetRuleListener) ValidateJetruleNode(rule *rete.JetruleNode) {
 					fmt.Fprintf(s.errorLog,
 						"** error: consequent object expression variable %s not found in antecedents\n",
 						s.Resource(vKey).SKey())
+					isValid = false
 				}
 			}
 		}
 	}
+	return isValid
+}
+
+// PostProcessJetruleNode performs post-processing on a JetruleNode:
+//   - Add rule Label and NormalizedLabel
+//
+// see makeRuleLabel function
+func (s *JetRuleListener) PostProcessJetruleNode(rule *rete.JetruleNode) {
 	// Add rule Label and NormalizedLabel
 	rule.Label = s.makeRuleLabel(rule, false)
 	rule.NormalizedLabel = s.makeRuleLabel(rule, true)
+}
 
-	// Perform post-processing on rule properties:
-	// if property "o" is "true", "t", "1" (case insensitive) then set property "optimization" to "true"
-	// if property "s" is an integer, set property "salience" to that integer
+// Perform post-processing on rule properties:
+// if property "o" is "false", "f", "0" (case insensitive) then set property "optimization" to "false" (otherwise it's true)
+// if property "s" is an integer, set property "salience" to that integer, default salience is 100
+func (s *JetRuleListener) PostProcessJetruleProperties(rule *rete.JetruleNode) {
 	rule.Optimization = true // default optimization is true
 	v := strings.ToUpper(rule.Properties["o"])
 	if v == "FALSE" || v == "F" || v == "0" {
@@ -359,25 +378,33 @@ func (l *JetRuleListener) PostProcessClasses() {
 		for _, baseClassName := range class.BaseClasses {
 			if _, exists := l.classesByName[baseClassName]; exists {
 				// Create a rule for the class inheritance
+				l.currentRuleVarByValue = make(map[string]*rete.ResourceNode)
+				// Rule name: ClassInh_<class>_<baseClass>
+				// Antecedent: ?x1 rdf:type <class>
+				// Consequent: ?x1 rdf:type <baseClass>
+				// Properties: none
+				// Label: [ClassInh_<class>_<baseClass>]: (?x1 rdf:type <class>) -> (?x1 rdf:type <baseClass>);
+				// NormalizedLabel: [ClassInh_<class>_<baseClass>]: (?x1 rdf:type <class>) -> (?x1 rdf:type <baseClass>);
+				// Note: ?x1 is the variable name and also it's normalized name
 				name := fmt.Sprintf("ClassInh_%s_%s", className, baseClassName)
-
 				rule := &rete.JetruleNode{
 					Name:       name,
 					Properties: map[string]string{},
 					Antecedents: []rete.RuleTerm{{
 						Type:         "antecedent",
-						SubjectKey:   l.AddV("?x"),
+						SubjectKey:   l.AddV("?x1"),
 						PredicateKey: l.AddR("rdf:type"),
 						ObjectKey:    l.AddR(className),
 					}},
 					Consequents: []rete.RuleTerm{{
 						Type:         "consequent",
-						SubjectKey:   l.AddV("?x"),
+						SubjectKey:   l.AddV("?x1"),
 						PredicateKey: l.AddR("rdf:type"),
 						ObjectKey:    l.AddR(baseClassName),
 					}},
 				}
 				l.ValidateJetruleNode(rule)
+				l.PostProcessJetruleNode(rule)
 				l.jetRuleModel.Jetrules = append(l.jetRuleModel.Jetrules, *rule)
 			} else {
 				fmt.Fprintf(l.errorLog, "** error: base class %s not found for class %s\n", baseClassName, className)
@@ -424,11 +451,10 @@ func (l *JetRuleListener) MakeTableFromClass(cls *rete.ClassNode) {
 	l.jetRuleModel.Tables = append(l.jetRuleModel.Tables, *table)
 }
 
-
 // Collect TableColumnNode from the properties of cls and its base classes and subclasses
-func (l *JetRuleListener) visitClass(doUp bool, store map[string]*rete.TableColumnNode, 
+func (l *JetRuleListener) visitClass(doUp bool, store map[string]*rete.TableColumnNode,
 	visitedClasses map[string]bool, cls *rete.ClassNode) {
-		if cls == nil || visitedClasses[cls.Name] {
+	if cls == nil || visitedClasses[cls.Name] {
 		return
 	}
 

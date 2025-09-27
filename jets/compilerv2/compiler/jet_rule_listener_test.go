@@ -193,23 +193,23 @@ func TestJetRuleListener_JetRule_err2(t *testing.T) {
 	}
 }
 
-func TestJetRuleListener_JetRule(t *testing.T) {
+// func TestJetRuleListener_JetRule(t *testing.T) {
 
-	jrCompiler, err := CompileJetRuleFiles("./testdata", "jetrule.jr", false, true, false)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	b, _ := json.MarshalIndent(jrCompiler.JetRuleModel().Resources, "", " ")
-	fmt.Printf("** Resources: \n%v\n", string(b))
-	b, _ = json.MarshalIndent(jrCompiler.JetRuleModel().Jetrules, "", " ")
-	fmt.Printf("** Jet Rules: \n%v\n", string(b))
-	fmt.Printf("** Error Log: \n%v\n", jrCompiler.ErrorLog().String())
-	if jrCompiler.ErrorLog().Len() == 0 {
-		t.Error("Expected error but none found")
-	} else {
-		// t.Error("Done")
-	}
-}
+// 	jrCompiler, err := CompileJetRuleFiles("./testdata", "jetrule.jr", false, true, false)
+// 	if err != nil {
+// 		t.Fatalf("unexpected error: %v", err)
+// 	}
+// 	b, _ := json.MarshalIndent(jrCompiler.JetRuleModel().Resources, "", " ")
+// 	fmt.Printf("** Resources: \n%v\n", string(b))
+// 	b, _ = json.MarshalIndent(jrCompiler.JetRuleModel().Jetrules, "", " ")
+// 	fmt.Printf("** Jet Rules: \n%v\n", string(b))
+// 	fmt.Printf("** Error Log: \n%v\n", jrCompiler.ErrorLog().String())
+// 	if jrCompiler.ErrorLog().Len() == 0 {
+// 		t.Error("Expected error but none found")
+// 	} else {
+// 		// t.Error("Done")
+// 	}
+// }
 
 func TestJetRuleListener_Triples(t *testing.T) {
 

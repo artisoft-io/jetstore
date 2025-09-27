@@ -96,6 +96,12 @@ type LookupTableDataInfo struct {
 }
 
 // JetruleNode provides a rule view of the rete network
+// AuthoredLabel is currently not used
+// NormalizedLabel is a normalized version of the rule using the ID of the variables
+// Label is text version of the rule using the original variable names
+// Properties is a map of properties defined in the rule header
+// Optimization is a boolean property that indicates if the rule should be optimized (default true)
+// Salience is an integer property that indicates the salience of the rule (default 100)
 type JetruleNode struct {
 	Name            string            `json:"name,omitempty"`
 	Properties      map[string]string `json:"properties,omitempty"`

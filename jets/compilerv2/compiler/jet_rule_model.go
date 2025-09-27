@@ -37,7 +37,7 @@ type JetRuleListener struct {
 	currentRuleAntecedents    []rete.RuleTerm
 	currentRuleConsequents    []rete.RuleTerm
 	currentJetruleNode        *rete.JetruleNode
-	currentRuleVarByValue     map[string]string // map of variable name to normalized name, rule level
+	currentRuleVarByValue     map[string]*rete.ResourceNode // map of variable Value (original name) to ResourceNode, rule level
 	// stack to build expressions in Antecedents and Consequents
 	inProgressExpr *stack.Stack[rete.ExpressionNode]
 
@@ -56,7 +56,7 @@ func NewJetRuleListener(basePath string, mainRuleFileName string) *JetRuleListen
 		jetRuleModel:          rete.NewJetruleModel(),
 		resourceManager:       NewResourceManager(),
 		classesByName:         make(map[string]*rete.ClassNode),
-		currentRuleVarByValue: make(map[string]string),
+		currentRuleVarByValue: make(map[string]*rete.ResourceNode),
 		parseLog:              &strings.Builder{},
 		errorLog:              &strings.Builder{},
 	}
@@ -90,7 +90,7 @@ func NewJetRuleListener(basePath string, mainRuleFileName string) *JetRuleListen
 
 // ResourceManager manages the resources in the model
 // during the model compilation process performed by the JetRuleListener
-// Resources are stored in a map with key as "type|value" to ensure uniqueness
+// Resources are stored in a map with key as "type|value" to ensure uniqueness (does not applies to ?var)
 // ResourceById is a map of resources by their Id
 // ResourceByKey is a map of resources by their Key
 // see jet_rule_listener_utility.go for usage

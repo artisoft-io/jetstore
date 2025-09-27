@@ -158,6 +158,14 @@ public class JetRuleParser extends Parser {
 			super(parent, invokingState);
 		}
 		@Override public int getRuleIndex() { return RULE_jetrule; }
+		@Override
+		public void enterRule(ParseTreeListener listener) {
+			if ( listener instanceof JetRuleListener ) ((JetRuleListener)listener).enterJetrule(this);
+		}
+		@Override
+		public void exitRule(ParseTreeListener listener) {
+			if ( listener instanceof JetRuleListener ) ((JetRuleListener)listener).exitJetrule(this);
+		}
 	}
 
 	public final JetruleContext jetrule() throws RecognitionException {
@@ -230,6 +238,14 @@ public class JetRuleParser extends Parser {
 			super(parent, invokingState);
 		}
 		@Override public int getRuleIndex() { return RULE_statement; }
+		@Override
+		public void enterRule(ParseTreeListener listener) {
+			if ( listener instanceof JetRuleListener ) ((JetRuleListener)listener).enterStatement(this);
+		}
+		@Override
+		public void exitRule(ParseTreeListener listener) {
+			if ( listener instanceof JetRuleListener ) ((JetRuleListener)listener).exitStatement(this);
+		}
 	}
 
 	public final StatementContext statement() throws RecognitionException {
@@ -349,6 +365,14 @@ public class JetRuleParser extends Parser {
 			super(parent, invokingState);
 		}
 		@Override public int getRuleIndex() { return RULE_jetCompilerDirectiveStmt; }
+		@Override
+		public void enterRule(ParseTreeListener listener) {
+			if ( listener instanceof JetRuleListener ) ((JetRuleListener)listener).enterJetCompilerDirectiveStmt(this);
+		}
+		@Override
+		public void exitRule(ParseTreeListener listener) {
+			if ( listener instanceof JetRuleListener ) ((JetRuleListener)listener).exitJetCompilerDirectiveStmt(this);
+		}
 	}
 
 	public final JetCompilerDirectiveStmtContext jetCompilerDirectiveStmt() throws RecognitionException {
@@ -397,6 +421,14 @@ public class JetRuleParser extends Parser {
 			super(parent, invokingState);
 		}
 		@Override public int getRuleIndex() { return RULE_defineJetStoreConfigStmt; }
+		@Override
+		public void enterRule(ParseTreeListener listener) {
+			if ( listener instanceof JetRuleListener ) ((JetRuleListener)listener).enterDefineJetStoreConfigStmt(this);
+		}
+		@Override
+		public void exitRule(ParseTreeListener listener) {
+			if ( listener instanceof JetRuleListener ) ((JetRuleListener)listener).exitDefineJetStoreConfigStmt(this);
+		}
 	}
 
 	public final DefineJetStoreConfigStmtContext defineJetStoreConfigStmt() throws RecognitionException {
@@ -465,6 +497,14 @@ public class JetRuleParser extends Parser {
 			super(parent, invokingState);
 		}
 		@Override public int getRuleIndex() { return RULE_jetstoreConfig; }
+		@Override
+		public void enterRule(ParseTreeListener listener) {
+			if ( listener instanceof JetRuleListener ) ((JetRuleListener)listener).enterJetstoreConfig(this);
+		}
+		@Override
+		public void exitRule(ParseTreeListener listener) {
+			if ( listener instanceof JetRuleListener ) ((JetRuleListener)listener).exitJetstoreConfig(this);
+		}
 	}
 
 	public final JetstoreConfigContext jetstoreConfig() throws RecognitionException {
@@ -513,6 +553,14 @@ public class JetRuleParser extends Parser {
 			super(parent, invokingState);
 		}
 		@Override public int getRuleIndex() { return RULE_jetstoreConfigSeq; }
+		@Override
+		public void enterRule(ParseTreeListener listener) {
+			if ( listener instanceof JetRuleListener ) ((JetRuleListener)listener).enterJetstoreConfigSeq(this);
+		}
+		@Override
+		public void exitRule(ParseTreeListener listener) {
+			if ( listener instanceof JetRuleListener ) ((JetRuleListener)listener).exitJetstoreConfigSeq(this);
+		}
 	}
 
 	public final JetstoreConfigSeqContext jetstoreConfigSeq() throws RecognitionException {
@@ -594,6 +642,14 @@ public class JetRuleParser extends Parser {
 			super(parent, invokingState);
 		}
 		@Override public int getRuleIndex() { return RULE_jetstoreConfigItem; }
+		@Override
+		public void enterRule(ParseTreeListener listener) {
+			if ( listener instanceof JetRuleListener ) ((JetRuleListener)listener).enterJetstoreConfigItem(this);
+		}
+		@Override
+		public void exitRule(ParseTreeListener listener) {
+			if ( listener instanceof JetRuleListener ) ((JetRuleListener)listener).exitJetstoreConfigItem(this);
+		}
 	}
 
 	public final JetstoreConfigItemContext jetstoreConfigItem() throws RecognitionException {
@@ -738,6 +794,14 @@ public class JetRuleParser extends Parser {
 			super(parent, invokingState);
 		}
 		@Override public int getRuleIndex() { return RULE_defineClassStmt; }
+		@Override
+		public void enterRule(ParseTreeListener listener) {
+			if ( listener instanceof JetRuleListener ) ((JetRuleListener)listener).enterDefineClassStmt(this);
+		}
+		@Override
+		public void exitRule(ParseTreeListener listener) {
+			if ( listener instanceof JetRuleListener ) ((JetRuleListener)listener).exitDefineClassStmt(this);
+		}
 	}
 
 	public final DefineClassStmtContext defineClassStmt() throws RecognitionException {
@@ -865,6 +929,14 @@ public class JetRuleParser extends Parser {
 			super(parent, invokingState);
 		}
 		@Override public int getRuleIndex() { return RULE_classStmt; }
+		@Override
+		public void enterRule(ParseTreeListener listener) {
+			if ( listener instanceof JetRuleListener ) ((JetRuleListener)listener).enterClassStmt(this);
+		}
+		@Override
+		public void exitRule(ParseTreeListener listener) {
+			if ( listener instanceof JetRuleListener ) ((JetRuleListener)listener).exitClassStmt(this);
+		}
 	}
 
 	public final ClassStmtContext classStmt() throws RecognitionException {
@@ -1126,6 +1198,14 @@ public class JetRuleParser extends Parser {
 			super(parent, invokingState);
 		}
 		@Override public int getRuleIndex() { return RULE_subClassOfStmt; }
+		@Override
+		public void enterRule(ParseTreeListener listener) {
+			if ( listener instanceof JetRuleListener ) ((JetRuleListener)listener).enterSubClassOfStmt(this);
+		}
+		@Override
+		public void exitRule(ParseTreeListener listener) {
+			if ( listener instanceof JetRuleListener ) ((JetRuleListener)listener).exitSubClassOfStmt(this);
+		}
 	}
 
 	public final SubClassOfStmtContext subClassOfStmt() throws RecognitionException {
@@ -1165,6 +1245,14 @@ public class JetRuleParser extends Parser {
 			super(parent, invokingState);
 		}
 		@Override public int getRuleIndex() { return RULE_dataPropertyDefinitions; }
+		@Override
+		public void enterRule(ParseTreeListener listener) {
+			if ( listener instanceof JetRuleListener ) ((JetRuleListener)listener).enterDataPropertyDefinitions(this);
+		}
+		@Override
+		public void exitRule(ParseTreeListener listener) {
+			if ( listener instanceof JetRuleListener ) ((JetRuleListener)listener).exitDataPropertyDefinitions(this);
+		}
 	}
 
 	public final DataPropertyDefinitionsContext dataPropertyDefinitions() throws RecognitionException {
@@ -1219,6 +1307,14 @@ public class JetRuleParser extends Parser {
 			super(parent, invokingState);
 		}
 		@Override public int getRuleIndex() { return RULE_dataPropertyType; }
+		@Override
+		public void enterRule(ParseTreeListener listener) {
+			if ( listener instanceof JetRuleListener ) ((JetRuleListener)listener).enterDataPropertyType(this);
+		}
+		@Override
+		public void exitRule(ParseTreeListener listener) {
+			if ( listener instanceof JetRuleListener ) ((JetRuleListener)listener).exitDataPropertyType(this);
+		}
 	}
 
 	public final DataPropertyTypeContext dataPropertyType() throws RecognitionException {
@@ -1261,6 +1357,14 @@ public class JetRuleParser extends Parser {
 			super(parent, invokingState);
 		}
 		@Override public int getRuleIndex() { return RULE_groupingPropertyStmt; }
+		@Override
+		public void enterRule(ParseTreeListener listener) {
+			if ( listener instanceof JetRuleListener ) ((JetRuleListener)listener).enterGroupingPropertyStmt(this);
+		}
+		@Override
+		public void exitRule(ParseTreeListener listener) {
+			if ( listener instanceof JetRuleListener ) ((JetRuleListener)listener).exitGroupingPropertyStmt(this);
+		}
 	}
 
 	public final GroupingPropertyStmtContext groupingPropertyStmt() throws RecognitionException {
@@ -1296,6 +1400,14 @@ public class JetRuleParser extends Parser {
 			super(parent, invokingState);
 		}
 		@Override public int getRuleIndex() { return RULE_asTableStmt; }
+		@Override
+		public void enterRule(ParseTreeListener listener) {
+			if ( listener instanceof JetRuleListener ) ((JetRuleListener)listener).enterAsTableStmt(this);
+		}
+		@Override
+		public void exitRule(ParseTreeListener listener) {
+			if ( listener instanceof JetRuleListener ) ((JetRuleListener)listener).exitAsTableStmt(this);
+		}
 	}
 
 	public final AsTableStmtContext asTableStmt() throws RecognitionException {
@@ -1331,6 +1443,14 @@ public class JetRuleParser extends Parser {
 			super(parent, invokingState);
 		}
 		@Override public int getRuleIndex() { return RULE_asTableFlag; }
+		@Override
+		public void enterRule(ParseTreeListener listener) {
+			if ( listener instanceof JetRuleListener ) ((JetRuleListener)listener).enterAsTableFlag(this);
+		}
+		@Override
+		public void exitRule(ParseTreeListener listener) {
+			if ( listener instanceof JetRuleListener ) ((JetRuleListener)listener).exitAsTableFlag(this);
+		}
 	}
 
 	public final AsTableFlagContext asTableFlag() throws RecognitionException {
@@ -1382,6 +1502,14 @@ public class JetRuleParser extends Parser {
 			super(parent, invokingState);
 		}
 		@Override public int getRuleIndex() { return RULE_defineRuleSeqStmt; }
+		@Override
+		public void enterRule(ParseTreeListener listener) {
+			if ( listener instanceof JetRuleListener ) ((JetRuleListener)listener).enterDefineRuleSeqStmt(this);
+		}
+		@Override
+		public void exitRule(ParseTreeListener listener) {
+			if ( listener instanceof JetRuleListener ) ((JetRuleListener)listener).exitDefineRuleSeqStmt(this);
+		}
 	}
 
 	public final DefineRuleSeqStmtContext defineRuleSeqStmt() throws RecognitionException {
@@ -1506,6 +1634,14 @@ public class JetRuleParser extends Parser {
 			super(parent, invokingState);
 		}
 		@Override public int getRuleIndex() { return RULE_ruleSetSeq; }
+		@Override
+		public void enterRule(ParseTreeListener listener) {
+			if ( listener instanceof JetRuleListener ) ((JetRuleListener)listener).enterRuleSetSeq(this);
+		}
+		@Override
+		public void exitRule(ParseTreeListener listener) {
+			if ( listener instanceof JetRuleListener ) ((JetRuleListener)listener).exitRuleSetSeq(this);
+		}
 	}
 
 	public final RuleSetSeqContext ruleSetSeq() throws RecognitionException {
@@ -1568,6 +1704,14 @@ public class JetRuleParser extends Parser {
 			super(parent, invokingState);
 		}
 		@Override public int getRuleIndex() { return RULE_ruleSetDefinitions; }
+		@Override
+		public void enterRule(ParseTreeListener listener) {
+			if ( listener instanceof JetRuleListener ) ((JetRuleListener)listener).enterRuleSetDefinitions(this);
+		}
+		@Override
+		public void exitRule(ParseTreeListener listener) {
+			if ( listener instanceof JetRuleListener ) ((JetRuleListener)listener).exitRuleSetDefinitions(this);
+		}
 	}
 
 	public final RuleSetDefinitionsContext ruleSetDefinitions() throws RecognitionException {
@@ -1624,6 +1768,14 @@ public class JetRuleParser extends Parser {
 			super(parent, invokingState);
 		}
 		@Override public int getRuleIndex() { return RULE_defineLiteralStmt; }
+		@Override
+		public void enterRule(ParseTreeListener listener) {
+			if ( listener instanceof JetRuleListener ) ((JetRuleListener)listener).enterDefineLiteralStmt(this);
+		}
+		@Override
+		public void exitRule(ParseTreeListener listener) {
+			if ( listener instanceof JetRuleListener ) ((JetRuleListener)listener).exitDefineLiteralStmt(this);
+		}
 	}
 
 	public final DefineLiteralStmtContext defineLiteralStmt() throws RecognitionException {
@@ -1729,6 +1881,14 @@ public class JetRuleParser extends Parser {
 			super(parent, invokingState);
 		}
 		@Override public int getRuleIndex() { return RULE_int32LiteralStmt; }
+		@Override
+		public void enterRule(ParseTreeListener listener) {
+			if ( listener instanceof JetRuleListener ) ((JetRuleListener)listener).enterInt32LiteralStmt(this);
+		}
+		@Override
+		public void exitRule(ParseTreeListener listener) {
+			if ( listener instanceof JetRuleListener ) ((JetRuleListener)listener).exitInt32LiteralStmt(this);
+		}
 	}
 
 	public final Int32LiteralStmtContext int32LiteralStmt() throws RecognitionException {
@@ -1778,6 +1938,14 @@ public class JetRuleParser extends Parser {
 			super(parent, invokingState);
 		}
 		@Override public int getRuleIndex() { return RULE_uInt32LiteralStmt; }
+		@Override
+		public void enterRule(ParseTreeListener listener) {
+			if ( listener instanceof JetRuleListener ) ((JetRuleListener)listener).enterUInt32LiteralStmt(this);
+		}
+		@Override
+		public void exitRule(ParseTreeListener listener) {
+			if ( listener instanceof JetRuleListener ) ((JetRuleListener)listener).exitUInt32LiteralStmt(this);
+		}
 	}
 
 	public final UInt32LiteralStmtContext uInt32LiteralStmt() throws RecognitionException {
@@ -1827,6 +1995,14 @@ public class JetRuleParser extends Parser {
 			super(parent, invokingState);
 		}
 		@Override public int getRuleIndex() { return RULE_int64LiteralStmt; }
+		@Override
+		public void enterRule(ParseTreeListener listener) {
+			if ( listener instanceof JetRuleListener ) ((JetRuleListener)listener).enterInt64LiteralStmt(this);
+		}
+		@Override
+		public void exitRule(ParseTreeListener listener) {
+			if ( listener instanceof JetRuleListener ) ((JetRuleListener)listener).exitInt64LiteralStmt(this);
+		}
 	}
 
 	public final Int64LiteralStmtContext int64LiteralStmt() throws RecognitionException {
@@ -1876,6 +2052,14 @@ public class JetRuleParser extends Parser {
 			super(parent, invokingState);
 		}
 		@Override public int getRuleIndex() { return RULE_uInt64LiteralStmt; }
+		@Override
+		public void enterRule(ParseTreeListener listener) {
+			if ( listener instanceof JetRuleListener ) ((JetRuleListener)listener).enterUInt64LiteralStmt(this);
+		}
+		@Override
+		public void exitRule(ParseTreeListener listener) {
+			if ( listener instanceof JetRuleListener ) ((JetRuleListener)listener).exitUInt64LiteralStmt(this);
+		}
 	}
 
 	public final UInt64LiteralStmtContext uInt64LiteralStmt() throws RecognitionException {
@@ -1925,6 +2109,14 @@ public class JetRuleParser extends Parser {
 			super(parent, invokingState);
 		}
 		@Override public int getRuleIndex() { return RULE_doubleLiteralStmt; }
+		@Override
+		public void enterRule(ParseTreeListener listener) {
+			if ( listener instanceof JetRuleListener ) ((JetRuleListener)listener).enterDoubleLiteralStmt(this);
+		}
+		@Override
+		public void exitRule(ParseTreeListener listener) {
+			if ( listener instanceof JetRuleListener ) ((JetRuleListener)listener).exitDoubleLiteralStmt(this);
+		}
 	}
 
 	public final DoubleLiteralStmtContext doubleLiteralStmt() throws RecognitionException {
@@ -1972,6 +2164,14 @@ public class JetRuleParser extends Parser {
 			super(parent, invokingState);
 		}
 		@Override public int getRuleIndex() { return RULE_stringLiteralStmt; }
+		@Override
+		public void enterRule(ParseTreeListener listener) {
+			if ( listener instanceof JetRuleListener ) ((JetRuleListener)listener).enterStringLiteralStmt(this);
+		}
+		@Override
+		public void exitRule(ParseTreeListener listener) {
+			if ( listener instanceof JetRuleListener ) ((JetRuleListener)listener).exitStringLiteralStmt(this);
+		}
 	}
 
 	public final StringLiteralStmtContext stringLiteralStmt() throws RecognitionException {
@@ -2019,6 +2219,14 @@ public class JetRuleParser extends Parser {
 			super(parent, invokingState);
 		}
 		@Override public int getRuleIndex() { return RULE_dateLiteralStmt; }
+		@Override
+		public void enterRule(ParseTreeListener listener) {
+			if ( listener instanceof JetRuleListener ) ((JetRuleListener)listener).enterDateLiteralStmt(this);
+		}
+		@Override
+		public void exitRule(ParseTreeListener listener) {
+			if ( listener instanceof JetRuleListener ) ((JetRuleListener)listener).exitDateLiteralStmt(this);
+		}
 	}
 
 	public final DateLiteralStmtContext dateLiteralStmt() throws RecognitionException {
@@ -2066,6 +2274,14 @@ public class JetRuleParser extends Parser {
 			super(parent, invokingState);
 		}
 		@Override public int getRuleIndex() { return RULE_datetimeLiteralStmt; }
+		@Override
+		public void enterRule(ParseTreeListener listener) {
+			if ( listener instanceof JetRuleListener ) ((JetRuleListener)listener).enterDatetimeLiteralStmt(this);
+		}
+		@Override
+		public void exitRule(ParseTreeListener listener) {
+			if ( listener instanceof JetRuleListener ) ((JetRuleListener)listener).exitDatetimeLiteralStmt(this);
+		}
 	}
 
 	public final DatetimeLiteralStmtContext datetimeLiteralStmt() throws RecognitionException {
@@ -2113,6 +2329,14 @@ public class JetRuleParser extends Parser {
 			super(parent, invokingState);
 		}
 		@Override public int getRuleIndex() { return RULE_booleanLiteralStmt; }
+		@Override
+		public void enterRule(ParseTreeListener listener) {
+			if ( listener instanceof JetRuleListener ) ((JetRuleListener)listener).enterBooleanLiteralStmt(this);
+		}
+		@Override
+		public void exitRule(ParseTreeListener listener) {
+			if ( listener instanceof JetRuleListener ) ((JetRuleListener)listener).exitBooleanLiteralStmt(this);
+		}
 	}
 
 	public final BooleanLiteralStmtContext booleanLiteralStmt() throws RecognitionException {
@@ -2156,6 +2380,14 @@ public class JetRuleParser extends Parser {
 			super(parent, invokingState);
 		}
 		@Override public int getRuleIndex() { return RULE_intExpr; }
+		@Override
+		public void enterRule(ParseTreeListener listener) {
+			if ( listener instanceof JetRuleListener ) ((JetRuleListener)listener).enterIntExpr(this);
+		}
+		@Override
+		public void exitRule(ParseTreeListener listener) {
+			if ( listener instanceof JetRuleListener ) ((JetRuleListener)listener).exitIntExpr(this);
+		}
 	}
 
 	public final IntExprContext intExpr() throws RecognitionException {
@@ -2216,6 +2448,14 @@ public class JetRuleParser extends Parser {
 			super(parent, invokingState);
 		}
 		@Override public int getRuleIndex() { return RULE_uintExpr; }
+		@Override
+		public void enterRule(ParseTreeListener listener) {
+			if ( listener instanceof JetRuleListener ) ((JetRuleListener)listener).enterUintExpr(this);
+		}
+		@Override
+		public void exitRule(ParseTreeListener listener) {
+			if ( listener instanceof JetRuleListener ) ((JetRuleListener)listener).exitUintExpr(this);
+		}
 	}
 
 	public final UintExprContext uintExpr() throws RecognitionException {
@@ -2271,6 +2511,14 @@ public class JetRuleParser extends Parser {
 			super(parent, invokingState);
 		}
 		@Override public int getRuleIndex() { return RULE_doubleExpr; }
+		@Override
+		public void enterRule(ParseTreeListener listener) {
+			if ( listener instanceof JetRuleListener ) ((JetRuleListener)listener).enterDoubleExpr(this);
+		}
+		@Override
+		public void exitRule(ParseTreeListener listener) {
+			if ( listener instanceof JetRuleListener ) ((JetRuleListener)listener).exitDoubleExpr(this);
+		}
 	}
 
 	public final DoubleExprContext doubleExpr() throws RecognitionException {
@@ -2343,6 +2591,14 @@ public class JetRuleParser extends Parser {
 			super(parent, invokingState);
 		}
 		@Override public int getRuleIndex() { return RULE_declIdentifier; }
+		@Override
+		public void enterRule(ParseTreeListener listener) {
+			if ( listener instanceof JetRuleListener ) ((JetRuleListener)listener).enterDeclIdentifier(this);
+		}
+		@Override
+		public void exitRule(ParseTreeListener listener) {
+			if ( listener instanceof JetRuleListener ) ((JetRuleListener)listener).exitDeclIdentifier(this);
+		}
 	}
 
 	public final DeclIdentifierContext declIdentifier() throws RecognitionException {
@@ -2406,6 +2662,14 @@ public class JetRuleParser extends Parser {
 			super(parent, invokingState);
 		}
 		@Override public int getRuleIndex() { return RULE_defineResourceStmt; }
+		@Override
+		public void enterRule(ParseTreeListener listener) {
+			if ( listener instanceof JetRuleListener ) ((JetRuleListener)listener).enterDefineResourceStmt(this);
+		}
+		@Override
+		public void exitRule(ParseTreeListener listener) {
+			if ( listener instanceof JetRuleListener ) ((JetRuleListener)listener).exitDefineResourceStmt(this);
+		}
 	}
 
 	public final DefineResourceStmtContext defineResourceStmt() throws RecognitionException {
@@ -2461,6 +2725,14 @@ public class JetRuleParser extends Parser {
 			super(parent, invokingState);
 		}
 		@Override public int getRuleIndex() { return RULE_namedResourceStmt; }
+		@Override
+		public void enterRule(ParseTreeListener listener) {
+			if ( listener instanceof JetRuleListener ) ((JetRuleListener)listener).enterNamedResourceStmt(this);
+		}
+		@Override
+		public void exitRule(ParseTreeListener listener) {
+			if ( listener instanceof JetRuleListener ) ((JetRuleListener)listener).exitNamedResourceStmt(this);
+		}
 	}
 
 	public final NamedResourceStmtContext namedResourceStmt() throws RecognitionException {
@@ -2508,6 +2780,14 @@ public class JetRuleParser extends Parser {
 			super(parent, invokingState);
 		}
 		@Override public int getRuleIndex() { return RULE_volatileResourceStmt; }
+		@Override
+		public void enterRule(ParseTreeListener listener) {
+			if ( listener instanceof JetRuleListener ) ((JetRuleListener)listener).enterVolatileResourceStmt(this);
+		}
+		@Override
+		public void exitRule(ParseTreeListener listener) {
+			if ( listener instanceof JetRuleListener ) ((JetRuleListener)listener).exitVolatileResourceStmt(this);
+		}
 	}
 
 	public final VolatileResourceStmtContext volatileResourceStmt() throws RecognitionException {
@@ -2552,6 +2832,14 @@ public class JetRuleParser extends Parser {
 			super(parent, invokingState);
 		}
 		@Override public int getRuleIndex() { return RULE_resourceValue; }
+		@Override
+		public void enterRule(ParseTreeListener listener) {
+			if ( listener instanceof JetRuleListener ) ((JetRuleListener)listener).enterResourceValue(this);
+		}
+		@Override
+		public void exitRule(ParseTreeListener listener) {
+			if ( listener instanceof JetRuleListener ) ((JetRuleListener)listener).exitResourceValue(this);
+		}
 	}
 
 	public final ResourceValueContext resourceValue() throws RecognitionException {
@@ -2631,6 +2919,14 @@ public class JetRuleParser extends Parser {
 			super(parent, invokingState);
 		}
 		@Override public int getRuleIndex() { return RULE_lookupTableStmt; }
+		@Override
+		public void enterRule(ParseTreeListener listener) {
+			if ( listener instanceof JetRuleListener ) ((JetRuleListener)listener).enterLookupTableStmt(this);
+		}
+		@Override
+		public void exitRule(ParseTreeListener listener) {
+			if ( listener instanceof JetRuleListener ) ((JetRuleListener)listener).exitLookupTableStmt(this);
+		}
 	}
 
 	public final LookupTableStmtContext lookupTableStmt() throws RecognitionException {
@@ -2792,6 +3088,14 @@ public class JetRuleParser extends Parser {
 			super(parent, invokingState);
 		}
 		@Override public int getRuleIndex() { return RULE_csvLocation; }
+		@Override
+		public void enterRule(ParseTreeListener listener) {
+			if ( listener instanceof JetRuleListener ) ((JetRuleListener)listener).enterCsvLocation(this);
+		}
+		@Override
+		public void exitRule(ParseTreeListener listener) {
+			if ( listener instanceof JetRuleListener ) ((JetRuleListener)listener).exitCsvLocation(this);
+		}
 	}
 
 	public final CsvLocationContext csvLocation() throws RecognitionException {
@@ -2852,6 +3156,14 @@ public class JetRuleParser extends Parser {
 			super(parent, invokingState);
 		}
 		@Override public int getRuleIndex() { return RULE_stringList; }
+		@Override
+		public void enterRule(ParseTreeListener listener) {
+			if ( listener instanceof JetRuleListener ) ((JetRuleListener)listener).enterStringList(this);
+		}
+		@Override
+		public void exitRule(ParseTreeListener listener) {
+			if ( listener instanceof JetRuleListener ) ((JetRuleListener)listener).exitStringList(this);
+		}
 	}
 
 	public final StringListContext stringList() throws RecognitionException {
@@ -2900,6 +3212,14 @@ public class JetRuleParser extends Parser {
 			super(parent, invokingState);
 		}
 		@Override public int getRuleIndex() { return RULE_stringSeq; }
+		@Override
+		public void enterRule(ParseTreeListener listener) {
+			if ( listener instanceof JetRuleListener ) ((JetRuleListener)listener).enterStringSeq(this);
+		}
+		@Override
+		public void exitRule(ParseTreeListener listener) {
+			if ( listener instanceof JetRuleListener ) ((JetRuleListener)listener).exitStringSeq(this);
+		}
 	}
 
 	public final StringSeqContext stringSeq() throws RecognitionException {
@@ -2958,6 +3278,14 @@ public class JetRuleParser extends Parser {
 			super(parent, invokingState);
 		}
 		@Override public int getRuleIndex() { return RULE_columnDefSeq; }
+		@Override
+		public void enterRule(ParseTreeListener listener) {
+			if ( listener instanceof JetRuleListener ) ((JetRuleListener)listener).enterColumnDefSeq(this);
+		}
+		@Override
+		public void exitRule(ParseTreeListener listener) {
+			if ( listener instanceof JetRuleListener ) ((JetRuleListener)listener).exitColumnDefSeq(this);
+		}
 	}
 
 	public final ColumnDefSeqContext columnDefSeq() throws RecognitionException {
@@ -3026,6 +3354,14 @@ public class JetRuleParser extends Parser {
 			super(parent, invokingState);
 		}
 		@Override public int getRuleIndex() { return RULE_columnDefinitions; }
+		@Override
+		public void enterRule(ParseTreeListener listener) {
+			if ( listener instanceof JetRuleListener ) ((JetRuleListener)listener).enterColumnDefinitions(this);
+		}
+		@Override
+		public void exitRule(ParseTreeListener listener) {
+			if ( listener instanceof JetRuleListener ) ((JetRuleListener)listener).exitColumnDefinitions(this);
+		}
 	}
 
 	public final ColumnDefinitionsContext columnDefinitions() throws RecognitionException {
@@ -3095,6 +3431,14 @@ public class JetRuleParser extends Parser {
 			super(parent, invokingState);
 		}
 		@Override public int getRuleIndex() { return RULE_jetRuleStmt; }
+		@Override
+		public void enterRule(ParseTreeListener listener) {
+			if ( listener instanceof JetRuleListener ) ((JetRuleListener)listener).enterJetRuleStmt(this);
+		}
+		@Override
+		public void exitRule(ParseTreeListener listener) {
+			if ( listener instanceof JetRuleListener ) ((JetRuleListener)listener).exitJetRuleStmt(this);
+		}
 	}
 
 	public final JetRuleStmtContext jetRuleStmt() throws RecognitionException {
@@ -3240,6 +3584,14 @@ public class JetRuleParser extends Parser {
 			super(parent, invokingState);
 		}
 		@Override public int getRuleIndex() { return RULE_ruleProperties; }
+		@Override
+		public void enterRule(ParseTreeListener listener) {
+			if ( listener instanceof JetRuleListener ) ((JetRuleListener)listener).enterRuleProperties(this);
+		}
+		@Override
+		public void exitRule(ParseTreeListener listener) {
+			if ( listener instanceof JetRuleListener ) ((JetRuleListener)listener).exitRuleProperties(this);
+		}
 	}
 
 	public final RulePropertiesContext ruleProperties() throws RecognitionException {
@@ -3283,6 +3635,14 @@ public class JetRuleParser extends Parser {
 			super(parent, invokingState);
 		}
 		@Override public int getRuleIndex() { return RULE_propertyValue; }
+		@Override
+		public void enterRule(ParseTreeListener listener) {
+			if ( listener instanceof JetRuleListener ) ((JetRuleListener)listener).enterPropertyValue(this);
+		}
+		@Override
+		public void exitRule(ParseTreeListener listener) {
+			if ( listener instanceof JetRuleListener ) ((JetRuleListener)listener).exitPropertyValue(this);
+		}
 	}
 
 	public final PropertyValueContext propertyValue() throws RecognitionException {
@@ -3360,6 +3720,14 @@ public class JetRuleParser extends Parser {
 			super(parent, invokingState);
 		}
 		@Override public int getRuleIndex() { return RULE_antecedent; }
+		@Override
+		public void enterRule(ParseTreeListener listener) {
+			if ( listener instanceof JetRuleListener ) ((JetRuleListener)listener).enterAntecedent(this);
+		}
+		@Override
+		public void exitRule(ParseTreeListener listener) {
+			if ( listener instanceof JetRuleListener ) ((JetRuleListener)listener).exitAntecedent(this);
+		}
 	}
 
 	public final AntecedentContext antecedent() throws RecognitionException {
@@ -3454,6 +3822,14 @@ public class JetRuleParser extends Parser {
 			super(parent, invokingState);
 		}
 		@Override public int getRuleIndex() { return RULE_consequent; }
+		@Override
+		public void enterRule(ParseTreeListener listener) {
+			if ( listener instanceof JetRuleListener ) ((JetRuleListener)listener).enterConsequent(this);
+		}
+		@Override
+		public void exitRule(ParseTreeListener listener) {
+			if ( listener instanceof JetRuleListener ) ((JetRuleListener)listener).exitConsequent(this);
+		}
 	}
 
 	public final ConsequentContext consequent() throws RecognitionException {
@@ -3506,6 +3882,14 @@ public class JetRuleParser extends Parser {
 			super(parent, invokingState);
 		}
 		@Override public int getRuleIndex() { return RULE_atom; }
+		@Override
+		public void enterRule(ParseTreeListener listener) {
+			if ( listener instanceof JetRuleListener ) ((JetRuleListener)listener).enterAtom(this);
+		}
+		@Override
+		public void exitRule(ParseTreeListener listener) {
+			if ( listener instanceof JetRuleListener ) ((JetRuleListener)listener).exitAtom(this);
+		}
 	}
 
 	public final AtomContext atom() throws RecognitionException {
@@ -3578,6 +3962,14 @@ public class JetRuleParser extends Parser {
 			super(parent, invokingState);
 		}
 		@Override public int getRuleIndex() { return RULE_objectAtom; }
+		@Override
+		public void enterRule(ParseTreeListener listener) {
+			if ( listener instanceof JetRuleListener ) ((JetRuleListener)listener).enterObjectAtom(this);
+		}
+		@Override
+		public void exitRule(ParseTreeListener listener) {
+			if ( listener instanceof JetRuleListener ) ((JetRuleListener)listener).exitObjectAtom(this);
+		}
 	}
 
 	public final ObjectAtomContext objectAtom() throws RecognitionException {
@@ -3761,6 +4153,14 @@ public class JetRuleParser extends Parser {
 			super(parent, invokingState);
 		}
 		@Override public int getRuleIndex() { return RULE_keywords; }
+		@Override
+		public void enterRule(ParseTreeListener listener) {
+			if ( listener instanceof JetRuleListener ) ((JetRuleListener)listener).enterKeywords(this);
+		}
+		@Override
+		public void exitRule(ParseTreeListener listener) {
+			if ( listener instanceof JetRuleListener ) ((JetRuleListener)listener).exitKeywords(this);
+		}
 	}
 
 	public final KeywordsContext keywords() throws RecognitionException {
@@ -3812,6 +4212,14 @@ public class JetRuleParser extends Parser {
 			return getRuleContext(ExprTermContext.class,0);
 		}
 		public SelfExprTermContext(ExprTermContext ctx) { copyFrom(ctx); }
+		@Override
+		public void enterRule(ParseTreeListener listener) {
+			if ( listener instanceof JetRuleListener ) ((JetRuleListener)listener).enterSelfExprTerm(this);
+		}
+		@Override
+		public void exitRule(ParseTreeListener listener) {
+			if ( listener instanceof JetRuleListener ) ((JetRuleListener)listener).exitSelfExprTerm(this);
+		}
 	}
 	@SuppressWarnings("CheckReturnValue")
 	public static class BinaryExprTerm2Context extends ExprTermContext {
@@ -3828,6 +4236,14 @@ public class JetRuleParser extends Parser {
 			return getRuleContext(BinaryOpContext.class,0);
 		}
 		public BinaryExprTerm2Context(ExprTermContext ctx) { copyFrom(ctx); }
+		@Override
+		public void enterRule(ParseTreeListener listener) {
+			if ( listener instanceof JetRuleListener ) ((JetRuleListener)listener).enterBinaryExprTerm2(this);
+		}
+		@Override
+		public void exitRule(ParseTreeListener listener) {
+			if ( listener instanceof JetRuleListener ) ((JetRuleListener)listener).exitBinaryExprTerm2(this);
+		}
 	}
 	@SuppressWarnings("CheckReturnValue")
 	public static class UnaryExprTermContext extends ExprTermContext {
@@ -3840,6 +4256,14 @@ public class JetRuleParser extends Parser {
 			return getRuleContext(ExprTermContext.class,0);
 		}
 		public UnaryExprTermContext(ExprTermContext ctx) { copyFrom(ctx); }
+		@Override
+		public void enterRule(ParseTreeListener listener) {
+			if ( listener instanceof JetRuleListener ) ((JetRuleListener)listener).enterUnaryExprTerm(this);
+		}
+		@Override
+		public void exitRule(ParseTreeListener listener) {
+			if ( listener instanceof JetRuleListener ) ((JetRuleListener)listener).exitUnaryExprTerm(this);
+		}
 	}
 	@SuppressWarnings("CheckReturnValue")
 	public static class ObjectAtomExprTermContext extends ExprTermContext {
@@ -3848,6 +4272,14 @@ public class JetRuleParser extends Parser {
 			return getRuleContext(ObjectAtomContext.class,0);
 		}
 		public ObjectAtomExprTermContext(ExprTermContext ctx) { copyFrom(ctx); }
+		@Override
+		public void enterRule(ParseTreeListener listener) {
+			if ( listener instanceof JetRuleListener ) ((JetRuleListener)listener).enterObjectAtomExprTerm(this);
+		}
+		@Override
+		public void exitRule(ParseTreeListener listener) {
+			if ( listener instanceof JetRuleListener ) ((JetRuleListener)listener).exitObjectAtomExprTerm(this);
+		}
 	}
 	@SuppressWarnings("CheckReturnValue")
 	public static class UnaryExprTerm3Context extends ExprTermContext {
@@ -3860,6 +4292,14 @@ public class JetRuleParser extends Parser {
 			return getRuleContext(ExprTermContext.class,0);
 		}
 		public UnaryExprTerm3Context(ExprTermContext ctx) { copyFrom(ctx); }
+		@Override
+		public void enterRule(ParseTreeListener listener) {
+			if ( listener instanceof JetRuleListener ) ((JetRuleListener)listener).enterUnaryExprTerm3(this);
+		}
+		@Override
+		public void exitRule(ParseTreeListener listener) {
+			if ( listener instanceof JetRuleListener ) ((JetRuleListener)listener).exitUnaryExprTerm3(this);
+		}
 	}
 	@SuppressWarnings("CheckReturnValue")
 	public static class UnaryExprTerm2Context extends ExprTermContext {
@@ -3872,6 +4312,14 @@ public class JetRuleParser extends Parser {
 			return getRuleContext(ExprTermContext.class,0);
 		}
 		public UnaryExprTerm2Context(ExprTermContext ctx) { copyFrom(ctx); }
+		@Override
+		public void enterRule(ParseTreeListener listener) {
+			if ( listener instanceof JetRuleListener ) ((JetRuleListener)listener).enterUnaryExprTerm2(this);
+		}
+		@Override
+		public void exitRule(ParseTreeListener listener) {
+			if ( listener instanceof JetRuleListener ) ((JetRuleListener)listener).exitUnaryExprTerm2(this);
+		}
 	}
 	@SuppressWarnings("CheckReturnValue")
 	public static class BinaryExprTermContext extends ExprTermContext {
@@ -3888,6 +4336,14 @@ public class JetRuleParser extends Parser {
 			return getRuleContext(BinaryOpContext.class,0);
 		}
 		public BinaryExprTermContext(ExprTermContext ctx) { copyFrom(ctx); }
+		@Override
+		public void enterRule(ParseTreeListener listener) {
+			if ( listener instanceof JetRuleListener ) ((JetRuleListener)listener).enterBinaryExprTerm(this);
+		}
+		@Override
+		public void exitRule(ParseTreeListener listener) {
+			if ( listener instanceof JetRuleListener ) ((JetRuleListener)listener).exitBinaryExprTerm(this);
+		}
 	}
 
 	public final ExprTermContext exprTerm() throws RecognitionException {
@@ -4049,6 +4505,14 @@ public class JetRuleParser extends Parser {
 			super(parent, invokingState);
 		}
 		@Override public int getRuleIndex() { return RULE_binaryOp; }
+		@Override
+		public void enterRule(ParseTreeListener listener) {
+			if ( listener instanceof JetRuleListener ) ((JetRuleListener)listener).enterBinaryOp(this);
+		}
+		@Override
+		public void exitRule(ParseTreeListener listener) {
+			if ( listener instanceof JetRuleListener ) ((JetRuleListener)listener).exitBinaryOp(this);
+		}
 	}
 
 	public final BinaryOpContext binaryOp() throws RecognitionException {
@@ -4090,6 +4554,14 @@ public class JetRuleParser extends Parser {
 			super(parent, invokingState);
 		}
 		@Override public int getRuleIndex() { return RULE_unaryOp; }
+		@Override
+		public void enterRule(ParseTreeListener listener) {
+			if ( listener instanceof JetRuleListener ) ((JetRuleListener)listener).enterUnaryOp(this);
+		}
+		@Override
+		public void exitRule(ParseTreeListener listener) {
+			if ( listener instanceof JetRuleListener ) ((JetRuleListener)listener).exitUnaryOp(this);
+		}
 	}
 
 	public final UnaryOpContext unaryOp() throws RecognitionException {
@@ -4142,6 +4614,14 @@ public class JetRuleParser extends Parser {
 			super(parent, invokingState);
 		}
 		@Override public int getRuleIndex() { return RULE_tripleStmt; }
+		@Override
+		public void enterRule(ParseTreeListener listener) {
+			if ( listener instanceof JetRuleListener ) ((JetRuleListener)listener).enterTripleStmt(this);
+		}
+		@Override
+		public void exitRule(ParseTreeListener listener) {
+			if ( listener instanceof JetRuleListener ) ((JetRuleListener)listener).exitTripleStmt(this);
+		}
 	}
 
 	public final TripleStmtContext tripleStmt() throws RecognitionException {
