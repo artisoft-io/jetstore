@@ -218,35 +218,6 @@ func (s *JetRuleListener) updateBindedVars(bindedVars map[string]*int, anteceden
 	}
 }
 
-// collectBindedVars collects the binded variables in the antecedent
-// and adds them to the bindedVars map
-func (s *JetRuleListener) collectBindedVars(parentBindedVars map[string]bool, bindedVars map[string]bool, antecedent *rete.RuleTerm) {
-	if antecedent.SubjectKey > 0 {
-		r := s.resourceManager.ResourceByKey[antecedent.SubjectKey]
-		if r.Type == "var" {
-			if parentBindedVars[r.Id] {
-				bindedVars[r.Id] = true
-			}
-		}
-	}
-	if antecedent.PredicateKey > 0 {
-		r := s.resourceManager.ResourceByKey[antecedent.PredicateKey]
-		if r.Type == "var" {
-			if parentBindedVars[r.Id] {
-				bindedVars[r.Id] = true
-			}
-		}
-	}
-	if antecedent.ObjectKey > 0 {
-		r := s.resourceManager.ResourceByKey[antecedent.ObjectKey]
-		if r.Type == "var" {
-			if parentBindedVars[r.Id] {
-				bindedVars[r.Id] = true
-			}
-		}
-	}
-}
-
 // collectUnbindedVars collects the unbinded variables in the antecedent
 // and adds them to the unbindedVars map
 // The map value indicates the position of the variable in the triple:
