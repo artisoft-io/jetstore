@@ -236,9 +236,6 @@
           "type": "antecedent",
           "normalizedLabel": "(?x1 rdf:type abc:RuleConfig)",
           "vertex": 1,
-          "beta_relation_vars": [
-            "?x1"
-          ],
           "beta_var_nodes": [
             {
               "type": "var",
@@ -251,26 +248,13 @@
           ],
           "subject_key": 30,
           "predicate_key": 26,
-          "object_key": 27,
-          "descendents_req_vars": {
-            "?x1": true
-          },
-          "self_vars": {
-            "?x1": 0
-          }
+          "object_key": 27
         },
         {
           "type": "antecedent",
           "normalizedLabel": "(?x1 RelatedTo ?x2)",
           "vertex": 2,
           "parent_vertex": 1,
-          "beta_relation_vars": [
-            "?x2",
-            "?x1"
-          ],
-          "pruned_var": [
-            "?x2"
-          ],
           "beta_var_nodes": [
             {
               "type": "var",
@@ -285,29 +269,13 @@
           ],
           "subject_key": 30,
           "predicate_key": 29,
-          "object_key": 32,
-          "parent_binded_vars": {
-            "?x1": true
-          },
-          "descendents_req_vars": {
-            "?x1": true
-          },
-          "self_vars": {
-            "?x2": 2
-          }
+          "object_key": 32
         },
         {
           "type": "antecedent",
           "normalizedLabel": "(?x1 OutputUnit int(0))",
           "vertex": 3,
           "parent_vertex": 2,
-          "beta_relation_vars": [
-            "?x1",
-            "?x2"
-          ],
-          "pruned_var": [
-            "?x2"
-          ],
           "beta_var_nodes": [
             {
               "type": "var",
@@ -326,14 +294,7 @@
           ],
           "subject_key": 30,
           "predicate_key": 28,
-          "object_key": 31,
-          "parent_binded_vars": {
-            "?x1": true,
-            "?x2": true
-          },
-          "descendents_req_vars": {
-            "?x1": true
-          }
+          "object_key": 31
         }
       ],
       "consequents": [
@@ -404,7 +365,7 @@
         }
       ],
       "source_file_name": "rete_test1.jr",
-      "normalizedLabel": "[R02, flag=\"finance\", s=20]: (?x1 rdf:type abc:RuleConfig).(?x1 RelatedTo ?x2).(?x1 OutputUnit int(0)) -\u003e (?x1 OutputUnit int(2));",
+      "normalizedLabel": "[R02, s=20, flag=\"finance\"]: (?x1 rdf:type abc:RuleConfig).(?x1 RelatedTo ?x2).(?x1 OutputUnit int(0)) -\u003e (?x1 OutputUnit int(2));",
       "label": "[R02, s=20, flag=\"finance\"]: (?config rdf:type abc:RuleConfig).(?config abc:RelatedTo ?x2).(?config abc:OutputUnit int(0)) -\u003e (?config abc:OutputUnit int(2));"
     }
   ],
@@ -421,9 +382,6 @@
       "type": "antecedent",
       "normalizedLabel": "(?x1 rdf:type abc:RuleConfig)",
       "vertex": 1,
-      "beta_relation_vars": [
-        "?x1"
-      ],
       "beta_var_nodes": [
         {
           "type": "var",
@@ -436,26 +394,13 @@
       ],
       "subject_key": 30,
       "predicate_key": 26,
-      "object_key": 27,
-      "descendents_req_vars": {
-        "?x1": true
-      },
-      "self_vars": {
-        "?x1": 0
-      }
+      "object_key": 27
     },
     {
       "type": "antecedent",
       "normalizedLabel": "(?x1 RelatedTo ?x2)",
       "vertex": 2,
       "parent_vertex": 1,
-      "beta_relation_vars": [
-        "?x2",
-        "?x1"
-      ],
-      "pruned_var": [
-        "?x2"
-      ],
       "beta_var_nodes": [
         {
           "type": "var",
@@ -470,29 +415,13 @@
       ],
       "subject_key": 30,
       "predicate_key": 29,
-      "object_key": 32,
-      "parent_binded_vars": {
-        "?x1": true
-      },
-      "descendents_req_vars": {
-        "?x1": true
-      },
-      "self_vars": {
-        "?x2": 2
-      }
+      "object_key": 32
     },
     {
       "type": "antecedent",
       "normalizedLabel": "(?x1 OutputUnit int(0))",
       "vertex": 3,
       "parent_vertex": 2,
-      "beta_relation_vars": [
-        "?x1",
-        "?x2"
-      ],
-      "pruned_var": [
-        "?x2"
-      ],
       "beta_var_nodes": [
         {
           "type": "var",
@@ -511,14 +440,7 @@
       ],
       "subject_key": 30,
       "predicate_key": 28,
-      "object_key": 31,
-      "parent_binded_vars": {
-        "?x1": true,
-        "?x2": true
-      },
-      "descendents_req_vars": {
-        "?x1": true
-      }
+      "object_key": 31
     },
     {
       "type": "consequent",

@@ -62,7 +62,9 @@ func (s *JetRuleListener) OptimizeJetruleNode(rule *rete.JetruleNode) {
 		for i := range antecedents {
 			score := s.evaluateScore(bindedVars, antecedents[i])
 			plist = append(plist, antPriority{i, 1000 - score})
-			s.LogParse(fmt.Sprintf("*** Antecedent %d score: %d, priority: %d", i, score, 1000-score))
+			if s.trace {
+				s.LogParse(fmt.Sprintf("*** Antecedent %d score: %d, priority: %d", i, score, 1000-score))
+			}
 		}
 
 		// find the antecedent with the highest priority
@@ -72,7 +74,9 @@ func (s *JetRuleListener) OptimizeJetruleNode(rule *rete.JetruleNode) {
 		// take the first one
 		best := plist[0]
 		ordered = append(ordered, antecedents[best.index])
-		s.LogParse(fmt.Sprintf("*** Selected antecedent %d with priority %d", best.index, best.priority))
+		if s.trace {
+			s.LogParse(fmt.Sprintf("*** Selected antecedent %d with priority %d", best.index, best.priority))
+		}
 
 		// update bindedVars
 		s.updateBindedVars(bindedVars, antecedents[best.index])

@@ -9,7 +9,7 @@ import (
 )
 
 func TestJetRuleListener_BuildReteNetwork1(t *testing.T) {
-	jrCompiler := NewCompiler("./testdata", "rete_test1.jr", true, true, false)
+	jrCompiler := NewCompiler("./testdata", "rete_test1.jr", true, false, false)
 	err := jrCompiler.CompileBuffer(`@JetCompilerDirective source_file = "rete_test1.jr";
 	resource abc:RuleConfig = "abc:RuleConfig";
 	resource OutputUnit = "abc:OutputUnit";

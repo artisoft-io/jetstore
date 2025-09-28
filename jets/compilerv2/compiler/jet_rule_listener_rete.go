@@ -65,7 +65,9 @@ func (l *JetRuleListener) BuildReteNetwork() {
 			reteNode := l.ReteNodeByNormalizedLabel(parentVertex, antecedent.NormalizedLabel)
 			if reteNode == nil {
 				// No matching node found, use current antecedent as the rete node
-				fmt.Fprintf(l.parseLog, "***   No matching Rete node found, using antecedent: %s\n", antecedent.NormalizedLabel)
+				if l.trace {
+					fmt.Fprintf(l.parseLog, "***   No matching Rete node found, using antecedent: %s\n", antecedent.NormalizedLabel)
+				}
 				reteNode = antecedent
 				l.jetRuleModel.ReteNodes = append(l.jetRuleModel.ReteNodes, reteNode)
 				// Set the vertex and parent vertex
@@ -238,6 +240,17 @@ func (l *JetRuleListener) BuildReteNetwork() {
 
 	if l.trace {
 		fmt.Fprintf(l.parseLog, "** Rete Network built with %d nodes\n", len(l.jetRuleModel.ReteNodes))
+	} else {
+		// Clean up the rete nodes, remove ParentBindedVars, DescendentsReqVars, SelfVars,
+		// BetaRelationVars, and PrunedVars as they
+		// are no longer needed
+		for _, node := range l.jetRuleModel.ReteNodes {
+			node.ParentBindedVars = nil
+			node.DescendentsReqVars = nil
+			node.SelfVars = nil
+			node.BetaRelationVars = nil
+			node.PrunedVars = nil
+		}
 	}
 }
 
