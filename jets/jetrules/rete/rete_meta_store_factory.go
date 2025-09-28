@@ -207,7 +207,7 @@ func (ctx *ReteBuilderContext) BuildReteMetaStore() (*ReteMetaStore, error) {
 
 	// Sort the antecedent terms from the consequent terms
 	for i := range ctx.JetruleModel.ReteNodes {
-		reteNode := &ctx.JetruleModel.ReteNodes[i]
+		reteNode := ctx.JetruleModel.ReteNodes[i]
 		switch reteNode.Type {
 		case "antecedent":
 			ctx.JetruleModel.Antecedents = append(ctx.JetruleModel.Antecedents, reteNode)
@@ -458,7 +458,7 @@ func (ctx *ReteBuilderContext) loadNodeVertices() error {
 		brData := make([]int, sz)
 		brLabels := make([]string, sz)
 		for j := range reteNode.BetaVarNodes {
-			betaVarNode := &reteNode.BetaVarNodes[j]
+			betaVarNode := reteNode.BetaVarNodes[j]
 			if betaVarNode.IsBinded {
 				if reteNode.ParentVertex == 0 {
 					return fmt.Errorf(

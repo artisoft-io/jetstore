@@ -13,8 +13,8 @@ type JetruleModel struct {
 	CompilerDirectives map[string]string `json:"compiler_directives,omitempty"`
 	Resources          []ResourceNode    `json:"resources,omitempty"`
 	LookupTables       []LookupTableNode `json:"lookup_tables,omitempty"`
-	Jetrules           []JetruleNode     `json:"jet_rules,omitempty"`
-	ReteNodes          []RuleTerm        `json:"rete_nodes,omitempty"`
+	Jetrules           []*JetruleNode    `json:"jet_rules,omitempty"`
+	ReteNodes          []*RuleTerm       `json:"rete_nodes,omitempty"`
 	// Imports              map[string][]string      `json:"imports"`
 	JetstoreConfig map[string]string `json:"jetstore_config,omitempty"`
 	RuleSequences  []RuleSequence    `json:"rule_sequences,omitempty"`
@@ -35,8 +35,8 @@ func NewJetruleModel() *JetruleModel {
 		CompilerDirectives: make(map[string]string),
 		Resources:          []ResourceNode{},
 		LookupTables:       []LookupTableNode{},
-		Jetrules:           []JetruleNode{},
-		ReteNodes:          []RuleTerm{},
+		Jetrules:           []*JetruleNode{},
+		ReteNodes:          []*RuleTerm{},
 		JetstoreConfig:     make(map[string]string),
 		RuleSequences:      []RuleSequence{},
 		Classes:            []ClassNode{},
@@ -107,15 +107,31 @@ type JetruleNode struct {
 	Properties      map[string]string `json:"properties,omitempty"`
 	Optimization    bool              `json:"optimization,omitzero"`
 	Salience        int               `json:"salience,omitzero"`
-	Antecedents     []RuleTerm        `json:"antecedents,omitempty"`
-	Consequents     []RuleTerm        `json:"consequents,omitempty"`
+	Antecedents     []*RuleTerm       `json:"antecedents,omitempty"`
+	Consequents     []*RuleTerm       `json:"consequents,omitempty"`
 	AuthoredLabel   string            `json:"authoredLabel,omitempty"`
 	SourceFileName  string            `json:"source_file_name,omitempty"`
 	NormalizedLabel string            `json:"normalizedLabel,omitempty"`
 	Label           string            `json:"label,omitempty"`
 }
 
-// RulTerm type is either antecedent or consequent
+// RuleTerm type is either antecedent or consequent.
+// BetaRelationVars is the full list of variable IDs that are used in beta relations.
+// PrunedVars is the list of variable IDs that are not needed by current and descendent nodes.
+// BetaVarNodes is the net list (BetaRelationVars minus PrunedVars) of BetaVarNode
+// that provides information about the variables in the beta relation.
+// ChildrenVertexes is a list of vertexes of the child nodes.
+// Rules is a list of rule names that are associated with this node (for antecedents only).
+// Salience is a list of salience values that are associated with this node (for antecedents only).
+// ConsequentSeq is the sequence number of the consequent in the rule (for consequents only).
+// ConsequentForRule is the name of the rule that this consequent belongs to (for consequents only).
+// ConsequentSalience is the salience of the rule that this consequent belongs to (for consequents only).
+// SubjectKey, PredicateKey, ObjectKey are the keys of the resources in the model.
+// ObjectExpr is an expression node that represents the object if it is an expression.
+// Filter is an expression node that represents the filter applied to the antecedent.
+// ParentBindedVars is a map of variable IDs that are binded in the parent nodes.
+// DescendentsReqVars is a map of variable IDs that are required by descendent nodes.
+// SelfVars is a map of variable IDs that are used in this node.
 type RuleTerm struct {
 	Type               string          `json:"type,omitempty"`
 	IsNot              bool            `json:"isNot,omitzero"`
@@ -124,7 +140,7 @@ type RuleTerm struct {
 	ParentVertex       int             `json:"parent_vertex,omitzero"`
 	BetaRelationVars   []string        `json:"beta_relation_vars,omitempty"`
 	PrunedVars         []string        `json:"pruned_var,omitempty"`
-	BetaVarNodes       []BetaVarNode   `json:"beta_var_nodes,omitempty"`
+	BetaVarNodes       []*BetaVarNode  `json:"beta_var_nodes,omitempty"`
 	ChildrenVertexes   []int           `json:"children_vertexes,omitempty"`
 	Rules              []string        `json:"rules,omitempty"`
 	Salience           []int           `json:"salience,omitempty"`
@@ -136,6 +152,9 @@ type RuleTerm struct {
 	ObjectKey          int             `json:"object_key,omitzero"`
 	ObjectExpr         *ExpressionNode `json:"obj_expr,omitempty"`
 	Filter             *ExpressionNode `json:"filter,omitempty"`
+	ParentBindedVars   map[string]bool `json:"parent_binded_vars,omitempty"`
+	DescendentsReqVars map[string]bool `json:"descendents_req_vars,omitempty"`
+	SelfVars           map[string]*int `json:"self_vars,omitempty"`
 }
 
 type ExpressionNode struct {
@@ -147,6 +166,13 @@ type ExpressionNode struct {
 	Value int             `json:"value,omitempty"`
 }
 
+// BetaVarNode provides information about a variable in a beta relation
+// Type is always "var"
+// Id is the variable ID (e.g. ?x1)
+// IsBinded indicates if the variable is binded in the parent nodes
+// VarPos is the position of the variable in the rule (1-based)
+// Vertex is the vertex of the node where the variable is used
+// SourceFileName is the source file where the variable is defined (not used)
 type BetaVarNode struct {
 	Type           string `json:"type,omitempty"`
 	Id             string `json:"id,omitzero,omitempty"`

@@ -34,8 +34,8 @@ type JetRuleListener struct {
 	currentRuleSequence       *rete.RuleSequence
 	currentLookupTableColumns []rete.LookupTableColumn
 	currentRuleProperties     map[string]string
-	currentRuleAntecedents    []rete.RuleTerm
-	currentRuleConsequents    []rete.RuleTerm
+	currentRuleAntecedents    []*rete.RuleTerm
+	currentRuleConsequents    []*rete.RuleTerm
 	currentJetruleNode        *rete.JetruleNode
 	currentRuleVarByValue     map[string]*rete.ResourceNode // map of variable Value (original name) to ResourceNode, rule level
 	// stack to build expressions in Antecedents and Consequents

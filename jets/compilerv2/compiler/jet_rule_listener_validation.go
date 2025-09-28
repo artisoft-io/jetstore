@@ -232,7 +232,7 @@ func (l *JetRuleListener) makeRuleLabel(rule *rete.JetruleNode, normalize bool) 
 		// Use a separate string builder for the RuleTerm so we can assign the
 		// normalized label to the RuleTerm's NormalizedLabel field
 		ruleTermLabel := &strings.Builder{}
-		a := &rule.Antecedents[i]
+		a := rule.Antecedents[i]
 		if a.IsNot {
 			ruleTermLabel.WriteString("not")
 		}
@@ -256,16 +256,21 @@ func (l *JetRuleListener) makeRuleLabel(rule *rete.JetruleNode, normalize bool) 
 		if i > 0 {
 			label.WriteString(".")
 		}
-		c := &rule.Consequents[i]
-		fmt.Fprintf(label, "(%s %s ",
+		ruleTermLabel := &strings.Builder{}
+		c := rule.Consequents[i]
+		fmt.Fprintf(ruleTermLabel, "(%s %s ",
 			l.makeResourceLabel(l.Resource(c.SubjectKey), normalize),
 			l.makeResourceLabel(l.Resource(c.PredicateKey), normalize))
 		if c.ObjectExpr != nil {
-			l.makeExpressionLabel(c.ObjectExpr, label, normalize)
+			l.makeExpressionLabel(c.ObjectExpr, ruleTermLabel, normalize)
 		} else {
-			label.WriteString(l.makeResourceLabel(l.Resource(c.ObjectKey), normalize))
+			ruleTermLabel.WriteString(l.makeResourceLabel(l.Resource(c.ObjectKey), normalize))
 		}
-		label.WriteString(")")
+		ruleTermLabel.WriteString(")")
+		label.WriteString(ruleTermLabel.String())
+		if normalize {
+			c.NormalizedLabel = ruleTermLabel.String()
+		}
 	}
 	label.WriteString(";")
 	return label.String()
@@ -315,6 +320,9 @@ func (l *JetRuleListener) makeExpressionLabel(expr *rete.ExpressionNode, buf *st
 	}
 }
 
+// PostProcessJetruleModel performs post-processing and validation on the Jetrule model
+// - PostProcessClasses: process class inheritance and create rules for class inheritance
+// - Create Table for classes having asTable = true
 func (l *JetRuleListener) PostProcessJetruleModel() {
 	fmt.Fprint(l.parseLog, "** entering PostProcessJetruleModel\n")
 	// Perform post-processing and validation on the Jetrule model
@@ -327,6 +335,8 @@ func (l *JetRuleListener) PostProcessJetruleModel() {
 			l.MakeTableFromClass(class)
 		}
 	}
+	// Generate the Rete network from the rules
+	l.BuildReteNetwork()
 }
 
 // IsValidIdentifier checks if a string is a valid identifier
@@ -390,13 +400,13 @@ func (l *JetRuleListener) PostProcessClasses() {
 				rule := &rete.JetruleNode{
 					Name:       name,
 					Properties: map[string]string{},
-					Antecedents: []rete.RuleTerm{{
+					Antecedents: []*rete.RuleTerm{{
 						Type:         "antecedent",
 						SubjectKey:   l.AddV("?x1"),
 						PredicateKey: l.AddR("rdf:type"),
 						ObjectKey:    l.AddR(className),
 					}},
-					Consequents: []rete.RuleTerm{{
+					Consequents: []*rete.RuleTerm{{
 						Type:         "consequent",
 						SubjectKey:   l.AddV("?x1"),
 						PredicateKey: l.AddR("rdf:type"),
@@ -405,7 +415,7 @@ func (l *JetRuleListener) PostProcessClasses() {
 				}
 				l.ValidateJetruleNode(rule)
 				l.PostProcessJetruleNode(rule)
-				l.jetRuleModel.Jetrules = append(l.jetRuleModel.Jetrules, *rule)
+				l.jetRuleModel.Jetrules = append(l.jetRuleModel.Jetrules, rule)
 			} else {
 				fmt.Fprintf(l.errorLog, "** error: base class %s not found for class %s\n", baseClassName, className)
 			}

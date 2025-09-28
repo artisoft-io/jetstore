@@ -32,7 +32,7 @@ func (s *JetRuleListener) OptimizeJetruleNode(rule *rete.JetruleNode) {
 	}
 
 	// Simple greedy algorithm to reorder antecedents
-	ordered := make([]rete.RuleTerm, 0, n)
+	ordered := make([]*rete.RuleTerm, 0, n)
 	filters := make([]*rete.ExpressionNode, 0)
 	// Collect filters from original rule's antecedent so to reallocated them after
 	// the antecedent have been reordered
@@ -43,7 +43,7 @@ func (s *JetRuleListener) OptimizeJetruleNode(rule *rete.JetruleNode) {
 	}
 
 	// Keep track of the binded variables
-	bindedVars := make(map[string]bool)
+	bindedVars := make(map[string]*int)
 
 	// Iterativelly allocate the antecedent with the top priority
 	// Priority is computed as: 1000 - score
@@ -88,7 +88,15 @@ func (s *JetRuleListener) OptimizeJetruleNode(rule *rete.JetruleNode) {
 
 	// Reallocate the filters to the reordered antecedents
 	// ---------------------------------------------------------------------------------
-	bindedVars = make(map[string]bool)
+	bindedVars = make(map[string]*int)
+	// For each antecedent in order, check if any filter can be applied
+	// A filter can be applied if all its variables are binded by the antecedents
+	// placed before it.
+	// If multiple filters can be applied, they are combined using AND operator
+	// and added to the antecedent.
+	// The filters that have been applied are removed from the filters list.
+	// ---------------------------------------------------------------------------------
+	// For each antecedent in order
 	for i := range ordered {
 		// update bindedVars
 		s.updateBindedVars(bindedVars, ordered[i])
@@ -104,7 +112,7 @@ func (s *JetRuleListener) OptimizeJetruleNode(rule *rete.JetruleNode) {
 			allVarsBinded := true
 			for key := range varsInFilter {
 				r := s.resourceManager.ResourceByKey[key]
-				if !bindedVars[r.Id] {
+				if bindedVars[r.Id] == nil {
 					allVarsBinded = false
 					break
 				}
@@ -120,9 +128,10 @@ func (s *JetRuleListener) OptimizeJetruleNode(rule *rete.JetruleNode) {
 			if lfilter != nil {
 				rfilter, _ := matchedFilters.Pop()
 				lfilter = &rete.ExpressionNode{
-					Op:  "and",
-					Lhs: lfilter,
-					Rhs: rfilter,
+					Type: "binary",
+					Op:   "and",
+					Lhs:  lfilter,
+					Rhs:  rfilter,
 				}
 			} else {
 				lfilter, _ = matchedFilters.Pop()
@@ -178,29 +187,97 @@ post_process:
 	}
 }
 
-func (s *JetRuleListener) updateBindedVars(bindedVars map[string]bool, antecedent rete.RuleTerm) {
+// updateBindedVars updates the bindedVars map with the variables in the antecedent
+// The map value indicates the position of the variable in the triple:
+// 0 = subject, 1 = predicate, 2 = object
+func (s *JetRuleListener) updateBindedVars(bindedVars map[string]*int, antecedent *rete.RuleTerm) {
 	if antecedent.SubjectKey > 0 {
 		r := s.resourceManager.ResourceByKey[antecedent.SubjectKey]
 		if r.Type == "var" {
-			bindedVars[r.Id] = true
+			pos := 0
+			bindedVars[r.Id] = &pos
 		}
 	}
 	if antecedent.PredicateKey > 0 {
 		r := s.resourceManager.ResourceByKey[antecedent.PredicateKey]
 		if r.Type == "var" {
-			bindedVars[r.Id] = true
+			pos := 1
+			bindedVars[r.Id] = &pos
 		}
 	}
 	if antecedent.ObjectKey > 0 {
 		r := s.resourceManager.ResourceByKey[antecedent.ObjectKey]
 		if r.Type == "var" {
-			bindedVars[r.Id] = true
+			pos := 2
+			bindedVars[r.Id] = &pos
 		}
 	}
-
 }
 
-func (s *JetRuleListener) evaluateScore(bindedVars map[string]bool, antecedent rete.RuleTerm) int {
+// collectBindedVars collects the binded variables in the antecedent
+// and adds them to the bindedVars map
+func (s *JetRuleListener) collectBindedVars(parentBindedVars map[string]bool, bindedVars map[string]bool, antecedent *rete.RuleTerm) {
+	if antecedent.SubjectKey > 0 {
+		r := s.resourceManager.ResourceByKey[antecedent.SubjectKey]
+		if r.Type == "var" {
+			if parentBindedVars[r.Id] {
+				bindedVars[r.Id] = true
+			}
+		}
+	}
+	if antecedent.PredicateKey > 0 {
+		r := s.resourceManager.ResourceByKey[antecedent.PredicateKey]
+		if r.Type == "var" {
+			if parentBindedVars[r.Id] {
+				bindedVars[r.Id] = true
+			}
+		}
+	}
+	if antecedent.ObjectKey > 0 {
+		r := s.resourceManager.ResourceByKey[antecedent.ObjectKey]
+		if r.Type == "var" {
+			if parentBindedVars[r.Id] {
+				bindedVars[r.Id] = true
+			}
+		}
+	}
+}
+
+// collectUnbindedVars collects the unbinded variables in the antecedent
+// and adds them to the unbindedVars map
+// The map value indicates the position of the variable in the triple:
+// 0 = subject, 1 = predicate, 2 = object
+func (s *JetRuleListener) collectUnbindedVars(parentBindedVars map[string]bool, unbindedVars map[string]*int, antecedent *rete.RuleTerm) {
+	if antecedent.SubjectKey > 0 {
+		r := s.resourceManager.ResourceByKey[antecedent.SubjectKey]
+		if r.Type == "var" {
+			if !parentBindedVars[r.Id] {
+				pos := 0
+				unbindedVars[r.Id] = &pos
+			}
+		}
+	}
+	if antecedent.PredicateKey > 0 {
+		r := s.resourceManager.ResourceByKey[antecedent.PredicateKey]
+		if r.Type == "var" {
+			if !parentBindedVars[r.Id] {
+				pos := 1
+				unbindedVars[r.Id] = &pos
+			}
+		}
+	}
+	if antecedent.ObjectKey > 0 {
+		r := s.resourceManager.ResourceByKey[antecedent.ObjectKey]
+		if r.Type == "var" {
+			if !parentBindedVars[r.Id] {
+				pos := 2
+				unbindedVars[r.Id] = &pos
+			}
+		}
+	}
+}
+
+func (s *JetRuleListener) evaluateScore(bindedVars map[string]*int, antecedent *rete.RuleTerm) int {
 	sscore := 0
 	pscore := 0
 	oscore := 0
@@ -210,7 +287,7 @@ func (s *JetRuleListener) evaluateScore(bindedVars map[string]bool, antecedent r
 		r := s.resourceManager.ResourceByKey[antecedent.SubjectKey]
 		switch r.Type {
 		case "var":
-			if bindedVars[r.Id] {
+			if bindedVars[r.Id] != nil {
 				sscore = 200 + 20
 			} else {
 				sscore = 0 + 40
@@ -225,7 +302,7 @@ func (s *JetRuleListener) evaluateScore(bindedVars map[string]bool, antecedent r
 		r := s.resourceManager.ResourceByKey[antecedent.PredicateKey]
 		switch r.Type {
 		case "var":
-			if bindedVars[r.Id] {
+			if bindedVars[r.Id] != nil {
 				pscore = 200 + 0
 			} else {
 				pscore = 0 + 0
@@ -243,7 +320,7 @@ func (s *JetRuleListener) evaluateScore(bindedVars map[string]bool, antecedent r
 		r := s.resourceManager.ResourceByKey[antecedent.ObjectKey]
 		switch r.Type {
 		case "var":
-			if bindedVars[r.Id] {
+			if bindedVars[r.Id] != nil {
 				oscore = 200 + 40
 			} else {
 				oscore = 0 + 20

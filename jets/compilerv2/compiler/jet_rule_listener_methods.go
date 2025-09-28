@@ -378,7 +378,7 @@ func (s *JetRuleListener) ExitJetRuleStmt(ctx *parser.JetRuleStmtContext) {
 	s.currentRuleVarByValue = make(map[string]*rete.ResourceNode)
 
 	// Append to the model
-	s.jetRuleModel.Jetrules = append(s.jetRuleModel.Jetrules, *s.currentJetruleNode)
+	s.jetRuleModel.Jetrules = append(s.jetRuleModel.Jetrules, s.currentJetruleNode)
 	s.currentJetruleNode = nil
 }
 
@@ -534,7 +534,7 @@ func (s *JetRuleListener) ExitAntecedent(ctx *parser.AntecedentContext) {
 	if ctx.GetO().GetKws() != nil {
 		kws = ctx.GetO().GetKws().GetText()
 	}
-	term := rete.RuleTerm{
+	term := &rete.RuleTerm{
 		Type:         "antecedent",
 		IsNot:        ctx.GetN() != nil,
 		SubjectKey:   s.ParseObjectAtom(EscR(ctx.GetS().GetText()), ""),
@@ -548,7 +548,7 @@ func (s *JetRuleListener) ExitAntecedent(ctx *parser.AntecedentContext) {
 			term.Filter = expr
 		}
 	}
-	s.ValidateRuleTerm(&term)
+	s.ValidateRuleTerm(term)
 
 	// Clear the in-progress expression stack
 	s.inProgressExpr = nil
@@ -570,7 +570,7 @@ func (s *JetRuleListener) ExitConsequent(ctx *parser.ConsequentContext) {
 	if ctx.GetS() == nil || ctx.GetP() == nil || ctx.GetO() == nil {
 		return
 	}
-	term := rete.RuleTerm{
+	term := &rete.RuleTerm{
 		Type:         "consequent",
 		SubjectKey:   s.ParseObjectAtom(EscR(ctx.GetS().GetText()), ""),
 		PredicateKey: s.ParseObjectAtom(EscR(ctx.GetP().GetText()), ""),
