@@ -170,21 +170,21 @@ post_process:
 		if a.SubjectKey > 0 && varIdByKey[a.SubjectKey] == "" {
 			r := s.resourceManager.ResourceByKey[a.SubjectKey]
 			if r.Type == "var" {
-				r.Id = fmt.Sprintf("?x%d", len(varIdByKey)+1)
+				r.Id = fmt.Sprintf("?x%02d", len(varIdByKey)+1)
 				varIdByKey[a.SubjectKey] = r.Id
 			}
 		}
 		if a.PredicateKey > 0 && varIdByKey[a.PredicateKey] == "" {
 			r := s.resourceManager.ResourceByKey[a.PredicateKey]
 			if r.Type == "var" {
-				r.Id = fmt.Sprintf("?x%d", len(varIdByKey)+1)
+				r.Id = fmt.Sprintf("?x%02d", len(varIdByKey)+1)
 				varIdByKey[a.PredicateKey] = r.Id
 			}
 		}
 		if a.ObjectKey > 0 && varIdByKey[a.ObjectKey] == "" {
 			r := s.resourceManager.ResourceByKey[a.ObjectKey]
 			if r.Type == "var" {
-				r.Id = fmt.Sprintf("?x%d", len(varIdByKey)+1)
+				r.Id = fmt.Sprintf("?x%02d", len(varIdByKey)+1)
 				varIdByKey[a.ObjectKey] = r.Id
 			}
 		}

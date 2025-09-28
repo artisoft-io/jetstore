@@ -56,7 +56,7 @@ func (s *JetRuleListener) ParseObjectAtom(txt string, keywordsContextValue strin
 			// return existing key
 			return varNode.Key
 		}
-		r.Id = fmt.Sprintf("?x%d", len(s.currentRuleVarByValue)+1)
+		r.Id = fmt.Sprintf("?x%02d", len(s.currentRuleVarByValue)+1)
 		s.currentRuleVarByValue[r.Value] = r
 		s.newResource(r)
 		return r.Key
@@ -103,7 +103,7 @@ func (s *JetRuleListener) AddResource(r *rete.ResourceNode) int {
 			// return existing key
 			return varNode.Key
 		}
-		r.Id = fmt.Sprintf("?x%d", len(s.currentRuleVarByValue)+1)
+		r.Id = fmt.Sprintf("?x%02d", len(s.currentRuleVarByValue)+1)
 		s.currentRuleVarByValue[r.Value] = r
 		s.newResource(r)
 		return r.Key

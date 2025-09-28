@@ -29,7 +29,7 @@ func TestJetRuleOptimizer_JetRule0(t *testing.T) {
 			t.Error(jrCompiler.ErrorLog().String())
 		case len(jrCompiler.JetRuleModel().Jetrules) != 1:
 			t.Error("Expected 1 jetrule")
-		case jrCompiler.JetRuleModel().Jetrules[0].NormalizedLabel != "[R01, s=50, flag=\"healthcare\"]: (?x1 rdf:type abc:RuleConfig) -\u003e (?x1 OutputUnit int(1));":
+		case jrCompiler.JetRuleModel().Jetrules[0].NormalizedLabel != "[R01, s=50, flag=\"healthcare\"]: (?x01 rdf:type abc:RuleConfig) -\u003e (?x01 OutputUnit int(1));":
 			t.Error("Unexpected normalized label:", jrCompiler.JetRuleModel().Jetrules[0].NormalizedLabel)
 	}
 	// t.Error("Done")
@@ -59,7 +59,7 @@ func TestJetRuleOptimizer_JetRule1(t *testing.T) {
 			t.Error(jrCompiler.ErrorLog().String())
 		case len(jrCompiler.JetRuleModel().Jetrules) != 1:
 			t.Error("Expected 1 jetrule")
-		case jrCompiler.JetRuleModel().Jetrules[0].NormalizedLabel != "[R01]: (?x1 rdf:type abc:RuleConfig).(?x1 OutputUnit int(0)) -\u003e (?x1 OutputUnit int(1));":
+		case jrCompiler.JetRuleModel().Jetrules[0].NormalizedLabel != "[R01]: (?x01 rdf:type abc:RuleConfig).(?x01 OutputUnit int(0)) -\u003e (?x01 OutputUnit int(1));":
 			t.Error("Unexpected normalized label:", jrCompiler.JetRuleModel().Jetrules[0].NormalizedLabel)
 	}
 	// t.Error("Done")
@@ -91,7 +91,7 @@ func TestJetRuleOptimizer_JetRule2(t *testing.T) {
 			t.Error(jrCompiler.ErrorLog().String())
 		case len(jrCompiler.JetRuleModel().Jetrules) != 1:
 			t.Error("Expected 1 jetrule")
-		case jrCompiler.JetRuleModel().Jetrules[0].NormalizedLabel != "[R01]: (?x1 rdf:type abc:RuleConfig).(jets:client rdf:type ?x2).(?x1 OutputUnit int(0)).(jets:client ?x2 int(0)) -\u003e (?x1 OutputUnit int(1));":
+		case jrCompiler.JetRuleModel().Jetrules[0].NormalizedLabel != "[R01]: (?x01 rdf:type abc:RuleConfig).(jets:client rdf:type ?x02).(?x01 OutputUnit int(0)).(jets:client ?x02 int(0)) -\u003e (?x01 OutputUnit int(1));":
 			t.Error("Unexpected normalized label:", jrCompiler.JetRuleModel().Jetrules[0].NormalizedLabel)
 	}
 	// t.Error("Done")
@@ -124,14 +124,14 @@ func TestJetRuleOptimizer_Filter1(t *testing.T) {
 			t.Error(jrCompiler.ErrorLog().String())
 		case len(jrCompiler.JetRuleModel().Jetrules) != 1:
 			t.Error("Expected 1 jetrule")
-		case jrCompiler.JetRuleModel().Jetrules[0].NormalizedLabel != "[R01]: (?x1 rdf:type abc:RuleConfig).(jets:client rdf:type ?x2).[(?x2 != abc:RuleConfig)].(?x1 OutputUnit int(0)).(jets:client ?x2 int(0)) -\u003e (?x1 OutputUnit int(1));":
+		case jrCompiler.JetRuleModel().Jetrules[0].NormalizedLabel != "[R01]: (?x01 rdf:type abc:RuleConfig).(jets:client rdf:type ?x02).[(?x02 != abc:RuleConfig)].(?x01 OutputUnit int(0)).(jets:client ?x02 int(0)) -\u003e (?x01 OutputUnit int(1));":
 			t.Error("Unexpected normalized label:", jrCompiler.JetRuleModel().Jetrules[0].NormalizedLabel)
 	}
 	// t.Error("Done")
 }
 
 func TestJetRuleOptimizer_Filter2(t *testing.T) {
-	jrCompiler := NewCompiler("", "filter2.jr", false, true, false)
+	jrCompiler := NewCompiler("./testdata", "filter2.jr", true, false, false)
 	err := jrCompiler.CompileBuffer(`@JetCompilerDirective source_file = "filter2.jr";
 		resource p1 = "p1";
 		resource Class1 = "Class1";
@@ -153,13 +153,15 @@ func TestJetRuleOptimizer_Filter2(t *testing.T) {
 	// fmt.Printf("** Resources: \n%v\n", string(b))
 	b, _ = json.MarshalIndent(jrCompiler.JetRuleModel().Jetrules, "", " ")
 	fmt.Printf("** Jet Rules: \n%v\n", string(b))
+	b, _ = json.MarshalIndent(jrCompiler.JetRuleModel().ReteNodes, "", " ")
+	fmt.Printf("** Rete Nodes: \n%v\n", string(b))
 	switch {
 		case jrCompiler.ErrorLog().Len() > 0:
 			t.Error(jrCompiler.ErrorLog().String())
 		case len(jrCompiler.JetRuleModel().Jetrules) != 1:
 			t.Error("Expected 1 jetrule")
-		case jrCompiler.JetRuleModel().Jetrules[0].NormalizedLabel != "[R01]: (?x1 rdf:type Class1).(?x2 rdf:type Class1).(?x1 p1 ?x3).[((?x2 != ?x3) and (?x1 != ?x3))].(?x2 p1 ?x3) -\u003e (?x1 p1 int(1));":
+		case jrCompiler.JetRuleModel().Jetrules[0].NormalizedLabel != "[R01]: (?x01 rdf:type Class1).(?x02 rdf:type Class1).(?x01 p1 ?x03).[((?x02 != ?x03) and (?x01 != ?x03))].(?x02 p1 ?x03) -\u003e (?x01 p1 int(1));":
 			t.Error("Unexpected normalized label:", jrCompiler.JetRuleModel().Jetrules[0].NormalizedLabel)
 	}
-	t.Error("Done")
+	// t.Error("Done")
 }
