@@ -89,7 +89,7 @@ func (s *JetRuleListener) ExitAsTableStmt(ctx *parser.AsTableStmtContext) {
 // ExitDefineClassStmt is called when production defineClassStmt is exited.
 func (s *JetRuleListener) ExitDefineClassStmt(ctx *parser.DefineClassStmtContext) {
 	if s.currentClass != nil {
-		s.jetRuleModel.Classes = append(s.jetRuleModel.Classes, *s.currentClass)
+		s.jetRuleModel.Classes = append(s.jetRuleModel.Classes, s.currentClass)
 		s.currentClass = nil
 	}
 }
@@ -130,7 +130,7 @@ func (s *JetRuleListener) ExitDefineRuleSeqStmt(ctx *parser.DefineRuleSeqStmtCon
 	if s.currentRuleSequence != nil {
 		if ctx.GetRuleseqName() != nil {
 			s.currentRuleSequence.Name = ctx.GetRuleseqName().GetText()
-			s.jetRuleModel.RuleSequences = append(s.jetRuleModel.RuleSequences, *s.currentRuleSequence)
+			s.jetRuleModel.RuleSequences = append(s.jetRuleModel.RuleSequences, s.currentRuleSequence)
 		}
 		s.currentRuleSequence = nil
 	}
@@ -326,7 +326,7 @@ func (s *JetRuleListener) ExitLookupTableStmt(ctx *parser.LookupTableStmtContext
 
 	name := ctx.GetLookupName().GetText()
 	s.AddR(name)
-	lookupTbl := rete.LookupTableNode{
+	lookupTbl := &rete.LookupTableNode{
 		Type:           "lookup",
 		Name:           name,
 		CsvFile:        StripQuotes(ctx.CsvLocation().GetCsvFileName().GetText()),
@@ -601,7 +601,7 @@ func (s *JetRuleListener) ExitTripleStmt(ctx *parser.TripleStmtContext) {
 	if ctx.GetO().GetKws() != nil {
 		kws = ctx.GetO().GetKws().GetText()
 	}
-	triple := rete.TripleNode{
+	triple := &rete.TripleNode{
 		SubjectKey:   s.ParseObjectAtom(EscR(ctx.GetS().GetText()), ""),
 		PredicateKey: s.ParseObjectAtom(EscR(ctx.GetP().GetText()), ""),
 		ObjectKey:    s.ParseObjectAtom(ctx.GetO().GetText(), kws),

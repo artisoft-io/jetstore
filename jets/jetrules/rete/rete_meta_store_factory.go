@@ -184,7 +184,7 @@ func (ctx *ReteBuilderContext) BuildReteMetaStore() (*ReteMetaStore, error) {
 
 	// Load the meta triples from the rule files
 	for i := range ctx.JetruleModel.Triples {
-		t3 := &ctx.JetruleModel.Triples[i]
+		t3 := ctx.JetruleModel.Triples[i]
 		s := ctx.ResourcesLookup[t3.SubjectKey]
 		p := ctx.ResourcesLookup[t3.PredicateKey]
 		o := ctx.ResourcesLookup[t3.ObjectKey]
@@ -326,7 +326,7 @@ func (ctx *ReteBuilderContext) BuildReteMetaStore() (*ReteMetaStore, error) {
 	// Prepare a lookup of Domain Tables by name
 	domainTableMap := make(map[string]*TableNode)
 	for i := range ctx.JetruleModel.Tables {
-		t := &ctx.JetruleModel.Tables[i]
+		t := ctx.JetruleModel.Tables[i]
 		domainTableMap[t.TableName] = t
 	}
 
@@ -354,7 +354,7 @@ func (ctx *ReteBuilderContext) NewAlphaFunctor(key int) (AlphaFunctor, error) {
 func (ctx *ReteBuilderContext) loadResources() error {
 	// Load all resources
 	for i := range ctx.JetruleModel.Resources {
-		resourceNode := &ctx.JetruleModel.Resources[i]
+		resourceNode := ctx.JetruleModel.Resources[i]
 		switch resourceNode.Type {
 
 		case "var":

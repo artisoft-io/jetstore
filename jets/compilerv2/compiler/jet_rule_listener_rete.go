@@ -54,13 +54,17 @@ func (l *JetRuleListener) BuildReteNetwork() {
 
 	// For each rule, add its antecedents to the Rete network
 	for _, rule := range l.jetRuleModel.Jetrules {
-		fmt.Fprintf(l.parseLog, "** Processing rule: %s\n", rule.Name)
+		if l.trace {
+			fmt.Fprintf(l.parseLog, "** Processing rule: %s\n", rule.Name)
+		}
 		// for each antecedent, look for a node with the same normalized label
 		// if found, use it as the rete node
 		// if not found, use this rule as the rete node.
 		parentVertex := 0 // start at root
 		for i, antecedent := range rule.Antecedents {
-			fmt.Fprintf(l.parseLog, "   Antecedent %d: %s\n", i+1, antecedent.NormalizedLabel)
+			if l.trace {
+				fmt.Fprintf(l.parseLog, "   Antecedent %d: %s\n", i+1, antecedent.NormalizedLabel)
+			}
 			// Look for a node with the same normalized label and parent vertex
 			parentNode := l.jetRuleModel.ReteNodes[parentVertex]
 			reteNode := l.ReteNodeByNormalizedLabel(parentVertex, antecedent.NormalizedLabel)

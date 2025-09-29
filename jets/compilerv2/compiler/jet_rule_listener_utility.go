@@ -169,7 +169,7 @@ func (s *JetRuleListener) newResource(r *rete.ResourceNode) {
 	if r.Type != "var" {
 		s.resourceManager.Resources[fmt.Sprintf("%s|%s", r.Type, r.Value)] = r
 	}
-	s.jetRuleModel.Resources = append(s.jetRuleModel.Resources, *r)
+	s.jetRuleModel.Resources = append(s.jetRuleModel.Resources, r)
 	// if s.trace {
 	// 	fmt.Fprintf(s.parseLog, "** New resource: %+v\n", r)
 	// }

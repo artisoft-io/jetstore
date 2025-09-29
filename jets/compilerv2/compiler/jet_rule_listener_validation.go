@@ -330,7 +330,7 @@ func (l *JetRuleListener) PostProcessJetruleModel() {
 
 	// Create Table for classes having asTable = true
 	for i := range l.jetRuleModel.Classes {
-		class := &l.jetRuleModel.Classes[i]
+		class := l.jetRuleModel.Classes[i]
 		if class.AsTable {
 			l.MakeTableFromClass(class)
 		}
@@ -369,12 +369,12 @@ func (l *JetRuleListener) PostProcessClasses() {
 	}
 	// Build classesByName map
 	for i := range l.jetRuleModel.Classes {
-		class := &l.jetRuleModel.Classes[i]
+		class := l.jetRuleModel.Classes[i]
 		l.classesByName[class.Name] = class
 	}
 	// Add subClasses to parent Classes
 	for i := range l.jetRuleModel.Classes {
-		class := &l.jetRuleModel.Classes[i]
+		class := l.jetRuleModel.Classes[i]
 		for _, baseClassName := range class.BaseClasses {
 			if baseClass, exists := l.classesByName[baseClassName]; exists {
 				baseClass.SubClasses = append(baseClass.SubClasses, class.Name)
@@ -458,7 +458,7 @@ func (l *JetRuleListener) MakeTableFromClass(cls *rete.ClassNode) {
 	})
 
 	// Add the table to the model
-	l.jetRuleModel.Tables = append(l.jetRuleModel.Tables, *table)
+	l.jetRuleModel.Tables = append(l.jetRuleModel.Tables, table)
 }
 
 // Collect TableColumnNode from the properties of cls and its base classes and subclasses
