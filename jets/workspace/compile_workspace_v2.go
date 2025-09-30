@@ -52,6 +52,7 @@ func compileWorkspaceV2(dbpool *pgxpool.Pool, workspaceControl *rete.WorkspaceCo
 	var lookupTables []*rete.LookupTableNode
 
 	for name := range mainRuleFiles {
+		// name is the file path relative to workspace home
 		buf.WriteString(fmt.Sprintf("Compiling rule file: %s\n", name))
 		jrCompiler = compiler.NewCompiler(
 			fmt.Sprintf("%s/%s", workspaceHome, workspaceName),
@@ -68,9 +69,6 @@ func compileWorkspaceV2(dbpool *pgxpool.Pool, workspaceControl *rete.WorkspaceCo
 		}
 		buf.WriteString(jrCompiler.ParseLog().String())
 
-		// name is the file path relative to workspace home, extract file name (last component)
-		fileName := filepath.Base(name)
-
 		// Collect the classes, tables, and lookup tables
 		classes = append(classes, jrCompiler.JetRuleModel().Classes...)
 		tables = append(tables, jrCompiler.JetRuleModel().Tables...)
@@ -86,8 +84,18 @@ func compileWorkspaceV2(dbpool *pgxpool.Pool, workspaceControl *rete.WorkspaceCo
 			LookupTables:     fullModel.LookupTables,
 			ReteNodes:        fullModel.ReteNodes,
 		}
-		fpath := fmt.Sprintf("%s/%s/build/%s.rete.json", workspaceHome,
-			wprefix, strings.TrimSuffix(fileName, ".jr"))
+
+		// Make sure the directory exists
+		// name is the file path relative to workspace home
+		fpath := fmt.Sprintf("%s/%s/build/%s", workspaceHome,
+		wprefix, name)
+		err = os.MkdirAll(filepath.Dir(fpath), 0770)
+		if err != nil {
+			return "", fmt.Errorf("while creating build sub-directory: %v", err)
+		}
+		fpath = fmt.Sprintf("%s/%s/build/%s.rete.json", workspaceHome,
+		wprefix, strings.TrimSuffix(name, ".jr"))
+
 		log.Println("Writing JetStore Rete Network of", name, "to:", fpath)
 		file, err := os.OpenFile(fpath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
 		if err != nil {
@@ -105,7 +113,7 @@ func compileWorkspaceV2(dbpool *pgxpool.Pool, workspaceControl *rete.WorkspaceCo
 			Tables:           fullModel.Tables,
 		}
 		fpath = fmt.Sprintf("%s/%s/build/%s.model.json", workspaceHome,
-			wprefix, strings.TrimSuffix(fileName, ".jr"))
+			wprefix, strings.TrimSuffix(name, ".jr"))
 		log.Println("Writing JetStore Classes and Tables Model of", name, "to:", fpath)
 		file, err = os.OpenFile(fpath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
 		if err != nil {
@@ -122,7 +130,7 @@ func compileWorkspaceV2(dbpool *pgxpool.Pool, workspaceControl *rete.WorkspaceCo
 			Triples:          fullModel.Triples,
 		}
 		fpath = fmt.Sprintf("%s/%s/build/%s.triple.json", workspaceHome,
-			wprefix, strings.TrimSuffix(fileName, ".jr"))
+			wprefix, strings.TrimSuffix(name, ".jr"))
 		log.Println("Writing JetStore Triples Model of", name, "to:", fpath)
 		file, err = os.OpenFile(fpath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
 		if err != nil {
