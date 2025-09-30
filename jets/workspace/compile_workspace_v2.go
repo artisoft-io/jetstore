@@ -85,10 +85,10 @@ func compileWorkspaceV2(dbpool *pgxpool.Pool, workspaceControl *rete.WorkspaceCo
 			ReteNodes:        fullModel.ReteNodes,
 		}
 
+		// Save the rete network to build directory
 		// name is the file path relative to workspace home
 		fpath := fmt.Sprintf("%s/%s/build/%s.rete.json", workspaceHome,
 		wprefix, strings.TrimSuffix(name, ".jr"))
-		
 		// Make sure the directory exists
 		err = os.MkdirAll(filepath.Dir(fpath), 0770)
 		if err != nil {
@@ -104,7 +104,7 @@ func compileWorkspaceV2(dbpool *pgxpool.Pool, workspaceControl *rete.WorkspaceCo
 		encoder.Encode(reteModel)
 		file.Close()
 
-		// classes and tables model
+		// save classes and tables model to build directory
 		clsTblModel := &rete.JetruleModel{
 			MainRuleFileName: fullModel.MainRuleFileName,
 			Classes:          fullModel.Classes,
@@ -122,7 +122,7 @@ func compileWorkspaceV2(dbpool *pgxpool.Pool, workspaceControl *rete.WorkspaceCo
 		encoder.Encode(clsTblModel)
 		file.Close()
 
-		// triples
+		// save triples to build directory
 		tripleModel := &rete.JetruleModel{
 			MainRuleFileName: fullModel.MainRuleFileName,
 			Triples:          fullModel.Triples,
