@@ -433,13 +433,15 @@ func listenAndServe() error {
 	// Check workspace version, compile workspace if needed
 	err = server.checkWorkspaceVersion()
 	if err != nil {
-		return fmt.Errorf("while calling checkWorkspaceVersion: %v", err)
+		log.Printf("while calling checkWorkspaceVersion (IGNORED FOR NOW): %v", err)
+		// return fmt.Errorf("while calling checkWorkspaceVersion: %v", err)
 	}
 
 	// Check jetstore version, update domain tables and system if needed
 	err = server.checkDomainTablesVersion()
 	if err != nil {
-		return fmt.Errorf("while calling checkDomainTablesVersion: %v", err)
+		log.Printf("while calling checkDomainTablesVersion (IGNORED FOR NOW): %v", err)
+		// return fmt.Errorf("while calling checkDomainTablesVersion: %v", err)
 	}
 
 	// Check that the users table and admin user exists

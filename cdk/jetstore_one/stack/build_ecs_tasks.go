@@ -36,6 +36,7 @@ func (jsComp *JetStoreStackComponents) BuildEcsTasks(scope constructs.Construct,
 				// Host is nil because Fargate does not allow host-based volumes
 			},
 		},
+		EphemeralStorageGiB: jsii.Number(100),
 	})
 	// Run Reports Task Container
 	jsComp.RunreportsContainerDef = jsComp.RunreportTaskDefinition.AddContainer(jsii.String("runreportsContainerDef"), &awsecs.ContainerDefinitionOptions{
@@ -129,6 +130,7 @@ func (jsComp *JetStoreStackComponents) BuildEcsTasks(scope constructs.Construct,
 				// Host is nil because Fargate does not allow host-based volumes
 			},
 		},
+		EphemeralStorageGiB: jsii.Number(100),
 	})
 
 	// Loader Task Container
@@ -221,6 +223,7 @@ func (jsComp *JetStoreStackComponents) BuildEcsTasks(scope constructs.Construct,
 				// Host is nil because Fargate does not allow host-based volumes
 			},
 		},
+		EphemeralStorageGiB: jsii.Number(150),
 	})
 
 	// Define the ECS Task ServerTaskDefinition for the jsComp.ServerSM and used in jsComp.CpipesSM
@@ -263,6 +266,7 @@ func (jsComp *JetStoreStackComponents) BuildEcsTasks(scope constructs.Construct,
 				// Host is nil because Fargate does not allow host-based volumes
 			},
 		},
+		EphemeralStorageGiB: jsii.Number(100),
 	})
 	// Server Task Container
 	// ---------------------
@@ -323,14 +327,6 @@ func (jsComp *JetStoreStackComponents) BuildEcsTasks(scope constructs.Construct,
 		ContainerName: jsii.String("cpipesContainer"),
 		Essential:     jsii.Bool(true),
 		EntryPoint:    jsii.Strings("cpipes_server"),
-		PortMappings: &[]*awsecs.PortMapping{
-			{
-				Name:          jsii.String("cpipes-port-mapping"),
-				ContainerPort: jsii.Number(8085),
-				HostPort:      jsii.Number(8085),
-				// AppProtocol:   awsecs.AppProtocol_Http(),
-			},
-		},
 
 		Environment: &map[string]*string{
 			"JETS_BUCKET":                   jsComp.SourceBucket.BucketName(),

@@ -35,6 +35,7 @@ func (jsComp *JetStoreStackComponents) BuildUiService(scope constructs.Construct
 				// Host is nil because Fargate does not allow host-based volumes
 			},
 		},
+		EphemeralStorageGiB: jsii.Number(40),
 	})
 
 	jsComp.UiTaskContainer = jsComp.UiTaskDefinition.AddContainer(jsii.String("uiContainer"), &awsecs.ContainerDefinitionOptions{
