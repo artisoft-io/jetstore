@@ -107,11 +107,7 @@ func NewReteMetaStoreFactory(jetRuleName string) (*ReteMetaStoreFactory, error) 
 		}
 		err = json.Unmarshal(file, jetruleModel)
 		if err != nil {
-			log.Println("json parse error while parsing file:", fpath)
-			log.Println("BEGIN FILE CONTENT")
-			log.Println(string(file))
-			log.Println("END FILE CONTENT")
-			err = fmt.Errorf("while unmarshaling .json file (NewReteMetaStoreFactory):%v", err)
+			err = fmt.Errorf("while unmarshaling file: %s (NewReteMetaStoreFactory):%v", fpath, err)
 			log.Println(err)
 			return err
 		}
