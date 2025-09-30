@@ -324,7 +324,9 @@ func (l *JetRuleListener) makeExpressionLabel(expr *rete.ExpressionNode, buf *st
 // - PostProcessClasses: process class inheritance and create rules for class inheritance
 // - Create Table for classes having asTable = true
 func (l *JetRuleListener) PostProcessJetruleModel() {
-	fmt.Fprint(l.parseLog, "** entering PostProcessJetruleModel\n")
+	if l.trace {
+		fmt.Fprint(l.parseLog, "** entering PostProcessJetruleModel\n")
+	}
 	// Perform post-processing and validation on the Jetrule model
 	l.PostProcessClasses()
 

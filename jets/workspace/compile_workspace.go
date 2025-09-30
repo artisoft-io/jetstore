@@ -8,7 +8,7 @@ import (
 	"github.com/jackc/pgx/v4/pgxpool"
 )
 
-// Legacy workspace compilation function
+// Workspace compilation function
 
 func CompileWorkspace(dbpool *pgxpool.Pool, workspaceName, version string) (string, error) {
 
