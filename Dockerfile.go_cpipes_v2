@@ -21,7 +21,7 @@ RUN go install jetstore/jets/serverv2
 FROM golang:1.24-alpine
 # FROM scratch
 
-ENV WORKSPACES_HOME=/go/workspaces
+ENV WORKSPACES_HOME=/scratch/workspaces
 ENV JETS_BIN_DIR=/usr/local/go/bin
 COPY --from=builder ${JETS_BIN_DIR}/loader /usr/local/bin/
 COPY --from=builder ${JETS_BIN_DIR}/cpipes_server /usr/local/bin/
