@@ -85,17 +85,15 @@ func compileWorkspaceV2(dbpool *pgxpool.Pool, workspaceControl *rete.WorkspaceCo
 			ReteNodes:        fullModel.ReteNodes,
 		}
 
-		// Make sure the directory exists
 		// name is the file path relative to workspace home
-		fpath := fmt.Sprintf("%s/%s/build/%s", workspaceHome,
-		wprefix, name)
+		fpath := fmt.Sprintf("%s/%s/build/%s.rete.json", workspaceHome,
+		wprefix, strings.TrimSuffix(name, ".jr"))
+		
+		// Make sure the directory exists
 		err = os.MkdirAll(filepath.Dir(fpath), 0770)
 		if err != nil {
 			return "", fmt.Errorf("while creating build sub-directory: %v", err)
 		}
-		fpath = fmt.Sprintf("%s/%s/build/%s.rete.json", workspaceHome,
-		wprefix, strings.TrimSuffix(name, ".jr"))
-
 		log.Println("Writing JetStore Rete Network of", name, "to:", fpath)
 		file, err := os.OpenFile(fpath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
 		if err != nil {
