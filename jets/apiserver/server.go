@@ -454,7 +454,7 @@ func listenAndServe() error {
 	rawJSON := []byte(`{
 	  "level": "info",
 	  "encoding": "json",
-	  "outputPaths": ["stdout", "/tmp/logs"],
+	  "outputPaths": ["stdout"],
 	  "errorOutputPaths": ["stderr"],
 	  "initialFields": {"logger_type": "audit_log"},
 	  "encoderConfig": {

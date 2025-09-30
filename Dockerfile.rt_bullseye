@@ -80,7 +80,7 @@ ENV JETRULE_COMPILER=/usr/local/lib/jets/compiler/jetrule_compiler.py JETRULE_LO
 # jetsclient ui
 ENV UI_PORT=5001
 # apiserver
-ENV WORKSPACES_HOME=/scratch/workspaces WORK_HOME=/tmp/work LOADER_ERR_DIR=/tmp/work/errors JETS_ADMIN_EMAIL=admin
+ENV WORKSPACES_HOME=/go/tmp/workspaces WORK_HOME=/tmp/work LOADER_ERR_DIR=/tmp/work/errors JETS_ADMIN_EMAIL=admin
 
 RUN \
   mkdir -p ${WORKSPACES_HOME}           \
