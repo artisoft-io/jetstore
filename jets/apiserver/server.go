@@ -411,12 +411,13 @@ func listenAndServe() error {
 	}
 
 	// *** TESTING ***
-	args := []string{"-l", "/tmp", "/tmp/workspaces"}
+	args := []string{"-l", "/go", "/go/tmp", "/go/tmp/workspaces", "/go/tmp/work"}
 	var buf strings.Builder
-	buf.WriteString("\nlisting files in workspace\n")
+	buf.WriteString("\nlist files in workspace\n")
 	wsfile.RunCommand(&buf, "ls", &args, "")
 	buf.WriteString("\ncurrent user\n")
 	wsfile.RunCommand(&buf, "whoami", nil, "")
+	wsfile.RunCommand(&buf, "pwd", nil, "")
 	log.Println(buf.String())
 	// *** TESTING ***
 

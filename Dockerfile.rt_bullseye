@@ -22,20 +22,19 @@ RUN echo "----------------JetStore-Version------------------" >> /VERSION.txt &&
 # Copy libraries and apps from builder
 ENV JETS_BUILD_DIR=/usr/local/go/build JETS_BIN_DIR=/usr/local/go/bin JETS_PY_BUILD_DIR=/usr/local/go/src/jetstore/build
 COPY --from=builder ${JETS_PY_BUILD_DIR}/lib /usr/local/lib
-COPY --from=builder ${JETS_BUILD_DIR}/jets/jets_test /usr/local/bin/
-COPY --from=builder ${JETS_BUILD_DIR}/jets/test_data /usr/local/bin/test_data
-COPY --from=builder ${JETS_BUILD_DIR}/jets/libjets.so /usr/local/lib/
+# COPY --from=builder ${JETS_BUILD_DIR}/jets/jets_test /usr/local/bin/
+# COPY --from=builder ${JETS_BUILD_DIR}/jets/test_data /usr/local/bin/test_data
+# COPY --from=builder ${JETS_BUILD_DIR}/jets/libjets.so /usr/local/lib/
 #* Verify lib version when upgrading dependencies
 COPY --from=builder /usr/local/lib/libsqlite3.so.0.8.6 /usr/local/lib/
 COPY --from=builder /usr/local/lib/libglog.so.0.6.0 /usr/local/lib/
 # Go commands
 COPY --from=builder ${JETS_BIN_DIR}/loader /usr/local/bin/
 COPY --from=builder ${JETS_BIN_DIR}/apiserver /usr/local/bin/
-COPY --from=builder ${JETS_BIN_DIR}/server /usr/local/bin/
+# COPY --from=builder ${JETS_BIN_DIR}/server /usr/local/bin/
 COPY --from=builder ${JETS_BIN_DIR}/serverv2 /usr/local/bin/
 COPY --from=builder ${JETS_BIN_DIR}/run_reports /usr/local/bin/
 COPY --from=builder ${JETS_BIN_DIR}/update_db /usr/local/bin/
-# COPY --from=builder ${JETS_BIN_DIR}/cpipes_booter /usr/local/bin/
 
 # Copy the jetsclient source for building the flutter app
 ENV JETS_SOURCE_DIR=/usr/local/go/src/jetstore
@@ -54,15 +53,15 @@ ENV JETS_INIT_DB_SCRIPT=/usr/local/bin/jets_init_db.sql
 ENV JETS_SOURCE_DIR=/usr/local/go/src/jetstore WEB_APP_DEPLOYMENT_DIR=/usr/local/lib/web
 COPY --from=builder ${JETS_SOURCE_DIR}/jetsclient/build/web $WEB_APP_DEPLOYMENT_DIR
 
-RUN \
-    cd /usr/local/lib/ \
-    && ldconfig -v \
-    && echo "USR LOCAL LIB DIRECTORY Contains" \
-    && ls -la \
-    && echo "USR LOCAL BIN DIRECTORY Contains" \
-    && ls -la /usr/local/bin \
-    && ldd libjets.so \
-    && cd / 
+# RUN \
+#     cd /usr/local/lib/ \
+#     && ldconfig -v \
+#     && echo "USR LOCAL LIB DIRECTORY Contains" \
+#     && ls -la \
+#     && echo "USR LOCAL BIN DIRECTORY Contains" \
+#     && ls -la /usr/local/bin \
+#     && ldd libjets.so \
+#     && cd / 
 
 ARG USER_ID="1000"
 ARG GROUP_ID="1000"
@@ -80,7 +79,7 @@ ENV JETRULE_COMPILER=/usr/local/lib/jets/compiler/jetrule_compiler.py JETRULE_LO
 # jetsclient ui
 ENV UI_PORT=5001
 # apiserver
-ENV WORKSPACES_HOME=/tmp/workspaces WORK_HOME=/tmp/work LOADER_ERR_DIR=/tmp/work/errors JETS_ADMIN_EMAIL=admin
+ENV WORKSPACES_HOME=/go/tmp/workspaces WORK_HOME=/go/tmp/work LOADER_ERR_DIR=/go/tmp/work/errors JETS_ADMIN_EMAIL=admin
 
 RUN \
   mkdir -p ${WORKSPACES_HOME}           \
