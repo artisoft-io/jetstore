@@ -410,6 +410,17 @@ func listenAndServe() error {
 		}
 	}
 
+	// *** TESTING ***
+	args := []string{"-l", "/tmp", "/tmp/workspaces"}
+	var buf strings.Builder
+	buf.WriteString("\nlisting files in workspace\n")
+	wsfile.RunCommand(&buf, "ls", &args, "")
+	buf.WriteString("\ncurrent user\n")
+	wsfile.RunCommand(&buf, "whoami", nil, "")
+	log.Println(buf.String())
+	// *** TESTING ***
+
+
 	// Open db connection
 	if *awsDsnSecret != "" {
 		// Get the dsn from the aws secret

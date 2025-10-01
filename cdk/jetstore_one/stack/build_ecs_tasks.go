@@ -70,7 +70,7 @@ func (jsComp *JetStoreStackComponents) BuildEcsTasks(scope constructs.Construct,
 			"JETS_CPIPES_SM_ARN":            jsii.String(jsComp.CpipesSmArn),
 			"JETS_REPORTS_SM_ARN":           jsii.String(jsComp.ReportsSmArn),
 			"JETS_DB_POOL_SIZE":             jsii.String(os.Getenv("JETS_DB_POOL_SIZE")),
-			"WORKSPACES_HOME":               jsii.String("/go/tmp/workspaces"),
+			"WORKSPACES_HOME":               jsii.String("/tmp/workspaces"),
 			"WORKSPACE":                     jsii.String(os.Getenv("WORKSPACE")),
 		},
 		Secrets: &map[string]awsecs.Secret{
@@ -85,7 +85,7 @@ func (jsComp *JetStoreStackComponents) BuildEcsTasks(scope constructs.Construct,
 	})
 	jsComp.RunreportsContainerDef.AddMountPoints(&awsecs.MountPoint{
 		SourceVolume:  jsii.String("tmp-volume"),
-		ContainerPath: jsii.String("/go/tmp"),
+		ContainerPath: jsii.String("/tmp"),
 		ReadOnly:      jsii.Bool(false),
 	})
 
@@ -165,7 +165,7 @@ func (jsComp *JetStoreStackComponents) BuildEcsTasks(scope constructs.Construct,
 			"JETS_CPIPES_SM_ARN":            jsii.String(jsComp.CpipesSmArn),
 			"JETS_REPORTS_SM_ARN":           jsii.String(jsComp.ReportsSmArn),
 			"JETS_DB_POOL_SIZE":             jsii.String(os.Getenv("JETS_DB_POOL_SIZE")),
-			"WORKSPACES_HOME":               jsii.String("/go/tmp/workspaces"),
+			"WORKSPACES_HOME":               jsii.String("/tmp/workspaces"),
 			"WORKSPACE":                     jsii.String(os.Getenv("WORKSPACE")),
 		},
 		Secrets: &map[string]awsecs.Secret{
@@ -180,7 +180,7 @@ func (jsComp *JetStoreStackComponents) BuildEcsTasks(scope constructs.Construct,
 	})
 	jsComp.LoaderContainerDef.AddMountPoints(&awsecs.MountPoint{
 		SourceVolume:  jsii.String("tmp-volume"),
-		ContainerPath: jsii.String("/go/tmp"),
+		ContainerPath: jsii.String("/tmp"),
 		ReadOnly:      jsii.Bool(false),
 	})
 
@@ -300,7 +300,7 @@ func (jsComp *JetStoreStackComponents) BuildEcsTasks(scope constructs.Construct,
 			"JETS_SERVER_SM_ARNv2":          jsii.String(jsComp.ServerSmArnv2),
 			"JETS_CPIPES_SM_ARN":            jsii.String(jsComp.CpipesSmArn),
 			"JETS_REPORTS_SM_ARN":           jsii.String(jsComp.ReportsSmArn),
-			"WORKSPACES_HOME":               jsii.String("/go/tmp/workspaces"),
+			"WORKSPACES_HOME":               jsii.String("/tmp/workspaces"),
 			"WORKSPACE":                     jsii.String(os.Getenv("WORKSPACE")),
 		},
 		Secrets: &map[string]awsecs.Secret{
@@ -315,7 +315,7 @@ func (jsComp *JetStoreStackComponents) BuildEcsTasks(scope constructs.Construct,
 	})
 	jsComp.ServerContainerDef.AddMountPoints(&awsecs.MountPoint{
 		SourceVolume:  jsii.String("tmp-volume"),
-		ContainerPath: jsii.String("/go/tmp"),
+		ContainerPath: jsii.String("/tmp"),
 		ReadOnly:      jsii.Bool(false),
 	})
 
@@ -352,7 +352,7 @@ func (jsComp *JetStoreStackComponents) BuildEcsTasks(scope constructs.Construct,
 			"JETS_CPIPES_SM_ARN":            jsii.String(jsComp.CpipesSmArn),
 			"JETS_REPORTS_SM_ARN":           jsii.String(jsComp.ReportsSmArn),
 			"JETS_DB_POOL_SIZE":             jsii.String(os.Getenv("JETS_DB_POOL_SIZE")),
-			"WORKSPACES_HOME":               jsii.String("/go/tmp/workspaces"),
+			"WORKSPACES_HOME":               jsii.String("/tmp/workspaces"),
 			"WORKSPACE":                     jsii.String(os.Getenv("WORKSPACE")),
 		},
 		Secrets: &map[string]awsecs.Secret{
@@ -367,7 +367,7 @@ func (jsComp *JetStoreStackComponents) BuildEcsTasks(scope constructs.Construct,
 	})
 	jsComp.CpipesContainerDef.AddMountPoints(&awsecs.MountPoint{
 		SourceVolume:  jsii.String("tmp-volume"),
-		ContainerPath: jsii.String("/go/tmp"),
+		ContainerPath: jsii.String("/tmp"),
 		ReadOnly:      jsii.Bool(false),
 	})
 }
