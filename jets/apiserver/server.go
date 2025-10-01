@@ -411,7 +411,7 @@ func listenAndServe() error {
 	}
 
 	// *** TESTING ***
-	args := []string{"-l", "/go", "/go/tmp", "/go/tmp/workspaces", "/go/tmp/work"}
+	args := []string{"-l", "/go", "/jetsdata", "/jetsdata/workspaces", "/jetsdata/work"}
 	var buf strings.Builder
 	buf.WriteString("\nlist files in workspace\n")
 	wsfile.RunCommand(&buf, "ls", &args, "")
@@ -420,7 +420,6 @@ func listenAndServe() error {
 	wsfile.RunCommand(&buf, "pwd", nil, "")
 	log.Println(buf.String())
 	// *** TESTING ***
-
 
 	// Open db connection
 	if *awsDsnSecret != "" {
@@ -445,15 +444,15 @@ func listenAndServe() error {
 	// Check workspace version, compile workspace if needed
 	err = server.checkWorkspaceVersion()
 	if err != nil {
-		log.Printf("while calling checkWorkspaceVersion (IGNORED FOR NOW): %v", err)
-		// return fmt.Errorf("while calling checkWorkspaceVersion: %v", err)
+		log.Printf("while calling checkWorkspaceVersion: %v", err)
+		return fmt.Errorf("while calling checkWorkspaceVersion: %v", err)
 	}
 
 	// Check jetstore version, update domain tables and system if needed
 	err = server.checkDomainTablesVersion()
 	if err != nil {
-		log.Printf("while calling checkDomainTablesVersion (IGNORED FOR NOW): %v", err)
-		// return fmt.Errorf("while calling checkDomainTablesVersion: %v", err)
+		log.Printf("while calling checkDomainTablesVersion: %v", err)
+		return fmt.Errorf("while calling checkDomainTablesVersion: %v", err)
 	}
 
 	// Check that the users table and admin user exists
@@ -666,7 +665,9 @@ func listenAndServe() error {
 		return http.ListenAndServeTLS(serverAddr, "cert.pem", "key.pem", server.Router)
 	}
 }
+
 var hbaErrCount int
+
 func (server *Server) GetLastSecretRotation() (tm *time.Time, err error) {
 	var sqltm sql.NullTime
 	err = server.dbpool.QueryRow(context.Background(), "SELECT MAX(last_update) FROM jetsapi.secret_rotation").Scan(&sqltm)
@@ -683,7 +684,7 @@ func (server *Server) GetLastSecretRotation() (tm *time.Time, err error) {
 				err = fmt.Errorf("while querying last_update from secret_rotation table: %v", err)
 				log.Println(err)
 				hbaErrCount++
-				err2:= GenerateCert()
+				err2 := GenerateCert()
 				if err2 != nil {
 					err = fmt.Errorf("while GenerateCert to fix: >%s< got: %s", err, err2)
 					log.Println(err)

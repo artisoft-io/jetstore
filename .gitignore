@@ -130,3 +130,5 @@ cdk/jetstore_one/lambdas/cpipes_run_reports/cgt_run_reports.go
 cdk/jetstore_one/lambdas/cpipes_run_reports/cgt_reports_func.go
 cdk/jetstore_one/lambdas/api_gateway_cgt/cgt_api_lambda.go
 cdk/sample_projects/private-api-stack/.env
+jets/cbooter/cbooter
+jets/copytest/run_user_cmd/run_user_cmd

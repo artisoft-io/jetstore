@@ -43,7 +43,7 @@ func (jsComp *JetStoreStackComponents) BuildUiService(scope constructs.Construct
 		Image:         jsComp.JetStoreImage,
 		ContainerName: jsii.String("uiContainer"),
 		Essential:     jsii.Bool(true),
-		EntryPoint:    jsii.Strings("apiserver"),
+		EntryPoint:    jsii.Strings("cbooter", "-ui"),
 		User:          jsii.String("jsuser"), // run as non-root user
 		PortMappings: &[]*awsecs.PortMapping{
 			{
@@ -74,7 +74,7 @@ func (jsComp *JetStoreStackComponents) BuildUiService(scope constructs.Construct
 			"JETS_S3_KMS_KEY_ARN":           jsii.String(os.Getenv("JETS_S3_KMS_KEY_ARN")),
 			"JETS_SENTINEL_FILE_NAME":       jsii.String(os.Getenv("JETS_SENTINEL_FILE_NAME")),
 			"JETS_DOMAIN_KEY_SEPARATOR":     jsii.String(os.Getenv("JETS_DOMAIN_KEY_SEPARATOR")),
-			"WORKSPACES_HOME":               jsii.String("/go/tmp/workspaces"),
+			"WORKSPACES_HOME":               jsii.String("/jetsdata/workspaces"),
 			"WORKSPACE":                     jsii.String(os.Getenv("WORKSPACE")),
 			"WORKSPACE_BRANCH":              jsii.String(os.Getenv("WORKSPACE_BRANCH")),
 			"WORKSPACE_FILE_KEY_LABEL_RE":   jsii.String(os.Getenv("WORKSPACE_FILE_KEY_LABEL_RE")),
@@ -103,7 +103,7 @@ func (jsComp *JetStoreStackComponents) BuildUiService(scope constructs.Construct
 	})
 	jsComp.UiTaskContainer.AddMountPoints(&awsecs.MountPoint{
 		SourceVolume:  jsii.String("tmp-volume"),
-		ContainerPath: jsii.String("/go/tmp"),
+		ContainerPath: jsii.String("/jetsdata"),
 		ReadOnly:      jsii.Bool(false),
 	})
 
