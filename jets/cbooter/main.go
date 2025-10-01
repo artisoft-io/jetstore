@@ -2,7 +2,6 @@ package main
 
 import (
 	"errors"
-	"flag"
 	"fmt"
 	"io/fs"
 	"log"
@@ -28,14 +27,7 @@ import (
 // -cpipes : run the cpipes task
 //
 // The commands are mutually exclusive, only one can be specified at a time.
-//
-// Arguments specific to the commands:
-// -ui: none
-// -reports: client, processName, reportName, sessionId, filePath
-// -loader: in_file, client, org, objectType, sourcePeriodKey, sessionId, userEmail
-// -server: peKey, userEmail, shardId
-// -serverv2: id, peKey
-// -cpipes: pipeline_execution_key, session_id, file_key
+// Any other arguments are passed to the command being run.
 //
 // Example usage:
 // To run the apiserver:
@@ -44,13 +36,7 @@ import (
 //
 // To run the reports task:
 //
-//	docker run --rm -e JETS_TEMP_DATA=/jetsdata -e WORKSPACES_REPO=/go/workspaces -e WORKSPACES_HOME=/jetsdata/workspaces_home myimage -reports
-var runApiServer = flag.Bool("ui", false, "Run apiserver")
-var runReports = flag.Bool("reports", false, "Run reports")
-var runLoader = flag.Bool("loader", false, "Run loader")
-var runServer = flag.Bool("server", false, "Run server with native rule engine")
-var runServerv2 = flag.Bool("serverv2", false, "Run server with go rule engine")
-var runCpipes = flag.Bool("cpipes", false, "Run cpipes task")
+//	docker run --rm -e JETS_TEMP_DATA=/jetsdata -e WORKSPACES_REPO=/go/workspaces -e WORKSPACES_HOME=/jetsdata/workspaces_home myimage -reports -client Acme -processName MyProcess -reportName MyReport -sessionId 123 -filePath /jetsdata/input/myinput.csv
 
 // The target UID and GID to switch to is the jsuser as defined in the Dockerfile
 // Ensure this matches the user created in the Dockerfile
@@ -58,40 +44,34 @@ var targetUID uint32 = 1000
 var targetGID uint32 = 1000
 
 func main() {
-	flag.Parse()
-	log.Println("cbooter starting...")
+	log.Printf("cbooter starting with arguments %v...", os.Args[1:])
+
+	// Separate cbooter args from command args
+	// cbooter args are -ui, -reports, -loader, -server, -serverv2, -cpipes
+	// Everything else is considered a cmd arg
+	cbooterArgs := make([]string, 0)
+	cmdArgs := make([]string, 0)
+	for _, arg := range os.Args[1:] {
+		if arg == "-ui" || arg == "-reports" || arg == "-loader" || arg == "-server" || arg == "-serverv2" || arg == "-cpipes" {
+			cbooterArgs = append(cbooterArgs, arg)
+		} else {
+			cmdArgs = append(cmdArgs, arg)
+		}
+	}
 	// Validate that exactly one flag is set
-	flagCount := 0
-	if *runApiServer {
-		flagCount++
-	}
-	if *runReports {
-		flagCount++
-	}
-	if *runLoader {
-		flagCount++
-	}
-	if *runServer {
-		flagCount++
-	}
-	if *runServerv2 {
-		flagCount++
-	}
-	if *runCpipes {
-		flagCount++
-	}
-	if flagCount != 1 {
+	if len(cbooterArgs) != 1 {
 		log.Fatalf("Exactly one of -ui, -reports, -loader, -server, -serverv2, or -cpipes must be specified.")
 	}
+
 	// Validate that JETS_TEMP_DATA, WORKSPACES_REPO, and WORKSPACES_HOME are set when running -ui
-	if *runApiServer {
+	if cbooterArgs[0] == "-ui" {
 		if os.Getenv("JETS_TEMP_DATA") == "" || os.Getenv("WORKSPACES_REPO") == "" || os.Getenv("WORKSPACES_HOME") == "" {
 			log.Fatalf("JETS_TEMP_DATA, WORKSPACES_REPO, and WORKSPACES_HOME environment variables must be set when running -ui")
 		}
 	}
 
 	// Validate that JETS_TEMP_DATA and WORKSPACES_HOME is set when running any command other than -ui
-	if !*runApiServer {
+	if cbooterArgs[0] != "-ui" {
 		if os.Getenv("JETS_TEMP_DATA") == "" || os.Getenv("WORKSPACES_HOME") == "" {
 			log.Fatalf("JETS_TEMP_DATA and WORKSPACES_HOME environment variables must be set when running -reports, -loader, -server, -serverv2, or -cpipes")
 		}
@@ -104,8 +84,8 @@ func main() {
 	// This is important because the mounted volume may have root ownership
 	// and jsuser needs write access to it.
 	// Determine which command to run based on flags
-	switch {
-	case *runApiServer:
+	switch cbooterArgs[0] {
+	case "-ui":
 		// Copy files at location WORKSPACES_REPO  to WORKSPACES_HOME recursively to be writable.
 		// Copy files if directory WORKSPACES_HOME does not exists (which means it was already copied)
 		if _, err := os.Stat(os.Getenv("WORKSPACES_HOME")); errors.Is(err, fs.ErrNotExist) {
@@ -128,7 +108,7 @@ func main() {
 			log.Println("Workspace files already exist in WORKSPACES_HOME, skipping workspace setup.")
 		}
 		log.Println("Starting apiserver...")
-		err := runDetachedCommand("apiserver", []string{}, &syscall.SysProcAttr{
+		err := runDetachedCommand("apiserver", cmdArgs, &syscall.SysProcAttr{
 			Credential: &syscall.Credential{
 				Uid: targetUID,
 				Gid: targetGID,
@@ -144,10 +124,10 @@ func main() {
 		if err != nil {
 			log.Fatalf("Failed to make JETS_TEMP_DATA writable: %s", err)
 		}
-		switch {
-		case *runReports:
+		switch cbooterArgs[0] {
+		case "-reports":
 			log.Println("Starting run_reports...")
-			err := runDetachedCommand("run_reports", []string{}, &syscall.SysProcAttr{
+			err := runDetachedCommand("run_reports", cmdArgs, &syscall.SysProcAttr{
 				Credential: &syscall.Credential{
 					Uid: targetUID,
 					Gid: targetGID,
@@ -156,9 +136,9 @@ func main() {
 			if err != nil {
 				log.Fatalf("Failed to start run_reports: %s", err)
 			}
-		case *runLoader:
+		case "-loader":
 			log.Println("Starting loader...")
-			err := runDetachedCommand("loader", []string{}, &syscall.SysProcAttr{
+			err := runDetachedCommand("loader", cmdArgs, &syscall.SysProcAttr{
 				Credential: &syscall.Credential{
 					Uid: targetUID,
 					Gid: targetGID,
@@ -167,9 +147,9 @@ func main() {
 			if err != nil {
 				log.Fatalf("Failed to start loader: %s", err)
 			}
-		case *runServer:
+		case "-server":
 			log.Println("Starting server...")
-			err := runDetachedCommand("server", []string{}, &syscall.SysProcAttr{
+			err := runDetachedCommand("server", cmdArgs, &syscall.SysProcAttr{
 				Credential: &syscall.Credential{
 					Uid: targetUID,
 					Gid: targetGID,
@@ -178,9 +158,9 @@ func main() {
 			if err != nil {
 				log.Fatalf("Failed to start server: %s", err)
 			}
-		case *runServerv2:
+		case "-serverv2":
 			log.Println("Starting serverv2...")
-			err := runDetachedCommand("serverv2", []string{}, &syscall.SysProcAttr{
+			err := runDetachedCommand("serverv2", cmdArgs, &syscall.SysProcAttr{
 				Credential: &syscall.Credential{
 					Uid: targetUID,
 					Gid: targetGID,
@@ -189,9 +169,9 @@ func main() {
 			if err != nil {
 				log.Fatalf("Failed to start serverv2: %s", err)
 			}
-		case *runCpipes:
+		case "-cpipes":
 			log.Println("Starting cpipes...")
-			err := runDetachedCommand("cpipes_server", []string{}, &syscall.SysProcAttr{
+			err := runDetachedCommand("cpipes_server", cmdArgs, &syscall.SysProcAttr{
 				Credential: &syscall.Credential{
 					Uid: targetUID,
 					Gid: targetGID,
