@@ -136,7 +136,7 @@ func (server *Server) checkJetStoreSchema() error {
 		_, _, err = server.ResetDomainTables(&PurgeDataAction{
 			Action:            "reset_domain_tables",
 			RunUiDbInitScript: true,
-			Data:              []map[string]interface{}{},
+			Data:              []map[string]any{},
 		})
 		if err != nil {
 			return fmt.Errorf("while calling ResetDomainTables to initialize db schema: %v", err)
@@ -146,7 +146,6 @@ func (server *Server) checkJetStoreSchema() error {
 		if err != nil {
 			return fmt.Errorf("while calling saving jetstoreVersion to database: %v", err)
 		}
-
 	}
 	return nil
 }
@@ -169,7 +168,7 @@ func (server *Server) checkDomainTablesVersion() error {
 		_, _, err = server.ResetDomainTables(&PurgeDataAction{
 			Action:            "reset_domain_tables",
 			RunUiDbInitScript: true,
-			Data:              []map[string]interface{}{},
+			Data:              []map[string]any{},
 		})
 		if err != nil {
 			return fmt.Errorf("while calling ResetDomainTables to initialize db (no version exist in db): %v", err)
@@ -410,17 +409,6 @@ func listenAndServe() error {
 		}
 	}
 
-	// *** TESTING ***
-	args := []string{"-l", "/go", "/jetsdata", "/jetsdata/workspaces", "/jetsdata/work"}
-	var buf strings.Builder
-	buf.WriteString("\nlist files in workspace\n")
-	wsfile.RunCommand(&buf, "ls", &args, "")
-	buf.WriteString("\ncurrent user\n")
-	wsfile.RunCommand(&buf, "whoami", nil, "")
-	wsfile.RunCommand(&buf, "pwd", nil, "")
-	log.Println(buf.String())
-	// *** TESTING ***
-
 	// Open db connection
 	if *awsDsnSecret != "" {
 		// Get the dsn from the aws secret
@@ -441,25 +429,27 @@ func listenAndServe() error {
 		return fmt.Errorf("while calling checkJetStoreSchema: %v", err)
 	}
 
-	// Check workspace version, compile workspace if needed
-	err = server.checkWorkspaceVersion()
-	if err != nil {
-		log.Printf("while calling checkWorkspaceVersion: %v", err)
-		return fmt.Errorf("while calling checkWorkspaceVersion: %v", err)
-	}
+	// Perform workspace compilation as a go routine
+	// since it can take a while and we do not want to block the server start
+	go func() {
+		// Check workspace version, compile workspace if needed
+		err = server.checkWorkspaceVersion()
+		if err != nil {
+			log.Panicf("while calling checkWorkspaceVersion: %v", err)
+		}
 
-	// Check jetstore version, update domain tables and system if needed
-	err = server.checkDomainTablesVersion()
-	if err != nil {
-		log.Printf("while calling checkDomainTablesVersion: %v", err)
-		return fmt.Errorf("while calling checkDomainTablesVersion: %v", err)
-	}
+		// Check jetstore version, update domain tables and system if needed
+		err = server.checkDomainTablesVersion()
+		if err != nil {
+			log.Panicf("while calling checkDomainTablesVersion: %v", err)
+		}
 
-	// Check that the users table and admin user exists
-	err = server.initUsers()
-	if err != nil {
-		return fmt.Errorf("while calling initUsers: %v", err)
-	}
+		// Check that the users table and admin user exists
+		err = server.initUsers()
+		if err != nil {
+			log.Panicf("while calling initUsers: %v", err)
+		}
+	}()
 
 	// Create and configure the auditLogger
 	// See the documentation for Config and zapcore.EncoderConfig for all the
