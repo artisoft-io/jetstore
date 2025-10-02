@@ -384,7 +384,7 @@ func (jsComp *JetStoreStackComponents) BuildEcsTasks(scope constructs.Construct,
 		}),
 		ReadonlyRootFilesystem: jsii.Bool(true),
 	})
-	jsComp.CpipesContainerDef.AddMountPoints(&awsecs.MountPoint{
+	jsComp.Serverv2ContainerDef.AddMountPoints(&awsecs.MountPoint{
 		SourceVolume:  jsii.String("tmp-volume"),
 		ContainerPath: jsii.String("/jetsdata"),
 		ReadOnly:      jsii.Bool(false),
