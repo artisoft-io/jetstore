@@ -140,7 +140,7 @@ func runDetachedCommand(command string, args []string) error {
 			Gid: targetGID,
 		},
 		// Create a new session and process group for the child.
-		Setsid: true,
+		// Setsid: true,
 	}
 
 	// Important: Redirect stdout and stderr to prevent blocking.
@@ -149,17 +149,17 @@ func runDetachedCommand(command string, args []string) error {
 	cmd.Stderr = os.Stderr
 
 	// Start the command. `Start()` returns immediately.
-	err := cmd.Start()
+	err := cmd.Run()
 	if err != nil {
 		return fmt.Errorf("failed to start command: %s", err)
 	}
 
-	log.Printf("Child process started with PID: %d\n", cmd.Process.Pid)
+	// log.Printf("Child process started with PID: %d\n", cmd.Process.Pid)
 
-	// Release the process, allowing it to continue running independently.
-	err = cmd.Process.Release()
-	if err != nil {
-		return fmt.Errorf("failed to release process: %s", err)
-	}
+	// // Release the process, allowing it to continue running independently.
+	// err = cmd.Process.Release()
+	// if err != nil {
+	// 	return fmt.Errorf("failed to release process: %s", err)
+	// }
 	return nil
 }

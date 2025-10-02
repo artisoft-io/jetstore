@@ -55,6 +55,7 @@ ENV JETS_INIT_DB_SCRIPT=/usr/local/bin/jets_init_db.sql
 # Install Client UI == Flutter App ==
 ENV JETS_SOURCE_DIR=/usr/local/go/src/jetstore WEB_APP_DEPLOYMENT_DIR=/usr/local/lib/web
 COPY --from=builder ${JETS_SOURCE_DIR}/jetsclient/build/web $WEB_APP_DEPLOYMENT_DIR
+RUN ls -la /usr/local/bin/
 
 # Copy the native library and verify
 # REDO
@@ -92,4 +93,4 @@ ENV WORKSPACES_HOME=/jetsdata/workspaces
 ENV WORKSPACES_REPO=/go/workspaces
 RUN mkdir -p ${WORKSPACES_REPO}
 
-WORKDIR ${WORKSPACES_HOME}
+WORKDIR ${JETS_TEMP_DATA}
