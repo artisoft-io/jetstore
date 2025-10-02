@@ -44,7 +44,6 @@ func (jsComp *JetStoreStackComponents) BuildUiService(scope constructs.Construct
 		ContainerName: jsii.String("uiContainer"),
 		Essential:     jsii.Bool(true),
 		EntryPoint:    jsii.Strings("cbooter", "apiserver"),
-		User:          jsii.String("jsuser"), // run as non-root user
 		PortMappings: &[]*awsecs.PortMapping{
 			{
 				Name:          jsii.String("ui-port-mapping"),
