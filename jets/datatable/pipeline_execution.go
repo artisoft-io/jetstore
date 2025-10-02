@@ -89,7 +89,7 @@ func (ctx *DataTableContext) InsertPipelineExecutionStatus(dataTableAction *Data
 		return
 	}
 
-	row := make([]interface{}, len(sqlStmt.ColumnKeys))
+	row := make([]any, len(sqlStmt.ColumnKeys))
 	var status, sessionId string
 	sessionId, ok = dataTableAction.Data[irow]["session_id"].(string)
 	if !ok {
@@ -449,7 +449,7 @@ func (ctx *DataTableContext) GetTaskThrottlingInfo(stateMachineName, taskStatus 
 	return pipelineCount.Int64, t1Count.Int64, err
 }
 
-func (ctx *DataTableContext) startPipeline(devModeCode, stateMachineName string, task *PendingTask, results *map[string]interface{}) error {
+func (ctx *DataTableContext) startPipeline(devModeCode, stateMachineName string, task *PendingTask, results *map[string]any) error {
 	if ctx.DevMode {
 		return ctx.runPipelineLocally(devModeCode, stateMachineName, task, results)
 	}
@@ -472,10 +472,14 @@ func (ctx *DataTableContext) startStateMachine(stateMachineName string, task *Pe
 	serverCommands := make([][]string, 0)
 
 	var processArn string
-	var smInput map[string]interface{}
+	var smInput map[string]any
 	switch stateMachineName {
-	case "serverSM":
-		processArn = os.Getenv("JETS_SERVER_SM_ARN")
+	case "serverSM", "serverv2SM":
+		if stateMachineName == "serverv2SM" {
+			processArn = os.Getenv("JETS_SERVER_SM_ARNv2")
+		} else {
+			processArn = os.Getenv("JETS_SERVER_SM_ARN")
+		}
 		for shardId := range nbrShards {
 			serverArgs := []string{
 				"-peKey", peKey,
@@ -484,42 +488,16 @@ func (ctx *DataTableContext) startStateMachine(stateMachineName string, task *Pe
 			}
 			serverCommands = append(serverCommands, serverArgs)
 		}
-		smInput = map[string]interface{}{
+		smInput = map[string]any{
 			"serverCommands": serverCommands,
 			"reportsCommand": runReportsCommand,
-			"successUpdate": map[string]interface{}{
+			"successUpdate": map[string]any{
 				"-peKey":         peKey,
 				"-status":        "completed",
 				"file_key":       task.MainInputFileKey.String,
 				"failureDetails": "",
 			},
-			"errorUpdate": map[string]interface{}{
-				"-peKey":         peKey,
-				"-status":        "failed",
-				"file_key":       task.MainInputFileKey.String,
-				"failureDetails": "",
-			},
-		}
-
-	case "serverv2SM":
-		processArn = os.Getenv("JETS_SERVER_SM_ARNv2")
-		serverArgs := make([]map[string]interface{}, nbrShards)
-		for i := range serverArgs {
-			serverArgs[i] = map[string]interface{}{
-				"id": i,
-				"pe": task.Key,
-			}
-		}
-		smInput = map[string]interface{}{
-			"serverCommands": serverArgs,
-			"reportsCommand": runReportsCommand,
-			"successUpdate": map[string]interface{}{
-				"-peKey":         peKey,
-				"-status":        "completed",
-				"file_key":       task.MainInputFileKey.String,
-				"failureDetails": "",
-			},
-			"errorUpdate": map[string]interface{}{
+			"errorUpdate": map[string]any{
 				"-peKey":         peKey,
 				"-status":        "failed",
 				"file_key":       task.MainInputFileKey.String,
@@ -532,13 +510,13 @@ func (ctx *DataTableContext) startStateMachine(stateMachineName string, task *Pe
 		// Set DoNotNotifyApiGateway to true, since we don't have the cpipesEnv when
 		// calling start Sharding, api notification will be done in by sharding task
 		// as needed.
-		smInput = map[string]interface{}{
-			"startSharding": map[string]interface{}{
+		smInput = map[string]any{
+			"startSharding": map[string]any{
 				"pipeline_execution_key": task.Key,
 				"file_key":               task.MainInputFileKey.String,
 				"session_id":             task.SessionId,
 			},
-			"errorUpdate": map[string]interface{}{
+			"errorUpdate": map[string]any{
 				"-peKey":                peKey, // string for this one! - legacy alert!
 				"-status":               "failed",
 				"file_key":              task.MainInputFileKey.String,
@@ -551,15 +529,15 @@ func (ctx *DataTableContext) startStateMachine(stateMachineName string, task *Pe
 		processArn = os.Getenv("JETS_CPIPES_SM_ARN")
 	case "reportsSM":
 		processArn = os.Getenv("JETS_REPORTS_SM_ARN")
-		smInput = map[string]interface{}{
+		smInput = map[string]any{
 			"reportsCommand": runReportsCommand,
-			"successUpdate": map[string]interface{}{
+			"successUpdate": map[string]any{
 				"-peKey":         peKey,
 				"-status":        "completed",
 				"file_key":       task.MainInputFileKey.String,
 				"failureDetails": "",
 			},
-			"errorUpdate": map[string]interface{}{
+			"errorUpdate": map[string]any{
 				"-peKey":         peKey,
 				"-status":        "failed",
 				"file_key":       task.MainInputFileKey.String,
@@ -739,14 +717,14 @@ func (ctx *DataTableContext) runPipelineLocally(devModeCode, stateMachineName st
 	return err
 }
 
-func (ctx *DataTableContext) startLoader(dataTableAction *DataTableAction, irow int, sqlStmt *SqlInsertDefinition, results *map[string]interface{}) (httpStatus int, err error) {
+func (ctx *DataTableContext) startLoader(dataTableAction *DataTableAction, irow int, sqlStmt *SqlInsertDefinition, results *map[string]any) (httpStatus int, err error) {
 	var loaderCompletedMetric, loaderFailedMetric string
 	httpStatus = http.StatusOK
 	var name string
 	workspaceName := os.Getenv("WORKSPACE")
 
 	// Run the loader
-	row := make(map[string]interface{}, len(sqlStmt.ColumnKeys))
+	row := make(map[string]any, len(sqlStmt.ColumnKeys))
 	for _, colKey := range sqlStmt.ColumnKeys {
 		v := dataTableAction.Data[irow][colKey]
 		if v != nil {
@@ -884,7 +862,7 @@ func (ctx *DataTableContext) startLoader(dataTableAction *DataTableAction, irow 
 		// StartExecution load file
 		log.Printf("calling StartExecution loaderSM loaderCommand: %s", loaderCommand)
 		name, err = awsi.StartExecution(os.Getenv("JETS_LOADER_SM_ARN"),
-			map[string]interface{}{
+			map[string]any{
 				"loaderCommand":  loaderCommand,
 				"reportsCommand": runReportsCommand,
 			}, sessionId.(string))
