@@ -65,7 +65,7 @@ func main() {
 	fmt.Println("serverv2 CMD LINE ARGS:", os.Args[1:])
 	flag.Parse()
 	start := time.Now()
-	defer func ()  {
+	defer func() {
 		log.Printf("Completed in %v", time.Since(start))
 	}()
 
@@ -153,21 +153,21 @@ func main() {
 
 	// open db connection
 	var err error
-	var dsn string
 	if *awsDsnSecret != "" {
 		// Get the dsn from the aws secret
-		dsn, err = awsi.GetDsnFromSecret(*awsDsnSecret, *usingSshTunnel, *dbPoolSize)
+		*dsnList, err = awsi.GetDsnFromSecret(*awsDsnSecret, *usingSshTunnel, *dbPoolSize)
 		if err != nil {
 			hasErr = true
 			errMsg = append(errMsg, fmt.Sprintf("while getting dsn from aws secret: %v", err))
 		}
 	}
-	dbpool, err := pgxpool.Connect(context.Background(), dsn)
+	dbpool, err := pgxpool.Connect(context.Background(), *dsnList)
 	if err != nil {
 		hasErr = true
 		errMsg = append(errMsg, fmt.Sprintf("while opening db connection: %v", err))
+	} else {
+		defer dbpool.Close()
 	}
-	defer dbpool.Close()
 	if hasErr {
 		for _, msg := range errMsg {
 			log.Println("**", msg)
@@ -181,7 +181,7 @@ func main() {
 	_, devMode = os.LookupEnv("JETSTORE_DEV_MODE")
 	if !devMode {
 		// We're not in dev mode, sync the overriten workspace files
-		// We're interested in lookup.db and workspace.tgz 
+		// We're interested in lookup.db and workspace.tgz
 		err = workspace.SyncWorkspaceFiles(dbpool, os.Getenv("WORKSPACE"), "sqlite", false, true)
 		if err != nil {
 			log.Println("Error while synching workspace file from db:", err)
@@ -197,17 +197,17 @@ func main() {
 	}
 
 	ca := &delegate.CommandArguments{
-		AwsRegion:           *awsRegion,
-		LookupDb:            *lookupDb,
-		PipelineExecKey:     *pipelineExecKey,
-		PoolSize:            *poolSize,
-		OutSessionId:        *outSessionId,
-		Limit:               *limit,
-		NbrShards:           nbrShards,
-		ShardId:             *shardId,
-		CompletedMetric:     *completedMetric,
-		FailedMetric:        *failedMetric,
-		DevMode:             devMode,
+		AwsRegion:       *awsRegion,
+		LookupDb:        *lookupDb,
+		PipelineExecKey: *pipelineExecKey,
+		PoolSize:        *poolSize,
+		OutSessionId:    *outSessionId,
+		Limit:           *limit,
+		NbrShards:       nbrShards,
+		ShardId:         *shardId,
+		CompletedMetric: *completedMetric,
+		FailedMetric:    *failedMetric,
+		DevMode:         devMode,
 	}
 
 	err = delegate.DoJobAndReportStatus(dbpool, ca)

@@ -429,27 +429,24 @@ func listenAndServe() error {
 		return fmt.Errorf("while calling checkJetStoreSchema: %v", err)
 	}
 
-	// Perform workspace compilation as a go routine
-	// since it can take a while and we do not want to block the server start
-	go func() {
-		// Check workspace version, compile workspace if needed
-		err = server.checkWorkspaceVersion()
-		if err != nil {
-			log.Panicf("while calling checkWorkspaceVersion: %v", err)
-		}
+	// Perform workspace compilation to make sure workspace compiles correctly
+	// Check workspace version, compile workspace if needed
+	err = server.checkWorkspaceVersion()
+	if err != nil {
+		return fmt.Errorf("while calling checkWorkspaceVersion: %v", err)
+	}
 
-		// Check jetstore version, update domain tables and system if needed
-		err = server.checkDomainTablesVersion()
-		if err != nil {
-			log.Panicf("while calling checkDomainTablesVersion: %v", err)
-		}
+	// Check jetstore version, update domain tables and system if needed
+	err = server.checkDomainTablesVersion()
+	if err != nil {
+		return fmt.Errorf("while calling checkDomainTablesVersion: %v", err)
+	}
 
-		// Check that the users table and admin user exists
-		err = server.initUsers()
-		if err != nil {
-			log.Panicf("while calling initUsers: %v", err)
-		}
-	}()
+	// Check that the users table and admin user exists
+	err = server.initUsers()
+	if err != nil {
+		return fmt.Errorf("while calling initUsers: %v", err)
+	}
 
 	// Create and configure the auditLogger
 	// See the documentation for Config and zapcore.EncoderConfig for all the
