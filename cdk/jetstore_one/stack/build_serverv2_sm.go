@@ -23,6 +23,11 @@ func (jsComp *JetStoreStackComponents) BuildServerv2SM(scope constructs.Construc
 
 	// Serverv2 node Lambda
 	// --------------------
+	// NOTE: Currently not used, replaced by ECS task
+	// We keep it for reference and possible future use
+	// If we decide to use it, we need to make sure the lambda has access to the rds instance in the isolated subnet
+	// and the lambda has enough memory and timeout to run the serverv2 tasks
+	// The lambda function code is in /lambdas/server/node
 	var memLimit float64
 	if len(os.Getenv("JETS_CPIPES_LAMBDA_MEM_LIMIT_MB")) > 0 {
 		var err error

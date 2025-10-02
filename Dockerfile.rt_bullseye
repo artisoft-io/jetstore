@@ -81,15 +81,14 @@ ENV PYTHONPATH="/go/lib:/usr/local/lib" CLASSPATH=".:/usr/local/lib/antlr-${ANTL
 ENV JETRULE_COMPILER=/usr/local/lib/jets/compiler/jetrule_compiler.py JETRULE_LOOKUP_LOADER=/usr/local/lib/jets/compiler/jetrule_lookup_loader.py
 
 # Jets Application ENV Variable
-# These are set via cdk when the stack is deployed and overrides these defaults.
-# We need the defaults here for when we do local development
 # jetsclient ui
 ENV UI_PORT=5001
 # apiserver
 # New workspace setup
 ENV JETS_ADMIN_EMAIL=admin
 ENV JETS_TEMP_DATA=/jetsdata
-ENV WORKSPACES_HOME=/jetsdata/workspaces
+ENV TMPDIR=${JETS_TEMP_DATA}/tmp
+ENV WORKSPACES_HOME=${JETS_TEMP_DATA}/workspaces
 ENV WORKSPACES_REPO=/go/workspaces
 RUN mkdir -p ${WORKSPACES_REPO}
 
