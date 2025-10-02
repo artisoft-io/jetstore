@@ -35,8 +35,12 @@ import (
 
 // The target UID and GID to switch to is the jsuser as defined in the Dockerfile
 // Ensure this matches the user created in the Dockerfile
-var targetUID uint32 = 1000
-var targetGID uint32 = 1000
+var jsuserSysProcAttr *syscall.SysProcAttr = &syscall.SysProcAttr{
+	Credential: &syscall.Credential{
+		Uid: 1000,
+		Gid: 1000,
+	},
+}
 var rootSysProcAttr *syscall.SysProcAttr = &syscall.SysProcAttr{
 	Credential: &syscall.Credential{
 		Uid: 0,
@@ -70,6 +74,19 @@ func main() {
 	// Give some time for the mounted volumes to be ready
 	time.Sleep(2 * time.Second)
 
+	// Create the tmp directory inside JETS_TEMP_DATA if it does not exist
+	tmpDir := os.Getenv("TMPDIR")
+	if tmpDir == "" {
+		log.Fatalf("TMPDIR environment variable must be set in Dockerfile as a subdirectory of JETS_TEMP_DATA")
+	}
+	_, err := os.Stat(tmpDir)
+	if errors.Is(err, fs.ErrNotExist) {
+		err := os.MkdirAll(tmpDir, 0775)
+		if err != nil {
+			log.Fatalf("Failed to create tmp directory %s: %s", tmpDir, err)
+		}
+	}
+
 	// Ensure JETS_TEMP_DATA is writable by jsuser (uid 1000)
 	// This is important because the mounted volume may have root ownership
 	// and jsuser needs write access to it.
@@ -80,7 +97,7 @@ func main() {
 		// Copy files if directory WORKSPACES_HOME does not exists (which means it was already copied)
 		if _, err := os.Stat(os.Getenv("WORKSPACES_HOME")); errors.Is(err, fs.ErrNotExist) {
 			log.Println("Copying workspace files to WORKSPACES_HOME ...")
-			err := runCommand("cp", []string{"-r", os.Getenv("WORKSPACES_REPO"), os.Getenv("WORKSPACES_HOME")})
+			err := runCommandAsRoot("cp", []string{"-r", os.Getenv("WORKSPACES_REPO"), os.Getenv("WORKSPACES_HOME")})
 			if err != nil {
 				log.Fatalf("Failed to copy workspace files: %s", err)
 			}
@@ -93,7 +110,7 @@ func main() {
 			log.Println("Workspace files already exist in WORKSPACES_HOME, skipping workspace setup.")
 		}
 		log.Println("Starting apiserver...")
-		err := runDetachedCommand("apiserver", cmdArgs)
+		err := runCommandAsJsuser("apiserver", cmdArgs)
 		if err != nil {
 			log.Fatalf("Failed to start apiserver: %s", err)
 		}
@@ -105,7 +122,7 @@ func main() {
 			log.Fatalf("Failed to make JETS_TEMP_DATA writable: %s", err)
 		}
 		log.Printf("Starting %s...", cmd)
-		err = runDetachedCommand(cmd, cmdArgs)
+		err = runCommandAsJsuser(cmd, cmdArgs)
 		if err != nil {
 			log.Fatalf("Failed to start %s: %s", cmd, err)
 		}
@@ -115,10 +132,10 @@ func main() {
 }
 
 func makeJetsdataWritable() error {
-	return runCommand("chown", []string{"-hR", "1000:1000", os.Getenv("JETS_TEMP_DATA")})
+	return runCommandAsRoot("chown", []string{"-hR", "1000:1000", os.Getenv("JETS_TEMP_DATA")})
 }
 
-func runCommand(command string, args []string) error {
+func runCommandAsRoot(command string, args []string) error {
 	cmd := exec.Command(command, args...)
 	cmd.SysProcAttr = rootSysProcAttr
 	// Run the command and capture output
@@ -127,39 +144,20 @@ func runCommand(command string, args []string) error {
 	return err
 }
 
-// runDetachedCommand runs a command in a detached manner with specified SysProcAttr
+// runCommandAsJsuser runs a command with specified user
 // It returns an error if the command fails to start
-func runDetachedCommand(command string, args []string) error {
+func runCommandAsJsuser(command string, args []string) error {
 	cmd := exec.Command(command, args...)
+	cmd.SysProcAttr = jsuserSysProcAttr
 
-	// Configure the command for detachment.
-	cmd.SysProcAttr = &syscall.SysProcAttr{
-		// Set the user and group credentials.
-		Credential: &syscall.Credential{
-			Uid: targetUID,
-			Gid: targetGID,
-		},
-		// Create a new session and process group for the child.
-		// Setsid: true,
-	}
-
-	// Important: Redirect stdout and stderr to prevent blocking.
-	// A detached process should not inherit the parent's terminal.
+	// Important: Redirect stdout and stderr
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
-
-	// Start the command. `Start()` returns immediately.
 	err := cmd.Run()
 	if err != nil {
 		return fmt.Errorf("failed to start command: %s", err)
 	}
-
-	// log.Printf("Child process started with PID: %d\n", cmd.Process.Pid)
-
-	// // Release the process, allowing it to continue running independently.
-	// err = cmd.Process.Release()
-	// if err != nil {
-	// 	return fmt.Errorf("failed to release process: %s", err)
-	// }
+	// This point means the command has exited
+	log.Printf("Command %s exited", command)
 	return nil
 }
