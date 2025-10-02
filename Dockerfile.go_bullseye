@@ -16,15 +16,15 @@ COPY setup.py            ${JETS_SOURCE_DIR}/
 COPY jets                ${JETS_SOURCE_DIR}/jets
 
 # Build native rule engine
-# REDO
-# RUN \
-#   mkdir -p ${JETS_BUILD_DIR}                                   \
-#   && cd ${JETS_BUILD_DIR}                                      \
-#   && cmake -DCMAKE_BUILD_TYPE=Release -DJETS_VERSION=$JETS_VERSION ${JETS_SOURCE_DIR} \
-#   && make clean                                                       \
-#   && make -j8                                                         \
-#   && cd ${JETS_SOURCE_DIR}  \
-#   && ldconfig 
+# TODO: build native rule engine conditionally
+RUN \
+  mkdir -p ${JETS_BUILD_DIR}                                   \
+  && cd ${JETS_BUILD_DIR}                                      \
+  && cmake -DCMAKE_BUILD_TYPE=Release -DJETS_VERSION=$JETS_VERSION ${JETS_SOURCE_DIR} \
+  && make clean                                                       \
+  && make -j8                                                         \
+  && cd ${JETS_SOURCE_DIR}  \
+  && ldconfig 
 
 # python puts it in ${JETS_SOURCE_DIR}/build
 RUN python3 setup.py build
@@ -36,11 +36,13 @@ RUN go mod download
 
 RUN go install jetstore/jets/cbooter
 RUN go install jetstore/jets/loader
-# RUN go install jetstore/jets/server
+# TODO: build native rule engine conditionally
+RUN go install jetstore/jets/server
 RUN go install jetstore/jets/serverv2
 RUN go install jetstore/jets/run_reports
 RUN go install jetstore/jets/apiserver
-# RUN go install jetstore/jets/bridge
+# TODO: build native rule engine conditionally
+RUN go install jetstore/jets/bridge
 RUN go install jetstore/jets/update_db
 
 # JETSTORE FRONT END == FLUTTER BUILD ==

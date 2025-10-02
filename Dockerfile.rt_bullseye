@@ -23,10 +23,8 @@ RUN echo "----------------JetStore-Version------------------" >> /VERSION.txt &&
 ENV JETS_BUILD_DIR=/usr/local/go/build JETS_BIN_DIR=/usr/local/go/bin JETS_PY_BUILD_DIR=/usr/local/go/src/jetstore/build
 COPY --from=builder ${JETS_PY_BUILD_DIR}/lib /usr/local/lib
 # COPY native rule engine library
-# REDO
-# COPY --from=builder ${JETS_BUILD_DIR}/jets/jets_test /usr/local/bin/
-# COPY --from=builder ${JETS_BUILD_DIR}/jets/test_data /usr/local/bin/test_data
-# COPY --from=builder ${JETS_BUILD_DIR}/jets/libjets.so /usr/local/lib/
+# TODO: build native rule engine conditionally
+COPY --from=builder ${JETS_BUILD_DIR}/jets/libjets.so /usr/local/lib/
 #* Verify lib version when upgrading dependencies
 COPY --from=builder /usr/local/lib/libsqlite3.so.0.8.6 /usr/local/lib/
 COPY --from=builder /usr/local/lib/libglog.so.0.6.0 /usr/local/lib/
@@ -34,7 +32,8 @@ COPY --from=builder /usr/local/lib/libglog.so.0.6.0 /usr/local/lib/
 COPY --from=builder ${JETS_BIN_DIR}/cbooter /usr/local/bin/
 COPY --from=builder ${JETS_BIN_DIR}/loader /usr/local/bin/
 COPY --from=builder ${JETS_BIN_DIR}/apiserver /usr/local/bin/
-# COPY --from=builder ${JETS_BIN_DIR}/server /usr/local/bin/
+# TODO: build native rule engine conditionally
+COPY --from=builder ${JETS_BIN_DIR}/server /usr/local/bin/
 COPY --from=builder ${JETS_BIN_DIR}/serverv2 /usr/local/bin/
 COPY --from=builder ${JETS_BIN_DIR}/run_reports /usr/local/bin/
 COPY --from=builder ${JETS_BIN_DIR}/update_db /usr/local/bin/
@@ -50,6 +49,7 @@ COPY --from=builder ${JETS_BUILD_DIR}/jets_init_db.sql /usr/local/bin/
 # Set env to find the jets_schema.json by update_db (migrate_db.go)
 ENV JETS_SCHEMA_FILE=/usr/local/bin/jets_schema.json
 ENV JETS_WORKSPACE_DB_SCHEMA_SCRIPT=/usr/local/bin/workspace_schema.sql
+# Common JetStore db init, used in context of base__workspace_init_db.sql script
 ENV JETS_INIT_DB_SCRIPT=/usr/local/bin/jets_init_db.sql
 
 # Install Client UI == Flutter App ==
@@ -58,16 +58,16 @@ COPY --from=builder ${JETS_SOURCE_DIR}/jetsclient/build/web $WEB_APP_DEPLOYMENT_
 RUN ls -la /usr/local/bin/
 
 # Copy the native library and verify
-# REDO
-# RUN \
-#     cd /usr/local/lib/ \
-#     && ldconfig -v \
-#     && echo "USR LOCAL LIB DIRECTORY Contains" \
-#     && ls -la \
-#     && echo "USR LOCAL BIN DIRECTORY Contains" \
-#     && ls -la /usr/local/bin \
-#     && ldd libjets.so \
-#     && cd / 
+# TODO: build native rule engine conditionally
+RUN \
+    cd /usr/local/lib/ \
+    && ldconfig -v \
+    && echo "USR LOCAL LIB DIRECTORY Contains" \
+    && ls -la \
+    && echo "USR LOCAL BIN DIRECTORY Contains" \
+    && ls -la /usr/local/bin \
+    && ldd libjets.so \
+    && cd / 
 
 ARG USER_ID="1000"
 ARG GROUP_ID="1000"
@@ -77,7 +77,7 @@ RUN groupadd -g ${GROUP_ID} jsuser \
 ENV PYTHONPATH="/go/lib:/usr/local/lib" CLASSPATH=".:/usr/local/lib/antlr-${ANTLR4_VERSION}-complete.jar"
 
 # Path for JetStore Workspace compilation
-# REDO
+# TODO: build native rule engine conditionally
 ENV JETRULE_COMPILER=/usr/local/lib/jets/compiler/jetrule_compiler.py JETRULE_LOOKUP_LOADER=/usr/local/lib/jets/compiler/jetrule_lookup_loader.py
 
 # Jets Application ENV Variable
