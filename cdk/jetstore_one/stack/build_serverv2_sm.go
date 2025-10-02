@@ -7,6 +7,7 @@ import (
 
 	awscdk "github.com/aws/aws-cdk-go/awscdk/v2"
 	"github.com/aws/aws-cdk-go/awscdk/v2/awsec2"
+	"github.com/aws/aws-cdk-go/awscdk/v2/awsecs"
 	"github.com/aws/aws-cdk-go/awscdk/v2/awslambda"
 	"github.com/aws/aws-cdk-go/awscdk/v2/awslogs"
 	sfn "github.com/aws/aws-cdk-go/awscdk/v2/awsstepfunctions"
@@ -118,17 +119,37 @@ func (jsComp *JetStoreStackComponents) BuildServerv2SM(scope constructs.Construc
 	// 1) serverv2 map task
 	// ----------------------
 	// Serverv2 node task
-	runServerv2NodeTask := sfntask.NewLambdaInvoke(stack, jsii.String("Serverv2NodeLambdaTask"), &sfntask.LambdaInvokeProps{
-		Comment:                  jsii.String("Lambda Task serverv2 node"),
-		LambdaFunction:           jsComp.serverv2NodeLambda,
-		InputPath:                jsii.String("$"),
-		ResultPath:               sfn.JsonPath_DISCARD(),
-		RetryOnServiceExceptions: jsii.Bool(false),
+	// THIS IS THE LAMBDA VERSION
+	// runServerv2Task := sfntask.NewLambdaInvoke(stack, jsii.String("Serverv2NodeLambdaTask"), &sfntask.LambdaInvokeProps{
+	// 	Comment:                  jsii.String("Lambda Task serverv2 node"),
+	// 	LambdaFunction:           jsComp.serverv2NodeLambda,
+	// 	InputPath:                jsii.String("$"),
+	// 	ResultPath:               sfn.JsonPath_DISCARD(),
+	// 	RetryOnServiceExceptions: jsii.Bool(false),
+	// })
+	runServerv2Task := sfntask.NewEcsRunTask(stack, jsii.String("run-serverv2"), &sfntask.EcsRunTaskProps{
+		Comment:        jsii.String("Run JetStore Rule Serverv2 Task"),
+		Cluster:        jsComp.EcsCluster,
+		Subnets:        jsComp.IsolatedSubnetSelection,
+		AssignPublicIp: jsii.Bool(false),
+		LaunchTarget: sfntask.NewEcsFargateLaunchTarget(&sfntask.EcsFargateLaunchTargetOptions{
+			PlatformVersion: awsecs.FargatePlatformVersion_LATEST,
+		}),
+		TaskDefinition: jsComp.Serverv2TaskDefinition,
+		ContainerOverrides: &[]*sfntask.ContainerOverride{
+			{
+				ContainerDefinition: jsComp.Serverv2ContainerDef,
+				Command:             sfn.JsonPath_ListAt(jsii.String("$")),
+			},
+		},
+		PropagatedTagSource: awsecs.PropagatedTagSource_TASK_DEFINITION,
+		IntegrationPattern:  sfn.IntegrationPattern_RUN_JOB,
 	})
+	runServerv2Task.Connections().AllowTo(jsComp.RdsCluster, awsec2.Port_Tcp(jsii.Number(5432)), jsii.String("Allow connection from runServerv2Task"))
 
 	// Using inlined map construct
 	runServerv2Map := sfn.NewMap(stack, jsii.String("run-serverv2-map"), &sfn.MapProps{
-		Comment:        jsii.String("Run JetStore Serverv2 Node Lambda Tasks"),
+		Comment:        jsii.String("Run JetStore Serverv2 Tasks"),
 		ItemsPath:      sfn.JsonPath_StringAt(jsii.String("$.serverCommands")),
 		MaxConcurrency: jsii.Number(maxConcurrency),
 		ResultPath:     sfn.JsonPath_DISCARD(),
@@ -168,7 +189,7 @@ func (jsComp *JetStoreStackComponents) BuildServerv2SM(scope constructs.Construc
 	// Create Rule Serverv2 State Machine - jsComp.Serverv2SM
 	// -------------------------------------------
 	// Chaining the SF Tasks
-	runServerv2Map.ItemProcessor(runServerv2NodeTask, &sfn.ProcessorConfig{}).AddCatch(
+	runServerv2Map.ItemProcessor(runServerv2Task, &sfn.ProcessorConfig{}).AddCatch(
 		runErrorStatusLambdaTask, MkCatchProps()).Next(runReportsLambdaTask)
 	runReportsLambdaTask.AddCatch(runErrorStatusLambdaTask, MkCatchProps()).Next(runSuccessStatusLambdaTask)
 	runSuccessStatusLambdaTask.AddCatch(notifyFailure, MkCatchProps()).Next(notifySuccess)
