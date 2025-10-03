@@ -274,7 +274,7 @@ func main() {
 	flag.Parse()
 	start := time.Now()
 	defer func ()  {
-		log.Printf("Completed in %v", time.Since(start))
+		log.Printf("%s server completed in %v", *outSessionId, time.Since(start))
 	}()
 
 	// validate command line arguments

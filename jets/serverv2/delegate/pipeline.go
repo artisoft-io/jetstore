@@ -280,7 +280,8 @@ func (ctx *ServerContext) ProcessData(reteWorkspace *ReteWorkspace) (*PipelineRe
 	for i := 0; i < ps; i++ {
 		go func(workerId int) {
 			// Start the execute rules workers
-			result, err := reteWorkspace.ExecuteRules(workerId, dataInputc, outputMapping, writeOutputc)
+			result, err := reteWorkspace.ExecuteRules(workerId, ctx.ca.OutSessionId,
+				dataInputc, outputMapping, writeOutputc)
 			if err != nil {
 				err = fmt.Errorf("while execute rules: %v", err)
 				log.Println(err)
