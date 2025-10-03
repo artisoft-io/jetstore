@@ -30,6 +30,9 @@ func NewLambdaDockerCppStack(scope constructs.Construct, id string, props *Lambd
 				"CGO_ENABLED": jsii.String("1"),
 			},
 			Platform: awsecrassets.Platform_LINUX_AMD64(),
+			// Override the CMD to not expect a handler
+			Cmd:        jsii.Strings("bootstrap"),
+			Entrypoint: jsii.Strings("/lambda-entrypoint.sh"),
 		}),
 		FunctionName: jsii.String("go-lambda-docker-cpp-example"),
 		Description:  jsii.String("Go Lambda function with C++ library using Docker container image"),
