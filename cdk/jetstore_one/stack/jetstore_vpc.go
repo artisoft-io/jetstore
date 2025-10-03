@@ -33,15 +33,12 @@ func LookupJetStoreVPC(stack awscdk.Stack, vpcId string) awsec2.IVpc {
 	if vpcId == "" {
 		log.Fatal("JETS_VPC_ID must be provided to lookup existing VPC")
 	}
-	var vpc awsec2.IVpc
-	if vpcId != "" {
-		vpc = awsec2.Vpc_FromLookup(stack, jsii.String("ImportedJetStoreVpcById"), &awsec2.VpcLookupOptions{
-			IsDefault:         jsii.Bool(false),
-			VpcId:             jsii.String(vpcId),
-			Region:            jsii.String(os.Getenv("AWS_REGION")),
-			ReturnVpnGateways: jsii.Bool(false),
-		})
-	}
+	vpc := awsec2.Vpc_FromLookup(stack, jsii.String("ImportedJetStoreVpcById"), &awsec2.VpcLookupOptions{
+		IsDefault:         jsii.Bool(false),
+		VpcId:             jsii.String(vpcId),
+		Region:            jsii.String(os.Getenv("AWS_REGION")),
+		ReturnVpnGateways: jsii.Bool(false),
+	})
 	if vpc == nil {
 		log.Fatal("Failed to lookup VPC, please check JETS_VPC_ID")
 	}
@@ -70,12 +67,9 @@ func LookupEcsTasksSecurityGroup(stack awscdk.Stack, sgId string) awsec2.ISecuri
 	if sgId == "" {
 		log.Fatal("JETS_ECS_TASKS_SG_ID must be provided to lookup existing security group")
 	}
-	var sg awsec2.ISecurityGroup
-	if sgId != "" {
-		sg = awsec2.SecurityGroup_FromSecurityGroupId(stack, jsii.String("ImportedJetStoreEcsTasksSg"), jsii.String(sgId), &awsec2.SecurityGroupImportOptions{
-			Mutable: jsii.Bool(true),
-		})
-	}
+	sg := awsec2.SecurityGroup_FromSecurityGroupId(stack, jsii.String("ImportedJetStoreEcsTasksSg"), jsii.String(sgId), &awsec2.SecurityGroupImportOptions{
+		Mutable: jsii.Bool(true),
+	})
 	if sg == nil {
 		log.Fatal("Failed to lookup security group, please check JETS_ECS_TASKS_SG_ID")
 	}

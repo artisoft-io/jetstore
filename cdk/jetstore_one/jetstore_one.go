@@ -138,14 +138,15 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 	if os.Getenv("JETS_VPC_ID") != "" {
 		// Lookup existing VPC by id
 		jsComp.Vpc = jetstorestack.LookupJetStoreVPC(stack, os.Getenv("JETS_VPC_ID"))
-		// Lookup the security group by id to use for ecs tasks
-		jsComp.PrivateSecurityGroup = jetstorestack.LookupEcsTasksSecurityGroup(stack, os.Getenv("JETS_ECS_TASKS_SG_ID"))
+		// // Lookup the security group by id to use for ecs tasks
+		// jsComp.PrivateSecurityGroup = jetstorestack.LookupEcsTasksSecurityGroup(stack, os.Getenv("JETS_ECS_TASKS_SG_ID"))
 	} else {
 		// Create a new VPC
 		jsComp.Vpc = jetstorestack.CreateJetStoreVPC(stack)
-		// Add Endpoints on private subnets and return the security group to use in ecs tasks
-		jsComp.PrivateSecurityGroup = jetstorestack.AddVpcEndpoints(stack, jsComp.Vpc, "Private", jsComp.PrivateSubnetSelection)
 	}
+
+	// Add Endpoints on private subnets and return the security group to use in ecs tasks
+	jsComp.PrivateSecurityGroup = jetstorestack.AddVpcEndpoints(stack, jsComp.Vpc, "Private", jsComp.PrivateSubnetSelection)
 
 	// Add VPC ID as outputs
 	awscdk.NewCfnOutput(stack, jsii.String("JetStore_VPC_ID"), &awscdk.CfnOutputProps{
