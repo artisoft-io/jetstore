@@ -483,9 +483,18 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 // JETS_TAG_VALUE_PROD (optional, stack-level tag value for indicating it's a production env)
 // JETS_UI_PORT (defaults 8080)
 // JETS_VPC_ID (optional, use existing vpc by id, must be in the same region as AWS_REGION)
+// when JETS_VPC_ID is set the following env vars must be set as well:
+// 	- JETS_VPC_ID
+// 	- JETS_ECS_TASKS_SG_ID
+// and the following env vars are ignored:
+// 	- JETS_NBR_NAT_GATEWAY
+// 	- JETS_VPC_INTERNET_GATEWAY
+//  - JETS_VPC_CIDR
+//  - AWS_PREFIX_LIST_ROUTE53_HEALTH_CHECK
+//  - AWS_PREFIX_LIST_S3
 // JETS_ECS_TASKS_SG_ID (optional, security group id to use for ecs tasks, required if JETS_VPC_ID is set)
 
-// JETS_VPC_ISOLATED_SUBNETS (optional, comma delimited list of isolated subnet ids, required if JETS_VPC_ID is set)
+// ??? JETS_VPC_ISOLATED_SUBNETS (optional, comma delimited list of isolated subnet ids, required if JETS_VPC_ID is set)
 
 // JETS_VPC_CIDR VPC cidr block, default 10.10.0.0/16
 // JETS_VPC_INTERNET_GATEWAY (optional, default to false), set to true to create VPC with internet gateway, if false JETS_NBR_NAT_GATEWAY is set to 0

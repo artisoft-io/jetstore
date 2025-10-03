@@ -35,16 +35,17 @@ func LookupJetStoreVPC(stack awscdk.Stack, vpcId string) awsec2.IVpc {
 	}
 	var vpc awsec2.IVpc
 	if vpcId != "" {
-		vpc = awsec2.Vpc_FromVpcAttributes(stack, jsii.String("ImportedJetStoreVpcById"), &awsec2.VpcAttributes{
+		vpc = awsec2.Vpc_FromLookup(stack, jsii.String("ImportedJetStoreVpcById"), &awsec2.VpcLookupOptions{
+			IsDefault:         jsii.Bool(false),
 			VpcId:             jsii.String(vpcId),
-			IsolatedSubnetIds: &[]*string{},
 			Region:            jsii.String(os.Getenv("AWS_REGION")),
+			ReturnVpnGateways: jsii.Bool(false),
 		})
 	}
 	if vpc == nil {
 		log.Fatal("Failed to lookup VPC, please check JETS_VPC_ID")
 	}
-	// // Check if isolated subnets are provided
+	// ??? // Check if isolated subnets are provided
 	// if vpcId != "" && os.Getenv("JETS_VPC_ISOLATED_SUBNETS") != "" {
 	// 	subnetIds := os.Getenv("JETS_VPC_ISOLATED_SUBNETS")
 	// 	subnetIdList := []*string{}
