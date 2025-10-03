@@ -42,6 +42,10 @@ func LookupJetStoreVPC(stack awscdk.Stack, vpcId string) awsec2.IVpc {
 	if vpc == nil {
 		log.Fatal("Failed to lookup VPC, please check JETS_VPC_ID")
 	}
+	// Get the CIDR of the VPC
+	cidr = *vpc.VpcCidrBlock()
+	log.Printf("VPC CIDR: %s", cidr)
+
 	// ??? // Check if isolated subnets are provided
 	// if vpcId != "" && os.Getenv("JETS_VPC_ISOLATED_SUBNETS") != "" {
 	// 	subnetIds := os.Getenv("JETS_VPC_ISOLATED_SUBNETS")
