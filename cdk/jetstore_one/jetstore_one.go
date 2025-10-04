@@ -502,18 +502,17 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 // JETS_UI_PORT (defaults 8080)
 // JETS_VPC_ID (optional, use existing vpc by id, must be in the same region as AWS_REGION)
 // when JETS_VPC_ID is set the following env vars must be set as well:
-// 	- JETS_VPC_ID
-// 	- JETS_VPC_ENDPOINTS_SG_ID
+//   - JETS_VPC_ID
+//   - JETS_VPC_ENDPOINTS_SG_ID
+//
 // and the following env vars are ignored:
-// 	- JETS_NBR_NAT_GATEWAY
-// 	- JETS_VPC_INTERNET_GATEWAY
-//  - JETS_VPC_CIDR
-//  - AWS_PREFIX_LIST_ROUTE53_HEALTH_CHECK
-//  - AWS_PREFIX_LIST_S3
+//   - JETS_NBR_NAT_GATEWAY
+//   - JETS_VPC_INTERNET_GATEWAY
+//   - JETS_VPC_CIDR
+//   - AWS_PREFIX_LIST_ROUTE53_HEALTH_CHECK
+//   - AWS_PREFIX_LIST_S3
+//
 // JETS_VPC_ENDPOINTS_SG_ID (optional, security group id to use for ecs tasks, required if JETS_VPC_ID is set)
-
-// ??? JETS_VPC_ISOLATED_SUBNETS (optional, comma delimited list of isolated subnet ids, required if JETS_VPC_ID is set)
-
 // JETS_VPC_CIDR VPC cidr block, default 10.10.0.0/16
 // JETS_VPC_INTERNET_GATEWAY (optional, default to false), set to true to create VPC with internet gateway, if false JETS_NBR_NAT_GATEWAY is set to 0
 // JETS_DB_VERSION (optional, default to latest version supported by jetstore, expected values are 14.5, 15.10 etc. only specific versions are supported)
@@ -602,6 +601,8 @@ func main() {
 	fmt.Println("env JETS_TAG_VALUE_PROD:", os.Getenv("JETS_TAG_VALUE_PROD"))
 	fmt.Println("env JETS_UI_PORT:", os.Getenv("JETS_UI_PORT"))
 	fmt.Println("env JETS_VPC_CIDR:", os.Getenv("JETS_VPC_CIDR"))
+	fmt.Println("env JETS_VPC_ID:", os.Getenv("JETS_VPC_ID"))
+	fmt.Println("env JETS_VPC_ENDPOINTS_SG_ID:", os.Getenv("JETS_VPC_ENDPOINTS_SG_ID"))
 	fmt.Println("env JETS_VPC_INTERNET_GATEWAY:", os.Getenv("JETS_VPC_INTERNET_GATEWAY"))
 	fmt.Println("env NBR_SHARDS:", os.Getenv("NBR_SHARDS"))
 	fmt.Println("env JETS_PIPELINE_THROTTLING_JSON:", os.Getenv("JETS_PIPELINE_THROTTLING_JSON"))
