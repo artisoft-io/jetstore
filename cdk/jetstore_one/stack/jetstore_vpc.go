@@ -210,7 +210,7 @@ func addTag2Endpoint(endpoint awsec2.InterfaceVpcEndpoint) awsec2.InterfaceVpcEn
 
 func AddVpcEndpoints(stack awscdk.Stack, vpc awsec2.IVpc, subnetSelection *awsec2.SubnetSelection) awsec2.SecurityGroup {
 	// Returned Security Group for ECS service & tasks
-	vpcEndpointsSG := awsec2.NewSecurityGroup(stack, jsii.String("VpcEndpointsSG"), &awsec2.SecurityGroupProps{
+	vpcEndpointsSG := awsec2.NewSecurityGroup(stack, jsii.String("PrivateTaskSecurityGroup"), &awsec2.SecurityGroupProps{
 		Vpc:              vpc,
 		Description:      jsii.String("Allow ECS Tasks network access for subnets"),
 		AllowAllOutbound: jsii.Bool(false),
