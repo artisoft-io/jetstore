@@ -114,7 +114,11 @@ func (jsComp *JetStoreStackComponents) BuildUiService(scope constructs.Construct
 		AssignPublicIp: jsii.Bool(false),
 		DesiredCount:   jsii.Number(1),
 		SecurityGroups: &[]awsec2.ISecurityGroup{
-			jsComp.PrivateSecurityGroup,
+			jsComp.VpcEndpointsSg,
+			jsComp.RdsAccessSg,
+			// jsComp.ElbInboundSg,
+			// Add git access security group to allow outbound access to git providers
+			// for pulling workspace definitions
 			NewGitAccessSecurityGroup(stack, jsComp.Vpc)},
 	})
 	if phiTagName != nil {

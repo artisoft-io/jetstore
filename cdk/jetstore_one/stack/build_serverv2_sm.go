@@ -89,6 +89,7 @@ func (jsComp *JetStoreStackComponents) BuildServerv2SM(scope constructs.Construc
 		Timeout:              awscdk.Duration_Minutes(jsii.Number(15)),
 		Vpc:                  jsComp.Vpc,
 		VpcSubnets:           jsComp.IsolatedSubnetSelection,
+		SecurityGroups:       &[]awsec2.ISecurityGroup{jsComp.VpcEndpointsSg, jsComp.RdsAccessSg},
 		LogRetention:         awslogs.RetentionDays_THREE_MONTHS,
 	})
 	if phiTagName != nil {
@@ -100,7 +101,6 @@ func (jsComp *JetStoreStackComponents) BuildServerv2SM(scope constructs.Construc
 	if descriptionTagName != nil {
 		awscdk.Tags_Of(jsComp.serverv2NodeLambda).Add(descriptionTagName, jsii.String("JetStore lambda for cpipes execution"), nil)
 	}
-	jsComp.serverv2NodeLambda.Connections().AllowTo(jsComp.RdsCluster, awsec2.Port_Tcp(jsii.Number(5432)), jsii.String("Allow connection from serverv2NodeLambda"))
 	jsComp.RdsSecret.GrantRead(jsComp.serverv2NodeLambda, nil)
 	jsComp.SourceBucket.GrantReadWrite(jsComp.serverv2NodeLambda, nil)
 
@@ -136,6 +136,7 @@ func (jsComp *JetStoreStackComponents) BuildServerv2SM(scope constructs.Construc
 		Comment:        jsii.String("Run JetStore Rule Serverv2 Task"),
 		Cluster:        jsComp.EcsCluster,
 		Subnets:        jsComp.IsolatedSubnetSelection,
+		SecurityGroups: &[]awsec2.ISecurityGroup{jsComp.VpcEndpointsSg, jsComp.RdsAccessSg},
 		AssignPublicIp: jsii.Bool(false),
 		LaunchTarget: sfntask.NewEcsFargateLaunchTarget(&sfntask.EcsFargateLaunchTargetOptions{
 			PlatformVersion: awsecs.FargatePlatformVersion_LATEST,
@@ -150,7 +151,6 @@ func (jsComp *JetStoreStackComponents) BuildServerv2SM(scope constructs.Construc
 		PropagatedTagSource: awsecs.PropagatedTagSource_TASK_DEFINITION,
 		IntegrationPattern:  sfn.IntegrationPattern_RUN_JOB,
 	})
-	runServerv2Task.Connections().AllowTo(jsComp.RdsCluster, awsec2.Port_Tcp(jsii.Number(5432)), jsii.String("Allow connection from runServerv2Task"))
 
 	// Using inlined map construct
 	runServerv2Map := sfn.NewMap(stack, jsii.String("run-serverv2-map"), &sfn.MapProps{

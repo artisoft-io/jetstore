@@ -138,25 +138,42 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 	if os.Getenv("JETS_VPC_ID") != "" {
 		// Lookup existing VPC by id
 		jsComp.Vpc = jetstorestack.LookupJetStoreVPC(stack, os.Getenv("JETS_VPC_ID"))
-		// // Lookup the security group by id to use for ecs tasks
-		// jsComp.PrivateSecurityGroup = jetstorestack.LookupEcsTasksSecurityGroup(stack, os.Getenv("JETS_ECS_TASKS_SG_ID"))
+		// Lookup the vpc endpoints security group by id to use for ecs tasks and lambdas
+		jsComp.VpcEndpointsSg = jetstorestack.LookupVpcEndpointsSecurityGroup(stack, os.Getenv("JETS_VPC_ENDPOINTS_SG_ID"))
 	} else {
 		// Create a new VPC
 		jsComp.Vpc = jetstorestack.CreateJetStoreVPC(stack)
-	}
 
-	// Add Endpoints on private subnets and return the security group to use in ecs tasks
-	jsComp.PrivateSecurityGroup = jetstorestack.AddVpcEndpoints(stack, jsComp.Vpc, "Private", jsComp.PrivateSubnetSelection)
+		// Add Endpoints on private subnets and return the security group to use in ecs tasks
+		jsComp.VpcEndpointsSg = jetstorestack.AddVpcEndpoints(stack, jsComp.Vpc, jsComp.PrivateSubnetSelection)
+	}
 
 	// Add VPC ID as outputs
 	awscdk.NewCfnOutput(stack, jsii.String("JetStore_VPC_ID"), &awscdk.CfnOutputProps{
 		Value: jsComp.Vpc.VpcId(),
 	})
 
-	// Add PrivateSecurityGroup ID to outputs
-	awscdk.NewCfnOutput(stack, jsii.String("JetStore_EcsTaskSG_ID"), &awscdk.CfnOutputProps{
-		Value: jsComp.PrivateSecurityGroup.SecurityGroupId(),
+	// Add VpcEndpointsSg ID to outputs
+	awscdk.NewCfnOutput(stack, jsii.String("Vpc_Endpoints_SG_ID"), &awscdk.CfnOutputProps{
+		Value: jsComp.VpcEndpointsSg.SecurityGroupId(),
 	})
+
+	// Create security groups
+	jsComp.RdsAccessSg = awsec2.NewSecurityGroup(stack, jsii.String("RdsAccessSg"), &awsec2.SecurityGroupProps{
+		Vpc:              jsComp.Vpc,
+		Description:      jsii.String("Allow access to RDS"),
+		AllowAllOutbound: jsii.Bool(false),
+	})
+	jsComp.InternetAccessSg = awsec2.NewSecurityGroup(stack, jsii.String("InternetAccessSg"), &awsec2.SecurityGroupProps{
+		Vpc:              jsComp.Vpc,
+		Description:      jsii.String("Allow access to internet"),
+		AllowAllOutbound: jsii.Bool(true),
+	})
+	// jsComp.ElbInboundSg = awsec2.NewSecurityGroup(stack, jsii.String("ElbInboundSg"), &awsec2.SecurityGroupProps{
+	// 	Vpc:              jsComp.Vpc,
+	// 	Description:      jsii.String("Allow elb inbound traffic"),
+	// 	AllowAllOutbound: jsii.Bool(false),
+	// })
 
 	// Database Cluster
 	// ----------------------------------------------------------------------------------------------
@@ -217,8 +234,8 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 		Value: jsComp.RdsCluster.ClusterIdentifier(),
 	})
 
-	// Grant access to ECS Tasks in Private subnets
-	jsComp.PrivateSecurityGroup.Connections().AllowTo(jsComp.RdsCluster, awsec2.Port_Tcp(jsii.Number(5432)), jsii.String("Allow connection from PrivateSecurityGroup"))
+	// Grant Database access to ECS Tasks and lambdas
+	jsComp.RdsAccessSg.Connections().AllowTo(jsComp.RdsCluster, awsec2.Port_Tcp(jsii.Number(5432)), jsii.String("Allow connection from RdsAccessSg"))
 
 	// Create the jsComp.EcsCluster.
 	// ==============================================================================================================
@@ -486,14 +503,14 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 // JETS_VPC_ID (optional, use existing vpc by id, must be in the same region as AWS_REGION)
 // when JETS_VPC_ID is set the following env vars must be set as well:
 // 	- JETS_VPC_ID
-// 	- JETS_ECS_TASKS_SG_ID
+// 	- JETS_VPC_ENDPOINTS_SG_ID
 // and the following env vars are ignored:
 // 	- JETS_NBR_NAT_GATEWAY
 // 	- JETS_VPC_INTERNET_GATEWAY
 //  - JETS_VPC_CIDR
 //  - AWS_PREFIX_LIST_ROUTE53_HEALTH_CHECK
 //  - AWS_PREFIX_LIST_S3
-// JETS_ECS_TASKS_SG_ID (optional, security group id to use for ecs tasks, required if JETS_VPC_ID is set)
+// JETS_VPC_ENDPOINTS_SG_ID (optional, security group id to use for ecs tasks, required if JETS_VPC_ID is set)
 
 // ??? JETS_VPC_ISOLATED_SUBNETS (optional, comma delimited list of isolated subnet ids, required if JETS_VPC_ID is set)
 

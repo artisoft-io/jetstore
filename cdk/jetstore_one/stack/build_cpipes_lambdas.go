@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"os"
 	"strconv"
-	"strings"
 
 	awscdk "github.com/aws/aws-cdk-go/awscdk/v2"
 	"github.com/aws/aws-cdk-go/awscdk/v2/awsec2"
@@ -20,39 +19,11 @@ import (
 )
 
 func (jsComp *JetStoreStackComponents) BuildCpipesLambdas(scope constructs.Construct, stack awscdk.Stack, props *JetstoreOneStackProps) {
-	// // FOR TESTING ONLY
-	// awslambdago.NewGoFunction(stack, jsii.String("TestLambda"), &awslambdago.GoFunctionProps{
-	// 	Description: jsii.String("JetStore One Test Lambda function"),
-	// 	Runtime:     awslambda.Runtime_PROVIDED_AL2023(),
-	// 	Entry:       jsii.String("lambdas/compute_pipes/lambda_test"),
-	// 	Bundling: &awslambdago.BundlingOptions{
-	// 		GoBuildFlags: &[]*string{jsii.String(`-buildvcs=false -ldflags "-s -w"`)},
-	// 	},
-	// 	Vpc:                  jsComp.Vpc,
-	// 	VpcSubnets:           jsComp.IsolatedSubnetSelection,
-	// })
-	// // FOR TESTING ONLY
-
 	// Build lambdas used by cpipesSM:
 	//	- CpipesNodeLambda
 	//	- CpipesStartShardingLambda
 	//	- CpipesStartReducingLambda
 	// --------------------------------------------------------------------------------------------------------------
-
-	// Define a security group if internet access is required for Status Notification
-	var cpipesSecurityGroups *[]awsec2.ISecurityGroup
-	switch strings.ToUpper(os.Getenv("JETS_SQS_REGISTER_KEY_VPC_ID")) {
-	case "JETSTORE_VPC_WITH_INTERNET_ACCESS":
-		cpipesSecurityGroups = &[]awsec2.ISecurityGroup{
-			jsComp.PrivateSecurityGroup,
-			awsec2.NewSecurityGroup(stack, jsii.String("CpipesLambdaAccesInternet"), &awsec2.SecurityGroupProps{
-				Vpc:              jsComp.Vpc,
-				Description:      jsii.String("Allow network access to internet"),
-				AllowAllOutbound: jsii.Bool(true),
-			})}
-	default:
-		cpipesSecurityGroups = &[]awsec2.ISecurityGroup{jsComp.PrivateSecurityGroup}
-	}
 
 	var memLimit float64
 	if len(os.Getenv("JETS_CPIPES_LAMBDA_MEM_LIMIT_MB")) > 0 {
@@ -107,7 +78,7 @@ func (jsComp *JetStoreStackComponents) BuildCpipesLambdas(scope constructs.Const
 		Timeout:              awscdk.Duration_Minutes(jsii.Number(15)),
 		Vpc:                  jsComp.Vpc,
 		VpcSubnets:           jsComp.IsolatedSubnetSelection,
-		SecurityGroups:       cpipesSecurityGroups,
+		SecurityGroups:       &[]awsec2.ISecurityGroup{jsComp.VpcEndpointsSg, jsComp.RdsAccessSg, jsComp.InternetAccessSg},
 		LogRetention:         awslogs.RetentionDays_THREE_MONTHS,
 	})
 	if phiTagName != nil {
@@ -119,7 +90,6 @@ func (jsComp *JetStoreStackComponents) BuildCpipesLambdas(scope constructs.Const
 	if descriptionTagName != nil {
 		awscdk.Tags_Of(jsComp.CpipesNodeLambda).Add(descriptionTagName, jsii.String("JetStore lambda for cpipes execution"), nil)
 	}
-	jsComp.CpipesNodeLambda.Connections().AllowTo(jsComp.RdsCluster, awsec2.Port_Tcp(jsii.Number(5432)), jsii.String("Allow connection from CpipesNodeLambda"))
 	jsComp.RdsSecret.GrantRead(jsComp.CpipesNodeLambda, nil)
 	jsComp.SourceBucket.GrantReadWrite(jsComp.CpipesNodeLambda, nil)
 	jsComp.GrantReadWriteFromExternalBuckets(stack, jsComp.CpipesNodeLambda)
@@ -167,7 +137,7 @@ func (jsComp *JetStoreStackComponents) BuildCpipesLambdas(scope constructs.Const
 		Timeout:        awscdk.Duration_Minutes(jsii.Number(15)),
 		Vpc:            jsComp.Vpc,
 		VpcSubnets:     jsComp.PrivateSubnetSelection,
-		SecurityGroups: cpipesSecurityGroups,
+		SecurityGroups: &[]awsec2.ISecurityGroup{jsComp.VpcEndpointsSg, jsComp.RdsAccessSg, jsComp.InternetAccessSg},
 		LogRetention:   awslogs.RetentionDays_THREE_MONTHS,
 	})
 	if phiTagName != nil {
@@ -179,7 +149,6 @@ func (jsComp *JetStoreStackComponents) BuildCpipesLambdas(scope constructs.Const
 	if descriptionTagName != nil {
 		awscdk.Tags_Of(jsComp.CpipesStartShardingLambda).Add(descriptionTagName, jsii.String("JetStore lambda for starting sharding data"), nil)
 	}
-	jsComp.CpipesStartShardingLambda.Connections().AllowTo(jsComp.RdsCluster, awsec2.Port_Tcp(jsii.Number(5432)), jsii.String("Allow connection from CpipesStartShardingLambda"))
 	jsComp.RdsSecret.GrantRead(jsComp.CpipesStartShardingLambda, nil)
 	jsComp.SourceBucket.GrantReadWrite(jsComp.CpipesStartShardingLambda, nil)
 	jsComp.GrantReadWriteFromExternalBuckets(stack, jsComp.CpipesStartShardingLambda)
@@ -226,7 +195,7 @@ func (jsComp *JetStoreStackComponents) BuildCpipesLambdas(scope constructs.Const
 		Timeout:        awscdk.Duration_Minutes(jsii.Number(15)),
 		Vpc:            jsComp.Vpc,
 		VpcSubnets:     jsComp.IsolatedSubnetSelection,
-		SecurityGroups: cpipesSecurityGroups,
+		SecurityGroups: &[]awsec2.ISecurityGroup{jsComp.VpcEndpointsSg, jsComp.RdsAccessSg, jsComp.InternetAccessSg},
 		LogRetention:   awslogs.RetentionDays_THREE_MONTHS,
 	})
 	if phiTagName != nil {
@@ -238,7 +207,6 @@ func (jsComp *JetStoreStackComponents) BuildCpipesLambdas(scope constructs.Const
 	if descriptionTagName != nil {
 		awscdk.Tags_Of(jsComp.CpipesStartReducingLambda).Add(descriptionTagName, jsii.String("JetStore lambda for starting sharding data"), nil)
 	}
-	jsComp.CpipesStartReducingLambda.Connections().AllowTo(jsComp.RdsCluster, awsec2.Port_Tcp(jsii.Number(5432)), jsii.String("Allow connection from CpipesStartReducingLambda"))
 	jsComp.RdsSecret.GrantRead(jsComp.CpipesStartReducingLambda, nil)
 	jsComp.SourceBucket.GrantReadWrite(jsComp.CpipesStartReducingLambda, nil)
 	jsComp.GrantReadWriteFromExternalBuckets(stack, jsComp.CpipesStartReducingLambda)

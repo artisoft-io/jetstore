@@ -25,13 +25,13 @@ func (jsComp *JetStoreStackComponents) BuildELB(scope constructs.Construct, stac
 	// JETS_ELB_MODE == public: deploy ELB in public subnet and public facing
 	// JETS_ELB_MODE != public: (private or empty) deploy ELB in private subnet and not public facing
 	elbSubnetSelection := jsComp.IsolatedSubnetSelection
+	internetFacing := false
+	var elbSecurityGroup awsec2.ISecurityGroup
 	if os.Getenv("JETS_ELB_MODE") == "public" {
-		internetFacing := false
 		if os.Getenv("JETS_ELB_INTERNET_FACING") == "true" {
 			internetFacing = true
 			elbSubnetSelection = jsComp.PublicSubnetSelection
 		}
-		var elbSecurityGroup awsec2.ISecurityGroup
 		if os.Getenv("JETS_ELB_NO_ALL_INCOMING") == "true" {
 			elbSecurityGroup = awsec2.NewSecurityGroup(stack, jsii.String("UiElbSecurityGroup"), &awsec2.SecurityGroupProps{
 				Vpc:              jsComp.Vpc,
@@ -39,40 +39,23 @@ func (jsComp *JetStoreStackComponents) BuildELB(scope constructs.Construct, stac
 				AllowAllOutbound: jsii.Bool(false),
 			})
 		}
-		jsComp.UiLoadBalancer = awselb.NewApplicationLoadBalancer(stack, jsii.String("UIELB"), &awselb.ApplicationLoadBalancerProps{
-			Vpc:                                  jsComp.Vpc,
-			InternetFacing:                       jsii.Bool(internetFacing),
-			VpcSubnets:                           elbSubnetSelection,
-			SecurityGroup:                        elbSecurityGroup,
-			XAmznTlsVersionAndCipherSuiteHeaders: jsii.Bool(true),
-			IdleTimeout:                          awscdk.Duration_Minutes(jsii.Number(20)),
-		})
-		if phiTagName != nil {
-			awscdk.Tags_Of(jsComp.UiLoadBalancer).Add(phiTagName, jsii.String("true"), nil)
-		}
-		if piiTagName != nil {
-			awscdk.Tags_Of(jsComp.UiLoadBalancer).Add(piiTagName, jsii.String("true"), nil)
-		}
-		if descriptionTagName != nil {
-			awscdk.Tags_Of(jsComp.UiLoadBalancer).Add(descriptionTagName, jsii.String("Application Load Balancer for JetStore Platform microservices and UI"), nil)
-		}
-	} else {
-		jsComp.UiLoadBalancer = awselb.NewApplicationLoadBalancer(stack, jsii.String("UIELB"), &awselb.ApplicationLoadBalancerProps{
-			Vpc:                                  jsComp.Vpc,
-			InternetFacing:                       jsii.Bool(false),
-			VpcSubnets:                           jsComp.IsolatedSubnetSelection,
-			XAmznTlsVersionAndCipherSuiteHeaders: jsii.Bool(true),
-			IdleTimeout:                          awscdk.Duration_Minutes(jsii.Number(20)),
-		})
-		if phiTagName != nil {
-			awscdk.Tags_Of(jsComp.UiLoadBalancer).Add(phiTagName, jsii.String("true"), nil)
-		}
-		if piiTagName != nil {
-			awscdk.Tags_Of(jsComp.UiLoadBalancer).Add(piiTagName, jsii.String("true"), nil)
-		}
-		if descriptionTagName != nil {
-			awscdk.Tags_Of(jsComp.UiLoadBalancer).Add(descriptionTagName, jsii.String("Application Load Balancer for JetStore Platform microservices and UI"), nil)
-		}
+	}
+	jsComp.UiLoadBalancer = awselb.NewApplicationLoadBalancer(stack, jsii.String("UIELB"), &awselb.ApplicationLoadBalancerProps{
+		Vpc:                                  jsComp.Vpc,
+		InternetFacing:                       jsii.Bool(internetFacing),
+		VpcSubnets:                           elbSubnetSelection,
+		SecurityGroup:                        elbSecurityGroup,
+		XAmznTlsVersionAndCipherSuiteHeaders: jsii.Bool(true),
+		IdleTimeout:                          awscdk.Duration_Minutes(jsii.Number(20)),
+	})
+	if phiTagName != nil {
+		awscdk.Tags_Of(jsComp.UiLoadBalancer).Add(phiTagName, jsii.String("true"), nil)
+	}
+	if piiTagName != nil {
+		awscdk.Tags_Of(jsComp.UiLoadBalancer).Add(piiTagName, jsii.String("true"), nil)
+	}
+	if descriptionTagName != nil {
+		awscdk.Tags_Of(jsComp.UiLoadBalancer).Add(descriptionTagName, jsii.String("Application Load Balancer for JetStore Platform microservices and UI"), nil)
 	}
 	var err error
 	var uiPort float64 = 8080

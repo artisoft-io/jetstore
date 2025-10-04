@@ -21,6 +21,7 @@ func (jsComp *JetStoreStackComponents) BuildLoaderSM(scope constructs.Construct,
 		Comment:        jsii.String("Run JetStore Loader Task"),
 		Cluster:        jsComp.EcsCluster,
 		Subnets:        jsComp.IsolatedSubnetSelection,
+		SecurityGroups: &[]awsec2.ISecurityGroup{jsComp.VpcEndpointsSg, jsComp.RdsAccessSg},
 		AssignPublicIp: jsii.Bool(false),
 		LaunchTarget: sfntask.NewEcsFargateLaunchTarget(&sfntask.EcsFargateLaunchTargetOptions{
 			PlatformVersion: awsecs.FargatePlatformVersion_LATEST,
@@ -36,7 +37,6 @@ func (jsComp *JetStoreStackComponents) BuildLoaderSM(scope constructs.Construct,
 		ResultPath:          sfn.JsonPath_DISCARD(),
 		IntegrationPattern:  sfn.IntegrationPattern_RUN_JOB,
 	})
-	runLoaderTask.Connections().AllowTo(jsComp.RdsCluster, awsec2.Port_Tcp(jsii.Number(5432)), jsii.String("Allow connection from runLoaderTask"))
 
 	// Run Reports ECS Task (for jsComp.LoaderSM)
 	// --------------------------------------------------------------------------------------------------------------
@@ -44,6 +44,7 @@ func (jsComp *JetStoreStackComponents) BuildLoaderSM(scope constructs.Construct,
 		Comment:        jsii.String("Run Loader Reports Task"),
 		Cluster:        jsComp.EcsCluster,
 		Subnets:        jsComp.IsolatedSubnetSelection,
+		SecurityGroups: &[]awsec2.ISecurityGroup{jsComp.VpcEndpointsSg, jsComp.RdsAccessSg},
 		AssignPublicIp: jsii.Bool(false),
 		LaunchTarget: sfntask.NewEcsFargateLaunchTarget(&sfntask.EcsFargateLaunchTargetOptions{
 			PlatformVersion: awsecs.FargatePlatformVersion_LATEST,
@@ -59,7 +60,6 @@ func (jsComp *JetStoreStackComponents) BuildLoaderSM(scope constructs.Construct,
 		ResultPath:          sfn.JsonPath_DISCARD(),
 		IntegrationPattern:  sfn.IntegrationPattern_RUN_JOB,
 	})
-	runLoaderReportsTask.Connections().AllowTo(jsComp.RdsCluster, awsec2.Port_Tcp(jsii.Number(5432)), jsii.String("Allow connection from runLoaderReportsTask "))
 	//* TODO add a catch on runLoaderTask and runLoaderReportsTask
 	runLoaderTask.Next(runLoaderReportsTask)
 

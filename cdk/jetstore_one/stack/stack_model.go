@@ -62,7 +62,11 @@ type JetStoreStackComponents struct {
 	PrivateSubnetSelection  *awsec2.SubnetSelection
 	IsolatedSubnetSelection *awsec2.SubnetSelection
 
-	PrivateSecurityGroup awsec2.ISecurityGroup
+	VpcEndpointsSg   awsec2.ISecurityGroup
+	RdsAccessSg      awsec2.ISecurityGroup
+	InternetAccessSg awsec2.ISecurityGroup
+	// ElbInboundSg     awsec2.ISecurityGroup
+
 	RdsSecret            awsrds.DatabaseSecret
 	RdsCluster           awsrds.DatabaseCluster
 	EcsCluster           awsecs.Cluster
