@@ -229,10 +229,10 @@ func AddVpcEndpoints(stack awscdk.Stack, vpc awsec2.IVpc, subnetSelection *awsec
 	vpcEndpointsSG := awsec2.NewSecurityGroup(stack, jsii.String("VpcEndpointsSG"), &awsec2.SecurityGroupProps{
 		Vpc:              vpc,
 		Description:      jsii.String("Allow ECS Tasks network access for subnets"),
-		AllowAllOutbound: jsii.Bool(false),
+		// AllowAllOutbound: jsii.Bool(false),
 	})
 	vpcEndpointsSG.AddIngressRule(awsec2.Peer_Ipv4(jsii.String(cidr)), awsec2.Port_Tcp(jsii.Number(443)), jsii.String("Allow vpc internal access"), jsii.Bool(false))
-	vpcEndpointsSG.AddEgressRule(awsec2.Peer_Ipv4(jsii.String(cidr)), awsec2.Port_Tcp(jsii.Number(443)), jsii.String("Allow vpc internal access"), jsii.Bool(false))
+	// vpcEndpointsSG.AddEgressRule(awsec2.Peer_Ipv4(jsii.String(cidr)), awsec2.Port_Tcp(jsii.Number(443)), jsii.String("Allow vpc internal access"), jsii.Bool(false))
 	// Add Endpoints
 	// Allow egress to route53 health check prefix list
 	// AWS_PREFIX_LIST_ROUTE53_HEALTH_CHECK - com.amazonaws.us-east-1.route53-healthchecks
