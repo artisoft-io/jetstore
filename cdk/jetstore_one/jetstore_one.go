@@ -201,6 +201,7 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 		Credentials:         awsrds.Credentials_FromSecret(jsComp.RdsSecret, username),
 		ClusterIdentifier:   props.MkId("jetstoreDb"),
 		DefaultDatabaseName: jsii.String("postgres"),
+		Port:                jsii.Number(8188),
 		DeletionProtection:  jsii.Bool(true),
 		Writer: awsrds.ClusterInstance_ServerlessV2(jsii.String("ClusterInstance"), &awsrds.ServerlessV2ClusterInstanceProps{
 			AllowMajorVersionUpgrade: jsii.Bool(true),
@@ -235,7 +236,7 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 	})
 
 	// Grant Database access to ECS Tasks and lambdas
-	jsComp.RdsAccessSg.Connections().AllowTo(jsComp.RdsCluster, awsec2.Port_Tcp(jsii.Number(5432)), jsii.String("Allow connection from RdsAccessSg"))
+	jsComp.RdsAccessSg.Connections().AllowTo(jsComp.RdsCluster, awsec2.Port_Tcp(jsii.Number(8188)), jsii.String("Allow connection from RdsAccessSg"))
 
 	// Create the jsComp.EcsCluster.
 	// ==============================================================================================================
@@ -415,7 +416,7 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 		})
 		jsComp.BastionHost.Instance().Instance().AddPropertyOverride(jsii.String("KeyName"), os.Getenv("BASTION_HOST_KEYPAIR_NAME"))
 		jsComp.BastionHost.AllowSshAccessFrom(awsec2.Peer_AnyIpv4())
-		jsComp.BastionHost.Connections().AllowTo(jsComp.RdsCluster, awsec2.Port_Tcp(jsii.Number(5432)), jsii.String("Allow connection from jsComp.BastionHost"))
+		jsComp.BastionHost.Connections().AllowTo(jsComp.RdsCluster, awsec2.Port_Tcp(jsii.Number(8188)), jsii.String("Allow connection from jsComp.BastionHost"))
 		if phiTagName != nil {
 			awscdk.Tags_Of(jsComp.BastionHost).Add(phiTagName, jsii.String("false"), nil)
 		}

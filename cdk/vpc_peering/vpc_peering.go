@@ -17,6 +17,7 @@ import (
 type VpcPeeringStackProps struct {
 	awscdk.StackProps
 }
+
 var phiTagName, piiTagName, descriptionTagName *string
 
 func NewVpcPeeringStack(scope constructs.Construct, id string, props *VpcPeeringStackProps) awscdk.Stack {
@@ -37,9 +38,9 @@ func NewVpcPeeringStack(scope constructs.Construct, id string, props *VpcPeering
 			hostVpcRegion = os.Getenv("AWS_REGION")
 		}
 		vpc = awsec2.Vpc_FromLookup(stack, jsii.String("HostVPC"), &awsec2.VpcLookupOptions{
-			VpcId: jsii.String(os.Getenv("HOST_VPC_ID")),
+			VpcId:  jsii.String(os.Getenv("HOST_VPC_ID")),
 			Region: jsii.String(hostVpcRegion),
-		})	
+		})
 	} else {
 		// Create a vpc w/ jump server
 		vpc = awsec2.NewVpc(stack, jsii.String("vpcPublic"), &awsec2.VpcProps{
@@ -47,7 +48,7 @@ func NewVpcPeeringStack(scope constructs.Construct, id string, props *VpcPeering
 			NatGateways:        jsii.Number(0),
 			EnableDnsHostnames: jsii.Bool(true),
 			EnableDnsSupport:   jsii.Bool(true),
-			IpAddresses: awsec2.IpAddresses_Cidr(jsii.String("10.100.0.0/16")),
+			IpAddresses:        awsec2.IpAddresses_Cidr(jsii.String("10.100.0.0/16")),
 			SubnetConfiguration: &[]*awsec2.SubnetConfiguration{
 				{
 					Name:       jsii.String("public"),
@@ -71,8 +72,8 @@ func NewVpcPeeringStack(scope constructs.Construct, id string, props *VpcPeering
 		}
 		// Put a bastion host in the public sn
 		bastionHost := awsec2.NewBastionHostLinux(stack, jsii.String("PublicJumpServer"), &awsec2.BastionHostLinuxProps{
-			Vpc:             vpc,
-			InstanceName:    jsii.String("PublicJumpServer"),
+			Vpc:          vpc,
+			InstanceName: jsii.String("PublicJumpServer"),
 			SubnetSelection: &awsec2.SubnetSelection{
 				SubnetType: awsec2.SubnetType_PUBLIC,
 			},
@@ -87,12 +88,12 @@ func NewVpcPeeringStack(scope constructs.Construct, id string, props *VpcPeering
 			awscdk.Tags_Of(vpc).Add(descriptionTagName, jsii.String("Bastion host for access to JetStore Platform"), nil)
 		}
 		bastionHost.Instance().Instance().AddPropertyOverride(jsii.String("KeyName"), os.Getenv("BASTION_HOST_KEYPAIR_NAME"))
-		bastionHost.AllowSshAccessFrom(awsec2.Peer_AnyIpv4())	
+		bastionHost.AllowSshAccessFrom(awsec2.Peer_AnyIpv4())
 		if os.Getenv("JETS_DB_CLUSTER_ID") != "" {
 			rdsCluster := awsrds.DatabaseCluster_FromDatabaseClusterAttributes(stack, jsii.String("JetstoreDb"), &awsrds.DatabaseClusterAttributes{
 				ClusterIdentifier: jsii.String(os.Getenv("JETS_DB_CLUSTER_ID")),
 			})
-			bastionHost.Connections().AllowTo(rdsCluster, awsec2.Port_Tcp(jsii.Number(5432)), jsii.String("Allow connection from bastionHost"))
+			bastionHost.Connections().AllowTo(rdsCluster, awsec2.Port_Tcp(jsii.Number(8188)), jsii.String("Allow connection from bastionHost"))
 		}
 	}
 	// Get the vpc's from the vpc id
@@ -102,7 +103,7 @@ func NewVpcPeeringStack(scope constructs.Construct, id string, props *VpcPeering
 
 	// Set up the peering connection
 	vpcPeeringConnection := awsec2.NewCfnVPCPeeringConnection(stack, jsii.String("VPCPeering"), &awsec2.CfnVPCPeeringConnectionProps{
-		VpcId: vpc.VpcId(),
+		VpcId:     vpc.VpcId(),
 		PeerVpcId: peerVpc.VpcId(),
 	})
 
@@ -114,13 +115,13 @@ func NewVpcPeeringStack(scope constructs.Construct, id string, props *VpcPeering
 		rtId := subnet.RouteTable().RouteTableId()
 		if !rtSeen[*rtId] {
 			awsec2.NewCfnRoute(stack, jsii.String(fmt.Sprintf("RoutePublicSNVpc2PeerVpc%d", i)), &awsec2.CfnRouteProps{
-				RouteTableId: rtId,
+				RouteTableId:           rtId,
 				VpcPeeringConnectionId: vpcPeeringConnection.AttrId(),
-				DestinationCidrBlock: peerVpc.VpcCidrBlock(),
+				DestinationCidrBlock:   peerVpc.VpcCidrBlock(),
 			})
 			rtSeen[*rtId] = true
 		}
-	}	
+	}
 
 	// Update route tables to go from peer vpc isolated subnet to vpc
 	rtSeen = make(map[string]bool)
@@ -128,9 +129,9 @@ func NewVpcPeeringStack(scope constructs.Construct, id string, props *VpcPeering
 		rtId := subnet.RouteTable().RouteTableId()
 		if !rtSeen[*rtId] {
 			awsec2.NewCfnRoute(stack, jsii.String(fmt.Sprintf("RouteIsolatedSNPeerVpc2vpc%d", i)), &awsec2.CfnRouteProps{
-				RouteTableId: subnet.RouteTable().RouteTableId(),
+				RouteTableId:           subnet.RouteTable().RouteTableId(),
 				VpcPeeringConnectionId: vpcPeeringConnection.AttrId(),
-				DestinationCidrBlock: vpc.VpcCidrBlock(),
+				DestinationCidrBlock:   vpc.VpcCidrBlock(),
 			})
 			rtSeen[*rtId] = true
 		}
@@ -142,9 +143,9 @@ func NewVpcPeeringStack(scope constructs.Construct, id string, props *VpcPeering
 		rtId := subnet.RouteTable().RouteTableId()
 		if !rtSeen[*rtId] {
 			awsec2.NewCfnRoute(stack, jsii.String(fmt.Sprintf("RoutePrivateSNPeerVpc2vpc%d", i)), &awsec2.CfnRouteProps{
-				RouteTableId: subnet.RouteTable().RouteTableId(),
+				RouteTableId:           subnet.RouteTable().RouteTableId(),
 				VpcPeeringConnectionId: vpcPeeringConnection.AttrId(),
-				DestinationCidrBlock: vpc.VpcCidrBlock(),
+				DestinationCidrBlock:   vpc.VpcCidrBlock(),
 			})
 			rtSeen[*rtId] = true
 		}
@@ -174,19 +175,19 @@ func main() {
 	defer jsii.Close()
 
 	fmt.Println("Got following env var")
-	fmt.Println("env AWS_ACCOUNT:",os.Getenv("AWS_ACCOUNT"))
-	fmt.Println("env AWS_REGION:",os.Getenv("AWS_REGION"))
-	fmt.Println("env HOST_VPC_ID:",os.Getenv("HOST_VPC_ID"))
-	fmt.Println("env HOST_VPC_REGION:",os.Getenv("HOST_VPC_REGION"))
-	fmt.Println("env JETSTORE_VPC_ID:",os.Getenv("JETSTORE_VPC_ID"))
-	fmt.Println("env BASTION_HOST_KEYPAIR_NAME:",os.Getenv("BASTION_HOST_KEYPAIR_NAME"))
-	fmt.Println("env JETS_TAG_NAME_OWNER:",os.Getenv("JETS_TAG_NAME_OWNER"))
-	fmt.Println("env JETS_TAG_VALUE_OWNER:",os.Getenv("JETS_TAG_VALUE_OWNER"))
-	fmt.Println("env JETS_TAG_NAME_PROD:",os.Getenv("JETS_TAG_NAME_PROD"))
-	fmt.Println("env JETS_TAG_VALUE_PROD:",os.Getenv("JETS_TAG_VALUE_PROD"))
-	fmt.Println("env JETS_TAG_NAME_PHI:",os.Getenv("JETS_TAG_NAME_PHI"))
-	fmt.Println("env JETS_TAG_NAME_PII:",os.Getenv("JETS_TAG_NAME_PII"))
-	fmt.Println("env JETS_TAG_NAME_DESCRIPTION:",os.Getenv("JETS_TAG_NAME_DESCRIPTION"))
+	fmt.Println("env AWS_ACCOUNT:", os.Getenv("AWS_ACCOUNT"))
+	fmt.Println("env AWS_REGION:", os.Getenv("AWS_REGION"))
+	fmt.Println("env HOST_VPC_ID:", os.Getenv("HOST_VPC_ID"))
+	fmt.Println("env HOST_VPC_REGION:", os.Getenv("HOST_VPC_REGION"))
+	fmt.Println("env JETSTORE_VPC_ID:", os.Getenv("JETSTORE_VPC_ID"))
+	fmt.Println("env BASTION_HOST_KEYPAIR_NAME:", os.Getenv("BASTION_HOST_KEYPAIR_NAME"))
+	fmt.Println("env JETS_TAG_NAME_OWNER:", os.Getenv("JETS_TAG_NAME_OWNER"))
+	fmt.Println("env JETS_TAG_VALUE_OWNER:", os.Getenv("JETS_TAG_VALUE_OWNER"))
+	fmt.Println("env JETS_TAG_NAME_PROD:", os.Getenv("JETS_TAG_NAME_PROD"))
+	fmt.Println("env JETS_TAG_VALUE_PROD:", os.Getenv("JETS_TAG_VALUE_PROD"))
+	fmt.Println("env JETS_TAG_NAME_PHI:", os.Getenv("JETS_TAG_NAME_PHI"))
+	fmt.Println("env JETS_TAG_NAME_PII:", os.Getenv("JETS_TAG_NAME_PII"))
+	fmt.Println("env JETS_TAG_NAME_DESCRIPTION:", os.Getenv("JETS_TAG_NAME_DESCRIPTION"))
 
 	// Verify that we have all the required env variables
 	hasErr := false
@@ -230,10 +231,10 @@ func main() {
 	if os.Getenv("JETS_TAG_NAME_PROD") != "" && os.Getenv("JETS_TAG_VALUE_PROD") != "" {
 		awscdk.Tags_Of(app).Add(jsii.String(os.Getenv("JETS_TAG_NAME_PROD")), jsii.String(os.Getenv("JETS_TAG_VALUE_PROD")), nil)
 	}
-	
+
 	NewVpcPeeringStack(app, "VpcPeeringStack", &VpcPeeringStackProps{
 		awscdk.StackProps{
-			Env: env(),
+			Env:         env(),
 			Description: stackDescription,
 		},
 	})

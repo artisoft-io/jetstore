@@ -12,7 +12,7 @@ import (
 	"github.com/jackc/pgx/v4/pgxpool"
 )
 
-// dsn := "postgresql://postgres:<PWD>@<IP>:5432/postgres?sslmode=disable"
+// dsn := "postgresql://postgres:<PWD>@<IP>:8188/postgres?sslmode=disable"
 
 // Env variables:
 // JETS_BUCKET
@@ -55,18 +55,18 @@ func main() {
 	// full data structure
 	dataGrps := make([][]any, 0)
 	// row structure to scan the data
-	scans := make([]any, 0) 
+	scans := make([]any, 0)
 	scans = append(scans, &sql.NullString{}) // "hc:claim_number"
 	scans = append(scans, &sql.NullString{}) // "hc:member_number"
-	scans = append(scans, &sql.NullString{})	// "jets:key"
-	scans = append(scans, &sql.NullInt32{}) 	// "shard_id"
-	scans = append(scans, &[]string{})	     	// "rdf:type"
+	scans = append(scans, &sql.NullString{}) // "jets:key"
+	scans = append(scans, &sql.NullInt32{})  // "shard_id"
+	scans = append(scans, &[]string{})       // "rdf:type"
 
 	// reading from db
 	sqlstmt := `SELECT "hc:claim_number", "hc:member_number", "jets:key", "shard_id", "rdf:type" FROM "test_table"`
 	tag, err := dbpool.QueryFunc(context.Background(), sqlstmt, nil, scans, func(qfr pgx.QueryFuncRow) error {
 		// type or unwrap the data as needed
-		row := make([]any, 0) 
+		row := make([]any, 0)
 		row = append(row, scans[0].(*sql.NullString).String)
 		row = append(row, scans[1].(*sql.NullString).String)
 		row = append(row, scans[2].(*sql.NullString).String)
@@ -90,4 +90,3 @@ func main() {
 	}
 	log.Println()
 }
-

@@ -58,7 +58,7 @@ From the `server/` directory:
 ```bash
 docker run --rm -v=`pwd`:/go/work -w=/go/work \
   --entrypoint=loader jetstore:bullseye    \
-  -dsn="postgresql://postgres:<PWD>@<IP>:5432/postgres" \
+  -dsn="postgresql://postgres:<PWD>@<IP>:8188/postgres" \
   -table=test1 -in_file=test_data/input_data_test1.csv -sep '|' -d 
 ```
 
@@ -92,7 +92,7 @@ psql -U postgres -a -f process_config_test1.sql
 ## Update database
 
 ```bash
-../update_db/update_db -dsn="postgresql://postgres:<PWD>@<IP>:5432/postgres" -drop -workspaceDb test_data/workspace_test1.db 
+../update_db/update_db -dsn="postgresql://postgres:<PWD>@<IP>:8188/postgres" -drop -workspaceDb test_data/workspace_test1.db 
 ```
 
 ## Running the server process
@@ -103,17 +103,17 @@ Running directly from the source directory, first build the server:
 Execute the process:
 
 ```bash
-./server -dsn="postgresql://postgres:<PWD>@<IP>:5432/postgres" -lookupDb test_data/lookup_test1.db -outTables=hc__claim -pcKey=1 -ruleseq=step1 -sessionId=session1 -workspaceDb=test_data/workspace_test1.db -poolSize=1
+./server -dsn="postgresql://postgres:<PWD>@<IP>:8188/postgres" -lookupDb test_data/lookup_test1.db -outTables=hc__claim -pcKey=1 -ruleseq=step1 -sessionId=session1 -workspaceDb=test_data/workspace_test1.db -poolSize=1
 ```
 
 Execute the process with c++ logging:
 
 ```bash
-GLOG_v=1 ./server -dsn="postgresql://postgres:<PWD>@<IP>:5432/postgres"  -lookupDb test_data/lookup_test1.db -outTables=hc__claim -pcKey=1 -ruleset=workspace_test1.jr -sessionId=sess1 -workspaceDb=test_data/workspace_test1.db -poolSize=1
+GLOG_v=1 ./server -dsn="postgresql://postgres:<PWD>@<IP>:8188/postgres"  -lookupDb test_data/lookup_test1.db -outTables=hc__claim -pcKey=1 -ruleset=workspace_test1.jr -sessionId=sess1 -workspaceDb=test_data/workspace_test1.db -poolSize=1
 ```
 
 Running `test2` with logging:
 
 ```bash
-GLOG_v=4 ./server -dsn="postgresql://postgres:<PWD>@<IP>:5432/postgres"  -outTables=hc__zipclaim -pcKey=201 -ruleseq=step1 -sessionId=sess1 -workspaceDb=test_data/workspace_test2.db -poolSize=1
+GLOG_v=4 ./server -dsn="postgresql://postgres:<PWD>@<IP>:8188/postgres"  -outTables=hc__zipclaim -pcKey=201 -ruleseq=step1 -sessionId=sess1 -workspaceDb=test_data/workspace_test2.db -poolSize=1
 ```
