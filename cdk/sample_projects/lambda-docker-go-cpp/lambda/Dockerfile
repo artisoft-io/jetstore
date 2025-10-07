@@ -1,5 +1,5 @@
 # Multi-stage build for Go Lambda with C++ library
-FROM golang:1.21-bullseye AS builder
+FROM golang:1.24-bullseye AS builder
 
 # Install build dependencies
 RUN apt-get update && apt-get install -y \
