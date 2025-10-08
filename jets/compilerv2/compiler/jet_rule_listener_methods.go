@@ -366,11 +366,18 @@ func (s *JetRuleListener) ExitJetRuleStmt(ctx *parser.JetRuleStmtContext) {
 	s.PostProcessJetruleProperties(s.currentJetruleNode)
 
 	// Validate the rule and optimize it if valid
-	if s.ValidateJetruleNode(s.currentJetruleNode) && s.currentJetruleNode.Optimization {
+	isValid := s.ValidateJetruleNode(s.currentJetruleNode)
+	if isValid && s.currentJetruleNode.Optimization {
 		s.OptimizeJetruleNode(s.currentJetruleNode)
 	}
 	// Add rule Label and NormalizedLabel
 	s.PostProcessJetruleNode(s.currentJetruleNode)
+
+	if isValid {
+		// Build the beta nodes for the antecedents of the rule
+		s.BuildBetaNodesForJetrule(s.currentJetruleNode)
+	}
+	s.currentJetruleNode.IsValid = isValid
 
 	// Reset current rule state
 	s.currentRuleProperties = nil
@@ -502,6 +509,7 @@ func (s *JetRuleListener) ExitUnaryExprTerm3(ctx *parser.UnaryExprTerm3Context) 
 }
 
 // exitObjectAtomExprTerm is called when production objectAtomExprTerm is exited.
+// This is the leaf node of the expression tree, it represents a variable or a resource
 func (s *JetRuleListener) ExitObjectAtomExprTerm(ctx *parser.ObjectAtomExprTermContext) {
 	NodeTxt := StripQuotes(ctx.GetIdent().GetText())
 	kws := ""

@@ -93,9 +93,9 @@ func (s *JetRuleListener) OptimizeJetruleNode(rule *rete.JetruleNode) {
 	// Reallocate the filters to the reordered antecedents
 	// ---------------------------------------------------------------------------------
 	bindedVars = make(map[string]*int)
-	// For each antecedent in order, check if any filter can be applied
-	// A filter can be applied if all its variables are binded by the antecedents
-	// placed before it.
+	// For each antecedent in order, check if any filter can be applied.
+	// A filter can be applied if all its variables are binded by the 
+	// current antecedents and those placed before it.
 	// If multiple filters can be applied, they are combined using AND operator
 	// and added to the antecedent.
 	// The filters that have been applied are removed from the filters list.

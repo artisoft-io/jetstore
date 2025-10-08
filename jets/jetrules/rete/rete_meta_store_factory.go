@@ -97,7 +97,7 @@ func NewReteMetaStoreFactory(jetRuleName string) (*ReteMetaStoreFactory, error) 
 		return nil, fmt.Errorf("error, %s does not correspond to any rule file names", jetRuleName)
 	}
 	// Define function to avoid repeating code
-	loadJson := func (strFmt, rootName string,  jetruleModel *JetruleModel) error {
+	loadJson := func(strFmt, rootName string, jetruleModel *JetruleModel) error {
 		fpath := fmt.Sprintf(strFmt, workspaceHome, wprefix, rootName)
 		file, err := os.ReadFile(fpath)
 		if err != nil {
@@ -521,20 +521,20 @@ func (ctx *ReteBuilderContext) makeExpression(expr *ExpressionNode) (Expression,
 			return nil, fmt.Errorf("error: makeExpression called for unary expression with unknown op %s", expr.Op)
 		}
 		return NewExprUnaryOp(operator, rhs), nil
-		case "identifier":
-			// Check if node is a variable
-			varInfo := ctx.VariablesLookup[expr.Value]
-			if varInfo != nil {
-				// Binded variable
-				return NewExprBindedVar(varInfo.VarPos, varInfo.Id), nil
-			}
-			// Check if it's a resource (incl. literals)
-			node := ctx.ResourcesLookup[expr.Value] 
-			if node == nil {
-				return nil, fmt.Errorf("error: makeExpression called for identifier with key %d not found", expr.Value)
-			}
-			// Constant resource
-			return NewExprCst(node), nil
+	case "identifier":
+		// Check if node is a variable
+		varInfo := ctx.VariablesLookup[expr.Value]
+		if varInfo != nil {
+			// Binded variable
+			return NewExprBindedVar(varInfo.VarPos, varInfo.Id), nil
+		}
+		// Check if it's a resource (incl. literals)
+		node := ctx.ResourcesLookup[expr.Value]
+		if node == nil {
+			return nil, fmt.Errorf("error: makeExpression called for identifier with key %d not found", expr.Value)
+		}
+		// Constant resource
+		return NewExprCst(node), nil
 	}
 	return nil, fmt.Errorf("error: makeExpression called with unknown type %s", expr.Type)
 }

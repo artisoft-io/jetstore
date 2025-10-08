@@ -26,6 +26,8 @@ import (
 //	+12.3       -> {type: "double", value: "+12.3"}
 //
 // Note: if the type is "var" then it's a variable and a new resource is always created with a normalized name
+// but the resource is kept in the scope of the rule only. It will be created in the ResourceManager once
+// the rule is optimized since the Id (normalized name) is fixed at that time.
 // Note: if the type is "identifier" then it's actually either "resource" or "volatile_resource"
 // This is resolved by the ResourceManager when adding to the model.
 // returns its key

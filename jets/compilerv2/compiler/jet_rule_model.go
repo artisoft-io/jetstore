@@ -13,6 +13,10 @@ import (
 // The domain object model is in rete package (see rete_meta_store_model.go)
 
 // JetRuleListener to build the tree
+// currentRuleVarByValue is a map of variable Value (original name) to ResourceNode,
+// rule level for first encounter of the variable, aka isBinded = false.
+// currentRuleBindedVarByValue is a map of variable Value (original name) to ResourceNode,
+// rule level for subsequent encounters of the variable, aka isBinded = true.
 type JetRuleListener struct {
 	*parser.BaseJetRuleListener
 	// Input
@@ -29,20 +33,16 @@ type JetRuleListener struct {
 	classesByName    map[string]*rete.ClassNode
 
 	// Internal state
-	currentRuleFileName       string
-	currentClass              *rete.ClassNode
-	currentRuleSequence       *rete.RuleSequence
-	currentLookupTableColumns []rete.LookupTableColumn
-	currentRuleProperties     map[string]string
-	currentRuleAntecedents    []*rete.RuleTerm
-	currentRuleConsequents    []*rete.RuleTerm
-	currentJetruleNode        *rete.JetruleNode
-	// currentRuleVarByValue is a map of variable Value (original name) to ResourceNode, 
-	// rule level for first encounter of the variable, aka isBinded = false.
-	currentRuleVarByValue     map[string]*rete.ResourceNode 
-	// currentRuleBindedVarByValue is a map of variable Value (original name) to ResourceNode,
-	// rule level for subsequent encounters of the variable, aka isBinded = true.
-	currentRuleBindedVarByValue     map[string]*rete.ResourceNode
+	currentRuleFileName         string
+	currentClass                *rete.ClassNode
+	currentRuleSequence         *rete.RuleSequence
+	currentLookupTableColumns   []rete.LookupTableColumn
+	currentRuleProperties       map[string]string
+	currentRuleAntecedents      []*rete.RuleTerm
+	currentRuleConsequents      []*rete.RuleTerm
+	currentJetruleNode          *rete.JetruleNode
+	currentRuleVarByValue       map[string]*rete.ResourceNode
+	currentRuleBindedVarByValue map[string]*rete.ResourceNode
 	// stack to build expressions in Antecedents and Consequents
 	inProgressExpr *stack.Stack[rete.ExpressionNode]
 
@@ -55,16 +55,16 @@ type JetRuleListener struct {
 func NewJetRuleListener(basePath string, mainRuleFileName string) *JetRuleListener {
 	outJsonFileName := strings.TrimSuffix(mainRuleFileName, ".jetrule") + ".json"
 	l := &JetRuleListener{
-		mainRuleFileName:      mainRuleFileName,
-		basePath:              basePath,
-		outJsonFileName:       outJsonFileName,
-		jetRuleModel:          rete.NewJetruleModel(),
-		resourceManager:       NewResourceManager(),
-		classesByName:         make(map[string]*rete.ClassNode),
-		currentRuleVarByValue: make(map[string]*rete.ResourceNode),
+		mainRuleFileName:            mainRuleFileName,
+		basePath:                    basePath,
+		outJsonFileName:             outJsonFileName,
+		jetRuleModel:                rete.NewJetruleModel(),
+		resourceManager:             NewResourceManager(),
+		classesByName:               make(map[string]*rete.ClassNode),
+		currentRuleVarByValue:       make(map[string]*rete.ResourceNode),
 		currentRuleBindedVarByValue: make(map[string]*rete.ResourceNode),
-		parseLog:              &strings.Builder{},
-		errorLog:              &strings.Builder{},
+		parseLog:                    &strings.Builder{},
+		errorLog:                    &strings.Builder{},
 	}
 	l.AddR("jets:client")
 	l.AddR("jets:completed")

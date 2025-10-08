@@ -11,7 +11,7 @@ import (
 
 // BuildReteNetwork builds the Rete network from the rules in the Jetrule model
 // It creates the Alpha nodes with Beta nodes configuration and connects them according to the rules
-// The Rete network optimizations is performed prior to this step.
+// The Rete network optimizations (at rule level) is performed prior to this step.
 //
 // Augment JetRule structure with rete markups:
 //   - Add to antecedent: parent_vertex and vertex
@@ -20,9 +20,7 @@ import (
 // parent_vertex and vertex are integers
 // --
 // Approach:
-// Build a rete network with beta nodes corresponding to rule antecedents.
-// Add the rule's antecedent to the rete network.
-// Connect nodes across rules by matching normalized labels (merging common antecedents)
+// Connect nodes across rules by matching normalized labels (merging common antecedents).
 func (l *JetRuleListener) BuildReteNetwork() {
 	if l.trace {
 		fmt.Fprintf(l.parseLog, "** entering BuildReteNetwork for %d rules\n", len(l.jetRuleModel.Jetrules))
@@ -227,8 +225,7 @@ func (l *JetRuleListener) BuildReteNetwork() {
 		fmt.Fprintf(l.parseLog, "** Rete Network built with %d nodes\n", len(l.jetRuleModel.ReteNodes))
 	} else {
 		// Clean up the rete nodes, remove ParentBindedVars, DescendentsReqVars, SelfVars,
-		// BetaRelationVars, and PrunedVars as they
-		// are no longer needed
+		// BetaRelationVars, and PrunedVars as they are no longer needed
 		for _, node := range l.jetRuleModel.ReteNodes {
 			node.ParentBindedVars = nil
 			node.DescendentsReqVars = nil

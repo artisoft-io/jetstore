@@ -70,6 +70,7 @@ func (s *JetRuleListener) ValidateJetruleNode(rule *rete.JetruleNode) bool {
 	// Build a set of variable resource keys from the antecedents
 	varSet := make(map[int]bool)
 	for i := range rule.Antecedents {
+		//** check for IsNot first before adding current var to varSet (rename to bindedVars)
 		// - All RuleTerm in Antecedents must have at least one of subject, predicate, object as variable
 		hasVar := false
 		if s.Resource(rule.Antecedents[i].SubjectKey).Type == "var" {
