@@ -29,11 +29,12 @@ import (
 // Note: if the type is "identifier" then it's actually either "resource" or "volatile_resource"
 // This is resolved by the ResourceManager when adding to the model.
 // returns its key
-// Note: This must be called when s.currentRuleVarByValue is initialized (at the start of a rule)
+// Note: s.currentRuleVarByValue must be initialized (at the start of a rule) before this function is called
 func (s *JetRuleListener) ParseObjectAtom(txt string, keywordsContextValue string) int {
-	r := parseObjectAtom(txt, keywordsContextValue)
-	if len(r.Id) > 0 { // Type == "identifier"
-		// Type is actually resource or volatile_resource
+	r := s.parseObjectAtom(txt, keywordsContextValue)
+	switch r.Type {
+	case "identifier":
+		// Type is either a defined resource / volatile_resource or an inlined literal resource
 		if res, exists := s.resourceManager.ResourceById[r.Id]; exists {
 			return res.Key
 		}
@@ -44,22 +45,8 @@ func (s *JetRuleListener) ParseObjectAtom(txt string, keywordsContextValue strin
 		}
 		r.Type = "resource"
 		r.Value = r.Id
-	}
-	// Variable are always created new
-	// and assigned a normalized name
-	// they are unique in the context of a rule
-	// so we check for existing variables within the rule
-	if r.Type == "var" {
-		// Variable - Id is the normalized variable name
-		if varNode, exists := s.currentRuleVarByValue[r.Value]; exists {
-			// Variable already exists in the context of the rule
-			// return existing key
-			return varNode.Key
-		}
-		r.Id = fmt.Sprintf("?x%02d", len(s.currentRuleVarByValue)+1)
-		s.currentRuleVarByValue[r.Value] = r
-		s.newResource(r)
-		return r.Key
+	case "var":
+		return s.AddVariable(r.Value)
 	}
 
 	// Check if resource already exists
@@ -74,39 +61,62 @@ func (s *JetRuleListener) ParseObjectAtom(txt string, keywordsContextValue strin
 	return r.Key
 }
 
-// AddResource adds a resource to the model.
+// Variable - Id is the normalized variable name
+// Variables are unique in the context of a rule.
+// The first time a variable is encounted, it is marked as isBinded = false,
+// subsequent encounters of the same variable, it returns a copy which is marked as isBinded = true.
+// This is required for the rete network construction.
+func (s *JetRuleListener) AddVariable(name string) int {
+	// Check for existing variables within the rule
+	if varNode, exists := s.currentRuleVarByValue[name]; exists {
+		// Variable already exists, the isBinded = true,
+		// see if defined in currentRuleBindedVarByValue
+		if bindedVarNode, existsBinded := s.currentRuleBindedVarByValue[name]; existsBinded {
+			// already exists in binded map, return existing key
+			return bindedVarNode.Key
+		}
+		// Create a new copy of the variable with isBinded = true
+		bindedVar := &rete.ResourceNode{
+			Type:     "var",
+			Id:       varNode.Id,
+			Value:    varNode.Value,
+			Inline:   varNode.Inline,
+			IsBinded: true,
+		}
+		s.currentRuleBindedVarByValue[name] = bindedVar
+		s.newResource(bindedVar)
+		return bindedVar.Key
+	}
+	// New variable
+	r := &rete.ResourceNode{
+		Type:  "var",
+		Value: name,
+		Id:    fmt.Sprintf("?x%02d", len(s.currentRuleVarByValue)+1),
+	}
+	s.currentRuleVarByValue[name] = r
+	s.newResource(r)
+	return r.Key
+}
+
+// AddResource adds a named resource or a literal to the model.
 // If The resource Type is "volatile_resource" then it adds the prefix "_0:" to the value
 // to ensure it's unique and not conflicting with any other resource.
-// If the resource Type is "var" then it creates a new variable resource with a normalized name
-// and adds it to the currentRuleVarByValue map.
 // If a resource with the same Type and Value already exists, it returns the existing resource's key
-// (this does not apply to variables, variables exist in the context of a rule and are not globally unique).
 // If a resource with the same Id already exists but with different Type or Value, it logs an error
 // and keeps the existing resource.
 // If the resource is new, it assigns a new key, sets the SourceFileName, and adds it to the model.
 // It performs validation and ensures uniqueness based on type and value.
 // It also validate that two resources with the same Id are identical.
 // returns its key
-// Note: This must be called when s.currentRuleVarByValue is initialized (at the start of a rule)
+// This function is called for resources and literals declaration and in expressions (filters, consequent obj expressions)
+// Note: s.currentRuleVarByValue must be initialized (at the start of a rule) before this function is called
 func (s *JetRuleListener) AddResource(r *rete.ResourceNode) int {
+	if r.Type == "var" {
+		// Add variables, this is for a variable in an expression
+		return s.AddVariable(r.Value)
+	}
 	if r.Type == "volatile_resource" {
 		r.Value = fmt.Sprintf("_0:%s", r.Value) // add prefix
-	}
-	// Variable are always created new
-	// and assigned a normalized name
-	// they are unique in the context of a rule
-	// so we do not check for existing variables
-	if r.Type == "var" {
-		// Variable - Id is the normalized variable name
-		if varNode, exists := s.currentRuleVarByValue[r.Value]; exists {
-			// Variable already exists in the context of the rule
-			// return existing key
-			return varNode.Key
-		}
-		r.Id = fmt.Sprintf("?x%02d", len(s.currentRuleVarByValue)+1)
-		s.currentRuleVarByValue[r.Value] = r
-		s.newResource(r)
-		return r.Key
 	}
 	// Check if resource already exists
 	skey := r.SKey()
@@ -195,7 +205,7 @@ func (s *JetRuleListener) Resource(key int) *rete.ResourceNode {
 //	true        -> {type: "keyword", value: "true"}
 //	-123        -> {type: "int", value: "-123"}
 //	+12.3       -> {type: "double", value: "+12.3"}
-func parseObjectAtom(txt string, keywordsContextValue string) *rete.ResourceNode {
+func (s *JetRuleListener) parseObjectAtom(txt string, keywordsContextValue string) *rete.ResourceNode {
 	if len(txt) == 0 && len(keywordsContextValue) == 0 {
 		return nil
 	}
@@ -218,6 +228,15 @@ func parseObjectAtom(txt string, keywordsContextValue string) *rete.ResourceNode
 		if len(v) == 2 {
 			typ := v[0]
 			val := strings.TrimSuffix(v[1], ")")
+			// validate typ is one of text, int, double, bool
+			switch typ {
+			case "text", "int", "uint", "long", "ulong", "double", "bool", "date", "datetime":
+			default:
+				// invalid type - report error, return nil
+				fmt.Fprintf(s.errorLog, "error: invalid literal type '%s' for value '%s'\n", typ, val)
+				fmt.Fprintf(s.parseLog, "error: invalid literal type '%s' for value '%s'\n", typ, val)
+				return nil
+			}
 			return &rete.ResourceNode{
 				Type:  typ,
 				Value: StripQuotes(val),
@@ -276,7 +295,7 @@ func isNumeric(s string) bool {
 // Escape resource name that conflicts with keywords such as rdf:type becomes rdf:"type"
 // this function removes the quotes
 func EscR(s string) string {
-	if len(s) > 4 && strings.Contains(s, ":\"") {
+	if len(s) > 4 && s[0] != '"' && strings.Contains(s, ":\"") {
 		return strings.ReplaceAll(s, "\"", "")
 	}
 	return s

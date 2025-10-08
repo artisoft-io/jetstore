@@ -11,16 +11,16 @@ type JetruleModel struct {
 	MainRuleFileName string `json:"main_rule_file_name"`
 	// SupportRuleFileNames []string                 `json:"support_rule_file_names"`
 	CompilerDirectives map[string]string  `json:"compiler_directives,omitempty"`
-	Resources          []*ResourceNode     `json:"resources,omitempty"`
+	Resources          []*ResourceNode    `json:"resources,omitempty"`
 	LookupTables       []*LookupTableNode `json:"lookup_tables,omitempty"`
 	Jetrules           []*JetruleNode     `json:"jet_rules,omitempty"`
 	ReteNodes          []*RuleTerm        `json:"rete_nodes,omitempty"`
 	// Imports              map[string][]string      `json:"imports"`
 	JetstoreConfig map[string]string `json:"jetstore_config,omitempty"`
-	RuleSequences  []*RuleSequence    `json:"rule_sequences,omitempty"`
-	Classes        []*ClassNode       `json:"classes,omitempty"`
-	Tables         []*TableNode       `json:"tables,omitempty"`
-	Triples        []*TripleNode      `json:"triples,omitempty"`
+	RuleSequences  []*RuleSequence   `json:"rule_sequences,omitempty"`
+	Classes        []*ClassNode      `json:"classes,omitempty"`
+	Tables         []*TableNode      `json:"tables,omitempty"`
+	Triples        []*TripleNode     `json:"triples,omitempty"`
 	HeadRuleTerm   *RuleTerm         `json:"head_rule_term,omitzero"`
 	Antecedents    []*RuleTerm       `json:"antecedents,omitempty"`
 	Consequents    []*RuleTerm       `json:"consequents,omitempty"`

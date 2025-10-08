@@ -193,23 +193,31 @@ func TestJetRuleListener_JetRule_err2(t *testing.T) {
 	}
 }
 
-// func TestJetRuleListener_JetRule(t *testing.T) {
+func TestJetRuleListener_InlineLiteral(t *testing.T) {
 
-// 	jrCompiler, err := CompileJetRuleFiles("./testdata", "jetrule.jr", false, true, false)
-// 	if err != nil {
-// 		t.Fatalf("unexpected error: %v", err)
-// 	}
-// 	b, _ := json.MarshalIndent(jrCompiler.JetRuleModel().Resources, "", " ")
-// 	fmt.Printf("** Resources: \n%v\n", string(b))
-// 	b, _ = json.MarshalIndent(jrCompiler.JetRuleModel().Jetrules, "", " ")
-// 	fmt.Printf("** Jet Rules: \n%v\n", string(b))
-// 	fmt.Printf("** Error Log: \n%v\n", jrCompiler.ErrorLog().String())
-// 	if jrCompiler.ErrorLog().Len() == 0 {
-// 		t.Error("Expected error but none found")
-// 	} else {
-// 		// t.Error("Done")
-// 	}
-// }
+	jrCompiler := NewCompiler("./testdata", "jetrule.jr", false, true, false)
+	err := jrCompiler.CompileBuffer(`@JetCompilerDirective source_file = "rete_test1.jr";
+	resource abc:RuleConfig = "abc:RuleConfig";
+
+	[EID_Relationship_Code_10]:
+  (?e rdf:type abc:RuleConfig)
+-> 
+  (?e jets:ruleTag "Missing Relationship_Code");`)
+	if err != nil {
+		t.Fatal(err.Error())
+	}
+
+	b, _ := json.MarshalIndent(jrCompiler.JetRuleModel().Resources, "", " ")
+	fmt.Printf("** Resources: \n%v\n", string(b))
+	b, _ = json.MarshalIndent(jrCompiler.JetRuleModel().Jetrules, "", " ")
+	fmt.Printf("** Jet Rules: \n%v\n", string(b))
+	fmt.Printf("** Error Log: \n%v\n", jrCompiler.ErrorLog().String())
+	if jrCompiler.ErrorLog().Len() == 0 {
+		t.Error("Expected error but none found")
+	} else {
+		t.Error("Done")
+	}
+}
 
 func TestJetRuleListener_Triples(t *testing.T) {
 
@@ -265,68 +273,105 @@ func TestJetRuleListener_Triples_autoadd(t *testing.T) {
 	}
 }
 
+func TestJetRuleListener_EscR(t *testing.T) {
+	s := EscR("rdf:\"type\"")
+	if s != "rdf:type" {
+		t.Errorf("Unexpected result for rdf:\"type\": %s", s)
+	}
+	s = EscR("\"rdf:\"type\"\"")
+	if s != "\"rdf:\"type\"\"" {
+		t.Errorf("Unexpected result for \"rdf:\"type\"\": %s", s)
+	}
+	s = EscR("ex:SomeClass")
+	if s != "ex:SomeClass" {
+		t.Errorf("Unexpected result for ex:SomeClass: %s", s)
+	}
+	s = EscR("localVar")
+	if s != "localVar" {
+		t.Errorf("Unexpected result for localVar: %s", s)
+	}
+	s = EscR("\"XYZ\"")
+	if s != "\"XYZ\"" {
+		t.Errorf("Unexpected result for \"XYZ\": %s", s)
+	}
+}
+
 func TestJetRuleListener_ParseObjectAtom(t *testing.T) {
-	atom := parseObjectAtom("?clm", "")
+	jrCompiler := NewCompiler("./testdata", "jetrule.jr", false, true, false)
+	s := jrCompiler.listener
+	atom := s.parseObjectAtom("?clm", "")
 	if atom.Type != "var" ||
 		atom.Value != "?clm" {
 		t.Errorf("Unexpected result for ?clm: %v", atom)
 	}
 
-	atom = parseObjectAtom("ex:SomeClass", "")
+	atom = s.parseObjectAtom("ex:SomeClass", "")
 	if atom.Type != "identifier" ||
 		atom.Id != "ex:SomeClass" {
 		t.Errorf("Unexpected result for ex:SomeClass: %v", atom)
 	}
 
-	atom = parseObjectAtom("localVar", "")
+	atom = s.parseObjectAtom("localVar", "")
 	if atom.Type != "identifier" ||
 		atom.Id != "localVar" {
 		t.Errorf("Unexpected result for localVar: %v", atom)
 	}
 
-	atom = parseObjectAtom("\"XYZ\"", "")
+	atom = s.parseObjectAtom("\"XYZ\"", "")
 	if atom.Type != "text" ||
 		atom.Value != "XYZ" {
 		t.Errorf("Unexpected result for XYZ: %v", atom)
 	}
 
-	atom = parseObjectAtom("text(\"XYZ\")", "")
+	atom = s.parseObjectAtom("text(\"XYZ\")", "")
 	if atom.Type != "text" ||
 		atom.Value != "XYZ" {
 		t.Errorf("Unexpected result for text(\"XYZ\"): %v", atom)
 	}
 
-	atom = parseObjectAtom("1", "")
+	atom = s.parseObjectAtom("xyz(\"XYZ\")", "")
+	if atom != nil {
+		t.Errorf("Unexpected nil result for xyz(\"XYZ\"): %v", atom)
+	}
+
+	// special case seen when using literal_regex operator
+	atom = s.parseObjectAtom("\"^(XYZ)\"", "")
+	if atom.Type != "text" ||
+		atom.Value != "^(XYZ)" {
+		t.Errorf("Unexpected result for ^(XYZ): %v", atom)
+	}
+
+	atom = s.parseObjectAtom("1", "")
 	if atom.Type != "int" ||
 		atom.Value != "1" {
 		t.Errorf("Unexpected result for 1: %v", atom)
 	}
 
-	atom = parseObjectAtom("-10", "")
+	atom = s.parseObjectAtom("-10", "")
 	if atom.Type != "int" ||
 		atom.Value != "-10" {
 		t.Errorf("Unexpected result for -10: %v", atom)
 	}
 
-	atom = parseObjectAtom("+1.0", "")
+	atom = s.parseObjectAtom("+1.0", "")
 	if atom.Type != "double" ||
 		atom.Value != "+1.0" {
 		t.Errorf("Unexpected result for +1.0: %v", atom)
 	}
 
-	atom = parseObjectAtom("int(1)", "")
+	atom = s.parseObjectAtom("int(1)", "")
 	if atom.Type != "int" ||
 		atom.Value != "1" {
 		t.Errorf("Unexpected result for int(1): %v", atom)
 	}
 
-	atom = parseObjectAtom("bool(1)", "")
+	atom = s.parseObjectAtom("bool(1)", "")
 	if atom.Type != "bool" ||
 		atom.Value != "1" {
 		t.Errorf("Unexpected result for bool(1): %v", atom)
 	}
 
-	atom = parseObjectAtom("", "true")
+	atom = s.parseObjectAtom("", "true")
 	if atom.Type != "keyword" ||
 		atom.Value != "true" {
 		t.Errorf("Unexpected result for true: %v", atom)

@@ -49,9 +49,6 @@ func (l *JetRuleListener) BuildReteNetwork() {
 	// The root node is always at index 0
 	l.jetRuleModel.ReteNodes = append(l.jetRuleModel.ReteNodes, rootNode)
 
-	// Optimize the rete network construction by selectioning the most
-	// common 1st antecedent among all rules (TODO)
-
 	// For each rule, add its antecedents to the Rete network
 	for _, rule := range l.jetRuleModel.Jetrules {
 		if l.trace {

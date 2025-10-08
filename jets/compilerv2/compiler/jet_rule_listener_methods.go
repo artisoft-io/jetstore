@@ -345,6 +345,7 @@ func (s *JetRuleListener) ExitLookupTableStmt(ctx *parser.LookupTableStmtContext
 func (s *JetRuleListener) EnterJetRuleStmt(ctx *parser.JetRuleStmtContext) {
 	s.currentRuleProperties = make(map[string]string)
 	s.currentRuleVarByValue = make(map[string]*rete.ResourceNode)
+	s.currentRuleBindedVarByValue = make(map[string]*rete.ResourceNode)
 	s.currentJetruleNode = &rete.JetruleNode{}
 }
 
@@ -539,7 +540,7 @@ func (s *JetRuleListener) ExitAntecedent(ctx *parser.AntecedentContext) {
 		IsNot:        ctx.GetN() != nil,
 		SubjectKey:   s.ParseObjectAtom(EscR(ctx.GetS().GetText()), ""),
 		PredicateKey: s.ParseObjectAtom(EscR(ctx.GetP().GetText()), ""),
-		ObjectKey:    s.ParseObjectAtom(ctx.GetO().GetText(), kws),
+		ObjectKey:    s.ParseObjectAtom(EscR(ctx.GetO().GetText()), kws),
 	}
 	// Add filter
 	if s.inProgressExpr.Len() > 0 {
@@ -604,7 +605,7 @@ func (s *JetRuleListener) ExitTripleStmt(ctx *parser.TripleStmtContext) {
 	triple := &rete.TripleNode{
 		SubjectKey:   s.ParseObjectAtom(EscR(ctx.GetS().GetText()), ""),
 		PredicateKey: s.ParseObjectAtom(EscR(ctx.GetP().GetText()), ""),
-		ObjectKey:    s.ParseObjectAtom(ctx.GetO().GetText(), kws),
+		ObjectKey:    s.ParseObjectAtom(EscR(ctx.GetO().GetText()), kws),
 	}
 	s.jetRuleModel.Triples = append(s.jetRuleModel.Triples, triple)
 }

@@ -74,9 +74,10 @@ func compileWorkspaceV2(dbpool *pgxpool.Pool, workspaceControl *rete.WorkspaceCo
 		tables = append(tables, jrCompiler.JetRuleModel().Tables...)
 		lookupTables = append(lookupTables, jrCompiler.JetRuleModel().LookupTables...)
 
-		// Split the compiled model into '.rete.json',  '.model.json' and  '.triple.json '
+		// Split the compiled model into '.rete.json',  '.model.json' and  '.triples.json '
 		// into the build directory
-		// rete
+
+		// Save the rete network in .rete.json
 		fullModel = jrCompiler.JetRuleModel()
 		reteModel := &rete.JetruleModel{
 			MainRuleFileName: fullModel.MainRuleFileName,
@@ -84,17 +85,16 @@ func compileWorkspaceV2(dbpool *pgxpool.Pool, workspaceControl *rete.WorkspaceCo
 			LookupTables:     fullModel.LookupTables,
 			ReteNodes:        fullModel.ReteNodes,
 		}
-
 		// Save the rete network to build directory
 		// name is the file path relative to workspace home
 		fpath := fmt.Sprintf("%s/%s/build/%s.rete.json", workspaceHome,
-		wprefix, strings.TrimSuffix(name, ".jr"))
+			wprefix, strings.TrimSuffix(name, ".jr"))
 		// Make sure the directory exists
 		err = os.MkdirAll(filepath.Dir(fpath), 0770)
 		if err != nil {
 			return "", fmt.Errorf("while creating build sub-directory: %v", err)
 		}
-		log.Println("Writing JetStore Rete Network of", name, "to:", fpath)
+		// log.Println("Writing JetStore Rete Network of", name, "to:", fpath)
 		file, err := os.OpenFile(fpath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
 		if err != nil {
 			err = fmt.Errorf("while opening .rete.json for write (compile_workspace_v2):%v", err)
@@ -104,15 +104,16 @@ func compileWorkspaceV2(dbpool *pgxpool.Pool, workspaceControl *rete.WorkspaceCo
 		encoder.Encode(reteModel)
 		file.Close()
 
-		// save classes and tables model to build directory
+		// Save classes and tables in .model.json
 		clsTblModel := &rete.JetruleModel{
 			MainRuleFileName: fullModel.MainRuleFileName,
 			Classes:          fullModel.Classes,
 			Tables:           fullModel.Tables,
 		}
+		// Save in the build directory
 		fpath = fmt.Sprintf("%s/%s/build/%s.model.json", workspaceHome,
 			wprefix, strings.TrimSuffix(name, ".jr"))
-		log.Println("Writing JetStore Classes and Tables Model of", name, "to:", fpath)
+		// log.Println("Writing JetStore Classes and Tables Model of", name, "to:", fpath)
 		file, err = os.OpenFile(fpath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
 		if err != nil {
 			err = fmt.Errorf("while opening .model.json for write (compile_workspace_v2):%v", err)
@@ -122,17 +123,18 @@ func compileWorkspaceV2(dbpool *pgxpool.Pool, workspaceControl *rete.WorkspaceCo
 		encoder.Encode(clsTblModel)
 		file.Close()
 
-		// save triples to build directory
+		// Save triples in .triples.json
 		tripleModel := &rete.JetruleModel{
 			MainRuleFileName: fullModel.MainRuleFileName,
 			Triples:          fullModel.Triples,
 		}
-		fpath = fmt.Sprintf("%s/%s/build/%s.triple.json", workspaceHome,
+		// Save in the build directory
+		fpath = fmt.Sprintf("%s/%s/build/%s.triples.json", workspaceHome,
 			wprefix, strings.TrimSuffix(name, ".jr"))
-		log.Println("Writing JetStore Triples Model of", name, "to:", fpath)
+		// log.Println("Writing JetStore Triples Model of", name, "to:", fpath)
 		file, err = os.OpenFile(fpath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
 		if err != nil {
-			err = fmt.Errorf("while opening .triple.json for write (compile_workspace_v2):%v", err)
+			err = fmt.Errorf("while opening .triples.json for write (compile_workspace_v2):%v", err)
 			return err.Error(), err
 		}
 		encoder = json.NewEncoder(file)
@@ -141,7 +143,7 @@ func compileWorkspaceV2(dbpool *pgxpool.Pool, workspaceControl *rete.WorkspaceCo
 	}
 
 	// All files are now compiled
-	log.Println("All main rule files compiled, now package the lookup.db file")
+	buf.WriteString("All main rule files compiled, now package the lookup.db file\n")
 	err = PackageLookupTablesToSqlite(lookupTables)
 	if err != nil {
 		log.Println("Error packaging lookup tables to SQLite:", err)
@@ -155,11 +157,11 @@ func compileWorkspaceV2(dbpool *pgxpool.Pool, workspaceControl *rete.WorkspaceCo
 	err = tarextract.CreateTarGz(fmt.Sprintf("%s/%s", workspaceHome, workspaceName), inputPath, outputPath)
 	buf.WriteString("\nArchiving the reports\n")
 	if err != nil {
-		buf.WriteString(fmt.Sprintf("While creating reports.tgz: %v", err))
+		buf.WriteString(fmt.Sprintf("While creating reports.tgz: %v\n", err))
 		log.Println(err)
 		return buf.String(), err
 	}
-	log.Println("Workspace reports archived in retports.tgz")
+	buf.WriteString("Workspace reports archived in reports.tgz\n")
 
 	// Save the workspace-wide classes and tables in the workspace build directory
 	// Create a map to save them in a lookup-like structure
@@ -177,7 +179,7 @@ func compileWorkspaceV2(dbpool *pgxpool.Pool, workspaceControl *rete.WorkspaceCo
 	}
 	// Save the indexed list of classes, properties and tables to the root of build directory
 	fpath := fmt.Sprintf("%s/%s/build/classes.json", workspaceHome, wprefix)
-	log.Println("Writing JetStore Classes to:", fpath)
+	// log.Println("Writing JetStore Classes to:", fpath)
 	file, err := os.OpenFile(fpath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
 	if err != nil {
 		err = fmt.Errorf("while opening classes.json for write (compile_workspace):%v", err)
@@ -189,7 +191,7 @@ func compileWorkspaceV2(dbpool *pgxpool.Pool, workspaceControl *rete.WorkspaceCo
 
 	// Properties
 	fpath = fmt.Sprintf("%s/%s/build/properties.json", workspaceHome, wprefix)
-	log.Println("Writing JetStore Properties to:", fpath)
+	// log.Println("Writing JetStore Properties to:", fpath)
 	file, err = os.OpenFile(fpath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
 	if err != nil {
 		err = fmt.Errorf("while opening properties.json for write (compile_workspace):%v", err)
@@ -201,7 +203,7 @@ func compileWorkspaceV2(dbpool *pgxpool.Pool, workspaceControl *rete.WorkspaceCo
 
 	// Tables
 	fpath = fmt.Sprintf("%s/%s/build/tables.json", workspaceHome, wprefix)
-	log.Println("Writing JetStore Tables to:", fpath)
+	// log.Println("Writing JetStore Tables to:", fpath)
 	file, err = os.OpenFile(fpath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
 	if err != nil {
 		err = fmt.Errorf("while opening tables.json for write (compile_workspace):%v", err)

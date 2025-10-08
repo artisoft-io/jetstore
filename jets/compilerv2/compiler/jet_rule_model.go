@@ -37,7 +37,12 @@ type JetRuleListener struct {
 	currentRuleAntecedents    []*rete.RuleTerm
 	currentRuleConsequents    []*rete.RuleTerm
 	currentJetruleNode        *rete.JetruleNode
-	currentRuleVarByValue     map[string]*rete.ResourceNode // map of variable Value (original name) to ResourceNode, rule level
+	// currentRuleVarByValue is a map of variable Value (original name) to ResourceNode, 
+	// rule level for first encounter of the variable, aka isBinded = false.
+	currentRuleVarByValue     map[string]*rete.ResourceNode 
+	// currentRuleBindedVarByValue is a map of variable Value (original name) to ResourceNode,
+	// rule level for subsequent encounters of the variable, aka isBinded = true.
+	currentRuleBindedVarByValue     map[string]*rete.ResourceNode
 	// stack to build expressions in Antecedents and Consequents
 	inProgressExpr *stack.Stack[rete.ExpressionNode]
 
@@ -57,6 +62,7 @@ func NewJetRuleListener(basePath string, mainRuleFileName string) *JetRuleListen
 		resourceManager:       NewResourceManager(),
 		classesByName:         make(map[string]*rete.ClassNode),
 		currentRuleVarByValue: make(map[string]*rete.ResourceNode),
+		currentRuleBindedVarByValue: make(map[string]*rete.ResourceNode),
 		parseLog:              &strings.Builder{},
 		errorLog:              &strings.Builder{},
 	}

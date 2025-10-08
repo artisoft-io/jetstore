@@ -521,6 +521,20 @@ func (ctx *ReteBuilderContext) makeExpression(expr *ExpressionNode) (Expression,
 			return nil, fmt.Errorf("error: makeExpression called for unary expression with unknown op %s", expr.Op)
 		}
 		return NewExprUnaryOp(operator, rhs), nil
+		case "identifier":
+			// Check if node is a variable
+			varInfo := ctx.VariablesLookup[expr.Value]
+			if varInfo != nil {
+				// Binded variable
+				return NewExprBindedVar(varInfo.VarPos, varInfo.Id), nil
+			}
+			// Check if it's a resource (incl. literals)
+			node := ctx.ResourcesLookup[expr.Value] 
+			if node == nil {
+				return nil, fmt.Errorf("error: makeExpression called for identifier with key %d not found", expr.Value)
+			}
+			// Constant resource
+			return NewExprCst(node), nil
 	}
 	return nil, fmt.Errorf("error: makeExpression called with unknown type %s", expr.Type)
 }
