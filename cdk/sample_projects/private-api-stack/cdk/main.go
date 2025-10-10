@@ -131,11 +131,8 @@ func NewPrivateApiStack(scope constructs.Construct, id string, props *PrivateApi
 	})
 
 	// Create Lambda integration
-	lambdaIntegration := awsapigateway.NewLambdaIntegration(lambdaFunction, &awsapigateway.LambdaIntegrationOptions{
-		RequestTemplates: &map[string]*string{
-			"application/json": jsii.String(`{"statusCode": "200"}`),
-		},
-	})
+	lambdaIntegration := awsapigateway.NewLambdaIntegration(
+		lambdaFunction, &awsapigateway.LambdaIntegrationOptions{})
 
 	// Add methods to API
 	api.Root().AddMethod(jsii.String("GET"), lambdaIntegration, nil)
@@ -148,6 +145,17 @@ func NewPrivateApiStack(scope constructs.Construct, id string, props *PrivateApi
 
 	// Grant invoke permissions to system account role
 	lambdaFunction.GrantInvoke(systemAccountRole)
+
+	// Add jump server
+	bastionHost := awsec2.NewBastionHostLinux(stack, jsii.String("PrivateApiDemoJumpServer"), &awsec2.BastionHostLinuxProps{
+		Vpc:          vpc,
+		InstanceName: jsii.String("PrivateApiDemoJumpServer"),
+		SubnetSelection: &awsec2.SubnetSelection{
+			SubnetType: awsec2.SubnetType_PUBLIC,
+		},
+	})
+	bastionHost.Instance().Instance().AddPropertyOverride(jsii.String("KeyName"), os.Getenv("BASTION_HOST_KEYPAIR_NAME"))
+	bastionHost.AllowSshAccessFrom(awsec2.Peer_AnyIpv4())
 
 	// Output important values
 	awscdk.NewCfnOutput(stack, jsii.String("VpcId"), &awscdk.CfnOutputProps{

@@ -145,7 +145,7 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 		jsComp.Vpc = jetstorestack.CreateJetStoreVPC(stack)
 
 		// Add Endpoints on private subnets and return the security group to use in ecs tasks
-		jsComp.VpcEndpointsSg = jetstorestack.AddVpcEndpoints(stack, jsComp.Vpc, jsComp.PrivateSubnetSelection)
+		jsComp.VpcEndpointsSg = jsComp.AddVpcEndpoints(stack, jsComp.Vpc, jsComp.PrivateSubnetSelection)
 	}
 
 	// Add VPC ID as outputs

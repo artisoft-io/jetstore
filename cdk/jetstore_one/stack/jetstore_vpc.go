@@ -224,7 +224,7 @@ func addTags(scope constructs.IConstruct) {
 	}
 }
 
-func AddVpcEndpoints(stack awscdk.Stack, vpc awsec2.IVpc, subnetSelection *awsec2.SubnetSelection) awsec2.SecurityGroup {
+func (jsComp *JetStoreStackComponents) AddVpcEndpoints(stack awscdk.Stack, vpc awsec2.IVpc, subnetSelection *awsec2.SubnetSelection) awsec2.SecurityGroup {
 	// Returned Security Group for ECS service & tasks
 	vpcEndpointsSG := awsec2.NewSecurityGroup(stack, jsii.String("VpcEndpointsSG"), &awsec2.SecurityGroupProps{
 		Vpc:              vpc,
@@ -403,14 +403,15 @@ func AddVpcEndpoints(stack awscdk.Stack, vpc awsec2.IVpc, subnetSelection *awsec
 		//SecurityGroups:    &[]awsec2.ISecurityGroup{vpcEndpointsSG},
 	})), awsec2.Port_AllTraffic(), jsii.String("allow access to aws kms"))
 
-	vpcEndpointsSG.Connections().AllowTo(addTag2Endpoint(awsec2.NewInterfaceVpcEndpoint(stack, jsii.String("ApiGatewayEndpointv2"), &awsec2.InterfaceVpcEndpointProps{
+	jsComp.ApiGatewayVpcEndpoint = addTag2Endpoint(awsec2.NewInterfaceVpcEndpoint(stack, jsii.String("ApiGatewayEndpointv2"), &awsec2.InterfaceVpcEndpointProps{
 		Vpc:               vpc,
 		Service:           awsec2.InterfaceVpcEndpointAwsService_APIGATEWAY(),
 		Subnets:           subnetSelection,
 		PrivateDnsEnabled: jsii.Bool(true),
 		Open:              jsii.Bool(true),
 		//SecurityGroups:    &[]awsec2.ISecurityGroup{vpcEndpointsSG},
-	})), awsec2.Port_AllTraffic(), jsii.String("allow access to aws kms"))
+	}))
+	vpcEndpointsSG.Connections().AllowTo(jsComp.ApiGatewayVpcEndpoint, awsec2.Port_AllTraffic(), jsii.String("allow access to aws kms"))
 
 	return vpcEndpointsSG
 }

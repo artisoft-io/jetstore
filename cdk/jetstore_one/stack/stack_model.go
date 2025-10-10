@@ -93,6 +93,8 @@ type JetStoreStackComponents struct {
 	WebAcl            awswafv2.CfnWebACL
 	WebACLAssociation awswafv2.CfnWebACLAssociation
 
+	ApiGatewayVpcEndpoint awsec2.InterfaceVpcEndpoint
+
 	StatusUpdateLambda        awslambdago.GoFunction
 	SecretRotationLambda      awslambdago.GoFunction
 	RunReportsLambda          awslambdago.GoFunction
