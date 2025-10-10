@@ -2,6 +2,7 @@ package compute_pipes
 
 import (
 	"fmt"
+	"strconv"
 	"time"
 )
 
@@ -82,10 +83,9 @@ func (ctx *BuilderContext) BuildCountTCEvaluator(source *InputChannel, outCh *Ou
 
 // TransformationColumnSpec Type distinct_count
 type distinctCountColumnEval struct {
-	inputPos       int
-	outputPos      int
-	distinctValues map[string]bool
-	where          evalExpression
+	inputPos  int
+	outputPos int
+	where     evalExpression
 }
 
 func (ctx *distinctCountColumnEval) InitializeCurrentValue(currentValue *[]interface{}) {
@@ -112,18 +112,42 @@ func (ctx *distinctCountColumnEval) Update(currentValue *[]interface{}, input *[
 			return nil
 		}
 	}
-	//* TODO Currently distinct_count works only on string column, todo convert to string when column is not of type string
+	var valuesTxt string
 	switch vv := value.(type) {
 	case string:
-		ctx.distinctValues[vv] = true
-		(*currentValue)[ctx.outputPos] = int64(len(ctx.distinctValues))
-
+		valuesTxt = vv
+	case int:
+		valuesTxt = strconv.Itoa(vv)
+	case int64:
+		valuesTxt = strconv.FormatInt(vv, 10)
+	case float64:
+		valuesTxt = strconv.FormatFloat(vv, 'f', -1, 64)
 	default:
-		return fmt.Errorf("error: distinct_count currently support only string columns")
+		valuesTxt = fmt.Sprintf("%v", vv)
 	}
+	// The operator must be stateless, keep the distinct values in currentValue
+	var distinctValues map[string]bool
+	m := (*currentValue)[ctx.outputPos]
+	if m == nil {
+		distinctValues = make(map[string]bool)
+		(*currentValue)[ctx.outputPos] = distinctValues
+	} else {
+		distinctValues = m.(map[string]bool)
+	}
+	distinctValues[valuesTxt] = true
 	return nil
 }
 func (ctx *distinctCountColumnEval) Done(currentValue *[]interface{}) error {
+	if currentValue == nil {
+		return nil
+	}
+	m := (*currentValue)[ctx.outputPos]
+	if m == nil {
+		(*currentValue)[ctx.outputPos] = int64(0)
+	} else {
+		distinctValues := m.(map[string]bool)
+		(*currentValue)[ctx.outputPos] = int64(len(distinctValues))
+	}
 	return nil
 }
 
@@ -150,10 +174,9 @@ func (ctx *BuilderContext) BuildDistinctCountTCEvaluator(source *InputChannel, o
 		return nil, fmt.Errorf("error column %s not found in output source %s", spec.Name, outCh.name)
 	}
 	return &distinctCountColumnEval{
-		inputPos:       inputPos,
-		outputPos:      outputPos,
-		where:          where,
-		distinctValues: make(map[string]bool),
+		inputPos:  inputPos,
+		outputPos: outputPos,
+		where:     where,
 	}, nil
 }
 
@@ -167,60 +190,35 @@ func add(lhs interface{}, rhs interface{}) (interface{}, error) {
 		return lhs, nil
 	}
 	switch lhsv := lhs.(type) {
-	// case string:
-	// 	switch rhsv := rhs.(type) {
-	// 	case string:
-	// 	case int:
-	// 	case int64:
-	// 	case float64:
-	// 	case time.Time:
-	// 	}
-
 	case int:
 		switch rhsv := rhs.(type) {
-		// case string:
-		// 	if strconv.Itoa(lhsv) == rhsv {
-		// 		return 1, nil
-		// 	}
-		// 	return 0, nil
 		case int:
 			return lhsv + rhsv, nil
-
 		case int64:
 			return int64(lhsv) + rhsv, nil
-
 		case float64:
 			return float64(lhsv) + rhsv, nil
-			// case time.Time:
 		}
 
 	case int64:
 		switch rhsv := rhs.(type) {
-		// case string:
 		case int:
 			return lhsv + int64(rhsv), nil
 		case int64:
 			return lhsv + rhsv, nil
-
 		case float64:
 			return float64(lhsv) + rhsv, nil
-			// case time.Time:
 		}
 
 	case float64:
 		switch rhsv := rhs.(type) {
-		// case string:
 		case int:
 			return lhsv + float64(rhsv), nil
 		case int64:
 			return lhsv + float64(rhsv), nil
-
 		case float64:
 			return lhsv + rhsv, nil
-			// case time.Time:
 		}
-
-		// case time.Time:
 	}
 	return nil, fmt.Errorf("add called with unsupported types: (%T, %T)", lhs, rhs)
 }
@@ -254,7 +252,6 @@ func (ctx *sumColumnEval) Update(currentValue *[]interface{}, input *[]interface
 			return nil
 		}
 	}
-	//* TODO Sum start with int64 as result type, upgrades to float64 if needed - update to use data model for rdf:type
 	var err error
 	cv := (*currentValue)[ctx.outputPos]
 	cv, err = add(cv, (*input)[ctx.inputPos])
