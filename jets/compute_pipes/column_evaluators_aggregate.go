@@ -92,7 +92,7 @@ func (ctx *distinctCountColumnEval) InitializeCurrentValue(currentValue *[]inter
 	if currentValue == nil {
 		return
 	}
-	(*currentValue)[ctx.outputPos] = int64(0)
+	(*currentValue)[ctx.outputPos] = make(map[string]bool)
 }
 func (ctx *distinctCountColumnEval) Update(currentValue *[]interface{}, input *[]interface{}) error {
 	if currentValue == nil || input == nil {
