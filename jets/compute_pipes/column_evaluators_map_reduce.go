@@ -56,6 +56,17 @@ func (ctx *mapReduceColumnEval) Update(_ *[]interface{}, input *[]interface{}) e
 	return nil
 }
 func (ctx *mapReduceColumnEval) Done(currentValue *[]interface{}) error {
+	// Mark the map portion as done
+	for _, intermediateInput := range ctx.currentIntermediateValues {
+		for i := range ctx.mapColumnEval {
+			err := ctx.mapColumnEval[i].Done(&intermediateInput)
+			if err != nil {
+				return fmt.Errorf("while calling done on TransformationColumnEvaluator (map of map_reduce): %v", err)
+			}
+		}
+	}
+
+	// Perform the reduce portion
 	for i := range ctx.reduceColumnEval {
 		ctx.reduceColumnEval[i].InitializeCurrentValue(currentValue)
 	}
