@@ -25,20 +25,22 @@ import (
 //	-123        -> {type: "int", value: "-123"}
 //	+12.3       -> {type: "double", value: "+12.3"}
 //
-// Note: if the type is "var" then it's a variable and a new resource is always created with a normalized name
-// but the resource is kept in the scope of the rule only. It will be created in the ResourceManager once
-// the rule is optimized since the Id (normalized name) is fixed at that time.
-// Note: if the type is "identifier" then it's actually either "resource" or "volatile_resource"
-// This is resolved by the ResourceManager when adding to the model.
-// returns its key
+// Note: if the type is "var" then it's a variable and a new resource is created in the scope of the rule only. 
+// Note: if the type is "identifier" then it's actually either "resource" or "volatile_resource",
+// this is resolved by the ResourceManager when adding to the model.
+// returns the ResourceNode.
 // Note: s.currentRuleVarByValue must be initialized (at the start of a rule) before this function is called
-func (s *JetRuleListener) ParseObjectAtom(txt string, keywordsContextValue string) int {
+func (s *JetRuleListener) ParseObjectAtom(txt string, keywordsContextValue string) *rete.ResourceNode {
 	r := s.parseObjectAtom(txt, keywordsContextValue)
 	switch r.Type {
+
+	case "var":
+		return s.AddVariable(r.Value)
+
 	case "identifier":
 		// Type is either a defined resource / volatile_resource or an inlined literal resource
 		if res, exists := s.resourceManager.ResourceById[r.Id]; exists {
-			return res.Key
+			return res
 		}
 		// Resource not found - log error and create it as inline resource
 		if !s.autoAddResources {
@@ -47,47 +49,27 @@ func (s *JetRuleListener) ParseObjectAtom(txt string, keywordsContextValue strin
 		}
 		r.Type = "resource"
 		r.Value = r.Id
-	case "var":
-		return s.AddVariable(r.Value)
 	}
 
 	// Check if resource already exists
 	skey := r.SKey()
 	if res, exists := s.resourceManager.Resources[skey]; exists {
 		// Resource already exists
-		return res.Key
+		return res
 	}
-	// It's a new Resource
+	// It's a new Resource, inlined literal resource
 	r.Inline = true
 	s.newResource(r)
-	return r.Key
+	return r
 }
 
 // Variable - Id is the normalized variable name
 // Variables are unique in the context of a rule.
-// The first time a variable is encounted, it is marked as isBinded = false,
-// subsequent encounters of the same variable, it returns a copy which is marked as isBinded = true.
-// This is required for the rete network construction.
-func (s *JetRuleListener) AddVariable(name string) int {
+func (s *JetRuleListener) AddVariable(name string) *rete.ResourceNode {
 	// Check for existing variables within the rule
-	if varNode, exists := s.currentRuleVarByValue[name]; exists {
-		// Variable already exists, the isBinded = true,
-		// see if defined in currentRuleBindedVarByValue
-		if bindedVarNode, existsBinded := s.currentRuleBindedVarByValue[name]; existsBinded {
-			// already exists in binded map, return existing key
-			return bindedVarNode.Key
-		}
-		// Create a new copy of the variable with isBinded = true
-		bindedVar := &rete.ResourceNode{
-			Type:     "var",
-			Id:       varNode.Id,
-			Value:    varNode.Value,
-			Inline:   varNode.Inline,
-			IsBinded: true,
-		}
-		s.currentRuleBindedVarByValue[name] = bindedVar
-		s.newResource(bindedVar)
-		return bindedVar.Key
+	if varNode := s.currentRuleVarByValue[name]; varNode != nil {
+		// Variable already exists
+		return varNode
 	}
 	// New variable
 	r := &rete.ResourceNode{
@@ -97,22 +79,23 @@ func (s *JetRuleListener) AddVariable(name string) int {
 	}
 	s.currentRuleVarByValue[name] = r
 	s.newResource(r)
-	return r.Key
+	return r
 }
 
 // AddResource adds a named resource or a literal to the model.
+// This function is called for resources and literals declaration and in expressions
+// (filters, consequent obj expressions).
 // If The resource Type is "volatile_resource" then it adds the prefix "_0:" to the value
-// to ensure it's unique and not conflicting with any other resource.
-// If a resource with the same Type and Value already exists, it returns the existing resource's key
+// to ensure it's unique and not conflicting with any other resources.
+// If a resource with the same Type and Value already exists, it returns the existing resource.
 // If a resource with the same Id already exists but with different Type or Value, it logs an error
 // and keeps the existing resource.
 // If the resource is new, it assigns a new key, sets the SourceFileName, and adds it to the model.
 // It performs validation and ensures uniqueness based on type and value.
 // It also validate that two resources with the same Id are identical.
-// returns its key
-// This function is called for resources and literals declaration and in expressions (filters, consequent obj expressions)
+// returns the resource node.
 // Note: s.currentRuleVarByValue must be initialized (at the start of a rule) before this function is called
-func (s *JetRuleListener) AddResource(r *rete.ResourceNode) int {
+func (s *JetRuleListener) AddResource(r *rete.ResourceNode) *rete.ResourceNode {
 	if r.Type == "var" {
 		// Add variables, this is for a variable in an expression
 		return s.AddVariable(r.Value)
@@ -130,7 +113,7 @@ func (s *JetRuleListener) AddResource(r *rete.ResourceNode) int {
 		} else {
 			// Check if it's a duplicate resource
 			if res.Id == r.Id {
-				return res.Key
+				return res
 			}
 		}
 	} else {
@@ -144,7 +127,7 @@ func (s *JetRuleListener) AddResource(r *rete.ResourceNode) int {
 					fmt.Fprintf(s.parseLog, "error: resource Id conflict for Id '%s': existing (%s|%s), new (%s|%s), keeping the existing resource\n",
 						r.Id, resById.Type, resById.Value, r.Type, r.Value)
 					// Keep the existing resource
-					return resById.Key
+					return resById
 				}
 			}
 		}
@@ -154,37 +137,61 @@ func (s *JetRuleListener) AddResource(r *rete.ResourceNode) int {
 		r.Inline = true
 	}
 	s.newResource(r)
-	return r.Key
+	return r
 }
 
 // Alias for AddResource
-func (s *JetRuleListener) AddR(id string) int {
+func (s *JetRuleListener) AddR(id string) *rete.ResourceNode {
 	return s.AddResource(&rete.ResourceNode{
 		Type:  "resource",
 		Id:    id,
 		Value: id,
 	})
 }
-func (s *JetRuleListener) AddV(name string) int {
+func (s *JetRuleListener) AddV(name string) *rete.ResourceNode {
 	return s.AddResource(&rete.ResourceNode{
 		Type:  "var",
 		Value: name,
 	})
 }
 
+// Add resource to Resource Manager, assign a new key, set source file name and add to model
+// Case of var, add a temp resource (ie, do not add to ResourceById and Resources maps)
 func (s *JetRuleListener) newResource(r *rete.ResourceNode) {
 	s.resourceManager.NextKey++
 	r.Key = s.resourceManager.NextKey
 	r.SourceFileName = s.currentRuleFileName
-	s.resourceManager.ResourceById[r.Id] = r
 	s.resourceManager.ResourceByKey[r.Key] = r
 	if r.Type != "var" {
+		s.resourceManager.ResourceById[r.Id] = r
 		s.resourceManager.Resources[fmt.Sprintf("%s|%s", r.Type, r.Value)] = r
 	}
 	s.jetRuleModel.Resources = append(s.jetRuleModel.Resources, r)
 	// if s.trace {
 	// 	fmt.Fprintf(s.parseLog, "** New resource: %+v\n", r)
 	// }
+}
+
+// Add var resource to Resource Manager by domain key
+// Domain key is: var|Id|pos|isBinded
+func (s *JetRuleListener) addVarResourceByDomainKey(r *rete.ResourceNode) *rete.ResourceNode {
+	dkey := fmt.Sprintf("var|%s|%d|%t", r.Id, r.VarPos, r.IsBinded)
+	if res, exists := s.resourceManager.Resources[dkey]; exists {
+		// Resource already exists
+		return res
+	}
+	// New variable resource
+	s.resourceManager.NextKey++
+	r.Key = s.resourceManager.NextKey
+	r.Type = "var"
+	// r.SourceFileName = s.currentRuleFileName
+	s.resourceManager.ResourceByKey[r.Key] = r
+	s.resourceManager.Resources[dkey] = r
+	s.jetRuleModel.Resources = append(s.jetRuleModel.Resources, r)
+	// if s.trace {
+	// 	fmt.Fprintf(s.parseLog, "** New var resource: %+v\n", r)
+	// }
+	return r
 }
 
 func (s *JetRuleListener) Resource(key int) *rete.ResourceNode {

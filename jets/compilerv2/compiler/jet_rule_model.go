@@ -33,16 +33,15 @@ type JetRuleListener struct {
 	classesByName    map[string]*rete.ClassNode
 
 	// Internal state
-	currentRuleFileName         string
-	currentClass                *rete.ClassNode
-	currentRuleSequence         *rete.RuleSequence
-	currentLookupTableColumns   []rete.LookupTableColumn
-	currentRuleProperties       map[string]string
-	currentRuleAntecedents      []*rete.RuleTerm
-	currentRuleConsequents      []*rete.RuleTerm
-	currentJetruleNode          *rete.JetruleNode
-	currentRuleVarByValue       map[string]*rete.ResourceNode
-	currentRuleBindedVarByValue map[string]*rete.ResourceNode
+	currentRuleFileName       string
+	currentClass              *rete.ClassNode
+	currentRuleSequence       *rete.RuleSequence
+	currentLookupTableColumns []rete.LookupTableColumn
+	currentRuleProperties     map[string]string
+	currentRuleAntecedents    []*rete.RuleTerm
+	currentRuleConsequents    []*rete.RuleTerm
+	currentJetruleNode        *rete.JetruleNode
+	currentRuleVarByValue     map[string]*rete.ResourceNode
 	// stack to build expressions in Antecedents and Consequents
 	inProgressExpr *stack.Stack[rete.ExpressionNode]
 
@@ -55,16 +54,15 @@ type JetRuleListener struct {
 func NewJetRuleListener(basePath string, mainRuleFileName string) *JetRuleListener {
 	outJsonFileName := strings.TrimSuffix(mainRuleFileName, ".jetrule") + ".json"
 	l := &JetRuleListener{
-		mainRuleFileName:            mainRuleFileName,
-		basePath:                    basePath,
-		outJsonFileName:             outJsonFileName,
-		jetRuleModel:                rete.NewJetruleModel(),
-		resourceManager:             NewResourceManager(),
-		classesByName:               make(map[string]*rete.ClassNode),
-		currentRuleVarByValue:       make(map[string]*rete.ResourceNode),
-		currentRuleBindedVarByValue: make(map[string]*rete.ResourceNode),
-		parseLog:                    &strings.Builder{},
-		errorLog:                    &strings.Builder{},
+		mainRuleFileName:      mainRuleFileName,
+		basePath:              basePath,
+		outJsonFileName:       outJsonFileName,
+		jetRuleModel:          rete.NewJetruleModel(),
+		resourceManager:       NewResourceManager(),
+		classesByName:         make(map[string]*rete.ClassNode),
+		currentRuleVarByValue: make(map[string]*rete.ResourceNode),
+		parseLog:              &strings.Builder{},
+		errorLog:              &strings.Builder{},
 	}
 	l.AddR("jets:client")
 	l.AddR("jets:completed")
@@ -86,6 +84,7 @@ func NewJetRuleListener(basePath string, mainRuleFileName string) *JetRuleListen
 	l.AddR("jets:range_value")
 	l.AddR("jets:replace_chars")
 	l.AddR("jets:replace_with")
+	l.AddR("jets:ruleTag")
 	l.AddR("jets:source_period_sequence")
 	l.AddR("jets:sourcePeriodType")
 	l.AddR("jets:State")
@@ -114,4 +113,19 @@ func NewResourceManager() *ResourceManager {
 		ResourceById:  make(map[string]*rete.ResourceNode),
 		ResourceByKey: make(map[int]*rete.ResourceNode),
 	}
+}
+
+// RuleTermWrapper is a wrapper around rete.RuleTerm to add
+// additional fields used during compilation only
+// These fields are not serialized to JSON.
+// RuleTerm is the underlying RuleTerm.
+// Parent is the parent antecedent node. (used during compilation only, not serialized)
+// Descendents is the list of descendent antecedent nodes (for antecedents only, used
+// during compilation only).
+type RuleTermWrapper struct {
+	RuleTerm               *rete.RuleTerm
+	Parent                 *RuleTermWrapper
+	Descendents            []*RuleTermWrapper
+	BindedVars             map[string]bool // map of variable keys that are binded in this term (incl. inherited from parent)
+	RequiredDescendentVars map[string]bool // map of variable keys that are required to be binded in descendents
 }

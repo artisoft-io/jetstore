@@ -345,7 +345,6 @@ func (s *JetRuleListener) ExitLookupTableStmt(ctx *parser.LookupTableStmtContext
 func (s *JetRuleListener) EnterJetRuleStmt(ctx *parser.JetRuleStmtContext) {
 	s.currentRuleProperties = make(map[string]string)
 	s.currentRuleVarByValue = make(map[string]*rete.ResourceNode)
-	s.currentRuleBindedVarByValue = make(map[string]*rete.ResourceNode)
 	s.currentJetruleNode = &rete.JetruleNode{}
 }
 
@@ -366,24 +365,23 @@ func (s *JetRuleListener) ExitJetRuleStmt(ctx *parser.JetRuleStmtContext) {
 	s.PostProcessJetruleProperties(s.currentJetruleNode)
 
 	// Validate the rule and optimize it if valid
-	isValid := s.ValidateJetruleNode(s.currentJetruleNode)
-	if isValid && s.currentJetruleNode.Optimization {
-		s.OptimizeJetruleNode(s.currentJetruleNode)
-	}
+	s.currentJetruleNode.IsValid = s.ValidateJetruleNode(s.currentJetruleNode)
+
+	// Optimize the rule only if valid and optimization is enabled
+	s.OptimizeJetruleNode(s.currentJetruleNode)
+
 	// Add rule Label and NormalizedLabel
 	s.PostProcessJetruleNode(s.currentJetruleNode)
 
-	if isValid {
-		// Build the beta nodes for the antecedents of the rule
-		s.BuildBetaNodesForJetrule(s.currentJetruleNode)
-	}
-	s.currentJetruleNode.IsValid = isValid
+	// Build the beta nodes for the antecedents of the rule
+	// provided the rule is valid
+	s.BuildBetaNodesForJetrule(s.currentJetruleNode)
 
 	// Reset current rule state
 	s.currentRuleProperties = nil
 	s.currentRuleAntecedents = nil
 	s.currentRuleConsequents = nil
-	s.currentRuleVarByValue = make(map[string]*rete.ResourceNode)
+	s.currentRuleVarByValue = nil
 
 	// Append to the model
 	s.jetRuleModel.Jetrules = append(s.jetRuleModel.Jetrules, s.currentJetruleNode)
@@ -518,9 +516,11 @@ func (s *JetRuleListener) ExitObjectAtomExprTerm(ctx *parser.ObjectAtomExprTermC
 	}
 
 	// Create a new identifier (resource / volatile_resource) expression node
+	r := s.ParseObjectAtom(NodeTxt, kws)
 	varNode := rete.ExpressionNode{
 		Type:  "identifier",
-		Value: s.ParseObjectAtom(NodeTxt, kws),
+		Value: r.Key,
+		R:     r,
 	}
 	// Push the new identifier expression onto the stack
 	s.inProgressExpr.Push(&varNode)
@@ -543,27 +543,31 @@ func (s *JetRuleListener) ExitAntecedent(ctx *parser.AntecedentContext) {
 	if ctx.GetO().GetKws() != nil {
 		kws = ctx.GetO().GetKws().GetText()
 	}
-	term := &rete.RuleTerm{
-		Type:         "antecedent",
-		IsNot:        ctx.GetN() != nil,
-		SubjectKey:   s.ParseObjectAtom(EscR(ctx.GetS().GetText()), ""),
-		PredicateKey: s.ParseObjectAtom(EscR(ctx.GetP().GetText()), ""),
-		ObjectKey:    s.ParseObjectAtom(EscR(ctx.GetO().GetText()), kws),
-	}
+	S := s.ParseObjectAtom(EscR(ctx.GetS().GetText()), "")
+	P := s.ParseObjectAtom(EscR(ctx.GetP().GetText()), "")
+	O := s.ParseObjectAtom(EscR(ctx.GetO().GetText()), kws)
+	ruleTerm := &rete.RuleTerm{
+			Type:         "antecedent",
+			IsNot:        ctx.GetN() != nil,
+			SubjectKey:   S.Key,
+			PredicateKey: P.Key,
+			ObjectKey:    O.Key,
+		}
 	// Add filter
 	if s.inProgressExpr.Len() > 0 {
 		expr, ok := s.inProgressExpr.Pop()
 		if ok {
-			term.Filter = expr
+			ruleTerm.Filter = expr
 		}
 	}
-	s.ValidateRuleTerm(term)
+	// Validate the term
+	s.ValidateRuleTerm(ruleTerm)
 
 	// Clear the in-progress expression stack
 	s.inProgressExpr = nil
 
 	// Append to the current rule antecedents
-	s.currentRuleAntecedents = append(s.currentRuleAntecedents, term)
+	s.currentRuleAntecedents = append(s.currentRuleAntecedents, ruleTerm)
 }
 
 // Consequent Definition
@@ -579,23 +583,28 @@ func (s *JetRuleListener) ExitConsequent(ctx *parser.ConsequentContext) {
 	if ctx.GetS() == nil || ctx.GetP() == nil || ctx.GetO() == nil {
 		return
 	}
-	term := &rete.RuleTerm{
-		Type:         "consequent",
-		SubjectKey:   s.ParseObjectAtom(EscR(ctx.GetS().GetText()), ""),
-		PredicateKey: s.ParseObjectAtom(EscR(ctx.GetP().GetText()), ""),
-	}
+	S := s.ParseObjectAtom(EscR(ctx.GetS().GetText()), "")
+	P := s.ParseObjectAtom(EscR(ctx.GetP().GetText()), "")
+	ruleTerm := &rete.RuleTerm{
+			Type:         "consequent",
+			SubjectKey:   S.Key,
+			PredicateKey: P.Key,
+		}
 	// Add object expression
 	if s.inProgressExpr.Len() > 0 {
 		expr, ok := s.inProgressExpr.Pop()
 		if ok {
-			term.ObjectExpr = expr
+			ruleTerm.ObjectExpr = expr
 		}
 	}
+	// Validate the term
+	s.ValidateRuleTerm(ruleTerm)
+
 	// Clear the in-progress expression stack
 	s.inProgressExpr = nil
 
 	// Append to the current rule consequents
-	s.currentRuleConsequents = append(s.currentRuleConsequents, term)
+	s.currentRuleConsequents = append(s.currentRuleConsequents, ruleTerm)
 }
 
 // =====================================================================================
@@ -610,10 +619,18 @@ func (s *JetRuleListener) ExitTripleStmt(ctx *parser.TripleStmtContext) {
 	if ctx.GetO().GetKws() != nil {
 		kws = ctx.GetO().GetKws().GetText()
 	}
+	S := s.ParseObjectAtom(EscR(ctx.GetS().GetText()), "")
+	P := s.ParseObjectAtom(EscR(ctx.GetP().GetText()), "")
+	O := s.ParseObjectAtom(EscR(ctx.GetO().GetText()), kws)
 	triple := &rete.TripleNode{
-		SubjectKey:   s.ParseObjectAtom(EscR(ctx.GetS().GetText()), ""),
-		PredicateKey: s.ParseObjectAtom(EscR(ctx.GetP().GetText()), ""),
-		ObjectKey:    s.ParseObjectAtom(EscR(ctx.GetO().GetText()), kws),
+		SubjectKey:     S.Key,
+		PredicateKey:   P.Key,
+		ObjectKey:      O.Key,
+		S:              S,
+		P:              P,
+		O:              O,
+		SourceFileName: s.currentRuleFileName,
 	}
+	// Append to the model
 	s.jetRuleModel.Triples = append(s.jetRuleModel.Triples, triple)
 }

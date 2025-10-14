@@ -102,6 +102,9 @@ type LookupTableDataInfo struct {
 // Properties is a map of properties defined in the rule header
 // Optimization is a boolean property that indicates if the rule should be optimized (default true)
 // Salience is an integer property that indicates the salience of the rule (default 100)
+// Antecedents is a list of antecedents (if part of the rule)
+// Consequents is a list of consequents (then part of the rule)
+// IsValid indicates if the rule passed validation, if not it won't be used in the rete network
 type JetruleNode struct {
 	Name            string            `json:"name,omitempty"`
 	Properties      map[string]string `json:"properties,omitempty"`
@@ -113,9 +116,10 @@ type JetruleNode struct {
 	SourceFileName  string            `json:"source_file_name,omitempty"`
 	NormalizedLabel string            `json:"normalizedLabel,omitempty"`
 	Label           string            `json:"label,omitempty"`
+	IsValid         bool              `json:"is_valid,omitzero"`
 }
 
-// RuleTerm type is either antecedent or consequent.
+// RuleTerm Type is either antecedent or consequent.
 // BetaRelationVars is the full list of variable IDs that are used in beta relations.
 // PrunedVars is the list of variable IDs that are not needed by current and descendent nodes.
 // BetaVarNodes is the net list (BetaRelationVars minus PrunedVars) of BetaVarNode
@@ -129,9 +133,6 @@ type JetruleNode struct {
 // SubjectKey, PredicateKey, ObjectKey are the keys of the resources in the model.
 // ObjectExpr is an expression node that represents the object if it is an expression.
 // Filter is an expression node that represents the filter applied to the antecedent.
-// ParentBindedVars is a map of variable IDs that are binded in the parent nodes.
-// DescendentsReqVars is a map of variable IDs that are required by descendent nodes.
-// SelfVars is a map of variable IDs that are used in this node.
 type RuleTerm struct {
 	Type               string          `json:"type,omitempty"`
 	IsNot              bool            `json:"isNot,omitzero"`
@@ -152,11 +153,15 @@ type RuleTerm struct {
 	ObjectKey          int             `json:"object_key,omitzero"`
 	ObjectExpr         *ExpressionNode `json:"obj_expr,omitempty"`
 	Filter             *ExpressionNode `json:"filter,omitempty"`
-	ParentBindedVars   map[string]bool `json:"parent_binded_vars,omitempty"`
-	DescendentsReqVars map[string]bool `json:"descendents_req_vars,omitempty"`
-	SelfVars           map[string]*int `json:"self_vars,omitempty"`
 }
 
+// ExpressionNode represents an expression in the model
+// Type can be "identifier", "unary", "binary"
+// Op is the operator for unary and binary expressions
+// Arg is the argument for unary expressions
+// Lhs and Rhs are the left and right hand side for binary expressions
+// Value is the resource key for identifier
+// r is shorthand for the resource with Value as Key
 type ExpressionNode struct {
 	Type  string          `json:"type,omitempty"`
 	Op    string          `json:"op,omitempty"`
@@ -164,6 +169,7 @@ type ExpressionNode struct {
 	Lhs   *ExpressionNode `json:"lhs,omitempty"`
 	Rhs   *ExpressionNode `json:"rhs,omitempty"`
 	Value int             `json:"value,omitempty"`
+	R     *ResourceNode   `json:"-"`
 }
 
 // BetaVarNode provides information about a variable in a beta relation
@@ -215,9 +221,12 @@ type TableColumnNode struct {
 }
 
 type TripleNode struct {
-	Type           string `json:"type,omitempty"`
-	SubjectKey     int    `json:"subject_key,omitzero"`
-	PredicateKey   int    `json:"predicate_key,omitzero"`
-	ObjectKey      int    `json:"object_key,omitzero"`
-	SourceFileName string `json:"source_file_name,omitempty"`
+	Type           string        `json:"type,omitempty"`
+	SubjectKey     int           `json:"subject_key,omitzero"`
+	PredicateKey   int           `json:"predicate_key,omitzero"`
+	ObjectKey      int           `json:"object_key,omitzero"`
+	SourceFileName string        `json:"source_file_name,omitempty"`
+	S              *ResourceNode `json:"-"`
+	P              *ResourceNode `json:"-"`
+	O              *ResourceNode `json:"-"`
 }

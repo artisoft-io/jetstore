@@ -20,8 +20,9 @@ import (
 // This is a greedy algorithm and may not produce the optimal ordering in all cases.
 // More advanced algorithms can be implemented in the future.
 func (s *JetRuleListener) OptimizeJetruleNode(rule *rete.JetruleNode) {
-	if !rule.Optimization {
-		// Optimization is disabled for this rule
+	if !rule.Optimization || !rule.IsValid {
+		// Optimization is disabled for this rule or the rule is not valid
+		// Skip optimization
 		return
 	}
 	antecedents := rule.Antecedents
@@ -39,11 +40,12 @@ func (s *JetRuleListener) OptimizeJetruleNode(rule *rete.JetruleNode) {
 	for i := range antecedents {
 		if antecedents[i].Filter != nil {
 			filters = append(filters, antecedents[i].Filter)
+			antecedents[i].Filter = nil
 		}
 	}
 
 	// Keep track of the binded variables
-	bindedVars := make(map[string]*int)
+	bindedVars := make(map[string]bool)
 
 	// Iterativelly allocate the antecedent with the top priority
 	// Priority is computed as: 1000 - score
@@ -79,7 +81,7 @@ func (s *JetRuleListener) OptimizeJetruleNode(rule *rete.JetruleNode) {
 		}
 
 		// update bindedVars
-		s.updateBindedVars(bindedVars, antecedents[best.index])
+		s.collectVars(bindedVars, antecedents[best.index])
 
 		// remove it from the antecedents list
 		antecedents = slices.Delete(antecedents, best.index, best.index+1)
@@ -92,7 +94,7 @@ func (s *JetRuleListener) OptimizeJetruleNode(rule *rete.JetruleNode) {
 
 	// Reallocate the filters to the reordered antecedents
 	// ---------------------------------------------------------------------------------
-	bindedVars = make(map[string]*int)
+	bindedVars = make(map[string]bool)
 	// For each antecedent in order, check if any filter can be applied.
 	// A filter can be applied if all its variables are binded by the 
 	// current antecedents and those placed before it.
@@ -103,7 +105,7 @@ func (s *JetRuleListener) OptimizeJetruleNode(rule *rete.JetruleNode) {
 	// For each antecedent in order
 	for i := range ordered {
 		// update bindedVars
-		s.updateBindedVars(bindedVars, ordered[i])
+		s.collectVars(bindedVars, ordered[i])
 
 		// use a stack to keep track of the filters that can be applied to this antecedent
 		matchedFilters := stack.NewStack[rete.ExpressionNode](5)
@@ -116,7 +118,7 @@ func (s *JetRuleListener) OptimizeJetruleNode(rule *rete.JetruleNode) {
 			allVarsBinded := true
 			for key := range varsInFilter {
 				r := s.resourceManager.ResourceByKey[key]
-				if bindedVars[r.Id] == nil {
+				if !bindedVars[r.Id] {
 					allVarsBinded = false
 					break
 				}
@@ -191,68 +193,29 @@ post_process:
 	}
 }
 
-// updateBindedVars updates the bindedVars map with the variables in the antecedent
-// The map value indicates the position of the variable in the triple:
-// 0 = subject, 1 = predicate, 2 = object
-func (s *JetRuleListener) updateBindedVars(bindedVars map[string]*int, antecedent *rete.RuleTerm) {
+// collectVars updates the collectedVars map with the variables in the antecedent.
+func (s *JetRuleListener) collectVars(collectedVars map[string]bool, antecedent *rete.RuleTerm) {
 	if antecedent.SubjectKey > 0 {
 		r := s.resourceManager.ResourceByKey[antecedent.SubjectKey]
 		if r.Type == "var" {
-			pos := 0
-			bindedVars[r.Id] = &pos
+			collectedVars[r.Id] = true
 		}
 	}
 	if antecedent.PredicateKey > 0 {
 		r := s.resourceManager.ResourceByKey[antecedent.PredicateKey]
 		if r.Type == "var" {
-			pos := 1
-			bindedVars[r.Id] = &pos
+			collectedVars[r.Id] = true
 		}
 	}
 	if antecedent.ObjectKey > 0 {
 		r := s.resourceManager.ResourceByKey[antecedent.ObjectKey]
 		if r.Type == "var" {
-			pos := 2
-			bindedVars[r.Id] = &pos
+			collectedVars[r.Id] = true
 		}
 	}
 }
 
-// collectUnbindedVars collects the unbinded variables in the antecedent
-// and adds them to the unbindedVars map
-// The map value indicates the position of the variable in the triple:
-// 0 = subject, 1 = predicate, 2 = object
-func (s *JetRuleListener) collectUnbindedVars(parentBindedVars map[string]bool, unbindedVars map[string]*int, antecedent *rete.RuleTerm) {
-	if antecedent.SubjectKey > 0 {
-		r := s.resourceManager.ResourceByKey[antecedent.SubjectKey]
-		if r.Type == "var" {
-			if !parentBindedVars[r.Id] {
-				pos := 0
-				unbindedVars[r.Id] = &pos
-			}
-		}
-	}
-	if antecedent.PredicateKey > 0 {
-		r := s.resourceManager.ResourceByKey[antecedent.PredicateKey]
-		if r.Type == "var" {
-			if !parentBindedVars[r.Id] {
-				pos := 1
-				unbindedVars[r.Id] = &pos
-			}
-		}
-	}
-	if antecedent.ObjectKey > 0 {
-		r := s.resourceManager.ResourceByKey[antecedent.ObjectKey]
-		if r.Type == "var" {
-			if !parentBindedVars[r.Id] {
-				pos := 2
-				unbindedVars[r.Id] = &pos
-			}
-		}
-	}
-}
-
-func (s *JetRuleListener) evaluateScore(bindedVars map[string]*int, antecedent *rete.RuleTerm) int {
+func (s *JetRuleListener) evaluateScore(bindedVars map[string]bool, antecedent *rete.RuleTerm) int {
 	sscore := 0
 	pscore := 0
 	oscore := 0
@@ -262,7 +225,7 @@ func (s *JetRuleListener) evaluateScore(bindedVars map[string]*int, antecedent *
 		r := s.resourceManager.ResourceByKey[antecedent.SubjectKey]
 		switch r.Type {
 		case "var":
-			if bindedVars[r.Id] != nil {
+			if !bindedVars[r.Id] {
 				sscore = 200 + 20
 			} else {
 				sscore = 0 + 40
@@ -277,7 +240,7 @@ func (s *JetRuleListener) evaluateScore(bindedVars map[string]*int, antecedent *
 		r := s.resourceManager.ResourceByKey[antecedent.PredicateKey]
 		switch r.Type {
 		case "var":
-			if bindedVars[r.Id] != nil {
+			if !bindedVars[r.Id] {
 				pscore = 200 + 0
 			} else {
 				pscore = 0 + 0
@@ -295,7 +258,7 @@ func (s *JetRuleListener) evaluateScore(bindedVars map[string]*int, antecedent *
 		r := s.resourceManager.ResourceByKey[antecedent.ObjectKey]
 		switch r.Type {
 		case "var":
-			if bindedVars[r.Id] != nil {
+			if !bindedVars[r.Id] {
 				oscore = 200 + 40
 			} else {
 				oscore = 0 + 20
