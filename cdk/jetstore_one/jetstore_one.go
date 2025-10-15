@@ -149,12 +149,12 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 	}
 
 	// Add VPC ID as outputs
-	awscdk.NewCfnOutput(stack, jsii.String("JetStore_VPC_ID"), &awscdk.CfnOutputProps{
+	awscdk.NewCfnOutput(stack, jsii.String("JetStoreVpcID"), &awscdk.CfnOutputProps{
 		Value: jsComp.Vpc.VpcId(),
 	})
 
 	// Add VpcEndpointsSg ID to outputs
-	awscdk.NewCfnOutput(stack, jsii.String("Vpc_Endpoints_SG_ID"), &awscdk.CfnOutputProps{
+	awscdk.NewCfnOutput(stack, jsii.String("VpcEndpointsSGID"), &awscdk.CfnOutputProps{
 		Value: jsComp.VpcEndpointsSg.SecurityGroupId(),
 	})
 
@@ -488,6 +488,7 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 // JETS_SERVER_SM_TIMEOUT_MIN (optional) state machine timeout for SERVER_SM, default 60 min
 // JETS_SNS_ALARM_TOPIC_ARN (optional, sns topic for sending alarm)
 // JETS_SQS_REGISTER_KEY_LAMBDA_ENTRY (optional, path to handler code for sqs register key lambda)
+// JETS_API_GATEWAY_LAMBDA_ENTRY (optional, path to handler code for api gateway lambda)
 // JETS_SQS_REGISTER_KEY_VPC_ID (optional, external vpc to attached the sqs register key lambda)
 // JETS_SQS_REGISTER_KEY_SG_ID (optional, external security group for the sqs register key vpc)
 // JETS_STACK_ID (optional, stack id, default: JetstoreOneStack)
@@ -588,6 +589,7 @@ func main() {
 	fmt.Println("env JETS_LOADER_TASK_MEM_LIMIT_MB:", os.Getenv("JETS_LOADER_TASK_MEM_LIMIT_MB"))
 	fmt.Println("env JETS_SNS_ALARM_TOPIC_ARN:", os.Getenv("JETS_SNS_ALARM_TOPIC_ARN"))
 	fmt.Println("env JETS_SQS_REGISTER_KEY_LAMBDA_ENTRY:", os.Getenv("JETS_SQS_REGISTER_KEY_LAMBDA_ENTRY"))
+	fmt.Println("env JETS_API_GATEWAY_LAMBDA_ENTRY:", os.Getenv("JETS_API_GATEWAY_LAMBDA_ENTRY"))
 	fmt.Println("env JETS_SQS_REGISTER_KEY_VPC_ID:", os.Getenv("JETS_SQS_REGISTER_KEY_VPC_ID"))
 	fmt.Println("env JETS_SQS_REGISTER_KEY_SG_ID:", os.Getenv("JETS_SQS_REGISTER_KEY_SG_ID"))
 	fmt.Println("env JETS_STACK_ID:", os.Getenv("JETS_STACK_ID"))

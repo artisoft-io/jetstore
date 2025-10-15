@@ -47,6 +47,7 @@ func NewCrossAccountPrivateApiStack(scope constructs.Construct, id string, props
 		Vpc:               vpc,
 		Service:           awsec2.InterfaceVpcEndpointAwsService_APIGATEWAY(),
 		PrivateDnsEnabled: jsii.Bool(true),
+		Open:              jsii.Bool(true),
 		Subnets: &awsec2.SubnetSelection{
 			SubnetType: awsec2.SubnetType_PRIVATE_WITH_EGRESS,
 		},

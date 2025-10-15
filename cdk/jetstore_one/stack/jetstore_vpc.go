@@ -254,7 +254,7 @@ func (jsComp *JetStoreStackComponents) AddVpcEndpoints(stack awscdk.Stack, vpc a
 		PrivateDnsEnabled: jsii.Bool(true),
 		Open:              jsii.Bool(true),
 		//SecurityGroups:    &[]awsec2.ISecurityGroup{vpcEndpointsSG},
-	})), awsec2.Port_AllTraffic(), jsii.String("allow access to aws kms"))
+	})), awsec2.Port_AllTraffic(), jsii.String("allow access to aws ecr"))
 
 	// Add Endpoint for ecr api
 	vpcEndpointsSG.Connections().AllowTo(addTag2Endpoint(awsec2.NewInterfaceVpcEndpoint(stack, jsii.String("EcrApiEndpointv2"), &awsec2.InterfaceVpcEndpointProps{
@@ -264,7 +264,7 @@ func (jsComp *JetStoreStackComponents) AddVpcEndpoints(stack awscdk.Stack, vpc a
 		PrivateDnsEnabled: jsii.Bool(true),
 		Open:              jsii.Bool(true),
 		//SecurityGroups:    &[]awsec2.ISecurityGroup{vpcEndpointsSG},
-	})), awsec2.Port_AllTraffic(), jsii.String("allow access to aws kms"))
+	})), awsec2.Port_AllTraffic(), jsii.String("allow access to aws ecr api"))
 
 	// Add aws config, kms, SNS, SQS, ECS, and Lambda as endpoints
 	vpcEndpointsSG.Connections().AllowTo(addTag2Endpoint(awsec2.NewInterfaceVpcEndpoint(stack, jsii.String("AwsConfigEndpointv2"), &awsec2.InterfaceVpcEndpointProps{
@@ -274,7 +274,7 @@ func (jsComp *JetStoreStackComponents) AddVpcEndpoints(stack awscdk.Stack, vpc a
 		PrivateDnsEnabled: jsii.Bool(true),
 		Open:              jsii.Bool(true),
 		//SecurityGroups:    &[]awsec2.ISecurityGroup{vpcEndpointsSG},
-	})), awsec2.Port_AllTraffic(), jsii.String("allow access to aws kms"))
+	})), awsec2.Port_AllTraffic(), jsii.String("allow access to aws config"))
 
 	vpcEndpointsSG.Connections().AllowTo(addTag2Endpoint(awsec2.NewInterfaceVpcEndpoint(stack, jsii.String("AwsKmsEndpointv2"), &awsec2.InterfaceVpcEndpointProps{
 		Vpc:               vpc,
@@ -292,7 +292,7 @@ func (jsComp *JetStoreStackComponents) AddVpcEndpoints(stack awscdk.Stack, vpc a
 		PrivateDnsEnabled: jsii.Bool(true),
 		Open:              jsii.Bool(true),
 		//SecurityGroups:    &[]awsec2.ISecurityGroup{vpcEndpointsSG},
-	})), awsec2.Port_AllTraffic(), jsii.String("allow access to aws kms"))
+	})), awsec2.Port_AllTraffic(), jsii.String("allow access to aws sns"))
 
 	vpcEndpointsSG.Connections().AllowTo(addTag2Endpoint(awsec2.NewInterfaceVpcEndpoint(stack, jsii.String("AwsSqsEndpointv2"), &awsec2.InterfaceVpcEndpointProps{
 		Vpc:               vpc,
@@ -301,7 +301,7 @@ func (jsComp *JetStoreStackComponents) AddVpcEndpoints(stack awscdk.Stack, vpc a
 		PrivateDnsEnabled: jsii.Bool(true),
 		Open:              jsii.Bool(true),
 		//SecurityGroups:    &[]awsec2.ISecurityGroup{vpcEndpointsSG},
-	})), awsec2.Port_AllTraffic(), jsii.String("allow access to aws kms"))
+	})), awsec2.Port_AllTraffic(), jsii.String("allow access to aws sqs"))
 
 	vpcEndpointsSG.Connections().AllowTo(addTag2Endpoint(awsec2.NewInterfaceVpcEndpoint(stack, jsii.String("EcsAgentEndpointv2"), &awsec2.InterfaceVpcEndpointProps{
 		Vpc:               vpc,
@@ -310,7 +310,7 @@ func (jsComp *JetStoreStackComponents) AddVpcEndpoints(stack awscdk.Stack, vpc a
 		PrivateDnsEnabled: jsii.Bool(true),
 		Open:              jsii.Bool(true),
 		//SecurityGroups:    &[]awsec2.ISecurityGroup{vpcEndpointsSG},
-	})), awsec2.Port_AllTraffic(), jsii.String("allow access to aws kms"))
+	})), awsec2.Port_AllTraffic(), jsii.String("allow access to aws ecs agent"))
 
 	vpcEndpointsSG.Connections().AllowTo(addTag2Endpoint(awsec2.NewInterfaceVpcEndpoint(stack, jsii.String("EcsTelemetryEndpointv2"), &awsec2.InterfaceVpcEndpointProps{
 		Vpc:               vpc,
@@ -319,7 +319,7 @@ func (jsComp *JetStoreStackComponents) AddVpcEndpoints(stack awscdk.Stack, vpc a
 		PrivateDnsEnabled: jsii.Bool(true),
 		Open:              jsii.Bool(true),
 		//SecurityGroups:    &[]awsec2.ISecurityGroup{vpcEndpointsSG},
-	})), awsec2.Port_AllTraffic(), jsii.String("allow access to aws kms"))
+	})), awsec2.Port_AllTraffic(), jsii.String("allow access to aws ecs telemetry"))
 
 	vpcEndpointsSG.Connections().AllowTo(addTag2Endpoint(awsec2.NewInterfaceVpcEndpoint(stack, jsii.String("EcsEndpointv2"), &awsec2.InterfaceVpcEndpointProps{
 		Vpc:               vpc,
@@ -328,7 +328,7 @@ func (jsComp *JetStoreStackComponents) AddVpcEndpoints(stack awscdk.Stack, vpc a
 		PrivateDnsEnabled: jsii.Bool(true),
 		Open:              jsii.Bool(true),
 		//SecurityGroups:    &[]awsec2.ISecurityGroup{vpcEndpointsSG},
-	})), awsec2.Port_AllTraffic(), jsii.String("allow access to aws kms"))
+	})), awsec2.Port_AllTraffic(), jsii.String("allow access to aws ecs"))
 
 	vpcEndpointsSG.Connections().AllowTo(addTag2Endpoint(awsec2.NewInterfaceVpcEndpoint(stack, jsii.String("LambdaEndpointv2"), &awsec2.InterfaceVpcEndpointProps{
 		Vpc:               vpc,
@@ -337,7 +337,7 @@ func (jsComp *JetStoreStackComponents) AddVpcEndpoints(stack awscdk.Stack, vpc a
 		PrivateDnsEnabled: jsii.Bool(true),
 		Open:              jsii.Bool(true),
 		//SecurityGroups:    &[]awsec2.ISecurityGroup{vpcEndpointsSG},
-	})), awsec2.Port_AllTraffic(), jsii.String("allow access to aws kms"))
+	})), awsec2.Port_AllTraffic(), jsii.String("allow access to aws lambda"))
 
 	// Add secret manager endpoint, Add code commit endpoint,  Add Step Functions endpoint, Add Cloudwatch endpoint, Add API Gateway as an endpoint for status notification
 	vpcEndpointsSG.Connections().AllowTo(addTag2Endpoint(awsec2.NewInterfaceVpcEndpoint(stack, jsii.String("SecretManagerEndpointv2"), &awsec2.InterfaceVpcEndpointProps{
@@ -347,7 +347,7 @@ func (jsComp *JetStoreStackComponents) AddVpcEndpoints(stack awscdk.Stack, vpc a
 		PrivateDnsEnabled: jsii.Bool(true),
 		Open:              jsii.Bool(true),
 		//SecurityGroups:    &[]awsec2.ISecurityGroup{vpcEndpointsSG},
-	})), awsec2.Port_AllTraffic(), jsii.String("allow access to aws kms"))
+	})), awsec2.Port_AllTraffic(), jsii.String("allow access to aws secret manager"))
 
 	vpcEndpointsSG.Connections().AllowTo(addTag2Endpoint(awsec2.NewInterfaceVpcEndpoint(stack, jsii.String("CodeCommitEndpointv2"), &awsec2.InterfaceVpcEndpointProps{
 		Vpc:               vpc,
@@ -356,7 +356,7 @@ func (jsComp *JetStoreStackComponents) AddVpcEndpoints(stack awscdk.Stack, vpc a
 		PrivateDnsEnabled: jsii.Bool(true),
 		Open:              jsii.Bool(true),
 		//SecurityGroups:    &[]awsec2.ISecurityGroup{vpcEndpointsSG},
-	})), awsec2.Port_AllTraffic(), jsii.String("allow access to aws kms"))
+	})), awsec2.Port_AllTraffic(), jsii.String("allow access to aws codecommit git"))
 
 	vpcEndpointsSG.Connections().AllowTo(addTag2Endpoint(awsec2.NewInterfaceVpcEndpoint(stack, jsii.String("StatesSynchEndpointv2"), &awsec2.InterfaceVpcEndpointProps{
 		Vpc:               vpc,
@@ -374,7 +374,7 @@ func (jsComp *JetStoreStackComponents) AddVpcEndpoints(stack awscdk.Stack, vpc a
 		PrivateDnsEnabled: jsii.Bool(true),
 		Open:              jsii.Bool(true),
 		//SecurityGroups:    &[]awsec2.ISecurityGroup{vpcEndpointsSG},
-	})), awsec2.Port_AllTraffic(), jsii.String("allow access to aws kms"))
+	})), awsec2.Port_AllTraffic(), jsii.String("allow access to aws step functions"))
 
 	vpcEndpointsSG.Connections().AllowTo(addTag2Endpoint(awsec2.NewInterfaceVpcEndpoint(stack, jsii.String("CloudwatchEndpointv2"), &awsec2.InterfaceVpcEndpointProps{
 		Vpc:               vpc,
@@ -383,7 +383,7 @@ func (jsComp *JetStoreStackComponents) AddVpcEndpoints(stack awscdk.Stack, vpc a
 		PrivateDnsEnabled: jsii.Bool(true),
 		Open:              jsii.Bool(true),
 		//SecurityGroups:    &[]awsec2.ISecurityGroup{vpcEndpointsSG},
-	})), awsec2.Port_AllTraffic(), jsii.String("allow access to aws kms"))
+	})), awsec2.Port_AllTraffic(), jsii.String("allow access to aws cloudwatch logs"))
 
 	vpcEndpointsSG.Connections().AllowTo(addTag2Endpoint(awsec2.NewInterfaceVpcEndpoint(stack, jsii.String("CloudwatchMonitoringEndpointv2"), &awsec2.InterfaceVpcEndpointProps{
 		Vpc:               vpc,
@@ -392,7 +392,7 @@ func (jsComp *JetStoreStackComponents) AddVpcEndpoints(stack awscdk.Stack, vpc a
 		PrivateDnsEnabled: jsii.Bool(true),
 		Open:              jsii.Bool(true),
 		//SecurityGroups:    &[]awsec2.ISecurityGroup{vpcEndpointsSG},
-	})), awsec2.Port_AllTraffic(), jsii.String("allow access to aws kms"))
+	})), awsec2.Port_AllTraffic(), jsii.String("allow access to aws cloudwatch monitoring"))
 
 	vpcEndpointsSG.Connections().AllowTo(addTag2Endpoint(awsec2.NewInterfaceVpcEndpoint(stack, jsii.String("CloudwatchEventsEndpointv2"), &awsec2.InterfaceVpcEndpointProps{
 		Vpc:               vpc,
@@ -401,7 +401,7 @@ func (jsComp *JetStoreStackComponents) AddVpcEndpoints(stack awscdk.Stack, vpc a
 		PrivateDnsEnabled: jsii.Bool(true),
 		Open:              jsii.Bool(true),
 		//SecurityGroups:    &[]awsec2.ISecurityGroup{vpcEndpointsSG},
-	})), awsec2.Port_AllTraffic(), jsii.String("allow access to aws kms"))
+	})), awsec2.Port_AllTraffic(), jsii.String("allow access to aws cloudwatch events"))
 
 	jsComp.ApiGatewayVpcEndpoint = addTag2Endpoint(awsec2.NewInterfaceVpcEndpoint(stack, jsii.String("ApiGatewayEndpointv2"), &awsec2.InterfaceVpcEndpointProps{
 		Vpc:               vpc,
@@ -411,7 +411,9 @@ func (jsComp *JetStoreStackComponents) AddVpcEndpoints(stack awscdk.Stack, vpc a
 		Open:              jsii.Bool(true),
 		//SecurityGroups:    &[]awsec2.ISecurityGroup{vpcEndpointsSG},
 	}))
-	vpcEndpointsSG.Connections().AllowTo(jsComp.ApiGatewayVpcEndpoint, awsec2.Port_AllTraffic(), jsii.String("allow access to aws kms"))
+	// Allow inbound HTTPS traffic to the VPC endpoint
+	jsComp.ApiGatewayVpcEndpoint.Connections().AllowFromAnyIpv4(awsec2.Port_Tcp(jsii.Number(443)), jsii.String("Allow HTTPS inbound to API Gateway VPC Endpoint"))
+	vpcEndpointsSG.Connections().AllowTo(jsComp.ApiGatewayVpcEndpoint, awsec2.Port_AllTraffic(), jsii.String("allow access to aws api gateway"))
 
 	return vpcEndpointsSG
 }

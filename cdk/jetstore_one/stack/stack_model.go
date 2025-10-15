@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	awscdk "github.com/aws/aws-cdk-go/awscdk/v2"
+	"github.com/aws/aws-cdk-go/awscdk/v2/awsapigateway"
 	"github.com/aws/aws-cdk-go/awscdk/v2/awsec2"
 	"github.com/aws/aws-cdk-go/awscdk/v2/awsecs"
 	awselb "github.com/aws/aws-cdk-go/awscdk/v2/awselasticloadbalancingv2"
@@ -94,6 +95,8 @@ type JetStoreStackComponents struct {
 	WebACLAssociation awswafv2.CfnWebACLAssociation
 
 	ApiGatewayVpcEndpoint awsec2.InterfaceVpcEndpoint
+	JetsApi               awsapigateway.RestApi
+	JetsApiExecutionRole	awsiam.Role
 
 	StatusUpdateLambda        awslambdago.GoFunction
 	SecretRotationLambda      awslambdago.GoFunction
@@ -106,6 +109,7 @@ type JetStoreStackComponents struct {
 	CpipesStartReducingLambda awslambdago.GoFunction
 	RegisterKeyV2Lambda       awslambdago.GoFunction
 	SqsRegisterKeyLambda      awslambdago.GoFunction
+	ApiGatewayLambda          awslambdago.GoFunction
 
 	LoaderSM    sfn.StateMachine
 	ReportsSM   sfn.StateMachine

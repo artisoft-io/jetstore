@@ -68,7 +68,7 @@ func (jsComp *JetStoreStackComponents) BuildRegisterKeyLambdas(scope constructs.
 		Timeout:        awscdk.Duration_Seconds(jsii.Number(30)),
 		Vpc:            jsComp.Vpc,
 		VpcSubnets:     jsComp.PrivateSubnetSelection,
-		SecurityGroups:       &[]awsec2.ISecurityGroup{jsComp.VpcEndpointsSg, jsComp.RdsAccessSg},
+		SecurityGroups: &[]awsec2.ISecurityGroup{jsComp.VpcEndpointsSg, jsComp.RdsAccessSg},
 		LogRetention:   awslogs.RetentionDays_THREE_MONTHS,
 	})
 	if phiTagName != nil {
