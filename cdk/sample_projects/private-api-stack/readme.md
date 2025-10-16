@@ -49,7 +49,7 @@ export AWS_SECRET_ACCESS_KEY=$(jq -r '.Credentials.SecretAccessKey' assume-role-
 export AWS_SESSION_TOKEN=$(jq -r '.Credentials.SessionToken' assume-role-output.json)
 
 # invoke the api
- awscurl --service execute-api  --region $AWS_REGION   https://$API_ID.execute-api.$AWS_REGION.amazonaws.com/prod/items?a=b
+ awscurl --service execute-api  --region $AWS_REGION   https://$API_ID.execute-api.$AWS_REGION.amazonaws.com/prod/data?a=b
 ```
 
 Get the appropriate values for the env variables from the CloudFormation stack outputs.

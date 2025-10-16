@@ -4,14 +4,14 @@ set -e
 
 echo "🚀 Deploying Private API with Lambda Example"
 
-# Initialize Go modules for Lambda function
-echo "📦 Initializing Go modules..."
-cd lambda
-go mod tidy
-cd ..
+# # Initialize Go modules for Lambda function
+# echo "📦 Initializing Go modules..."
+# cd lambda
+# go mod tidy
+# cd ..
 
-# Build the project
-./build.sh
+# # Build the project
+# ./build.sh
 
 # Navigate to CDK directory and deploy
 echo "☁️  Deploying with CDK..."

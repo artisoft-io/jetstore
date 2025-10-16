@@ -8,6 +8,8 @@ import (
 	"github.com/aws/aws-cdk-go/awscdk/v2/awsec2"
 	"github.com/aws/aws-cdk-go/awscdk/v2/awsiam"
 	"github.com/aws/aws-cdk-go/awscdk/v2/awslambda"
+	"github.com/aws/aws-cdk-go/awscdk/v2/awslogs"
+	awslambdago "github.com/aws/aws-cdk-go/awscdklambdagoalpha/v2"
 	"github.com/aws/constructs-go/constructs/v10"
 	"github.com/aws/jsii-runtime-go"
 )
@@ -51,131 +53,209 @@ func NewPrivateApiStack(scope constructs.Construct, id string, props *PrivateApi
 		},
 	})
 
-	// Create IAM role for Lambda execution
+	// Create Lambda execution role
 	lambdaRole := awsiam.NewRole(stack, jsii.String("LambdaExecutionRole"), &awsiam.RoleProps{
 		AssumedBy: awsiam.NewServicePrincipal(jsii.String("lambda.amazonaws.com"), nil),
 		ManagedPolicies: &[]awsiam.IManagedPolicy{
+			awsiam.ManagedPolicy_FromAwsManagedPolicyName(jsii.String("service-role/AWSLambdaBasicExecutionRole")),
 			awsiam.ManagedPolicy_FromAwsManagedPolicyName(jsii.String("service-role/AWSLambdaVPCAccessExecutionRole")),
 		},
 	})
 
 	// Create Lambda function
-	lambdaFunction := awslambda.NewFunction(stack, jsii.String("PrivateApiLambda"), &awslambda.FunctionProps{
-		Runtime: awslambda.Runtime_PROVIDED_AL2023(),
-		Handler: jsii.String("bootstrap"),
-		Code:    awslambda.Code_FromAsset(jsii.String("../lambda"), nil),
-		Role:    lambdaRole,
-		Vpc:     vpc,
+	lambdaFunction := awslambdago.NewGoFunction(stack, jsii.String("PrivateApiLambda"), &awslambdago.GoFunctionProps{
+		Description: jsii.String("Lambda for private API"),
+		Runtime:     awslambda.Runtime_PROVIDED_AL2023(),
+		Entry:       jsii.String("../lambda"),
+		Bundling: &awslambdago.BundlingOptions{
+			GoBuildFlags: &[]*string{jsii.String(`-buildvcs=false -ldflags "-s -w"`)},
+		},
+		Role: lambdaRole,
+		Vpc:  vpc,
 		VpcSubnets: &awsec2.SubnetSelection{
 			SubnetType: awsec2.SubnetType_PRIVATE_WITH_EGRESS,
 		},
 		Environment: &map[string]*string{
-			"REGION": stack.Region(),
+			"ENVIRONMENT": jsii.String("production"),
+			"REGION":      stack.Region(),
 		},
 	})
 
-	// Create system account IAM role for API access
-	systemAccountRole := awsiam.NewRole(stack, jsii.String("SystemAccountRole"), &awsiam.RoleProps{
-		AssumedBy: awsiam.NewAccountRootPrincipal(),
-		RoleName:  jsii.String("PrivateApiSystemRole"),
+	// Create IAM role for system account to invoke API
+	systemRole := awsiam.NewRole(stack, jsii.String("SystemAccountRole"), &awsiam.RoleProps{
+		AssumedBy: awsiam.NewCompositePrincipal(
+			awsiam.NewAccountRootPrincipal(),
+		),
+		RoleName: jsii.String("PrivateApiSystemRole"),
+	})
+
+	// Create test Lambda execution role with VPC access and assume role permissions
+	testLambdaRole := awsiam.NewRole(stack, jsii.String("TestLambdaExecutionRole"), &awsiam.RoleProps{
+		AssumedBy: awsiam.NewServicePrincipal(jsii.String("lambda.amazonaws.com"), nil),
+		ManagedPolicies: &[]awsiam.IManagedPolicy{
+			awsiam.ManagedPolicy_FromAwsManagedPolicyName(jsii.String("service-role/AWSLambdaBasicExecutionRole")),
+			awsiam.ManagedPolicy_FromAwsManagedPolicyName(jsii.String("service-role/AWSLambdaVPCAccessExecutionRole")),
+		},
+	})
+
+	// Allow test Lambda role to assume the system role
+	systemRole.AssumeRolePolicy().AddStatements(
+		awsiam.NewPolicyStatement(&awsiam.PolicyStatementProps{
+			Effect: awsiam.Effect_ALLOW,
+			Principals: &[]awsiam.IPrincipal{
+				testLambdaRole,
+			},
+			Actions: &[]*string{
+				jsii.String("sts:AssumeRole"),
+			},
+		}),
+	)
+
+	// Grant assume role permission to test Lambda role
+	testLambdaRole.AddToPolicy(awsiam.NewPolicyStatement(&awsiam.PolicyStatementProps{
+		Effect: awsiam.Effect_ALLOW,
+		Actions: &[]*string{
+			jsii.String("sts:AssumeRole"),
+		},
+		Resources: &[]*string{
+			systemRole.RoleArn(),
+		},
+	}))
+
+	// Create resource policy for private API (only system role, not test lambda role)
+	resourcePolicy := awsiam.NewPolicyDocument(&awsiam.PolicyDocumentProps{
+		Statements: &[]awsiam.PolicyStatement{
+			awsiam.NewPolicyStatement(&awsiam.PolicyStatementProps{
+				Effect: awsiam.Effect_ALLOW,
+				Principals: &[]awsiam.IPrincipal{
+					systemRole, // Only system role in resource policy
+				},
+				Actions: &[]*string{
+					jsii.String("execute-api:Invoke"),
+				},
+				Resources: &[]*string{
+					jsii.String("*"),
+				},
+				Conditions: &map[string]interface{}{
+					"StringEquals": map[string]interface{}{
+						"aws:sourceVpce": vpcEndpoint.VpcEndpointId(),
+					},
+				},
+			}),
+			awsiam.NewPolicyStatement(&awsiam.PolicyStatementProps{
+				Effect: awsiam.Effect_DENY,
+				Principals: &[]awsiam.IPrincipal{
+					awsiam.NewAnyPrincipal(),
+				},
+				Actions: &[]*string{
+					jsii.String("execute-api:Invoke"),
+				},
+				Resources: &[]*string{
+					jsii.String("*"),
+				},
+				Conditions: &map[string]interface{}{
+					"StringNotEquals": map[string]interface{}{
+						"aws:sourceVpce": *vpcEndpoint.VpcEndpointId(),
+					},
+				},
+			}),
+		},
 	})
 
 	// Create private REST API
 	api := awsapigateway.NewRestApi(stack, jsii.String("PrivateRestApi"), &awsapigateway.RestApiProps{
 		RestApiName: jsii.String("private-api"),
-		Description: jsii.String("Private REST API with Lambda integration"),
+		Description: jsii.String("Private REST API accessible via IAM role"),
 		EndpointConfiguration: &awsapigateway.EndpointConfiguration{
 			Types: &[]awsapigateway.EndpointType{
 				awsapigateway.EndpointType_PRIVATE,
 			},
-			VpcEndpoints: &[]awsec2.IVpcEndpoint{vpcEndpoint},
-		},
-		Policy: awsiam.NewPolicyDocument(&awsiam.PolicyDocumentProps{
-			Statements: &[]awsiam.PolicyStatement{
-				awsiam.NewPolicyStatement(&awsiam.PolicyStatementProps{
-					Effect: awsiam.Effect_ALLOW,
-					Principals: &[]awsiam.IPrincipal{
-						systemAccountRole,
-					},
-					Actions: &[]*string{
-						jsii.String("execute-api:Invoke"),
-					},
-					Resources: &[]*string{
-						jsii.String("*"),
-					},
-					Conditions: &map[string]interface{}{
-						"StringEquals": map[string]interface{}{
-							"aws:sourceVpce": *vpcEndpoint.VpcEndpointId(),
-						},
-					},
-				}),
-				awsiam.NewPolicyStatement(&awsiam.PolicyStatementProps{
-					Effect: awsiam.Effect_DENY,
-					Principals: &[]awsiam.IPrincipal{
-						awsiam.NewAnyPrincipal(),
-					},
-					Actions: &[]*string{
-						jsii.String("execute-api:Invoke"),
-					},
-					Resources: &[]*string{
-						jsii.String("*"),
-					},
-					Conditions: &map[string]interface{}{
-						"StringNotEquals": map[string]interface{}{
-							"aws:sourceVpce": *vpcEndpoint.VpcEndpointId(),
-						},
-					},
-				}),
+			VpcEndpoints: &[]awsec2.IVpcEndpoint{
+				vpcEndpoint,
 			},
-		}),
+		},
+		Policy: resourcePolicy,
+		DefaultMethodOptions: &awsapigateway.MethodOptions{
+			AuthorizationType: awsapigateway.AuthorizationType_IAM,
+		},
 	})
 
 	// Create Lambda integration
-	lambdaIntegration := awsapigateway.NewLambdaIntegration(
-		lambdaFunction, &awsapigateway.LambdaIntegrationOptions{})
+	lambdaIntegration := awsapigateway.NewLambdaIntegration(lambdaFunction, 
+		&awsapigateway.LambdaIntegrationOptions{
+			AllowTestInvoke: jsii.Bool(true),
+			Proxy: jsii.Bool(true),
+		})
 
 	// Add methods to API
-	api.Root().AddMethod(jsii.String("GET"), lambdaIntegration, nil)
-	api.Root().AddMethod(jsii.String("POST"), lambdaIntegration, nil)
+	api.Root().AddMethod(jsii.String("POST"), lambdaIntegration, &awsapigateway.MethodOptions{
+		AuthorizationType: awsapigateway.AuthorizationType_IAM,
+	})
+	api.Root().AddMethod(jsii.String("GET"), lambdaIntegration, &awsapigateway.MethodOptions{
+		AuthorizationType: awsapigateway.AuthorizationType_IAM,
+	})
 
-	// Add resource and methods
-	resource := api.Root().AddResource(jsii.String("items"), nil)
-	resource.AddMethod(jsii.String("GET"), lambdaIntegration, nil)
-	resource.AddMethod(jsii.String("POST"), lambdaIntegration, nil)
+	// Add resource and method
+	resource := api.Root().AddResource(jsii.String("data"), nil)
+	resource.AddMethod(jsii.String("POST"), lambdaIntegration, &awsapigateway.MethodOptions{
+		AuthorizationType: awsapigateway.AuthorizationType_IAM,
+	})
+	resource.AddMethod(jsii.String("GET"), lambdaIntegration, &awsapigateway.MethodOptions{
+		AuthorizationType: awsapigateway.AuthorizationType_IAM,
+	})
 
-	// Grant invoke permissions to system account role
-	lambdaFunction.GrantInvoke(systemAccountRole)
-
-	// Add jump server
-	bastionHost := awsec2.NewBastionHostLinux(stack, jsii.String("PrivateApiDemoJumpServer"), &awsec2.BastionHostLinuxProps{
-		Vpc:          vpc,
-		InstanceName: jsii.String("PrivateApiDemoJumpServer"),
-		SubnetSelection: &awsec2.SubnetSelection{
-			SubnetType: awsec2.SubnetType_PUBLIC,
+	// Grant invoke permissions to system role
+	systemRole.AddToPolicy(awsiam.NewPolicyStatement(&awsiam.PolicyStatementProps{
+		Effect: awsiam.Effect_ALLOW,
+		Actions: &[]*string{
+			jsii.String("execute-api:Invoke"),
 		},
-	})
-	bastionHost.Instance().Instance().AddPropertyOverride(jsii.String("KeyName"), os.Getenv("BASTION_HOST_KEYPAIR_NAME"))
-	bastionHost.AllowSshAccessFrom(awsec2.Peer_AnyIpv4())
+		Resources: &[]*string{
+			jsii.String(*api.ArnForExecuteApi(jsii.String("*"), jsii.String("/"), jsii.String("*"))),
+		},
+	}))
 
-	// Output important values
-	awscdk.NewCfnOutput(stack, jsii.String("VpcId"), &awscdk.CfnOutputProps{
-		Value:       vpc.VpcId(),
-		Description: jsii.String("VPC ID"),
+	// Create test Lambda function that can assume the system role to invoke the private API
+	testLambdaFunction := awslambdago.NewGoFunction(stack, jsii.String("TestLambdaFunction"), &awslambdago.GoFunctionProps{
+		Description: jsii.String("Test lambda to invoke private API using assumed system role"),
+		Runtime:     awslambda.Runtime_PROVIDED_AL2023(),
+		Entry:       jsii.String("../test_lambda"),
+		Bundling: &awslambdago.BundlingOptions{
+			GoBuildFlags: &[]*string{jsii.String(`-buildvcs=false -ldflags "-s -w"`)},
+		},
+		Role: testLambdaRole,
+		Vpc:  vpc,
+		VpcSubnets: &awsec2.SubnetSelection{
+			SubnetType: awsec2.SubnetType_PRIVATE_WITH_EGRESS,
+		},
+		Environment: &map[string]*string{
+			"API_ENDPOINT":    api.Url(),
+			"VPC_ENDPOINT_ID": vpcEndpoint.VpcEndpointId(),
+			"SYSTEM_ROLE_ARN": systemRole.RoleArn(),
+		},
+		Timeout:      awscdk.Duration_Minutes(jsii.Number(5)),
+		LogRetention: awslogs.RetentionDays_ONE_DAY,
 	})
 
-	awscdk.NewCfnOutput(stack, jsii.String("VpcEndpointId"), &awscdk.CfnOutputProps{
-		Value:       vpcEndpoint.VpcEndpointId(),
-		Description: jsii.String("VPC Endpoint ID"),
-	})
-
-	awscdk.NewCfnOutput(stack, jsii.String("ApiUrl"), &awscdk.CfnOutputProps{
-		Value:       api.Url(),
-		Description: jsii.String("Private API URL"),
+	// Output the API endpoint and role ARN
+	awscdk.NewCfnOutput(stack, jsii.String("ApiEndpoint"), &awscdk.CfnOutputProps{
+		Value: api.Url(),
 	})
 
 	awscdk.NewCfnOutput(stack, jsii.String("SystemRoleArn"), &awscdk.CfnOutputProps{
-		Value:       systemAccountRole.RoleArn(),
-		Description: jsii.String("System Account Role ARN"),
+		Value: systemRole.RoleArn(),
+	})
+
+	awscdk.NewCfnOutput(stack, jsii.String("TestLambdaFunctionName"), &awscdk.CfnOutputProps{
+		Value: testLambdaFunction.FunctionName(),
+	})
+
+	awscdk.NewCfnOutput(stack, jsii.String("TestLambdaRoleArn"), &awscdk.CfnOutputProps{
+		Value: testLambdaRole.RoleArn(),
+	})
+
+	awscdk.NewCfnOutput(stack, jsii.String("VpcEndpointId"), &awscdk.CfnOutputProps{
+		Value: vpcEndpoint.VpcEndpointId(),
 	})
 
 	return stack
@@ -186,6 +266,7 @@ func main() {
 
 	app := awscdk.NewApp(nil)
 
+	// Use updated version with test lambda
 	NewPrivateApiStack(app, "PrivateApiStack", &PrivateApiStackProps{
 		awscdk.StackProps{
 			Env: env(),

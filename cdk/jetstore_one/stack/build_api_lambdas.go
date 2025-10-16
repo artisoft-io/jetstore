@@ -6,12 +6,12 @@ import (
 	"os"
 
 	awscdk "github.com/aws/aws-cdk-go/awscdk/v2"
+	"github.com/aws/aws-cdk-go/awscdk/v2/awsapigateway"
 	"github.com/aws/aws-cdk-go/awscdk/v2/awsec2"
-	"github.com/aws/aws-cdk-go/awscdk/v2/awslogs"
 	"github.com/aws/aws-cdk-go/awscdk/v2/awsiam"
 	"github.com/aws/aws-cdk-go/awscdk/v2/awslambda"
+	"github.com/aws/aws-cdk-go/awscdk/v2/awslogs"
 	awslambdago "github.com/aws/aws-cdk-go/awscdklambdagoalpha/v2"
-	"github.com/aws/aws-cdk-go/awscdk/v2/awsapigateway"
 	constructs "github.com/aws/constructs-go/constructs/v10"
 	jsii "github.com/aws/jsii-runtime-go"
 )
@@ -70,7 +70,7 @@ func (jsComp *JetStoreStackComponents) BuildApiLambdas(scope constructs.Construc
 		},
 		MemorySize: jsii.Number(128),
 		// EphemeralStorageSize: awscdk.Size_Mebibytes(jsii.Number(2048)),
-		Timeout:        awscdk.Duration_Minutes(jsii.Number(1)),	// since the api gateway limits to 29 seconds
+		Timeout:        awscdk.Duration_Minutes(jsii.Number(1)), // since the api gateway limits to 29 seconds
 		Vpc:            jsComp.Vpc,
 		VpcSubnets:     jsComp.PrivateSubnetSelection,
 		SecurityGroups: &[]awsec2.ISecurityGroup{jsComp.VpcEndpointsSg, jsComp.RdsAccessSg, jsComp.InternetAccessSg},
@@ -149,6 +149,17 @@ func (jsComp *JetStoreStackComponents) BuildApiLambdas(scope constructs.Construc
 		}),
 	})
 
+	// Grant invoke permissions to system role
+	jsComp.JetsApiExecutionRole.AddToPolicy(awsiam.NewPolicyStatement(&awsiam.PolicyStatementProps{
+		Effect: awsiam.Effect_ALLOW,
+		Actions: &[]*string{
+			jsii.String("execute-api:Invoke"),
+		},
+		Resources: &[]*string{
+			jsii.String(*jsComp.JetsApi.ArnForExecuteApi(jsii.String("*"), jsii.String("*"), jsii.String("*"))),
+		},
+	}))
+
 	// Create Lambda integration
 	lambdaIntegration := awsapigateway.NewLambdaIntegration(
 		jsComp.ApiGatewayLambda, &awsapigateway.LambdaIntegrationOptions{})
@@ -167,12 +178,12 @@ func (jsComp *JetStoreStackComponents) BuildApiLambdas(scope constructs.Construc
 
 	// Add important outputs
 	awscdk.NewCfnOutput(stack, jsii.String("ApiGatewayVpcEndpointId"), &awscdk.CfnOutputProps{
-		Value: jsComp.ApiGatewayVpcEndpoint.VpcEndpointId(),
+		Value:       jsComp.ApiGatewayVpcEndpoint.VpcEndpointId(),
 		Description: jsii.String("JetStore Private API VPC Endpoint ID"),
 	})
 
 	awscdk.NewCfnOutput(stack, jsii.String("JetsApiUrl"), &awscdk.CfnOutputProps{
-		Value: jsComp.JetsApi.Url(),
+		Value:       jsComp.JetsApi.Url(),
 		Description: jsii.String("JetStore Private API URL"),
 	})
 
