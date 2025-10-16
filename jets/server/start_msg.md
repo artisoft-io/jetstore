@@ -129,5 +129,5 @@ table:
 ## Running the server process with logging
 
 ```bash
-GLOG_v=1 ./server -dsn="postgresql://postgres:<PWD>@<IP>:8188/postgres"  -lookupDb test_data/lookup_test1.db -outTables=hc__claim -pcKey=1 -ruleset=workspace_test1.jr -sessId=sess1 -workspaceDb=test_data/workspace_test1.db -poolSize=1
+GLOG_v=1 ./server -dsn="postgresql://postgres:<PWD>@<IP>:5432/postgres"  -lookupDb test_data/lookup_test1.db -outTables=hc__claim -pcKey=1 -ruleset=workspace_test1.jr -sessId=sess1 -workspaceDb=test_data/workspace_test1.db -poolSize=1
 ```

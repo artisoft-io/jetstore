@@ -93,7 +93,7 @@ func NewVpcPeeringStack(scope constructs.Construct, id string, props *VpcPeering
 			rdsCluster := awsrds.DatabaseCluster_FromDatabaseClusterAttributes(stack, jsii.String("JetstoreDb"), &awsrds.DatabaseClusterAttributes{
 				ClusterIdentifier: jsii.String(os.Getenv("JETS_DB_CLUSTER_ID")),
 			})
-			bastionHost.Connections().AllowTo(rdsCluster, awsec2.Port_Tcp(jsii.Number(8188)), jsii.String("Allow connection from bastionHost"))
+			bastionHost.Connections().AllowTo(rdsCluster, awsec2.Port_Tcp(jsii.Number(5432)), jsii.String("Allow connection from bastionHost"))
 		}
 	}
 	// Get the vpc's from the vpc id

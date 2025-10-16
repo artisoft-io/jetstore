@@ -12,7 +12,7 @@ import (
 	"github.com/jackc/pgx/v4/pgxpool"
 )
 
-// dsn := "postgresql://postgres:<PWD>@<IP>:8188/postgres?sslmode=disable"
+// dsn := "postgresql://postgres:<PWD>@<IP>:5432/postgres?sslmode=disable"
 
 // Env variables:
 // JETS_BUCKET
