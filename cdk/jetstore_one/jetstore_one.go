@@ -302,6 +302,7 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 		jsii.String(os.Getenv("CPIPES_IMAGE_TAG")))
 
 	// Build ECS Tasks
+	// ---------------------------------------------
 	//	- RunreportTaskDefinition
 	//	- LoaderTaskDefinition
 	//	- ServerTaskDefinition
@@ -309,11 +310,18 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 	jsComp.BuildEcsTasks(scope, stack, props)
 
 	// Build JetStore general prupose Lambdas:
+	// ---------------------------------------------
 	//	- StatusUpdateLambda
 	//	- SecretRotationLambda
 	//	- RunReportsLambda
 	//	- PurgeDataLambda
 	jsComp.BuildLambdas(scope, stack, props)
+
+	// Build the Api Gateway Lambda and REST API
+	// ---------------------------------------------
+	//	- ApiGatewayLambda
+	//	- JetsApi
+	jsComp.BuildApiLambdas(scope, stack, props)
 
 	// Build Loader State Machine
 	// ---------------------------------------------
