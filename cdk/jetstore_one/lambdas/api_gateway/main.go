@@ -129,7 +129,7 @@ func main() {
 	defer dbConnection.ReleaseConnection()
 
 	handlers := map[string]awsi.JetsHandler{
-		"jets": &JetsHandler{prefix: "jets"},
+		"jets:": &JetsHandler{prefix: "jets:"},
 	}
 	controller := awsi.NewJetController(handlers)
 	controller.StartHandler()
