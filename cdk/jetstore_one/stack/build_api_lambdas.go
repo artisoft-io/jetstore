@@ -102,7 +102,7 @@ func (jsComp *JetStoreStackComponents) BuildApiLambdas(scope constructs.Construc
 
 	// Create private REST API
 	jsComp.JetsApi = awsapigateway.NewRestApi(stack, jsii.String("PrivateRestApi"), &awsapigateway.RestApiProps{
-		RestApiName: jsii.String("jets-private-api"),
+		RestApiName: jsii.String("jetsapi"),
 		Description: jsii.String("JetStore Private REST API with Lambda integration"),
 		EndpointConfiguration: &awsapigateway.EndpointConfiguration{
 			Types: &[]awsapigateway.EndpointType{
@@ -157,7 +157,7 @@ func (jsComp *JetStoreStackComponents) BuildApiLambdas(scope constructs.Construc
 			jsii.String("execute-api:Invoke"),
 		},
 		Resources: &[]*string{
-			jsii.String(*jsComp.JetsApi.ArnForExecuteApi(jsii.String("*"), jsii.String("/*"), jsii.String("*"))),
+			jsii.String(*jsComp.JetsApi.ArnForExecuteApi(jsii.String("*"), jsii.String("/"), jsii.String("*"))),
 		},
 	}))
 
@@ -241,7 +241,7 @@ func (jsComp *JetStoreStackComponents) BuildApiLambdas(scope constructs.Construc
 	jsComp.JetsApi.Root().AddMethod(jsii.String("POST"), lambdaIntegration, nil)
 
 	// Add resource and methods
-	resource := jsComp.JetsApi.Root().AddResource(jsii.String("jets-private-api"), nil)
+	resource := jsComp.JetsApi.Root().AddResource(jsii.String("jetsapi"), nil)
 	resource.AddMethod(jsii.String("GET"), lambdaIntegration, nil)
 	resource.AddMethod(jsii.String("POST"), lambdaIntegration, nil)
 

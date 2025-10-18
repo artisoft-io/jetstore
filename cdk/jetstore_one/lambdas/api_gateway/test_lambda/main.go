@@ -22,21 +22,24 @@ import (
 )
 
 // Examples of test event structure
-// {
-//   "method": "POST",
-//   "path": "/jets-private-api",
-//   "body": {
-//     "method": "jets:status",
-//     "params": {
-//       "jetstore_session_id": "1751533857515"
-//     }
-//   }
-// }
+//
+//	{
+//	  "method": "POST",
+//	  "path": "/jetsapi",
+//	  "body": {
+//	    "method": "jets:status",
+//	    "params": {
+//	      "jetstore_session_id": "1751533857515"
+//	    }
+//	  }
+//	}
+//
 // example of GET
-// {
-//   "method": "GET",
-//   "path": "/jets-private-api?method=jets:status&jetstore_session_id=1751533857515"
-// }
+//
+//	{
+//	  "method": "GET",
+//	  "path": "/jetsapi?method=jets:status&jetstore_session_id=1751533857515"
+//	}
 type TestEvent struct {
 	Method string                 `json:"method"`
 	Path   string                 `json:"path"`
@@ -112,7 +115,7 @@ func handler(ctx context.Context, event TestEvent) (TestResponse, error) {
 	// Assume the system role
 	log.Printf("Assuming role: %s", systemRoleArn)
 	assumeRoleProvider := stscreds.NewAssumeRoleProvider(stsClient, systemRoleArn, func(o *stscreds.AssumeRoleOptions) {
-		o.RoleSessionName = "test-lambda-session"
+		o.RoleSessionName = "jets-test-lambda-session"
 		o.Duration = 15 * time.Minute
 	})
 
