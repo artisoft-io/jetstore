@@ -164,23 +164,23 @@ func (jsComp *JetStoreStackComponents) BuildApiLambdas(scope constructs.Construc
 					},
 				},
 			}),
-			awsiam.NewPolicyStatement(&awsiam.PolicyStatementProps{
-				Effect: awsiam.Effect_DENY,
-				Principals: &[]awsiam.IPrincipal{
-					awsiam.NewAnyPrincipal(),
-				},
-				Actions: &[]*string{
-					jsii.String("execute-api:Invoke"),
-				},
-				Resources: &[]*string{
-					jsii.String("*"),
-				},
-				Conditions: &map[string]any{
-					"StringNotEquals": map[string]any{
-						"aws:sourceVpce": *jsComp.ApiGatewayVpcEndpoint.VpcEndpointId(),
-					},
-				},
-			}),
+			// awsiam.NewPolicyStatement(&awsiam.PolicyStatementProps{
+			// 	Effect: awsiam.Effect_DENY,
+			// 	Principals: &[]awsiam.IPrincipal{
+			// 		awsiam.NewAnyPrincipal(),
+			// 	},
+			// 	Actions: &[]*string{
+			// 		jsii.String("execute-api:Invoke"),
+			// 	},
+			// 	Resources: &[]*string{
+			// 		jsii.String("*"),
+			// 	},
+			// 	Conditions: &map[string]any{
+			// 		"StringNotEquals": map[string]any{
+			// 			"aws:sourceVpce": *jsComp.ApiGatewayVpcEndpoint.VpcEndpointId(),
+			// 		},
+			// 	},
+			// }),
 		},
 	})
 
@@ -249,13 +249,21 @@ func (jsComp *JetStoreStackComponents) BuildApiLambdas(scope constructs.Construc
 		jsComp.ApiGatewayLambda, &awsapigateway.LambdaIntegrationOptions{})
 
 	// Add methods to API
-	jsComp.JetsApi.Root().AddMethod(jsii.String("GET"), lambdaIntegration, nil)
-	jsComp.JetsApi.Root().AddMethod(jsii.String("POST"), lambdaIntegration, nil)
+	jsComp.JetsApi.Root().AddMethod(jsii.String("GET"), lambdaIntegration, &awsapigateway.MethodOptions{
+        AuthorizationType: awsapigateway.AuthorizationType_IAM,
+    })
+	jsComp.JetsApi.Root().AddMethod(jsii.String("POST"), lambdaIntegration, &awsapigateway.MethodOptions{
+        AuthorizationType: awsapigateway.AuthorizationType_IAM,
+    })
 
 	// Add resource and methods
 	resource := jsComp.JetsApi.Root().AddResource(jsii.String("jetsapi"), nil)
-	resource.AddMethod(jsii.String("GET"), lambdaIntegration, nil)
-	resource.AddMethod(jsii.String("POST"), lambdaIntegration, nil)
+	resource.AddMethod(jsii.String("GET"), lambdaIntegration, &awsapigateway.MethodOptions{
+        AuthorizationType: awsapigateway.AuthorizationType_IAM,
+    })
+	resource.AddMethod(jsii.String("POST"), lambdaIntegration, &awsapigateway.MethodOptions{
+        AuthorizationType: awsapigateway.AuthorizationType_IAM,
+    })
 
 	// Grant invoke permissions to system account role
 	jsComp.ApiGatewayLambda.GrantInvoke(jsComp.JetsApiExecutionRole)
