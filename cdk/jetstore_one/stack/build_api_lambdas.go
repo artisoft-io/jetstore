@@ -164,23 +164,23 @@ func (jsComp *JetStoreStackComponents) BuildApiLambdas(scope constructs.Construc
 					},
 				},
 			}),
-			// awsiam.NewPolicyStatement(&awsiam.PolicyStatementProps{
-			// 	Effect: awsiam.Effect_DENY,
-			// 	Principals: &[]awsiam.IPrincipal{
-			// 		awsiam.NewAnyPrincipal(),
-			// 	},
-			// 	Actions: &[]*string{
-			// 		jsii.String("execute-api:Invoke"),
-			// 	},
-			// 	Resources: &[]*string{
-			// 		jsii.String("*"),
-			// 	},
-			// 	Conditions: &map[string]any{
-			// 		"StringNotEquals": map[string]any{
-			// 			"aws:sourceVpce": *jsComp.ApiGatewayVpcEndpoint.VpcEndpointId(),
-			// 		},
-			// 	},
-			// }),
+			awsiam.NewPolicyStatement(&awsiam.PolicyStatementProps{
+				Effect: awsiam.Effect_DENY,
+				Principals: &[]awsiam.IPrincipal{
+					awsiam.NewAnyPrincipal(),
+				},
+				Actions: &[]*string{
+					jsii.String("execute-api:Invoke"),
+				},
+				Resources: &[]*string{
+					jsii.String("*"),
+				},
+				Conditions: &map[string]any{
+					"StringNotEquals": map[string]any{
+						"aws:sourceVpce": *jsComp.ApiGatewayVpcEndpoint.VpcEndpointId(),
+					},
+				},
+			}),
 		},
 	})
 

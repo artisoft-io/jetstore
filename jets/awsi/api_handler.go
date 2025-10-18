@@ -42,7 +42,7 @@ type JetsHandler interface {
 }
 
 func (h *JetController) handleRequest(ctx context.Context, request events.APIGatewayProxyRequest) (Response, error) {
-	log.Printf("***Received request: %+v\n", request)
+	// log.Printf("***Received request: %+v\n", request)
 
 	// Handle different HTTP methods
 	switch request.HTTPMethod {
