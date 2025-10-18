@@ -76,6 +76,8 @@ func (h *JetController) StartHandler() {
 	lambda.Start(h.handleRequest)
 }
 
+// getPrefix extracts the prefix from the method field in the query parameters.
+// Returns the `:` at the end to be consistent with rdf notation.
 func getPrefix(method string) string {
 	for i, char := range method {
 		if char == ':' {
@@ -84,11 +86,13 @@ func getPrefix(method string) string {
 	}
 	return ""
 }
-	
+
+// findPrefix extracts the prefix from the method field in the JSON body.
+// Returns the `:` at the end to be consistent with rdf notation.
 func findPrefix(body string) string {
 	matches := prefixRe.FindStringSubmatch(body)
 	if len(matches) > 1 {
-		return matches[1]
+		return matches[1] + ":"
 	}
 	return ""
 }
