@@ -157,7 +157,7 @@ func (jsComp *JetStoreStackComponents) BuildApiLambdas(scope constructs.Construc
 			jsii.String("execute-api:Invoke"),
 		},
 		Resources: &[]*string{
-			jsii.String(*jsComp.JetsApi.ArnForExecuteApi(jsii.String("*"), jsii.String("*"), jsii.String("*"))),
+			jsii.String(*jsComp.JetsApi.ArnForExecuteApi(jsii.String("*"), jsii.String("/*"), jsii.String("*"))),
 		},
 	}))
 
