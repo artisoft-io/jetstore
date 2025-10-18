@@ -2,6 +2,7 @@ package awsi
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"regexp"
 
@@ -49,7 +50,11 @@ func (h *JetController) handleRequest(ctx context.Context, request events.APIGat
 		queryParams := request.QueryStringParameters
 		handler := h.handlers[getPrefix(queryParams["method"])]
 		if handler == nil {
-			log.Fatalf("No handler found for method prefix: %s", getPrefix(queryParams["method"]))
+			return Response{
+				StatusCode: 405,
+				Headers:    map[string]string{"Content-Type": "application/json"},
+				Body:       fmt.Sprintf(`{"error": "No handler found for method prefix: %s"}`, getPrefix(queryParams["method"])),
+			}, nil
 		}
 		return handler.HandleGet(ctx, request)
 
@@ -57,7 +62,11 @@ func (h *JetController) handleRequest(ctx context.Context, request events.APIGat
 		prefix := findPrefix(request.Body)
 		handler := h.handlers[prefix]
 		if handler == nil {
-			log.Fatalf("No handler found for method prefix in body: %s", prefix)
+			return Response{
+				StatusCode: 405,
+				Headers:    map[string]string{"Content-Type": "application/json"},
+				Body:       fmt.Sprintf(`{"error": "No handler found for method prefix in body: %s"}`, prefix),
+			}, nil
 		}
 		return handler.HandlePost(ctx, request)
 
