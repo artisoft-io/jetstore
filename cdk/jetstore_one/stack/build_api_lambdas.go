@@ -24,6 +24,13 @@ func (jsComp *JetStoreStackComponents) BuildApiLambdas(scope constructs.Construc
 	if len(lambdaEntry) == 0 {
 		return
 	}
+
+	//Check if deploy test lambda
+	deployTestLambda := false
+	dtl := strings.ToUpper(os.Getenv("JETS_API_GATEWAY_DEPLOY_TEST_LAMBDA"))
+	if dtl == "TRUE" || dtl == "1" {
+		deployTestLambda = true
+	}
 	jsComp.ApiGatewayLambda = awslambdago.NewGoFunction(stack, jsii.String("ApiGatewayLambda"), &awslambdago.GoFunctionProps{
 		Description: jsii.String("JetStore Lambda function API Gateway"),
 		Runtime:     awslambda.Runtime_PROVIDED_AL2023(),
@@ -94,83 +101,18 @@ func (jsComp *JetStoreStackComponents) BuildApiLambdas(scope constructs.Construc
 		jsComp.ExternalKmsKey.GrantEncryptDecrypt(jsComp.ApiGatewayLambda)
 	}
 
-	// Create system account IAM role for API access
+	// Create system account IAM role to invoke API
 	jsComp.JetsApiExecutionRole = awsiam.NewRole(stack, jsii.String("SystemAccountRole"), &awsiam.RoleProps{
-		AssumedBy: awsiam.NewAccountRootPrincipal(),
-		RoleName:  jsii.String("JetStorePrivateApiSystemRole"),
+		AssumedBy: awsiam.NewCompositePrincipal(
+			awsiam.NewAccountRootPrincipal(),
+		),
+		RoleName: jsii.String("JetStorePrivateApiSystemRole"),
 	})
-
-	// Create private REST API
-	jsComp.JetsApi = awsapigateway.NewRestApi(stack, jsii.String("PrivateRestApi"), &awsapigateway.RestApiProps{
-		RestApiName: jsii.String("jetsapi"),
-		Description: jsii.String("JetStore Private REST API with Lambda integration"),
-		EndpointConfiguration: &awsapigateway.EndpointConfiguration{
-			Types: &[]awsapigateway.EndpointType{
-				awsapigateway.EndpointType_PRIVATE,
-			},
-			VpcEndpoints: &[]awsec2.IVpcEndpoint{jsComp.ApiGatewayVpcEndpoint},
-		},
-		Policy: awsiam.NewPolicyDocument(&awsiam.PolicyDocumentProps{
-			Statements: &[]awsiam.PolicyStatement{
-				awsiam.NewPolicyStatement(&awsiam.PolicyStatementProps{
-					Effect: awsiam.Effect_ALLOW,
-					Principals: &[]awsiam.IPrincipal{
-						jsComp.JetsApiExecutionRole,
-					},
-					Actions: &[]*string{
-						jsii.String("execute-api:Invoke"),
-					},
-					Resources: &[]*string{
-						jsii.String("*"),
-					},
-					Conditions: &map[string]any{
-						"StringEquals": map[string]any{
-							"aws:sourceVpce": *jsComp.ApiGatewayVpcEndpoint.VpcEndpointId(),
-						},
-					},
-				}),
-				awsiam.NewPolicyStatement(&awsiam.PolicyStatementProps{
-					Effect: awsiam.Effect_DENY,
-					Principals: &[]awsiam.IPrincipal{
-						awsiam.NewAnyPrincipal(),
-					},
-					Actions: &[]*string{
-						jsii.String("execute-api:Invoke"),
-					},
-					Resources: &[]*string{
-						jsii.String("*"),
-					},
-					Conditions: &map[string]any{
-						"StringNotEquals": map[string]any{
-							"aws:sourceVpce": *jsComp.ApiGatewayVpcEndpoint.VpcEndpointId(),
-						},
-					},
-				}),
-			},
-		}),
-	})
-
-	// Grant invoke permissions to system role
-	jsComp.JetsApiExecutionRole.AddToPolicy(awsiam.NewPolicyStatement(&awsiam.PolicyStatementProps{
-		Effect: awsiam.Effect_ALLOW,
-		Actions: &[]*string{
-			jsii.String("execute-api:Invoke"),
-		},
-		Resources: &[]*string{
-			jsii.String(*jsComp.JetsApi.ArnForExecuteApi(jsii.String("*"), jsii.String("/"), jsii.String("*"))),
-		},
-	}))
-
-	// Deploy test lambda
-	deployTestLambda := false
-	dtl := strings.ToUpper(os.Getenv("JETS_API_GATEWAY_DEPLOY_TEST_LAMBDA"))
-	if dtl == "TRUE" || dtl == "1" {
-		deployTestLambda = true
-	}
+	// Test lambda role
+	var testLambdaRole awsiam.Role
 	if deployTestLambda {
-
 		// Create test Lambda execution role with VPC access and assume role permissions
-		testLambdaRole := awsiam.NewRole(stack, jsii.String("TestLambdaExecutionRole"), &awsiam.RoleProps{
+		testLambdaRole = awsiam.NewRole(stack, jsii.String("TestLambdaExecutionRole"), &awsiam.RoleProps{
 			AssumedBy: awsiam.NewServicePrincipal(jsii.String("lambda.amazonaws.com"), nil),
 			ManagedPolicies: &[]awsiam.IManagedPolicy{
 				awsiam.ManagedPolicy_FromAwsManagedPolicyName(jsii.String("service-role/AWSLambdaBasicExecutionRole")),
@@ -201,6 +143,76 @@ func (jsComp *JetStoreStackComponents) BuildApiLambdas(scope constructs.Construc
 				jsComp.JetsApiExecutionRole.RoleArn(),
 			},
 		}))
+	}
+	// Create resource policy for private API (only system role, not test lambda role)
+	resourcePolicy := awsiam.NewPolicyDocument(&awsiam.PolicyDocumentProps{
+		Statements: &[]awsiam.PolicyStatement{
+			awsiam.NewPolicyStatement(&awsiam.PolicyStatementProps{
+				Effect: awsiam.Effect_ALLOW,
+				Principals: &[]awsiam.IPrincipal{
+					jsComp.JetsApiExecutionRole, // Only system role in resource policy
+				},
+				Actions: &[]*string{
+					jsii.String("execute-api:Invoke"),
+				},
+				Resources: &[]*string{
+					jsii.String("*"),
+				},
+				Conditions: &map[string]any{
+					"StringEquals": map[string]any{
+						"aws:sourceVpce": jsComp.ApiGatewayVpcEndpoint.VpcEndpointId(),
+					},
+				},
+			}),
+			awsiam.NewPolicyStatement(&awsiam.PolicyStatementProps{
+				Effect: awsiam.Effect_DENY,
+				Principals: &[]awsiam.IPrincipal{
+					awsiam.NewAnyPrincipal(),
+				},
+				Actions: &[]*string{
+					jsii.String("execute-api:Invoke"),
+				},
+				Resources: &[]*string{
+					jsii.String("*"),
+				},
+				Conditions: &map[string]any{
+					"StringNotEquals": map[string]any{
+						"aws:sourceVpce": *jsComp.ApiGatewayVpcEndpoint.VpcEndpointId(),
+					},
+				},
+			}),
+		},
+	})
+
+	// Create private REST API
+	jsComp.JetsApi = awsapigateway.NewRestApi(stack, jsii.String("PrivateRestApi"), &awsapigateway.RestApiProps{
+		RestApiName: jsii.String("jetsapi"),
+		Description: jsii.String("JetStore Private REST API with Lambda integration"),
+		EndpointConfiguration: &awsapigateway.EndpointConfiguration{
+			Types: &[]awsapigateway.EndpointType{
+				awsapigateway.EndpointType_PRIVATE,
+			},
+			VpcEndpoints: &[]awsec2.IVpcEndpoint{jsComp.ApiGatewayVpcEndpoint},
+		},
+		Policy: resourcePolicy,
+		DefaultMethodOptions: &awsapigateway.MethodOptions{
+			AuthorizationType: awsapigateway.AuthorizationType_IAM,
+		},
+	})
+
+	// Grant invoke permissions to system role
+	jsComp.JetsApiExecutionRole.AddToPolicy(awsiam.NewPolicyStatement(&awsiam.PolicyStatementProps{
+		Effect: awsiam.Effect_ALLOW,
+		Actions: &[]*string{
+			jsii.String("execute-api:Invoke"),
+		},
+		Resources: &[]*string{
+			jsii.String(*jsComp.JetsApi.ArnForExecuteApi(jsii.String("*"), jsii.String("/"), jsii.String("*"))),
+		},
+	}))
+
+	// Deploy test lambda
+	if deployTestLambda {
 
 		jsComp.ApiGatewayTestLambda = awslambdago.NewGoFunction(stack, jsii.String("ApiTestLambda"), &awslambdago.GoFunctionProps{
 			Description: jsii.String("JetStore Test Lambda function API Gateway"),
