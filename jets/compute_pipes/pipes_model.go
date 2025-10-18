@@ -297,6 +297,7 @@ type SchemaProviderSpec struct {
 	// NoQuotes will no quote any records for csv writer (even if the record contains '"')
 	// Bucket and FileKey are location and source object (fileKey may be directory if IsPartFiles is true)
 	// KmsKey is kms key to use when writing output data. May be empty.
+	// RequestID is used for logging and tracking purpose.
 	// Contains properties to register FileKey with input_registry table:
 	// Client, Vendor, ObjectType, FileDate
 	// NotificationTemplatesOverrides have the following keys to override the templates defined
@@ -312,6 +313,7 @@ type SchemaProviderSpec struct {
 	Client                           string             `json:"client,omitempty"`
 	Vendor                           string             `json:"vendor,omitempty"`
 	ObjectType                       string             `json:"object_type,omitempty"`
+	RequestID                        string             `json:"request_id,omitempty"`
 	FileDate                         string             `json:"file_date,omitempty"`
 	SourceType                       string             `json:"source_type,omitempty"`
 	SchemaName                       string             `json:"schema_name,omitempty"`

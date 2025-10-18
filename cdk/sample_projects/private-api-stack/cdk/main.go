@@ -136,8 +136,8 @@ func NewPrivateApiStack(scope constructs.Construct, id string, props *PrivateApi
 				Resources: &[]*string{
 					jsii.String("*"),
 				},
-				Conditions: &map[string]interface{}{
-					"StringEquals": map[string]interface{}{
+				Conditions: &map[string]any{
+					"StringEquals": map[string]any{
 						"aws:sourceVpce": vpcEndpoint.VpcEndpointId(),
 					},
 				},
@@ -153,8 +153,8 @@ func NewPrivateApiStack(scope constructs.Construct, id string, props *PrivateApi
 				Resources: &[]*string{
 					jsii.String("*"),
 				},
-				Conditions: &map[string]interface{}{
-					"StringNotEquals": map[string]interface{}{
+				Conditions: &map[string]any{
+					"StringNotEquals": map[string]any{
 						"aws:sourceVpce": *vpcEndpoint.VpcEndpointId(),
 					},
 				},

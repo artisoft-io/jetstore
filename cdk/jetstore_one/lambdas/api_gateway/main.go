@@ -6,117 +6,131 @@ import (
 	"fmt"
 	"log"
 
+	"github.com/artisoft-io/jetstore/jets/awsi"
+	"github.com/artisoft-io/jetstore/cdk/jetstore_one/lambdas/dbc"
 	"github.com/aws/aws-lambda-go/events"
-	"github.com/aws/aws-lambda-go/lambda"
 )
-
-type Response struct {
-	StatusCode int               `json:"statusCode"`
-	Headers    map[string]string `json:"headers"`
-	Body       string            `json:"body"`
-}
+var dbConnection *dbc.DbConnection
 
 type RequestBody struct {
-	Message string `json:"message"`
-	Data    string `json:"data"`
+	Method string      `json:"method"`
+	Params *JetsParams `json:"params,omitzero"`
+	Id     int         `json:"id,omitempty"`
 }
 
-func handler(ctx context.Context, request events.APIGatewayProxyRequest) (Response, error) {
-	log.Printf("Received request: %+v", request)
+type ResponseBody struct {
+	Result JetsResult `json:"result"`
+	Id     int        `json:"id,omitempty"`
+}
 
-	// Handle different HTTP methods
-	switch request.HTTPMethod {
-	case "GET":
-		return handleGet(request)
-	case "POST":
-		return handlePost(request)
+type JetsResult struct {
+	Status        string `json:"status,omitempty"`
+	FailureReason string `json:"failure_reason,omitempty"`
+	SessionId     string `json:"jetstore_session_id,omitempty"`
+}
+
+// JetsParams defines the parameters for the request
+// These requests use jets: prefix for the method name.
+// See readme.md for more details
+type JetsParams struct {
+	SessionId   string          `json:"jetstore_session_id,omitempty"`
+}
+
+// JetsHandler handles JetStore general related API requests
+type JetsHandler struct{
+	prefix string
+}
+func (h *JetsHandler) Prefix() string {
+	return h.prefix
+}
+
+func (h *JetsHandler) HandleGet(ctx context.Context, request events.APIGatewayProxyRequest) (awsi.Response, error) {
+	// Extract query string parameters
+	queryParams := request.QueryStringParameters
+	method := queryParams["method"]
+	sessionId := queryParams["jetstore_session_id"]
+	var responseBody ResponseBody
+
+	switch method {
+	case "jets:status":
+		// Simulate status check
+		log.Println("Checking status for session:", sessionId)
+		responseBody = ResponseBody{
+			Result: JetsResult{
+				Status:    "completed",
+				SessionId: sessionId,
+			},
+		}
 	default:
-		return Response{
-			StatusCode: 405,
-			Headers: map[string]string{
-				"Content-Type": "application/json",
-			},
-			Body: `{"error": "Method not allowed"}`,
-		}, nil
-	}
-}
-
-func handleGet(request events.APIGatewayProxyRequest) (Response, error) {
-	// Extract path parameters
-	resource := request.Resource
-	pathParams := request.PathParameters
-
-	responseBody := map[string]interface{}{
-		"message":        "Hello from private Lambda API!",
-		"method":         "GET",
-		"resource":       resource,
-		"pathParameters": pathParams,
-		"queryParams":    request.QueryStringParameters,
-		"requestId":      request.RequestContext.RequestID,
+		return response(400, fmt.Sprintf(`{"error": "Invalid method for GET: %s"}`, method))
 	}
 
 	body, err := json.Marshal(responseBody)
 	if err != nil {
-		return Response{
-			StatusCode: 500,
-			Headers: map[string]string{
-				"Content-Type": "application/json",
-			},
-			Body: `{"error": "Internal server error"}`,
-		}, err
+		return response(500, `{"error": "Internal server error"}`)
 	}
-
-	return Response{
-		StatusCode: 200,
-		Headers: map[string]string{
-			"Content-Type": "application/json",
-		},
-		Body: string(body),
-	}, nil
+	return response(200, string(body))
 }
 
-func handlePost(request events.APIGatewayProxyRequest) (Response, error) {
+func (h *JetsHandler) HandlePost(ctx context.Context, request events.APIGatewayProxyRequest) (awsi.Response, error) {
 	var requestBody RequestBody
-	
+	var responseBody ResponseBody
+
 	if err := json.Unmarshal([]byte(request.Body), &requestBody); err != nil {
-		return Response{
-			StatusCode: 400,
-			Headers: map[string]string{
-				"Content-Type": "application/json",
-			},
-			Body: `{"error": "Invalid JSON body"}`,
-		}, nil
+		return response(400, `{"error": "Invalid JSON body"}`)
+	}
+	if requestBody.Params == nil {
+		return response(400, `{"error": "Missing params in request body"}`)
 	}
 
-	responseBody := map[string]interface{}{
-		"message":     "Data received successfully",
-		"method":      "POST",
-		"received":    requestBody,
-		"resource":    request.Resource,
-		"requestId":   request.RequestContext.RequestID,
-		"processedAt": fmt.Sprintf("%d", request.RequestContext.RequestTimeEpoch),
+	switch requestBody.Method {
+	case "jets:status":
+		// Simulate status check
+		sessionId := requestBody.Params.SessionId
+		log.Println("Checking status for session:", sessionId)
+		if len(sessionId) == 0 {
+			return response(400, `{"error": "Missing jetstore_session_id in params"}`)
+		}
+		responseBody = ResponseBody{
+			Result: JetsResult{
+				Status:    "completed",
+				SessionId: sessionId,
+			},
+		}
+	default:
+		return response(400, fmt.Sprintf(`{"error": "Invalid method for POST: %s"}`, requestBody.Method))
 	}
 
 	body, err := json.Marshal(responseBody)
 	if err != nil {
-		return Response{
-			StatusCode: 500,
-			Headers: map[string]string{
-				"Content-Type": "application/json",
-			},
-			Body: `{"error": "Internal server error"}`,
-		}, err
+		return response(500, `{"error": "Internal server error"}`)
 	}
+	return response(201, string(body))
+}
 
-	return Response{
-		StatusCode: 201,
+func response(statusCode int, body string) (awsi.Response, error) {
+	return awsi.Response{
+		StatusCode: statusCode,
 		Headers: map[string]string{
 			"Content-Type": "application/json",
 		},
-		Body: string(body),
+		Body: body,
 	}, nil
 }
 
 func main() {
-	lambda.Start(handler)
+
+	// open db connection
+	var err error
+	dbConnection, err = dbc.NewDbConnection(5)
+	if err != nil {
+		log.Panicf("while opening db connection: %v", err)
+	}
+	defer dbConnection.ReleaseConnection()
+
+	handlers := map[string]awsi.JetsHandler{
+		"jets": &JetsHandler{prefix: "jets"},
+	}
+	controller := awsi.NewJetController(handlers)
+	controller.StartHandler()
 }

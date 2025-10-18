@@ -205,7 +205,7 @@ func (jsComp *JetStoreStackComponents) BuildCpipesLambdas(scope constructs.Const
 		awscdk.Tags_Of(jsComp.CpipesStartReducingLambda).Add(piiTagName, jsii.String("true"), nil)
 	}
 	if descriptionTagName != nil {
-		awscdk.Tags_Of(jsComp.CpipesStartReducingLambda).Add(descriptionTagName, jsii.String("JetStore lambda for starting sharding data"), nil)
+		awscdk.Tags_Of(jsComp.CpipesStartReducingLambda).Add(descriptionTagName, jsii.String("JetStore lambda for starting reducing data"), nil)
 	}
 	jsComp.RdsSecret.GrantRead(jsComp.CpipesStartReducingLambda, nil)
 	jsComp.SourceBucket.GrantReadWrite(jsComp.CpipesStartReducingLambda, nil)

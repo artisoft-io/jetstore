@@ -24,16 +24,18 @@ import (
 // Examples of test event structure
 // {
 //   "method": "POST",
-//   "path": "/data",
+//   "path": "/jets-private-api",
 //   "body": {
-//     "message": "this is the message",
-//     "data": "this is the data"
+//     "method": "jets:status",
+//     "params": {
+//       "jetstore_session_id": "1751533857515"
+//     }
 //   }
 // }
 // example of GET
 // {
 //   "method": "GET",
-//   "path": "/data?message=this is the message&data=this is the data",
+//   "path": "/jets-private-api?method=jets:status&jetstore_session_id=1751533857515",
 // }
 type TestEvent struct {
 	Method string                 `json:"method"`

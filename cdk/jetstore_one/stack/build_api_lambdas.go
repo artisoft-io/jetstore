@@ -4,6 +4,7 @@ package stack
 
 import (
 	"os"
+	"strings"
 
 	awscdk "github.com/aws/aws-cdk-go/awscdk/v2"
 	"github.com/aws/aws-cdk-go/awscdk/v2/awsapigateway"
@@ -83,7 +84,7 @@ func (jsComp *JetStoreStackComponents) BuildApiLambdas(scope constructs.Construc
 		awscdk.Tags_Of(jsComp.ApiGatewayLambda).Add(piiTagName, jsii.String("false"), nil)
 	}
 	if descriptionTagName != nil {
-		awscdk.Tags_Of(jsComp.ApiGatewayLambda).Add(descriptionTagName, jsii.String("JetStore lambda for sqs events"), nil)
+		awscdk.Tags_Of(jsComp.ApiGatewayLambda).Add(descriptionTagName, jsii.String("JetStore lambda for api gateway"), nil)
 	}
 	jsComp.RdsSecret.GrantRead(jsComp.ApiGatewayLambda, nil)
 
@@ -122,8 +123,8 @@ func (jsComp *JetStoreStackComponents) BuildApiLambdas(scope constructs.Construc
 					Resources: &[]*string{
 						jsii.String("*"),
 					},
-					Conditions: &map[string]interface{}{
-						"StringEquals": map[string]interface{}{
+					Conditions: &map[string]any{
+						"StringEquals": map[string]any{
 							"aws:sourceVpce": *jsComp.ApiGatewayVpcEndpoint.VpcEndpointId(),
 						},
 					},
@@ -139,8 +140,8 @@ func (jsComp *JetStoreStackComponents) BuildApiLambdas(scope constructs.Construc
 					Resources: &[]*string{
 						jsii.String("*"),
 					},
-					Conditions: &map[string]interface{}{
-						"StringNotEquals": map[string]interface{}{
+					Conditions: &map[string]any{
+						"StringNotEquals": map[string]any{
 							"aws:sourceVpce": *jsComp.ApiGatewayVpcEndpoint.VpcEndpointId(),
 						},
 					},
@@ -156,9 +157,80 @@ func (jsComp *JetStoreStackComponents) BuildApiLambdas(scope constructs.Construc
 			jsii.String("execute-api:Invoke"),
 		},
 		Resources: &[]*string{
-			jsii.String(*jsComp.JetsApi.ArnForExecuteApi(jsii.String("*"), jsii.String("*"), jsii.String("*"))),
+			jsii.String(*jsComp.JetsApi.ArnForExecuteApi(jsii.String("*"), jsii.String("/"), jsii.String("*"))),
 		},
 	}))
+
+	// Deploy test lambda
+	deployTestLambda := false
+	dtl := strings.ToUpper(os.Getenv("JETS_API_GATEWAY_DEPLOY_TEST_LAMBDA"))
+	if dtl == "TRUE" || dtl == "1" {
+		deployTestLambda = true
+	}
+	if deployTestLambda {
+
+		// Create test Lambda execution role with VPC access and assume role permissions
+		testLambdaRole := awsiam.NewRole(stack, jsii.String("TestLambdaExecutionRole"), &awsiam.RoleProps{
+			AssumedBy: awsiam.NewServicePrincipal(jsii.String("lambda.amazonaws.com"), nil),
+			ManagedPolicies: &[]awsiam.IManagedPolicy{
+				awsiam.ManagedPolicy_FromAwsManagedPolicyName(jsii.String("service-role/AWSLambdaBasicExecutionRole")),
+				awsiam.ManagedPolicy_FromAwsManagedPolicyName(jsii.String("service-role/AWSLambdaVPCAccessExecutionRole")),
+			},
+		})
+
+		// Allow test Lambda role to assume the system role
+		jsComp.JetsApiExecutionRole.AssumeRolePolicy().AddStatements(
+			awsiam.NewPolicyStatement(&awsiam.PolicyStatementProps{
+				Effect: awsiam.Effect_ALLOW,
+				Principals: &[]awsiam.IPrincipal{
+					testLambdaRole,
+				},
+				Actions: &[]*string{
+					jsii.String("sts:AssumeRole"),
+				},
+			}),
+		)
+
+		// Grant assume role permission to test Lambda role
+		testLambdaRole.AddToPolicy(awsiam.NewPolicyStatement(&awsiam.PolicyStatementProps{
+			Effect: awsiam.Effect_ALLOW,
+			Actions: &[]*string{
+				jsii.String("sts:AssumeRole"),
+			},
+			Resources: &[]*string{
+				jsComp.JetsApiExecutionRole.RoleArn(),
+			},
+		}))
+
+		jsComp.ApiGatewayTestLambda = awslambdago.NewGoFunction(stack, jsii.String("ApiTestLambda"), &awslambdago.GoFunctionProps{
+			Description: jsii.String("JetStore Test Lambda function API Gateway"),
+			Runtime:     awslambda.Runtime_PROVIDED_AL2023(),
+			Entry:       jsii.String("./lambdas/api_gateway/test_lambda"),
+			Bundling: &awslambdago.BundlingOptions{
+				GoBuildFlags: &[]*string{jsii.String(`-buildvcs=false -ldflags "-s -w"`)},
+			},
+			Environment: &map[string]*string{
+				"API_ENDPOINT":    jsComp.JetsApi.Url(),
+				"VPC_ENDPOINT_ID": jsComp.ApiGatewayVpcEndpoint.VpcEndpointId(),
+				"SYSTEM_ROLE_ARN": jsComp.JetsApiExecutionRole.RoleArn(),
+			},
+			Timeout:        awscdk.Duration_Seconds(jsii.Number(30)),
+			Role:           testLambdaRole,
+			Vpc:            jsComp.Vpc,
+			VpcSubnets:     jsComp.PrivateSubnetSelection,
+			SecurityGroups: &[]awsec2.ISecurityGroup{jsComp.VpcEndpointsSg, jsComp.RdsAccessSg, jsComp.InternetAccessSg},
+			LogRetention:   awslogs.RetentionDays_THREE_MONTHS,
+		})
+		if phiTagName != nil {
+			awscdk.Tags_Of(jsComp.ApiGatewayLambda).Add(phiTagName, jsii.String("false"), nil)
+		}
+		if piiTagName != nil {
+			awscdk.Tags_Of(jsComp.ApiGatewayLambda).Add(piiTagName, jsii.String("false"), nil)
+		}
+		if descriptionTagName != nil {
+			awscdk.Tags_Of(jsComp.ApiGatewayLambda).Add(descriptionTagName, jsii.String("JetStore test lambda for api gateway"), nil)
+		}
+	}
 
 	// Create Lambda integration
 	lambdaIntegration := awsapigateway.NewLambdaIntegration(

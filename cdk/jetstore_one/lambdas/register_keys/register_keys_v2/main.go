@@ -182,6 +182,11 @@ func doFileSchema(dbpool *pgxpool.Pool, fileKey string, fileSize int64) error {
 	fileKeyComponents["object_type"] = schemaInfo.ObjectType
 	fileKeyComponents["file_key"] = schemaInfo.FileKey
 	fileKeyComponents["size"] = schemaInfo.FileSize
+	
+	if len(schemaInfo.RequestID) > 0 {
+		fileKeyComponents["request_id"] = schemaInfo.RequestID
+	}
+
 	fileKeyComponents["schema_provider_json"] = string(buf)
 
 	token, err := user.CreateToken(systemUser)

@@ -96,7 +96,7 @@ type JetStoreStackComponents struct {
 
 	ApiGatewayVpcEndpoint awsec2.InterfaceVpcEndpoint
 	JetsApi               awsapigateway.RestApi
-	JetsApiExecutionRole	awsiam.Role
+	JetsApiExecutionRole  awsiam.Role
 
 	StatusUpdateLambda        awslambdago.GoFunction
 	SecretRotationLambda      awslambdago.GoFunction
@@ -110,6 +110,7 @@ type JetStoreStackComponents struct {
 	RegisterKeyV2Lambda       awslambdago.GoFunction
 	SqsRegisterKeyLambda      awslambdago.GoFunction
 	ApiGatewayLambda          awslambdago.GoFunction
+	ApiGatewayTestLambda      awslambdago.GoFunction
 
 	LoaderSM    sfn.StateMachine
 	ReportsSM   sfn.StateMachine
