@@ -35,7 +35,7 @@ import (
 // example of GET
 // {
 //   "method": "GET",
-//   "path": "/jets-private-api?method=jets:status&jetstore_session_id=1751533857515",
+//   "path": "/jets-private-api?method=jets:status&jetstore_session_id=1751533857515"
 // }
 type TestEvent struct {
 	Method string                 `json:"method"`
