@@ -4,14 +4,16 @@ set -e
 
 echo "🚀 Deploying Private API with Lambda Example"
 
-# # Initialize Go modules for Lambda function
-# echo "📦 Initializing Go modules..."
-# cd lambda
-# go mod tidy
-# cd ..
-
-# # Build the project
-# ./build.sh
+# Source the .env file
+# Adjust the path to .env file as needed
+if [ -f "./.env" ]; then
+  echo "Importing .env file..."
+  set -o allexport
+  source "./.env"
+  set +o allexport
+else
+  echo "No .env file found!"
+fi
 
 # Navigate to CDK directory and deploy
 echo "☁️  Deploying with CDK..."
