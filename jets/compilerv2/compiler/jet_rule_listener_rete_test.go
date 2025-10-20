@@ -46,7 +46,7 @@ func TestJetRuleListener_BuildReteNetwork1(t *testing.T) {
 	case len(jrCompiler.JetRuleModel().ReteNodes) != 6:
 		t.Error("Expected 6 rete nodes, got", len(jrCompiler.JetRuleModel().ReteNodes))
 	}
-	t.Error("Done")
+	// t.Error("Done")
 }
 
 func TestJetRuleListener_BuildReteNetwork2(t *testing.T) {
@@ -89,8 +89,8 @@ func TestJetRuleListener_BuildReteNetwork2(t *testing.T) {
 		t.Error(jrCompiler.ErrorLog().String())
 	case len(jrCompiler.JetRuleModel().Jetrules) != 2:
 		t.Error("Expected 2 jetrules")
-	case len(jrCompiler.JetRuleModel().ReteNodes) != 11:
-		t.Error("Expected 11 rete nodes, got", len(jrCompiler.JetRuleModel().ReteNodes))
+	case len(jrCompiler.JetRuleModel().ReteNodes) != 12:
+		t.Error("Expected 12 rete nodes, got", len(jrCompiler.JetRuleModel().ReteNodes))
 	}
 	// t.Error("Done")
 }

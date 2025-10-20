@@ -215,7 +215,7 @@ func TestJetRuleListener_InlineLiteral(t *testing.T) {
 	if jrCompiler.ErrorLog().Len() == 0 {
 		t.Error("Expected error but none found")
 	} else {
-		t.Error("Done")
+		// t.Error("Done")
 	}
 }
 

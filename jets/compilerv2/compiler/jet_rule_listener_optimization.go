@@ -65,7 +65,7 @@ func (s *JetRuleListener) OptimizeJetruleNode(rule *rete.JetruleNode) {
 			score := s.evaluateScore(bindedVars, antecedents[i])
 			plist = append(plist, antPriority{i, 1000 - score})
 			if s.trace {
-				s.LogParse(fmt.Sprintf("*** Antecedent %d score: %d, priority: %d", i, score, 1000-score))
+				s.LogParse(fmt.Sprintf("*** Antecedent %d %s score: %d, priority: %d", i, antecedents[i].NormalizedLabel, score, 1000-score))
 			}
 		}
 
@@ -77,7 +77,7 @@ func (s *JetRuleListener) OptimizeJetruleNode(rule *rete.JetruleNode) {
 		best := plist[0]
 		ordered = append(ordered, antecedents[best.index])
 		if s.trace {
-			s.LogParse(fmt.Sprintf("*** Selected antecedent %d with priority %d", best.index, best.priority))
+			s.LogParse(fmt.Sprintf("*** Selected antecedent %d %s with priority %d", best.index, antecedents[best.index].NormalizedLabel, best.priority))
 		}
 
 		// update bindedVars
@@ -259,7 +259,7 @@ func (s *JetRuleListener) evaluateScore(bindedVars map[string]bool, antecedent *
 		switch r.Type {
 		case "var":
 			if !bindedVars[r.Id] {
-				oscore = 200 + 40
+				oscore = 100 + 0
 			} else {
 				oscore = 0 + 20
 			}
