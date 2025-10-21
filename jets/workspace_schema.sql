@@ -1,10 +1,10 @@
 -- Schema for workspace.db
-CREATE TABLE base_classes (
+CREATE TABLE IF NOT EXISTS base_classes (
   domain_class_key INTEGER NOT NULL,
   base_class_key INTEGER NOT NULL,
   UNIQUE (domain_class_key, base_class_key)
 );
-CREATE TABLE beta_row_config (
+CREATE TABLE IF NOT EXISTS beta_row_config (
   key INTEGER PRIMARY KEY,
   vertex INTEGER NOT NULL,
   seq INTEGER NOT NULL,
@@ -14,7 +14,7 @@ CREATE TABLE beta_row_config (
   id TEXT,
   UNIQUE (vertex, seq, source_file_key)
 );
-CREATE TABLE data_properties (
+CREATE TABLE IF NOT EXISTS data_properties (
   key INTEGER PRIMARY KEY,
   domain_class_key INTEGER NOT NULL,
   name TEXT NOT NULL,
@@ -24,7 +24,7 @@ CREATE TABLE data_properties (
   -- domain property name must be unique in workspace
   UNIQUE (name)
 );
-CREATE TABLE domain_classes (
+CREATE TABLE IF NOT EXISTS domain_classes (
   key INTEGER PRIMARY KEY,
   name TEXT NOT NULL,
   as_table BOOL DEFAULT FALSE,
@@ -32,7 +32,7 @@ CREATE TABLE domain_classes (
   -- domain class name must be unique in workspace
   UNIQUE (name)
 );
-CREATE TABLE domain_columns (
+CREATE TABLE IF NOT EXISTS domain_columns (
   domain_table_key INTEGER NOT NULL,
   data_property_key INTEGER NOT NULL,
   name TEXT NOT NULL,
@@ -44,14 +44,14 @@ CREATE TABLE domain_columns (
   -- a column name must be unique for a table
   UNIQUE (domain_table_key, name)
 );
-CREATE TABLE domain_tables (
+CREATE TABLE IF NOT EXISTS domain_tables (
   key INTEGER PRIMARY KEY,
   domain_class_key INTEGER NOT NULL,
   name TEXT NOT NULL,
   -- domain table name must be unique since domain_class are unique
   UNIQUE (name)
 );
-CREATE TABLE expressions (
+CREATE TABLE IF NOT EXISTS expressions (
   key INTEGER PRIMARY KEY,
   type TEXT NOT NULL,
   arg0_key INTEGER,
@@ -63,7 +63,7 @@ CREATE TABLE expressions (
   op TEXT,
   source_file_key INTEGER NOT NULL
 );
-CREATE TABLE jet_rules (
+CREATE TABLE IF NOT EXISTS jet_rules (
   key INTEGER PRIMARY KEY,
   name TEXT NOT NULL,
   optimization BOOL,
@@ -73,12 +73,12 @@ CREATE TABLE jet_rules (
   label TEXT,
   source_file_key INTEGER NOT NULL
 );
-CREATE TABLE jetstore_config (
+CREATE TABLE IF NOT EXISTS jetstore_config (
   config_key TEXT NOT NULL,
   config_value TEXT NOT NULL,
   source_file_key INTEGER NOT NULL
 );
-CREATE TABLE lookup_columns (
+CREATE TABLE IF NOT EXISTS lookup_columns (
   lookup_table_key INTEGER NOT NULL,
   name TEXT NOT NULL,
   type TEXT NOT NULL,
@@ -86,7 +86,7 @@ CREATE TABLE lookup_columns (
   -- a column name must be unique for a table
   UNIQUE (lookup_table_key, name)
 );
-CREATE TABLE lookup_tables (
+CREATE TABLE IF NOT EXISTS lookup_tables (
   key INTEGER PRIMARY KEY,
   name TEXT NOT NULL,
   table_name TEXT,
@@ -96,19 +96,19 @@ CREATE TABLE lookup_tables (
   source_file_key INTEGER NOT NULL,
   UNIQUE (name, source_file_key)
 );
-CREATE TABLE main_rule_sets (
+CREATE TABLE IF NOT EXISTS main_rule_sets (
   rule_sequence_key INTEGER NOT NULL,
   main_ruleset_name TEXT NOT NULL,
   ruleset_file_key INTEGER NOT NULL,
   seq INTEGER NOT NULL,
   UNIQUE (rule_sequence_key, ruleset_file_key)
 );
-CREATE TABLE main_support_files (
+CREATE TABLE IF NOT EXISTS main_support_files (
   main_file_key INTEGER NOT NULL,
   support_file_key INTEGER NOT NULL,
   UNIQUE (main_file_key, support_file_key)
 );
-CREATE TABLE resources (
+CREATE TABLE IF NOT EXISTS resources (
   key INTEGER PRIMARY KEY,
   type TEXT NOT NULL,
   id TEXT,
@@ -122,7 +122,7 @@ CREATE TABLE resources (
   -- for var type only, var for vertex
   row_pos INTEGER -- for var type only, pos in beta row
 );
-CREATE TABLE rete_nodes (
+CREATE TABLE IF NOT EXISTS rete_nodes (
   key INTEGER PRIMARY KEY,
   vertex INTEGER NOT NULL,
   type TEXT NOT NULL,
@@ -139,39 +139,39 @@ CREATE TABLE rete_nodes (
   consequent_seq INTEGER NOT NULL,
   UNIQUE (vertex, type, consequent_seq, source_file_key)
 );
-CREATE TABLE rule_properties (
+CREATE TABLE IF NOT EXISTS rule_properties (
   rule_key INTEGER NOT NULL,
   name TEXT NOT NULL,
   value TEXT
 );
-CREATE TABLE rule_sequences (
+CREATE TABLE IF NOT EXISTS rule_sequences (
   key INTEGER PRIMARY KEY,
   name TEXT NOT NULL,
   source_file_key INTEGER NOT NULL,
   -- rule seq name must be unique in workspace
   UNIQUE (name)
 );
-CREATE TABLE rule_terms (
+CREATE TABLE IF NOT EXISTS rule_terms (
   rule_key INTEGER NOT NULL,
   rete_node_key INTEGER NOT NULL,
   is_antecedent BOOL,
   PRIMARY KEY (rule_key, rete_node_key)
 );
-CREATE TABLE schema_info (
+CREATE TABLE IF NOT EXISTS schema_info (
   version_major INTEGER NOT NULL,
   version_minor INTEGER NOT NULL,
   UNIQUE (version_major, version_minor)
 );
-CREATE TABLE triples (
+CREATE TABLE IF NOT EXISTS triples (
   subject_key INTEGER NOT NULL,
   predicate_key INTEGER NOT NULL,
   object_key INTEGER NOT NULL,
   source_file_key INTEGER NOT NULL
 );
-CREATE TABLE workspace_control (
+CREATE TABLE IF NOT EXISTS workspace_control (
   key INTEGER PRIMARY KEY,
   source_file_name TEXT,
   is_main BOOL
 );
-CREATE INDEX rule_properties_idx ON rule_properties (rule_key);
-CREATE INDEX triples_source_file_key_idx ON triples (source_file_key);
+CREATE INDEX IF NOT EXISTS rule_properties_idx ON rule_properties (rule_key);
+CREATE INDEX IF NOT EXISTS triples_source_file_key_idx ON triples (source_file_key);

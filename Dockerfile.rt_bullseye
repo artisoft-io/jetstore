@@ -43,10 +43,11 @@ COPY --from=builder ${JETS_SOURCE_DIR}/jetsclient /usr/local/jetsclient
 
 # Resource files
 COPY --from=builder ${JETS_BUILD_DIR}/jets_schema.json /usr/local/bin/
+COPY --from=builder ${JETS_BUILD_DIR}/workspace_schema.sql /usr/local/bin/
 COPY --from=builder ${JETS_BUILD_DIR}/jets_init_db.sql /usr/local/bin/
 # Set env to find the jets_schema.json by update_db (migrate_db.go)
 ENV JETS_SCHEMA_FILE=/usr/local/bin/jets_schema.json
-# *TODO Not used, it's now integrated into the workspace_init_db.sql script
+ENV JETS_WORKSPACE_DB_SCHEMA_SCRIPT=/usr/local/bin/workspace_schema.sql
 ENV JETS_INIT_DB_SCRIPT=/usr/local/bin/jets_init_db.sql
 
 # Install Client UI == Flutter App ==
