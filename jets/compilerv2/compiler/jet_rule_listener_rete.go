@@ -4,8 +4,6 @@ package compiler
 
 import (
 	"fmt"
-	"log"
-	"slices"
 	"sort"
 
 	"github.com/artisoft-io/jetstore/jets/jetrules/rete"
@@ -18,6 +16,7 @@ import (
 // Augment JetRule structure with rete markups:
 //   - Add to antecedent: parent_vertex, vertex, and children_vertexes
 //   - Add to consequent: vertex
+//   - Add BetaVarNodes to antecedent
 //
 // parent_vertex and vertex are integers
 // --
@@ -47,6 +46,8 @@ func (l *JetRuleListener) BuildReteNetwork() {
 	l.jetRuleModel.ReteNodes = append(l.jetRuleModel.ReteNodes, rootNode)
 
 	// For each rule, add its antecedents to the Rete network
+	// Keep track of consequents by rule's last antecedent
+	consequentsByVertex := make(map[int][]*rete.RuleTerm)
 	for _, rule := range l.jetRuleModel.Jetrules {
 		if l.trace {
 			fmt.Fprintf(l.parseLog, "** Processing rule: %s\n", rule.Name)
@@ -61,7 +62,7 @@ func (l *JetRuleListener) BuildReteNetwork() {
 			}
 			// Look for a node with the same normalized label and parent vertex
 			parentNode := l.jetRuleModel.ReteNodes[parentVertex]
-			reteNode := l.ReteNodeByNormalizedLabel(parentVertex, antecedent.NormalizedLabel)
+			reteNode := l.reteNodeByNormalizedLabel(parentVertex, antecedent.NormalizedLabel)
 			if reteNode == nil {
 				// No matching node found, use current antecedent as the rete node
 				if l.trace {
@@ -72,10 +73,6 @@ func (l *JetRuleListener) BuildReteNetwork() {
 				// Set the vertex and parent vertex
 				reteNode.Vertex = len(l.jetRuleModel.ReteNodes) - 1 // index in the slice
 				reteNode.ParentVertex = parentVertex
-				// Set the vertex of the beta nodes of the antecedent
-				for _, betaNode := range reteNode.BetaVarNodes {
-					betaNode.Vertex = reteNode.Vertex
-				}
 				// Add this node as a child of the parent node
 				parentNode.ChildrenVertexes = append(parentNode.ChildrenVertexes, reteNode.Vertex)
 
@@ -101,12 +98,20 @@ func (l *JetRuleListener) BuildReteNetwork() {
 			rule.Consequents[i].ConsequentSalience = rule.Salience
 			rule.Consequents[i].ConsequentSeq = i + 1
 		}
+		consequentsByVertex[parentVertex] = append(consequentsByVertex[parentVertex], rule.Consequents...)
 	}
 
 	// Add the consequent nodes at the end of the antecedent nodes
 	// For each rule, add its consequents to the Rete network
 	for _, rule := range l.jetRuleModel.Jetrules {
 		l.jetRuleModel.ReteNodes = append(l.jetRuleModel.ReteNodes, rule.Consequents...)
+	}
+
+	// Build the Beta Node for each antecedent of the rete network
+	for _, node := range l.jetRuleModel.ReteNodes[0].ChildrenVertexes {
+		bindedVars := make(map[string]bool)
+		replacementBindedVarNodes :=  make(map[string]*rete.ResourceNode)
+		l.BuildBetaNodesRecursively(l.jetRuleModel.ReteNodes[node], bindedVars, replacementBindedVarNodes, consequentsByVertex)
 	}
 
 	if l.trace {
@@ -122,7 +127,7 @@ func (l *JetRuleListener) BuildReteNetwork() {
 	}
 }
 
-func (l *JetRuleListener) ReteNodeByNormalizedLabel(parentVertex int, normalizedLabel string) *rete.RuleTerm {
+func (l *JetRuleListener) reteNodeByNormalizedLabel(parentVertex int, normalizedLabel string) *rete.RuleTerm {
 	for _, node := range l.jetRuleModel.ReteNodes {
 		if node.ParentVertex == parentVertex && node.NormalizedLabel == normalizedLabel {
 			return node
@@ -131,18 +136,12 @@ func (l *JetRuleListener) ReteNodeByNormalizedLabel(parentVertex int, normalized
 	return nil
 }
 
-func (l *JetRuleListener) CollectDescendentsReqVars(vars map[string]bool, r *rete.RuleTerm) {
+// Collect all the var resources used by the descendents of the given rete.RuleTerm
+// That exclude the given rete.RuleTerm itself
+func (l *JetRuleListener) CollectDescendentsReqVars(vars map[string]bool, r *rete.RuleTerm,
+	consequentsByVertex map[int][]*rete.RuleTerm) {
 
-	// Add self filter vars
-	if r.Filter != nil {
-		varsInFilter := make(map[int]bool)
-		l.collectVarResourcesFromExpr(r.Filter, varsInFilter)
-		for key := range varsInFilter {
-			r := l.resourceManager.ResourceByKey[key]
-			vars[r.Id] = true
-		}
-	}
-
+	// visit children
 	for _, childVertex := range r.ChildrenVertexes {
 		childNode := l.jetRuleModel.ReteNodes[childVertex]
 		if childNode.SubjectKey > 0 {
@@ -170,276 +169,194 @@ func (l *JetRuleListener) CollectDescendentsReqVars(vars map[string]bool, r *ret
 				vars[l.resourceManager.ResourceByKey[key].Id] = true
 			}
 		}
-		l.CollectDescendentsReqVars(vars, childNode)
+		l.CollectDescendentsReqVars(vars, childNode, consequentsByVertex)
 	}
 	if r.Type == "consequent" {
 		return
 	}
 
-	// visit consequent associated with this antecedent
-	for _, rNode := range l.jetRuleModel.ReteNodes {
-		if rNode.Type != "consequent" {
-			continue
-		}
-		// If this consequent is for this antecedent
-		if rNode.Vertex == r.Vertex {
-			if rNode.SubjectKey > 0 {
-				r := l.resourceManager.ResourceByKey[rNode.SubjectKey]
-				if r.Type == "var" {
-					vars[r.Id] = true
-				}
-			}
-			if rNode.PredicateKey > 0 {
-				r := l.resourceManager.ResourceByKey[rNode.PredicateKey]
-				if r.Type == "var" {
-					vars[r.Id] = true
-				}
-			}
-			if rNode.ObjectKey > 0 {
-				r := l.resourceManager.ResourceByKey[rNode.ObjectKey]
-				if r.Type == "var" {
-					vars[r.Id] = true
-				}
-			}
-			if rNode.ObjectExpr != nil {
-				varsKeyInExpr := make(map[int]bool)
-				l.collectVarResourcesFromExpr(rNode.ObjectExpr, varsKeyInExpr)
-				for key := range varsKeyInExpr {
-					vars[l.resourceManager.ResourceByKey[key].Id] = true
-				}
-			}
-			l.CollectDescendentsReqVars(vars, rNode)
-		}
+	// visit consequents associated with this vertex / antecedent
+	for _, rNode := range consequentsByVertex[r.Vertex] {
+		l.CollectDescendentsReqVars(vars, rNode, consequentsByVertex)
 	}
 }
 
-// BuildBetaNodesForJetrule builds the Beta nodes for a given JetruleNode
-// It creates the Beta nodes for the antecedents provided the rule is
-// marked as valid.
-// The beta nodes are invariant, meaning they can be build at the rule level
-// before the rete network is built.
-// Replace the temp variable nodes created during parsing with the actual variable nodes
-// once their pos and binded status is determined.
-// The temp variable nodes are provided by currentRuleVarByValue
-func (l *JetRuleListener) BuildBetaNodesForJetrule(rule *rete.JetruleNode) {
-	if !rule.IsValid {
-		return
-	}
-	if l.trace {
-		fmt.Fprintf(l.parseLog, "** entering BuildBetaNodesForJetrule for rule %s\n", rule.Name)
-	}
-	// Wrap the antecedents and consequents in RuleTermWrapper and connect them as parent-child
-	// Collect the binded variables for each antecedent including the inherited from parent
-	ruleAntecedents := make([]*RuleTermWrapper, 0, len(rule.Antecedents))
-	for _, ant := range rule.Antecedents {
-		wrapper := &RuleTermWrapper{
-			RuleTerm:               ant,
-			Descendents:            make([]*RuleTermWrapper, 0),
-			BindedVars:             make(map[string]bool),
-			RequiredDescendentVars: make(map[string]bool),
-		}
-		if len(ruleAntecedents) > 0 {
-			// Set parent-child relationship
-			parent := ruleAntecedents[len(ruleAntecedents)-1]
-			wrapper.Parent = parent
-			parent.Descendents = append(parent.Descendents, wrapper)
-			// Inherit binded vars from parent
-			for v := range parent.BindedVars {
-				wrapper.BindedVars[v] = true
-			}
-		}
-		// Add self vars to binded vars
-		l.collectVars(wrapper.BindedVars, ant)
-		ruleAntecedents = append(ruleAntecedents, wrapper)
-		if l.trace {
-			fmt.Fprintf(l.parseLog, "   Antecedent: %s, binded vars: %v\n", ant.NormalizedLabel, wrapper.BindedVars)
-		}
-	}
-	// Add the consequents to the last antecedent,
-	// set their parent to the last antecedent
-	// Add the self vars of each consequent to the last antecedent's
-	// descendent required vars and apply to all ancestors
-	lastAntecedent := ruleAntecedents[len(ruleAntecedents)-1]
-	for i, cons := range rule.Consequents {
-		cons.ConsequentSeq = i + 1
-		wrapper := &RuleTermWrapper{
-			RuleTerm:    cons,
-			Descendents: nil,
-			Parent:      lastAntecedent,
-		}
-		lastAntecedent.Descendents = append(lastAntecedent.Descendents, wrapper)
-		// Add self vars to lastAntecedent's descendent required vars
-		l.collectVars(lastAntecedent.RequiredDescendentVars, cons)
-		// Apply to all ancestors
-		current := lastAntecedent
-		parent := lastAntecedent.Parent
-		// Add filters's var of current node to node's required descendent vars
-		if parent == nil {
-			// Special case: there is only 1 antecedent, add the filter vars to its own
-			l.updateVarsFromFilter(current.RuleTerm.Filter, current.RequiredDescendentVars)
-		}
-		for parent != nil {
-			l.updateVarsFromFilter(current.RuleTerm.Filter, current.RequiredDescendentVars)
-			for v := range current.RequiredDescendentVars {
-				parent.RequiredDescendentVars[v] = true
-			}
-			l.collectVars(parent.RequiredDescendentVars, current.RuleTerm)
-			current = parent
-			parent = parent.Parent
+func (l *JetRuleListener) BuildBetaNodesRecursively(node *rete.RuleTerm, 
+	bindedVars map[string]bool,	replacementBindedVarNodes map[string]*rete.ResourceNode, 
+	consequentsByVertex map[int][]*rete.RuleTerm) {
+
+	// Get the var required by descendents of node
+	descendentsReqVars := make(map[string]bool)
+	l.CollectDescendentsReqVars(descendentsReqVars, node, consequentsByVertex)
+
+	// Add self filter vars to descendentsReqVars
+	if node.Filter != nil {
+		varsInFilter := make(map[int]bool)
+		l.collectVarResourcesFromExpr(node.Filter, varsInFilter)
+		for key := range varsInFilter {
+			r := l.resourceManager.ResourceByKey[key]
+			descendentsReqVars[r.Id] = true
 		}
 	}
 
-	// Now build the Beta nodes for each antecedent
-	// Create also the associated ResourceNode (which will replace the temp var node)
-	for _, ant := range ruleAntecedents {
-		newVars := make(map[string]*rete.ResourceNode)
-		// Create the Beta nodes for this antecedent
-		ant.RuleTerm.BetaRelationVars = make([]string, 0, len(ant.BindedVars))
-		ant.RuleTerm.PrunedVars = make([]string, 0, len(ant.BindedVars))
-		ant.RuleTerm.BetaVarNodes = make([]*rete.BetaVarNode, 0, len(ant.BindedVars))
-		// For each binded var that are required by descendents, add to BetaRelationVars
-		for bvar := range ant.BindedVars {
-			if ant.RequiredDescendentVars[bvar] {
-				ant.RuleTerm.BetaRelationVars = append(ant.RuleTerm.BetaRelationVars, bvar)
-			} else {
-				ant.RuleTerm.PrunedVars = append(ant.RuleTerm.PrunedVars, bvar)
-				// Still create a replacement ResourceNode for pruned vars
-				r := l.addVarResourceByDomainKey(&rete.ResourceNode{
-					Type: "var",
-					Id:   bvar,
-				})
-				newVars[r.Id] = r
-			}
+	// Get the var position in the triple of current antecedent
+	varPos := l.getVarPosition(node)
+	// Add node's var to bindedVars
+	for v := range varPos {
+		bindedVars[v] = true
+	}
+
+	// //***
+	// fmt.Fprintf(l.parseLog, "Got bindedVars: %v, descendentsReqVars: %v for node vertex %d %s\n",
+	// 	bindedVars, descendentsReqVars, node.Vertex, node.NormalizedLabel)
+
+
+	// Build the Beta node configuration for this node
+	// For each binded var that are required by descendents or current node, add to BetaRelationVars
+	for v := range bindedVars {
+		if descendentsReqVars[v] || varPos[v] != nil {
+			node.BetaRelationVars = append(node.BetaRelationVars, v)
+		} else {
+			node.PrunedVars = append(node.PrunedVars, v)
 		}
-		// Sort the BetaRelationVars slice
-		sort.Strings(ant.RuleTerm.BetaRelationVars)
-		sort.Strings(ant.RuleTerm.PrunedVars)
+	}
+	// Sort the BetaRelationVars slice
+	sort.Strings(node.BetaRelationVars)
+	sort.Strings(node.PrunedVars)
 
-		// Get the var position in the triple of current antecedent
-		varPos := l.getVarPosition(ant.RuleTerm)
 
-		// For each BetaRelationVar create a BetaVarNode
-		for i, bvar := range ant.RuleTerm.BetaRelationVars {
-			isBinded := false
-			pos := i
-			pp := varPos[bvar]
-			if pp != nil {
-				// This var is in the triple, use its position
-				pos = *pp
-			} else {
-				// Not in the triple, it must be binded in parent
-				isBinded = true
-			}
-			node := &rete.BetaVarNode{
-				Type:           "var",
-				Id:             bvar,
-				IsBinded:       isBinded,
-				VarPos:         pos,
-				SourceFileName: l.currentRuleFileName,
-			}
-			ant.RuleTerm.BetaVarNodes = append(ant.RuleTerm.BetaVarNodes, node)
-			// Create the associated ResourceNode (which will replace the temp var node)
-			r := l.addVarResourceByDomainKey(&rete.ResourceNode{
+	// //***
+	// fmt.Fprintf(l.parseLog, "Got BetaRelationVars: %v, PrunedVars: %v for node vertex %d %s\n",
+	// 	node.BetaRelationVars, node.PrunedVars, node.Vertex, node.NormalizedLabel)
+
+	// For each BetaRelationVar create a BetaVarNode
+	// Keep track of new var created for replacement
+	newVars := make(map[string]*rete.ResourceNode)
+	for i, bvar := range node.BetaRelationVars {
+		isBinded := false
+		pos := i
+		pp := varPos[bvar]
+		if pp != nil {
+			// This var is in the triple, use its position
+			pos = *pp
+		} else {
+			// Not in the triple, it must be binded in parent
+			isBinded = true
+		}
+		bv := &rete.BetaVarNode{
+			Type:           "var",
+			Id:             bvar,
+			IsBinded:       isBinded,
+			Vertex:         node.Vertex,
+			VarPos:         pos,
+			SourceFileName: l.currentRuleFileName,
+		}
+		node.BetaVarNodes = append(node.BetaVarNodes, bv)
+		// Create the associated ResourceNode (which will replace the temp var node)
+		r := l.addVarResourceByDomainKey(&rete.ResourceNode{
+			Type:     "var",
+			Id:       bv.Id,
+			IsBinded: bv.IsBinded,
+			Vertex:   bv.Vertex,
+			VarPos:   bv.VarPos,
+		})
+		newVars[r.Id] = r
+		if bv.IsBinded {
+			// Collect all binded var for replacement in consequents
+			replacementBindedVarNodes[r.Id] = r
+		} else {
+			// Create the binded version for replacement in consequents
+			bindedR := l.addVarResourceByDomainKey(&rete.ResourceNode{
 				Type:     "var",
-				Id:       node.Id,
-				IsBinded: node.IsBinded,
-				VarPos:   node.VarPos,
+				Id:       bv.Id,
+				IsBinded: true,
+				Vertex:   bv.Vertex,
+				VarPos:   bv.VarPos,
 			})
-			newVars[r.Id] = r
+			replacementBindedVarNodes[bindedR.Id] = bindedR
 		}
-		// Replace the var in the rule antecedents and consequents, incl filters and expressions
-		// with the actual ResourceNode created above
-		replaceVar := func(id string) (r *rete.ResourceNode) {
-			r = newVars[id]
-			if r == nil {
-				log.Println("** Internal error: temp var not found:", id)
-				fmt.Fprintf(l.errorLog, "** Internal error: temp var not found: %s\n", id)
-				fmt.Fprintf(l.parseLog, "** Internal error: temp var not found: %s\n", id)
-			}
-			return r
-		}
-		l.replaceVarInAntecedent(ant, replaceVar)
-
 	}
 
-	// Delete the temp var nodes created during parsing
-	// Remove from resourceManager.ResourceByKey and jetRuleModel.Resources
-	tempNodes := make(map[int]bool)
-	for _, r := range l.currentRuleVarByValue {
-		tempNodes[r.Key] = true
-		delete(l.resourceManager.ResourceByKey, r.Key)
-	}
-	l.jetRuleModel.Resources = slices.DeleteFunc(l.jetRuleModel.Resources, func(res *rete.ResourceNode) bool {
-		return tempNodes[res.Key]
-	})
+	// Replace the var in node's term, incl filter
+	// with the actual ResourceNode created above
+	l.replaceVarInTerm(node, newVars)
 
-	if l.trace {
-		fmt.Fprintf(l.parseLog, "** leaving BuildBetaNodesForJetrule for rule %s\n", rule.Name)
+	// Replace the var in node's consequents with the binded version
+	for _, cons := range consequentsByVertex[node.Vertex] {
+		l.replaceVarInTerm(cons, replacementBindedVarNodes)
+	}
+
+	// Visit the descendents
+	for _, childVertex := range node.ChildrenVertexes {
+		childNode := l.jetRuleModel.ReteNodes[childVertex]
+
+		l.BuildBetaNodesRecursively(childNode, bindedVars, replacementBindedVarNodes, consequentsByVertex)
 	}
 }
 
-func (l *JetRuleListener) replaceVarInAntecedent(ant *RuleTermWrapper, replaceVar func(id string) *rete.ResourceNode) {
-	if ant.RuleTerm.SubjectKey > 0 {
-		r := l.resourceManager.ResourceByKey[ant.RuleTerm.SubjectKey]
+// Replace the var in node's term, incl filter with the actual ResourceNode created above
+func (l *JetRuleListener) replaceVarInTerm(term *rete.RuleTerm, newVars map[string]*rete.ResourceNode) {
+	if term.SubjectKey > 0 {
+		r := l.resourceManager.ResourceByKey[term.SubjectKey]
 		if r.Type == "var" {
-			newR := replaceVar(r.Id)
+			newR := newVars[r.Id]
 			if newR != nil {
-				ant.RuleTerm.SubjectKey = newR.Key
+				term.SubjectKey = newR.Key
 			} else {
-				fmt.Fprintf(l.parseLog, "** internal error: var %s is not found in replacement resource for SubjectKey\n", r.Id)
-				fmt.Fprintf(l.errorLog, "** internal error: var %s is not found in replacement resource for SubjectKey\n", r.Id)
+				fmt.Fprintf(l.parseLog, "** internal error: var %s is not found in replacement resource for SubjectKey (newVar %v)\n", r.Id, newVars)
+				fmt.Fprintf(l.errorLog, "** internal error: var %s is not found in replacement resource for SubjectKey (newVar %v)\n", r.Id, newVars)
 			}
 		}
 	}
-	if ant.RuleTerm.PredicateKey > 0 {
-		r := l.resourceManager.ResourceByKey[ant.RuleTerm.PredicateKey]
+	if term.PredicateKey > 0 {
+		r := l.resourceManager.ResourceByKey[term.PredicateKey]
 		if r.Type == "var" {
-			newR := replaceVar(r.Id)
+			newR := newVars[r.Id]
 			if newR != nil {
-				ant.RuleTerm.PredicateKey = newR.Key
+				term.PredicateKey = newR.Key
 			} else {
 				fmt.Fprintf(l.errorLog, "** internal error: var %s is not found in replacement resource for PredicateKey \n", r.Id)
 				fmt.Fprintf(l.parseLog, "** internal error: var %s is not found in replacement resource for PredicateKey\n", r.Id)
 			}
 		}
 	}
-	if ant.RuleTerm.ObjectKey > 0 {
-		r := l.resourceManager.ResourceByKey[ant.RuleTerm.ObjectKey]
+	if term.ObjectKey > 0 {
+		r := l.resourceManager.ResourceByKey[term.ObjectKey]
 		if r.Type == "var" {
-			newR := replaceVar(r.Id)
+			newR := newVars[r.Id]
 			if newR != nil {
-				ant.RuleTerm.ObjectKey = newR.Key
+				term.ObjectKey = newR.Key
 			} else {
 				fmt.Fprintf(l.errorLog, "** internal error: var %s is not found in replacement resource for ObjectKey\n", r.Id)
 				fmt.Fprintf(l.parseLog, "** internal error: var %s is not found in replacement resource for ObjectKey\n", r.Id)
 			}
 		}
 	}
-	if ant.RuleTerm.ObjectExpr != nil {
-		l.replaceVarInExpr(ant.RuleTerm.ObjectExpr, replaceVar)
+	if term.Filter != nil {
+		l.replaceVarInExpr(term.Filter, newVars)
 	}
-	if ant.RuleTerm.Filter != nil {
-		l.replaceVarInExpr(ant.RuleTerm.Filter, replaceVar)
+	if term.ObjectExpr != nil {
+		l.replaceVarInExpr(term.ObjectExpr, newVars)
 	}
 }
 
-func (s *JetRuleListener) replaceVarInExpr(expr *rete.ExpressionNode, replaceVar func(id string) *rete.ResourceNode) {
+func (s *JetRuleListener) replaceVarInExpr(expr *rete.ExpressionNode, newVars map[string]*rete.ResourceNode) {
 	if expr == nil {
 		return
 	}
 	if expr.Lhs != nil {
-		s.replaceVarInExpr(expr.Lhs, replaceVar)
+		s.replaceVarInExpr(expr.Lhs, newVars)
 	}
 	if expr.Rhs != nil {
-		s.replaceVarInExpr(expr.Rhs, replaceVar)
+		s.replaceVarInExpr(expr.Rhs, newVars)
 	}
 	if expr.Arg != nil {
-		s.replaceVarInExpr(expr.Arg, replaceVar)
+		s.replaceVarInExpr(expr.Arg, newVars)
 	}
 	if expr.Value > 0 {
 		r := s.resourceManager.ResourceByKey[expr.Value]
 		if r.Type == "var" {
-			newR := replaceVar(r.Id)
+			newR := newVars[r.Id]
 			if newR != nil {
 				expr.Value = newR.Key
 			} else {

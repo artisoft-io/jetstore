@@ -165,6 +165,9 @@ func (s *JetRuleListener) newResource(r *rete.ResourceNode) {
 	if r.Type != "var" {
 		s.resourceManager.ResourceById[r.Id] = r
 		s.resourceManager.Resources[fmt.Sprintf("%s|%s", r.Type, r.Value)] = r
+	} else {
+		// Collect temp var nodes
+		s.collectedTempVarNodes = append(s.collectedTempVarNodes, r)
 	}
 	s.jetRuleModel.Resources = append(s.jetRuleModel.Resources, r)
 	// if s.trace {
@@ -173,9 +176,9 @@ func (s *JetRuleListener) newResource(r *rete.ResourceNode) {
 }
 
 // Add var resource to Resource Manager by domain key
-// Domain key is: var|Id|pos|isBinded
+// Domain key is: var|Vertex|Id|VarPos|isBinded
 func (s *JetRuleListener) addVarResourceByDomainKey(r *rete.ResourceNode) *rete.ResourceNode {
-	dkey := fmt.Sprintf("var|%s|%d|%t", r.Id, r.VarPos, r.IsBinded)
+	dkey := fmt.Sprintf("var|%d|%s|%d|%t", r.Vertex, r.Id, r.VarPos, r.IsBinded)
 	if res, exists := s.resourceManager.Resources[dkey]; exists {
 		// Resource already exists
 		return res

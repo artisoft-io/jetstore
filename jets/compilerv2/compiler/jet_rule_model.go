@@ -44,6 +44,8 @@ type JetRuleListener struct {
 	currentRuleVarByValue     map[string]*rete.ResourceNode
 	// stack to build expressions in Antecedents and Consequents
 	inProgressExpr *stack.Stack[rete.ExpressionNode]
+	// Collected temp var nodes, collected from currentRuleVarByValue
+	collectedTempVarNodes []*rete.ResourceNode
 
 	// Logs
 	parseLog *strings.Builder
@@ -61,6 +63,7 @@ func NewJetRuleListener(basePath string, mainRuleFileName string) *JetRuleListen
 		resourceManager:       NewResourceManager(),
 		classesByName:         make(map[string]*rete.ClassNode),
 		currentRuleVarByValue: make(map[string]*rete.ResourceNode),
+		collectedTempVarNodes: make([]*rete.ResourceNode, 0),
 		parseLog:              &strings.Builder{},
 		errorLog:              &strings.Builder{},
 	}

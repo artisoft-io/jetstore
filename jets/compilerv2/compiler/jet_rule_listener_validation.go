@@ -2,6 +2,7 @@ package compiler
 
 import (
 	"fmt"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -56,11 +57,11 @@ func (s *JetRuleListener) ValidateRuleTerm(term *rete.RuleTerm) {
 }
 
 // ValidateJetruleNode validates a JetruleNode:
-// - All RuleTerm in Antecedents must have at least one of subject, predicate, object as variable
-// - All ResourceNode of Type "?var" in a filter expression must appear in the antecedent having
-//   the filter or in previous antecedents.
-// - All ResourceNode of Type "?var" in a negated antecedent must appear in the previous antecedents.
-// - All ResourceNode of Type "?var" in the Consequents must appear in the Antecedents
+//   - All RuleTerm in Antecedents must have at least one of subject, predicate, object as variable
+//   - All ResourceNode of Type "?var" in a filter expression must appear in the antecedent having
+//     the filter or in previous antecedents.
+//   - All ResourceNode of Type "?var" in a negated antecedent must appear in the previous antecedents.
+//   - All ResourceNode of Type "?var" in the Consequents must appear in the Antecedents
 //
 // Returns true if the rule is valid, false otherwise
 func (s *JetRuleListener) ValidateJetruleNode(rule *rete.JetruleNode) bool {
@@ -80,7 +81,7 @@ func (s *JetRuleListener) ValidateJetruleNode(rule *rete.JetruleNode) bool {
 						"** error: antecedent subject variable %s not found in previous antecedents for a negated term\n", r.SKey())
 					isValid = false
 				}
-			}	else {
+			} else {
 				visitedVarSet[r.Id] = true
 			}
 		}
@@ -93,7 +94,7 @@ func (s *JetRuleListener) ValidateJetruleNode(rule *rete.JetruleNode) bool {
 						"** error: antecedent predicate variable %s not found in previous antecedents for a negated term\n", r.SKey())
 					isValid = false
 				}
-			}	else {
+			} else {
 				visitedVarSet[r.Id] = true
 			}
 		}
@@ -106,7 +107,7 @@ func (s *JetRuleListener) ValidateJetruleNode(rule *rete.JetruleNode) bool {
 						"** error: antecedent object variable %s not found in previous antecedents for a negated term\n", r.SKey())
 					isValid = false
 				}
-			}	else {
+			} else {
 				visitedVarSet[r.Id] = true
 			}
 		}
@@ -129,7 +130,7 @@ func (s *JetRuleListener) ValidateJetruleNode(rule *rete.JetruleNode) bool {
 				r := s.Resource(vKey)
 				if !visitedVarSet[r.Id] {
 					fmt.Fprintf(s.errorLog,
-						"** error: antecedent filter expression variable %s not found in previous antecedents\n",	r.SKey())
+						"** error: antecedent filter expression variable %s not found in previous antecedents\n", r.SKey())
 					isValid = false
 				}
 			}
@@ -182,12 +183,14 @@ func (s *JetRuleListener) ValidateJetruleNode(rule *rete.JetruleNode) bool {
 }
 
 // PostProcessJetruleNode performs post-processing on a JetruleNode:
-//   - Add rule Label and NormalizedLabel
+//   - Add rule AuthoredLabel, Label and NormalizedLabel
 //
+// This is done prior to optimization
 // see makeRuleLabel function
 func (s *JetRuleListener) PostProcessJetruleNode(rule *rete.JetruleNode) {
 	// Add rule Label and NormalizedLabel
-	rule.Label = s.makeRuleLabel(rule, false)
+	rule.AuthoredLabel = s.makeRuleLabel(rule, false)
+	rule.Label = rule.AuthoredLabel
 	rule.NormalizedLabel = s.makeRuleLabel(rule, true)
 }
 
@@ -342,6 +345,17 @@ func (l *JetRuleListener) PostProcessJetruleModel() {
 	}
 	// Generate the Rete network from the rules
 	l.BuildReteNetwork()
+
+	// Delete the temp var nodes created during parsing
+	// Remove from resourceManager.ResourceByKey and jetRuleModel.Resources
+	tempNodes := make(map[int]bool)
+	for _, r := range l.collectedTempVarNodes {
+		tempNodes[r.Key] = true
+		delete(l.resourceManager.ResourceByKey, r.Key)
+	}
+	l.jetRuleModel.Resources = slices.DeleteFunc(l.jetRuleModel.Resources, func(res *rete.ResourceNode) bool {
+		return tempNodes[res.Key]
+	})
 }
 
 // IsValidIdentifier checks if a string is a valid identifier

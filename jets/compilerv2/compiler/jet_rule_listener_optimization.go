@@ -191,6 +191,10 @@ post_process:
 			}
 		}
 	}
+
+	// Update rule's Label and NormalizedLabel
+	rule.Label = s.makeRuleLabel(rule, false)
+	rule.NormalizedLabel = s.makeRuleLabel(rule, true)
 }
 
 // collectVars updates the collectedVars map with the variables in the antecedent.

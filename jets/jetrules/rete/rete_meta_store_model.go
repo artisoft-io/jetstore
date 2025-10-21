@@ -48,9 +48,7 @@ func NewJetruleModel() *JetruleModel {
 }
 
 // ResourceNode represents a resource in the model
-// Type can be one of JetStore's rdf types: identifier, string, int, double, boolean, keyword, variable
-// identifier is either resource or volatile_resource.
-// This is resolved by the ResourceManager when adding to the model.
+// Type can be one of JetStore's rdf types: resource, text, volatile_resource, var, int, keyword, double.
 type ResourceNode struct {
 	Id             string `json:"id,omitempty"`
 	Inline         bool   `json:"inline,omitzero"`
@@ -96,7 +94,7 @@ type LookupTableDataInfo struct {
 }
 
 // JetruleNode provides a rule view of the rete network
-// AuthoredLabel is currently not used
+// AuthoredLabel is generated pre-optimization using the original variable names
 // NormalizedLabel is a normalized version of the rule using the ID of the variables
 // Label is text version of the rule using the original variable names
 // Properties is a map of properties defined in the rule header

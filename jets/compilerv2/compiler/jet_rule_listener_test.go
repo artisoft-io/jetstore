@@ -8,7 +8,7 @@ import (
 
 func TestJetRuleListener_SimpleFile(t *testing.T) {
 
-	jrCompiler, err := CompileJetRuleFiles("./testdata", "simple.jr", false, false, false)
+	jrCompiler, err := CompileJetRuleFiles("./testdata", "simple.jr", false, true, false)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}

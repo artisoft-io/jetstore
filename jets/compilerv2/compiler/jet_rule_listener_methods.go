@@ -367,15 +367,12 @@ func (s *JetRuleListener) ExitJetRuleStmt(ctx *parser.JetRuleStmtContext) {
 	// Validate the rule and optimize it if valid
 	s.currentJetruleNode.IsValid = s.ValidateJetruleNode(s.currentJetruleNode)
 
-	// Optimize the rule only if valid and optimization is enabled
-	s.OptimizeJetruleNode(s.currentJetruleNode)
-
-	// Add rule Label and NormalizedLabel
+	// Add rule AuthoredLabel, Label, and NormalizedLabel
 	s.PostProcessJetruleNode(s.currentJetruleNode)
 
-	// Build the beta nodes for the antecedents of the rule
-	// provided the rule is valid
-	s.BuildBetaNodesForJetrule(s.currentJetruleNode)
+	// Optimize the rule only if valid and optimization is enabled
+	// will update Label and NormalizedLabel accordingly
+	s.OptimizeJetruleNode(s.currentJetruleNode)
 
 	// Reset current rule state
 	s.currentRuleProperties = nil
