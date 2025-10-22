@@ -268,6 +268,7 @@ type FileConfig struct {
 	UseLazyQuotesSpecial       bool               `json:"use_lazy_quotes_special,omitzero"`
 	VariableFieldsPerRecord    bool               `json:"variable_fields_per_record,omitzero"`
 	WriteDateLayout            string             `json:"write_date_layout,omitempty"`
+	OutputEncoding             string             `json:"output_encoding,omitempty"`
 }
 
 type SchemaProviderSpec struct {
