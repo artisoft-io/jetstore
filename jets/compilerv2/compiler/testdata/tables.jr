@@ -1,0 +1,65 @@
+# =======================================================================================
+# Tables from Classes
+# ---------------------------------------------------------------------------------------
+
+class ClassA {
+  $base_classes = [owl:Thing],
+  $data_properties = [
+    cAp1       as int,
+    cAp2       as resource
+  ],
+  $as_table = false
+};
+
+class ClassB {
+  $base_classes = [owl:Thing],
+  $data_properties = [
+    cBp1       as bool,
+    cBp2       as double
+  ],
+  $as_table = false
+};
+
+class ClassC {
+  $base_classes = [ClassA],
+  $data_properties = [
+    cCp1       as text,
+    cCp2       as date
+  ],
+  $as_table = true
+};
+
+class ClassD {
+  $base_classes = [ClassA],
+  $data_properties = [
+    cDp1       as text,
+    cDp2       as date
+  ],
+  $as_table = false
+};
+
+class ClassE {
+  $base_classes = [ClassC],
+  $data_properties = [
+    cEp1       as text
+  ],
+  $as_table = false
+};
+
+class ClassF {
+  $base_classes = [ClassC],
+  $data_properties = [
+    cFp1       as text
+  ],
+  $as_table = false
+};
+
+class ClassG {
+  $base_classes = [ClassE,ClassF],
+  $data_properties = [
+    cGp1       as text
+  ],
+  $as_table = false
+};
+
+

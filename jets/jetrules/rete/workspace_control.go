@@ -10,9 +10,21 @@ import (
 // This component list the main rule files of the workspace,
 // known as ruleSets, and the ruleSeq which are sequences
 // of ruleSets.
+
+// WorkspaceControl defines the main rule files and rule sequences of a workspace
+// This is currently user authored and stored in workspace_control.json
+// in the root of the workspace directory.
+// UseCompilerV2 indicates if the workspace should be compiled with the v2 compiler.
+// UseTraceMode indicates if the workspace should be compiled with tracing enabled (applied to v2)
+// AutoAddResources indicates if resources in rules should be automatically added when not explicitly defined
+// in the resource section of the rule file. (applied to v2)
 type WorkspaceControl struct {
-	RuleSets      []string       `json:"rule_sets"`
-	RuleSequences []RuleSequence `json:"rule_sequences"`
+	WorkspaceName    string         `json:"workspace_name,omitempty"`
+	UseCompilerV2    bool           `json:"use_compiler_v2,omitzero"`
+	UseTraceMode     bool           `json:"use_trace_mode,omitzero"`
+	AutoAddResources bool           `json:"auto_add_resources,omitzero"`
+	RuleSets         []string       `json:"rule_sets,omitempty"`
+	RuleSequences    []RuleSequence `json:"rule_sequences,omitempty"`
 }
 
 func NewWorkspaceControl(ruleSets []string, ruleSequences []RuleSequence) *WorkspaceControl {

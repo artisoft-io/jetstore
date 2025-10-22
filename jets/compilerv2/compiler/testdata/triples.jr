@@ -1,0 +1,15 @@
+# Jet Rules with triples
+date d1 = "03/16/2022";
+datetime dt1 = "03/16/2022 16:08:28.195865";
+resource s1 = "r:s1";
+resource s2 = "r:s2";
+resource s3 = "r:s3";
+resource s4 = "r:s4";
+resource jets:"int" = "jets:int";
+volatile_resource yearDistance = "yearDistance" ;
+
+
+triple(s1,jets:operator,"<");
+triple(s2,yearDistance, 22);
+triple(s3, jets:"int", uint(2));
+triple(s4, dt1, date("01/22/2022"));

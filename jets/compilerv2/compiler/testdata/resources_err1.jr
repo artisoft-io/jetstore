@@ -1,0 +1,26 @@
+# =======================================================================================
+# Resources
+# ---------------------------------------------------------------------------------------
+
+resource rrConfig = "sm:RRConfig";
+resource fmt:something = "something";
+resource fmt:"int" = "unusual";
+resource none = null;
+resource always = true;
+resource never = false;
+
+bool always = "1";
+bool never = "0";
+
+volatile_resource abstractNegPrice = "hasAbstractNegPrice" ;
+volatile_resource negotiatedPrice = "hasNegotiatedPrice" ;
+
+int five = 5;
+uint six = 6;
+long seven = 7;
+ulong height = 8;
+double d = 22.8;
+
+date today = "2025/09/12";
+datetime now = "2025/09/12 15:30:21";
+

@@ -57,6 +57,7 @@ import (
 // JETS_DOMAIN_KEY_HASH_SEED (required for md5 and sha1. MUST be a valid uuid )
 // JETS_DOMAIN_KEY_SEPARATOR
 // JETS_SCHEMA_FILE location of jetstore db schema file
+// JETS_WORKSPACE_DB_SCHEMA_SCRIPT location of the workspace.db schema file
 // JETS_INIT_DB_SCRIPT path to jets_init_db.sql files (not workspace specific)
 // JETS_ENCRYPTION_KEY_SECRET or JETS_ENCRYPTION_KEY required key to encrypt git token in users table
 

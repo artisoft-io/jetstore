@@ -47,7 +47,7 @@ func TestLookupTable1(t *testing.T) {
 	wprefix = "test_ws"
 	ctx := NewTestLookupTableManagerContext()
 	jetRuleModel := &JetruleModel{
-		LookupTables: []LookupTableNode{
+		LookupTables: []*LookupTableNode{
 			{
 				Columns: []LookupTableColumn{
 					{Name:"ZIP_CITY", Type: "text"},
@@ -108,7 +108,7 @@ func TestLookupTable2(t *testing.T) {
 	wprefix = "test_ws"
 	ctx := NewTestLookupTableManagerContext()
 	jetRuleModel := &JetruleModel{
-		LookupTables: []LookupTableNode{
+		LookupTables: []*LookupTableNode{
 			{
 				Columns: []LookupTableColumn{
 					{Name:"PRIORITY", Type: "int"},
@@ -164,7 +164,7 @@ func TestLookupRand1(t *testing.T) {
 	wprefix = "test_ws"
 	ctx := NewTestLookupTableManagerContext()
 	jetRuleModel := &JetruleModel{
-		LookupTables: []LookupTableNode{
+		LookupTables: []*LookupTableNode{
 			{
 				Columns: []LookupTableColumn{
 					{Name:"PRIORITY", Type: "int"},
@@ -219,7 +219,7 @@ func TestLookupMultiRand1(t *testing.T) {
 	wprefix = "test_ws"
 	ctx := NewTestLookupTableManagerContext()
 	jetRuleModel := &JetruleModel{
-		LookupTables: []LookupTableNode{
+		LookupTables: []*LookupTableNode{
 			{
 				Columns: []LookupTableColumn{
 					{Name:"PRIORITY", Type: "int"},

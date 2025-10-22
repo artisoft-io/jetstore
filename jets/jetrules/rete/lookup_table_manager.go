@@ -27,7 +27,7 @@ func NewLookupTableManager(rmgr *rdf.ResourceManager, metaGraph *rdf.RdfGraph, j
 
 	lookupTablesByName := make(map[string]LookupTable)
 	for i := range jetruleModel.LookupTables {
-		lookupTableConfig := &jetruleModel.LookupTables[i]
+		lookupTableConfig := jetruleModel.LookupTables[i]
 		lookupTableDataInfo := lookupTableConfig.DataInfo
 		dataStorageFormat := "sqlite3"
 		if lookupTableDataInfo != nil {

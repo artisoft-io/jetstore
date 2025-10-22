@@ -97,7 +97,7 @@ func NewReteMetaStoreFactory(jetRuleName string) (*ReteMetaStoreFactory, error) 
 		return nil, fmt.Errorf("error, %s does not correspond to any rule file names", jetRuleName)
 	}
 	// Define function to avoid repeating code
-	loadJson := func (strFmt, rootName string,  jetruleModel *JetruleModel) error {
+	loadJson := func(strFmt, rootName string, jetruleModel *JetruleModel) error {
 		fpath := fmt.Sprintf(strFmt, workspaceHome, wprefix, rootName)
 		file, err := os.ReadFile(fpath)
 		if err != nil {
@@ -107,7 +107,7 @@ func NewReteMetaStoreFactory(jetRuleName string) (*ReteMetaStoreFactory, error) 
 		}
 		err = json.Unmarshal(file, jetruleModel)
 		if err != nil {
-			err = fmt.Errorf("while unmarshaling .json file (NewReteMetaStoreFactory):%v", err)
+			err = fmt.Errorf("while unmarshaling file: %s (NewReteMetaStoreFactory):%v", fpath, err)
 			log.Println(err)
 			return err
 		}
@@ -184,7 +184,7 @@ func (ctx *ReteBuilderContext) BuildReteMetaStore() (*ReteMetaStore, error) {
 
 	// Load the meta triples from the rule files
 	for i := range ctx.JetruleModel.Triples {
-		t3 := &ctx.JetruleModel.Triples[i]
+		t3 := ctx.JetruleModel.Triples[i]
 		s := ctx.ResourcesLookup[t3.SubjectKey]
 		p := ctx.ResourcesLookup[t3.PredicateKey]
 		o := ctx.ResourcesLookup[t3.ObjectKey]
@@ -207,7 +207,7 @@ func (ctx *ReteBuilderContext) BuildReteMetaStore() (*ReteMetaStore, error) {
 
 	// Sort the antecedent terms from the consequent terms
 	for i := range ctx.JetruleModel.ReteNodes {
-		reteNode := &ctx.JetruleModel.ReteNodes[i]
+		reteNode := ctx.JetruleModel.ReteNodes[i]
 		switch reteNode.Type {
 		case "antecedent":
 			ctx.JetruleModel.Antecedents = append(ctx.JetruleModel.Antecedents, reteNode)
@@ -326,7 +326,7 @@ func (ctx *ReteBuilderContext) BuildReteMetaStore() (*ReteMetaStore, error) {
 	// Prepare a lookup of Domain Tables by name
 	domainTableMap := make(map[string]*TableNode)
 	for i := range ctx.JetruleModel.Tables {
-		t := &ctx.JetruleModel.Tables[i]
+		t := ctx.JetruleModel.Tables[i]
 		domainTableMap[t.TableName] = t
 	}
 
@@ -354,7 +354,7 @@ func (ctx *ReteBuilderContext) NewAlphaFunctor(key int) (AlphaFunctor, error) {
 func (ctx *ReteBuilderContext) loadResources() error {
 	// Load all resources
 	for i := range ctx.JetruleModel.Resources {
-		resourceNode := &ctx.JetruleModel.Resources[i]
+		resourceNode := ctx.JetruleModel.Resources[i]
 		switch resourceNode.Type {
 
 		case "var":
@@ -458,7 +458,7 @@ func (ctx *ReteBuilderContext) loadNodeVertices() error {
 		brData := make([]int, sz)
 		brLabels := make([]string, sz)
 		for j := range reteNode.BetaVarNodes {
-			betaVarNode := &reteNode.BetaVarNodes[j]
+			betaVarNode := reteNode.BetaVarNodes[j]
 			if betaVarNode.IsBinded {
 				if reteNode.ParentVertex == 0 {
 					return fmt.Errorf(
@@ -490,81 +490,51 @@ func (ctx *ReteBuilderContext) loadNodeVertices() error {
 	return nil
 }
 
-func (ctx *ReteBuilderContext) makeExpression(expr map[string]interface{}) (Expression, error) {
-	if len(expr) == 0 {
+func (ctx *ReteBuilderContext) makeExpression(expr *ExpressionNode) (Expression, error) {
+	if expr == nil {
 		return nil, nil
 	}
 	var err error
 	var lhs, rhs Expression
-	exprType, ok := expr["type"].(string)
-	if !ok {
-		return nil, fmt.Errorf("error: makeExpression called with expr without a proper type")
-	}
-	switch exprType {
+	switch expr.Type {
 	case "binary":
-		lhs, err = ctx.makeExpressionArgument(expr, "lhs")
+		lhs, err = ctx.makeExpression(expr.Lhs)
 		if err != nil {
 			return nil, err
 		}
-		rhs, err = ctx.makeExpressionArgument(expr, "rhs")
+		rhs, err = ctx.makeExpression(expr.Rhs)
 		if err != nil {
 			return nil, err
 		}
-		opStr, ok := expr["op"].(string)
-		if !ok {
-			return nil, fmt.Errorf("error: makeExpression called for binary expression without an op")
-		}
-		operator := ctx.CreateBinaryOperator(opStr)
+		operator := ctx.CreateBinaryOperator(expr.Op)
 		if operator == nil {
-			return nil, fmt.Errorf("error: makeExpression called for binary expression with unknown op %s", opStr)
+			return nil, fmt.Errorf("error: makeExpression called for binary expression with unknown op %s", expr.Op)
 		}
 		return NewExprBinaryOp(lhs, operator, rhs), nil
 	case "unary":
-		rhs, err = ctx.makeExpressionArgument(expr, "arg")
+		rhs, err = ctx.makeExpression(expr.Arg)
 		if err != nil {
 			return nil, err
 		}
-		opStr, ok := expr["op"].(string)
-		if !ok {
-			return nil, fmt.Errorf("error: makeExpression called for unary expression without an op")
-		}
-		operator := ctx.CreateUnaryOperator(opStr)
+		operator := ctx.CreateUnaryOperator(expr.Op)
 		if operator == nil {
-			return nil, fmt.Errorf("error: makeExpression called for unary expression with unknown op %s", opStr)
+			return nil, fmt.Errorf("error: makeExpression called for unary expression with unknown op %s", expr.Op)
 		}
 		return NewExprUnaryOp(operator, rhs), nil
-	}
-	return nil, fmt.Errorf("error: makeExpression called with unknown type %s", exprType)
-}
-
-func (ctx *ReteBuilderContext) makeExpressionArgument(expr map[string]interface{}, argv string) (Expression, error) {
-	var lhs Expression
-	var err error
-	switch vv := expr[argv].(type) {
-	case float64:
-		// argv is a resource or a binded var
-		key := int(vv)
-		r, ok := ctx.ResourcesLookup[key]
-		if ok {
-			lhs = NewExprCst(r)
-		} else {
-			v, ok := ctx.VariablesLookup[key]
-			if !ok {
-				return nil, fmt.Errorf("error: makeExpression called with %s as key %d but it's not a resource or a binded variable", argv, key)
-			}
-			if !v.IsBinded {
-				return nil, fmt.Errorf("error: makeExpression called with %s as variable %s, but it's not a binded var", argv, v.Id)
-			}
-			lhs = NewExprBindedVar(v.VarPos, v.Id)
+	case "identifier":
+		// Check if node is a variable
+		varInfo := ctx.VariablesLookup[expr.Value]
+		if varInfo != nil {
+			// Binded variable
+			return NewExprBindedVar(varInfo.VarPos, varInfo.Id), nil
 		}
-	case map[string]interface{}:
-		// argv is an expression
-		lhs, err = ctx.makeExpression(vv)
-		if err != nil {
-			return nil, err
+		// Check if it's a resource (incl. literals)
+		node := ctx.ResourcesLookup[expr.Value]
+		if node == nil {
+			return nil, fmt.Errorf("error: makeExpression called for identifier with key %d not found", expr.Value)
 		}
-	default:
-		return nil, fmt.Errorf("error: makeExpression called with unexpected type for %s, it's %T from expr: %v", argv, expr[argv], expr)
+		// Constant resource
+		return NewExprCst(node), nil
 	}
-	return lhs, nil
+	return nil, fmt.Errorf("error: makeExpression called with unknown type %s", expr.Type)
 }

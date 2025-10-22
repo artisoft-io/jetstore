@@ -160,12 +160,12 @@ ReteMetaStoreFactory::read_resources_cb(int argc, char **argv, char **colnm)
   // key              0  INTEGER PRIMARY KEY,
   // type             1  STRING NOT NULL,
   // id               2  STRING,
-  // value            3  STRING,
+  // value            3  STRING,   -- not used for var type
   // symbol           4  STRING,
   // is_binded        5  BOOL,     -- for var type only
   // inline           6  BOOL,
-  // source_file_key  7  INTEGER NOT NULL,
-  // vertex           8  INTEGER,  -- for var type only, var for vertex
+  // source_file_key  7  INTEGER NOT NULL, *NOT USED*
+  // vertex           8  INTEGER,  -- for var type only, var for vertex *NOT USED*
   // row_pos          9  INTEGER   -- for var type only, pos in beta row 
   // Note: table column `row_pos` should be called `seq` 
   //       since it is the var seq in the beta_row (seq column of table beta_row_config)
