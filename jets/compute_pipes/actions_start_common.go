@@ -944,9 +944,11 @@ func syncInputChannelWithSchemaProvider(ic *InputChannelConfig, sp *SchemaProvid
 //   - Delimiter
 //   - DomainClass
 //   - DomainKeys
+//   - Encoding
 //   - Format
 //   - NbrRowsInRecord
 //   - NoQuotes
+//   - OutputEncoding
 //   - ParquetSchema
 //   - QuoteAllRecords
 //   - ReadBatchSize
@@ -977,6 +979,24 @@ func syncOutputChannelWithSchemaProvider(ic *OutputChannelConfig, sp *SchemaProv
 		ic.DomainKeys = sp.DomainKeys
 	} else {
 		sp.DomainKeys = ic.DomainKeys
+	}
+
+	if ic.Encoding == "" {
+		ic.Encoding = sp.Encoding
+	} else {
+		sp.Encoding = ic.Encoding
+	}
+
+	if ic.OutputEncoding == "" {
+		ic.OutputEncoding = sp.OutputEncoding
+	} else {
+		sp.OutputEncoding = ic.OutputEncoding
+	}
+	if sp.OutputEncoding == "" {
+		sp.OutputEncoding = sp.Encoding
+	}
+	if ic.OutputEncoding == "" {
+		ic.OutputEncoding = ic.Encoding
 	}
 
 	if ic.Format == "" {

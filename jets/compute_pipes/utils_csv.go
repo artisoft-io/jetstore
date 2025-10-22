@@ -195,7 +195,7 @@ func WrapReaderWithDecompressor(r io.Reader, compression string) io.Reader {
 
 func WrapReaderWithDecoder(r io.Reader, encoding string) (utfReader io.Reader, err error) {
 	// log.Printf("WrapReaderWithDecoder for encoding '%s'", encoding)
-	switch encoding {
+	switch strings.ToUpper(encoding) {
 	case "":
 		// passthrough
 		utfReader = r
@@ -229,7 +229,7 @@ func WrapReaderWithDecoder(r io.Reader, encoding string) (utfReader io.Reader, e
 
 func WrapWriterWithEncoder(w io.Writer, encoding string) (utfWriter io.Writer, err error) {
 	// log.Printf("WrapWriterWithEncoder for encoding '%s'", encoding)
-	switch encoding {
+	switch strings.ToUpper(encoding) {
 	case "":
 		// passthrough
 		utfWriter = w

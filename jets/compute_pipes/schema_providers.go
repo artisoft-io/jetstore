@@ -50,6 +50,7 @@ type SchemaProvider interface {
 	IsPartFiles() bool
 	NbrRowsInRecord() int64
 	NoQuotes() bool
+	OutputEncoding() string
 	ParquetSchema() *ParquetSchemaInfo
 	QuoteAllRecords() bool
 	ReadBatchSize() int64
@@ -216,6 +217,13 @@ func (sp *DefaultSchemaProvider) Encoding() string {
 		return ""
 	}
 	return sp.spec.Encoding
+}
+
+func (sp *DefaultSchemaProvider) OutputEncoding() string {
+	if sp == nil {
+		return ""
+	}
+	return sp.spec.OutputEncoding
 }
 
 func (sp *DefaultSchemaProvider) Compression() string {

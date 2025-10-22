@@ -110,20 +110,34 @@ func (ctx *S3DeviceWriter) WriteCsvPartition(fout io.Writer) {
 	var cpErr, err error
 	var snWriter *snappy.Writer
 	var csvWriter *csv.Writer
+	var outputEncoding string
+	if ctx.schemaProvider != nil {
+		outputEncoding = ctx.schemaProvider.OutputEncoding()
+	}
 
+	var interim io.Writer
 	switch ctx.spec.OutputChannel.Compression {
 	case "none":
-		csvWriter = csv.NewWriter(fout)
+		interim = fout
 	case "snappy":
 		// Open a snappy compressor
 		snWriter = snappy.NewBufferedWriter(fout)
-		// Open a csv writer
-		csvWriter = csv.NewWriter(snWriter)
+		interim = snWriter
 	default:
 		cpErr = fmt.Errorf("error: unknown compression %s in WriteCsvPartition",
 			ctx.spec.OutputChannel.Compression)
 		goto gotError
 	}
+	if len(outputEncoding) != 0 {
+		log.Printf("WriteCsvPartition: using output encoding from schema provider: %s", outputEncoding)
+	}
+	interim, err = WrapWriterWithEncoder(interim, outputEncoding)
+	if err != nil {
+		cpErr = fmt.Errorf("while wrapping writer with encoder: %v", err)
+		goto gotError
+	}
+	csvWriter = csv.NewWriter(interim)
+
 	if ctx.spec.OutputChannel.Delimiter != 0 {
 		csvWriter.Comma = ctx.spec.OutputChannel.Delimiter
 	}
@@ -175,6 +189,7 @@ gotError:
 }
 
 func (ctx *S3DeviceWriter) WriteFixedWidthPartition(fout io.Writer) {
+	var err error
 	var cpErr error
 	var snWriter *snappy.Writer
 	var fwWriter *bufio.Writer
@@ -182,6 +197,11 @@ func (ctx *S3DeviceWriter) WriteFixedWidthPartition(fout io.Writer) {
 	var columnPos []int
 	var value string
 	var fwEncodingInfo *FixedWidthEncodingInfo
+	var interim io.Writer
+	var outputEncoding string
+	if ctx.schemaProvider != nil {
+		outputEncoding = ctx.schemaProvider.OutputEncoding()
+	}
 
 	// Get the FixedWidthEncodingInfo from the schema provider
 	sp := ctx.schemaProvider
@@ -212,17 +232,25 @@ func (ctx *S3DeviceWriter) WriteFixedWidthPartition(fout io.Writer) {
 
 	switch ctx.spec.OutputChannel.Compression {
 	case "none":
-		fwWriter = bufio.NewWriter(fout)
+		interim = fout
 	case "snappy":
 		// Open a snappy compressor
 		snWriter = snappy.NewBufferedWriter(fout)
-		// Open a buffered writer
-		fwWriter = bufio.NewWriter(snWriter)
+		interim = snWriter
 	default:
 		cpErr = fmt.Errorf("error: unknown compression %s in WriteFixedWidthPartition",
 			ctx.spec.OutputChannel.Compression)
 		goto gotError
 	}
+	if len(outputEncoding) != 0 {
+		log.Printf("WriteCsvPartition: using output encoding from schema provider: %s", outputEncoding)
+	}
+	interim, err = WrapWriterWithEncoder(interim, outputEncoding)
+	if err != nil {
+		cpErr = fmt.Errorf("while wrapping writer with encoder: %v", err)
+		goto gotError
+	}
+	fwWriter = bufio.NewWriter(interim)
 
 	// Write the rows into the temp file
 	for inRow := range ctx.source.channel {
