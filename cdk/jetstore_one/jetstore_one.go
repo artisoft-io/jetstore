@@ -122,7 +122,7 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 		Value: jsComp.SourceBucket.BucketName(),
 	})
 
-	// Create a VPC to run tasks in.
+	// Create or lookup a VPC to run tasks in.
 	// ----------------------------------------------------------------------------------------------
 	jsComp.PublicSubnetSelection = &awsec2.SubnetSelection{
 		SubnetType: awsec2.SubnetType_PUBLIC,
@@ -133,13 +133,47 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 	jsComp.IsolatedSubnetSelection = &awsec2.SubnetSelection{
 		SubnetType: awsec2.SubnetType_PRIVATE_ISOLATED,
 	}
-	jsComp.Vpc = jetstorestack.CreateJetStoreVPC(stack)
-	awscdk.NewCfnOutput(stack, jsii.String("JetStore_VPC_ID"), &awscdk.CfnOutputProps{
+
+	// Lookup VPC by id if provided otherwise create a new one
+	if os.Getenv("JETS_VPC_ID") != "" {
+		// Lookup existing VPC by id
+		jsComp.Vpc = jetstorestack.LookupJetStoreVPC(stack, os.Getenv("JETS_VPC_ID"))
+		// Lookup the vpc endpoints security group by id to use for ecs tasks and lambdas
+		jsComp.VpcEndpointsSg = jetstorestack.LookupVpcEndpointsSecurityGroup(stack, os.Getenv("JETS_VPC_ENDPOINTS_SG_ID"))
+	} else {
+		// Create a new VPC
+		jsComp.Vpc = jetstorestack.CreateJetStoreVPC(stack)
+
+		// Add Endpoints on private subnets and return the security group to use in ecs tasks
+		jsComp.VpcEndpointsSg = jsComp.AddVpcEndpoints(stack, jsComp.Vpc, jsComp.PrivateSubnetSelection)
+	}
+
+	// Add VPC ID as outputs
+	awscdk.NewCfnOutput(stack, jsii.String("JetStoreVpcID"), &awscdk.CfnOutputProps{
 		Value: jsComp.Vpc.VpcId(),
 	})
 
-	// Add Endpoints on private subnets
-	jsComp.PrivateSecurityGroup = jetstorestack.AddVpcEndpoints(stack, jsComp.Vpc, "Private", jsComp.PrivateSubnetSelection)
+	// Add VpcEndpointsSg ID to outputs
+	awscdk.NewCfnOutput(stack, jsii.String("VpcEndpointsSGID"), &awscdk.CfnOutputProps{
+		Value: jsComp.VpcEndpointsSg.SecurityGroupId(),
+	})
+
+	// Create security groups
+	jsComp.RdsAccessSg = awsec2.NewSecurityGroup(stack, jsii.String("RdsAccessSg"), &awsec2.SecurityGroupProps{
+		Vpc:              jsComp.Vpc,
+		Description:      jsii.String("Allow access to RDS"),
+		AllowAllOutbound: jsii.Bool(false),
+	})
+	jsComp.InternetAccessSg = awsec2.NewSecurityGroup(stack, jsii.String("InternetAccessSg"), &awsec2.SecurityGroupProps{
+		Vpc:              jsComp.Vpc,
+		Description:      jsii.String("Allow access to internet"),
+		AllowAllOutbound: jsii.Bool(true),
+	})
+	// jsComp.ElbInboundSg = awsec2.NewSecurityGroup(stack, jsii.String("ElbInboundSg"), &awsec2.SecurityGroupProps{
+	// 	Vpc:              jsComp.Vpc,
+	// 	Description:      jsii.String("Allow elb inbound traffic"),
+	// 	AllowAllOutbound: jsii.Bool(false),
+	// })
 
 	// Database Cluster
 	// ----------------------------------------------------------------------------------------------
@@ -167,6 +201,7 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 		Credentials:         awsrds.Credentials_FromSecret(jsComp.RdsSecret, username),
 		ClusterIdentifier:   props.MkId("jetstoreDb"),
 		DefaultDatabaseName: jsii.String("postgres"),
+		Port:                jsii.Number(5432),
 		DeletionProtection:  jsii.Bool(true),
 		Writer: awsrds.ClusterInstance_ServerlessV2(jsii.String("ClusterInstance"), &awsrds.ServerlessV2ClusterInstanceProps{
 			AllowMajorVersionUpgrade: jsii.Bool(true),
@@ -200,8 +235,8 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 		Value: jsComp.RdsCluster.ClusterIdentifier(),
 	})
 
-	// Grant access to ECS Tasks in Private subnets
-	jsComp.PrivateSecurityGroup.Connections().AllowTo(jsComp.RdsCluster, awsec2.Port_Tcp(jsii.Number(5432)), jsii.String("Allow connection from PrivateSecurityGroup"))
+	// Grant Database access to ECS Tasks and lambdas
+	jsComp.RdsAccessSg.Connections().AllowTo(jsComp.RdsCluster, awsec2.Port_Tcp(jsii.Number(5432)), jsii.String("Allow connection from RdsAccessSg"))
 
 	// Create the jsComp.EcsCluster.
 	// ==============================================================================================================
@@ -267,6 +302,7 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 		jsii.String(os.Getenv("CPIPES_IMAGE_TAG")))
 
 	// Build ECS Tasks
+	// ---------------------------------------------
 	//	- RunreportTaskDefinition
 	//	- LoaderTaskDefinition
 	//	- ServerTaskDefinition
@@ -274,11 +310,18 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 	jsComp.BuildEcsTasks(scope, stack, props)
 
 	// Build JetStore general prupose Lambdas:
+	// ---------------------------------------------
 	//	- StatusUpdateLambda
 	//	- SecretRotationLambda
 	//	- RunReportsLambda
 	//	- PurgeDataLambda
 	jsComp.BuildLambdas(scope, stack, props)
+
+	// Build the Api Gateway Lambda and REST API
+	// ---------------------------------------------
+	//	- ApiGatewayLambda
+	//	- JetsApi
+	jsComp.BuildApiLambdas(scope, stack, props)
 
 	// Build Loader State Machine
 	// ---------------------------------------------
@@ -453,6 +496,8 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 // JETS_SERVER_SM_TIMEOUT_MIN (optional) state machine timeout for SERVER_SM, default 60 min
 // JETS_SNS_ALARM_TOPIC_ARN (optional, sns topic for sending alarm)
 // JETS_SQS_REGISTER_KEY_LAMBDA_ENTRY (optional, path to handler code for sqs register key lambda)
+// JETS_API_GATEWAY_LAMBDA_ENTRY (optional, path to handler code for api gateway lambda)
+// JETS_API_GATEWAY_DEPLOY_TEST_LAMBDA (optional, set to TRUE to deploy test lambda for api gateway)
 // JETS_SQS_REGISTER_KEY_VPC_ID (optional, external vpc to attached the sqs register key lambda)
 // JETS_SQS_REGISTER_KEY_SG_ID (optional, external security group for the sqs register key vpc)
 // JETS_STACK_ID (optional, stack id, default: JetstoreOneStack)
@@ -466,6 +511,19 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 // JETS_TAG_VALUE_OWNER (optional, stack-level tag value for owner)
 // JETS_TAG_VALUE_PROD (optional, stack-level tag value for indicating it's a production env)
 // JETS_UI_PORT (defaults 8080)
+// JETS_VPC_ID (optional, use existing vpc by id, must be in the same region as AWS_REGION)
+// when JETS_VPC_ID is set the following env vars must be set as well:
+//   - JETS_VPC_ID
+//   - JETS_VPC_ENDPOINTS_SG_ID
+//
+// and the following env vars are ignored:
+//   - JETS_NBR_NAT_GATEWAY
+//   - JETS_VPC_INTERNET_GATEWAY
+//   - JETS_VPC_CIDR
+//   - AWS_PREFIX_LIST_ROUTE53_HEALTH_CHECK
+//   - AWS_PREFIX_LIST_S3
+//
+// JETS_VPC_ENDPOINTS_SG_ID (optional, security group id to use for ecs tasks, required if JETS_VPC_ID is set)
 // JETS_VPC_CIDR VPC cidr block, default 10.10.0.0/16
 // JETS_VPC_INTERNET_GATEWAY (optional, default to false), set to true to create VPC with internet gateway, if false JETS_NBR_NAT_GATEWAY is set to 0
 // JETS_DB_VERSION (optional, default to latest version supported by jetstore, expected values are 14.5, 15.10 etc. only specific versions are supported)
@@ -479,7 +537,7 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 // WORKSPACE (required, indicate active workspace)
 // WORKSPACE_BRANCH to indicate the active workspace
 // WORKSPACE_URI (optional, if set it will lock the workspace uri and will not take the ui value)
-// WORKSPACES_HOME (required, to copy test files from workspace data folder)
+// WORKSPACES_HOME  this is taken from container env (dockerfile) or hardcoded in lambda definition
 // WORKSPACE_FILE_KEY_LABEL_RE (optional) regex to extract label from file_key in UI
 func main() {
 	defer jsii.Close()
@@ -540,6 +598,8 @@ func main() {
 	fmt.Println("env JETS_LOADER_TASK_MEM_LIMIT_MB:", os.Getenv("JETS_LOADER_TASK_MEM_LIMIT_MB"))
 	fmt.Println("env JETS_SNS_ALARM_TOPIC_ARN:", os.Getenv("JETS_SNS_ALARM_TOPIC_ARN"))
 	fmt.Println("env JETS_SQS_REGISTER_KEY_LAMBDA_ENTRY:", os.Getenv("JETS_SQS_REGISTER_KEY_LAMBDA_ENTRY"))
+	fmt.Println("env JETS_API_GATEWAY_LAMBDA_ENTRY:", os.Getenv("JETS_API_GATEWAY_LAMBDA_ENTRY"))
+	fmt.Println("env JETS_API_GATEWAY_DEPLOY_TEST_LAMBDA:", os.Getenv("JETS_API_GATEWAY_DEPLOY_TEST_LAMBDA"))
 	fmt.Println("env JETS_SQS_REGISTER_KEY_VPC_ID:", os.Getenv("JETS_SQS_REGISTER_KEY_VPC_ID"))
 	fmt.Println("env JETS_SQS_REGISTER_KEY_SG_ID:", os.Getenv("JETS_SQS_REGISTER_KEY_SG_ID"))
 	fmt.Println("env JETS_STACK_ID:", os.Getenv("JETS_STACK_ID"))
@@ -554,6 +614,8 @@ func main() {
 	fmt.Println("env JETS_TAG_VALUE_PROD:", os.Getenv("JETS_TAG_VALUE_PROD"))
 	fmt.Println("env JETS_UI_PORT:", os.Getenv("JETS_UI_PORT"))
 	fmt.Println("env JETS_VPC_CIDR:", os.Getenv("JETS_VPC_CIDR"))
+	fmt.Println("env JETS_VPC_ID:", os.Getenv("JETS_VPC_ID"))
+	fmt.Println("env JETS_VPC_ENDPOINTS_SG_ID:", os.Getenv("JETS_VPC_ENDPOINTS_SG_ID"))
 	fmt.Println("env JETS_VPC_INTERNET_GATEWAY:", os.Getenv("JETS_VPC_INTERNET_GATEWAY"))
 	fmt.Println("env NBR_SHARDS:", os.Getenv("NBR_SHARDS"))
 	fmt.Println("env JETS_PIPELINE_THROTTLING_JSON:", os.Getenv("JETS_PIPELINE_THROTTLING_JSON"))
@@ -564,7 +626,7 @@ func main() {
 	fmt.Println("env WORKSPACE_FILE_KEY_LABEL_RE:", os.Getenv("WORKSPACE_FILE_KEY_LABEL_RE"))
 	fmt.Println("env WORKSPACE_URI:", os.Getenv("WORKSPACE_URI"))
 	fmt.Println("env WORKSPACE:", os.Getenv("WORKSPACE"))
-	fmt.Println("env WORKSPACES_HOME:", os.Getenv("WORKSPACES_HOME"))
+	// WORKSPACES_HOME is taken from the container env var
 	fmt.Println("env EXTERNAL_BUCKETS:", os.Getenv("EXTERNAL_BUCKETS"))
 	fmt.Println("env EXTERNAL_S3_KMS_KEY_ARN:", os.Getenv("EXTERNAL_S3_KMS_KEY_ARN"))
 	fmt.Println("env EXTERNAL_SQS_ARN:", os.Getenv("EXTERNAL_SQS_ARN"))

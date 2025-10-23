@@ -121,6 +121,7 @@ func (ctx *DataTableContext) RegisterFileKeys(registerFileKeyAction *RegisterFil
 	sentinelFileName := os.Getenv("JETS_SENTINEL_FILE_NAME")
 	baseSessionId := time.Now().UnixMilli()
 	var sessionId, stmt string
+	var requestId any
 	var allOk bool
 	row := make([]interface{}, len(sqlStmt.ColumnKeys))
 	for irow := range registerFileKeyAction.Data {
@@ -131,6 +132,7 @@ func (ctx *DataTableContext) RegisterFileKeys(registerFileKeyAction *RegisterFil
 			"year":  1970,
 			"month": 1,
 			"day":   1,
+			"request_id": nil,
 		}
 		// Get the value from the incoming obj, convert to correct types
 		for k, v := range registerFileKeyAction.Data[irow] {
@@ -167,6 +169,9 @@ func (ctx *DataTableContext) RegisterFileKeys(registerFileKeyAction *RegisterFil
 				}
 			case "schema_provider_json":
 				schemaProviderJson = v.(string)
+			case "request_id":
+				requestId = v
+				fileKeyObject[k] = v
 			}
 		}
 		ctx.updateFileKeyComponentCase(&fileKeyObject)
@@ -331,12 +336,12 @@ func (ctx *DataTableContext) RegisterFileKeys(registerFileKeyAction *RegisterFil
 				// log.Println("Write to input_registry for cpipes with schemaProviderJson:", schemaProviderJson)
 				stmt = `INSERT INTO jetsapi.input_registry 
 							(client, org, object_type, file_key, source_period_key, table_name, 
-							 source_type, session_id, user_email, schema_provider_json
-							)	VALUES ($1, $2, $3, $4, $5, $6, 'file', $7, 'system', $8) 
+							 source_type, session_id, user_email, schema_provider_json, request_id
+							)	VALUES ($1, $2, $3, $4, $5, $6, 'file', $7, 'system', $8, $9) 
 							ON CONFLICT DO NOTHING
 							RETURNING key`
 				err = ctx.Dbpool.QueryRow(context.Background(), stmt,
-					client, org, domainKey, fileKey, source_period_key, tableName, sessionId, schemaProviderJson).Scan(&inputRegistryKey)
+					client, org, domainKey, fileKey, source_period_key, tableName, sessionId, schemaProviderJson, requestId).Scan(&inputRegistryKey)
 				if err != nil {
 					return nil, http.StatusInternalServerError, fmt.Errorf("error inserting in jetsapi.input_registry table: %v", err)
 				}

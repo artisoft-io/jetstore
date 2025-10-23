@@ -796,6 +796,11 @@
         "isNotNull": true
       },
       {
+        "columnName": "request_id",
+        "dataType": "text",
+        "description": "This is the request id from the schema provider"
+      },
+      {
         "columnName": "session_id",
         "dataType": "text",
         "isNotNull": true
@@ -824,6 +829,10 @@
       {
         "indexName": "input_registry_table_name_idx",
         "indexDef": "INDEX input_registry_table_name_idx ON jetsapi.input_registry (table_name ASC)"
+      },
+      {
+        "indexName": "input_registry_request_id_idx",
+        "indexDef": "INDEX input_registry_request_id_idx ON jetsapi.input_registry (request_id ASC)"
       }
     ],
     "tableConstraints": [

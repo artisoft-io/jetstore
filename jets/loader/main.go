@@ -75,9 +75,7 @@ var inputFormatDataJson string
 // var computePipesJson string
 var isPartFiles int
 var sep_flag jcsv.Chartype = '€'
-var errOutDir string
 var jetsInputRowJetsKeyAlgo string
-var inputRegistryKey []int
 var devMode bool
 var adminEmail string
 var jetsDebug int
@@ -175,7 +173,6 @@ func main() {
 		errMsg = append(errMsg, "argument -sessionId is required.")
 	}
 
-	errOutDir = os.Getenv("LOADER_ERR_DIR")
 	adminEmail = os.Getenv("JETS_ADMIN_EMAIL")
 	_, devMode = os.LookupEnv("JETSTORE_DEV_MODE")
 	// Initialize user module -- for token generation
@@ -237,7 +234,6 @@ func main() {
 	log.Println("Got argument: usingSshTunnel", *usingSshTunnel)
 	log.Println("Got argument: loaderCompletedMetric", *completedMetric)
 	log.Println("Got argument: loaderFailedMetric", *failedMetric)
-	log.Println("Loader out dir (from env LOADER_ERR_DIR):", errOutDir)
 	log.Printf("ENV NBR_SHARDS: %s\n", os.Getenv("NBR_SHARDS"))
 	log.Printf("ENV JETS_BUCKET: %s\n", os.Getenv("JETS_BUCKET"))
 	log.Printf("ENV JETS_DSN_SECRET: %s\n", os.Getenv("JETS_DSN_SECRET"))
@@ -247,9 +243,6 @@ func main() {
 	log.Printf("ENV JETS_SENTINEL_FILE_NAME: %s\n", os.Getenv("JETS_SENTINEL_FILE_NAME"))
 	log.Printf("ENV JETS_SERVER_SM_ARN: %s\n", os.Getenv("JETS_SERVER_SM_ARN"))
 	log.Printf("ENV JETS_S3_KMS_KEY_ARN: %s\n", os.Getenv("JETS_S3_KMS_KEY_ARN"))
-	if len(errOutDir) == 0 {
-		log.Println("Loader error file will be in same directory as input file.")
-	}
 	if *dsn != "" && *awsDsnSecret != "" {
 		log.Println("Both -awsDsnSecret and -dsn are provided, will use argument -awsDsnSecret only")
 	}

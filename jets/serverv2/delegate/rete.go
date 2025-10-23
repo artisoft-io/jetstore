@@ -7,6 +7,7 @@ import (
 	"log"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/artisoft-io/jetstore/jets/bridgego"
 	"github.com/artisoft-io/jetstore/jets/cleansing_functions"
@@ -58,6 +59,7 @@ func (rw *ReteWorkspace) Release() error {
 // main processing function to execute rules
 func (rw *ReteWorkspace) ExecuteRules(
 	workerId int,
+	outSessionId string,
 	dataInputc <-chan groupedJetRows,
 	outputSpecs workspace.OutputTableSpecs,
 	writeOutputc map[string][]chan []interface{}) (*ExecuteRulesResult, error) {
@@ -147,6 +149,7 @@ func (rw *ReteWorkspace) ExecuteRules(
 		if err != nil {
 			return &result, fmt.Errorf("while creating rdf session: %v", err)
 		}
+		start := time.Now()
 
 		for iset, ruleset := range rw.js.Factory.MainRuleFileNames {
 			if glogv > 0 {
@@ -245,6 +248,8 @@ func (rw *ReteWorkspace) ExecuteRules(
 			log.Println("ExecuteRule() Completed, the rdf sesion contains:")
 			rdfSession.DumpRdfGraph()
 		}
+		reteCompleted := time.Since(start)
+		start = time.Now()
 
 		// Get the jets:exception(s)
 		ctor, err := rdfSession.Find_sp(ri.jets__istate, ri.jets__exception)
@@ -281,6 +286,8 @@ func (rw *ReteWorkspace) ExecuteRules(
 			}
 			ctor.Done()
 		}
+		extractExceptions := time.Since(start)
+		start = time.Now()
 
 		// pulling the data out of the rete session
 		for tableName, tableSpec := range outputSpecs {
@@ -443,8 +450,13 @@ func (rw *ReteWorkspace) ExecuteRules(
 			// //**
 			// log.Println("Done Extracting class:", tableSpec.TableInfo.ClassName)
 		}
+		dataExtracted := time.Since(start)
+		start = time.Now()
 		result.ExecuteRulesCount += 1
 		rdfSession.ReleaseRDFSession()
+		sessionReleased := time.Since(start)
+		log.Printf("%s retex %v, exceptions %v, extract %v, release %v",
+			outSessionId, reteCompleted, extractExceptions, dataExtracted, sessionReleased)
 	}
 	return &result, nil
 }

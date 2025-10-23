@@ -19,23 +19,6 @@ import (
 )
 
 func (jsComp *JetStoreStackComponents) BuildRegisterKeyLambdas(scope constructs.Construct, stack awscdk.Stack, props *JetstoreOneStackProps) {
-	// Create a Lambda function to register File Keys with JetStore DB
-	// Respond to new key event as well as new schema info
-	// Define a security group if internet access is required for Status Notification
-	var lambdaSecurityGroups *[]awsec2.ISecurityGroup
-	switch strings.ToUpper(os.Getenv("JETS_SQS_REGISTER_KEY_VPC_ID")) {
-	case "JETSTORE_VPC_WITH_INTERNET_ACCESS":
-		lambdaSecurityGroups = &[]awsec2.ISecurityGroup{
-			jsComp.PrivateSecurityGroup,
-			awsec2.NewSecurityGroup(stack, jsii.String("RegKeyLambdaAccesInternet"), &awsec2.SecurityGroupProps{
-				Vpc:              jsComp.Vpc,
-				Description:      jsii.String("Allow network access to internet"),
-				AllowAllOutbound: jsii.Bool(true),
-			})}
-	default:
-		lambdaSecurityGroups = &[]awsec2.ISecurityGroup{jsComp.PrivateSecurityGroup}
-	}
-
 	jsComp.RegisterKeyV2Lambda = awslambdago.NewGoFunction(stack, jsii.String("registerKeyV2"), &awslambdago.GoFunctionProps{
 		Description: jsii.String("Lambda function to register file key with jetstore db, v2"),
 		Runtime:     awslambda.Runtime_PROVIDED_AL2023(),
@@ -77,7 +60,7 @@ func (jsComp *JetStoreStackComponents) BuildRegisterKeyLambdas(scope constructs.
 			"TASK_MAX_CONCURRENCY":                     jsii.String(os.Getenv("TASK_MAX_CONCURRENCY")),
 			"NBR_SHARDS":                               jsii.String(props.NbrShards),
 			"ENVIRONMENT":                              jsii.String(os.Getenv("ENVIRONMENT")),
-			"WORKSPACES_HOME":                          jsii.String("/tmp/jetstore/workspaces"),
+			"WORKSPACES_HOME":                          jsii.String("/tmp/workspaces"),
 			"WORKSPACE":                                jsii.String(os.Getenv("WORKSPACE")),
 			"EXTERNAL_SQS_ARN":                         jsii.String(os.Getenv("EXTERNAL_SQS_ARN")),
 		},
@@ -85,7 +68,7 @@ func (jsComp *JetStoreStackComponents) BuildRegisterKeyLambdas(scope constructs.
 		Timeout:        awscdk.Duration_Seconds(jsii.Number(30)),
 		Vpc:            jsComp.Vpc,
 		VpcSubnets:     jsComp.PrivateSubnetSelection,
-		SecurityGroups: lambdaSecurityGroups,
+		SecurityGroups: &[]awsec2.ISecurityGroup{jsComp.VpcEndpointsSg, jsComp.RdsAccessSg},
 		LogRetention:   awslogs.RetentionDays_THREE_MONTHS,
 	})
 	if phiTagName != nil {
@@ -97,7 +80,6 @@ func (jsComp *JetStoreStackComponents) BuildRegisterKeyLambdas(scope constructs.
 	if descriptionTagName != nil {
 		awscdk.Tags_Of(jsComp.RegisterKeyV2Lambda).Add(descriptionTagName, jsii.String("JetStore lambda for handling new file key events"), nil)
 	}
-	jsComp.RegisterKeyV2Lambda.Connections().AllowTo(jsComp.RdsCluster, awsec2.Port_Tcp(jsii.Number(5432)), jsii.String("Allow connection from RegisterKeyV2Lambda"))
 	jsComp.RdsSecret.GrantRead(jsComp.RegisterKeyV2Lambda, nil)
 	jsComp.SourceBucket.GrantReadWrite(jsComp.RegisterKeyV2Lambda, nil)
 
@@ -133,17 +115,11 @@ func (jsComp *JetStoreStackComponents) BuildRegisterKeyLambdas(scope constructs.
 		case "JETSTORE_VPC_WITH_INTERNET_ACCESS":
 			sqsVpc = jsComp.Vpc
 			sqsVpcSubnets = jsComp.PrivateSubnetSelection
-			sqsSecurityGroups = &[]awsec2.ISecurityGroup{
-				jsComp.PrivateSecurityGroup,
-				awsec2.NewSecurityGroup(stack, jsii.String("SqsLambdaAccesInternet"), &awsec2.SecurityGroupProps{
-					Vpc:              sqsVpc,
-					Description:      jsii.String("Allow network access to internet"),
-					AllowAllOutbound: jsii.Bool(true),
-				})}
+			sqsSecurityGroups = &[]awsec2.ISecurityGroup{jsComp.VpcEndpointsSg, jsComp.RdsAccessSg, jsComp.InternetAccessSg}
 		case "JETSTORE_VPC":
 			sqsVpc = jsComp.Vpc
 			sqsVpcSubnets = jsComp.PrivateSubnetSelection
-			sqsSecurityGroups = &[]awsec2.ISecurityGroup{jsComp.PrivateSecurityGroup}
+			sqsSecurityGroups = &[]awsec2.ISecurityGroup{jsComp.VpcEndpointsSg, jsComp.RdsAccessSg}
 		case "":
 			// Not attached to a vpc
 		default:
@@ -200,7 +176,7 @@ func (jsComp *JetStoreStackComponents) BuildRegisterKeyLambdas(scope constructs.
 				"TASK_MAX_CONCURRENCY":                     jsii.String(os.Getenv("TASK_MAX_CONCURRENCY")),
 				"NBR_SHARDS":                               jsii.String(props.NbrShards),
 				"ENVIRONMENT":                              jsii.String(os.Getenv("ENVIRONMENT")),
-				"WORKSPACES_HOME":                          jsii.String("/tmp/jetstore/workspaces"),
+				"WORKSPACES_HOME":                          jsii.String("/tmp/workspaces"),
 				"WORKSPACE":                                jsii.String(os.Getenv("WORKSPACE")),
 			},
 			MemorySize: jsii.Number(128),
@@ -220,8 +196,6 @@ func (jsComp *JetStoreStackComponents) BuildRegisterKeyLambdas(scope constructs.
 		if descriptionTagName != nil {
 			awscdk.Tags_Of(jsComp.SqsRegisterKeyLambda).Add(descriptionTagName, jsii.String("JetStore lambda for sqs events"), nil)
 		}
-
-		jsComp.SqsRegisterKeyLambda.Connections().AllowTo(jsComp.RdsCluster, awsec2.Port_Tcp(jsii.Number(5432)), jsii.String("Allow connection from SqsRegisterKeyLambda"))
 		jsComp.RdsSecret.GrantRead(jsComp.SqsRegisterKeyLambda, nil)
 
 		jsComp.SourceBucket.GrantReadWrite(jsComp.SqsRegisterKeyLambda, nil)

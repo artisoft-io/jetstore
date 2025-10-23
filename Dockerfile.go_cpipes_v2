@@ -13,6 +13,7 @@ RUN go get all
 RUN go mod download
 
 # Build
+RUN go install jetstore/jets/cbooter
 RUN go install jetstore/jets/loader
 RUN go install jetstore/jets/run_reports
 RUN go install jetstore/jets/cpipes_server
@@ -21,8 +22,20 @@ RUN go install jetstore/jets/serverv2
 FROM golang:1.24-alpine
 # FROM scratch
 
+# Create a new group named 'jsuser' and a new user named 'jsuser'
+# The -S flag creates a system user/group, and -G specifies the primary group.
+RUN addgroup -S jsuser && adduser -S jsuser -G jsuser
+
+ENV JETS_TEMP_DATA=/jetsdata
+ENV TMPDIR=${JETS_TEMP_DATA}/tmp
+ENV WORKSPACES_HOME=${JETS_TEMP_DATA}/workspaces
 ENV JETS_BIN_DIR=/usr/local/go/bin
+COPY --from=builder ${JETS_BIN_DIR}/cbooter /usr/local/bin/
 COPY --from=builder ${JETS_BIN_DIR}/loader /usr/local/bin/
 COPY --from=builder ${JETS_BIN_DIR}/cpipes_server /usr/local/bin/
 COPY --from=builder ${JETS_BIN_DIR}/serverv2 /usr/local/bin/
 COPY --from=builder ${JETS_BIN_DIR}/run_reports /usr/local/bin/
+RUN ls -la /usr/local/bin/
+
+# Set the working directory
+WORKDIR ${JETS_TEMP_DATA}

@@ -136,7 +136,7 @@ func (server *Server) checkJetStoreSchema() error {
 		_, _, err = server.ResetDomainTables(&PurgeDataAction{
 			Action:            "reset_domain_tables",
 			RunUiDbInitScript: true,
-			Data:              []map[string]interface{}{},
+			Data:              []map[string]any{},
 		})
 		if err != nil {
 			return fmt.Errorf("while calling ResetDomainTables to initialize db schema: %v", err)
@@ -146,7 +146,6 @@ func (server *Server) checkJetStoreSchema() error {
 		if err != nil {
 			return fmt.Errorf("while calling saving jetstoreVersion to database: %v", err)
 		}
-
 	}
 	return nil
 }
@@ -169,7 +168,7 @@ func (server *Server) checkDomainTablesVersion() error {
 		_, _, err = server.ResetDomainTables(&PurgeDataAction{
 			Action:            "reset_domain_tables",
 			RunUiDbInitScript: true,
-			Data:              []map[string]interface{}{},
+			Data:              []map[string]any{},
 		})
 		if err != nil {
 			return fmt.Errorf("while calling ResetDomainTables to initialize db (no version exist in db): %v", err)
@@ -430,6 +429,7 @@ func listenAndServe() error {
 		return fmt.Errorf("while calling checkJetStoreSchema: %v", err)
 	}
 
+	// Perform workspace compilation to make sure workspace compiles correctly
 	// Check workspace version, compile workspace if needed
 	err = server.checkWorkspaceVersion()
 	if err != nil {
@@ -454,7 +454,7 @@ func listenAndServe() error {
 	rawJSON := []byte(`{
 	  "level": "info",
 	  "encoding": "json",
-	  "outputPaths": ["stdout", "/tmp/logs"],
+	  "outputPaths": ["stdout"],
 	  "errorOutputPaths": ["stderr"],
 	  "initialFields": {"logger_type": "audit_log"},
 	  "encoderConfig": {
@@ -652,7 +652,9 @@ func listenAndServe() error {
 		return http.ListenAndServeTLS(serverAddr, "cert.pem", "key.pem", server.Router)
 	}
 }
+
 var hbaErrCount int
+
 func (server *Server) GetLastSecretRotation() (tm *time.Time, err error) {
 	var sqltm sql.NullTime
 	err = server.dbpool.QueryRow(context.Background(), "SELECT MAX(last_update) FROM jetsapi.secret_rotation").Scan(&sqltm)
@@ -669,7 +671,7 @@ func (server *Server) GetLastSecretRotation() (tm *time.Time, err error) {
 				err = fmt.Errorf("while querying last_update from secret_rotation table: %v", err)
 				log.Println(err)
 				hbaErrCount++
-				err2:= GenerateCert()
+				err2 := GenerateCert()
 				if err2 != nil {
 					err = fmt.Errorf("while GenerateCert to fix: >%s< got: %s", err, err2)
 					log.Println(err)

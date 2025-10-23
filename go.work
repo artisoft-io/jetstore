@@ -1,4 +1,4 @@
-go 1.24
+go 1.24.0
 
 toolchain go1.24.2
 
@@ -6,5 +6,6 @@ use (
 	.
 	./cdk/bootstrap_aws
 	./cdk/vpc_peering
-  // ../cedargate_ws
+	./cdk/sample_projects/private-api-stack/cdk
+// ../cedargate_ws
 )

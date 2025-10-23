@@ -7,6 +7,7 @@ import (
 
 	awscdk "github.com/aws/aws-cdk-go/awscdk/v2"
 	"github.com/aws/aws-cdk-go/awscdk/v2/awsec2"
+	"github.com/aws/aws-cdk-go/awscdk/v2/awsecs"
 	"github.com/aws/aws-cdk-go/awscdk/v2/awslambda"
 	"github.com/aws/aws-cdk-go/awscdk/v2/awslogs"
 	sfn "github.com/aws/aws-cdk-go/awscdk/v2/awsstepfunctions"
@@ -22,6 +23,11 @@ func (jsComp *JetStoreStackComponents) BuildServerv2SM(scope constructs.Construc
 
 	// Serverv2 node Lambda
 	// --------------------
+	// NOTE: Currently not used, replaced by ECS task
+	// We keep it for reference and possible future use
+	// If we decide to use it, we need to make sure the lambda has access to the rds instance in the isolated subnet
+	// and the lambda has enough memory and timeout to run the serverv2 tasks
+	// The lambda function code is in /lambdas/server/node
 	var memLimit float64
 	if len(os.Getenv("JETS_CPIPES_LAMBDA_MEM_LIMIT_MB")) > 0 {
 		var err error
@@ -75,15 +81,15 @@ func (jsComp *JetStoreStackComponents) BuildServerv2SM(scope constructs.Construc
 			"NBR_SHARDS":                               jsii.String(props.NbrShards),
 			"ENVIRONMENT":                              jsii.String(os.Getenv("ENVIRONMENT")),
 			"JETS_ADMIN_EMAIL":                         jsii.String(os.Getenv("JETS_ADMIN_EMAIL")),
-			//NOTE: SET WORKSPACES_HOME HERE - lambda function uses a local temp
-			"WORKSPACES_HOME": jsii.String("/tmp/jetstore/workspaces"),
-			"WORKSPACE":       jsii.String(os.Getenv("WORKSPACE")),
+			"WORKSPACES_HOME":                          jsii.String("/tmp/workspaces"),
+			"WORKSPACE":                                jsii.String(os.Getenv("WORKSPACE")),
 		},
 		MemorySize:           jsii.Number(memLimit),
 		EphemeralStorageSize: awscdk.Size_Mebibytes(jsii.Number(2048)),
 		Timeout:              awscdk.Duration_Minutes(jsii.Number(15)),
 		Vpc:                  jsComp.Vpc,
 		VpcSubnets:           jsComp.IsolatedSubnetSelection,
+		SecurityGroups:       &[]awsec2.ISecurityGroup{jsComp.VpcEndpointsSg, jsComp.RdsAccessSg},
 		LogRetention:         awslogs.RetentionDays_THREE_MONTHS,
 	})
 	if phiTagName != nil {
@@ -95,7 +101,6 @@ func (jsComp *JetStoreStackComponents) BuildServerv2SM(scope constructs.Construc
 	if descriptionTagName != nil {
 		awscdk.Tags_Of(jsComp.serverv2NodeLambda).Add(descriptionTagName, jsii.String("JetStore lambda for cpipes execution"), nil)
 	}
-	jsComp.serverv2NodeLambda.Connections().AllowTo(jsComp.RdsCluster, awsec2.Port_Tcp(jsii.Number(5432)), jsii.String("Allow connection from serverv2NodeLambda"))
 	jsComp.RdsSecret.GrantRead(jsComp.serverv2NodeLambda, nil)
 	jsComp.SourceBucket.GrantReadWrite(jsComp.serverv2NodeLambda, nil)
 
@@ -119,17 +124,37 @@ func (jsComp *JetStoreStackComponents) BuildServerv2SM(scope constructs.Construc
 	// 1) serverv2 map task
 	// ----------------------
 	// Serverv2 node task
-	runServerv2NodeTask := sfntask.NewLambdaInvoke(stack, jsii.String("Serverv2NodeLambdaTask"), &sfntask.LambdaInvokeProps{
-		Comment:                  jsii.String("Lambda Task serverv2 node"),
-		LambdaFunction:           jsComp.serverv2NodeLambda,
-		InputPath:                jsii.String("$"),
-		ResultPath:               sfn.JsonPath_DISCARD(),
-		RetryOnServiceExceptions: jsii.Bool(false),
+	// THIS IS THE LAMBDA VERSION
+	// runServerv2Task := sfntask.NewLambdaInvoke(stack, jsii.String("Serverv2NodeLambdaTask"), &sfntask.LambdaInvokeProps{
+	// 	Comment:                  jsii.String("Lambda Task serverv2 node"),
+	// 	LambdaFunction:           jsComp.serverv2NodeLambda,
+	// 	InputPath:                jsii.String("$"),
+	// 	ResultPath:               sfn.JsonPath_DISCARD(),
+	// 	RetryOnServiceExceptions: jsii.Bool(false),
+	// })
+	runServerv2Task := sfntask.NewEcsRunTask(stack, jsii.String("run-serverv2"), &sfntask.EcsRunTaskProps{
+		Comment:        jsii.String("Run JetStore Rule Serverv2 Task"),
+		Cluster:        jsComp.EcsCluster,
+		Subnets:        jsComp.IsolatedSubnetSelection,
+		SecurityGroups: &[]awsec2.ISecurityGroup{jsComp.VpcEndpointsSg, jsComp.RdsAccessSg},
+		AssignPublicIp: jsii.Bool(false),
+		LaunchTarget: sfntask.NewEcsFargateLaunchTarget(&sfntask.EcsFargateLaunchTargetOptions{
+			PlatformVersion: awsecs.FargatePlatformVersion_LATEST,
+		}),
+		TaskDefinition: jsComp.Serverv2TaskDefinition,
+		ContainerOverrides: &[]*sfntask.ContainerOverride{
+			{
+				ContainerDefinition: jsComp.Serverv2ContainerDef,
+				Command:             sfn.JsonPath_ListAt(jsii.String("$")),
+			},
+		},
+		PropagatedTagSource: awsecs.PropagatedTagSource_TASK_DEFINITION,
+		IntegrationPattern:  sfn.IntegrationPattern_RUN_JOB,
 	})
 
 	// Using inlined map construct
 	runServerv2Map := sfn.NewMap(stack, jsii.String("run-serverv2-map"), &sfn.MapProps{
-		Comment:        jsii.String("Run JetStore Serverv2 Node Lambda Tasks"),
+		Comment:        jsii.String("Run JetStore Serverv2 Tasks"),
 		ItemsPath:      sfn.JsonPath_StringAt(jsii.String("$.serverCommands")),
 		MaxConcurrency: jsii.Number(maxConcurrency),
 		ResultPath:     sfn.JsonPath_DISCARD(),
@@ -169,7 +194,7 @@ func (jsComp *JetStoreStackComponents) BuildServerv2SM(scope constructs.Construc
 	// Create Rule Serverv2 State Machine - jsComp.Serverv2SM
 	// -------------------------------------------
 	// Chaining the SF Tasks
-	runServerv2Map.ItemProcessor(runServerv2NodeTask, &sfn.ProcessorConfig{}).AddCatch(
+	runServerv2Map.ItemProcessor(runServerv2Task, &sfn.ProcessorConfig{}).AddCatch(
 		runErrorStatusLambdaTask, MkCatchProps()).Next(runReportsLambdaTask)
 	runReportsLambdaTask.AddCatch(runErrorStatusLambdaTask, MkCatchProps()).Next(runSuccessStatusLambdaTask)
 	runSuccessStatusLambdaTask.AddCatch(notifyFailure, MkCatchProps()).Next(notifySuccess)

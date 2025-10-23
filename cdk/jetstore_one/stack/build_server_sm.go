@@ -25,6 +25,7 @@ func (jsComp *JetStoreStackComponents) BuildServerSM(scope constructs.Construct,
 		Comment:        jsii.String("Run JetStore Rule Server Task"),
 		Cluster:        jsComp.EcsCluster,
 		Subnets:        jsComp.IsolatedSubnetSelection,
+		SecurityGroups: &[]awsec2.ISecurityGroup{jsComp.VpcEndpointsSg, jsComp.RdsAccessSg},
 		AssignPublicIp: jsii.Bool(false),
 		LaunchTarget: sfntask.NewEcsFargateLaunchTarget(&sfntask.EcsFargateLaunchTargetOptions{
 			PlatformVersion: awsecs.FargatePlatformVersion_LATEST,
@@ -39,7 +40,6 @@ func (jsComp *JetStoreStackComponents) BuildServerSM(scope constructs.Construct,
 		PropagatedTagSource: awsecs.PropagatedTagSource_TASK_DEFINITION,
 		IntegrationPattern:  sfn.IntegrationPattern_RUN_JOB,
 	})
-	runServerTask.Connections().AllowTo(jsComp.RdsCluster, awsec2.Port_Tcp(jsii.Number(5432)), jsii.String("Allow connection from runServerTask"))
 
 	// Run Reports Step Function Task for jsComp.ServerSM
 	// -----------------------------------------------
@@ -47,6 +47,7 @@ func (jsComp *JetStoreStackComponents) BuildServerSM(scope constructs.Construct,
 		Comment:        jsii.String("Run Server Reports Task"),
 		Cluster:        jsComp.EcsCluster,
 		Subnets:        jsComp.IsolatedSubnetSelection,
+		SecurityGroups: &[]awsec2.ISecurityGroup{jsComp.VpcEndpointsSg, jsComp.RdsAccessSg},
 		AssignPublicIp: jsii.Bool(false),
 		LaunchTarget: sfntask.NewEcsFargateLaunchTarget(&sfntask.EcsFargateLaunchTargetOptions{
 			PlatformVersion: awsecs.FargatePlatformVersion_LATEST,
@@ -62,7 +63,6 @@ func (jsComp *JetStoreStackComponents) BuildServerSM(scope constructs.Construct,
 		ResultPath:          sfn.JsonPath_DISCARD(),
 		IntegrationPattern:  sfn.IntegrationPattern_RUN_JOB,
 	})
-	runServerReportsTask.Connections().AllowTo(jsComp.RdsCluster, awsec2.Port_Tcp(jsii.Number(5432)), jsii.String("Allow connection from runServerReportsTask "))
 
 	// Status Update: update_success Step Function Task for jsComp.ServerSM
 	// --------------------------------------------------------------------------------------------------------------

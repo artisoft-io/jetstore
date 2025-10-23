@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	awscdk "github.com/aws/aws-cdk-go/awscdk/v2"
+	"github.com/aws/aws-cdk-go/awscdk/v2/awsapigateway"
 	"github.com/aws/aws-cdk-go/awscdk/v2/awsec2"
 	"github.com/aws/aws-cdk-go/awscdk/v2/awsecs"
 	awselb "github.com/aws/aws-cdk-go/awscdk/v2/awselasticloadbalancingv2"
@@ -57,12 +58,16 @@ type JetStoreStackComponents struct {
 	ExternalBuckets []awss3.IBucket
 	ExternalKmsKey  awskms.IKey
 
-	Vpc                     awsec2.Vpc
+	Vpc                     awsec2.IVpc
 	PublicSubnetSelection   *awsec2.SubnetSelection
 	PrivateSubnetSelection  *awsec2.SubnetSelection
 	IsolatedSubnetSelection *awsec2.SubnetSelection
 
-	PrivateSecurityGroup awsec2.SecurityGroup
+	VpcEndpointsSg   awsec2.ISecurityGroup
+	RdsAccessSg      awsec2.ISecurityGroup
+	InternetAccessSg awsec2.ISecurityGroup
+	// ElbInboundSg     awsec2.ISecurityGroup
+
 	RdsSecret            awsrds.DatabaseSecret
 	RdsCluster           awsrds.DatabaseCluster
 	EcsCluster           awsecs.Cluster
@@ -77,6 +82,8 @@ type JetStoreStackComponents struct {
 	LoaderContainerDef      awsecs.ContainerDefinition
 	ServerTaskDefinition    awsecs.FargateTaskDefinition
 	ServerContainerDef      awsecs.ContainerDefinition
+	Serverv2TaskDefinition  awsecs.FargateTaskDefinition
+	Serverv2ContainerDef    awsecs.ContainerDefinition
 	CpipesTaskDefinition    awsecs.FargateTaskDefinition
 	CpipesContainerDef      awsecs.ContainerDefinition
 	UiTaskDefinition        awsecs.FargateTaskDefinition
@@ -86,6 +93,10 @@ type JetStoreStackComponents struct {
 	UiLoadBalancer    awselb.ApplicationLoadBalancer
 	WebAcl            awswafv2.CfnWebACL
 	WebACLAssociation awswafv2.CfnWebACLAssociation
+
+	ApiGatewayVpcEndpoint awsec2.InterfaceVpcEndpoint
+	JetsApi               awsapigateway.RestApi
+	JetsApiExecutionRole  awsiam.Role
 
 	StatusUpdateLambda        awslambdago.GoFunction
 	SecretRotationLambda      awslambdago.GoFunction
@@ -98,6 +109,8 @@ type JetStoreStackComponents struct {
 	CpipesStartReducingLambda awslambdago.GoFunction
 	RegisterKeyV2Lambda       awslambdago.GoFunction
 	SqsRegisterKeyLambda      awslambdago.GoFunction
+	ApiGatewayLambda          awslambdago.GoFunction
+	ApiGatewayTestLambda      awslambdago.GoFunction
 
 	LoaderSM    sfn.StateMachine
 	ReportsSM   sfn.StateMachine

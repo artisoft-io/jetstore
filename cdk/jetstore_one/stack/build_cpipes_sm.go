@@ -122,9 +122,10 @@ func (jsComp *JetStoreStackComponents) BuildCpipesSM(scope constructs.Construct,
 	// Run Server ECS Task
 	// ----------------
 	runReducingECSTask := sfntask.NewEcsRunTask(stack, jsii.String("run-cpipes-server"), &sfntask.EcsRunTaskProps{
-		Comment:        jsii.String("Run CPIPES JetStore Rule Server Task"),
+		Comment:        jsii.String("Run CPIPES ECS Task"),
 		Cluster:        jsComp.EcsCluster,
 		Subnets:        jsComp.IsolatedSubnetSelection,
+		SecurityGroups: &[]awsec2.ISecurityGroup{jsComp.VpcEndpointsSg, jsComp.RdsAccessSg},
 		AssignPublicIp: jsii.Bool(false),
 		LaunchTarget: sfntask.NewEcsFargateLaunchTarget(&sfntask.EcsFargateLaunchTargetOptions{
 			PlatformVersion: awsecs.FargatePlatformVersion_LATEST,
@@ -139,8 +140,6 @@ func (jsComp *JetStoreStackComponents) BuildCpipesSM(scope constructs.Construct,
 		PropagatedTagSource: awsecs.PropagatedTagSource_TASK_DEFINITION,
 		IntegrationPattern:  sfn.IntegrationPattern_RUN_JOB,
 	})
-	runReducingECSTask.Connections().AllowTo(jsComp.RdsCluster, awsec2.Port_Tcp(jsii.Number(5432)),
-		jsii.String("Allow connection from runReducingECSTask"))
 
 	runReducingECSMap := sfn.NewMap(stack, jsii.String("run-cpipes-server-map"), &sfn.MapProps{
 		Comment:   jsii.String("Run CPIPES JetStore Rule Server Task"),

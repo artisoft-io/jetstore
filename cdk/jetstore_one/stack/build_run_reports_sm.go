@@ -15,13 +15,14 @@ import (
 // functions to build the cpipes state machine
 
 func (jsComp *JetStoreStackComponents) BuildRunReportsSM(scope constructs.Construct, stack awscdk.Stack, props *JetstoreOneStackProps) {
-	
+
 	// Run Reports ECS Task for jsComp.ReportsSM
 	// --------------------------------------------------------------------------------------------------------------
 	runReportsTask := sfntask.NewEcsRunTask(stack, jsii.String("run-reports"), &sfntask.EcsRunTaskProps{
 		Comment:        jsii.String("Run Reports Task"),
 		Cluster:        jsComp.EcsCluster,
 		Subnets:        jsComp.IsolatedSubnetSelection,
+		SecurityGroups: &[]awsec2.ISecurityGroup{jsComp.VpcEndpointsSg, jsComp.RdsAccessSg},
 		AssignPublicIp: jsii.Bool(false),
 		LaunchTarget: sfntask.NewEcsFargateLaunchTarget(&sfntask.EcsFargateLaunchTargetOptions{
 			PlatformVersion: awsecs.FargatePlatformVersion_LATEST,
@@ -38,7 +39,6 @@ func (jsComp *JetStoreStackComponents) BuildRunReportsSM(scope constructs.Constr
 		ResultPath:          sfn.JsonPath_DISCARD(),
 		IntegrationPattern:  sfn.IntegrationPattern_RUN_JOB,
 	})
-	runReportsTask.Connections().AllowTo(jsComp.RdsCluster, awsec2.Port_Tcp(jsii.Number(5432)), jsii.String("Allow connection from runReportsTask "))
 
 	// Status Update lambda: update_success Step Function Task for jsComp.ReportsSM
 	// --------------------------------------------------------------------------------------------------------------

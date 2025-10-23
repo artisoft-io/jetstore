@@ -2,8 +2,10 @@ package wsfile
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"log"
 	"os"
 	"os/exec"
@@ -21,8 +23,8 @@ func StashFiles(workspaceName string) error {
 
 	// make sure the stash directory exists
 	var err error
-	if err2 := os.Mkdir(stashPath, 0755); os.IsExist(err2) {
-		log.Println("Workspace stash", stashPath, "exists")		
+	if err2 := os.Mkdir(stashPath, 0755); errors.Is(err2, fs.ErrExist) {
+		log.Println("Workspace stash", stashPath, "exists ::", err2)		
 	} else {
 		log.Println("Workspace stash directory ", stashPath, "created")
 	}

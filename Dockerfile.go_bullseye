@@ -2,6 +2,8 @@ ARG BASE_CONTAINER=jetstore_base_builder:go-bullseye
 FROM ${BASE_CONTAINER}
 ARG BASE_CONTAINER
 
+USER root
+
 # JetStore Build
 ENV JETS_SOURCE_DIR=/usr/local/go/src/jetstore JETS_BUILD_DIR=/usr/local/go/build JETS_BIN_DIR=/usr/local/go/bin
 
@@ -13,6 +15,8 @@ COPY go.mod              ${JETS_SOURCE_DIR}/
 COPY setup.py            ${JETS_SOURCE_DIR}/
 COPY jets                ${JETS_SOURCE_DIR}/jets
 
+# Build native rule engine
+# TODO: build native rule engine conditionally
 RUN \
   mkdir -p ${JETS_BUILD_DIR}                                   \
   && cd ${JETS_BUILD_DIR}                                      \
@@ -30,11 +34,14 @@ RUN go mod tidy
 RUN go get all
 RUN go mod download
 
+RUN go install jetstore/jets/cbooter
 RUN go install jetstore/jets/loader
+# TODO: build native rule engine conditionally
 RUN go install jetstore/jets/server
 RUN go install jetstore/jets/serverv2
 RUN go install jetstore/jets/run_reports
 RUN go install jetstore/jets/apiserver
+# TODO: build native rule engine conditionally
 RUN go install jetstore/jets/bridge
 RUN go install jetstore/jets/update_db
 
