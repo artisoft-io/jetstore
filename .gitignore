@@ -135,3 +135,5 @@ jets/copytest/run_user_cmd/run_user_cmd
 cdk/sample_projects/private-api-stack/lambda/lambda-deployment-package.zip
 cdk/jetstore_one/lambdas/api_gateway_cgt/cgt_api_lambda.go
 cdk/sample_projects/private-api-stack/.env
+cdk/jetstore_one/lambdas/sqs_listener/cgt_fm_api.go
+cdk/jetstore_one/lambdas/api_gateway_cgt/cgt_fm_api.go
