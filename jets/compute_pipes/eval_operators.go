@@ -222,7 +222,7 @@ func (op *opEqual) eval(lhs interface{}, rhs interface{}) (interface{}, error) {
 	case time.Time:
 		switch rhsv := rhs.(type) {
 		case time.Time:
-			if lhsv == rhsv {
+			if lhsv.Equal(rhsv) {
 				return 1, nil
 			}
 			return 0, nil
