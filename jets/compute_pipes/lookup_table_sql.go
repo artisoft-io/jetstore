@@ -17,14 +17,14 @@ import (
 // columnsMap is the mapping of the return column name -> position in the returned row (values)
 type LookupTableSql struct {
 	spec       *LookupSpec
-	data       map[string]*[]interface{}
+	data       map[string]*[]any
 	columnsMap map[string]int
 }
 
-func NewLookupTableSql(dbpool *pgxpool.Pool, spec *LookupSpec, env map[string]interface{}, isVerbose bool) (LookupTable, error) {
+func NewLookupTableSql(dbpool *pgxpool.Pool, spec *LookupSpec, env map[string]any, isVerbose bool) (LookupTable, error) {
 	tbl := &LookupTableSql{
 		spec:       spec,
-		data:       make(map[string]*[]interface{}),
+		data:       make(map[string]*[]any),
 		columnsMap: make(map[string]int),
 	}
 	// load the lookup table according to spec
@@ -57,7 +57,7 @@ func NewLookupTableSql(dbpool *pgxpool.Pool, spec *LookupSpec, env map[string]in
 			"error: lookup table spec column length does not match the nbr of columns returned by the query for table %s",
 			spec.Key)
 	}
-	columns := make([]interface{}, len(fd))
+	columns := make([]any, len(fd))
 	for i := range fd {
 		columName := string(fd[i].Name)
 		columnsPos[columName] = i
@@ -112,7 +112,7 @@ func NewLookupTableSql(dbpool *pgxpool.Pool, spec *LookupSpec, env map[string]in
 		}
 		lookupKey := strings.Join(keys, "")
 		// the associated values
-		values := make([]interface{}, len(spec.LookupValues))
+		values := make([]any, len(spec.LookupValues))
 		for i, valueColumn := range spec.LookupValues {
 			pos, ok := columnsPos[valueColumn]
 			if !ok {
@@ -151,14 +151,14 @@ func NewLookupTableSql(dbpool *pgxpool.Pool, spec *LookupSpec, env map[string]in
 	return tbl, nil
 }
 
-func (tbl *LookupTableSql) Lookup(key *string) (*[]interface{}, error) {
+func (tbl *LookupTableSql) Lookup(key *string) (*[]any, error) {
 	if key == nil {
 		return nil, fmt.Errorf("error: cannot do a lookup with a null key for lookup table %s", tbl.spec.Key)
 	}
 	return tbl.data[*key], nil
 }
 
-func (tbl *LookupTableSql) LookupValue(row *[]interface{}, columnName string) (interface{}, error) {
+func (tbl *LookupTableSql) LookupValue(row *[]any, columnName string) (any, error) {
 	pos, ok := tbl.columnsMap[columnName]
 	if !ok {
 		return nil, fmt.Errorf("error: column named %s is not a column returned by the lookup table %s",
@@ -174,4 +174,9 @@ func (tbl *LookupTableSql) ColumnMap() map[string]int {
 // Not applicable to sql lookup, only to s3 lookup
 func (tbl *LookupTableSql) IsEmptyTable() bool {
 	return false
+}
+
+// Return size of the lookup table
+func (tbl *LookupTableSql) Size() int64 {
+	return int64(len(tbl.data))
 }

@@ -20,17 +20,17 @@ import (
 type LookupTableS3 struct {
 	spec         *LookupSpec
 	isEmptyTable bool
-	data         map[string]*[]interface{}
+	data         map[string]*[]any
 	columnsMap   map[string]int
 }
 
-func NewLookupTableS3(_ *pgxpool.Pool, spec *LookupSpec, env map[string]interface{}, isVerbose bool) (LookupTable, error) {
+func NewLookupTableS3(_ *pgxpool.Pool, spec *LookupSpec, env map[string]any, isVerbose bool) (LookupTable, error) {
 	if spec == nil || spec.CsvSource == nil {
 		return nil, fmt.Errorf("error: lookup table of type s3_csv_lookup must have csv_source configured")
 	}
 	tbl := &LookupTableS3{
 		spec:       spec,
-		data:       make(map[string]*[]interface{}),
+		data:       make(map[string]*[]any),
 		columnsMap: make(map[string]int),
 	}
 
@@ -80,7 +80,7 @@ do_retry:
 	return tbl, nil
 }
 
-func (tbl *LookupTableS3) Lookup(key *string) (*[]interface{}, error) {
+func (tbl *LookupTableS3) Lookup(key *string) (*[]any, error) {
 	if key == nil {
 		return nil, fmt.Errorf("error: cannot do a lookup with a null key for lookup table %s", tbl.spec.Key)
 	}
@@ -90,7 +90,7 @@ func (tbl *LookupTableS3) Lookup(key *string) (*[]interface{}, error) {
 	return tbl.data[*key], nil
 }
 
-func (tbl *LookupTableS3) LookupValue(row *[]interface{}, columnName string) (interface{}, error) {
+func (tbl *LookupTableS3) LookupValue(row *[]any, columnName string) (any, error) {
 	if tbl.isEmptyTable {
 		return nil, nil
 	}
@@ -109,6 +109,11 @@ func (tbl *LookupTableS3) ColumnMap() map[string]int {
 // Return true only if there was no files found on s3
 func (tbl *LookupTableS3) IsEmptyTable() bool {
 	return tbl.isEmptyTable
+}
+
+// Return size of the lookup table
+func (tbl *LookupTableS3) Size() int64 {
+	return int64(len(tbl.data))
 }
 
 func (tbl *LookupTableS3) readCsvLookup(localFileName string) (int64, error) {
@@ -207,7 +212,7 @@ func (tbl *LookupTableS3) readCsvLookup(localFileName string) (int64, error) {
 			lookupKey := strings.Join(keys, "")
 
 			// the associated values
-			lookupValues := make([]interface{}, len(tbl.spec.LookupValues))
+			lookupValues := make([]any, len(tbl.spec.LookupValues))
 			for i, name := range tbl.spec.LookupValues {
 				pos, ok := csvColumnsPos[name]
 				if !ok {

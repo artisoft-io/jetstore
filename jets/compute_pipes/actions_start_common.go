@@ -440,6 +440,15 @@ func SelectActiveLookupTable(lookupConfig []*LookupSpec, pipeConfig []PipeSpec) 
 						}
 						activeTables = append(activeTables, spec)
 					}
+					for _, lookupTable := range transformationSpec.AnonymizeConfig.DeidLookups {
+						spec := lookupMap[lookupTable]
+						if spec == nil {
+							return nil,
+								fmt.Errorf(
+									"error: lookup table '%s' used by anonymize operator is not defined, please verify the configuration", lookupTable)
+						}
+						activeTables = append(activeTables, spec)
+					}
 				}
 			case "shuffling":
 				// Check for Shuffling transformation using lookup tables
