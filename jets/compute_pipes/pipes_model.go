@@ -744,7 +744,7 @@ type AnonymizeSpec struct {
 	SchemaProvider       string              `json:"schema_provider,omitempty"`
 	AdjustFieldWidthOnFW bool                `json:"adjust_field_width_on_fixed_width_file,omitzero"`
 	OmitPrefixOnFW       bool                `json:"omit_prefix_on_fixed_width_file,omitzero"`
-	KeysOutputChannel    OutputChannelConfig `json:"keys_output_channel"`
+	KeysOutputChannel    *OutputChannelConfig `json:"keys_output_channel"`
 }
 
 type DistinctSpec struct {

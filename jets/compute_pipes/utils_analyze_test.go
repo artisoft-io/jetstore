@@ -94,6 +94,10 @@ func (tbl *LookupTableTest) IsEmptyTable() bool {
 	return false
 }
 
+func (tbl *LookupTableTest) Size() int64 {
+	return int64(len(tbl.rows))
+}
+
 func TestLookupTokensState1(t *testing.T) {
 	lookup := &LookupTableTest{
 		rows: map[string]*[]any{

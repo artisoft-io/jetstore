@@ -735,7 +735,7 @@ func (args *CpipesStartup) ValidatePipeSpecConfig(cpConfig *ComputePipesConfig, 
 				if transformationConfig.AnonymizeConfig == nil {
 					return fmt.Errorf("configuration error: missing anonymize_config for anonymize operator")
 				}
-				keyOutputChannel := &transformationConfig.AnonymizeConfig.KeysOutputChannel
+				keyOutputChannel := transformationConfig.AnonymizeConfig.KeysOutputChannel
 				err := validateOutputChConfig(keyOutputChannel, getSchemaProvider(cpConfig.SchemaProviders, keyOutputChannel.SchemaProvider))
 				if err != nil {
 					return err
