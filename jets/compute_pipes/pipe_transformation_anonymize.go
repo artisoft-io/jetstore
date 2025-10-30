@@ -16,6 +16,7 @@ import (
 )
 
 type AnonymizeTransformationPipe struct {
+	mode              string
 	cpConfig          *ComputePipesConfig
 	source            *InputChannel
 	outputCh          *OutputChannel
@@ -39,10 +40,12 @@ type AnonymizeTransformationPipe struct {
 }
 
 type AnonymizationAction struct {
-	inputColumn   int
-	dateLayouts   []string
-	anonymizeType string
-	keyPrefix     string
+	inputColumn      int
+	dateLayouts      []string
+	anonymizeType    string
+	keyPrefix        string
+	deidFunctionName string
+	deidLookupTbl    LookupTable
 }
 
 // Implementing interface PipeTransformationEvaluator
@@ -57,6 +60,7 @@ func (ctx *AnonymizeTransformationPipe) Apply(input *[]any) error {
 	// hashedValue4KeyFile is the value to use in the crosswalk file, it is
 	// the same as hashedValue, except for dates it may use a different date formatter.
 	var inputStr, hashedValue, hashedValue4KeyFile string
+	var ok bool
 	inputLen := len(*input)
 	expectedLen := len(ctx.source.config.Columns)
 	// log.Println("*** Anonymize Input:",*input)
@@ -84,12 +88,49 @@ func (ctx *AnonymizeTransformationPipe) Apply(input *[]any) error {
 		case "text":
 			ctx.hasher.Reset()
 			ctx.hasher.Write([]byte(inputStr))
-			if len(action.keyPrefix) > 0 {
-				hashedValue = fmt.Sprintf("%s.%016x", action.keyPrefix, ctx.hasher.Sum64())
-			} else {
-				hashedValue = fmt.Sprintf("%016x", ctx.hasher.Sum64())
+			switch ctx.mode {
+			case "de-identification":
+				// See if there is a de-identification lookup table
+				if action.deidLookupTbl != nil {
+					// Lookup the anonymized value from the de-identification lookup table
+					nrows := uint64(action.deidLookupTbl.Size())
+					if nrows == 0 {
+						return fmt.Errorf("error: de-identification lookup table for key prefix '%s' is empty",
+							action.keyPrefix)
+					}
+					rowKey := fmt.Sprintf("%d", ctx.hasher.Sum64()%nrows + 1)
+					lookupRow, err := action.deidLookupTbl.Lookup(&rowKey)
+					if err != nil {
+						return fmt.Errorf("while looking up de-identification value for key '%s': %v", rowKey, err)
+					}
+					if lookupRow == nil {
+						return fmt.Errorf("error: de-identification lookup value not found for key '%s'", rowKey)
+					}
+					// Get the anonymized value from the lookup row
+					// Assuming the anonymized value is in the first column
+					hashedValue, ok = (*lookupRow)[0].(string)
+					if !ok {
+						return fmt.Errorf("error: expecting string for de-identification anonymized value, got %v", (*lookupRow)[0])
+					}
+				} else {
+					// Use the de-identification function
+					switch action.deidFunctionName {
+					case "hashed_value":
+						hashedValue = fmt.Sprintf("%016x", ctx.hasher.Sum64())
+					default:
+						return fmt.Errorf("error: unknown de-identification function '%s' for key prefix '%s'",
+							action.deidFunctionName, action.keyPrefix)
+					}
+				}
+			case "anonymization":
+				// Generate the anonymized value with prefix
+				if len(action.keyPrefix) > 0 {
+					hashedValue = fmt.Sprintf("%s.%016x", action.keyPrefix, ctx.hasher.Sum64())
+				} else {
+					hashedValue = fmt.Sprintf("%016x", ctx.hasher.Sum64())
+				}
+				hashedValue4KeyFile = hashedValue
 			}
-			hashedValue4KeyFile = hashedValue
 		case "date":
 			var date time.Time
 			switch {
@@ -146,11 +187,14 @@ func (ctx *AnonymizeTransformationPipe) Apply(input *[]any) error {
 			}
 		}
 		(*input)[action.inputColumn] = hashedValue
-		ctx.hasher.Reset()
-		ctx.hasher.Write([]byte(inputStr))
-		ctx.hasher.Write([]byte(hashedValue4KeyFile))
-		ctx.keysMap.Put(ctx.hasher.Sum64(), [2]string{inputStr, hashedValue4KeyFile})
+		if ctx.mode == "anonymization" {
+			ctx.hasher.Reset()
+			ctx.hasher.Write([]byte(inputStr))
+			ctx.hasher.Write([]byte(hashedValue4KeyFile))
+			ctx.keysMap.Put(ctx.hasher.Sum64(), [2]string{inputStr, hashedValue4KeyFile})
+		}
 	}
+	// Anonymize all the extra columns beyond expectedLen
 	for icol := expectedLen; icol < inputLen; icol++ {
 		value := (*input)[icol]
 		if value == nil {
@@ -170,10 +214,12 @@ func (ctx *AnonymizeTransformationPipe) Apply(input *[]any) error {
 		hashedValue = fmt.Sprintf("%016x", ctx.hasher.Sum64())
 		hashedValue4KeyFile = hashedValue
 		(*input)[icol] = hashedValue
-		ctx.hasher.Reset()
-		ctx.hasher.Write([]byte(inputStr))
-		ctx.hasher.Write([]byte(hashedValue4KeyFile))
-		ctx.keysMap.Put(ctx.hasher.Sum64(), [2]string{inputStr, hashedValue4KeyFile})
+		if ctx.mode == "anonymization" {
+			ctx.hasher.Reset()
+			ctx.hasher.Write([]byte(inputStr))
+			ctx.hasher.Write([]byte(hashedValue4KeyFile))
+			ctx.keysMap.Put(ctx.hasher.Sum64(), [2]string{inputStr, hashedValue4KeyFile})
+		}
 	}
 	// Send the result to output
 	// log.Println("*** Anonymize Output:",*input)
@@ -187,7 +233,11 @@ func (ctx *AnonymizeTransformationPipe) Apply(input *[]any) error {
 }
 
 // Anonymization complete, now send out the keys mapping to keys_output_channel
+// if in mode "anonymization"
 func (ctx *AnonymizeTransformationPipe) Done() error {
+	if ctx.mode != "anonymization" {
+		return nil
+	}
 	var err error
 	ctx.keysMap.Iter(func(k uint64, v [2]string) (stop bool) {
 		outputRow := make([]any, len(*ctx.keysOutputCh.columns))
@@ -222,8 +272,10 @@ func (ctx *AnonymizeTransformationPipe) Done() error {
 }
 
 func (ctx *AnonymizeTransformationPipe) Finally() {
-	// Done sending the keys, closing the keys output channel
-	ctx.channelRegistry.CloseChannel(ctx.keysOutputCh.name)
+	if ctx.mode == "anonymization" {
+		// Done sending the keys, closing the keys output channel
+		ctx.channelRegistry.CloseChannel(ctx.keysOutputCh.name)
+	}
 }
 
 func (ctx *BuilderContext) NewAnonymizeTransformationPipe(source *InputChannel, outputCh *OutputChannel, spec *TransformationSpec) (*AnonymizeTransformationPipe, error) {
@@ -234,6 +286,9 @@ func (ctx *BuilderContext) NewAnonymizeTransformationPipe(source *InputChannel, 
 	if len(config.AnonymizeType) == 0 || len(config.KeyPrefix) == 0 {
 		return nil, fmt.Errorf("error: Anonymize Pipe Transformation spec is missing anonymize_type or key_prefix")
 	}
+	if len(config.Mode) == 0 {
+		config.Mode = "anonymization"
+	}
 	var keysOutCh *OutputChannel
 	var metaLookupTbl LookupTable
 	var anonymActions []*AnonymizationAction
@@ -242,32 +297,49 @@ func (ctx *BuilderContext) NewAnonymizeTransformationPipe(source *InputChannel, 
 	var anonymizeType string
 	var err error
 	var ok bool
-	// Get the channel for sending the keys
-	keysOutCh, err = ctx.channelRegistry.GetOutputChannel(config.KeysOutputChannel.Name)
-	if err != nil {
-		return nil, fmt.Errorf("while getting the keys output channel %s: %v", config.KeysOutputChannel.Name, err)
-	}
-	closeIfNotNil := keysOutCh.channel
-	defer func() {
-		if closeIfNotNil != nil {
-			close(closeIfNotNil)
-		}
-	}()
-	// Prepare the actions to anonymize marked columns
-	// Note: since the metaLookupTbl is generated by the analyze operator,
-	// the column names in the metaLookupTbl may be the original column names
-	// so we use the column position as lookup key.
+	var closeIfNotNil chan<- []any
 	sp := ctx.schemaManager.GetSchemaProvider(config.SchemaProvider)
 	omitPrefix := false
 	var newWidth map[string]int
-	if sp != nil && sp.Format() == "fixed_width" {
-		if config.OmitPrefixOnFW {
-			omitPrefix = true
+
+	switch config.Mode {
+	case "anonymization":
+		// Get the channel for sending the keys
+		keysOutCh, err = ctx.channelRegistry.GetOutputChannel(config.KeysOutputChannel.Name)
+		if err != nil {
+			return nil, fmt.Errorf("while getting the keys output channel %s: %v", config.KeysOutputChannel.Name, err)
 		}
+		closeIfNotNil = keysOutCh.channel
+		defer func() {
+			if closeIfNotNil != nil {
+				close(closeIfNotNil)
+			}
+		}()
+		if sp != nil && sp.Format() == "fixed_width" {
+			if config.OmitPrefixOnFW {
+				omitPrefix = true
+			}
+		}
+	case "de-identification":
+		omitPrefix = true
+		if len(config.DeidLookups) == 0 {
+			return nil, fmt.Errorf("error: de-identification mode requires deid_lookups to be specified")
+		}
+		if len(config.DeidFunctions) == 0 {
+			return nil, fmt.Errorf("error: de-identification mode requires deid_functions to be specified")
+		}
+	default:
+		return nil, fmt.Errorf("error: unknown anonymize mode '%s', known values: anonymization, de-identification", config.Mode)
+	}
+	if sp != nil && sp.Format() == "fixed_width" {
 		if config.AdjustFieldWidthOnFW {
 			newWidth = make(map[string]int)
 		}
 	}
+	// Prepare the actions to anonymize marked columns
+	// Note: since the metaLookupTbl is generated by the analyze operator,
+	// the column names in the metaLookupTbl may be the original column names
+	// so we use the column position as lookup key.
 	metaLookupTbl = ctx.lookupTableManager.LookupTableMap[config.LookupName]
 	if metaLookupTbl == nil {
 		return nil, fmt.Errorf("error: anonymize metadata lookup table %s not found", config.LookupName)
@@ -296,21 +368,60 @@ func (ctx *BuilderContext) NewAnonymizeTransformationPipe(source *InputChannel, 
 		}
 		var keyPrefix string
 		var dateLayouts []string
+		var deidLookupTbl LookupTable
+		var deidFunctionName string
+
 		switch anonymizeType {
 		case "text", "date":
-			keyPrefix = ""
-			w := 16
-			if anonymizeType == "text" && !omitPrefix {
-				keyPrefixI := (*metaRow)[metaLookupColumnsMap[config.KeyPrefix]]
-				keyPrefix, ok = keyPrefixI.(string)
+			keyPrefixI := (*metaRow)[metaLookupColumnsMap[config.KeyPrefix]]
+			keyPrefix, ok = keyPrefixI.(string)
+			if !ok {
+				return nil, fmt.Errorf("error: expecting string for key prefix (e.g. ssn, dob, etc), got %v", keyPrefixI)
+			}
+			switch config.Mode {
+			case "de-identification":
+				// Get the de-identification lookup table name for this key prefix
+				lookupTableName, ok := config.DeidLookups[keyPrefix]
 				if !ok {
-					return nil, fmt.Errorf("error: expecting string for key prefix (e.g. ssn, dob, etc), got %v", keyPrefixI)
+					// See if it's a deid function
+					deidFunctionName, ok = config.DeidFunctions[keyPrefix]
+					if !ok {
+						// Skipping this column
+						continue
+					}
+					// It's a deid function, vaidate the function and adjust column width if needed
+					switch deidFunctionName {
+					case "hashed_value":
+						// Determine the width to adjust for fixed-width files
+						if newWidth != nil {
+							newWidth[name] = 16
+						}
+					default:
+						return nil, fmt.Errorf("error: unknown de-identification function '%s' for key prefix '%s'",
+							deidFunctionName, keyPrefix)
+					}
+				} else {
+					deidLookupTbl = ctx.lookupTableManager.LookupTableMap[lookupTableName]
+					if deidLookupTbl == nil {
+						return nil, fmt.Errorf("error: de-identification lookup table %s not found for key prefix '%s'",
+							lookupTableName, keyPrefix)
+					}
 				}
-				w = 28
+
+			case "anonymization":
+				// Determine the width to adjust for fixed-width files
+				if newWidth != nil {
+					w := 16
+					if anonymizeType == "text" && !omitPrefix {
+						w = 28
+					}
+					newWidth[name] = w
+				}
+				if omitPrefix {
+					keyPrefix = ""
+				}
 			}
-			if newWidth != nil {
-				newWidth[name] = w
-			}
+
 			// Get the date layouts if any
 			if len(config.DateFormatsColumn) > 0 {
 				dlcI := (*metaRow)[metaLookupColumnsMap[config.DateFormatsColumn]]
@@ -326,11 +437,14 @@ func (ctx *BuilderContext) NewAnonymizeTransformationPipe(source *InputChannel, 
 			}
 
 			anonymActions = append(anonymActions, &AnonymizationAction{
-				inputColumn:   ipos,
-				dateLayouts:   dateLayouts,
-				anonymizeType: anonymizeType,
-				keyPrefix:     keyPrefix,
+				inputColumn:      ipos,
+				dateLayouts:      dateLayouts,
+				anonymizeType:    anonymizeType,
+				keyPrefix:        keyPrefix,
+				deidFunctionName: deidFunctionName,
+				deidLookupTbl:    deidLookupTbl,
 			})
+
 		case "":
 			// Not anonymized
 		default:
@@ -403,6 +517,7 @@ func (ctx *BuilderContext) NewAnonymizeTransformationPipe(source *InputChannel, 
 	// All good, no errors
 	closeIfNotNil = nil
 	return &AnonymizeTransformationPipe{
+		mode:              config.Mode,
 		cpConfig:          ctx.cpConfig,
 		source:            source,
 		outputCh:          outputCh,

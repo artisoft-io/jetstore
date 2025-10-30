@@ -10,23 +10,25 @@ import (
 
 type LookupTableManager struct {
 	spec           []*LookupSpec
-	envSettings    map[string]interface{}
+	envSettings    map[string]any
 	LookupTableMap map[string]LookupTable
 	isVerbose      bool
 }
 
 type LookupTable interface {
 	// Returns the lookup row associated with key
-	Lookup(key *string) (*[]interface{}, error)
+	Lookup(key *string) (*[]any, error)
 	// Returns the row's value associated with the lookup column
-	LookupValue(row *[]interface{}, columnName string) (interface{}, error)
+	LookupValue(row *[]any, columnName string) (any, error)
 	// Returns the mapping between column name to pos in the returned row
 	ColumnMap() map[string]int
 	// Return true if the table is empty, ColumnMap is empty as well
 	IsEmptyTable() bool
+	// Return the number of rows in the lookup table
+	Size() int64
 }
 
-func NewLookupTableManager(spec []*LookupSpec, envSettings map[string]interface{}, isVerbose bool) *LookupTableManager {
+func NewLookupTableManager(spec []*LookupSpec, envSettings map[string]any, isVerbose bool) *LookupTableManager {
 	return &LookupTableManager{
 		spec:           spec,
 		envSettings:    envSettings,

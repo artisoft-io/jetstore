@@ -160,7 +160,7 @@ func (p *ParseDateMatchFunction) NewValue(value string) {
 		if !otm.IsZero() {
 			p.otherFormatMatch[dateFmt] += 1
 			p.seenCache[value] = &pdCache{otm: otm, fmt: dateFmt}
-			fmt.Printf("*** Got otm Match w/ fmt: %s for value %s\n", dateFmt, value)
+			// fmt.Printf("*** Got otm Match w/ fmt: %s for value %s\n", dateFmt, value)
 		}
 	}
 

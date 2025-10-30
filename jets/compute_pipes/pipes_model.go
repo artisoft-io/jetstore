@@ -703,13 +703,21 @@ type PartitionWriterSpec struct {
 	StreamDataOut    bool    `json:"stream_data_out,omitzero"`
 }
 
-// LookupName is name of lookup table containing the file metadata from analyze operator
-// AnonymizeType is column name in lookup table that specifiy how to anonymize (value: date, text)
-// KeyPrefix is column name of lookup table to use as prefix of the anonymized value
-// InputDateLayout is the format for parsing the input date (incoming data) when specified
-// DateFormatsColumn is column name of the lookup table having the list of date format (optional)
-// OutputDateLayout is the format to use for anonymized date, will be set at 1st of the month of the original date
-// KeyDateLayout is the format to use in the key mapping file (crosswalk file)
+// Mode: Specify mode of action: de-identification, anonymization (default)
+// - de-identification: mask the data (not reversible);
+// - anonymization: replace the data with hashed value (reversible using crosswalk file).
+// LookupName is name of lookup table containing the file metadata from analyze operator.
+// AnonymizeType is column name in lookup table that specifiy how to anonymize (value: date, text).
+// KeyPrefix is column name of lookup table to use as prefix of the anonymized value or
+// key mapping  for de-identification lookup table.
+// DeidFunctions is map of KeyPrefix value to function name for de-identification.
+// DeidLookups is map of KeyPrefix value to lookup table name for substitution values
+// for de-identification.
+// InputDateLayout is the format for parsing the input date (incoming data) when specified.
+// DateFormatsColumn is column name of the lookup table having the list of date format (optional).
+// OutputDateLayout is the format to use for anonymized date, will be set at 1st of the month of
+// the original date (anonymization) or to XXX when de-identification.
+// KeyDateLayout is the format to use in the key mapping file (crosswalk file) for anonymization.
 // DefaultInvalidDate is a placeholder to use as the anonymized date when the input date
 // (the date to anonymize) is not valid. If unspecified, the input value is used unchanged
 // as the output value.
@@ -722,9 +730,12 @@ type PartitionWriterSpec struct {
 // If date format is not specified, the default format for both OutputDateFormat and KeyDateFormat
 // is "2006/01/02", ie. yyyy/MM/dd and the rdf.ParseDate() is used to parse the input date.
 type AnonymizeSpec struct {
+	Mode                 string              `json:"mode,omitempty"`
 	LookupName           string              `json:"lookup_name,omitempty"`
 	AnonymizeType        string              `json:"anonymize_type,omitempty"`
 	KeyPrefix            string              `json:"key_prefix,omitempty"`
+	DeidFunctions        map[string]string   `json:"deid_functions,omitempty"`
+	DeidLookups          map[string]string   `json:"deid_lookups,omitempty"`
 	InputDateLayout      string              `json:"input_date_layout,omitempty"`
 	DateFormatsColumn    string              `json:"date_formats_column,omitempty"`
 	OutputDateLayout     string              `json:"output_date_layout,omitempty"`
@@ -733,7 +744,7 @@ type AnonymizeSpec struct {
 	SchemaProvider       string              `json:"schema_provider,omitempty"`
 	AdjustFieldWidthOnFW bool                `json:"adjust_field_width_on_fixed_width_file,omitzero"`
 	OmitPrefixOnFW       bool                `json:"omit_prefix_on_fixed_width_file,omitzero"`
-	KeysOutputChannel    OutputChannelConfig `json:"keys_output_channel"`
+	KeysOutputChannel    *OutputChannelConfig `json:"keys_output_channel"`
 }
 
 type DistinctSpec struct {

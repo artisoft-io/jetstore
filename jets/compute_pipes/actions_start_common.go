@@ -440,6 +440,15 @@ func SelectActiveLookupTable(lookupConfig []*LookupSpec, pipeConfig []PipeSpec) 
 						}
 						activeTables = append(activeTables, spec)
 					}
+					for _, lookupTable := range transformationSpec.AnonymizeConfig.DeidLookups {
+						spec := lookupMap[lookupTable]
+						if spec == nil {
+							return nil,
+								fmt.Errorf(
+									"error: lookup table '%s' used by anonymize operator is not defined, please verify the configuration", lookupTable)
+						}
+						activeTables = append(activeTables, spec)
+					}
 				}
 			case "shuffling":
 				// Check for Shuffling transformation using lookup tables
@@ -726,10 +735,12 @@ func (args *CpipesStartup) ValidatePipeSpecConfig(cpConfig *ComputePipesConfig, 
 				if transformationConfig.AnonymizeConfig == nil {
 					return fmt.Errorf("configuration error: missing anonymize_config for anonymize operator")
 				}
-				keyOutputChannel := &transformationConfig.AnonymizeConfig.KeysOutputChannel
-				err := validateOutputChConfig(keyOutputChannel, getSchemaProvider(cpConfig.SchemaProviders, keyOutputChannel.SchemaProvider))
-				if err != nil {
-					return err
+				keyOutputChannel := transformationConfig.AnonymizeConfig.KeysOutputChannel
+				if keyOutputChannel != nil {
+					err := validateOutputChConfig(keyOutputChannel, getSchemaProvider(cpConfig.SchemaProviders, keyOutputChannel.SchemaProvider))
+					if err != nil {
+						return err
+					}
 				}
 			case "jetrules":
 				if transformationConfig.JetrulesConfig == nil {

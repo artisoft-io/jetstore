@@ -160,8 +160,10 @@ func (cpCtx *ComputePipesContext) StartComputePipes(dbpool *pgxpool.Pool,
 			case "anonymize":
 				outputChannel := &cpCtx.CpConfig.PipesConfig[i].Apply[j].OutputChannel
 				outputChannels = append(outputChannels, outputChannel)
-				outputChannel = &cpCtx.CpConfig.PipesConfig[i].Apply[j].AnonymizeConfig.KeysOutputChannel
-				outputChannels = append(outputChannels, outputChannel)
+				outputChannel = cpCtx.CpConfig.PipesConfig[i].Apply[j].AnonymizeConfig.KeysOutputChannel
+				if outputChannel != nil {
+					outputChannels = append(outputChannels, outputChannel)
+				}
 			case "jetrules":
 				// Jetrules config overrides the outputChannel
 				for k := range cpCtx.CpConfig.PipesConfig[i].Apply[j].JetrulesConfig.OutputChannels {
