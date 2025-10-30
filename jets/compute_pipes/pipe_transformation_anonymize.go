@@ -98,7 +98,7 @@ func (ctx *AnonymizeTransformationPipe) Apply(input *[]any) error {
 						return fmt.Errorf("error: de-identification lookup table for key prefix '%s' is empty",
 							action.keyPrefix)
 					}
-					rowKey := fmt.Sprintf("%d", ctx.hasher.Sum64()%nrows)
+					rowKey := fmt.Sprintf("%d", ctx.hasher.Sum64()%nrows + 1)
 					lookupRow, err := action.deidLookupTbl.Lookup(&rowKey)
 					if err != nil {
 						return fmt.Errorf("while looking up de-identification value for key '%s': %v", rowKey, err)
@@ -383,13 +383,9 @@ func (ctx *BuilderContext) NewAnonymizeTransformationPipe(source *InputChannel, 
 				// Get the de-identification lookup table name for this key prefix
 				lookupTableName, ok := config.DeidLookups[keyPrefix]
 				if !ok {
-					return nil, fmt.Errorf("error: de-identification lookup table not found for key prefix '%s'",
-						keyPrefix)
-				}
-				if lookupTableName == "" {
 					// See if it's a deid function
-					deidFunctionName = config.DeidFunctions[keyPrefix]
-					if deidFunctionName == "" {
+					deidFunctionName, ok = config.DeidFunctions[keyPrefix]
+					if !ok {
 						// Skipping this column
 						continue
 					}
