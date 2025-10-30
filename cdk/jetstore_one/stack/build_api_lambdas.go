@@ -226,7 +226,7 @@ func (jsComp *JetStoreStackComponents) BuildApiLambdas(scope constructs.Construc
 				"VPC_ENDPOINT_ID": jsComp.ApiGatewayVpcEndpoint.VpcEndpointId(),
 				"SYSTEM_ROLE_ARN": jsComp.JetsApiExecutionRole.RoleArn(),
 			},
-			Timeout:        awscdk.Duration_Seconds(jsii.Number(30)),
+			Timeout:        awscdk.Duration_Minutes(jsii.Number(2)),
 			Role:           testLambdaRole,
 			Vpc:            jsComp.Vpc,
 			VpcSubnets:     jsComp.PrivateSubnetSelection,
