@@ -56,7 +56,7 @@ func ShardFileKeys(exeCtx context.Context, dbpool *pgxpool.Pool, baseFileKey str
 	totalSizeMb = int(result.clusterShardingInfo.TotalFileSize / 1024 / 1024)
 
 	// Determine the tier of sharding
-	result.clusterSpec = selectClusterShardingTier(totalSizeMb, cpConfig.ClusterConfig)
+	result.clusterSpec = selectClusterShardingTier(totalSizeMb, schemaProviderConfig.Format, cpConfig.ClusterConfig)
 
 	if result.clusterSpec.ShardSizeBy > 0 {
 		shardSize = int64(result.clusterSpec.ShardSizeBy)
@@ -219,7 +219,7 @@ func assignShardInfo(s3Objects []*awsi.S3Object, shardSize, maxShardSize, offset
 	return shardRegistryRows, currentShardId
 }
 
-func selectClusterShardingTier(totalSizeMb int, clusterConfig *ClusterSpec) *ClusterShardingSpec {
+func selectClusterShardingTier(totalSizeMb int, inputFormat string, clusterConfig *ClusterSpec) *ClusterShardingSpec {
 	if len(clusterConfig.ClusterShardingTiers) == 0 {
 		return &ClusterShardingSpec{
 			MaxNbrPartitions: clusterConfig.MaxNbrPartitions,
@@ -230,6 +230,9 @@ func selectClusterShardingTier(totalSizeMb int, clusterConfig *ClusterSpec) *Clu
 		}
 	}
 	for _, spec := range clusterConfig.ClusterShardingTiers {
+		if spec.AppliesToFormat != "" && spec.AppliesToFormat != inputFormat {
+			continue
+		}
 		if totalSizeMb >= spec.WhenTotalSizeGe {
 			log.Printf("selectClusterShardingTier: totalSizeMb: %d, spec.WhenTotalSizeGe: %d, select MaxNbrPartions: %d, shard size: %v, MaxConcurrency: %d",
 				totalSizeMb, spec.WhenTotalSizeGe, spec.MaxNbrPartitions, spec.ShardSizeMb, spec.MaxConcurrency)
