@@ -27,6 +27,9 @@ func (ctx *ShufflingTransformationPipe) Apply(input *[]any) error {
 	if input == nil {
 		return fmt.Errorf("error: unexpected null input arg in ShufflingTransformationPipe")
 	}
+	if len(ctx.inputColPos) == 0 {
+		return nil
+	}
 	inputLen := len(*input)
 	expectedLen := len(ctx.source.config.Columns)
 	if inputLen < expectedLen {
@@ -49,6 +52,9 @@ func (ctx *ShufflingTransformationPipe) Apply(input *[]any) error {
 // Analysis complete, now send out the results to ctx.outputCh.
 func (ctx *ShufflingTransformationPipe) Done() error {
 	nbrRecIn := len(ctx.sourceData)
+	if len(ctx.inputColPos) == 0 {
+		return nil
+	}
 	for range ctx.spec.ShufflingConfig.OutputSampleSize {
 		outputRow := make([]any, len(ctx.outputCh.config.Columns))
 		// For each column take a random value from the sourceData set
@@ -141,6 +147,9 @@ func (ctx *BuilderContext) NewShufflingTransformationPipe(source *InputChannel, 
 		for ipos := range source.config.Columns {
 			retainedInputColPos[ipos] = ipos
 		}
+	}
+	if len(retainedInputColPos) == 0 {
+		log.Println("Warning: Shuffling Transformation has no input columns retained")
 	}
 
 	return &ShufflingTransformationPipe{
