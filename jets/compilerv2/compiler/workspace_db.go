@@ -1,4 +1,4 @@
-package workspace
+package compiler
 
 // This package contains functions and data struct for information
 // from the workspace sqlite database
@@ -10,15 +10,21 @@ import (
 	"os"
 
 	"github.com/artisoft-io/jetstore/jets/jetrules/rete"
+	 _ "github.com/mattn/go-sqlite3"
 )
 
 var workspaceSchema string = os.Getenv("JETS_WORKSPACE_DB_SCHEMA_SCRIPT")
+func init() {
+	if len(workspaceSchema) == 0 {
+		workspaceSchema = "/usr/local/bin/workspace_schema.sql"
+	}
+}
 
 type WorkspaceDB struct {
 	DB *sql.DB
 	mainSourceFileName string
 	sourceMgr *SourceFileManager
-	rm *ResourceManager
+	rm *WorkspaceResourceManager
 }
 
 func NewWorkspaceDB(dbPath string) (*WorkspaceDB, error) {
@@ -37,7 +43,7 @@ func NewWorkspaceDB(dbPath string) (*WorkspaceDB, error) {
 	}
 	w := &WorkspaceDB{DB: db}
 	w.sourceMgr = NewSourceFileManager(w)
-	w.rm = NewResourceManager(w)
+	w.rm = NewWorkspaceResourceManager(w)
 	return w, nil
 }
 

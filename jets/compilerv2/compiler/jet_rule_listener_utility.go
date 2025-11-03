@@ -9,9 +9,9 @@ import (
 
 // antlr v4 JetRuleListener interface implementation
 
-// ResourceManager functions and utility methods
+// WorkspaceResourceManager functions and utility methods
 
-// Parse the triple atom, identify it's type and return its key in the ResourceManager
+// Parse the triple atom, identify it's type and return its key in the WorkspaceResourceManager
 // possible inputs:
 //
 //	?clm        -> {type: "var", value: "?clm"}
@@ -27,7 +27,7 @@ import (
 //
 // Note: if the type is "var" then it's a variable and a new resource is created in the scope of the rule only. 
 // Note: if the type is "identifier" then it's actually either "resource" or "volatile_resource",
-// this is resolved by the ResourceManager when adding to the model.
+// this is resolved by the WorkspaceResourceManager when adding to the model.
 // returns the ResourceNode.
 // Note: s.currentRuleVarByValue must be initialized (at the start of a rule) before this function is called
 func (s *JetRuleListener) ParseObjectAtom(txt string, keywordsContextValue string) *rete.ResourceNode {

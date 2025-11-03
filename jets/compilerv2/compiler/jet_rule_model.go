@@ -27,7 +27,7 @@ type JetRuleListener struct {
 	outJsonFileName string
 	jetRuleModel    *rete.JetruleModel
 
-	// ResourceManager
+	// WorkspaceResourceManager
 	autoAddResources bool
 	resourceManager  *ResourceManager
 	classesByName    map[string]*rete.ClassNode
