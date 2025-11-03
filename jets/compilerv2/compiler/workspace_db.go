@@ -64,6 +64,12 @@ func (w *WorkspaceDB) SaveJetRuleModel(ctx context.Context, jetRuleModel *rete.J
 		return fmt.Errorf("failed to save resources: %w", err)
 	}
 
+	// Save Classes and Tables
+	err = w.SaveClassesAndTables(ctx, w.DB, jetRuleModel)
+	if err != nil {
+		return fmt.Errorf("failed to save classes and tables: %w", err)
+	}
+
 	//*TODO Save the other tables
 
 	// Last, save the source file mapping back to workspace_control
