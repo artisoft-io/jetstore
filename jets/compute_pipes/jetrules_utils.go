@@ -368,7 +368,7 @@ func GetDomainProperties(className string, directPropertitesOnly bool) ([]string
 		columns = append(columns, "jets:key")
 		columns = append(columns, "rdf:type")
 		for i := range tableInfo.Columns {
-			p := tableInfo.Columns[i].PropertyName
+			p := tableInfo.Columns[i].ColumnName
 			if p != "jets:key" && p != "rdf:type" {
 				columns = append(columns, p)
 			}

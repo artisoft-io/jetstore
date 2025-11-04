@@ -214,7 +214,7 @@ type TableNode struct {
 type TableColumnNode struct {
 	Type         string `json:"type,omitempty"`
 	AsArray      bool   `json:"as_array,omitzero"`
-	PropertyName string `json:"property_name,omitempty"`
+	// PropertyName string `json:"property_name,omitempty"`
 	ColumnName   string `json:"column_name,omitempty"`
 }
 

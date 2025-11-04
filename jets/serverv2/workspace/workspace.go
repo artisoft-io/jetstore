@@ -75,7 +75,6 @@ func NewDomainTable(dbpool *pgxpool.Pool, tableInfo *rete.TableNode) (*DomainTab
 				DomainColumn{
 					ColumnInfo: &rete.TableColumnNode{
 						ColumnName:   "session_id",
-						PropertyName: "session_id",
 						Type:         "text",
 						AsArray:      false,
 					},
@@ -85,7 +84,6 @@ func NewDomainTable(dbpool *pgxpool.Pool, tableInfo *rete.TableNode) (*DomainTab
 				DomainColumn{
 					ColumnInfo: &rete.TableColumnNode{
 						ColumnName:   header,
-						PropertyName: header,
 						Type:         "text",
 						AsArray:      false,
 					},
@@ -96,7 +94,6 @@ func NewDomainTable(dbpool *pgxpool.Pool, tableInfo *rete.TableNode) (*DomainTab
 				DomainColumn{
 					ColumnInfo: &rete.TableColumnNode{
 						ColumnName:   header,
-						PropertyName: header,
 						Type:         "int",
 						AsArray:      false,
 					},

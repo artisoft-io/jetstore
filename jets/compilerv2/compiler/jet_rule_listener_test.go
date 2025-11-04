@@ -28,7 +28,7 @@ func TestJetRuleListener_SimpleFile(t *testing.T) {
 
 func TestJetRuleListener_Classes(t *testing.T) {
 
-	jrCompiler, err := CompileJetRuleFiles("./testdata", "classes.jr", false, true, false)
+	jrCompiler, err := CompileJetRuleFiles("./testdata", "classes.jr", true, true, false)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}

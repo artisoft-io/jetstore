@@ -1,6 +1,7 @@
 package compiler
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"os"
@@ -85,6 +86,19 @@ func (c *Compiler) CompileBuffer(combinedContent string) error {
 		err = os.WriteFile(outPath, data, 0644)
 		if err != nil {
 			log.Println("** ERROR saving json:", err.Error())
+			log.Fatal(err)
+		}
+		// Create workspaceV2.db file
+		bdFilePath := fmt.Sprintf("%s/workspaceV2.db", c.listener.basePath)
+		log.Println("Saving workspaceV2.db to", bdFilePath)
+		wDb, err := NewWorkspaceDB(bdFilePath)
+		if err != nil {
+			log.Println("** ERROR creating workspaceV2.db:", err.Error())
+			log.Fatal(err)
+		}
+		err = wDb.SaveJetRuleModel(context.TODO(), c.listener.jetRuleModel)
+		if err != nil {
+			log.Println("** ERROR saving to workspaceV2.db:", err.Error())
 			log.Fatal(err)
 		}
 	}

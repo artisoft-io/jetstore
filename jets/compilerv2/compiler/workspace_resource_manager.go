@@ -1,32 +1,33 @@
-package workspace
+package compiler
 
 import (
 	"context"
 	"database/sql"
 	"fmt"
+	"strings"
 
 	"github.com/artisoft-io/jetstore/jets/jetrules/rete"
 )
 
 // This file contains resource manager for persisting resources from compiler's json output to workspace db (workspace.db)
 
-type ResourceManager struct {
+type WorkspaceResourceManager struct {
 	w *WorkspaceDB
 	resourceKeyToDbKey map[int]int
 }
 
-func NewResourceManager(w *WorkspaceDB) *ResourceManager {
-	return &ResourceManager{
+func NewWorkspaceResourceManager(w *WorkspaceDB) *WorkspaceResourceManager {
+	return &WorkspaceResourceManager{
 		w: w,
 		resourceKeyToDbKey: make(map[int]int),
 	}
 }
 
-func (rm *ResourceManager) SaveResources(ctx context.Context, db *sql.DB, jetRuleModel *rete.JetruleModel) error {
+func (rm *WorkspaceResourceManager) SaveResources(ctx context.Context, db *sql.DB, jetRuleModel *rete.JetruleModel) error {
 
 	var maxKey int
 	err := db.QueryRow("SELECT max(key) FROM resources").Scan(&maxKey)
-	if err != nil {
+	if err != nil && !strings.Contains(err.Error(), "converting NULL to int is unsupported") {
 		return fmt.Errorf("failed to query resources: %w", err)
 	}
 
@@ -74,7 +75,7 @@ func (rm *ResourceManager) SaveResources(ctx context.Context, db *sql.DB, jetRul
 	return DoStatement(ctx, db, stmt, data)
 }
 
-func (rm *ResourceManager) GetDbKey(resourceKey int) (int, bool) {
+func (rm *WorkspaceResourceManager) GetDbKey(resourceKey int) (int, bool) {
 	dbKey, exists := rm.resourceKeyToDbKey[resourceKey]
 	return dbKey, exists
 }

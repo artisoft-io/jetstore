@@ -8,7 +8,7 @@ class ClassA {
     someProperty       as int,
     someValue          as resource
   ],
-  $as_table = false
+  $as_table = true
 };
 
 class ClassB {
