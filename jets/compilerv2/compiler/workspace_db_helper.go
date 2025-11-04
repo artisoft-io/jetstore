@@ -117,7 +117,7 @@ func (w *WorkspaceDB) SaveTables(ctx context.Context, db *sql.DB, className2Key,
 
 	// Load existing tables put them in a set and keep tack of the max key
 	var maxTableKey int
-	existingTables := make(map[string]int)
+	tableName2Key := make(map[string]int)
 	rows, err := db.Query("SELECT key, name FROM domain_tables")
 	if err != nil {
 		return fmt.Errorf("failed to query domain_tables: %w", err)
@@ -130,12 +130,12 @@ func (w *WorkspaceDB) SaveTables(ctx context.Context, db *sql.DB, className2Key,
 		if err != nil {
 			return fmt.Errorf("failed to scan table row: %w", err)
 		}
-		existingTables[name] = key
+		tableName2Key[name] = key
 		if key > maxTableKey {
 			maxTableKey = key
 		}
 	}
-	// Insert new tables that are not in existingTables
+	// Insert new tables that are not in tableName2Key
 	tableStmt := "INSERT INTO domain_tables (key, domain_class_key, name) VALUES (?, ?, ?)"
 	tableData := make([][]any, 0, len(jetRuleModel.Tables))
 	columnStmt := "INSERT INTO domain_columns (domain_table_key, data_property_key, name, type, as_array) VALUES (?, ?, ?, ?, ?)"
@@ -143,15 +143,15 @@ func (w *WorkspaceDB) SaveTables(ctx context.Context, db *sql.DB, className2Key,
 
 	// Insert tables & table columns
 	for _, table := range jetRuleModel.Tables {
-		if existingTables[table.TableName] == 0 {
+		if tableName2Key[table.TableName] == 0 {
 			maxTableKey++
-			existingTables[table.TableName] = maxTableKey
+			tableName2Key[table.TableName] = maxTableKey
 			classKey := className2Key[table.ClassName]
 			tableData = append(tableData, []any{maxTableKey, classKey, table.TableName})
 
 			// Table's columns
 			for _, column := range table.Columns {
-				dataPropertyKey := dataProperties2Key[column.PropertyName]
+				dataPropertyKey := dataProperties2Key[column.ColumnName]
 				columnData = append(columnData, []any{maxTableKey, dataPropertyKey, column.ColumnName, column.Type, column.AsArray})
 			}
 		}

@@ -475,7 +475,7 @@ func (rw *ReteWorkspace) addOutputClassResource(domainTable *workspace.DomainTab
 func (rw *ReteWorkspace) addOutputPredicate(domainColumns []workspace.DomainColumn) error {
 	for ipos := range domainColumns {
 		var err error
-		domainColumns[ipos].Predicate, err = rw.js.NewResource(domainColumns[ipos].ColumnInfo.PropertyName)
+		domainColumns[ipos].Predicate, err = rw.js.NewResource(domainColumns[ipos].ColumnInfo.ColumnName)
 		if err != nil {
 			return fmt.Errorf("while adding predicate to DomainColumn: %v", err)
 		}
