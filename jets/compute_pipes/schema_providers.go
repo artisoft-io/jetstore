@@ -61,6 +61,8 @@ type SchemaProvider interface {
 	UseLazyQuotesSpecial() bool
 	VariableFieldsPerRecord() bool
 	WriteDateLayout() string
+	CapDobYears() int
+	SetDodToJan1() bool
 }
 
 // columnNames is the list of file headers for fixed_width
@@ -364,4 +366,18 @@ func (sp *DefaultSchemaProvider) WriteDateLayout() string {
 		return ""
 	}
 	return sp.spec.WriteDateLayout
+}
+
+func (sp *DefaultSchemaProvider) CapDobYears() int {
+	if sp == nil {
+		return 0
+	}
+	return sp.spec.CapDobYears
+}
+
+func (sp *DefaultSchemaProvider) SetDodToJan1() bool {
+	if sp == nil {
+		return false
+	}
+	return sp.spec.SetDodToJan1
 }

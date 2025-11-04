@@ -292,6 +292,8 @@ type SchemaProviderSpec struct {
 	// SourceType range: main_input, merged_input, historical_input (from input_source table)
 	// Columns: may be ommitted if fixed_width_columns_csv is provided or is a csv format
 	// Headers: alt to Columns, typically for csv format
+	// CapDobYears: number of years to cap dob (date of birth) to today - for Anonymization
+	// SetDodToJan1: set dod (date of death) to January 1st of the date year - for Anonymization
 	// UseLazyQuotes, UseLazyQuotesSpecial, VariableFieldsPerRecord: see csv.NewReader
 	// QuoteAllRecords will quote all records for csv writer
 	// NoQuotes will no quote any records for csv writer (even if the record contains '"')
@@ -319,6 +321,8 @@ type SchemaProviderSpec struct {
 	SchemaName                       string             `json:"schema_name,omitempty"`
 	Columns                          []SchemaColumnSpec `json:"columns,omitempty"`
 	Headers                          []string           `json:"headers,omitempty"`
+	CapDobYears											 int                `json:"cap_dob_years,omitzero"`
+	SetDodToJan1                     bool               `json:"set_dod_to_jan1,omitzero"`
 	Env                              map[string]any     `json:"env,omitempty"`
 	ReportCmds                       []ReportCmdSpec    `json:"report_cmds,omitempty"`
 	NotificationTemplatesOverrides   map[string]string  `json:"notification_templates_overrides,omitempty"`
@@ -726,7 +730,9 @@ type PartitionWriterSpec struct {
 // according to KeyDateLayout.
 // OutputDateLayout defaults to InputDateLayout.
 // KeyDateLayout defaults to OutputDateLayout.
-// SchemaProvider is used to get the DateLayout / KeyDateLayout if not specified here.
+// SchemaProvider is used to:
+// - get the DateLayout / KeyDateLayout if not specified here.
+// - get CapDobYears / SetDodToJan1 for date anonymization.
 // If date format is not specified, the default format for both OutputDateFormat and KeyDateFormat
 // is "2006/01/02", ie. yyyy/MM/dd and the rdf.ParseDate() is used to parse the input date.
 type AnonymizeSpec struct {
