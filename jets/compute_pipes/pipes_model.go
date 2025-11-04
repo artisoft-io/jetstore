@@ -326,7 +326,7 @@ type SchemaProviderSpec struct {
 	SchemaName                       string             `json:"schema_name,omitempty"`
 	Columns                          []SchemaColumnSpec `json:"columns,omitempty"`
 	Headers                          []string           `json:"headers,omitempty"`
-	CapDobYears											 int                `json:"cap_dob_years,omitzero"`
+	CapDobYears                      int                `json:"cap_dob_years,omitzero"`
 	SetDodToJan1                     bool               `json:"set_dod_to_jan1,omitzero"`
 	Env                              map[string]any     `json:"env,omitempty"`
 	ReportCmds                       []ReportCmdSpec    `json:"report_cmds,omitempty"`
