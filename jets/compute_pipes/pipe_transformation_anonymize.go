@@ -405,47 +405,49 @@ func (ctx *BuilderContext) NewAnonymizeTransformationPipe(source *InputChannel, 
 			if !ok {
 				return nil, fmt.Errorf("error: expecting string for key prefix (e.g. ssn, dob, etc), got %v", keyPrefixI)
 			}
-			switch config.Mode {
-			case "de-identification":
-				// Get the de-identification lookup table name for this key prefix
-				lookupTableName, ok := config.DeidLookups[keyPrefix]
-				if !ok {
-					// See if it's a deid function
-					deidFunctionName, ok = config.DeidFunctions[keyPrefix]
+			if anonymizeType == "text" {
+				switch config.Mode {
+				case "de-identification":
+					// Get the de-identification lookup table name for this key prefix
+					lookupTableName, ok := config.DeidLookups[keyPrefix]
 					if !ok {
-						// Skipping this column
-						continue
-					}
-					// It's a deid function, vaidate the function and adjust column width if needed
-					switch deidFunctionName {
-					case "hashed_value":
-						// Determine the width to adjust for fixed-width files
-						if newWidth != nil {
-							newWidth[name] = 16
+						// See if it's a deid function
+						deidFunctionName, ok = config.DeidFunctions[keyPrefix]
+						if !ok {
+							// Skipping this column
+							continue
 						}
-					default:
-						return nil, fmt.Errorf("error: unknown de-identification function '%s' for key prefix '%s'",
-							deidFunctionName, keyPrefix)
+						// It's a deid function, vaidate the function and adjust column width if needed
+						switch deidFunctionName {
+						case "hashed_value":
+							// Determine the width to adjust for fixed-width files
+							if newWidth != nil {
+								newWidth[name] = 16
+							}
+						default:
+							return nil, fmt.Errorf("error: unknown de-identification function '%s' for key prefix '%s'",
+								deidFunctionName, keyPrefix)
+						}
+					} else {
+						deidLookupTbl = ctx.lookupTableManager.LookupTableMap[lookupTableName]
+						if deidLookupTbl == nil {
+							return nil, fmt.Errorf("error: de-identification lookup table %s not found for key prefix '%s'",
+								lookupTableName, keyPrefix)
+						}
 					}
-				} else {
-					deidLookupTbl = ctx.lookupTableManager.LookupTableMap[lookupTableName]
-					if deidLookupTbl == nil {
-						return nil, fmt.Errorf("error: de-identification lookup table %s not found for key prefix '%s'",
-							lookupTableName, keyPrefix)
-					}
-				}
 
-			case "anonymization":
-				// Determine the width to adjust for fixed-width files
-				if newWidth != nil {
-					w := 16
-					if anonymizeType == "text" && !omitPrefix {
-						w = 28
+				case "anonymization":
+					// Determine the width to adjust for fixed-width files
+					if newWidth != nil {
+						w := 16
+						if !omitPrefix {
+							w = 28
+						}
+						newWidth[name] = w
 					}
-					newWidth[name] = w
-				}
-				if omitPrefix {
-					keyPrefix = ""
+					if omitPrefix {
+						keyPrefix = ""
+					}
 				}
 			}
 
