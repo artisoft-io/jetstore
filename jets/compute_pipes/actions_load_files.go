@@ -798,6 +798,11 @@ loop_record:
 			return inputRowCount, badRowCount, nil
 
 		case err != nil:
+			if strings.Contains(err.Error(), "token too long") {
+				return 0, 0, fmt.Errorf(
+					"error while reading input fixed_width records: %v, is this Base64 encoded data? Individual lines exceed 64KB without any line breaks, this is not a proper fixed-width file", 
+					err)
+			}
 			return 0, 0, fmt.Errorf("error while reading input fixed_width records: %v", err)
 
 		default:
