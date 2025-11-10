@@ -624,7 +624,8 @@ func GetOutputFileConfig(cpConfig *ComputePipesConfig, outputFileKey string) *Ou
 
 // Function to validate the PipeSpec output channel config
 // Apply a default snappy compression if compression is not specified
-// and channel Type 'stage'
+// and channel Type 'stage'.
+// This function also syncs the input and ouput channels with the associated schema provider.
 func (args *CpipesStartup) ValidatePipeSpecConfig(cpConfig *ComputePipesConfig, pipeConfig []PipeSpec) error {
 	for i := range pipeConfig {
 		pipeSpec := &pipeConfig[i]

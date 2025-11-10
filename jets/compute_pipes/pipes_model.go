@@ -257,6 +257,7 @@ type FileConfig struct {
 	FileName                   string             `json:"file_name,omitempty"` // Type output
 	FixedWidthColumnsCsv       string             `json:"fixed_width_columns_csv,omitempty"`
 	Format                     string             `json:"format,omitempty"`
+	GetPartitionsSize          bool               `json:"get_partitions_size,omitzero"`
 	InputFormatDataJson        string             `json:"input_format_data_json,omitempty"`
 	IsPartFiles                bool               `json:"is_part_files,omitzero"`
 	KeyPrefix                  string             `json:"key_prefix,omitempty"`
@@ -297,6 +298,7 @@ type SchemaProviderSpec struct {
 	// SourceType range: main_input, merged_input, historical_input (from input_source table)
 	// Columns: may be ommitted if fixed_width_columns_csv is provided or is a csv format
 	// Headers: alt to Columns, typically for csv format
+	// GetPartitionsSize: when true, get the size of the partitions from s3
 	// CapDobYears: number of years to cap dob (date of birth) to today - for Anonymization
 	// SetDodToJan1: set dod (date of death) to January 1st of the date year - for Anonymization
 	// UseLazyQuotes, UseLazyQuotesSpecial, VariableFieldsPerRecord: see csv.NewReader

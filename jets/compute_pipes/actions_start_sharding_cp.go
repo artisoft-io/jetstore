@@ -297,11 +297,12 @@ func (args *StartComputePipesArgs) StartShardingComputePipes(ctx context.Context
 	result.IsLastReducing = cpipesStartup.CpConfig.NbrComputePipes() == nextStepId
 	if !result.IsLastReducing {
 		result.StartReducing = StartComputePipesArgs{
-			PipelineExecKey: args.PipelineExecKey,
-			FileKey:         args.FileKey,
-			SessionId:       args.SessionId,
-			StepId:          &nextStepId,
-			ClusterInfo:     shardResult.clusterShardingInfo,
+			PipelineExecKey:     args.PipelineExecKey,
+			FileKey:             args.FileKey,
+			SessionId:           args.SessionId,
+			StepId:              &nextStepId,
+			ClusterInfo:         shardResult.clusterShardingInfo,
+			DoGetPartitionsSize: inputChannelConfig.GetPartitionsSize || mainInputSchemaProvider.GetPartitionsSize,
 		}
 	}
 
