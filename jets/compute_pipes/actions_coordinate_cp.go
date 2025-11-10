@@ -44,7 +44,7 @@ func (args *ComputePipesNodeArgs) CoordinateComputePipes(ctx context.Context, db
 
 	// Make sure we have a jet partition key set
 	if len(args.JetsPartitionLabel) == 0 {
-		args.JetsPartitionLabel = fmt.Sprintf("%04dp", args.NodeId)
+		args.JetsPartitionLabel = fmt.Sprintf("%04dP", args.NodeId)
 	}
 
 	stmt := "SELECT cpipes_config_json FROM jetsapi.cpipes_execution_status WHERE pipeline_execution_status_key = %d"
