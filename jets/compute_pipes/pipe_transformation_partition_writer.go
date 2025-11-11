@@ -66,7 +66,15 @@ func MakeJetsPartitionLabel(jetsPartitionKey any) string {
 	switch vv := jetsPartitionKey.(type) {
 	case int:
 		return fmt.Sprintf("%04dP", vv)
+	case uint:
+		return fmt.Sprintf("%04dP", vv)
+	case uint64:
+		return fmt.Sprintf("%04dP", vv)
 	case int64:
+		return fmt.Sprintf("%04dP", vv)
+	case uint32:
+		return fmt.Sprintf("%04dP", vv)
+	case int32:
 		return fmt.Sprintf("%04dP", vv)
 	case string:
 		return vv
