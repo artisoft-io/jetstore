@@ -76,6 +76,22 @@ func TestJetRuleListener_Tables(t *testing.T) {
 	}
 }
 
+func TestJetRuleListener_JetRuleConfig(t *testing.T) {
+
+	jrCompiler, err := CompileJetRuleFiles("./testdata", "jetrule_config.jr", true, true, false)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	b, _ := json.MarshalIndent(jrCompiler.JetRuleModel().JetstoreConfig, "", " ")
+	fmt.Printf("** Jetstore Config: \n%v\n", string(b))
+	fmt.Printf("** Error Log: \n%v\n", jrCompiler.ErrorLog().String())
+	if jrCompiler.ErrorLog().Len() > 0 {
+		t.Error(jrCompiler.ErrorLog().String())
+	} else {
+		t.Error("Done")
+	}
+}
+
 func TestJetRuleListener_RuleSequence(t *testing.T) {
 
 	jrCompiler, err := CompileJetRuleFiles("./testdata", "rule_sequence.jr", false, true, false)

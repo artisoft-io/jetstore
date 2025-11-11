@@ -70,6 +70,9 @@ func (w *WorkspaceDB) SaveJetRuleModel(ctx context.Context, jetRuleModel *rete.J
 		return fmt.Errorf("failed to save classes and tables: %w", err)
 	}
 
+	// Save JetSore Config
+	err = w.SaveJetstoreConfig(ctx, w.DB, jetRuleModel)
+
 	//*TODO Save the other tables
 
 	// Last, save the source file mapping back to workspace_control
