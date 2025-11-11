@@ -11,6 +11,31 @@ import (
 	"github.com/artisoft-io/jetstore/jets/jetrules/rete"
 )
 
+// Save Jetstore Config into workspace db
+func (w *WorkspaceDB) SaveJetstoreConfig(ctx context.Context, db *sql.DB, jetRuleModel *rete.JetruleModel) error {
+	// Delete existing config for current main file
+	mainFileKey := w.sourceMgr.GetOrAddDbKey(w.mainSourceFileName)
+	deleteStmt := "DELETE FROM jetstore_config WHERE source_file_key = ?"
+	_, err := db.ExecContext(ctx, deleteStmt, mainFileKey)
+	if err != nil {
+		return fmt.Errorf("failed to delete existing jetstore_config: %w", err)
+	}
+
+	// Insert new config entries
+	insertStmt := "INSERT INTO jetstore_config (source_file_key, config_key, config_value) VALUES (?, ?, ?)"
+	configData := make([][]any, 0)
+	for key, value := range jetRuleModel.JetstoreConfig {
+		configData = append(configData, []any{mainFileKey, key, value})
+	}
+	if len(configData) > 0 {
+		err = DoStatement(ctx, db, insertStmt, configData)
+		if err != nil {
+			return fmt.Errorf("failed to insert jetstore_config: %w", err)
+		}
+	}
+	return nil
+}
+
 // Save Classes into workspace db
 func (w *WorkspaceDB) SaveClassesAndTables(ctx context.Context, db *sql.DB, jetRuleModel *rete.JetruleModel) error {
 	// Load existing classes put them in a set and keep tack of the max key

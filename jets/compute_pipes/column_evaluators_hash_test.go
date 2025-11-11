@@ -1,6 +1,7 @@
 package compute_pipes
 
 import (
+	"fmt"
 	"reflect"
 	"testing"
 
@@ -133,14 +134,14 @@ func TestComputeDomainKeyFull01(t *testing.T) {
 	currentOutputValue := make([]any, 1)
 	inputValues := &[]any{"38dfae30-f8c9-51ae-9dfe-62e96ab8a622", "NAME1", "M", "1969-01-01"}
 	expectedKey := "38dfae30-f8c9-51ae-9dfe-62e96ab8a622"
-		err = trsfEvaluator.Update(&currentOutputValue, inputValues)
-		if err != nil {
-			t.Errorf("while calling Update: %v", err)
-		}
-		// fmt.Println("*** Got:", currentOutputValue[0])
-		if expectedKey != currentOutputValue[0] {
-			t.Errorf("hash failed")
-		}
+	err = trsfEvaluator.Update(&currentOutputValue, inputValues)
+	if err != nil {
+		t.Errorf("while calling Update: %v", err)
+	}
+	// fmt.Println("*** Got:", currentOutputValue[0])
+	if expectedKey != currentOutputValue[0] {
+		t.Errorf("hash failed")
+	}
 	// t.Error("done")
 }
 
@@ -203,14 +204,14 @@ func TestComputeDomainKeyFull02(t *testing.T) {
 	currentOutputValue := make([]any, 1)
 	inputValues := &[]any{"key1", "name 1", "m", "1969-01-01"}
 	expectedKey := "NAME-M-19690101"
-		err = trsfEvaluator.Update(&currentOutputValue, inputValues)
-		if err != nil {
-			t.Errorf("while calling Update: %v", err)
-		}
-		// fmt.Println("*** Got:", currentOutputValue[0])
-		if expectedKey != currentOutputValue[0] {
-			t.Errorf("hash failed")
-		}
+	err = trsfEvaluator.Update(&currentOutputValue, inputValues)
+	if err != nil {
+		t.Errorf("while calling Update: %v", err)
+	}
+	// fmt.Println("*** Got:", currentOutputValue[0])
+	if expectedKey != currentOutputValue[0] {
+		t.Errorf("hash failed")
+	}
 	// t.Error("done")
 }
 
@@ -273,14 +274,14 @@ func TestComputeDomainKeyFull03(t *testing.T) {
 	currentOutputValue := make([]any, 1)
 	inputValues := &[]any{"key1", "name 1", "m", "1969-01-01"}
 	expectedKey := "a1366cc9-38bb-50aa-b6dc-9d91f0249039"
-		err = trsfEvaluator.Update(&currentOutputValue, inputValues)
-		if err != nil {
-			t.Errorf("while calling Update: %v", err)
-		}
-		// fmt.Println("*** Got:", currentOutputValue[0])
-		if expectedKey != currentOutputValue[0] {
-			t.Errorf("hash failed")
-		}
+	err = trsfEvaluator.Update(&currentOutputValue, inputValues)
+	if err != nil {
+		t.Errorf("while calling Update: %v", err)
+	}
+	// fmt.Println("*** Got:", currentOutputValue[0])
+	if expectedKey != currentOutputValue[0] {
+		t.Errorf("hash failed")
+	}
 	// t.Error("done")
 }
 
@@ -450,4 +451,24 @@ func TestEvalHash(t *testing.T) {
 	if *v > 4 {
 		t.Errorf("error: expecting [0,5) from EvalHash (3)")
 	}
+}
+
+func TestEvalHash02(t *testing.T) {
+	var v *uint64
+	freq := make(map[uint64]int)
+	for i := 0; i < 100; i++ {
+		v = EvalHash(nil, 10)
+		if v == nil {
+			t.Fatal("error: got nil from EvalHash")
+		}
+		if *v >= 10 {
+			t.Errorf("error: expecting [0,10) from EvalHash, got %d", *v)
+		}
+		c := freq[*v]
+		freq[*v] = c + 1
+	}
+	for k, v := range freq {
+		fmt.Printf("hash %d: %d\n", k, v)
+	}
+	t.Error("Done")
 }

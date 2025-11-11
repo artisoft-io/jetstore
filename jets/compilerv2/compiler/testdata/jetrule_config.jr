@@ -1,0 +1,7 @@
+# =======================================================================================
+main {
+  # This is a comment
+  $max_rule_exec = 5000,
+  $max_looping = 5,  # Another comment
+  $input_types = [rdf:DomainClass, ace:BaseProduct, owl:Thing]
+};

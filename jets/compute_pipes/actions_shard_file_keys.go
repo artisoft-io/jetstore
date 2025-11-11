@@ -236,9 +236,9 @@ func selectClusterShardingTier(totalSizeMb int, inputFormat string, clusterConfi
 		if totalSizeMb >= spec.WhenTotalSizeGe {
 			log.Printf("selectClusterShardingTier: totalSizeMb: %d, spec.WhenTotalSizeGe: %d, select MaxNbrPartions: %d, shard size: %v, MaxConcurrency: %d",
 				totalSizeMb, spec.WhenTotalSizeGe, spec.MaxNbrPartitions, spec.ShardSizeMb, spec.MaxConcurrency)
-			if spec.ShardSizeMb == 0 && spec.ShardMaxSizeBy == 0 {
-				spec.ShardMaxSizeMb = clusterConfig.DefaultShardSizeMb
-				spec.ShardMaxSizeBy = clusterConfig.DefaultShardSizeBy
+			if spec.ShardSizeMb == 0 && spec.ShardSizeBy == 0 {
+				spec.ShardSizeMb = clusterConfig.DefaultShardSizeMb
+				spec.ShardSizeBy = clusterConfig.DefaultShardSizeBy
 			}
 			if spec.ShardMaxSizeMb == 0 && spec.ShardMaxSizeBy == 0 {
 				spec.ShardMaxSizeMb = clusterConfig.DefaultShardMaxSizeMb
