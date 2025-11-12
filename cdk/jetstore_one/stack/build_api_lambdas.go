@@ -108,6 +108,16 @@ func (jsComp *JetStoreStackComponents) BuildApiLambdas(scope constructs.Construc
 		),
 		RoleName: jsii.String("JetStorePrivateApiSystemRole"),
 	})
+
+	// Prepare the external roles that can assume the system role
+	externalPrincipals := make([]awsiam.IPrincipal, 0)
+	externalRolesEnv := os.Getenv("JETS_API_GATEWAY_EXTERNAL_ROLES_ARN")
+	if len(externalRolesEnv) > 0 {
+		for roleArn := range strings.SplitSeq(externalRolesEnv, ",") {
+			externalPrincipals = append(externalPrincipals, awsiam.NewArnPrincipal(jsii.String(roleArn)))
+		}
+	}
+
 	// Test lambda role
 	var testLambdaRole awsiam.Role
 	if deployTestLambda {
@@ -121,18 +131,8 @@ func (jsComp *JetStoreStackComponents) BuildApiLambdas(scope constructs.Construc
 		})
 
 		// Allow test Lambda role to assume the system role
-		jsComp.JetsApiExecutionRole.AssumeRolePolicy().AddStatements(
-			awsiam.NewPolicyStatement(&awsiam.PolicyStatementProps{
-				Effect: awsiam.Effect_ALLOW,
-				Principals: &[]awsiam.IPrincipal{
-					testLambdaRole,
-				},
-				Actions: &[]*string{
-					jsii.String("sts:AssumeRole"),
-				},
-			}),
-		)
-
+		externalPrincipals = append(externalPrincipals, testLambdaRole)
+		
 		// Grant assume role permission to test Lambda role
 		testLambdaRole.AddToPolicy(awsiam.NewPolicyStatement(&awsiam.PolicyStatementProps{
 			Effect: awsiam.Effect_ALLOW,
@@ -144,6 +144,20 @@ func (jsComp *JetStoreStackComponents) BuildApiLambdas(scope constructs.Construc
 			},
 		}))
 	}
+	
+	// Add external roles to assume the system role
+	if len(externalPrincipals) > 0 {
+		jsComp.JetsApiExecutionRole.AssumeRolePolicy().AddStatements(
+			awsiam.NewPolicyStatement(&awsiam.PolicyStatementProps{
+				Effect: awsiam.Effect_ALLOW,
+				Principals: &externalPrincipals,
+				Actions: &[]*string{
+					jsii.String("sts:AssumeRole"),
+				},
+			}),
+		)
+	}
+
 	// Create resource policy for private API (only system role, not test lambda role)
 	resourcePolicy := awsiam.NewPolicyDocument(&awsiam.PolicyDocumentProps{
 		Statements: &[]awsiam.PolicyStatement{
