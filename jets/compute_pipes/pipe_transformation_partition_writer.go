@@ -50,7 +50,7 @@ type PartitionWriterTransformationPipe struct {
 	samplingMaxCount     int
 	samplingCount        int
 	outputCh             *OutputChannel
-	currentDeviceCh      chan []interface{}
+	currentDeviceCh      chan []any
 	parquetSchema        *ParquetSchemaInfo
 	columnEvaluators     []TransformationColumnEvaluator
 	doneCh               chan struct{}
@@ -59,19 +59,32 @@ type PartitionWriterTransformationPipe struct {
 	sessionId            string
 	nodeId               int
 	s3DeviceManager      *S3DeviceManager
-	env                  map[string]interface{}
+	env                  map[string]any
 }
 
-func MakeJetsPartitionLabel(jetsPartitionKey interface{}) string {
-	key, ok := jetsPartitionKey.(string)
-	if ok {
-		return key
+func MakeJetsPartitionLabel(jetsPartitionKey any) string {
+	switch vv := jetsPartitionKey.(type) {
+	case int:
+		return fmt.Sprintf("%04dP", vv)
+	case uint:
+		return fmt.Sprintf("%04dP", vv)
+	case uint64:
+		return fmt.Sprintf("%04dP", vv)
+	case int64:
+		return fmt.Sprintf("%04dP", vv)
+	case uint32:
+		return fmt.Sprintf("%04dP", vv)
+	case int32:
+		return fmt.Sprintf("%04dP", vv)
+	case string:
+		return vv
+	default:
+		return fmt.Sprintf("%vP", jetsPartitionKey)
 	}
-	return fmt.Sprintf("%vp", jetsPartitionKey)
 }
 
 // Implementing interface PipeTransformationEvaluator
-func (ctx *PartitionWriterTransformationPipe) Apply(input *[]interface{}) error {
+func (ctx *PartitionWriterTransformationPipe) Apply(input *[]any) error {
 	var err error
 	if input == nil {
 		err = fmt.Errorf("error: input record is nil in PartitionWriterTransformationPipe.Apply")
@@ -100,7 +113,7 @@ func (ctx *PartitionWriterTransformationPipe) Apply(input *[]interface{}) error 
 	// Check if this is the first call or the start of a new file partition, if so setup the device writer channel
 	if ctx.currentDeviceCh == nil {
 		// replace the underlying channel of outputCh with a buffered one
-		ctx.currentDeviceCh = make(chan []interface{}, 10)
+		ctx.currentDeviceCh = make(chan []any, 10)
 		ctx.outputCh.channel = ctx.currentDeviceCh
 
 		// Start the device writter for the partition
@@ -190,9 +203,9 @@ func (ctx *PartitionWriterTransformationPipe) Apply(input *[]interface{}) error 
 	ctx.samplingCount = 0
 
 	// currentValue is either the input row or a new row based on ctx.NewRecord flag
-	var currentValues *[]interface{}
+	var currentValues *[]any
 	if ctx.spec.NewRecord {
-		v := make([]interface{}, len(ctx.outputCh.config.Columns))
+		v := make([]any, len(ctx.outputCh.config.Columns))
 		currentValues = &v
 		// initialize the column evaluators
 		for i := range ctx.columnEvaluators {
@@ -286,7 +299,7 @@ func (ctx *PartitionWriterTransformationPipe) Finally() {
 }
 
 // Create a new jets_partition writer, the partition is identified by the jetsPartition
-func (ctx *BuilderContext) NewPartitionWriterTransformationPipe(source *InputChannel, jetsPartitionKey interface{},
+func (ctx *BuilderContext) NewPartitionWriterTransformationPipe(source *InputChannel, jetsPartitionKey any,
 	outputCh *OutputChannel, copy2DeviceResultCh chan ComputePipesResult, spec *TransformationSpec) (*PartitionWriterTransformationPipe, error) {
 
 	// Validation
@@ -501,7 +514,7 @@ func (ctx *BuilderContext) NewPartitionWriterTransformationPipe(source *InputCha
 }
 
 func doSubstitution(value, jetsPartitionLabel string, s3OutputLocation string,
-	env map[string]interface{}) string {
+	env map[string]any) string {
 	lc := 0
 	for strings.Contains(value, "$") && lc < 5 && env != nil {
 		lc += 1

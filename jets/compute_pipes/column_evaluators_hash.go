@@ -105,6 +105,7 @@ type HashEvaluator struct {
 	computeDomainKey  bool
 	hashingAlgo       HashingAlgoEnum
 	delimit           string
+	// debugCount int
 }
 
 var HashingSeed uuid.UUID
@@ -220,6 +221,10 @@ func (ctx *BuilderContext) NewHashEvaluator(source *InputChannel,
 			return nil, fmt.Errorf("%v in source name %s", err, source.name)
 		}
 	}
+	// var debugCount int
+	// if ctx.cpConfig.ClusterConfig.IsDebugMode {
+	// 	debugCount = 100
+	// }
 
 	return &HashEvaluator{
 		inputPos:          inputPos,
@@ -229,6 +234,7 @@ func (ctx *BuilderContext) NewHashEvaluator(source *InputChannel,
 		computeDomainKey:  spec.ComputeDomainKey,
 		hashingAlgo:       hashingEnum,
 		delimit:           DomainKeyDelimit,
+		// debugCount: debugCount,
 	}, nil
 }
 
@@ -313,7 +319,6 @@ func (ctx *HashEvaluator) ComputeHash(input []any) (any, error) {
 			return nil, err
 		}
 	}
-	// fmt.Printf("##### # inputVal: %v\n", inputVal)
 	if inputVal == nil && ctx.altInputKey != nil {
 		// Make the alternate key to hash
 		inputVal, err = makeAlternateKey(&ctx.altInputKey, &input)
@@ -330,6 +335,10 @@ func (ctx *HashEvaluator) ComputeHash(input []any) (any, error) {
 		// } else {
 		// 	fmt.Printf("##### # EvalHash k: %v, nbr partitions: %d => NULL\n", inputVal, ctx.partitions)
 	}
+	// if ctx.debugCount > 0 {
+	// 	log.Printf("HashEvaluator.ComputeHash debug %d: input=%v => hash=%v\n", ctx.debugCount, inputVal, hashedValue)
+	// 	ctx.debugCount--
+	// }
 	return hashedValue, nil
 }
 

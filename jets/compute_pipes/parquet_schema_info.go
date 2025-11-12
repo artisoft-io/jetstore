@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/apache/arrow/go/v17/arrow"
@@ -805,6 +806,9 @@ func ConvertWithSchemaV1(irow int, col arrow.Array, trimStrings bool, fieldInfo 
 		v, ok := col.(*array.String)
 		if ok {
 			value = v.Value(irow)
+			if trimStrings {
+				value = strings.TrimSpace(value)
+			}
 		} else {
 			return nil, fmt.Errorf("error: ConvertWithSchemaV1 expecting *array.String got %T", v)
 		}
@@ -813,6 +817,9 @@ func ConvertWithSchemaV1(irow int, col arrow.Array, trimStrings bool, fieldInfo 
 		v, ok := col.(*array.Binary)
 		if ok {
 			value = string(v.Value(irow))
+			if trimStrings {
+				value = strings.TrimSpace(value)
+			}
 		} else {
 			return nil, fmt.Errorf("error: ConvertWithSchemaV1 expecting *array.Binary got %T", v)
 		}
@@ -838,6 +845,9 @@ func ConvertWithSchemaV1(irow int, col arrow.Array, trimStrings bool, fieldInfo 
 		value = col.ValueStr(irow)
 	}
 	if castToRdfTxtFnc == nil {
+		if len(value) == 0 {
+			return nil, nil
+		}
 		return value, nil
 	}
 	return castToRdfTxtFnc(value)
