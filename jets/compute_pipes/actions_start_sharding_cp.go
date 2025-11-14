@@ -36,7 +36,7 @@ func (args *StartComputePipesArgs) StartShardingComputePipes(ctx context.Context
 		return result, nil, fmt.Errorf("error: the session id is already used")
 	}
 
-	cpipesStartup, err := args.initializeCpipes(ctx, dbpool)
+	cpipesStartup, err := args.shardingInitializeCpipes(ctx, dbpool)
 	if err != nil {
 		if cpipesStartup != nil {
 			mainInputSchemaProvider = cpipesStartup.MainInputSchemaProviderConfig
@@ -297,12 +297,11 @@ func (args *StartComputePipesArgs) StartShardingComputePipes(ctx context.Context
 	result.IsLastReducing = cpipesStartup.CpConfig.NbrComputePipes() == nextStepId
 	if !result.IsLastReducing {
 		result.StartReducing = StartComputePipesArgs{
-			PipelineExecKey:     args.PipelineExecKey,
-			FileKey:             args.FileKey,
-			SessionId:           args.SessionId,
-			StepId:              &nextStepId,
-			ClusterInfo:         shardResult.clusterShardingInfo,
-			DoGetPartitionsSize: inputChannelConfig.GetPartitionsSize || mainInputSchemaProvider.GetPartitionsSize,
+			PipelineExecKey: args.PipelineExecKey,
+			FileKey:         args.FileKey,
+			SessionId:       args.SessionId,
+			StepId:          &nextStepId,
+			ClusterInfo:     shardResult.clusterShardingInfo,
 		}
 	}
 
@@ -334,6 +333,7 @@ func (args *StartComputePipesArgs) StartShardingComputePipes(ctx context.Context
 				MainInput: &InputSourceSpec{
 					OriginalInputColumns: cpipesStartup.InputColumnsOriginal,
 					InputColumns:         cpipesStartup.InputColumns,
+					InputParquetSchema:   mainInputSchemaProvider.ParquetSchema,
 					DomainKeys:           cpipesStartup.MainInputDomainKeysSpec,
 					DomainClass:          cpipesStartup.MainInputDomainClass,
 				},
@@ -358,6 +358,20 @@ func (args *StartComputePipesArgs) StartShardingComputePipes(ctx context.Context
 		SchemaProviders: cpipesStartup.CpConfig.SchemaProviders,
 		PipesConfig:     pipeConfig,
 	}
+
+	// avoid to serialize twice some constructs
+	inputParquetSchemaJson, err := json.Marshal(mainInputSchemaProvider.ParquetSchema)
+	if err != nil {
+		return result, mainInputSchemaProvider, err
+	}
+	mainInputSchemaProvider.ParquetSchema = nil
+	cpipesStartup.EnvSettings = nil
+	cpipesStartup.InputColumns = nil
+	cpipesStartup.InputColumnsOriginal = nil
+	cpipesStartupJson, err := json.Marshal(cpipesStartup)
+	if err != nil {
+		return result, mainInputSchemaProvider, err
+	}
 	shardingConfigJson, err := json.Marshal(cpShardingConfig)
 	if err != nil {
 		return result, mainInputSchemaProvider, err
@@ -366,9 +380,9 @@ func (args *StartComputePipesArgs) StartShardingComputePipes(ctx context.Context
 	// log.Println(string(shardingConfigJson))
 	// Create entry in cpipes_execution_status
 	stmt := `INSERT INTO jetsapi.cpipes_execution_status 
-						(pipeline_execution_status_key, session_id, cpipes_config_json, input_row_columns_json) 
-						VALUES ($1, $2, $3, $4)`
-	_, err2 := dbpool.Exec(ctx, stmt, args.PipelineExecKey, args.SessionId, string(shardingConfigJson), string(inputRowColumnsJson))
+						(pipeline_execution_status_key, session_id, cpipes_config_json, input_parquet_schema_json, cpipes_startup_json, input_row_columns_json) 
+						VALUES ($1, $2, $3, $4, $5, $6)`
+	_, err2 := dbpool.Exec(ctx, stmt, args.PipelineExecKey, args.SessionId, string(shardingConfigJson), string(inputParquetSchemaJson), string(cpipesStartupJson), string(inputRowColumnsJson))
 	if err2 != nil {
 		return result, mainInputSchemaProvider, fmt.Errorf("error inserting in jetsapi.cpipes_execution_status table: %v", err2)
 	}

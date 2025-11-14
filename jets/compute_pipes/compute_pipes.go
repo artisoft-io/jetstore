@@ -96,13 +96,15 @@ func (cpCtx *ComputePipesContext) StartComputePipes(dbpool *pgxpool.Pool,
 					mainInput.InputColumns = append(mainInput.InputColumns, cpCtx.CpConfig.Context[i].Key)
 				}
 			}
-			// Save the columns to db!
+			// Save the columns and parquet schema to db
 			inputRowColumnsJson, _ := json.Marshal(InputRowColumns{
 				MainInput: mainInput.InputColumns,
 			})
+			inputParquetSchemaJson, _ := json.Marshal(inputParquetSchema)
+
 			// Update in cpipes_execution_status
-			stmt := `UPDATE jetsapi.cpipes_execution_status SET input_row_columns_json = $1 WHERE session_id = $2`
-			_, err2 := dbpool.Exec(context.TODO(), stmt, string(inputRowColumnsJson), cpCtx.ComputePipesCommonArgs.SessionId)
+			stmt := `UPDATE jetsapi.cpipes_execution_status SET (input_row_columns_json, input_parquet_schema_json) = ($1, $2) WHERE session_id = $3`
+			_, err2 := dbpool.Exec(context.TODO(), stmt, string(inputRowColumnsJson), string(inputParquetSchemaJson), cpCtx.ComputePipesCommonArgs.SessionId)
 			if err2 != nil {
 				cpErr = fmt.Errorf("error inserting in jetsapi.cpipes_execution_status table: %v", err2)
 				goto gotError

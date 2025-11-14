@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"strings"
 	"sync"
 
 	"github.com/artisoft-io/jetstore/jets/awsi"
@@ -49,8 +50,7 @@ func GetPartitionsSizeFromS3(dbpool *pgxpool.Pool, processName, sessionId, mainI
 	// Setup a worker pool to get the size of each partition in parallel
 	nbrPartitions := len(partitionsRegistry)
 	if nbrPartitions == 0 {
-		return nil, fmt.Errorf("no partitions found for process %s, session %s, step %s",
-			processName, sessionId, mainInputStepId)
+		return partitionsRegistry, nil
 	}
 	poolSize := min(20, nbrPartitions)
 
@@ -170,4 +170,24 @@ func QueryComputePipesPartitionsRegistry(dbpool *pgxpool.Pool, processName, sess
 		return nil
 	}()
 	return partitions, err
+}
+
+// UpdatePartitionsSizeInRegistry updates the partition sizes in the compute_pipes_partitions_registry table
+// using the provided partitions info. The row is identified by process name, session ID, step ID and partition label.
+func UpdatePartitionsSizeInRegistry(dbpool *pgxpool.Pool, processName, sessionId, mainInputStepId string, partitions []JetsPartitionInfo) error {
+	// Avoid calling the database for each partition, make an update script using a string builder
+	var buf strings.Builder
+	buf.WriteString("BEGIN;\n")
+	stmt := "UPDATE jetsapi.compute_pipes_partitions_registry	SET partition_size = %d	"+
+		"WHERE session_id = '%s' AND step_id = '%s' AND jets_partition = '%s';\n"
+	for i := range partitions {
+		buf.WriteString(fmt.Sprintf(stmt,
+			partitions[i].PartitionSize, sessionId, mainInputStepId, partitions[i].PartitionLabel))
+	}
+	buf.WriteString("COMMIT;\n")
+	_, err := dbpool.Exec(context.Background(), buf.String())
+	if err != nil {
+		return fmt.Errorf("while updating partition size in compute_pipes_partitions_registry: %v", err)
+	}
+	return nil
 }

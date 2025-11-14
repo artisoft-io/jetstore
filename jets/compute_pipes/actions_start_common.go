@@ -32,22 +32,62 @@ func init() {
 // table, which can be overriden by value from the main schema provider.
 // MainInputDomainClass applies when input_registry.input_type = 'domain_table'
 type CpipesStartup struct {
-	CpConfig                      ComputePipesConfig
-	ProcessName                   string
-	InputColumns                  []string
-	InputColumnsOriginal          []string
-	MainInputSchemaProviderConfig *SchemaProviderSpec
-	MainInputDomainKeysSpec       *DomainKeysSpec
-	MainInputDomainClass          string
-	DomainKeysSpecByClass         map[string]*DomainKeysSpec
-	EnvSettings                   map[string]any
-	PipelineConfigKey             int
-	InputSessionId                string
-	SourcePeriodKey               int
-	OperatorEmail                 string
+	CpConfig                      ComputePipesConfig         `json:"compute_pipes_config"`
+	ProcessName                   string                     `json:"process_name,omitempty"`
+	InputColumns                  []string                   `json:"input_columns,omitempty"`
+	InputColumnsOriginal          []string                   `json:"input_columns_original,omitempty"`
+	MainInputSchemaProviderConfig *SchemaProviderSpec        `json:"main_input_schema_provider_config,omitzero"`
+	MainInputDomainKeysSpec       *DomainKeysSpec            `json:"main_input_domain_keys_spec,omitzero"`
+	MainInputDomainClass          string                     `json:"main_input_domain_class,omitempty"`
+	DomainKeysSpecByClass         map[string]*DomainKeysSpec `json:"domain_keys_spec_by_class,omitzero"`
+	EnvSettings                   map[string]any             `json:"env_settings,omitzero"`
+	PipelineConfigKey             int                        `json:"pipeline_config_key,omitempty"`
+	InputSessionId                string                     `json:"input_session_id,omitempty"`
+	SourcePeriodKey               int                        `json:"source_period_key,omitempty"`
+	OperatorEmail                 string                     `json:"operator_email,omitempty"`
 }
 
-func (args *StartComputePipesArgs) initializeCpipes(ctx context.Context, dbpool *pgxpool.Pool) (*CpipesStartup, error) {
+func (args *StartComputePipesArgs) reducingInitializeCpipes(ctx context.Context, dbpool *pgxpool.Pool) (*CpipesStartup, error) {
+	// Get the cpipes startup info from cpipes_execution_status table
+	stmt := "SELECT cpipes_startup_json, input_parquet_schema_json, input_row_columns_json FROM jetsapi.cpipes_execution_status WHERE session_id = $1"
+	var cpipesStartupJson string
+	var inputParquetSchemaJson string
+	var inputRowColumnsJson string
+	var cpipesStartup = CpipesStartup{}
+	err := dbpool.QueryRow(ctx, stmt, args.SessionId).Scan(&cpipesStartupJson, &inputParquetSchemaJson, &inputRowColumnsJson)
+	if err != nil {
+		return nil, fmt.Errorf("error while getting cpipes startup info: %v", err)
+	}
+
+	// Unmarshal the cpipesStartupJson
+	err = json.Unmarshal([]byte(cpipesStartupJson), &cpipesStartup)
+	if err != nil {
+		return nil, fmt.Errorf("error while unmarshalling cpipes startup json: %v", err)
+	}
+	
+	// Unmarshal the inputParquetSchemaJson into MainInputSchemaProvider.ParquetSchema
+	var ParquetSchema ParquetSchemaInfo
+	err = json.Unmarshal([]byte(inputParquetSchemaJson), &ParquetSchema)
+	if err != nil {
+		return nil, fmt.Errorf("while unmarshalling input_parquet_schema_json ->%s<-: %v", inputParquetSchemaJson, err)
+	}
+	cpipesStartup.MainInputSchemaProviderConfig.ParquetSchema = &ParquetSchema
+	
+	// Unmarshal the inputRowColumnsJson into InputColumns and InputColumnsOriginal
+	var inputRowColumns InputRowColumns
+	err = json.Unmarshal([]byte(inputRowColumnsJson), &inputRowColumns)
+	if err != nil {
+		return nil, fmt.Errorf("while unmarshalling input_row_columns_json ->%s<-: %v", inputRowColumnsJson, err)
+	}
+	cpipesStartup.InputColumns = inputRowColumns.MainInput
+	cpipesStartup.InputColumnsOriginal = inputRowColumns.OriginalHeaders
+	
+	// Set the Cpipes env settings to be the same as the  schema provider env
+	cpipesStartup.EnvSettings = cpipesStartup.MainInputSchemaProviderConfig.Env
+	return &cpipesStartup, nil
+}
+
+func (args *StartComputePipesArgs) shardingInitializeCpipes(ctx context.Context, dbpool *pgxpool.Pool) (*CpipesStartup, error) {
 	cpipesStartup := &CpipesStartup{}
 	var err error
 

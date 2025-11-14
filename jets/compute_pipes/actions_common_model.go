@@ -20,17 +20,13 @@ import (
 // for starting the cp cluster.
 // MainInputRowCount is available in start_reducing_cp as the total
 // number of records processed at step id 'reducing00'.
-// GetPartitionsSize is true when the StartReducing step needs to get
-// the size of the partitions from s3 and update the
-// compute_pipes_partitions_registry table.
 type StartComputePipesArgs struct {
 	PipelineExecKey     int                  `json:"pipeline_execution_key"`
 	FileKey             string               `json:"file_key,omitempty"`
 	SessionId           string               `json:"session_id,omitempty"`
 	StepId              *int                 `json:"step_id,omitzero"`
 	ClusterInfo         *ClusterShardingInfo `json:"cluster_sharding_info,omitzero"`
-	MainInputRowCount   int                  `json:"main_input_row_count,omitzero"`
-	DoGetPartitionsSize bool                 `json:"get_partitions_size,omitzero"`
+	MainInputRowCount   int64                `json:"main_input_row_count,omitzero"`
 }
 
 // Contains info about the clustersharding. This info

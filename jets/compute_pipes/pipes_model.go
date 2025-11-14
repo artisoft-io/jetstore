@@ -261,6 +261,7 @@ type FileConfig struct {
 	InputFormatDataJson        string             `json:"input_format_data_json,omitempty"`
 	IsPartFiles                bool               `json:"is_part_files,omitzero"`
 	KeyPrefix                  string             `json:"key_prefix,omitempty"`
+	MainInputRowCount          int64              `json:"main_input_row_count,omitzero"`
 	MultiColumnsInput          bool               `json:"multi_columns_input,omitzero"`
 	NbrRowsInRecord            int64              `json:"nbr_rows_in_record,omitzero"` // Format: parquet
 	NoQuotes                   bool               `json:"no_quotes,omitzero"`
@@ -275,6 +276,7 @@ type FileConfig struct {
 	VariableFieldsPerRecord    bool               `json:"variable_fields_per_record,omitzero"`
 	WriteDateLayout            string             `json:"write_date_layout,omitempty"`
 	OutputEncoding             string             `json:"output_encoding,omitempty"`
+	OutputEncodingSameAsInput  bool               `json:"output_encoding_same_as_input,omitempty"`
 }
 
 type SchemaProviderSpec struct {

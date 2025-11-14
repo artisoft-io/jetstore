@@ -1850,6 +1850,16 @@
         "default": "'{}'"
       },
       {
+        "columnName": "input_parquet_schema_json",
+        "dataType": "text",
+        "default": "'{}'"
+      },
+      {
+        "columnName": "cpipes_startup_json",
+        "dataType": "text",
+        "default": "'{}'"
+      },
+      {
         "columnName": "sharding_config_json",
         "dataType": "text",
         "isNotNull": true,
