@@ -218,6 +218,9 @@ func (args *StartComputePipesArgs) StartShardingComputePipes(ctx context.Context
 			inputChannelConfig.EolByte = fileInfo.eolByte
 		}
 	}
+	if mainInputSchemaProvider.OutputEncodingSameAsInput {
+		mainInputSchemaProvider.OutputEncoding = mainInputSchemaProvider.Encoding
+	}
 	// log.Printf("*** cpipesStartup.MainInputDomainKeysSpec: %v, cpipesStartup.MainInputDomainClass: %v\n",
 	// 	cpipesStartup.MainInputDomainKeysSpec, cpipesStartup.MainInputDomainClass)
 

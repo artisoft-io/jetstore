@@ -64,7 +64,15 @@ func (args *StartComputePipesArgs) reducingInitializeCpipes(ctx context.Context,
 	if err != nil {
 		return nil, fmt.Errorf("error while unmarshalling cpipes startup json: %v", err)
 	}
-	
+
+	// Connect the MainInputSchemaProviderConfig pointer
+	for i := range cpipesStartup.CpConfig.SchemaProviders {
+		if cpipesStartup.CpConfig.SchemaProviders[i].SourceType == "main_input" {
+			cpipesStartup.MainInputSchemaProviderConfig = cpipesStartup.CpConfig.SchemaProviders[i]
+			break
+		}
+	}
+
 	// Unmarshal the inputParquetSchemaJson into MainInputSchemaProvider.ParquetSchema
 	var ParquetSchema ParquetSchemaInfo
 	err = json.Unmarshal([]byte(inputParquetSchemaJson), &ParquetSchema)

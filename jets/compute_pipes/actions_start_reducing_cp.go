@@ -281,6 +281,7 @@ startStepId:
 
 	// avoid to serialize twice some constructs
 	cpipesStartup.MainInputSchemaProviderConfig.ParquetSchema = nil
+	cpipesStartup.MainInputSchemaProviderConfig = nil
 	cpipesStartup.EnvSettings = nil 
 	cpipesStartup.InputColumns = nil
 	cpipesStartup.InputColumnsOriginal = nil
@@ -288,7 +289,6 @@ startStepId:
 	if err != nil {
 		return result, err
 	}
-
 	// Update entry in cpipes_execution_status with reducing config json
 	stmt := "UPDATE jetsapi.cpipes_execution_status SET (cpipes_config_json, cpipes_startup_json) = ($1, $2) WHERE session_id = $3"
 	_, err2 := dbpool.Exec(ctx, stmt, string(reducingConfigJson), string(cpipesStartupJson), args.SessionId)
