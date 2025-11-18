@@ -72,6 +72,9 @@ func (args *StartComputePipesArgs) reducingInitializeCpipes(ctx context.Context,
 			break
 		}
 	}
+	if cpipesStartup.MainInputSchemaProviderConfig == nil {
+		return nil, fmt.Errorf("error: main_input schema provider not found in cpipes config")
+	}
 
 	// Unmarshal the inputParquetSchemaJson into MainInputSchemaProvider.ParquetSchema
 	var ParquetSchema ParquetSchemaInfo

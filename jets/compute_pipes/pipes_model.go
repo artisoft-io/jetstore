@@ -65,6 +65,7 @@ func (cp *ComputePipesConfig) GetComputePipes(stepId int, env map[string]any) ([
 						return nil, 0, err
 					}
 					if ToBool(v) {
+						ApplyConditionalEnvVars(cp.ConditionalPipesConfig[stepId].AddlEnv, env)
 						return cp.ConditionalPipesConfig[stepId].PipesConfig, stepId, nil
 					}
 					stepId += 1
@@ -73,6 +74,7 @@ func (cp *ComputePipesConfig) GetComputePipes(stepId int, env map[string]any) ([
 						return nil, stepId, nil
 					}
 				} else {
+					ApplyConditionalEnvVars(cp.ConditionalPipesConfig[stepId].AddlEnv, env)
 					return cp.ConditionalPipesConfig[stepId].PipesConfig, stepId, nil
 				}
 			}
@@ -429,22 +431,27 @@ type PipeSpec struct {
 	OutputFile     *string              `json:"output_file,omitzero"` // for merge_files
 }
 
-// ConditionalPipe: Each step are executed conditionally
-// When is nil, the step is always executed.
-// Available expr variables (see above):
+// ConditionalPipe: Each step are executed conditionally.
+// When the key "when" is nil, the step is always executed.
+// Available expr variables as main schema provider env var (see above):
 // multi_step_sharding as int, when > 0, nbr of shards is nbr_partition**2
 // total_file_size in bytes
 // nbr_partitions as int (used for hashing purpose)
 // use_ecs_tasks is true to use ecs fargate task
 // use_ecs_tasks_when is an expression as the when property.
 type ConditionalPipeSpec struct {
-	StepName        string          `json:"step_name,omitempty"`
-	UseEcsTasks     bool            `json:"use_ecs_tasks,omitzero"`
-	UseEcsTasksWhen *ExpressionNode `json:"use_ecs_tasks_when,omitzero"`
-	PipesConfig     []PipeSpec      `json:"pipes_config"`
-	When            *ExpressionNode `json:"when,omitzero"`
+	StepName        string                   `json:"step_name,omitempty"`
+	UseEcsTasks     bool                     `json:"use_ecs_tasks,omitzero"`
+	UseEcsTasksWhen *ExpressionNode          `json:"use_ecs_tasks_when,omitzero"`
+	PipesConfig     []PipeSpec               `json:"pipes_config"`
+	When            *ExpressionNode          `json:"when,omitzero"`
+	AddlEnv         []ConditionalEnvVariable `json:"addl_env,omitempty"`
 }
 
+type ConditionalEnvVariable struct {
+	CaseExpr []CaseExpression  `json:"case_expr,omitempty"` // case operator
+	ElseExpr []*ExpressionNode `json:"else_expr,omitempty"` // case operator
+}
 type SplitterSpec struct {
 	// Type range: standard (default), ext_count
 	// standard: split on Column / DefaultSplitterValue / ShardOn, create partition for each value
