@@ -3,6 +3,7 @@ package stack
 // Build the API Gateway Lambda function if defined in env variable JETS_API_GATEWAY_LAMBDA_ENTRY
 
 import (
+	"log"
 	"os"
 	"strings"
 
@@ -101,12 +102,18 @@ func (jsComp *JetStoreStackComponents) BuildApiLambdas(scope constructs.Construc
 		jsComp.ExternalKmsKey.GrantEncryptDecrypt(jsComp.ApiGatewayLambda)
 	}
 
+	roleName := os.Getenv("JETS_API_GATEWAY_EXEC_ROLE_NAME")
+	if len(roleName) == 0 {
+		log.Println("error: env JETS_API_GATEWAY_EXEC_ROLE_NAME is not set, cannot deploy api gateway")
+		return
+	}
+
 	// Create system account IAM role to invoke API
 	jsComp.JetsApiExecutionRole = awsiam.NewRole(stack, jsii.String("SystemAccountRole"), &awsiam.RoleProps{
 		AssumedBy: awsiam.NewCompositePrincipal(
 			awsiam.NewAccountRootPrincipal(),
 		),
-		RoleName: jsii.String("JetStorePrivateApiSystemRole"),
+		RoleName: jsii.String(roleName),
 	})
 
 	// Prepare the external roles that can assume the system role
