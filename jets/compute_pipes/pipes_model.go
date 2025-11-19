@@ -79,6 +79,7 @@ func (cp *ComputePipesConfig) GetComputePipes(stepId int, env map[string]any) ([
 				}
 			}
 		}
+		ApplyConditionalEnvVars(cp.ConditionalPipesConfig[stepId].AddlEnv, env)
 		return cp.ConditionalPipesConfig[stepId].PipesConfig, stepId, nil
 	}
 	return nil, stepId, nil
