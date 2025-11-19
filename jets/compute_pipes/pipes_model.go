@@ -60,7 +60,7 @@ func (cp *ComputePipesConfig) GetComputePipes(stepId int, env map[string]any) ([
 					if err != nil {
 						return nil, 0, err
 					}
-					v, err := evaluator.eval(env)
+					v, err := evaluator.Eval(env)
 					if err != nil {
 						return nil, 0, err
 					}
@@ -343,9 +343,13 @@ type SchemaProviderSpec struct {
 
 // Commands for the run_report step
 // Type range: s3_copy_file
+// When is an optional expression to determine if the command
+// is to be executed.
+// S3CopyFileConfig provides the configuration for s3_copy_file command.
 type ReportCmdSpec struct {
 	Type             string          `json:"type"`
 	S3CopyFileConfig *S3CopyFileSpec `json:"s3_copy_file_config,omitzero"`
+	When             *ExpressionNode `json:"when,omitzero"`
 }
 
 // ReportCommand to copy file from s3 to s3

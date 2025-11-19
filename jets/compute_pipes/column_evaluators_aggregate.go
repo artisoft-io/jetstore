@@ -13,13 +13,13 @@ type countColumnEval struct {
 	where     evalExpression
 }
 
-func (ctx *countColumnEval) InitializeCurrentValue(currentValue *[]interface{}) {
+func (ctx *countColumnEval) InitializeCurrentValue(currentValue *[]any) {
 	if currentValue == nil {
 		return
 	}
 	(*currentValue)[ctx.outputPos] = int64(0)
 }
-func (ctx *countColumnEval) Update(currentValue *[]interface{}, input *[]interface{}) error {
+func (ctx *countColumnEval) Update(currentValue *[]any, input *[]any) error {
 	if currentValue == nil || input == nil {
 		return fmt.Errorf("error countColumnEval.update cannot have nil currentValue or input")
 	}
@@ -28,7 +28,7 @@ func (ctx *countColumnEval) Update(currentValue *[]interface{}, input *[]interfa
 		return nil
 	}
 	if ctx.where != nil {
-		w, err := ctx.where.eval(*input)
+		w, err := ctx.where.Eval(*input)
 		if err != nil {
 			return fmt.Errorf("while evaluating where on count aggregate: %v", err)
 		}
@@ -44,7 +44,7 @@ func (ctx *countColumnEval) Update(currentValue *[]interface{}, input *[]interfa
 	(*currentValue)[ctx.outputPos] = count + 1
 	return nil
 }
-func (ctx *countColumnEval) Done(currentValue *[]interface{}) error {
+func (ctx *countColumnEval) Done(currentValue *[]any) error {
 	return nil
 }
 
@@ -88,13 +88,13 @@ type distinctCountColumnEval struct {
 	where     evalExpression
 }
 
-func (ctx *distinctCountColumnEval) InitializeCurrentValue(currentValue *[]interface{}) {
+func (ctx *distinctCountColumnEval) InitializeCurrentValue(currentValue *[]any) {
 	if currentValue == nil {
 		return
 	}
 	(*currentValue)[ctx.outputPos] = make(map[string]bool)
 }
-func (ctx *distinctCountColumnEval) Update(currentValue *[]interface{}, input *[]interface{}) error {
+func (ctx *distinctCountColumnEval) Update(currentValue *[]any, input *[]any) error {
 	if currentValue == nil || input == nil {
 		return fmt.Errorf("error countColumnEval.update cannot have nil currentValue or input")
 	}
@@ -104,7 +104,7 @@ func (ctx *distinctCountColumnEval) Update(currentValue *[]interface{}, input *[
 		return nil
 	}
 	if ctx.where != nil {
-		w, err := ctx.where.eval(*input)
+		w, err := ctx.where.Eval(*input)
 		if err != nil {
 			return fmt.Errorf("while evaluating where on distinct_count aggregate: %v", err)
 		}
@@ -137,7 +137,7 @@ func (ctx *distinctCountColumnEval) Update(currentValue *[]interface{}, input *[
 	distinctValues[valuesTxt] = true
 	return nil
 }
-func (ctx *distinctCountColumnEval) Done(currentValue *[]interface{}) error {
+func (ctx *distinctCountColumnEval) Done(currentValue *[]any) error {
 	if currentValue == nil {
 		return nil
 	}
@@ -181,7 +181,7 @@ func (ctx *BuilderContext) BuildDistinctCountTCEvaluator(source *InputChannel, o
 }
 
 // add function used for aggregates, supports int, int64, float64
-func add(lhs interface{}, rhs interface{}) (interface{}, error) {
+func add(lhs any, rhs any) (any, error) {
 	if rhs == nil {
 		return lhs, nil
 	}
@@ -230,11 +230,11 @@ type sumColumnEval struct {
 	where     evalExpression
 }
 
-func (ctx *sumColumnEval) InitializeCurrentValue(currentValue *[]interface{}) {
+func (ctx *sumColumnEval) InitializeCurrentValue(currentValue *[]any) {
 	// by default use int64, may change to float64 based on data
 	(*currentValue)[ctx.outputPos] = int64(0)
 }
-func (ctx *sumColumnEval) Update(currentValue *[]interface{}, input *[]interface{}) error {
+func (ctx *sumColumnEval) Update(currentValue *[]any, input *[]any) error {
 	if currentValue == nil || input == nil {
 		return fmt.Errorf("error sumColumnEval.update cannot have nil currentValue or input")
 	}
@@ -244,7 +244,7 @@ func (ctx *sumColumnEval) Update(currentValue *[]interface{}, input *[]interface
 		return nil
 	}
 	if ctx.where != nil {
-		w, err := ctx.where.eval(*input)
+		w, err := ctx.where.Eval(*input)
 		if err != nil {
 			return fmt.Errorf("while evaluating where on sum aggregate: %v", err)
 		}
@@ -261,7 +261,7 @@ func (ctx *sumColumnEval) Update(currentValue *[]interface{}, input *[]interface
 	(*currentValue)[ctx.outputPos] = cv
 	return nil
 }
-func (ctx *sumColumnEval) Done(currentValue *[]interface{}) error {
+func (ctx *sumColumnEval) Done(currentValue *[]any) error {
 	return nil
 }
 
@@ -295,7 +295,7 @@ func (ctx *BuilderContext) BuildSumTCEvaluator(source *InputChannel, outCh *Outp
 }
 
 // min function used for aggregates, supports int, int64, float64, time
-func minAgg(lhs interface{}, rhs interface{}) (interface{}, error) {
+func minAgg(lhs any, rhs any) (any, error) {
 	if rhs == nil {
 		return lhs, nil
 	}
@@ -352,8 +352,8 @@ type minColumnEval struct {
 	where     evalExpression
 }
 
-func (ctx *minColumnEval) InitializeCurrentValue(currentValue *[]interface{}) {}
-func (ctx *minColumnEval) Update(currentValue *[]interface{}, input *[]interface{}) error {
+func (ctx *minColumnEval) InitializeCurrentValue(currentValue *[]any) {}
+func (ctx *minColumnEval) Update(currentValue *[]any, input *[]any) error {
 	if currentValue == nil || input == nil {
 		return fmt.Errorf("error minColumnEval.update cannot have nil currentValue or input")
 	}
@@ -362,7 +362,7 @@ func (ctx *minColumnEval) Update(currentValue *[]interface{}, input *[]interface
 		return nil
 	}
 	if ctx.where != nil {
-		w, err := ctx.where.eval(*input)
+		w, err := ctx.where.Eval(*input)
 		if err != nil {
 			return fmt.Errorf("while evaluating where on min aggregate: %v", err)
 		}
@@ -377,7 +377,7 @@ func (ctx *minColumnEval) Update(currentValue *[]interface{}, input *[]interface
 	}
 	return nil
 }
-func (ctx *minColumnEval) Done(currentValue *[]interface{}) error {
+func (ctx *minColumnEval) Done(currentValue *[]any) error {
 	return nil
 }
 

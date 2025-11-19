@@ -85,13 +85,13 @@ func buildConditionalEnvVarEvaluator(spec *ConditionalEnvVariable, env map[strin
 
 func (evaluator *ConditionalEnvVarEvaluator) Update(env map[string]any) error {
 	for _, clause := range evaluator.caseExpr {
-		whenVal, err := clause.whenCase.eval(env)
+		whenVal, err := clause.whenCase.Eval(env)
 		if err != nil {
 			return fmt.Errorf("while evaluating when clause for addl_env: %v", err)
 		}
 		if ToBool(whenVal) {
 			for _, thenCase := range clause.thenCases {
-				val, err := thenCase.evalExpr.eval(env)
+				val, err := thenCase.evalExpr.Eval(env)
 				if err != nil {
 					return fmt.Errorf("while evaluating then clause for addl_env: %v", err)
 				}
@@ -102,7 +102,7 @@ func (evaluator *ConditionalEnvVarEvaluator) Update(env map[string]any) error {
 	}
 	// else expr
 	for _, elseCase := range evaluator.elseExpr {
-		val, err := elseCase.evalExpr.eval(env)
+		val, err := elseCase.evalExpr.Eval(env)
 		if err != nil {
 			return fmt.Errorf("while evaluating else clause for addl_env: %v", err)
 		}

@@ -555,7 +555,7 @@ func ApplyAllConditionalTransformationSpec(pipeConfig []PipeSpec, env map[string
 					}
 
 					// Evaluate the when condition
-					v, err := evaluator.eval(env)
+					v, err := evaluator.Eval(env)
 					if err != nil {
 						return fmt.Errorf("error evaluating when condition for transformation %d: %v", j, err)
 					}
@@ -1270,7 +1270,7 @@ func (cpipesStartup *CpipesStartup) EvalUseEcsTask(stepId int) (bool, error) {
 			if err != nil {
 				return false, err
 			}
-			v, err := evaluator.eval(cpipesStartup.EnvSettings)
+			v, err := evaluator.Eval(cpipesStartup.EnvSettings)
 			if err != nil {
 				return false, err
 			}

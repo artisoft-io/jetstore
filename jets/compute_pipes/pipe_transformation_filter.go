@@ -14,12 +14,12 @@ type FilterTransformationPipe struct {
 	whenExpr    evalExpression
 	nbrSentRows int
 	spec        *TransformationSpec
-	env         map[string]interface{}
+	env         map[string]any
 	doneCh      chan struct{}
 }
 
 // Implementing interface PipeTransformationEvaluator
-func (ctx *FilterTransformationPipe) Apply(input *[]interface{}) error {
+func (ctx *FilterTransformationPipe) Apply(input *[]any) error {
 	if input == nil {
 		return fmt.Errorf("error: unexpected null input arg in FilterTransformationPipe")
 	}
@@ -34,7 +34,7 @@ func (ctx *FilterTransformationPipe) Apply(input *[]interface{}) error {
 	if ctx.spec.FilterConfig.MaxOutputCount > 0 && ctx.nbrSentRows >= ctx.spec.FilterConfig.MaxOutputCount {
 		return nil
 	}
-	resp, err := ctx.whenExpr.eval(*input)
+	resp, err := ctx.whenExpr.Eval(*input)
 	if err != nil {
 		return fmt.Errorf("while evaluating when clause of filter: %v", err)
 	}

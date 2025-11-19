@@ -85,6 +85,7 @@ func (ca *CommandArguments) RunSchemaProviderReportsCmds(ctx context.Context, db
 		return
 	}
 	type SchemaProviderShort struct {
+		Env        map[string]any                `json:"env"`
 		ReportCmds []compute_pipes.ReportCmdSpec `json:"report_cmds"`
 	}
 	schemaProvider := SchemaProviderShort{}
@@ -93,15 +94,38 @@ func (ca *CommandArguments) RunSchemaProviderReportsCmds(ctx context.Context, db
 		errCh <- fmt.Errorf("while unmarshaling schema_provider_json: %s", err)
 		return
 	}
-	if len(schemaProvider.ReportCmds) == 0 {
+	// Determine if there are report commands to execute
+	reportCommands := make([]*compute_pipes.ReportCmdSpec, 0, len(schemaProvider.ReportCmds))
+	for i := range schemaProvider.ReportCmds {
+		if schemaProvider.ReportCmds[i].When != nil {
+			// Evaluate the when expression
+			builderContext := compute_pipes.ExprBuilderContext(schemaProvider.Env)
+			evaluator, err := builderContext.BuildExprNodeEvaluator("report_cmds", nil, schemaProvider.ReportCmds[i].When)
+			if err != nil {
+				errCh <- fmt.Errorf("while building evaluator for report command %d: %v", i, err)
+				return
+			}
+			v, err := evaluator.Eval(schemaProvider.Env)
+			if err != nil {
+				errCh <- fmt.Errorf("while evaluating report command %d when expression: %v", i, err)
+				return
+			}
+			if !compute_pipes.ToBool(v) {
+				continue
+			}
+		}
+		reportCommands = append(reportCommands, &schemaProvider.ReportCmds[i])
+	}
+
+	if len(reportCommands) == 0 {
 		// No Report Command to Execute
 		log.Println("Schema provider has no Report Commands to execute, bailing out")
-		return 
+		return
 	}
 	s3Client, err := awsi.NewS3Client()
 	if err != nil {
 		errCh <- err
-		return 
+		return
 	}
 	log.Println("Starting the execution of the Schema Provider's report commands")
 
@@ -146,7 +170,7 @@ func (ca *CommandArguments) RunSchemaProviderReportsCmds(ctx context.Context, db
 			copyConfig := schemaProvider.ReportCmds[i].S3CopyFileConfig
 			if copyConfig == nil {
 				sendError(fmt.Errorf("error: report command 's3_copy_file' is missing s3_copy_file_config"))
-				return 
+				return
 			}
 			if copyConfig.WorkerPoolSize == 0 {
 				copyConfig.WorkerPoolSize = s3CopyFileTotalPoolSize / workerPoolSize
