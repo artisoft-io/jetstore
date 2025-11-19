@@ -556,8 +556,11 @@ func (ctx *BuilderContext) NewAnonymizeTransformationPipe(source *InputChannel, 
 
 	// If this is node 0, than save the anonymized column names to s3 stage, even if it's an empty file
 	if ctx.nodeId == 0 {
-		path := fmt.Sprintf("%s/process_name=%s/session_id=%s/anonymized_columns.csv", jetsS3StagePrefix, ctx.processName, ctx.sessionId)
-		err = awsi.UploadToS3FromReader(awsi.JetStoreBucket(), path, strings.NewReader(strings.Join(anonymizedColumns, ",")+"\n"))
+		path := fmt.Sprintf("%s/process_name=%s/session_id=%s/anonymized_columns.csv", 
+			jetsS3StagePrefix, ctx.processName, ctx.sessionId)
+		//TODO: change to externalize the format of the anonymized columns file (anonymized_columns.csv)
+		data := fmt.Sprintf("\"%s\"\n", strings.Join(anonymizedColumns, "\"|\""))
+		err = awsi.UploadToS3FromReader(awsi.JetStoreBucket(), path, strings.NewReader(data))
 		if err != nil {
 			return nil, fmt.Errorf("while uploading anonymized columns file to s3 stage %s: %v", path, err)
 		}
