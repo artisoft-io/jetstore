@@ -1777,6 +1777,12 @@
         "isNotNull": true
       },
       {
+        "columnName": "partition_size",
+        "dataType": "long",
+        "default": "0",
+        "isNotNull": true
+      },
+      {
         "columnName": "shard_id",
         "description": "This column should be called node_id, shard_id is a legacy name",
         "dataType": "int",
@@ -1840,6 +1846,16 @@
       },
       {
         "columnName": "input_row_columns_json",
+        "dataType": "text",
+        "default": "'{}'"
+      },
+      {
+        "columnName": "input_parquet_schema_json",
+        "dataType": "text",
+        "default": "'{}'"
+      },
+      {
+        "columnName": "cpipes_startup_json",
         "dataType": "text",
         "default": "'{}'"
       },

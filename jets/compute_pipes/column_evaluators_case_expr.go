@@ -21,8 +21,8 @@ type columnExpression struct {
 	evalExpr  evalExpression
 }
 
-func (ctx *caseExprEvaluator) InitializeCurrentValue(currentValue *[]interface{}) {}
-func (ctx *caseExprEvaluator) Update(currentValue *[]interface{}, input *[]interface{}) error {
+func (ctx *caseExprEvaluator) InitializeCurrentValue(currentValue *[]any) {}
+func (ctx *caseExprEvaluator) Update(currentValue *[]any, input *[]any) error {
 	if currentValue == nil || input == nil {
 		return fmt.Errorf("error caseExprEvaluator.update cannot have nil currentValue or input")
 	}
@@ -30,13 +30,13 @@ func (ctx *caseExprEvaluator) Update(currentValue *[]interface{}, input *[]inter
 		return fmt.Errorf("error caseExprEvaluator.update cannot have nil caseExpr")
 	}
 	for i := range ctx.caseExpr {
-		when, err := ctx.caseExpr[i].whenCase.eval(*input)
+		when, err := ctx.caseExpr[i].whenCase.Eval(*input)
 		if err != nil {
 			return fmt.Errorf("while evaluating case_expr when clause: %v", err)
 		}
 		if ToBool(when) {
 			for _, node := range ctx.caseExpr[i].thenCases {
-				value, err := node.evalExpr.eval(*input)
+				value, err := node.evalExpr.Eval(*input)
 				if err != nil {
 					return fmt.Errorf("while evaluating case_expr then clause: %v", err)
 				}
@@ -47,7 +47,7 @@ func (ctx *caseExprEvaluator) Update(currentValue *[]interface{}, input *[]inter
 	}
 	// No match apply default if provided
 	for _, node := range ctx.elseExpr {
-		value, err := node.evalExpr.eval(*input)
+		value, err := node.evalExpr.Eval(*input)
 		if err != nil {
 			return fmt.Errorf("while evaluating case_expr then clause: %v", err)
 		}
@@ -55,7 +55,7 @@ func (ctx *caseExprEvaluator) Update(currentValue *[]interface{}, input *[]inter
 	}
 	return nil
 }
-func (ctx *caseExprEvaluator) Done(currentValue *[]interface{}) error {
+func (ctx *caseExprEvaluator) Done(currentValue *[]any) error {
 	return nil
 }
 func (ctx *BuilderContext) BuildCaseExprTCEvaluator(source *InputChannel, outCh *OutputChannel,

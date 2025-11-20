@@ -243,19 +243,34 @@ func NewS3Client() (*s3.Client, error) {
 	return s3.NewFromConfig(cfg), nil
 }
 
+// GetObjectSize gets the size of the object in bytes
+// Does up to 4 attempts in case of failure
 func GetObjectSize(s3Client *s3.Client, s3bucket string, key string) (int64, error) {
 	if len(s3bucket) == 0 {
 		s3bucket = jetstoreOwnBucket
 	}
-	result, err := s3Client.GetObjectAttributes(context.TODO(), &s3.GetObjectAttributesInput{
+	params := &s3.GetObjectAttributesInput{
 		Bucket: aws.String(s3bucket),
 		Key:    aws.String(key),
 		ObjectAttributes: []types.ObjectAttributes{
 			types.ObjectAttributesObjectSize,
 		},
-	})
+	}
+	sleepDuration := 500 * time.Millisecond
+	retry := 0
+
+do_retry:
+	result, err := s3Client.GetObjectAttributes(context.TODO(), params)
 	if err != nil {
-		return 0, err
+		if retry < 4 && !strings.Contains(err.Error(), "context canceled") {
+			log.Printf(
+				"Got error in s3Client.GetObjectAttributes '%v' for part %s (retrying)", err, key)
+			retry++
+			time.Sleep(sleepDuration)
+			sleepDuration *= 2
+			goto do_retry
+		}
+		return 0, fmt.Errorf("while getting partition size (after 4 attempts): %v", err)
 	}
 	return *result.ObjectSize, nil
 }

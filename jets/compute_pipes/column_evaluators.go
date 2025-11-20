@@ -130,31 +130,31 @@ type evalExprColumnEval struct {
 	outputPos int
 }
 
-func (ctx *evalExprColumnEval) InitializeCurrentValue(currentValue *[]interface{}) {}
-func (ctx *evalExprColumnEval) Update(currentValue *[]interface{}, input *[]interface{}) error {
-	value, err := ctx.expr.eval(*input)
+func (ctx *evalExprColumnEval) InitializeCurrentValue(currentValue *[]any) {}
+func (ctx *evalExprColumnEval) Update(currentValue *[]any, input *[]any) error {
+	value, err := ctx.expr.Eval(*input)
 	if err != nil {
 		return err
 	}
 	(*currentValue)[ctx.outputPos] = value
 	return nil
 }
-func (ctx *evalExprColumnEval) Done(currentValue *[]interface{}) error {
+func (ctx *evalExprColumnEval) Done(currentValue *[]any) error {
 	return nil
 }
 
 // TransformationColumnSpec Type value
 type valueColumnEval struct {
-	value     interface{}
+	value     any
 	outputPos int
 }
 
-func (ctx *valueColumnEval) Done(currentValue *[]interface{}) error {
+func (ctx *valueColumnEval) Done(currentValue *[]any) error {
 	return nil
 }
 
-func (ctx *valueColumnEval) InitializeCurrentValue(currentValue *[]interface{}) {}
-func (ctx *valueColumnEval) Update(currentValue *[]interface{}, _ *[]interface{}) error {
+func (ctx *valueColumnEval) InitializeCurrentValue(currentValue *[]any) {}
+func (ctx *valueColumnEval) Update(currentValue *[]any, _ *[]any) error {
 	if currentValue == nil {
 		return fmt.Errorf("error valueColumnEval.update cannot have nil currentValue")
 	}
@@ -168,12 +168,12 @@ type selectColumnEval struct {
 	outputPos int
 }
 
-func (ctx *selectColumnEval) Done(currentValue *[]interface{}) error {
+func (ctx *selectColumnEval) Done(currentValue *[]any) error {
 	return nil
 }
 
-func (ctx *selectColumnEval) InitializeCurrentValue(currentValue *[]interface{}) {}
-func (ctx *selectColumnEval) Update(currentValue *[]interface{}, input *[]interface{}) error {
+func (ctx *selectColumnEval) InitializeCurrentValue(currentValue *[]any) {}
+func (ctx *selectColumnEval) Update(currentValue *[]any, input *[]any) error {
 	if currentValue == nil || input == nil {
 		return fmt.Errorf("error selectColumnEval.update cannot have nil currentValue or input")
 	}
@@ -187,12 +187,12 @@ type multiSelectColumnEval struct {
 	outputPos int
 }
 
-func (ctx *multiSelectColumnEval) Done(currentValue *[]interface{}) error {
+func (ctx *multiSelectColumnEval) Done(currentValue *[]any) error {
 	return nil
 }
 
-func (ctx *multiSelectColumnEval) InitializeCurrentValue(currentValue *[]interface{}) {}
-func (ctx *multiSelectColumnEval) Update(currentValue *[]interface{}, input *[]interface{}) error {
+func (ctx *multiSelectColumnEval) InitializeCurrentValue(currentValue *[]any) {}
+func (ctx *multiSelectColumnEval) Update(currentValue *[]any, input *[]any) error {
 	if currentValue == nil || input == nil {
 		return fmt.Errorf("error selectColumnEval.update cannot have nil currentValue or input")
 	}

@@ -24,7 +24,7 @@ func TestInStaticList1(t *testing.T) {
 	if err != nil {
 		t.Fatalf("error: expecting nil")
 	}
-	v, err := evalExpr.eval(nil)
+	v, err := evalExpr.Eval(nil)
 	if err != nil {
 		t.Errorf("error: expecting nil when evaluating expr")
 	}
@@ -54,7 +54,7 @@ func TestInStaticList2(t *testing.T) {
 		t.Fatalf("error: expecting nil")
 
 	}
-	v, err := evalExpr.eval(nil)
+	v, err := evalExpr.Eval(nil)
 	if err != nil {
 		t.Errorf("error: expecting nil when evaluating expr")
 	}
@@ -99,7 +99,7 @@ func TestApplyRegex1(t *testing.T) {
 	if err != nil {
 		t.Fatalf("error: expecting nil")
 	}
-	v, err := evalExpr.eval(nil)
+	v, err := evalExpr.Eval(nil)
 	if err != nil {
 		t.Errorf("error: expecting nil when evaluating expr")
 	}
@@ -129,7 +129,7 @@ func TestApplyRegex2(t *testing.T) {
 	if err != nil {
 		t.Fatalf("error: expecting nil")
 	}
-	v, err := evalExpr.eval(nil)
+	v, err := evalExpr.Eval(nil)
 	if err != nil {
 		t.Errorf("error: expecting nil when evaluating expr")
 	}

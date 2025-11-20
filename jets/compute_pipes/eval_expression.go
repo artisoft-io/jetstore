@@ -8,31 +8,31 @@ import (
 )
 
 type evalExpression interface {
-	eval(input any) (any, error)
+	Eval(input any) (any, error)
 }
 type evalOperator interface {
-	eval(lhs any, rhs any) (any, error)
+	Eval(lhs any, rhs any) (any, error)
 }
 
 type expressionNodeEvaluator struct {
-	lhs evalExpression
-	op  evalOperator
-	rhs evalExpression
+	Lhs evalExpression
+	Op  evalOperator
+	Rhs evalExpression
 }
 
-func (node *expressionNodeEvaluator) eval(input any) (any, error) {
-	lhs, err := node.lhs.eval(input)
+func (node *expressionNodeEvaluator) Eval(input any) (any, error) {
+	lhs, err := node.Lhs.Eval(input)
 	if err != nil {
 		return nil, err
 	}
 	var rhs any
-	if node.rhs != nil {
-		rhs, err = node.rhs.eval(input)
+	if node.Rhs != nil {
+		rhs, err = node.Rhs.Eval(input)
 		if err != nil {
 			return nil, err
 		}
 	}
-	return node.op.eval(lhs, rhs)
+	return node.Op.Eval(lhs, rhs)
 }
 
 type expressionSelectLeaf struct {
@@ -41,7 +41,7 @@ type expressionSelectLeaf struct {
 	rdfType string
 }
 
-func (node *expressionSelectLeaf) eval(in any) (any, error) {
+func (node *expressionSelectLeaf) Eval(in any) (any, error) {
 	var value any
 	switch input := in.(type) {
 	case []any:
@@ -52,7 +52,7 @@ func (node *expressionSelectLeaf) eval(in any) (any, error) {
 	case map[string]any:
 		value = input[node.colName]
 	default:
-		return nil, fmt.Errorf("error: invalid type passed to expression.eval for input: %v", in)
+		return nil, fmt.Errorf("error: invalid type passed to expression.Eval for input: %v", in)
 	}
 	if node.rdfType != "" {
 		return CastToRdfType(value, node.rdfType)
@@ -64,7 +64,7 @@ type expressionValueLeaf struct {
 	value any
 }
 
-func (node *expressionValueLeaf) eval(_ any) (any, error) {
+func (node *expressionValueLeaf) Eval(_ any) (any, error) {
 	return node.value, nil
 }
 
@@ -72,7 +72,7 @@ type expressionStaticListLeaf struct {
 	values map[any]bool
 }
 
-func (node *expressionStaticListLeaf) eval(_ any) (any, error) {
+func (node *expressionStaticListLeaf) Eval(_ any) (any, error) {
 	return node.values, nil
 }
 
@@ -149,8 +149,8 @@ func (ctx ExprBuilderContext) BuildExprNodeEvaluator(sourceName string, columns 
 			return nil, err
 		}
 		return &expressionNodeEvaluator{
-			lhs: arg,
-			op:  op,
+			Lhs: arg,
+			Op:  op,
 		}, nil
 
 	case spec.Lhs != nil:
@@ -175,9 +175,9 @@ func (ctx ExprBuilderContext) BuildExprNodeEvaluator(sourceName string, columns 
 			return nil, err
 		}
 		return &expressionNodeEvaluator{
-			lhs: lhs,
-			op:  op,
-			rhs: rhs,
+			Lhs: lhs,
+			Op:  op,
+			Rhs: rhs,
 		}, nil
 
 	case spec.Type != "":

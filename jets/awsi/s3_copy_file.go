@@ -154,10 +154,10 @@ func MultiPartCopy(ctx context.Context, svc *s3.Client, maxPoolSize int,
 		}
 	}
 
-	// Set the the worker pool
+	// Set the worker pool
 	go func() {
 		defer close(taskResultsCh)
-		log.Printf("Uploading about %d parts using a pool size of %d to %s", numUploads, poolSize, destKey)
+		log.Printf("Uploading about %d parts using a pool size of %d to %s\n", numUploads, poolSize, destKey)
 		var wg sync.WaitGroup
 		for i := range poolSize {
 			wg.Add(1)

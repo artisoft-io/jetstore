@@ -60,11 +60,12 @@ func (cp *ComputePipesConfig) GetComputePipes(stepId int, env map[string]any) ([
 					if err != nil {
 						return nil, 0, err
 					}
-					v, err := evaluator.eval(env)
+					v, err := evaluator.Eval(env)
 					if err != nil {
 						return nil, 0, err
 					}
 					if ToBool(v) {
+						ApplyConditionalEnvVars(cp.ConditionalPipesConfig[stepId].AddlEnv, env)
 						return cp.ConditionalPipesConfig[stepId].PipesConfig, stepId, nil
 					}
 					stepId += 1
@@ -73,10 +74,12 @@ func (cp *ComputePipesConfig) GetComputePipes(stepId int, env map[string]any) ([
 						return nil, stepId, nil
 					}
 				} else {
+					ApplyConditionalEnvVars(cp.ConditionalPipesConfig[stepId].AddlEnv, env)
 					return cp.ConditionalPipesConfig[stepId].PipesConfig, stepId, nil
 				}
 			}
 		}
+		ApplyConditionalEnvVars(cp.ConditionalPipesConfig[stepId].AddlEnv, env)
 		return cp.ConditionalPipesConfig[stepId].PipesConfig, stepId, nil
 	}
 	return nil, stepId, nil
@@ -257,9 +260,11 @@ type FileConfig struct {
 	FileName                   string             `json:"file_name,omitempty"` // Type output
 	FixedWidthColumnsCsv       string             `json:"fixed_width_columns_csv,omitempty"`
 	Format                     string             `json:"format,omitempty"`
+	GetPartitionsSize          bool               `json:"get_partitions_size,omitzero"`
 	InputFormatDataJson        string             `json:"input_format_data_json,omitempty"`
 	IsPartFiles                bool               `json:"is_part_files,omitzero"`
 	KeyPrefix                  string             `json:"key_prefix,omitempty"`
+	MainInputRowCount          int64              `json:"main_input_row_count,omitzero"`
 	MultiColumnsInput          bool               `json:"multi_columns_input,omitzero"`
 	NbrRowsInRecord            int64              `json:"nbr_rows_in_record,omitzero"` // Format: parquet
 	NoQuotes                   bool               `json:"no_quotes,omitzero"`
@@ -274,6 +279,7 @@ type FileConfig struct {
 	VariableFieldsPerRecord    bool               `json:"variable_fields_per_record,omitzero"`
 	WriteDateLayout            string             `json:"write_date_layout,omitempty"`
 	OutputEncoding             string             `json:"output_encoding,omitempty"`
+	OutputEncodingSameAsInput  bool               `json:"output_encoding_same_as_input,omitempty"`
 }
 
 type SchemaProviderSpec struct {
@@ -297,6 +303,7 @@ type SchemaProviderSpec struct {
 	// SourceType range: main_input, merged_input, historical_input (from input_source table)
 	// Columns: may be ommitted if fixed_width_columns_csv is provided or is a csv format
 	// Headers: alt to Columns, typically for csv format
+	// GetPartitionsSize: when true, get the size of the partitions from s3
 	// CapDobYears: number of years to cap dob (date of birth) to today - for Anonymization
 	// SetDodToJan1: set dod (date of death) to January 1st of the date year - for Anonymization
 	// UseLazyQuotes, UseLazyQuotesSpecial, VariableFieldsPerRecord: see csv.NewReader
@@ -336,9 +343,13 @@ type SchemaProviderSpec struct {
 
 // Commands for the run_report step
 // Type range: s3_copy_file
+// When is an optional expression to determine if the command
+// is to be executed.
+// S3CopyFileConfig provides the configuration for s3_copy_file command.
 type ReportCmdSpec struct {
 	Type             string          `json:"type"`
 	S3CopyFileConfig *S3CopyFileSpec `json:"s3_copy_file_config,omitzero"`
+	When             *ExpressionNode `json:"when,omitzero"`
 }
 
 // ReportCommand to copy file from s3 to s3
@@ -425,22 +436,27 @@ type PipeSpec struct {
 	OutputFile     *string              `json:"output_file,omitzero"` // for merge_files
 }
 
-// ConditionalPipe: Each step are executed conditionally
-// When is nil, the step is always executed.
-// Available expr variables (see above):
+// ConditionalPipe: Each step are executed conditionally.
+// When the key "when" is nil, the step is always executed.
+// Available expr variables as main schema provider env var (see above):
 // multi_step_sharding as int, when > 0, nbr of shards is nbr_partition**2
 // total_file_size in bytes
 // nbr_partitions as int (used for hashing purpose)
 // use_ecs_tasks is true to use ecs fargate task
 // use_ecs_tasks_when is an expression as the when property.
 type ConditionalPipeSpec struct {
-	StepName        string          `json:"step_name,omitempty"`
-	UseEcsTasks     bool            `json:"use_ecs_tasks,omitzero"`
-	UseEcsTasksWhen *ExpressionNode `json:"use_ecs_tasks_when,omitzero"`
-	PipesConfig     []PipeSpec      `json:"pipes_config"`
-	When            *ExpressionNode `json:"when,omitzero"`
+	StepName        string                   `json:"step_name,omitempty"`
+	UseEcsTasks     bool                     `json:"use_ecs_tasks,omitzero"`
+	UseEcsTasksWhen *ExpressionNode          `json:"use_ecs_tasks_when,omitzero"`
+	PipesConfig     []PipeSpec               `json:"pipes_config"`
+	When            *ExpressionNode          `json:"when,omitzero"`
+	AddlEnv         []ConditionalEnvVariable `json:"addl_env,omitempty"`
 }
 
+type ConditionalEnvVariable struct {
+	CaseExpr []CaseExpression  `json:"case_expr,omitempty"` // case operator
+	ElseExpr []*ExpressionNode `json:"else_expr,omitempty"` // case operator
+}
 type SplitterSpec struct {
 	// Type range: standard (default), ext_count
 	// standard: split on Column / DefaultSplitterValue / ShardOn, create partition for each value
@@ -712,6 +728,16 @@ type PartitionWriterSpec struct {
 	StreamDataOut    bool    `json:"stream_data_out,omitzero"`
 }
 
+type ColumnFileSpec struct {
+	// OutputLocation: custom file key.
+	// Bucket is bucket or empty for jetstore one.
+	// Delimiter: rune delimiter to use for output file.
+	Bucket         string `json:"bucket,omitempty"`
+	OutputLocation string `json:"output_location,omitempty"`
+	SchemaProvider string `json:"schema_provider,omitempty"`
+	Delimiter      rune   `json:"delimiter,omitzero"`
+}
+
 // Mode: Specify mode of action: de-identification, anonymization (default)
 // - de-identification: mask the data (not reversible);
 // - anonymization: replace the data with hashed value (reversible using crosswalk file).
@@ -741,21 +767,22 @@ type PartitionWriterSpec struct {
 // If date format is not specified, the default format for both OutputDateFormat and KeyDateFormat
 // is "2006/01/02", ie. yyyy/MM/dd and the rdf.ParseDate() is used to parse the input date.
 type AnonymizeSpec struct {
-	Mode                 string               `json:"mode,omitempty"`
-	LookupName           string               `json:"lookup_name,omitempty"`
-	AnonymizeType        string               `json:"anonymize_type,omitempty"`
-	KeyPrefix            string               `json:"key_prefix,omitempty"`
-	DeidFunctions        map[string]string    `json:"deid_functions,omitempty"`
-	DeidLookups          map[string]string    `json:"deid_lookups,omitempty"`
-	InputDateLayout      string               `json:"input_date_layout,omitempty"`
-	DateFormatsColumn    string               `json:"date_formats_column,omitempty"`
-	OutputDateLayout     string               `json:"output_date_layout,omitempty"`
-	KeyDateLayout        string               `json:"key_date_layout,omitempty"`
-	DefaultInvalidDate   string               `json:"default_invalid_date,omitempty"`
-	SchemaProvider       string               `json:"schema_provider,omitempty"`
-	AdjustFieldWidthOnFW bool                 `json:"adjust_field_width_on_fixed_width_file,omitzero"`
-	OmitPrefixOnFW       bool                 `json:"omit_prefix_on_fixed_width_file,omitzero"`
-	KeysOutputChannel    *OutputChannelConfig `json:"keys_output_channel"`
+	Mode                        string               `json:"mode,omitempty"`
+	LookupName                  string               `json:"lookup_name,omitempty"`
+	AnonymizeType               string               `json:"anonymize_type,omitempty"`
+	KeyPrefix                   string               `json:"key_prefix,omitempty"`
+	DeidFunctions               map[string]string    `json:"deid_functions,omitempty"`
+	DeidLookups                 map[string]string    `json:"deid_lookups,omitempty"`
+	InputDateLayout             string               `json:"input_date_layout,omitempty"`
+	DateFormatsColumn           string               `json:"date_formats_column,omitempty"`
+	OutputDateLayout            string               `json:"output_date_layout,omitempty"`
+	KeyDateLayout               string               `json:"key_date_layout,omitempty"`
+	DefaultInvalidDate          string               `json:"default_invalid_date,omitempty"`
+	SchemaProvider              string               `json:"schema_provider,omitempty"`
+	AdjustFieldWidthOnFW        bool                 `json:"adjust_field_width_on_fixed_width_file,omitzero"`
+	OmitPrefixOnFW              bool                 `json:"omit_prefix_on_fixed_width_file,omitzero"`
+	AnonymizedColumnsOutputFile *ColumnFileSpec      `json:"anonymized_columns_output_file,omitzero"`
+	KeysOutputChannel           *OutputChannelConfig `json:"keys_output_channel"`
 }
 
 type DistinctSpec struct {
