@@ -554,15 +554,22 @@ func (ctx *BuilderContext) NewAnonymizeTransformationPipe(source *InputChannel, 
 		}
 	}
 
-	// If this is node 0, than save the anonymized column names to s3 stage, even if it's an empty file
-	if ctx.nodeId == 0 {
-		path := fmt.Sprintf("%s/process_name=%s/session_id=%s/anonymized_columns.csv", 
-			jetsS3StagePrefix, ctx.processName, ctx.sessionId)
-		//TODO: change to externalize the format of the anonymized columns file (anonymized_columns.csv)
-		data := fmt.Sprintf("\"%s\"\n", strings.Join(anonymizedColumns, "\"|\""))
-		err = awsi.UploadToS3FromReader(awsi.JetStoreBucket(), path, strings.NewReader(data))
+	// If this is node 0, than save the anonymized column names to s3 location, even if it's an empty file
+	if ctx.nodeId == 0 && config.AnonymizedColumnsOutputFile != nil {
+		outputFileSpec := config.AnonymizedColumnsOutputFile
+		delimit := string(outputFileSpec.Delimiter)
+		bucket := doSubstitution(outputFileSpec.Bucket, "", "", ctx.env)
+		path := doSubstitution(outputFileSpec.OutputLocation, "", "", ctx.env)
+
+		data := fmt.Sprintf("\"%s\"\n", strings.Join(anonymizedColumns, fmt.Sprintf("\"%s\"", delimit)))
+		if ctx.cpConfig.ClusterConfig.IsDebugMode {
+			log.Println("***", ctx.sessionId, "Uploading anonymized columns file to s3 bucket:", bucket, "path:", path)
+			log.Println(data)
+		}
+		err = awsi.UploadToS3FromReader(bucket, path, strings.NewReader(data))
 		if err != nil {
-			return nil, fmt.Errorf("while uploading anonymized columns file to s3 stage %s: %v", path, err)
+			return nil, fmt.Errorf("while uploading anonymized columns file to s3 output location %s/%s: %v",
+				outputFileSpec.Bucket, outputFileSpec.OutputLocation, err)
 		}
 	}
 	// All good, no errors

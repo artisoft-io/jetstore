@@ -728,6 +728,16 @@ type PartitionWriterSpec struct {
 	StreamDataOut    bool    `json:"stream_data_out,omitzero"`
 }
 
+type ColumnFileSpec struct {
+	// OutputLocation: custom file key.
+	// Bucket is bucket or empty for jetstore one.
+	// Delimiter: rune delimiter to use for output file.
+	Bucket         string `json:"bucket,omitempty"`
+	OutputLocation string `json:"output_location,omitempty"`
+	SchemaProvider string `json:"schema_provider,omitempty"`
+	Delimiter      rune   `json:"delimiter,omitzero"`
+}
+
 // Mode: Specify mode of action: de-identification, anonymization (default)
 // - de-identification: mask the data (not reversible);
 // - anonymization: replace the data with hashed value (reversible using crosswalk file).
@@ -757,21 +767,22 @@ type PartitionWriterSpec struct {
 // If date format is not specified, the default format for both OutputDateFormat and KeyDateFormat
 // is "2006/01/02", ie. yyyy/MM/dd and the rdf.ParseDate() is used to parse the input date.
 type AnonymizeSpec struct {
-	Mode                 string               `json:"mode,omitempty"`
-	LookupName           string               `json:"lookup_name,omitempty"`
-	AnonymizeType        string               `json:"anonymize_type,omitempty"`
-	KeyPrefix            string               `json:"key_prefix,omitempty"`
-	DeidFunctions        map[string]string    `json:"deid_functions,omitempty"`
-	DeidLookups          map[string]string    `json:"deid_lookups,omitempty"`
-	InputDateLayout      string               `json:"input_date_layout,omitempty"`
-	DateFormatsColumn    string               `json:"date_formats_column,omitempty"`
-	OutputDateLayout     string               `json:"output_date_layout,omitempty"`
-	KeyDateLayout        string               `json:"key_date_layout,omitempty"`
-	DefaultInvalidDate   string               `json:"default_invalid_date,omitempty"`
-	SchemaProvider       string               `json:"schema_provider,omitempty"`
-	AdjustFieldWidthOnFW bool                 `json:"adjust_field_width_on_fixed_width_file,omitzero"`
-	OmitPrefixOnFW       bool                 `json:"omit_prefix_on_fixed_width_file,omitzero"`
-	KeysOutputChannel    *OutputChannelConfig `json:"keys_output_channel"`
+	Mode                        string               `json:"mode,omitempty"`
+	LookupName                  string               `json:"lookup_name,omitempty"`
+	AnonymizeType               string               `json:"anonymize_type,omitempty"`
+	KeyPrefix                   string               `json:"key_prefix,omitempty"`
+	DeidFunctions               map[string]string    `json:"deid_functions,omitempty"`
+	DeidLookups                 map[string]string    `json:"deid_lookups,omitempty"`
+	InputDateLayout             string               `json:"input_date_layout,omitempty"`
+	DateFormatsColumn           string               `json:"date_formats_column,omitempty"`
+	OutputDateLayout            string               `json:"output_date_layout,omitempty"`
+	KeyDateLayout               string               `json:"key_date_layout,omitempty"`
+	DefaultInvalidDate          string               `json:"default_invalid_date,omitempty"`
+	SchemaProvider              string               `json:"schema_provider,omitempty"`
+	AdjustFieldWidthOnFW        bool                 `json:"adjust_field_width_on_fixed_width_file,omitzero"`
+	OmitPrefixOnFW              bool                 `json:"omit_prefix_on_fixed_width_file,omitzero"`
+	AnonymizedColumnsOutputFile *ColumnFileSpec      `json:"anonymized_columns_output_file,omitzero"`
+	KeysOutputChannel           *OutputChannelConfig `json:"keys_output_channel"`
 }
 
 type DistinctSpec struct {
