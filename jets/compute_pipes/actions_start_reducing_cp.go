@@ -254,7 +254,6 @@ startStepId:
 				MainInput: &InputSourceSpec{
 					OriginalInputColumns: cpipesStartup.InputColumnsOriginal,
 					InputColumns:         cpipesStartup.InputColumns,
-					InputParquetSchema:   mainInputSchemaProvider.ParquetSchema,
 					DomainKeys:           cpipesStartup.MainInputDomainKeysSpec,
 					DomainClass:          cpipesStartup.MainInputDomainClass,
 				},
@@ -273,7 +272,6 @@ startStepId:
 		SchemaProviders: cpipesStartup.CpConfig.SchemaProviders,
 		PipesConfig:     pipeConfig,
 	}
-
 	reducingConfigJson, err := json.Marshal(cpReducingConfig)
 	if err != nil {
 		return result, err
