@@ -363,9 +363,13 @@ func (args *StartComputePipesArgs) StartShardingComputePipes(ctx context.Context
 	}
 
 	// avoid to serialize twice some constructs
-	inputParquetSchemaJson, err := json.Marshal(mainInputSchemaProvider.ParquetSchema)
-	if err != nil {
-		return result, mainInputSchemaProvider, err
+	inputParquetSchemaJson := "{}"
+	if mainInputSchemaProvider.ParquetSchema != nil {
+		data, err := json.Marshal(mainInputSchemaProvider.ParquetSchema)
+		if err != nil {
+			return result, mainInputSchemaProvider, err
+		}
+		inputParquetSchemaJson = string(data)
 	}
 	mainInputSchemaProvider.ParquetSchema = nil
 	cpipesStartup.EnvSettings = nil
@@ -385,7 +389,7 @@ func (args *StartComputePipesArgs) StartShardingComputePipes(ctx context.Context
 	stmt := `INSERT INTO jetsapi.cpipes_execution_status 
 						(pipeline_execution_status_key, session_id, cpipes_config_json, input_parquet_schema_json, cpipes_startup_json, input_row_columns_json) 
 						VALUES ($1, $2, $3, $4, $5, $6)`
-	_, err2 := dbpool.Exec(ctx, stmt, args.PipelineExecKey, args.SessionId, string(shardingConfigJson), string(inputParquetSchemaJson), string(cpipesStartupJson), string(inputRowColumnsJson))
+	_, err2 := dbpool.Exec(ctx, stmt, args.PipelineExecKey, args.SessionId, string(shardingConfigJson), inputParquetSchemaJson, string(cpipesStartupJson), string(inputRowColumnsJson))
 	if err2 != nil {
 		return result, mainInputSchemaProvider, fmt.Errorf("error inserting in jetsapi.cpipes_execution_status table: %v", err2)
 	}

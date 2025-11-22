@@ -47,7 +47,8 @@ func WriteParquetPartitionV3(schemaInfo *ParquetSchemaInfo, nrowsInRec int64, fo
 	// Write the rows into the temp file
 	for inRow := range inCh {
 		if len(inRow) != len(builders) {
-			cpErr = fmt.Errorf("error: len(row) does not match len(builders) in WriteParquetPartitionV2")
+			cpErr = fmt.Errorf("error: len(row) %d does not match len(builders) %d in WriteParquetPartitionV2",
+				len(inRow), len(builders))
 			goto gotError
 		}
 		for i, builder := range builders {
