@@ -56,6 +56,7 @@ type SchemaProvider interface {
 	ReadBatchSize() int64
 	ReadDateLayout() string
 	SchemaName() string
+	SetParquetSchema(schema *ParquetSchemaInfo)
 	TrimColumns() bool
 	UseLazyQuotes() bool
 	UseLazyQuotesSpecial() bool
@@ -184,6 +185,13 @@ func (sp *DefaultSchemaProvider) SchemaName() string {
 		return ""
 	}
 	return sp.spec.SchemaName
+}
+
+func (sp *DefaultSchemaProvider) SetParquetSchema(schema *ParquetSchemaInfo) {
+	if sp == nil {
+		return
+	}
+	sp.spec.ParquetSchema = schema
 }
 
 func (sp *DefaultSchemaProvider) Format() string {

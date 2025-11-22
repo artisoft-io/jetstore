@@ -273,7 +273,6 @@ startStepId:
 		SchemaProviders: cpipesStartup.CpConfig.SchemaProviders,
 		PipesConfig:     pipeConfig,
 	}
-
 	reducingConfigJson, err := json.Marshal(cpReducingConfig)
 	if err != nil {
 		return result, err

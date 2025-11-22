@@ -77,13 +77,15 @@ func (args *StartComputePipesArgs) reducingInitializeCpipes(ctx context.Context,
 	}
 
 	// Unmarshal the inputParquetSchemaJson into MainInputSchemaProvider.ParquetSchema
-	var ParquetSchema ParquetSchemaInfo
-	err = json.Unmarshal([]byte(inputParquetSchemaJson), &ParquetSchema)
+	var schema ParquetSchemaInfo
+	err = json.Unmarshal([]byte(inputParquetSchemaJson), &schema)
 	if err != nil {
 		return nil, fmt.Errorf("while unmarshalling input_parquet_schema_json ->%s<-: %v", inputParquetSchemaJson, err)
 	}
-	cpipesStartup.MainInputSchemaProviderConfig.ParquetSchema = &ParquetSchema
-	
+	if len(schema.Fields) > 0 {
+		cpipesStartup.MainInputSchemaProviderConfig.ParquetSchema = &schema
+	}
+
 	// Unmarshal the inputRowColumnsJson into InputColumns and InputColumnsOriginal
 	var inputRowColumns InputRowColumns
 	err = json.Unmarshal([]byte(inputRowColumnsJson), &inputRowColumns)
@@ -92,7 +94,7 @@ func (args *StartComputePipesArgs) reducingInitializeCpipes(ctx context.Context,
 	}
 	cpipesStartup.InputColumns = inputRowColumns.MainInput
 	cpipesStartup.InputColumnsOriginal = inputRowColumns.OriginalHeaders
-	
+
 	// Set the Cpipes env settings to be the same as the  schema provider env
 	cpipesStartup.EnvSettings = cpipesStartup.MainInputSchemaProviderConfig.Env
 	return &cpipesStartup, nil

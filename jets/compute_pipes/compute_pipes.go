@@ -73,28 +73,31 @@ func (cpCtx *ComputePipesContext) StartComputePipes(dbpool *pgxpool.Pool,
 	// Prepare the channel registry
 	// ----------------------------
 	mainInput := cpCtx.CpConfig.CommonRuntimeArgs.SourcesConfig.MainInput
+	mainInputSchemaProvider := cpCtx.SchemaManager.GetSchemaProvider("_main_input_")
 	// log.Printf("*** StartComputePipes: mainInput.DomainKeys: %v, mainInput.DomainClass: %v\n", *mainInput.DomainKeys, mainInput.DomainClass)
-	inputParquetSchema := mainInput.InputParquetSchema
+	inputParquetSchema := mainInputSchemaProvider.ParquetSchema()
 	if inputSchemaCh != nil {
 		// Get the parquet schema from the channel as it is being extracted from the
 		// first input file
 		is := <-inputSchemaCh
 		inputParquetSchema = &is
-	}
-	inputChannelName = cpCtx.CpConfig.PipesConfig[0].InputChannel.Name
-	if inputChannelName == "input_row" {
-		// case sharding or reducing
-		// Setup the input channel for input_row
-		headersPosMap := make(map[string]int)
-		if len(mainInput.InputColumns) == 0 && inputParquetSchema != nil {
-			// Get the columns from the schema
-			mainInput.InputColumns = inputParquetSchema.Columns()
-			mainInput.InputColumns = append(mainInput.InputColumns, cpCtx.AddionalInputHeaders...)
-			// Add the headers from the partfile_key_component
-			for i := range cpCtx.CpConfig.Context {
-				if cpCtx.CpConfig.Context[i].Type == "partfile_key_component" {
-					mainInput.InputColumns = append(mainInput.InputColumns, cpCtx.CpConfig.Context[i].Key)
-				}
+		mainInputSchemaProvider.SetParquetSchema(inputParquetSchema)
+		// Get the columns from the schema
+		mainInput.InputColumns = inputParquetSchema.Columns()
+		if len(mainInput.InputColumns) == 0 {
+			cpErr = fmt.Errorf("error: input_parquet_schema has no columns")
+			goto gotError
+		}
+		mainInput.InputColumns = append(mainInput.InputColumns, cpCtx.AddionalInputHeaders...)
+		// Add the headers from the partfile_key_component
+		for i := range cpCtx.CpConfig.Context {
+			if cpCtx.CpConfig.Context[i].Type == "partfile_key_component" {
+				mainInput.InputColumns = append(mainInput.InputColumns, cpCtx.CpConfig.Context[i].Key)
+			}
+		}
+		if cpCtx.NodeId == 0 {
+			if cpCtx.CpConfig.ClusterConfig.IsDebugMode {
+				log.Println("GOT COLUMNS FROM SCHEMA:", mainInput.InputColumns)
 			}
 			// Save the columns and parquet schema to db
 			inputRowColumnsJson, _ := json.Marshal(InputRowColumns{
@@ -109,8 +112,13 @@ func (cpCtx *ComputePipesContext) StartComputePipes(dbpool *pgxpool.Pool,
 				cpErr = fmt.Errorf("error inserting in jetsapi.cpipes_execution_status table: %v", err2)
 				goto gotError
 			}
-			log.Println("GETTING COLUMNS FROM SCHEMA:", mainInput.InputColumns)
 		}
+	}
+	inputChannelName = cpCtx.CpConfig.PipesConfig[0].InputChannel.Name
+	if inputChannelName == "input_row" {
+		// case sharding or reducing
+		// Setup the input channel for input_row
+		headersPosMap := make(map[string]int)
 		for i, c := range mainInput.InputColumns {
 			headersPosMap[c] = i
 		}

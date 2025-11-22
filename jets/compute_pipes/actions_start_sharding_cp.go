@@ -361,6 +361,10 @@ func (args *StartComputePipesArgs) StartShardingComputePipes(ctx context.Context
 		SchemaProviders: cpipesStartup.CpConfig.SchemaProviders,
 		PipesConfig:     pipeConfig,
 	}
+	shardingConfigJson, err := json.Marshal(cpShardingConfig)
+	if err != nil {
+		return result, mainInputSchemaProvider, err
+	}
 
 	// avoid to serialize twice some constructs
 	inputParquetSchemaJson := "{}"
@@ -376,10 +380,6 @@ func (args *StartComputePipesArgs) StartShardingComputePipes(ctx context.Context
 	cpipesStartup.InputColumns = nil
 	cpipesStartup.InputColumnsOriginal = nil
 	cpipesStartupJson, err := json.Marshal(cpipesStartup)
-	if err != nil {
-		return result, mainInputSchemaProvider, err
-	}
-	shardingConfigJson, err := json.Marshal(cpShardingConfig)
 	if err != nil {
 		return result, mainInputSchemaProvider, err
 	}
