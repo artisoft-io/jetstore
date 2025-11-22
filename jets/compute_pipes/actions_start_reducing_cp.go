@@ -254,7 +254,6 @@ startStepId:
 				MainInput: &InputSourceSpec{
 					OriginalInputColumns: cpipesStartup.InputColumnsOriginal,
 					InputColumns:         cpipesStartup.InputColumns,
-					InputParquetSchema:   mainInputSchemaProvider.ParquetSchema,
 					DomainKeys:           cpipesStartup.MainInputDomainKeysSpec,
 					DomainClass:          cpipesStartup.MainInputDomainClass,
 				},

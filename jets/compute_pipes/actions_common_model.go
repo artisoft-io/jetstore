@@ -112,7 +112,6 @@ type InputRowColumns struct {
 type InputSourceSpec struct {
 	OriginalInputColumns []string           `json:"original_input_columns,omitempty"`
 	InputColumns         []string           `json:"input_columns,omitempty"`
-	InputParquetSchema   *ParquetSchemaInfo `json:"input_parquet_schema,omitempty"`
 	DomainClass          string             `json:"domain_class,omitempty"`
 	DomainKeys           *DomainKeysSpec    `json:"domain_keys_spec,omitempty"`
 }
