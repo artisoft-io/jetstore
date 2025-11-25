@@ -12,6 +12,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/artisoft-io/jetstore/jets/schema"
 	"github.com/jackc/pgx/v4/pgxpool"
 )
 
@@ -83,28 +84,40 @@ func (cpCtx *ComputePipesContext) StartComputePipes(dbpool *pgxpool.Pool,
 		inputParquetSchema = &is
 		mainInputSchemaProvider.SetParquetSchema(inputParquetSchema)
 		// Get the columns from the schema
-		if len(mainInput.InputColumns) == 0 {
-			mainInput.InputColumns = inputParquetSchema.Columns()
-		}
-		if len(mainInput.InputColumns) == 0 {
+		parquetColumns := inputParquetSchema.Columns()
+		if len(parquetColumns) == 0 {
 			cpErr = fmt.Errorf("error: input_parquet_schema has no columns")
 			goto gotError
 		}
-		mainInput.InputColumns = append(mainInput.InputColumns, cpCtx.AddionalInputHeaders...)
-		// Add the headers from the partfile_key_component
-		for i := range cpCtx.CpConfig.Context {
-			if cpCtx.CpConfig.Context[i].Type == "partfile_key_component" {
-				mainInput.InputColumns = append(mainInput.InputColumns, cpCtx.CpConfig.Context[i].Key)
+		// Ensure the mainInput.InputColumns is properly initialized
+		if len(mainInput.InputColumns) == 0 {
+			mainInput.InputColumns = parquetColumns
+			mainInput.InputColumns = append(mainInput.InputColumns, cpCtx.AddionalInputHeaders...)
+			// Add the headers from the partfile_key_component
+			for i := range cpCtx.CpConfig.Context {
+				if cpCtx.CpConfig.Context[i].Type == "partfile_key_component" {
+					mainInput.InputColumns = append(mainInput.InputColumns, cpCtx.CpConfig.Context[i].Key)
+				}
 			}
 		}
+		// Ensure the input columns are unique, if not make them unique and keep the original in InputColumnsOriginal
+		headersUniquefied := schema.NewHeadersUniquefied(mainInput.InputColumns)
+		mainInput.InputColumns = headersUniquefied.UniqueHeaders
+		// Prepare and save the input row columns and parquet schema in the cpipes_execution_status table
+		irc := InputRowColumns{
+			MainInput: mainInput.InputColumns,
+		}
+		if headersUniquefied.Modified {
+			irc.OriginalHeaders = headersUniquefied.OriginalHeaders
+			mainInput.OriginalInputColumns = headersUniquefied.OriginalHeaders
+		}
+		
 		if cpCtx.NodeId == 0 {
 			if cpCtx.CpConfig.ClusterConfig.IsDebugMode {
 				log.Println("GOT COLUMNS FROM SCHEMA:", mainInput.InputColumns)
 			}
 			// Save the columns and parquet schema to db
-			inputRowColumnsJson, _ := json.Marshal(InputRowColumns{
-				MainInput: mainInput.InputColumns,
-			})
+			inputRowColumnsJson, _ := json.Marshal(irc)
 			inputParquetSchemaJson, _ := json.Marshal(inputParquetSchema)
 
 			// Update in cpipes_execution_status
