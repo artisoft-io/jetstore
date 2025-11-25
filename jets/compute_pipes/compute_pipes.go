@@ -83,7 +83,9 @@ func (cpCtx *ComputePipesContext) StartComputePipes(dbpool *pgxpool.Pool,
 		inputParquetSchema = &is
 		mainInputSchemaProvider.SetParquetSchema(inputParquetSchema)
 		// Get the columns from the schema
-		mainInput.InputColumns = inputParquetSchema.Columns()
+		if len(mainInput.InputColumns) == 0 {
+			mainInput.InputColumns = inputParquetSchema.Columns()
+		}
 		if len(mainInput.InputColumns) == 0 {
 			cpErr = fmt.Errorf("error: input_parquet_schema has no columns")
 			goto gotError
