@@ -429,11 +429,19 @@ type TableColumnSpec struct {
 
 type PipeSpec struct {
 	// Type range: fan_out, splitter, merge_files
-	Type           string               `json:"type"`
-	InputChannel   InputChannelConfig   `json:"input_channel"`
-	SplitterConfig *SplitterSpec        `json:"splitter_config,omitzero"`
-	Apply          []TransformationSpec `json:"apply"`
-	OutputFile     *string              `json:"output_file,omitzero"` // for merge_files
+	Type            string               `json:"type"`
+	InputChannel    InputChannelConfig   `json:"input_channel"`
+	SplitterConfig  *SplitterSpec        `json:"splitter_config,omitzero"`
+	MergeFileConfig *MergeFileSpec       `json:"merge_file_config,omitzero"`
+	Apply           []TransformationSpec `json:"apply"`
+	OutputFile      *string              `json:"output_file,omitzero"` // for merge_files
+}
+
+// MergeFileSpec configuration
+// FirstPartitionHasHeaders: when true, the first partitions has the headers
+// (considered for csv to determine if use s3 multipart copy).
+type MergeFileSpec struct {
+	FirstPartitionHasHeaders bool `json:"first_partition_has_headers,omitempty"` // splitter column
 }
 
 // ConditionalPipe: Each step are executed conditionally.
