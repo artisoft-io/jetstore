@@ -73,11 +73,15 @@ func GetFileKeys(ctx context.Context, dbpool *pgxpool.Pool, sessionId string, no
 }
 
 func (cpCtx *ComputePipesContext) DownloadS3Files(inFolderPath, externalBucket string, fileKeys []*FileKeyInfo) error {
+	// Check if we need to download the files or not, do prior to goroutine to avoid modifying cpCtx in multiple goroutines
+	doDownloadFiles := cpCtx.startDownloadFiles()
+	
+	// Start a goroutine to download the s3 files
 	go func() {
 		defer close(cpCtx.FileNamesCh)
 		defer close(cpCtx.DownloadS3ResultCh)
 		// Check if we need to download the files or not (see StartMergeFiles)
-		if !cpCtx.startDownloadFiles() {
+		if !doDownloadFiles {
 			return
 		}
 		var inFilePath string
