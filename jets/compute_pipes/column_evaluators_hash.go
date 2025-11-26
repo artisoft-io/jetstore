@@ -111,6 +111,7 @@ type HashEvaluator struct {
 var HashingSeed uuid.UUID
 var HashingAlgo string = strings.ToLower(os.Getenv("JETS_DOMAIN_KEY_HASH_ALGO"))
 var DomainKeyDelimit string = os.Getenv("JETS_DOMAIN_KEY_SEPARATOR")
+
 func init() {
 	var err error
 	seed := os.Getenv("JETS_DOMAIN_KEY_HASH_SEED")
@@ -200,7 +201,7 @@ func (ctx *BuilderContext) NewHashEvaluator(source *InputChannel,
 					hashingAlgo)
 			}
 		}
-	
+
 		compositeInputKey, err = ParsePreprocessingExpressions(keys, toUpper, source.columns)
 		if err != nil {
 			return nil, fmt.Errorf("while calling ParsePreprocessingExpressions (input channel name %s): %v", source.name, err)
