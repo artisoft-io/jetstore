@@ -153,13 +153,13 @@ type RuleTerm struct {
 	Filter             *ExpressionNode `json:"filter,omitempty"`
 }
 
-// ExpressionNode represents an expression in the model
-// Type can be "identifier", "unary", "binary"
-// Op is the operator for unary and binary expressions
-// Arg is the argument for unary expressions
-// Lhs and Rhs are the left and right hand side for binary expressions
-// Value is the resource key for identifier
-// r is shorthand for the resource with Value as Key
+// ExpressionNode represents an expression in the model.
+// Type can be "identifier", "unary", "binary".
+// Op is the operator for unary and binary expressions.
+// Arg is the argument for unary expressions.
+// Lhs and Rhs are the left and right hand side for binary expressions.
+// Value is the resource key for identifier.
+// R is shorthand for the resource with Value as Key.
 type ExpressionNode struct {
 	Type  string          `json:"type,omitempty"`
 	Op    string          `json:"op,omitempty"`

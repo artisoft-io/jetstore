@@ -25,16 +25,72 @@ func getMaxKey(ctx context.Context, db *sql.DB, tableName string) (int, error) {
 	return 0, nil
 }
 
+// Save Expresions into workspace db based on filters and object expressions
+func (w *WorkspaceDB) SaveExpressions(ctx context.Context, db *sql.DB, jetRuleModel *rete.JetruleModel) error {
+	deleteStmt := "DELETE FROM expressions WHERE source_file_key = ?"
+	_, err := db.ExecContext(ctx, deleteStmt, w.mainFileKey)
+	if err != nil {
+		return fmt.Errorf("failed to delete expressions tables: %w", err)
+	}
+	w.maxExprKey, err = getMaxKey(ctx, db, "expressions")
+	if err != nil {
+		return fmt.Errorf("failed to query expressions: %w", err)
+	}
+	insertStmt := "INSERT INTO expressions (key, type, arg0_key, arg1_key, arg2_key, arg3_key, " +
+	"arg4_key, arg5_key, op, source_file_key) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+
+	data := make([][]any, 0)
+	for _, rn := range jetRuleModel.ReteNodes {
+		w.saveExpression(ctx, &data, rn.Filter)
+		w.saveExpression(ctx, &data, rn.ObjectExpr)
+	}
+	if len(data) > 0 {
+		err = DoStatement(ctx, db, insertStmt, data)
+		if err != nil {
+			return fmt.Errorf("failed to insert expressions: %w", err)
+		}
+	}
+	return nil
+}
+
+// Save a single expression into workspace db recursively.
+// Add expression to expressions table recursivelly and return the key
+// Put resource entities as well: resource (constant) and var (binded)
+// expr is the resource key, so we can call persist directly.
+func (w *WorkspaceDB) saveExpression(ctx context.Context, data *[][]any, node *rete.ExpressionNode) {
+	if node == nil {
+		return
+	}
+	switch node.Type {
+	case "identifier":
+		// Case resource (constant) and var (binded)
+		node.Value = node.R.Key
+		*data = append(*data, []any{node.Value, "resource", nil, nil, nil, nil, nil, nil, w.mainFileKey})
+	case "unary":
+		// Recursively save the argument
+		w.saveExpression(ctx, data, node.Arg)
+		w.maxExprKey++
+		node.Value = w.maxExprKey
+		*data = append(*data, []any{node.Value, "unary", node.Arg.Value, nil, nil, nil, nil, nil, node.Op, w.mainFileKey})
+	case "binary":
+		// Recursively save lhs and rhs
+		w.saveExpression(ctx, data, node.Lhs)
+		w.saveExpression(ctx, data, node.Rhs)
+		w.maxExprKey++
+		node.Value = w.maxExprKey
+		*data = append(*data, []any{node.Value, "binary", node.Lhs.Value, node.Rhs.Value, nil, nil, nil, nil, node.Op, w.mainFileKey})
+	}
+}
+
 // Save Lookup Tables into workspace db
 func (w *WorkspaceDB) SaveLookupTables(ctx context.Context, db *sql.DB, jetRuleModel *rete.JetruleModel) error {
 	// Delete existing lookup tables for current main file
-	mainFileKey := w.sourceMgr.GetOrAddDbKey(w.mainSourceFileName)
 	deleteStmt := "DELETE FROM lookup_tables WHERE source_file_key = ?"
-	_, err := db.ExecContext(ctx, deleteStmt, mainFileKey)
+	_, err := db.ExecContext(ctx, deleteStmt, w.mainFileKey)
 	if err != nil {
 		return fmt.Errorf("failed to delete existing lookup tables: %w", err)
 	}
-	
+
 	maxKey, err := getMaxKey(ctx, db, "lookup_tables")
 	if err != nil {
 		return fmt.Errorf("failed to query lookup_tables: %w", err)
@@ -47,7 +103,7 @@ func (w *WorkspaceDB) SaveLookupTables(ctx context.Context, db *sql.DB, jetRuleM
 	cData := make([][]any, 0)
 	for _, lt := range jetRuleModel.LookupTables {
 		maxKey++
-		data = append(data, []any{maxKey, lt.Name, nil, lt.CsvFile, strings.Join(lt.Key,","), strings.Join(lt.Resources,","), mainFileKey})
+		data = append(data, []any{maxKey, lt.Name, nil, lt.CsvFile, strings.Join(lt.Key, ","), strings.Join(lt.Resources, ","), w.mainFileKey})
 		for _, col := range lt.Columns {
 			cData = append(cData, []any{maxKey, col.Name, col.Type, col.IsArray})
 		}
@@ -68,14 +124,13 @@ func (w *WorkspaceDB) SaveLookupTables(ctx context.Context, db *sql.DB, jetRuleM
 // Save Rule Sequences into workspace db
 func (w *WorkspaceDB) SaveRuleSequences(ctx context.Context, db *sql.DB, jetRuleModel *rete.JetruleModel) error {
 	// Delete existing rule sequences for current main file
-	mainFileKey := w.sourceMgr.GetOrAddDbKey(w.mainSourceFileName)
 	deleteStmt := "DELETE FROM rule_sequences WHERE source_file_key = ?"
-	_, err := db.ExecContext(ctx, deleteStmt, mainFileKey)
+	_, err := db.ExecContext(ctx, deleteStmt, w.mainFileKey)
 	if err != nil {
 		return fmt.Errorf("failed to delete existing rule sequences: %w", err)
 	}
 	deleteStmt = "DELETE FROM main_rule_sets WHERE ruleset_file_key = ?"
-	_, err = db.ExecContext(ctx, deleteStmt, mainFileKey)
+	_, err = db.ExecContext(ctx, deleteStmt, w.mainFileKey)
 	if err != nil {
 		return fmt.Errorf("failed to delete existing main_rule_sets: %w", err)
 	}
@@ -92,7 +147,7 @@ func (w *WorkspaceDB) SaveRuleSequences(ctx context.Context, db *sql.DB, jetRule
 	mrsData := make([][]any, 0)
 	for _, rs := range jetRuleModel.RuleSequences {
 		maxKey++
-		rsData = append(rsData, []any{maxKey, rs.Name, mainFileKey})
+		rsData = append(rsData, []any{maxKey, rs.Name, w.mainFileKey})
 		for seq, rsName := range rs.RuleSets {
 			ruleSetFileKey := w.sourceMgr.GetOrAddDbKey(rsName)
 			mrsData = append(mrsData, []any{maxKey, rsName, ruleSetFileKey, seq})
@@ -114,9 +169,8 @@ func (w *WorkspaceDB) SaveRuleSequences(ctx context.Context, db *sql.DB, jetRule
 // Save Jetstore Config into workspace db
 func (w *WorkspaceDB) SaveJetstoreConfig(ctx context.Context, db *sql.DB, jetRuleModel *rete.JetruleModel) error {
 	// Delete existing config for current main file
-	mainFileKey := w.sourceMgr.GetOrAddDbKey(w.mainSourceFileName)
 	deleteStmt := "DELETE FROM jetstore_config WHERE source_file_key = ?"
-	_, err := db.ExecContext(ctx, deleteStmt, mainFileKey)
+	_, err := db.ExecContext(ctx, deleteStmt, w.mainFileKey)
 	if err != nil {
 		return fmt.Errorf("failed to delete existing jetstore_config: %w", err)
 	}
@@ -125,7 +179,7 @@ func (w *WorkspaceDB) SaveJetstoreConfig(ctx context.Context, db *sql.DB, jetRul
 	insertStmt := "INSERT INTO jetstore_config (source_file_key, config_key, config_value) VALUES (?, ?, ?)"
 	data := make([][]any, 0)
 	for key, value := range jetRuleModel.JetstoreConfig {
-		data = append(data, []any{mainFileKey, key, value})
+		data = append(data, []any{w.mainFileKey, key, value})
 	}
 	if len(data) > 0 {
 		err = DoStatement(ctx, db, insertStmt, data)

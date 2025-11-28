@@ -10,10 +10,11 @@ import (
 	"os"
 
 	"github.com/artisoft-io/jetstore/jets/jetrules/rete"
-	 _ "github.com/mattn/go-sqlite3"
+	_ "github.com/mattn/go-sqlite3"
 )
 
 var workspaceSchema string = os.Getenv("JETS_WORKSPACE_DB_SCHEMA_SCRIPT")
+
 func init() {
 	if len(workspaceSchema) == 0 {
 		workspaceSchema = "/usr/local/bin/workspace_schema.sql"
@@ -21,10 +22,12 @@ func init() {
 }
 
 type WorkspaceDB struct {
-	DB *sql.DB
+	DB                 *sql.DB
 	mainSourceFileName string
-	sourceMgr *SourceFileManager
-	rm *WorkspaceResourceManager
+	sourceMgr          *SourceFileManager
+	rm                 *WorkspaceResourceManager
+	mainFileKey        int
+	maxExprKey         int
 }
 
 func NewWorkspaceDB(dbPath string) (*WorkspaceDB, error) {
@@ -52,11 +55,11 @@ func (w *WorkspaceDB) SaveJetRuleModel(ctx context.Context, jetRuleModel *rete.J
 	w.mainSourceFileName = jetRuleModel.MainRuleFileName
 	// Load source file mapping
 	var err error
-	w.sourceMgr = NewSourceFileManager(w)
 	err = w.sourceMgr.LoadSourceFileNameToKey(ctx, w.DB)
 	if err != nil {
 		return fmt.Errorf("failed to load source file mapping: %w", err)
 	}
+	w.mainFileKey = w.sourceMgr.GetOrAddDbKey(w.mainSourceFileName)
 
 	// Save resources
 	err = w.rm.SaveResources(ctx, w.DB, jetRuleModel)
