@@ -72,8 +72,40 @@ func (w *WorkspaceDB) SaveJetRuleModel(ctx context.Context, jetRuleModel *rete.J
 
 	// Save JetSore Config
 	err = w.SaveJetstoreConfig(ctx, w.DB, jetRuleModel)
+	if err != nil {
+		return fmt.Errorf("failed to save jetstore config: %w", err)
+	}
 
-	//*TODO Save the other tables
+	// # Add all rule sequences
+	err = w.SaveRuleSequences(ctx, w.DB, jetRuleModel)
+	if err != nil {
+		return fmt.Errorf("failed to save rule sequences: %w", err)
+	}
+
+	// # Add all lookup_table to rete_db, will skip source file already in rete_db
+	err = w.SaveLookupTables(ctx, w.DB, jetRuleModel)
+	if err != nil {
+		return fmt.Errorf("failed to save lookup tables: %w", err)
+	}
+
+	// # Add expressions based on filters and object expr
+	// # -------------------------------------------------------------------------
+	// self._save_expressions()
+
+	// # Add rete_nodes to rete_nodes table
+	// # Add beta_row_config
+	// # -------------------------------------------------------------------------
+	// self._save_rete_nodes()
+
+	// # save jet rules
+	// # -------------------------------------------------------------------------
+	// self._save_jet_rules()
+
+	// # save metadata triples
+	// # -------------------------------------------------------------------------
+	// self._save_triples()
+
+	// # All done, commiting the work
 
 	// Last, save the source file mapping back to workspace_control
 	err = w.sourceMgr.SaveNewSourceFileNames(ctx, w.DB)

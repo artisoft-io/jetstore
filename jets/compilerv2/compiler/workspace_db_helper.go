@@ -11,6 +11,106 @@ import (
 	"github.com/artisoft-io/jetstore/jets/jetrules/rete"
 )
 
+// Function to get max key from table
+func getMaxKey(ctx context.Context, db *sql.DB, tableName string) (int, error) {
+	var maxKey sql.NullInt64
+	query := fmt.Sprintf("SELECT MAX(key) FROM %s", tableName)
+	err := db.QueryRowContext(ctx, query).Scan(&maxKey)
+	if err != nil && !strings.Contains(err.Error(), "converting NULL to int is unsupported") {
+		return 0, fmt.Errorf("failed to get max key from %s: %w", tableName, err)
+	}
+	if maxKey.Valid {
+		return int(maxKey.Int64), nil
+	}
+	return 0, nil
+}
+
+// Save Lookup Tables into workspace db
+func (w *WorkspaceDB) SaveLookupTables(ctx context.Context, db *sql.DB, jetRuleModel *rete.JetruleModel) error {
+	// Delete existing lookup tables for current main file
+	mainFileKey := w.sourceMgr.GetOrAddDbKey(w.mainSourceFileName)
+	deleteStmt := "DELETE FROM lookup_tables WHERE source_file_key = ?"
+	_, err := db.ExecContext(ctx, deleteStmt, mainFileKey)
+	if err != nil {
+		return fmt.Errorf("failed to delete existing lookup tables: %w", err)
+	}
+	
+	maxKey, err := getMaxKey(ctx, db, "lookup_tables")
+	if err != nil {
+		return fmt.Errorf("failed to query lookup_tables: %w", err)
+	}
+
+	// Insert new entries
+	insertStmt := "INSERT INTO lookup_tables (key, name, table_name, csv_file, lookup_key, lookup_resources, source_file_key) VALUES (?, ?, ?, ?, ?, ?, ?)"
+	insertColumns := "INSERT INTO lookup_columns (lookup_table_key, name, type, as_array) VALUES (?, ?, ?, ?)"
+	data := make([][]any, 0)
+	cData := make([][]any, 0)
+	for _, lt := range jetRuleModel.LookupTables {
+		maxKey++
+		data = append(data, []any{maxKey, lt.Name, nil, lt.CsvFile, strings.Join(lt.Key,","), strings.Join(lt.Resources,","), mainFileKey})
+		for _, col := range lt.Columns {
+			cData = append(cData, []any{maxKey, col.Name, col.Type, col.IsArray})
+		}
+	}
+	if len(data) > 0 {
+		err = DoStatement(ctx, db, insertStmt, data)
+		if err != nil {
+			return fmt.Errorf("failed to insert lookup_tables: %w", err)
+		}
+		err = DoStatement(ctx, db, insertColumns, cData)
+		if err != nil {
+			return fmt.Errorf("failed to insert lookup_columns: %w", err)
+		}
+	}
+	return nil
+}
+
+// Save Rule Sequences into workspace db
+func (w *WorkspaceDB) SaveRuleSequences(ctx context.Context, db *sql.DB, jetRuleModel *rete.JetruleModel) error {
+	// Delete existing rule sequences for current main file
+	mainFileKey := w.sourceMgr.GetOrAddDbKey(w.mainSourceFileName)
+	deleteStmt := "DELETE FROM rule_sequences WHERE source_file_key = ?"
+	_, err := db.ExecContext(ctx, deleteStmt, mainFileKey)
+	if err != nil {
+		return fmt.Errorf("failed to delete existing rule sequences: %w", err)
+	}
+	deleteStmt = "DELETE FROM main_rule_sets WHERE ruleset_file_key = ?"
+	_, err = db.ExecContext(ctx, deleteStmt, mainFileKey)
+	if err != nil {
+		return fmt.Errorf("failed to delete existing main_rule_sets: %w", err)
+	}
+
+	maxKey, err := getMaxKey(ctx, db, "rule_sequences")
+	if err != nil {
+		return fmt.Errorf("failed to query rule_sequences: %w", err)
+	}
+
+	// Insert new entries
+	insertStmt := "INSERT INTO rule_sequences (key, name, source_file_key) VALUES (?, ?, ?)"
+	insertMRS := "INSERT INTO main_rule_sets (rule_sequence_key, main_ruleset_name, ruleset_file_key, seq) VALUES (?, ?, ?, ?)"
+	rsData := make([][]any, 0)
+	mrsData := make([][]any, 0)
+	for _, rs := range jetRuleModel.RuleSequences {
+		maxKey++
+		rsData = append(rsData, []any{maxKey, rs.Name, mainFileKey})
+		for seq, rsName := range rs.RuleSets {
+			ruleSetFileKey := w.sourceMgr.GetOrAddDbKey(rsName)
+			mrsData = append(mrsData, []any{maxKey, rsName, ruleSetFileKey, seq})
+		}
+	}
+	if len(rsData) > 0 {
+		err = DoStatement(ctx, db, insertStmt, rsData)
+		if err != nil {
+			return fmt.Errorf("failed to insert rule_sequences: %w", err)
+		}
+		err = DoStatement(ctx, db, insertMRS, mrsData)
+		if err != nil {
+			return fmt.Errorf("failed to insert main_rule_sets: %w", err)
+		}
+	}
+	return nil
+}
+
 // Save Jetstore Config into workspace db
 func (w *WorkspaceDB) SaveJetstoreConfig(ctx context.Context, db *sql.DB, jetRuleModel *rete.JetruleModel) error {
 	// Delete existing config for current main file
@@ -23,12 +123,12 @@ func (w *WorkspaceDB) SaveJetstoreConfig(ctx context.Context, db *sql.DB, jetRul
 
 	// Insert new config entries
 	insertStmt := "INSERT INTO jetstore_config (source_file_key, config_key, config_value) VALUES (?, ?, ?)"
-	configData := make([][]any, 0)
+	data := make([][]any, 0)
 	for key, value := range jetRuleModel.JetstoreConfig {
-		configData = append(configData, []any{mainFileKey, key, value})
+		data = append(data, []any{mainFileKey, key, value})
 	}
-	if len(configData) > 0 {
-		err = DoStatement(ctx, db, insertStmt, configData)
+	if len(data) > 0 {
+		err = DoStatement(ctx, db, insertStmt, data)
 		if err != nil {
 			return fmt.Errorf("failed to insert jetstore_config: %w", err)
 		}
@@ -85,10 +185,12 @@ func (w *WorkspaceDB) SaveClassesAndTables(ctx context.Context, db *sql.DB, jetR
 	dataPropertiesData := make([][]any, 0)
 	var maxDataPropKey int
 	dataProperties2Key := make(map[string]int)
-	err = db.QueryRow("SELECT max(key) FROM data_properties").Scan(&maxDataPropKey)
-	if err != nil && !strings.Contains(err.Error(), "converting NULL to int is unsupported") {
+
+	maxDataPropKey, err = getMaxKey(ctx, db, "data_properties")
+	if err != nil {
 		return fmt.Errorf("failed to query data_properties: %w", err)
 	}
+
 	for _, class := range jetRuleModel.Classes {
 		if newClasses[class.Name] {
 			classKey := className2Key[class.Name]
