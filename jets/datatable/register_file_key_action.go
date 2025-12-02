@@ -18,14 +18,14 @@ import (
 )
 
 type RegisterFileKeyAction struct {
-	Action          string                   `json:"action"`
-	Data            []map[string]interface{} `json:"data"`
-	NoAutomatedLoad bool                     `json:"noAutomatedLoad"`
-	IsSchemaEvent   bool                     `json:"isSchemaEvent"`
+	Action          string           `json:"action"`
+	Data            []map[string]any `json:"data"`
+	NoAutomatedLoad bool             `json:"noAutomatedLoad"`
+	IsSchemaEvent   bool             `json:"isSchemaEvent"`
 }
 
 // Function to match the case for client, org, and object_type based on jetstore
-func (ctx *DataTableContext) updateFileKeyComponentCase(fileKeyObjectPtr *map[string]interface{}) {
+func (ctx *DataTableContext) updateFileKeyComponentCase(fileKeyObjectPtr *map[string]any) {
 	fileKeyObject := *fileKeyObjectPtr
 	var err error
 	// log.Println("updateFileKeyComponentCase CALLED:",fileKeyObject)
@@ -93,7 +93,7 @@ func (ctx *DataTableContext) updateFileKeyComponentCase(fileKeyObjectPtr *map[st
 var jetsS3SchemaTriggers string = os.Getenv("JETS_s3_SCHEMA_TRIGGERS")
 
 // Submit Schema Event to S3 (which will call RegisterFileKEys as side effect)
-func (ctx *DataTableContext) PutSchemaEventToS3(action *RegisterFileKeyAction, token string) (*map[string]interface{}, int, error) {
+func (ctx *DataTableContext) PutSchemaEventToS3(action *RegisterFileKeyAction, token string) (*map[string]any, int, error) {
 	for irow := range action.Data {
 		var schemaProviderJson string
 		e := action.Data[irow]["event"]
@@ -108,11 +108,11 @@ func (ctx *DataTableContext) PutSchemaEventToS3(action *RegisterFileKeyAction, t
 			}
 		}
 	}
-	return &map[string]interface{}{}, http.StatusOK, nil
+	return &map[string]any{}, http.StatusOK, nil
 }
 
 // Register file_key with file_key_staging table
-func (ctx *DataTableContext) RegisterFileKeys(registerFileKeyAction *RegisterFileKeyAction, token string) (*map[string]interface{}, int, error) {
+func (ctx *DataTableContext) RegisterFileKeys(registerFileKeyAction *RegisterFileKeyAction, token string) (*map[string]any, int, error) {
 	var err error
 	sqlStmt, ok := sqlInsertStmts["file_key_staging"]
 	if !ok {
@@ -123,15 +123,15 @@ func (ctx *DataTableContext) RegisterFileKeys(registerFileKeyAction *RegisterFil
 	var sessionId, stmt string
 	var requestId any
 	var allOk bool
-	row := make([]interface{}, len(sqlStmt.ColumnKeys))
+	row := make([]any, len(sqlStmt.ColumnKeys))
 	for irow := range registerFileKeyAction.Data {
 		var schemaProviderJson string
 		// fileKeyObject with defaults
-		fileKeyObject := map[string]interface{}{
-			"org":   "",
-			"year":  1970,
-			"month": 1,
-			"day":   1,
+		fileKeyObject := map[string]any{
+			"org":        "",
+			"year":       1970,
+			"month":      1,
+			"day":        1,
 			"request_id": nil,
 		}
 		// Get the value from the incoming obj, convert to correct types
@@ -205,11 +205,6 @@ func (ctx *DataTableContext) RegisterFileKeys(registerFileKeyAction *RegisterFil
 		var domainKeys []string
 
 		fileKey := fileKeyObject["file_key"].(string)
-		if strings.Contains(fileKey, "/err_") {
-			// Skip error files
-			// log.Println("File key is an error file, skiping")
-			goto NextKey
-		}
 		stmt = "SELECT table_name, automated, is_part_files, domain_keys FROM jetsapi.source_config WHERE client=$1 AND org=$2 AND object_type=$3"
 		allOk = true
 		err = ctx.Dbpool.QueryRow(context.Background(), stmt, client, org, objectType).Scan(&tableName, &automated, &isPartFile, &domainKeys)
@@ -253,7 +248,6 @@ func (ctx *DataTableContext) RegisterFileKeys(registerFileKeyAction *RegisterFil
 		}
 		// Insert file key info in table file_key_staging
 		// make sure we have a value for each column
-		// exclude file_key for error file (file name starting with err_)
 		for jcol, colKey := range sqlStmt.ColumnKeys {
 			row[jcol], ok = fileKeyObject[colKey]
 			if !ok {
@@ -303,12 +297,12 @@ func (ctx *DataTableContext) RegisterFileKeys(registerFileKeyAction *RegisterFil
 			return nil, http.StatusInternalServerError, err
 		}
 		switch {
-		case hasCpipesSM == 0 && automated > 0 && !strings.Contains(fileKey, "/test_") && !registerFileKeyAction.NoAutomatedLoad:
+		case hasCpipesSM == 0 && automated > 0 && !registerFileKeyAction.NoAutomatedLoad:
 			// insert into input_loader_status and kick off loader
 			dataTableAction := DataTableAction{
 				Action:      "insert_rows",
 				FromClauses: []FromClause{{Schema: "jetsapi", Table: "input_loader_status"}},
-				Data: []map[string]interface{}{{
+				Data: []map[string]any{{
 					"file_key":              fileKey,
 					"table_name":            tableName,
 					"client":                client,
@@ -345,7 +339,7 @@ func (ctx *DataTableContext) RegisterFileKeys(registerFileKeyAction *RegisterFil
 				if err != nil {
 					return nil, http.StatusInternalServerError, fmt.Errorf("error inserting in jetsapi.input_registry table: %v", err)
 				}
-				if !strings.Contains(fileKey, "/test_") && !registerFileKeyAction.NoAutomatedLoad {
+				if !registerFileKeyAction.NoAutomatedLoad {
 					// Check for any process that are ready to kick off
 					ctx.StartPipelinesForInputRegistryV2(inputRegistryKey, source_period_key, sessionId, client.(string), domainKey, fileKey, token)
 				}
@@ -360,11 +354,11 @@ func (ctx *DataTableContext) RegisterFileKeys(registerFileKeyAction *RegisterFil
 
 	NextKey:
 	}
-	return &map[string]interface{}{}, http.StatusOK, nil
+	return &map[string]any{}, http.StatusOK, nil
 }
 
 // Load All Files for client/org/object_type from a given day_period
-func (ctx *DataTableContext) LoadAllFiles(registerFileKeyAction *RegisterFileKeyAction, token string) (*map[string]interface{}, int, error) {
+func (ctx *DataTableContext) LoadAllFiles(registerFileKeyAction *RegisterFileKeyAction, token string) (*map[string]any, int, error) {
 	var err error
 	baseSessionId := time.Now().UnixMilli()
 	for irow := range registerFileKeyAction.Data {
@@ -410,7 +404,7 @@ func (ctx *DataTableContext) LoadAllFiles(registerFileKeyAction *RegisterFileKey
 		rows, err := ctx.Dbpool.Query(context.Background(), stmt, client, org, objectType, fromSourcePeriodKey, toSourcePeriodKey)
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
-				return &map[string]interface{}{}, http.StatusOK, nil
+				return &map[string]any{}, http.StatusOK, nil
 			}
 			return nil, http.StatusInternalServerError,
 				fmt.Errorf("in LoadAllFiles while querying all file keys to load: %v", err)
@@ -434,7 +428,7 @@ func (ctx *DataTableContext) LoadAllFiles(registerFileKeyAction *RegisterFileKey
 		dataTableAction := DataTableAction{
 			Action:      "insert_rows",
 			FromClauses: []FromClause{{Schema: "jetsapi", Table: "input_loader_status"}},
-			Data:        make([]map[string]interface{}, 0),
+			Data:        make([]map[string]any, 0),
 		}
 		for i := range fileKeys {
 			// Reserve a session_id
@@ -442,7 +436,7 @@ func (ctx *DataTableContext) LoadAllFiles(registerFileKeyAction *RegisterFileKey
 			if err != nil {
 				return nil, http.StatusInternalServerError, err
 			}
-			dataTableAction.Data = append(dataTableAction.Data, map[string]interface{}{
+			dataTableAction.Data = append(dataTableAction.Data, map[string]any{
 				"file_key":              fileKeys[i],
 				"table_name":            tableName,
 				"client":                client,
@@ -467,7 +461,7 @@ func (ctx *DataTableContext) LoadAllFiles(registerFileKeyAction *RegisterFileKey
 		}
 	}
 
-	return &map[string]interface{}{}, http.StatusOK, nil
+	return &map[string]any{}, http.StatusOK, nil
 }
 
 // Utility function
@@ -533,7 +527,7 @@ do_retry:
 	return sessionId, nil
 }
 
-func splitFileKey(keyMap map[string]interface{}, fileKey *string) map[string]interface{} {
+func splitFileKey(keyMap map[string]any, fileKey *string) map[string]any {
 	if fileKey != nil {
 		for _, component := range strings.Split(*fileKey, "/") {
 			elms := strings.Split(component, "=")
@@ -548,7 +542,7 @@ func splitFileKey(keyMap map[string]interface{}, fileKey *string) map[string]int
 	return keyMap
 }
 
-func SplitFileKeyIntoComponents(keyMap map[string]interface{}, fileKey *string) map[string]interface{} {
+func SplitFileKeyIntoComponents(keyMap map[string]any, fileKey *string) map[string]any {
 	var err error
 	fileKeyObject := splitFileKey(keyMap, fileKey)
 	fileKeyObject["file_key"] = *fileKey
@@ -582,7 +576,7 @@ func SplitFileKeyIntoComponents(keyMap map[string]interface{}, fileKey *string) 
 
 // SyncFileKeys ------------------------------------------------------
 // 12/17/2023: Replacing all keys in file_key_staging to be able to reset keys from source_config that are Part File sources
-func (ctx *DataTableContext) SyncFileKeys(registerFileKeyAction *RegisterFileKeyAction, token string) (*map[string]interface{}, int, error) {
+func (ctx *DataTableContext) SyncFileKeys(registerFileKeyAction *RegisterFileKeyAction, token string) (*map[string]any, int, error) {
 	// RegisterFileKeyAction.Data is not used in this action
 
 	log.Println("Syncing File Keys with s3")
@@ -601,8 +595,7 @@ func (ctx *DataTableContext) SyncFileKeys(registerFileKeyAction *RegisterFileKey
 	// make key lookup
 	s3Lookup := make(map[string]*awsi.S3Object)
 	for _, s3Obj := range keys {
-		if !strings.Contains(s3Obj.Key, "/err_") &&
-			strings.Contains(s3Obj.Key, "client=") &&
+		if strings.Contains(s3Obj.Key, "client=") &&
 			strings.Contains(s3Obj.Key, "object_type=") {
 			// log.Println("Got Key from S3:", s3Obj.Key)
 			s3Lookup[s3Obj.Key] = s3Obj
@@ -622,12 +615,12 @@ func (ctx *DataTableContext) SyncFileKeys(registerFileKeyAction *RegisterFileKey
 	log.Printf("Registring %d file keys with file_key_staging table", len(s3Lookup))
 	registerFileKeyDelegateAction := &RegisterFileKeyAction{
 		Action:          "register_keys",
-		Data:            make([]map[string]interface{}, 0),
+		Data:            make([]map[string]any, 0),
 		NoAutomatedLoad: true,
 	}
 	for s3Key, s3Obj := range s3Lookup {
 		// fileKeyObject with defaults
-		fileKeyObject := map[string]interface{}{
+		fileKeyObject := map[string]any{
 			"org":   "",
 			"year":  "1970",
 			"month": "1",
