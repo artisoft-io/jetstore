@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"path/filepath"
 	"strings"
 	"time"
 
@@ -484,8 +483,8 @@ func processComputeGraph(dbpool *pgxpool.Pool) (err error) {
 		errFileHd.Seek(0, 0)
 
 		// Create the error file key
-		dp, fn := filepath.Split(*inFile)
-		errFileKey := dp + "err_" + fn
+		processDate := time.Now().Format("2006-01-02")
+		errFileKey := fmt.Sprintf("%s/%s/%s/%s.json", "bad_rows", "loader", processDate, *sessionId)
 		err = awsi.UploadToS3(*awsBucket, *awsRegion, errFileKey, errFileHd)
 		if err != nil {
 			return fmt.Errorf("failed to upload error file: %v", err)
