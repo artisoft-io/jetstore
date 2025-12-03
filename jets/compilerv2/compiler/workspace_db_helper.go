@@ -25,6 +25,90 @@ func getMaxKey(ctx context.Context, db *sql.DB, tableName string) (int, error) {
 	return 0, nil
 }
 
+// Save Rete Nodes and beta_row_config into workspace db
+func (w *WorkspaceDB) SaveReteNodes(ctx context.Context, db *sql.DB, jetRuleModel *rete.JetruleModel) error {
+	// Delete existing rete_nodes for current main file
+	reteNodeDeleteStmt := "DELETE FROM rete_node WHERE source_file_key = ?"
+	_, err := db.ExecContext(ctx, reteNodeDeleteStmt, w.mainFileKey)
+	if err != nil {
+		return fmt.Errorf("failed to delete rete_node tables: %w", err)
+	}
+	maxReteNodeKey, err := getMaxKey(ctx, db, "rete_node")
+	if err != nil {
+		return fmt.Errorf("failed to query rete_node: %w", err)
+	}
+	reteNodeInsertStmt := "INSERT INTO rete_nodes (key, vertex, type, "+
+		"subject_key, predicate_key, object_key, obj_expr_key, filter_expr_key, " +
+    "normalizedLabel, parent_vertex, source_file_key, is_negation, salience, consequent_seq) " +
+    "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+
+	// Delete existing beta_row_config for current main file
+	betaRowDeleteStmt := "DELETE FROM beta_row_config WHERE source_file_key = ?"
+	_, err = db.ExecContext(ctx, betaRowDeleteStmt, w.mainFileKey)
+	if err != nil {
+		return fmt.Errorf("failed to delete beta_row_config tables: %w", err)
+	}
+	maxBetaRowKey, err := getMaxKey(ctx, db, "beta_row_config")
+	if err != nil {
+		return fmt.Errorf("failed to query beta_row_config: %w", err)
+	}
+	betaRowInsertStmt := "INSERT INTO beta_row_config (key, vertex, seq, source_file_key, row_pos, is_binded, id)" +
+	"VALUES (?, ?, ?, ?, ?, ?, ?)"
+	// Prepare data for insertion
+	reteNodeData := make([][]any, 0)
+	betaRowData := make([][]any, 0)
+	for _, rn := range jetRuleModel.ReteNodes {
+		// Rete Node
+		maxReteNodeKey++
+		subjectKey, ok := w.rm.resourceKeyToDbKey[rn.SubjectKey]
+		if !ok {
+			return fmt.Errorf("failed to find subject resource key %d in rete_node @ vertex %d", rn.SubjectKey, rn.Vertex)
+		}
+		predicateKey, ok := w.rm.resourceKeyToDbKey[rn.PredicateKey]
+		if !ok {
+			return fmt.Errorf("failed to find predicate resource key %d in rete_node @ vertex %d", rn.PredicateKey, rn.Vertex)
+		}
+		objectKey := 0
+		if rn.ObjectKey != 0 {
+			objectKey, ok = w.rm.resourceKeyToDbKey[rn.ObjectKey]
+			if !ok {
+				return fmt.Errorf("failed to find object resource key %d in rete_node @ vertex %d", rn.ObjectKey, rn.Vertex)
+			}
+		}
+		isNot := 0
+		if rn.IsNot {
+			isNot = 1
+		}
+		reteNodeData = append(reteNodeData, []any{maxReteNodeKey, rn.Vertex, rn.Type, 
+			subjectKey, predicateKey, objectKey, rn.ObjectExpr.Value, rn.Filter.Value, 
+			rn.NormalizedLabel, rn.ParentVertex, w.mainFileKey, isNot, rn.Salience, rn.ConsequentSeq})
+
+			// Beta Row Config
+		for seq, br := range rn.BetaVarNodes {
+			maxBetaRowKey++
+			isBinded := 0
+			if br.IsBinded {
+				isBinded = 1
+			}
+			betaRowData = append(betaRowData, []any{maxBetaRowKey, rn.Vertex, seq, w.mainFileKey,
+				br.VarPos, isBinded, br.Id})
+		}
+	}
+	if len(reteNodeData) > 0 {
+		err = DoStatement(ctx, db, reteNodeInsertStmt, reteNodeData)
+		if err != nil {
+			return fmt.Errorf("failed to insert rete_node: %w", err)
+		}
+	}
+	if len(betaRowData) > 0 {
+		err = DoStatement(ctx, db, betaRowInsertStmt, betaRowData)
+		if err != nil {
+			return fmt.Errorf("failed to insert beta_row_config: %w", err)
+		}
+	}
+	return nil
+}
+
 // Save Expresions into workspace db based on filters and object expressions
 func (w *WorkspaceDB) SaveExpressions(ctx context.Context, db *sql.DB, jetRuleModel *rete.JetruleModel) error {
 	deleteStmt := "DELETE FROM expressions WHERE source_file_key = ?"
@@ -41,8 +125,16 @@ func (w *WorkspaceDB) SaveExpressions(ctx context.Context, db *sql.DB, jetRuleMo
 
 	data := make([][]any, 0)
 	for _, rn := range jetRuleModel.ReteNodes {
-		w.saveExpression(ctx, &data, rn.Filter)
-		w.saveExpression(ctx, &data, rn.ObjectExpr)
+		err = w.saveExpression(ctx, &data, rn.Filter)
+		if err != nil {
+			return err
+		}
+		rn.FilterKey = rn.Filter.Value
+		err = w.saveExpression(ctx, &data, rn.ObjectExpr)
+		if err != nil {
+			return err
+		}
+		rn.ObjectExprKey = rn.ObjectExpr.Value
 	}
 	if len(data) > 0 {
 		err = DoStatement(ctx, db, insertStmt, data)
@@ -57,29 +149,43 @@ func (w *WorkspaceDB) SaveExpressions(ctx context.Context, db *sql.DB, jetRuleMo
 // Add expression to expressions table recursivelly and return the key
 // Put resource entities as well: resource (constant) and var (binded)
 // expr is the resource key, so we can call persist directly.
-func (w *WorkspaceDB) saveExpression(ctx context.Context, data *[][]any, node *rete.ExpressionNode) {
+func (w *WorkspaceDB) saveExpression(ctx context.Context, data *[][]any, node *rete.ExpressionNode) error {
+	var ok bool
 	if node == nil {
-		return
+		return nil
 	}
 	switch node.Type {
 	case "identifier":
 		// Case resource (constant) and var (binded)
-		node.Value = node.R.Key
+		node.Value, ok = w.rm.resourceKeyToDbKey[node.Value]
+		if !ok {
+			return fmt.Errorf("failed to find resource key %d in expression", node.Value)
+		}
 		*data = append(*data, []any{node.Value, "resource", nil, nil, nil, nil, nil, nil, w.mainFileKey})
 	case "unary":
 		// Recursively save the argument
-		w.saveExpression(ctx, data, node.Arg)
+		err := w.saveExpression(ctx, data, node.Arg)
+		if err != nil {
+			return err
+		}
 		w.maxExprKey++
 		node.Value = w.maxExprKey
 		*data = append(*data, []any{node.Value, "unary", node.Arg.Value, nil, nil, nil, nil, nil, node.Op, w.mainFileKey})
 	case "binary":
 		// Recursively save lhs and rhs
-		w.saveExpression(ctx, data, node.Lhs)
-		w.saveExpression(ctx, data, node.Rhs)
+		err := w.saveExpression(ctx, data, node.Lhs)
+		if err != nil {
+			return err
+		}
+		err = w.saveExpression(ctx, data, node.Rhs)
+		if err != nil {
+			return err
+		}
 		w.maxExprKey++
 		node.Value = w.maxExprKey
 		*data = append(*data, []any{node.Value, "binary", node.Lhs.Value, node.Rhs.Value, nil, nil, nil, nil, node.Op, w.mainFileKey})
 	}
+	return nil
 }
 
 // Save Lookup Tables into workspace db

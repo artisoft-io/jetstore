@@ -79,26 +79,29 @@ func (w *WorkspaceDB) SaveJetRuleModel(ctx context.Context, jetRuleModel *rete.J
 		return fmt.Errorf("failed to save jetstore config: %w", err)
 	}
 
-	// # Add all rule sequences
+	// Add all rule sequences
 	err = w.SaveRuleSequences(ctx, w.DB, jetRuleModel)
 	if err != nil {
 		return fmt.Errorf("failed to save rule sequences: %w", err)
 	}
 
-	// # Add all lookup_table to rete_db, will skip source file already in rete_db
+	// Add all lookup_table to rete_db, will skip source file already in rete_db
 	err = w.SaveLookupTables(ctx, w.DB, jetRuleModel)
 	if err != nil {
 		return fmt.Errorf("failed to save lookup tables: %w", err)
 	}
 
-	// # Add expressions based on filters and object expr
-	// # -------------------------------------------------------------------------
-	// self._save_expressions()
+	// Add expressions based on filters and object expr
+	err = w.SaveExpressions(ctx, w.DB, jetRuleModel)
+	if err != nil {
+		return fmt.Errorf("failed to save expressions: %w", err)
+	}
 
-	// # Add rete_nodes to rete_nodes table
-	// # Add beta_row_config
-	// # -------------------------------------------------------------------------
-	// self._save_rete_nodes()
+	// Save Rete Nodes and beta_row_config into workspace db
+	err = w.SaveReteNodes(ctx, w.DB, jetRuleModel)
+	if err != nil {
+		return fmt.Errorf("failed to save rete nodes: %w", err)
+	}
 
 	// # save jet rules
 	// # -------------------------------------------------------------------------

@@ -151,6 +151,8 @@ type RuleTerm struct {
 	ObjectKey          int             `json:"object_key,omitzero"`
 	ObjectExpr         *ExpressionNode `json:"obj_expr,omitempty"`
 	Filter             *ExpressionNode `json:"filter,omitempty"`
+	ObjectExprKey      int             `json:"-"`
+	FilterKey          int             `json:"-"`
 }
 
 // ExpressionNode represents an expression in the model.
@@ -159,7 +161,6 @@ type RuleTerm struct {
 // Arg is the argument for unary expressions.
 // Lhs and Rhs are the left and right hand side for binary expressions.
 // Value is the resource key for identifier.
-// R is shorthand for the resource with Value as Key.
 type ExpressionNode struct {
 	Type  string          `json:"type,omitempty"`
 	Op    string          `json:"op,omitempty"`
@@ -167,7 +168,6 @@ type ExpressionNode struct {
 	Lhs   *ExpressionNode `json:"lhs,omitempty"`
 	Rhs   *ExpressionNode `json:"rhs,omitempty"`
 	Value int             `json:"value,omitempty"`
-	R     *ResourceNode   `json:"-"`
 }
 
 // BetaVarNode provides information about a variable in a beta relation
@@ -212,10 +212,10 @@ type TableNode struct {
 }
 
 type TableColumnNode struct {
-	Type         string `json:"type,omitempty"`
-	AsArray      bool   `json:"as_array,omitzero"`
+	Type    string `json:"type,omitempty"`
+	AsArray bool   `json:"as_array,omitzero"`
 	// PropertyName string `json:"property_name,omitempty"`
-	ColumnName   string `json:"column_name,omitempty"`
+	ColumnName string `json:"column_name,omitempty"`
 }
 
 type TripleNode struct {

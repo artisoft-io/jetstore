@@ -517,7 +517,6 @@ func (s *JetRuleListener) ExitObjectAtomExprTerm(ctx *parser.ObjectAtomExprTermC
 	varNode := rete.ExpressionNode{
 		Type:  "identifier",
 		Value: r.Key,
-		R:     r,
 	}
 	// Push the new identifier expression onto the stack
 	s.inProgressExpr.Push(&varNode)
