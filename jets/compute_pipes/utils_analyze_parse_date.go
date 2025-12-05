@@ -364,9 +364,16 @@ func NewParseDateMatchFunction(fspec *FunctionTokenNode, sp SchemaProvider) (*Pa
 	case len(parseDateConfig.DateFormats) > 0:
 		// Make date format in golang format in case they are in java format
 		// fmt.Printf("*** Date Formats: \"%s\"\n", strings.Join(parseDateConfig.DateFormats, "\", \""))
+		goDateFormats := make([]string, 0, 2*len(parseDateConfig.DateFormats))
 		for i := range parseDateConfig.DateFormats {
-			parseDateConfig.DateFormats[i] = date_utils.FromJavaDateFormat(parseDateConfig.DateFormats[i], true)
+			writeFormat := date_utils.FromJavaDateFormat(parseDateConfig.DateFormats[i], false)
+			goDateFormats = append(goDateFormats, writeFormat)
+			readFormat := date_utils.FromJavaDateFormat(parseDateConfig.DateFormats[i], true)
+			if readFormat != writeFormat {
+				goDateFormats = append(goDateFormats, readFormat)
+			}
 		}
+		parseDateConfig.DateFormats = goDateFormats
 		// fmt.Printf("*** GO Date Formats: \"%s\"\n", strings.Join(parseDateConfig.DateFormats, "\", \""))
 
 	default:

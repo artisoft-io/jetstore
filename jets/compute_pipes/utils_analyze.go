@@ -261,6 +261,9 @@ func (ctx *BuilderContext) NewAnalyzeState(columnName string, columnPos int, inp
 		switch conf.Type {
 		case "parse_date":
 			pdate, err = NewParseDateMatchFunction(conf, sp)
+			if err == nil && ctx.cpConfig.ClusterConfig.IsDebugMode {
+				fmt.Printf("*** Created ParseDateMatchFunction with formats: %v\n", pdate.parseDateConfig.DateFormats)
+			}
 
 		case "parse_double":
 			pdouble, err = NewParseDoubleMatchFunction(conf)
