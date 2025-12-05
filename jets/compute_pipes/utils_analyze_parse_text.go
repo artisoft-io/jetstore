@@ -5,7 +5,8 @@ import "strconv"
 // Parse Text Match Function
 
 type ParseTextMatchFunction struct {
-	minMax         *minMaxLength
+	minMax *minMaxLength
+	nbrSamplesSeen int
 }
 
 type minMaxLength struct {
@@ -22,6 +23,7 @@ func (p *ParseTextMatchFunction) NewValue(value string) {
 	if p.minMax.maxValue == nil || length > *p.minMax.maxValue {
 		p.minMax.maxValue = &length
 	}
+	p.nbrSamplesSeen++
 }
 
 func (p *ParseTextMatchFunction) GetMinMaxValues() *MinMaxValue {
@@ -35,7 +37,8 @@ func (p *ParseTextMatchFunction) GetMinMaxValues() *MinMaxValue {
 		MinValue:   strconv.FormatInt(int64(*p.minMax.minValue), 10),
 		MaxValue:   strconv.FormatInt(int64(*p.minMax.maxValue), 10),
 		MinMaxType: "text",
-		HitCount:   1,
+		HitRatio:   1,
+		NbrSamples: p.nbrSamplesSeen,
 	}
 }
 

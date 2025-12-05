@@ -160,8 +160,8 @@ func TestParseDateMatchFunction1(t *testing.T) {
 		t.Errorf("expecting 2025-01-01, got %s", result.MaxValue)
 	}
 	c := float64(5) / float64(8) // Got 5 match out of 8 accepted samples
-	if result.HitCount != c {
-		t.Errorf("expecting %v, got %v", c, result.HitCount)
+	if result.HitRatio != c {
+		t.Errorf("expecting %v, got %v", c, result.HitRatio)
 	}
 	// t.Error("done")
 }
@@ -226,8 +226,8 @@ func TestParseDateMatchFunction2(t *testing.T) {
 		t.Errorf("expecting 2021-10-07, got %s", result.MaxValue)
 	}
 	c := float64(9) / float64(10) // Got 9 match out of 10 accepted samples
-	if result.HitCount != c {
-		t.Errorf("expecting %v, got %v", c, result.HitCount)
+	if result.HitRatio != c {
+		t.Errorf("expecting %v, got %v", c, result.HitRatio)
 	}
 
 	row := make([]any, 100)
@@ -329,8 +329,8 @@ func TestParseDateMatchFunction3(t *testing.T) {
 		t.Errorf("expecting date, got %s", result.MinMaxType)
 	}
 	c := float64(1) / float64(5) // Got 1 match out of 5 accepted samples
-	if result.HitCount != c {
-		t.Errorf("expecting %v, got %v", c, result.HitCount)
+	if result.HitRatio != c {
+		t.Errorf("expecting %v, got %v", c, result.HitRatio)
 	}
 
 	row := make([]any, 100)

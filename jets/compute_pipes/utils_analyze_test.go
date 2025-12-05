@@ -33,8 +33,8 @@ func TestParseDoubleMatchFunction1(t *testing.T) {
 	if result.MaxValue != "2030" {
 		t.Errorf("expecting 2030, got %s", result.MaxValue)
 	}
-	if result.HitCount != float64(4)/float64(6) {
-		t.Errorf("expecting 4, got %v", result.HitCount)
+	if result.HitRatio != float64(4)/float64(6) {
+		t.Errorf("expecting 4, got %v", result.HitRatio)
 	}
 }
 
@@ -65,8 +65,8 @@ func TestParseTextMatchFunction1(t *testing.T) {
 	if result.MaxValue != "10" {
 		t.Errorf("expecting 10, got %s", result.MaxValue)
 	}
-	if result.HitCount != 1 {
-		t.Errorf("expecting 6, got %v", result.HitCount)
+	if result.HitRatio != 1 {
+		t.Errorf("expecting 6, got %v", result.HitRatio)
 	}
 }
 
@@ -109,9 +109,9 @@ func TestLookupTokensState1(t *testing.T) {
 		Tokens: []string{"first_name", "last_name"},
 		MultiTokensMatch: []MultiTokensNode{
 			{
-				Name: "full_name",
+				Name:      "full_name",
 				NbrTokens: 2,
-				Tokens: []string{"first_name", "last_name"},
+				Tokens:    []string{"first_name", "last_name"},
 			},
 		},
 	})

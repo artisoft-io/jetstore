@@ -18,7 +18,7 @@ INSERT INTO jetsapi.mapping_function_registry (function_name, is_argument_requir
   ('format_phone',           '0'),
   ('ndc10_to_11',            '0'),
   ('overpunch_number',       '1'),
-  ('parse_amount',           '1'),
+  ('parse_amount',           '0'),
   ('reformat0',              '1'),
   ('scale_units',            '1'),
   ('slice_input',            '1'),

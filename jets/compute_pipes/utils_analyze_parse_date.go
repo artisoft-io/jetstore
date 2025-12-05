@@ -154,10 +154,10 @@ func (p *ParseDateMatchFunction) NewValue(value string) {
 		}
 	}
 
-	if len(p.parseDateConfig.OtherDateFormats) > 0 {
+	if tm.IsZero() && len(p.parseDateConfig.OtherDateFormats) > 0 {
 		// Check Other Date Format
 		otm, dateFmt = ParseDateDateFormat(p.parseDateConfig.OtherDateFormats, value)
-		if !otm.IsZero() {
+		if !otm.IsZero() && otm.Year() >= 1920 && otm.Year() <= 2100 {
 			p.otherFormatMatch[dateFmt] += 1
 			p.seenCache[value] = &pdCache{otm: otm, fmt: dateFmt}
 			// fmt.Printf("*** Got otm Match w/ fmt: %s for value %s\n", dateFmt, value)
@@ -192,7 +192,7 @@ func (p *ParseDateMatchFunction) GetMinMaxValues() *MinMaxValue {
 	if p == nil || p.minMax == nil {
 		return nil
 	}
-	// fmt.Printf("*** GetMinMaxValues HitCount: %v/%v = %v\n", p.minMax.count, p.nbrSamplesSeen, float64(p.minMax.count)/float64(p.nbrSamplesSeen))
+	// fmt.Printf("*** GetMinMaxValues HitRatio: %v/%v = %v\n", p.minMax.count, p.nbrSamplesSeen, float64(p.minMax.count)/float64(p.nbrSamplesSeen))
 	if p.minMax.minValue.IsZero() || p.minMax.maxValue.IsZero() {
 		return nil
 	}
@@ -201,7 +201,8 @@ func (p *ParseDateMatchFunction) GetMinMaxValues() *MinMaxValue {
 		MinValue:   p.minMax.minValue.Format(p.minMaxDateFormat),
 		MaxValue:   p.minMax.maxValue.Format(p.minMaxDateFormat),
 		MinMaxType: "date",
-		HitCount:   float64(p.minMax.count) / float64(p.nbrSamplesSeen),
+		HitRatio:   float64(p.minMax.count) / float64(p.nbrSamplesSeen),
+		NbrSamples: p.nbrSamplesSeen,
 	}
 }
 
@@ -243,6 +244,10 @@ func (p *ParseDateMatchFunction) Done(ctx *AnalyzeTransformationPipe, outputRow 
 	if p.parseDateConfig.TopPCTFormatMatch == 0 {
 		p.parseDateConfig.TopPCTFormatMatch = 51
 	}
+	if p.parseDateConfig.OtherFormatPCTMatch == 0 {
+		p.parseDateConfig.OtherFormatPCTMatch = 98
+	}
+
 	var matches []matchCount
 	var sumCount int
 	for token, count := range p.formatMatch {
@@ -321,7 +326,7 @@ func (p *ParseDateMatchFunction) Done(ctx *AnalyzeTransformationPipe, outputRow 
 		if ml > 0 {
 			// Take matches
 			var formats []string
-			ct := int(float64(p.parseDateConfig.TopPCTFormatMatch) * float64(p.nbrSamplesSeen) / 100)
+			ct := int(float64(p.parseDateConfig.OtherFormatPCTMatch) * float64(p.nbrSamplesSeen) / 100)
 			for i := range matches {
 				if matches[i].count >= ct {
 					formats = append(formats, matches[i].token)

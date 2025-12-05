@@ -304,31 +304,28 @@ func (ctx *AnalyzeTransformationPipe) Done() error {
 		}
 
 		// Pick the winning minmax results
-		nonNilCount := float64(state.TotalRowCount-state.NullCount) / float64(state.TotalRowCount)
-		if nonNilCount > 0 {
-			switch {
-			case dateMinMax != nil && 2*dateMinMax.HitCount > nonNilCount:
-				winningValue = dateMinMax
-			case doubleMinMax != nil && 4*doubleMinMax.HitCount > 3*nonNilCount:
-				winningValue = doubleMinMax
-			default:
-				winningValue = textMinMax
-			}
+		switch {
+		case dateMinMax != nil && dateMinMax.NbrSamples > 0 && dateMinMax.HitRatio > 0.98:
+			winningValue = dateMinMax
+		case doubleMinMax != nil && doubleMinMax.NbrSamples > 0 && doubleMinMax.HitRatio > 0.98:
+			winningValue = doubleMinMax
+		default:
+			winningValue = textMinMax
+		}
 
-			// Assign to output columns
-			if winningValue != nil {
-				ipos, ok = (*ctx.outputCh.columns)["min_value"]
-				if ok {
-					outputRow[ipos] = winningValue.MinValue
-				}
-				ipos, ok = (*ctx.outputCh.columns)["max_value"]
-				if ok {
-					outputRow[ipos] = winningValue.MaxValue
-				}
-				ipos, ok = (*ctx.outputCh.columns)["minmax_type"]
-				if ok {
-					outputRow[ipos] = winningValue.MinMaxType
-				}
+		// Assign to output columns
+		if winningValue != nil {
+			ipos, ok = (*ctx.outputCh.columns)["min_value"]
+			if ok {
+				outputRow[ipos] = winningValue.MinValue
+			}
+			ipos, ok = (*ctx.outputCh.columns)["max_value"]
+			if ok {
+				outputRow[ipos] = winningValue.MaxValue
+			}
+			ipos, ok = (*ctx.outputCh.columns)["minmax_type"]
+			if ok {
+				outputRow[ipos] = winningValue.MinMaxType
 			}
 		}
 

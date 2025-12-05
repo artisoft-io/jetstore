@@ -671,16 +671,28 @@ type FunctionTokenNode struct {
 	LargeDouble     *float64       `json:"large_double,omitzero"`
 }
 
-// UseJetstoreParser: when true it will use only the jetstore date parser
+// DateFormatToken: output column name for listing up to 3 formats used in file.
+// OtherDateFormatToken: output column name to put the count of other format used in file.
+// DateSamplingMaxCount: nbr of samples to use for determining the date format.
+// TopPCTFormatMatch: cumulative percentage of top formats match, to determine the format to retain,
+// default to 51% (ie, more than half of the values).
+// OtherFormatPCTMatch: threshold percentage of other formats match to retain as other date format,
+// default to 91% (ie, specific other format must match at least 91% of values).
+// DateFormats: list of date formats to use for parsing the date.
+// OtherDateFormats: list of other date formats to use for parsing the date
+// when DateFormatToken does not match (which are undesirable formats).
+// MinMaxDateFormat: format used in output report for min/max dates.
+// ParseDateArguments: list of parse date function token spec.
+// UseJetstoreParser: when true it will use only the jetstore date parser.
 type ParseDateSpec struct {
 	DateFormatToken      string            `json:"date_format_token,omitempty"`
 	OtherDateFormatToken string            `json:"other_date_format_token,omitempty"`
 	DateSamplingMaxCount int               `json:"sampling_max_count,omitzero"`
 	TopPCTFormatMatch    int               `json:"top_pct_match,omitzero"`
+	OtherFormatPCTMatch  int               `json:"other_format_pct_match,omitzero"`
 	DateFormats          []string          `json:"date_formats,omitempty"`
 	OtherDateFormats     []string          `json:"other_date_formats,omitempty"`
 	MinMaxDateFormat     string            `json:"minmax_date_format,omitempty"`
-	UsingJavaFormat      bool              `json:"using_java_date_format,omitempty"`
 	ParseDateArguments   []ParseDateFTSpec `json:"parse_date_args,omitempty"`
 	UseJetstoreParser    bool              `json:"use_jetstore_date_parser,omitzero"`
 }

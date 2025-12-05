@@ -59,7 +59,8 @@ type MinMaxValue struct {
 	MinValue   string
 	MaxValue   string
 	MinMaxType string
-	HitCount   float64
+	HitRatio   float64
+	NbrSamples int
 }
 
 // Analyze data TransformationSpec implementing PipeTransformationEvaluator interface
