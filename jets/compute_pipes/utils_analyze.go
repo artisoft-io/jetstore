@@ -59,7 +59,8 @@ type MinMaxValue struct {
 	MinValue   string
 	MaxValue   string
 	MinMaxType string
-	HitCount   float64
+	HitRatio   float64
+	NbrSamples int
 }
 
 // Analyze data TransformationSpec implementing PipeTransformationEvaluator interface
@@ -260,6 +261,9 @@ func (ctx *BuilderContext) NewAnalyzeState(columnName string, columnPos int, inp
 		switch conf.Type {
 		case "parse_date":
 			pdate, err = NewParseDateMatchFunction(conf, sp)
+			if err == nil && ctx.cpConfig.ClusterConfig.IsDebugMode {
+				fmt.Printf("*** Created ParseDateMatchFunction with formats: %v\n", pdate.parseDateConfig.DateFormats)
+			}
 
 		case "parse_double":
 			pdouble, err = NewParseDoubleMatchFunction(conf)

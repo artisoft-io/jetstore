@@ -50,7 +50,8 @@ func (p *ParseDoubleMatchFunction) GetMinMaxValues() *MinMaxValue {
 		MinValue:   strconv.FormatFloat(*p.minMax.minValue, 'f', -1, 64),
 		MaxValue:   strconv.FormatFloat(*p.minMax.maxValue, 'f', -1, 64),
 		MinMaxType: "double",
-		HitCount:   float64(p.minMax.count) / float64(p.nbrSamplesSeen),
+		HitRatio:   float64(p.minMax.count) / float64(p.nbrSamplesSeen),
+		NbrSamples: p.nbrSamplesSeen,
 	}
 }
 
