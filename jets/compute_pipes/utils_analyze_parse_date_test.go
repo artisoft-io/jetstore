@@ -1,8 +1,6 @@
 package compute_pipes
 
 import (
-	"bytes"
-	"encoding/csv"
 	"fmt"
 	"testing"
 	"time"
@@ -27,7 +25,7 @@ func ParseDateDateFormat4Test(dateFormats []string, value string) (tm time.Time,
 	for i := range dateFormats {
 		tm, err = date_utils.ParseDateTime(dateFormats[i], value)
 		if err == nil {
-			fmt.Printf("Match on date %s with Format %s\n", value, dateFormats[i])
+			fmt.Printf("Match on date %s with Format %s, got %v\n", value, dateFormats[i], tm)
 			return
 		}
 	}
@@ -53,6 +51,36 @@ func TestParseDateDateFormatBase1(t *testing.T) {
 		}
 	}
 	// t.Error("done")
+}
+
+func TestParseDateLooksLikeID(t *testing.T) {
+	var err error
+	// Setup code (if any) before the loop
+	// Translate the date format to go format
+	dateFormats := make([]string, len(allDateFormats))
+	for i := range allDateFormats {
+		dateFormats[i] = date_utils.FromJavaDateFormat(allDateFormats[i], true)
+		// fmt.Println("Format:", dateFormats[i])
+	}
+	sampleDates := []string{
+		"100416",
+		"102408",
+		"100899",
+		"104433",
+		"104562",
+		"105852",
+	}
+	// Code to be benchmarked
+	var noMatchFound int
+	for _, value := range sampleDates {
+		_, err = ParseDateDateFormat4Test(dateFormats, value)
+		if err != nil {
+			noMatchFound++
+		}
+	}
+	if noMatchFound != 3 {
+		t.Errorf("expecting 3 no match found, got %d", noMatchFound)
+	}
 }
 
 func TestParseDateDateFormat(b *testing.T) {
@@ -106,6 +134,98 @@ func BenchmarkParseDateDateFormat(b *testing.B) {
 			}
 		}
 	}
+}
+
+func TestParseDateMatchFunction0(t *testing.T) {
+	fspec := &FunctionTokenNode{
+		Type: "parse_date",
+		ParseDateConfig: &ParseDateSpec{
+			MinMaxDateFormat:     "2006-01-02",
+			DateFormatToken:      "date_format",
+			OtherDateFormatToken: "other_date_format",
+			DateFormats:          allDateFormats,
+			OtherDateFormats: []string{
+				"yyyyMM",
+				"MMyyyy",
+				"yyyy-MM",
+				"yyyyMMM",
+				"MMMM yyyy",
+				"yyD",
+			},
+			ParseDateArguments: []ParseDateFTSpec{
+				{
+					Token:           "dobRe",
+					YearGreaterThan: 1920,
+					YearLessThan:    2010,
+				},
+				{
+					Token:           "dateRe",
+					YearGreaterThan: 1920,
+					YearLessThan:    2030,
+				},
+			},
+		},
+	}
+	fcount, err := NewParseDateMatchFunction(fspec, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	sampleDates := []string{
+		"100416",
+		"102408",
+		"100899",
+		"104433",
+		"104562",
+		"105852",
+	}
+	for _, value := range sampleDates {
+		fcount.NewValue(value)
+	}
+
+	result := fcount.GetMinMaxValues()
+	if result == nil {
+		t.Fatal("GetMinMaxValues returned nil")
+	}
+	if result.MinMaxType != "date" {
+		t.Errorf("expecting date, got %s", result.MinMaxType)
+	}
+	if result.MinValue != "1999-10-08" {
+		t.Errorf("expecting 1999-10-08, got %s", result.MinValue)
+	}
+	if result.MaxValue != "2010-04-16" {
+		t.Errorf("expecting 2010-04-16, got %s", result.MaxValue)
+	}
+	c := float64(3) / float64(len(sampleDates)) // Got 3 match out of 6 samples
+	if result.HitRatio != c {
+		t.Errorf("expecting %v, got %v", c, result.HitRatio)
+	}
+	row := make([]any, 100)
+	err = fcount.Done(&AnalyzeTransformationPipe{
+		outputCh: &OutputChannel{
+			columns: &map[string]int{
+				"min_date":          0,
+				"max_date":          1,
+				"dobRe":             2,
+				"dateRe":            3,
+				"date_format":       4,
+				"other_date_format": 5,
+			},
+		},
+	}, row)
+	if err != nil {
+		t.Fatal(err)
+	}
+	fmt.Println("Got min_date:", row[0])
+	fmt.Println("Got max_date:", row[1])
+	fmt.Println("Got dobRe:", row[2])
+	fmt.Println("Got dateRe:", row[3])
+	fmt.Println("Got date_format:", row[4])
+	fmt.Println("Got other_date_format:", row[5])
+	// Add validation
+	if int(row[3].(float64)) != 50 {
+		t.Errorf("expecting %v, got %v", 50, row[3])
+	}
+	// t.Error("done")
 }
 
 func TestParseDateMatchFunction1(t *testing.T) {
@@ -256,19 +376,12 @@ func TestParseDateMatchFunction2(t *testing.T) {
 		t.Errorf("expecting %v, got %v", 40, int(row[2].(float64)))
 	}
 	if int(row[3].(float64)) != 90 {
-		t.Errorf("expecting %v, got %v", 90, int(row[2].(float64)))
+		t.Errorf("expecting %v, got %v", 90, int(row[3].(float64)))
 	}
 	// Read back the top format
-	r := csv.NewReader(bytes.NewReader([]byte(row[4].(string))))
-	dateFormat, err := r.Read()
-	if err != nil {
-		t.Fatal(err)
+	if len(row[4].(string)) > 0 {
+		t.Errorf("expecting no date format selected, got %v", row[4])
 	}
-	if len(dateFormat) != 3 {
-		t.Errorf("expecting %v, got %v", 3, len(dateFormat))
-	}
-	fmt.Println("Got date_format 1:", dateFormat[0])
-	fmt.Println("Got date_format 2:", dateFormat[1])
 	// t.Error("done")
 }
 
@@ -851,8 +964,8 @@ func TestParseDateMatchFunction12(t *testing.T) {
 	if row[5] == nil {
 		t.Fatal("expecting non nil other format")
 	}
-	if row[5] != 1 {
-		t.Errorf("expecting 1 other format, got %v", row[5])
+	if row[5] != 0 {
+		t.Errorf("expecting 0 other format, got %v", row[5])
 	}
 
 	// t.Error("done")
@@ -910,8 +1023,8 @@ func TestParseDateMatchFunction13(t *testing.T) {
 		fcount.NewValue(dateValues[i])
 	}
 	result := fcount.GetMinMaxValues()
-	if result != nil {
-		t.Errorf("GetMinMaxValues expecting nil")
+	if result == nil {
+		t.Errorf("GetMinMaxValues not expecting nil")
 	}
 	row := make([]any, 100)
 	err = fcount.Done(&AnalyzeTransformationPipe{
@@ -942,15 +1055,19 @@ func TestParseDateMatchFunction13(t *testing.T) {
 		t.Error("not expecting nil")
 	}
 	// Check the top format
-	if row[4] != nil {
-		t.Error("expecting nil for top formats")
+	if row[4] == nil {
+		t.Error("not expecting nil for top formats")
 	}
+	if row[4] != "2006-1-2T15:04:05.999Z" {
+		t.Errorf("expecting 2006-1-2T15:04:05.999Z date_formats, got %v", row[4])
+	}
+
 	// Check the other format
 	if row[5] == nil {
 		t.Fatal("expecting non nil other format")
 	}
-	if row[5] != 1 {
-		t.Errorf("expecting 1 other format, got %v", row[5])
+	if row[5] != 0 {
+		t.Errorf("expecting 0 other format, got %v", row[5])
 	}
 
 	// t.Error("done")
