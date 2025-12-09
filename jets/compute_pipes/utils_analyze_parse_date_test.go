@@ -372,11 +372,11 @@ func TestParseDateMatchFunction2(t *testing.T) {
 	fmt.Println("Got dateRe:", row[3])
 	fmt.Println("Got date_format:", row[4])
 	fmt.Println("Got other_date_format:", row[5])
-	if int(row[2].(float64)) != 40 {
-		t.Errorf("expecting %v, got %v", 40, int(row[2].(float64)))
+	if int(row[2].(float64)) != 0 {
+		t.Errorf("expecting %v, got %v", 0, int(row[2].(float64)))
 	}
-	if int(row[3].(float64)) != 90 {
-		t.Errorf("expecting %v, got %v", 90, int(row[3].(float64)))
+	if int(row[3].(float64)) != 0 {
+		t.Errorf("expecting %v, got %v", 0, int(row[3].(float64)))
 	}
 	// Read back the top format
 	if len(row[4].(string)) > 0 {

@@ -299,6 +299,13 @@ func (p *ParseDateMatchFunction) Done(ctx *AnalyzeTransformationPipe, outputRow 
 				outputRow[ipos] = txt
 			default:
 				outputRow[ipos] = ""
+				// Set the token (e.g. dobRe, dateRe, etc to 0)
+				for token := range p.tokenMatches {
+					ipos, ok := (*ctx.outputCh.columns)[token]
+					if ok {
+						outputRow[ipos] = 0.0
+					}
+				}
 				// fmt.Printf("*** Top Formats:\n")
 			}
 		}
