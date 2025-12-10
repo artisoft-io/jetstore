@@ -242,6 +242,7 @@ type ComputePipesContext struct {
 	AddionalInputHeaders  []string
 	EnvSettings           map[string]interface{}
 	SamplingCount         int
+	JetStoreTempFolder		string
 	InputFileKeys         []*FileKeyInfo
 	ChResults             *ChannelResults
 	KillSwitch            chan struct{}

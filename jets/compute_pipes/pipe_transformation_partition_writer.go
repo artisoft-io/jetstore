@@ -472,7 +472,7 @@ func (ctx *BuilderContext) NewPartitionWriterTransformationPipe(source *InputCha
 	}
 
 	// Create a local temp dir to save the file partition for writing to s3
-	localTempDir, err2 := os.MkdirTemp("", "jets_partition")
+	localTempDir, err2 := os.MkdirTemp(ctx.s3DeviceManager.JetStoreTempFolder, "jets_partition")
 	if err2 != nil {
 		err = fmt.Errorf("while creating temp dir (in NewPartitionWriterTransformationPipe) %v", err2)
 		log.Println(err)
@@ -482,7 +482,6 @@ func (ctx *BuilderContext) NewPartitionWriterTransformationPipe(source *InputCha
 	// Register as a client to S3DeviceManager
 	if ctx.s3DeviceManager.ClientsWg != nil {
 		ctx.s3DeviceManager.ClientsWg.Add(1)
-		ctx.s3DeviceManager.ParticipatingTempFolders = append(ctx.s3DeviceManager.ParticipatingTempFolders, localTempDir)
 	} else {
 		log.Panicln("ERROR Expecting ClientsWg not nil")
 	}

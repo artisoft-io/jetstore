@@ -33,18 +33,15 @@ func (ctx *BadRowsChannel) Write(nodeId int) {
 	var nrows int64
 
 	// Create a local temp dir to save the file partition for writing to s3
-	localTempDir, err2 := os.MkdirTemp("", "bad_rows")
+	localTempDir, err2 := os.MkdirTemp(ctx.s3DeviceManager.JetStoreTempFolder, "bad_rows")
 	if err2 != nil {
 		cpErr = fmt.Errorf("while creating temp dir (in BadRowsChannel.Write) %v", err2)
 		goto gotError
 	}
-	// Do not delete this folder since file is schedule to be sent to s3
-	// defer os.RemoveAll(localTempDir)
 
 	// Register as a client to S3DeviceManager
 	if ctx.s3DeviceManager.ClientsWg != nil {
 		ctx.s3DeviceManager.ClientsWg.Add(1)
-		ctx.s3DeviceManager.ParticipatingTempFolders = append(ctx.s3DeviceManager.ParticipatingTempFolders, localTempDir)
 	} else {
 		log.Panicln("ERROR Expecting ClientsWg not nil")
 	}

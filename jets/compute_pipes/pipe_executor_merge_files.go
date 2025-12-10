@@ -68,6 +68,7 @@ func (cpCtx *ComputePipesContext) StartMergeFiles(dbpool *pgxpool.Pool) (cpErr e
 		outputFileConfig.SetOutputLocation("jetstore_s3_output")
 	}
 	var fileFolder, fileName, outputS3FileKey string
+	nbrFiles := len(cpCtx.InputFileKeys)
 	switch outputFileConfig.OutputLocation() {
 	case "jetstore_s3_input", "jetstore_s3_output":
 		if len(outputFileConfig.Name()) > 0 {
@@ -112,9 +113,18 @@ func (cpCtx *ComputePipesContext) StartMergeFiles(dbpool *pgxpool.Pool) (cpErr e
 	}
 
 	// Determine if we put a header row
+	format := "csv"
 	outputSp := cpCtx.SchemaManager.GetSchemaProvider(outputFileConfig.SchemaProvider)
+	switch {
+	case outputSp != nil && outputSp.Format() != "":
+		format = outputSp.Format()
+	case outputFileConfig.Format != "":
+		format = outputFileConfig.Format
+	case inputChannel.Format != "":
+		format = inputChannel.Format
+	}
 	writeHeaders := true
-	if outputSp != nil && outputSp.Format() != "csv" {
+	if format != "csv" || (inputChannel.Format == "csv" && nbrFiles == 1) {
 		writeHeaders = false
 	}
 	if pipeSpec.MergeFileConfig != nil && pipeSpec.MergeFileConfig.FirstPartitionHasHeaders {
@@ -166,7 +176,6 @@ func (cpCtx *ComputePipesContext) StartMergeFiles(dbpool *pgxpool.Pool) (cpErr e
 	var fileReader io.Reader
 	var err, mergeErr error
 	var nrowsInRec int64
-	nbrFiles := len(cpCtx.InputFileKeys)
 	// Check if contains multiple files to copy and make sure they are all above the min part size
 	containsSmallPart := false
 	if nbrFiles > 1 {
@@ -181,7 +190,7 @@ func (cpCtx *ComputePipesContext) StartMergeFiles(dbpool *pgxpool.Pool) (cpErr e
 	//*TODO Add support for xlsx
 	// NOTE: Files are not downloaded locally when merging using s3 copy,
 	// DOWNLOAD FILES IF: (inputFormat == "parquet" && nbrFiles > 1) ||
-	//                    (compression=="snappy") || containsSmallPart || writeHeaders==true for csv
+	//                    (compression=="snappy") || containsSmallPart || writeHeaders
 	// See ComputePipesContext.startDownloadFiles() where this condition is verified.
 	// This is called in ComputePipesContext.DownloadS3Files()
 	switch {
