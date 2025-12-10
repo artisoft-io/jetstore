@@ -222,16 +222,23 @@ func (args *ComputePipesNodeArgs) CoordinateComputePipes(ctx context.Context, db
 		}
 	}
 
-	// Create a local temp directory to hold the file(s)
-	inFolderPath, err = os.MkdirTemp("", "jetstore")
+	// Create the main temp folder for this compute pipes node
+	cpContext.JetStoreTempFolder, err = os.MkdirTemp("", "jetstore")
 	if err != nil {
-		cpErr = fmt.Errorf("failed to create local temp directory: %v", err)
+		cpErr = fmt.Errorf("failed to create JetStore temp directory: %v", err)
+		goto gotError
+	}
+
+	// Create a local temp directory to hold the file(s)
+	inFolderPath, err = os.MkdirTemp(cpContext.JetStoreTempFolder, "input_files")
+	if err != nil {
+		cpErr = fmt.Errorf("failed to create local input_files directory: %v", err)
 		goto gotError
 	}
 	defer func ()  {
-		err := os.RemoveAll(inFolderPath)
+		err := os.RemoveAll(cpContext.JetStoreTempFolder)
 		if err != nil {
-			log.Printf("%s - WARNING while calling RemoveAll in main temp folder:%v", cpContext.SessionId, err)
+			log.Printf("%s - WARNING while calling RemoveAll in JetStore temp folder:%v", cpContext.SessionId, err)
 		}
 	}()
 
