@@ -20,7 +20,9 @@ func BuildEvalOperator(op string) (evalOperator, error) {
 	case "!=":
 		return &opNotEqual{}, nil
 	case "IS":
-		return &opIS{}, nil
+		return &opIS{isNot: 0}, nil
+	case "IS NOT":
+		return &opIS{isNot: 1}, nil
 	case "<":
 		return &opLT{}, nil
 	case "<=":
@@ -323,22 +325,24 @@ func (op *opNot) Eval(lhs any, _ any) (any, error) {
 	return nil, fmt.Errorf("opNot incompatible types, rejected")
 }
 
-type opIS struct{}
+type opIS struct{
+	isNot int
+}
 
 func (op *opIS) Eval(lhs any, rhs any) (any, error) {
 	if lhs == nil && rhs == nil {
-		return 1, nil
+		return 	1 - op.isNot, nil
 	}
 	switch lhsv := lhs.(type) {
 	case float64:
 		switch rhsv := rhs.(type) {
 		case float64:
 			if math.IsNaN(lhsv) && math.IsNaN(rhsv) {
-				return 1, nil
+				return 1 - op.isNot, nil
 			}
 		}
 	}
-	return 0, nil
+	return op.isNot, nil
 }
 
 // This cmpInt64 is not guaranteed to be stable.

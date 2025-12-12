@@ -514,17 +514,46 @@ type MapRecordSpec struct {
 	FileMappingTableName string `json:"file_mapping_table_name"`
 }
 
+// AnalyzeSpec configuration
 // SchemaProvider is used for external configuration, such as date format
+// ScrubChars is the list of characters to scrub from the input values.
+// DistinctValuesWhenLessThanCount is the threshold to list distinct values.
+// PadShortRowsWithNulls indicates to pad short rows with nulls to match row length.
+// ColumnNameToken is used to classify columns based on their name.
+// EntityHints provide hints for entity recognition.
+// RegexTokens specify regex patterns to identify classification tokens.
+// LookupTokens specify lookup tables to identify classification tokens.
+// KeywordTokens specify keywords to identify classification tokens.
+// FunctionTokens specify functions to identify classification tokens.
 type AnalyzeSpec struct {
-	SchemaProvider                  string              `json:"schema_provider,omitempty"`
-	ScrubChars                      string              `json:"scrub_chars,omitempty"`
-	DistinctValuesWhenLessThanCount int                 `json:"distinct_values_when_less_than_count,omitzero"`
-	PadShortRowsWithNulls           bool                `json:"pad_short_rows_with_nulls,omitzero"`
-	EntityHints                     []*EntityHint       `json:"entity_hints,omitempty"`
-	RegexTokens                     []RegexNode         `json:"regex_tokens,omitempty"`
-	LookupTokens                    []LookupTokenNode   `json:"lookup_tokens,omitempty"`
-	KeywordTokens                   []KeywordTokenNode  `json:"keyword_tokens,omitempty"`
-	FunctionTokens                  []FunctionTokenNode `json:"function_tokens,omitempty"`
+	SchemaProvider                  string               `json:"schema_provider,omitempty"`
+	ScrubChars                      string               `json:"scrub_chars,omitempty"`
+	DistinctValuesWhenLessThanCount int                  `json:"distinct_values_when_less_than_count,omitzero"`
+	PadShortRowsWithNulls           bool                 `json:"pad_short_rows_with_nulls,omitzero"`
+	ColumnNameToken                 *ColumnNameTokenNode `json:"column_name_token,omitempty"`
+	EntityHints                     []*EntityHint        `json:"entity_hints,omitempty"`
+	RegexTokens                     []RegexNode          `json:"regex_tokens,omitempty"`
+	LookupTokens                    []LookupTokenNode    `json:"lookup_tokens,omitempty"`
+	KeywordTokens                   []KeywordTokenNode   `json:"keyword_tokens,omitempty"`
+	FunctionTokens                  []FunctionTokenNode  `json:"function_tokens,omitempty"`
+}
+
+// ColumnNameTokenNode specifies the classification by column name match
+// Name: correspond to the name of the output column where the classification
+// token is stored
+// Lookup: list of ColumnNameLookupNode to match the column names to the
+// classification token.
+type ColumnNameTokenNode struct {
+	Name   string                  `json:"name"`
+	Lookup []*ColumnNameLookupNode `json:"lookup,omitempty"`
+}
+
+// ColumnNameLookupNode specifies the column name to classification token
+// Name: classification token name
+// ColumnNames: list of column names that map to the classification token
+type ColumnNameLookupNode struct {
+	Name        string   `json:"name"`
+	ColumnNames []string `json:"column_names,omitempty"`
 }
 
 // Defines the identification and handling of bad rows
@@ -680,7 +709,7 @@ type FunctionTokenNode struct {
 // MinMaxDateFormat: format used in output report for min/max dates.
 // ParseDateArguments: list of parse date function token spec.
 // UseJetstoreParser: when true it will use only the jetstore date parser.
-// Identify top date format matches, up to 3. The first match must account 
+// Identify top date format matches, up to 3. The first match must account
 // for 75% of total date matches.
 // Identify other date matches, each must match 98% of total date matches.
 type ParseDateSpec struct {

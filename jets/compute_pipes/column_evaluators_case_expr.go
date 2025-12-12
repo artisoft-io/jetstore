@@ -32,13 +32,13 @@ func (ctx *caseExprEvaluator) Update(currentValue *[]any, input *[]any) error {
 	for i := range ctx.caseExpr {
 		when, err := ctx.caseExpr[i].whenCase.Eval(*input)
 		if err != nil {
-			return fmt.Errorf("while evaluating case_expr when clause: %v", err)
+			return fmt.Errorf("while evaluating case_expr when clause #%d: %v", i, err)
 		}
 		if ToBool(when) {
 			for _, node := range ctx.caseExpr[i].thenCases {
 				value, err := node.evalExpr.Eval(*input)
 				if err != nil {
-					return fmt.Errorf("while evaluating case_expr then clause: %v", err)
+					return fmt.Errorf("while evaluating case_expr then clause #%d: %v", i, err)
 				}
 				(*currentValue)[node.outputPos] = value
 			}
@@ -49,7 +49,7 @@ func (ctx *caseExprEvaluator) Update(currentValue *[]any, input *[]any) error {
 	for _, node := range ctx.elseExpr {
 		value, err := node.evalExpr.Eval(*input)
 		if err != nil {
-			return fmt.Errorf("while evaluating case_expr then clause: %v", err)
+			return fmt.Errorf("while evaluating case_expr else clause: %v", err)
 		}
 		(*currentValue)[node.outputPos] = value
 	}

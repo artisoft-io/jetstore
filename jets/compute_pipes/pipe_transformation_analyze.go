@@ -77,6 +77,7 @@ type AnalyzeTransformationPipe struct {
 	source           *InputChannel
 	outputCh         *OutputChannel
 	inputDataType    map[string]string
+	colName2Token    map[string]string
 	analyzeState     []*AnalyzeState
 	columnEvaluators []TransformationColumnEvaluator
 	nbrRowsAnalyzed  int
@@ -125,6 +126,7 @@ func (ctx *AnalyzeTransformationPipe) Apply(input *[]any) error {
 // A row is produced for each column state in ctx.analyzeState.
 
 func (ctx *AnalyzeTransformationPipe) Done() error {
+	config := ctx.spec.AnalyzeConfig
 	// For each column state in ctx.analyzeState, send out a row to ctx.outputCh
 	var ok bool
 	if ctx.firstInputRow == nil {
@@ -156,9 +158,21 @@ func (ctx *AnalyzeTransformationPipe) Done() error {
 			outputRow[ipos] = ctx.inputDataType[state.ColumnName]
 		}
 
+		// Determine the classification token based on column name if available
+		if config.ColumnNameToken != nil {
+			token, found := ctx.colName2Token[strings.ToUpper(state.ColumnName)]
+			if found {
+				ipos, ok = (*ctx.outputCh.columns)[config.ColumnNameToken.Name]
+				if ok {
+					outputRow[ipos] = token
+				}
+			}
+		}
+
+		// Determine the entity hint based on the hints provided in spec.analyze_config.entity_hints
 		ipos, ok = (*ctx.outputCh.columns)["entity_hint"]
 		if ok {
-			for _, ehint := range ctx.spec.AnalyzeConfig.EntityHints {
+			for _, ehint := range config.EntityHints {
 				for _, frag := range ehint.NameFragments {
 					if strings.Contains(strings.ToUpper(state.ColumnName), strings.ToUpper(frag)) {
 						goto continueHint
@@ -199,7 +213,7 @@ func (ctx *AnalyzeTransformationPipe) Done() error {
 		}
 
 		ipos, ok = (*ctx.outputCh.columns)["distinct_values"]
-		if ok && distinctCount < ctx.spec.AnalyzeConfig.DistinctValuesWhenLessThanCount {
+		if ok && distinctCount < config.DistinctValuesWhenLessThanCount {
 			distinctValues := slices.Sorted(maps.Keys(state.DistinctValues))
 			buf := new(bytes.Buffer)
 			w := csv.NewWriter(buf)
@@ -410,6 +424,16 @@ func (ctx *BuilderContext) NewAnalyzeTransformationPipe(source *InputChannel, ou
 		}
 	}
 
+	// Set up the column name to token map if available
+	colName2Token := make(map[string]string)
+	if config.ColumnNameToken != nil {
+		for _, tokenEntry := range config.ColumnNameToken.Lookup {
+			for _, colName := range tokenEntry.ColumnNames {
+				colName2Token[strings.ToUpper(colName)] = tokenEntry.Name
+			}
+		}
+	}
+
 	// Set up the AnalyzeState for each input column
 	analyzeState := make([]*AnalyzeState, len(columnNames))
 	for i := range analyzeState {
@@ -438,6 +462,7 @@ func (ctx *BuilderContext) NewAnalyzeTransformationPipe(source *InputChannel, ou
 		source:           source,
 		outputCh:         outputCh,
 		inputDataType:    inputDataType,
+		colName2Token:    colName2Token,
 		analyzeState:     analyzeState,
 		columnEvaluators: columnEvaluators,
 		padShortRows:     config.PadShortRowsWithNulls,
