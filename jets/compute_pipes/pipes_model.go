@@ -604,7 +604,8 @@ type OutputChannelConfig struct {
 	// OutputLocation: jetstore_s3_input, jetstore_s3_output (default), or custom location.
 	// When OutputLocation is jetstore_s3_input it will also write to the input bucket.
 	// When OutputLocation uses a custom location, it replaces KeyPrefix and FileName.
-	// OutputLocation must ends with "/" if we want to use default file name.
+	// OutputLocation must ends with "/" if we want to use default file name
+	// (i.e. OutputLocation does not include the file name).
 	// Note: refactoring using FileConfig.FileKey is synonym to OutputLocation
 	// KeyPrefix is optional, default to $PATH_FILE_KEY.
 	// Use $CURRENT_PARTITION_LABEL in KeyPrefix and FileName to substitute with
