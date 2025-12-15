@@ -32,6 +32,9 @@ import (
 // Note: s.currentRuleVarByValue must be initialized (at the start of a rule) before this function is called
 func (s *JetRuleListener) ParseObjectAtom(txt string, keywordsContextValue string) *rete.ResourceNode {
 	r := s.parseObjectAtom(txt, keywordsContextValue)
+	if r == nil {
+		return nil
+	}
 	switch r.Type {
 
 	case "var":

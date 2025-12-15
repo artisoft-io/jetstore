@@ -84,7 +84,7 @@ func (l *JetRuleListener) BuildReteNetwork() {
 			}
 			parentVertex = reteNode.Vertex
 		}
-		// Carry rule's name and salience to rete_node:
+		// Carry rule's name and salience to rete_nodes:
 		//   - associated with the last antecedent of the rule
 		//   - associated with the consequent term of the rule
 		// Set the vertex for each consequent to be the last antecedent's vertex (current value of

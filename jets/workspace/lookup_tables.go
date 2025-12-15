@@ -188,7 +188,6 @@ func PackageLookupTablesToSqlite(lookupTables []*rete.LookupTableNode) error {
 			}
 			buf.WriteString(";\n")
 			// Execute the insert statement
-			// //*** TESTING
 			// fmt.Println("Insert statement is:\n", buf.String())
 			_, err = lookupDb.Exec(buf.String())
 			if err != nil {

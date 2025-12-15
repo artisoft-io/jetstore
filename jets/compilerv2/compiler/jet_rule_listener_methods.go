@@ -514,6 +514,9 @@ func (s *JetRuleListener) ExitObjectAtomExprTerm(ctx *parser.ObjectAtomExprTermC
 
 	// Create a new identifier (resource / volatile_resource) expression node
 	r := s.ParseObjectAtom(NodeTxt, kws)
+	if r == nil {
+		return
+	}
 	varNode := rete.ExpressionNode{
 		Type:  "identifier",
 		Value: r.Key,

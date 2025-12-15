@@ -25,22 +25,142 @@ func getMaxKey(ctx context.Context, db *sql.DB, tableName string) (int, error) {
 	return 0, nil
 }
 
+// Save metadata triples into triples table of workspace db
+func (w *WorkspaceDB) SaveMetadataTriples(ctx context.Context, db *sql.DB, jetRuleModel *rete.JetruleModel) error {
+	// Delete existing metadata triples for current main file
+	deleteStmt := "DELETE FROM triples WHERE source_file_key = ?"
+	_, err := db.ExecContext(ctx, deleteStmt, w.mainFileKey)
+	if err != nil {
+		return fmt.Errorf("failed to delete existing metadata triples: %w", err)
+	}
+
+	// Insert new metadata triples
+	insertStmt := "INSERT INTO triples (subject_key, predicate_key, object_key, source_file_key) VALUES (?, ?, ?, ?)"
+	data := make([][]any, 0)
+	for _, triple := range jetRuleModel.Triples {
+		subjectKey, ok := w.rm.resourceKeyToDbKey[triple.SubjectKey]
+		if !ok {
+			return fmt.Errorf("failed to find subject resource key %d in metadata triple", triple.SubjectKey)
+		}
+		predicateKey, ok := w.rm.resourceKeyToDbKey[triple.PredicateKey]
+		if !ok {
+			return fmt.Errorf("failed to find predicate resource key %d in metadata triple", triple.PredicateKey)
+		}
+		objectKey, ok := w.rm.resourceKeyToDbKey[triple.ObjectKey]
+		if !ok {
+			return fmt.Errorf("failed to find object resource key %d in metadata triple", triple.ObjectKey)
+		}
+		data = append(data, []any{subjectKey, predicateKey, objectKey, w.mainFileKey})
+	}
+	if len(data) > 0 {
+		err = DoStatement(ctx, db, insertStmt, data)
+		if err != nil {
+			return fmt.Errorf("failed to insert metadata triples: %w", err)
+		}
+	}
+	return nil
+}
+
+// Save Rules to jet_rules, rule_properties, and rule_terms tables of workspace db
+func (w *WorkspaceDB) SaveJetRules(ctx context.Context, db *sql.DB, jetRuleModel *rete.JetruleModel) error {
+	// Delete existing rules for current main file
+	var deleteStmt string
+	var err error
+	deleteStmt = "DELETE FROM rule_properties WHERE rule_key IN (SELECT key FROM jet_rules WHERE source_file_key = ?)"
+	_, err = db.ExecContext(ctx, deleteStmt, w.mainFileKey)
+	if err != nil {
+		return fmt.Errorf("failed to delete existing rule_properties: %w", err)
+	}
+	deleteStmt = "DELETE FROM rule_terms WHERE rule_key IN (SELECT key FROM jet_rules WHERE source_file_key = ?)"
+	_, err = db.ExecContext(ctx, deleteStmt, w.mainFileKey)
+	if err != nil {
+		return fmt.Errorf("failed to delete existing rule_terms: %w", err)
+	}
+	deleteStmt = "DELETE FROM jet_rules WHERE source_file_key = ?"
+	_, err = db.ExecContext(ctx, deleteStmt, w.mainFileKey)
+	if err != nil {
+		return fmt.Errorf("failed to delete existing jet_rules: %w", err)
+	}
+
+	// Insert new rules
+	ruleInsertStmt := "INSERT INTO jet_rules (key, name, optimization, salience, authored_label, normalized_label, label, source_file_key) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
+	rulePropInsertStmt := "INSERT INTO rule_properties (rule_key, name, value) VALUES (?, ?, ?)"
+	ruleTermInsertStmt := "INSERT INTO rule_terms (rule_key, rete_node_key, is_antecedent) VALUES (?, ?, ?)"
+
+	// Prepare data for insertion
+	maxKey, err := getMaxKey(ctx, db, "jet_rules")
+	if err != nil {
+		return fmt.Errorf("failed to query jet_rules: %w", err)
+	}
+	jetRulesData := make([][]any, 0)
+	rulePropsData := make([][]any, 0)
+	ruleTermsData := make([][]any, 0)
+	for _, jetRule := range jetRuleModel.Jetrules {
+
+		// JetRule
+		maxKey++
+		jetRulesData = append(jetRulesData, []any{maxKey, jetRule.Name, jetRule.Optimization, jetRule.Salience,
+			jetRule.AuthoredLabel, jetRule.NormalizedLabel, jetRule.Label, w.mainFileKey})
+
+		// Rule Properties
+		for propName, propValue := range jetRule.Properties {
+			rulePropsData = append(rulePropsData, []any{maxKey, propName, propValue})
+		}
+
+		// Rule Terms
+		for _, rt := range jetRule.Antecedents {
+
+			reteNodeDbKey, ok := w.reteNode2DbKey[rt.UniqueKey()]
+			if !ok {
+				return fmt.Errorf("failed to find rete node vertex %d for antecedent term in rule %s", rt.Vertex, jetRule.Name)
+			}
+			ruleTermsData = append(ruleTermsData, []any{maxKey, reteNodeDbKey, true})
+		}
+		for _, rt := range jetRule.Consequents {
+			reteNodeDbKey, ok := w.reteNode2DbKey[rt.UniqueKey()]
+			if !ok {
+				return fmt.Errorf("failed to find rete node vertex %d for consequent term in rule %s", rt.Vertex, jetRule.Name)
+			}
+			ruleTermsData = append(ruleTermsData, []any{maxKey, reteNodeDbKey, false})
+		}
+	}
+	if len(jetRulesData) > 0 {
+		err = DoStatement(ctx, db, ruleInsertStmt, jetRulesData)
+		if err != nil {
+			return fmt.Errorf("failed to insert jet_rules: %w", err)
+		}
+	}
+	if len(rulePropsData) > 0 {
+		err = DoStatement(ctx, db, rulePropInsertStmt, rulePropsData)
+		if err != nil {
+			return fmt.Errorf("failed to insert rule_properties: %w", err)
+		}
+	}
+	if len(ruleTermsData) > 0 {
+		err = DoStatement(ctx, db, ruleTermInsertStmt, ruleTermsData)
+		if err != nil {
+			return fmt.Errorf("failed to insert rule_terms: %w", err)
+		}
+	}
+	return nil
+}
+
 // Save Rete Nodes and beta_row_config into workspace db
 func (w *WorkspaceDB) SaveReteNodes(ctx context.Context, db *sql.DB, jetRuleModel *rete.JetruleModel) error {
 	// Delete existing rete_nodes for current main file
-	reteNodeDeleteStmt := "DELETE FROM rete_node WHERE source_file_key = ?"
+	reteNodeDeleteStmt := "DELETE FROM rete_nodes WHERE source_file_key = ?"
 	_, err := db.ExecContext(ctx, reteNodeDeleteStmt, w.mainFileKey)
 	if err != nil {
-		return fmt.Errorf("failed to delete rete_node tables: %w", err)
+		return fmt.Errorf("failed to delete rete_nodes tables: %w", err)
 	}
-	maxReteNodeKey, err := getMaxKey(ctx, db, "rete_node")
+	maxReteNodeKey, err := getMaxKey(ctx, db, "rete_nodes")
 	if err != nil {
-		return fmt.Errorf("failed to query rete_node: %w", err)
+		return fmt.Errorf("failed to query rete_nodes: %w", err)
 	}
-	reteNodeInsertStmt := "INSERT INTO rete_nodes (key, vertex, type, "+
+	reteNodeInsertStmt := "INSERT INTO rete_nodes (key, vertex, type, " +
 		"subject_key, predicate_key, object_key, obj_expr_key, filter_expr_key, " +
-    "normalizedLabel, parent_vertex, source_file_key, is_negation, salience, consequent_seq) " +
-    "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+		"normalizedLabel, parent_vertex, source_file_key, is_negation, salience, consequent_seq) " +
+		"VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
 
 	// Delete existing beta_row_config for current main file
 	betaRowDeleteStmt := "DELETE FROM beta_row_config WHERE source_file_key = ?"
@@ -53,37 +173,56 @@ func (w *WorkspaceDB) SaveReteNodes(ctx context.Context, db *sql.DB, jetRuleMode
 		return fmt.Errorf("failed to query beta_row_config: %w", err)
 	}
 	betaRowInsertStmt := "INSERT INTO beta_row_config (key, vertex, seq, source_file_key, row_pos, is_binded, id)" +
-	"VALUES (?, ?, ?, ?, ?, ?, ?)"
+		"VALUES (?, ?, ?, ?, ?, ?, ?)"
 	// Prepare data for insertion
 	reteNodeData := make([][]any, 0)
 	betaRowData := make([][]any, 0)
 	for _, rn := range jetRuleModel.ReteNodes {
 		// Rete Node
 		maxReteNodeKey++
+		if rn.Type == "root" {
+		fmt.Println("rule_term.Type", rn.Type)
+			w.reteNode2DbKey[rn.UniqueKey()] = maxReteNodeKey
+			reteNodeData = append(reteNodeData, []any{maxReteNodeKey, rn.Vertex, rn.Type,
+				0, 0, 0, 0, 0,
+				"root vertex", 0, w.mainFileKey, 0, 0, 0})
+			continue
+		}
 		subjectKey, ok := w.rm.resourceKeyToDbKey[rn.SubjectKey]
 		if !ok {
-			return fmt.Errorf("failed to find subject resource key %d in rete_node @ vertex %d", rn.SubjectKey, rn.Vertex)
+			return fmt.Errorf("failed to find subject resource key %d in rete_nodes @ vertex %d", rn.SubjectKey, rn.Vertex)
 		}
 		predicateKey, ok := w.rm.resourceKeyToDbKey[rn.PredicateKey]
 		if !ok {
-			return fmt.Errorf("failed to find predicate resource key %d in rete_node @ vertex %d", rn.PredicateKey, rn.Vertex)
+			return fmt.Errorf("failed to find predicate resource key %d in rete_nodes @ vertex %d", rn.PredicateKey, rn.Vertex)
 		}
 		objectKey := 0
 		if rn.ObjectKey != 0 {
 			objectKey, ok = w.rm.resourceKeyToDbKey[rn.ObjectKey]
 			if !ok {
-				return fmt.Errorf("failed to find object resource key %d in rete_node @ vertex %d", rn.ObjectKey, rn.Vertex)
+				return fmt.Errorf("failed to find object resource key %d in rete_nodes @ vertex %d", rn.ObjectKey, rn.Vertex)
 			}
 		}
 		isNot := 0
 		if rn.IsNot {
 			isNot = 1
 		}
-		reteNodeData = append(reteNodeData, []any{maxReteNodeKey, rn.Vertex, rn.Type, 
-			subjectKey, predicateKey, objectKey, rn.ObjectExpr.Value, rn.Filter.Value, 
-			rn.NormalizedLabel, rn.ParentVertex, w.mainFileKey, isNot, rn.Salience, rn.ConsequentSeq})
+		w.reteNode2DbKey[rn.UniqueKey()] = maxReteNodeKey
+		var objValue, filterValue, salience int
+		if rn.ObjectExpr != nil {
+			objValue = rn.ObjectExpr.Value
+		}
+		if rn.Filter != nil {
+			filterValue = rn.Filter.Value
+		}
+		if len(rn.Salience) > 0 {
+			salience = rn.Salience[0]
+		}
+		reteNodeData = append(reteNodeData, []any{maxReteNodeKey, rn.Vertex, rn.Type,
+			subjectKey, predicateKey, objectKey, objValue, filterValue,
+			rn.NormalizedLabel, rn.ParentVertex, w.mainFileKey, isNot, salience, rn.ConsequentSeq})
 
-			// Beta Row Config
+		// Beta Row Config
 		for seq, br := range rn.BetaVarNodes {
 			maxBetaRowKey++
 			isBinded := 0
@@ -94,10 +233,19 @@ func (w *WorkspaceDB) SaveReteNodes(ctx context.Context, db *sql.DB, jetRuleMode
 				br.VarPos, isBinded, br.Id})
 		}
 	}
+	fmt.Println("*** ReteNodes Unique Keys to DB Keys Mapping ***")
+	for k, v := range w.reteNode2DbKey {
+		fmt.Printf("  %s => %d\n", k, v)
+	}
+	fmt.Println("*** ReteNodes Data ***")
+	for _, row := range reteNodeData {
+		fmt.Printf("%s:%02d:%02d:%02d => %v\n", row[2], row[1], row[13], row[10], row)
+	}
+
 	if len(reteNodeData) > 0 {
 		err = DoStatement(ctx, db, reteNodeInsertStmt, reteNodeData)
 		if err != nil {
-			return fmt.Errorf("failed to insert rete_node: %w", err)
+			return fmt.Errorf("failed to insert rete_nodes: %w", err)
 		}
 	}
 	if len(betaRowData) > 0 {
@@ -121,20 +269,24 @@ func (w *WorkspaceDB) SaveExpressions(ctx context.Context, db *sql.DB, jetRuleMo
 		return fmt.Errorf("failed to query expressions: %w", err)
 	}
 	insertStmt := "INSERT INTO expressions (key, type, arg0_key, arg1_key, arg2_key, arg3_key, " +
-	"arg4_key, arg5_key, op, source_file_key) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+		"arg4_key, arg5_key, op, source_file_key) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
 
 	data := make([][]any, 0)
 	for _, rn := range jetRuleModel.ReteNodes {
-		err = w.saveExpression(ctx, &data, rn.Filter)
-		if err != nil {
-			return err
+		if rn.Filter != nil {
+			err = w.saveExpression(ctx, &data, rn.Filter)
+			if err != nil {
+				return err
+			}
+			rn.FilterKey = rn.Filter.Value
 		}
-		rn.FilterKey = rn.Filter.Value
-		err = w.saveExpression(ctx, &data, rn.ObjectExpr)
-		if err != nil {
-			return err
+		if rn.ObjectExpr != nil {
+			err = w.saveExpression(ctx, &data, rn.ObjectExpr)
+			if err != nil {
+				return err
+			}
+			rn.ObjectExprKey = rn.ObjectExpr.Value
 		}
-		rn.ObjectExprKey = rn.ObjectExpr.Value
 	}
 	if len(data) > 0 {
 		err = DoStatement(ctx, db, insertStmt, data)
@@ -161,7 +313,10 @@ func (w *WorkspaceDB) saveExpression(ctx context.Context, data *[][]any, node *r
 		if !ok {
 			return fmt.Errorf("failed to find resource key %d in expression", node.Value)
 		}
-		*data = append(*data, []any{node.Value, "resource", nil, nil, nil, nil, nil, nil, w.mainFileKey})
+		if !w.seenResources[node.Value] {
+			*data = append(*data, []any{node.Value, "resource", nil, nil, nil, nil, nil, nil, "", w.mainFileKey})
+			w.seenResources[node.Value] = true
+		}
 	case "unary":
 		// Recursively save the argument
 		err := w.saveExpression(ctx, data, node.Arg)
@@ -433,13 +588,25 @@ func (w *WorkspaceDB) SaveTables(ctx context.Context, db *sql.DB, className2Key,
 		if tableName2Key[table.TableName] == 0 {
 			maxTableKey++
 			tableName2Key[table.TableName] = maxTableKey
-			classKey := className2Key[table.ClassName]
-			tableData = append(tableData, []any{maxTableKey, classKey, table.TableName})
+			classKey, ok := className2Key[table.ClassName]
+			if ok {
+				tableData = append(tableData, []any{maxTableKey, classKey, table.TableName})
+			} else {
+				return fmt.Errorf("failed to find class key for table %s", table.TableName)
+			}
+			//***
+			fmt.Println("*** domain_tables ROW", tableData[len(tableData)-1])
 
 			// Table's columns
 			for _, column := range table.Columns {
-				dataPropertyKey := dataProperties2Key[column.ColumnName]
-				columnData = append(columnData, []any{maxTableKey, dataPropertyKey, column.ColumnName, column.Type, column.AsArray})
+				dataPropertyKey, ok := dataProperties2Key[column.ColumnName]
+				if ok {
+					columnData = append(columnData, []any{maxTableKey, dataPropertyKey, column.ColumnName, column.Type, column.AsArray})
+				} else {
+					return fmt.Errorf("failed to find data property key for column %s in table %s", column.ColumnName, table.TableName)
+				}
+				//***
+				// fmt.Println("*** domain_columns ROW", columnData[len(columnData)-1])
 			}
 		}
 	}

@@ -155,6 +155,9 @@ type RuleTerm struct {
 	FilterKey          int             `json:"-"`
 }
 
+func (rt *RuleTerm) UniqueKey() string {
+	return fmt.Sprintf("%s:%02d:%02d", rt.Type, rt.Vertex, rt.ConsequentSeq)
+}
 // ExpressionNode represents an expression in the model.
 // Type can be "identifier", "unary", "binary".
 // Op is the operator for unary and binary expressions.

@@ -28,6 +28,8 @@ type WorkspaceDB struct {
 	rm                 *WorkspaceResourceManager
 	mainFileKey        int
 	maxExprKey         int
+	reteNode2DbKey     map[string]int
+	seenResources      map[int]bool
 }
 
 func NewWorkspaceDB(dbPath string) (*WorkspaceDB, error) {
@@ -44,7 +46,12 @@ func NewWorkspaceDB(dbPath string) (*WorkspaceDB, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to initialize database schema: %w", err)
 	}
-	w := &WorkspaceDB{DB: db}
+	w := &WorkspaceDB{
+		DB:             db,
+		reteNode2DbKey: make(map[string]int),
+		seenResources:  make(map[int]bool),
+	}
+	// Initialize source file manager and resource manager
 	w.sourceMgr = NewSourceFileManager(w)
 	w.rm = NewWorkspaceResourceManager(w)
 	return w, nil
@@ -103,15 +110,17 @@ func (w *WorkspaceDB) SaveJetRuleModel(ctx context.Context, jetRuleModel *rete.J
 		return fmt.Errorf("failed to save rete nodes: %w", err)
 	}
 
-	// # save jet rules
-	// # -------------------------------------------------------------------------
-	// self._save_jet_rules()
+	// Save jet rules
+	err = w.SaveJetRules(ctx, w.DB, jetRuleModel)
+	if err != nil {
+		return fmt.Errorf("failed to save jet rules: %w", err)
+	}
 
-	// # save metadata triples
-	// # -------------------------------------------------------------------------
-	// self._save_triples()
-
-	// # All done, commiting the work
+	// Save metadata triples
+	err = w.SaveMetadataTriples(ctx, w.DB, jetRuleModel)
+	if err != nil {
+		return fmt.Errorf("failed to save metadata triples: %w", err)
+	}
 
 	// Last, save the source file mapping back to workspace_control
 	err = w.sourceMgr.SaveNewSourceFileNames(ctx, w.DB)
