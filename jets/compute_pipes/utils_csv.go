@@ -76,7 +76,7 @@ func DetectFileEncoding(fileHd ReaderAtSeeker, delimit rune) (encoding string, e
 	buf := make([]byte, 25000)
 	n, err2 := fileHd.Read(buf)
 	if err2 != nil {
-		err = fmt.Errorf("error while ready first few bytes of file: %v", err2)
+		err = fmt.Errorf("error while reading first few bytes of file: %v", err2)
 		return
 	}
 	buf = buf[:n]
@@ -94,7 +94,7 @@ var by rune = []rune("þÿ")[0]
 var yb rune = []rune("ÿþ")[0]
 var ErrEOFTooEarly error = errors.New("error: cannot determine encoding, got EOF")
 var ErrUnknownEncoding error = errors.New("encoding unknown, unable to detected the encoding")
-var ErrUnknownEncodingOrWrongDelimit error = errors.New("unable to detected the file encoding or delimiter not used in the file")
+var ErrUnknownEncodingOrWrongDelimit error = errors.New("unable to detected the file encoding or the specified delimiter is not the delimiter used in the file")
 var ErrFileZipArchive error = errors.New("the file is a ZIP archive")
 var testEncoding []string = []string{"UTF-8", "UTF-16LE", "UTF-16BE", "ISO-8859-1", "ISO-8859-2"}
 

@@ -190,7 +190,7 @@ func GetRawHeadersCsv(fileHd *os.File, fileName, fileFormat, compression string,
 		return nil, err
 	}
 	if multiColumns && len(ic) < 2 {
-		err = fmt.Errorf("error: delimiter '%s' is not the delimiter used in the file", sepFlag.String())
+		err = fmt.Errorf("error: delimiter '%s' is not the delimiter used in the file, please verify the file and resubmit", sepFlag.String())
 		b, _ := json.Marshal(string(csvReader.LastRawRecord()))
 		log.Printf("%v: raw record as json string:\n%s", err, string(b))
 		return nil, err
