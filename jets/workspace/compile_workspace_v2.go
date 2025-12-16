@@ -33,7 +33,7 @@ func compileWorkspaceV2(dbpool *pgxpool.Pool, workspaceControl *rete.WorkspaceCo
 
 	// Compile the workspace locally
 	var fullModel *rete.JetruleModel
-	buf.WriteString(fmt.Sprintf("(Compiler V2) Compiling workspace %s at version %s\n", workspaceName, version))
+	fmt.Fprintf(&buf, "(Compiler V2) Compiling workspace %s at version %s\n", workspaceName, version)
 	// For  each main rule files in workspace control, create a compiler instance
 	// and compile the rule file
 	// Collect the set of main rule files
@@ -53,7 +53,7 @@ func compileWorkspaceV2(dbpool *pgxpool.Pool, workspaceControl *rete.WorkspaceCo
 
 	for name := range mainRuleFiles {
 		// name is the file path relative to workspace home
-		buf.WriteString(fmt.Sprintf("Compiling rule file: %s\n", name))
+		fmt.Fprintf(&buf, "Compiling rule file: %s\n", name)
 		jrCompiler = compiler.NewCompiler(
 			fmt.Sprintf("%s/%s", workspaceHome, workspaceName),
 			name, true, workspaceControl.UseTraceMode, workspaceControl.AutoAddResources)

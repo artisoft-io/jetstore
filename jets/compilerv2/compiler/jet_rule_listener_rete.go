@@ -56,6 +56,7 @@ func (l *JetRuleListener) BuildReteNetwork() {
 		// if found, use it as the rete node
 		// if not found, use this rule as the rete node.
 		parentVertex := 0 // start at root
+		mergedAntecedents := make(map[int]*rete.RuleTerm)
 		for i, antecedent := range rule.Antecedents {
 			if l.trace {
 				fmt.Fprintf(l.parseLog, "   Antecedent %d: %s\n", i+1, antecedent.NormalizedLabel)
@@ -77,12 +78,17 @@ func (l *JetRuleListener) BuildReteNetwork() {
 				parentNode.ChildrenVertexes = append(parentNode.ChildrenVertexes, reteNode.Vertex)
 
 			} else {
+				mergedAntecedents[i] = reteNode
 				if l.trace {
 					// Matching node found, use it as the rete node
 					fmt.Fprintf(l.parseLog, "***   Found matching Rete node: %s (vertex %d)\n", reteNode.NormalizedLabel, reteNode.Vertex)
 				}
 			}
 			parentVertex = reteNode.Vertex
+		}
+		// Set the merged antecedents back to the rule
+		for i, a := range mergedAntecedents {
+			rule.Antecedents[i] = a
 		}
 		// Carry rule's name and salience to rete_nodes:
 		//   - associated with the last antecedent of the rule
@@ -92,11 +98,12 @@ func (l *JetRuleListener) BuildReteNetwork() {
 		lastAntecedent := l.jetRuleModel.ReteNodes[parentVertex]
 		lastAntecedent.Rules = append(lastAntecedent.Rules, rule.Name)
 		lastAntecedent.Salience = append(lastAntecedent.Salience, rule.Salience)
+		consequentOffset := len(consequentsByVertex[parentVertex])
 		for i := range rule.Consequents {
 			rule.Consequents[i].Vertex = parentVertex
 			rule.Consequents[i].ConsequentForRule = rule.Name
 			rule.Consequents[i].ConsequentSalience = rule.Salience
-			rule.Consequents[i].ConsequentSeq = i + 1
+			rule.Consequents[i].ConsequentSeq = consequentOffset + i + 1
 		}
 		consequentsByVertex[parentVertex] = append(consequentsByVertex[parentVertex], rule.Consequents...)
 	}

@@ -25,6 +25,20 @@ func getMaxKey(ctx context.Context, db *sql.DB, tableName string) (int, error) {
 	return 0, nil
 }
 
+// Function to get key from table based on column name and value
+func getKeyByColumn(ctx context.Context, db *sql.DB, tableName, columnName string, columnValue any) (int, error) {
+	var key sql.NullInt64
+	query := fmt.Sprintf("SELECT key FROM %s WHERE %s = ?", tableName, columnName)
+	err := db.QueryRowContext(ctx, query, columnValue).Scan(&key)
+	if err != nil && !strings.Contains(err.Error(), "converting NULL to int is unsupported") && err != sql.ErrNoRows {
+		return 0, fmt.Errorf("failed to get key from %s where %s = %v: %w", tableName, columnName, columnValue, err)
+	}
+	if key.Valid {
+		return int(key.Int64), nil
+	}
+	return 0, nil
+}
+
 // Save metadata triples into triples table of workspace db
 func (w *WorkspaceDB) SaveMetadataTriples(ctx context.Context, db *sql.DB, jetRuleModel *rete.JetruleModel) error {
 	// Delete existing metadata triples for current main file
@@ -109,17 +123,18 @@ func (w *WorkspaceDB) SaveJetRules(ctx context.Context, db *sql.DB, jetRuleModel
 
 		// Rule Terms
 		for _, rt := range jetRule.Antecedents {
-
+			// fmt.Printf("*** Saving Rule %s, antecedent %s %s\n", jetRule.Name, rt.UniqueKey(), rt.NormalizedLabel)
 			reteNodeDbKey, ok := w.reteNode2DbKey[rt.UniqueKey()]
 			if !ok {
-				return fmt.Errorf("failed to find rete node vertex %d for antecedent term in rule %s", rt.Vertex, jetRule.Name)
+				return fmt.Errorf("failed to find rete node vertex %d (ukey: %s) for antecedent term %s", rt.Vertex, rt.UniqueKey(), rt.NormalizedLabel)
 			}
 			ruleTermsData = append(ruleTermsData, []any{maxKey, reteNodeDbKey, true})
 		}
 		for _, rt := range jetRule.Consequents {
+			// fmt.Printf("*** Saving Rule %s, consequent %s %s\n", jetRule.Name, rt.UniqueKey(), rt.NormalizedLabel)
 			reteNodeDbKey, ok := w.reteNode2DbKey[rt.UniqueKey()]
 			if !ok {
-				return fmt.Errorf("failed to find rete node vertex %d for consequent term in rule %s", rt.Vertex, jetRule.Name)
+				return fmt.Errorf("failed to find rete node vertex %d (ukey: %s) for consequent term %s", rt.Vertex, rt.UniqueKey(), rt.NormalizedLabel)
 			}
 			ruleTermsData = append(ruleTermsData, []any{maxKey, reteNodeDbKey, false})
 		}
@@ -181,7 +196,6 @@ func (w *WorkspaceDB) SaveReteNodes(ctx context.Context, db *sql.DB, jetRuleMode
 		// Rete Node
 		maxReteNodeKey++
 		if rn.Type == "root" {
-		fmt.Println("rule_term.Type", rn.Type)
 			w.reteNode2DbKey[rn.UniqueKey()] = maxReteNodeKey
 			reteNodeData = append(reteNodeData, []any{maxReteNodeKey, rn.Vertex, rn.Type,
 				0, 0, 0, 0, 0,
@@ -233,14 +247,14 @@ func (w *WorkspaceDB) SaveReteNodes(ctx context.Context, db *sql.DB, jetRuleMode
 				br.VarPos, isBinded, br.Id})
 		}
 	}
-	fmt.Println("*** ReteNodes Unique Keys to DB Keys Mapping ***")
-	for k, v := range w.reteNode2DbKey {
-		fmt.Printf("  %s => %d\n", k, v)
-	}
-	fmt.Println("*** ReteNodes Data ***")
-	for _, row := range reteNodeData {
-		fmt.Printf("%s:%02d:%02d:%02d => %v\n", row[2], row[1], row[13], row[10], row)
-	}
+	// fmt.Println("*** ReteNodes Unique Keys to DB Keys Mapping ***")
+	// for k, v := range w.reteNode2DbKey {
+	// 	fmt.Printf("  %s => %d\n", k, v)
+	// }
+	// fmt.Println("*** ReteNodes Data ***")
+	// for _, row := range reteNodeData {
+	// 	fmt.Printf("%s:%02d:%02d:%02d => %v\n", row[2], row[1], row[13], row[10], row)
+	// }
 
 	if len(reteNodeData) > 0 {
 		err = DoStatement(ctx, db, reteNodeInsertStmt, reteNodeData)
@@ -356,6 +370,7 @@ func (w *WorkspaceDB) SaveLookupTables(ctx context.Context, db *sql.DB, jetRuleM
 	if err != nil {
 		return fmt.Errorf("failed to query lookup_tables: %w", err)
 	}
+	fmt.Println("*** Saving Lookup Tables *** Got maxKey =", maxKey)
 
 	// Insert new entries
 	insertStmt := "INSERT INTO lookup_tables (key, name, table_name, csv_file, lookup_key, lookup_resources, source_file_key) VALUES (?, ?, ?, ?, ?, ?, ?)"
@@ -363,10 +378,20 @@ func (w *WorkspaceDB) SaveLookupTables(ctx context.Context, db *sql.DB, jetRuleM
 	data := make([][]any, 0)
 	cData := make([][]any, 0)
 	for _, lt := range jetRuleModel.LookupTables {
+		dbKey, err := getKeyByColumn(ctx, db, "lookup_tables", "name", lt.Name)
+		if err != nil {
+			return fmt.Errorf("failed to query lookup_tables by name: %w", err)
+		}
+		if dbKey != 0 {
+			// fmt.Printf("*** Lookup Table %s already exists with key %d, skipping\n", lt.Name, dbKey)
+			continue
+		}
 		maxKey++
 		data = append(data, []any{maxKey, lt.Name, nil, lt.CsvFile, strings.Join(lt.Key, ","), strings.Join(lt.Resources, ","), w.mainFileKey})
+		// fmt.Printf("*** Lookup Table %d: %s\n", maxKey, lt.Name)
 		for _, col := range lt.Columns {
 			cData = append(cData, []any{maxKey, col.Name, col.Type, col.IsArray})
+			// fmt.Printf("   %d Column: %s\n", maxKey, col.Name)
 		}
 	}
 	if len(data) > 0 {
@@ -594,8 +619,7 @@ func (w *WorkspaceDB) SaveTables(ctx context.Context, db *sql.DB, className2Key,
 			} else {
 				return fmt.Errorf("failed to find class key for table %s", table.TableName)
 			}
-			//***
-			fmt.Println("*** domain_tables ROW", tableData[len(tableData)-1])
+			// fmt.Println("*** domain_tables ROW", tableData[len(tableData)-1])
 
 			// Table's columns
 			for _, column := range table.Columns {
@@ -605,7 +629,6 @@ func (w *WorkspaceDB) SaveTables(ctx context.Context, db *sql.DB, className2Key,
 				} else {
 					return fmt.Errorf("failed to find data property key for column %s in table %s", column.ColumnName, table.TableName)
 				}
-				//***
 				// fmt.Println("*** domain_columns ROW", columnData[len(columnData)-1])
 			}
 		}

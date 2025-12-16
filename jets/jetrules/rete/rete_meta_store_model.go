@@ -30,8 +30,9 @@ func (j *JetruleModel) ToJson() ([]byte, error) {
 	return json.Marshal(j)
 }
 
-func NewJetruleModel() *JetruleModel {
+func NewJetruleModel(mainRuleFileName string) *JetruleModel {
 	return &JetruleModel{
+		MainRuleFileName:   mainRuleFileName,
 		CompilerDirectives: make(map[string]string),
 		Resources:          []*ResourceNode{},
 		LookupTables:       []*LookupTableNode{},

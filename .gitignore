@@ -138,3 +138,4 @@ cdk/sample_projects/private-api-stack/.env
 cdk/jetstore_one/lambdas/sqs_listener/cgt_fm_api.go
 cdk/jetstore_one/lambdas/api_gateway_cgt/cgt_fm_api.go
 jets/compilerv2/compiler/testdata/workspaceV2.db
+jets/jsontest/compilerv2_test/compilerv2_test

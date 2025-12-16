@@ -19,7 +19,10 @@ WORKSPACE_LOOKUPS_DB_PATH=$WORKSPACES_HOME/$WORKSPACE/lookup.db \
 
 func main() {
 
-	os.Remove("/home/michel/projects/repos/usi_ws/workspaceV2.db")
+	err := os.Remove("/home/michel/projects/repos/usi_ws/workspaceV2.db")
+	if err != nil {
+		log.Printf("failed to remove existing workspaceV2.db: %v", err)
+	}
 	// Load the workspace control file to determine which compiler to use
 	txtLog, err := workspace.CompileWorkspace(nil, "", "000001")
 	if err != nil {
