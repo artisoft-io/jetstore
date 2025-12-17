@@ -29,7 +29,6 @@ type WorkspaceDB struct {
 	mainFileKey        int
 	maxExprKey         int
 	reteNode2DbKey     map[string]int
-	seenResources      map[int]bool
 }
 
 func NewWorkspaceDB(dbPath string) (*WorkspaceDB, error) {
@@ -49,7 +48,6 @@ func NewWorkspaceDB(dbPath string) (*WorkspaceDB, error) {
 	w := &WorkspaceDB{
 		DB:             db,
 		reteNode2DbKey: make(map[string]int),
-		seenResources:  make(map[int]bool),
 	}
 	// Initialize source file manager and resource manager
 	w.sourceMgr = NewSourceFileManager(w)

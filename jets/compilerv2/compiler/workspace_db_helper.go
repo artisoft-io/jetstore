@@ -104,7 +104,7 @@ func (w *WorkspaceDB) SaveJetRules(ctx context.Context, db *sql.DB, jetRuleModel
 	// Prepare data for insertion
 	maxKey, err := getMaxKey(ctx, db, "jet_rules")
 	if err != nil {
-		return fmt.Errorf("failed to query jet_rules: %w", err)
+		return err
 	}
 	jetRulesData := make([][]any, 0)
 	rulePropsData := make([][]any, 0)
@@ -170,7 +170,7 @@ func (w *WorkspaceDB) SaveReteNodes(ctx context.Context, db *sql.DB, jetRuleMode
 	}
 	maxReteNodeKey, err := getMaxKey(ctx, db, "rete_nodes")
 	if err != nil {
-		return fmt.Errorf("failed to query rete_nodes: %w", err)
+		return err
 	}
 	reteNodeInsertStmt := "INSERT INTO rete_nodes (key, vertex, type, " +
 		"subject_key, predicate_key, object_key, obj_expr_key, filter_expr_key, " +
@@ -280,7 +280,7 @@ func (w *WorkspaceDB) SaveExpressions(ctx context.Context, db *sql.DB, jetRuleMo
 	}
 	w.maxExprKey, err = getMaxKey(ctx, db, "expressions")
 	if err != nil {
-		return fmt.Errorf("failed to query expressions: %w", err)
+		return err
 	}
 	insertStmt := "INSERT INTO expressions (key, type, arg0_key, arg1_key, arg2_key, arg3_key, " +
 		"arg4_key, arg5_key, op, source_file_key) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
@@ -327,10 +327,8 @@ func (w *WorkspaceDB) saveExpression(ctx context.Context, data *[][]any, node *r
 		if !ok {
 			return fmt.Errorf("failed to find resource key %d in expression", node.Value)
 		}
-		if !w.seenResources[node.Value] {
-			*data = append(*data, []any{node.Value, "resource", nil, nil, nil, nil, nil, nil, "", w.mainFileKey})
-			w.seenResources[node.Value] = true
-		}
+		w.maxExprKey++
+		*data = append(*data, []any{w.maxExprKey, "resource", node.Value, nil, nil, nil, nil, nil, nil, w.mainFileKey})
 	case "unary":
 		// Recursively save the argument
 		err := w.saveExpression(ctx, data, node.Arg)
@@ -368,7 +366,7 @@ func (w *WorkspaceDB) SaveLookupTables(ctx context.Context, db *sql.DB, jetRuleM
 
 	maxKey, err := getMaxKey(ctx, db, "lookup_tables")
 	if err != nil {
-		return fmt.Errorf("failed to query lookup_tables: %w", err)
+		return err
 	}
 	fmt.Println("*** Saving Lookup Tables *** Got maxKey =", maxKey)
 
@@ -423,7 +421,7 @@ func (w *WorkspaceDB) SaveRuleSequences(ctx context.Context, db *sql.DB, jetRule
 
 	maxKey, err := getMaxKey(ctx, db, "rule_sequences")
 	if err != nil {
-		return fmt.Errorf("failed to query rule_sequences: %w", err)
+		return err
 	}
 
 	// Insert new entries
@@ -476,15 +474,11 @@ func (w *WorkspaceDB) SaveJetstoreConfig(ctx context.Context, db *sql.DB, jetRul
 	return nil
 }
 
-// Save Classes into workspace db
-func (w *WorkspaceDB) SaveClassesAndTables(ctx context.Context, db *sql.DB, jetRuleModel *rete.JetruleModel) error {
-	// Load existing classes put them in a set and keep tack of the max key
-	var maxClassKey int
-	className2Key := make(map[string]int)
-	newClasses := make(map[string]bool)
-	rows, err := db.Query("SELECT key, name FROM domain_classes")
+func getKeyNameFromTable(ctx context.Context, db *sql.DB, tableName, keyColumn, nameColumn string) (map[string]int, error) {
+	result := make(map[string]int)
+	rows, err := db.Query(fmt.Sprintf("SELECT %s, %s FROM %s", keyColumn, nameColumn, tableName))
 	if err != nil {
-		return fmt.Errorf("failed to query domain_classes: %w", err)
+		return nil, fmt.Errorf("failed to query %s: %w", tableName, err)
 	}
 	defer rows.Close()
 	for rows.Next() {
@@ -492,82 +486,106 @@ func (w *WorkspaceDB) SaveClassesAndTables(ctx context.Context, db *sql.DB, jetR
 		var name string
 		err = rows.Scan(&key, &name)
 		if err != nil {
-			return fmt.Errorf("failed to scan class row: %w", err)
+			return nil, fmt.Errorf("failed to scan %s row: %w", tableName, err)
 		}
-		className2Key[name] = key
-		if key > maxClassKey {
-			maxClassKey = key
-		}
+		result[name] = key
 	}
-	// Insert new classes that are not in className2Key
+	return result, nil
+}
+
+// Save Classes into workspace db
+func (w *WorkspaceDB) SaveClassesAndTables(ctx context.Context, db *sql.DB, jetRuleModel *rete.JetruleModel) error {
+	// Load existing classes put them in a set since they are referenced as base classes to new classes
+	className2Key, err := getKeyNameFromTable(ctx, db, "domain_classes", "key", "name")
+	if err != nil {
+		return err
+	}
+	maxClassKey, err := getMaxKey(ctx, db, "domain_classes")
+	if err != nil {
+		return err
+	}
+
+	// Load existing data properties since they are reference by Domain Tables
+	dataProperties2Key, err := getKeyNameFromTable(ctx, db, "data_properties", "key", "name")
+	if err != nil {
+		return err
+	}
+	maxDataPropKey, err := getMaxKey(ctx, db, "data_properties")
+	if err != nil {
+		return err
+	}
+
+	//***
+	fmt.Println("*** Existing Classes ***")
+	for name, key := range className2Key {
+		fmt.Printf("%s => %d\n", name, key)
+	}
+	// The insert stmts
 	classStmt := "INSERT INTO domain_classes (key, name, as_table, source_file_key) VALUES (?, ?, ?, ?)"
+	dataPropertiesStmt := "INSERT INTO data_properties (key, domain_class_key, name, type, as_array) VALUES (?, ?, ?, ?, ?)"
+	baseClassStmt := "INSERT INTO base_classes (domain_class_key, base_class_key) VALUES (?, ?)"
+
+	// Insert the new classes, it's data properties and base classes
 	classData := make([][]any, 0, len(jetRuleModel.Classes))
+	dataPropertiesData := make([][]any, 0)
+	baseClassData := make([][]any, 0, 2*len(jetRuleModel.Classes))
+
+	// Initialize classData with owl:Thing if className2Key is empty (no classes entered yet in db)
+	if len(className2Key) == 0 {
+		maxClassKey++
+		className2Key["owl:Thing"] = maxClassKey
+		classData = append(classData, []any{maxClassKey, "owl:Thing", 0, -1})
+	}
+
 	// Insert classes
 	for _, class := range jetRuleModel.Classes {
 		if className2Key[class.Name] == 0 {
+			// New class
 			fileKey := w.sourceMgr.GetOrAddDbKey(class.SourceFileName)
 			maxClassKey++
 			className2Key[class.Name] = maxClassKey
-			newClasses[class.Name] = true
 			classData = append(classData, []any{maxClassKey, class.Name, class.AsTable, fileKey})
+			// It's data properties
+			for _, dp := range class.DataProperties {
+				maxDataPropKey++
+				dataProperties2Key[dp.Name] = maxDataPropKey
+				dataPropertiesData = append(dataPropertiesData, []any{
+					maxDataPropKey,
+					maxClassKey,
+					dp.Name,
+					dp.Type,
+					dp.AsArray,
+				})
+			}
+			// Insert it's base classes
+			for _, baseClass := range class.BaseClasses {
+				baseClsKey, ok := className2Key[baseClass]
+				if !ok {
+					return fmt.Errorf("failed to find db key for base class %s of class %s", baseClass, class.Name)
+				}
+				baseClassData = append(baseClassData, []any{maxClassKey, baseClsKey})
+			}
 		}
 	}
-	// Execute class insert
+
+	fmt.Println("*** New Classes ***")
+	for _, row := range classData {
+		fmt.Printf("%s => %v\n", row[1], row)
+	}
+
+	// Execute the insert stmt
 	if len(classData) > 0 {
 		err = DoStatement(ctx, db, classStmt, classData)
 		if err != nil {
 			return fmt.Errorf("failed to insert classes: %w", err)
 		}
 	}
-
-	// Insert data properties for the new classes
-	dataPropertiesStmt := "INSERT INTO data_properties (key, domain_class_key, name, type, as_array) VALUES (?, ?, ?, ?, ?)"
-	dataPropertiesData := make([][]any, 0)
-	var maxDataPropKey int
-	dataProperties2Key := make(map[string]int)
-
-	maxDataPropKey, err = getMaxKey(ctx, db, "data_properties")
-	if err != nil {
-		return fmt.Errorf("failed to query data_properties: %w", err)
-	}
-
-	for _, class := range jetRuleModel.Classes {
-		if newClasses[class.Name] {
-			classKey := className2Key[class.Name]
-			for _, dp := range class.DataProperties {
-				maxDataPropKey++
-				dataProperties2Key[dp.Name] = maxDataPropKey
-				dataPropertiesData = append(dataPropertiesData, []any{
-					maxDataPropKey,
-					classKey,
-					dp.Name,
-					dp.Type,
-					dp.AsArray,
-				})
-			}
-		}
-	}
-	// Execute data properties insert
 	if len(dataPropertiesData) > 0 {
 		err = DoStatement(ctx, db, dataPropertiesStmt, dataPropertiesData)
 		if err != nil {
 			return fmt.Errorf("failed to insert data properties: %w", err)
 		}
 	}
-
-	// Insert base classes for the new classes
-	baseClassStmt := "INSERT INTO base_classes (domain_class_key, base_class_key) VALUES (?, ?)"
-	baseClassData := make([][]any, 0, 2*len(jetRuleModel.Classes))
-	for _, class := range jetRuleModel.Classes {
-		if newClasses[class.Name] {
-			// Insert it's base classes
-			classKey := className2Key[class.Name]
-			for _, baseClass := range class.BaseClasses {
-				baseClassData = append(baseClassData, []any{classKey, className2Key[baseClass]})
-			}
-		}
-	}
-	// Execute base classes insert
 	if len(baseClassData) > 0 {
 		err = DoStatement(ctx, db, baseClassStmt, baseClassData)
 		if err != nil {
@@ -579,33 +597,23 @@ func (w *WorkspaceDB) SaveClassesAndTables(ctx context.Context, db *sql.DB, jetR
 }
 
 // Save Tables into workspace db
-func (w *WorkspaceDB) SaveTables(ctx context.Context, db *sql.DB, className2Key,
-	dataProperties2Key map[string]int, jetRuleModel *rete.JetruleModel) error {
+func (w *WorkspaceDB) SaveTables(ctx context.Context, db *sql.DB, 
+	className2Key, dataProperties2Key map[string]int, jetRuleModel *rete.JetruleModel) error {
 
 	// Load existing tables put them in a set and keep tack of the max key
-	var maxTableKey int
-	tableName2Key := make(map[string]int)
-	rows, err := db.Query("SELECT key, name FROM domain_tables")
+	tableName2Key, err := getKeyNameFromTable(ctx, db, "domain_tables", "key", "name")
 	if err != nil {
-		return fmt.Errorf("failed to query domain_tables: %w", err)
+		return err
 	}
-	defer rows.Close()
-	for rows.Next() {
-		var key int
-		var name string
-		err = rows.Scan(&key, &name)
-		if err != nil {
-			return fmt.Errorf("failed to scan table row: %w", err)
-		}
-		tableName2Key[name] = key
-		if key > maxTableKey {
-			maxTableKey = key
-		}
+	maxTableKey, err := getMaxKey(ctx, db, "domain_tables")
+	if err != nil {
+		return err
 	}
+
 	// Insert new tables that are not in tableName2Key
 	tableStmt := "INSERT INTO domain_tables (key, domain_class_key, name) VALUES (?, ?, ?)"
-	tableData := make([][]any, 0, len(jetRuleModel.Tables))
 	columnStmt := "INSERT INTO domain_columns (domain_table_key, data_property_key, name, type, as_array) VALUES (?, ?, ?, ?, ?)"
+	tableData := make([][]any, 0, len(jetRuleModel.Tables))
 	columnData := make([][]any, 0)
 
 	// Insert tables & table columns
