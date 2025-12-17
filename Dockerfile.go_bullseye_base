@@ -90,6 +90,7 @@ RUN wget -q "https://github.com/abseil/abseil-cpp/releases/download/20250127.1/a
     && cmake -DCMAKE_CXX_FLAGS=-fPIC -DABSL_BUILD_TESTING=OFF -DCMAKE_CXX_STANDARD=20 .. \
     && make -j6  \
     && make install \
+    && make clean \
     && ldconfig
 
 # Google Test
@@ -101,6 +102,7 @@ RUN wget -q "https://github.com/google/googletest/releases/download/v1.16.0/goog
     && cmake -DCMAKE_CXX_FLAGS=-fPIC -DCMAKE_CXX_STANDARD=20 .. \
     && make -j6  \
     && make install \
+    && make clean \
     && ldconfig
 
 # Google Flags
@@ -111,6 +113,7 @@ RUN wget -q "https://github.com/gflags/gflags/archive/refs/tags/v2.2.2.tar.gz"  
     && cmake cmake -DCMAKE_CXX_FLAGS=-fPIC -DCMAKE_CXX_STANDARD=20 .. \
     && make -j6  \
     && make install \
+    && make clean \
     && ldconfig
 
 # Google Log
@@ -121,6 +124,7 @@ RUN wget -q "https://github.com/google/glog/archive/refs/tags/v0.6.0.tar.gz"  \
     && cmake -DCMAKE_CXX_FLAGS=-fPIC -DCMAKE_CXX_STANDARD=20 .. \
     && make -j6  \
     && make install \
+    && make clean \
     && ldconfig
 
 # Google Benchmark
@@ -131,6 +135,7 @@ RUN wget -q "https://github.com/google/benchmark/archive/refs/tags/v1.9.2.tar.gz
     && cmake -DCMAKE_CXX_FLAGS=-fPIC -DCMAKE_CXX_STANDARD=20 -DGOOGLETEST_PATH=${GOOGLETEST_PATH} .. \
     && make -j6  \
     && make install \
+    && make clean \
     && ldconfig
 
 # sqlite3
@@ -142,6 +147,7 @@ RUN wget -q "https://www.sqlite.org/2023/sqlite-autoconf-${SQLITE3_VERSION}.tar.
     && ./configure   \
     && make -j6  \
     && make install \
+    && make clean \
     && ldconfig
 RUN sqlite3 --version
 
