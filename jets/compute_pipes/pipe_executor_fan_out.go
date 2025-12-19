@@ -78,8 +78,13 @@ func (ctx *BuilderContext) StartFanOutPipe(spec *PipeSpec, source *InputChannel,
 		if evaluators[i] != nil {
 			err = evaluators[i].Done()
 			if err != nil {
-				cpErr = fmt.Errorf("while calling done on PipeTransformationEvaluator (in fan_out): %v", err)
-				log.Println(cpErr)
+				if strings.Contains(err.Error(), "cannot perform file analysis") {
+					log.Printf("while calling done on PipeTransformationEvaluator (in fan_out): %v\n", err)
+					cpErr = err
+				} else {
+					cpErr = fmt.Errorf("while calling done on PipeTransformationEvaluator (in fan_out): %v", err)
+					log.Println(cpErr)
+				}
 				goto gotError
 			}
 		}

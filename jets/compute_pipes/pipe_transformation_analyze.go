@@ -130,8 +130,8 @@ func (ctx *AnalyzeTransformationPipe) Done() error {
 	// For each column state in ctx.analyzeState, send out a row to ctx.outputCh
 	var ok bool
 	if ctx.firstInputRow == nil {
-		err := fmt.Errorf("error: AnalyzeTransformationPipe.Done firstInputRow is null, nbr rows analyzed is %d",
-			ctx.nbrRowsAnalyzed)
+		err := fmt.Errorf("error: the input file contains no data rows, cannot perform file analysis")
+		log.Printf("AnalyzeTransformationPipe.Done: Number of rows analyzed is %d",	ctx.nbrRowsAnalyzed)
 		log.Println(err)
 		return err
 	}
