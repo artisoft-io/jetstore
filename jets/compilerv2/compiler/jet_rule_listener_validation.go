@@ -218,17 +218,28 @@ func (s *JetRuleListener) PostProcessJetruleProperties(rule *rete.JetruleNode) {
 }
 
 // Make rule label string as follows:
-// [ruleName, prop1=val1, prop2=val2]: (subj1 pred1 obj1).(subj2 pred2 obj2) -> (subj3 pred3 obj3).(subj4 pred4 obj4);
+// [ruleName, prop1=val1, prop2=val2]:(subj1 pred1 obj1).(subj2 pred2 obj2) -> (subj3 pred3 obj3).(subj4 pred4 obj4);
 // If normalize is true, variable resources are represented by their Id instead of their Value
 // Example where the Id ?x1 is used:
 // [MyRule, o=true, s=10]: (?x1 rdf:type ex:Person).not(?x1 ex:hasAge ?age) -> (?x1 ex:isAdult true);
 func (l *JetRuleListener) makeRuleLabel(rule *rete.JetruleNode, normalize bool) string {
 	label := &strings.Builder{}
-	label.WriteString(fmt.Sprintf("[%s", rule.Name))
+	fmt.Fprintf(label, "[%s", rule.Name)
+	// For compatibility with the previous version, write properties in specific order
+	propKeys := []string{"o", "s", "flag"}
+	for _, k := range propKeys {
+		if v, ok := rule.Properties[k]; ok {
+			fmt.Fprintf(label, ", %s=%s", k, v)
+		}
+	}
+	// Write other properties
 	for k, v := range rule.Properties {
+		if k == "o" || k == "s" || k == "flag" {
+			continue
+		}
 		fmt.Fprintf(label, ", %s=%s", k, v)
 	}
-	label.WriteString("]: ")
+	label.WriteString("]:")
 	// Antecedents
 	for i := range rule.Antecedents {
 		if i > 0 {
