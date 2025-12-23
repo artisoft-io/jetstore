@@ -444,6 +444,7 @@ func (l *JetRuleListener) PostProcessClasses() {
 				PredicateKey: l.AddR("rdf:type").Key,
 				ObjectKey:    l.AddR(className).Key,
 			}},
+			SourceFileName: class.SourceFileName,
 		}
 		for _, baseClassName := range class.BaseClasses {
 			if _, exists := l.classesByName[baseClassName]; exists {

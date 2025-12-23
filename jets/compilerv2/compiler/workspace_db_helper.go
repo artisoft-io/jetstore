@@ -110,6 +110,9 @@ func (w *WorkspaceDB) SaveJetRules(ctx context.Context, db *sql.DB, jetRuleModel
 	rulePropsData := make([][]any, 0)
 	ruleTermsData := make([][]any, 0)
 	for _, jetRule := range jetRuleModel.Jetrules {
+		if w.sourceMgr.IsPreExisting(jetRule.SourceFileName) {
+			continue
+		}
 
 		// JetRule
 		maxKey++
@@ -407,17 +410,17 @@ func (w *WorkspaceDB) SaveLookupTables(ctx context.Context, db *sql.DB, jetRuleM
 
 // Save Rule Sequences into workspace db
 func (w *WorkspaceDB) SaveRuleSequences(ctx context.Context, db *sql.DB, jetRuleModel *rete.JetruleModel) error {
-	// Delete existing rule sequences for current main file
-	deleteStmt := "DELETE FROM rule_sequences WHERE source_file_key = ?"
-	_, err := db.ExecContext(ctx, deleteStmt, w.mainFileKey)
-	if err != nil {
-		return fmt.Errorf("failed to delete existing rule sequences: %w", err)
-	}
-	deleteStmt = "DELETE FROM main_rule_sets WHERE ruleset_file_key = ?"
-	_, err = db.ExecContext(ctx, deleteStmt, w.mainFileKey)
-	if err != nil {
-		return fmt.Errorf("failed to delete existing main_rule_sets: %w", err)
-	}
+	// // Delete existing rule sequences for current main file
+	// deleteStmt := "DELETE FROM rule_sequences WHERE source_file_key = ?"
+	// _, err := db.ExecContext(ctx, deleteStmt, w.mainFileKey)
+	// if err != nil {
+	// 	return fmt.Errorf("failed to delete existing rule sequences: %w", err)
+	// }
+	// deleteStmt = "DELETE FROM main_rule_sets WHERE ruleset_file_key = ?"
+	// _, err = db.ExecContext(ctx, deleteStmt, w.mainFileKey)
+	// if err != nil {
+	// 	return fmt.Errorf("failed to delete existing main_rule_sets: %w", err)
+	// }
 
 	maxKey, err := getMaxKey(ctx, db, "rule_sequences")
 	if err != nil {
@@ -433,6 +436,9 @@ func (w *WorkspaceDB) SaveRuleSequences(ctx context.Context, db *sql.DB, jetRule
 		maxKey++
 		rsData = append(rsData, []any{maxKey, rs.Name, w.mainFileKey})
 		for seq, rsName := range rs.RuleSets {
+			if w.sourceMgr.IsPreExisting(rsName) {
+				continue
+			}
 			ruleSetFileKey := w.sourceMgr.GetOrAddDbKey(rsName)
 			mrsData = append(mrsData, []any{maxKey, rsName, ruleSetFileKey, seq})
 		}
@@ -597,7 +603,7 @@ func (w *WorkspaceDB) SaveClassesAndTables(ctx context.Context, db *sql.DB, jetR
 }
 
 // Save Tables into workspace db
-func (w *WorkspaceDB) SaveTables(ctx context.Context, db *sql.DB, 
+func (w *WorkspaceDB) SaveTables(ctx context.Context, db *sql.DB,
 	className2Key, dataProperties2Key map[string]int, jetRuleModel *rete.JetruleModel) error {
 
 	// Load existing tables put them in a set and keep tack of the max key

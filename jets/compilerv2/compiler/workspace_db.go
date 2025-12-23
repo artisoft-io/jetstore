@@ -64,6 +64,9 @@ func (w *WorkspaceDB) SaveJetRuleModel(ctx context.Context, jetRuleModel *rete.J
 	if err != nil {
 		return fmt.Errorf("failed to load source file mapping: %w", err)
 	}
+	if w.sourceMgr.IsPreExisting(w.mainSourceFileName) {
+		return fmt.Errorf("main source file %s already exists in workspace db", w.mainSourceFileName)
+	}
 	w.mainFileKey = w.sourceMgr.GetOrAddDbKey(w.mainSourceFileName)
 	fmt.Printf("*** Main rule file: %s with key %d ***\n", w.mainSourceFileName, w.mainFileKey)
 
