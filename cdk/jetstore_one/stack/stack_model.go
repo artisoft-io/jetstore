@@ -42,6 +42,19 @@ func (props *JetstoreOneStackProps) MkId(name string) *string {
 	return &id
 }
 
+// Proxy policy document struct
+type ApiGatewayProxyPolicyDocument struct {
+	Version   string                           `json:"Version"`
+	Statement []ApiGatewayProxyPolicyStatement `json:"Statement"`
+}
+
+type ApiGatewayProxyPolicyStatement struct {
+	Effect    string `json:"Effect"`
+	Principal string `json:"Principal"`
+	Action    string `json:"Action"`
+	Resource  string `json:"Resource"`
+}
+
 // Struct to hold the stack components
 type JetStoreStackComponents struct {
 	LoaderSmArn   string

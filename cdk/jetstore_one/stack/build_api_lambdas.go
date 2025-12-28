@@ -3,6 +3,7 @@ package stack
 // Build the API Gateway Lambda function if defined in env variable JETS_API_GATEWAY_LAMBDA_ENTRY
 
 import (
+	"encoding/json"
 	"log"
 	"os"
 	"strings"
@@ -164,11 +165,57 @@ func (jsComp *JetStoreStackComponents) BuildApiLambdas(scope constructs.Construc
 			}),
 		)
 	}
+
 	// Define resource policy for API Gateway
 	var resourcePolicy awsiam.PolicyDocument
 	policyJson := os.Getenv("JETS_API_GATEWAY_RESOURCE_POLICY_JSON")
 	if len(policyJson) > 0 {
-		resourcePolicy = awsiam.PolicyDocument_FromJson(jsii.String(policyJson))
+		// Use custom resource policy from environment variable
+		var policyDocument ApiGatewayProxyPolicyDocument
+		err := json.Unmarshal([]byte(policyJson), &policyDocument)
+		if err != nil {
+			log.Fatalf("error: failed to parse JETS_API_GATEWAY_RESOURCE_POLICY_JSON: %v\n", err)
+		}
+		// Build the statements of the policy
+		statements := make([]awsiam.PolicyStatement, 0)
+		for _, stmt := range policyDocument.Statement {
+			var principals *[]awsiam.IPrincipal
+			switch strings.ToLower(stmt.Principal) {
+			case "aws:*":
+				principals = &[]awsiam.IPrincipal{awsiam.NewAnyPrincipal()}
+			case "*":
+				principals = &[]awsiam.IPrincipal{awsiam.NewStarPrincipal()}
+			case "":
+				// No principals
+			default:
+				arnPrincipal := awsiam.NewArnPrincipal(jsii.String(stmt.Principal))
+				principals = &[]awsiam.IPrincipal{arnPrincipal}
+			}
+			var effect awsiam.Effect
+			switch strings.ToLower(stmt.Effect) {
+			case "allow":
+				effect = awsiam.Effect_ALLOW
+			case "deny":
+				effect = awsiam.Effect_DENY
+			default:
+				log.Fatalf("error: invalid effect '%s' in API Gateway resource policy\n", stmt.Effect)
+			}
+
+			policyStmt := awsiam.NewPolicyStatement(&awsiam.PolicyStatementProps{
+				Effect:     effect,
+				Principals: principals,
+				Actions: &[]*string{
+					jsii.String(stmt.Action),
+				},
+				Resources: &[]*string{
+					jsii.String(stmt.Resource),
+				},
+			})
+			statements = append(statements, policyStmt)
+		}
+		resourcePolicy = awsiam.NewPolicyDocument(&awsiam.PolicyDocumentProps{
+			Statements: &statements,
+		})
 	} else {
 		// Create the default resource policy for private API (only system role, not test lambda role)
 		resourcePolicy = awsiam.NewPolicyDocument(&awsiam.PolicyDocumentProps{
@@ -226,15 +273,15 @@ func (jsComp *JetStoreStackComponents) BuildApiLambdas(scope constructs.Construc
 			},
 			VpcEndpoints: &[]awsec2.IVpcEndpoint{jsComp.ApiGatewayVpcEndpoint},
 		},
-		Policy: resourcePolicy,
+		Policy:         resourcePolicy,
 		CloudWatchRole: jsii.Bool(true),
 		DeployOptions: &awsapigateway.StageOptions{
-			LoggingLevel:       awsapigateway.MethodLoggingLevel_INFO,
-			DataTraceEnabled:   jsii.Bool(true),
-			MetricsEnabled:     jsii.Bool(true),
-			TracingEnabled:     jsii.Bool(true),
+			LoggingLevel:         awsapigateway.MethodLoggingLevel_INFO,
+			DataTraceEnabled:     jsii.Bool(true),
+			MetricsEnabled:       jsii.Bool(true),
+			TracingEnabled:       jsii.Bool(true),
 			AccessLogDestination: awsapigateway.NewLogGroupLogDestination(apiAccessLogGroup),
-			AccessLogFormat: awsapigateway.AccessLogFormat_Clf(),
+			AccessLogFormat:      awsapigateway.AccessLogFormat_Clf(),
 		},
 		DefaultMethodOptions: &awsapigateway.MethodOptions{
 			AuthorizationType: awsapigateway.AuthorizationType_IAM,
