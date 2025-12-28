@@ -30,8 +30,9 @@ func (j *JetruleModel) ToJson() ([]byte, error) {
 	return json.Marshal(j)
 }
 
-func NewJetruleModel() *JetruleModel {
+func NewJetruleModel(mainRuleFileName string) *JetruleModel {
 	return &JetruleModel{
+		MainRuleFileName:   mainRuleFileName,
 		CompilerDirectives: make(map[string]string),
 		Resources:          []*ResourceNode{},
 		LookupTables:       []*LookupTableNode{},
@@ -151,15 +152,19 @@ type RuleTerm struct {
 	ObjectKey          int             `json:"object_key,omitzero"`
 	ObjectExpr         *ExpressionNode `json:"obj_expr,omitempty"`
 	Filter             *ExpressionNode `json:"filter,omitempty"`
+	ObjectExprKey      int             `json:"-"`
+	FilterKey          int             `json:"-"`
 }
 
-// ExpressionNode represents an expression in the model
-// Type can be "identifier", "unary", "binary"
-// Op is the operator for unary and binary expressions
-// Arg is the argument for unary expressions
-// Lhs and Rhs are the left and right hand side for binary expressions
-// Value is the resource key for identifier
-// r is shorthand for the resource with Value as Key
+func (rt *RuleTerm) UniqueKey() string {
+	return fmt.Sprintf("%s:%02d:%02d", rt.Type, rt.Vertex, rt.ConsequentSeq)
+}
+// ExpressionNode represents an expression in the model.
+// Type can be "identifier", "unary", "binary".
+// Op is the operator for unary and binary expressions.
+// Arg is the argument for unary expressions.
+// Lhs and Rhs are the left and right hand side for binary expressions.
+// Value is the resource key for identifier.
 type ExpressionNode struct {
 	Type  string          `json:"type,omitempty"`
 	Op    string          `json:"op,omitempty"`
@@ -167,7 +172,6 @@ type ExpressionNode struct {
 	Lhs   *ExpressionNode `json:"lhs,omitempty"`
 	Rhs   *ExpressionNode `json:"rhs,omitempty"`
 	Value int             `json:"value,omitempty"`
-	R     *ResourceNode   `json:"-"`
 }
 
 // BetaVarNode provides information about a variable in a beta relation
@@ -212,10 +216,10 @@ type TableNode struct {
 }
 
 type TableColumnNode struct {
-	Type         string `json:"type,omitempty"`
-	AsArray      bool   `json:"as_array,omitzero"`
+	Type    string `json:"type,omitempty"`
+	AsArray bool   `json:"as_array,omitzero"`
 	// PropertyName string `json:"property_name,omitempty"`
-	ColumnName   string `json:"column_name,omitempty"`
+	ColumnName string `json:"column_name,omitempty"`
 }
 
 type TripleNode struct {

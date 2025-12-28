@@ -67,13 +67,13 @@ func (c *Compiler) CompileBuffer(combinedContent string) error {
 	// Finally walk the tree
 	antlr.ParseTreeWalkerDefault.Walk(c.listener, tree)
 	if c.Trace() {
-		fmt.Println("** Compilation successful")
+		log.Println("** Compilation successful")
 	}
 	if c.Trace() && c.ParseLog().Len() > 0 {
-		fmt.Println("** Parse Log:\n", c.ParseLog().String())
+		log.Println("** Parse Log:\n", c.ParseLog().String())
 	}
 	if c.ErrorLog().Len() > 0 {
-		fmt.Println("** Compilation Errors:\n", c.ErrorLog().String())
+		log.Println("** Compilation Errors:\n", c.ErrorLog().String())
 	}
 	if c.saveJson {
 		outPath := fmt.Sprintf("%s/%s", c.listener.basePath, c.OutJsonFileName())
@@ -81,25 +81,25 @@ func (c *Compiler) CompileBuffer(combinedContent string) error {
 		data, err := c.JetRuleModel().ToJson()
 		if err != nil {
 			log.Println("** ERROR converting to json:", err.Error())
-			log.Fatal(err)
+			return fmt.Errorf("while converting to json: %w", err)
 		}
 		err = os.WriteFile(outPath, data, 0644)
 		if err != nil {
 			log.Println("** ERROR saving json:", err.Error())
-			log.Fatal(err)
+			return fmt.Errorf("while saving json: %w", err)
 		}
-		// Create workspaceV2.db file
-		bdFilePath := fmt.Sprintf("%s/workspaceV2.db", c.listener.basePath)
-		log.Println("Saving workspaceV2.db to", bdFilePath)
+		// Create workspace.db file
+		bdFilePath := fmt.Sprintf("%s/workspace.db", c.listener.basePath)
+		log.Println("Saving workspace.db to", bdFilePath)
 		wDb, err := NewWorkspaceDB(bdFilePath)
 		if err != nil {
-			log.Println("** ERROR creating workspaceV2.db:", err.Error())
-			log.Fatal(err)
+			log.Println("** ERROR creating workspace.db:", err.Error())
+			return fmt.Errorf("while creating workspace.db: %w", err)
 		}
 		err = wDb.SaveJetRuleModel(context.TODO(), c.listener.jetRuleModel)
 		if err != nil {
-			log.Println("** ERROR saving to workspaceV2.db:", err.Error())
-			log.Fatal(err)
+			log.Println("** ERROR saving to workspace.db:", err.Error())
+			return fmt.Errorf("while saving to workspace.db: %w", err)
 		}
 	}
 
@@ -128,6 +128,7 @@ func (c *Compiler) OutJsonFileName() string {
 
 // All in one function to compile the rules
 func CompileJetRuleFiles(basePath string, mainRuleFileName string, saveJson, trace, autoAddResources bool) (*Compiler, error) {
+	log.Println("Compiling JetRule file:", mainRuleFileName, "autoAddResources:", autoAddResources)
 	jrCompiler := NewCompiler(basePath, mainRuleFileName, saveJson, trace, autoAddResources)
 	err := jrCompiler.Compile()
 	if err != nil {

@@ -31,9 +31,15 @@ func compileWorkspaceV2(dbpool *pgxpool.Pool, workspaceControl *rete.WorkspaceCo
 		return "", fmt.Errorf("while creating build directory: %v", err)
 	}
 
+	// Remove existing workspace.db if exists
+	err = os.Remove(fmt.Sprintf("%s/%s/workspace.db", workspaceHome, workspaceName))
+	if err != nil {
+		log.Printf("failed to remove existing workspace.db: %v", err)
+	}
+
 	// Compile the workspace locally
 	var fullModel *rete.JetruleModel
-	buf.WriteString(fmt.Sprintf("(Compiler V2) Compiling workspace %s at version %s\n", workspaceName, version))
+	fmt.Fprintf(&buf, "(Compiler V2) Compiling workspace %s at version %s\n", workspaceName, version)
 	// For  each main rule files in workspace control, create a compiler instance
 	// and compile the rule file
 	// Collect the set of main rule files
@@ -53,7 +59,7 @@ func compileWorkspaceV2(dbpool *pgxpool.Pool, workspaceControl *rete.WorkspaceCo
 
 	for name := range mainRuleFiles {
 		// name is the file path relative to workspace home
-		buf.WriteString(fmt.Sprintf("Compiling rule file: %s\n", name))
+		fmt.Fprintf(&buf, "Compiling rule file: %s\n", name)
 		jrCompiler = compiler.NewCompiler(
 			fmt.Sprintf("%s/%s", workspaceHome, workspaceName),
 			name, true, workspaceControl.UseTraceMode, workspaceControl.AutoAddResources)
@@ -241,6 +247,9 @@ func compileWorkspaceV2(dbpool *pgxpool.Pool, workspaceControl *rete.WorkspaceCo
 
 	if devMode {
 		log.Println("IN DEV MODE = Skipping copy large object to DB")
+		if dbpool == nil {
+			return buf.String(), nil
+		}
 	} else {
 		// Copy the sqlite files & the tar file to db
 		buf.WriteString("\nCopy the sqlite file to db\n")

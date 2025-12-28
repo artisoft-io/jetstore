@@ -506,7 +506,8 @@ func (s *JetRuleListener) ExitUnaryExprTerm3(ctx *parser.UnaryExprTerm3Context) 
 // exitObjectAtomExprTerm is called when production objectAtomExprTerm is exited.
 // This is the leaf node of the expression tree, it represents a variable or a resource
 func (s *JetRuleListener) ExitObjectAtomExprTerm(ctx *parser.ObjectAtomExprTermContext) {
-	NodeTxt := StripQuotes(ctx.GetIdent().GetText())
+	// NodeTxt := StripQuotes(ctx.GetIdent().GetText()) -- that was bug to remove double quotes
+	NodeTxt := ctx.GetIdent().GetText()
 	kws := ""
 	if ctx.GetIdent().GetKws() != nil {
 		kws = ctx.GetIdent().GetKws().GetText()
@@ -514,10 +515,12 @@ func (s *JetRuleListener) ExitObjectAtomExprTerm(ctx *parser.ObjectAtomExprTermC
 
 	// Create a new identifier (resource / volatile_resource) expression node
 	r := s.ParseObjectAtom(NodeTxt, kws)
+	if r == nil {
+		return
+	}
 	varNode := rete.ExpressionNode{
 		Type:  "identifier",
 		Value: r.Key,
-		R:     r,
 	}
 	// Push the new identifier expression onto the stack
 	s.inProgressExpr.Push(&varNode)

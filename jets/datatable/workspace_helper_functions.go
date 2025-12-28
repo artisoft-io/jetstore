@@ -87,7 +87,7 @@ func compileWorkspaceAction(ctx *DataTableContext, dataTableAction *DataTableAct
 		workspaceName := dataTableAction.WorkspaceName
 
 		// Compile workspace
-		fmt.Println("Compiling workspace", workspaceName)
+		log.Println("Compiling workspace", workspaceName)
 		gitLog, err = workspace.CompileWorkspace(ctx.Dbpool, workspaceName, strconv.FormatInt(time.Now().Unix(), 10))
 		if err != nil {
 			status = "error"

@@ -59,7 +59,7 @@ func NewJetRuleListener(basePath string, mainRuleFileName string) *JetRuleListen
 		mainRuleFileName:      mainRuleFileName,
 		basePath:              basePath,
 		outJsonFileName:       outJsonFileName,
-		jetRuleModel:          rete.NewJetruleModel(),
+		jetRuleModel:          rete.NewJetruleModel(mainRuleFileName),
 		resourceManager:       NewResourceManager(),
 		classesByName:         make(map[string]*rete.ClassNode),
 		currentRuleVarByValue: make(map[string]*rete.ResourceNode),

@@ -32,6 +32,9 @@ import (
 // Note: s.currentRuleVarByValue must be initialized (at the start of a rule) before this function is called
 func (s *JetRuleListener) ParseObjectAtom(txt string, keywordsContextValue string) *rete.ResourceNode {
 	r := s.parseObjectAtom(txt, keywordsContextValue)
+	if r == nil {
+		return nil
+	}
 	switch r.Type {
 
 	case "var":
@@ -245,8 +248,8 @@ func (s *JetRuleListener) parseObjectAtom(txt string, keywordsContextValue strin
 			case "text", "int", "uint", "long", "ulong", "double", "bool", "date", "datetime":
 			default:
 				// invalid type - report error, return nil
-				fmt.Fprintf(s.errorLog, "error: invalid literal type '%s' for value '%s'\n", typ, val)
-				fmt.Fprintf(s.parseLog, "error: invalid literal type '%s' for value '%s'\n", typ, val)
+				fmt.Fprintf(s.errorLog, "error: invalid literal type '%s' for value '%s', source text: %s\n", typ, val, txt)
+				fmt.Fprintf(s.parseLog, "error: invalid literal type '%s' for value '%s', source text: %s\n", typ, val, txt)
 				return nil
 			}
 			return &rete.ResourceNode{

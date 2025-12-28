@@ -10,10 +10,11 @@ import (
 	"os"
 
 	"github.com/artisoft-io/jetstore/jets/jetrules/rete"
-	 _ "github.com/mattn/go-sqlite3"
+	_ "github.com/mattn/go-sqlite3"
 )
 
 var workspaceSchema string = os.Getenv("JETS_WORKSPACE_DB_SCHEMA_SCRIPT")
+
 func init() {
 	if len(workspaceSchema) == 0 {
 		workspaceSchema = "/usr/local/bin/workspace_schema.sql"
@@ -21,10 +22,13 @@ func init() {
 }
 
 type WorkspaceDB struct {
-	DB *sql.DB
+	DB                 *sql.DB
 	mainSourceFileName string
-	sourceMgr *SourceFileManager
-	rm *WorkspaceResourceManager
+	sourceMgr          *SourceFileManager
+	rm                 *WorkspaceResourceManager
+	mainFileKey        int
+	maxExprKey         int
+	reteNode2DbKey     map[string]int
 }
 
 func NewWorkspaceDB(dbPath string) (*WorkspaceDB, error) {
@@ -41,7 +45,11 @@ func NewWorkspaceDB(dbPath string) (*WorkspaceDB, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to initialize database schema: %w", err)
 	}
-	w := &WorkspaceDB{DB: db}
+	w := &WorkspaceDB{
+		DB:             db,
+		reteNode2DbKey: make(map[string]int),
+	}
+	// Initialize source file manager and resource manager
 	w.sourceMgr = NewSourceFileManager(w)
 	w.rm = NewWorkspaceResourceManager(w)
 	return w, nil
@@ -52,11 +60,14 @@ func (w *WorkspaceDB) SaveJetRuleModel(ctx context.Context, jetRuleModel *rete.J
 	w.mainSourceFileName = jetRuleModel.MainRuleFileName
 	// Load source file mapping
 	var err error
-	w.sourceMgr = NewSourceFileManager(w)
 	err = w.sourceMgr.LoadSourceFileNameToKey(ctx, w.DB)
 	if err != nil {
 		return fmt.Errorf("failed to load source file mapping: %w", err)
 	}
+	if w.sourceMgr.IsPreExisting(w.mainSourceFileName) {
+		return fmt.Errorf("main source file %s already exists in workspace db", w.mainSourceFileName)
+	}
+	w.mainFileKey = w.sourceMgr.GetOrAddDbKey(w.mainSourceFileName)
 
 	// Save resources
 	err = w.rm.SaveResources(ctx, w.DB, jetRuleModel)
@@ -72,8 +83,45 @@ func (w *WorkspaceDB) SaveJetRuleModel(ctx context.Context, jetRuleModel *rete.J
 
 	// Save JetSore Config
 	err = w.SaveJetstoreConfig(ctx, w.DB, jetRuleModel)
+	if err != nil {
+		return fmt.Errorf("failed to save jetstore config: %w", err)
+	}
 
-	//*TODO Save the other tables
+	// Add all rule sequences
+	err = w.SaveRuleSequences(ctx, w.DB, jetRuleModel)
+	if err != nil {
+		return fmt.Errorf("failed to save rule sequences: %w", err)
+	}
+
+	// Add all lookup_table to rete_db, will skip source file already in rete_db
+	err = w.SaveLookupTables(ctx, w.DB, jetRuleModel)
+	if err != nil {
+		return fmt.Errorf("failed to save lookup tables: %w", err)
+	}
+
+	// Add expressions based on filters and object expr
+	err = w.SaveExpressions(ctx, w.DB, jetRuleModel)
+	if err != nil {
+		return fmt.Errorf("failed to save expressions: %w", err)
+	}
+
+	// Save Rete Nodes and beta_row_config into workspace db
+	err = w.SaveReteNodes(ctx, w.DB, jetRuleModel)
+	if err != nil {
+		return fmt.Errorf("failed to save rete nodes: %w", err)
+	}
+
+	// Save jet rules
+	err = w.SaveJetRules(ctx, w.DB, jetRuleModel)
+	if err != nil {
+		return fmt.Errorf("failed to save jet rules: %w", err)
+	}
+
+	// Save metadata triples
+	err = w.SaveMetadataTriples(ctx, w.DB, jetRuleModel)
+	if err != nil {
+		return fmt.Errorf("failed to save metadata triples: %w", err)
+	}
 
 	// Last, save the source file mapping back to workspace_control
 	err = w.sourceMgr.SaveNewSourceFileNames(ctx, w.DB)

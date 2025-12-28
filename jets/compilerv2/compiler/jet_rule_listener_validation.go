@@ -218,17 +218,28 @@ func (s *JetRuleListener) PostProcessJetruleProperties(rule *rete.JetruleNode) {
 }
 
 // Make rule label string as follows:
-// [ruleName, prop1=val1, prop2=val2]: (subj1 pred1 obj1).(subj2 pred2 obj2) -> (subj3 pred3 obj3).(subj4 pred4 obj4);
+// [ruleName, prop1=val1, prop2=val2]:(subj1 pred1 obj1).(subj2 pred2 obj2) -> (subj3 pred3 obj3).(subj4 pred4 obj4);
 // If normalize is true, variable resources are represented by their Id instead of their Value
 // Example where the Id ?x1 is used:
 // [MyRule, o=true, s=10]: (?x1 rdf:type ex:Person).not(?x1 ex:hasAge ?age) -> (?x1 ex:isAdult true);
 func (l *JetRuleListener) makeRuleLabel(rule *rete.JetruleNode, normalize bool) string {
 	label := &strings.Builder{}
-	label.WriteString(fmt.Sprintf("[%s", rule.Name))
+	fmt.Fprintf(label, "[%s", rule.Name)
+	// For compatibility with the previous version, write properties in specific order
+	propKeys := []string{"o", "s", "flag"}
+	for _, k := range propKeys {
+		if v, ok := rule.Properties[k]; ok {
+			fmt.Fprintf(label, ", %s=%s", k, v)
+		}
+	}
+	// Write other properties
 	for k, v := range rule.Properties {
+		if k == "o" || k == "s" || k == "flag" {
+			continue
+		}
 		fmt.Fprintf(label, ", %s=%s", k, v)
 	}
-	label.WriteString("]: ")
+	label.WriteString("]:")
 	// Antecedents
 	for i := range rule.Antecedents {
 		if i > 0 {
@@ -406,24 +417,24 @@ func (l *JetRuleListener) PostProcessClasses() {
 	for className, class := range l.classesByName {
 		// Create a single rule to infer all base classes of the class:
 		// (?x1 rdf:type <class>) -> (?x1 rdf:type <baseClass1>).(?x1 rdf:type <baseClass2>)...;
-		// Rule name: ClassInh_<class>_<baseClass>
+		// Rule name: ci_<class>_<baseClass>
 		// Antecedent: ?x1 rdf:type <class>
 		// Consequents: (?x1 rdf:type <baseClass1>).(?x1 rdf:type <baseClass2>)...
 		// Properties: none
-		// Label: [ClassInh_<class>_<baseClass>]: (?x1 rdf:type <class>) -> (?x1 rdf:type <baseClass1>)...;
-		// NormalizedLabel: [ClassInh_<class>_<baseClass>]: (?x1 rdf:type <class>) -> (?x1 rdf:type <baseClass1>)...;
+		// Label: [ci_<class>_<baseClass>]: (?x1 rdf:type <class>) -> (?x1 rdf:type <baseClass1>)...;
+		// NormalizedLabel: [ci_<class>_<baseClass>]: (?x1 rdf:type <class>) -> (?x1 rdf:type <baseClass1>)...;
 		// Note: ?x1 is the variable name and also it's normalized name
 		// Note: All classes have at least one base class owl:Thing, except owl:Thing itself
 		if className == "owl:Thing" {
 			continue
 		}
 		if len(class.BaseClasses) == 0 {
-			fmt.Fprintf(l.errorLog, "** error: class %s has no base classes, should at least have owl:Thing\n", className)
+			fmt.Fprintf(l.parseLog, "** note: class %s has no base classes, should at least have owl:Thing\n", className)
 			continue
 		}
 		// Create a rule for the class inheritance
 		l.currentRuleVarByValue = make(map[string]*rete.ResourceNode)
-		name := fmt.Sprintf("ClassInh_%s", className)
+		name := fmt.Sprintf("ci_%s", className)
 		rule := &rete.JetruleNode{
 			Name:       name,
 			Properties: map[string]string{},
@@ -433,6 +444,7 @@ func (l *JetRuleListener) PostProcessClasses() {
 				PredicateKey: l.AddR("rdf:type").Key,
 				ObjectKey:    l.AddR(className).Key,
 			}},
+			SourceFileName: class.SourceFileName,
 		}
 		for _, baseClassName := range class.BaseClasses {
 			if _, exists := l.classesByName[baseClassName]; exists {

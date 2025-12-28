@@ -51,7 +51,7 @@ func main() {
 
 	jrCompiler, err := compiler.CompileJetRuleFiles(*basePath, *inputFileName, *saveJson, *trace, *autoAddResources)
 	if err != nil {
-		log.Println("** ERROR during compilation:")
+		log.Println("** FATAL ERROR during compilation:")
 		log.Println(jrCompiler.ErrorLog().String())
 		log.Fatal(err)
 	} else {
