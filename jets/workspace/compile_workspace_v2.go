@@ -31,6 +31,12 @@ func compileWorkspaceV2(dbpool *pgxpool.Pool, workspaceControl *rete.WorkspaceCo
 		return "", fmt.Errorf("while creating build directory: %v", err)
 	}
 
+	// Remove existing workspace.db if exists
+	err = os.Remove(fmt.Sprintf("%s/%s/workspace.db", workspaceHome, workspaceName))
+	if err != nil {
+		log.Printf("failed to remove existing workspace.db: %v", err)
+	}
+
 	// Compile the workspace locally
 	var fullModel *rete.JetruleModel
 	fmt.Fprintf(&buf, "(Compiler V2) Compiling workspace %s at version %s\n", workspaceName, version)

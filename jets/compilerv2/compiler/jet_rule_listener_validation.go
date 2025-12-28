@@ -417,24 +417,24 @@ func (l *JetRuleListener) PostProcessClasses() {
 	for className, class := range l.classesByName {
 		// Create a single rule to infer all base classes of the class:
 		// (?x1 rdf:type <class>) -> (?x1 rdf:type <baseClass1>).(?x1 rdf:type <baseClass2>)...;
-		// Rule name: ClassInh_<class>_<baseClass>
+		// Rule name: ci_<class>_<baseClass>
 		// Antecedent: ?x1 rdf:type <class>
 		// Consequents: (?x1 rdf:type <baseClass1>).(?x1 rdf:type <baseClass2>)...
 		// Properties: none
-		// Label: [ClassInh_<class>_<baseClass>]: (?x1 rdf:type <class>) -> (?x1 rdf:type <baseClass1>)...;
-		// NormalizedLabel: [ClassInh_<class>_<baseClass>]: (?x1 rdf:type <class>) -> (?x1 rdf:type <baseClass1>)...;
+		// Label: [ci_<class>_<baseClass>]: (?x1 rdf:type <class>) -> (?x1 rdf:type <baseClass1>)...;
+		// NormalizedLabel: [ci_<class>_<baseClass>]: (?x1 rdf:type <class>) -> (?x1 rdf:type <baseClass1>)...;
 		// Note: ?x1 is the variable name and also it's normalized name
 		// Note: All classes have at least one base class owl:Thing, except owl:Thing itself
 		if className == "owl:Thing" {
 			continue
 		}
 		if len(class.BaseClasses) == 0 {
-			fmt.Fprintf(l.errorLog, "** error: class %s has no base classes, should at least have owl:Thing\n", className)
+			fmt.Fprintf(l.parseLog, "** note: class %s has no base classes, should at least have owl:Thing\n", className)
 			continue
 		}
 		// Create a rule for the class inheritance
 		l.currentRuleVarByValue = make(map[string]*rete.ResourceNode)
-		name := fmt.Sprintf("ClassInh_%s", className)
+		name := fmt.Sprintf("ci_%s", className)
 		rule := &rete.JetruleNode{
 			Name:       name,
 			Properties: map[string]string{},

@@ -76,7 +76,6 @@ func PackageLookupTablesToSqlite(lookupTables []*rete.LookupTableNode) error {
 			log.Println("Create statement was:", createStmt)
 			return fmt.Errorf("while creating lookup table %s: %v", lookupTbl.Name, err)
 		}
-		log.Printf("Created lookup table %s in lookup.db", lookupTbl.Name)
 
 		// Load the data file to memory
 		switch {
