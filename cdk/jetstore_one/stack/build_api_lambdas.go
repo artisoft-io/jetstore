@@ -3,6 +3,7 @@ package stack
 // Build the API Gateway Lambda function if defined in env variable JETS_API_GATEWAY_LAMBDA_ENTRY
 
 import (
+	"encoding/json"
 	"log"
 	"os"
 	"strings"
@@ -139,7 +140,7 @@ func (jsComp *JetStoreStackComponents) BuildApiLambdas(scope constructs.Construc
 
 		// Allow test Lambda role to assume the system role
 		externalPrincipals = append(externalPrincipals, testLambdaRole)
-		
+
 		// Grant assume role permission to test Lambda role
 		testLambdaRole.AddToPolicy(awsiam.NewPolicyStatement(&awsiam.PolicyStatementProps{
 			Effect: awsiam.Effect_ALLOW,
@@ -151,12 +152,12 @@ func (jsComp *JetStoreStackComponents) BuildApiLambdas(scope constructs.Construc
 			},
 		}))
 	}
-	
+
 	// Add external roles to assume the system role
 	if len(externalPrincipals) > 0 {
 		jsComp.JetsApiExecutionRole.AssumeRolePolicy().AddStatements(
 			awsiam.NewPolicyStatement(&awsiam.PolicyStatementProps{
-				Effect: awsiam.Effect_ALLOW,
+				Effect:     awsiam.Effect_ALLOW,
 				Principals: &externalPrincipals,
 				Actions: &[]*string{
 					jsii.String("sts:AssumeRole"),
@@ -165,47 +166,104 @@ func (jsComp *JetStoreStackComponents) BuildApiLambdas(scope constructs.Construc
 		)
 	}
 
-	// Create resource policy for private API (only system role, not test lambda role)
-	resourcePolicy := awsiam.NewPolicyDocument(&awsiam.PolicyDocumentProps{
-		Statements: &[]awsiam.PolicyStatement{
-			awsiam.NewPolicyStatement(&awsiam.PolicyStatementProps{
-				Effect: awsiam.Effect_ALLOW,
-				Principals: &[]awsiam.IPrincipal{
-					jsComp.JetsApiExecutionRole, // Only system role in resource policy
-				},
+	// Define resource policy for API Gateway
+	var resourcePolicy awsiam.PolicyDocument
+	policyJson := os.Getenv("JETS_API_GATEWAY_RESOURCE_POLICY_JSON")
+	if len(policyJson) > 0 {
+		// Use custom resource policy from environment variable
+		var policyDocument ApiGatewayProxyPolicyDocument
+		err := json.Unmarshal([]byte(policyJson), &policyDocument)
+		if err != nil {
+			log.Fatalf("error: failed to parse JETS_API_GATEWAY_RESOURCE_POLICY_JSON: %v\n", err)
+		}
+		// Build the statements of the policy
+		statements := make([]awsiam.PolicyStatement, 0)
+		for _, stmt := range policyDocument.Statement {
+			var principals *[]awsiam.IPrincipal
+			switch strings.ToLower(stmt.Principal) {
+			case "aws:*":
+				principals = &[]awsiam.IPrincipal{awsiam.NewAnyPrincipal()}
+			case "*":
+				principals = &[]awsiam.IPrincipal{awsiam.NewStarPrincipal()}
+			case "":
+				// No principals
+			default:
+				arnPrincipal := awsiam.NewArnPrincipal(jsii.String(stmt.Principal))
+				principals = &[]awsiam.IPrincipal{arnPrincipal}
+			}
+			var effect awsiam.Effect
+			switch strings.ToLower(stmt.Effect) {
+			case "allow":
+				effect = awsiam.Effect_ALLOW
+			case "deny":
+				effect = awsiam.Effect_DENY
+			default:
+				log.Fatalf("error: invalid effect '%s' in API Gateway resource policy\n", stmt.Effect)
+			}
+
+			policyStmt := awsiam.NewPolicyStatement(&awsiam.PolicyStatementProps{
+				Effect:     effect,
+				Principals: principals,
 				Actions: &[]*string{
-					jsii.String("execute-api:Invoke"),
+					jsii.String(stmt.Action),
 				},
 				Resources: &[]*string{
-					jsii.String("*"),
+					jsii.String(stmt.Resource),
 				},
-				Conditions: &map[string]any{
-					"StringEquals": map[string]any{
-						"aws:sourceVpce": jsComp.ApiGatewayVpcEndpoint.VpcEndpointId(),
+			})
+			statements = append(statements, policyStmt)
+		}
+		resourcePolicy = awsiam.NewPolicyDocument(&awsiam.PolicyDocumentProps{
+			Statements: &statements,
+		})
+	} else {
+		// Create the default resource policy for private API (only system role, not test lambda role)
+		resourcePolicy = awsiam.NewPolicyDocument(&awsiam.PolicyDocumentProps{
+			Statements: &[]awsiam.PolicyStatement{
+				awsiam.NewPolicyStatement(&awsiam.PolicyStatementProps{
+					Effect: awsiam.Effect_ALLOW,
+					Principals: &[]awsiam.IPrincipal{
+						jsComp.JetsApiExecutionRole, // Only system role in resource policy
 					},
-				},
-			}),
-			awsiam.NewPolicyStatement(&awsiam.PolicyStatementProps{
-				Effect: awsiam.Effect_DENY,
-				Principals: &[]awsiam.IPrincipal{
-					awsiam.NewAnyPrincipal(),
-				},
-				Actions: &[]*string{
-					jsii.String("execute-api:Invoke"),
-				},
-				Resources: &[]*string{
-					jsii.String("*"),
-				},
-				Conditions: &map[string]any{
-					"StringNotEquals": map[string]any{
-						"aws:sourceVpce": *jsComp.ApiGatewayVpcEndpoint.VpcEndpointId(),
+					Actions: &[]*string{
+						jsii.String("execute-api:Invoke"),
 					},
-				},
-			}),
-		},
-	})
+					Resources: &[]*string{
+						jsii.String("*"),
+					},
+					Conditions: &map[string]any{
+						"StringEquals": map[string]any{
+							"aws:sourceVpce": jsComp.ApiGatewayVpcEndpoint.VpcEndpointId(),
+						},
+					},
+				}),
+				awsiam.NewPolicyStatement(&awsiam.PolicyStatementProps{
+					Effect: awsiam.Effect_DENY,
+					Principals: &[]awsiam.IPrincipal{
+						awsiam.NewAnyPrincipal(),
+					},
+					Actions: &[]*string{
+						jsii.String("execute-api:Invoke"),
+					},
+					Resources: &[]*string{
+						jsii.String("*"),
+					},
+					Conditions: &map[string]any{
+						"StringNotEquals": map[string]any{
+							"aws:sourceVpce": *jsComp.ApiGatewayVpcEndpoint.VpcEndpointId(),
+						},
+					},
+				}),
+			},
+		})
+	}
 
 	// Create private REST API
+	// Access log group for API Gateway stage
+	apiAccessLogGroup := awslogs.NewLogGroup(stack, jsii.String("ApiGatewayAccessLogs"), &awslogs.LogGroupProps{
+		Retention: awslogs.RetentionDays_THREE_MONTHS,
+	})
+
 	jsComp.JetsApi = awsapigateway.NewRestApi(stack, jsii.String("PrivateRestApi"), &awsapigateway.RestApiProps{
 		RestApiName: jsii.String("jetsapi"),
 		Description: jsii.String("JetStore Private REST API with Lambda integration"),
@@ -215,7 +273,16 @@ func (jsComp *JetStoreStackComponents) BuildApiLambdas(scope constructs.Construc
 			},
 			VpcEndpoints: &[]awsec2.IVpcEndpoint{jsComp.ApiGatewayVpcEndpoint},
 		},
-		Policy: resourcePolicy,
+		Policy:         resourcePolicy,
+		CloudWatchRole: jsii.Bool(true),
+		DeployOptions: &awsapigateway.StageOptions{
+			LoggingLevel:         awsapigateway.MethodLoggingLevel_INFO,
+			DataTraceEnabled:     jsii.Bool(true),
+			MetricsEnabled:       jsii.Bool(true),
+			TracingEnabled:       jsii.Bool(true),
+			AccessLogDestination: awsapigateway.NewLogGroupLogDestination(apiAccessLogGroup),
+			AccessLogFormat:      awsapigateway.AccessLogFormat_Clf(),
+		},
 		DefaultMethodOptions: &awsapigateway.MethodOptions{
 			AuthorizationType: awsapigateway.AuthorizationType_IAM,
 		},
@@ -271,20 +338,20 @@ func (jsComp *JetStoreStackComponents) BuildApiLambdas(scope constructs.Construc
 
 	// Add methods to API
 	jsComp.JetsApi.Root().AddMethod(jsii.String("GET"), lambdaIntegration, &awsapigateway.MethodOptions{
-        AuthorizationType: awsapigateway.AuthorizationType_IAM,
-    })
+		AuthorizationType: awsapigateway.AuthorizationType_IAM,
+	})
 	jsComp.JetsApi.Root().AddMethod(jsii.String("POST"), lambdaIntegration, &awsapigateway.MethodOptions{
-        AuthorizationType: awsapigateway.AuthorizationType_IAM,
-    })
+		AuthorizationType: awsapigateway.AuthorizationType_IAM,
+	})
 
 	// Add resource and methods
 	resource := jsComp.JetsApi.Root().AddResource(jsii.String("jetsapi"), nil)
 	resource.AddMethod(jsii.String("GET"), lambdaIntegration, &awsapigateway.MethodOptions{
-        AuthorizationType: awsapigateway.AuthorizationType_IAM,
-    })
+		AuthorizationType: awsapigateway.AuthorizationType_IAM,
+	})
 	resource.AddMethod(jsii.String("POST"), lambdaIntegration, &awsapigateway.MethodOptions{
-        AuthorizationType: awsapigateway.AuthorizationType_IAM,
-    })
+		AuthorizationType: awsapigateway.AuthorizationType_IAM,
+	})
 
 	// Grant invoke permissions to system account role
 	jsComp.ApiGatewayLambda.GrantInvoke(jsComp.JetsApiExecutionRole)
