@@ -13,7 +13,8 @@
 namespace fs = std::filesystem;
 namespace jets::rete {
 namespace {
-// Simple test
+// Simple test - this is a legacy test to check that we can open a sqlite database
+// and create a table, insert some data and read it back.
 
 static int callback(void *data, int argc, char **argv, char **azColName) {
   if (data) {
@@ -26,7 +27,6 @@ static int callback(void *data, int argc, char **argv, char **azColName) {
    std::cout << std::endl;
    return 0;
 }
-
 
 class SQLiteTest : public ::testing::Test {
  protected:

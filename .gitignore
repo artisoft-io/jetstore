@@ -140,3 +140,5 @@ cdk/jetstore_one/lambdas/api_gateway_cgt/cgt_fm_api.go
 jets/compilerv2/compiler/testdata/workspaceV2.db
 jets/jsontest/compilerv2_test/compilerv2_test
 cdk.context.json
+jets/rete/test_data/usi_lookup_v1.db
+jets/rete/test_data/usi_workspace_v1.db

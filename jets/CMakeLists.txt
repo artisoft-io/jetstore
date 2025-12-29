@@ -83,7 +83,8 @@ add_executable(jets_test
   rete/node_vertex_test.cc
   rete/rete_meta_store_test.cc
   rete/rete_session_test.cc
-  # # rete/rete_meta_store_factory_test.cc
+  rete/rete_meta_store_factory_test0.cc
+  rete/rete_meta_store_factory_test1.cc
   rete/expr_op_test.cc
   rete/expr_op_specialty_test.cc
 )
