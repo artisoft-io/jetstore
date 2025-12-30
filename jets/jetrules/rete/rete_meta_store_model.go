@@ -152,26 +152,27 @@ type RuleTerm struct {
 	ObjectKey          int             `json:"object_key,omitzero"`
 	ObjectExpr         *ExpressionNode `json:"obj_expr,omitempty"`
 	Filter             *ExpressionNode `json:"filter,omitempty"`
-	ObjectExprKey      int             `json:"-"`
-	FilterKey          int             `json:"-"`
 }
 
 func (rt *RuleTerm) UniqueKey() string {
 	return fmt.Sprintf("%s:%02d:%02d", rt.Type, rt.Vertex, rt.ConsequentSeq)
 }
+
 // ExpressionNode represents an expression in the model.
 // Type can be "identifier", "unary", "binary".
 // Op is the operator for unary and binary expressions.
 // Arg is the argument for unary expressions.
 // Lhs and Rhs are the left and right hand side for binary expressions.
 // Value is the resource key for identifier.
+// DbKey is the database key for the expression node (not serialized).
 type ExpressionNode struct {
-	Type  string          `json:"type,omitempty"`
-	Op    string          `json:"op,omitempty"`
-	Arg   *ExpressionNode `json:"arg,omitzero"`
-	Lhs   *ExpressionNode `json:"lhs,omitempty"`
-	Rhs   *ExpressionNode `json:"rhs,omitempty"`
-	Value int             `json:"value,omitempty"`
+	Type          string          `json:"type,omitempty"`
+	Op            string          `json:"op,omitempty"`
+	Arg           *ExpressionNode `json:"arg,omitzero"`
+	Lhs           *ExpressionNode `json:"lhs,omitempty"`
+	Rhs           *ExpressionNode `json:"rhs,omitempty"`
+	Value         int             `json:"value,omitempty"`
+	DbKey         int             `json:"-"`
 }
 
 // BetaVarNode provides information about a variable in a beta relation

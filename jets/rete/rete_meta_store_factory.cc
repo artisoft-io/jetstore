@@ -378,8 +378,6 @@ ReteMetaStoreFactory::load_node_vertexes(int file_key, NodeVertexVector & node_v
     std::string_view normalized_label("");
     if(nlabel) normalized_label = nlabel;
 
-    std::cout << "Calling create_expr for filter key: " << filter_expr_key << std::endl;
-
     // Create Filter
     ExprBasePtr filter{};
     res = this->create_expr(filter_expr_key, filter);
@@ -495,7 +493,6 @@ ReteMetaStoreFactory::load_alpha_nodes(int file_key, NodeVertexVector const& nod
     if(object_key >= 0) {
       fw = this->create_func_factory(object_key);
     }  else if(obj_expr_key >= 0) {
-    std::cout << "Calling create_func_expr_factory for obj expr key: " << obj_expr_key << std::endl;
       fw = this->create_func_expr_factory(obj_expr_key);
     } else {
       LOG(ERROR) << "ERROR object_key and object_expr_key are null in load alpha_node";
@@ -702,8 +699,6 @@ ReteMetaStoreFactory::create_expr(int expr_key, ExprBasePtr & expr)
   //   source_file_key  9  INTEGER NOT NULL
   // );
   if(expr_key < 0) return SQLITE_OK;
-
-  std::cout << "Creating expr for key: " << expr_key << std::endl;
 
   int res = sqlite3_reset(this->expr_stmt_);
   if( res != SQLITE_OK ) return res;

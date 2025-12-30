@@ -226,13 +226,13 @@ func (w *WorkspaceDB) SaveReteNodes(ctx context.Context, db *sql.DB, jetRuleMode
 		w.reteNode2DbKey[rn.UniqueKey()] = maxReteNodeKey
 		var objValue, filterValue, salience any
 		if rn.ObjectExpr != nil {
-			objValue = rn.ObjectExprKey
+			objValue = rn.ObjectExpr.DbKey
 		}
 		if rn.Filter != nil {
-			filterValue = rn.FilterKey
+			filterValue = rn.Filter.DbKey
 		}
 		if len(rn.Salience) > 0 && rn.Salience[0] > 0 {
-	 		salience = rn.Salience[0]
+			salience = rn.Salience[0]
 		}
 		reteNodeData = append(reteNodeData, []any{maxReteNodeKey, rn.Vertex, rn.Type,
 			subjectKey, predicateKey, objectKey, objValue, filterValue,
@@ -286,14 +286,12 @@ func (w *WorkspaceDB) SaveExpressions(ctx context.Context, db *sql.DB, jetRuleMo
 			if err != nil {
 				return err
 			}
-			rn.FilterKey = rn.Filter.Value
 		}
 		if rn.ObjectExpr != nil {
 			err = w.saveExpression(ctx, &data, rn.ObjectExpr)
 			if err != nil {
 				return err
 			}
-			rn.ObjectExprKey = rn.ObjectExpr.Value
 		}
 	}
 	if len(data) > 0 {
@@ -309,20 +307,19 @@ func (w *WorkspaceDB) SaveExpressions(ctx context.Context, db *sql.DB, jetRuleMo
 // Add expression to expressions table recursivelly and return the key
 // Put resource entities as well: resource (constant) and var (binded)
 func (w *WorkspaceDB) saveExpression(ctx context.Context, data *[][]any, node *rete.ExpressionNode) error {
-	var ok bool
 	if node == nil {
 		return nil
 	}
 	switch node.Type {
 	case "identifier":
 		// Case resource (constant) and var (binded)
-		node.Value, ok = w.rm.resourceKeyToDbKey[node.Value]
+		resourceKey, ok := w.rm.resourceKeyToDbKey[node.Value]
 		if !ok {
 			return fmt.Errorf("failed to find resource key %d in expression", node.Value)
 		}
 		w.maxExprKey++
-		*data = append(*data, []any{w.maxExprKey, "resource", node.Value, nil, nil, nil, nil, nil, nil, w.mainFileKey})
-		node.Value = w.maxExprKey
+		*data = append(*data, []any{w.maxExprKey, "resource", resourceKey, nil, nil, nil, nil, nil, nil, w.mainFileKey})
+		node.DbKey = w.maxExprKey
 	case "unary":
 		// Recursively save the argument
 		err := w.saveExpression(ctx, data, node.Arg)
@@ -330,8 +327,8 @@ func (w *WorkspaceDB) saveExpression(ctx context.Context, data *[][]any, node *r
 			return err
 		}
 		w.maxExprKey++
-		node.Value = w.maxExprKey
-		*data = append(*data, []any{w.maxExprKey, "unary", node.Arg.Value, nil, nil, nil, nil, nil, node.Op, w.mainFileKey})
+		node.DbKey = w.maxExprKey
+		*data = append(*data, []any{w.maxExprKey, "unary", node.Arg.DbKey, nil, nil, nil, nil, nil, node.Op, w.mainFileKey})
 	case "binary":
 		// Recursively save lhs and rhs
 		err := w.saveExpression(ctx, data, node.Lhs)
@@ -343,8 +340,10 @@ func (w *WorkspaceDB) saveExpression(ctx context.Context, data *[][]any, node *r
 			return err
 		}
 		w.maxExprKey++
-		node.Value = w.maxExprKey
-		*data = append(*data, []any{w.maxExprKey, "binary", node.Lhs.Value, node.Rhs.Value, nil, nil, nil, nil, node.Op, w.mainFileKey})
+		node.DbKey = w.maxExprKey
+		*data = append(*data, []any{w.maxExprKey, "binary", node.Lhs.DbKey, node.Rhs.DbKey, nil, nil, nil, nil, node.Op, w.mainFileKey})
+	default:
+		return fmt.Errorf("unsupported expression node type: %s", node.Type)
 	}
 	return nil
 }
