@@ -67,6 +67,10 @@ func (r *ResourceNode) SKey() string {
 	return fmt.Sprintf("%s|%s", r.Type, r.Value)
 }
 
+func (r *ResourceNode) UniqueKey() string {
+	return fmt.Sprintf("%s:%s:%s:%t:%d", r.Type, r.Id, r.Value, r.IsBinded, r.VarPos)
+}
+
 type LookupTableNode struct {
 	Columns        []LookupTableColumn  `json:"columns,omitempty"`
 	DataInfo       *LookupTableDataInfo `json:"data_file_info,omitzero"`
@@ -173,6 +177,26 @@ type ExpressionNode struct {
 	Rhs           *ExpressionNode `json:"rhs,omitempty"`
 	Value         int             `json:"value,omitempty"`
 	DbKey         int             `json:"-"`
+}
+
+func (nd *ExpressionNode) UniqueKey(resourceKeyToDbKey map[int]int) string {
+	var  k1, k2 int
+	switch nd.Type {
+	case "unary":
+		if nd.Arg != nil {
+			k1 = nd.Arg.DbKey
+		}
+	case "binary":
+		if nd.Lhs != nil {
+			k1 = nd.Lhs.DbKey
+		}
+		if nd.Rhs != nil {
+			k2 = nd.Rhs.DbKey
+		}
+	case "identifier":
+		k1 = resourceKeyToDbKey[nd.Value]
+	}
+	return fmt.Sprintf("%s:%d:%d:%s", nd.Type, k1, k2, nd.Op)
 }
 
 // BetaVarNode provides information about a variable in a beta relation

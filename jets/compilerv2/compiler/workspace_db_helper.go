@@ -312,23 +312,37 @@ func (w *WorkspaceDB) saveExpression(ctx context.Context, data *[][]any, node *r
 	}
 	switch node.Type {
 	case "identifier":
-		// Case resource (constant) and var (binded)
-		resourceKey, ok := w.rm.resourceKeyToDbKey[node.Value]
-		if !ok {
-			return fmt.Errorf("failed to find resource key %d in expression", node.Value)
+		ukey := node.UniqueKey(w.rm.resourceKeyToDbKey)
+		exprKey, ok := w.expression2DbKey[ukey]
+		if ok {
+			node.DbKey = exprKey
+		} else {
+			// Case resource (constant) and var (binded)
+			resourceKey, ok := w.rm.resourceKeyToDbKey[node.Value]
+			if !ok {
+				return fmt.Errorf("failed to find resource key %d in expression", node.Value)
+			}
+			w.maxExprKey++
+			*data = append(*data, []any{w.maxExprKey, "resource", resourceKey, nil, nil, nil, nil, nil, nil, w.mainFileKey})
+			node.DbKey = w.maxExprKey
+			w.expression2DbKey[ukey] = w.maxExprKey
 		}
-		w.maxExprKey++
-		*data = append(*data, []any{w.maxExprKey, "resource", resourceKey, nil, nil, nil, nil, nil, nil, w.mainFileKey})
-		node.DbKey = w.maxExprKey
 	case "unary":
 		// Recursively save the argument
 		err := w.saveExpression(ctx, data, node.Arg)
 		if err != nil {
 			return err
 		}
-		w.maxExprKey++
-		node.DbKey = w.maxExprKey
-		*data = append(*data, []any{w.maxExprKey, "unary", node.Arg.DbKey, nil, nil, nil, nil, nil, node.Op, w.mainFileKey})
+		ukey := node.UniqueKey(w.rm.resourceKeyToDbKey)
+		exprKey, ok := w.expression2DbKey[ukey]
+		if ok {
+			node.DbKey = exprKey
+		} else {
+			w.maxExprKey++
+			node.DbKey = w.maxExprKey
+			*data = append(*data, []any{w.maxExprKey, "unary", node.Arg.DbKey, nil, nil, nil, nil, nil, node.Op, w.mainFileKey})
+			w.expression2DbKey[ukey] = w.maxExprKey
+		}
 	case "binary":
 		// Recursively save lhs and rhs
 		err := w.saveExpression(ctx, data, node.Lhs)
@@ -339,9 +353,16 @@ func (w *WorkspaceDB) saveExpression(ctx context.Context, data *[][]any, node *r
 		if err != nil {
 			return err
 		}
-		w.maxExprKey++
-		node.DbKey = w.maxExprKey
-		*data = append(*data, []any{w.maxExprKey, "binary", node.Lhs.DbKey, node.Rhs.DbKey, nil, nil, nil, nil, node.Op, w.mainFileKey})
+		ukey := node.UniqueKey(w.rm.resourceKeyToDbKey)
+		exprKey, ok := w.expression2DbKey[ukey]
+		if ok {
+			node.DbKey = exprKey
+		} else {
+			w.maxExprKey++
+			node.DbKey = w.maxExprKey
+			*data = append(*data, []any{w.maxExprKey, "binary", node.Lhs.DbKey, node.Rhs.DbKey, nil, nil, nil, nil, node.Op, w.mainFileKey})
+			w.expression2DbKey[ukey] = w.maxExprKey
+		}
 	default:
 		return fmt.Errorf("unsupported expression node type: %s", node.Type)
 	}
@@ -350,13 +371,6 @@ func (w *WorkspaceDB) saveExpression(ctx context.Context, data *[][]any, node *r
 
 // Save Lookup Tables into workspace db
 func (w *WorkspaceDB) SaveLookupTables(ctx context.Context, db *sql.DB, jetRuleModel *rete.JetruleModel) error {
-	// Delete existing lookup tables for current main file
-	deleteStmt := "DELETE FROM lookup_tables WHERE source_file_key = ?"
-	_, err := db.ExecContext(ctx, deleteStmt, w.mainFileKey)
-	if err != nil {
-		return fmt.Errorf("failed to delete existing lookup tables: %w", err)
-	}
-
 	maxKey, err := getMaxKey(ctx, db, "lookup_tables")
 	if err != nil {
 		return err
@@ -376,10 +390,12 @@ func (w *WorkspaceDB) SaveLookupTables(ctx context.Context, db *sql.DB, jetRuleM
 			continue
 		}
 		maxKey++
-		data = append(data, []any{maxKey, lt.Name, nil, lt.CsvFile, strings.Join(lt.Key, ","), strings.Join(lt.Resources, ","), w.mainFileKey})
+		sourceFileKey := w.sourceMgr.GetOrAddDbKey(lt.SourceFileName)
 		for _, col := range lt.Columns {
+			lt.Resources = append(lt.Resources, col.Name)
 			cData = append(cData, []any{maxKey, col.Name, col.Type, col.IsArray})
 		}
+		data = append(data, []any{maxKey, lt.Name, nil, lt.CsvFile, strings.Join(lt.Key, ","), strings.Join(lt.Resources, ","), sourceFileKey})
 	}
 	if len(data) > 0 {
 		err = DoStatement(ctx, db, insertStmt, data)

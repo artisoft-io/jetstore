@@ -12,62 +12,91 @@ import (
 // This file contains resource manager for persisting resources from compiler's json output to workspace db (workspace.db)
 
 type WorkspaceResourceManager struct {
-	w *WorkspaceDB
+	w                  *WorkspaceDB
 	resourceKeyToDbKey map[int]int
 }
 
 func NewWorkspaceResourceManager(w *WorkspaceDB) *WorkspaceResourceManager {
 	return &WorkspaceResourceManager{
-		w: w,
+		w:                  w,
 		resourceKeyToDbKey: make(map[int]int),
 	}
 }
 
 func (rm *WorkspaceResourceManager) SaveResources(ctx context.Context, db *sql.DB, jetRuleModel *rete.JetruleModel) error {
 
-	var maxKey int
-	err := db.QueryRow("SELECT max(key) FROM resources").Scan(&maxKey)
-	if err != nil && !strings.Contains(err.Error(), "converting NULL to int is unsupported") {
-		return fmt.Errorf("failed to query resources: %w", err)
+	// Load existing resources to avoid duplicates
+	rows, err := db.Query("SELECT key, type, id, value, is_binded, row_pos FROM resources")
+	if err != nil {
+		return fmt.Errorf("failed to query existing resources: %w", err)
 	}
+	defer rows.Close()
+	existingResources := make(map[string]int)
+	for rows.Next() {
+		var key int
+		var typ, id, value sql.NullString
+		var isBinded sql.NullBool
+		var rowPos sql.NullInt64
+		err := rows.Scan(&key, &typ, &id, &value, &isBinded, &rowPos)
+		if err != nil {
+			return fmt.Errorf("failed to scan existing resource: %w", err)
+		}
+		r := rete.ResourceNode{
+			Type:     typ.String,
+			Id:       id.String,
+			Value:    value.String,
+			IsBinded: isBinded.Bool,
+			VarPos:   int(rowPos.Int64),
+		}
+		existingResources[r.UniqueKey()] = key
+	}
+	var maxKeySql sql.NullInt64
+	err = db.QueryRow("SELECT max(key) FROM resources").Scan(&maxKeySql)
+	if err != nil {
+		return fmt.Errorf("failed to query max key for resources: %w", err)
+	}
+	maxKey := int(maxKeySql.Int64)
 
-	stmt := "INSERT INTO resources (key, type, id, value, symbol, is_binded, inline, source_file_key, vertex, row_pos) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+	// Note: inline, vertex and source_file_key are not used, columns should be removed
+	stmt := "INSERT INTO resources (key, type, id, value, symbol, is_binded, row_pos, source_file_key) VALUES (?, ?, ?, ?, ?, ?, ?, 0)"
 	var data [][]any
 	for _, resource := range jetRuleModel.Resources {
-		if len(resource.SourceFileName) == 0 {
-			resource.SourceFileName = rm.w.mainSourceFileName
+		if resource.Type == "volatile_resource" {
+			resource.Value = strings.TrimPrefix(resource.Value, "_0:")
 		}
-		var value, symbol, isBinded, vertex, varPos, id any
+		// Check if resource already exists
+		if dbKey, exists := existingResources[resource.UniqueKey()]; exists {
+			rm.resourceKeyToDbKey[resource.Key] = dbKey
+			continue
+		}
+
+		var value, symbol, isBinded, varPos, id any
 		if resource.Type == "symbol" {
 			symbol = resource.Value
 		} else {
 			if len(resource.Value) > 0 {
-				value = strings.TrimPrefix(resource.Value, "_0:")
+				value = resource.Value
 			}
 		}
 		if resource.Type == "var" {
 			isBinded = resource.IsBinded
-			vertex = resource.Vertex
 			varPos = resource.VarPos
 		}
 		if len(resource.Id) > 0 {
 			id = resource.Id
 		}
-		fileKey := rm.w.sourceMgr.GetOrAddDbKey(resource.SourceFileName)
+		maxKey++
 		data = append(data, []any{
-			maxKey + 1,
+			maxKey,
 			resource.Type,
 			id,
 			value,
 			symbol,
 			isBinded,
-			resource.Inline,
-			fileKey,
-			vertex,
 			varPos,
 		})
-		rm.resourceKeyToDbKey[resource.Key] = maxKey + 1
-		maxKey++
+		existingResources[resource.UniqueKey()] = maxKey
+		rm.resourceKeyToDbKey[resource.Key] = maxKey
 	}
 	if len(data) == 0 {
 		return nil

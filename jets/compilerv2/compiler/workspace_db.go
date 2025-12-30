@@ -29,6 +29,7 @@ type WorkspaceDB struct {
 	mainFileKey        int
 	maxExprKey         int
 	reteNode2DbKey     map[string]int
+	expression2DbKey   map[string]int
 }
 
 func NewWorkspaceDB(dbPath string) (*WorkspaceDB, error) {
@@ -46,8 +47,9 @@ func NewWorkspaceDB(dbPath string) (*WorkspaceDB, error) {
 		return nil, fmt.Errorf("failed to initialize database schema: %w", err)
 	}
 	w := &WorkspaceDB{
-		DB:             db,
-		reteNode2DbKey: make(map[string]int),
+		DB:               db,
+		reteNode2DbKey:   make(map[string]int),
+		expression2DbKey: make(map[string]int),
 	}
 	// Initialize source file manager and resource manager
 	w.sourceMgr = NewSourceFileManager(w)

@@ -1,6 +1,7 @@
 package rete
 
 import (
+	"slices"
 	"encoding/json"
 	"log"
 	"os"
@@ -72,10 +73,8 @@ func (wc *WorkspaceControl) MainRuleFileNames(ruleFileName string) []string {
 			return wc.RuleSequences[i].RuleSets
 		}
 	}
-	for i := range wc.RuleSets {
-		if wc.RuleSets[i] == ruleFileName {
+	if slices.Contains(wc.RuleSets, ruleFileName) {
 			return []string{ruleFileName}
 		}
-	}
 	return nil
 }

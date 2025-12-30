@@ -251,7 +251,12 @@ func (s *JetRuleListener) ExitNamedResourceStmt(ctx *parser.NamedResourceStmtCon
 	switch {
 	case ctx.GetResCtx().GetResVal() != nil:
 		value = StripQuotes(ctx.GetResCtx().GetResVal().GetText())
-		typ = "resource"
+		if after, ok :=strings.CutPrefix(value, "_0:"); ok  {
+			value = after
+			typ = "volatile_resource"
+		} else {
+			typ = "resource"
+		}
 	case ctx.GetResCtx().GetKws() != nil:
 		value = StripQuotes(ctx.GetResCtx().GetKws().GetText())
 		typ = "symbol"
@@ -547,12 +552,12 @@ func (s *JetRuleListener) ExitAntecedent(ctx *parser.AntecedentContext) {
 	P := s.ParseObjectAtom(EscR(ctx.GetP().GetText()), "")
 	O := s.ParseObjectAtom(EscR(ctx.GetO().GetText()), kws)
 	ruleTerm := &rete.RuleTerm{
-			Type:         "antecedent",
-			IsNot:        ctx.GetN() != nil,
-			SubjectKey:   S.Key,
-			PredicateKey: P.Key,
-			ObjectKey:    O.Key,
-		}
+		Type:         "antecedent",
+		IsNot:        ctx.GetN() != nil,
+		SubjectKey:   S.Key,
+		PredicateKey: P.Key,
+		ObjectKey:    O.Key,
+	}
 	// Add filter
 	if s.inProgressExpr.Len() > 0 {
 		expr, ok := s.inProgressExpr.Pop()
@@ -586,10 +591,10 @@ func (s *JetRuleListener) ExitConsequent(ctx *parser.ConsequentContext) {
 	S := s.ParseObjectAtom(EscR(ctx.GetS().GetText()), "")
 	P := s.ParseObjectAtom(EscR(ctx.GetP().GetText()), "")
 	ruleTerm := &rete.RuleTerm{
-			Type:         "consequent",
-			SubjectKey:   S.Key,
-			PredicateKey: P.Key,
-		}
+		Type:         "consequent",
+		SubjectKey:   S.Key,
+		PredicateKey: P.Key,
+	}
 	// Add object expression
 	if s.inProgressExpr.Len() > 0 {
 		expr, ok := s.inProgressExpr.Pop()
