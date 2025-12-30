@@ -856,8 +856,8 @@
   ],
   "rete_nodes": [
     {
-      "type": "root",
-      "normalizedLabel": "root",
+      "type": "head_node",
+      "normalizedLabel": "head_node",
       "parent_vertex": -1,
       "children_vertexes": [
         1

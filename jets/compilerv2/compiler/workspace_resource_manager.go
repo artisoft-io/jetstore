@@ -42,7 +42,7 @@ func (rm *WorkspaceResourceManager) SaveResources(ctx context.Context, db *sql.D
 			symbol = resource.Value
 		} else {
 			if len(resource.Value) > 0 {
-				value = resource.Value
+				value = strings.TrimPrefix(resource.Value, "_0:")
 			}
 		}
 		if resource.Type == "var" {

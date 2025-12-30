@@ -197,11 +197,11 @@ func (w *WorkspaceDB) SaveReteNodes(ctx context.Context, db *sql.DB, jetRuleMode
 	for _, rn := range jetRuleModel.ReteNodes {
 		// Rete Node
 		maxReteNodeKey++
-		if rn.Type == "root" {
+		if rn.Type == "head_node" {
 			w.reteNode2DbKey[rn.UniqueKey()] = maxReteNodeKey
 			reteNodeData = append(reteNodeData, []any{maxReteNodeKey, rn.Vertex, rn.Type,
-				0, 0, 0, 0, 0,
-				"root vertex", 0, w.mainFileKey, 0, 0, 0})
+				nil, nil, nil, nil, nil,
+				nil, 0, w.mainFileKey, nil, nil, 0})
 			continue
 		}
 		subjectKey, ok := w.rm.resourceKeyToDbKey[rn.SubjectKey]
@@ -212,27 +212,27 @@ func (w *WorkspaceDB) SaveReteNodes(ctx context.Context, db *sql.DB, jetRuleMode
 		if !ok {
 			return fmt.Errorf("failed to find predicate resource key %d in rete_nodes @ vertex %d", rn.PredicateKey, rn.Vertex)
 		}
-		objectKey := 0
+		var objectKey any
 		if rn.ObjectKey != 0 {
 			objectKey, ok = w.rm.resourceKeyToDbKey[rn.ObjectKey]
 			if !ok {
 				return fmt.Errorf("failed to find object resource key %d in rete_nodes @ vertex %d", rn.ObjectKey, rn.Vertex)
 			}
 		}
-		isNot := 0
-		if rn.IsNot {
-			isNot = 1
+		var isNot any
+		if rn.Type == "antecedent" {
+			isNot = rn.IsNot
 		}
 		w.reteNode2DbKey[rn.UniqueKey()] = maxReteNodeKey
-		var objValue, filterValue, salience int
+		var objValue, filterValue, salience any
 		if rn.ObjectExpr != nil {
-			objValue = rn.ObjectExpr.Value
+			objValue = rn.ObjectExprKey
 		}
 		if rn.Filter != nil {
-			filterValue = rn.Filter.Value
+			filterValue = rn.FilterKey
 		}
-		if len(rn.Salience) > 0 {
-			salience = rn.Salience[0]
+		if len(rn.Salience) > 0 && rn.Salience[0] > 0 {
+	 		salience = rn.Salience[0]
 		}
 		reteNodeData = append(reteNodeData, []any{maxReteNodeKey, rn.Vertex, rn.Type,
 			subjectKey, predicateKey, objectKey, objValue, filterValue,
@@ -308,7 +308,6 @@ func (w *WorkspaceDB) SaveExpressions(ctx context.Context, db *sql.DB, jetRuleMo
 // Save a single expression into workspace db recursively.
 // Add expression to expressions table recursivelly and return the key
 // Put resource entities as well: resource (constant) and var (binded)
-// expr is the resource key, so we can call persist directly.
 func (w *WorkspaceDB) saveExpression(ctx context.Context, data *[][]any, node *rete.ExpressionNode) error {
 	var ok bool
 	if node == nil {
@@ -323,6 +322,7 @@ func (w *WorkspaceDB) saveExpression(ctx context.Context, data *[][]any, node *r
 		}
 		w.maxExprKey++
 		*data = append(*data, []any{w.maxExprKey, "resource", node.Value, nil, nil, nil, nil, nil, nil, w.mainFileKey})
+		node.Value = w.maxExprKey
 	case "unary":
 		// Recursively save the argument
 		err := w.saveExpression(ctx, data, node.Arg)
@@ -331,7 +331,7 @@ func (w *WorkspaceDB) saveExpression(ctx context.Context, data *[][]any, node *r
 		}
 		w.maxExprKey++
 		node.Value = w.maxExprKey
-		*data = append(*data, []any{node.Value, "unary", node.Arg.Value, nil, nil, nil, nil, nil, node.Op, w.mainFileKey})
+		*data = append(*data, []any{w.maxExprKey, "unary", node.Arg.Value, nil, nil, nil, nil, nil, node.Op, w.mainFileKey})
 	case "binary":
 		// Recursively save lhs and rhs
 		err := w.saveExpression(ctx, data, node.Lhs)
@@ -344,7 +344,7 @@ func (w *WorkspaceDB) saveExpression(ctx context.Context, data *[][]any, node *r
 		}
 		w.maxExprKey++
 		node.Value = w.maxExprKey
-		*data = append(*data, []any{node.Value, "binary", node.Lhs.Value, node.Rhs.Value, nil, nil, nil, nil, node.Op, w.mainFileKey})
+		*data = append(*data, []any{w.maxExprKey, "binary", node.Lhs.Value, node.Rhs.Value, nil, nil, nil, nil, node.Op, w.mainFileKey})
 	}
 	return nil
 }
@@ -467,7 +467,7 @@ func (w *WorkspaceDB) SaveJetstoreConfig(ctx context.Context, db *sql.DB, jetRul
 	return nil
 }
 
-func getKeyNameFromTable(ctx context.Context, db *sql.DB, tableName, keyColumn, nameColumn string) (map[string]int, error) {
+func getKeyNameFromTable(_ context.Context, db *sql.DB, tableName, keyColumn, nameColumn string) (map[string]int, error) {
 	result := make(map[string]int)
 	rows, err := db.Query(fmt.Sprintf("SELECT %s, %s FROM %s", keyColumn, nameColumn, tableName))
 	if err != nil {

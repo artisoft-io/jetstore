@@ -31,13 +31,13 @@ func (l *JetRuleListener) BuildReteNetwork() {
 	l.jetRuleModel.ReteNodes = make([]*rete.RuleTerm, 0, len(l.jetRuleModel.Jetrules))
 	rootNode := &rete.RuleTerm{
 		Vertex:           0,
-		Type:             "root",
+		Type:             "head_node",
 		ParentVertex:     -1, // root has no parent
 		ChildrenVertexes: []int{},
 		BetaVarNodes:     []*rete.BetaVarNode{},
 		Rules:            []string{},
 		Salience:         []int{},
-		NormalizedLabel:  "root",
+		NormalizedLabel:  "head_node",
 		// Other fields are nil or zeroed
 	}
 	// Node.Vertex is the index in the ReteNodes slice for antecedents, for consequents
@@ -117,7 +117,7 @@ func (l *JetRuleListener) BuildReteNetwork() {
 	// Build the Beta Node for each antecedent of the rete network
 	for _, node := range l.jetRuleModel.ReteNodes[0].ChildrenVertexes {
 		bindedVars := make(map[string]bool)
-		replacementBindedVarNodes :=  make(map[string]*rete.ResourceNode)
+		replacementBindedVarNodes := make(map[string]*rete.ResourceNode)
 		l.BuildBetaNodesRecursively(l.jetRuleModel.ReteNodes[node], bindedVars, replacementBindedVarNodes, consequentsByVertex)
 	}
 
@@ -188,8 +188,8 @@ func (l *JetRuleListener) CollectDescendentsReqVars(vars map[string]bool, r *ret
 	}
 }
 
-func (l *JetRuleListener) BuildBetaNodesRecursively(node *rete.RuleTerm, 
-	bindedVars map[string]bool,	replacementBindedVarNodes map[string]*rete.ResourceNode, 
+func (l *JetRuleListener) BuildBetaNodesRecursively(node *rete.RuleTerm,
+	bindedVars map[string]bool, replacementBindedVarNodes map[string]*rete.ResourceNode,
 	consequentsByVertex map[int][]*rete.RuleTerm) {
 
 	// Get the var required by descendents of node
@@ -217,7 +217,6 @@ func (l *JetRuleListener) BuildBetaNodesRecursively(node *rete.RuleTerm,
 	// fmt.Fprintf(l.parseLog, "Got bindedVars: %v, descendentsReqVars: %v for node vertex %d %s\n",
 	// 	bindedVars, descendentsReqVars, node.Vertex, node.NormalizedLabel)
 
-
 	// Build the Beta node configuration for this node
 	// For each binded var that are required by descendents or current node, add to BetaRelationVars
 	for v := range bindedVars {
@@ -230,7 +229,6 @@ func (l *JetRuleListener) BuildBetaNodesRecursively(node *rete.RuleTerm,
 	// Sort the BetaRelationVars slice
 	sort.Strings(node.BetaRelationVars)
 	sort.Strings(node.PrunedVars)
-
 
 	// //***
 	// fmt.Fprintf(l.parseLog, "Got BetaRelationVars: %v, PrunedVars: %v for node vertex %d %s\n",
