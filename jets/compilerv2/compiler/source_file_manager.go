@@ -74,7 +74,7 @@ func (sfm *SourceFileManager) GetOrAddDbKey(sourceFileName string) int {
 	return dbKey
 }
 
-// Get the db key for a source file name, adding a new entry if not existing
+// Verify if a source file name is pre-existing
 func (sfm *SourceFileManager) IsPreExisting(sourceFileName string) bool {
 	key, exists := sfm.sourceFileNameToKey[sourceFileName]
 	if !exists {

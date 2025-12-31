@@ -410,20 +410,11 @@ func (w *WorkspaceDB) SaveLookupTables(ctx context.Context, db *sql.DB, jetRuleM
 	return nil
 }
 
-// Save Rule Sequences into workspace db
-func (w *WorkspaceDB) SaveRuleSequences(ctx context.Context, db *sql.DB, jetRuleModel *rete.JetruleModel) error {
-	// // Delete existing rule sequences for current main file
-	// deleteStmt := "DELETE FROM rule_sequences WHERE source_file_key = ?"
-	// _, err := db.ExecContext(ctx, deleteStmt, w.mainFileKey)
-	// if err != nil {
-	// 	return fmt.Errorf("failed to delete existing rule sequences: %w", err)
-	// }
-	// deleteStmt = "DELETE FROM main_rule_sets WHERE ruleset_file_key = ?"
-	// _, err = db.ExecContext(ctx, deleteStmt, w.mainFileKey)
-	// if err != nil {
-	// 	return fmt.Errorf("failed to delete existing main_rule_sets: %w", err)
-	// }
-
+// Save Rule Sequences into workspace db, using workspace control info
+func (w *WorkspaceDB) SaveRuleSequences(ctx context.Context, db *sql.DB, workspaceControl *rete.WorkspaceControl) error {
+	if workspaceControl == nil {
+		return fmt.Errorf("workspace control is nil")
+	}
 	maxKey, err := getMaxKey(ctx, db, "rule_sequences")
 	if err != nil {
 		return err
@@ -434,15 +425,16 @@ func (w *WorkspaceDB) SaveRuleSequences(ctx context.Context, db *sql.DB, jetRule
 	insertMRS := "INSERT INTO main_rule_sets (rule_sequence_key, main_ruleset_name, ruleset_file_key, seq) VALUES (?, ?, ?, ?)"
 	rsData := make([][]any, 0)
 	mrsData := make([][]any, 0)
-	for _, rs := range jetRuleModel.RuleSequences {
+	for _, rs := range workspaceControl.RuleSequences {
+		if w.sourceMgr.IsPreExisting(rs.Name) {
+			continue
+		}
+		sourceFileKey := w.sourceMgr.GetOrAddDbKey(rs.Name)
 		maxKey++
-		rsData = append(rsData, []any{maxKey, rs.Name, w.mainFileKey})
-		for seq, rsName := range rs.RuleSets {
-			if w.sourceMgr.IsPreExisting(rsName) {
-				continue
-			}
-			ruleSetFileKey := w.sourceMgr.GetOrAddDbKey(rsName)
-			mrsData = append(mrsData, []any{maxKey, rsName, ruleSetFileKey, seq})
+		rsData = append(rsData, []any{maxKey, rs.Name, sourceFileKey})
+		for seq, mainRuleName := range rs.RuleSets {
+			ruleSetFileKey := w.sourceMgr.GetOrAddDbKey(mainRuleName)
+			mrsData = append(mrsData, []any{maxKey, mainRuleName, ruleSetFileKey, seq})
 		}
 	}
 	if len(rsData) > 0 {

@@ -91,8 +91,8 @@ TEST_F(MSFactoryLoadV2, Test2) {
   EXPECT_EQ(res, 0);
 
   // Load MSK rule sequence meta triples
-  factory->load_meta_triples("MSK", /*is_rule_set=*/0);
-  std::cout << "Meta graph size for MSK: " << factory->get_meta_graph()->size()
+  factory->load_meta_triples("CM", /*is_rule_set=*/0);
+  std::cout << "Meta graph size for CM: " << factory->get_meta_graph()->size()
             << std::endl;
   EXPECT_GT(factory->get_meta_graph()->size(), 0);
 
