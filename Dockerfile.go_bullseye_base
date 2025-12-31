@@ -50,33 +50,16 @@ RUN \
 
 RUN dpkg -l
 
-# Cloning Flutter repo to build the ui for use in DEV MODE
-# Clone the flutter repo
-# RUN git clone https://github.com/flutter/flutter.git /usr/local/flutter
-RUN wget -q "https://storage.googleapis.com/flutter_infra_release/releases/stable/linux/flutter_linux_3.32.7-stable.tar.xz"  \
-    && tar xf "flutter_linux_3.32.7-stable.tar.xz"  -C /usr/local
+# Install flutter stable
+RUN wget -q "https://storage.googleapis.com/flutter_infra_release/releases/stable/linux/flutter_linux_3.38.5-stable.tar.xz"  \
+    && tar xf "flutter_linux_3.38.5-stable.tar.xz"  -C /usr/local
 RUN git config --global --add safe.directory /usr/local/flutter
 
 # # Set flutter path
-ENV PATH="${PATH}:/usr/local/flutter/bin:/usr/local/flutter/bin/cache/dart-sdk/bin"
+ENV PATH="${PATH}:/usr/local/flutter/bin"
 
-# # Run flutter doctor
-# RUN flutter doctor -v
-# RUN flutter channel master
-# RUN flutter upgrade
 RUN flutter --version
 RUN dart --version
-
-# ARG PQXX_VERSION="7.6.0"
-# ENV PQXX_VERSION=${PQXX_VERSION}
-
-# RUN wget -q "https://github.com/jtv/libpqxx/archive/refs/tags/${PQXX_VERSION}.tar.gz"  \
-#     && tar xf "${PQXX_VERSION}.tar.gz"  \
-#     && cd "libpqxx-${PQXX_VERSION}"  \
-#     && ./configure   \
-#     && make -j6  \
-#     && make install \
-#     && ldconfig
 
 ENV EXTERNALS=/externals
 RUN mkdir -p ${EXTERNALS}

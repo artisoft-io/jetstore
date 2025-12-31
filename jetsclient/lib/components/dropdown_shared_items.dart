@@ -25,7 +25,7 @@ class JetsDropdownWithSharedItemsFormField extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.fromLTRB(16.0, 0.0, 16.0, 0.0),
       child: DropdownButtonFormField<String>(
-          value: selectedValue,
+          initialValue: selectedValue,
           onChanged: (String? newValue) {
             formState.setValue(formFieldConfig.group, formFieldConfig.key, newValue);
             onChanged(newValue);
