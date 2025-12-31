@@ -88,10 +88,8 @@ func (c *Compiler) CompileBuffer(combinedContent string) error {
 			log.Println("** ERROR saving json:", err.Error())
 			return fmt.Errorf("while saving json: %w", err)
 		}
-		// Create workspace.db file
-		bdFilePath := fmt.Sprintf("%s/workspace.db", c.listener.basePath)
-		log.Println("Saving workspace.db to", bdFilePath)
-		wDb, err := NewWorkspaceDB(bdFilePath)
+		// Save to workspace.db file
+		wDb, err := NewWorkspaceDB(c.listener.basePath)
 		if err != nil {
 			log.Println("** ERROR creating workspace.db:", err.Error())
 			return fmt.Errorf("while creating workspace.db: %w", err)

@@ -163,7 +163,7 @@ ReteMetaStoreFactory::read_resources_cb(int argc, char **argv, char **colnm)
   // value            3  STRING,   -- not used for var type
   // symbol           4  STRING,
   // is_binded        5  BOOL,     -- for var type only
-  // inline           6  BOOL,
+  // inline           6  BOOL, *NOT USED*
   // source_file_key  7  INTEGER NOT NULL, *NOT USED*
   // vertex           8  INTEGER,  -- for var type only, var for vertex *NOT USED*
   // row_pos          9  INTEGER   -- for var type only, pos in beta row 
@@ -177,16 +177,14 @@ ReteMetaStoreFactory::read_resources_cb(int argc, char **argv, char **colnm)
   char * value    =  argv[3];
   char * symbol   =  argv[4];
   char * binded   =  argv[5];
-  char * vx       =  argv[8];
   char * pos      =  argv[9];
 
   // Capture var as we'll need them for the rete_nodes
   if( strcmp(type, "var") == 0 ) {
     bool is_binded = std::stoi(binded);
-    int vertex = std::stoi(vx);
     int row_pos = 0;
     if(pos) row_pos = std::stoi(pos);
-    this->v_map_.insert({key, var_info(id, is_binded, vertex, row_pos)});
+    this->v_map_.insert({key, var_info(id, is_binded, 0, row_pos)});
     return SQLITE_OK;
   }
 

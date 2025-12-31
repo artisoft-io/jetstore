@@ -67,6 +67,10 @@ func (r *ResourceNode) SKey() string {
 	return fmt.Sprintf("%s|%s", r.Type, r.Value)
 }
 
+func (r *ResourceNode) UniqueKey() string {
+	return fmt.Sprintf("%s:%s:%s:%t:%d", r.Type, r.Id, r.Value, r.IsBinded, r.VarPos)
+}
+
 type LookupTableNode struct {
 	Columns        []LookupTableColumn  `json:"columns,omitempty"`
 	DataInfo       *LookupTableDataInfo `json:"data_file_info,omitzero"`
@@ -152,26 +156,47 @@ type RuleTerm struct {
 	ObjectKey          int             `json:"object_key,omitzero"`
 	ObjectExpr         *ExpressionNode `json:"obj_expr,omitempty"`
 	Filter             *ExpressionNode `json:"filter,omitempty"`
-	ObjectExprKey      int             `json:"-"`
-	FilterKey          int             `json:"-"`
 }
 
 func (rt *RuleTerm) UniqueKey() string {
 	return fmt.Sprintf("%s:%02d:%02d", rt.Type, rt.Vertex, rt.ConsequentSeq)
 }
+
 // ExpressionNode represents an expression in the model.
 // Type can be "identifier", "unary", "binary".
 // Op is the operator for unary and binary expressions.
 // Arg is the argument for unary expressions.
 // Lhs and Rhs are the left and right hand side for binary expressions.
 // Value is the resource key for identifier.
+// DbKey is the database key for the expression node (not serialized).
 type ExpressionNode struct {
-	Type  string          `json:"type,omitempty"`
-	Op    string          `json:"op,omitempty"`
-	Arg   *ExpressionNode `json:"arg,omitzero"`
-	Lhs   *ExpressionNode `json:"lhs,omitempty"`
-	Rhs   *ExpressionNode `json:"rhs,omitempty"`
-	Value int             `json:"value,omitempty"`
+	Type          string          `json:"type,omitempty"`
+	Op            string          `json:"op,omitempty"`
+	Arg           *ExpressionNode `json:"arg,omitzero"`
+	Lhs           *ExpressionNode `json:"lhs,omitempty"`
+	Rhs           *ExpressionNode `json:"rhs,omitempty"`
+	Value         int             `json:"value,omitempty"`
+	DbKey         int             `json:"-"`
+}
+
+func (nd *ExpressionNode) UniqueKey(resourceKeyToDbKey map[int]int) string {
+	var  k1, k2 int
+	switch nd.Type {
+	case "unary":
+		if nd.Arg != nil {
+			k1 = nd.Arg.DbKey
+		}
+	case "binary":
+		if nd.Lhs != nil {
+			k1 = nd.Lhs.DbKey
+		}
+		if nd.Rhs != nil {
+			k2 = nd.Rhs.DbKey
+		}
+	case "identifier":
+		k1 = resourceKeyToDbKey[nd.Value]
+	}
+	return fmt.Sprintf("%s:%d:%d:%s", nd.Type, k1, k2, nd.Op)
 }
 
 // BetaVarNode provides information about a variable in a beta relation

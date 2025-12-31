@@ -7,6 +7,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"log"
 	"os"
 
 	"github.com/artisoft-io/jetstore/jets/jetrules/rete"
@@ -29,9 +30,12 @@ type WorkspaceDB struct {
 	mainFileKey        int
 	maxExprKey         int
 	reteNode2DbKey     map[string]int
+	expression2DbKey   map[string]int
 }
 
-func NewWorkspaceDB(dbPath string) (*WorkspaceDB, error) {
+func NewWorkspaceDB(basePath string) (*WorkspaceDB, error) {
+	dbPath := fmt.Sprintf("%s/workspace.db", basePath)
+	log.Println("Saving workspace.db to", dbPath)
 	db, err := sql.Open("sqlite3", dbPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open database: %w", err)
@@ -46,8 +50,9 @@ func NewWorkspaceDB(dbPath string) (*WorkspaceDB, error) {
 		return nil, fmt.Errorf("failed to initialize database schema: %w", err)
 	}
 	w := &WorkspaceDB{
-		DB:             db,
-		reteNode2DbKey: make(map[string]int),
+		DB:               db,
+		reteNode2DbKey:   make(map[string]int),
+		expression2DbKey: make(map[string]int),
 	}
 	// Initialize source file manager and resource manager
 	w.sourceMgr = NewSourceFileManager(w)
@@ -85,12 +90,6 @@ func (w *WorkspaceDB) SaveJetRuleModel(ctx context.Context, jetRuleModel *rete.J
 	err = w.SaveJetstoreConfig(ctx, w.DB, jetRuleModel)
 	if err != nil {
 		return fmt.Errorf("failed to save jetstore config: %w", err)
-	}
-
-	// Add all rule sequences
-	err = w.SaveRuleSequences(ctx, w.DB, jetRuleModel)
-	if err != nil {
-		return fmt.Errorf("failed to save rule sequences: %w", err)
 	}
 
 	// Add all lookup_table to rete_db, will skip source file already in rete_db

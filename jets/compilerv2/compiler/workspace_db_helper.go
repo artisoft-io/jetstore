@@ -197,11 +197,11 @@ func (w *WorkspaceDB) SaveReteNodes(ctx context.Context, db *sql.DB, jetRuleMode
 	for _, rn := range jetRuleModel.ReteNodes {
 		// Rete Node
 		maxReteNodeKey++
-		if rn.Type == "root" {
+		if rn.Type == "head_node" {
 			w.reteNode2DbKey[rn.UniqueKey()] = maxReteNodeKey
 			reteNodeData = append(reteNodeData, []any{maxReteNodeKey, rn.Vertex, rn.Type,
-				0, 0, 0, 0, 0,
-				"root vertex", 0, w.mainFileKey, 0, 0, 0})
+				nil, nil, nil, nil, nil,
+				nil, 0, w.mainFileKey, nil, nil, 0})
 			continue
 		}
 		subjectKey, ok := w.rm.resourceKeyToDbKey[rn.SubjectKey]
@@ -212,26 +212,26 @@ func (w *WorkspaceDB) SaveReteNodes(ctx context.Context, db *sql.DB, jetRuleMode
 		if !ok {
 			return fmt.Errorf("failed to find predicate resource key %d in rete_nodes @ vertex %d", rn.PredicateKey, rn.Vertex)
 		}
-		objectKey := 0
+		var objectKey any
 		if rn.ObjectKey != 0 {
 			objectKey, ok = w.rm.resourceKeyToDbKey[rn.ObjectKey]
 			if !ok {
 				return fmt.Errorf("failed to find object resource key %d in rete_nodes @ vertex %d", rn.ObjectKey, rn.Vertex)
 			}
 		}
-		isNot := 0
-		if rn.IsNot {
-			isNot = 1
+		var isNot any
+		if rn.Type == "antecedent" {
+			isNot = rn.IsNot
 		}
 		w.reteNode2DbKey[rn.UniqueKey()] = maxReteNodeKey
-		var objValue, filterValue, salience int
+		var objValue, filterValue, salience any
 		if rn.ObjectExpr != nil {
-			objValue = rn.ObjectExpr.Value
+			objValue = rn.ObjectExpr.DbKey
 		}
 		if rn.Filter != nil {
-			filterValue = rn.Filter.Value
+			filterValue = rn.Filter.DbKey
 		}
-		if len(rn.Salience) > 0 {
+		if len(rn.Salience) > 0 && rn.Salience[0] > 0 {
 			salience = rn.Salience[0]
 		}
 		reteNodeData = append(reteNodeData, []any{maxReteNodeKey, rn.Vertex, rn.Type,
@@ -286,14 +286,12 @@ func (w *WorkspaceDB) SaveExpressions(ctx context.Context, db *sql.DB, jetRuleMo
 			if err != nil {
 				return err
 			}
-			rn.FilterKey = rn.Filter.Value
 		}
 		if rn.ObjectExpr != nil {
 			err = w.saveExpression(ctx, &data, rn.ObjectExpr)
 			if err != nil {
 				return err
 			}
-			rn.ObjectExprKey = rn.ObjectExpr.Value
 		}
 	}
 	if len(data) > 0 {
@@ -308,30 +306,43 @@ func (w *WorkspaceDB) SaveExpressions(ctx context.Context, db *sql.DB, jetRuleMo
 // Save a single expression into workspace db recursively.
 // Add expression to expressions table recursivelly and return the key
 // Put resource entities as well: resource (constant) and var (binded)
-// expr is the resource key, so we can call persist directly.
 func (w *WorkspaceDB) saveExpression(ctx context.Context, data *[][]any, node *rete.ExpressionNode) error {
-	var ok bool
 	if node == nil {
 		return nil
 	}
 	switch node.Type {
 	case "identifier":
-		// Case resource (constant) and var (binded)
-		node.Value, ok = w.rm.resourceKeyToDbKey[node.Value]
-		if !ok {
-			return fmt.Errorf("failed to find resource key %d in expression", node.Value)
+		ukey := node.UniqueKey(w.rm.resourceKeyToDbKey)
+		exprKey, ok := w.expression2DbKey[ukey]
+		if ok {
+			node.DbKey = exprKey
+		} else {
+			// Case resource (constant) and var (binded)
+			resourceKey, ok := w.rm.resourceKeyToDbKey[node.Value]
+			if !ok {
+				return fmt.Errorf("failed to find resource key %d in expression", node.Value)
+			}
+			w.maxExprKey++
+			*data = append(*data, []any{w.maxExprKey, "resource", resourceKey, nil, nil, nil, nil, nil, nil, w.mainFileKey})
+			node.DbKey = w.maxExprKey
+			w.expression2DbKey[ukey] = w.maxExprKey
 		}
-		w.maxExprKey++
-		*data = append(*data, []any{w.maxExprKey, "resource", node.Value, nil, nil, nil, nil, nil, nil, w.mainFileKey})
 	case "unary":
 		// Recursively save the argument
 		err := w.saveExpression(ctx, data, node.Arg)
 		if err != nil {
 			return err
 		}
-		w.maxExprKey++
-		node.Value = w.maxExprKey
-		*data = append(*data, []any{node.Value, "unary", node.Arg.Value, nil, nil, nil, nil, nil, node.Op, w.mainFileKey})
+		ukey := node.UniqueKey(w.rm.resourceKeyToDbKey)
+		exprKey, ok := w.expression2DbKey[ukey]
+		if ok {
+			node.DbKey = exprKey
+		} else {
+			w.maxExprKey++
+			node.DbKey = w.maxExprKey
+			*data = append(*data, []any{w.maxExprKey, "unary", node.Arg.DbKey, nil, nil, nil, nil, nil, node.Op, w.mainFileKey})
+			w.expression2DbKey[ukey] = w.maxExprKey
+		}
 	case "binary":
 		// Recursively save lhs and rhs
 		err := w.saveExpression(ctx, data, node.Lhs)
@@ -342,22 +353,24 @@ func (w *WorkspaceDB) saveExpression(ctx context.Context, data *[][]any, node *r
 		if err != nil {
 			return err
 		}
-		w.maxExprKey++
-		node.Value = w.maxExprKey
-		*data = append(*data, []any{node.Value, "binary", node.Lhs.Value, node.Rhs.Value, nil, nil, nil, nil, node.Op, w.mainFileKey})
+		ukey := node.UniqueKey(w.rm.resourceKeyToDbKey)
+		exprKey, ok := w.expression2DbKey[ukey]
+		if ok {
+			node.DbKey = exprKey
+		} else {
+			w.maxExprKey++
+			node.DbKey = w.maxExprKey
+			*data = append(*data, []any{w.maxExprKey, "binary", node.Lhs.DbKey, node.Rhs.DbKey, nil, nil, nil, nil, node.Op, w.mainFileKey})
+			w.expression2DbKey[ukey] = w.maxExprKey
+		}
+	default:
+		return fmt.Errorf("unsupported expression node type: %s", node.Type)
 	}
 	return nil
 }
 
 // Save Lookup Tables into workspace db
 func (w *WorkspaceDB) SaveLookupTables(ctx context.Context, db *sql.DB, jetRuleModel *rete.JetruleModel) error {
-	// Delete existing lookup tables for current main file
-	deleteStmt := "DELETE FROM lookup_tables WHERE source_file_key = ?"
-	_, err := db.ExecContext(ctx, deleteStmt, w.mainFileKey)
-	if err != nil {
-		return fmt.Errorf("failed to delete existing lookup tables: %w", err)
-	}
-
 	maxKey, err := getMaxKey(ctx, db, "lookup_tables")
 	if err != nil {
 		return err
@@ -377,10 +390,12 @@ func (w *WorkspaceDB) SaveLookupTables(ctx context.Context, db *sql.DB, jetRuleM
 			continue
 		}
 		maxKey++
-		data = append(data, []any{maxKey, lt.Name, nil, lt.CsvFile, strings.Join(lt.Key, ","), strings.Join(lt.Resources, ","), w.mainFileKey})
+		sourceFileKey := w.sourceMgr.GetOrAddDbKey(lt.SourceFileName)
 		for _, col := range lt.Columns {
+			lt.Resources = append(lt.Resources, col.Name)
 			cData = append(cData, []any{maxKey, col.Name, col.Type, col.IsArray})
 		}
+		data = append(data, []any{maxKey, lt.Name, nil, lt.CsvFile, strings.Join(lt.Key, ","), strings.Join(lt.Resources, ","), sourceFileKey})
 	}
 	if len(data) > 0 {
 		err = DoStatement(ctx, db, insertStmt, data)
@@ -395,20 +410,11 @@ func (w *WorkspaceDB) SaveLookupTables(ctx context.Context, db *sql.DB, jetRuleM
 	return nil
 }
 
-// Save Rule Sequences into workspace db
-func (w *WorkspaceDB) SaveRuleSequences(ctx context.Context, db *sql.DB, jetRuleModel *rete.JetruleModel) error {
-	// // Delete existing rule sequences for current main file
-	// deleteStmt := "DELETE FROM rule_sequences WHERE source_file_key = ?"
-	// _, err := db.ExecContext(ctx, deleteStmt, w.mainFileKey)
-	// if err != nil {
-	// 	return fmt.Errorf("failed to delete existing rule sequences: %w", err)
-	// }
-	// deleteStmt = "DELETE FROM main_rule_sets WHERE ruleset_file_key = ?"
-	// _, err = db.ExecContext(ctx, deleteStmt, w.mainFileKey)
-	// if err != nil {
-	// 	return fmt.Errorf("failed to delete existing main_rule_sets: %w", err)
-	// }
-
+// Save Rule Sequences into workspace db, using workspace control info
+func (w *WorkspaceDB) SaveRuleSequences(ctx context.Context, db *sql.DB, workspaceControl *rete.WorkspaceControl) error {
+	if workspaceControl == nil {
+		return fmt.Errorf("workspace control is nil")
+	}
 	maxKey, err := getMaxKey(ctx, db, "rule_sequences")
 	if err != nil {
 		return err
@@ -419,15 +425,16 @@ func (w *WorkspaceDB) SaveRuleSequences(ctx context.Context, db *sql.DB, jetRule
 	insertMRS := "INSERT INTO main_rule_sets (rule_sequence_key, main_ruleset_name, ruleset_file_key, seq) VALUES (?, ?, ?, ?)"
 	rsData := make([][]any, 0)
 	mrsData := make([][]any, 0)
-	for _, rs := range jetRuleModel.RuleSequences {
+	for _, rs := range workspaceControl.RuleSequences {
+		if w.sourceMgr.IsPreExisting(rs.Name) {
+			continue
+		}
+		sourceFileKey := w.sourceMgr.GetOrAddDbKey(rs.Name)
 		maxKey++
-		rsData = append(rsData, []any{maxKey, rs.Name, w.mainFileKey})
-		for seq, rsName := range rs.RuleSets {
-			if w.sourceMgr.IsPreExisting(rsName) {
-				continue
-			}
-			ruleSetFileKey := w.sourceMgr.GetOrAddDbKey(rsName)
-			mrsData = append(mrsData, []any{maxKey, rsName, ruleSetFileKey, seq})
+		rsData = append(rsData, []any{maxKey, rs.Name, sourceFileKey})
+		for seq, mainRuleName := range rs.RuleSets {
+			ruleSetFileKey := w.sourceMgr.GetOrAddDbKey(mainRuleName)
+			mrsData = append(mrsData, []any{maxKey, mainRuleName, ruleSetFileKey, seq})
 		}
 	}
 	if len(rsData) > 0 {
@@ -467,7 +474,7 @@ func (w *WorkspaceDB) SaveJetstoreConfig(ctx context.Context, db *sql.DB, jetRul
 	return nil
 }
 
-func getKeyNameFromTable(ctx context.Context, db *sql.DB, tableName, keyColumn, nameColumn string) (map[string]int, error) {
+func getKeyNameFromTable(_ context.Context, db *sql.DB, tableName, keyColumn, nameColumn string) (map[string]int, error) {
 	result := make(map[string]int)
 	rows, err := db.Query(fmt.Sprintf("SELECT %s, %s FROM %s", keyColumn, nameColumn, tableName))
 	if err != nil {

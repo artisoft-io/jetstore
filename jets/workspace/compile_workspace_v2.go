@@ -1,6 +1,7 @@
 package workspace
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -57,12 +58,13 @@ func compileWorkspaceV2(dbpool *pgxpool.Pool, workspaceControl *rete.WorkspaceCo
 	var tables []*rete.TableNode
 	var lookupTables []*rete.LookupTableNode
 
+	workspacePath := fmt.Sprintf("%s/%s", workspaceHome, workspaceName)
 	for name := range mainRuleFiles {
 		// name is the file path relative to workspace home
 		fmt.Fprintf(&buf, "Compiling rule file: %s\n", name)
 		jrCompiler = compiler.NewCompiler(
-			fmt.Sprintf("%s/%s", workspaceHome, workspaceName),
-			name, true, workspaceControl.UseTraceMode, workspaceControl.AutoAddResources)
+			workspacePath, name, /*saveJson*/ true, workspaceControl.UseTraceMode, 
+			workspaceControl.AutoAddResources)
 		err = jrCompiler.Compile()
 		if err != nil {
 			log.Println("=*=*=*=*=*=*=*=*=*=*=*=*=*=*")
@@ -146,6 +148,22 @@ func compileWorkspaceV2(dbpool *pgxpool.Pool, workspaceControl *rete.WorkspaceCo
 		encoder = json.NewEncoder(file)
 		encoder.Encode(tripleModel)
 		file.Close()
+	}
+
+	// Add all rule sequences
+	buf.WriteString("Add rule sequences to workspace.db\n")
+	wdb, err := compiler.NewWorkspaceDB(workspacePath)
+	if err != nil {
+		return buf.String(), fmt.Errorf("while creating workspace.db: %w", err)
+	}
+	wcPath := fmt.Sprintf("%s/workspace_control.json", workspacePath)
+	workspaceControl, err = rete.LoadWorkspaceControl(wcPath)
+	if err != nil {
+		return buf.String(), fmt.Errorf("while loading workspace control: %w", err)
+	}
+	err = wdb.SaveRuleSequences(context.TODO(), wdb.DB, workspaceControl)
+	if err != nil {
+		return buf.String(), fmt.Errorf("failed to save rule sequences: %w", err)
 	}
 
 	// All files are now compiled

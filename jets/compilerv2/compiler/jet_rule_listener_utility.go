@@ -50,7 +50,12 @@ func (s *JetRuleListener) ParseObjectAtom(txt string, keywordsContextValue strin
 			fmt.Fprintf(s.errorLog, "error: identifier '%s' must be defined in a declaration section before use, creating as resource\n", r.Id)
 			fmt.Fprintf(s.parseLog, "error: identifier '%s' must be defined in a declaration section before use, creating as resource\n", r.Id)
 		}
-		r.Type = "resource"
+		if after, ok := strings.CutPrefix(r.Id, "_0:"); ok {
+			r.Type = "volatile_resource"
+			r.Id = after
+		} else {
+			r.Type = "resource"
+		}
 		r.Value = r.Id
 	}
 
