@@ -48,6 +48,8 @@ RUN go install jetstore/jets/update_db
 # JETSTORE FRONT END == FLUTTER BUILD ==
 COPY jetsclient      ${JETS_SOURCE_DIR}/jetsclient
 WORKDIR ${JETS_SOURCE_DIR}/jetsclient
+RUN rm -rf .dart_tool .flutter-plugins .flutter-plugins-dependencies build pubspec.lock
+RUN flutter pub get
 RUN flutter build web --dart-define=API_HOST=CLOUD9_API_HOST
 
 # Copy programs resources

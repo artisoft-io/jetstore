@@ -1,4 +1,4 @@
-ARG BASE_CONTAINER=debian:bullseye
+ARG BASE_CONTAINER=debian:bookworm
 FROM ${BASE_CONTAINER}
 ARG BASE_CONTAINER
 
@@ -22,23 +22,10 @@ RUN \
 
 RUN dpkg -l
 
-RUN pip3 install --no-input \
+RUN pip install --break-system-packages \
     absl-py \
-    aiocsv \
-    aiofiles \
     antlr4-python3-runtime \
     apsw \
-    argo-workflows \
-    bcrypt \
-    boto3 \
-    certifi \
     frozendict \
-    openpyxl \
     pandas \
-    prometheus_client \
-    protobuf \
-    psycopg[binary,pool] \
-    PyYAML \
-    yamlconf \
-    requests \
-    && pip3 list
+    && pip list
