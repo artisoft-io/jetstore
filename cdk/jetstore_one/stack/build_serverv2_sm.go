@@ -40,6 +40,11 @@ func (jsComp *JetStoreStackComponents) BuildServerv2SM(scope constructs.Construc
 		memLimit = 8192
 	}
 	log.Println("Using memory limit of", memLimit, " for serverv2 node lambda (from env JETS_CPIPES_LAMBDA_MEM_LIMIT_MB)")
+	// Define the log group
+	serverV2NodeLambdaLogGroup := awslogs.NewLogGroup(stack, jsii.String("ServerV2NodeLambdaLogGroup"), &awslogs.LogGroupProps{
+		Retention: awslogs.RetentionDays_THREE_MONTHS,
+	})
+	// Define the lambda
 	jsComp.serverv2NodeLambda = awslambdago.NewGoFunction(stack, jsii.String("Serverv2NodeLambda"), &awslambdago.GoFunctionProps{
 		Description: jsii.String("JetStore One Lambda function serverv2 node executor"),
 		Runtime:     awslambda.Runtime_PROVIDED_AL2023(),
@@ -90,7 +95,7 @@ func (jsComp *JetStoreStackComponents) BuildServerv2SM(scope constructs.Construc
 		Vpc:                  jsComp.Vpc,
 		VpcSubnets:           jsComp.IsolatedSubnetSelection,
 		SecurityGroups:       &[]awsec2.ISecurityGroup{jsComp.VpcEndpointsSg, jsComp.RdsAccessSg},
-		LogRetention:         awslogs.RetentionDays_THREE_MONTHS,
+		LogGroup:             serverV2NodeLambdaLogGroup,
 	})
 	if phiTagName != nil {
 		awscdk.Tags_Of(jsComp.serverv2NodeLambda).Add(phiTagName, jsii.String("true"), nil)

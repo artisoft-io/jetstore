@@ -33,6 +33,12 @@ func (jsComp *JetStoreStackComponents) BuildApiLambdas(scope constructs.Construc
 	if dtl == "TRUE" || dtl == "1" {
 		deployTestLambda = true
 	}
+
+	// Define the log group
+	apiLambdaLogGroup := awslogs.NewLogGroup(stack, jsii.String("ApiLambdaLogGroup"), &awslogs.LogGroupProps{
+		Retention: awslogs.RetentionDays_THREE_MONTHS,
+	})
+	// Define the lambda
 	jsComp.ApiGatewayLambda = awslambdago.NewGoFunction(stack, jsii.String("ApiGatewayLambda"), &awslambdago.GoFunctionProps{
 		Description: jsii.String("JetStore Lambda function API Gateway"),
 		Runtime:     awslambda.Runtime_PROVIDED_AL2023(),
@@ -84,7 +90,7 @@ func (jsComp *JetStoreStackComponents) BuildApiLambdas(scope constructs.Construc
 		Vpc:            jsComp.Vpc,
 		VpcSubnets:     jsComp.PrivateSubnetSelection,
 		SecurityGroups: &[]awsec2.ISecurityGroup{jsComp.VpcEndpointsSg, jsComp.RdsAccessSg, jsComp.InternetAccessSg},
-		LogRetention:   awslogs.RetentionDays_THREE_MONTHS,
+		LogGroup:       apiLambdaLogGroup,
 	})
 	if phiTagName != nil {
 		awscdk.Tags_Of(jsComp.ApiGatewayLambda).Add(phiTagName, jsii.String("false"), nil)
@@ -301,7 +307,11 @@ func (jsComp *JetStoreStackComponents) BuildApiLambdas(scope constructs.Construc
 
 	// Deploy test lambda
 	if deployTestLambda {
-
+		// Define the log group
+		apiTestLambdaLogGroup := awslogs.NewLogGroup(stack, jsii.String("ApiTestLambdaLogGroup"), &awslogs.LogGroupProps{
+			Retention: awslogs.RetentionDays_THREE_MONTHS,
+		})
+		// Define the lambda
 		jsComp.ApiGatewayTestLambda = awslambdago.NewGoFunction(stack, jsii.String("ApiTestLambda"), &awslambdago.GoFunctionProps{
 			Description: jsii.String("JetStore Test Lambda function API Gateway"),
 			Runtime:     awslambda.Runtime_PROVIDED_AL2023(),
@@ -319,7 +329,7 @@ func (jsComp *JetStoreStackComponents) BuildApiLambdas(scope constructs.Construc
 			Vpc:            jsComp.Vpc,
 			VpcSubnets:     jsComp.PrivateSubnetSelection,
 			SecurityGroups: &[]awsec2.ISecurityGroup{jsComp.VpcEndpointsSg, jsComp.RdsAccessSg, jsComp.InternetAccessSg},
-			LogRetention:   awslogs.RetentionDays_THREE_MONTHS,
+			LogGroup:       apiTestLambdaLogGroup,
 		})
 		if phiTagName != nil {
 			awscdk.Tags_Of(jsComp.ApiGatewayLambda).Add(phiTagName, jsii.String("false"), nil)

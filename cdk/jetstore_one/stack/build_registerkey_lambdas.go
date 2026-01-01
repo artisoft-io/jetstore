@@ -19,6 +19,11 @@ import (
 )
 
 func (jsComp *JetStoreStackComponents) BuildRegisterKeyLambdas(scope constructs.Construct, stack awscdk.Stack, props *JetstoreOneStackProps) {
+	// Define the log group
+	registerKeyV2LambdaLogGroup := awslogs.NewLogGroup(stack, jsii.String("RegisterKeyV2LambdaLogGroup"), &awslogs.LogGroupProps{
+		Retention: awslogs.RetentionDays_THREE_MONTHS,
+	})
+	// Define the lambda
 	jsComp.RegisterKeyV2Lambda = awslambdago.NewGoFunction(stack, jsii.String("registerKeyV2"), &awslambdago.GoFunctionProps{
 		Description: jsii.String("Lambda function to register file key with jetstore db, v2"),
 		Runtime:     awslambda.Runtime_PROVIDED_AL2023(),
@@ -69,7 +74,7 @@ func (jsComp *JetStoreStackComponents) BuildRegisterKeyLambdas(scope constructs.
 		Vpc:            jsComp.Vpc,
 		VpcSubnets:     jsComp.PrivateSubnetSelection,
 		SecurityGroups: &[]awsec2.ISecurityGroup{jsComp.VpcEndpointsSg, jsComp.RdsAccessSg},
-		LogRetention:   awslogs.RetentionDays_THREE_MONTHS,
+		LogGroup:       registerKeyV2LambdaLogGroup,
 	})
 	if phiTagName != nil {
 		awscdk.Tags_Of(jsComp.RegisterKeyV2Lambda).Add(phiTagName, jsii.String("false"), nil)
@@ -135,6 +140,11 @@ func (jsComp *JetStoreStackComponents) BuildRegisterKeyLambdas(scope constructs.
 			}
 		}
 
+		// Define the log group
+		sqsRegisterKeyLambdaLogGroup := awslogs.NewLogGroup(stack, jsii.String("SqsRegisterKeyLambdaLogGroup"), &awslogs.LogGroupProps{
+			Retention: awslogs.RetentionDays_THREE_MONTHS,
+		})
+		// Define the lambda
 		jsComp.SqsRegisterKeyLambda = awslambdago.NewGoFunction(stack, jsii.String("SqsRegisterKeyLambda"), &awslambdago.GoFunctionProps{
 			Description: jsii.String("JetStore One Lambda function to Register File Key from SQS Events"),
 			Runtime:     awslambda.Runtime_PROVIDED_AL2023(),
@@ -185,7 +195,7 @@ func (jsComp *JetStoreStackComponents) BuildRegisterKeyLambdas(scope constructs.
 			Vpc:            sqsVpc,
 			VpcSubnets:     sqsVpcSubnets,
 			SecurityGroups: sqsSecurityGroups,
-			LogRetention:   awslogs.RetentionDays_THREE_MONTHS,
+			LogGroup:       sqsRegisterKeyLambdaLogGroup,
 		})
 		if phiTagName != nil {
 			awscdk.Tags_Of(jsComp.SqsRegisterKeyLambda).Add(phiTagName, jsii.String("false"), nil)

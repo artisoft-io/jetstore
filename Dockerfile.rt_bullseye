@@ -26,7 +26,7 @@ COPY --from=builder ${JETS_PY_BUILD_DIR}/lib /usr/local/lib
 # TODO: build native rule engine conditionally
 COPY --from=builder ${JETS_BUILD_DIR}/jets/libjets.so /usr/local/lib/
 #* Verify lib version when upgrading dependencies
-COPY --from=builder /usr/local/lib/libsqlite3.so.0.8.6 /usr/local/lib/
+COPY --from=builder /usr/local/lib/libsqlite3.so.3.51.1 /usr/local/lib/
 COPY --from=builder /usr/local/lib/libglog.so.0.6.0 /usr/local/lib/
 # Go commands
 COPY --from=builder ${JETS_BIN_DIR}/cbooter /usr/local/bin/

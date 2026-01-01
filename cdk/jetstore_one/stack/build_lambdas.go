@@ -23,6 +23,11 @@ func (jsComp *JetStoreStackComponents) BuildLambdas(scope constructs.Construct, 
 	// Define the Status Update lambda, used in jsComp.ServerSM, jsComp.Serverv2SM, jsComp.CpipesSM and jsComp.ReportsSM
 	// Status Update Lambda Definition
 	// --------------------------------------------------------------------------------------------------------------
+	// Define the log group
+	statusUpdateLambdaLogGroup := awslogs.NewLogGroup(stack, jsii.String("StatusUpdateLambdaLogGroup"), &awslogs.LogGroupProps{
+		Retention: awslogs.RetentionDays_THREE_MONTHS,
+	})
+	// Define the lambda
 	jsComp.StatusUpdateLambda = awslambdago.NewGoFunction(stack, jsii.String("StatusUpdateLambda"), &awslambdago.GoFunctionProps{
 		Description: jsii.String("Lambda function to update job status with jetstore db"),
 		Runtime:     awslambda.Runtime_PROVIDED_AL2023(),
@@ -70,7 +75,7 @@ func (jsComp *JetStoreStackComponents) BuildLambdas(scope constructs.Construct, 
 		Vpc:            jsComp.Vpc,
 		VpcSubnets:     jsComp.PrivateSubnetSelection,
 		SecurityGroups: &[]awsec2.ISecurityGroup{jsComp.VpcEndpointsSg, jsComp.RdsAccessSg, jsComp.InternetAccessSg},
-		LogRetention:   awslogs.RetentionDays_THREE_MONTHS,
+		LogGroup:       statusUpdateLambdaLogGroup,
 	})
 	if phiTagName != nil {
 		awscdk.Tags_Of(jsComp.StatusUpdateLambda).Add(phiTagName, jsii.String("false"), nil)
@@ -87,6 +92,11 @@ func (jsComp *JetStoreStackComponents) BuildLambdas(scope constructs.Construct, 
 	// Define the Secret Rotation lambda,rotating all secrets that require rotation
 	// Secret Rotation Lambda Definition
 	// --------------------------------------------------------------------------------------------------------------
+	// Define the log group
+	secretRotationLambdaLogGroup := awslogs.NewLogGroup(stack, jsii.String("SecretRotationLambdaLogGroup"), &awslogs.LogGroupProps{
+		Retention: awslogs.RetentionDays_THREE_MONTHS,
+	})
+	// Define the lambda
 	jsComp.SecretRotationLambda = awslambdago.NewGoFunction(stack, jsii.String("SecretRotationLambda"), &awslambdago.GoFunctionProps{
 		Description: jsii.String("Lambda function to rotate JetStore secrets"),
 		Runtime:     awslambda.Runtime_PROVIDED_AL2023(),
@@ -111,7 +121,7 @@ func (jsComp *JetStoreStackComponents) BuildLambdas(scope constructs.Construct, 
 		Vpc:            jsComp.Vpc,
 		VpcSubnets:     jsComp.PrivateSubnetSelection,
 		SecurityGroups: &[]awsec2.ISecurityGroup{jsComp.VpcEndpointsSg, jsComp.RdsAccessSg},
-		LogRetention:   awslogs.RetentionDays_THREE_MONTHS,
+		LogGroup:       secretRotationLambdaLogGroup,
 	})
 	if phiTagName != nil {
 		awscdk.Tags_Of(jsComp.SecretRotationLambda).Add(phiTagName, jsii.String("false"), nil)
@@ -151,6 +161,11 @@ func (jsComp *JetStoreStackComponents) BuildLambdas(scope constructs.Construct, 
 	// Define the Run Reports lambda, used in jsComp.CpipesSM, jsComp.Serverv2SM and eventually to others
 	// Run Reports Lambda Definition
 	// --------------------------------------------------------------------------------------------------------------
+	// Define the log group
+	runReportsLambdaLogGroup := awslogs.NewLogGroup(stack, jsii.String("RunReportsLambdaLogGroup"), &awslogs.LogGroupProps{
+		Retention: awslogs.RetentionDays_THREE_MONTHS,
+	})
+	// Define the lambda
 	jsComp.RunReportsLambda = awslambdago.NewGoFunction(stack, jsii.String("RunReportsLambda"), &awslambdago.GoFunctionProps{
 		Description: jsii.String("Lambda function to run JetStore Workspace reports"),
 		Runtime:     awslambda.Runtime_PROVIDED_AL2023(),
@@ -193,7 +208,7 @@ func (jsComp *JetStoreStackComponents) BuildLambdas(scope constructs.Construct, 
 		VpcSubnets:           jsComp.IsolatedSubnetSelection,
 		SecurityGroups:       &[]awsec2.ISecurityGroup{jsComp.VpcEndpointsSg, jsComp.RdsAccessSg},
 		EphemeralStorageSize: awscdk.Size_Mebibytes(jsii.Number(4096)),
-		LogRetention:         awslogs.RetentionDays_THREE_MONTHS,
+		LogGroup:             runReportsLambdaLogGroup,
 	})
 	if phiTagName != nil {
 		awscdk.Tags_Of(jsComp.RunReportsLambda).Add(phiTagName, jsii.String("false"), nil)
@@ -221,6 +236,11 @@ func (jsComp *JetStoreStackComponents) BuildLambdas(scope constructs.Construct, 
 	// Lambda Function for installation-specific integration for Run Reports
 	lambdaEntry := os.Getenv("JETS_CPIPES_RUN_REPORTS_LAMBDA_ENTRY")
 	if len(lambdaEntry) > 0 {
+		// Define the log group
+		cpipesRunReportsLambdaLogGroup := awslogs.NewLogGroup(stack, jsii.String("CpipesRunReportsLambdaLogGroup"), &awslogs.LogGroupProps{
+			Retention: awslogs.RetentionDays_THREE_MONTHS,
+		})
+		// Define the lambda
 		jsComp.CpipesRunReportsLambda = awslambdago.NewGoFunction(stack, jsii.String("CpipesRunReportsLambda"), &awslambdago.GoFunctionProps{
 			Description: jsii.String("Lambda function to run JetStore Workspace reports using instalation specific function"),
 			Runtime:     awslambda.Runtime_PROVIDED_AL2023(),
@@ -262,7 +282,7 @@ func (jsComp *JetStoreStackComponents) BuildLambdas(scope constructs.Construct, 
 			VpcSubnets:           jsComp.IsolatedSubnetSelection,
 			SecurityGroups:       &[]awsec2.ISecurityGroup{jsComp.VpcEndpointsSg, jsComp.RdsAccessSg},
 			EphemeralStorageSize: awscdk.Size_Mebibytes(jsii.Number(4096)),
-			LogRetention:         awslogs.RetentionDays_THREE_MONTHS,
+			LogGroup:             cpipesRunReportsLambdaLogGroup,
 		})
 		if phiTagName != nil {
 			awscdk.Tags_Of(jsComp.CpipesRunReportsLambda).Add(phiTagName, jsii.String("false"), nil)
@@ -295,6 +315,11 @@ func (jsComp *JetStoreStackComponents) BuildLambdas(scope constructs.Construct, 
 		if len(purgeDataHours) == 0 {
 			purgeDataHours = "7"
 		}
+		// Define the log group
+		purgeDataLambdaLogGroup := awslogs.NewLogGroup(stack, jsii.String("PurgeDataLambdaLogGroup"), &awslogs.LogGroupProps{
+			Retention: awslogs.RetentionDays_THREE_MONTHS,
+		})
+		// Define the lambda
 		jsComp.PurgeDataLambda = awslambdago.NewGoFunction(stack, jsii.String("PurgeDataLambda"), &awslambdago.GoFunctionProps{
 			Description: jsii.String("Lambda function to purge historical data in jetstore db"),
 			Runtime:     awslambda.Runtime_PROVIDED_AL2023(),
@@ -318,7 +343,7 @@ func (jsComp *JetStoreStackComponents) BuildLambdas(scope constructs.Construct, 
 			Vpc:            jsComp.Vpc,
 			VpcSubnets:     jsComp.IsolatedSubnetSelection,
 			SecurityGroups: &[]awsec2.ISecurityGroup{jsComp.VpcEndpointsSg, jsComp.RdsAccessSg},
-			LogRetention:   awslogs.RetentionDays_THREE_MONTHS,
+			LogGroup:       purgeDataLambdaLogGroup,
 		})
 		jsComp.RdsSecret.GrantRead(jsComp.PurgeDataLambda, nil)
 		if phiTagName != nil {
