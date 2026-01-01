@@ -181,10 +181,10 @@ func NewPrivateApiStack(scope constructs.Construct, id string, props *PrivateApi
 	})
 
 	// Create Lambda integration
-	lambdaIntegration := awsapigateway.NewLambdaIntegration(lambdaFunction, 
+	lambdaIntegration := awsapigateway.NewLambdaIntegration(lambdaFunction,
 		&awsapigateway.LambdaIntegrationOptions{
 			AllowTestInvoke: jsii.Bool(true),
-			Proxy: jsii.Bool(true),
+			Proxy:           jsii.Bool(true),
 		})
 
 	// Add methods to API
@@ -216,6 +216,11 @@ func NewPrivateApiStack(scope constructs.Construct, id string, props *PrivateApi
 	}))
 
 	// Create test Lambda function that can assume the system role to invoke the private API
+	// Define the log group
+	testLambdaLogGroup := awslogs.NewLogGroup(stack, jsii.String("TestLambdaLogGroup"), &awslogs.LogGroupProps{
+		Retention: awslogs.RetentionDays_THREE_MONTHS,
+	})
+	// Define the lambda
 	testLambdaFunction := awslambdago.NewGoFunction(stack, jsii.String("TestLambdaFunction"), &awslambdago.GoFunctionProps{
 		Description: jsii.String("Test lambda to invoke private API using assumed system role"),
 		Runtime:     awslambda.Runtime_PROVIDED_AL2023(),
@@ -233,8 +238,8 @@ func NewPrivateApiStack(scope constructs.Construct, id string, props *PrivateApi
 			"VPC_ENDPOINT_ID": vpcEndpoint.VpcEndpointId(),
 			"SYSTEM_ROLE_ARN": systemRole.RoleArn(),
 		},
-		Timeout:      awscdk.Duration_Minutes(jsii.Number(5)),
-		LogRetention: awslogs.RetentionDays_ONE_DAY,
+		Timeout:  awscdk.Duration_Minutes(jsii.Number(5)),
+		LogGroup: testLambdaLogGroup,
 	})
 
 	// Output the API endpoint and role ARN

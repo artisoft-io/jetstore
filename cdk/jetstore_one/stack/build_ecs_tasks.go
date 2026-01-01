@@ -38,6 +38,10 @@ func (jsComp *JetStoreStackComponents) BuildEcsTasks(scope constructs.Construct,
 		},
 		EphemeralStorageGiB: jsii.Number(100),
 	})
+	// Define the log group
+	runReportContainerLogGroup := awslogs.NewLogGroup(stack, jsii.String("RunReportContainerLogGroup"), &awslogs.LogGroupProps{
+		Retention: awslogs.RetentionDays_THREE_MONTHS,
+	})
 	// Run Reports Task Container
 	jsComp.RunreportsContainerDef = jsComp.RunreportTaskDefinition.AddContainer(jsii.String("runreportsContainerDef"), &awsecs.ContainerDefinitionOptions{
 		// Use JetStore Image in ecr
@@ -79,7 +83,7 @@ func (jsComp *JetStoreStackComponents) BuildEcsTasks(scope constructs.Construct,
 		},
 		Logging: awsecs.LogDriver_AwsLogs(&awsecs.AwsLogDriverProps{
 			StreamPrefix: jsii.String("task"),
-			LogRetention: awslogs.RetentionDays_THREE_MONTHS,
+			LogGroup:     runReportContainerLogGroup,
 		}),
 		ReadonlyRootFilesystem: jsii.Bool(true),
 	})
@@ -135,6 +139,10 @@ func (jsComp *JetStoreStackComponents) BuildEcsTasks(scope constructs.Construct,
 
 	// Loader Task Container
 	// ---------------------
+	// Define the log group
+	loaderContainerLogGroup := awslogs.NewLogGroup(stack, jsii.String("LoaderContainerLogGroup"), &awslogs.LogGroupProps{
+		Retention: awslogs.RetentionDays_THREE_MONTHS,
+	})
 	jsComp.LoaderContainerDef = jsComp.LoaderTaskDefinition.AddContainer(jsii.String("loaderContainer"), &awsecs.ContainerDefinitionOptions{
 		// Use JetStore Image in ecr
 		Image:         jsComp.JetStoreImage,
@@ -174,7 +182,7 @@ func (jsComp *JetStoreStackComponents) BuildEcsTasks(scope constructs.Construct,
 		},
 		Logging: awsecs.LogDriver_AwsLogs(&awsecs.AwsLogDriverProps{
 			StreamPrefix: jsii.String("task"),
-			LogRetention: awslogs.RetentionDays_THREE_MONTHS,
+			LogGroup: loaderContainerLogGroup,
 		}),
 		ReadonlyRootFilesystem: jsii.Bool(true),
 	})
@@ -289,6 +297,10 @@ func (jsComp *JetStoreStackComponents) BuildEcsTasks(scope constructs.Construct,
 
 	// Server Task Container
 	// ---------------------
+	// Define the log group
+	serverContainerLogGroup := awslogs.NewLogGroup(stack, jsii.String("ServerContainerLogGroup"), &awslogs.LogGroupProps{
+		Retention: awslogs.RetentionDays_THREE_MONTHS,
+	})
 	jsComp.ServerContainerDef = jsComp.ServerTaskDefinition.AddContainer(jsii.String("serverContainer"), &awsecs.ContainerDefinitionOptions{
 		// Use JetStore Image in ecr
 		Image:         jsComp.JetStoreImage,
@@ -328,7 +340,7 @@ func (jsComp *JetStoreStackComponents) BuildEcsTasks(scope constructs.Construct,
 		},
 		Logging: awsecs.LogDriver_AwsLogs(&awsecs.AwsLogDriverProps{
 			StreamPrefix: jsii.String("task"),
-			LogRetention: awslogs.RetentionDays_THREE_MONTHS,
+			LogGroup: serverContainerLogGroup,
 		}),
 		ReadonlyRootFilesystem: jsii.Bool(true),
 	})
@@ -340,6 +352,10 @@ func (jsComp *JetStoreStackComponents) BuildEcsTasks(scope constructs.Construct,
 
 	// serverv2 Task Container
 	// ---------------------
+	// Define the log group
+	serverv2ContainerLogGroup := awslogs.NewLogGroup(stack, jsii.String("ServerV2ContainerLogGroup"), &awslogs.LogGroupProps{
+		Retention: awslogs.RetentionDays_THREE_MONTHS,
+	})
 	jsComp.Serverv2ContainerDef = jsComp.Serverv2TaskDefinition.AddContainer(jsii.String("serverv2Container"), &awsecs.ContainerDefinitionOptions{
 		// Use JetStore Image in ecr
 		Image:         jsComp.CpipesImage,
@@ -380,7 +396,7 @@ func (jsComp *JetStoreStackComponents) BuildEcsTasks(scope constructs.Construct,
 		},
 		Logging: awsecs.LogDriver_AwsLogs(&awsecs.AwsLogDriverProps{
 			StreamPrefix: jsii.String("task"),
-			LogRetention: awslogs.RetentionDays_THREE_MONTHS,
+			LogGroup: serverv2ContainerLogGroup,
 		}),
 		ReadonlyRootFilesystem: jsii.Bool(true),
 	})
@@ -392,6 +408,10 @@ func (jsComp *JetStoreStackComponents) BuildEcsTasks(scope constructs.Construct,
 
 	// Compute Pipes Task Container
 	// ---------------------
+	// Define the log group
+	cpipesContainerLogGroup := awslogs.NewLogGroup(stack, jsii.String("CpipesContainerLogGroup"), &awslogs.LogGroupProps{
+		Retention: awslogs.RetentionDays_THREE_MONTHS,
+	})
 	jsComp.CpipesContainerDef = jsComp.CpipesTaskDefinition.AddContainer(jsii.String("cpipesContainer"), &awsecs.ContainerDefinitionOptions{
 		// Use JetStore Image in ecr
 		Image:         jsComp.CpipesImage,
@@ -432,7 +452,7 @@ func (jsComp *JetStoreStackComponents) BuildEcsTasks(scope constructs.Construct,
 		},
 		Logging: awsecs.LogDriver_AwsLogs(&awsecs.AwsLogDriverProps{
 			StreamPrefix: jsii.String("task"),
-			LogRetention: awslogs.RetentionDays_THREE_MONTHS,
+			LogGroup: cpipesContainerLogGroup,
 		}),
 		ReadonlyRootFilesystem: jsii.Bool(true),
 	})

@@ -38,6 +38,11 @@ func (jsComp *JetStoreStackComponents) BuildUiService(scope constructs.Construct
 		EphemeralStorageGiB: jsii.Number(40),
 	})
 
+	// Define the log group
+	uiContainerLogGroup := awslogs.NewLogGroup(stack, jsii.String("UiContainerLogGroup"), &awslogs.LogGroupProps{
+		Retention: awslogs.RetentionDays_THREE_MONTHS,
+	})
+	// Define the container
 	jsComp.UiTaskContainer = jsComp.UiTaskDefinition.AddContainer(jsii.String("uiContainer"), &awsecs.ContainerDefinitionOptions{
 		// Use JetStore Image in ecr
 		Image:         jsComp.JetStoreImage,
@@ -96,7 +101,7 @@ func (jsComp *JetStoreStackComponents) BuildUiService(scope constructs.Construct
 		// },
 		Logging: awsecs.LogDriver_AwsLogs(&awsecs.AwsLogDriverProps{
 			StreamPrefix: jsii.String("task"),
-			LogRetention: awslogs.RetentionDays_THREE_MONTHS,
+			LogGroup:     uiContainerLogGroup,
 		}),
 		ReadonlyRootFilesystem: jsii.Bool(true),
 	})

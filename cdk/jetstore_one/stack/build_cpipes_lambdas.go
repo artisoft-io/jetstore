@@ -37,6 +37,11 @@ func (jsComp *JetStoreStackComponents) BuildCpipesLambdas(scope constructs.Const
 		memLimit = 8192
 	}
 	fmt.Println("Using memory limit of", memLimit, "for CpipesNodeLambda (from env JETS_CPIPES_LAMBDA_MEM_LIMIT_MB)")
+	// Define the log group
+	cpipesLambdaLogGroup := awslogs.NewLogGroup(stack, jsii.String("CpipesLambdaLogGroup"), &awslogs.LogGroupProps{
+		Retention: awslogs.RetentionDays_THREE_MONTHS,
+	})
+	// Define the lambda
 	jsComp.CpipesNodeLambda = awslambdago.NewGoFunction(stack, jsii.String("CpipesNodeLambda"), &awslambdago.GoFunctionProps{
 		Description: jsii.String("JetStore One Lambda function cpipes execution"),
 		Runtime:     awslambda.Runtime_PROVIDED_AL2023(),
@@ -79,7 +84,7 @@ func (jsComp *JetStoreStackComponents) BuildCpipesLambdas(scope constructs.Const
 		Vpc:                  jsComp.Vpc,
 		VpcSubnets:           jsComp.IsolatedSubnetSelection,
 		SecurityGroups:       &[]awsec2.ISecurityGroup{jsComp.VpcEndpointsSg, jsComp.RdsAccessSg, jsComp.InternetAccessSg},
-		LogRetention:         awslogs.RetentionDays_THREE_MONTHS,
+		LogGroup:             cpipesLambdaLogGroup,
 	})
 	if phiTagName != nil {
 		awscdk.Tags_Of(jsComp.CpipesNodeLambda).Add(phiTagName, jsii.String("true"), nil)
@@ -98,6 +103,11 @@ func (jsComp *JetStoreStackComponents) BuildCpipesLambdas(scope constructs.Const
 	}
 
 	// CpipesStartShardingLambda
+	// Define the log group
+	cpipesStartShardingLambdaLogGroup := awslogs.NewLogGroup(stack, jsii.String("CpipesStartShardingLambdaLogGroup"), &awslogs.LogGroupProps{
+		Retention: awslogs.RetentionDays_THREE_MONTHS,
+	})
+	// Define the lambda
 	jsComp.CpipesStartShardingLambda = awslambdago.NewGoFunction(stack, jsii.String("CpipesStartShardingLambda"), &awslambdago.GoFunctionProps{
 		Description: jsii.String("JetStore One Lambda function to start sharding data"),
 		Runtime:     awslambda.Runtime_PROVIDED_AL2023(),
@@ -138,7 +148,7 @@ func (jsComp *JetStoreStackComponents) BuildCpipesLambdas(scope constructs.Const
 		Vpc:            jsComp.Vpc,
 		VpcSubnets:     jsComp.PrivateSubnetSelection,
 		SecurityGroups: &[]awsec2.ISecurityGroup{jsComp.VpcEndpointsSg, jsComp.RdsAccessSg, jsComp.InternetAccessSg},
-		LogRetention:   awslogs.RetentionDays_THREE_MONTHS,
+		LogGroup:       cpipesStartShardingLambdaLogGroup,
 	})
 	if phiTagName != nil {
 		awscdk.Tags_Of(jsComp.CpipesStartShardingLambda).Add(phiTagName, jsii.String("true"), nil)
@@ -157,6 +167,11 @@ func (jsComp *JetStoreStackComponents) BuildCpipesLambdas(scope constructs.Const
 	}
 
 	// CpipesStartReducingLambda
+	// Define the log group
+	cpipesStartReducingLambdaLogGroup := awslogs.NewLogGroup(stack, jsii.String("CpipesStartReducingLambdaLogGroup"), &awslogs.LogGroupProps{
+		Retention: awslogs.RetentionDays_THREE_MONTHS,
+	})
+	// Define the lambda
 	jsComp.CpipesStartReducingLambda = awslambdago.NewGoFunction(stack, jsii.String("CpipesStartReducingLambda"), &awslambdago.GoFunctionProps{
 		Description: jsii.String("JetStore One Lambda function to start reducing data"),
 		Runtime:     awslambda.Runtime_PROVIDED_AL2023(),
@@ -196,7 +211,7 @@ func (jsComp *JetStoreStackComponents) BuildCpipesLambdas(scope constructs.Const
 		Vpc:            jsComp.Vpc,
 		VpcSubnets:     jsComp.IsolatedSubnetSelection,
 		SecurityGroups: &[]awsec2.ISecurityGroup{jsComp.VpcEndpointsSg, jsComp.RdsAccessSg, jsComp.InternetAccessSg},
-		LogRetention:   awslogs.RetentionDays_THREE_MONTHS,
+		LogGroup:       cpipesStartReducingLambdaLogGroup,
 	})
 	if phiTagName != nil {
 		awscdk.Tags_Of(jsComp.CpipesStartReducingLambda).Add(phiTagName, jsii.String("true"), nil)
