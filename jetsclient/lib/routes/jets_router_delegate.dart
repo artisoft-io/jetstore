@@ -73,13 +73,9 @@ class JetsRouterDelegate extends RouterDelegate<JetsRouteData>
         pages: _pages.isEmpty
             ? [MaterialPage(child: Container(color: Colors.blueGrey[900]))]
             : _pages,
-        onPopPage: (route, result) {
-          if (!route.didPop(result)) return false;
-
+        onDidRemovePage: (page) {
           _onpop();
-
           notifyListeners();
-          return true;
         },
       );
 
