@@ -339,6 +339,7 @@ final Map<String, TableConfig> _tableConfigurations = {
           capability: 'run_pipelines',
           style: ActionStyle.secondary),
     ],
+    fromConfigRowActions: [],
     formStateConfig: DataTableFormStateConfig(keyColumnIdx: 0, otherColumns: [
       DataTableFormStateOtherColumnConfig(
         stateKey: FSK.sessionId,

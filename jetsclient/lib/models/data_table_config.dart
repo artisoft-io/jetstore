@@ -24,6 +24,7 @@ class TableConfig {
     this.showSelectedOnly = false,
     required this.actions,
     this.secondRowActions = const [],
+    this.fromConfigRowActions = const [],
     required this.columns,
     this.defaultToAllRows = false,
     required this.fromClauses,
@@ -57,6 +58,7 @@ class TableConfig {
   final bool showSelectedOnly;
   final List<ActionConfig> actions;
   final List<ActionConfig> secondRowActions;
+  final List<ActionConfig> fromConfigRowActions;
   final List<ColumnConfig> columns;
   final bool defaultToAllRows;
   final RawQuery? sqlQuery;
