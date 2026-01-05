@@ -208,7 +208,7 @@ Future<String?> fetchFileFromStage(
   var encodedJsonBody = jsonEncode(<String, dynamic>{
     'action': 'fetch_file_from_stage',
     'data': [state],
-  });
+  }, toEncodable: (_) => '');
 
   final result = await postRawAction(
       context, ServerEPs.dataTableEP, encodedJsonBody,

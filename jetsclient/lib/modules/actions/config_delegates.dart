@@ -62,6 +62,22 @@ String? homeFormValidator(
 }
 
 /// Source Configuration Form Actions
+Future<String?> resubmitPipeline(
+    BuildContext context, JetsFormState formState) async {
+  var state = formState.getState(0);
+  state[FSK.sessionId] = unpack(state[FSK.sessionId]);
+  // print('state contains $state');
+  print('resubmiting: session_id is ${state[FSK.sessionId]}');
+  // Send the pipeline resubmit insert
+  var encodedJsonBody = jsonEncode(<String, dynamic>{
+    'action': 'resubmit_pipeline',
+    'data': [state],
+  }, toEncodable: (_) => '');
+  await postSimpleAction(
+      context, formState, ServerEPs.dataTableEP, encodedJsonBody);
+  return null;
+}
+
 Future<String?> homeFormActions(BuildContext context,
     GlobalKey<FormState> formKey, JetsFormState formState, String actionKey,
     {group = 0}) async {
@@ -112,18 +128,7 @@ Future<String?> homeFormActions(BuildContext context,
       break;
 
     case ActionKeys.resubmitPipeline:
-      var state = formState.getState(0);
-      state[FSK.sessionId] = unpack(state[FSK.sessionId]);
-      print('state contains $state');
-      print('resubmiting: session_id is ${state[FSK.sessionId]}');
-      // Send the pipeline resubmit insert
-      var encodedJsonBody = jsonEncode(<String, dynamic>{
-        'action': 'resubmit_pipeline',
-        'data': [state],
-      }, toEncodable: (_) => '');
-      await postSimpleAction(
-          context, formState, ServerEPs.dataTableEP, encodedJsonBody);
-      return null;
+      return resubmitPipeline(context, formState);
 
     default:
       // Delegate to AppConfig ButtonConfig Actions
