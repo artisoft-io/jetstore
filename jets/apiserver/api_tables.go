@@ -10,15 +10,18 @@ import (
 	"os"
 	"time"
 
+	"github.com/artisoft-io/jetstore/jets/awsi"
 	"github.com/artisoft-io/jetstore/jets/datatable"
 	"github.com/artisoft-io/jetstore/jets/user"
 	"go.uber.org/zap"
 )
 
+var stagePrefix string = os.Getenv("JETS_s3_STAGE_PREFIX")
+
 // DoDataTableAction ------------------------------------------------------
 // Entry point function
 func (server *Server) DoDataTableAction(w http.ResponseWriter, r *http.Request) {
-	var results *map[string]interface{}
+	var results *map[string]any
 	var code int
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
@@ -48,11 +51,34 @@ func (server *Server) DoDataTableAction(w http.ResponseWriter, r *http.Request) 
 	case "insert_rows":
 		results, code, err = ctx.InsertRows(&dataTableAction, token)
 	case "test_pipeline":
-		results = &map[string]interface{}{}
+		results = &map[string]any{}
 		code = 200
 		datatable.UnitTestWorkspaceAction(ctx, &dataTableAction, token)
+
+		// fetch file from stage
+	case "fetch_file_from_stage":
+		results = &map[string]any{}
+		code = 200
+		filePath, ok := dataTableAction.Data[0]["stage_file_path"].(string)
+		if !ok {
+			err = fmt.Errorf("error: stage_file_path must be string in fetch_file_from_stage action")
+			log.Printf("Error: %v", err)
+			ERROR(w, 400, err)
+			return
+		}
+
+		obj, err := awsi.DownloadBufFromS3(fmt.Sprintf("%s/%s", stagePrefix, filePath))
+		if err != nil {
+			err = fmt.Errorf("error: failed to fetch file from stage: %v", err)
+			log.Printf("Error: %v", err)
+			ERROR(w, 400, err)
+			return
+		}
+		(*results)["file_content"] = string(obj)
+
+		// resubmit pipeline
 	case "resubmit_pipeline":
-		results = &map[string]interface{}{}
+		results = &map[string]any{}
 		code = 200
 		sid, ok := dataTableAction.Data[0]["session_id"].(string)
 		if !ok {
@@ -144,11 +170,11 @@ func (server *Server) DoDataTableAction(w http.ResponseWriter, r *http.Request) 
 	case "drop_table":
 		results, code, err = ctx.DropTable(&dataTableAction, token)
 	case "refresh_token":
-		results = &map[string]interface{}{}
+		results = &map[string]any{}
 		code = http.StatusOK
 		err = nil
 	case "get_workspace_uri":
-		results = &map[string]interface{}{
+		results = &map[string]any{
 			"workspace_uri":               os.Getenv("WORKSPACE_URI"),
 			"workspace_name":              os.Getenv("WORKSPACE"),
 			"workspace_branch":            os.Getenv("WORKSPACE_BRANCH"),
@@ -169,15 +195,15 @@ func (server *Server) DoDataTableAction(w http.ResponseWriter, r *http.Request) 
 	JSON(w, http.StatusOK, results)
 }
 
-func addToken(r *http.Request, results *map[string]interface{}) {
+func addToken(r *http.Request, results *map[string]any) {
 	token, ok := r.Header["Token"]
 	if ok {
 		(*results)["token"] = token[0]
 	}
 }
 
-func makeResult(r *http.Request) map[string]interface{} {
-	results := make(map[string]interface{}, 3)
+func makeResult(r *http.Request) map[string]any {
+	results := make(map[string]any, 3)
 	token, ok := r.Header["Token"]
 	if ok {
 		results["token"] = token[0]

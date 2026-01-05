@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:jetsclient/button_config.dart';
 import 'package:jetsclient/modules/user_flows/file_mapping/form_action_helpers.dart';
 import 'package:jetsclient/routes/jets_router_delegate.dart';
 import 'package:jetsclient/components/dialogs.dart';
@@ -120,11 +121,14 @@ Future<String?> homeFormActions(BuildContext context,
         'action': 'resubmit_pipeline',
         'data': [state],
       }, toEncodable: (_) => '');
-      await postSimpleAction(context, formState, ServerEPs.dataTableEP, encodedJsonBody);
+      await postSimpleAction(
+          context, formState, ServerEPs.dataTableEP, encodedJsonBody);
       return null;
 
     default:
-      print('Oops unknown ActionKey for home form: $actionKey');
+      // Delegate to AppConfig ButtonConfig Actions
+      return AppConfig()
+          .buttonConfigActions(context, formKey, formState, actionKey);
   }
   return null;
 }
@@ -493,8 +497,10 @@ Future<String?> ruleConfigv2FormActions(BuildContext context,
         'data': [updateState],
       }, toEncodable: (_) => '');
 
-      final result =
-          await postRawAction(context, ServerEPs.dataTableEP, encodedJsonBody);
+      final result = await postRawAction(
+          context, ServerEPs.dataTableEP, encodedJsonBody,
+          successMessage: 'Rule Configuration successfully saved',
+          failureMessage: 'Failed to save Rule Configuration');
       if (result.statusCode == 401) return "Not Authorized";
       if (result.statusCode == 200) {
         if (context.mounted) {

@@ -1,3 +1,4 @@
+import 'package:jetsclient/button_config.dart';
 import 'package:jetsclient/modules/user_flows/client_registry/data_table_config.dart';
 import 'package:jetsclient/modules/user_flows/configure_files/data_table_config.dart';
 import 'package:jetsclient/modules/user_flows/file_mapping/data_table_config.dart';
@@ -339,8 +340,12 @@ final Map<String, TableConfig> _tableConfigurations = {
           capability: 'run_pipelines',
           style: ActionStyle.secondary),
     ],
-    fromConfigRowActions: [],
+    fromConfigRowActions: AppConfig.getConfigurableActionConfig(),
     formStateConfig: DataTableFormStateConfig(keyColumnIdx: 0, otherColumns: [
+      DataTableFormStateOtherColumnConfig(
+        stateKey: FSK.processName,
+        columnIdx: 3,
+      ),
       DataTableFormStateOtherColumnConfig(
         stateKey: FSK.sessionId,
         columnIdx: 10,

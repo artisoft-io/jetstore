@@ -1,6 +1,7 @@
 import 'package:jetsclient/components/data_table.dart';
 import 'package:jetsclient/models/data_table_model.dart';
 import 'package:jetsclient/components/jets_form_state.dart';
+import 'package:jetsclient/models/form_config.dart';
 import 'package:jetsclient/utils/constants.dart';
 
 typedef ModelHandler = Map<String, dynamic>? Function(JetsFormState formState);
@@ -161,9 +162,11 @@ typedef IsEnabledFnc = bool Function(JetsDataTableState state);
 /// that the value are string corresponding to state form keys.
 /// Therefore the navigation params' values are resolved by looking up the value
 /// in the state form.
-/// (see data table state method [actionDispatcher])
-/// actionName is used for DataTableActionType.doAction, corresponding to the action
-/// to invoke when the ActionConfig button is pressed
+/// (see data table state method [actionDispatcher]).
+/// When [actionType] == [DataTableActionType.doAction] do one of:
+///   - invoke [actionDelegate] when defined, or
+///   - invoke [actionName] on the form's action delegate.
+/// This corresponds to the action to invoke when the [ActionConfig] button is pressed.
 class ActionConfig {
   ActionConfig(
       {required this.actionType,
@@ -180,6 +183,7 @@ class ActionConfig {
       this.configForm,
       this.configScreenPath,
       this.actionName,
+      this.actionDelegate,
       this.stateGroup = 0,
       this.actionEnableCriterias,
       this.capability});
@@ -196,6 +200,7 @@ class ActionConfig {
   final String? configForm;
   final String? configScreenPath;
   final String? actionName;
+  final FormActionsDelegate? actionDelegate;
   final int stateGroup;
   final List<List<ActionEnableCriteria>>? actionEnableCriterias;
   final String? capability;

@@ -293,6 +293,7 @@ class FSK {
   static const label = "label";
   static const tableName = "table_name";
   static const fileKey = "file_key";
+  static const stageFilePath = "stage_file_path";
 
   static const dataTableAction = "datatable.action";
   static const dataTableFromTable = "datatable.from.table";
@@ -427,6 +428,11 @@ class FSK {
   // workspace.db columns
   static const wsDbSourceFileName = "source_file_name";
 
+  // reserved keys for ButtonConfig Actions
+  // --------------------------------------------------
+  // Key used to store the ButtonConfig object in the JetsFormState
+  static const bcButtonConfig = "bc.button_config";
+
   // Keys for User Flow - special state management keys
   // --------------------------------------------------
   static const ufStartAtKey = "startAtKey";
@@ -510,6 +516,7 @@ class FSK {
   static const hfEndOffset = "hfEndOffset";
 
   // reserved keys for cache
+  // --------------------------------------------------
 
   // inputFieldsCache: cache value is a list<String?>
   // based on query inputFieldsQuery
@@ -550,6 +557,9 @@ class FSK {
   // The query is in FSK.processName drowpdown initaization query
   static const processConfigCache = "cache.process_config";
 
+  // Other reserved keys
+  // --------------------------------------------------
+
   // reserve key to hold an error to display to user
   static const serverError = "server_error";
 
@@ -558,7 +568,7 @@ class FSK {
 }
 
 /// Form Action Keys
-/// stardard keys to identify Form Action Config Key
+/// standard keys to identify Form Action Config Key
 class ActionKeys {
   static const login = "loginAction";
   static const register = "registerAction";
@@ -643,6 +653,11 @@ class ActionKeys {
   static const exportClientConfigOk = "exportClientConfigOk";
   static const addWorkspaceFilesOk = "addWorkspaceFilesOk";
   static const deleteWorkspaceFiles = "deleteWorkspaceFiles";
+
+  /// ButtonConfig ActionKeys for Data Tables
+  /// Note: The value of these keys are from [ButtonConfig.type]
+  static const fetchFromStage2Clipboard = "fetch_stage_to_clipboard";
+
 
   // User Form ActionKeys
   static const ufStartFlow = "ufStartFlow";

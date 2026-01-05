@@ -140,7 +140,9 @@ Future<int> postSimpleAction(BuildContext context, JetsFormState formState,
 /// postRawAction - minimalist post action (does no navigation or callback invocation)
 /// returns the HttpResponse, notify user via SnackBar if success or error
 Future<HttpResponse> postRawAction(
-    BuildContext context, String serverEndPoint, String encodedJsonBody) async {
+    BuildContext context, String serverEndPoint, String encodedJsonBody,
+    {successMessage = 'Request successfully completed',
+    failureMessage = 'Something went wrong. Please try again.'}) async {
   var messenger = ScaffoldMessenger.of(context);
   var result = await HttpClientSingleton().sendRequest(
       path: serverEndPoint,
@@ -150,15 +152,11 @@ Future<HttpResponse> postRawAction(
   // print("Got reply $result \nwith status code ${result.statusCode}");
   // 401: Not authorized, will be redirected to login
   if (result.statusCode == 401) return result;
-  if (result.statusCode == 200) {
-    // Inform the user and transition
-    const snackBar = SnackBar(content: Text('Request successfully completed'));
-    messenger.showSnackBar(snackBar);
-  } else {
-    const snackBar =
-        SnackBar(content: Text('Something went wrong. Please try again.'));
-    messenger.showSnackBar(snackBar);
-  }
+  // Inform the user and transition
+  final snackBar = SnackBar(
+      content:
+          Text(result.statusCode == 200 ? successMessage : failureMessage));
+  messenger.showSnackBar(snackBar);
   return result;
 }
 
