@@ -473,7 +473,7 @@ func UploadBufToS3(bucket, objKey string, buf []byte) error {
 	return UploadToS3FromReader(bucket, objKey, bytes.NewReader(buf))
 }
 
-// upload buf to S3, reading the obj from in-memory buffer
+// download buf from S3, returning the obj
 func DownloadBufFromS3(objKey string) ([]byte, error) {
 	s3Client, err := NewS3Client()
 	if err != nil {

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:jetsclient/button_config.dart';
 import 'package:jetsclient/components/jets_form_state.dart';
+import 'package:jetsclient/modules/actions/config_delegates.dart';
 import 'package:jetsclient/modules/user_flows/home_filters/form_action_helpers.dart';
 import 'package:jetsclient/routes/jets_router_delegate.dart';
 import 'package:jetsclient/screens/user_flow_screen.dart';
@@ -99,12 +101,18 @@ Future<String?> homeFiltersFormActionsUF(
       updateHomeFilters(context, formState);
       return null;
 
+    case ActionKeys.resubmitPipeline:
+      return resubmitPipeline(context, formState);
+
     // Cancel Dialog / Form
     case ActionKeys.dialogCancel:
       Navigator.of(context).pop();
       break;
+
     default:
-      print('Oops unknown ActionKey for File Mapping UF State: $actionKey');
+      // Delegate to AppConfig ButtonConfig Actions
+      return AppConfig()
+          .buttonConfigActions(context, formKey, formState, actionKey);
   }
   return null;
 }

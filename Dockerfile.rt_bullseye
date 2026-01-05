@@ -61,6 +61,7 @@ RUN ls -la /usr/local/bin/
 # TODO: build native rule engine conditionally
 RUN \
     cd /usr/local/lib/ \
+    && ln -s libsqlite3.so.3.51.1 libsqlite3.so \
     && ldconfig -v \
     && echo "USR LOCAL LIB DIRECTORY Contains" \
     && ls -la \

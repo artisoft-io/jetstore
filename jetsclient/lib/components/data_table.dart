@@ -19,6 +19,25 @@ List<String>? castInitialValue(
   return value;
 }
 
+Iterable<Widget> _actionConfig2Widgets(List<ActionConfig> actions,
+    JetsDataTableState state, BuildContext context, ThemeData themeData) {
+  return actions.where((ac) => ac.isVisible(state)).expand((ac) => [
+        const SizedBox(width: defaultPadding),
+        ElevatedButton(
+          style: buttonStyle(ac.style, themeData),
+          onPressed: ac.isEnabled(state) &&
+                  (JetsRouterDelegate().user.isAdmin ||
+                      (ac.capability == null ||
+                          JetsRouterDelegate()
+                              .user
+                              .hasCapability(ac.capability!)))
+              ? () => state.actionDispatcher(context, ac)
+              : null,
+          child: Text(ac.label),
+        )
+      ]);
+}
+
 class JetsDataTableWidget extends FormField<WidgetField> {
   JetsDataTableWidget({
     required super.key,
@@ -47,6 +66,7 @@ class JetsDataTableWidget extends FormField<WidgetField> {
             final ThemeData themeData = Theme.of(context);
             final MaterialLocalizations localizations =
                 MaterialLocalizations.of(context);
+                
             // prepare the footer widgets
             final TextStyle? footerTextStyle = themeData.textTheme.bodySmall;
             List<DropdownMenuItem<int>> rowsPerPageItems =
@@ -138,23 +158,8 @@ class JetsDataTableWidget extends FormField<WidgetField> {
                   ),
                 )
             ];
-            headerRow.addAll(tableConfig.actions
-                .where((ac) => ac.isVisible(state))
-                .expand((ac) => [
-                      const SizedBox(width: defaultPadding),
-                      ElevatedButton(
-                        style: buttonStyle(ac.style, themeData),
-                        onPressed: ac.isEnabled(state) &&
-                                (JetsRouterDelegate().user.isAdmin ||
-                                    (ac.capability == null ||
-                                        JetsRouterDelegate()
-                                            .user
-                                            .hasCapability(ac.capability!)))
-                            ? () => state.actionDispatcher(context, ac)
-                            : null,
-                        child: Text(ac.label),
-                      )
-                    ]));
+            headerRow.addAll(_actionConfig2Widgets(
+                tableConfig.actions, state, context, themeData));
             if (state._checkboxVisible &&
                 tableConfig.noCopy2Clipboard == null) {
               headerRow.add(const SizedBox(width: defaultPadding));
@@ -175,18 +180,14 @@ class JetsDataTableWidget extends FormField<WidgetField> {
 
             // Second row of buttons
             final secondRow = <Widget>[];
-            secondRow.addAll(tableConfig.secondRowActions
-                .where((ac) => ac.isVisible(state))
-                .expand((ac) => [
-                      const SizedBox(width: defaultPadding),
-                      ElevatedButton(
-                        style: buttonStyle(ac.style, themeData),
-                        onPressed: ac.isEnabled(state)
-                            ? () => state.actionDispatcher(context, ac)
-                            : null,
-                        child: Text(ac.label),
-                      )
-                    ]));
+            secondRow.addAll(_actionConfig2Widgets(
+                tableConfig.secondRowActions, state, context, themeData));
+
+            // Last row of buttons: buttons from json configuration set at
+            // deployment time.
+            final fromConfigActionRow = <Widget>[];
+            fromConfigActionRow.addAll(_actionConfig2Widgets(
+                tableConfig.fromConfigRowActions, state, context, themeData));
 
             // build the data table
             return Column(
@@ -210,6 +211,11 @@ class JetsDataTableWidget extends FormField<WidgetField> {
                         if (secondRow.isNotEmpty)
                           const SizedBox(height: defaultPadding),
                         if (secondRow.isNotEmpty) Row(children: secondRow),
+                        if (fromConfigActionRow.isNotEmpty)
+                          const SizedBox(height: defaultPadding),
+                        if (fromConfigActionRow.isNotEmpty)
+                          Row(children: fromConfigActionRow),
+
                         // MAIN TABLE SECTION
                         const SizedBox(height: defaultPadding),
                         Expanded(
@@ -248,6 +254,7 @@ class JetsDataTableWidget extends FormField<WidgetField> {
                             ),
                           ),
                         )),
+
                         // FOOTER ROW
                         if (!tableConfig.noFooter)
                           const SizedBox(height: defaultPadding),
@@ -661,9 +668,16 @@ class JetsDataTableState extends FormFieldState<WidgetField> {
         // perform the action then refresh the table
         formState!.addCallback(_refreshTable);
         formState!.addListener(_refreshTable);
-        String? err = await actionsDelegate(
-            context, GlobalKey<FormState>(), formState!, ac.actionName!,
-            group: 0);
+        String? err;
+        if (ac.actionDelegate != null) {
+          err = await ac.actionDelegate!(
+              context, GlobalKey<FormState>(), formState!, ac.actionName!,
+              group: 0);
+        } else {
+          err = await actionsDelegate(
+              context, GlobalKey<FormState>(), formState!, ac.actionName!,
+              group: 0);
+        }
         if (err != null && context.mounted) {
           showAlertDialog(context, err);
         }

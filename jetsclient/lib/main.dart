@@ -1,7 +1,9 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:adaptive_theme/adaptive_theme.dart';
 import 'package:flutter/foundation.dart' as foundation;
 import 'package:jetsclient/http_client.dart';
+import 'package:jetsclient/button_config.dart';
 
 import 'package:jetsclient/routes/jets_route_information_parser.dart';
 import 'package:jetsclient/routes/jets_router_delegate.dart';
@@ -28,6 +30,8 @@ void main() {
   // FlutterError.onError = (details) {
   //   print("#### GOT ERROR $details");
   // };
+  // Print env variables for verification
+  print('BUTTON_CFG_JSON: ${jsonEncode(AppConfig.buttonsConfig)}');
 
   runApp(JetsClient(serverOrigin: serverOrigin));
 }

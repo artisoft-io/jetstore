@@ -484,7 +484,7 @@ class FormDataTableFieldConfig extends FormFieldConfig {
 /// in the form action delegate.
 /// Note that this class is somewhat similar to [ActionConfig] which is the
 /// configuration for buttons of [JetsDataTable] while
-/// [FormActionConfig] is for the configuration for buttons of [JetsForm]
+/// [FormActionConfig] is for the configuration for buttons of [JetsForm].
 /// [label] is the fixed label to use, when it is empty, a value is
 /// looked up in [labelByStyle] using the [buttonStyle].
 /// An empty label is used when not found.

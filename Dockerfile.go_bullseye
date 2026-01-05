@@ -45,12 +45,15 @@ RUN go install jetstore/jets/apiserver
 RUN go install jetstore/jets/bridge
 RUN go install jetstore/jets/update_db
 
+# Button config passed to flutter build
+ARG JETS_CUSTOM_BUTTONS_CONFIG_JSON='[]'
+
 # JETSTORE FRONT END == FLUTTER BUILD ==
 COPY jetsclient      ${JETS_SOURCE_DIR}/jetsclient
 WORKDIR ${JETS_SOURCE_DIR}/jetsclient
 RUN rm -rf .dart_tool .flutter-plugins .flutter-plugins-dependencies build pubspec.lock
 RUN flutter pub get
-RUN flutter build web --dart-define=API_HOST=CLOUD9_API_HOST
+RUN flutter build web --dart-define="BUTTON_CFG_JSON=$JETS_CUSTOM_BUTTONS_CONFIG_JSON"
 
 # Copy programs resources
 COPY utils  ${JETS_BUILD_DIR}/utils
