@@ -89,7 +89,7 @@ func (c *Compiler) CompileBuffer(combinedContent string) error {
 			return fmt.Errorf("while saving json: %w", err)
 		}
 		// Save to workspace.db file
-		wDb, err := NewWorkspaceDB(c.listener.basePath)
+		wDb, err := NewWorkspaceDB(context.TODO(), c.listener.basePath)
 		if err != nil {
 			log.Println("** ERROR creating workspace.db:", err.Error())
 			return fmt.Errorf("while creating workspace.db: %w", err)

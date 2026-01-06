@@ -33,7 +33,7 @@ type WorkspaceDB struct {
 	expression2DbKey   map[string]int
 }
 
-func NewWorkspaceDB(basePath string) (*WorkspaceDB, error) {
+func NewWorkspaceDB(ctx context.Context, basePath string) (*WorkspaceDB, error) {
 	dbPath := fmt.Sprintf("%s/workspace.db", basePath)
 	log.Println("Saving workspace.db to", dbPath)
 	db, err := sql.Open("sqlite3", dbPath)
@@ -57,18 +57,18 @@ func NewWorkspaceDB(basePath string) (*WorkspaceDB, error) {
 	// Initialize source file manager and resource manager
 	w.sourceMgr = NewSourceFileManager(w)
 	w.rm = NewWorkspaceResourceManager(w)
+	// Load source file mapping
+	err = w.sourceMgr.LoadSourceFileNameToKey(ctx, w.DB)
+	if err != nil {
+		return nil, fmt.Errorf("failed to load source file mapping: %w", err)
+	}
 	return w, nil
 }
 
 // Write the jetrule model into the workspace database
 func (w *WorkspaceDB) SaveJetRuleModel(ctx context.Context, jetRuleModel *rete.JetruleModel) error {
-	w.mainSourceFileName = jetRuleModel.MainRuleFileName
-	// Load source file mapping
 	var err error
-	err = w.sourceMgr.LoadSourceFileNameToKey(ctx, w.DB)
-	if err != nil {
-		return fmt.Errorf("failed to load source file mapping: %w", err)
-	}
+	w.mainSourceFileName = jetRuleModel.MainRuleFileName
 	if w.sourceMgr.IsPreExisting(w.mainSourceFileName) {
 		return fmt.Errorf("main source file %s already exists in workspace db", w.mainSourceFileName)
 	}

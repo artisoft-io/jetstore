@@ -120,6 +120,7 @@ CREATE TABLE IF NOT EXISTS lookup_tables (
 );
 
 -- main_rule_sets
+-- Note: ruleset_file_key refers to workspace_control.key
 CREATE TABLE IF NOT EXISTS main_rule_sets (
   rule_sequence_key INTEGER NOT NULL,
   main_ruleset_name TEXT NOT NULL,

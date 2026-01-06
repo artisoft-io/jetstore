@@ -421,6 +421,7 @@ func (w *WorkspaceDB) SaveRuleSequences(ctx context.Context, db *sql.DB, workspa
 	}
 
 	// Insert new entries
+	// Note: ruleset_file_key in main_rule_sets refers to workspace_control.key
 	insertStmt := "INSERT INTO rule_sequences (key, name, source_file_key) VALUES (?, ?, ?)"
 	insertMRS := "INSERT INTO main_rule_sets (rule_sequence_key, main_ruleset_name, ruleset_file_key, seq) VALUES (?, ?, ?, ?)"
 	rsData := make([][]any, 0)

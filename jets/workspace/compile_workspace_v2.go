@@ -48,9 +48,14 @@ func compileWorkspaceV2(dbpool *pgxpool.Pool, workspaceControl *rete.WorkspaceCo
 	for i := range workspaceControl.RuleSets {
 		mainRuleFiles[workspaceControl.RuleSets[i]] = true
 	}
+	// Verify the integrity of workspace_control.json:
+	// Make sure all rule sets in rule sequences exist in rule sets
 	for i := range workspaceControl.RuleSequences {
 		for j := range workspaceControl.RuleSequences[i].RuleSets {
-			mainRuleFiles[workspaceControl.RuleSequences[i].RuleSets[j]] = true
+			if _, ok := mainRuleFiles[workspaceControl.RuleSequences[i].RuleSets[j]]; !ok {
+				return "", fmt.Errorf("rule set '%s' in rule sequence '%s' not found in workspace control rule sets",
+					workspaceControl.RuleSequences[i].RuleSets[j], workspaceControl.RuleSequences[i].Name)
+			}
 		}
 	}
 	// Keep reference to all classes, tables, and lookup tables
@@ -152,7 +157,7 @@ func compileWorkspaceV2(dbpool *pgxpool.Pool, workspaceControl *rete.WorkspaceCo
 
 	// Add all rule sequences
 	buf.WriteString("Add rule sequences to workspace.db\n")
-	wdb, err := compiler.NewWorkspaceDB(workspacePath)
+	wdb, err := compiler.NewWorkspaceDB(context.TODO(), workspacePath)
 	if err != nil {
 		return buf.String(), fmt.Errorf("while creating workspace.db: %w", err)
 	}
