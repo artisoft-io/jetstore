@@ -220,8 +220,8 @@ func (s *JetRuleListener) PostProcessJetruleProperties(rule *rete.JetruleNode) {
 // Make rule label string as follows:
 // [ruleName, prop1=val1, prop2=val2]:(subj1 pred1 obj1).(subj2 pred2 obj2) -> (subj3 pred3 obj3).(subj4 pred4 obj4);
 // If normalize is true, variable resources are represented by their Id instead of their Value
-// Example where the Id ?x1 is used:
-// [MyRule, o=true, s=10]: (?x1 rdf:type ex:Person).not(?x1 ex:hasAge ?age) -> (?x1 ex:isAdult true);
+// Example where the Id ?x01 is used:
+// [MyRule, o=true, s=10]: (?x01 rdf:type ex:Person).not(?x01 ex:hasAge ?age) -> (?x01 ex:isAdult true);
 func (l *JetRuleListener) makeRuleLabel(rule *rete.JetruleNode, normalize bool) string {
 	label := &strings.Builder{}
 	fmt.Fprintf(label, "[%s", rule.Name)
@@ -416,14 +416,14 @@ func (l *JetRuleListener) PostProcessClasses() {
 	// visit classes and create rules for class inheritance axioms
 	for className, class := range l.classesByName {
 		// Create a single rule to infer all base classes of the class:
-		// (?x1 rdf:type <class>) -> (?x1 rdf:type <baseClass1>).(?x1 rdf:type <baseClass2>)...;
-		// Rule name: ci_<class>_<baseClass>
-		// Antecedent: ?x1 rdf:type <class>
-		// Consequents: (?x1 rdf:type <baseClass1>).(?x1 rdf:type <baseClass2>)...
-		// Properties: none
-		// Label: [ci_<class>_<baseClass>]: (?x1 rdf:type <class>) -> (?x1 rdf:type <baseClass1>)...;
-		// NormalizedLabel: [ci_<class>_<baseClass>]: (?x1 rdf:type <class>) -> (?x1 rdf:type <baseClass1>)...;
-		// Note: ?x1 is the variable name and also it's normalized name
+		// (?x01 rdf:type <class>) -> (?x01 rdf:type <baseClass1>).(?x01 rdf:type <baseClass2>)...;
+		// Rule name: ci_<class>
+		// Antecedent: ?x01 rdf:type <class>
+		// Consequents: (?x01 rdf:type <baseClass1>).(?x01 rdf:type <baseClass2>)...
+		// Properties: i=true (indicates it's an inferred rule)
+		// Label: [ci_<class>, i=true]: (?x01 rdf:type <class>) -> (?x01 rdf:type <baseClass1>)...;
+		// NormalizedLabel: [ci_<class>, i=true]: (?x01 rdf:type <class>) -> (?x01 rdf:type <baseClass1>)...;
+		// Note: ?x01 is the variable name and also it's normalized name
 		// Note: All classes have at least one base class owl:Thing, except owl:Thing itself
 		if className == "owl:Thing" {
 			continue
@@ -437,10 +437,15 @@ func (l *JetRuleListener) PostProcessClasses() {
 		name := fmt.Sprintf("ci_%s", className)
 		rule := &rete.JetruleNode{
 			Name:       name,
-			Properties: map[string]string{},
+			Properties: map[string]string{
+				"i": "true",
+				"o": "false",
+				"s": "100",
+			},
+			Salience: 100,
 			Antecedents: []*rete.RuleTerm{{
 				Type:         "antecedent",
-				SubjectKey:   l.AddV("?x1").Key,
+				SubjectKey:   l.AddV("?x01").Key,
 				PredicateKey: l.AddR("rdf:type").Key,
 				ObjectKey:    l.AddR(className).Key,
 			}},
@@ -450,7 +455,7 @@ func (l *JetRuleListener) PostProcessClasses() {
 			if _, exists := l.classesByName[baseClassName]; exists {
 				rule.Consequents = append(rule.Consequents, &rete.RuleTerm{
 					Type:         "consequent",
-					SubjectKey:   l.AddV("?x1").Key,
+					SubjectKey:   l.AddV("?x01").Key,
 					PredicateKey: l.AddR("rdf:type").Key,
 					ObjectKey:    l.AddR(baseClassName).Key,
 				})

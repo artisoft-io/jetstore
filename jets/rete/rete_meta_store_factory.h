@@ -39,7 +39,7 @@ struct var_info {
   int row_pos;
 };
 /**
- * @brief Factory class for ReteMetaStore, using jetrule_rete.db
+ * @brief Factory class for ReteMetaStore, using workspace.db
  * 
  */
 class ReteMetaStoreFactory {
