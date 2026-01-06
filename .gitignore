@@ -144,3 +144,4 @@ jets/rete/test_data/usi_lookup_v1.db
 jets/rete/test_data/usi_workspace_v1.db
 jets/rete/test_data/usi_lookup_v2.db
 jets/rete/test_data/usi_workspace_v2.db
+jets/compilerv2/compiler/testdata/workspace.db

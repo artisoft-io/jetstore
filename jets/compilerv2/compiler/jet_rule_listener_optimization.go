@@ -229,10 +229,10 @@ func (s *JetRuleListener) evaluateScore(bindedVars map[string]bool, antecedent *
 		r := s.resourceManager.ResourceByKey[antecedent.SubjectKey]
 		switch r.Type {
 		case "var":
-			if !bindedVars[r.Id] {
-				sscore = 200 + 20
+			if bindedVars[r.Id] {
+				sscore = 200 + 40
 			} else {
-				sscore = 0 + 40
+				sscore = 0 + 20
 			}
 		case "identifier", "resource", "volatile_resource":
 			sscore = 100 + 0
@@ -244,7 +244,7 @@ func (s *JetRuleListener) evaluateScore(bindedVars map[string]bool, antecedent *
 		r := s.resourceManager.ResourceByKey[antecedent.PredicateKey]
 		switch r.Type {
 		case "var":
-			if !bindedVars[r.Id] {
+			if bindedVars[r.Id] {
 				pscore = 200 + 0
 			} else {
 				pscore = 0 + 0
@@ -262,7 +262,7 @@ func (s *JetRuleListener) evaluateScore(bindedVars map[string]bool, antecedent *
 		r := s.resourceManager.ResourceByKey[antecedent.ObjectKey]
 		switch r.Type {
 		case "var":
-			if !bindedVars[r.Id] {
+			if bindedVars[r.Id] {
 				oscore = 100 + 0
 			} else {
 				oscore = 0 + 20
