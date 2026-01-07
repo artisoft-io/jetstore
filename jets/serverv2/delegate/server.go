@@ -35,7 +35,7 @@ import (
 var awsRegion string
 var lookupDb string
 var pipelineExecKey int
-var poolSize int	// execute rules workers pool size
+var poolSize int // execute rules workers pool size
 var outSessionId string
 var limit int
 var nbrShards int
@@ -46,18 +46,18 @@ var glogv int          // taken from env GLOG_v
 var processName string // put it as global var since there is always one and only one process per invocation
 
 type CommandArguments struct {
-	AwsRegion           string
-	LookupDb            string
-	PipelineConfigKey   int
-	PipelineExecKey     int
-	PoolSize            int
-	OutSessionId        string
-	Limit               int
-	NbrShards           int
-	ShardId             int
-	CompletedMetric     string
-	FailedMetric        string
-	DevMode             bool
+	AwsRegion         string
+	LookupDb          string
+	PipelineConfigKey int
+	PipelineExecKey   int
+	PoolSize          int
+	OutSessionId      string
+	Limit             int
+	NbrShards         int
+	ShardId           int
+	CompletedMetric   string
+	FailedMetric      string
+	DevMode           bool
 }
 
 type ServerContext struct {
@@ -153,6 +153,12 @@ func DoJobAndReportStatus(dbpool *pgxpool.Pool, ca *CommandArguments) error {
 	log.Printf("ENV NBR_SHARDS: %s\n", os.Getenv("NBR_SHARDS"))
 	log.Printf("glogv log level is set to %d\n", glogv)
 
+	// Insert in pipeline_execution_details table
+	err = InsertPipelineExecutionDetails(dbpool, pipelineExecKey, shardId)
+	if err != nil {
+		return fmt.Errorf("error while inserting into pipeline_execution_status: %v", err)
+	}
+
 	// Load configuration and execute pipeline
 	pipelineResult, err := doJob(dbpool, ca)
 	if pipelineResult == nil {
@@ -166,15 +172,15 @@ func DoJobAndReportStatus(dbpool *pgxpool.Pool, ca *CommandArguments) error {
 	if err != nil {
 		pipelineResult.Status = "failed"
 		errMessage = err.Error()
-		err2 := pipelineResult.UpdatePipelineExecutionStatus(dbpool, pipelineExecKey, shardId, errMessage)
+		err2 := pipelineResult.UpdatePipelineExecutionDetails(dbpool, pipelineExecKey, shardId, errMessage)
 		if err2 != nil {
 			log.Printf("error while writing pipeline status: %v", err2)
 		}
 		return fmt.Errorf("while processing pipeline: %v", err)
 	}
 
-	log.Println("Input records count is:", pipelineResult.InputRecordsCount)
-	log.Println("Rete sessions count is:", pipelineResult.ExecuteRulesCount)
+	log.Println("Input records count is:", pipelineResult.InputRecordsCount,
+		"Rete sessions count is:", pipelineResult.ExecuteRulesCount)
 	errCount := pipelineResult.OutputRecordsCount["jetsapi.process_errors"]
 	for rdfType, count := range pipelineResult.OutputRecordsCount {
 		log.Printf("Output records count for type '%s' is: %d\n", rdfType, count)
@@ -185,7 +191,7 @@ func DoJobAndReportStatus(dbpool *pgxpool.Pool, ca *CommandArguments) error {
 	if errCount > 0 {
 		pipelineResult.Status = "errors"
 	}
-	err2 := pipelineResult.UpdatePipelineExecutionStatus(dbpool, pipelineExecKey, shardId, errMessage)
+	err2 := pipelineResult.UpdatePipelineExecutionDetails(dbpool, pipelineExecKey, shardId, errMessage)
 	if err2 != nil {
 		log.Printf("error while writing pipeline status: %v", err2)
 	}

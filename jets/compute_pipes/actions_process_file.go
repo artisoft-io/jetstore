@@ -288,8 +288,8 @@ func (cpCtx *ComputePipesContext) UpdatePipelineExecutionStatus(
 	// log.Printf("Updating status '%s' to pipeline_execution_details table", status)
 	stmt := `UPDATE jetsapi.pipeline_execution_details SET (
 							cpipes_step_id, status, error_message, input_records_count, input_bad_records_count,
-							input_files_size_mb, input_files_count, rete_sessions_count, output_records_count) 
-							= ($1, $2, $3, $4, $5, $6, $7, $8, $9) WHERE key = $10`
+							input_files_size_mb, input_files_count, rete_sessions_count, output_records_count, last_update) 
+							= ($1, $2, $3, $4, $5, $6, $7, $8, $9, DEFAULT) WHERE key = $10`
 	_, err := dbpool.Exec(context.Background(), stmt,
 		cpipesStepId, status, errMessage, inputRowCount, badRowCount, totalFilesSizeMb, inputFilesCount,
 		reteSessionCount, outputRowCount, key)

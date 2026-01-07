@@ -6,7 +6,6 @@ import (
 	"log"
 	"sync"
 
-	"github.com/artisoft-io/jetstore/jets/awsi"
 	"github.com/artisoft-io/jetstore/jets/jetrules/rete"
 	"github.com/artisoft-io/jetstore/jets/serverv2/workspace"
 	"github.com/jackc/pgx/v4/pgxpool"
@@ -52,13 +51,11 @@ type writeResult struct {
 	result WriteTableResult
 	err    error
 }
+var pipelineExecutionDetailsKey int
 
-// PipelineResult Method to update status
-// Register the status details to pipeline_execution_details
-// Lock the sessionId & Register output tables (register sessionId with session_registry) if not failed
-// Do nothing if pipelineExecutionKey < 0
-func (pr *PipelineResult) UpdatePipelineExecutionStatus(dbpool *pgxpool.Pool, pipelineExecutionKey int,
-	shardId int, errMessage string) error {
+// Initial insert into pipeline_execution_details
+func InsertPipelineExecutionDetails(dbpool *pgxpool.Pool, pipelineExecutionKey int,
+	shardId int) error {
 	if pipelineExecutionKey < 0 {
 		return nil
 	}
@@ -75,28 +72,41 @@ func (pr *PipelineResult) UpdatePipelineExecutionStatus(dbpool *pgxpool.Pool, pi
 		return fmt.Errorf("QueryRow on pipeline_execution_status failed: %v", err)
 	}
 
-	// Emit server execution metric
-	dimentions := &map[string]string{
-		"client":       client,
-		"object_type":  objectType,
-		"process_name": processName,
+	if shardId >= 0 {
+		log.Printf("Inserting 'in progress' to pipeline_execution_details table")
+		stmt := `INSERT INTO jetsapi.pipeline_execution_details (
+							pipeline_config_key, pipeline_execution_status_key, client, process_name, main_input_session_id, session_id, source_period_key,
+							shard_id, status, user_email) 
+							VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+							RETURNING key`
+		err = dbpool.QueryRow(context.Background(), stmt,
+			pipelineConfigKey, pipelineExecutionKey,
+			client, processName, mainInputSessionId, sessionId, sourcePeriodKey, shardId,
+			"in progress", userEmail).Scan(&pipelineExecutionDetailsKey)
+		if err != nil {
+			return fmt.Errorf("error inserting in jetsapi.pipeline_execution_details table: %v", err)
+		}
 	}
-	if pr.Status != "failed" {
-		awsi.LogMetric(completedMetric, dimentions, 1)
-	} else {
-		awsi.LogMetric(failedMetric, dimentions, 1)
+	return nil
+}
+
+// PipelineResult Method to update status
+// Register the status details to pipeline_execution_details
+// Lock the sessionId & Register output tables (register sessionId with session_registry) if not failed
+// Do nothing if pipelineExecutionKey < 0
+func (pr *PipelineResult) UpdatePipelineExecutionDetails(dbpool *pgxpool.Pool, pipelineExecutionKey int,
+	shardId int, errMessage string) error {
+	if pipelineExecutionKey < 0 {
+		return nil
 	}
 
 	if shardId >= 0 {
 		log.Printf("Inserting status '%s' and results counts to pipeline_execution_details table", pr.Status)
-		stmt := `INSERT INTO jetsapi.pipeline_execution_details (
-							pipeline_config_key, pipeline_execution_status_key, client, process_name, main_input_session_id, session_id, source_period_key,
-							shard_id, status, error_message, input_records_count, rete_sessions_count, output_records_count, user_email) 
-							VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)`
-		_, err = dbpool.Exec(context.Background(), stmt,
-			pipelineConfigKey, pipelineExecutionKey,
-			client, processName, mainInputSessionId, sessionId, sourcePeriodKey, shardId,
-			pr.Status, errMessage, pr.InputRecordsCount, pr.ExecuteRulesCount, pr.TotalOutputCount, userEmail)
+		stmt := `UPDATE jetsapi.pipeline_execution_details SET (
+							status, error_message, input_records_count, rete_sessions_count, output_records_count, last_update) 
+							= ($1, $2, $3, $4, $5, DEFAULT) WHERE key = $6`
+		_, err := dbpool.Exec(context.Background(), stmt,
+			pr.Status, errMessage, pr.InputRecordsCount, pr.ExecuteRulesCount, pr.TotalOutputCount, pipelineExecutionDetailsKey)
 		if err != nil {
 			return fmt.Errorf("error inserting in jetsapi.pipeline_execution_details table: %v", err)
 		}
