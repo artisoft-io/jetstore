@@ -4,6 +4,7 @@ package compiler
 
 import (
 	"fmt"
+	"maps"
 	"sort"
 
 	"github.com/artisoft-io/jetstore/jets/jetrules/rete"
@@ -143,48 +144,65 @@ func (l *JetRuleListener) reteNodeByNormalizedLabel(parentVertex int, normalized
 	return nil
 }
 
-// Collect all the var resources used by the descendents of the given rete.RuleTerm
-// That exclude the given rete.RuleTerm itself
+// Collect all the var resources used by the argument r and it's descendents.
+// The argument doNodeTriples is used to control if the triple associated with the
+// antecedent node is processed for var collection.
 func (l *JetRuleListener) CollectDescendentsReqVars(vars map[string]bool, r *rete.RuleTerm,
-	consequentsByVertex map[int][]*rete.RuleTerm) {
+	doNodeTriples bool, consequentsByVertex map[int][]*rete.RuleTerm) {
+
+	if doNodeTriples {
+		if r.SubjectKey > 0 {
+			r := l.resourceManager.ResourceByKey[r.SubjectKey]
+			if r.Type == "var" {
+				vars[r.Id] = true
+			}
+		}
+		if r.PredicateKey > 0 {
+			r := l.resourceManager.ResourceByKey[r.PredicateKey]
+			if r.Type == "var" {
+				vars[r.Id] = true
+			}
+		}
+		if r.ObjectKey > 0 {
+			r := l.resourceManager.ResourceByKey[r.ObjectKey]
+			if r.Type == "var" {
+				vars[r.Id] = true
+			}
+		}
+	}
+
+	// Add self filter vars
+	if r.Filter != nil {
+		varsInFilter := make(map[int]bool)
+		l.collectVarResourcesFromExpr(r.Filter, varsInFilter)
+		for key := range varsInFilter {
+			r := l.resourceManager.ResourceByKey[key]
+			vars[r.Id] = true
+		}
+	}
+
+	// Add self obj_expr var
+	if r.ObjectExpr != nil {
+		varsKeyInExpr := make(map[int]bool)
+		l.collectVarResourcesFromExpr(r.ObjectExpr, varsKeyInExpr)
+		for key := range varsKeyInExpr {
+			vars[l.resourceManager.ResourceByKey[key].Id] = true
+		}
+	}
 
 	// visit children
 	for _, childVertex := range r.ChildrenVertexes {
 		childNode := l.jetRuleModel.ReteNodes[childVertex]
-		if childNode.SubjectKey > 0 {
-			r := l.resourceManager.ResourceByKey[childNode.SubjectKey]
-			if r.Type == "var" {
-				vars[r.Id] = true
-			}
-		}
-		if childNode.PredicateKey > 0 {
-			r := l.resourceManager.ResourceByKey[childNode.PredicateKey]
-			if r.Type == "var" {
-				vars[r.Id] = true
-			}
-		}
-		if childNode.ObjectKey > 0 {
-			r := l.resourceManager.ResourceByKey[childNode.ObjectKey]
-			if r.Type == "var" {
-				vars[r.Id] = true
-			}
-		}
-		if childNode.ObjectExpr != nil {
-			varsKeyInExpr := make(map[int]bool)
-			l.collectVarResourcesFromExpr(childNode.ObjectExpr, varsKeyInExpr)
-			for key := range varsKeyInExpr {
-				vars[l.resourceManager.ResourceByKey[key].Id] = true
-			}
-		}
-		l.CollectDescendentsReqVars(vars, childNode, consequentsByVertex)
+		l.CollectDescendentsReqVars(vars, childNode, true, consequentsByVertex)
 	}
+
 	if r.Type == "consequent" {
 		return
 	}
 
 	// visit consequents associated with this vertex / antecedent
 	for _, rNode := range consequentsByVertex[r.Vertex] {
-		l.CollectDescendentsReqVars(vars, rNode, consequentsByVertex)
+		l.CollectDescendentsReqVars(vars, rNode, true, consequentsByVertex)
 	}
 }
 
@@ -192,30 +210,16 @@ func (l *JetRuleListener) BuildBetaNodesRecursively(node *rete.RuleTerm,
 	bindedVars map[string]bool, replacementBindedVarNodes map[string]*rete.ResourceNode,
 	consequentsByVertex map[int][]*rete.RuleTerm) {
 
-	// Get the var required by descendents of node
+	// Get the var required by descendents of node and current node's filter & obj_expr
 	descendentsReqVars := make(map[string]bool)
-	l.CollectDescendentsReqVars(descendentsReqVars, node, consequentsByVertex)
-
-	// Add self filter vars to descendentsReqVars
-	if node.Filter != nil {
-		varsInFilter := make(map[int]bool)
-		l.collectVarResourcesFromExpr(node.Filter, varsInFilter)
-		for key := range varsInFilter {
-			r := l.resourceManager.ResourceByKey[key]
-			descendentsReqVars[r.Id] = true
-		}
-	}
+	l.CollectDescendentsReqVars(descendentsReqVars, node, false, consequentsByVertex)
 
 	// Get the var position in the triple of current antecedent
 	varPos := l.getVarPosition(node)
-	// Add node's var to bindedVars
-	for v := range varPos {
-		bindedVars[v] = true
-	}
 
 	// //***
-	// fmt.Fprintf(l.parseLog, "Got bindedVars: %v, descendentsReqVars: %v for node vertex %d %s\n",
-	// 	bindedVars, descendentsReqVars, node.Vertex, node.NormalizedLabel)
+	// fmt.Fprintf(l.parseLog, ">>> Got bindedVars: %v, descendentsReqVars: %v, varPos: %v for node vertex %d, parent %d, %s\n",
+	// 	bindedVars, descendentsReqVars, varPos, node.Vertex, node.ParentVertex, node.NormalizedLabel)
 
 	// Build the Beta node configuration for this node
 	// For each binded var that are required by descendents or current node, add to BetaRelationVars
@@ -226,28 +230,54 @@ func (l *JetRuleListener) BuildBetaNodesRecursively(node *rete.RuleTerm,
 			node.PrunedVars = append(node.PrunedVars, v)
 		}
 	}
+	for v := range varPos {
+		if !bindedVars[v] {
+			node.BetaRelationVars = append(node.BetaRelationVars, v)
+		}
+	}
+
 	// Sort the BetaRelationVars slice
 	sort.Strings(node.BetaRelationVars)
 	sort.Strings(node.PrunedVars)
 
+	// remove the PrunedVars from the bindedVars for child processing
+	for _, v := range node.PrunedVars {
+		delete(bindedVars, v)
+	}
+
 	// //***
-	// fmt.Fprintf(l.parseLog, "Got BetaRelationVars: %v, PrunedVars: %v for node vertex %d %s\n",
-	// 	node.BetaRelationVars, node.PrunedVars, node.Vertex, node.NormalizedLabel)
+	// fmt.Fprintf(l.parseLog, "--- BetaRelationVars: %v, PrunedVars: %v for node vertex %d, parenrt %d %s\n",
+	// 	node.BetaRelationVars, node.PrunedVars, node.Vertex, node.ParentVertex, node.NormalizedLabel)
 
 	// For each BetaRelationVar create a BetaVarNode
 	// Keep track of new var created for replacement
 	newVars := make(map[string]*rete.ResourceNode)
-	for i, bvar := range node.BetaRelationVars {
-		isBinded := false
-		pos := i
-		pp := varPos[bvar]
-		if pp != nil {
-			// This var is in the triple, use its position
-			pos = *pp
+	for _, bvar := range node.BetaRelationVars {
+		isBinded := bindedVars[bvar]
+		var pos int
+		if isBinded {
+			// This var is binded, get its position in the parent BetaRelationVars
+			// Get the pos in the parent BetaRelationVars
+			parentNode := l.jetRuleModel.ReteNodes[node.ParentVertex]
+			parentPos := getPosInBetaRelationVars(bvar, parentNode.BetaRelationVars)
+			if parentPos == -1 {
+				fmt.Fprintf(l.errorLog, "** internal error: var %s is not found in parent BetaRelationVars\n", bvar)
+				fmt.Fprintf(l.parseLog, "** internal error: var %s is not found in parent BetaRelationVars\n", bvar)
+			} else {
+				pos = parentPos
+			}
 		} else {
-			// Not in the triple, it must be binded in parent
-			isBinded = true
+			// This var is not binded, get its position in the current triple
+			// Get the pos in the current triple
+			pp := varPos[bvar]
+			if pp != nil {
+				pos = *pp
+			} else {
+				fmt.Fprintf(l.errorLog, "** internal error: var %s is binded but is not found in varPos of current triple\n", bvar)
+				fmt.Fprintf(l.parseLog, "** internal error: var %s is binded but is not found in varPos of current triple\n", bvar)
+			}
 		}
+
 		bv := &rete.BetaVarNode{
 			Type:           "var",
 			Id:             bvar,
@@ -258,6 +288,7 @@ func (l *JetRuleListener) BuildBetaNodesRecursively(node *rete.RuleTerm,
 		}
 		node.BetaVarNodes = append(node.BetaVarNodes, bv)
 		// Create the associated ResourceNode (which will replace the temp var node)
+		// for replacement in antecedents
 		r := l.addVarResourceByDomainKey(&rete.ResourceNode{
 			Type:     "var",
 			Id:       bv.Id,
@@ -266,37 +297,83 @@ func (l *JetRuleListener) BuildBetaNodesRecursively(node *rete.RuleTerm,
 			VarPos:   bv.VarPos,
 		})
 		newVars[r.Id] = r
-		if bv.IsBinded {
-			// Collect all binded var for replacement in consequents
-			replacementBindedVarNodes[r.Id] = r
-		} else {
-			// Create the binded version for replacement in consequents
-			bindedR := l.addVarResourceByDomainKey(&rete.ResourceNode{
-				Type:     "var",
-				Id:       bv.Id,
-				IsBinded: true,
-				Vertex:   bv.Vertex,
-				VarPos:   bv.VarPos,
-			})
-			replacementBindedVarNodes[bindedR.Id] = bindedR
+		// Create the binded version for replacement in consequents
+		// Note: pos of consequents binded var must be pos in current BetaRelationVars
+		pos = getPosInBetaRelationVars(bvar, node.BetaRelationVars)
+		if pos == -1 {
+			fmt.Fprintf(l.errorLog, "** internal error: var %s is not found in node BetaRelationVars\n", bvar)
+			fmt.Fprintf(l.parseLog, "** internal error: var %s is not found in node BetaRelationVars\n", bvar)
 		}
+		bindedR := l.addVarResourceByDomainKey(&rete.ResourceNode{
+			Type:     "var",
+			Id:       bv.Id,
+			IsBinded: true,
+			Vertex:   bv.Vertex,
+			VarPos:   pos,
+		})
+		replacementBindedVarNodes[bindedR.Id] = bindedR
+		// if bv.IsBinded {
+		// 	// Collect all binded var for replacement in consequents
+		// 	replacementBindedVarNodes[r.Id] = r
+		// } else {
+		// 	// Create the binded version for replacement in consequents
+		// 	// Note: pos of consequents binded var must be pos in current BetaRelationVars
+		// 	pos = getPosInBetaRelationVars(bvar, node.BetaRelationVars)
+		// 	if pos == -1 {
+		// 		fmt.Fprintf(l.errorLog, "** internal error: var %s is not found in node BetaRelationVars\n", bvar)
+		// 		fmt.Fprintf(l.parseLog, "** internal error: var %s is not found in node BetaRelationVars\n", bvar)
+		// 	}
+		// 	bindedR := l.addVarResourceByDomainKey(&rete.ResourceNode{
+		// 		Type:     "var",
+		// 		Id:       bv.Id,
+		// 		IsBinded: true,
+		// 		Vertex:   bv.Vertex,
+		// 		VarPos:   pos,
+		// 	})
+		// 	replacementBindedVarNodes[bindedR.Id] = bindedR
+		// }
 	}
 
-	// Replace the var in node's term, incl filter
+	// Add node's var to bindedVars for child processing
+	for v := range varPos {
+		bindedVars[v] = true
+	}
+
+	// Replace the var in node's term, excluding filters
 	// with the actual ResourceNode created above
 	l.replaceVarInTerm(node, newVars)
+
+	// Replace the var in node's filter & obj_expr with the binded version
+	if node.Filter != nil {
+		l.replaceVarInExpr(node.Filter, replacementBindedVarNodes)
+	}
+	if node.ObjectExpr != nil {
+		l.replaceVarInExpr(node.ObjectExpr, replacementBindedVarNodes)
+	}
 
 	// Replace the var in node's consequents with the binded version
 	for _, cons := range consequentsByVertex[node.Vertex] {
 		l.replaceVarInTerm(cons, replacementBindedVarNodes)
+		if cons.ObjectExpr != nil {
+			l.replaceVarInExpr(cons.ObjectExpr, replacementBindedVarNodes)
+		}
 	}
 
 	// Visit the descendents
 	for _, childVertex := range node.ChildrenVertexes {
 		childNode := l.jetRuleModel.ReteNodes[childVertex]
-
-		l.BuildBetaNodesRecursively(childNode, bindedVars, replacementBindedVarNodes, consequentsByVertex)
+		// Make a copy of bindedVar for child processing
+		l.BuildBetaNodesRecursively(childNode, maps.Clone(bindedVars), replacementBindedVarNodes, consequentsByVertex)
 	}
+}
+
+func getPosInBetaRelationVars(varId string, betaRelationVars []string) int {
+	for i, v := range betaRelationVars {
+		if v == varId {
+			return i
+		}
+	}
+	return -1
 }
 
 // Replace the var in node's term, incl filter with the actual ResourceNode created above
@@ -308,8 +385,8 @@ func (l *JetRuleListener) replaceVarInTerm(term *rete.RuleTerm, newVars map[stri
 			if newR != nil {
 				term.SubjectKey = newR.Key
 			} else {
-				fmt.Fprintf(l.parseLog, "** internal error: var %s is not found in replacement resource for SubjectKey (newVar %v)\n", r.Id, newVars)
-				fmt.Fprintf(l.errorLog, "** internal error: var %s is not found in replacement resource for SubjectKey (newVar %v)\n", r.Id, newVars)
+				fmt.Fprintf(l.parseLog, "** internal error: var %s is not found in replacement resource for SubjectKey @ vertex %d (newVar %v)\n", r.Id, term.Vertex, newVars)
+				fmt.Fprintf(l.errorLog, "** internal error: var %s is not found in replacement resource for SubjectKey @ vertex %d (newVar %v)\n", r.Id, term.Vertex, newVars)
 			}
 		}
 	}
@@ -337,12 +414,6 @@ func (l *JetRuleListener) replaceVarInTerm(term *rete.RuleTerm, newVars map[stri
 			}
 		}
 	}
-	if term.Filter != nil {
-		l.replaceVarInExpr(term.Filter, newVars)
-	}
-	if term.ObjectExpr != nil {
-		l.replaceVarInExpr(term.ObjectExpr, newVars)
-	}
 }
 
 func (s *JetRuleListener) replaceVarInExpr(expr *rete.ExpressionNode, newVars map[string]*rete.ResourceNode) {
@@ -365,8 +436,8 @@ func (s *JetRuleListener) replaceVarInExpr(expr *rete.ExpressionNode, newVars ma
 			if newR != nil {
 				expr.Value = newR.Key
 			} else {
-				fmt.Fprintf(s.errorLog, "** internal error: var %s is not found in replacement resource", r.Id)
-				fmt.Fprintf(s.parseLog, "** internal error: var %s is not found in replacement resource", r.Id)
+				fmt.Fprintf(s.errorLog, "** internal error: var %s is not found in replacement resource\n", r.Id)
+				fmt.Fprintf(s.parseLog, "** internal error: var %s is not found in replacement resource\n", r.Id)
 			}
 		}
 	}

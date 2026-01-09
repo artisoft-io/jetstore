@@ -445,7 +445,7 @@ func (dkInfo *HeadersAndDomainKeysInfo)ComputeGroupingKeyI(NumberOfShards int, o
 			groupingKey = dkInfo.makeGroupingKey(&cols)
 			return groupingKey, ComputeShardId(NumberOfShards, groupingKey), nil
 		case nil:
-			log.Println("Error: Domain Key column is NULL")
+			log.Println("Error: Domain Key column is NULL, for objectType", *objectType)
 			return "", 0, nil
 		default:
 			log.Printf("Error: Domain Key column is not a string, it's %s", reflect.TypeOf(groupingKey).Kind())

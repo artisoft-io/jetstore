@@ -407,7 +407,8 @@ func (processInput *ProcessInput) setKeyPos() error {
 
 // Main Pipeline Configuration Read Function
 // -----------------------------------------
-func ReadPipelineConfig(dbpool *pgxpool.Pool, peKey int) (*PipelineConfig, error) {
+func (ctx *ServerContext) ReadPipelineConfig(dbpool *pgxpool.Pool, peKey int) (*PipelineConfig, error) {
+	ctx.ca.PipelineExecKey = peKey
 	pc := PipelineConfig{
 		mergedProcessInputMap:   make(map[int]*ProcessInput),
 		injectedProcessInputMap: make(map[int]*ProcessInput)}
@@ -429,6 +430,8 @@ func ReadPipelineConfig(dbpool *pgxpool.Pool, peKey int) (*PipelineConfig, error
 	if outSessionId == "" {
 		return &pc, fmt.Errorf("error: output SessionId is not specified")
 	}
+	ctx.ca.OutSessionId = outSessionId
+	
 	// Validate the outSessionId is not already used
 	isInUse, err := schema.IsSessionExists(dbpool, outSessionId)
 	if err != nil {

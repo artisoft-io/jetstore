@@ -78,8 +78,13 @@ func doJob(dbpool *pgxpool.Pool, ca *CommandArguments) (pipelineResult *Pipeline
 		}
 	}()
 
+	ctx := &ServerContext{
+		dbpool: dbpool,
+		ca:     ca,
+	}
+
 	// Read pipeline configuration
-	pipelineConfig, err := ReadPipelineConfig(dbpool, pipelineExecKey)
+	pipelineConfig, err := ctx.ReadPipelineConfig(dbpool, pipelineExecKey)
 	if err != nil {
 		return nil, fmt.Errorf("while reading jetsapi.pipeline_config / jetsapi.pipeline_execution_status table: %v", err)
 	}
@@ -95,10 +100,6 @@ func doJob(dbpool *pgxpool.Pool, ca *CommandArguments) (pipelineResult *Pipeline
 	processName = reteWorkspace.pipelineConfig.processConfig.processName
 	if processName == "" {
 		return nil, fmt.Errorf("processName is not defined")
-	}
-	ctx := &ServerContext{
-		dbpool: dbpool,
-		ca:     ca,
 	}
 
 	return ctx.ProcessData(reteWorkspace)

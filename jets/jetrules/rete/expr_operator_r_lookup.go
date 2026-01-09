@@ -32,7 +32,7 @@ func (op *LookupOp) RegisterCallback(reteSession *ReteSession, vertex int, lhs, 
 }
 
 func (op *LookupOp) Eval(reteSession *ReteSession, row *BetaRow, lhs, rhs *rdf.Node) *rdf.Node {
-	if lhs == nil || rhs == nil {
+	if lhs == nil || rhs == nil || rhs.IsNull() {
 		return nil
 	}
 

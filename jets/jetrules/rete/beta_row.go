@@ -41,6 +41,9 @@ func (row *BetaRow) Initialize(initializer *BetaRowInitializer, parentRow *BetaR
 			if len(parentRow.Data) == 0 {
 				log.Panicf("oops len(parentRow.Data)==0 but (d & brcParentNode != 0) @ vertex %d, parent %d, triple %s", row.NdVertex.Vertex, parentRow.NdVertex.Vertex, rdf.ToString(t3))
 			}
+			if pos >= len(parentRow.Data) {
+				log.Panicf("oops pos == %d >= len(parentRow.Data) == %d @ vertex %d, parent %d, triple %s", pos, len(parentRow.Data), row.NdVertex.Vertex, parentRow.NdVertex.Vertex, rdf.ToString(t3))
+			}
 			value = parentRow.Data[pos]
 		} else {
 			value = (*t3)[pos]
@@ -104,5 +107,6 @@ func (row *BetaRow) Get(i int) *rdf.Node {
 	if i < len(row.Data) {
 		return row.Data[i]
 	}
+	log.Printf("*** BUG: BetaRow.Get index %d out of range (len=%d)\n", i, len(row.Data))
 	return nil
 }

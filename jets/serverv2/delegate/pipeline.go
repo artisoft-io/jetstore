@@ -24,7 +24,7 @@ import (
 //	- Setup the executeRules:
 //		- Start a pool of goroutines, reading from dataInputc channel
 //		- done channel is closed when the pipeline is stopped prematurely
-//		- map[string][]chan channels, one for each output table, for each db node, key of map is table name, db node is array pos, are populated with []interface{}; output records for table
+//		- map[string][]chan channels, one for each output table, for each db node, key of map is table name, db node is array pos, are populated with []any; output records for table
 //		- execResult channel capture the result of execute_rules on the input data (struct with counts and err flag)
 //	- Setup the writeOutputc channels:
 //		- Start a pool of goroutines, each reading from a map[string][]chan, where the key is the table name and then db node id
@@ -253,16 +253,16 @@ func (ctx *ServerContext) ProcessData(reteWorkspace *ReteWorkspace) (*PipelineRe
 
 	// create the writeOutput channels
 	log.Println("Creating writeOutput channels for output tables:", reteWorkspace.outTables)
-	writeOutputc := make(map[string][]chan []interface{})
+	writeOutputc := make(map[string][]chan []any)
 	for _, tbl := range reteWorkspace.outTables {
 		log.Println("Creating output channel for out table:", tbl)
-		writeOutputc[tbl] = make([]chan []interface{}, 1)
-		writeOutputc[tbl][0] = make(chan []interface{})
+		writeOutputc[tbl] = make([]chan []any, 1)
+		writeOutputc[tbl][0] = make(chan []any)
 	}
 
 	// Add one chanel for the BadRow notification, this is written to primary node (first dsn in provided list)
-	writeOutputc["jetsapi.process_errors"] = make([]chan []interface{}, 1)
-	writeOutputc["jetsapi.process_errors"][0] = make(chan []interface{})
+	writeOutputc["jetsapi.process_errors"] = make([]chan []any, 1)
+	writeOutputc["jetsapi.process_errors"][0] = make(chan []any)
 
 	// fmt.Println("processInputMapping is complete, len is", len(mainProcessInput.processInputMapping))
 	// for icol := range mainProcessInput.processInputMapping {
