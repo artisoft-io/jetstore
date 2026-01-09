@@ -80,7 +80,9 @@ String? configureFilesFormValidator(
       // this field is nullable unless FSK.scFileTypeOption is Headerless CSV or Parquet Select or xlsx
       if ((fileType != FSK.scHeaderlessCsvOption) &&
           (fileType != FSK.scHeaderlessXlsxOption) &&
-          (fileType != FSK.scParquetSelectOption)) return null;
+          (fileType != FSK.scParquetSelectOption)) {
+        return null;
+      }
       String? value = unpack(v);
       if (value == null || value.isEmpty) {
         return "Input column names must be provided";
@@ -164,8 +166,7 @@ Future<String?> configureFilesFormActions(
       state[FSK.domainKeysJson] = unpack(state[FSK.domainKeysJson]);
       state[FSK.codeValuesMappingJson] =
           unpack(state[FSK.codeValuesMappingJson]);
-      state[FSK.computePipesJson] =
-          unpack(state[FSK.computePipesJson]);
+      state[FSK.computePipesJson] = unpack(state[FSK.computePipesJson]);
       state[FSK.automated] = unpack(state[FSK.automated]);
       state[FSK.scFileTypeOption] = unpack(state[FSK.scFileTypeOption]);
       // Map part file indicator
@@ -189,10 +190,14 @@ Future<String?> configureFilesFormActions(
         } else {
           formState.setValue(group, FSK.scFileTypeOption, FSK.scCsvOption);
         }
-      } else if (fileType == FSK.scHeaderlessCsvOption && state[FSK.inputColumnsJson] == null) {
-        formState.setValue(group, FSK.scFileTypeOption, FSK.scHeaderlessCsvOptionWithSchemaProvider);
-      } else if (fileType == FSK.scFixedWidthOption && state[FSK.inputColumnsPositionsCsv] == null) {
-        formState.setValue(group, FSK.scFileTypeOption, FSK.scFixedWidthOptionWithSchemaProvider);
+      } else if (fileType == FSK.scHeaderlessCsvOption &&
+          state[FSK.inputColumnsJson] == null) {
+        formState.setValue(group, FSK.scFileTypeOption,
+            FSK.scHeaderlessCsvOptionWithSchemaProvider);
+      } else if (fileType == FSK.scFixedWidthOption &&
+          state[FSK.inputColumnsPositionsCsv] == null) {
+        formState.setValue(group, FSK.scFileTypeOption,
+            FSK.scFixedWidthOptionWithSchemaProvider);
       }
       // input file options
       final scOptions = unpack(state[FSK.scInputFormatDataJson]);

@@ -246,12 +246,12 @@ func (rs *ReteSession) ComputeConsequentTriples() error {
 			for _, consequentAlphaNode := range betaRow.NdVertex.ConsequentAlphaNodes {
 				t3 := consequentAlphaNode.ComputeConsequentTriple(rs, betaRow)
 				// //***
-				// if vertex == 22 || vertex == 42 {
+				// if vertex == 206 {
 				// 	log.Printf("vertex %d: InsertInferred %s", vertex,rdf.ToString(t3))
 				// }
 				_, err := rs.RdfSession.InsertInferred(t3[0], t3[1], t3[2])
 				if err != nil {
-					return fmt.Errorf("while calling ReteSession.InsertInferred (ComputeConsequentTriples): %v", err)
+					return fmt.Errorf("while calling ReteSession.InsertInferred (ComputeConsequentTriples) @ vertex %d: %v", vertex, err)
 				}
 			}
 			// Mark row as Processed

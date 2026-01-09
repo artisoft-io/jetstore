@@ -283,7 +283,7 @@ func (rw *ReteWorkspace) ExecuteRules(
 						br.ReteSessionSaved = "Y"
 						b, errx := rdf.RDFSessionAsTableJsonV2(rdfSession, rw.js)
 						if errx != nil {
-							log.Println("Error extracting RDFSessionAsTableJson: %v", errx)
+							log.Println("Error extracting RDFSessionAsTableJson:", errx)
 							br.ReteSessionSaved = "N"
 						} else {
 							br.ReteSessionTriples = sql.NullString{

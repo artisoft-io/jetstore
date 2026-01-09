@@ -92,6 +92,7 @@ func (expr *ExprBindedVar) Eval(reteSession *ReteSession, row *BetaRow) *rdf.Nod
 	}
 	v := row.Get(expr.data)
 	if v == nil {
+		log.Printf("ERROR while calling ExprBindedVar.Eval @ vertex %d: row.Get returned nil", row.NdVertex.Vertex)
 		return rdf.Null()
 	}
 	return v
@@ -103,6 +104,9 @@ func (expr *ExprBindedVar) StaticEval(reteSession *ReteSession) *rdf.Node {
 
 func (expr *ExprBindedVar) EvalFilter(reteSession *ReteSession, row *BetaRow) bool {
 	v := expr.Eval(reteSession, row)
+	if v.IsNull() {
+		log.Printf("ERROR while calling ExprBindedVar.EvalFilter @ vertex %d: filter returned rdfNull", row.NdVertex.Vertex)
+	}
 	return v.Bool()
 }
 
@@ -159,6 +163,9 @@ func (expr *ExprBinaryOp) StaticEval(reteSession *ReteSession) *rdf.Node {
 
 func (expr *ExprBinaryOp) EvalFilter(reteSession *ReteSession, row *BetaRow) bool {
 	v := expr.Eval(reteSession, row)
+	if v.IsNull() {
+		log.Printf("ERROR while calling ExprBinaryOp.EvalFilter @ vertex %d: filter returned rdfNull", row.NdVertex.Vertex)
+	}
 	return v.Bool()
 }
 
@@ -204,5 +211,8 @@ func (expr *ExprUnaryOp) StaticEval(reteSession *ReteSession) *rdf.Node {
 
 func (expr *ExprUnaryOp) EvalFilter(reteSession *ReteSession, row *BetaRow) bool {
 	v := expr.Eval(reteSession, row)
+	if v.IsNull() {
+		log.Printf("ERROR while calling ExprUnaryOp.EvalFilter @ vertex %d: filter returned rdfNull", row.NdVertex.Vertex)
+	}
 	return v.Bool()
 }
