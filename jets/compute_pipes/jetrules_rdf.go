@@ -376,34 +376,3 @@ func castToRdfTypeFromDouble(inValue float64, rdfType string, isArray bool) (any
 	}
 	return nil, fmt.Errorf("error: invalid rdfType (%s) for input value of type double", rdfType)
 }
-
-func NewRdfNode(inValue any, rm *rdf.ResourceManager) (*rdf.Node, error) {
-	switch vv := inValue.(type) {
-	case string:
-		return rm.NewTextLiteral(vv), nil
-	case int:
-		return rm.NewIntLiteral(vv), nil
-	case uint:
-		return rm.NewUIntLiteral(vv), nil
-	case float64:
-		return rm.NewDoubleLiteral(vv), nil
-	case time.Time:
-		return rm.NewDateLiteral(rdf.LDate{Date: &vv}), nil
-	case rdf.LDate:
-		return rm.NewDateLiteral(vv), nil
-	case rdf.LDatetime:
-		return rm.NewDatetimeLiteral(vv), nil
-	case int64:
-		return rm.NewIntLiteral(int(vv)), nil
-	case uint64:
-		return rm.NewUIntLiteral(uint(vv)), nil
-	case int32:
-		return rm.NewIntLiteral(int(vv)), nil
-	case uint32:
-		return rm.NewUIntLiteral(uint(vv)), nil
-	case float32:
-		return rm.NewDoubleLiteral(float64(vv)), nil
-	default:
-		return nil, fmt.Errorf("error: unknown type %T for NewRdfNode", vv)
-	}
-}

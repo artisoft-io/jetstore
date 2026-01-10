@@ -9,15 +9,16 @@ import (
 	"strings"
 	"time"
 
+	"maps"
+
 	"github.com/artisoft-io/jetstore/jets/datatable"
 	"github.com/artisoft-io/jetstore/jets/workspace"
 	"github.com/jackc/pgx/v4/pgxpool"
-	"maps"
 )
 
 // Compute Pipes Actions
 
-func (args *ComputePipesNodeArgs) CoordinateComputePipes(ctx context.Context, dbpool *pgxpool.Pool) error {
+func (args *ComputePipesNodeArgs) CoordinateComputePipes(ctx context.Context, dbpool *pgxpool.Pool, jetRules JetRulesFactory) error {
 	var cpErr, err error
 	var didSync bool
 	var inFolderPath string
@@ -174,6 +175,7 @@ func (args *ComputePipesNodeArgs) CoordinateComputePipes(ctx context.Context, db
 		FileKeyComponents:  fileKeyComponents,
 		SchemaManager:      schemaManager,
 		InputFileKeys:      fileKeys,
+		JetRules:           jetRules,
 		KillSwitch:         make(chan struct{}),
 		Done:               make(chan struct{}),
 		ErrCh:              make(chan error, 1000),
@@ -235,7 +237,7 @@ func (args *ComputePipesNodeArgs) CoordinateComputePipes(ctx context.Context, db
 		cpErr = fmt.Errorf("failed to create local input_files directory: %v", err)
 		goto gotError
 	}
-	defer func ()  {
+	defer func() {
 		err := os.RemoveAll(cpContext.JetStoreTempFolder)
 		if err != nil {
 			log.Printf("%s - WARNING while calling RemoveAll in JetStore temp folder:%v", cpContext.SessionId, err)

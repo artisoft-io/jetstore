@@ -218,11 +218,11 @@ func (m matchCount) String() string {
 
 func (p *ParseDateMatchFunction) Done(ctx *AnalyzeTransformationPipe, outputRow []any) error {
 	if p.minMax != nil {
-		ipos, ok := (*ctx.outputCh.columns)["min_date"]
+		ipos, ok := (*ctx.outputCh.Columns)["min_date"]
 		if ok {
 			outputRow[ipos] = p.minMax.minValue
 		}
-		ipos, ok = (*ctx.outputCh.columns)["max_date"]
+		ipos, ok = (*ctx.outputCh.Columns)["max_date"]
 		if ok {
 			outputRow[ipos] = p.minMax.maxValue
 		}
@@ -232,7 +232,7 @@ func (p *ParseDateMatchFunction) Done(ctx *AnalyzeTransformationPipe, outputRow 
 		ratioFactor = 100 / float64(p.nbrSamplesSeen)
 	}
 	for token, count := range p.tokenMatches {
-		ipos, ok := (*ctx.outputCh.columns)[token]
+		ipos, ok := (*ctx.outputCh.Columns)[token]
 		if ok {
 			if ratioFactor > 0 {
 				outputRow[ipos] = float64(count) * ratioFactor
@@ -251,9 +251,9 @@ func (p *ParseDateMatchFunction) Done(ctx *AnalyzeTransformationPipe, outputRow 
 		}
 	}
 	ml := len(matches)
-	// fmt.Printf("*** Got %d matches for formatMatches for %s\n", ml, outputRow[(*ctx.outputCh.columns)["column_name"]])
+	// fmt.Printf("*** Got %d matches for formatMatches for %s\n", ml, outputRow[(*ctx.outputCh.Columns)["column_name"]])
 	if ml > 0 {
-		ipos, ok := (*ctx.outputCh.columns)[p.parseDateConfig.DateFormatToken]
+		ipos, ok := (*ctx.outputCh.Columns)[p.parseDateConfig.DateFormatToken]
 		if ok {
 			// Sort by count decreasing, switching lhs and rhs in a and b assignment
 			slices.SortFunc(matches, func(lhs, rhs matchCount) int {
@@ -301,7 +301,7 @@ func (p *ParseDateMatchFunction) Done(ctx *AnalyzeTransformationPipe, outputRow 
 				outputRow[ipos] = ""
 				// Set the token (e.g. dobRe, dateRe, etc to 0)
 				for token := range p.tokenMatches {
-					ipos, ok := (*ctx.outputCh.columns)[token]
+					ipos, ok := (*ctx.outputCh.Columns)[token]
 					if ok {
 						outputRow[ipos] = 0.0
 					}
@@ -319,7 +319,7 @@ func (p *ParseDateMatchFunction) Done(ctx *AnalyzeTransformationPipe, outputRow 
 	}
 	ml = len(matches)
 	// fmt.Printf("*** Got %d matches for otherFormatMatch\n", ml)
-	ipos, ok := (*ctx.outputCh.columns)[p.parseDateConfig.OtherDateFormatToken]
+	ipos, ok := (*ctx.outputCh.Columns)[p.parseDateConfig.OtherDateFormatToken]
 	if ok {
 		if ml > 0 {
 			// Take matches

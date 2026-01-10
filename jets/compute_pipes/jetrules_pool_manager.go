@@ -4,8 +4,6 @@ import (
 	"fmt"
 	"log"
 	"sync"
-
-	"github.com/artisoft-io/jetstore/jets/jetrules/rete"
 )
 
 // JrPoolManager manages a pool of JrPoolWorkers for jetrules execution
@@ -22,7 +20,7 @@ type JrPoolManager struct {
 
 // Create the JrPoolManager, it will be set to the receiving BuilderContext
 func (ctx *BuilderContext) NewJrPoolManager(
-	config *JetrulesSpec, source *InputChannel, reteMetaStore *rete.ReteMetaStoreFactory,
+	config *JetrulesSpec, source *InputChannel, ruleEngine JetRulesEngine,
 	outputChannels []*JetrulesOutputChan, jetrulesWorkerResultCh chan JetrulesWorkerResult) (jrpm *JrPoolManager, err error) {
 	log.Println("Starting the Pool Manager")
 	if config.PoolSize < 1 {
@@ -82,7 +80,7 @@ func (ctx *BuilderContext) NewJrPoolManager(
 			jrpm.jrPoolWg.Add(1)
 			go func() {
 				defer jrpm.jrPoolWg.Done()
-				worker := NewJrPoolWorker(config, source, reteMetaStore, outputChannels, ctx.done, ctx.errCh)
+				worker :=  ruleEngine.NewWorker(config, source, outputChannels, ctx.done, ctx.errCh)
 				worker.DoWork(jrpm, workersResultCh)
 			}()
 		}

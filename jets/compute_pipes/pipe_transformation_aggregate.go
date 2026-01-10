@@ -37,7 +37,7 @@ func (ctx *AggregateTransformationPipe) Done() error {
 	// Send the result to output
 	// fmt.Println("**!@@ ** Send AGGREGATE Result to", ctx.outputCh.name)
 	select {
-	case ctx.outputCh.channel <- ctx.currentValues:
+	case ctx.outputCh.Channel <- ctx.currentValues:
 	case <-ctx.doneCh:
 		log.Println("AggregateTransform interrupted")
 	}
@@ -67,7 +67,7 @@ func (ctx *BuilderContext) NewAggregateTransformationPipe(source *InputChannel, 
 		}
 	}
 
-	currentValues := make([]interface{}, len(outputCh.config.Columns))
+	currentValues := make([]interface{}, len(outputCh.Config.Columns))
 	for i := range columnEvaluators {
 		columnEvaluators[i].InitializeCurrentValue(&currentValues)
 	}

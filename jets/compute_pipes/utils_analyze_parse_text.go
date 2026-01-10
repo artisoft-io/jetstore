@@ -44,11 +44,11 @@ func (p *ParseTextMatchFunction) GetMinMaxValues() *MinMaxValue {
 
 func (p *ParseTextMatchFunction) Done(ctx *AnalyzeTransformationPipe, outputRow []any) error {
 	if p.minMax != nil {
-		ipos, ok := (*ctx.outputCh.columns)["min_length"]
+		ipos, ok := (*ctx.outputCh.Columns)["min_length"]
 		if ok {
 			outputRow[ipos] = p.minMax.minValue
 		}
-		ipos, ok = (*ctx.outputCh.columns)["max_length"]
+		ipos, ok = (*ctx.outputCh.Columns)["max_length"]
 		if ok {
 			outputRow[ipos] = p.minMax.maxValue
 		}

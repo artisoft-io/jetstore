@@ -139,7 +139,7 @@ func (ctx *BuilderContext) BuildLookupTCEvaluator(source *InputChannel, outCh *O
 		case "select":
 			keyEvaluator[i] = &lceSelect{
 				lookupName: spec.LookupName,
-				inputPos:   (*source.columns)[*columnSpec.Expr],
+				inputPos:   (*source.Columns)[*columnSpec.Expr],
 			}
 		case "value":
 			value, err := ctx.parseValue(columnSpec.Expr)
@@ -170,7 +170,7 @@ func (ctx *BuilderContext) BuildLookupTCEvaluator(source *InputChannel, outCh *O
 					return nil, fmt.Errorf("error: lookup table '%s' does not have column '%s'",
 						*spec.LookupName, *columnSpec.Expr)
 				}
-				outputPos, ok := (*outCh.columns)[columnSpec.Name]
+				outputPos, ok := (*outCh.Columns)[columnSpec.Name]
 				if !ok {
 					return nil, fmt.Errorf("error: output column '%s' is not valid for lookup table '%s' (buildLookupEvaluator)",
 						columnSpec.Name, *spec.LookupName)
@@ -186,7 +186,7 @@ func (ctx *BuilderContext) BuildLookupTCEvaluator(source *InputChannel, outCh *O
 					return nil, fmt.Errorf("while building lookup value evaluator of type 'value' for lookup %s: %v",
 						*spec.LookupName, err)
 				}
-				outputPos, ok := (*outCh.columns)[columnSpec.Name]
+				outputPos, ok := (*outCh.Columns)[columnSpec.Name]
 				if !ok {
 					return nil, fmt.Errorf("error: output column '%s' is not valid for lookup table '%s' (buildLookupEvaluator)",
 						columnSpec.Name, *spec.LookupName)

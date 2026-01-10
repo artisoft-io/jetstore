@@ -24,7 +24,7 @@ func (ctx *MapRecordTransformationPipe) Apply(input *[]interface{}) error {
 	}
 	var currentValues *[]interface{}
 	if ctx.spec.NewRecord {
-		v := make([]interface{}, len(ctx.outputCh.config.Columns))
+		v := make([]interface{}, len(ctx.outputCh.Config.Columns))
 		currentValues = &v
 		// initialize the column evaluators
 		for i := range ctx.columnEvaluators {
@@ -52,15 +52,15 @@ func (ctx *MapRecordTransformationPipe) Apply(input *[]interface{}) error {
 	}
 	if !ctx.spec.NewRecord {
 		// resize the slice in case we're dropping column on the output
-		if len(*currentValues) > len(ctx.outputCh.config.Columns) {
-			*currentValues = (*currentValues)[:len(ctx.outputCh.config.Columns)]
+		if len(*currentValues) > len(ctx.outputCh.Config.Columns) {
+			*currentValues = (*currentValues)[:len(ctx.outputCh.Config.Columns)]
 		}
 	}
 	// Send the result to output
 	select {
-	case ctx.outputCh.channel <- *currentValues:
+	case ctx.outputCh.Channel <- *currentValues:
 	case <-ctx.doneCh:
-		log.Printf("MapRecordTransformationPipe writing to '%s' interrupted", ctx.outputCh.name)
+		log.Printf("MapRecordTransformationPipe writing to '%s' interrupted", ctx.outputCh.Name)
 		return nil
 	}
 	return nil
@@ -96,7 +96,7 @@ func (ctx *BuilderContext) NewMapRecordTransformationPipe(source *InputChannel, 
 			node := propertyMap[mappingExp.DataProperty]
 			if node == nil {
 				// Check if this is a "local variable for rules", ie if it's added to the input class
-				_, ok := (*outputCh.columns)[mappingExp.DataProperty]
+				_, ok := (*outputCh.Columns)[mappingExp.DataProperty]
 				if ok {
 					node = &rete.DataPropertyNode{Type: "text"}
 				} else {

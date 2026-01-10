@@ -56,7 +56,7 @@ func (ctx *SortTransformationPipe) Done() error {
 	// Send out the records
 	for _, inputRecord := range ctx.inputRecords {
 		select {
-		case ctx.outputCh.channel <- *inputRecord:
+		case ctx.outputCh.Channel <- *inputRecord:
 		case <-ctx.doneCh:
 			log.Println("SortTransform interrupted")
 		}
@@ -74,7 +74,7 @@ func (ctx *BuilderContext) NewSortTransformationPipe(source *InputChannel, outpu
 
 	// Check if group by domain_key
 	if len(config.DomainKey) > 0 {
-		dk := source.domainKeySpec
+		dk := source.DomainKeySpec
 		if dk == nil {
 			return nil, fmt.Errorf("error: sort operator is configured with domain key but no domain key spec available")
 		}
@@ -89,9 +89,9 @@ func (ctx *BuilderContext) NewSortTransformationPipe(source *InputChannel, outpu
 
 	sortBy := make([]int, 0, len(config.SortByColumn))
 	for _, c := range config.SortByColumn {
-		pos, ok := (*source.columns)[c]
+		pos, ok := (*source.Columns)[c]
 		if !ok {
-			return nil, fmt.Errorf("error: sort key '%s' is not an input column to %s", c, source.name)
+			return nil, fmt.Errorf("error: sort key '%s' is not an input column to %s", c, source.Name)
 		}
 		sortBy = append(sortBy, pos)
 	}

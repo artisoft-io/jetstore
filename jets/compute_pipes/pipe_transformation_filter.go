@@ -24,7 +24,7 @@ func (ctx *FilterTransformationPipe) Apply(input *[]any) error {
 		return fmt.Errorf("error: unexpected null input arg in FilterTransformationPipe")
 	}
 	inputLen := len(*input)
-	expectedLen := len(ctx.source.config.Columns)
+	expectedLen := len(ctx.source.Config.Columns)
 	if inputLen != expectedLen {
 		// Skip the row
 		return nil
@@ -47,7 +47,7 @@ func (ctx *FilterTransformationPipe) Apply(input *[]any) error {
 	// Send out the row
 	// log.Println("*** KEEP ROW: ", *input)
 	select {
-	case ctx.outputCh.channel <- *input:
+	case ctx.outputCh.Channel <- *input:
 	case <-ctx.doneCh:
 		log.Println("FilterTransform interrupted")
 	}
@@ -66,7 +66,7 @@ func (ctx *BuilderContext) NewFilterTransformationPipe(source *InputChannel, out
 		return nil, fmt.Errorf("error: Filter Pipe Transformation spec is missing filter_config settings")
 	}
 	config := spec.FilterConfig
-	whenExpr, err := ctx.BuildExprNodeEvaluator(source.name, *source.columns, &config.When)
+	whenExpr, err := ctx.BuildExprNodeEvaluator(source.Name, *source.Columns, &config.When)
 	if err != nil {
 		return nil, fmt.Errorf("while building when clause: %v", err)
 	}

@@ -67,22 +67,22 @@ func (ctx *BuilderContext) BuildCaseExprTCEvaluator(source *InputChannel, outCh 
 
 	caseExpr := make([]caseExprClause, len(spec.CaseExpr))
 	for i := range spec.CaseExpr {
-		whenCase, err := ctx.BuildExprNodeEvaluator(source.name, *source.columns, &spec.CaseExpr[i].When)
+		whenCase, err := ctx.BuildExprNodeEvaluator(source.Name, *source.Columns, &spec.CaseExpr[i].When)
 		if err != nil {
 			return nil, fmt.Errorf("while building when clause for item %d: %v", i, err)
 		}
 		thenCases := make([]*columnExpression, len(spec.CaseExpr[i].Then))
 		for i, node := range spec.CaseExpr[i].Then {
-			expr, err := ctx.BuildExprNodeEvaluator(source.name, *source.columns, node)
+			expr, err := ctx.BuildExprNodeEvaluator(source.Name, *source.Columns, node)
 			if err != nil {
 				return nil, fmt.Errorf("while building then clause for item %d: %v", i, err)
 			}
 			if node.Name == "" {
 				return nil, fmt.Errorf("error: case operator is missing column name in then clause")
 			}
-			outputPos, ok := (*outCh.columns)[node.Name]
+			outputPos, ok := (*outCh.Columns)[node.Name]
 			if !ok {
-				return nil, fmt.Errorf("error column %s not found in output source %s", node.Name, outCh.name)
+				return nil, fmt.Errorf("error column %s not found in output source %s", node.Name, outCh.Name)
 			}
 			thenCases[i] = &columnExpression{
 				outputPos: outputPos,
@@ -97,16 +97,16 @@ func (ctx *BuilderContext) BuildCaseExprTCEvaluator(source *InputChannel, outCh 
 
 	elseExpr := make([]*columnExpression, len(spec.ElseExpr))
 	for i, node := range spec.ElseExpr {
-		expr, err := ctx.BuildExprNodeEvaluator(source.name, *source.columns, node)
+		expr, err := ctx.BuildExprNodeEvaluator(source.Name, *source.Columns, node)
 		if err != nil {
 			return nil, fmt.Errorf("while building else clause for case_expr: %v", err)
 		}
 		if node.Name == "" {
 			return nil, fmt.Errorf("error: case operator is missing column name in else clause")
 		}
-		outputPos, ok := (*outCh.columns)[node.Name]
+		outputPos, ok := (*outCh.Columns)[node.Name]
 		if !ok {
-			return nil, fmt.Errorf("error column %s not found in output source %s", node.Name, outCh.name)
+			return nil, fmt.Errorf("error column %s not found in output source %s", node.Name, outCh.Name)
 		}
 		elseExpr[i] = &columnExpression{
 			outputPos: outputPos,

@@ -97,15 +97,15 @@ func (ctx *BuilderContext) BuildMapReduceTCEvaluator(source *InputChannel, outCh
 		return nil, fmt.Errorf("error: Type map_reduce must have MapOn, ApplyMap and ApplyReduce not empty")
 	}
 	var err error
-	mapOnColumnIdx, ok := (*source.columns)[*spec.MapOn]
+	mapOnColumnIdx, ok := (*source.Columns)[*spec.MapOn]
 	if !ok {
-		return nil, fmt.Errorf("error column %s not found in input source %s", *spec.MapOn, source.name)
+		return nil, fmt.Errorf("error column %s not found in input source %s", *spec.MapOn, source.Name)
 	}
 	var altInputKey []PreprocessingFunction
 	if len(spec.AlternateMapOn) > 0 {
-		altInputKey, err = ParsePreprocessingExpressions(spec.AlternateMapOn, true, source.columns)
+		altInputKey, err = ParsePreprocessingExpressions(spec.AlternateMapOn, true, source.Columns)
 		if err != nil {
-			return nil, fmt.Errorf("buildMapReduceEvaluator: %v in source name %s", err, source.name)
+			return nil, fmt.Errorf("buildMapReduceEvaluator: %v in source name %s", err, source.Name)
 		}
 	}
 
@@ -116,10 +116,10 @@ func (ctx *BuilderContext) BuildMapReduceTCEvaluator(source *InputChannel, outCh
 
 	mapColumnEval := make([]TransformationColumnEvaluator, len(spec.ApplyMap))
 	intermediateOutputChannel := &OutputChannel{
-		columns: &intermediateColumns,
-		config: &ChannelSpec{
+		Columns: &intermediateColumns,
+		Config: &ChannelSpec{
 			Name:      "map_reduce.intermediateOutputChannel",
-			ClassName: source.config.ClassName,
+			ClassName: source.Config.ClassName,
 		},
 	}
 	for i := range spec.ApplyMap {
@@ -132,10 +132,10 @@ func (ctx *BuilderContext) BuildMapReduceTCEvaluator(source *InputChannel, outCh
 
 	reduceColumnEval := make([]TransformationColumnEvaluator, len(spec.ApplyReduce))
 	intermediateInputChannel := &InputChannel{
-		columns: &intermediateColumns,
-		config: &ChannelSpec{
+		Columns: &intermediateColumns,
+		Config: &ChannelSpec{
 			Name:      "map_reduce.intermediateInputChannel",
-			ClassName: source.config.ClassName,
+			ClassName: source.Config.ClassName,
 		},
 	}
 	for i := range spec.ApplyReduce {

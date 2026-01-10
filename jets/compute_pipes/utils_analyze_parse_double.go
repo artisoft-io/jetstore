@@ -57,17 +57,17 @@ func (p *ParseDoubleMatchFunction) GetMinMaxValues() *MinMaxValue {
 
 func (p *ParseDoubleMatchFunction) Done(ctx *AnalyzeTransformationPipe, outputRow []any) error {
 	if p.minMax != nil {
-		ipos, ok := (*ctx.outputCh.columns)["min_double"]
+		ipos, ok := (*ctx.outputCh.Columns)["min_double"]
 		if ok {
 			outputRow[ipos] = p.minMax.minValue
 		}
-		ipos, ok = (*ctx.outputCh.columns)["max_double"]
+		ipos, ok = (*ctx.outputCh.Columns)["max_double"]
 		if ok {
 			outputRow[ipos] = p.minMax.maxValue
 		}
 	}
 
-	ipos, ok := (*ctx.outputCh.columns)["large_double_pct"]
+	ipos, ok := (*ctx.outputCh.Columns)["large_double_pct"]
 	if ok {
 		if p.nbrSamplesSeen > 0 && p.largeValues != nil {
 			outputRow[ipos] = float64(p.largeValues.count) * 100 / float64(p.nbrSamplesSeen)

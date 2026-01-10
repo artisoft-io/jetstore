@@ -125,12 +125,12 @@ func doSortRecordsTest( SortByColumn []string, inputRecords []*[]any) (outputRec
 	}
 
 	source := &InputChannel{
-		name: "in",
-		columns: columns,
+		Name: "in",
+		Columns: columns,
 	}
 	outCh := make(chan []any)
 	outputCh := &OutputChannel{
-		channel: outCh,
+		Channel: outCh,
 	}
 
 	ctx := &BuilderContext{

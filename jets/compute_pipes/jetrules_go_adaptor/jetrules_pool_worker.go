@@ -1,4 +1,4 @@
-package compute_pipes
+package jetrules_go_adaptor
 
 import (
 	"errors"
@@ -7,7 +7,9 @@ import (
 	"runtime/debug"
 	"strconv"
 	"strings"
+	"time"
 
+	"github.com/artisoft-io/jetstore/jets/compute_pipes"
 	"github.com/artisoft-io/jetstore/jets/jetrules/rdf"
 	"github.com/artisoft-io/jetstore/jets/jetrules/rete"
 	"github.com/google/uuid"
@@ -16,16 +18,16 @@ import (
 // Worker to perform jetrules execute rules function
 
 type JrPoolWorker struct {
-	config         *JetrulesSpec
-	source         *InputChannel
+	config         *compute_pipes.JetrulesSpec
+	source         *compute_pipes.InputChannel
 	reteMetaStore  *rete.ReteMetaStoreFactory
-	outputChannels []*JetrulesOutputChan
+	outputChannels []*compute_pipes.JetrulesOutputChan
 	done           chan struct{}
 	errCh          chan error
 }
 
-func NewJrPoolWorker(config *JetrulesSpec, source *InputChannel,
-	reteMetaStore *rete.ReteMetaStoreFactory, outputChannels []*JetrulesOutputChan,
+func NewJrPoolWorker(config *compute_pipes.JetrulesSpec, source *compute_pipes.InputChannel,
+	reteMetaStore *rete.ReteMetaStoreFactory, outputChannels []*compute_pipes.JetrulesOutputChan,
 	done chan struct{}, errCh chan error) *JrPoolWorker {
 	// log.Println("New Pool Worker Created")
 	return &JrPoolWorker{
@@ -38,7 +40,7 @@ func NewJrPoolWorker(config *JetrulesSpec, source *InputChannel,
 	}
 }
 
-func (ctx *JrPoolWorker) DoWork(mgr *JrPoolManager, resultCh chan JetrulesWorkerResult) {
+func (ctx *JrPoolWorker) DoWork(mgr *compute_pipes.JrPoolManager, resultCh chan compute_pipes.JetrulesWorkerResult) {
 	var count int64
 	var errCount int64
 	var err error
@@ -50,7 +52,7 @@ func (ctx *JrPoolWorker) DoWork(mgr *JrPoolManager, resultCh chan JetrulesWorker
 		count += 1
 	}
 	select {
-	case resultCh <- JetrulesWorkerResult{
+	case resultCh <- compute_pipes.JetrulesWorkerResult{
 		ReteSessionCount: count,
 		ErrorsCount:      errCount,
 	}:
@@ -66,7 +68,7 @@ func (ctx *JrPoolWorker) DoWork(mgr *JrPoolManager, resultCh chan JetrulesWorker
 //   - error: max loop reached
 //   - Rete Session Has Rule Exception
 func (ctx *JrPoolWorker) executeRules(inputRecords *[]any,
-	resultCh chan JetrulesWorkerResult) (errCount int64, err error) {
+	resultCh chan compute_pipes.JetrulesWorkerResult) (errCount int64, err error) {
 	// Create a rdf session for input and execute rules on that session
 	// Steps to do here
 	// 	- Create the rdf session
@@ -85,7 +87,7 @@ func (ctx *JrPoolWorker) executeRules(inputRecords *[]any,
 			buf.WriteString(string(debug.Stack()))
 			cpErr := errors.New(buf.String())
 			log.Println(cpErr)
-			resultCh <- JetrulesWorkerResult{Err: cpErr}
+			resultCh <- compute_pipes.JetrulesWorkerResult{Err: cpErr}
 			ctx.errCh <- cpErr
 			// Avoid closing a closed channel
 			select {
@@ -199,7 +201,7 @@ func (ctx *JrPoolWorker) executeRules(inputRecords *[]any,
 		if err != nil {
 			cpErr = fmt.Errorf(
 				"while extraction entity from jetrules for class %s: %v",
-				outChannel.className, err)
+				outChannel.ClassName, err)
 			goto gotError
 		}
 	}
@@ -208,7 +210,7 @@ func (ctx *JrPoolWorker) executeRules(inputRecords *[]any,
 
 gotError:
 	log.Println(cpErr)
-	resultCh <- JetrulesWorkerResult{Err: cpErr}
+	resultCh <- compute_pipes.JetrulesWorkerResult{Err: cpErr}
 	ctx.errCh <- cpErr
 	// Avoid closing a closed channel
 	select {
@@ -220,17 +222,17 @@ gotError:
 }
 
 func (ctx *JrPoolWorker) extractSessionData(rdfSession *rdf.RdfSession,
-	outChannel *JetrulesOutputChan) error {
+	outChannel *compute_pipes.JetrulesOutputChan) error {
 
 	rm := rdfSession.ResourceMgr
 	jr := rm.JetsResources
 	entityCount := 0
-	columns := outChannel.outputCh.config.Columns
+	columns := outChannel.OutputCh.Config.Columns
 	var data any
 	var dataArr *[]any
 	var isArray bool
 	// Extract entity by rdf type
-	ctor := rdfSession.FindSPO(nil, jr.Rdf__type, rm.NewResource(outChannel.className))
+	ctor := rdfSession.FindSPO(nil, jr.Rdf__type, rm.NewResource(outChannel.ClassName))
 	for t3 := range ctor.Itor {
 		subject := t3[0]
 		// Check if subject is an entity for the current source period
@@ -291,8 +293,8 @@ func (ctx *JrPoolWorker) extractSessionData(rdfSession *rdf.RdfSession,
 			// NOTE there is no initialize and done called on the column evaluators
 			//      since they should be only of type 'select' or 'value'
 			// Note: using entityRow as both current value and input for the purpose of these operators
-			for i := range outChannel.columnEvaluators {
-				err := outChannel.columnEvaluators[i].Update(&entityRow, &entityRow)
+			for i := range outChannel.ColumnEvaluators {
+				err := outChannel.ColumnEvaluators[i].Update(&entityRow, &entityRow)
 				if err != nil {
 					err = fmt.Errorf("while calling column transformation from jetrules extract session data: %v", err)
 					log.Println(err)
@@ -302,16 +304,16 @@ func (ctx *JrPoolWorker) extractSessionData(rdfSession *rdf.RdfSession,
 			// Send the record to output channel
 			// log.Println("*** Extracted ENTITY_ROW:", entityRow)
 			select {
-			case outChannel.outputCh.channel <- entityRow:
+			case outChannel.OutputCh.Channel <- entityRow:
 				entityCount += 1
 			case <-ctx.done:
-				log.Printf("jetrule extractSessionData writing to '%s' interrupted", outChannel.outputCh.name)
+				log.Printf("jetrule extractSessionData writing to '%s' interrupted", outChannel.OutputCh.Name)
 				return nil
 			}
 		}
 	}
 	ctor.Done()
-	log.Printf("jetrules: Extracted %d entities for class %s", entityCount, outChannel.className)
+	log.Printf("jetrules: Extracted %d entities for class %s", entityCount, outChannel.ClassName)
 	return nil
 }
 
@@ -342,12 +344,12 @@ func getValue(r *rdf.Node) any {
 	}
 }
 
-func assertInputRecords(config *JetrulesSpec, source *InputChannel,
+func assertInputRecords(config *compute_pipes.JetrulesSpec, source *compute_pipes.InputChannel,
 	rm *rdf.ResourceManager, jr *rdf.JetResources, graph *rdf.RdfGraph,
 	inputRecords *[]any) (err error) {
 
-	columns := source.config.Columns
-	if source.hasGroupedRows {
+	columns := source.Config.Columns
+	if source.HasGroupedRows {
 		// log.Printf("*** Pool Worker == Asserting bundle of %d entities\n", len(*inputRecords))
 		for i := range *inputRecords {
 			row, ok := (*inputRecords)[i].([]any)
@@ -363,7 +365,7 @@ func assertInputRecords(config *JetrulesSpec, source *InputChannel,
 	return
 }
 
-func assertInputRow(config *JetrulesSpec, rm *rdf.ResourceManager, jr *rdf.JetResources,
+func assertInputRow(config *compute_pipes.JetrulesSpec, rm *rdf.ResourceManager, jr *rdf.JetResources,
 	graph *rdf.RdfGraph, row *[]any, columns *[]string) (err error) {
 
 	nbrCol := len(*columns)
@@ -428,4 +430,35 @@ func assertInputRow(config *JetrulesSpec, rm *rdf.ResourceManager, jr *rdf.JetRe
 		}
 	}
 	return
+}
+
+func NewRdfNode(inValue any, rm *rdf.ResourceManager) (*rdf.Node, error) {
+	switch vv := inValue.(type) {
+	case string:
+		return rm.NewTextLiteral(vv), nil
+	case int:
+		return rm.NewIntLiteral(vv), nil
+	case uint:
+		return rm.NewUIntLiteral(vv), nil
+	case float64:
+		return rm.NewDoubleLiteral(vv), nil
+	case time.Time:
+		return rm.NewDateLiteral(rdf.LDate{Date: &vv}), nil
+	case rdf.LDate:
+		return rm.NewDateLiteral(vv), nil
+	case rdf.LDatetime:
+		return rm.NewDatetimeLiteral(vv), nil
+	case int64:
+		return rm.NewIntLiteral(int(vv)), nil
+	case uint64:
+		return rm.NewUIntLiteral(uint(vv)), nil
+	case int32:
+		return rm.NewIntLiteral(int(vv)), nil
+	case uint32:
+		return rm.NewUIntLiteral(uint(vv)), nil
+	case float32:
+		return rm.NewDoubleLiteral(float64(vv)), nil
+	default:
+		return nil, fmt.Errorf("error: unknown type %T for NewRdfNode", vv)
+	}
 }

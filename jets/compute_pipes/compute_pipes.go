@@ -111,7 +111,7 @@ func (cpCtx *ComputePipesContext) StartComputePipes(dbpool *pgxpool.Pool,
 			irc.OriginalHeaders = headersUniquefied.OriginalHeaders
 			mainInput.OriginalInputColumns = headersUniquefied.OriginalHeaders
 		}
-		
+
 		if cpCtx.NodeId == 0 {
 			if cpCtx.CpConfig.ClusterConfig.IsDebugMode {
 				log.Println("GOT COLUMNS FROM SCHEMA:", mainInput.InputColumns)
@@ -145,12 +145,12 @@ func (cpCtx *ComputePipesContext) StartComputePipes(dbpool *pgxpool.Pool,
 			columnsMap:     &headersPosMap,
 		}
 		inputRowChannel = &InputChannel{
-			name:           "input_row",
-			channel:        computePipesInputCh,
-			columns:        &headersPosMap,
-			domainKeySpec:  inputRowChSpec.DomainKeysInfo,
-			config:         inputRowChSpec,
-			hasGroupedRows: cpCtx.CpConfig.PipesConfig[0].InputChannel.HasGroupedRows,
+			Name:           "input_row",
+			Channel:        computePipesInputCh,
+			Columns:        &headersPosMap,
+			DomainKeySpec:  inputRowChSpec.DomainKeysInfo,
+			Config:         inputRowChSpec,
+			HasGroupedRows: cpCtx.CpConfig.PipesConfig[0].InputChannel.HasGroupedRows,
 		}
 	}
 	// Collect all the channel that are in use in PipeConfig, looking at PipeConfig.TransformationSpec.OutputChannel
@@ -218,25 +218,25 @@ func (cpCtx *ComputePipesContext) StartComputePipes(dbpool *pgxpool.Pool,
 	domainKeysByClass = cpCtx.ComputePipesCommonArgs.DomainKeysSpecByClass
 	// Use the channelsInUse map to create the Channel Registry
 	channelRegistry = &ChannelRegistry{
-		inputRowChannel:      inputRowChannel,
-		computeChannels:      make(map[string]*Channel),
-		outputTableChannels:  make([]string, 0),
-		closedChannels:       make(map[string]bool),
-		distributionChannels: make(map[string]*[]string),
+		InputRowChannel:      inputRowChannel,
+		ComputeChannels:      make(map[string]*Channel),
+		OutputTableChannels:  make([]string, 0),
+		ClosedChannels:       make(map[string]bool),
+		DistributionChannels: make(map[string]*[]string),
 	}
 	for name, spec := range channelsInUse {
-		channelRegistry.computeChannels[name] = &Channel{
-			name:          name,
-			channel:       make(chan []interface{}),
-			columns:       spec.columnsMap,
-			domainKeySpec: spec.DomainKeysInfo,
-			config:        spec,
+		channelRegistry.ComputeChannels[name] = &Channel{
+			Name:          name,
+			Channel:       make(chan []interface{}),
+			Columns:       spec.columnsMap,
+			DomainKeySpec: spec.DomainKeysInfo,
+			Config:        spec,
 		}
 		if len(spec.ClassName) > 0 {
 			// log.Printf("*** Channel '%s' for domain class %s, domain_keys: %v\n",
 			// 	name, spec.ClassName, domainKeysByClass[spec.ClassName])
 			if spec.DomainKeysInfo == nil && domainKeysByClass != nil {
-				channelRegistry.computeChannels[name].domainKeySpec = domainKeysByClass[spec.ClassName]
+				channelRegistry.ComputeChannels[name].DomainKeySpec = domainKeysByClass[spec.ClassName]
 			}
 		}
 	}
@@ -244,21 +244,21 @@ func (cpCtx *ComputePipesContext) StartComputePipes(dbpool *pgxpool.Pool,
 		// Case reducing
 		// Replace the first channel of the pipes and make it the "input_row"
 		// Setup the input channel for input_row
-		inChannel := channelRegistry.computeChannels[inputChannelName]
+		inChannel := channelRegistry.ComputeChannels[inputChannelName]
 		if inChannel == nil {
 			cpErr = fmt.Errorf("channel %s not found in Channel Registry", inputChannelName)
 			goto gotError
 		}
 		inputRowChannel = &InputChannel{
-			name:           "input_row",
-			channel:        computePipesInputCh,
-			columns:        inChannel.columns,
-			domainKeySpec:  inChannel.domainKeySpec,
-			config:         inChannel.config,
-			hasGroupedRows: cpCtx.CpConfig.PipesConfig[0].InputChannel.HasGroupedRows,
+			Name:           "input_row",
+			Channel:        computePipesInputCh,
+			Columns:        inChannel.Columns,
+			DomainKeySpec:  inChannel.DomainKeySpec,
+			Config:         inChannel.Config,
+			HasGroupedRows: cpCtx.CpConfig.PipesConfig[0].InputChannel.HasGroupedRows,
 		}
 		cpCtx.CpConfig.PipesConfig[0].InputChannel.Name = "input_row"
-		channelRegistry.inputRowChannel = inputRowChannel
+		channelRegistry.InputRowChannel = inputRowChannel
 	}
 	// log.Println("Compute Pipes channel registry ready")
 	// for name, channel := range channelRegistry.computeChannels {
@@ -288,19 +288,19 @@ func (cpCtx *ComputePipesContext) StartComputePipes(dbpool *pgxpool.Pool,
 				cpCtx.CpConfig.OutputTables[i].Name)
 			goto gotError
 		}
-		outChannel = channelRegistry.computeChannels[cpCtx.CpConfig.OutputTables[i].ChannelSpecName]
+		outChannel = channelRegistry.ComputeChannels[cpCtx.CpConfig.OutputTables[i].ChannelSpecName]
 		if outChannel == nil {
 			cpErr = fmt.Errorf("error: invalid Compute Pipes configuration: channel_spec_name '%s' not found for Output table %s",
 				cpCtx.CpConfig.OutputTables[i].ChannelSpecName,
 				cpCtx.CpConfig.OutputTables[i].Name)
 			goto gotError
 		}
-		channelRegistry.outputTableChannels = append(channelRegistry.outputTableChannels, cpCtx.CpConfig.OutputTables[i].ChannelSpecName)
+		channelRegistry.OutputTableChannels = append(channelRegistry.OutputTableChannels, cpCtx.CpConfig.OutputTables[i].ChannelSpecName)
 		// log.Println("*** Channel for Output Table", tableIdentifier, "is:", outChannel.name)
 		wt = WriteTableSource{
-			source:          outChannel.channel,
+			source:          outChannel.Channel,
 			tableIdentifier: tableIdentifier,
-			columns:         outChannel.config.Columns,
+			columns:         outChannel.Config.Columns,
 		}
 		table = make(chan ComputePipesResult, 1)
 		cpCtx.ChResults.Copy2DbResultCh <- table
@@ -321,6 +321,7 @@ func (cpCtx *ComputePipesContext) StartComputePipes(dbpool *pgxpool.Pool,
 		s3DeviceManager:    cpCtx.S3DeviceMgr,
 		schemaManager:      cpCtx.SchemaManager,
 		inputParquetSchema: inputParquetSchema,
+		jetRules:           cpCtx.JetRules,
 		done:               cpCtx.Done,
 		errCh:              cpCtx.ErrCh,
 		chResults:          cpCtx.ChResults,

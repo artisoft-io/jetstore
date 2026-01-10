@@ -29,7 +29,7 @@ func NewClusteringWorker(config *ClusteringSpec, source *InputChannel,
 		if c != *column1 {
 			evaluators = append(evaluators, &distinctCountCorrelationEval{
 				column2:        &c,
-				column2Pos:     (*source.columns)[c],
+				column2Pos:     (*source.Columns)[c],
 				distinctValues: make(map[string]bool),
 			})
 		}
@@ -53,13 +53,13 @@ func (ctx *ClusteringWorker) DoWork(inputCh <-chan []any, outputCh chan<- []any,
 		}
 	}
 	// done, send the result out
-	name1Pos := (*ctx.outputChannel.columns)["column_name_1"]
-	name2Pos := (*ctx.outputChannel.columns)["column_name_2"]
-	countPos := (*ctx.outputChannel.columns)["distinct_count"]
-	totalPos := (*ctx.outputChannel.columns)["total_non_nil_count"]
+	name1Pos := (*ctx.outputChannel.Columns)["column_name_1"]
+	name2Pos := (*ctx.outputChannel.Columns)["column_name_2"]
+	countPos := (*ctx.outputChannel.Columns)["distinct_count"]
+	totalPos := (*ctx.outputChannel.Columns)["total_non_nil_count"]
 	for _, evaluator := range ctx.correlationEvaluators {
 		if evaluator.nonNilCount > ctx.config.MinColumn2NonNilCount {
-			result := make([]any, len(ctx.outputChannel.config.Columns))
+			result := make([]any, len(ctx.outputChannel.Config.Columns))
 			result[name1Pos] = *ctx.column1
 			result[name2Pos] = *evaluator.column2
 			result[countPos] = len(evaluator.distinctValues)

@@ -72,7 +72,7 @@ func (ctx *GroupByTransformationPipe) Apply(input *[]interface{}) error {
 func (ctx *GroupByTransformationPipe) sendBundle(input *[]interface{}) {
 	// Send the bundle out
 	select {
-	case ctx.outputCh.channel <- ctx.currentBundle:
+	case ctx.outputCh.Channel <- ctx.currentBundle:
 	case <-ctx.doneCh:
 		log.Println("GroupByTransform interrupted")
 	}
@@ -86,7 +86,7 @@ func (ctx *GroupByTransformationPipe) Done() error {
 	if len(ctx.currentBundle) > 0 {
 		// Send the bundle out the last bundle
 		select {
-		case ctx.outputCh.channel <- ctx.currentBundle:
+		case ctx.outputCh.Channel <- ctx.currentBundle:
 		case <-ctx.doneCh:
 			log.Println("GroupByTransform interrupted")
 		}
@@ -109,7 +109,7 @@ func (ctx *BuilderContext) NewGroupByTransformationPipe(source *InputChannel, ou
 
 	// Check if group by domain_key
 	if len(config.DomainKey) > 0 {
-		dk := source.domainKeySpec
+		dk := source.DomainKeySpec
 		if dk == nil {
 			return nil, fmt.Errorf("error: group_by operator is configured with domain key but no domain key spec available")
 		}
@@ -127,7 +127,7 @@ func (ctx *BuilderContext) NewGroupByTransformationPipe(source *InputChannel, ou
 		if len(config.GroupByName) > 0 {
 			groupByPos = make([]int, 0)
 			for _, name := range config.GroupByName {
-				groupByPos = append(groupByPos, (*source.columns)[name])
+				groupByPos = append(groupByPos, (*source.Columns)[name])
 			}
 		}
 	}
