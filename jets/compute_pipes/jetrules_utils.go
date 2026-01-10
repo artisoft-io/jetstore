@@ -285,7 +285,7 @@ func GetWorkspaceDomainClasses() (map[string]*rete.ClassNode, error) {
 	return domainClassesMap, nil
 }
 
-// Function to get domain classes info from the local workspace
+// Function to get domain tables info from the local workspace
 func GetWorkspaceDomainTables() (map[string]*rete.TableNode, error) {
 	if domainTablesMap == nil {
 		domainTablesMx.Lock()

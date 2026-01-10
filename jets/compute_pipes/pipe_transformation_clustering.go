@@ -5,7 +5,7 @@ import (
 	"log"
 )
 
-// Clustering operator. Execute rules for each record group (bundle) recieved from input chan
+// Clustering operator. Execute clustering rules (via worker pool) for each record group (bundle) recieved from input chan
 
 type ClusteringTransformationPipe struct {
 	cpConfig            *ComputePipesConfig
@@ -15,14 +15,14 @@ type ClusteringTransformationPipe struct {
 	correlationOutputCh *OutputChannel
 	spec                *TransformationSpec
 	channelRegistry     *ChannelRegistry
-	env                 map[string]interface{}
+	env                 map[string]any
 	doneCh              chan struct{}
 }
 
 // Implementing interface PipeTransformationEvaluator
 // Each call to Apply, the input correspond to a row for which we calculate the
 // column correlation.
-func (ctx *ClusteringTransformationPipe) Apply(input *[]interface{}) error {
+func (ctx *ClusteringTransformationPipe) Apply(input *[]any) error {
 	if input == nil {
 		return fmt.Errorf("error: unexpected null input arg in ClusteringTransformationPipe")
 	}
