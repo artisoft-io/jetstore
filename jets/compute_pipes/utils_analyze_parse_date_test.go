@@ -202,7 +202,7 @@ func TestParseDateMatchFunction0(t *testing.T) {
 	row := make([]any, 100)
 	err = fcount.Done(&AnalyzeTransformationPipe{
 		outputCh: &OutputChannel{
-			columns: &map[string]int{
+			Columns: &map[string]int{
 				"min_date":          0,
 				"max_date":          1,
 				"dobRe":             2,
@@ -353,7 +353,7 @@ func TestParseDateMatchFunction2(t *testing.T) {
 	row := make([]any, 100)
 	err = fcount.Done(&AnalyzeTransformationPipe{
 		outputCh: &OutputChannel{
-			columns: &map[string]int{
+			Columns: &map[string]int{
 				"min_date":          0,
 				"max_date":          1,
 				"dobRe":             2,
@@ -449,7 +449,7 @@ func TestParseDateMatchFunction3(t *testing.T) {
 	row := make([]any, 100)
 	err = fcount.Done(&AnalyzeTransformationPipe{
 		outputCh: &OutputChannel{
-			columns: &map[string]int{
+			Columns: &map[string]int{
 				"min_date":          0,
 				"max_date":          1,
 				"dobRe":             2,
@@ -537,7 +537,7 @@ func TestParseDateMatchFunction4(t *testing.T) {
 	row := make([]any, 100)
 	err = fcount.Done(&AnalyzeTransformationPipe{
 		outputCh: &OutputChannel{
-			columns: &map[string]int{
+			Columns: &map[string]int{
 				"min_date":          0,
 				"max_date":          1,
 				"dobRe":             2,
@@ -638,7 +638,7 @@ func TestParseDateMatchFunction5(t *testing.T) {
 	row := make([]any, 100)
 	err = fcount.Done(&AnalyzeTransformationPipe{
 		outputCh: &OutputChannel{
-			columns: &map[string]int{
+			Columns: &map[string]int{
 				"min_date":          0,
 				"max_date":          1,
 				"dobRe":             2,
@@ -739,7 +739,7 @@ func TestParseDateMatchFunction10(t *testing.T) {
 	row := make([]any, 100)
 	err = fcount.Done(&AnalyzeTransformationPipe{
 		outputCh: &OutputChannel{
-			columns: &map[string]int{
+			Columns: &map[string]int{
 				"min_date":          0,
 				"max_date":          1,
 				"dobRe":             2,
@@ -836,7 +836,7 @@ func TestParseDateMatchFunction11(t *testing.T) {
 	row := make([]any, 100)
 	err = fcount.Done(&AnalyzeTransformationPipe{
 		outputCh: &OutputChannel{
-			columns: &map[string]int{
+			Columns: &map[string]int{
 				"min_date":          0,
 				"max_date":          1,
 				"dobRe":             2,
@@ -931,7 +931,7 @@ func TestParseDateMatchFunction12(t *testing.T) {
 	row := make([]any, 100)
 	err = fcount.Done(&AnalyzeTransformationPipe{
 		outputCh: &OutputChannel{
-			columns: &map[string]int{
+			Columns: &map[string]int{
 				"min_date":          0,
 				"max_date":          1,
 				"dobRe":             2,
@@ -1029,7 +1029,7 @@ func TestParseDateMatchFunction13(t *testing.T) {
 	row := make([]any, 100)
 	err = fcount.Done(&AnalyzeTransformationPipe{
 		outputCh: &OutputChannel{
-			columns: &map[string]int{
+			Columns: &map[string]int{
 				"min_date":          0,
 				"max_date":          1,
 				"dobRe":             2,

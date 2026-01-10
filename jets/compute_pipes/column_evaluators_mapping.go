@@ -149,19 +149,19 @@ func (ctx *BuilderContext) BuildMapTCEvaluator(source *InputChannel, outCh *Outp
 		}
 	}
 
-	inputPos, ok := (*source.columns)[*spec.Expr]
+	inputPos, ok := (*source.Columns)[*spec.Expr]
 	if !ok {
 		// Check for special jetstore properties
 		if *spec.Expr == "jets:key" {
 			// Assign to nil when column not on input
 			inputPos = -1
 		} else {
-			return nil, fmt.Errorf("mapping column: error column %s not found in input source %s", *spec.Expr, source.name)
+			return nil, fmt.Errorf("mapping column: error column %s not found in input source %s", *spec.Expr, source.Name)
 		}
 	}
-	outputPos, ok := (*outCh.columns)[spec.Name]
+	outputPos, ok := (*outCh.Columns)[spec.Name]
 	if !ok {
-		return nil, fmt.Errorf("mapping column: error column %s not found in output source %s", spec.Name, outCh.name)
+		return nil, fmt.Errorf("mapping column: error column %s not found in output source %s", spec.Name, outCh.Name)
 	}
 	return &mapColumnEval{
 		mapConfig: &mapColumnConfig{
@@ -169,7 +169,7 @@ func (ctx *BuilderContext) BuildMapTCEvaluator(source *InputChannel, outCh *Outp
 			outputPos:    outputPos,
 			defaultValue: defaultValue,
 			mapConfig:    spec.MapExpr},
-		cleansingCtx: cleansing_functions.NewCleansingFunctionContext(source.columns),
+		cleansingCtx: cleansing_functions.NewCleansingFunctionContext(source.Columns),
 	}, nil
 }
 

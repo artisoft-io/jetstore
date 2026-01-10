@@ -35,12 +35,12 @@ func TestHashColumnEvalFull01(t *testing.T) {
 	// Build the Column Transformation Evaluator
 	trsfEvaluator, err := ctx.BuildHashTCEvaluator(
 		&InputChannel{
-			name:    "input",
-			columns: &inputColumns,
+			Name:    "input",
+			Columns: &inputColumns,
 		},
 		&OutputChannel{
-			name:    "output",
-			columns: &outputColumns,
+			Name:    "output",
+			Columns: &outputColumns,
 		},
 		&TransformationColumnSpec{
 			Type: "hash",
@@ -102,9 +102,9 @@ func TestComputeDomainKeyFull01(t *testing.T) {
 	// Build the Column Transformation Evaluator
 	trsfEvaluator, err := ctx.BuildHashTCEvaluator(
 		&InputChannel{
-			name:    "input",
-			columns: &inputColumns,
-			domainKeySpec: &DomainKeysSpec{
+			Name:    "input",
+			Columns: &inputColumns,
+			DomainKeySpec: &DomainKeysSpec{
 				HashingOverride: "none",
 				DomainKeys: map[string]*DomainKeyInfo{
 					"Claim": {
@@ -115,8 +115,8 @@ func TestComputeDomainKeyFull01(t *testing.T) {
 			},
 		},
 		&OutputChannel{
-			name:    "output",
-			columns: &outputColumns,
+			Name:    "output",
+			Columns: &outputColumns,
 		},
 		&TransformationColumnSpec{
 			Type: "hash",
@@ -172,9 +172,9 @@ func TestComputeDomainKeyFull02(t *testing.T) {
 	// Build the Column Transformation Evaluator
 	trsfEvaluator, err := ctx.BuildHashTCEvaluator(
 		&InputChannel{
-			name:    "input",
-			columns: &inputColumns,
-			domainKeySpec: &DomainKeysSpec{
+			Name:    "input",
+			Columns: &inputColumns,
+			DomainKeySpec: &DomainKeysSpec{
 				HashingOverride: "none",
 				DomainKeys: map[string]*DomainKeyInfo{
 					"Claim": {
@@ -185,8 +185,8 @@ func TestComputeDomainKeyFull02(t *testing.T) {
 			},
 		},
 		&OutputChannel{
-			name:    "output",
-			columns: &outputColumns,
+			Name:    "output",
+			Columns: &outputColumns,
 		},
 		&TransformationColumnSpec{
 			Type: "hash",
@@ -242,9 +242,9 @@ func TestComputeDomainKeyFull03(t *testing.T) {
 	// Build the Column Transformation Evaluator
 	trsfEvaluator, err := ctx.BuildHashTCEvaluator(
 		&InputChannel{
-			name:    "input",
-			columns: &inputColumns,
-			domainKeySpec: &DomainKeysSpec{
+			Name:    "input",
+			Columns: &inputColumns,
+			DomainKeySpec: &DomainKeysSpec{
 				// HashingOverride: "none",
 				DomainKeys: map[string]*DomainKeyInfo{
 					"Claim": {
@@ -255,8 +255,8 @@ func TestComputeDomainKeyFull03(t *testing.T) {
 			},
 		},
 		&OutputChannel{
-			name:    "output",
-			columns: &outputColumns,
+			Name:    "output",
+			Columns: &outputColumns,
 		},
 		&TransformationColumnSpec{
 			Type: "hash",

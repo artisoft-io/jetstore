@@ -114,7 +114,7 @@ func (ctx *PartitionWriterTransformationPipe) Apply(input *[]any) error {
 	if ctx.currentDeviceCh == nil {
 		// replace the underlying channel of outputCh with a buffered one
 		ctx.currentDeviceCh = make(chan []any, 10)
-		ctx.outputCh.channel = ctx.currentDeviceCh
+		ctx.outputCh.Channel = ctx.currentDeviceCh
 
 		// Start the device writter for the partition
 		ctx.filePartitionNumber += 1
@@ -139,11 +139,11 @@ func (ctx *PartitionWriterTransformationPipe) Apply(input *[]any) error {
 		s3DeviceWriter := &S3DeviceWriter{
 			s3DeviceManager: ctx.s3DeviceManager,
 			source: &InputChannel{
-				channel: ctx.currentDeviceCh,
-				columns: ctx.outputCh.columns,
-				config: &ChannelSpec{
+				Channel: ctx.currentDeviceCh,
+				Columns: ctx.outputCh.Columns,
+				Config: &ChannelSpec{
 					Name:      fmt.Sprintf("input channel for partition_writer for %s", partitionFileName),
-					ClassName: ctx.outputCh.config.ClassName},
+					ClassName: ctx.outputCh.Config.ClassName},
 			},
 			spec:           ctx.spec,
 			schemaProvider: ctx.schemaProvider,
@@ -205,7 +205,7 @@ func (ctx *PartitionWriterTransformationPipe) Apply(input *[]any) error {
 	// currentValue is either the input row or a new row based on ctx.NewRecord flag
 	var currentValues *[]any
 	if ctx.spec.NewRecord {
-		v := make([]any, len(ctx.outputCh.config.Columns))
+		v := make([]any, len(ctx.outputCh.Config.Columns))
 		currentValues = &v
 		// initialize the column evaluators
 		for i := range ctx.columnEvaluators {
@@ -233,16 +233,16 @@ func (ctx *PartitionWriterTransformationPipe) Apply(input *[]any) error {
 	}
 	if !ctx.spec.NewRecord {
 		// resize the slice in case we're dropping column on the output
-		if len(*currentValues) > len(ctx.outputCh.config.Columns) {
-			*currentValues = (*currentValues)[:len(ctx.outputCh.config.Columns)]
+		if len(*currentValues) > len(ctx.outputCh.Config.Columns) {
+			*currentValues = (*currentValues)[:len(ctx.outputCh.Config.Columns)]
 		}
 	}
 	// Send the result to output
-	// log.Printf("PARTITION WRITER (%s) ROW %v", ctx.outputCh.name, *currentValues)
+	// log.Printf("PARTITION WRITER (%s) ROW %v", ctx.outputCh.Name, *currentValues)
 	select {
-	case ctx.outputCh.channel <- *currentValues:
+	case ctx.outputCh.Channel <- *currentValues:
 	case <-ctx.doneCh:
-		log.Printf("PartitionWriterTransformationPipe writing to '%s' interrupted", ctx.outputCh.name)
+		log.Printf("PartitionWriterTransformationPipe writing to '%s' interrupted", ctx.outputCh.Name)
 		return nil
 	}
 	ctx.partitionRowCount += 1
@@ -338,7 +338,7 @@ func (ctx *BuilderContext) NewPartitionWriterTransformationPipe(source *InputCha
 	}
 
 	// close the underlying channel of outputCh since it will be replaced
-	ctx.channelRegistry.CloseChannel(outputCh.name)
+	ctx.channelRegistry.CloseChannel(outputCh.Name)
 
 	// NOTE: parquet schema -- saving data as text
 	// NOTE (future) To write parquet using typed data, get the data type from the schema provider.
@@ -384,7 +384,7 @@ func (ctx *BuilderContext) NewPartitionWriterTransformationPipe(source *InputCha
 
 	// Use the column specified from the output channel, if none are specified, look at the schema provider
 	// Note this does not apply to output channel with dynamic columns since they have placeholder at config time
-	if outputCh.config.HasDynamicColumns && config.DeviceWriterType == "parquet_writer" {
+	if outputCh.Config.HasDynamicColumns && config.DeviceWriterType == "parquet_writer" {
 		//*TODO Cannot use parquet with output_channel with dynamic columns, need to defer the construction of the schema
 		err = fmt.Errorf("error: parquet writer is not supported with output_channel with dynamic columns")
 		log.Println(err)
@@ -393,14 +393,14 @@ func (ctx *BuilderContext) NewPartitionWriterTransformationPipe(source *InputCha
 	// Check if using original column names on
 	originalColumnNames := ctx.cpConfig.CommonRuntimeArgs.SourcesConfig.MainInput.OriginalInputColumns
 	if len(originalColumnNames) > 0 && spec.OutputChannel.UseOriginalHeaders {
-		outputCh.config.Columns = originalColumnNames
+		outputCh.Config.Columns = originalColumnNames
 	}
-	if !outputCh.config.HasDynamicColumns {
-		if len(outputCh.config.Columns) == 0 && sp != nil {
-			outputCh.config.Columns = sp.ColumnNames()
+	if !outputCh.Config.HasDynamicColumns {
+		if len(outputCh.Config.Columns) == 0 && sp != nil {
+			outputCh.Config.Columns = sp.ColumnNames()
 		}
-		if len(outputCh.config.Columns) == 0 {
-			return nil, fmt.Errorf("error: output channel '%s' have no columns specified", outputCh.name)
+		if len(outputCh.Config.Columns) == 0 {
+			return nil, fmt.Errorf("error: output channel '%s' have no columns specified", outputCh.Name)
 		}
 		switch config.DeviceWriterType {
 		case "parquet_writer":
@@ -413,7 +413,7 @@ func (ctx *BuilderContext) NewPartitionWriterTransformationPipe(source *InputCha
 				parquetSchema = spec.OutputChannel.ParquetSchema
 			default:
 				// log.Println("** parquet_writer: Constructing a default schema")
-				parquetSchema = BuildParquetSchemaInfo(outputCh.config.Columns)
+				parquetSchema = BuildParquetSchemaInfo(outputCh.Config.Columns)
 			}
 		}
 	}

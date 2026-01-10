@@ -75,9 +75,9 @@ func (ctx *BuilderContext) BuildHashTCEvaluator(source *InputChannel, outCh *Out
 	if spec == nil || spec.HashExpr == nil {
 		return nil, fmt.Errorf("error: Type hash must have HashExpr != nil")
 	}
-	outputPos, ok := (*outCh.columns)[spec.Name]
+	outputPos, ok := (*outCh.Columns)[spec.Name]
 	if !ok {
-		return nil, fmt.Errorf("error column %s not found in output source %s", spec.Name, outCh.name)
+		return nil, fmt.Errorf("error column %s not found in output source %s", spec.Name, outCh.Name)
 	}
 	hashEvaluator, err := ctx.NewHashEvaluator(source, spec.HashExpr)
 
@@ -155,17 +155,17 @@ func (ctx *BuilderContext) NewHashEvaluator(source *InputChannel,
 
 	switch {
 	case exprLen > 0:
-		inputPos, ok = (*source.columns)[spec.Expr]
+		inputPos, ok = (*source.Columns)[spec.Expr]
 		if !ok {
-			return nil, fmt.Errorf("error column %s not found in input source %s", spec.Expr, source.name)
+			return nil, fmt.Errorf("error column %s not found in input source %s", spec.Expr, source.Name)
 		}
 	case compositeLen > 0 || domainKeyLen > 0:
 		var keys []string
 		if domainKeyLen > 0 {
-			dk := source.domainKeySpec
+			dk := source.DomainKeySpec
 			if dk == nil {
 				return nil, fmt.Errorf(
-					"error: hash operator is configured with domain key but no domain key spec available on source '%s'", source.config.Name)
+					"error: hash operator is configured with domain key but no domain key spec available on source '%s'", source.Config.Name)
 			}
 			domainKeyInfo, ok = dk.DomainKeys[spec.DomainKey]
 			if ok {
@@ -180,12 +180,12 @@ func (ctx *BuilderContext) NewHashEvaluator(source *InputChannel,
 		toUpper := true
 		if spec.ComputeDomainKey {
 			toUpper = len(keys) > 1
-			if len(source.domainKeySpec.HashingOverride) > 0 {
-				if source.domainKeySpec.HashingOverride == "none" {
+			if len(source.DomainKeySpec.HashingOverride) > 0 {
+				if source.DomainKeySpec.HashingOverride == "none" {
 					// This is the case of domain_table
 					hashingAlgo = "none"
 				} else {
-					hashingAlgo = source.domainKeySpec.HashingOverride
+					hashingAlgo = source.DomainKeySpec.HashingOverride
 				}
 			}
 			switch hashingAlgo {
@@ -202,9 +202,9 @@ func (ctx *BuilderContext) NewHashEvaluator(source *InputChannel,
 			}
 		}
 
-		compositeInputKey, err = ParsePreprocessingExpressions(keys, toUpper, source.columns)
+		compositeInputKey, err = ParsePreprocessingExpressions(keys, toUpper, source.Columns)
 		if err != nil {
-			return nil, fmt.Errorf("while calling ParsePreprocessingExpressions (input channel name %s): %v", source.name, err)
+			return nil, fmt.Errorf("while calling ParsePreprocessingExpressions (input channel name %s): %v", source.Name, err)
 		}
 	}
 	var partitions uint64
@@ -217,9 +217,9 @@ func (ctx *BuilderContext) NewHashEvaluator(source *InputChannel,
 	}
 	var altInputKey []PreprocessingFunction
 	if len(spec.AlternateCompositeExpr) > 0 {
-		altInputKey, err = ParsePreprocessingExpressions(spec.AlternateCompositeExpr, true, source.columns)
+		altInputKey, err = ParsePreprocessingExpressions(spec.AlternateCompositeExpr, true, source.Columns)
 		if err != nil {
-			return nil, fmt.Errorf("%v in source name %s", err, source.name)
+			return nil, fmt.Errorf("%v in source name %s", err, source.Name)
 		}
 	}
 	// var debugCount int

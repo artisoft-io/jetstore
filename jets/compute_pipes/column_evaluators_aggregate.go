@@ -57,7 +57,7 @@ func (ctx *BuilderContext) BuildCountTCEvaluator(source *InputChannel, outCh *Ou
 	inputPos := -1
 	var ok bool
 	if *spec.Expr != "*" {
-		inputPos, ok = (*source.columns)[*spec.Expr]
+		inputPos, ok = (*source.Columns)[*spec.Expr]
 		if !ok {
 			return nil, fmt.Errorf("error: count needs a valid column name or * to count all rows")
 		}
@@ -65,14 +65,14 @@ func (ctx *BuilderContext) BuildCountTCEvaluator(source *InputChannel, outCh *Ou
 	var where evalExpression
 	var err error
 	if spec.Where != nil {
-		where, err = ctx.BuildExprNodeEvaluator(source.name, *source.columns, spec.Where)
+		where, err = ctx.BuildExprNodeEvaluator(source.Name, *source.Columns, spec.Where)
 		if err != nil {
 			return nil, fmt.Errorf("while building where expression: %v", err)
 		}
 	}
-	outputPos, ok := (*outCh.columns)[spec.Name]
+	outputPos, ok := (*outCh.Columns)[spec.Name]
 	if !ok {
-		return nil, fmt.Errorf("error column %s not found in output source %s", spec.Name, outCh.name)
+		return nil, fmt.Errorf("error column %s not found in output source %s", spec.Name, outCh.Name)
 	}
 	return &countColumnEval{
 		inputPos:  inputPos,
@@ -157,21 +157,21 @@ func (ctx *BuilderContext) BuildDistinctCountTCEvaluator(source *InputChannel, o
 	if spec == nil || spec.Expr == nil {
 		return nil, fmt.Errorf("error: Type distinct_count must have Expr != nil")
 	}
-	inputPos, ok := (*source.columns)[*spec.Expr]
+	inputPos, ok := (*source.Columns)[*spec.Expr]
 	if !ok {
 		return nil, fmt.Errorf("error, count_distinct needs a valid column name")
 	}
 	var where evalExpression
 	var err error
 	if spec.Where != nil {
-		where, err = ctx.BuildExprNodeEvaluator(source.name, *source.columns, spec.Where)
+		where, err = ctx.BuildExprNodeEvaluator(source.Name, *source.Columns, spec.Where)
 		if err != nil {
 			return nil, fmt.Errorf("while building where expression: %v", err)
 		}
 	}
-	outputPos, ok := (*outCh.columns)[spec.Name]
+	outputPos, ok := (*outCh.Columns)[spec.Name]
 	if !ok {
-		return nil, fmt.Errorf("error column %s not found in output source %s", spec.Name, outCh.name)
+		return nil, fmt.Errorf("error column %s not found in output source %s", spec.Name, outCh.Name)
 	}
 	return &distinctCountColumnEval{
 		inputPos:  inputPos,
@@ -271,21 +271,21 @@ func (ctx *BuilderContext) BuildSumTCEvaluator(source *InputChannel, outCh *Outp
 	if spec == nil || spec.Expr == nil {
 		return nil, fmt.Errorf("error: Type sum must have Expr != nil")
 	}
-	inputPos, ok := (*source.columns)[*spec.Expr]
+	inputPos, ok := (*source.Columns)[*spec.Expr]
 	if !ok {
 		return nil, fmt.Errorf("error, sum needs a valid column name")
 	}
 	var where evalExpression
 	var err error
 	if spec.Where != nil {
-		where, err = ctx.BuildExprNodeEvaluator(source.name, *source.columns, spec.Where)
+		where, err = ctx.BuildExprNodeEvaluator(source.Name, *source.Columns, spec.Where)
 		if err != nil {
 			return nil, fmt.Errorf("while building where expression for sum aggregate: %v", err)
 		}
 	}
-	outputPos, ok := (*outCh.columns)[spec.Name]
+	outputPos, ok := (*outCh.Columns)[spec.Name]
 	if !ok {
-		return nil, fmt.Errorf("error column %s not found in output source %s", spec.Name, outCh.name)
+		return nil, fmt.Errorf("error column %s not found in output source %s", spec.Name, outCh.Name)
 	}
 	return &sumColumnEval{
 		inputPos:  inputPos,
@@ -386,21 +386,21 @@ func (ctx *BuilderContext) BuildMinTCEvaluator(source *InputChannel, outCh *Outp
 	if spec == nil || spec.Expr == nil {
 		return nil, fmt.Errorf("error: Type min must have Expr != nil")
 	}
-	inputPos, ok := (*source.columns)[*spec.Expr]
+	inputPos, ok := (*source.Columns)[*spec.Expr]
 	if !ok {
 		return nil, fmt.Errorf("error, min needs a valid column name")
 	}
 	var where evalExpression
 	var err error
 	if spec.Where != nil {
-		where, err = ctx.BuildExprNodeEvaluator(source.name, *source.columns, spec.Where)
+		where, err = ctx.BuildExprNodeEvaluator(source.Name, *source.Columns, spec.Where)
 		if err != nil {
 			return nil, fmt.Errorf("while building where expression for min aggregate: %v", err)
 		}
 	}
-	outputPos, ok := (*outCh.columns)[spec.Name]
+	outputPos, ok := (*outCh.Columns)[spec.Name]
 	if !ok {
-		return nil, fmt.Errorf("error column %s not found in output source %s", spec.Name, outCh.name)
+		return nil, fmt.Errorf("error column %s not found in output source %s", spec.Name, outCh.Name)
 	}
 	return &minColumnEval{
 		inputPos:  inputPos,

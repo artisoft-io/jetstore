@@ -31,7 +31,7 @@ func (ctx *ShufflingTransformationPipe) Apply(input *[]any) error {
 		return nil
 	}
 	inputLen := len(*input)
-	expectedLen := len(ctx.source.config.Columns)
+	expectedLen := len(ctx.source.Config.Columns)
 	if inputLen < expectedLen {
 		if ctx.padShortRows {
 			for range expectedLen - inputLen {
@@ -56,15 +56,15 @@ func (ctx *ShufflingTransformationPipe) Done() error {
 		return nil
 	}
 	for range ctx.spec.ShufflingConfig.OutputSampleSize {
-		outputRow := make([]any, len(ctx.outputCh.config.Columns))
+		outputRow := make([]any, len(ctx.outputCh.Config.Columns))
 		// For each column take a random value from the sourceData set
-		for jcol := range ctx.outputCh.config.Columns {
+		for jcol := range ctx.outputCh.Config.Columns {
 			outputRow[jcol] = ctx.sourceData[rand.Intn(nbrRecIn)][ctx.inputColPos[jcol]]
 		}
 		// Send the result to output
-		// log.Println("**!@@ ** Send SHUFFLING Result to", ctx.outputCh.name)
+		// log.Println("**!@@ ** Send SHUFFLING Result to", ctx.outputCh.Name)
 		select {
-		case ctx.outputCh.channel <- outputRow:
+		case ctx.outputCh.Channel <- outputRow:
 		case <-ctx.doneCh:
 			log.Println("ShufflingTransform interrupted")
 		}
@@ -114,9 +114,9 @@ func (ctx *BuilderContext) NewShufflingTransformationPipe(source *InputChannel, 
 		}
 
 		// Prepare to replace the output column info
-		outputCh.config.Columns = make([]string, 0)
+		outputCh.Config.Columns = make([]string, 0)
 
-		for ipos := range source.config.Columns {
+		for ipos := range source.Config.Columns {
 			columnPosStr := fmt.Sprintf("%d", ipos)
 			// Lookup the metadata row by column position
 			metaRow, err := metaLookupTbl.Lookup(&columnPosStr)
@@ -132,19 +132,19 @@ func (ctx *BuilderContext) NewShufflingTransformationPipe(source *InputChannel, 
 				retainedInputColPos = append(retainedInputColPos, ipos)
 				// get the column name from metaRow
 				name := (*metaRow)[lookupColumnName].(string)
-				outputCh.config.Columns = append(outputCh.config.Columns, name)
+				outputCh.Config.Columns = append(outputCh.Config.Columns, name)
 			}
 		}
-		if len(outputCh.config.Columns) == 0 {
+		if len(outputCh.Config.Columns) == 0 {
 			// There is no column retained, put a placeholder so it's not empty
-			(*outputCh.columns)["placeholder"] = 0
-			outputCh.config.Columns = append(outputCh.config.Columns, "placeholder")
+			(*outputCh.Columns)["placeholder"] = 0
+			outputCh.Config.Columns = append(outputCh.Config.Columns, "placeholder")
 		}
-		// log.Println("*** Updated SHUFFLING OUTPUT Columns:", outputCh.config.Columns)
+		// log.Println("*** Updated SHUFFLING OUTPUT Columns:", outputCh.Config.Columns)
 	} else {
 		// Retain all input columns
-		retainedInputColPos = make([]int, len(source.config.Columns))
-		for ipos := range source.config.Columns {
+		retainedInputColPos = make([]int, len(source.Config.Columns))
+		for ipos := range source.Config.Columns {
 			retainedInputColPos[ipos] = ipos
 		}
 	}
