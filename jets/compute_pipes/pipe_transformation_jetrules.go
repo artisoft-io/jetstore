@@ -17,7 +17,7 @@ import (
 type JetrulesTransformationPipe struct {
 	cpConfig       *ComputePipesConfig
 	source         *InputChannel
-	ruleEngine     JetRulesEngine
+	ruleEngine     JetRuleEngine
 	jrPoolManager  *JrPoolManager
 	outputChannels []*JetrulesOutputChan
 	spec           *TransformationSpec
@@ -68,7 +68,7 @@ func (ctx *BuilderContext) NewJetrulesTransformationPipe(source *InputChannel, _
 	config := spec.JetrulesConfig
 
 	// Get the jetrules engine for the process
-	ruleEngine, err := ctx.jetRules.NewJetRulesEngine(ctx.dbpool, config.ProcessName)
+	ruleEngine, err := ctx.jetRules.NewJetRuleEngine(ctx.dbpool, config.ProcessName)
 	if err != nil {
 		return nil, err
 	}
@@ -103,7 +103,7 @@ func (ctx *BuilderContext) NewJetrulesTransformationPipe(source *InputChannel, _
 	}
 
 	// Assert current source period to meta graph
-	err = ruleEngine.AssertSourcePeriodInfo(config)
+	err = AssertSourcePeriodInfo(ruleEngine, config)
 	if err != nil {
 		return nil, fmt.Errorf("while AssertSourcePeriodInfo: %v", err)
 	}
@@ -152,13 +152,13 @@ func (ctx *BuilderContext) NewJetrulesTransformationPipe(source *InputChannel, _
 	}
 
 	// Assert rule config to meta graph from the pipeline configuration
-	err = ruleEngine.AssertRuleConfiguration(config)
+	err = AssertRuleConfiguration(ruleEngine, config)
 	if err != nil {
 		return nil, fmt.Errorf("while AssertRuleConfiguration: %v", err)
 	}
 
 	// Assert metadata source
-	err = ruleEngine.AssertMetadataSource(config, ctx.env)
+	err = AssertMetadataSource(ruleEngine, config, ctx.env)
 	if err != nil {
 		return nil, fmt.Errorf("while AssertMetadataSource: %v", err)
 	}

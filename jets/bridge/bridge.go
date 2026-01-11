@@ -17,7 +17,7 @@ import (
 import "C"
 
 type JetStore struct {
-	hdl C.HJETS
+	hdl          C.HJETS
 	process_name string
 }
 
@@ -61,20 +61,31 @@ var (
 //   case rdf_literal_datetime_t :10 return rdf_literal_datetime_t;
 
 func getTypeName(dtype int) string {
-	switch (dtype) {
-		case 0  : return "null";
-		case 1  : return "blank_node";
-		case 2  : return "named_resource";
-		case 3  : return "int32";
-		case 4  : return "uint32";
-		case 5  : return "int64";
-		case 6  : return "uint64";
-		case 7  : return "double";
-		case 8  : return "string";
-		case 9  : return "date";
-		case 10 : return "datetime";
+	switch dtype {
+	case 0:
+		return "null"
+	case 1:
+		return "blank_node"
+	case 2:
+		return "named_resource"
+	case 3:
+		return "int32"
+	case 4:
+		return "uint32"
+	case 5:
+		return "int64"
+	case 6:
+		return "uint64"
+	case 7:
+		return "double"
+	case 8:
+		return "string"
+	case 9:
+		return "date"
+	case 10:
+		return "datetime"
 	}
-	return "unknown";
+	return "unknown"
 }
 
 func GetTypeName(dtype int) string {
@@ -246,6 +257,7 @@ func (js *JetStore) NewDoubleLiteral(value float64) (*Resource, error) {
 	}
 	return &r, nil
 }
+
 func (js *JetStore) NewDateLiteral(value string) (*Resource, error) {
 	var r Resource
 	cstr := C.CString(value)
@@ -260,6 +272,34 @@ func (js *JetStore) NewDateLiteral(value string) (*Resource, error) {
 	}
 	return &r, nil
 }
+
+func (js *JetStore) NewDateDetails(year, month, day int) (*Resource, error) {
+	var r Resource
+	ret := int(C.create_meta_date_details(js.hdl, C.int(year), C.int(month), C.int(day), &r.hdl))
+	if ret == -2 {
+		return &r, ErrNotValidDate
+	}
+	if ret != 0 {
+		fmt.Println("Yikes got error in NewDateDetails ret code", ret)
+		return &r, errors.New("ERROR calling NewDateDetails(), ret code: " + fmt.Sprint(ret))
+	}
+	return &r, nil
+}
+
+func (js *JetStore) NewDatetimeDetails(year, month, day, hour, min, sec int) (*Resource, error) {
+	var r Resource
+	ret := int(C.create_meta_datetime_details(js.hdl, C.int(year), C.int(month), C.int(day),
+		C.int(hour), C.int(min), C.int(sec), &r.hdl))
+	if ret == -2 {
+		return &r, ErrNotValidDateTime
+	}
+	if ret != 0 {
+		fmt.Println("Yikes got error in NewDatetimeDetails ret code", ret)
+		return &r, errors.New("ERROR calling NewDatetimeDetails(), ret code: " + fmt.Sprint(ret))
+	}
+	return &r, nil
+}
+
 func (js *JetStore) NewDatetimeLiteral(value string) (*Resource, error) {
 	var r Resource
 	cstr := C.CString(value)
@@ -573,7 +613,7 @@ func (r *Resource) GetText() (string, error) {
 }
 
 func (r *Resource) AsTextSilent() string {
-	txt,_ := r.AsText()
+	txt, _ := r.AsText()
 	return txt
 }
 
@@ -651,7 +691,7 @@ func (r *Resource) AsInterface(columnType string) (ret interface{}, err error) {
 			return reportTypeError(r, columnType)
 		}
 		return v, nil
-	case 3,5:
+	case 3, 5:
 		v, err := r.GetInt()
 		if err != nil {
 			fmt.Println("ERROR Can't GetInt", err)

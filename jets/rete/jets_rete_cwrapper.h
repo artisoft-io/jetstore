@@ -39,6 +39,8 @@ int create_meta_long(HJETS js_hdl, long v, HJR * handle);
 int create_meta_ulong(HJETS js_hdl, ulong v, HJR * handle);
 int create_meta_double(HJETS js_hdl, double v, HJR * handle);
 int create_meta_date(HJETS js_hdl, char const * v, HJR * handle);
+int create_meta_date_details(HJETS hdl, int year, int month, int day, HJR * handle);
+int create_meta_datetime_details(HJETS hdl, int year, int month, int day, int hr, int min, int sec, HJR * handle);
 int create_meta_datetime(HJETS js_hdl, char const * v, HJR * handle);
 
 int load_process_meta_triples(char const * jetrule_name, int is_rule_set, HJETS js_hdl);
@@ -58,6 +60,8 @@ int create_long(HJRDF hdl, long v, HJR * handle);
 int create_ulong(HJRDF hdl, ulong v, HJR * handle);
 int create_double(HJRDF hdl, double v, HJR * handle);
 int create_date(HJRDF hdl, char const * v, HJR * handle);
+int create_date_details(HJRDF hdl, int year, int month, int day, HJR * handle);
+int create_datetime_details(HJRDF hdl, int year, int month, int day, int hr, int min, int sec, HJR * handle);
 int create_datetime(HJRDF hdl, char const * v, HJR * handle);
 char const* get_rdf_graph_txt(HJRDF hdl, int*v);
 

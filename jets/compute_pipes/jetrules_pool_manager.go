@@ -20,7 +20,7 @@ type JrPoolManager struct {
 
 // Create the JrPoolManager, it will be set to the receiving BuilderContext
 func (ctx *BuilderContext) NewJrPoolManager(
-	config *JetrulesSpec, source *InputChannel, ruleEngine JetRulesEngine,
+	config *JetrulesSpec, source *InputChannel, ruleEngine JetRuleEngine,
 	outputChannels []*JetrulesOutputChan, jetrulesWorkerResultCh chan JetrulesWorkerResult) (jrpm *JrPoolManager, err error) {
 	log.Println("Starting the Pool Manager")
 	if config.PoolSize < 1 {
@@ -80,7 +80,7 @@ func (ctx *BuilderContext) NewJrPoolManager(
 			jrpm.jrPoolWg.Add(1)
 			go func() {
 				defer jrpm.jrPoolWg.Done()
-				worker :=  ruleEngine.NewWorker(config, source, outputChannels, ctx.done, ctx.errCh)
+				worker := NewJrPoolWorker(config, source, ruleEngine, outputChannels, ctx.done, ctx.errCh)
 				worker.DoWork(jrpm, workersResultCh)
 			}()
 		}

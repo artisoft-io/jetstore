@@ -231,7 +231,7 @@ func (workspaceDb *WorkspaceDb) LoadDomainTableDefinitions(allTbl bool, outTable
 	return domainTableMap, nil
 }
 
-// loadJetStoreProperties: returns a mapping of the output domain tables with their column specs
+// loadJetStoreProperties: returns the properties defined in the jet rules
 func (workspaceDb *WorkspaceDb) LoadJetStoreProperties(ruleset string) (JetStoreProperties, error) {
 	result := make(JetStoreProperties)
 	if workspaceDb.db == nil {

@@ -64,7 +64,7 @@ func LoadWorkspaceControl(fpath string) (*WorkspaceControl, error) {
 
 // Provide rule file names (ending in .jr) for a logical ruleFileName
 // which may correspong to a RuleSequence or an individual main rule file.
-func (wc *WorkspaceControl) MainRuleFileNames(ruleFileName string) []string {
+func (wc *WorkspaceControl) RuleFileNames(ruleFileName string) []string {
 	if wc == nil {
 		return nil
 	}

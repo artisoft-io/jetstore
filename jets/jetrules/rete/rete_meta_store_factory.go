@@ -87,7 +87,7 @@ func NewReteMetaStoreFactory(jetRuleName string) (*ReteMetaStoreFactory, error) 
 	resourceManager := rdf.NewResourceManager(nil)
 	factory := &ReteMetaStoreFactory{
 		WorkspaceCtrl:     workspaceControl,
-		MainRuleFileNames: workspaceControl.MainRuleFileNames(jetRuleName),
+		MainRuleFileNames: workspaceControl.RuleFileNames(jetRuleName),
 		ResourceMgr:       resourceManager,
 		MetaGraph:         rdf.NewMetaRdfGraph(resourceManager),
 		MetaStoreLookup:   make(map[string]*ReteMetaStore),
