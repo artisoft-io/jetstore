@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strings"
 	"sync"
 
 	"github.com/artisoft-io/jetstore/jets/jetrules/rete"
@@ -67,23 +68,20 @@ func GetWorkspaceControl() (*rete.WorkspaceControl, error) {
 
 // Assert source period info (date, period, type) to rdf graph
 func AssertSourcePeriodInfo(re JetRuleEngine, config *JetrulesSpec) (err error) {
-	if re.IsMetaGraphLocked() {
-		log.Println("Warning: AssertSourcePeriodInfo called on locked graph")
-		return nil
-	}
+	rm := re.GetMetaResourceManager()
 	jr := re.JetResources()
-	err = re.Insert(jr.Jets__istate, jr.Jets__currentSourcePeriod, re.NewIntLiteral(config.CurrentSourcePeriod))
+	err = re.Insert(jr.Jets__istate, jr.Jets__currentSourcePeriod, rm.NewIntLiteral(config.CurrentSourcePeriod))
 	if err != nil {
 		return
 	}
 	if config.CurrentSourcePeriodDate != "" {
-		err = re.Insert(jr.Jets__istate, jr.Jets__currentSourcePeriodDate, re.NewDateLiteral(config.CurrentSourcePeriodDate))
+		err = re.Insert(jr.Jets__istate, jr.Jets__currentSourcePeriodDate, rm.NewDateLiteral(config.CurrentSourcePeriodDate))
 		if err != nil {
 			return
 		}
 	}
 	if config.CurrentSourcePeriodType != "" {
-		err = re.Insert(jr.Jets__istate, jr.Jets__currentSourcePeriodDate, re.NewTextLiteral(config.CurrentSourcePeriodType))
+		err = re.Insert(jr.Jets__istate, jr.Jets__currentSourcePeriodDate, rm.NewTextLiteral(config.CurrentSourcePeriodType))
 		if err != nil {
 			return
 		}
@@ -111,11 +109,8 @@ func AssertMetadataSource(re JetRuleEngine, config *JetrulesSpec, env map[string
 
 // Assert rule config to meta graph from the pipeline configuration
 func AssertRuleConfiguration(re JetRuleEngine, config *JetrulesSpec) (err error) {
-	if re.IsMetaGraphLocked() {
-		log.Println("Warning: AssertRuleConfiguration called on locked graph")
-		return nil
-	}
 	var object RdfNode
+	rm := re.GetMetaResourceManager()
 	for _, rc := range config.RuleConfig {
 
 		// determine the subject of rc (look for jets:key or use a uuid)
@@ -129,15 +124,15 @@ func AssertRuleConfiguration(re JetRuleEngine, config *JetrulesSpec) (err error)
 		} else {
 			subjectTxt = uuid.New().String()
 		}
-		subject := re.NewResource(subjectTxt)
+		subject := rm.NewResource(subjectTxt)
 
 		for predicateTxt := range rc {
 			value, rdfType, err2 := ExtractRdfNodeInfoJson(rc[predicateTxt])
 			if err2 != nil {
 				return err2
 			}
-			predicate := re.NewResource(predicateTxt)
-			object, err = ParseRdfNodeValue(re, value, rdfType)
+			predicate := rm.NewResource(predicateTxt)
+			object, err = ParseRdfNodeValue(re.GetMetaResourceManager(), value, rdfType)
 			if err != nil {
 				return
 			}
@@ -209,7 +204,8 @@ func GetJetRuleEngine(reFactory JetRulesFactory, dbpool *pgxpool.Pool, processNa
 				fmt.Errorf("while loading ruleset '%s' for process '%s' from local workspace via NewJetRuleEngine: %v",
 					mainRules, processName, err)
 		}
-		ruleEngineCache.Store(processName, ruleEngine)
+		//*** concurrent read/write og resourceMap issue
+		// ruleEngineCache.Store(processName, ruleEngine)
 	} else {
 		ruleEngine = reHdle.(JetRuleEngine)
 	}
@@ -223,7 +219,7 @@ func GetRuleEngineConfig(mainRuleFile, property string) (string, error) {
 		defer ruleEngineConfigMx.Unlock()
 		fmt.Println("Load Rule Engine config from local Workspace")
 		ruleEngineConfig = make(map[string]string)
-		fpath := fmt.Sprintf("%s/%s/build/config.json", workspaceHome, wsPrefix)
+		fpath := fmt.Sprintf("%s/%s/build/%s.config.json", workspaceHome, wsPrefix, strings.TrimSuffix(mainRuleFile, ".jr"))
 		log.Println("Reading Rule Engine config definitions from:", fpath)
 		file, err := os.ReadFile(fpath)
 		if err != nil {

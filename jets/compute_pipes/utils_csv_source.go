@@ -84,6 +84,7 @@ func NewCsvSourceS3(spec *CsvSourceSpec, env map[string]any) (*CsvSourceS3, erro
 
 // *TODO Refactor this ReadFileToMetaGraph func
 func (ctx *CsvSourceS3) ReadFileToMetaGraph(re JetRuleEngine, config *JetrulesSpec) error {
+	rm := re.GetMetaResourceManager()
 
 	// Create a local temp directory to hold the file
 	inFolderPath, err := os.MkdirTemp("", "jetstore")
@@ -152,7 +153,7 @@ do_retry:
 		predicates = make([]RdfNode, 0, len(headers))
 		var dataType string
 		for _, h := range headers {
-			predicates = append(predicates, re.NewResource(h))
+			predicates = append(predicates, rm.NewResource(h))
 			nd := dataPropertyMap[h]
 			dataType = "text"
 			if nd != nil {
@@ -180,7 +181,7 @@ do_retry:
 	var object RdfNode
 	var rdfClass RdfNode
 	if len(ctx.spec.ClassName) > 0 {
-		rdfClass = re.NewResource(ctx.spec.ClassName)
+		rdfClass = rm.NewResource(ctx.spec.ClassName)
 	}
 
 	for {
@@ -189,7 +190,7 @@ do_retry:
 		inRow, err = csvReader.Read()
 		if err == nil {
 			subjectTxt := uuid.New().String()
-			subject := re.NewResource(subjectTxt)
+			subject := rm.NewResource(subjectTxt)
 			if rdfClass != nil {
 				err = re.Insert(subject, jr.Rdf__type, rdfClass)
 				if err != nil {
@@ -198,10 +199,10 @@ do_retry:
 			}
 			for i, value := range inRow {
 				// Parse the value to the rdfType
-				object, err = ParseRdfNodeValue(re, value, rdfTypes[i])
+				object, err = ParseRdfNodeValue(rm, value, rdfTypes[i])
 				if err != nil {
 					log.Printf("WARNING: Cannot parse value to rdf type %s\n", rdfTypes[i])
-					object = re.RdfNull()
+					object = rm.RdfNull()
 				}
 				// Assert the triple
 				err = re.Insert(subject, predicates[i], object)
@@ -209,7 +210,7 @@ do_retry:
 					return err
 				}
 			}
-			err = re.Insert(subject, jr.Jets__key, re.NewTextLiteral(subjectTxt))
+			err = re.Insert(subject, jr.Jets__key, rm.NewTextLiteral(subjectTxt))
 			if err != nil {
 				return err
 			}

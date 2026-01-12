@@ -144,7 +144,7 @@ func compileWorkspaceV2(dbpool *pgxpool.Pool, workspaceControl *rete.WorkspaceCo
 		// Save in the build directory
 		fpath = fmt.Sprintf("%s/%s/build/%s.config.json", workspaceHome,
 			wprefix, strings.TrimSuffix(name, ".jr"))
-		// log.Println("Writing JetStore rule config of", name, "to:", fpath)
+		log.Println("Writing JetStore rule config of", name, "to:", fpath)
 		file, err = os.OpenFile(fpath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
 		if err != nil {
 			err = fmt.Errorf("while opening .config.json for write (compile_workspace_v2):%v", err)

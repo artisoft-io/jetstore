@@ -103,14 +103,19 @@ func (ctx *JrPoolWorker) executeRules(inputRecords *[]any,
 	jr := re.JetResources()
 	var maxLooping, iloop int
 	var wc *rete.WorkspaceControl
-	err = re.NewRdfSession()
+	var rm JetResourceManager
+	var reteSession JetReteSession
+	// Create the rdf session
+	rdfSession, err := re.NewRdfSession()
 	if err != nil {
 		cpErr = fmt.Errorf("error: while creating new rdf session: %v", err)
 		goto gotError
 	}
+	defer rdfSession.Release()
+	rm = rdfSession.GetResourceManager()
 
 	// Assert the input records to rdf session
-	err = assertInputRecords(ctx.config, ctx.source, re, inputRecords)
+	err = assertInputRecords(ctx.config, ctx.source, rdfSession, inputRecords)
 	if err != nil {
 		cpErr = fmt.Errorf("while asserting input records to rdf session: %v", err)
 		goto gotError
@@ -124,7 +129,7 @@ func (ctx *JrPoolWorker) executeRules(inputRecords *[]any,
 	for _, ruleset := range wc.RuleFileNames(re.MainRuleFile()) {
 		// Create the rete session
 		log.Printf("*** executeRules: Creating Rete Session for %s\n", ruleset)
-		err = re.NewReteSession(ruleset)
+		reteSession, err = rdfSession.NewReteSession(ruleset)
 		if err != nil {
 			cpErr = fmt.Errorf("error: while creating rete session for ruleset %s: %v", ruleset, err)
 			goto gotError
@@ -132,12 +137,12 @@ func (ctx *JrPoolWorker) executeRules(inputRecords *[]any,
 
 		// Step 0 of loop is pre loop or no loop
 		// Step 1+ for looping
-		re.Erase(jr.Jets__istate, jr.Jets__loop, nil)
-		re.Erase(jr.Jets__istate, jr.Jets__completed, nil)
+		rdfSession.Erase(jr.Jets__istate, jr.Jets__loop, nil)
+		rdfSession.Erase(jr.Jets__istate, jr.Jets__completed, nil)
 		maxLooping = 0
 		if ctx.config.MaxLooping == 0 {
 			// get the $max_looping of the workspace
-			v, err := GetRuleEngineConfig(re.MainRuleFile(), "$max_looping")
+			v, err := GetRuleEngineConfig(ruleset, "$max_looping")
 			if err != nil {
 				cpErr = fmt.Errorf(
 					"error: while getting '$max_looping' property from workspace %s: %v",
@@ -162,9 +167,9 @@ func (ctx *JrPoolWorker) executeRules(inputRecords *[]any,
 		// do for iloop <= maxloop (since looping start at one!)
 		for iloop = 0; iloop <= maxLooping; iloop++ {
 			if iloop > 0 {
-				re.Insert(jr.Jets__istate, jr.Jets__loop, re.NewIntLiteral(iloop))
+				rdfSession.Insert(jr.Jets__istate, jr.Jets__loop, rm.NewIntLiteral(iloop))
 			}
-			err2 := re.ExecuteRules()
+			err2 := reteSession.ExecuteRules()
 			if err2 != nil {
 				//*TODO report the rule error
 				log.Printf("jetrules: ExecuteRules returned error: %v", err2)
@@ -172,7 +177,7 @@ func (ctx *JrPoolWorker) executeRules(inputRecords *[]any,
 				break
 			}
 			// Check if looping is completed (Jets__completed)
-			if re.ContainsSP(jr.Jets__istate, jr.Jets__completed) {
+			if rdfSession.ContainsSP(jr.Jets__istate, jr.Jets__completed) {
 				log.Print("jetrules: Rete Session Looping Completed")
 				break
 			}
@@ -184,7 +189,7 @@ func (ctx *JrPoolWorker) executeRules(inputRecords *[]any,
 			errCount += 1
 		}
 		// Check for any jets:exceptions in the rdfSession
-		ctor := re.FindSP(jr.Jets__istate, jr.Jets__exception)
+		ctor := rdfSession.FindSP(jr.Jets__istate, jr.Jets__exception)
 		for !ctor.IsEnd() {
 			hasException := ctor.GetObject()
 			if hasException != nil {
@@ -195,10 +200,10 @@ func (ctx *JrPoolWorker) executeRules(inputRecords *[]any,
 			ctor.Next()
 		}
 		ctor.Release()
-		re.ReleaseReteSession()
+		reteSession.Release()
 	}
 
-	// log.Println("*** Pool Worker == Done executing the rulesets, inferred graph contains", rdfSession.InferredGraph.Size(), "triples")
+	log.Println("*** Pool Worker == Done executing the rulesets")
 
 	// Print rdf session if in debug mode
 	if ctx.config.IsDebug {
@@ -210,7 +215,7 @@ func (ctx *JrPoolWorker) executeRules(inputRecords *[]any,
 
 	// Extract data from the rdf session based on class names
 	for _, outChannel := range ctx.outputChannels {
-		err = ctx.extractSessionData(re, outChannel)
+		err = ctx.extractSessionData(rdfSession, outChannel)
 		if err != nil {
 			cpErr = fmt.Errorf(
 				"while extraction entity from jetrules for class %s: %v",
@@ -218,6 +223,8 @@ func (ctx *JrPoolWorker) executeRules(inputRecords *[]any,
 			goto gotError
 		}
 	}
+
+	log.Println("*** Pool Worker == Done Extracting Session DATA")
 
 	return
 
@@ -234,17 +241,19 @@ gotError:
 	return 0, cpErr
 }
 
-func (ctx *JrPoolWorker) extractSessionData(re JetRuleEngine,
+func (ctx *JrPoolWorker) extractSessionData(rdfSession JetRdfSession,
 	outChannel *JetrulesOutputChan) error {
 
-	jr := re.JetResources()
+	jr := rdfSession.JetResources()
+	rm := rdfSession.GetResourceManager()
 	entityCount := 0
 	columns := outChannel.OutputCh.Config.Columns
 	var data any
 	var dataArr *[]any
 	var isArray bool
 	// Extract entity by rdf type
-	ctor := re.FindSPO(nil, jr.Rdf__type, re.NewResource(outChannel.ClassName))
+	log.Println("*** Pool Worker == Extracting entities of class", outChannel.ClassName)
+	ctor := rdfSession.FindSPO(nil, jr.Rdf__type, rm.NewResource(outChannel.ClassName))
 	for !ctor.IsEnd() {
 		subject := ctor.GetSubject()
 		// Check if subject is an entity for the current source period
@@ -256,12 +265,12 @@ func (ctx *JrPoolWorker) extractSessionData(re JetRuleEngine,
 		// as rdf:type to ensure it's a mapped entity and not an injected entity.
 		// Note: Do not save the jets:InputEntity marker type on the extracted obj.
 		keepObj := true
-		obj := re.GetObject(subject, jr.Jets__source_period_sequence)
-		if obj != nil {
+		obj := rdfSession.GetObject(subject, jr.Jets__source_period_sequence)
+		if obj != nil && obj.Value() != nil {
 			v := GetRdfNodeValue(obj).(int)
 			if v == 0 {
 				// Check if obj has marker type jets:InputRecord, extract obj if it does.
-				if !re.Contains(subject, jr.Rdf__type, jr.Jets__input_record) {
+				if !rdfSession.Contains(subject, jr.Rdf__type, jr.Jets__input_record) {
 					// jets:InputEntity marker is missing, don't extract the obj
 					keepObj = false
 				}
@@ -275,13 +284,13 @@ func (ctx *JrPoolWorker) extractSessionData(re JetRuleEngine,
 			for i, p := range columns {
 				data = nil
 				isArray = false
-				itor := re.FindSP(subject, re.NewResource(p))
+				itor := rdfSession.FindSP(subject, rm.NewResource(p))
 				for !itor.IsEnd() {
 					value := GetRdfNodeValue(itor.GetObject())
 					if p == "rdf:type" {
 						c, ok := value.(string)
 						if ok && c == "jets:InputRecord" {
-							continue
+							goto go_next
 						}
 					}
 					if data == nil {
@@ -294,6 +303,7 @@ func (ctx *JrPoolWorker) extractSessionData(re JetRuleEngine,
 							isArray = true
 						}
 					}
+				go_next:
 					itor.Next()
 				}
 				itor.Release()
@@ -332,7 +342,7 @@ func (ctx *JrPoolWorker) extractSessionData(re JetRuleEngine,
 }
 
 func assertInputRecords(config *JetrulesSpec, source *InputChannel,
-	re JetRuleEngine, inputRecords *[]any) (err error) {
+	rdfSession JetRdfSession, inputRecords *[]any) (err error) {
 
 	columns := source.Config.Columns
 	if source.HasGroupedRows {
@@ -342,16 +352,16 @@ func assertInputRecords(config *JetrulesSpec, source *InputChannel,
 			if !ok {
 				return fmt.Errorf("error: inputRecords are invalid")
 			}
-			err = assertInputRow(config, re, &row, &columns)
+			err = assertInputRow(config, rdfSession, &row, &columns)
 		}
 	} else {
 		// log.Printf("*** Pool Worker == Asserting single entities\n")
-		err = assertInputRow(config, re, inputRecords, &columns)
+		err = assertInputRow(config, rdfSession, inputRecords, &columns)
 	}
 	return
 }
 
-func assertInputRow(config *JetrulesSpec, re JetRuleEngine, row *[]any, columns *[]string) (err error) {
+func assertInputRow(config *JetrulesSpec, rdfSession JetRdfSession, row *[]any, columns *[]string) (err error) {
 
 	nbrCol := len(*columns)
 	var predicate RdfNode
@@ -359,7 +369,8 @@ func assertInputRow(config *JetrulesSpec, re JetRuleEngine, row *[]any, columns 
 	var jetsKey, rdfType string
 	var subject RdfNode
 	var node RdfNode
-	jr := re.JetResources()
+	jr := rdfSession.JetResources()
+	rm := rdfSession.GetResourceManager()
 	// Assert the rdf type if provided in config, otherwise it must be part of the data
 	if config.InputRdfType != "" {
 		jetsKey = uuid.New().String()
@@ -373,18 +384,18 @@ func assertInputRow(config *JetrulesSpec, re JetRuleEngine, row *[]any, columns 
 			return fmt.Errorf("error: invalid type for jets:key or rdf:type as first 2 elements of row")
 		}
 	}
-	subject = re.NewResource(jetsKey)
-	err = re.Insert(subject, jr.Jets__key, re.NewTextLiteral(jetsKey))
+	subject = rm.NewResource(jetsKey)
+	err = rdfSession.Insert(subject, jr.Jets__key, rm.NewTextLiteral(jetsKey))
 	if err != nil {
 		return
 	}
-	err = re.Insert(subject, jr.Rdf__type, re.NewResource(rdfType))
+	err = rdfSession.Insert(subject, jr.Rdf__type, rm.NewResource(rdfType))
 	if err != nil {
 		return
 	}
 
 	// Assert the jets:InputRecord rdf:type
-	err = re.Insert(subject, jr.Rdf__type, jr.Jets__input_record)
+	err = rdfSession.Insert(subject, jr.Rdf__type, jr.Jets__input_record)
 	if err != nil {
 		return
 	}
@@ -394,31 +405,31 @@ func assertInputRow(config *JetrulesSpec, re JetRuleEngine, row *[]any, columns 
 			continue
 		}
 		if j < nbrCol {
-			predicate = re.NewResource((*columns)[j])
+			predicate = rm.NewResource((*columns)[j])
 		} else {
-			predicate = re.NewResource(fmt.Sprintf("column%d", j))
+			predicate = rm.NewResource(fmt.Sprintf("column%d", j))
 		}
 		switch vv := (*row)[j].(type) {
 		case []any:
 			for _, value := range vv {
-				node, err = NewRdfNode(value, re)
+				node, err = NewRdfNode(value, rm)
 				if err != nil {
 					return fmt.Errorf("while NewRdfNode for value in array: %v", err)
 				}
-				err = re.Insert(subject, predicate, node)
+				err = rdfSession.Insert(subject, predicate, node)
 			}
 		default:
-			node, err = NewRdfNode(vv, re)
+			node, err = NewRdfNode(vv, rm)
 			if err != nil {
 				return fmt.Errorf("while NewRdfNode: %v", err)
 			}
-			err = re.Insert(subject, predicate, node)
+			err = rdfSession.Insert(subject, predicate, node)
 		}
 	}
 	return
 }
 
-func NewRdfNode(inValue any, re JetRuleEngine) (RdfNode, error) {
+func NewRdfNode(inValue any, re JetResourceManager) (RdfNode, error) {
 	switch vv := inValue.(type) {
 	case string:
 		return re.NewTextLiteral(vv), nil

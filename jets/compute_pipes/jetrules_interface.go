@@ -22,7 +22,14 @@ type JetRuleEngine interface {
 	JetResources() *JetResources
 	GetMetaGraphTriples() []string
 
-	// Resource Manager functions
+	GetMetaResourceManager() JetResourceManager
+	Insert(s, p RdfNode, o RdfNode) error
+
+	NewRdfSession() (JetRdfSession, error)
+	Release() error
+}
+
+type JetResourceManager interface {
 	RdfNull() RdfNode
 	CreateBNode(key int) RdfNode
 	NewDateLiteral(data string) RdfNode
@@ -34,12 +41,11 @@ type JetRuleEngine interface {
 	NewUIntLiteral(data uint) RdfNode
 	NewResource(name string) RdfNode
 	NewTextLiteral(data string) RdfNode
-	
-	IsMetaGraphLocked() bool
-	LockMetaGraph() bool
+}
 
-	NewRdfSession() error
-	NewReteSession(ruleset string) error
+type JetRdfSession interface {
+	GetResourceManager() JetResourceManager
+	JetResources() *JetResources
 
 	Insert(s, p RdfNode, o RdfNode) error
 	Erase(s, p RdfNode, o RdfNode) (bool, error)
@@ -48,15 +54,17 @@ type JetRuleEngine interface {
 	ContainsSP(s, p RdfNode) bool
 	GetObject(s, p RdfNode) RdfNode
 
-	ExecuteRules() error
-
 	FindSPO(s, p, o RdfNode) TripleIterator
 	FindSP(s, p RdfNode) TripleIterator
 	FindS(s RdfNode) TripleIterator
 	Find() TripleIterator
 
-	ReleaseRdfSession() error
-	ReleaseReteSession() error
+	NewReteSession(ruleset string) (JetReteSession, error)
+	Release() error
+}
+
+type JetReteSession interface {
+	ExecuteRules() error
 	Release() error
 }
 
@@ -69,16 +77,11 @@ type TripleIterator interface {
 	Release() error
 }
 
-type JetRulesWorker interface {
-	// Execute rules on the input data row
-	DoWork(mgr *JrPoolManager, resultCh chan JetrulesWorkerResult)
-}
-
 type RdfNode interface{
 	Hdle() any
 	IsNil() bool
 	Value() any
-	Equal(other RdfNode) bool
+	Equals(other RdfNode) bool
 	String() string
 }
 
@@ -110,7 +113,7 @@ func GetRdfNodeValue(r RdfNode) any {
 }
 
 
-func ParseRdfNodeValue(re JetRuleEngine, value, rdfType string) (node RdfNode, err error) {
+func ParseRdfNodeValue(re JetResourceManager, value, rdfType string) (node RdfNode, err error) {
 	var key int
 	// log.Println("**PARSE OBJECT:",object,"TO TYPE:",rdfType)
 	switch strings.TrimSpace(rdfType) {
@@ -199,13 +202,13 @@ type JetResources struct {
 	Rdf__type                     RdfNode
 }
 
-func NewJetResources(je JetRuleEngine) *JetResources {
+func NewJetResources(je JetResourceManager) *JetResources {
 	jr := &JetResources{}
 	jr.Initialize(je)
 	return jr
 }
 
-func (jr *JetResources) Initialize(je JetRuleEngine) {
+func (jr *JetResources) Initialize(je JetResourceManager) {
 	if je == nil {
 		return
 	}

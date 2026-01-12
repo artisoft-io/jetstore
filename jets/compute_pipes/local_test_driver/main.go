@@ -11,6 +11,8 @@ import (
 
 	"github.com/artisoft-io/jetstore/jets/awsi"
 	"github.com/artisoft-io/jetstore/jets/compute_pipes"
+	"github.com/artisoft-io/jetstore/jets/compute_pipes/jetrules_go_adaptor"
+	// "github.com/artisoft-io/jetstore/jets/compute_pipes/jetrules_native_adaptor"
 	"github.com/artisoft-io/jetstore/jets/workspace"
 	"github.com/jackc/pgx/v4/pgxpool"
 )
@@ -29,6 +31,7 @@ import (
 // JETS_S3_KMS_KEY_ARN
 // NBR_SHARDS default nbr_nodes of cluster
 // USING_SSH_TUNNEL Connect  to DB using ssh tunnel (expecting the ssh open)
+// USING_JETRULE_ENGINE_NATIVE Use the native jetrules engine
 var pipelineExecKey = flag.Int("pipeline_execution_key", -1, "Pipeline execution key (required)")
 var fileKey = flag.String("file_key", "", "the input file_key (required)")
 var sessionId = flag.String("session_id", "", "Pipeline session ID (required)")
@@ -40,6 +43,7 @@ var awsRegion string
 var awsBucket string
 var dsn string
 var dbpool *pgxpool.Pool
+var usingJetRuleEngineNative bool
 
 // var nbrNodes int
 
@@ -132,7 +136,23 @@ func main() {
 	log.Println("Got argument: dbPoolSize", dbPoolSize)
 	log.Println("Got argument: awsRegion", awsRegion)
 	log.Println("Got env: JETS_S3_KMS_KEY_ARN", os.Getenv("JETS_S3_KMS_KEY_ARN"))
+	log.Println("Got env: USING_JETRULE_ENGINE_NATIVE", os.Getenv("USING_JETRULE_ENGINE_NATIVE"))
 	var b []byte
+
+	// Set up JetRuleFactory according to env var
+	var jrFactory compute_pipes.JetRulesFactory
+	usingJetRuleEngineNative = os.Getenv("USING_JETRULE_ENGINE_NATIVE") == "1"
+if usingJetRuleEngineNative {
+		log.Println("Using Jetrule Engine: NATIVE")
+		// jrFactory = jetrules_native_adaptor.NewJetRulesFactory()
+	} else {
+		log.Println("Using Jetrule Engine: GORULES")
+		jrFactory = jetrules_go_adaptor.NewJetRulesFactory()
+	}
+
+	if jrFactory == nil {
+		log.Fatalf("jrFactory is nil, cannot continue")
+	}
 
 	// Start Sharding
 	shardingArgs := &compute_pipes.StartComputePipesArgs{
@@ -165,7 +185,7 @@ func main() {
 	for i := range cpipesCommands {
 		cpipesCommand := cpipesCommands[i]
 		fmt.Println("## Sharding Node", i, "Calling CoordinateComputePipes")
-		err = (&cpipesCommand).CoordinateComputePipes(ctx, dbpool)
+		err = (&cpipesCommand).CoordinateComputePipes(ctx, dbpool, jrFactory)
 		if err != nil {
 			log.Fatalf("while sharding node %d: %v", i, err)
 		}
@@ -201,7 +221,7 @@ func main() {
 			for i := range cpipesCommands {
 				cpipesCommand := cpipesCommands[i]
 				fmt.Println("## Reducing Node", i, "Calling CoordinateComputePipes")
-				err = (&cpipesCommand).CoordinateComputePipes(ctx, dbpool)
+				err = (&cpipesCommand).CoordinateComputePipes(ctx, dbpool, jrFactory)
 				if err != nil {
 					log.Fatalf("while reducing node %d: %v", i, err)
 				}
