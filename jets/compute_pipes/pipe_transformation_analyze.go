@@ -73,19 +73,21 @@ import (
 // Range of value for input data type: string (default if not parquet), bool, int32, int64,
 // float32, float64, date, uint32, uint64
 type AnalyzeTransformationPipe struct {
-	cpConfig         *ComputePipesConfig
-	source           *InputChannel
-	outputCh         *OutputChannel
-	inputDataType    map[string]string
-	colName2Token    map[string]string
-	analyzeState     []*AnalyzeState
-	columnEvaluators []TransformationColumnEvaluator
-	nbrRowsAnalyzed  int
-	firstInputRow    *[]any
-	spec             *TransformationSpec
-	padShortRows     bool
-	env              map[string]any
-	doneCh           chan struct{}
+	cpConfig          *ComputePipesConfig
+	source            *InputChannel
+	outputCh          *OutputChannel
+	inputDataType     map[string]string
+	colFragment2Hint  map[string]string
+	colName2Token     map[string]string
+	colFragment2Token map[string]string
+	analyzeState      []*AnalyzeState
+	columnEvaluators  []TransformationColumnEvaluator
+	nbrRowsAnalyzed   int
+	firstInputRow     *[]any
+	spec              *TransformationSpec
+	padShortRows      bool
+	env               map[string]any
+	doneCh            chan struct{}
 }
 
 // Implementing interface PipeTransformationEvaluator
@@ -131,7 +133,7 @@ func (ctx *AnalyzeTransformationPipe) Done() error {
 	var ok bool
 	if ctx.firstInputRow == nil {
 		err := fmt.Errorf("error: the input file contains no data rows, cannot perform file analysis")
-		log.Printf("AnalyzeTransformationPipe.Done: Number of rows analyzed is %d",	ctx.nbrRowsAnalyzed)
+		log.Printf("AnalyzeTransformationPipe.Done: Number of rows analyzed is %d", ctx.nbrRowsAnalyzed)
 		log.Println(err)
 		return err
 	}
@@ -158,39 +160,39 @@ func (ctx *AnalyzeTransformationPipe) Done() error {
 			outputRow[ipos] = ctx.inputDataType[state.ColumnName]
 		}
 
-		// Determine the classification token based on column name if available
+		// Determine the classification token based on column name or fragment if available
+		columnNameUpper := strings.ToUpper(state.ColumnName)
 		if config.ColumnNameToken != nil {
-			token, found := ctx.colName2Token[strings.ToUpper(state.ColumnName)]
-			if found {
-				ipos, ok = (*ctx.outputCh.columns)[config.ColumnNameToken.Name]
-				if ok {
+			ipos, ok = (*ctx.outputCh.columns)[config.ColumnNameToken.Name]
+			if ok {
+				token, found := ctx.colName2Token[columnNameUpper]
+				if !found {
+					for frag, tok := range ctx.colFragment2Token {
+						if strings.Contains(columnNameUpper, frag) {
+							token = tok
+							found = true
+							break
+						}
+					}
+				}
+				if found {
 					outputRow[ipos] = token
 				}
 			}
 		}
 
 		// Determine the entity hint based on the hints provided in spec.analyze_config.entity_hints
-		ipos, ok = (*ctx.outputCh.columns)["entity_hint"]
-		if ok {
-			for _, ehint := range config.EntityHints {
-				for _, frag := range ehint.NameFragments {
-					if strings.Contains(strings.ToUpper(state.ColumnName), strings.ToUpper(frag)) {
-						goto continueHint
+		if len(config.EntityHints) > 0 {
+			ipos, ok = (*ctx.outputCh.columns)["entity_hint"]
+			if ok {
+				for frag, hint := range ctx.colFragment2Hint {
+					if strings.Contains(columnNameUpper, frag) {
+						outputRow[ipos] = hint
+						break
 					}
 				}
-				goto nextHint
-			continueHint:
-				for _, frag := range ehint.ExclusionFragments {
-					if strings.Contains(strings.ToUpper(state.ColumnName), strings.ToUpper(frag)) {
-						goto nextHint
-					}
-				}
-				outputRow[ipos] = ehint.Entity
-				goto doneEntityHint
-			nextHint:
 			}
 		}
-	doneEntityHint:
 
 		var ratioFactor float64
 		if state.TotalRowCount != state.NullCount {
@@ -424,12 +426,32 @@ func (ctx *BuilderContext) NewAnalyzeTransformationPipe(source *InputChannel, ou
 		}
 	}
 
+	// Set up the column name fragments to entity hint map if available
+	colFragment2Hint := make(map[string]string)
+	if config.EntityHints != nil {
+		for _, ehint := range config.EntityHints {
+			for _, frag := range ehint.NameFragments {
+				colFragment2Hint[strings.ToUpper(frag)] = ehint.Entity
+			}
+		}
+	}
+
 	// Set up the column name to token map if available
 	colName2Token := make(map[string]string)
 	if config.ColumnNameToken != nil {
 		for _, tokenEntry := range config.ColumnNameToken.Lookup {
 			for _, colName := range tokenEntry.ColumnNames {
 				colName2Token[strings.ToUpper(colName)] = tokenEntry.Name
+			}
+		}
+	}
+
+	// Set up the column fragment to token map if available
+	colFragment2Token := make(map[string]string)
+	if config.ColumnNameToken != nil {
+		for _, tokenEntry := range config.ColumnNameToken.Lookup {
+			for _, colFragment := range tokenEntry.ColumnNameFragments {
+				colFragment2Token[strings.ToUpper(colFragment)] = tokenEntry.Name
 			}
 		}
 	}
@@ -458,16 +480,18 @@ func (ctx *BuilderContext) NewAnalyzeTransformationPipe(source *InputChannel, ou
 	}
 
 	return &AnalyzeTransformationPipe{
-		cpConfig:         ctx.cpConfig,
-		source:           source,
-		outputCh:         outputCh,
-		inputDataType:    inputDataType,
-		colName2Token:    colName2Token,
-		analyzeState:     analyzeState,
-		columnEvaluators: columnEvaluators,
-		padShortRows:     config.PadShortRowsWithNulls,
-		spec:             spec,
-		env:              ctx.env,
-		doneCh:           ctx.done,
+		cpConfig:          ctx.cpConfig,
+		source:            source,
+		outputCh:          outputCh,
+		inputDataType:     inputDataType,
+		colFragment2Hint:  colFragment2Hint,
+		colName2Token:     colName2Token,
+		colFragment2Token: colFragment2Token,
+		analyzeState:      analyzeState,
+		columnEvaluators:  columnEvaluators,
+		padShortRows:      config.PadShortRowsWithNulls,
+		spec:              spec,
+		env:               ctx.env,
+		doneCh:            ctx.done,
 	}, nil
 }
