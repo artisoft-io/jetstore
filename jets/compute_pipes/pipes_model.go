@@ -552,8 +552,9 @@ type ColumnNameTokenNode struct {
 // Name: classification token name
 // ColumnNames: list of column names that map to the classification token
 type ColumnNameLookupNode struct {
-	Name        string   `json:"name"`
-	ColumnNames []string `json:"column_names,omitempty"`
+	Name                string   `json:"name"`
+	ColumnNames         []string `json:"column_names,omitempty"`
+	ColumnNameFragments []string `json:"column_name_fragments,omitempty"`
 }
 
 // Defines the identification and handling of bad rows
