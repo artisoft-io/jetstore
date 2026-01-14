@@ -350,6 +350,15 @@ func (rs *ReteSession) NewNull() (*Resource, error) {
 	}
 	return &r, nil
 }
+func (rs *ReteSession) NewBlankNode(v int) (*Resource, error) {
+	var r Resource
+	ret := int(C.create_blanknode(rs.rdfs.hdl, C.int(v), &r.hdl))
+	if ret != 0 {
+		fmt.Println("Yikes got error in ReteSession.NewBlankNode ret code", ret)
+		return &r, errors.New("ERROR calling NewBlankNode(), ret code: " + fmt.Sprint(ret))
+	}
+	return &r, nil
+}
 func (rs *ReteSession) NewResource(resource_name string) (*Resource, error) {
 	var r Resource
 	cstr := C.CString(resource_name)
@@ -428,6 +437,7 @@ func (rs *ReteSession) NewDoubleLiteral(value float64) (*Resource, error) {
 	}
 	return &r, nil
 }
+
 func (rs *ReteSession) NewDateLiteral(value string) (*Resource, error) {
 	var r Resource
 	cstr := C.CString(value)
@@ -443,6 +453,34 @@ func (rs *ReteSession) NewDateLiteral(value string) (*Resource, error) {
 	}
 	return &r, nil
 }
+
+func (rs *ReteSession) NewDateDetails(year, month, day int) (*Resource, error) {
+	var r Resource
+	ret := int(C.create_date_details(rs.rdfs.hdl, C.int(year), C.int(month), C.int(day), &r.hdl))
+	if ret == -2 {
+		return &r, ErrNotValidDate
+	}
+	if ret != 0 {
+		fmt.Println("Yikes got error in NewDateDetails ret code", ret)
+		return &r, errors.New("ERROR calling NewDateDetails(), ret code: " + fmt.Sprint(ret))
+	}
+	return &r, nil
+}
+
+func (rs *ReteSession) NewDatetimeDetails(year, month, day, hour, min, sec int) (*Resource, error) {
+	var r Resource
+	ret := int(C.create_datetime_details(rs.rdfs.hdl, C.int(year), C.int(month), C.int(day),
+		C.int(hour), C.int(min), C.int(sec), &r.hdl))
+	if ret == -2 {
+		return &r, ErrNotValidDateTime
+	}
+	if ret != 0 {
+		fmt.Println("Yikes got error in NewDatetimeDetails ret code", ret)
+		return &r, errors.New("ERROR calling NewDatetimeDetails(), ret code: " + fmt.Sprint(ret))
+	}
+	return &r, nil
+}
+
 func (rs *ReteSession) NewDatetimeLiteral(value string) (*Resource, error) {
 	var r Resource
 	cstr := C.CString(value)
@@ -676,6 +714,7 @@ func (r *Resource) AsInterface(columnType string) (ret interface{}, err error) {
 	if r == nil {
 		return ret, fmt.Errorf("error: null resource call AsInterface{}")
 	}
+	check := len(columnType) > 0
 	switch rtype := r.GetType(); rtype {
 	case 0:
 		return nil, nil
@@ -687,7 +726,7 @@ func (r *Resource) AsInterface(columnType string) (ret interface{}, err error) {
 			fmt.Println("ERROR Can't get resource name", err)
 			return ret, fmt.Errorf("while getting name of resource for AsInterface: %v", err)
 		}
-		if columnType != "text" {
+		if columnType != "text" && check {
 			return reportTypeError(r, columnType)
 		}
 		return v, nil
@@ -697,7 +736,7 @@ func (r *Resource) AsInterface(columnType string) (ret interface{}, err error) {
 			fmt.Println("ERROR Can't GetInt", err)
 			return ret, fmt.Errorf("while getting int value of literal for AsInterface: %v", err)
 		}
-		if columnType != "integer" {
+		if columnType != "integer" && check {
 			return reportTypeError(r, columnType)
 		}
 		return v, nil
@@ -707,7 +746,7 @@ func (r *Resource) AsInterface(columnType string) (ret interface{}, err error) {
 			fmt.Println("ERROR Can't GetDouble", err)
 			return ret, fmt.Errorf("while getting double value of literal for AsInterface: %v", err)
 		}
-		if columnType != "double precision" {
+		if columnType != "double precision" && check {
 			return reportTypeError(r, columnType)
 		}
 		return v, nil
@@ -717,7 +756,7 @@ func (r *Resource) AsInterface(columnType string) (ret interface{}, err error) {
 			fmt.Println("ERROR Can't GetText", err)
 			return ret, fmt.Errorf("while getting text of literal for AsInterface: %v", err)
 		}
-		if columnType != "text" {
+		if columnType != "text" && check {
 			return reportTypeError(r, columnType)
 		}
 		return v, nil
@@ -726,15 +765,15 @@ func (r *Resource) AsInterface(columnType string) (ret interface{}, err error) {
 		if err != nil {
 			return ret, fmt.Errorf("while getting date details: %v", err)
 		}
-		if columnType == "text" {
+		if columnType == "text" || !check {
 			return fmt.Sprintf("%d-%d-%d", y, m, d), nil
 		}
 		if columnType == "date" {
 			return time.Date(y, time.Month(m), d, 0, 0, 0, 0, time.UTC), nil
-		}
+		}		
 		return reportTypeError(r, columnType)
 	case 10:
-		if columnType == "text" {
+		if columnType == "text" || !check {
 			v, err := r.GetDatetimeIsoString()
 			if err != nil {
 				return ret, fmt.Errorf("while getting datetime literal for AsInterface: %v", err)

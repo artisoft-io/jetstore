@@ -105,6 +105,7 @@ func (ctx *JrPoolWorker) executeRules(inputRecords *[]any,
 	var wc *rete.WorkspaceControl
 	var rm JetResourceManager
 	var reteSession JetReteSession
+	var inputAsserted bool
 	// Create the rdf session
 	rdfSession, err := re.NewRdfSession()
 	if err != nil {
@@ -114,12 +115,6 @@ func (ctx *JrPoolWorker) executeRules(inputRecords *[]any,
 	defer rdfSession.Release()
 	rm = rdfSession.GetResourceManager()
 
-	// Assert the input records to rdf session
-	err = assertInputRecords(ctx.config, ctx.source, rdfSession, inputRecords)
-	if err != nil {
-		cpErr = fmt.Errorf("while asserting input records to rdf session: %v", err)
-		goto gotError
-	}
 	wc, err = GetWorkspaceControl()
 	if err != nil {
 		cpErr = fmt.Errorf("while getting workspace control in executeRules: %v", err)
@@ -128,11 +123,22 @@ func (ctx *JrPoolWorker) executeRules(inputRecords *[]any,
 	// Loop over all rulesets
 	for _, ruleset := range wc.RuleFileNames(re.MainRuleFile()) {
 		// Create the rete session
-		log.Printf("*** executeRules: Creating Rete Session for %s\n", ruleset)
+		if ctx.config.IsDebug {
+			log.Printf(" - ExecuteRules: Creating Rete Session for %s\n", ruleset)
+		}
 		reteSession, err = rdfSession.NewReteSession(ruleset)
 		if err != nil {
 			cpErr = fmt.Errorf("error: while creating rete session for ruleset %s: %v", ruleset, err)
 			goto gotError
+		}
+		if !inputAsserted {
+			// Assert the input records to rdf session
+			err = assertInputRecords(ctx.config, ctx.source, rdfSession, inputRecords)
+			if err != nil {
+				cpErr = fmt.Errorf("while asserting input records to rdf session: %v", err)
+				goto gotError
+			}
+			inputAsserted = true
 		}
 
 		// Step 0 of loop is pre loop or no loop
@@ -203,14 +209,9 @@ func (ctx *JrPoolWorker) executeRules(inputRecords *[]any,
 		reteSession.Release()
 	}
 
-	log.Println("*** Pool Worker == Done executing the rulesets")
-
 	// Print rdf session if in debug mode
 	if ctx.config.IsDebug {
-		log.Println("ASSERTED GRAPH")
-		// log.Printf("\n%s\n", strings.Join(rdfSession.AssertedGraph.ToTriples(), "\n"))
-		log.Println("INFERRED GRAPH")
-		// log.Printf("\n%s\n", strings.Join(rdfSession.InferredGraph.ToTriples(), "\n"))
+		log.Println("Execute Rules Completed")
 	}
 
 	// Extract data from the rdf session based on class names

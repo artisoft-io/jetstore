@@ -76,10 +76,6 @@ func (engine *JetRuleEngineGo) NewRdfSession() (compute_pipes.JetRdfSession, err
 
 func (engine *JetRuleEngineGo) Release() error {
 	engine.factory.ClearCache()
-	err := engine.Release()
-	if err != nil {
-		return err
-	}
 	return nil
 }
 
