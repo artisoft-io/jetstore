@@ -163,7 +163,7 @@ func (ctx *AnalyzeTransformationPipe) Done() error {
 		// Determine the classification token based on column name or fragment if available
 		columnNameUpper := strings.ToUpper(state.ColumnName)
 		if config.ColumnNameToken != nil {
-			ipos, ok = (*ctx.outputCh.columns)[config.ColumnNameToken.Name]
+			ipos, ok = (*ctx.outputCh.Columns)[config.ColumnNameToken.Name]
 			if ok {
 				token, found := ctx.colName2Token[columnNameUpper]
 				if !found {
@@ -183,7 +183,7 @@ func (ctx *AnalyzeTransformationPipe) Done() error {
 
 		// Determine the entity hint based on the hints provided in spec.analyze_config.entity_hints
 		if len(config.EntityHints) > 0 {
-			ipos, ok = (*ctx.outputCh.columns)["entity_hint"]
+			ipos, ok = (*ctx.outputCh.Columns)["entity_hint"]
 			if ok {
 				for frag, hint := range ctx.colFragment2Hint {
 					if strings.Contains(columnNameUpper, frag) {

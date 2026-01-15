@@ -13,7 +13,7 @@ import (
 
 type JetRulesFactory interface {
 	// Create a JetRuleEngine instance
-	NewJetRuleEngine(dbpool *pgxpool.Pool, processName string) (JetRuleEngine, error)
+	NewJetRuleEngine(dbpool *pgxpool.Pool, processName string, isDebug bool) (JetRuleEngine, error)
 	ClearCache() bool
 }
 

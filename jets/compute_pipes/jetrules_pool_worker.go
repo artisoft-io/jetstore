@@ -1,6 +1,7 @@
 package compute_pipes
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log"
@@ -10,6 +11,7 @@ import (
 	"time"
 
 	"github.com/artisoft-io/jetstore/jets/jetrules/rete"
+	"github.com/artisoft-io/jetstore/jets/utils"
 	"github.com/google/uuid"
 )
 
@@ -123,9 +125,6 @@ func (ctx *JrPoolWorker) executeRules(inputRecords *[]any,
 	// Loop over all rulesets
 	for _, ruleset := range wc.RuleFileNames(re.MainRuleFile()) {
 		// Create the rete session
-		if ctx.config.IsDebug {
-			log.Printf(" - ExecuteRules: Creating Rete Session for %s\n", ruleset)
-		}
 		reteSession, err = rdfSession.NewReteSession(ruleset)
 		if err != nil {
 			cpErr = fmt.Errorf("error: while creating rete session for ruleset %s: %v", ruleset, err)
@@ -363,6 +362,15 @@ func assertInputRecords(config *JetrulesSpec, source *InputChannel,
 }
 
 func assertInputRow(config *JetrulesSpec, rdfSession JetRdfSession, row *[]any, columns *[]string) (err error) {
+
+	if config.IsDebug {
+		data, err := utils.ZipSlicesNoNil(*columns, *row)
+		if err != nil {
+			return fmt.Errorf("while zipping input columns and values for debug logging: %v", err)
+		}
+		outBytes, _ := json.Marshal(data)
+		log.Printf("Asserting Input Record (zipped no null): %s", string(outBytes))
+	}
 
 	nbrCol := len(*columns)
 	var predicate RdfNode

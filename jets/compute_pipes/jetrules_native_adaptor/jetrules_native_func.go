@@ -22,7 +22,9 @@ func (factory *JetRulesFactoryNative) ClearCache() bool {
 	return true
 }
 
-func (factory *JetRulesFactoryNative) NewJetRuleEngine(_ *pgxpool.Pool, processName string) (compute_pipes.JetRuleEngine, error) {
+func (factory *JetRulesFactoryNative) NewJetRuleEngine(_ *pgxpool.Pool, processName string, isDebug bool) (
+	compute_pipes.JetRuleEngine, error) {
+
 	jsHdhle, err := bridge.LoadJetRules(processName, workspace.WorkspaceDbPath(), workspace.LookupDbPath())
 	if err != nil {
 		return nil, fmt.Errorf("while loading workspace db: %v", err)
@@ -31,6 +33,7 @@ func (factory *JetRulesFactoryNative) NewJetRuleEngine(_ *pgxpool.Pool, processN
 		processName: processName,
 		factory:     factory,
 		js:          jsHdhle,
+		isDebug:     isDebug,
 	}
 	return ruleEngine, nil
 }
@@ -242,6 +245,7 @@ func (ses *JetRdfSessionNative) NewReteSession(ruleset string) (compute_pipes.Je
 	hdl := &JetReteSessionNative{
 		rdfSession:  ses.rdfSession,
 		reteSession: reteSession,
+		ruleset:     ruleset,
 	}
 	hdl.rdfSessionHdl = ses
 	return hdl, nil
@@ -403,11 +407,16 @@ func (ses *JetRdfSessionNative) Release() error {
 
 func (ses *JetReteSessionNative) ExecuteRules() error {
 
-	log.Printf("Calling ExecuteRules, inserted %d triples", ses.rdfSessionHdl.insertCounter)
+	if ses.rdfSessionHdl.re.isDebug {
+		log.Printf("%p Calling ExecuteRules, inserted %d triples :: %s", ses,
+			ses.rdfSessionHdl.insertCounter, ses.ruleset)
+	}
 	msg, err := ses.reteSession.ExecuteRules()
 	if err != nil {
 		ses.executeErrorCounter++
-		return fmt.Errorf("%s: %v", msg, err)
+		err = fmt.Errorf("%s: %v", msg, err)
+		log.Printf("%p Error in ExecuteRules: %v", ses, err)
+		return err
 	}
 	ses.executeCounter++
 	return nil
@@ -418,7 +427,6 @@ func (ses *JetReteSessionNative) Release() error {
 		ses.reteSession.ReleaseReteSession()
 		ses.reteSession = nil
 	}
-	log.Printf("Nbr executeRule success %d, error %d", ses.executeCounter, ses.executeErrorCounter)
 	return nil
 }
 
@@ -426,7 +434,7 @@ func (ses *JetReteSessionNative) Release() error {
 // -------------------------------------------
 
 func (i *TripleIteratorNative) Next() bool {
-	return i.iterator.IsEnd()
+	return i.iterator.Next()
 }
 
 func (i *TripleIteratorNative) Value() [3]compute_pipes.RdfNode {
@@ -437,7 +445,6 @@ func (i *TripleIteratorNative) Value() [3]compute_pipes.RdfNode {
 			&RdfNodeNative{node: i.null},
 		}
 	}
-
 	return [3]compute_pipes.RdfNode{
 		&RdfNodeNative{node: i.iterator.GetSubject()},
 		&RdfNodeNative{node: i.iterator.GetPredicate()},
@@ -496,22 +503,46 @@ func (n *RdfNodeNative) Value() any {
 	}
 	switch n.node.GetType() {
 	case 9: // date
-		d, ok := value.(time.Time)
-		if !ok {
-			log.Printf("Error converting date value from RdfNodeNative")
+		switch v := value.(type) {
+		case time.Time:
+			value = rdf.LDate{
+				Date: &v,
+			}
+		case *time.Time:
+			value = rdf.LDate{
+				Date: v,
+			}
+		case string:
+			value = v
+			// value, err = rdf.ParseDate(v)
+			// if err != nil {
+			// 	log.Printf("Error parsing date value from string '%s': %v", v, err)
+			// 	return nil
+			// }
+		default:
+			log.Printf("Error converting date value from %T to rdf.LDate", value)
 			return nil
-		}
-		value = rdf.LDate{
-			Date: &d,
 		}
 	case 10: // datetime
-		dt, ok := value.(time.Time)
-		if !ok {
-			log.Printf("Error converting datetime value from RdfNodeNative")
+		switch v := value.(type) {
+		case time.Time:
+			value = rdf.LDatetime{
+				Datetime: &v,
+			}
+		case *time.Time:
+			value = rdf.LDatetime{
+				Datetime: v,
+			}
+		case string:
+			value = v
+			// value, err = rdf.ParseDatetime(v)
+			// if err != nil {
+			// 	log.Printf("Error parsing datetime value from string '%s': %v", v, err)
+			// 	return nil
+			// }
+		default:
+			log.Printf("Error converting datetime value from %T to rdf.LDatetime", value)
 			return nil
-		}
-		value = rdf.LDatetime{
-			Datetime: &dt,
 		}
 	}
 	return value

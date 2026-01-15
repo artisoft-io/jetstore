@@ -60,7 +60,9 @@ func (ctx *JetrulesTransformationPipe) Finally() {
 	ctx.jrPoolManager.WaitForDone.Wait()
 }
 
-func (ctx *BuilderContext) NewJetrulesTransformationPipe(source *InputChannel, _ *OutputChannel, spec *TransformationSpec) (*JetrulesTransformationPipe, error) {
+func (ctx *BuilderContext) NewJetrulesTransformationPipe(source *InputChannel, _ *OutputChannel, spec *TransformationSpec) (
+	*JetrulesTransformationPipe, error) {
+
 	if spec == nil || spec.JetrulesConfig == nil {
 		return nil, fmt.Errorf("error: Jetrules Pipe Transformation spec is missing jetrules_config element")
 	}
@@ -68,7 +70,7 @@ func (ctx *BuilderContext) NewJetrulesTransformationPipe(source *InputChannel, _
 	config := spec.JetrulesConfig
 
 	// Get the jetrules engine for the process
-	ruleEngine, err := ctx.jetRules.NewJetRuleEngine(ctx.dbpool, config.ProcessName)
+	ruleEngine, err := ctx.jetRules.NewJetRuleEngine(ctx.dbpool, config.ProcessName, config.IsDebug)
 	if err != nil {
 		return nil, err
 	}

@@ -512,6 +512,7 @@ type ConditionalTransformationSpec struct {
 
 type MapRecordSpec struct {
 	FileMappingTableName string `json:"file_mapping_table_name"`
+	IsDebug              bool   `json:"is_debug,omitzero"`
 }
 
 // AnalyzeSpec configuration
@@ -866,6 +867,7 @@ type GroupBySpec struct {
 	GroupByPos   []int    `json:"group_by_pos,omitempty"`
 	GroupByCount int      `json:"group_by_count,omitzero"`
 	DomainKey    string   `json:"domain_key,omitempty"`
+	IsDebug      bool     `json:"is_debug,omitzero"`
 }
 
 // Filter row base on a when criteria
@@ -880,6 +882,7 @@ type FilterSpec struct {
 type SortSpec struct {
 	DomainKey    string   `json:"domain_key,omitempty"`
 	SortByColumn []string `json:"sort_by,omitempty"`
+	IsDebug      bool     `json:"is_debug,omitzero"`
 }
 
 // JetrulesSpec configuration

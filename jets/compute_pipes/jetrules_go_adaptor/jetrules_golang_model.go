@@ -21,6 +21,7 @@ type JetRuleEngineGo struct {
 	jetResources         *compute_pipes.JetResources
 	processName          string
 	reteMetaStoreFactory *rete.ReteMetaStoreFactory
+	isDebug              bool
 }
 
 type RdfNodeGo struct {

@@ -14,7 +14,7 @@ type SortTransformationPipe struct {
 	sortBy       []int
 	inputRecords []*[]any
 	spec         *TransformationSpec
-	env          map[string]interface{}
+	env          map[string]any
 	doneCh       chan struct{}
 }
 
@@ -52,6 +52,22 @@ func (ctx *SortTransformationPipe) Done() error {
 		}
 		return 0
 	})
+
+	if ctx.spec.SortConfig != nil && ctx.spec.SortConfig.IsDebug {
+		log.Printf("SortTransformationPipe: sorted %d records", len(ctx.inputRecords))
+		for i, rec := range ctx.inputRecords {
+			// Print the record sort keys only
+			var keyValues []any
+			for _, pos := range ctx.sortBy {
+				if pos < len(*rec) {
+					keyValues = append(keyValues, (*rec)[pos])
+				} else {
+					keyValues = append(keyValues, nil)
+				}
+			}
+			log.Printf("  Record %d: sort keys=%v @ %v", i, keyValues, ctx.sortBy)
+		}
+	}
 
 	// Send out the records
 	for _, inputRecord := range ctx.inputRecords {
@@ -94,6 +110,9 @@ func (ctx *BuilderContext) NewSortTransformationPipe(source *InputChannel, outpu
 			return nil, fmt.Errorf("error: sort key '%s' is not an input column to %s", c, source.Name)
 		}
 		sortBy = append(sortBy, pos)
+	}
+	if config.IsDebug {
+		log.Printf("SortTransformationPipe: sort by columns %v at positions %v", config.SortByColumn, sortBy)
 	}
 
 	return &SortTransformationPipe{

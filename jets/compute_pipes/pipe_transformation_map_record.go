@@ -1,16 +1,19 @@
 package compute_pipes
 
 import (
+	"encoding/json"
 	"fmt"
 	"log"
 
 	"github.com/artisoft-io/jetstore/jets/jetrules/rete"
+	"github.com/artisoft-io/jetstore/jets/utils"
 )
 
 // map_record TransformationSpec implementing PipeTransformationEvaluator interface
 // map_record: each input record is mapped to the output
 
 type MapRecordTransformationPipe struct {
+	source            *InputChannel
 	outputCh         *OutputChannel
 	columnEvaluators []TransformationColumnEvaluator
 	spec             *TransformationSpec
@@ -18,13 +21,24 @@ type MapRecordTransformationPipe struct {
 }
 
 // Implementing interface PipeTransformationEvaluator
-func (ctx *MapRecordTransformationPipe) Apply(input *[]interface{}) error {
+func (ctx *MapRecordTransformationPipe) Apply(input *[]any) error {
 	if input == nil {
 		return fmt.Errorf("error: input is nil in MapRecordTransformationPipe.Apply")
 	}
-	var currentValues *[]interface{}
+	var currentValues *[]any
+	var inBytes []byte
+	// Debug logging of input record
+	if ctx.spec.MapRecordConfig != nil && ctx.spec.MapRecordConfig.IsDebug {
+		data, err := utils.ZipSlices(ctx.source.Config.Columns, *input)
+		if err != nil {
+			return fmt.Errorf("while zipping input columns and values for debug logging: %v", err)
+		}
+		inBytes, _ = json.Marshal(data)
+		log.Printf("MapRecordTransformationPipe input (zipped): %s", string(inBytes))
+	}
+
 	if ctx.spec.NewRecord {
-		v := make([]interface{}, len(ctx.outputCh.Config.Columns))
+		v := make([]any, len(ctx.outputCh.Config.Columns))
 		currentValues = &v
 		// initialize the column evaluators
 		for i := range ctx.columnEvaluators {
@@ -56,6 +70,18 @@ func (ctx *MapRecordTransformationPipe) Apply(input *[]interface{}) error {
 			*currentValues = (*currentValues)[:len(ctx.outputCh.Config.Columns)]
 		}
 	}
+	
+	var outBytes []byte
+	// Debug logging of output record
+	if ctx.spec.MapRecordConfig != nil && ctx.spec.MapRecordConfig.IsDebug {
+		data, err := utils.ZipSlices(ctx.outputCh.Config.Columns, *currentValues)
+		if err != nil {
+			return fmt.Errorf("while zipping output columns and values for debug logging: %v", err)
+		}
+		outBytes, _ = json.Marshal(data)
+		log.Printf("MapRecordTransformationPipe output (zipped): %s", string(outBytes))
+	}
+
 	// Send the result to output
 	select {
 	case ctx.outputCh.Channel <- *currentValues:
@@ -133,6 +159,7 @@ func (ctx *BuilderContext) NewMapRecordTransformationPipe(source *InputChannel, 
 		columnEvaluators = append(columnEvaluators, ce)
 	}
 	return &MapRecordTransformationPipe{
+		source:            source,
 		outputCh:         outputCh,
 		columnEvaluators: columnEvaluators,
 		spec:             spec,

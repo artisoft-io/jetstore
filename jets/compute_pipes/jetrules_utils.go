@@ -180,7 +180,9 @@ func ExtractRdfNodeInfoJson(e any) (value, rdfType string, err error) {
 }
 
 // Function to get the JetRuleEngine for a rule process
-func GetJetRuleEngine(reFactory JetRulesFactory, dbpool *pgxpool.Pool, processName string) (ruleEngine JetRuleEngine, err error) {
+func GetJetRuleEngine(reFactory JetRulesFactory, dbpool *pgxpool.Pool, processName string, isDebug bool) (
+	ruleEngine JetRuleEngine, err error) {
+
 	// Get the Rete MetaStore for the mainRules
 	reHdle, _ := ruleEngineCache.Load(processName)
 	if reHdle == nil {
@@ -198,7 +200,7 @@ func GetJetRuleEngine(reFactory JetRulesFactory, dbpool *pgxpool.Pool, processNa
 		}
 		log.Printf("Rule engine for ruleset '%s' for process '%s' not loaded, loading from local workspace",
 			mainRules, processName)
-		ruleEngine, err = reFactory.NewJetRuleEngine(dbpool, mainRules)
+		ruleEngine, err = reFactory.NewJetRuleEngine(dbpool, mainRules, isDebug)
 		if err != nil {
 			return nil,
 				fmt.Errorf("while loading ruleset '%s' for process '%s' from local workspace via NewJetRuleEngine: %v",
@@ -217,7 +219,6 @@ func GetRuleEngineConfig(mainRuleFile, property string) (string, error) {
 	if ruleEngineConfig == nil {
 		ruleEngineConfigMx.Lock()
 		defer ruleEngineConfigMx.Unlock()
-		fmt.Println("Load Rule Engine config from local Workspace")
 		ruleEngineConfig = make(map[string]string)
 		fpath := fmt.Sprintf("%s/%s/build/%s.config.json", workspaceHome, wsPrefix, strings.TrimSuffix(mainRuleFile, ".jr"))
 		log.Println("Reading Rule Engine config definitions from:", fpath)

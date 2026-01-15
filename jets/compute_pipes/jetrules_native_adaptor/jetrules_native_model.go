@@ -20,6 +20,7 @@ type JetRuleEngineNative struct {
 	jetResources *compute_pipes.JetResources
 	processName  string
 	js           *bridge.JetStore
+	isDebug      bool
 }
 
 type RdfNodeNative struct {
@@ -36,12 +37,14 @@ type JetRdfSessionNative struct {
 	rdfSession    *bridge.RDFSession
 	rs            *bridge.ReteSession
 	insertCounter int
+	isDebug       bool
 }
 
 type JetReteSessionNative struct {
 	rdfSession          *bridge.RDFSession
 	reteSession         *bridge.ReteSession
 	rdfSessionHdl       *JetRdfSessionNative
+	ruleset             string
 	executeErrorCounter int
 	executeCounter      int
 }

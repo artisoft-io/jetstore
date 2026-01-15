@@ -10,7 +10,7 @@ import (
 
 	"github.com/artisoft-io/jetstore/cdk/jetstore_one/lambdas/dbc"
 	"github.com/artisoft-io/jetstore/jets/compute_pipes"
-	"github.com/artisoft-io/jetstore/jets/compute_pipes/jetrules_go_adaptor"
+	"github.com/artisoft-io/jetstore/jets/compute_pipes/jetrules_native_adaptor"
 	"github.com/aws/aws-lambda-go/lambda"
 )
 
@@ -93,8 +93,8 @@ func handler(ctx context.Context, arg compute_pipes.ComputePipesNodeArgs) error 
 		return fmt.Errorf("while checking if db credential have been updated: %v", err)
 	}
 
-	log.Println("Using Jetrule Engine: GORULES")
-	jrFactory := jetrules_go_adaptor.NewJetRulesFactory()
+	log.Println("Using Jetrule Engine: NATIVE")
+	jrFactory := jetrules_native_adaptor.NewJetRulesFactory()
 
 	return (&arg).CoordinateComputePipes(ctx, dbpool, jrFactory)
 }

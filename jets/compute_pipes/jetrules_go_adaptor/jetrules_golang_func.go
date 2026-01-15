@@ -20,7 +20,7 @@ func (factory *JetRulesFactoryGo) ClearCache() bool {
 	return true
 }
 
-func (factory *JetRulesFactoryGo) NewJetRuleEngine(_ *pgxpool.Pool, processName string) (compute_pipes.JetRuleEngine, error) {
+func (factory *JetRulesFactoryGo) NewJetRuleEngine(_ *pgxpool.Pool, processName string, isDebug bool) (compute_pipes.JetRuleEngine, error) {
 	f, err := rete.NewReteMetaStoreFactory(processName)
 	if err != nil {
 		return nil, err
@@ -29,6 +29,7 @@ func (factory *JetRulesFactoryGo) NewJetRuleEngine(_ *pgxpool.Pool, processName 
 		processName:          processName,
 		factory:              factory,
 		reteMetaStoreFactory: f,
+		isDebug:              isDebug,
 	}
 	return ruleEngine, nil
 }
