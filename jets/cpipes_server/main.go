@@ -10,6 +10,7 @@ import (
 
 	"github.com/artisoft-io/jetstore/jets/awsi"
 	"github.com/artisoft-io/jetstore/jets/compute_pipes"
+	"github.com/artisoft-io/jetstore/jets/compute_pipes/jetrules_go_adaptor"
 	"github.com/jackc/pgx/v4/pgxpool"
 )
 
@@ -97,7 +98,10 @@ func main() {
 	log.Println("Got argument: awsRegion", awsRegion)
 	log.Println("Got env: JETS_S3_KMS_KEY_ARN", os.Getenv("JETS_S3_KMS_KEY_ARN"))
 	
-	err = (&cpArgs).CoordinateComputePipes(context.Background(), dbpool)
+	log.Println("Using Jetrule Engine: GORULES")
+	jrFactory := jetrules_go_adaptor.NewJetRulesFactory()
+
+	err = (&cpArgs).CoordinateComputePipes(context.Background(), dbpool, jrFactory)
 	if err != nil {
 		log.Panicf("cpipes_server: while calling CoordinateComputePipes: %v", err)
 	}
