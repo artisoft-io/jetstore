@@ -18,18 +18,19 @@ import (
 
 // functions to build the cpipes state machine
 func (jsComp *JetStoreStackComponents) BuildCpipesSM(scope constructs.Construct, stack awscdk.Stack, props *JetstoreOneStackProps) {
-	jsComp.buildCpipesSMInternal(scope, stack, props,jsComp.CpipesNodeLambda, jsComp.CpipesContainerDef, "cpipesSM", "")
+	jsComp.CpipesSM = jsComp.buildCpipesSMInternal(stack, props,jsComp.CpipesNodeLambda, jsComp.CpipesTaskDefinition, jsComp.CpipesContainerDef, "cpipesSM", "")
 }
 
 func (jsComp *JetStoreStackComponents) BuildCpipesNativeSM(scope constructs.Construct, stack awscdk.Stack, props *JetstoreOneStackProps) {
-	jsComp.buildCpipesSMInternal(scope, stack, props,jsComp.CpipesNativeNodeLambda, jsComp.CpipesNativeContainerDef, "cpipesNativeSM", "Native")
+	jsComp.CpipesNativeSM = jsComp.buildCpipesSMInternal(stack, props,jsComp.CpipesNativeNodeLambda, jsComp.CpipesNativeTaskDefinition, jsComp.CpipesNativeContainerDef, "cpipesNativeSM", "Native")
 }
 
 // internal function to build the cpipes state machine
 // Expecting tag to be empty or Native.
-func (jsComp *JetStoreStackComponents) buildCpipesSMInternal(scope constructs.Construct, stack awscdk.Stack, props *JetstoreOneStackProps, 
-	cpipesNodeFunction awslambda.IFunction, cpipesContainerDef awsecs.ContainerDefinition, stateMachineName string, tag string) {
-	// Compute Pipes SM
+func (jsComp *JetStoreStackComponents) buildCpipesSMInternal(stack awscdk.Stack, props *JetstoreOneStackProps, 
+	cpipesNodeFunction awslambda.IFunction, cpipesTaskDefinition awsecs.FargateTaskDefinition, cpipesContainerDef awsecs.ContainerDefinition, 
+	stateMachineName string, tag string) (cpipesSM sfn.StateMachine) {
+
 	// ----------------
 	// The process is as follows:
 	//	1. start sharding task
@@ -146,7 +147,7 @@ func (jsComp *JetStoreStackComponents) buildCpipesSMInternal(scope constructs.Co
 		LaunchTarget: sfntask.NewEcsFargateLaunchTarget(&sfntask.EcsFargateLaunchTargetOptions{
 			PlatformVersion: awsecs.FargatePlatformVersion_LATEST,
 		}),
-		TaskDefinition: jsComp.CpipesTaskDefinition,
+		TaskDefinition: cpipesTaskDefinition,
 		ContainerOverrides: &[]*sfntask.ContainerOverride{
 			{
 				ContainerDefinition: cpipesContainerDef,
@@ -267,29 +268,30 @@ func (jsComp *JetStoreStackComponents) buildCpipesSMInternal(scope constructs.Co
 			timeout = 60
 		}
 	}
-	jsComp.CpipesSM = sfn.NewStateMachine(stack, props.MkId(stateMachineName), &sfn.StateMachineProps{
+	cpipesSM = sfn.NewStateMachine(stack, props.MkId(stateMachineName), &sfn.StateMachineProps{
 		StateMachineName: props.MkId(stateMachineName),
 		DefinitionBody:   sfn.DefinitionBody_FromChainable(runStartSharingTask),
 		Timeout:          awscdk.Duration_Minutes(jsii.Number(timeout)),
 		Logs: &sfn.LogOptions{
-			Destination: awslogs.NewLogGroup(stack, props.MkId("cpipesLogs"), &awslogs.LogGroupProps{
+			Destination: awslogs.NewLogGroup(stack, props.MkId("cpipesLogs"+sfx), &awslogs.LogGroupProps{
 				Retention: awslogs.RetentionDays_THREE_MONTHS,
 			}),
 		},
 	})
 	if phiTagName != nil {
-		awscdk.Tags_Of(jsComp.CpipesSM).Add(phiTagName, jsii.String("true"), nil)
+		awscdk.Tags_Of(cpipesSM).Add(phiTagName, jsii.String("true"), nil)
 	}
 	if piiTagName != nil {
-		awscdk.Tags_Of(jsComp.CpipesSM).Add(piiTagName, jsii.String("true"), nil)
+		awscdk.Tags_Of(cpipesSM).Add(piiTagName, jsii.String("true"), nil)
 	}
 	if descriptionTagName != nil {
-		awscdk.Tags_Of(jsComp.CpipesSM).Add(descriptionTagName, jsii.String("State Machine to execute Compute Pipes in the JetStore Platform "+suffix), nil)
+		awscdk.Tags_Of(cpipesSM).Add(descriptionTagName, jsii.String("State Machine to execute Compute Pipes in the JetStore Platform "+suffix), nil)
 	}
-	jsComp.SourceBucket.GrantReadWrite(jsComp.CpipesSM.Role(), nil)
-	jsComp.GrantReadWriteFromExternalBuckets(stack, jsComp.CpipesSM.Role())
-	jsComp.RdsSecret.GrantRead(jsComp.CpipesSM.Role(), nil)
+	jsComp.SourceBucket.GrantReadWrite(cpipesSM.Role(), nil)
+	jsComp.GrantReadWriteFromExternalBuckets(stack, cpipesSM.Role())
+	jsComp.RdsSecret.GrantRead(cpipesSM.Role(), nil)
 	if jsComp.ExternalKmsKey != nil {
-		jsComp.ExternalKmsKey.GrantEncryptDecrypt(jsComp.CpipesSM.Role())
+		jsComp.ExternalKmsKey.GrantEncryptDecrypt(cpipesSM.Role())
 	}
+	return
 }

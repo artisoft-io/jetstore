@@ -107,12 +107,12 @@ func (jsComp *JetStoreStackComponents) BuildCpipesLambdas(scope constructs.Const
 
 		// Define the cpipes native node lambda
 		// Define the log group
-		cpipesNativeLambdaLogGroup := awslogs.NewLogGroup(stack, jsii.String("CpipesLambdaLogGroup"), &awslogs.LogGroupProps{
+		cpipesNativeLambdaLogGroup := awslogs.NewLogGroup(stack, jsii.String("CpipesNativeLambdaLogGroup"), &awslogs.LogGroupProps{
 			Retention: awslogs.RetentionDays_THREE_MONTHS,
 		})
 		jsComp.CpipesNativeNodeLambda = awslambda.NewDockerImageFunction(stack, jsii.String("CpipesNativeNodeLambda"), &awslambda.DockerImageFunctionProps{
-			Code: awslambda.DockerImageCode_FromEcr(awsecr.Repository_FromRepositoryArn(stack, jsii.String("jetstore-cpipes-native-image"),
-				jsii.String(fmt.Sprintf("arn:aws:ecr:%s:%s:repository/jetstore_cpipes", os.Getenv("AWS_REGION"), os.Getenv("AWS_ACCOUNT")))), &awslambda.EcrImageCodeProps{
+			Code: awslambda.DockerImageCode_FromEcr(awsecr.Repository_FromRepositoryArn(stack, jsii.String("cpipes-native-image-lambda"),
+				jsii.String(fmt.Sprintf("arn:aws:ecr:%s:%s:repository/jetstore_cpipes_native_lambda", os.Getenv("AWS_REGION"), os.Getenv("AWS_ACCOUNT")))), &awslambda.EcrImageCodeProps{
 				// Override the CMD to not expect a handler
 				Cmd:         jsii.Strings("bootstrap"),
 				Entrypoint:  jsii.Strings("/lambda-entrypoint.sh"),

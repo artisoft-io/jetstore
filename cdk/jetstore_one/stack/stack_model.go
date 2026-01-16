@@ -132,12 +132,13 @@ type JetStoreStackComponents struct {
 	ApiGatewayLambda          awslambdago.GoFunction
 	ApiGatewayTestLambda      awslambdago.GoFunction
 
-	LoaderSM    sfn.StateMachine
-	ReportsSM   sfn.StateMachine
-	ServerSM    sfn.StateMachine
-	Serverv2SM  sfn.StateMachine
-	CpipesSM    sfn.StateMachine
-	BastionHost awsec2.BastionHostLinux
+	LoaderSM       sfn.StateMachine
+	ReportsSM      sfn.StateMachine
+	ServerSM       sfn.StateMachine
+	Serverv2SM     sfn.StateMachine
+	CpipesSM       sfn.StateMachine
+	CpipesNativeSM sfn.StateMachine
+	BastionHost    awsec2.BastionHostLinux
 }
 
 func MkCatchProps() *sfn.CatchProps {

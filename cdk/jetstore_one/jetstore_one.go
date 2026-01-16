@@ -307,10 +307,12 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 		jsii.String(os.Getenv("CPIPES_IMAGE_TAG")))
 
 	// JetStore Image from ecr -- referenced in most tasks
+	//**TODO **: change to use cpipesNativeImage when ready
 	if jsComp.DeployCpipesNative {
 		log.Println("Deploying CPIPES Native Image")
 		jsComp.CpipesNativeImage = awsecs.AssetImage_FromEcrRepository(
-			awsecr.Repository_FromRepositoryArn(stack, jsii.String("jetstore-cpipes-native-image"),
+			awsecr.Repository_FromRepositoryArn(stack, jsii.String("cpipes-native-image-server"),
+				// jsii.String(fmt.Sprintf("arn:aws:ecr:%s:%s:repository/jetstore_cpipes_native", os.Getenv("AWS_REGION"), os.Getenv("AWS_ACCOUNT")))),
 				jsii.String(fmt.Sprintf("arn:aws:ecr:%s:%s:repository/jetstore_cpipes", os.Getenv("AWS_REGION"), os.Getenv("AWS_ACCOUNT")))),
 			jsii.String(os.Getenv("CPIPES_IMAGE_TAG")))
 	}
@@ -371,15 +373,20 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 	// permission to execute the StateMachines
 	// These execution are performed in code so must give permission explicitly
 	// ---------------------------------------
-	jsComp.EcsTaskRole.AddToPolicy(awsiam.NewPolicyStatement(&awsiam.PolicyStatementProps{
-		Actions: jsii.Strings("states:StartExecution"),
-		Resources: &[]*string{
+	resources := []*string{
 			jsComp.LoaderSM.StateMachineArn(),
 			jsComp.ServerSM.StateMachineArn(),
 			jsComp.Serverv2SM.StateMachineArn(),
 			jsComp.CpipesSM.StateMachineArn(),
 			jsComp.ReportsSM.StateMachineArn(),
-		},
+		}
+	if jsComp.DeployCpipesNative {
+		resources = append(resources, jsComp.CpipesNativeSM.StateMachineArn())
+	}
+
+	jsComp.EcsTaskRole.AddToPolicy(awsiam.NewPolicyStatement(&awsiam.PolicyStatementProps{
+		Actions: jsii.Strings("states:StartExecution"),
+		Resources: &resources,
 	}))
 	// Also to status update & register key lambda
 	jsComp.StatusUpdateLambda.AddToRolePolicy(awsiam.NewPolicyStatement(&awsiam.PolicyStatementProps{

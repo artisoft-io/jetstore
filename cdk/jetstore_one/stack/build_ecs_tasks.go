@@ -486,62 +486,62 @@ func (jsComp *JetStoreStackComponents) BuildEcsTasks(scope constructs.Construct,
 		ContainerPath: jsii.String("/jetsdata"),
 		ReadOnly:      jsii.Bool(false),
 	})
-	// // Native ---------------------
-	// // Define the log group
-	// cpipesNativeContainerLogGroup := awslogs.NewLogGroup(stack, jsii.String("CpipesNativeContainerLogGroup"), &awslogs.LogGroupProps{
-	// 	Retention: awslogs.RetentionDays_THREE_MONTHS,
-	// })
-	// jsComp.CpipesNativeContainerDef = jsComp.CpipesNativeTaskDefinition.AddContainer(jsii.String("cpipesNativeContainer"), &awsecs.ContainerDefinitionOptions{
-	// 	// Use JetStore Image in ecr
-	// 	//**TODO: Change back to native image when ready**
-	// 	// Image:         jsComp.CpipesNativeImage,
-	// 	Image:         jsComp.CpipesImage,
-	// 	ContainerName: jsii.String("cpipesNativeContainer"),
-	// 	Essential:     jsii.Bool(true),
-	// 	EntryPoint:    jsii.Strings("cbooter", "cpipes_native_server"),
+	// Native ---------------------
+	// Define the log group
+	cpipesNativeContainerLogGroup := awslogs.NewLogGroup(stack, jsii.String("CpipesNativeContainerLogGroup"), &awslogs.LogGroupProps{
+		Retention: awslogs.RetentionDays_THREE_MONTHS,
+	})
+	jsComp.CpipesNativeContainerDef = jsComp.CpipesNativeTaskDefinition.AddContainer(jsii.String("cpipesNativeContainer"), &awsecs.ContainerDefinitionOptions{
+		// Use JetStore Image in ecr
+		//**TODO: Change back to native image when ready**
+		// Image:         jsComp.CpipesNativeImage,
+		Image:         jsComp.CpipesImage,
+		ContainerName: jsii.String("cpipesNativeContainer"),
+		Essential:     jsii.Bool(true),
+		EntryPoint:    jsii.Strings("cbooter", "cpipes_native_server"),
 
-	// 	Environment: &map[string]*string{
-	// 		"USING_JETRULE_ENGINE_NATIVE":   jsii.String("1"),
-	// 		"JETS_BUCKET":                   jsComp.SourceBucket.BucketName(),
-	// 		"JETS_DOMAIN_KEY_HASH_ALGO":     jsii.String(os.Getenv("JETS_DOMAIN_KEY_HASH_ALGO")),
-	// 		"JETS_DOMAIN_KEY_HASH_SEED":     jsii.String(os.Getenv("JETS_DOMAIN_KEY_HASH_SEED")),
-	// 		"JETS_INPUT_ROW_JETS_KEY_ALGO":  jsii.String(os.Getenv("JETS_INPUT_ROW_JETS_KEY_ALGO")),
-	// 		"JETS_INVALID_CODE":             jsii.String(os.Getenv("JETS_INVALID_CODE")),
-	// 		"JETS_LOADER_CHUNCK_SIZE":       jsii.String(os.Getenv("JETS_LOADER_CHUNCK_SIZE")),
-	// 		"JETS_LOADER_SM_ARN":            jsii.String(jsComp.LoaderSmArn),
-	// 		"JETS_REGION":                   jsii.String(os.Getenv("AWS_REGION")),
-	// 		"JETS_PIVOT_YEAR_TIME_PARSING":  jsii.String(os.Getenv("JETS_PIVOT_YEAR_TIME_PARSING")),
-	// 		"JETS_s3_INPUT_PREFIX":          jsii.String(os.Getenv("JETS_s3_INPUT_PREFIX")),
-	// 		"JETS_s3_OUTPUT_PREFIX":         jsii.String(os.Getenv("JETS_s3_OUTPUT_PREFIX")),
-	// 		"JETS_s3_STAGE_PREFIX":          jsii.String(GetS3StagePrefix()),
-	// 		"JETS_S3_KMS_KEY_ARN":           jsii.String(os.Getenv("JETS_S3_KMS_KEY_ARN")),
-	// 		"JETS_SENTINEL_FILE_NAME":       jsii.String(os.Getenv("JETS_SENTINEL_FILE_NAME")),
-	// 		"JETS_DOMAIN_KEY_SEPARATOR":     jsii.String(os.Getenv("JETS_DOMAIN_KEY_SEPARATOR")),
-	// 		"JETS_PIPELINE_THROTTLING_JSON": jsii.String(os.Getenv("JETS_PIPELINE_THROTTLING_JSON")),
-	// 		"JETS_CPIPES_SM_TIMEOUT_MIN":    jsii.String(os.Getenv("JETS_CPIPES_SM_TIMEOUT_MIN")),
-	// 		"JETS_SERVER_SM_ARN":            jsii.String(jsComp.ServerSmArn),
-	// 		"JETS_SERVER_SM_ARNv2":          jsii.String(jsComp.ServerSmArnv2),
-	// 		"NBR_SHARDS":                    jsii.String(props.NbrShards),
-	// 		"JETS_CPIPES_SM_ARN":            jsii.String(jsComp.CpipesSmArn),
-	// 		"JETS_CPIPES_NATIVE_SM_ARN":     jsii.String(jsComp.CpipesNativeSmArn),
-	// 		"JETS_REPORTS_SM_ARN":           jsii.String(jsComp.ReportsSmArn),
-	// 		"JETS_DB_POOL_SIZE":             jsii.String(os.Getenv("JETS_DB_POOL_SIZE")),
-	// 		"WORKSPACES_HOME":               jsii.String("/jetsdata/workspaces"),
-	// 		"WORKSPACE":                     jsii.String(os.Getenv("WORKSPACE")),
-	// 	},
-	// 	Secrets: &map[string]awsecs.Secret{
-	// 		"JETS_DSN_JSON_VALUE": awsecs.Secret_FromSecretsManager(jsComp.RdsSecret, nil),
-	// 		"API_SECRET":          awsecs.Secret_FromSecretsManager(jsComp.ApiSecret, nil),
-	// 	},
-	// 	Logging: awsecs.LogDriver_AwsLogs(&awsecs.AwsLogDriverProps{
-	// 		StreamPrefix: jsii.String("task"),
-	// 		LogGroup:     cpipesNativeContainerLogGroup,
-	// 	}),
-	// 	ReadonlyRootFilesystem: jsii.Bool(true),
-	// })
-	// jsComp.CpipesNativeContainerDef.AddMountPoints(&awsecs.MountPoint{
-	// 	SourceVolume:  jsii.String("tmp-volume"),
-	// 	ContainerPath: jsii.String("/jetsdata"),
-	// 	ReadOnly:      jsii.Bool(false),
-	// })
+		Environment: &map[string]*string{
+			"USING_JETRULE_ENGINE_NATIVE":   jsii.String("1"),
+			"JETS_BUCKET":                   jsComp.SourceBucket.BucketName(),
+			"JETS_DOMAIN_KEY_HASH_ALGO":     jsii.String(os.Getenv("JETS_DOMAIN_KEY_HASH_ALGO")),
+			"JETS_DOMAIN_KEY_HASH_SEED":     jsii.String(os.Getenv("JETS_DOMAIN_KEY_HASH_SEED")),
+			"JETS_INPUT_ROW_JETS_KEY_ALGO":  jsii.String(os.Getenv("JETS_INPUT_ROW_JETS_KEY_ALGO")),
+			"JETS_INVALID_CODE":             jsii.String(os.Getenv("JETS_INVALID_CODE")),
+			"JETS_LOADER_CHUNCK_SIZE":       jsii.String(os.Getenv("JETS_LOADER_CHUNCK_SIZE")),
+			"JETS_LOADER_SM_ARN":            jsii.String(jsComp.LoaderSmArn),
+			"JETS_REGION":                   jsii.String(os.Getenv("AWS_REGION")),
+			"JETS_PIVOT_YEAR_TIME_PARSING":  jsii.String(os.Getenv("JETS_PIVOT_YEAR_TIME_PARSING")),
+			"JETS_s3_INPUT_PREFIX":          jsii.String(os.Getenv("JETS_s3_INPUT_PREFIX")),
+			"JETS_s3_OUTPUT_PREFIX":         jsii.String(os.Getenv("JETS_s3_OUTPUT_PREFIX")),
+			"JETS_s3_STAGE_PREFIX":          jsii.String(GetS3StagePrefix()),
+			"JETS_S3_KMS_KEY_ARN":           jsii.String(os.Getenv("JETS_S3_KMS_KEY_ARN")),
+			"JETS_SENTINEL_FILE_NAME":       jsii.String(os.Getenv("JETS_SENTINEL_FILE_NAME")),
+			"JETS_DOMAIN_KEY_SEPARATOR":     jsii.String(os.Getenv("JETS_DOMAIN_KEY_SEPARATOR")),
+			"JETS_PIPELINE_THROTTLING_JSON": jsii.String(os.Getenv("JETS_PIPELINE_THROTTLING_JSON")),
+			"JETS_CPIPES_SM_TIMEOUT_MIN":    jsii.String(os.Getenv("JETS_CPIPES_SM_TIMEOUT_MIN")),
+			"JETS_SERVER_SM_ARN":            jsii.String(jsComp.ServerSmArn),
+			"JETS_SERVER_SM_ARNv2":          jsii.String(jsComp.ServerSmArnv2),
+			"NBR_SHARDS":                    jsii.String(props.NbrShards),
+			"JETS_CPIPES_SM_ARN":            jsii.String(jsComp.CpipesSmArn),
+			"JETS_CPIPES_NATIVE_SM_ARN":     jsii.String(jsComp.CpipesNativeSmArn),
+			"JETS_REPORTS_SM_ARN":           jsii.String(jsComp.ReportsSmArn),
+			"JETS_DB_POOL_SIZE":             jsii.String(os.Getenv("JETS_DB_POOL_SIZE")),
+			"WORKSPACES_HOME":               jsii.String("/jetsdata/workspaces"),
+			"WORKSPACE":                     jsii.String(os.Getenv("WORKSPACE")),
+		},
+		Secrets: &map[string]awsecs.Secret{
+			"JETS_DSN_JSON_VALUE": awsecs.Secret_FromSecretsManager(jsComp.RdsSecret, nil),
+			"API_SECRET":          awsecs.Secret_FromSecretsManager(jsComp.ApiSecret, nil),
+		},
+		Logging: awsecs.LogDriver_AwsLogs(&awsecs.AwsLogDriverProps{
+			StreamPrefix: jsii.String("task"),
+			LogGroup:     cpipesNativeContainerLogGroup,
+		}),
+		ReadonlyRootFilesystem: jsii.Bool(true),
+	})
+	jsComp.CpipesNativeContainerDef.AddMountPoints(&awsecs.MountPoint{
+		SourceVolume:  jsii.String("tmp-volume"),
+		ContainerPath: jsii.String("/jetsdata"),
+		ReadOnly:      jsii.Bool(false),
+	})
 }
