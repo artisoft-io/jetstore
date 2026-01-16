@@ -40,7 +40,7 @@ func NewLookupTableSql(dbpool *pgxpool.Pool, spec *LookupSpec, env map[string]an
 		}
 	}
 	if isVerbose {
-		log.Println("NewLookupTableSql query is:\n", spec.Query)
+		log.Println("NewLookupTableSql query is:", spec.Query)
 	}
 	rows, err := dbpool.Query(context.Background(), spec.Query)
 	if err != nil {

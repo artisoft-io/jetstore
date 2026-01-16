@@ -97,8 +97,9 @@ func (ctx *AnonymizeTransformationPipe) Apply(input *[]any) error {
 			ctx.hasher.Write([]byte(inputStr))
 			switch ctx.mode {
 			case "de-identification":
-				// See if there is a de-identification lookup table
-				if action.deidLookupTbl != nil {
+				switch {
+				case action.deidLookupTbl != nil:
+					// use de-identification lookup table
 					// Lookup the anonymized value from the de-identification lookup table
 					nrows := uint64(action.deidLookupTbl.Size())
 					if nrows == 0 {
@@ -119,7 +120,8 @@ func (ctx *AnonymizeTransformationPipe) Apply(input *[]any) error {
 					if !ok {
 						return fmt.Errorf("error: expecting string for de-identification anonymized value, got %v", (*lookupRow)[0])
 					}
-				} else {
+				case len(action.deidFunctionName) > 0:
+					// use de-identification function
 					// Use the de-identification function
 					switch action.deidFunctionName {
 					case "hashed_value":
@@ -128,6 +130,9 @@ func (ctx *AnonymizeTransformationPipe) Apply(input *[]any) error {
 						return fmt.Errorf("error: unknown de-identification function '%s' for key prefix '%s'",
 							action.deidFunctionName, action.keyPrefix)
 					}
+				default:
+					// blank out the value
+					hashedValue = ""
 				}
 			case "anonymization":
 				// Generate the anonymized value with prefix
@@ -423,20 +428,18 @@ func (ctx *BuilderContext) NewAnonymizeTransformationPipe(source *InputChannel, 
 					if !ok {
 						// See if it's a deid function
 						deidFunctionName, ok = config.DeidFunctions[keyPrefix]
-						if !ok {
-							// Skipping this column
-							continue
-						}
-						// It's a deid function, vaidate the function and adjust column width if needed
-						switch deidFunctionName {
-						case "hashed_value":
-							// Determine the width to adjust for fixed-width files
-							if newWidth != nil {
-								newWidth[name] = 16
+						if ok {
+							// It's a deid function, vaidate the function and adjust column width if needed
+							switch deidFunctionName {
+							case "hashed_value":
+								// Determine the width to adjust for fixed-width files
+								if newWidth != nil {
+									newWidth[name] = 16
+								}
+							default:
+								return nil, fmt.Errorf("error: unknown de-identification function '%s' for key prefix '%s'",
+									deidFunctionName, keyPrefix)
 							}
-						default:
-							return nil, fmt.Errorf("error: unknown de-identification function '%s' for key prefix '%s'",
-								deidFunctionName, keyPrefix)
 						}
 					} else {
 						deidLookupTbl = ctx.lookupTableManager.LookupTableMap[lookupTableName]
