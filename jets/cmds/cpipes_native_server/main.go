@@ -10,6 +10,7 @@ import (
 
 	"github.com/artisoft-io/jetstore/jets/awsi"
 	"github.com/artisoft-io/jetstore/jets/compute_pipes"
+	"github.com/artisoft-io/jetstore/jets/compute_pipes/jetrules_go_adaptor"
 	"github.com/artisoft-io/jetstore/jets/compute_pipes/jetrules_native_adaptor"
 	"github.com/jackc/pgx/v4/pgxpool"
 )
@@ -34,6 +35,19 @@ var usingSshTunnel bool
 var awsRegion string
 var awsBucket string
 var dsn string
+
+type JetRulesProxyImpl struct {
+	defaultFactory     compute_pipes.JetRulesFactory
+}
+func (j *JetRulesProxyImpl) GetDefaultFactory() compute_pipes.JetRulesFactory {
+	return j.defaultFactory
+}
+func (j *JetRulesProxyImpl) GetGoFactory() compute_pipes.JetRulesFactory {
+	return jetrules_go_adaptor.NewJetRulesFactory()
+}
+func (j *JetRulesProxyImpl) GetNativeFactory() compute_pipes.JetRulesFactory {
+	return jetrules_native_adaptor.NewJetRulesFactory()
+}
 
 func main() {
 	args := os.Args[1]
@@ -98,11 +112,12 @@ func main() {
 		}
 		panic("Invalid argument(s)")
 	}
+	
+	jrProxy := &JetRulesProxyImpl{
+		defaultFactory: jetrules_native_adaptor.NewJetRulesFactory(),
+	}
 
-	log.Println("Using Jetrule Engine: NATIVE")
-	jrFactory := jetrules_native_adaptor.NewJetRulesFactory()
-
-	err = (&cpArgs).CoordinateComputePipes(context.Background(), dbpool, jrFactory)
+	err = (&cpArgs).CoordinateComputePipes(context.Background(), dbpool, jrProxy)
 	if err != nil {
 		log.Panicf("cpipes_server: while calling CoordinateComputePipes: %v", err)
 	}

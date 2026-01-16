@@ -34,6 +34,18 @@ var awsRegion string
 var awsBucket string
 var dsn string
 
+type JetRulesProxyImpl struct {
+}
+func (j *JetRulesProxyImpl) GetDefaultFactory() compute_pipes.JetRulesFactory {
+	return jetrules_go_adaptor.NewJetRulesFactory()
+}
+func (j *JetRulesProxyImpl) GetGoFactory() compute_pipes.JetRulesFactory {
+	return jetrules_go_adaptor.NewJetRulesFactory()
+}
+func (j *JetRulesProxyImpl) GetNativeFactory() compute_pipes.JetRulesFactory {
+	return nil
+}
+
 func main() {
 	args := os.Args[1]
 	fmt.Println("CMD LINE ARGS:", args)
@@ -97,11 +109,8 @@ func main() {
 	log.Println("Got argument: dbPoolSize", dbPoolSize)
 	log.Println("Got argument: awsRegion", awsRegion)
 	log.Println("Got env: JETS_S3_KMS_KEY_ARN", os.Getenv("JETS_S3_KMS_KEY_ARN"))
-	
-	log.Println("Using Jetrule Engine: GORULES")
-	jrFactory := jetrules_go_adaptor.NewJetRulesFactory()
 
-	err = (&cpArgs).CoordinateComputePipes(context.Background(), dbpool, jrFactory)
+	err = (&cpArgs).CoordinateComputePipes(context.Background(), dbpool, &JetRulesProxyImpl{})
 	if err != nil {
 		log.Panicf("cpipes_server: while calling CoordinateComputePipes: %v", err)
 	}

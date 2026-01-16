@@ -444,6 +444,7 @@ func (jsComp *JetStoreStackComponents) BuildEcsTasks(scope constructs.Construct,
 		EntryPoint:    jsii.Strings("cbooter", "cpipes_server"),
 
 		Environment: &map[string]*string{
+			"DEPLOY_CPIPES_NATIVE":          jsii.String("0"),
 			"JETS_BUCKET":                   jsComp.SourceBucket.BucketName(),
 			"JETS_DOMAIN_KEY_HASH_ALGO":     jsii.String(os.Getenv("JETS_DOMAIN_KEY_HASH_ALGO")),
 			"JETS_DOMAIN_KEY_HASH_SEED":     jsii.String(os.Getenv("JETS_DOMAIN_KEY_HASH_SEED")),
@@ -501,7 +502,7 @@ func (jsComp *JetStoreStackComponents) BuildEcsTasks(scope constructs.Construct,
 		EntryPoint:    jsii.Strings("cbooter", "cpipes_native_server"),
 
 		Environment: &map[string]*string{
-			"USING_JETRULE_ENGINE_NATIVE":   jsii.String("1"),
+			"DEPLOY_CPIPES_NATIVE":          jsii.String("1"),
 			"JETS_BUCKET":                   jsComp.SourceBucket.BucketName(),
 			"JETS_DOMAIN_KEY_HASH_ALGO":     jsii.String(os.Getenv("JETS_DOMAIN_KEY_HASH_ALGO")),
 			"JETS_DOMAIN_KEY_HASH_SEED":     jsii.String(os.Getenv("JETS_DOMAIN_KEY_HASH_SEED")),

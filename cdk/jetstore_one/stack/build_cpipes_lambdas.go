@@ -51,6 +51,7 @@ func (jsComp *JetStoreStackComponents) BuildCpipesLambdas(scope constructs.Const
 			GoBuildFlags: &[]*string{jsii.String(`-buildvcs=false -ldflags "-s -w"`)},
 		},
 		Environment: &map[string]*string{
+			"DEPLOY_CPIPES_NATIVE":                     jsii.String("0"),
 			"JETS_BUCKET":                              jsComp.SourceBucket.BucketName(),
 			"JETS_DSN_SECRET":                          jsComp.RdsSecret.SecretName(),
 			"JETS_INVALID_CODE":                        jsii.String(os.Getenv("JETS_INVALID_CODE")),
@@ -123,6 +124,7 @@ func (jsComp *JetStoreStackComponents) BuildCpipesLambdas(scope constructs.Const
 			MemorySize:           jsii.Number(memLimit),
 			EphemeralStorageSize: awscdk.Size_Mebibytes(jsii.Number(10240)),
 			Environment: &map[string]*string{
+				"DEPLOY_CPIPES_NATIVE":                     jsii.String("1"),
 				"JETS_BUCKET":                              jsComp.SourceBucket.BucketName(),
 				"JETS_DSN_SECRET":                          jsComp.RdsSecret.SecretName(),
 				"JETS_INVALID_CODE":                        jsii.String(os.Getenv("JETS_INVALID_CODE")),

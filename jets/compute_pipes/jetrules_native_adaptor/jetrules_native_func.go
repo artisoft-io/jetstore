@@ -17,6 +17,10 @@ import (
 // function for compute_pipes.JetRulesFactory
 // -------------------------------------------
 
+func (factory *JetRulesFactoryNative) JetRulesName() string {
+	return "JetRules Native Engine"
+}
+
 func (factory *JetRulesFactoryNative) ClearCache() bool {
 	// No cache to clear for Native rules engine
 	return true

@@ -18,7 +18,7 @@ import (
 
 // Compute Pipes Actions
 
-func (args *ComputePipesNodeArgs) CoordinateComputePipes(ctx context.Context, dbpool *pgxpool.Pool, jetRules JetRulesFactory) error {
+func (args *ComputePipesNodeArgs) CoordinateComputePipes(ctx context.Context, dbpool *pgxpool.Pool, jrProxy JetRulesProxy) error {
 	var cpErr, err error
 	var didSync bool
 	var inFolderPath string
@@ -33,6 +33,7 @@ func (args *ComputePipesNodeArgs) CoordinateComputePipes(ctx context.Context, db
 	var envSettings map[string]interface{}
 	var schemaManager *SchemaManager
 	var externalBucket string
+	var jrFactory JetRulesFactory
 
 	// Check if we need to sync the workspace files
 	didSync, err = workspace.SyncComputePipesWorkspace(dbpool)
@@ -61,6 +62,22 @@ func (args *ComputePipesNodeArgs) CoordinateComputePipes(ctx context.Context, db
 		cpErr = fmt.Errorf("failed to unmarshal cpipes config json: %v", err)
 		goto gotError
 	}
+	// Prepare JetRules engine
+	if cpConfig.UseJetRulesNative {
+		jrFactory = jrProxy.GetNativeFactory()
+	}
+	if cpConfig.UseJetRulesGo {
+		jrFactory = jrProxy.GetGoFactory()
+	}
+	if jrFactory == nil {
+		jrFactory = jrProxy.GetDefaultFactory()
+		if jrFactory == nil {
+			log.Println("WARNING: no JetRulesFactory available in CoordinateComputePipes")
+		}
+	}
+	log.Printf("%s node %d %s Using Jetrule engine: %s",
+		cpConfig.CommonRuntimeArgs.SessionId,
+		args.NodeId, cpConfig.CommonRuntimeArgs.MainInputStepId, jrFactory.JetRulesName())
 
 	// Get file keys
 	switch cpConfig.CommonRuntimeArgs.CpipesMode {
@@ -175,7 +192,7 @@ func (args *ComputePipesNodeArgs) CoordinateComputePipes(ctx context.Context, db
 		FileKeyComponents:  fileKeyComponents,
 		SchemaManager:      schemaManager,
 		InputFileKeys:      fileKeys,
-		JetRules:           jetRules,
+		JetRules:           jrFactory,
 		KillSwitch:         make(chan struct{}),
 		Done:               make(chan struct{}),
 		ErrCh:              make(chan error, 1000),

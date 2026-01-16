@@ -6,6 +6,8 @@ import (
 
 // This file contains the Compute Pipes configuration model
 type ComputePipesConfig struct {
+	UseJetRulesNative      bool                    `json:"use_jet_rules_native,omitzero"`
+	UseJetRulesGo          bool                    `json:"use_jet_rules_go,omitzero"`
 	CommonRuntimeArgs      *ComputePipesCommonArgs `json:"common_runtime_args,omitzero"`
 	MetricsConfig          *MetricsSpec            `json:"metrics_config,omitzero"`
 	ClusterConfig          *ClusterSpec            `json:"cluster_config,omitzero"`
