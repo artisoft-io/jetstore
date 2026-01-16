@@ -98,7 +98,7 @@ func (ctx *BuilderContext) NewClusteringPoolManager(config *ClusteringSpec,
 	for _, tag := range targetConfig.Column2ClassificationValues {
 		tag2map[tag] = true
 	}
-	for _, column := range source.config.Columns {
+	for _, column := range source.Config.Columns {
 		lkrow, err2 := analysisLookup.Lookup(&column)
 		if err2 != nil {
 			err = fmt.Errorf("NewClusteringPoolManager: while looking up key %s from table %s: %v",
@@ -120,7 +120,7 @@ func (ctx *BuilderContext) NewClusteringPoolManager(config *ClusteringSpec,
 			columns1 = append(columns1, column)
 			poolMgr.distributors = append(poolMgr.distributors, &ClusteringDistributor{
 				column1:             &column,
-				column1Pos:          (*source.columns)[column],
+				column1Pos:          (*source.Columns)[column],
 				distributionTaskMap: make(map[string]chan []any),
 			})
 		}
@@ -184,8 +184,8 @@ func (ctx *BuilderContext) NewClusteringPoolManager(config *ClusteringSpec,
 	//     cluster_data_subclassification then each node of the cluster get that
 	//     node classification as
 	workerOutputCh := &OutputChannel{
-		columns: &map[string]int{},
-		config: &ChannelSpec{
+		Columns: &map[string]int{},
+		Config: &ChannelSpec{
 			Name: "workers_out",
 			Columns: []string{
 				"column_name_1",
@@ -195,8 +195,8 @@ func (ctx *BuilderContext) NewClusteringPoolManager(config *ClusteringSpec,
 			},
 		},
 	}
-	for i, c := range workerOutputCh.config.Columns {
-		(*workerOutputCh.columns)[c] = i
+	for i, c := range workerOutputCh.Config.Columns {
+		(*workerOutputCh.Columns)[c] = i
 	}
 	go func() {
 		if config.IsDebug {
@@ -253,16 +253,16 @@ func (ctx *BuilderContext) NewClusteringPoolManager(config *ClusteringSpec,
 
 		// Collect the results from the workers
 		// Worker's output columns positions
-		wName1 := (*workerOutputCh.columns)["column_name_1"]
-		wName2 := (*workerOutputCh.columns)["column_name_2"]
-		WCount := (*workerOutputCh.columns)["distinct_count"]
-		WTotal := (*workerOutputCh.columns)["total_non_nil_count"]
+		wName1 := (*workerOutputCh.Columns)["column_name_1"]
+		wName2 := (*workerOutputCh.Columns)["column_name_2"]
+		WCount := (*workerOutputCh.Columns)["distinct_count"]
+		WTotal := (*workerOutputCh.Columns)["total_non_nil_count"]
 		// Manager's output columns positions
-		col1Pos := (*correlationOutputCh.columns)["column_name_1"]
-		col2Pos := (*correlationOutputCh.columns)["column_name_2"]
-		distinct1Pos := (*correlationOutputCh.columns)["distinct_column_1_count"]
-		distinct2Pos := (*correlationOutputCh.columns)["distinct_column_2_count"]
-		totalPos := (*correlationOutputCh.columns)["observations_count"]
+		col1Pos := (*correlationOutputCh.Columns)["column_name_1"]
+		col2Pos := (*correlationOutputCh.Columns)["column_name_2"]
+		distinct1Pos := (*correlationOutputCh.Columns)["distinct_column_1_count"]
+		distinct2Pos := (*correlationOutputCh.Columns)["distinct_column_2_count"]
+		totalPos := (*correlationOutputCh.Columns)["observations_count"]
 		// Use this variable as an accumulator to reduce all column1_value
 		columnCorrelationAccumulator := make(map[string]*ClusterCorrelation)
 		for correlationresult := range poolMgr.distributionResultCh {
@@ -291,14 +291,14 @@ func (ctx *BuilderContext) NewClusteringPoolManager(config *ClusteringSpec,
 			column1 := columns1Pos[cc.column1]
 			// Send the correlation result to the output channel so it makes it's way to s3
 			distinctC1Count := len(poolMgr.distributors[column1].distributionTaskMap)
-			correlationresult := make([]any, len(poolMgr.correlationOutputCh.config.Columns))
+			correlationresult := make([]any, len(poolMgr.correlationOutputCh.Config.Columns))
 			correlationresult[col1Pos] = cc.column1
 			correlationresult[col2Pos] = cc.column2
 			correlationresult[distinct1Pos] = distinctC1Count
 			correlationresult[distinct2Pos] = distinctC2Count
 			correlationresult[totalPos] = totalCount
 			select {
-			case poolMgr.correlationOutputCh.channel <- correlationresult:
+			case poolMgr.correlationOutputCh.Channel <- correlationresult:
 			case <-ctx.done:
 				log.Println("Clustering Pool Manager interrupted")
 			}
@@ -362,14 +362,14 @@ func (ctx *BuilderContext) NewClusteringPoolManager(config *ClusteringSpec,
 			}
 		subclassificationDone:
 			for column := range cluster.membership {
-				row := make([]any, len(outputCh.config.Columns))
-				row[(*outputCh.columns)["cluster_id"]] = label
-				row[(*outputCh.columns)["column_name"]] = column
-				row[(*outputCh.columns)["status"]] = clusterStatus
+				row := make([]any, len(outputCh.Config.Columns))
+				row[(*outputCh.Columns)["cluster_id"]] = label
+				row[(*outputCh.Columns)["column_name"]] = column
+				row[(*outputCh.Columns)["status"]] = clusterStatus
 				if len(subClassification) == 0 && len(cluster.membership) == 1 {
-					row[(*outputCh.columns)["data_subclassification"]] = "__SOLO__"
+					row[(*outputCh.Columns)["data_subclassification"]] = "__SOLO__"
 				} else {
-					row[(*outputCh.columns)["data_subclassification"]] = subClassification
+					row[(*outputCh.Columns)["data_subclassification"]] = subClassification
 				}
 				// Send the cluster membership to output channel
 				if config.IsDebug {
@@ -377,7 +377,7 @@ func (ctx *BuilderContext) NewClusteringPoolManager(config *ClusteringSpec,
 						column, subClassification)
 				}
 				select {
-				case outputCh.channel <- row:
+				case outputCh.Channel <- row:
 				case <-ctx.done:
 					log.Println("Clustering Pool Manager sending cluster membership interrupted")
 				}

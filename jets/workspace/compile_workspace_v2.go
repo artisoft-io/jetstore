@@ -136,6 +136,24 @@ func compileWorkspaceV2(dbpool *pgxpool.Pool, workspaceControl *rete.WorkspaceCo
 		encoder.Encode(clsTblModel)
 		file.Close()
 
+		// Save rule config in .config.json
+		ruleConfig := &rete.JetruleModel{
+			MainRuleFileName: fullModel.MainRuleFileName,
+			JetstoreConfig: fullModel.JetstoreConfig,
+		}
+		// Save in the build directory
+		fpath = fmt.Sprintf("%s/%s/build/%s.config.json", workspaceHome,
+			wprefix, strings.TrimSuffix(name, ".jr"))
+		log.Println("Writing JetStore rule config of", name, "to:", fpath)
+		file, err = os.OpenFile(fpath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
+		if err != nil {
+			err = fmt.Errorf("while opening .config.json for write (compile_workspace_v2):%v", err)
+			return err.Error(), err
+		}
+		encoder = json.NewEncoder(file)
+		encoder.Encode(ruleConfig)
+		file.Close()
+
 		// Save triples in .triples.json
 		tripleModel := &rete.JetruleModel{
 			MainRuleFileName: fullModel.MainRuleFileName,

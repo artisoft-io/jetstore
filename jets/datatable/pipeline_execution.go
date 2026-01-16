@@ -70,6 +70,7 @@ type PendingTask struct {
 	Key                  int64
 	MainInputRegistryKey sql.NullInt64
 	MainInputFileKey     sql.NullString
+	StateMachineName     string
 	Client               string
 	ProcessName          string
 	SessionId            string
@@ -150,14 +151,14 @@ func (ctx *DataTableContext) InsertPipelineExecutionStatus(dataTableAction *Data
 		if !ctx.DevMode && !dataTableAction.SkipThrottling && status == "submitted" {
 
 			// Put a lock on the stateMachineName
-			err = ctx.lockStateMachine(stateMachineName, sessionId)
+			err = ctx.lockStateMachine(sessionId)
 			if err != nil {
 				httpStatus = http.StatusInternalServerError
 				err = fmt.Errorf("while getting a lock on stateMachineName '%s': %v", stateMachineName, err)
 				return
 			}
-			defer ctx.unlockStateMachine(stateMachineName)
-			ok, err = ctx.checkThrottling(stateMachineName, fileKey)
+			defer ctx.unlockStateMachine()
+			ok, err = ctx.checkThrottling(fileKey)
 			if err != nil {
 				httpStatus = http.StatusInternalServerError
 				err = fmt.Errorf("while checking for throttling on stateMachineName '%s': %v", stateMachineName, err)
@@ -227,6 +228,7 @@ func (ctx *DataTableContext) InsertPipelineExecutionStatus(dataTableAction *Data
 				Key:                  int64(peKey),
 				MainInputRegistryKey: sql.NullInt64{Int64: mainInputRegistryKey, Valid: true},
 				MainInputFileKey:     sql.NullString{String: dataTableAction.Data[irow]["file_key"].(string), Valid: true},
+				StateMachineName:     stateMachineName,
 				Client:               dataTableAction.Data[irow]["client"].(string),
 				ProcessName:          dataTableAction.Data[irow]["process_name"].(string),
 				SessionId:            dataTableAction.Data[irow]["session_id"].(string),
@@ -234,7 +236,7 @@ func (ctx *DataTableContext) InsertPipelineExecutionStatus(dataTableAction *Data
 				UserEmail:            dataTableAction.Data[irow]["user_email"].(string),
 				FileSize:             sql.NullInt64{},
 			}
-			err = ctx.startPipeline(devModeCode, stateMachineName, task, results)
+			err = ctx.startPipeline(devModeCode, task, results)
 			if err != nil {
 				httpStatus = http.StatusInternalServerError
 				return
@@ -244,7 +246,7 @@ func (ctx *DataTableContext) InsertPipelineExecutionStatus(dataTableAction *Data
 	return
 }
 
-func (ctx *DataTableContext) StartPendingTasks(stateMachineName string) (err error) {
+func (ctx *DataTableContext) StartPendingTasks() (err error) {
 	// Get a lock on stateMachineName
 	// Get the tasks that are pending
 	// Identify pending tasks ready to start
@@ -268,8 +270,7 @@ func (ctx *DataTableContext) StartPendingTasks(stateMachineName string) (err err
 		`SELECT COUNT(*) 
     FROM jetsapi.pipeline_execution_status pe, jetsapi.process_config pc
     WHERE pe.status = $1 
-      AND pe.process_name = pc.process_name
-      AND pc.state_machine_name = $2`, "pending", stateMachineName).Scan(&pendCount)
+      AND pe.process_name = pc.process_name`, "pending").Scan(&pendCount)
 	if err != nil {
 		err = fmt.Errorf("while getting count of pending tasks: %v", err)
 		return
@@ -282,15 +283,15 @@ func (ctx *DataTableContext) StartPendingTasks(stateMachineName string) (err err
 	}
 
 	// Lock the state machine tasks
-	err = ctx.lockStateMachine(stateMachineName, "0")
+	err = ctx.lockStateMachine("0")
 	if err != nil {
 		return
 	}
-	defer ctx.unlockStateMachine(stateMachineName)
+	defer ctx.unlockStateMachine()
 
 	// Get the count of running pipelines and the size of their main input file
-	var submRc, submT1c int64
-	submRc, submT1c, err = ctx.GetTaskThrottlingInfo(stateMachineName, "submitted")
+	var submittedPipelinesCount, submittedTier1Count int64
+	submittedPipelinesCount, submittedTier1Count, err = ctx.GetTaskThrottlingInfo("submitted")
 	if err != nil {
 		err = fmt.Errorf("while getting the count of running pipelines and the size of their main input file: %v", err)
 		return
@@ -300,16 +301,15 @@ func (ctx *DataTableContext) StartPendingTasks(stateMachineName string) (err err
     SELECT 
       pe.key, pe.main_input_registry_key, pe.main_input_file_key, pe.client, 
       pe.process_name, pe.session_id, pe.status, pe.user_email,
-      fk.file_size
+      fk.file_size, pc.state_machine_name
     FROM jetsapi.pipeline_execution_status pe, jetsapi.file_key_staging fk, jetsapi.process_config pc
     WHERE pe.main_input_file_key = fk.file_key
       AND pe.status = $1
       AND pe.process_name = pc.process_name
-      AND pc.state_machine_name = $2
     ORDER BY pe.last_update ASC;`
 
 	// Get the pending tasks info
-	rows, err := ctx.Dbpool.Query(context.Background(), stmt, "pending", stateMachineName)
+	rows, err := ctx.Dbpool.Query(context.Background(), stmt, "pending")
 	if err != nil {
 		err = fmt.Errorf("while getting pending tasks info: %v", err)
 	}
@@ -319,22 +319,22 @@ func (ctx *DataTableContext) StartPendingTasks(stateMachineName string) (err err
 	for rows.Next() {
 		var task PendingTask
 		if err = rows.Scan(&task.Key, &task.MainInputRegistryKey, &task.MainInputFileKey, &task.Client,
-			&task.ProcessName, &task.SessionId, &task.Status, &task.UserEmail, &task.FileSize); err != nil {
+			&task.ProcessName, &task.SessionId, &task.Status, &task.UserEmail, &task.FileSize, &task.StateMachineName); err != nil {
 			return
 		}
 		// Submit task that qualify
-		submRc += 1
+		submittedPipelinesCount += 1
 		size := int(task.FileSize.Int64 / 1024 / 1024 / 1024)
 		if throttlingConfig.Size > 0 && size >= throttlingConfig.Size {
-			submT1c += 1
+			submittedTier1Count += 1
 		}
-		doThrottling, err = EvalThrotting(submRc, submT1c)
+		doThrottling, err = EvalThrotting(submittedPipelinesCount, submittedTier1Count)
 		if doThrottling || err != nil {
 			// Do throttling or there is an error, don't submit more tasks
 			return
 		}
 		// Start the state machine
-		err = ctx.startStateMachine(stateMachineName, &task)
+		err = ctx.startStateMachine(&task)
 		if err != nil {
 			_, err2 := ctx.Dbpool.Exec(context.Background(),
 				`UPDATE jetsapi.pipeline_execution_status SET (status, failure_details, last_update) = ($1, $2, DEFAULT) WHERE key = $3`,
@@ -355,7 +355,8 @@ func (ctx *DataTableContext) StartPendingTasks(stateMachineName string) (err err
 	return rows.Err()
 }
 
-func (ctx *DataTableContext) lockStateMachine(stateMachineName, sessionId string) error {
+func (ctx *DataTableContext) lockStateMachine(sessionId string) error {
+	stateMachineName := "all" // all or nothing - not per state machine anymore
 	stmt := "INSERT INTO jetsapi.pipeline_lock (state_machine_name, session_id) VALUES ($1, $2)"
 	retry := 0
 	var t time.Duration = 1 * time.Second
@@ -374,7 +375,8 @@ do_retry:
 	return nil
 }
 
-func (ctx *DataTableContext) unlockStateMachine(stateMachineName string) {
+func (ctx *DataTableContext) unlockStateMachine() {
+	stateMachineName := "all" // all or nothing - not per state machine anymore
 	stmt := "DELETE FROM jetsapi.pipeline_lock WHERE state_machine_name = $1"
 	_, err := ctx.Dbpool.Exec(context.Background(), stmt, stateMachineName)
 	if err != nil {
@@ -383,7 +385,7 @@ func (ctx *DataTableContext) unlockStateMachine(stateMachineName string) {
 }
 
 // Returns [true] if throttling is required for [fileKey]
-func (ctx *DataTableContext) checkThrottling(stateMachineName, fileKey string) (bool, error) {
+func (ctx *DataTableContext) checkThrottling(fileKey string) (bool, error) {
 	// Get the fileKey size from file_key_staging table
 	var fileSize sql.NullInt64
 	stmt := "SELECT file_size FROM jetsapi.file_key_staging WHERE file_key = $1"
@@ -398,25 +400,25 @@ func (ctx *DataTableContext) checkThrottling(stateMachineName, fileKey string) (
 	}
 
 	// Get the count of running pipelines and the size of their main input file
-	var submRc, submT1c int64
-	submRc, submT1c, err = ctx.GetTaskThrottlingInfo(stateMachineName, "submitted")
+	var submittedPipelinesCount, submittedTier1Count int64
+	submittedPipelinesCount, submittedTier1Count, err = ctx.GetTaskThrottlingInfo("submitted")
 	if err != nil {
 		return false, err
 	}
-	submRc += 1
+	submittedPipelinesCount += 1
 	size := int(fileSize.Int64 / 1024 / 1024 / 1024)
 	if throttlingConfig.Size > 0 && size >= throttlingConfig.Size {
-		submT1c += 1
+		submittedTier1Count += 1
 	}
-	return EvalThrotting(submRc, submT1c)
+	return EvalThrotting(submittedPipelinesCount, submittedTier1Count)
 }
 
-func EvalThrotting(submRc, submT1c int64) (bool, error) {
+func EvalThrotting(submittedPipelinesCount, submittedTier1Count int64) (bool, error) {
 	switch {
-	case submRc > int64(throttlingConfig.MaxConcurrentPipelines):
+	case submittedPipelinesCount > int64(throttlingConfig.MaxConcurrentPipelines):
 		// Put the current task into pending
 		return true, nil
-	case throttlingConfig.MaxPipeline > 0 && submT1c > int64(throttlingConfig.MaxPipeline):
+	case throttlingConfig.MaxPipeline > 0 && submittedTier1Count > int64(throttlingConfig.MaxPipeline):
 		// Put the current task into pending
 		return true, nil
 	default:
@@ -425,7 +427,7 @@ func EvalThrotting(submRc, submT1c int64) (bool, error) {
 	}
 }
 
-func (ctx *DataTableContext) GetTaskThrottlingInfo(stateMachineName, taskStatus string) (int64, int64, error) {
+func (ctx *DataTableContext) GetTaskThrottlingInfo(taskStatus string) (int64, int64, error) {
 	var err error
 	stmt := `
     SELECT 
@@ -434,13 +436,12 @@ func (ctx *DataTableContext) GetTaskThrottlingInfo(stateMachineName, taskStatus 
     FROM jetsapi.pipeline_execution_status pe, jetsapi.process_config pc, jetsapi.file_key_staging fk
     WHERE pe.main_input_file_key = fk.file_key
       AND pe.status = $2
-      AND pe.process_name = pc.process_name
-      AND pc.state_machine_name = $3;`
+      AND pe.process_name = pc.process_name;`
 
 	// Get the running tasks count
 	var pipelineCount, t1Count sql.NullInt64
 	err = ctx.Dbpool.QueryRow(context.Background(),
-		stmt, throttlingConfig.Size, taskStatus, stateMachineName).Scan(&pipelineCount, &t1Count)
+		stmt, throttlingConfig.Size, taskStatus).Scan(&pipelineCount, &t1Count)
 	if err != nil {
 		err = fmt.Errorf("while getting submitted tasks info with status '%s': %v", taskStatus, err)
 	}
@@ -449,14 +450,14 @@ func (ctx *DataTableContext) GetTaskThrottlingInfo(stateMachineName, taskStatus 
 	return pipelineCount.Int64, t1Count.Int64, err
 }
 
-func (ctx *DataTableContext) startPipeline(devModeCode, stateMachineName string, task *PendingTask, results *map[string]any) error {
+func (ctx *DataTableContext) startPipeline(devModeCode string, task *PendingTask, results *map[string]any) error {
 	if ctx.DevMode {
-		return ctx.runPipelineLocally(devModeCode, stateMachineName, task, results)
+		return ctx.runPipelineLocally(devModeCode, task, results)
 	}
-	return ctx.startStateMachine(stateMachineName, task)
+	return ctx.startStateMachine(task)
 }
 
-func (ctx *DataTableContext) startStateMachine(stateMachineName string, task *PendingTask) error {
+func (ctx *DataTableContext) startStateMachine(task *PendingTask) error {
 	var err error
 	var name string
 	peKey := strconv.Itoa(int(task.Key))
@@ -473,9 +474,9 @@ func (ctx *DataTableContext) startStateMachine(stateMachineName string, task *Pe
 
 	var processArn string
 	var smInput map[string]any
-	switch stateMachineName {
+	switch task.StateMachineName {
 	case "serverSM", "serverv2SM":
-		if stateMachineName == "serverv2SM" {
+		if task.StateMachineName == "serverv2SM" {
 			processArn = os.Getenv("JETS_SERVER_SM_ARNv2")
 		} else {
 			processArn = os.Getenv("JETS_SERVER_SM_ARN")
@@ -505,7 +506,7 @@ func (ctx *DataTableContext) startStateMachine(stateMachineName string, task *Pe
 			},
 		}
 
-	case "cpipesSM":
+	case "cpipesSM", "cpipesNativeSM":
 		// State Machine input for new cpipesSM all-in-one
 		// Set DoNotNotifyApiGateway to true, since we don't have the cpipesEnv when
 		// calling start Sharding, api notification will be done in by sharding task
@@ -525,8 +526,12 @@ func (ctx *DataTableContext) startStateMachine(stateMachineName string, task *Pe
 				"failureDetails":        "",
 			},
 		}
+		if task.StateMachineName == "cpipesNativeSM" {
+			processArn = os.Getenv("JETS_CPIPES_NATIVE_SM_ARN")
+		} else {
+			processArn = os.Getenv("JETS_CPIPES_SM_ARN")
+		}
 
-		processArn = os.Getenv("JETS_CPIPES_SM_ARN")
 	case "reportsSM":
 		processArn = os.Getenv("JETS_REPORTS_SM_ARN")
 		smInput = map[string]any{
@@ -545,8 +550,8 @@ func (ctx *DataTableContext) startStateMachine(stateMachineName string, task *Pe
 			},
 		}
 	default:
-		log.Printf("error: unknown stateMachineName: %s", stateMachineName)
-		err = fmt.Errorf("error: unknown stateMachineName: %s", stateMachineName)
+		log.Printf("error: unknown stateMachineName: %s", task.StateMachineName)
+		err = fmt.Errorf("error: unknown stateMachineName: %s", task.StateMachineName)
 		return err
 	}
 
@@ -563,7 +568,7 @@ func (ctx *DataTableContext) startStateMachine(stateMachineName string, task *Pe
 	return nil
 }
 
-func (ctx *DataTableContext) runPipelineLocally(devModeCode, stateMachineName string, task *PendingTask, results *map[string]any) error {
+func (ctx *DataTableContext) runPipelineLocally(devModeCode string, task *PendingTask, results *map[string]any) error {
 
 	var err error
 	workspaceName := os.Getenv("WORKSPACE")
@@ -591,14 +596,14 @@ func (ctx *DataTableContext) runPipelineLocally(devModeCode, stateMachineName st
 		var cmd *exec.Cmd
 		switch devModeCode {
 		case "run_server_only", "run_server_reports":
-			switch stateMachineName {
+			switch task.StateMachineName {
 			case "serverSM":
 				execName = "/usr/local/bin/server"
 			case "serverv2SM":
 				execName = "/usr/local/bin/serverv2"
 			default:
-				log.Printf("error: unknown state machine name: %s", stateMachineName)
-				err = fmt.Errorf("error: unknown stateMachineName: %s", stateMachineName)
+				log.Printf("error: unknown state machine name: %s", task.StateMachineName)
+				err = fmt.Errorf("error: unknown stateMachineName: %s", task.StateMachineName)
 				return err
 			}
 			for shardId := 0; shardId < nbrShards && err == nil; shardId++ {

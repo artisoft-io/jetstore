@@ -86,17 +86,17 @@ RUN wget -q "https://github.com/abseil/abseil-cpp/releases/download/20250127.1/a
 #     && make clean \
 #     && ldconfig
 
-# Google Test
-ARG GOOGLETEST_PATH="${EXTERNALS}/googletest-1.17.0"
-RUN wget -q "https://github.com/google/googletest/releases/download/v1.17.0/googletest-1.17.0.tar.gz"  \
-    && tar xf "googletest-1.17.0.tar.gz"  \
-    && cd "googletest-1.17.0"  \
-    && mkdir build && cd build \
-    && cmake -DCMAKE_CXX_FLAGS=-fPIC -DCMAKE_CXX_STANDARD=20 .. \
-    && make -j6  \
-    && make install \
-    && make clean \
-    && ldconfig
+# # Google Test
+# ARG GOOGLETEST_PATH="${EXTERNALS}/googletest-1.17.0"
+# RUN wget -q "https://github.com/google/googletest/releases/download/v1.17.0/googletest-1.17.0.tar.gz"  \
+#     && tar xf "googletest-1.17.0.tar.gz"  \
+#     && cd "googletest-1.17.0"  \
+#     && mkdir build && cd build \
+#     && cmake -DCMAKE_CXX_FLAGS=-fPIC -DCMAKE_CXX_STANDARD=20 .. \
+#     && make -j6  \
+#     && make install \
+#     && make clean \
+#     && ldconfig
 
 # Google Flags
 RUN wget -q "https://github.com/gflags/gflags/archive/refs/tags/v2.3.0.tar.gz"  \
@@ -131,16 +131,16 @@ RUN wget -q "https://github.com/google/glog/archive/refs/tags/v0.6.0.tar.gz"  \
 #     && make clean \
 #     && ldconfig
 
-# Google Benchmark
-RUN wget -q "https://github.com/google/benchmark/archive/refs/tags/v1.9.4.tar.gz"  \
-    && tar xf "v1.9.4.tar.gz"  \
-    && cd "benchmark-1.9.4"  \
-    && mkdir build && cd build \
-    && cmake -DCMAKE_CXX_FLAGS=-fPIC -DCMAKE_CXX_STANDARD=20 -DGOOGLETEST_PATH=${GOOGLETEST_PATH} .. \
-    && make -j6  \
-    && make install \
-    && make clean \
-    && ldconfig
+# # Google Benchmark
+# RUN wget -q "https://github.com/google/benchmark/archive/refs/tags/v1.9.4.tar.gz"  \
+#     && tar xf "v1.9.4.tar.gz"  \
+#     && cd "benchmark-1.9.4"  \
+#     && mkdir build && cd build \
+#     && cmake -DCMAKE_CXX_FLAGS=-fPIC -DCMAKE_CXX_STANDARD=20 -DGOOGLETEST_PATH=${GOOGLETEST_PATH} .. \
+#     && make -j6  \
+#     && make install \
+#     && make clean \
+#     && ldconfig
 
 # sqlite3
 ARG SQLITE3_VERSION="3510100"

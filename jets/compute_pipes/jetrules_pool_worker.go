@@ -1,15 +1,17 @@
 package compute_pipes
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log"
 	"runtime/debug"
 	"strconv"
 	"strings"
+	"time"
 
-	"github.com/artisoft-io/jetstore/jets/jetrules/rdf"
 	"github.com/artisoft-io/jetstore/jets/jetrules/rete"
+	"github.com/artisoft-io/jetstore/jets/utils"
 	"github.com/google/uuid"
 )
 
@@ -18,20 +20,20 @@ import (
 type JrPoolWorker struct {
 	config         *JetrulesSpec
 	source         *InputChannel
-	reteMetaStore  *rete.ReteMetaStoreFactory
+	ruleEngine     JetRuleEngine
 	outputChannels []*JetrulesOutputChan
 	done           chan struct{}
 	errCh          chan error
 }
 
 func NewJrPoolWorker(config *JetrulesSpec, source *InputChannel,
-	reteMetaStore *rete.ReteMetaStoreFactory, outputChannels []*JetrulesOutputChan,
+	re JetRuleEngine, outputChannels []*JetrulesOutputChan,
 	done chan struct{}, errCh chan error) *JrPoolWorker {
 	// log.Println("New Pool Worker Created")
 	return &JrPoolWorker{
 		config:         config,
 		source:         source,
-		reteMetaStore:  reteMetaStore,
+		ruleEngine:     re,
 		outputChannels: outputChannels,
 		done:           done,
 		errCh:          errCh,
@@ -99,28 +101,44 @@ func (ctx *JrPoolWorker) executeRules(inputRecords *[]any,
 	// log.Println("*** Pool Worker == Entering executeRules")
 
 	var cpErr error
-	// var reteSessionSaved bool
-	rdfSession := rdf.NewRdfSession(ctx.reteMetaStore.ResourceMgr,
-		ctx.reteMetaStore.MetaGraph)
-	rm := rdfSession.ResourceMgr
-	jr := rm.JetsResources
+	re := ctx.ruleEngine
+	jr := re.JetResources()
 	var maxLooping, iloop int
+	var wc *rete.WorkspaceControl
+	var rm JetResourceManager
+	var reteSession JetReteSession
+	var inputAsserted bool
+	// Create the rdf session
+	rdfSession, err := re.NewRdfSession()
+	if err != nil {
+		cpErr = fmt.Errorf("error: while creating new rdf session: %v", err)
+		goto gotError
+	}
+	defer rdfSession.Release()
+	rm = rdfSession.GetResourceManager()
 
-	// Assert the input records to rdf session
-	err = assertInputRecords(ctx.config, ctx.source, rm, jr,
-		rdfSession.AssertedGraph, inputRecords)
-
+	wc, err = GetWorkspaceControl()
+	if err != nil {
+		cpErr = fmt.Errorf("while getting workspace control in executeRules: %v", err)
+		goto gotError
+	}
 	// Loop over all rulesets
-	for _, ruleset := range ctx.reteMetaStore.MainRuleFileNames {
+	for _, ruleset := range wc.RuleFileNames(re.MainRuleFile()) {
 		// Create the rete session
-		// log.Printf("*** executeRules: Creating Rete Session for %s\n", ruleset)
-		ms := ctx.reteMetaStore.MetaStoreLookup[ruleset]
-		if ms == nil {
-			cpErr = fmt.Errorf("error: metastore not found for %s", ruleset)
+		reteSession, err = rdfSession.NewReteSession(ruleset)
+		if err != nil {
+			cpErr = fmt.Errorf("error: while creating rete session for ruleset %s: %v", ruleset, err)
 			goto gotError
 		}
-		reteSession := rete.NewReteSession(rdfSession)
-		reteSession.Initialize(ms)
+		if !inputAsserted {
+			// Assert the input records to rdf session
+			err = assertInputRecords(ctx.config, ctx.source, rdfSession, inputRecords)
+			if err != nil {
+				cpErr = fmt.Errorf("while asserting input records to rdf session: %v", err)
+				goto gotError
+			}
+			inputAsserted = true
+		}
 
 		// Step 0 of loop is pre loop or no loop
 		// Step 1+ for looping
@@ -128,13 +146,19 @@ func (ctx *JrPoolWorker) executeRules(inputRecords *[]any,
 		rdfSession.Erase(jr.Jets__istate, jr.Jets__completed, nil)
 		maxLooping = 0
 		if ctx.config.MaxLooping == 0 {
-			// get the $max_looping of the metastore
-			v := (*ms.JetStoreConfig)["$max_looping"]
+			// get the $max_looping of the workspace
+			v, err := GetRuleEngineConfig(ruleset, "$max_looping")
+			if err != nil {
+				cpErr = fmt.Errorf(
+					"error: while getting '$max_looping' property from workspace %s: %v",
+					ruleset, err)
+				goto gotError
+			}
 			if len(v) > 0 {
 				maxLooping, err = strconv.Atoi(v)
 				if err != nil {
 					cpErr = fmt.Errorf(
-						"error: invalid '$max_looping' property in metastore %s, using 1000: %v",
+						"error: invalid '$max_looping' property in workspace %s, using 1000: %v",
 						ruleset, err)
 					goto gotError
 				}
@@ -171,26 +195,22 @@ func (ctx *JrPoolWorker) executeRules(inputRecords *[]any,
 		}
 		// Check for any jets:exceptions in the rdfSession
 		ctor := rdfSession.FindSP(jr.Jets__istate, jr.Jets__exception)
-		for t3 := range ctor.Itor {
-			hasException := t3[2]
+		for !ctor.IsEnd() {
+			hasException := ctor.GetObject()
 			if hasException != nil {
 				//*TODO report jetrules exception, save rete session
 				log.Printf("jetrule: jets:exception caught: %s", hasException)
 				errCount += 1
 			}
+			ctor.Next()
 		}
-		ctor.Done()
-		reteSession.Done()
+		ctor.Release()
+		reteSession.Release()
 	}
-
-	// log.Println("*** Pool Worker == Done executing the rulesets, inferred graph contains", rdfSession.InferredGraph.Size(), "triples")
 
 	// Print rdf session if in debug mode
 	if ctx.config.IsDebug {
-		log.Println("ASSERTED GRAPH")
-		log.Printf("\n%s\n", strings.Join(rdfSession.AssertedGraph.ToTriples(), "\n"))
-		log.Println("INFERRED GRAPH")
-		log.Printf("\n%s\n", strings.Join(rdfSession.InferredGraph.ToTriples(), "\n"))
+		log.Println("Execute Rules Completed")
 	}
 
 	// Extract data from the rdf session based on class names
@@ -199,10 +219,12 @@ func (ctx *JrPoolWorker) executeRules(inputRecords *[]any,
 		if err != nil {
 			cpErr = fmt.Errorf(
 				"while extraction entity from jetrules for class %s: %v",
-				outChannel.className, err)
+				outChannel.ClassName, err)
 			goto gotError
 		}
 	}
+
+	log.Println("*** Pool Worker == Done Extracting Session DATA")
 
 	return
 
@@ -219,20 +241,21 @@ gotError:
 	return 0, cpErr
 }
 
-func (ctx *JrPoolWorker) extractSessionData(rdfSession *rdf.RdfSession,
+func (ctx *JrPoolWorker) extractSessionData(rdfSession JetRdfSession,
 	outChannel *JetrulesOutputChan) error {
 
-	rm := rdfSession.ResourceMgr
-	jr := rm.JetsResources
+	jr := rdfSession.JetResources()
+	rm := rdfSession.GetResourceManager()
 	entityCount := 0
-	columns := outChannel.outputCh.config.Columns
+	columns := outChannel.OutputCh.Config.Columns
 	var data any
 	var dataArr *[]any
 	var isArray bool
 	// Extract entity by rdf type
-	ctor := rdfSession.FindSPO(nil, jr.Rdf__type, rm.NewResource(outChannel.className))
-	for t3 := range ctor.Itor {
-		subject := t3[0]
+	log.Println("*** Pool Worker == Extracting entities of class", outChannel.ClassName)
+	ctor := rdfSession.FindSPO(nil, jr.Rdf__type, rm.NewResource(outChannel.ClassName))
+	for !ctor.IsEnd() {
+		subject := ctor.GetSubject()
 		// Check if subject is an entity for the current source period
 		// i.e. is not an historical entity comming from the lookback period
 		// We don't extract historical entities but only one from the current source period
@@ -243,8 +266,8 @@ func (ctx *JrPoolWorker) extractSessionData(rdfSession *rdf.RdfSession,
 		// Note: Do not save the jets:InputEntity marker type on the extracted obj.
 		keepObj := true
 		obj := rdfSession.GetObject(subject, jr.Jets__source_period_sequence)
-		if obj != nil {
-			v := obj.Value.(int)
+		if obj != nil && obj.Value() != nil {
+			v := GetRdfNodeValue(obj).(int)
 			if v == 0 {
 				// Check if obj has marker type jets:InputRecord, extract obj if it does.
 				if !rdfSession.Contains(subject, jr.Rdf__type, jr.Jets__input_record) {
@@ -262,12 +285,12 @@ func (ctx *JrPoolWorker) extractSessionData(rdfSession *rdf.RdfSession,
 				data = nil
 				isArray = false
 				itor := rdfSession.FindSP(subject, rm.NewResource(p))
-				for t3 := range itor.Itor {
-					value := getValue(t3[2])
+				for !itor.IsEnd() {
+					value := GetRdfNodeValue(itor.GetObject())
 					if p == "rdf:type" {
 						c, ok := value.(string)
 						if ok && c == "jets:InputRecord" {
-							continue
+							goto go_next
 						}
 					}
 					if data == nil {
@@ -280,8 +303,10 @@ func (ctx *JrPoolWorker) extractSessionData(rdfSession *rdf.RdfSession,
 							isArray = true
 						}
 					}
+				go_next:
+					itor.Next()
 				}
-				itor.Done()
+				itor.Release()
 				if isArray {
 					data = *dataArr
 				}
@@ -291,8 +316,8 @@ func (ctx *JrPoolWorker) extractSessionData(rdfSession *rdf.RdfSession,
 			// NOTE there is no initialize and done called on the column evaluators
 			//      since they should be only of type 'select' or 'value'
 			// Note: using entityRow as both current value and input for the purpose of these operators
-			for i := range outChannel.columnEvaluators {
-				err := outChannel.columnEvaluators[i].Update(&entityRow, &entityRow)
+			for i := range outChannel.ColumnEvaluators {
+				err := outChannel.ColumnEvaluators[i].Update(&entityRow, &entityRow)
 				if err != nil {
 					err = fmt.Errorf("while calling column transformation from jetrules extract session data: %v", err)
 					log.Println(err)
@@ -302,76 +327,59 @@ func (ctx *JrPoolWorker) extractSessionData(rdfSession *rdf.RdfSession,
 			// Send the record to output channel
 			// log.Println("*** Extracted ENTITY_ROW:", entityRow)
 			select {
-			case outChannel.outputCh.channel <- entityRow:
+			case outChannel.OutputCh.Channel <- entityRow:
 				entityCount += 1
 			case <-ctx.done:
-				log.Printf("jetrule extractSessionData writing to '%s' interrupted", outChannel.outputCh.name)
+				log.Printf("jetrule extractSessionData writing to '%s' interrupted", outChannel.OutputCh.Name)
 				return nil
 			}
 		}
+		ctor.Next()
 	}
-	ctor.Done()
-	log.Printf("jetrules: Extracted %d entities for class %s", entityCount, outChannel.className)
+	ctor.Release()
+	log.Printf("jetrules: Extracted %d entities for class %s", entityCount, outChannel.ClassName)
 	return nil
 }
 
-func getValue(r *rdf.Node) any {
-	switch vv := r.Value.(type) {
-	case int, uint, float64, string:
-		return r.Value
-	case rdf.LDate:
-		return *vv.Date
-	case rdf.NamedResource:
-		return vv.Name
-	case rdf.LDatetime:
-		return *vv.Datetime
-	case rdf.RdfNull:
-		return nil
-	case rdf.BlankNode:
-		return fmt.Sprintf("BN%d", vv.Key)
-	case int64:
-		return int(vv)
-	case int32:
-		return int(vv)
-	case uint64:
-		return uint(vv)
-	case uint32:
-		return uint(vv)
-	default:
-		return nil
-	}
-}
-
 func assertInputRecords(config *JetrulesSpec, source *InputChannel,
-	rm *rdf.ResourceManager, jr *rdf.JetResources, graph *rdf.RdfGraph,
-	inputRecords *[]any) (err error) {
+	rdfSession JetRdfSession, inputRecords *[]any) (err error) {
 
-	columns := source.config.Columns
-	if source.hasGroupedRows {
+	columns := source.Config.Columns
+	if source.HasGroupedRows {
 		// log.Printf("*** Pool Worker == Asserting bundle of %d entities\n", len(*inputRecords))
 		for i := range *inputRecords {
 			row, ok := (*inputRecords)[i].([]any)
 			if !ok {
 				return fmt.Errorf("error: inputRecords are invalid")
 			}
-			err = assertInputRow(config, rm, jr, graph, &row, &columns)
+			err = assertInputRow(config, rdfSession, &row, &columns)
 		}
 	} else {
 		// log.Printf("*** Pool Worker == Asserting single entities\n")
-		err = assertInputRow(config, rm, jr, graph, inputRecords, &columns)
+		err = assertInputRow(config, rdfSession, inputRecords, &columns)
 	}
 	return
 }
 
-func assertInputRow(config *JetrulesSpec, rm *rdf.ResourceManager, jr *rdf.JetResources,
-	graph *rdf.RdfGraph, row *[]any, columns *[]string) (err error) {
+func assertInputRow(config *JetrulesSpec, rdfSession JetRdfSession, row *[]any, columns *[]string) (err error) {
+
+	if config.IsDebug {
+		data, err := utils.ZipSlicesNoNil(*columns, *row)
+		if err != nil {
+			return fmt.Errorf("while zipping input columns and values for debug logging: %v", err)
+		}
+		outBytes, _ := json.Marshal(data)
+		log.Printf("Asserting Input Record (zipped no null): %s", string(outBytes))
+	}
 
 	nbrCol := len(*columns)
-	var predicate *rdf.Node
+	var predicate RdfNode
 	// assert record i
 	var jetsKey, rdfType string
-	var subject *rdf.Node
-	var node *rdf.Node
+	var subject RdfNode
+	var node RdfNode
+	jr := rdfSession.JetResources()
+	rm := rdfSession.GetResourceManager()
 	// Assert the rdf type if provided in config, otherwise it must be part of the data
 	if config.InputRdfType != "" {
 		jetsKey = uuid.New().String()
@@ -386,17 +394,17 @@ func assertInputRow(config *JetrulesSpec, rm *rdf.ResourceManager, jr *rdf.JetRe
 		}
 	}
 	subject = rm.NewResource(jetsKey)
-	_, err = graph.Insert(subject, jr.Jets__key, rm.NewTextLiteral(jetsKey))
+	err = rdfSession.Insert(subject, jr.Jets__key, rm.NewTextLiteral(jetsKey))
 	if err != nil {
 		return
 	}
-	_, err = graph.Insert(subject, jr.Rdf__type, rm.NewResource(rdfType))
+	err = rdfSession.Insert(subject, jr.Rdf__type, rm.NewResource(rdfType))
 	if err != nil {
 		return
 	}
 
 	// Assert the jets:InputRecord rdf:type
-	_, err = graph.Insert(subject, jr.Rdf__type, jr.Jets__input_record)
+	err = rdfSession.Insert(subject, jr.Rdf__type, jr.Jets__input_record)
 	if err != nil {
 		return
 	}
@@ -417,15 +425,50 @@ func assertInputRow(config *JetrulesSpec, rm *rdf.ResourceManager, jr *rdf.JetRe
 				if err != nil {
 					return fmt.Errorf("while NewRdfNode for value in array: %v", err)
 				}
-				_, err = graph.Insert(subject, predicate, node)	
+				err = rdfSession.Insert(subject, predicate, node)
 			}
 		default:
 			node, err = NewRdfNode(vv, rm)
 			if err != nil {
 				return fmt.Errorf("while NewRdfNode: %v", err)
 			}
-			_, err = graph.Insert(subject, predicate, node)	
+			err = rdfSession.Insert(subject, predicate, node)
 		}
 	}
 	return
+}
+
+func NewRdfNode(inValue any, re JetResourceManager) (RdfNode, error) {
+	switch vv := inValue.(type) {
+	case string:
+		return re.NewTextLiteral(vv), nil
+	case int:
+		return re.NewIntLiteral(vv), nil
+	case uint:
+		return re.NewUIntLiteral(vv), nil
+	case float64:
+		return re.NewDoubleLiteral(vv), nil
+	case time.Time:
+		// Check if it's a date or a datetime
+		if vv.Hour() == 0 && vv.Minute() == 0 && vv.Second() == 0 {
+			// Date
+			return re.NewDateDetails(vv.Year(), int(vv.Month()), vv.Day()), nil
+		} else {
+			// Datetime
+			return re.NewDatetimeDetails(vv.Year(), int(vv.Month()), vv.Day(),
+				vv.Hour(), vv.Minute(), vv.Second()), nil
+		}
+	case int64:
+		return re.NewIntLiteral(int(vv)), nil
+	case uint64:
+		return re.NewUIntLiteral(uint(vv)), nil
+	case int32:
+		return re.NewIntLiteral(int(vv)), nil
+	case uint32:
+		return re.NewUIntLiteral(uint(vv)), nil
+	case float32:
+		return re.NewDoubleLiteral(float64(vv)), nil
+	default:
+		return nil, fmt.Errorf("error: unknown type %T for NewRdfNode", vv)
+	}
 }

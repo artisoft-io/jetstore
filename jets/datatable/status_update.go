@@ -408,17 +408,8 @@ func (ca *StatusUpdate) CoordinateWork() error {
 		}
 	}
 	// Check for pending tasks ready to start
-	// Get the stateMachineName of the current task
-	var stateMachineName string
-	err = ca.Dbpool.QueryRow(context.Background(),
-		`SELECT pc.state_machine_name	FROM jetsapi.process_config pc, jetsapi.pipeline_execution_status pe 
-		   WHERE pc.process_name = pe.process_name AND pe.key = $1`,
-		ca.PeKey).Scan(&stateMachineName)
-	if err != nil {
-		return fmt.Errorf("while queryRow on pipeline_execution_status failed: %v", err)
-	}
 	ctx := NewDataTableContext(ca.Dbpool, ca.UsingSshTunnel, ca.UsingSshTunnel, nil, nil)
-	err = ctx.StartPendingTasks(stateMachineName)
+	err = ctx.StartPendingTasks()
 	if err != nil {
 		log.Printf("%s Warning: while starting pending task: %v", sessionId, err)
 		err = nil

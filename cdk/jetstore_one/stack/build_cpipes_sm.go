@@ -8,6 +8,7 @@ import (
 	awscdk "github.com/aws/aws-cdk-go/awscdk/v2"
 	"github.com/aws/aws-cdk-go/awscdk/v2/awsec2"
 	"github.com/aws/aws-cdk-go/awscdk/v2/awsecs"
+	"github.com/aws/aws-cdk-go/awscdk/v2/awslambda"
 	"github.com/aws/aws-cdk-go/awscdk/v2/awslogs"
 	sfn "github.com/aws/aws-cdk-go/awscdk/v2/awsstepfunctions"
 	sfntask "github.com/aws/aws-cdk-go/awscdk/v2/awsstepfunctionstasks"
@@ -16,9 +17,20 @@ import (
 )
 
 // functions to build the cpipes state machine
-
 func (jsComp *JetStoreStackComponents) BuildCpipesSM(scope constructs.Construct, stack awscdk.Stack, props *JetstoreOneStackProps) {
-	// Compute Pipes SM
+	jsComp.CpipesSM = jsComp.buildCpipesSMInternal(stack, props,jsComp.CpipesNodeLambda, jsComp.CpipesTaskDefinition, jsComp.CpipesContainerDef, "cpipesSM", "")
+}
+
+func (jsComp *JetStoreStackComponents) BuildCpipesNativeSM(scope constructs.Construct, stack awscdk.Stack, props *JetstoreOneStackProps) {
+	jsComp.CpipesNativeSM = jsComp.buildCpipesSMInternal(stack, props,jsComp.CpipesNativeNodeLambda, jsComp.CpipesNativeTaskDefinition, jsComp.CpipesNativeContainerDef, "cpipesNativeSM", "Native")
+}
+
+// internal function to build the cpipes state machine
+// Expecting tag to be empty or Native.
+func (jsComp *JetStoreStackComponents) buildCpipesSMInternal(stack awscdk.Stack, props *JetstoreOneStackProps, 
+	cpipesNodeFunction awslambda.IFunction, cpipesTaskDefinition awsecs.FargateTaskDefinition, cpipesContainerDef awsecs.ContainerDefinition, 
+	stateMachineName string, tag string) (cpipesSM sfn.StateMachine) {
+
 	// ----------------
 	// The process is as follows:
 	//	1. start sharding task
@@ -38,10 +50,15 @@ func (jsComp *JetStoreStackComponents) BuildCpipesSM(scope constructs.Construct,
 	// 		props.MaxConcurrency = 10
 	// 	}
 	// }
+	suffix := tag + "LambdaTask"
+	sfx := ""
+	if len(tag) > 0 {
+		sfx = "-"+tag[:1]
+	}
 
 	// 1) Start Sharding Task
 	// ----------------------
-	runStartSharingTask := sfntask.NewLambdaInvoke(stack, jsii.String("RunStartShardingLambdaTask"), &sfntask.LambdaInvokeProps{
+	runStartSharingTask := sfntask.NewLambdaInvoke(stack, jsii.String("RunStartSharding" + suffix), &sfntask.LambdaInvokeProps{
 		Comment:                  jsii.String("Lambda Task to start sharding input data"),
 		LambdaFunction:           jsComp.CpipesStartShardingLambda,
 		InputPath:                jsii.String("$.startSharding"),
@@ -51,9 +68,9 @@ func (jsComp *JetStoreStackComponents) BuildCpipesSM(scope constructs.Construct,
 
 	// 2) Sharding Map Task
 	// ----------------------
-	runSharingNodeTask := sfntask.NewLambdaInvoke(stack, jsii.String("RunShardingNodeLambdaTask"), &sfntask.LambdaInvokeProps{
+	runSharingNodeTask := sfntask.NewLambdaInvoke(stack, jsii.String("RunShardingNode" + suffix), &sfntask.LambdaInvokeProps{
 		Comment:                  jsii.String("Lambda Task to shard input data"),
-		LambdaFunction:           jsComp.CpipesNodeLambda,
+		LambdaFunction:           cpipesNodeFunction,
 		InputPath:                jsii.String("$"),
 		ResultPath:               sfn.JsonPath_DISCARD(),
 		RetryOnServiceExceptions: jsii.Bool(false),
@@ -70,7 +87,7 @@ func (jsComp *JetStoreStackComponents) BuildCpipesSM(scope constructs.Construct,
 	// 	ResultPath:         sfn.JsonPath_DISCARD(),
 	// })
 	// BELOW IS THE ALTERNATIVE USING AN INLINED MAP
-	runShardingMap := sfn.NewMap(stack, jsii.String("run-sharding-map"), &sfn.MapProps{
+	runShardingMap := sfn.NewMap(stack, jsii.String("run-sharding-map"+sfx), &sfn.MapProps{
 		Comment:   jsii.String("Run JetStore Sharding Lambda Task"),
 		ItemsPath: sfn.JsonPath_StringAt(jsii.String("$.cpipesCommands")),
 		// MaxConcurrency: jsii.Number(props.MaxConcurrency),
@@ -80,7 +97,7 @@ func (jsComp *JetStoreStackComponents) BuildCpipesSM(scope constructs.Construct,
 
 	// 3) Start Reducing Task
 	// ----------------------
-	runStartReducingTask := sfntask.NewLambdaInvoke(stack, jsii.String("RunStartReducingLambdaTask"), &sfntask.LambdaInvokeProps{
+	runStartReducingTask := sfntask.NewLambdaInvoke(stack, jsii.String("RunStartReducing" + suffix), &sfntask.LambdaInvokeProps{
 		Comment:                  jsii.String("Lambda Task to start reducing the sharded data"),
 		LambdaFunction:           jsComp.CpipesStartReducingLambda,
 		InputPath:                jsii.String("$.startReducing"),
@@ -91,9 +108,9 @@ func (jsComp *JetStoreStackComponents) BuildCpipesSM(scope constructs.Construct,
 	// 4) Reducing Map Task
 	// ----------------------
 	// Lambda Option
-	runReducingNodeTask := sfntask.NewLambdaInvoke(stack, jsii.String("RunReducingNodeLambdaTask"), &sfntask.LambdaInvokeProps{
+	runReducingNodeTask := sfntask.NewLambdaInvoke(stack, jsii.String("RunReducingNode" + suffix), &sfntask.LambdaInvokeProps{
 		Comment:                  jsii.String("Lambda Task to reduce the sharded data"),
-		LambdaFunction:           jsComp.CpipesNodeLambda,
+		LambdaFunction:           cpipesNodeFunction,
 		InputPath:                jsii.String("$"),
 		ResultPath:               sfn.JsonPath_DISCARD(),
 		RetryOnServiceExceptions: jsii.Bool(false),
@@ -110,7 +127,7 @@ func (jsComp *JetStoreStackComponents) BuildCpipesSM(scope constructs.Construct,
 	// 	ResultPath:         sfn.JsonPath_DISCARD(),
 	// })
 	// BELOW IS THE ALTERNATIVE USING AN INLINED MAP
-	runReducingMap := sfn.NewMap(stack, jsii.String("run-reducing-map"), &sfn.MapProps{
+	runReducingMap := sfn.NewMap(stack, jsii.String("run-reducing-map"+sfx), &sfn.MapProps{
 		Comment:   jsii.String("Run JetStore Reducing Lambda Task"),
 		ItemsPath: sfn.JsonPath_StringAt(jsii.String("$.cpipesCommands")),
 		// MaxConcurrency: jsii.Number(props.MaxConcurrency),
@@ -121,7 +138,7 @@ func (jsComp *JetStoreStackComponents) BuildCpipesSM(scope constructs.Construct,
 	// ECS Task Option
 	// Run Server ECS Task
 	// ----------------
-	runReducingECSTask := sfntask.NewEcsRunTask(stack, jsii.String("run-cpipes-server"), &sfntask.EcsRunTaskProps{
+	runReducingECSTask := sfntask.NewEcsRunTask(stack, jsii.String("run-cpipes-server"+sfx), &sfntask.EcsRunTaskProps{
 		Comment:        jsii.String("Run CPIPES ECS Task"),
 		Cluster:        jsComp.EcsCluster,
 		Subnets:        jsComp.IsolatedSubnetSelection,
@@ -130,10 +147,10 @@ func (jsComp *JetStoreStackComponents) BuildCpipesSM(scope constructs.Construct,
 		LaunchTarget: sfntask.NewEcsFargateLaunchTarget(&sfntask.EcsFargateLaunchTargetOptions{
 			PlatformVersion: awsecs.FargatePlatformVersion_LATEST,
 		}),
-		TaskDefinition: jsComp.CpipesTaskDefinition,
+		TaskDefinition: cpipesTaskDefinition,
 		ContainerOverrides: &[]*sfntask.ContainerOverride{
 			{
-				ContainerDefinition: jsComp.CpipesContainerDef,
+				ContainerDefinition: cpipesContainerDef,
 				Command:             sfn.JsonPath_ListAt(jsii.String("$")),
 			},
 		},
@@ -141,7 +158,7 @@ func (jsComp *JetStoreStackComponents) BuildCpipesSM(scope constructs.Construct,
 		IntegrationPattern:  sfn.IntegrationPattern_RUN_JOB,
 	})
 
-	runReducingECSMap := sfn.NewMap(stack, jsii.String("run-cpipes-server-map"), &sfn.MapProps{
+	runReducingECSMap := sfn.NewMap(stack, jsii.String("run-cpipes-server-map"+sfx), &sfn.MapProps{
 		Comment:   jsii.String("Run CPIPES JetStore Rule Server Task"),
 		ItemsPath: sfn.JsonPath_StringAt(jsii.String("$.cpipesCommands")),
 		// MaxConcurrency: jsii.Number(props.MaxConcurrency),
@@ -155,7 +172,7 @@ func (jsComp *JetStoreStackComponents) BuildCpipesSM(scope constructs.Construct,
 	if jsComp.CpipesRunReportsLambda != nil {
 		lambdaFnc = jsComp.CpipesRunReportsLambda
 	}
-	runReportsLambdaTask := sfntask.NewLambdaInvoke(stack, jsii.String("RunReportsLambdaTask"), &sfntask.LambdaInvokeProps{
+	runReportsLambdaTask := sfntask.NewLambdaInvoke(stack, jsii.String("RunReports" + suffix), &sfntask.LambdaInvokeProps{
 		Comment:                  jsii.String("Lambda Task to run reports for cpipes task"),
 		LambdaFunction:           lambdaFnc,
 		InputPath:                jsii.String("$.reportsCommand"),
@@ -165,14 +182,14 @@ func (jsComp *JetStoreStackComponents) BuildCpipesSM(scope constructs.Construct,
 
 	//	6) status update tasks
 	// ----------------------
-	runErrorStatusLambdaTask := sfntask.NewLambdaInvoke(stack, jsii.String("RunErrorStatusLambdaTask"), &sfntask.LambdaInvokeProps{
+	runErrorStatusLambdaTask := sfntask.NewLambdaInvoke(stack, jsii.String("RunErrorStatus" + suffix), &sfntask.LambdaInvokeProps{
 		Comment:                  jsii.String("Lambda Task to update cpipes status to failed"),
 		LambdaFunction:           jsComp.StatusUpdateLambda,
 		InputPath:                jsii.String("$.errorUpdate"),
 		ResultPath:               sfn.JsonPath_DISCARD(),
 		RetryOnServiceExceptions: jsii.Bool(false),
 	})
-	runSuccessStatusLambdaTask := sfntask.NewLambdaInvoke(stack, jsii.String("RunSuccessStatusLambdaTask"), &sfntask.LambdaInvokeProps{
+	runSuccessStatusLambdaTask := sfntask.NewLambdaInvoke(stack, jsii.String("RunSuccessStatus" + suffix), &sfntask.LambdaInvokeProps{
 		Comment:                  jsii.String("Lambda Task to update cpipes status to success"),
 		LambdaFunction:           jsComp.StatusUpdateLambda,
 		InputPath:                jsii.String("$.successUpdate"),
@@ -182,13 +199,13 @@ func (jsComp *JetStoreStackComponents) BuildCpipesSM(scope constructs.Construct,
 
 	//	7) choice for reducing task iteration
 	// ----------------------
-	reducingIterationChoice := sfn.NewChoice(stack, jsii.String("ReducingIterationChoice"), &sfn.ChoiceProps{
+	reducingIterationChoice := sfn.NewChoice(stack, jsii.String("ReducingIterationChoice"+sfx), &sfn.ChoiceProps{
 		Comment: jsii.String("Choice to continue reducing iteration"),
 	})
 
 	//	8) choice for ecs vs lambda tasks
 	// ----------------------
-	ecsOrLambdaChoice := sfn.NewChoice(stack, jsii.String("EcsOrLambdaChoice"), &sfn.ChoiceProps{
+	ecsOrLambdaChoice := sfn.NewChoice(stack, jsii.String("EcsOrLambdaChoice"+sfx), &sfn.ChoiceProps{
 		Comment: jsii.String("Choice between ECS or Lambda Tasks"),
 	})
 
@@ -251,29 +268,30 @@ func (jsComp *JetStoreStackComponents) BuildCpipesSM(scope constructs.Construct,
 			timeout = 60
 		}
 	}
-	jsComp.CpipesSM = sfn.NewStateMachine(stack, props.MkId("cpipesSM"), &sfn.StateMachineProps{
-		StateMachineName: props.MkId("cpipesSM"),
+	cpipesSM = sfn.NewStateMachine(stack, props.MkId(stateMachineName), &sfn.StateMachineProps{
+		StateMachineName: props.MkId(stateMachineName),
 		DefinitionBody:   sfn.DefinitionBody_FromChainable(runStartSharingTask),
 		Timeout:          awscdk.Duration_Minutes(jsii.Number(timeout)),
 		Logs: &sfn.LogOptions{
-			Destination: awslogs.NewLogGroup(stack, props.MkId("cpipesLogs"), &awslogs.LogGroupProps{
+			Destination: awslogs.NewLogGroup(stack, props.MkId("cpipesLogs"+sfx), &awslogs.LogGroupProps{
 				Retention: awslogs.RetentionDays_THREE_MONTHS,
 			}),
 		},
 	})
 	if phiTagName != nil {
-		awscdk.Tags_Of(jsComp.CpipesSM).Add(phiTagName, jsii.String("true"), nil)
+		awscdk.Tags_Of(cpipesSM).Add(phiTagName, jsii.String("true"), nil)
 	}
 	if piiTagName != nil {
-		awscdk.Tags_Of(jsComp.CpipesSM).Add(piiTagName, jsii.String("true"), nil)
+		awscdk.Tags_Of(cpipesSM).Add(piiTagName, jsii.String("true"), nil)
 	}
 	if descriptionTagName != nil {
-		awscdk.Tags_Of(jsComp.CpipesSM).Add(descriptionTagName, jsii.String("State Machine to execute Compute Pipes in the JetStore Platform"), nil)
+		awscdk.Tags_Of(cpipesSM).Add(descriptionTagName, jsii.String("State Machine to execute Compute Pipes in the JetStore Platform "+suffix), nil)
 	}
-	jsComp.SourceBucket.GrantReadWrite(jsComp.CpipesSM.Role(), nil)
-	jsComp.GrantReadWriteFromExternalBuckets(stack, jsComp.CpipesSM.Role())
-	jsComp.RdsSecret.GrantRead(jsComp.CpipesSM.Role(), nil)
+	jsComp.SourceBucket.GrantReadWrite(cpipesSM.Role(), nil)
+	jsComp.GrantReadWriteFromExternalBuckets(stack, cpipesSM.Role())
+	jsComp.RdsSecret.GrantRead(cpipesSM.Role(), nil)
 	if jsComp.ExternalKmsKey != nil {
-		jsComp.ExternalKmsKey.GrantEncryptDecrypt(jsComp.CpipesSM.Role())
+		jsComp.ExternalKmsKey.GrantEncryptDecrypt(cpipesSM.Role())
 	}
+	return
 }

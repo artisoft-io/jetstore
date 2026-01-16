@@ -354,7 +354,7 @@ func (rw *ReteWorkspace) ExecuteRules(
 					ncol := len(tableSpec.Columns)
 					// Compute the Domain Keys and ShardIds
 					entityRow := make([]interface{}, ncol)
-					for i := 0; i < ncol; i++ {
+					for i := range ncol {
 						domainColumn := &tableSpec.Columns[i]
 						// log.Println("Found entity with subject:",subject.AsTextSilent(), "with column",domainColumn.ColumnName,"of type",domainColumn.DataType)
 						switch {

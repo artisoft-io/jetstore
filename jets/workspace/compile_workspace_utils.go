@@ -26,7 +26,34 @@ func init() {
 	workspaceBuildPath = fmt.Sprintf("%s/%s/build", workspaceHome, wprefix)
 
 	_, devMode = os.LookupEnv("JETSTORE_DEV_MODE")
+}
 
+func WorkspacesHome() string {
+	return workspaceHome
+}
+
+func WorkspacePrefix() string {
+	return wprefix
+}
+
+func WorkspaceDbPath() string {
+	return fmt.Sprintf("%s/%s/workspace.db", workspaceHome, wprefix)
+}
+
+func LookupDbPath() string {
+	return fmt.Sprintf("%s/%s/lookup.db", workspaceHome, wprefix)
+}
+
+func DevMode() bool {
+	return devMode
+}
+
+func WorkspaceBuildDir() string {
+	return workspaceBuildPath
+}
+
+func WorkspaceControlFilePath() string {
+	return workspaceControlPath
 }
 
 // This file contains functions to compile and sync the workspace

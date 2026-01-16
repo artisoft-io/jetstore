@@ -9,6 +9,7 @@ import (
 
 	awscdk "github.com/aws/aws-cdk-go/awscdk/v2"
 	"github.com/aws/aws-cdk-go/awscdk/v2/awsec2"
+	"github.com/aws/aws-cdk-go/awscdk/v2/awsecr"
 	"github.com/aws/aws-cdk-go/awscdk/v2/awslogs"
 
 	// "github.com/aws/aws-cdk-go/awscdk/v2/awsiam"
@@ -19,8 +20,8 @@ import (
 )
 
 func (jsComp *JetStoreStackComponents) BuildCpipesLambdas(scope constructs.Construct, stack awscdk.Stack, props *JetstoreOneStackProps) {
-	// Build lambdas used by cpipesSM:
-	//	- CpipesNodeLambda
+	// Build lambdas used by cpipesSM/cpipesNativeSM:
+	//	- CpipesNodeLambda / CpipesNativeNodeLambda
 	//	- CpipesStartShardingLambda
 	//	- CpipesStartReducingLambda
 	// --------------------------------------------------------------------------------------------------------------
@@ -41,9 +42,9 @@ func (jsComp *JetStoreStackComponents) BuildCpipesLambdas(scope constructs.Const
 	cpipesLambdaLogGroup := awslogs.NewLogGroup(stack, jsii.String("CpipesLambdaLogGroup"), &awslogs.LogGroupProps{
 		Retention: awslogs.RetentionDays_THREE_MONTHS,
 	})
-	// Define the lambda
+	// Define the cpipes node lambda
 	jsComp.CpipesNodeLambda = awslambdago.NewGoFunction(stack, jsii.String("CpipesNodeLambda"), &awslambdago.GoFunctionProps{
-		Description: jsii.String("JetStore One Lambda function cpipes execution"),
+		Description: jsii.String("JetStore Lambda function cpipes execution"),
 		Runtime:     awslambda.Runtime_PROVIDED_AL2023(),
 		Entry:       jsii.String("lambdas/compute_pipes/cp_node"),
 		Bundling: &awslambdago.BundlingOptions{
@@ -102,6 +103,75 @@ func (jsComp *JetStoreStackComponents) BuildCpipesLambdas(scope constructs.Const
 		jsComp.ExternalKmsKey.GrantEncryptDecrypt(jsComp.CpipesNodeLambda)
 	}
 
+	if jsComp.DeployCpipesNative {
+
+		// Define the cpipes native node lambda
+		// Define the log group
+		cpipesNativeLambdaLogGroup := awslogs.NewLogGroup(stack, jsii.String("CpipesNativeLambdaLogGroup"), &awslogs.LogGroupProps{
+			Retention: awslogs.RetentionDays_THREE_MONTHS,
+		})
+		jsComp.CpipesNativeNodeLambda = awslambda.NewDockerImageFunction(stack, jsii.String("CpipesNativeNodeLambda"), &awslambda.DockerImageFunctionProps{
+			Code: awslambda.DockerImageCode_FromEcr(awsecr.Repository_FromRepositoryArn(stack, jsii.String("cpipes-native-image-lambda"),
+				jsii.String(fmt.Sprintf("arn:aws:ecr:%s:%s:repository/jetstore_cpipes_native_lambda", os.Getenv("AWS_REGION"), os.Getenv("AWS_ACCOUNT")))), &awslambda.EcrImageCodeProps{
+				// Override the CMD to not expect a handler
+				Cmd:         jsii.Strings("bootstrap"),
+				Entrypoint:  jsii.Strings("/lambda-entrypoint.sh"),
+				TagOrDigest: jsii.String(os.Getenv("CPIPES_IMAGE_TAG")),
+			}),
+			Description:          jsii.String("JetStore Lambda function cpipes native execution"),
+			Timeout:              awscdk.Duration_Minutes(jsii.Number(15)),
+			MemorySize:           jsii.Number(memLimit),
+			EphemeralStorageSize: awscdk.Size_Mebibytes(jsii.Number(10240)),
+			Environment: &map[string]*string{
+				"JETS_BUCKET":                              jsComp.SourceBucket.BucketName(),
+				"JETS_DSN_SECRET":                          jsComp.RdsSecret.SecretName(),
+				"JETS_INVALID_CODE":                        jsii.String(os.Getenv("JETS_INVALID_CODE")),
+				"CPIPES_DB_POOL_SIZE":                      jsii.String(os.Getenv("CPIPES_DB_POOL_SIZE")),
+				"JETS_REGION":                              jsii.String(os.Getenv("AWS_REGION")),
+				"JETS_PIVOT_YEAR_TIME_PARSING":             jsii.String(os.Getenv("JETS_PIVOT_YEAR_TIME_PARSING")),
+				"JETS_s3_INPUT_PREFIX":                     jsii.String(os.Getenv("JETS_s3_INPUT_PREFIX")),
+				"JETS_s3_OUTPUT_PREFIX":                    jsii.String(os.Getenv("JETS_s3_OUTPUT_PREFIX")),
+				"JETS_s3_STAGE_PREFIX":                     jsii.String(GetS3StagePrefix()),
+				"JETS_S3_KMS_KEY_ARN":                      jsii.String(os.Getenv("JETS_S3_KMS_KEY_ARN")),
+				"JETS_SENTINEL_FILE_NAME":                  jsii.String(os.Getenv("JETS_SENTINEL_FILE_NAME")),
+				"CPIPES_STATUS_NOTIFICATION_ENDPOINT":      jsii.String(os.Getenv("CPIPES_STATUS_NOTIFICATION_ENDPOINT")),
+				"CPIPES_STATUS_NOTIFICATION_ENDPOINT_JSON": jsii.String(os.Getenv("CPIPES_STATUS_NOTIFICATION_ENDPOINT_JSON")),
+				"CPIPES_CUSTOM_FILE_KEY_NOTIFICATION":      jsii.String(os.Getenv("CPIPES_CUSTOM_FILE_KEY_NOTIFICATION")),
+				"CPIPES_START_NOTIFICATION_JSON":           jsii.String(os.Getenv("CPIPES_START_NOTIFICATION_JSON")),
+				"CPIPES_COMPLETED_NOTIFICATION_JSON":       jsii.String(os.Getenv("CPIPES_COMPLETED_NOTIFICATION_JSON")),
+				"CPIPES_FAILED_NOTIFICATION_JSON":          jsii.String(os.Getenv("CPIPES_FAILED_NOTIFICATION_JSON")),
+				"TASK_MAX_CONCURRENCY":                     jsii.String(os.Getenv("TASK_MAX_CONCURRENCY")),
+				"ENVIRONMENT":                              jsii.String(os.Getenv("ENVIRONMENT")),
+				"JETS_DOMAIN_KEY_SEPARATOR":                jsii.String(os.Getenv("JETS_DOMAIN_KEY_SEPARATOR")),
+				"JETS_DOMAIN_KEY_HASH_ALGO":                jsii.String(os.Getenv("JETS_DOMAIN_KEY_HASH_ALGO")),
+				"JETS_DOMAIN_KEY_HASH_SEED":                jsii.String(os.Getenv("JETS_DOMAIN_KEY_HASH_SEED")),
+				"JETS_INPUT_ROW_JETS_KEY_ALGO":             jsii.String(os.Getenv("JETS_INPUT_ROW_JETS_KEY_ALGO")),
+				"WORKSPACES_HOME":                          jsii.String("/tmp/workspaces"),
+				"WORKSPACE":                                jsii.String(os.Getenv("WORKSPACE")),
+				"LOG_LEVEL":                                jsii.String("INFO"),
+				"LD_LIBRARY_PATH":                          jsii.String("/usr/local/lib"),
+			},
+			Vpc:            jsComp.Vpc,
+			VpcSubnets:     jsComp.IsolatedSubnetSelection,
+			SecurityGroups: &[]awsec2.ISecurityGroup{jsComp.VpcEndpointsSg, jsComp.RdsAccessSg, jsComp.InternetAccessSg},
+			LogGroup:       cpipesNativeLambdaLogGroup,
+		})
+		if phiTagName != nil {
+			awscdk.Tags_Of(jsComp.CpipesNativeNodeLambda).Add(phiTagName, jsii.String("true"), nil)
+		}
+		if piiTagName != nil {
+			awscdk.Tags_Of(jsComp.CpipesNativeNodeLambda).Add(piiTagName, jsii.String("true"), nil)
+		}
+		if descriptionTagName != nil {
+			awscdk.Tags_Of(jsComp.CpipesNativeNodeLambda).Add(descriptionTagName, jsii.String("JetStore lambda for cpipes native execution"), nil)
+		}
+		jsComp.RdsSecret.GrantRead(jsComp.CpipesNativeNodeLambda, nil)
+		jsComp.SourceBucket.GrantReadWrite(jsComp.CpipesNativeNodeLambda, nil)
+		jsComp.GrantReadWriteFromExternalBuckets(stack, jsComp.CpipesNativeNodeLambda)
+		if jsComp.ExternalKmsKey != nil {
+			jsComp.ExternalKmsKey.GrantEncryptDecrypt(jsComp.CpipesNativeNodeLambda)
+		}
+	}
 	// CpipesStartShardingLambda
 	// Define the log group
 	cpipesStartShardingLambdaLogGroup := awslogs.NewLogGroup(stack, jsii.String("CpipesStartShardingLambdaLogGroup"), &awslogs.LogGroupProps{

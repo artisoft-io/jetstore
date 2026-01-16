@@ -102,7 +102,7 @@ func (ctx *S3DeviceWriter) WriteParquetPartitionV2(fout io.Writer) {
 	}
 	nbrRows := ctx.spec.OutputChannel.NbrRowsInRecord
 	// log.Printf("*** WriteParquetPartitionV2: calling WriteParquetPartitionV3 with nbrRowPerRecord of %d\n", nbrRows)
-	WriteParquetPartitionV3(ctx.parquetSchema, nbrRows, fout, ctx.source.channel, gotError)
+	WriteParquetPartitionV3(ctx.parquetSchema, nbrRows, fout, ctx.source.Channel, gotError)
 }
 
 func (ctx *S3DeviceWriter) WriteCsvPartition(fout io.Writer) {
@@ -147,14 +147,14 @@ func (ctx *S3DeviceWriter) WriteCsvPartition(fout io.Writer) {
 	// Writing headers conditionally
 	if ctx.spec.OutputChannel.Format == "csv" &&
 		(!ctx.spec.OutputChannel.PutHeadersOnFirstPartition || ctx.nodeId == 0) {
-		err = csvWriter.Write(ctx.outputCh.config.Columns)
+		err = csvWriter.Write(ctx.outputCh.Config.Columns)
 		if err != nil {
 			cpErr = fmt.Errorf("while writing headers to local csv file: %v", err)
 			goto gotError
 		}
 	}
 	// Write the rows into the temp file
-	for inRow := range ctx.source.channel {
+	for inRow := range ctx.source.Channel {
 		count++
 		// log.Printf("*** CSV.WRITE %d:%v\n", count, inRow)
 		// replace null with empty string, convert to string
@@ -227,7 +227,7 @@ func (ctx *S3DeviceWriter) WriteFixedWidthPartition(fout io.Writer) {
 	// Getting the column position for the output fw columns
 	columnPos = make([]int, 0, len(*fwColumnsInfo))
 	for _, fwColumn := range *fwColumnsInfo {
-		columnPos = append(columnPos, (*ctx.outputCh.columns)[fwColumn.ColumnName])
+		columnPos = append(columnPos, (*ctx.outputCh.Columns)[fwColumn.ColumnName])
 	}
 
 	switch ctx.spec.OutputChannel.Compression {
@@ -253,7 +253,7 @@ func (ctx *S3DeviceWriter) WriteFixedWidthPartition(fout io.Writer) {
 	fwWriter = bufio.NewWriter(interim)
 
 	// Write the rows into the temp file
-	for inRow := range ctx.source.channel {
+	for inRow := range ctx.source.Channel {
 		//*$1
 		// replace null with empty string, convert to string
 		for i, fwColumn := range *fwColumnsInfo {

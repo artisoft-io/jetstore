@@ -479,7 +479,7 @@ type SplitterSpec struct {
 
 type TransformationSpec struct {
 	// Type range: map_record, aggregate, analyze, high_freq, partition_writer,
-	//	anonymize, distinct, shuffling, group_by, filter, sort, jetrules, clustering
+	// anonymize, distinct, shuffling, group_by, filter, sort, jetrules, clustering
 	// Format takes precedence over SchemaProvider's Format (from OutputChannelConfig)
 	Type                  string                           `json:"type"`
 	NewRecord             bool                             `json:"new_record,omitzero"`
@@ -512,6 +512,7 @@ type ConditionalTransformationSpec struct {
 
 type MapRecordSpec struct {
 	FileMappingTableName string `json:"file_mapping_table_name"`
+	IsDebug              bool   `json:"is_debug,omitzero"`
 }
 
 // AnalyzeSpec configuration
@@ -866,6 +867,7 @@ type GroupBySpec struct {
 	GroupByPos   []int    `json:"group_by_pos,omitempty"`
 	GroupByCount int      `json:"group_by_count,omitzero"`
 	DomainKey    string   `json:"domain_key,omitempty"`
+	IsDebug      bool     `json:"is_debug,omitzero"`
 }
 
 // Filter row base on a when criteria
@@ -880,9 +882,25 @@ type FilterSpec struct {
 type SortSpec struct {
 	DomainKey    string   `json:"domain_key,omitempty"`
 	SortByColumn []string `json:"sort_by,omitempty"`
+	IsDebug      bool     `json:"is_debug,omitzero"`
 }
 
-// MaxLooping overrides the value in the jetrules metastore
+// JetrulesSpec configuration
+// ProcessName is the jetrules process name to use.
+// InputRdfType is the rdf type (class name) of the input records.
+// MaxInputCount is the max nbr of input records to process.
+// PoolSize is the nbr of worker pool size.
+// MaxReteSessionsSaved is the max nbr of rete sessions to save in err table.
+// CurrentSourcePeriod is the source period key to use for this process.
+// CurrentSourcePeriodDate is the source period date  (aka file period date)
+// to use this process.
+// CurrentSourcePeriodType is the source period type (day, week or, month)
+// to use for this process.
+// RuleConfig provide additional configuration for jetrules processing.
+// MetadataInputSources provide the list of csv sources to load as metadata
+// input sources for jetrules processing.
+// IsDebug when true enable debug mode for jetrules processing.
+// MaxLooping overrides the value in the jetrules metastore.
 type JetrulesSpec struct {
 	ProcessName             string                `json:"process_name,omitempty"`
 	InputRdfType            string                `json:"input_rdf_type,omitempty"`

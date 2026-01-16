@@ -1,0 +1,113 @@
+# Multi-stage build for Go Lambda with C++ library
+FROM golang:1.25-alpine AS builder
+
+ARG JETS_VERSION
+ENV JETS_VERSION=${JETS_VERSION}
+
+RUN apk update && \
+  apk add --no-cache libstdc++ gcc g++ make cmake pkgconfig \
+  libboost-all-dev libglog-dev libsqlite3-dev libgflags-dev python3 python3-dev py3-pip
+
+# JetStore Build
+# Set working directory
+ENV JETS_SOURCE_DIR=/app JETS_BUILD_DIR=/app
+RUN mkdir -p ${JETS_SOURCE_DIR}
+RUN mkdir -p ${JETS_BUILD_DIR}
+
+WORKDIR ${JETS_SOURCE_DIR}
+
+# Copy source files
+COPY CMakeLists.txt      ${JETS_SOURCE_DIR}/
+COPY go.mod              ${JETS_SOURCE_DIR}/
+COPY setup.py            ${JETS_SOURCE_DIR}/
+COPY jets                ${JETS_SOURCE_DIR}/jets
+COPY cdk/jetstore_one    ${JETS_SOURCE_DIR}/cdk/jetstore_one
+
+# Build the C++ library - native rule engine
+WORKDIR ${JETS_BUILD_DIR}
+
+RUN cmake -DCMAKE_BUILD_TYPE=Release -DJETS_VERSION=$JETS_VERSION ${JETS_SOURCE_DIR}
+RUN make clean 
+RUN make objlib jets_static jets -j8
+
+# RUN \
+#     echo "$JETS_BUILD_DIR DIRECTORY Contains" \
+#     && ls -la $JETS_BUILD_DIR \
+#     && echo "$JETS_BUILD_DIR/jets DIRECTORY Contains" \
+#     && ls -la $JETS_BUILD_DIR/jets \
+#     && echo "USR LOCAL LIB DIRECTORY Contains" \
+#     && ls -la /usr/local/lib \
+#     && echo "USR LOCAL BIN DIRECTORY Contains" \
+#     && ls -la /usr/local/bin \
+#     && ldd $JETS_BUILD_DIR/jets/libjets.so 
+
+# Go back to source directory
+WORKDIR ${JETS_SOURCE_DIR}
+
+# Set CGO environment variables
+ENV CGO_ENABLED=1
+ENV GOOS=linux
+ENV GOARCH=amd64
+RUN go mod tidy
+RUN go get all
+RUN go mod download
+
+# Build the Go binaries with CGO enabled
+RUN go build -ldflags="-w -s" -o cbooter ${JETS_SOURCE_DIR}/jets/cmds/cbooter
+RUN go build -ldflags="-w -s" -o cpipes_native_server ${JETS_SOURCE_DIR}/jets/cmds/cpipes_native_server
+
+# Final stage
+# Use the Amazon Linux 2023 Lambda base image
+FROM golang:1.25-alpine
+
+# Install runtime dependencies
+# Installs headers and compiled libraries for C++ standard library and Boost
+RUN apk update && \
+  apk add --no-cache libstdc++
+
+ENV JETS_SOURCE_DIR=/app JETS_BUILD_DIR=/app
+
+# Copy the binary as 'cpipes_native_server' to usr/local/bin for ecs tasks
+COPY --from=builder ${JETS_SOURCE_DIR}/cbooter /usr/local/bin/
+COPY --from=builder ${JETS_SOURCE_DIR}/cpipes_native_server /usr/local/bin/
+
+# COPY native rule engine library
+COPY --from=builder ${JETS_BUILD_DIR}/jets/libjets.so /usr/local/lib/
+#* Verify lib version when upgrading dependencies
+COPY --from=builder /usr/local/lib/libsqlite3.so.3.51.1 /usr/local/lib/
+COPY --from=builder /usr/local/lib/libglog.so.0.6.0 /usr/local/lib/
+
+# Make sure bootstrap is executable
+RUN chmod +x /usr/local/bin/cbooter
+RUN chmod +x /usr/local/bin/cpipes_native_server
+
+RUN \
+    cd /usr/local/lib/ \
+    && chmod +x libglog.so.0.6.0 \
+    && ln -s libsqlite3.so.3.51.1 libsqlite3.so \
+    && ln -s libglog.so.0.6.0 libglog.so.1  \
+    && ldconfig \
+    && echo "USR LOCAL LIB DIRECTORY Contains" \
+    && ls -la \
+    && echo "USR LOCAL BIN DIRECTORY Contains" \
+    && ls -la /usr/local/bin \
+    && echo "ldd libjets.so" \
+    && ldd libjets.so \
+    && echo "ldd libsqlite3.so" \
+    && ldd libsqlite3.so \
+    && echo "ldd libglog.so.1" \
+    && ldd libglog.so.1 \
+    && echo "LAMBDA_RUNTIME_DIR DIRECTORY Contains" \
+    && ls -la ${LAMBDA_RUNTIME_DIR} \
+    && cd / 
+
+# Create a new group named 'jsuser' and a new user named 'jsuser'
+# The -S flag creates a system user/group, and -G specifies the primary group.
+RUN addgroup -S jsuser && adduser -S jsuser -G jsuser
+
+ENV JETS_TEMP_DATA=/jetsdata
+ENV TMPDIR=${JETS_TEMP_DATA}/tmp
+ENV WORKSPACES_HOME=${JETS_TEMP_DATA}/workspaces
+
+# Set the working directory
+WORKDIR ${JETS_TEMP_DATA}

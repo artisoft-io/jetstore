@@ -26,7 +26,7 @@ func (ctx *DistinctTransformationPipe) Apply(input *[]interface{}) error {
 	}
 	// Skip row that are not valid
 	inputLen := len(*input)
-	expectedLen := len(ctx.source.config.Columns)
+	expectedLen := len(ctx.source.Config.Columns)
 	if inputLen != expectedLen {
 		// Skip the row
 		return nil
@@ -47,7 +47,7 @@ func (ctx *DistinctTransformationPipe) Apply(input *[]interface{}) error {
 	if !ok {
 		ctx.distinctRows.Put(key, true)
 		select {
-		case ctx.outputCh.channel <- *input:
+		case ctx.outputCh.Channel <- *input:
 		case <-ctx.doneCh:
 			log.Println("Distinct Transform interrupted")
 		}
@@ -68,7 +68,7 @@ func (ctx *BuilderContext) NewDistinctTransformationPipe(source *InputChannel, o
 	// Make the composite key
 	compositeKey := make([]int, 0, len(spec.DistinctConfig.DistinctOn))
 	for _, column := range spec.DistinctConfig.DistinctOn {
-		pos, ok := (*source.columns)[column]
+		pos, ok := (*source.Columns)[column]
 		if !ok {
 			return nil, fmt.Errorf("error: key column %s is not in the input channel (distinct operator)", column)
 		}

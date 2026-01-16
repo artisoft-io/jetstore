@@ -21,6 +21,14 @@ func init() {
 	wsPrefix = os.Getenv("WORKSPACE")
 }
 
+func WorkspaceHome() string {
+	return workspaceHome
+}
+
+func WorkspacePrefix() string {
+	return wsPrefix
+}
+
 // Collect and prepare cpipes configuration for both sharding and reducing steps.
 // InputColumns correspond to the domain column in the main input file, which
 // can be a subset of the columns in the main_input schema provider based on

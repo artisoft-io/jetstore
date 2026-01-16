@@ -1,12 +1,11 @@
 #ifndef JETS_RDF_DATE_TIME_H
 #define JETS_RDF_DATE_TIME_H
 
-#include <memory>
-#include <string>
-#include <regex>
-
 #include <boost/date_time/gregorian/gregorian.hpp>
 #include <boost/date_time/posix_time/posix_time.hpp>
+#include <memory>
+#include <regex>
+#include <string>
 
 namespace jets::rdf {
 
@@ -18,6 +17,33 @@ namespace internal {
 extern std::regex const date_regex;
 extern std::regex const date_time_regex;
 }  // namespace internal
+
+/**
+ * Create date from date details
+ *
+ * Delegates to Boost.
+ * @param y year
+ * @param m month
+ * @param d day
+ * @return date created from the details.
+ */
+inline date create_date(int y, int m, int d) { return date(y, m, d); };
+
+/**
+ * Create datetime from time details
+ *
+ * Delegates to Boost.
+ * @param y year
+ * @param m month
+ * @param d day
+ * @param h hour
+ * @param min minute
+ * @param s second
+ * @return datetime created from the details.
+ */
+inline datetime create_datetime(int y, int m, int d, int h, int min, int s) {
+  return datetime(date(y, m, d), time_duration(h, min, s));
+};
 
 /**
  * Function to extract the date portion of the time structure.
@@ -62,7 +88,8 @@ inline date add_days(date t0, int days) {
  * @return datetime at midnight of t.
  */
 inline datetime to_datetime(date t) {
-  return boost::posix_time::ptime(t, boost::posix_time::time_duration(0, 0, 0, 0));
+  return boost::posix_time::ptime(t,
+                                  boost::posix_time::time_duration(0, 0, 0, 0));
 }
 
 /**
@@ -73,10 +100,10 @@ inline datetime to_datetime(date t) {
  * @return int the timestamp equivalent to the date
  */
 inline long int to_timestamp(date d) {
-	using namespace boost::posix_time;
-	static ptime epoch(boost::gregorian::date(1970, 1, 1));
-	time_duration::sec_type secs = (ptime(d, seconds(0)) - epoch).total_seconds();
-	return secs;
+  using namespace boost::posix_time;
+  static ptime epoch(boost::gregorian::date(1970, 1, 1));
+  time_duration::sec_type secs = (ptime(d, seconds(0)) - epoch).total_seconds();
+  return secs;
 }
 
 /**
@@ -95,15 +122,13 @@ inline std::string to_string(date d) {
 /**
  * String representation of time. Delegates to to_simple_string of boost.
  *
- * Format: Convert to form YYYY-MM-DDTHH:MM:SS,fffffffff where T is the date-time separator
- * example: 2002-01-31T10:00:01,123456
+ * Format: Convert to form YYYY-MM-DDTHH:MM:SS,fffffffff where T is the
+ * date-time separator example: 2002-01-31T10:00:01,123456
  *
  * @param t
  * @return
  */
-inline std::string
-to_string(datetime t)
-{
+inline std::string to_string(datetime t) {
   return boost::posix_time::to_iso_extended_string(t);
 }
 

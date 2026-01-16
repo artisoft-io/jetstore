@@ -21,12 +21,12 @@ import (
 // MainInputRowCount is available in start_reducing_cp as the total
 // number of records processed at step id 'reducing00'.
 type StartComputePipesArgs struct {
-	PipelineExecKey     int                  `json:"pipeline_execution_key"`
-	FileKey             string               `json:"file_key,omitempty"`
-	SessionId           string               `json:"session_id,omitempty"`
-	StepId              *int                 `json:"step_id,omitzero"`
-	ClusterInfo         *ClusterShardingInfo `json:"cluster_sharding_info,omitzero"`
-	MainInputRowCount   int64                `json:"main_input_row_count,omitzero"`
+	PipelineExecKey   int                  `json:"pipeline_execution_key"`
+	FileKey           string               `json:"file_key,omitempty"`
+	SessionId         string               `json:"session_id,omitempty"`
+	StepId            *int                 `json:"step_id,omitzero"`
+	ClusterInfo       *ClusterShardingInfo `json:"cluster_sharding_info,omitzero"`
+	MainInputRowCount int64                `json:"main_input_row_count,omitzero"`
 }
 
 // Contains info about the clustersharding. This info
@@ -110,10 +110,10 @@ type InputRowColumns struct {
 //
 // Note: for source_type = 'file', DomainClass does not apply, the file needs to be mapped first.
 type InputSourceSpec struct {
-	OriginalInputColumns []string           `json:"original_input_columns,omitempty"`
-	InputColumns         []string           `json:"input_columns,omitempty"`
-	DomainClass          string             `json:"domain_class,omitempty"`
-	DomainKeys           *DomainKeysSpec    `json:"domain_keys_spec,omitempty"`
+	OriginalInputColumns []string        `json:"original_input_columns,omitempty"`
+	InputColumns         []string        `json:"input_columns,omitempty"`
+	DomainClass          string          `json:"domain_class,omitempty"`
+	DomainKeys           *DomainKeysSpec `json:"domain_keys_spec,omitempty"`
 }
 
 type FileKeyInfo struct {
@@ -242,8 +242,9 @@ type ComputePipesContext struct {
 	AddionalInputHeaders  []string
 	EnvSettings           map[string]interface{}
 	SamplingCount         int
-	JetStoreTempFolder		string
+	JetStoreTempFolder    string
 	InputFileKeys         []*FileKeyInfo
+	JetRules              JetRulesFactory
 	ChResults             *ChannelResults
 	KillSwitch            chan struct{}
 	Done                  chan struct{}

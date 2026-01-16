@@ -97,7 +97,7 @@ func (ctx *AnalyzeTransformationPipe) Apply(input *[]any) error {
 		return fmt.Errorf("error: unexpected null input arg in AnalyzeTransformationPipe")
 	}
 	inputLen := len(*input)
-	expectedLen := len(ctx.source.config.Columns)
+	expectedLen := len(ctx.source.Config.Columns)
 	if inputLen < expectedLen {
 		if ctx.padShortRows {
 			for range expectedLen - inputLen {
@@ -141,21 +141,21 @@ func (ctx *AnalyzeTransformationPipe) Done() error {
 		log.Printf("AnalyzeTransformationPipe.Done: Number of rows analyzed is %d", ctx.nbrRowsAnalyzed)
 	}
 	for _, state := range ctx.analyzeState {
-		outputRow := make([]any, len(*ctx.outputCh.columns))
+		outputRow := make([]any, len(*ctx.outputCh.Columns))
 
 		// The first base columns
 		var ipos int
-		ipos, ok = (*ctx.outputCh.columns)["column_name"]
+		ipos, ok = (*ctx.outputCh.Columns)["column_name"]
 		if ok {
 			outputRow[ipos] = state.ColumnName
 		}
 
-		ipos, ok = (*ctx.outputCh.columns)["column_pos"]
+		ipos, ok = (*ctx.outputCh.Columns)["column_pos"]
 		if ok {
 			outputRow[ipos] = state.ColumnPos
 		}
 
-		ipos, ok = (*ctx.outputCh.columns)["input_data_type"]
+		ipos, ok = (*ctx.outputCh.Columns)["input_data_type"]
 		if ok {
 			outputRow[ipos] = ctx.inputDataType[state.ColumnName]
 		}
@@ -163,7 +163,7 @@ func (ctx *AnalyzeTransformationPipe) Done() error {
 		// Determine the classification token based on column name or fragment if available
 		columnNameUpper := strings.ToUpper(state.ColumnName)
 		if config.ColumnNameToken != nil {
-			ipos, ok = (*ctx.outputCh.columns)[config.ColumnNameToken.Name]
+			ipos, ok = (*ctx.outputCh.Columns)[config.ColumnNameToken.Name]
 			if ok {
 				token, found := ctx.colName2Token[columnNameUpper]
 				if !found {
@@ -183,7 +183,7 @@ func (ctx *AnalyzeTransformationPipe) Done() error {
 
 		// Determine the entity hint based on the hints provided in spec.analyze_config.entity_hints
 		if len(config.EntityHints) > 0 {
-			ipos, ok = (*ctx.outputCh.columns)["entity_hint"]
+			ipos, ok = (*ctx.outputCh.Columns)["entity_hint"]
 			if ok {
 				for frag, hint := range ctx.colFragment2Hint {
 					if strings.Contains(columnNameUpper, frag) {
@@ -200,12 +200,12 @@ func (ctx *AnalyzeTransformationPipe) Done() error {
 		}
 
 		distinctCount := len(state.DistinctValues)
-		ipos, ok = (*ctx.outputCh.columns)["distinct_count"]
+		ipos, ok = (*ctx.outputCh.Columns)["distinct_count"]
 		if ok {
 			outputRow[ipos] = distinctCount
 		}
 
-		ipos, ok = (*ctx.outputCh.columns)["distinct_count_pct"]
+		ipos, ok = (*ctx.outputCh.Columns)["distinct_count_pct"]
 		if ok {
 			if ratioFactor > 0 {
 				outputRow[ipos] = float64(distinctCount) * ratioFactor
@@ -214,7 +214,7 @@ func (ctx *AnalyzeTransformationPipe) Done() error {
 			}
 		}
 
-		ipos, ok = (*ctx.outputCh.columns)["distinct_values"]
+		ipos, ok = (*ctx.outputCh.Columns)["distinct_values"]
 		if ok && distinctCount < config.DistinctValuesWhenLessThanCount {
 			distinctValues := slices.Sorted(maps.Keys(state.DistinctValues))
 			buf := new(bytes.Buffer)
@@ -230,28 +230,28 @@ func (ctx *AnalyzeTransformationPipe) Done() error {
 			}
 		}
 
-		ipos, ok = (*ctx.outputCh.columns)["null_count"]
+		ipos, ok = (*ctx.outputCh.Columns)["null_count"]
 		if ok {
 			outputRow[ipos] = state.NullCount
 		}
 
-		ipos, ok = (*ctx.outputCh.columns)["null_count_pct"]
+		ipos, ok = (*ctx.outputCh.Columns)["null_count_pct"]
 		if ok {
 			outputRow[ipos] = float64(state.NullCount) / float64(state.TotalRowCount) * 100
 		}
 
-		ipos, ok = (*ctx.outputCh.columns)["total_count"]
+		ipos, ok = (*ctx.outputCh.Columns)["total_count"]
 		if ok {
 			outputRow[ipos] = state.TotalRowCount
 		}
 
 		if state.LenWelford != nil {
 			avrLen, avrVar := state.LenWelford.Finalize()
-			ipos, ok = (*ctx.outputCh.columns)["avr_length"]
+			ipos, ok = (*ctx.outputCh.Columns)["avr_length"]
 			if ok {
 				outputRow[ipos] = avrLen
 			}
-			ipos, ok = (*ctx.outputCh.columns)["length_var"]
+			ipos, ok = (*ctx.outputCh.Columns)["length_var"]
 			if ok {
 				outputRow[ipos] = avrVar
 			}
@@ -263,7 +263,7 @@ func (ctx *AnalyzeTransformationPipe) Done() error {
 
 		// The regex tokens
 		for name, m := range state.RegexMatch {
-			ipos, ok = (*ctx.outputCh.columns)[name]
+			ipos, ok = (*ctx.outputCh.Columns)[name]
 			if ok {
 				if ratioFactor > 0 {
 					outputRow[ipos] = float64(m.Count) * ratioFactor
@@ -281,7 +281,7 @@ func (ctx *AnalyzeTransformationPipe) Done() error {
 		// The lookup tokens
 		for _, lookupState := range state.LookupState {
 			for name, m := range lookupState.LookupMatch {
-				ipos, ok := (*ctx.outputCh.columns)[name]
+				ipos, ok := (*ctx.outputCh.Columns)[name]
 				if ok {
 					if ratioFactor > 0 {
 						outputRow[ipos] = float64(m.Count) * ratioFactor
@@ -294,7 +294,7 @@ func (ctx *AnalyzeTransformationPipe) Done() error {
 
 		// The keywords match
 		for name, m := range state.KeywordMatch {
-			ipos, ok = (*ctx.outputCh.columns)[name]
+			ipos, ok = (*ctx.outputCh.Columns)[name]
 			if ok {
 				if ratioFactor > 0 {
 					outputRow[ipos] = float64(m.Count) * ratioFactor
@@ -331,15 +331,15 @@ func (ctx *AnalyzeTransformationPipe) Done() error {
 
 		// Assign to output columns
 		if winningValue != nil {
-			ipos, ok = (*ctx.outputCh.columns)["min_value"]
+			ipos, ok = (*ctx.outputCh.Columns)["min_value"]
 			if ok {
 				outputRow[ipos] = winningValue.MinValue
 			}
-			ipos, ok = (*ctx.outputCh.columns)["max_value"]
+			ipos, ok = (*ctx.outputCh.Columns)["max_value"]
 			if ok {
 				outputRow[ipos] = winningValue.MaxValue
 			}
-			ipos, ok = (*ctx.outputCh.columns)["minmax_type"]
+			ipos, ok = (*ctx.outputCh.Columns)["minmax_type"]
 			if ok {
 				outputRow[ipos] = winningValue.MinMaxType
 			}
@@ -364,7 +364,7 @@ func (ctx *AnalyzeTransformationPipe) Done() error {
 		// Send the column result to output
 		// log.Println("**!@@ ** Send AGGREGATE Result to", ctx.outputCh.name)
 		select {
-		case ctx.outputCh.channel <- outputRow:
+		case ctx.outputCh.Channel <- outputRow:
 		case <-ctx.doneCh:
 			log.Println("AnalyzeTransform interrupted")
 		}
@@ -389,7 +389,7 @@ func (ctx *BuilderContext) NewAnalyzeTransformationPipe(source *InputChannel, ou
 	spec.NewRecord = true
 
 	// Get the input parquet schema, if avail
-	inputDataType := make(map[string]string, len(source.config.Columns))
+	inputDataType := make(map[string]string, len(source.Config.Columns))
 	parquetSchemaInfo := ctx.inputParquetSchema
 	if parquetSchemaInfo != nil {
 		for _, field := range parquetSchemaInfo.Fields {
@@ -403,8 +403,8 @@ func (ctx *BuilderContext) NewAnalyzeTransformationPipe(source *InputChannel, ou
 			}
 		}
 	} else {
-		for i := range source.config.Columns {
-			inputDataType[source.config.Columns[i]] = "string"
+		for i := range source.Config.Columns {
+			inputDataType[source.Config.Columns[i]] = "string"
 		}
 	}
 
@@ -414,13 +414,13 @@ func (ctx *BuilderContext) NewAnalyzeTransformationPipe(source *InputChannel, ou
 	}
 
 	// Check to see if the original column names are available
-	columnNames := source.config.Columns
+	columnNames := source.Config.Columns
 	originalColumnNames := ctx.cpConfig.CommonRuntimeArgs.SourcesConfig.MainInput.OriginalInputColumns
 	if len(originalColumnNames) > 0 {
 		columnNames = originalColumnNames
-		if len(columnNames) != len(source.config.Columns) {
+		if len(columnNames) != len(source.Config.Columns) {
 			err = fmt.Errorf("error: number of original column names (%d) is different from number of input channel columns (%d)",
-				len(columnNames), len(source.config.Columns))
+				len(columnNames), len(source.Config.Columns))
 			log.Println(err)
 			return nil, err
 		}
@@ -460,10 +460,10 @@ func (ctx *BuilderContext) NewAnalyzeTransformationPipe(source *InputChannel, ou
 	analyzeState := make([]*AnalyzeState, len(columnNames))
 	for i := range analyzeState {
 		analyzeState[i], err =
-			ctx.NewAnalyzeState(columnNames[i], i, outputCh.columns, spec)
+			ctx.NewAnalyzeState(columnNames[i], i, outputCh.Columns, spec)
 		if err != nil {
 			return nil, fmt.Errorf("while calling NewAnalyzeState for column %s: %v",
-				source.config.Columns[i], err)
+				source.Config.Columns[i], err)
 		}
 	}
 

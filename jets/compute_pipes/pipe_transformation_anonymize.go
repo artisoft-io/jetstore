@@ -69,7 +69,7 @@ func (ctx *AnonymizeTransformationPipe) Apply(input *[]any) error {
 	var inputStr, hashedValue, hashedValue4KeyFile string
 	var ok bool
 	inputLen := len(*input)
-	expectedLen := len(ctx.source.config.Columns)
+	expectedLen := len(ctx.source.Config.Columns)
 	// log.Println("*** Anonymize Input:",*input)
 	// log.Println("*** Len Input:",inputLen, "Expected Len:", expectedLen)
 	// NOTE: Must handle rows with less or more columns than expected. Anonymize the extra columns without a prefix
@@ -249,9 +249,9 @@ func (ctx *AnonymizeTransformationPipe) Apply(input *[]any) error {
 	// Send the result to output
 	// log.Println("*** Anonymize Output:",*input)
 	select {
-	case ctx.outputCh.channel <- *input:
+	case ctx.outputCh.Channel <- *input:
 	case <-ctx.doneCh:
-		log.Printf("AnonymizeTransformationPipe writing to '%s' interrupted", ctx.outputCh.name)
+		log.Printf("AnonymizeTransformationPipe writing to '%s' interrupted", ctx.outputCh.Name)
 		return nil
 	}
 	return nil
@@ -265,10 +265,10 @@ func (ctx *AnonymizeTransformationPipe) Done() error {
 	}
 	var err error
 	ctx.keysMap.Iter(func(k uint64, v [2]string) (stop bool) {
-		outputRow := make([]any, len(*ctx.keysOutputCh.columns))
-		outputRow[(*ctx.keysOutputCh.columns)["hashed_key"]] = k
-		outputRow[(*ctx.keysOutputCh.columns)["original_value"]] = v[0]
-		outputRow[(*ctx.keysOutputCh.columns)["anonymized_value"]] = v[1]
+		outputRow := make([]any, len(*ctx.keysOutputCh.Columns))
+		outputRow[(*ctx.keysOutputCh.Columns)["hashed_key"]] = k
+		outputRow[(*ctx.keysOutputCh.Columns)["original_value"]] = v[0]
+		outputRow[(*ctx.keysOutputCh.Columns)["anonymized_value"]] = v[1]
 
 		// Add the carry over select and const values
 		// NOTE there is no initialize and done called on the column evaluators
@@ -284,9 +284,9 @@ func (ctx *AnonymizeTransformationPipe) Done() error {
 		}
 
 		// Send the keys mapping to output
-		// log.Println("**!@@ ** Send AGGREGATE Result to", ctx.keysOutputCh.name)
+		// log.Println("**!@@ ** Send AGGREGATE Result to", ctx.keysOutputCh.Name)
 		select {
-		case ctx.keysOutputCh.channel <- outputRow:
+		case ctx.keysOutputCh.Channel <- outputRow:
 		case <-ctx.doneCh:
 			log.Println("AnonymizeTransform interrupted")
 			return true // stop
@@ -299,7 +299,7 @@ func (ctx *AnonymizeTransformationPipe) Done() error {
 func (ctx *AnonymizeTransformationPipe) Finally() {
 	if ctx.mode == "anonymization" {
 		// Done sending the keys, closing the keys output channel
-		ctx.channelRegistry.CloseChannel(ctx.keysOutputCh.name)
+		ctx.channelRegistry.CloseChannel(ctx.keysOutputCh.Name)
 	}
 }
 
@@ -334,7 +334,7 @@ func (ctx *BuilderContext) NewAnonymizeTransformationPipe(source *InputChannel, 
 		if err != nil {
 			return nil, fmt.Errorf("while getting the keys output channel %s: %v", config.KeysOutputChannel.Name, err)
 		}
-		closeIfNotNil = keysOutCh.channel
+		closeIfNotNil = keysOutCh.Channel
 		defer func() {
 			if closeIfNotNil != nil {
 				close(closeIfNotNil)
@@ -377,7 +377,7 @@ func (ctx *BuilderContext) NewAnonymizeTransformationPipe(source *InputChannel, 
 	if metaLookupTbl == nil {
 		return nil, fmt.Errorf("error: anonymize metadata lookup table %s not found", config.LookupName)
 	}
-	anonymActions = make([]*AnonymizationAction, 0, len(*source.columns))
+	anonymActions = make([]*AnonymizationAction, 0, len(*source.Columns))
 	metaLookupColumnsMap := metaLookupTbl.ColumnMap()
 
 	// Also collect the original column name of the columns that are anopnymized.
@@ -387,7 +387,7 @@ func (ctx *BuilderContext) NewAnonymizeTransformationPipe(source *InputChannel, 
 		return nil, fmt.Errorf("error: metadata lookup table '%s' is missing column 'column_name'", config.LookupName)
 	}
 
-	for name, ipos := range *source.columns {
+	for name, ipos := range *source.Columns {
 		columnPosStr := strconv.Itoa(ipos)
 		// Get the metadata row for this column
 		// Note: the lookup table may have the original column names, so we use the column position as key

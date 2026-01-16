@@ -563,9 +563,9 @@ func listenAndServe() error {
 				}
 
 				// Start pending task and check for timeouts
-				err = datatable.NewDataTableContext(server.dbpool, false, false, nil, nil).StartPendingTasks("cpipesSM")
+				err = datatable.NewDataTableContext(server.dbpool, false, false, nil, nil).StartPendingTasks()
 				if err != nil {
-					log.Println("Warning: while StartPendingTasks for cpipesSM:", err)
+					log.Println("Warning: while StartPendingTasks:", err)
 					err = nil
 				}
 			}

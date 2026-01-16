@@ -1,0 +1,20 @@
+# Ignore the .git directory
+.git
+
+# Ignore cache and log files
+__pycache__
+*.pyc
+*.log
+
+# Ignore Node.js module dependencies
+node_modules
+
+# Ignore sensitive environment files
+.env
+.aws
+
+# Exclude all markdown files, but re-include the main README.md
+*.md
+!README.md
+cdk.out
+cdk.context.json

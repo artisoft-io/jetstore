@@ -112,12 +112,12 @@ func doGroupByRecordsTest( groupByColumn []string, groupByPos []int, groupByCoun
 	}
 
 	source := &InputChannel{
-		name: "in",
-		columns: columns,
+		Name: "in",
+		Columns: columns,
 	}
 	outCh := make(chan []any)
 	outputCh := &OutputChannel{
-		channel: outCh,
+		Channel: outCh,
 	}
 
 	ctx := &BuilderContext{

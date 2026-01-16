@@ -57,11 +57,12 @@ type ApiGatewayProxyPolicyStatement struct {
 
 // Struct to hold the stack components
 type JetStoreStackComponents struct {
-	LoaderSmArn   string
-	ServerSmArn   string
-	ServerSmArnv2 string
-	CpipesSmArn   string
-	ReportsSmArn  string
+	LoaderSmArn       string
+	ServerSmArn       string
+	ServerSmArnv2     string
+	CpipesSmArn       string
+	CpipesNativeSmArn string
+	ReportsSmArn      string
 
 	ApiSecret           awssm.Secret
 	AdminPwdSecret      awssm.Secret
@@ -88,20 +89,23 @@ type JetStoreStackComponents struct {
 	EcsTaskRole          awsiam.Role
 	JetStoreImage        awsecs.EcrImage
 	CpipesImage          awsecs.EcrImage
+	CpipesNativeImage    awsecs.EcrImage
 
-	RunreportTaskDefinition awsecs.FargateTaskDefinition
-	RunreportsContainerDef  awsecs.ContainerDefinition
-	LoaderTaskDefinition    awsecs.FargateTaskDefinition
-	LoaderContainerDef      awsecs.ContainerDefinition
-	ServerTaskDefinition    awsecs.FargateTaskDefinition
-	ServerContainerDef      awsecs.ContainerDefinition
-	Serverv2TaskDefinition  awsecs.FargateTaskDefinition
-	Serverv2ContainerDef    awsecs.ContainerDefinition
-	CpipesTaskDefinition    awsecs.FargateTaskDefinition
-	CpipesContainerDef      awsecs.ContainerDefinition
-	UiTaskDefinition        awsecs.FargateTaskDefinition
-	UiTaskContainer         awsecs.ContainerDefinition
-	EcsUiService            awsecs.FargateService
+	RunreportTaskDefinition    awsecs.FargateTaskDefinition
+	RunreportsContainerDef     awsecs.ContainerDefinition
+	LoaderTaskDefinition       awsecs.FargateTaskDefinition
+	LoaderContainerDef         awsecs.ContainerDefinition
+	ServerTaskDefinition       awsecs.FargateTaskDefinition
+	ServerContainerDef         awsecs.ContainerDefinition
+	Serverv2TaskDefinition     awsecs.FargateTaskDefinition
+	Serverv2ContainerDef       awsecs.ContainerDefinition
+	CpipesTaskDefinition       awsecs.FargateTaskDefinition
+	CpipesNativeTaskDefinition awsecs.FargateTaskDefinition
+	CpipesContainerDef         awsecs.ContainerDefinition
+	CpipesNativeContainerDef   awsecs.ContainerDefinition
+	UiTaskDefinition           awsecs.FargateTaskDefinition
+	UiTaskContainer            awsecs.ContainerDefinition
+	EcsUiService               awsecs.FargateService
 
 	UiLoadBalancer    awselb.ApplicationLoadBalancer
 	WebAcl            awswafv2.CfnWebACL
@@ -111,6 +115,8 @@ type JetStoreStackComponents struct {
 	JetsApi               awsapigateway.RestApi
 	JetsApiExecutionRole  awsiam.Role
 
+	DeployCpipesNative bool
+
 	StatusUpdateLambda        awslambdago.GoFunction
 	SecretRotationLambda      awslambdago.GoFunction
 	RunReportsLambda          awslambdago.GoFunction
@@ -118,6 +124,7 @@ type JetStoreStackComponents struct {
 	PurgeDataLambda           awslambdago.GoFunction
 	serverv2NodeLambda        awslambdago.GoFunction
 	CpipesNodeLambda          awslambdago.GoFunction
+	CpipesNativeNodeLambda    awslambdago.GoFunction
 	CpipesStartShardingLambda awslambdago.GoFunction
 	CpipesStartReducingLambda awslambdago.GoFunction
 	RegisterKeyV2Lambda       awslambdago.GoFunction
@@ -125,12 +132,13 @@ type JetStoreStackComponents struct {
 	ApiGatewayLambda          awslambdago.GoFunction
 	ApiGatewayTestLambda      awslambdago.GoFunction
 
-	LoaderSM    sfn.StateMachine
-	ReportsSM   sfn.StateMachine
-	ServerSM    sfn.StateMachine
-	Serverv2SM  sfn.StateMachine
-	CpipesSM    sfn.StateMachine
-	BastionHost awsec2.BastionHostLinux
+	LoaderSM       sfn.StateMachine
+	ReportsSM      sfn.StateMachine
+	ServerSM       sfn.StateMachine
+	Serverv2SM     sfn.StateMachine
+	CpipesSM       sfn.StateMachine
+	CpipesNativeSM sfn.StateMachine
+	BastionHost    awsec2.BastionHostLinux
 }
 
 func MkCatchProps() *sfn.CatchProps {

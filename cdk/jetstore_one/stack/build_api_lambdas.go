@@ -71,6 +71,7 @@ func (jsComp *JetStoreStackComponents) BuildApiLambdas(scope constructs.Construc
 			"JETS_SERVER_SM_ARN":                       jsii.String(jsComp.ServerSmArn),
 			"JETS_SERVER_SM_ARNv2":                     jsii.String(jsComp.ServerSmArnv2),
 			"JETS_CPIPES_SM_ARN":                       jsii.String(jsComp.CpipesSmArn),
+			"JETS_CPIPES_NATIVE_SM_ARN":                jsii.String(jsComp.CpipesNativeSmArn),
 			"JETS_REPORTS_SM_ARN":                      jsii.String(jsComp.ReportsSmArn),
 			"CPIPES_STATUS_NOTIFICATION_ENDPOINT":      jsii.String(os.Getenv("CPIPES_STATUS_NOTIFICATION_ENDPOINT")),
 			"CPIPES_STATUS_NOTIFICATION_ENDPOINT_JSON": jsii.String(os.Getenv("CPIPES_STATUS_NOTIFICATION_ENDPOINT_JSON")),
