@@ -270,9 +270,9 @@ func (ctx *DataTableContext) RegisterFileKeys(registerFileKeyAction *RegisterFil
 			goto NextKey
 		}
 		// If there is an entry in source_config (ie len(tableName) > 0):
-		// 	- Start the loader if hasCpipesSM == 0 and automated flag is set on source_config table and if not a test file
+		// 	- Start the loader if automated flag is set on source_config table
 		//	- Register the file key in input_registry if hasCpipesSM > 0 AND kick off cpipes pipelines ready to start
-		// Check if current objectType is associated with cpipesSM and/or other state machines
+		// Check if current objectType is associated with cpipesSM/cpipesNativeSM and/or other state machines
 		stmt = `
         WITH pc AS (
         	SELECT state_machine_name, unnest(input_rdf_types) as input_rdf_type FROM jetsapi.process_config
@@ -281,9 +281,13 @@ func (ctx *DataTableContext) RegisterFileKeys(registerFileKeyAction *RegisterFil
         	SELECT COUNT(*) as has_cpipes FROM jetsapi.object_type_registry AS otr, pc
         	WHERE pc.input_rdf_type = otr.entity_rdf_type AND otr.object_type = $1 AND pc.state_machine_name = 'cpipesSM'
         ),
+        cpipesNative AS (
+        	SELECT COUNT(*) as has_cpipes_native FROM jetsapi.object_type_registry AS otr, pc
+        	WHERE pc.input_rdf_type = otr.entity_rdf_type AND otr.object_type = $1 AND pc.state_machine_name = 'cpipesNativeSM'
+        ),
         other AS (
         	SELECT COUNT(*) as has_other FROM jetsapi.object_type_registry AS otr, pc
-        	WHERE pc.input_rdf_type = otr.entity_rdf_type AND otr.object_type = $1 AND pc.state_machine_name != 'cpipesSM'
+        	WHERE pc.input_rdf_type = otr.entity_rdf_type AND otr.object_type = $1 AND pc.state_machine_name != 'cpipesSM' AND pc.state_machine_name != 'cpipesNativeSM'
         )
         SELECT cpipes.has_cpipes, other.has_other FROM cpipes, other`
 		err = ctx.Dbpool.QueryRow(context.Background(), stmt, objectType).Scan(&hasCpipesSM, &hasOtherSM)
@@ -297,7 +301,7 @@ func (ctx *DataTableContext) RegisterFileKeys(registerFileKeyAction *RegisterFil
 			return nil, http.StatusInternalServerError, err
 		}
 		switch {
-		case hasCpipesSM == 0 && automated > 0 && !registerFileKeyAction.NoAutomatedLoad:
+		case automated > 0 && !registerFileKeyAction.NoAutomatedLoad:
 			// insert into input_loader_status and kick off loader
 			dataTableAction := DataTableAction{
 				Action:      "insert_rows",
@@ -323,7 +327,6 @@ func (ctx *DataTableContext) RegisterFileKeys(registerFileKeyAction *RegisterFil
 			// Insert into input registry (essentially we are bypassing loader here by registering the fileKey
 			// Note: Get the jetsapi.source_config.domain_keys (aka indexes for joining tables) to use as the object_type
 			// of the input_registry table
-
 			var inputRegistryKey int
 			for _, domainKey := range domainKeys {
 				log.Println(sessionId, "Write to input_registry for cpipes input files object type (aka domain_key):", domainKey, "client:", client, "org:", org)

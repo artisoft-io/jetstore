@@ -1,0 +1,112 @@
+# Multi-stage build for Go Lambda with C++ library
+FROM jetstore_base_builder:go-bullseye AS builder
+
+USER root
+
+ARG JETS_VERSION
+ENV JETS_VERSION=${JETS_VERSION}
+
+# JetStore Build
+# Set working directory
+ENV JETS_SOURCE_DIR=/app JETS_BUILD_DIR=/app
+RUN mkdir -p ${JETS_SOURCE_DIR}
+RUN mkdir -p ${JETS_BUILD_DIR}
+
+WORKDIR ${JETS_SOURCE_DIR}
+
+# Copy source files
+COPY CMakeLists.txt      ${JETS_SOURCE_DIR}/
+COPY go.mod              ${JETS_SOURCE_DIR}/
+COPY setup.py            ${JETS_SOURCE_DIR}/
+COPY jets                ${JETS_SOURCE_DIR}/jets
+COPY cdk/jetstore_one    ${JETS_SOURCE_DIR}/cdk/jetstore_one
+
+# Build the C++ library - native rule engine
+WORKDIR ${JETS_BUILD_DIR}
+
+RUN cmake -DCMAKE_BUILD_TYPE=Release -DJETS_VERSION=$JETS_VERSION ${JETS_SOURCE_DIR}
+RUN make clean 
+RUN make objlib jets_static jets -j8
+
+# RUN \
+#     echo "$JETS_BUILD_DIR DIRECTORY Contains" \
+#     && ls -la $JETS_BUILD_DIR \
+#     && echo "$JETS_BUILD_DIR/jets DIRECTORY Contains" \
+#     && ls -la $JETS_BUILD_DIR/jets \
+#     && echo "USR LOCAL LIB DIRECTORY Contains" \
+#     && ls -la /usr/local/lib \
+#     && echo "USR LOCAL BIN DIRECTORY Contains" \
+#     && ls -la /usr/local/bin \
+#     && ldd $JETS_BUILD_DIR/jets/libjets.so 
+
+# Go back to source directory
+WORKDIR ${JETS_SOURCE_DIR}
+
+# Set CGO environment variables
+ENV CGO_ENABLED=1
+ENV GOOS=linux
+ENV GOARCH=amd64
+RUN go mod tidy
+RUN go get all
+RUN go mod download
+
+# Build the Go binaries with CGO enabled
+RUN go build -ldflags="-w -s" -o bootstrap ${JETS_SOURCE_DIR}/cdk/jetstore_one/lambdas/compute_pipes/cp_node_native
+RUN go build -ldflags="-w -s" -o cpipes_native_server ${JETS_SOURCE_DIR}/jets/cmds/cpipes_native_server
+
+# Final stage
+# Use the Amazon Linux 2023 Lambda base image
+FROM public.ecr.aws/lambda/provided:al2023
+
+# Install runtime dependencies
+# Installs headers and compiled libraries for C++ standard library and Boost
+RUN dnf update -y && \
+  dnf install -y libstdc++ && \
+  # dnf install boost-devel -y && \
+  dnf clean all
+
+  ENV JETS_SOURCE_DIR=/app JETS_BUILD_DIR=/app
+
+# Copy the binary as 'bootstrap' to the Lambda task root
+COPY --from=builder $JETS_SOURCE_DIR/bootstrap ${LAMBDA_RUNTIME_DIR}
+
+# Copy the binary as 'cpipes_native_server' to usr/local/bin for ecs tasks
+COPY --from=builder $JETS_SOURCE_DIR/cpipes_native_server /usr/local/bin/
+
+# COPY native rule engine library
+COPY --from=builder ${JETS_BUILD_DIR}/jets/libjets.so /usr/local/lib/
+#* Verify lib version when upgrading dependencies
+COPY --from=builder /usr/local/lib/libsqlite3.so.3.51.1 /usr/local/lib/
+COPY --from=builder /usr/local/lib/libglog.so.0.6.0 /usr/local/lib/
+
+# Set library path environment variable instead of using ldconfig
+ENV LD_LIBRARY_PATH=/usr/local/lib:/usr/lib64:/lib64:$LD_LIBRARY_PATH
+# Create a simple library cache manually
+RUN echo "/usr/local/lib" > /etc/ld.so.conf.d/local.conf
+
+# Make sure bootstrap is executable
+RUN chmod +x ${LAMBDA_RUNTIME_DIR}/bootstrap
+RUN chmod +x /usr/local/bin/cpipes_native_server
+
+RUN \
+    cd /usr/local/lib/ \
+    && chmod +x libglog.so.0.6.0 \
+    && ln -s libsqlite3.so.3.51.1 libsqlite3.so \
+    && ln -s libglog.so.0.6.0 libglog.so.1  \
+    && echo "USR LOCAL LIB DIRECTORY Contains" \
+    && ls -la \
+    && echo "USR LOCAL BIN DIRECTORY Contains" \
+    && ls -la /usr/local/bin \
+    && echo "ldd libjets.so" \
+    && ldd libjets.so \
+    && echo "ldd libsqlite3.so" \
+    && ldd libsqlite3.so \
+    && echo "ldd libglog.so.1" \
+    && ldd libglog.so.1 \
+    && echo "LAMBDA_RUNTIME_DIR DIRECTORY Contains" \
+    && ls -la ${LAMBDA_RUNTIME_DIR} \
+    && cd / 
+
+# Set the entrypoint to use the Lambda runtime interface
+CMD [ "bootstrap" ]
+ENTRYPOINT ["/lambda-entrypoint.sh"]

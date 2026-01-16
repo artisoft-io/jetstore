@@ -13,10 +13,10 @@ RUN go get all
 RUN go mod download
 
 # Build
-RUN go install jetstore/jets/cbooter
+RUN go install jetstore/jets/cmds/cbooter
 RUN go install jetstore/jets/loader
 RUN go install jetstore/jets/run_reports
-RUN go install jetstore/jets/cpipes_server
+RUN go install jetstore/jets/cmds/cpipes_server
 RUN go install jetstore/jets/serverv2
 
 FROM golang:1.25-alpine

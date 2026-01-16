@@ -6,6 +6,7 @@ import (
 	"log"
 	"os"
 	"strconv"
+	"strings"
 
 	jetstorestack "github.com/artisoft-io/jetstore/cdk/jetstore_one/stack"
 	awscdk "github.com/aws/aws-cdk-go/awscdk/v2"
@@ -73,6 +74,12 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 			os.Getenv("AWS_REGION"), os.Getenv("AWS_ACCOUNT"), *props.MkId("cpipesSM")),
 		ReportsSmArn: fmt.Sprintf("arn:aws:states:%s:%s:stateMachine:%s",
 			os.Getenv("AWS_REGION"), os.Getenv("AWS_ACCOUNT"), *props.MkId("reportsSM")),
+		DeployCpipesNative: strings.ToUpper(os.Getenv("DEPLOY_CPIPES_NATIVE")) == "TRUE" || strings.ToUpper(os.Getenv("DEPLOY_CPIPES_NATIVE")) == "1",
+	}
+	if jsComp.DeployCpipesNative {
+		log.Println("Deploying CPIPES Native Image")
+		jsComp.CpipesNativeSmArn = fmt.Sprintf("arn:aws:states:%s:%s:stateMachine:%s",
+			os.Getenv("AWS_REGION"), os.Getenv("AWS_ACCOUNT"), *props.MkId("cpipesNativeSM"))
 	}
 	// Identify external buckets for exchanging data with external systems
 	jsComp.ResolveExternalBuckets(stack)
@@ -241,7 +248,7 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 	// Create the jsComp.EcsCluster.
 	// ==============================================================================================================
 	jsComp.EcsCluster = awsecs.NewCluster(stack, props.MkId("ecsCluster"), &awsecs.ClusterProps{
-		Vpc:               jsComp.Vpc,
+		Vpc: jsComp.Vpc,
 	})
 	if phiTagName != nil {
 		awscdk.Tags_Of(jsComp.EcsCluster).Add(phiTagName, jsii.String("true"), nil)
@@ -296,9 +303,17 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 
 	// JetStore Image from ecr -- referenced in most tasks
 	jsComp.CpipesImage = awsecs.AssetImage_FromEcrRepository(
-		//* example: arn:aws:ecr:us-east-1:470601442608:repository/jetstore_test_ws
 		awsecr.Repository_FromRepositoryArn(stack, jsii.String("jetstore-cpipes-image"), jsii.String(os.Getenv("CPIPES_ECR_REPO_ARN"))),
 		jsii.String(os.Getenv("CPIPES_IMAGE_TAG")))
+
+	// JetStore Image from ecr -- referenced in most tasks
+	if jsComp.DeployCpipesNative {
+		log.Println("Deploying CPIPES Native Image")
+		jsComp.CpipesNativeImage = awsecs.AssetImage_FromEcrRepository(
+			awsecr.Repository_FromRepositoryArn(stack, jsii.String("jetstore-cpipes-native-image"),
+				jsii.String(fmt.Sprintf("arn:aws:ecr:%s:%s:repository/jetstore_cpipes", os.Getenv("AWS_REGION"), os.Getenv("AWS_ACCOUNT")))),
+			jsii.String(os.Getenv("CPIPES_IMAGE_TAG")))
+	}
 
 	// Build ECS Tasks
 	// ---------------------------------------------
@@ -335,7 +350,7 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 	jsComp.BuildServerSM(scope, stack, props)
 	jsComp.BuildServerv2SM(scope, stack, props)
 
-	// Build lambdas used by cpipesSM:
+	// Build lambdas used by cpipesSM/cpipesNativeSM:
 	//	- CpipesNodeLambda
 	//	- CpipesStartShardingLambda
 	//	- CpipesStartReducingLambda
@@ -344,6 +359,9 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 
 	// Build the cpipes State Machine (cpipesSM)
 	jsComp.BuildCpipesSM(scope, stack, props)
+	if jsComp.DeployCpipesNative {
+		jsComp.BuildCpipesNativeSM(scope, stack, props)
+	}
 
 	// RegisterKey Lambda
 	jsComp.BuildRegisterKeyLambdas(scope, stack, props)
@@ -476,6 +494,7 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 // JETS_GIT_ACCESS (optional) value is list of SCM e.g. 'github,bitbucket'
 // JETS_IMAGE_TAG (required)
 // CPIPES_IMAGE_TAG (required for cpipes server)
+// DEPLOY_CPIPES_NATIVE (required for cpipes native task and lambdas, values: TRUE, FALSE, requires JETS_IMAGE_TAG)
 // JETS_INPUT_ROW_JETS_KEY_ALGO (values: uuid, row_hash, domain_key (default: uuid))
 // JETS_INVALID_CODE (optional) code value when client code is not is the code value mapping, default return the client value
 // JETS_LOADER_CHUNCK_SIZE loader file partition size
@@ -582,6 +601,7 @@ func main() {
 	fmt.Println("env JETS_GIT_ACCESS:", os.Getenv("JETS_GIT_ACCESS"))
 	fmt.Println("**** env JETS_IMAGE_TAG:", os.Getenv("JETS_IMAGE_TAG"))
 	fmt.Println("env CPIPES_IMAGE_TAG:", os.Getenv("CPIPES_IMAGE_TAG"))
+	fmt.Println("env DEPLOY_CPIPES_NATIVE:", os.Getenv("DEPLOY_CPIPES_NATIVE"))
 	fmt.Println("env JETS_INPUT_ROW_JETS_KEY_ALGO:", os.Getenv("JETS_INPUT_ROW_JETS_KEY_ALGO"))
 	fmt.Println("env JETS_INVALID_CODE:", os.Getenv("JETS_INVALID_CODE"))
 	fmt.Println("env JETS_LOADER_CHUNCK_SIZE:", os.Getenv("JETS_LOADER_CHUNCK_SIZE"))

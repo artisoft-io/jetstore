@@ -23,7 +23,6 @@ RUN echo "----------------JetStore-Version------------------" >> /VERSION.txt &&
 ENV JETS_BUILD_DIR=/usr/local/go/build JETS_BIN_DIR=/usr/local/go/bin JETS_PY_BUILD_DIR=/usr/local/go/src/jetstore/build
 COPY --from=builder ${JETS_PY_BUILD_DIR}/lib /usr/local/lib
 # COPY native rule engine library
-# TODO: build native rule engine conditionally
 COPY --from=builder ${JETS_BUILD_DIR}/jets/libjets.so /usr/local/lib/
 #* Verify lib version when upgrading dependencies
 COPY --from=builder /usr/local/lib/libsqlite3.so.3.51.1 /usr/local/lib/
@@ -32,7 +31,6 @@ COPY --from=builder /usr/local/lib/libglog.so.0.6.0 /usr/local/lib/
 COPY --from=builder ${JETS_BIN_DIR}/cbooter /usr/local/bin/
 COPY --from=builder ${JETS_BIN_DIR}/loader /usr/local/bin/
 COPY --from=builder ${JETS_BIN_DIR}/apiserver /usr/local/bin/
-# TODO: build native rule engine conditionally
 COPY --from=builder ${JETS_BIN_DIR}/server /usr/local/bin/
 COPY --from=builder ${JETS_BIN_DIR}/serverv2 /usr/local/bin/
 COPY --from=builder ${JETS_BIN_DIR}/run_reports /usr/local/bin/
@@ -58,7 +56,6 @@ COPY --from=builder ${JETS_SOURCE_DIR}/jetsclient/build/web $WEB_APP_DEPLOYMENT_
 RUN ls -la /usr/local/bin/
 
 # Copy the native library and verify
-# TODO: build native rule engine conditionally
 RUN \
     cd /usr/local/lib/ \
     && ln -s libsqlite3.so.3.51.1 libsqlite3.so \
@@ -79,7 +76,6 @@ ARG ANTLR4_VERSION="4.10.1"
 ENV PYTHONPATH="/go/lib:/usr/local/lib" CLASSPATH=".:/usr/local/lib/antlr-${ANTLR4_VERSION}-complete.jar"
 
 # Path for JetStore Workspace compilation
-# TODO: build native rule engine conditionally
 ENV JETRULE_COMPILER=/usr/local/lib/jets/compiler/jetrule_compiler.py JETRULE_LOOKUP_LOADER=/usr/local/lib/jets/compiler/jetrule_lookup_loader.py
 
 # Jets Application ENV Variable

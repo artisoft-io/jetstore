@@ -108,7 +108,7 @@ func (server *Server) DoDataTableAction(w http.ResponseWriter, r *http.Request) 
 			return
 		}
 		// Start the pending task and check for timeouts
-		err = ctx.StartPendingTasks("cpipesSM")
+		err = ctx.StartPendingTasks()
 		if err != nil {
 			log.Printf("Error: %v", err)
 			ERROR(w, 400, err)
