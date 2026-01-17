@@ -69,8 +69,26 @@ func (ctx *BuilderContext) NewJetrulesTransformationPipe(source *InputChannel, _
 	spec.NewRecord = true
 	config := spec.JetrulesConfig
 
+	// Prepare JetRules engine
+	var jrFactory JetRulesFactory
+	if config.UseJetRulesNative {
+		jrFactory = ctx.jetRules.GetNativeFactory()
+	}
+	if config.UseJetRulesGo {
+		jrFactory = ctx.jetRules.GetGoFactory()
+	}
+	if jrFactory == nil {
+		jrFactory = ctx.jetRules.GetDefaultFactory()
+		if jrFactory == nil {
+			log.Println("WARNING: no JetRulesFactory available in CoordinateComputePipes")
+		}
+	}
+	log.Printf("%s node %d %s - Using Jetrule engine: %s",
+		ctx.cpConfig.CommonRuntimeArgs.SessionId,
+		ctx.nodeId, ctx.cpConfig.CommonRuntimeArgs.MainInputStepId, jrFactory.JetRulesName())
+
 	// Get the jetrules engine for the process
-	ruleEngine, err := ctx.jetRules.NewJetRuleEngine(ctx.dbpool, config.ProcessName, config.IsDebug)
+	ruleEngine, err := jrFactory.NewJetRuleEngine(ctx.dbpool, config.ProcessName, config.IsDebug)
 	if err != nil {
 		return nil, err
 	}

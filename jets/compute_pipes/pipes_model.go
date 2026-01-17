@@ -6,8 +6,6 @@ import (
 
 // This file contains the Compute Pipes configuration model
 type ComputePipesConfig struct {
-	UseJetRulesNative      bool                    `json:"use_jet_rules_native,omitzero"`
-	UseJetRulesGo          bool                    `json:"use_jet_rules_go,omitzero"`
 	CommonRuntimeArgs      *ComputePipesCommonArgs `json:"common_runtime_args,omitzero"`
 	MetricsConfig          *MetricsSpec            `json:"metrics_config,omitzero"`
 	ClusterConfig          *ClusterSpec            `json:"cluster_config,omitzero"`
@@ -889,6 +887,11 @@ type SortSpec struct {
 
 // JetrulesSpec configuration
 // ProcessName is the jetrules process name to use.
+// UseJetRulesNative when true use the jetrules native engine.
+// UseJetRulesGo when true use the jetrules go engine.
+// Note: only one of UseJetRulesNative or UseJetRulesGo can be true.
+// When both are false, the default is to use the jetrules native engine when
+// available.
 // InputRdfType is the rdf type (class name) of the input records.
 // MaxInputCount is the max nbr of input records to process.
 // PoolSize is the nbr of worker pool size.
@@ -905,6 +908,8 @@ type SortSpec struct {
 // MaxLooping overrides the value in the jetrules metastore.
 type JetrulesSpec struct {
 	ProcessName             string                `json:"process_name,omitempty"`
+	UseJetRulesNative       bool                  `json:"use_jet_rules_native,omitzero"`
+	UseJetRulesGo           bool                  `json:"use_jet_rules_go,omitzero"`
 	InputRdfType            string                `json:"input_rdf_type,omitempty"`
 	MaxInputCount           int                   `json:"max_input_count,omitzero"`
 	PoolSize                int                   `json:"pool_size,omitzero"`

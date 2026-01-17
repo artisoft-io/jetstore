@@ -128,7 +128,7 @@ type BuilderContext struct {
 	schemaManager      *SchemaManager
 	channelRegistry    *ChannelRegistry
 	inputParquetSchema *ParquetSchemaInfo
-	jetRules           JetRulesFactory
+	jetRules           JetRulesProxy
 	done               chan struct{}
 	errCh              chan error
 	chResults          *ChannelResults

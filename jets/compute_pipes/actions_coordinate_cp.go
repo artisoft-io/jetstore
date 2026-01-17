@@ -23,17 +23,16 @@ func (args *ComputePipesNodeArgs) CoordinateComputePipes(ctx context.Context, db
 	var didSync bool
 	var inFolderPath string
 	var cpContext *ComputePipesContext
-	var fileKeyComponents map[string]interface{}
+	var fileKeyComponents map[string]any
 	var fileKeyPath, fileKeyName string // Components extracted from File_Key based on is_part_file
 	var fileKeyDate time.Time
 	var fileKeys []*FileKeyInfo
 	var cpipesConfigJson string
 	var cpConfig *ComputePipesConfig
 	var mainSchemaProviderConfig *SchemaProviderSpec
-	var envSettings map[string]interface{}
+	var envSettings map[string]any
 	var schemaManager *SchemaManager
 	var externalBucket string
-	var jrFactory JetRulesFactory
 
 	// Check if we need to sync the workspace files
 	didSync, err = workspace.SyncComputePipesWorkspace(dbpool)
@@ -62,22 +61,6 @@ func (args *ComputePipesNodeArgs) CoordinateComputePipes(ctx context.Context, db
 		cpErr = fmt.Errorf("failed to unmarshal cpipes config json: %v", err)
 		goto gotError
 	}
-	// Prepare JetRules engine
-	if cpConfig.UseJetRulesNative {
-		jrFactory = jrProxy.GetNativeFactory()
-	}
-	if cpConfig.UseJetRulesGo {
-		jrFactory = jrProxy.GetGoFactory()
-	}
-	if jrFactory == nil {
-		jrFactory = jrProxy.GetDefaultFactory()
-		if jrFactory == nil {
-			log.Println("WARNING: no JetRulesFactory available in CoordinateComputePipes")
-		}
-	}
-	log.Printf("%s node %d %s Using Jetrule engine: %s",
-		cpConfig.CommonRuntimeArgs.SessionId,
-		args.NodeId, cpConfig.CommonRuntimeArgs.MainInputStepId, jrFactory.JetRulesName())
 
 	// Get file keys
 	switch cpConfig.CommonRuntimeArgs.CpipesMode {
@@ -117,7 +100,7 @@ func (args *ComputePipesNodeArgs) CoordinateComputePipes(ctx context.Context, db
 	}
 
 	// Extract processing date from file key inFile
-	fileKeyComponents = make(map[string]interface{})
+	fileKeyComponents = make(map[string]any)
 	fileKeyComponents = datatable.SplitFileKeyIntoComponents(fileKeyComponents, &cpConfig.CommonRuntimeArgs.FileKey)
 	if len(fileKeyComponents) > 0 {
 		year := fileKeyComponents["year"].(int)
@@ -192,7 +175,7 @@ func (args *ComputePipesNodeArgs) CoordinateComputePipes(ctx context.Context, db
 		FileKeyComponents:  fileKeyComponents,
 		SchemaManager:      schemaManager,
 		InputFileKeys:      fileKeys,
-		JetRules:           jrFactory,
+		JetRules:           jrProxy,
 		KillSwitch:         make(chan struct{}),
 		Done:               make(chan struct{}),
 		ErrCh:              make(chan error, 1000),

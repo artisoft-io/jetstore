@@ -224,7 +224,7 @@ func (ctx *JrPoolWorker) executeRules(inputRecords *[]any,
 		}
 	}
 
-	log.Println("*** Pool Worker == Done Extracting Session DATA")
+	// log.Println("*** Pool Worker == Done Extracting Session DATA")
 
 	return
 
@@ -252,7 +252,7 @@ func (ctx *JrPoolWorker) extractSessionData(rdfSession JetRdfSession,
 	var dataArr *[]any
 	var isArray bool
 	// Extract entity by rdf type
-	log.Println("*** Pool Worker == Extracting entities of class", outChannel.ClassName)
+	// log.Println("*** Pool Worker == Extracting entities of class", outChannel.ClassName)
 	ctor := rdfSession.FindSPO(nil, jr.Rdf__type, rm.NewResource(outChannel.ClassName))
 	for !ctor.IsEnd() {
 		subject := ctor.GetSubject()
