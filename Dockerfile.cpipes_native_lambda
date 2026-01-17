@@ -62,7 +62,6 @@ FROM public.ecr.aws/lambda/provided:al2023
 # Installs headers and compiled libraries for C++ standard library and Boost
 RUN dnf update -y && \
   dnf install -y libstdc++ && \
-  # dnf install boost-devel -y && \
   dnf clean all
 
   ENV JETS_SOURCE_DIR=/app JETS_BUILD_DIR=/app

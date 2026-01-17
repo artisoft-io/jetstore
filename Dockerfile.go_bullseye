@@ -21,7 +21,7 @@ RUN \
   && cd ${JETS_BUILD_DIR}                                      \
   && cmake -DCMAKE_BUILD_TYPE=Release -DJETS_VERSION=$JETS_VERSION ${JETS_SOURCE_DIR} \
   && make clean                                                       \
-  && make -j8                                                         \
+  && make objlib jets_static jets -j8                                                         \
   && cd ${JETS_SOURCE_DIR}  \
   && ldconfig 
 
@@ -33,7 +33,7 @@ RUN go mod tidy
 RUN go get all
 RUN go mod download
 
-RUN go install jetstore/jets/cbooter
+RUN go install jetstore/jets/cmds/cbooter
 RUN go install jetstore/jets/loader
 RUN go install jetstore/jets/server
 RUN go install jetstore/jets/serverv2
