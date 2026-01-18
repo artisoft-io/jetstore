@@ -1,0 +1,49 @@
+FROM public.ecr.aws/amazonlinux/amazonlinux:2023
+
+RUN dnf update && dnf install -y \
+  libstdc++ gcc gcc-c++ make cmake pkgconfig git \
+  boost-devel sqlite-devel gflags-devel 
+
+RUN dnf update && dnf install -y \
+  wget tar ldconfig
+
+# RUN echo "Listing /usr/local/lib/" \
+#   && ls -la /usr/local/lib/
+
+# RUN echo "Listing /lib/" \
+#   && ls -la /lib/
+
+# RUN echo "Listing /lib64/" \
+#   && ls -la /lib64/
+
+# Install Go
+RUN wget -q https://go.dev/dl/go1.25.6.linux-amd64.tar.gz \
+    && tar -C /usr/local -xzf go1.25.6.linux-amd64.tar.gz \
+    && rm go1.25.6.linux-amd64.tar.gz
+ENV PATH=$PATH:/usr/local/go/bin
+RUN go version
+
+# Abseil
+RUN wget -q "https://github.com/abseil/abseil-cpp/releases/download/20250127.1/abseil-cpp-20250127.1.tar.gz"  \
+    && tar xf "abseil-cpp-20250127.1.tar.gz"  \
+    && cd "abseil-cpp-20250127.1"  \
+    && mkdir build && cd build \
+    && cmake -DCMAKE_CXX_FLAGS=-fPIC -DABSL_BUILD_TESTING=OFF -DCMAKE_CXX_STANDARD=20 .. \
+    && make -j6  \
+    && make install \
+    && make clean 
+
+# Google Log
+RUN wget -q "https://github.com/google/glog/archive/refs/tags/v0.6.0.tar.gz"  \
+    && tar xf "v0.6.0.tar.gz"  \
+    && cd "glog-0.6.0/"  \
+    && mkdir build && cd build \
+    && cmake -DCMAKE_CXX_FLAGS=-fPIC -DCMAKE_CXX_STANDARD=20 .. \
+    && make -j6  \
+    && make install \
+    && make clean 
+
+RUN cd /usr/local/lib64/ \
+    && ldconfig \
+    && ls -la /usr/local/lib64/
+

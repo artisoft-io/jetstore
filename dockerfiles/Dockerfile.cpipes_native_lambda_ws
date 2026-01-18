@@ -1,0 +1,36 @@
+FROM cpipes_builder:latest AS builder
+
+ARG WORKSPACE
+ENV WORKSPACE=${WORKSPACE}
+# Copy the workspace and compile it
+# to /$WORKSPACE
+COPY data_model /$WORKSPACE/
+COPY jet_rules /$WORKSPACE/
+COPY lookups /$WORKSPACE/
+COPY pipes_config /$WORKSPACE/
+COPY process_config /$WORKSPACE/
+COPY process_sequence /$WORKSPACE/
+COPY reports /$WORKSPACE/
+COPY scripts /$WORKSPACE/
+COPY compile_workspace.sh /$WORKSPACE/
+COPY workspace_control.json /$WORKSPACE/
+
+RUN \
+    echo "Compiling workspace in /$WORKSPACE" \
+    && ls -la /$WORKSPACE/ \
+    && chmod +x /$WORKSPACE/compile_workspace.sh \
+    #TODO RUN compilerv2. . .
+    && echo "/usr/local/lib64/ DIRECTORY Contains" \
+    && ls -la /usr/local/lib64/
+
+FROM cpipes_native_lambda:latest
+
+# Copy the compiled workspace to make a workspace-specific image
+ARG WORKSPACE
+ENV WORKSPACE=${WORKSPACE}
+
+# Copy the compiled workspace to workspace-specific image
+COPY --from=builder /$WORKSPACE /$WORKSPACE
+
+# Set the working directory
+WORKDIR ${JETS_TEMP_DATA}
