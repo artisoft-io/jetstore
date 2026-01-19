@@ -286,11 +286,11 @@ func compileWorkspaceV2(dbpool *pgxpool.Pool, workspaceControl *rete.WorkspaceCo
 	log.Println(cmdLog)
 	log.Println("============================")
 
+	if dbpool == nil {
+		return buf.String(), nil
+	}
 	if devMode {
 		log.Println("IN DEV MODE = Skipping copy large object to DB")
-		if dbpool == nil {
-			return buf.String(), nil
-		}
 	} else {
 		// Copy the sqlite files & the tar file to db
 		buf.WriteString("\nCopy the sqlite file to db\n")

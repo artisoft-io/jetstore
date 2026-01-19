@@ -475,6 +475,8 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 // JETS_CPIPES_TASK_MEM_LIMIT_MB memory limit, based on fargate table
 // JETS_CPIPES_LAMBDA_MEM_LIMIT_MB memory limit for cpipes execution node lambda
 // JETS_CPIPES_SM_TIMEOUT_MIN (optional) state machine timeout for CPIPES_SM, default 60 min
+// JETS_TEMP_DATA (optional) JetStore temp directory for containers, default /jetsdata
+// TMPDIR (optional) temp directory for containers, default ${JETS_TEMP_DATA}/tmp
 // CPIPES_STATUS_NOTIFICATION_ENDPOINT api gateway endpoint to send start and end notifications
 // CPIPES_STATUS_NOTIFICATION_ENDPOINT_JSON api gateway endpoints based on file key component to send start and end notifications
 // CPIPES_START_NOTIFICATION_JSON template for the cpipes start notification
@@ -564,7 +566,6 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 func main() {
 	defer jsii.Close()
 	var err error
-
 	fmt.Println("Got following env var")
 	fmt.Println("env ACTIVE_WORKSPACE_URI:", os.Getenv("ACTIVE_WORKSPACE_URI"))
 	fmt.Println("env AWS_ACCOUNT:", os.Getenv("AWS_ACCOUNT"))
@@ -580,6 +581,8 @@ func main() {
 	fmt.Println("env JETS_CPIPES_TASK_MEM_LIMIT_MB:", os.Getenv("JETS_CPIPES_TASK_MEM_LIMIT_MB"))
 	fmt.Println("env JETS_CPIPES_LAMBDA_MEM_LIMIT_MB:", os.Getenv("JETS_CPIPES_LAMBDA_MEM_LIMIT_MB"))
 	fmt.Println("env JETS_CPIPES_SM_TIMEOUT_MIN:", os.Getenv("JETS_CPIPES_SM_TIMEOUT_MIN"))
+	fmt.Println("env JETS_TEMP_DATA:", os.Getenv("JETS_TEMP_DATA"))
+	fmt.Println("env TMPDIR:", os.Getenv("TMPDIR"))
 	fmt.Println("env CPIPES_STATUS_NOTIFICATION_ENDPOINT:", os.Getenv("CPIPES_STATUS_NOTIFICATION_ENDPOINT"))
 	fmt.Println("env CPIPES_STATUS_NOTIFICATION_ENDPOINT_JSON:", os.Getenv("CPIPES_STATUS_NOTIFICATION_ENDPOINT_JSON"))
 	fmt.Println("env CPIPES_START_NOTIFICATION_JSON:", os.Getenv("CPIPES_START_NOTIFICATION_JSON"))

@@ -18,6 +18,7 @@ RUN groupadd -r jsuser && useradd -r -g jsuser jsuser
 ENV JETS_SOURCE_DIR=/app JETS_BUILD_DIR=/app
 
 # Copy the binaries to usr/local/bin for ecs tasks
+COPY --from=builder $JETS_SOURCE_DIR/cbooter /usr/local/bin/
 COPY --from=builder $JETS_SOURCE_DIR/cpipes_native_server /usr/local/bin/
 
 # COPY native rule engine library
@@ -34,7 +35,9 @@ ENV LD_LIBRARY_PATH=/usr/local/lib
 RUN echo "/usr/local/lib" > /etc/ld.so.conf.d/local.conf
 
 # Make sure it is executable
-RUN chmod +x /usr/local/bin/cpipes_native_server
+RUN \
+chmod +x /usr/local/bin/cpipes_native_server \
+&& chmod +x /usr/local/bin/cbooter
 
 RUN \
     cd /usr/local/lib/ \
@@ -42,6 +45,7 @@ RUN \
     && chmod +x libboost_date_time.so.1.75.0 \
     && chmod +x libsqlite3.so.0.8.6 \
     && chmod +x libgflags.so.2.2 \
+    && ln -s libglog.so.0.6.0 libglog.so.1  \
     && echo "/usr/local/lib/ DIRECTORY Contains" \
     && ls -la /usr/local/lib/ \
     && echo "ldd libjets.so" \

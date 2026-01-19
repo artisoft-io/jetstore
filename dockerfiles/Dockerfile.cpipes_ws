@@ -16,12 +16,10 @@ COPY compile_workspace.sh /$WORKSPACE/
 COPY workspace_control.json /$WORKSPACE/
 
 RUN \
-    echo "Compiling workspace in /$WORKSPACE" \
-    && ls -la /$WORKSPACE/ \
-    && chmod +x /$WORKSPACE/compile_workspace.sh \
-    #TODO RUN compilerv2. . .
-    && echo "/usr/local/lib64/ DIRECTORY Contains" \
-    && ls -la /usr/local/lib64/
+  echo "Compiling workspace in /$WORKSPACE" \
+  && ls -la /$WORKSPACE/ \
+  && chmod +x /$WORKSPACE/compile_workspace.sh \
+  && /app/compile_workspace -w=${WORKSPACE} -v ${JETS_VERSION}
 
 FROM cpipes:latest
 

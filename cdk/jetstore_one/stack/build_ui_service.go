@@ -59,6 +59,8 @@ func (jsComp *JetStoreStackComponents) BuildUiService(scope constructs.Construct
 		},
 		Environment: &map[string]*string{
 			"JETS_BUCKET":                   jsComp.SourceBucket.BucketName(),
+			"JETS_TEMP_DATA":                jsii.String(jsComp.JetsTempData()),
+			"TMPDIR":                        jsii.String(jsComp.TempDir()),
 			"JETS_DSN_SECRET":               jsComp.RdsSecret.SecretName(),
 			"AWS_API_SECRET":                jsComp.ApiSecret.SecretName(),
 			"AWS_JETS_ADMIN_PWD_SECRET":     jsComp.AdminPwdSecret.SecretName(),

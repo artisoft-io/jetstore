@@ -57,7 +57,7 @@ RUN go mod download
 # Build the Go binaries with CGO enabled
 RUN go build -ldflags="-w -s" -o cbooter              ${JETS_SOURCE_DIR}/jets/cmds/cbooter
 # RUN go build -ldflags="-w -s" -o cpipes_server        ${JETS_SOURCE_DIR}/jets/cmds/cpipes_server
-RUN go build -ldflags="-w -s" -o compilerv2           ${JETS_SOURCE_DIR}/jets/compilerv2
+RUN go build -ldflags="-w -s" -o compile_workspace    ${JETS_SOURCE_DIR}/jets/cmds/compile_workspace
 RUN go build -ldflags="-w -s" -o bootstrap            ${JETS_SOURCE_DIR}/cdk/jetstore_one/lambdas/compute_pipes/cp_node_native
 RUN go build -ldflags="-w -s" -o cpipes_native_server ${JETS_SOURCE_DIR}/jets/cmds/cpipes_native_server
 

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"path"
 	"strings"
 
 	awscdk "github.com/aws/aws-cdk-go/awscdk/v2"
@@ -164,6 +165,24 @@ func GetS3SchemaTriggersPrefix() string {
 		return prefix
 	}
 	return strings.Replace(os.Getenv("JETS_s3_INPUT_PREFIX"), "/input", "/schema_triggers", 1)
+}
+
+func (jsComp *JetStoreStackComponents) JetsTempData() string {
+	var jetsTempData string
+	jetsTempData = os.Getenv("JETS_TEMP_DATA")
+	if jetsTempData == "" {
+		jetsTempData = "/jetsdata"
+	}
+	return jetsTempData
+}
+
+func (jsComp *JetStoreStackComponents) TempDir() string {
+	var tmpDir string
+	tmpDir = os.Getenv("TMPDIR")
+		if tmpDir == "" {
+		tmpDir = path.Join(jsComp.JetsTempData(), "tmp")
+	}
+	return tmpDir
 }
 
 func (jsComp *JetStoreStackComponents) ResolveExternalBuckets(stack awscdk.Stack) {
