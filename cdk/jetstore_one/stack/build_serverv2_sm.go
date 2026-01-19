@@ -44,7 +44,7 @@ func (jsComp *JetStoreStackComponents) BuildServerv2SM(scope constructs.Construc
 	serverV2NodeLambdaLogGroup := awslogs.NewLogGroup(stack, jsii.String("ServerV2NodeLambdaLogGroup"), &awslogs.LogGroupProps{
 		Retention: awslogs.RetentionDays_THREE_MONTHS,
 	})
-	// Define the lambda
+	// Define the lambda (currently not used, see below in the map task)
 	jsComp.serverv2NodeLambda = awslambdago.NewGoFunction(stack, jsii.String("Serverv2NodeLambda"), &awslambdago.GoFunctionProps{
 		Description: jsii.String("JetStore One Lambda function serverv2 node executor"),
 		Runtime:     awslambda.Runtime_PROVIDED_AL2023(),

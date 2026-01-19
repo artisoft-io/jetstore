@@ -32,5 +32,9 @@ ENV WORKSPACE=${WORKSPACE}
 # Copy the compiled workspace to cpipes workspace-specific image
 COPY --from=builder /$WORKSPACE /$WORKSPACE
 
+ENV JETS_TEMP_DATA=/jetsdata
+ENV TMPDIR=${JETS_TEMP_DATA}/tmp
+ENV WORKSPACES_HOME=${JETS_TEMP_DATA}/workspaces
+
 # Set the working directory
 WORKDIR ${JETS_TEMP_DATA}

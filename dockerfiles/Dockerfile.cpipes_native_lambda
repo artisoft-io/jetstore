@@ -22,6 +22,7 @@ COPY --from=builder $JETS_SOURCE_DIR/bootstrap ${LAMBDA_RUNTIME_DIR}
 # COPY native rule engine library
 COPY --from=builder ${JETS_BUILD_DIR}/jets/libjets.so /usr/local/lib/
 #* Verify lib version when upgrading dependencies
+COPY --from=builder /usr/lib64/libboost_date_time.so.1.75.0 /usr/local/lib/
 COPY --from=builder /lib64/libsqlite3.so.0.8.6 /usr/local/lib/
 COPY --from=builder /lib64/libgflags.so.2.2 /usr/local/lib/
 COPY --from=builder /usr/local/lib64/libglog.so.0.6.0 /usr/local/lib/
@@ -37,6 +38,7 @@ RUN chmod +x ${LAMBDA_RUNTIME_DIR}/bootstrap
 RUN \
     cd /usr/local/lib/ \
     && chmod +x libglog.so.0.6.0 \
+    && chmod +x libboost_date_time.so.1.75.0 \
     && chmod +x libsqlite3.so.0.8.6 \
     && chmod +x libgflags.so.2.2 \
     && ln -s libglog.so.0.6.0 libglog.so.1  \
@@ -44,20 +46,9 @@ RUN \
     && ls -la /usr/local/lib/ \
     && echo "ldd libjets.so" \
     && ldd libjets.so \
-    # && echo "ldd libsqlite3.so" \
-    # && ldd libsqlite3.so \
-    # && echo "ldd libglog.so.1" \
-    # && ldd libglog.so.1 \
     && echo "LAMBDA_RUNTIME_DIR DIRECTORY Contains" \
     && ls -la ${LAMBDA_RUNTIME_DIR} \
     && cd / 
-
-    RUN \
-    cd /usr/local/lib/ \
-    && echo "/usr/local/lib/ DIRECTORY Contains" \
-    && ls -la /usr/local/lib/ \
-    && echo "ldd libjets.so" \
-    && ldd libjets.so 
 
 # Set the entrypoint to use the Lambda runtime interface
 CMD [ "bootstrap" ]

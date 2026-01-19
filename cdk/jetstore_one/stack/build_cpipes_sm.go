@@ -22,7 +22,7 @@ func (jsComp *JetStoreStackComponents) BuildCpipesSM(scope constructs.Construct,
 }
 
 func (jsComp *JetStoreStackComponents) BuildCpipesNativeSM(scope constructs.Construct, stack awscdk.Stack, props *JetstoreOneStackProps) {
-	jsComp.CpipesNativeSM = jsComp.buildCpipesSMInternal(stack, props,jsComp.CpipesNativeNodeLambda, jsComp.CpipesNativeTaskDefinition, jsComp.CpipesNativeContainerDef, "cpipesNativeSM", "Native")
+	jsComp.CpipesNativeSM = jsComp.buildCpipesSMInternal(stack, props,jsComp.CpipesNativeNodeLambda, jsComp.CpipesTaskDefinition, jsComp.CpipesContainerDef, "cpipesNativeSM", "Native")
 }
 
 // internal function to build the cpipes state machine

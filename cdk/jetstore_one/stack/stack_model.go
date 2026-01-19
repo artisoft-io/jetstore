@@ -89,20 +89,22 @@ type JetStoreStackComponents struct {
 	EcsTaskRole          awsiam.Role
 	JetStoreImage        awsecs.EcrImage
 	CpipesImage          awsecs.EcrImage
-	CpipesNativeImage    awsecs.EcrImage
 
 	RunreportTaskDefinition    awsecs.FargateTaskDefinition
 	RunreportsContainerDef     awsecs.ContainerDefinition
+
 	LoaderTaskDefinition       awsecs.FargateTaskDefinition
 	LoaderContainerDef         awsecs.ContainerDefinition
+	
 	ServerTaskDefinition       awsecs.FargateTaskDefinition
 	ServerContainerDef         awsecs.ContainerDefinition
+	
 	Serverv2TaskDefinition     awsecs.FargateTaskDefinition
 	Serverv2ContainerDef       awsecs.ContainerDefinition
+	
 	CpipesTaskDefinition       awsecs.FargateTaskDefinition
-	CpipesNativeTaskDefinition awsecs.FargateTaskDefinition
 	CpipesContainerDef         awsecs.ContainerDefinition
-	CpipesNativeContainerDef   awsecs.ContainerDefinition
+	
 	UiTaskDefinition           awsecs.FargateTaskDefinition
 	UiTaskContainer            awsecs.ContainerDefinition
 	EcsUiService               awsecs.FargateService

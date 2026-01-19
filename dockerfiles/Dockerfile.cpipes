@@ -16,10 +16,6 @@ RUN dnf update -y && \
 RUN groupadd -r jsuser && useradd -r -g jsuser jsuser
 
 ENV JETS_SOURCE_DIR=/app JETS_BUILD_DIR=/app
-ENV JETS_TEMP_DATA=/jetsdata
-ENV TMPDIR=${JETS_TEMP_DATA}/tmp
-ENV WORKSPACES_HOME=${JETS_TEMP_DATA}/workspaces
-ENV JETS_BIN_DIR=/usr/local/bin
 
 # Copy the binaries to usr/local/bin for ecs tasks
 COPY --from=builder $JETS_SOURCE_DIR/cpipes_native_server /usr/local/bin/
@@ -27,17 +23,27 @@ COPY --from=builder $JETS_SOURCE_DIR/cpipes_native_server /usr/local/bin/
 # COPY native rule engine library
 COPY --from=builder ${JETS_BUILD_DIR}/jets/libjets.so /usr/local/lib/
 #* Verify lib version when upgrading dependencies
+COPY --from=builder /usr/lib64/libboost_date_time.so.1.75.0 /usr/local/lib/
 COPY --from=builder /lib64/libsqlite3.so.0.8.6 /usr/local/lib/
 COPY --from=builder /lib64/libgflags.so.2.2 /usr/local/lib/
 COPY --from=builder /usr/local/lib64/libglog.so.0.6.0 /usr/local/lib/
 
 # Set library path environment variable instead of using ldconfig
-ENV LD_LIBRARY_PATH=/usr/local/lib:$LD_LIBRARY_PATH
+ENV LD_LIBRARY_PATH=/usr/local/lib
 # Create a simple library cache manually
 RUN echo "/usr/local/lib" > /etc/ld.so.conf.d/local.conf
 
 # Make sure it is executable
 RUN chmod +x /usr/local/bin/cpipes_native_server
 
-# Set the working directory
-WORKDIR ${JETS_TEMP_DATA}
+RUN \
+    cd /usr/local/lib/ \
+    && chmod +x libglog.so.0.6.0 \
+    && chmod +x libboost_date_time.so.1.75.0 \
+    && chmod +x libsqlite3.so.0.8.6 \
+    && chmod +x libgflags.so.2.2 \
+    && echo "/usr/local/lib/ DIRECTORY Contains" \
+    && ls -la /usr/local/lib/ \
+    && echo "ldd libjets.so" \
+    && ldd libjets.so \
+    && cd / 
