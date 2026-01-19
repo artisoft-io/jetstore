@@ -1,8 +1,8 @@
 FROM cpipes_builder:latest AS builder
 
-RUN \
-    echo "/usr/local/lib64/ DIRECTORY Contains" \
-    && ls -la /usr/local/lib64/
+# RUN \
+#     echo "/usr/local/lib64/ DIRECTORY Contains" \
+#     && ls -la /usr/local/lib64/
 
 # Use the Amazon Linux 2023 base image
 FROM public.ecr.aws/amazonlinux/amazonlinux:2023

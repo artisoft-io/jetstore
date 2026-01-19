@@ -1,9 +1,9 @@
 # Multi-stage build for Go Lambda with C++ library
 FROM cpipes_builder:latest AS builder
 
-RUN \
-    echo "/usr/local/lib64/ DIRECTORY Contains" \
-    && ls -la /usr/local/lib64/
+# RUN \
+#     echo "/usr/local/lib64/ DIRECTORY Contains" \
+#     && ls -la /usr/local/lib64/
 
 # Use the Amazon Linux 2023 Lambda base image
 FROM public.ecr.aws/lambda/provided:al2023

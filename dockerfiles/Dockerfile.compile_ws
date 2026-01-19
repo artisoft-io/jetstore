@@ -1,0 +1,22 @@
+FROM cpipes_builder:latest
+
+ARG WORKSPACE
+ENV WORKSPACE=${WORKSPACE}
+# Copy the workspace and compile it
+# to /$WORKSPACE
+COPY data_model /$WORKSPACE/data_model/
+COPY jet_rules /$WORKSPACE/jet_rules/
+COPY lookups /$WORKSPACE/lookups/
+COPY pipes_config /$WORKSPACE/pipes_config/
+COPY process_config /$WORKSPACE/process_config/
+COPY process_sequence /$WORKSPACE/process_sequence/
+COPY reports /$WORKSPACE/reports/
+COPY scripts /$WORKSPACE/scripts/
+COPY compile_workspace.sh /$WORKSPACE/compile_workspace.sh
+COPY workspace_control.json /$WORKSPACE/workspace_control.json
+
+RUN \
+  echo "Compiling workspace in /$WORKSPACE" \
+  && ls -la /$WORKSPACE/ \
+  && chmod +x /$WORKSPACE/compile_workspace.sh \
+  && /app/compile_workspace -w=${WORKSPACE} -v ${JETS_VERSION}

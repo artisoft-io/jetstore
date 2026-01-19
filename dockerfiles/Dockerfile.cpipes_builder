@@ -61,3 +61,5 @@ RUN go build -ldflags="-w -s" -o compile_workspace    ${JETS_SOURCE_DIR}/jets/cm
 RUN go build -ldflags="-w -s" -o bootstrap            ${JETS_SOURCE_DIR}/cdk/jetstore_one/lambdas/compute_pipes/cp_node_native
 RUN go build -ldflags="-w -s" -o cpipes_native_server ${JETS_SOURCE_DIR}/jets/cmds/cpipes_native_server
 
+# Copy workspace db schema for compile_workspace utility 
+RUN cp ${JETS_SOURCE_DIR}/jets/workspace_schema.sql /usr/local/bin/workspace_schema.sql
