@@ -20,9 +20,9 @@ func CompileWorkspace(dbpool *pgxpool.Pool, workspaceName, version string) (stri
 	}
 
 	if workspaceControl.UseCompilerV2 {
-		log.Println("Using workspace compiler v2")
+		log.Println("Using workspace compiler v2 with WORKSPACE_HOME=", WorkspacesHome())
 		return compileWorkspaceV2(dbpool, workspaceControl, version)
 	}
-	log.Println("Using workspace compiler v1")
+	log.Println("Using workspace compiler v1 with WORKSPACE_HOME=", WorkspacesHome())
 	return compileWorkspaceV1(dbpool, workspaceName, version)
 }

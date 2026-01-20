@@ -1,0 +1,44 @@
+FROM cpipes_builder:latest AS builder
+
+# RUN \
+#     echo "/usr/local/lib64/ DIRECTORY Contains" \
+#     && ls -la /usr/local/lib64/
+
+# Use the Amazon Linux 2023 base image
+FROM public.ecr.aws/amazonlinux/amazonlinux:2023
+
+# # Install runtime dependencies
+RUN dnf update -y && \
+  dnf install -y git && \
+  dnf clean all
+
+RUN ln -s /usr/bin/git /usr/local/bin/git
+ENV PATH=$PATH:/usr/local/bin
+
+# Create a system group and user
+ARG USER_ID="999"
+ARG GROUP_ID="999"
+RUN groupadd -g ${GROUP_ID} jsuser \
+    && useradd -r -u ${USER_ID} -g jsuser jsuser
+
+ENV JETS_SOURCE_DIR=/app JETS_BUILD_DIR=/app
+
+ARG JETS_VERSION
+ENV JETS_VERSION=${JETS_VERSION}
+ARG JETS_GIT_SHA
+ENV JETS_GIT_SHA=${JETS_GIT_SHA}
+RUN echo "----------------JetStore-Version------------------" >> /VERSION.txt && \
+    echo "JETS_VERSION: ${JETS_VERSION}"                      >> /VERSION.txt && \
+    echo "JETS_GIT_SHA: ${JETS_GIT_SHA}"                      >> /VERSION.txt && \
+    echo "----------------*********************-------------" >> /VERSION.txt
+
+# Copy the binaries to usr/local/bin for ecs tasks
+COPY --from=builder $JETS_SOURCE_DIR/cbooter /usr/local/bin/
+COPY --from=builder $JETS_SOURCE_DIR/apiserver /usr/local/bin/
+COPY --from=builder $JETS_SOURCE_DIR/update_db /usr/local/bin/
+
+# Make sure it is executable
+RUN \
+chmod +x /usr/local/bin/apiserver \
+&& chmod +x /usr/local/bin/cbooter \
+&& chmod +x /usr/local/bin/update_db

@@ -104,13 +104,6 @@ func main() {
 		panic("Invalid argument(s)")
 	}
 
-	// Create, but don't fail if it exist, the temp directory
-	tmpDir := os.Getenv("TMPDIR")
-	err = os.MkdirAll(tmpDir, 0775)
-	if err != nil {
-		log.Fatalf("Failed to create tmp directory %s: %s", tmpDir, err)
-	}
-
 	log.Println("CPIPES Server:")
 	log.Println("--------")
 	log.Println("Got argument: dbPoolSize", dbPoolSize)

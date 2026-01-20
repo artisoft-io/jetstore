@@ -2,21 +2,23 @@ FROM cpipes_builder:latest
 
 ARG WORKSPACE
 ENV WORKSPACE=${WORKSPACE}
+ENV WORKSPACES_REPO=/workspaces
+
 # Copy the workspace and compile it
-# to /$WORKSPACE
-COPY data_model /$WORKSPACE/data_model/
-COPY jet_rules /$WORKSPACE/jet_rules/
-COPY lookups /$WORKSPACE/lookups/
-COPY pipes_config /$WORKSPACE/pipes_config/
-COPY process_config /$WORKSPACE/process_config/
-COPY process_sequence /$WORKSPACE/process_sequence/
-COPY reports /$WORKSPACE/reports/
-COPY scripts /$WORKSPACE/scripts/
-COPY compile_workspace.sh /$WORKSPACE/compile_workspace.sh
-COPY workspace_control.json /$WORKSPACE/workspace_control.json
+# to $WORKSPACES_REPO/$WORKSPACE
+COPY data_model $WORKSPACES_REPO/$WORKSPACE/data_model/
+COPY jet_rules $WORKSPACES_REPO/$WORKSPACE/jet_rules/
+COPY lookups $WORKSPACES_REPO/$WORKSPACE/lookups/
+COPY pipes_config $WORKSPACES_REPO/$WORKSPACE/pipes_config/
+COPY process_config $WORKSPACES_REPO/$WORKSPACE/process_config/
+COPY process_sequence $WORKSPACES_REPO/$WORKSPACE/process_sequence/
+COPY reports $WORKSPACES_REPO/$WORKSPACE/reports/
+COPY scripts $WORKSPACES_REPO/$WORKSPACE/scripts/
+COPY compile_workspace.sh $WORKSPACES_REPO/$WORKSPACE/compile_workspace.sh
+COPY workspace_control.json $WORKSPACES_REPO/$WORKSPACE/workspace_control.json
 
 RUN \
-  echo "Compiling workspace in /$WORKSPACE" \
-  && ls -la /$WORKSPACE/ \
-  && chmod +x /$WORKSPACE/compile_workspace.sh \
-  && /app/compile_workspace -w=${WORKSPACE} -v ${JETS_VERSION}
+  echo "Compiling workspace in $WORKSPACES_REPO/$WORKSPACE" \
+  && ls -la $WORKSPACES_REPO/$WORKSPACE/ \
+  && chmod +x $WORKSPACES_REPO/$WORKSPACE/compile_workspace.sh \
+  && WORKSPACES_HOME=${WORKSPACES_REPO} /app/compile_workspace -w=${WORKSPACE} -v=${JETS_VERSION}

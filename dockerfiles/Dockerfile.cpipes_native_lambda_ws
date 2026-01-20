@@ -5,6 +5,7 @@ FROM cpipes_native_lambda:latest
 # Copy the compiled workspace to make a workspace-specific image
 ARG WORKSPACE
 ENV WORKSPACE=${WORKSPACE}
+ENV WORKSPACES_REPO=/workspaces
 
 # Copy the compiled workspace to workspace-specific image
-COPY --from=builder /$WORKSPACE /$WORKSPACE
+COPY --from=builder $WORKSPACES_REPO/$WORKSPACE $WORKSPACES_REPO/$WORKSPACE

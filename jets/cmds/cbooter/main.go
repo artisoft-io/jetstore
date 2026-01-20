@@ -37,8 +37,8 @@ import (
 // Ensure this matches the user created in the Dockerfile
 var jsuserSysProcAttr *syscall.SysProcAttr = &syscall.SysProcAttr{
 	Credential: &syscall.Credential{
-		Uid: 1000,
-		Gid: 1000,
+		Uid: 999,
+		Gid: 999,
 	},
 }
 var rootSysProcAttr *syscall.SysProcAttr = &syscall.SysProcAttr{
@@ -87,7 +87,7 @@ func main() {
 		}
 	}
 
-	// Ensure JETS_TEMP_DATA is writable by jsuser (uid 1000)
+	// Ensure JETS_TEMP_DATA is writable by jsuser (uid 999)
 	// This is important because the mounted volume may have root ownership
 	// and jsuser needs write access to it.
 	// Determine which command to run based on flags
@@ -132,7 +132,7 @@ func main() {
 }
 
 func makeJetsdataWritable() error {
-	return runCommandAsRoot("chown", []string{"-hR", "1000:1000", os.Getenv("JETS_TEMP_DATA")})
+	return runCommandAsRoot("chown", []string{"-hR", "999:999", os.Getenv("JETS_TEMP_DATA")})
 }
 
 func runCommandAsRoot(command string, args []string) error {
