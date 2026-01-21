@@ -165,7 +165,6 @@ class FormKeys {
   static const home = "homeForm";
   // File Staging Area
   static const loadRawRows = "loadRawRowsDialog";
-  static const loadAllFiles = "loadAllFilesDialog";
   // Input Source Mapping Forms
   static const inputSourceMapping = "inputSourceMapping";
   static const processMapping = "processMappingDialog";
@@ -592,7 +591,6 @@ class ActionKeys {
 
   // for load file
   static const loaderOk = "loader.ok";
-  static const loadAllFilesOk = "loadAllFiles.ok";
   static const loaderMultiOk = "loaderMulti.ok";
 
   // to sync file key with web storage (s3)

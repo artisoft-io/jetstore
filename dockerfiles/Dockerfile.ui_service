@@ -16,10 +16,10 @@ RUN ln -s /usr/bin/git /usr/local/bin/git
 ENV PATH=$PATH:/usr/local/bin
 
 # Create a system group and user
-ARG USER_ID="999"
-ARG GROUP_ID="999"
-RUN groupadd -g ${GROUP_ID} jsuser \
-    && useradd -r -u ${USER_ID} -g jsuser jsuser
+# ARG USER_ID="999"
+# ARG GROUP_ID="999"
+# RUN groupadd -g ${GROUP_ID} jsuser \
+#     && useradd -r -u ${USER_ID} -g jsuser jsuser
 
 ENV JETS_SOURCE_DIR=/app JETS_BUILD_DIR=/app
 

@@ -3,7 +3,6 @@ import 'package:jetsclient/components/jets_form_state.dart';
 import 'package:jetsclient/modules/actions/config_delegates.dart';
 import 'package:jetsclient/modules/actions/process_errors_delegates.dart';
 import 'package:jetsclient/modules/actions/query_tool_screen_delegates.dart';
-import 'package:jetsclient/modules/actions/source_config_delegates.dart';
 import 'package:jetsclient/modules/actions/user_delegates.dart';
 import 'package:jetsclient/modules/user_flows/client_registry/form_config.dart';
 import 'package:jetsclient/modules/user_flows/configure_files/form_config.dart';
@@ -315,47 +314,6 @@ final Map<String, FormConfig> _formConfigurations = {
     ],
     formValidatorDelegate: userAdminValidator,
     formActionsDelegate: userAdminFormActions,
-  ),
-
-  // Load All Files
-  FormKeys.loadAllFiles: FormConfig(
-    key: FormKeys.loadAllFiles,
-    title: "Load all files within a time period",
-    actions: [
-      FormActionConfig(
-          key: ActionKeys.loadAllFilesOk,
-          capability: "run_pipelines",
-          label: "Load All Files",
-          buttonStyle: ActionStyle.dialogOk,
-          leftMargin: defaultPadding,
-          rightMargin: betweenTheButtonsPadding),
-      FormActionConfig(
-          key: ActionKeys.dialogCancel,
-          label: "Cancel",
-          buttonStyle: ActionStyle.dialogCancel,
-          leftMargin: betweenTheButtonsPadding,
-          rightMargin: defaultPadding),
-    ],
-    inputFields: [
-      [
-        FormDataTableFieldConfig(
-            key: FSK.fromSourcePeriodKey,
-            tableHeight: double.infinity,
-            dataTableConfig: FSK.fromSourcePeriodKey),
-        FormDataTableFieldConfig(
-            key: FSK.toSourcePeriodKey,
-            tableHeight: double.infinity,
-            dataTableConfig: FSK.toSourcePeriodKey),
-      ],
-      // [
-      //   FormDataTableFieldConfig(
-      //       key: DTKeys.fileKeyStagingMultiLoadTable,
-      //       tableHeight: 600,
-      //       dataTableConfig: DTKeys.fileKeyStagingMultiLoadTable)
-      // ],
-    ],
-    formValidatorDelegate: loadAllFilesValidator,
-    formActionsDelegate: loadAllFilesActions,
   ),
 
   // Rule Configv2 - Action-less form to select Rule Configv2 to Edit or do Add

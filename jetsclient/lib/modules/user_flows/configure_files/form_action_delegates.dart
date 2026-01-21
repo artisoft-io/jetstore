@@ -167,7 +167,7 @@ Future<String?> configureFilesFormActions(
       state[FSK.codeValuesMappingJson] =
           unpack(state[FSK.codeValuesMappingJson]);
       state[FSK.computePipesJson] = unpack(state[FSK.computePipesJson]);
-      state[FSK.automated] = unpack(state[FSK.automated]);
+      state[FSK.automated] = '0';
       state[FSK.scFileTypeOption] = unpack(state[FSK.scFileTypeOption]);
       // Map part file indicator
       if (unpack(state['is_part_files']) == '1') {

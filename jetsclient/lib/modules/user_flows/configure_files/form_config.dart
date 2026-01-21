@@ -296,40 +296,6 @@ final Map<String, FormConfig> _formConfigurations = {
     formValidatorDelegate: configureFilesFormValidator,
     formActionsDelegate: doNothingAction,
   ),
-  FormKeys.scEditAutomatedModeUF: FormConfig(
-    key: FormKeys.scEditAutomatedModeUF,
-    useListView: true,
-    actions: standardActions,
-    inputFields: [
-      [
-        PaddingConfig(height: 2 * defaultPadding),
-      ],
-      [
-        TextFieldConfig(
-            label:
-                "Select if the files will be loaded manually or automatically from S3:",
-            maxLines: 1,
-            topMargin: 0,
-            bottomMargin: 0),
-      ],
-      [
-        FormDropdownFieldConfig(
-            key: FSK.automated,
-            items: [
-              DropdownItemConfig(label: 'Select Automation Status...'),
-              DropdownItemConfig(label: 'Automated', value: '1'),
-              DropdownItemConfig(label: 'Manual', value: '0'),
-            ],
-            flex: 1,
-            defaultItemPos: 1),
-      ],
-      [
-        PaddingConfig(height: 2 * defaultPadding),
-      ],
-    ],
-    formValidatorDelegate: configureFilesFormValidator,
-    formActionsDelegate: doNothingAction,
-  ),
   // Summary Page
   FormKeys.scSummaryUF: FormConfig(
     key: FormKeys.scSummaryUF,

@@ -146,12 +146,6 @@ final Map<String, UserFlowConfig> _userFlowConfigurations = {
         description: 'Edit Code Value Mapping',
         formConfig: getFormConfig(FormKeys.scEditCodeValueMappingUF),
         actionDelegate: configureFilesFormActions,
-        defaultNextState: "edit_automated_mode"),
-    "edit_automated_mode": UserFlowState(
-        key: "edit_automated_mode",
-        description: 'Edit Automated Mode',
-        formConfig: getFormConfig(FormKeys.scEditAutomatedModeUF),
-        actionDelegate: configureFilesFormActions,
         defaultNextState: "confirm_state"),
     "confirm_state": UserFlowState(
         key: "confirm_state",

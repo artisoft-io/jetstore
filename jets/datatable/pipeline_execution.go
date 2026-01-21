@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math/rand"
 	"time"
 
 	"log"
@@ -199,7 +200,7 @@ func (ctx *DataTableContext) InsertPipelineExecutionStatus(dataTableAction *Data
 	// Post Processing Hook
 	switch dataTableAction.FromClauses[0].Table {
 	case "input_loader_status":
-		httpStatus, err = ctx.startLoader(dataTableAction, irow, sqlStmt, results)
+		httpStatus, err = ctx.startLoader(dataTableAction, irow, sqlStmt, peKey)
 
 	case "pipeline_execution_status", "short/pipeline_execution_status":
 		if status == "submitted" {
@@ -722,11 +723,13 @@ func (ctx *DataTableContext) runPipelineLocally(devModeCode string, task *Pendin
 	return err
 }
 
-func (ctx *DataTableContext) startLoader(dataTableAction *DataTableAction, irow int, sqlStmt *SqlInsertDefinition, results *map[string]any) (httpStatus int, err error) {
-	var loaderCompletedMetric, loaderFailedMetric string
+var (
+	jsInput string = os.Getenv("JETS_s3_SCHEMA_TRIGGERS")
+)
+
+func (ctx *DataTableContext) startLoader(dataTableAction *DataTableAction, irow int,
+	sqlStmt *SqlInsertDefinition, inputLoaderStatusKey int) (httpStatus int, err error) {
 	httpStatus = http.StatusOK
-	var name string
-	workspaceName := os.Getenv("WORKSPACE")
 
 	// Run the loader
 	row := make(map[string]any, len(sqlStmt.ColumnKeys))
@@ -745,18 +748,10 @@ func (ctx *DataTableContext) startLoader(dataTableAction *DataTableAction, irow 
 	objType := row["object_type"]
 	client := row["client"]
 	clientOrg := row["org"]
-	sourcePeriodKey := row["source_period_key"]
+	tableName := row["table_name"]
 	fileKey := row["file_key"]
 	sessionId := row["session_id"]
 	userEmail := row["user_email"]
-	v := dataTableAction.Data[irow]["loaderFailedMetric"]
-	if v != nil {
-		loaderFailedMetric = v.(string)
-	}
-	v = dataTableAction.Data[irow]["loaderCompletedMetric"]
-	if v != nil {
-		loaderCompletedMetric = v.(string)
-	}
 	if objType == nil || client == nil || fileKey == nil || sessionId == nil || userEmail == nil {
 		log.Printf(
 			"error while preparing to run loader: unexpected nil among: objType: %v, client: %v, fileKey: %v, sessionId: %v, userEmail %v",
@@ -765,119 +760,78 @@ func (ctx *DataTableContext) startLoader(dataTableAction *DataTableAction, irow 
 		err = errors.New("error while running loader command")
 		return
 	}
-	org := clientOrg.(string)
-	if org == "" {
-		org = "''"
-	}
-	loaderCommand := []string{
-		"-in_file", fileKey.(string),
-		"-client", client.(string),
-		"-org", org,
-		"-objectType", objType.(string),
-		"-sourcePeriodKey", sourcePeriodKey.(string),
-		"-sessionId", sessionId.(string),
-		"-userEmail", userEmail.(string),
-	}
-	if loaderCompletedMetric != "" {
-		loaderCommand = append(loaderCommand, "-loaderCompletedMetric")
-		loaderCommand = append(loaderCommand, loaderCompletedMetric)
-	}
-	if loaderFailedMetric != "" {
-		loaderCommand = append(loaderCommand, "-loaderFailedMetric")
-		loaderCommand = append(loaderCommand, loaderFailedMetric)
-	}
-	var reportName string
-	if clientOrg.(string) != "" {
-		reportName = fmt.Sprintf("loader/client=%s/object_type=%s/org=%s", client.(string), objType.(string), clientOrg.(string))
-	} else {
-		reportName = fmt.Sprintf("loader/client=%s/object_type=%s", client.(string), objType.(string))
-	}
-	runReportsCommand := []string{
-		"-client", client.(string),
-		"-sessionId", sessionId.(string),
-		"-reportName", reportName,
-		"-filePath", strings.Replace(fileKey.(string), os.Getenv("JETS_s3_INPUT_PREFIX"), os.Getenv("JETS_s3_OUTPUT_PREFIX"), 1),
-	}
-	switch {
-	// Call loader synchronously
-	case ctx.DevMode:
-		if ctx.UsingSshTunnel {
-			loaderCommand = append(loaderCommand, "-usingSshTunnel")
-			runReportsCommand = append(runReportsCommand, "-usingSshTunnel")
-		}
-		// Call loader synchronously
-		cmd := exec.Command("/usr/local/bin/loader", loaderCommand...)
-		cmd.Env = append(os.Environ(),
-			fmt.Sprintf("WORKSPACE=%s", workspaceName),
-			"JETSTORE_DEV_MODE=1",
-		)
-		var buf strings.Builder
-		cmd.Stdout = &buf
-		cmd.Stderr = &buf
-		log.Printf("Executing loader command '%v'", loaderCommand)
-		err = cmd.Run()
-		if err != nil {
-			log.Printf("while executing loader command '%v': %v", loaderCommand, err)
-			log.Println("=*=*=*=*=*=*=*=*=*=*=*=*=*=*")
-			log.Println("LOADER CAPTURED OUTPUT BEGIN")
-			log.Println("=*=*=*=*=*=*=*=*=*=*=*=*=*=*")
-			(*results)["log"] = buf.String()
-			log.Println((*results)["log"])
-			log.Println("=*=*=*=*=*=*=*=*=*=*=*=*=*=*")
-			log.Println("LOADER CAPTURED OUTPUT END")
-			log.Println("=*=*=*=*=*=*=*=*=*=*=*=*=*=*")
-			httpStatus = http.StatusInternalServerError
-			err = errors.New("error while running loader command")
-			return
-		}
 
-		// Call run_report synchronously
-		cmd = exec.Command("/usr/local/bin/run_reports", runReportsCommand...)
-		cmd.Env = append(os.Environ(),
-			fmt.Sprintf("WORKSPACE=%s", workspaceName),
-			"JETSTORE_DEV_MODE=1",
-		)
-		cmd.Stdout = &buf
-		cmd.Stderr = &buf
-		log.Printf("Executing run_reports command '%v'", runReportsCommand)
-		err = cmd.Run()
-		(*results)["log"] = buf.String()
-		if err != nil {
-			log.Printf("while executing run_reports command '%v': %v", runReportsCommand, err)
-			log.Println("=*=*=*=*=*=*=*=*=*=*=*=*=*=*")
-			log.Println("LOADER & REPORTS CAPTURED OUTPUT BEGIN")
-			log.Println("=*=*=*=*=*=*=*=*=*=*=*=*=*=*")
-			log.Println((*results)["log"])
-			log.Println("=*=*=*=*=*=*=*=*=*=*=*=*=*=*")
-			log.Println("LOADER & REPORTS CAPTURED OUTPUT END")
-			log.Println("=*=*=*=*=*=*=*=*=*=*=*=*=*=*")
-			httpStatus = http.StatusInternalServerError
-			err = errors.New("error while running run_reports command")
-			return
-		}
-		log.Println("============================")
-		log.Println("LOADER & REPORTS CAPTURED OUTPUT BEGIN")
-		log.Println("============================")
-		log.Println((*results)["log"])
-		log.Println("============================")
-		log.Println("LOADER & REPORTS CAPTURED OUTPUT END")
-		log.Println("============================")
-
-	default:
-		// StartExecution load file
-		log.Printf("calling StartExecution loaderSM loaderCommand: %s", loaderCommand)
-		name, err = awsi.StartExecution(os.Getenv("JETS_LOADER_SM_ARN"),
-			map[string]any{
-				"loaderCommand":  loaderCommand,
-				"reportsCommand": runReportsCommand,
-			}, sessionId.(string))
-		if err != nil {
-			log.Printf("while calling StartExecution '%v': %v", loaderCommand, err)
-			httpStatus = http.StatusInternalServerError
-			err = errors.New("error while calling StartExecution")
-			return
-		}
-		fmt.Println("Loader State Machine", name, "started")
+	// Get the input_registry key from input_registry table
+	var inputRegistryKey sql.NullInt64
+	var year, month, day int
+	var inputFormat string
+	stmt := `
+		SELECT ir.key, year, month, day, sc.input_format
+		FROM  jetsapi.input_registry ir, jetsapi.source_period sp, jetsapi.source_config sc
+		WHERE ir.file_key = $1 
+		  AND ir.session_id = $2
+			AND sp.key = ir.source_period_key
+			AND ir.client = sc.client
+			AND ir.object_type = sc.object_type
+			AND ir.org = sc.org`
+	err = ctx.Dbpool.QueryRow(context.Background(), stmt, fileKey, sessionId).Scan(&inputRegistryKey, &year, &month, &day, &inputFormat)
+	if err != nil {
+		log.Printf("While getting input_registry key for file_key '%s' and session_id '%s': %v", fileKey, sessionId, err)
+		httpStatus = http.StatusInternalServerError
+		err = errors.New("error while reading from input_registry table")
+		return
 	}
+
+	// Start the Jet_Loader pipeline
+	if !inputRegistryKey.Valid {
+		log.Printf("error: got nil key from input_registry key for file_key '%s' and session_id '%s'", fileKey, sessionId)
+		httpStatus = http.StatusInternalServerError
+		err = errors.New("error while reading from input_registry table")
+		return
+	}
+
+	// Make the schema provider to start the Jet_Loader pipeline
+	schemaInfo := map[string]any{
+		"key":                        "_main_input_",
+		"type":                       "default",
+		"source_type":                "main_input",
+		"client":                     "Any",
+		"object_type":                "Any",
+		"file_key":                   fileKey,
+		"format":                     inputFormat,
+		"detect_encoding":            true,
+		"detect_cr_as_eol":           true,
+		"compression":                "none",
+		"use_lazy_quotes":            false,
+		"use_lazy_quotes_special":    true,
+		"variable_fields_per_record": false,
+		"multi_columns_input":        true,
+		"enforce_row_max_length":     true,
+		"enforce_row_min_length":     true,
+		"trim_columns":               true,
+		"is_part_files":              false,
+		"file_date":                  fmt.Sprintf("%04d-%02d-%02d", year, month, day),
+		"env": map[string]any{
+			"$CLIENT":             client,
+			"$ORG":                clientOrg,
+			"$OBJECT_TYPE":        objType,
+			"$INPUT_LOADER_KEY":   inputLoaderStatusKey,
+			"$STAGING_TABLE_NAME": tableName,
+		},
+	}
+
+	// Write the schema trigger event to jetstore s3
+	triggerObj, err := json.Marshal(schemaInfo)
+	if err != nil {
+		httpStatus = http.StatusInternalServerError
+		err = errors.New("error while marshalling loader trigger object")
+		return
+	}
+	// Get a 64-bit random number
+	rid := rand.New(rand.NewSource(time.Now().UnixNano())).Uint64()
+	processDate := time.Now().Format("2006-01-02")
+	triggerKey := fmt.Sprintf("%s/%s/%s/%d.json", jsInput, "Jets_Loader", processDate, rid)
+	err = awsi.UploadBufToS3("", triggerKey, triggerObj)
+
 	return
 }

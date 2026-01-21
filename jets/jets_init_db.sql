@@ -118,34 +118,31 @@ ON CONFLICT DO NOTHING
 DELETE FROM jetsapi.process_config WHERE process_name IN ('Jets_Loader');
 INSERT INTO jetsapi.process_config 
   (key, process_name,          main_rules,                                is_rule_set,   devmode_code,       state_machine_name,   input_rdf_types,             output_tables,                             user_email) VALUES
-  (0001, 'Jets_Loader',        'pipes_config/jets_loader.pc.json',                  0, 'run_cpipes_reports',     'serverSM',       '{}',                         '{}',                                     'admin')
+  (DEFAULT, 'Jets_Loader',     'pipes_config/jets_loader.pc.json',                  0, 'run_cpipes_reports',     'serverSM',       '{}',                         '{}',                                     'admin')
 ON CONFLICT DO NOTHING
 ;
+
+-- Table process_input
+DELETE FROM jetsapi."process_input" WHERE "client" = 'Any';
+INSERT INTO jetsapi."process_input" (key,client,org,object_type,table_name,source_type,lookback_periods,entity_rdf_type,key_column,status,user_email) VALUES
+  (DEFAULT, 'Any', '', 'Any', 'Any_Any', 'file', 0, 'owl:Thing', NULL, 'created', 'system')
+ON CONFLICT DO NOTHING;
 
 -- Table pipeline_config
 DELETE FROM jetsapi."pipeline_config" WHERE "client" = 'Any';
 INSERT INTO jetsapi."pipeline_config" (process_name,client,process_config_key,main_process_input_key,merged_process_input_keys,injected_process_input_keys,main_object_type,main_source_type,source_period_type,automated,max_rete_sessions_saved,rule_config_json,description,user_email) VALUES
   ('Jets_Loader',
    'Any',
-   0001,
-   320671,
+   (SELECT key FROM jetsapi."process_config" WHERE process_name = 'Jets_Loader'),
+   (SELECT key FROM jetsapi."process_input" WHERE "client" = 'Any' AND object_type = 'Any' AND table_name = 'Any_Any' AND source_type = 'file'),
    '{}',
    '{}',
-   'Authorization',
+   'Any',
    'file',
    'month_period',
    1,
    0,
-   'ID	Property	Value	Type
-iRuleConfig001	nh_c:breakOnAuthorizationId	put uuid here	text 
-iRuleConfig001	nh_c:breakOnMemberId	put uuid here	text 
-iRuleConfig001	nh_c:singleOrSplitAuth	brighton	text
-iRuleConfig001	nh_c:vendorCode	BRI	text
-iRuleConfig001	jets:key	iRuleConfig001	text
-iRuleConfig001	rdf:type	nh_c:RuleConfig	resource
-jets:iState	jets:max_vertex_visits	1000000	int
-jets:iState	jets:key	jets:iState	text
-jets:iState	rdf:type	jets:State	resource',
-   'Configuration to use Brighton csv files',
-   'michel@artisoft.io')
+   '[]',
+   'Pipeline to load files to staging table',
+   'system')
 ON CONFLICT DO NOTHING;

@@ -41,8 +41,6 @@ func (server *Server) DoRegisterFileKeyAction(w http.ResponseWriter, r *http.Req
 		results, code, err = context.PutSchemaEventToS3(&registerFileKeyAction, token)
 	case "register_keys":
 		results, code, err = context.RegisterFileKeys(&registerFileKeyAction, token)
-	case "load_all_files":
-		results, code, err = context.LoadAllFiles(&registerFileKeyAction, token)
 	case "sync_file_keys":
 		results, code, err = context.SyncFileKeys(&registerFileKeyAction, token)
 	default:
