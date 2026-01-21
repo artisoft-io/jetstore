@@ -175,7 +175,7 @@ func (server *Server) checkDomainTablesVersion() error {
 
 	case !version.Valid || jetstoreVersion > version.String:
 		log.Println("JetStore deployed version (in database) is", version.String)
-		log.Println("New JetStore Release deployed, update domain and suystem table and run workspace db init script")
+		log.Println("New JetStore Release deployed, update domain and system tables and run workspace db init script")
 		serverArgs = []string{"-initBaseWorkspaceDb", "-migrateDb"}
 		if *usingSshTunnel {
 			serverArgs = append(serverArgs, "-usingSshTunnel")
@@ -186,8 +186,8 @@ func (server *Server) checkDomainTablesVersion() error {
 		}
 
 	default:
-		log.Println("JetStore deployed version (in database) is", version)
-		log.Println("JetStore version in database", version, ">=", "JetStore image version", jetstoreVersion)
+		log.Println("JetStore deployed version (in database) is", version.String)
+		log.Println("JetStore version in database", version.String, ">=", "JetStore image version", jetstoreVersion)
 		// DO NOT UPDATE version in database, hence return here
 		return nil
 	}
@@ -242,6 +242,7 @@ func (server *Server) checkWorkspaceVersion() error {
 	}
 
 	var version sql.NullString
+	compilationRequired := false
 	jetstoreVersion := os.Getenv("JETS_VERSION")
 	// Check the workspace release in database vs current release
 	stmt := "SELECT MAX(version) FROM jetsapi.workspace_version"
@@ -258,27 +259,32 @@ func (server *Server) checkWorkspaceVersion() error {
 		log.Println("Workspace version is not defined (null version) in workspace_version table, setting it to JetStore version")
 
 	case jetstoreVersion > version.String:
-		// Download overriten workspace files from database if any, skipping sqlite and tgz files since we will recompile workspace
-		if err = workspace.SyncWorkspaceFiles(server.dbpool, workspaceName, "", true, true); err != nil {
+		// Download overriten workspace files from database if any, skipping sqlite and tgz files since we will recompile workspace or take
+		// it from local repo.
+		if compilationRequired, err = workspace.SyncWorkspaceFiles(server.dbpool, workspaceName, "", true, true); err != nil {
 			log.Println("Error (ignored) while synching workspace file from database:", err)
 		}
-		log.Println("Workspace deployed version (in database) is", version.String)
+		log.Println("Workspace deployed version (in database) is", version.String, "compilation required?", compilationRequired)
 
 	default:
-		log.Println("Workspace version in database", version, ">=", "JetStore image version", jetstoreVersion, ", no need to recompile workspace")
+		log.Println("Workspace version in database", version.String, ">=", "JetStore image version", jetstoreVersion, ", no need to recompile workspace")
 		// Download overriten workspace files from database if any, not skipping sqlite/tgz files to get latest in case it was recompiled
-		if err = workspace.SyncWorkspaceFiles(server.dbpool, workspaceName, "", false, false); err != nil {
+		if _, err = workspace.SyncWorkspaceFiles(server.dbpool, workspaceName, "", false, false); err != nil {
 			log.Println("Error (ignored) while synching workspace file from database:", err)
 		}
 		// NOT Recompiling workspace, hence return here
 		return nil
 	}
-	log.Println("Recompiling workspace, set the workspace version to be same as jetstore version")
-	_, err = workspace.CompileWorkspace(server.dbpool, workspaceName, jetstoreVersion)
-	if err != nil {
-		err = fmt.Errorf("error while compiling workspace: %v", err)
-		log.Println(err)
-		return err
+	if compilationRequired {
+		log.Printf("Recompiling workspace, set the workspace version (%s) to be same as jetstore version %s", version.String, jetstoreVersion)
+		_, err = workspace.CompileWorkspace(server.dbpool, workspaceName, jetstoreVersion)
+		if err != nil {
+			err = fmt.Errorf("error while compiling workspace: %v", err)
+			log.Println(err)
+			return err
+		}
+	} else {
+		log.Println("Taking workspace from local repository, recompilation not required")
 	}
 	return nil
 }
@@ -362,7 +368,6 @@ func listenAndServe() error {
 		return fmt.Errorf("while calling checkJetStoreSchema: %v", err)
 	}
 
-	// Perform workspace compilation to make sure workspace compiles correctly
 	// Check workspace version, compile workspace if needed
 	err = server.checkWorkspaceVersion()
 	if err != nil {

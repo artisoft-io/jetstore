@@ -141,12 +141,12 @@ func main() {
 	_, devMode := os.LookupEnv("JETSTORE_DEV_MODE")
 	if !devMode {
 		// Get the compiled rules
-		err = workspace.SyncWorkspaceFiles(dbpool, os.Getenv("WORKSPACE"), "workspace.tgz", true, false)
+		_, err = workspace.SyncWorkspaceFiles(dbpool, os.Getenv("WORKSPACE"), "workspace.tgz", true, false)
 		if err != nil {
 			log.Panicf("Error while synching workspace file from db: %v", err)
 		}
 		// Get the compiled lookups
-		err = workspace.SyncWorkspaceFiles(dbpool, os.Getenv("WORKSPACE"), "sqlite", false, true)
+		_, err = workspace.SyncWorkspaceFiles(dbpool, os.Getenv("WORKSPACE"), "sqlite", false, true)
 		if err != nil {
 			log.Panicf("Error while synching workspace file from db: %v", err)
 		}

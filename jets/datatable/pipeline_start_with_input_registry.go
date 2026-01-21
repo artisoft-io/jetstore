@@ -13,7 +13,7 @@ import (
 )
 
 // Start process based on matching criteria:
-//   - find pipelines that are ready to start with the input input_registry key.
+//   - find pipelines that are ready to start with the input_registry key.
 //   - Pipeline must have automated flag on
 //
 // Note: the argument inputSessionId is the inputRegistryKey sessionId

@@ -93,3 +93,59 @@ FROM
 ) AS registry
 WHERE input_rdf_type = entity_rdf_type
 ;
+
+-- Pre-Defined clients used by the platform
+-- 'Any' is used to kick off the loader pipeline for any object type
+DELETE FROM jetsapi.client_registry WHERE client IN ('Any');
+INSERT INTO jetsapi.client_registry (
+   client,     details) VALUES
+  ('Any',      'Any client')
+ON CONFLICT DO NOTHING 
+;
+
+-- Define the ObjectType used by the platform
+-- 'Any' is used to kick off the loader pipeline for any object type
+DELETE FROM jetsapi.object_type_registry WHERE object_type IN ('Any');
+INSERT INTO jetsapi.object_type_registry (
+   object_type, entity_rdf_type,   domain_key_object_types, details) VALUES
+  ('Any',       'owl:Thing',       '{Any}',                 'Any object')
+ON CONFLICT DO NOTHING 
+;
+
+-- process_config define jetstore internal processes:
+-- JetsLoader: process to load files into jetstore staging table (replacement of loader)
+-- Note: process_name must be unique and key < 1000 are reserved for these internal processes.
+DELETE FROM jetsapi.process_config WHERE process_name IN ('Jets_Loader');
+INSERT INTO jetsapi.process_config 
+  (key, process_name,          main_rules,                                is_rule_set,   devmode_code,       state_machine_name,   input_rdf_types,             output_tables,                             user_email) VALUES
+  (0001, 'Jets_Loader',        'pipes_config/jets_loader.pc.json',                  0, 'run_cpipes_reports',     'serverSM',       '{}',                         '{}',                                     'admin')
+ON CONFLICT DO NOTHING
+;
+
+-- Table pipeline_config
+DELETE FROM jetsapi."pipeline_config" WHERE "client" = 'Any';
+INSERT INTO jetsapi."pipeline_config" (process_name,client,process_config_key,main_process_input_key,merged_process_input_keys,injected_process_input_keys,main_object_type,main_source_type,source_period_type,automated,max_rete_sessions_saved,rule_config_json,description,user_email) VALUES
+  ('Jets_Loader',
+   'Any',
+   0001,
+   320671,
+   '{}',
+   '{}',
+   'Authorization',
+   'file',
+   'month_period',
+   1,
+   0,
+   'ID	Property	Value	Type
+iRuleConfig001	nh_c:breakOnAuthorizationId	put uuid here	text 
+iRuleConfig001	nh_c:breakOnMemberId	put uuid here	text 
+iRuleConfig001	nh_c:singleOrSplitAuth	brighton	text
+iRuleConfig001	nh_c:vendorCode	BRI	text
+iRuleConfig001	jets:key	iRuleConfig001	text
+iRuleConfig001	rdf:type	nh_c:RuleConfig	resource
+jets:iState	jets:max_vertex_visits	1000000	int
+jets:iState	jets:key	jets:iState	text
+jets:iState	rdf:type	jets:State	resource',
+   'Configuration to use Brighton csv files',
+   'michel@artisoft.io')
+ON CONFLICT DO NOTHING;
