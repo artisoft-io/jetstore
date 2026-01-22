@@ -750,7 +750,7 @@ func (ctx *DataTableContext) startLoader(dataTableAction *DataTableAction, irow 
 	clientOrg := row["org"]
 	tableName := row["table_name"]
 	fileKey := row["file_key"]
-	inputRegistrySessionId := row["input_registry.session_id"]
+	inputRegistrySessionId := dataTableAction.Data[irow]["input_registry.session_id"]
 	userEmail := row["user_email"]
 	if objType == nil || client == nil || fileKey == nil || inputRegistrySessionId == nil || userEmail == nil {
 		log.Printf(

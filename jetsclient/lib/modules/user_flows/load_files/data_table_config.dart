@@ -131,7 +131,7 @@ final Map<String, TableConfig> _tableConfigurations = {
         columnIdx: 4,
       ),
       DataTableFormStateOtherColumnConfig(
-        stateKey: FSK.sessionId,
+        stateKey: FSK.inputRegistrySessionId,
         columnIdx: 10,
       ),
       DataTableFormStateOtherColumnConfig(

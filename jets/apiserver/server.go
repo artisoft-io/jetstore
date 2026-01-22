@@ -284,7 +284,13 @@ func (server *Server) checkWorkspaceVersion() error {
 			return err
 		}
 	} else {
-		log.Println(" 🙌 Taking workspace from local repository, recompilation not required  🙌")
+		log.Println(" 🙌 Taking workspace from local repository, recompilation not required, synching assets to db  🙌")
+		err = workspace.UploadWorkspaceAssets(server.dbpool, workspaceName, version.String)
+		if err != nil {
+			err = fmt.Errorf("Error while uploading workspace assets to database: %v", err)
+			log.Println(err)
+			return err
+		}
 	}
 	return nil
 }

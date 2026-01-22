@@ -10,7 +10,6 @@ import (
 	"strings"
 
 	"github.com/artisoft-io/jetstore/jets/compilerv2/compiler"
-	"github.com/artisoft-io/jetstore/jets/dbutils"
 	"github.com/artisoft-io/jetstore/jets/jetrules/rete"
 	"github.com/artisoft-io/jetstore/jets/run_reports/tarextract"
 	"github.com/jackc/pgx/v4/pgxpool"
@@ -68,7 +67,7 @@ func compileWorkspaceV2(dbpool *pgxpool.Pool, workspaceControl *rete.WorkspaceCo
 		// name is the file path relative to workspace home
 		fmt.Fprintf(&buf, "Compiling rule file: %s\n", name)
 		jrCompiler = compiler.NewCompiler(
-			workspacePath, name, /*saveJson*/ true, workspaceControl.UseTraceMode, 
+			workspacePath, name /*saveJson*/, true, workspaceControl.UseTraceMode,
 			workspaceControl.AutoAddResources)
 		err = jrCompiler.Compile()
 		if err != nil {
@@ -139,7 +138,7 @@ func compileWorkspaceV2(dbpool *pgxpool.Pool, workspaceControl *rete.WorkspaceCo
 		// Save rule config in .config.json
 		ruleConfig := &rete.JetruleModel{
 			MainRuleFileName: fullModel.MainRuleFileName,
-			JetstoreConfig: fullModel.JetstoreConfig,
+			JetstoreConfig:   fullModel.JetstoreConfig,
 		}
 		// Save in the build directory
 		fpath = fmt.Sprintf("%s/%s/build/%s.config.json", workspaceHome,
@@ -292,36 +291,12 @@ func compileWorkspaceV2(dbpool *pgxpool.Pool, workspaceControl *rete.WorkspaceCo
 	if devMode {
 		log.Println("IN DEV MODE = Skipping copy large object to DB")
 	} else {
-		// Copy the sqlite files & the tar file to db
 		buf.WriteString("\nCopy the sqlite file to db\n")
-		sourcesPath := []string{
-			fmt.Sprintf("%s/%s/lookup.db", workspaceHome, workspaceName),
-			fmt.Sprintf("%s/%s/workspace.db", workspaceHome, workspaceName),
-			fmt.Sprintf("%s/%s/workspace.tgz", workspaceHome, workspaceName),
-			fmt.Sprintf("%s/%s/reports.tgz", workspaceHome, workspaceName),
-		}
-		fileNames := []string{"lookup.db", "workspace.db", "workspace.tgz", "reports.tgz"}
-		fo := []dbutils.FileDbObject{
-			{WorkspaceName: workspaceName, ContentType: "sqlite", UserEmail: "system"},
-			{WorkspaceName: workspaceName, ContentType: "sqlite", UserEmail: "system"},
-			{WorkspaceName: workspaceName, ContentType: "workspace.tgz", UserEmail: "system"},
-			{WorkspaceName: workspaceName, ContentType: "reports.tgz", UserEmail: "system"}}
-		for i := range sourcesPath {
-			fo[i].FileName = fileNames[i]
-			data, err := os.ReadFile(sourcesPath[i])
-			if err != nil {
-				return "", err
-			}
-			_, err = fo[i].WriteObject(dbpool, data)
-			if err != nil {
-				buf.WriteString("Failed to upload file to db:")
-				buf.WriteString(err.Error())
-				buf.WriteString("\n")
-				return buf.String(), fmt.Errorf("failed to upload file to db: %v", err)
-			}
-		}
+		err = UploadWorkspaceAssets(dbpool, workspaceName, version)
 	}
-	err = UpdateWorkspaceVersionDb(dbpool, workspaceName, version)
+	if err == nil {
+		err = UpdateWorkspaceVersionDb(dbpool, workspaceName, version)
+	}
 	if err != nil {
 		buf.WriteString("Failed to update worspace version to db:")
 		buf.WriteString(err.Error())
