@@ -59,6 +59,7 @@ Future<String?> loadFilesFormActionsUF(
           FSK.objectType: state[FSK.objectType][0],
           FSK.tableName: state[FSK.tableName][0],
           FSK.fileKey: state[FSK.fileKey][i],
+          FSK.inputRegistrySessionId: state[FSK.inputRegistrySessionId][i],
           FSK.sourcePeriodKey: state[FSK.sourcePeriodKey][i],
           FSK.status: StatusKeys.submitted,
           FSK.userEmail: JetsRouterDelegate().user.email,

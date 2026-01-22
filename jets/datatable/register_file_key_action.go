@@ -277,6 +277,10 @@ func (ctx *DataTableContext) RegisterFileKeys(registerFileKeyAction *RegisterFil
 		// Note: Get the jetsapi.source_config.domain_keys (aka indexes for joining tables) to use as the object_type
 		// of the input_registry table
 		for _, domainKey := range domainKeys {
+			if domainKey == "jets:hashing_override" {
+				// skip this special domain key
+				continue
+			}
 			log.Println(sessionId, "Write to input_registry for cpipes input files object type (aka domain_key):", domainKey, "client:", client, "org:", org)
 			// log.Println("Write to input_registry for cpipes with schemaProviderJson:", schemaProviderJson)
 			stmt = `INSERT INTO jetsapi.input_registry 

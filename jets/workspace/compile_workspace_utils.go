@@ -173,7 +173,7 @@ func SyncRunReportsWorkspace(dbpool *pgxpool.Pool) (bool, error) {
 		}
 		didSync = true
 	} else {
-		log.Printf("No need to sync run reports workspace, version %s is same as last synced version", workspaceVersion)
+		log.Printf("🙌 No need to sync run reports workspace, version %s is same as last synced version 🙌", workspaceVersion)
 	}
 	return didSync, nil
 }
@@ -222,7 +222,7 @@ func SyncComputePipesWorkspace(dbpool *pgxpool.Pool) (bool, error) {
 		}
 		didSync = true
 	} else {
-		log.Printf("No need to sync compute pipes workspace, version %s is same as last synced version", workspaceVersion)
+		log.Printf("🙌 No need to sync compute pipes workspace, version %s is same as last synced version 🙌", workspaceVersion)
 	}
 	return didSync, nil
 }

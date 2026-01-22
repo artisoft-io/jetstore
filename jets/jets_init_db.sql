@@ -117,8 +117,8 @@ ON CONFLICT DO NOTHING
 -- Note: process_name must be unique and key < 1000 are reserved for these internal processes.
 DELETE FROM jetsapi.process_config WHERE process_name IN ('Jets_Loader');
 INSERT INTO jetsapi.process_config 
-  (key, process_name,          main_rules,                                is_rule_set,   devmode_code,       state_machine_name,   input_rdf_types,             output_tables,                             user_email) VALUES
-  (DEFAULT, 'Jets_Loader',     'pipes_config/jets_loader.pc.json',                  0, 'run_cpipes_reports',     'serverSM',       '{}',                         '{}',                                     'admin')
+  (key, process_name,          main_rules,                                is_rule_set,   devmode_code,        state_machine_name,    input_rdf_types,             output_tables,                             user_email) VALUES
+  (DEFAULT, 'Jets_Loader',     'pipes_config/jets_loader.pc.json',                  0, 'run_cpipes_reports',    'cpipesNativeSM',       '{}',                         '{}',                                     'admin')
 ON CONFLICT DO NOTHING
 ;
 

@@ -284,7 +284,7 @@ func (server *Server) checkWorkspaceVersion() error {
 			return err
 		}
 	} else {
-		log.Println("Taking workspace from local repository, recompilation not required")
+		log.Println(" 🙌 Taking workspace from local repository, recompilation not required  🙌")
 	}
 	return nil
 }

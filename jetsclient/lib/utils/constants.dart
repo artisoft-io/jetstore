@@ -306,6 +306,7 @@ class FSK {
   static const userPassword = "password";
   static const userPasswordConfirm = "passwordConfirm";
   static const sessionId = "session_id";
+  static const inputRegistrySessionId = "input_registry.session_id";
   static const devMode = "dev_mode";
   static const isAdmin = "is_admin";
   static const isActive = "is_active";
@@ -781,10 +782,6 @@ class DTKeys {
   // Client & Organization Admin DT
   // static const clientTable = "clientTable";
   // static const orgNameTable = "orgNameTable";
-
-  // File Staging Area / Source Config DT
-  static const fileKeyStagingTable = "fileKeyStagingTable";
-  static const fileKeyStagingMultiLoadTable = "fileKeyStagingMultiLoadTable";
 
   // Domain Table Viewer DT
   static const inputTable = "inputTable";

@@ -750,12 +750,12 @@ func (ctx *DataTableContext) startLoader(dataTableAction *DataTableAction, irow 
 	clientOrg := row["org"]
 	tableName := row["table_name"]
 	fileKey := row["file_key"]
-	sessionId := row["session_id"]
+	inputRegistrySessionId := row["input_registry.session_id"]
 	userEmail := row["user_email"]
-	if objType == nil || client == nil || fileKey == nil || sessionId == nil || userEmail == nil {
+	if objType == nil || client == nil || fileKey == nil || inputRegistrySessionId == nil || userEmail == nil {
 		log.Printf(
-			"error while preparing to run loader: unexpected nil among: objType: %v, client: %v, fileKey: %v, sessionId: %v, userEmail %v",
-			objType, client, fileKey, sessionId, userEmail)
+			"error while preparing to run loader: unexpected nil among: objType: %v, client: %v, fileKey: %v, inputRegistrySessionId: %v, userEmail %v",
+			objType, client, fileKey, inputRegistrySessionId, userEmail)
 		httpStatus = http.StatusInternalServerError
 		err = errors.New("error while running loader command")
 		return
@@ -774,9 +774,9 @@ func (ctx *DataTableContext) startLoader(dataTableAction *DataTableAction, irow 
 			AND ir.client = sc.client
 			AND ir.object_type = sc.object_type
 			AND ir.org = sc.org`
-	err = ctx.Dbpool.QueryRow(context.Background(), stmt, fileKey, sessionId).Scan(&inputRegistryKey, &year, &month, &day, &inputFormat)
+	err = ctx.Dbpool.QueryRow(context.Background(), stmt, fileKey, inputRegistrySessionId).Scan(&inputRegistryKey, &year, &month, &day, &inputFormat)
 	if err != nil {
-		log.Printf("While getting input_registry key for file_key '%s' and session_id '%s': %v", fileKey, sessionId, err)
+		log.Printf("While getting input_registry key for file_key '%s' and session_id '%s': %v", fileKey, inputRegistrySessionId, err)
 		httpStatus = http.StatusInternalServerError
 		err = errors.New("error while reading from input_registry table")
 		return
@@ -784,7 +784,7 @@ func (ctx *DataTableContext) startLoader(dataTableAction *DataTableAction, irow 
 
 	// Start the Jet_Loader pipeline
 	if !inputRegistryKey.Valid {
-		log.Printf("error: got nil key from input_registry key for file_key '%s' and session_id '%s'", fileKey, sessionId)
+		log.Printf("error: got nil key from input_registry key for file_key '%s' and session_id '%s'", fileKey, inputRegistrySessionId)
 		httpStatus = http.StatusInternalServerError
 		err = errors.New("error while reading from input_registry table")
 		return
