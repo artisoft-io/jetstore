@@ -15,6 +15,7 @@ import (
 
 	"github.com/artisoft-io/jetstore/jets/awsi"
 	"github.com/artisoft-io/jetstore/jets/csv"
+	"github.com/artisoft-io/jetstore/jets/utils"
 	"github.com/golang/snappy"
 	"github.com/jackc/pgx/v4/pgxpool"
 )
@@ -72,9 +73,9 @@ func (cpCtx *ComputePipesContext) StartMergeFiles(dbpool *pgxpool.Pool) (cpErr e
 	switch outputFileConfig.OutputLocation() {
 	case "jetstore_s3_input", "jetstore_s3_output":
 		if len(outputFileConfig.Name()) > 0 {
-			fileName = doSubstitution(outputFileConfig.Name(), "", "", cpCtx.EnvSettings)
+			fileName = utils.ReplaceEnvVars(outputFileConfig.Name(), cpCtx.EnvSettings)
 		} else {
-			fileName = doSubstitution("$NAME_FILE_KEY", "", "", cpCtx.EnvSettings)
+			fileName = utils.ReplaceEnvVars("$NAME_FILE_KEY", cpCtx.EnvSettings)
 		}
 		if len(fileName) == 0 {
 			cpErr = fmt.Errorf("error: OutputFile config is missing file_name in StartMergeFile")
@@ -90,7 +91,7 @@ func (cpCtx *ComputePipesContext) StartMergeFiles(dbpool *pgxpool.Pool) (cpErr e
 		outputS3FileKey = fmt.Sprintf("%s/%s", fileFolder, fileName)
 
 	default:
-		outputS3FileKey = doSubstitution(outputFileConfig.OutputLocation(), "", "", cpCtx.EnvSettings)
+		outputS3FileKey = utils.ReplaceEnvVars(outputFileConfig.OutputLocation(), cpCtx.EnvSettings)
 	}
 
 	// Create a reader if stream the data to s3
@@ -109,7 +110,7 @@ func (cpCtx *ComputePipesContext) StartMergeFiles(dbpool *pgxpool.Pool) (cpErr e
 		externalBucket = inputSp.Bucket()
 	}
 	if len(externalBucket) > 0 {
-		externalBucket = doSubstitution(externalBucket, "", "", cpCtx.EnvSettings)
+		externalBucket = utils.ReplaceEnvVars(externalBucket, cpCtx.EnvSettings)
 	}
 
 	// Determine if we put a header row

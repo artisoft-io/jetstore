@@ -11,6 +11,7 @@ import (
 
 	"github.com/artisoft-io/jetstore/jets/datatable"
 	"github.com/artisoft-io/jetstore/jets/schema"
+	"github.com/artisoft-io/jetstore/jets/utils"
 	"github.com/jackc/pgx/v4/pgxpool"
 )
 
@@ -41,6 +42,7 @@ func (args *StartComputePipesArgs) StartShardingComputePipes(ctx context.Context
 		if cpipesStartup != nil {
 			mainInputSchemaProvider = cpipesStartup.MainInputSchemaProviderConfig
 		}
+		// Need to return mainInputSchemaProvider here to send failure notification
 		return result, mainInputSchemaProvider, err
 	}
 	mainInputSchemaProvider = cpipesStartup.MainInputSchemaProviderConfig
@@ -75,17 +77,7 @@ func (args *StartComputePipesArgs) StartShardingComputePipes(ctx context.Context
 	// Update output table schema
 	for i := range cpipesStartup.CpConfig.OutputTables {
 		tableName := cpipesStartup.CpConfig.OutputTables[i].Name
-		lc := 0
-		for strings.Contains(tableName, "$") && lc < 5 && len(cpipesStartup.CpConfig.Context) != 0 {
-			lc += 1
-			for i := range cpipesStartup.CpConfig.Context {
-				if cpipesStartup.CpConfig.Context[i].Type == "value" {
-					key := cpipesStartup.CpConfig.Context[i].Key
-					value := cpipesStartup.CpConfig.Context[i].Expr
-					tableName = strings.ReplaceAll(tableName, key, value)
-				}
-			}
-		}
+		tableName = utils.ReplaceEnvVars(tableName, cpipesStartup.EnvSettings)
 		tableIdentifier, err := SplitTableName(tableName)
 		if err != nil {
 			return result, mainInputSchemaProvider, fmt.Errorf("while splitting table name: %s", err)

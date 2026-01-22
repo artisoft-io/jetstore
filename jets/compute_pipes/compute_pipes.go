@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/artisoft-io/jetstore/jets/schema"
+	"github.com/artisoft-io/jetstore/jets/utils"
 	"github.com/jackc/pgx/v4/pgxpool"
 )
 
@@ -268,16 +269,7 @@ func (cpCtx *ComputePipesContext) StartComputePipes(dbpool *pgxpool.Pool,
 	// Prepare the output tables
 	for i := range cpCtx.CpConfig.OutputTables {
 		tableName := cpCtx.CpConfig.OutputTables[i].Name
-		lc := 0
-		for strings.Contains(tableName, "$") && lc < 5 && cpCtx.EnvSettings != nil {
-			lc += 1
-			for k, v := range cpCtx.EnvSettings {
-				value, ok := v.(string)
-				if ok {
-					tableName = strings.ReplaceAll(tableName, k, value)
-				}
-			}
-		}
+		tableName = utils.ReplaceEnvVars(tableName, cpCtx.EnvSettings)
 		tableIdentifier, err := SplitTableName(tableName)
 		if err != nil {
 			cpErr = fmt.Errorf("while splitting table name: %s", err)

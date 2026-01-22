@@ -10,13 +10,13 @@ import (
 
 type SchemaManager struct {
 	spec            []*SchemaProviderSpec
-	envSettings     map[string]interface{}
+	envSettings     map[string]any
 	isDebugMode     bool
 	schemaProviders map[string]SchemaProvider
 }
 
 func NewSchemaManager(spec []*SchemaProviderSpec,
-	envSettings map[string]interface{}, isDebugMode bool) *SchemaManager {
+	envSettings map[string]any, isDebugMode bool) *SchemaManager {
 	return &SchemaManager{
 		spec:            spec,
 		envSettings:     envSettings,
@@ -27,7 +27,7 @@ func NewSchemaManager(spec []*SchemaProviderSpec,
 
 type SchemaProvider interface {
 	Initialize(dbpool *pgxpool.Pool, spec *SchemaProviderSpec,
-		envSettings map[string]interface{}, isDebugMode bool) error
+		envSettings map[string]any, isDebugMode bool) error
 	Key() string
 	Env() map[string]any
 	AdjustColumnWidth(width map[string]int) error
@@ -105,7 +105,8 @@ func (sm *SchemaManager) GetSchemaProvider(key string) SchemaProvider {
 }
 
 func (sp *DefaultSchemaProvider) Initialize(_ *pgxpool.Pool, spec *SchemaProviderSpec,
-	envSettings map[string]interface{}, isDebugMode bool) error {
+	_ map[string]any, isDebugMode bool) error {
+
 	sp.spec = spec
 	sp.isDebugMode = isDebugMode
 	// Ensure a default compression algo

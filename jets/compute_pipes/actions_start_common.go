@@ -9,7 +9,9 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
 
+	"github.com/artisoft-io/jetstore/jets/datatable"
 	"github.com/artisoft-io/jetstore/jets/workspace"
 	"github.com/jackc/pgx/v4/pgxpool"
 )
@@ -342,7 +344,6 @@ func (args *StartComputePipesArgs) shardingInitializeCpipes(ctx context.Context,
 			return cpipesStartup, fmt.Errorf("while unmarshaling schema_provider_json: %s", err)
 		}
 	}
-	cpipesStartup.EnvSettings = PrepareCpipesEnv(&cpipesStartup.CpConfig, mainInputSchemaProvider)
 
 	// Parse the Domain Key Info from source_config and main input schema provider
 	switch sourceType {
@@ -394,6 +395,12 @@ func (args *StartComputePipesArgs) shardingInitializeCpipes(ctx context.Context,
 		mainInputSchemaProvider.FixedWidthColumnsCsv = icPosCsv.String
 	}
 
+	// Setup the cpipes env variable
+	cpipesStartup.EnvSettings, err = prepareCpipesEnv(args, cpipesStartup)
+	if err != nil {
+		return cpipesStartup, fmt.Errorf("while preparing cpipes env: %s", err)
+	}
+
 	// InputColumns - the main input file domain columns, order of priority:
 	//	- Take the columns from source_config table if specified. (this has higher priority in case it's a subset of
 	//    of the columns from schema provider)
@@ -439,10 +446,7 @@ func GetMaxConcurrency(nbrNodes, defaultMaxConcurrency int) int {
 		}
 	}
 
-	maxConcurrency := defaultMaxConcurrency
-	if maxConcurrency < 1 {
-		maxConcurrency = 1
-	}
+	maxConcurrency := max(defaultMaxConcurrency, 1)
 	return maxConcurrency
 }
 
@@ -1243,30 +1247,84 @@ func GetChannelSpec(channels []ChannelSpec, name string) *ChannelSpec {
 	return nil
 }
 
-// Function to collect env settings from cpipes config and main schema provider.
+// Function to collect env settings from:
+//   - cpipes config context and main schema provider env;
+//   - file_key components, session_id, etc from args;
+//
 // Important for site specific configuration, in particular used in API gateway notification
-func PrepareCpipesEnv(cpConfig *ComputePipesConfig, mainSchemaProviderConfig *SchemaProviderSpec) map[string]any {
+func prepareCpipesEnv(args *StartComputePipesArgs, cpipesStartup *CpipesStartup) (map[string]any, error) {
+
+	var fileKeyPath, fileKeyName string // Components extracted from File_Key based on is_part_file
+	var fileKeyDate time.Time
+	var envSettings map[string]any
+	mainSchemaProviderConfig := cpipesStartup.MainInputSchemaProviderConfig
+	cpConfig := cpipesStartup.CpConfig
+
 	//* IMPORTANT: Make sure a key is not the prefix of another key
 	//  e.g. $FILE_KEY and $FILE_KEY_PATH is BAD since $FILE_KEY_PATH may get
 	//  the value of $FILE_KEY with a dandling _PATH
 	// The main schema provider env is used as the overall env context.
 	if mainSchemaProviderConfig.Env == nil {
-		mainSchemaProviderConfig.Env = make(map[string]any)
+		envSettings = make(map[string]any)
+		mainSchemaProviderConfig.Env = envSettings
+	} else {
+		envSettings = mainSchemaProviderConfig.Env
 	}
-	mainSchemaProviderConfig.Env["$INPUT_BUCKET"] = mainSchemaProviderConfig.Bucket
-	mainSchemaProviderConfig.Env["$MAIN_SCHEMA_NAME"] = mainSchemaProviderConfig.SchemaName
 
-	for i := range cpConfig.Context {
-		if cpConfig.Context[i].Type == "value" {
-			mainSchemaProviderConfig.Env[cpConfig.Context[i].Key] = cpConfig.Context[i].Expr
+	// Extract processing date from file key inFile
+	fileKeyComponents := make(map[string]any)
+	datatable.SplitFileKeyIntoComponents(fileKeyComponents, &cpConfig.CommonRuntimeArgs.FileKey)
+	if len(fileKeyComponents) > 0 {
+		year := fileKeyComponents["year"].(int)
+		month := fileKeyComponents["month"].(int)
+		day := fileKeyComponents["day"].(int)
+		fileKeyDate = time.Date(year, time.Month(month), day, 14, 0, 0, 0, time.UTC)
+		// log.Println("fileKeyDate:", fileKeyDate)
+	}
+
+	if mainSchemaProviderConfig.IsPartFiles {
+		fileKeyPath = cpConfig.CommonRuntimeArgs.FileKey
+	} else {
+		fileKey := cpConfig.CommonRuntimeArgs.FileKey
+		idx := strings.LastIndex(fileKey, "/")
+		if idx >= 0 && idx < len(fileKey)-1 {
+			fileKeyName = fileKey[idx+1:]
+			fileKeyPath = fileKey[0:idx]
+		} else {
+			fileKeyPath = fileKey
+		}
+	}
+
+	envSettings["$FILE_KEY"] = mainSchemaProviderConfig.FileKey
+	envSettings["$SESSIONID"] = args.SessionId
+	envSettings["$PROCESS_NAME"] = cpipesStartup.ProcessName
+	envSettings["$PATH_FILE_KEY"] = fileKeyPath
+	envSettings["$NAME_FILE_KEY"] = fileKeyName
+	envSettings["$DATE_FILE_KEY"] = fileKeyDate
+	envSettings["$FULL_INPUT_FILE_KEY"] = fmt.Sprintf("%s/%s",
+		mainSchemaProviderConfig.Bucket, mainSchemaProviderConfig.FileKey)
+
+	envSettings["$INPUT_BUCKET"] = mainSchemaProviderConfig.Bucket
+	envSettings["$MAIN_SCHEMA_NAME"] = mainSchemaProviderConfig.SchemaName
+
+	// Add to envSettings based on compute pipe config
+	for _, contextSpec := range cpConfig.Context {
+		switch contextSpec.Type {
+		case "file_key_component":
+			envSettings[contextSpec.Key] = fileKeyComponents[contextSpec.Expr]
+		case "value":
+			envSettings[contextSpec.Key] = contextSpec.Expr
+		case "partfile_key_component":
+		default:
+			return nil, fmt.Errorf("error: unknown ContextSpec Type: %v", contextSpec.Type)
 		}
 	}
 
 	if cpConfig.ClusterConfig.IsDebugMode {
-		b, err := json.Marshal(mainSchemaProviderConfig.Env)
+		b, err := json.Marshal(envSettings)
 		log.Printf("PrepareCpipesEnv: Cpipes Env: %s, err? %v\n", string(b), err)
 	}
-	return mainSchemaProviderConfig.Env
+	return envSettings, nil
 }
 
 func (cpipesStartup *CpipesStartup) EvalUseEcsTask(stepId int) (bool, error) {

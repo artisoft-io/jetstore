@@ -8,6 +8,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/artisoft-io/jetstore/jets/utils"
 	"github.com/dolthub/swiss"
 )
 
@@ -106,17 +107,8 @@ func (ctx *BuilderContext) StartSplitterPipe(spec *PipeSpec, source *InputChanne
 	} else {
 		spliterColumnIdx = -1
 	}
-	if len(config.DefaultSplitterValue) > 0 {
-		lc := 0
-		for strings.Contains(config.DefaultSplitterValue, "$") && lc < 5 && ctx.env != nil {
-			lc += 1
-			for key, v := range ctx.env {
-				value, ok := v.(string)
-				if ok {
-					config.DefaultSplitterValue = strings.ReplaceAll(config.DefaultSplitterValue, key, value)
-				}
-			}
-		}
+	if len(config.DefaultSplitterValue) > 0 {		
+		config.DefaultSplitterValue = utils.ReplaceEnvVars(config.DefaultSplitterValue, ctx.env)
 		mapSize = 1
 		splitOnDefault = true
 	}

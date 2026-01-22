@@ -10,6 +10,7 @@ import (
 	"runtime/debug"
 	"strings"
 
+	"github.com/artisoft-io/jetstore/jets/utils"
 	"github.com/jackc/pgx/v4/pgxpool"
 )
 
@@ -313,16 +314,7 @@ func (ctx *BuilderContext) NewPartitionWriterTransformationPipe(source *InputCha
 	config := spec.PartitionWriterConfig
 	// log.Println("NewPartitionWriterTransformationPipe called for partition key:",jetsPartitionKey)
 	if jetsPartitionKey == nil && config.JetsPartitionKey != nil {
-		lc := 0
-		for strings.Contains(*config.JetsPartitionKey, "$") && lc < 5 && ctx.env != nil {
-			lc += 1
-			for k, v := range ctx.env {
-				value, ok := v.(string)
-				if ok {
-					*config.JetsPartitionKey = strings.ReplaceAll(*config.JetsPartitionKey, k, value)
-				}
-			}
-		}
+		*config.JetsPartitionKey = utils.ReplaceEnvVars(*config.JetsPartitionKey, ctx.env)
 		jetsPartitionKey = *config.JetsPartitionKey
 	}
 	// Prepare the column evaluators
@@ -431,7 +423,7 @@ func (ctx *BuilderContext) NewPartitionWriterTransformationPipe(source *InputCha
 		if len(spec.OutputChannel.OutputLocation()) > 0 &&
 			spec.OutputChannel.OutputLocation() != "jetstore_s3_input" &&
 			spec.OutputChannel.OutputLocation() != "jetstore_s3_output" {
-			outputLocation := doSubstitution(spec.OutputChannel.OutputLocation(), "", "", ctx.env)
+			outputLocation := utils.ReplaceEnvVars(spec.OutputChannel.OutputLocation(), ctx.env)
 			if !strings.HasSuffix(outputLocation, "/") {
 				pos := strings.LastIndex(outputLocation, "/")
 				if pos < 0 {
@@ -454,7 +446,7 @@ func (ctx *BuilderContext) NewPartitionWriterTransformationPipe(source *InputCha
 			externalBucket = sp.Bucket()
 		}
 		if len(externalBucket) > 0 {
-			externalBucket = doSubstitution(externalBucket, "", "", ctx.env)
+			externalBucket = utils.ReplaceEnvVars(externalBucket, ctx.env)
 		}
 		if len(spec.OutputChannel.KeyPrefix) > 0 {
 			baseOutputPath = doSubstitution(spec.OutputChannel.KeyPrefix, jetsPartitionLabel,
@@ -514,20 +506,15 @@ func (ctx *BuilderContext) NewPartitionWriterTransformationPipe(source *InputCha
 
 func doSubstitution(value, jetsPartitionLabel string, s3OutputLocation string,
 	env map[string]any) string {
-	lc := 0
-	for strings.Contains(value, "$") && lc < 5 && env != nil {
-		lc += 1
-		for key, v := range env {
-			vv, ok := v.(string)
-			if ok {
-				value = strings.ReplaceAll(value, key, vv)
-			}
-			if !strings.Contains(value, "$") {
-				break
-			}
+
+	for range 5 {
+		if !strings.Contains(value, "$") {
+			break
 		}
+		value = utils.ReplaceEnvVars(value, env)
 		value = strings.ReplaceAll(value, "$CURRENT_PARTITION_LABEL", jetsPartitionLabel)
 	}
+
 	if s3OutputLocation == "jetstore_s3_output" {
 		value = strings.ReplaceAll(value, jetsS3InputPrefix, jetsS3OutputPrefix)
 	}

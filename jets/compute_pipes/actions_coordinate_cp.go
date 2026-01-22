@@ -6,12 +6,7 @@ import (
 	"log"
 	"os"
 	"regexp"
-	"strings"
-	"time"
 
-	"maps"
-
-	"github.com/artisoft-io/jetstore/jets/datatable"
 	"github.com/artisoft-io/jetstore/jets/workspace"
 	"github.com/jackc/pgx/v4/pgxpool"
 )
@@ -24,8 +19,6 @@ func (args *ComputePipesNodeArgs) CoordinateComputePipes(ctx context.Context, db
 	var inFolderPath string
 	var cpContext *ComputePipesContext
 	var fileKeyComponents map[string]any
-	var fileKeyPath, fileKeyName string // Components extracted from File_Key based on is_part_file
-	var fileKeyDate time.Time
 	var fileKeys []*FileKeyInfo
 	var cpipesConfigJson string
 	var cpConfig *ComputePipesConfig
@@ -99,24 +92,6 @@ func (args *ComputePipesNodeArgs) CoordinateComputePipes(ctx context.Context, db
 		goto gotError
 	}
 
-	// Extract processing date from file key inFile
-	fileKeyComponents = make(map[string]any)
-	fileKeyComponents = datatable.SplitFileKeyIntoComponents(fileKeyComponents, &cpConfig.CommonRuntimeArgs.FileKey)
-	if len(fileKeyComponents) > 0 {
-		year := fileKeyComponents["year"].(int)
-		month := fileKeyComponents["month"].(int)
-		day := fileKeyComponents["day"].(int)
-		fileKeyDate = time.Date(year, time.Month(month), day, 14, 0, 0, 0, time.UTC)
-		// log.Println("fileKeyDate:", fileKeyDate)
-	}
-
-	// Create the SchemaManager and prepare the providers
-	schemaManager = NewSchemaManager(cpConfig.SchemaProviders, envSettings, cpConfig.ClusterConfig.IsDebugMode)
-	err = schemaManager.PrepareSchemaProviders(dbpool)
-	if err != nil {
-		cpErr = fmt.Errorf("while calling schemaManager.PrepareSchemaProviders: %v", err)
-		goto gotError
-	}
 	// Get the main_input schema provider. Don't use the key "_main_input_" as it is not guarantee to have
 	// that specific key
 	for i := range cpConfig.SchemaProviders {
@@ -130,40 +105,24 @@ func (args *ComputePipesNodeArgs) CoordinateComputePipes(ctx context.Context, db
 		cpErr = fmt.Errorf("error: bug in CoordinateComputePipes, could not find the main_input schema provider")
 		goto gotError
 	}
+	envSettings = mainSchemaProviderConfig.Env
+
+	// Create the SchemaManager and prepare the providers
+	schemaManager = NewSchemaManager(cpConfig.SchemaProviders, envSettings, cpConfig.ClusterConfig.IsDebugMode)
+	err = schemaManager.PrepareSchemaProviders(dbpool)
+	if err != nil {
+		cpErr = fmt.Errorf("while calling schemaManager.PrepareSchemaProviders: %v", err)
+		goto gotError
+	}
 	if cpConfig.CommonRuntimeArgs.CpipesMode == "sharding" {
 		externalBucket = mainSchemaProviderConfig.Bucket
 	}
 
-	if mainSchemaProviderConfig.IsPartFiles {
-		fileKeyPath = cpConfig.CommonRuntimeArgs.FileKey
-	} else {
-		fileKey := cpConfig.CommonRuntimeArgs.FileKey
-		idx := strings.LastIndex(fileKey, "/")
-		if idx >= 0 && idx < len(fileKey)-1 {
-			fileKeyName = fileKey[idx+1:]
-			fileKeyPath = fileKey[0:idx]
-		} else {
-			fileKeyPath = fileKey
-		}
-	}
 	//* IMPORTANT: Make sure a key is not the prefix of another key
 	//  e.g. $FILE_KEY and $FILE_KEY_PATH is BAD since $FILE_KEY_PATH may get
 	//  the value of $FILE_KEY with a dandling _PATH
-	envSettings = PrepareCpipesEnv(cpConfig, mainSchemaProviderConfig)
-	envSettings["$FILE_KEY"] = cpConfig.CommonRuntimeArgs.FileKey
-	envSettings["$SESSIONID"] = cpConfig.CommonRuntimeArgs.SessionId
-	envSettings["$PROCESS_NAME"] = cpConfig.CommonRuntimeArgs.ProcessName
-	envSettings["$PATH_FILE_KEY"] = fileKeyPath
-	envSettings["$NAME_FILE_KEY"] = fileKeyName
-	envSettings["$DATE_FILE_KEY"] = fileKeyDate
 	envSettings["$SHARD_ID"] = args.NodeId
 	envSettings["$JETS_PARTITION_LABEL"] = args.JetsPartitionLabel
-	envSettings["$FULL_INPUT_FILE_KEY"] = fmt.Sprintf("%s/%s",
-		mainSchemaProviderConfig.Bucket, mainSchemaProviderConfig.FileKey)
-
-	if mainSchemaProviderConfig.Env != nil {
-		maps.Copy(envSettings, mainSchemaProviderConfig.Env)
-	}
 
 	cpContext = &ComputePipesContext{
 		ComputePipesArgs: ComputePipesArgs{
@@ -181,20 +140,6 @@ func (args *ComputePipesNodeArgs) CoordinateComputePipes(ctx context.Context, db
 		ErrCh:              make(chan error, 1000),
 		FileNamesCh:        make(chan FileName, 2),
 		DownloadS3ResultCh: make(chan DownloadS3Result, 1),
-	}
-
-	// Add to envSettings based on compute pipe config
-	for _, contextSpec := range cpConfig.Context {
-		switch contextSpec.Type {
-		case "file_key_component":
-			cpContext.EnvSettings[contextSpec.Key] = cpContext.FileKeyComponents[contextSpec.Expr]
-		case "value":
-			cpContext.EnvSettings[contextSpec.Key] = contextSpec.Expr
-		case "partfile_key_component":
-		default:
-			cpErr = fmt.Errorf("error: unknown ContextSpec Type: %v", contextSpec.Type)
-			goto gotError
-		}
 	}
 
 	if cpConfig.CommonRuntimeArgs.CpipesMode == "sharding" {
