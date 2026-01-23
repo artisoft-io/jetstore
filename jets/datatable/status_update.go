@@ -409,10 +409,11 @@ func (ca *StatusUpdate) CoordinateWork() error {
 		// Update input_loader_status if process name is "Jets_Loader"
 		ilkey := ca.CpipesEnv["$INPUT_LOADER_STATUS_KEY"]
 		if ilkey != nil {
+			log.Printf("%s Updating input_loader_status status to '%s' for key %v\n", sessionId, ca.Status, ilkey)
 			stmt := `UPDATE jetsapi.input_loader_status SET status=$1, 
-				load_count=(SELECT total_input_records_count FROM jetsapi.cpipes_execution_status_details WHERE key=$2),
+				load_count=(SELECT total_input_records_count FROM jetsapi.cpipes_execution_status_details WHERE session_id=$2),
 				last_update=DEFAULT WHERE key=$3`
-			_, err = ca.Dbpool.Exec(context.Background(), stmt, ca.Status, ca.PeKey, ilkey)
+			_, err = ca.Dbpool.Exec(context.Background(), stmt, ca.Status, sessionId, ilkey)
 			if err != nil {
 				err = fmt.Errorf("while updating input_loader_status status: %v", err)
 				log.Printf("%s while updating input_loader_status status:%s\n", sessionId, err)
