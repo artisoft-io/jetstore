@@ -56,14 +56,6 @@ func (ctx *MapRecordTransformationPipe) Apply(input *[]any) error {
 			return err
 		}
 	}
-	// Notify the column evaluator that we're done
-	// fmt.Println("**!@@ calling done on column evaluator from MapRecordTransformationPipe for output", ctx.outputCh.name)
-	for i := range ctx.columnEvaluators {
-		err := ctx.columnEvaluators[i].Done(currentValues)
-		if err != nil {
-			return fmt.Errorf("while calling done on column evaluator from AggregateTransformationPipe: %v", err)
-		}
-	}
 	if !ctx.spec.NewRecord {
 		// resize the slice in case we're dropping column on the output
 		if len(*currentValues) > len(ctx.outputCh.Config.Columns) {

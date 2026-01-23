@@ -803,7 +803,7 @@ func (args *CpipesStartup) ValidatePipeSpecConfig(cpConfig *ComputePipesConfig, 
 				}
 				keyOutputChannel := transformationConfig.AnonymizeConfig.KeysOutputChannel
 				if keyOutputChannel != nil {
-					err := validateOutputChConfig(keyOutputChannel, getSchemaProvider(cpConfig.SchemaProviders, keyOutputChannel.SchemaProvider))
+					err := args.validateOutputChConfig(keyOutputChannel, getSchemaProvider(cpConfig.SchemaProviders, keyOutputChannel.SchemaProvider))
 					if err != nil {
 						return err
 					}
@@ -819,7 +819,7 @@ func (args *CpipesStartup) ValidatePipeSpecConfig(cpConfig *ComputePipesConfig, 
 				outputChConfig = nil // The outputChannel is replaced by JetrulesConfig.JetrulesOutput channels
 				for k := range transformationConfig.JetrulesConfig.OutputChannels {
 					outCh := &transformationConfig.JetrulesConfig.OutputChannels[k]
-					err := validateOutputChConfig(outCh, getSchemaProvider(cpConfig.SchemaProviders, outCh.SchemaProvider))
+					err := args.validateOutputChConfig(outCh, getSchemaProvider(cpConfig.SchemaProviders, outCh.SchemaProvider))
 					if err != nil {
 						return err
 					}
@@ -831,12 +831,12 @@ func (args *CpipesStartup) ValidatePipeSpecConfig(cpConfig *ComputePipesConfig, 
 						"configuration error: missing clustering_config or correlation_output_channel for clustering operator")
 				}
 				outCh := transformationConfig.ClusteringConfig.CorrelationOutputChannel
-				err := validateOutputChConfig(outCh, getSchemaProvider(cpConfig.SchemaProviders, outCh.SchemaProvider))
+				err := args.validateOutputChConfig(outCh, getSchemaProvider(cpConfig.SchemaProviders, outCh.SchemaProvider))
 				if err != nil {
 					return err
 				}
 			}
-			err := validateOutputChConfig(outputChConfig, sp)
+			err := args.validateOutputChConfig(outputChConfig, sp)
 			if err != nil {
 				return err
 			}
@@ -1131,7 +1131,7 @@ func syncOutputChannelWithSchemaProvider(ic *OutputChannelConfig, sp *SchemaProv
 	}
 }
 
-func validateOutputChConfig(outputChConfig *OutputChannelConfig, sp *SchemaProviderSpec) error {
+func (cpss *CpipesStartup) validateOutputChConfig(outputChConfig *OutputChannelConfig, sp *SchemaProviderSpec) error {
 	if outputChConfig == nil {
 		return nil
 	}
@@ -1144,7 +1144,17 @@ func validateOutputChConfig(outputChConfig *OutputChannelConfig, sp *SchemaProvi
 			return fmt.Errorf("configuration error: must provide output_table_key when output_channel type is 'sql'")
 		}
 		outputChConfig.Name = outputChConfig.OutputTableKey
-		outputChConfig.SpecName = outputChConfig.OutputTableKey
+		// Get the spec name from the output table key
+		for _, tbl := range cpss.CpConfig.OutputTables {
+			if tbl.Key == outputChConfig.OutputTableKey {
+				outputChConfig.SpecName = tbl.ChannelSpecName
+				break
+			}
+		}
+		if len(outputChConfig.SpecName) == 0 {
+			return fmt.Errorf("configuration error: output_channel has reference to output_table_key '%s' which does not exist",
+				outputChConfig.OutputTableKey)
+		}
 	default:
 		if len(outputChConfig.Name) == 0 || outputChConfig.Name == outputChConfig.SpecName {
 			return fmt.Errorf(
@@ -1273,7 +1283,7 @@ func prepareCpipesEnv(args *StartComputePipesArgs, cpipesStartup *CpipesStartup)
 
 	// Extract processing date from file key inFile
 	fileKeyComponents := make(map[string]any)
-	datatable.SplitFileKeyIntoComponents(fileKeyComponents, &cpConfig.CommonRuntimeArgs.FileKey)
+	datatable.SplitFileKeyIntoComponents(fileKeyComponents, &args.FileKey)
 	if len(fileKeyComponents) > 0 {
 		year := fileKeyComponents["year"].(int)
 		month := fileKeyComponents["month"].(int)
@@ -1283,9 +1293,9 @@ func prepareCpipesEnv(args *StartComputePipesArgs, cpipesStartup *CpipesStartup)
 	}
 
 	if mainSchemaProviderConfig.IsPartFiles {
-		fileKeyPath = cpConfig.CommonRuntimeArgs.FileKey
+		fileKeyPath = args.FileKey
 	} else {
-		fileKey := cpConfig.CommonRuntimeArgs.FileKey
+		fileKey := args.FileKey
 		idx := strings.LastIndex(fileKey, "/")
 		if idx >= 0 && idx < len(fileKey)-1 {
 			fileKeyName = fileKey[idx+1:]

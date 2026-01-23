@@ -228,6 +228,7 @@ type ChannelSpec struct {
 	ClassName            string          `json:"class_name,omitempty"`
 	DirectPropertiesOnly bool            `json:"direct_properties_only,omitzero"`
 	HasDynamicColumns    bool            `json:"has_dynamic_columns,omitzero"`
+	SameColumnsAsInput   bool            `json:"same_columns_as_input,omitzero"`
 	DomainKeys           map[string]any  `json:"domain_keys,omitempty"`
 	DomainKeysInfo       *DomainKeysSpec `json:"domain_keys_spec,omitzero"`
 	columnsMap           *map[string]int
@@ -870,10 +871,16 @@ type GroupBySpec struct {
 	IsDebug      bool     `json:"is_debug,omitzero"`
 }
 
-// Filter row base on a when criteria
+// Filter row base on:
+//   - when criteria, if provided,
+//   - max output count, if provided.
+//
+// RowLengthStrict: when true, will enforce that input row length
+// matches the schema length, otherwise they are filtered.
 type FilterSpec struct {
-	When           ExpressionNode `json:"when"`
-	MaxOutputCount int            `json:"max_output_records,omitzero"`
+	RowLengthStrict bool            `json:"row_length_strict,omitzero"`
+	When            *ExpressionNode `json:"when,omitzero"`
+	MaxOutputCount  int             `json:"max_output_records,omitzero"`
 }
 
 // Sort using composite key

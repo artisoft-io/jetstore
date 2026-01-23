@@ -159,12 +159,17 @@ func (cpCtx *ComputePipesContext) StartComputePipes(dbpool *pgxpool.Pool,
 	channelsSpec = make(map[string]*ChannelSpec)
 	// Get the channels in used based on transformation pipe config, prime the channels using the provided channel spec
 	channelsInUse = make(map[string]*ChannelSpec)
+
 	for i := range cpCtx.CpConfig.Channels {
 		chSpec := &cpCtx.CpConfig.Channels[i]
 		if chSpec.Name == "input_row" {
 			// Skip this one since this input_row is to indicate columns to add to the input file which is done
 			// in start_sharding step
 			continue
+		}
+		if chSpec.SameColumnsAsInput {
+			// Use the input row columns
+			chSpec.Columns = mainInput.InputColumns
 		}
 		// Make the lookup of column name to pos
 		cm := make(map[string]int)
@@ -277,14 +282,14 @@ func (cpCtx *ComputePipesContext) StartComputePipes(dbpool *pgxpool.Pool,
 		}
 		if len(cpCtx.CpConfig.OutputTables[i].ChannelSpecName) == 0 {
 			cpErr = fmt.Errorf("error: invalid Compute Pipes configuration: channel_spec_name missing for Output table %s",
-				cpCtx.CpConfig.OutputTables[i].Name)
+				tableName)
 			goto gotError
 		}
 		outChannel = channelRegistry.ComputeChannels[cpCtx.CpConfig.OutputTables[i].ChannelSpecName]
 		if outChannel == nil {
 			cpErr = fmt.Errorf("error: invalid Compute Pipes configuration: channel_spec_name '%s' not found for Output table %s",
 				cpCtx.CpConfig.OutputTables[i].ChannelSpecName,
-				cpCtx.CpConfig.OutputTables[i].Name)
+				tableName)
 			goto gotError
 		}
 		channelRegistry.OutputTableChannels = append(channelRegistry.OutputTableChannels, cpCtx.CpConfig.OutputTables[i].ChannelSpecName)
