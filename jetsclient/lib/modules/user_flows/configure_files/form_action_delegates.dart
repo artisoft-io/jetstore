@@ -108,12 +108,6 @@ String? configureFilesFormValidator(
       // }
       return null;
 
-    case FSK.automated:
-      if (v != null) {
-        return null;
-      }
-      return "Automation choice must be selected.";
-
     case FSK.scSourceConfigKey:
       if (v != null) {
         return null;

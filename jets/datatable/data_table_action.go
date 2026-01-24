@@ -37,13 +37,16 @@ func init() {
 		nbrShards = 1
 	}
 }
+
 // Environment and settings needed
+// Note CpipesEnv is used ONLY in dev mode to pass environment variables to local_test_driver
 type DataTableContext struct {
 	Dbpool         *pgxpool.Pool
 	DevMode        bool
 	UsingSshTunnel bool
 	UnitTestDir    *string
 	AdminEmail     *string
+	CpipesEnv      map[string]any
 }
 
 func NewDataTableContext(dbpool *pgxpool.Pool, devMode bool, usingSshTunnel bool,
@@ -77,10 +80,10 @@ type DataTableAction struct {
 	Offset            int               `json:"offset"`
 	Limit             int               `json:"limit"`
 	// used for raw_query & raw_query_tool action only
-	RequestColumnDef bool               `json:"requestColumnDef"`
+	RequestColumnDef bool `json:"requestColumnDef"`
 	// other non-query properties
-	SkipThrottling   bool               `json:"skipThrottling"`
-	Data             []map[string]interface{} `json:"data"`
+	SkipThrottling bool                     `json:"skipThrottling"`
+	Data           []map[string]interface{} `json:"data"`
 }
 type Column struct {
 	Table        string `json:"table"`
@@ -669,7 +672,7 @@ func (ctx *DataTableContext) InsertRows(dataTableAction *DataTableAction, token 
 	case "input_loader_status", "pipeline_execution_status", "short/pipeline_execution_status":
 		var peKey int
 		for irow := range dataTableAction.Data {
-			peKey, httpStatus, err = ctx.InsertPipelineExecutionStatus(dataTableAction, irow, results)
+			peKey, httpStatus, err = ctx.InsertPipelineExecutionStatus(dataTableAction, irow, results, token)
 			if err != nil {
 				return
 			}

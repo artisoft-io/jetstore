@@ -1937,6 +1937,10 @@
         "isNotNull": true
       },
       {
+        "columnName": "total_input_bad_records_count",
+        "dataType": "long"
+      },
+      {
         "columnName": "total_output_records_count",
         "dataType": "long",
         "isNotNull": true

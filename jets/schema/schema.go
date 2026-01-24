@@ -301,7 +301,7 @@ func (tableDefinition *TableDefinition) UpdateTable(dbpool *pgxpool.Pool, existi
 		if !isFirst {
 			buf.WriteString(", ")
 		}
-    isFirst = false
+		isFirst = false
 		if col.Deleted {
 			// Drop deleted columns
 			buf.WriteString("\nDROP COLUMN IF EXISTS ")
@@ -386,8 +386,10 @@ func (tableDefinition *TableDefinition) UpdateTable(dbpool *pgxpool.Pool, existi
 
 	// Execute the statements
 	stmt := buf.String()
-	//* PRINT STMT
-	// log.Println(stmt)
+	// //* PRINT STMT
+	// if tableDefinition.TableName == "cpipes_execution_status_details" {
+	// 	log.Println(stmt)
+	// }
 	_, err := dbpool.Exec(context.Background(), stmt)
 	if err != nil {
 		return fmt.Errorf("error while updating table schema: %v", err)

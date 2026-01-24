@@ -13,9 +13,7 @@ import (
 
 	"github.com/artisoft-io/jetstore/cdk/jetstore_one/lambdas/dbc"
 	"github.com/artisoft-io/jetstore/jets/awsi"
-	"github.com/artisoft-io/jetstore/jets/compute_pipes"
 	"github.com/artisoft-io/jetstore/jets/datatable"
-	"github.com/artisoft-io/jetstore/jets/jetrules/rdf"
 	"github.com/artisoft-io/jetstore/jets/user"
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-lambda-go/lambda"
@@ -106,14 +104,20 @@ func processMessage(dbpool *pgxpool.Pool, record events.S3EventRecord) error {
 		return nil
 	}
 
+	token, err := user.CreateToken(systemUser)
+	if err != nil {
+		return fmt.Errorf("error creating jwt token: %v", err)
+	}
+	context := datatable.NewDataTableContext(dbpool, false, false, nil, &systemUser)
+	
 	// Determine the event source: file key or schema file?
 	switch {
 	case strings.HasPrefix(fileKey, s3InputPrefix):
 		// File Key Event
-		return doFileKey(dbpool, fileKey, fileSize)
+		return doFileKey(dbpool, context, fileKey, fileSize, token)
 	case strings.HasPrefix(fileKey, s3SchemaPrefix):
 		// File Schema
-		return doFileSchema(dbpool, fileKey, fileSize)
+		return doFileSchema(dbpool, context, fileKey, fileSize, token)
 	default:
 		// untracked file
 		log.Printf("Register Key v2: got untracked file?? %s", fileKey)
@@ -122,12 +126,8 @@ func processMessage(dbpool *pgxpool.Pool, record events.S3EventRecord) error {
 	}
 }
 
-func doFileKey(dbpool *pgxpool.Pool, fileKey string, fileSize int64) error {
+func doFileKey(dbpool *pgxpool.Pool, context *datatable.DataTableContext, fileKey string, fileSize int64, token string) error {
 
-	token, err := user.CreateToken(systemUser)
-	if err != nil {
-		return fmt.Errorf("error creating jwt token: %v", err)
-	}
 	// Extract processing date from file key inFile
 	fileKeyComponents := make(map[string]any)
 	fileKeyComponents = datatable.SplitFileKeyIntoComponents(fileKeyComponents, &fileKey)
@@ -137,12 +137,11 @@ func doFileKey(dbpool *pgxpool.Pool, fileKey string, fileSize int64) error {
 		Action: "register_keys",
 		Data:   []map[string]any{fileKeyComponents},
 	}
-	context := datatable.NewDataTableContext(dbpool, false, false, nil, &systemUser)
-	_, _, err = context.RegisterFileKeys(&registerFileKeyAction, token)
+	_, _, err := context.RegisterFileKeys(&registerFileKeyAction, token)
 	return err
 }
 
-func doFileSchema(dbpool *pgxpool.Pool, fileKey string, fileSize int64) error {
+func doFileSchema(dbpool *pgxpool.Pool, context *datatable.DataTableContext, fileKey string, fileSize int64, token string) error {
 
 	// pre-allocate in memory buffer, where n is the object size
 	buf := make([]byte, int(fileSize))
@@ -153,52 +152,11 @@ func doFileSchema(dbpool *pgxpool.Pool, fileKey string, fileSize int64) error {
 		return fmt.Errorf("while downloading file schema from s3: %v", err)
 	}
 	// log.Printf("*** Got file schema from s3:\n%s\n", string(buf))
-	schemaInfo := &compute_pipes.SchemaProviderSpec{}
-	err = json.Unmarshal(buf, schemaInfo)
+	schemaInfo := map[string]any{}
+	err = json.Unmarshal(buf, &schemaInfo)
 	if err != nil {
-		return fmt.Errorf("while unmarshalling schema info from json: %v", err)
+		return fmt.Errorf("while unmarshalling schema info from json in RegisterFileKeyV2 lambda: %v", err)
 	}
 
-	// Prepare the register key request
-	fileKeyComponents := make(map[string]any)
-	year := 1970
-	month := 1
-	day := 1
-	if len(schemaInfo.FileDate) > 0 {
-		d, err := rdf.ParseDate(schemaInfo.FileDate)
-		if err != nil {
-			log.Printf("Schema has invalid FileDate, ignoring")
-		} else {
-			year = d.Year()
-			month = int(d.Month())
-			day = d.Day()
-		}
-	}
-	fileKeyComponents["year"] = year
-	fileKeyComponents["month"] = month
-	fileKeyComponents["day"] = day
-	fileKeyComponents["client"] = schemaInfo.Client
-	fileKeyComponents["vendor"] = schemaInfo.Vendor
-	fileKeyComponents["object_type"] = schemaInfo.ObjectType
-	fileKeyComponents["file_key"] = schemaInfo.FileKey
-	fileKeyComponents["size"] = schemaInfo.FileSize
-	
-	if len(schemaInfo.RequestID) > 0 {
-		fileKeyComponents["request_id"] = schemaInfo.RequestID
-	}
-
-	fileKeyComponents["schema_provider_json"] = string(buf)
-
-	token, err := user.CreateToken(systemUser)
-	if err != nil {
-		return fmt.Errorf("error creating jwt token: %v", err)
-	}
-	registerFileKeyAction := datatable.RegisterFileKeyAction{
-		Action:        "register_keys",
-		IsSchemaEvent: true,
-		Data:          []map[string]any{fileKeyComponents},
-	}
-	context := datatable.NewDataTableContext(dbpool, false, false, nil, &systemUser)
-	_, _, err = context.RegisterFileKeys(&registerFileKeyAction, token)
-	return err
+	return context.RegisterSchemaEvent(dbpool, schemaInfo, token)
 }

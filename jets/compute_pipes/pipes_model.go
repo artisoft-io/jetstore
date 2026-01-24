@@ -329,6 +329,7 @@ type SchemaProviderSpec struct {
 	Vendor                           string             `json:"vendor,omitempty"`
 	ObjectType                       string             `json:"object_type,omitempty"`
 	RequestID                        string             `json:"request_id,omitempty"`
+	UseOriginSourceConfig            bool               `json:"use_origin_source_config,omitempty"`
 	FileDate                         string             `json:"file_date,omitempty"`
 	SourceType                       string             `json:"source_type,omitempty"`
 	SchemaName                       string             `json:"schema_name,omitempty"`

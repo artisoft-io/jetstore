@@ -383,6 +383,7 @@ func (ca *StatusUpdate) CoordinateWork() error {
 				nbr_nodes,
 				total_input_files_size_mb,
 				total_input_records_count,
+				total_input_bad_records_count,
 				total_output_records_count
 			) (
 				SELECT 
@@ -392,6 +393,7 @@ func (ca *StatusUpdate) CoordinateWork() error {
 					count(*) AS nbr_nodes,
 					sum(ped.input_files_size_mb) AS total_input_files_size_mb,
 					sum(ped.input_records_count) AS total_input_records_count,
+					sum(ped.input_bad_records_count) AS total_input_bad_records_count,
 					sum(ped.output_records_count) AS total_output_records_count
 				FROM jetsapi.pipeline_execution_details ped,
 					jetsapi.pipeline_execution_status pe
@@ -404,19 +406,30 @@ func (ca *StatusUpdate) CoordinateWork() error {
 			)`
 		_, err = ca.Dbpool.Exec(context.Background(), stmt, ca.PeKey)
 		if err != nil {
-			return fmt.Errorf("while inserting in jetsapi.cpipes_execution_status_details: %v", err)
+			err = fmt.Errorf("while inserting in jetsapi.cpipes_execution_status_details: %v", err)
+			log.Printf("%s %s\n", sessionId, err)
+			return err
 		}
 		// Update input_loader_status if process name is "Jets_Loader"
 		ilkey := ca.CpipesEnv["$INPUT_LOADER_STATUS_KEY"]
 		if ilkey != nil {
 			log.Printf("%s Updating input_loader_status status to '%s' for key %v\n", sessionId, ca.Status, ilkey)
-			stmt := `UPDATE jetsapi.input_loader_status SET status=$1, 
-				load_count=(SELECT total_input_records_count FROM jetsapi.cpipes_execution_status_details WHERE session_id=$2),
-				last_update=DEFAULT WHERE key=$3`
-			_, err = ca.Dbpool.Exec(context.Background(), stmt, ca.Status, sessionId, ilkey)
+			stmt := `
+				UPDATE jetsapi.input_loader_status
+				SET
+					status = $1,
+					load_count = es.total_input_records_count,
+					bad_row_count = es.total_input_bad_records_count,
+          error_message = $2,
+					last_update = DEFAULT
+				FROM jetsapi.cpipes_execution_status_details AS es
+				WHERE	es.session_id = $3
+				  AND input_loader_status.key = $4
+				;`
+			_, err = ca.Dbpool.Exec(context.Background(), stmt, ca.Status, ca.FailureDetails, sessionId, ilkey)
 			if err != nil {
-				err = fmt.Errorf("while updating input_loader_status status: %v", err)
 				log.Printf("%s while updating input_loader_status status:%s\n", sessionId, err)
+				err = fmt.Errorf("while updating input_loader_status status: %v", err)
 				return err
 			}
 		}

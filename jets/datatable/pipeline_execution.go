@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"math/rand"
 	"time"
 
 	"log"
@@ -17,7 +16,9 @@ import (
 	"strings"
 
 	"github.com/artisoft-io/jetstore/jets/awsi"
+	"github.com/artisoft-io/jetstore/jets/jetrules/rdf"
 	"github.com/jackc/pgx/v4"
+	"github.com/jackc/pgx/v4/pgxpool"
 )
 
 // This file contains functions to update table pipeline_execution_status,
@@ -80,8 +81,10 @@ type PendingTask struct {
 	FileSize             sql.NullInt64
 }
 
-// Insert into pipeline_execution_status and in loader_execution_status (the latter will be depricated)
-func (ctx *DataTableContext) InsertPipelineExecutionStatus(dataTableAction *DataTableAction, irow int, results *map[string]any) (peKey int, httpStatus int, err error) {
+// Insert into pipeline_execution_status and in loader_execution_status
+func (ctx *DataTableContext) InsertPipelineExecutionStatus(dataTableAction *DataTableAction,
+	irow int, results *map[string]any, token string) (peKey int, httpStatus int, err error) {
+
 	var processName, devModeCode, stateMachineName string
 	httpStatus = http.StatusOK
 	sqlStmt, ok := sqlInsertStmts[dataTableAction.FromClauses[0].Table]
@@ -200,7 +203,7 @@ func (ctx *DataTableContext) InsertPipelineExecutionStatus(dataTableAction *Data
 	// Post Processing Hook
 	switch dataTableAction.FromClauses[0].Table {
 	case "input_loader_status":
-		httpStatus, err = ctx.startLoader(dataTableAction, irow, sqlStmt, peKey)
+		httpStatus, err = ctx.startLoader(dataTableAction, irow, sqlStmt, peKey, token)
 
 	case "pipeline_execution_status", "short/pipeline_execution_status":
 		if status == "submitted" {
@@ -588,6 +591,9 @@ func (ctx *DataTableContext) runPipelineLocally(devModeCode string, task *Pendin
 		Dbpool:         ctx.Dbpool,
 		UsingSshTunnel: ctx.UsingSshTunnel,
 		PeKey:          int(task.Key),
+		FileKey:        task.MainInputFileKey.String,
+		CpipesMode:     true,
+		CpipesEnv:      ctx.CpipesEnv,
 	}
 	if devModeCode == "run_server_only" || devModeCode == "run_server_reports" ||
 		devModeCode == "run_cpipes_only" || devModeCode == "run_cpipes_reports" {
@@ -723,12 +729,8 @@ func (ctx *DataTableContext) runPipelineLocally(devModeCode string, task *Pendin
 	return err
 }
 
-var (
-	jsInput string = os.Getenv("JETS_s3_SCHEMA_TRIGGERS")
-)
-
 func (ctx *DataTableContext) startLoader(dataTableAction *DataTableAction, irow int,
-	sqlStmt *SqlInsertDefinition, inputLoaderStatusKey int) (httpStatus int, err error) {
+	sqlStmt *SqlInsertDefinition, inputLoaderStatusKey int, token string) (httpStatus int, err error) {
 	httpStatus = http.StatusOK
 
 	// Run the loader
@@ -791,12 +793,20 @@ func (ctx *DataTableContext) startLoader(dataTableAction *DataTableAction, irow 
 	}
 
 	// Make the schema provider to start the Jet_Loader pipeline
+	cpipesEnv := map[string]any{
+		"$CLIENT":                  client,
+		"$ORG":                     clientOrg,
+		"$OBJECT_TYPE":             objType,
+		"$INPUT_LOADER_STATUS_KEY": inputLoaderStatusKey,
+		"$STAGING_TABLE_NAME":      tableName,
+	}
 	schemaInfo := map[string]any{
 		"key":                        "_main_input_",
 		"type":                       "default",
 		"source_type":                "main_input",
 		"client":                     "Any",
 		"object_type":                "Any",
+		"use_origin_source_config":   true,
 		"file_key":                   fileKey,
 		"format":                     inputFormat,
 		"detect_encoding":            true,
@@ -811,27 +821,60 @@ func (ctx *DataTableContext) startLoader(dataTableAction *DataTableAction, irow 
 		"trim_columns":               true,
 		"is_part_files":              false,
 		"file_date":                  fmt.Sprintf("%04d-%02d-%02d", year, month, day),
-		"env": map[string]any{
-			"$CLIENT":             client,
-			"$ORG":                clientOrg,
-			"$OBJECT_TYPE":        objType,
-			"$INPUT_LOADER_KEY":   inputLoaderStatusKey,
-			"$STAGING_TABLE_NAME": tableName,
-		},
+		"env":                        cpipesEnv,
 	}
 
-	// Write the schema trigger event to jetstore s3
-	triggerObj, err := json.Marshal(schemaInfo)
+	if ctx.DevMode {
+		ctx.CpipesEnv = cpipesEnv
+		log.Println("DevMode: Setting cpipes env to DataTableContext")
+	}
+	err = ctx.RegisterSchemaEvent(ctx.Dbpool, schemaInfo, token)
 	if err != nil {
+		log.Printf("While registering schema event to start Jet_Loader for input_loader_status key %d: %v", inputLoaderStatusKey, err)
 		httpStatus = http.StatusInternalServerError
-		err = errors.New("error while marshalling loader trigger object")
+		err = errors.New("error while starting Jet_Loader pipeline")
 		return
 	}
-	// Get a 64-bit random number
-	rid := rand.New(rand.NewSource(time.Now().UnixNano())).Uint64()
-	processDate := time.Now().Format("2006-01-02")
-	triggerKey := fmt.Sprintf("%s/%s/%s/%d.json", jsInput, "Jets_Loader", processDate, rid)
-	err = awsi.UploadBufToS3("", triggerKey, triggerObj)
 
+	log.Printf("Started Jet_Loader pipeline for input_loader_status key %d", inputLoaderStatusKey)
 	return
+}
+
+// API version to register schema event. This is used by the Jets_Loader process to avoid writing the event to s3 first.
+func (ctx *DataTableContext) RegisterSchemaEvent(dbpool *pgxpool.Pool, schemaInfo map[string]any, token string) error {
+	schemaInfoJson, err := json.Marshal(schemaInfo)
+	if err != nil {
+		return fmt.Errorf("while marshalling schema info to json in RegisterSchemaEvent: %v", err)
+	}
+
+	// Prepare the register key request
+	year := 1970
+	month := 1
+	day := 1
+	fdate, ok := schemaInfo["file_date"].(string)
+	if !ok {
+		fdate = ""
+	}
+	if len(fdate) > 0 {
+		d, err := rdf.ParseDate(fdate)
+		if err != nil {
+			log.Printf("Schema has invalid FileDate, ignoring")
+		} else {
+			year = d.Year()
+			month = int(d.Month())
+			day = d.Day()
+		}
+	}
+	schemaInfo["year"] = year
+	schemaInfo["month"] = month
+	schemaInfo["day"] = day
+	schemaInfo["schema_provider_json"] = string(schemaInfoJson)
+
+	registerFileKeyAction := RegisterFileKeyAction{
+		Action:        "register_keys",
+		IsSchemaEvent: true,
+		Data:          []map[string]any{schemaInfo},
+	}
+	_, _, err = ctx.RegisterFileKeys(&registerFileKeyAction, token)
+	return err
 }

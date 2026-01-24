@@ -123,33 +123,25 @@ func (args *StartComputePipesArgs) shardingInitializeCpipes(ctx context.Context,
 	// get pe info and pipeline config
 	// cpipesConfigFN is cpipes config file name within workspace
 	// tableName is the input_registry.table_name, needed when source_type = 'domain_table' since it correspond to className
-	var client, org, objectType, inputFormat, compression, tableName, sourceType string
+	var client, org, objectType, tableName, sourceType string
 	var schemaProviderJson string
-	var isPartFile int
-	var cpipesConfigFN, icJson, icPosCsv, icDomainKeys, inputFormatDataJson sql.NullString
+	var cpipesConfigFN sql.NullString
 	log.Println("CPIPES, loading pipeline configurations")
 	stmt := `
 	SELECT	ir.client, ir.org, ir.object_type, ir.source_period_key, ir.schema_provider_json, 
 		ir.table_name, ir.source_type,
 		pe.pipeline_config_key, pe.process_name, pe.input_session_id, pe.user_email,
-		sc.input_columns_json, sc.input_columns_positions_csv, sc.domain_keys_json, 
-		sc.input_format, sc.compression, sc.is_part_files, sc.input_format_data_json,
 		pc.main_rules
 	FROM 
 		jetsapi.pipeline_execution_status pe,
 		jetsapi.input_registry ir,
-		jetsapi.source_config sc,
 		jetsapi.process_config pc
 	WHERE pe.main_input_registry_key = ir.key
 		AND pe.key = $1
-		AND sc.client = ir.client
-		AND sc.org = ir.org
-		AND sc.object_type = ir.object_type
 		AND pc.process_name = pe.process_name`
 	err = dbpool.QueryRow(ctx, stmt, args.PipelineExecKey).Scan(
 		&client, &org, &objectType, &cpipesStartup.SourcePeriodKey, &schemaProviderJson, &tableName, &sourceType,
 		&cpipesStartup.PipelineConfigKey, &cpipesStartup.ProcessName, &cpipesStartup.InputSessionId, &cpipesStartup.OperatorEmail,
-		&icJson, &icPosCsv, &icDomainKeys, &inputFormat, &compression, &isPartFile, &inputFormatDataJson,
 		&cpipesConfigFN)
 	if err != nil {
 		return cpipesStartup, fmt.Errorf("query pipeline configurations failed: %v", err)
@@ -167,6 +159,110 @@ func (args *StartComputePipesArgs) shardingInitializeCpipes(ctx context.Context,
 	err = json.Unmarshal(cpJson, &cpipesStartup.CpConfig)
 	if err != nil {
 		return cpipesStartup, fmt.Errorf("while unmarshaling compute pipes json (initializeCpipes): %s", err)
+	}
+
+	// Get the schema provider from schemaProviderJson:
+	//   - Populate the input columns (cpipesStartup.InputColumns)
+	//   - Populate inputFormat, compression, delimiter, detect_encoding
+	//   - Populate inputFormatDataJson for xlsx
+	//   - Put SchemaName into env (done in CoordinateComputePipes)
+	//   - Put the schema provider in compute pipes json
+	// First find if a schema provider already exist for "main_input"
+	for _, sp := range cpipesStartup.CpConfig.SchemaProviders {
+		if sp.SourceType == "main_input" {
+			cpipesStartup.MainInputSchemaProviderConfig = sp
+			break
+		}
+	}
+	if cpipesStartup.MainInputSchemaProviderConfig == nil {
+		// Create and initialize a default SchemaProviderSpec
+		cpipesStartup.MainInputSchemaProviderConfig = &SchemaProviderSpec{
+			Type:       "default",
+			Key:        "_main_input_",
+			SourceType: "main_input",
+			Client:     client,
+			Vendor:     org,
+			ObjectType: objectType,
+			Env:        make(map[string]any),
+		}
+		if cpipesStartup.CpConfig.SchemaProviders == nil {
+			cpipesStartup.CpConfig.SchemaProviders = make([]*SchemaProviderSpec, 0)
+		}
+		cpipesStartup.CpConfig.SchemaProviders = append(cpipesStartup.CpConfig.SchemaProviders, cpipesStartup.MainInputSchemaProviderConfig)
+	} else {
+		// Initialize unspecified value in main schema provider using the source_config table values
+		if cpipesStartup.MainInputSchemaProviderConfig.Client == "" {
+			cpipesStartup.MainInputSchemaProviderConfig.Client = client
+		}
+		if cpipesStartup.MainInputSchemaProviderConfig.Vendor == "" {
+			cpipesStartup.MainInputSchemaProviderConfig.Vendor = org
+		}
+		if cpipesStartup.MainInputSchemaProviderConfig.ObjectType == "" {
+			cpipesStartup.MainInputSchemaProviderConfig.ObjectType = objectType
+		}
+		if cpipesStartup.MainInputSchemaProviderConfig.Bucket == "" {
+			cpipesStartup.MainInputSchemaProviderConfig.Bucket = bucketName
+		}
+		if cpipesStartup.MainInputSchemaProviderConfig.FileKey == "" {
+			cpipesStartup.MainInputSchemaProviderConfig.FileKey = args.FileKey
+		}
+	}
+	mainInputSchemaProvider := cpipesStartup.MainInputSchemaProviderConfig
+	if len(schemaProviderJson) > 0 {
+		err = json.Unmarshal([]byte(schemaProviderJson), mainInputSchemaProvider)
+		if err != nil {
+			return cpipesStartup, fmt.Errorf("while unmarshaling schema_provider_json: %s", err)
+		}
+	}
+
+	// Get the source_config information
+	var isPartFile int
+	var inputFormat, compression string
+	var icJson, icPosCsv, icDomainKeys, inputFormatDataJson sql.NullString
+	scClient := client
+	scObjType := objectType
+	scOrg := org
+	if mainInputSchemaProvider.UseOriginSourceConfig {
+		env := mainInputSchemaProvider.Env
+		scClient, _ = env["$CLIENT"].(string)
+		scObjType, _ = env["$OBJECT_TYPE"].(string)
+		scOrg, _ = env["$ORG"].(string)
+	}
+	stmt = `
+	SELECT sc.input_columns_json, sc.input_columns_positions_csv, sc.domain_keys_json, 
+		sc.input_format, sc.compression, sc.is_part_files, sc.input_format_data_json
+	FROM 
+		jetsapi.source_config sc
+	WHERE sc.client = $1
+		AND sc.org = $2
+		AND sc.object_type = $3`
+	err = dbpool.QueryRow(ctx, stmt, scClient, scOrg, scObjType).Scan(
+		&icJson, &icPosCsv, &icDomainKeys, &inputFormat, &compression, &isPartFile, &inputFormatDataJson)
+	if err != nil {
+		return cpipesStartup, fmt.Errorf("query pipeline configurations failed: %v", err)
+	}
+
+	mainInputSchemaProvider.FileConfig = FileConfig{
+		Format:              inputFormat,
+		Compression:         compression,
+		Bucket:              bucketName,
+		FileKey:             args.FileKey,
+		InputFormatDataJson: inputFormatDataJson.String,
+	}
+
+	if isPartFile == 1 {
+		cpipesStartup.MainInputSchemaProviderConfig.IsPartFiles = true
+	}
+
+	if cpipesStartup.MainInputSchemaProviderConfig.Format == "" {
+		cpipesStartup.MainInputSchemaProviderConfig.Format = inputFormat
+	}
+	if cpipesStartup.MainInputSchemaProviderConfig.Compression == "" {
+		cpipesStartup.MainInputSchemaProviderConfig.Compression = compression
+	}
+
+	if cpipesStartup.MainInputSchemaProviderConfig.InputFormatDataJson == "" {
+		cpipesStartup.MainInputSchemaProviderConfig.InputFormatDataJson = inputFormatDataJson.String
 	}
 
 	// Adjust ChannelSpec having columns specified by a jetrules class
@@ -269,79 +365,6 @@ func (args *StartComputePipesArgs) shardingInitializeCpipes(ctx context.Context,
 				// log.Printf("*** Channel %s chSpec.ClassName %s\n", chSpec.Name, chSpec.ClassName)
 				chSpec.DomainKeysInfo = cpipesStartup.DomainKeysSpecByClass[chSpec.ClassName]
 			}
-		}
-	}
-
-	// Get the schema provider from schemaProviderJson:
-	//   - Populate the input columns (cpipesStartup.InputColumns)
-	//   - Populate inputFormat, compression, delimiter, detect_encoding
-	//   - Populate inputFormatDataJson for xlsx
-	//   - Put SchemaName into env (done in CoordinateComputePipes)
-	//   - Put the schema provider in compute pipes json
-	// First find if a schema provider already exist for "main_input"
-	for _, sp := range cpipesStartup.CpConfig.SchemaProviders {
-		if sp.SourceType == "main_input" {
-			cpipesStartup.MainInputSchemaProviderConfig = sp
-			break
-		}
-	}
-	if cpipesStartup.MainInputSchemaProviderConfig == nil {
-		// Create and initialize a default SchemaProviderSpec
-		cpipesStartup.MainInputSchemaProviderConfig = &SchemaProviderSpec{
-			Type:       "default",
-			Key:        "_main_input_",
-			SourceType: "main_input",
-			Client:     client,
-			Vendor:     org,
-			ObjectType: objectType,
-			FileConfig: FileConfig{
-				Format:              inputFormat,
-				Compression:         compression,
-				Bucket:              bucketName,
-				FileKey:             args.FileKey,
-				InputFormatDataJson: inputFormatDataJson.String,
-			},
-			Env: make(map[string]any),
-		}
-		if isPartFile == 1 {
-			cpipesStartup.MainInputSchemaProviderConfig.IsPartFiles = true
-		}
-		if cpipesStartup.CpConfig.SchemaProviders == nil {
-			cpipesStartup.CpConfig.SchemaProviders = make([]*SchemaProviderSpec, 0)
-		}
-		cpipesStartup.CpConfig.SchemaProviders = append(cpipesStartup.CpConfig.SchemaProviders, cpipesStartup.MainInputSchemaProviderConfig)
-	} else {
-		// Initialize unspecified value in main schema provider using the source_config table values
-		if cpipesStartup.MainInputSchemaProviderConfig.Client == "" {
-			cpipesStartup.MainInputSchemaProviderConfig.Client = client
-		}
-		if cpipesStartup.MainInputSchemaProviderConfig.Vendor == "" {
-			cpipesStartup.MainInputSchemaProviderConfig.Vendor = org
-		}
-		if cpipesStartup.MainInputSchemaProviderConfig.ObjectType == "" {
-			cpipesStartup.MainInputSchemaProviderConfig.ObjectType = objectType
-		}
-		if cpipesStartup.MainInputSchemaProviderConfig.Format == "" {
-			cpipesStartup.MainInputSchemaProviderConfig.Format = inputFormat
-		}
-		if cpipesStartup.MainInputSchemaProviderConfig.Compression == "" {
-			cpipesStartup.MainInputSchemaProviderConfig.Compression = compression
-		}
-		if cpipesStartup.MainInputSchemaProviderConfig.Bucket == "" {
-			cpipesStartup.MainInputSchemaProviderConfig.Bucket = bucketName
-		}
-		if cpipesStartup.MainInputSchemaProviderConfig.FileKey == "" {
-			cpipesStartup.MainInputSchemaProviderConfig.FileKey = args.FileKey
-		}
-		if cpipesStartup.MainInputSchemaProviderConfig.InputFormatDataJson == "" {
-			cpipesStartup.MainInputSchemaProviderConfig.InputFormatDataJson = inputFormatDataJson.String
-		}
-	}
-	mainInputSchemaProvider := cpipesStartup.MainInputSchemaProviderConfig
-	if len(schemaProviderJson) > 0 {
-		err = json.Unmarshal([]byte(schemaProviderJson), mainInputSchemaProvider)
-		if err != nil {
-			return cpipesStartup, fmt.Errorf("while unmarshaling schema_provider_json: %s", err)
 		}
 	}
 

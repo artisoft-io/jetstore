@@ -405,18 +405,6 @@ final Map<String, FormConfig> _formConfigurations = {
             flex: 1,
             defaultItemPos: 0),
       ],
-      [
-        FormDropdownFieldConfig(
-            key: FSK.automated,
-            isReadOnly: true,
-            items: [
-              DropdownItemConfig(label: 'Select automation mode'),
-              DropdownItemConfig(label: 'Automated', value: '1'),
-              DropdownItemConfig(label: 'Manual', value: '0'),
-            ],
-            flex: 1,
-            defaultItemPos: 0),
-      ],
     ],
     formValidatorDelegate: configureFilesFormValidator,
     formActionsDelegate: doNothingAction,
