@@ -24,8 +24,8 @@ final Map<String, TableConfig> _tableConfigurations = {
     ],
     label: 'File Loader Status',
     apiPath: '/dataTable',
-    isCheckboxVisible: false,
-    isCheckboxSingleSelect: false,
+    isCheckboxVisible: true,
+    isCheckboxSingleSelect: true,
     whereClauses: [
       WhereClause(column: "source_period_key", joinWith: "source_period.key"),
     ],
@@ -33,6 +33,15 @@ final Map<String, TableConfig> _tableConfigurations = {
     // add a row to input_loader_status table
     refreshOnKeyUpdateEvent: [FSK.key],
     actions: [
+      ActionConfig(
+          actionType: DataTableActionType.showScreen,
+          key: 'viewDomainTable',
+          label: 'View Loaded Data',
+          style: ActionStyle.secondary,
+          isVisibleWhenCheckboxVisible: null,
+          isEnabledWhenHavingSelectedRows: true,
+          configScreenPath: domainTableViewerPath,
+          navigationParams: {'table_name': 7, 'session_id': 11}),
       ActionConfig(
           actionType: DataTableActionType.refreshTable,
           key: 'refreshTable',
