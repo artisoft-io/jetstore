@@ -372,6 +372,8 @@ func (ca *StatusUpdate) CoordinateWork() error {
 		log.Printf("%s %s\n", sessionId, err)
 		return err
 	}
+	var isJetsLoader bool
+
 	if ca.CpipesMode {
 		// Put cpipes run stats in cpipes_execution_status_details table
 		// this is to track file size and help set the thresholds for nbr_nodes (nbr_nodes_lookup)
@@ -410,10 +412,10 @@ func (ca *StatusUpdate) CoordinateWork() error {
 			log.Printf("%s %s\n", sessionId, err)
 			return err
 		}
-		// Update input_loader_status if process name is "Jets_Loader"
 		ilkey := ca.CpipesEnv["$INPUT_LOADER_STATUS_KEY"]
 		if ilkey != nil {
-			log.Printf("%s Updating input_loader_status status to '%s' for key %v\n", sessionId, ca.Status, ilkey)
+			// Update input_loader_status since process is "Jets_Loader"
+			// log.Printf("%s Updating input_loader_status status to '%s' for key %v\n", sessionId, ca.Status, ilkey)
 			stmt := `
 				UPDATE jetsapi.input_loader_status
 				SET
@@ -432,28 +434,38 @@ func (ca *StatusUpdate) CoordinateWork() error {
 				err = fmt.Errorf("while updating input_loader_status status: %v", err)
 				return err
 			}
+			// Register origin file to input_registry since process is "Jets_Loader"
+			isJetsLoader = true
+			// log.Printf("%s Registering origin file input source in input_registry for Jets_Loader session_id %s\n", sessionId, sessionId)
+			err = ca.RegisterFileInputSource()
+			if err != nil {
+				log.Printf("%s while registering file to input_registry: %v\n", sessionId, err)
+				return fmt.Errorf("while registering file to input_registry: %v", err)
+			}
 		}
 	}
-	// Check for pending tasks ready to start
-	ctx := NewDataTableContext(ca.Dbpool, ca.UsingSshTunnel, ca.UsingSshTunnel, nil, nil)
-	err = ctx.StartPendingTasks()
-	if err != nil {
-		log.Printf("%s Warning: while starting pending task: %v", sessionId, err)
-		err = nil
-	}
 
-	// Register outTables
-	outTables, err := GetOutputTables(ca.Dbpool, ca.PeKey)
-	if err != nil {
-		log.Printf("%s while getting output tables: %v", sessionId, err)
-		return err
-	}
-	// Register out tables
-	if ca.Status != "failed" && len(outTables) > 0 && getOutputRecordCount(ca.Dbpool, ca.PeKey) > 0 {
-		err = RegisterDomainTables(ca.Dbpool, ca.UsingSshTunnel, ca.PeKey)
+	if !isJetsLoader {
+		// Check for pending tasks ready to start
+		ctx := NewDataTableContext(ca.Dbpool, ca.UsingSshTunnel, ca.UsingSshTunnel, nil, nil)
+		err = ctx.StartPendingTasks()
 		if err != nil {
-			log.Printf("%s while registrying output tables: %v", sessionId, err)
-			return fmt.Errorf("while registrying out tables to input_registry: %v", err)
+			log.Printf("%s Warning: while starting pending task: %v", sessionId, err)
+			err = nil
+		}
+		// Register outTables
+		outTables, err := GetOutputTables(ca.Dbpool, ca.PeKey)
+		if err != nil {
+			log.Printf("%s while getting output tables: %v", sessionId, err)
+			return err
+		}
+		// Register out tables
+		if ca.Status != "failed" && len(outTables) > 0 && getOutputRecordCount(ca.Dbpool, ca.PeKey) > 0 {
+			err = ca.RegisterDomainTables()
+			if err != nil {
+				log.Printf("%s while registrying output tables: %v", sessionId, err)
+				return fmt.Errorf("while registrying out tables to input_registry: %v", err)
+			}
 		}
 	}
 

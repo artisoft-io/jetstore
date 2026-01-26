@@ -3,26 +3,30 @@ package compute_pipes
 import (
 	"encoding/json"
 	"fmt"
+	"log"
 	"strconv"
 
 	"github.com/thedatashed/xlsxreader"
 )
 
 // Utilities for XLSX Files
-var inputFormatData map[string]interface{}
 
-func parseInputFormatDataXlsx(inputDataFormatJson *string) error {
-	inputFormatData = make(map[string]interface{})
+func ParseInputFormatDataXlsx(inputDataFormatJson *string) (map[string]any, error) {
+	if inputDataFormatJson == nil || len(*inputDataFormatJson) == 0 {
+		log.Println("*** inputDataFormatJson is empty or nil:",inputDataFormatJson)
+		return nil, nil
+	}
+	inputFormatData := make(map[string]any)
 	err := json.Unmarshal([]byte(*inputDataFormatJson), &inputFormatData)
 	if err != nil {
-		return fmt.Errorf("while parsing inputColumnsJson using json parser: %v", err)
+		return nil, fmt.Errorf("while parsing inputColumnsJson using json parser: %v", err)
 	}
-	return nil
+	return inputFormatData, nil
 }
 
 func GetRawHeadersXlsx(fileName string, fileFormatDataJson string) ([]string, error) {
 	// Parse the file type specific options
-	err := parseInputFormatDataXlsx(&fileFormatDataJson)
+	inputFormatData, err := ParseInputFormatDataXlsx(&fileFormatDataJson)
 	if err != nil {
 		return nil, fmt.Errorf("while parsing input_data_format_json for xlsx files: %v", err)
 	}

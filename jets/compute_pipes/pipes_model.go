@@ -288,33 +288,36 @@ type SchemaProviderSpec struct {
 	// Key is schema provider key for reference by compute pipes steps
 	// Format: csv, headerless_csv, fixed_width, parquet, parquet_select,
 	//              xlsx, headerless_xlsx
-	// Compression: none, snappy (parquet is always snappy)
-	// DetectEncoding: Detect file encoding (limited) for text file format
-	// DetectCrAsEol: Detect if \r is used as eol (format: csv,headerless_csv)
-	// EolByte: Byte to use as eol (format: csv,headerless_csv)
+	// Compression: none, snappy (parquet is always snappy).
+	// DetectEncoding: Detect file encoding (limited) for text file format.
+	// DetectCrAsEol: Detect if \r is used as eol (format: csv,headerless_csv).
+	// EolByte: Byte to use as eol (format: csv,headerless_csv).
 	// MultiColumnsInput: Indicate that input file must have multiple columns,
-	// this is used to detect if the wrong delimiter is used (csv,headerless_csv)
-	// ReadBatchSize: nbr of rows to read per record (format: parquet)
-	// NbrRowsInRecord: nbr of rows in record (format: parquet)
-	// InputFormatDataJson: json config based on Format (typically used for xlsx)
+	// this is used to detect if the wrong delimiter is used (csv,headerless_csv).
+	// ReadBatchSize: nbr of rows to read per record (format: parquet).
+	// NbrRowsInRecord: nbr of rows in record (format: parquet).
+	// InputFormatDataJson: json config based on Format (typically used for xlsx).
 	// example: {"currentSheet": "Daily entry for Approvals"} (for xlsx).
-	// EnforceRowMinLength: when true, all columns must be in input record, otherwise missing columns are null
-	// EnforceRowMaxLength: when true, no extra characters must exist past last field (applies to text format)
+	// EnforceRowMinLength: when true, all columns must be in input record, otherwise missing columns are null.
+	// EnforceRowMaxLength: when true, no extra characters must exist past last field (applies to text format).
+	// Note EnforceRowMinLength and EnforceRowMaxLength apply to text format only (csv, headerless_csv, fixed_width).
+	// UseOriginSourceConfig: when true, use the source config from file_key components (client, org, object_type).
+	// Note origin session_id is from cpipes env $ORIGIN_SESSIONID
 	// BadRowsConfig: Specify how to handle bad rows when bot specified on InputChannelConfig.
 	// SourceType range: main_input, merged_input, historical_input (from input_source table)
 	// Columns: may be ommitted if fixed_width_columns_csv is provided or is a csv format
 	// Headers: alt to Columns, typically for csv format
 	// GetPartitionsSize: when true, get the size of the partitions from s3
-	// CapDobYears: number of years to cap dob (date of birth) to today - for Anonymization
-	// SetDodToJan1: set dod (date of death) to January 1st of the date year - for Anonymization
-	// UseLazyQuotes, UseLazyQuotesSpecial, VariableFieldsPerRecord: see csv.NewReader
-	// QuoteAllRecords will quote all records for csv writer
-	// NoQuotes will no quote any records for csv writer (even if the record contains '"')
+	// CapDobYears: number of years to cap dob (date of birth) to today - for Anonymization.
+	// SetDodToJan1: set dod (date of death) to January 1st of the date year - for Anonymization.
+	// UseLazyQuotes, UseLazyQuotesSpecial, VariableFieldsPerRecord: see csv.NewReader.
+	// QuoteAllRecords will quote all records for csv writer.
+	// NoQuotes will no quote any records for csv writer (even if the record contains '"').
 	// Bucket and FileKey are location and source object (fileKey may be directory if IsPartFiles is true)
 	// KmsKey is kms key to use when writing output data. May be empty.
 	// RequestID is used for logging and tracking purpose.
 	// Contains properties to register FileKey with input_registry table:
-	// Client, Vendor, ObjectType, FileDate
+	// Client, Vendor, ObjectType, FileDate (does not apply to Jets_Loader).
 	// NotificationTemplatesOverrides have the following keys to override the templates defined
 	// in the deployment environment var: CPIPES_START_NOTIFICATION_JSON,
 	// CPIPES_COMPLETED_NOTIFICATION_JSON, and CPIPES_FAILED_NOTIFICATION_JSON.

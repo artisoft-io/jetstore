@@ -17,6 +17,7 @@ import (
 	"github.com/artisoft-io/jetstore/jets/csv"
 	"github.com/golang/snappy"
 	"github.com/jackc/pgx/v4/pgxpool"
+	"github.com/thedatashed/xlsxreader"
 )
 
 // Load multipart files to JetStore, file to load are provided by channel fileNameCh
@@ -122,15 +123,27 @@ func (cpCtx *ComputePipesContext) LoadFiles(ctx context.Context, dbpool *pgxpool
 	// Get the FixedWidthEncodingInfo from the schema provider in case it is modified
 	// downstream (aka anonymize operator)
 	var fwEncodingInfo *FixedWidthEncodingInfo
+	var xlsxSheetInfo map[string]any
 	if sp != nil {
 		fwEncodingInfo = sp.FixedWidthEncodingInfo()
+		sheetInfoJson := sp.InputFormatDataJson()
+		// log.Println(" *** LoadFiles: got xlsx sheet info json:", sheetInfoJson)
+		if len(sheetInfoJson) > 0 {
+			xlsxSheetInfo, err = ParseInputFormatDataXlsx(&sheetInfoJson)
+			if err != nil {
+				err = fmt.Errorf("%s while parsing xlsx sheet info metadata: %v", cpCtx.SessionId, err)
+				log.Println(err)
+				cpCtx.ChResults.LoadFromS3FilesResultCh <- LoadFromS3FilesResult{LoadRowCount: 0, BadRowCount: 0, Err: err}
+				return
+			}
+		}
 	}
 
 	samplingMaxCount := int64(inputChannelConfig.SamplingMaxCount)
 	readBatchSize := inputChannelConfig.ReadBatchSize
-	var count, totalRowCount int64
-	var badRowcount, totalBadRowCount int64
+	var count, totalRowCount, badRowCount, totalBadRowCount int64
 	gotMaxRecordCount := false
+
 	for localInFile := range cpCtx.FileNamesCh {
 		if gotMaxRecordCount {
 			// Don't read more records
@@ -142,44 +155,52 @@ func (cpCtx *ComputePipesContext) LoadFiles(ctx context.Context, dbpool *pgxpool
 		}
 		// Encapsulte the switch so to factor out file handling
 		err = func() (err error) {
-			fileHd, err := os.Open(localInFile.LocalFileName)
-			if err != nil {
-				return fmt.Errorf("while opening temp file '%s' (LoadFiles): %v", localInFile.LocalFileName, err)
-			}
-			defer func() {
-				fileHd.Close()
-				os.Remove(localInFile.LocalFileName)
-			}()
 
 			switch inputFormat {
-			//*TODO Read xlsx files
-			case "csv", "headerless_csv":
-				count, badRowcount, err = cpCtx.ReadCsvFile(
-					&localInFile, fileHd, castToRdfTxtTypeFncs, computePipesInputCh, badRowChannel)
 
-			case "parquet", "parquet_select":
-				count, err = cpCtx.ReadParquetFileV2(
-					&localInFile, fileHd, readBatchSize, castToRdfTxtTypeFncs, inputSchemaCh, computePipesInputCh)
-				if inputSchemaCh != nil {
-					close(inputSchemaCh)
-					inputSchemaCh = nil
-				}
-				badRowcount = 0
-
-			case "fixed_width":
-				count, badRowcount, err = cpCtx.ReadFixedWidthFile(
-					&localInFile, fileHd, fwEncodingInfo, castToRdfTxtTypeFncs, computePipesInputCh, badRowChannel)
+			case "xlsx", "headerless_xlsx":
+				count, badRowCount, err = cpCtx.ReadXlsxFile(&localInFile, xlsxSheetInfo, castToRdfTxtTypeFncs,
+					computePipesInputCh, badRowChannel)
 
 			default:
-				err = fmt.Errorf("%s node %d, error: unsupported file format: %s", cpCtx.SessionId, cpCtx.NodeId, inputFormat)
-				log.Println(err)
-				cpCtx.ChResults.LoadFromS3FilesResultCh <- LoadFromS3FilesResult{LoadRowCount: totalRowCount, BadRowCount: totalBadRowCount, Err: err}
-				return
+				fileHd, err2 := os.Open(localInFile.LocalFileName)
+				if err2 != nil {
+					return fmt.Errorf("while opening temp file '%s' (LoadFiles): %v", localInFile.LocalFileName, err2)
+				}
+				defer func() {
+					fileHd.Close()
+					os.Remove(localInFile.LocalFileName)
+				}()
+
+				switch inputFormat {
+				case "csv", "headerless_csv":
+					count, badRowCount, err = cpCtx.ReadCsvFile(
+						&localInFile, fileHd, castToRdfTxtTypeFncs, computePipesInputCh, badRowChannel)
+
+				case "parquet", "parquet_select":
+					count, err = cpCtx.ReadParquetFileV2(
+						&localInFile, fileHd, readBatchSize, castToRdfTxtTypeFncs, inputSchemaCh, computePipesInputCh)
+					if inputSchemaCh != nil {
+						close(inputSchemaCh)
+						inputSchemaCh = nil
+					}
+					badRowCount = 0
+
+				case "fixed_width":
+					count, badRowCount, err = cpCtx.ReadFixedWidthFile(
+						&localInFile, fileHd, fwEncodingInfo, castToRdfTxtTypeFncs, computePipesInputCh, badRowChannel)
+
+				default:
+					err = fmt.Errorf("%s node %d, error: unsupported file format: %s", cpCtx.SessionId, cpCtx.NodeId, inputFormat)
+					log.Println(err)
+					cpCtx.ChResults.LoadFromS3FilesResultCh <- LoadFromS3FilesResult{LoadRowCount: totalRowCount, BadRowCount: totalBadRowCount, Err: err}
+					return
+				}
 			}
 			return
 		}()
 		totalRowCount += count
-		totalBadRowCount += badRowcount
+		totalBadRowCount += badRowCount
 		if err != nil {
 			log.Println(cpCtx.SessionId, "node", cpCtx.NodeId, "LoadFile returned error", err)
 			cpCtx.ChResults.LoadFromS3FilesResultCh <- LoadFromS3FilesResult{LoadRowCount: totalRowCount, BadRowCount: totalBadRowCount, Err: err}
@@ -532,6 +553,205 @@ func (cpCtx *ComputePipesContext) ReadCsvFile(
 	}
 }
 
+// ReadXlsxFile reads an xlsx file and sends the records to computePipesInputCh
+// EnforceRowMinLength and EnforceRowMaxLength does not apply to xlsx files, values
+// past the last expected field are ignored. As a result badRowChannel is not used.
+func (cpCtx *ComputePipesContext) ReadXlsxFile(filePath *FileName, xlsxSheetInfo map[string]any,
+	castToRdfTxtTypeFncs []CastToRdfTxtFnc, computePipesInputCh chan<- []any,
+	badRowChannel *BadRowsChannel) (int64, int64, error) {
+
+	var xl *xlsxreader.XlsxFileCloser
+	var xlCh chan xlsxreader.Row
+	var currentSheetPos int
+	var err error
+	inputChannelConfig := cpCtx.CpConfig.PipesConfig[0].InputChannel
+	samplingRate := inputChannelConfig.SamplingRate
+	samplingMaxCount := int64(inputChannelConfig.SamplingMaxCount)
+	inputFormat := inputChannelConfig.Format
+	multiColumns := inputChannelConfig.MultiColumnsInput
+
+	var extColumns []string
+	var expectedNbrColumnsInFile int
+	var recordLength int = len(cpCtx.CpConfig.CommonRuntimeArgs.SourcesConfig.MainInput.InputColumns)
+	// Get the encoding(from the schema provider)
+	encoding := inputChannelConfig.Encoding
+	compression := inputChannelConfig.Compression
+	log.Printf("ReadXlsxFile: encoding '%s', multiColumns? %v\n", encoding, multiColumns)
+
+	switch cpCtx.CpConfig.CommonRuntimeArgs.CpipesMode {
+	case "sharding":
+		// Prepare the extended columns from partfile_key_component
+		if len(cpCtx.PartFileKeyComponents) > 0 {
+			extColumns = make([]string, len(cpCtx.PartFileKeyComponents))
+			for i := range cpCtx.PartFileKeyComponents {
+				result := cpCtx.PartFileKeyComponents[i].Regex.FindStringSubmatch(filePath.InFileKeyInfo.key)
+				if len(result) > 1 {
+					extColumns[i] = result[1]
+				}
+			}
+		}
+		// Determine the expected row length comming from file (i.e. excluding part file key component and added
+		// columns on input_row channel)
+		expectedNbrColumnsInFile = recordLength - len(cpCtx.AddionalInputHeaders) - len(cpCtx.PartFileKeyComponents)
+		// log.Printf("** Main (all) Input Columns %d: %s", recordLength, cpCtx.CpConfig.CommonRuntimeArgs.SourcesConfig.MainInput.InputColumns)
+		// log.Printf("** AddionalInputHeaders %d: %s", len(cpCtx.AddionalInputHeaders), cpCtx.AddionalInputHeaders)
+		// log.Printf("** PartFileKeyComponents %d: %s", len(cpCtx.PartFileKeyComponents), cpCtx.PartFileKeyComponents)
+		// log.Printf("** ExpectedNbrColumnsInFile: %d", expectedNbrColumnsInFile)
+	case "reducing":
+		// Bad Rows are identified during the sharding phase only
+		badRowChannel = nil
+	}
+	// log.Printf("*** ReadXlsxFile: read file from %d to %d of file size %d\n", filePath.InFileKeyInfo.start, filePath.InFileKeyInfo.end, filePath.InFileKeyInfo.size)
+
+	switch compression {
+
+	case "none", "":
+		// open the file, need to get the sheet structure
+		xl, err = xlsxreader.OpenFile(filePath.LocalFileName)
+		if err != nil {
+			return 0, 0, fmt.Errorf("while opening file %s using xlsx reader: %v", filePath.LocalFileName, err)
+		}
+		defer func() {
+			xl.Close()
+			os.Remove(filePath.LocalFileName)
+		}()
+
+		// defaults to 0 sheet position
+		currentSheetPos, _ = xlsxSheetInfo["currentSheetPos"].(int)
+		xlCh = xl.ReadRows(xl.Sheets[currentSheetPos])
+		if inputFormat == "xlsx" {
+			// Skip the header line
+			var row xlsxreader.Row
+			var ok bool
+			for {
+				row, ok = <-xlCh
+				if !ok || row.Error != nil {
+					if row.Error == io.EOF {
+						// empty file
+						return 0, 0, nil
+					}
+					return 0, 0, fmt.Errorf("error: could not re-read headers from xlsx file")
+				}
+				if len(row.Cells) > 1 {
+					// ok got headers
+					// log.Printf("*** ReadXlsxFile: skip header row (%d headers): %v \n", len(row.Cells), row.Cells)
+					break
+				}
+			}
+		}
+
+	default:
+		return 0, 0, fmt.Errorf("error: compression is not supported for xlsx file: %s", compression)
+	}
+
+	var inputRowCount, badRowCount int64
+	var value any
+	var txtValue string
+	var record []any
+
+	// Determine if trim the columns
+	trimColumns := false
+	if cpCtx.CpConfig.CommonRuntimeArgs.CpipesMode == "sharding" {
+		trimColumns = inputChannelConfig.TrimColumns
+	}
+
+	for {
+		// read and put the rows into computePipesInputCh
+		row, ok := <-xlCh
+		if !ok {
+			err = io.EOF
+		}
+		if row.Error != nil {
+			err = row.Error
+		}
+
+		switch {
+		case err == io.EOF:
+			// expected exit route when not droping the last row
+			return inputRowCount, badRowCount, nil
+
+		case err != nil:
+			// Got unexpected error - err out
+			return inputRowCount, badRowCount,
+				fmt.Errorf("unexpected error while reading input records (ReadXlsxFile-2): %v", err)
+		}
+
+		if inputRowCount > 0 {
+			if samplingRate > 0 {
+				cpCtx.SamplingCount += 1
+				if cpCtx.SamplingCount < samplingRate {
+					continue
+				}
+			}
+			if samplingMaxCount > 0 && inputRowCount >= samplingMaxCount {
+				// No need to continue, reach max sampling count
+				return inputRowCount, badRowCount, nil
+			}
+		}
+		cpCtx.SamplingCount = 0
+
+		record = make([]any, recordLength)
+		var errCol error
+		for i := range row.Cells {
+			cpos := row.Cells[i].ColumnIndex()
+			if cpos >= expectedNbrColumnsInFile {
+				// Ignore extra columns
+				continue
+			}
+			// log.Printf("*** ReadXlsxFile: processing row %d, column %d value '%s'\n", inputRowCount, cpos, row.Cells[i].Value)
+			if trimColumns {
+				txtValue = strings.TrimSpace(row.Cells[i].Value)
+			} else {
+				txtValue = row.Cells[i].Value
+			}
+			if len(txtValue) == 0 {
+				value = nil
+			} else {
+				if castToRdfTxtTypeFncs != nil && castToRdfTxtTypeFncs[cpos] != nil {
+					value, errCol = castToRdfTxtTypeFncs[cpos](txtValue)
+					if errCol != nil {
+						// Got a bad conversion, make it a bad row? - need to capture the error message...
+						// This is not expected since the cast function are based on the expected data type
+						return 0, 0, fmt.Errorf("error while applying castToRdfTxtTypeFncs (ReadXlsxFile): %v", errCol)
+					}
+				} else {
+					value = txtValue
+				}
+			}
+			record[cpos] = value
+		}
+		// Add the columns from the partfile_key_component
+		if len(extColumns) > 0 {
+			// log.Println("**!@@",cpCtx.SessionId,"partfile_key_component GOT[0]",cpCtx.PartFileKeyComponents[0].ColumnName,"offset",offset,"InputColumn",cpCtx.InputColumns[offset])
+			for i := range extColumns {
+				record[expectedNbrColumnsInFile+i] = extColumns[i]
+			}
+		}
+		// log.Println("*** Casted to RDF TYPE:", record)
+		// Add placeholders for the additional input headers/columns -- already considered in size of record
+
+		// Kill Switch - prevent lambda timeout
+		if cpCtx.CpConfig.ClusterConfig.KillSwitchMin > 0 &&
+			time.Since(ComputePipesStart).Minutes() >= float64(cpCtx.CpConfig.ClusterConfig.KillSwitchMin) {
+			return inputRowCount, badRowCount, ErrKillSwitch
+		}
+
+		// // Remove invalid utf-8 sequence from input record
+		// for i := range record {
+		// 	record[i] = strings.ToValidUTF8(record[i], "")
+		// }
+		log.Println(cpCtx.SessionId,"node",cpCtx.NodeId, "push record to computePipesInputCh with",len(record),"columns")
+		// log.Println("*Sending Record:",record)
+		select {
+		case computePipesInputCh <- record:
+		case <-cpCtx.Done:
+			log.Println("loading input row from xlsx file interrupted")
+			return inputRowCount, badRowCount, nil
+		}
+		inputRowCount += 1
+	}
+}
+
 func LastIndexByte(s []byte, c byte) int {
 	for i := len(s) - 1; i >= 0; i-- {
 		if s[i] == c {
@@ -625,7 +845,7 @@ func (cpCtx *ComputePipesContext) ReadFixedWidthFile(
 		// log.Printf("*** OFFSET POSITIONING SEEKING to pos %d\n", l+beOffset+1)
 		_, err = fileReader.Seek(int64(l+beOffset+1), 0)
 		if err != nil {
-			return 0, 0, fmt.Errorf("error while seeking to start of shard in ReadCsvFile: %v", err)
+			return 0, 0, fmt.Errorf("error while seeking to start of shard in ReadFixedWidthFile: %v", err)
 		}
 	}
 	utfReader, err = WrapReaderWithDecoder(fileReader, encoding)
@@ -800,7 +1020,7 @@ loop_record:
 		case err != nil:
 			if strings.Contains(err.Error(), "token too long") {
 				return 0, 0, fmt.Errorf(
-					"error while reading input fixed_width records: %v, is this Base64 encoded data? Individual lines exceed 64KB without any line breaks, this is not a proper fixed-width file", 
+					"error while reading input fixed_width records: %v, is this Base64 encoded data? Individual lines exceed 64KB without any line breaks, this is not a proper fixed-width file",
 					err)
 			}
 			return 0, 0, fmt.Errorf("error while reading input fixed_width records: %v", err)

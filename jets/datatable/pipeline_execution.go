@@ -203,7 +203,7 @@ func (ctx *DataTableContext) InsertPipelineExecutionStatus(dataTableAction *Data
 	// Post Processing Hook
 	switch dataTableAction.FromClauses[0].Table {
 	case "input_loader_status":
-		httpStatus, err = ctx.startLoader(dataTableAction, irow, sqlStmt, peKey, token)
+		httpStatus, err = ctx.startLoader(dataTableAction, irow, peKey, token)
 
 	case "pipeline_execution_status", "short/pipeline_execution_status":
 		if status == "submitted" {
@@ -730,45 +730,40 @@ func (ctx *DataTableContext) runPipelineLocally(devModeCode string, task *Pendin
 }
 
 func (ctx *DataTableContext) startLoader(dataTableAction *DataTableAction, irow int,
-	sqlStmt *SqlInsertDefinition, inputLoaderStatusKey int, token string) (httpStatus int, err error) {
+	inputLoaderStatusKey int, token string) (httpStatus int, err error) {
 	httpStatus = http.StatusOK
 
 	// Run the loader
-	row := make(map[string]any, len(sqlStmt.ColumnKeys))
-	for _, colKey := range sqlStmt.ColumnKeys {
-		v := dataTableAction.Data[irow][colKey]
-		if v != nil {
-			switch vv := v.(type) {
-			case string:
-				row[colKey] = vv
-			case int:
-				row[colKey] = strconv.Itoa(vv)
-			}
-		}
-	}
 	// extract the columns we need for the loader
+	row := dataTableAction.Data[irow]
 	objType := row["object_type"]
 	client := row["client"]
 	clientOrg := row["org"]
 	tableName := row["table_name"]
 	fileKey := row["file_key"]
-	inputRegistrySessionId := dataTableAction.Data[irow]["input_registry.session_id"]
+	inputRegistrySessionId := row["input_registry.session_id"] // Session id used to register the file in input_registry table
+	originSessionId := row["session_id"]                       // Loader session id is the origin session id
 	userEmail := row["user_email"]
-	if objType == nil || client == nil || fileKey == nil || inputRegistrySessionId == nil || userEmail == nil {
-		log.Printf(
-			"error while preparing to run loader: unexpected nil among: objType: %v, client: %v, fileKey: %v, inputRegistrySessionId: %v, userEmail %v",
-			objType, client, fileKey, inputRegistrySessionId, userEmail)
+	if objType == nil || client == nil || fileKey == nil || inputRegistrySessionId == nil ||
+		originSessionId == nil || userEmail == nil {
+		log.Printf("error while preparing to run loader: unexpected nil among: objType: %v,"+
+			" client: %v, fileKey: %v, inputRegistrySessionId: %v, originSessionId: %v, userEmail %v",
+			objType, client, fileKey, inputRegistrySessionId, originSessionId, userEmail)
 		httpStatus = http.StatusInternalServerError
 		err = errors.New("error while running loader command")
 		return
 	}
 
-	// Get the input_registry key from input_registry table
+	// Get the file info for the file to load from input_registry table
+	// originDomainKeys is needed to register the loaded file in input_registry table after the load
+	// is successful.
 	var inputRegistryKey sql.NullInt64
 	var year, month, day int
 	var inputFormat string
+	var originDomainKeys []string
+	var originSchemaProviderJson string
 	stmt := `
-		SELECT ir.key, year, month, day, sc.input_format
+		SELECT sp.key, year, month, day, sc.input_format, sc.domain_keys, ir.schema_provider_json
 		FROM  jetsapi.input_registry ir, jetsapi.source_period sp, jetsapi.source_config sc
 		WHERE ir.file_key = $1 
 		  AND ir.session_id = $2
@@ -776,15 +771,15 @@ func (ctx *DataTableContext) startLoader(dataTableAction *DataTableAction, irow 
 			AND ir.client = sc.client
 			AND ir.object_type = sc.object_type
 			AND ir.org = sc.org`
-	err = ctx.Dbpool.QueryRow(context.Background(), stmt, fileKey, inputRegistrySessionId).Scan(&inputRegistryKey, &year, &month, &day, &inputFormat)
+	err = ctx.Dbpool.QueryRow(context.Background(), stmt, fileKey, inputRegistrySessionId).Scan(
+		&inputRegistryKey, &year, &month, &day, &inputFormat, &originDomainKeys, &originSchemaProviderJson)
 	if err != nil {
-		log.Printf("While getting input_registry key for file_key '%s' and session_id '%s': %v", fileKey, inputRegistrySessionId, err)
+		log.Printf("While getting file info for file_key '%s' and session_id '%s': %v", fileKey, inputRegistrySessionId, err)
 		httpStatus = http.StatusInternalServerError
 		err = errors.New("error while reading from input_registry table")
 		return
 	}
 
-	// Start the Jet_Loader pipeline
 	if !inputRegistryKey.Valid {
 		log.Printf("error: got nil key from input_registry key for file_key '%s' and session_id '%s'", fileKey, inputRegistrySessionId)
 		httpStatus = http.StatusInternalServerError
@@ -792,13 +787,17 @@ func (ctx *DataTableContext) startLoader(dataTableAction *DataTableAction, irow 
 		return
 	}
 
+	// Start the Jet_Loader pipeline, running pipeline as Any client and object_type
 	// Make the schema provider to start the Jet_Loader pipeline
 	cpipesEnv := map[string]any{
-		"$CLIENT":                  client,
-		"$ORG":                     clientOrg,
-		"$OBJECT_TYPE":             objType,
-		"$INPUT_LOADER_STATUS_KEY": inputLoaderStatusKey,
-		"$STAGING_TABLE_NAME":      tableName,
+		"$CLIENT":                   client,
+		"$ORG":                      clientOrg,
+		"$OBJECT_TYPE":              objType,
+		"$ORIGIN_SESSIONID":         originSessionId,
+		"$ORIGIN_DOMAIN_KEYS":       originDomainKeys,
+		"$ORIGIN_SOURCE_PERIOD_KEY": int(inputRegistryKey.Int64),
+		"$INPUT_LOADER_STATUS_KEY":  inputLoaderStatusKey,
+		"$STAGING_TABLE_NAME":       tableName,
 	}
 	schemaInfo := map[string]any{
 		"key":                        "_main_input_",
@@ -824,6 +823,60 @@ func (ctx *DataTableContext) startLoader(dataTableAction *DataTableAction, irow 
 		"env":                        cpipesEnv,
 	}
 
+	if len(originSchemaProviderJson) > 0 {
+		// Put the origin schema_provider_json into the cpipesEnv since we need it to register the loaded file
+		//*TODO compress and encode base64 if too big?
+		cpipesEnv["$ORIGIN_SCHEMA_PROVIDER_JSON"] = originSchemaProviderJson
+
+		// Unmarshal the origin schema_provider_json to get loading information
+		var originSchemaProvider map[string]any
+		err = json.Unmarshal([]byte(originSchemaProviderJson), &originSchemaProvider)
+		if err != nil {
+			log.Printf("While unmarshalling origin schema_provider_json: %v", err)
+			httpStatus = http.StatusInternalServerError
+			err = errors.New("error while preparing to start Jet_Loader pipeline")
+			return
+		}
+		// Copy over information needed to loading the file, overrides defaults set above
+		var v any
+		var ok bool
+		keyColumns := []string{
+			"bucket",
+			"compression",
+			"delimiter",
+			"detect_cr_as_eol",
+			"detect_encoding",
+			"domain_class",
+			"domain_keys",
+			"encoding",
+			"enforce_row_max_length",
+			"enforce_row_min_length",
+			"eol_byte",
+			"file_key",
+			"file_name",
+			"fixed_width_columns_csv",
+			"format",
+			"input_format_data_json",
+			"is_part_files",
+			"main_input_row_count",
+			"multi_columns_input",
+			"nbr_rows_in_record",
+			"no_quotes",
+			"quote_all_records",
+			"read_date_layout",
+			"trim_columns",
+			"use_lazy_quotes",
+			"use_lazy_quotes_special",
+			"variable_fields_per_record",
+		}
+		for _, k := range keyColumns {
+			if v, ok = originSchemaProvider[k]; ok {
+				schemaInfo[k] = v
+			}
+		}
+	}
+
+	// In DevMode, set the cpipesEnv to DataTableContext for use by Jet_Loader process
 	if ctx.DevMode {
 		ctx.CpipesEnv = cpipesEnv
 		log.Println("DevMode: Setting cpipes env to DataTableContext")
@@ -836,7 +889,7 @@ func (ctx *DataTableContext) startLoader(dataTableAction *DataTableAction, irow 
 		return
 	}
 
-	log.Printf("Started Jet_Loader pipeline for input_loader_status key %d", inputLoaderStatusKey)
+	// log.Printf("Started Jet_Loader pipeline for input_loader_status key %d", inputLoaderStatusKey)
 	return
 }
 

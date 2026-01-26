@@ -51,6 +51,11 @@ type DataTableContext struct {
 
 func NewDataTableContext(dbpool *pgxpool.Pool, devMode bool, usingSshTunnel bool,
 	unitTestDir *string, adminEmail *string) *DataTableContext {
+		
+	if adminEmail != nil {
+		v := os.Getenv("JETS_ADMIN_EMAIL")
+		adminEmail = &v
+	}
 	return &DataTableContext{
 		Dbpool:         dbpool,
 		DevMode:        devMode,
