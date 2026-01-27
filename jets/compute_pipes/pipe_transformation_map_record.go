@@ -98,8 +98,10 @@ func (ctx *BuilderContext) NewMapRecordTransformationPipe(source *InputChannel, 
 	columnEvaluators := make([]TransformationColumnEvaluator, 0, len(spec.Columns))
 	// Check if we use the mapping spec from jetstore ui
 	if config != nil && len(config.FileMappingTableName) > 0 {
+		// Apply environment variable substitution
+		fileMappingTableName := utils.ReplaceEnvVars(config.FileMappingTableName, ctx.env)
 		// Load the mapping spec from jetsapi.process_mapping
-		inputMappingItems, err := GetInputMapping(ctx.dbpool, config.FileMappingTableName)
+		inputMappingItems, err := GetInputMapping(ctx.dbpool, fileMappingTableName)
 		if err != nil {
 			return nil, fmt.Errorf("while getting mapping details from jetstore db: %v", err)
 		}
