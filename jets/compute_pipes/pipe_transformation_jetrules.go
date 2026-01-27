@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/artisoft-io/jetstore/jets/datatable/jcsv"
+	"github.com/artisoft-io/jetstore/jets/utils"
 	"github.com/jackc/pgx/v4"
 )
 
@@ -88,7 +89,10 @@ func (ctx *BuilderContext) NewJetrulesTransformationPipe(source *InputChannel, _
 		ctx.nodeId, ctx.cpConfig.CommonRuntimeArgs.MainInputStepId, jrFactory.JetRulesName())
 
 	// Get the jetrules engine for the process
-	ruleEngine, err := jrFactory.NewJetRuleEngine(ctx.dbpool, config.ProcessName, config.IsDebug)
+	// Apply environment variables
+	processName := utils.ReplaceEnvVars(config.ProcessName, ctx.env)
+	log.Printf("**& *JETRULES* NewJetrulesTransformationPipe - ProcessName: %s", processName)
+	ruleEngine, err := jrFactory.NewJetRuleEngine(ctx.dbpool, processName, config.IsDebug)
 	if err != nil {
 		return nil, err
 	}
