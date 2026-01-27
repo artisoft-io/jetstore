@@ -51,7 +51,7 @@ type DataTableContext struct {
 
 func NewDataTableContext(dbpool *pgxpool.Pool, devMode bool, usingSshTunnel bool,
 	unitTestDir *string, adminEmail *string) *DataTableContext {
-		
+
 	if adminEmail != nil {
 		v := os.Getenv("JETS_ADMIN_EMAIL")
 		adminEmail = &v
@@ -105,13 +105,14 @@ type WithClause struct {
 	Stmt string `json:"stmt"`
 }
 type WhereClause struct {
-	Table    string   `json:"table"`
-	Column   string   `json:"column"`
-	Values   []string `json:"values"`
-	JoinWith string   `json:"joinWith"`
-	Like     string   `json:"like"`
-	Ge       string   `json:"ge"`
-	Le       string   `json:"le"`
+	Table       string   `json:"table"`
+	Column      string   `json:"column"`
+	Values      []string `json:"values"`
+	NotInValues []string `json:"not_in_values"`
+	JoinWith    string   `json:"joinWith"`
+	Like        string   `json:"like"`
+	Ge          string   `json:"ge"`
+	Le          string   `json:"le"`
 	// Adding a simple or clause
 	OrWith *WhereClause `json:"orWith"`
 }
@@ -314,6 +315,18 @@ func (dtq *DataTableAction) makeWithClause() string {
 	return buf.String()
 }
 
+func parseWcValue(value string) []string {
+	// Check if value contains an pg array encoded into a string
+	if value == "{}" {
+		return []string{"NULL"}
+	} else {
+		if strings.HasPrefix(value, "{") && strings.HasSuffix(value, "}") {
+			return strings.Split(value[1:len(value)-1], ",")
+		}
+		return []string{value}
+	}
+}
+
 func visitWhereClause(buf *strings.Builder, wc *WhereClause) {
 	if wc.OrWith != nil {
 		buf.WriteString("( ")
@@ -323,17 +336,24 @@ func visitWhereClause(buf *strings.Builder, wc *WhereClause) {
 	} else {
 		buf.WriteString(pgx.Identifier{wc.Column}.Sanitize())
 	}
-	nvalues := len(wc.Values)
+	// Check if we have IN (values...) -- indicated by multiple wc.Values
 	// Check if value contains an pg array encoded into a string
-	if nvalues == 1 {
-		if wc.Values[0] == "{}" {
-			wc.Values[0] = "NULL"
-		} else {
-			v := wc.Values[0]
-			if strings.HasPrefix(v, "{") && strings.HasSuffix(v, "}") {
-				wc.Values = strings.Split(v[1:len(v)-1], ",")
-				nvalues = len(wc.Values)
-			}
+	var inOp, eqOp string
+	var wcValues []string
+	switch {
+	case len(wc.Values) > 0:
+		wcValues = wc.Values
+		inOp = " IN ("
+		eqOp = " = '"
+		if len(wc.Values) == 1 {
+			wcValues = parseWcValue(wc.Values[0])
+		}
+	case len(wc.NotInValues) > 0:
+		inOp = " NOT IN ("
+		eqOp = " != '"
+		wcValues = wc.NotInValues
+		if len(wc.NotInValues) == 1 {
+			wcValues = parseWcValue(wc.NotInValues[0])
 		}
 	}
 	switch {
@@ -345,15 +365,15 @@ func visitWhereClause(buf *strings.Builder, wc *WhereClause) {
 	case len(wc.JoinWith) > 0:
 		buf.WriteString(" = ")
 		buf.WriteString(wc.JoinWith)
-	case nvalues > 1:
-		buf.WriteString(" IN (")
+	case len(wcValues) > 1:
+		buf.WriteString(inOp)
 		isFirstValue := true
-		for j := range wc.Values {
+		for j := range wcValues {
 			if !isFirstValue {
 				buf.WriteString(", ")
 			}
 			isFirstValue = false
-			value := wc.Values[j]
+			value := wcValues[j]
 			if value == "NULL" {
 				buf.WriteString(" NULL ")
 			} else {
@@ -363,12 +383,12 @@ func visitWhereClause(buf *strings.Builder, wc *WhereClause) {
 			}
 		}
 		buf.WriteString(") ")
-	case nvalues == 1:
-		value := wc.Values[0]
+	case len(wcValues) == 1:
+		value := wcValues[0]
 		if value == "NULL" {
 			buf.WriteString(" is NULL ")
 		} else {
-			buf.WriteString(" = '")
+			buf.WriteString(eqOp)
 			buf.WriteString(value)
 			buf.WriteString("'")
 		}
@@ -780,7 +800,7 @@ func (ctx *DataTableContext) InsertRows(dataTableAction *DataTableAction, token 
 // utility methods
 func execQuery(dbpool *pgxpool.Pool, dataTableAction *DataTableAction, query *string) (*[][]interface{}, *[]DataTableColumnDef, error) {
 	// //DEV
-	// fmt.Println("\n*** UI Query:\n", *query)
+	// fmt.Print("\n*** UI Query:\n", *query, "\n\n")
 	resultRows := make([][]interface{}, 0, dataTableAction.Limit)
 	var columnDefs []DataTableColumnDef
 	rows, err := dbpool.Query(context.Background(), *query)
