@@ -1,4 +1,3 @@
-import 'package:jetsclient/modules/data_table_config_impl.dart';
 import 'package:jetsclient/routes/jets_routes_app.dart';
 import 'package:jetsclient/utils/constants.dart';
 import 'package:jetsclient/models/data_table_config.dart';
@@ -80,6 +79,13 @@ final Map<String, TableConfig> _tableConfigurations = {
           isHidden: false),
       ColumnConfig(
           index: 5,
+          name: "input_format",
+          label: 'File Format',
+          tooltips: 'Format of the input file',
+          isNumeric: false,
+          isHidden: false),
+      ColumnConfig(
+          index: 6,
           name: "last_update",
           label: 'Last Updated',
           tooltips: 'Indicates when the record was last updated',
@@ -90,7 +96,7 @@ final Map<String, TableConfig> _tableConfigurations = {
     rowsPerPage: 20,
   ),
 
-  // File Key Staging Data Table used to load files
+  // Input Registry (was file key staging) Data Table used to load files
   DTKeys.lfFileKeyStagingTable: TableConfig(
     key: DTKeys.lfFileKeyStagingTable,
     fromClauses: [

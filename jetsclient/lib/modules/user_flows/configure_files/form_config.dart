@@ -287,7 +287,41 @@ final Map<String, FormConfig> _formConfigurations = {
             obscureText: false,
             textRestriction: TextRestriction.none,
             maxLines: 13,
-            maxLength: 51200),
+            maxLength: 102400),
+      ],
+      [
+        PaddingConfig(height: 2 * defaultPadding),
+      ],
+    ],
+    formValidatorDelegate: configureFilesFormValidator,
+    formActionsDelegate: doNothingAction,
+  ),
+  FormKeys.scAddSchemaProviderJsonUF: FormConfig(
+    key: FormKeys.scAddSchemaProviderJsonUF,
+    useListView: true,
+    actions: standardActions,
+    inputFields: [
+      [
+        PaddingConfig(height: 1 * defaultPadding),
+      ],
+      [
+        TextFieldConfig(
+            label: "Paste or enter the Schema Provider JSON:",
+            maxLines: 1,
+            topMargin: 0,
+            bottomMargin: 0),
+      ],
+      [
+        FormInputFieldConfig(
+            key: FSK.schemaProviderJson,
+            label: "Schema Provider JSON",
+            hint: "Client-Specific Schema Provider JSON",
+            flex: 1,
+            autofocus: false,
+            obscureText: false,
+            textRestriction: TextRestriction.none,
+            maxLines: 13,
+            maxLength: 102400),
       ],
       [
         PaddingConfig(height: 2 * defaultPadding),

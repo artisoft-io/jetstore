@@ -63,6 +63,19 @@ String? configureFilesFormValidator(
         return "Domain keys is not a valid json: ${e.toString()}";
       }
       return null;
+
+    case FSK.schemaProviderJson:
+      String? value = unpack(v);
+      if (value == null || value.isEmpty) {
+        return null; // this field is nullable
+      }
+      // Validate that value is valid json
+      try {
+        jsonDecode(value);
+      } catch (e) {
+        return "Schema Provider JSON is not a valid json: ${e.toString()}";
+      }
+      return null;
     case FSK.codeValuesMappingJson:
       //* codeValuesMappingJson can be json or csv, not validating csv so not validating json here
       // String? value = v;
@@ -160,7 +173,7 @@ Future<String?> configureFilesFormActions(
       state[FSK.domainKeysJson] = unpack(state[FSK.domainKeysJson]);
       state[FSK.codeValuesMappingJson] =
           unpack(state[FSK.codeValuesMappingJson]);
-      state[FSK.computePipesJson] = unpack(state[FSK.computePipesJson]);
+      state[FSK.schemaProviderJson] = unpack(state[FSK.schemaProviderJson]);
       state[FSK.automated] = '0';
       state[FSK.scFileTypeOption] = unpack(state[FSK.scFileTypeOption]);
       // Map part file indicator
@@ -324,7 +337,7 @@ Future<String?> configureFilesFormActions(
       state.remove(FSK.inputColumnsPositionsCsv);
       state.remove(FSK.domainKeysJson);
       state.remove(FSK.codeValuesMappingJson);
-      state.remove(FSK.computePipesJson);
+      state.remove(FSK.schemaProviderJson);
       if (context.mounted) {
         final statusCode = await postSimpleAction(
             context, formState, ServerEPs.dataTableEP, encodedJsonBody);

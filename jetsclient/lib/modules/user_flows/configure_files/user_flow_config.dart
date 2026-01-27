@@ -146,6 +146,12 @@ final Map<String, UserFlowConfig> _userFlowConfigurations = {
         description: 'Edit Code Value Mapping',
         formConfig: getFormConfig(FormKeys.scEditCodeValueMappingUF),
         actionDelegate: configureFilesFormActions,
+        defaultNextState: "add_schema_provider_json"),
+    "add_schema_provider_json": UserFlowState(
+        key: "add_schema_provider_json",
+        description: 'Add Schema Provider JSON',
+        formConfig: getFormConfig(FormKeys.scAddSchemaProviderJsonUF),
+        actionDelegate: configureFilesFormActions,
         defaultNextState: "confirm_state"),
     "confirm_state": UserFlowState(
         key: "confirm_state",

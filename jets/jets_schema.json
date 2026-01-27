@@ -607,6 +607,11 @@
         "isNotNull": true
       },
       {
+        "columnName": "schema_provider_json",
+        "dataType": "text",
+        "description": "Additional file config, with lesser priority than the other settings on this table."
+      },
+      {
         "columnName": "compute_pipes_json",
         "description": "Compute pipes config in json (moved to process_config.main_rules)",
         "dataType": "text",

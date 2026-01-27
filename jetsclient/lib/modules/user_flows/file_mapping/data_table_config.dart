@@ -2,7 +2,7 @@ import 'package:jetsclient/routes/jets_routes_app.dart';
 import 'package:jetsclient/utils/constants.dart';
 import 'package:jetsclient/models/data_table_config.dart';
 
-/// Client Registry User Flow Tables
+/// File Mapping User Flow Tables
 final Map<String, TableConfig> _tableConfigurations = {
 
   // Input Source Mapping: use Source Config to select table

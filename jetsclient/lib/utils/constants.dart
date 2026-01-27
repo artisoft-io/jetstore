@@ -234,6 +234,7 @@ class FormKeys {
   static const scEditFixedWidthLayoutUF = "scEditFixedWidthLayoutUF";
   static const scEditDomainKeysUF = "scEditDomainKeysUF";
   static const scEditCodeValueMappingUF = "scEditCodeValueMappingUF";
+  static const scAddSchemaProviderJsonUF = "scAddSchemaProviderJsonUF";
   static const scEditAutomatedModeUF = "scEditAutomatedModeUF";
   static const scSummaryUF = "scSummaryUF";
   // Home Filters UF Forms
@@ -335,6 +336,7 @@ class FSK {
   static const inputColumnsJson = "input_columns_json";
   static const inputColumnsPositionsCsv = "input_columns_positions_csv";
   static const codeValuesMappingJson = "code_values_mapping_json";
+  static const schemaProviderJson = "schema_provider_json";
   static const computePipesJson = "compute_pipes_json";
   static const entityRdfType = "entity_rdf_type";
   static const entityKey = "entity_key";
