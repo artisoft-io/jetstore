@@ -123,15 +123,16 @@ func (args *StartComputePipesArgs) shardingInitializeCpipes(ctx context.Context,
 	// get pe info and pipeline config
 	// cpipesConfigFN is cpipes config file name within workspace
 	// tableName is the input_registry.table_name, needed when source_type = 'domain_table' since it correspond to className
+	// Read schema_provider_json from source_config and env_json from process_config.
 	var client, org, objectType, tableName, sourceType string
 	var schemaProviderJson string
-	var cpipesConfigFN sql.NullString
+	var cpipesConfigFN, envJson sql.NullString
 	log.Println("CPIPES, loading pipeline configurations")
 	stmt := `
 	SELECT	ir.client, ir.org, ir.object_type, ir.source_period_key, ir.schema_provider_json, 
 		ir.table_name, ir.source_type,
 		pe.pipeline_config_key, pe.process_name, pe.input_session_id, pe.user_email,
-		pc.main_rules
+		pc.main_rules, pc.env_json
 	FROM 
 		jetsapi.pipeline_execution_status pe,
 		jetsapi.input_registry ir,
@@ -142,7 +143,7 @@ func (args *StartComputePipesArgs) shardingInitializeCpipes(ctx context.Context,
 	err = dbpool.QueryRow(ctx, stmt, args.PipelineExecKey).Scan(
 		&client, &org, &objectType, &cpipesStartup.SourcePeriodKey, &schemaProviderJson, &tableName, &sourceType,
 		&cpipesStartup.PipelineConfigKey, &cpipesStartup.ProcessName, &cpipesStartup.InputSessionId, &cpipesStartup.OperatorEmail,
-		&cpipesConfigFN)
+		&cpipesConfigFN, &envJson)
 	if err != nil {
 		return cpipesStartup, fmt.Errorf("query pipeline configurations failed: %v", err)
 	}
@@ -215,10 +216,18 @@ func (args *StartComputePipesArgs) shardingInitializeCpipes(ctx context.Context,
 		}
 	}
 
+	// Merge the env var from process_config with mainInputSchemaProvider.Env
+	if envJson.Valid && len(envJson.String) > 0 {
+		err = json.Unmarshal([]byte(envJson.String), &cpipesStartup.MainInputSchemaProviderConfig.Env)
+		if err != nil {
+			return cpipesStartup, fmt.Errorf("while unmarshaling env_json: %s", err)
+		}
+	}
+
 	// Get the source_config information
 	var isPartFile int
 	var inputFormat, compression string
-	var icJson, icPosCsv, icDomainKeys, inputFormatDataJson sql.NullString
+	var icJson, icPosCsv, icDomainKeys, inputFormatDataJson, scSchemaProviderJson sql.NullString
 	scClient := client
 	scObjType := objectType
 	scOrg := org
@@ -230,16 +239,55 @@ func (args *StartComputePipesArgs) shardingInitializeCpipes(ctx context.Context,
 	}
 	stmt = `
 	SELECT sc.input_columns_json, sc.input_columns_positions_csv, sc.domain_keys_json, 
-		sc.input_format, sc.compression, sc.is_part_files, sc.input_format_data_json
+		sc.input_format, sc.compression, sc.is_part_files, sc.input_format_data_json, sc.schema_provider_json
 	FROM 
 		jetsapi.source_config sc
 	WHERE sc.client = $1
 		AND sc.org = $2
 		AND sc.object_type = $3`
 	err = dbpool.QueryRow(ctx, stmt, scClient, scOrg, scObjType).Scan(
-		&icJson, &icPosCsv, &icDomainKeys, &inputFormat, &compression, &isPartFile, &inputFormatDataJson)
+		&icJson, &icPosCsv, &icDomainKeys, &inputFormat, &compression, &isPartFile, &inputFormatDataJson, &scSchemaProviderJson)
 	if err != nil {
 		return cpipesStartup, fmt.Errorf("query pipeline configurations failed: %v", err)
+	}
+
+	// Merge a sub-set of fields from the source_config schema_provider_json into mainInputSchemaProvider
+	type SchemaProviderSourceConfig struct {
+		Env                       map[string]any `json:"env,omitempty"`
+		Delimiter                 rune           `json:"delimiter,omitzero"`
+		DetectCrAsEol             bool           `json:"detect_cr_as_eol,omitzero"`
+		DetectEncoding            bool           `json:"detect_encoding,omitzero"`
+		Encoding                  string         `json:"encoding,omitempty"`
+		EnforceRowMaxLength       bool           `json:"enforce_row_max_length,omitzero"`
+		EnforceRowMinLength       bool           `json:"enforce_row_min_length,omitzero"`
+		EolByte                   byte           `json:"eol_byte,omitzero"`
+		MultiColumnsInput         bool           `json:"multi_columns_input,omitzero"`
+		NoQuotes                  bool           `json:"no_quotes,omitzero"`
+		QuoteAllRecords           bool           `json:"quote_all_records,omitzero"`
+		ReadDateLayout            string         `json:"read_date_layout,omitempty"`
+		TrimColumns               bool           `json:"trim_columns,omitzero"`
+		UseLazyQuotes             bool           `json:"use_lazy_quotes,omitzero"`
+		UseLazyQuotesSpecial      bool           `json:"use_lazy_quotes_special,omitzero"`
+		VariableFieldsPerRecord   bool           `json:"variable_fields_per_record,omitzero"`
+		WriteDateLayout           string         `json:"write_date_layout,omitempty"`
+		OutputEncoding            string         `json:"output_encoding,omitempty"`
+		OutputEncodingSameAsInput bool           `json:"output_encoding_same_as_input,omitempty"`
+	}
+	if scSchemaProviderJson.Valid && len(scSchemaProviderJson.String) > 0 {
+		mainInputSchemaProviderFromSC := &SchemaProviderSourceConfig{}
+		err = json.Unmarshal([]byte(scSchemaProviderJson.String), mainInputSchemaProviderFromSC)
+		if err != nil {
+			return cpipesStartup, fmt.Errorf("while unmarshaling schema_provider_json from source_config: %s", err)
+		}
+		// Merge the fields, via json marshal/unmarshal
+		b, err := json.Marshal(mainInputSchemaProviderFromSC)
+		if err != nil {
+			return cpipesStartup, fmt.Errorf("while marshaling schema_provider_json from source_config: %s", err)
+		}
+		err = json.Unmarshal(b, mainInputSchemaProvider)
+		if err != nil {
+			return cpipesStartup, fmt.Errorf("while unmarshaling merged schema_provider_json: %s", err)
+		}
 	}
 
 	mainInputSchemaProvider.FileConfig = FileConfig{
