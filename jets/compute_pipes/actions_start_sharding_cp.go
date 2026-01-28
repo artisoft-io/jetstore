@@ -74,33 +74,6 @@ func (args *StartComputePipesArgs) StartShardingComputePipes(ctx context.Context
 	b, _ := json.Marshal(*mainInputSchemaProvider)
 	log.Printf("*** Main Input Schema Provider:%s\n", string(b))
 
-	// Send CPIPES start notification to api gateway (install specific)
-	// NOTE 2024-05-13 Added Notification to API Gateway via env var CPIPES_STATUS_NOTIFICATION_ENDPOINT or CPIPES_STATUS_NOTIFICATION_ENDPOINT_JSON
-	apiEndpoint := os.Getenv("CPIPES_STATUS_NOTIFICATION_ENDPOINT")
-	var apiEndpointJson string
-	if len(mainInputSchemaProvider.NotificationRoutingOverridesJson) > 0 {
-		apiEndpointJson = mainInputSchemaProvider.NotificationRoutingOverridesJson
-	} else {
-		apiEndpointJson = os.Getenv("CPIPES_STATUS_NOTIFICATION_ENDPOINT_JSON")
-	}
-	if apiEndpoint != "" || apiEndpointJson != "" {
-		customFileKeys := make([]string, 0)
-		ck := os.Getenv("CPIPES_CUSTOM_FILE_KEY_NOTIFICATION")
-		if len(ck) > 0 {
-			customFileKeys = strings.Split(ck, ",")
-		}
-		var notificationTemplate string
-		if mainInputSchemaProvider.NotificationTemplatesOverrides != nil {
-			notificationTemplate = mainInputSchemaProvider.NotificationTemplatesOverrides["CPIPES_START_NOTIFICATION_JSON"]
-		}
-		if len(notificationTemplate) == 0 {
-			notificationTemplate = os.Getenv("CPIPES_START_NOTIFICATION_JSON")
-		}
-		// ignore returned err
-		datatable.DoNotifyApiGateway(args.FileKey, apiEndpoint, apiEndpointJson,
-			notificationTemplate, customFileKeys, "", cpipesStartup.EnvSettings)
-	}
-
 	// Shard the input file keys, determine the number of shards and associated configuration
 	shardResult, err := ShardFileKeys(ctx, dbpool, args.FileKey, args.SessionId,
 		&cpipesStartup.CpConfig, mainInputSchemaProvider)
@@ -411,5 +384,33 @@ func (args *StartComputePipesArgs) StartShardingComputePipes(ctx context.Context
 	if err2 != nil {
 		return result, mainInputSchemaProvider, fmt.Errorf("error inserting in jetsapi.cpipes_execution_status table: %v", err2)
 	}
+
+	// Send CPIPES start notification to api gateway (install specific)
+	// NOTE 2024-05-13 Added Notification to API Gateway via env var CPIPES_STATUS_NOTIFICATION_ENDPOINT or CPIPES_STATUS_NOTIFICATION_ENDPOINT_JSON
+	apiEndpoint := os.Getenv("CPIPES_STATUS_NOTIFICATION_ENDPOINT")
+	var apiEndpointJson string
+	if len(mainInputSchemaProvider.NotificationRoutingOverridesJson) > 0 {
+		apiEndpointJson = mainInputSchemaProvider.NotificationRoutingOverridesJson
+	} else {
+		apiEndpointJson = os.Getenv("CPIPES_STATUS_NOTIFICATION_ENDPOINT_JSON")
+	}
+	if apiEndpoint != "" || apiEndpointJson != "" {
+		customFileKeys := make([]string, 0)
+		ck := os.Getenv("CPIPES_CUSTOM_FILE_KEY_NOTIFICATION")
+		if len(ck) > 0 {
+			customFileKeys = strings.Split(ck, ",")
+		}
+		var notificationTemplate string
+		if mainInputSchemaProvider.NotificationTemplatesOverrides != nil {
+			notificationTemplate = mainInputSchemaProvider.NotificationTemplatesOverrides["CPIPES_START_NOTIFICATION_JSON"]
+		}
+		if len(notificationTemplate) == 0 {
+			notificationTemplate = os.Getenv("CPIPES_START_NOTIFICATION_JSON")
+		}
+		// ignore returned err
+		datatable.DoNotifyApiGateway(args.FileKey, apiEndpoint, apiEndpointJson,
+			notificationTemplate, customFileKeys, "", cpipesStartup.EnvSettings)
+	}
+
 	return result, mainInputSchemaProvider, nil
 }
