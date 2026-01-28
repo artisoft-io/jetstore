@@ -1050,6 +1050,11 @@
         "isNotNull": true
       },
       {
+        "columnName": "env_json",
+        "dataType": "text",
+        "description": "Env vars added to cpipes runtime env variables."
+      },
+      {
         "columnName": "description",
         "dataType": "text"
       },
