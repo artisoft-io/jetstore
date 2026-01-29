@@ -1,7 +1,9 @@
 package compute_pipes
 
 import (
+	"log"
 	"regexp"
+	"strconv"
 )
 
 // This file contains the Compute Pipes configuration model
@@ -258,6 +260,7 @@ type FileConfig struct {
 	EnforceRowMinLength        bool               `json:"enforce_row_min_length,omitzero"`
 	EolByte                    byte               `json:"eol_byte,omitzero"`
 	FileKey                    string             `json:"file_key,omitempty"`
+	LookbackPeriods            string             `json:"lookback_periods,omitzero"`
 	FileName                   string             `json:"file_name,omitempty"` // Type output
 	FixedWidthColumnsCsv       string             `json:"fixed_width_columns_csv,omitempty"`
 	Format                     string             `json:"format,omitempty"`
@@ -484,7 +487,7 @@ type SplitterSpec struct {
 
 type TransformationSpec struct {
 	// Type range: map_record, aggregate, analyze, high_freq, partition_writer,
-	// anonymize, distinct, shuffling, group_by, filter, sort, jetrules, clustering
+	// anonymize, distinct, shuffling, group_by, filter, sort, merge, jetrules, clustering
 	// Format takes precedence over SchemaProvider's Format (from OutputChannelConfig)
 	Type                  string                           `json:"type"`
 	NewRecord             bool                             `json:"new_record,omitzero"`
@@ -501,6 +504,7 @@ type TransformationSpec struct {
 	SortConfig            *SortSpec                        `json:"sort_config,omitzero"`
 	JetrulesConfig        *JetrulesSpec                    `json:"jetrules_config,omitzero"`
 	ClusteringConfig      *ClusteringSpec                  `json:"clustering_config,omitzero"`
+	MergeConfig           *MergeSpec                       `json:"merge_config,omitzero"`
 	OutputChannel         OutputChannelConfig              `json:"output_channel"`
 	ConditionalConfig     []*ConditionalTransformationSpec `json:"conditional_config,omitzero"`
 }
@@ -591,13 +595,16 @@ type InputChannelConfig struct {
 	// Note: The input_row channel (main input) will be cast to the
 	// rdf type specified by the domain class of the main input source.
 	FileConfig
-	Type             string `json:"type"`
-	Name             string `json:"name"`
-	SchemaProvider   string `json:"schema_provider,omitempty"`
-	ReadStepId       string `json:"read_step_id,omitempty"`
-	SamplingRate     int    `json:"sampling_rate,omitzero"`
-	SamplingMaxCount int    `json:"sampling_max_count,omitzero"`
-	HasGroupedRows   bool   `json:"has_grouped_rows,omitzero"`
+	Type             string               `json:"type"`
+	Name             string               `json:"name"`
+	SchemaProvider   string               `json:"schema_provider,omitempty"`
+	ReadSessionId    string               `json:"read_session_id,omitempty"`
+	ReadStepId       string               `json:"read_step_id,omitempty"`
+	ReadPartitionId  string               `json:"read_partition_id,omitempty"`
+	SamplingRate     int                  `json:"sampling_rate,omitzero"`
+	SamplingMaxCount int                  `json:"sampling_max_count,omitzero"`
+	HasGroupedRows   bool                 `json:"has_grouped_rows,omitzero"`
+	MergeChannels    []InputChannelConfig `json:"merge_channels,omitempty"`
 }
 
 type OutputChannelConfig struct {
@@ -876,14 +883,7 @@ type GroupBySpec struct {
 }
 
 type MergeSpec struct {
-	Type              string           `json:"type,omitempty"`
-	MainInputConfig   MergeInputSpec   `json:"main_input_config,omitempty"`
-	OtherInputConfigs []MergeInputSpec `json:"other_input_configs,omitempty"`
-}
-
-type MergeInputSpec struct {
-	InputChannel InputChannelConfig `json:"input_channel"`
-	JoinInfo     GroupBySpec        `json:"join_info"`
+	GroupBySpec
 }
 
 // Filter row base on:
@@ -1017,11 +1017,33 @@ type HashExpression struct {
 	Expr                   string   `json:"expr,omitempty"`
 	CompositeExpr          []string `json:"composite_expr,omitempty"`
 	DomainKey              string   `json:"domain_key,omitempty"`
-	NbrJetsPartitions      *uint64  `json:"nbr_jets_partitions,omitzero"`
+	NbrJetsPartitionsAny   any      `json:"nbr_jets_partitions,omitzero"`
 	MultiStepShardingMode  string   `json:"multi_step_sharding_mode,omitempty"`
 	AlternateCompositeExpr []string `json:"alternate_composite_expr,omitempty"`
 	NoPartitions           bool     `json:"no_partitions,omitzero"`
 	ComputeDomainKey       bool     `json:"compute_domain_key,omitzero"`
+}
+
+func (h *HashExpression) NbrJetsPartitions() uint64 {
+	switch v := h.NbrJetsPartitionsAny.(type) {
+	case uint64:
+		return v
+	case int:
+		return uint64(v)
+	case int64:
+		return uint64(v)
+	case float64:
+		return uint64(v)
+	case string:
+		n, err := strconv.ParseUint(v, 10, 64)
+		if err != nil {
+			log.Printf("Warning: Invalid nbr_jets_partitions value '%s', defaulting to 0", v)
+			return 0
+		}
+		return n
+	default:
+		return 0
+	}
 }
 
 type MapExpression struct {

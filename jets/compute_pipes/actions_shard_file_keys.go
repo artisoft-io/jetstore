@@ -41,6 +41,7 @@ func ShardFileKeys(exeCtx context.Context, dbpool *pgxpool.Pool, baseFileKey str
 		cpErr = fmt.Errorf("failed to download list of files from s3: %v", err)
 		return
 	}
+	
 	if len(s3Objects) == 0 {
 		cpErr = fmt.Errorf("error: input folder contains no data files")
 		return

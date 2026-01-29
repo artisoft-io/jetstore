@@ -209,8 +209,8 @@ func (ctx *BuilderContext) NewHashEvaluator(source *InputChannel,
 	}
 	var partitions uint64
 	if !spec.NoPartitions {
-		if spec.NbrJetsPartitions != nil {
-			partitions = *spec.NbrJetsPartitions
+		if spec.NbrJetsPartitionsAny != nil {
+			partitions = spec.NbrJetsPartitions()
 		} else {
 			partitions = uint64(ctx.cpConfig.ClusterConfig.NbrPartitions(spec.MultiStepShardingMode))
 		}
