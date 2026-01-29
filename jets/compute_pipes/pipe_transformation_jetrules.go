@@ -91,7 +91,7 @@ func (ctx *BuilderContext) NewJetrulesTransformationPipe(source *InputChannel, _
 	// Get the jetrules engine for the process
 	// Apply environment variables
 	processName := utils.ReplaceEnvVars(config.ProcessName, ctx.env)
-	log.Printf("**& *JETRULES* NewJetrulesTransformationPipe - ProcessName: %s", processName)
+	log.Printf("%s NewJetrulesTransformationPipe - ProcessName: %s", ctx.cpConfig.CommonRuntimeArgs.SessionId, processName)
 	ruleEngine, err := jrFactory.NewJetRuleEngine(ctx.dbpool, processName, config.IsDebug)
 	if err != nil {
 		return nil, err

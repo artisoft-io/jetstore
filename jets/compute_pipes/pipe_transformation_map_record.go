@@ -34,7 +34,9 @@ func (ctx *MapRecordTransformationPipe) Apply(input *[]any) error {
 			return fmt.Errorf("while zipping input columns and values for debug logging: %v", err)
 		}
 		inBytes, _ = json.Marshal(data)
+		log.Println()
 		log.Printf("MapRecordTransformationPipe input (zipped): %s", string(inBytes))
+		log.Println()
 	}
 
 	if ctx.spec.NewRecord {
@@ -72,6 +74,7 @@ func (ctx *MapRecordTransformationPipe) Apply(input *[]any) error {
 		}
 		outBytes, _ = json.Marshal(data)
 		log.Printf("MapRecordTransformationPipe output (zipped): %s", string(outBytes))
+		log.Println()
 	}
 
 	// Send the result to output
@@ -104,6 +107,14 @@ func (ctx *BuilderContext) NewMapRecordTransformationPipe(source *InputChannel, 
 		inputMappingItems, err := GetInputMapping(ctx.dbpool, fileMappingTableName)
 		if err != nil {
 			return nil, fmt.Errorf("while getting mapping details from jetstore db: %v", err)
+		}
+		if len(inputMappingItems) == 0 {
+			return nil, fmt.Errorf("error: no mapping items found in jetstore db for mapping table: %s",
+				fileMappingTableName)
+		}
+		if config.IsDebug {
+			log.Printf("MapRecordTransformationPipe loading %d mapping items from mapping table: %s",
+				len(inputMappingItems), fileMappingTableName)
 		}
 		// Get the domain data properties from local workspace to get the rdf type
 		propertyMap, err := GetWorkspaceDataProperties()

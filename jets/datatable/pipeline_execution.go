@@ -797,7 +797,7 @@ func (ctx *DataTableContext) startLoader(dataTableAction *DataTableAction, irow 
 		"$ORIGIN_DOMAIN_KEYS":       originDomainKeys,
 		"$ORIGIN_SOURCE_PERIOD_KEY": int(inputRegistryKey.Int64),
 		"$INPUT_LOADER_STATUS_KEY":  inputLoaderStatusKey,
-		"$STAGING_TABLE_NAME":       tableName,
+		"${STAGING_TABLE_NAME}":     tableName,
 	}
 	schemaInfo := map[string]any{
 		"key":                        "_main_input_",

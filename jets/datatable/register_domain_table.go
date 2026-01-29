@@ -108,7 +108,7 @@ func (ca *StatusUpdate) RegisterFileInputSource() error {
 	var originDomainKeys any = env["$ORIGIN_DOMAIN_KEYS"]
 	var fileKey any = ca.FileKey
 	var sourcePeriodKey any = env["$ORIGIN_SOURCE_PERIOD_KEY"]
-	var tableName any = env["$STAGING_TABLE_NAME"]
+	var tableName any = env["${STAGING_TABLE_NAME}"]
 	var sessionId any = env["$SESSIONID"]
 	var originSchemaProviderJson any = env["$ORIGIN_SCHEMA_PROVIDER_JSON"]
 	var err error
@@ -117,11 +117,11 @@ func (ca *StatusUpdate) RegisterFileInputSource() error {
 		originSchemaProviderJson = ""
 	}
 	log.Printf("Registering file input source in input_registry: client=%s, org=%s, object_type=%s, file_key=%s, source_period_key=%v, table_name=%s, session_id=%s",
-	client, org, objType, fileKey, sourcePeriodKey, tableName, originSessionId)
+		client, org, objType, fileKey, sourcePeriodKey, tableName, originSessionId)
 
 	if client == nil || org == nil || objType == nil || originSessionId == nil || sourcePeriodKey == nil || tableName == nil {
 		return fmt.Errorf("missing required cpipes env variables amongst" +
-			" $CLIENT, $ORG, $OBJECT_TYPE, $ORIGIN_SESSIONID, $ORIGIN_DOMAIN_KEYS, $ORIGIN_SOURCE_PERIOD_KEY, $STAGING_TABLE_NAME" +
+			" $CLIENT, $ORG, $OBJECT_TYPE, $ORIGIN_SESSIONID, $ORIGIN_DOMAIN_KEYS, $ORIGIN_SOURCE_PERIOD_KEY, ${STAGING_TABLE_NAME}" +
 			" to register file input source")
 	}
 

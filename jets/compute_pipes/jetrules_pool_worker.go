@@ -108,6 +108,7 @@ func (ctx *JrPoolWorker) executeRules(inputRecords *[]any,
 	var rm JetResourceManager
 	var reteSession JetReteSession
 	var inputAsserted bool
+	var ruleFileNames []string
 	// Create the rdf session
 	rdfSession, err := re.NewRdfSession()
 	if err != nil {
@@ -123,7 +124,13 @@ func (ctx *JrPoolWorker) executeRules(inputRecords *[]any,
 		goto gotError
 	}
 	// Loop over all rulesets
-	for _, ruleset := range wc.RuleFileNames(re.MainRuleFile()) {
+	log.Printf("jetrules: Looping over rulesets %s", re.MainRuleFile())
+	ruleFileNames = wc.RuleFileNames(re.MainRuleFile())
+	if len(ruleFileNames) == 0 {
+		cpErr = fmt.Errorf("error: no rulesets found for main rule file name %s", re.MainRuleFile())
+		goto gotError
+	}
+	for _, ruleset := range ruleFileNames {
 		// Create the rete session
 		reteSession, err = rdfSession.NewReteSession(ruleset)
 		if err != nil {

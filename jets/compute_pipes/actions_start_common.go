@@ -290,6 +290,10 @@ func (args *StartComputePipesArgs) shardingInitializeCpipes(ctx context.Context,
 		}
 	}
 
+	// Add tableName and source_type to mainInputSchemaProvider.Env
+	mainInputSchemaProvider.Env["${TABLE_NAME}"] = tableName
+	mainInputSchemaProvider.Env["${SOURCE_TYPE}"] = sourceType
+
 	mainInputSchemaProvider.FileConfig = FileConfig{
 		Format:              inputFormat,
 		Compression:         compression,
@@ -419,8 +423,8 @@ func (args *StartComputePipesArgs) shardingInitializeCpipes(ctx context.Context,
 	// Parse the Domain Key Info from source_config and main input schema provider
 	switch sourceType {
 	case "file":
-		// Main input file is an external file
-		// log.Printf("*** sourceType is 'file', icDomainKeys: %s\n", icDomainKeys.String)
+		// Main input file
+		log.Printf("*** sourceType is 'file', icDomainKeys: %s\n", icDomainKeys.String)
 		var dkInfo any
 		switch {
 		case len(mainInputSchemaProvider.DomainKeys) > 0:

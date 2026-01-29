@@ -875,6 +875,17 @@ type GroupBySpec struct {
 	IsDebug      bool     `json:"is_debug,omitzero"`
 }
 
+type MergeSpec struct {
+	Type              string           `json:"type,omitempty"`
+	MainInputConfig   MergeInputSpec   `json:"main_input_config,omitempty"`
+	OtherInputConfigs []MergeInputSpec `json:"other_input_configs,omitempty"`
+}
+
+type MergeInputSpec struct {
+	InputChannel InputChannelConfig `json:"input_channel"`
+	JoinInfo     GroupBySpec        `json:"join_info"`
+}
+
 // Filter row base on:
 //   - when criteria, if provided,
 //   - max output count, if provided.
