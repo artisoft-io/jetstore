@@ -26,6 +26,8 @@ func (args *ComputePipesNodeArgs) CoordinateComputePipes(ctx context.Context, db
 	var envSettings map[string]any
 	var schemaManager *SchemaManager
 	var externalBucket string
+	var mergeFileNamesCh []chan FileName
+	var inputChannelConfig *InputChannelConfig
 
 	// Check if we need to sync the workspace files
 	didSync, err = workspace.SyncComputePipesWorkspace(dbpool)
@@ -124,6 +126,15 @@ func (args *ComputePipesNodeArgs) CoordinateComputePipes(ctx context.Context, db
 	envSettings["$SHARD_ID"] = args.NodeId
 	envSettings["$JETS_PARTITION_LABEL"] = args.JetsPartitionLabel
 
+	// Allocate the MergeFileNamesCh if have merge channels
+	inputChannelConfig = &cpConfig.PipesConfig[0].InputChannel
+	if len(inputChannelConfig.MergeChannels) > 0 {
+		mergeFileNamesCh = make([]chan FileName, 0, len(inputChannelConfig.MergeChannels))
+		for range inputChannelConfig.MergeChannels {
+			mergeFileNamesCh = append(mergeFileNamesCh, make(chan FileName, 2))
+		}
+	}
+
 	cpContext = &ComputePipesContext{
 		ComputePipesArgs: ComputePipesArgs{
 			ComputePipesNodeArgs:   *args,
@@ -139,6 +150,7 @@ func (args *ComputePipesNodeArgs) CoordinateComputePipes(ctx context.Context, db
 		Done:               make(chan struct{}),
 		ErrCh:              make(chan error, 1000),
 		FileNamesCh:        make(chan FileName, 2),
+		MergeFileNamesCh:   mergeFileNamesCh,
 		DownloadS3ResultCh: make(chan DownloadS3Result, 1),
 	}
 

@@ -11,10 +11,16 @@ import (
 
 // This file contains the Compute Pipes runtime data structures
 
+// ChannelRegistry keeps track of all input and output channels
+// inputRowChannel, called input_row correspond to the main input file.
+// InputMergeChannels correspond to any merge input files.
+// ComputeChannels correspond to all other channels created for intermediate
+// steps in the compute graph.
+// OutputTableChannels correspond to the output tables that need to be written
+// ClosedChannels keeps track of which channels have been closed
 type ChannelRegistry struct {
-	// Compute Pipes input channel (inputRowChannel), called input_row
-	// correspond to the input file
 	InputRowChannel      *InputChannel
+	InputMergeChannels   map[string]*InputChannel
 	ComputeChannels      map[string]*Channel
 	OutputTableChannels  []string
 	ClosedChannels       map[string]bool
