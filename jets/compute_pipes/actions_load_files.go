@@ -8,6 +8,7 @@ import (
 	"log"
 	"runtime/debug"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/jackc/pgx/v4/pgxpool"
@@ -27,8 +28,7 @@ type ReaderAtSeeker interface {
 
 func (cpCtx *ComputePipesContext) LoadFiles(ctx context.Context, dbpool *pgxpool.Pool) (err error) {
 
-	// Create a channel to use as a buffer between the file loader and the copy to db
-	// This gives the opportunity to use Compute Pipes to transform the data before writing to the db
+	// Create a channel to use as main input source for the pipeline
 	computePipesInputCh := make(chan []any, 5)
 	var computePipesMergeChs []<-chan []any
 	var inputSchemaCh chan ParquetSchemaInfo
@@ -40,23 +40,15 @@ func (cpCtx *ComputePipesContext) LoadFiles(ctx context.Context, dbpool *pgxpool
 			buf.WriteString(string(debug.Stack()))
 			err = errors.New(buf.String())
 			log.Println(err)
+			close(cpCtx.ChResults.LoadFromS3FilesResultCh)
 		}
 		if inputSchemaCh != nil {
 			close(inputSchemaCh)
 			inputSchemaCh = nil
 		}
-		close(computePipesInputCh)
-		close(cpCtx.ChResults.LoadFromS3FilesResultCh)
 		if err != nil {
-			log.Printf("LoadFile: terminating with err %v, closing done channel\n", err)
-			cpCtx.ErrCh <- err
-			// Avoid closing a closed channel
-			select {
-			case <-cpCtx.Done:
-				log.Println("LoadFile: done channel already closed")
-			default:
-				close(cpCtx.Done)
-			}
+			log.Printf("LoadFiles: terminating with err %v\n", err)
+			cpCtx.DoneAll(err)
 		}
 	}()
 
@@ -68,28 +60,54 @@ func (cpCtx *ComputePipesContext) LoadFiles(ctx context.Context, dbpool *pgxpool
 		inputSchemaCh = make(chan ParquetSchemaInfo, 1)
 	}
 
+	var waitForDone *sync.WaitGroup
+	l := len(inputChannelConfig.MergeChannels)
+
 	// Prepare the S3DeviceManager
 	err = cpCtx.NewS3DeviceManager()
 	if err != nil {
-		return
+		log.Printf("NewS3DeviceManager returned with err: %v\n", err)
+		cpCtx.DoneAll(err)
+		// skip loading files
+		goto done
 	}
 
 	// Check if have merge channels
-	l := len(inputChannelConfig.MergeChannels)
 	if l > 0 {
 		computePipesMergeChs = make([]<-chan []any, 0, l)
+		waitForDone = new(sync.WaitGroup)
 		for i := range l {
 			channelConfig := inputChannelConfig.MergeChannels[i]
 			mergeCh := make(chan []any, 5)
 			computePipesMergeChs = append(computePipesMergeChs, mergeCh)
-			go cpCtx.loadMergeInput(mergeCh, &channelConfig, cpCtx.MergeFileNamesCh[i])
+			// Start a goroutine to load the merge input files
+			waitForDone.Go(func ()  {
+				err := cpCtx.loadMergeInput(mergeCh, &channelConfig, cpCtx.MergeFileNamesCh[i])
+				if err != nil {
+					log.Printf("loadMergeInput goroutine terminated with err: %v\n", err)
+					cpCtx.DoneAll(err)
+				}
+			})
 		}	
 	}
 
 	// Start the Compute Pipes async
 	go cpCtx.StartComputePipes(dbpool, inputSchemaCh, computePipesInputCh, computePipesMergeChs)
 
-	return cpCtx.loadMainInput(computePipesInputCh, inputChannelConfig, inputSchemaCh)
+	err = cpCtx.loadMainInput(computePipesInputCh, inputChannelConfig, inputSchemaCh)
+	if err != nil {
+		log.Printf("loadMainInput returned with err: %v\n", err)
+		cpCtx.DoneAll(err)
+		err = nil
+	}
+
+	if waitForDone != nil {
+		// Wait for all merge input loaders to be done
+		waitForDone.Wait()
+	}
+	done:
+	close(cpCtx.ChResults.LoadFromS3FilesResultCh)
+	return
 }
 
 func checkIncorrectDelimiter(singleColumnCount, inputRowCount int64, delimiter rune) (err error) {

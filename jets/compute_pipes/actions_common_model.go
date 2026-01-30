@@ -3,6 +3,7 @@ package compute_pipes
 import (
 	"encoding/json"
 	"fmt"
+	"log"
 	"os"
 	"regexp"
 
@@ -252,4 +253,19 @@ type ComputePipesContext struct {
 	DownloadS3ResultCh    chan DownloadS3Result // avoid to modify ChannelResult for now...
 	S3DeviceMgr           *S3DeviceManager
 	SchemaManager         *SchemaManager
+}
+
+func (cpCtx *ComputePipesContext) DoneAll(err error) {
+	if err != nil {
+		log.Printf("ComputePipesContext.DoneAll: terminating with err %v, closing done channel\n", err)
+		cpCtx.ErrCh <- err
+	}
+	// Avoid closing a closed channel
+	log.Println("ComputePipesContext.DoneAll: all done")
+	select {
+	case <-cpCtx.Done:
+		log.Println("ComputePipesContext.DoneAll: done channel already closed")
+	default:
+		close(cpCtx.Done)
+	}
 }

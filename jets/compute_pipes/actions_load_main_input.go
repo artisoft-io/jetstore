@@ -9,6 +9,8 @@ import (
 func (cpCtx *ComputePipesContext) loadMainInput(computePipesInputCh chan []any,
 	inputChannelConfig *InputChannelConfig, inputSchemaCh chan ParquetSchemaInfo) (err error) {
 
+	defer close(computePipesInputCh)
+
 	// Start BadRow Channel if configured
 	var badRowChannel *BadRowsChannel
 	if inputChannelConfig.BadRowsConfig != nil {
@@ -19,8 +21,7 @@ func (cpCtx *ComputePipesContext) loadMainInput(computePipesInputCh chan []any,
 		baseOutputPath := fmt.Sprintf("%s/process_name=%s/session_id=%s/step_id=%s/jets_partition=%s",
 			jetsS3StagePrefix, cpCtx.ProcessName, cpCtx.SessionId, inputChannelConfig.BadRowsConfig.BadRowsStepId, "0000P")
 
-		badRowChannel = NewBadRowChannel(cpCtx.S3DeviceMgr, baseOutputPath,
-			cpCtx.Done, cpCtx.ErrCh)
+		badRowChannel = NewBadRowChannel(cpCtx.S3DeviceMgr, baseOutputPath, cpCtx.Done, cpCtx.ErrCh)
 		defer badRowChannel.Done()
 		go badRowChannel.Write(cpCtx.NodeId)
 	}
@@ -32,7 +33,10 @@ func (cpCtx *ComputePipesContext) loadMainInput(computePipesInputCh chan []any,
 	} else {
 		channelInfo := GetChannelSpec(cpCtx.CpConfig.Channels, inputChannelConfig.Name)
 		if channelInfo == nil {
-			log.Panicf("unexpected error: Channel info not found for channel '%s'", inputChannelConfig.Name)
+			err = fmt.Errorf("unexpected error: Channel info not found for channel '%s'", inputChannelConfig.Name)
+			log.Println(err)
+			cpCtx.ChResults.LoadFromS3FilesResultCh <- LoadFromS3FilesResult{LoadRowCount: 0, BadRowCount: 0, Err: err}
+			return
 		}
 		mainInputDomainClass = channelInfo.ClassName
 	}
@@ -80,7 +84,7 @@ func (cpCtx *ComputePipesContext) loadMainInput(computePipesInputCh chan []any,
 			continue
 		}
 		if cpCtx.CpConfig.ClusterConfig.IsDebugMode {
-			log.Printf("%s node %d Loading file '%s'", cpCtx.SessionId, cpCtx.NodeId, localInFile.InFileKeyInfo.key)
+			log.Printf("%s node %d Loading main file '%s'", cpCtx.SessionId, cpCtx.NodeId, localInFile.InFileKeyInfo.key)
 		}
 		// Encapsulte the switch so to factor out file handling
 		err = func() (err error) {
@@ -92,9 +96,13 @@ func (cpCtx *ComputePipesContext) loadMainInput(computePipesInputCh chan []any,
 					computePipesInputCh, badRowChannel)
 
 			default:
-				fileHd, err2 := os.Open(localInFile.LocalFileName)
-				if err2 != nil {
-					return fmt.Errorf("while opening temp file '%s' (LoadFiles): %v", localInFile.LocalFileName, err2)
+				var fileHd *os.File
+				fileHd, err = os.Open(localInFile.LocalFileName)
+				if err != nil {
+					err = fmt.Errorf("while opening temp file '%s' (LoadMainInput): %v", localInFile.LocalFileName, err)
+					log.Println(err)
+					cpCtx.ChResults.LoadFromS3FilesResultCh <- LoadFromS3FilesResult{LoadRowCount: totalRowCount, BadRowCount: totalBadRowCount, Err: err}
+					return
 				}
 				defer func() {
 					fileHd.Close()
@@ -127,7 +135,6 @@ func (cpCtx *ComputePipesContext) loadMainInput(computePipesInputCh chan []any,
 				}
 			}
 			return
-
 		}()
 
 		totalRowCount += count
