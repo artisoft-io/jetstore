@@ -37,7 +37,8 @@ type DownloadS3Result struct {
 	Err             error
 }
 
-// Get the file_key(s) assigned to nodeId -- these are the input multipart files
+// Get the file_key(s) from compute_pipes_shard_registry assigned to nodeId -- these are the input multipart files.
+// This is used during the sharding mode.
 func GetFileKeys(ctx context.Context, dbpool *pgxpool.Pool, sessionId string, nodeId int) ([]*FileKeyInfo, error) {
 	var stmt string
 	// Get isFile query in case the list of file_key is empty
@@ -68,6 +69,26 @@ func GetFileKeys(ctx context.Context, dbpool *pgxpool.Pool, sessionId string, no
 			return nil, err
 		}
 		fileKeys = append(fileKeys, &fileKeyInfo)
+	}
+	return fileKeys, nil
+}
+
+// Get the file_key(s) from s3 for the given process/session/step/partition.
+// This is used during the reducing mode.
+func GetS3FileKeys(processName, sessionId, mainInputStepId, jetsPartitionLabel string) ([]*FileKeyInfo, error) {
+	s3BaseFolder := fmt.Sprintf("%s/process_name=%s/session_id=%s/step_id=%s/jets_partition=%s",
+		jetsS3StagePrefix, processName, sessionId, mainInputStepId, jetsPartitionLabel)
+
+	s3Objects, err := awsi.ListS3Objects("", &s3BaseFolder)
+	if err != nil || s3Objects == nil {
+		return nil, fmt.Errorf("failed to download list of files from s3: %v", err)
+	}
+	fileKeys := make([]*FileKeyInfo, 0, len(s3Objects))
+	for i := range s3Objects {
+		if s3Objects[i].Size > 0 {
+			fileKeys = append(fileKeys,
+				&FileKeyInfo{key: s3Objects[i].Key, size: int(s3Objects[i].Size)})
+		}
 	}
 	return fileKeys, nil
 }
