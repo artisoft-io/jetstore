@@ -270,7 +270,7 @@ func (ctx *JrPoolWorker) extractSessionData(rdfSession JetRdfSession,
 		// entities created during the rule session, identified with jets:source_period_sequence is null.
 		// Additional Measure: entities with jets:source_period_sequence == 0, must have jets:InputRecord
 		// as rdf:type to ensure it's a mapped entity and not an injected entity.
-		// Note: Do not save the jets:InputEntity marker type on the extracted obj.
+		// Note: Do not save the jets:InputRecord marker type on the extracted obj.
 		keepObj := true
 		obj := rdfSession.GetObject(subject, jr.Jets__source_period_sequence)
 		if obj != nil && obj.Value() != nil {
@@ -278,7 +278,7 @@ func (ctx *JrPoolWorker) extractSessionData(rdfSession JetRdfSession,
 			if v == 0 {
 				// Check if obj has marker type jets:InputRecord, extract obj if it does.
 				if !rdfSession.Contains(subject, jr.Rdf__type, jr.Jets__input_record) {
-					// jets:InputEntity marker is missing, don't extract the obj
+					// jets:InputRecord marker is missing, don't extract the obj
 					keepObj = false
 				}
 			} else {
@@ -382,7 +382,9 @@ func assertInputRow(config *JetrulesSpec, rdfSession JetRdfSession, row *[]any, 
 	nbrCol := len(*columns)
 	var predicate RdfNode
 	// assert record i
-	var jetsKey, rdfType string
+	var jetsKey string
+	var rdfType []string
+	var sourcePeriodSequence int
 	var subject RdfNode
 	var node RdfNode
 	jr := rdfSession.JetResources()
@@ -390,14 +392,15 @@ func assertInputRow(config *JetrulesSpec, rdfSession JetRdfSession, row *[]any, 
 	// Assert the rdf type if provided in config, otherwise it must be part of the data
 	if config.InputRdfType != "" {
 		jetsKey = uuid.New().String()
-		rdfType = config.InputRdfType
+		rdfType = []string{config.InputRdfType}
 	} else {
-		// Input channel must have a class name, which will have jets:key and rdf:type in pos 0 and 1 resp.
-		var ok1, ok2 bool
+		// Input channel must have a class name, which will have jets:key, rdf:type, jets:source_period_sequence in pos 0, 1 and 2 resp.
+		var ok1, ok2, ok3 bool
 		jetsKey, ok1 = (*row)[0].(string)
-		rdfType, ok2 = (*row)[1].(string)
-		if !ok1 || !ok2 {
-			return fmt.Errorf("error: invalid type for jets:key or rdf:type as first 2 elements of row")
+		rdfType, ok2 = (*row)[1].([]string)
+		sourcePeriodSequence, ok3 = (*row)[2].(int)
+		if !ok1 || !ok2 || !ok3 {
+			return fmt.Errorf("error: invalid type for jets:key, rdf:type or jets:source_period_sequence as first 3 elements of row")
 		}
 	}
 	subject = rm.NewResource(jetsKey)
@@ -405,17 +408,30 @@ func assertInputRow(config *JetrulesSpec, rdfSession JetRdfSession, row *[]any, 
 	if err != nil {
 		return
 	}
-	err = rdfSession.Insert(subject, jr.Rdf__type, rm.NewResource(rdfType))
+	for _, t := range rdfType {
+		err = rdfSession.Insert(subject, jr.Rdf__type, rm.NewResource(t))
+		if err != nil {
+			return
+		}
+	}
+
+	// jets:source_period_sequence
+	// Assert the jets:InputRecord rdf:type if sourcePeriodSequence == -1
+	if sourcePeriodSequence == -1 {
+		err = rdfSession.Insert(subject, jr.Rdf__type, jr.Jets__input_record)
+		if err != nil {
+			return
+		}
+		sourcePeriodSequence = 0
+	}
+	// Insert the jets:source_period_sequence property
+	err = rdfSession.Insert(subject, jr.Jets__source_period_sequence,
+		rm.NewIntLiteral(sourcePeriodSequence))
 	if err != nil {
 		return
 	}
 
-	// Assert the jets:InputRecord rdf:type
-	err = rdfSession.Insert(subject, jr.Rdf__type, jr.Jets__input_record)
-	if err != nil {
-		return
-	}
-
+	// assert the rest of the properties
 	for j := range *row {
 		if (*row)[j] == nil {
 			continue
@@ -433,6 +449,9 @@ func assertInputRow(config *JetrulesSpec, rdfSession JetRdfSession, row *[]any, 
 					return fmt.Errorf("while NewRdfNode for value in array: %v", err)
 				}
 				err = rdfSession.Insert(subject, predicate, node)
+				if err != nil {
+					return
+				}
 			}
 		default:
 			node, err = NewRdfNode(vv, rm)
@@ -440,6 +459,9 @@ func assertInputRow(config *JetrulesSpec, rdfSession JetRdfSession, row *[]any, 
 				return fmt.Errorf("while NewRdfNode: %v", err)
 			}
 			err = rdfSession.Insert(subject, predicate, node)
+			if err != nil {
+				return
+			}
 		}
 	}
 	return

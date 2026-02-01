@@ -53,7 +53,7 @@ func (args *StartComputePipesArgs) StartShardingComputePipes(ctx context.Context
 		"-sessionId", args.SessionId,
 		"-filePath", strings.Replace(args.FileKey, os.Getenv("JETS_s3_INPUT_PREFIX"), os.Getenv("JETS_s3_OUTPUT_PREFIX"), 1),
 	}
-	result.SuccessUpdate = map[string]interface{}{
+	result.SuccessUpdate = map[string]any{
 		"-peKey":         strconv.Itoa(args.PipelineExecKey),
 		"-status":        "completed",
 		"cpipesMode":     true,
@@ -61,7 +61,7 @@ func (args *StartComputePipesArgs) StartShardingComputePipes(ctx context.Context
 		"file_key":       args.FileKey,
 		"failureDetails": "",
 	}
-	result.ErrorUpdate = map[string]interface{}{
+	result.ErrorUpdate = map[string]any{
 		"-peKey":         strconv.Itoa(args.PipelineExecKey),
 		"-status":        "failed",
 		"cpipesMode":     true,
@@ -75,8 +75,14 @@ func (args *StartComputePipesArgs) StartShardingComputePipes(ctx context.Context
 	log.Printf("*** Main Input Schema Provider:%s\n", string(b))
 
 	// Shard the input file keys, determine the number of shards and associated configuration
-	shardResult, err := ShardFileKeys(ctx, dbpool, args.FileKey, args.SessionId,
-		&cpipesStartup.CpConfig, mainInputSchemaProvider)
+	// Peek into the input channel config, assuming GetComputePipes(0) is the sharding step
+	pc, _, err := cpipesStartup.CpConfig.GetComputePipes(0, cpipesStartup.EnvSettings)
+	if err != nil {
+		return result, mainInputSchemaProvider, fmt.Errorf("while peeking on compute pipes step 0: %v", err)
+	}
+	inputConfigPeek := pc[0].InputChannel
+	shardResult, err := ShardFileKeys(ctx, dbpool, args.FileKey, args.SessionId, inputConfigPeek,
+		cpipesStartup.CpConfig.ClusterConfig, mainInputSchemaProvider)
 	if err != nil {
 		return result, mainInputSchemaProvider, err
 	}

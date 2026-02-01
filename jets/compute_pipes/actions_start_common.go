@@ -318,6 +318,7 @@ func (args *StartComputePipesArgs) shardingInitializeCpipes(ctx context.Context,
 	}
 
 	// Adjust ChannelSpec having columns specified by a jetrules class
+	// ----------------------------------------------------------------
 	classNames := make(map[string]bool)
 	if sourceType == "domain_table" {
 		classNames[tableName] = true // since domain class name is the table_name for source_type = 'domain_table'
@@ -354,7 +355,7 @@ func (args *StartComputePipesArgs) shardingInitializeCpipes(ctx context.Context,
 		var buf strings.Builder
 		buf.WriteString("SELECT entity_rdf_type, object_types, domain_keys_json FROM jetsapi.domain_keys_registry WHERE entity_rdf_type IN (")
 		first := true
-		for c, _ := range classNames {
+		for c := range classNames {
 			if !first {
 				buf.WriteString(",")
 			}

@@ -4,11 +4,13 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"maps"
 	"math"
 	"os"
 	"strings"
 
 	"github.com/artisoft-io/jetstore/jets/awsi"
+	"github.com/artisoft-io/jetstore/jets/utils"
 	"github.com/jackc/pgx/v4"
 	"github.com/jackc/pgx/v4/pgxpool"
 )
@@ -26,22 +28,75 @@ type ShardFileKeyResult struct {
 	clusterSpec         *ClusterShardingSpec
 }
 
+// ShardFileKeys: assign file keys to nodes for sharding mode according to inputChannelConfig and clusterConfig.
 func ShardFileKeys(exeCtx context.Context, dbpool *pgxpool.Pool, baseFileKey string, sessionId string,
-	cpConfig *ComputePipesConfig, schemaProviderConfig *SchemaProviderSpec) (result ShardFileKeyResult, cpErr error) {
+	inputChannelConfig InputChannelConfig, clusterConfig *ClusterSpec,
+	schemaProviderConfig *SchemaProviderSpec) (result ShardFileKeyResult, cpErr error) {
 
+	var err error
 	var totalSizeMb int
 	var maxShardSize, shardSize, offset int64
 	var doSplitFiles bool
+	var s3Objects []*awsi.S3Object
+	envSettings := schemaProviderConfig.Env
+
 	result.clusterShardingInfo = &ClusterShardingInfo{}
 
-	// Get all the file keys having baseFileKey as prefix
-	log.Printf("Downloading file keys from s3 folder: %s", baseFileKey)
-	s3Objects, err := awsi.ListS3Objects(schemaProviderConfig.Bucket, &baseFileKey)
-	if err != nil {
-		cpErr = fmt.Errorf("failed to download list of files from s3: %v", err)
-		return
+	switch inputChannelConfig.Type {
+	case "input":
+		// Most common case, input from s3 input folder based on baseFileKey
+		// Get all the file keys having baseFileKey as prefix
+		baseFileKey = utils.ReplaceEnvVars(baseFileKey, envSettings)
+		log.Printf("Downloading file keys from s3 folder: %s", baseFileKey)
+		s3Objects, err = awsi.ListS3Objects(schemaProviderConfig.Bucket, &baseFileKey)
+		if err != nil {
+			cpErr = fmt.Errorf("failed to download list of files from s3: %v", err)
+			return
+		}
+
+	case "stage":
+		// Input from s3 stage folder based on inputChannelConfig.FileKey
+		lback := inputChannelConfig.LookbackPeriods
+		if len(lback) > 0 {
+			// Lookback case, need to get the list of file keys for each lookback periods
+			firstPeriodId, numPeriods, err := utils.ParseLookbackPeriod(lback, envSettings)
+			if err != nil {
+				cpErr = fmt.Errorf("failed to parse lookback_period %s: %v", lback, err)
+				return
+			}
+			log.Printf("Downloading file keys from s3 stage folder: %s, lookback first period_id: %d, num periods: %d",
+				inputChannelConfig.FileKey, firstPeriodId, numPeriods)
+			// Make a copy of envSessings to avoid modifying the original
+			lookbackEnv := make(map[string]any)
+			maps.Copy(lookbackEnv, envSettings)
+			// Last period in the lookback is firstPeriodId - numPeriods
+			for p := range numPeriods + 1 {
+				lookbackEnv["$PERIOD_ID"] = firstPeriodId - p
+				fileKeyPrefix := utils.ReplaceEnvVars(inputChannelConfig.FileKey, lookbackEnv)
+				log.Printf("  Lookback period_id: %d, downloading file keys from s3 stage folder: %s",
+					lookbackEnv["$PERIOD_ID"], fileKeyPrefix)
+				periodS3Objects, err := awsi.ListS3Objects(schemaProviderConfig.Bucket, &fileKeyPrefix)
+				if err != nil {
+					cpErr = fmt.Errorf("failed to download list of files from s3 for lookback period_id %d: %v",
+						lookbackEnv["$PERIOD_ID"], err)
+					return
+				}
+				s3Objects = append(s3Objects, periodS3Objects...)
+			}
+		} else {
+			fileKeyPrefix := utils.ReplaceEnvVars(inputChannelConfig.FileKey, envSettings)
+			log.Printf("Downloading file keys from s3 stage folder: %s", fileKeyPrefix)
+			s3Objects, err = awsi.ListS3Objects(schemaProviderConfig.Bucket, &fileKeyPrefix)
+			if err != nil {
+				cpErr = fmt.Errorf("failed to download list of files from s3: %v", err)
+				return
+			}
+		}
 	}
-	
+
+	// Need to get the merge channels files as well
+	XXX
+
 	if len(s3Objects) == 0 {
 		cpErr = fmt.Errorf("error: input folder contains no data files")
 		return
@@ -57,7 +112,7 @@ func ShardFileKeys(exeCtx context.Context, dbpool *pgxpool.Pool, baseFileKey str
 	totalSizeMb = int(result.clusterShardingInfo.TotalFileSize / 1024 / 1024)
 
 	// Determine the tier of sharding
-	result.clusterSpec = selectClusterShardingTier(totalSizeMb, schemaProviderConfig.Format, cpConfig.ClusterConfig)
+	result.clusterSpec = selectClusterShardingTier(totalSizeMb, schemaProviderConfig.Format, clusterConfig)
 
 	if result.clusterSpec.ShardSizeBy > 0 {
 		shardSize = int64(result.clusterSpec.ShardSizeBy)
@@ -71,7 +126,7 @@ func ShardFileKeys(exeCtx context.Context, dbpool *pgxpool.Pool, baseFileKey str
 		maxShardSize = int64(result.clusterSpec.ShardMaxSizeMb * 1024 * 1024)
 	}
 
-	offset = int64(cpConfig.ClusterConfig.ShardOffset)
+	offset = int64(clusterConfig.ShardOffset)
 
 	// Allocate file keys to nodes
 	doSplitFiles = false
@@ -99,7 +154,7 @@ func ShardFileKeys(exeCtx context.Context, dbpool *pgxpool.Pool, baseFileKey str
 		offset, doSplitFiles, sessionId)
 
 	columns := []string{"session_id", "file_key", "file_size", "shard_start", "shard_end", "shard_id"}
-	if cpConfig.ClusterConfig.IsDebugMode {
+	if clusterConfig.IsDebugMode {
 		log.Println("Sharding File Keys:")
 		log.Println(columns)
 		for i := range shardRegistryRows {
@@ -110,10 +165,10 @@ func ShardFileKeys(exeCtx context.Context, dbpool *pgxpool.Pool, baseFileKey str
 	result.firstKey = shardRegistryRows[0][1].(string)
 
 	if result.clusterSpec.S3WorkerPoolSize == 0 {
-		result.clusterSpec.S3WorkerPoolSize = cpConfig.ClusterConfig.S3WorkerPoolSize
+		result.clusterSpec.S3WorkerPoolSize = clusterConfig.S3WorkerPoolSize
 	}
 
-	multiStepThreshold := cpConfig.ClusterConfig.MultiStepShardingThresholds
+	multiStepThreshold := clusterConfig.MultiStepShardingThresholds
 	if result.clusterSpec.MultiStepShardingThresholds > 0 {
 		multiStepThreshold = result.clusterSpec.MultiStepShardingThresholds
 	}
@@ -127,7 +182,7 @@ func ShardFileKeys(exeCtx context.Context, dbpool *pgxpool.Pool, baseFileKey str
 	}
 
 	// Caping the nbr of partitions
-	maxPartitions := cpConfig.ClusterConfig.MaxNbrPartitions
+	maxPartitions := clusterConfig.MaxNbrPartitions
 	if result.clusterSpec.MaxNbrPartitions > 0 {
 		maxPartitions = result.clusterSpec.MaxNbrPartitions
 	}

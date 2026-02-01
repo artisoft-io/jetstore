@@ -342,12 +342,16 @@ func GetDomainProperties(className string, directPropertitesOnly bool) ([]string
 		if tableInfo == nil {
 			return nil, fmt.Errorf("error: domain table/class %s is not found in the local workspace", className)
 		}
-		columns = make([]string, 0, len(tableInfo.Columns))
+		columns = make([]string, 0, len(tableInfo.Columns)+3)
 		columns = append(columns, "jets:key")
 		columns = append(columns, "rdf:type")
+		columns = append(columns, "jets:source_period_sequence")
 		for i := range tableInfo.Columns {
 			p := tableInfo.Columns[i].ColumnName
-			if p != "jets:key" && p != "rdf:type" {
+			switch p {
+			case "jets:key", "rdf:type", "jets:source_period_sequence":
+				// skip reserved properties
+			default:
 				columns = append(columns, p)
 			}
 		}

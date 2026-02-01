@@ -59,6 +59,7 @@ func (cpCtx *ComputePipesContext) StartMergeFiles(dbpool *pgxpool.Pool) (cpErr e
 	}
 	// outputFileConfig.OutputLocation may have 3 values:
 	//	- jetstore_s3_input, to indicate to put the output file in JetStore input path.
+	//	- jetstore_s3_stage, to indicate to put the output file in JetStore stage path.
 	//	- jetstore_s3_output (default), to indicate to put the output file in JetStore output path.
 	//	- custom file path, indicates a custom file key location (path and file name) in this case
 	//    it replaces KeyPrefix and Name attributes.
@@ -71,7 +72,7 @@ func (cpCtx *ComputePipesContext) StartMergeFiles(dbpool *pgxpool.Pool) (cpErr e
 	var fileFolder, fileName, outputS3FileKey string
 	nbrFiles := len(cpCtx.InputFileKeys)
 	switch outputFileConfig.OutputLocation() {
-	case "jetstore_s3_input", "jetstore_s3_output":
+	case "jetstore_s3_input", "jetstore_s3_output", "jetstore_s3_stage":
 		if len(outputFileConfig.Name()) > 0 {
 			fileName = utils.ReplaceEnvVars(outputFileConfig.Name(), cpCtx.EnvSettings)
 		} else {
@@ -81,14 +82,20 @@ func (cpCtx *ComputePipesContext) StartMergeFiles(dbpool *pgxpool.Pool) (cpErr e
 			cpErr = fmt.Errorf("error: OutputFile config is missing file_name in StartMergeFile")
 			return
 		}
-		if len(outputFileConfig.KeyPrefix) > 0 {
-			fileFolder = doSubstitution(outputFileConfig.KeyPrefix, "", outputFileConfig.OutputLocation(),
-				cpCtx.EnvSettings)
+		if outputFileConfig.OutputLocation() == "jetstore_s3_stage" {
+			// put in jetstore s3 stage path
+			keyPrefix := utils.ReplaceEnvVars(outputFileConfig.KeyPrefix, cpCtx.EnvSettings)
+			fileFolder = fmt.Sprintf("%s/%s/%s", jetsS3StagePrefix, keyPrefix, fileName)
 		} else {
-			fileFolder = doSubstitution("$PATH_FILE_KEY", "", outputFileConfig.OutputLocation(),
-				cpCtx.EnvSettings)
+			if len(outputFileConfig.KeyPrefix) > 0 {
+				fileFolder = doSubstitution(outputFileConfig.KeyPrefix, "", outputFileConfig.OutputLocation(),
+					cpCtx.EnvSettings)
+			} else {
+				fileFolder = doSubstitution("$PATH_FILE_KEY", "", outputFileConfig.OutputLocation(),
+					cpCtx.EnvSettings)
+			}
+			outputS3FileKey = fmt.Sprintf("%s/%s", fileFolder, fileName)
 		}
-		outputS3FileKey = fmt.Sprintf("%s/%s", fileFolder, fileName)
 
 	default:
 		outputS3FileKey = utils.ReplaceEnvVars(outputFileConfig.OutputLocation(), cpCtx.EnvSettings)

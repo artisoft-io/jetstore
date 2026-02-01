@@ -387,7 +387,8 @@ type TableSpec struct {
 }
 
 type OutputFileSpec struct {
-	// OutputLocation: jetstore_s3_input, jetstore_s3_output (default), or custom file key.
+	// OutputLocation: jetstore_s3_input, jetstore_s3_stage, jetstore_s3_output (default), 
+	// or custom file key (the lasy option is depricated, use FileKey).
 	// When OutputLocation has a custom file key, it replace Name and KeyPrefix.
 	// Note: refactoring using FileConfig.FileKey is synonym to OutputLocation
 	// Note: refactoring using FileConfig.FileName is synonym to Name
