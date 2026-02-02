@@ -242,14 +242,13 @@ type ComputePipesContext struct {
 	EnvSettings           map[string]any
 	SamplingCount         int
 	JetStoreTempFolder    string
-	InputFileKeys         []*FileKeyInfo
+	InputFileKeys         [][]*FileKeyInfo
 	JetRules              JetRulesProxy
 	ChResults             *ChannelResults
 	KillSwitch            chan struct{}
 	Done                  chan struct{}
 	ErrCh                 chan error
-	FileNamesCh           chan FileName
-	MergeFileNamesCh      []chan FileName
+	FileNamesCh           []chan FileName
 	DownloadS3ResultCh    chan DownloadS3Result // avoid to modify ChannelResult for now...
 	S3DeviceMgr           *S3DeviceManager
 	SchemaManager         *SchemaManager

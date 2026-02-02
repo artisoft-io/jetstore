@@ -77,7 +77,7 @@ func (cpCtx *ComputePipesContext) loadMainInput(computePipesInputCh chan []any,
 	inputFormat := inputChannelConfig.Format
 	gotMaxRecordCount := false
 
-	for localInFile := range cpCtx.FileNamesCh {
+	for localInFile := range cpCtx.FileNamesCh[0] {
 		if gotMaxRecordCount {
 			// Don't read more records
 			os.Remove(localInFile.LocalFileName)

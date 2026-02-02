@@ -11,8 +11,7 @@ import (
 
 // From loader's processFileAndReportStatus
 
-func (cpCtx *ComputePipesContext) ProcessFilesAndReportStatus(ctx context.Context, dbpool *pgxpool.Pool,
-	inFolderPath string) error {
+func (cpCtx *ComputePipesContext) ProcessFilesAndReportStatus(ctx context.Context, dbpool *pgxpool.Pool) error {
 
 	cpCtx.ChResults = &ChannelResults{
 		// NOTE 2025/06/29: Removing unneccessary limits, otherwise this will hang when collecting results

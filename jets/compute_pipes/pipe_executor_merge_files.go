@@ -70,7 +70,8 @@ func (cpCtx *ComputePipesContext) StartMergeFiles(dbpool *pgxpool.Pool) (cpErr e
 		outputFileConfig.SetOutputLocation("jetstore_s3_output")
 	}
 	var fileFolder, fileName, outputS3FileKey string
-	nbrFiles := len(cpCtx.InputFileKeys)
+	inputFileKeys := cpCtx.InputFileKeys[0]
+	nbrFiles := len(inputFileKeys)
 	switch outputFileConfig.OutputLocation() {
 	case "jetstore_s3_input", "jetstore_s3_output", "jetstore_s3_stage":
 		if len(outputFileConfig.Name()) > 0 {
@@ -187,7 +188,7 @@ func (cpCtx *ComputePipesContext) StartMergeFiles(dbpool *pgxpool.Pool) (cpErr e
 	// Check if contains multiple files to copy and make sure they are all above the min part size
 	containsSmallPart := false
 	if nbrFiles > 1 {
-		for _, fk := range cpCtx.InputFileKeys {
+		for _, fk := range inputFileKeys {
 			if fk.size <= minPartSize {
 				containsSmallPart = true
 				break
@@ -216,7 +217,7 @@ func (cpCtx *ComputePipesContext) StartMergeFiles(dbpool *pgxpool.Pool) (cpErr e
 			if outputSp != nil {
 				nrowsInRec = outputSp.NbrRowsInRecord()
 			}
-			MergeParquetPartitions(nrowsInRec, outputFileConfig.Headers, pout, cpCtx.FileNamesCh, gotError)
+			MergeParquetPartitions(nrowsInRec, outputFileConfig.Headers, pout, cpCtx.FileNamesCh[0], gotError)
 			pout.Close()
 		}()
 	case (len(compression) != 0 && compression != "none") || containsSmallPart || writeHeaders:
@@ -224,7 +225,7 @@ func (cpCtx *ComputePipesContext) StartMergeFiles(dbpool *pgxpool.Pool) (cpErr e
 		// Not usual, do copy the old way
 		log.Printf("*** MERGE %d files using text format (%s) with compression %s\n",
 			nbrFiles, inputFormat, compression)
-		fileReader, err = cpCtx.NewMergeFileReader(inputFormat, delimiter, outputSp, outputFileConfig.Headers, writeHeaders, compression)
+		fileReader, err = cpCtx.NewMergeFileReader(0, inputFormat, delimiter, outputSp, outputFileConfig.Headers, writeHeaders, compression)
 		if err != nil {
 			cpErr = err
 			return
@@ -276,7 +277,8 @@ func (cpCtx *ComputePipesContext) startDownloadFiles() bool {
 	if pipeSpec.Type != "merge_files" {
 		return true
 	}
-	nbrFiles := len(cpCtx.InputFileKeys)
+	inputFileKeys := cpCtx.InputFileKeys[0]
+	nbrFiles := len(inputFileKeys)
 	inputChannel := pipeSpec.InputChannel
 	compression := inputChannel.Compression
 	inputFormat := inputChannel.Format
@@ -288,7 +290,7 @@ func (cpCtx *ComputePipesContext) startDownloadFiles() bool {
 	if inputFormat == "csv" && nbrFiles > 1 {
 		if pipeSpec.MergeFileConfig != nil && pipeSpec.MergeFileConfig.FirstPartitionHasHeaders {
 			log.Printf("%s node %d sorting part files since first file has headers", cpCtx.SessionId, cpCtx.NodeId)
-			slices.SortFunc(cpCtx.InputFileKeys, func(lhs, rhs *FileKeyInfo) int {
+			slices.SortFunc(inputFileKeys, func(lhs, rhs *FileKeyInfo) int {
 				a := lhs.key
 				b := rhs.key
 				switch {
@@ -311,7 +313,7 @@ func (cpCtx *ComputePipesContext) startDownloadFiles() bool {
 	}
 	if nbrFiles > 1 {
 		// check for small parts, need to download if a part is too small
-		for _, fk := range cpCtx.InputFileKeys {
+		for _, fk := range inputFileKeys {
 			if fk.size <= minPartSize {
 				return true
 			}
@@ -329,6 +331,7 @@ type MergeFileReader struct {
 	currentFileHd  *os.File
 	reader         *bufio.Reader
 	headers        []byte
+	mergePos       int
 	compression    string
 	skipHeaderLine bool
 	skipHeaderFlag bool
@@ -336,7 +339,7 @@ type MergeFileReader struct {
 }
 
 // outputSp is needed to determine if we quote all or non fields. It also provided the writeHeaders value.
-func (cpCtx *ComputePipesContext) NewMergeFileReader(inputFormat string, delimiter rune, outputSp SchemaProvider, headers []string,
+func (cpCtx *ComputePipesContext) NewMergeFileReader(mergePos int, inputFormat string, delimiter rune, outputSp SchemaProvider, headers []string,
 	writeHeaders bool, compression string) (io.Reader, error) {
 
 	var h []byte
@@ -372,6 +375,7 @@ func (cpCtx *ComputePipesContext) NewMergeFileReader(inputFormat string, delimit
 	return &MergeFileReader{
 		cpCtx:          cpCtx,
 		headers:        h,
+		mergePos:       mergePos,
 		compression:    compression,
 		skipHeaderLine: inputFormat == "csv" && writeHeaders,
 	}, nil
@@ -392,7 +396,7 @@ func (r *MergeFileReader) Read(buf []byte) (int, error) {
 
 	case r.reader == nil:
 		// get the next file
-		r.currentFile = <-r.cpCtx.FileNamesCh
+		r.currentFile = <-r.cpCtx.FileNamesCh[r.mergePos]
 		if r.currentFile.LocalFileName == "" {
 			return 0, io.EOF
 		}

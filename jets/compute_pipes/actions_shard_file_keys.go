@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"log"
-	"maps"
 	"math"
 	"os"
 	"strings"
@@ -37,11 +36,12 @@ func ShardFileKeys(exeCtx context.Context, dbpool *pgxpool.Pool, baseFileKey str
 	var totalSizeMb int
 	var maxShardSize, shardSize, offset int64
 	var doSplitFiles bool
-	var s3Objects []*awsi.S3Object
 	envSettings := schemaProviderConfig.Env
 
 	result.clusterShardingInfo = &ClusterShardingInfo{}
 
+	// Get the file keys for the main input source
+	var s3Objects []*awsi.S3Object
 	switch inputChannelConfig.Type {
 	case "input":
 		// Most common case, input from s3 input folder based on baseFileKey
@@ -58,30 +58,11 @@ func ShardFileKeys(exeCtx context.Context, dbpool *pgxpool.Pool, baseFileKey str
 		// Input from s3 stage folder based on inputChannelConfig.FileKey
 		lback := inputChannelConfig.LookbackPeriods
 		if len(lback) > 0 {
-			// Lookback case, need to get the list of file keys for each lookback periods
-			firstPeriodId, numPeriods, err := utils.ParseLookbackPeriod(lback, envSettings)
+			s3Objects, err = GetS3Objects4LookbackPeriod(schemaProviderConfig.Bucket, inputChannelConfig.FileKey,
+				inputChannelConfig.LookbackPeriods, envSettings)
 			if err != nil {
-				cpErr = fmt.Errorf("failed to parse lookback_period %s: %v", lback, err)
+				cpErr = fmt.Errorf("failed to download list of files from s3 for lookback periods: %v", err)
 				return
-			}
-			log.Printf("Downloading file keys from s3 stage folder: %s, lookback first period_id: %d, num periods: %d",
-				inputChannelConfig.FileKey, firstPeriodId, numPeriods)
-			// Make a copy of envSessings to avoid modifying the original
-			lookbackEnv := make(map[string]any)
-			maps.Copy(lookbackEnv, envSettings)
-			// Last period in the lookback is firstPeriodId - numPeriods
-			for p := range numPeriods + 1 {
-				lookbackEnv["$PERIOD_ID"] = firstPeriodId - p
-				fileKeyPrefix := utils.ReplaceEnvVars(inputChannelConfig.FileKey, lookbackEnv)
-				log.Printf("  Lookback period_id: %d, downloading file keys from s3 stage folder: %s",
-					lookbackEnv["$PERIOD_ID"], fileKeyPrefix)
-				periodS3Objects, err := awsi.ListS3Objects(schemaProviderConfig.Bucket, &fileKeyPrefix)
-				if err != nil {
-					cpErr = fmt.Errorf("failed to download list of files from s3 for lookback period_id %d: %v",
-						lookbackEnv["$PERIOD_ID"], err)
-					return
-				}
-				s3Objects = append(s3Objects, periodS3Objects...)
 			}
 		} else {
 			fileKeyPrefix := utils.ReplaceEnvVars(inputChannelConfig.FileKey, envSettings)
@@ -95,12 +76,24 @@ func ShardFileKeys(exeCtx context.Context, dbpool *pgxpool.Pool, baseFileKey str
 	}
 
 	// Need to get the merge channels files as well
-	XXX
+	var mergeS3Objects [][]*awsi.S3Object
+	mergeS3Objects = make([][]*awsi.S3Object, len(inputChannelConfig.MergeChannels))
+	for i := range inputChannelConfig.MergeChannels {
+		mergeConfig := inputChannelConfig.MergeChannels[i]
+		mergeObjects, err := GetS3Objects4LookbackPeriod(mergeConfig.Bucket, mergeConfig.FileKey,
+			mergeConfig.LookbackPeriods, envSettings)
+		if err != nil {
+			cpErr = fmt.Errorf("failed to download list of files from s3 for merge channel: %v", err)
+			return
+		}
+		mergeS3Objects[i] = append(mergeS3Objects[i], mergeObjects...)
+	}
 
 	if len(s3Objects) == 0 {
 		cpErr = fmt.Errorf("error: input folder contains no data files")
 		return
 	}
+	// Select cluster config based on main input files (s3Objects)
 	// Get the total file size
 	for _, obj := range s3Objects {
 		result.clusterShardingInfo.TotalFileSize += obj.Size
@@ -151,9 +144,17 @@ func ShardFileKeys(exeCtx context.Context, dbpool *pgxpool.Pool, baseFileKey str
 	// shardRegistryRow row of jetsapi.compute_pipes_shard_registry
 	var shardRegistryRows [][]any
 	shardRegistryRows, result.nbrShardingNodes = assignShardInfo(s3Objects, shardSize, maxShardSize,
-		offset, doSplitFiles, sessionId)
+		offset, doSplitFiles, sessionId, 0)
 
-	columns := []string{"session_id", "file_key", "file_size", "shard_start", "shard_end", "shard_id"}
+	// Add merge channel files to shardRegistryRows
+	for i, mergeObjects := range mergeS3Objects {
+		var mergeShardRows [][]any
+		mergeShardRows, _ = assignShardInfo(mergeObjects, shardSize, maxShardSize,
+			offset, doSplitFiles, sessionId, i+1)
+		shardRegistryRows = append(shardRegistryRows, mergeShardRows...)
+	}
+
+	columns := []string{"session_id", "file_key", "file_size", "shard_start", "shard_end", "shard_id", "channel_pos"}
 	if clusterConfig.IsDebugMode {
 		log.Println("Sharding File Keys:")
 		log.Println(columns)
@@ -207,7 +208,7 @@ func ShardFileKeys(exeCtx context.Context, dbpool *pgxpool.Pool, baseFileKey str
 }
 
 func assignShardInfo(s3Objects []*awsi.S3Object, shardSize, maxShardSize, offset int64,
-	doSplitFiles bool, sessionId string) ([][]any, int) {
+	doSplitFiles bool, sessionId string, chanPos int) ([][]any, int) {
 
 	shardRegistryRows := make([][]any, 0, len(s3Objects))
 	hasSentinelFile := len(sentinelFileName) > 0
@@ -242,6 +243,7 @@ func assignShardInfo(s3Objects []*awsi.S3Object, shardSize, maxShardSize, offset
 					start,
 					end,
 					currentShardId,
+					chanPos,
 				})
 				currentShardId += 1
 				currentShardSize = 0
@@ -260,6 +262,7 @@ func assignShardInfo(s3Objects []*awsi.S3Object, shardSize, maxShardSize, offset
 				int64(0),
 				int64(0),
 				currentShardId,
+				chanPos,
 			})
 			currentShardSize += obj.Size
 			if currentShardSize > shardSize {

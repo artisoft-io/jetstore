@@ -53,11 +53,12 @@ func NewCsvSourceS3(spec *CsvSourceSpec, env map[string]any) (*CsvSourceS3, erro
 		if len(spec.Compression) == 0 {
 			spec.Compression = "snappy"
 		}
-		fileKeys, err := GetS3FileKeys(spec.ProcessName, spec.SessionId,
-			spec.ReadStepId, spec.JetsPartitionLabel)
+		allFileKeys, err := GetS3FileKeys(spec.ProcessName, spec.SessionId,
+			spec.ReadStepId, spec.JetsPartitionLabel, &InputChannelConfig{}, nil)
 		if err != nil {
 			return nil, fmt.Errorf("failed to file keys for CsvSourceS3 of type cpipes: %v", err)
 		}
+		fileKeys := allFileKeys[0]
 		if len(fileKeys) == 0 {
 			if spec.MakeEmptyWhenNoFile {
 				return &CsvSourceS3{

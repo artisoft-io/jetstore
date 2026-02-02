@@ -1709,6 +1709,11 @@
         "isNotNull": true
       },
       {
+        "columnName": "channel_pos",
+        "description": "Channel position: 0 for main input, 1..n for merge channels",
+        "dataType": "int"
+      },
+      {
         "columnName": "is_file",
         "dataType": "int",
         "default": "1",

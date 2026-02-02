@@ -16,18 +16,19 @@ import (
 func (args *ComputePipesNodeArgs) CoordinateComputePipes(ctx context.Context, dbpool *pgxpool.Pool, jrProxy JetRulesProxy) error {
 	var cpErr, err error
 	var didSync bool
-	var inFolderPath string
+	var inFolderPath []string
 	var cpContext *ComputePipesContext
 	var fileKeyComponents map[string]any
-	var fileKeys []*FileKeyInfo
+	var fileKeys [][]*FileKeyInfo
 	var cpipesConfigJson string
 	var cpConfig *ComputePipesConfig
 	var mainSchemaProviderConfig *SchemaProviderSpec
 	var envSettings map[string]any
 	var schemaManager *SchemaManager
 	var externalBucket string
-	var mergeFileNamesCh []chan FileName
+	var fileNamesCh []chan FileName
 	var inputChannelConfig *InputChannelConfig
+	var nbrMergeChannels int
 
 	// Check if we need to sync the workspace files
 	didSync, err = workspace.SyncComputePipesWorkspace(dbpool)
@@ -57,6 +58,36 @@ func (args *ComputePipesNodeArgs) CoordinateComputePipes(ctx context.Context, db
 		goto gotError
 	}
 
+	// Get the main_input schema provider. Don't use the key "_main_input_" as it is not guarantee to have
+	// that specific key
+	for i := range cpConfig.SchemaProviders {
+		if cpConfig.SchemaProviders[i].SourceType == "main_input" {
+			mainSchemaProviderConfig = cpConfig.SchemaProviders[i]
+			break
+		}
+	}
+	if mainSchemaProviderConfig == nil {
+		// Did not find the main_input schema provider
+		cpErr = fmt.Errorf("error: bug in CoordinateComputePipes, could not find the main_input schema provider")
+		goto gotError
+	}
+	envSettings = mainSchemaProviderConfig.Env
+
+	//* IMPORTANT: Make sure a key is not the prefix of another key
+	//  e.g. $FILE_KEY and $FILE_KEY_PATH is BAD since $FILE_KEY_PATH may get
+	//  the value of $FILE_KEY with a dandling _PATH
+	envSettings["$SHARD_ID"] = args.NodeId
+	envSettings["$JETS_PARTITION_LABEL"] = args.JetsPartitionLabel
+
+	// Allocate the MergeFileNamesCh if have merge channels
+	inputChannelConfig = &cpConfig.PipesConfig[0].InputChannel
+	nbrMergeChannels = len(inputChannelConfig.MergeChannels)
+	fileNamesCh = make([]chan FileName, 0, 1+nbrMergeChannels)
+	fileNamesCh = append(fileNamesCh, make(chan FileName, 2))
+	for range nbrMergeChannels {
+		fileNamesCh = append(fileNamesCh, make(chan FileName, 2))
+	}
+
 	// Get file keys
 	switch cpConfig.CommonRuntimeArgs.CpipesMode {
 	case "sharding":
@@ -73,7 +104,7 @@ func (args *ComputePipesNodeArgs) CoordinateComputePipes(ctx context.Context, db
 	case "reducing":
 		// Case cpipes reducing mode, get the file keys from s3
 		fileKeys, err = GetS3FileKeys(cpConfig.CommonRuntimeArgs.ProcessName, cpConfig.CommonRuntimeArgs.SessionId,
-			cpConfig.CommonRuntimeArgs.MainInputStepId, args.JetsPartitionLabel)
+			cpConfig.CommonRuntimeArgs.MainInputStepId, args.JetsPartitionLabel, inputChannelConfig, envSettings)
 		if err != nil {
 			cpErr = err
 			goto gotError
@@ -82,10 +113,12 @@ func (args *ComputePipesNodeArgs) CoordinateComputePipes(ctx context.Context, db
 			cpConfig.CommonRuntimeArgs.SessionId, args.NodeId,
 			cpConfig.CommonRuntimeArgs.MainInputStepId, len(fileKeys))
 		if cpConfig.ClusterConfig.IsDebugMode {
-			for _, k := range fileKeys {
-				log.Printf("%s node %d %s Got file key from s3: %s",
-					cpConfig.CommonRuntimeArgs.SessionId, args.NodeId,
-					cpConfig.CommonRuntimeArgs.MainInputStepId, k.key)
+			for i := range fileKeys {
+				for _, k := range fileKeys[i] {
+					log.Printf("%s node %d %s Got file key from s3[%d]: %s",
+						cpConfig.CommonRuntimeArgs.SessionId, args.NodeId,
+						cpConfig.CommonRuntimeArgs.MainInputStepId, i, k.key)
+				}
 			}
 		}
 
@@ -93,21 +126,6 @@ func (args *ComputePipesNodeArgs) CoordinateComputePipes(ctx context.Context, db
 		cpErr = fmt.Errorf("error: invalid cpipesMode in CoordinateComputePipes: %s", cpConfig.CommonRuntimeArgs.CpipesMode)
 		goto gotError
 	}
-
-	// Get the main_input schema provider. Don't use the key "_main_input_" as it is not guarantee to have
-	// that specific key
-	for i := range cpConfig.SchemaProviders {
-		if cpConfig.SchemaProviders[i].SourceType == "main_input" {
-			mainSchemaProviderConfig = cpConfig.SchemaProviders[i]
-			break
-		}
-	}
-	if mainSchemaProviderConfig == nil {
-		// Did not find the main_input schema provider
-		cpErr = fmt.Errorf("error: bug in CoordinateComputePipes, could not find the main_input schema provider")
-		goto gotError
-	}
-	envSettings = mainSchemaProviderConfig.Env
 
 	// Create the SchemaManager and prepare the providers
 	schemaManager = NewSchemaManager(cpConfig.SchemaProviders, envSettings, cpConfig.ClusterConfig.IsDebugMode)
@@ -118,21 +136,6 @@ func (args *ComputePipesNodeArgs) CoordinateComputePipes(ctx context.Context, db
 	}
 	if cpConfig.CommonRuntimeArgs.CpipesMode == "sharding" {
 		externalBucket = mainSchemaProviderConfig.Bucket
-	}
-
-	//* IMPORTANT: Make sure a key is not the prefix of another key
-	//  e.g. $FILE_KEY and $FILE_KEY_PATH is BAD since $FILE_KEY_PATH may get
-	//  the value of $FILE_KEY with a dandling _PATH
-	envSettings["$SHARD_ID"] = args.NodeId
-	envSettings["$JETS_PARTITION_LABEL"] = args.JetsPartitionLabel
-
-	// Allocate the MergeFileNamesCh if have merge channels
-	inputChannelConfig = &cpConfig.PipesConfig[0].InputChannel
-	if len(inputChannelConfig.MergeChannels) > 0 {
-		mergeFileNamesCh = make([]chan FileName, 0, len(inputChannelConfig.MergeChannels))
-		for range inputChannelConfig.MergeChannels {
-			mergeFileNamesCh = append(mergeFileNamesCh, make(chan FileName, 2))
-		}
 	}
 
 	cpContext = &ComputePipesContext{
@@ -149,8 +152,7 @@ func (args *ComputePipesNodeArgs) CoordinateComputePipes(ctx context.Context, db
 		KillSwitch:         make(chan struct{}),
 		Done:               make(chan struct{}),
 		ErrCh:              make(chan error, 1000),
-		FileNamesCh:        make(chan FileName, 2),
-		MergeFileNamesCh:   mergeFileNamesCh,
+		FileNamesCh:        fileNamesCh,
 		DownloadS3ResultCh: make(chan DownloadS3Result, 1),
 	}
 
@@ -189,10 +191,16 @@ func (args *ComputePipesNodeArgs) CoordinateComputePipes(ctx context.Context, db
 	}
 
 	// Create a local temp directory to hold the file(s)
-	inFolderPath, err = os.MkdirTemp(cpContext.JetStoreTempFolder, "input_files")
-	if err != nil {
-		cpErr = fmt.Errorf("failed to create local input_files directory: %v", err)
-		goto gotError
+
+	inFolderPath = make([]string, 0, 1+nbrMergeChannels)
+	for i := range 1 + nbrMergeChannels {
+		var folderPath string
+		folderPath, err = os.MkdirTemp(cpContext.JetStoreTempFolder, fmt.Sprintf("input_files_%d", i))
+		if err != nil {
+			cpErr = fmt.Errorf("failed to create local input_files directory: %v", err)
+			goto gotError
+		}
+		inFolderPath = append(inFolderPath, folderPath)
 	}
 	defer func() {
 		err := os.RemoveAll(cpContext.JetStoreTempFolder)
@@ -211,7 +219,7 @@ func (args *ComputePipesNodeArgs) CoordinateComputePipes(ctx context.Context, db
 	}
 
 	// Process the downloaded file(s)
-	return cpContext.ProcessFilesAndReportStatus(ctx, dbpool, inFolderPath)
+	return cpContext.ProcessFilesAndReportStatus(ctx, dbpool)
 
 gotError:
 	log.Println(cpConfig.CommonRuntimeArgs.SessionId, "node", args.NodeId, "error in CoordinateComputePipes:", cpErr)
