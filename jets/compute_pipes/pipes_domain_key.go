@@ -7,14 +7,13 @@ import (
 
 // This file contains the DomainKey, aka DomainKeyInfo to
 // calculate a domain key as a composite key with pre-processing function.
-
-// Available functions for preprocessing input column values used in domain keys
+// See ParsePreprocessingExpressions for available functions for preprocessing input column.
 
 // DomainKeysSpec contains the overall information, with overriding hashing method.
 // The hashing method is applicable to all object types.
 // DomainKeys is a map keyed by the object type.
 type DomainKeysSpec struct {
-	HashingOverride string                   `json:"hasing_override,omitempty"`
+	HashingOverride string                   `json:"hashing_override,omitempty"`
 	DomainKeys      map[string]*DomainKeyInfo `json:"domain_keys_info,omitempty"`
 }
 

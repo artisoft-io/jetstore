@@ -265,6 +265,9 @@ func (ctx *BuilderContext) BuildPipeTransformationEvaluator(source *InputChannel
 	case "group_by":
 		return ctx.NewGroupByTransformationPipe(source, outCh, spec)
 
+	case "merge":
+		return ctx.NewMergeTransformationPipe(source, outCh, spec)
+
 	case "distinct":
 		return ctx.NewDistinctTransformationPipe(source, outCh, spec)
 

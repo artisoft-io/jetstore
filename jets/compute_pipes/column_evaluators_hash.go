@@ -22,8 +22,8 @@ type hashColumnEval struct {
 	outputPos     int
 }
 
-func (ctx *hashColumnEval) InitializeCurrentValue(currentValue *[]interface{}) {}
-func (ctx *hashColumnEval) Update(currentValue *[]interface{}, input *[]interface{}) error {
+func (ctx *hashColumnEval) InitializeCurrentValue(currentValue *[]any) {}
+func (ctx *hashColumnEval) Update(currentValue *[]any, input *[]any) error {
 	var hashedValue any
 	var err error
 	if currentValue == nil || input == nil {
@@ -40,13 +40,14 @@ func (ctx *hashColumnEval) Update(currentValue *[]interface{}, input *[]interfac
 	}
 	return err
 }
-func (ctx *hashColumnEval) Done(currentValue *[]interface{}) error {
+func (ctx *hashColumnEval) Done(currentValue *[]any) error {
 	return nil
 }
 
 // The Hash operator example (dw_rawfilename is string):
 //
-//	 case hash function:
+//	Case hash function:
+//  =========================================
 //		{
 //			"name": "jets_partition",
 //			"type": "hash",
@@ -59,7 +60,8 @@ func (ctx *hashColumnEval) Done(currentValue *[]interface{}) error {
 //
 // jets_partition will be of type uint64
 //
-//	 case compute domain key:
+//	Case compute domain key:
+//  =========================================
 //		{
 //			"name": "Claim:domain_key",
 //			"type": "hash",
@@ -69,11 +71,12 @@ func (ctx *hashColumnEval) Done(currentValue *[]interface{}) error {
 //			}
 //
 // Claim:domain_key will be of type string
+//
 func (ctx *BuilderContext) BuildHashTCEvaluator(source *InputChannel, outCh *OutputChannel,
 	spec *TransformationColumnSpec) (TransformationColumnEvaluator, error) {
 
 	if spec == nil || spec.HashExpr == nil {
-		return nil, fmt.Errorf("error: Type hash must have HashExpr != nil")
+		return nil, fmt.Errorf("error: Type 'hash' must have field 'hash_expr' != nil")
 	}
 	outputPos, ok := (*outCh.Columns)[spec.Name]
 	if !ok {
@@ -87,16 +90,15 @@ func (ctx *BuilderContext) BuildHashTCEvaluator(source *InputChannel, outCh *Out
 	}, err
 }
 
-// Hashing Algo for computing Domain Key
+// Hashing Algo supported
 type HashingAlgoEnum int
-
 const (
 	HashingAlgo_None HashingAlgoEnum = iota
 	HashingAlgo_SHA1
 	HashingAlgo_MD5
 )
 
-// HashEvaluator is a type to compute a hask key based on an input record.
+// HashEvaluator is a type to compute a hash key based on an input record.
 type HashEvaluator struct {
 	inputPos          int
 	compositeInputKey []PreprocessingFunction
@@ -179,11 +181,11 @@ func (ctx *BuilderContext) NewHashEvaluator(source *InputChannel,
 		}
 		toUpper := true
 		if spec.ComputeDomainKey {
-			toUpper = len(keys) > 1
 			if len(source.DomainKeySpec.HashingOverride) > 0 {
 				if source.DomainKeySpec.HashingOverride == "none" {
-					// This is the case of domain_table
+					// This is the case of domain_table or performing a merge with ordered sources.
 					hashingAlgo = "none"
+					toUpper = false
 				} else {
 					hashingAlgo = source.DomainKeySpec.HashingOverride
 				}
@@ -197,7 +199,7 @@ func (ctx *BuilderContext) NewHashEvaluator(source *InputChannel,
 				hashingEnum = HashingAlgo_None
 			default:
 				return nil, fmt.Errorf(
-					"error: unknown hasing also '%s' for computing domain key, expecting sha1, md5 or none, check JETS_DOMAIN_KEY_HASH_ALGO",
+					"error: unknown hashing algo '%s' for computing domain key, expecting sha1, md5 or none, check JETS_DOMAIN_KEY_HASH_ALGO",
 					hashingAlgo)
 			}
 		}
@@ -290,7 +292,7 @@ func EvalHash(key any, partitions uint64) *uint64 {
 		hashedValue = partition(uint64(vv.Unix()), partitions)
 
 	default:
-		hashedValue = Hash([]byte(fmt.Sprintf("%v", vv)), partitions)
+		hashedValue = Hash(fmt.Appendf(nil, "%v", vv), partitions)
 	}
 	return &hashedValue
 }
@@ -366,7 +368,7 @@ func (ctx *HashEvaluator) ComputeDomainKey(input []any) (any, error) {
 	}
 }
 
-func makeAlternateKey(altInputKey *[]PreprocessingFunction, input *[]interface{}) (interface{}, error) {
+func makeAlternateKey(altInputKey *[]PreprocessingFunction, input *[]any) (any, error) {
 	var buf bytes.Buffer
 	var err error
 	for _, pf := range *altInputKey {

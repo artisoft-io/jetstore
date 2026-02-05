@@ -21,7 +21,7 @@ func init() {
 }
 
 type PreprocessingFunction interface {
-	ApplyPF(buf *bytes.Buffer, input *[]interface{}) error
+	ApplyPF(buf *bytes.Buffer, input *[]any) error
 }
 
 func ParsePreprocessingExpressions(inputExprs []string, toUpper bool, columns *map[string]int) ([]PreprocessingFunction, error) {
@@ -68,7 +68,7 @@ type DefaultPF struct {
 	toUpper  bool
 }
 
-func (pf *DefaultPF) ApplyPF(buf *bytes.Buffer, input *[]interface{}) error {
+func (pf *DefaultPF) ApplyPF(buf *bytes.Buffer, input *[]any) error {
 	switch vv := (*input)[pf.inputPos].(type) {
 	case string:
 		if pf.toUpper {
@@ -83,7 +83,7 @@ func (pf *DefaultPF) ApplyPF(buf *bytes.Buffer, input *[]interface{}) error {
 	case time.Time:
 		buf.WriteString(strconv.FormatInt(vv.Unix(), 10))
 	default:
-		buf.WriteString(fmt.Sprintf("%v", vv))
+		fmt.Fprintf(buf, "%v", vv)
 	}
 	return nil
 }
@@ -95,7 +95,7 @@ type FormatDatePF struct {
 	inputPos int
 }
 
-func (pf *FormatDatePF) ApplyPF(buf *bytes.Buffer, input *[]interface{}) error {
+func (pf *FormatDatePF) ApplyPF(buf *bytes.Buffer, input *[]any) error {
 	switch vv := (*input)[pf.inputPos].(type) {
 	case string:
 		y, m, d, err := rdf.ParseDateComponents(vv)
@@ -103,15 +103,15 @@ func (pf *FormatDatePF) ApplyPF(buf *bytes.Buffer, input *[]interface{}) error {
 			// return fmt.Errorf("error: in FormatDatePF the input date is not a valid date: %v", err)
 			return nil
 		}
-		buf.WriteString(fmt.Sprintf("%d%02d%02d", y, m, d))
+		fmt.Fprintf(buf, "%d%02d%02d", y, m, d)
 	case []byte:
 		buf.Write(vv)
 	case nil:
 		// do nothing
 	case time.Time:
-		buf.WriteString(fmt.Sprintf("%d%02d%02d", vv.Year(), vv.Month(), vv.Day()))
+		fmt.Fprintf(buf, "%d%02d%02d", vv.Year(), vv.Month(), vv.Day())
 	default:
-		buf.WriteString(fmt.Sprintf("%v", vv))
+		fmt.Fprintf(buf, "%v", vv)
 	}
 	return nil
 }
@@ -129,7 +129,7 @@ func init() {
 	spc = s[0]
 }
 
-func (pf *RemoveMiPF) ApplyPF(buf *bytes.Buffer, input *[]interface{}) error {
+func (pf *RemoveMiPF) ApplyPF(buf *bytes.Buffer, input *[]any) error {
 	v := (*input)[pf.inputPos]
 	if v == nil {
 		return nil

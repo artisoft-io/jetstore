@@ -46,12 +46,15 @@ func (ctx *GroupByTransformationPipe) Apply(input *[]any) error {
 			return nil
 		}
 		// Got value past end of bundle
-		ctx.sendBundle(input)
+		ctx.sendBundle()
+		// Prepare the next bundle
+		ctx.currentBundle = ctx.currentBundle[:0]
+		ctx.currentBundle = append(ctx.currentBundle, *input)
 		return nil
 	}
 	// Group by value
 	groupByValue := ctx.groupValueOf(input)
-	if ctx.spec.GroupByConfig != nil && ctx.spec.GroupByConfig.IsDebug {
+	if ctx.spec.GroupByConfig.IsDebug {
 		log.Printf("GroupByTransformationPipe input: groupByValue=%v, currentValue=%v", groupByValue, ctx.currentValue)
 	}
 	switch {
@@ -62,11 +65,14 @@ func (ctx *GroupByTransformationPipe) Apply(input *[]any) error {
 
 	case ctx.currentValue != groupByValue:
 		// Got value past end of bundle
-		if ctx.spec.GroupByConfig != nil && ctx.spec.GroupByConfig.IsDebug {
+		if ctx.spec.GroupByConfig.IsDebug {
 			log.Printf("GroupByTransformationPipe output: sending bundle of size %d with currentValue=%v", len(ctx.currentBundle), ctx.currentValue)
 		}
-		ctx.sendBundle(input)
+		ctx.sendBundle()
 		ctx.currentValue = groupByValue
+		// Prepare the next bundle
+		ctx.currentBundle = ctx.currentBundle[:0]
+		ctx.currentBundle = append(ctx.currentBundle, *input)
 
 	default:
 		// Adding to the bundle
@@ -75,34 +81,26 @@ func (ctx *GroupByTransformationPipe) Apply(input *[]any) error {
 	return nil
 }
 
-func (ctx *GroupByTransformationPipe) sendBundle(input *[]any) {
-	// Send the bundle out
-	select {
-	case ctx.outputCh.Channel <- ctx.currentBundle:
-	case <-ctx.doneCh:
-		log.Println("GroupByTransform interrupted")
-	}
-	// Prepare the next bundle
-	ctx.currentBundle = make([]any, 0)
-	ctx.currentBundle = append(ctx.currentBundle, *input)
-}
-
 func (ctx *GroupByTransformationPipe) Done() error {
 	// Send the last bundle
+	ctx.sendBundle()
+	return nil
+}
+
+func (ctx *GroupByTransformationPipe) Finally() {}
+
+func (ctx *GroupByTransformationPipe) sendBundle() {
+	// Send the bundle out
 	if len(ctx.currentBundle) > 0 {
-		// Send the bundle out the last bundle
 		select {
 		case ctx.outputCh.Channel <- ctx.currentBundle:
 		case <-ctx.doneCh:
 			log.Println("GroupByTransform interrupted")
 		}
 	}
-	// log.Println("**!@@ ** Send ANALYZE Result to", ctx.outputCh.name, "DONE")
-	return nil
 }
 
-func (ctx *GroupByTransformationPipe) Finally() {}
-
+// Builder function for GroupByTransformationPipe
 func (ctx *BuilderContext) NewGroupByTransformationPipe(source *InputChannel, outputCh *OutputChannel, spec *TransformationSpec) (*GroupByTransformationPipe, error) {
 	if spec == nil || spec.GroupByConfig == nil {
 		return nil, fmt.Errorf("error: GroupBy Pipe Transformation spec is missing regex, lookup, and/or keywords definition")
@@ -130,7 +128,7 @@ func (ctx *BuilderContext) NewGroupByTransformationPipe(source *InputChannel, ou
 			return nil, fmt.Errorf("error: group_by operator is configured with domain key, but no domain key defined for %s", config.DomainKey)
 		}
 	}
-	
+
 	if groupByCount == 0 {
 		groupByPos = config.GroupByPos
 		l := len(config.GroupByName)
