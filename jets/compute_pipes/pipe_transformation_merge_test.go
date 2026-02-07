@@ -77,6 +77,7 @@ func TestMergeRecords1(t *testing.T) {
 // Merge by column names
 func TestMergeRecords2(t *testing.T) {
 	mergeColumn := []string{"key1", "key2"}
+	columnPos := []int{0, 1}
 	mainInputRecords := [][]any{
 		{"1", "1", "3", "03"},
 		{"1", "2", "1", "01"},
@@ -93,13 +94,19 @@ func TestMergeRecords2(t *testing.T) {
 			{"5", "3", "2", "12"},
 			{"5", "3", "5", "15"},
 		},
+		{
+			{"0", "0", "0", "20"},
+			{"1", "2", "1", "21"},
+			{"5", "1", "4", "24"},
+		},
 	}
 	outputRecords, err := doMergeRecordsTest(
-		columns, []map[string]int{columns}, &MergeSpec{
+		columns, []map[string]int{columns, columns}, &MergeSpec{
 			IsDebug:     true,
 			MainGroupBy: GroupBySpec{GroupByName: mergeColumn},
 			MergeGroupBy: []*GroupBySpec{
 				{GroupByName: mergeColumn},
+				{GroupByPos: columnPos},
 			},
 		},
 		mainInputRecords, mergeInputRecords)
@@ -118,7 +125,7 @@ func TestMergeRecords2(t *testing.T) {
 	}
 
 	// See if the records are properly grouped
-	bundleLengths := []int{2, 2, 2, 4}
+	bundleLengths := []int{2, 3, 3, 4}
 	if len(outputRecords) != len(bundleLengths) {
 		t.Error("expecting x bundles")
 	}
@@ -271,9 +278,9 @@ func doMergeRecordsTest(mainColumns map[string]int, mergeColumns []map[string]in
 		},
 	}
 
-	inputCh := make(chan []any, 1)
 	mergeSources := make([]*InputChannel, len(mergeColumns))
 	for i, mergeCols := range mergeColumns {
+		inputCh := make(chan []any, 1)
 		mergeSources[i] = &InputChannel{
 			Name:    fmt.Sprintf("merge %d", i),
 			Channel: inputCh,
@@ -288,12 +295,12 @@ func doMergeRecordsTest(mainColumns map[string]int, mergeColumns []map[string]in
 			},
 		}
 		// Send the data to the merge channel
-		go func(records [][]any) {
-			defer close(inputCh)
+		go func(ch chan []any, records [][]any) {
+			defer close(ch)
 			for _, r := range records {
-				inputCh <- r
+				ch <- r
 			}
-		}(mergeInputRecords[i])
+		}(inputCh, mergeInputRecords[i])
 	}
 
 	outCh := make(chan []any, 1)
