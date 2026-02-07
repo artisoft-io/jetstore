@@ -48,7 +48,7 @@ func (ctx *GroupByTransformationPipe) Apply(input *[]any) error {
 		// Got value past end of bundle
 		ctx.sendBundle()
 		// Prepare the next bundle
-		ctx.currentBundle = ctx.currentBundle[:0]
+		ctx.currentBundle = make([]any, 0, ctx.groupByCount)
 		ctx.currentBundle = append(ctx.currentBundle, *input)
 		return nil
 	}
@@ -71,7 +71,7 @@ func (ctx *GroupByTransformationPipe) Apply(input *[]any) error {
 		ctx.sendBundle()
 		ctx.currentValue = groupByValue
 		// Prepare the next bundle
-		ctx.currentBundle = ctx.currentBundle[:0]
+		ctx.currentBundle = make([]any, 0, len(ctx.currentBundle))
 		ctx.currentBundle = append(ctx.currentBundle, *input)
 
 	default:

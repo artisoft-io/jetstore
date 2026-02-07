@@ -22,6 +22,7 @@ func init() {
 
 type PreprocessingFunction interface {
 	ApplyPF(buf *bytes.Buffer, input *[]any) error
+	String() string
 }
 
 func ParsePreprocessingExpressions(inputExprs []string, toUpper bool, columns *map[string]int) ([]PreprocessingFunction, error) {
@@ -87,6 +88,9 @@ func (pf *DefaultPF) ApplyPF(buf *bytes.Buffer, input *[]any) error {
 	}
 	return nil
 }
+func (pf *DefaultPF) String() string {
+	return fmt.Sprintf("DefaultPF(inputPos=%d,toUpper=%v)", pf.inputPos, pf.toUpper)
+}
 
 // FormatDatePF is writing a date field using YYYYMMDD format
 // This assume the date in the input is a valid date as string
@@ -114,6 +118,9 @@ func (pf *FormatDatePF) ApplyPF(buf *bytes.Buffer, input *[]any) error {
 		fmt.Fprintf(buf, "%v", vv)
 	}
 	return nil
+}
+func (pf *FormatDatePF) String() string {
+	return fmt.Sprintf("FormatDatePF(inputPos=%d)", pf.inputPos)
 }
 
 // RemoveMiPF remove last 2 char if last-1 is a space, e.g. "michel f" becomes "michel"
@@ -151,4 +158,7 @@ func (pf *RemoveMiPF) ApplyPF(buf *bytes.Buffer, input *[]any) error {
 	}
 	buf.WriteString(value)
 	return nil
+}
+func (pf *RemoveMiPF) String() string {
+	return fmt.Sprintf("RemoveMiPF(inputPos=%d,toUpper=%v)", pf.inputPos, pf.toUpper)
 }

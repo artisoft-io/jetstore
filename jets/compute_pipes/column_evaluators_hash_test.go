@@ -1,7 +1,9 @@
 package compute_pipes
 
 import (
+	"bytes"
 	"fmt"
+	"log"
 	"reflect"
 	"testing"
 
@@ -11,7 +13,8 @@ import (
 // This file contains test cases for hashColumnEval
 
 // Full end-to-end tests
-
+// Simulate compute hash key for partitioning
+// Note: when computing hash (and not the domain key), the hasing algo is always FNV-1a 64bit and the output is always uint64, even if the input is composite key. The hashing override and computeDomainKey are only for computing domain key, not for regular hash-based partitioning.
 func TestHashColumnEvalFull01(t *testing.T) {
 	ctx := &BuilderContext{
 		cpConfig: &ComputePipesConfig{
@@ -55,6 +58,10 @@ func TestHashColumnEvalFull01(t *testing.T) {
 	if err != nil {
 		t.Errorf("while calling BuildHashTCEvaluator: %v", err)
 	}
+	var h any = trsfEvaluator
+	evaluator := h.(*hashColumnEval)
+	log.Printf("Hash Evaluator is using '%s'", evaluator.hashEvaluator.hashingAlgo.String())
+
 	// Evaluate the column transformation operator
 	currentOutputValue := make([]any, 1)
 	inputValues := &[][]any{
@@ -67,15 +74,15 @@ func TestHashColumnEvalFull01(t *testing.T) {
 		if err != nil {
 			t.Errorf("while calling Update: %v", err)
 		}
-		// fmt.Println("*** For", inputRow, ",Got:", currentOutputValue[0])
+		fmt.Println("*** For", inputRow, ",Got:", currentOutputValue[0])
 		if expectedHash != currentOutputValue[0] {
 			t.Errorf("hash failed")
 		}
 	}
-	// t.Error("done")
+	t.Error("done")
 }
 
-// Simulate compute domain key for domain entity
+// Simulate compute domain key for domain entity using single column with override to no hashing (i.e. use the column value as is for domain key)
 func TestComputeDomainKeyFull01(t *testing.T) {
 	HashingSeed, _ = uuid.Parse("38dfae30-f8c9-1111-9dfe-62e96ab8a622")
 	DomainKeyDelimit = "-"
@@ -130,7 +137,7 @@ func TestComputeDomainKeyFull01(t *testing.T) {
 	if err != nil {
 		t.Errorf("while calling BuildHashTCEvaluator: %v", err)
 	}
-	// Evaluate the compute domain key
+	// Evaluate the domain key
 	currentOutputValue := make([]any, 1)
 	inputValues := &[]any{"38dfae30-f8c9-51ae-9dfe-62e96ab8a622", "NAME1", "M", "1969-01-01"}
 	expectedKey := "38dfae30-f8c9-51ae-9dfe-62e96ab8a622"
@@ -145,7 +152,7 @@ func TestComputeDomainKeyFull01(t *testing.T) {
 	// t.Error("done")
 }
 
-// Simulate compute domain key for file entity with override
+// Simulate compute domain key for file entity with composite key and override
 func TestComputeDomainKeyFull02(t *testing.T) {
 	HashingSeed, _ = uuid.Parse("38dfae30-f8c9-1111-9dfe-62e96ab8a622")
 	DomainKeyDelimit = "-"
@@ -200,7 +207,7 @@ func TestComputeDomainKeyFull02(t *testing.T) {
 	if err != nil {
 		t.Errorf("while calling BuildHashTCEvaluator: %v", err)
 	}
-	// Evaluate the compute domain key
+	// Evaluate the compute domain key: case override to upper case only with composite key
 	currentOutputValue := make([]any, 1)
 	inputValues := &[]any{"key1", "name 1", "m", "1969-01-01"}
 	expectedKey := "NAME-M-19690101"
@@ -215,7 +222,7 @@ func TestComputeDomainKeyFull02(t *testing.T) {
 	// t.Error("done")
 }
 
-// Simulate compute domain key for file entity w/o override
+// Simulate compute domain key for file entity with and without override
 func TestComputeDomainKeyFull03(t *testing.T) {
 	HashingSeed, _ = uuid.Parse("38dfae30-f8c9-1111-9dfe-62e96ab8a622")
 	DomainKeyDelimit = "-"
@@ -239,13 +246,28 @@ func TestComputeDomainKeyFull03(t *testing.T) {
 	outputColumns := map[string]int{
 		"Claim:domain_key": 0,
 	}
-	// Build the Column Transformation Evaluator
-	trsfEvaluator, err := ctx.BuildHashTCEvaluator(
-		&InputChannel{
+	// Evaluate the domain key
+	currentOutputValue := make([]any, 1)
+	var expectedKey string
+	inputValues := [][]any{
+		{"key1", "name 1", "m", "1969-01-01"},
+		{"", "name 2", "M", "1969-01-01"},
+	}
+	for _, hashingOverride := range []string{"", "none"} {
+		if hashingOverride == "none" {
+			// do the override
+			expectedKey = "NAME-M-19690101"
+		} else {
+			// take the default of sha1 hashing
+			expectedKey = "a1366cc9-38bb-50aa-b6dc-9d91f0249039"
+		}
+
+		// Build the Column Transformation Evaluator
+		inputChannel := &InputChannel{
 			Name:    "input",
 			Columns: &inputColumns,
 			DomainKeySpec: &DomainKeysSpec{
-				// HashingOverride: "none",
+				HashingOverride: hashingOverride,
 				DomainKeys: map[string]*DomainKeyInfo{
 					"Claim": {
 						KeyExpr:    []string{"remove_mi(name)", "gender", "format_date(dob)"},
@@ -253,36 +275,130 @@ func TestComputeDomainKeyFull03(t *testing.T) {
 					},
 				},
 			},
-		},
-		&OutputChannel{
-			Name:    "output",
-			Columns: &outputColumns,
-		},
-		&TransformationColumnSpec{
-			Type: "hash",
-			Name: "Claim:domain_key",
-			HashExpr: &HashExpression{
-				DomainKey:        "Claim",
-				ComputeDomainKey: true,
+		}
+
+		trsfEvaluator, err := ctx.BuildHashTCEvaluator(
+			inputChannel,
+			&OutputChannel{
+				Name:    "output",
+				Columns: &outputColumns,
 			},
-		},
-	)
-	if err != nil {
-		t.Errorf("while calling BuildHashTCEvaluator: %v", err)
-	}
-	// Evaluate the compute domain key
-	currentOutputValue := make([]any, 1)
-	inputValues := &[]any{"key1", "name 1", "m", "1969-01-01"}
-	expectedKey := "a1366cc9-38bb-50aa-b6dc-9d91f0249039"
-	err = trsfEvaluator.Update(&currentOutputValue, inputValues)
-	if err != nil {
-		t.Errorf("while calling Update: %v", err)
-	}
-	// fmt.Println("*** Got:", currentOutputValue[0])
-	if expectedKey != currentOutputValue[0] {
-		t.Errorf("hash failed")
+			&TransformationColumnSpec{
+				Type: "hash",
+				Name: "Claim:domain_key",
+				HashExpr: &HashExpression{
+					DomainKey:        "Claim",
+					ComputeDomainKey: true,
+				},
+			},
+		)
+		if err != nil {
+			t.Errorf("while calling BuildHashTCEvaluator: %v", err)
+		}
+		for i, row := range inputValues {
+			err = trsfEvaluator.Update(&currentOutputValue, &row)
+			if err != nil {
+				t.Errorf("while calling Update: %v", err)
+			}
+			// log.Printf("*** Got[%d]: %+v\n", i, currentOutputValue[0])
+			if expectedKey != currentOutputValue[0] {
+				t.Errorf("hash failed for row %d", i)
+			}
+		}
 	}
 	// t.Error("done")
+	log.Println() //so the import of log is not optimized out
+}
+
+// Simulate compute domain key without domain key spec (using supplied composite key) with and without override
+// Same as TestComputeDomainKeyFull03 but without domain key spec and using directly the column name in the hash expression.
+// This is to test compute domain key without domain key spec.
+func TestComputeDomainKeyFull04(t *testing.T) {
+	HashingSeed, _ = uuid.Parse("38dfae30-f8c9-1111-9dfe-62e96ab8a622")
+	DomainKeyDelimit = "-"
+	HashingAlgo = "sha1"
+	ctx := &BuilderContext{
+		cpConfig: &ComputePipesConfig{
+			ClusterConfig: &ClusterSpec{
+				ShardingInfo: &ClusterShardingInfo{
+					MaxNbrPartitions: 400,
+					NbrPartitions:    131,
+				},
+			},
+		},
+	}
+	inputColumns := map[string]int{
+		"key":    0,
+		"name":   1,
+		"gender": 2,
+		"dob":    3,
+	}
+	outputColumns := map[string]int{
+		"Claim:domain_key": 0,
+	}
+	// Evaluate the domain key
+	currentOutputValue := make([]any, 1)
+	var expectedKey string
+	inputValues := [][]any{
+		{"key1", "name 1", "m", "1969-01-01"},
+		{"", "name 2", "M", "1969-01-01"},
+	}
+	for _, hashingOverride := range []string{"", "none"} {
+		if hashingOverride == "none" {
+			// do the override
+			expectedKey = "NAME-M-19690101"
+		} else {
+			// take the default of sha1 hashing
+			expectedKey = "a1366cc9-38bb-50aa-b6dc-9d91f0249039"
+		}
+
+		// Build the Column Transformation Evaluator
+		inputChannel := &InputChannel{
+			Name:    "input",
+			Columns: &inputColumns,
+			DomainKeySpec: &DomainKeysSpec{
+				HashingOverride: hashingOverride,
+				// DomainKeys: map[string]*DomainKeyInfo{
+				// 	"Claim": {
+				// 		KeyExpr:    []string{"remove_mi(name)", "gender", "format_date(dob)"},
+				// 		ObjectType: "Claim",
+				// 	},
+				// },
+			},
+		}
+
+		trsfEvaluator, err := ctx.BuildHashTCEvaluator(
+			inputChannel,
+			&OutputChannel{
+				Name:    "output",
+				Columns: &outputColumns,
+			},
+			&TransformationColumnSpec{
+				Type: "hash",
+				Name: "Claim:domain_key",
+				HashExpr: &HashExpression{
+					// DomainKey:        "Claim",
+					CompositeExpr:    []string{"remove_mi(name)", "gender", "format_date(dob)"},
+					ComputeDomainKey: true,
+				},
+			},
+		)
+		if err != nil {
+			t.Errorf("while calling BuildHashTCEvaluator: %v", err)
+		}
+		for i, row := range inputValues {
+			err = trsfEvaluator.Update(&currentOutputValue, &row)
+			if err != nil {
+				t.Errorf("while calling Update: %v", err)
+			}
+			// log.Printf("*** Got[%d]: %+v\n", i, currentOutputValue[0])
+			if expectedKey != currentOutputValue[0] {
+				t.Errorf("hash failed for row %d", i)
+			}
+		}
+	}
+	// t.Error("done")
+	log.Println() //so the import of log is not optimized out
 }
 
 // Simplified tests
@@ -315,7 +431,7 @@ func TestComputeDomainKey01(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	// fmt.Println("*** DomainKey:", domainKey)
+	fmt.Println("*** DomainKey:", domainKey)
 	if domainKey != "NAME-M-19690101" {
 		t.Error("expecting NAME-M-19690101")
 	}
@@ -418,14 +534,14 @@ func TestHashColumnEvalSimple01(t *testing.T) {
 			t.Errorf("error unknown PreprocessingFunction implementation: %v", err)
 		}
 	}
-
-	out, err := makeAlternateKey(&pfnc, &[]interface{}{nil, "name", "6-14-2024"})
+	buf := &bytes.Buffer{}
+	err = makeAlternateKey(buf, &pfnc, "", &[]any{nil, "name", "6-14-2024"})
 	if err != nil {
 		t.Errorf("while calling makeAlternateKey: %v", err)
 	}
-	v, ok := out.(string)
-	if !ok || v != "NAME20240614" {
-		t.Errorf("error: expecting NAME20240614 got %v", out)
+	v := buf.String()
+	if v != "NAME20240614" {
+		t.Errorf("error: expecting NAME20240614 got %v", v)
 	}
 }
 
@@ -470,5 +586,5 @@ func TestEvalHash02(t *testing.T) {
 	for k, v := range freq {
 		fmt.Printf("hash %d: %d\n", k, v)
 	}
-	t.Error("Done")
+	// t.Error("Done")
 }

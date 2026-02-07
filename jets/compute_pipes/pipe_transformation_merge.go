@@ -37,7 +37,7 @@ func (ctx *MergeTransformationPipe) Apply(input *[]any) error {
 		return fmt.Errorf("while computing main merge key in MergeTransformationPipe: %v", err)
 	}
 	if ctx.spec.MergeConfig.IsDebug {
-		log.Printf("MergeTransformationPipe input: mainKey=%v, currentValue=%v", mainKey, ctx.currentValue)
+		log.Printf("MergeTransformationPipe input: mainKey=%v (%T), currentValue=%v", mainKey, mainKey, ctx.currentValue)
 	}
 
 	switch {
@@ -47,7 +47,7 @@ func (ctx *MergeTransformationPipe) Apply(input *[]any) error {
 		ctx.sendBundle()
 		// Start new bundle
 		ctx.currentValue = mainKey
-		ctx.currentBundle = ctx.currentBundle[:0]
+		ctx.currentBundle = make([]any, 0, len(ctx.currentBundle))
 		ctx.currentBundle = append(ctx.currentBundle, *input)
 
 		// Add from merge sources
@@ -58,6 +58,9 @@ func (ctx *MergeTransformationPipe) Apply(input *[]any) error {
 	nextMergeSource:
 		for i, mergeSource := range ctx.mergeSources {
 			currentValue := ctx.mergeCurrentValues[i]
+			if ctx.spec.MergeConfig.IsDebug {
+				log.Printf("-- Merge Source %d: currentValue=%v", i, currentValue.value)
+			}
 			if currentValue.value == mainKey {
 				// Consume the pending row
 				ctx.currentBundle = append(ctx.currentBundle, currentValue.pendingRow)
@@ -69,7 +72,7 @@ func (ctx *MergeTransformationPipe) Apply(input *[]any) error {
 				mergeInput := ctx.readRecord(mergeSource)
 				if mergeInput == nil {
 					// End of merge source
-					goto nextMergeSource
+					continue nextMergeSource
 				}
 				mergeKey, err := mergeKeyOf(ctx.mergeHashEvaluators[i], mergeInput)
 				if err != nil {
@@ -103,7 +106,7 @@ func (ctx *MergeTransformationPipe) Apply(input *[]any) error {
 					}
 					currentValue.value = mergeKey
 					currentValue.pendingRow = *mergeInput
-					goto nextMergeSource
+					continue nextMergeSource
 				}
 			}
 		}
@@ -117,7 +120,9 @@ func (ctx *MergeTransformationPipe) Apply(input *[]any) error {
 
 }
 func (ctx *MergeTransformationPipe) Done() error {
-	log.Println("**!@@ ** MergeTransformationPipe DONE")
+	if ctx.spec.MergeConfig.IsDebug {
+		log.Println("**!@@ ** MergeTransformationPipe DONE")
+	}
 	// Send the last bundle
 	ctx.sendBundle()
 	return nil
@@ -132,6 +137,9 @@ func mergeKeyOf(hashEval *HashEvaluator, input *[]any) (any, error) {
 func (ctx *MergeTransformationPipe) sendBundle() {
 	// Send the bundle out
 	if len(ctx.currentBundle) > 0 {
+		if ctx.spec.MergeConfig.IsDebug {
+			log.Printf("**!@@ ** MergeTransformationPipe sendBundle: currentValue=%v, bundle size=%d", ctx.currentValue, len(ctx.currentBundle))
+		}
 		select {
 		case ctx.outputCh.Channel <- ctx.currentBundle:
 		case <-ctx.doneCh:
@@ -153,10 +161,12 @@ func (ctx *BuilderContext) NewMergeTransformationPipe(
 	source *InputChannel,
 	outCh *OutputChannel,
 	spec *TransformationSpec) (PipeTransformationEvaluator, error) {
-	log.Println("**!@@ ** Creating MergeTransformationPipe")
 
 	if spec.MergeConfig == nil {
 		return nil, fmt.Errorf("error: MergeTransformationPipe requires MainHashExpr")
+	}
+	if spec.MergeConfig.IsDebug {
+		log.Println("**!@@ ** Creating MergeTransformationPipe")
 	}
 	// The merge operator must be the first transformation operator since it needs multiple input sources
 	inputChannel := ctx.cpConfig.PipesConfig[0].InputChannel
@@ -184,11 +194,18 @@ func (ctx *BuilderContext) MakeMergeTransformationPipe(
 	if err != nil {
 		return nil, fmt.Errorf("while creating main HashExpression for MergeTransformationPipe: %v", err)
 	}
+	if spec.MergeConfig.IsDebug {
+		log.Printf("**MergeTransformationPipe: main HashExpression: %s", mainHashExpression.String())
+	}
+
 	mainHashEvaluator, err := ctx.NewHashEvaluator(mainSource, mainHashExpression)
 	if err != nil {
 		return nil, fmt.Errorf("while creating main HashEvaluator for MergeTransformationPipe: %v", err)
 	}
-	// log.Printf("**!@@ ** Created main HashEvaluator for MergeTransformationPipe: %+v", mainHashEvaluator)
+	if spec.MergeConfig.IsDebug {
+		log.Printf("**MergeTransformationPipe: main HashEvaluator: %s", mainHashEvaluator.String())
+	}
+
 	l := len(mergeSources)
 	mergeHashEvaluators := make([]*HashEvaluator, 0, l)
 	for i, mergeSource := range mergeSources {
@@ -207,15 +224,22 @@ func (ctx *BuilderContext) MakeMergeTransformationPipe(
 			return nil, fmt.Errorf("while creating merge HashEvaluator for MergeTransformationPipe: %v", err)
 		}
 		mergeHashEvaluators = append(mergeHashEvaluators, mergeHashEvaluator)
-		// log.Printf("**!@@ ** Created merge HashEvaluator for MergeTransformationPipe: %+v", mergeHashEvaluator)
+		if spec.MergeConfig.IsDebug {
+			log.Printf("**MergeTransformationPipe: merge source %d HashEvaluator: %s", i, mergeHashEvaluator.String())
+		}
 	}
 
+	mergeCurrentValues := make([]*MergeCurrentValue, len(mergeSources))
+	for i := range mergeSources {
+		mergeCurrentValues[i] = &MergeCurrentValue{}
+	}
 	mergePipe := &MergeTransformationPipe{
 		cpConfig:            ctx.cpConfig,
 		mainSource:          mainSource,
 		mainHashEvaluator:   mainHashEvaluator,
 		mergeSources:        mergeSources,
 		mergeHashEvaluators: mergeHashEvaluators,
+		mergeCurrentValues:  mergeCurrentValues,
 		outputCh:            outCh,
 		spec:                spec,
 		env:                 ctx.env,
@@ -262,6 +286,7 @@ func MakeHashExpressionFromGroupByConfig(column map[string]int, config *GroupByS
 		Expr:             expr,
 		CompositeExpr:    compositeExpr,
 		DomainKey:        config.DomainKey,
+		NoPartitions:     true,
 		ComputeDomainKey: true, // to make sure the hashing is based on the raw value of the domain key column for correct merging, since the sources are ordered by column values
 	}
 	return hashExpression, nil

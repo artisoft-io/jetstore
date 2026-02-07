@@ -1,9 +1,11 @@
 package compute_pipes
 
 import (
+	"fmt"
 	"log"
 	"regexp"
 	"strconv"
+	"strings"
 )
 
 // This file contains the Compute Pipes configuration model
@@ -1025,6 +1027,34 @@ type HashExpression struct {
 	AlternateCompositeExpr []string `json:"alternate_composite_expr,omitempty"`
 	NoPartitions           bool     `json:"no_partitions,omitzero"`
 	ComputeDomainKey       bool     `json:"compute_domain_key,omitzero"`
+}
+
+func (h *HashExpression) String() string {
+	var b strings.Builder
+	b.WriteString("HashExpression(")
+	if h.Expr != "" {
+		fmt.Fprintf(&b, "Expr: %s, ", h.Expr)
+	}
+	if len(h.CompositeExpr) > 0 {
+		fmt.Fprintf(&b, "CompositeExpr: %v, ", h.CompositeExpr)
+	}
+	if h.DomainKey != "" {
+		fmt.Fprintf(&b, "DomainKey: %s, ", h.DomainKey)
+	}
+	if h.MultiStepShardingMode != "" {
+		fmt.Fprintf(&b, "MultiStepShardingMode: %s, ", h.MultiStepShardingMode)
+	}
+	if len(h.AlternateCompositeExpr) > 0 {
+		fmt.Fprintf(&b, "AlternateCompositeExpr: %v, ", h.AlternateCompositeExpr)
+	}
+	if h.NoPartitions {
+		b.WriteString("NoPartitions: true, ")
+	}
+	if h.ComputeDomainKey {
+		b.WriteString("ComputeDomainKey: true")
+	}
+	b.WriteString(")")
+	return b.String()
 }
 
 func (h *HashExpression) NbrJetsPartitions() uint64 {
