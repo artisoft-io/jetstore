@@ -38,6 +38,7 @@ type PartitionWriterTransformationPipe struct {
 	dbpool               *pgxpool.Pool
 	spec                 *TransformationSpec
 	schemaProvider       SchemaProvider
+	inputHasGroupedRows  bool
 	deviceWriterType     string
 	localTempDir         *string
 	externalBucket       string
@@ -85,7 +86,35 @@ func MakeJetsPartitionLabel(jetsPartitionKey any) string {
 }
 
 // Implementing interface PipeTransformationEvaluator
+// Delegating to applyInternal to support blundled input for group by transformation
 func (ctx *PartitionWriterTransformationPipe) Apply(input *[]any) error {
+	var err error
+	if input == nil {
+		err = fmt.Errorf("error: input record is nil in PartitionWriterTransformationPipe.Apply")
+		log.Println(err)
+		return err
+	}
+	if ctx.inputHasGroupedRows {
+		// input is a bundle of rows, apply the transformation to each row of the bundle
+		for i := range *input {
+			row := (*input)[i]
+			rowAsArray, ok := row.([]any)
+			if !ok {
+				err = fmt.Errorf("error: expecting input record of type []any in PartitionWriterTransformationPipe.Apply, got %T", row)
+				log.Println(err)
+				return err
+			}
+			err = ctx.applyInternal(&rowAsArray)
+			if err != nil {
+				return err
+			}
+		}
+		return nil
+	}
+	return ctx.applyInternal(input)
+}
+
+func (ctx *PartitionWriterTransformationPipe) applyInternal(input *[]any) error {
 	var err error
 	if input == nil {
 		err = fmt.Errorf("error: input record is nil in PartitionWriterTransformationPipe.Apply")
@@ -483,6 +512,7 @@ func (ctx *BuilderContext) NewPartitionWriterTransformationPipe(source *InputCha
 		dbpool:               ctx.dbpool,
 		spec:                 spec,
 		schemaProvider:       sp,
+		inputHasGroupedRows:  source.HasGroupedRows,
 		deviceWriterType:     config.DeviceWriterType,
 		externalBucket:       externalBucket,
 		baseOutputPath:       &baseOutputPath,

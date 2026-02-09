@@ -153,7 +153,7 @@ func (args *ComputePipesNodeArgs) CoordinateComputePipes(ctx context.Context, db
 		Done:               make(chan struct{}),
 		ErrCh:              make(chan error, 1000),
 		FileNamesCh:        fileNamesCh,
-		DownloadS3ResultCh: make(chan DownloadS3Result, 1),
+		DownloadS3ResultCh: make(chan DownloadS3Result, 1000),
 	}
 
 	if cpConfig.CommonRuntimeArgs.CpipesMode == "sharding" {

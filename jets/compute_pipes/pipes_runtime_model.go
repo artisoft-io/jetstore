@@ -20,7 +20,6 @@ import (
 // ClosedChannels keeps track of which channels have been closed
 type ChannelRegistry struct {
 	InputRowChannel      *InputChannel
-	InputMergeChannels   map[string]*InputChannel
 	ComputeChannels      map[string]*Channel
 	OutputTableChannels  []string
 	ClosedChannels       map[string]bool

@@ -30,7 +30,7 @@ func (cpCtx *ComputePipesContext) LoadFiles(ctx context.Context, dbpool *pgxpool
 
 	// Create a channel to use as main input source for the pipeline
 	computePipesInputCh := make(chan []any, 5)
-	var computePipesMergeChs []<-chan []any
+	var computePipesMergeChs []chan []any
 	var inputSchemaCh chan ParquetSchemaInfo
 
 	defer func() {
@@ -74,7 +74,7 @@ func (cpCtx *ComputePipesContext) LoadFiles(ctx context.Context, dbpool *pgxpool
 
 	// Check if have merge channels
 	if l > 0 {
-		computePipesMergeChs = make([]<-chan []any, 0, l)
+		computePipesMergeChs = make([]chan []any, 0, l)
 		waitForDone = new(sync.WaitGroup)
 		for i := range l {
 			channelConfig := inputChannelConfig.MergeChannels[i]

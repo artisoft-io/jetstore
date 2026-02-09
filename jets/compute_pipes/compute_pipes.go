@@ -25,7 +25,7 @@ func init() {
 // Function to write transformed row to database
 func (cpCtx *ComputePipesContext) StartComputePipes(dbpool *pgxpool.Pool,
 	inputSchemaCh <-chan ParquetSchemaInfo, computePipesInputCh <-chan []any,
-	computePipesMergeChs []<-chan []any) {
+	computePipesMergeChs []chan []any) {
 
 	// log.Println("Entering StartComputePipes")
 
@@ -53,7 +53,6 @@ func (cpCtx *ComputePipesContext) StartComputePipes(dbpool *pgxpool.Pool,
 	var inputChannel InputChannelConfig
 	var inputRowChSpec *ChannelSpec
 	var inputRowChannel *InputChannel
-	var inputMergeChannels map[string]*InputChannel
 	var inputChannelName string
 	var managersWg sync.WaitGroup
 	var channelsSpec map[string]*ChannelSpec
@@ -283,7 +282,7 @@ func (cpCtx *ComputePipesContext) StartComputePipes(dbpool *pgxpool.Pool,
 	if len(inputChannel.MergeChannels) > 0 {
 		// case merging channels
 		// Populate the inputMergeChannels map
-		inputMergeChannels = make(map[string]*InputChannel, len(inputChannel.MergeChannels))
+		var inputMergeChannel *Channel
 		for i := range inputChannel.MergeChannels {
 			mergeChConfig := &inputChannel.MergeChannels[i]
 			// get the channel info from the channel registry
@@ -292,16 +291,15 @@ func (cpCtx *ComputePipesContext) StartComputePipes(dbpool *pgxpool.Pool,
 				cpErr = fmt.Errorf("channel %s not found in Channel Registry", mergeChConfig.Name)
 				goto gotError
 			}
-			inputMergeChannels[mergeChConfig.Name] = &InputChannel{
+			inputMergeChannel = &Channel{
 				Name:           mergeChConfig.Name,
 				Channel:        computePipesMergeChs[i],
 				Columns:        inChannel.Columns,
 				DomainKeySpec:  inChannel.DomainKeySpec,
 				Config:         inChannel.Config,
-				HasGroupedRows: mergeChConfig.HasGroupedRows,
 			}
 		}
-		channelRegistry.InputMergeChannels = inputMergeChannels
+		channelRegistry.ComputeChannels[inputMergeChannel.Name] = inputMergeChannel
 	}
 	if cpCtx.CpConfig.ClusterConfig.IsDebugMode {
 		log.Println("Compute Pipes channel registry initialized")
