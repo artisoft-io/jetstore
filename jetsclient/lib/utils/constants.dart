@@ -165,7 +165,6 @@ class FormKeys {
   static const home = "homeForm";
   // File Staging Area
   static const loadRawRows = "loadRawRowsDialog";
-  static const loadAllFiles = "loadAllFilesDialog";
   // Input Source Mapping Forms
   static const inputSourceMapping = "inputSourceMapping";
   static const processMapping = "processMappingDialog";
@@ -235,6 +234,7 @@ class FormKeys {
   static const scEditFixedWidthLayoutUF = "scEditFixedWidthLayoutUF";
   static const scEditDomainKeysUF = "scEditDomainKeysUF";
   static const scEditCodeValueMappingUF = "scEditCodeValueMappingUF";
+  static const scAddSchemaProviderJsonUF = "scAddSchemaProviderJsonUF";
   static const scEditAutomatedModeUF = "scEditAutomatedModeUF";
   static const scSummaryUF = "scSummaryUF";
   // Home Filters UF Forms
@@ -307,6 +307,7 @@ class FSK {
   static const userPassword = "password";
   static const userPasswordConfirm = "passwordConfirm";
   static const sessionId = "session_id";
+  static const inputRegistrySessionId = "input_registry.session_id";
   static const devMode = "dev_mode";
   static const isAdmin = "is_admin";
   static const isActive = "is_active";
@@ -335,6 +336,7 @@ class FSK {
   static const inputColumnsJson = "input_columns_json";
   static const inputColumnsPositionsCsv = "input_columns_positions_csv";
   static const codeValuesMappingJson = "code_values_mapping_json";
+  static const schemaProviderJson = "schema_provider_json";
   static const computePipesJson = "compute_pipes_json";
   static const entityRdfType = "entity_rdf_type";
   static const entityKey = "entity_key";
@@ -592,7 +594,6 @@ class ActionKeys {
 
   // for load file
   static const loaderOk = "loader.ok";
-  static const loadAllFilesOk = "loadAllFiles.ok";
   static const loaderMultiOk = "loaderMulti.ok";
 
   // to sync file key with web storage (s3)
@@ -783,10 +784,6 @@ class DTKeys {
   // Client & Organization Admin DT
   // static const clientTable = "clientTable";
   // static const orgNameTable = "orgNameTable";
-
-  // File Staging Area / Source Config DT
-  static const fileKeyStagingTable = "fileKeyStagingTable";
-  static const fileKeyStagingMultiLoadTable = "fileKeyStagingMultiLoadTable";
 
   // Domain Table Viewer DT
   static const inputTable = "inputTable";

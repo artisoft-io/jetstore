@@ -34,7 +34,9 @@ func (ctx *MapRecordTransformationPipe) Apply(input *[]any) error {
 			return fmt.Errorf("while zipping input columns and values for debug logging: %v", err)
 		}
 		inBytes, _ = json.Marshal(data)
+		log.Println()
 		log.Printf("MapRecordTransformationPipe input (zipped): %s", string(inBytes))
+		log.Println()
 	}
 
 	if ctx.spec.NewRecord {
@@ -56,14 +58,6 @@ func (ctx *MapRecordTransformationPipe) Apply(input *[]any) error {
 			return err
 		}
 	}
-	// Notify the column evaluator that we're done
-	// fmt.Println("**!@@ calling done on column evaluator from MapRecordTransformationPipe for output", ctx.outputCh.name)
-	for i := range ctx.columnEvaluators {
-		err := ctx.columnEvaluators[i].Done(currentValues)
-		if err != nil {
-			return fmt.Errorf("while calling done on column evaluator from AggregateTransformationPipe: %v", err)
-		}
-	}
 	if !ctx.spec.NewRecord {
 		// resize the slice in case we're dropping column on the output
 		if len(*currentValues) > len(ctx.outputCh.Config.Columns) {
@@ -80,6 +74,7 @@ func (ctx *MapRecordTransformationPipe) Apply(input *[]any) error {
 		}
 		outBytes, _ = json.Marshal(data)
 		log.Printf("MapRecordTransformationPipe output (zipped): %s", string(outBytes))
+		log.Println()
 	}
 
 	// Send the result to output
@@ -106,10 +101,20 @@ func (ctx *BuilderContext) NewMapRecordTransformationPipe(source *InputChannel, 
 	columnEvaluators := make([]TransformationColumnEvaluator, 0, len(spec.Columns))
 	// Check if we use the mapping spec from jetstore ui
 	if config != nil && len(config.FileMappingTableName) > 0 {
+		// Apply environment variable substitution
+		fileMappingTableName := utils.ReplaceEnvVars(config.FileMappingTableName, ctx.env)
 		// Load the mapping spec from jetsapi.process_mapping
-		inputMappingItems, err := GetInputMapping(ctx.dbpool, config.FileMappingTableName)
+		inputMappingItems, err := GetInputMapping(ctx.dbpool, fileMappingTableName)
 		if err != nil {
 			return nil, fmt.Errorf("while getting mapping details from jetstore db: %v", err)
+		}
+		if len(inputMappingItems) == 0 {
+			return nil, fmt.Errorf("error: no mapping items found in jetstore db for mapping table: %s",
+				fileMappingTableName)
+		}
+		if config.IsDebug {
+			log.Printf("MapRecordTransformationPipe loading %d mapping items from mapping table: %s",
+				len(inputMappingItems), fileMappingTableName)
 		}
 		// Get the domain data properties from local workspace to get the rdf type
 		propertyMap, err := GetWorkspaceDataProperties()

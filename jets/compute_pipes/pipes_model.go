@@ -1,7 +1,11 @@
 package compute_pipes
 
 import (
+	"fmt"
+	"log"
 	"regexp"
+	"strconv"
+	"strings"
 )
 
 // This file contains the Compute Pipes configuration model
@@ -228,6 +232,7 @@ type ChannelSpec struct {
 	ClassName            string          `json:"class_name,omitempty"`
 	DirectPropertiesOnly bool            `json:"direct_properties_only,omitzero"`
 	HasDynamicColumns    bool            `json:"has_dynamic_columns,omitzero"`
+	SameColumnsAsInput   bool            `json:"same_columns_as_input,omitzero"`
 	DomainKeys           map[string]any  `json:"domain_keys,omitempty"`
 	DomainKeysInfo       *DomainKeysSpec `json:"domain_keys_spec,omitzero"`
 	columnsMap           *map[string]int
@@ -257,6 +262,7 @@ type FileConfig struct {
 	EnforceRowMinLength        bool               `json:"enforce_row_min_length,omitzero"`
 	EolByte                    byte               `json:"eol_byte,omitzero"`
 	FileKey                    string             `json:"file_key,omitempty"`
+	LookbackPeriods            string             `json:"lookback_periods,omitzero"`
 	FileName                   string             `json:"file_name,omitempty"` // Type output
 	FixedWidthColumnsCsv       string             `json:"fixed_width_columns_csv,omitempty"`
 	Format                     string             `json:"format,omitempty"`
@@ -287,33 +293,36 @@ type SchemaProviderSpec struct {
 	// Key is schema provider key for reference by compute pipes steps
 	// Format: csv, headerless_csv, fixed_width, parquet, parquet_select,
 	//              xlsx, headerless_xlsx
-	// Compression: none, snappy (parquet is always snappy)
-	// DetectEncoding: Detect file encoding (limited) for text file format
-	// DetectCrAsEol: Detect if \r is used as eol (format: csv,headerless_csv)
-	// EolByte: Byte to use as eol (format: csv,headerless_csv)
+	// Compression: none, snappy (parquet is always snappy).
+	// DetectEncoding: Detect file encoding (limited) for text file format.
+	// DetectCrAsEol: Detect if \r is used as eol (format: csv,headerless_csv).
+	// EolByte: Byte to use as eol (format: csv,headerless_csv).
 	// MultiColumnsInput: Indicate that input file must have multiple columns,
-	// this is used to detect if the wrong delimiter is used (csv,headerless_csv)
-	// ReadBatchSize: nbr of rows to read per record (format: parquet)
-	// NbrRowsInRecord: nbr of rows in record (format: parquet)
-	// InputFormatDataJson: json config based on Format (typically used for xlsx)
+	// this is used to detect if the wrong delimiter is used (csv,headerless_csv).
+	// ReadBatchSize: nbr of rows to read per record (format: parquet).
+	// NbrRowsInRecord: nbr of rows in record (format: parquet).
+	// InputFormatDataJson: json config based on Format (typically used for xlsx).
 	// example: {"currentSheet": "Daily entry for Approvals"} (for xlsx).
-	// EnforceRowMinLength: when true, all columns must be in input record, otherwise missing columns are null
-	// EnforceRowMaxLength: when true, no extra characters must exist past last field (applies to text format)
+	// EnforceRowMinLength: when true, all columns must be in input record, otherwise missing columns are null.
+	// EnforceRowMaxLength: when true, no extra characters must exist past last field (applies to text format).
+	// Note EnforceRowMinLength and EnforceRowMaxLength apply to text format only (csv, headerless_csv, fixed_width).
+	// UseOriginSourceConfig: when true, use the source config from file_key components (client, org, object_type).
+	// Note origin session_id is from cpipes env $ORIGIN_SESSIONID
 	// BadRowsConfig: Specify how to handle bad rows when bot specified on InputChannelConfig.
 	// SourceType range: main_input, merged_input, historical_input (from input_source table)
 	// Columns: may be ommitted if fixed_width_columns_csv is provided or is a csv format
 	// Headers: alt to Columns, typically for csv format
 	// GetPartitionsSize: when true, get the size of the partitions from s3
-	// CapDobYears: number of years to cap dob (date of birth) to today - for Anonymization
-	// SetDodToJan1: set dod (date of death) to January 1st of the date year - for Anonymization
-	// UseLazyQuotes, UseLazyQuotesSpecial, VariableFieldsPerRecord: see csv.NewReader
-	// QuoteAllRecords will quote all records for csv writer
-	// NoQuotes will no quote any records for csv writer (even if the record contains '"')
+	// CapDobYears: number of years to cap dob (date of birth) to today - for Anonymization.
+	// SetDodToJan1: set dod (date of death) to January 1st of the date year - for Anonymization.
+	// UseLazyQuotes, UseLazyQuotesSpecial, VariableFieldsPerRecord: see csv.NewReader.
+	// QuoteAllRecords will quote all records for csv writer.
+	// NoQuotes will no quote any records for csv writer (even if the record contains '"').
 	// Bucket and FileKey are location and source object (fileKey may be directory if IsPartFiles is true)
 	// KmsKey is kms key to use when writing output data. May be empty.
 	// RequestID is used for logging and tracking purpose.
 	// Contains properties to register FileKey with input_registry table:
-	// Client, Vendor, ObjectType, FileDate
+	// Client, Vendor, ObjectType, FileDate (does not apply to Jets_Loader).
 	// NotificationTemplatesOverrides have the following keys to override the templates defined
 	// in the deployment environment var: CPIPES_START_NOTIFICATION_JSON,
 	// CPIPES_COMPLETED_NOTIFICATION_JSON, and CPIPES_FAILED_NOTIFICATION_JSON.
@@ -328,6 +337,7 @@ type SchemaProviderSpec struct {
 	Vendor                           string             `json:"vendor,omitempty"`
 	ObjectType                       string             `json:"object_type,omitempty"`
 	RequestID                        string             `json:"request_id,omitempty"`
+	UseOriginSourceConfig            bool               `json:"use_origin_source_config,omitempty"`
 	FileDate                         string             `json:"file_date,omitempty"`
 	SourceType                       string             `json:"source_type,omitempty"`
 	SchemaName                       string             `json:"schema_name,omitempty"`
@@ -379,7 +389,8 @@ type TableSpec struct {
 }
 
 type OutputFileSpec struct {
-	// OutputLocation: jetstore_s3_input, jetstore_s3_output (default), or custom file key.
+	// OutputLocation: jetstore_s3_input, jetstore_s3_stage, jetstore_s3_output (default),
+	// or custom file key (the lasy option is depricated, use FileKey).
 	// When OutputLocation has a custom file key, it replace Name and KeyPrefix.
 	// Note: refactoring using FileConfig.FileKey is synonym to OutputLocation
 	// Note: refactoring using FileConfig.FileName is synonym to Name
@@ -479,7 +490,7 @@ type SplitterSpec struct {
 
 type TransformationSpec struct {
 	// Type range: map_record, aggregate, analyze, high_freq, partition_writer,
-	// anonymize, distinct, shuffling, group_by, filter, sort, jetrules, clustering
+	// anonymize, distinct, shuffling, group_by, filter, sort, merge, jetrules, clustering
 	// Format takes precedence over SchemaProvider's Format (from OutputChannelConfig)
 	Type                  string                           `json:"type"`
 	NewRecord             bool                             `json:"new_record,omitzero"`
@@ -496,6 +507,7 @@ type TransformationSpec struct {
 	SortConfig            *SortSpec                        `json:"sort_config,omitzero"`
 	JetrulesConfig        *JetrulesSpec                    `json:"jetrules_config,omitzero"`
 	ClusteringConfig      *ClusteringSpec                  `json:"clustering_config,omitzero"`
+	MergeConfig           *MergeSpec                       `json:"merge_config,omitzero"`
 	OutputChannel         OutputChannelConfig              `json:"output_channel"`
 	ConditionalConfig     []*ConditionalTransformationSpec `json:"conditional_config,omitzero"`
 }
@@ -586,13 +598,16 @@ type InputChannelConfig struct {
 	// Note: The input_row channel (main input) will be cast to the
 	// rdf type specified by the domain class of the main input source.
 	FileConfig
-	Type             string `json:"type"`
-	Name             string `json:"name"`
-	SchemaProvider   string `json:"schema_provider,omitempty"`
-	ReadStepId       string `json:"read_step_id,omitempty"`
-	SamplingRate     int    `json:"sampling_rate,omitzero"`
-	SamplingMaxCount int    `json:"sampling_max_count,omitzero"`
-	HasGroupedRows   bool   `json:"has_grouped_rows,omitzero"`
+	Type             string               `json:"type"`
+	Name             string               `json:"name"`
+	SchemaProvider   string               `json:"schema_provider,omitempty"`
+	ReadSessionId    string               `json:"read_session_id,omitempty"`
+	ReadStepId       string               `json:"read_step_id,omitempty"`
+	ReadPartitionId  string               `json:"read_partition_id,omitempty"`
+	SamplingRate     int                  `json:"sampling_rate,omitzero"`
+	SamplingMaxCount int                  `json:"sampling_max_count,omitzero"`
+	HasGroupedRows   bool                 `json:"has_grouped_rows,omitzero"`
+	MergeChannels    []InputChannelConfig `json:"merge_channels,omitempty"`
 }
 
 type OutputChannelConfig struct {
@@ -870,10 +885,22 @@ type GroupBySpec struct {
 	IsDebug      bool     `json:"is_debug,omitzero"`
 }
 
-// Filter row base on a when criteria
+type MergeSpec struct {
+	IsDebug      bool           `json:"is_debug,omitzero"`
+	MainGroupBy  GroupBySpec    `json:"main_group_by"`
+	MergeGroupBy []*GroupBySpec `json:"merge_group_by,omitempty"`
+}
+
+// Filter row base on:
+//   - when criteria, if provided,
+//   - max output count, if provided.
+//
+// RowLengthStrict: when true, will enforce that input row length
+// matches the schema length, otherwise they are filtered.
 type FilterSpec struct {
-	When           ExpressionNode `json:"when"`
-	MaxOutputCount int            `json:"max_output_records,omitzero"`
+	RowLengthStrict bool            `json:"row_length_strict,omitzero"`
+	When            *ExpressionNode `json:"when,omitzero"`
+	MaxOutputCount  int             `json:"max_output_records,omitzero"`
 }
 
 // Sort using composite key
@@ -887,6 +914,11 @@ type SortSpec struct {
 
 // JetrulesSpec configuration
 // ProcessName is the jetrules process name to use.
+// UseJetRulesNative when true use the jetrules native engine.
+// UseJetRulesGo when true use the jetrules go engine.
+// Note: only one of UseJetRulesNative or UseJetRulesGo can be true.
+// When both are false, the default is to use the jetrules native engine when
+// available.
 // InputRdfType is the rdf type (class name) of the input records.
 // MaxInputCount is the max nbr of input records to process.
 // PoolSize is the nbr of worker pool size.
@@ -903,6 +935,8 @@ type SortSpec struct {
 // MaxLooping overrides the value in the jetrules metastore.
 type JetrulesSpec struct {
 	ProcessName             string                `json:"process_name,omitempty"`
+	UseJetRulesNative       bool                  `json:"use_jet_rules_native,omitzero"`
+	UseJetRulesGo           bool                  `json:"use_jet_rules_go,omitzero"`
 	InputRdfType            string                `json:"input_rdf_type,omitempty"`
 	MaxInputCount           int                   `json:"max_input_count,omitzero"`
 	PoolSize                int                   `json:"pool_size,omitzero"`
@@ -988,11 +1022,61 @@ type HashExpression struct {
 	Expr                   string   `json:"expr,omitempty"`
 	CompositeExpr          []string `json:"composite_expr,omitempty"`
 	DomainKey              string   `json:"domain_key,omitempty"`
-	NbrJetsPartitions      *uint64  `json:"nbr_jets_partitions,omitzero"`
+	NbrJetsPartitionsAny   any      `json:"nbr_jets_partitions,omitzero"`
 	MultiStepShardingMode  string   `json:"multi_step_sharding_mode,omitempty"`
 	AlternateCompositeExpr []string `json:"alternate_composite_expr,omitempty"`
 	NoPartitions           bool     `json:"no_partitions,omitzero"`
 	ComputeDomainKey       bool     `json:"compute_domain_key,omitzero"`
+}
+
+func (h *HashExpression) String() string {
+	var b strings.Builder
+	b.WriteString("HashExpression(")
+	if h.Expr != "" {
+		fmt.Fprintf(&b, "Expr: %s, ", h.Expr)
+	}
+	if len(h.CompositeExpr) > 0 {
+		fmt.Fprintf(&b, "CompositeExpr: %v, ", h.CompositeExpr)
+	}
+	if h.DomainKey != "" {
+		fmt.Fprintf(&b, "DomainKey: %s, ", h.DomainKey)
+	}
+	if h.MultiStepShardingMode != "" {
+		fmt.Fprintf(&b, "MultiStepShardingMode: %s, ", h.MultiStepShardingMode)
+	}
+	if len(h.AlternateCompositeExpr) > 0 {
+		fmt.Fprintf(&b, "AlternateCompositeExpr: %v, ", h.AlternateCompositeExpr)
+	}
+	if h.NoPartitions {
+		b.WriteString("NoPartitions: true, ")
+	}
+	if h.ComputeDomainKey {
+		b.WriteString("ComputeDomainKey: true")
+	}
+	b.WriteString(")")
+	return b.String()
+}
+
+func (h *HashExpression) NbrJetsPartitions() uint64 {
+	switch v := h.NbrJetsPartitionsAny.(type) {
+	case uint64:
+		return v
+	case int:
+		return uint64(v)
+	case int64:
+		return uint64(v)
+	case float64:
+		return uint64(v)
+	case string:
+		n, err := strconv.ParseUint(v, 10, 64)
+		if err != nil {
+			log.Printf("Warning: Invalid nbr_jets_partitions value '%s', defaulting to 0", v)
+			return 0
+		}
+		return n
+	default:
+		return 0
+	}
 }
 
 type MapExpression struct {

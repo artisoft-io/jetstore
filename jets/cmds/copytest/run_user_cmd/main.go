@@ -10,8 +10,8 @@ import (
 func main() {
 	// Replace with the desired UID and GID of the user
 	// You can get these from /etc/passwd and /etc/group or using os/user package
-	targetUID := uint32(1000) // Example UID
-	targetGID := uint32(1000) // Example GID
+	targetUID := uint32(999) // Example UID
+	targetGID := uint32(999) // Example GID
 
 	// Command to run (e.g., id or whoami to verify user)
 	cmd := exec.Command("id")

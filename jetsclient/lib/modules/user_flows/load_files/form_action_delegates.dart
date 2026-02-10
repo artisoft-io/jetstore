@@ -51,6 +51,8 @@ Future<String?> loadFilesFormActionsUF(
       }
       // Fields comming from table selected row will be in array, unpack the value
       // This is a multi select table, convert column array to multiple rows
+      // print('Load Files UF - Starting loader for files: ${state[FSK.fileKey]}');
+      // print('state contains :: $state');
       List<dynamic> requestData = [];
       for (var i = 0; i < state[FSK.fileKey].length; i++) {
         requestData.add(<String, dynamic>{
@@ -59,6 +61,7 @@ Future<String?> loadFilesFormActionsUF(
           FSK.objectType: state[FSK.objectType][0],
           FSK.tableName: state[FSK.tableName][0],
           FSK.fileKey: state[FSK.fileKey][i],
+          FSK.inputRegistrySessionId: state[FSK.inputRegistrySessionId][i],
           FSK.sourcePeriodKey: state[FSK.sourcePeriodKey][i],
           FSK.status: StatusKeys.submitted,
           FSK.userEmail: JetsRouterDelegate().user.email,

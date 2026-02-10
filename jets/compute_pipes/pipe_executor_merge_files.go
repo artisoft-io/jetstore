@@ -15,6 +15,7 @@ import (
 
 	"github.com/artisoft-io/jetstore/jets/awsi"
 	"github.com/artisoft-io/jetstore/jets/csv"
+	"github.com/artisoft-io/jetstore/jets/utils"
 	"github.com/golang/snappy"
 	"github.com/jackc/pgx/v4/pgxpool"
 )
@@ -58,6 +59,7 @@ func (cpCtx *ComputePipesContext) StartMergeFiles(dbpool *pgxpool.Pool) (cpErr e
 	}
 	// outputFileConfig.OutputLocation may have 3 values:
 	//	- jetstore_s3_input, to indicate to put the output file in JetStore input path.
+	//	- jetstore_s3_stage, to indicate to put the output file in JetStore stage path.
 	//	- jetstore_s3_output (default), to indicate to put the output file in JetStore output path.
 	//	- custom file path, indicates a custom file key location (path and file name) in this case
 	//    it replaces KeyPrefix and Name attributes.
@@ -68,29 +70,36 @@ func (cpCtx *ComputePipesContext) StartMergeFiles(dbpool *pgxpool.Pool) (cpErr e
 		outputFileConfig.SetOutputLocation("jetstore_s3_output")
 	}
 	var fileFolder, fileName, outputS3FileKey string
-	nbrFiles := len(cpCtx.InputFileKeys)
+	inputFileKeys := cpCtx.InputFileKeys[0]
+	nbrFiles := len(inputFileKeys)
 	switch outputFileConfig.OutputLocation() {
-	case "jetstore_s3_input", "jetstore_s3_output":
+	case "jetstore_s3_input", "jetstore_s3_output", "jetstore_s3_stage":
 		if len(outputFileConfig.Name()) > 0 {
-			fileName = doSubstitution(outputFileConfig.Name(), "", "", cpCtx.EnvSettings)
+			fileName = utils.ReplaceEnvVars(outputFileConfig.Name(), cpCtx.EnvSettings)
 		} else {
-			fileName = doSubstitution("$NAME_FILE_KEY", "", "", cpCtx.EnvSettings)
+			fileName = utils.ReplaceEnvVars("$NAME_FILE_KEY", cpCtx.EnvSettings)
 		}
 		if len(fileName) == 0 {
 			cpErr = fmt.Errorf("error: OutputFile config is missing file_name in StartMergeFile")
 			return
 		}
-		if len(outputFileConfig.KeyPrefix) > 0 {
-			fileFolder = doSubstitution(outputFileConfig.KeyPrefix, "", outputFileConfig.OutputLocation(),
-				cpCtx.EnvSettings)
+		if outputFileConfig.OutputLocation() == "jetstore_s3_stage" {
+			// put in jetstore s3 stage path
+			keyPrefix := utils.ReplaceEnvVars(outputFileConfig.KeyPrefix, cpCtx.EnvSettings)
+			fileFolder = fmt.Sprintf("%s/%s/%s", jetsS3StagePrefix, keyPrefix, fileName)
 		} else {
-			fileFolder = doSubstitution("$PATH_FILE_KEY", "", outputFileConfig.OutputLocation(),
-				cpCtx.EnvSettings)
+			if len(outputFileConfig.KeyPrefix) > 0 {
+				fileFolder = doSubstitution(outputFileConfig.KeyPrefix, "", outputFileConfig.OutputLocation(),
+					cpCtx.EnvSettings)
+			} else {
+				fileFolder = doSubstitution("$PATH_FILE_KEY", "", outputFileConfig.OutputLocation(),
+					cpCtx.EnvSettings)
+			}
+			outputS3FileKey = fmt.Sprintf("%s/%s", fileFolder, fileName)
 		}
-		outputS3FileKey = fmt.Sprintf("%s/%s", fileFolder, fileName)
 
 	default:
-		outputS3FileKey = doSubstitution(outputFileConfig.OutputLocation(), "", "", cpCtx.EnvSettings)
+		outputS3FileKey = utils.ReplaceEnvVars(outputFileConfig.OutputLocation(), cpCtx.EnvSettings)
 	}
 
 	// Create a reader if stream the data to s3
@@ -109,7 +118,7 @@ func (cpCtx *ComputePipesContext) StartMergeFiles(dbpool *pgxpool.Pool) (cpErr e
 		externalBucket = inputSp.Bucket()
 	}
 	if len(externalBucket) > 0 {
-		externalBucket = doSubstitution(externalBucket, "", "", cpCtx.EnvSettings)
+		externalBucket = utils.ReplaceEnvVars(externalBucket, cpCtx.EnvSettings)
 	}
 
 	// Determine if we put a header row
@@ -179,7 +188,7 @@ func (cpCtx *ComputePipesContext) StartMergeFiles(dbpool *pgxpool.Pool) (cpErr e
 	// Check if contains multiple files to copy and make sure they are all above the min part size
 	containsSmallPart := false
 	if nbrFiles > 1 {
-		for _, fk := range cpCtx.InputFileKeys {
+		for _, fk := range inputFileKeys {
 			if fk.size <= minPartSize {
 				containsSmallPart = true
 				break
@@ -208,7 +217,7 @@ func (cpCtx *ComputePipesContext) StartMergeFiles(dbpool *pgxpool.Pool) (cpErr e
 			if outputSp != nil {
 				nrowsInRec = outputSp.NbrRowsInRecord()
 			}
-			MergeParquetPartitions(nrowsInRec, outputFileConfig.Headers, pout, cpCtx.FileNamesCh, gotError)
+			MergeParquetPartitions(nrowsInRec, outputFileConfig.Headers, pout, cpCtx.FileNamesCh[0], gotError)
 			pout.Close()
 		}()
 	case (len(compression) != 0 && compression != "none") || containsSmallPart || writeHeaders:
@@ -216,7 +225,7 @@ func (cpCtx *ComputePipesContext) StartMergeFiles(dbpool *pgxpool.Pool) (cpErr e
 		// Not usual, do copy the old way
 		log.Printf("*** MERGE %d files using text format (%s) with compression %s\n",
 			nbrFiles, inputFormat, compression)
-		fileReader, err = cpCtx.NewMergeFileReader(inputFormat, delimiter, outputSp, outputFileConfig.Headers, writeHeaders, compression)
+		fileReader, err = cpCtx.NewMergeFileReader(0, inputFormat, delimiter, outputSp, outputFileConfig.Headers, writeHeaders, compression)
 		if err != nil {
 			cpErr = err
 			return
@@ -268,7 +277,8 @@ func (cpCtx *ComputePipesContext) startDownloadFiles() bool {
 	if pipeSpec.Type != "merge_files" {
 		return true
 	}
-	nbrFiles := len(cpCtx.InputFileKeys)
+	inputFileKeys := cpCtx.InputFileKeys[0]
+	nbrFiles := len(inputFileKeys)
 	inputChannel := pipeSpec.InputChannel
 	compression := inputChannel.Compression
 	inputFormat := inputChannel.Format
@@ -280,7 +290,7 @@ func (cpCtx *ComputePipesContext) startDownloadFiles() bool {
 	if inputFormat == "csv" && nbrFiles > 1 {
 		if pipeSpec.MergeFileConfig != nil && pipeSpec.MergeFileConfig.FirstPartitionHasHeaders {
 			log.Printf("%s node %d sorting part files since first file has headers", cpCtx.SessionId, cpCtx.NodeId)
-			slices.SortFunc(cpCtx.InputFileKeys, func(lhs, rhs *FileKeyInfo) int {
+			slices.SortFunc(inputFileKeys, func(lhs, rhs *FileKeyInfo) int {
 				a := lhs.key
 				b := rhs.key
 				switch {
@@ -303,7 +313,7 @@ func (cpCtx *ComputePipesContext) startDownloadFiles() bool {
 	}
 	if nbrFiles > 1 {
 		// check for small parts, need to download if a part is too small
-		for _, fk := range cpCtx.InputFileKeys {
+		for _, fk := range inputFileKeys {
 			if fk.size <= minPartSize {
 				return true
 			}
@@ -321,6 +331,7 @@ type MergeFileReader struct {
 	currentFileHd  *os.File
 	reader         *bufio.Reader
 	headers        []byte
+	mergePos       int
 	compression    string
 	skipHeaderLine bool
 	skipHeaderFlag bool
@@ -328,7 +339,7 @@ type MergeFileReader struct {
 }
 
 // outputSp is needed to determine if we quote all or non fields. It also provided the writeHeaders value.
-func (cpCtx *ComputePipesContext) NewMergeFileReader(inputFormat string, delimiter rune, outputSp SchemaProvider, headers []string,
+func (cpCtx *ComputePipesContext) NewMergeFileReader(mergePos int, inputFormat string, delimiter rune, outputSp SchemaProvider, headers []string,
 	writeHeaders bool, compression string) (io.Reader, error) {
 
 	var h []byte
@@ -364,6 +375,7 @@ func (cpCtx *ComputePipesContext) NewMergeFileReader(inputFormat string, delimit
 	return &MergeFileReader{
 		cpCtx:          cpCtx,
 		headers:        h,
+		mergePos:       mergePos,
 		compression:    compression,
 		skipHeaderLine: inputFormat == "csv" && writeHeaders,
 	}, nil
@@ -384,7 +396,7 @@ func (r *MergeFileReader) Read(buf []byte) (int, error) {
 
 	case r.reader == nil:
 		// get the next file
-		r.currentFile = <-r.cpCtx.FileNamesCh
+		r.currentFile = <-r.cpCtx.FileNamesCh[r.mergePos]
 		if r.currentFile.LocalFileName == "" {
 			return 0, io.EOF
 		}

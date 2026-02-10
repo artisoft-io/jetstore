@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/artisoft-io/jetstore/jets/awsi"
@@ -31,7 +32,7 @@ import (
 // JETS_S3_KMS_KEY_ARN
 // NBR_SHARDS default nbr_nodes of cluster
 // USING_SSH_TUNNEL Connect  to DB using ssh tunnel (expecting the ssh open)
-// USING_JETRULE_ENGINE_NATIVE Use the native jetrules engine
+// DEPLOY_CPIPES_NATIVE Use the native jetrules engine
 var pipelineExecKey = flag.Int("pipeline_execution_key", -1, "Pipeline execution key (required)")
 var fileKey = flag.String("file_key", "", "the input file_key (required)")
 var sessionId = flag.String("session_id", "", "Pipeline session ID (required)")
@@ -46,6 +47,19 @@ var dbpool *pgxpool.Pool
 var usingJetRuleEngineNative bool
 
 // var nbrNodes int
+
+type JetRulesProxyImpl struct {
+	defaultFactory     compute_pipes.JetRulesFactory
+}
+func (j *JetRulesProxyImpl) GetDefaultFactory() compute_pipes.JetRulesFactory {
+	return j.defaultFactory
+}
+func (j *JetRulesProxyImpl) GetGoFactory() compute_pipes.JetRulesFactory {
+	return jetrules_go_adaptor.NewJetRulesFactory()
+}
+func (j *JetRulesProxyImpl) GetNativeFactory() compute_pipes.JetRulesFactory {
+	return jetrules_native_adaptor.NewJetRulesFactory()
+}
 
 func main() {
 	fmt.Println("LOCAL TEST DRIVER CMD LINE ARGS:", os.Args[1:])
@@ -105,7 +119,7 @@ func main() {
 	log.Println("Got argument: dbPoolSize", dbPoolSize)
 	log.Println("Got argument: awsRegion", awsRegion)
 	log.Println("Got env: JETS_S3_KMS_KEY_ARN", os.Getenv("JETS_S3_KMS_KEY_ARN"))
-	log.Println("Got env: USING_JETRULE_ENGINE_NATIVE", os.Getenv("USING_JETRULE_ENGINE_NATIVE"))
+	log.Println("Got env: DEPLOY_CPIPES_NATIVE", os.Getenv("DEPLOY_CPIPES_NATIVE"))
 
 	if hasErr {
 		for _, msg := range errMsg {
@@ -127,12 +141,12 @@ func main() {
 	_, devMode := os.LookupEnv("JETSTORE_DEV_MODE")
 	if !devMode {
 		// Get the compiled rules
-		err = workspace.SyncWorkspaceFiles(dbpool, os.Getenv("WORKSPACE"), "workspace.tgz", true, false)
+		_, err = workspace.SyncWorkspaceFiles(dbpool, os.Getenv("WORKSPACE"), "workspace.tgz", true, false)
 		if err != nil {
 			log.Panicf("Error while synching workspace file from db: %v", err)
 		}
 		// Get the compiled lookups
-		err = workspace.SyncWorkspaceFiles(dbpool, os.Getenv("WORKSPACE"), "sqlite", false, true)
+		_, err = workspace.SyncWorkspaceFiles(dbpool, os.Getenv("WORKSPACE"), "sqlite", false, true)
 		if err != nil {
 			log.Panicf("Error while synching workspace file from db: %v", err)
 		}
@@ -142,18 +156,20 @@ func main() {
 	var b []byte
 
 	// Set up JetRuleFactory according to env var
-	var jrFactory compute_pipes.JetRulesFactory
-	usingJetRuleEngineNative = os.Getenv("USING_JETRULE_ENGINE_NATIVE") == "1"
+	jrProxy := &JetRulesProxyImpl{
+	}
+	usingJetRuleEngineNative = strings.ToUpper(os.Getenv("DEPLOY_CPIPES_NATIVE")) == "TRUE" || strings.ToUpper(os.Getenv("DEPLOY_CPIPES_NATIVE")) == "1"
 	if usingJetRuleEngineNative {
 		log.Println("Using Jetrule Engine: NATIVE")
-		jrFactory = jetrules_native_adaptor.NewJetRulesFactory()
+		jrProxy.defaultFactory = jetrules_native_adaptor.NewJetRulesFactory()
 	} else {
 		log.Println("Using Jetrule Engine: GORULES")
-		jrFactory = jetrules_go_adaptor.NewJetRulesFactory()
+		jrProxy.defaultFactory = jetrules_go_adaptor.NewJetRulesFactory()
 	}
 
-	if jrFactory == nil {
-		log.Fatalf("jrFactory is nil, cannot continue")
+	if jrProxy.defaultFactory == nil {
+		log.Println("Using default Jetrule Engine: GORULES")
+		jrProxy.defaultFactory = jetrules_go_adaptor.NewJetRulesFactory()
 	}
 
 	// Start Sharding
@@ -187,7 +203,7 @@ func main() {
 	for i := range cpipesCommands {
 		cpipesCommand := cpipesCommands[i]
 		fmt.Println("## Sharding Node", i, "Calling CoordinateComputePipes")
-		err = (&cpipesCommand).CoordinateComputePipes(ctx, dbpool, jrFactory)
+		err = (&cpipesCommand).CoordinateComputePipes(ctx, dbpool, jrProxy)
 		if err != nil {
 			log.Fatalf("while sharding node %d: %v", i, err)
 		}
@@ -223,7 +239,7 @@ func main() {
 			for i := range cpipesCommands {
 				cpipesCommand := cpipesCommands[i]
 				fmt.Println("## Reducing Node", i, "Calling CoordinateComputePipes")
-				err = (&cpipesCommand).CoordinateComputePipes(ctx, dbpool, jrFactory)
+				err = (&cpipesCommand).CoordinateComputePipes(ctx, dbpool, jrProxy)
 				if err != nil {
 					log.Fatalf("while reducing node %d: %v", i, err)
 				}

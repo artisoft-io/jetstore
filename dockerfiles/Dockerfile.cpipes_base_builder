@@ -1,0 +1,58 @@
+FROM public.ecr.aws/amazonlinux/amazonlinux:2023
+
+RUN dnf update && dnf install -y \
+  libstdc++ gcc gcc-c++ make cmake pkgconfig git \
+  boost-devel sqlite-devel gflags-devel \
+  wget tar ldconfig xz which
+
+# RUN echo "Listing /usr/local/lib/" \
+#   && ls -la /usr/local/lib/
+
+# RUN echo "Listing /lib/" \
+#   && ls -la /lib/
+
+# RUN echo "Listing /lib64/" \
+#   && ls -la /lib64/
+
+# Install Go
+RUN wget -q https://go.dev/dl/go1.25.6.linux-amd64.tar.gz \
+    && tar -C /usr/local -xzf go1.25.6.linux-amd64.tar.gz \
+    && rm go1.25.6.linux-amd64.tar.gz
+ENV PATH=$PATH:/usr/local/go/bin
+RUN go version
+
+# Install flutter stable
+RUN wget -q "https://storage.googleapis.com/flutter_infra_release/releases/stable/linux/flutter_linux_3.38.5-stable.tar.xz"
+RUN ls -la ./flutter_linux_3.38.5-stable.tar.xz
+RUN tar  -C /usr/local -xf ./flutter_linux_3.38.5-stable.tar.xz
+RUN rm flutter_linux_3.38.5-stable.tar.xz
+
+RUN git config --global --add safe.directory /usr/local/flutter
+ENV PATH="${PATH}:/usr/local/flutter/bin"
+RUN flutter --version
+RUN dart --version
+
+# Abseil
+RUN wget -q "https://github.com/abseil/abseil-cpp/releases/download/20250127.1/abseil-cpp-20250127.1.tar.gz"  \
+    && tar xf "abseil-cpp-20250127.1.tar.gz"  \
+    && cd "abseil-cpp-20250127.1"  \
+    && mkdir build && cd build \
+    && cmake -DCMAKE_CXX_FLAGS=-fPIC -DABSL_BUILD_TESTING=OFF -DCMAKE_CXX_STANDARD=20 .. \
+    && make -j6  \
+    && make install \
+    && make clean 
+
+# Google Log
+RUN wget -q "https://github.com/google/glog/archive/refs/tags/v0.6.0.tar.gz"  \
+    && tar xf "v0.6.0.tar.gz"  \
+    && cd "glog-0.6.0/"  \
+    && mkdir build && cd build \
+    && cmake -DCMAKE_CXX_FLAGS=-fPIC -DCMAKE_CXX_STANDARD=20 .. \
+    && make -j6  \
+    && make install \
+    && make clean 
+
+RUN cd /usr/local/lib64/ \
+    && ldconfig \
+    && ls -la /usr/local/lib64/
+

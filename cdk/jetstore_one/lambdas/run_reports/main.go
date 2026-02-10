@@ -193,32 +193,45 @@ func handler(ctx context.Context, arg []string) error {
 
 	// Extract file key components and populate the CommandArguments
 	ca := &delegate.CommandArguments{
-		Environment:       os.Getenv("ENVIRONMENT"),
-		WorkspaceName:     wprefix,
-		SessionId:         rr.SessionId,
-		ProcessName:       rr.ProcessName,
-		ReportName:        rr.ReportName,
-		FileKey:           rr.FileKey,
-		OutputPath:        rr.OutputPath,
-		OriginalFileName:  originalFileName,
-		ReportScriptPaths: []string{},
-		BucketName:        awsBucket,
-		RegionName:        awsRegion,
-		FileKeyComponents: datatable.SplitFileKeyIntoComponents(map[string]interface{}{}, &rr.FileKey),
+		Environment:          os.Getenv("ENVIRONMENT"),
+		WorkspaceName:        wprefix,
+		SessionId:            rr.SessionId,
+		ProcessName:          rr.ProcessName,
+		ReportName:           rr.ReportName,
+		FileKey:              rr.FileKey,
+		OutputPath:           rr.OutputPath,
+		OriginalFileName:     originalFileName,
+		ReportScriptPaths:    []string{},
+		BucketName:           awsBucket,
+		RegionName:           awsRegion,
+		FileKeyComponents:    datatable.SplitFileKeyIntoComponents(map[string]any{}, &rr.FileKey),
 		SkipCompileWorkspace: true,
 	}
-	if rr.Client != "" {
+	if rr.Client != "" && rr.Client != "Any" {
 		ca.FileKeyComponents["client"] = rr.Client
 	}
 	ca.Client = toString(ca.FileKeyComponents["client"])
 	ca.Org = toString(ca.FileKeyComponents["org"])
 	ca.ObjectType = toString(ca.FileKeyComponents["object_type"])
+	
+	if rr.ReportName == "jets_loader.pc.json" {
+		// Special case for loader report
+		if ca.Org != "" {
+			ca.ReportName = fmt.Sprintf("loader/client=%s/object_type=%s/org=%s", ca.Client, ca.ObjectType, ca.Org)
+		} else {
+			ca.ReportName = fmt.Sprintf("loader/client=%s/object_type=%s", ca.Client, ca.ObjectType)
+		}
+		ca.ReportName = fmt.Sprintf("loader_%s_%s", ca.Client, ca.ObjectType)
+	}
+
+	log.Printf("%s Starting run_report for client: %s (was %s), object_type: %s (was %s), report name: %s (was %s)",
+		rr.SessionId, ca.Client, rr.Client, ca.ObjectType, rr.ObjectType, ca.ReportName, rr.ReportName)
 
 	return delegate.CoordinateWorkAndUpdateStatus(ctx, dbpool, ca)
 }
 
 // Return the string if it's a string, empty otherwise
-func toString(s interface{}) string {
+func toString(s any) string {
 	str, _ := s.(string)
 	return str
 }

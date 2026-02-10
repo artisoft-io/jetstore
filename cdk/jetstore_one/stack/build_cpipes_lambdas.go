@@ -20,8 +20,10 @@ import (
 )
 
 func (jsComp *JetStoreStackComponents) BuildCpipesLambdas(scope constructs.Construct, stack awscdk.Stack, props *JetstoreOneStackProps) {
-	// Build lambdas used by cpipesSM/cpipesNativeSM:
-	//	- CpipesNodeLambda / CpipesNativeNodeLambda
+	
+	// Build lambdas used by cpipesSM and cpipesNativeSM:
+	//	- CpipesNodeLambda
+	//  - CpipesNativeNodeLambda
 	//	- CpipesStartShardingLambda
 	//	- CpipesStartReducingLambda
 	// --------------------------------------------------------------------------------------------------------------
@@ -51,6 +53,7 @@ func (jsComp *JetStoreStackComponents) BuildCpipesLambdas(scope constructs.Const
 			GoBuildFlags: &[]*string{jsii.String(`-buildvcs=false -ldflags "-s -w"`)},
 		},
 		Environment: &map[string]*string{
+			"DEPLOY_CPIPES_NATIVE":                     jsii.String("0"),
 			"JETS_BUCKET":                              jsComp.SourceBucket.BucketName(),
 			"JETS_DSN_SECRET":                          jsComp.RdsSecret.SecretName(),
 			"JETS_INVALID_CODE":                        jsii.String(os.Getenv("JETS_INVALID_CODE")),
@@ -112,7 +115,7 @@ func (jsComp *JetStoreStackComponents) BuildCpipesLambdas(scope constructs.Const
 		})
 		jsComp.CpipesNativeNodeLambda = awslambda.NewDockerImageFunction(stack, jsii.String("CpipesNativeNodeLambda"), &awslambda.DockerImageFunctionProps{
 			Code: awslambda.DockerImageCode_FromEcr(awsecr.Repository_FromRepositoryArn(stack, jsii.String("cpipes-native-image-lambda"),
-				jsii.String(fmt.Sprintf("arn:aws:ecr:%s:%s:repository/jetstore_cpipes_native_lambda", os.Getenv("AWS_REGION"), os.Getenv("AWS_ACCOUNT")))), &awslambda.EcrImageCodeProps{
+				jsii.String(os.Getenv("CPIPES_LAMBDA_ECR_REPO_ARN"))), &awslambda.EcrImageCodeProps{
 				// Override the CMD to not expect a handler
 				Cmd:         jsii.Strings("bootstrap"),
 				Entrypoint:  jsii.Strings("/lambda-entrypoint.sh"),
@@ -123,6 +126,7 @@ func (jsComp *JetStoreStackComponents) BuildCpipesLambdas(scope constructs.Const
 			MemorySize:           jsii.Number(memLimit),
 			EphemeralStorageSize: awscdk.Size_Mebibytes(jsii.Number(10240)),
 			Environment: &map[string]*string{
+				"DEPLOY_CPIPES_NATIVE":                     jsii.String("1"),
 				"JETS_BUCKET":                              jsComp.SourceBucket.BucketName(),
 				"JETS_DSN_SECRET":                          jsComp.RdsSecret.SecretName(),
 				"JETS_INVALID_CODE":                        jsii.String(os.Getenv("JETS_INVALID_CODE")),

@@ -10,6 +10,7 @@ import (
 
 	"github.com/artisoft-io/jetstore/cdk/jetstore_one/lambdas/dbc"
 	"github.com/artisoft-io/jetstore/jets/compute_pipes"
+	"github.com/artisoft-io/jetstore/jets/compute_pipes/jetrules_go_adaptor"
 	"github.com/artisoft-io/jetstore/jets/compute_pipes/jetrules_native_adaptor"
 	"github.com/aws/aws-lambda-go/lambda"
 )
@@ -30,6 +31,19 @@ var dbPoolSize int
 var awsRegion string
 var awsBucket string
 var dbConnection *dbc.DbConnection
+
+type JetRulesProxyImpl struct {
+	defaultFactory     compute_pipes.JetRulesFactory
+}
+func (j *JetRulesProxyImpl) GetDefaultFactory() compute_pipes.JetRulesFactory {
+	return j.defaultFactory
+}
+func (j *JetRulesProxyImpl) GetGoFactory() compute_pipes.JetRulesFactory {
+	return jetrules_go_adaptor.NewJetRulesFactory()
+}
+func (j *JetRulesProxyImpl) GetNativeFactory() compute_pipes.JetRulesFactory {
+	return jetrules_native_adaptor.NewJetRulesFactory()
+}
 
 func main() {
 	hasErr := false
@@ -92,9 +106,10 @@ func handler(ctx context.Context, arg compute_pipes.ComputePipesNodeArgs) error 
 	if err != nil {
 		return fmt.Errorf("while checking if db credential have been updated: %v", err)
 	}
+	
+	jrProxy := &JetRulesProxyImpl{
+		defaultFactory: jetrules_native_adaptor.NewJetRulesFactory(),
+	}
 
-	log.Println("Using Jetrule Engine: NATIVE")
-	jrFactory := jetrules_native_adaptor.NewJetRulesFactory()
-
-	return (&arg).CoordinateComputePipes(ctx, dbpool, jrFactory)
+	return (&arg).CoordinateComputePipes(ctx, dbpool, jrProxy)
 }

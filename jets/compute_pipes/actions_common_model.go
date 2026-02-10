@@ -3,6 +3,7 @@ package compute_pipes
 import (
 	"encoding/json"
 	"fmt"
+	"log"
 	"os"
 	"regexp"
 
@@ -90,10 +91,8 @@ type SourcesConfigSpec struct {
 // table cpipes_execution_status, column input_row_columns_json
 // OriginalHeaders are the original headers read from the main input file
 type InputRowColumns struct {
-	OriginalHeaders []string   `json:"original_headers"`
-	MainInput       []string   `json:"main_input"`
-	MergedInput     [][]string `json:"merged_inputs"`
-	InjectedInput   [][]string `json:"injected_inputs"`
+	OriginalHeaders []string `json:"original_headers"`
+	MainInput       []string `json:"main_input"`
 }
 
 // InputColumns correspond to columns in the input files, this
@@ -195,7 +194,7 @@ func ReadCpipesArgsFromS3(s3Location string) ([]ComputePipesNodeArgs, error) {
 // 	"-filePath", strings.Replace(fileKey.(string), os.Getenv("JETS_s3_INPUT_PREFIX"), os.Getenv("JETS_s3_OUTPUT_PREFIX"), 1),
 // }
 // status_update arguments:
-// map[string]interface{}
+// map[string]any
 // {
 //  "-peKey": peKey,
 //  "-status": "completed",
@@ -212,16 +211,16 @@ func ReadCpipesArgsFromS3(s3Location string) ([]ComputePipesNodeArgs, error) {
 // ReportsCommand contains the argument for RunReport
 // SuccessUpdate / ErrorUpdate are the arguments for status update.
 type ComputePipesRun struct {
-	CpipesCommands       interface{}            `json:"cpipesCommands"`
-	CpipesCommandsS3Key  string                 `json:"cpipesCommandsS3Key,omitempty"`
-	CpipesMaxConcurrency int                    `json:"cpipesMaxConcurrency"`
-	StartReducing        StartComputePipesArgs  `json:"startReducing"`
-	IsLastReducing       bool                   `json:"isLastReducing"`
-	NoMoreTask           bool                   `json:"noMoreTask"`
-	UseECSReducingTask   bool                   `json:"useECSReducingTask"`
-	ReportsCommand       []string               `json:"reportsCommand"`
-	SuccessUpdate        map[string]interface{} `json:"successUpdate"`
-	ErrorUpdate          map[string]interface{} `json:"errorUpdate"`
+	CpipesCommands       any                   `json:"cpipesCommands"`
+	CpipesCommandsS3Key  string                `json:"cpipesCommandsS3Key,omitempty"`
+	CpipesMaxConcurrency int                   `json:"cpipesMaxConcurrency"`
+	StartReducing        StartComputePipesArgs `json:"startReducing"`
+	IsLastReducing       bool                  `json:"isLastReducing"`
+	NoMoreTask           bool                  `json:"noMoreTask"`
+	UseECSReducingTask   bool                  `json:"useECSReducingTask"`
+	ReportsCommand       []string              `json:"reportsCommand"`
+	SuccessUpdate        map[string]any        `json:"successUpdate"`
+	ErrorUpdate          map[string]any        `json:"errorUpdate"`
 }
 
 type FileName struct {
@@ -237,20 +236,35 @@ type CompiledPartFileComponent struct {
 type ComputePipesContext struct {
 	ComputePipesArgs
 	CpConfig              *ComputePipesConfig
-	FileKeyComponents     map[string]interface{}
+	FileKeyComponents     map[string]any
 	PartFileKeyComponents []CompiledPartFileComponent
 	AddionalInputHeaders  []string
-	EnvSettings           map[string]interface{}
+	EnvSettings           map[string]any
 	SamplingCount         int
 	JetStoreTempFolder    string
-	InputFileKeys         []*FileKeyInfo
-	JetRules              JetRulesFactory
+	InputFileKeys         [][]*FileKeyInfo
+	JetRules              JetRulesProxy
 	ChResults             *ChannelResults
 	KillSwitch            chan struct{}
 	Done                  chan struct{}
 	ErrCh                 chan error
-	FileNamesCh           chan FileName
+	FileNamesCh           []chan FileName
 	DownloadS3ResultCh    chan DownloadS3Result // avoid to modify ChannelResult for now...
 	S3DeviceMgr           *S3DeviceManager
 	SchemaManager         *SchemaManager
+}
+
+func (cpCtx *ComputePipesContext) DoneAll(err error) {
+	if err != nil {
+		log.Printf("ComputePipesContext.DoneAll: terminating with err %v, closing done channel\n", err)
+		cpCtx.ErrCh <- err
+	}
+	// Avoid closing a closed channel
+	log.Println("ComputePipesContext.DoneAll: all done")
+	select {
+	case <-cpCtx.Done:
+		log.Println("ComputePipesContext.DoneAll: done channel already closed")
+	default:
+		close(cpCtx.Done)
+	}
 }

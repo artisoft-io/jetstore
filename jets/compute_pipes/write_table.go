@@ -14,14 +14,14 @@ import (
 // Compute Pipes
 
 type WriteTableSource struct {
-	source          <-chan []interface{}
-	pending         []interface{}
+	source          <-chan []any
+	pending         []any
 	count           int
 	tableIdentifier pgx.Identifier
 	columns         []string
 }
 
-func NewWriteTableSource(source <-chan []interface{},	tableIdentifier pgx.Identifier, columns []string) *WriteTableSource {
+func NewWriteTableSource(source <-chan []any, tableIdentifier pgx.Identifier, columns []string) *WriteTableSource {
 	return &WriteTableSource{
 		source:          source,
 		tableIdentifier: tableIdentifier,
@@ -38,7 +38,7 @@ func (wt *WriteTableSource) Next() bool {
 	}
 	return ok
 }
-func (wt *WriteTableSource) Values() ([]interface{}, error) {
+func (wt *WriteTableSource) Values() ([]any, error) {
 	// fmt.Println("*** WriteTable Row ***")
 	// for _, v := range wt.pending {
 	// 	fmt.Printf("%v (%T), ", v, v)
@@ -70,7 +70,7 @@ func SplitTableName(tableName string) (pgx.Identifier, error) {
 
 // Methods for writing output entity records to postgres
 func (wt *WriteTableSource) WriteTable(dbpool *pgxpool.Pool, done chan struct{}, copy2DbResultCh chan<- ComputePipesResult) {
-	defer func(){
+	defer func() {
 		// log.Println("Write Table Exiting, closing channel copy2DbResultCh")
 		close(copy2DbResultCh)
 	}()
@@ -97,7 +97,7 @@ func (wt *WriteTableSource) WriteTable(dbpool *pgxpool.Pool, done chan struct{},
 			fmt.Println()
 		}
 		close(done)
-		fmt.Println("**!@@ ERROR writing to database, writing to copy2DbResultCh (ComputePipesResult) recCount",recCount)
+		fmt.Println("**!@@ ERROR writing to database, writing to copy2DbResultCh (ComputePipesResult) recCount", recCount)
 		copy2DbResultCh <- ComputePipesResult{TableName: wt.tableIdentifier.Sanitize(), Err: fmt.Errorf("while copy records to db at count %d: %v", wt.count, err)}
 		return
 	}
@@ -168,6 +168,7 @@ func CreateOutputTable(dbpool *pgxpool.Pool, tableName pgx.Identifier, tableSpec
 	if err != nil {
 		return fmt.Errorf("error while droping staging table %s: %v", tableName.Sanitize(), err)
 	}
+	var hasSessionId bool
 	var buf strings.Builder
 	buf.WriteString("CREATE TABLE IF NOT EXISTS ")
 	buf.WriteString(tableName.Sanitize())
@@ -182,6 +183,7 @@ func CreateOutputTable(dbpool *pgxpool.Pool, tableName pgx.Identifier, tableSpec
 
 		case column.Name == "session_id":
 			buf.WriteString(" session_id TEXT DEFAULT '' NOT NULL")
+			hasSessionId = true
 
 		default:
 			buf.WriteString(fmt.Sprintf(" %s %s", pgx.Identifier{column.Name}.Sanitize(), schema.ToPgType(column.RdfType)))
@@ -199,14 +201,16 @@ func CreateOutputTable(dbpool *pgxpool.Pool, tableName pgx.Identifier, tableSpec
 	}
 
 	// Create index on sessionIdcolumns
-	stmt = fmt.Sprintf(`CREATE INDEX IF NOT EXISTS %s ON %s (%s);`,
-		pgx.Identifier{fmt.Sprintf("%s_%s_session_id", tableName[0], tableName[1])}.Sanitize(),
-		tableName.Sanitize(),
-		pgx.Identifier{"session_id"}.Sanitize())
-	log.Println(stmt)
-	_, err = dbpool.Exec(context.Background(), stmt)
-	if err != nil {
-		return fmt.Errorf("error while creating (session_id) index: %v", err)
+	if hasSessionId {
+		stmt = fmt.Sprintf(`CREATE INDEX IF NOT EXISTS %s ON %s (%s);`,
+			pgx.Identifier{fmt.Sprintf("%s_%s_session_id", tableName[0], tableName[1])}.Sanitize(),
+			tableName.Sanitize(),
+			pgx.Identifier{"session_id"}.Sanitize())
+		log.Println(stmt)
+		_, err = dbpool.Exec(context.Background(), stmt)
+		if err != nil {
+			return fmt.Errorf("error while creating (session_id) index: %v", err)
+		}
 	}
 	return nil
 }

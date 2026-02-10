@@ -26,6 +26,18 @@ import (
 // NBR_SHARDS default nbr_nodes of cluster
 // JETS_S3_KMS_KEY_ARN
 
+type JetRulesProxyImpl struct {
+}
+func (j *JetRulesProxyImpl) GetDefaultFactory() compute_pipes.JetRulesFactory {
+	return jetrules_go_adaptor.NewJetRulesFactory()
+}
+func (j *JetRulesProxyImpl) GetGoFactory() compute_pipes.JetRulesFactory {
+	return jetrules_go_adaptor.NewJetRulesFactory()
+}
+func (j *JetRulesProxyImpl) GetNativeFactory() compute_pipes.JetRulesFactory {
+	return nil
+}
+
 var dbPoolSize int
 var awsRegion string
 var awsBucket string
@@ -93,8 +105,5 @@ func handler(ctx context.Context, arg compute_pipes.ComputePipesNodeArgs) error 
 		return fmt.Errorf("while checking if db credential have been updated: %v", err)
 	}
 
-	log.Println("Using Jetrule Engine: GORULES")
-	jrFactory := jetrules_go_adaptor.NewJetRulesFactory()
-
-	return (&arg).CoordinateComputePipes(ctx, dbpool, jrFactory)
+	return (&arg).CoordinateComputePipes(ctx, dbpool, &JetRulesProxyImpl{})
 }

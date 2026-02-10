@@ -11,6 +11,7 @@ import (
 
 	"github.com/artisoft-io/jetstore/jets/datatable"
 	"github.com/artisoft-io/jetstore/jets/schema"
+	"github.com/artisoft-io/jetstore/jets/utils"
 	"github.com/jackc/pgx/v4/pgxpool"
 )
 
@@ -41,6 +42,7 @@ func (args *StartComputePipesArgs) StartShardingComputePipes(ctx context.Context
 		if cpipesStartup != nil {
 			mainInputSchemaProvider = cpipesStartup.MainInputSchemaProviderConfig
 		}
+		// Need to return mainInputSchemaProvider here to send failure notification
 		return result, mainInputSchemaProvider, err
 	}
 	mainInputSchemaProvider = cpipesStartup.MainInputSchemaProviderConfig
@@ -51,7 +53,7 @@ func (args *StartComputePipesArgs) StartShardingComputePipes(ctx context.Context
 		"-sessionId", args.SessionId,
 		"-filePath", strings.Replace(args.FileKey, os.Getenv("JETS_s3_INPUT_PREFIX"), os.Getenv("JETS_s3_OUTPUT_PREFIX"), 1),
 	}
-	result.SuccessUpdate = map[string]interface{}{
+	result.SuccessUpdate = map[string]any{
 		"-peKey":         strconv.Itoa(args.PipelineExecKey),
 		"-status":        "completed",
 		"cpipesMode":     true,
@@ -59,7 +61,7 @@ func (args *StartComputePipesArgs) StartShardingComputePipes(ctx context.Context
 		"file_key":       args.FileKey,
 		"failureDetails": "",
 	}
-	result.ErrorUpdate = map[string]interface{}{
+	result.ErrorUpdate = map[string]any{
 		"-peKey":         strconv.Itoa(args.PipelineExecKey),
 		"-status":        "failed",
 		"cpipesMode":     true,
@@ -72,62 +74,15 @@ func (args *StartComputePipesArgs) StartShardingComputePipes(ctx context.Context
 	b, _ := json.Marshal(*mainInputSchemaProvider)
 	log.Printf("*** Main Input Schema Provider:%s\n", string(b))
 
-	// Update output table schema
-	for i := range cpipesStartup.CpConfig.OutputTables {
-		tableName := cpipesStartup.CpConfig.OutputTables[i].Name
-		lc := 0
-		for strings.Contains(tableName, "$") && lc < 5 && len(cpipesStartup.CpConfig.Context) != 0 {
-			lc += 1
-			for i := range cpipesStartup.CpConfig.Context {
-				if cpipesStartup.CpConfig.Context[i].Type == "value" {
-					key := cpipesStartup.CpConfig.Context[i].Key
-					value := cpipesStartup.CpConfig.Context[i].Expr
-					tableName = strings.ReplaceAll(tableName, key, value)
-				}
-			}
-		}
-		tableIdentifier, err := SplitTableName(tableName)
-		if err != nil {
-			return result, mainInputSchemaProvider, fmt.Errorf("while splitting table name: %s", err)
-		}
-		// log.Println("*** Preparing / Updating Output Table", tableIdentifier)
-		err = PrepareOutoutTable(dbpool, tableIdentifier, cpipesStartup.CpConfig.OutputTables[i])
-		if err != nil {
-			return result, mainInputSchemaProvider, fmt.Errorf("while preparing output table: %s", err)
-		}
-	}
-	// log.Println("Compute Pipes output tables schema ready")
-
-	// Send CPIPES start notification to api gateway (install specific)
-	// NOTE 2024-05-13 Added Notification to API Gateway via env var CPIPES_STATUS_NOTIFICATION_ENDPOINT or CPIPES_STATUS_NOTIFICATION_ENDPOINT_JSON
-	apiEndpoint := os.Getenv("CPIPES_STATUS_NOTIFICATION_ENDPOINT")
-	var apiEndpointJson string
-	if len(mainInputSchemaProvider.NotificationRoutingOverridesJson) > 0 {
-		apiEndpointJson = mainInputSchemaProvider.NotificationRoutingOverridesJson
-	} else {
-		apiEndpointJson = os.Getenv("CPIPES_STATUS_NOTIFICATION_ENDPOINT_JSON")
-	}
-	if apiEndpoint != "" || apiEndpointJson != "" {
-		customFileKeys := make([]string, 0)
-		ck := os.Getenv("CPIPES_CUSTOM_FILE_KEY_NOTIFICATION")
-		if len(ck) > 0 {
-			customFileKeys = strings.Split(ck, ",")
-		}
-		var notificationTemplate string
-		if mainInputSchemaProvider.NotificationTemplatesOverrides != nil {
-			notificationTemplate = mainInputSchemaProvider.NotificationTemplatesOverrides["CPIPES_START_NOTIFICATION_JSON"]
-		}
-		if len(notificationTemplate) == 0 {
-			notificationTemplate = os.Getenv("CPIPES_START_NOTIFICATION_JSON")
-		}
-		// ignore returned err
-		datatable.DoNotifyApiGateway(args.FileKey, apiEndpoint, apiEndpointJson,
-			notificationTemplate, customFileKeys, "", cpipesStartup.EnvSettings)
-	}
-
 	// Shard the input file keys, determine the number of shards and associated configuration
-	shardResult, err := ShardFileKeys(ctx, dbpool, args.FileKey, args.SessionId,
-		&cpipesStartup.CpConfig, mainInputSchemaProvider)
+	// Peek into the input channel config, assuming GetComputePipes(0) is the sharding step
+	pc, _, err := cpipesStartup.CpConfig.GetComputePipes(0, cpipesStartup.EnvSettings)
+	if err != nil {
+		return result, mainInputSchemaProvider, fmt.Errorf("while peeking on compute pipes step 0: %v", err)
+	}
+	inputConfigPeek := pc[0].InputChannel
+	shardResult, err := ShardFileKeys(ctx, dbpool, args.FileKey, args.SessionId, inputConfigPeek,
+		cpipesStartup.CpConfig.ClusterConfig, mainInputSchemaProvider)
 	if err != nil {
 		return result, mainInputSchemaProvider, err
 	}
@@ -190,6 +145,15 @@ func (args *StartComputePipesArgs) StartShardingComputePipes(ctx context.Context
 			fetchDelimitor = true
 		}
 		detectCrAsEol = inputChannelConfig.DetectCrAsEol
+	}
+	if !fetchHeaders {
+		// Check if any output table has no columns, if so set fetchHeaders = true
+		for _, outTbl := range outputTables {
+			if len(outTbl.Columns) == 0 {
+				fetchHeaders = true
+				break
+			}
+		}
 	}
 	if fetchHeaders || fetchDelimitor || detectEncoding || detectCrAsEol {
 		// Get the input columns / column separator from the first file
@@ -256,6 +220,40 @@ func (args *StartComputePipesArgs) StartShardingComputePipes(ctx context.Context
 			cpipesStartup.InputColumns = append(cpipesStartup.InputColumns, extraInputColumns...)
 		}
 	}
+	// Update output table schema
+	for _, outTbl := range cpipesStartup.CpConfig.OutputTables {
+		tableName := outTbl.Name
+		tableName = utils.ReplaceEnvVars(tableName, cpipesStartup.EnvSettings)
+		tableIdentifier, err := SplitTableName(tableName)
+		if err != nil {
+			return result, mainInputSchemaProvider, fmt.Errorf("while splitting table name: %s", err)
+		}
+		// log.Println("*** Preparing / Updating Output Table", tableIdentifier)
+		// Check if the table is a staging table with the column taken from the input files
+		if len(outTbl.Columns) == 0 {
+			cspec := outTbl.ChannelSpecName
+			for _, channel := range cpipesStartup.CpConfig.Channels {
+				if channel.Name == cspec {
+					columns := channel.Columns
+					if channel.SameColumnsAsInput {
+						columns = cpipesStartup.InputColumns
+					}
+					outTbl.Columns = make([]TableColumnSpec, len(columns))
+					for i, colName := range columns {
+						outTbl.Columns[i] = TableColumnSpec{
+							Name:    colName,
+							RdfType: "text",
+						}
+					}
+				}
+			}
+		}
+		err = PrepareOutoutTable(dbpool, tableIdentifier, outTbl)
+		if err != nil {
+			return result, mainInputSchemaProvider, fmt.Errorf("while preparing output table: %s", err)
+		}
+	}
+	// log.Println("Compute Pipes output tables schema ready")
 
 	inputRowColumnsJson, err := json.Marshal(InputRowColumns{
 		OriginalHeaders: cpipesStartup.InputColumnsOriginal,
@@ -392,5 +390,33 @@ func (args *StartComputePipesArgs) StartShardingComputePipes(ctx context.Context
 	if err2 != nil {
 		return result, mainInputSchemaProvider, fmt.Errorf("error inserting in jetsapi.cpipes_execution_status table: %v", err2)
 	}
+
+	// Send CPIPES start notification to api gateway (install specific)
+	// NOTE 2024-05-13 Added Notification to API Gateway via env var CPIPES_STATUS_NOTIFICATION_ENDPOINT or CPIPES_STATUS_NOTIFICATION_ENDPOINT_JSON
+	apiEndpoint := os.Getenv("CPIPES_STATUS_NOTIFICATION_ENDPOINT")
+	var apiEndpointJson string
+	if len(mainInputSchemaProvider.NotificationRoutingOverridesJson) > 0 {
+		apiEndpointJson = mainInputSchemaProvider.NotificationRoutingOverridesJson
+	} else {
+		apiEndpointJson = os.Getenv("CPIPES_STATUS_NOTIFICATION_ENDPOINT_JSON")
+	}
+	if apiEndpoint != "" || apiEndpointJson != "" {
+		customFileKeys := make([]string, 0)
+		ck := os.Getenv("CPIPES_CUSTOM_FILE_KEY_NOTIFICATION")
+		if len(ck) > 0 {
+			customFileKeys = strings.Split(ck, ",")
+		}
+		var notificationTemplate string
+		if mainInputSchemaProvider.NotificationTemplatesOverrides != nil {
+			notificationTemplate = mainInputSchemaProvider.NotificationTemplatesOverrides["CPIPES_START_NOTIFICATION_JSON"]
+		}
+		if len(notificationTemplate) == 0 {
+			notificationTemplate = os.Getenv("CPIPES_START_NOTIFICATION_JSON")
+		}
+		// ignore returned err
+		datatable.DoNotifyApiGateway(args.FileKey, apiEndpoint, apiEndpointJson,
+			notificationTemplate, customFileKeys, "", cpipesStartup.EnvSettings)
+	}
+
 	return result, mainInputSchemaProvider, nil
 }

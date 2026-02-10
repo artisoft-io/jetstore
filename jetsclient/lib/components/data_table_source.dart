@@ -230,8 +230,7 @@ class JetsDataTableSource extends ChangeNotifier {
     // print("getRow Called with index $index which has key ${model![index][1]} ");
     return DataRow.byIndex(
       index: index,
-      color: WidgetStateProperty.resolveWith<Color?>(
-          (Set<WidgetState> states) {
+      color: WidgetStateProperty.resolveWith<Color?>((Set<WidgetState> states) {
         // All rows will have the same selected color.
         if (states.contains(WidgetState.selected)) {
           return Theme.of(state.context)
@@ -549,6 +548,15 @@ class JetsDataTableSource extends ChangeNotifier {
         'column': 'client',
         'values': [JetsRouterDelegate().selectedClient!],
       });
+    } else if (hasClientColumn) {
+      if (config != null && config.key == DTKeys.inputRegistryTable) {
+        // Add filter to filter out client == 'Any'
+        whereClauses.add(<String, dynamic>{
+          'table': state.tableConfig.fromClauses[0].tableName,
+          'column': 'client',
+          'not_in_values': ['Any'],
+        });
+      }
     }
 
     if (whereClauses.isNotEmpty) {

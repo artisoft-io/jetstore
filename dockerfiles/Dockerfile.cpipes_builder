@@ -1,0 +1,71 @@
+FROM cpipes_base_builder:latest
+
+ARG JETS_VERSION
+ENV JETS_VERSION=${JETS_VERSION}
+
+# JetStore Build
+# Set working directory
+ENV JETS_SOURCE_DIR=/app JETS_BUILD_DIR=/app
+RUN mkdir -p ${JETS_SOURCE_DIR}
+RUN mkdir -p ${JETS_BUILD_DIR}
+
+WORKDIR ${JETS_SOURCE_DIR}
+
+# Copy source files
+COPY CMakeLists.txt      ${JETS_SOURCE_DIR}/
+COPY go.mod              ${JETS_SOURCE_DIR}/
+COPY jets                ${JETS_SOURCE_DIR}/jets
+COPY jetsclient          ${JETS_SOURCE_DIR}/jetsclient
+COPY cdk/jetstore_one    ${JETS_SOURCE_DIR}/cdk/jetstore_one
+
+# Build the C++ library - native rule engine
+WORKDIR ${JETS_BUILD_DIR}
+ENV LD_LIBRARY_PATH=/usr/local/lib64
+
+RUN cmake -DCMAKE_BUILD_TYPE=Release -DJETS_VERSION=$JETS_VERSION ${JETS_SOURCE_DIR}
+RUN make clean 
+RUN make objlib jets_static jets -j8
+
+# RUN \
+#   echo "$JETS_BUILD_DIR DIRECTORY Contains" \
+#   && ls -la $JETS_BUILD_DIR \
+#   && echo "$JETS_BUILD_DIR/jets DIRECTORY Contains" \
+#   && ls -la $JETS_BUILD_DIR/jets \
+#   && echo "/usr/lib64 DIRECTORY Contains" \
+#   && ls -la /usr/lib64 \
+#   && echo "/usr/local/lib64 DIRECTORY Contains" \
+#   && ls -la /usr/local/lib64 \
+#   && echo "/usr/local/lib DIRECTORY Contains" \
+#   && ls -la /usr/local/lib 
+
+RUN \
+  cd $JETS_BUILD_DIR/jets \
+  && ldconfig \
+  && echo "ldd libjets.so:" \
+  && ldd $JETS_BUILD_DIR/jets/libjets.so 
+
+# Go back to source directory
+WORKDIR ${JETS_SOURCE_DIR}
+
+# Set CGO environment variables
+ENV CGO_ENABLED=1
+ENV GOOS=linux
+ENV GOARCH=amd64
+RUN go mod tidy
+RUN go get all
+RUN go mod download
+
+# Build the Go binaries with CGO enabled
+RUN go build -ldflags="-w -s" -o cbooter              ${JETS_SOURCE_DIR}/jets/cmds/cbooter
+# RUN go build -ldflags="-w -s" -o cpipes_server        ${JETS_SOURCE_DIR}/jets/cmds/cpipes_server
+RUN go build -ldflags="-w -s" -o compile_workspace    ${JETS_SOURCE_DIR}/jets/cmds/compile_workspace
+RUN go build -ldflags="-w -s" -o bootstrap            ${JETS_SOURCE_DIR}/cdk/jetstore_one/lambdas/compute_pipes/cp_node_native
+RUN go build -ldflags="-w -s" -o cpipes_native_server ${JETS_SOURCE_DIR}/jets/cmds/cpipes_native_server
+RUN go build -ldflags="-w -s" -o apiserver            ${JETS_SOURCE_DIR}/jets/apiserver
+RUN go build -ldflags="-w -s" -o update_db            ${JETS_SOURCE_DIR}/jets/update_db
+
+# Copy workspace db schema for compile_workspace utility 
+# Copy programs resources
+RUN cp ${JETS_SOURCE_DIR}/jets/jets_schema.json       /usr/local/bin/jets_schema.json
+RUN cp ${JETS_SOURCE_DIR}/jets/workspace_schema.sql   /usr/local/bin/workspace_schema.sql
+RUN cp ${JETS_SOURCE_DIR}/jets/jets_init_db.sql       /usr/local/bin/jets_init_db.sql

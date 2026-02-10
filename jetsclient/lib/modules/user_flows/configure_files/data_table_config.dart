@@ -90,7 +90,7 @@ final Map<String, TableConfig> _tableConfigurations = {
       noCopy2Clipboard: true,
       rowsPerPage: 1000000),
 
-  // Table to Select a an existing Source Config
+  // Table to Select a an existing Source Config to load file
   // Source Config Table
   FSK.scSourceConfigKey: TableConfig(
     key: FSK.scSourceConfigKey,
@@ -176,7 +176,7 @@ final Map<String, TableConfig> _tableConfigurations = {
         columnIdx: 12,
       ),
       DataTableFormStateOtherColumnConfig(
-        stateKey: FSK.computePipesJson,
+        stateKey: FSK.schemaProviderJson,
         columnIdx: 13,
       ),
     ]),
@@ -212,7 +212,7 @@ final Map<String, TableConfig> _tableConfigurations = {
           label: 'Automated',
           tooltips: 'Is load automated? (true: 1, false: 0)',
           isNumeric: true,
-          isHidden: false),
+          isHidden: true),
       ColumnConfig(
           index: 5,
           name: "table_name",
@@ -256,7 +256,7 @@ final Map<String, TableConfig> _tableConfigurations = {
           label: 'File Format',
           tooltips: 'File format: csv, headerless_csv, etc.',
           isNumeric: false,
-          isHidden: true),
+          isHidden: false),
       ColumnConfig(
           index: 11,
           name: "is_part_files",
@@ -273,8 +273,8 @@ final Map<String, TableConfig> _tableConfigurations = {
           isHidden: true),
       ColumnConfig(
           index: 13,
-          name: "compute_pipes_json",
-          label: 'compute_pipes_json',
+          name: "schema_provider_json",
+          label: 'schema_provider_json',
           tooltips: '',
           isNumeric: false,
           isHidden: true),

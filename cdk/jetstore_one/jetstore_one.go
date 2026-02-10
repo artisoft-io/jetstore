@@ -295,27 +295,21 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 	jsComp.AdminPwdSecret.GrantRead(jsComp.EcsTaskRole, nil)
 	jsComp.EncryptionKeySecret.GrantRead(jsComp.EcsTaskRole, nil)
 
-	// JetStore Image from ecr -- referenced in most tasks
+	// JetStore Image from ecr -- referenced in most legacy tasks:
+	// - ui service
+	// - run reports task
+	// - loader task
+	// - server task
+	// ----------------------------------------------------------------------------------------------
 	jsComp.JetStoreImage = awsecs.AssetImage_FromEcrRepository(
 		//* example: arn:aws:ecr:us-east-1:470601442608:repository/jetstore_test_ws
 		awsecr.Repository_FromRepositoryArn(stack, jsii.String("jetstore-image"), jsii.String(os.Getenv("JETS_ECR_REPO_ARN"))),
 		jsii.String(os.Getenv("JETS_IMAGE_TAG")))
 
-	// JetStore Image from ecr -- referenced in most tasks
+	// JetStore Cpipes Image from ecr -- referenced in most tasks
 	jsComp.CpipesImage = awsecs.AssetImage_FromEcrRepository(
 		awsecr.Repository_FromRepositoryArn(stack, jsii.String("jetstore-cpipes-image"), jsii.String(os.Getenv("CPIPES_ECR_REPO_ARN"))),
 		jsii.String(os.Getenv("CPIPES_IMAGE_TAG")))
-
-	// JetStore Image from ecr -- referenced in most tasks
-	//**TODO **: change to use cpipesNativeImage when ready
-	if jsComp.DeployCpipesNative {
-		log.Println("Deploying CPIPES Native Image")
-		jsComp.CpipesNativeImage = awsecs.AssetImage_FromEcrRepository(
-			awsecr.Repository_FromRepositoryArn(stack, jsii.String("cpipes-native-image-server"),
-				// jsii.String(fmt.Sprintf("arn:aws:ecr:%s:%s:repository/jetstore_cpipes_native", os.Getenv("AWS_REGION"), os.Getenv("AWS_ACCOUNT")))),
-				jsii.String(fmt.Sprintf("arn:aws:ecr:%s:%s:repository/jetstore_cpipes", os.Getenv("AWS_REGION"), os.Getenv("AWS_ACCOUNT")))),
-			jsii.String(os.Getenv("CPIPES_IMAGE_TAG")))
-	}
 
 	// Build ECS Tasks
 	// ---------------------------------------------
@@ -358,12 +352,11 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 	//	- CpipesStartReducingLambda
 	// --------------------------------------------------------------------------------------------------------------
 	jsComp.BuildCpipesLambdas(scope, stack, props)
-
-	// Build the cpipes State Machine (cpipesSM)
-	jsComp.BuildCpipesSM(scope, stack, props)
 	if jsComp.DeployCpipesNative {
 		jsComp.BuildCpipesNativeSM(scope, stack, props)
 	}
+	// Build the cpipes State Machine (cpipesSM)
+	jsComp.BuildCpipesSM(scope, stack, props)
 
 	// RegisterKey Lambda
 	jsComp.BuildRegisterKeyLambdas(scope, stack, props)
@@ -374,18 +367,18 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 	// These execution are performed in code so must give permission explicitly
 	// ---------------------------------------
 	resources := []*string{
-			jsComp.LoaderSM.StateMachineArn(),
-			jsComp.ServerSM.StateMachineArn(),
-			jsComp.Serverv2SM.StateMachineArn(),
-			jsComp.CpipesSM.StateMachineArn(),
-			jsComp.ReportsSM.StateMachineArn(),
-		}
+		jsComp.LoaderSM.StateMachineArn(),
+		jsComp.ServerSM.StateMachineArn(),
+		jsComp.Serverv2SM.StateMachineArn(),
+		jsComp.CpipesSM.StateMachineArn(),
+		jsComp.ReportsSM.StateMachineArn(),
+	}
 	if jsComp.DeployCpipesNative {
 		resources = append(resources, jsComp.CpipesNativeSM.StateMachineArn())
 	}
 
 	jsComp.EcsTaskRole.AddToPolicy(awsiam.NewPolicyStatement(&awsiam.PolicyStatementProps{
-		Actions: jsii.Strings("states:StartExecution"),
+		Actions:   jsii.Strings("states:StartExecution"),
 		Resources: &resources,
 	}))
 	// Also to status update & register key lambda
@@ -482,6 +475,8 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 // JETS_CPIPES_TASK_MEM_LIMIT_MB memory limit, based on fargate table
 // JETS_CPIPES_LAMBDA_MEM_LIMIT_MB memory limit for cpipes execution node lambda
 // JETS_CPIPES_SM_TIMEOUT_MIN (optional) state machine timeout for CPIPES_SM, default 60 min
+// JETS_TEMP_DATA (optional) JetStore temp directory for containers, default /jetsdata
+// TMPDIR (optional) temp directory for containers, default ${JETS_TEMP_DATA}/tmp
 // CPIPES_STATUS_NOTIFICATION_ENDPOINT api gateway endpoint to send start and end notifications
 // CPIPES_STATUS_NOTIFICATION_ENDPOINT_JSON api gateway endpoints based on file key component to send start and end notifications
 // CPIPES_START_NOTIFICATION_JSON template for the cpipes start notification
@@ -495,6 +490,7 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 // JETS_DOMAIN_KEY_SEPARATOR used as separator to domain key elements
 // JETS_ECR_REPO_ARN (required)
 // CPIPES_ECR_REPO_ARN (required for cpipes server)
+// CPIPES_LAMBDA_ECR_REPO_ARN (required for cpipes native lambdas)
 // JETS_ELB_INTERNET_FACING (not required unless JETS_ELB_MODE==public, values: true, false)
 // JETS_ELB_MODE (defaults private)
 // JETS_ELB_NO_ALL_INCOMING UI ELB SG w/o all incoming traffic (not required unless JETS_ELB_INTERNET_FACING==true, default false, values: true, false)
@@ -570,7 +566,6 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 func main() {
 	defer jsii.Close()
 	var err error
-
 	fmt.Println("Got following env var")
 	fmt.Println("env ACTIVE_WORKSPACE_URI:", os.Getenv("ACTIVE_WORKSPACE_URI"))
 	fmt.Println("env AWS_ACCOUNT:", os.Getenv("AWS_ACCOUNT"))
@@ -586,6 +581,8 @@ func main() {
 	fmt.Println("env JETS_CPIPES_TASK_MEM_LIMIT_MB:", os.Getenv("JETS_CPIPES_TASK_MEM_LIMIT_MB"))
 	fmt.Println("env JETS_CPIPES_LAMBDA_MEM_LIMIT_MB:", os.Getenv("JETS_CPIPES_LAMBDA_MEM_LIMIT_MB"))
 	fmt.Println("env JETS_CPIPES_SM_TIMEOUT_MIN:", os.Getenv("JETS_CPIPES_SM_TIMEOUT_MIN"))
+	fmt.Println("env JETS_TEMP_DATA:", os.Getenv("JETS_TEMP_DATA"))
+	fmt.Println("env TMPDIR:", os.Getenv("TMPDIR"))
 	fmt.Println("env CPIPES_STATUS_NOTIFICATION_ENDPOINT:", os.Getenv("CPIPES_STATUS_NOTIFICATION_ENDPOINT"))
 	fmt.Println("env CPIPES_STATUS_NOTIFICATION_ENDPOINT_JSON:", os.Getenv("CPIPES_STATUS_NOTIFICATION_ENDPOINT_JSON"))
 	fmt.Println("env CPIPES_START_NOTIFICATION_JSON:", os.Getenv("CPIPES_START_NOTIFICATION_JSON"))
@@ -602,6 +599,7 @@ func main() {
 	fmt.Println("env JETS_DOMAIN_KEY_SEPARATOR:", os.Getenv("JETS_DOMAIN_KEY_SEPARATOR"))
 	fmt.Println("env JETS_ECR_REPO_ARN:", os.Getenv("JETS_ECR_REPO_ARN"))
 	fmt.Println("env CPIPES_ECR_REPO_ARN:", os.Getenv("CPIPES_ECR_REPO_ARN"))
+	fmt.Println("env CPIPES_LAMBDA_ECR_REPO_ARN:", os.Getenv("CPIPES_LAMBDA_ECR_REPO_ARN"))
 	fmt.Println("env JETS_ELB_INTERNET_FACING:", os.Getenv("JETS_ELB_INTERNET_FACING"))
 	fmt.Println("env JETS_ELB_MODE:", os.Getenv("JETS_ELB_MODE"))
 	fmt.Println("env JETS_ELB_NO_ALL_INCOMING:", os.Getenv("JETS_ELB_NO_ALL_INCOMING"))

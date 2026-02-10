@@ -53,12 +53,14 @@ func runShellCommand(dir, command string) (string, error) {
 	cmd.Stdout = &b1
 	cmd.Stderr = &b1
 	err := cmd.Run()
+	outText := b1.String()
+	log.Printf("Result from %s :: %s",command, outText)
 	if err != nil {
 		err = fmt.Errorf("error while executing '%s' command (see log)", command)
 		log.Printf("%v", err)
-		return b1.String(), err
+		return outText, err
 	}
-	return b1.String(), nil
+	return outText, nil
 }
 
 // Function to delete local workspace directory

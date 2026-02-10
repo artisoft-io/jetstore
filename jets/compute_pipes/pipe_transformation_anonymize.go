@@ -13,6 +13,7 @@ import (
 	"github.com/artisoft-io/jetstore/jets/awsi"
 	"github.com/artisoft-io/jetstore/jets/csv"
 	"github.com/artisoft-io/jetstore/jets/date_utils"
+	"github.com/artisoft-io/jetstore/jets/utils"
 	"github.com/dolthub/swiss"
 )
 
@@ -561,8 +562,8 @@ func (ctx *BuilderContext) NewAnonymizeTransformationPipe(source *InputChannel, 
 	if ctx.nodeId == 0 && config.AnonymizedColumnsOutputFile != nil {
 		outputFileSpec := config.AnonymizedColumnsOutputFile
 		delimit := string(outputFileSpec.Delimiter)
-		bucket := doSubstitution(outputFileSpec.Bucket, "", "", ctx.env)
-		path := doSubstitution(outputFileSpec.OutputLocation, "", "", ctx.env)
+		bucket := utils.ReplaceEnvVars(outputFileSpec.Bucket, ctx.env)
+		path := utils.ReplaceEnvVars(outputFileSpec.OutputLocation, ctx.env)
 
 		data := fmt.Sprintf("\"%s\"\n", strings.Join(anonymizedColumns, fmt.Sprintf("\"%s\"", delimit)))
 		if ctx.cpConfig.ClusterConfig.IsDebugMode {

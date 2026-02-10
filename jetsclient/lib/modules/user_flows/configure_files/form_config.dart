@@ -287,7 +287,7 @@ final Map<String, FormConfig> _formConfigurations = {
             obscureText: false,
             textRestriction: TextRestriction.none,
             maxLines: 13,
-            maxLength: 51200),
+            maxLength: 102400),
       ],
       [
         PaddingConfig(height: 2 * defaultPadding),
@@ -296,32 +296,32 @@ final Map<String, FormConfig> _formConfigurations = {
     formValidatorDelegate: configureFilesFormValidator,
     formActionsDelegate: doNothingAction,
   ),
-  FormKeys.scEditAutomatedModeUF: FormConfig(
-    key: FormKeys.scEditAutomatedModeUF,
+  FormKeys.scAddSchemaProviderJsonUF: FormConfig(
+    key: FormKeys.scAddSchemaProviderJsonUF,
     useListView: true,
     actions: standardActions,
     inputFields: [
       [
-        PaddingConfig(height: 2 * defaultPadding),
+        PaddingConfig(height: 1 * defaultPadding),
       ],
       [
         TextFieldConfig(
-            label:
-                "Select if the files will be loaded manually or automatically from S3:",
+            label: "Paste or enter the Schema Provider JSON:",
             maxLines: 1,
             topMargin: 0,
             bottomMargin: 0),
       ],
       [
-        FormDropdownFieldConfig(
-            key: FSK.automated,
-            items: [
-              DropdownItemConfig(label: 'Select Automation Status...'),
-              DropdownItemConfig(label: 'Automated', value: '1'),
-              DropdownItemConfig(label: 'Manual', value: '0'),
-            ],
+        FormInputFieldConfig(
+            key: FSK.schemaProviderJson,
+            label: "Schema Provider JSON",
+            hint: "Client-Specific Schema Provider JSON",
             flex: 1,
-            defaultItemPos: 1),
+            autofocus: false,
+            obscureText: false,
+            textRestriction: TextRestriction.none,
+            maxLines: 13,
+            maxLength: 102400),
       ],
       [
         PaddingConfig(height: 2 * defaultPadding),
@@ -435,18 +435,6 @@ final Map<String, FormConfig> _formConfigurations = {
                   label: 'Single File', value: 'scSingleFileOption'),
               DropdownItemConfig(
                   label: 'Multi-Part Files', value: 'scMultiPartFileOption'),
-            ],
-            flex: 1,
-            defaultItemPos: 0),
-      ],
-      [
-        FormDropdownFieldConfig(
-            key: FSK.automated,
-            isReadOnly: true,
-            items: [
-              DropdownItemConfig(label: 'Select automation mode'),
-              DropdownItemConfig(label: 'Automated', value: '1'),
-              DropdownItemConfig(label: 'Manual', value: '0'),
             ],
             flex: 1,
             defaultItemPos: 0),

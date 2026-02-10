@@ -11,8 +11,14 @@ import (
 
 // This file contains the definition of the interface for jetrules native and go versions integration.
 
+type JetRulesProxy interface {
+	GetDefaultFactory() JetRulesFactory
+	GetGoFactory() JetRulesFactory
+	GetNativeFactory() JetRulesFactory
+}
+
 type JetRulesFactory interface {
-	// Create a JetRuleEngine instance
+	JetRulesName() string
 	NewJetRuleEngine(dbpool *pgxpool.Pool, processName string, isDebug bool) (JetRuleEngine, error)
 	ClearCache() bool
 }
@@ -77,7 +83,7 @@ type TripleIterator interface {
 	Release() error
 }
 
-type RdfNode interface{
+type RdfNode interface {
 	Hdle() any
 	IsNil() bool
 	Value() any
@@ -111,7 +117,6 @@ func GetRdfNodeValue(r RdfNode) any {
 		return nil
 	}
 }
-
 
 func ParseRdfNodeValue(re JetResourceManager, value, rdfType string) (node RdfNode, err error) {
 	var key int

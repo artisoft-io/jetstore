@@ -1,0 +1,29 @@
+FROM compile_ws:latest AS builder
+
+FROM cpipes:latest
+
+# Copy the compiled workspace to make cpipes a workspace-specific image
+ARG WORKSPACE
+ENV WORKSPACE=${WORKSPACE}
+ENV WORKSPACES_REPO=/workspaces
+
+# Copy the compiled workspace to cpipes workspace-specific image
+COPY --from=builder $WORKSPACES_REPO/$WORKSPACE $WORKSPACES_REPO/$WORKSPACE
+
+# Copy the resources (for future needs - currently is the ui container that needs it)
+COPY --from=builder /usr/local/bin/jets_schema.json      /usr/local/bin/jets_schema.json
+COPY --from=builder /usr/local/bin/workspace_schema.sql  /usr/local/bin/workspace_schema.sql
+COPY --from=builder /usr/local/bin/jets_init_db.sql      /usr/local/bin/jets_init_db.sql
+
+# Set env to find the jets_schema.json by update_db (migrate_db.go)
+ENV JETS_SCHEMA_FILE=/usr/local/bin/jets_schema.json
+ENV JETS_WORKSPACE_DB_SCHEMA_SCRIPT=/usr/local/bin/workspace_schema.sql
+# Common JetStore db init, used in context of base__workspace_init_db.sql script
+ENV JETS_INIT_DB_SCRIPT=/usr/local/bin/jets_init_db.sql
+
+ENV JETS_TEMP_DATA=/jetsdata
+ENV TMPDIR=${JETS_TEMP_DATA}/tmp
+ENV WORKSPACES_HOME=${JETS_TEMP_DATA}/workspaces
+
+# Set the working directory
+WORKDIR ${JETS_TEMP_DATA}

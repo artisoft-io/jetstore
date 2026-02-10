@@ -11,9 +11,14 @@ import (
 
 // This file contains the Compute Pipes runtime data structures
 
+// ChannelRegistry keeps track of all input and output channels
+// inputRowChannel, called input_row correspond to the main input file.
+// InputMergeChannels correspond to any merge input files.
+// ComputeChannels correspond to all other channels created for intermediate
+// steps in the compute graph.
+// OutputTableChannels correspond to the output tables that need to be written
+// ClosedChannels keeps track of which channels have been closed
 type ChannelRegistry struct {
-	// Compute Pipes input channel (inputRowChannel), called input_row
-	// correspond to the input file
 	InputRowChannel      *InputChannel
 	ComputeChannels      map[string]*Channel
 	OutputTableChannels  []string
@@ -128,7 +133,7 @@ type BuilderContext struct {
 	schemaManager      *SchemaManager
 	channelRegistry    *ChannelRegistry
 	inputParquetSchema *ParquetSchemaInfo
-	jetRules           JetRulesFactory
+	jetRules           JetRulesProxy
 	done               chan struct{}
 	errCh              chan error
 	chResults          *ChannelResults
@@ -165,6 +170,7 @@ type PipeTransformationEvaluator interface {
 	Finally()
 }
 
+// Initialize and Done are intended for aggregate transformations column evaluators
 type TransformationColumnEvaluator interface {
 	InitializeCurrentValue(currentValue *[]any)
 	Update(currentValue *[]any, input *[]any) error
@@ -257,6 +263,9 @@ func (ctx *BuilderContext) BuildPipeTransformationEvaluator(source *InputChannel
 
 	case "group_by":
 		return ctx.NewGroupByTransformationPipe(source, outCh, spec)
+
+	case "merge":
+		return ctx.NewMergeTransformationPipe(source, outCh, spec)
 
 	case "distinct":
 		return ctx.NewDistinctTransformationPipe(source, outCh, spec)

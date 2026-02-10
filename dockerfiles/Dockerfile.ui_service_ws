@@ -1,0 +1,69 @@
+FROM cpipes_builder:latest AS builder
+
+
+# Button config passed to flutter build
+ARG JETS_CUSTOM_BUTTONS_CONFIG_JSON='[]'
+
+# JETSTORE FRONT END == FLUTTER BUILD ==
+WORKDIR ${JETS_SOURCE_DIR}/jetsclient
+RUN rm -rf .dart_tool .flutter-plugins .flutter-plugins-dependencies build pubspec.lock
+RUN flutter pub get
+RUN flutter build web --dart-define="BUTTON_CFG_JSON=$JETS_CUSTOM_BUTTONS_CONFIG_JSON"
+
+RUN \
+  echo "Flutter web build completed with custom button config:" \
+  && ls -la build/web
+
+FROM compile_ws:latest AS ws_builder
+
+FROM ui_service:latest
+
+ARG JETS_WORKSPACE_VERSION
+ENV JETS_VERSION=${JETS_WORKSPACE_VERSION}
+ARG WORKSPACE_GIT_SHA
+ENV WORKSPACE_GIT_SHA=${WORKSPACE_GIT_SHA}
+
+RUN echo "----------------JetStore-Workspace-Version------------------" >> /VERSION.txt && \
+    echo "JETS_WORKSPACE_VERSION: ${JETS_WORKSPACE_VERSION}"            >> /VERSION.txt && \
+    echo "JETS_WORKSPACE_GIT_SHA: ${WORKSPACE_GIT_SHA}"                 >> /VERSION.txt && \
+    echo "----------------*******************************-------------" >> /VERSION.txt && \
+    cat /VERSION.txt | echo
+
+ARG AWS_ACCOUNT
+ENV AWS_ACCOUNT=${AWS_ACCOUNT}
+ARG AWS_REGION
+ENV AWS_REGION=${AWS_REGION}
+
+# Copy the compiled workspace to make cpipes a workspace-specific image
+ARG WORKSPACE
+ENV WORKSPACE=${WORKSPACE}
+ENV WORKSPACES_REPO=/workspaces
+
+# Copy the compiled workspace to cpipes workspace-specific image
+COPY --from=ws_builder $WORKSPACES_REPO/$WORKSPACE $WORKSPACES_REPO/$WORKSPACE
+
+# Copy the compiled flutter web ui to the appropriate location in the ui_service image
+COPY --from=builder /app/jetsclient/build/web /usr/local/lib/web
+
+# Copy the resources
+# Copy the resources (for future needs - currently is the ui container that needs it)
+COPY --from=builder /usr/local/bin/jets_schema.json      /usr/local/bin/jets_schema.json
+COPY --from=builder /usr/local/bin/workspace_schema.sql  /usr/local/bin/workspace_schema.sql
+COPY --from=builder /usr/local/bin/jets_init_db.sql      /usr/local/bin/jets_init_db.sql
+
+# Set env to find the jets_schema.json by update_db (migrate_db.go)
+ENV JETS_SCHEMA_FILE=/usr/local/bin/jets_schema.json
+ENV JETS_WORKSPACE_DB_SCHEMA_SCRIPT=/usr/local/bin/workspace_schema.sql
+# Common JetStore db init, used in context of base__workspace_init_db.sql script
+ENV JETS_INIT_DB_SCRIPT=/usr/local/bin/jets_init_db.sql
+
+ENV JETS_TEMP_DATA=/jetsdata
+ENV TMPDIR=${JETS_TEMP_DATA}/tmp
+ENV WORKSPACES_HOME=${JETS_TEMP_DATA}/workspaces
+
+# Set environment variables
+ENV WORKSPACE_DB_PATH=${WORKSPACES_HOME}/${WORKSPACE}/workspace.db
+ENV WORKSPACE_LOOKUPS_DB_PATH=${WORKSPACES_HOME}/${WORKSPACE}/lookup.db
+
+# Set the working directory
+WORKDIR ${JETS_TEMP_DATA}

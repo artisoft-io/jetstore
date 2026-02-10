@@ -15,6 +15,10 @@ import (
 // function for compute_pipes.JetRulesFactory
 // -------------------------------------------
 
+func (factory *JetRulesFactoryGo) JetRulesName() string {
+	return "JetRules Go Engine"
+}
+
 func (factory *JetRulesFactoryGo) ClearCache() bool {
 	// No cache to clear for Go rules engine
 	return true

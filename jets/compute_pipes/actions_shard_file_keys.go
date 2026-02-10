@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/artisoft-io/jetstore/jets/awsi"
+	"github.com/artisoft-io/jetstore/jets/utils"
 	"github.com/jackc/pgx/v4"
 	"github.com/jackc/pgx/v4/pgxpool"
 )
@@ -26,25 +27,73 @@ type ShardFileKeyResult struct {
 	clusterSpec         *ClusterShardingSpec
 }
 
+// ShardFileKeys: assign file keys to nodes for sharding mode according to inputChannelConfig and clusterConfig.
 func ShardFileKeys(exeCtx context.Context, dbpool *pgxpool.Pool, baseFileKey string, sessionId string,
-	cpConfig *ComputePipesConfig, schemaProviderConfig *SchemaProviderSpec) (result ShardFileKeyResult, cpErr error) {
+	inputChannelConfig InputChannelConfig, clusterConfig *ClusterSpec,
+	schemaProviderConfig *SchemaProviderSpec) (result ShardFileKeyResult, cpErr error) {
 
+	var err error
 	var totalSizeMb int
 	var maxShardSize, shardSize, offset int64
 	var doSplitFiles bool
+	envSettings := schemaProviderConfig.Env
+
 	result.clusterShardingInfo = &ClusterShardingInfo{}
 
-	// Get all the file keys having baseFileKey as prefix
-	log.Printf("Downloading file keys from s3 folder: %s", baseFileKey)
-	s3Objects, err := awsi.ListS3Objects(schemaProviderConfig.Bucket, &baseFileKey)
-	if err != nil {
-		cpErr = fmt.Errorf("failed to download list of files from s3: %v", err)
-		return
+	// Get the file keys for the main input source
+	var s3Objects []*awsi.S3Object
+	switch inputChannelConfig.Type {
+	case "input":
+		// Most common case, input from s3 input folder based on baseFileKey
+		// Get all the file keys having baseFileKey as prefix
+		baseFileKey = utils.ReplaceEnvVars(baseFileKey, envSettings)
+		log.Printf("Downloading file keys from s3 folder: %s", baseFileKey)
+		s3Objects, err = awsi.ListS3Objects(schemaProviderConfig.Bucket, &baseFileKey)
+		if err != nil {
+			cpErr = fmt.Errorf("failed to download list of files from s3: %v", err)
+			return
+		}
+
+	case "stage":
+		// Input from s3 stage folder based on inputChannelConfig.FileKey
+		lback := inputChannelConfig.LookbackPeriods
+		if len(lback) > 0 {
+			s3Objects, err = GetS3Objects4LookbackPeriod(schemaProviderConfig.Bucket, inputChannelConfig.FileKey,
+				inputChannelConfig.LookbackPeriods, envSettings)
+			if err != nil {
+				cpErr = fmt.Errorf("failed to download list of files from s3 for lookback periods: %v", err)
+				return
+			}
+		} else {
+			fileKeyPrefix := utils.ReplaceEnvVars(inputChannelConfig.FileKey, envSettings)
+			log.Printf("Downloading file keys from s3 stage folder: %s", fileKeyPrefix)
+			s3Objects, err = awsi.ListS3Objects(schemaProviderConfig.Bucket, &fileKeyPrefix)
+			if err != nil {
+				cpErr = fmt.Errorf("failed to download list of files from s3: %v", err)
+				return
+			}
+		}
 	}
+
+	// Need to get the merge channels files as well
+	var mergeS3Objects [][]*awsi.S3Object
+	mergeS3Objects = make([][]*awsi.S3Object, len(inputChannelConfig.MergeChannels))
+	for i := range inputChannelConfig.MergeChannels {
+		mergeConfig := inputChannelConfig.MergeChannels[i]
+		mergeObjects, err := GetS3Objects4LookbackPeriod(mergeConfig.Bucket, mergeConfig.FileKey,
+			mergeConfig.LookbackPeriods, envSettings)
+		if err != nil {
+			cpErr = fmt.Errorf("failed to download list of files from s3 for merge channel: %v", err)
+			return
+		}
+		mergeS3Objects[i] = append(mergeS3Objects[i], mergeObjects...)
+	}
+
 	if len(s3Objects) == 0 {
 		cpErr = fmt.Errorf("error: input folder contains no data files")
 		return
 	}
+	// Select cluster config based on main input files (s3Objects)
 	// Get the total file size
 	for _, obj := range s3Objects {
 		result.clusterShardingInfo.TotalFileSize += obj.Size
@@ -56,7 +105,7 @@ func ShardFileKeys(exeCtx context.Context, dbpool *pgxpool.Pool, baseFileKey str
 	totalSizeMb = int(result.clusterShardingInfo.TotalFileSize / 1024 / 1024)
 
 	// Determine the tier of sharding
-	result.clusterSpec = selectClusterShardingTier(totalSizeMb, schemaProviderConfig.Format, cpConfig.ClusterConfig)
+	result.clusterSpec = selectClusterShardingTier(totalSizeMb, schemaProviderConfig.Format, clusterConfig)
 
 	if result.clusterSpec.ShardSizeBy > 0 {
 		shardSize = int64(result.clusterSpec.ShardSizeBy)
@@ -70,7 +119,7 @@ func ShardFileKeys(exeCtx context.Context, dbpool *pgxpool.Pool, baseFileKey str
 		maxShardSize = int64(result.clusterSpec.ShardMaxSizeMb * 1024 * 1024)
 	}
 
-	offset = int64(cpConfig.ClusterConfig.ShardOffset)
+	offset = int64(clusterConfig.ShardOffset)
 
 	// Allocate file keys to nodes
 	doSplitFiles = false
@@ -95,10 +144,18 @@ func ShardFileKeys(exeCtx context.Context, dbpool *pgxpool.Pool, baseFileKey str
 	// shardRegistryRow row of jetsapi.compute_pipes_shard_registry
 	var shardRegistryRows [][]any
 	shardRegistryRows, result.nbrShardingNodes = assignShardInfo(s3Objects, shardSize, maxShardSize,
-		offset, doSplitFiles, sessionId)
+		offset, doSplitFiles, sessionId, 0)
 
-	columns := []string{"session_id", "file_key", "file_size", "shard_start", "shard_end", "shard_id"}
-	if cpConfig.ClusterConfig.IsDebugMode {
+	// Add merge channel files to shardRegistryRows
+	for i, mergeObjects := range mergeS3Objects {
+		var mergeShardRows [][]any
+		mergeShardRows, _ = assignShardInfo(mergeObjects, shardSize, maxShardSize,
+			offset, doSplitFiles, sessionId, i+1)
+		shardRegistryRows = append(shardRegistryRows, mergeShardRows...)
+	}
+
+	columns := []string{"session_id", "file_key", "file_size", "shard_start", "shard_end", "shard_id", "channel_pos"}
+	if clusterConfig.IsDebugMode {
 		log.Println("Sharding File Keys:")
 		log.Println(columns)
 		for i := range shardRegistryRows {
@@ -109,10 +166,10 @@ func ShardFileKeys(exeCtx context.Context, dbpool *pgxpool.Pool, baseFileKey str
 	result.firstKey = shardRegistryRows[0][1].(string)
 
 	if result.clusterSpec.S3WorkerPoolSize == 0 {
-		result.clusterSpec.S3WorkerPoolSize = cpConfig.ClusterConfig.S3WorkerPoolSize
+		result.clusterSpec.S3WorkerPoolSize = clusterConfig.S3WorkerPoolSize
 	}
 
-	multiStepThreshold := cpConfig.ClusterConfig.MultiStepShardingThresholds
+	multiStepThreshold := clusterConfig.MultiStepShardingThresholds
 	if result.clusterSpec.MultiStepShardingThresholds > 0 {
 		multiStepThreshold = result.clusterSpec.MultiStepShardingThresholds
 	}
@@ -126,7 +183,7 @@ func ShardFileKeys(exeCtx context.Context, dbpool *pgxpool.Pool, baseFileKey str
 	}
 
 	// Caping the nbr of partitions
-	maxPartitions := cpConfig.ClusterConfig.MaxNbrPartitions
+	maxPartitions := clusterConfig.MaxNbrPartitions
 	if result.clusterSpec.MaxNbrPartitions > 0 {
 		maxPartitions = result.clusterSpec.MaxNbrPartitions
 	}
@@ -151,7 +208,7 @@ func ShardFileKeys(exeCtx context.Context, dbpool *pgxpool.Pool, baseFileKey str
 }
 
 func assignShardInfo(s3Objects []*awsi.S3Object, shardSize, maxShardSize, offset int64,
-	doSplitFiles bool, sessionId string) ([][]any, int) {
+	doSplitFiles bool, sessionId string, chanPos int) ([][]any, int) {
 
 	shardRegistryRows := make([][]any, 0, len(s3Objects))
 	hasSentinelFile := len(sentinelFileName) > 0
@@ -186,6 +243,7 @@ func assignShardInfo(s3Objects []*awsi.S3Object, shardSize, maxShardSize, offset
 					start,
 					end,
 					currentShardId,
+					chanPos,
 				})
 				currentShardId += 1
 				currentShardSize = 0
@@ -204,6 +262,7 @@ func assignShardInfo(s3Objects []*awsi.S3Object, shardSize, maxShardSize, offset
 				int64(0),
 				int64(0),
 				currentShardId,
+				chanPos,
 			})
 			currentShardSize += obj.Size
 			if currentShardSize > shardSize {

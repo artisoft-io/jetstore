@@ -1,0 +1,56 @@
+FROM cpipes_builder:latest AS builder
+
+# RUN \
+#     echo "/usr/local/lib64/ DIRECTORY Contains" \
+#     && ls -la /usr/local/lib64/
+
+# Use the Amazon Linux 2023 base image
+FROM public.ecr.aws/amazonlinux/amazonlinux:2023
+
+# # Install runtime dependencies
+RUN dnf update -y && \
+  dnf install -y libstdc++ shadow-utils && \
+  dnf clean all
+
+# Create a system group and user
+ARG USER_ID="999"
+ARG GROUP_ID="999"
+RUN groupadd -g ${GROUP_ID} jsuser \
+    && useradd -r -u ${USER_ID} -g jsuser jsuser
+
+ENV JETS_SOURCE_DIR=/app JETS_BUILD_DIR=/app
+
+# Copy the binaries to usr/local/bin for ecs tasks
+COPY --from=builder $JETS_SOURCE_DIR/cbooter /usr/local/bin/
+COPY --from=builder $JETS_SOURCE_DIR/cpipes_native_server /usr/local/bin/
+
+# COPY native rule engine library
+COPY --from=builder ${JETS_BUILD_DIR}/jets/libjets.so /usr/local/lib/
+#* Verify lib version when upgrading dependencies
+COPY --from=builder /usr/lib64/libboost_date_time.so.1.75.0 /usr/local/lib/
+COPY --from=builder /lib64/libsqlite3.so.0.8.6 /usr/local/lib/
+COPY --from=builder /lib64/libgflags.so.2.2 /usr/local/lib/
+COPY --from=builder /usr/local/lib64/libglog.so.0.6.0 /usr/local/lib/
+
+# Set library path environment variable instead of using ldconfig
+ENV LD_LIBRARY_PATH=/usr/local/lib
+# Create a simple library cache manually
+RUN echo "/usr/local/lib" > /etc/ld.so.conf.d/local.conf
+
+# Make sure it is executable
+RUN \
+chmod +x /usr/local/bin/cpipes_native_server \
+&& chmod +x /usr/local/bin/cbooter
+
+RUN \
+    cd /usr/local/lib/ \
+    && chmod +x libglog.so.0.6.0 \
+    && chmod +x libboost_date_time.so.1.75.0 \
+    && chmod +x libsqlite3.so.0.8.6 \
+    && chmod +x libgflags.so.2.2 \
+    && ln -s libglog.so.0.6.0 libglog.so.1  \
+    && echo "/usr/local/lib/ DIRECTORY Contains" \
+    && ls -la /usr/local/lib/ \
+    && echo "ldd libjets.so" \
+    && ldd libjets.so \
+    && cd / 

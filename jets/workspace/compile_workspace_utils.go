@@ -15,11 +15,12 @@ import (
 )
 
 // Active workspace prefix and control file path
-var workspaceHome, wprefix, workspaceControlPath, workspaceBuildPath, workspaceVersion string
+var workspaceHome, wprefix, workspaceControlPath, workspaceBuildPath, workspaceVersion, localRepoVersion string
 var devMode bool
 var lastWorkspaceSyncCheck *time.Time
 
 func init() {
+	localRepoVersion = os.Getenv("JETS_VERSION")
 	workspaceHome = os.Getenv("WORKSPACES_HOME")
 	wprefix = os.Getenv("WORKSPACE")
 	workspaceControlPath = fmt.Sprintf("%s/%s/workspace_control.json", workspaceHome, wprefix)
@@ -67,12 +68,13 @@ func WorkspaceControlFilePath() string {
 //   - starting a task requiring local workspace (e.g. run_report to get latest report definition)
 //   - starting apiserver to get latest override files (e.g. lookup csv files) to compile workspace
 //   - starting rule server to get the latest lookup.db and workspace.db
-func SyncWorkspaceFiles(dbpool *pgxpool.Pool, workspaceName, contentType string, skipSqliteFiles bool, skipTgzFiles bool) error {
+func SyncWorkspaceFiles(dbpool *pgxpool.Pool, workspaceName, contentType string, skipSqliteFiles bool, skipTgzFiles bool) (bool, error) {
 	// sync workspace files from db to locally
 	if devMode {
-		return nil
+		return false,nil
 	}
 	// Get all file_name that are modified
+	compilationRequired := false
 	if len(contentType) > 0 {
 		log.Printf("Start synching overriten workspace file with content_type '%s' from database", contentType)
 	} else {
@@ -80,7 +82,7 @@ func SyncWorkspaceFiles(dbpool *pgxpool.Pool, workspaceName, contentType string,
 	}
 	fileObjects, err := dbutils.QueryFileObject(dbpool, workspaceName, contentType)
 	if err != nil {
-		return err
+		return false, err
 	}
 	for _, fo := range fileObjects {
 		// When in skipSqliteFiles == true, do not override lookup.db and workspace.db
@@ -91,26 +93,31 @@ func SyncWorkspaceFiles(dbpool *pgxpool.Pool, workspaceName, contentType string,
 			// create workspace.tgz file and dir structure
 			fileDir := filepath.Dir(localFileName)
 			if err = os.MkdirAll(fileDir, 0770); err != nil {
-				return fmt.Errorf("while creating file directory structure: %v", err)
+				return false, fmt.Errorf("while creating file directory structure: %v", err)
 			}
 			// Put obj to local file system
 			err = fo.WriteDbObject2LocalFile(dbpool, localFileName)
 			if err != nil {
-				return err
+				return false, err
 			}
 			// If FileName ends with .tgz, extract files from archive
-			if strings.HasSuffix(fo.FileName, ".tgz") {
+			switch {
+			case strings.HasSuffix(fo.FileName, ".tgz"):
 				err = extractTgz(localFileName, fmt.Sprintf("%s/%s", workspaceHome, workspaceName))
 				if err != nil {
-					return err
+					return false, err
 				}
+			case strings.HasSuffix(fo.FileName, ".db"):
+			default:
+				log.Printf("*** compilation required due to override of file %s", fo.FileName)
+				compilationRequired = true
 			}
 		} else {
 			log.Println("Skipping file", fo.FileName)
 		}
 	}
-	log.Println("Done synching overriten workspace file from database")
-	return nil
+	log.Println("Done synching overriten workspace file from database, compilationRequired?", compilationRequired)
+	return compilationRequired, nil
 }
 
 func extractTgz(sourceFileName, destBaseDir string) error {
@@ -127,7 +134,12 @@ func extractTgz(sourceFileName, destBaseDir string) error {
 }
 
 // Sync the workspace files for run report lambdas if a new version of the workspace exist since the last call.
-// Return true if a sync was performed
+// Return true if a sync was performed.
+// Note: run report lambdas do not need the full workspace, only the reports definitions.
+// hence only sync the reports.tgz file.
+// Note: in dev mode, do not sync from database.
+// Note: sync is only performed if more than 1 min since last check to avoid too many db calls.
+// Note: No sync if db version is same as local repo version (meaning workspace taken from local repo).
 func SyncRunReportsWorkspace(dbpool *pgxpool.Pool) (bool, error) {
 	if devMode {
 		return false, nil
@@ -148,19 +160,30 @@ func SyncRunReportsWorkspace(dbpool *pgxpool.Pool) (bool, error) {
 	}
 	didSync := false
 	if version != workspaceVersion {
+		workspaceVersion = version
+		if len(localRepoVersion) > 0 && localRepoVersion == workspaceVersion {
+			// No need to sync since workspace taken from local repo
+			log.Printf("Skipping sync of reports.tgz since workspace version %s is same as local repo version", workspaceVersion)
+			return false, nil
+		}
 		// Get the reports
-		err = SyncWorkspaceFiles(dbpool, wprefix, "reports.tgz", true, false)
+		_, err = SyncWorkspaceFiles(dbpool, wprefix, "reports.tgz", true, false)
 		if err != nil {
 			return false, fmt.Errorf("error while synching reports.tgz file from db: %v", err)
 		}
-		workspaceVersion = version
 		didSync = true
+	} else {
+		log.Printf("🙌 No need to sync run reports workspace, version %s is same as last synced version 🙌", workspaceVersion)
 	}
 	return didSync, nil
 }
 
 // Sync the workspace files for cpipes lambdas if a new version of the workspace exist since the last call.
-// Return true if a sync was performed
+// Return true if a sync was performed.
+// Synch both workspace.tgz and sqlite files.
+// Note: in dev mode, do not sync from database.
+// Note: sync is only performed if more than 1 min since last check to avoid too many db calls.
+// Note: No sync if db version is same as local repo version (meaning workspace taken from local repo).
 func SyncComputePipesWorkspace(dbpool *pgxpool.Pool) (bool, error) {
 	if devMode {
 		return false, nil
@@ -181,18 +204,25 @@ func SyncComputePipesWorkspace(dbpool *pgxpool.Pool) (bool, error) {
 	}
 	didSync := false
 	if version != workspaceVersion {
+		workspaceVersion = version
+		if len(localRepoVersion) > 0 && localRepoVersion == workspaceVersion {
+			// No need to sync since workspace taken from local repo
+			log.Printf("Skipping sync of workspace.tgz and sqlite since workspace version %s is same as local repo version", workspaceVersion)
+			return false, nil
+		}
 		// Get the compiled rules
-		err = SyncWorkspaceFiles(dbpool, os.Getenv("WORKSPACE"), "workspace.tgz", true, false)
+		_, err = SyncWorkspaceFiles(dbpool, os.Getenv("WORKSPACE"), "workspace.tgz", true, false)
 		if err != nil {
 			return false, fmt.Errorf("error while synching workspace file from db: %v", err)
 		}
 		// Get the compiled lookups
-		err = SyncWorkspaceFiles(dbpool, os.Getenv("WORKSPACE"), "sqlite", false, true)
+		_, err = SyncWorkspaceFiles(dbpool, os.Getenv("WORKSPACE"), "sqlite", false, true)
 		if err != nil {
 			return false, fmt.Errorf("error while synching workspace file from db: %v", err)
 		}
-		workspaceVersion = version
 		didSync = true
+	} else {
+		log.Printf("🙌 No need to sync compute pipes workspace, version %s is same as last synced version 🙌", workspaceVersion)
 	}
 	return didSync, nil
 }

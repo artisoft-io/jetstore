@@ -5,10 +5,10 @@ import (
 	"io"
 	"log"
 	"os"
-	"strings"
 	"time"
 
 	"github.com/artisoft-io/jetstore/jets/csv"
+	"github.com/artisoft-io/jetstore/jets/utils"
 	"github.com/golang/snappy"
 	"github.com/google/uuid"
 )
@@ -30,22 +30,22 @@ func NewCsvSourceS3(spec *CsvSourceSpec, env map[string]any) (*CsvSourceS3, erro
 		if len(spec.ReadStepId) == 0 {
 			return nil, fmt.Errorf("error: s3_csv_lookup of type cpipes must have read_step_id provided in cpipes spec")
 		} else {
-			spec.ReadStepId = replaceEnvVars(spec.ReadStepId, env)
+			spec.ReadStepId = utils.ReplaceEnvVars(spec.ReadStepId, env)
 		}
 		if len(spec.ProcessName) == 0 {
 			spec.ProcessName = env["$PROCESS_NAME"].(string)
 		} else {
-			spec.ProcessName = replaceEnvVars(spec.ProcessName, env)
+			spec.ProcessName = utils.ReplaceEnvVars(spec.ProcessName, env)
 		}
 		if len(spec.SessionId) == 0 {
 			spec.SessionId = env["$SESSIONID"].(string)
 		} else {
-			spec.SessionId = replaceEnvVars(spec.SessionId, env)
+			spec.SessionId = utils.ReplaceEnvVars(spec.SessionId, env)
 		}
 		if len(spec.JetsPartitionLabel) == 0 {
 			spec.JetsPartitionLabel = env["$JETS_PARTITION_LABEL"].(string)
 		} else {
-			spec.JetsPartitionLabel = replaceEnvVars(spec.JetsPartitionLabel, env)
+			spec.JetsPartitionLabel = utils.ReplaceEnvVars(spec.JetsPartitionLabel, env)
 		}
 		if len(spec.Format) == 0 {
 			spec.Format = "headerless_csv"
@@ -53,11 +53,12 @@ func NewCsvSourceS3(spec *CsvSourceSpec, env map[string]any) (*CsvSourceS3, erro
 		if len(spec.Compression) == 0 {
 			spec.Compression = "snappy"
 		}
-		fileKeys, err := GetS3FileKeys(spec.ProcessName, spec.SessionId,
-			spec.ReadStepId, spec.JetsPartitionLabel)
+		allFileKeys, err := GetS3FileKeys(spec.ProcessName, spec.SessionId,
+			spec.ReadStepId, spec.JetsPartitionLabel, &InputChannelConfig{}, nil)
 		if err != nil {
 			return nil, fmt.Errorf("failed to file keys for CsvSourceS3 of type cpipes: %v", err)
 		}
+		fileKeys := allFileKeys[0]
 		if len(fileKeys) == 0 {
 			if spec.MakeEmptyWhenNoFile {
 				return &CsvSourceS3{
@@ -229,19 +230,4 @@ do_retry:
 			inputRowCount += 1
 		}
 	}
-}
-
-// Utility function
-func replaceEnvVars(value string, env map[string]any) string {
-	lc := 0
-	for strings.Contains(value, "$") && lc < 3 {
-		lc += 1
-		for k, v := range env {
-			v, ok := v.(string)
-			if ok {
-				value = strings.ReplaceAll(value, k, v)
-			}
-		}
-	}
-	return value
 }

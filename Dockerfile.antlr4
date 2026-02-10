@@ -17,8 +17,8 @@ RUN apk add --no-cache maven git \
 FROM adoptopenjdk/openjdk11:alpine-jre
 
 ARG USER_NAME="jsuser"
-ARG USER_ID="1000"
-ARG GROUP_ID="1000"
+ARG USER_ID="999"
+ARG GROUP_ID="999"
 RUN adduser \
     --disabled-password \
     --gecos "" \

@@ -201,12 +201,3 @@ func addToken(r *http.Request, results *map[string]any) {
 		(*results)["token"] = token[0]
 	}
 }
-
-func makeResult(r *http.Request) map[string]any {
-	results := make(map[string]any, 3)
-	token, ok := r.Header["Token"]
-	if ok {
-		results["token"] = token[0]
-	}
-	return results
-}

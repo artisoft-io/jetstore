@@ -182,12 +182,12 @@ func main() {
 	if !devMode {
 		// We're not in dev mode, sync the overriten workspace files
 		// We're interested in lookup.db and workspace.tgz
-		err = workspace.SyncWorkspaceFiles(dbpool, os.Getenv("WORKSPACE"), "sqlite", false, true)
+		_, err = workspace.SyncWorkspaceFiles(dbpool, os.Getenv("WORKSPACE"), "sqlite", false, true)
 		if err != nil {
 			log.Println("Error while synching workspace file from db:", err)
 			return
 		}
-		err = workspace.SyncWorkspaceFiles(dbpool, os.Getenv("WORKSPACE"), "workspace.tgz", true, false)
+		_, err = workspace.SyncWorkspaceFiles(dbpool, os.Getenv("WORKSPACE"), "workspace.tgz", true, false)
 		if err != nil {
 			log.Println("Error while synching workspace file from db:", err)
 			return
