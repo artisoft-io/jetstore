@@ -658,6 +658,35 @@ class JetsDataTableState extends FormFieldState<WidgetField> {
         _refreshTable();
         break;
 
+        // Set filter on session_id from user, input is a list of session_id separated by comma
+      case DataTableActionType.setSessionIdFilter:
+        var sessionIds = await showGetInputDialog(context, 'Enter session IDs comma separated to filter');
+        if (sessionIds != null) {
+          // var sessionIdList = sessionIds.split(',').map((e) => "'${e.trim()}'").toList();
+          var sessionIdList = sessionIds.split(',').map((e) => e.trim()).toList();
+          JetsRouterDelegate().homeFilters = [
+            WhereClause(
+              table: "pipeline_execution_status",
+              column: 'session_id',
+              defaultValue: sessionIdList,
+            )
+          ];
+        JetsRouterDelegate().dataRegistryFilters = [
+            WhereClause(
+              table: "input_registry",
+              column: 'session_id',
+              joinWith: "pipeline_execution_status.input_session_id",
+            ),
+            WhereClause(
+              table: "pipeline_execution_status",
+              column: 'session_id',
+              defaultValue: sessionIdList,
+            )
+        ];
+          _refreshTable();
+        }
+        break;
+
       // Call server to do an action
       case DataTableActionType.doAction:
         JetsRow? row = dataSource.getFirstSelectedRow();
