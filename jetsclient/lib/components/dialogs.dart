@@ -75,6 +75,37 @@ Future<String?> showConfirmationDialog(
     ),
   );
 }
+/// Dialog to get text input from user
+Future<String?> showGetInputDialog(
+  BuildContext context, String prompt) async {
+  final ThemeData td = Theme.of(context);
+  final TextEditingController controller = TextEditingController();
+  return showDialog<String?>(
+  context: context,
+  barrierDismissible: false,
+  builder: (context) => AlertDialog(
+    title: const Text('Enter input'),
+    content: TextField(
+    controller: controller,
+    decoration: InputDecoration(hintText: prompt),
+    maxLines: 3,
+    maxLength: 4000,
+    ),
+    titleTextStyle: TextStyle(color: td.colorScheme.onPrimaryContainer),
+    backgroundColor: td.colorScheme.primaryContainer,
+    actions: [
+    TextButton(
+      child: const Text('CANCEL'),
+      onPressed: () => Navigator.of(context).pop(null),
+    ),
+    TextButton(
+      child: const Text('OK'),
+      onPressed: () => Navigator.of(context).pop(controller.text),
+    ),
+    ],
+  ),
+  );
+}
 
 /// Enum to record the action result for data table actions
 /// Used as the template type for DialogResultHandler when used

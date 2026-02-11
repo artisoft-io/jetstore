@@ -90,6 +90,7 @@ enum DataTableActionType {
   toggleCopy2Clipboard,
   doActionShowDialog,
   clearHomeFilters,
+  setSessionIdFilter,
 }
 
 /// enum describing the condition when an action button is enabled based on

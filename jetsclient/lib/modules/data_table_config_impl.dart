@@ -218,6 +218,14 @@ final Map<String, TableConfig> _tableConfigurations = {
           isEnabledWhenHavingSelectedRows: null,
           configScreenPath: ufHomeFiltersPath),
       ActionConfig(
+          actionType: DataTableActionType.setSessionIdFilter,
+          key: 'setSessionIdFilters',
+          label: 'Set Session Id',
+          style: ActionStyle.primary,
+          isVisibleWhenCheckboxVisible: null,
+          isEnabledWhenHavingSelectedRows: null,
+          isEnabledFnc: (state) => true,),
+      ActionConfig(
         actionType: DataTableActionType.clearHomeFilters,
         key: 'clearHomeFilters',
         label: 'Clear Filters',
