@@ -42,10 +42,6 @@ func (cpCtx *ComputePipesContext) LoadFiles(ctx context.Context, dbpool *pgxpool
 			log.Println(err)
 			close(cpCtx.ChResults.LoadFromS3FilesResultCh)
 		}
-		if inputSchemaCh != nil {
-			close(inputSchemaCh)
-			inputSchemaCh = nil
-		}
 		if err != nil {
 			log.Printf("LoadFiles: terminating with err %v\n", err)
 			cpCtx.DoneAll(err)
