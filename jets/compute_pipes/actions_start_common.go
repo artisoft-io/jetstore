@@ -218,7 +218,7 @@ func (args *StartComputePipesArgs) shardingInitializeCpipes(ctx context.Context,
 
 	// Merge the env var from process_config with mainInputSchemaProvider.Env
 	if envJson.Valid && len(envJson.String) > 0 {
-		err = json.Unmarshal([]byte(envJson.String), &cpipesStartup.MainInputSchemaProviderConfig.Env)
+		err = json.Unmarshal([]byte(envJson.String), &mainInputSchemaProvider.Env)
 		if err != nil {
 			return cpipesStartup, fmt.Errorf("while unmarshaling env_json: %s", err)
 		}
@@ -294,27 +294,32 @@ func (args *StartComputePipesArgs) shardingInitializeCpipes(ctx context.Context,
 	mainInputSchemaProvider.Env["${TABLE_NAME}"] = tableName
 	mainInputSchemaProvider.Env["${SOURCE_TYPE}"] = sourceType
 
-	mainInputSchemaProvider.FileConfig = FileConfig{
-		Format:              inputFormat,
-		Compression:         compression,
-		Bucket:              bucketName,
-		FileKey:             args.FileKey,
-		InputFormatDataJson: inputFormatDataJson.String,
-	}
+	// mainInputSchemaProvider.FileConfig = FileConfig{
+	// 	Format:              inputFormat,
+	// 	Compression:         compression,
+	// 	Bucket:              bucketName,
+	// 	FileKey:             args.FileKey,
+	// 	InputFormatDataJson: inputFormatDataJson.String,
+	// }
 
 	if isPartFile == 1 {
-		cpipesStartup.MainInputSchemaProviderConfig.IsPartFiles = true
+		mainInputSchemaProvider.IsPartFiles = true
 	}
 
-	if cpipesStartup.MainInputSchemaProviderConfig.Format == "" {
-		cpipesStartup.MainInputSchemaProviderConfig.Format = inputFormat
-	}
-	if cpipesStartup.MainInputSchemaProviderConfig.Compression == "" {
-		cpipesStartup.MainInputSchemaProviderConfig.Compression = compression
+	if mainInputSchemaProvider.FileKey == "" {
+		mainInputSchemaProvider.FileKey = args.FileKey
 	}
 
-	if cpipesStartup.MainInputSchemaProviderConfig.InputFormatDataJson == "" {
-		cpipesStartup.MainInputSchemaProviderConfig.InputFormatDataJson = inputFormatDataJson.String
+	if mainInputSchemaProvider.Format == "" {
+		mainInputSchemaProvider.Format = inputFormat
+	}
+
+	if mainInputSchemaProvider.Compression == "" {
+		mainInputSchemaProvider.Compression = compression
+	}
+
+	if mainInputSchemaProvider.InputFormatDataJson == "" {
+		mainInputSchemaProvider.InputFormatDataJson = inputFormatDataJson.String
 	}
 
 	// Adjust ChannelSpec having columns specified by a jetrules class

@@ -282,7 +282,7 @@ func (ctx *DataTableContext) RegisterFileKeys(registerFileKeyAction *RegisterFil
 				continue
 			}
 			log.Println(sessionId, "Write to input_registry for cpipes input files object type (aka domain_key):", domainKey, "client:", client, "org:", org)
-			// log.Println("Write to input_registry for cpipes with schemaProviderJson:", schemaProviderJson)
+			log.Println("Write to input_registry for cpipes with schemaProviderJson:", schemaProviderJson)
 			stmt = `INSERT INTO jetsapi.input_registry 
 							(client, org, object_type, file_key, source_period_key, table_name, 
 							 source_type, session_id, user_email, schema_provider_json, request_id
