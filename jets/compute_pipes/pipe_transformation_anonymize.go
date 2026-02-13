@@ -6,6 +6,7 @@ import (
 	"hash"
 	"hash/fnv"
 	"log"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -29,6 +30,7 @@ type AnonymizeTransformationPipe struct {
 	anonymActions     []*AnonymizationAction
 	columnEvaluators  []TransformationColumnEvaluator
 	firstInputRow     *[]any
+	blankMarkers      *BlankFieldMarkers
 	spec              *TransformationSpec
 	inputDateLayout   string
 	outputDateLayout  string
@@ -74,21 +76,38 @@ func (ctx *AnonymizeTransformationPipe) Apply(input *[]any) error {
 	// log.Println("*** Anonymize Input:",*input)
 	// log.Println("*** Len Input:",inputLen, "Expected Len:", expectedLen)
 	// NOTE: Must handle rows with less or more columns than expected. Anonymize the extra columns without a prefix
+nextAction:
 	for _, action := range ctx.anonymActions {
 		if action.inputColumn >= inputLen {
-			continue
+			continue nextAction
 		}
 		value := (*input)[action.inputColumn]
 		if value == nil {
-			continue
+			continue nextAction
 		}
 		outputDateLayout := ctx.outputDateLayout
 		switch vv := value.(type) {
 		case string:
-			if strings.ToUpper(vv) == "NULL" {
-				continue
+			upperValue := strings.ToUpper(vv)
+			if upperValue == "NULL" {
+				continue nextAction
+			}
+			if ctx.blankMarkers != nil {
+				txt := &upperValue
+				if ctx.blankMarkers.CaseSensitive {
+					txt = &vv
+				}
+				if slices.Contains(ctx.blankMarkers.Markers, *txt) {
+					continue nextAction
+				}
 			}
 			inputStr = vv
+		case int:
+			inputStr = strconv.Itoa(vv)
+		case int64:
+			inputStr = strconv.FormatInt(vv, 10)
+		case float64:
+			inputStr = strconv.FormatFloat(vv, 'f', -1, 64)
 		default:
 			inputStr = fmt.Sprintf("%v", vv)
 		}
@@ -360,7 +379,9 @@ func (ctx *BuilderContext) NewAnonymizeTransformationPipe(source *InputChannel, 
 
 	var capDobYears int
 	var setDodToJan1 bool
+	var blankMarkers *BlankFieldMarkers
 	if sp != nil {
+		blankMarkers = sp.BlankFieldMarkers()
 		if sp.Format() == "fixed_width" {
 			if config.AdjustFieldWidthOnFW {
 				newWidth = make(map[string]int)
@@ -590,6 +611,7 @@ func (ctx *BuilderContext) NewAnonymizeTransformationPipe(source *InputChannel, 
 		anonymActions:     anonymActions,
 		columnEvaluators:  columnEvaluators,
 		channelRegistry:   ctx.channelRegistry,
+		blankMarkers:      blankMarkers,
 		spec:              spec,
 		invalidDate:       invalidDate,
 		inputDateLayout:   inputDateLayout,

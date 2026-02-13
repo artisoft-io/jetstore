@@ -249,43 +249,49 @@ type ContextSpec struct {
 // This is used by more specific types such as:
 // SchemaProviderSpec, InputChannelConfig, OutputChannelConfig, OutputFileSpec
 type FileConfig struct {
-	BadRowsConfig              *BadRowsSpec       `json:"bad_rows_config,omitzero"`
-	Bucket                     string             `json:"bucket,omitempty"`
-	Compression                string             `json:"compression,omitempty"`
-	Delimiter                  rune               `json:"delimiter,omitzero"`
-	DetectCrAsEol              bool               `json:"detect_cr_as_eol,omitzero"`
-	DetectEncoding             bool               `json:"detect_encoding,omitzero"`
-	DomainClass                string             `json:"domain_class,omitempty"`
-	DomainKeys                 map[string]any     `json:"domain_keys,omitempty"`
-	Encoding                   string             `json:"encoding,omitempty"`
-	EnforceRowMaxLength        bool               `json:"enforce_row_max_length,omitzero"`
-	EnforceRowMinLength        bool               `json:"enforce_row_min_length,omitzero"`
-	EolByte                    byte               `json:"eol_byte,omitzero"`
-	FileKey                    string             `json:"file_key,omitempty"`
-	LookbackPeriods            string             `json:"lookback_periods,omitzero"`
-	FileName                   string             `json:"file_name,omitempty"` // Type output
-	FixedWidthColumnsCsv       string             `json:"fixed_width_columns_csv,omitempty"`
-	Format                     string             `json:"format,omitempty"`
-	GetPartitionsSize          bool               `json:"get_partitions_size,omitzero"`
-	InputFormatDataJson        string             `json:"input_format_data_json,omitempty"`
-	IsPartFiles                bool               `json:"is_part_files,omitzero"`
-	KeyPrefix                  string             `json:"key_prefix,omitempty"`
-	MainInputRowCount          int64              `json:"main_input_row_count,omitzero"`
-	MultiColumnsInput          bool               `json:"multi_columns_input,omitzero"`
-	NbrRowsInRecord            int64              `json:"nbr_rows_in_record,omitzero"` // Format: parquet
-	NoQuotes                   bool               `json:"no_quotes,omitzero"`
-	ParquetSchema              *ParquetSchemaInfo `json:"parquet_schema,omitzero"`
-	PutHeadersOnFirstPartition bool               `json:"put_headers_on_first_partition,omitzero"`
-	QuoteAllRecords            bool               `json:"quote_all_records,omitzero"`
-	ReadBatchSize              int64              `json:"read_batch_size,omitzero"` // Format: parquet
-	ReadDateLayout             string             `json:"read_date_layout,omitempty"`
-	TrimColumns                bool               `json:"trim_columns,omitzero"`
-	UseLazyQuotes              bool               `json:"use_lazy_quotes,omitzero"`
-	UseLazyQuotesSpecial       bool               `json:"use_lazy_quotes_special,omitzero"`
-	VariableFieldsPerRecord    bool               `json:"variable_fields_per_record,omitzero"`
-	WriteDateLayout            string             `json:"write_date_layout,omitempty"`
-	OutputEncoding             string             `json:"output_encoding,omitempty"`
-	OutputEncodingSameAsInput  bool               `json:"output_encoding_same_as_input,omitempty"`
+	BadRowsConfig              *BadRowsSpec           `json:"bad_rows_config,omitzero"`
+	BlankFieldMarkers          *BlankFieldMarkersSpec `json:"blank_field_markers,omitzero"`
+	Bucket                     string                 `json:"bucket,omitempty"`
+	Compression                string                 `json:"compression,omitempty"`
+	Delimiter                  rune                   `json:"delimiter,omitzero"`
+	DetectCrAsEol              bool                   `json:"detect_cr_as_eol,omitzero"`
+	DetectEncoding             bool                   `json:"detect_encoding,omitzero"`
+	DomainClass                string                 `json:"domain_class,omitempty"`
+	DomainKeys                 map[string]any         `json:"domain_keys,omitempty"`
+	Encoding                   string                 `json:"encoding,omitempty"`
+	EnforceRowMaxLength        bool                   `json:"enforce_row_max_length,omitzero"`
+	EnforceRowMinLength        bool                   `json:"enforce_row_min_length,omitzero"`
+	EolByte                    byte                   `json:"eol_byte,omitzero"`
+	FileKey                    string                 `json:"file_key,omitempty"`
+	LookbackPeriods            string                 `json:"lookback_periods,omitzero"`
+	FileName                   string                 `json:"file_name,omitempty"` // Type output
+	FixedWidthColumnsCsv       string                 `json:"fixed_width_columns_csv,omitempty"`
+	Format                     string                 `json:"format,omitempty"`
+	GetPartitionsSize          bool                   `json:"get_partitions_size,omitzero"`
+	InputFormatDataJson        string                 `json:"input_format_data_json,omitempty"`
+	IsPartFiles                bool                   `json:"is_part_files,omitzero"`
+	KeyPrefix                  string                 `json:"key_prefix,omitempty"`
+	MainInputRowCount          int64                  `json:"main_input_row_count,omitzero"`
+	MultiColumnsInput          bool                   `json:"multi_columns_input,omitzero"`
+	NbrRowsInRecord            int64                  `json:"nbr_rows_in_record,omitzero"` // Format: parquet
+	NoQuotes                   bool                   `json:"no_quotes,omitzero"`
+	ParquetSchema              *ParquetSchemaInfo     `json:"parquet_schema,omitzero"`
+	PutHeadersOnFirstPartition bool                   `json:"put_headers_on_first_partition,omitzero"`
+	QuoteAllRecords            bool                   `json:"quote_all_records,omitzero"`
+	ReadBatchSize              int64                  `json:"read_batch_size,omitzero"` // Format: parquet
+	ReadDateLayout             string                 `json:"read_date_layout,omitempty"`
+	TrimColumns                bool                   `json:"trim_columns,omitzero"`
+	UseLazyQuotes              bool                   `json:"use_lazy_quotes,omitzero"`
+	UseLazyQuotesSpecial       bool                   `json:"use_lazy_quotes_special,omitzero"`
+	VariableFieldsPerRecord    bool                   `json:"variable_fields_per_record,omitzero"`
+	WriteDateLayout            string                 `json:"write_date_layout,omitempty"`
+	OutputEncoding             string                 `json:"output_encoding,omitempty"`
+	OutputEncodingSameAsInput  bool                   `json:"output_encoding_same_as_input,omitempty"`
+}
+
+type BlankFieldMarkersSpec struct {
+	CaseSensitive bool     `json:"case_sensitive,omitzero"`
+	Markers       []string `json:"markers,omitempty"`
 }
 
 type SchemaProviderSpec struct {
@@ -312,6 +318,7 @@ type SchemaProviderSpec struct {
 	// SourceType range: main_input, merged_input, historical_input (from input_source table)
 	// Columns: may be ommitted if fixed_width_columns_csv is provided or is a csv format
 	// Headers: alt to Columns, typically for csv format
+	// BlankFieldMarkers: specify markers for blank fields (any format, typically for csv format)
 	// GetPartitionsSize: when true, get the size of the partitions from s3
 	// CapDobYears: number of years to cap dob (date of birth) to today - for Anonymization.
 	// SetDodToJan1: set dod (date of death) to January 1st of the date year - for Anonymization.

@@ -379,6 +379,10 @@ func (ctx *AnalyzeTransformationPipe) Finally() {}
 func (ctx *BuilderContext) NewAnalyzeTransformationPipe(source *InputChannel, outputCh *OutputChannel,
 	spec *TransformationSpec) (*AnalyzeTransformationPipe, error) {
 
+	if spec == nil || spec.AnalyzeConfig == nil || outputCh.Columns == nil {
+		return nil, fmt.Errorf("error: analyze Pipe Transformation spec is missing analyze_config section or input columns map is nil")
+	}
+
 	var err error
 	if spec == nil {
 		return nil, fmt.Errorf(
@@ -456,11 +460,18 @@ func (ctx *BuilderContext) NewAnalyzeTransformationPipe(source *InputChannel, ou
 		}
 	}
 
+	// Set up the blank field markers if available
+	sp := ctx.schemaManager.schemaProviders[config.SchemaProvider]
+	var blankMarkers *BlankFieldMarkers
+	if sp != nil {
+		blankMarkers = sp.BlankFieldMarkers()
+	}
+
 	// Set up the AnalyzeState for each input column
 	analyzeState := make([]*AnalyzeState, len(columnNames))
 	for i := range analyzeState {
 		analyzeState[i], err =
-			ctx.NewAnalyzeState(columnNames[i], i, outputCh.Columns, spec)
+			ctx.NewAnalyzeState(columnNames[i], i, outputCh.Columns, sp, blankMarkers, spec)
 		if err != nil {
 			return nil, fmt.Errorf("while calling NewAnalyzeState for column %s: %v",
 				source.Config.Columns[i], err)

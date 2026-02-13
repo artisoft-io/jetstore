@@ -2,6 +2,8 @@ package compute_pipes
 
 import (
 	"fmt"
+	"log"
+	"strings"
 
 	"github.com/jackc/pgx/v4/pgxpool"
 )
@@ -32,6 +34,7 @@ type SchemaProvider interface {
 	Env() map[string]any
 	AdjustColumnWidth(width map[string]int) error
 	BadRowsConfig() *BadRowsSpec
+	BlankFieldMarkers() *BlankFieldMarkers
 	Bucket() string
 	ColumnNames() []string
 	Columns() []SchemaColumnSpec
@@ -326,6 +329,30 @@ func (sp *DefaultSchemaProvider) BadRowsConfig() *BadRowsSpec {
 		return nil
 	}
 	return sp.spec.BadRowsConfig
+}
+
+func (sp *DefaultSchemaProvider) BlankFieldMarkers() *BlankFieldMarkers {
+	if sp == nil {
+		return nil
+	}
+	var blankMarkers *BlankFieldMarkers
+	blankMarkersSpec := sp.spec.BlankFieldMarkers
+	if blankMarkersSpec != nil {
+			markers := blankMarkersSpec.Markers
+			if len(markers) > 0 {
+				if !blankMarkersSpec.CaseSensitive {
+					for i := range markers {
+						markers[i] = strings.ToUpper(markers[i])
+					}
+				}
+				blankMarkers = &BlankFieldMarkers{
+					CaseSensitive: blankMarkersSpec.CaseSensitive,
+					Markers:       markers,
+				}
+				log.Printf("SchemaProvider: blank field markers: case_sensitive=%v, markers=%v", blankMarkers.CaseSensitive, blankMarkers.Markers)
+			}
+		}
+	return blankMarkers
 }
 
 func (sp *DefaultSchemaProvider) QuoteAllRecords() bool {
