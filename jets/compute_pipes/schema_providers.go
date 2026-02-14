@@ -417,3 +417,21 @@ func (sp *DefaultSchemaProvider) SetDodToJan1() bool {
 	}
 	return sp.spec.SetDodToJan1
 }
+
+func GetSchemaProviderConfigByKey(schemaProviders []*SchemaProviderSpec, key string) *SchemaProviderSpec {
+	for i := range schemaProviders {
+		if schemaProviders[i].Key == key {
+			return schemaProviders[i]
+		}
+	}
+	return nil
+}
+
+func GetSchemaProviderConfigBySourceType(schemaProviders []*SchemaProviderSpec, sourceType string) *SchemaProviderSpec {
+	for i := range schemaProviders {
+		if schemaProviders[i].SourceType == sourceType {
+			return schemaProviders[i]
+		}
+	}
+	return nil
+}

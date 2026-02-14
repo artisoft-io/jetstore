@@ -76,12 +76,7 @@ func (args *StartComputePipesArgs) reducingInitializeCpipes(ctx context.Context,
 	}
 
 	// Connect the MainInputSchemaProviderConfig pointer
-	for i := range cpipesStartup.CpConfig.SchemaProviders {
-		if cpipesStartup.CpConfig.SchemaProviders[i].SourceType == "main_input" {
-			cpipesStartup.MainInputSchemaProviderConfig = cpipesStartup.CpConfig.SchemaProviders[i]
-			break
-		}
-	}
+	cpipesStartup.MainInputSchemaProviderConfig = GetSchemaProviderConfigBySourceType(cpipesStartup.CpConfig.SchemaProviders, "main_input")
 	if cpipesStartup.MainInputSchemaProviderConfig == nil {
 		return nil, fmt.Errorf("error: main_input schema provider not found in cpipes config")
 	}
@@ -169,12 +164,7 @@ func (args *StartComputePipesArgs) shardingInitializeCpipes(ctx context.Context,
 	//   - Put SchemaName into env (done in CoordinateComputePipes)
 	//   - Put the schema provider in compute pipes json
 	// First find if a schema provider already exist for "main_input"
-	for _, sp := range cpipesStartup.CpConfig.SchemaProviders {
-		if sp.SourceType == "main_input" {
-			cpipesStartup.MainInputSchemaProviderConfig = sp
-			break
-		}
-	}
+	cpipesStartup.MainInputSchemaProviderConfig = GetSchemaProviderConfigBySourceType(cpipesStartup.CpConfig.SchemaProviders, "main_input")
 	if cpipesStartup.MainInputSchemaProviderConfig == nil {
 		// Create and initialize a default SchemaProviderSpec
 		cpipesStartup.MainInputSchemaProviderConfig = &SchemaProviderSpec{
