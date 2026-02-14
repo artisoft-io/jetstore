@@ -384,10 +384,6 @@ func (ctx *BuilderContext) NewAnalyzeTransformationPipe(source *InputChannel, ou
 	}
 
 	var err error
-	if spec == nil {
-		return nil, fmt.Errorf(
-			"error: Analyze Pipe Transformation spec (analyze_config) is null")
-	}
 	config := spec.AnalyzeConfig
 	// Must have NewRecord set to true
 	spec.NewRecord = true

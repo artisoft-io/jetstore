@@ -18,6 +18,8 @@ import (
 	"github.com/dolthub/swiss"
 )
 
+var maxNumericHashedValue uint64 = 9223372036854775807
+
 type AnonymizeTransformationPipe struct {
 	mode              string
 	cpConfig          *ComputePipesConfig
@@ -126,7 +128,7 @@ nextAction:
 						return fmt.Errorf("error: de-identification lookup table for key prefix '%s' is empty",
 							action.keyPrefix)
 					}
-					rowKey := fmt.Sprintf("%d", ctx.hasher.Sum64()%nrows+1)
+					rowKey := strconv.FormatUint(ctx.hasher.Sum64()%nrows+1, 10)
 					lookupRow, err := action.deidLookupTbl.Lookup(&rowKey)
 					if err != nil {
 						return fmt.Errorf("while looking up de-identification value for key '%s': %v", rowKey, err)
@@ -141,11 +143,12 @@ nextAction:
 						return fmt.Errorf("error: expecting string for de-identification anonymized value, got %v", (*lookupRow)[0])
 					}
 				case len(action.deidFunctionName) > 0:
-					// use de-identification function
 					// Use the de-identification function
 					switch action.deidFunctionName {
 					case "hashed_value":
 						hashedValue = fmt.Sprintf("%016x", ctx.hasher.Sum64())
+					case "numeric_hashed_value":
+						hashedValue = strconv.FormatUint(ctx.hasher.Sum64()%maxNumericHashedValue, 10)
 					default:
 						return fmt.Errorf("error: unknown de-identification function '%s' for key prefix '%s'",
 							action.deidFunctionName, action.keyPrefix)
@@ -458,6 +461,18 @@ func (ctx *BuilderContext) NewAnonymizeTransformationPipe(source *InputChannel, 
 								if newWidth != nil {
 									newWidth[name] = 16
 								}
+								// Change the deid function if it's an all numeric id
+								v := (*metaRow)[metaLookupColumnsMap["numericRe"]]
+								if v != nil {
+									pctTxt, ok := v.(string)
+									if ok {
+										pct, err := strconv.ParseFloat(pctTxt, 64)
+										if err == nil && pct > 95.0 {
+											deidFunctionName = "numeric_hashed_value"
+										}
+									}
+								}
+
 							default:
 								return nil, fmt.Errorf("error: unknown de-identification function '%s' for key prefix '%s'",
 									deidFunctionName, keyPrefix)
