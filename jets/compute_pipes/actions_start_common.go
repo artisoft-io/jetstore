@@ -253,25 +253,26 @@ func (args *StartComputePipesArgs) shardingInitializeCpipes(ctx context.Context,
 
 	// Merge a sub-set of fields from the source_config schema_provider_json into mainInputSchemaProvider
 	type SchemaProviderSourceConfig struct {
-		Env                       map[string]any `json:"env,omitempty"`
-		Delimiter                 rune           `json:"delimiter,omitzero"`
-		DetectCrAsEol             bool           `json:"detect_cr_as_eol,omitzero"`
-		DetectEncoding            bool           `json:"detect_encoding,omitzero"`
-		Encoding                  string         `json:"encoding,omitempty"`
-		EnforceRowMaxLength       bool           `json:"enforce_row_max_length,omitzero"`
-		EnforceRowMinLength       bool           `json:"enforce_row_min_length,omitzero"`
-		EolByte                   byte           `json:"eol_byte,omitzero"`
-		MultiColumnsInput         bool           `json:"multi_columns_input,omitzero"`
-		NoQuotes                  bool           `json:"no_quotes,omitzero"`
-		QuoteAllRecords           bool           `json:"quote_all_records,omitzero"`
-		ReadDateLayout            string         `json:"read_date_layout,omitempty"`
-		TrimColumns               bool           `json:"trim_columns,omitzero"`
-		UseLazyQuotes             bool           `json:"use_lazy_quotes,omitzero"`
-		UseLazyQuotesSpecial      bool           `json:"use_lazy_quotes_special,omitzero"`
-		VariableFieldsPerRecord   bool           `json:"variable_fields_per_record,omitzero"`
-		WriteDateLayout           string         `json:"write_date_layout,omitempty"`
-		OutputEncoding            string         `json:"output_encoding,omitempty"`
-		OutputEncodingSameAsInput bool           `json:"output_encoding_same_as_input,omitempty"`
+		BlankFieldMarkers         *BlankFieldMarkersSpec `json:"blank_field_markers,omitempty"`
+		Delimiter                 rune                   `json:"delimiter,omitzero"`
+		DetectCrAsEol             bool                   `json:"detect_cr_as_eol,omitzero"`
+		DetectEncoding            bool                   `json:"detect_encoding,omitzero"`
+		Encoding                  string                 `json:"encoding,omitempty"`
+		EnforceRowMaxLength       bool                   `json:"enforce_row_max_length,omitzero"`
+		EnforceRowMinLength       bool                   `json:"enforce_row_min_length,omitzero"`
+		Env                       map[string]any         `json:"env,omitempty"`
+		EolByte                   byte                   `json:"eol_byte,omitzero"`
+		MultiColumnsInput         bool                   `json:"multi_columns_input,omitzero"`
+		NoQuotes                  bool                   `json:"no_quotes,omitzero"`
+		OutputEncoding            string                 `json:"output_encoding,omitempty"`
+		OutputEncodingSameAsInput bool                   `json:"output_encoding_same_as_input,omitempty"`
+		QuoteAllRecords           bool                   `json:"quote_all_records,omitzero"`
+		ReadDateLayout            string                 `json:"read_date_layout,omitempty"`
+		TrimColumns               bool                   `json:"trim_columns,omitzero"`
+		UseLazyQuotes             bool                   `json:"use_lazy_quotes,omitzero"`
+		UseLazyQuotesSpecial      bool                   `json:"use_lazy_quotes_special,omitzero"`
+		VariableFieldsPerRecord   bool                   `json:"variable_fields_per_record,omitzero"`
+		WriteDateLayout           string                 `json:"write_date_layout,omitempty"`
 	}
 	if scSchemaProviderJson.Valid && len(scSchemaProviderJson.String) > 0 {
 		mainInputSchemaProviderFromSC := &SchemaProviderSourceConfig{}
@@ -293,14 +294,6 @@ func (args *StartComputePipesArgs) shardingInitializeCpipes(ctx context.Context,
 	// Add tableName and source_type to mainInputSchemaProvider.Env
 	mainInputSchemaProvider.Env["${TABLE_NAME}"] = tableName
 	mainInputSchemaProvider.Env["${SOURCE_TYPE}"] = sourceType
-
-	// mainInputSchemaProvider.FileConfig = FileConfig{
-	// 	Format:              inputFormat,
-	// 	Compression:         compression,
-	// 	Bucket:              bucketName,
-	// 	FileKey:             args.FileKey,
-	// 	InputFormatDataJson: inputFormatDataJson.String,
-	// }
 
 	if isPartFile == 1 {
 		mainInputSchemaProvider.IsPartFiles = true
@@ -927,6 +920,7 @@ func (args *CpipesStartup) ValidatePipeSpecConfig(cpConfig *ComputePipesConfig, 
 }
 
 // Sync the following properties from FileConfig betwwen args inputChannel and schemaProvider:
+//   - BlankFieldMarkers
 //   - Compression
 //   - Delimiter
 //   - DetectEncoding
@@ -952,6 +946,12 @@ func (args *CpipesStartup) ValidatePipeSpecConfig(cpConfig *ComputePipesConfig, 
 // Priority: inputChannelConfig, mainInputSchemaProvider, and then source_config table (which served
 // as defaults to mainInputSchemaProvider)
 func syncInputChannelWithSchemaProvider(ic *InputChannelConfig, sp *SchemaProviderSpec) {
+	if ic.BlankFieldMarkers == nil {
+		ic.BlankFieldMarkers = sp.BlankFieldMarkers
+	} else {
+		sp.BlankFieldMarkers = ic.BlankFieldMarkers
+	}
+
 	if ic.Compression == "" {
 		ic.Compression = sp.Compression
 	} else {

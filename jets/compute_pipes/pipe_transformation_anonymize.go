@@ -6,6 +6,7 @@ import (
 	"hash"
 	"hash/fnv"
 	"log"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -16,6 +17,8 @@ import (
 	"github.com/artisoft-io/jetstore/jets/utils"
 	"github.com/dolthub/swiss"
 )
+
+var maxNumericHashedValue uint64 = 9223372036854775807
 
 type AnonymizeTransformationPipe struct {
 	mode              string
@@ -29,6 +32,7 @@ type AnonymizeTransformationPipe struct {
 	anonymActions     []*AnonymizationAction
 	columnEvaluators  []TransformationColumnEvaluator
 	firstInputRow     *[]any
+	blankMarkers      *BlankFieldMarkers
 	spec              *TransformationSpec
 	inputDateLayout   string
 	outputDateLayout  string
@@ -74,21 +78,38 @@ func (ctx *AnonymizeTransformationPipe) Apply(input *[]any) error {
 	// log.Println("*** Anonymize Input:",*input)
 	// log.Println("*** Len Input:",inputLen, "Expected Len:", expectedLen)
 	// NOTE: Must handle rows with less or more columns than expected. Anonymize the extra columns without a prefix
+nextAction:
 	for _, action := range ctx.anonymActions {
 		if action.inputColumn >= inputLen {
-			continue
+			continue nextAction
 		}
 		value := (*input)[action.inputColumn]
 		if value == nil {
-			continue
+			continue nextAction
 		}
 		outputDateLayout := ctx.outputDateLayout
 		switch vv := value.(type) {
 		case string:
-			if strings.ToUpper(vv) == "NULL" {
-				continue
+			upperValue := strings.ToUpper(vv)
+			if upperValue == "NULL" {
+				continue nextAction
+			}
+			if ctx.blankMarkers != nil {
+				txt := &upperValue
+				if ctx.blankMarkers.CaseSensitive {
+					txt = &vv
+				}
+				if slices.Contains(ctx.blankMarkers.Markers, *txt) {
+					continue nextAction
+				}
 			}
 			inputStr = vv
+		case int:
+			inputStr = strconv.Itoa(vv)
+		case int64:
+			inputStr = strconv.FormatInt(vv, 10)
+		case float64:
+			inputStr = strconv.FormatFloat(vv, 'f', -1, 64)
 		default:
 			inputStr = fmt.Sprintf("%v", vv)
 		}
@@ -107,7 +128,7 @@ func (ctx *AnonymizeTransformationPipe) Apply(input *[]any) error {
 						return fmt.Errorf("error: de-identification lookup table for key prefix '%s' is empty",
 							action.keyPrefix)
 					}
-					rowKey := fmt.Sprintf("%d", ctx.hasher.Sum64()%nrows+1)
+					rowKey := strconv.FormatUint(ctx.hasher.Sum64()%nrows+1, 10)
 					lookupRow, err := action.deidLookupTbl.Lookup(&rowKey)
 					if err != nil {
 						return fmt.Errorf("while looking up de-identification value for key '%s': %v", rowKey, err)
@@ -122,11 +143,12 @@ func (ctx *AnonymizeTransformationPipe) Apply(input *[]any) error {
 						return fmt.Errorf("error: expecting string for de-identification anonymized value, got %v", (*lookupRow)[0])
 					}
 				case len(action.deidFunctionName) > 0:
-					// use de-identification function
 					// Use the de-identification function
 					switch action.deidFunctionName {
 					case "hashed_value":
 						hashedValue = fmt.Sprintf("%016x", ctx.hasher.Sum64())
+					case "numeric_hashed_value":
+						hashedValue = strconv.FormatUint(ctx.hasher.Sum64()%maxNumericHashedValue, 10)
 					default:
 						return fmt.Errorf("error: unknown de-identification function '%s' for key prefix '%s'",
 							action.deidFunctionName, action.keyPrefix)
@@ -360,7 +382,9 @@ func (ctx *BuilderContext) NewAnonymizeTransformationPipe(source *InputChannel, 
 
 	var capDobYears int
 	var setDodToJan1 bool
+	var blankMarkers *BlankFieldMarkers
 	if sp != nil {
+		blankMarkers = sp.BlankFieldMarkers()
 		if sp.Format() == "fixed_width" {
 			if config.AdjustFieldWidthOnFW {
 				newWidth = make(map[string]int)
@@ -437,6 +461,18 @@ func (ctx *BuilderContext) NewAnonymizeTransformationPipe(source *InputChannel, 
 								if newWidth != nil {
 									newWidth[name] = 16
 								}
+								// Change the deid function if it's an all numeric id
+								v := (*metaRow)[metaLookupColumnsMap["numericRe"]]
+								if v != nil {
+									pctTxt, ok := v.(string)
+									if ok {
+										pct, err := strconv.ParseFloat(pctTxt, 64)
+										if err == nil && pct > 95.0 {
+											deidFunctionName = "numeric_hashed_value"
+										}
+									}
+								}
+
 							default:
 								return nil, fmt.Errorf("error: unknown de-identification function '%s' for key prefix '%s'",
 									deidFunctionName, keyPrefix)
@@ -590,6 +626,7 @@ func (ctx *BuilderContext) NewAnonymizeTransformationPipe(source *InputChannel, 
 		anonymActions:     anonymActions,
 		columnEvaluators:  columnEvaluators,
 		channelRegistry:   ctx.channelRegistry,
+		blankMarkers:      blankMarkers,
 		spec:              spec,
 		invalidDate:       invalidDate,
 		inputDateLayout:   inputDateLayout,

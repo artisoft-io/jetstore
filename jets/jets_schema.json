@@ -824,6 +824,10 @@
     ],
     "indexes": [
       {
+        "indexName": "input_registry_session_idx",
+        "indexDef": "INDEX input_registry_session_idx ON jetsapi.input_registry (session_id)"
+      },
+      {
         "indexName": "input_registry_client_idx",
         "indexDef": "INDEX input_registry_client_idx ON jetsapi.input_registry (client ASC)"
       },
