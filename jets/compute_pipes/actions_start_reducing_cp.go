@@ -27,11 +27,6 @@ func (args *StartComputePipesArgs) StartReducingComputePipes(ctx context.Context
 
 	// Current  stepID, will automatically move to the next step is there is nothing to do on current step
 	stepId := *args.StepId
-	// Prepare to determine if need to get the partitions size from s3
-	var doGetPartitionsSize bool
-	if stepId == 1 {
-		doGetPartitionsSize = cpipesStartup.MainInputSchemaProviderConfig.GetPartitionsSize
-	}
 
 	// Prepare the arguments for RunReports and StatusUpdate
 	result.ReportsCommand = []string{
@@ -119,33 +114,23 @@ startStepId:
 
 	// Get the input channel config
 	inputChannelConfig := &pipeConfig[0].InputChannel
+	inputChannelConfig.schemaProviderConfig = GetSchemaProviderConfigByKey(cpipesStartup.CpConfig.SchemaProviders, inputChannelConfig.SchemaProvider)
 	mainInputStepId := inputChannelConfig.ReadStepId
-	if len(mainInputStepId) == 0 {
-		return result, fmt.Errorf("configuration error: missing input_channel.read_step_id for first pipe at step %d", stepId)
+	switch {
+	case len(inputChannelConfig.FileKey) > 0:
+		// Reading historical data from stage.
+		log.Printf("Step %d is reading historical data from stage with file key %s\n", stepId, inputChannelConfig.FileKey)
+
+	default:
+		log.Printf("Step %d is reading from previous reducing step with step id %s\n", stepId, mainInputStepId)
 	}
 
 	// Check if we need to get the partitions size from s3
 	// Root dir of each partition:
 	//		<JETS_s3_STAGE_PREFIX>/process_name=QcProcess/session_id=123456789/step_id=reducing01/jets_partition=22p/
-	var partitions []JetsPartitionInfo
-	if doGetPartitionsSize || inputChannelConfig.GetPartitionsSize {
-		log.Printf("Getting partitions size from s3 for step %d\n", stepId)
-		partitions, err = GetPartitionsSizeFromS3(dbpool, cpipesStartup.ProcessName, args.SessionId, mainInputStepId)
-		if err != nil {
-			return result, fmt.Errorf("while getting partitions size from s3: %v", err)
-		}
-		// Update the partitions size info in compute_pipes_partitions_registry table
-		err = UpdatePartitionsSizeInRegistry(dbpool, cpipesStartup.ProcessName, args.SessionId, mainInputStepId, partitions)
-		if err != nil {
-			return result, fmt.Errorf("while updating partitions size in registry: %v", err)
-		}
-	} else {
-		// Read the partitions file keys, this will give us the nbr of nodes for reducing
-		// Get the partition key from compute_pipes_partitions_registry
-		partitions, err = QueryComputePipesPartitionsRegistry(dbpool, cpipesStartup.ProcessName, args.SessionId, mainInputStepId)
-		if err != nil {
-			return result, err
-		}
+	partitions, err := cpipesStartup.GetComputePipesPartitions(dbpool, cpipesStartup.ProcessName, args.SessionId, inputChannelConfig)
+	if err != nil {
+		return result, err
 	}
 
 	// Check if there are no partitions for the step, then move to next step
@@ -280,7 +265,7 @@ startStepId:
 	// avoid to serialize twice some constructs
 	cpipesStartup.MainInputSchemaProviderConfig.ParquetSchema = nil
 	cpipesStartup.MainInputSchemaProviderConfig = nil
-	cpipesStartup.EnvSettings = nil 
+	cpipesStartup.EnvSettings = nil
 	cpipesStartup.InputColumns = nil
 	cpipesStartup.InputColumnsOriginal = nil
 	cpipesStartupJson, err := json.Marshal(cpipesStartup)
@@ -300,12 +285,12 @@ startStepId:
 		// next iteration
 		nextStepId := stepId + 1
 		result.StartReducing = StartComputePipesArgs{
-			PipelineExecKey:     args.PipelineExecKey,
-			FileKey:             args.FileKey,
-			MainInputRowCount:   args.MainInputRowCount,
-			ClusterInfo:         args.ClusterInfo,
-			SessionId:           args.SessionId,
-			StepId:              &nextStepId,
+			PipelineExecKey:   args.PipelineExecKey,
+			FileKey:           args.FileKey,
+			MainInputRowCount: args.MainInputRowCount,
+			ClusterInfo:       args.ClusterInfo,
+			SessionId:         args.SessionId,
+			StepId:            &nextStepId,
 		}
 	}
 

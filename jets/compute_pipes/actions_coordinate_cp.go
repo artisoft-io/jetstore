@@ -13,6 +13,14 @@ import (
 
 // Compute Pipes Actions
 
+func getTotNbrFileKeys(fileKeys [][]*FileKeyInfo) int {
+	nbrFileKeys := 0
+	for i := range fileKeys {
+		nbrFileKeys += len(fileKeys[i])
+	}
+	return nbrFileKeys
+}
+
 func (args *ComputePipesNodeArgs) CoordinateComputePipes(ctx context.Context, dbpool *pgxpool.Pool, jrProxy JetRulesProxy) error {
 	var cpErr, err error
 	var didSync bool
@@ -81,6 +89,7 @@ func (args *ComputePipesNodeArgs) CoordinateComputePipes(ctx context.Context, db
 
 	// Allocate the MergeFileNamesCh if have merge channels
 	inputChannelConfig = &cpConfig.PipesConfig[0].InputChannel
+	inputChannelConfig.schemaProviderConfig = GetSchemaProviderConfigByKey(cpConfig.SchemaProviders, inputChannelConfig.SchemaProvider)
 	nbrMergeChannels = len(inputChannelConfig.MergeChannels)
 	fileNamesCh = make([]chan FileName, 0, 1+nbrMergeChannels)
 	fileNamesCh = append(fileNamesCh, make(chan FileName, 2))
@@ -99,7 +108,7 @@ func (args *ComputePipesNodeArgs) CoordinateComputePipes(ctx context.Context, db
 		}
 		log.Printf("%s node %d %s Got %d file keys from database for file_key: %s",
 			cpConfig.CommonRuntimeArgs.SessionId, args.NodeId,
-			cpConfig.CommonRuntimeArgs.MainInputStepId, len(fileKeys), cpConfig.CommonRuntimeArgs.FileKey)
+			cpConfig.CommonRuntimeArgs.MainInputStepId, getTotNbrFileKeys(fileKeys), cpConfig.CommonRuntimeArgs.FileKey)
 
 	case "reducing":
 		// Case cpipes reducing mode, get the file keys from s3
@@ -111,7 +120,7 @@ func (args *ComputePipesNodeArgs) CoordinateComputePipes(ctx context.Context, db
 		}
 		log.Printf("%s node %d %s Got %d file keys from s3",
 			cpConfig.CommonRuntimeArgs.SessionId, args.NodeId,
-			cpConfig.CommonRuntimeArgs.MainInputStepId, len(fileKeys))
+			cpConfig.CommonRuntimeArgs.MainInputStepId, getTotNbrFileKeys(fileKeys))
 		if cpConfig.ClusterConfig.IsDebugMode {
 			for i := range fileKeys {
 				for _, k := range fileKeys[i] {

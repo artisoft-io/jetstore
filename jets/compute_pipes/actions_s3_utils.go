@@ -95,25 +95,63 @@ func GetS3Objects4LookbackPeriod(bucket, fileKey, lookbackPeriod string, env map
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse lookback_period %s: %v", lookbackPeriod, err)
 	}
-	log.Printf("Downloading file keys from s3 stage folder: %s, lookback first period_id: %d, num periods: %d",
+	log.Printf("[1]Downloading file keys from s3 stage folder: %s, lookback first period_id: %d, num periods: %d",
 		fileKey, firstPeriodId, numPeriods)
 	// Make a copy of envSessings to avoid modifying the original
 	lookbackEnv := make(map[string]any)
 	maps.Copy(lookbackEnv, env)
 	// Last period in the lookback is firstPeriodId - numPeriods
 	for p := range numPeriods + 1 {
-		lookbackEnv["$PERIOD_ID"] = firstPeriodId - p
+		lookbackEnv["${PERIOD_ID}"] = firstPeriodId - p
 		fileKeyPrefix := utils.ReplaceEnvVars(fileKey, lookbackEnv)
 		log.Printf("  Lookback period_id: %d, downloading file keys from s3 stage folder: %s",
-			lookbackEnv["$PERIOD_ID"], fileKeyPrefix)
+			lookbackEnv["${PERIOD_ID}"], fileKeyPrefix)
 		periodS3Objects, err := awsi.ListS3Objects(bucket, &fileKeyPrefix)
 		if err != nil {
 			return nil, fmt.Errorf("failed to download list of files from s3 for lookback period_id %d: %v",
-				lookbackEnv["$PERIOD_ID"], err)
+				lookbackEnv["${PERIOD_ID}"], err)
 		}
 		s3Objects = append(s3Objects, periodS3Objects...)
 	}
 	return s3Objects, nil
+}
+
+// Get Partition key and size.
+// This is used un start reducing.
+func GetPartitionSize4LookbackPeriod(bucket, fileKey, lookbackPeriod string, env map[string]any, partitionSizes map[string]int64) error {
+	var err error
+	// Lookback case, need to get the list of file keys for each lookback periods
+	firstPeriodId, numPeriods, err := utils.ParseLookbackPeriod(lookbackPeriod, env)
+	if err != nil {
+		return fmt.Errorf("failed to parse lookback_period %s: %v", lookbackPeriod, err)
+	}
+	log.Printf("[2]Downloading file keys from s3 stage folder: %s, lookback first period_id: %d, num periods: %d",
+		fileKey, firstPeriodId, numPeriods)
+	// Make a copy of envSessings to avoid modifying the original
+	lookbackEnv := make(map[string]any)
+	maps.Copy(lookbackEnv, env)
+	// Last period in the lookback is firstPeriodId - numPeriods
+	for p := range numPeriods + 1 {
+		lookbackEnv["${PERIOD_ID}"] = firstPeriodId - p
+		fileKeyPrefix := utils.ReplaceEnvVars(fileKey, lookbackEnv)
+		log.Printf("  Lookback period_id: %d, downloading file keys from s3 stage folder: %s",
+			lookbackEnv["${PERIOD_ID}"], fileKeyPrefix)
+		periodS3Objects, err := awsi.ListS3Objects(bucket, &fileKeyPrefix)
+		if err != nil {
+			return fmt.Errorf("failed to download list of files from s3 for lookback period_id %d: %v",
+				lookbackEnv["${PERIOD_ID}"], err)
+		}
+		for i := range periodS3Objects {
+			if periodS3Objects[i].Size > 0 {
+				partitionLabel, err := ExtractPartitionLabelFromS3Key(periodS3Objects[i].Key)
+				if err != nil {
+					return fmt.Errorf("failed to extract partition label from s3 key %s: %v", periodS3Objects[i].Key, err)
+				}
+				partitionSizes[partitionLabel] += periodS3Objects[i].Size
+			}
+		}
+	}
+	return nil
 }
 
 // Get the file_key(s) from s3 for the given process/session/step/partition.
@@ -131,14 +169,15 @@ func GetS3FileKeys(processName, sessionId, mainInputStepId, jetsPartitionLabel s
 	// Main input source
 	if len(inputChannelConfig.FileKey) == 0 {
 		s3BaseFolder = fmt.Sprintf("%s/process_name=%s/session_id=%s/step_id=%s/jets_partition=%s",
-			jetsS3StagePrefix, processName, sessionId, mainInputStepId, jetsPartitionLabel)
+			awsi.JetStoreStagePrefix(), processName, sessionId, mainInputStepId, jetsPartitionLabel)
 		s3Objects, err = awsi.ListS3Objects("", &s3BaseFolder)
 		if err != nil || s3Objects == nil {
 			return nil, fmt.Errorf("failed to download list of files from s3: %v", err)
 		}
 
 	} else {
-		s3Objects, err = GetS3Objects4LookbackPeriod(inputChannelConfig.Bucket, inputChannelConfig.FileKey,
+		fileKey := fmt.Sprintf("%s/%s", awsi.JetStoreStagePrefix(), inputChannelConfig.FileKey)
+		s3Objects, err = GetS3Objects4LookbackPeriod(inputChannelConfig.Bucket, fileKey,
 			inputChannelConfig.LookbackPeriods, envSettings)
 		if err != nil {
 			return nil, fmt.Errorf("failed to download list of files from s3 for main input: %v", err)
@@ -156,13 +195,14 @@ func GetS3FileKeys(processName, sessionId, mainInputStepId, jetsPartitionLabel s
 		}
 		if len(mergeChannelConfig.FileKey) == 0 {
 			mergeS3BaseFolder = fmt.Sprintf("%s/process_name=%s/session_id=%s/step_id=%s/jets_partition=%s",
-				jetsS3StagePrefix, processName, sid, mergeChannelConfig.ReadStepId, jetsPartitionLabel)
+				awsi.JetStoreStagePrefix(), processName, sid, mergeChannelConfig.ReadStepId, jetsPartitionLabel)
 			s3Objects, err = awsi.ListS3Objects("", &mergeS3BaseFolder)
 			if err != nil || s3Objects == nil {
 				return nil, fmt.Errorf("failed to download list of files from s3 for merge channel %d: %v", i, err)
 			}
 		} else {
-			s3Objects, err = GetS3Objects4LookbackPeriod(mergeChannelConfig.Bucket, mergeChannelConfig.FileKey,
+		fileKey := fmt.Sprintf("%s/%s", awsi.JetStoreStagePrefix(), mergeChannelConfig.FileKey)
+			s3Objects, err = GetS3Objects4LookbackPeriod(mergeChannelConfig.Bucket, fileKey,
 				mergeChannelConfig.LookbackPeriods, envSettings)
 			if err != nil {
 				return nil, fmt.Errorf("failed to download list of files from s3 for merge channel %d: %v", i, err)

@@ -15,7 +15,7 @@ import (
 type ChannelState struct {
 	rowCount int
 	extShard int
-	data     chan []interface{}
+	data     chan []any
 }
 
 func (ctx *BuilderContext) StartSplitterPipe(spec *PipeSpec, source *InputChannel, writePartitionsResultCh chan ComputePipesResult) {
@@ -25,7 +25,7 @@ func (ctx *BuilderContext) StartSplitterPipe(spec *PipeSpec, source *InputChanne
 		// Catch the panic that might be generated downstream
 		if r := recover(); r != nil {
 			var buf strings.Builder
-			buf.WriteString(fmt.Sprintf("StartSplitterPipe: recovered error: %v\n", r))
+			fmt.Fprintf(&buf, "StartSplitterPipe: recovered error: %v\n", r)
 			buf.WriteString(string(debug.Stack()))
 			cpErr := errors.New(buf.String())
 			ctx.errCh <- cpErr
@@ -38,7 +38,7 @@ func (ctx *BuilderContext) StartSplitterPipe(spec *PipeSpec, source *InputChanne
 		}
 		close(writePartitionsResultCh)
 		// Closing the output channels
-		fmt.Println("**!@@ SPLITTER: Closing Output Channels")
+		fmt.Println("SPLITTER: Closing Output Channels")
 		oc := make(map[string]bool)
 		for i := range spec.Apply {
 			// Make sure the output chan config is used
@@ -53,18 +53,18 @@ func (ctx *BuilderContext) StartSplitterPipe(spec *PipeSpec, source *InputChanne
 			}
 		}
 		for i := range oc {
-			fmt.Println("**!@@ SPLITTER: Closing Output Channel", i)
+			fmt.Println("SPLITTER: Closing Output Channel", i)
 			ctx.channelRegistry.CloseChannel(i)
 		}
 	}()
 	var err error
 	var mapSize uint32 = 1000
-	var chanState *swiss.Map[interface{}, *ChannelState]
+	var chanState *swiss.Map[any, *ChannelState]
 	var spliterColumnIdx int
 	var ok bool
 	var config *SplitterSpec
-	var baseKey interface{}
-	var jetsPartitionKey interface{}
+	var baseKey any
+	var jetsPartitionKey any
 	var splitOnColumn, splitOnDefault, splitOnHash bool
 	var hashEvaluator *HashEvaluator
 
@@ -121,7 +121,7 @@ func (ctx *BuilderContext) StartSplitterPipe(spec *PipeSpec, source *InputChanne
 		splitOnHash = true
 		mapSize = uint32(hashEvaluator.partitions)
 	}
-	chanState = swiss.NewMap[interface{}, *ChannelState](mapSize)
+	chanState = swiss.NewMap[any, *ChannelState](mapSize)
 
 	// fmt.Println("**!@@ start splitter loop on source:",source.Name)
 	for inRow := range source.Channel {
@@ -146,7 +146,7 @@ func (ctx *BuilderContext) StartSplitterPipe(spec *PipeSpec, source *InputChanne
 		if !ok {
 			// unseen value, create an slot with an intermediate channel
 			// log.Printf("**!@@ SPLITTER NEW KEY: %v", baseKey)
-			splitCh = &ChannelState{data: make(chan []interface{}, 1)}
+			splitCh = &ChannelState{data: make(chan []any, 1)}
 			chanState.Put(baseKey, splitCh)
 			if ctx.cpConfig.ClusterConfig.IsDebugMode {
 				if chanState.Count()%5 == 0 {
@@ -189,7 +189,7 @@ func (ctx *BuilderContext) StartSplitterPipe(spec *PipeSpec, source *InputChanne
 			if splitCh.rowCount >= config.PartitionRowCount {
 				// Cut a new channel and associated jetsPartitionKey
 				close(splitCh.data)
-				splitCh.data = make(chan []interface{}, 1)
+				splitCh.data = make(chan []any, 1)
 				splitCh.extShard += 1
 				splitCh.rowCount = 0
 				jetsPartitionKey = fmt.Sprintf("%v|%d", baseKey, splitCh.extShard)
@@ -206,7 +206,7 @@ func (ctx *BuilderContext) StartSplitterPipe(spec *PipeSpec, source *InputChanne
 			}
 		}
 		// Send the record to the intermediate channel
-		// fmt.Println("**!@@ splitter loop, sending record to intermediate channel:", key)
+		// fmt.Println("**!@@ splitter loop, sending record to intermediate channel:", jetsPartitionKey)
 		select {
 		case splitCh.data <- inRow:
 		case <-ctx.done:
@@ -219,7 +219,7 @@ func (ctx *BuilderContext) StartSplitterPipe(spec *PipeSpec, source *InputChanne
 	}
 doneSplitterLoop:
 	// Close all the opened intermediate channels
-	chanState.Iter(func(key interface{}, v *ChannelState) (stop bool) {
+	chanState.Iter(func(key any, v *ChannelState) (stop bool) {
 		// fmt.Println("**!@@ startSplitterPipe closing intermediate channel", key)
 		close(v.data)
 		return false
@@ -243,7 +243,7 @@ gotError:
 }
 
 func (ctx *BuilderContext) startSplitterChannelHandler(spec *PipeSpec, source *InputChannel, partitionResultCh chan ComputePipesResult,
-	jetsPartitionKey interface{}, wg *sync.WaitGroup) {
+	jetsPartitionKey any, wg *sync.WaitGroup) {
 	var cpErr, err error
 	var evaluators []PipeTransformationEvaluator
 	defer func() {
@@ -276,6 +276,7 @@ func (ctx *BuilderContext) startSplitterChannelHandler(spec *PipeSpec, source *I
 	}
 	// Process the channel
 	for inRow := range source.Channel {
+		// fmt.Println("**!@@ SPLITTER *1 startSplitterChannelHandler ~ Processing row:", inRow)
 		for i := range evaluators {
 			err = evaluators[i].Apply(&inRow)
 			if err != nil {

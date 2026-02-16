@@ -53,6 +53,8 @@ func BuildEvalOperator(op string) (evalOperator, error) {
 		return &opIn{}, nil
 	case "LENGTH":
 		return &opLength{}, nil
+	case "NEW_UUID":
+		return &opNewUUID{}, nil
 	case "DISTANCE_MONTHS":
 		return &opDMonths{}, nil
 	case "APPLY_FORMAT":

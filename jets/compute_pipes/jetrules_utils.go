@@ -214,12 +214,17 @@ func GetJetRuleEngine(reFactory JetRulesFactory, dbpool *pgxpool.Pool, processNa
 	return
 }
 
+type RuleEngineConfig struct {
+	MainRuleFile   string            `json:"main_rule_file_name,omitempty"`
+	JetStoreConfig map[string]string `json:"jetstore_config,omitempty"`
+}
+
 // Function to get domain classes info from the local workspace
 func GetRuleEngineConfig(mainRuleFile, property string) (string, error) {
 	if ruleEngineConfig == nil {
+		config := &RuleEngineConfig{}
 		ruleEngineConfigMx.Lock()
 		defer ruleEngineConfigMx.Unlock()
-		ruleEngineConfig = make(map[string]string)
 		fpath := fmt.Sprintf("%s/%s/build/%s.config.json", workspaceHome, wsPrefix, strings.TrimSuffix(mainRuleFile, ".jr"))
 		log.Println("Reading Rule Engine config definitions from:", fpath)
 		file, err := os.ReadFile(fpath)
@@ -228,12 +233,13 @@ func GetRuleEngineConfig(mainRuleFile, property string) (string, error) {
 			log.Println(err)
 			return "", err
 		}
-		err = json.Unmarshal(file, &ruleEngineConfig)
+		err = json.Unmarshal(file, config)
 		if err != nil {
 			err = fmt.Errorf("while unmarshaling config.json (GetRuleEngineConfig):%v", err)
 			log.Println(err)
 			return "", err
 		}
+		ruleEngineConfig = config.JetStoreConfig
 	}
 	return ruleEngineConfig[property], nil
 }

@@ -123,6 +123,7 @@ func (ctx *DataTableContext) RegisterFileKeys(registerFileKeyAction *RegisterFil
 	var requestId any
 	var allOk bool
 	row := make([]any, len(sqlStmt.ColumnKeys))
+	NextKey:
 	for irow := range registerFileKeyAction.Data {
 		var schemaProviderJson string
 		// fileKeyObject with defaults
@@ -214,14 +215,14 @@ func (ctx *DataTableContext) RegisterFileKeys(registerFileKeyAction *RegisterFil
 				size := fileKeyObject["file_size"].(int64)
 				if size > 1 {
 					// log.Println("Register File Key: data source with multiple parts: skipping file key:", fileKeyObject["file_key"],"size",fileKeyObject["size"])
-					goto NextKey
+					continue NextKey
 				} else {
 					// Check if we restrict sentinel files by name
 					if len(sentinelFileName) > 0 && !registerFileKeyAction.IsSchemaEvent &&
 						!strings.HasSuffix(fileKey, sentinelFileName) {
 						// case of accepting only sentinel file with specific name, this one does not have it
 						// log.Println("Register File Key: data source with multiple parts: skipping 0-size file key:", fileKeyObject["file_key"],"size",fileKeyObject["size"],"Do not match the sentinel file name:",sentinelFileName)
-						goto NextKey
+						continue NextKey
 					}
 					// Current key is for sentinel file, remove sentinel file name from file_key
 					idx := strings.LastIndex(fileKey, "/")
@@ -266,7 +267,7 @@ func (ctx *DataTableContext) RegisterFileKeys(registerFileKeyAction *RegisterFil
 			}
 		} else {
 			// log.Println("***while RegisterFileKeys: skipping file key:", fileKeyObject["file_key"])
-			goto NextKey
+			continue NextKey
 		}
 		// Reserve a session_id
 		sessionId, err = reserveSessionId(ctx.Dbpool, &baseSessionId)
@@ -305,8 +306,6 @@ func (ctx *DataTableContext) RegisterFileKeys(registerFileKeyAction *RegisterFil
 			log.Println("WARNING while registering session_id, ignoring err:", err)
 			err = nil
 		}
-
-	NextKey:
 	}
 	return &map[string]any{}, http.StatusOK, nil
 }

@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"log"
 	"os"
+
+	"github.com/artisoft-io/jetstore/jets/awsi"
 )
 
 func (cpCtx *ComputePipesContext) loadMainInput(computePipesInputCh chan []any,
@@ -19,7 +21,7 @@ func (cpCtx *ComputePipesContext) loadMainInput(computePipesInputCh chan []any,
 		// NOTE: All partitions for bad rows are written to partion '0000P' so we can use merge_files operator
 		//       (otherwise use cpCtx.JetsPartitionLabel so save in current partition)
 		baseOutputPath := fmt.Sprintf("%s/process_name=%s/session_id=%s/step_id=%s/jets_partition=%s",
-			jetsS3StagePrefix, cpCtx.ProcessName, cpCtx.SessionId, inputChannelConfig.BadRowsConfig.BadRowsStepId, "0000P")
+			awsi.JetStoreStagePrefix(), cpCtx.ProcessName, cpCtx.SessionId, inputChannelConfig.BadRowsConfig.BadRowsStepId, "0000P")
 
 		badRowChannel = NewBadRowChannel(cpCtx.S3DeviceMgr, baseOutputPath, cpCtx.Done, cpCtx.ErrCh)
 		defer badRowChannel.Done()

@@ -267,7 +267,6 @@ type FileConfig struct {
 	FileName                   string                 `json:"file_name,omitempty"` // Type output
 	FixedWidthColumnsCsv       string                 `json:"fixed_width_columns_csv,omitempty"`
 	Format                     string                 `json:"format,omitempty"`
-	GetPartitionsSize          bool                   `json:"get_partitions_size,omitzero"`
 	InputFormatDataJson        string                 `json:"input_format_data_json,omitempty"`
 	IsPartFiles                bool                   `json:"is_part_files,omitzero"`
 	KeyPrefix                  string                 `json:"key_prefix,omitempty"`
@@ -605,16 +604,17 @@ type InputChannelConfig struct {
 	// Note: The input_row channel (main input) will be cast to the
 	// rdf type specified by the domain class of the main input source.
 	FileConfig
-	Type             string               `json:"type"`
-	Name             string               `json:"name"`
-	SchemaProvider   string               `json:"schema_provider,omitempty"`
-	ReadSessionId    string               `json:"read_session_id,omitempty"`
-	ReadStepId       string               `json:"read_step_id,omitempty"`
-	ReadPartitionId  string               `json:"read_partition_id,omitempty"`
-	SamplingRate     int                  `json:"sampling_rate,omitzero"`
-	SamplingMaxCount int                  `json:"sampling_max_count,omitzero"`
-	HasGroupedRows   bool                 `json:"has_grouped_rows,omitzero"`
-	MergeChannels    []InputChannelConfig `json:"merge_channels,omitempty"`
+	Type                 string               `json:"type"`
+	Name                 string               `json:"name"`
+	SchemaProvider       string               `json:"schema_provider,omitempty"`
+	ReadSessionId        string               `json:"read_session_id,omitempty"`
+	ReadStepId           string               `json:"read_step_id,omitempty"`
+	ReadPartitionId      string               `json:"read_partition_id,omitempty"`
+	SamplingRate         int                  `json:"sampling_rate,omitzero"`
+	SamplingMaxCount     int                  `json:"sampling_max_count,omitzero"`
+	HasGroupedRows       bool                 `json:"has_grouped_rows,omitzero"`
+	MergeChannels        []InputChannelConfig `json:"merge_channels,omitempty"`
+	schemaProviderConfig *SchemaProviderSpec
 }
 
 type OutputChannelConfig struct {

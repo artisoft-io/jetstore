@@ -122,23 +122,27 @@ func (args *StartComputePipesArgs) shardingInitializeCpipes(ctx context.Context,
 	var client, org, objectType, tableName, sourceType string
 	var schemaProviderJson string
 	var cpipesConfigFN, envJson sql.NullString
+	var monthPeriod, weekPeriod, dayPeriod int
 	log.Println("CPIPES, loading pipeline configurations")
 	stmt := `
 	SELECT	ir.client, ir.org, ir.object_type, ir.source_period_key, ir.schema_provider_json, 
 		ir.table_name, ir.source_type,
 		pe.pipeline_config_key, pe.process_name, pe.input_session_id, pe.user_email,
-		pc.main_rules, pc.env_json
+		pc.main_rules, pc.env_json,
+		sp.month_period, sp.week_period, sp.day_period
 	FROM 
 		jetsapi.pipeline_execution_status pe,
 		jetsapi.input_registry ir,
-		jetsapi.process_config pc
+		jetsapi.process_config pc,
+		jetsapi.source_period sp
 	WHERE pe.main_input_registry_key = ir.key
 		AND pe.key = $1
-		AND pc.process_name = pe.process_name`
+		AND pc.process_name = pe.process_name
+		AND sp.key = ir.source_period_key`
 	err = dbpool.QueryRow(ctx, stmt, args.PipelineExecKey).Scan(
 		&client, &org, &objectType, &cpipesStartup.SourcePeriodKey, &schemaProviderJson, &tableName, &sourceType,
 		&cpipesStartup.PipelineConfigKey, &cpipesStartup.ProcessName, &cpipesStartup.InputSessionId, &cpipesStartup.OperatorEmail,
-		&cpipesConfigFN, &envJson)
+		&cpipesConfigFN, &envJson, &monthPeriod, &weekPeriod, &dayPeriod)
 	if err != nil {
 		return cpipesStartup, fmt.Errorf("query pipeline configurations failed: %v", err)
 	}
@@ -205,6 +209,11 @@ func (args *StartComputePipesArgs) shardingInitializeCpipes(ctx context.Context,
 			return cpipesStartup, fmt.Errorf("while unmarshaling schema_provider_json: %s", err)
 		}
 	}
+
+	// Set the period ID env vars for lookback_periods
+	mainInputSchemaProvider.Env["${MONTH_PERIOD}"] = monthPeriod
+	mainInputSchemaProvider.Env["${WEEK_PERIOD}"] = weekPeriod
+	mainInputSchemaProvider.Env["${DAY_PERIOD}"] = dayPeriod
 
 	// Merge the env var from process_config with mainInputSchemaProvider.Env
 	if envJson.Valid && len(envJson.String) > 0 {
@@ -280,6 +289,11 @@ func (args *StartComputePipesArgs) shardingInitializeCpipes(ctx context.Context,
 			return cpipesStartup, fmt.Errorf("while unmarshaling merged schema_provider_json: %s", err)
 		}
 	}
+
+	// Put the scource_config client, org, and object_type in mainInputSchemaProvider.Env
+	mainInputSchemaProvider.Env["$CLIENT"] = scClient
+	mainInputSchemaProvider.Env["$ORG"] = scOrg
+	mainInputSchemaProvider.Env["$OBJECT_TYPE"] = scObjType
 
 	// Add tableName and source_type to mainInputSchemaProvider.Env
 	mainInputSchemaProvider.Env["${TABLE_NAME}"] = tableName
@@ -1259,8 +1273,8 @@ func (cpss *CpipesStartup) validateOutputChConfig(outputChConfig *OutputChannelC
 				}
 			}
 
-			if len(outputChConfig.WriteStepId) == 0 {
-				return fmt.Errorf("configuration error: write_step_id is not specified in output_channel '%s' of type 'stage'",
+			if len(outputChConfig.WriteStepId) == 0 && len(outputChConfig.FileKey) == 0 {
+				return fmt.Errorf("configuration error: write_step_id (and file_key) is not specified in output_channel '%s' of type 'stage'",
 					outputChConfig.Name)
 			}
 		case "output":

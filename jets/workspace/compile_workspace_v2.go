@@ -40,6 +40,10 @@ func compileWorkspaceV2(dbpool *pgxpool.Pool, workspaceControl *rete.WorkspaceCo
 	// Compile the workspace locally
 	var fullModel *rete.JetruleModel
 	fmt.Fprintf(&buf, "(Compiler V2) Compiling workspace %s at version %s\n", workspaceName, version)
+
+	// b,_ := json.Marshal(workspaceControl)
+	// fmt.Fprintf(&buf, "Workspace control:\n%s\n", string(b))
+	
 	// For  each main rule files in workspace control, create a compiler instance
 	// and compile the rule file
 	// Collect the set of main rule files

@@ -5,6 +5,8 @@ import (
 	"regexp"
 	"strings"
 	"time"
+
+	"github.com/google/uuid"
 )
 
 type opDMonths struct{}
@@ -105,6 +107,13 @@ func (op *opLength) Eval(lhs any, _ any) (any, error) {
 		return len(lhsv), nil
 	}
 	return nil, fmt.Errorf("opLength expecting string argument, rejected")
+}
+
+// Operator NEW_UUID -- unary operator
+type opNewUUID struct{}
+
+func (op *opNewUUID) Eval(_ any, _ any) (any, error) {
+	return uuid.NewString(), nil
 }
 
 // Operator IN

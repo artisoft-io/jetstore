@@ -81,6 +81,7 @@ func (args *StartComputePipesArgs) StartShardingComputePipes(ctx context.Context
 		return result, mainInputSchemaProvider, fmt.Errorf("while peeking on compute pipes step 0: %v", err)
 	}
 	inputConfigPeek := pc[0].InputChannel
+	inputConfigPeek.schemaProviderConfig = mainInputSchemaProvider
 	shardResult, err := ShardFileKeys(ctx, dbpool, args.FileKey, args.SessionId, inputConfigPeek,
 		cpipesStartup.CpConfig.ClusterConfig, mainInputSchemaProvider)
 	if err != nil {
@@ -122,10 +123,7 @@ func (args *StartComputePipesArgs) StartShardingComputePipes(ctx context.Context
 		return result, mainInputSchemaProvider, fmt.Errorf("while calling SelectActiveOutputTable for stepId %d: %v", stepId, err)
 	}
 	inputChannelConfig := &pipeConfig[0].InputChannel
-	// Validate that the first PipeSpec[0].Input == "input_row"
-	if inputChannelConfig.Name != "input_row" {
-		return result, mainInputSchemaProvider, fmt.Errorf("error: invalid cpipes config, reducing_pipes_config[0][0].input must be 'input_row'")
-	}
+	inputChannelConfig.schemaProviderConfig = GetSchemaProviderConfigByKey(cpipesStartup.CpConfig.SchemaProviders, inputChannelConfig.SchemaProvider)
 
 	// Check if need to get headers from file or if need to determine the csv delimiter
 	// Note: inputChannelConfig is in sync with the mainSchemaProvider

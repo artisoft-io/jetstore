@@ -9,6 +9,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/artisoft-io/jetstore/jets/awsi"
 	"github.com/artisoft-io/jetstore/jets/datatable"
 	"github.com/artisoft-io/jetstore/jets/workspace"
 	"github.com/jackc/pgx/v4/pgxpool"
@@ -32,15 +33,11 @@ import (
 var devMode bool
 var workspaceHome string
 var wprefix string
-var jetsS3InputPrefix string
-var jetsS3OutputPrefix string
 
 func init() {
 	_, devMode = os.LookupEnv("JETSTORE_DEV_MODE")
 	workspaceHome = os.Getenv("WORKSPACES_HOME")
 	wprefix = os.Getenv("WORKSPACE")
-	jetsS3InputPrefix = os.Getenv("JETS_s3_INPUT_PREFIX")
-	jetsS3OutputPrefix = os.Getenv("JETS_s3_OUTPUT_PREFIX")
 }
 
 func CoordinateWorkAndUpdateStatus(ctx context.Context, dbpool *pgxpool.Pool, ca *CommandArguments) error {
@@ -87,18 +84,18 @@ func CoordinateWorkAndUpdateStatus(ctx context.Context, dbpool *pgxpool.Pool, ca
 	// Apply / update the reportDirectives
 	if len(ca.CurrentReportDirectives.InputPath) == 0 {
 		ca.CurrentReportDirectives.InputPath = strings.ReplaceAll(ca.OutputPath,
-			jetsS3OutputPrefix, jetsS3InputPrefix)
+			awsi.JetStoreOutputPrefix(), awsi.JetStoreInputPrefix())
 	}
 	switch {
 	case ca.CurrentReportDirectives.OutputS3Prefix == "JETS_s3_INPUT_PREFIX":
 		// Write the output file in the jetstore input folder of s3
 		ca.OutputPath = strings.ReplaceAll(ca.OutputPath,
-			jetsS3OutputPrefix,
-			jetsS3InputPrefix)
+			awsi.JetStoreOutputPrefix(),
+			awsi.JetStoreInputPrefix())
 	case ca.CurrentReportDirectives.OutputS3Prefix != "":
 		// Write output file to a location based on a custom s3 prefix
 		ca.OutputPath = strings.ReplaceAll(ca.OutputPath,
-			jetsS3OutputPrefix, ca.CurrentReportDirectives.OutputS3Prefix)
+			awsi.JetStoreOutputPrefix(), ca.CurrentReportDirectives.OutputS3Prefix)
 	case ca.CurrentReportDirectives.OutputPath != "":
 		// Write output file to a specified s3 location
 		ca.OutputPath = ca.CurrentReportDirectives.OutputPath

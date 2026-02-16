@@ -248,8 +248,6 @@ func (cpCtx *ComputePipesContext) StartComputePipes(dbpool *pgxpool.Pool,
 			Config:        spec,
 		}
 		if len(spec.ClassName) > 0 {
-			// log.Printf("*** Channel '%s' for domain class %s, domain_keys: %v\n",
-			// 	name, spec.ClassName, domainKeysByClass[spec.ClassName])
 			if spec.DomainKeysInfo == nil && domainKeysByClass != nil {
 				channelRegistry.ComputeChannels[name].DomainKeySpec = domainKeysByClass[spec.ClassName]
 			}

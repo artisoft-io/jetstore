@@ -295,7 +295,7 @@ func (cpCtx *ComputePipesContext) ReadCsvFile(
 			if len(inRow[i]) == 0 {
 				value = nil
 			} else {
-				if castToRdfTxtTypeFncs != nil && castToRdfTxtTypeFncs[i] != nil {
+				if i < len(castToRdfTxtTypeFncs) && castToRdfTxtTypeFncs[i] != nil {
 					value, errCol = castToRdfTxtTypeFncs[i](inRow[i])
 					if errCol != nil {
 						// Got a bad conversion, make it a bad row? - need to capture the error message...

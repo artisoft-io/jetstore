@@ -56,16 +56,17 @@ func ShardFileKeys(exeCtx context.Context, dbpool *pgxpool.Pool, baseFileKey str
 
 	case "stage":
 		// Input from s3 stage folder based on inputChannelConfig.FileKey
+		fileKey := fmt.Sprintf("%s/%s", awsi.JetStoreStagePrefix(), inputChannelConfig.FileKey)
 		lback := inputChannelConfig.LookbackPeriods
 		if len(lback) > 0 {
-			s3Objects, err = GetS3Objects4LookbackPeriod(schemaProviderConfig.Bucket, inputChannelConfig.FileKey,
+			s3Objects, err = GetS3Objects4LookbackPeriod(schemaProviderConfig.Bucket, fileKey,
 				inputChannelConfig.LookbackPeriods, envSettings)
 			if err != nil {
 				cpErr = fmt.Errorf("failed to download list of files from s3 for lookback periods: %v", err)
 				return
 			}
 		} else {
-			fileKeyPrefix := utils.ReplaceEnvVars(inputChannelConfig.FileKey, envSettings)
+			fileKeyPrefix := utils.ReplaceEnvVars(fileKey, envSettings)
 			log.Printf("Downloading file keys from s3 stage folder: %s", fileKeyPrefix)
 			s3Objects, err = awsi.ListS3Objects(schemaProviderConfig.Bucket, &fileKeyPrefix)
 			if err != nil {
@@ -80,7 +81,8 @@ func ShardFileKeys(exeCtx context.Context, dbpool *pgxpool.Pool, baseFileKey str
 	mergeS3Objects = make([][]*awsi.S3Object, len(inputChannelConfig.MergeChannels))
 	for i := range inputChannelConfig.MergeChannels {
 		mergeConfig := inputChannelConfig.MergeChannels[i]
-		mergeObjects, err := GetS3Objects4LookbackPeriod(mergeConfig.Bucket, mergeConfig.FileKey,
+		fileKey := fmt.Sprintf("%s/%s", awsi.JetStoreStagePrefix(), mergeConfig.FileKey)
+		mergeObjects, err := GetS3Objects4LookbackPeriod(mergeConfig.Bucket, fileKey,
 			mergeConfig.LookbackPeriods, envSettings)
 		if err != nil {
 			cpErr = fmt.Errorf("failed to download list of files from s3 for merge channel: %v", err)

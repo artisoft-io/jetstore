@@ -86,7 +86,7 @@ func (cpCtx *ComputePipesContext) StartMergeFiles(dbpool *pgxpool.Pool) (cpErr e
 		if outputFileConfig.OutputLocation() == "jetstore_s3_stage" {
 			// put in jetstore s3 stage path
 			keyPrefix := utils.ReplaceEnvVars(outputFileConfig.KeyPrefix, cpCtx.EnvSettings)
-			fileFolder = fmt.Sprintf("%s/%s/%s", jetsS3StagePrefix, keyPrefix, fileName)
+			fileFolder = fmt.Sprintf("%s/%s/%s", awsi.JetStoreStagePrefix(), keyPrefix, fileName)
 		} else {
 			if len(outputFileConfig.KeyPrefix) > 0 {
 				fileFolder = doSubstitution(outputFileConfig.KeyPrefix, "", outputFileConfig.OutputLocation(),
@@ -242,7 +242,7 @@ func (cpCtx *ComputePipesContext) StartMergeFiles(dbpool *pgxpool.Pool) (cpErr e
 
 		poolSize := cpCtx.CpConfig.ClusterConfig.S3WorkerPoolSize
 		sourceKey := fmt.Sprintf("%s/process_name=%s/session_id=%s/step_id=%s",
-			jetsS3StagePrefix, cpCtx.ProcessName, cpCtx.SessionId, inputChannel.ReadStepId)
+			awsi.JetStoreStagePrefix(), cpCtx.ProcessName, cpCtx.SessionId, inputChannel.ReadStepId)
 		err = awsi.MultiPartCopy(context.TODO(), s3Client, poolSize, "", sourceKey, externalBucket, outputS3FileKey,
 			cpCtx.CpConfig.ClusterConfig.IsDebugMode)
 		if err != nil {
