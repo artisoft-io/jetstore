@@ -43,7 +43,7 @@ func compileWorkspaceV2(dbpool *pgxpool.Pool, workspaceControl *rete.WorkspaceCo
 
 	// b,_ := json.Marshal(workspaceControl)
 	// fmt.Fprintf(&buf, "Workspace control:\n%s\n", string(b))
-	
+
 	// For  each main rule files in workspace control, create a compiler instance
 	// and compile the rule file
 	// Collect the set of main rule files
@@ -78,8 +78,10 @@ func compileWorkspaceV2(dbpool *pgxpool.Pool, workspaceControl *rete.WorkspaceCo
 			log.Println("=*=*=*=*=*=*=*=*=*=*=*=*=*=*")
 			buf.WriteString(jrCompiler.ParseLog().String())
 			buf.WriteString(jrCompiler.ErrorLog().String())
+			buf.WriteString(fmt.Sprintf("while compiling rule file '%s': %v", name, err))
 			cmdLog := buf.String()
 			log.Println(cmdLog)
+			log.Printf("Error while compiling rule file '%s': %v", name, err)
 			log.Println("=*=*=*=*=*=*=*=*=*=*=*=*=*=*")
 			return cmdLog, fmt.Errorf("while compiling rule file '%s': %v", name, err)
 		}
@@ -129,7 +131,7 @@ func compileWorkspaceV2(dbpool *pgxpool.Pool, workspaceControl *rete.WorkspaceCo
 		// Save in the build directory
 		fpath = fmt.Sprintf("%s/%s/build/%s.model.json", workspaceHome,
 			wprefix, strings.TrimSuffix(name, ".jr"))
-		// log.Println("Writing JetStore Classes and Tables Model of", name, "to:", fpath)
+		log.Println("Writing JetStore Classes and Tables Model of", name, "to:", fpath)
 		file, err = os.OpenFile(fpath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
 		if err != nil {
 			err = fmt.Errorf("while opening .model.json for write (compile_workspace_v2):%v", err)

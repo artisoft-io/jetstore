@@ -9,6 +9,7 @@ class jets:Entity {
     jets:key                    as text, 
     jets:org                    as text, 
     jets:ruleTag                as array of text,
+    jets:source_period_sequence as int,
     rdf:type                    as array of resource
   ],
   $as_table = false

@@ -29,7 +29,7 @@ func (ctx *BuilderContext) StartFanOutPipe(spec *PipeSpec, source *InputChannel,
 			}
 		}
 		// Closing the output channels
-		fmt.Println("**!@@ FanOutPipe: Closing Output Channels")
+		fmt.Println("FanOutPipe: Closing Output Channels")
 		oc := make(map[string]bool)
 		for i := range spec.Apply {
 			// Make sure the output channel config is used (eg jetrules don't, it overrides it)
@@ -48,7 +48,7 @@ func (ctx *BuilderContext) StartFanOutPipe(spec *PipeSpec, source *InputChannel,
 			}
 		}
 		for name := range oc {
-			fmt.Println("**!@@ FanOutPipe: Closing Output Channel", name)
+			fmt.Println("FanOutPipe: Closing Output Channel", name)
 			ctx.channelRegistry.CloseChannel(name)
 		}
 		close(writePartitionsResultCh)

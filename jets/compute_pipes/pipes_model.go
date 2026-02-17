@@ -89,6 +89,13 @@ func (cp *ComputePipesConfig) GetComputePipes(stepId int, env map[string]any) ([
 	return nil, stepId, nil
 }
 
+func (cp *ComputePipesConfig) GetStepName(stepId int) string {
+	if len(cp.ConditionalPipesConfig) > stepId {
+		return cp.ConditionalPipesConfig[stepId].StepName
+	}
+	return ""
+}
+
 // Cluster configuration
 // [DefaultMaxConcurrency] is to override the env var MAX_CONCURRENCY
 // [nbrPartitions] is specified at ClusterShardingSpec level otherwise at the

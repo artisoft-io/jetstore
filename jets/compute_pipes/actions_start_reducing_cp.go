@@ -116,13 +116,14 @@ startStepId:
 	inputChannelConfig := &pipeConfig[0].InputChannel
 	inputChannelConfig.schemaProviderConfig = GetSchemaProviderConfigByKey(cpipesStartup.CpConfig.SchemaProviders, inputChannelConfig.SchemaProvider)
 	mainInputStepId := inputChannelConfig.ReadStepId
+	stepName := cpipesStartup.CpConfig.GetStepName(stepId)
 	switch {
 	case len(inputChannelConfig.FileKey) > 0:
 		// Reading historical data from stage.
-		log.Printf("Step %d is reading historical data from stage with file key %s\n", stepId, inputChannelConfig.FileKey)
+		log.Printf("Step %d - %s - is reading historical data from stage with file key %s\n", stepId, stepName, inputChannelConfig.FileKey)
 
 	default:
-		log.Printf("Step %d is reading from previous reducing step with step id %s\n", stepId, mainInputStepId)
+		log.Printf("Step %d - %s - is reading from previous reducing step with step id %s\n", stepId, stepName, mainInputStepId)
 	}
 
 	// Check if we need to get the partitions size from s3
@@ -140,11 +141,7 @@ startStepId:
 		goto startStepId
 	}
 
-	stepName := ""
-	if len(cpipesStartup.CpConfig.ConditionalPipesConfig) > 0 {
-		stepName = cpipesStartup.CpConfig.ConditionalPipesConfig[stepId].StepName
-	}
-	log.Printf("Start REDUCING %s StepId %d (%s), Read from: %s, file key: %s",
+	log.Printf("%s Start StepId %d - %s - Read from: %s, file key: %s",
 		args.SessionId, stepId, stepName, mainInputStepId, args.FileKey)
 
 	// Identify the output tables for this step

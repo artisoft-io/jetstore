@@ -23,6 +23,7 @@ type MergeTransformationPipe struct {
 
 type MergeCurrentValue struct {
 	value      any
+	valueTxt	string
 	pendingRow []any
 }
 
@@ -37,7 +38,7 @@ func (ctx *MergeTransformationPipe) Apply(input *[]any) error {
 		return fmt.Errorf("while computing main merge key in MergeTransformationPipe: %v", err)
 	}
 	if ctx.spec.MergeConfig.IsDebug {
-		log.Printf("MergeTransformationPipe input: mainKey=%v (%T), currentValue=%v", mainKey, mainKey, ctx.currentValue)
+		log.Printf("mainKey=%v (%T), currentValue=%v", mainKey, mainKey, ctx.currentValue)
 	}
 
 	switch {
@@ -49,6 +50,9 @@ func (ctx *MergeTransformationPipe) Apply(input *[]any) error {
 		ctx.currentValue = mainKey
 		ctx.currentBundle = make([]any, 0, len(ctx.currentBundle))
 		ctx.currentBundle = append(ctx.currentBundle, *input)
+		if ctx.spec.MergeConfig.IsDebug {
+			log.Printf("Starting newBundle with mainKey=%v", mainKey)
+		}
 
 		// Add from merge sources
 		mainKeyTxt, ok := mainKey.(string)
@@ -59,13 +63,29 @@ func (ctx *MergeTransformationPipe) Apply(input *[]any) error {
 		for i, mergeSource := range ctx.mergeSources {
 			currentValue := ctx.mergeCurrentValues[i]
 			if ctx.spec.MergeConfig.IsDebug {
-				log.Printf("-- Merge Source %d: currentValue=%v", i, currentValue.value)
+				log.Printf("-- Merge Source %d: merge key currentValue=%v", i, currentValue.value)
 			}
-			if currentValue.value == mainKey {
-				// Consume the pending row
-				ctx.currentBundle = append(ctx.currentBundle, currentValue.pendingRow)
-				currentValue.value = nil
-				currentValue.pendingRow = nil
+
+			// Check if have a pending value from previous iteration
+			if currentValue.value != nil {
+				if currentValue.valueTxt > mainKeyTxt {
+					// Pending value is past the main key, so no matching row in merge source
+					if ctx.spec.MergeConfig.IsDebug {
+						log.Printf("mergeSource=%s, pending mergeKey=%v > mainKey=%v (waiting pending)", mergeSource.Name, currentValue.value, mainKey)
+					}
+					continue nextMergeSource
+				}
+				if currentValue.valueTxt == mainKeyTxt {
+					// Matching row found in merge source
+					if ctx.spec.MergeConfig.IsDebug {
+						log.Printf("mergeSource=%s, mergeKey=%v == %v (adding pending)", mergeSource.Name, currentValue.value, mainKey)
+					}
+					// Consume the pending row
+					ctx.currentBundle = append(ctx.currentBundle, currentValue.pendingRow)
+					currentValue.value = nil
+					currentValue.valueTxt = ""
+					currentValue.pendingRow = nil
+				}
 			}
 			// Advance merge source until we find a matching row or pass the main key
 			for {
@@ -79,7 +99,7 @@ func (ctx *MergeTransformationPipe) Apply(input *[]any) error {
 					return fmt.Errorf("while computing merge key in MergeTransformationPipe: %v", err)
 				}
 				if ctx.spec.MergeConfig.IsDebug {
-					log.Printf("MergeTransformationPipe input: mergeSource=%s, mergeKey=%v", mergeSource.Name, mergeKey)
+					log.Printf("mergeSource=%s, mergeKey=%v", mergeSource.Name, mergeKey)
 				}
 				mergeKeyTxt, ok := mergeKey.(string)
 				if !ok {
@@ -89,22 +109,23 @@ func (ctx *MergeTransformationPipe) Apply(input *[]any) error {
 				case mergeKeyTxt < mainKeyTxt:
 					// Advance merge source
 					if ctx.spec.MergeConfig.IsDebug {
-						log.Printf("MergeTransformationPipe input: mergeSource=%s, mergeKey=%v < %v (skipping)", mergeSource.Name, mergeKey, mainKey)
+						log.Printf("mergeSource=%s, mergeKey=%v < %v (skipping)", mergeSource.Name, mergeKey, mainKey)
 					}
 
 				case mergeKeyTxt == mainKeyTxt:
 					// Matching row found in merge source
 					ctx.currentBundle = append(ctx.currentBundle, *mergeInput)
 					if ctx.spec.MergeConfig.IsDebug {
-						log.Printf("MergeTransformationPipe input: mergeSource=%s, mergeKey=%v == %v (adding)", mergeSource.Name, mergeKey, mainKey)
+						log.Printf("mergeSource=%s, mergeKey=%v == %v (adding)", mergeSource.Name, mergeKey, mainKey)
 					}
 
 				default:
 					// Passed main key, store pending row
 					if ctx.spec.MergeConfig.IsDebug {
-						log.Printf("MergeTransformationPipe input: mergeSource=%s, mergeKey=%v > %v (storing pending)", mergeSource.Name, mergeKey, mainKey)
+						log.Printf("mergeSource=%s, mergeKey=%v > %v (storing pending)", mergeSource.Name, mergeKey, mainKey)
 					}
 					currentValue.value = mergeKey
+					currentValue.valueTxt = mergeKeyTxt
 					currentValue.pendingRow = *mergeInput
 					continue nextMergeSource
 				}
@@ -121,7 +142,7 @@ func (ctx *MergeTransformationPipe) Apply(input *[]any) error {
 }
 func (ctx *MergeTransformationPipe) Done() error {
 	if ctx.spec.MergeConfig.IsDebug {
-		log.Println("**!@@ ** MergeTransformationPipe DONE")
+		log.Println("MergeTransformationPipe DONE")
 	}
 	// Send the last bundle
 	ctx.sendBundle()
@@ -138,7 +159,7 @@ func (ctx *MergeTransformationPipe) sendBundle() {
 	// Send the bundle out
 	if len(ctx.currentBundle) > 0 {
 		if ctx.spec.MergeConfig.IsDebug {
-			log.Printf("**!@@ ** MergeTransformationPipe sendBundle: currentValue=%v, bundle size=%d", ctx.currentValue, len(ctx.currentBundle))
+			log.Printf("MergeTransformationPipe sendBundle: currentValue=%v, bundle size=%d", ctx.currentValue, len(ctx.currentBundle))
 		}
 		select {
 		case ctx.outputCh.Channel <- ctx.currentBundle:

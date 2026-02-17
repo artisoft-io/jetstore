@@ -70,7 +70,8 @@ func (args *StartComputePipesArgs) StartShardingComputePipes(ctx context.Context
 		"failureDetails": "",
 	}
 
-	log.Println("Start SHARDING", args.SessionId, "file_key:", args.FileKey)
+	log.Printf("%s Start StepId %d - %s - file key: %s",
+		args.SessionId, 0, cpipesStartup.CpConfig.GetStepName(0), args.FileKey)
 	b, _ := json.Marshal(*mainInputSchemaProvider)
 	log.Printf("*** Main Input Schema Provider:%s\n", string(b))
 

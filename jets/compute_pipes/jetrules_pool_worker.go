@@ -109,6 +109,7 @@ func (ctx *JrPoolWorker) executeRules(inputRecords *[]any,
 	var reteSession JetReteSession
 	var inputAsserted bool
 	var ruleFileNames []string
+	isDebug := ctx.config.IsDebug
 	// Create the rdf session
 	rdfSession, err := re.NewRdfSession()
 	if err != nil {
@@ -124,7 +125,9 @@ func (ctx *JrPoolWorker) executeRules(inputRecords *[]any,
 		goto gotError
 	}
 	// Loop over all rulesets
-	log.Printf("jetrules: Looping over rulesets %s", re.MainRuleFile())
+	if isDebug {
+		log.Printf("jetrules: Looping over rulesets %s", re.MainRuleFile())
+	}
 	ruleFileNames = wc.RuleFileNames(re.MainRuleFile())
 	if len(ruleFileNames) == 0 {
 		cpErr = fmt.Errorf("error: no rulesets found for main rule file name %s", re.MainRuleFile())
@@ -216,7 +219,7 @@ func (ctx *JrPoolWorker) executeRules(inputRecords *[]any,
 	}
 
 	// Print rdf session if in debug mode
-	if ctx.config.IsDebug {
+	if isDebug {
 		log.Println("Execute Rules Completed")
 	}
 
@@ -258,6 +261,9 @@ func (ctx *JrPoolWorker) extractSessionData(rdfSession JetRdfSession,
 	var data any
 	var dataArr *[]any
 	var isArray bool
+	var sourcePeriod int
+	var err error
+	isDebug := ctx.config.IsDebug
 	// Extract entity by rdf type
 	// log.Println("*** Pool Worker == Extracting entities of class", outChannel.ClassName)
 	ctor := rdfSession.FindSPO(nil, jr.Rdf__type, rm.NewResource(outChannel.ClassName))
@@ -274,8 +280,26 @@ func (ctx *JrPoolWorker) extractSessionData(rdfSession JetRdfSession,
 		keepObj := true
 		obj := rdfSession.GetObject(subject, jr.Jets__source_period_sequence)
 		if obj != nil && obj.Value() != nil {
-			v := GetRdfNodeValue(obj).(int)
-			if v == 0 {
+			switch v := GetRdfNodeValue(obj).(type) {
+			case int:
+				sourcePeriod = v
+			case string:
+				sourcePeriod, err = strconv.Atoi(v)
+				if err != nil {
+					// invalid source period sequence value, don't extract the obj
+					log.Printf("warning: invalid jets:source_period_sequence value for subject %s, expected int, got string: %s, skipping obj extraction",
+						subject, v)
+					keepObj = false
+					sourcePeriod = -1
+				}
+			default:
+				// invalid source period sequence value, don't extract the obj
+				log.Printf("warning: invalid jets:source_period_sequence value for subject %s, expected int, got %v (%T), skipping obj extraction",
+					subject, GetRdfNodeValue(obj), GetRdfNodeValue(obj))
+				keepObj = false
+				sourcePeriod = -1
+			}
+			if sourcePeriod == 0 {
 				// Check if obj has marker type jets:InputRecord, extract obj if it does.
 				if !rdfSession.Contains(subject, jr.Rdf__type, jr.Jets__input_record) {
 					// jets:InputRecord marker is missing, don't extract the obj
@@ -344,7 +368,9 @@ func (ctx *JrPoolWorker) extractSessionData(rdfSession JetRdfSession,
 		ctor.Next()
 	}
 	ctor.Release()
-	log.Printf("jetrules: Extracted %d entities for class %s", entityCount, outChannel.ClassName)
+	if isDebug {
+		log.Printf("jetrules: Extracted %d entities for class %s", entityCount, outChannel.ClassName)
+	}
 	return nil
 }
 
@@ -352,6 +378,7 @@ func assertInputRecords(config *JetrulesSpec, source *InputChannel,
 	rdfSession JetRdfSession, inputRecords *[]any) (err error) {
 
 	columns := source.Config.Columns
+	nrows := 0
 	if source.HasGroupedRows {
 		// log.Printf("*** Pool Worker == Asserting bundle of %d entities\n", len(*inputRecords))
 		for i := range *inputRecords {
@@ -360,10 +387,21 @@ func assertInputRecords(config *JetrulesSpec, source *InputChannel,
 				return fmt.Errorf("error: inputRecords are invalid")
 			}
 			err = assertInputRow(config, rdfSession, &row, &columns)
+			if err != nil {
+				return fmt.Errorf("while asserting input record %d: %v", i, err)
+			}
+			nrows += 1
 		}
 	} else {
 		// log.Printf("*** Pool Worker == Asserting single entities\n")
 		err = assertInputRow(config, rdfSession, inputRecords, &columns)
+		if err != nil {
+			return fmt.Errorf("while asserting input records: %v", err)
+		}
+		nrows += 1
+	}
+	if config.IsDebug {
+		log.Printf("jetrules: Asserted %d input records", nrows)
 	}
 	return
 }
@@ -383,33 +421,39 @@ func assertInputRow(config *JetrulesSpec, rdfSession JetRdfSession, row *[]any, 
 	var predicate RdfNode
 	// assert record i
 	var jetsKey string
-	var rdfType []string
+	var rdfType []any
 	var sourcePeriodSequence int
 	var subject RdfNode
 	var node RdfNode
 	jr := rdfSession.JetResources()
 	rm := rdfSession.GetResourceManager()
-	// Assert the rdf type if provided in config, otherwise it must be part of the data
-	if config.InputRdfType != "" {
-		jetsKey = uuid.New().String()
-		rdfType = []string{config.InputRdfType}
-	} else {
-		// Input channel must have a class name, which will have jets:key, rdf:type, jets:source_period_sequence in pos 0, 1 and 2 resp.
-		var ok1, ok2, ok3 bool
-		jetsKey, ok1 = (*row)[0].(string)
-		rdfType, ok2 = (*row)[1].([]string)
-		sourcePeriodSequence, ok3 = (*row)[2].(int)
-		if !ok1 || !ok2 || !ok3 {
-			return fmt.Errorf("error: invalid type for jets:key, rdf:type or jets:source_period_sequence as first 3 elements of row")
+
+	// Input channel have a class name, which will have jets:key, rdf:type, jets:source_period_sequence in pos 0, 1 and 2 resp.
+	var ok1, ok2, ok3 bool
+	jetsKey, ok1 = (*row)[0].(string)
+	rdfType, ok2 = (*row)[1].([]any)
+	sourcePeriodSequence, ok3 = (*row)[2].(int)
+	if !ok1 || !ok2 || !ok3 {
+		// log.Printf("warning: jets:key ok: %v, rdf:type ok: %v (%T), jets:source_period_sequence ok: %v (%T) \n row: %v, error details: ",
+		// 	ok1, ok2, (*row)[1], ok3, (*row)[2], *row)
+		// Try to use jets:key and rdf:type from config if provided, otherwise return error
+		if config.InputRdfType != "" {
+			// Use class name from config, and generate jets:key and set source period sequence to -1 (i.e. not from the input data but generated during the rule session)
+			jetsKey = uuid.New().String()
+			rdfType = []any{config.InputRdfType}
+			sourcePeriodSequence = -1
+		} else {
+			return fmt.Errorf("error: input rdf:Type not provided and invalid type for jets:key, rdf:type or jets:source_period_sequence as first 3 elements of row")
 		}
 	}
+
 	subject = rm.NewResource(jetsKey)
 	err = rdfSession.Insert(subject, jr.Jets__key, rm.NewTextLiteral(jetsKey))
 	if err != nil {
 		return
 	}
 	for _, t := range rdfType {
-		err = rdfSession.Insert(subject, jr.Rdf__type, rm.NewResource(t))
+		err = rdfSession.Insert(subject, jr.Rdf__type, rm.NewResource(t.(string)))
 		if err != nil {
 			return
 		}
