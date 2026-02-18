@@ -41,8 +41,10 @@ type SchemaProvider interface {
 	Compression() string
 	Delimiter() rune
 	DetectEncoding() bool
+	DiscardFileHeaders() bool
 	DomainClass() string
 	DomainKeys() map[string]any
+	DropExcedentHeaders() bool
 	Encoding() string
 	EnforceRowMaxLength() bool
 	EnforceRowMinLength() bool
@@ -252,6 +254,20 @@ func (sp *DefaultSchemaProvider) DetectEncoding() bool {
 		return false
 	}
 	return sp.spec.DetectEncoding
+}
+
+func (sp *DefaultSchemaProvider) DiscardFileHeaders() bool {
+	if sp == nil {
+		return false
+	}
+	return sp.spec.DiscardFileHeaders
+}
+
+func (sp *DefaultSchemaProvider) DropExcedentHeaders() bool {
+	if sp == nil {
+		return false
+	}
+	return sp.spec.DropExcedentHeaders
 }
 
 func (sp *DefaultSchemaProvider) InputFormatDataJson() string {

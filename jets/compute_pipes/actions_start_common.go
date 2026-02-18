@@ -255,7 +255,8 @@ func (args *StartComputePipesArgs) shardingInitializeCpipes(ctx context.Context,
 		BlankFieldMarkers         *BlankFieldMarkersSpec `json:"blank_field_markers,omitempty"`
 		Delimiter                 rune                   `json:"delimiter,omitzero"`
 		DetectCrAsEol             bool                   `json:"detect_cr_as_eol,omitzero"`
-		DetectEncoding            bool                   `json:"detect_encoding,omitzero"`
+		DiscardFileHeaders        bool                   `json:"discard_file_headers,omitzero"`
+		DropExcedentHeaders       bool                   `json:"drop_excedent_headers,omitzero"`
 		Encoding                  string                 `json:"encoding,omitempty"`
 		EnforceRowMaxLength       bool                   `json:"enforce_row_max_length,omitzero"`
 		EnforceRowMinLength       bool                   `json:"enforce_row_min_length,omitzero"`
@@ -928,8 +929,11 @@ func (args *CpipesStartup) ValidatePipeSpecConfig(cpConfig *ComputePipesConfig, 
 //   - Compression
 //   - Delimiter
 //   - DetectEncoding
+//   - DiscardFileHeaders
 //   - DomainClass
 //   - DomainKeys
+//	 - DropExcedentHeaders
+//   - DetectCrAsEol
 //   - Encoding
 //   - EnforceRowMaxLength
 //   - EnforceRowMinLength
@@ -972,6 +976,18 @@ func syncInputChannelWithSchemaProvider(ic *InputChannelConfig, sp *SchemaProvid
 		ic.DetectEncoding = sp.DetectEncoding
 	} else {
 		sp.DetectEncoding = ic.DetectEncoding
+	}
+
+	if !ic.DiscardFileHeaders {
+		ic.DiscardFileHeaders = sp.DiscardFileHeaders
+	} else {
+		sp.DiscardFileHeaders = ic.DiscardFileHeaders
+	}
+
+	if !ic.DropExcedentHeaders {
+		ic.DropExcedentHeaders = sp.DropExcedentHeaders
+	} else {
+		sp.DropExcedentHeaders = ic.DropExcedentHeaders
 	}
 
 	if !ic.DetectCrAsEol {

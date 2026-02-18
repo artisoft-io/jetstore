@@ -165,20 +165,20 @@ func (args *StartComputePipesArgs) StartShardingComputePipes(ctx context.Context
 				sp.Bucket, shardResult.firstKey, sp.Format, sp.Compression, err)
 			return result, mainInputSchemaProvider, err
 		}
-		if len(fileInfo.headers) > 0 {
-			cpipesStartup.InputColumns = fileInfo.headers
+		if len(fileInfo.Headers) > 0 {
+			cpipesStartup.InputColumns = fileInfo.Headers
 		}
-		if fileInfo.sepFlag != 0 {
-			sp.Delimiter = rune(fileInfo.sepFlag)
+		if fileInfo.SepFlag != 0 {
+			sp.Delimiter = rune(fileInfo.SepFlag)
 			inputChannelConfig.Delimiter = sp.Delimiter
 		}
-		if len(fileInfo.encoding) > 0 {
-			sp.Encoding = fileInfo.encoding
-			inputChannelConfig.Encoding = fileInfo.encoding
+		if len(fileInfo.Encoding) > 0 {
+			sp.Encoding = fileInfo.Encoding
+			inputChannelConfig.Encoding = fileInfo.Encoding
 		}
-		if fileInfo.eolByte > 0 {
-			sp.EolByte = fileInfo.eolByte
-			inputChannelConfig.EolByte = fileInfo.eolByte
+		if fileInfo.EolByte > 0 {
+			sp.EolByte = fileInfo.EolByte
+			inputChannelConfig.EolByte = fileInfo.EolByte
 		}
 	}
 	if mainInputSchemaProvider.OutputEncodingSameAsInput {
