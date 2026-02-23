@@ -140,7 +140,7 @@ func (ctx *BuilderContext) NewGroupByTransformationPipe(source *InputChannel, ou
 		}
 	}
 	if groupByCount == 0 && len(groupByPos) == 0 {
-		return nil, fmt.Errorf("error: group_by operator must specify one of: group_by_name, group_by_pos, group_by_count")
+		return nil, fmt.Errorf("error: group_by operator must specify one of: domain_key, group_by_name, group_by_pos, group_by_count")
 	}
 	if config.IsDebug {
 		log.Printf("GroupByTransformationPipe config: group_by_count=%d, group_by_pos=%v (name=%v)", groupByCount, groupByPos, config.GroupByName)

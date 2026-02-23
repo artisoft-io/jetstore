@@ -127,7 +127,7 @@ func (ctx *BuilderContext) NewJetrulesTransformationPipe(source *InputChannel, _
 	}
 
 	// Assert current source period to meta graph
-	err = AssertSourcePeriodInfo(ruleEngine, config)
+	err = AssertSourcePeriodInfo(ruleEngine, config, ctx.env)
 	if err != nil {
 		return nil, fmt.Errorf("while AssertSourcePeriodInfo: %v", err)
 	}
@@ -176,7 +176,7 @@ func (ctx *BuilderContext) NewJetrulesTransformationPipe(source *InputChannel, _
 	}
 
 	// Assert rule config to meta graph from the pipeline configuration
-	err = AssertRuleConfiguration(ruleEngine, config)
+	err = AssertRuleConfiguration(ruleEngine, config, ctx.env)
 	if err != nil {
 		return nil, fmt.Errorf("while AssertRuleConfiguration: %v", err)
 	}

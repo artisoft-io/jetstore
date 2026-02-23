@@ -186,6 +186,28 @@ struct AgeInMonthsAsOfVisitor: public boost::static_visitor<RDFTTYPE>, public No
   AgeInMonthsAsOfVisitor(): rs(nullptr), br(nullptr) {}
   template<class T, class U> RDFTTYPE operator()(T lhs, U rhs)const{if(br==nullptr) return rdf::Null(); else RETE_EXCEPTION("Invalid arguments for age_in_months_as_of: ("<<lhs<<", "<<rhs<<")");};
 
+  RDFTTYPE operator()(rdf::LString lhs, rdf::LDate rhs)const
+  {
+    // try to parse lhs as date string first, if fail then return null
+    auto birthday = rdf::parse_date(lhs.data);
+    if(birthday.is_not_a_date()) {
+      RETE_EXCEPTION("Invalid date string for age_in_months_as_of: ("<<lhs.data<<")");
+      return rdf::Null();
+    }
+    auto asOf = rhs.data;
+    int years = asOf.year() - birthday.year();
+    int months = 0;
+    // Add the number of months in the last year
+    if(asOf.day_of_year() <= birthday.day_of_year()) {
+      years -= 1;
+      months += asOf.month().as_number();
+    } else {
+      months += asOf.month().as_number() - birthday.month().as_number();
+    }
+    months += years * 12;
+    return rdf::LInt32{ months };
+  }
+
   RDFTTYPE operator()(rdf::LDate lhs, rdf::LDate rhs)const
   {
     auto birthday = lhs.data;

@@ -33,6 +33,19 @@ func (factory *JetRulesFactoryNative) NewJetRuleEngine(_ *pgxpool.Pool, processN
 	if err != nil {
 		return nil, fmt.Errorf("while loading workspace db: %v", err)
 	}
+	// Load the meta graph triples for the native engine
+	wc, err := compute_pipes.GetWorkspaceControl()
+	if err != nil {
+		return nil, fmt.Errorf("while loading workspace control: %v", err)
+	}
+	isRuleset := 1
+	if wc.IsRuleSequence(processName) {
+		isRuleset = 0
+	}
+	_, err = jsHdhle.LoadProcessMetaTriples(processName, isRuleset)
+	if err != nil {
+		return nil, fmt.Errorf("while loading meta triples for process %s: %v", processName, err)
+	}
 	ruleEngine := &JetRuleEngineNative{
 		processName: processName,
 		factory:     factory,

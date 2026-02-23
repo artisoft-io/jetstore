@@ -793,6 +793,7 @@ func (ctx *DataTableContext) startLoader(dataTableAction *DataTableAction, irow 
 		"$CLIENT":                   client,
 		"$ORG":                      clientOrg,
 		"$OBJECT_TYPE":              objType,
+		"${TABLE_NAME}":             tableName,
 		"$ORIGIN_SESSIONID":         originSessionId,
 		"$ORIGIN_DOMAIN_KEYS":       originDomainKeys,
 		"$ORIGIN_SOURCE_PERIOD_KEY": int(inputRegistryKey.Int64),
