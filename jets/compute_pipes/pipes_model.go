@@ -263,8 +263,10 @@ type FileConfig struct {
 	Delimiter                  rune                   `json:"delimiter,omitzero"`
 	DetectCrAsEol              bool                   `json:"detect_cr_as_eol,omitzero"`
 	DetectEncoding             bool                   `json:"detect_encoding,omitzero"`
+	DiscardFileHeaders         bool                   `json:"discard_file_headers,omitzero"`
 	DomainClass                string                 `json:"domain_class,omitempty"`
 	DomainKeys                 map[string]any         `json:"domain_keys,omitempty"`
+	DropExcedentHeaders        bool                   `json:"drop_excedent_headers,omitzero"`
 	Encoding                   string                 `json:"encoding,omitempty"`
 	EnforceRowMaxLength        bool                   `json:"enforce_row_max_length,omitzero"`
 	EnforceRowMinLength        bool                   `json:"enforce_row_min_length,omitzero"`
@@ -308,6 +310,8 @@ type SchemaProviderSpec struct {
 	// Compression: none, snappy (parquet is always snappy).
 	// DetectEncoding: Detect file encoding (limited) for text file format.
 	// DetectCrAsEol: Detect if \r is used as eol (format: csv,headerless_csv).
+	// DiscardFileHeaders: when true, discard the headers from the input file (typically for csv format),
+	// this will force to use Headers or Columns from the configuration, or from the schema provider if Headers and Columns are not provided.
 	// EolByte: Byte to use as eol (format: csv,headerless_csv).
 	// MultiColumnsInput: Indicate that input file must have multiple columns,
 	// this is used to detect if the wrong delimiter is used (csv,headerless_csv).
@@ -600,6 +604,7 @@ type InputChannelConfig struct {
 	// Compression: none, snappy (parquet: always snappy)
 	// DetectEncoding: Detect file encoding (limited) for text file format
 	// DetectCrAsEol: Detect if \r is used as eol (format: csv,headerless_csv)
+	// DiscardFileHeaders: when true, discard the headers from the input file (typically for csv format).
 	// EolByte: Byte to use as eol (format: csv,headerless_csv)
 	// MultiColumnsInput: Indicate that input file must have multiple columns,
 	// this is used to detect if the wrong delimiter is used (csv,headerless_csv)

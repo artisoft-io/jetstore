@@ -130,6 +130,7 @@ func (cpCtx *ComputePipesContext) ReadCsvFile(
 		// Keeps the raw records, this is used when having a bad row
 		csvReader.KeepRawRecord = true
 	}
+	//TODO apply DropExcedentHeaders logic
 	var headers []string
 	if inputFormat == "csv" && filePath.InFileKeyInfo.start == 0 {
 		// skip header row (first row)
