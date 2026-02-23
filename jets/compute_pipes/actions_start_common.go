@@ -123,13 +123,15 @@ func (args *StartComputePipesArgs) shardingInitializeCpipes(ctx context.Context,
 	var schemaProviderJson string
 	var cpipesConfigFN, envJson sql.NullString
 	var monthPeriod, weekPeriod, dayPeriod int
+	var year, month, day int
 	log.Println("CPIPES, loading pipeline configurations")
 	stmt := `
 	SELECT	ir.client, ir.org, ir.object_type, ir.source_period_key, ir.schema_provider_json, 
 		ir.table_name, ir.source_type,
 		pe.pipeline_config_key, pe.process_name, pe.input_session_id, pe.user_email,
 		pc.main_rules, pc.env_json,
-		sp.month_period, sp.week_period, sp.day_period
+		sp.month_period, sp.week_period, sp.day_period,
+		sp.year, sp.month, sp.day
 	FROM 
 		jetsapi.pipeline_execution_status pe,
 		jetsapi.input_registry ir,
@@ -142,7 +144,7 @@ func (args *StartComputePipesArgs) shardingInitializeCpipes(ctx context.Context,
 	err = dbpool.QueryRow(ctx, stmt, args.PipelineExecKey).Scan(
 		&client, &org, &objectType, &cpipesStartup.SourcePeriodKey, &schemaProviderJson, &tableName, &sourceType,
 		&cpipesStartup.PipelineConfigKey, &cpipesStartup.ProcessName, &cpipesStartup.InputSessionId, &cpipesStartup.OperatorEmail,
-		&cpipesConfigFN, &envJson, &monthPeriod, &weekPeriod, &dayPeriod)
+		&cpipesConfigFN, &envJson, &monthPeriod, &weekPeriod, &dayPeriod, &year, &month, &day)
 	if err != nil {
 		return cpipesStartup, fmt.Errorf("query pipeline configurations failed: %v", err)
 	}
@@ -214,7 +216,10 @@ func (args *StartComputePipesArgs) shardingInitializeCpipes(ctx context.Context,
 	mainInputSchemaProvider.Env["${MONTH_PERIOD}"] = monthPeriod
 	mainInputSchemaProvider.Env["${WEEK_PERIOD}"] = weekPeriod
 	mainInputSchemaProvider.Env["${DAY_PERIOD}"] = dayPeriod
-
+	mainInputSchemaProvider.Env["$DATE_FILE_KEY"] = time.Date(year, time.Month(month), day, 0, 0, 0, 0, time.UTC).Format("2006-01-02")
+	mainInputSchemaProvider.Env["$YEAR"] = year
+	mainInputSchemaProvider.Env["$MONTH"] = month
+	mainInputSchemaProvider.Env["$DAY"] = day
 	// Merge the env var from process_config with mainInputSchemaProvider.Env
 	if envJson.Valid && len(envJson.String) > 0 {
 		err = json.Unmarshal([]byte(envJson.String), &mainInputSchemaProvider.Env)
@@ -223,103 +228,103 @@ func (args *StartComputePipesArgs) shardingInitializeCpipes(ctx context.Context,
 		}
 	}
 
-	// Get the source_config information
-	var isPartFile int
-	var inputFormat, compression string
-	var icJson, icPosCsv, icDomainKeys, inputFormatDataJson, scSchemaProviderJson sql.NullString
-	scClient := client
-	scObjType := objectType
-	scOrg := org
-	if mainInputSchemaProvider.UseOriginSourceConfig {
-		env := mainInputSchemaProvider.Env
-		scClient, _ = env["$CLIENT"].(string)
-		scObjType, _ = env["$OBJECT_TYPE"].(string)
-		scOrg, _ = env["$ORG"].(string)
-	}
-	stmt = `
-	SELECT sc.input_columns_json, sc.input_columns_positions_csv, sc.domain_keys_json, 
+	var icJson, icDomainKeys, icPosCsv sql.NullString
+	if sourceType == "file" {
+		// log.Printf("*** sourceType is 'file', mainInputSchemaProvider after merging with process_config env: %+v\n", mainInputSchemaProvider)
+		// Get the source_config information
+		var scClient, scOrg, scObjectType string
+		var isPartFile int
+		var inputFormat, compression string
+		var inputFormatDataJson, scSchemaProviderJson sql.NullString
+		scTableName := tableName
+		if mainInputSchemaProvider.UseOriginSourceConfig {
+			env := mainInputSchemaProvider.Env
+			scTableName, _ = env["${TABLE_NAME}"].(string)
+		}
+		stmt = `
+	SELECT sc.client, sc.org, sc.object_type,
+		sc.input_columns_json, sc.input_columns_positions_csv, sc.domain_keys_json, 
 		sc.input_format, sc.compression, sc.is_part_files, sc.input_format_data_json, sc.schema_provider_json
 	FROM 
 		jetsapi.source_config sc
-	WHERE sc.client = $1
-		AND sc.org = $2
-		AND sc.object_type = $3`
-	err = dbpool.QueryRow(ctx, stmt, scClient, scOrg, scObjType).Scan(
-		&icJson, &icPosCsv, &icDomainKeys, &inputFormat, &compression, &isPartFile, &inputFormatDataJson, &scSchemaProviderJson)
-	if err != nil {
-		return cpipesStartup, fmt.Errorf("query pipeline configurations failed: %v", err)
-	}
-
-	// Merge a sub-set of fields from the source_config schema_provider_json into mainInputSchemaProvider
-	type SchemaProviderSourceConfig struct {
-		BlankFieldMarkers         *BlankFieldMarkersSpec `json:"blank_field_markers,omitempty"`
-		Delimiter                 rune                   `json:"delimiter,omitzero"`
-		DetectCrAsEol             bool                   `json:"detect_cr_as_eol,omitzero"`
-		DiscardFileHeaders        bool                   `json:"discard_file_headers,omitzero"`
-		DropExcedentHeaders       bool                   `json:"drop_excedent_headers,omitzero"`
-		Encoding                  string                 `json:"encoding,omitempty"`
-		EnforceRowMaxLength       bool                   `json:"enforce_row_max_length,omitzero"`
-		EnforceRowMinLength       bool                   `json:"enforce_row_min_length,omitzero"`
-		Env                       map[string]any         `json:"env,omitempty"`
-		EolByte                   byte                   `json:"eol_byte,omitzero"`
-		MultiColumnsInput         bool                   `json:"multi_columns_input,omitzero"`
-		NoQuotes                  bool                   `json:"no_quotes,omitzero"`
-		OutputEncoding            string                 `json:"output_encoding,omitempty"`
-		OutputEncodingSameAsInput bool                   `json:"output_encoding_same_as_input,omitempty"`
-		QuoteAllRecords           bool                   `json:"quote_all_records,omitzero"`
-		ReadDateLayout            string                 `json:"read_date_layout,omitempty"`
-		TrimColumns               bool                   `json:"trim_columns,omitzero"`
-		UseLazyQuotes             bool                   `json:"use_lazy_quotes,omitzero"`
-		UseLazyQuotesSpecial      bool                   `json:"use_lazy_quotes_special,omitzero"`
-		VariableFieldsPerRecord   bool                   `json:"variable_fields_per_record,omitzero"`
-		WriteDateLayout           string                 `json:"write_date_layout,omitempty"`
-	}
-	if scSchemaProviderJson.Valid && len(scSchemaProviderJson.String) > 0 {
-		mainInputSchemaProviderFromSC := &SchemaProviderSourceConfig{}
-		err = json.Unmarshal([]byte(scSchemaProviderJson.String), mainInputSchemaProviderFromSC)
+	WHERE sc.table_name = $1`
+		err = dbpool.QueryRow(ctx, stmt, scTableName).Scan(
+			&scClient, &scOrg, &scObjectType,
+			&icJson, &icPosCsv, &icDomainKeys, &inputFormat, &compression, &isPartFile, &inputFormatDataJson, &scSchemaProviderJson)
 		if err != nil {
-			return cpipesStartup, fmt.Errorf("while unmarshaling schema_provider_json from source_config: %s", err)
+			return cpipesStartup, fmt.Errorf("query source_config failed for table: %s, error: %v", scTableName, err)
 		}
-		// Merge the fields, via json marshal/unmarshal
-		b, err := json.Marshal(mainInputSchemaProviderFromSC)
-		if err != nil {
-			return cpipesStartup, fmt.Errorf("while marshaling schema_provider_json from source_config: %s", err)
+
+		// Merge a sub-set of fields from the source_config schema_provider_json into mainInputSchemaProvider
+		type SchemaProviderSourceConfig struct {
+			BlankFieldMarkers         *BlankFieldMarkersSpec `json:"blank_field_markers,omitempty"`
+			Delimiter                 rune                   `json:"delimiter,omitzero"`
+			DetectCrAsEol             bool                   `json:"detect_cr_as_eol,omitzero"`
+			DiscardFileHeaders        bool                   `json:"discard_file_headers,omitzero"`
+			DropExcedentHeaders       bool                   `json:"drop_excedent_headers,omitzero"`
+			Encoding                  string                 `json:"encoding,omitempty"`
+			EnforceRowMaxLength       bool                   `json:"enforce_row_max_length,omitzero"`
+			EnforceRowMinLength       bool                   `json:"enforce_row_min_length,omitzero"`
+			Env                       map[string]any         `json:"env,omitempty"`
+			EolByte                   byte                   `json:"eol_byte,omitzero"`
+			MultiColumnsInput         bool                   `json:"multi_columns_input,omitzero"`
+			NoQuotes                  bool                   `json:"no_quotes,omitzero"`
+			OutputEncoding            string                 `json:"output_encoding,omitempty"`
+			OutputEncodingSameAsInput bool                   `json:"output_encoding_same_as_input,omitempty"`
+			QuoteAllRecords           bool                   `json:"quote_all_records,omitzero"`
+			ReadDateLayout            string                 `json:"read_date_layout,omitempty"`
+			TrimColumns               bool                   `json:"trim_columns,omitzero"`
+			UseLazyQuotes             bool                   `json:"use_lazy_quotes,omitzero"`
+			UseLazyQuotesSpecial      bool                   `json:"use_lazy_quotes_special,omitzero"`
+			VariableFieldsPerRecord   bool                   `json:"variable_fields_per_record,omitzero"`
+			WriteDateLayout           string                 `json:"write_date_layout,omitempty"`
 		}
-		err = json.Unmarshal(b, mainInputSchemaProvider)
-		if err != nil {
-			return cpipesStartup, fmt.Errorf("while unmarshaling merged schema_provider_json: %s", err)
+		if scSchemaProviderJson.Valid && len(scSchemaProviderJson.String) > 0 {
+			mainInputSchemaProviderFromSC := &SchemaProviderSourceConfig{}
+			err = json.Unmarshal([]byte(scSchemaProviderJson.String), mainInputSchemaProviderFromSC)
+			if err != nil {
+				return cpipesStartup, fmt.Errorf("while unmarshaling schema_provider_json from source_config: %s", err)
+			}
+			// Merge the fields, via json marshal/unmarshal
+			b, err := json.Marshal(mainInputSchemaProviderFromSC)
+			if err != nil {
+				return cpipesStartup, fmt.Errorf("while marshaling schema_provider_json from source_config: %s", err)
+			}
+			err = json.Unmarshal(b, mainInputSchemaProvider)
+			if err != nil {
+				return cpipesStartup, fmt.Errorf("while unmarshaling merged schema_provider_json: %s", err)
+			}
+		}
+
+		// Put the scource_config client, org, and object_type in mainInputSchemaProvider.Env
+		mainInputSchemaProvider.Env["$CLIENT"] = scClient
+		mainInputSchemaProvider.Env["$ORG"] = scOrg
+		mainInputSchemaProvider.Env["$OBJECT_TYPE"] = scObjectType
+
+		// Add tableName and source_type to mainInputSchemaProvider.Env
+		mainInputSchemaProvider.Env["${TABLE_NAME}"] = tableName
+		mainInputSchemaProvider.Env["${SOURCE_TYPE}"] = sourceType
+
+		if isPartFile == 1 {
+			mainInputSchemaProvider.IsPartFiles = true
+		}
+
+		if mainInputSchemaProvider.FileKey == "" {
+			mainInputSchemaProvider.FileKey = args.FileKey
+		}
+
+		if mainInputSchemaProvider.Format == "" {
+			mainInputSchemaProvider.Format = inputFormat
+		}
+
+		if mainInputSchemaProvider.Compression == "" {
+			mainInputSchemaProvider.Compression = compression
+		}
+
+		if mainInputSchemaProvider.InputFormatDataJson == "" {
+			mainInputSchemaProvider.InputFormatDataJson = inputFormatDataJson.String
 		}
 	}
-
-	// Put the scource_config client, org, and object_type in mainInputSchemaProvider.Env
-	mainInputSchemaProvider.Env["$CLIENT"] = scClient
-	mainInputSchemaProvider.Env["$ORG"] = scOrg
-	mainInputSchemaProvider.Env["$OBJECT_TYPE"] = scObjType
-
-	// Add tableName and source_type to mainInputSchemaProvider.Env
-	mainInputSchemaProvider.Env["${TABLE_NAME}"] = tableName
-	mainInputSchemaProvider.Env["${SOURCE_TYPE}"] = sourceType
-
-	if isPartFile == 1 {
-		mainInputSchemaProvider.IsPartFiles = true
-	}
-
-	if mainInputSchemaProvider.FileKey == "" {
-		mainInputSchemaProvider.FileKey = args.FileKey
-	}
-
-	if mainInputSchemaProvider.Format == "" {
-		mainInputSchemaProvider.Format = inputFormat
-	}
-
-	if mainInputSchemaProvider.Compression == "" {
-		mainInputSchemaProvider.Compression = compression
-	}
-
-	if mainInputSchemaProvider.InputFormatDataJson == "" {
-		mainInputSchemaProvider.InputFormatDataJson = inputFormatDataJson.String
-	}
-
 	// Adjust ChannelSpec having columns specified by a jetrules class
 	// ----------------------------------------------------------------
 	classNames := make(map[string]bool)
@@ -932,7 +937,7 @@ func (args *CpipesStartup) ValidatePipeSpecConfig(cpConfig *ComputePipesConfig, 
 //   - DiscardFileHeaders
 //   - DomainClass
 //   - DomainKeys
-//	 - DropExcedentHeaders
+//   - DropExcedentHeaders
 //   - DetectCrAsEol
 //   - Encoding
 //   - EnforceRowMaxLength

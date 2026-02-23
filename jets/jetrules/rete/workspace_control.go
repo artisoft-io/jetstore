@@ -78,3 +78,17 @@ func (wc *WorkspaceControl) RuleFileNames(ruleFileName string) []string {
 		}
 	return nil
 }
+
+// Check if a rule file name corresponds to a RuleSequence
+// returns false otherwise (single ruleset or if workspace control is nil)
+func (wc *WorkspaceControl) IsRuleSequence(ruleFileName string) bool {
+	if wc == nil {
+		return false
+	}
+	for i := range wc.RuleSequences {
+		if wc.RuleSequences[i].Name == ruleFileName {
+			return true
+		}
+	}
+	return false
+}

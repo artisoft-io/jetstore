@@ -1,10 +1,10 @@
 package rdf
 
 import (
+	"slices"
 	"errors"
 	"fmt"
 	"log"
-	"sort"
 )
 
 // RDFGraph is a fully indexed rdf graph with type (*Node, *Node, *Node)
@@ -204,6 +204,6 @@ func (g *RdfGraph) ToTriples() []string {
 		triples = append(triples, fmt.Sprintf("(%s, %s, %s)", t3[0], t3[1], t3[2]))
 	}
 	t3Itor.Done()
-	sort.Slice(triples, func(i, j int) bool { return triples[i] < triples[j] })
+	slices.Sort(triples)
 	return triples
 }

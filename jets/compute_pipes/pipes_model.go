@@ -612,7 +612,7 @@ type InputChannelConfig struct {
 	// ComputePipesCommonArgs.SourcesConfig (ie input_registry table).
 	// BadRowsConfig: Specify how to handle bad rows.
 	// HasGroupedRows indicates that the channel contains grouped rows,
-	// most likely from the group_by operator.
+	// most likely from the group_by or merge operator.
 	// Note: The input_row channel (main input) will be cast to the
 	// rdf type specified by the domain class of the main input source.
 	FileConfig

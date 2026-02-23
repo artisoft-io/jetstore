@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strconv"
 	"strings"
 	"sync"
 
@@ -67,12 +68,35 @@ func GetWorkspaceControl() (*rete.WorkspaceControl, error) {
 }
 
 // Assert source period info (date, period, type) to rdf graph
-func AssertSourcePeriodInfo(re JetRuleEngine, config *JetrulesSpec) (err error) {
+func AssertSourcePeriodInfo(re JetRuleEngine, config *JetrulesSpec, env map[string]any) (err error) {
 	rm := re.GetMetaResourceManager()
 	jr := re.JetResources()
+	// ${PERIOD_ID_TYPE}
+	var pt string
+	if config.CurrentSourcePeriodType == "" {
+		pt, _ = env["${PERIOD_ID_TYPE}"].(string)
+		switch pt {
+			case "${MONTH_PERIOD}", "month_period":
+				config.CurrentSourcePeriodType = "month_period"
+			case "${DAY_PERIOD}", "day_period":
+				config.CurrentSourcePeriodType = "day_period"
+			case "${HOUR_PERIOD}", "hour_period":
+				config.CurrentSourcePeriodType = "hour_period"
+		}
+	}
+
+	if config.CurrentSourcePeriod == 0 {
+		sp, _ := env[pt].(string)
+		if sp != "" {
+			config.CurrentSourcePeriod, _ = strconv.Atoi(sp)
+		}
+	}
 	err = re.Insert(jr.Jets__istate, jr.Jets__currentSourcePeriod, rm.NewIntLiteral(config.CurrentSourcePeriod))
 	if err != nil {
 		return
+	}
+	if config.CurrentSourcePeriodDate == "" {
+		config.CurrentSourcePeriodDate, _ = env["$DATE_FILE_KEY"].(string)
 	}
 	if config.CurrentSourcePeriodDate != "" {
 		err = re.Insert(jr.Jets__istate, jr.Jets__currentSourcePeriodDate, rm.NewDateLiteral(config.CurrentSourcePeriodDate))
@@ -81,7 +105,7 @@ func AssertSourcePeriodInfo(re JetRuleEngine, config *JetrulesSpec) (err error) 
 		}
 	}
 	if config.CurrentSourcePeriodType != "" {
-		err = re.Insert(jr.Jets__istate, jr.Jets__currentSourcePeriodDate, rm.NewTextLiteral(config.CurrentSourcePeriodType))
+		err = re.Insert(jr.Jets__istate, jr.Jets__sourcePeriodType, rm.NewTextLiteral(config.CurrentSourcePeriodType))
 		if err != nil {
 			return
 		}
@@ -108,7 +132,7 @@ func AssertMetadataSource(re JetRuleEngine, config *JetrulesSpec, env map[string
 }
 
 // Assert rule config to meta graph from the pipeline configuration
-func AssertRuleConfiguration(re JetRuleEngine, config *JetrulesSpec) (err error) {
+func AssertRuleConfiguration(re JetRuleEngine, config *JetrulesSpec, env map[string]any) (err error) {
 	var object RdfNode
 	rm := re.GetMetaResourceManager()
 	for _, rc := range config.RuleConfig {

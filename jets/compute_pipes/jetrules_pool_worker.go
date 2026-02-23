@@ -221,6 +221,17 @@ func (ctx *JrPoolWorker) executeRules(inputRecords *[]any,
 	// Print rdf session if in debug mode
 	if isDebug {
 		log.Println("Execute Rules Completed")
+		// //************************
+		// log.Println("************************")
+		// ctor := rdfSession.Find()
+		// for !ctor.IsEnd() {
+		// 	s := ctor.GetSubject()
+		// 	p := ctor.GetPredicate()
+		// 	o := ctor.GetObject()
+		// 	log.Printf("triple: (%v, %v, %v)", s, p, o)
+		// 	ctor.Next()
+		// }
+		// log.Println("************************")
 	}
 
 	// Extract data from the rdf session based on class names
