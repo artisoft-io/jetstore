@@ -18,7 +18,7 @@ import (
 	"github.com/dolthub/swiss"
 )
 
-var maxNumericHashedValue uint64 = 9223372036854775807
+var maxNumericHashedValue uint64 = 2147483647
 
 type AnonymizeTransformationPipe struct {
 	mode              string
