@@ -11,13 +11,12 @@ import (
 	"github.com/thedatashed/xlsxreader"
 )
 
-
 // ReadXlsxFile reads an xlsx file and sends the records to computePipesInputCh
 // EnforceRowMinLength and EnforceRowMaxLength does not apply to xlsx files, values
 // past the last expected field are ignored. As a result badRowChannel is not used.
 func (cpCtx *ComputePipesContext) ReadXlsxFile(filePath *FileName, xlsxSheetInfo map[string]any,
-	castToRdfTxtTypeFncs []CastToRdfTxtFnc, computePipesInputCh chan<- []any,
-	badRowChannel *BadRowsChannel) (int64, int64, error) {
+	castToRdfTxtTypeFncs []CastToRdfTxtFnc, reorderColumnsOnRead []int,
+	computePipesInputCh chan<- []any, badRowChannel *BadRowsChannel) (int64, int64, error) {
 
 	var xl *xlsxreader.XlsxFileCloser
 	var xlCh chan xlsxreader.Row
@@ -154,7 +153,7 @@ func (cpCtx *ComputePipesContext) ReadXlsxFile(filePath *FileName, xlsxSheetInfo
 		for i := range row.Cells {
 			cpos := row.Cells[i].ColumnIndex()
 			if cpos >= expectedNbrColumnsInFile {
-				// Ignore extra columns
+				// Ignore extra columns == DropExcedentHeaders is always true for xlsx files
 				continue
 			}
 			// log.Printf("*** ReadXlsxFile: processing row %d, column %d value '%s'\n", inputRowCount, cpos, row.Cells[i].Value)
@@ -195,11 +194,23 @@ func (cpCtx *ComputePipesContext) ReadXlsxFile(filePath *FileName, xlsxSheetInfo
 			return inputRowCount, badRowCount, ErrKillSwitch
 		}
 
+		if len(reorderColumnsOnRead) > 0 {
+			m := min(len(reorderColumnsOnRead), len(record))
+			row := make([]any, len(record))
+			for i := range m {
+				row[i] = record[reorderColumnsOnRead[i]]
+			}
+			for i := m; i < len(record); i++ {
+				row[i] = record[i]
+			}
+			record = row
+		}
+
 		// // Remove invalid utf-8 sequence from input record
 		// for i := range record {
 		// 	record[i] = strings.ToValidUTF8(record[i], "")
 		// }
-		log.Println(cpCtx.SessionId,"node",cpCtx.NodeId, "push record to computePipesInputCh with",len(record),"columns")
+		// log.Println(cpCtx.SessionId,"node",cpCtx.NodeId, "push record to computePipesInputCh with",len(record),"columns")
 		// log.Println("*Sending Record:",record)
 		select {
 		case computePipesInputCh <- record:

@@ -273,6 +273,7 @@ func (args *StartComputePipesArgs) shardingInitializeCpipes(ctx context.Context,
 			OutputEncodingSameAsInput bool                   `json:"output_encoding_same_as_input,omitempty"`
 			QuoteAllRecords           bool                   `json:"quote_all_records,omitzero"`
 			ReadDateLayout            string                 `json:"read_date_layout,omitempty"`
+			ReorderColumnsOnRead      []int                  `json:"reorder_columns_on_read,omitempty"`
 			TrimColumns               bool                   `json:"trim_columns,omitzero"`
 			UseLazyQuotes             bool                   `json:"use_lazy_quotes,omitzero"`
 			UseLazyQuotesSpecial      bool                   `json:"use_lazy_quotes_special,omitzero"`
@@ -950,6 +951,7 @@ func (args *CpipesStartup) ValidatePipeSpecConfig(cpConfig *ComputePipesConfig, 
 //   - QuoteAllRecords
 //   - ReadBatchSize
 //   - ReadDateLayout
+//   - ReorderColumnsOnRead
 //   - TrimColumns
 //   - UseLazyQuotes
 //   - UseLazyQuotesSpecial
@@ -1089,6 +1091,12 @@ func syncInputChannelWithSchemaProvider(ic *InputChannelConfig, sp *SchemaProvid
 		ic.ReadDateLayout = sp.ReadDateLayout
 	} else {
 		sp.ReadDateLayout = ic.ReadDateLayout
+	}
+
+	if len(ic.ReorderColumnsOnRead) == 0 {
+		ic.ReorderColumnsOnRead = sp.ReorderColumnsOnRead
+	} else {
+		sp.ReorderColumnsOnRead = ic.ReorderColumnsOnRead
 	}
 
 	if !ic.TrimColumns {

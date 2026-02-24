@@ -12,6 +12,7 @@ import (
 func (cpCtx *ComputePipesContext) ReadFixedWidthFile(
 	filePath *FileName, fileReader ReaderAtSeeker,
 	fwEncodingInfo *FixedWidthEncodingInfo, castToRdfTxtTypeFncs []CastToRdfTxtFnc,
+	reorderColumnsOnRead []int,
 	computePipesInputCh chan<- []any, badRowChannel *BadRowsChannel) (int64, int64, error) {
 
 	var fwScanner *bufio.Scanner
@@ -27,7 +28,7 @@ func (cpCtx *ComputePipesContext) ReadFixedWidthFile(
 	var enforceRowMinLength, enforceRowMaxLength bool
 	switch cpCtx.CpConfig.CommonRuntimeArgs.CpipesMode {
 	case "sharding":
-		// input columns include the partfile_key_component and the add'l ones from input channel
+		// SourcesConfig.MainInput.InputColumns include the partfile_key_component and the add'l ones from input channel
 		inputColumns =
 			cpCtx.CpConfig.CommonRuntimeArgs.SourcesConfig.MainInput.InputColumns[:nbrColumns-len(cpCtx.PartFileKeyComponents)-
 				len(cpCtx.AddionalInputHeaders)]
@@ -274,6 +275,18 @@ loop_record:
 			return 0, 0, fmt.Errorf("error while reading input fixed_width records: %v", err)
 
 		default:
+
+			if len(reorderColumnsOnRead) > 0 {
+				m := min(len(reorderColumnsOnRead), len(record))
+				row := make([]any, len(record))
+				for i := range m {
+					row[i] = record[reorderColumnsOnRead[i]]
+				}
+				for i := m; i < len(record); i++ {
+					row[i] = record[i]
+				}
+				record = row
+			}
 			// // Remove invalid utf-8 sequence from input record
 			// for i := range record {
 			// 	record[i] = strings.ToValidUTF8(record[i], "")

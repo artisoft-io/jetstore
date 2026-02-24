@@ -141,7 +141,7 @@ func TestReadCsv01(t *testing.T) {
 				start: 0,
 				end:   0,
 			},
-		}, reader, nil, computePipesInputCh, badRowChannel)
+		}, reader, nil, nil, computePipesInputCh, badRowChannel)
 
 	// Close the channels
 	close(computePipesInputCh)
@@ -227,7 +227,7 @@ func TestReadCsvWrongDelimiter01(t *testing.T) {
 				start: 0,
 				end:   0,
 			},
-		}, reader, nil, computePipesInputCh, badRowChannel)
+		}, reader, nil, nil, computePipesInputCh, badRowChannel)
 
 	// Close the channels
 	close(computePipesInputCh)
@@ -296,7 +296,7 @@ func TestReadCsvCR01(t *testing.T) {
 				start: 0,
 				end:   0,
 			},
-		}, reader, nil, computePipesInputCh, badRowChannel)
+		}, reader, nil, nil, computePipesInputCh, badRowChannel)
 
 	// Close the channels
 	close(computePipesInputCh)
@@ -381,7 +381,7 @@ func TestReadCsv02(t *testing.T) {
 				start: 0,
 				end:   0,
 			},
-		}, reader, nil, computePipesInputCh, badRowChannel)
+		}, reader, nil, nil, computePipesInputCh, badRowChannel)
 
 	// Close the channels
 	close(computePipesInputCh)
@@ -466,7 +466,7 @@ func TestReadCsv03(t *testing.T) {
 				start: 0,
 				end:   0,
 			},
-		}, reader, nil, computePipesInputCh, badRowChannel)
+		}, reader, nil, nil, computePipesInputCh, badRowChannel)
 
 	// Close the channels
 	close(computePipesInputCh)
@@ -551,7 +551,7 @@ func TestReadCsv11(t *testing.T) {
 				start: 0,
 				end:   0,
 			},
-		}, reader, nil, computePipesInputCh, badRowChannel)
+		}, reader, nil, nil, computePipesInputCh, badRowChannel)
 
 	// Close the channels
 	close(computePipesInputCh)
@@ -636,7 +636,7 @@ func TestReadCsv12(t *testing.T) {
 				start: 0,
 				end:   0,
 			},
-		}, reader, nil, computePipesInputCh, badRowChannel)
+		}, reader, nil, nil, computePipesInputCh, badRowChannel)
 
 	// Close the channels
 	close(computePipesInputCh)
@@ -721,7 +721,7 @@ func TestReadCsv13(t *testing.T) {
 				start: 0,
 				end:   0,
 			},
-		}, reader, nil, computePipesInputCh, badRowChannel)
+		}, reader, nil, nil, computePipesInputCh, badRowChannel)
 
 	// Close the channels
 	close(computePipesInputCh)
@@ -806,7 +806,7 @@ func TestReadCsv311(t *testing.T) {
 				start: 0,
 				end:   size / 3,
 			},
-		}, reader, nil, computePipesInputCh, badRowChannel)
+		}, reader, nil, nil, computePipesInputCh, badRowChannel)
 
 	// Close the channels
 	close(computePipesInputCh)
@@ -891,7 +891,7 @@ func TestReadCsv312(t *testing.T) {
 				start: size / 3,
 				end:   2 * size / 3,
 			},
-		}, reader, nil, computePipesInputCh, badRowChannel)
+		}, reader, nil, nil, computePipesInputCh, badRowChannel)
 
 	// Close the channels
 	close(computePipesInputCh)
@@ -976,7 +976,7 @@ func TestReadCsv313(t *testing.T) {
 				start: 2 * size / 3,
 				end:   size,
 			},
-		}, reader, nil, computePipesInputCh, badRowChannel)
+		}, reader, nil, nil, computePipesInputCh, badRowChannel)
 
 	// Close the channels
 	close(computePipesInputCh)
@@ -1061,7 +1061,7 @@ func TestReadCsv411(t *testing.T) {
 				start: 0,
 				end:   size / 3,
 			},
-		}, reader, nil, computePipesInputCh, badRowChannel)
+		}, reader, nil, nil, computePipesInputCh, badRowChannel)
 
 	// Close the channels
 	close(computePipesInputCh)
@@ -1146,7 +1146,7 @@ func TestReadCsv412(t *testing.T) {
 				start: size / 3,
 				end:   2 * size / 3,
 			},
-		}, reader, nil, computePipesInputCh, badRowChannel)
+		}, reader, nil, nil, computePipesInputCh, badRowChannel)
 
 	// Close the channels
 	close(computePipesInputCh)
@@ -1234,7 +1234,7 @@ func TestReadCsv51(t *testing.T) {
 				start: 0,
 				end:   0,
 			},
-		}, reader, nil, computePipesInputCh, badRowChannel)
+		}, reader, nil, nil, computePipesInputCh, badRowChannel)
 
 	// Close the channels
 	close(computePipesInputCh)
@@ -1322,7 +1322,7 @@ func TestReadCsv512(t *testing.T) {
 				start: size / 3,
 				end:   2 * size / 3,
 			},
-		}, reader, nil, computePipesInputCh, badRowChannel)
+		}, reader, nil, nil, computePipesInputCh, badRowChannel)
 
 	// Close the channels
 	close(computePipesInputCh)
@@ -1403,7 +1403,7 @@ func TestReadCsv612(t *testing.T) {
 				start: size / 3,
 				end:   2 * size / 3,
 			},
-		}, reader, nil, computePipesInputCh, nil)
+		}, reader, nil, nil, computePipesInputCh, nil)
 
 	// Close the channels
 	close(computePipesInputCh)
@@ -1468,7 +1468,7 @@ func TestReadFW01(t *testing.T) {
 				start: 0,
 				end:   0,
 			},
-		}, reader, sp.FixedWidthEncodingInfo(), nil, computePipesInputCh, badRowChannel)
+		}, reader, sp.FixedWidthEncodingInfo(), nil, nil, computePipesInputCh, badRowChannel)
 
 	// Close the channels
 	close(computePipesInputCh)
@@ -1563,7 +1563,7 @@ func TestReadFW02(t *testing.T) {
 				start: 0,
 				end:   0,
 			},
-		}, reader, sp.FixedWidthEncodingInfo(), nil, computePipesInputCh, badRowChannel)
+		}, reader, sp.FixedWidthEncodingInfo(), nil, nil, computePipesInputCh, badRowChannel)
 
 	// Close the channels
 	close(computePipesInputCh)
@@ -1658,7 +1658,7 @@ func TestReadFW03(t *testing.T) {
 				start: 0,
 				end:   0,
 			},
-		}, reader, sp.FixedWidthEncodingInfo(), nil, computePipesInputCh, badRowChannel)
+		}, reader, sp.FixedWidthEncodingInfo(), nil, nil, computePipesInputCh, badRowChannel)
 
 	// Close the channels
 	close(computePipesInputCh)
@@ -1753,7 +1753,7 @@ func TestReadFW04(t *testing.T) {
 				start: 0,
 				end:   0,
 			},
-		}, reader, sp.FixedWidthEncodingInfo(), nil, computePipesInputCh, badRowChannel)
+		}, reader, sp.FixedWidthEncodingInfo(), nil, nil, computePipesInputCh, badRowChannel)
 
 	// Close the channels
 	close(computePipesInputCh)
@@ -1848,7 +1848,7 @@ func TestReadFW141(t *testing.T) {
 				start: 0,
 				end:   size / 3,
 			},
-		}, reader, sp.FixedWidthEncodingInfo(), nil, computePipesInputCh, badRowChannel)
+		}, reader, sp.FixedWidthEncodingInfo(), nil, nil, computePipesInputCh, badRowChannel)
 
 	// Close the channels
 	close(computePipesInputCh)
@@ -1943,7 +1943,7 @@ func TestReadFW142(t *testing.T) {
 				start: size / 3,
 				end:   2 * size / 3,
 			},
-		}, reader, sp.FixedWidthEncodingInfo(), nil, computePipesInputCh, badRowChannel)
+		}, reader, sp.FixedWidthEncodingInfo(), nil, nil, computePipesInputCh, badRowChannel)
 
 	// Close the channels
 	close(computePipesInputCh)
@@ -2038,7 +2038,7 @@ func TestReadFW143(t *testing.T) {
 				start: 2 * size / 3,
 				end:   size,
 			},
-		}, reader, sp.FixedWidthEncodingInfo(), nil, computePipesInputCh, badRowChannel)
+		}, reader, sp.FixedWidthEncodingInfo(), nil, nil, computePipesInputCh, badRowChannel)
 
 	// Close the channels
 	close(computePipesInputCh)
@@ -2137,7 +2137,7 @@ func TestReadFW542(t *testing.T) {
 				start: size / 3,
 				end:   2 * size / 3,
 			},
-		}, reader, sp.FixedWidthEncodingInfo(), nil, computePipesInputCh, badRowChannel)
+		}, reader, sp.FixedWidthEncodingInfo(), nil, nil, computePipesInputCh, badRowChannel)
 
 	// Close the channels
 	close(computePipesInputCh)

@@ -288,6 +288,7 @@ type FileConfig struct {
 	QuoteAllRecords            bool                   `json:"quote_all_records,omitzero"`
 	ReadBatchSize              int64                  `json:"read_batch_size,omitzero"` // Format: parquet
 	ReadDateLayout             string                 `json:"read_date_layout,omitempty"`
+	ReorderColumnsOnRead       []int                  `json:"reorder_columns_on_read,omitempty"`
 	TrimColumns                bool                   `json:"trim_columns,omitzero"`
 	UseLazyQuotes              bool                   `json:"use_lazy_quotes,omitzero"`
 	UseLazyQuotesSpecial       bool                   `json:"use_lazy_quotes_special,omitzero"`

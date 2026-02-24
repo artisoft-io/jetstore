@@ -19,7 +19,7 @@ import (
 func (cpCtx *ComputePipesContext) ReadParquetFileV2(filePath *FileName, 
 	fileReader parquet.ReaderAtSeeker, readBatchSize int64,
 	castToRdfTxtTypeFncs []CastToRdfTxtFnc, inputSchemaCh chan<- ParquetSchemaInfo,
-	computePipesInputCh chan<- []any) (int64, error) {
+	reorderColumnsOnRead []int, computePipesInputCh chan<- []any) (int64, error) {
 
 	var inputColumns []string
 	var err error
@@ -141,7 +141,7 @@ func (cpCtx *ComputePipesContext) ReadParquetFileV2(filePath *FileName,
 		// read and put the rows into computePipesInputCh
 		currentRow, inputRowCount, done, err = cpCtx.processRecord(computePipesInputCh, 
 			recordReader.Record(), parquetSchemaInfo,
-			nbrColumns, extColumns, trimColumns, castToRdfTxtTypeFncs,
+			nbrColumns, extColumns, trimColumns, castToRdfTxtTypeFncs, reorderColumnsOnRead,
 			firstRowToRead, nbrRowsToRead, samplingRate, samplingMaxCount, currentRow, inputRowCount)
 		if err != nil {
 			return inputRowCount, err
@@ -155,7 +155,7 @@ func (cpCtx *ComputePipesContext) ReadParquetFileV2(filePath *FileName,
 
 func (cpCtx *ComputePipesContext) processRecord(computePipesInputCh chan<- []any, arrowRecord arrow.Record,
 	parquetSchemaInfo *ParquetSchemaInfo, nbrColumns int, extColumns []string, 
-	trimColumns bool, castToRdfTxtTypeFncs []CastToRdfTxtFnc,
+	trimColumns bool, castToRdfTxtTypeFncs []CastToRdfTxtFnc, reorderColumnsOnRead []int,
 	firstRowToRead, nbrRowsToRead, samplingRate, samplingMaxCount, currentRow, inputRowCount int64) (int64, int64, bool, error) {
 	defer arrowRecord.Release()
 	var castFnc CastToRdfTxtFnc
@@ -221,6 +221,18 @@ func (cpCtx *ComputePipesContext) processRecord(computePipesInputCh chan<- []any
 		if cpCtx.CpConfig.ClusterConfig.KillSwitchMin > 0 &&
 			time.Since(ComputePipesStart).Minutes() >= float64(cpCtx.CpConfig.ClusterConfig.KillSwitchMin) {
 			return currentRow, inputRowCount, false, ErrKillSwitch
+		}
+
+		if len(reorderColumnsOnRead) > 0 {
+			m := min(len(reorderColumnsOnRead), len(record))
+			row := make([]any, len(record))
+			for i := range m {
+				row[i] = record[reorderColumnsOnRead[i]]
+			}
+			for i:=m; i < len(record); i++ {
+				row[i] = record[i]
+			}
+			record = row
 		}
 
 		// Send out the record

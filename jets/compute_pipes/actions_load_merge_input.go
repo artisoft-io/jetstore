@@ -81,7 +81,7 @@ func (cpCtx *ComputePipesContext) loadMergeInput(computePipesInputCh chan []any,
 			switch inputFormat {
 			case "csv", "headerless_csv":
 				count, badRowCount, err = cpCtx.ReadCsvFile(
-					&localInFile, fileHd, castToRdfTxtTypeFncs, computePipesInputCh, nil)
+					&localInFile, fileHd, castToRdfTxtTypeFncs, nil, computePipesInputCh, nil)
 
 			default:
 				err = fmt.Errorf("%s node %d, error: unsupported file format: %s", cpCtx.SessionId, cpCtx.NodeId, inputFormat)

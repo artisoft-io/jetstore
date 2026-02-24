@@ -57,10 +57,14 @@ func (cpCtx *ComputePipesContext) loadMainInput(computePipesInputCh chan []any,
 	// downstream (aka anonymize operator)
 	var fwEncodingInfo *FixedWidthEncodingInfo
 	var xlsxSheetInfo map[string]any
+	var reorderColumnsOnRead []int
 	sp := cpCtx.SchemaManager.GetSchemaProvider(inputChannelConfig.SchemaProvider)
 	if sp != nil {
 		fwEncodingInfo = sp.FixedWidthEncodingInfo()
 		sheetInfoJson := sp.InputFormatDataJson()
+		if cpCtx.CpConfig.CommonRuntimeArgs.CpipesMode == "sharding" {
+			reorderColumnsOnRead = sp.ReorderColumnsOnRead()
+		}
 		// log.Println(" *** LoadFiles: got xlsx sheet info json:", sheetInfoJson)
 		if len(sheetInfoJson) > 0 {
 			xlsxSheetInfo, err = ParseInputFormatDataXlsx(&sheetInfoJson)
@@ -94,7 +98,7 @@ func (cpCtx *ComputePipesContext) loadMainInput(computePipesInputCh chan []any,
 			switch inputFormat {
 
 			case "xlsx", "headerless_xlsx":
-				count, badRowCount, err = cpCtx.ReadXlsxFile(&localInFile, xlsxSheetInfo, castToRdfTxtTypeFncs,
+				count, badRowCount, err = cpCtx.ReadXlsxFile(&localInFile, xlsxSheetInfo, castToRdfTxtTypeFncs, reorderColumnsOnRead,
 					computePipesInputCh, badRowChannel)
 
 			default:
@@ -114,11 +118,11 @@ func (cpCtx *ComputePipesContext) loadMainInput(computePipesInputCh chan []any,
 				switch inputFormat {
 				case "csv", "headerless_csv":
 					count, badRowCount, err = cpCtx.ReadCsvFile(
-						&localInFile, fileHd, castToRdfTxtTypeFncs, computePipesInputCh, badRowChannel)
+						&localInFile, fileHd, castToRdfTxtTypeFncs, reorderColumnsOnRead, computePipesInputCh, badRowChannel)
 
 				case "parquet", "parquet_select":
 					count, err = cpCtx.ReadParquetFileV2(
-						&localInFile, fileHd, readBatchSize, castToRdfTxtTypeFncs, inputSchemaCh, computePipesInputCh)
+						&localInFile, fileHd, readBatchSize, castToRdfTxtTypeFncs, inputSchemaCh, reorderColumnsOnRead, computePipesInputCh)
 					if inputSchemaCh != nil {
 						close(inputSchemaCh)
 						inputSchemaCh = nil
@@ -127,7 +131,7 @@ func (cpCtx *ComputePipesContext) loadMainInput(computePipesInputCh chan []any,
 
 				case "fixed_width":
 					count, badRowCount, err = cpCtx.ReadFixedWidthFile(
-						&localInFile, fileHd, fwEncodingInfo, castToRdfTxtTypeFncs, computePipesInputCh, badRowChannel)
+						&localInFile, fileHd, fwEncodingInfo, castToRdfTxtTypeFncs, reorderColumnsOnRead, computePipesInputCh, badRowChannel)
 
 				default:
 					err = fmt.Errorf("%s node %d, error: unsupported file format: %s", cpCtx.SessionId, cpCtx.NodeId, inputFormat)

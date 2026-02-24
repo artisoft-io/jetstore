@@ -60,6 +60,7 @@ type SchemaProvider interface {
 	QuoteAllRecords() bool
 	ReadBatchSize() int64
 	ReadDateLayout() string
+	ReorderColumnsOnRead() []int
 	SchemaName() string
 	SetParquetSchema(schema *ParquetSchemaInfo)
 	TrimColumns() bool
@@ -411,6 +412,13 @@ func (sp *DefaultSchemaProvider) ReadDateLayout() string {
 		return ""
 	}
 	return sp.spec.ReadDateLayout
+}
+
+func (sp *DefaultSchemaProvider) ReorderColumnsOnRead() []int {
+	if sp == nil {
+		return nil
+	}
+	return sp.spec.ReorderColumnsOnRead
 }
 
 func (sp *DefaultSchemaProvider) WriteDateLayout() string {

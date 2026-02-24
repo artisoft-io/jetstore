@@ -16,6 +16,7 @@ import (
 
 func (cpCtx *ComputePipesContext) ReadCsvFile(
 	filePath *FileName, fileReader ReaderAtSeeker, castToRdfTxtTypeFncs []CastToRdfTxtFnc,
+	reorderColumnsOnRead []int,
 	computePipesInputCh chan<- []any, badRowChannel *BadRowsChannel) (int64, int64, error) {
 
 	var csvReader *csv.Reader
@@ -30,6 +31,7 @@ func (cpCtx *ComputePipesContext) ReadCsvFile(
 	var extColumns []string
 	var enforceRowMinLength, enforceRowMaxLength bool
 	var expectedNbrColumnsInFile int
+	var dropExcedentHeaders bool
 	// Get the encoding and csv delimiter (from the schema provider), if delimiter is not specified assume it's ',' for reducing
 	encoding := inputChannelConfig.Encoding
 	noQuote := inputChannelConfig.NoQuotes
@@ -57,6 +59,7 @@ func (cpCtx *ComputePipesContext) ReadCsvFile(
 		// columns on input_row channel)
 		expectedNbrColumnsInFile = len(cpCtx.CpConfig.CommonRuntimeArgs.SourcesConfig.MainInput.InputColumns) -
 			len(cpCtx.AddionalInputHeaders) - len(cpCtx.PartFileKeyComponents)
+		dropExcedentHeaders = inputChannelConfig.DropExcedentHeaders
 		eolByte = inputChannelConfig.EolByte
 	case "reducing":
 		// Bad Rows are identified during the sharding phase only
@@ -286,22 +289,28 @@ func (cpCtx *ComputePipesContext) ReadCsvFile(
 		}
 		cpCtx.SamplingCount = 0
 		// log.Println("*** CSV.READ:", inRow)
-		record = make([]any, 0, len(inRow)+len(extColumns))
 		var errCol error
-		for i := range inRow {
-			if trimColumns {
-				inRow[i] = strings.TrimSpace(inRow[i])
-			}
-			value = inRow[i]
-			if len(inRow[i]) == 0 {
-				value = nil
-			} else {
-				if i < len(castToRdfTxtTypeFncs) && castToRdfTxtTypeFncs[i] != nil {
-					value, errCol = castToRdfTxtTypeFncs[i](inRow[i])
-					if errCol != nil {
-						// Got a bad conversion, make it a bad row? - need to capture the error message...
-						// This is not expected since the cast function are based on the expected data type
-						return 0, 0, fmt.Errorf("error while applying castToRdfTxtTypeFncs (ReadCsvFile): %v", err)
+		rowLen := len(inRow)
+		nCol := rowLen
+		if dropExcedentHeaders || nCol < expectedNbrColumnsInFile {
+			nCol = expectedNbrColumnsInFile
+		}
+		record = make([]any, 0, nCol+len(extColumns)+len(cpCtx.AddionalInputHeaders))
+		for i := range nCol {
+			value = nil
+			if i < rowLen {
+				if trimColumns {
+					inRow[i] = strings.TrimSpace(inRow[i])
+				}
+				if len(inRow[i]) > 0 {
+					value = inRow[i]
+					if i < len(castToRdfTxtTypeFncs) && castToRdfTxtTypeFncs[i] != nil {
+						value, errCol = castToRdfTxtTypeFncs[i](inRow[i])
+						if errCol != nil {
+							// Got a bad conversion, make it a bad row? - need to capture the error message...
+							// This is not expected since the cast function are based on the expected data type
+							return 0, 0, fmt.Errorf("error while applying castToRdfTxtTypeFncs (ReadCsvFile): %v", errCol)
+						}
 					}
 				}
 			}
@@ -327,6 +336,18 @@ func (cpCtx *ComputePipesContext) ReadCsvFile(
 		if cpCtx.CpConfig.ClusterConfig.KillSwitchMin > 0 &&
 			time.Since(ComputePipesStart).Minutes() >= float64(cpCtx.CpConfig.ClusterConfig.KillSwitchMin) {
 			return inputRowCount, badRowCount, ErrKillSwitch
+		}
+
+		if len(reorderColumnsOnRead) > 0 {
+			m := min(len(reorderColumnsOnRead), len(record))
+			row := make([]any, len(record))
+			for i := range m {
+				row[i] = record[reorderColumnsOnRead[i]]
+			}
+			for i:=m; i < len(record); i++ {
+				row[i] = record[i]
+			}
+			record = row
 		}
 
 		// // Remove invalid utf-8 sequence from input record
