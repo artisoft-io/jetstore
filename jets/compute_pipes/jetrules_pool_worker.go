@@ -544,6 +544,9 @@ func computeRowHash(row []any, sourcePeriod int) string {
 	// for 2 different period, they get different jets:key
 	hasher.Write([]byte(strconv.Itoa(sourcePeriod)))
 	for _, v := range row {
+		if v == nil {
+			continue
+		}
 		switch vv := v.(type) {
 		case string:
 			hasher.Write([]byte(vv))
