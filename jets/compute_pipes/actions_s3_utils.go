@@ -177,7 +177,7 @@ func GetS3FileKeys(processName, sessionId, mainInputStepId, jetsPartitionLabel s
 
 	} else {
 		fileKey := fmt.Sprintf("%s/%s", awsi.JetStoreStagePrefix(), inputChannelConfig.FileKey)
-		s3Objects, err = GetS3Objects4LookbackPeriod(inputChannelConfig.Bucket, fileKey,
+		s3Objects, err = GetS3Objects4LookbackPeriod("", fileKey,
 			inputChannelConfig.LookbackPeriods, envSettings)
 		if err != nil {
 			return nil, fmt.Errorf("failed to download list of files from s3 for main input: %v", err)
@@ -202,7 +202,7 @@ func GetS3FileKeys(processName, sessionId, mainInputStepId, jetsPartitionLabel s
 			}
 		} else {
 		fileKey := fmt.Sprintf("%s/%s", awsi.JetStoreStagePrefix(), mergeChannelConfig.FileKey)
-			s3Objects, err = GetS3Objects4LookbackPeriod(mergeChannelConfig.Bucket, fileKey,
+			s3Objects, err = GetS3Objects4LookbackPeriod("", fileKey,
 				mergeChannelConfig.LookbackPeriods, envSettings)
 			if err != nil {
 				return nil, fmt.Errorf("failed to download list of files from s3 for merge channel %d: %v", i, err)

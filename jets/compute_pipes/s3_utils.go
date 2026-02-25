@@ -147,22 +147,18 @@ func (cpipesStartup *CpipesStartup) GetComputePipesPartitions(dbpool *pgxpool.Po
 		var err error
 		// In stage we can directly list the s3 objects with the prefix to get the partitions info, without calling the database
 		var prefix string
-		var bucket string
-		if inputChannelConfig.schemaProviderConfig != nil {
-			bucket = inputChannelConfig.schemaProviderConfig.Bucket
-		}
 		if len(inputChannelConfig.FileKey) > 0 {
 			fileKey := fmt.Sprintf("%s/%s", awsi.JetStoreStagePrefix(), inputChannelConfig.FileKey)
 			lback := inputChannelConfig.LookbackPeriods
 			if len(lback) > 0 {
-				err = GetPartitionSize4LookbackPeriod(bucket, fileKey, inputChannelConfig.LookbackPeriods, cpipesStartup.EnvSettings, partitionSizes)
+				err = GetPartitionSize4LookbackPeriod("", fileKey, inputChannelConfig.LookbackPeriods, cpipesStartup.EnvSettings, partitionSizes)
 				if err != nil {
 					return nil, fmt.Errorf("failed to download list of files from s3 for lookback periods: %v", err)
 				}
 			} else {
 				prefix = utils.ReplaceEnvVars(fileKey, cpipesStartup.EnvSettings)
 				log.Printf("Downloading file keys from s3 stage folder: %s", prefix)
-				s3Objects, err := awsi.ListS3Objects(bucket, &prefix)
+				s3Objects, err := awsi.ListS3Objects("", &prefix)
 				if err != nil {
 					return nil, fmt.Errorf("failed to download list of files from s3: %v", err)
 				}
@@ -180,7 +176,7 @@ func (cpipesStartup *CpipesStartup) GetComputePipesPartitions(dbpool *pgxpool.Po
 		} else {
 			prefix = fmt.Sprintf("%s/process_name=%s/session_id=%s/step_id=%s/", awsi.JetStoreStagePrefix(), processName, sessionId, inputChannelConfig.ReadStepId)
 			log.Printf("Downloading file keys from s3 stage folder: %s", prefix)
-			s3Objects, err := awsi.ListS3Objects(bucket, &prefix)
+			s3Objects, err := awsi.ListS3Objects("", &prefix)
 			if err != nil {
 				return nil, fmt.Errorf("failed to download list of files from s3: %v", err)
 			}
