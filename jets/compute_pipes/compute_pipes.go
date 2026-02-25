@@ -280,24 +280,16 @@ func (cpCtx *ComputePipesContext) StartComputePipes(dbpool *pgxpool.Pool,
 	if len(inputChannel.MergeChannels) > 0 {
 		// case merging channels
 		// Populate the inputMergeChannels map
-		var inputMergeChannel *Channel
 		for i := range inputChannel.MergeChannels {
-			mergeChConfig := &inputChannel.MergeChannels[i]
+			mergeChName := inputChannel.MergeChannels[i].Name
 			// get the channel info from the channel registry
-			inChannel := channelRegistry.ComputeChannels[mergeChConfig.Name]
+			inChannel := channelRegistry.ComputeChannels[mergeChName]
 			if inChannel == nil {
-				cpErr = fmt.Errorf("channel %s not found in Channel Registry", mergeChConfig.Name)
+				cpErr = fmt.Errorf("channel %s not found in Channel Registry", mergeChName)
 				goto gotError
 			}
-			inputMergeChannel = &Channel{
-				Name:           mergeChConfig.Name,
-				Channel:        computePipesMergeChs[i],
-				Columns:        inChannel.Columns,
-				DomainKeySpec:  inChannel.DomainKeySpec,
-				Config:         inChannel.Config,
-			}
+			inChannel.Channel = computePipesMergeChs[i]
 		}
-		channelRegistry.ComputeChannels[inputMergeChannel.Name] = inputMergeChannel
 	}
 	if cpCtx.CpConfig.ClusterConfig.IsDebugMode {
 		log.Println("Compute Pipes channel registry initialized")

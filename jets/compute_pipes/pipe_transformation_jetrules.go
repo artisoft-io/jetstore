@@ -88,6 +88,22 @@ func (ctx *BuilderContext) NewJetrulesTransformationPipe(source *InputChannel, _
 		ctx.cpConfig.CommonRuntimeArgs.SessionId,
 		ctx.nodeId, ctx.cpConfig.CommonRuntimeArgs.MainInputStepId, jrFactory.JetRulesName())
 
+	// Get the main input channel config, it will be used to get the input domain class and to check if we have merge channels
+	inputChannelConfig := &ctx.cpConfig.PipesConfig[0].InputChannel
+	rdfType2Columns := make(map[string][]string)
+	if len(source.Config.ClassName) > 0 {
+		rdfType2Columns[source.Config.ClassName] = source.Config.Columns
+	}
+	for _, mergeChannelConfig := range inputChannelConfig.MergeChannels {
+		c := ctx.channelRegistry.ComputeChannels[mergeChannelConfig.Name]
+		if c == nil {
+			err := fmt.Errorf("unexpected error: channel '%s' not found for merge channel config", mergeChannelConfig.Name)
+			log.Println(err)
+			return nil, err
+		}
+		rdfType2Columns[c.Config.ClassName] = c.Config.Columns
+	}
+
 	// Get the jetrules engine for the process
 	// Apply environment variables
 	processName := utils.ReplaceEnvVars(config.ProcessName, ctx.env)
@@ -198,7 +214,7 @@ func (ctx *BuilderContext) NewJetrulesTransformationPipe(source *InputChannel, _
 	var jrPoolManager *JrPoolManager
 	workerResultCh := make(chan JetrulesWorkerResult, 10)
 	ctx.chResults.JetrulesWorkerResultCh <- workerResultCh
-	jrPoolManager, err = ctx.NewJrPoolManager(config, source, ruleEngine, jetrulesOutputChan, workerResultCh)
+	jrPoolManager, err = ctx.NewJrPoolManager(config, source, rdfType2Columns, ruleEngine, jetrulesOutputChan, workerResultCh)
 	if err != nil {
 		return nil, err
 	}

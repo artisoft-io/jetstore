@@ -78,6 +78,7 @@ func (cpCtx *ComputePipesContext) LoadFiles(ctx context.Context, dbpool *pgxpool
 			computePipesMergeChs = append(computePipesMergeChs, mergeCh)
 			// Start a goroutine to load the merge input files
 			waitForDone.Go(func ()  {
+				log.Printf("Starting merge input loader for channel %d\n", i+1)
 				err := cpCtx.loadMergeInput(mergeCh, &channelConfig, cpCtx.FileNamesCh[i+1])
 				if err != nil {
 					log.Printf("loadMergeInput goroutine terminated with err: %v\n", err)

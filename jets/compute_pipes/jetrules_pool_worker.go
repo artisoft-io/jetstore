@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"hash/fnv"
 	"log"
 	"runtime/debug"
 	"strconv"
@@ -12,31 +13,32 @@ import (
 
 	"github.com/artisoft-io/jetstore/jets/jetrules/rete"
 	"github.com/artisoft-io/jetstore/jets/utils"
-	"github.com/google/uuid"
 )
 
 // Worker to perform jetrules execute rules function
 
 type JrPoolWorker struct {
-	config         *JetrulesSpec
-	source         *InputChannel
-	ruleEngine     JetRuleEngine
-	outputChannels []*JetrulesOutputChan
-	done           chan struct{}
-	errCh          chan error
+	config          *JetrulesSpec
+	source          *InputChannel
+	rdfType2Columns map[string][]string
+	ruleEngine      JetRuleEngine
+	outputChannels  []*JetrulesOutputChan
+	done            chan struct{}
+	errCh           chan error
 }
 
-func NewJrPoolWorker(config *JetrulesSpec, source *InputChannel,
+func NewJrPoolWorker(config *JetrulesSpec, source *InputChannel, rdfType2Columns map[string][]string,
 	re JetRuleEngine, outputChannels []*JetrulesOutputChan,
 	done chan struct{}, errCh chan error) *JrPoolWorker {
 	// log.Println("New Pool Worker Created")
 	return &JrPoolWorker{
-		config:         config,
-		source:         source,
-		ruleEngine:     re,
-		outputChannels: outputChannels,
-		done:           done,
-		errCh:          errCh,
+		config:          config,
+		source:          source,
+		ruleEngine:      re,
+		outputChannels:  outputChannels,
+		done:            done,
+		errCh:           errCh,
+		rdfType2Columns: rdfType2Columns,
 	}
 }
 
@@ -142,7 +144,7 @@ func (ctx *JrPoolWorker) executeRules(inputRecords *[]any,
 		}
 		if !inputAsserted {
 			// Assert the input records to rdf session
-			err = assertInputRecords(ctx.config, ctx.source, rdfSession, inputRecords)
+			err = assertInputRecords(ctx.config, ctx.source, ctx.rdfType2Columns, rdfSession, inputRecords)
 			if err != nil {
 				cpErr = fmt.Errorf("while asserting input records to rdf session: %v", err)
 				goto gotError
@@ -270,7 +272,7 @@ func (ctx *JrPoolWorker) extractSessionData(rdfSession JetRdfSession,
 	entityCount := 0
 	columns := outChannel.OutputCh.Config.Columns
 	var data any
-	var dataArr *[]any
+	var dataArr []any
 	var isArray bool
 	var sourcePeriod int
 	var err error
@@ -324,33 +326,31 @@ func (ctx *JrPoolWorker) extractSessionData(rdfSession JetRdfSession,
 		if keepObj {
 			entityRow := make([]any, len(columns))
 			for i, p := range columns {
-				data = nil
-				isArray = false
-				itor := rdfSession.FindSP(subject, rm.NewResource(p))
-				for !itor.IsEnd() {
-					value := GetRdfNodeValue(itor.GetObject())
-					if p == "rdf:type" {
-						c, ok := value.(string)
-						if ok && c == "jets:InputRecord" {
-							goto go_next
-						}
-					}
-					if data == nil {
-						data = value
-					} else {
-						if isArray {
-							*dataArr = append(*dataArr, value)
+				if p == "rdf:type" {
+					// Special handling for rdf:type, keep only the asserted rdf:type, which is the channel's class name
+					data = []any{outChannel.ClassName}
+				} else {
+					data = nil
+					isArray = false
+					itor := rdfSession.FindSP(subject, rm.NewResource(p))
+					for !itor.IsEnd() {
+						value := GetRdfNodeValue(itor.GetObject())
+						if data == nil {
+							data = value
 						} else {
-							dataArr = &[]any{data, value}
-							isArray = true
+							if isArray {
+								dataArr = append(dataArr, value)
+							} else {
+								dataArr = []any{data, value}
+								isArray = true
+							}
 						}
+						itor.Next()
 					}
-				go_next:
-					itor.Next()
-				}
-				itor.Release()
-				if isArray {
-					data = *dataArr
+					itor.Release()
+					if isArray {
+						data = dataArr
+					}
 				}
 				entityRow[i] = data
 			}
@@ -385,10 +385,9 @@ func (ctx *JrPoolWorker) extractSessionData(rdfSession JetRdfSession,
 	return nil
 }
 
-func assertInputRecords(config *JetrulesSpec, source *InputChannel,
+func assertInputRecords(config *JetrulesSpec, source *InputChannel, rdfType2Columns map[string][]string,
 	rdfSession JetRdfSession, inputRecords *[]any) (err error) {
 
-	columns := source.Config.Columns
 	nrows := 0
 	if source.HasGroupedRows {
 		// log.Printf("*** Pool Worker == Asserting bundle of %d entities\n", len(*inputRecords))
@@ -397,7 +396,7 @@ func assertInputRecords(config *JetrulesSpec, source *InputChannel,
 			if !ok {
 				return fmt.Errorf("error: inputRecords are invalid")
 			}
-			err = assertInputRow(config, rdfSession, &row, &columns)
+			err = assertInputRow(config, rdfSession, &row, rdfType2Columns)
 			if err != nil {
 				return fmt.Errorf("while asserting input record %d: %v", i, err)
 			}
@@ -405,7 +404,7 @@ func assertInputRecords(config *JetrulesSpec, source *InputChannel,
 		}
 	} else {
 		// log.Printf("*** Pool Worker == Asserting single entities\n")
-		err = assertInputRow(config, rdfSession, inputRecords, &columns)
+		err = assertInputRow(config, rdfSession, inputRecords, rdfType2Columns)
 		if err != nil {
 			return fmt.Errorf("while asserting input records: %v", err)
 		}
@@ -417,22 +416,11 @@ func assertInputRecords(config *JetrulesSpec, source *InputChannel,
 	return
 }
 
-func assertInputRow(config *JetrulesSpec, rdfSession JetRdfSession, row *[]any, columns *[]string) (err error) {
-
-	if config.IsDebug {
-		data, err := utils.ZipSlicesNoNil(*columns, *row)
-		if err != nil {
-			return fmt.Errorf("while zipping input columns and values for debug logging: %v", err)
-		}
-		outBytes, _ := json.Marshal(data)
-		log.Printf("Asserting Input Record (zipped no null): %s", string(outBytes))
-	}
-
-	nbrCol := len(*columns)
+func assertInputRow(config *JetrulesSpec, rdfSession JetRdfSession, row *[]any, rdfType2Columns map[string][]string) (err error) {
 	var predicate RdfNode
 	// assert record i
 	var jetsKey string
-	var rdfType []any
+	var rdfTypes []any
 	var sourcePeriodSequence int
 	var subject RdfNode
 	var node RdfNode
@@ -440,22 +428,42 @@ func assertInputRow(config *JetrulesSpec, rdfSession JetRdfSession, row *[]any, 
 	rm := rdfSession.GetResourceManager()
 
 	// Input channel have a class name, which will have jets:key, rdf:type, jets:source_period_sequence in pos 0, 1 and 2 resp.
-	var ok1, ok2, ok3 bool
-	jetsKey, ok1 = (*row)[0].(string)
-	rdfType, ok2 = (*row)[1].([]any)
-	sourcePeriodSequence, ok3 = (*row)[2].(int)
-	if !ok1 || !ok2 || !ok3 {
-		// log.Printf("warning: jets:key ok: %v, rdf:type ok: %v (%T), jets:source_period_sequence ok: %v (%T) \n row: %v, error details: ",
-		// 	ok1, ok2, (*row)[1], ok3, (*row)[2], *row)
-		// Try to use jets:key and rdf:type from config if provided, otherwise return error
+	var ok bool
+	jetsKey, ok = (*row)[0].(string)
+	if !ok {
+		jetsKey = computeRowHash((*row)[3:], config.CurrentSourcePeriod)
+	}
+
+	rdfTypes, ok = (*row)[1].([]any)
+	if !ok {
 		if config.InputRdfType != "" {
 			// Use class name from config, and generate jets:key and set source period sequence to -1 (i.e. not from the input data but generated during the rule session)
-			jetsKey = uuid.New().String()
-			rdfType = []any{config.InputRdfType}
-			sourcePeriodSequence = -1
+			rdfTypes = []any{config.InputRdfType}
 		} else {
 			return fmt.Errorf("error: input rdf:Type not provided and invalid type for jets:key, rdf:type or jets:source_period_sequence as first 3 elements of row")
 		}
+	}
+	assertType := rdfTypes[0].(string)
+	if config.IsDebug {
+		log.Printf("Asserting Input Record with rdf:type %s and jets:key %s", assertType, jetsKey)
+	}
+	columns := rdfType2Columns[assertType]
+	if len(columns) == 0 {
+		return fmt.Errorf("error: no columns found for rdf:type %s in input record", assertType)
+	}
+	nbrCol := len(columns)
+	if config.IsDebug {
+		data, err := utils.ZipSlicesNoNil(columns, *row)
+		if err != nil {
+			return fmt.Errorf("while zipping input columns and values for debug logging: %v", err)
+		}
+		outBytes, _ := json.Marshal(data)
+		log.Printf("Asserting Input Record (zipped no null): %s", string(outBytes))
+	}
+
+	sourcePeriodSequence, ok = (*row)[2].(int)
+	if !ok {
+		sourcePeriodSequence = -1
 	}
 
 	subject = rm.NewResource(jetsKey)
@@ -463,7 +471,7 @@ func assertInputRow(config *JetrulesSpec, rdfSession JetRdfSession, row *[]any, 
 	if err != nil {
 		return
 	}
-	for _, t := range rdfType {
+	for _, t := range rdfTypes {
 		err = rdfSession.Insert(subject, jr.Rdf__type, rm.NewResource(t.(string)))
 		if err != nil {
 			return
@@ -487,12 +495,18 @@ func assertInputRow(config *JetrulesSpec, rdfSession JetRdfSession, row *[]any, 
 	}
 
 	// assert the rest of the properties
+nextField:
 	for j := range *row {
 		if (*row)[j] == nil {
 			continue
 		}
 		if j < nbrCol {
-			predicate = rm.NewResource((*columns)[j])
+			cname := columns[j]
+			if cname == "rdf:type" || cname == "jets:key" || cname == "jets:source_period_sequence" {
+				// already asserted these properties, skip to avoid confusion and potential error
+				continue nextField
+			}
+			predicate = rm.NewResource(cname)
 		} else {
 			predicate = rm.NewResource(fmt.Sprintf("column%d", j))
 		}
@@ -520,6 +534,48 @@ func assertInputRow(config *JetrulesSpec, rdfSession JetRdfSession, row *[]any, 
 		}
 	}
 	return
+}
+
+func computeRowHash(row []any, sourcePeriod int) string {
+	// Compute a hash for the row, to be used as jets:key when it's not provided in the input data
+	// The hash is computed on the concatenation of the string representation of the values in the row and the source period, to avoid having the same hash for the same row in different source periods
+	hasher := fnv.New64a()
+	// Add sourcePeriod in row_hash calculation so if same record in input
+	// for 2 different period, they get different jets:key
+	hasher.Write([]byte(strconv.Itoa(sourcePeriod)))
+	for _, v := range row {
+		switch vv := v.(type) {
+		case string:
+			hasher.Write([]byte(vv))
+		case int:
+			hasher.Write([]byte(strconv.Itoa(vv)))
+		case float64:
+			hasher.Write([]byte(strconv.FormatFloat(vv, 'f', -1, 64)))
+		case uint:
+			hasher.Write([]byte(strconv.FormatUint(uint64(vv), 10)))
+		case time.Time:
+			if vv.Hour() == 0 && vv.Minute() == 0 && vv.Second() == 0 {
+				// Date, format as 2006-01-02
+				hasher.Write([]byte(vv.Format("2006-01-02")))
+			} else {
+				// Datetime, format as 2006-01-02T15:04:05
+				hasher.Write([]byte(vv.Format("2006-01-02T15:04:05")))
+			}
+		case int64:
+			hasher.Write([]byte(strconv.FormatInt(vv, 10)))
+		case uint64:
+			hasher.Write([]byte(strconv.FormatUint(vv, 10)))
+		case int32:
+			hasher.Write([]byte(strconv.FormatInt(int64(vv), 10)))
+		case uint32:
+			hasher.Write([]byte(strconv.FormatUint(uint64(vv), 10)))
+		case float32:
+			hasher.Write([]byte(strconv.FormatFloat(float64(vv), 'f', -1, 32)))
+		default:
+			hasher.Write([]byte(fmt.Sprintf("%v", vv)))
+		}
+	}
+	return fmt.Sprintf("%016x", hasher.Sum64())
 }
 
 func NewRdfNode(inValue any, re JetResourceManager) (RdfNode, error) {

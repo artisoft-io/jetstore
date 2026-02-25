@@ -253,6 +253,7 @@ func (ctx *BuilderContext) NewHashEvaluator(source *InputChannel,
 
 		compositeInputKey, err = ParsePreprocessingExpressions(keys, toUpper, source.Columns)
 		if err != nil {
+			log.Printf("error while calling ParsePreprocessingExpressions for source %s with keys %v: %v\ncolumns are %v", source.Name, keys, err, source.Columns)
 			return nil, fmt.Errorf("while calling ParsePreprocessingExpressions (input channel name %s): %v", source.Name, err)
 		}
 	}
