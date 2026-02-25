@@ -147,3 +147,5 @@ jets/rete/test_data/usi_workspace_v2.db
 jets/compilerv2/compiler/testdata/workspace.db
 jets/compute_pipes/local_test_driver/env.sh
 jets/compute_pipes/local_test_driver/run_test.sh
+cdk/jetstore_one/lambdas/api_gateway_cgt/cgt_deid_handler.go
+cdk/jetstore_one/lambdas/api_gateway_cgt/cgt_lmm_handler.go
