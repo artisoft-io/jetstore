@@ -13,7 +13,7 @@ import (
 // map_record: each input record is mapped to the output
 
 type MapRecordTransformationPipe struct {
-	source            *InputChannel
+	source           *InputChannel
 	outputCh         *OutputChannel
 	columnEvaluators []TransformationColumnEvaluator
 	spec             *TransformationSpec
@@ -64,7 +64,7 @@ func (ctx *MapRecordTransformationPipe) Apply(input *[]any) error {
 			*currentValues = (*currentValues)[:len(ctx.outputCh.Config.Columns)]
 		}
 	}
-	
+
 	var outBytes []byte
 	// Debug logging of output record
 	if ctx.spec.MapRecordConfig != nil && ctx.spec.MapRecordConfig.IsDebug {
@@ -122,6 +122,10 @@ func (ctx *BuilderContext) NewMapRecordTransformationPipe(source *InputChannel, 
 			return nil, fmt.Errorf("while getting data property details from workspace: %v", err)
 		}
 		// Construct the mapping column evaluators
+		if config.IsDebug {
+			log.Printf("*** Columns in input channel: %v", source.Config.Columns)
+			log.Printf("*** Columns in output channel: %v", outputCh.Config.Columns)
+		}
 		for i := range inputMappingItems {
 			mappingExp := &inputMappingItems[i]
 			node := propertyMap[mappingExp.DataProperty]
@@ -133,7 +137,7 @@ func (ctx *BuilderContext) NewMapRecordTransformationPipe(source *InputChannel, 
 					log.Printf("Note: mapping expression data property '%s' is not found in workspace metastore but found in input channel columns, treating it as text type", mappingExp.DataProperty)
 				} else {
 					return nil, fmt.Errorf("error: property name not found in workspace metastore or input channel: %v",
-					mappingExp.DataProperty)
+						mappingExp.DataProperty)
 				}
 			}
 			ce, err := ctx.BuildMapTCEvaluator(source, outputCh, &TransformationColumnSpec{
@@ -165,7 +169,7 @@ func (ctx *BuilderContext) NewMapRecordTransformationPipe(source *InputChannel, 
 		columnEvaluators = append(columnEvaluators, ce)
 	}
 	return &MapRecordTransformationPipe{
-		source:            source,
+		source:           source,
 		outputCh:         outputCh,
 		columnEvaluators: columnEvaluators,
 		spec:             spec,

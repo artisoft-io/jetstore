@@ -19,12 +19,12 @@ type mapColumnEval struct {
 type mapColumnConfig struct {
 	inputPos     int
 	outputPos    int
-	defaultValue interface{}
+	defaultValue any
 	mapConfig    *MapExpression
 }
 
-func (ctx *mapColumnEval) InitializeCurrentValue(currentValue *[]interface{}) {}
-func (ctx *mapColumnEval) Update(currentValue *[]interface{}, input *[]interface{}) error {
+func (ctx *mapColumnEval) InitializeCurrentValue(currentValue *[]any) {}
+func (ctx *mapColumnEval) Update(currentValue *[]any, input *[]any) error {
 	if currentValue == nil || input == nil {
 		return fmt.Errorf("error mapColumnEval.update cannot have nil currentValue or input")
 	}
@@ -39,7 +39,7 @@ func (ctx *mapColumnEval) Update(currentValue *[]interface{}, input *[]interface
 	// - update currentValue using input applying cleansing function and default value
 	// - map inputV to correct rdf type if specified
 	//
-	var inputVal, outputVal interface{}
+	var inputVal, outputVal any
 	var inputV, errMsg string
 	var ok bool
 	var err error
@@ -82,11 +82,15 @@ func (ctx *mapColumnEval) Update(currentValue *[]interface{}, input *[]interface
 			log.Printf("error while casting value to rdf type (will set to null): %v", err)
 		}
 	}
+	if outputVal == nil {
+		// Don't overrite currentValue with nil
+		return nil
+	}
 	(*currentValue)[ctx.mapConfig.outputPos] = outputVal
 	return nil
 }
 
-func (ctx *mapColumnEval) Done(currentValue *[]interface{}) error {
+func (ctx *mapColumnEval) Done(currentValue *[]any) error {
 	return nil
 }
 
@@ -96,7 +100,7 @@ func (ctx *BuilderContext) BuildMapTCEvaluator(source *InputChannel, outCh *Outp
 	if spec == nil || spec.MapExpr == nil {
 		return nil, fmt.Errorf("error: Type map must have MapExpr != nil")
 	}
-	var defaultValue interface{}
+	var defaultValue any
 	var err error
 	meRdfType := spec.MapExpr.RdfType
 	meDefault := spec.MapExpr.Default
@@ -148,15 +152,15 @@ func (ctx *BuilderContext) BuildMapTCEvaluator(source *InputChannel, outCh *Outp
 			return nil, err
 		}
 	}
-
-	inputPos, ok := (*source.Columns)[*spec.Expr]
+	expr := *spec.Expr
+	inputPos, ok := (*source.Columns)[expr]
 	if !ok {
 		// Check for special jetstore properties
-		if *spec.Expr == "jets:key" {
+		if len(expr) == 0 || expr == "jets:key" {
 			// Assign to nil when column not on input
 			inputPos = -1
 		} else {
-			return nil, fmt.Errorf("mapping column: error column %s not found in input source %s", *spec.Expr, source.Name)
+			return nil, fmt.Errorf("mapping column: error column %s not found in input source %s", expr, source.Name)
 		}
 	}
 	outputPos, ok := (*outCh.Columns)[spec.Name]
@@ -174,7 +178,7 @@ func (ctx *BuilderContext) BuildMapTCEvaluator(source *InputChannel, outCh *Outp
 }
 
 // Utility function for casting to specified rdf type
-func CastToRdfType(input interface{}, rdfType string) (interface{}, error) {
+func CastToRdfType(input any, rdfType string) (any, error) {
 	if input == nil {
 		switch rdfType {
 		case "string", "text":
