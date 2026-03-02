@@ -64,6 +64,13 @@ func (ctx *MapRecordTransformationPipe) Apply(input *[]any) error {
 			*currentValues = (*currentValues)[:len(ctx.outputCh.Config.Columns)]
 		}
 	}
+	if ctx.outputCh.Config.ClassName != "" {
+		// Set rdf:type to output channel class name if it's not set by the mapping
+		typeIdx, ok := (*ctx.outputCh.Columns)["rdf:type"]
+		if ok && (*currentValues)[typeIdx] == nil {
+			(*currentValues)[typeIdx] = fmt.Sprintf(`{"%s"}`, ctx.outputCh.Config.ClassName)
+		}
+	}
 
 	var outBytes []byte
 	// Debug logging of output record

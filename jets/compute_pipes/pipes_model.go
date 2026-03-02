@@ -540,6 +540,13 @@ type ConditionalTransformationSpec struct {
 	Then TransformationSpec `json:"then"`
 }
 
+// MapRecordSpec configuration for map_record transformation
+// FileMappingTableName is the name of the file_mapping table to use for the mapping.
+// The file_mapping table specification is optional. When present, columns transformations
+// are created from the file_mapping table entries.
+// Note: When output_channel.class_name is provided, the first 3 columns of the output record
+// are `jets:key,rdf:type,jets:source_period_sequence` and if rdf:type is null after the mapping,
+// the default value specified by output_channel.class_name is used.
 type MapRecordSpec struct {
 	FileMappingTableName string `json:"file_mapping_table_name"`
 	IsDebug              bool   `json:"is_debug,omitzero"`
