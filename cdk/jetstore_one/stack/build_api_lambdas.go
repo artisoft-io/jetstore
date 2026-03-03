@@ -110,6 +110,20 @@ func (jsComp *JetStoreStackComponents) BuildApiLambdas(scope constructs.Construc
 		jsComp.ExternalKmsKey.GrantEncryptDecrypt(jsComp.ApiGatewayLambda)
 	}
 
+	//*TODO Add env var to control access to codecommit similar to resourcePolicy below
+	// Grant read access to codecommit to Lambda role
+	jsComp.ApiGatewayLambda.AddToRolePolicy(awsiam.NewPolicyStatement(&awsiam.PolicyStatementProps{
+		Effect: awsiam.Effect_ALLOW,
+		Actions: &[]*string{
+			jsii.String("codecommit:GetFile"),
+			jsii.String("codecommit:ListBranches"),
+			jsii.String("codecommit:ListRepositories"),
+		},
+		Resources: &[]*string{
+			jsii.String("arn:aws:codecommit:*:*:*"),
+		},
+	}))
+
 	roleName := os.Getenv("JETS_API_GATEWAY_EXEC_ROLE_NAME")
 	if len(roleName) == 0 {
 		log.Println("error: env JETS_API_GATEWAY_EXEC_ROLE_NAME is not set, cannot deploy api gateway")
@@ -333,13 +347,13 @@ func (jsComp *JetStoreStackComponents) BuildApiLambdas(scope constructs.Construc
 			LogGroup:       apiTestLambdaLogGroup,
 		})
 		if phiTagName != nil {
-			awscdk.Tags_Of(jsComp.ApiGatewayLambda).Add(phiTagName, jsii.String("false"), nil)
+			awscdk.Tags_Of(jsComp.ApiGatewayTestLambda).Add(phiTagName, jsii.String("false"), nil)
 		}
 		if piiTagName != nil {
-			awscdk.Tags_Of(jsComp.ApiGatewayLambda).Add(piiTagName, jsii.String("false"), nil)
+			awscdk.Tags_Of(jsComp.ApiGatewayTestLambda).Add(piiTagName, jsii.String("false"), nil)
 		}
 		if descriptionTagName != nil {
-			awscdk.Tags_Of(jsComp.ApiGatewayLambda).Add(descriptionTagName, jsii.String("JetStore test lambda for api gateway"), nil)
+			awscdk.Tags_Of(jsComp.ApiGatewayTestLambda).Add(descriptionTagName, jsii.String("JetStore test lambda for api gateway"), nil)
 		}
 	}
 
