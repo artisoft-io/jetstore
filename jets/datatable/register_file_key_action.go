@@ -317,7 +317,7 @@ func ReserveSessionId(dbpool *pgxpool.Pool) (string, error) {
 
 // Reserve a session_id by inserting a row in table jetsapi.session_reservation
 // returns the string version of baseSessionId if it successfully reserve it,
-// otherwize baseSessionId + 1 until it succeed (will make 100 attemps before giving up)
+// otherwize baseSessionId + 1 until it succeed (will make 1000 attemps before giving up)
 // baseSessionId is updated to match the returned session_id + 1
 func reserveSessionId(dbpool *pgxpool.Pool, baseSessionId *int64) (string, error) {
 	stmt := "INSERT INTO jetsapi.session_reservation (session_id) VALUES ($1)"
