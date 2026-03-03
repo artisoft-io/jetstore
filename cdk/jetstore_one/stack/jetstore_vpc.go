@@ -83,6 +83,20 @@ func LookupVpcEndpointsSecurityGroup(stack awscdk.Stack, sgId string) awsec2.ISe
 	return sg
 }
 
+func LookupApiGatewayVpcEndpoint(stack awscdk.Stack, epId string) awsec2.IInterfaceVpcEndpoint {
+	if epId == "" {
+		return nil
+	}
+	ep := awsec2.InterfaceVpcEndpoint_FromInterfaceVpcEndpointAttributes(stack, jsii.String("ImportedApiGatewayVpcEndpoint"), &awsec2.InterfaceVpcEndpointAttributes{
+		VpcEndpointId: jsii.String(epId),
+	})
+	if ep == nil {
+		log.Fatal("Failed to lookup API Gateway VPC Endpoint, please check JETS_API_GATEWAY_VPC_ENDPOINT_ID")
+	}
+	log.Printf("Resolved API Gateway VPC Endpoint '%s'\n", *ep.VpcEndpointId())
+	return ep
+}
+
 func CreateJetStoreVPC(stack awscdk.Stack) awsec2.Vpc {
 	cidr = os.Getenv("JETS_VPC_CIDR")
 	if cidr == "" {

@@ -114,7 +114,7 @@ type JetStoreStackComponents struct {
 	WebAcl            awswafv2.CfnWebACL
 	WebACLAssociation awswafv2.CfnWebACLAssociation
 
-	ApiGatewayVpcEndpoint awsec2.InterfaceVpcEndpoint
+	ApiGatewayVpcEndpoint awsec2.IInterfaceVpcEndpoint
 	JetsApi               awsapigateway.RestApi
 	JetsApiExecutionRole  awsiam.Role
 
