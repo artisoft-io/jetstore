@@ -552,6 +552,7 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 //
 // JETS_VPC_ENDPOINTS_SG_ID (optional, security group id to use for ecs tasks, required if JETS_VPC_ID is set)
 // JETS_API_GATEWAY_VPC_ENDPOINT_ID (optional, API gateway VPC endpoint id, required if JETS_VPC_ID is set)
+// JETS_API_GATEWAY_CODECOMMIT_REPO_ARN (optional, API gateway codecommit repo arn, required for lmm endpoint)
 // JETS_VPC_CIDR VPC cidr block, default 10.10.0.0/16
 // JETS_VPC_INTERNET_GATEWAY (optional, default to false), set to true to create VPC with internet gateway, if false JETS_NBR_NAT_GATEWAY is set to 0
 // JETS_DB_VERSION (optional, default to latest version supported by jetstore, expected values are 14.5, 15.10 etc. only specific versions are supported)
@@ -651,6 +652,7 @@ func main() {
 	fmt.Println("env JETS_VPC_ID:", os.Getenv("JETS_VPC_ID"))
 	fmt.Println("env JETS_VPC_ENDPOINTS_SG_ID:", os.Getenv("JETS_VPC_ENDPOINTS_SG_ID"))
 	fmt.Println("env JETS_API_GATEWAY_VPC_ENDPOINT_ID:", os.Getenv("JETS_API_GATEWAY_VPC_ENDPOINT_ID"))
+	fmt.Println("env JETS_API_GATEWAY_CODECOMMIT_REPO_ARN:", os.Getenv("JETS_API_GATEWAY_CODECOMMIT_REPO_ARN"))
 	fmt.Println("env JETS_VPC_INTERNET_GATEWAY:", os.Getenv("JETS_VPC_INTERNET_GATEWAY"))
 	fmt.Println("env NBR_SHARDS:", os.Getenv("NBR_SHARDS"))
 	fmt.Println("env JETS_PIPELINE_THROTTLING_JSON:", os.Getenv("JETS_PIPELINE_THROTTLING_JSON"))
