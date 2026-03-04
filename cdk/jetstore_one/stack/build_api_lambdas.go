@@ -115,8 +115,7 @@ func (jsComp *JetStoreStackComponents) BuildApiLambdas(scope constructs.Construc
 		jsComp.ExternalKmsKey.GrantEncryptDecrypt(jsComp.ApiGatewayLambda)
 	}
 
-	//*TODO Add env var to control access to codecommit similar to resourcePolicy below
-	// Grant read access to codecommit to Lambda role
+	// Grant read access to same account codecommit repo to Lambda role
 	codeCommitRepoArn := os.Getenv("JETS_API_GATEWAY_CODECOMMIT_REPO_ARN")
 	if len(codeCommitRepoArn) > 0 {
 		log.Println("Granting API Gateway Lambda access to CodeCommit repo:", codeCommitRepoArn)
@@ -129,6 +128,21 @@ func (jsComp *JetStoreStackComponents) BuildApiLambdas(scope constructs.Construc
 			},
 			Resources: &[]*string{
 				jsii.String(codeCommitRepoArn),
+			},
+		}))
+	}
+
+	// Grant cross account assume role permissions to Lambda execution role if env variable is set
+	assumeRoleArn := os.Getenv("JETS_API_GATEWAY_LAMBDA_ASSUME_ROLE_ARN")
+	if len(assumeRoleArn) > 0 {
+		log.Println("Granting API Gateway Lambda assume role permissions to:", assumeRoleArn)
+		jsComp.ApiGatewayLambda.AddToRolePolicy(awsiam.NewPolicyStatement(&awsiam.PolicyStatementProps{
+			Effect: awsiam.Effect_ALLOW,
+			Actions: &[]*string{
+				jsii.String("sts:AssumeRole"),
+			},
+			Resources: &[]*string{
+				jsii.String(assumeRoleArn),
 			},
 		}))
 	}
@@ -404,6 +418,11 @@ func (jsComp *JetStoreStackComponents) BuildApiLambdas(scope constructs.Construc
 	awscdk.NewCfnOutput(stack, jsii.String("ApiExecutionRoleArn"), &awscdk.CfnOutputProps{
 		Value:       jsComp.JetsApiExecutionRole.RoleArn(),
 		Description: jsii.String("API Execution Role ARN"),
+	})
+
+	awscdk.NewCfnOutput(stack, jsii.String("ApiLambdaExecutionRoleArn"), &awscdk.CfnOutputProps{
+		Value:       jsComp.ApiGatewayLambda.Role().RoleArn(),
+		Description: jsii.String("API Lambda Execution Role ARN"),
 	})
 
 }
