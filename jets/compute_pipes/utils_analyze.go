@@ -350,7 +350,8 @@ func (state *AnalyzeState) NewToken(value string) error {
 	}
 	// work on the upper case value of the token
 	value = strings.ToUpper(value)
-	if value == "NULL" || value == "NONE" {
+	switch value {
+	case "", "NULL", "NONE", "0000":
 		state.NullCount += 1
 		return nil
 	}
