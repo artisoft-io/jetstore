@@ -117,17 +117,21 @@ func (jsComp *JetStoreStackComponents) BuildApiLambdas(scope constructs.Construc
 
 	//*TODO Add env var to control access to codecommit similar to resourcePolicy below
 	// Grant read access to codecommit to Lambda role
-	jsComp.ApiGatewayLambda.AddToRolePolicy(awsiam.NewPolicyStatement(&awsiam.PolicyStatementProps{
-		Effect: awsiam.Effect_ALLOW,
-		Actions: &[]*string{
-			jsii.String("codecommit:GetFile"),
-			jsii.String("codecommit:ListBranches"),
-			jsii.String("codecommit:ListRepositories"),
-		},
-		Resources: &[]*string{
-			jsii.String("arn:aws:codecommit:*:*:*"),
-		},
-	}))
+	codeCommitRepoArn := os.Getenv("JETS_API_GATEWAY_CODECOMMIT_REPO_ARN")
+	if len(codeCommitRepoArn) > 0 {
+		log.Println("Granting API Gateway Lambda access to CodeCommit repo:", codeCommitRepoArn)
+		jsComp.ApiGatewayLambda.AddToRolePolicy(awsiam.NewPolicyStatement(&awsiam.PolicyStatementProps{
+			Effect: awsiam.Effect_ALLOW,
+			Actions: &[]*string{
+				jsii.String("codecommit:GetFile"),
+				jsii.String("codecommit:ListBranches"),
+				jsii.String("codecommit:ListRepositories"),
+			},
+			Resources: &[]*string{
+				jsii.String(codeCommitRepoArn),
+			},
+		}))
+	}
 
 	roleName := os.Getenv("JETS_API_GATEWAY_EXEC_ROLE_NAME")
 	if len(roleName) == 0 {
