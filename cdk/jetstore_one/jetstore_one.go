@@ -148,7 +148,8 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 		// Lookup the vpc endpoints security group by id to use for ecs tasks and lambdas
 		jsComp.VpcEndpointsSg = jetstorestack.LookupVpcEndpointsSecurityGroup(stack, os.Getenv("JETS_VPC_ENDPOINTS_SG_ID"))
 		// Lookup the vpc endpoint for API Gateway
-		jsComp.ApiGatewayVpcEndpoint = jetstorestack.LookupApiGatewayVpcEndpoint(stack, os.Getenv("JETS_API_GATEWAY_VPC_ENDPOINT_ID"))
+		jsComp.ApiGatewayVpcEndpoint = jetstorestack.LookupApiGatewayVpcEndpoint(stack, 
+			os.Getenv("JETS_API_GATEWAY_VPC_ENDPOINT_ID"), jsComp.VpcEndpointsSg)
 	} else {
 		// Create a new VPC
 		jsComp.Vpc = jetstorestack.CreateJetStoreVPC(stack)

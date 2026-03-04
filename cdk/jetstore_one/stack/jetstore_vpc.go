@@ -83,12 +83,14 @@ func LookupVpcEndpointsSecurityGroup(stack awscdk.Stack, sgId string) awsec2.ISe
 	return sg
 }
 
-func LookupApiGatewayVpcEndpoint(stack awscdk.Stack, epId string) awsec2.IInterfaceVpcEndpoint {
+func LookupApiGatewayVpcEndpoint(stack awscdk.Stack, epId string, sg awsec2.ISecurityGroup) awsec2.IInterfaceVpcEndpoint {
 	if epId == "" {
 		return nil
 	}
 	ep := awsec2.InterfaceVpcEndpoint_FromInterfaceVpcEndpointAttributes(stack, jsii.String("ImportedApiGatewayVpcEndpoint"), &awsec2.InterfaceVpcEndpointAttributes{
+		Port: jsii.Number(443),
 		VpcEndpointId: jsii.String(epId),
+		SecurityGroups: &[]awsec2.ISecurityGroup{sg},
 	})
 	if ep == nil {
 		log.Fatal("Failed to lookup API Gateway VPC Endpoint, please check JETS_API_GATEWAY_VPC_ENDPOINT_ID")
