@@ -27,6 +27,11 @@ func (jsComp *JetStoreStackComponents) BuildApiLambdas(scope constructs.Construc
 		return
 	}
 
+	if jsComp.ApiGatewayVpcEndpoint == nil {
+		log.Println("error: JETS_API_GATEWAY_VPC_ENDPOINT_ID must be set or created when JETS_API_GATEWAY_LAMBDA_ENTRY is set")
+		return
+	}
+
 	//Check if deploy test lambda
 	deployTestLambda := false
 	dtl := strings.ToUpper(os.Getenv("JETS_API_GATEWAY_DEPLOY_TEST_LAMBDA"))
