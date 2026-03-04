@@ -73,22 +73,24 @@ func AssertSourcePeriodInfo(re JetRuleEngine, config *JetrulesSpec, env map[stri
 	jr := re.JetResources()
 	// ${PERIOD_ID_TYPE}
 	var pt string
-	if config.CurrentSourcePeriodType == "" {
+	if config.CurrentSourcePeriod == 0 || config.CurrentSourcePeriodType == "" {
 		pt, _ = env["${PERIOD_ID_TYPE}"].(string)
 		switch pt {
-			case "${MONTH_PERIOD}", "month_period":
-				config.CurrentSourcePeriodType = "month_period"
-			case "${DAY_PERIOD}", "day_period":
-				config.CurrentSourcePeriodType = "day_period"
-			case "${HOUR_PERIOD}", "hour_period":
-				config.CurrentSourcePeriodType = "hour_period"
+		case "${MONTH_PERIOD}", "month_period":
+			config.CurrentSourcePeriodType = "month_period"
+		case "${DAY_PERIOD}", "day_period":
+			config.CurrentSourcePeriodType = "day_period"
+		case "${HOUR_PERIOD}", "hour_period":
+			config.CurrentSourcePeriodType = "hour_period"
 		}
-	}
 
-	if config.CurrentSourcePeriod == 0 {
-		sp, _ := env[pt].(string)
-		if sp != "" {
-			config.CurrentSourcePeriod, _ = strconv.Atoi(sp)
+		switch vv := env[pt].(type) {
+		case int:
+			config.CurrentSourcePeriod = vv
+		case float64:
+			config.CurrentSourcePeriod = int(vv)
+		case string:
+			config.CurrentSourcePeriod, _ = strconv.Atoi(vv)
 		}
 	}
 	err = re.Insert(jr.Jets__istate, jr.Jets__currentSourcePeriod, rm.NewIntLiteral(config.CurrentSourcePeriod))

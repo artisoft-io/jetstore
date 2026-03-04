@@ -223,17 +223,17 @@ func (ctx *JrPoolWorker) executeRules(inputRecords *[]any,
 	// Print rdf session if in debug mode
 	if isDebug {
 		log.Println("Execute Rules Completed")
-		// //************************
-		// log.Println("************************")
-		// ctor := rdfSession.Find()
-		// for !ctor.IsEnd() {
-		// 	s := ctor.GetSubject()
-		// 	p := ctor.GetPredicate()
-		// 	o := ctor.GetObject()
-		// 	log.Printf("triple: (%v, %v, %v)", s, p, o)
-		// 	ctor.Next()
-		// }
-		// log.Println("************************")
+		//************************
+		log.Println("************************")
+		ctor := rdfSession.Find()
+		for !ctor.IsEnd() {
+			s := ctor.GetSubject()
+			p := ctor.GetPredicate()
+			o := ctor.GetObject()
+			log.Printf("triple: (%v, %v, %v)", s, p, o)
+			ctor.Next()
+		}
+		log.Println("************************")
 	}
 
 	// Extract data from the rdf session based on class names
@@ -329,7 +329,7 @@ func (ctx *JrPoolWorker) extractSessionData(rdfSession JetRdfSession,
 			entityRow := make([]any, len(columns))
 			for i, p := range columns {
 				switch p {
-				case "jets:currentSourcePeriod":
+				case "jets:source_period_sequence":
 					// Set the current source period to the extracted data based on the value in the rdf session
 					data = currentSourcePeriod
 				case "rdf:type":
@@ -493,11 +493,11 @@ func assertInputRow(config *JetrulesSpec, rdfSession JetRdfSession, row *[]any, 
 		if err != nil {
 			return
 		}
-		sourcePeriodSequence = 0
+		sourcePeriodSequence = config.CurrentSourcePeriod
 	}
 	// Insert the jets:source_period_sequence property
 	err = rdfSession.Insert(subject, jr.Jets__source_period_sequence,
-		rm.NewIntLiteral(config.CurrentSourcePeriod - sourcePeriodSequence))
+		rm.NewIntLiteral(config.CurrentSourcePeriod-sourcePeriodSequence))
 	if err != nil {
 		return
 	}

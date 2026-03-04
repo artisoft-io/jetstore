@@ -1424,7 +1424,10 @@ func prepareCpipesEnv(args *StartComputePipesArgs, cpipesStartup *CpipesStartup)
 	envSettings["$PROCESS_NAME"] = cpipesStartup.ProcessName
 	envSettings["$PATH_FILE_KEY"] = fileKeyPath
 	envSettings["$NAME_FILE_KEY"] = fileKeyName
-	envSettings["$DATE_FILE_KEY"] = fileKeyDate
+	// Don't override with file key date if already set via schema provider
+	if envSettings["$DATE_FILE_KEY"] == nil {
+		envSettings["$DATE_FILE_KEY"] = fileKeyDate
+	}
 	envSettings["$FULL_INPUT_FILE_KEY"] = fmt.Sprintf("%s/%s",
 		mainSchemaProviderConfig.Bucket, mainSchemaProviderConfig.FileKey)
 
