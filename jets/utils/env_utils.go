@@ -55,15 +55,20 @@ func ParseLookbackPeriod(lookbackStr string, env map[string]any) (int, int, erro
 	l := len(lb)
 	switch l {
 	case 0:
-		return 0, 0, fmt.Errorf("error: invalid lookback_period: %s", lookbackStr)
+		// case of empty lookbackStr, return current period with lookback of 0
+		offset = 0
+		numPeriods = 0
 
 	case 1:
 		// case of lookbackStr with only one value, the first period is the current period (offset of 0)
 		// and the number of periods is the value in lookbackStr
 		offset = 0
-		numPeriods, err = strconv.Atoi(ReplaceEnvVars(lb[0], env))
-		if err != nil {
-			return 0, 0, fmt.Errorf("error: invalid num periods in lookback_period: %s", lookbackStr)
+		numPeriods = 0
+		if lb[0] != "" {
+			numPeriods, err = strconv.Atoi(ReplaceEnvVars(lb[0], env))
+			if err != nil {
+				return 0, 0, fmt.Errorf("error: invalid num periods in lookback_period: %s", lookbackStr)
+			}
 		}
 
 	case 2:

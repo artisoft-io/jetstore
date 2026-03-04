@@ -274,9 +274,11 @@ func (ctx *JrPoolWorker) extractSessionData(rdfSession JetRdfSession,
 	var data any
 	var dataArr []any
 	var isArray bool
-	var sourcePeriod int
+	var sourcePeriod, currentSourcePeriod int
 	var err error
 	isDebug := ctx.config.IsDebug
+	currentSourcePeriod = ctx.config.CurrentSourcePeriod
+
 	// Extract entity by rdf type
 	// log.Println("*** Pool Worker == Extracting entities of class", outChannel.ClassName)
 	ctor := rdfSession.FindSPO(nil, jr.Rdf__type, rm.NewResource(outChannel.ClassName))
@@ -326,10 +328,14 @@ func (ctx *JrPoolWorker) extractSessionData(rdfSession JetRdfSession,
 		if keepObj {
 			entityRow := make([]any, len(columns))
 			for i, p := range columns {
-				if p == "rdf:type" {
+				switch p {
+				case "jets:currentSourcePeriod":
+					// Set the current source period to the extracted data based on the value in the rdf session
+					data = currentSourcePeriod
+				case "rdf:type":
 					// Special handling for rdf:type, keep only the asserted rdf:type, which is the channel's class name
 					data = []any{outChannel.ClassName}
-				} else {
+				default:
 					data = nil
 					isArray = false
 					itor := rdfSession.FindSP(subject, rm.NewResource(p))
@@ -461,6 +467,8 @@ func assertInputRow(config *JetrulesSpec, rdfSession JetRdfSession, row *[]any, 
 		log.Printf("Asserting Input Record (zipped no null): %s", string(outBytes))
 	}
 
+	// sourcePeriodSequence is file value, ie. the source period of the entity when extracted.
+	// will correct below with config.CurrentSourcePeriod
 	sourcePeriodSequence, ok = (*row)[2].(int)
 	if !ok {
 		sourcePeriodSequence = -1
@@ -489,7 +497,7 @@ func assertInputRow(config *JetrulesSpec, rdfSession JetRdfSession, row *[]any, 
 	}
 	// Insert the jets:source_period_sequence property
 	err = rdfSession.Insert(subject, jr.Jets__source_period_sequence,
-		rm.NewIntLiteral(sourcePeriodSequence))
+		rm.NewIntLiteral(config.CurrentSourcePeriod - sourcePeriodSequence))
 	if err != nil {
 		return
 	}
