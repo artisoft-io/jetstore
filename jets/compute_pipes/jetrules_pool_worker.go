@@ -221,8 +221,8 @@ func (ctx *JrPoolWorker) executeRules(inputRecords *[]any,
 	}
 
 	// Print rdf session if in debug mode
-	// if isDebug {
-	// 	log.Println("Execute Rules Completed")
+	if isDebug {
+		log.Println("Execute Rules Completed")
 	// 	//************************
 	// 	log.Println("************************")
 	// 	ctor := rdfSession.Find()
@@ -234,7 +234,7 @@ func (ctx *JrPoolWorker) executeRules(inputRecords *[]any,
 	// 		ctor.Next()
 	// 	}
 	// 	log.Println("************************")
-	// }
+	}
 
 	// Extract data from the rdf session based on class names
 	for _, outChannel := range ctx.outputChannels {
