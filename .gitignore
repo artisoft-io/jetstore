@@ -150,3 +150,7 @@ jets/compute_pipes/local_test_driver/run_test.sh
 cdk/jetstore_one/lambdas/api_gateway_cgt/cgt_deid_handler.go
 cdk/jetstore_one/lambdas/api_gateway_cgt/cgt_lmm_handler.go
 cdk/jetstore_one/lambdas/api_gateway_cgt/parser
+jets/cmds/cbooter/cbooter
+jets/cmds/compile_workspace/compile_workspace
+jets/cmds/cpipes_native_server/cpipes_native_server
+jets/cmds/cpipes_server/cpipes_server

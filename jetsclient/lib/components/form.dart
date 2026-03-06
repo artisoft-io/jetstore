@@ -11,13 +11,13 @@ import 'package:jetsclient/models/form_config.dart';
 
 class JetsForm extends StatefulWidget {
   const JetsForm({
-    Key? key,
+    super.key,
     required this.formPath,
     required this.formState,
     required this.formKey,
     required this.formConfig,
     this.isDialog = false,
-  }) : super(key: key);
+  });
 
   final JetsFormState formState;
   final GlobalKey<FormState> formKey;

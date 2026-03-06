@@ -2,10 +2,10 @@ import 'package:flutter/material.dart';
 
 class JetsSpinnerOverlay extends StatefulWidget {
   const JetsSpinnerOverlay({
-    Key? key,
+    super.key,
     required this.child,
     this.delay = const Duration(milliseconds: 500),
-  }) : super(key: key);
+  });
 
   final Widget child;
   final Duration delay;

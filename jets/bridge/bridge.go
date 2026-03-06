@@ -12,7 +12,7 @@ import (
 
 // #cgo CFLAGS: -I/home/michel/projects/repos/jetstore/jets -I/usr/local/go/src/jetstore/jets -I/app/jets
 // #cgo LDFLAGS: -L/home/michel/projects/repos/jetstore/build/jets -L/usr/local/go/build/jets -L/app/jets -ljets -lsqlite3
-// #cgo LDFLAGS: -labsl_city -labsl_low_level_hash -labsl_raw_hash_set
+// #cgo LDFLAGS: -labsl_city -labsl_raw_hash_set
 // #include "rete/jets_rete_cwrapper.h"
 import "C"
 
