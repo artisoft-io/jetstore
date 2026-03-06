@@ -3,9 +3,9 @@ import 'package:jetsclient/models/form_config.dart';
 
 class JetsTextField extends StatelessWidget {
   const JetsTextField({
-    Key? key,
+    super.key,
     required this.fieldConfig,
-  }) : super(key: key);
+  });
   final TextFieldConfig fieldConfig;
 
   @override

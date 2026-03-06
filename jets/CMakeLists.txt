@@ -55,14 +55,10 @@ add_library(${C_LIBRARY_NAME}_static STATIC $<TARGET_OBJECTS:objlib>)
 
 # Linking
 target_link_libraries(${C_LIBRARY_NAME}
-  # jemalloc
-  # boost_filesystem
-  # boost_system
   gflags
   glog
   absl_hash
   absl_city
-  absl_low_level_hash
   absl_raw_hash_set
   boost_date_time
   pthread
@@ -95,7 +91,6 @@ target_link_libraries(jets_test
   glog
   absl_hash
   absl_city
-  absl_low_level_hash
   absl_raw_hash_set
   boost_date_time
   gtest
