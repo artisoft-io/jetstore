@@ -155,7 +155,23 @@ func doFileSchema(dbpool *pgxpool.Pool, context *datatable.DataTableContext, fil
 	schemaInfo := map[string]any{}
 	err = json.Unmarshal(buf, &schemaInfo)
 	if err != nil {
-		return fmt.Errorf("while unmarshalling schema info from json in RegisterFileKeyV2 lambda: %v", err)
+		// check to see if we have a slice of events instead of a single event
+		var schemaInfoSlice []map[string]any
+		err2 := json.Unmarshal(buf, &schemaInfoSlice)
+		if err2 != nil {
+			return fmt.Errorf("while unmarshalling schema info from json in RegisterFileKeyV2 lambda: %v", err)
+		}
+		if len(schemaInfoSlice) == 0 {
+			return fmt.Errorf("while unmarshalling schema info from json in RegisterFileKeyV2 lambda: got empty slice")
+		}
+		// process each event in the slice
+		for _, schemaInfo := range schemaInfoSlice {
+			err = context.RegisterSchemaEvent(dbpool, schemaInfo, token)
+			if err != nil {
+				return fmt.Errorf("while processing schema event from json in RegisterFileKeyV2 lambda: %v", err)
+			}
+		}
+		return nil
 	}
 
 	return context.RegisterSchemaEvent(dbpool, schemaInfo, token)
