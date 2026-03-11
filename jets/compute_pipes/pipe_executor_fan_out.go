@@ -66,10 +66,12 @@ func (ctx *BuilderContext) StartFanOutPipe(spec *PipeSpec, source *InputChannel,
 	// fmt.Println("**!@@ start fan_out loop on source:", source.name)
 	for inRow := range source.Channel {
 		for i := range spec.Apply {
-			err = evaluators[i].Apply(&inRow)
-			if err != nil {
-				cpErr = fmt.Errorf("while calling Apply on PipeTransformationEvaluator (in fan_out): %v", err)
-				goto gotError
+			if evaluators[i] != nil {
+				err = evaluators[i].Apply(&inRow)
+				if err != nil {
+					cpErr = fmt.Errorf("while calling Apply on PipeTransformationEvaluator (in fan_out): %v", err)
+					goto gotError
+				}
 			}
 		}
 	}

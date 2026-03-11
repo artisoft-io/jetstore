@@ -7,6 +7,7 @@ import (
 	"log"
 	"math/rand"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 
@@ -258,12 +259,15 @@ func (ctx *BuilderContext) NewHashEvaluator(source *InputChannel,
 		}
 	}
 
-	var partitions uint64
+	var partitions int
 	if !spec.NoPartitions {
 		if spec.NbrJetsPartitionsAny != nil {
-			partitions = spec.NbrJetsPartitions()
+			partitions = toInt(spec.NbrJetsPartitionsAny)
 		} else {
-			partitions = uint64(ctx.cpConfig.ClusterConfig.NbrPartitions(spec.MultiStepShardingMode))
+			partitions = ctx.cpConfig.ClusterConfig.NbrPartitions(spec.MultiStepShardingMode)
+			if spec.MaxNbrJetsPartitionsAny != nil {
+				partitions = min(partitions, toInt(spec.MaxNbrJetsPartitionsAny))
+			}
 		}
 	}
 	var altInputKey []PreprocessingFunction
@@ -281,13 +285,35 @@ func (ctx *BuilderContext) NewHashEvaluator(source *InputChannel,
 	return &HashEvaluator{
 		inputPos:          inputPos,
 		compositeInputKey: compositeInputKey,
-		partitions:        partitions,
+		partitions:        uint64(partitions),
 		altInputKey:       altInputKey,
 		computeDomainKey:  spec.ComputeDomainKey,
 		hashingAlgo:       hashingEnum,
 		delimit:           DomainKeyDelimit,
 		// debugCount: debugCount,
 	}, nil
+}
+
+func  toInt(value any) int {
+	switch v := value.(type) {
+	case uint64:
+		return int(v)
+	case int:
+		return v
+	case int64:
+		return int(v)
+	case float64:
+		return int(v)
+	case string:
+		n, err := strconv.Atoi(v)
+		if err != nil {
+			log.Printf("Warning: Invalid nbr partitions value '%s', defaulting to 0", v)
+			return 0
+		}
+		return n
+	default:
+		return 0
+	}
 }
 
 func Hash(key []byte, partitions uint64) uint64 {

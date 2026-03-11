@@ -2,9 +2,7 @@ package compute_pipes
 
 import (
 	"fmt"
-	"log"
 	"regexp"
-	"strconv"
 	"strings"
 )
 
@@ -528,6 +526,7 @@ type TransformationSpec struct {
 	MergeConfig           *MergeSpec                       `json:"merge_config,omitzero"`
 	OutputChannel         OutputChannelConfig              `json:"output_channel"`
 	ConditionalConfig     []*ConditionalTransformationSpec `json:"conditional_config,omitzero"`
+	When                  *ExpressionNode                  `json:"when,omitzero"`
 }
 
 // This type is to provide conditional TransformationSpec
@@ -1043,17 +1042,21 @@ type LookupColumnSpec struct {
 // AlternateCompositeExpr is used when Expr or CompositeExpr returns nil or empty.
 // MultiStepShardingMode values: 'limited_range', 'full_range' or empty.
 // NoPartitions indicated not to assign the hash to a partition (no modulo operation).
+// NbrJetsPartitions is the number of partitions to use for the hash operator when NoPartitions is false.
+// MaxNbrJetsPartitions use the minimum between the cluster nbr of partitions and this setting provided the NoPartitions is false.
+// NbrJetsPartitions takes precedence over MaxNbrJetsPartitions when both are provided.
 // ComputeDomainKey flag indicate to compute the domain key rather than a simple hash.
 // This consider the hashing algo used and delimitor between the key components.
 type HashExpression struct {
-	Expr                   string   `json:"expr,omitempty"`
-	CompositeExpr          []string `json:"composite_expr,omitempty"`
-	DomainKey              string   `json:"domain_key,omitempty"`
-	NbrJetsPartitionsAny   any      `json:"nbr_jets_partitions,omitzero"`
-	MultiStepShardingMode  string   `json:"multi_step_sharding_mode,omitempty"`
-	AlternateCompositeExpr []string `json:"alternate_composite_expr,omitempty"`
-	NoPartitions           bool     `json:"no_partitions,omitzero"`
-	ComputeDomainKey       bool     `json:"compute_domain_key,omitzero"`
+	Expr                    string   `json:"expr,omitempty"`
+	CompositeExpr           []string `json:"composite_expr,omitempty"`
+	DomainKey               string   `json:"domain_key,omitempty"`
+	NbrJetsPartitionsAny    any      `json:"nbr_jets_partitions,omitzero"`
+	MaxNbrJetsPartitionsAny any      `json:"max_nbr_jets_partitions,omitzero"`
+	MultiStepShardingMode   string   `json:"multi_step_sharding_mode,omitempty"`
+	AlternateCompositeExpr  []string `json:"alternate_composite_expr,omitempty"`
+	NoPartitions            bool     `json:"no_partitions,omitzero"`
+	ComputeDomainKey        bool     `json:"compute_domain_key,omitzero"`
 }
 
 func (h *HashExpression) String() string {
@@ -1082,28 +1085,6 @@ func (h *HashExpression) String() string {
 	}
 	b.WriteString(")")
 	return b.String()
-}
-
-func (h *HashExpression) NbrJetsPartitions() uint64 {
-	switch v := h.NbrJetsPartitionsAny.(type) {
-	case uint64:
-		return v
-	case int:
-		return uint64(v)
-	case int64:
-		return uint64(v)
-	case float64:
-		return uint64(v)
-	case string:
-		n, err := strconv.ParseUint(v, 10, 64)
-		if err != nil {
-			log.Printf("Warning: Invalid nbr_jets_partitions value '%s', defaulting to 0", v)
-			return 0
-		}
-		return n
-	default:
-		return 0
-	}
 }
 
 type MapExpression struct {

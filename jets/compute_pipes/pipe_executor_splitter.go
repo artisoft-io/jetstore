@@ -107,7 +107,7 @@ func (ctx *BuilderContext) StartSplitterPipe(spec *PipeSpec, source *InputChanne
 	} else {
 		spliterColumnIdx = -1
 	}
-	if len(config.DefaultSplitterValue) > 0 {		
+	if len(config.DefaultSplitterValue) > 0 {
 		config.DefaultSplitterValue = utils.ReplaceEnvVars(config.DefaultSplitterValue, ctx.env)
 		mapSize = 1
 		splitOnDefault = true
@@ -174,9 +174,9 @@ func (ctx *BuilderContext) StartSplitterPipe(spec *PipeSpec, source *InputChanne
 			}
 			wg.Add(1)
 			go ctx.startSplitterChannelHandler(spec, &InputChannel{
-				Channel: splitCh.data,
-				Columns: source.Columns,
-				DomainKeySpec: source.DomainKeySpec,
+				Channel:        splitCh.data,
+				Columns:        source.Columns,
+				DomainKeySpec:  source.DomainKeySpec,
 				HasGroupedRows: source.HasGroupedRows,
 				Config: &ChannelSpec{
 					Name:      fmt.Sprintf("splitter channel from %s", source.Name),
@@ -278,10 +278,12 @@ func (ctx *BuilderContext) startSplitterChannelHandler(spec *PipeSpec, source *I
 	for inRow := range source.Channel {
 		// fmt.Println("**!@@ SPLITTER *1 startSplitterChannelHandler ~ Processing row:", inRow)
 		for i := range evaluators {
-			err = evaluators[i].Apply(&inRow)
-			if err != nil {
-				cpErr = fmt.Errorf("while calling Apply on PipeTransformationEvaluator (in startSplitterChannelHandler): %v", err)
-				goto gotError
+			if evaluators[i] != nil {
+				err = evaluators[i].Apply(&inRow)
+				if err != nil {
+					cpErr = fmt.Errorf("while calling Apply on PipeTransformationEvaluator (in startSplitterChannelHandler): %v", err)
+					goto gotError
+				}
 			}
 		}
 	}

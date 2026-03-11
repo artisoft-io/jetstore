@@ -232,7 +232,13 @@ func (ctx *BuilderContext) BuildComputeGraph() error {
 
 // Build the PipeTransformationEvaluator: one of map_record, aggregate, or partition_writer
 // The partitionResultCh argument is used only by partition_writer to return the number of rows written and
-// the error that might occur
+// the error that might occur.
+// The jetsPartitionKey argument is used only by partition_writer
+// to know which partition it is writing (eg for logging purposes).
+// The source argument is used by all transformations but the columns and domain key spec of
+// the source are used only by some transformations (eg group_by, aggregate).
+// The returned PipeTransformationEvaluator may be nil if the spec contains a `when` condition
+// that is not verified at the moment of the call, in that case the caller should not call Apply on it.
 func (ctx *BuilderContext) BuildPipeTransformationEvaluator(source *InputChannel, jetsPartitionKey any,
 	partitionResultCh chan ComputePipesResult, spec *TransformationSpec) (PipeTransformationEvaluator, error) {
 
@@ -251,6 +257,25 @@ func (ctx *BuilderContext) BuildPipeTransformationEvaluator(source *InputChannel
 			return nil, err
 		}
 	}
+
+	// Check for the when condition, if not verified return a nil evaluator
+	if spec.When != nil {
+		builderContext := ExprBuilderContext(ctx.env)
+
+		evaluator, err := builderContext.BuildExprNodeEvaluator("conditional_apply", nil, spec.When)
+		if err != nil {
+			return nil, err
+		}
+		v, err := evaluator.Eval(ctx.env)
+		if err != nil {
+			return nil, err
+		}
+		if !ToBool(v) {
+			return nil, nil
+		}
+	}
+
+	// Build the transformation evaluator based on the type
 	switch spec.Type {
 	case "map_record":
 		return ctx.NewMapRecordTransformationPipe(source, outCh, spec)
