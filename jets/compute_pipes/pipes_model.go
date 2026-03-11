@@ -744,12 +744,14 @@ type FunctionTokenNode struct {
 	LargeDouble     *float64       `json:"large_double,omitzero"`
 }
 
+// ParseDateSpec configuration for parse_date function token
 // DateFormatToken: output column name for listing up to 3 formats used in file.
 // OtherDateFormatToken: output column name to put the count of other format used in file.
 // DateSamplingMaxCount: nbr of samples to use for determining the date format.
 // DateFormats: list of date formats to use for parsing the date.
 // OtherDateFormats: list of other date formats to use for parsing the date
 // when DateFormatToken does not match (which are undesirable formats).
+// NullDates: list of date values to consider as null.
 // MinMaxDateFormat: format used in output report for min/max dates.
 // ParseDateArguments: list of parse date function token spec.
 // UseJetstoreParser: when true it will use only the jetstore date parser.
@@ -760,6 +762,7 @@ type ParseDateSpec struct {
 	DateFormatToken      string            `json:"date_format_token,omitempty"`
 	OtherDateFormatToken string            `json:"other_date_format_token,omitempty"`
 	DateSamplingMaxCount int               `json:"sampling_max_count,omitzero"`
+	NullDates            []string          `json:"null_dates,omitempty"`
 	DateFormats          []string          `json:"date_formats,omitempty"`
 	OtherDateFormats     []string          `json:"other_date_formats,omitempty"`
 	MinMaxDateFormat     string            `json:"minmax_date_format,omitempty"`

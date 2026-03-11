@@ -20,6 +20,7 @@ import (
 // ParseDateMatchFunction implements FunctionCount interface
 type ParseDateMatchFunction struct {
 	parseDateConfig  *ParseDateSpec
+	nullDates        []time.Time
 	nbrSamplesSeen   int
 	formatMatch      map[string]int
 	otherFormatMatch map[string]int
@@ -99,18 +100,18 @@ func DoesQualifyAsDate(value string) bool {
 }
 
 // ParseDateMatchFunction implements FunctionCount interface
-func (p *ParseDateMatchFunction) NewValue(value string) {
+func (p *ParseDateMatchFunction) NewValue(value string) bool {
 	// fmt.Printf("*** ParseDate NewValue: %s\n", value)
 	if p.parseDateConfig.DateSamplingMaxCount > 0 &&
 		p.nbrSamplesSeen >= p.parseDateConfig.DateSamplingMaxCount {
 		// do nothing
 		// fmt.Printf("*** Max samples reached @ %d samples, new value: %s\n", p.nbrSamplesSeen, value)
-		return
+		return false
 	}
 	p.nbrSamplesSeen++
 	if !DoesQualifyAsDate(value) {
 		// fmt.Printf("*** ParseDate: %s does not qualify as a date\n", value)
-		return
+		return false
 	}
 	var tm, otm time.Time
 	var dateFmt string
@@ -131,7 +132,7 @@ func (p *ParseDateMatchFunction) NewValue(value string) {
 			p.otherFormatMatch[dateFmt] += 1
 			// fmt.Printf("*** Got otm from cache w/ fmt: %s for value %s\n", dateFmt, value)
 		}
-		return
+		return false
 
 	case p.parseDateConfig.UseJetstoreParser:
 		// Use jetstore date parser
@@ -140,7 +141,7 @@ func (p *ParseDateMatchFunction) NewValue(value string) {
 			tm = *d
 		}
 		if tm.IsZero() {
-			return
+			return false
 		}
 		// fmt.Printf("*** Got tm match w/ jetstore date parser\n")
 		p.seenCache[value] = &pdCache{tm: tm}
@@ -167,7 +168,15 @@ func (p *ParseDateMatchFunction) NewValue(value string) {
 
 parse_date_arguments:
 	if tm.IsZero() {
-		return
+		// It's not a date
+		return false
+	}
+
+	// Check if the date is in null dates list
+	if slices.ContainsFunc(p.nullDates, tm.Equal) {
+		// fmt.Printf("*** Date %v is in null dates list\n", tm)
+		p.nbrSamplesSeen-- // do not count null dates in samples seen
+		return true
 	}
 	// fmt.Printf("*** Got to parse_date_arguments ***\n")
 
@@ -187,6 +196,7 @@ parse_date_arguments:
 			// fmt.Printf("*** Got CheckYearRange on token: %s\n", args.Token)
 		}
 	}
+	return false
 }
 
 func (p *ParseDateMatchFunction) GetMinMaxValues() *MinMaxValue {
@@ -395,11 +405,19 @@ func NewParseDateMatchFunction(fspec *FunctionTokenNode, sp SchemaProvider) (*Pa
 	for _, args := range parseDateConfig.ParseDateArguments {
 		tokenMatches[args.Token] = 0
 	}
+	// Convert null date values to time.Time for comparison
+	var nullDates []time.Time
+	for _, nd := range parseDateConfig.NullDates {
+		if t, err := time.Parse(format, nd); err == nil {
+			nullDates = append(nullDates, t)
+		}
+	}
 	return &ParseDateMatchFunction{
 		parseDateConfig:  parseDateConfig,
 		minMaxDateFormat: format,
 		minMax:           &minMaxDateValue{},
 		tokenMatches:     tokenMatches,
+		nullDates:        nullDates,
 		formatMatch:      make(map[string]int),
 		otherFormatMatch: make(map[string]int),
 		seenCache:        make(map[string]*pdCache),

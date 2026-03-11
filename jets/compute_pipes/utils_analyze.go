@@ -361,6 +361,16 @@ func (state *AnalyzeState) NewToken(value string) error {
 			return nil
 		}
 	}
+	
+	// Check if it's a date, in particular a null date
+	if state.ParseDate != nil {
+		isNullDate := state.ParseDate.NewValue(value)
+		if isNullDate {
+			state.NullCount += 1
+			return nil
+		}
+	}
+
 	// Remove leading 0 when there is 4 or more of them
 	if strings.HasPrefix(value, "0000") {
 		value = strings.TrimLeft(value, "0")
@@ -432,9 +442,6 @@ func (state *AnalyzeState) NewToken(value string) error {
 	}
 
 	// Function matches
-	if state.ParseDate != nil {
-		state.ParseDate.NewValue(value)
-	}
 	if state.ParseDouble != nil {
 		state.ParseDouble.NewValue(value)
 	}
