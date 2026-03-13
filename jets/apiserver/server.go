@@ -251,18 +251,21 @@ func (server *Server) checkWorkspaceVersion() error {
 	case err != nil:
 		if errors.Is(err, pgx.ErrNoRows) {
 			log.Println("Workspace version is not defined (no rows returned) in workspace_version table, setting it to JetStore version")
+			compilationRequired = true
 		} else {
 			return fmt.Errorf("while reading workspace version from workspace_version table: %v", err)
 		}
 
 	case !version.Valid:
 		log.Println("Workspace version is not defined (null version) in workspace_version table, setting it to JetStore version")
+		compilationRequired = true
 
 	case jetstoreVersion > version.String:
 		// Download overriten workspace files from database if any, skipping sqlite and tgz files since we will recompile workspace or take
 		// it from local repo.
 		if compilationRequired, err = workspace.SyncWorkspaceFiles(server.dbpool, workspaceName, "", true, true); err != nil {
 			log.Println("Error (ignored) while synching workspace file from database:", err)
+			compilationRequired = true
 		}
 		log.Println("Workspace deployed version (in database) is", version.String, "compilation required?", compilationRequired)
 
