@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"log"
-	"strings"
 
 	"github.com/artisoft-io/jetstore/jets/datatable/jcsv"
 	"github.com/artisoft-io/jetstore/jets/utils"
@@ -20,9 +19,10 @@ type JetrulesTransformationPipe struct {
 	source         *InputChannel
 	ruleEngine     JetRuleEngine
 	jrPoolManager  *JrPoolManager
+	errorOutputCh  *OutputChannel
 	outputChannels []*JetrulesOutputChan
 	spec           *TransformationSpec
-	env            map[string]interface{}
+	env            map[string]any
 	doneCh         chan struct{}
 }
 
@@ -35,7 +35,7 @@ type JetrulesOutputChan struct {
 // Implementing interface PipeTransformationEvaluator
 // Each call to Apply, the input correspond to a rdf session on which to Apply the jetrules
 // see jetrules_pool_worker.go for worker implementation
-func (ctx *JetrulesTransformationPipe) Apply(input *[]interface{}) error {
+func (ctx *JetrulesTransformationPipe) Apply(input *[]any) error {
 	if input == nil {
 		return fmt.Errorf("error: unexpected null input arg in JetrulesTransformationPipe")
 	}
@@ -59,6 +59,11 @@ func (ctx *JetrulesTransformationPipe) Finally() {
 	// This is to avoid to close the output channel too early since the pool workers
 	// are writing to the output channel async
 	ctx.jrPoolManager.WaitForDone.Wait()
+	// log.Println("JetrulesTransformationPipe.Finally done")
+	// Close the error channel if exists
+	if ctx.errorOutputCh != nil {
+		close(ctx.errorOutputCh.Channel)
+	}
 }
 
 func (ctx *BuilderContext) NewJetrulesTransformationPipe(source *InputChannel, _ *OutputChannel, spec *TransformationSpec) (
@@ -203,18 +208,27 @@ func (ctx *BuilderContext) NewJetrulesTransformationPipe(source *InputChannel, _
 		return nil, fmt.Errorf("while AssertMetadataSource: %v", err)
 	}
 
-	// Print rdf session if in debug mode
-	if config.IsDebug {
-		log.Println("METADATA GRAPH")
-		triples := ruleEngine.GetMetaGraphTriples()
-		log.Println(strings.Join(triples, "\n"))
+	// Get the error channel if configured
+	var errorOutputCh *OutputChannel
+	if config.ErrorChannel != nil {
+		if len(config.ErrorChannel.Name) == 0 {
+			return nil, fmt.Errorf("error: error_channel name cannot be empty")
+		}
+		if len(config.ErrorChannel.SpecName) == 0 {
+			return nil, fmt.Errorf("error: error_channel spec name cannot be empty")
+		}
+		errorOutputCh, err = ctx.channelRegistry.GetOutputChannel(config.ErrorChannel.Name)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	// Setup a worker pool
 	var jrPoolManager *JrPoolManager
 	workerResultCh := make(chan JetrulesWorkerResult, 10)
 	ctx.chResults.JetrulesWorkerResultCh <- workerResultCh
-	jrPoolManager, err = ctx.NewJrPoolManager(config, source, rdfType2Columns, ruleEngine, jetrulesOutputChan, workerResultCh)
+	jrPoolManager, err = ctx.NewJrPoolManager(config, source, rdfType2Columns, ruleEngine,
+		errorOutputCh, jetrulesOutputChan, workerResultCh)
 	if err != nil {
 		return nil, err
 	}
@@ -223,6 +237,7 @@ func (ctx *BuilderContext) NewJetrulesTransformationPipe(source *InputChannel, _
 		source:         source,
 		ruleEngine:     ruleEngine,
 		jrPoolManager:  jrPoolManager,
+		errorOutputCh:  errorOutputCh,
 		outputChannels: jetrulesOutputChan,
 		spec:           spec,
 		env:            ctx.env,

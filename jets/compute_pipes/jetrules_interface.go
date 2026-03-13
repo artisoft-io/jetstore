@@ -66,6 +66,7 @@ type JetRdfSession interface {
 	Find() TripleIterator
 
 	NewReteSession(ruleset string) (JetReteSession, error)
+	EncodeRdfSession() string
 	Release() error
 }
 

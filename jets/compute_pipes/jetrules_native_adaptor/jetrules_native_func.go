@@ -1,8 +1,10 @@
 package jetrules_native_adaptor
 
 import (
+	"encoding/json"
 	"fmt"
 	"log"
+	"sort"
 	"time"
 
 	"github.com/artisoft-io/jetstore/jets/bridge"
@@ -411,6 +413,142 @@ func (ses *JetRdfSessionNative) Find() compute_pipes.TripleIterator {
 	return NewTripleIteratorNative(itor, null)
 }
 
+func (ses *JetRdfSessionNative) EncodeRdfSession() string {
+	if ses.rdfSession == nil {
+		return ""
+	}
+	
+	enc, err := ses.encodeSession()
+	if err != nil {
+		enc = map[string]any{"error": err.Error()}
+	}
+	r, _ := json.Marshal(enc)
+	return string(r)
+}
+
+// Returns map[string]any which is
+//    {
+//      "rdf_types": string (json of [][]string),
+// 	    "entity_key_by_type": map[string]string (json of [][]string),
+//      "entity_details_by_key": map[string]string (json of [][]string),
+//    }
+// rdf_type: JetModel ([][]string): List of rdf:type, single column model
+// entity_key_by_type: Map[rdf:type]JetModel: JetModel is list of jet:key, single column model
+// entity_details_by_key: Map[jets:key]EncodedJetModel, 
+// where EncodedJetModel is encoded json of JetModel ([][]string): List of ["property", "value", "value.type"] of obj w/ jets:key, 2 columns JetModel
+// If there is an error, it returns a map with only one key "error" and the error message as value.
+func (ses *JetRdfSessionNative) encodeSession() (map[string]any, error) {
+	if ses.rdfSession == nil {
+		return nil, fmt.Errorf("EncodeRdfSession (native): error rdfSession cannot be nil")
+	}
+
+	// Set of rdf:type
+	rdfTypeSet := make(map[string]bool)
+
+	// Set of entity
+	entitySet := make(map[string]*bridge.Resource)
+
+	// Map of rdf:key by rdf:type: map[rdf:type][]rdf:key
+	entityKeyByType := make(map[string]*[][]string)
+
+	ri := ses.re.JetResources()
+	// Create the rdf_type (rdfTypeSet) and entity_key_by_type (entityKeyByType) data structures
+	ctor, err := ses.rdfSession.Find(nil, ri.Rdf__type.Hdle().(*RdfNodeNative).node, nil)
+	if err != nil {
+		return nil, fmt.Errorf("while calling Find(nil, ri.rdf__type, nil) on rdfSession: %v", err)
+	} 
+	for !ctor.IsEnd() {
+		entity := ctor.GetSubject()
+		entityName,_ := entity.AsText()
+
+		rdfType,_ := ctor.GetObject().AsText()
+		rdfTypeSet[rdfType] = true
+		entitySet[entityName] = entity
+		entities := entityKeyByType[rdfType]
+		if entities == nil {
+			entities = &[][]string{}
+			entityKeyByType[rdfType] = entities
+		}
+		*entities = append(*entities, []string{entityName})
+		ctor.Next()
+	}
+	ctor.ReleaseIterator()
+
+	// Now create the entity_details_by_key: Map[jets:key]*[][]string
+	entityDetailsByKey := make(map[string]*[][]string)
+	for entityKey, entity := range entitySet {
+		ctor, err := ses.rdfSession.Find_s(entity)
+		if err != nil {
+			return nil, fmt.Errorf("while calling Find_s(entity) on rdfSession: %v", err)
+		} 
+		for !ctor.IsEnd() {
+			propertyName,_ := ctor.GetPredicate().AsText()
+			value := ctor.GetObject()
+			valueType := value.GetTypeName()
+			model := entityDetailsByKey[entityKey]
+			if model == nil {
+				model = &[][]string{}
+				entityDetailsByKey[entityKey] = model
+			}
+			*model = append(*model, []string{propertyName, value.AsTextSilent(), valueType})
+			ctor.Next()
+		}
+		ctor.ReleaseIterator()	
+	}
+
+	// Put all the results in the output map
+	results := make(map[string]any)
+	
+	// Package rdfTypeSet
+	rdfTypesResult := make([][]string, 0)
+	for rdfType := range rdfTypeSet {
+		rdfTypesResult = append(rdfTypesResult, []string{rdfType})
+	}
+	sort.Slice(rdfTypesResult, func(i, j int) bool { 
+		return rdfTypesResult[i][0] < rdfTypesResult[j][0]
+	})
+	r, err := json.Marshal(rdfTypesResult)
+	if err != nil {
+		return nil, err
+	}
+	results["rdf_types"] = string(r)
+
+	// Package entityKeyByType
+	entityKeyByTypeResult := make(map[string]string)
+	for rdfType, keys := range entityKeyByType {
+		sort.Slice(*keys, func(i, j int) bool { 
+			return (*keys)[i][0] < (*keys)[j][0]
+		})
+		r, err := json.Marshal(*keys)
+		if err != nil {
+			return nil, err
+		}
+		entityKeyByTypeResult[rdfType] = string(r)
+	} 
+	results["entity_key_by_type"] = entityKeyByTypeResult
+
+	// Package entityDetailsByKey
+	entityDetailsByKeyResult := make(map[string]string)
+	for key, details := range entityDetailsByKey {
+		sort.Slice(*details, func(i, j int) bool { 
+			if (*details)[i][0] == (*details)[j][0] {
+				if (*details)[i][1] == (*details)[j][1] {
+					return (*details)[i][2] < (*details)[j][2]
+				}
+				return (*details)[i][1] < (*details)[j][1]	
+			}
+			return (*details)[i][0] < (*details)[j][0]
+		})
+		r, err := json.Marshal(*details)
+		if err != nil {
+			return nil, err
+		}
+		entityDetailsByKeyResult[key] = string(r)
+	} 
+	results["entity_details_by_key"] = entityDetailsByKeyResult
+	return results, nil
+}
+
 func (ses *JetRdfSessionNative) Release() error {
 	if ses.rdfSession != nil {
 		ses.rdfSession.ReleaseRDFSession()
@@ -425,14 +563,13 @@ func (ses *JetRdfSessionNative) Release() error {
 func (ses *JetReteSessionNative) ExecuteRules() error {
 
 	if ses.rdfSessionHdl.re.isDebug {
-		log.Printf("%p Calling ExecuteRules, inserted %d triples :: %s", ses,
-			ses.rdfSessionHdl.insertCounter, ses.ruleset)
+		log.Printf("Calling ExecuteRules, inserted %d triples :: %s", ses.rdfSessionHdl.insertCounter, ses.ruleset)
 	}
 	msg, err := ses.reteSession.ExecuteRules()
 	if err != nil {
 		ses.executeErrorCounter++
 		err = fmt.Errorf("%s: %v", msg, err)
-		log.Printf("%p Error in ExecuteRules: %v", ses, err)
+		log.Printf("Error in ExecuteRules: %v", err)
 		return err
 	}
 	ses.executeCounter++

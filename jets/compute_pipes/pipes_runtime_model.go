@@ -125,6 +125,7 @@ type OutputChannel struct {
 
 type BuilderContext struct {
 	dbpool             *pgxpool.Pool
+	peKey              int
 	sessionId          string
 	jetsPartition      string
 	cpConfig           *ComputePipesConfig

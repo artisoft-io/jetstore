@@ -206,9 +206,22 @@ func (cpCtx *ComputePipesContext) StartComputePipes(dbpool *pgxpool.Pool,
 				}
 			case "jetrules":
 				// Jetrules config overrides the outputChannel
-				for k := range cpCtx.CpConfig.PipesConfig[i].Apply[j].JetrulesConfig.OutputChannels {
-					outputChannel := &cpCtx.CpConfig.PipesConfig[i].Apply[j].JetrulesConfig.OutputChannels[k]
+				jetruleConfig := cpCtx.CpConfig.PipesConfig[i].Apply[j].JetrulesConfig
+				if jetruleConfig == nil {
+					cpErr = fmt.Errorf("error: jetrules_config is required for transformation of type jetrules in PipesConfig")
+					goto gotError
+				}
+				if len(jetruleConfig.OutputChannels) == 0 {
+					cpErr = fmt.Errorf("error: at least one output channel is required in jetrules_config for transformation of type jetrules in PipesConfig")
+					goto gotError
+				}
+				for k := range jetruleConfig.OutputChannels {
+					outputChannel := &jetruleConfig.OutputChannels[k]
 					outputChannels = append(outputChannels, outputChannel)
+				}
+				// Add the error output channel if specified
+				if jetruleConfig.ErrorChannel != nil {
+					outputChannels = append(outputChannels, jetruleConfig.ErrorChannel)
 				}
 			case "clustering":
 				outputChannel := &cpCtx.CpConfig.PipesConfig[i].Apply[j].OutputChannel
@@ -339,6 +352,7 @@ func (cpCtx *ComputePipesContext) StartComputePipes(dbpool *pgxpool.Pool,
 
 	ctx = &BuilderContext{
 		dbpool:             dbpool,
+		peKey:							cpCtx.PipelineExecKey,
 		sessionId:          cpCtx.SessionId,
 		jetsPartition:      cpCtx.JetsPartitionLabel,
 		cpConfig:           cpCtx.CpConfig,

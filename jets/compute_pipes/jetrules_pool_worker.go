@@ -1,6 +1,7 @@
 package compute_pipes
 
 import (
+	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -18,36 +19,57 @@ import (
 // Worker to perform jetrules execute rules function
 
 type JrPoolWorker struct {
-	config          *JetrulesSpec
-	source          *InputChannel
-	rdfType2Columns map[string][]string
-	ruleEngine      JetRuleEngine
-	outputChannels  []*JetrulesOutputChan
-	done            chan struct{}
-	errCh           chan error
+	config               *JetrulesSpec
+	source               *InputChannel
+	rdfType2Columns      map[string][]string
+	multiValueProperties map[string]bool
+	ruleEngine           JetRuleEngine
+	errorCount           int
+	nbrReteSessionsSaved int
+	errorOutputCh        *OutputChannel
+	outputChannels       []*JetrulesOutputChan
+	done                 chan struct{}
+	errCh                chan error
+	builderContext       *BuilderContext
 }
 
-func NewJrPoolWorker(config *JetrulesSpec, source *InputChannel, rdfType2Columns map[string][]string,
-	re JetRuleEngine, outputChannels []*JetrulesOutputChan,
+func (ctx *BuilderContext) NewJrPoolWorker(config *JetrulesSpec, source *InputChannel, rdfType2Columns map[string][]string,
+	re JetRuleEngine, errorOutputCh *OutputChannel, outputChannels []*JetrulesOutputChan,
 	done chan struct{}, errCh chan error) *JrPoolWorker {
+
+	// Prepare a map of the multi-value properties for the output channels, to ensure proper cardinality.
+	mvProperties := make(map[string]bool)
+	for _, outChannel := range outputChannels {
+		pm, err := GetMultiValueProperties(outChannel.ClassName)
+		if err != nil {
+			log.Println("Error getting multi-value properties for class", outChannel.ClassName, ":", err)
+			continue
+		}
+		for _, prop := range pm {
+			mvProperties[prop] = true
+		}
+	}
+
 	// log.Println("New Pool Worker Created")
 	return &JrPoolWorker{
-		config:          config,
-		source:          source,
-		ruleEngine:      re,
-		outputChannels:  outputChannels,
-		done:            done,
-		errCh:           errCh,
-		rdfType2Columns: rdfType2Columns,
+		config:               config,
+		source:               source,
+		ruleEngine:           re,
+		errorOutputCh:        errorOutputCh,
+		outputChannels:       outputChannels,
+		done:                 done,
+		errCh:                errCh,
+		rdfType2Columns:      rdfType2Columns,
+		multiValueProperties: mvProperties,
+		builderContext:       ctx,
 	}
 }
 
 func (ctx *JrPoolWorker) DoWork(mgr *JrPoolManager, resultCh chan JetrulesWorkerResult) {
 	var count int64
-	var errCount int64
 	var err error
 	for task := range mgr.WorkersTaskCh {
-		errCount, err = ctx.executeRules(&task, resultCh)
+		err = ctx.executeRules(&task, resultCh)
 		if err != nil {
 			return
 		}
@@ -56,7 +78,7 @@ func (ctx *JrPoolWorker) DoWork(mgr *JrPoolManager, resultCh chan JetrulesWorker
 	select {
 	case resultCh <- JetrulesWorkerResult{
 		ReteSessionCount: count,
-		ErrorsCount:      errCount,
+		ErrorsCount:      int64(ctx.errorCount),
 	}:
 	case <-ctx.done:
 		log.Println("jetrules pool worker interrupted")
@@ -64,13 +86,13 @@ func (ctx *JrPoolWorker) DoWork(mgr *JrPoolManager, resultCh chan JetrulesWorker
 }
 
 // Perform jetrules execute rules
-// TODO Add reteSessionSaved to save rete session to process_errors table
-// TODO Add rule errors / exception to process_errors table
+// errorOutputCh to collect rule errors / exception to write to process_errors table:
+//   - rete session triples saved
 //   - BAD ROW via ExecuteRules() returned error
 //   - error: max loop reached
 //   - Rete Session Has Rule Exception
 func (ctx *JrPoolWorker) executeRules(inputRecords *[]any,
-	resultCh chan JetrulesWorkerResult) (errCount int64, err error) {
+	resultCh chan JetrulesWorkerResult) (err error) {
 	// Create a rdf session for input and execute rules on that session
 	// Steps to do here
 	// 	- Create the rdf session
@@ -170,7 +192,7 @@ func (ctx *JrPoolWorker) executeRules(inputRecords *[]any,
 				maxLooping, err = strconv.Atoi(v)
 				if err != nil {
 					cpErr = fmt.Errorf(
-						"error: invalid '$max_looping' property in workspace %s, using 1000: %v",
+						"error: invalid '$max_looping' property in workspace %s: %v",
 						ruleset, err)
 					goto gotError
 				}
@@ -188,9 +210,18 @@ func (ctx *JrPoolWorker) executeRules(inputRecords *[]any,
 			}
 			err2 := reteSession.ExecuteRules()
 			if err2 != nil {
-				//*TODO report the rule error
-				log.Printf("jetrules: ExecuteRules returned error: %v", err2)
-				errCount += 1
+				if ctx.errorOutputCh != nil && ctx.errorCount < 50 {
+					// report the rule error
+					peRow := ctx.builderContext.NewProcessError()
+					peRow.ErrorMessage = fmt.Sprintf("ExecuteRules returned error: %v", err2)
+					peRow.write2Chan(ctx.errorOutputCh, ctx.done)
+					log.Printf("jetrules: ExecuteRules returned error: %v", err2)
+				} else {
+					if ctx.config.IsDebug {
+						log.Printf("jetrules: ExecuteRules returned error: %v", err2)
+					}
+				}
+				ctx.errorCount++
 				break
 			}
 			// Check if looping is completed (Jets__completed)
@@ -201,18 +232,40 @@ func (ctx *JrPoolWorker) executeRules(inputRecords *[]any,
 		}
 		if maxLooping > 0 && iloop >= maxLooping {
 			// Looped til the end, something might be wrong
-			//*TODO report the rule error
-			log.Printf("jetrules: MAX LOOP REACHED, maxLooping is %d", maxLooping)
-			errCount += 1
+			if ctx.errorOutputCh != nil && ctx.errorCount < 40 {
+				peRow := ctx.builderContext.NewProcessError()
+				peRow.ErrorMessage = fmt.Sprintf("MAX LOOP REACHED, maxLooping is %d", maxLooping)
+				peRow.write2Chan(ctx.errorOutputCh, ctx.done)
+				log.Printf("jetrules: MAX LOOP REACHED, maxLooping is %d", maxLooping)
+			} else {
+				if ctx.config.IsDebug {
+					log.Printf("jetrules: MAX LOOP REACHED, maxLooping is %d", maxLooping)
+				}
+			}
+			ctx.errorCount++
 		}
 		// Check for any jets:exceptions in the rdfSession
 		ctor := rdfSession.FindSP(jr.Jets__istate, jr.Jets__exception)
 		for !ctor.IsEnd() {
 			hasException := ctor.GetObject()
 			if hasException != nil {
-				//*TODO report jetrules exception, save rete session
-				log.Printf("jetrule: jets:exception caught: %s", hasException)
-				errCount += 1
+				// report jetrules exception, save rete session
+				if ctx.errorOutputCh != nil && ctx.errorCount < 50 {
+					peRow := ctx.builderContext.NewProcessError()
+					peRow.ErrorMessage = fmt.Sprintf("jets:exception caught: %s", hasException)
+					if ctx.config.MaxReteSessionsSaved > 0 && ctx.nbrReteSessionsSaved < ctx.config.MaxReteSessionsSaved {
+						ctx.nbrReteSessionsSaved++
+						peRow.ReteSessionSaved = "Y"
+						peRow.ReteSessionTriples = sql.NullString{String: rdfSession.EncodeRdfSession(), Valid: true}
+					}
+					peRow.write2Chan(ctx.errorOutputCh, ctx.done)
+					log.Printf("jetrule: jets:exception caught: %s", hasException)
+				} else {
+					if ctx.config.IsDebug {
+						log.Printf("jetrule: jets:exception caught: %s", hasException)
+					}
+				}
+				ctx.errorCount++
 			}
 			ctor.Next()
 		}
@@ -223,17 +276,17 @@ func (ctx *JrPoolWorker) executeRules(inputRecords *[]any,
 	// Print rdf session if in debug mode
 	if isDebug {
 		log.Println("Execute Rules Completed")
-	// 	//************************
-	// 	log.Println("************************")
-	// 	ctor := rdfSession.Find()
-	// 	for !ctor.IsEnd() {
-	// 		s := ctor.GetSubject()
-	// 		p := ctor.GetPredicate()
-	// 		o := ctor.GetObject()
-	// 		log.Printf("triple: (%v, %v, %v)", s, p, o)
-	// 		ctor.Next()
-	// 	}
-	// 	log.Println("************************")
+		// 	//************************
+		// 	log.Println("************************")
+		// 	ctor := rdfSession.Find()
+		// 	for !ctor.IsEnd() {
+		// 		s := ctor.GetSubject()
+		// 		p := ctor.GetPredicate()
+		// 		o := ctor.GetObject()
+		// 		log.Printf("triple: (%v, %v, %v)", s, p, o)
+		// 		ctor.Next()
+		// 	}
+		// 	log.Println("************************")
 	}
 
 	// Extract data from the rdf session based on class names
@@ -261,7 +314,7 @@ gotError:
 	default:
 		close(ctx.done)
 	}
-	return 0, cpErr
+	return cpErr
 }
 
 func (ctx *JrPoolWorker) extractSessionData(rdfSession JetRdfSession,
@@ -354,8 +407,28 @@ func (ctx *JrPoolWorker) extractSessionData(rdfSession JetRdfSession,
 						itor.Next()
 					}
 					itor.Release()
-					if isArray {
-						data = dataArr
+					if ctx.multiValueProperties[p] {
+						if isArray {
+							data = dataArr
+						} else {
+							data = []any{data}
+						}
+					} else {
+						if isArray {
+							// Report the first 20 as error, set to null
+							if ctx.errorOutputCh != nil && ctx.errorCount < 20 {
+								peRow := ctx.builderContext.NewProcessError()
+								peRow.ErrorMessage = fmt.Sprintf("property %s is not multi-value but has multiple values for subject %s, setting value to null", p, subject)
+								peRow.write2Chan(ctx.errorOutputCh, ctx.done)
+								ctx.errorCount += 1
+								log.Printf("warning: property %s is not multi-value but has multiple values for subject %s, setting value to null", p, subject)
+							} else {
+								if ctx.config.IsDebug {
+									log.Printf("warning: property %s is not multi-value but has multiple values for subject %s, setting value to null", p, subject)
+								}
+							}
+							data = nil
+						}
 					}
 				}
 				entityRow[i] = data

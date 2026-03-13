@@ -962,6 +962,8 @@ type SortSpec struct {
 // input sources for jetrules processing.
 // IsDebug when true enable debug mode for jetrules processing.
 // MaxLooping overrides the value in the jetrules metastore.
+// OutputChannels specify the output channels to write the extracted entities from JetRules
+// ErrorChannel specify the channel to write the errors and exported triples from JetRules processing.
 type JetrulesSpec struct {
 	ProcessName             string                `json:"process_name,omitempty"`
 	UseJetRulesNative       bool                  `json:"use_jet_rules_native,omitzero"`
@@ -978,6 +980,7 @@ type JetrulesSpec struct {
 	MetadataInputSources    []CsvSourceSpec       `json:"metadata_input_sources,omitempty"`
 	IsDebug                 bool                  `json:"is_debug,omitzero"`
 	OutputChannels          []OutputChannelConfig `json:"output_channels,omitempty"`
+	ErrorChannel            *OutputChannelConfig  `json:"error_channel,omitzero"`
 }
 
 // If is_debug is true, correlation results are forwarded to s3 otherwise

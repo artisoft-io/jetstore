@@ -902,9 +902,18 @@ func (args *CpipesStartup) ValidatePipeSpecConfig(cpConfig *ComputePipesConfig, 
 					transformationConfig.JetrulesConfig.PoolSize = 1
 				}
 				outputChConfig = nil // The outputChannel is replaced by JetrulesConfig.JetrulesOutput channels
+				// Validate the output channels in jetrules config
 				for k := range transformationConfig.JetrulesConfig.OutputChannels {
 					outCh := &transformationConfig.JetrulesConfig.OutputChannels[k]
 					err := args.validateOutputChConfig(outCh, getSchemaProvider(cpConfig.SchemaProviders, outCh.SchemaProvider))
+					if err != nil {
+						return err
+					}
+				}
+				// Validate the error output channel in jetrules config if specified
+				if transformationConfig.JetrulesConfig.ErrorChannel != nil {
+					err := args.validateOutputChConfig(transformationConfig.JetrulesConfig.ErrorChannel, 
+						getSchemaProvider(cpConfig.SchemaProviders, transformationConfig.JetrulesConfig.ErrorChannel.SchemaProvider))
 					if err != nil {
 						return err
 					}

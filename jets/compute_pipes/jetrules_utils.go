@@ -345,6 +345,27 @@ func GetWorkspaceDataProperties() (map[string]*rete.DataPropertyNode, error) {
 	return dataPropertyInfoMap, nil
 }
 
+func GetMultiValueProperties(className string) ([]string, error) {
+	domainTablesMap, err := GetWorkspaceDomainTables()
+	if err != nil {
+		return nil, fmt.Errorf("while getting domain tables from local workspace: %v", err)
+	}
+	tableInfo := domainTablesMap[className]
+	if tableInfo == nil {
+		return nil, fmt.Errorf("error: domain table for class %s is not found in the local workspace", className)
+	}
+	multiValueProperties := make([]string, 0)
+	for i := range tableInfo.Columns {
+		p := tableInfo.Columns[i]
+		if p.AsArray {
+			multiValueProperties = append(multiValueProperties, p.ColumnName)
+		}
+	}
+	// //***
+	// log.Printf("*** Multi-value properties for class %s: %v", className, multiValueProperties)
+	return multiValueProperties, nil
+}
+
 // Get the domain properties for className.
 // If directPropertiesOnly is true, return only the direct properties
 // of the class, not the inherited ones.
