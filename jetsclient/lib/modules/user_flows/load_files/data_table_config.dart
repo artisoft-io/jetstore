@@ -108,9 +108,7 @@ final Map<String, TableConfig> _tableConfigurations = {
     isCheckboxVisible: true,
     isCheckboxSingleSelect: false,
     whereClauses: [
-      WhereClause(column: "client", formStateKey: FSK.client),
-      WhereClause(column: "org", formStateKey: FSK.org),
-      WhereClause(column: "object_type", formStateKey: FSK.objectType),
+      WhereClause(column: "table_name", formStateKey: FSK.tableName),
       WhereClause(column: "source_period_key", joinWith: "source_period.key"),
       WhereClause(column: "source_type", defaultValue: ['file']),
     ],
