@@ -249,7 +249,7 @@ struct DivVisitor: public boost::static_visitor<RDFTTYPE>, public NoCallbackNeed
 struct AbsVisitor: public boost::static_visitor<RDFTTYPE>, public NoCallbackNeeded
 {
   AbsVisitor(ReteSession * rs, BetaRow const* br): rs(rs), br(br) {}
-  template<class T> RDFTTYPE operator()(T lhs) const {if(br==nullptr) return rdf::Null(); else RETE_EXCEPTION("Invalid arguments for abs: "<<lhs<<"("<<typeid(lhs).name()<<"), "<<rhs<<"("<<typeid(rhs).name()<<")");};
+  template<class T> RDFTTYPE operator()(T lhs) const {if(br==nullptr) return rdf::Null(); else RETE_EXCEPTION("Invalid arguments for abs: "<<lhs<<"("<<typeid(lhs).name()<<")");};
 
   RDFTTYPE operator()(rdf::LInt32  lhs)const{return rdf::LInt32{abs(lhs.data)};}
   RDFTTYPE operator()(rdf::LUInt32 lhs)const{return lhs;}
