@@ -39,7 +39,7 @@ struct AddVisitor: public boost::static_visitor<RDFTTYPE>, public NoCallbackNeed
 {
   AddVisitor(ReteSession * rs, BetaRow const* br): rs(rs), br(br) {}
   AddVisitor(): rs(nullptr), br(nullptr) {}
-  template<class T, class U> RDFTTYPE operator()(T lhs, U rhs) const {if(br==nullptr) return rdf::Null(); else RETE_EXCEPTION("Invalid arguments for ADD: ("<<lhs<<", "<<rhs<<")");};
+  template<class T, class U> RDFTTYPE operator()(T lhs, U rhs) const {if(br==nullptr) return rdf::Null(); else RETE_EXCEPTION("Invalid arguments for addition: "<<lhs<<"("<<typeid(lhs).name()<<"), "<<rhs<<"("<<typeid(rhs).name()<<")");};
 
   RDFTTYPE operator()(rdf::LInt32  lhs, rdf::LInt32  rhs)const{return rdf::LInt32{lhs.data+rhs.data};}
   RDFTTYPE operator()(rdf::LInt32  lhs, rdf::LUInt32 rhs)const{return rdf::LInt32{lhs.data+boost::numeric_cast<int32_t>(rhs.data)};}
@@ -110,7 +110,7 @@ struct AddVisitor: public boost::static_visitor<RDFTTYPE>, public NoCallbackNeed
 struct SubsVisitor: public boost::static_visitor<RDFTTYPE>, public NoCallbackNeeded
 {
   SubsVisitor(ReteSession * rs, BetaRow const* br): rs(rs), br(br) {}
-  template<class T, class U> RDFTTYPE operator()(T lhs, U rhs) const {if(br==nullptr) return rdf::Null(); else RETE_EXCEPTION("Invalid arguments for substraction: ("<<lhs<<", "<<rhs<<")");};
+  template<class T, class U> RDFTTYPE operator()(T lhs, U rhs) const {if(br==nullptr) return rdf::Null(); else RETE_EXCEPTION("Invalid arguments for substraction: "<<lhs<<"("<<typeid(lhs).name()<<"), "<<rhs<<"("<<typeid(rhs).name()<<")");};
 
   RDFTTYPE operator()(rdf::LInt32  lhs, rdf::LInt32  rhs)const{return rdf::LInt32{lhs.data-rhs.data};}
   RDFTTYPE operator()(rdf::LInt32  lhs, rdf::LUInt32 rhs)const{return rdf::LInt32{lhs.data-boost::numeric_cast<int32_t>(rhs.data)};}
@@ -167,7 +167,7 @@ struct SubsVisitor: public boost::static_visitor<RDFTTYPE>, public NoCallbackNee
 struct MultVisitor: public boost::static_visitor<RDFTTYPE>, public NoCallbackNeeded
 {
   MultVisitor(ReteSession * rs, BetaRow const* br): rs(rs), br(br) {}
-  template<class T, class U> RDFTTYPE operator()(T lhs, U rhs) const {if(br==nullptr) return rdf::Null(); else RETE_EXCEPTION("Invalid arguments for Multiplication: ("<<lhs<<", "<<rhs<<")");};
+  template<class T, class U> RDFTTYPE operator()(T lhs, U rhs) const {if(br==nullptr) return rdf::Null(); else RETE_EXCEPTION("Invalid arguments for multiplication: "<<lhs<<"("<<typeid(lhs).name()<<"), "<<rhs<<"("<<typeid(rhs).name()<<")");};
 
   RDFTTYPE operator()(rdf::LInt32  lhs, rdf::LInt32  rhs)const{return rdf::LInt32{lhs.data*rhs.data};}
   RDFTTYPE operator()(rdf::LInt32  lhs, rdf::LUInt32 rhs)const{return rdf::LInt32{lhs.data*boost::numeric_cast<int32_t>(rhs.data)};}
@@ -208,7 +208,7 @@ struct MultVisitor: public boost::static_visitor<RDFTTYPE>, public NoCallbackNee
 struct DivVisitor: public boost::static_visitor<RDFTTYPE>, public NoCallbackNeeded
 {
   DivVisitor(ReteSession * rs, BetaRow const* br): rs(rs), br(br) {}
-  template<class T, class U> RDFTTYPE operator()(T lhs, U rhs) const {if(br==nullptr) return rdf::Null(); else RETE_EXCEPTION("Invalid arguments for Division: ("<<lhs<<", "<<rhs<<")");};
+  template<class T, class U> RDFTTYPE operator()(T lhs, U rhs) const {if(br==nullptr) return rdf::Null(); else RETE_EXCEPTION("Invalid arguments for division: "<<lhs<<"("<<typeid(lhs).name()<<"), "<<rhs<<"("<<typeid(rhs).name()<<")");};
 
   RDFTTYPE operator()(rdf::LInt32  lhs, rdf::LInt32  rhs)const{return rdf::LInt32{lhs.data/rhs.data};}
   RDFTTYPE operator()(rdf::LInt32  lhs, rdf::LUInt32 rhs)const{return rdf::LInt32{lhs.data/boost::numeric_cast<int32_t>(rhs.data)};}
@@ -249,7 +249,7 @@ struct DivVisitor: public boost::static_visitor<RDFTTYPE>, public NoCallbackNeed
 struct AbsVisitor: public boost::static_visitor<RDFTTYPE>, public NoCallbackNeeded
 {
   AbsVisitor(ReteSession * rs, BetaRow const* br): rs(rs), br(br) {}
-  template<class T> RDFTTYPE operator()(T lhs) const {if(br==nullptr) return rdf::Null(); else RETE_EXCEPTION("Invalid arguments for Abs: ("<<lhs<<")");};
+  template<class T> RDFTTYPE operator()(T lhs) const {if(br==nullptr) return rdf::Null(); else RETE_EXCEPTION("Invalid arguments for abs: "<<lhs<<"("<<typeid(lhs).name()<<"), "<<rhs<<"("<<typeid(rhs).name()<<")");};
 
   RDFTTYPE operator()(rdf::LInt32  lhs)const{return rdf::LInt32{abs(lhs.data)};}
   RDFTTYPE operator()(rdf::LUInt32 lhs)const{return lhs;}
