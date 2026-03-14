@@ -723,7 +723,7 @@ func (b *Decimal256Builder) Release() {
 }
 
 // return value is either nil or a string representing the input v
-func ConvertWithSchemaV1(irow int, col arrow.Array, trimStrings bool, fieldInfo *FieldInfo, castToRdfTxtFnc CastToRdfTxtFnc) (any, error) {
+func ConvertWithSchemaV1(irow int, col arrow.Array, trimStrings bool, fieldInfo *FieldInfo, castToRdfTxtFnc *CastToRdfTxtFnc) (any, error) {
 	var value string
 	// value = col.ValueStr(irow)
 	switch col.DataType().Name() {
@@ -850,5 +850,5 @@ func ConvertWithSchemaV1(irow int, col arrow.Array, trimStrings bool, fieldInfo 
 		}
 		return value, nil
 	}
-	return castToRdfTxtFnc(value)
+	return castToRdfTxtFnc.Cast(value)
 }

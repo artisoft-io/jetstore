@@ -18,7 +18,7 @@ import (
 
 func (cpCtx *ComputePipesContext) ReadParquetFileV2(filePath *FileName, 
 	fileReader parquet.ReaderAtSeeker, readBatchSize int64,
-	castToRdfTxtTypeFncs []CastToRdfTxtFnc, inputSchemaCh chan<- ParquetSchemaInfo,
+	castToRdfTxtTypeFncs []*CastToRdfTxtFnc, inputSchemaCh chan<- ParquetSchemaInfo,
 	reorderColumnsOnRead []int, computePipesInputCh chan<- []any) (int64, error) {
 
 	var inputColumns []string
@@ -155,10 +155,10 @@ func (cpCtx *ComputePipesContext) ReadParquetFileV2(filePath *FileName,
 
 func (cpCtx *ComputePipesContext) processRecord(computePipesInputCh chan<- []any, arrowRecord arrow.Record,
 	parquetSchemaInfo *ParquetSchemaInfo, nbrColumns int, extColumns []string, 
-	trimColumns bool, castToRdfTxtTypeFncs []CastToRdfTxtFnc, reorderColumnsOnRead []int,
+	trimColumns bool, castToRdfTxtTypeFncs []*CastToRdfTxtFnc, reorderColumnsOnRead []int,
 	firstRowToRead, nbrRowsToRead, samplingRate, samplingMaxCount, currentRow, inputRowCount int64) (int64, int64, bool, error) {
 	defer arrowRecord.Release()
-	var castFnc CastToRdfTxtFnc
+	var castFnc *CastToRdfTxtFnc
 	var errCol error
 	if nbrRowsToRead > 0 && firstRowToRead > currentRow+arrowRecord.NumRows() {
 		// skip this record

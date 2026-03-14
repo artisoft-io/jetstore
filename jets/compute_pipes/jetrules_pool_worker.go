@@ -519,7 +519,7 @@ func assertInputRow(config *JetrulesSpec, rdfSession JetRdfSession, row *[]any, 
 			// Use class name from config, and generate jets:key and set source period sequence to -1 (i.e. not from the input data but generated during the rule session)
 			rdfTypes = []any{config.InputRdfType}
 		} else {
-			return fmt.Errorf("error: input rdf:Type not provided and invalid type for jets:key, rdf:type or jets:source_period_sequence as first 3 elements of row")
+			return fmt.Errorf("error: input rdf:Type not provided and invalid rdf:type in the row")
 		}
 	}
 	assertType := rdfTypes[0].(string)

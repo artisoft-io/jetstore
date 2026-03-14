@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strings"
 
 	"github.com/artisoft-io/jetstore/jets/awsi"
 )
@@ -43,13 +44,33 @@ func (cpCtx *ComputePipesContext) loadMainInput(computePipesInputCh chan []any,
 		mainInputDomainClass = channelInfo.ClassName
 	}
 
-	var castToRdfTxtTypeFncs []CastToRdfTxtFnc
+	var castToRdfTxtTypeFncs []*CastToRdfTxtFnc
 	if len(mainInputDomainClass) > 0 {
 		castToRdfTxtTypeFncs, err = BuildCastToRdfTxtFunctions(mainInputDomainClass,
 			cpCtx.CpConfig.CommonRuntimeArgs.SourcesConfig.MainInput.InputColumns)
 		if err != nil {
 			cpCtx.ChResults.LoadFromS3FilesResultCh <- LoadFromS3FilesResult{LoadRowCount: 0, BadRowCount: 0, Err: err}
 			return
+		}
+	}
+
+	if cpCtx.CpConfig.ClusterConfig.IsDebugMode {
+		log.Printf("%s node %d Load main input channel '%s', domain class '%s'", cpCtx.SessionId, cpCtx.NodeId, inputChannelConfig.Name, mainInputDomainClass)
+		if castToRdfTxtTypeFncs == nil {
+			log.Printf("%s node %d No cast to rdf type functions for main input", cpCtx.SessionId, cpCtx.NodeId)
+		} else {
+			buf := strings.Builder{}
+			for i, fnc := range castToRdfTxtTypeFncs {
+				if i > 0 {
+					buf.WriteString(", ")
+				}
+				if fnc != nil {
+					fmt.Fprintf(&buf, "%s", fnc.String())
+				} else {
+					fmt.Fprintf(&buf, "<nil>")
+				}
+			}
+			log.Printf("%s node %d Cast to rdf type for main input: %s", cpCtx.SessionId, cpCtx.NodeId, buf.String())
 		}
 	}
 

@@ -10,11 +10,56 @@ import (
 )
 
 // This file contains function to cast input data into rdf type based on domain classes
-type CastToRdfFnc = func(v any) (any, error)
-type CastToRdfTxtFnc = func(v string) (any, error)
+type CastToRdfFnc struct {
+	property string
+	rdfType  string
+	isArray  bool
+}
+func (c *CastToRdfFnc) String() string {
+	tag := ""
+	if c.isArray {
+		tag = "[]"
+	}
+	return fmt.Sprintf("%s (%s%s)", c.property, tag, c.rdfType)
+}
+func (c *CastToRdfFnc) Cast(v any) (any, error) {
+	return castToRdfType(v, c.rdfType, c.isArray)
+}
 
-func BuildCastToRdfFunctions(domainClass string, properties []string) ([]CastToRdfFnc, error) {
-	result := make([]CastToRdfFnc, len(properties))
+func NewCastToRdfFnc(property string, rdfType string, isArray bool) *CastToRdfFnc {
+	return &CastToRdfFnc{
+		property: property,
+		rdfType:  rdfType,
+		isArray:  isArray,
+	}
+}
+
+type CastToRdfTxtFnc struct {
+	property string
+	rdfType  string
+	isArray  bool
+}
+func (c *CastToRdfTxtFnc) String() string {
+	tag := ""
+	if c.isArray {
+		tag = "[]"
+	}
+	return fmt.Sprintf("%s (%s%s)", c.property, tag, c.rdfType)
+}
+func (c *CastToRdfTxtFnc) Cast(v string) (any, error) {
+	return castToRdfTypeFromTxt(v, c.rdfType, c.isArray)
+}
+
+func NewCastToRdfTxtFnc(property string, rdfType string, isArray bool) *CastToRdfTxtFnc {
+	return &CastToRdfTxtFnc{
+		property: property,
+		rdfType:  rdfType,
+		isArray:  isArray,
+	}
+}
+
+func BuildCastToRdfFunctions(domainClass string, properties []string) ([]*CastToRdfFnc, error) {
+	result := make([]*CastToRdfFnc, len(properties))
 	// var doNothing CastToRdfFnc = func(v any) (any, error) {
 	// 	return v, nil
 	// }
@@ -32,16 +77,14 @@ func BuildCastToRdfFunctions(domainClass string, properties []string) ([]CastToR
 	for i, property := range properties {
 		dp := dpMap[property]
 		if dp != nil {
-			result[i] = func(v any) (any, error) {
-				return castToRdfType(v, dp.Type, dp.AsArray)
-			}
+			result[i] = NewCastToRdfFnc(property, dp.Type, dp.AsArray)
 		}
 	}
 	return result, nil
 }
 
-func BuildCastToRdfTxtFunctions(domainClass string, properties []string) ([]CastToRdfTxtFnc, error) {
-	result := make([]CastToRdfTxtFnc, len(properties))
+func BuildCastToRdfTxtFunctions(domainClass string, properties []string) ([]*CastToRdfTxtFnc, error) {
+	result := make([]*CastToRdfTxtFnc, len(properties))
 	if len(domainClass) == 0 {
 		return result, nil
 	}
@@ -52,9 +95,7 @@ func BuildCastToRdfTxtFunctions(domainClass string, properties []string) ([]Cast
 	for i, property := range properties {
 		dp := dpMap[property]
 		if dp != nil {
-			result[i] = func(v string) (any, error) {
-				return castToRdfTypeFromTxt(v, dp.Type, dp.AsArray)
-			}
+			result[i] = NewCastToRdfTxtFnc(property, dp.Type, dp.AsArray)
 		}
 	}
 	return result, nil

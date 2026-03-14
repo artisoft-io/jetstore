@@ -15,7 +15,7 @@ import (
 )
 
 func (cpCtx *ComputePipesContext) ReadCsvFile(
-	filePath *FileName, fileReader ReaderAtSeeker, castToRdfTxtTypeFncs []CastToRdfTxtFnc,
+	filePath *FileName, fileReader ReaderAtSeeker, castToRdfTxtTypeFncs []*CastToRdfTxtFnc,
 	reorderColumnsOnRead []int,
 	computePipesInputCh chan<- []any, badRowChannel *BadRowsChannel) (int64, int64, error) {
 
@@ -305,7 +305,7 @@ func (cpCtx *ComputePipesContext) ReadCsvFile(
 				if len(inRow[i]) > 0 {
 					value = inRow[i]
 					if i < len(castToRdfTxtTypeFncs) && castToRdfTxtTypeFncs[i] != nil {
-						value, errCol = castToRdfTxtTypeFncs[i](inRow[i])
+						value, errCol = castToRdfTxtTypeFncs[i].Cast(inRow[i])
 						if errCol != nil {
 							// Got a bad conversion, make it a bad row? - need to capture the error message...
 							// This is not expected since the cast function are based on the expected data type

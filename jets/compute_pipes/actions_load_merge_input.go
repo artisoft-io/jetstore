@@ -39,12 +39,32 @@ func (cpCtx *ComputePipesContext) loadMergeInput(computePipesInputCh chan []any,
 	}
 	inputDomainClass := channelInfo.ClassName
 
-	var castToRdfTxtTypeFncs []CastToRdfTxtFnc
+	var castToRdfTxtTypeFncs []*CastToRdfTxtFnc
 	if len(inputDomainClass) > 0 {
 		castToRdfTxtTypeFncs, err = BuildCastToRdfTxtFunctions(inputDomainClass, channelInfo.Columns)
 		if err != nil {
 			cpCtx.ChResults.LoadFromS3FilesResultCh <- LoadFromS3FilesResult{LoadRowCount: 0, BadRowCount: 0, Err: err}
 			return
+		}
+	}
+
+	if cpCtx.CpConfig.ClusterConfig.IsDebugMode {
+		log.Printf("%s node %d Load MERGE input channel '%s', domain class '%s'", cpCtx.SessionId, cpCtx.NodeId, inputChannelConfig.Name, inputDomainClass)
+		if castToRdfTxtTypeFncs == nil {
+			log.Printf("%s node %d No cast to rdf type functions for MERGE input", cpCtx.SessionId, cpCtx.NodeId)
+		} else {
+			buf := strings.Builder{}
+			for i, fnc := range castToRdfTxtTypeFncs {
+				if i > 0 {
+					buf.WriteString(", ")
+				}
+				if fnc != nil {
+					fmt.Fprintf(&buf, "%s", fnc.String())
+				} else {
+					fmt.Fprintf(&buf, "<nil>")
+				}
+			}
+			log.Printf("%s node %d Cast to rdf type for MERGE input: %s", cpCtx.SessionId, cpCtx.NodeId, buf.String())
 		}
 	}
 

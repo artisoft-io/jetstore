@@ -15,7 +15,7 @@ import (
 // EnforceRowMinLength and EnforceRowMaxLength does not apply to xlsx files, values
 // past the last expected field are ignored. As a result badRowChannel is not used.
 func (cpCtx *ComputePipesContext) ReadXlsxFile(filePath *FileName, xlsxSheetInfo map[string]any,
-	castToRdfTxtTypeFncs []CastToRdfTxtFnc, reorderColumnsOnRead []int,
+	castToRdfTxtTypeFncs []*CastToRdfTxtFnc, reorderColumnsOnRead []int,
 	computePipesInputCh chan<- []any, badRowChannel *BadRowsChannel) (int64, int64, error) {
 
 	var xl *xlsxreader.XlsxFileCloser
@@ -166,7 +166,7 @@ func (cpCtx *ComputePipesContext) ReadXlsxFile(filePath *FileName, xlsxSheetInfo
 				value = nil
 			} else {
 				if castToRdfTxtTypeFncs != nil && castToRdfTxtTypeFncs[cpos] != nil {
-					value, errCol = castToRdfTxtTypeFncs[cpos](txtValue)
+					value, errCol = castToRdfTxtTypeFncs[cpos].Cast(txtValue)
 					if errCol != nil {
 						// Got a bad conversion, make it a bad row? - need to capture the error message...
 						// This is not expected since the cast function are based on the expected data type
