@@ -11,7 +11,7 @@ import (
 
 func (cpCtx *ComputePipesContext) ReadFixedWidthFile(
 	filePath *FileName, fileReader ReaderAtSeeker,
-	fwEncodingInfo *FixedWidthEncodingInfo, castToRdfTxtTypeFncs []CastToRdfTxtFnc,
+	fwEncodingInfo *FixedWidthEncodingInfo, castToRdfTxtTypeFncs []*CastToRdfTxtFnc,
 	reorderColumnsOnRead []int,
 	computePipesInputCh chan<- []any, badRowChannel *BadRowsChannel) (int64, int64, error) {
 
@@ -161,7 +161,12 @@ loop_record:
 			}
 			columnsInfo, ok := fwEncodingInfo.ColumnsMap[recordType]
 			if !ok || columnsInfo == nil {
-				return 0, 0, fmt.Errorf("error: No record info for record type '%s' in read fixed_width record", recordType)
+				if cpCtx.CpConfig.ClusterConfig.IsDebugMode {
+					log.Printf("%s node %d No record info for record type '%s' in read fixed_width record, skipping record.",
+						cpCtx.SessionId, cpCtx.NodeId, recordType)
+				}
+				line = nextLine
+				continue loop_record
 			} else {
 				recordTypeOffset, ok = fwEncodingInfo.ColumnsOffsetMap[recordType]
 				if !ok {
@@ -181,7 +186,7 @@ loop_record:
 						case len(s) == 0:
 							record[recordTypeOffset+i] = nil
 						case castToRdfTxtTypeFncs != nil && castToRdfTxtTypeFncs[i] != nil:
-							record[recordTypeOffset+i], errCol = castToRdfTxtTypeFncs[i](s)
+							record[recordTypeOffset+i], errCol = castToRdfTxtTypeFncs[i].Cast(s)
 							if errCol != nil {
 								err = errCol
 							}
