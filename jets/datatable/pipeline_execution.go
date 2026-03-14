@@ -768,9 +768,7 @@ func (ctx *DataTableContext) startLoader(dataTableAction *DataTableAction, irow 
 		WHERE ir.file_key = $1 
 		  AND ir.session_id = $2
 			AND sp.key = ir.source_period_key
-			AND ir.client = sc.client
-			AND ir.object_type = sc.object_type
-			AND ir.org = sc.org`
+			AND ir.table_name = sc.table_name`
 	err = ctx.Dbpool.QueryRow(context.Background(), stmt, fileKey, inputRegistrySessionId).Scan(
 		&inputRegistryKey, &year, &month, &day, &inputFormat, &originDomainKeys, &originSchemaProviderJson)
 	if err != nil {
