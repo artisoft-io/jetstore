@@ -251,21 +251,23 @@ func GetRuleEngineConfig(mainRuleFile, property string) (string, error) {
 		config := &RuleEngineConfig{}
 		ruleEngineConfigMx.Lock()
 		defer ruleEngineConfigMx.Unlock()
-		fpath := fmt.Sprintf("%s/%s/build/%s.config.json", workspaceHome, wsPrefix, strings.TrimSuffix(mainRuleFile, ".jr"))
-		log.Println("Reading Rule Engine config definitions from:", fpath)
-		file, err := os.ReadFile(fpath)
-		if err != nil {
-			err = fmt.Errorf("while reading config.json file (GetRuleEngineConfig):%v", err)
-			log.Println(err)
-			return "", err
+		if ruleEngineConfig == nil {
+			fpath := fmt.Sprintf("%s/%s/build/%s.config.json", workspaceHome, wsPrefix, strings.TrimSuffix(mainRuleFile, ".jr"))
+			log.Println("Reading Rule Engine config definitions from:", fpath)
+			file, err := os.ReadFile(fpath)
+			if err != nil {
+				err = fmt.Errorf("while reading config.json file (GetRuleEngineConfig):%v", err)
+				log.Println(err)
+				return "", err
+			}
+			err = json.Unmarshal(file, config)
+			if err != nil {
+				err = fmt.Errorf("while unmarshaling config.json (GetRuleEngineConfig):%v", err)
+				log.Println(err)
+				return "", err
+			}
+			ruleEngineConfig = config.JetStoreConfig
 		}
-		err = json.Unmarshal(file, config)
-		if err != nil {
-			err = fmt.Errorf("while unmarshaling config.json (GetRuleEngineConfig):%v", err)
-			log.Println(err)
-			return "", err
-		}
-		ruleEngineConfig = config.JetStoreConfig
 	}
 	return ruleEngineConfig[property], nil
 }
@@ -275,21 +277,23 @@ func GetWorkspaceDomainClasses() (map[string]*rete.ClassNode, error) {
 	if domainClassesMap == nil {
 		domainClassesMx.Lock()
 		defer domainClassesMx.Unlock()
-		fmt.Println("Load Domain Tables from local Workspace")
-		domainClassesMap = make(map[string]*rete.ClassNode)
-		fpath := fmt.Sprintf("%s/%s/build/classes.json", workspaceHome, wsPrefix)
-		log.Println("Reading Domain Classes definitions from:", fpath)
-		file, err := os.ReadFile(fpath)
-		if err != nil {
-			err = fmt.Errorf("while reading classes.json file (GetWorkspaceDomainClasses):%v", err)
-			log.Println(err)
-			return nil, err
-		}
-		err = json.Unmarshal(file, &domainClassesMap)
-		if err != nil {
-			err = fmt.Errorf("while unmarshaling classes.json (GetWorkspaceDomainClasses):%v", err)
-			log.Println(err)
-			return nil, err
+		if domainClassesMap == nil {
+			fmt.Println("Load Domain Tables from local Workspace")
+			domainClassesMap = make(map[string]*rete.ClassNode)
+			fpath := fmt.Sprintf("%s/%s/build/classes.json", workspaceHome, wsPrefix)
+			log.Println("Reading Domain Classes definitions from:", fpath)
+			file, err := os.ReadFile(fpath)
+			if err != nil {
+				err = fmt.Errorf("while reading classes.json file (GetWorkspaceDomainClasses):%v", err)
+				log.Println(err)
+				return nil, err
+			}
+			err = json.Unmarshal(file, &domainClassesMap)
+			if err != nil {
+				err = fmt.Errorf("while unmarshaling classes.json (GetWorkspaceDomainClasses):%v", err)
+				log.Println(err)
+				return nil, err
+			}
 		}
 	}
 	return domainClassesMap, nil
@@ -300,21 +304,23 @@ func GetWorkspaceDomainTables() (map[string]*rete.TableNode, error) {
 	if domainTablesMap == nil {
 		domainTablesMx.Lock()
 		defer domainTablesMx.Unlock()
-		fmt.Println("Load Domain Tables from local Workspace")
-		domainTablesMap = make(map[string]*rete.TableNode)
-		fpath := fmt.Sprintf("%s/%s/build/tables.json", workspaceHome, wsPrefix)
-		log.Println("Reading Domain Tables definitions from:", fpath)
-		file, err := os.ReadFile(fpath)
-		if err != nil {
-			err = fmt.Errorf("while reading tables.json file (GetWorkspaceDomainTables):%v", err)
-			log.Println(err)
-			return nil, err
-		}
-		err = json.Unmarshal(file, &domainTablesMap)
-		if err != nil {
-			err = fmt.Errorf("while unmarshaling tables.json (GetWorkspaceDomainTables):%v", err)
-			log.Println(err)
-			return nil, err
+		if domainTablesMap == nil {
+			fmt.Println("Load Domain Tables from local Workspace")
+			domainTablesMap = make(map[string]*rete.TableNode)
+			fpath := fmt.Sprintf("%s/%s/build/tables.json", workspaceHome, wsPrefix)
+			log.Println("Reading Domain Tables definitions from:", fpath)
+			file, err := os.ReadFile(fpath)
+			if err != nil {
+				err = fmt.Errorf("while reading tables.json file (GetWorkspaceDomainTables):%v", err)
+				log.Println(err)
+				return nil, err
+			}
+			err = json.Unmarshal(file, &domainTablesMap)
+			if err != nil {
+				err = fmt.Errorf("while unmarshaling tables.json (GetWorkspaceDomainTables):%v", err)
+				log.Println(err)
+				return nil, err
+			}
 		}
 	}
 	return domainTablesMap, nil
@@ -325,21 +331,23 @@ func GetWorkspaceDataProperties() (map[string]*rete.DataPropertyNode, error) {
 	if dataPropertyInfoMap == nil {
 		dataPropertyInfoMx.Lock()
 		defer dataPropertyInfoMx.Unlock()
-		fmt.Println("Load Data Properties from local Workspace")
-		dataPropertyInfoMap = make(map[string]*rete.DataPropertyNode)
-		fpath := fmt.Sprintf("%s/%s/build/properties.json", workspaceHome, wsPrefix)
-		log.Println("Reading Data Properties definitions from:", fpath)
-		file, err := os.ReadFile(fpath)
-		if err != nil {
-			err = fmt.Errorf("while reading properties.json file (GetWorkspaceDataProperties):%v", err)
-			log.Println(err)
-			return nil, err
-		}
-		err = json.Unmarshal(file, &dataPropertyInfoMap)
-		if err != nil {
-			err = fmt.Errorf("while unmarshaling properties.json (GetWorkspaceDataProperties):%v", err)
-			log.Println(err)
-			return nil, err
+		if dataPropertyInfoMap == nil {
+			fmt.Println("Load Data Properties from local Workspace")
+			dataPropertyInfoMap = make(map[string]*rete.DataPropertyNode)
+			fpath := fmt.Sprintf("%s/%s/build/properties.json", workspaceHome, wsPrefix)
+			log.Println("Reading Data Properties definitions from:", fpath)
+			file, err := os.ReadFile(fpath)
+			if err != nil {
+				err = fmt.Errorf("while reading properties.json file (GetWorkspaceDataProperties):%v", err)
+				log.Println(err)
+				return nil, err
+			}
+			err = json.Unmarshal(file, &dataPropertyInfoMap)
+			if err != nil {
+				err = fmt.Errorf("while unmarshaling properties.json (GetWorkspaceDataProperties):%v", err)
+				log.Println(err)
+				return nil, err
+			}
 		}
 	}
 	return dataPropertyInfoMap, nil
