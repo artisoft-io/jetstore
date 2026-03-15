@@ -228,6 +228,13 @@ func (args *StartComputePipesArgs) shardingInitializeCpipes(ctx context.Context,
 		}
 	}
 
+	mainInputSchemaProvider.Env["$CLIENT"] = client
+	mainInputSchemaProvider.Env["$OBJECT_TYPE"] = objectType
+
+	// Add tableName and source_type to mainInputSchemaProvider.Env
+	mainInputSchemaProvider.Env["${TABLE_NAME}"] = tableName
+	mainInputSchemaProvider.Env["${SOURCE_TYPE}"] = sourceType
+
 	var icJson, icDomainKeys, icPosCsv sql.NullString
 	if sourceType == "file" {
 		// log.Printf("*** sourceType is 'file', mainInputSchemaProvider after merging with process_config env: %+v\n", mainInputSchemaProvider)
@@ -301,10 +308,6 @@ func (args *StartComputePipesArgs) shardingInitializeCpipes(ctx context.Context,
 		mainInputSchemaProvider.Env["$CLIENT"] = scClient
 		mainInputSchemaProvider.Env["$ORG"] = scOrg
 		mainInputSchemaProvider.Env["$OBJECT_TYPE"] = scObjectType
-
-		// Add tableName and source_type to mainInputSchemaProvider.Env
-		mainInputSchemaProvider.Env["${TABLE_NAME}"] = tableName
-		mainInputSchemaProvider.Env["${SOURCE_TYPE}"] = sourceType
 
 		if isPartFile == 1 {
 			mainInputSchemaProvider.IsPartFiles = true
@@ -912,7 +915,7 @@ func (args *CpipesStartup) ValidatePipeSpecConfig(cpConfig *ComputePipesConfig, 
 				}
 				// Validate the error output channel in jetrules config if specified
 				if transformationConfig.JetrulesConfig.ErrorChannel != nil {
-					err := args.validateOutputChConfig(transformationConfig.JetrulesConfig.ErrorChannel, 
+					err := args.validateOutputChConfig(transformationConfig.JetrulesConfig.ErrorChannel,
 						getSchemaProvider(cpConfig.SchemaProviders, transformationConfig.JetrulesConfig.ErrorChannel.SchemaProvider))
 					if err != nil {
 						return err
