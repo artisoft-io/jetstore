@@ -762,15 +762,18 @@ func (ctx *DataTableContext) startLoader(dataTableAction *DataTableAction, irow 
 	var inputFormat string
 	var originDomainKeys []string
 	var originSchemaProviderJson string
+	var icJson, icPosCsv, inputFormatDataJson, scSchemaProviderJson sql.NullString
 	stmt := `
-		SELECT sp.key, year, month, day, sc.input_format, sc.domain_keys, ir.schema_provider_json
+		SELECT sp.key, year, month, day, sc.input_format, sc.domain_keys, ir.schema_provider_json,
+					sc.input_columns_json, sc.input_columns_positions_csv, sc.input_format_data_json, sc.schema_provider_json
 		FROM  jetsapi.input_registry ir, jetsapi.source_period sp, jetsapi.source_config sc
 		WHERE ir.file_key = $1 
 		  AND ir.session_id = $2
 			AND sp.key = ir.source_period_key
 			AND ir.table_name = sc.table_name`
 	err = ctx.Dbpool.QueryRow(context.Background(), stmt, fileKey, inputRegistrySessionId).Scan(
-		&inputRegistryKey, &year, &month, &day, &inputFormat, &originDomainKeys, &originSchemaProviderJson)
+		&inputRegistryKey, &year, &month, &day, &inputFormat, &originDomainKeys, &originSchemaProviderJson,
+		&icJson, &icPosCsv, &inputFormatDataJson, &scSchemaProviderJson)
 	if err != nil {
 		log.Printf("While getting file info for file_key '%s' and session_id '%s': %v", fileKey, inputRegistrySessionId, err)
 		httpStatus = http.StatusInternalServerError
@@ -821,7 +824,80 @@ func (ctx *DataTableContext) startLoader(dataTableAction *DataTableAction, irow 
 		"file_date":                  fmt.Sprintf("%04d-%02d-%02d", year, month, day),
 		"env":                        cpipesEnv,
 	}
+	if icJson.Valid {
+		// Convert the icJson string to []string
+		// Used for headerless_csv or to read a subset of columns
+		var ic []string
+		err = json.Unmarshal([]byte(icJson.String), &ic)
+		if err != nil {
+			log.Printf("While unmarshalling input_columns_json: %v", err)
+			httpStatus = http.StatusInternalServerError
+			err = errors.New("error while preparing to start Jet_Loader pipeline")
+			return
+		}
+		schemaInfo["headers"] = ic
+	}
+	if icPosCsv.Valid {
+		schemaInfo["fixed_width_columns_csv"] = icPosCsv.String
+	}
+	if inputFormatDataJson.Valid {
+		schemaInfo["input_format_data_json"] = inputFormatDataJson.String
+	}
 
+	// Get file infor from source_config.schema_provider_json if available, it will be overridden by the one in
+	// input_registry.schema_provider_json if both are available, since input_registry is closer to the file
+	// source and more likely to be updated with correct info.
+	// Columns of interest
+	keyColumns := []string{
+		"bucket",
+		"compression",
+		"delimiter",
+		"detect_cr_as_eol",
+		"detect_encoding",
+		"domain_class",
+		"domain_keys",
+		"encoding",
+		"enforce_row_max_length",
+		"enforce_row_min_length",
+		"eol_byte",
+		"file_key",
+		"file_name",
+		"fixed_width_columns_csv",
+		"format",
+		"input_format_data_json",
+		"is_part_files",
+		"main_input_row_count",
+		"multi_columns_input",
+		"nbr_rows_in_record",
+		"no_quotes",
+		"quote_all_records",
+		"read_date_layout",
+		"trim_columns",
+		"use_lazy_quotes",
+		"use_lazy_quotes_special",
+		"variable_fields_per_record",
+	}
+	// Copy infor from scource_config schema provider
+	if scSchemaProviderJson.Valid && len(scSchemaProviderJson.String) > 0 {
+		// Unmarshal the schema_provider_json in source_config to get loading information
+		var scSchemaProvider map[string]any
+		err = json.Unmarshal([]byte(scSchemaProviderJson.String), &scSchemaProvider)
+		if err != nil {
+			log.Printf("While unmarshalling source_config schema_provider_json: %v", err)
+			httpStatus = http.StatusInternalServerError
+			err = errors.New("error while preparing to start Jet_Loader pipeline")
+			return
+		}
+		// Copy over information needed to loading the file, set defaults for the rest if not exist, will be overridden by input_registry.schema_provider_json if exist
+		var v any
+		var ok bool
+		for _, k := range keyColumns {
+			if v, ok = scSchemaProvider[k]; ok {
+				schemaInfo[k] = v
+			}
+		}
+	}
+	// Copy infor from input_registry schema provider
 	if len(originSchemaProviderJson) > 0 {
 		// Put the origin schema_provider_json into the cpipesEnv since we need it to register the loaded file
 		//*TODO compress and encode base64 if too big?
@@ -839,35 +915,6 @@ func (ctx *DataTableContext) startLoader(dataTableAction *DataTableAction, irow 
 		// Copy over information needed to loading the file, overrides defaults set above
 		var v any
 		var ok bool
-		keyColumns := []string{
-			"bucket",
-			"compression",
-			"delimiter",
-			"detect_cr_as_eol",
-			"detect_encoding",
-			"domain_class",
-			"domain_keys",
-			"encoding",
-			"enforce_row_max_length",
-			"enforce_row_min_length",
-			"eol_byte",
-			"file_key",
-			"file_name",
-			"fixed_width_columns_csv",
-			"format",
-			"input_format_data_json",
-			"is_part_files",
-			"main_input_row_count",
-			"multi_columns_input",
-			"nbr_rows_in_record",
-			"no_quotes",
-			"quote_all_records",
-			"read_date_layout",
-			"trim_columns",
-			"use_lazy_quotes",
-			"use_lazy_quotes_special",
-			"variable_fields_per_record",
-		}
 		for _, k := range keyColumns {
 			if v, ok = originSchemaProvider[k]; ok {
 				schemaInfo[k] = v

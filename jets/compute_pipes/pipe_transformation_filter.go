@@ -44,8 +44,8 @@ func (ctx *FilterTransformationPipe) Apply(input *[]any) error {
 		if err != nil {
 			return fmt.Errorf("while evaluating when clause of filter: %v", err)
 		}
-		v, ok := resp.(int)
-		if ok && v == 1 {
+		
+		if !ToBool(resp) {
 			// Filter out the row
 			// log.Println("*** ROW FILTERED OUT: ", *input)
 			return nil

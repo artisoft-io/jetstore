@@ -305,10 +305,9 @@ func GetWorkspaceDomainTables() (map[string]*rete.TableNode, error) {
 		domainTablesMx.Lock()
 		defer domainTablesMx.Unlock()
 		if domainTablesMap == nil {
-			fmt.Println("Load Domain Tables from local Workspace")
 			domainTablesMap = make(map[string]*rete.TableNode)
 			fpath := fmt.Sprintf("%s/%s/build/tables.json", workspaceHome, wsPrefix)
-			log.Println("Reading Domain Tables definitions from:", fpath)
+			log.Println("*** Loading Domain Tables definitions from:", fpath)
 			file, err := os.ReadFile(fpath)
 			if err != nil {
 				err = fmt.Errorf("while reading tables.json file (GetWorkspaceDomainTables):%v", err)
@@ -321,6 +320,7 @@ func GetWorkspaceDomainTables() (map[string]*rete.TableNode, error) {
 				log.Println(err)
 				return nil, err
 			}
+			log.Printf("*** Domain Tables Loaded with %d table definitions", len(domainTablesMap))
 		}
 	}
 	return domainTablesMap, nil
@@ -332,7 +332,7 @@ func GetWorkspaceDataProperties() (map[string]*rete.DataPropertyNode, error) {
 		dataPropertyInfoMx.Lock()
 		defer dataPropertyInfoMx.Unlock()
 		if dataPropertyInfoMap == nil {
-			fmt.Println("Load Data Properties from local Workspace")
+			log.Println("*** Load Data Properties from local Workspace")
 			dataPropertyInfoMap = make(map[string]*rete.DataPropertyNode)
 			fpath := fmt.Sprintf("%s/%s/build/properties.json", workspaceHome, wsPrefix)
 			log.Println("Reading Data Properties definitions from:", fpath)
@@ -348,19 +348,20 @@ func GetWorkspaceDataProperties() (map[string]*rete.DataPropertyNode, error) {
 				log.Println(err)
 				return nil, err
 			}
+			log.Printf("*** Data Properties Loaded with %d property definitions", len(dataPropertyInfoMap))
 		}
 	}
 	return dataPropertyInfoMap, nil
 }
 
 func GetMultiValueProperties(className string) ([]string, error) {
-	domainTablesMap, err := GetWorkspaceDomainTables()
+	cache, err := GetWorkspaceDomainTables()
 	if err != nil {
 		return nil, fmt.Errorf("while getting domain tables from local workspace: %v", err)
 	}
-	tableInfo := domainTablesMap[className]
+	tableInfo := cache[className]
 	if tableInfo == nil {
-		return nil, fmt.Errorf("error: domain table for class %s is not found in the local workspace", className)
+		return nil, fmt.Errorf("error: domain table for class %s is not found in the local workspace, cache contains %d entries", className, len(cache))
 	}
 	multiValueProperties := make([]string, 0)
 	for i := range tableInfo.Columns {
@@ -369,8 +370,8 @@ func GetMultiValueProperties(className string) ([]string, error) {
 			multiValueProperties = append(multiValueProperties, p.ColumnName)
 		}
 	}
-	// //***
-	// log.Printf("*** Multi-value properties for class %s: %v", className, multiValueProperties)
+	//***
+	log.Printf("*** Multi-value properties for class %s: %v", className, multiValueProperties)
 	return multiValueProperties, nil
 }
 

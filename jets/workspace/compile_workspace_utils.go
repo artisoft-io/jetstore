@@ -130,6 +130,7 @@ func extractTgz(sourceFileName, destBaseDir string) error {
 	if err != nil {
 		return fmt.Errorf("failed to extract content from tgz file %s for read: %v", sourceFileName, err)
 	}
+	log.Printf("Extracted tgz file %s to %s", sourceFileName, destBaseDir)
 	return nil
 }
 
