@@ -812,10 +812,10 @@ func (ctx *DataTableContext) startLoader(dataTableAction *DataTableAction, irow 
 		"compression":                "none",
 		"use_lazy_quotes":            false,
 		"use_lazy_quotes_special":    true,
-		"variable_fields_per_record": false,
+		"variable_fields_per_record": true,
 		"multi_columns_input":        true,
-		"enforce_row_max_length":     true,
-		"enforce_row_min_length":     true,
+		"enforce_row_max_length":     false,
+		"enforce_row_min_length":     false,
 		"trim_columns":               true,
 		"is_part_files":              false,
 		"file_date":                  fmt.Sprintf("%04d-%02d-%02d", year, month, day),
@@ -888,12 +888,13 @@ func (ctx *DataTableContext) startLoader(dataTableAction *DataTableAction, irow 
 		return
 	}
 
-	// log.Printf("Started Jet_Loader pipeline for input_loader_status key %d", inputLoaderStatusKey)
+	log.Printf("Started Jet_Loader pipeline for input_loader_status key %d", inputLoaderStatusKey)
 	return
 }
 
 // API version to register schema event. This is used by the Jets_Loader process to avoid writing the event to s3 first.
 func (ctx *DataTableContext) RegisterSchemaEvent(dbpool *pgxpool.Pool, schemaInfo map[string]any, token string) error {
+	log.Printf("Registering schema event with schema info: %v", schemaInfo)
 	schemaInfoJson, err := json.Marshal(schemaInfo)
 	if err != nil {
 		return fmt.Errorf("while marshalling schema info to json in RegisterSchemaEvent: %v", err)

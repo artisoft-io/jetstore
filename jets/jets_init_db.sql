@@ -112,6 +112,28 @@ INSERT INTO jetsapi.object_type_registry (
 ON CONFLICT DO NOTHING 
 ;
 
+-- Table source_config
+DELETE FROM jetsapi."source_config" WHERE "client" = 'Any';
+INSERT INTO jetsapi."source_config" (object_type,client,org,automated,table_name,domain_keys_json,domain_keys,code_values_mapping_json,input_columns_json,input_columns_positions_csv,input_format,compression,input_format_data_json,is_part_files,schema_provider_json,compute_pipes_json,user_email) VALUES
+  ('Any',
+   'Any',
+   '',
+   0,
+   'Any_Any',
+   NULL,
+   '{Any}',
+   NULL,
+   NULL,
+   NULL,
+   'csv',
+   'none',
+   '',
+   0,
+   NULL,
+   NULL,
+   'michel@artisoft.io')
+ON CONFLICT DO NOTHING;
+
 -- process_config define jetstore internal processes:
 -- JetsLoader: process to load files into jetstore staging table (replacement of loader)
 -- Note: process_name must be unique and key < 1000 are reserved for these internal processes.
