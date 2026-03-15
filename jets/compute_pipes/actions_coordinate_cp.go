@@ -45,6 +45,7 @@ func (args *ComputePipesNodeArgs) CoordinateComputePipes(ctx context.Context, db
 	}
 	if didSync {
 		ClearJetrulesCaches()
+		LoadJetrulesCaches()
 	}
 
 	// Make sure we have a jet partition key set

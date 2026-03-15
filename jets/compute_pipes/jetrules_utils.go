@@ -49,6 +49,39 @@ func ClearJetrulesCaches() {
 	domainClassesMap = nil
 	ruleEngineConfig = nil
 }
+// pre-loading jetrules caches
+func LoadJetrulesCaches() {
+	c1, err := GetWorkspaceControl()
+	if err != nil {
+		log.Printf("Error while pre-loading workspace control: %v", err)
+	} else {
+		log.Printf("Pre-loaded workspace control with %d rulesets", len(c1.RuleSets))
+	}
+	_, err = GetRuleEngineConfig(c1.RuleSets[0], "test")
+	if err != nil {
+		log.Printf("Error while pre-loading rule engine config: %v", err)
+	} else {
+		log.Printf("Pre-loaded rule engine config")
+	}
+	c2, err := GetWorkspaceDomainTables()
+	if err != nil {
+		log.Printf("Error while pre-loading domain tables: %v", err)
+	} else {
+		log.Printf("Pre-loaded domain tables with %d entries", len(c2))
+	}
+	c3, err := GetWorkspaceDataProperties()
+	if err != nil {
+		log.Printf("Error while pre-loading data properties: %v", err)
+	} else {
+		log.Printf("Pre-loaded data properties with %d entries", len(c3))
+	}
+	c4, err := GetWorkspaceDomainClasses()
+	if err != nil {
+		log.Printf("Error while pre-loading domain classes: %v", err)
+	} else {
+		log.Printf("Pre-loaded domain classes with %d entries", len(c4))
+	}
+}
 
 func GetWorkspaceControl() (*rete.WorkspaceControl, error) {
 	if workspaceControl == nil {
