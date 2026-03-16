@@ -308,7 +308,7 @@ func (cpCtx *ComputePipesContext) StartComputePipes(dbpool *pgxpool.Pool,
 		log.Println("Compute Pipes channel registry initialized")
 		log.Println("Channel Registry:")
 		for name, channel := range channelRegistry.ComputeChannels {
-			log.Println("  - Channel", name, "with ", len(*channel.Columns),"columns")
+			log.Println("  - Channel", name, "with ", len(*channel.Columns), "columns")
 		}
 	}
 
@@ -352,7 +352,7 @@ func (cpCtx *ComputePipesContext) StartComputePipes(dbpool *pgxpool.Pool,
 
 	ctx = &BuilderContext{
 		dbpool:             dbpool,
-		peKey:							cpCtx.PipelineExecKey,
+		peKey:              cpCtx.PipelineExecKey,
 		sessionId:          cpCtx.SessionId,
 		jetsPartition:      cpCtx.JetsPartitionLabel,
 		cpConfig:           cpCtx.CpConfig,
@@ -363,6 +363,7 @@ func (cpCtx *ComputePipesContext) StartComputePipes(dbpool *pgxpool.Pool,
 		schemaManager:      cpCtx.SchemaManager,
 		inputParquetSchema: inputParquetSchema,
 		jetRules:           cpCtx.JetRules,
+		mainMergeDone:      cpCtx.MainMergeDone,
 		done:               cpCtx.Done,
 		errCh:              cpCtx.ErrCh,
 		chResults:          cpCtx.ChResults,

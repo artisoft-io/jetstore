@@ -228,8 +228,13 @@ func (args *StartComputePipesArgs) shardingInitializeCpipes(ctx context.Context,
 		}
 	}
 
-	mainInputSchemaProvider.Env["$CLIENT"] = client
-	mainInputSchemaProvider.Env["$OBJECT_TYPE"] = objectType
+	// Don't overrite client and object type if already set (Jets_Loader use case)
+	if mainInputSchemaProvider.Env["$CLIENT"] == nil {
+		mainInputSchemaProvider.Env["$CLIENT"] = client
+	}
+	if mainInputSchemaProvider.Env["$OBJECT_TYPE"] == nil {
+		mainInputSchemaProvider.Env["$OBJECT_TYPE"] = objectType
+	}
 
 	// Add tableName and source_type to mainInputSchemaProvider.Env
 	mainInputSchemaProvider.Env["${TABLE_NAME}"] = tableName

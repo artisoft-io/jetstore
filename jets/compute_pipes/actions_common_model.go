@@ -246,6 +246,7 @@ type ComputePipesContext struct {
 	JetRules              JetRulesProxy
 	ChResults             *ChannelResults
 	KillSwitch            chan struct{}
+	MainMergeDone         *chan struct{}
 	Done                  chan struct{}
 	ErrCh                 chan error
 	FileNamesCh           []chan FileName

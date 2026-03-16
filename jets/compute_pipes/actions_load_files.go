@@ -72,6 +72,7 @@ func (cpCtx *ComputePipesContext) LoadFiles(ctx context.Context, dbpool *pgxpool
 	if l > 0 {
 		computePipesMergeChs = make([]chan []any, 0, l)
 		waitForDone = new(sync.WaitGroup)
+		cpCtx.MainMergeDone = new(chan struct{})
 		for i := range l {
 			channelConfig := inputChannelConfig.MergeChannels[i]
 			mergeCh := make(chan []any, 5)
@@ -100,7 +101,13 @@ func (cpCtx *ComputePipesContext) LoadFiles(ctx context.Context, dbpool *pgxpool
 
 	if waitForDone != nil {
 		// Wait for all merge input loaders to be done
+		if cpCtx.CpConfig.ClusterConfig.IsDebugMode {
+			log.Printf("%s LoadFiles: waiting for merge input loaders to be done...", cpCtx.SessionId)
+		}
 		waitForDone.Wait()
+		if cpCtx.CpConfig.ClusterConfig.IsDebugMode {
+			log.Printf("%s LoadFiles: merge input loaders are DONE", cpCtx.SessionId)
+		}
 	}
 	done:
 	close(cpCtx.ChResults.LoadFromS3FilesResultCh)

@@ -344,7 +344,7 @@ func (cpCtx *ComputePipesContext) ReadCsvFile(
 			for i := range m {
 				row[i] = record[reorderColumnsOnRead[i]]
 			}
-			for i:=m; i < len(record); i++ {
+			for i := m; i < len(record); i++ {
 				row[i] = record[i]
 			}
 			record = row
@@ -356,11 +356,26 @@ func (cpCtx *ComputePipesContext) ReadCsvFile(
 		// }
 		// log.Println(cpCtx.SessionId,"node",cpCtx.NodeId, "push record to computePipesInputCh with",len(record),"columns")
 		// log.Println("*Sending Record:",record)
-		select {
-		case computePipesInputCh <- record:
-		case <-cpCtx.Done:
-			log.Println("loading input row from file interrupted")
-			return inputRowCount, badRowCount, nil
+		if cpCtx.MainMergeDone == nil {
+			select {
+			case computePipesInputCh <- record:
+
+			case <-cpCtx.Done:
+				log.Println("loading input row from file interrupted")
+				return inputRowCount, badRowCount, nil
+			}
+		} else {
+			select {
+			case computePipesInputCh <- record:
+
+			case <-*cpCtx.MainMergeDone:
+				log.Println("loading input row from file interrupted by main merge operator")
+				return inputRowCount, badRowCount, nil
+
+			case <-cpCtx.Done:
+				log.Println("loading input row from file interrupted")
+				return inputRowCount, badRowCount, nil
+			}
 		}
 		inputRowCount += 1
 	}

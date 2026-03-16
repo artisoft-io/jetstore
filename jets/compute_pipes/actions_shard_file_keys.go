@@ -282,6 +282,8 @@ func assignShardInfo(s3Objects []*awsi.S3Object, shardSize, maxShardSize, offset
 
 func selectClusterShardingTier(totalSizeMb int, inputFormat string, clusterConfig *ClusterSpec) *ClusterShardingSpec {
 	if len(clusterConfig.ClusterShardingTiers) == 0 {
+		log.Printf("selectClusterShardingTier: cluster sharding: totalSizeMb: %d, DefaultShardSizeMb: %.3f, DefaultShardSizeBy: %.3f",
+					totalSizeMb, clusterConfig.DefaultShardSizeMb, clusterConfig.DefaultShardSizeBy)
 		return &ClusterShardingSpec{
 			MaxNbrPartitions: clusterConfig.MaxNbrPartitions,
 			ShardSizeMb:      clusterConfig.DefaultShardSizeMb,
@@ -310,6 +312,8 @@ func selectClusterShardingTier(totalSizeMb int, inputFormat string, clusterConfi
 			return &spec
 		}
 	}
+	log.Printf("selectClusterShardingTier: Fallthrough to default cluster settings: totalSizeMb: %d, DefaultShardSizeMb: %.3f, DefaultShardSizeBy: %.3f",
+				totalSizeMb, clusterConfig.DefaultShardSizeMb, clusterConfig.DefaultShardSizeBy)
 	return &ClusterShardingSpec{
 		MaxNbrPartitions: clusterConfig.MaxNbrPartitions,
 		ShardSizeMb:      clusterConfig.DefaultShardSizeMb,

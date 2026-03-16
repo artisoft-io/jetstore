@@ -19,11 +19,12 @@ type MergeTransformationPipe struct {
 	spec                *TransformationSpec
 	env                 map[string]any
 	doneCh              chan struct{}
+	mainMergeDoneCh     *chan struct{}
 }
 
 type MergeCurrentValue struct {
 	value      any
-	valueTxt	string
+	valueTxt   string
 	pendingRow []any
 }
 
@@ -146,6 +147,8 @@ func (ctx *MergeTransformationPipe) Done() error {
 	}
 	// Send the last bundle
 	ctx.sendBundle()
+	// Close the merge input channel in case they have extra data
+	ctx.MainMergeDone()
 	return nil
 }
 
@@ -166,6 +169,21 @@ func (ctx *MergeTransformationPipe) sendBundle() {
 		case <-ctx.doneCh:
 			log.Println("MergeTransformationPipe interrupted")
 		}
+	}
+}
+
+func (ctx *MergeTransformationPipe) MainMergeDone() {
+	// Avoid closing a closed channel
+	if ctx.mainMergeDoneCh == nil {
+		log.Println("MergeTransformationPipe.MainMergeDone: main merge done channel is nil, cannot close")
+		return
+	}
+	log.Println("MergeTransformationPipe.MainMergeDone: all done")
+	select {
+	case <-*ctx.mainMergeDoneCh:
+		log.Println("MergeTransformationPipe.MainMergeDone: main merge done channel already closed")
+	default:
+		close(*ctx.mainMergeDoneCh)
 	}
 }
 
@@ -271,6 +289,7 @@ func (ctx *BuilderContext) MakeMergeTransformationPipe(
 		spec:                spec,
 		env:                 ctx.env,
 		doneCh:              ctx.done,
+		mainMergeDoneCh:     ctx.mainMergeDone,
 	}
 	return mergePipe, nil
 }

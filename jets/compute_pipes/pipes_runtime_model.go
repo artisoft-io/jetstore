@@ -136,6 +136,7 @@ type BuilderContext struct {
 	inputParquetSchema *ParquetSchemaInfo
 	jetRules           JetRulesProxy
 	done               chan struct{}
+	mainMergeDone      *chan struct{}
 	errCh              chan error
 	chResults          *ChannelResults
 	env                map[string]any
@@ -203,31 +204,43 @@ func (ctx *BuilderContext) BuildComputeGraph() error {
 			// it would write a single partition, the ch will contain the number of rows for the partition
 			writePartitionsResultCh := make(chan ComputePipesResult, 10)
 			ctx.chResults.WritePartitionsResultCh <- writePartitionsResultCh
-			wg.Add(1)
-			go func() {
-				defer wg.Done()
+			wg.Go(func() {
+				if ctx.cpConfig.ClusterConfig.IsDebugMode {
+					log.Println("BuildComputeGraph: starting StartFanOutPipe on source", source.Name)
+				}
 				ctx.StartFanOutPipe(pipeSpec, source, writePartitionsResultCh)
-			}()
+				if ctx.cpConfig.ClusterConfig.IsDebugMode {
+					log.Println("BuildComputeGraph: StartFanOutPipe on source", source.Name, "DONE")
+				}
+			})
 
 		case "splitter":
 			// log.Println("**& starting PipeConfig", i, "splitter", "on source", source.name)
 			// Create the writePartitionResultCh that will contain the number of rows for each partition
 			writePartitionsResultCh := make(chan ComputePipesResult, 15000) // NOTE Max number of partitions
 			ctx.chResults.WritePartitionsResultCh <- writePartitionsResultCh
-			wg.Add(1)
-			go func() {
-				defer wg.Done()
+			wg.Go(func() {
+				if ctx.cpConfig.ClusterConfig.IsDebugMode {
+					log.Println("BuildComputeGraph: starting StartSplitterPipe on source", source.Name)
+				}
 				ctx.StartSplitterPipe(pipeSpec, source, writePartitionsResultCh)
-			}()
+				if ctx.cpConfig.ClusterConfig.IsDebugMode {
+					log.Println("BuildComputeGraph: StartSplitterPipe on source", source.Name, "DONE")
+				}
+			})
 
 		default:
 			return fmt.Errorf("error: unknown PipeSpec type: %s", pipeSpec.Type)
 		}
 	}
 	// Wait for the graph to build
-	// log.Println("Waiting for the graph to be build")
+	if ctx.cpConfig.ClusterConfig.IsDebugMode {
+		log.Println("BuildComputeGraph: Waiting for the graph to be build and terminate the execution...")
+	}
 	wg.Wait()
-	// log.Println("Waiting for the graph to be build DONE")
+	if ctx.cpConfig.ClusterConfig.IsDebugMode {
+		log.Println("BuildComputeGraph: Graph build and executed DONE")
+	}
 	return nil
 }
 

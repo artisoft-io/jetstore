@@ -91,7 +91,6 @@ func (args *StartComputePipesArgs) StartShardingComputePipes(ctx context.Context
 	if shardResult.clusterSpec.S3WorkerPoolSize == 0 {
 		shardResult.clusterSpec.S3WorkerPoolSize = min(shardResult.clusterShardingInfo.NbrPartitions, 20)
 	}
-	log.Printf("SHARDING using %d nodes", shardResult.nbrShardingNodes)
 
 	// Augment cpipesStartup.EnvSettings with cluster info, used in When statements
 	cpipesStartup.EnvSettings["multi_step_sharding"] = shardResult.clusterShardingInfo.MultiStepSharding
@@ -102,6 +101,8 @@ func (args *StartComputePipesArgs) StartShardingComputePipes(ctx context.Context
 	cpipesStartup.EnvSettings["$TOTAL_FILE_SIZE_GB"] = cpipesStartup.EnvSettings["total_file_size_gb"]
 	cpipesStartup.EnvSettings["nbr_partitions"] = shardResult.clusterShardingInfo.NbrPartitions
 	cpipesStartup.EnvSettings["$NBR_PARTITIONS"] = shardResult.clusterShardingInfo.NbrPartitions
+
+	log.Printf("%s SHARDING using %d nodes for total size %.4f gb", args.SessionId, shardResult.nbrShardingNodes, float64(cpipesStartup.EnvSettings["total_file_size_gb"].(float64)))
 
 	stepId := 0
 	pipeConfig, stepId, err := cpipesStartup.CpConfig.GetComputePipes(stepId, cpipesStartup.EnvSettings)
