@@ -84,6 +84,7 @@ func (jsComp *JetStoreStackComponents) BuildApiLambdas(scope constructs.Construc
 			"CPIPES_START_NOTIFICATION_JSON":           jsii.String(os.Getenv("CPIPES_START_NOTIFICATION_JSON")),
 			"CPIPES_COMPLETED_NOTIFICATION_JSON":       jsii.String(os.Getenv("CPIPES_COMPLETED_NOTIFICATION_JSON")),
 			"CPIPES_FAILED_NOTIFICATION_JSON":          jsii.String(os.Getenv("CPIPES_FAILED_NOTIFICATION_JSON")),
+			"JETS_API_GATEWAY_LAMBDA_ASSUME_ROLE_ARN":  jsii.String(os.Getenv("JETS_API_GATEWAY_LAMBDA_ASSUME_ROLE_ARN")),
 			"TASK_MAX_CONCURRENCY":                     jsii.String(os.Getenv("TASK_MAX_CONCURRENCY")),
 			"NBR_SHARDS":                               jsii.String(props.NbrShards),
 			"ENVIRONMENT":                              jsii.String(os.Getenv("ENVIRONMENT")),
