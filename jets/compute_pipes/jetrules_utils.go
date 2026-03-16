@@ -340,7 +340,7 @@ func GetWorkspaceDomainTables() (map[string]*rete.TableNode, error) {
 		if domainTablesMap == nil {
 			domainTablesMap = make(map[string]*rete.TableNode)
 			fpath := fmt.Sprintf("%s/%s/build/tables.json", workspaceHome, wsPrefix)
-			log.Println("*** Loading Domain Tables definitions from:", fpath)
+			// log.Println("*** Loading Domain Tables definitions from:", fpath)
 			file, err := os.ReadFile(fpath)
 			if err != nil {
 				err = fmt.Errorf("while reading tables.json file (GetWorkspaceDomainTables):%v", err)
@@ -353,7 +353,7 @@ func GetWorkspaceDomainTables() (map[string]*rete.TableNode, error) {
 				log.Println(err)
 				return nil, err
 			}
-			log.Printf("*** Domain Tables Loaded with %d table definitions", len(domainTablesMap))
+			// log.Printf("*** Domain Tables Loaded with %d table definitions", len(domainTablesMap))
 		}
 	}
 	return domainTablesMap, nil
@@ -365,10 +365,10 @@ func GetWorkspaceDataProperties() (map[string]*rete.DataPropertyNode, error) {
 		dataPropertyInfoMx.Lock()
 		defer dataPropertyInfoMx.Unlock()
 		if dataPropertyInfoMap == nil {
-			log.Println("*** Load Data Properties from local Workspace")
+			// log.Println("*** Load Data Properties from local Workspace")
 			dataPropertyInfoMap = make(map[string]*rete.DataPropertyNode)
 			fpath := fmt.Sprintf("%s/%s/build/properties.json", workspaceHome, wsPrefix)
-			log.Println("Reading Data Properties definitions from:", fpath)
+			// log.Println("Reading Data Properties definitions from:", fpath)
 			file, err := os.ReadFile(fpath)
 			if err != nil {
 				err = fmt.Errorf("while reading properties.json file (GetWorkspaceDataProperties):%v", err)
@@ -381,7 +381,7 @@ func GetWorkspaceDataProperties() (map[string]*rete.DataPropertyNode, error) {
 				log.Println(err)
 				return nil, err
 			}
-			log.Printf("*** Data Properties Loaded with %d property definitions", len(dataPropertyInfoMap))
+			// log.Printf("*** Data Properties Loaded with %d property definitions", len(dataPropertyInfoMap))
 		}
 	}
 	return dataPropertyInfoMap, nil
@@ -403,8 +403,7 @@ func GetMultiValueProperties(className string) ([]string, error) {
 			multiValueProperties = append(multiValueProperties, p.ColumnName)
 		}
 	}
-	//***
-	log.Printf("*** Multi-value properties for class %s: %v", className, multiValueProperties)
+	// log.Printf("*** Multi-value properties for class %s: %v", className, multiValueProperties)
 	return multiValueProperties, nil
 }
 
