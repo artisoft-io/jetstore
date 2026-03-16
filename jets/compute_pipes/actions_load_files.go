@@ -73,6 +73,7 @@ func (cpCtx *ComputePipesContext) LoadFiles(ctx context.Context, dbpool *pgxpool
 		computePipesMergeChs = make([]chan []any, 0, l)
 		waitForDone = new(sync.WaitGroup)
 		cpCtx.MainMergeDone = new(chan struct{})
+		*cpCtx.MainMergeDone = make(chan struct{})
 		for i := range l {
 			channelConfig := inputChannelConfig.MergeChannels[i]
 			mergeCh := make(chan []any, 5)
