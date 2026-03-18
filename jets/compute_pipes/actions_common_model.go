@@ -115,6 +115,11 @@ type InputSourceSpec struct {
 	DomainKeys           *DomainKeysSpec `json:"domain_keys_spec,omitempty"`
 }
 
+// FileKeyInfo contains the file key and the info about the file key such as size and the range to read for sharding step.
+// The range to read is specified as bytes for text files and nbr of rows with offset for parquet files.
+// So for parquet files, if a file is split in 3 shards and reading the second shard would 
+// be specified as start = 1 (second shard), end = 3 (3 shards).
+// 'start' is 0-based since it's an indice while 'end' is 1-based since it's a count.
 type FileKeyInfo struct {
 	key          string
 	size         int

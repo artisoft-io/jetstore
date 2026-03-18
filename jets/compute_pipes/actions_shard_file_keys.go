@@ -6,6 +6,7 @@ import (
 	"log"
 	"math"
 	"os"
+	"slices"
 	"strings"
 
 	"github.com/artisoft-io/jetstore/jets/awsi"
@@ -125,11 +126,15 @@ func ShardFileKeys(exeCtx context.Context, dbpool *pgxpool.Pool, baseFileKey str
 
 	// Allocate file keys to nodes
 	doSplitFiles = false
+	isParquet := false
 	if offset > 0 {
 		// Determine if we can split large files
 		switch schemaProviderConfig.Format {
-		case "csv", "headerless_csv", "fixed_width", "parquet", "parquet_select":
+		case "csv", "headerless_csv", "fixed_width":
 			doSplitFiles = true
+		case "parquet", "parquet_select":
+			doSplitFiles = true
+			isParquet = true
 		}
 	}
 
@@ -145,14 +150,24 @@ func ShardFileKeys(exeCtx context.Context, dbpool *pgxpool.Pool, baseFileKey str
 
 	// shardRegistryRow row of jetsapi.compute_pipes_shard_registry
 	var shardRegistryRows [][]any
-	shardRegistryRows, result.nbrShardingNodes = assignShardInfo(s3Objects, shardSize, maxShardSize,
-		offset, doSplitFiles, sessionId, 0)
+	if isParquet {
+		shardRegistryRows, result.nbrShardingNodes = assignShardInfoParquet(s3Objects, shardSize, maxShardSize,
+			doSplitFiles, sessionId, 0)
+	} else {
+		shardRegistryRows, result.nbrShardingNodes = assignShardInfo(s3Objects, shardSize, maxShardSize,
+			offset, doSplitFiles, sessionId, 0)
+	}
 
 	// Add merge channel files to shardRegistryRows
 	for i, mergeObjects := range mergeS3Objects {
 		var mergeShardRows [][]any
-		mergeShardRows, _ = assignShardInfo(mergeObjects, shardSize, maxShardSize,
-			offset, doSplitFiles, sessionId, i+1)
+		if isParquet {
+			mergeShardRows, _ = assignShardInfoParquet(mergeObjects, shardSize, maxShardSize,
+				doSplitFiles, sessionId, i+1)
+		} else {
+			mergeShardRows, _ = assignShardInfo(mergeObjects, shardSize, maxShardSize,
+				offset, doSplitFiles, sessionId, i+1)
+		}
 		shardRegistryRows = append(shardRegistryRows, mergeShardRows...)
 	}
 
@@ -207,6 +222,78 @@ func ShardFileKeys(exeCtx context.Context, dbpool *pgxpool.Pool, baseFileKey str
 		return
 	}
 	return
+}
+
+func assignShardInfoParquet(s3Objects []*awsi.S3Object, shardSize, maxShardSize int64,
+	doSplitFiles bool, sessionId string, chanPos int) ([][]any, int) {
+
+	shardRegistryRows := make([][]any, 0, len(s3Objects))
+	hasSentinelFile := len(sentinelFileName) > 0
+	var currentShardId int
+	var currentShardSize int64
+	// Sort s3Objects by size incrementing to minimize the number of shards by grouping the small files together
+	slices.SortFunc(s3Objects, func(a, b *awsi.S3Object) int {
+		if a.Size < b.Size {
+			return -1
+		} else if a.Size > b.Size {
+			return 1
+		}
+		return 0
+	})
+
+	iObj := 0
+	for iObj < len(s3Objects) {
+		obj := s3Objects[iObj]
+		iObj++
+		if obj.Size == 0 || (hasSentinelFile && strings.HasSuffix(obj.Key, sentinelFileName)) {
+			continue
+		}
+		if obj.Size > maxShardSize && doSplitFiles {
+
+			// Split the file into chunks, calculate the number of chuncks based on shardSize, then assign each chunk to a shard
+			nbrShards := int(math.Ceil(float64(obj.Size) / float64(shardSize)))
+			currentShardSize = 0
+			for i := range nbrShards {
+				shardRegistryRows = append(shardRegistryRows, []any{
+					sessionId,
+					obj.Key,
+					obj.Size,
+					int64(i),
+					int64(nbrShards),
+					currentShardId,
+					chanPos,
+				})
+				currentShardId += 1
+			}
+
+		} else {
+			// assign the file to it's own shard or with other files until reaching the shard size or max shard size
+			if currentShardSize > 0 && currentShardSize+obj.Size > maxShardSize {
+				// put obj in next shard
+				currentShardId += 1
+				currentShardSize = 0
+			}
+			shardRegistryRows = append(shardRegistryRows, []any{
+				sessionId,
+				obj.Key,
+				obj.Size,
+				int64(0),
+				int64(0),
+				currentShardId,
+				chanPos,
+			})
+			currentShardSize += obj.Size
+			if currentShardSize > shardSize {
+				currentShardId += 1
+				currentShardSize = 0
+			}
+		}
+	}
+	if currentShardSize > 0 {
+		// close the current shard
+		currentShardId += 1
+	}
+	return shardRegistryRows, currentShardId
 }
 
 func assignShardInfo(s3Objects []*awsi.S3Object, shardSize, maxShardSize, offset int64,
@@ -283,7 +370,7 @@ func assignShardInfo(s3Objects []*awsi.S3Object, shardSize, maxShardSize, offset
 func selectClusterShardingTier(totalSizeMb int, inputFormat string, clusterConfig *ClusterSpec) *ClusterShardingSpec {
 	if len(clusterConfig.ClusterShardingTiers) == 0 {
 		log.Printf("selectClusterShardingTier: cluster sharding: totalSizeMb: %d, DefaultShardSizeMb: %.3f, DefaultShardSizeBy: %.3f",
-					totalSizeMb, clusterConfig.DefaultShardSizeMb, clusterConfig.DefaultShardSizeBy)
+			totalSizeMb, clusterConfig.DefaultShardSizeMb, clusterConfig.DefaultShardSizeBy)
 		return &ClusterShardingSpec{
 			MaxNbrPartitions: clusterConfig.MaxNbrPartitions,
 			ShardSizeMb:      clusterConfig.DefaultShardSizeMb,
@@ -313,7 +400,7 @@ func selectClusterShardingTier(totalSizeMb int, inputFormat string, clusterConfi
 		}
 	}
 	log.Printf("selectClusterShardingTier: Fallthrough to default cluster settings: totalSizeMb: %d, DefaultShardSizeMb: %.3f, DefaultShardSizeBy: %.3f",
-				totalSizeMb, clusterConfig.DefaultShardSizeMb, clusterConfig.DefaultShardSizeBy)
+		totalSizeMb, clusterConfig.DefaultShardSizeMb, clusterConfig.DefaultShardSizeBy)
 	return &ClusterShardingSpec{
 		MaxNbrPartitions: clusterConfig.MaxNbrPartitions,
 		ShardSizeMb:      clusterConfig.DefaultShardSizeMb,
