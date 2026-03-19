@@ -33,6 +33,7 @@ import (
 //	"total_count",
 //	"avr_length",
 //	"length_var"
+//	"contains_scrubb_char"
 //
 // Other base columns available when using parse function (parse_date, parse_double, parse_text)
 //
@@ -255,6 +256,11 @@ func (ctx *AnalyzeTransformationPipe) Done() error {
 			if ok {
 				outputRow[ipos] = avrVar
 			}
+		}
+
+		ipos, ok = (*ctx.outputCh.Columns)["contains_scrubb_char"]
+		if ok {
+			outputRow[ipos] = state.ContainsScrubbChar
 		}
 
 		// The value of the domain counts are expressed in percentage of the non null count:
