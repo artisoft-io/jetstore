@@ -16,8 +16,11 @@ type MapRecordTransformationPipe struct {
 	source           *InputChannel
 	outputCh         *OutputChannel
 	columnEvaluators []TransformationColumnEvaluator
+	errorCount       int
+	errorOutputCh    *OutputChannel
 	spec             *TransformationSpec
 	doneCh           chan struct{}
+	builderContext   *BuilderContext
 }
 
 // Implementing interface PipeTransformationEvaluator
@@ -52,10 +55,16 @@ func (ctx *MapRecordTransformationPipe) Apply(input *[]any) error {
 	// Apply the column transformation for each column
 	for i := range ctx.columnEvaluators {
 		err := ctx.columnEvaluators[i].Update(currentValues, input)
-		if err != nil {
-			err = fmt.Errorf("while calling column transformation from map_record: %v", err)
-			log.Println(err)
-			return err
+		if err != nil && ctx.errorOutputCh != nil && ctx.errorCount < 10 {
+			peRow := ctx.builderContext.NewProcessError()
+			peRow.ErrorMessage = err.Error()
+			peRow.write2Chan(ctx.errorOutputCh, ctx.doneCh)
+			log.Printf("mapping error: %s", err.Error())
+			ctx.errorCount++
+		} else {
+			if err != nil && ctx.spec.MapRecordConfig != nil && ctx.spec.MapRecordConfig.IsDebug {
+				log.Printf("mapping error: %s", err.Error())
+			}
 		}
 	}
 	if !ctx.spec.NewRecord {
@@ -119,9 +128,13 @@ func (ctx *BuilderContext) NewMapRecordTransformationPipe(source *InputChannel, 
 			return nil, fmt.Errorf("error: no mapping items found in jetstore db for mapping table: %s",
 				fileMappingTableName)
 		}
+		codeValueMapping, err := GetCodeValueMapping(ctx.dbpool, fileMappingTableName)
+		if err != nil {
+			return nil, fmt.Errorf("while getting code value mapping details from jetstore db: %v", err)
+		}
 		if config.IsDebug {
-			log.Printf("MapRecordTransformationPipe loading %d mapping items from mapping table: %s",
-				len(inputMappingItems), fileMappingTableName)
+			log.Printf("MapRecordTransformationPipe loading %d mapping items from mapping table: %s, with code value mapping length: %d",
+				len(inputMappingItems), fileMappingTableName, len(codeValueMapping))
 		}
 		// Get the domain data properties from local workspace to get the rdf type
 		propertyMap, err := GetWorkspaceDataProperties()
@@ -133,6 +146,7 @@ func (ctx *BuilderContext) NewMapRecordTransformationPipe(source *InputChannel, 
 			log.Printf("*** Columns in input channel: %v", source.Config.Columns)
 			log.Printf("*** Columns in output channel: %v", outputCh.Config.Columns)
 		}
+		var cvm map[string]string
 		for i := range inputMappingItems {
 			mappingExp := &inputMappingItems[i]
 			node := propertyMap[mappingExp.DataProperty]
@@ -147,6 +161,10 @@ func (ctx *BuilderContext) NewMapRecordTransformationPipe(source *InputChannel, 
 						mappingExp.DataProperty)
 				}
 			}
+			cvm = nil
+			if codeValueMapping != nil {
+				cvm = codeValueMapping[mappingExp.DataProperty]
+			}
 			ce, err := ctx.BuildMapTCEvaluator(source, outputCh, &TransformationColumnSpec{
 				Name: mappingExp.DataProperty,
 				Type: "map",
@@ -156,6 +174,7 @@ func (ctx *BuilderContext) NewMapRecordTransformationPipe(source *InputChannel, 
 					Argument:          mappingExp.Argument.String,
 					Default:           mappingExp.DefaultValue.String,
 					ErrMsg:            mappingExp.ErrorMessage.String,
+					CodeValueMapping:  cvm,
 					RdfType:           node.Type,
 				},
 			})
@@ -175,11 +194,29 @@ func (ctx *BuilderContext) NewMapRecordTransformationPipe(source *InputChannel, 
 		}
 		columnEvaluators = append(columnEvaluators, ce)
 	}
+
+	// Get the error channel if configured
+	var errorOutputCh *OutputChannel
+	var err error
+	if config.ErrorChannel != nil {
+		if len(config.ErrorChannel.Name) == 0 {
+			return nil, fmt.Errorf("error: error_channel name cannot be empty")
+		}
+		if len(config.ErrorChannel.SpecName) == 0 {
+			return nil, fmt.Errorf("error: error_channel spec name cannot be empty")
+		}
+		errorOutputCh, err = ctx.channelRegistry.GetOutputChannel(config.ErrorChannel.Name)
+		if err != nil {
+			return nil, err
+		}
+	}
 	return &MapRecordTransformationPipe{
 		source:           source,
 		outputCh:         outputCh,
 		columnEvaluators: columnEvaluators,
 		spec:             spec,
 		doneCh:           ctx.done,
+		errorOutputCh:    errorOutputCh,
+		builderContext:   ctx,
 	}, nil
 }

@@ -2,7 +2,6 @@ package compute_pipes
 
 import (
 	"fmt"
-	"log"
 	"strconv"
 	"time"
 
@@ -36,15 +35,19 @@ func (ctx *mapColumnEval) Update(currentValue *[]any, input *[]any) error {
 	//			- set inputV to inputVal as string
 	// - if inputV is empty or cleansing function returned an errMsg:
 	//		set inputV to defaultVal if not empty, else report the errMsg or the default errMsg if any.
-	// - update currentValue using input applying cleansing function and default value
+	// - update currentValue using updated inputV
 	// - map inputV to correct rdf type if specified
+	// - if code value mapping defined, then map the inputV to the corresponding code value based on the mapping definition,
+	//   and use the code value as outputVal. If no code value found in map, use key __DEFAULT__ if defined, else use the inputV as outputVal.
 	//
 	var inputVal, outputVal any
 	var inputV, errMsg string
 	var ok bool
 	var err error
-	if ctx.mapConfig.inputPos >= 0 {
-		inputVal = (*input)[ctx.mapConfig.inputPos]
+	config := ctx.mapConfig
+	mapConfig := config.mapConfig
+	if config.inputPos >= 0 {
+		inputVal = (*input)[config.inputPos]
 	}
 	if inputVal != nil {
 		inputV, ok = inputVal.(string)
@@ -54,12 +57,11 @@ func (ctx *mapColumnEval) Update(currentValue *[]any, input *[]any) error {
 		}
 		if len(inputV) > 0 {
 			outputVal = inputV
-			if ctx.mapConfig.mapConfig.CleansingFunction != "" {
+			if mapConfig.CleansingFunction != "" {
 				outputVal, errMsg =
-					ctx.cleansingCtx.ApplyCleasingFunction(ctx.mapConfig.mapConfig.CleansingFunction,
-						ctx.mapConfig.mapConfig.Argument, inputV, ctx.mapConfig.inputPos, input)
+					ctx.cleansingCtx.ApplyCleasingFunction(mapConfig.CleansingFunction,
+						mapConfig.Argument, inputV, config.inputPos, input)
 				if len(errMsg) > 0 {
-					//*TODO Report error on cleansing function
 					// fmt.Println("*** Error while applying cleansing function:", errMsg)
 					outputVal = nil
 				}
@@ -68,25 +70,45 @@ func (ctx *mapColumnEval) Update(currentValue *[]any, input *[]any) error {
 	}
 	if outputVal == nil {
 		// Apply default if defined
-		outputVal = ctx.mapConfig.defaultValue
-		if outputVal == nil && (ctx.mapConfig.mapConfig.ErrMsg != "" || errMsg != "") {
+		outputVal = config.defaultValue
+		if outputVal == nil && (mapConfig.ErrMsg != "" || errMsg != "") {
 			if errMsg == "" {
-				errMsg = ctx.mapConfig.mapConfig.ErrMsg
+				errMsg = mapConfig.ErrMsg
 			}
-			fmt.Println("TODO Report Error, null on input and have errMsg:", errMsg)
+			return fmt.Errorf("error mapping column at output position %d: %s", config.outputPos, errMsg)
 		}
 	} else {
 		// Cast to rdf type
-		outputVal, err = CastToRdfType(outputVal, ctx.mapConfig.mapConfig.RdfType)
+		outputVal, err = CastToRdfType(outputVal, mapConfig.RdfType)
 		if err != nil {
-			log.Printf("error while casting value to rdf type (will set to null): %v", err)
+			return fmt.Errorf("error while casting value to rdf type: %v", err)
 		}
 	}
 	if outputVal == nil {
 		// Don't overrite currentValue with nil
 		return nil
+	} else {
+		// Apply code value mapping if defined
+		if mapConfig.CodeValueMapping != nil {
+			outputValStr, ok := outputVal.(string)
+			if !ok {
+				// humm, expecting a string
+				outputValStr = fmt.Sprintf("%v", outputVal)
+			}
+			mappedVal, ok := mapConfig.CodeValueMapping[outputValStr]
+			if !ok {
+				// Look for default value in code value mapping
+				mappedVal, ok = mapConfig.CodeValueMapping["__DEFAULT__"]
+				if !ok {
+					// No mapping found, use the original value as output
+					mappedVal = outputValStr
+				}
+			}
+			outputVal = mappedVal
+		}
 	}
-	(*currentValue)[ctx.mapConfig.outputPos] = outputVal
+
+	(*currentValue)[config.outputPos] = outputVal
 	return nil
 }
 
@@ -108,10 +130,10 @@ func (ctx *BuilderContext) BuildMapTCEvaluator(source *InputChannel, outCh *Outp
 	case meDefault == "":
 		defaultValue = nil
 	case meRdfType == "int", meRdfType == "bool":
-		switch {
-		case meDefault == "true" || meDefault == "TRUE":
+		switch meDefault {
+		case "true", "TRUE":
 			defaultValue = 1
-		case meDefault == "false" || meDefault == "FALSE":
+		case "false", "FALSE":
 			defaultValue = 0
 		default:
 			defaultValue, err = strconv.Atoi(meDefault)
@@ -150,6 +172,12 @@ func (ctx *BuilderContext) BuildMapTCEvaluator(source *InputChannel, outCh *Outp
 		defaultValue, err = strconv.ParseInt(meDefault, 10, 64)
 		if err != nil {
 			return nil, err
+		}
+	}
+	// validation
+	if spec.MapExpr.CodeValueMapping != nil {
+		if len(meRdfType) > 0 && meRdfType != "string" {
+			return nil, fmt.Errorf("error: code value mapping is only supported for string/text rdf type, but got rdf type: %s", meRdfType)
 		}
 	}
 	expr := *spec.Expr

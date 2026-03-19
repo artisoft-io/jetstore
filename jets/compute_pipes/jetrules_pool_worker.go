@@ -250,7 +250,7 @@ func (ctx *JrPoolWorker) executeRules(inputRecords *[]any,
 			hasException := ctor.GetObject()
 			if hasException != nil {
 				// report jetrules exception, save rete session
-				if ctx.errorOutputCh != nil && ctx.errorCount < 50 {
+				if ctx.errorOutputCh != nil && ctx.errorCount < 25 {
 					peRow := ctx.builderContext.NewProcessError()
 					peRow.ErrorMessage = fmt.Sprintf("jets:exception caught: %s", hasException)
 					if ctx.config.MaxReteSessionsSaved > 0 && ctx.nbrReteSessionsSaved < ctx.config.MaxReteSessionsSaved {

@@ -547,8 +547,9 @@ type ConditionalTransformationSpec struct {
 // are `jets:key,rdf:type,jets:source_period_sequence` and if rdf:type is null after the mapping,
 // the default value specified by output_channel.class_name is used.
 type MapRecordSpec struct {
-	FileMappingTableName string `json:"file_mapping_table_name"`
-	IsDebug              bool   `json:"is_debug,omitzero"`
+	FileMappingTableName string               `json:"file_mapping_table_name"`
+	ErrorChannel         *OutputChannelConfig `json:"error_channel,omitzero"`
+	IsDebug              bool                 `json:"is_debug,omitzero"`
 }
 
 // AnalyzeSpec configuration
@@ -1094,11 +1095,12 @@ func (h *HashExpression) String() string {
 }
 
 type MapExpression struct {
-	CleansingFunction string `json:"cleansing_function,omitempty"`
-	Argument          string `json:"argument,omitempty"`
-	Default           string `json:"default,omitempty"`
-	ErrMsg            string `json:"err_msg,omitempty"`
-	RdfType           string `json:"rdf_type,omitempty"`
+	CleansingFunction string            `json:"cleansing_function,omitempty"`
+	Argument          string            `json:"argument,omitempty"`
+	Default           string            `json:"default,omitempty"`
+	ErrMsg            string            `json:"err_msg,omitempty"`
+	CodeValueMapping  map[string]string `json:"code_value_mapping,omitempty"`
+	RdfType           string            `json:"rdf_type,omitempty"`
 }
 
 type ExpressionNode struct {

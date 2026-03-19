@@ -462,7 +462,7 @@ type InputMappingExpr struct {
 	ErrorMessage          sql.NullString
 }
 
-// read mapping definitions
+// read mapping definitions from process_mapping
 func GetInputMapping(dbpool *pgxpool.Pool, tableName string) ([]InputMappingExpr, error) {
 	item, _ := inputMappingCache.Load(tableName)
 	if item == nil {
@@ -498,4 +498,23 @@ func GetInputMapping(dbpool *pgxpool.Pool, tableName string) ([]InputMappingExpr
 		inputMappingCache.Store(tableName, item)
 	}
 	return item.([]InputMappingExpr), nil
+}
+
+// read code value mapping json from source_config and convert it to map[string]string
+func GetCodeValueMapping(dbpool *pgxpool.Pool, tableName string) (map[string]map[string]string, error) {
+	var mappingJson sql.NullString
+	// Get the code value json from source_config table
+	stmt := "SELECT code_values_mapping_json FROM jetsapi.source_config WHERE table_name = $1"
+	err := dbpool.QueryRow(context.Background(), stmt, tableName).Scan(&mappingJson)
+	if err != nil && err != sql.ErrNoRows {
+		return nil, err
+	}
+	if !mappingJson.Valid {
+		return nil, nil
+	}
+	var codeValueMapping map[string]map[string]string
+	if err := json.Unmarshal([]byte(mappingJson.String), &codeValueMapping); err != nil {
+		return nil, err
+	}
+	return codeValueMapping, nil
 }
