@@ -67,21 +67,22 @@ type MinMaxValue struct {
 
 // Analyze data TransformationSpec implementing PipeTransformationEvaluator interface
 type AnalyzeState struct {
-	ColumnName     string
-	ColumnPos      int
-	DistinctValues map[string]*DistinctCount
-	NullCount      int
-	LenWelford     *WelfordAlgo
-	CharToScrub    map[rune]bool
-	RegexMatch     map[string]*RegexCount
-	LookupState    []*LookupTokensState
-	KeywordMatch   map[string]*KeywordCount
-	ParseDate      *ParseDateMatchFunction
-	ParseDouble    *ParseDoubleMatchFunction
-	ParseText      *ParseTextMatchFunction
-	TotalRowCount  int
-	BlankMarkers   *BlankFieldMarkers
-	Spec           *TransformationSpec
+	ColumnName         string
+	ColumnPos          int
+	DistinctValues     map[string]*DistinctCount
+	NullCount          int
+	LenWelford         *WelfordAlgo
+	CharToScrub        map[rune]bool
+	ContainsScrubbChar int // values: 0, 1
+	RegexMatch         map[string]*RegexCount
+	LookupState        []*LookupTokensState
+	KeywordMatch       map[string]*KeywordCount
+	ParseDate          *ParseDateMatchFunction
+	ParseDouble        *ParseDoubleMatchFunction
+	ParseText          *ParseTextMatchFunction
+	TotalRowCount      int
+	BlankMarkers       *BlankFieldMarkers
+	Spec               *TransformationSpec
 }
 
 // BlankFieldMarkers is the runtime version of BlankFieldMarkersSpec
@@ -361,7 +362,7 @@ func (state *AnalyzeState) NewToken(value string) error {
 			return nil
 		}
 	}
-	
+
 	// Check if it's a date, in particular a null date
 	if state.ParseDate != nil {
 		isNullDate := state.ParseDate.NewValue(value)
@@ -384,11 +385,14 @@ func (state *AnalyzeState) NewToken(value string) error {
 	// the operator MultiTokensNode will use the original value
 	// Note: Some operators use value and other use scrubbedValue
 	scrubbedValue := value
+	state.ContainsScrubbChar = 0
 	if len(state.CharToScrub) > 0 {
 		scrubbed := make([]rune, 0, len(value))
 		for _, r := range value {
 			if !state.CharToScrub[r] {
 				scrubbed = append(scrubbed, r)
+			} else {
+				state.ContainsScrubbChar = 1
 			}
 		}
 		scrubbedValue = string(scrubbed)
