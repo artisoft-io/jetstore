@@ -198,7 +198,7 @@ func (ctx *BuilderContext) NewMapRecordTransformationPipe(source *InputChannel, 
 	// Get the error channel if configured
 	var errorOutputCh *OutputChannel
 	var err error
-	if config.ErrorChannel != nil {
+	if config != nil && config.ErrorChannel != nil {
 		if len(config.ErrorChannel.Name) == 0 {
 			return nil, fmt.Errorf("error: error_channel name cannot be empty")
 		}
