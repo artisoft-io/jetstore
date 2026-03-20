@@ -176,7 +176,7 @@ func (ctx *BuilderContext) BuildMapTCEvaluator(source *InputChannel, outCh *Outp
 	}
 	// validation
 	if spec.MapExpr.CodeValueMapping != nil {
-		if len(meRdfType) > 0 && meRdfType != "string" {
+		if len(meRdfType) > 0 && meRdfType != "text" && meRdfType != "string" {
 			return nil, fmt.Errorf("error: code value mapping is only supported for string/text rdf type, but got rdf type: %s", meRdfType)
 		}
 	}
