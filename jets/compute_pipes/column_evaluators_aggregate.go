@@ -28,7 +28,7 @@ func (ctx *countColumnEval) Update(currentValue *[]any, input *[]any) error {
 		return nil
 	}
 	if ctx.where != nil {
-		w, err := ctx.where.Eval(*input)
+		w, err := ctx.where.Eval(nil, *input)
 		if err != nil {
 			return fmt.Errorf("while evaluating where on count aggregate: %v", err)
 		}
@@ -104,7 +104,7 @@ func (ctx *distinctCountColumnEval) Update(currentValue *[]any, input *[]any) er
 		return nil
 	}
 	if ctx.where != nil {
-		w, err := ctx.where.Eval(*input)
+		w, err := ctx.where.Eval(nil, *input)
 		if err != nil {
 			return fmt.Errorf("while evaluating where on distinct_count aggregate: %v", err)
 		}
@@ -271,7 +271,7 @@ func (ctx *sumColumnEval) Update(currentValue *[]any, input *[]any) error {
 		return nil
 	}
 	if ctx.where != nil {
-		w, err := ctx.where.Eval(*input)
+		w, err := ctx.where.Eval(nil, *input)
 		if err != nil {
 			return fmt.Errorf("while evaluating where on sum aggregate: %v", err)
 		}
@@ -470,7 +470,7 @@ func (ctx *minMaxColumnEval) Update(currentValue *[]any, input *[]any) error {
 		return nil
 	}
 	if ctx.where != nil {
-		w, err := ctx.where.Eval(*input)
+		w, err := ctx.where.Eval(nil, *input)
 		if err != nil {
 			return fmt.Errorf("while evaluating where on min aggregate: %v", err)
 		}
@@ -603,7 +603,7 @@ func (ctx *avrgColumnEval) Update(currentValue *[]any, input *[]any) error {
 		return nil
 	}
 	if ctx.where != nil {
-		w, err := ctx.where.Eval(*input)
+		w, err := ctx.where.Eval(nil, *input)
 		if err != nil {
 			return fmt.Errorf("while evaluating where on avrg aggregate: %v", err)
 		}

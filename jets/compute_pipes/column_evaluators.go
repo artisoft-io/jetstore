@@ -71,8 +71,8 @@ func (ctx *BuilderContext) BuildTransformationColumnEvaluator(source *InputChann
 			cast2RdfType = NewCastToRdfFnc(spec.Name, spec.AsRdfType, false)
 		}
 		return &valueColumnEval{
-			value:     value,
-			outputPos: outputPos,
+			value:        value,
+			outputPos:    outputPos,
 			cast2RdfType: cast2RdfType,
 		}, nil
 
@@ -162,7 +162,8 @@ type evalExprColumnEval struct {
 
 func (ctx *evalExprColumnEval) InitializeCurrentValue(currentValue *[]any) {}
 func (ctx *evalExprColumnEval) Update(currentValue *[]any, input *[]any) error {
-	value, err := ctx.expr.Eval(*input)
+	cvalue := (*currentValue)[ctx.outputPos]
+	value, err := ctx.expr.Eval(cvalue, *input)
 	if err != nil {
 		return err
 	}
@@ -175,8 +176,8 @@ func (ctx *evalExprColumnEval) Done(currentValue *[]any) error {
 
 // TransformationColumnSpec Type value
 type valueColumnEval struct {
-	value     any
-	outputPos int
+	value        any
+	outputPos    int
 	cast2RdfType *CastToRdfFnc
 }
 
