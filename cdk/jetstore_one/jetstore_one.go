@@ -148,7 +148,7 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 		// Lookup the vpc endpoints security group by id to use for ecs tasks and lambdas
 		jsComp.VpcEndpointsSg = jetstorestack.LookupVpcEndpointsSecurityGroup(stack, os.Getenv("JETS_VPC_ENDPOINTS_SG_ID"))
 		// Lookup the vpc endpoint for API Gateway
-		jsComp.ApiGatewayVpcEndpoint = jetstorestack.LookupApiGatewayVpcEndpoint(stack, 
+		jsComp.ApiGatewayVpcEndpoint = jetstorestack.LookupApiGatewayVpcEndpoint(stack,
 			os.Getenv("JETS_API_GATEWAY_VPC_ENDPOINT_ID"), jsComp.VpcEndpointsSg)
 	} else {
 		// Create a new VPC
@@ -179,11 +179,6 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 		Description:      jsii.String("Allow access to internet"),
 		AllowAllOutbound: jsii.Bool(true),
 	})
-	// jsComp.ElbInboundSg = awsec2.NewSecurityGroup(stack, jsii.String("ElbInboundSg"), &awsec2.SecurityGroupProps{
-	// 	Vpc:              jsComp.Vpc,
-	// 	Description:      jsii.String("Allow elb inbound traffic"),
-	// 	AllowAllOutbound: jsii.Bool(false),
-	// })
 
 	// Database Cluster
 	// ----------------------------------------------------------------------------------------------
@@ -247,6 +242,22 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 
 	// Grant Database access to ECS Tasks and lambdas
 	jsComp.RdsAccessSg.Connections().AllowTo(jsComp.RdsCluster, awsec2.Port_Tcp(jsii.Number(5432)), jsii.String("Allow connection from RdsAccessSg"))
+
+	// Create role for lambda functions requiring access to external buckets
+	// Create Lambda execution role with VPC access and assume role permissions
+	jsComp.LambdaExecutionRole = awsiam.NewRole(stack, jsii.String("LambdaExecutionRole"), &awsiam.RoleProps{
+		AssumedBy: awsiam.NewServicePrincipal(jsii.String("lambda.amazonaws.com"), nil),
+		ManagedPolicies: &[]awsiam.IManagedPolicy{
+			awsiam.ManagedPolicy_FromAwsManagedPolicyName(jsii.String("service-role/AWSLambdaBasicExecutionRole")),
+			awsiam.ManagedPolicy_FromAwsManagedPolicyName(jsii.String("service-role/AWSLambdaVPCAccessExecutionRole")),
+		},
+	})
+	jsComp.RdsSecret.GrantRead(jsComp.LambdaExecutionRole, nil)
+	jsComp.SourceBucket.GrantReadWrite(jsComp.LambdaExecutionRole, nil)
+	jsComp.GrantReadWriteFromExternalBuckets(stack, jsComp.LambdaExecutionRole)
+	if jsComp.ExternalKmsKey != nil {
+		jsComp.ExternalKmsKey.GrantEncryptDecrypt(jsComp.LambdaExecutionRole)
+	}
 
 	// Create the jsComp.EcsCluster.
 	// ==============================================================================================================

@@ -94,6 +94,7 @@ func (jsComp *JetStoreStackComponents) BuildApiLambdas(scope constructs.Construc
 		MemorySize: jsii.Number(128),
 		// EphemeralStorageSize: awscdk.Size_Mebibytes(jsii.Number(2048)),
 		Timeout:        awscdk.Duration_Minutes(jsii.Number(1)), // since the api gateway limits to 29 seconds
+		Role:           jsComp.LambdaExecutionRole,
 		Vpc:            jsComp.Vpc,
 		VpcSubnets:     jsComp.PrivateSubnetSelection,
 		SecurityGroups: &[]awsec2.ISecurityGroup{jsComp.VpcEndpointsSg, jsComp.RdsAccessSg, jsComp.InternetAccessSg},
@@ -107,13 +108,6 @@ func (jsComp *JetStoreStackComponents) BuildApiLambdas(scope constructs.Construc
 	}
 	if descriptionTagName != nil {
 		awscdk.Tags_Of(jsComp.ApiGatewayLambda).Add(descriptionTagName, jsii.String("JetStore lambda for api gateway"), nil)
-	}
-	jsComp.RdsSecret.GrantRead(jsComp.ApiGatewayLambda, nil)
-
-	jsComp.SourceBucket.GrantReadWrite(jsComp.ApiGatewayLambda, nil)
-	jsComp.GrantReadWriteFromExternalBuckets(stack, jsComp.ApiGatewayLambda)
-	if jsComp.ExternalKmsKey != nil {
-		jsComp.ExternalKmsKey.GrantEncryptDecrypt(jsComp.ApiGatewayLambda)
 	}
 
 	// Grant read access to same account codecommit repo to Lambda role

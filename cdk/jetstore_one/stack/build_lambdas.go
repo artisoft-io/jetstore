@@ -196,7 +196,7 @@ func (jsComp *JetStoreStackComponents) BuildLambdas(scope constructs.Construct, 
 			"JETS_SERVER_SM_ARN":            jsii.String(jsComp.ServerSmArn),
 			"JETS_SERVER_SM_ARNv2":          jsii.String(jsComp.ServerSmArnv2),
 			"JETS_CPIPES_SM_ARN":            jsii.String(jsComp.CpipesSmArn),
-			"JETS_CPIPES_NATIVE_SM_ARN":                jsii.String(jsComp.CpipesNativeSmArn),
+			"JETS_CPIPES_NATIVE_SM_ARN":     jsii.String(jsComp.CpipesNativeSmArn),
 			"JETS_REPORTS_SM_ARN":           jsii.String(jsComp.ReportsSmArn),
 			"NBR_SHARDS":                    jsii.String(props.NbrShards),
 			"ENVIRONMENT":                   jsii.String(os.Getenv("ENVIRONMENT")),
@@ -206,6 +206,7 @@ func (jsComp *JetStoreStackComponents) BuildLambdas(scope constructs.Construct, 
 		},
 		MemorySize:           jsii.Number(3072),
 		Timeout:              awscdk.Duration_Minutes(jsii.Number(15)),
+		Role:                 jsComp.LambdaExecutionRole,
 		Vpc:                  jsComp.Vpc,
 		VpcSubnets:           jsComp.IsolatedSubnetSelection,
 		SecurityGroups:       &[]awsec2.ISecurityGroup{jsComp.VpcEndpointsSg, jsComp.RdsAccessSg},
@@ -220,12 +221,6 @@ func (jsComp *JetStoreStackComponents) BuildLambdas(scope constructs.Construct, 
 	}
 	if descriptionTagName != nil {
 		awscdk.Tags_Of(jsComp.RunReportsLambda).Add(descriptionTagName, jsii.String("JetStore lambda to run reports"), nil)
-	}
-	jsComp.RdsSecret.GrantRead(jsComp.RunReportsLambda, nil)
-	jsComp.SourceBucket.GrantReadWrite(jsComp.RunReportsLambda, nil)
-	jsComp.GrantReadWriteFromExternalBuckets(stack, jsComp.RunReportsLambda)
-	if jsComp.ExternalKmsKey != nil {
-		jsComp.ExternalKmsKey.GrantEncryptDecrypt(jsComp.RunReportsLambda)
 	}
 	jsComp.RunReportsLambda.AddToRolePolicy(awsiam.NewPolicyStatement(&awsiam.PolicyStatementProps{
 		Actions: jsii.Strings("s3:GetObjectAttributes"),
@@ -271,7 +266,7 @@ func (jsComp *JetStoreStackComponents) BuildLambdas(scope constructs.Construct, 
 				"JETS_SERVER_SM_ARN":            jsii.String(jsComp.ServerSmArn),
 				"JETS_SERVER_SM_ARNv2":          jsii.String(jsComp.ServerSmArnv2),
 				"JETS_CPIPES_SM_ARN":            jsii.String(jsComp.CpipesSmArn),
-			"JETS_CPIPES_NATIVE_SM_ARN":                jsii.String(jsComp.CpipesNativeSmArn),
+				"JETS_CPIPES_NATIVE_SM_ARN":     jsii.String(jsComp.CpipesNativeSmArn),
 				"JETS_REPORTS_SM_ARN":           jsii.String(jsComp.ReportsSmArn),
 				"NBR_SHARDS":                    jsii.String(props.NbrShards),
 				"ENVIRONMENT":                   jsii.String(os.Getenv("ENVIRONMENT")),
@@ -281,6 +276,7 @@ func (jsComp *JetStoreStackComponents) BuildLambdas(scope constructs.Construct, 
 			},
 			MemorySize:           jsii.Number(3072),
 			Timeout:              awscdk.Duration_Minutes(jsii.Number(15)),
+			Role:                 jsComp.LambdaExecutionRole,
 			Vpc:                  jsComp.Vpc,
 			VpcSubnets:           jsComp.IsolatedSubnetSelection,
 			SecurityGroups:       &[]awsec2.ISecurityGroup{jsComp.VpcEndpointsSg, jsComp.RdsAccessSg},
@@ -295,12 +291,6 @@ func (jsComp *JetStoreStackComponents) BuildLambdas(scope constructs.Construct, 
 		}
 		if descriptionTagName != nil {
 			awscdk.Tags_Of(jsComp.CpipesRunReportsLambda).Add(descriptionTagName, jsii.String("JetStore installation-specific lambda to run reports"), nil)
-		}
-		jsComp.RdsSecret.GrantRead(jsComp.CpipesRunReportsLambda, nil)
-		jsComp.SourceBucket.GrantReadWrite(jsComp.CpipesRunReportsLambda, nil)
-		jsComp.GrantReadWriteFromExternalBuckets(stack, jsComp.CpipesRunReportsLambda)
-		if jsComp.ExternalKmsKey != nil {
-			jsComp.ExternalKmsKey.GrantEncryptDecrypt(jsComp.CpipesRunReportsLambda)
 		}
 		jsComp.CpipesRunReportsLambda.AddToRolePolicy(awsiam.NewPolicyStatement(&awsiam.PolicyStatementProps{
 			Actions: jsii.Strings("s3:GetObjectAttributes"),

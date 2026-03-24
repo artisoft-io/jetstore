@@ -20,7 +20,7 @@ import (
 )
 
 func (jsComp *JetStoreStackComponents) BuildCpipesLambdas(scope constructs.Construct, stack awscdk.Stack, props *JetstoreOneStackProps) {
-	
+
 	// Build lambdas used by cpipesSM and cpipesNativeSM:
 	//	- CpipesNodeLambda
 	//  - CpipesNativeNodeLambda
@@ -85,6 +85,7 @@ func (jsComp *JetStoreStackComponents) BuildCpipesLambdas(scope constructs.Const
 		MemorySize:           jsii.Number(memLimit),
 		EphemeralStorageSize: awscdk.Size_Mebibytes(jsii.Number(10240)),
 		Timeout:              awscdk.Duration_Minutes(jsii.Number(15)),
+		Role:                 jsComp.LambdaExecutionRole,
 		Vpc:                  jsComp.Vpc,
 		VpcSubnets:           jsComp.IsolatedSubnetSelection,
 		SecurityGroups:       &[]awsec2.ISecurityGroup{jsComp.VpcEndpointsSg, jsComp.RdsAccessSg, jsComp.InternetAccessSg},
@@ -98,12 +99,6 @@ func (jsComp *JetStoreStackComponents) BuildCpipesLambdas(scope constructs.Const
 	}
 	if descriptionTagName != nil {
 		awscdk.Tags_Of(jsComp.CpipesNodeLambda).Add(descriptionTagName, jsii.String("JetStore lambda for cpipes execution"), nil)
-	}
-	jsComp.RdsSecret.GrantRead(jsComp.CpipesNodeLambda, nil)
-	jsComp.SourceBucket.GrantReadWrite(jsComp.CpipesNodeLambda, nil)
-	jsComp.GrantReadWriteFromExternalBuckets(stack, jsComp.CpipesNodeLambda)
-	if jsComp.ExternalKmsKey != nil {
-		jsComp.ExternalKmsKey.GrantEncryptDecrypt(jsComp.CpipesNodeLambda)
 	}
 
 	if jsComp.DeployCpipesNative {
@@ -122,7 +117,6 @@ func (jsComp *JetStoreStackComponents) BuildCpipesLambdas(scope constructs.Const
 				TagOrDigest: jsii.String(os.Getenv("CPIPES_IMAGE_TAG")),
 			}),
 			Description:          jsii.String("JetStore Lambda function cpipes native execution"),
-			Timeout:              awscdk.Duration_Minutes(jsii.Number(15)),
 			MemorySize:           jsii.Number(memLimit),
 			EphemeralStorageSize: awscdk.Size_Mebibytes(jsii.Number(10240)),
 			Environment: &map[string]*string{
@@ -155,6 +149,8 @@ func (jsComp *JetStoreStackComponents) BuildCpipesLambdas(scope constructs.Const
 				"LOG_LEVEL":                                jsii.String("INFO"),
 				"LD_LIBRARY_PATH":                          jsii.String("/usr/local/lib"),
 			},
+			Timeout:        awscdk.Duration_Minutes(jsii.Number(15)),
+			Role:           jsComp.LambdaExecutionRole,
 			Vpc:            jsComp.Vpc,
 			VpcSubnets:     jsComp.IsolatedSubnetSelection,
 			SecurityGroups: &[]awsec2.ISecurityGroup{jsComp.VpcEndpointsSg, jsComp.RdsAccessSg, jsComp.InternetAccessSg},
@@ -168,12 +164,6 @@ func (jsComp *JetStoreStackComponents) BuildCpipesLambdas(scope constructs.Const
 		}
 		if descriptionTagName != nil {
 			awscdk.Tags_Of(jsComp.CpipesNativeNodeLambda).Add(descriptionTagName, jsii.String("JetStore lambda for cpipes native execution"), nil)
-		}
-		jsComp.RdsSecret.GrantRead(jsComp.CpipesNativeNodeLambda, nil)
-		jsComp.SourceBucket.GrantReadWrite(jsComp.CpipesNativeNodeLambda, nil)
-		jsComp.GrantReadWriteFromExternalBuckets(stack, jsComp.CpipesNativeNodeLambda)
-		if jsComp.ExternalKmsKey != nil {
-			jsComp.ExternalKmsKey.GrantEncryptDecrypt(jsComp.CpipesNativeNodeLambda)
 		}
 	}
 	// CpipesStartShardingLambda
@@ -219,6 +209,7 @@ func (jsComp *JetStoreStackComponents) BuildCpipesLambdas(scope constructs.Const
 		},
 		MemorySize:     jsii.Number(128),
 		Timeout:        awscdk.Duration_Minutes(jsii.Number(15)),
+		Role:           jsComp.LambdaExecutionRole,
 		Vpc:            jsComp.Vpc,
 		VpcSubnets:     jsComp.PrivateSubnetSelection,
 		SecurityGroups: &[]awsec2.ISecurityGroup{jsComp.VpcEndpointsSg, jsComp.RdsAccessSg, jsComp.InternetAccessSg},
@@ -232,12 +223,6 @@ func (jsComp *JetStoreStackComponents) BuildCpipesLambdas(scope constructs.Const
 	}
 	if descriptionTagName != nil {
 		awscdk.Tags_Of(jsComp.CpipesStartShardingLambda).Add(descriptionTagName, jsii.String("JetStore lambda for starting sharding data"), nil)
-	}
-	jsComp.RdsSecret.GrantRead(jsComp.CpipesStartShardingLambda, nil)
-	jsComp.SourceBucket.GrantReadWrite(jsComp.CpipesStartShardingLambda, nil)
-	jsComp.GrantReadWriteFromExternalBuckets(stack, jsComp.CpipesStartShardingLambda)
-	if jsComp.ExternalKmsKey != nil {
-		jsComp.ExternalKmsKey.GrantEncryptDecrypt(jsComp.CpipesStartShardingLambda)
 	}
 
 	// CpipesStartReducingLambda
@@ -282,6 +267,7 @@ func (jsComp *JetStoreStackComponents) BuildCpipesLambdas(scope constructs.Const
 		},
 		MemorySize:     jsii.Number(128),
 		Timeout:        awscdk.Duration_Minutes(jsii.Number(15)),
+		Role:           jsComp.LambdaExecutionRole,
 		Vpc:            jsComp.Vpc,
 		VpcSubnets:     jsComp.IsolatedSubnetSelection,
 		SecurityGroups: &[]awsec2.ISecurityGroup{jsComp.VpcEndpointsSg, jsComp.RdsAccessSg, jsComp.InternetAccessSg},
@@ -295,11 +281,5 @@ func (jsComp *JetStoreStackComponents) BuildCpipesLambdas(scope constructs.Const
 	}
 	if descriptionTagName != nil {
 		awscdk.Tags_Of(jsComp.CpipesStartReducingLambda).Add(descriptionTagName, jsii.String("JetStore lambda for starting reducing data"), nil)
-	}
-	jsComp.RdsSecret.GrantRead(jsComp.CpipesStartReducingLambda, nil)
-	jsComp.SourceBucket.GrantReadWrite(jsComp.CpipesStartReducingLambda, nil)
-	jsComp.GrantReadWriteFromExternalBuckets(stack, jsComp.CpipesStartReducingLambda)
-	if jsComp.ExternalKmsKey != nil {
-		jsComp.ExternalKmsKey.GrantEncryptDecrypt(jsComp.CpipesStartReducingLambda)
 	}
 }
