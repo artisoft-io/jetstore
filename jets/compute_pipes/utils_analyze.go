@@ -269,7 +269,7 @@ func (ctx *BuilderContext) NewAnalyzeState(columnName string, columnPos int, inp
 		conf := &config.FunctionTokens[i]
 		switch conf.Type {
 		case "parse_date":
-			pdate, err = NewParseDateMatchFunction(conf, sp)
+			pdate, err = ctx.NewParseDateMatchFunction(columnPos, conf, sp)
 
 		case "parse_double":
 			pdouble, err = NewParseDoubleMatchFunction(conf)

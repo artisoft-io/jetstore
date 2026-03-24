@@ -565,7 +565,7 @@ func SelectActiveLookupTable(lookupConfig []*LookupSpec, pipeConfig []PipeSpec) 
 					spec := lookupMap[*name]
 					if spec == nil {
 						return nil,
-							fmt.Errorf("error: lookup table '%s' is not defined, please verify the column transformation", *name)
+							fmt.Errorf("error: (1) lookup table '%s' is not defined, please verify the column transformation", *name)
 					}
 					activeTables = append(activeTables, spec)
 				}
@@ -573,16 +573,31 @@ func SelectActiveLookupTable(lookupConfig []*LookupSpec, pipeConfig []PipeSpec) 
 			switch transformationSpec.Type {
 			case "analyze":
 				// Check for Analyze transformation using lookup tables
-				if transformationSpec.AnalyzeConfig != nil && transformationSpec.AnalyzeConfig.LookupTokens != nil {
-					for k := range transformationSpec.AnalyzeConfig.LookupTokens {
-						lookupTokenNode := &transformationSpec.AnalyzeConfig.LookupTokens[k]
-						spec := lookupMap[lookupTokenNode.Name]
-						if spec == nil {
-							return nil,
-								fmt.Errorf(
-									"error: lookup table '%s' is not defined, please verify the column transformation", lookupTokenNode.Name)
+				if transformationSpec.AnalyzeConfig != nil {
+					if transformationSpec.AnalyzeConfig.LookupTokens != nil {
+						for k := range transformationSpec.AnalyzeConfig.LookupTokens {
+							lookupTokenNode := &transformationSpec.AnalyzeConfig.LookupTokens[k]
+							spec := lookupMap[lookupTokenNode.Name]
+							if spec == nil {
+								return nil,
+									fmt.Errorf(
+										"error: (2) lookup table '%s' is not defined, please verify the column transformation", lookupTokenNode.Name)
+							}
+							activeTables = append(activeTables, spec)
 						}
-						activeTables = append(activeTables, spec)
+					}
+					for i := range transformationSpec.AnalyzeConfig.FunctionTokens {
+						functionTokenNode := &transformationSpec.AnalyzeConfig.FunctionTokens[i]
+						if functionTokenNode.ParseDateConfig != nil && functionTokenNode.ParseDateConfig.DateFormatLookup != nil {
+							lookupName := functionTokenNode.ParseDateConfig.DateFormatLookup.LookupName
+							spec := lookupMap[lookupName]
+							if spec == nil {
+								return nil,
+									fmt.Errorf(
+										"error: (3) lookup table '%s' is not defined, please verify the column transformation", lookupName)
+							}
+							activeTables = append(activeTables, spec)
+						}
 					}
 				}
 			case "anonymize":

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"slices"
+	"strconv"
 	"strings"
 	"time"
 	"unicode"
@@ -351,11 +352,60 @@ func (p *ParseDateMatchFunction) Done(ctx *AnalyzeTransformationPipe, outputRow 
 	return nil
 }
 
-func NewParseDateMatchFunction(fspec *FunctionTokenNode, sp SchemaProvider) (*ParseDateMatchFunction, error) {
+func (ctx *BuilderContext) NewParseDateMatchFunction(columnPos int, fspec *FunctionTokenNode, sp SchemaProvider) (*ParseDateMatchFunction, error) {
 	parseDateConfig := fspec.ParseDateConfig
 	if parseDateConfig == nil {
 		return nil, fmt.Errorf("configuration error: analyze parse_date function is missing parse_date_config element")
 	}
+
+	// Check if using lookup to determine date format
+	if parseDateConfig.DateFormatLookup != nil {
+		// Check if it's a date column by looking up a the date format
+		dateLookupTbl := ctx.lookupTableManager.LookupTableMap[parseDateConfig.DateFormatLookup.LookupName]
+		if dateLookupTbl == nil {
+			return nil, fmt.Errorf("error: anonymize date format lookup table %s not found", parseDateConfig.DateFormatLookup.LookupName)
+		}
+		columnPosStr := strconv.Itoa(columnPos)
+		metaRow, err := dateLookupTbl.Lookup(&columnPosStr)
+		if err != nil {
+			return nil, fmt.Errorf("while getting the date format metadata row for column pos %d: %v", columnPos, err)
+		}
+		if metaRow == nil {
+			// Not a date
+			return nil, nil
+		}
+		// Check that the column is classified as 'date'
+		classificationValuePos := dateLookupTbl.ColumnMap()[parseDateConfig.DateFormatLookup.DataClassificationColumn]
+		classificationValueI := (*metaRow)[classificationValuePos]
+		if classificationValueI == nil {
+			return nil, nil
+		}
+		classificationValue, ok := classificationValueI.(string)
+		if !ok {
+			return nil, fmt.Errorf("error: expecting string for data classification, got %v", classificationValueI)
+		}
+		switch classificationValue {
+		case "date", "dob", "dod":
+		default:
+			// Not a date
+			return nil, nil
+		}
+		lookupValuePos := dateLookupTbl.ColumnMap()[parseDateConfig.DateFormatLookup.DateFormatColumn]
+		dateFormatI := (*metaRow)[lookupValuePos]
+		if dateFormatI == nil {
+			return nil, nil
+		}
+		dateFormat, ok := dateFormatI.(string)
+		if !ok {
+			return nil, fmt.Errorf("error: expecting string for anonymize type (e.g. text, date), got %v", dateFormatI)
+		}
+		if len(dateFormat) == 0 {
+			// Not a date
+			return nil, nil
+		}
+		parseDateConfig.DateFormats = []string{dateFormat}
+	}
+
 	// Determine the date format to use if not provided in DateFormats
 	switch {
 	case !parseDateConfig.UseJetstoreParser && len(parseDateConfig.DateFormats) == 0:
