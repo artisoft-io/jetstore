@@ -120,6 +120,11 @@ type JetStoreStackComponents struct {
 
 	DeployCpipesNative bool
 
+	// Lambdas Execution Role
+	// applicable to: RunReportsLambda, CpipesRunReportsLambda, CpipesNodeLambda, CpipesNativeNodeLambda,
+	// CpipesStartShardingLambda, CpipesStartReducingLambda, SqsRegisterKeyLambda, ApiGatewayLambda
+	LambdaExecutionRole       awsiam.Role
+
 	StatusUpdateLambda        awslambdago.GoFunction
 	SecretRotationLambda      awslambdago.GoFunction
 	RunReportsLambda          awslambdago.GoFunction
@@ -212,7 +217,7 @@ func (jsComp *JetStoreStackComponents) ResolveExternalKmsKey(stack awscdk.Stack)
 }
 
 func (jsComp *JetStoreStackComponents) GrantReadWriteFromExternalBuckets(stack awscdk.Stack, identity awsiam.IGrantable) {
-	if jsComp.ExternalBuckets == nil {
+	if len(jsComp.ExternalBuckets) == 0 {
 		return
 	}
 	for _, ibucket := range jsComp.ExternalBuckets {

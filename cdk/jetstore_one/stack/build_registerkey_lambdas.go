@@ -177,7 +177,7 @@ func (jsComp *JetStoreStackComponents) BuildRegisterKeyLambdas(scope constructs.
 				"JETS_SERVER_SM_ARN":                       jsii.String(jsComp.ServerSmArn),
 				"JETS_SERVER_SM_ARNv2":                     jsii.String(jsComp.ServerSmArnv2),
 				"JETS_CPIPES_SM_ARN":                       jsii.String(jsComp.CpipesSmArn),
-			"JETS_CPIPES_NATIVE_SM_ARN":                jsii.String(jsComp.CpipesNativeSmArn),
+				"JETS_CPIPES_NATIVE_SM_ARN":                jsii.String(jsComp.CpipesNativeSmArn),
 				"JETS_REPORTS_SM_ARN":                      jsii.String(jsComp.ReportsSmArn),
 				"CPIPES_STATUS_NOTIFICATION_ENDPOINT":      jsii.String(os.Getenv("CPIPES_STATUS_NOTIFICATION_ENDPOINT")),
 				"CPIPES_STATUS_NOTIFICATION_ENDPOINT_JSON": jsii.String(os.Getenv("CPIPES_STATUS_NOTIFICATION_ENDPOINT_JSON")),
@@ -194,6 +194,7 @@ func (jsComp *JetStoreStackComponents) BuildRegisterKeyLambdas(scope constructs.
 			MemorySize: jsii.Number(128),
 			// EphemeralStorageSize: awscdk.Size_Mebibytes(jsii.Number(2048)),
 			Timeout:        awscdk.Duration_Seconds(jsii.Number(30)),
+			Role:           jsComp.LambdaExecutionRole,
 			Vpc:            sqsVpc,
 			VpcSubnets:     sqsVpcSubnets,
 			SecurityGroups: sqsSecurityGroups,
@@ -207,13 +208,6 @@ func (jsComp *JetStoreStackComponents) BuildRegisterKeyLambdas(scope constructs.
 		}
 		if descriptionTagName != nil {
 			awscdk.Tags_Of(jsComp.SqsRegisterKeyLambda).Add(descriptionTagName, jsii.String("JetStore lambda for sqs events"), nil)
-		}
-		jsComp.RdsSecret.GrantRead(jsComp.SqsRegisterKeyLambda, nil)
-
-		jsComp.SourceBucket.GrantReadWrite(jsComp.SqsRegisterKeyLambda, nil)
-		jsComp.GrantReadWriteFromExternalBuckets(stack, jsComp.SqsRegisterKeyLambda)
-		if jsComp.ExternalKmsKey != nil {
-			jsComp.ExternalKmsKey.GrantEncryptDecrypt(jsComp.SqsRegisterKeyLambda)
 		}
 
 		sqsArn := os.Getenv("EXTERNAL_SQS_ARN")
