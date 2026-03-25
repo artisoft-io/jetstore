@@ -16,7 +16,6 @@ type mapReduceColumnEval struct {
 	reduceColumnEval          []TransformationColumnEvaluator
 }
 
-func (ctx *mapReduceColumnEval) InitializeCurrentValue(currentValue *[]any) {}
 func (ctx *mapReduceColumnEval) Update(_ *[]any, input *[]any) error {
 	if input == nil {
 		return fmt.Errorf("error mapReduceColumnEval.update cannot have nil currentValue or input")
@@ -76,9 +75,6 @@ func (ctx *mapReduceColumnEval) Done(currentValue *[]any) error {
 	}
 
 	// Perform the reduce portion
-	for i := range ctx.reduceColumnEval {
-		ctx.reduceColumnEval[i].InitializeCurrentValue(currentValue)
-	}
 	for _, intermediateInput := range ctx.currentIntermediateValues {
 		for i := range ctx.reduceColumnEval {
 			err := ctx.reduceColumnEval[i].Update(currentValue, &intermediateInput)

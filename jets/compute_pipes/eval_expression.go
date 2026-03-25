@@ -7,6 +7,9 @@ import (
 	"strings"
 )
 
+// currentValue is the value of the current column being transformed, 
+// input is the whole input row as []any or map[string]any depending on the context.
+// currentValue is only applicable to "then" and "else_expr" of case operator.
 type evalExpression interface {
 	Eval(input any) (any, error)
 }
@@ -41,7 +44,7 @@ type expressionSelectLeaf struct {
 	rdfType string
 }
 
-func (node *expressionSelectLeaf) Eval(in any) (any, error) {
+func (node *expressionSelectLeaf) Eval( in any) (any, error) {
 	var value any
 	switch input := in.(type) {
 	case []any:
@@ -233,6 +236,7 @@ func (ctx ExprBuilderContext) BuildExprNodeEvaluator(sourceName string, columns 
 			return &expressionStaticListLeaf{
 				values: values,
 			}, nil
+
 		default:
 			return nil, fmt.Errorf("error: unknown expression leaf node type: %s", spec.Type)
 		}

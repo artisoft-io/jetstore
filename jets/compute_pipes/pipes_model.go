@@ -489,9 +489,14 @@ type ConditionalPipeSpec struct {
 }
 
 type ConditionalEnvVariable struct {
-	CaseExpr []CaseExpression  `json:"case_expr,omitempty"` // case operator
-	ElseExpr []*ExpressionNode `json:"else_expr,omitempty"` // case operator
+	CaseExpr []CaseEnvExpression `json:"case_expr,omitempty"` // alternate implementation to case op
+	ElseExpr []*ExpressionNode   `json:"else_expr,omitempty"`
 }
+type CaseEnvExpression struct {
+	When ExpressionNode    `json:"when"`
+	Then []*ExpressionNode `json:"then"`
+}
+
 type SplitterSpec struct {
 	// Type range: standard (default), ext_count
 	// standard: split on Column / DefaultSplitterValue / ShardOn, create partition for each value
@@ -752,6 +757,11 @@ type FunctionTokenNode struct {
 // DateFormats: list of date formats to use for parsing the date.
 // OtherDateFormats: list of other date formats to use for parsing the date
 // when DateFormatToken does not match (which are undesirable formats).
+// DateFormatLookup: lookup table to use for date format parsing, with the following columns:
+//   - lookup_key: the key to match in the lookup table as int (column position in the channel)
+//   - lookup_values: the column name in the lookup table that contains the columns's date format.
+//
+// DateFormatLookup is alternative to DateFormats and OtherDateFormats, when provided it is used instead of DateFormats and OtherDateFormats.
 // NullDates: list of date values to consider as null.
 // MinMaxDateFormat: format used in output report for min/max dates.
 // ParseDateArguments: list of parse date function token spec.
@@ -760,15 +770,22 @@ type FunctionTokenNode struct {
 // for 75% of total date matches.
 // Identify other date matches, each must match 98% of total date matches.
 type ParseDateSpec struct {
-	DateFormatToken      string            `json:"date_format_token,omitempty"`
-	OtherDateFormatToken string            `json:"other_date_format_token,omitempty"`
-	DateSamplingMaxCount int               `json:"sampling_max_count,omitzero"`
-	NullDates            []string          `json:"null_dates,omitempty"`
-	DateFormats          []string          `json:"date_formats,omitempty"`
-	OtherDateFormats     []string          `json:"other_date_formats,omitempty"`
-	MinMaxDateFormat     string            `json:"minmax_date_format,omitempty"`
-	ParseDateArguments   []ParseDateFTSpec `json:"parse_date_args,omitempty"`
-	UseJetstoreParser    bool              `json:"use_jetstore_date_parser,omitzero"`
+	DateFormatToken      string                `json:"date_format_token,omitempty"`
+	OtherDateFormatToken string                `json:"other_date_format_token,omitempty"`
+	DateSamplingMaxCount int                   `json:"sampling_max_count,omitzero"`
+	DateFormatLookup     *DateFormatLookupSpec `json:"date_format_lookup,omitempty"`
+	NullDates            []string              `json:"null_dates,omitempty"`
+	DateFormats          []string              `json:"date_formats,omitempty"`
+	OtherDateFormats     []string              `json:"other_date_formats,omitempty"`
+	MinMaxDateFormat     string                `json:"minmax_date_format,omitempty"`
+	ParseDateArguments   []ParseDateFTSpec     `json:"parse_date_args,omitempty"`
+	UseJetstoreParser    bool                  `json:"use_jetstore_date_parser,omitzero"`
+}
+type DateFormatLookupSpec struct {
+	LookupName               string `json:"lookup_name,omitempty"`
+	DataClassificationColumn string `json:"data_classification_column,omitempty"`
+	LookupKeyColumn          string `json:"lookup_key_column,omitempty"`
+	DateFormatColumn         string `json:"date_format_column,omitempty"`
 }
 
 // The date format is using a reference date of
@@ -1012,25 +1029,28 @@ type TargetColumnsLookupSpec struct {
 
 type TransformationColumnSpec struct {
 	// Type range: select, multi_select, value, eval, map, hash
-	// count, distinct_count, sum, min, case,
+	// count, distinct_count, sum, min, avrg, case,
 	// map_reduce, lookup
-	Name           string                     `json:"name"`
-	Type           string                     `json:"type"`
-	Expr           *string                    `json:"expr,omitempty"`
-	ExprArray      []string                   `json:"expr_array,omitempty"`
-	MapExpr        *MapExpression             `json:"map_expr,omitzero"`
-	EvalExpr       *ExpressionNode            `json:"eval_expr,omitzero"`
-	HashExpr       *HashExpression            `json:"hash_expr,omitzero"`
-	Where          *ExpressionNode            `json:"where,omitzero"`
-	CaseExpr       []CaseExpression           `json:"case_expr,omitempty"` // case operator
-	ElseExpr       []*ExpressionNode          `json:"else_expr,omitempty"` // case operator
-	MapOn          *string                    `json:"map_on,omitzero"`
-	AlternateMapOn []string                   `json:"alternate_map_on,omitempty"`
-	ApplyMap       []TransformationColumnSpec `json:"apply_map,omitempty"`
-	ApplyReduce    []TransformationColumnSpec `json:"apply_reduce,omitempty"`
-	LookupName     *string                    `json:"lookup_name,omitzero"`
-	LookupKey      []LookupColumnSpec         `json:"key,omitempty"`
-	LookupValues   []LookupColumnSpec         `json:"values,omitempty"`
+	// AsRdfType applies to expr with non-aggragate operators: select, multi_select, value
+	// AsRdfType applies to expr with aggragate operators: min, max, sum, avrg
+	Name           string                      `json:"name"`
+	Type           string                      `json:"type"`
+	Expr           *string                     `json:"expr,omitempty"`
+	ExprArray      []string                    `json:"expr_array,omitempty"`
+	MapExpr        *MapExpression              `json:"map_expr,omitzero"`
+	EvalExpr       *ExpressionNode             `json:"eval_expr,omitzero"`
+	HashExpr       *HashExpression             `json:"hash_expr,omitzero"`
+	Where          *ExpressionNode             `json:"where,omitzero"`
+	CaseExpr       []CaseExpression            `json:"case_expr,omitempty"` // case operator
+	ElseExpr       []*TransformationColumnSpec `json:"else_expr,omitempty"` // case operator
+	MapOn          *string                     `json:"map_on,omitzero"`
+	AlternateMapOn []string                    `json:"alternate_map_on,omitempty"`
+	ApplyMap       []TransformationColumnSpec  `json:"apply_map,omitempty"`
+	ApplyReduce    []TransformationColumnSpec  `json:"apply_reduce,omitempty"`
+	LookupName     *string                     `json:"lookup_name,omitzero"`
+	LookupKey      []LookupColumnSpec          `json:"key,omitempty"`
+	LookupValues   []LookupColumnSpec          `json:"values,omitempty"`
+	AsRdfType      string                      `json:"as_rdf_type,omitempty"`
 }
 
 type LookupColumnSpec struct {
@@ -1104,10 +1124,9 @@ type MapExpression struct {
 }
 
 type ExpressionNode struct {
+	// Name is for the special case CaseEnvExpression
 	// Type is for leaf nodes: select, value
-	// Name is for CaseExpression.Then and TransformationColumnSpec.ElseExpr
-	// to indicate which column to set the calculated value
-	Name      string          `json:"name,omitempty"` // TransformationColumnSpec case operator
+	Name      string          `json:"name,omitempty"`
 	Type      string          `json:"type,omitempty"`
 	Expr      string          `json:"expr,omitempty"`
 	ExprList  []string        `json:"expr_list,omitempty"`
@@ -1119,6 +1138,6 @@ type ExpressionNode struct {
 }
 
 type CaseExpression struct {
-	When ExpressionNode    `json:"when"`
-	Then []*ExpressionNode `json:"then"`
+	When ExpressionNode              `json:"when"`
+	Then []*TransformationColumnSpec `json:"then"`
 }

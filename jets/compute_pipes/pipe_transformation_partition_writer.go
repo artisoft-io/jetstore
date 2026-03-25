@@ -227,10 +227,6 @@ func (ctx *PartitionWriterTransformationPipe) applyInternal(input *[]any) error 
 	if ctx.spec.NewRecord {
 		v := make([]any, len(ctx.outputCh.Config.Columns))
 		currentValues = &v
-		// initialize the column evaluators
-		for i := range ctx.columnEvaluators {
-			ctx.columnEvaluators[i].InitializeCurrentValue(currentValues)
-		}
 	} else {
 		currentValues = input
 	}

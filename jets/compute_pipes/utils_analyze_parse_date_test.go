@@ -21,6 +21,8 @@ var sampleDates []string = []string{
 	"07/27/07",
 }
 
+var t0ctx = &BuilderContext{}
+
 func ParseDateDateFormat4Test(dateFormats []string, value string) (tm time.Time, err error) {
 	for i := range dateFormats {
 		tm, err = date_utils.ParseDateTime(dateFormats[i], value)
@@ -166,7 +168,7 @@ func TestParseDateMatchFunction0(t *testing.T) {
 			},
 		},
 	}
-	fcount, err := NewParseDateMatchFunction(fspec, nil)
+	fcount, err := t0ctx.NewParseDateMatchFunction(0, fspec, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -252,7 +254,7 @@ func TestParseDateMatchFunction1(t *testing.T) {
 			},
 		},
 	}
-	fcount, err := NewParseDateMatchFunction(fspec, nil)
+	fcount, err := t0ctx.NewParseDateMatchFunction(0, fspec, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -324,7 +326,7 @@ func TestParseDateMatchFunction2(t *testing.T) {
 			},
 		},
 	}
-	fcount, err := NewParseDateMatchFunction(fspec, nil)
+	fcount, err := t0ctx.NewParseDateMatchFunction(0, fspec, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -424,7 +426,7 @@ func TestParseDateMatchFunction3(t *testing.T) {
 			},
 		},
 	}
-	fcount, err := NewParseDateMatchFunction(fspec, nil)
+	fcount, err := t0ctx.NewParseDateMatchFunction(0, fspec, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -521,7 +523,7 @@ func TestParseDateMatchFunction4(t *testing.T) {
 			},
 		},
 	}
-	fcount, err := NewParseDateMatchFunction(fspec, nil)
+	fcount, err := t0ctx.NewParseDateMatchFunction(0, fspec, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -617,7 +619,7 @@ func TestParseDateMatchFunction5(t *testing.T) {
 			},
 		},
 	}
-	fcount, err := NewParseDateMatchFunction(fspec, nil)
+	fcount, err := t0ctx.NewParseDateMatchFunction(0, fspec, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -724,7 +726,7 @@ func TestParseDateMatchFunction10(t *testing.T) {
 			},
 		},
 	}
-	fcount, err := NewParseDateMatchFunction(fspec, nil)
+	fcount, err := t0ctx.NewParseDateMatchFunction(0, fspec, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -821,7 +823,7 @@ func TestParseDateMatchFunction11(t *testing.T) {
 			},
 		},
 	}
-	fcount, err := NewParseDateMatchFunction(fspec, nil)
+	fcount, err := t0ctx.NewParseDateMatchFunction(0, fspec, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -916,7 +918,7 @@ func TestParseDateMatchFunction12(t *testing.T) {
 			},
 		},
 	}
-	fcount, err := NewParseDateMatchFunction(fspec, nil)
+	fcount, err := t0ctx.NewParseDateMatchFunction(0, fspec, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1014,7 +1016,7 @@ func TestParseDateMatchFunction13(t *testing.T) {
 			},
 		},
 	}
-	fcount, err := NewParseDateMatchFunction(fspec, nil)
+	fcount, err := t0ctx.NewParseDateMatchFunction(0, fspec, nil)
 	if err != nil {
 		t.Fatal(err)
 	}

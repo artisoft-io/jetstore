@@ -288,11 +288,14 @@ func (cpCtx *ComputePipesContext) downloadS3Files(inFolderPath, externalBucket s
 				retry++
 				goto do_retry
 			}
+			err = fmt.Errorf("failed to download s3 file %s: %v", fileKeys[i].key, err)
+			log.Println(err)
 			cpCtx.DownloadS3ResultCh <- DownloadS3Result{
 				InputFilesCount: i,
 				TotalFilesSize:  totalFilesSize,
-				Err:             fmt.Errorf("failed to download s3 file %s: %v", fileKeys[i].key, err),
+				Err:             err,
 			}
+			cpCtx.DoneAll(err)
 			return
 		}
 		if fileSize > 0 { // skip sentinel files

@@ -13,12 +13,6 @@ type countColumnEval struct {
 	where     evalExpression
 }
 
-func (ctx *countColumnEval) InitializeCurrentValue(currentValue *[]any) {
-	if currentValue == nil {
-		return
-	}
-	(*currentValue)[ctx.outputPos] = int64(0)
-}
 func (ctx *countColumnEval) Update(currentValue *[]any, input *[]any) error {
 	if currentValue == nil || input == nil {
 		return fmt.Errorf("error countColumnEval.update cannot have nil currentValue or input")
@@ -28,7 +22,7 @@ func (ctx *countColumnEval) Update(currentValue *[]any, input *[]any) error {
 		return nil
 	}
 	if ctx.where != nil {
-		w, err := ctx.where.Eval(*input)
+		w, err := ctx.where.Eval( *input)
 		if err != nil {
 			return fmt.Errorf("while evaluating where on count aggregate: %v", err)
 		}
@@ -88,12 +82,6 @@ type distinctCountColumnEval struct {
 	where     evalExpression
 }
 
-func (ctx *distinctCountColumnEval) InitializeCurrentValue(currentValue *[]any) {
-	if currentValue == nil {
-		return
-	}
-	(*currentValue)[ctx.outputPos] = make(map[string]bool)
-}
 func (ctx *distinctCountColumnEval) Update(currentValue *[]any, input *[]any) error {
 	if currentValue == nil || input == nil {
 		return fmt.Errorf("error countColumnEval.update cannot have nil currentValue or input")
@@ -104,7 +92,7 @@ func (ctx *distinctCountColumnEval) Update(currentValue *[]any, input *[]any) er
 		return nil
 	}
 	if ctx.where != nil {
-		w, err := ctx.where.Eval(*input)
+		w, err := ctx.where.Eval( *input)
 		if err != nil {
 			return fmt.Errorf("while evaluating where on distinct_count aggregate: %v", err)
 		}
@@ -181,14 +169,20 @@ func (ctx *BuilderContext) BuildDistinctCountTCEvaluator(source *InputChannel, o
 }
 
 // add function used for aggregates, supports int, int64, float64
-func add(lhs any, rhs any) (any, error) {
+func add(lhs any, rhs any, castFnc *CastToRdfFnc) (any, error) {
+	var err error
 	if rhs == nil {
 		return lhs, nil
 	}
 	if lhs == nil {
-		lhs = rhs
-		return lhs, nil
+		if castFnc != nil {
+			lhs, err = castFnc.Cast(rhs)
+		} else {
+			lhs = rhs
+		}
+		return lhs, err
 	}
+
 	switch lhsv := lhs.(type) {
 	case int:
 		switch rhsv := rhs.(type) {
@@ -198,6 +192,9 @@ func add(lhs any, rhs any) (any, error) {
 			return int64(lhsv) + rhsv, nil
 		case float64:
 			return float64(lhsv) + rhsv, nil
+		case string:
+			rhsvInt, err := strconv.Atoi(rhsv)
+			return lhsv + rhsvInt, err
 		}
 
 	case int64:
@@ -208,6 +205,9 @@ func add(lhs any, rhs any) (any, error) {
 			return lhsv + rhsv, nil
 		case float64:
 			return float64(lhsv) + rhsv, nil
+		case string:
+			rhsvInt, err := strconv.ParseInt(rhsv, 10, 64)
+			return lhsv + rhsvInt, err
 		}
 
 	case float64:
@@ -218,6 +218,9 @@ func add(lhs any, rhs any) (any, error) {
 			return lhsv + float64(rhsv), nil
 		case float64:
 			return lhsv + rhsv, nil
+		case string:
+			rhsvFloat, err := strconv.ParseFloat(rhsv, 64)
+			return lhsv + rhsvFloat, err
 		}
 	}
 	return nil, fmt.Errorf("add called with unsupported types: (%T, %T)", lhs, rhs)
@@ -225,15 +228,12 @@ func add(lhs any, rhs any) (any, error) {
 
 // TransformationColumnSpec Type sum
 type sumColumnEval struct {
-	inputPos  int
-	outputPos int
-	where     evalExpression
+	inputPos     int
+	outputPos    int
+	where        evalExpression
+	cast2RdfType *CastToRdfFnc
 }
 
-func (ctx *sumColumnEval) InitializeCurrentValue(currentValue *[]any) {
-	// by default use int64, may change to float64 based on data
-	(*currentValue)[ctx.outputPos] = int64(0)
-}
 func (ctx *sumColumnEval) Update(currentValue *[]any, input *[]any) error {
 	if currentValue == nil || input == nil {
 		return fmt.Errorf("error sumColumnEval.update cannot have nil currentValue or input")
@@ -244,7 +244,7 @@ func (ctx *sumColumnEval) Update(currentValue *[]any, input *[]any) error {
 		return nil
 	}
 	if ctx.where != nil {
-		w, err := ctx.where.Eval(*input)
+		w, err := ctx.where.Eval( *input)
 		if err != nil {
 			return fmt.Errorf("while evaluating where on sum aggregate: %v", err)
 		}
@@ -254,7 +254,7 @@ func (ctx *sumColumnEval) Update(currentValue *[]any, input *[]any) error {
 	}
 	var err error
 	cv := (*currentValue)[ctx.outputPos]
-	cv, err = add(cv, (*input)[ctx.inputPos])
+	cv, err = add(cv, (*input)[ctx.inputPos], ctx.cast2RdfType)
 	if err != nil {
 		return err
 	}
@@ -287,73 +287,153 @@ func (ctx *BuilderContext) BuildSumTCEvaluator(source *InputChannel, outCh *Outp
 	if !ok {
 		return nil, fmt.Errorf("error column %s not found in output source %s", spec.Name, outCh.Name)
 	}
+	var cast2RdfType *CastToRdfFnc
+	if spec.AsRdfType != "" {
+		cast2RdfType = NewCastToRdfFnc("", spec.AsRdfType, false)
+	}
 	return &sumColumnEval{
-		inputPos:  inputPos,
-		outputPos: outputPos,
-		where:     where,
+		inputPos:     inputPos,
+		outputPos:    outputPos,
+		where:        where,
+		cast2RdfType: cast2RdfType,
 	}, nil
 }
 
 // min function used for aggregates, supports int, int64, float64, time
-func minAgg(lhs any, rhs any) (any, error) {
+func minMaxAgg(lhs any, rhs any, castFnc *CastToRdfFnc, isMin bool) (any, error) {
+	var err error
 	if rhs == nil {
 		return lhs, nil
 	}
 	if lhs == nil {
-		return rhs, nil
+		if castFnc != nil {
+			lhs, err = castFnc.Cast(rhs)
+		} else {
+			lhs = rhs
+		}
+		return lhs, err
 	}
 	switch lhsv := lhs.(type) {
 	case int:
 		switch rhsv := rhs.(type) {
 		case int:
-			return min(lhsv, rhsv), nil
+			if isMin {
+				return min(lhsv, rhsv), nil
+			}
+			return max(lhsv, rhsv), nil
 		case int64:
-			return min(int64(lhsv), rhsv), nil
+			if isMin {
+				return min(int64(lhsv), rhsv), nil
+			}
+			return max(int64(lhsv), rhsv), nil
 		case float64:
-			return min(float64(lhsv), rhsv), nil
+			if isMin {
+				return min(float64(lhsv), rhsv), nil
+			}
+			return max(float64(lhsv), rhsv), nil
+		case string:
+			rhsvInt, err := strconv.Atoi(rhsv)
+			if isMin {
+				return min(lhsv, rhsvInt), err
+			}
+			return max(lhsv, rhsvInt), err
 		}
 
 	case int64:
 		switch rhsv := rhs.(type) {
 		case int:
-			return min(lhsv, int64(rhsv)), nil
+			if isMin {
+				return min(lhsv, int64(rhsv)), nil
+			}
+			return max(lhsv, int64(rhsv)), nil
 		case int64:
-			return min(lhsv, rhsv), nil
+			if isMin {
+				return min(lhsv, rhsv), nil
+			}
+			return max(lhsv, rhsv), nil
 		case float64:
-			return min(float64(lhsv), rhsv), nil
+			if isMin {
+				return min(float64(lhsv), rhsv), nil
+			}
+			return max(float64(lhsv), rhsv), nil
+		case string:
+			rhsvInt, err := strconv.ParseInt(rhsv, 10, 64)
+			if isMin {
+				return min(lhsv, rhsvInt), err
+			}
+			return max(lhsv, rhsvInt), err
 		}
 
 	case float64:
 		switch rhsv := rhs.(type) {
 		case int:
-			return min(lhsv, float64(rhsv)), nil
+			if isMin {
+				return min(lhsv, float64(rhsv)), nil
+			}
+			return max(lhsv, float64(rhsv)), nil
 		case int64:
-			return min(lhsv, float64(rhsv)), nil
+			if isMin {
+				return min(lhsv, float64(rhsv)), nil
+			}
+			return max(lhsv, float64(rhsv)), nil
 		case float64:
-			return min(lhsv, rhsv), nil
+			if isMin {
+				return min(lhsv, rhsv), nil
+			}
+			return max(lhsv, rhsv), nil
+		case string:
+			rhsvFloat, err := strconv.ParseFloat(rhsv, 64)
+			if isMin {
+				return min(lhsv, rhsvFloat), err
+			}
+			return max(lhsv, rhsvFloat), err
 		}
 
 	case time.Time:
 		switch rhsv := rhs.(type) {
 		case time.Time:
-			if lhsv.Before(rhsv) {
-				return lhsv, nil
+			if isMin {
+				if lhsv.Before(rhsv) {
+					return lhsv, nil
+				}
+				return rhsv, nil
+			} else {
+				if lhsv.After(rhsv) {
+					return lhsv, nil
+				}
+				return rhsv, nil
 			}
-			return rhsv, nil
+		case string:
+			rhsvTime, err := ParseDate(rhsv)
+			if err != nil {
+				return nil, err
+			}
+			if isMin {
+				if lhsv.Before(*rhsvTime) {
+					return lhsv, nil
+				}
+				return *rhsvTime, nil
+			} else {
+				if lhsv.After(*rhsvTime) {
+					return lhsv, nil
+				}
+				return *rhsvTime, nil
+			}
 		}
 	}
 	return nil, fmt.Errorf("minAgg called with unsupported types: (%T, %T)", lhs, rhs)
 }
 
 // TransformationColumnSpec Type min
-type minColumnEval struct {
-	inputPos  int
-	outputPos int
-	where     evalExpression
+type minMaxColumnEval struct {
+	inputPos     int
+	outputPos    int
+	where        evalExpression
+	isMin        bool
+	cast2RdfType *CastToRdfFnc
 }
 
-func (ctx *minColumnEval) InitializeCurrentValue(currentValue *[]any) {}
-func (ctx *minColumnEval) Update(currentValue *[]any, input *[]any) error {
+func (ctx *minMaxColumnEval) Update(currentValue *[]any, input *[]any) error {
 	if currentValue == nil || input == nil {
 		return fmt.Errorf("error minColumnEval.update cannot have nil currentValue or input")
 	}
@@ -362,7 +442,7 @@ func (ctx *minColumnEval) Update(currentValue *[]any, input *[]any) error {
 		return nil
 	}
 	if ctx.where != nil {
-		w, err := ctx.where.Eval(*input)
+		w, err := ctx.where.Eval( *input)
 		if err != nil {
 			return fmt.Errorf("while evaluating where on min aggregate: %v", err)
 		}
@@ -371,40 +451,167 @@ func (ctx *minColumnEval) Update(currentValue *[]any, input *[]any) error {
 		}
 	}
 	var err error
-	(*currentValue)[ctx.outputPos], err = minAgg((*currentValue)[ctx.outputPos], (*input)[ctx.inputPos])
+	(*currentValue)[ctx.outputPos], err = minMaxAgg((*currentValue)[ctx.outputPos], (*input)[ctx.inputPos],
+		ctx.cast2RdfType, ctx.isMin)
 	if err != nil {
 		return err
 	}
 	return nil
 }
-func (ctx *minColumnEval) Done(currentValue *[]any) error {
+func (ctx *minMaxColumnEval) Done(currentValue *[]any) error {
 	return nil
 }
 
-func (ctx *BuilderContext) BuildMinTCEvaluator(source *InputChannel, outCh *OutputChannel,
-	spec *TransformationColumnSpec) (TransformationColumnEvaluator, error) {
+func (ctx *BuilderContext) BuildMinMaxTCEvaluator(source *InputChannel, outCh *OutputChannel,
+	spec *TransformationColumnSpec, isMin bool) (TransformationColumnEvaluator, error) {
 	if spec == nil || spec.Expr == nil {
-		return nil, fmt.Errorf("error: Type min must have Expr != nil")
+		if isMin {
+			return nil, fmt.Errorf("error: Type min must have Expr != nil")
+		} else {
+			return nil, fmt.Errorf("error: Type max must have Expr != nil")
+		}
 	}
 	inputPos, ok := (*source.Columns)[*spec.Expr]
 	if !ok {
-		return nil, fmt.Errorf("error, min needs a valid column name")
+		return nil, fmt.Errorf("error, min/max needs a valid column name")
 	}
 	var where evalExpression
 	var err error
 	if spec.Where != nil {
 		where, err = ctx.BuildExprNodeEvaluator(source.Name, *source.Columns, spec.Where)
 		if err != nil {
-			return nil, fmt.Errorf("while building where expression for min aggregate: %v", err)
+			return nil, fmt.Errorf("while building where expression for min/max aggregate: %v", err)
 		}
 	}
 	outputPos, ok := (*outCh.Columns)[spec.Name]
 	if !ok {
 		return nil, fmt.Errorf("error column %s not found in output source %s", spec.Name, outCh.Name)
 	}
-	return &minColumnEval{
-		inputPos:  inputPos,
-		outputPos: outputPos,
-		where:     where,
+	var cast2RdfType *CastToRdfFnc
+	if spec.AsRdfType != "" {
+		cast2RdfType = NewCastToRdfFnc("", spec.AsRdfType, false)
+	}
+	return &minMaxColumnEval{
+		inputPos:     inputPos,
+		outputPos:    outputPos,
+		where:        where,
+		isMin:        isMin,
+		cast2RdfType: cast2RdfType,
+	}, nil
+}
+
+// TransformationColumnSpec Type avrg
+type avrgColumnEval struct {
+	inputPos     int
+	outputPos    int
+	where        evalExpression
+	nbrSamples   int64
+	cast2RdfType *CastToRdfFnc
+}
+
+func (ctx *avrgColumnEval) alphaFactor() float64 {
+	if ctx.nbrSamples <= 1 {
+		return 1.0
+	}
+	return 2.0 / (float64(ctx.nbrSamples) + 1.0)
+}
+
+func (ctx *avrgColumnEval) calcAvrg(lhs, rhs float64) float64 {
+	alpha := ctx.alphaFactor()
+	return alpha*rhs + (1.0-alpha)*lhs
+}
+
+// avrg function used for aggregates, supports int, int64, float64
+func (ctx *avrgColumnEval) avrg(lhs any, rhs any, castFnc *CastToRdfFnc) (any, error) {
+	var err error
+	if rhs == nil {
+		return lhs, nil
+	}
+	if lhs == nil {
+		if castFnc != nil {
+			lhs, err = castFnc.Cast(rhs)
+		} else {
+			lhs = rhs
+		}
+		return lhs, err
+	}
+
+	switch lhsv := lhs.(type) {
+
+	case float64:
+		switch rhsv := rhs.(type) {
+		case float64:
+			return ctx.calcAvrg(lhsv, rhsv), nil
+		case string:
+			rhsvFloat, err := strconv.ParseFloat(rhsv, 64)
+			return ctx.calcAvrg(lhsv, rhsvFloat), err
+		}
+	}
+	return nil, fmt.Errorf("avrg called with unsupported types: (%T, %T)", lhs, rhs)
+}
+
+func (ctx *avrgColumnEval) Update(currentValue *[]any, input *[]any) error {
+	if currentValue == nil || input == nil {
+		return fmt.Errorf("error avrgColumnEval.update cannot have nil currentValue or input")
+	}
+	// avrg(column_name), make sure the column is not nil
+	value := (*input)[ctx.inputPos]
+	if value == nil {
+		return nil
+	}
+	if ctx.where != nil {
+		w, err := ctx.where.Eval( *input)
+		if err != nil {
+			return fmt.Errorf("while evaluating where on avrg aggregate: %v", err)
+		}
+		if w == nil || w.(int) != 1 {
+			return nil
+		}
+	}
+	var err error
+	ctx.nbrSamples++
+	cv := (*currentValue)[ctx.outputPos]
+	cv, err = ctx.avrg(cv, value, ctx.cast2RdfType)
+	if err != nil {
+		return err
+	}
+	(*currentValue)[ctx.outputPos] = cv
+	return nil
+}
+func (ctx *avrgColumnEval) Done(currentValue *[]any) error {
+	return nil
+}
+
+func (ctx *BuilderContext) BuildAvrgTCEvaluator(source *InputChannel, outCh *OutputChannel,
+	spec *TransformationColumnSpec) (TransformationColumnEvaluator, error) {
+
+	if spec == nil || spec.Expr == nil {
+		return nil, fmt.Errorf("error: Type avrg must have Expr != nil")
+	}
+	inputPos, ok := (*source.Columns)[*spec.Expr]
+	if !ok {
+		return nil, fmt.Errorf("error, avrg needs a valid column name")
+	}
+	var where evalExpression
+	var err error
+	if spec.Where != nil {
+		where, err = ctx.BuildExprNodeEvaluator(source.Name, *source.Columns, spec.Where)
+		if err != nil {
+			return nil, fmt.Errorf("while building where expression for avrg aggregate: %v", err)
+		}
+	}
+	outputPos, ok := (*outCh.Columns)[spec.Name]
+	if !ok {
+		return nil, fmt.Errorf("error column %s not found in output source %s", spec.Name, outCh.Name)
+	}
+	var cast2RdfType *CastToRdfFnc
+	if spec.AsRdfType != "" {
+		cast2RdfType = NewCastToRdfFnc("", spec.AsRdfType, false)
+	}
+	return &avrgColumnEval{
+		inputPos:     inputPos,
+		outputPos:    outputPos,
+		where:        where,
+		cast2RdfType: cast2RdfType,
 	}, nil
 }

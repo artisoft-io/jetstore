@@ -2,12 +2,13 @@ package compute_pipes
 
 import (
 	"fmt"
+	"strings"
 )
 
 // build the runtime evaluator for the column transformation
 func (ctx *BuilderContext) BuildTransformationColumnEvaluator(source *InputChannel, outCh *OutputChannel, spec *TransformationColumnSpec) (TransformationColumnEvaluator, error) {
 
-	switch spec.Type {
+	switch strings.ToLower(spec.Type) {
 	// select, multi_select, value, eval, map, count, distinct_count, sum, min, case, hash, map_reduce, lookup
 	case "select":
 		if spec.Expr == nil {
@@ -21,9 +22,14 @@ func (ctx *BuilderContext) BuildTransformationColumnEvaluator(source *InputChann
 		if !ok {
 			return nil, fmt.Errorf("error column %s not found in output source %s", spec.Name, outCh.Name)
 		}
+		var cast2RdfType *CastToRdfFnc
+		if spec.AsRdfType != "" {
+			cast2RdfType = NewCastToRdfFnc(spec.Name, spec.AsRdfType, false)
+		}
 		return &selectColumnEval{
-			inputPos:  inputPos,
-			outputPos: outputPos,
+			inputPos:     inputPos,
+			outputPos:    outputPos,
+			cast2RdfType: cast2RdfType,
 		}, nil
 
 	case "multi_select":
@@ -38,9 +44,14 @@ func (ctx *BuilderContext) BuildTransformationColumnEvaluator(source *InputChann
 		if !ok {
 			return nil, fmt.Errorf("error column %s not found in output source %s", spec.Name, outCh.Name)
 		}
+		var cast2RdfType *CastToRdfFnc
+		if spec.AsRdfType != "" {
+			cast2RdfType = NewCastToRdfFnc(spec.Name, spec.AsRdfType, false)
+		}
 		return &multiSelectColumnEval{
-			inputPos:  inputPos,
-			outputPos: outputPos,
+			inputPos:     inputPos,
+			outputPos:    outputPos,
+			cast2RdfType: cast2RdfType,
 		}, nil
 
 	case "value":
@@ -55,9 +66,14 @@ func (ctx *BuilderContext) BuildTransformationColumnEvaluator(source *InputChann
 		if !ok {
 			return nil, fmt.Errorf("error column %s not found in output source %s", spec.Name, outCh.Name)
 		}
+		var cast2RdfType *CastToRdfFnc
+		if spec.AsRdfType != "" {
+			cast2RdfType = NewCastToRdfFnc(spec.Name, spec.AsRdfType, false)
+		}
 		return &valueColumnEval{
-			value:     value,
-			outputPos: outputPos,
+			value:        value,
+			outputPos:    outputPos,
+			cast2RdfType: cast2RdfType,
 		}, nil
 
 	case "eval":
@@ -103,11 +119,25 @@ func (ctx *BuilderContext) BuildTransformationColumnEvaluator(source *InputChann
 		return sumEvaluator, nil
 
 	case "min":
-		minEvaluator, err := ctx.BuildMinTCEvaluator(source, outCh, spec)
+		minEvaluator, err := ctx.BuildMinMaxTCEvaluator(source, outCh, spec, true)
 		if err != nil {
-			return nil, fmt.Errorf("while calling BuildMinTCEvaluator: %v", err)
+			return nil, fmt.Errorf("while calling BuildMinMaxTCEvaluator: %v", err)
 		}
 		return minEvaluator, nil
+
+	case "max":
+		maxEvaluator, err := ctx.BuildMinMaxTCEvaluator(source, outCh, spec, false)
+		if err != nil {
+			return nil, fmt.Errorf("while calling BuildMinMaxTCEvaluator: %v", err)
+		}
+		return maxEvaluator, nil
+
+	case "avrg":
+		avrgEvaluator, err := ctx.BuildAvrgTCEvaluator(source, outCh, spec)
+		if err != nil {
+			return nil, fmt.Errorf("while calling BuildAvrgTCEvaluator: %v", err)
+		}
+		return avrgEvaluator, nil
 
 	case "case":
 		return ctx.BuildCaseExprTCEvaluator(source, outCh, spec)
@@ -130,7 +160,6 @@ type evalExprColumnEval struct {
 	outputPos int
 }
 
-func (ctx *evalExprColumnEval) InitializeCurrentValue(currentValue *[]any) {}
 func (ctx *evalExprColumnEval) Update(currentValue *[]any, input *[]any) error {
 	value, err := ctx.expr.Eval(*input)
 	if err != nil {
@@ -145,60 +174,84 @@ func (ctx *evalExprColumnEval) Done(currentValue *[]any) error {
 
 // TransformationColumnSpec Type value
 type valueColumnEval struct {
-	value     any
-	outputPos int
+	value        any
+	outputPos    int
+	cast2RdfType *CastToRdfFnc
 }
 
 func (ctx *valueColumnEval) Done(currentValue *[]any) error {
 	return nil
 }
 
-func (ctx *valueColumnEval) InitializeCurrentValue(currentValue *[]any) {}
 func (ctx *valueColumnEval) Update(currentValue *[]any, _ *[]any) error {
 	if currentValue == nil {
 		return fmt.Errorf("error valueColumnEval.update cannot have nil currentValue")
 	}
-	(*currentValue)[ctx.outputPos] = ctx.value
+	value := ctx.value
+	if ctx.cast2RdfType != nil {
+		var err error
+		value, err = ctx.cast2RdfType.Cast(value)
+		if err != nil {
+			return err
+		}
+	}
+	(*currentValue)[ctx.outputPos] = value
 	return nil
 }
 
 // TransformationColumnSpec Type select
 type selectColumnEval struct {
-	inputPos  int
-	outputPos int
+	inputPos     int
+	outputPos    int
+	cast2RdfType *CastToRdfFnc
 }
 
 func (ctx *selectColumnEval) Done(currentValue *[]any) error {
 	return nil
 }
 
-func (ctx *selectColumnEval) InitializeCurrentValue(currentValue *[]any) {}
 func (ctx *selectColumnEval) Update(currentValue *[]any, input *[]any) error {
 	if currentValue == nil || input == nil {
 		return fmt.Errorf("error selectColumnEval.update cannot have nil currentValue or input")
 	}
-	(*currentValue)[ctx.outputPos] = (*input)[ctx.inputPos]
+	value := (*input)[ctx.inputPos]
+	if ctx.cast2RdfType != nil {
+		var err error
+		value, err = ctx.cast2RdfType.Cast(value)
+		if err != nil {
+			return err
+		}
+	}
+	(*currentValue)[ctx.outputPos] = value
 	return nil
 }
 
 // TransformationColumnSpec Type multi_select
 type multiSelectColumnEval struct {
-	inputPos  []int
-	outputPos int
+	inputPos     []int
+	outputPos    int
+	cast2RdfType *CastToRdfFnc
 }
 
 func (ctx *multiSelectColumnEval) Done(currentValue *[]any) error {
 	return nil
 }
 
-func (ctx *multiSelectColumnEval) InitializeCurrentValue(currentValue *[]any) {}
 func (ctx *multiSelectColumnEval) Update(currentValue *[]any, input *[]any) error {
 	if currentValue == nil || input == nil {
 		return fmt.Errorf("error selectColumnEval.update cannot have nil currentValue or input")
 	}
 	value := make([]any, 0, len(ctx.inputPos))
 	for _, ipos := range ctx.inputPos {
-		value = append(value, (*input)[ipos])
+		v := (*input)[ipos]
+		if ctx.cast2RdfType != nil {
+			var err error
+			v, err = ctx.cast2RdfType.Cast(v)
+			if err != nil {
+				return err
+			}
+		}
+		value = append(value, v)
 	}
 	(*currentValue)[ctx.outputPos] = value
 	return nil
