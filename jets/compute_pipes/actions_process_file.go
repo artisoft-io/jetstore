@@ -61,7 +61,7 @@ func (cpCtx *ComputePipesContext) ProcessFilesAndReportStatus(ctx context.Contex
 	var totalInputFileSize int64
 	var totalInputFileCount int
 	for downloadResult := range cpCtx.DownloadS3ResultCh {
-		if cpCtx.CpConfig.ClusterConfig.IsDebugMode {
+		if downloadResult.Err != nil {
 			log.Println(cpCtx.SessionId, "node", cpCtx.NodeId, "Downloaded", downloadResult.InputFilesCount,
 				"files from s3, total size:", float64(downloadResult.TotalFilesSize)/1024/1024, "MB, err:", downloadResult.Err)
 		}
