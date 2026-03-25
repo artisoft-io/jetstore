@@ -489,9 +489,14 @@ type ConditionalPipeSpec struct {
 }
 
 type ConditionalEnvVariable struct {
-	CaseExpr []CaseExpression  `json:"case_expr,omitempty"` // case operator
-	ElseExpr []*ExpressionNode `json:"else_expr,omitempty"` // case operator
+	CaseExpr []CaseEnvExpression `json:"case_expr,omitempty"` // alternate implementation to case op
+	ElseExpr []*ExpressionNode   `json:"else_expr,omitempty"`
 }
+type CaseEnvExpression struct {
+	When ExpressionNode    `json:"when"`
+	Then []*ExpressionNode `json:"then"`
+}
+
 type SplitterSpec struct {
 	// Type range: standard (default), ext_count
 	// standard: split on Column / DefaultSplitterValue / ShardOn, create partition for each value
@@ -1028,24 +1033,24 @@ type TransformationColumnSpec struct {
 	// map_reduce, lookup
 	// AsRdfType applies to expr with non-aggragate operators: select, multi_select, value
 	// AsRdfType applies to expr with aggragate operators: min, max, sum, avrg
-	Name           string                     `json:"name"`
-	Type           string                     `json:"type"`
-	Expr           *string                    `json:"expr,omitempty"`
-	ExprArray      []string                   `json:"expr_array,omitempty"`
-	MapExpr        *MapExpression             `json:"map_expr,omitzero"`
-	EvalExpr       *ExpressionNode            `json:"eval_expr,omitzero"`
-	HashExpr       *HashExpression            `json:"hash_expr,omitzero"`
-	Where          *ExpressionNode            `json:"where,omitzero"`
-	CaseExpr       []CaseExpression           `json:"case_expr,omitempty"` // case operator
-	ElseExpr       []*ExpressionNode          `json:"else_expr,omitempty"` // case operator
-	MapOn          *string                    `json:"map_on,omitzero"`
-	AlternateMapOn []string                   `json:"alternate_map_on,omitempty"`
-	ApplyMap       []TransformationColumnSpec `json:"apply_map,omitempty"`
-	ApplyReduce    []TransformationColumnSpec `json:"apply_reduce,omitempty"`
-	LookupName     *string                    `json:"lookup_name,omitzero"`
-	LookupKey      []LookupColumnSpec         `json:"key,omitempty"`
-	LookupValues   []LookupColumnSpec         `json:"values,omitempty"`
-	AsRdfType      string                     `json:"as_rdf_type,omitempty"`
+	Name           string                      `json:"name"`
+	Type           string                      `json:"type"`
+	Expr           *string                     `json:"expr,omitempty"`
+	ExprArray      []string                    `json:"expr_array,omitempty"`
+	MapExpr        *MapExpression              `json:"map_expr,omitzero"`
+	EvalExpr       *ExpressionNode             `json:"eval_expr,omitzero"`
+	HashExpr       *HashExpression             `json:"hash_expr,omitzero"`
+	Where          *ExpressionNode             `json:"where,omitzero"`
+	CaseExpr       []CaseExpression            `json:"case_expr,omitempty"` // case operator
+	ElseExpr       []*TransformationColumnSpec `json:"else_expr,omitempty"` // case operator
+	MapOn          *string                     `json:"map_on,omitzero"`
+	AlternateMapOn []string                    `json:"alternate_map_on,omitempty"`
+	ApplyMap       []TransformationColumnSpec  `json:"apply_map,omitempty"`
+	ApplyReduce    []TransformationColumnSpec  `json:"apply_reduce,omitempty"`
+	LookupName     *string                     `json:"lookup_name,omitzero"`
+	LookupKey      []LookupColumnSpec          `json:"key,omitempty"`
+	LookupValues   []LookupColumnSpec          `json:"values,omitempty"`
+	AsRdfType      string                      `json:"as_rdf_type,omitempty"`
 }
 
 type LookupColumnSpec struct {
@@ -1119,10 +1124,9 @@ type MapExpression struct {
 }
 
 type ExpressionNode struct {
+	// Name is for the special case CaseEnvExpression
 	// Type is for leaf nodes: select, value
-	// Name is for CaseExpression.Then and TransformationColumnSpec.ElseExpr
-	// to indicate which column to set the calculated value
-	Name      string          `json:"name,omitempty"` // TransformationColumnSpec case operator
+	Name      string          `json:"name,omitempty"`
 	Type      string          `json:"type,omitempty"`
 	Expr      string          `json:"expr,omitempty"`
 	ExprList  []string        `json:"expr_list,omitempty"`
@@ -1134,6 +1138,6 @@ type ExpressionNode struct {
 }
 
 type CaseExpression struct {
-	When ExpressionNode    `json:"when"`
-	Then []*ExpressionNode `json:"then"`
+	When ExpressionNode              `json:"when"`
+	Then []*TransformationColumnSpec `json:"then"`
 }

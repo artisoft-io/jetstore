@@ -13,12 +13,6 @@ type countColumnEval struct {
 	where     evalExpression
 }
 
-func (ctx *countColumnEval) InitializeCurrentValue(currentValue *[]any) {
-	if currentValue == nil {
-		return
-	}
-	(*currentValue)[ctx.outputPos] = int64(0)
-}
 func (ctx *countColumnEval) Update(currentValue *[]any, input *[]any) error {
 	if currentValue == nil || input == nil {
 		return fmt.Errorf("error countColumnEval.update cannot have nil currentValue or input")
@@ -28,7 +22,7 @@ func (ctx *countColumnEval) Update(currentValue *[]any, input *[]any) error {
 		return nil
 	}
 	if ctx.where != nil {
-		w, err := ctx.where.Eval(nil, *input)
+		w, err := ctx.where.Eval( *input)
 		if err != nil {
 			return fmt.Errorf("while evaluating where on count aggregate: %v", err)
 		}
@@ -88,12 +82,6 @@ type distinctCountColumnEval struct {
 	where     evalExpression
 }
 
-func (ctx *distinctCountColumnEval) InitializeCurrentValue(currentValue *[]any) {
-	if currentValue == nil {
-		return
-	}
-	(*currentValue)[ctx.outputPos] = make(map[string]bool)
-}
 func (ctx *distinctCountColumnEval) Update(currentValue *[]any, input *[]any) error {
 	if currentValue == nil || input == nil {
 		return fmt.Errorf("error countColumnEval.update cannot have nil currentValue or input")
@@ -104,7 +92,7 @@ func (ctx *distinctCountColumnEval) Update(currentValue *[]any, input *[]any) er
 		return nil
 	}
 	if ctx.where != nil {
-		w, err := ctx.where.Eval(nil, *input)
+		w, err := ctx.where.Eval( *input)
 		if err != nil {
 			return fmt.Errorf("while evaluating where on distinct_count aggregate: %v", err)
 		}
@@ -246,21 +234,6 @@ type sumColumnEval struct {
 	cast2RdfType *CastToRdfFnc
 }
 
-func (ctx *sumColumnEval) InitializeCurrentValue(currentValue *[]any) {
-	var value any = int64(0)
-	if ctx.cast2RdfType != nil {
-		var err error
-		value, err = ctx.cast2RdfType.Cast(value)
-		if err != nil {
-			// if cast fails, just use the original value
-			value = int64(0)
-		}
-	}
-	if currentValue == nil {
-		return
-	}
-	(*currentValue)[ctx.outputPos] = value
-}
 func (ctx *sumColumnEval) Update(currentValue *[]any, input *[]any) error {
 	if currentValue == nil || input == nil {
 		return fmt.Errorf("error sumColumnEval.update cannot have nil currentValue or input")
@@ -271,7 +244,7 @@ func (ctx *sumColumnEval) Update(currentValue *[]any, input *[]any) error {
 		return nil
 	}
 	if ctx.where != nil {
-		w, err := ctx.where.Eval(nil, *input)
+		w, err := ctx.where.Eval( *input)
 		if err != nil {
 			return fmt.Errorf("while evaluating where on sum aggregate: %v", err)
 		}
@@ -460,7 +433,6 @@ type minMaxColumnEval struct {
 	cast2RdfType *CastToRdfFnc
 }
 
-func (ctx *minMaxColumnEval) InitializeCurrentValue(currentValue *[]any) {}
 func (ctx *minMaxColumnEval) Update(currentValue *[]any, input *[]any) error {
 	if currentValue == nil || input == nil {
 		return fmt.Errorf("error minColumnEval.update cannot have nil currentValue or input")
@@ -470,7 +442,7 @@ func (ctx *minMaxColumnEval) Update(currentValue *[]any, input *[]any) error {
 		return nil
 	}
 	if ctx.where != nil {
-		w, err := ctx.where.Eval(nil, *input)
+		w, err := ctx.where.Eval( *input)
 		if err != nil {
 			return fmt.Errorf("while evaluating where on min aggregate: %v", err)
 		}
@@ -578,21 +550,6 @@ func (ctx *avrgColumnEval) avrg(lhs any, rhs any, castFnc *CastToRdfFnc) (any, e
 	return nil, fmt.Errorf("avrg called with unsupported types: (%T, %T)", lhs, rhs)
 }
 
-func (ctx *avrgColumnEval) InitializeCurrentValue(currentValue *[]any) {
-	var value any = float64(0)
-	if ctx.cast2RdfType != nil {
-		var err error
-		value, err = ctx.cast2RdfType.Cast(value)
-		if err != nil {
-			// if cast fails, just use the original value
-			value = float64(0)
-		}
-	}
-	if currentValue == nil {
-		return
-	}
-	(*currentValue)[ctx.outputPos] = value
-}
 func (ctx *avrgColumnEval) Update(currentValue *[]any, input *[]any) error {
 	if currentValue == nil || input == nil {
 		return fmt.Errorf("error avrgColumnEval.update cannot have nil currentValue or input")
@@ -603,7 +560,7 @@ func (ctx *avrgColumnEval) Update(currentValue *[]any, input *[]any) error {
 		return nil
 	}
 	if ctx.where != nil {
-		w, err := ctx.where.Eval(nil, *input)
+		w, err := ctx.where.Eval( *input)
 		if err != nil {
 			return fmt.Errorf("while evaluating where on avrg aggregate: %v", err)
 		}

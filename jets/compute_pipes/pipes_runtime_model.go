@@ -174,7 +174,6 @@ type PipeTransformationEvaluator interface {
 
 // Initialize and Done are intended for aggregate transformations column evaluators
 type TransformationColumnEvaluator interface {
-	InitializeCurrentValue(currentValue *[]any)
 	Update(currentValue *[]any, input *[]any) error
 	Done(currentValue *[]any) error
 }

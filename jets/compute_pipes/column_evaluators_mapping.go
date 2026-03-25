@@ -22,7 +22,6 @@ type mapColumnConfig struct {
 	mapConfig    *MapExpression
 }
 
-func (ctx *mapColumnEval) InitializeCurrentValue(currentValue *[]any) {}
 func (ctx *mapColumnEval) Update(currentValue *[]any, input *[]any) error {
 	if currentValue == nil || input == nil {
 		return fmt.Errorf("error mapColumnEval.update cannot have nil currentValue or input")

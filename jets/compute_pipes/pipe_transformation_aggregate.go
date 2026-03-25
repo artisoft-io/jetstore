@@ -68,9 +68,6 @@ func (ctx *BuilderContext) NewAggregateTransformationPipe(source *InputChannel, 
 	}
 
 	currentValues := make([]interface{}, len(outputCh.Config.Columns))
-	for i := range columnEvaluators {
-		columnEvaluators[i].InitializeCurrentValue(&currentValues)
-	}
 	return &AggregateTransformationPipe{
 		cpConfig:         ctx.cpConfig,
 		outputCh:         outputCh,

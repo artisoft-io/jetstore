@@ -23,7 +23,6 @@ type hashColumnEval struct {
 	outputPos     int
 }
 
-func (ctx *hashColumnEval) InitializeCurrentValue(currentValue *[]any) {}
 func (ctx *hashColumnEval) Update(currentValue *[]any, input *[]any) error {
 	var hashedValue any
 	var err error

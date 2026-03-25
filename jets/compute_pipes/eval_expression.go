@@ -11,7 +11,7 @@ import (
 // input is the whole input row as []any or map[string]any depending on the context.
 // currentValue is only applicable to "then" and "else_expr" of case operator.
 type evalExpression interface {
-	Eval(currentValue any, input any) (any, error)
+	Eval(input any) (any, error)
 }
 type evalOperator interface {
 	Eval(lhs any, rhs any) (any, error)
@@ -23,14 +23,14 @@ type expressionNodeEvaluator struct {
 	Rhs evalExpression
 }
 
-func (node *expressionNodeEvaluator) Eval(_, input any) (any, error) {
-	lhs, err := node.Lhs.Eval(nil, input)
+func (node *expressionNodeEvaluator) Eval(input any) (any, error) {
+	lhs, err := node.Lhs.Eval(input)
 	if err != nil {
 		return nil, err
 	}
 	var rhs any
 	if node.Rhs != nil {
-		rhs, err = node.Rhs.Eval(nil, input)
+		rhs, err = node.Rhs.Eval(input)
 		if err != nil {
 			return nil, err
 		}
@@ -44,7 +44,7 @@ type expressionSelectLeaf struct {
 	rdfType string
 }
 
-func (node *expressionSelectLeaf) Eval(_, in any) (any, error) {
+func (node *expressionSelectLeaf) Eval( in any) (any, error) {
 	var value any
 	switch input := in.(type) {
 	case []any:
@@ -67,7 +67,7 @@ type expressionValueLeaf struct {
 	value any
 }
 
-func (node *expressionValueLeaf) Eval(_, _ any) (any, error) {
+func (node *expressionValueLeaf) Eval(_ any) (any, error) {
 	return node.value, nil
 }
 
@@ -75,7 +75,7 @@ type expressionStaticListLeaf struct {
 	values map[any]bool
 }
 
-func (node *expressionStaticListLeaf) Eval(_, _ any) (any, error) {
+func (node *expressionStaticListLeaf) Eval(_ any) (any, error) {
 	return node.values, nil
 }
 
@@ -237,8 +237,6 @@ func (ctx ExprBuilderContext) BuildExprNodeEvaluator(sourceName string, columns 
 				values: values,
 			}, nil
 
-			case XXX:
-				// handle operator used in column transformation context
 		default:
 			return nil, fmt.Errorf("error: unknown expression leaf node type: %s", spec.Type)
 		}

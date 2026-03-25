@@ -160,10 +160,8 @@ type evalExprColumnEval struct {
 	outputPos int
 }
 
-func (ctx *evalExprColumnEval) InitializeCurrentValue(currentValue *[]any) {}
 func (ctx *evalExprColumnEval) Update(currentValue *[]any, input *[]any) error {
-	cvalue := (*currentValue)[ctx.outputPos]
-	value, err := ctx.expr.Eval(cvalue, *input)
+	value, err := ctx.expr.Eval(*input)
 	if err != nil {
 		return err
 	}
@@ -185,7 +183,6 @@ func (ctx *valueColumnEval) Done(currentValue *[]any) error {
 	return nil
 }
 
-func (ctx *valueColumnEval) InitializeCurrentValue(currentValue *[]any) {}
 func (ctx *valueColumnEval) Update(currentValue *[]any, _ *[]any) error {
 	if currentValue == nil {
 		return fmt.Errorf("error valueColumnEval.update cannot have nil currentValue")
@@ -213,7 +210,6 @@ func (ctx *selectColumnEval) Done(currentValue *[]any) error {
 	return nil
 }
 
-func (ctx *selectColumnEval) InitializeCurrentValue(currentValue *[]any) {}
 func (ctx *selectColumnEval) Update(currentValue *[]any, input *[]any) error {
 	if currentValue == nil || input == nil {
 		return fmt.Errorf("error selectColumnEval.update cannot have nil currentValue or input")
@@ -241,7 +237,6 @@ func (ctx *multiSelectColumnEval) Done(currentValue *[]any) error {
 	return nil
 }
 
-func (ctx *multiSelectColumnEval) InitializeCurrentValue(currentValue *[]any) {}
 func (ctx *multiSelectColumnEval) Update(currentValue *[]any, input *[]any) error {
 	if currentValue == nil || input == nil {
 		return fmt.Errorf("error selectColumnEval.update cannot have nil currentValue or input")
