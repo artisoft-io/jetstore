@@ -141,7 +141,6 @@ func (ctx *JrPoolWorker) executeRules(inputRecords *[]any,
 		goto gotError
 	}
 	defer rdfSession.Release()
-	rm = rdfSession.GetResourceManager()
 
 	wc, err = GetWorkspaceControl()
 	if err != nil {
@@ -160,6 +159,7 @@ func (ctx *JrPoolWorker) executeRules(inputRecords *[]any,
 	for _, ruleset := range ruleFileNames {
 		// Create the rete session
 		reteSession, err = rdfSession.NewReteSession(ruleset)
+		rm = rdfSession.GetResourceManager()
 		if err != nil {
 			cpErr = fmt.Errorf("error: while creating rete session for ruleset %s: %v", ruleset, err)
 			goto gotError
@@ -226,7 +226,7 @@ func (ctx *JrPoolWorker) executeRules(inputRecords *[]any,
 			}
 			// Check if looping is completed (Jets__completed)
 			if rdfSession.ContainsSP(jr.Jets__istate, jr.Jets__completed) {
-				log.Print("jetrules: Rete Session Looping Completed")
+				log.Printf("jetrules: Rete Session Looping Completed with iloop %d", iloop)
 				break
 			}
 		}
