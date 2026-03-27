@@ -57,6 +57,7 @@ func (cpCtx *ComputePipesContext) NewS3DeviceManager() error {
 	}
 
 	// Create a channel for the workers to report results
+	cpCtx.ChResults.S3PutObjectResultCh = make(chan ComputePipesResult, 10000)
 	s3WorkersResultCh := make(chan ComputePipesResult)
 	// Collect the results from all the workers
 	go func() {

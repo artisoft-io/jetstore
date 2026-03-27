@@ -32,6 +32,7 @@ func (cpCtx *ComputePipesContext) LoadFiles(ctx context.Context, dbpool *pgxpool
 	computePipesInputCh := make(chan []any, 5)
 	var computePipesMergeChs []chan []any
 	var inputSchemaCh chan ParquetSchemaInfo
+	cpCtx.ChResults.LoadFromS3FilesResultCh = make(chan LoadFromS3FilesResult, 10000)
 
 	defer func() {
 		if r := recover(); r != nil {

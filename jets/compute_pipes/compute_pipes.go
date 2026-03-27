@@ -28,6 +28,10 @@ func (cpCtx *ComputePipesContext) StartComputePipes(dbpool *pgxpool.Pool,
 	computePipesMergeChs []chan []any) {
 
 	// log.Println("Entering StartComputePipes")
+	cpCtx.ChResults.Copy2DbResultCh = make(chan chan ComputePipesResult, 10000)
+	cpCtx.ChResults.WritePartitionsResultCh = make(chan chan ComputePipesResult, 10000)
+	cpCtx.ChResults.JetrulesWorkerResultCh = make(chan chan JetrulesWorkerResult, 10000)
+	cpCtx.ChResults.ClusteringResultCh = make(chan chan ClusteringResult, 10000)
 
 	defer func() {
 		// Catch the panic that might be generated downstream
@@ -41,6 +45,8 @@ func (cpCtx *ComputePipesContext) StartComputePipes(dbpool *pgxpool.Pool,
 			close(cpCtx.Done)
 			close(cpCtx.ChResults.Copy2DbResultCh)
 			close(cpCtx.ChResults.WritePartitionsResultCh)
+			close(cpCtx.ChResults.JetrulesWorkerResultCh)
+			close(cpCtx.ChResults.ClusteringResultCh)
 		}
 	}()
 
@@ -413,10 +419,6 @@ gotError:
 	close(cpCtx.ChResults.WritePartitionsResultCh)
 	close(cpCtx.ChResults.JetrulesWorkerResultCh)
 	close(cpCtx.ChResults.ClusteringResultCh)
-	if cpCtx.S3DeviceMgr == nil {
-		// Got error before the s3 device manager was created, close the chan manually
-		close(cpCtx.ChResults.S3PutObjectResultCh)
-	}
 }
 
 func UnmarshalComputePipesConfig(computePipesJson *string) (*ComputePipesConfig, error) {

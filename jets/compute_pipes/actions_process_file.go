@@ -14,13 +14,7 @@ import (
 func (cpCtx *ComputePipesContext) ProcessFilesAndReportStatus(ctx context.Context, dbpool *pgxpool.Pool) error {
 
 	cpCtx.ChResults = &ChannelResults{
-		// NOTE 2025/06/29: Removing unneccessary limits, otherwise this will hang when collecting results
-		LoadFromS3FilesResultCh: make(chan LoadFromS3FilesResult, 10000),
-		Copy2DbResultCh:         make(chan chan ComputePipesResult, 10000),
-		WritePartitionsResultCh: make(chan chan ComputePipesResult, 10000),
-		S3PutObjectResultCh:     make(chan ComputePipesResult, 10000),
-		JetrulesWorkerResultCh:  make(chan chan JetrulesWorkerResult, 10000),
-		ClusteringResultCh:      make(chan chan ClusteringResult, 10000),
+		// Channels created by the entity responsible to close them
 	}
 
 	key, err := cpCtx.InsertPipelineExecutionStatus(dbpool)
@@ -33,14 +27,7 @@ func (cpCtx *ComputePipesContext) ProcessFilesAndReportStatus(ctx context.Contex
 	processingErrors := make([]string, 0)
 	if cpCtx.ComputePipesArgs.MergeFiles {
 		// Last step, merging all the part files into a single output file
-		// Special case, we're not calling StartComputePipes, so need to close
-		// ChResults channels
-		close(cpCtx.ChResults.LoadFromS3FilesResultCh)
-		close(cpCtx.ChResults.Copy2DbResultCh)
-		close(cpCtx.ChResults.WritePartitionsResultCh)
-		close(cpCtx.ChResults.S3PutObjectResultCh)
-		close(cpCtx.ChResults.JetrulesWorkerResultCh)
-		close(cpCtx.ChResults.ClusteringResultCh)
+		// Special case, we're not calling StartComputePipes
 		err = cpCtx.StartMergeFiles(dbpool)
 	} else {
 		err = cpCtx.LoadFiles(ctx, dbpool)
