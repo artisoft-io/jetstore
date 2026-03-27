@@ -55,6 +55,7 @@ func (cpCtx *ComputePipesContext) LoadFiles(ctx context.Context, dbpool *pgxpool
 	if strings.HasPrefix(inputFormat, "parquet") && cpCtx.CpConfig.CommonRuntimeArgs.CpipesMode == "sharding" {
 		// Save the parquet schema
 		inputSchemaCh = make(chan ParquetSchemaInfo, 1)
+		defer close(inputSchemaCh)
 	}
 
 	var waitForDone *sync.WaitGroup

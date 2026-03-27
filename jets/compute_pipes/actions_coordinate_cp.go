@@ -88,15 +88,9 @@ func (args *ComputePipesNodeArgs) CoordinateComputePipes(ctx context.Context, db
 	envSettings["$SHARD_ID"] = args.NodeId
 	envSettings["$JETS_PARTITION_LABEL"] = args.JetsPartitionLabel
 
-	// Allocate the MergeFileNamesCh if have merge channels
 	inputChannelConfig = &cpConfig.PipesConfig[0].InputChannel
 	inputChannelConfig.schemaProviderConfig = GetSchemaProviderConfigByKey(cpConfig.SchemaProviders, inputChannelConfig.SchemaProvider)
 	nbrMergeChannels = len(inputChannelConfig.MergeChannels)
-	fileNamesCh = make([]chan FileName, 0, 1+nbrMergeChannels)
-	fileNamesCh = append(fileNamesCh, make(chan FileName, 2))
-	for range nbrMergeChannels {
-		fileNamesCh = append(fileNamesCh, make(chan FileName, 2))
-	}
 
 	// Get file keys
 	switch cpConfig.CommonRuntimeArgs.CpipesMode {
@@ -162,7 +156,6 @@ func (args *ComputePipesNodeArgs) CoordinateComputePipes(ctx context.Context, db
 		KillSwitch:         make(chan struct{}),
 		Done:               make(chan struct{}),
 		ErrCh:              make(chan error, 1000),
-		FileNamesCh:        fileNamesCh,
 		DownloadS3ResultCh: make(chan DownloadS3Result, 1000),
 	}
 
@@ -201,7 +194,6 @@ func (args *ComputePipesNodeArgs) CoordinateComputePipes(ctx context.Context, db
 	}
 
 	// Create a local temp directory to hold the file(s)
-
 	inFolderPath = make([]string, 0, 1+nbrMergeChannels)
 	for i := range 1 + nbrMergeChannels {
 		var folderPath string
@@ -220,6 +212,13 @@ func (args *ComputePipesNodeArgs) CoordinateComputePipes(ctx context.Context, db
 	}()
 
 	defer cpContext.DoneAll(nil)
+	// Allocate the MergeFileNamesCh if have merge channels
+	fileNamesCh = make([]chan FileName, 0, 1+nbrMergeChannels)
+	fileNamesCh = append(fileNamesCh, make(chan FileName, 2))
+	for range nbrMergeChannels {
+		fileNamesCh = append(fileNamesCh, make(chan FileName, 2))
+	}
+	cpContext.FileNamesCh = fileNamesCh
 
 	// Download files from s3
 	err = cpContext.DownloadS3Files(inFolderPath, externalBucket, fileKeys)

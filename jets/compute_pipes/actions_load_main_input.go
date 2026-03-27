@@ -144,10 +144,7 @@ func (cpCtx *ComputePipesContext) loadMainInput(computePipesInputCh chan []any,
 				case "parquet", "parquet_select":
 					count, err = cpCtx.ReadParquetFileV2(
 						&localInFile, fileHd, readBatchSize, castToRdfTxtTypeFncs, inputSchemaCh, reorderColumnsOnRead, computePipesInputCh)
-					if inputSchemaCh != nil {
-						close(inputSchemaCh)
-						inputSchemaCh = nil
-					}
+					inputSchemaCh = nil
 					badRowCount = 0
 
 				case "fixed_width":
