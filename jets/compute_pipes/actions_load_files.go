@@ -31,7 +31,7 @@ func (cpCtx *ComputePipesContext) LoadFiles(ctx context.Context, dbpool *pgxpool
 	// Create a channel to use as main input source for the pipeline
 	computePipesInputCh := make(chan []any, 5)
 	var computePipesMergeChs []chan []any
-	var inputSchemaCh chan ParquetSchemaInfo
+	var inputSchemaCh chan *ParquetSchemaInfo
 	cpCtx.ChResults.LoadFromS3FilesResultCh = make(chan LoadFromS3FilesResult, 10000)
 
 	defer func() {
@@ -54,7 +54,7 @@ func (cpCtx *ComputePipesContext) LoadFiles(ctx context.Context, dbpool *pgxpool
 	inputFormat := inputChannelConfig.Format
 	if strings.HasPrefix(inputFormat, "parquet") && cpCtx.CpConfig.CommonRuntimeArgs.CpipesMode == "sharding" {
 		// Save the parquet schema
-		inputSchemaCh = make(chan ParquetSchemaInfo, 1)
+		inputSchemaCh = make(chan *ParquetSchemaInfo, 1)
 		defer close(inputSchemaCh)
 	}
 

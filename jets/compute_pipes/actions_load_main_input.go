@@ -10,7 +10,7 @@ import (
 )
 
 func (cpCtx *ComputePipesContext) loadMainInput(computePipesInputCh chan []any,
-	inputChannelConfig *InputChannelConfig, inputSchemaCh chan ParquetSchemaInfo) (err error) {
+	inputChannelConfig *InputChannelConfig, inputSchemaCh chan *ParquetSchemaInfo) (err error) {
 
 	defer close(computePipesInputCh)
 

@@ -18,7 +18,7 @@ import (
 
 func (cpCtx *ComputePipesContext) ReadParquetFileV2(filePath *FileName,
 	fileReader parquet.ReaderAtSeeker, readBatchSize int64,
-	castToRdfTxtTypeFncs []*CastToRdfTxtFnc, inputSchemaCh chan<- ParquetSchemaInfo,
+	castToRdfTxtTypeFncs []*CastToRdfTxtFnc, inputSchemaCh chan<- *ParquetSchemaInfo,
 	reorderColumnsOnRead []int, computePipesInputCh chan<- []any) (int64, error) {
 
 	var inputColumns []string
@@ -75,7 +75,7 @@ func (cpCtx *ComputePipesContext) ReadParquetFileV2(filePath *FileName,
 	if inputSchemaCh != nil {
 
 		// Make the schema avail to channel registry
-		inputSchemaCh <- *parquetSchemaInfo
+		inputSchemaCh <- parquetSchemaInfo
 
 		if cpCtx.ComputePipesArgs.NodeId == 0 {
 			// save schema info to s3
