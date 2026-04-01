@@ -116,6 +116,11 @@ pipelineConfigLoop:
 			if err != nil {
 				return err
 			}
+			// Get the FileKey for the main input
+			fileKey, err := getFileKeyForInputRegistry(ctx.Dbpool, mainIr)
+			if err != nil {
+				return err
+			}
 			data := map[string]any{
 				"pipeline_config_key":        strconv.Itoa(pc.key),
 				"process_name":               pc.processName,
@@ -241,6 +246,23 @@ func getPipelineConfig(dbpool *pgxpool.Pool, processInputKeys []int) ([]pipeline
 		})
 	}
 	return results, rows.Err()
+}
+
+// Get the file_key for the input_registry key, if any
+func getFileKeyForInputRegistry(dbpool *pgxpool.Pool, inputRegistryKey int) (string, error) {
+	stmt := `SELECT file_key FROM jetsapi.input_registry WHERE key = $1`
+	var fileKey sql.NullString
+	err := dbpool.QueryRow(context.TODO(), stmt, inputRegistryKey).Scan(&fileKey)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return "", nil
+		}
+		return "", err
+	}
+	if fileKey.Valid {
+		return fileKey.String, nil
+	}
+	return "", nil
 }
 
 // Return a slice of pair (piKey, irKey)
