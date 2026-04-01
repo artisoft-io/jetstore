@@ -1105,18 +1105,19 @@ func (ctx *DataTableContext) DropTable(dataTableAction *DataTableAction, token s
 			return
 		}
 
-		// Delete entry in input_registry, if any, for tableName
-		// Get all corresponding session_id and delete them from session_registry
-		stmt = fmt.Sprintf(`DELETE FROM jetsapi.session_registry sr
-			USING jetsapi.input_registry ir
-			WHERE ir.table_name = '%s'
-				AND sr.session_id=ir.session_id;
-			DELETE FROM jetsapi.input_registry WHERE table_name='%s';`,
-			tableName.(string), tableName.(string))
-		_, err = ctx.Dbpool.Exec(context.Background(), stmt)
-		if err != nil {
-			return nil, http.StatusInternalServerError, fmt.Errorf("while droping tables: %v", err)
-		}
+		//* No longer needed with cpipes model, reinstate?
+		// // Delete entry in input_registry, if any, for tableName
+		// // Get all corresponding session_id and delete them from session_registry
+		// stmt = fmt.Sprintf(`DELETE FROM jetsapi.session_registry sr
+		// 	USING jetsapi.input_registry ir
+		// 	WHERE ir.table_name = '%s'
+		// 		AND sr.session_id=ir.session_id;
+		// 	DELETE FROM jetsapi.input_registry WHERE table_name='%s';`,
+		// 	tableName.(string), tableName.(string))
+		// _, err = ctx.Dbpool.Exec(context.Background(), stmt)
+		// if err != nil {
+		// 	return nil, http.StatusInternalServerError, fmt.Errorf("while droping tables: %v", err)
+		// }
 	}
 
 	results = &map[string]interface{}{}
