@@ -445,7 +445,8 @@ func (ctx *BuilderContext) NewAnonymizeTransformationPipe(source *InputChannel, 
 			if !ok {
 				return nil, fmt.Errorf("error: expecting string for key prefix (e.g. ssn, dob, etc), got %v", keyPrefixI)
 			}
-			if anonymizeType == "text" {
+			switch anonymizeType {
+			case "text":
 				switch config.Mode {
 				case "de-identification":
 					// Get the de-identification lookup table name for this key prefix
@@ -499,6 +500,15 @@ func (ctx *BuilderContext) NewAnonymizeTransformationPipe(source *InputChannel, 
 						keyPrefix = ""
 					}
 				}
+			case "date":
+				switch config.Mode {
+				case "anonymization":
+					// Determine the width to adjust for fixed-width files
+					if newWidth != nil {
+						w := 16
+						newWidth[name] = w
+					}
+				}
 			}
 
 			// Get the date layouts if any
@@ -527,10 +537,13 @@ func (ctx *BuilderContext) NewAnonymizeTransformationPipe(source *InputChannel, 
 		case "":
 			// Not anonymized
 		default:
-			return nil, fmt.Errorf("error: unknown anonymize type '%s', known values: test, date", anonymizeType)
+			return nil, fmt.Errorf("error: unknown anonymize type '%s', known values: text, date", anonymizeType)
 		}
 	}
 	if newWidth != nil {
+		if ctx.cpConfig.ClusterConfig.IsDebugMode {
+			log.Printf("%s: Adjusting fixed-width column widths for anonymization: %v", ctx.sessionId, newWidth)
+		}
 		err = sp.AdjustColumnWidth(newWidth)
 		if err != nil {
 			return nil, fmt.Errorf("while adjusting column width of fixed-width file: %v", err)
