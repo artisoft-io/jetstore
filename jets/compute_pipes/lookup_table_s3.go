@@ -151,6 +151,12 @@ func (tbl *LookupTableS3) readCsvLookup(localFileName string) (int64, error) {
 		return 0, fmt.Errorf("error: unknown compression in readCsvLookup: %s", source.Compression)
 	}
 
+	// If the file format is csv, we will use the header row to determine 
+	// the column name -> pos mapping for the lookup table, and also update the column spec 
+	// in the lookup table spec with the inferred rdf type and array type (if applicable)
+	// Note: if the file format is headerless_csv, then it expect to the the column info to be 
+	// specified in the spec.Columns, and it will use the order of the columns in the spec.Columns 
+	// as the column name -> pos mapping for the lookup table
 	if source.Format == "csv" {
 		// Make a lookup of the current column spec
 		overrides := make(map[string]*TableColumnSpec)
@@ -218,7 +224,8 @@ func (tbl *LookupTableS3) readCsvLookup(localFileName string) (int64, error) {
 				if !ok {
 					return 0, fmt.Errorf("error: lookup value column '%s' is not in the csv lookup table %s", name, tbl.spec.Key)
 				}
-				lookupValues[i], err = CastToRdfType(inRow[pos], tbl.spec.Columns[csvColumnsPos[name]].RdfType)
+				cspec := tbl.spec.Columns[csvColumnsPos[name]]
+				lookupValues[i], err = CastToRdfType(inRow[pos], cspec.RdfType, &cspec.IsArray)
 				if err != nil {
 					return 0, fmt.Errorf("while loading csv lookup table, error in casting to rdf type: %v", err)
 				}

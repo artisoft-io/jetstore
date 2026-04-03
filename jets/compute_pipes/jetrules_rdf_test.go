@@ -48,14 +48,14 @@ func TestEncodeRdfTypeToTxt(t *testing.T) {
 }
 
 func TestCastToRdfTypeFromTxt(t *testing.T) {
-	v, err := castToRdfTypeFromTxt("hello", "text", false)
+	v, err := castToRdfTypeFromTxt("hello", "text", new(false))
 	if err != nil {
 		t.Error("cast err", err)
 	}
 	if v != "hello" {
 		t.Error("value err")
 	}
-	v, err = castToRdfTypeFromTxt("2006-01-02T15:04:05", "date", false)
+	v, err = castToRdfTypeFromTxt("2006-01-02T15:04:05", "date", new(false))
 	if err != nil {
 		t.Error("cast err", err)
 	}
@@ -63,7 +63,7 @@ func TestCastToRdfTypeFromTxt(t *testing.T) {
 	if v != *testValue {
 		t.Error("value err")
 	}
-	v, err = castToRdfTypeFromTxt("2006-01-02T15:04:05", "datetime", false)
+	v, err = castToRdfTypeFromTxt("2006-01-02T15:04:05", "datetime", new(false))
 	if err != nil {
 		t.Error("cast err", err)
 	}
@@ -72,7 +72,7 @@ func TestCastToRdfTypeFromTxt(t *testing.T) {
 		t.Error("value err")
 	}
 
-	v, err = castToRdfTypeFromTxt("12.64", "double", false)
+	v, err = castToRdfTypeFromTxt("12.64", "double", new(false))
 	if err != nil {
 		t.Error("cast err", err)
 	}
@@ -80,7 +80,23 @@ func TestCastToRdfTypeFromTxt(t *testing.T) {
 		t.Error("value err")
 	}
 
-	v, err = castToRdfTypeFromTxt("hello", "text", true)
+	v, err = castToRdfTypeFromTxt("12.64", "double", nil)
+	if err != nil {
+		t.Error("cast err", err)
+	}
+	if v != float64(12.64) {
+		t.Error("value err")
+	}
+
+	v, err = castToRdfTypeFromTxt("1.00", "int", nil)
+	if err != nil {
+		t.Error("cast err", err)
+	}
+	if v != int(1) {
+		t.Error("value err")
+	}
+
+	v, err = castToRdfTypeFromTxt("hello", "text", new(true))
 	if err != nil {
 		t.Error("cast err", err)
 	}
@@ -93,7 +109,7 @@ func TestCastToRdfTypeFromTxt(t *testing.T) {
 		t.Error("value err")
 	}
 
-	v, err = castToRdfTypeFromTxt("{\"a1\",\"a2\"}", "text", true)
+	v, err = castToRdfTypeFromTxt("{\"a1\",\"a2\"}", "text", new(true))
 	if err != nil {
 		t.Error("cast err", err)
 	}
@@ -106,7 +122,20 @@ func TestCastToRdfTypeFromTxt(t *testing.T) {
 		t.Error("value err")
 	}
 
-	v, err = castToRdfTypeFromTxt("{\"a1\"}", "text", true)
+	v, err = castToRdfTypeFromTxt("{\"a1\",\"a2\"}", "text", nil)
+	if err != nil {
+		t.Error("cast err", err)
+	}
+	switch vv := v.(type) {
+	case []any:
+		if len(vv) != 2 || vv[0] != "a1" || vv[1] != "a2" {
+			t.Error("value err")
+		}
+	default:
+		t.Error("value err")
+	}
+
+	v, err = castToRdfTypeFromTxt("{\"a1\"}", "text", new(true))
 	if err != nil {
 		t.Error("cast err", err)
 	}
@@ -119,7 +148,7 @@ func TestCastToRdfTypeFromTxt(t *testing.T) {
 		t.Error("value err")
 	}
 
-	v, err = castToRdfTypeFromTxt("{}", "text", true)
+	v, err = castToRdfTypeFromTxt("{}", "text", new(true))
 	if err != nil {
 		t.Error("cast err", err)
 	}

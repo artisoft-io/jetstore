@@ -3,10 +3,8 @@ package compute_pipes
 import (
 	"fmt"
 	"strconv"
-	"time"
 
 	"github.com/artisoft-io/jetstore/jets/cleansing_functions"
-	"github.com/artisoft-io/jetstore/jets/jetrules/rdf"
 )
 
 // TransformationColumnSpec Type map
@@ -78,7 +76,7 @@ func (ctx *mapColumnEval) Update(currentValue *[]any, input *[]any) error {
 		}
 	} else {
 		// Cast to rdf type
-		outputVal, err = CastToRdfType(outputVal, mapConfig.RdfType)
+		outputVal, err = CastToRdfType(outputVal, mapConfig.RdfType, nil)
 		if err != nil {
 			return fmt.Errorf("error while casting value to rdf type: %v", err)
 		}
@@ -204,121 +202,121 @@ func (ctx *BuilderContext) BuildMapTCEvaluator(source *InputChannel, outCh *Outp
 	}, nil
 }
 
-// Utility function for casting to specified rdf type
-func CastToRdfType(input any, rdfType string) (any, error) {
-	if input == nil {
-		switch rdfType {
-		case "string", "text":
-			return "", nil
-		case "int", "integer", "int64", "long", "bool":
-			return 0, nil
-		case "float64", "double":
-			return 0.0, nil
-		case "date", "datetime":
-			return nil, nil
-		default:
-			return nil, fmt.Errorf("error: unknown rdf_type %s while mapping column value", rdfType)
-		}
-	}
+// // Utility function for casting to specified rdf type
+// func CastToRdfType(input any, rdfType string) (any, error) {
+// 	if input == nil {
+// 		switch rdfType {
+// 		case "string", "text":
+// 			return "", nil
+// 		case "int", "integer", "int64", "long", "bool":
+// 			return 0, nil
+// 		case "float64", "double":
+// 			return 0.0, nil
+// 		case "date", "datetime":
+// 			return nil, nil
+// 		default:
+// 			return nil, fmt.Errorf("error: unknown rdf_type %s while mapping column value", rdfType)
+// 		}
+// 	}
 
-	var inputV string
-	var inputArr []string
-	switch vv := input.(type) {
-	case string:
-		if len(vv) == 0 {
-			return nil, nil
-		}
-		inputV = vv
-	case []string:
-		if len(vv) == 0 {
-			return nil, nil
-		}
-		inputArr = vv
+// 	var inputV string
+// 	var inputArr []string
+// 	switch vv := input.(type) {
+// 	case string:
+// 		if len(vv) == 0 {
+// 			return nil, nil
+// 		}
+// 		inputV = vv
+// 	case []string:
+// 		if len(vv) == 0 {
+// 			return nil, nil
+// 		}
+// 		inputArr = vv
 
-	default:
-		// humm, expecting string or []string
-		inputV = fmt.Sprintf("%v", vv)
-	}
-	switch rdfType {
-	case "string", "text":
-		return input, nil
-	case "int", "integer", "int64", "long":
-		if inputArr == nil {
-			return strconv.Atoi(inputV)
-		}
-		outV := make([]int, 0, len(inputArr))
-		for _, v := range inputArr {
-			vi, err := strconv.Atoi(v)
-			if err != nil {
-				return nil, err
-			}
-			outV = append(outV, vi)
-		}
-		return outV, nil
+// 	default:
+// 		// humm, expecting string or []string
+// 		inputV = fmt.Sprintf("%v", vv)
+// 	}
+// 	switch rdfType {
+// 	case "string", "text":
+// 		return input, nil
+// 	case "int", "integer", "int64", "long":
+// 		if inputArr == nil {
+// 			return strconv.Atoi(inputV)
+// 		}
+// 		outV := make([]int, 0, len(inputArr))
+// 		for _, v := range inputArr {
+// 			vi, err := strconv.Atoi(v)
+// 			if err != nil {
+// 				return nil, err
+// 			}
+// 			outV = append(outV, vi)
+// 		}
+// 		return outV, nil
 
-	case "float64", "double":
-		if inputArr == nil {
-			return strconv.ParseFloat(inputV, 64)
-		}
-		outV := make([]float64, 0, len(inputArr))
-		for _, v := range inputArr {
-			vi, err := strconv.ParseFloat(v, 64)
-			if err != nil {
-				return nil, err
-			}
-			outV = append(outV, vi)
-		}
-		return outV, nil
+// 	case "float64", "double":
+// 		if inputArr == nil {
+// 			return strconv.ParseFloat(inputV, 64)
+// 		}
+// 		outV := make([]float64, 0, len(inputArr))
+// 		for _, v := range inputArr {
+// 			vi, err := strconv.ParseFloat(v, 64)
+// 			if err != nil {
+// 				return nil, err
+// 			}
+// 			outV = append(outV, vi)
+// 		}
+// 		return outV, nil
 
-	case "bool":
-		if inputArr == nil {
-			return rdf.ParseBool(inputV), nil
-		}
-		outV := make([]int, 0, len(inputArr))
-		for _, v := range inputArr {
-			outV = append(outV, rdf.ParseBool(v))
-		}
-		return outV, nil
+// 	case "bool":
+// 		if inputArr == nil {
+// 			return rdf.ParseBool(inputV), nil
+// 		}
+// 		outV := make([]int, 0, len(inputArr))
+// 		for _, v := range inputArr {
+// 			outV = append(outV, rdf.ParseBool(v))
+// 		}
+// 		return outV, nil
 
-	case "date":
-		if inputArr == nil {
-			temp, err := ParseDate(inputV)
-			if err == nil {
-				return *temp, nil
-			} else {
-				return nil, err
-			}
-		}
-		outV := make([]time.Time, 0, len(inputArr))
-		for _, v := range inputArr {
-			vi, err := ParseDate(v)
-			if err != nil {
-				return nil, err
-			}
-			outV = append(outV, *vi)
-		}
-		return outV, nil
+// 	case "date":
+// 		if inputArr == nil {
+// 			temp, err := ParseDate(inputV)
+// 			if err == nil {
+// 				return *temp, nil
+// 			} else {
+// 				return nil, err
+// 			}
+// 		}
+// 		outV := make([]time.Time, 0, len(inputArr))
+// 		for _, v := range inputArr {
+// 			vi, err := ParseDate(v)
+// 			if err != nil {
+// 				return nil, err
+// 			}
+// 			outV = append(outV, *vi)
+// 		}
+// 		return outV, nil
 
-	case "datetime":
-		if inputArr == nil {
-			temp, err := ParseDatetime(inputV)
-			if err == nil {
-				return *temp, nil
-			} else {
-				return nil, err
-			}
-		}
-		outV := make([]time.Time, 0, len(inputArr))
-		for _, v := range inputArr {
-			vi, err := ParseDatetime(v)
-			if err != nil {
-				return nil, err
-			}
-			outV = append(outV, *vi)
-		}
-		return outV, nil
+// 	case "datetime":
+// 		if inputArr == nil {
+// 			temp, err := ParseDatetime(inputV)
+// 			if err == nil {
+// 				return *temp, nil
+// 			} else {
+// 				return nil, err
+// 			}
+// 		}
+// 		outV := make([]time.Time, 0, len(inputArr))
+// 		for _, v := range inputArr {
+// 			vi, err := ParseDatetime(v)
+// 			if err != nil {
+// 				return nil, err
+// 			}
+// 			outV = append(outV, *vi)
+// 		}
+// 		return outV, nil
 
-	default:
-		return nil, fmt.Errorf("error: unknown rdf_type %s while mapping column value", rdfType)
-	}
-}
+// 	default:
+// 		return nil, fmt.Errorf("error: unknown rdf_type %s while mapping column value", rdfType)
+// 	}
+// }

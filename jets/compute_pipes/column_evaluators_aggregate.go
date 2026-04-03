@@ -289,7 +289,7 @@ func (ctx *BuilderContext) BuildSumTCEvaluator(source *InputChannel, outCh *Outp
 	}
 	var cast2RdfType *CastToRdfFnc
 	if spec.AsRdfType != "" {
-		cast2RdfType = NewCastToRdfFnc("", spec.AsRdfType, false)
+		cast2RdfType = NewCastToRdfFnc("", spec.AsRdfType, new(false))
 	}
 	return &sumColumnEval{
 		inputPos:     inputPos,
@@ -489,7 +489,7 @@ func (ctx *BuilderContext) BuildMinMaxTCEvaluator(source *InputChannel, outCh *O
 	}
 	var cast2RdfType *CastToRdfFnc
 	if spec.AsRdfType != "" {
-		cast2RdfType = NewCastToRdfFnc("", spec.AsRdfType, false)
+		cast2RdfType = NewCastToRdfFnc("", spec.AsRdfType, new(false))
 	}
 	return &minMaxColumnEval{
 		inputPos:     inputPos,
@@ -606,7 +606,7 @@ func (ctx *BuilderContext) BuildAvrgTCEvaluator(source *InputChannel, outCh *Out
 	}
 	var cast2RdfType *CastToRdfFnc
 	if spec.AsRdfType != "" {
-		cast2RdfType = NewCastToRdfFnc("", spec.AsRdfType, false)
+		cast2RdfType = NewCastToRdfFnc("", spec.AsRdfType, new(false))
 	}
 	return &avrgColumnEval{
 		inputPos:     inputPos,

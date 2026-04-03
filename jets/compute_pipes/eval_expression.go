@@ -58,7 +58,7 @@ func (node *expressionSelectLeaf) Eval( in any) (any, error) {
 		return nil, fmt.Errorf("error: invalid type passed to expression.Eval for input: %v", in)
 	}
 	if node.rdfType != "" {
-		return CastToRdfType(value, node.rdfType)
+		return CastToRdfType(value, node.rdfType, nil)
 	}
 	return value, nil
 }
@@ -195,7 +195,7 @@ func (ctx ExprBuilderContext) BuildExprNodeEvaluator(sourceName string, columns 
 				return nil, err
 			}
 			if spec.AsRdfType != "" {
-				value, err = CastToRdfType(value, spec.AsRdfType)
+				value, err = CastToRdfType(value, spec.AsRdfType, nil)
 			}
 			return &expressionValueLeaf{
 				value: value,

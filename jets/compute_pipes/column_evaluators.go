@@ -24,7 +24,7 @@ func (ctx *BuilderContext) BuildTransformationColumnEvaluator(source *InputChann
 		}
 		var cast2RdfType *CastToRdfFnc
 		if spec.AsRdfType != "" {
-			cast2RdfType = NewCastToRdfFnc(spec.Name, spec.AsRdfType, false)
+			cast2RdfType = NewCastToRdfFnc(spec.Name, spec.AsRdfType, new(false))
 		}
 		return &selectColumnEval{
 			inputPos:     inputPos,
@@ -46,7 +46,7 @@ func (ctx *BuilderContext) BuildTransformationColumnEvaluator(source *InputChann
 		}
 		var cast2RdfType *CastToRdfFnc
 		if spec.AsRdfType != "" {
-			cast2RdfType = NewCastToRdfFnc(spec.Name, spec.AsRdfType, false)
+			cast2RdfType = NewCastToRdfFnc(spec.Name, spec.AsRdfType, new(false))
 		}
 		return &multiSelectColumnEval{
 			inputPos:     inputPos,
@@ -68,7 +68,7 @@ func (ctx *BuilderContext) BuildTransformationColumnEvaluator(source *InputChann
 		}
 		var cast2RdfType *CastToRdfFnc
 		if spec.AsRdfType != "" {
-			cast2RdfType = NewCastToRdfFnc(spec.Name, spec.AsRdfType, false)
+			cast2RdfType = NewCastToRdfFnc(spec.Name, spec.AsRdfType, new(false))
 		}
 		return &valueColumnEval{
 			value:        value,
@@ -239,7 +239,7 @@ func (ctx *multiSelectColumnEval) Done(currentValue *[]any) error {
 
 func (ctx *multiSelectColumnEval) Update(currentValue *[]any, input *[]any) error {
 	if currentValue == nil || input == nil {
-		return fmt.Errorf("error selectColumnEval.update cannot have nil currentValue or input")
+		return fmt.Errorf("error multiSelectColumnEval.update cannot have nil currentValue or input")
 	}
 	value := make([]any, 0, len(ctx.inputPos))
 	for _, ipos := range ctx.inputPos {
