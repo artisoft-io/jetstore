@@ -489,8 +489,8 @@ type ConditionalPipeSpec struct {
 }
 
 type ConditionalEnvVariable struct {
-	CaseExpr []CaseEnvExpression `json:"case_expr,omitempty"` // alternate implementation to case op
-	ElseExpr []*ExpressionNode   `json:"else_expr,omitempty"`
+	CaseExpr []CaseEnvExpression         `json:"case_expr,omitempty"` // alternate implementation to case op
+	ElseExpr []*TransformationColumnSpec `json:"else_expr,omitempty"`
 }
 type CaseEnvExpression struct {
 	When ExpressionNode    `json:"when"`
