@@ -2,12 +2,12 @@ package compute_pipes
 
 import (
 	"fmt"
-	"math"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/artisoft-io/jetstore/jets/jetrules/rdf"
+	"github.com/artisoft-io/jetstore/jets/utils"
 )
 
 // This file contains function to cast input data into rdf type based on domain classes
@@ -201,6 +201,7 @@ func CastSliceToRdfType(inValue []any, rdfType string, isArray *bool) (any, erro
 }
 
 func castToRdfTypeFromTxt(inValue string, rdfType string, isArray *bool) (any, error) {
+	inValue = strings.TrimSpace(inValue)
 	if len(inValue) == 0 {
 		return nil, nil
 	}
@@ -240,48 +241,26 @@ func castToRdfTypeFromTxt(inValue string, rdfType string, isArray *bool) (any, e
 	switch rdfType {
 	case "text", "string", "resource":
 		return inValue, nil
+
 	case "date":
 		dt, err := rdf.ParseDate(inValue)
 		if err != nil {
 			return nil, err
 		}
 		return *dt, nil
+
 	case "double", "float64":
-		return strconv.ParseFloat(strings.TrimSpace(inValue), 64)
+		return strconv.ParseFloat(inValue, 64)
+
 	case "int", "integer", "int64", "long":
-		v, err := strconv.Atoi(strings.TrimSpace(inValue))
-		if err != nil {
-			// parse as float and convert to int, to handle the case where the input is "1.0" for an integer type
-			fv, err2 := strconv.ParseFloat(strings.TrimSpace(inValue), 64)
-			if err2 != nil {
-				return nil, fmt.Errorf("error parsing %s as int value: %v, also error parsing as float: %v", inValue, err, err2)
-			}
-			// Let's makes sure that fv is a number, i.e. is not NaN or Inf, before converting to int
-			if math.IsNaN(fv) || math.IsInf(fv, 0) {
-				return nil, fmt.Errorf("error parsing %s as int value: %v, also error parsing as float: value is NaN or Inf",
-					inValue, err)
-			}
-			return int(fv), nil
-		}
-		return v, nil
+		return utils.String2Int(inValue)
+
 	case "uint", "uint64", "ulong":
-		v, err := strconv.ParseUint(inValue, 10, 64)
-		if err != nil {
-			// parse as float and convert to uint, to handle the case where the input is "1.0" for an integer type
-			fv, err2 := strconv.ParseFloat(inValue, 64)
-			if err2 != nil {
-				return nil, fmt.Errorf("error parsing %s as uint value: %v, also error parsing as float: %v", inValue, err, err2)
-			}
-			// Let's makes sure that fv is a number, i.e. is not NaN or Inf, before converting to uint
-			if math.IsNaN(fv) || math.IsInf(fv, 0) {
-				return nil, fmt.Errorf("error parsing %s as uint value: %v, also error parsing as float: value is NaN or Inf",
-					inValue, err)
-			}
-			return uint(fv), nil
-		}
-		return uint(v), err
+		return utils.String2UInt(inValue)
+
 	case "bool":
 		return rdf.ParseBool(inValue), nil
+	
 	case "datetime":
 		dt, err := rdf.ParseDatetime(inValue)
 		if err != nil {
@@ -289,7 +268,7 @@ func castToRdfTypeFromTxt(inValue string, rdfType string, isArray *bool) (any, e
 		}
 		return *dt, nil
 	}
-	return nil, fmt.Errorf("error: unknown rdfTyoe %s for conversion from string", rdfType)
+	return nil, fmt.Errorf("error: unknown rdfType %s for conversion from string", rdfType)
 }
 
 // The reverse function to castToRdfTypeFromTxt

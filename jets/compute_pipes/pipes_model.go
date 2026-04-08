@@ -554,6 +554,7 @@ type ConditionalTransformationSpec struct {
 type MapRecordSpec struct {
 	FileMappingTableName string               `json:"file_mapping_table_name"`
 	ErrorChannel         *OutputChannelConfig `json:"error_channel,omitzero"`
+	FailOnError          bool                 `json:"fail_on_error,omitzero"`
 	IsDebug              bool                 `json:"is_debug,omitzero"`
 }
 

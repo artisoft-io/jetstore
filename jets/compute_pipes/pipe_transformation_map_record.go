@@ -16,6 +16,7 @@ type MapRecordTransformationPipe struct {
 	source           *InputChannel
 	outputCh         *OutputChannel
 	columnEvaluators []TransformationColumnEvaluator
+	failOnError      bool
 	errorCount       int
 	errorOutputCh    *OutputChannel
 	spec             *TransformationSpec
@@ -51,15 +52,21 @@ func (ctx *MapRecordTransformationPipe) Apply(input *[]any) error {
 	// Apply the column transformation for each column
 	for i := range ctx.columnEvaluators {
 		err := ctx.columnEvaluators[i].Update(currentValues, input)
-		if err != nil && ctx.errorOutputCh != nil && ctx.errorCount < 10 {
-			peRow := ctx.builderContext.NewProcessError()
-			peRow.ErrorMessage = err.Error()
-			peRow.write2Chan(ctx.errorOutputCh, ctx.doneCh)
-			log.Printf("mapping error: %s", err.Error())
-			ctx.errorCount++
-		} else {
-			if err != nil && ctx.spec.MapRecordConfig != nil && ctx.spec.MapRecordConfig.IsDebug {
+		if err != nil {
+			switch {
+			case ctx.errorCount < 10:
+				ctx.errorCount++
 				log.Printf("mapping error: %s", err.Error())
+				if ctx.errorOutputCh != nil {
+					peRow := ctx.builderContext.NewProcessError()
+					peRow.ErrorMessage = err.Error()
+					peRow.write2Chan(ctx.errorOutputCh, ctx.doneCh)
+				}
+			case ctx.spec.MapRecordConfig != nil && ctx.spec.MapRecordConfig.IsDebug:
+				log.Printf("mapping error: %s", err.Error())
+			}
+			if ctx.failOnError {
+				return fmt.Errorf("error while applying column transformation: %v", err)
 			}
 		}
 	}
@@ -211,6 +218,7 @@ func (ctx *BuilderContext) NewMapRecordTransformationPipe(source *InputChannel, 
 		outputCh:         outputCh,
 		columnEvaluators: columnEvaluators,
 		spec:             spec,
+		failOnError:      config.FailOnError,
 		doneCh:           ctx.done,
 		errorOutputCh:    errorOutputCh,
 		builderContext:   ctx,
