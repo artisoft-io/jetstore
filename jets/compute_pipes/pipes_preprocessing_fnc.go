@@ -45,7 +45,7 @@ func ParsePreprocessingExpressions(inputExprs []string, toUpper bool, columns *m
 				return nil,
 					fmt.Errorf("error in ParsePreprocessingExpressions: column %s not found, taken from %s", v[2], inputExprs[i])
 			}
-			switch v[1] {
+			switch strings.ToLower(v[1]) {
 			case "format_date":
 				preprocessingFncs[i] = &FormatDatePF{inputPos: pos}
 			case "remove_mi":

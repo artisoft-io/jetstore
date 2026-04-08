@@ -7,10 +7,10 @@ import (
 	"log"
 	"math/rand"
 	"os"
-	"strconv"
 	"strings"
 	"time"
 
+	"github.com/artisoft-io/jetstore/jets/utils"
 	"github.com/google/uuid"
 )
 
@@ -208,6 +208,11 @@ func (ctx *BuilderContext) NewHashEvaluator(source *InputChannel,
 			exprLen = 0
 		}
 	}
+	// IMPORTANT NOTE : source.DomainKeySpec can be nil if domainKeyLen == 0
+	if spec.ComputeDomainKey {
+		// When computing domain key, we don't want to have the partitioning logic applied on the hash key
+		spec.NoPartitions = true
+	}
 	if compositeLen > 0 || domainKeyLen > 0 {
 		var keys []string
 		if domainKeyLen > 0 {
@@ -228,13 +233,12 @@ func (ctx *BuilderContext) NewHashEvaluator(source *InputChannel,
 		}
 		toUpper := true
 		if spec.ComputeDomainKey {
-			if len(source.DomainKeySpec.HashingOverride) > 0 {
-				if source.DomainKeySpec.HashingOverride == "none" {
+			if source.DomainKeySpec != nil && len(source.DomainKeySpec.HashingOverride) > 0 {
+				hashingAlgo = source.DomainKeySpec.HashingOverride
+				if hashingAlgo == "none" {
 					// This is the case of domain_table or performing a merge with ordered sources.
-					hashingAlgo = "none"
+					// don't do toUpper if the domain key is already computed since it may be a hash
 					toUpper = len(keys) > 1
-				} else {
-					hashingAlgo = source.DomainKeySpec.HashingOverride
 				}
 			}
 			switch hashingAlgo {
@@ -293,7 +297,7 @@ func (ctx *BuilderContext) NewHashEvaluator(source *InputChannel,
 	}, nil
 }
 
-func  toInt(value any) int {
+func toInt(value any) int {
 	switch v := value.(type) {
 	case uint64:
 		return int(v)
@@ -304,7 +308,7 @@ func  toInt(value any) int {
 	case float64:
 		return int(v)
 	case string:
-		n, err := strconv.Atoi(v)
+		n, err := utils.String2Int(v)
 		if err != nil {
 			log.Printf("Warning: Invalid nbr partitions value '%s', defaulting to 0", v)
 			return 0
@@ -459,7 +463,7 @@ func (ctx *HashEvaluator) ComputeDomainKey(input []any) (any, error) {
 	case HashingAlgo_MD5:
 		return uuid.NewMD5(HashingSeed, data).String(), nil
 	default:
-		// not expected rto come here since we already check for HashingAlgo_None
+		// not expected to come here since we already check for HashingAlgo_None
 		log.Printf("warning: ComputeDomainKey with unknown hashing algo '%s', returning unhashed composite key", ctx.hashingAlgo.String())
 		return string(data), nil
 	}
