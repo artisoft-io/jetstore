@@ -213,12 +213,16 @@ func (ctx *BuilderContext) NewMapRecordTransformationPipe(source *InputChannel, 
 			return nil, err
 		}
 	}
+	var failOnError bool
+	if config != nil {
+		failOnError = config.FailOnError
+	}
 	return &MapRecordTransformationPipe{
 		source:           source,
 		outputCh:         outputCh,
 		columnEvaluators: columnEvaluators,
 		spec:             spec,
-		failOnError:      config.FailOnError,
+		failOnError:      failOnError,
 		doneCh:           ctx.done,
 		errorOutputCh:    errorOutputCh,
 		builderContext:   ctx,
