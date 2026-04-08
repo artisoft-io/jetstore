@@ -43,42 +43,43 @@ func SaveClientConfig(dbpool *pgxpool.Pool, workspaceName, clientName string) er
 
 	// jetsapi.client_registry
 	tableName := "client_registry"
-	err = writeTable(dbpool, jetsSchema, tableName, "client", clientName, true, true, &buf)
+	err = writeTable(dbpool, jetsSchema, tableName, "client", clientName, "client", true, true, &buf)
 	if err != nil {
 		return fmt.Errorf("while reading table %s: %v", tableName, err)
 	}
 
 	// jetsapi.client_org_registry
 	tableName = "client_org_registry"
-	err = writeTable(dbpool, jetsSchema, tableName, "client", clientName, true, true, &buf)
+	err = writeTable(dbpool, jetsSchema, tableName, "client", clientName, "org", true, true, &buf)
 	if err != nil {
 		return fmt.Errorf("while reading table %s: %v", tableName, err)
 	}
 
 	// jetsapi.source_config
 	tableName = "source_config"
-	err = writeTable(dbpool, jetsSchema, tableName, "client", clientName, true, false, &buf)
+	err = writeTable(dbpool, jetsSchema, tableName, "client", clientName, "key", true, false, &buf)
 	if err != nil {
 		return fmt.Errorf("while reading table %s: %v", tableName, err)
 	}
 
 	// jetsapi.rule_config
 	tableName = "rule_config"
-	err = writeTable(dbpool, jetsSchema, tableName, "client", clientName, true, true, &buf)
+	err = writeTable(dbpool, jetsSchema, tableName, "client", clientName,
+		"process_name, client, subject, predicate, object", true, true, &buf)
 	if err != nil {
 		return fmt.Errorf("while reading table %s: %v", tableName, err)
 	}
 
 	// jetsapi.rule_configv2
 	tableName = "rule_configv2"
-	err = writeTable(dbpool, jetsSchema, tableName, "client", clientName, true, false, &buf)
+	err = writeTable(dbpool, jetsSchema, tableName, "client", clientName, "key", true, false, &buf)
 	if err != nil {
 		return fmt.Errorf("while reading table %s: %v", tableName, err)
 	}
 
 	// jetsapi.process_input
 	tableName = "process_input"
-	err = writeTable(dbpool, jetsSchema, tableName, "client", clientName, false, true, &buf)
+	err = writeTable(dbpool, jetsSchema, tableName, "client", clientName, "key", false, true, &buf)
 	if err != nil {
 		return fmt.Errorf("while reading table %s: %v", tableName, err)
 	}
@@ -86,7 +87,7 @@ func SaveClientConfig(dbpool *pgxpool.Pool, workspaceName, clientName string) er
 
 	// jetsapi.pipeline_config
 	tableName = "pipeline_config"
-	err = writeTable(dbpool, jetsSchema, tableName, "client", clientName, true, false, &buf)
+	err = writeTable(dbpool, jetsSchema, tableName, "client", clientName, "key", true, false, &buf)
 	if err != nil {
 		return fmt.Errorf("while reading table %s: %v", tableName, err)
 	}
@@ -108,33 +109,33 @@ func SaveClientConfig(dbpool *pgxpool.Pool, workspaceName, clientName string) er
 			}
 			stagingTables = append(stagingTables, stagingTableName)
 		}
-		rows.Close()	
+		rows.Close()
 	}
 
 	// Write jetsapi.process_mapping
 	tableName = "process_mapping"
 	for i := range stagingTables {
-		err = writeTable(dbpool, jetsSchema, tableName, "table_name", stagingTables[i], true, true, &buf)
+		err = writeTable(dbpool, jetsSchema, tableName, "table_name", stagingTables[i], "key", true, true, &buf)
 		if err != nil {
 			return fmt.Errorf("while reading table %s: %v", tableName, err)
-		}	
+		}
 	}
 	buf.WriteString("\n-- End of Export Client Script\n")
 
 	// Now save buf to file and database as an override
-	err = SaveContent(dbpool, workspaceName, 
+	err = SaveContent(dbpool, workspaceName,
 		fmt.Sprintf("process_config/%s_workspace_init_db.sql", strings.ToLower(clientName)),
 		buf.String())
 	if err != nil {
-		return fmt.Errorf("while saving %s client to local worspace and DB: %v", clientName, err)
+		return fmt.Errorf("while saving %s client to local workspace and DB: %v", clientName, err)
 	}
-	
+
 	return nil
 }
 
 // Write table values into buf, assuming whereColumn is of type text
-func writeTable(dbpool *pgxpool.Pool, jetsSchema *map[string]schema.TableDefinition, 
-	tableName, whereColumn, whereValue string, skipKeyColumn, oneLinePerRow bool, buf *strings.Builder) error {
+func writeTable(dbpool *pgxpool.Pool, jetsSchema *map[string]schema.TableDefinition,
+	tableName, whereColumn, whereValue, orderByClause string, skipKeyColumn, oneLinePerRow bool, buf *strings.Builder) error {
 
 	buf.WriteString(fmt.Sprintf("\n-- Table %s\n", tableName))
 	columnNames, err := getColumns(jetsSchema, skipKeyColumn, tableName)
@@ -143,7 +144,7 @@ func writeTable(dbpool *pgxpool.Pool, jetsSchema *map[string]schema.TableDefinit
 	}
 	columnNamesStr := strings.Join(columnNames, ",")
 	buf.WriteString(fmt.Sprintf("DELETE FROM jetsapi.\"%s\" WHERE \"%s\" = '%s';\n", tableName, whereColumn, whereValue))
-	stmt := fmt.Sprintf("SELECT %s FROM jetsapi.\"%s\" WHERE \"%s\" = '%s'", columnNamesStr, tableName, whereColumn, whereValue)
+	stmt := fmt.Sprintf("SELECT %s FROM jetsapi.\"%s\" WHERE \"%s\" = '%s' ORDER BY %s", columnNamesStr, tableName, whereColumn, whereValue, orderByClause)
 	rows, err := dbpool.Query(context.Background(), stmt)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -175,7 +176,7 @@ func writeTable(dbpool *pgxpool.Pool, jetsSchema *map[string]schema.TableDefinit
 	} else {
 		buf.WriteString("\nON CONFLICT DO NOTHING;\n\n")
 	}
-	
+
 	return nil
 }
 
