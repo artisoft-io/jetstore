@@ -49,6 +49,7 @@ func ClearJetrulesCaches() {
 	domainClassesMap = nil
 	ruleEngineConfig = nil
 }
+
 // pre-loading jetrules caches
 func LoadJetrulesCaches() {
 	c1, err := GetWorkspaceControl()
@@ -405,6 +406,23 @@ func GetMultiValueProperties(className string) ([]string, error) {
 	}
 	// log.Printf("*** Multi-value properties for class %s: %v", className, multiValueProperties)
 	return multiValueProperties, nil
+}
+
+func GetDataPropertyRdfType(className string) (map[string]string, error) {
+	cache, err := GetWorkspaceDomainTables()
+	if err != nil {
+		return nil, fmt.Errorf("while getting domain tables from local workspace: %v", err)
+	}
+	tableInfo := cache[className]
+	if tableInfo == nil {
+		return nil, fmt.Errorf("error: domain table for class %s is not found in the local workspace, cache contains %d entries", className, len(cache))
+	}
+	property2RdfType := make(map[string]string)
+	for i := range tableInfo.Columns {
+		p := tableInfo.Columns[i]
+		property2RdfType[p.ColumnName] = p.Type
+	}
+	return property2RdfType, nil
 }
 
 // Get the domain properties for className.

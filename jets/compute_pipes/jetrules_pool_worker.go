@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"hash/fnv"
 	"log"
+	"maps"
 	"runtime/debug"
 	"strconv"
 	"strings"
@@ -23,6 +24,7 @@ type JrPoolWorker struct {
 	source               *InputChannel
 	rdfType2Columns      map[string][]string
 	multiValueProperties map[string]bool
+	column2RdfType       map[string]string
 	ruleEngine           JetRuleEngine
 	errorCount           int
 	nbrReteSessionsSaved int
@@ -39,6 +41,7 @@ func (ctx *BuilderContext) NewJrPoolWorker(config *JetrulesSpec, source *InputCh
 
 	// Prepare a map of the multi-value properties for the output channels, to ensure proper cardinality.
 	mvProperties := make(map[string]bool)
+	var column2RdfType map[string]string
 	for _, outChannel := range outputChannels {
 		pm, err := GetMultiValueProperties(outChannel.ClassName)
 		if err != nil {
@@ -48,6 +51,19 @@ func (ctx *BuilderContext) NewJrPoolWorker(config *JetrulesSpec, source *InputCh
 		for _, prop := range pm {
 			mvProperties[prop] = true
 		}
+		p2t, err := GetDataPropertyRdfType(outChannel.ClassName)
+		if err != nil {
+			log.Println("Error getting data property RDF types for class", outChannel.ClassName, ":", err)
+			continue
+		}
+		if column2RdfType == nil {
+			column2RdfType = p2t
+		} else {
+			maps.Copy(column2RdfType, p2t)
+		}
+	}
+	if column2RdfType == nil {
+		column2RdfType = make(map[string]string)
 	}
 
 	// log.Println("New Pool Worker Created")
@@ -61,6 +77,7 @@ func (ctx *BuilderContext) NewJrPoolWorker(config *JetrulesSpec, source *InputCh
 		errCh:                errCh,
 		rdfType2Columns:      rdfType2Columns,
 		multiValueProperties: mvProperties,
+		column2RdfType:       column2RdfType,
 		builderContext:       ctx,
 	}
 }
@@ -415,19 +432,24 @@ func (ctx *JrPoolWorker) extractSessionData(rdfSession JetRdfSession,
 						}
 					} else {
 						if isArray {
-							// Report the first 20 as error, set to null
-							if ctx.errorOutputCh != nil && ctx.errorCount < 20 {
-								peRow := ctx.builderContext.NewProcessError()
-								peRow.ErrorMessage = fmt.Sprintf("property %s is not multi-value but has multiple values for subject %s, setting value to null", p, subject)
-								peRow.write2Chan(ctx.errorOutputCh, ctx.done)
-								ctx.errorCount += 1
-								log.Printf("warning: property %s is not multi-value but has multiple values for subject %s, setting value to null", p, subject)
+							// If the data property is of type text, then keep as array
+							if ctx.column2RdfType[p] == "text" {
+								data = dataArr
 							} else {
-								if ctx.config.IsDebug {
+								// Report the first 20 as error, set to null
+								if ctx.errorOutputCh != nil && ctx.errorCount < 20 {
+									peRow := ctx.builderContext.NewProcessError()
+									peRow.ErrorMessage = fmt.Sprintf("property %s is not multi-value but has multiple values for subject %s, setting value to null", p, subject)
+									peRow.write2Chan(ctx.errorOutputCh, ctx.done)
+									ctx.errorCount += 1
 									log.Printf("warning: property %s is not multi-value but has multiple values for subject %s, setting value to null", p, subject)
+								} else {
+									if ctx.config.IsDebug {
+										log.Printf("warning: property %s is not multi-value but has multiple values for subject %s, setting value to null", p, subject)
+									}
 								}
+								data = nil
 							}
-							data = nil
 						}
 					}
 				}
