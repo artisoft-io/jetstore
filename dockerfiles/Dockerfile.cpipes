@@ -22,6 +22,7 @@ ENV JETS_SOURCE_DIR=/app JETS_BUILD_DIR=/app
 
 # Copy the binaries to usr/local/bin for ecs tasks
 COPY --from=builder $JETS_SOURCE_DIR/cbooter /usr/local/bin/
+COPY --from=builder $JETS_SOURCE_DIR/run_reports /usr/local/bin/
 COPY --from=builder $JETS_SOURCE_DIR/cpipes_native_server /usr/local/bin/
 
 # COPY native rule engine library

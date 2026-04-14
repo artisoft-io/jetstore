@@ -30,9 +30,11 @@ RUN echo "----------------JetStore-Version------------------" >> /VERSION.txt &&
 COPY --from=builder $JETS_SOURCE_DIR/cbooter /usr/local/bin/
 COPY --from=builder $JETS_SOURCE_DIR/apiserver /usr/local/bin/
 COPY --from=builder $JETS_SOURCE_DIR/update_db /usr/local/bin/
+COPY --from=builder $JETS_SOURCE_DIR/run_reports /usr/local/bin/
 
 # Make sure it is executable
 RUN \
 chmod +x /usr/local/bin/apiserver \
 && chmod +x /usr/local/bin/cbooter \
-&& chmod +x /usr/local/bin/update_db
+&& chmod +x /usr/local/bin/update_db \
+&& chmod +x /usr/local/bin/run_reports
