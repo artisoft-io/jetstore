@@ -202,6 +202,9 @@ func PackageLookupTablesToSqlite(lookupTables []*rete.LookupTableNode) error {
 }
 
 func quote(s string) string {
+	if "NULL" == strings.ToUpper(s) {
+		return "NULL"
+	}
 	return "'" + strings.ReplaceAll(s, "'", "''") + "'"
 }
 
