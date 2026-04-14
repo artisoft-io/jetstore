@@ -57,18 +57,9 @@ func main() {
 	cmd := os.Args[1]
 	cmdArgs := os.Args[2:]
 
-	// Validate that JETS_TEMP_DATA, WORKSPACES_REPO, and WORKSPACES_HOME are set when running apiserver
-	if cmd == "apiserver" {
-		if os.Getenv("JETS_TEMP_DATA") == "" || os.Getenv("WORKSPACES_REPO") == "" || os.Getenv("WORKSPACES_HOME") == "" {
-			log.Fatalf("JETS_TEMP_DATA, WORKSPACES_REPO, and WORKSPACES_HOME environment variables must be set when running apiserver")
-		}
-	}
-
-	// Validate that JETS_TEMP_DATA and WORKSPACES_HOME is set when running any command other than apiserver
-	if cmd != "apiserver" /* for testing && cmd != "ls" */ {
-		if os.Getenv("JETS_TEMP_DATA") == "" || os.Getenv("WORKSPACES_HOME") == "" {
-			log.Fatalf("JETS_TEMP_DATA and WORKSPACES_HOME environment variables must be set when running run_reports, loader, server, serverv2, cpipes_server, or cpipes_native_server")
-		}
+	// Validate that JETS_TEMP_DATA, WORKSPACES_REPO, and WORKSPACES_HOME are set
+	if os.Getenv("JETS_TEMP_DATA") == "" || os.Getenv("WORKSPACES_REPO") == "" || os.Getenv("WORKSPACES_HOME") == "" {
+		log.Fatalf("JETS_TEMP_DATA, WORKSPACES_REPO, and WORKSPACES_HOME environment variables must be set")
 	}
 
 	// Give some time for the mounted volumes to be ready
@@ -116,11 +107,18 @@ func main() {
 		}
 
 	default:
-		// All the remaining commands need to make the mounted JETS_TEMP_DATA writable
-		err := makeJetsdataWritable()
+		// Copy the workspace repo to workspace home make the mounted JETS_TEMP_DATA writable
+		log.Println("Copying workspace files to WORKSPACES_HOME ...")
+		err := runCommandAsRoot("cp", []string{"-r", os.Getenv("WORKSPACES_REPO"), os.Getenv("WORKSPACES_HOME")})
+		if err != nil {
+			log.Fatalf("Failed to copy workspace files: %s", err)
+		}
+		// Make sure the copied files are writable by jsuser
+		err = makeJetsdataWritable()
 		if err != nil {
 			log.Fatalf("Failed to make JETS_TEMP_DATA writable: %s", err)
 		}
+
 		log.Printf("Starting %s...", cmd)
 		err = runCommandAsJsuser(cmd, cmdArgs)
 		if err != nil {
