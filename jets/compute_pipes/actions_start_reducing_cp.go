@@ -9,6 +9,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/artisoft-io/jetstore/jets/utils"
 	"github.com/jackc/pgx/v4/pgxpool"
 )
 
@@ -126,12 +127,30 @@ startStepId:
 		log.Printf("Step %d - %s - is reading from previous reducing step with step id %s\n", stepId, stepName, mainInputStepId)
 	}
 
-	// Check if we need to get the partitions size from s3
-	// Root dir of each partition:
-	//		<JETS_s3_STAGE_PREFIX>/process_name=QcProcess/session_id=123456789/step_id=reducing01/jets_partition=22p/
-	partitions, err := cpipesStartup.GetComputePipesPartitions(dbpool, cpipesStartup.ProcessName, args.SessionId, inputChannelConfig)
-	if err != nil {
-		return result, err
+	var partitions []JetsPartitionInfo
+	if inputChannelConfig.Type == "generator" {
+		// Case of generator, we generate the partitions based on the number of concurrent tasks we want to run
+		if inputChannelConfig.NbrNodesAny == nil {
+			inputChannelConfig.NbrNodesAny = "${NBR_PARTITIONS}"
+		}
+		nbrNodes, err := utils.ToIntWithEnv(inputChannelConfig.NbrNodesAny, cpipesStartup.EnvSettings)
+		if err != nil {
+			return result, fmt.Errorf("while evaluating nbr_nodes for generator input channel: %v", err)
+		}
+		log.Printf("Start Reducing with input channel of type 'generator' with %d nodes", nbrNodes)
+		for i := range nbrNodes {
+			partitions = append(partitions, JetsPartitionInfo{
+				PartitionLabel: fmt.Sprintf("%04dP", i),
+			})
+		}
+	} else {
+		// Check if we need to get the partitions size from s3
+		// Root dir of each partition:
+		//		<JETS_s3_STAGE_PREFIX>/process_name=QcProcess/session_id=123456789/step_id=reducing01/jets_partition=22p/
+		partitions, err = cpipesStartup.GetComputePipesPartitions(dbpool, cpipesStartup.ProcessName, args.SessionId, inputChannelConfig)
+		if err != nil {
+			return result, err
+		}
 	}
 
 	// Check if there are no partitions for the step, then move to next step
@@ -179,11 +198,7 @@ startStepId:
 		IsDebugMode:           cpipesStartup.CpConfig.ClusterConfig.IsDebugMode,
 	}
 	if clusterSpec.S3WorkerPoolSize == 0 {
-		if len(partitions) > 20 {
-			clusterSpec.S3WorkerPoolSize = 20
-		} else {
-			clusterSpec.S3WorkerPoolSize = len(partitions)
-		}
+		clusterSpec.S3WorkerPoolSize = min(len(partitions), 20)
 	}
 
 	// Determine if using ecs tasks for this stepId

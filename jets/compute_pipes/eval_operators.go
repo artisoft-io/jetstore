@@ -62,6 +62,10 @@ func BuildEvalOperator(op string) (evalOperator, error) {
 		return &opApplyFormat{}, nil
 	case "APPLY_REGEX":
 		return &opApplyRegex{}, nil
+	case "FIND_AND_REPLACE":
+		return &opFindAndReplace{}, nil
+	case "TO_ARRAY":
+		return &opToArray{}, nil
 	}
 	return nil, fmt.Errorf("error: unknown operator: %v", op)
 }

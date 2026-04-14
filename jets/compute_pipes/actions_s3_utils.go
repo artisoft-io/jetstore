@@ -201,7 +201,7 @@ func GetS3FileKeys(processName, sessionId, mainInputStepId, jetsPartitionLabel s
 				return nil, fmt.Errorf("failed to download list of files from s3 for merge channel %d: %v", i, err)
 			}
 		} else {
-		fileKey := fmt.Sprintf("%s/%s", awsi.JetStoreStagePrefix(), mergeChannelConfig.FileKey)
+			fileKey := fmt.Sprintf("%s/%s", awsi.JetStoreStagePrefix(), mergeChannelConfig.FileKey)
 			s3Objects, err = GetS3Objects4LookbackPeriod("", fileKey,
 				mergeChannelConfig.LookbackPeriods, envSettings)
 			if err != nil {
@@ -269,7 +269,22 @@ func (cpCtx *ComputePipesContext) downloadS3Files(inFolderPath, externalBucket s
 	var fileSize, totalFilesSize int64
 	var err error
 	var fullDownload bool
-	inputFormat := cpCtx.CpConfig.PipesConfig[0].InputChannel.Format
+	inputChannelConfig := cpCtx.CpConfig.PipesConfig[0].InputChannel
+
+	if inputChannelConfig.Type == "generator" {
+		// Special case: for input generator only send a single file name proxy to start the generator
+		select {
+		case fileNamesCh <- FileName{LocalFileName: "generator_input_proxy", InFileKeyInfo: *fileKeys[0]}:
+		case <-cpCtx.KillSwitch: //TODO: this is miss placed, needs to be before the fileNameCh
+			return
+		case <-cpCtx.Done:
+			return
+		}
+		return
+	}
+	
+	// Regular flow for non generator input channel, need to download the file(s) from s3 and send the file name(s) to the channel
+	inputFormat := inputChannelConfig.Format
 	if strings.HasPrefix(inputFormat, "parquet") {
 		fullDownload = true
 	}

@@ -405,8 +405,8 @@ type TableSpec struct {
 }
 
 type OutputFileSpec struct {
-	// OutputLocation: jetstore_s3_input, jetstore_s3_stage, jetstore_s3_output (default),
-	// or custom file key (the lasy option is depricated, use FileKey).
+	// OutputLocation: jetstore_s3_input, jetstore_s3_stage, jetstore_s3_schema_events, 
+	// jetstore_s3_output (default), or custom file key (the lasy option is depricated, use FileKey).
 	// When OutputLocation has a custom file key, it replace Name and KeyPrefix.
 	// Note: refactoring using FileConfig.FileKey is synonym to OutputLocation
 	// Note: refactoring using FileConfig.FileName is synonym to Name
@@ -612,7 +612,7 @@ type BadRowsSpec struct {
 }
 
 type InputChannelConfig struct {
-	// Type range: memory (default), input, stage
+	// Type range: memory (default), input, stage, generator
 	// Format: csv, headerless_csv, etc.
 	// ReadBatchSize: nbr of rows to read per record (format: parquet)
 	// Compression: none, snappy (parquet: always snappy)
@@ -629,6 +629,8 @@ type InputChannelConfig struct {
 	// most likely from the group_by or merge operator.
 	// Note: The input_row channel (main input) will be cast to the
 	// rdf type specified by the domain class of the main input source.
+	// NbrNodesAny and NbrRowsAny are used for Type = "generator" to specify the number
+	// of nodes and rows to generate, they can be int or string (with env var substitution).
 	FileConfig
 	Type                 string               `json:"type"`
 	Name                 string               `json:"name"`
@@ -640,6 +642,8 @@ type InputChannelConfig struct {
 	SamplingMaxCount     int                  `json:"sampling_max_count,omitzero"`
 	HasGroupedRows       bool                 `json:"has_grouped_rows,omitzero"`
 	MergeChannels        []InputChannelConfig `json:"merge_channels,omitempty"`
+	NbrNodesAny          any                  `json:"nbr_nodes,omitzero"`
+	NbrRowsAny           any                  `json:"nbr_rows,omitzero"`
 	schemaProviderConfig *SchemaProviderSpec
 }
 
@@ -651,8 +655,10 @@ type OutputChannelConfig struct {
 	// UseInputParquetSchema to use the same schema as the input file.
 	// UseOriginalHeaders to use the headers from the input file (csv only).
 	// Must have save_parquet_schema = true in the cpipes first input_channel.
-	// OutputLocation: jetstore_s3_input, jetstore_s3_output (default), or custom location.
+	// OutputLocation: jetstore_s3_schema_events, jetstore_s3_input, jetstore_s3_output (default), or custom location.
 	// When OutputLocation is jetstore_s3_input it will also write to the input bucket.
+	// When using jetstore_s3_input and jetstore_s3_schema_events you must specify
+	// WriteStepId to specify the step id in stage location to output the file.
 	// When OutputLocation uses a custom location, it replaces KeyPrefix and FileName.
 	// OutputLocation must ends with "/" if we want to use default file name
 	// (i.e. OutputLocation does not include the file name).
