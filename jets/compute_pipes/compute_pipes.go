@@ -27,11 +27,9 @@ func (cpCtx *ComputePipesContext) StartComputePipes(dbpool *pgxpool.Pool,
 	inputSchemaCh <-chan *ParquetSchemaInfo, computePipesInputCh <-chan []any,
 	computePipesMergeChs []chan []any) {
 
-	// log.Println("Entering StartComputePipes")
-	cpCtx.ChResults.Copy2DbResultCh = make(chan chan ComputePipesResult, 10000)
-	cpCtx.ChResults.WritePartitionsResultCh = make(chan chan ComputePipesResult, 10000)
-	cpCtx.ChResults.JetrulesWorkerResultCh = make(chan chan JetrulesWorkerResult, 10000)
-	cpCtx.ChResults.ClusteringResultCh = make(chan chan ClusteringResult, 10000)
+	if cpCtx.CpConfig.ClusterConfig.IsDebugMode {
+		log.Println("Entering StartComputePipes")
+	}
 
 	defer func() {
 		// Catch the panic that might be generated downstream

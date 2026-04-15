@@ -75,6 +75,10 @@ func ShardFileKeys(exeCtx context.Context, dbpool *pgxpool.Pool, baseFileKey str
 				return
 			}
 		}
+
+	case "generator":
+		cpErr = fmt.Errorf("error: input channel type 'generator' is not supported for sharding mode in ShardFileKeys")
+		return
 	}
 
 	// Need to get the merge channels files as well

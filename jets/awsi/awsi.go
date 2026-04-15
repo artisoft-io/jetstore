@@ -29,12 +29,13 @@ import (
 
 // *TODO no need to pass bucket and region to this module
 var jetstoreOwnBucket, jetstoreOwnRegion, kmsKeyArn string
-var jetsS3InputPrefix, jetsS3StagePrefix, jetsS3OutputPrefix string
+var jetsS3InputPrefix, jetsS3StagePrefix, jetsS3OutputPrefix, jetsS3SchemaEventsPrefix string
 
 func init() {
 	jetsS3InputPrefix = os.Getenv("JETS_s3_INPUT_PREFIX")
 	jetsS3StagePrefix = os.Getenv("JETS_s3_STAGE_PREFIX")
 	jetsS3OutputPrefix = os.Getenv("JETS_s3_OUTPUT_PREFIX")
+	jetsS3SchemaEventsPrefix = os.Getenv("JETS_s3_SCHEMA_TRIGGERS")
 	kmsKeyArn = os.Getenv("JETS_S3_KMS_KEY_ARN")
 	jetstoreOwnBucket = os.Getenv("JETS_BUCKET")
 	jetstoreOwnRegion = os.Getenv("JETS_REGION")
@@ -46,6 +47,10 @@ func JetStoreInputPrefix() string {
 
 func JetStoreStagePrefix() string {
 	return jetsS3StagePrefix
+}
+
+func JetStoreSchemaEventsPrefix() string {
+	return jetsS3SchemaEventsPrefix
 }
 
 func JetStoreOutputPrefix() string {

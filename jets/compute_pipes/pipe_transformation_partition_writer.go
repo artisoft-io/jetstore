@@ -21,7 +21,7 @@ import (
 // currentDeviceCh is the physical ch to the device writer.
 // If the TransformationSpec.PartitionSize is nil or 0 then there is a single partion.
 // Replace the underlying channel to have a buffered channel and create one for each partition.
-// Currently supporting writing to s3 jetstore stage path
+// Currently supporting writing to s3 jetstore stage and schema events paths
 
 type PartitionWriterTransformationPipe struct {
 	cpConfig             *ComputePipesConfig
@@ -416,6 +416,7 @@ func (ctx *BuilderContext) NewPartitionWriterTransformationPipe(source *InputCha
 	}
 
 	jetsPartitionLabel := MakeJetsPartitionLabel(jetsPartitionKey)
+	writeStepId := utils.ReplaceEnvVars(spec.OutputChannel.WriteStepId, ctx.env)
 	var baseOutputPath string
 	var externalBucket string
 	switch spec.OutputChannel.Type {
@@ -427,55 +428,62 @@ func (ctx *BuilderContext) NewPartitionWriterTransformationPipe(source *InputCha
 		// 	baseOutputPath structure is: <JETS_s3_STAGE_PREFIX>%s/jets_partition=22p/
 		switch {
 		case len(spec.OutputChannel.WriteStepId) > 0:
-			writeStepId := utils.ReplaceEnvVars(spec.OutputChannel.WriteStepId, ctx.env)
 			baseOutputPath = fmt.Sprintf("%s/process_name=%s/session_id=%s/step_id=%s/jets_partition=%s",
 				awsi.JetStoreStagePrefix(), ctx.processName, ctx.sessionId, writeStepId, jetsPartitionLabel)
 
 		case len(spec.OutputChannel.FileKey) > 0:
 			fileKey := utils.ReplaceEnvVars(spec.OutputChannel.FileKey, ctx.env)
-			baseOutputPath = fmt.Sprintf("%s/%s/jets_partition=%s", awsi.JetStoreStagePrefix(),	fileKey, jetsPartitionLabel)
-		
-			default:
+			baseOutputPath = fmt.Sprintf("%s/%s/jets_partition=%s", awsi.JetStoreStagePrefix(), fileKey, jetsPartitionLabel)
+
+		default:
 			err = fmt.Errorf("error: for output channel of type 'stage' either WriteStepId or FileKey must be specified in the output channel config")
 			log.Println(err)
 			return nil, err
 		}
 		// log.Printf("NewPartitionWriterTransformationPipe: Writing to baseOutputPath %s", baseOutputPath)
 	case "output":
-		if len(spec.OutputChannel.OutputLocation()) > 0 &&
-			spec.OutputChannel.OutputLocation() != "jetstore_s3_input" &&
-			spec.OutputChannel.OutputLocation() != "jetstore_s3_output" {
-			outputLocation := utils.ReplaceEnvVars(spec.OutputChannel.OutputLocation(), ctx.env)
-			if !strings.HasSuffix(outputLocation, "/") {
-				pos := strings.LastIndex(outputLocation, "/")
-				if pos < 0 {
-					spec.OutputChannel.KeyPrefix = outputLocation
+		outLoc := spec.OutputChannel.OutputLocation()
+		keyPrefix := spec.OutputChannel.KeyPrefix
+		switch outLoc {
+		case "jetstore_s3_schema_events":
+			baseOutputPath = fmt.Sprintf("%s/process_name=%s/session_id=%s/step_id=%s/jets_partition=%s",
+				awsi.JetStoreSchemaEventsPrefix(), ctx.processName, ctx.sessionId, writeStepId, jetsPartitionLabel)
+			log.Printf("NewPartitionWriterTransformationPipe: Writing to schema events location with baseOutputPath: %s", baseOutputPath)
+
+		default:
+			if len(outLoc) > 0 &&
+				outLoc != "jetstore_s3_input" &&
+				outLoc != "jetstore_s3_output" {
+				outputLocation := utils.ReplaceEnvVars(outLoc, ctx.env)
+				if !strings.HasSuffix(outputLocation, "/") {
+					pos := strings.LastIndex(outputLocation, "/")
+					if pos < 0 {
+						keyPrefix = outputLocation
+					} else {
+						spec.OutputChannel.FileName = outputLocation[pos+1:]
+						keyPrefix = outputLocation[:pos]
+					}
 				} else {
-					spec.OutputChannel.FileName = outputLocation[pos+1:]
-					spec.OutputChannel.KeyPrefix = outputLocation[:pos]
+					pos := len(outputLocation)
+					keyPrefix = outputLocation[:pos-1]
 				}
+			}
+			switch {
+			case len(spec.OutputChannel.Bucket) > 0:
+				if spec.OutputChannel.Bucket != "jetstore_bucket" {
+					externalBucket = spec.OutputChannel.Bucket
+				}
+			case sp != nil && outLoc == "jetstore_s3_input":
+				externalBucket = sp.Bucket()
+			}
+			if len(externalBucket) > 0 {
+				externalBucket = utils.ReplaceEnvVars(externalBucket, ctx.env)
+			}
+			if len(keyPrefix) > 0 {
+				baseOutputPath = doSubstitution(keyPrefix, jetsPartitionLabel, outLoc, ctx.env)
 			} else {
-				pos := len(outputLocation)
-				spec.OutputChannel.KeyPrefix = outputLocation[:pos-1]
+				baseOutputPath = doSubstitution("$PATH_FILE_KEY", jetsPartitionLabel, outLoc, ctx.env)
 			}
-		}
-		switch {
-		case len(spec.OutputChannel.Bucket) > 0:
-			if spec.OutputChannel.Bucket != "jetstore_bucket" {
-				externalBucket = spec.OutputChannel.Bucket
-			}
-		case sp != nil && spec.OutputChannel.OutputLocation() == "jetstore_s3_input":
-			externalBucket = sp.Bucket()
-		}
-		if len(externalBucket) > 0 {
-			externalBucket = utils.ReplaceEnvVars(externalBucket, ctx.env)
-		}
-		if len(spec.OutputChannel.KeyPrefix) > 0 {
-			baseOutputPath = doSubstitution(spec.OutputChannel.KeyPrefix, jetsPartitionLabel,
-				spec.OutputChannel.OutputLocation(), ctx.env)
-		} else {
-			baseOutputPath = doSubstitution("$PATH_FILE_KEY", jetsPartitionLabel,
-				spec.OutputChannel.OutputLocation(), ctx.env)
 		}
 	}
 

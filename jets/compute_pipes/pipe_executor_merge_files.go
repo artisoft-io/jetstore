@@ -57,9 +57,10 @@ func (cpCtx *ComputePipesContext) StartMergeFiles(dbpool *pgxpool.Pool) (cpErr e
 		cpErr = fmt.Errorf("error: OutputFile config not found for key %s in StartMergeFiles", *outputFileKey)
 		return
 	}
-	// outputFileConfig.OutputLocation may have 3 values:
+	// outputFileConfig.OutputLocation may have following values:
 	//	- jetstore_s3_input, to indicate to put the output file in JetStore input path.
 	//	- jetstore_s3_stage, to indicate to put the output file in JetStore stage path.
+	//	- jetstore_s3_schema_events, to indicate to put the output file in JetStore schema events path.
 	//	- jetstore_s3_output (default), to indicate to put the output file in JetStore output path.
 	//	- custom file path, indicates a custom file key location (path and file name) in this case
 	//    it replaces KeyPrefix and Name attributes.
@@ -73,7 +74,7 @@ func (cpCtx *ComputePipesContext) StartMergeFiles(dbpool *pgxpool.Pool) (cpErr e
 	inputFileKeys := cpCtx.InputFileKeys[0]
 	nbrFiles := len(inputFileKeys)
 	switch outputFileConfig.OutputLocation() {
-	case "jetstore_s3_input", "jetstore_s3_output", "jetstore_s3_stage":
+	case "jetstore_s3_input", "jetstore_s3_output", "jetstore_s3_stage", "jetstore_s3_schema_events":
 		if len(outputFileConfig.Name()) > 0 {
 			fileName = utils.ReplaceEnvVars(outputFileConfig.Name(), cpCtx.EnvSettings)
 		} else {
@@ -83,11 +84,16 @@ func (cpCtx *ComputePipesContext) StartMergeFiles(dbpool *pgxpool.Pool) (cpErr e
 			cpErr = fmt.Errorf("error: OutputFile config is missing file_name in StartMergeFile")
 			return
 		}
-		if outputFileConfig.OutputLocation() == "jetstore_s3_stage" {
+		switch outputFileConfig.OutputLocation() {
+		case "jetstore_s3_stage":
 			// put in jetstore s3 stage path
 			keyPrefix := utils.ReplaceEnvVars(outputFileConfig.KeyPrefix, cpCtx.EnvSettings)
 			fileFolder = fmt.Sprintf("%s/%s/%s", awsi.JetStoreStagePrefix(), keyPrefix, fileName)
-		} else {
+		case "jetstore_s3_schema_events":
+			// put in jetstore s3 schema events path
+			keyPrefix := utils.ReplaceEnvVars(outputFileConfig.KeyPrefix, cpCtx.EnvSettings)
+			fileFolder = fmt.Sprintf("%s/%s/%s", awsi.JetStoreSchemaEventsPrefix(), keyPrefix, fileName)
+		default:
 			if len(outputFileConfig.KeyPrefix) > 0 {
 				fileFolder = doSubstitution(outputFileConfig.KeyPrefix, "", outputFileConfig.OutputLocation(),
 					cpCtx.EnvSettings)

@@ -298,25 +298,12 @@ func (ctx *BuilderContext) NewHashEvaluator(source *InputChannel,
 }
 
 func toInt(value any) int {
-	switch v := value.(type) {
-	case uint64:
-		return int(v)
-	case int:
-		return v
-	case int64:
-		return int(v)
-	case float64:
-		return int(v)
-	case string:
-		n, err := utils.String2Int(v)
-		if err != nil {
-			log.Printf("Warning: Invalid nbr partitions value '%s', defaulting to 0", v)
-			return 0
-		}
-		return n
-	default:
+	n, err := utils.ToInt(value)
+	if err != nil {
+		log.Printf("Warning: Invalid nbr partitions value '%v', defaulting to 0", value)
 		return 0
 	}
+	return n
 }
 
 func Hash(key []byte, partitions uint64) uint64 {

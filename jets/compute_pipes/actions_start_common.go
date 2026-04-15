@@ -833,7 +833,7 @@ func (args *CpipesStartup) ValidatePipeSpecConfig(cpConfig *ComputePipesConfig, 
 			if len(pipeSpec.InputChannel.Compression) == 0 {
 				pipeSpec.InputChannel.Compression = "snappy"
 			}
-		case "memory":
+		case "memory", "generator":
 		default:
 			return fmt.Errorf("configuration error: unknown input_channel.type: %s", pipeSpec.InputChannel.Type)
 		}
@@ -1308,6 +1308,7 @@ func (cpss *CpipesStartup) validateOutputChConfig(outputChConfig *OutputChannelC
 				outputChConfig.Name, outputChConfig.SpecName)
 		}
 		switch outputChConfig.Type {
+		
 		case "stage":
 			if sp != nil {
 				syncOutputChannelWithSchemaProvider(outputChConfig, sp)
@@ -1333,11 +1334,11 @@ func (cpss *CpipesStartup) validateOutputChConfig(outputChConfig *OutputChannelC
 					outputChConfig.Format = "headerless_csv"
 				}
 			}
-
 			if len(outputChConfig.WriteStepId) == 0 && len(outputChConfig.FileKey) == 0 {
 				return fmt.Errorf("configuration error: write_step_id (and file_key) is not specified in output_channel '%s' of type 'stage'",
 					outputChConfig.Name)
 			}
+
 		case "output":
 			if sp != nil {
 				syncOutputChannelWithSchemaProvider(outputChConfig, sp)
@@ -1362,7 +1363,17 @@ func (cpss *CpipesStartup) validateOutputChConfig(outputChConfig *OutputChannelC
 					outputChConfig.Compression = "none"
 				}
 			}
-			if len(outputChConfig.OutputLocation()) == 0 {
+			switch outputChConfig.OutputLocation() {
+			case "jetstore_s3_schema_events":
+				if len(outputChConfig.WriteStepId) == 0 {
+					return fmt.Errorf("configuration error: write_step_id is not specified in output_channel '%s' writing to schema events location",
+						outputChConfig.Name)
+				}
+				if len(outputChConfig.FileName) > 0 {
+					return fmt.Errorf("configuration error: file_name is not allowed in output_channel '%s' writing to schema events location",
+						outputChConfig.Name)
+				}
+			case "":
 				outputChConfig.SetOutputLocation("jetstore_s3_output")
 			}
 

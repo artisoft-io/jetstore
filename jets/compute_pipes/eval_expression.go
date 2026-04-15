@@ -82,9 +82,12 @@ func (node *expressionStaticListLeaf) Eval(_ any) (any, error) {
 // main builder, builds expression evaluator
 type ExprBuilderContext map[string]any
 
-func (ctx ExprBuilderContext) parseValue(expr *string) (any, error) {
+func (ctx ExprBuilderContext) parseValue(expr *string, maxSubstitutions int) (any, error) {
 	var value any
 	var err error
+	if maxSubstitutions <= 0 {
+		maxSubstitutions = 3
+	}
 	switch {
 	case *expr == "NULL" || *expr == "null":
 		value = nil
@@ -98,8 +101,17 @@ func (ctx ExprBuilderContext) parseValue(expr *string) (any, error) {
 	case strings.Contains(*expr, "$"):
 		// value contains an env var, e.g. $DATE_FILE_KEY
 		valueStr := *expr
+		if maxSubstitutions == 1 {
+			// Special case, valueStr is directly the env var key, e.g. $DATE_FILE_KEY, in this case we do not want to do
+			// further substitution than the value of the env var.
+			if v, ok := ctx[valueStr]; ok {
+				return v, nil
+			} else {
+				return nil, fmt.Errorf("error: env var %s not found in context for value %s", valueStr, *expr)
+			}
+		}
 		lc := 0
-		for strings.Contains(valueStr, "$") && lc < 3 {
+		for strings.Contains(valueStr, "$") && lc < maxSubstitutions {
 			lc += 1
 			for k, v := range ctx {
 				vstr, ok := v.(string)
@@ -190,7 +202,7 @@ func (ctx ExprBuilderContext) BuildExprNodeEvaluator(sourceName string, columns 
 			if spec.Expr == "" {
 				return nil, fmt.Errorf("error: Type value must have Expr != nil")
 			}
-			value, err := ctx.parseValue(&spec.Expr)
+			value, err := ctx.parseValue(&spec.Expr, spec.MaxEnvVarSubstitution)
 			if err != nil {
 				return nil, err
 			}
@@ -227,7 +239,7 @@ func (ctx ExprBuilderContext) BuildExprNodeEvaluator(sourceName string, columns 
 			}
 			values := make(map[any]bool, len(spec.ExprList))
 			for _, v := range spec.ExprList {
-				value, err := ctx.parseValue(&v)
+				value, err := ctx.parseValue(&v, spec.MaxEnvVarSubstitution)
 				if err != nil {
 					return nil, fmt.Errorf("while parsing value of static_list: %v", err)
 				}

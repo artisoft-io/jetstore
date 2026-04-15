@@ -405,8 +405,8 @@ type TableSpec struct {
 }
 
 type OutputFileSpec struct {
-	// OutputLocation: jetstore_s3_input, jetstore_s3_stage, jetstore_s3_output (default),
-	// or custom file key (the lasy option is depricated, use FileKey).
+	// OutputLocation: jetstore_s3_input, jetstore_s3_stage, jetstore_s3_schema_events,
+	// jetstore_s3_output (default), or custom file key (the lasy option is depricated, use FileKey).
 	// When OutputLocation has a custom file key, it replace Name and KeyPrefix.
 	// Note: refactoring using FileConfig.FileKey is synonym to OutputLocation
 	// Note: refactoring using FileConfig.FileName is synonym to Name
@@ -612,7 +612,7 @@ type BadRowsSpec struct {
 }
 
 type InputChannelConfig struct {
-	// Type range: memory (default), input, stage
+	// Type range: memory (default), input, stage, generator
 	// Format: csv, headerless_csv, etc.
 	// ReadBatchSize: nbr of rows to read per record (format: parquet)
 	// Compression: none, snappy (parquet: always snappy)
@@ -629,6 +629,8 @@ type InputChannelConfig struct {
 	// most likely from the group_by or merge operator.
 	// Note: The input_row channel (main input) will be cast to the
 	// rdf type specified by the domain class of the main input source.
+	// NbrNodesAny and NbrRowsAny are used for Type = "generator" to specify the number
+	// of nodes and rows to generate, they can be int or string (with env var substitution).
 	FileConfig
 	Type                 string               `json:"type"`
 	Name                 string               `json:"name"`
@@ -640,6 +642,8 @@ type InputChannelConfig struct {
 	SamplingMaxCount     int                  `json:"sampling_max_count,omitzero"`
 	HasGroupedRows       bool                 `json:"has_grouped_rows,omitzero"`
 	MergeChannels        []InputChannelConfig `json:"merge_channels,omitempty"`
+	NbrNodesAny          any                  `json:"nbr_nodes,omitzero"`
+	NbrRowsAny           any                  `json:"nbr_rows,omitzero"`
 	schemaProviderConfig *SchemaProviderSpec
 }
 
@@ -651,8 +655,10 @@ type OutputChannelConfig struct {
 	// UseInputParquetSchema to use the same schema as the input file.
 	// UseOriginalHeaders to use the headers from the input file (csv only).
 	// Must have save_parquet_schema = true in the cpipes first input_channel.
-	// OutputLocation: jetstore_s3_input, jetstore_s3_output (default), or custom location.
+	// OutputLocation: jetstore_s3_schema_events, jetstore_s3_input, jetstore_s3_output (default), or custom location.
 	// When OutputLocation is jetstore_s3_input it will also write to the input bucket.
+	// When using jetstore_s3_input and jetstore_s3_schema_events you must specify
+	// WriteStepId to specify the step id in stage location to output the file.
 	// When OutputLocation uses a custom location, it replaces KeyPrefix and FileName.
 	// OutputLocation must ends with "/" if we want to use default file name
 	// (i.e. OutputLocation does not include the file name).
@@ -1034,31 +1040,35 @@ type TransformationColumnSpec struct {
 	// map_reduce, lookup
 	// AsRdfType applies to expr with non-aggragate operators: select, multi_select, value
 	// AsRdfType applies to expr with aggragate operators: min, max, sum, avrg
-	Name           string                      `json:"name"`
-	Type           string                      `json:"type"`
-	Expr           *string                     `json:"expr,omitempty"`
-	ExprArray      []string                    `json:"expr_array,omitempty"`
-	MapExpr        *MapExpression              `json:"map_expr,omitzero"`
-	EvalExpr       *ExpressionNode             `json:"eval_expr,omitzero"`
-	HashExpr       *HashExpression             `json:"hash_expr,omitzero"`
-	Where          *ExpressionNode             `json:"where,omitzero"`
-	CaseExpr       []CaseExpression            `json:"case_expr,omitempty"` // case operator
-	ElseExpr       []*TransformationColumnSpec `json:"else_expr,omitempty"` // case operator
-	MapOn          *string                     `json:"map_on,omitzero"`
-	AlternateMapOn []string                    `json:"alternate_map_on,omitempty"`
-	ApplyMap       []TransformationColumnSpec  `json:"apply_map,omitempty"`
-	ApplyReduce    []TransformationColumnSpec  `json:"apply_reduce,omitempty"`
-	LookupName     *string                     `json:"lookup_name,omitzero"`
-	LookupKey      []LookupColumnSpec          `json:"key,omitempty"`
-	LookupValues   []LookupColumnSpec          `json:"values,omitempty"`
-	AsRdfType      string                      `json:"as_rdf_type,omitempty"`
+	// MaxEnvVarSubstitution applies to expr with env var substitution: select, multi_select, value, lookup
+	Name                  string                      `json:"name"`
+	Type                  string                      `json:"type"`
+	Expr                  *string                     `json:"expr,omitempty"`
+	ExprArray             []string                    `json:"expr_array,omitempty"`
+	MapExpr               *MapExpression              `json:"map_expr,omitzero"`
+	EvalExpr              *ExpressionNode             `json:"eval_expr,omitzero"`
+	HashExpr              *HashExpression             `json:"hash_expr,omitzero"`
+	Where                 *ExpressionNode             `json:"where,omitzero"`
+	CaseExpr              []CaseExpression            `json:"case_expr,omitempty"` // case operator
+	ElseExpr              []*TransformationColumnSpec `json:"else_expr,omitempty"` // case operator
+	MapOn                 *string                     `json:"map_on,omitzero"`
+	AlternateMapOn        []string                    `json:"alternate_map_on,omitempty"`
+	ApplyMap              []TransformationColumnSpec  `json:"apply_map,omitempty"`
+	ApplyReduce           []TransformationColumnSpec  `json:"apply_reduce,omitempty"`
+	LookupName            *string                     `json:"lookup_name,omitzero"`
+	LookupKey             []LookupColumnSpec          `json:"key,omitempty"`
+	LookupValues          []LookupColumnSpec          `json:"values,omitempty"`
+	MaxEnvVarSubstitution int                         `json:"max_env_var_substitution,omitzero"`
+	AsRdfType             string                      `json:"as_rdf_type,omitempty"`
 }
 
 type LookupColumnSpec struct {
 	// Type range: select, value
-	Name string  `json:"name,omitempty"`
-	Type string  `json:"type,omitempty"`
-	Expr *string `json:"expr,omitzero"`
+	// MaxEnvVarSubstitution applies to expr with env var substitution: value
+	Name                  string  `json:"name,omitempty"`
+	Type                  string  `json:"type,omitempty"`
+	Expr                  *string `json:"expr,omitzero"`
+	MaxEnvVarSubstitution int     `json:"max_env_var_substitution,omitzero"`
 }
 
 // Hash using values from columns.
@@ -1127,15 +1137,21 @@ type MapExpression struct {
 type ExpressionNode struct {
 	// Name is for the special case CaseEnvExpression
 	// Type is for leaf nodes: select, value
-	Name      string          `json:"name,omitempty"`
-	Type      string          `json:"type,omitempty"`
-	Expr      string          `json:"expr,omitempty"`
-	ExprList  []string        `json:"expr_list,omitempty"`
-	AsRdfType string          `json:"as_rdf_type,omitempty"`
-	Arg       *ExpressionNode `json:"arg,omitzero"`
-	Lhs       *ExpressionNode `json:"lhs,omitzero"`
-	Op        string          `json:"op,omitempty"`
-	Rhs       *ExpressionNode `json:"rhs,omitzero"`
+	// Expr is for leaf nodes, the expression to evaluate.
+	// ExprList is for leaf nodes with multiple values, used for the `in`` operator.
+	// MaxEnvVarSubstitution indicates how many loop of env substitution to do for
+	// Expr containinng the char '$', default to 3.
+	// For non leaf nodes, Op is the operator: and, or, ==, !=, >, >=, <, <=, etc.
+	Name                  string          `json:"name,omitempty"`
+	Type                  string          `json:"type,omitempty"`
+	Expr                  string          `json:"expr,omitempty"`
+	ExprList              []string        `json:"expr_list,omitempty"`
+	MaxEnvVarSubstitution int             `json:"max_env_var_substitution,omitzero"`
+	AsRdfType             string          `json:"as_rdf_type,omitempty"`
+	Arg                   *ExpressionNode `json:"arg,omitzero"`
+	Lhs                   *ExpressionNode `json:"lhs,omitzero"`
+	Op                    string          `json:"op,omitempty"`
+	Rhs                   *ExpressionNode `json:"rhs,omitzero"`
 }
 
 type CaseExpression struct {

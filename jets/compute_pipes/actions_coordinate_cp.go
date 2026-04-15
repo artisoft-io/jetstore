@@ -106,22 +106,32 @@ func (args *ComputePipesNodeArgs) CoordinateComputePipes(ctx context.Context, db
 			cpConfig.CommonRuntimeArgs.MainInputStepId, getTotNbrFileKeys(fileKeys), cpConfig.CommonRuntimeArgs.FileKey)
 
 	case "reducing":
-		// Case cpipes reducing mode, get the file keys from s3
-		fileKeys, err = GetS3FileKeys(cpConfig.CommonRuntimeArgs.ProcessName, cpConfig.CommonRuntimeArgs.SessionId,
-			cpConfig.CommonRuntimeArgs.MainInputStepId, args.JetsPartitionLabel, inputChannelConfig, envSettings)
-		if err != nil {
-			cpErr = err
-			goto gotError
-		}
-		log.Printf("%s node %d %s Got %d file keys from s3",
-			cpConfig.CommonRuntimeArgs.SessionId, args.NodeId,
-			cpConfig.CommonRuntimeArgs.MainInputStepId, getTotNbrFileKeys(fileKeys))
-		if cpConfig.ClusterConfig.IsDebugMode {
-			for i := range fileKeys {
-				for _, k := range fileKeys[i] {
-					log.Printf("%s node %d %s Got file key from s3[%d]: %s",
-						cpConfig.CommonRuntimeArgs.SessionId, args.NodeId,
-						cpConfig.CommonRuntimeArgs.MainInputStepId, i, k.key)
+		if inputChannelConfig.Type == "generator" {
+			// Case reducing with generator input channel, put a file key proxy in fileKeys to trigger the generator at the row level
+			fileKeys = [][]*FileKeyInfo{{
+				{
+					key: "generator_file_proxy",
+				},
+			}}
+			log.Printf("%s node %d Got input channel of type 'generator'", cpConfig.CommonRuntimeArgs.SessionId, args.NodeId)
+		} else {
+			// Case reducing, get the file keys from s3
+			fileKeys, err = GetS3FileKeys(cpConfig.CommonRuntimeArgs.ProcessName, cpConfig.CommonRuntimeArgs.SessionId,
+				cpConfig.CommonRuntimeArgs.MainInputStepId, args.JetsPartitionLabel, inputChannelConfig, envSettings)
+			if err != nil {
+				cpErr = err
+				goto gotError
+			}
+			log.Printf("%s node %d %s Got %d file keys from s3",
+				cpConfig.CommonRuntimeArgs.SessionId, args.NodeId,
+				cpConfig.CommonRuntimeArgs.MainInputStepId, getTotNbrFileKeys(fileKeys))
+			if cpConfig.ClusterConfig.IsDebugMode {
+				for i := range fileKeys {
+					for _, k := range fileKeys[i] {
+						log.Printf("%s node %d %s Got file key from s3[%d]: %s",
+							cpConfig.CommonRuntimeArgs.SessionId, args.NodeId,
+							cpConfig.CommonRuntimeArgs.MainInputStepId, i, k.key)
+					}
 				}
 			}
 		}

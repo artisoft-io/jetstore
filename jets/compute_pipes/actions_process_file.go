@@ -19,7 +19,7 @@ func (cpCtx *ComputePipesContext) ProcessFilesAndReportStatus(ctx context.Contex
 
 	key, err := cpCtx.InsertPipelineExecutionStatus(dbpool)
 	if err != nil {
-		return fmt.Errorf("error while inserting the load registry (cpipesSM): %v", err)
+		return fmt.Errorf("error while inserting the initial entry in pipeline_execution_details (start node): %v", err)
 	}
 
 	// read the file(s) or merge them depending on the main pipe

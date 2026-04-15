@@ -43,3 +43,29 @@ func String2UInt(s string) (uint, error) {
 	}
 	return uint(v), err
 }
+
+func ToInt(value any) (int, error) {
+	switch v := value.(type) {
+	case uint64:
+		return int(v), nil
+	case int:
+		return v, nil
+	case int64:
+		return int(v), nil
+	case float64:
+		return int(v), nil
+	case string:
+		return String2Int(v)
+	default:
+		return 0, fmt.Errorf("unsupported type: %T", value)
+	}
+}
+
+func ToIntWithEnv(value any, env map[string]any) (int, error) {
+	switch v := value.(type) {
+	case string:
+		return String2Int(ReplaceEnvVars(v, env))
+	default:
+		return ToInt(value)
+	}
+}

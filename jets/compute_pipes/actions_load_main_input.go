@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/artisoft-io/jetstore/jets/awsi"
+	"github.com/artisoft-io/jetstore/jets/utils"
 )
 
 func (cpCtx *ComputePipesContext) loadMainInput(computePipesInputCh chan []any,
@@ -28,11 +29,12 @@ func (cpCtx *ComputePipesContext) loadMainInput(computePipesInputCh chan []any,
 		defer badRowChannel.Done()
 		go badRowChannel.Write(cpCtx.NodeId)
 	}
+	mainInput := cpCtx.CpConfig.CommonRuntimeArgs.SourcesConfig.MainInput
 
 	// Load the main input files
 	var mainInputDomainClass string
 	if inputChannelConfig.Name == "input_row" {
-		mainInputDomainClass = cpCtx.CpConfig.CommonRuntimeArgs.SourcesConfig.MainInput.DomainClass
+		mainInputDomainClass = mainInput.DomainClass
 	} else {
 		channelInfo := GetChannelSpec(cpCtx.CpConfig.Channels, inputChannelConfig.Name)
 		if channelInfo == nil {
@@ -46,8 +48,7 @@ func (cpCtx *ComputePipesContext) loadMainInput(computePipesInputCh chan []any,
 
 	var castToRdfTxtTypeFncs []*CastToRdfTxtFnc
 	if len(mainInputDomainClass) > 0 {
-		castToRdfTxtTypeFncs, err = BuildCastToRdfTxtFunctions(mainInputDomainClass,
-			cpCtx.CpConfig.CommonRuntimeArgs.SourcesConfig.MainInput.InputColumns)
+		castToRdfTxtTypeFncs, err = BuildCastToRdfTxtFunctions(mainInputDomainClass, mainInput.InputColumns)
 		if err != nil {
 			cpCtx.ChResults.LoadFromS3FilesResultCh <- LoadFromS3FilesResult{LoadRowCount: 0, BadRowCount: 0, Err: err}
 			return
@@ -113,53 +114,76 @@ func (cpCtx *ComputePipesContext) loadMainInput(computePipesInputCh chan []any,
 		if cpCtx.CpConfig.ClusterConfig.IsDebugMode {
 			log.Printf("%s node %d Loading main file '%s'", cpCtx.SessionId, cpCtx.NodeId, localInFile.InFileKeyInfo.key)
 		}
-		// Encapsulte the switch so to factor out file handling
-		err = func() (err error) {
+		if inputChannelConfig.Type == "generator" {
+			// For generator input channel, we don't read files but just send  an empty record of correct size
+			nbrRows, err2 := utils.ToIntWithEnv(inputChannelConfig.NbrRowsAny, cpCtx.EnvSettings)
+			if err2 != nil {
+				err = fmt.Errorf("%s while converting nbrRows to int: %v", cpCtx.SessionId, err2)
+				log.Println(err)
+				cpCtx.ChResults.LoadFromS3FilesResultCh <- LoadFromS3FilesResult{LoadRowCount: 0, BadRowCount: 0, Err: err}
+				return
+			}
+			for range nbrRows {
+				select {
+				case computePipesInputCh <- make([]any, len(mainInput.InputColumns)):
 
-			switch inputFormat {
-
-			case "xlsx", "headerless_xlsx":
-				count, badRowCount, err = cpCtx.ReadXlsxFile(&localInFile, xlsxSheetInfo, castToRdfTxtTypeFncs, reorderColumnsOnRead,
-					computePipesInputCh, badRowChannel)
-
-			default:
-				var fileHd *os.File
-				fileHd, err = os.Open(localInFile.LocalFileName)
-				if err != nil {
-					err = fmt.Errorf("while opening temp file '%s' (LoadMainInput): %v", localInFile.LocalFileName, err)
-					log.Println(err)
-					cpCtx.ChResults.LoadFromS3FilesResultCh <- LoadFromS3FilesResult{LoadRowCount: totalRowCount, BadRowCount: totalBadRowCount, Err: err}
-					return
+				case <-cpCtx.Done:
+					log.Println("generating input row interrupted")
+					goto done
 				}
-				defer func() {
-					fileHd.Close()
-					os.Remove(localInFile.LocalFileName)
-				}()
+				count++
+			}
+		done:
+		} else {
+
+			// Encapsulte the switch so to factor out file handling
+			err = func() (err error) {
 
 				switch inputFormat {
-				case "csv", "headerless_csv":
-					count, badRowCount, err = cpCtx.ReadCsvFile(
-						&localInFile, fileHd, castToRdfTxtTypeFncs, reorderColumnsOnRead, computePipesInputCh, badRowChannel)
 
-				case "parquet", "parquet_select":
-					count, err = cpCtx.ReadParquetFileV2(
-						&localInFile, fileHd, readBatchSize, castToRdfTxtTypeFncs, inputSchemaCh, reorderColumnsOnRead, computePipesInputCh)
-					inputSchemaCh = nil
-					badRowCount = 0
-
-				case "fixed_width":
-					count, badRowCount, err = cpCtx.ReadFixedWidthFile(
-						&localInFile, fileHd, fwEncodingInfo, castToRdfTxtTypeFncs, reorderColumnsOnRead, computePipesInputCh, badRowChannel)
+				case "xlsx", "headerless_xlsx":
+					count, badRowCount, err = cpCtx.ReadXlsxFile(&localInFile, xlsxSheetInfo, castToRdfTxtTypeFncs, reorderColumnsOnRead,
+						computePipesInputCh, badRowChannel)
 
 				default:
-					err = fmt.Errorf("%s node %d, error: unsupported file format: %s", cpCtx.SessionId, cpCtx.NodeId, inputFormat)
-					log.Println(err)
-					cpCtx.ChResults.LoadFromS3FilesResultCh <- LoadFromS3FilesResult{LoadRowCount: totalRowCount, BadRowCount: totalBadRowCount, Err: err}
-					return
+					var fileHd *os.File
+					fileHd, err = os.Open(localInFile.LocalFileName)
+					if err != nil {
+						err = fmt.Errorf("while opening temp file '%s' (LoadMainInput): %v", localInFile.LocalFileName, err)
+						log.Println(err)
+						cpCtx.ChResults.LoadFromS3FilesResultCh <- LoadFromS3FilesResult{LoadRowCount: totalRowCount, BadRowCount: totalBadRowCount, Err: err}
+						return
+					}
+					defer func() {
+						fileHd.Close()
+						os.Remove(localInFile.LocalFileName)
+					}()
+
+					switch inputFormat {
+					case "csv", "headerless_csv":
+						count, badRowCount, err = cpCtx.ReadCsvFile(
+							&localInFile, fileHd, castToRdfTxtTypeFncs, reorderColumnsOnRead, computePipesInputCh, badRowChannel)
+
+					case "parquet", "parquet_select":
+						count, err = cpCtx.ReadParquetFileV2(
+							&localInFile, fileHd, readBatchSize, castToRdfTxtTypeFncs, inputSchemaCh, reorderColumnsOnRead, computePipesInputCh)
+						inputSchemaCh = nil
+						badRowCount = 0
+
+					case "fixed_width":
+						count, badRowCount, err = cpCtx.ReadFixedWidthFile(
+							&localInFile, fileHd, fwEncodingInfo, castToRdfTxtTypeFncs, reorderColumnsOnRead, computePipesInputCh, badRowChannel)
+
+					default:
+						err = fmt.Errorf("%s node %d, error: unsupported file format: %s", cpCtx.SessionId, cpCtx.NodeId, inputFormat)
+						log.Println(err)
+						cpCtx.ChResults.LoadFromS3FilesResultCh <- LoadFromS3FilesResult{LoadRowCount: totalRowCount, BadRowCount: totalBadRowCount, Err: err}
+						return
+					}
 				}
-			}
-			return
-		}()
+				return
+			}()
+		}
 
 		totalRowCount += count
 		totalBadRowCount += badRowCount

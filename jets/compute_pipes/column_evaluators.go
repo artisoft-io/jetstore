@@ -58,7 +58,7 @@ func (ctx *BuilderContext) BuildTransformationColumnEvaluator(source *InputChann
 		if spec.Expr == nil {
 			return nil, fmt.Errorf("error: Type value must have Expr != nil")
 		}
-		value, err := ctx.parseValue(spec.Expr)
+		value, err := ctx.parseValue(spec.Expr, spec.MaxEnvVarSubstitution)
 		if err != nil {
 			return nil, err
 		}
