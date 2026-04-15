@@ -93,6 +93,10 @@ func (cpCtx *ComputePipesContext) LoadFiles(ctx context.Context, dbpool *pgxpool
 	}
 
 	// Start the Compute Pipes async
+	cpCtx.ChResults.Copy2DbResultCh = make(chan chan ComputePipesResult, 10000)
+	cpCtx.ChResults.WritePartitionsResultCh = make(chan chan ComputePipesResult, 10000)
+	cpCtx.ChResults.JetrulesWorkerResultCh = make(chan chan JetrulesWorkerResult, 10000)
+	cpCtx.ChResults.ClusteringResultCh = make(chan chan ClusteringResult, 10000)
 	go cpCtx.StartComputePipes(dbpool, inputSchemaCh, computePipesInputCh, computePipesMergeChs)
 
 	err = cpCtx.loadMainInput(computePipesInputCh, inputChannelConfig, inputSchemaCh)

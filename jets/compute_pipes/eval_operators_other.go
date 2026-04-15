@@ -116,7 +116,7 @@ func (op *opFindAndReplace) Eval(lhs any, rhs any) (any, error) {
 	}
 	value, ok := lhs.(string)
 	if !ok {
-		return nil, fmt.Errorf("error: find_and_replace lhs argument must be a string")
+		return nil, fmt.Errorf("error: find_and_replace lhs argument must be a string got %T", lhs)
 	}
 	return strings.ReplaceAll(value, find, replace), nil
 }

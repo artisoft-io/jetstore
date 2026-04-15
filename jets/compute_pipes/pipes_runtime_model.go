@@ -158,12 +158,12 @@ func (ctx *BuilderContext) BuildExprNodeEvaluator(sourceName string, columns map
 }
 
 // Delegate to ExprBuilderContext
-func (ctx *BuilderContext) parseValue(expr *string) (any, error) {
+func (ctx *BuilderContext) parseValue(expr *string, maxSubstitutions int) (any, error) {
 	if ctx == nil {
 		m := make(map[string]any)
-		return ExprBuilderContext(m).parseValue(expr)
+		return ExprBuilderContext(m).parseValue(expr, maxSubstitutions)
 	}
-	return ExprBuilderContext(ctx.env).parseValue(expr)
+	return ExprBuilderContext(ctx.env).parseValue(expr, maxSubstitutions)
 }
 
 type PipeTransformationEvaluator interface {

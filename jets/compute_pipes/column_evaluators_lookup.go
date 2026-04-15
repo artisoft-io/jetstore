@@ -134,14 +134,14 @@ func (ctx *BuilderContext) BuildLookupTCEvaluator(source *InputChannel, outCh *O
 	// build the key evaluators
 	for i := range spec.LookupKey {
 		columnSpec := &spec.LookupKey[i]
-		switch columnSpec.Type {
+		switch strings.ToLower(columnSpec.Type) {
 		case "select":
 			keyEvaluator[i] = &lceSelect{
 				lookupName: spec.LookupName,
 				inputPos:   (*source.Columns)[*columnSpec.Expr],
 			}
 		case "value":
-			value, err := ctx.parseValue(columnSpec.Expr)
+			value, err := ctx.parseValue(columnSpec.Expr, columnSpec.MaxEnvVarSubstitution)
 			if err != nil {
 				return nil, fmt.Errorf("while building key evaluator of type 'value' for lookup %s: %v",
 					*spec.LookupName, err)
@@ -162,7 +162,7 @@ func (ctx *BuilderContext) BuildLookupTCEvaluator(source *InputChannel, outCh *O
 		// build the lookup value evaluators
 		for i := range spec.LookupValues {
 			columnSpec := &spec.LookupValues[i]
-			switch columnSpec.Type {
+			switch strings.ToLower(columnSpec.Type) {
 			case "select":
 				inputPos, ok := lookupTable.ColumnMap()[*columnSpec.Expr]
 				if !ok {
@@ -180,7 +180,7 @@ func (ctx *BuilderContext) BuildLookupTCEvaluator(source *InputChannel, outCh *O
 					outputPos:  outputPos,
 				}
 			case "value":
-				value, err := ctx.parseValue(columnSpec.Expr)
+				value, err := ctx.parseValue(columnSpec.Expr, columnSpec.MaxEnvVarSubstitution)
 				if err != nil {
 					return nil, fmt.Errorf("while building lookup value evaluator of type 'value' for lookup %s: %v",
 						*spec.LookupName, err)
