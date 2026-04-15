@@ -487,6 +487,7 @@ func (l *JetRuleListener) MakeTableFromClass(cls *rete.ClassNode) {
 	// - the class itself
 	// - all its base classes, and the base classes of their base classes (recursively upwards)
 	// - all its subclasses, and the subclasses of their subclasses (recursively downwards)
+	// Include all properties of the subclasses, including the inherited properties from their base classes.
 	// Use a map to avoid duplicates
 	store := make(map[string]*rete.TableColumnNode)
 	visitedClasses := make(map[string]bool)
@@ -525,15 +526,16 @@ func (l *JetRuleListener) visitClass(doUp bool, store map[string]*rete.TableColu
 		}
 	}
 	if doUp {
-		// Visit base classes recursively
+		// Visit base classes recursively (doUp is true)
 		for _, baseClass := range cls.BaseClasses {
-			l.visitClass(doUp, store, visitedClasses, l.classesByName[baseClass])
+			l.visitClass(true, store, visitedClasses, l.classesByName[baseClass])
 			visitedClasses[baseClass] = true
 		}
 	} else {
-		// Visit subclasses recursively
+		// Visit subclasses recursively (doUp is false)
 		for _, subClass := range cls.SubClasses {
-			l.visitClass(doUp, store, visitedClasses, l.classesByName[subClass])
+			l.visitClass(true, store, visitedClasses, l.classesByName[subClass])
+			l.visitClass(false, store, visitedClasses, l.classesByName[subClass])
 			visitedClasses[subClass] = true
 		}
 	}
