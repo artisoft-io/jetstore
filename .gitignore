@@ -158,3 +158,4 @@ cdk/jetstore_one/lambdas/sqs_listener
 cdk/jetstore_one/lambdas/run_reports/cgt_reports_func.go
 cdk/jetstore_one/lambdas/run_reports/cgt_run_reports.go
 cdk/jetstore_one/lambdas/cpipes_run_reports
+cdk/jetstore_one/lambdas/sqs_listerner
