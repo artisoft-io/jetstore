@@ -70,6 +70,8 @@ type SchemaProvider interface {
 	WriteDateLayout() string
 	CapDobYears() int
 	SetDodToJan1() bool
+	SetDobToJan1() bool
+	SetAllDatesToJan1() bool
 }
 
 // columnNames is the list of file headers for fixed_width
@@ -440,6 +442,20 @@ func (sp *DefaultSchemaProvider) SetDodToJan1() bool {
 		return false
 	}
 	return sp.spec.SetDodToJan1
+}
+
+func (sp *DefaultSchemaProvider) SetDobToJan1() bool {
+	if sp == nil {
+		return false
+	}
+	return sp.spec.SetDobToJan1
+}
+
+func (sp *DefaultSchemaProvider) SetAllDatesToJan1() bool {
+	if sp == nil {
+		return false
+	}
+	return sp.spec.SetAllDatesToJan1
 }
 
 func GetSchemaProviderConfigByKey(schemaProviders []*SchemaProviderSpec, key string) *SchemaProviderSpec {

@@ -331,6 +331,8 @@ type SchemaProviderSpec struct {
 	// GetPartitionsSize: when true, get the size of the partitions from s3
 	// CapDobYears: number of years to cap dob (date of birth) to today - for Anonymization.
 	// SetDodToJan1: set dod (date of death) to January 1st of the date year - for Anonymization.
+	// SetDobToJan1: set dob (date of birth) to January 1st of the date year - for Anonymization.
+	// SetAllDatesToJan1: set all dates to January 1st of the date year - for Anonymization.
 	// UseLazyQuotes, UseLazyQuotesSpecial, VariableFieldsPerRecord: see csv.NewReader.
 	// QuoteAllRecords will quote all records for csv writer.
 	// NoQuotes will no quote any records for csv writer (even if the record contains '"').
@@ -360,7 +362,9 @@ type SchemaProviderSpec struct {
 	Columns                          []SchemaColumnSpec `json:"columns,omitempty"`
 	Headers                          []string           `json:"headers,omitempty"`
 	CapDobYears                      int                `json:"cap_dob_years,omitzero"`
+	SetDobToJan1                     bool               `json:"set_dob_to_jan1,omitzero"`
 	SetDodToJan1                     bool               `json:"set_dod_to_jan1,omitzero"`
+	SetAllDatesToJan1                bool               `json:"set_all_dates_to_jan1,omitzero"`
 	Env                              map[string]any     `json:"env,omitempty"`
 	ReportCmds                       []ReportCmdSpec    `json:"report_cmds,omitempty"`
 	NotificationTemplatesOverrides   map[string]string  `json:"notification_templates_overrides,omitempty"`
@@ -888,6 +892,7 @@ type AnonymizeSpec struct {
 	Mode                        string               `json:"mode,omitempty"`
 	LookupName                  string               `json:"lookup_name,omitempty"`
 	AnonymizeType               string               `json:"anonymize_type,omitempty"`
+	DataClassification          string               `json:"data_classification,omitempty"`
 	KeyPrefix                   string               `json:"key_prefix,omitempty"`
 	DeidFunctions               map[string]string    `json:"deid_functions,omitempty"`
 	DeidLookups                 map[string]string    `json:"deid_lookups,omitempty"`

@@ -224,7 +224,9 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 		S3ImportBuckets: &[]awss3.IBucket{
 			jsComp.SourceBucket,
 		},
-		StorageEncrypted:        jsii.Bool(true),
+		StorageEncrypted: jsii.Bool(true),
+		// Enable CloudWatch Logs exports
+		CloudwatchLogsExports:   &[]*string{jsii.String("postgresql")},
 		CloudwatchLogsRetention: awslogs.RetentionDays_THREE_MONTHS,
 	})
 	if phiTagName != nil {

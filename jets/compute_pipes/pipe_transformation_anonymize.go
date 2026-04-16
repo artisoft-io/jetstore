@@ -42,18 +42,21 @@ type AnonymizeTransformationPipe struct {
 	keyInvalidDate    string
 	capDobYears       int
 	setDodToJan1      bool
+	setDobToJan1      bool
+	setAllDatesToJan1 bool
 	channelRegistry   *ChannelRegistry
 	env               map[string]any
 	doneCh            chan struct{}
 }
 
 type AnonymizationAction struct {
-	inputColumn      int
-	dateLayouts      []string
-	anonymizeType    string
-	keyPrefix        string
-	deidFunctionName string
-	deidLookupTbl    LookupTable
+	inputColumn        int
+	dateLayouts        []string
+	anonymizeType      string
+	dataClassification string
+	keyPrefix          string
+	deidFunctionName   string
+	deidLookupTbl      LookupTable
 }
 
 // Implementing interface PipeTransformationEvaluator
@@ -201,17 +204,30 @@ nextAction:
 				// hashedValue = fmt.Sprintf("%d/%02d/01", date.Year(), date.Month())
 				year := date.Year()
 				month := date.Month()
-				if ctx.capDobYears > 0 && action.keyPrefix == "dob" {
-					if currentYear-year > ctx.capDobYears {
-						year = currentYear - ctx.capDobYears
+
+				switch action.dataClassification {
+				case "dob":
+					if ctx.setDobToJan1 {
+						month = time.January
 					}
-					if month > currentMonth {
-						year--
+					if ctx.capDobYears > 0 {
+						if currentYear-year > ctx.capDobYears {
+							year = currentYear - ctx.capDobYears
+						}
+						if month > currentMonth {
+							year--
+						}
+					}
+				case "dod":
+					if ctx.setDodToJan1 {
+						month = time.January
+					}
+				case "date":
+					if ctx.setAllDatesToJan1 {
+						month = time.January
 					}
 				}
-				if ctx.setDodToJan1 && action.keyPrefix == "dod" {
-					month = time.January
-				}
+
 				anonymizeDate := time.Date(year, month, 1, 0, 0, 0, 0, time.UTC)
 				hashedValue = strings.ToUpper(anonymizeDate.Format(outputDateLayout))
 				if len(ctx.keyMapDateLayout) == 0 {
@@ -342,7 +358,7 @@ func (ctx *BuilderContext) NewAnonymizeTransformationPipe(source *InputChannel, 
 	var anonymActions []*AnonymizationAction
 	var hasher hash.Hash64
 	var columnEvaluators []TransformationColumnEvaluator
-	var anonymizeType string
+	var dataClassification, anonymizeType string
 	var err error
 	var ok bool
 	var closeIfNotNil chan<- []any
@@ -381,7 +397,7 @@ func (ctx *BuilderContext) NewAnonymizeTransformationPipe(source *InputChannel, 
 	}
 
 	var capDobYears int
-	var setDodToJan1 bool
+	var setDodToJan1, setDobToJan1, setAllDatesToJan1 bool
 	var blankMarkers *BlankFieldMarkers
 	if sp != nil {
 		blankMarkers = sp.BlankFieldMarkers()
@@ -392,6 +408,8 @@ func (ctx *BuilderContext) NewAnonymizeTransformationPipe(source *InputChannel, 
 		}
 		capDobYears = sp.CapDobYears()
 		setDodToJan1 = sp.SetDodToJan1()
+		setDobToJan1 = sp.SetDobToJan1()
+		setAllDatesToJan1 = sp.SetAllDatesToJan1()
 	}
 
 	// Prepare the actions to anonymize marked columns
@@ -423,15 +441,18 @@ func (ctx *BuilderContext) NewAnonymizeTransformationPipe(source *InputChannel, 
 		if metaRow == nil {
 			return nil, fmt.Errorf("error: metadata row not found for column %s", name)
 		}
-		anonymizeTypeI := (*metaRow)[metaLookupColumnsMap[config.AnonymizeType]]
-		if anonymizeTypeI == nil {
-			anonymizeType = ""
-		} else {
-			anonymizeType, ok = anonymizeTypeI.(string)
-			if !ok {
-				return nil, fmt.Errorf("error: expecting string for anonymize type (e.g. text, date), got %v", anonymizeTypeI)
-			}
+		dataClassification, err = getMetaLookupValue(*metaRow, metaLookupColumnsMap, config.DataClassification)
+		if err != nil {
+			return nil, err
 		}
+		anonymizeType, err = getMetaLookupValue(*metaRow, metaLookupColumnsMap, config.AnonymizeType)
+		if err != nil {
+			return nil, err
+		}
+		if anonymizeType == "" && dataClassification == "date" && setAllDatesToJan1 {
+			anonymizeType = "date"
+		}
+
 		var keyPrefix string
 		var dateLayouts []string
 		var deidLookupTbl LookupTable
@@ -440,20 +461,19 @@ func (ctx *BuilderContext) NewAnonymizeTransformationPipe(source *InputChannel, 
 		switch anonymizeType {
 		case "text", "date":
 			anonymizedColumns = append(anonymizedColumns, (*metaRow)[colNamePos].(string))
-			keyPrefixI := (*metaRow)[metaLookupColumnsMap[config.KeyPrefix]]
-			keyPrefix, ok = keyPrefixI.(string)
-			if !ok {
-				return nil, fmt.Errorf("error: expecting string for key prefix (e.g. ssn, dob, etc), got %v", keyPrefixI)
+			keyPrefix, err = getMetaLookupValue(*metaRow, metaLookupColumnsMap, config.KeyPrefix)
+			if err != nil {
+				return nil, err
 			}
 			switch anonymizeType {
 			case "text":
 				switch config.Mode {
 				case "de-identification":
-					// Get the de-identification lookup table name for this key prefix
-					lookupTableName, ok := config.DeidLookups[keyPrefix]
+					// Get the de-identification lookup table name for this data classification
+					lookupTableName, ok := config.DeidLookups[dataClassification]
 					if !ok {
 						// See if it's a deid function
-						deidFunctionName, ok = config.DeidFunctions[keyPrefix]
+						deidFunctionName, ok = config.DeidFunctions[dataClassification]
 						if ok {
 							// It's a deid function, vaidate the function and adjust column width if needed
 							switch deidFunctionName {
@@ -526,12 +546,13 @@ func (ctx *BuilderContext) NewAnonymizeTransformationPipe(source *InputChannel, 
 			}
 
 			anonymActions = append(anonymActions, &AnonymizationAction{
-				inputColumn:      ipos,
-				dateLayouts:      dateLayouts,
-				anonymizeType:    anonymizeType,
-				keyPrefix:        keyPrefix,
-				deidFunctionName: deidFunctionName,
-				deidLookupTbl:    deidLookupTbl,
+				inputColumn:        ipos,
+				dateLayouts:        dateLayouts,
+				dataClassification: dataClassification,
+				anonymizeType:      anonymizeType,
+				keyPrefix:          keyPrefix,
+				deidFunctionName:   deidFunctionName,
+				deidLookupTbl:      deidLookupTbl,
 			})
 
 		case "":
@@ -649,7 +670,26 @@ func (ctx *BuilderContext) NewAnonymizeTransformationPipe(source *InputChannel, 
 		keyInvalidDate:    keyInvalidDate,
 		capDobYears:       capDobYears,
 		setDodToJan1:      setDodToJan1,
+		setDobToJan1:      setDobToJan1,
+		setAllDatesToJan1: setAllDatesToJan1,
 		env:               ctx.env,
 		doneCh:            ctx.done,
 	}, nil
+}
+
+// Helper function to get the metadata lookup (analysis report) value for a column and handle the error if the column is missing or not a string
+func getMetaLookupValue(metaRow []any, metaLookupColumnsMap map[string]int, columnName string) (string, error) {
+	colPos, ok := metaLookupColumnsMap[columnName]
+	if !ok {
+		return "", fmt.Errorf("error: metadata lookup table is missing column '%s'", columnName)
+	}
+	valueI := metaRow[colPos]
+	if valueI == nil {
+		return "", nil
+	}
+	value, ok := valueI.(string)
+	if !ok {
+		return "", fmt.Errorf("error: expecting string for metadata column '%s', got %v (%T)", columnName, valueI, valueI)
+	}
+	return value, nil
 }
