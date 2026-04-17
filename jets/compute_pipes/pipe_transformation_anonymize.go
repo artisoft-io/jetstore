@@ -207,7 +207,7 @@ nextAction:
 
 				switch action.dataClassification {
 				case "dob":
-					if ctx.setDobToJan1 {
+					if ctx.setAllDatesToJan1 || ctx.setDobToJan1 {
 						month = time.January
 					}
 					if ctx.capDobYears > 0 {
@@ -219,7 +219,7 @@ nextAction:
 						}
 					}
 				case "dod":
-					if ctx.setDodToJan1 {
+					if ctx.setAllDatesToJan1 || ctx.setDodToJan1 {
 						month = time.January
 					}
 				case "date":
