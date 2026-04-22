@@ -786,8 +786,8 @@ type ParseDateSpec struct {
 	DateSamplingMaxCount int                   `json:"sampling_max_count,omitzero"`
 	DateFormatLookup     *DateFormatLookupSpec `json:"date_format_lookup,omitempty"`
 	NullDates            []string              `json:"null_dates,omitempty"`
-	DateFormats          []string              `json:"date_formats,omitempty"`
-	OtherDateFormats     []string              `json:"other_date_formats,omitempty"`
+	DateFormats          [][]string            `json:"date_formats,omitempty"`
+	OtherDateFormats     [][]string            `json:"other_date_formats,omitempty"`
 	MinMaxDateFormat     string                `json:"minmax_date_format,omitempty"`
 	ParseDateArguments   []ParseDateFTSpec     `json:"parse_date_args,omitempty"`
 	UseJetstoreParser    bool                  `json:"use_jetstore_date_parser,omitzero"`
