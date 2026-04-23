@@ -1141,15 +1141,27 @@ type MapExpression struct {
 
 type ExpressionNode struct {
 	// Name is for the special case CaseEnvExpression
-	// Type is for leaf nodes: select, value
-	// Expr is for leaf nodes, the expression to evaluate.
+	// Type is for leaf nodes: select, value, expr_proxy
+	// Expr is for leaf nodes, the expression to evaluate:
+	// - for Type: select, it is the column name to select or substitute with env var
+	//   substitution if it contains the char '$'.
+	// - for Type: value, it is the value to use or substitute with env var
+	//   substitution if it contains the char '$'.
+	// ExprPos is for leaf nodes for Type select, it is the column position to select,
+	// it is an alternative to Expr which is the column name.
 	// ExprList is for leaf nodes with multiple values, used for the `in`` operator.
 	// MaxEnvVarSubstitution indicates how many loop of env substitution to do for
 	// Expr containinng the char '$', default to 3.
 	// For non leaf nodes, Op is the operator: and, or, ==, !=, >, >=, <, <=, etc.
+	// Special case for type: expr_proxy, it indicates that the expression is a proxy
+	// for another expression, the actual expression is specified by one of:
+	// - ExprEnvVarProxy: the expression is specified by an env var, the value of
+	//   the env var is the actual expression as a json string to evaluate.
+	// (more to come)
 	Name                  string          `json:"name,omitempty"`
 	Type                  string          `json:"type,omitempty"`
 	Expr                  string          `json:"expr,omitempty"`
+	ExprPos               *int             `json:"expr_pos,omitempty"`
 	ExprList              []string        `json:"expr_list,omitempty"`
 	MaxEnvVarSubstitution int             `json:"max_env_var_substitution,omitzero"`
 	AsRdfType             string          `json:"as_rdf_type,omitempty"`
@@ -1157,6 +1169,7 @@ type ExpressionNode struct {
 	Lhs                   *ExpressionNode `json:"lhs,omitzero"`
 	Op                    string          `json:"op,omitempty"`
 	Rhs                   *ExpressionNode `json:"rhs,omitzero"`
+	ExprEnvVarProxy       string          `json:"expr_env_var_proxy,omitempty"`
 }
 
 type CaseExpression struct {

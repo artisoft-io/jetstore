@@ -1,13 +1,14 @@
 package compute_pipes
 
 import (
+	"encoding/json"
 	"fmt"
 	"math"
 	"strconv"
 	"strings"
 )
 
-// currentValue is the value of the current column being transformed, 
+// currentValue is the value of the current column being transformed,
 // input is the whole input row as []any or map[string]any depending on the context.
 // currentValue is only applicable to "then" and "else_expr" of case operator.
 type evalExpression interface {
@@ -44,7 +45,7 @@ type expressionSelectLeaf struct {
 	rdfType string
 }
 
-func (node *expressionSelectLeaf) Eval( in any) (any, error) {
+func (node *expressionSelectLeaf) Eval(in any) (any, error) {
 	var value any
 	switch input := in.(type) {
 	case []any:
@@ -127,7 +128,7 @@ func (ctx ExprBuilderContext) parseValue(expr *string, maxSubstitutions int) (an
 			}
 		}
 		value = valueStr
-		Substitution_Done:
+	Substitution_Done:
 		;
 
 	case strings.Contains(*expr, "."):
@@ -214,24 +215,49 @@ func (ctx ExprBuilderContext) BuildExprNodeEvaluator(sourceName string, columns 
 			}, err
 
 		case "SELECT":
-			if spec.Expr == "" {
-				return nil, fmt.Errorf("error: Type select must have Expr not nil")
+			if spec.Expr == "" && spec.ExprPos == nil {
+				return nil, fmt.Errorf("error: Type select must have Expr or ExprPos not nil")
 			}
-			if columns == nil {
+			switch {
+			case spec.Expr != "":
+				// Select by column name
+				// Special case when spec.Expr starts with '$', in this case we consider
+				// that spec.Expr is an env var key whose value is the actual column name to select.
+				if strings.HasPrefix(spec.Expr, "$") {
+					if v, ok := ctx[spec.Expr]; ok {
+						if colName, ok := v.(string); ok {
+							spec.Expr = colName
+						} else {
+							return nil, fmt.Errorf("error: env var %s does not contain a valid string for column name", spec.Expr)
+						}
+					}
+					// Note that if the env var is not found in context, we do not return an error, we just keep spec.Expr as is,
+					// and let it be handled as a regular column name,
+					// this allows to the odd case when a column name actually strats with '$'
+				}
+				if columns == nil {
+					return &expressionSelectLeaf{
+						colName: spec.Expr,
+						rdfType: spec.AsRdfType,
+					}, nil
+				}
+				inputPos, ok := columns[spec.Expr]
+				var err error
+				if !ok {
+					err = fmt.Errorf("error column %s not found in input source %s", spec.Expr, sourceName)
+				}
 				return &expressionSelectLeaf{
-					colName: spec.Expr,
+					index:   inputPos,
+					rdfType: spec.AsRdfType,
+				}, err
+
+			case spec.ExprPos != nil:
+				// Select by column position
+				return &expressionSelectLeaf{
+					index:   *spec.ExprPos,
 					rdfType: spec.AsRdfType,
 				}, nil
 			}
-			inputPos, ok := columns[spec.Expr]
-			var err error
-			if !ok {
-				err = fmt.Errorf("error column %s not found in input source %s", spec.Expr, sourceName)
-			}
-			return &expressionSelectLeaf{
-				index:   inputPos,
-				rdfType: spec.AsRdfType,
-			}, err
 
 		case "STATIC_LIST":
 			if len(spec.ExprList) == 0 {
@@ -248,6 +274,30 @@ func (ctx ExprBuilderContext) BuildExprNodeEvaluator(sourceName string, columns 
 			return &expressionStaticListLeaf{
 				values: values,
 			}, nil
+
+		case "EXPR_PROXY":
+			// special case of expression proxy, the actual expression is specified by one of:
+			// - ExprEnvVarProxy: the expression is specified by an env var, the value of the
+			//   env var is the actual expression as a json string to evaluate.
+			if spec.ExprEnvVarProxy == "" {
+				return nil, fmt.Errorf("error: Type expr_proxy must have ExprEnvVarProxy not nil")
+			}
+			v, ok := ctx[spec.ExprEnvVarProxy]
+			if !ok {
+				return nil, fmt.Errorf("error: env var %s not found in context for expr_proxy", spec.ExprEnvVarProxy)
+			}
+			exprStr, ok := v.(string)
+			if !ok {
+				return nil, fmt.Errorf("error: env var %s does not contain a valid string for expr_proxy", spec.ExprEnvVarProxy)
+			}
+			// parse the exprStr as an ExpressionNode
+			var exprNode ExpressionNode
+			err := json.Unmarshal([]byte(exprStr), &exprNode)
+			if err != nil {
+				return nil, fmt.Errorf("error: failed to parse expr_proxy env var %s value as ExpressionNode: %v", spec.ExprEnvVarProxy, err)
+			}
+			// build the expression evaluator for the parsed ExpressionNode
+			return ctx.BuildExprNodeEvaluator(sourceName, columns, &exprNode)
 
 		default:
 			return nil, fmt.Errorf("error: unknown expression leaf node type: %s", spec.Type)
