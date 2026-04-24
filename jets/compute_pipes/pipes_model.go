@@ -1161,7 +1161,7 @@ type ExpressionNode struct {
 	Name                  string          `json:"name,omitempty"`
 	Type                  string          `json:"type,omitempty"`
 	Expr                  string          `json:"expr,omitempty"`
-	ExprPos               *int             `json:"expr_pos,omitempty"`
+	ExprPos               *int            `json:"expr_pos,omitempty"`
 	ExprList              []string        `json:"expr_list,omitempty"`
 	MaxEnvVarSubstitution int             `json:"max_env_var_substitution,omitzero"`
 	AsRdfType             string          `json:"as_rdf_type,omitempty"`
