@@ -91,7 +91,7 @@ func (jsComp *JetStoreStackComponents) BuildApiLambdas(scope constructs.Construc
 			"WORKSPACES_HOME":                          jsii.String("/tmp/workspaces"),
 			"WORKSPACE":                                jsii.String(os.Getenv("WORKSPACE")),
 		},
-		MemorySize: jsii.Number(128),
+		MemorySize: jsii.Number(256), // start with 256mb, can be increased later if needed, also consider using AWS Lambda Power Tuning for optimal memory configuration
 		// EphemeralStorageSize: awscdk.Size_Mebibytes(jsii.Number(2048)),
 		Timeout:        awscdk.Duration_Minutes(jsii.Number(1)), // since the api gateway limits to 29 seconds
 		Role:           jsComp.LambdaExecutionRole,
