@@ -265,6 +265,7 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 	// ==============================================================================================================
 	jsComp.EcsCluster = awsecs.NewCluster(stack, props.MkId("ecsCluster"), &awsecs.ClusterProps{
 		Vpc: jsComp.Vpc,
+		ContainerInsightsV2: awsecs.ContainerInsights_ENABLED,
 	})
 	if phiTagName != nil {
 		awscdk.Tags_Of(jsComp.EcsCluster).Add(phiTagName, jsii.String("true"), nil)
