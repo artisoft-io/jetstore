@@ -136,7 +136,7 @@ Future<String?> addProcessInput(
         print("Oops bailing out of addProcessInputOk, source_type is null!");
         return null;
       }
-      if (sourceType != 'file') {
+      if (sourceType != 'file' && sourceType != 'db_table') {
         formState.setValue(0, FSK.org, '');
       }
       var encodedJsonBody = jsonEncode(<String, dynamic>{
