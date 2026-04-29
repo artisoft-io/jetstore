@@ -289,7 +289,7 @@ final Map<String, TableConfig> _tableConfigurations = {
           name: "main_source_type",
           table: "pipeline_config",
           label: 'Main Source Type',
-          tooltips: 'Source Type is file or domain_table',
+          tooltips: 'Source Type is file, db_table or domain_table',
           isNumeric: false),
       ColumnConfig(
           index: 8,

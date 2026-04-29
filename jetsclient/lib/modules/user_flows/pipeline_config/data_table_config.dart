@@ -280,7 +280,7 @@ final Map<String, TableConfig> _tableConfigurations = {
     whereClauses: [
       WhereClause(column: "client", formStateKey: FSK.client),
       WhereClause(
-          column: "source_type", defaultValue: ['file', 'domain_table']),
+          column: "source_type", defaultValue: ['file', 'domain_table', 'db_table']),
       WhereClause(column: "entity_rdf_type", formStateKey: FSK.entityRdfType),
     ],
     actions: [
@@ -301,7 +301,7 @@ final Map<String, TableConfig> _tableConfigurations = {
             FSK.sourceType: 5,
             FSK.tableName: 6,
             FSK.lookbackPeriods: 7,
-            FSK.whereSourceType: '{file,domain_table}',
+            FSK.whereSourceType: '{file,domain_table,db_table}',
           },
           stateFormNavigationParams: {
             FSK.client: FSK.client,
@@ -619,7 +619,7 @@ final Map<String, TableConfig> _tableConfigurations = {
       WhereClause(column: "client", formStateKey: FSK.client),
       WhereClause(column: "object_type", formStateKey: FSK.mainObjectType),
       WhereClause(
-          column: "source_type", defaultValue: ['file', 'domain_table']),
+          column: "source_type", defaultValue: ['file', 'domain_table', 'db_table']),
       WhereClause(column: "entity_rdf_type", formStateKey: FSK.entityRdfType),
     ],
     actions: [
@@ -640,7 +640,7 @@ final Map<String, TableConfig> _tableConfigurations = {
             FSK.sourceType: 5,
             FSK.tableName: 6,
             FSK.lookbackPeriods: 7,
-            FSK.whereSourceType: '{file,domain_table}',
+            FSK.whereSourceType: '{file,domain_table,db_table}',
           },
           stateFormNavigationParams: {
             FSK.client: FSK.client,
