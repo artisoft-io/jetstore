@@ -85,6 +85,10 @@ FROM
   FROM jetsapi.object_type_registry AS otr, jetsapi.source_config AS sc
   WHERE otr.object_type = sc.object_type
   UNION
+  SELECT sc.client, sc.org, UNNEST(sc.domain_keys) AS object_type, sc.table_name, text 'db_table' AS source_type, otr.entity_rdf_type
+  FROM jetsapi.object_type_registry AS otr, jetsapi.source_config AS sc
+  WHERE otr.object_type = sc.object_type
+  UNION
   SELECT NULL as client, NULL as org, UNNEST(object_types) AS object_type, entity_rdf_type AS table_name, text 'domain_table' AS source_type, entity_rdf_type 
   FROM jetsapi.domain_keys_registry
   UNION
