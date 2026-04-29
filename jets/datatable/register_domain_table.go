@@ -175,3 +175,65 @@ func (ca *StatusUpdate) RegisterFileInputSource() error {
 	}
 	return nil
 }
+
+// Register db_table Input Source in input_registry table.
+// This is used by pipelines to rely on db_table input sources,
+// generally for executing reports.
+func (ca *StatusUpdate) RegisterDbTableInputSource(schemaProviderJson string) error {
+	// Get key information from cpipes env
+	env := ca.CpipesEnv
+	if env == nil {
+		return fmt.Errorf("cpipes env is nil in RegisterDbTableInputSource")
+	}
+	var client any = env["$CLIENT"]
+	var org any = env["$ORG"]
+	var objType any = env["${DB_TABLE_OBJ_TYPE}"]
+	var fileKey any = ca.FileKey
+	var sourcePeriodKey any = env["$ORIGIN_SOURCE_PERIOD_KEY"]
+	var tableName any = env["${TABLE_NAME}"]
+	var sessionId any = env["$SESSIONID"]
+	var err error
+
+	log.Printf("Registering db_table input source in input_registry: client=%s, org=%s, object_type=%s, file_key=%s, source_period_key=%v, table_name=%s, session_id=%s",
+		client, org, objType, fileKey, sourcePeriodKey, tableName, sessionId)
+
+	if client == nil || org == nil || objType == nil || sessionId == nil || sourcePeriodKey == nil || tableName == nil {
+		return fmt.Errorf("missing required cpipes env variables amongst" +
+			" $CLIENT, $ORG, ${DB_TABLE_OBJ_TYPE}, $SESSIONID, $ORIGIN_SOURCE_PERIOD_KEY, ${STAGING_TABLE_NAME}" +
+			" to register db_table input source")
+	}
+
+	// Insert into input_registry
+	var inputRegistryKey int
+	_, ok := sourcePeriodKey.(int)
+	if !ok {
+		sourcePeriodKey = 0
+	}
+	// Register db_table and session in input_registry
+	stmt := `INSERT INTO jetsapi.input_registry 
+		(client, object_type, file_key, table_name, source_type, session_id, source_period_key, user_email, schema_provider_json)
+		VALUES ($1, $2, $3, $4, 'db_table', $5, $6, 'system', $7)
+		RETURNING key`
+	err = ca.Dbpool.QueryRow(context.Background(), stmt,
+		client, objType, fileKey, tableName, sessionId, sourcePeriodKey, schemaProviderJson).Scan(&inputRegistryKey)
+	if err != nil {
+		log.Println("error unable to register out tables to input_registry (ignored):", err)
+	} else {
+		// Check if automated processes are ready to start
+		// log.Println("*** Register Domain Table w/ inputRegistryKey:", inputRegistryKey, "object_type", (*objectTypes)[j])
+		ctx := NewDataTableContext(ca.Dbpool, ca.UsingSshTunnel, ca.UsingSshTunnel, nil, nil)
+		token, err := user.CreateToken("system")
+		if err != nil {
+			return fmt.Errorf("error creating jwt token: %v", err)
+		}
+		err = ctx.StartPipelinesForInputRegistryV2(inputRegistryKey, sourcePeriodKey.(int), sessionId.(string), client.(string),
+			objType.(string), fileKey.(string), token)
+		if err != nil {
+			log.Println("while calling StartPipelinesForInputRegistryV2 (ignored):", err)
+		} else {
+			log.Println("Registered input_registry entry for db_table with key:", inputRegistryKey, "for file_key:", fileKey, "and domain_key:", objType)
+		}
+	}
+
+	return nil
+}

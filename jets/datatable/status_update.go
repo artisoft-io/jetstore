@@ -287,7 +287,8 @@ func (ca *StatusUpdate) CoordinateWork() error {
 		return fmt.Errorf("error: StatusUpdate.CoordinateWork is expecting to have an opened db connections")
 	}
 
-	// Need to get the main input schema provider to see if there is an override on the notification template
+	// Need to get the main input schema provider to see if there is an override on the notification template and
+	// it is needed to register db_table as input source when specified by env var ${REGISTER_DB_TABLE}
 	// Getting session id as well, so doing the call even if apiEndpoint is not specified
 	schemaProviderJson, sessionId, err := GetSchemaProviderJsonFromPipelineKey(ca.Dbpool, ca.PeKey)
 	log.Printf("%s Status '%s' for %s\n", sessionId, ca.Status, ca.FileKey)
@@ -465,6 +466,18 @@ func (ca *StatusUpdate) CoordinateWork() error {
 			if err != nil {
 				log.Printf("%s while registrying output tables: %v", sessionId, err)
 				return fmt.Errorf("while registrying out tables to input_registry: %v", err)
+			}
+		}
+		registerDbTable := ca.CpipesEnv["${REGISTER_DB_TABLE}"]
+		if registerDbTable != nil && ca.Status != "failed" {
+			doIt, ok := registerDbTable.(int)
+			if ok && doIt != 0 {
+				// Register db_table and session in input_registry
+				err = ca.RegisterDbTableInputSource(schemaProviderJson)
+				if err != nil {
+					log.Printf("%s while registering db_table to input_registry: %v", sessionId, err)
+					return fmt.Errorf("while registering db_table to input_registry: %v", err)
+				}
 			}
 		}
 	}
