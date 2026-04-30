@@ -146,15 +146,6 @@ func (args *StartComputePipesArgs) StartShardingComputePipes(ctx context.Context
 		}
 		detectCrAsEol = inputChannelConfig.DetectCrAsEol
 	}
-	if !fetchHeaders {
-		// Check if any output table has no columns, if so set fetchHeaders = true
-		for _, outTbl := range outputTables {
-			if len(outTbl.Columns) == 0 {
-				fetchHeaders = true
-				break
-			}
-		}
-	}
 	if fetchHeaders || fetchDelimitor || detectEncoding || detectCrAsEol {
 		// Get the input columns / column separator from the first file
 		sp := mainInputSchemaProvider
