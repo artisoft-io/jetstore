@@ -101,6 +101,8 @@ func (cpCtx *ComputePipesContext) ReadParquetFileV2(filePath *FileName,
 			if len(idx) > 0 {
 				columnIndices = append(columnIndices, idx[0])
 			} else {
+				si, _ := json.Marshal(parquetSchemaInfo)
+				log.Printf("error: column %s is not found in parquet schema of part file (ReadParquetFileV2), schema of part file:\n %s", c, string(si))
 				return 0, fmt.Errorf("error: column %s is not found in the parquet schema of '%s' (ReadParquetFileV2)", c, cpCtx.FileKey)
 			}
 		}

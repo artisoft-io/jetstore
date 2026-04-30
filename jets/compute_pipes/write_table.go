@@ -74,8 +74,8 @@ func (wt *WriteTableSource) WriteTable(dbpool *pgxpool.Pool, done chan struct{},
 		// log.Println("Write Table Exiting, closing channel copy2DbResultCh")
 		close(copy2DbResultCh)
 	}()
-	log.Println("Write Table Started for", wt.tableIdentifier, "with", len(wt.columns), "columns")
-	// log.Println("*** Write Table Started for", wt.tableIdentifier, "with columns:", wt.columns)
+	// log.Println("Write Table Started for", wt.tableIdentifier, "with", len(wt.columns), "columns")
+	log.Println("*** Write Table Started for", wt.tableIdentifier, "with columns:", wt.columns)
 
 	recCount, err := dbpool.CopyFrom(context.Background(), wt.tableIdentifier, wt.columns, wt)
 	if err != nil {
