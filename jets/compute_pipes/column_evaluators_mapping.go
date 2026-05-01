@@ -100,7 +100,10 @@ func (ctx *mapColumnEval) Update(currentValue *[]any, input *[]any) error {
 		}
 		outputVal = mappedVal
 	}
-
+	if outputVal == nil {
+		// Don't overrite currentValue with nil
+		return nil
+	}
 	(*currentValue)[config.outputPos] = outputVal
 	return err
 }
@@ -122,7 +125,7 @@ func (ctx *BuilderContext) BuildMapTCEvaluator(source *InputChannel, outCh *Outp
 	if meDefault == "" {
 		defaultValue = nil
 	} else {
-		switch  meRdfType{
+		switch meRdfType {
 		case "int", "bool":
 			switch meDefault {
 			case "true", "TRUE":
