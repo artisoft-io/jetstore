@@ -469,6 +469,7 @@ func (ca *StatusUpdate) CoordinateWork() error {
 			}
 		}
 		registerDbTable := ca.CpipesEnv["${REGISTER_DB_TABLE}"]
+		log.Println("Env var ${REGISTER_DB_TABLE}:", registerDbTable)
 		if registerDbTable != nil && ca.Status != "failed" {
 			doIt, ok := registerDbTable.(int)
 			if ok && doIt != 0 {
@@ -478,6 +479,8 @@ func (ca *StatusUpdate) CoordinateWork() error {
 					log.Printf("%s while registering db_table to input_registry: %v", sessionId, err)
 					return fmt.Errorf("while registering db_table to input_registry: %v", err)
 				}
+			} else {
+				log.Printf("%s Skipping registering db_table to input_registry since ${REGISTER_DB_TABLE} is set to %v which is not a non zero int", sessionId, registerDbTable)
 			}
 		}
 	}
