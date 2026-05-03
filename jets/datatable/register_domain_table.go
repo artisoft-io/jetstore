@@ -189,33 +189,35 @@ func (ca *StatusUpdate) RegisterDbTableInputSource(schemaProviderJson string) er
 	var org any = env["$ORG"]
 	var objType any = env["${DB_TABLE_OBJ_TYPE}"]
 	var fileKey any = ca.FileKey
-	var sourcePeriodKey any = env["$ORIGIN_SOURCE_PERIOD_KEY"]
+	var year any = env["$YEAR"]
+	var month any = env["$MONTH"]
+	var day any = env["$DAY"]
 	var tableName any = env["${TABLE_NAME}"]
 	var sessionId any = env["$SESSIONID"]
+	var sourcePeriodKey any
 	var err error
 
-	log.Printf("Registering db_table input source in input_registry: client=%s, org=%s, object_type=%s, file_key=%s, source_period_key=%v, table_name=%s, session_id=%s",
-		client, org, objType, fileKey, sourcePeriodKey, tableName, sessionId)
+	log.Printf("Registering db_table input source in input_registry: client=%s, org=%s, object_type=%s, file_key=%s, "+
+		"year=%v, month=%v, day=%v, table_name=%s, session_id=%s",
+		client, org, objType, fileKey, year, month, day, tableName, sessionId)
 
-	if client == nil || org == nil || objType == nil || sessionId == nil || sourcePeriodKey == nil || tableName == nil {
+	if client == nil || org == nil || objType == nil || sessionId == nil ||
+		year == nil || month == nil || day == nil || tableName == nil {
 		return fmt.Errorf("missing required cpipes env variables amongst" +
-			" $CLIENT, $ORG, ${DB_TABLE_OBJ_TYPE}, $SESSIONID, $ORIGIN_SOURCE_PERIOD_KEY, ${STAGING_TABLE_NAME}" +
+			" $CLIENT, $ORG, ${DB_TABLE_OBJ_TYPE}, $SESSIONID, $YEAR, $MONTH, $DAY, ${STAGING_TABLE_NAME}" +
 			" to register db_table input source")
 	}
 
 	// Insert into input_registry
 	var inputRegistryKey int
-	_, ok := sourcePeriodKey.(int)
-	if !ok {
-		sourcePeriodKey = 0
-	}
 	// Register db_table and session in input_registry
 	stmt := `INSERT INTO jetsapi.input_registry 
-		(client, object_type, file_key, table_name, source_type, session_id, source_period_key, user_email, schema_provider_json)
-		VALUES ($1, $2, $3, $4, 'db_table', $5, $6, 'system', $7)
-		RETURNING key`
+		(client, object_type, file_key, table_name, source_type, session_id, source_period_key, user_email, schema_provider_json
+		)	( SELECT $1, $2, $3, $4, 'db_table', $5, sp.key, 'system', $9 FROM jetsapi.source_period sp 
+			 WHERE sp.year = $6 AND sp.month = $7 AND sp.day = $8)
+		RETURNING key, sp.key`
 	err = ca.Dbpool.QueryRow(context.Background(), stmt,
-		client, objType, fileKey, tableName, sessionId, sourcePeriodKey, schemaProviderJson).Scan(&inputRegistryKey)
+		client, objType, fileKey, tableName, sessionId, year, month, day, schemaProviderJson).Scan(&inputRegistryKey, &sourcePeriodKey)
 	if err != nil {
 		log.Println("error unable to register out tables to input_registry (ignored):", err)
 	} else {
@@ -225,6 +227,18 @@ func (ca *StatusUpdate) RegisterDbTableInputSource(schemaProviderJson string) er
 		token, err := user.CreateToken("system")
 		if err != nil {
 			return fmt.Errorf("error creating jwt token: %v", err)
+		}
+		if sourcePeriodKey == nil {
+			log.Printf("%s Warning: source period not found for year %v month %v day %v while registering db_table input source. Registered input_registry entry with key: %d for file_key: %s and domain_key: %s, but will not start any pipeline since source_period_key is nil",
+				sessionId, year, month, day, inputRegistryKey, fileKey, objType)
+			sourcePeriodKey = 0
+		} else {
+			_, ok := sourcePeriodKey.(int)
+			if !ok {
+				log.Printf("%s Warning: source period key is not an int for year %v month %v day %v while registering db_table input source. Registered input_registry entry with key: %d for file_key: %s and domain_key: %s, but will not start any pipeline since source_period_key is not an int",
+					sessionId, year, month, day, inputRegistryKey, fileKey, objType)
+				sourcePeriodKey = 0
+			}
 		}
 		err = ctx.StartPipelinesForInputRegistryV2(inputRegistryKey, sourcePeriodKey.(int), sessionId.(string), client.(string),
 			objType.(string), fileKey.(string), token)
