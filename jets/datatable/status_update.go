@@ -13,6 +13,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/artisoft-io/jetstore/jets/utils"
 	"github.com/jackc/pgx/v4"
 	"github.com/jackc/pgx/v4/pgxpool"
 )
@@ -471,8 +472,13 @@ func (ca *StatusUpdate) CoordinateWork() error {
 		registerDbTable := ca.CpipesEnv["${REGISTER_DB_TABLE}"]
 		log.Println("Env var ${REGISTER_DB_TABLE}:", registerDbTable)
 		if registerDbTable != nil && ca.Status != "failed" {
-			doIt, ok := registerDbTable.(int)
-			if ok && doIt != 0 {
+			doIt, err := utils.ToIntWithEnv(registerDbTable, ca.CpipesEnv)
+			if err != nil {
+				err := fmt.Errorf("%s while parsing ${REGISTER_DB_TABLE} value '%v' to int: %v. Will skip registering db_table to input_registry", sessionId, registerDbTable, err)
+				log.Println(err)
+				return err
+			}
+			if doIt != 0 {
 				// Register db_table and session in input_registry
 				err = ca.RegisterDbTableInputSource(schemaProviderJson)
 				if err != nil {
