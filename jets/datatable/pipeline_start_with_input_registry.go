@@ -20,6 +20,8 @@ import (
 func (ctx *DataTableContext) StartPipelinesForInputRegistryV2(inputRegistryKey, sourcePeriodKey int,
 	inputSessionId, client, objectType, fileKey, token string) error {
 
+	log.Printf("%s StartPipelinesForInputRegistryV2 called with inputRegistryKey %d", inputSessionId, inputRegistryKey)
+
 	processInputKeys, err := getProcessInputKeys(ctx.Dbpool, inputRegistryKey)
 	if err != nil {
 		return fmt.Errorf("while getProcessInputKeys for inputRegistryKey = %d: %v", inputRegistryKey, err)

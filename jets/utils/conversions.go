@@ -48,11 +48,19 @@ func ToInt(value any) (int, error) {
 	switch v := value.(type) {
 	case uint64:
 		return int(v), nil
+	case uint32:
+		return int(v), nil
+	case uint:
+		return int(v), nil
 	case int:
 		return v, nil
 	case int64:
 		return int(v), nil
+	case int32:
+		return int(v), nil
 	case float64:
+		return int(v), nil
+	case float32:
 		return int(v), nil
 	case string:
 		return String2Int(v)
