@@ -225,6 +225,7 @@ func (ca *StatusUpdate) RegisterDbTableInputSource(schemaProviderJson string) er
 	if err != nil {
 		log.Println("error unable to register out tables to input_registry (ignored):", err)
 	} else {
+		log.Println("Registered input_registry entry for db_table with key:", inputRegistryKey, "for file_key:", fileKey, "and domain_key:", objType)
 		// Check if automated processes are ready to start
 		// log.Println("*** Register Domain Table w/ inputRegistryKey:", inputRegistryKey, "object_type", (*objectTypes)[j])
 		ctx := NewDataTableContext(ca.Dbpool, ca.UsingSshTunnel, ca.UsingSshTunnel, nil, nil)
@@ -235,9 +236,7 @@ func (ca *StatusUpdate) RegisterDbTableInputSource(schemaProviderJson string) er
 		err = ctx.StartPipelinesForInputRegistryV2(inputRegistryKey, sourcePeriodKey, sessionId.(string), client.(string),
 			objType.(string), fileKey.(string), token)
 		if err != nil {
-			log.Println("while calling StartPipelinesForInputRegistryV2 (ignored):", err)
-		} else {
-			log.Println("Registered input_registry entry for db_table with key:", inputRegistryKey, "for file_key:", fileKey, "and domain_key:", objType)
+			log.Println("WARNING while calling StartPipelinesForInputRegistryV2 (ignored):", err)
 		}
 	}
 
