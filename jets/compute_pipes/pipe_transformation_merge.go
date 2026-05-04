@@ -228,10 +228,12 @@ func (ctx *BuilderContext) MakeMergeTransformationPipe(
 	spec *TransformationSpec) (PipeTransformationEvaluator, error) {
 
 	// Make sure the hash keys are actually the raw text value since the sources are ordered by column values
-	if mainSource.DomainKeySpec == nil {
-		return nil, fmt.Errorf("error: MergeTransformationPipe main source does not have DomainKeySpec")
+	if len(spec.MergeConfig.MainGroupBy.DomainKey) > 0 {
+		if mainSource.DomainKeySpec == nil {
+			return nil, fmt.Errorf("error: MergeTransformationPipe main source does not have DomainKeySpec")
+		}
+		mainSource.DomainKeySpec.HashingOverride = "none"
 	}
-	mainSource.DomainKeySpec.HashingOverride = "none"
 	mainHashExpression, err := MakeHashExpressionFromGroupByConfig(*mainSource.Columns, &spec.MergeConfig.MainGroupBy)
 	if err != nil {
 		return nil, fmt.Errorf("while creating main HashExpression for MergeTransformationPipe: %v", err)
