@@ -211,13 +211,17 @@ func (ca *StatusUpdate) RegisterDbTableInputSource(schemaProviderJson string) er
 	// Insert into input_registry
 	var inputRegistryKey int
 	// Register db_table and session in input_registry
-	stmt := `INSERT INTO jetsapi.input_registry 
-		(client, object_type, file_key, table_name, source_type, session_id, source_period_key, user_email, schema_provider_json
-		)	( SELECT $1, $2, $3, $4, 'db_table', $5, sp.key, 'system', $9 FROM jetsapi.source_period sp 
-			 WHERE sp.year = $6 AND sp.month = $7 AND sp.day = $8)
-		RETURNING key, sp.key`
+	stmt := `WITH sp AS (
+			SELECT key FROM jetsapi.source_period WHERE year = $1 AND month = $2 AND day = $3
+		), e AS(
+			INSERT INTO jetsapi.input_registry 
+				(client, org, object_type, file_key, table_name, source_type, session_id, source_period_key, user_email, schema_provider_json)	
+				(SELECT $4, $5, $6, $7, $8, 'db_table', $9, sp.key, 'system', $10 FROM sp)
+				RETURNING key
+		)
+		SELECT *, (select key from sp) FROM e`
 	err = ca.Dbpool.QueryRow(context.Background(), stmt,
-		client, objType, fileKey, tableName, sessionId, year, month, day, schemaProviderJson).Scan(&inputRegistryKey, &sourcePeriodKey)
+		year, month, day, client, org, objType, fileKey, tableName, sessionId, schemaProviderJson).Scan(&inputRegistryKey, &sourcePeriodKey)
 	if err != nil {
 		log.Println("error unable to register out tables to input_registry (ignored):", err)
 	} else {
