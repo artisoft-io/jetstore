@@ -64,7 +64,7 @@ func ParseDateDateFormat(dateFormats [][]string, value string) (time.Time, []str
 	for _, fmts := range dateFormats {
 		for _, f := range fmts {
 			tm2, err := date_utils.ParseDateTime(f, value)
-			if err == nil {
+			if err == nil && (tm2.Year() >= 1920 && tm2.Year() <= 2100) {
 				tm = tm2
 				fmt = append(fmt, f)
 			}
