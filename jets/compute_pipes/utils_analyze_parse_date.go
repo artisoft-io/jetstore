@@ -38,9 +38,10 @@ type minMaxDateValue struct {
 }
 
 type pdCache struct {
-	tm  time.Time
-	otm time.Time
-	fmt []string
+	tm         time.Time
+	otm        time.Time
+	fmt        []string
+	isNullDate bool
 }
 
 // Match implements the match function, returns true when match.
@@ -58,23 +59,32 @@ func (pd ParseDateFTSpec) CheckYearRange(tm time.Time) bool {
 }
 
 // ParseDateDateFormat returns the all the matches of the first subgroup of [value] amongs the [dateFormats]
-func ParseDateDateFormat(dateFormats [][]string, value string) (time.Time, []string) {
+func ParseDateDateFormat(dateFormats [][]string, nullDates []time.Time, value string) (time.Time, bool, []string) {
 	var tm time.Time
 	var fmt []string
+	var isNullDate bool
 	for _, fmts := range dateFormats {
 		for _, f := range fmts {
 			tm2, err := date_utils.ParseDateTime(f, value)
-			if err == nil && (tm2.Year() >= 1920 && tm2.Year() <= 2100) {
-				tm = tm2
-				fmt = append(fmt, f)
+			if err == nil {
+				// Check if the date is in null dates list
+				if slices.ContainsFunc(nullDates, tm2.Equal) {
+					// fmt.Printf("*** Date %v is in null dates list\n", tm2)
+					isNullDate = true
+					return tm2, isNullDate, nil
+				}
+				if tm2.Year() >= 1920 && tm2.Year() <= 2300 {
+					tm = tm2
+					fmt = append(fmt, f)
+				}
 			}
 		}
 		if len(fmt) > 0 {
 			// fmt.Printf("*** Got match for value %s with format %s\n", value, f)
-			return tm, fmt
+			return tm, isNullDate, fmt
 		}
 	}
-	return time.Time{}, nil
+	return time.Time{}, isNullDate, nil
 }
 
 // Qualify as a date:
@@ -125,11 +135,13 @@ func (p *ParseDateMatchFunction) NewValue(value string) bool {
 	}
 	var tm, otm time.Time
 	var dateFmt []string
+	var isNullDate bool
 	cachedValue := p.seenCache[value]
 	switch {
 	case cachedValue != nil:
 		dateFmt = cachedValue.fmt
 		tm = cachedValue.tm
+		isNullDate = cachedValue.isNullDate
 		if !tm.IsZero() {
 			for _, fmt := range dateFmt {
 				if len(fmt) > 0 {
@@ -148,6 +160,11 @@ func (p *ParseDateMatchFunction) NewValue(value string) bool {
 			}
 			// fmt.Printf("*** Got otm from cache w/ fmt: %s for value %s\n", dateFmt, value)
 		}
+		if isNullDate {
+			// fmt.Printf("*** Date %v is in null dates list\n", tm)
+			p.nbrSamplesSeen-- // do not count null dates in samples seen
+			return true
+		}
 		return false
 
 	case p.parseDateConfig.UseJetstoreParser:
@@ -164,7 +181,7 @@ func (p *ParseDateMatchFunction) NewValue(value string) bool {
 
 	default:
 		// Check if any DateFormats match the value
-		tm, dateFmt = ParseDateDateFormat(p.parseDateConfig.DateFormats, value)
+		tm, isNullDate, dateFmt = ParseDateDateFormat(p.parseDateConfig.DateFormats, p.nullDates, value)
 		if !tm.IsZero() {
 			// fmt.Printf("*** Got Match w/ fmt: %v for value %s\n", dateFmt, value)
 			for _, fmt := range dateFmt {
@@ -172,20 +189,20 @@ func (p *ParseDateMatchFunction) NewValue(value string) bool {
 					p.formatMatch[fmt] += 1
 				}
 			}
-			p.seenCache[value] = &pdCache{tm: tm, fmt: dateFmt}
+			p.seenCache[value] = &pdCache{tm: tm, fmt: dateFmt, isNullDate: isNullDate}
 		}
 	}
 
 	if tm.IsZero() && len(p.parseDateConfig.OtherDateFormats) > 0 {
 		// Check Other Date Format
-		otm, dateFmt = ParseDateDateFormat(p.parseDateConfig.OtherDateFormats, value)
-		if !otm.IsZero() && otm.Year() >= 1920 && otm.Year() <= 2100 {
+		otm, isNullDate, dateFmt = ParseDateDateFormat(p.parseDateConfig.OtherDateFormats, p.nullDates, value)
+		if !otm.IsZero() && otm.Year() >= 1920 && otm.Year() <= 2300 {
 			for _, fmt := range dateFmt {
 				if len(fmt) > 0 {
 					p.otherFormatMatch[fmt] += 1
 				}
 			}
-			p.seenCache[value] = &pdCache{otm: otm, fmt: dateFmt}
+			p.seenCache[value] = &pdCache{otm: otm, fmt: dateFmt, isNullDate: isNullDate}
 			// fmt.Printf("*** Got otm Match w/ fmt: %s for value %s\n", dateFmt, value)
 		}
 	}
@@ -197,7 +214,7 @@ parse_date_arguments:
 	}
 
 	// Check if the date is in null dates list
-	if slices.ContainsFunc(p.nullDates, tm.Equal) {
+	if isNullDate {
 		// fmt.Printf("*** Date %v is in null dates list\n", tm)
 		p.nbrSamplesSeen-- // do not count null dates in samples seen
 		return true

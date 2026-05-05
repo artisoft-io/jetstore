@@ -285,15 +285,20 @@ func (ctx *AnalyzeTransformationPipe) Done() error {
 		// }
 
 		// The lookup tokens
+		// Consolidate the results across multiple lookup tables in case they share the same token name.
+		consolidated := make(map[string]int, 0)
 		for _, lookupState := range state.LookupState {
 			for name, m := range lookupState.LookupMatch {
-				ipos, ok := (*ctx.outputCh.Columns)[name]
-				if ok {
-					if ratioFactor > 0 {
-						outputRow[ipos] = float64(m.Count) * ratioFactor
-					} else {
-						outputRow[ipos] = -1.0
-					}
+				consolidated[name] += m.Count
+			}
+		}
+		for name, count := range consolidated {
+			ipos, ok := (*ctx.outputCh.Columns)[name]
+			if ok {
+				if ratioFactor > 0 {
+					outputRow[ipos] = float64(count) * ratioFactor
+				} else {
+					outputRow[ipos] = -1.0
 				}
 			}
 		}
