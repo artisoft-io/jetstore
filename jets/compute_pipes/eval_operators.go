@@ -126,7 +126,7 @@ func (op *opEqual) Eval(lhs any, rhs any) (any, error) {
 		case int:
 			lv, err := utils.String2Int(lhsv)
 			if err != nil {
-				return nil, fmt.Errorf("opEqual string and int, string not an int")
+				return nil, fmt.Errorf("opEqual string and int, string not an int: %v", err)
 			}
 			if lv == rhsv {
 				return 1, nil
@@ -135,7 +135,7 @@ func (op *opEqual) Eval(lhs any, rhs any) (any, error) {
 		case uint:
 			lv, err := utils.String2UInt(lhsv)
 			if err != nil {
-				return nil, fmt.Errorf("opEqual string and uint, string not an uint")
+				return nil, fmt.Errorf("opEqual string and uint, string not an uint: %v", err)
 			}
 			if lv == rhsv {
 				return 1, nil
@@ -144,7 +144,7 @@ func (op *opEqual) Eval(lhs any, rhs any) (any, error) {
 		case int64:
 			lv, err := utils.String2Int(lhsv)
 			if err != nil {
-				return nil, fmt.Errorf("opEqual string and int64, string not an int64")
+				return nil, fmt.Errorf("opEqual string and int64, string not an int64: %v", err)
 			}
 			if lv == int(rhsv) {
 				return 1, nil
@@ -153,7 +153,7 @@ func (op *opEqual) Eval(lhs any, rhs any) (any, error) {
 		case uint64:
 			lv, err := utils.String2UInt(lhsv)
 			if err != nil {
-				return nil, fmt.Errorf("opEqual string and uint64, string not a uint64")
+				return nil, fmt.Errorf("opEqual string and uint64, string not a uint64: %v", err)
 			}
 			if lv == uint(rhsv) {
 				return 1, nil
@@ -163,7 +163,7 @@ func (op *opEqual) Eval(lhs any, rhs any) (any, error) {
 		case float64:
 			v, err := strconv.ParseFloat(lhsv, 64)
 			if err != nil {
-				return nil, fmt.Errorf("opEqual string and double, string not a double")
+				return nil, fmt.Errorf("opEqual string and double, string not a double: %v", err)
 			}
 			if rdf.NearlyEqual(v, rhsv) {
 				return 1, nil
@@ -179,7 +179,7 @@ func (op *opEqual) Eval(lhs any, rhs any) (any, error) {
 		case string:
 			rv, err := utils.String2Int(rhsv)
 			if err != nil {
-				return nil, fmt.Errorf("opEqual int and string, string not an int")
+				return nil, fmt.Errorf("opEqual int and string, string not an int: %v", err)
 			}
 			if lhsv == rv {
 				return 1, nil
@@ -221,7 +221,7 @@ func (op *opEqual) Eval(lhs any, rhs any) (any, error) {
 		case string:
 			rv, err := utils.String2Int(rhsv)
 			if err != nil {
-				return nil, fmt.Errorf("opEqual int64 and string, string not an int64")
+				return nil, fmt.Errorf("opEqual int64 and string, string not an int64: %v", err)
 			}
 			if lhsv == int64(rv) {
 				return 1, nil
@@ -263,7 +263,7 @@ func (op *opEqual) Eval(lhs any, rhs any) (any, error) {
 		case string:
 			v, err := strconv.ParseFloat(rhsv, 64)
 			if err != nil {
-				return nil, fmt.Errorf("opEqual double and string, string not a double")
+				return nil, fmt.Errorf("opEqual double and string, string not a double: %v", err)
 			}
 			if rdf.NearlyEqual(v, lhsv) {
 				return 1, nil
@@ -295,7 +295,7 @@ func (op *opEqual) Eval(lhs any, rhs any) (any, error) {
 		case string:
 			v, err := rdf.ParseDate(rhsv)
 			if err != nil {
-				return nil, fmt.Errorf("opEqual datetime and string, string not a datetime")
+				return nil, fmt.Errorf("opEqual datetime and string, string not a datetime: %v", err)
 			}
 			if lhsv.Equal(*v) {
 				return 1, nil
@@ -584,7 +584,7 @@ func (op *opLT) Eval(lhs any, rhs any) (any, error) {
 		case uint:
 			v, err := utils.String2Int(lhsv)
 			if err != nil {
-				return nil, fmt.Errorf("opLT string and uint, string not a uint")
+				return nil, fmt.Errorf("opLT string and uint, string not a uint: %v", err)
 			}
 			if uint(v) < rhsv {
 				return 1, nil
@@ -593,7 +593,7 @@ func (op *opLT) Eval(lhs any, rhs any) (any, error) {
 		case int64:
 			v, err := utils.String2Int(lhsv)
 			if err != nil {
-				return nil, fmt.Errorf("opLT string and int64, string not a int64")
+				return nil, fmt.Errorf("opLT string and int64, string not a int64: %v", err)
 			}
 			if int64(v) < rhsv {
 				return 1, nil
@@ -602,7 +602,7 @@ func (op *opLT) Eval(lhs any, rhs any) (any, error) {
 		case uint64:
 			v, err := utils.String2UInt(lhsv)
 			if err != nil {
-				return nil, fmt.Errorf("opLT string and uint64, string not a uint64")
+				return nil, fmt.Errorf("opLT string and uint64, string not a uint64: %v", err)
 			}
 			if uint64(v) < rhsv {
 				return 1, nil
@@ -612,7 +612,7 @@ func (op *opLT) Eval(lhs any, rhs any) (any, error) {
 		case float64:
 			v, err := strconv.ParseFloat(lhsv, 64)
 			if err != nil {
-				return nil, fmt.Errorf("opLT string and double, string not a double")
+				return nil, fmt.Errorf("opLT string and double, string not a double: %v", err)
 			}
 			if v < rhsv {
 				return 1, nil
@@ -622,7 +622,7 @@ func (op *opLT) Eval(lhs any, rhs any) (any, error) {
 		case time.Time:
 			v, err := rdf.ParseDate(lhsv)
 			if err != nil {
-				return nil, fmt.Errorf("opLT string and datetime, string not a datetime")
+				return nil, fmt.Errorf("opLT string and datetime, string not a datetime: %v", err)
 			}
 			if (*v).Before(rhsv) {
 				return 1, nil
@@ -638,7 +638,7 @@ func (op *opLT) Eval(lhs any, rhs any) (any, error) {
 		case string:
 			v, err := utils.String2Int(rhsv)
 			if err != nil {
-				return nil, fmt.Errorf("opLT int and string, string not a int")
+				return nil, fmt.Errorf("opLT int and string, string not a int: %v", err)
 			}
 			if lhsv < v {
 				return 1, nil
@@ -680,7 +680,7 @@ func (op *opLT) Eval(lhs any, rhs any) (any, error) {
 		case string:
 			v, err := utils.String2Int(rhsv)
 			if err != nil {
-				return nil, fmt.Errorf("opLT string and int64, string not a int64")
+				return nil, fmt.Errorf("opLT string and int64, string not a int64: %v", err)
 			}
 			if lhsv < int64(v) {
 				return 1, nil
@@ -722,7 +722,7 @@ func (op *opLT) Eval(lhs any, rhs any) (any, error) {
 		case string:
 			v, err := strconv.ParseFloat(rhsv, 64)
 			if err != nil {
-				return nil, fmt.Errorf("opLT double and string, string not a double")
+				return nil, fmt.Errorf("opLT double and string, string not a double: %v", err)
 			}
 			if v < lhsv {
 				return 1, nil
@@ -754,7 +754,7 @@ func (op *opLT) Eval(lhs any, rhs any) (any, error) {
 		case string:
 			v, err := rdf.ParseDate(rhsv)
 			if err != nil {
-				return nil, fmt.Errorf("opLT datetime and string, string not a datetime")
+				return nil, fmt.Errorf("opLT datetime and string, string not a datetime: %v", err)
 			}
 			if lhsv.Before(*v) {
 				return 1, nil
@@ -787,7 +787,7 @@ func (op *opLE) Eval(lhs any, rhs any) (any, error) {
 		case int:
 			v, err := utils.String2Int(lhsv)
 			if err != nil {
-				return nil, fmt.Errorf("opLE string and int, string not a int")
+				return nil, fmt.Errorf("opLE string and int, string not a int: %v", err)
 			}
 			if v <= rhsv {
 				return 1, nil
@@ -796,7 +796,7 @@ func (op *opLE) Eval(lhs any, rhs any) (any, error) {
 		case uint:
 			v, err := utils.String2Int(lhsv)
 			if err != nil {
-				return nil, fmt.Errorf("opLE string and uint, string not a uint")
+				return nil, fmt.Errorf("opLE string and uint, string not a uint: %v", err)
 			}
 			if uint(v) <= rhsv {
 				return 1, nil
@@ -805,7 +805,7 @@ func (op *opLE) Eval(lhs any, rhs any) (any, error) {
 		case int64:
 			v, err := utils.String2Int(lhsv)
 			if err != nil {
-				return nil, fmt.Errorf("opLE string and int64, string not a int64")
+				return nil, fmt.Errorf("opLE string and int64, string not a int64: %v", err)
 			}
 			if int64(v) <= rhsv {
 				return 1, nil
@@ -814,7 +814,7 @@ func (op *opLE) Eval(lhs any, rhs any) (any, error) {
 		case uint64:
 			v, err := utils.String2UInt(lhsv)
 			if err != nil {
-				return nil, fmt.Errorf("opLE string and uint64, string not a uint64")
+				return nil, fmt.Errorf("opLE string and uint64, string not a uint64: %v", err)
 			}
 			if uint64(v) <= rhsv {
 				return 1, nil
@@ -824,7 +824,7 @@ func (op *opLE) Eval(lhs any, rhs any) (any, error) {
 		case float64:
 			v, err := strconv.ParseFloat(lhsv, 64)
 			if err != nil {
-				return nil, fmt.Errorf("opLE string and double, string not a double")
+				return nil, fmt.Errorf("opLE string and double, string not a double: %v", err)
 			}
 			if v <= rhsv {
 				return 1, nil
@@ -834,7 +834,7 @@ func (op *opLE) Eval(lhs any, rhs any) (any, error) {
 		case time.Time:
 			v, err := rdf.ParseDate(lhsv)
 			if err != nil {
-				return nil, fmt.Errorf("opLE string and datetime, string not a datetime")
+				return nil, fmt.Errorf("opLE string and datetime, string not a datetime: %v", err)
 			}
 			if (*v).Before(rhsv) || (*v).Equal(rhsv) {
 				return 1, nil
@@ -850,7 +850,7 @@ func (op *opLE) Eval(lhs any, rhs any) (any, error) {
 		case string:
 			v, err := utils.String2Int(rhsv)
 			if err != nil {
-				return nil, fmt.Errorf("opLE int and string, string not a int")
+				return nil, fmt.Errorf("opLE int and string, string not a int: %v", err)
 			}
 			if lhsv <= v {
 				return 1, nil
@@ -892,7 +892,7 @@ func (op *opLE) Eval(lhs any, rhs any) (any, error) {
 		case string:
 			v, err := utils.String2Int(rhsv)
 			if err != nil {
-				return nil, fmt.Errorf("opLE string and int64, string not a int64")
+				return nil, fmt.Errorf("opLE string and int64, string not a int64: %v", err)
 			}
 			if lhsv <= int64(v) {
 				return 1, nil
@@ -934,7 +934,7 @@ func (op *opLE) Eval(lhs any, rhs any) (any, error) {
 		case string:
 			v, err := strconv.ParseFloat(rhsv, 64)
 			if err != nil {
-				return nil, fmt.Errorf("opLE double and string, string not a double")
+				return nil, fmt.Errorf("opLE double and string, string not a double: %v", err)
 			}
 			if v <= lhsv {
 				return 1, nil
@@ -966,7 +966,7 @@ func (op *opLE) Eval(lhs any, rhs any) (any, error) {
 		case string:
 			v, err := rdf.ParseDate(rhsv)
 			if err != nil {
-				return nil, fmt.Errorf("opLE datetime and string, string not a datetime")
+				return nil, fmt.Errorf("opLE datetime and string, string not a datetime: %v", err)
 			}
 			if lhsv.Before(*v) || lhsv.Equal(*v) {
 				return 1, nil
@@ -1042,31 +1042,31 @@ func (op *opADD) Eval(lhs any, rhs any) (any, error) {
 		case int:
 			lv, err := utils.String2Int(lhsv)
 			if err != nil {
-				return nil, fmt.Errorf("opADD string and int, string not an int")
+				return nil, fmt.Errorf("opADD string and int, string not an int: %v", err)
 			}
 			return lv + rhsv, nil
 		case uint:
 			lv, err := utils.String2Int(lhsv)
 			if err != nil {
-				return nil, fmt.Errorf("opADD string and int, string not an int")
+				return nil, fmt.Errorf("opADD string and int, string not an int: %v", err)
 			}
 			return uint(lv) + rhsv, nil
 		case int64:
 			lv, err := utils.String2Int(lhsv)
 			if err != nil {
-				return nil, fmt.Errorf("opADD string and int64, string not an int64")
+				return nil, fmt.Errorf("opADD string and int64, string not an int64: %v", err)
 			}
 			return int64(lv) + rhsv, nil
 		case uint64:
 			lv, err := utils.String2Int(lhsv)
 			if err != nil {
-				return nil, fmt.Errorf("opADD string and uint64, string not an uint64")
+				return nil, fmt.Errorf("opADD string and uint64, string not an uint64: %v", err)
 			}
 			return uint64(lv) + rhsv, nil
 		case float64:
 			lv, err := strconv.ParseFloat(lhsv, 64)
 			if err != nil {
-				return nil, fmt.Errorf("opADD string and float64, string not a float64")
+				return nil, fmt.Errorf("opADD string and float64, string not a float64: %v", err)
 			}
 			return lv + rhsv, nil
 		case time.Time:
@@ -1084,7 +1084,7 @@ func (op *opADD) Eval(lhs any, rhs any) (any, error) {
 		case string:
 			rv, err := utils.String2Int(rhsv)
 			if err != nil {
-				return nil, fmt.Errorf("opADD int and string, string not an int")
+				return nil, fmt.Errorf("opADD int and string, string not an int: %v", err)
 			}
 			return lhsv + rv, nil
 		case int:
@@ -1108,7 +1108,7 @@ func (op *opADD) Eval(lhs any, rhs any) (any, error) {
 		case string:
 			rv, err := utils.String2Int(rhsv)
 			if err != nil {
-				return nil, fmt.Errorf("opADD int64 and string, string not an int64")
+				return nil, fmt.Errorf("opADD int64 and string, string not an int64: %v", err)
 			}
 			return lhsv + int64(rv), nil
 		case int:
@@ -1132,7 +1132,7 @@ func (op *opADD) Eval(lhs any, rhs any) (any, error) {
 		case string:
 			rv, err := strconv.ParseFloat(rhsv, 64)
 			if err != nil {
-				return nil, fmt.Errorf("opADD float64 and string, string not a float64")
+				return nil, fmt.Errorf("opADD float64 and string, string not a float64: %v", err)
 			}
 			return lhsv + rv, nil
 		case int:
@@ -1178,38 +1178,38 @@ func (op *opSUB) Eval(lhs any, rhs any) (any, error) {
 		case int:
 			lv, err := utils.String2Int(lhsv)
 			if err != nil {
-				return nil, fmt.Errorf("opSUB string and int, string not an int")
+				return nil, fmt.Errorf("opSUB string and int, string not an int: %v", err)
 			}
 			return lv - rhsv, nil
 		case uint:
 			lv, err := utils.String2Int(lhsv)
 			if err != nil {
-				return nil, fmt.Errorf("opSUB string and uint, string not an uint")
+				return nil, fmt.Errorf("opSUB string and uint, string not an uint: %v", err)
 			}
 			return uint(lv) - rhsv, nil
 		case int64:
 			lv, err := utils.String2Int(lhsv)
 			if err != nil {
-				return nil, fmt.Errorf("opSUB string and int64, string not an int64")
+				return nil, fmt.Errorf("opSUB string and int64, string not an int64: %v", err)
 			}
 			return int64(lv) - rhsv, nil
 		case uint64:
 			lv, err := utils.String2Int(lhsv)
 			if err != nil {
-				return nil, fmt.Errorf("opSUB string and uint64, string not an uint64")
+				return nil, fmt.Errorf("opSUB string and uint64, string not an uint64: %v", err)
 			}
 			return uint64(lv) - rhsv, nil
 		case float64:
 			lv, err := strconv.ParseFloat(lhsv, 64)
 			if err != nil {
-				return nil, fmt.Errorf("opSUB string and float64, string not a float64")
+				return nil, fmt.Errorf("opSUB string and float64, string not a float64: %v", err)
 			}
 			return lv - rhsv, nil
 		case time.Time:
 			// Assuming lhs is days and rhs is date
 			lv, err := utils.String2Int(lhsv)
 			if err != nil {
-				return nil, fmt.Errorf("opSUB string and time, string not an int (days)")
+				return nil, fmt.Errorf("opSUB string and time, string not an int (days): %v", err)
 			}
 			d := time.Duration(lv) * 24 * time.Hour
 			return rhsv.Add(-d), nil
@@ -1219,7 +1219,7 @@ func (op *opSUB) Eval(lhs any, rhs any) (any, error) {
 		case string:
 			rv, err := utils.String2Int(rhsv)
 			if err != nil {
-				return nil, fmt.Errorf("opSUB int and string, string not an int")
+				return nil, fmt.Errorf("opSUB int and string, string not an int: %v", err)
 			}
 			return lhsv - rv, nil
 		case int:
@@ -1239,7 +1239,7 @@ func (op *opSUB) Eval(lhs any, rhs any) (any, error) {
 		case string:
 			rv, err := utils.String2Int(rhsv)
 			if err != nil {
-				return nil, fmt.Errorf("opSUB int64 and string, string not an int64")
+				return nil, fmt.Errorf("opSUB int64 and string, string not an int64: %v", err)
 			}
 			return lhsv - int64(rv), nil
 		case int:
@@ -1259,7 +1259,7 @@ func (op *opSUB) Eval(lhs any, rhs any) (any, error) {
 		case string:
 			rv, err := strconv.ParseFloat(rhsv, 64)
 			if err != nil {
-				return nil, fmt.Errorf("opSUB float64 and string, string not a float64")
+				return nil, fmt.Errorf("opSUB float64 and string, string not a float64: %v", err)
 			}
 			return lhsv - rv, nil
 		case int:
@@ -1276,7 +1276,7 @@ func (op *opSUB) Eval(lhs any, rhs any) (any, error) {
 		case string:
 			rv, err := utils.String2Int(rhsv)
 			if err != nil {
-				return nil, fmt.Errorf("opSUB time and string, string not an time duration in days")
+				return nil, fmt.Errorf("opSUB time and string, string not an time duration in days: %v", err)
 			}
 			d := time.Duration(rv) * 24 * time.Hour
 			return lhsv.Add(-d), nil
@@ -1306,31 +1306,31 @@ func (op *opMUL) Eval(lhs any, rhs any) (any, error) {
 		case int:
 			lv, err := utils.String2Int(lhsv)
 			if err != nil {
-				return nil, fmt.Errorf("opMUL string and int, string not an int")
+				return nil, fmt.Errorf("opMUL string and int, string not an int: %v", err)
 			}
 			return lv * rhsv, nil
 		case uint:
 			lv, err := utils.String2Int(lhsv)
 			if err != nil {
-				return nil, fmt.Errorf("opMUL string and uint, string not an int")
+				return nil, fmt.Errorf("opMUL string and uint, string not an int: %v", err)
 			}
 			return uint(lv) * rhsv, nil
 		case int64:
 			lv, err := utils.String2Int(lhsv)
 			if err != nil {
-				return nil, fmt.Errorf("opMUL string and int64, string not an int64")
+				return nil, fmt.Errorf("opMUL string and int64, string not an int64: %v", err)
 			}
 			return int64(lv) * rhsv, nil
 		case uint64:
 			lv, err := utils.String2Int(lhsv)
 			if err != nil {
-				return nil, fmt.Errorf("opMUL string and uint64, string not an uint64")
+				return nil, fmt.Errorf("opMUL string and uint64, string not an uint64: %v", err)
 			}
 			return uint64(lv) * rhsv, nil
 		case float64:
 			lv, err := strconv.ParseFloat(lhsv, 64)
 			if err != nil {
-				return nil, fmt.Errorf("opMUL string and float64, string not a float64")
+				return nil, fmt.Errorf("opMUL string and float64, string not a float64: %v", err)
 			}
 			return lv * rhsv, nil
 		}
@@ -1340,7 +1340,7 @@ func (op *opMUL) Eval(lhs any, rhs any) (any, error) {
 		case string:
 			rv, err := utils.String2Int(rhsv)
 			if err != nil {
-				return nil, fmt.Errorf("opMUL int and string, string not an int")
+				return nil, fmt.Errorf("opMUL int and string, string not an int: %v", err)
 			}
 			return lhsv * rv, nil
 		case int:
@@ -1356,7 +1356,7 @@ func (op *opMUL) Eval(lhs any, rhs any) (any, error) {
 		case string:
 			rv, err := utils.String2Int(rhsv)
 			if err != nil {
-				return nil, fmt.Errorf("opMUL int64 and string, string not an int")
+				return nil, fmt.Errorf("opMUL int64 and string, string not an int: %v", err)
 			}
 			return lhsv * int64(rv), nil
 		case int:
@@ -1372,7 +1372,7 @@ func (op *opMUL) Eval(lhs any, rhs any) (any, error) {
 		case string:
 			rv, err := strconv.ParseFloat(rhsv, 64)
 			if err != nil {
-				return nil, fmt.Errorf("opMUL float64 and string, string not a float64")
+				return nil, fmt.Errorf("opMUL float64 and string, string not a float64: %v", err)
 			}
 			return lhsv * rv, nil
 		case int:
