@@ -1147,7 +1147,7 @@ type ExpressionNode struct {
 	//   substitution if it contains the char '$'.
 	// - for Type: value, it is the value to use or substitute with env var
 	//   substitution if it contains the char '$'.
-	// ExprPos is for leaf nodes for Type select, it is the column position to select,
+	// ExprPos is for leaf nodes for Type select, it is the 0-based column position to select,
 	// it is an alternative to Expr which is the column name.
 	// ExprList is for leaf nodes with multiple values, used for the `in`` operator.
 	// MaxEnvVarSubstitution indicates how many loop of env substitution to do for
