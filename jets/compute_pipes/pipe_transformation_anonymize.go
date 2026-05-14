@@ -477,6 +477,7 @@ func (ctx *BuilderContext) NewAnonymizeTransformationPipe(source *InputChannel, 
 						if ok {
 							// It's a deid function, vaidate the function and adjust column width if needed
 							switch deidFunctionName {
+							case "numeric_hashed_value":
 							case "hashed_value":
 								// Determine the width to adjust for fixed-width files
 								if newWidth != nil {

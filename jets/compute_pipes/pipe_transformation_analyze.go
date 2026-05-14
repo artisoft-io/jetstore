@@ -2,6 +2,7 @@ package compute_pipes
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"log"
 	"maps"
@@ -9,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/artisoft-io/jetstore/jets/csv"
+	"github.com/artisoft-io/jetstore/jets/utils"
 )
 
 // firstInputRow is the first row from the input channel.
@@ -447,25 +449,19 @@ func (ctx *BuilderContext) NewAnalyzeTransformationPipe(source *InputChannel, ou
 		}
 	}
 
-	// Set up the column name to token map if available
-	colName2Token := make(map[string]string)
-	if config.ColumnNameToken != nil {
-		for _, tokenEntry := range config.ColumnNameToken.Lookup {
-			for _, colName := range tokenEntry.ColumnNames {
-				colName2Token[strings.ToUpper(colName)] = tokenEntry.Name
-			}
-		}
+	if source.Columns == nil {
+		return nil, fmt.Errorf("error: input channel columns name to position map is nil")
 	}
 
-	// Set up the column fragment to token map if available
-	colFragment2Token := make(map[string]string)
-	if config.ColumnNameToken != nil {
-		for _, tokenEntry := range config.ColumnNameToken.Lookup {
-			for _, colFragment := range tokenEntry.ColumnNameFragments {
-				colFragment2Token[strings.ToUpper(colFragment)] = tokenEntry.Name
-			}
-		}
+	config.ColumnNameToken, err = combineColumnNameToken(config.ColumnNameToken, ctx.env, *source.Columns)
+	if err != nil {
+		err = fmt.Errorf("while combining column name token from config and env var: %v", err)
+		log.Println(err)
+		return nil, err
 	}
+
+	// Set up the column names and column name fragments to token map if available
+	colName2Token, colFragment2Token := prepareColName2TokenMap(config.ColumnNameToken)
 
 	// Set up the blank field markers if available
 	sp := ctx.schemaManager.schemaProviders[config.SchemaProvider]
@@ -512,4 +508,80 @@ func (ctx *BuilderContext) NewAnalyzeTransformationPipe(source *InputChannel, ou
 		env:               ctx.env,
 		doneCh:            ctx.done,
 	}, nil
+}
+
+func convertPositionToName(lookup []*ColumnNameLookupNode, name2pos map[string]int) {
+	for _, l := range lookup {
+		if len(l.ColumnNames) == 0 && len(l.ColumnPos) > 0 {
+			for _, pos := range l.ColumnPos {
+				for name, p := range name2pos {
+					if p == pos {
+						l.ColumnNames = append(l.ColumnNames, name)
+						break
+					}
+				}
+			}
+			l.ColumnPos = nil
+		}
+	}
+}
+
+func combineColumnNameToken(configToken *ColumnNameTokenNode, env map[string]any,
+	name2pos map[string]int) (*ColumnNameTokenNode, error) {
+
+	// Get the column name and column name fragments to classification token map from env var if available
+	result := configToken
+	if result != nil {
+		convertPositionToName(result.Lookup, name2pos)
+	}
+	columnNameTokenJson := env["${COLUMN_NAME_TOKEN_JSON}"]
+	overrideColumnNameToken := env["${OVERRIDE_COLUMN_NAME_TOKEN}"]
+	if columnNameTokenJson != nil {
+		var envColumnNameToken ColumnNameTokenNode
+		v, ok := columnNameTokenJson.(string)
+		if !ok {
+			err := fmt.Errorf("error: ${COLUMN_NAME_TOKEN_JSON} env var is not a string")
+			log.Println(err)
+			return nil, err
+		}
+		err := json.Unmarshal([]byte(v), &envColumnNameToken)
+		if err != nil {
+			err = fmt.Errorf("error: failed to parse ${COLUMN_NAME_TOKEN_JSON} env var: %v", err)
+			log.Println(err)
+			return nil, err
+		}
+		// Convert column position to column name if position is provided
+		convertPositionToName(envColumnNameToken.Lookup, name2pos)
+
+		override, _ := utils.ToIntWithEnv(overrideColumnNameToken, env)
+		if override == 1 {
+			// override the column name token from env var and ignore the one from config document
+			result = &envColumnNameToken
+		} else {
+			if configToken == nil {
+				result = &envColumnNameToken
+			} else {
+				// Merge the column name token from env var with the one from config document by appending the lookup entries
+				result = configToken
+				result.Lookup = append(result.Lookup, envColumnNameToken.Lookup...)
+			}
+		}
+	}
+	return result, nil
+}
+
+func prepareColName2TokenMap(configToken *ColumnNameTokenNode) (colName2Token, colFragment2Token map[string]string) {
+	colName2Token = make(map[string]string)
+	colFragment2Token = make(map[string]string)
+	if configToken != nil {
+		for _, tokenEntry := range configToken.Lookup {
+			for _, colName := range tokenEntry.ColumnNames {
+				colName2Token[strings.ToUpper(colName)] = tokenEntry.Name
+			}
+			for _, colFragment := range tokenEntry.ColumnNameFragments {
+				colFragment2Token[strings.ToUpper(colFragment)] = tokenEntry.Name
+			}
+		}
+	}
+	return
 }

@@ -568,6 +568,11 @@ type MapRecordSpec struct {
 // DistinctValuesWhenLessThanCount is the threshold to list distinct values.
 // PadShortRowsWithNulls indicates to pad short rows with nulls to match row length.
 // ColumnNameToken is used to classify columns based on their name.
+// Note: ColumnNameToken can be specified in env var ${COLUMN_NAME_TOKEN_JSON} as an
+// alternative to the configuration document, to provide more flexibility and avoid
+// hardcoding in the configuration document.
+// When both present, the configuration document is merged with the env var unless
+// the env var ${OVERRIDE_COLUMN_NAME_TOKEN} is set to 1.
 // EntityHints provide hints for entity recognition.
 // RegexTokens specify regex patterns to identify classification tokens.
 // LookupTokens specify lookup tables to identify classification tokens.
@@ -599,9 +604,14 @@ type ColumnNameTokenNode struct {
 // ColumnNameLookupNode specifies the column name to classification token
 // Name: classification token name
 // ColumnNames: list of column names that map to the classification token
+// ColumnPos: list of column positions (0 based) that map to the classification token
+// ColumnNameFragments: list of column name fragments, if a column name contains
+// any of the fragments, it maps to the classification token.
+// ColumnNames takes precedence over ColumnPos. Both can be empty if ColumnNameFragments is used.
 type ColumnNameLookupNode struct {
 	Name                string   `json:"name"`
 	ColumnNames         []string `json:"column_names,omitempty"`
+	ColumnPos           []int    `json:"column_pos,omitempty"`
 	ColumnNameFragments []string `json:"column_name_fragments,omitempty"`
 }
 
