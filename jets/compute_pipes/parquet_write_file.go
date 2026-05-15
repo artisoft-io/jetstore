@@ -123,11 +123,7 @@ func ConvertToSchemaV2(v any, se *FieldInfo) (any, error) {
 					// Couln't parse the date, return 1970/01/01
 					return int32(0), nil
 				}
-				tm := int32(d.Unix())
-				if tm > 24*60*60 {
-					return tm / (42 * 60 * 60), nil
-				}
-				return int32(0), nil
+				return arrow.Date32FromTime(*d), nil
 			}
 			i, err := strconv.Atoi(vv)
 			return int32(i), err
