@@ -5,7 +5,6 @@ import (
 	"log"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/apache/arrow/go/v17/arrow"
 	"github.com/apache/arrow/go/v17/arrow/array"
@@ -116,6 +115,9 @@ func (psi *ParquetSchemaInfo) buildArrowSchema() {
 		case arrow.PrimitiveTypes.Date32.Name(), "date":
 			fieldType = arrow.PrimitiveTypes.Date32
 
+		case arrow.PrimitiveTypes.Date64.Name():
+			fieldType = arrow.PrimitiveTypes.Date64
+
 		case arrow.PrimitiveTypes.Int32.Name():
 			fieldType = arrow.PrimitiveTypes.Int32
 
@@ -190,6 +192,9 @@ func (psi *ParquetSchemaInfo) CreateBuilders(pool *memory.GoAllocator) ([]ArrayB
 
 		case arrow.PrimitiveTypes.Date32.Name():
 			builders = append(builders, NewDateBuilder(pool))
+
+		case arrow.PrimitiveTypes.Date64.Name():
+			builders = append(builders, NewDate64Builder(pool))
 
 		case arrow.PrimitiveTypes.Int32.Name():
 			builders = append(builders, NewInt32Builder(pool))
@@ -266,7 +271,6 @@ func (b *BooleanBuilder) Release() {
 type DateBuilder struct {
 	builder *array.Date32Builder
 }
-
 func NewDateBuilder(mem memory.Allocator) ArrayBuilder {
 	return &DateBuilder{
 		builder: array.NewDate32Builder(mem),
@@ -301,6 +305,46 @@ func (b *DateBuilder) NewArray() arrow.Array {
 	return b.builder.NewArray()
 }
 func (b *DateBuilder) Release() {
+	b.builder.Release()
+}
+
+type Date64Builder struct {
+	builder *array.Date64Builder
+}
+func NewDate64Builder(mem memory.Allocator) ArrayBuilder {
+	return &Date64Builder{
+		builder: array.NewDate64Builder(mem),
+	}
+}
+func (b *Date64Builder) Reserve(n int) {
+	b.builder.Reserve(n)
+}
+func (b *Date64Builder) Append(v any) {
+	if v == nil {
+		b.builder.AppendNull()
+		return
+	}
+	switch vv := v.(type) {
+	case int64:
+		b.builder.Append(arrow.Date64(vv))
+	case arrow.Date64:
+		b.builder.Append(vv)
+	case int:
+		b.builder.Append(arrow.Date64(vv))
+	default:
+		log.Panicf("invalid data type in NewDate64Builder, unexpected type: %T", v)
+	}
+}
+func (b *Date64Builder) AppendEmptyValue() {
+	b.builder.AppendEmptyValue()
+}
+func (b *Date64Builder) AppendNull() {
+	b.builder.AppendNull()
+}
+func (b *Date64Builder) NewArray() arrow.Array {
+	return b.builder.NewArray()
+}
+func (b *Date64Builder) Release() {
 	b.builder.Release()
 }
 
@@ -744,9 +788,17 @@ func ConvertWithSchemaV1(irow int, col arrow.Array, trimStrings bool, fieldInfo 
 		v, ok := col.(*array.Date32)
 		if ok {
 			// return date(Jan 1 1970) + vv days
-			value = time.Unix(int64(v.Value(irow))*24*60*60, 0).Format("2006-01-02")
+			value = v.Value(irow).FormattedString()
 		} else {
 			return nil, fmt.Errorf("error: ConvertWithSchemaV1 expecting *array.Date32 got %T", v)
+		}
+
+	case arrow.PrimitiveTypes.Date64.Name():
+		v, ok := col.(*array.Date64)
+		if ok {
+			value = v.Value(irow).FormattedString()
+		} else {
+			return nil, fmt.Errorf("error: ConvertWithSchemaV1 expecting *array.Date64 got %T", v)
 		}
 
 	case arrow.PrimitiveTypes.Int32.Name():
