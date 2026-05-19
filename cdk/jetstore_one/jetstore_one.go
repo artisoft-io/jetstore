@@ -197,6 +197,10 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 		dbVersion = awsrds.AuroraPostgresEngineVersion_VER_14_5()
 	case "15.10":
 		dbVersion = awsrds.AuroraPostgresEngineVersion_VER_15_10()
+	case "15.15":
+		dbVersion = awsrds.AuroraPostgresEngineVersion_VER_15_15()
+	case "15.17":
+		dbVersion = awsrds.AuroraPostgresEngineVersion_VER_15_17()
 	}
 
 	jsComp.RdsCluster = awsrds.NewDatabaseCluster(stack, jsii.String("pgCluster"), &awsrds.DatabaseClusterProps{
