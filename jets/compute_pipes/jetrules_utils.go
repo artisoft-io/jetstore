@@ -34,8 +34,14 @@ var domainTablesMx sync.Mutex
 var domainClassesMap map[string]*rete.ClassNode
 var domainClassesMx sync.Mutex
 
-var ruleEngineConfig map[string]string
+// ruleEngineConfig is a map of config properties defined in the jetrules .config.json file for a given mainRule file
+// this is endexed by main rule file
+var ruleEngineConfig map[string]map[string]string
 var ruleEngineConfigMx sync.Mutex
+
+func init() {
+	ruleEngineConfig = make(map[string]map[string]string)
+}
 
 // Function to clear local caches, needed for when workspace have been updated and need to force the lambda to
 // reload the worspace metadata from jetstore db
@@ -47,7 +53,7 @@ func ClearJetrulesCaches() {
 	dataPropertyInfoMap = nil
 	domainTablesMap = nil
 	domainClassesMap = nil
-	ruleEngineConfig = nil
+	ruleEngineConfig = make(map[string]map[string]string)
 }
 
 // pre-loading jetrules caches
@@ -280,30 +286,43 @@ type RuleEngineConfig struct {
 }
 
 // Function to get domain classes info from the local workspace
+func loadRuleEngineConfig(mainRuleFile string) (map[string]string, error) {
+	ruleConfig := &RuleEngineConfig{}
+	ruleEngineConfigMx.Lock()
+	defer ruleEngineConfigMx.Unlock()
+	config, ok := ruleEngineConfig[mainRuleFile]
+	if ok {
+		return config, nil
+	}
+	fpath := fmt.Sprintf("%s/%s/build/%s.config.json", workspaceHome, wsPrefix, strings.TrimSuffix(mainRuleFile, ".jr"))
+	log.Println("Reading Rule Engine config definitions from:", fpath)
+	file, err := os.ReadFile(fpath)
+	if err != nil {
+		err = fmt.Errorf("while reading config.json file (GetRuleEngineConfig):%v", err)
+		log.Println(err)
+		return nil, err
+	}
+	err = json.Unmarshal(file, ruleConfig)
+	if err != nil {
+		err = fmt.Errorf("while unmarshaling config.json (GetRuleEngineConfig):%v", err)
+		log.Println(err)
+		return nil, err
+	}
+	ruleEngineConfig[mainRuleFile] = ruleConfig.JetStoreConfig
+	return ruleConfig.JetStoreConfig, nil
+}
+
+// Function to get domain classes info from the local workspace
 func GetRuleEngineConfig(mainRuleFile, property string) (string, error) {
-	if ruleEngineConfig == nil {
-		config := &RuleEngineConfig{}
-		ruleEngineConfigMx.Lock()
-		defer ruleEngineConfigMx.Unlock()
-		if ruleEngineConfig == nil {
-			fpath := fmt.Sprintf("%s/%s/build/%s.config.json", workspaceHome, wsPrefix, strings.TrimSuffix(mainRuleFile, ".jr"))
-			log.Println("Reading Rule Engine config definitions from:", fpath)
-			file, err := os.ReadFile(fpath)
-			if err != nil {
-				err = fmt.Errorf("while reading config.json file (GetRuleEngineConfig):%v", err)
-				log.Println(err)
-				return "", err
-			}
-			err = json.Unmarshal(file, config)
-			if err != nil {
-				err = fmt.Errorf("while unmarshaling config.json (GetRuleEngineConfig):%v", err)
-				log.Println(err)
-				return "", err
-			}
-			ruleEngineConfig = config.JetStoreConfig
+	config, ok := ruleEngineConfig[mainRuleFile]
+	if !ok {
+		var err error
+		config, err = loadRuleEngineConfig(mainRuleFile)
+		if err != nil {
+			return "", err
 		}
 	}
-	return ruleEngineConfig[property], nil
+	return config[property], nil
 }
 
 // Function to get domain classes info from the local workspace
