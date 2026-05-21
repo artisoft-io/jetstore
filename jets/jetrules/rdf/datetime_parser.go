@@ -77,7 +77,9 @@ func getDateComponents(token1, token2, token3 string) (int, int, int, error) {
 
 func validateYMD(y, m, d int) error {
 	// Expecting year to be between 1900 and 2100, or 2099
-	if y < 1900 || (y > 2100 && y != 2099) {
+	// if y < 1900 || (y > 2100 && y != 2099) {
+	// relaxing the requirement
+	if y < 0 ||	y > 9999 {
 		return fmt.Errorf("ParseDate: error, invalid year %d", y)
 	}
 	// Expecting month to be between 1 and 12
