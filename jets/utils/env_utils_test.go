@@ -101,7 +101,7 @@ func TestRemoveUnreplacedPlaceholder02(t *testing.T) {
 	assert := assert.New(t)
 	template := "This is a template with unreplaced placeholder: {UNREPLACED} and {UNREPLACED}"
 	result := RemoveUnreplacedPlaceholder(template)
-	assert.Equal("This is a template with unreplaced placeholder:  and ", result)
+	assert.Equal("This is a template with unreplaced placeholder: {UNREPLACED} and {UNREPLACED}", result)
 }
 
 func TestRemoveUnreplacedPlaceholder03(t *testing.T) {
@@ -116,4 +116,11 @@ func TestRemoveUnreplacedPlaceholder04(t *testing.T) {
 	template := "This is a template with unreplaced placeholder: {{UNREPLACED} and {UNREPLACED}}"
 	result := RemoveUnreplacedPlaceholder(template)
 	assert.Equal("This is a template with unreplaced placeholder: ", result)
+}
+
+func TestRemoveUnreplacedPlaceholder05(t *testing.T) {
+	assert := assert.New(t)
+	template := "This is a template with no unreplaced placeholder"
+	result := RemoveUnreplacedPlaceholder(template)
+	assert.Equal("This is a template with no unreplaced placeholder", result)
 }

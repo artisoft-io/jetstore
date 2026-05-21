@@ -104,7 +104,7 @@ func ParseLookbackPeriod(lookbackStr string, env map[string]any) (int, int, erro
 }
 
 // RemoveUnreplacedPlaceholder removes unreplaced placeholders in the input string to avoid confusion on the receiving end.
-// It removes both {{VAR}} and {VAR} patterns that may be left unreplaced after substitution.
+// It removes both {{VAR}} patterns that may be left unreplaced after substitution.
 func RemoveUnreplacedPlaceholder(input string) string {
 	// Remove {{VAR}} patterns
 	result := input
@@ -115,16 +115,6 @@ func RemoveUnreplacedPlaceholder(input string) string {
 			break
 		}
 		result = result[:start] + result[end+2:]
-	}
-
-	// Remove {VAR} patterns
-	for {
-		start := strings.Index(result, "{")
-		end := strings.Index(result, "}")
-		if start == -1 || end == -1 || end < start {
-			break
-		}
-		result = result[:start] + result[end+1:]
 	}
 
 	return result

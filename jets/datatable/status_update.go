@@ -230,6 +230,8 @@ func DoNotifyApiGateway(fileKey, apiEndpoint, apiEndpointJson, notificationTempl
 	// remove residual unreplaced placeholder in the template to avoid confusion on the receiving end
 	notificationTemplate = utils.RemoveUnreplacedPlaceholder(notificationTemplate)
 	apiEndpointJson = utils.RemoveUnreplacedPlaceholder(apiEndpointJson)
+	log.Println("Final notificationTemplate after substitution:", notificationTemplate)
+	log.Println("Final apiEndpointJson after substitution:", apiEndpointJson)
 
 	// Identify the endpoint where to send the request
 	if len(apiEndpoint) == 0 {
