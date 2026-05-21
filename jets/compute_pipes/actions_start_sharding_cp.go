@@ -406,7 +406,7 @@ func (args *StartComputePipesArgs) StartShardingComputePipes(ctx context.Context
 		}
 		// ignore returned err
 		datatable.DoNotifyApiGateway(args.FileKey, apiEndpoint, apiEndpointJson,
-			notificationTemplate, customFileKeys, "", cpipesStartup.EnvSettings)
+			notificationTemplate, customFileKeys, "", mainInputSchemaProvider.Env)
 	}
 
 	return result, mainInputSchemaProvider, nil

@@ -89,3 +89,31 @@ func TestParseLookbackPeriod(t *testing.T) {
 	_, _, err = ParseLookbackPeriod("6", map[string]any{})
 	assert.Error(err)
 }
+
+func TestRemoveUnreplacedPlaceholder01(t *testing.T) {
+	assert := assert.New(t)
+	template := "This is a template with unreplaced placeholder: {{UNREPLACED}} and {{UNREPLACED}}"
+	result := RemoveUnreplacedPlaceholder(template)
+	assert.Equal("This is a template with unreplaced placeholder:  and ", result)
+}
+
+func TestRemoveUnreplacedPlaceholder02(t *testing.T) {
+	assert := assert.New(t)
+	template := "This is a template with unreplaced placeholder: {UNREPLACED} and {UNREPLACED}"
+	result := RemoveUnreplacedPlaceholder(template)
+	assert.Equal("This is a template with unreplaced placeholder:  and ", result)
+}
+
+func TestRemoveUnreplacedPlaceholder03(t *testing.T) {
+	assert := assert.New(t)
+	template := ""
+	result := RemoveUnreplacedPlaceholder(template)
+	assert.Equal("", result)
+}
+
+func TestRemoveUnreplacedPlaceholder04(t *testing.T) {
+	assert := assert.New(t)
+	template := "This is a template with unreplaced placeholder: {{UNREPLACED} and {UNREPLACED}}"
+	result := RemoveUnreplacedPlaceholder(template)
+	assert.Equal("This is a template with unreplaced placeholder: ", result)
+}

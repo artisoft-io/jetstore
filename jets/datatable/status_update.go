@@ -208,15 +208,28 @@ func DoNotifyApiGateway(fileKey, apiEndpoint, apiEndpointJson, notificationTempl
 	}
 
 	// Do substitution using key/value provided by cpipes config and main schema provider
+	replaceEnv:
 	for key, value := range envSettings {
 		str, ok := value.(string)
-		if ok && strings.HasPrefix(key, "$") {
-			notificationTemplate = strings.ReplaceAll(notificationTemplate, fmt.Sprintf("{{%s}}", key[1:]), str)
+		if ok {
+			var replace string
+			switch {
+			case strings.HasPrefix(key, "${"):
+				replace = fmt.Sprintf("{%s}", key[1:])
+			case strings.HasPrefix(key, "$"):
+				replace = fmt.Sprintf("{{%s}}", key[1:])
+			default:
+				continue replaceEnv
+			}			
+			notificationTemplate = strings.ReplaceAll(notificationTemplate, replace, str)
 			if len(apiEndpoint) == 0 {
-				apiEndpointJson = strings.ReplaceAll(apiEndpointJson, fmt.Sprintf("{{%s}}", key[1:]), str)
+				apiEndpointJson = strings.ReplaceAll(apiEndpointJson, replace, str)
 			}
 		}
 	}
+	// remove residual unreplaced placeholder in the template to avoid confusion on the receiving end
+	notificationTemplate = utils.RemoveUnreplacedPlaceholder(notificationTemplate)
+	apiEndpointJson = utils.RemoveUnreplacedPlaceholder(apiEndpointJson)
 
 	// Identify the endpoint where to send the request
 	if len(apiEndpoint) == 0 {
