@@ -39,6 +39,25 @@ func (node *expressionNodeEvaluator) Eval(input any) (any, error) {
 	return node.Op.Eval(lhs, rhs)
 }
 
+type expressionFunctionEvaluator struct {
+	Args []evalExpression
+	Fnc  evalFunction
+}
+
+func (node *expressionFunctionEvaluator) Eval(input any) (any, error) {
+	args := make([]any, len(node.Args))
+	for i, arg := range node.Args {
+		var err error
+		args[i], err = arg.Eval(input)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return node.Fnc(args)
+}
+
+type evalFunction func(args []any) (any, error)
+
 type expressionSelectLeaf struct {
 	index   int
 	colName string
@@ -308,6 +327,26 @@ func (ctx ExprBuilderContext) BuildExprNodeEvaluator(sourceName string, columns 
 			// build the expression evaluator for the parsed ExpressionNode
 			return ctx.BuildExprNodeEvaluator(sourceName, columns, &exprNode)
 
+		case "FUNCTION":
+			if spec.Expr == "" {
+				return nil, fmt.Errorf("error: Type function must have Expr not nil")
+			}
+			fnc, err := BuildFncEvaluator(spec.Expr)
+			if err != nil {
+				return nil, fmt.Errorf("error: failed to build operator for function type expression with expr %s: %v", spec.Expr, err)
+			}
+			args := make([]evalExpression, len(spec.Farg))
+			for i, argSpec := range spec.Farg {
+				argEval, err := ctx.BuildExprNodeEvaluator(sourceName, columns, &argSpec)
+				if err != nil {
+					return nil, fmt.Errorf("error: failed to build evaluator for argument %d of function type expression with expr %s: %v", i, spec.Expr, err)
+				}
+				args[i] = argEval
+			}
+			return &expressionFunctionEvaluator{
+				Fnc:  fnc,
+				Args: args,
+			}, nil
 		default:
 			return nil, fmt.Errorf("error: unknown expression leaf node type: %s", spec.Type)
 		}

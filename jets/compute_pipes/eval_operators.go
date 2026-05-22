@@ -74,6 +74,18 @@ func BuildEvalOperator(op string) (evalOperator, error) {
 	return nil, fmt.Errorf("error: unknown operator: %v", op)
 }
 
+// Build the function evaluators
+func BuildFncEvaluator(fnc string) (evalFunction, error) {
+
+	switch strings.ToUpper(fnc) {
+	case "CURRENT_YEAR":
+		return func(args []any) (any, error) {
+			return time.Now().Year(), nil
+		}, nil
+	}
+	return nil, fmt.Errorf("error: unknown function: %v", fnc)
+}
+
 func ToBool(b any) bool {
 	switch v := b.(type) {
 	case string:

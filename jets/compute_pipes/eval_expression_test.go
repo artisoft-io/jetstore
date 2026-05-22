@@ -38,7 +38,7 @@ func TestBuildExprNodeEvaluator01(t *testing.T) {
 
 	// Create an expression with a proxy to the expression json
 	spec := &ExpressionNode{
-		Type: "expr_proxy",
+		Type:            "expr_proxy",
 		ExprEnvVarProxy: "${expr}",
 	}
 	// Build the expression evaluator
@@ -101,7 +101,7 @@ func TestBuildExprNodeEvaluator02(t *testing.T) {
 
 	// Create an expression with a proxy to the expression json
 	spec := &ExpressionNode{
-		Type: "expr_proxy",
+		Type:            "expr_proxy",
 		ExprEnvVarProxy: "${expr}",
 	}
 	// Build the expression evaluator
@@ -122,6 +122,51 @@ func TestBuildExprNodeEvaluator02(t *testing.T) {
 		t.Errorf("error: expecting true, got %v", value)
 	}
 	row = []any{"other"}
+	value, err = eval.Eval(row)
+	if err != nil {
+		t.Errorf("error: expecting nil")
+	}
+	if ToBool(value) {
+		t.Errorf("error: expecting false, got %v", value)
+	}
+}
+
+func TestBuildExprNodeEvaluator03(t *testing.T) {
+
+	// Create an expression builder context with the expression json as argument
+	m := make(map[string]any)
+	ctx := ExprBuilderContext(m)
+
+	// The expression to evaluate
+	spec := &ExpressionNode{
+		Lhs: &ExpressionNode{
+			Type: "select",
+			Expr: "Y0",
+		},
+		Op: ">",
+		Rhs: &ExpressionNode{
+			Type: "function",
+			Expr: "current_year",
+		},
+	}
+	// Build the expression evaluator
+	columns := map[string]int{
+		"Y0": 0,
+	}
+	eval, err := ctx.BuildExprNodeEvaluator("source1", columns, spec)
+	if err != nil {
+		t.Errorf("error: expecting nil")
+	}
+	// Evaluate the expression with a value for col1
+	row := []any{2099}
+	value, err := eval.Eval(row)
+	if err != nil {
+		t.Errorf("error: expecting nil")
+	}
+	if !ToBool(value) {
+		t.Errorf("error: expecting true, got %v", value)
+	}
+	row = []any{2000}
 	value, err = eval.Eval(row)
 	if err != nil {
 		t.Errorf("error: expecting nil")
