@@ -52,6 +52,10 @@ func BuildEvalOperator(op string) (evalOperator, error) {
 		// Special Operators
 	case "IN":
 		return &opIn{}, nil
+	case "IN_NO_CASE":
+		return &opIn{
+			noCase: true,
+		}, nil
 	case "LENGTH":
 		return &opLength{}, nil
 	case "NEW_UUID":

@@ -169,12 +169,20 @@ func (op *opNewUUID) Eval(_ any, _ any) (any, error) {
 }
 
 // Operator IN
-type opIn struct{}
+type opIn struct{
+	noCase bool
+}
 
 func (op *opIn) Eval(lhs any, rhs any) (any, error) {
 	values, ok := rhs.(map[any]bool)
 	if !ok {
-		return 0, fmt.Errorf("error: operator IN is expecting static_list as rhs argument")
+		return 0, fmt.Errorf("error: operator IN / IN_NO_CASE is expecting static_list as rhs argument")
+	}
+	if op.noCase {
+		switch lhsv := lhs.(type) {
+		case string:
+			lhs = strings.ToUpper(lhsv)
+		}
 	}
 	v := 0
 	if values[lhs] {

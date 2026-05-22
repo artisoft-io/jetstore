@@ -174,9 +174,18 @@ func (ctx ExprBuilderContext) BuildExprNodeEvaluator(sourceName string, columns 
 		if spec.Rhs == nil || spec.Op == "" {
 			return nil, fmt.Errorf("error: case node, must have lhs, rhs, and op != nil")
 		}
-		// Check for special IN operator who must have a static_list as rhs
+		// Check for special IN IN_NO_CASE operator who must have a static_list as rhs
 		if strings.ToUpper(spec.Op) == "IN" && strings.ToUpper(spec.Rhs.Type) != "STATIC_LIST" {
 			return nil, fmt.Errorf("error: operator IN must have static_list as rhs argument")
+		}
+		if strings.ToUpper(spec.Op) == "IN_NO_CASE" {
+			if strings.ToUpper(spec.Rhs.Type) != "STATIC_LIST" {
+				return nil, fmt.Errorf("error: operator IN_NO_CASE must have static_list as rhs argument")
+			}
+			// make the static list in upper case for case-insensitive comparison in opIn.Eval
+			for i, v := range spec.Rhs.ExprList {
+				spec.Rhs.ExprList[i] = strings.ToUpper(v)
+			}
 		}
 		lhs, err := ctx.BuildExprNodeEvaluator(sourceName, columns, spec.Lhs)
 		if err != nil {
