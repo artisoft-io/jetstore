@@ -92,6 +92,8 @@ func ToBool(b any) bool {
 		if strings.ToUpper(v) == "TRUE" {
 			return true
 		}
+		n, _ := utils.String2Double(v)
+		return n > 0
 	case int:
 		return v > 0
 	case int64:
@@ -100,6 +102,8 @@ func ToBool(b any) bool {
 		return v > 0
 	case float32:
 		return v > 0
+	case bool:
+		return v
 	}
 	return false
 }
@@ -341,15 +345,13 @@ func (op *opNotEqual) Eval(lhs any, rhs any) (any, error) {
 	if err != nil {
 		return nil, fmt.Errorf("opNotEqual Eval using opEqual: %v", err)
 	}
-	switch vv := v.(type) {
-	case int:
-		if vv == 0 {
-			return 1, nil
-		} else {
-			return 0, nil
-		}
+	switch ToBool(v) {
+	case true:
+		return 1, nil
+	case false:
+		return 0, nil
 	}
-	return nil, fmt.Errorf("opNotEqual incompatible types: %T and %T, rejected", lhs, rhs)
+	return 0, nil
 }
 
 // Operator AND
@@ -359,17 +361,14 @@ func (op *opAND) Eval(lhs any, rhs any) (any, error) {
 	if lhs == nil || rhs == nil {
 		return 0, nil
 	}
-	switch lhsv := lhs.(type) {
-	case int:
-		switch rhsv := rhs.(type) {
-		case int:
-			if lhsv == rhsv && lhsv == 1 {
-				return 1, nil
-			}
-			return 0, nil
-		}
+	lhsv := ToBool(lhs)
+	if !lhsv {
+		return 0, nil
 	}
-	return nil, fmt.Errorf("opAND incompatible types: %T and %T, rejected", lhs, rhs)
+	if ToBool(rhs) {
+		return 1, nil
+	}
+	return 0, nil
 }
 
 // Operator OR
@@ -379,17 +378,14 @@ func (op *opOR) Eval(lhs any, rhs any) (any, error) {
 	if lhs == nil || rhs == nil {
 		return 0, nil
 	}
-	switch lhsv := lhs.(type) {
-	case int:
-		switch rhsv := rhs.(type) {
-		case int:
-			if lhsv == 1 || rhsv == 1 {
-				return 1, nil
-			}
-			return 0, nil
-		}
+	lhsv := ToBool(lhs)
+	if lhsv {
+		return 1, nil
 	}
-	return nil, fmt.Errorf("opOR incompatible types: %T and %T, rejected", lhs, rhs)
+	if ToBool(rhs) {
+		return 1, nil
+	}
+	return 0, nil
 }
 
 // Boolean not
@@ -397,29 +393,15 @@ type opNot struct{}
 
 func (op *opNot) Eval(lhs any, _ any) (any, error) {
 	if lhs == nil {
-		return nil, nil
+		return 0, nil
 	}
-	switch lhsv := lhs.(type) {
-	case int:
-		if lhsv > 0 {
-			return 0, nil
-		}
-		return 1, nil
-
-	case int64:
-		if lhsv > 0 {
-			return 0, nil
-		}
-		return 1, nil
-
-	case float64:
-		if lhsv > 0 {
-			return 0, nil
-		}
+	switch ToBool(lhs) {
+	case true:
+		return 0, nil
+	case false:
 		return 1, nil
 	}
-
-	return nil, fmt.Errorf("opNot incompatible types: %T, rejected", lhs)
+	return 0, nil
 }
 
 type opIS struct {

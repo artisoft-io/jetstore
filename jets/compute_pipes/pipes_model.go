@@ -1170,6 +1170,7 @@ type ExpressionNode struct {
 	// (more to come)
 	// Special case for type: function, it indicates that the expression is a function call,
 	// the actual function is specified by Expr, and the arguments are specified by Farg.
+	// Default value to use when the evaluation returns error
 	Name                  string           `json:"name,omitempty"`
 	Type                  string           `json:"type,omitempty"`
 	Expr                  string           `json:"expr,omitempty"`
@@ -1183,6 +1184,7 @@ type ExpressionNode struct {
 	Rhs                   *ExpressionNode  `json:"rhs,omitzero"`
 	ExprEnvVarProxy       string           `json:"expr_env_var_proxy,omitempty"`
 	Farg                  []ExpressionNode `json:"function_arguments,omitzero"`
+	Default               *ExpressionNode  `json:"default,omitzero"`
 }
 
 type CaseExpression struct {

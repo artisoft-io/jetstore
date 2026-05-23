@@ -26,6 +26,14 @@ func String2Int(s string) (int, error) {
 	return v, nil
 }
 
+func String2Double(s string) (float64, error) {
+	v, err := strconv.ParseFloat(s, 64)
+	if err != nil {
+		return 0, fmt.Errorf("error parsing %s as double value: %v", s, err)
+	}
+	return v, nil
+}
+
 func String2UInt(s string) (uint, error) {
 	v, err := strconv.ParseUint(s, 10, 64)
 	if err != nil {

@@ -5,6 +5,65 @@ import (
 	"time"
 )
 
+func TestToBool(t *testing.T) {
+	if !ToBool(true) {
+		t.Errorf("error: expecting true")
+	}
+	if ToBool(false) {
+		t.Errorf("error: expecting false")
+	}
+	if !ToBool("true") {
+		t.Errorf("error: expecting true")
+	}
+	if ToBool("false") {
+		t.Errorf("error: expecting false")
+	}
+	if !ToBool("TRUE") {
+		t.Errorf("error: expecting true")
+	}
+	if ToBool("FALSE") {
+		t.Errorf("error: expecting false")
+	}
+	if !ToBool("1.1") {
+		t.Errorf("error: expecting true")
+	}
+	if ToBool("0") {
+		t.Errorf("error: expecting false")
+	}
+	if !ToBool("0.7") {
+		t.Errorf("error: expecting true")
+	}
+	if ToBool("") {
+		t.Errorf("error: expecting false")
+	}
+	if ToBool(0) {
+		t.Errorf("error: expecting false")
+	}
+	if !ToBool(1) {
+		t.Errorf("error: expecting true")
+	}
+	if !ToBool(1.5) {
+		t.Errorf("error: expecting true")
+	}
+	if ToBool(0.0) {
+		t.Errorf("error: expecting false")
+	}
+	if !ToBool(0.7) {
+		t.Errorf("error: expecting true")
+	}
+	if ToBool(nil) {
+		t.Errorf("error: expecting false")
+	}
+	if ToBool([]int{}) {
+		t.Errorf("error: expecting false")
+	}
+	if ToBool([]int{1, 2}) {
+		t.Errorf("error: expecting false")
+	}
+	if ToBool(map[string]int{}) {
+		t.Errorf("error: expecting false")
+	}
+}
 func TestOpEqual(t *testing.T) {
 	oper := &opEqual{}
 	v, err := oper.Eval(1, 1)
