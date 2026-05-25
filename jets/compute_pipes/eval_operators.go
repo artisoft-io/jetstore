@@ -345,7 +345,7 @@ func (op *opNotEqual) Eval(lhs any, rhs any) (any, error) {
 	if err != nil {
 		return nil, fmt.Errorf("opNotEqual Eval using opEqual: %v", err)
 	}
-	switch ToBool(v) {
+	switch !ToBool(v) {
 	case true:
 		return 1, nil
 	case false:
@@ -395,11 +395,11 @@ func (op *opNot) Eval(lhs any, _ any) (any, error) {
 	if lhs == nil {
 		return 0, nil
 	}
-	switch ToBool(lhs) {
+	switch !ToBool(lhs) {
 	case true:
-		return 0, nil
-	case false:
 		return 1, nil
+	case false:
+		return 0, nil
 	}
 	return 0, nil
 }
