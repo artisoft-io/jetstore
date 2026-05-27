@@ -1051,7 +1051,7 @@ type TargetColumnsLookupSpec struct {
 
 type TransformationColumnSpec struct {
 	// Type range: select, multi_select, value, eval, map, hash
-	// count, distinct_count, sum, min, avrg, case,
+	// count, distinct_count, sum, min, max, avrg, case,
 	// map_reduce, lookup
 	// AsRdfType applies to expr with non-aggragate operators: select, multi_select, value
 	// AsRdfType applies to expr with aggragate operators: min, max, sum, avrg

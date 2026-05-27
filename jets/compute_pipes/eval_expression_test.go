@@ -393,12 +393,80 @@ func TestBuildExprNodeEvaluator07A(t *testing.T) {
 
 	// The expression to evaluate
 	spec := &ExpressionNode{
+		Lhs: &ExpressionNode{
+			Lhs: &ExpressionNode{
+				Lhs: &ExpressionNode{
+					Type: "select",
+					Expr: "min_paid_date",
+				},
+				Op: "+",
+				Rhs: &ExpressionNode{
+					Type: "value",
+					Expr: "'-01'",
+				},
+			},
+			Op: "distance_months",
+			Rhs: &ExpressionNode{
+				Lhs: &ExpressionNode{
+					Type: "select",
+					Expr: "max_paid_date",
+				},
+				Op: "+",
+				Rhs: &ExpressionNode{
+					Type: "value",
+					Expr: "'-01'",
+				},
+			},
+		},
+		Op: "==",
+		Rhs: &ExpressionNode{
+			Lhs: &ExpressionNode{
+				Type: "select",
+				Expr: "distinct_paid_date_count",
+				AsRdfType: "int",
+			},
+			Op: "-",
+			Rhs: &ExpressionNode{
+				Type: "value",
+				Expr: "1",
+			},
+		},
+	}
+	// Build the expression evaluator
+	columns := map[string]int{
+		"min_paid_date":            0,
+		"max_paid_date":            1,
+		"distinct_paid_date_count": 2,
+	}
+	eval, err := ctx.BuildExprNodeEvaluator("source1", columns, spec)
+	if err != nil {
+		t.Errorf("error: expecting nil, got %v", err)
+	}
+	// Evaluate the expression with a value for col1
+	row := []any{"2020-01", "2020-02", "2"}
+	value, err := eval.Eval(row)
+	if err != nil {
+		t.Errorf("error: expecting nil, got %v", err)
+	}
+	if !ToBool(value) {
+		t.Errorf("error: expecting true, got %v", value)
+	}
+}
+
+func TestBuildExprNodeEvaluator10(t *testing.T) {
+
+	// Create an expression builder context with the expression json as argument
+	m := make(map[string]any)
+	ctx := ExprBuilderContext(m)
+
+	// The expression to evaluate
+	spec := &ExpressionNode{
 		Type: "select",
 		Expr: "XX",
 		Default: &ExpressionNode{
-				Type: "select",
-				Expr: "Y0",
-			},
+			Type: "select",
+			Expr: "Y0",
+		},
 	}
 	// Build the expression evaluator
 	columns := map[string]int{
