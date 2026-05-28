@@ -527,7 +527,8 @@ func (ca *CommandArguments) DoReport(dbpool *pgxpool.Pool, tempDir string, outpu
 	case "csv", "json":
 		// Check if a specific kms is specified in the deployment, if so do not use the aws_s3 plug in
 		// since it does not support custom kms key but uses the default kms key of the account
-		if len(os.Getenv("JETS_S3_KMS_KEY_ARN")) > 0 {
+		//TODO Add support for json with custom kms key in DoCsvReport ***
+		if len(os.Getenv("JETS_S3_KMS_KEY_ARN")) > 0 && outputFormat == "csv" {
 			// Save the report locally and copy file to s3
 			err := ca.DoCsvReport(dbpool, tempDir, &s3FileName, name, &stmt)
 			if err != nil {
