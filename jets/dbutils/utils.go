@@ -32,6 +32,7 @@ func DataTypeFromOID(oid uint32) string {
 	switch oid {
 	case 25, 1009:	                    return "string"
 	case 114, 199:	                    return "json"
+	case 3802:	                        return "jsonb"
 	case 700,701,1021,1022,1121:        return "double" // not sure where 1121 came from
 	case 1082,1182:                     return "date"
 	case 1083,1183:                     return "time"

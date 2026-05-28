@@ -54,7 +54,7 @@ func (ca *CommandArguments)DoCsvReport(dbpool *pgxpool.Pool, tempDir string, s3F
 			// skipping arrays and unknown data type (for now anyways...)
 			if !dbutils.IsArrayFromOID(oid) {
 				switch datatype := dbutils.DataTypeFromOID(oid); datatype {
-				case "string", "date", "time", "timestamp", "int", "long", "double":
+				case "string", "date", "time", "timestamp", "int", "long", "double", "json", "jsonb":
 					csvColumnNames = append(csvColumnNames, columName)
 					// csvDatatypes = append(csvDatatypes, datatype)
 					outColFromInCol[inPos] = outPos

@@ -314,6 +314,34 @@ func minMaxAgg(lhs any, rhs any, castFnc *CastToRdfFnc, isMin bool) (any, error)
 		return lhs, err
 	}
 	switch lhsv := lhs.(type) {
+	case string:
+		switch rhsv := rhs.(type) {
+		case string:
+			if isMin {
+				if lhsv < rhsv {
+					return lhsv, nil
+				}
+				return rhsv, nil
+			} else {
+				if lhsv > rhsv {
+					return lhsv, nil
+				}
+				return rhsv, nil
+			}
+		default:
+			rhsvStr := fmt.Sprintf("%v", rhsv)
+			if isMin {
+				if lhsv < rhsvStr {
+					return lhsv, nil
+				}
+				return rhsvStr, nil
+			} else {
+				if lhsv > rhsvStr {
+					return lhsv, nil
+				}
+				return rhsvStr, nil
+			}
+		}
 	case int:
 		switch rhsv := rhs.(type) {
 		case int:

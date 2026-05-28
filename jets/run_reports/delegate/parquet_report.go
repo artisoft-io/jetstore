@@ -52,6 +52,7 @@ func (ca *CommandArguments) DoParquetReport(dbpool *pgxpool.Pool, tempDir string
 		columName := string(fd[inPos].Name)
 		// fmt.Println("*** ColumnName",columName,"oid",oid)
 		// skipping arrays and unknown data type
+		//TODO Add json and jsonb support in parquet writer and then remove the skipping of those data type
 		if !dbutils.IsArrayFromOID(oid) {
 			switch datatype := dbutils.DataTypeFromOID(oid); datatype {
 			case "string", "time":
