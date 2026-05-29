@@ -226,6 +226,8 @@ nextAction:
 					if ctx.setAllDatesToJan1 {
 						month = time.January
 					}
+				case "date_to_jan1":
+					month = time.January
 				}
 
 				anonymizeDate := time.Date(year, month, 1, 0, 0, 0, 0, time.UTC)
