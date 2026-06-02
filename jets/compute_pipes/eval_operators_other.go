@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"regexp"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/artisoft-io/jetstore/jets/date_utils"
@@ -98,6 +99,28 @@ func (op *opApplyFormat) Eval(lhs any, rhs any) (any, error) {
 type opApplyRegex struct {
 	re *regexp.Regexp
 }
+var regexCache = make(map[string]*regexp.Regexp)
+var regexCacheMx sync.Mutex
+func getCompiledRegex(pattern string) (*regexp.Regexp, error) {
+	value := regexCache[pattern]
+	if value != nil {
+		return value, nil
+	}
+	regexCacheMx.Lock()
+	defer regexCacheMx.Unlock()
+	value = regexCache[pattern]
+	if value != nil {
+		return value, nil
+	}
+	fmt.Println("Compiling:", pattern)
+	re, err := regexp.Compile(pattern)
+	if err != nil {
+		fmt.Printf("while compiling regex '%s': %v", pattern, err)
+		return nil, fmt.Errorf("while compiling regex '%s': %v", pattern, err)
+	}
+	regexCache[pattern] = re
+	return re, nil
+}
 
 func (op *opApplyRegex) Eval(lhs any, rhs any) (any, error) {
 	if lhs == nil || rhs == nil {
@@ -109,11 +132,9 @@ func (op *opApplyRegex) Eval(lhs any, rhs any) (any, error) {
 		switch rhsv := rhs.(type) {
 		case string:
 			if op.re == nil {
-				fmt.Println("Compiling:", rhsv)
-				op.re, err = regexp.Compile(rhsv)
+				op.re, err = getCompiledRegex(rhsv)
 				if err != nil {
-					fmt.Printf("while compiling regex '%s': %v", rhsv, err)
-					return nil, fmt.Errorf("while compiling regex '%s': %v", rhsv, err)
+					return nil, err
 				}
 			}
 			// fmt.Println("apply regex on:", lhsv)
