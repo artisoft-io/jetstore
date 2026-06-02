@@ -142,7 +142,7 @@ struct ExistVisitor: public boost::static_visitor<RDFTTYPE>
   register_callback(int vertex, ExprBase::ExprDataType && lhs, ExprBase::ExprDataType && rhs)const
   {
     //TODO revert the ExistVisitor::register SKIPPING callback
-    std::cout << "ExistVisitor::register SKIPPING callback\n";
+    // std::cout << "ExistVisitor::register SKIPPING callback\n";
     // VLOG(40)<<"ExistVisitor::register callback for vertex "<<vertex<<" with pattern (*,"<<rhs<<",*)";
     // return setup_callback_for_visitors(rs, vertex, std::forward<ExprBase::ExprDataType>(rhs));
   }
@@ -170,7 +170,7 @@ struct ExistNotVisitor: public boost::static_visitor<RDFTTYPE>
   int
   register_callback(int vertex, ExprBase::ExprDataType && lhs, ExprBase::ExprDataType && rhs)const
   {
-    std::cout << "ExistNotVisitor::register SKIPPING callback\n";
+    // std::cout << "ExistNotVisitor::register SKIPPING callback\n";
     // VLOG(40)<<"ExistNotVisitor::register callback for vertex "<<vertex<<" with pattern (*,"<<rhs<<",*)";
     // return setup_callback_for_visitors(rs, vertex, std::forward<ExprBase::ExprDataType>(rhs));
   }
