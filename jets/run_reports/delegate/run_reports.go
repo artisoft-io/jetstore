@@ -64,6 +64,7 @@ type ReportDirectives struct {
 	ReportProperties     map[string]ReportProperty    `json:"reportProperties"`
 	StatementProperties  map[string]StatementProperty `json:"statementProperties"`
 	RegisterReports      []RegisterReportSpec         `json:"registerReport"`
+	UseQueryExportToS3   bool                         `json:"use_query_export_to_s3"`
 }
 
 // Type: report, script, function
@@ -528,7 +529,11 @@ func (ca *CommandArguments) DoReport(dbpool *pgxpool.Pool, tempDir string, outpu
 		// Check if a specific kms is specified in the deployment, if so do not use the aws_s3 plug in
 		// since it does not support custom kms key but uses the default kms key of the account
 		//TODO Add support for json with custom kms key in DoCsvReport ***
-		if len(os.Getenv("JETS_S3_KMS_KEY_ARN")) > 0 && outputFormat == "csv" {
+		// when UseQueryExportToS3 && is true, we use the aws_s3.query_export_to_s3 function to export the report directly to s3, this is more efficient and should be preferred when possible, 
+		// but it does not support using a custom kms key for encryption, 
+		// in that case we fall back to DoCsvReport which saves the report locally and then upload to s3 with the custom kms key
+		// The UseQueryExportToS3 setting is an override for case when the provided KMS key is the default S3 KMS key of the account.
+		if len(os.Getenv("JETS_S3_KMS_KEY_ARN")) > 0 && !reportDirectives.UseQueryExportToS3 && outputFormat == "csv" {
 			// Save the report locally and copy file to s3
 			err := ca.DoCsvReport(dbpool, tempDir, &s3FileName, name, &stmt)
 			if err != nil {
