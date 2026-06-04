@@ -255,7 +255,7 @@ func (args *StartComputePipesArgs) StartShardingComputePipes(ctx context.Context
 	}
 
 	// Set the nbr of concurrent map tasks
-	result.CpipesMaxConcurrency = GetMaxConcurrency(shardResult.nbrShardingNodes, cpipesStartup.CpConfig.ClusterConfig.DefaultMaxConcurrency)
+	result.CpipesMaxConcurrency = GetMaxConcurrency(shardResult.nbrShardingNodes, shardResult.clusterSpec.MaxConcurrency)
 
 	// //*TODO Determine if using esc tasks for this stepId (sharding step)
 	// result.UseECSReducingTask, err = cpipesStartup.EvalUseEcsTask(stepId)
@@ -337,7 +337,7 @@ func (args *StartComputePipesArgs) StartShardingComputePipes(ctx context.Context
 			ShardingInfo:          shardResult.clusterShardingInfo,
 			ShardOffset:           cpipesStartup.CpConfig.ClusterConfig.ShardOffset,
 			S3WorkerPoolSize:      shardResult.clusterSpec.S3WorkerPoolSize,
-			DefaultMaxConcurrency: cpipesStartup.CpConfig.ClusterConfig.DefaultMaxConcurrency,
+			DefaultMaxConcurrency: shardResult.clusterSpec.MaxConcurrency,
 			IsDebugMode:           cpipesStartup.CpConfig.ClusterConfig.IsDebugMode,
 		},
 		MetricsConfig:   cpipesStartup.CpConfig.MetricsConfig,

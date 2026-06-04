@@ -212,6 +212,10 @@ func ShardFileKeys(exeCtx context.Context, dbpool *pgxpool.Pool, baseFileKey str
 	if maxPartitions > 0 && result.clusterShardingInfo.NbrPartitions > maxPartitions {
 		result.clusterShardingInfo.NbrPartitions = maxPartitions
 	}
+	// Make sure max concurrency is set in the cluster spec
+	if result.clusterSpec.MaxConcurrency == 0 {
+		result.clusterSpec.MaxConcurrency = clusterConfig.DefaultMaxConcurrency
+	}
 
 	// Write to database
 	copyCount, err := dbpool.CopyFrom(exeCtx, pgx.Identifier{"jetsapi", "compute_pipes_shard_registry"}, columns,
@@ -381,6 +385,7 @@ func selectClusterShardingTier(totalSizeMb int, inputFormat string, clusterConfi
 			ShardSizeBy:      clusterConfig.DefaultShardSizeBy,
 			ShardMaxSizeMb:   clusterConfig.DefaultShardMaxSizeMb,
 			ShardMaxSizeBy:   clusterConfig.DefaultShardMaxSizeBy,
+			MaxConcurrency:   clusterConfig.DefaultMaxConcurrency,
 		}
 	}
 	for _, spec := range clusterConfig.ClusterShardingTiers {
@@ -388,8 +393,6 @@ func selectClusterShardingTier(totalSizeMb int, inputFormat string, clusterConfi
 			continue
 		}
 		if totalSizeMb >= spec.WhenTotalSizeGe {
-			log.Printf("selectClusterShardingTier: totalSizeMb: %d, spec.WhenTotalSizeGe: %d, select MaxNbrPartions: %d, shard size: %v, MaxConcurrency: %d",
-				totalSizeMb, spec.WhenTotalSizeGe, spec.MaxNbrPartitions, spec.ShardSizeMb, spec.MaxConcurrency)
 			if spec.ShardSizeMb == 0 && spec.ShardSizeBy == 0 {
 				spec.ShardSizeMb = clusterConfig.DefaultShardSizeMb
 				spec.ShardSizeBy = clusterConfig.DefaultShardSizeBy
@@ -398,6 +401,11 @@ func selectClusterShardingTier(totalSizeMb int, inputFormat string, clusterConfi
 				spec.ShardMaxSizeMb = clusterConfig.DefaultShardMaxSizeMb
 				spec.ShardMaxSizeBy = clusterConfig.DefaultShardMaxSizeBy
 			}
+			if spec.MaxConcurrency == 0 {
+				spec.MaxConcurrency = clusterConfig.DefaultMaxConcurrency
+			}
+			log.Printf("selectClusterShardingTier: totalSizeMb: %d, spec.WhenTotalSizeGe: %d, select MaxNbrPartions: %d, shard size: %v, MaxConcurrency: %d",
+				totalSizeMb, spec.WhenTotalSizeGe, spec.MaxNbrPartitions, spec.ShardSizeMb, spec.MaxConcurrency)
 			// Note, if spec.NbrPartitions == 0, spec.NbrPartitions will be set to the
 			// number of sharding node and capped to clusterConfig.MaxNbrPartitions
 			return &spec
@@ -411,5 +419,6 @@ func selectClusterShardingTier(totalSizeMb int, inputFormat string, clusterConfi
 		ShardSizeBy:      clusterConfig.DefaultShardSizeBy,
 		ShardMaxSizeMb:   clusterConfig.DefaultShardMaxSizeMb,
 		ShardMaxSizeBy:   clusterConfig.DefaultShardMaxSizeBy,
+		MaxConcurrency:   clusterConfig.DefaultMaxConcurrency,
 	}
 }
