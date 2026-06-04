@@ -60,7 +60,7 @@ func (ctx *mapColumnEval) Update(currentValue *[]any, input *[]any) error {
 					ctx.cleansingCtx.ApplyCleasingFunction(mapConfig.CleansingFunction,
 						mapConfig.Argument, inputV, config.inputPos, input)
 				if len(errMsg) > 0 {
-					// fmt.Println("*** Error while applying cleansing function:", errMsg)
+					fmt.Println("*** Error while applying cleansing function:", errMsg)
 					outputVal = nil
 				}
 			}
