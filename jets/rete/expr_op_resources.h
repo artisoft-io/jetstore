@@ -142,9 +142,11 @@ struct ExistVisitor: public boost::static_visitor<RDFTTYPE>
   register_callback(int vertex, ExprBase::ExprDataType && lhs, ExprBase::ExprDataType && rhs)const
   {
     //TODO revert the ExistVisitor::register SKIPPING callback
-    // std::cout << "ExistVisitor::register SKIPPING callback\n";
+    if (this->rs->get_no_truth_main_on_exist()) {
+      return 0;
+    }
     // VLOG(40)<<"ExistVisitor::register callback for vertex "<<vertex<<" with pattern (*,"<<rhs<<",*)";
-    // return setup_callback_for_visitors(rs, vertex, std::forward<ExprBase::ExprDataType>(rhs));
+    return setup_callback_for_visitors(rs, vertex, std::forward<ExprBase::ExprDataType>(rhs));
   }
 
   ReteSession * rs;
@@ -170,9 +172,12 @@ struct ExistNotVisitor: public boost::static_visitor<RDFTTYPE>
   int
   register_callback(int vertex, ExprBase::ExprDataType && lhs, ExprBase::ExprDataType && rhs)const
   {
-    // std::cout << "ExistNotVisitor::register SKIPPING callback\n";
+    //TODO revert the ExistVisitor::register SKIPPING callback
+    if (this->rs->get_no_truth_main_on_exist()) {
+      return 0;
+    }
     // VLOG(40)<<"ExistNotVisitor::register callback for vertex "<<vertex<<" with pattern (*,"<<rhs<<",*)";
-    // return setup_callback_for_visitors(rs, vertex, std::forward<ExprBase::ExprDataType>(rhs));
+    return setup_callback_for_visitors(rs, vertex, std::forward<ExprBase::ExprDataType>(rhs));
   }
 
   ReteSession * rs;

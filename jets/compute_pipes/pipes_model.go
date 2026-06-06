@@ -95,7 +95,7 @@ func (cp *ComputePipesConfig) GetStepName(stepId int) string {
 }
 
 // Cluster configuration
-// [DefaultMaxConcurrency] is to override the env var MAX_CONCURRENCY
+// [DefaultMaxConcurrency] is to override the env var TASK_MAX_CONCURRENCY
 // [nbrPartitions] is specified at ClusterShardingSpec level otherwise at the
 // ClusterSpec level. [nbrPartitions] is determined by the nbr of sharding nodes,
 // capped by MaxNbrPartitions.

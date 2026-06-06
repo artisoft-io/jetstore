@@ -26,6 +26,24 @@ namespace jets::rete {
     int ret = 0;
     VLOG(20) << "Initialize ReteSession";
     try {
+      auto rmgr = rdf_session_->rmgr();
+
+      // Temp fix for legacy rules
+      auto p = rmgr->get_resource("_0:no_truth_main_on_exist");
+      if(p != nullptr) {
+        auto v = this->rdf_session_->get_object(rmgr->jets()->jets__istate, p);
+        if(v != nullptr) {
+          if(v->which() == rdf::rdf_literal_int32_t) {
+            no_truth_main_on_exist_ = boost::get<rdf::LInt32>(v)->data;
+          } else {
+            no_truth_main_on_exist_ = 0;
+          }
+        }
+        if (no_truth_main_on_exist_ == 1) {
+          LOG(INFO) << "ReteSession::Initialize: WARNING disabling truth main on exist for legacy rules, no_truth_main_on_exist_=" << no_truth_main_on_exist_;
+        }
+      }
+
       // Initialize BetaRelationVector beta_relations_
       beta_relations_.reserve(this->rule_ms_->node_vertexes_.size());
       for(size_t ipos=0; ipos<this->rule_ms_->node_vertexes_.size(); ++ipos) {
@@ -39,14 +57,14 @@ namespace jets::rete {
         }
         beta_relations_.push_back(bn);
       }
-      // Initialize VertexVisitsVector
+
+      // Initialize VertexVisitsVector aka the visit counter for each vertex in the rete network
       vertex_visits_.reserve(this->rule_ms_->node_vertexes_.size());
-      // Initialize BetaRelationVector beta_relations_
       for(size_t ipos=0; ipos<this->rule_ms_->node_vertexes_.size(); ++ipos) {
         vertex_visits_.push_back({0, 0});
       }
+      
       // Get the max_vertex_visit_ from the rdf session (meta graph)
-      auto rmgr = rdf_session_->rmgr();
       auto v = this->rdf_session_->get_object(rmgr->jets()->jets__istate, rmgr->jets()->jets__max_vertex_visits);
       if(v == nullptr) {
         // no max set

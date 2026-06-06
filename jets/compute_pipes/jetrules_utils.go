@@ -22,7 +22,7 @@ var workspaceControl *rete.WorkspaceControl
 var workspaceControlMx sync.Mutex
 
 // ruleEngineCache is a map mainRuleName -> *ReteMetaStoreFactory
-var ruleEngineCache *sync.Map = new(sync.Map)
+// var ruleEngineCache *sync.Map = new(sync.Map) // not used
 var inputMappingCache *sync.Map = new(sync.Map)
 
 var dataPropertyInfoMap map[string]*rete.DataPropertyNode
@@ -48,7 +48,7 @@ func init() {
 // Note: This must be called before starting goroutines as it is not thread safe.
 func ClearJetrulesCaches() {
 	workspaceControl = nil
-	ruleEngineCache = new(sync.Map)
+	// ruleEngineCache = new(sync.Map)
 	inputMappingCache = new(sync.Map)
 	dataPropertyInfoMap = nil
 	domainTablesMap = nil
@@ -245,40 +245,41 @@ func ExtractRdfNodeInfoJson(e any) (value, rdfType string, err error) {
 	}
 }
 
-// Function to get the JetRuleEngine for a rule process
-func GetJetRuleEngine(reFactory JetRulesFactory, dbpool *pgxpool.Pool, processName string, isDebug bool) (
-	ruleEngine JetRuleEngine, err error) {
+// This is not used
+// // Function to get the JetRuleEngine for a rule process
+// func GetJetRuleEngine(reFactory JetRulesFactory, dbpool *pgxpool.Pool, processName string, isDebug bool) (
+// 	ruleEngine JetRuleEngine, err error) {
 
-	// Get the Rete MetaStore for the mainRules
-	reHdle, _ := ruleEngineCache.Load(processName)
-	if reHdle == nil {
-		// Get the jetrule process info -- the mainRule name or ruleSequence name
-		var mainRules string
-		stmt := `SELECT	pc.main_rules FROM jetsapi.process_config pc WHERE pc.process_name = $1`
-		err := dbpool.QueryRow(context.Background(), stmt, processName).Scan(&mainRules)
-		if err != nil {
-			return nil,
-				fmt.Errorf("quering main rule file name for process %s from jetsapi.process_config failed: %v",
-					processName, err)
-		}
-		if len(mainRules) == 0 {
-			return nil, fmt.Errorf("error: main rule file name is empty for process %s", processName)
-		}
-		log.Printf("Rule engine for ruleset '%s' for process '%s' not loaded, loading from local workspace",
-			mainRules, processName)
-		ruleEngine, err = reFactory.NewJetRuleEngine(dbpool, mainRules, isDebug)
-		if err != nil {
-			return nil,
-				fmt.Errorf("while loading ruleset '%s' for process '%s' from local workspace via NewJetRuleEngine: %v",
-					mainRules, processName, err)
-		}
-		//*** concurrent read/write og resourceMap issue
-		// ruleEngineCache.Store(processName, ruleEngine)
-	} else {
-		ruleEngine = reHdle.(JetRuleEngine)
-	}
-	return
-}
+// 	// Get the Rete MetaStore for the mainRules
+// 	reHdle, _ := ruleEngineCache.Load(processName)
+// 	if reHdle == nil {
+// 		// Get the jetrule process info -- the mainRule name or ruleSequence name
+// 		var mainRules string
+// 		stmt := `SELECT	pc.main_rules FROM jetsapi.process_config pc WHERE pc.process_name = $1`
+// 		err := dbpool.QueryRow(context.Background(), stmt, processName).Scan(&mainRules)
+// 		if err != nil {
+// 			return nil,
+// 				fmt.Errorf("quering main rule file name for process %s from jetsapi.process_config failed: %v",
+// 					processName, err)
+// 		}
+// 		if len(mainRules) == 0 {
+// 			return nil, fmt.Errorf("error: main rule file name is empty for process %s", processName)
+// 		}
+// 		log.Printf("Rule engine for ruleset '%s' for process '%s' not loaded, loading from local workspace",
+// 			mainRules, processName)
+// 		ruleEngine, err = reFactory.NewJetRuleEngine(dbpool, mainRules, isDebug)
+// 		if err != nil {
+// 			return nil,
+// 				fmt.Errorf("while loading ruleset '%s' for process '%s' from local workspace via NewJetRuleEngine: %v",
+// 					mainRules, processName, err)
+// 		}
+// 		//*** concurrent read/write og resourceMap issue
+// 		// ruleEngineCache.Store(processName, ruleEngine)
+// 	} else {
+// 		ruleEngine = reHdle.(JetRuleEngine)
+// 	}
+// 	return
+// }
 
 type RuleEngineConfig struct {
 	MainRuleFile   string            `json:"main_rule_file_name,omitempty"`

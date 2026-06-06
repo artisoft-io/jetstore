@@ -62,13 +62,26 @@ class ReteSession {
       vertex_visits_(),
       pending_compute_consequent_beta_rows_(),
       err_msg_(),
-      max_vertex_visit_(0)
+      max_vertex_visit_(0),
+      no_truth_main_on_exist_(0)
     {}
 
   inline rdf::RDFSession *
   rdf_session()
   {
     return rdf_session_;
+  }
+
+  // Temp func for legacy rules
+  inline void
+  set_no_truth_main_on_exist(int value)
+  {
+    no_truth_main_on_exist_ = value;
+  }
+  inline int
+  get_no_truth_main_on_exist()const
+  {
+    return no_truth_main_on_exist_;
   }
 
   inline ReteMetaStore const*
@@ -274,6 +287,7 @@ class ReteSession {
   BetaRowPriorityQueue    pending_compute_consequent_beta_rows_;
   std::string             err_msg_;
   int                     max_vertex_visit_;
+  int                     no_truth_main_on_exist_; // This is temporary until we fix legacy rules
 };
 
 inline ReteSessionPtr create_rete_session(ReteMetaStorePtr rule_ms, 
