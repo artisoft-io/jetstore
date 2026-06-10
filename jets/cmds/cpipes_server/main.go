@@ -11,7 +11,7 @@ import (
 	"github.com/artisoft-io/jetstore/jets/awsi"
 	"github.com/artisoft-io/jetstore/jets/compute_pipes"
 	"github.com/artisoft-io/jetstore/jets/compute_pipes/jetrules_go_adaptor"
-	"github.com/jackc/pgx/v4/pgxpool"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 // Compute Pipe Node Executor as a Container Server
@@ -36,6 +36,7 @@ var dsn string
 
 type JetRulesProxyImpl struct {
 }
+
 func (j *JetRulesProxyImpl) GetDefaultFactory() compute_pipes.JetRulesFactory {
 	return jetrules_go_adaptor.NewJetRulesFactory()
 }
@@ -91,7 +92,7 @@ func main() {
 	}
 
 	// open db connection
-	dbpool, err := pgxpool.Connect(context.Background(), dsn)
+	dbpool, err := pgxpool.New(context.Background(), dsn)
 	if err != nil {
 		errMsg = append(errMsg, fmt.Sprintf("while opening db connection: %s", err))
 	}

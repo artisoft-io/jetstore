@@ -8,7 +8,7 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/jackc/pgx/v4"
+	"github.com/jackc/pgx/v5"
 )
 
 // Struct that represent bundle of input records corresponding to a rete session
@@ -118,7 +118,7 @@ func readInput(done <-chan struct{}, mainInput *ProcessInput, reteWorkspace *Ret
 		// setup the join tables: dsn * nbr merged tables
 		// Slice to hold the join queries
 		joinQueries := make([]joinQuery, 0)
-		
+
 		// Query for Merge Process Input
 		mergedProcessInput := reteWorkspace.pipelineConfig.mergedProcessInput
 		for _, jnode := range dbc.joinNodes {
@@ -208,7 +208,8 @@ func readInput(done <-chan struct{}, mainInput *ProcessInput, reteWorkspace *Ret
 					log.Printf("*Read*Input: Start of domain key %s", mainGroupingValue.String)
 				}
 				groupingValue = mainGroupingValue.String
-				joinQueryLoop: for iqr := range joinQueries {
+			joinQueryLoop:
+				for iqr := range joinQueries {
 					// check last pending row
 					if groupingValue == joinQueries[iqr].groupingValue {
 						// consume this row
@@ -217,8 +218,8 @@ func readInput(done <-chan struct{}, mainInput *ProcessInput, reteWorkspace *Ret
 							processInput: joinQueries[iqr].processInput,
 							rowData:      joinQueries[iqr].pendingRow})
 						if glogv > 2 {
-							log.Println("*Read*Input: Add row from Query", joinQueries[iqr].name,"for key",groupingValue)
-						}										
+							log.Println("*Read*Input: Add row from Query", joinQueries[iqr].name, "for key", groupingValue)
+						}
 					}
 					// Move forward while the joinQuery has a domain key <= groupingValue
 					if joinQueries[iqr].groupingValue <= groupingValue {
@@ -239,12 +240,12 @@ func readInput(done <-chan struct{}, mainInput *ProcessInput, reteWorkspace *Ret
 							switch {
 							case joinQueries[iqr].groupingValue < groupingValue:
 								if glogv > 2 {
-									log.Println("*Read*Input: Query", joinQueries[iqr].name,"got key",joinQueries[iqr].groupingValue,"(skipping)")
+									log.Println("*Read*Input: Query", joinQueries[iqr].name, "got key", joinQueries[iqr].groupingValue, "(skipping)")
 								}
 
 							case joinQueries[iqr].groupingValue == groupingValue:
 								if glogv > 2 {
-									log.Println("*Read*Input: Add row from Query", joinQueries[iqr].name,"for key",groupingValue)
+									log.Println("*Read*Input: Add row from Query", joinQueries[iqr].name, "for key", groupingValue)
 								}
 								// consume this row
 								rowCount += 1
@@ -255,7 +256,7 @@ func readInput(done <-chan struct{}, mainInput *ProcessInput, reteWorkspace *Ret
 							default:
 								// join query key is ahead, break from this loop
 								if glogv > 2 {
-									log.Println("*Read*Input: Query", joinQueries[iqr].name,"got key",joinQueries[iqr].groupingValue,"(blocking)")
+									log.Println("*Read*Input: Query", joinQueries[iqr].name, "got key", joinQueries[iqr].groupingValue, "(blocking)")
 								}
 								goto joinQueryLoop
 							}
@@ -267,7 +268,7 @@ func readInput(done <-chan struct{}, mainInput *ProcessInput, reteWorkspace *Ret
 			rowCount += 1
 			aGroupedJetRows.jetRowSlice = append(aGroupedJetRows.jetRowSlice, mainJetRow)
 			if glogv > 2 {
-				log.Println("*Read*Input: Add row from Main Query for key",groupingValue)
+				log.Println("*Read*Input: Add row from Main Query for key", groupingValue)
 			}
 		}
 

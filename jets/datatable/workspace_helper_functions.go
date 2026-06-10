@@ -15,7 +15,7 @@ import (
 	"github.com/artisoft-io/jetstore/jets/datatable/wsfile"
 	"github.com/artisoft-io/jetstore/jets/user"
 	"github.com/artisoft-io/jetstore/jets/workspace"
-	"github.com/jackc/pgx/v4/pgxpool"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 // Pull workspace changes in local repository:
@@ -122,7 +122,7 @@ func compileWorkspaceAction(ctx *DataTableContext, dataTableAction *DataTableAct
 		// Check if load client-specific config
 		if status != "error" {
 			otherActions := dataTableAction.Data[irow]["otherWorkspaceActionOptions"]
-			if(otherActions != nil) {
+			if otherActions != nil {
 				l := otherActions.([]interface{})
 				for i := range l {
 					if l[i] != nil && (l[i] == "wpLoadClientConfgOption" || l[i] == "wpLoadSelectedClientConfgOption") {

@@ -15,8 +15,8 @@ import (
 	"github.com/artisoft-io/jetstore/jets/awsi"
 	"github.com/artisoft-io/jetstore/jets/utils"
 	"github.com/aws/aws-sdk-go-v2/feature/s3/manager"
-	"github.com/jackc/pgx/v4"
-	"github.com/jackc/pgx/v4/pgxpool"
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 // Common functions and types for s3, rewite of loader's version
@@ -282,7 +282,7 @@ func (cpCtx *ComputePipesContext) downloadS3Files(inFolderPath, externalBucket s
 		}
 		return
 	}
-	
+
 	// Regular flow for non generator input channel, need to download the file(s) from s3 and send the file name(s) to the channel
 	inputFormat := inputChannelConfig.Format
 	if strings.HasPrefix(inputFormat, "parquet") {

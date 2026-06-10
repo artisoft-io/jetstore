@@ -6,8 +6,8 @@ import (
 	"log"
 	"os"
 
-	"github.com/jackc/pgx/v4"
-	"github.com/jackc/pgx/v4/pgxpool"
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 // Functions to read and write files to postgres as blob
@@ -103,7 +103,7 @@ func (fo *FileDbObject) WriteObject(dbpool *pgxpool.Pool, data []byte) (int64, e
 	return int64(len(data)), err
 }
 
-//	Read from workspace_changes table, update fo, write data to fd
+// Read from workspace_changes table, update fo, write data to fd
 func (fo *FileDbObject) ReadObject(dbpool *pgxpool.Pool, fd *os.File) (int64, error) {
 	var data []byte
 	stmt := `SELECT data, content_type, user_email 

@@ -8,7 +8,7 @@ import (
 
 	"github.com/artisoft-io/jetstore/jets/jetrules/rete"
 	"github.com/artisoft-io/jetstore/jets/serverv2/workspace"
-	"github.com/jackc/pgx/v4/pgxpool"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 // This file contains the components for coordinating
@@ -51,6 +51,7 @@ type writeResult struct {
 	result WriteTableResult
 	err    error
 }
+
 var pipelineExecutionDetailsKey int
 
 // Initial insert into pipeline_execution_details

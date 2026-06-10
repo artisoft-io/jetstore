@@ -12,17 +12,18 @@ import (
 
 	"github.com/artisoft-io/jetstore/jets/datatable"
 	"github.com/artisoft-io/jetstore/jets/user"
-	"github.com/jackc/pgx/v4"
+	"github.com/jackc/pgx/v5"
 	"go.uber.org/zap"
 )
+
 type PurgeDataAction struct {
-	Action               string            			  `json:"action"`
-	WorkspaceName        string                   `json:"workspaceName"`
-	RunUiDbInitScript    bool              			  `json:"run_ui_db_init_script"`
-	Data                 []map[string]interface{} `json:"data"`
+	Action            string                   `json:"action"`
+	WorkspaceName     string                   `json:"workspaceName"`
+	RunUiDbInitScript bool                     `json:"run_ui_db_init_script"`
+	Data              []map[string]interface{} `json:"data"`
 }
 
-func (pd *PurgeDataAction)getWorkspaceName() string {
+func (pd *PurgeDataAction) getWorkspaceName() string {
 	if pd.WorkspaceName == "" {
 		return os.Getenv("WORKSPACE")
 	}
@@ -40,8 +41,8 @@ func (server *Server) DoPurgeDataAction(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 	token := user.ExtractToken(r)
-	user,_ := user.ExtractTokenID(token)
-	server.AuditLogger.Info(string(body), zap.String("user", user),zap.String("time", time.Now().Format(time.RFC3339)))
+	user, _ := user.ExtractTokenID(token)
+	server.AuditLogger.Info(string(body), zap.String("user", user), zap.String("time", time.Now().Format(time.RFC3339)))
 	action := PurgeDataAction{}
 	err = json.Unmarshal(body, &action)
 	if err != nil {
@@ -72,7 +73,7 @@ func (server *Server) DoPurgeDataAction(w http.ResponseWriter, r *http.Request) 
 // Delete all tables containing the input data, get the table name list from input_loader_status
 // also clear/truncate the input_registry table
 // Also migrate the system tables to latest schema and conditionally run the workspace db init script
-	func (server *Server) ResetDomainTables(purgeDataAction *PurgeDataAction) (*map[string]interface{}, int, error) {
+func (server *Server) ResetDomainTables(purgeDataAction *PurgeDataAction) (*map[string]interface{}, int, error) {
 
 	// Delete the input staging tables, ignore error here since input_loader_status does not exist
 	// in initial deployment
@@ -99,7 +100,7 @@ func (server *Server) DoPurgeDataAction(w http.ResponseWriter, r *http.Request) 
 	// Clear and rebuild the domain table using the update_db command line
 	// Also migrate the system tables to latest schema
 	log.Println("Rebuild Domain Tables")
-	serverArgs := []string{ "-drop",  "-migrateDb" }
+	serverArgs := []string{"-drop", "-migrateDb"}
 	if purgeDataAction.RunUiDbInitScript {
 		serverArgs = append(serverArgs, "-initWorkspaceDb")
 	}
@@ -132,7 +133,7 @@ func (server *Server) DoPurgeDataAction(w http.ResponseWriter, r *http.Request) 
 func (server *Server) RunWorkspaceBaseDbInit(purgeDataAction *PurgeDataAction) (*map[string]interface{}, int, error) {
 	// using update_db script
 	log.Println("Run update_db for base init script")
-	serverArgs := []string{ "-initBaseWorkspaceDb", "-migrateDb" }
+	serverArgs := []string{"-initBaseWorkspaceDb", "-migrateDb"}
 	if *usingSshTunnel {
 		serverArgs = append(serverArgs, "-usingSshTunnel")
 	}

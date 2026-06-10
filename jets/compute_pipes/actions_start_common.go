@@ -13,7 +13,7 @@ import (
 
 	"github.com/artisoft-io/jetstore/jets/datatable"
 	"github.com/artisoft-io/jetstore/jets/workspace"
-	"github.com/jackc/pgx/v4/pgxpool"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 var workspaceHome, wsPrefix string
@@ -677,7 +677,7 @@ func ApplyAllConditionalTransformationSpec(pipeConfig []PipeSpec, env map[string
 					}
 
 					// Evaluate the when condition
-					v, err := evaluator.Eval( env)
+					v, err := evaluator.Eval(env)
 					if err != nil {
 						return fmt.Errorf("error evaluating when condition for transformation %d: %v", j, err)
 					}
@@ -1308,7 +1308,7 @@ func (cpss *CpipesStartup) validateOutputChConfig(outputChConfig *OutputChannelC
 				outputChConfig.Name, outputChConfig.SpecName)
 		}
 		switch outputChConfig.Type {
-		
+
 		case "stage":
 			if sp != nil {
 				syncOutputChannelWithSchemaProvider(outputChConfig, sp)
@@ -1508,7 +1508,7 @@ func (cpipesStartup *CpipesStartup) EvalUseEcsTask(stepId int) (bool, error) {
 			if err != nil {
 				return false, err
 			}
-			v, err := evaluator.Eval( cpipesStartup.EnvSettings)
+			v, err := evaluator.Eval(cpipesStartup.EnvSettings)
 			if err != nil {
 				return false, err
 			}

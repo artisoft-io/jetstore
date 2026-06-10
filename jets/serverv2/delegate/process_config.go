@@ -16,8 +16,8 @@ import (
 	"github.com/artisoft-io/jetstore/jets/datatable/jcsv"
 	"github.com/artisoft-io/jetstore/jets/schema"
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v4"
-	"github.com/jackc/pgx/v4/pgxpool"
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 // Main data entity
@@ -431,7 +431,7 @@ func (ctx *ServerContext) ReadPipelineConfig(dbpool *pgxpool.Pool, peKey int) (*
 		return &pc, fmt.Errorf("error: output SessionId is not specified")
 	}
 	ctx.ca.OutSessionId = outSessionId
-	
+
 	// Validate the outSessionId is not already used
 	isInUse, err := schema.IsSessionExists(dbpool, outSessionId)
 	if err != nil {

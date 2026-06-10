@@ -9,7 +9,7 @@ import (
 	"github.com/artisoft-io/jetstore/jets/compute_pipes"
 	"github.com/artisoft-io/jetstore/jets/jetrules/rdf"
 	"github.com/artisoft-io/jetstore/jets/jetrules/rete"
-	"github.com/jackc/pgx/v4/pgxpool"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 // This file contains the adaptor code to implement JetrulesInterface for the Go rule engine.
@@ -311,7 +311,7 @@ func (ses *JetRdfSessionGo) EncodeRdfSession() string {
 	if ses.rdfSession == nil {
 		return ""
 	}
-	
+
 	enc, err := ses.encodeSession()
 	if err != nil {
 		enc = map[string]any{"error": err.Error()}
@@ -321,14 +321,16 @@ func (ses *JetRdfSessionGo) EncodeRdfSession() string {
 }
 
 // Returns map[string]any which is
-//    {
-//      "rdf_types": string (json of [][]string),
-// 	    "entity_key_by_type": map[string]string (json of [][]string),
-//      "entity_details_by_key": map[string]string (json of [][]string),
-//    }
+//
+//	   {
+//	     "rdf_types": string (json of [][]string),
+//		    "entity_key_by_type": map[string]string (json of [][]string),
+//	     "entity_details_by_key": map[string]string (json of [][]string),
+//	   }
+//
 // rdf_type: JetModel ([][]string): List of rdf:type, single column model
 // entity_key_by_type: Map[rdf:type]JetModel: JetModel is list of jet:key, single column model
-// entity_details_by_key: Map[jets:key]EncodedJetModel, 
+// entity_details_by_key: Map[jets:key]EncodedJetModel,
 // where EncodedJetModel is encoded json of JetModel ([][]string): List of ["property", "value", "value.type"] of obj w/ jets:key, 2 columns JetModel
 // If there is an error, it returns a map with only one key "error" and the error message as value.
 func (ses *JetRdfSessionGo) encodeSession() (map[string]any, error) {
@@ -346,7 +348,7 @@ func (ses *JetRdfSessionGo) encodeSession() (map[string]any, error) {
 
 	ri := ses.re.JetResources()
 	// Create the rdf_type (rdfTypeSet) and entity_key_by_type (entityKeyByType) data structures
-	ctor  := ses.rdfSession.FindSPO(nil, ri.Rdf__type.Hdle().(*rdf.Node), nil)
+	ctor := ses.rdfSession.FindSPO(nil, ri.Rdf__type.Hdle().(*rdf.Node), nil)
 	for t3 := range ctor.Itor {
 		entity := t3[0]
 		entityName := entity.String()

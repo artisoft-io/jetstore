@@ -11,7 +11,7 @@ import (
 	"github.com/artisoft-io/jetstore/jets/awsi"
 	"github.com/artisoft-io/jetstore/jets/datatable"
 	"github.com/artisoft-io/jetstore/jets/run_reports/delegate"
-	"github.com/jackc/pgx/v4/pgxpool"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 // Env variable:
@@ -154,7 +154,7 @@ func main() {
 			errMsg = append(errMsg, fmt.Sprintf("while getting dsn from aws secret: %v", err))
 		}
 	}
-	dbpool, err := pgxpool.Connect(context.Background(), *dsn)
+	dbpool, err := pgxpool.New(context.Background(), *dsn)
 	if err != nil {
 		hasErr = true
 		errMsg = append(errMsg, fmt.Sprintf("while opening db connection: %v", err))
@@ -194,7 +194,6 @@ func main() {
 	fmt.Println("*** DO NOT USE jetsapi.session_registry TABLE IN REPORTS FOR THE CURRENT session_id SINCE IT IS NOT REGISTERED YET")
 	fmt.Println("*** The session_id is registered AFTER the report completion during the status_update task")
 	fmt.Println("*** Use the substitution variable $SOURCE_PERIOD_KEY to get the source_period_key of the current session_id")
-
 
 	//* MOVE THIS TO DIRECTIVE Check for special case: serverSM produced no output records, then exit silently
 	if len(*sessionId) > 0 {

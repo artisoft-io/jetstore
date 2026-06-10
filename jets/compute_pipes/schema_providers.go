@@ -5,7 +5,7 @@ import (
 	"log"
 	"strings"
 
-	"github.com/jackc/pgx/v4/pgxpool"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 // This package defines the schema manager & provider types
@@ -357,20 +357,20 @@ func (sp *DefaultSchemaProvider) BlankFieldMarkers() *BlankFieldMarkers {
 	var blankMarkers *BlankFieldMarkers
 	blankMarkersSpec := sp.spec.BlankFieldMarkers
 	if blankMarkersSpec != nil {
-			markers := blankMarkersSpec.Markers
-			if len(markers) > 0 {
-				if !blankMarkersSpec.CaseSensitive {
-					for i := range markers {
-						markers[i] = strings.ToUpper(markers[i])
-					}
+		markers := blankMarkersSpec.Markers
+		if len(markers) > 0 {
+			if !blankMarkersSpec.CaseSensitive {
+				for i := range markers {
+					markers[i] = strings.ToUpper(markers[i])
 				}
-				blankMarkers = &BlankFieldMarkers{
-					CaseSensitive: blankMarkersSpec.CaseSensitive,
-					Markers:       markers,
-				}
-				log.Printf("SchemaProvider: blank field markers: case_sensitive=%v, markers=%v", blankMarkers.CaseSensitive, blankMarkers.Markers)
 			}
+			blankMarkers = &BlankFieldMarkers{
+				CaseSensitive: blankMarkersSpec.CaseSensitive,
+				Markers:       markers,
+			}
+			log.Printf("SchemaProvider: blank field markers: case_sensitive=%v, markers=%v", blankMarkers.CaseSensitive, blankMarkers.Markers)
 		}
+	}
 	return blankMarkers
 }
 

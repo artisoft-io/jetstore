@@ -13,7 +13,7 @@ import (
 
 	"github.com/artisoft-io/jetstore/jets/awsi"
 	"github.com/artisoft-io/jetstore/jets/schema"
-	"github.com/jackc/pgx/v4/pgxpool"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 type RegisterFileKeyAction struct {
@@ -123,7 +123,7 @@ func (ctx *DataTableContext) RegisterFileKeys(registerFileKeyAction *RegisterFil
 	var requestId any
 	var allOk bool
 	row := make([]any, len(sqlStmt.ColumnKeys))
-	NextKey:
+NextKey:
 	for irow := range registerFileKeyAction.Data {
 		var schemaProviderJson string
 		// fileKeyObject with defaults

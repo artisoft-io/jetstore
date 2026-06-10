@@ -168,3 +168,4 @@ jets/cmds/cpipes_native_server/cpipes_native_server
 jets/cmds/cpipes_server/cpipes_server
 jets/purge_database/purge_database
 jets/run_reports/run_reports
+package-lock.json

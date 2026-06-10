@@ -19,8 +19,8 @@ import (
 	"github.com/artisoft-io/jetstore/jets/user"
 	"github.com/artisoft-io/jetstore/jets/workspace"
 	"github.com/gorilla/mux"
-	"github.com/jackc/pgx/v4"
-	"github.com/jackc/pgx/v4/pgxpool"
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 	"go.uber.org/zap"
 )
 
@@ -365,7 +365,7 @@ func listenAndServe() error {
 			return fmt.Errorf("while getting dsn from aws secret: %v", err)
 		}
 	}
-	server.dbpool, err = pgxpool.Connect(context.Background(), *dsn)
+	server.dbpool, err = pgxpool.New(context.Background(), *dsn)
 	if err != nil {
 		return fmt.Errorf("while opening db connection: %v", err)
 	}
@@ -626,7 +626,7 @@ func (server *Server) GetLastSecretRotation() (tm *time.Time, err error) {
 				}
 				// reset the db connection
 				server.dbpool.Close()
-				server.dbpool, err = pgxpool.Connect(context.Background(), *dsn)
+				server.dbpool, err = pgxpool.New(context.Background(), *dsn)
 				if err != nil {
 					err = fmt.Errorf("while re-opening db connection in GetLastSecretRotation: %v", err)
 					log.Println(err)

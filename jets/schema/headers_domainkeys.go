@@ -14,57 +14,60 @@ import (
 
 	"github.com/artisoft-io/jetstore/jets/jetrules/rdf"
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v4"
-	"github.com/jackc/pgx/v4/pgxpool"
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 // available functions for preprocessing input column values used in domain keys
 var preprocessingFunctions map[string]bool
 var preprocessingFncRe *regexp.Regexp
 var domainKeySeparator string
+
 func init() {
 	preprocessingFncRe = regexp.MustCompile(`^(.*?)\((.*?)\)$`)
 	preprocessingFunctions = map[string]bool{
 		"format_date": true,
-		"remove_mi": true,
+		"remove_mi":   true,
 	}
 	domainKeySeparator = os.Getenv("JETS_DOMAIN_KEY_SEPARATOR")
 }
+
 type DomainKeyInfo struct {
 	// list of input column name making the domain key
-	ColumnNames      []string
+	ColumnNames []string
 	// list of input column position making the domain key
-	ColumnPos        []int
+	ColumnPos []int
 	// list of pre-processing functions for the input column (one per column)
-	PreprocessFnc    []string
+	PreprocessFnc []string
 	// Object type associated with the Domain Key
-	ObjectType       string
+	ObjectType string
 	// Column position of column `objectType`:domain_key in the output table
-	DomainKeyPos     int
+	DomainKeyPos int
 	// Column position of column `objectType`:shard_id in the output table
-	ShardIdPos       int
+	ShardIdPos int
 }
 type HeadersAndDomainKeysInfo struct {
-	TableName         string
-	RawHeaders        []string
-	Headers           []string
-	HashingOverriden  bool
-	HashingAlgo       string
-	HashingSeed       uuid.UUID
+	TableName        string
+	RawHeaders       []string
+	Headers          []string
+	HashingOverriden bool
+	HashingAlgo      string
+	HashingSeed      uuid.UUID
 	// key is the header
-	HeadersPosMap     map[string]int
+	HeadersPosMap map[string]int
 	// key is ObjectType of DomainKeyInfo
 	DomainKeysInfoMap map[string]*DomainKeyInfo
-	// Reserved columns removed from RawHeaders and included in Headers 
-	ReservedColumns   map[string]bool
-	FillerColumns     map[string]bool
+	// Reserved columns removed from RawHeaders and included in Headers
+	ReservedColumns map[string]bool
+	FillerColumns   map[string]bool
 	// column prefix used for fixed-width input record
 	// The prefix is the first record type (the one with offset == 0)
 	// This is empty string for non fixed-width records, therefore ignored
 	FixedWidthColumnPrefix string
 }
+
 func NewHeadersAndDomainKeysInfo(tableName string) (*HeadersAndDomainKeysInfo, error) {
-	headersDKInfo := HeadersAndDomainKeysInfo {
+	headersDKInfo := HeadersAndDomainKeysInfo{
 		TableName:         tableName,
 		DomainKeysInfoMap: make(map[string]*DomainKeyInfo, 0),
 		RawHeaders:        make([]string, 0),
@@ -92,7 +95,7 @@ func NewHeadersAndDomainKeysInfo(tableName string) (*HeadersAndDomainKeysInfo, e
 	}
 	return &headersDKInfo, nil
 }
-func (dkInfo *HeadersAndDomainKeysInfo)InitializeStagingTable(rawHeaders *[]string, mainObjectType string, domainKeysJson *string, fixedWidthColumnPrefix string) error {
+func (dkInfo *HeadersAndDomainKeysInfo) InitializeStagingTable(rawHeaders *[]string, mainObjectType string, domainKeysJson *string, fixedWidthColumnPrefix string) error {
 	dkInfo.RawHeaders = append(dkInfo.RawHeaders, (*rawHeaders)...)
 	dkInfo.ReservedColumns["file_key"] = true
 	dkInfo.ReservedColumns["jets:key"] = true
@@ -101,14 +104,14 @@ func (dkInfo *HeadersAndDomainKeysInfo)InitializeStagingTable(rawHeaders *[]stri
 	dkInfo.FixedWidthColumnPrefix = fixedWidthColumnPrefix
 	return dkInfo.Initialize(mainObjectType, domainKeysJson)
 }
-func (dkInfo *HeadersAndDomainKeysInfo)InitializeDomainTable(domainHeaders *[]string, mainObjectType string, domainKeysJson *string) error {
+func (dkInfo *HeadersAndDomainKeysInfo) InitializeDomainTable(domainHeaders *[]string, mainObjectType string, domainKeysJson *string) error {
 	dkInfo.RawHeaders = append(dkInfo.RawHeaders, (*domainHeaders)...)
 	dkInfo.ReservedColumns["last_update"] = true
 	dkInfo.ReservedColumns["session_id"] = true
 	return dkInfo.Initialize(mainObjectType, domainKeysJson)
 }
 
-func (dk *DomainKeyInfo)String() string {
+func (dk *DomainKeyInfo) String() string {
 	var buf strings.Builder
 	buf.WriteString("    DomainKeyInfo:")
 	buf.WriteString("\n      ObjectType:")
@@ -125,7 +128,7 @@ func (dk *DomainKeyInfo)String() string {
 	return buf.String()
 }
 
-func (dkInfo *HeadersAndDomainKeysInfo)String() string {
+func (dkInfo *HeadersAndDomainKeysInfo) String() string {
 	var buf strings.Builder
 	buf.WriteString("HeadersAndDomainKeysInfo:")
 	buf.WriteString("\n  RawHeaders:")
@@ -146,11 +149,11 @@ func (dkInfo *HeadersAndDomainKeysInfo)String() string {
 	buf.WriteString("\n  HashingSeed: ")
 	buf.WriteString(dkInfo.HashingSeed.String())
 	buf.WriteString("\n  HeadersPos:")
-	for k,v := range dkInfo.HeadersPosMap {
+	for k, v := range dkInfo.HeadersPosMap {
 		buf.WriteString(fmt.Sprintf("(%s:%d), ", k, v))
 	}
 	buf.WriteString("\n  DomainKeysInfoMap:")
-	for _,v := range dkInfo.DomainKeysInfoMap {
+	for _, v := range dkInfo.DomainKeysInfoMap {
 		buf.WriteString(v.String())
 	}
 	buf.WriteString("\n")
@@ -175,7 +178,7 @@ func parseColumn(column *string) []string {
 // --------------------------------------------------------------------------------------
 // Compute output table columns and associated domain keys
 // passing domainKeysJson as argument for completeness
-func (dkInfo *HeadersAndDomainKeysInfo)Initialize(mainObjectType string, domainKeysJson *string) error {
+func (dkInfo *HeadersAndDomainKeysInfo) Initialize(mainObjectType string, domainKeysJson *string) error {
 	var ok bool
 	if *domainKeysJson == "" {
 		log.Println("No domain key defined (domainKeysJson is empty), using jets:key as default")
@@ -190,11 +193,11 @@ func (dkInfo *HeadersAndDomainKeysInfo)Initialize(mainObjectType string, domainK
 	// Extract the domain keys structure from the json
 	switch value := f.(type) {
 	case string:
-			// fmt.Println("*** Domain Key is single column", value)
-			dkInfo.DomainKeysInfoMap[mainObjectType] = &DomainKeyInfo{
-				ColumnNames: []string{value},
-				ObjectType: mainObjectType,
-			}
+		// fmt.Println("*** Domain Key is single column", value)
+		dkInfo.DomainKeysInfoMap[mainObjectType] = &DomainKeyInfo{
+			ColumnNames: []string{value},
+			ObjectType:  mainObjectType,
+		}
 	case []interface{}:
 		// fmt.Println("*** Domain Key is a composite key", value)
 		ck := make([]string, 0)
@@ -205,7 +208,7 @@ func (dkInfo *HeadersAndDomainKeysInfo)Initialize(mainObjectType string, domainK
 		}
 		dkInfo.DomainKeysInfoMap[mainObjectType] = &DomainKeyInfo{
 			ColumnNames: ck,
-			ObjectType: mainObjectType,
+			ObjectType:  mainObjectType,
 		}
 	case map[string]interface{}:
 		// fmt.Println("*** Domain Key is a struct of composite keys", value)
@@ -218,7 +221,7 @@ func (dkInfo *HeadersAndDomainKeysInfo)Initialize(mainObjectType string, domainK
 				} else {
 					dkInfo.DomainKeysInfoMap[k] = &DomainKeyInfo{
 						ColumnNames: []string{vv},
-						ObjectType: k,
+						ObjectType:  k,
 					}
 				}
 			case []interface{}:
@@ -230,26 +233,26 @@ func (dkInfo *HeadersAndDomainKeysInfo)Initialize(mainObjectType string, domainK
 				}
 				dkInfo.DomainKeysInfoMap[k] = &DomainKeyInfo{
 					ColumnNames: ck,
-					ObjectType: k,
+					ObjectType:  k,
 				}
 			default:
-					log.Println("domainKeysJson contains",vv,"which is of a type that is not supported")
+				log.Println("domainKeysJson contains", vv, "which is of a type that is not supported")
 			}
 		}
 	default:
-		log.Println("domainKeysJson contains",value,"which is of a type that is not supported")
+		log.Println("domainKeysJson contains", value, "which is of a type that is not supported")
 	}
 
 	// Extract the preprocessing functions that are decorating the column names (if any)
 	// regex to extract preprocessing function, e.g., format_date(columnName)
-	for _,dk := range dkInfo.DomainKeysInfoMap {
+	for _, dk := range dkInfo.DomainKeysInfoMap {
 		dk.PreprocessFnc = make([]string, len(dk.ColumnNames))
 		for i := range dk.ColumnNames {
 			v := parseColumn(&dk.ColumnNames[i])
 			if v != nil {
 				dk.ColumnNames[i] = v[2]
 				dk.PreprocessFnc[i] = v[1]
-			}		
+			}
 		}
 	}
 
@@ -265,14 +268,14 @@ func (dkInfo *HeadersAndDomainKeysInfo)Initialize(mainObjectType string, domainK
 	for ipos := range dkInfo.RawHeaders {
 		h := dkInfo.RawHeaders[ipos]
 		if !dkInfo.ReservedColumns[h] && !dkInfo.FillerColumns[h] {
-			_,ok := dkInfo.HeadersPosMap[h]
+			_, ok := dkInfo.HeadersPosMap[h]
 			if ok {
 				// Column is duplicated, mark it as a filler
 				// (there will still be one column named by the value of h)
 				dkInfo.FillerColumns[h] = true
 			} else {
 				dkInfo.Headers = append(dkInfo.Headers, h)
-				dkInfo.HeadersPosMap[h] = ipos	
+				dkInfo.HeadersPosMap[h] = ipos
 			}
 		}
 	}
@@ -286,7 +289,7 @@ func (dkInfo *HeadersAndDomainKeysInfo)Initialize(mainObjectType string, domainK
 	// Complete the initialization of DomainKeyInfo since we now have the headers
 	// k: objectType
 	// v: *DomainKeyInfo
-	for objectType,v := range dkInfo.DomainKeysInfoMap {
+	for objectType, v := range dkInfo.DomainKeysInfoMap {
 		v.ColumnPos = make([]int, len(v.ColumnNames))
 		for jpos, columnName := range v.ColumnNames {
 			if dkInfo.FixedWidthColumnPrefix != "" {
@@ -295,7 +298,7 @@ func (dkInfo *HeadersAndDomainKeysInfo)Initialize(mainObjectType string, domainK
 			v.ColumnPos[jpos], ok = dkInfo.HeadersPosMap[columnName]
 			if !ok {
 				err := fmt.Errorf(
-					"error while getting domain keys: column name '%s' not found in headers of table %s, see if table jetsapi.domain_keys_registry has an invaid record", 
+					"error while getting domain keys: column name '%s' not found in headers of table %s, see if table jetsapi.domain_keys_registry has an invaid record",
 					columnName, dkInfo.TableName)
 				log.Println(err)
 				return err
@@ -309,15 +312,15 @@ func (dkInfo *HeadersAndDomainKeysInfo)Initialize(mainObjectType string, domainK
 	return nil
 }
 
-func (dkInfo *HeadersAndDomainKeysInfo)GetHeaderPos() []int {
+func (dkInfo *HeadersAndDomainKeysInfo) GetHeaderPos() []int {
 	ret := make([]int, len(dkInfo.Headers))
-	for i,k := range dkInfo.Headers {
+	for i, k := range dkInfo.Headers {
 		ret[i] = dkInfo.HeadersPosMap[k]
 	}
 	return ret
 }
 
-func (dkInfo *HeadersAndDomainKeysInfo)joinUpper(columns *[]string, sep string) string {
+func (dkInfo *HeadersAndDomainKeysInfo) joinUpper(columns *[]string, sep string) string {
 	if columns == nil {
 		return ""
 	}
@@ -337,7 +340,7 @@ func (dkInfo *HeadersAndDomainKeysInfo)joinUpper(columns *[]string, sep string) 
 	return buf.String()
 }
 
-func (dkInfo *HeadersAndDomainKeysInfo)makeGroupingKey(columns *[]string) string {
+func (dkInfo *HeadersAndDomainKeysInfo) makeGroupingKey(columns *[]string) string {
 	var groupingKey string
 	switch dkInfo.HashingAlgo {
 	case "md5":
@@ -352,7 +355,7 @@ func (dkInfo *HeadersAndDomainKeysInfo)makeGroupingKey(columns *[]string) string
 	return groupingKey
 }
 
-func (dkInfo *HeadersAndDomainKeysInfo)IsDomainKeyIsJetsKey(objectType *string) bool {
+func (dkInfo *HeadersAndDomainKeysInfo) IsDomainKeyIsJetsKey(objectType *string) bool {
 	if objectType != nil {
 		dk := dkInfo.DomainKeysInfoMap[*objectType]
 		if dk != nil && len(dk.ColumnPos) == 1 && dk.ColumnNames[0] == "jets:key" {
@@ -372,10 +375,10 @@ func applyPreprocessingFunction(fncName, value string) (string, error) {
 		if err != nil {
 			return "", fmt.Errorf("while applyPreprocessingFunction %s: %v", fncName, err)
 		}
-		formatedDate := fmt.Sprintf("%d%02d%02d",year, month, day)
+		formatedDate := fmt.Sprintf("%d%02d%02d", year, month, day)
 		return formatedDate, nil
 
-	case "remove_mi":	// remove last 2 char if last-1 is a space, e.g. "michel f" becomes "michel"
+	case "remove_mi": // remove last 2 char if last-1 is a space, e.g. "michel f" becomes "michel"
 		l := len(value)
 		if l < 3 {
 			return value, nil
@@ -384,18 +387,18 @@ func applyPreprocessingFunction(fncName, value string) (string, error) {
 		s := []byte(" ")
 		if v == s[0] {
 			return value[:l-2], nil
-		} 
+		}
 		return value, nil
 
 	default:
 		return "", fmt.Errorf("unknown pre-processing function %s", fncName)
 	}
 }
-func (dkInfo *HeadersAndDomainKeysInfo)ComputeGroupingKey(NumberOfShards int, objectType *string, record *[]string, recordTypeOffset int, jetsKey *string) (string, int, error) {
+func (dkInfo *HeadersAndDomainKeysInfo) ComputeGroupingKey(NumberOfShards int, objectType *string, record *[]string, recordTypeOffset int, jetsKey *string) (string, int, error) {
 	dk := dkInfo.DomainKeysInfoMap[*objectType]
 	if dk == nil {
 		groupingKey := *jetsKey
-		return groupingKey, ComputeShardId(NumberOfShards, groupingKey), nil		
+		return groupingKey, ComputeShardId(NumberOfShards, groupingKey), nil
 	}
 	if len(dk.ColumnPos) == 1 {
 		if dk.ColumnNames[0] == "jets:key" {
@@ -430,10 +433,11 @@ func (dkInfo *HeadersAndDomainKeysInfo)ComputeGroupingKey(NumberOfShards int, ob
 		}
 	}
 	groupingKey := dkInfo.makeGroupingKey(&cols)
-	return groupingKey, ComputeShardId(NumberOfShards, groupingKey), nil		
+	return groupingKey, ComputeShardId(NumberOfShards, groupingKey), nil
 }
+
 // Alternate version for output records - same as ComputeGroupingKey using interface{} as record
-func (dkInfo *HeadersAndDomainKeysInfo)ComputeGroupingKeyI(NumberOfShards int, objectType *string, record *[]interface{}) (string, int, error) {
+func (dkInfo *HeadersAndDomainKeysInfo) ComputeGroupingKeyI(NumberOfShards int, objectType *string, record *[]interface{}) (string, int, error) {
 	dk := dkInfo.DomainKeysInfoMap[*objectType]
 	if dk == nil {
 		return "", 0, fmt.Errorf("unexpected error: no domain key info found for objecttype %s", *objectType)
@@ -458,15 +462,15 @@ func (dkInfo *HeadersAndDomainKeysInfo)ComputeGroupingKeyI(NumberOfShards int, o
 		case string:
 			cols[ipos] = value
 		case nil:
-			log.Println("Error: Domain Key column", dk.ColumnNames[ipos],"is NULL")
+			log.Println("Error: Domain Key column", dk.ColumnNames[ipos], "is NULL")
 			return "", 0, nil
 		default:
-			log.Println("Error: Domain Key column", dk.ColumnNames[ipos],"is not a string, it's", reflect.TypeOf(value).Kind())
+			log.Println("Error: Domain Key column", dk.ColumnNames[ipos], "is not a string, it's", reflect.TypeOf(value).Kind())
 			return "", 0, fmt.Errorf("error: Domain Key column is not a string, it's %s", reflect.TypeOf(value).Kind())
 		}
 	}
 	groupingKey := dkInfo.makeGroupingKey(&cols)
-	return groupingKey, ComputeShardId(NumberOfShards, groupingKey), nil		
+	return groupingKey, ComputeShardId(NumberOfShards, groupingKey), nil
 }
 
 func ComputeShardId(NumberOfShards int, key string) int {
@@ -485,7 +489,7 @@ func TableExists(dbpool *pgxpool.Pool, schema, table string) (exists bool, err e
 }
 
 // Create the Staging Table
-func (dkInfo *HeadersAndDomainKeysInfo)CreateStagingTable(dbpool *pgxpool.Pool, tableName string) (err error) {
+func (dkInfo *HeadersAndDomainKeysInfo) CreateStagingTable(dbpool *pgxpool.Pool, tableName string) (err error) {
 	if tableName == "" {
 		return fmt.Errorf("error in CreateStagingTable: tableName is empty")
 	}
@@ -506,7 +510,7 @@ func (dkInfo *HeadersAndDomainKeysInfo)CreateStagingTable(dbpool *pgxpool.Pool, 
 
 		case header == "jets:key":
 			buf.WriteString(
-				fmt.Sprintf(" %s TEXT DEFAULT gen_random_uuid ()::text NOT NULL", 
+				fmt.Sprintf(" %s TEXT DEFAULT gen_random_uuid ()::text NOT NULL",
 					pgx.Identifier{header}.Sanitize()))
 
 		case header == "session_id":
@@ -539,10 +543,10 @@ func (dkInfo *HeadersAndDomainKeysInfo)CreateStagingTable(dbpool *pgxpool.Pool, 
 	// Create index on sessionId and shardId columns
 	for k := range dkInfo.DomainKeysInfoMap {
 		stmt = fmt.Sprintf(`CREATE INDEX IF NOT EXISTS %s ON %s (%s, %s);`,
-		pgx.Identifier{fmt.Sprintf("%s_%s_shard_idx", tableName, k)}.Sanitize(),
-		pgx.Identifier{tableName}.Sanitize(),
-		pgx.Identifier{"session_id"}.Sanitize(),
-		pgx.Identifier{fmt.Sprintf("%s:shard_id", k)}.Sanitize())
+			pgx.Identifier{fmt.Sprintf("%s_%s_shard_idx", tableName, k)}.Sanitize(),
+			pgx.Identifier{tableName}.Sanitize(),
+			pgx.Identifier{"session_id"}.Sanitize(),
+			pgx.Identifier{fmt.Sprintf("%s:shard_id", k)}.Sanitize())
 		log.Println(stmt)
 		_, err = dbpool.Exec(context.Background(), stmt)
 		if err != nil {
@@ -553,10 +557,10 @@ func (dkInfo *HeadersAndDomainKeysInfo)CreateStagingTable(dbpool *pgxpool.Pool, 
 	// Create index on sessionId and domainKey columns
 	for k := range dkInfo.DomainKeysInfoMap {
 		stmt = fmt.Sprintf(`CREATE INDEX IF NOT EXISTS %s ON %s (%s, %s ASC);`,
-		pgx.Identifier{fmt.Sprintf("%s_%s_domainkey_idx", tableName, k)}.Sanitize(),
-		pgx.Identifier{tableName}.Sanitize(),
-		pgx.Identifier{"session_id"}.Sanitize(),
-		pgx.Identifier{fmt.Sprintf("%s:domain_key", k)}.Sanitize())
+			pgx.Identifier{fmt.Sprintf("%s_%s_domainkey_idx", tableName, k)}.Sanitize(),
+			pgx.Identifier{tableName}.Sanitize(),
+			pgx.Identifier{"session_id"}.Sanitize(),
+			pgx.Identifier{fmt.Sprintf("%s:domain_key", k)}.Sanitize())
 		log.Println(stmt)
 		_, err = dbpool.Exec(context.Background(), stmt)
 		if err != nil {
@@ -584,7 +588,7 @@ func GetObjectTypesFromDominsKeyJson(domainKeysJson string, defaultValue string)
 				if k != "jets:hashing_override" {
 					objTypes = append(objTypes, k)
 				}
-			}		
+			}
 		}
 	}
 	if len(objTypes) == 0 {

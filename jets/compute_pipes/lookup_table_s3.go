@@ -10,7 +10,7 @@ import (
 
 	"github.com/artisoft-io/jetstore/jets/csv"
 	"github.com/golang/snappy"
-	"github.com/jackc/pgx/v4/pgxpool"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 // lookup table from s3 files, loaded into memory
@@ -49,7 +49,7 @@ func NewLookupTableS3(_ *pgxpool.Pool, spec *LookupSpec, env map[string]any, isV
 	if err != nil {
 		return nil, fmt.Errorf("failed to create local temp directory: %v", err)
 	}
-	defer func ()  {
+	defer func() {
 		err := os.RemoveAll(inFolderPath)
 		if err != nil {
 			log.Printf("WARNING while calling RemoveAll in lookup temp folder:%v", err)
@@ -151,11 +151,11 @@ func (tbl *LookupTableS3) readCsvLookup(localFileName string) (int64, error) {
 		return 0, fmt.Errorf("error: unknown compression in readCsvLookup: %s", source.Compression)
 	}
 
-	// If the file format is csv, we will use the header row to determine 
-	// the column name -> pos mapping for the lookup table, and also update the column spec 
+	// If the file format is csv, we will use the header row to determine
+	// the column name -> pos mapping for the lookup table, and also update the column spec
 	// in the lookup table spec with the inferred rdf type and array type (if applicable)
-	// Note: if the file format is headerless_csv, then it expect to the the column info to be 
-	// specified in the spec.Columns, and it will use the order of the columns in the spec.Columns 
+	// Note: if the file format is headerless_csv, then it expect to the the column info to be
+	// specified in the spec.Columns, and it will use the order of the columns in the spec.Columns
 	// as the column name -> pos mapping for the lookup table
 	if source.Format == "csv" {
 		// Make a lookup of the current column spec
@@ -197,7 +197,7 @@ func (tbl *LookupTableS3) readCsvLookup(localFileName string) (int64, error) {
 	for i := range tbl.spec.Columns {
 		csvColumnsPos[tbl.spec.Columns[i].Name] = i
 	}
-	
+
 	// Read the file
 	var inputRowCount int64
 	var inRow []string

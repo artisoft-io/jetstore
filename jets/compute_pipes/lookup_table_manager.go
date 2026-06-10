@@ -3,7 +3,7 @@ package compute_pipes
 import (
 	"fmt"
 
-	"github.com/jackc/pgx/v4/pgxpool"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 // LookupTableManager manages all lookup tables
@@ -55,7 +55,7 @@ func (mgr *LookupTableManager) PrepareLookupTables(dbpool *pgxpool.Pool) error {
 				return fmt.Errorf("while calling NewLookupTableS3: %v", err)
 			}
 			mgr.LookupTableMap[lookupTableConfig.Key] = tbl
-		
+
 		default:
 			return fmt.Errorf("error:unknown lookup table type: %s", lookupTableConfig.Type)
 		}

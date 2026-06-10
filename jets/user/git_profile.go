@@ -14,8 +14,8 @@ import (
 	"strings"
 
 	"github.com/artisoft-io/jetstore/jets/awsi"
-	"github.com/jackc/pgx/v4"
-	"github.com/jackc/pgx/v4/pgxpool"
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 type GitProfile struct {

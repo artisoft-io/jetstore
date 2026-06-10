@@ -7,7 +7,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/jackc/pgx/v4/pgxpool"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 // This file contains function to delete workspace changes
@@ -59,7 +59,7 @@ func DeleteAllFileChanges(dbpool *pgxpool.Pool, workspaceName string, restaureFr
 			 WHERE workspace_name = '%s'
 			   AND file_name NOT IN ('workspace.db', 'lookup.db', 'workspace.tgz', 'reports.tgz');`,
 			workspaceName)
-	default:	
+	default:
 		stmt = fmt.Sprintf(
 			`DELETE FROM jetsapi.workspace_changes 
 			 WHERE workspace_name = '%s'`,

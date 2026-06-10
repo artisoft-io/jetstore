@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"github.com/artisoft-io/jetstore/jets/awsi"
-	"github.com/jackc/pgx/v4/pgxpool"
+	"github.com/jackc/pgx/v5/pgxpool"
 	str2duration "github.com/xhit/go-str2duration/v2"
 )
 
@@ -56,7 +56,7 @@ func DoPurgeSessions() error {
 	if err != nil {
 		return fmt.Errorf("while getting dsn from aws secret: %v", err)
 	}
-	dbpool, err := pgxpool.Connect(context.Background(), dsn)
+	dbpool, err := pgxpool.New(context.Background(), dsn)
 	if err != nil {
 		return fmt.Errorf("while opening db connection: %v", err)
 	}

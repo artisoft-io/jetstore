@@ -22,7 +22,7 @@ import (
 	"github.com/artisoft-io/jetstore/jets/user"
 
 	// "github.com/artisoft-io/jetstore/jets/workspace"
-	// "github.com/jackc/pgx/v4/pgxpool"
+	// "github.com/jackc/pgx/v5/pgxpool"
 	_ "github.com/mattn/go-sqlite3" // Import go-sqlite3 library
 )
 

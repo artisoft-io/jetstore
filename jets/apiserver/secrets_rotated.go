@@ -8,7 +8,7 @@ import (
 
 	"github.com/artisoft-io/jetstore/jets/awsi"
 	"github.com/artisoft-io/jetstore/jets/user"
-	"github.com/jackc/pgx/v4/pgxpool"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 // Sync the current ui container secrets with secret manager
@@ -41,7 +41,7 @@ func (server *Server) SecretsRotated() error {
 		}
 		// re-open db connection
 		server.dbpool.Close()
-		server.dbpool, err = pgxpool.Connect(context.Background(), dsn)
+		server.dbpool, err = pgxpool.New(context.Background(), dsn)
 		if err != nil {
 			err = fmt.Errorf("rotate secrets: while opening db connection: %v", err)
 			log.Println(err)

@@ -7,8 +7,8 @@ import (
 	"log"
 	"strings"
 
-	"github.com/jackc/pgx/v4"
-	"github.com/jackc/pgx/v4/pgxpool"
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 // This file provide functions to manage the postgres table definition based on the workspace metadata
