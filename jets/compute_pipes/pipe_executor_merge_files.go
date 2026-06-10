@@ -17,7 +17,7 @@ import (
 	"github.com/artisoft-io/jetstore/jets/csv"
 	"github.com/artisoft-io/jetstore/jets/utils"
 	"github.com/golang/snappy"
-	"github.com/jackc/pgx/v4/pgxpool"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 // Component that merge part files into a single output file.

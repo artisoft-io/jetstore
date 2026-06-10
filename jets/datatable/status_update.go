@@ -14,8 +14,8 @@ import (
 	"time"
 
 	"github.com/artisoft-io/jetstore/jets/utils"
-	"github.com/jackc/pgx/v4"
-	"github.com/jackc/pgx/v4/pgxpool"
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 // The delegate that actually perform the status update
@@ -208,7 +208,7 @@ func DoNotifyApiGateway(fileKey, apiEndpoint, apiEndpointJson, notificationTempl
 	}
 
 	// Do substitution using key/value provided by cpipes config and main schema provider
-	replaceEnv:
+replaceEnv:
 	for key, value := range envSettings {
 		str, ok := value.(string)
 		if ok {
@@ -220,7 +220,7 @@ func DoNotifyApiGateway(fileKey, apiEndpoint, apiEndpointJson, notificationTempl
 				replace = fmt.Sprintf("{{%s}}", key[1:])
 			default:
 				continue replaceEnv
-			}			
+			}
 			notificationTemplate = strings.ReplaceAll(notificationTemplate, replace, str)
 			if len(apiEndpoint) == 0 {
 				apiEndpointJson = strings.ReplaceAll(apiEndpointJson, replace, str)

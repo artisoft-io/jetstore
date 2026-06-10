@@ -15,7 +15,7 @@ import (
 	"github.com/artisoft-io/jetstore/jets/compute_pipes/jetrules_go_adaptor"
 	"github.com/artisoft-io/jetstore/jets/compute_pipes/jetrules_native_adaptor"
 	"github.com/artisoft-io/jetstore/jets/workspace"
-	"github.com/jackc/pgx/v4/pgxpool"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 // Booter utility to execute cpipes (loader) in loop for each jets_partition
@@ -49,8 +49,9 @@ var usingJetRuleEngineNative bool
 // var nbrNodes int
 
 type JetRulesProxyImpl struct {
-	defaultFactory     compute_pipes.JetRulesFactory
+	defaultFactory compute_pipes.JetRulesFactory
 }
+
 func (j *JetRulesProxyImpl) GetDefaultFactory() compute_pipes.JetRulesFactory {
 	return j.defaultFactory
 }
@@ -129,7 +130,7 @@ func main() {
 	}
 
 	// open db connection
-	dbpool, err = pgxpool.Connect(context.Background(), dsn)
+	dbpool, err = pgxpool.New(context.Background(), dsn)
 	if err != nil {
 		log.Fatalf("while opening db connection: %v", err)
 	}
@@ -156,8 +157,7 @@ func main() {
 	var b []byte
 
 	// Set up JetRuleFactory according to env var
-	jrProxy := &JetRulesProxyImpl{
-	}
+	jrProxy := &JetRulesProxyImpl{}
 	usingJetRuleEngineNative = strings.ToUpper(os.Getenv("DEPLOY_CPIPES_NATIVE")) == "TRUE" || strings.ToUpper(os.Getenv("DEPLOY_CPIPES_NATIVE")) == "1"
 	if usingJetRuleEngineNative {
 		log.Println("Using Jetrule Engine: NATIVE")

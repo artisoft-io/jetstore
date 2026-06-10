@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/jackc/pgx/v4/pgxpool"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 // script to update database when schema change and calculated columns are added
@@ -23,9 +23,10 @@ func UpdateScripts(dbpool *pgxpool.Pool) error {
 }
 
 type SCUpdate struct {
-	key int
+	key        int
 	domainKeys []string
 }
+
 func UpdateSourceConfig(dbpool *pgxpool.Pool) error {
 	log.Println("*** Running update db script: UpdateSourceConfig")
 	updateList := make([]SCUpdate, 0)

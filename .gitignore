@@ -159,3 +159,13 @@ cdk/jetstore_one/lambdas/run_reports/cgt_reports_func.go
 cdk/jetstore_one/lambdas/run_reports/cgt_run_reports.go
 cdk/jetstore_one/lambdas/cpipes_run_reports
 cdk/jetstore_one/lambdas/sqs_listerner
+jets/compilerv2/compiler/testdata/workspaceV2.db
+jets/jsontest/compilerv2_test/compilerv2_test
+cdk/jetstore_one/lambdas/api_gateway_cgt/parser/test_driver/test_driver
+jets/cmds/cbooter/cbooter
+jets/cmds/compile_workspace/compile_workspace
+jets/cmds/cpipes_native_server/cpipes_native_server
+jets/cmds/cpipes_server/cpipes_server
+jets/purge_database/purge_database
+jets/run_reports/run_reports
+package-lock.json

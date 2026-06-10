@@ -9,7 +9,7 @@ import (
 
 	"github.com/artisoft-io/jetstore/jets/datatable/jcsv"
 	"github.com/artisoft-io/jetstore/jets/utils"
-	"github.com/jackc/pgx/v4"
+	"github.com/jackc/pgx/v5"
 )
 
 // Jetrules operator. Execute rules for each record group (bundle) recieved from input chan

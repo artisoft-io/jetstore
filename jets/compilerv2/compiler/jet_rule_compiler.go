@@ -76,6 +76,17 @@ func (c *Compiler) CompileBuffer(combinedContent string) error {
 		log.Println("** Compilation Errors:\n", c.ErrorLog().String())
 	}
 	if c.saveJson {
+		err := c.SaveModel()
+		if err != nil {
+			log.Println("** ERROR saving model:", err.Error())
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (c *Compiler) SaveModel() error {
 		outPath := fmt.Sprintf("%s/%s", c.listener.basePath, c.OutJsonFileName())
 		log.Println("Saving json to", outPath)
 		data, err := c.JetRuleModel().ToJson()
@@ -99,9 +110,7 @@ func (c *Compiler) CompileBuffer(combinedContent string) error {
 			log.Println("** ERROR saving to workspace.db:", err.Error())
 			return fmt.Errorf("while saving to workspace.db: %w", err)
 		}
-	}
-
-	return nil
+		return nil
 }
 
 func (c *Compiler) Trace() bool {

@@ -6,7 +6,7 @@ import (
 	"log"
 	"sync"
 
-	"github.com/jackc/pgx/v4/pgxpool"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 // This file contains the Compute Pipes runtime data structures

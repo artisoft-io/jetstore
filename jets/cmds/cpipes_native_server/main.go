@@ -12,7 +12,7 @@ import (
 	"github.com/artisoft-io/jetstore/jets/compute_pipes"
 	"github.com/artisoft-io/jetstore/jets/compute_pipes/jetrules_go_adaptor"
 	"github.com/artisoft-io/jetstore/jets/compute_pipes/jetrules_native_adaptor"
-	"github.com/jackc/pgx/v4/pgxpool"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 // Compute Pipe Node Executor as a Container Server
@@ -37,8 +37,9 @@ var awsBucket string
 var dsn string
 
 type JetRulesProxyImpl struct {
-	defaultFactory     compute_pipes.JetRulesFactory
+	defaultFactory compute_pipes.JetRulesFactory
 }
+
 func (j *JetRulesProxyImpl) GetDefaultFactory() compute_pipes.JetRulesFactory {
 	return j.defaultFactory
 }
@@ -94,7 +95,7 @@ func main() {
 	}
 
 	// open db connection
-	dbpool, err := pgxpool.Connect(context.Background(), dsn)
+	dbpool, err := pgxpool.New(context.Background(), dsn)
 	if err != nil {
 		errMsg = append(errMsg, fmt.Sprintf("while opening db connection: %s", err))
 	}
@@ -112,7 +113,7 @@ func main() {
 		}
 		panic("Invalid argument(s)")
 	}
-	
+
 	jrProxy := &JetRulesProxyImpl{
 		defaultFactory: jetrules_native_adaptor.NewJetRulesFactory(),
 	}

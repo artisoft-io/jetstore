@@ -15,7 +15,7 @@ import (
 	"github.com/artisoft-io/jetstore/jets/compute_pipes"
 	"github.com/artisoft-io/jetstore/jets/datatable"
 	"github.com/artisoft-io/jetstore/jets/schema"
-	"github.com/jackc/pgx/v4/pgxpool"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 // Main loader functions
@@ -335,7 +335,7 @@ func coordinateWork() error {
 		}
 		dsn = &dsnStr
 	}
-	dbpool, err := pgxpool.Connect(context.Background(), *dsn)
+	dbpool, err := pgxpool.New(context.Background(), *dsn)
 	if err != nil {
 		return fmt.Errorf("while opening db connection: %v", err)
 	}

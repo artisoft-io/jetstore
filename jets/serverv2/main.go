@@ -12,7 +12,7 @@ import (
 	"github.com/artisoft-io/jetstore/jets/awsi"
 	"github.com/artisoft-io/jetstore/jets/serverv2/delegate"
 	"github.com/artisoft-io/jetstore/jets/workspace"
-	"github.com/jackc/pgx/v4/pgxpool"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 // Env variable:
@@ -161,7 +161,7 @@ func main() {
 			errMsg = append(errMsg, fmt.Sprintf("while getting dsn from aws secret: %v", err))
 		}
 	}
-	dbpool, err := pgxpool.Connect(context.Background(), *dsnList)
+	dbpool, err := pgxpool.New(context.Background(), *dsnList)
 	if err != nil {
 		hasErr = true
 		errMsg = append(errMsg, fmt.Sprintf("while opening db connection: %v", err))

@@ -11,8 +11,8 @@ import (
 	"time"
 
 	"github.com/artisoft-io/jetstore/jets/schema"
-	"github.com/jackc/pgx/v4"
-	"github.com/jackc/pgx/v4/pgxpool"
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 // This file contains function to save client configuration to local workspace

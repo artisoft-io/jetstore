@@ -11,7 +11,7 @@ import (
 	"github.com/artisoft-io/jetstore/jets/compute_pipes"
 	"github.com/artisoft-io/jetstore/jets/jetrules/rdf"
 	"github.com/artisoft-io/jetstore/jets/workspace"
-	"github.com/jackc/pgx/v4/pgxpool"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 // This file contains the adaptor code to implement JetrulesInterface for the Native rule engine.
@@ -417,7 +417,7 @@ func (ses *JetRdfSessionNative) EncodeRdfSession() string {
 	if ses.rdfSession == nil {
 		return ""
 	}
-	
+
 	enc, err := ses.encodeSession()
 	if err != nil {
 		enc = map[string]any{"error": err.Error()}
@@ -427,14 +427,16 @@ func (ses *JetRdfSessionNative) EncodeRdfSession() string {
 }
 
 // Returns map[string]any which is
-//    {
-//      "rdf_types": string (json of [][]string),
-// 	    "entity_key_by_type": map[string]string (json of [][]string),
-//      "entity_details_by_key": map[string]string (json of [][]string),
-//    }
+//
+//	   {
+//	     "rdf_types": string (json of [][]string),
+//		    "entity_key_by_type": map[string]string (json of [][]string),
+//	     "entity_details_by_key": map[string]string (json of [][]string),
+//	   }
+//
 // rdf_type: JetModel ([][]string): List of rdf:type, single column model
 // entity_key_by_type: Map[rdf:type]JetModel: JetModel is list of jet:key, single column model
-// entity_details_by_key: Map[jets:key]EncodedJetModel, 
+// entity_details_by_key: Map[jets:key]EncodedJetModel,
 // where EncodedJetModel is encoded json of JetModel ([][]string): List of ["property", "value", "value.type"] of obj w/ jets:key, 2 columns JetModel
 // If there is an error, it returns a map with only one key "error" and the error message as value.
 func (ses *JetRdfSessionNative) encodeSession() (map[string]any, error) {
@@ -456,12 +458,12 @@ func (ses *JetRdfSessionNative) encodeSession() (map[string]any, error) {
 	ctor, err := ses.rdfSession.Find(nil, ri.Rdf__type.Hdle().(*RdfNodeNative).node, nil)
 	if err != nil {
 		return nil, fmt.Errorf("while calling Find(nil, ri.rdf__type, nil) on rdfSession: %v", err)
-	} 
+	}
 	for !ctor.IsEnd() {
 		entity := ctor.GetSubject()
-		entityName,_ := entity.AsText()
+		entityName, _ := entity.AsText()
 
-		rdfType,_ := ctor.GetObject().AsText()
+		rdfType, _ := ctor.GetObject().AsText()
 		rdfTypeSet[rdfType] = true
 		entitySet[entityName] = entity
 		entities := entityKeyByType[rdfType]
@@ -480,9 +482,9 @@ func (ses *JetRdfSessionNative) encodeSession() (map[string]any, error) {
 		ctor, err := ses.rdfSession.Find_s(entity)
 		if err != nil {
 			return nil, fmt.Errorf("while calling Find_s(entity) on rdfSession: %v", err)
-		} 
+		}
 		for !ctor.IsEnd() {
-			propertyName,_ := ctor.GetPredicate().AsText()
+			propertyName, _ := ctor.GetPredicate().AsText()
 			value := ctor.GetObject()
 			valueType := value.GetTypeName()
 			model := entityDetailsByKey[entityKey]
@@ -493,18 +495,18 @@ func (ses *JetRdfSessionNative) encodeSession() (map[string]any, error) {
 			*model = append(*model, []string{propertyName, value.AsTextSilent(), valueType})
 			ctor.Next()
 		}
-		ctor.ReleaseIterator()	
+		ctor.ReleaseIterator()
 	}
 
 	// Put all the results in the output map
 	results := make(map[string]any)
-	
+
 	// Package rdfTypeSet
 	rdfTypesResult := make([][]string, 0)
 	for rdfType := range rdfTypeSet {
 		rdfTypesResult = append(rdfTypesResult, []string{rdfType})
 	}
-	sort.Slice(rdfTypesResult, func(i, j int) bool { 
+	sort.Slice(rdfTypesResult, func(i, j int) bool {
 		return rdfTypesResult[i][0] < rdfTypesResult[j][0]
 	})
 	r, err := json.Marshal(rdfTypesResult)
@@ -516,7 +518,7 @@ func (ses *JetRdfSessionNative) encodeSession() (map[string]any, error) {
 	// Package entityKeyByType
 	entityKeyByTypeResult := make(map[string]string)
 	for rdfType, keys := range entityKeyByType {
-		sort.Slice(*keys, func(i, j int) bool { 
+		sort.Slice(*keys, func(i, j int) bool {
 			return (*keys)[i][0] < (*keys)[j][0]
 		})
 		r, err := json.Marshal(*keys)
@@ -524,18 +526,18 @@ func (ses *JetRdfSessionNative) encodeSession() (map[string]any, error) {
 			return nil, err
 		}
 		entityKeyByTypeResult[rdfType] = string(r)
-	} 
+	}
 	results["entity_key_by_type"] = entityKeyByTypeResult
 
 	// Package entityDetailsByKey
 	entityDetailsByKeyResult := make(map[string]string)
 	for key, details := range entityDetailsByKey {
-		sort.Slice(*details, func(i, j int) bool { 
+		sort.Slice(*details, func(i, j int) bool {
 			if (*details)[i][0] == (*details)[j][0] {
 				if (*details)[i][1] == (*details)[j][1] {
 					return (*details)[i][2] < (*details)[j][2]
 				}
-				return (*details)[i][1] < (*details)[j][1]	
+				return (*details)[i][1] < (*details)[j][1]
 			}
 			return (*details)[i][0] < (*details)[j][0]
 		})
@@ -544,7 +546,7 @@ func (ses *JetRdfSessionNative) encodeSession() (map[string]any, error) {
 			return nil, err
 		}
 		entityDetailsByKeyResult[key] = string(r)
-	} 
+	}
 	results["entity_details_by_key"] = entityDetailsByKeyResult
 	return results, nil
 }

@@ -7,26 +7,26 @@ import (
 	"strings"
 
 	"github.com/artisoft-io/jetstore/jets/server/workspace"
-	"github.com/jackc/pgx/v4"
-	"github.com/jackc/pgx/v4/pgxpool"
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 type WriteTableResult struct {
-	tableName string
+	tableName   string
 	recordCount int64
 }
 
 type WriteTableSource struct {
-	source <-chan []interface{}
-	pending []interface{}
-	count int
+	source    <-chan []interface{}
+	pending   []interface{}
+	count     int
 	tableName string
 }
 
 // pgx.CopyFromSource interface
 func (wt *WriteTableSource) Next() bool {
 	var ok bool
-	wt.pending,ok = <-wt.source
+	wt.pending, ok = <-wt.source
 	wt.count += 1
 	return ok
 }
@@ -59,16 +59,16 @@ func (wt *WriteTableSource) writeTable(dbpool *pgxpool.Pool, domainTable *worksp
 			splitTableName[1],
 		}
 	default:
-		return &result, fmt.Errorf("error: invalid domain table name: %s",domainTable.TableName)
+		return &result, fmt.Errorf("error: invalid domain table name: %s", domainTable.TableName)
 	}
 	recCount, err := dbpool.CopyFrom(context.Background(), tableIdentifier, columns, wt)
 	if err != nil {
 		switch {
 		case wt.count == 0:
 			log.Println("No rows were sent to database")
-		case  wt.count > 0 && len(wt.pending)==0:
+		case wt.count > 0 && len(wt.pending) == 0:
 			log.Println("Last pending row is not available")
-		case  wt.count > 0 && len(wt.pending)==len(columns):
+		case wt.count > 0 && len(wt.pending) == len(columns):
 			log.Println("Last pending row is:")
 			for i := range columns {
 				if i > 0 {
@@ -82,7 +82,7 @@ func (wt *WriteTableSource) writeTable(dbpool *pgxpool.Pool, domainTable *worksp
 		}
 		return &result, fmt.Errorf("while copy records to db at count %d: %v", wt.count, err)
 	}
-	
+
 	result.recordCount = recCount
 
 	return &result, nil

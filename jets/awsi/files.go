@@ -8,7 +8,7 @@ import (
 	"strings"
 
 	"github.com/artisoft-io/jetstore/jets/dbutils"
-	"github.com/jackc/pgx/v4/pgxpool"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 // Functions to sync or copy s3 files to database (and locally) as large objects
@@ -41,7 +41,7 @@ func SyncS3Files(dbpool *pgxpool.Pool, workspaceName, keyPrefix, trimPrefix, con
 		fileHd.Close()
 		fmt.Println("downloaded", s3Obj.Key, "size", nsz, "bytes from s3")
 		// Copy file to database
-		if nsz > 1024 * 1024 * 1024 {
+		if nsz > 1024*1024*1024 {
 			return fmt.Errorf("error: Jetstore does not support workspace file larger than 1 Go, the object size is: %v", nsz)
 		}
 		data, err := os.ReadFile(fileHd.Name())

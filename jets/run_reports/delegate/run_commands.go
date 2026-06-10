@@ -10,7 +10,7 @@ import (
 	"github.com/artisoft-io/jetstore/jets/awsi"
 	"github.com/artisoft-io/jetstore/jets/compute_pipes"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
-	"github.com/jackc/pgx/v4/pgxpool"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 var s3CopyFileTotalPoolSize int = 40

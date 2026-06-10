@@ -11,7 +11,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/jackc/pgx/v4/pgxpool"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 // Load multipart files to JetStore, file to load are provided by channel fileNameCh
@@ -50,7 +50,7 @@ func (cpCtx *ComputePipesContext) LoadFiles(ctx context.Context, dbpool *pgxpool
 	}()
 
 	inputChannelConfig := &cpCtx.CpConfig.PipesConfig[0].InputChannel
-	
+
 	inputFormat := inputChannelConfig.Format
 	if strings.HasPrefix(inputFormat, "parquet") && cpCtx.CpConfig.CommonRuntimeArgs.CpipesMode == "sharding" {
 		// Save the parquet schema
@@ -81,7 +81,7 @@ func (cpCtx *ComputePipesContext) LoadFiles(ctx context.Context, dbpool *pgxpool
 			mergeCh := make(chan []any, 5)
 			computePipesMergeChs = append(computePipesMergeChs, mergeCh)
 			// Start a goroutine to load the merge input files
-			waitForDone.Go(func ()  {
+			waitForDone.Go(func() {
 				log.Printf("Starting merge input loader for channel %d\n", i+1)
 				err := cpCtx.loadMergeInput(mergeCh, &channelConfig, cpCtx.FileNamesCh[i+1])
 				if err != nil {
@@ -89,7 +89,7 @@ func (cpCtx *ComputePipesContext) LoadFiles(ctx context.Context, dbpool *pgxpool
 					cpCtx.DoneAll(err)
 				}
 			})
-		}	
+		}
 	}
 
 	// Start the Compute Pipes async
@@ -116,7 +116,7 @@ func (cpCtx *ComputePipesContext) LoadFiles(ctx context.Context, dbpool *pgxpool
 			log.Printf("%s LoadFiles: merge input loaders are DONE", cpCtx.SessionId)
 		}
 	}
-	done:
+done:
 	close(cpCtx.ChResults.LoadFromS3FilesResultCh)
 	return
 }

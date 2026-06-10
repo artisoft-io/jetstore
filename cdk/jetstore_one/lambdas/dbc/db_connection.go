@@ -10,8 +10,8 @@ import (
 	"time"
 
 	"github.com/artisoft-io/jetstore/jets/awsi"
-	"github.com/jackc/pgx/v4"
-	"github.com/jackc/pgx/v4/pgxpool"
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 // Small component to hold a db connection that is refreshed when credential changes
@@ -75,7 +75,7 @@ func (dbc *DbConnection) openDbConnection() error {
 	if dbc.dbpool != nil {
 		dbc.dbpool.Close()
 	}
-	dbc.dbpool, err = pgxpool.Connect(context.Background(), dsn)
+	dbc.dbpool, err = pgxpool.New(context.Background(), dsn)
 	if err != nil {
 		return fmt.Errorf("while opening db connection: %v", err)
 	}

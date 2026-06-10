@@ -9,10 +9,11 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/artisoft-io/jetstore/jets/compilerv2/analyzer"
 	"github.com/artisoft-io/jetstore/jets/compilerv2/compiler"
 	"github.com/artisoft-io/jetstore/jets/jetrules/rete"
 	"github.com/artisoft-io/jetstore/jets/run_reports/tarextract"
-	"github.com/jackc/pgx/v4/pgxpool"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 // Workspace compilation function v2
@@ -71,7 +72,7 @@ func compileWorkspaceV2(dbpool *pgxpool.Pool, workspaceControl *rete.WorkspaceCo
 		// name is the file path relative to workspace home
 		fmt.Fprintf(&buf, "Compiling rule file: %s\n", name)
 		jrCompiler = compiler.NewCompiler(
-			workspacePath, name /*saveJson*/, true, workspaceControl.UseTraceMode,
+			workspacePath, name, false, workspaceControl.UseTraceMode,
 			workspaceControl.AutoAddResources)
 		err = jrCompiler.Compile()
 		if err != nil {
@@ -86,6 +87,21 @@ func compileWorkspaceV2(dbpool *pgxpool.Pool, workspaceControl *rete.WorkspaceCo
 			return cmdLog, fmt.Errorf("while compiling rule file '%s': %v", name, err)
 		}
 		buf.WriteString(jrCompiler.ParseLog().String())
+		// Perform predicate dependency
+		analyzer := analyzer.NewAnalyzer(workspacePath, name, "predicates", "", true, jrCompiler)
+		err = analyzer.Analyze()
+		if err != nil {
+			log.Println("** ERROR during analysis:")
+			return buf.String(), fmt.Errorf("while analyzing rule file '%s': %v", name, err)
+		}
+		log.Println("** Analysis successful")
+
+		// Save the compiler model
+		err = jrCompiler.SaveModel()
+		if err != nil {
+			log.Println("** ERROR saving model:", err.Error())
+			return buf.String(), fmt.Errorf("while saving model: %w", err)
+		}
 
 		// Collect the classes, tables, and lookup tables
 		classes = append(classes, jrCompiler.JetRuleModel().Classes...)

@@ -4,7 +4,7 @@ import (
 	"context"
 	"log"
 
-	"github.com/jackc/pgx/v4/pgxpool"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 type ComputePipesResult struct {
@@ -26,7 +26,7 @@ type JetrulesWorkerResult struct {
 	Err              error
 }
 type ClusteringResult struct {
-	Err          error
+	Err error
 }
 
 // ChannelResults holds the channel reporting back results.

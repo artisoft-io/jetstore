@@ -13,8 +13,8 @@ import (
 	"github.com/artisoft-io/jetstore/jets/jetrules/rete"
 	"github.com/artisoft-io/jetstore/jets/schema"
 	jw "github.com/artisoft-io/jetstore/jets/workspace"
-	"github.com/jackc/pgx/v4"
-	"github.com/jackc/pgx/v4/pgxpool"
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 type DomainColumn struct {
@@ -74,18 +74,18 @@ func NewDomainTable(dbpool *pgxpool.Pool, tableInfo *rete.TableNode) (*DomainTab
 			domainTable.Columns = append(domainTable.Columns,
 				DomainColumn{
 					ColumnInfo: &rete.TableColumnNode{
-						ColumnName:   "session_id",
-						Type:         "text",
-						AsArray:      false,
+						ColumnName: "session_id",
+						Type:       "text",
+						AsArray:    false,
 					},
 				})
 		case strings.HasSuffix(header, ":domain_key"):
 			domainTable.Columns = append(domainTable.Columns,
 				DomainColumn{
 					ColumnInfo: &rete.TableColumnNode{
-						ColumnName:   header,
-						Type:         "text",
-						AsArray:      false,
+						ColumnName: header,
+						Type:       "text",
+						AsArray:    false,
 					},
 				})
 
@@ -93,9 +93,9 @@ func NewDomainTable(dbpool *pgxpool.Pool, tableInfo *rete.TableNode) (*DomainTab
 			domainTable.Columns = append(domainTable.Columns,
 				DomainColumn{
 					ColumnInfo: &rete.TableColumnNode{
-						ColumnName:   header,
-						Type:         "int",
-						AsArray:      false,
+						ColumnName: header,
+						Type:       "int",
+						AsArray:    false,
 					},
 				})
 		}

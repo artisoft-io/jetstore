@@ -12,7 +12,7 @@ import (
 	"strings"
 
 	"github.com/artisoft-io/jetstore/jets/schema"
-	"github.com/jackc/pgx/v4/pgxpool"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 func MigrateDb(dbpool *pgxpool.Pool) error {

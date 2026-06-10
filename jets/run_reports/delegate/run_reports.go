@@ -16,8 +16,8 @@ import (
 
 	"github.com/artisoft-io/jetstore/jets/awsi"
 	"github.com/artisoft-io/jetstore/jets/workspace"
-	"github.com/jackc/pgx/v4"
-	"github.com/jackc/pgx/v4/pgxpool"
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 	"go.uber.org/zap"
 )
 
@@ -529,8 +529,8 @@ func (ca *CommandArguments) DoReport(dbpool *pgxpool.Pool, tempDir string, outpu
 		// Check if a specific kms is specified in the deployment, if so do not use the aws_s3 plug in
 		// since it does not support custom kms key but uses the default kms key of the account
 		//TODO Add support for json with custom kms key in DoCsvReport ***
-		// when UseQueryExportToS3 && is true, we use the aws_s3.query_export_to_s3 function to export the report directly to s3, this is more efficient and should be preferred when possible, 
-		// but it does not support using a custom kms key for encryption, 
+		// when UseQueryExportToS3 && is true, we use the aws_s3.query_export_to_s3 function to export the report directly to s3, this is more efficient and should be preferred when possible,
+		// but it does not support using a custom kms key for encryption,
 		// in that case we fall back to DoCsvReport which saves the report locally and then upload to s3 with the custom kms key
 		// The UseQueryExportToS3 setting is an override for case when the provided KMS key is the default S3 KMS key of the account.
 		if len(os.Getenv("JETS_S3_KMS_KEY_ARN")) > 0 && !reportDirectives.UseQueryExportToS3 && outputFormat == "csv" {

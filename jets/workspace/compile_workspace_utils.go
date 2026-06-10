@@ -11,7 +11,7 @@ import (
 
 	"github.com/artisoft-io/jetstore/jets/dbutils"
 	"github.com/artisoft-io/jetstore/jets/run_reports/tarextract"
-	"github.com/jackc/pgx/v4/pgxpool"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 // Active workspace prefix and control file path
@@ -71,7 +71,7 @@ func WorkspaceControlFilePath() string {
 func SyncWorkspaceFiles(dbpool *pgxpool.Pool, workspaceName, contentType string, skipSqliteFiles bool, skipTgzFiles bool) (bool, error) {
 	// sync workspace files from db to locally
 	if devMode {
-		return false,nil
+		return false, nil
 	}
 	// Get all file_name that are modified
 	compilationRequired := false

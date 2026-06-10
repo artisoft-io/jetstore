@@ -8,7 +8,7 @@ import (
 	"strings"
 
 	"github.com/artisoft-io/jetstore/jets/dbutils"
-	"github.com/jackc/pgx/v4/pgxpool"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 // This file contains function to get and save file content & execute command in local workspace
@@ -46,7 +46,7 @@ func RunCommand(buf *strings.Builder, command string, args *[]string, workspaceN
 // GetWorkspaceFileContent --------------------------------------------------------------------------
 // Function to get the workspace file content based on relative file name
 // Read the file from the workspace on file system since it's already in sync with database
-func GetContent(workspaceName,  fileName string) (string, error) {
+func GetContent(workspaceName, fileName string) (string, error) {
 
 	// Read file from local workspace
 	var content []byte

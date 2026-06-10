@@ -13,7 +13,7 @@ import (
 	"github.com/artisoft-io/jetstore/jets/dbutils"
 	"github.com/artisoft-io/jetstore/jets/jetrules/rete"
 	"github.com/artisoft-io/jetstore/jets/run_reports/tarextract"
-	"github.com/jackc/pgx/v4/pgxpool"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 // Legacy workspace compilation function

@@ -11,7 +11,7 @@ import (
 	"time"
 
 	"github.com/badoux/checkmail"
-	"github.com/jackc/pgx/v4/pgxpool"
+	"github.com/jackc/pgx/v5/pgxpool"
 	"golang.org/x/crypto/bcrypt"
 )
 

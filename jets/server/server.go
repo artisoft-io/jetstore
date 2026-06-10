@@ -14,7 +14,7 @@ import (
 
 	"github.com/artisoft-io/jetstore/jets/awsi"
 	"github.com/artisoft-io/jetstore/jets/workspace"
-	"github.com/jackc/pgx/v4/pgxpool"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 type dbNode struct {
@@ -213,7 +213,7 @@ func doJobAndReportStatus() error {
 	log.Printf("ENV NBR_SHARDS: %s\n", os.Getenv("NBR_SHARDS"))
 	log.Printf("Command Line Argument: GLOG_v is set to %d\n", glogv)
 	dsn := dsnSplit[*nodeId%nbrDbNodes]
-	dbpool, err := pgxpool.Connect(context.Background(), dsn)
+	dbpool, err := pgxpool.New(context.Background(), dsn)
 	if err != nil {
 		return fmt.Errorf("while opening db connection on %s: %v", dsn, err)
 	}
@@ -221,7 +221,7 @@ func doJobAndReportStatus() error {
 	defer dbc.mainNode.dbpool.Close()
 	for i, dsn := range dsnSplit {
 		// log.Printf("db node %d is %s\n", i, dsn)
-		dbpool, err = pgxpool.Connect(context.Background(), dsn)
+		dbpool, err = pgxpool.New(context.Background(), dsn)
 		if err != nil {
 			return fmt.Errorf("while opening db connection on %s: %v", dsn, err)
 		}
@@ -279,7 +279,7 @@ func main() {
 	fmt.Println("CMD LINE ARGS:", os.Args[1:])
 	flag.Parse()
 	start := time.Now()
-	defer func ()  {
+	defer func() {
 		log.Printf("%s server completed in %v", *outSessionId, time.Since(start))
 	}()
 
