@@ -290,8 +290,6 @@ func (jsComp *JetStoreStackComponents) buildCpipesSMInternal(stack awscdk.Stack,
 	jsComp.SourceBucket.GrantReadWrite(cpipesSM.Role(), nil)
 	jsComp.GrantReadWriteFromExternalBuckets(stack, cpipesSM.Role())
 	jsComp.RdsSecret.GrantRead(cpipesSM.Role(), nil)
-	if jsComp.ExternalKmsKey != nil {
-		jsComp.ExternalKmsKey.GrantEncryptDecrypt(cpipesSM.Role())
-	}
+	jsComp.GrantEncryptDecryptExternalKmsKey(cpipesSM.Role())
 	return
 }

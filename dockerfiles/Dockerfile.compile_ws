@@ -6,6 +6,7 @@ ENV WORKSPACES_REPO=/workspaces
 
 # Copy the workspace and compile it
 # to $WORKSPACES_REPO/$WORKSPACE
+# NOTE THIS IS WORKSPACE SPECIFIC
 # COPY data_model $WORKSPACES_REPO/$WORKSPACE/data_model/
 # COPY jet_rules $WORKSPACES_REPO/$WORKSPACE/jet_rules/
 # COPY lookups $WORKSPACES_REPO/$WORKSPACE/lookups/
@@ -14,13 +15,13 @@ ENV WORKSPACES_REPO=/workspaces
 # COPY process_sequence $WORKSPACES_REPO/$WORKSPACE/process_sequence/
 # COPY reports $WORKSPACES_REPO/$WORKSPACE/reports/
 # COPY scripts $WORKSPACES_REPO/$WORKSPACE/scripts/
-# COPY compile_workspace.sh $WORKSPACES_REPO/$WORKSPACE/compile_workspace.sh
 # COPY workspace_control.json $WORKSPACES_REPO/$WORKSPACE/workspace_control.json
+# -OR-
 # Copy the whole repo so to be able to pull and push changes
 COPY . $WORKSPACES_REPO/$WORKSPACE/
 
 RUN \
   echo "Compiling workspace in $WORKSPACES_REPO/$WORKSPACE" \
+  && rm -rf $WORKSPACES_REPO/$WORKSPACE/cdk/jetstore_one/cdk.out/* \  
   && ls -la $WORKSPACES_REPO/$WORKSPACE/ \
-  && chmod +x $WORKSPACES_REPO/$WORKSPACE/compile_workspace.sh \
   && WORKSPACES_HOME=${WORKSPACES_REPO} /app/compile_workspace -w=${WORKSPACE} -v=${JETS_VERSION}

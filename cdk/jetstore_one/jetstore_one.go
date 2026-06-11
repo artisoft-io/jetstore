@@ -261,9 +261,7 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 	jsComp.RdsSecret.GrantRead(jsComp.LambdaExecutionRole, nil)
 	jsComp.SourceBucket.GrantReadWrite(jsComp.LambdaExecutionRole, nil)
 	jsComp.GrantReadWriteFromExternalBuckets(stack, jsComp.LambdaExecutionRole)
-	if jsComp.ExternalKmsKey != nil {
-		jsComp.ExternalKmsKey.GrantEncryptDecrypt(jsComp.LambdaExecutionRole)
-	}
+	jsComp.GrantEncryptDecryptExternalKmsKey(jsComp.LambdaExecutionRole)
 
 	// Create the jsComp.EcsCluster.
 	// ==============================================================================================================
@@ -307,9 +305,8 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 	}))
 	jsComp.SourceBucket.GrantReadWrite(jsComp.EcsTaskRole, nil)
 	jsComp.GrantReadWriteFromExternalBuckets(stack, jsComp.EcsTaskRole)
-	if jsComp.ExternalKmsKey != nil {
-		jsComp.ExternalKmsKey.GrantEncryptDecrypt(jsComp.EcsTaskRole)
-	}
+	jsComp.GrantEncryptDecryptExternalKmsKey(jsComp.EcsTaskRole)
+	
 	// Provide access to the secrets
 	jsComp.RdsSecret.GrantRead(jsComp.EcsTaskRole, nil)
 	jsComp.ApiSecret.GrantRead(jsComp.EcsTaskRole, nil)
@@ -486,7 +483,7 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 // BASTION_HOST_KEYPAIR_NAME (optional, no keys deployed if not defined)
 // ENVIRONMENT (used by run_report)
 // EXTERNAL_BUCKETS (optional, list of third party buckets to read/write file for cpipes)
-// EXTERNAL_S3_KMS_KEY_ARN (optional, kms key for external bucket)
+// EXTERNAL_S3_KMS_KEY_ARN (optional, additional kms keys for reading external buckets)
 // EXTERNAL_SQS_ARN (optional, sqs queue for sqs register key lambda)
 // JETS_PIVOT_YEAR_TIME_PARSING (optional, pivot year used in date_util.ParseDateTime function)
 // JETS_ADMIN_EMAIL (optional, email of build-in admin, default: admin)

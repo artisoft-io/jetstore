@@ -104,9 +104,8 @@ func (jsComp *JetStoreStackComponents) BuildRegisterKeyLambdas(scope constructs.
 	jsComp.SourceBucket.AddEventNotification(awss3.EventType_OBJECT_CREATED, awss3n.NewLambdaDestination(jsComp.RegisterKeyV2Lambda), &awss3.NotificationKeyFilter{
 		Prefix: jsii.String(GetS3SchemaTriggersPrefix()),
 	})
-	if jsComp.ExternalKmsKey != nil {
-		jsComp.ExternalKmsKey.GrantEncryptDecrypt(jsComp.RegisterKeyV2Lambda)
-	}
+
+	jsComp.GrantEncryptDecryptExternalKmsKey(jsComp.RegisterKeyV2Lambda)
 	// END Create a Lambda function to register File Keys with JetStore DB
 
 	// Lambda Function for installation-specific integration for Register Key from SQS Event or other
@@ -225,8 +224,6 @@ func (jsComp *JetStoreStackComponents) BuildRegisterKeyLambdas(scope constructs.
 				Target:         jsComp.SqsRegisterKeyLambda,
 			})
 		}
-		if jsComp.ExternalKmsKey != nil {
-			jsComp.ExternalKmsKey.GrantEncryptDecrypt(jsComp.SqsRegisterKeyLambda)
-		}
+		jsComp.GrantEncryptDecryptExternalKmsKey(jsComp.SqsRegisterKeyLambda)
 	}
 }
