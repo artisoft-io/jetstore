@@ -147,6 +147,10 @@ nextAction:
 					if !ok {
 						return fmt.Errorf("error: expecting string for de-identification anonymized value, got %v", (*lookupRow)[0])
 					}
+					// special rule: when data_classification is 'ssn', check if input value contains dashes, if not, remove dashes from the hashed value before output
+					if action.dataClassification == "ssn" && !strings.Contains(inputStr, "-") {
+						hashedValue = strings.ReplaceAll(hashedValue, "-", "")
+					}
 				case len(action.deidFunctionName) > 0:
 					// Use the de-identification function
 					switch action.deidFunctionName {

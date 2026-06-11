@@ -224,6 +224,7 @@ func (jsComp *JetStoreStackComponents) BuildRegisterKeyLambdas(scope constructs.
 				Target:         jsComp.SqsRegisterKeyLambda,
 			})
 		}
+		//* This may not be needed since LambdaExecutionRole should already have permissions to access kms key
 		jsComp.GrantEncryptDecryptExternalKmsKey(jsComp.SqsRegisterKeyLambda)
 	}
 }
