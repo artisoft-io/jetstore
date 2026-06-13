@@ -20,13 +20,8 @@ func CompileWorkspace(dbpool *pgxpool.Pool, workspaceName, version string) (stri
 		err = fmt.Errorf("while loading workspace_control.json: %v", err)
 		return err.Error(), err
 	}
-
-	if workspaceControl.UseCompilerV2 {
-		log.Println("Using workspace compiler v2 with WORKSPACE_HOME=", WorkspacesHome())
-		return compileWorkspaceV2(dbpool, workspaceControl, version)
-	}
-	log.Println("Using workspace compiler v1 with WORKSPACE_HOME=", WorkspacesHome())
-	return compileWorkspaceV1(dbpool, workspaceName, version)
+	log.Println("Using workspace compiler v2 with WORKSPACE_HOME=", WorkspacesHome())
+	return compileWorkspaceV2(dbpool, workspaceControl, version)
 }
 
 func UploadWorkspaceAssets(dbpool *pgxpool.Pool, workspaceName, version string) error {

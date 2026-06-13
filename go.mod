@@ -4,11 +4,11 @@ go 1.26
 
 require (
 	github.com/aws/aws-sdk-go-v2 v1.42.0
-	github.com/aws/aws-sdk-go-v2/config v1.32.24
-	github.com/aws/aws-sdk-go-v2/feature/s3/manager v1.22.26
+	github.com/aws/aws-sdk-go-v2/config v1.32.25
+	github.com/aws/aws-sdk-go-v2/feature/s3/manager v1.22.27
 	github.com/aws/aws-sdk-go-v2/service/s3 v1.103.3
 	github.com/aws/constructs-go/constructs/v10 v10.6.0
-	github.com/aws/jsii-runtime-go v1.134.0
+	github.com/aws/jsii-runtime-go v1.135.0
 	go.uber.org/zap v1.28.0
 )
 
@@ -26,7 +26,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/internal/checksum v1.9.22 // indirect
 	github.com/aws/aws-sdk-go-v2/service/internal/presigned-url v1.13.29 // indirect
 	github.com/aws/aws-sdk-go-v2/service/internal/s3shared v1.19.29 // indirect
-	github.com/aws/aws-sdk-go-v2/service/signin v1.1.5 // indirect
+	github.com/aws/aws-sdk-go-v2/service/signin v1.2.0 // indirect
 	github.com/aws/aws-sdk-go-v2/service/sso v1.31.3 // indirect
 	github.com/aws/aws-sdk-go-v2/service/ssooidc v1.36.6 // indirect
 	github.com/aws/smithy-go v1.27.2 // indirect
@@ -54,29 +54,29 @@ require (
 	github.com/yuin/goldmark v1.8.2 // indirect
 	github.com/zeebo/xxh3 v1.1.0 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
-	golang.org/x/exp v0.0.0-20260603202125-055de637280b // indirect
+	golang.org/x/exp v0.0.0-20260611194520-c48552f49976 // indirect
 	golang.org/x/lint v0.0.0-20241112194109-818c5a804067 // indirect
 	golang.org/x/mod v0.37.0 // indirect
-	golang.org/x/net v0.55.0 // indirect
+	golang.org/x/net v0.56.0 // indirect
 	golang.org/x/sync v0.21.0 // indirect
 	golang.org/x/sys v0.46.0 // indirect
-	golang.org/x/telemetry v0.0.0-20260608155238-fbbc5114c3db // indirect
-	golang.org/x/tools v0.45.0 // indirect
+	golang.org/x/telemetry v0.0.0-20260611141451-d61e87d5f4a3 // indirect
+	golang.org/x/tools v0.46.0 // indirect
 	golang.org/x/tools/cmd/godoc v0.1.0-deprecated // indirect
 	golang.org/x/tools/godoc v0.1.0-deprecated // indirect
 	golang.org/x/xerrors v0.0.0-20240903120638-7835f813f4da // indirect
-	google.golang.org/genproto/googleapis/rpc v0.0.0-20260608224507-4308a22a1bab // indirect
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20260610212136-7ab31c22f7ad // indirect
 	google.golang.org/grpc v1.81.1 // indirect
 	google.golang.org/protobuf v1.36.11 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
-	modernc.org/libc v1.73.0 // indirect
+	modernc.org/libc v1.73.1 // indirect
 	modernc.org/mathutil v1.7.1 // indirect
 	modernc.org/memory v1.11.0 // indirect
 )
 
 require (
-	github.com/aws/aws-cdk-go/awscdk/v2 v2.258.1
-	github.com/aws/aws-cdk-go/awscdklambdagoalpha/v2 v2.258.1-alpha.0
+	github.com/aws/aws-cdk-go/awscdk/v2 v2.259.0
+	github.com/aws/aws-cdk-go/awscdklambdagoalpha/v2 v2.259.0-alpha.0
 	github.com/aws/aws-lambda-go v1.54.0
 	github.com/aws/aws-sdk-go-v2/service/secretsmanager v1.42.3
 	github.com/aws/aws-sdk-go-v2/service/sfn v1.43.0
@@ -95,7 +95,7 @@ require (
 require (
 	github.com/antlr4-go/antlr/v4 v4.13.1
 	github.com/apache/arrow/go/v17 v17.0.0
-	github.com/aws/aws-sdk-go-v2/credentials v1.19.23
+	github.com/aws/aws-sdk-go-v2/credentials v1.19.24
 	github.com/aws/aws-sdk-go-v2/service/codecommit v1.34.4
 	github.com/aws/aws-sdk-go-v2/service/sts v1.43.3
 	github.com/dolthub/swiss v0.2.1
