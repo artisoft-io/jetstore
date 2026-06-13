@@ -31,7 +31,6 @@ type JetstoreOneStackProps struct {
 	DbMaxCapacity                *float64
 	CpuUtilizationAlarmThreshold *float64
 	SnsAlarmTopicArn             *string
-	NbrShards                    string
 	MaxConcurrency               float64
 }
 
@@ -58,9 +57,6 @@ type ApiGatewayProxyPolicyStatement struct {
 
 // Struct to hold the stack components
 type JetStoreStackComponents struct {
-	LoaderSmArn       string
-	ServerSmArn       string
-	ServerSmArnv2     string
 	CpipesSmArn       string
 	CpipesNativeSmArn string
 	ReportsSmArn      string
@@ -81,7 +77,6 @@ type JetStoreStackComponents struct {
 	VpcEndpointsSg   awsec2.ISecurityGroup
 	RdsAccessSg      awsec2.ISecurityGroup
 	InternetAccessSg awsec2.ISecurityGroup
-	// ElbInboundSg     awsec2.ISecurityGroup
 
 	RdsSecret            awsrds.DatabaseSecret
 	RdsCluster           awsrds.DatabaseCluster
@@ -93,15 +88,6 @@ type JetStoreStackComponents struct {
 
 	RunreportTaskDefinition awsecs.FargateTaskDefinition
 	RunreportsContainerDef  awsecs.ContainerDefinition
-
-	LoaderTaskDefinition awsecs.FargateTaskDefinition
-	LoaderContainerDef   awsecs.ContainerDefinition
-
-	ServerTaskDefinition awsecs.FargateTaskDefinition
-	ServerContainerDef   awsecs.ContainerDefinition
-
-	Serverv2TaskDefinition awsecs.FargateTaskDefinition
-	Serverv2ContainerDef   awsecs.ContainerDefinition
 
 	CpipesTaskDefinition awsecs.FargateTaskDefinition
 	CpipesContainerDef   awsecs.ContainerDefinition
@@ -130,7 +116,6 @@ type JetStoreStackComponents struct {
 	RunReportsLambda          awslambdago.GoFunction
 	CpipesRunReportsLambda    awslambdago.GoFunction
 	PurgeDataLambda           awslambdago.GoFunction
-	serverv2NodeLambda        awslambdago.GoFunction
 	CpipesNodeLambda          awslambdago.GoFunction
 	CpipesNativeNodeLambda    awslambdago.GoFunction
 	CpipesStartShardingLambda awslambdago.GoFunction
@@ -140,10 +125,7 @@ type JetStoreStackComponents struct {
 	ApiGatewayLambda          awslambdago.GoFunction
 	ApiGatewayTestLambda      awslambdago.GoFunction
 
-	LoaderSM       sfn.StateMachine
 	ReportsSM      sfn.StateMachine
-	ServerSM       sfn.StateMachine
-	Serverv2SM     sfn.StateMachine
 	CpipesSM       sfn.StateMachine
 	CpipesNativeSM sfn.StateMachine
 	BastionHost    awsec2.BastionHostLinux

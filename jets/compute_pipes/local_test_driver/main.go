@@ -30,7 +30,6 @@ import (
 // JETS_s3_STAGE_PREFIX
 // JETS_s3_SCHEMA_TRIGGERS
 // JETS_S3_KMS_KEY_ARN
-// NBR_SHARDS default nbr_nodes of cluster
 // USING_SSH_TUNNEL Connect  to DB using ssh tunnel (expecting the ssh open)
 // DEPLOY_CPIPES_NATIVE Use the native jetrules engine
 var pipelineExecKey = flag.Int("pipeline_execution_key", -1, "Pipeline execution key (required)")

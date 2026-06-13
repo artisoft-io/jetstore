@@ -33,13 +33,9 @@ import (
 // JETS_DSN_SECRET
 // JETS_DSN_VALUE
 // JETS_VERSION JetStore version
-// JETS_LOADER_SM_ARN state machine arn
 // JETS_REGION
-// JETS_SERVER_SM_ARN state machine arn
-// JETS_SERVER_SM_ARNv2 state machine arn
 // JETSTORE_DEV_MODE Indicates running in dev mode
 // JETS_LOG_DEBUG set to 1 or 2 (will prints graph, very verbose)
-// NBR_SHARDS set the nbr of shard to use for loader and server
 // WEB_APP_DEPLOYMENT_DIR
 // WORKSPACE Workspace currently in use (active workspace)
 // WORKSPACE_BRANCH deployed branch of active workspace
@@ -75,7 +71,6 @@ var adminEmail = flag.String("adminEmail", "admin", "Admin email, may not be an 
 var awsAdminPwdSecret = flag.String("awsAdminPwdSecret", "", "aws secret with Admin password as string (aws integration) (required unless -adminPwd is provided)")
 var adminPwd = flag.String("adminPwd", "", "Admin password (required unless -awsAdminPwdSecret is provided)")
 var globalDevMode bool
-var nbrShards int
 var serverAddr string
 
 func main() {
@@ -155,18 +150,6 @@ func main() {
 		}
 	}
 
-	// This specify the nbr of shard to the loaderand server processes via command line argument
-	// The serverv2 process will take it via env var, as done here.
-	nbrShards = 1
-	ns, ok := os.LookupEnv("NBR_SHARDS")
-	var err error
-	if ok {
-		nbrShards, err = strconv.Atoi(ns)
-		if err != nil {
-			log.Println("Invalid ENV NBR_SHARDS, expecting an int, got", ns)
-		}
-	}
-
 	if os.Getenv("WORKSPACES_HOME") == "" || os.Getenv("WORKSPACE") == "" || os.Getenv("WORKSPACE_BRANCH") == "" {
 		hasErr = true
 		errMsg = append(errMsg, "Env var WORKSPACES_HOME, WORKSPACE, and WORKSPACE_BRANCH are required.")
@@ -182,11 +165,6 @@ func main() {
 					*unitTestDir = v1 + "/" + v2 + "/" + *unitTestDir
 				}
 			}
-		}
-	} else {
-		if os.Getenv("JETS_LOADER_SM_ARN") == "" || os.Getenv("JETS_SERVER_SM_ARN") == "" {
-			hasErr = true
-			errMsg = append(errMsg, "Env var JETS_LOADER_SM_ARN, and JETS_SERVER_SM_ARN required when not in dev mode.")
 		}
 	}
 	if hasErr {
@@ -217,7 +195,6 @@ func main() {
 		if len(*unitTestDir) > 0 {
 			log.Println("Running in DEV MODE with unitTestDir", *unitTestDir)
 		}
-		log.Println("Nbr Shards in DEV MODE: nbrShards", nbrShards)
 	}
 	log.Printf("ENV JETS_REGION: %s\n", os.Getenv("JETS_REGION"))
 	log.Printf("ENV JETS_BUCKET: %s\n", os.Getenv("JETS_BUCKET"))

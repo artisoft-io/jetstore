@@ -55,21 +55,11 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 		alarmAction = awscloudwatchactions.NewSnsAction(awssns.Topic_FromTopicArn(stack, jsii.String("JetStoreSnsAlarmTopic"),
 			props.SnsAlarmTopicArn))
 	}
-	props.NbrShards = os.Getenv("NBR_SHARDS")
-	if props.NbrShards == "" {
-		props.NbrShards = "1"
-	}
 
 	// ---------------------------------------
 	// Define the JetStore State Machines ARNs
 	// ---------------------------------------
 	jsComp := &jetstorestack.JetStoreStackComponents{
-		LoaderSmArn: fmt.Sprintf("arn:aws:states:%s:%s:stateMachine:%s",
-			os.Getenv("AWS_REGION"), os.Getenv("AWS_ACCOUNT"), *props.MkId("loaderSM")),
-		ServerSmArn: fmt.Sprintf("arn:aws:states:%s:%s:stateMachine:%s",
-			os.Getenv("AWS_REGION"), os.Getenv("AWS_ACCOUNT"), *props.MkId("serverSM")),
-		ServerSmArnv2: fmt.Sprintf("arn:aws:states:%s:%s:stateMachine:%s",
-			os.Getenv("AWS_REGION"), os.Getenv("AWS_ACCOUNT"), *props.MkId("serverv2SM")),
 		CpipesSmArn: fmt.Sprintf("arn:aws:states:%s:%s:stateMachine:%s",
 			os.Getenv("AWS_REGION"), os.Getenv("AWS_ACCOUNT"), *props.MkId("cpipesSM")),
 		ReportsSmArn: fmt.Sprintf("arn:aws:states:%s:%s:stateMachine:%s",
@@ -316,8 +306,6 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 	// JetStore Image from ecr -- referenced in most legacy tasks:
 	// - ui service
 	// - run reports task
-	// - loader task
-	// - server task
 	// ----------------------------------------------------------------------------------------------
 	jsComp.JetStoreImage = awsecs.AssetImage_FromEcrRepository(
 		//* example: arn:aws:ecr:us-east-1:470601442608:repository/jetstore_test_ws
@@ -332,8 +320,6 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 	// Build ECS Tasks
 	// ---------------------------------------------
 	//	- RunreportTaskDefinition
-	//	- LoaderTaskDefinition
-	//	- ServerTaskDefinition
 	//	- CpipesTaskDefinition
 	jsComp.BuildEcsTasks(scope, stack, props)
 
@@ -351,18 +337,9 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 	//	- JetsApi
 	jsComp.BuildApiLambdas(scope, stack, props)
 
-	// Build Loader State Machine
-	// ---------------------------------------------
-	jsComp.BuildLoaderSM(scope, stack, props)
-
 	// Build Run Reports State Machine
 	// ---------------------------------------------
 	jsComp.BuildRunReportsSM(scope, stack, props)
-
-	// JetStore Rule Server State Machine
-	// ---------------------------------------------
-	jsComp.BuildServerSM(scope, stack, props)
-	jsComp.BuildServerv2SM(scope, stack, props)
 
 	// Build lambdas used by cpipesSM/cpipesNativeSM:
 	//	- CpipesNodeLambda
@@ -385,9 +362,6 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 	// These execution are performed in code so must give permission explicitly
 	// ---------------------------------------
 	resources := []*string{
-		jsComp.LoaderSM.StateMachineArn(),
-		jsComp.ServerSM.StateMachineArn(),
-		jsComp.Serverv2SM.StateMachineArn(),
 		jsComp.CpipesSM.StateMachineArn(),
 		jsComp.ReportsSM.StateMachineArn(),
 	}
@@ -518,9 +492,6 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 // DEPLOY_CPIPES_NATIVE (required for cpipes native task and lambdas, values: TRUE, FALSE, requires JETS_IMAGE_TAG)
 // JETS_INPUT_ROW_JETS_KEY_ALGO (values: uuid, row_hash, domain_key (default: uuid))
 // JETS_INVALID_CODE (optional) code value when client code is not is the code value mapping, default return the client value
-// JETS_LOADER_CHUNCK_SIZE loader file partition size
-// JETS_LOADER_TASK_CPU allocated cpu in vCPU units
-// JETS_LOADER_TASK_MEM_LIMIT_MB memory limit, based on fargate table
 // JETS_NBR_NAT_GATEWAY (optional, default to 0), set to 1 to be able to reach out to github for git integration
 // JETS_CPIPES_RUN_REPORTS_LAMBDA_ENTRY (optional, path to handler code for run_reports lambda in cpipes pipelines)
 // JETS_s3_INPUT_PREFIX (required)
@@ -530,9 +501,6 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 // JETS_S3_KMS_KEY_ARN (optional, default to account default KMS key) Server side encryption of s3 objects
 // JETS_SECRETS_ROTATION_DAYS (required, nbr of days to trigger secret rotation, default 30 days)
 // JETS_SENTINEL_FILE_NAME (optional, fixed file name for multipart sentinel file - file of size 0)
-// JETS_SERVER_TASK_CPU allocated cpu in vCPU units
-// JETS_SERVER_TASK_MEM_LIMIT_MB memory limit, based on fargate table
-// JETS_SERVER_SM_TIMEOUT_MIN (optional) state machine timeout for SERVER_SM, default 60 min
 // JETS_SNS_ALARM_TOPIC_ARN (optional, sns topic for sending alarm)
 // JETS_SQS_REGISTER_KEY_LAMBDA_ENTRY (optional, path to handler code for sqs register key lambda)
 // JETS_API_GATEWAY_LAMBDA_ENTRY (optional, path to handler code for api gateway lambda)
@@ -575,7 +543,6 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 // JETS_DB_VERSION (optional, default to latest version supported by jetstore, expected values are 14.5, 15.10 etc. only specific versions are supported)
 // JETS_DB_POOL_SIZE (optional, default is 8, min allowed is 5, used for serverv2 running standalone as ecs task or lambda function)
 // CPIPES_DB_POOL_SIZE (optional, default is 3, used for cpipes node, may run jetrules as cpipes operator)
-// NBR_SHARDS (defaults to 1)
 // JETS_PIPELINE_THROTTLING_JSON json configuration ThrottlingSpec
 // RETENTION_DAYS site global rentention days, delete sessions if > 0
 // PURGE_DATA_SCHEDULED_HOUR_UTC hour of day to run purge_data, default 7 UTC
@@ -631,7 +598,6 @@ func main() {
 	fmt.Println("env DEPLOY_CPIPES_NATIVE:", os.Getenv("DEPLOY_CPIPES_NATIVE"))
 	fmt.Println("env JETS_INPUT_ROW_JETS_KEY_ALGO:", os.Getenv("JETS_INPUT_ROW_JETS_KEY_ALGO"))
 	fmt.Println("env JETS_INVALID_CODE:", os.Getenv("JETS_INVALID_CODE"))
-	fmt.Println("env JETS_LOADER_CHUNCK_SIZE:", os.Getenv("JETS_LOADER_CHUNCK_SIZE"))
 	fmt.Println("env JETS_NBR_NAT_GATEWAY:", os.Getenv("JETS_NBR_NAT_GATEWAY"))
 	fmt.Println("env JETS_CPIPES_RUN_REPORTS_LAMBDA_ENTRY:", os.Getenv("JETS_CPIPES_RUN_REPORTS_LAMBDA_ENTRY"))
 	fmt.Println("env JETS_s3_INPUT_PREFIX:", os.Getenv("JETS_s3_INPUT_PREFIX"))
@@ -640,11 +606,6 @@ func main() {
 	fmt.Println("env JETS_s3_SCHEMA_TRIGGERS:", os.Getenv("JETS_s3_SCHEMA_TRIGGERS"))
 	fmt.Println("env JETS_S3_KMS_KEY_ARN:", os.Getenv("JETS_S3_KMS_KEY_ARN"))
 	fmt.Println("env JETS_SENTINEL_FILE_NAME:", os.Getenv("JETS_SENTINEL_FILE_NAME"))
-	fmt.Println("env JETS_SERVER_TASK_CPU:", os.Getenv("JETS_SERVER_TASK_CPU"))
-	fmt.Println("env JETS_SERVER_TASK_MEM_LIMIT_MB:", os.Getenv("JETS_SERVER_TASK_MEM_LIMIT_MB"))
-	fmt.Println("env JETS_SERVER_SM_TIMEOUT_MIN:", os.Getenv("JETS_SERVER_SM_TIMEOUT_MIN"))
-	fmt.Println("env JETS_LOADER_TASK_CPU:", os.Getenv("JETS_LOADER_TASK_CPU"))
-	fmt.Println("env JETS_LOADER_TASK_MEM_LIMIT_MB:", os.Getenv("JETS_LOADER_TASK_MEM_LIMIT_MB"))
 	fmt.Println("env JETS_SNS_ALARM_TOPIC_ARN:", os.Getenv("JETS_SNS_ALARM_TOPIC_ARN"))
 	fmt.Println("env JETS_SQS_REGISTER_KEY_LAMBDA_ENTRY:", os.Getenv("JETS_SQS_REGISTER_KEY_LAMBDA_ENTRY"))
 	fmt.Println("env JETS_API_GATEWAY_LAMBDA_ENTRY:", os.Getenv("JETS_API_GATEWAY_LAMBDA_ENTRY"))
@@ -672,7 +633,6 @@ func main() {
 	fmt.Println("env JETS_API_GATEWAY_CODECOMMIT_REPO_ARN:", os.Getenv("JETS_API_GATEWAY_CODECOMMIT_REPO_ARN"))
 	fmt.Println("env JETS_API_GATEWAY_LAMBDA_ASSUME_ROLE_ARN:", os.Getenv("JETS_API_GATEWAY_LAMBDA_ASSUME_ROLE_ARN"))
 	fmt.Println("env JETS_VPC_INTERNET_GATEWAY:", os.Getenv("JETS_VPC_INTERNET_GATEWAY"))
-	fmt.Println("env NBR_SHARDS:", os.Getenv("NBR_SHARDS"))
 	fmt.Println("env JETS_PIPELINE_THROTTLING_JSON:", os.Getenv("JETS_PIPELINE_THROTTLING_JSON"))
 	fmt.Println("env RETENTION_DAYS:", os.Getenv("RETENTION_DAYS"))
 	fmt.Println("env PURGE_DATA_SCHEDULED_HOUR_UTC:", os.Getenv("PURGE_DATA_SCHEDULED_HOUR_UTC"))
@@ -730,6 +690,7 @@ func main() {
 	}
 	dBMinCapacity := 0.5
 	if os.Getenv("JETS_DB_MIN_CAPACITY") != "" {
+		var err error
 		dBMinCapacity, err = strconv.ParseFloat(os.Getenv("JETS_DB_MIN_CAPACITY"), 64)
 		if err != nil {
 			hasErr = true

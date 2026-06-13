@@ -474,42 +474,9 @@ func (ctx *DataTableContext) startStateMachine(task *PendingTask) error {
 	}
 
 	// Invoke states to execute a pipeline
-	serverCommands := make([][]string, 0)
-
 	var processArn string
 	var smInput map[string]any
 	switch task.StateMachineName {
-	case "serverSM", "serverv2SM":
-		if task.StateMachineName == "serverv2SM" {
-			processArn = os.Getenv("JETS_SERVER_SM_ARNv2")
-		} else {
-			processArn = os.Getenv("JETS_SERVER_SM_ARN")
-		}
-		for shardId := range nbrShards {
-			serverArgs := []string{
-				"-peKey", peKey,
-				"-userEmail", task.UserEmail,
-				"-shardId", strconv.Itoa(shardId),
-			}
-			serverCommands = append(serverCommands, serverArgs)
-		}
-		smInput = map[string]any{
-			"serverCommands": serverCommands,
-			"reportsCommand": runReportsCommand,
-			"successUpdate": map[string]any{
-				"-peKey":         peKey,
-				"-status":        "completed",
-				"file_key":       task.MainInputFileKey.String,
-				"failureDetails": "",
-			},
-			"errorUpdate": map[string]any{
-				"-peKey":         peKey,
-				"-status":        "failed",
-				"file_key":       task.MainInputFileKey.String,
-				"failureDetails": "",
-			},
-		}
-
 	case "cpipesSM", "cpipesNativeSM":
 		// State Machine input for new cpipesSM all-in-one
 		// Set DoNotNotifyApiGateway to true, since we don't have the cpipesEnv when
@@ -568,7 +535,7 @@ func (ctx *DataTableContext) startStateMachine(task *PendingTask) error {
 		err = errors.New("error while calling StartExecution")
 		return err
 	}
-	fmt.Println("Server State Machine", name, "started")
+	fmt.Println("State Machine", name, "started")
 	return nil
 }
 
@@ -599,43 +566,9 @@ func (ctx *DataTableContext) runPipelineLocally(devModeCode string, task *Pendin
 		devModeCode == "run_cpipes_only" || devModeCode == "run_cpipes_reports" {
 		// DevMode: Lock session id & register run on last shard (unless error)
 		// loop over every chard to exec in succession
-		var execName, lable string
+		var lable string
 		var cmd *exec.Cmd
 		switch devModeCode {
-		case "run_server_only", "run_server_reports":
-			switch task.StateMachineName {
-			case "serverSM":
-				execName = "/usr/local/bin/server"
-			case "serverv2SM":
-				execName = "/usr/local/bin/serverv2"
-			default:
-				log.Printf("error: unknown state machine name: %s", task.StateMachineName)
-				err = fmt.Errorf("error: unknown stateMachineName: %s", task.StateMachineName)
-				return err
-			}
-			for shardId := 0; shardId < nbrShards && err == nil; shardId++ {
-				serverArgs := []string{
-					"-peKey", peKey,
-					"-userEmail", task.UserEmail,
-					"-shardId", strconv.Itoa(shardId),
-				}
-				if ctx.UsingSshTunnel {
-					serverArgs = append(serverArgs, "-usingSshTunnel")
-				}
-
-				log.Printf("Run %s: %s", execName, serverArgs)
-				lable = "SERVER"
-				cmd = exec.Command(execName, serverArgs...)
-				cmd.Env = append(os.Environ(),
-					fmt.Sprintf("WORKSPACE=%s", workspaceName),
-					"JETSTORE_DEV_MODE=1", "USING_SSH_TUNNEL=1",
-				)
-				cmd.Stdout = &buf
-				cmd.Stderr = &buf
-				log.Printf("Executing %s with args '%v'", execName, serverArgs)
-				err = cmd.Run()
-				(*results)["log"] = buf.String()
-			}
 
 		case "run_cpipes_only", "run_cpipes_reports":
 			// State Machine input for new cpipesSM all-in-one
@@ -682,8 +615,7 @@ func (ctx *DataTableContext) runPipelineLocally(devModeCode string, task *Pendin
 		}
 	}
 
-	if devModeCode == "run_reports_only" || devModeCode == "run_server_reports" ||
-		devModeCode == "run_cpipes_reports" {
+	if devModeCode == "run_reports_only" ||	devModeCode == "run_cpipes_reports" {
 		// Call run_report synchronously
 		if ctx.UsingSshTunnel {
 			runReportsCommand = append(runReportsCommand, "-usingSshTunnel")
@@ -701,27 +633,27 @@ func (ctx *DataTableContext) runPipelineLocally(devModeCode string, task *Pendin
 		if err != nil {
 			log.Printf("while executing run_reports command '%v': %v", runReportsCommand, err)
 			log.Println("=*=*=*=*=*=*=*=*=*=*=*=*=*=*")
-			log.Println("SERVER & REPORTS CAPTURED OUTPUT BEGIN")
+			log.Println("CPIPES & REPORTS CAPTURED OUTPUT BEGIN")
 			log.Println("=*=*=*=*=*=*=*=*=*=*=*=*=*=*")
 			log.Println((*results)["log"])
 			log.Println("=*=*=*=*=*=*=*=*=*=*=*=*=*=*")
-			log.Println("SERVER & REPORTS CAPTURED OUTPUT END")
+			log.Println("CPIPES & REPORTS CAPTURED OUTPUT END")
 			log.Println("=*=*=*=*=*=*=*=*=*=*=*=*=*=*")
 			err = errors.New("error while running run_reports command")
 			ca.Status = "failed"
 			ca.FailureDetails = fmt.Sprintf("Error while running reports command in test mode: %s", (*results)["log"])
-			// Update server execution status table
+			// Update pipeline execution status table
 			ca.ValidateArguments()
 			ca.CoordinateWork()
 			return err
 		}
 	}
 	log.Println("============================")
-	log.Println("SERVER/CPIPES & REPORTS CAPTURED OUTPUT BEGIN")
+	log.Println("CPIPES & REPORTS CAPTURED OUTPUT BEGIN")
 	log.Println("============================")
 	log.Println((*results)["log"])
 	log.Println("============================")
-	log.Println("SERVER/CPIPES & REPORTS CAPTURED OUTPUT END")
+	log.Println("CPIPES & REPORTS CAPTURED OUTPUT END")
 	log.Println("============================")
 	// all good, update server execution status table
 	ca.ValidateArguments()

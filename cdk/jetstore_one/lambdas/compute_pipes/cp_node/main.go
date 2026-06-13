@@ -23,7 +23,6 @@ import (
 // JETS_DSN_SECRET
 // CPIPES_DB_POOL_SIZE
 // JETS_REGION
-// NBR_SHARDS default nbr_nodes of cluster
 // JETS_S3_KMS_KEY_ARN
 
 type JetRulesProxyImpl struct {

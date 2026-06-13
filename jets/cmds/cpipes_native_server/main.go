@@ -26,7 +26,6 @@ import (
 // JETS_BUCKET
 // JETS_DSN_SECRET
 // JETS_REGION
-// NBR_SHARDS default nbr_nodes of cluster
 // JETS_S3_KMS_KEY_ARN
 // JETS_DB_POOL_SIZE
 

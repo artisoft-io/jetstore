@@ -29,15 +29,6 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-var nbrShards int
-
-func init() {
-	nbrShards, _ = strconv.Atoi(os.Getenv("NBR_SHARDS"))
-	if nbrShards == 0 {
-		nbrShards = 1
-	}
-}
-
 // Environment and settings needed
 // Note CpipesEnv is used ONLY in dev mode to pass environment variables to local_test_driver
 type DataTableContext struct {
