@@ -10,7 +10,7 @@ import (
 
 	"github.com/artisoft-io/jetstore/jets/awsi"
 	"github.com/artisoft-io/jetstore/jets/jetrules/rete"
-	"github.com/artisoft-io/jetstore/jets/serverv2/workspace"
+	"github.com/artisoft-io/jetstore/jets/workspace"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
