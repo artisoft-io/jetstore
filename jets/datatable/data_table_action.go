@@ -241,6 +241,7 @@ func (dtq *DataTableAction) makeSelectColumns() string {
 			} else {
 				buf.WriteString(pgx.Identifier{column}.Sanitize())
 			}
+			buf.WriteString("::text")
 		}
 	}
 	return buf.String()
