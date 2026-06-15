@@ -148,6 +148,15 @@ func (ca *StatusUpdate) ValidateArguments() []string {
 	return errMsg
 }
 
+// SchemaProviderShort is a struct to unmarshal the main input schema provider
+// with only the fields needed for status update and notification.
+// Also for updating the process map coordination if used (pipeline_coordinator_map tbl).
+type SchemaProviderShort struct {
+	RequestID                        string            `json:"request_id,omitempty"`
+	NotificationTemplatesOverrides   map[string]string `json:"notification_templates_overrides"`
+	NotificationRoutingOverridesJson string            `json:"notification_routing_overrides_json"`
+}
+
 func DoNotifyApiGateway(fileKey, apiEndpoint, apiEndpointJson, notificationTemplate string,
 	customFileKeys []string, errMsg string, envSettings map[string]any) error {
 	var (
@@ -303,11 +312,21 @@ func (ca *StatusUpdate) CoordinateWork() error {
 		return fmt.Errorf("error: StatusUpdate.CoordinateWork is expecting to have an opened db connections")
 	}
 
-	// Need to get the main input schema provider to see if there is an override on the notification template and
-	// it is needed to register db_table as input source when specified by env var ${REGISTER_DB_TABLE}
+	// Need to get the main input schema provider:
+	// 	- to see if there is an override on the notification template,
+	//	- to see if this pipeline execution is linked to a pipeeline map coordination (pipeline_coordinator_map),
+	// 	- to register db_table as input source when specified by env var ${REGISTER_DB_TABLE}
 	// Getting session id as well, so doing the call even if apiEndpoint is not specified
 	schemaProviderJson, sessionId, err := GetSchemaProviderJsonFromPipelineKey(ca.Dbpool, ca.PeKey)
 	log.Printf("%s Status '%s' for %s\n", sessionId, ca.Status, ca.FileKey)
+	var schemaProvider *SchemaProviderShort
+	if len(schemaProviderJson) > 0 {
+		schemaProvider = &SchemaProviderShort{}
+		err = json.Unmarshal([]byte(schemaProviderJson), schemaProvider)
+		if err != nil {
+			log.Panicf("%s while unmarshalling schema provider json: %v\n", sessionId, err)
+		}
+	}
 
 	// NOTE 2024-05-13 Added Notification to API Gateway via env var CPIPES_STATUS_NOTIFICATION_ENDPOINT
 	// or CPIPES_STATUS_NOTIFICATION_ENDPOINT_JSON
@@ -322,29 +341,17 @@ func (ca *StatusUpdate) CoordinateWork() error {
 		if len(ck) > 0 {
 			customFileKeys = strings.Split(ck, ",")
 		}
-
-		if err != nil {
-			return fmt.Errorf("while getting schema provider json from peKey %d in status_update: %v", ca.PeKey, err)
-		}
-		if len(schemaProviderJson) > 0 {
-			type SchemaProviderShort struct {
-				NotificationTemplatesOverrides   map[string]string `json:"notification_templates_overrides"`
-				NotificationRoutingOverridesJson string            `json:"notification_routing_overrides_json"`
+		if schemaProvider != nil {
+			if schemaProvider.NotificationTemplatesOverrides != nil {
+				if ca.Status == "failed" {
+					notificationTemplate = schemaProvider.NotificationTemplatesOverrides["CPIPES_FAILED_NOTIFICATION_JSON"]
+					errMsg = ca.FailureDetails
+				} else {
+					notificationTemplate = schemaProvider.NotificationTemplatesOverrides["CPIPES_COMPLETED_NOTIFICATION_JSON"]
+				}
 			}
-			schemaProvider := SchemaProviderShort{}
-			err = json.Unmarshal([]byte(schemaProviderJson), &schemaProvider)
-			if err == nil {
-				if schemaProvider.NotificationTemplatesOverrides != nil {
-					if ca.Status == "failed" {
-						notificationTemplate = schemaProvider.NotificationTemplatesOverrides["CPIPES_FAILED_NOTIFICATION_JSON"]
-						errMsg = ca.FailureDetails
-					} else {
-						notificationTemplate = schemaProvider.NotificationTemplatesOverrides["CPIPES_COMPLETED_NOTIFICATION_JSON"]
-					}
-				}
-				if len(schemaProvider.NotificationRoutingOverridesJson) > 0 {
-					apiEndpointJson = schemaProvider.NotificationRoutingOverridesJson
-				}
+			if len(schemaProvider.NotificationRoutingOverridesJson) > 0 {
+				apiEndpointJson = schemaProvider.NotificationRoutingOverridesJson
 			}
 		}
 		// Get the template defined at deployment if no override was found
@@ -461,6 +468,11 @@ func (ca *StatusUpdate) CoordinateWork() error {
 			}
 		}
 	}
+
+	//TODO check if request_id of schema provider is linked to a pipeline_coordinator_map and if yes
+	// update the coordination status in pipeline_coordinator_map tbl based on the peKey and
+	// the status of the execution (failed, completed, etc) to kick off the post map pipeline execution if needed
+	// this is provided by the schema_provider_json in the pipeline_coordinator_map tbl.
 
 	if !isJetsLoader {
 		// Check for pending tasks ready to start
