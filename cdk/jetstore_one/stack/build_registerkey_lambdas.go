@@ -65,7 +65,7 @@ func (jsComp *JetStoreStackComponents) BuildRegisterKeyLambdas(scope constructs.
 			"WORKSPACE":                                jsii.String(os.Getenv("WORKSPACE")),
 			"EXTERNAL_SQS_ARN":                         jsii.String(os.Getenv("EXTERNAL_SQS_ARN")),
 		},
-		MemorySize:     jsii.Number(128),
+		MemorySize:     jsii.Number(256),
 		Timeout:        awscdk.Duration_Seconds(jsii.Number(30)),
 		Vpc:            jsComp.Vpc,
 		VpcSubnets:     jsComp.PrivateSubnetSelection,
