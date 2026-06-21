@@ -1,0 +1,40 @@
+FROM cpipes_base_builder:latest
+
+ARG JETS_VERSION
+ENV JETS_VERSION=${JETS_VERSION}
+
+# JetStore VeraCode Scan
+# Set working directory
+ENV JETS_SOURCE_DIR=/app JETS_BUILD_DIR=/app
+RUN mkdir -p ${JETS_SOURCE_DIR}
+RUN mkdir -p ${JETS_BUILD_DIR}
+
+WORKDIR ${JETS_SOURCE_DIR}
+
+# Copy source files
+COPY .git                ${JETS_SOURCE_DIR}/.git
+COPY CMakeLists.txt      ${JETS_SOURCE_DIR}/
+COPY go.mod              ${JETS_SOURCE_DIR}/
+COPY jets                ${JETS_SOURCE_DIR}/jets
+COPY jetsclient          ${JETS_SOURCE_DIR}/jetsclient
+COPY cdk/jetstore_one    ${JETS_SOURCE_DIR}/cdk/jetstore_one
+
+# Set CGO environment variables
+ENV CGO_ENABLED=1
+ENV GOOS=linux
+ENV GOARCH=amd64
+RUN go mod tidy
+RUN go get all
+RUN go mod download
+
+# Run scanner
+# The secret is safely mounted at /run/secrets/my_token during this step only
+# This is done by:
+#   export MY_ENV_TOKEN="secret_value_here" 
+#   docker build --secret id=my_token,env=MY_ENV_TOKEN -t my_image .
+ARG GOPATH=/usr/local/go
+RUN wget -q "https://sca-downloads.veracode.com/ci.sh"
+RUN --mount=type=secret,id=my_token \
+  export SRCCLR_API_TOKEN=$(cat /run/secrets/my_token) \
+  && sh ci.sh scan --allow-dirty ./
+

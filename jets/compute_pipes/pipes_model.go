@@ -40,8 +40,9 @@ func (cp *ComputePipesConfig) NbrComputePipes() int {
 	return len(cp.ConditionalPipesConfig)
 }
 
-// This function is called once per compute pipes step (sharding or redicung)
+// This function is called once per compute pipes step (sharding or reducing)
 // so we construct the ExprNodeEvaluator as needed.
+// Returns the PipeSpec (pipeline config) for the step, the stepId to execute, and error if any.
 func (cp *ComputePipesConfig) GetComputePipes(stepId int, env map[string]any) ([]PipeSpec, int, error) {
 	switch {
 	case len(cp.ReducingPipesConfig) > stepId:
@@ -369,6 +370,7 @@ type SchemaProviderSpec struct {
 	ReportCmds                       []ReportCmdSpec    `json:"report_cmds,omitempty"`
 	NotificationTemplatesOverrides   map[string]string  `json:"notification_templates_overrides,omitempty"`
 	NotificationRoutingOverridesJson string             `json:"notification_routing_overrides_json,omitempty"`
+	DoNotNotifyApiGateway            bool               `json:"do_not_notify_api_gateway"`
 }
 
 // Commands for the run_report step
@@ -683,6 +685,7 @@ type OutputChannelConfig struct {
 	// Other available env substitution:
 	// $FILE_KEY main input file key.
 	// $SESSIONID current session id.
+	// ${REQUEST_ID} current request id.
 	// $PROCESS_NAME current process name.
 	// $PATH_FILE_KEY file key path portion.
 	// $NAME_FILE_KEY file key file name portion (empty when in part files mode).

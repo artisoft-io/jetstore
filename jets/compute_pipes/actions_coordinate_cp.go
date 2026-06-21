@@ -77,7 +77,7 @@ func (args *ComputePipesNodeArgs) CoordinateComputePipes(ctx context.Context, db
 	}
 	if mainSchemaProviderConfig == nil {
 		// Did not find the main_input schema provider
-		cpErr = fmt.Errorf("error: bug in CoordinateComputePipes, could not find the main_input schema provider")
+		cpErr = fmt.Errorf("unexpected error in CoordinateComputePipes: could not find the main_input schema provider")
 		goto gotError
 	}
 	envSettings = mainSchemaProviderConfig.Env

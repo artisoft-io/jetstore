@@ -30,7 +30,7 @@ type ShardFileKeyResult struct {
 
 // ShardFileKeys: assign file keys to nodes for sharding mode according to inputChannelConfig and clusterConfig.
 func ShardFileKeys(exeCtx context.Context, dbpool *pgxpool.Pool, baseFileKey string, sessionId string,
-	inputChannelConfig InputChannelConfig, clusterConfig *ClusterSpec,
+	inputChannelConfig InputChannelConfig, clusterConfig *ClusterSpec, isMergeFileOnly bool,
 	schemaProviderConfig *SchemaProviderSpec) (result ShardFileKeyResult, cpErr error) {
 
 	var err error
@@ -81,6 +81,94 @@ func ShardFileKeys(exeCtx context.Context, dbpool *pgxpool.Pool, baseFileKey str
 		return
 	}
 
+	if len(s3Objects) == 0 {
+		cpErr = fmt.Errorf("error: input folder contains no data files")
+		return
+	}
+
+	// Select cluster config based on main input files (s3Objects)
+	// Get the total file size
+	for _, obj := range s3Objects {
+		result.clusterShardingInfo.TotalFileSize += obj.Size
+	}
+	if result.clusterShardingInfo.TotalFileSize == 0 {
+		cpErr = fmt.Errorf("error: input folder contains no data files")
+		return
+	}
+	totalSizeMb = int(result.clusterShardingInfo.TotalFileSize / 1024 / 1024)
+
+	if isMergeFileOnly {
+		// If it's merge file only, we want to put all files in one shard
+		result.clusterSpec = &ClusterShardingSpec{
+			MaxNbrPartitions: 1,
+			ShardSizeMb:      0,
+			ShardSizeBy:      float64(result.clusterShardingInfo.TotalFileSize + 1024), // add 1KB buffer to avoid shard size limit error
+			ShardMaxSizeMb:   0,
+			ShardMaxSizeBy:   float64(result.clusterShardingInfo.TotalFileSize + 1024*1024), // add 1MB buffer to avoid shard size limit error
+			MaxConcurrency:   clusterConfig.DefaultMaxConcurrency,
+		}
+		log.Printf("Merge file only, put all files in one shard with size %d MB", totalSizeMb)
+	} else {
+		// Determine the tier of sharding
+		result.clusterSpec = selectClusterShardingTier(totalSizeMb, schemaProviderConfig.Format, clusterConfig)
+	}
+
+	if result.clusterSpec.ShardSizeBy > 0 {
+		shardSize = int64(result.clusterSpec.ShardSizeBy)
+	} else {
+		shardSize = int64(result.clusterSpec.ShardSizeMb * 1024 * 1024)
+	}
+	if result.clusterSpec.ShardMaxSizeBy > 0 {
+		maxShardSize = int64(result.clusterSpec.ShardMaxSizeBy)
+	} else {
+		maxShardSize = int64(result.clusterSpec.ShardMaxSizeMb * 1024 * 1024)
+	}
+	// Validate ClusterShardingSpec
+	if shardSize == 0 {
+		cpErr = fmt.Errorf(
+			"error: invalid cluster config, need to specify shard_size_mb/shard_max_size_mb or their default values")
+		return
+	}
+	if maxShardSize < shardSize {
+		maxShardSize = shardSize
+	}
+
+	// Allocate file keys to nodes
+	doSplitFiles = false
+	isParquet := false
+	offset = int64(clusterConfig.ShardOffset)
+	if offset > 0 {
+		// Determine if we can split large files
+		switch schemaProviderConfig.Format {
+		case "csv", "headerless_csv", "fixed_width":
+			doSplitFiles = true
+		case "parquet", "parquet_select":
+			doSplitFiles = true
+			isParquet = true
+		}
+	}
+
+	// shardRegistryRow row of jetsapi.compute_pipes_shard_registry
+	var shardRegistryRows [][]any
+	switch {
+	case isMergeFileOnly:
+		shardRegistryRows, result.nbrShardingNodes = assignShardInfo(s3Objects, shardSize, maxShardSize,
+			0, false, sessionId, 0)
+		if result.nbrShardingNodes > 1 {
+			cpErr = fmt.Errorf("unexpected error: got %d shards for merge file only, expected 1 shard.",
+				result.nbrShardingNodes)
+			return
+		}
+
+	case isParquet:
+		shardRegistryRows, result.nbrShardingNodes = assignShardInfoParquet(s3Objects, shardSize, maxShardSize,
+			doSplitFiles, sessionId, 0)
+
+	default:
+		shardRegistryRows, result.nbrShardingNodes = assignShardInfo(s3Objects, shardSize, maxShardSize,
+			offset, doSplitFiles, sessionId, 0)
+	}
+
 	// Need to get the merge channels files as well
 	var mergeS3Objects [][]*awsi.S3Object
 	mergeS3Objects = make([][]*awsi.S3Object, len(inputChannelConfig.MergeChannels))
@@ -94,72 +182,6 @@ func ShardFileKeys(exeCtx context.Context, dbpool *pgxpool.Pool, baseFileKey str
 			return
 		}
 		mergeS3Objects[i] = append(mergeS3Objects[i], mergeObjects...)
-	}
-
-	if len(s3Objects) == 0 {
-		cpErr = fmt.Errorf("error: input folder contains no data files")
-		return
-	}
-	// Select cluster config based on main input files (s3Objects)
-	// Get the total file size
-	for _, obj := range s3Objects {
-		result.clusterShardingInfo.TotalFileSize += obj.Size
-	}
-	if result.clusterShardingInfo.TotalFileSize == 0 {
-		cpErr = fmt.Errorf("error: input folder contains no data files")
-		return
-	}
-	totalSizeMb = int(result.clusterShardingInfo.TotalFileSize / 1024 / 1024)
-
-	// Determine the tier of sharding
-	result.clusterSpec = selectClusterShardingTier(totalSizeMb, schemaProviderConfig.Format, clusterConfig)
-
-	if result.clusterSpec.ShardSizeBy > 0 {
-		shardSize = int64(result.clusterSpec.ShardSizeBy)
-	} else {
-		shardSize = int64(result.clusterSpec.ShardSizeMb * 1024 * 1024)
-	}
-
-	if result.clusterSpec.ShardMaxSizeBy > 0 {
-		maxShardSize = int64(result.clusterSpec.ShardMaxSizeBy)
-	} else {
-		maxShardSize = int64(result.clusterSpec.ShardMaxSizeMb * 1024 * 1024)
-	}
-
-	offset = int64(clusterConfig.ShardOffset)
-
-	// Allocate file keys to nodes
-	doSplitFiles = false
-	isParquet := false
-	if offset > 0 {
-		// Determine if we can split large files
-		switch schemaProviderConfig.Format {
-		case "csv", "headerless_csv", "fixed_width":
-			doSplitFiles = true
-		case "parquet", "parquet_select":
-			doSplitFiles = true
-			isParquet = true
-		}
-	}
-
-	// Validate ClusterShardingSpec
-	if shardSize == 0 {
-		cpErr = fmt.Errorf(
-			"error: invalid cluster config, need to specify shard_size_mb/shard_max_size_mb or their default values")
-		return
-	}
-	if maxShardSize < shardSize {
-		maxShardSize = shardSize
-	}
-
-	// shardRegistryRow row of jetsapi.compute_pipes_shard_registry
-	var shardRegistryRows [][]any
-	if isParquet {
-		shardRegistryRows, result.nbrShardingNodes = assignShardInfoParquet(s3Objects, shardSize, maxShardSize,
-			doSplitFiles, sessionId, 0)
-	} else {
-		shardRegistryRows, result.nbrShardingNodes = assignShardInfo(s3Objects, shardSize, maxShardSize,
-			offset, doSplitFiles, sessionId, 0)
 	}
 
 	// Add merge channel files to shardRegistryRows

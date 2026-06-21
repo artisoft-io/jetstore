@@ -1,17 +1,13 @@
 package datatable
 
 import (
-	"bytes"
 	"context"
 	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"log"
-	"net/http"
 	"os"
-	"strings"
-	"time"
 
 	"github.com/artisoft-io/jetstore/jets/utils"
 	"github.com/jackc/pgx/v5"
@@ -152,158 +148,10 @@ func (ca *StatusUpdate) ValidateArguments() []string {
 // with only the fields needed for status update and notification.
 // Also for updating the process map coordination if used (pipeline_coordinator_map tbl).
 type SchemaProviderShort struct {
+	DoNotNotifyApiGateway            bool              `json:"do_not_notify_api_gateway"`
 	RequestID                        string            `json:"request_id,omitempty"`
 	NotificationTemplatesOverrides   map[string]string `json:"notification_templates_overrides"`
 	NotificationRoutingOverridesJson string            `json:"notification_routing_overrides_json"`
-}
-
-func DoNotifyApiGateway(fileKey, apiEndpoint, apiEndpointJson, notificationTemplate string,
-	customFileKeys []string, errMsg string, envSettings map[string]any) error {
-	var (
-		ctx    context.Context
-		cancel context.CancelFunc
-	)
-	if apiEndpoint == "" && apiEndpointJson == "" {
-		log.Println("error: no endpoints defined for DoNotifyApiGateway")
-		return fmt.Errorf("error: no endpoints defined for DoNotifyApiGateway")
-	}
-	timeout, err := time.ParseDuration("10s")
-	if err == nil {
-		// The request has a timeout, so create a context that is
-		// canceled automatically when the timeout expires.
-		ctx, cancel = context.WithTimeout(context.Background(), timeout)
-	} else {
-		ctx, cancel = context.WithCancel(context.Background())
-	}
-	defer cancel() // Cancel ctx as soon as DoNotifyApiGateway returns.
-	// Prepare the API request.
-	var value string
-	// Extract file key components
-	fileKeyComponents := make(map[string]any)
-	fileKeyComponents = SplitFileKeyIntoComponents(fileKeyComponents, &fileKey)
-	v := fileKeyComponents["client"]
-	if v != nil {
-		notificationTemplate = strings.ReplaceAll(notificationTemplate, "{{client}}", v.(string))
-	} else {
-		notificationTemplate = strings.ReplaceAll(notificationTemplate, "{{client}}", "")
-	}
-	v = fileKeyComponents["org"]
-	if v != nil {
-		notificationTemplate = strings.ReplaceAll(notificationTemplate, "{{org}}", v.(string))
-	} else {
-		notificationTemplate = strings.ReplaceAll(notificationTemplate, "{{org}}", "")
-	}
-	v = fileKeyComponents["object_type"]
-	if v != nil {
-		notificationTemplate = strings.ReplaceAll(notificationTemplate, "{{object_type}}", v.(string))
-	} else {
-		notificationTemplate = strings.ReplaceAll(notificationTemplate, "{{object_type}}", "")
-	}
-	for _, key := range customFileKeys {
-		switch vv := fileKeyComponents[key].(type) {
-		case string:
-			value = vv
-		default:
-			value = ""
-		}
-		value = strings.ReplaceAll(value, `"`, `\"`)
-		notificationTemplate = strings.ReplaceAll(notificationTemplate, fmt.Sprintf("{{%s}}", key), value)
-		apiEndpointJson = strings.ReplaceAll(apiEndpointJson, fmt.Sprintf("{{%s}}", key), value)
-	}
-
-	if len(errMsg) > 0 {
-		errMsg = strings.ReplaceAll(errMsg, `"`, `\"`)
-		notificationTemplate = strings.ReplaceAll(notificationTemplate, "{{error}}", errMsg)
-	}
-
-	// Do substitution using key/value provided by cpipes config and main schema provider
-replaceEnv:
-	for key, value := range envSettings {
-		str, ok := value.(string)
-		if ok {
-			var replace string
-			switch {
-			case strings.HasPrefix(key, "${"):
-				replace = fmt.Sprintf("{%s}", key[1:])
-			case strings.HasPrefix(key, "$"):
-				replace = fmt.Sprintf("{{%s}}", key[1:])
-			default:
-				continue replaceEnv
-			}
-			notificationTemplate = strings.ReplaceAll(notificationTemplate, replace, str)
-			if len(apiEndpoint) == 0 {
-				apiEndpointJson = strings.ReplaceAll(apiEndpointJson, replace, str)
-			}
-		}
-	}
-	// remove residual unreplaced placeholder in the template to avoid confusion on the receiving end
-	notificationTemplate = utils.RemoveUnreplacedPlaceholder(notificationTemplate)
-	apiEndpointJson = utils.RemoveUnreplacedPlaceholder(apiEndpointJson)
-	log.Println("Final notificationTemplate after substitution:", notificationTemplate)
-	log.Println("Final apiEndpointJson after substitution:", apiEndpointJson)
-
-	// Identify the endpoint where to send the request
-	if len(apiEndpoint) == 0 {
-		routes := make(map[string]string)
-		err = json.Unmarshal([]byte(apiEndpointJson), &routes)
-		if err != nil {
-			err = fmt.Errorf("while parsing CPIPES_STATUS_NOTIFICATION_ENDPOINT_JSON: %v", err)
-			log.Println(err)
-			return err
-		}
-		// key := routes["key"]
-		// altKey := routes["alt_key"]
-		if len(routes["key"]) == 0 && len(routes["alt_key"]) == 0 {
-			log.Println("Invalid routing json, key and alt_key are both missing, need at leat one to be set.")
-			return fmt.Errorf("error: invalid routing json, key and alt_key are missing, need at least one to be set")
-		}
-		keys := []string{routes["key"], routes["alt_key"]}
-		for _, key := range keys {
-			if len(key) == 0 {
-				continue
-			}
-			// Check if it's a fileKeyComponents
-			routingObj := fileKeyComponents[key]
-			routingKey, ok := routingObj.(string)
-			if ok {
-				apiEndpoint = routes[strings.ToUpper(routingKey)]
-				if len(apiEndpoint) > 0 {
-					break
-				}
-			}
-			// Check if can route with key
-			apiEndpoint = routes[strings.ToUpper(key)]
-			if len(apiEndpoint) > 0 {
-				break
-			}
-		}
-
-		if len(apiEndpoint) == 0 {
-			err = fmt.Errorf("error: notification endpoint not found for routing keys: %v", keys)
-			log.Println(err)
-			return err
-		}
-	}
-
-	fmt.Println("POST Request:", notificationTemplate)
-	fmt.Println("TO:", apiEndpoint)
-	req, err := http.NewRequest("POST", apiEndpoint, bytes.NewBuffer([]byte(notificationTemplate)))
-	if err != nil {
-		log.Println(err)
-		return err
-	}
-	req.Header.Add("Content-Type", "application/json")
-	req = req.WithContext(ctx)
-	client := &http.Client{}
-	res, err := client.Do(req)
-	if err != nil {
-		err = fmt.Errorf("while posting result to api gateway: %v", err)
-		log.Println(err)
-		return err
-	}
-	log.Println("Result for posting status to api gateway:", res.StatusCode, res.Status)
-	res.Body.Close()
-	return nil
 }
 
 func (ca *StatusUpdate) CoordinateWork() error {
@@ -326,46 +174,13 @@ func (ca *StatusUpdate) CoordinateWork() error {
 		if err != nil {
 			log.Panicf("%s while unmarshalling schema provider json: %v\n", sessionId, err)
 		}
+		ca.DoNotNotifyApiGateway = ca.DoNotNotifyApiGateway || schemaProvider.DoNotNotifyApiGateway
 	}
 
 	// NOTE 2024-05-13 Added Notification to API Gateway via env var CPIPES_STATUS_NOTIFICATION_ENDPOINT
 	// or CPIPES_STATUS_NOTIFICATION_ENDPOINT_JSON
-	// ALSO set a deadline to calls to database to avoid locks, don't fail the call when database fails
-	apiEndpoint := os.Getenv("CPIPES_STATUS_NOTIFICATION_ENDPOINT")
-	apiEndpointJson := os.Getenv("CPIPES_STATUS_NOTIFICATION_ENDPOINT_JSON")
-	if (apiEndpoint != "" || apiEndpointJson != "") && !ca.DoNotNotifyApiGateway {
-		var notificationTemplate string
-		var errMsg string
-		customFileKeys := make([]string, 0)
-		ck := os.Getenv("CPIPES_CUSTOM_FILE_KEY_NOTIFICATION")
-		if len(ck) > 0 {
-			customFileKeys = strings.Split(ck, ",")
-		}
-		if schemaProvider != nil {
-			if schemaProvider.NotificationTemplatesOverrides != nil {
-				if ca.Status == "failed" {
-					notificationTemplate = schemaProvider.NotificationTemplatesOverrides["CPIPES_FAILED_NOTIFICATION_JSON"]
-					errMsg = ca.FailureDetails
-				} else {
-					notificationTemplate = schemaProvider.NotificationTemplatesOverrides["CPIPES_COMPLETED_NOTIFICATION_JSON"]
-				}
-			}
-			if len(schemaProvider.NotificationRoutingOverridesJson) > 0 {
-				apiEndpointJson = schemaProvider.NotificationRoutingOverridesJson
-			}
-		}
-		// Get the template defined at deployment if no override was found
-		if len(notificationTemplate) == 0 {
-			if ca.Status == "failed" {
-				notificationTemplate = os.Getenv("CPIPES_FAILED_NOTIFICATION_JSON")
-				errMsg = ca.FailureDetails
-			} else {
-				notificationTemplate = os.Getenv("CPIPES_COMPLETED_NOTIFICATION_JSON")
-			}
-		}
-		// ignore returned err
-		DoNotifyApiGateway(ca.FileKey, apiEndpoint, apiEndpointJson, notificationTemplate, customFileKeys, errMsg, ca.CpipesEnv)
-	}
+	// Ignore if the notification fails
+	ca.notifyApiGateway(schemaProvider)
 
 	// Update the pipeline_execution_status based on worst case status
 	statusCountMap, err := getStatusCount(ca.Dbpool, ca.PeKey)
@@ -469,10 +284,19 @@ func (ca *StatusUpdate) CoordinateWork() error {
 		}
 	}
 
-	//TODO check if request_id of schema provider is linked to a pipeline_coordinator_map and if yes
-	// update the coordination status in pipeline_coordinator_map tbl based on the peKey and
-	// the status of the execution (failed, completed, etc) to kick off the post map pipeline execution if needed
-	// this is provided by the schema_provider_json in the pipeline_coordinator_map tbl.
+	// Check if request_id of schema provider is linked to a pipeline_coordinator_map, if so
+	// update the coordination status in pipeline_coordinator_map tbl based on 
+	// the status of the execution (failed, completed, etc).
+	// Then kick off the post map pipeline execution if all the executions linked to the same request_id are 
+	// completed (entry in pipeline_coordinator_map_items).
+	// The schema event of the post map pipeline is the schema_provider_json in the pipeline_coordinator_map tbl.
+	if schemaProvider != nil && len(schemaProvider.RequestID) > 0 {
+		err = ca.updatePipelineCoordinator(sessionId, schemaProvider)
+		if err != nil {
+			log.Printf("%s while updating pipeline coordinator: %v\n", sessionId, err)
+			return err
+		}
+	}
 
 	if !isJetsLoader {
 		// Check for pending tasks ready to start

@@ -98,14 +98,19 @@ func handler(ctx context.Context, arg compute_pipes.StartComputePipesArgs) (comp
 		var apiEndpointJson string
 		// Perform api gateway notification
 		apiEndpoint := os.Getenv("CPIPES_STATUS_NOTIFICATION_ENDPOINT")
-		if len(apiEndpoint) == 0 {
-			if schemaProvider != nil && len(schemaProvider.NotificationRoutingOverridesJson) > 0 {
-				apiEndpointJson = schemaProvider.NotificationRoutingOverridesJson
-			} else {
-				apiEndpointJson = os.Getenv("CPIPES_STATUS_NOTIFICATION_ENDPOINT_JSON")
-			}
+		doNotNotify := false
+		switch {
+		case schemaProvider != nil && schemaProvider.DoNotNotifyApiGateway:
+			log.Printf("%s CPIPES_STATUS_NOTIFICATION: skipping notification to API Gateway as do_not_notify_api_gateway is set to true in the schema provider\n", arg.SessionId)
+			doNotNotify = true
+			apiEndpoint = ""
+			apiEndpointJson = ""
+		case schemaProvider != nil && len(schemaProvider.NotificationRoutingOverridesJson) > 0:
+			apiEndpointJson = schemaProvider.NotificationRoutingOverridesJson
+		default:
+			apiEndpointJson = os.Getenv("CPIPES_STATUS_NOTIFICATION_ENDPOINT_JSON")
 		}
-		if (apiEndpoint != "" || apiEndpointJson != "") && result.ErrorUpdate != nil {
+		if !doNotNotify && (apiEndpoint != "" || apiEndpointJson != "") && result.ErrorUpdate != nil {
 			var notificationTemplate string
 			if schemaProvider != nil && schemaProvider.NotificationTemplatesOverrides != nil {
 				notificationTemplate = schemaProvider.NotificationTemplatesOverrides["CPIPES_FAILED_NOTIFICATION_JSON"]

@@ -1427,7 +1427,8 @@
         "columnName": "request_id",
         "dataType": "text",
         "description": "This is the request id of the process map",
-        "isNotNull": true
+        "isNotNull": true,
+        "isPK": true
       },
       {
         "columnName": "status",
@@ -1445,14 +1446,26 @@
         "columnName": "schema_provider_json",
         "dataType": "text",
         "default": "''",
-        "description": "This is applicable to source_type = 'file'",
+        "description": "This is the post process schema event",
         "isNotNull": true
       }
-    ],
-    "tableConstraints": [
+    ]
+  },
+  {
+    "schemaName": "jetsapi",
+    "tableName": "pipeline_coordinator_lock",
+    "columns": [
       {
-        "name": "pipeline_coordinator_map_unique_cstraint",
-        "definition": "CONSTRAINT pipeline_coordinator_map_unique_cstraint UNIQUE (request_id)"
+        "columnName": "request_id",
+        "dataType": "text",
+        "description": "This is the request id of the process map",
+        "isNotNull": true,
+        "isPK": true
+      },
+      {
+        "columnName": "session_id",
+        "dataType": "text",
+        "isNotNull": true
       }
     ]
   },

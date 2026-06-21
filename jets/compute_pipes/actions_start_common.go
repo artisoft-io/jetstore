@@ -41,6 +41,7 @@ func WorkspacePrefix() string {
 // MainInputDomainKeysSpec contains the domain keys spec based on source_config
 // table, which can be overriden by value from the main schema provider.
 // MainInputDomainClass applies when input_registry.input_type = 'domain_table'
+// IsMergeFileOnly is for the special case of a pipeline with ONLY a merge file step.
 type CpipesStartup struct {
 	CpConfig                      ComputePipesConfig         `json:"compute_pipes_config"`
 	ProcessName                   string                     `json:"process_name,omitempty"`
@@ -55,6 +56,7 @@ type CpipesStartup struct {
 	InputSessionId                string                     `json:"input_session_id,omitempty"`
 	SourcePeriodKey               int                        `json:"source_period_key,omitempty"`
 	OperatorEmail                 string                     `json:"operator_email,omitempty"`
+	IsMergeFileOnly               bool                       `json:"is_merge_file_only,omitempty"`
 }
 
 func (args *StartComputePipesArgs) reducingInitializeCpipes(ctx context.Context, dbpool *pgxpool.Pool) (*CpipesStartup, error) {
@@ -240,7 +242,18 @@ func (args *StartComputePipesArgs) shardingInitializeCpipes(ctx context.Context,
 	mainInputSchemaProvider.Env["${TABLE_NAME}"] = tableName
 	mainInputSchemaProvider.Env["${SOURCE_TYPE}"] = sourceType
 
+	var classNames map[string]bool
 	var icJson, icDomainKeys, icPosCsv sql.NullString
+
+	// Check if we have a special case of a pipeline containing only a merge file step,
+	// in which case we want to skip the sharding step and go directly to the merge file step
+	// with the main input file (submitted file key) as the input of the merge file step.
+	if len(cpipesStartup.CpConfig.ConditionalPipesConfig) == 1 &&
+		cpipesStartup.CpConfig.ConditionalPipesConfig[0].PipesConfig[0].Type == "merge_files" {
+		cpipesStartup.IsMergeFileOnly = true
+		goto wrapUp
+	}
+
 	if sourceType == "file" {
 		// log.Printf("*** sourceType is 'file', mainInputSchemaProvider after merging with process_config env: %+v\n", mainInputSchemaProvider)
 		// Get the source_config information
@@ -254,12 +267,12 @@ func (args *StartComputePipesArgs) shardingInitializeCpipes(ctx context.Context,
 			scTableName, _ = env["${TABLE_NAME}"].(string)
 		}
 		stmt = `
-	SELECT sc.client, sc.org, sc.object_type,
-		sc.input_columns_json, sc.input_columns_positions_csv, sc.domain_keys_json, 
-		sc.input_format, sc.compression, sc.is_part_files, sc.input_format_data_json, sc.schema_provider_json
-	FROM 
-		jetsapi.source_config sc
-	WHERE sc.table_name = $1`
+			SELECT sc.client, sc.org, sc.object_type,
+				sc.input_columns_json, sc.input_columns_positions_csv, sc.domain_keys_json, 
+				sc.input_format, sc.compression, sc.is_part_files, sc.input_format_data_json, sc.schema_provider_json
+			FROM 
+				jetsapi.source_config sc
+			WHERE sc.table_name = $1`
 		err = dbpool.QueryRow(ctx, stmt, scTableName).Scan(
 			&scClient, &scOrg, &scObjectType,
 			&icJson, &icPosCsv, &icDomainKeys, &inputFormat, &compression, &isPartFile, &inputFormatDataJson, &scSchemaProviderJson)
@@ -336,7 +349,7 @@ func (args *StartComputePipesArgs) shardingInitializeCpipes(ctx context.Context,
 	}
 	// Adjust ChannelSpec having columns specified by a jetrules class
 	// ----------------------------------------------------------------
-	classNames := make(map[string]bool)
+	classNames = make(map[string]bool)
 	if sourceType == "domain_table" {
 		classNames[tableName] = true // since domain class name is the table_name for source_type = 'domain_table'
 	}
@@ -467,6 +480,8 @@ func (args *StartComputePipesArgs) shardingInitializeCpipes(ctx context.Context,
 		cpipesStartup.MainInputDomainClass = tableName
 		cpipesStartup.MainInputDomainKeysSpec = cpipesStartup.DomainKeysSpecByClass[tableName]
 	}
+
+wrapUp:
 
 	// The main_input schema provider should always have the key _main_input_.
 	// Note: cpipesStartup.CpConfig.MainInputChannel() returns the sharding first input channel
@@ -849,7 +864,7 @@ func (args *CpipesStartup) ValidatePipeSpecConfig(cpConfig *ComputePipesConfig, 
 		switch pipeSpec.Type {
 		case "merge_files":
 			if pipeSpec.OutputFile == nil || len(*pipeSpec.OutputFile) == 0 {
-				return fmt.Errorf("configuration error: merge_file must have output_file set")
+				return fmt.Errorf("configuration error: merge_files must have output_file set")
 			}
 			outputFileSpec := GetOutputFileConfig(cpConfig, *pipeSpec.OutputFile)
 			if outputFileSpec == nil {
@@ -1464,6 +1479,7 @@ func prepareCpipesEnv(args *StartComputePipesArgs, cpipesStartup *CpipesStartup)
 
 	envSettings["$FILE_KEY"] = mainSchemaProviderConfig.FileKey
 	envSettings["$SESSIONID"] = args.SessionId
+	envSettings["${REQUEST_ID}"] = mainSchemaProviderConfig.RequestID
 	envSettings["$PROCESS_NAME"] = cpipesStartup.ProcessName
 	envSettings["$PATH_FILE_KEY"] = fileKeyPath
 	envSettings["$NAME_FILE_KEY"] = fileKeyName

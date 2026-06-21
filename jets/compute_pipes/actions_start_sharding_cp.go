@@ -23,15 +23,18 @@ func (args *StartComputePipesArgs) StartShardingComputePipes(ctx context.Context
 
 	// validate the args
 	if args.FileKey == "" || args.SessionId == "" {
-		log.Println("error: missing file_key or session_id as input args of StartComputePipes (sharding mode)")
-		return result, nil, fmt.Errorf("error: missing file_key or session_id as input args of StartComputePipes (sharding mode)")
+		err := fmt.Errorf("error: missing file_key or session_id as input args of StartComputePipes (sharding mode)")
+		log.Println(err)
+		return result, nil, err
 	}
 
 	// check the session is not already used
 	// ---------------------------------------
 	isInUse, err := schema.IsSessionExists(dbpool, args.SessionId)
 	if err != nil {
-		return result, nil, fmt.Errorf("while verifying is the session is in use: %v", err)
+		err = fmt.Errorf("while verifying is the session is in use: %v", err)
+		log.Println(err)
+		return result, nil, err
 	}
 	if isInUse {
 		return result, nil, fmt.Errorf("error: the session id is already used")
@@ -70,8 +73,12 @@ func (args *StartComputePipesArgs) StartShardingComputePipes(ctx context.Context
 		"failureDetails": "",
 	}
 
-	log.Printf("%s Start StepId %d - %s - file key: %s",
-		args.SessionId, 0, cpipesStartup.CpConfig.GetStepName(0), args.FileKey)
+	var note string
+	if cpipesStartup.IsMergeFileOnly {
+		note = " (merge file only pipeline)"
+	}
+	log.Printf("%s Start StepId %d - %s - file key: %s%s",
+		args.SessionId, 0, cpipesStartup.CpConfig.GetStepName(0), args.FileKey, note)
 	b, _ := json.Marshal(*mainInputSchemaProvider)
 	log.Printf("*** Main Input Schema Provider:%s\n", string(b))
 
@@ -84,7 +91,7 @@ func (args *StartComputePipesArgs) StartShardingComputePipes(ctx context.Context
 	inputConfigPeek := pc[0].InputChannel
 	inputConfigPeek.schemaProviderConfig = mainInputSchemaProvider
 	shardResult, err := ShardFileKeys(ctx, dbpool, args.FileKey, args.SessionId, inputConfigPeek,
-		cpipesStartup.CpConfig.ClusterConfig, mainInputSchemaProvider)
+		cpipesStartup.CpConfig.ClusterConfig, cpipesStartup.IsMergeFileOnly, mainInputSchemaProvider)
 	if err != nil {
 		return result, mainInputSchemaProvider, err
 	}
@@ -126,55 +133,57 @@ func (args *StartComputePipesArgs) StartShardingComputePipes(ctx context.Context
 	}
 	inputChannelConfig := &pipeConfig[0].InputChannel
 	inputChannelConfig.schemaProviderConfig = GetSchemaProviderConfigByKey(cpipesStartup.CpConfig.SchemaProviders, inputChannelConfig.SchemaProvider)
-
-	// Check if need to get headers from file or if need to determine the csv delimiter
-	// Note: inputChannelConfig is in sync with the mainSchemaProvider
-	fetchHeaders := false
-	fetchDelimitor := false
-	detectEncoding := false
-	detectCrAsEol := false
-	if len(inputChannelConfig.Encoding) == 0 && inputChannelConfig.DetectEncoding {
-		detectEncoding = true
-	}
 	format := inputChannelConfig.Format
-	if (format == "csv" || format == "xlsx") && len(cpipesStartup.InputColumns) == 0 {
-		fetchHeaders = true
-	}
-	if strings.HasSuffix(format, "csv") {
-		if inputChannelConfig.Delimiter == 0 {
-			fetchDelimitor = true
+
+	if !cpipesStartup.IsMergeFileOnly {
+		// Check if need to get headers from file or if need to determine the csv delimiter
+		// Note: inputChannelConfig is in sync with the mainSchemaProvider
+		fetchHeaders := false
+		fetchDelimitor := false
+		detectEncoding := false
+		detectCrAsEol := false
+		if len(inputChannelConfig.Encoding) == 0 && inputChannelConfig.DetectEncoding {
+			detectEncoding = true
 		}
-		detectCrAsEol = inputChannelConfig.DetectCrAsEol
-	}
-	if fetchHeaders || fetchDelimitor || detectEncoding || detectCrAsEol {
-		// Get the input columns / column separator from the first file
-		sp := mainInputSchemaProvider
-		fileInfo, err := FetchHeadersAndDelimiterFromFile(sp.Bucket, shardResult.firstKey, sp.Format,
-			sp.Compression, sp.Encoding, sp.Delimiter, sp.MultiColumnsInput, sp.NoQuotes, fetchHeaders, fetchDelimitor,
-			detectEncoding, detectCrAsEol, sp.InputFormatDataJson)
-		if err != nil {
-			log.Printf("while calling FetchHeadersAndDelimiterFromFile('%s', '%s', '%s', '%s'): %v\n",
-				sp.Bucket, shardResult.firstKey, sp.Format, sp.Compression, err)
-			return result, mainInputSchemaProvider, err
+		if (format == "csv" || format == "xlsx") && len(cpipesStartup.InputColumns) == 0 {
+			fetchHeaders = true
 		}
-		if len(fileInfo.Headers) > 0 {
-			cpipesStartup.InputColumns = fileInfo.Headers
+		if strings.HasSuffix(format, "csv") {
+			if inputChannelConfig.Delimiter == 0 {
+				fetchDelimitor = true
+			}
+			detectCrAsEol = inputChannelConfig.DetectCrAsEol
 		}
-		if fileInfo.SepFlag != 0 {
-			sp.Delimiter = rune(fileInfo.SepFlag)
-			inputChannelConfig.Delimiter = sp.Delimiter
+		if fetchHeaders || fetchDelimitor || detectEncoding || detectCrAsEol {
+			// Get the input columns / column separator from the first file
+			sp := mainInputSchemaProvider
+			fileInfo, err := FetchHeadersAndDelimiterFromFile(sp.Bucket, shardResult.firstKey, sp.Format,
+				sp.Compression, sp.Encoding, sp.Delimiter, sp.MultiColumnsInput, sp.NoQuotes, fetchHeaders, fetchDelimitor,
+				detectEncoding, detectCrAsEol, sp.InputFormatDataJson)
+			if err != nil {
+				log.Printf("while calling FetchHeadersAndDelimiterFromFile('%s', '%s', '%s', '%s'): %v\n",
+					sp.Bucket, shardResult.firstKey, sp.Format, sp.Compression, err)
+				return result, mainInputSchemaProvider, err
+			}
+			if len(fileInfo.Headers) > 0 {
+				cpipesStartup.InputColumns = fileInfo.Headers
+			}
+			if fileInfo.SepFlag != 0 {
+				sp.Delimiter = rune(fileInfo.SepFlag)
+				inputChannelConfig.Delimiter = sp.Delimiter
+			}
+			if len(fileInfo.Encoding) > 0 {
+				sp.Encoding = fileInfo.Encoding
+				inputChannelConfig.Encoding = fileInfo.Encoding
+			}
+			if fileInfo.EolByte > 0 {
+				sp.EolByte = fileInfo.EolByte
+				inputChannelConfig.EolByte = fileInfo.EolByte
+			}
 		}
-		if len(fileInfo.Encoding) > 0 {
-			sp.Encoding = fileInfo.Encoding
-			inputChannelConfig.Encoding = fileInfo.Encoding
+		if mainInputSchemaProvider.OutputEncodingSameAsInput {
+			mainInputSchemaProvider.OutputEncoding = mainInputSchemaProvider.Encoding
 		}
-		if fileInfo.EolByte > 0 {
-			sp.EolByte = fileInfo.EolByte
-			inputChannelConfig.EolByte = fileInfo.EolByte
-		}
-	}
-	if mainInputSchemaProvider.OutputEncodingSameAsInput {
-		mainInputSchemaProvider.OutputEncoding = mainInputSchemaProvider.Encoding
 	}
 	// log.Printf("*** cpipesStartup.MainInputDomainKeysSpec: %v, cpipesStartup.MainInputDomainClass: %v\n",
 	// 	cpipesStartup.MainInputDomainKeysSpec, cpipesStartup.MainInputDomainClass)
@@ -285,9 +294,9 @@ func (args *StartComputePipesArgs) StartShardingComputePipes(ctx context.Context
 	// WriteCpipesArgsToS3(cpipesCommands, result.CpipesCommandsS3Key)
 
 	// Args for start_reducing_cp lambda
-	nextStepId := stepId + 1
-	result.IsLastReducing = cpipesStartup.CpConfig.NbrComputePipes() == nextStepId
+	result.IsLastReducing = cpipesStartup.CpConfig.NbrComputePipes() == stepId+1
 	if !result.IsLastReducing {
+		nextStepId := stepId + 1
 		result.StartReducing = StartComputePipesArgs{
 			PipelineExecKey: args.PipelineExecKey,
 			FileKey:         args.FileKey,
@@ -297,8 +306,6 @@ func (args *StartComputePipesArgs) StartShardingComputePipes(ctx context.Context
 		}
 	}
 
-	// Beware if changing step id reducing00, this is used by name to get the main_input_row_count
-	mainInputStepId := "reducing00"
 	lookupTables, err := SelectActiveLookupTable(cpipesStartup.CpConfig.LookupTables, pipeConfig)
 	if err != nil {
 		return result, mainInputSchemaProvider, err
@@ -317,7 +324,7 @@ func (args *StartComputePipesArgs) StartShardingComputePipes(ctx context.Context
 			ObjectType:      mainInputSchemaProvider.ObjectType,
 			FileKey:         args.FileKey,
 			SessionId:       args.SessionId,
-			MainInputStepId: mainInputStepId,
+			MainInputStepId: "reducing00", // this is used by name in the code to get the main_input_row_count, beware if changing
 			InputSessionId:  cpipesStartup.InputSessionId,
 			SourcePeriodKey: cpipesStartup.SourcePeriodKey,
 			ProcessName:     cpipesStartup.ProcessName,
@@ -375,20 +382,28 @@ func (args *StartComputePipesArgs) StartShardingComputePipes(ctx context.Context
 	// log.Println(string(shardingConfigJson))
 	// Create entry in cpipes_execution_status
 	stmt := `INSERT INTO jetsapi.cpipes_execution_status 
-						(pipeline_execution_status_key, session_id, cpipes_config_json, input_parquet_schema_json, cpipes_startup_json, input_row_columns_json) 
+						(pipeline_execution_status_key, session_id, cpipes_config_json, input_parquet_schema_json, 
+						 cpipes_startup_json, input_row_columns_json) 
 						VALUES ($1, $2, $3, $4, $5, $6)`
-	_, err2 := dbpool.Exec(ctx, stmt, args.PipelineExecKey, args.SessionId, string(shardingConfigJson), inputParquetSchemaJson, string(cpipesStartupJson), string(inputRowColumnsJson))
+	_, err2 := dbpool.Exec(ctx, stmt, args.PipelineExecKey, args.SessionId, string(shardingConfigJson),
+		inputParquetSchemaJson, string(cpipesStartupJson), string(inputRowColumnsJson))
 	if err2 != nil {
 		return result, mainInputSchemaProvider, fmt.Errorf("error inserting in jetsapi.cpipes_execution_status table: %v", err2)
 	}
 
 	// Send CPIPES start notification to api gateway (install specific)
-	// NOTE 2024-05-13 Added Notification to API Gateway via env var CPIPES_STATUS_NOTIFICATION_ENDPOINT or CPIPES_STATUS_NOTIFICATION_ENDPOINT_JSON
+	// NOTE 2024-05-13 Added Notification to API Gateway via env var CPIPES_STATUS_NOTIFICATION_ENDPOINT or
+	// CPIPES_STATUS_NOTIFICATION_ENDPOINT_JSON
 	apiEndpoint := os.Getenv("CPIPES_STATUS_NOTIFICATION_ENDPOINT")
 	var apiEndpointJson string
-	if len(mainInputSchemaProvider.NotificationRoutingOverridesJson) > 0 {
+	switch {
+	case mainInputSchemaProvider.DoNotNotifyApiGateway:
+		log.Printf("%s CPIPES_STATUS_NOTIFICATION: skipping notification to API Gateway as do_not_notify_api_gateway is set to true in the schema provider\n", args.SessionId)
+		apiEndpoint = ""
+		apiEndpointJson = ""
+	case len(mainInputSchemaProvider.NotificationRoutingOverridesJson) > 0:
 		apiEndpointJson = mainInputSchemaProvider.NotificationRoutingOverridesJson
-	} else {
+	default:
 		apiEndpointJson = os.Getenv("CPIPES_STATUS_NOTIFICATION_ENDPOINT_JSON")
 	}
 	if apiEndpoint != "" || apiEndpointJson != "" {

@@ -12,11 +12,20 @@ RUN mkdir -p ${JETS_BUILD_DIR}
 WORKDIR ${JETS_SOURCE_DIR}
 
 # Copy source files
+COPY .git                ${JETS_SOURCE_DIR}/.git
 COPY CMakeLists.txt      ${JETS_SOURCE_DIR}/
 COPY go.mod              ${JETS_SOURCE_DIR}/
 COPY jets                ${JETS_SOURCE_DIR}/jets
 COPY jetsclient          ${JETS_SOURCE_DIR}/jetsclient
 COPY cdk/jetstore_one    ${JETS_SOURCE_DIR}/cdk/jetstore_one
+
+# Set CGO environment variables
+ENV CGO_ENABLED=1
+ENV GOOS=linux
+ENV GOARCH=amd64
+RUN go mod tidy
+RUN go get all
+RUN go mod download
 
 # Build the C++ library - native rule engine
 WORKDIR ${JETS_BUILD_DIR}
@@ -46,14 +55,6 @@ RUN \
 
 # Go back to source directory
 WORKDIR ${JETS_SOURCE_DIR}
-
-# Set CGO environment variables
-ENV CGO_ENABLED=1
-ENV GOOS=linux
-ENV GOARCH=amd64
-RUN go mod tidy
-RUN go get all
-RUN go mod download
 
 # Build the Go binaries with CGO enabled
 RUN go build -ldflags="-w -s" -o cbooter              ${JETS_SOURCE_DIR}/jets/cmds/cbooter
