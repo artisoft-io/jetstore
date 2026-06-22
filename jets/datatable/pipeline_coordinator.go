@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"time"
 
 	"github.com/artisoft-io/jetstore/jets/awsi"
 	"github.com/jackc/pgx/v5"
@@ -103,14 +104,18 @@ func (ca *StatusUpdate) updatePipelineCoordinator(sessionId string, schemaProvid
 			err = insertPipelineCoordinatorLock(ca.Dbpool, schemaProvider.RequestID, sessionId)
 			if err == nil {
 				// Lock successful, start the post map pipeline execution using schemaEventJson as the schema provider for the post map pipeline
-				log.Printf("%s All tasks completed for request_id %s, inserted lock and performing post map pipeline execution\n", sessionId, schemaProvider.RequestID)
-				triggerKey := fmt.Sprintf("%s/%s/%s/%s.json", awsi.JetStoreSchemaEventsPrefix(), "pipeline_coordinator", schemaProvider.RequestID, sessionId)
-				err = awsi.UploadBufToS3("", triggerKey, []byte(schemaEventJson))
-				if err != nil {
-					return fmt.Errorf("while uploading schema trigger to s3: %v", err)
+				if len(schemaEventJson) > 0 {
+					log.Printf("%s All tasks completed for request_id %s, inserted lock and performing post map pipeline execution\n", sessionId, schemaProvider.RequestID)
+					processDate := time.Now().Format("2006-01-02")
+					triggerKey := fmt.Sprintf("%s/pipeline_coordination/%s/%s_post.json", awsi.JetStoreSchemaEventsPrefix(), processDate, schemaProvider.RequestID)
+					err = awsi.UploadBufToS3("", triggerKey, []byte(schemaEventJson))
+					if err != nil {
+						return fmt.Errorf("while uploading schema trigger to s3: %v", err)
+					}
+					log.Printf("Post pipeline map schema trigger uploaded to s3://%s/%s", awsi.JetStoreBucket(), triggerKey)
+				} else {
+					log.Printf("%s All tasks completed for request_id %s, inserted lock and NO post map pipeline execution is defined\n", sessionId, schemaProvider.RequestID)
 				}
-				log.Printf("Post pipeline map schema trigger uploaded to s3://%s/%s", awsi.JetStoreBucket(), triggerKey)
-
 			}
 		}
 	}

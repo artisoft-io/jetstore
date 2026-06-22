@@ -17,6 +17,7 @@ import (
 
 	"github.com/artisoft-io/jetstore/jets/awsi"
 	"github.com/artisoft-io/jetstore/jets/jetrules/rdf"
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -615,7 +616,7 @@ func (ctx *DataTableContext) runPipelineLocally(devModeCode string, task *Pendin
 		}
 	}
 
-	if devModeCode == "run_reports_only" ||	devModeCode == "run_cpipes_reports" {
+	if devModeCode == "run_reports_only" || devModeCode == "run_cpipes_reports" {
 		// Call run_report synchronously
 		if ctx.UsingSshTunnel {
 			runReportsCommand = append(runReportsCommand, "-usingSshTunnel")
@@ -874,6 +875,13 @@ func (ctx *DataTableContext) startLoader(dataTableAction *DataTableAction, irow 
 // API version to register schema event. This is used by the Jets_Loader process to avoid writing the event to s3 first.
 func (ctx *DataTableContext) RegisterSchemaEvent(dbpool *pgxpool.Pool, schemaInfo map[string]any, token string) error {
 	log.Printf("Registering schema event with schema info: %v", schemaInfo)
+
+	// Check if this is a pipeline_coordinator schema event
+	evType, ok := schemaInfo["type"].(string)
+	if ok && evType == "pipeline_coordinator_map" {
+		return ctx.ProcessCoordinatorMapRegisterSchemaEvent(dbpool, schemaInfo, token)
+	}
+
 	schemaInfoJson, err := json.Marshal(schemaInfo)
 	if err != nil {
 		return fmt.Errorf("while marshalling schema info to json in RegisterSchemaEvent: %v", err)
@@ -909,4 +917,77 @@ func (ctx *DataTableContext) RegisterSchemaEvent(dbpool *pgxpool.Pool, schemaInf
 	}
 	_, _, err = ctx.RegisterFileKeys(&registerFileKeyAction, token)
 	return err
+}
+
+// NewPipelineCoordinatorMapSchemaInfo creates the schema info for a pipeline coordinator map register schema event,
+// which contains the coordinated pipes map and the post map event.
+// coordinatedPipesMap is a list of schema_event_json
+// postMapEvent is the schema event for the post map event, which will be called after all steps in the coordinated pipes map are executed.
+// TODO: Use a domain model rather than slice and maps. For this will need to split the model from compute_pipes.
+func NewPipelineCoordinatorMapSchemaInfo(requestId string, coordinatedPipesJsonMap []string, postMapEvent map[string]any) (map[string]any, error) {
+	var postMapEventJson string
+	if postMapEvent != nil {
+		postMapEventJsonBytes, err := json.Marshal(postMapEvent)
+		if err != nil {
+			return nil, fmt.Errorf("while marshalling post map event schema: %v", err)
+		}
+		postMapEventJson = string(postMapEventJsonBytes)
+	}
+	schemaInfo := map[string]any{
+		"type":                       "pipeline_coordinator_map",
+		"coordinated_pipes_json_map": coordinatedPipesJsonMap,
+		"post_map_event_json":        postMapEventJson,
+		"request_id":                 requestId,
+	}
+	log.Printf("NewPipelineCoordinatorMapSchemaInfo called with RequestId=%s\n", requestId)
+	return schemaInfo, nil
+}
+
+// Keys from schemaInfo:
+//   - "coordinated_pipes_json_map": list of schema_event_json
+//   - "post_map_event_json": serialized SchemaProviderSpec
+//   - "request_id": optional, if not exist, will be created and added to schemaInfo for tracking the pipeline execution
+func (ctx *DataTableContext) ProcessCoordinatorMapRegisterSchemaEvent(dbpool *pgxpool.Pool, schemaInfo map[string]any, token string) error {
+	// Setup a Process Coordinator pipeline
+	log.Printf("Processing pipeline coordinator map register schema event with schema info: %v", schemaInfo)
+
+	coordinatedPipesMap, ok := schemaInfo["coordinated_pipes_json_map"].([]string)
+	if !ok {
+		return fmt.Errorf("coordinated_pipes_json_map is missing or not a list in schemaInfo")
+	}
+	var postMapEventJson string
+	val := schemaInfo["post_map_event_json"]
+	if val != nil {
+		postMapEventJson, ok = val.(string)
+		if !ok {
+			return fmt.Errorf("post_map_event_json is not a string in schemaInfo")
+		}
+	}
+	// Insert into table jetsapi.pipeline_coordinator_map
+	// Check if schemaInfo already contains a "request_id", if not create one.
+	requestId, ok := schemaInfo["request_id"].(string)
+	if !ok {
+		requestId = uuid.New().String()
+		schemaInfo["request_id"] = requestId
+	}
+	stmt := `INSERT INTO jetsapi.pipeline_coordinator_map (request_id, nbr_tasks, schema_provider_json) VALUES ($1, $2, $3)`
+	_, err := dbpool.Exec(context.Background(), stmt, requestId, len(coordinatedPipesMap), postMapEventJson)
+	if err != nil {
+		return fmt.Errorf("while inserting into pipeline_coordinator_map: %v", err)
+	}
+
+	// For each step in coordinatedPipesMap, unmarshal the schema_event_json and call RegisterSchemaEvent
+	for _, step := range coordinatedPipesMap {
+		var stepSchemaInfo map[string]any
+		err := json.Unmarshal([]byte(step), &stepSchemaInfo)
+		if err != nil {
+			return fmt.Errorf("while unmarshalling schema_event_json in ProcessCoordinatorMapRegisterSchemaEvent: %v", err)
+		}
+		err = ctx.RegisterSchemaEvent(dbpool, stepSchemaInfo, token)
+		if err != nil {
+			return fmt.Errorf("while registering schema event in ProcessCoordinatorMapRegisterSchemaEvent: %v", err)
+		}
+	}
+
+	return nil
 }
