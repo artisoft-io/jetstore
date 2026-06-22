@@ -11,7 +11,7 @@ Future<Map<String, dynamic>?> getProcessInputRdfTypes(final BuildContext context
     'action': 'raw_query',
   };
   rawQuery['query'] =
-      "SELECT key, input_rdf_types FROM jetsapi.process_config WHERE process_name = '$processName'";
+      "SELECT key, input_rdf_types::text FROM jetsapi.process_config WHERE process_name = '$processName'";
   final rows = await queryJetsDataModel(
       context, formState, ServerEPs.dataTableEP, json.encode(rawQuery), silent: true);
   if (rows == null) {

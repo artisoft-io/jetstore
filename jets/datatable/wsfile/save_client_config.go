@@ -33,8 +33,8 @@ func SaveClientConfig(dbpool *pgxpool.Pool, workspaceName, clientName string) er
 	//	- Get the list of columns and data type of the table from jets schema definition
 	//	- Make the select statement with the list of columns
 	//	- Create the insert statement with the list of columns
-	//	- Make an list of interface{} based on columns spec to read each row
-	//	- Write each row based on the data type of the interface{}
+	//	- Make an list of any based on columns spec to read each row
+	//	- Write each row based on the data type of the any
 	//  - Write the insert termination clause (ON CONFLICT DO NOTHING;)
 	jetsSchema, err := getJetsSchema()
 	if err != nil {
@@ -94,7 +94,7 @@ func SaveClientConfig(dbpool *pgxpool.Pool, workspaceName, clientName string) er
 
 	// Get the list of staging tables from source_config table
 	stagingTables := make([]string, 0)
-	stmt := fmt.Sprintf("SELECT table_name FROM jetsapi.source_config WHERE client = '%s'", clientName)
+	stmt := fmt.Sprintf("SELECT table_name FROM jetsapi.source_config WHERE client = '%s' ORDER BY table_name", clientName)
 	rows, err := dbpool.Query(context.Background(), stmt)
 	if err != nil {
 		if !errors.Is(err, pgx.ErrNoRows) {
@@ -192,16 +192,20 @@ func getColumns(jetsSchema *map[string]schema.TableDefinition, skipKeyColumn boo
 	}
 	for i := range tableDef.Columns {
 		if tableDef.Columns[i].ColumnName != "last_update" && (!skipKeyColumn || tableDef.Columns[i].ColumnName != "key") {
-			result = append(result, tableDef.Columns[i].ColumnName)
+			if tableDef.Columns[i].IsArray {
+				result = append(result, tableDef.Columns[i].ColumnName+"::text")
+			} else {
+				result = append(result, tableDef.Columns[i].ColumnName)
+			}
 		}
 	}
 	return result, nil
 }
 
 // Prepare the container that will hold a row of values
-// The returned []interface{} is a list of pointers to the proper sql type based on the schema
-func makeColumnValues(jetsSchema *map[string]schema.TableDefinition, skipKeyColumn bool, tableName string) ([]interface{}, error) {
-	result := make([]interface{}, 0)
+// The returned []any is a list of pointers to the proper sql type based on the schema
+func makeColumnValues(jetsSchema *map[string]schema.TableDefinition, skipKeyColumn bool, tableName string) ([]any, error) {
+	result := make([]any, 0)
 	tableDef, ok := (*jetsSchema)[tableName]
 	if !ok {
 		return nil, fmt.Errorf("table definition not found for table %s", tableName)
@@ -235,7 +239,7 @@ func makeColumnValues(jetsSchema *map[string]schema.TableDefinition, skipKeyColu
 	return result, nil
 }
 
-func writeRow(oneLinePerRow bool, buf *strings.Builder, columnValues *[]interface{}) {
+func writeRow(oneLinePerRow bool, buf *strings.Builder, columnValues *[]any) {
 	filedDelimit := ",\n   "
 	if oneLinePerRow {
 		filedDelimit = ", "
