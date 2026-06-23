@@ -99,9 +99,15 @@ func handler(ctx context.Context, arg compute_pipes.StartComputePipesArgs) (comp
 		// Perform api gateway notification
 		apiEndpoint := os.Getenv("CPIPES_STATUS_NOTIFICATION_ENDPOINT")
 		doNotNotify := false
+		var override string
+		if schemaProvider != nil {
+			override = schemaProvider.NotifyApiGatewayOverride
+		}
 		switch {
-		case schemaProvider != nil && schemaProvider.DoNotNotifyApiGateway:
-			log.Printf("%s CPIPES_STATUS_NOTIFICATION: skipping notification to API Gateway as do_not_notify_api_gateway is set to true in the schema provider\n", arg.SessionId)
+		case override == "no_notifications" || override == "start_only":
+			log.Printf(
+				"%s CPIPES_STATUS_NOTIFICATION: skipping notification to API Gateway as notify_api_gateway_override is set to '%s' in the schema provider\n", 
+				arg.SessionId, override)
 			doNotNotify = true
 			apiEndpoint = ""
 			apiEndpointJson = ""

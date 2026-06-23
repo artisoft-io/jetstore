@@ -64,7 +64,7 @@ func main() {
 // {
 //  "-peKey": peKey,
 //  "cpipesMode": true/false,
-//  "doNotNotifyApiGateway": true/false,
+//  "notify_api_gateway_override": no_notifications, failure_only, start_only, completion_and_failure_only, default (same as empty),
 //  "-status": "completed",
 //  "file_key": "...",
 //  "failureDetails": {...},
@@ -83,18 +83,14 @@ func handler(ctx context.Context, arguments map[string]any) (err error) {
 		ca.CpipesMode = true
 	}
 
-	switch vv := arguments["doNotNotifyApiGateway"].(type) {
+	switch vv := arguments["notify_api_gateway_override"].(type) {
 	case string:
 		switch vv {
-		case "true", "TRUE", "1":
-			ca.DoNotNotifyApiGateway = true
+		case "default":
+			// do nothing
+		default:
+			ca.NotifyApiGatewayOverride = vv
 		}
-	case int:
-		if vv == 1 {
-			ca.DoNotNotifyApiGateway = true
-		}
-	case bool:
-		ca.DoNotNotifyApiGateway = vv
 	}
 
 	v, err := strconv.Atoi(arguments["-peKey"].(string))

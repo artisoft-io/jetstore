@@ -396,9 +396,11 @@ func (args *StartComputePipesArgs) StartShardingComputePipes(ctx context.Context
 	// CPIPES_STATUS_NOTIFICATION_ENDPOINT_JSON
 	apiEndpoint := os.Getenv("CPIPES_STATUS_NOTIFICATION_ENDPOINT")
 	var apiEndpointJson string
+	override := mainInputSchemaProvider.NotifyApiGatewayOverride
 	switch {
-	case mainInputSchemaProvider.DoNotNotifyApiGateway:
-		log.Printf("%s CPIPES_STATUS_NOTIFICATION: skipping notification to API Gateway as do_not_notify_api_gateway is set to true in the schema provider\n", args.SessionId)
+	case override == "no_notifications" || override == "failure_only" || override == "completion_and_failure_only":
+		log.Printf("%s CPIPES_STATUS_NOTIFICATION: skipping start notification to API Gateway as notify_api_gateway_override is set to '%s' in the schema provider\n", 
+			args.SessionId, override)
 		apiEndpoint = ""
 		apiEndpointJson = ""
 	case len(mainInputSchemaProvider.NotificationRoutingOverridesJson) > 0:

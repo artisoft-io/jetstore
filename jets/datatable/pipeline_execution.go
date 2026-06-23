@@ -480,7 +480,7 @@ func (ctx *DataTableContext) startStateMachine(task *PendingTask) error {
 	switch task.StateMachineName {
 	case "cpipesSM", "cpipesNativeSM":
 		// State Machine input for new cpipesSM all-in-one
-		// Set DoNotNotifyApiGateway to true, since we don't have the cpipesEnv when
+		// Set NotifyApiGatewayOverride to "no_notifications", since we don't have the cpipesEnv when
 		// calling start Sharding, api notification will be done in by sharding task
 		// as needed.
 		smInput = map[string]any{
@@ -490,12 +490,12 @@ func (ctx *DataTableContext) startStateMachine(task *PendingTask) error {
 				"session_id":             task.SessionId,
 			},
 			"errorUpdate": map[string]any{
-				"-peKey":                peKey, // string for this one! - legacy alert!
-				"-status":               "failed",
-				"file_key":              task.MainInputFileKey.String,
-				"cpipesMode":            true,
-				"doNotNotifyApiGateway": true,
-				"failureDetails":        "",
+				"-peKey":                      peKey, // string for this one! - legacy alert!
+				"-status":                     "failed",
+				"file_key":                    task.MainInputFileKey.String,
+				"cpipesMode":                  true,
+				"notify_api_gateway_override": "no_notifications",
+				"failureDetails":              "",
 			},
 		}
 		if task.StateMachineName == "cpipesNativeSM" {

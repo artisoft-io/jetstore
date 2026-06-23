@@ -342,6 +342,7 @@ type SchemaProviderSpec struct {
 	// RequestID is used for logging and tracking purpose.
 	// Contains properties to register FileKey with input_registry table:
 	// Client, Vendor, ObjectType, FileDate (does not apply to Jets_Loader).
+	// NotifyApiGatewayOverride: values: no_notifications, failure_only, start_only, completion_and_failure_only, default (same as empty).
 	// NotificationTemplatesOverrides have the following keys to override the templates defined
 	// in the deployment environment var: CPIPES_START_NOTIFICATION_JSON,
 	// CPIPES_COMPLETED_NOTIFICATION_JSON, and CPIPES_FAILED_NOTIFICATION_JSON.
@@ -370,7 +371,7 @@ type SchemaProviderSpec struct {
 	ReportCmds                       []ReportCmdSpec    `json:"report_cmds,omitempty"`
 	NotificationTemplatesOverrides   map[string]string  `json:"notification_templates_overrides,omitempty"`
 	NotificationRoutingOverridesJson string             `json:"notification_routing_overrides_json,omitempty"`
-	DoNotNotifyApiGateway            bool               `json:"do_not_notify_api_gateway"`
+	NotifyApiGatewayOverride         string             `json:"notify_api_gateway_override,omitempty"`
 }
 
 // Commands for the run_report step

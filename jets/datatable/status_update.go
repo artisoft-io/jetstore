@@ -32,15 +32,16 @@ import (
 // and then the connection properties (AwsDsnSecret, DbPoolSize, UsingSshTunnel, AwsRegion)
 // are not needed.
 type StatusUpdate struct {
-	CpipesMode            bool
-	CpipesEnv             map[string]any
-	UsingSshTunnel        bool
-	Dbpool                *pgxpool.Pool
-	PeKey                 int
-	Status                string
-	FileKey               string
-	FailureDetails        string
-	DoNotNotifyApiGateway bool
+	CpipesMode               bool
+	CpipesEnv                map[string]any
+	UsingSshTunnel           bool
+	Dbpool                   *pgxpool.Pool
+	PeKey                    int
+	SessionId                string
+	Status                   string
+	FileKey                  string
+	FailureDetails           string
+	NotifyApiGatewayOverride string
 }
 
 // Support Functions
@@ -131,7 +132,7 @@ func (ca *StatusUpdate) ValidateArguments() []string {
 	log.Println("Got argument: failureDetails", ca.FailureDetails)
 	log.Println("Got argument: cpipesMode", ca.CpipesMode)
 	log.Println("Got argument: cpipesEnv", ca.CpipesEnv)
-	log.Println("Got argument: doNotNotifyApiGateway", ca.DoNotNotifyApiGateway)
+	log.Println("Got argument: notify_api_gateway_override", ca.NotifyApiGatewayOverride)
 	log.Println("env JETS_s3_INPUT_PREFIX:", os.Getenv("JETS_s3_INPUT_PREFIX"))
 	log.Println("env CPIPES_STATUS_NOTIFICATION_ENDPOINT:", os.Getenv("CPIPES_STATUS_NOTIFICATION_ENDPOINT"))
 	log.Println("env CPIPES_STATUS_NOTIFICATION_ENDPOINT_JSON:", os.Getenv("CPIPES_STATUS_NOTIFICATION_ENDPOINT_JSON"))
@@ -148,7 +149,7 @@ func (ca *StatusUpdate) ValidateArguments() []string {
 // with only the fields needed for status update and notification.
 // Also for updating the process map coordination if used (pipeline_coordinator_map tbl).
 type SchemaProviderShort struct {
-	DoNotNotifyApiGateway            bool              `json:"do_not_notify_api_gateway"`
+	NotifyApiGatewayOverride         string            `json:"notify_api_gateway_override,omitempty"`
 	RequestID                        string            `json:"request_id,omitempty"`
 	NotificationTemplatesOverrides   map[string]string `json:"notification_templates_overrides"`
 	NotificationRoutingOverridesJson string            `json:"notification_routing_overrides_json"`
@@ -166,7 +167,11 @@ func (ca *StatusUpdate) CoordinateWork() error {
 	// 	- to register db_table as input source when specified by env var ${REGISTER_DB_TABLE}
 	// Getting session id as well, so doing the call even if apiEndpoint is not specified
 	schemaProviderJson, sessionId, err := GetSchemaProviderJsonFromPipelineKey(ca.Dbpool, ca.PeKey)
-	log.Printf("%s Status '%s' for %s\n", sessionId, ca.Status, ca.FileKey)
+	if err != nil {
+		return fmt.Errorf("while getting schema provider json from pipeline_execution_status: %v", err)
+	}
+	ca.SessionId = sessionId
+	caOverride := ca.NotifyApiGatewayOverride
 	var schemaProvider *SchemaProviderShort
 	if len(schemaProviderJson) > 0 {
 		schemaProvider = &SchemaProviderShort{}
@@ -174,8 +179,18 @@ func (ca *StatusUpdate) CoordinateWork() error {
 		if err != nil {
 			log.Panicf("%s while unmarshalling schema provider json: %v\n", sessionId, err)
 		}
-		ca.DoNotNotifyApiGateway = ca.DoNotNotifyApiGateway || schemaProvider.DoNotNotifyApiGateway
+		override := schemaProvider.NotifyApiGatewayOverride
+		switch {
+			case len(caOverride) == 0 && len(override) > 0:
+				ca.NotifyApiGatewayOverride = override
+			case caOverride == "default" && len(override) > 0:
+				ca.NotifyApiGatewayOverride = override
+			case override == "no_notifications":
+				ca.NotifyApiGatewayOverride = override
+		}
 	}
+	log.Printf("%s Status '%s' for %s with notification override '%s'\n", sessionId, ca.Status, ca.FileKey, 
+		ca.NotifyApiGatewayOverride)
 
 	// NOTE 2024-05-13 Added Notification to API Gateway via env var CPIPES_STATUS_NOTIFICATION_ENDPOINT
 	// or CPIPES_STATUS_NOTIFICATION_ENDPOINT_JSON
@@ -285,9 +300,9 @@ func (ca *StatusUpdate) CoordinateWork() error {
 	}
 
 	// Check if request_id of schema provider is linked to a pipeline_coordinator_map, if so
-	// update the coordination status in pipeline_coordinator_map tbl based on 
+	// update the coordination status in pipeline_coordinator_map tbl based on
 	// the status of the execution (failed, completed, etc).
-	// Then kick off the post map pipeline execution if all the executions linked to the same request_id are 
+	// Then kick off the post map pipeline execution if all the executions linked to the same request_id are
 	// completed (entry in pipeline_coordinator_map_items).
 	// The schema event of the post map pipeline is the schema_provider_json in the pipeline_coordinator_map tbl.
 	if schemaProvider != nil && len(schemaProvider.RequestID) > 0 {
