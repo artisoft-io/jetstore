@@ -38,10 +38,10 @@ func MultiPartCopy(ctx context.Context, svc *s3.Client, maxPoolSize int,
 	if maxPoolSize == 0 {
 		maxPoolSize = 20
 	}
-	if len(srcBucket) == 0 {
+	if len(srcBucket) == 0 || srcBucket == "jetstore_bucket" {
 		srcBucket = JetStoreBucket()
 	}
-	if len(destBucket) == 0 {
+	if len(destBucket) == 0 || destBucket == "jetstore_bucket" {
 		destBucket = JetStoreBucket()
 	}
 
@@ -64,7 +64,8 @@ func MultiPartCopy(ctx context.Context, svc *s3.Client, maxPoolSize int,
 	if totalFileSize < fileSizeCutoff && len(s3Objects) == 1 {
 		// Do the copy in one shot
 		copySource := url.QueryEscape(fmt.Sprintf("%s/%s", srcBucket, s3Objects[0].Key))
-		log.Printf("Copying using single part for file %s of size %d", copySource, totalFileSize)
+		log.Printf("Copying using single part for file %s/%s to %s/%s of size %d", srcBucket, 
+			s3Objects[0].Key, destBucket, destKey, totalFileSize)
 		copyInput := &s3.CopyObjectInput{
 			CopySource: &copySource,
 			Bucket:     &destBucket,

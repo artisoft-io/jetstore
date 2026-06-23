@@ -951,9 +951,9 @@ func (ctx *DataTableContext) ProcessCoordinatorMapRegisterSchemaEvent(dbpool *pg
 	// Setup a Process Coordinator pipeline
 	log.Printf("Processing pipeline coordinator map register schema event with schema info: %v", schemaInfo)
 
-	coordinatedPipesMap, ok := schemaInfo["coordinated_pipes_json_map"].([]string)
+	coordinatedPipesMap, ok := schemaInfo["coordinated_pipes_json_map"].([]any)
 	if !ok {
-		return fmt.Errorf("coordinated_pipes_json_map is missing or not a list in schemaInfo")
+		return fmt.Errorf("coordinated_pipes_json_map is missing or not a list of schemaInfo")
 	}
 	var postMapEventJson string
 	val := schemaInfo["post_map_event_json"]
@@ -970,7 +970,7 @@ func (ctx *DataTableContext) ProcessCoordinatorMapRegisterSchemaEvent(dbpool *pg
 		requestId = uuid.New().String()
 		schemaInfo["request_id"] = requestId
 	}
-	stmt := `INSERT INTO jetsapi.pipeline_coordinator_map (request_id, nbr_tasks, schema_provider_json) VALUES ($1, $2, $3)`
+	stmt := `INSERT INTO jetsapi.pipeline_coordinator_map (request_id, status, nbr_tasks, schema_provider_json) VALUES ($1, 'in_progress', $2, $3)`
 	_, err := dbpool.Exec(context.Background(), stmt, requestId, len(coordinatedPipesMap), postMapEventJson)
 	if err != nil {
 		return fmt.Errorf("while inserting into pipeline_coordinator_map: %v", err)
@@ -979,7 +979,11 @@ func (ctx *DataTableContext) ProcessCoordinatorMapRegisterSchemaEvent(dbpool *pg
 	// For each step in coordinatedPipesMap, unmarshal the schema_event_json and call RegisterSchemaEvent
 	for _, step := range coordinatedPipesMap {
 		var stepSchemaInfo map[string]any
-		err := json.Unmarshal([]byte(step), &stepSchemaInfo)
+		se, ok := step.(string)
+		if !ok {
+			return fmt.Errorf("step in coordinated_pipes_json_map (schema_event_json) is not a string: %v", step)
+		}
+		err := json.Unmarshal([]byte(se), &stepSchemaInfo)
 		if err != nil {
 			return fmt.Errorf("while unmarshalling schema_event_json in ProcessCoordinatorMapRegisterSchemaEvent: %v", err)
 		}

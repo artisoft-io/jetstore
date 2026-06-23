@@ -41,7 +41,7 @@ func (ca *StatusUpdate) updatePipelineCoordinator(sessionId string, schemaProvid
 	err := ca.Dbpool.QueryRow(context.Background(), stmt, schemaProvider.RequestID).Scan(&mapStatus, &nbrTasks, &schemaEventJson)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			log.Printf("%s No pipeline_coordinator_map found for request_id %s\n", sessionId, schemaProvider.RequestID)
+			log.Printf("%s No rows in pipeline_coordinator_map found for request_id %s\n", sessionId, schemaProvider.RequestID)
 			return nil
 		}
 		err = fmt.Errorf("%s while querying pipeline_coordinator_map for request_id %s: %v\n", sessionId, schemaProvider.RequestID, err)
@@ -52,6 +52,7 @@ func (ca *StatusUpdate) updatePipelineCoordinator(sessionId string, schemaProvid
 	}
 	switch ca.Status {
 	case "failed":
+		log.Printf("%s Task failed for request_id %s, updating pipeline_coordinator_map to failed\n", sessionId, schemaProvider.RequestID)
 		// Fail the coordination if not already failed
 		if mapStatus != "failed" {
 			updateStmt := `UPDATE jetsapi.pipeline_coordinator_map SET status = 'failed' WHERE request_id = $1`
@@ -63,7 +64,7 @@ func (ca *StatusUpdate) updatePipelineCoordinator(sessionId string, schemaProvid
 			}
 			log.Printf("%s Updated pipeline_coordinator_map to failed for request_id %s\n", sessionId, schemaProvider.RequestID)
 		}
-		// Insert in pipeline_coordinator_loc, if successful notify the API Gateway of the failure using schemaEventJson for notification
+		// Insert in pipeline_coordinator_lock, if successful notify the API Gateway of the failure using schemaEventJson for notification
 		err = insertPipelineCoordinatorLock(ca.Dbpool, schemaProvider.RequestID, sessionId)
 		if err == nil {
 			// Lock successful, perform notification using schemaEventJson as the schema provider for the notification
@@ -98,7 +99,7 @@ func (ca *StatusUpdate) updatePipelineCoordinator(sessionId string, schemaProvid
 			log.Println(err)
 			return err
 		}
-		log.Printf("%s Counted %d items for request_id %s in pipeline_coordinator_map_items\n", sessionId, count, schemaProvider.RequestID)
+		log.Printf("%s Counted %d/%d items for request_id %s in pipeline_coordinator_map_items\n", sessionId, count, nbrTasks, schemaProvider.RequestID)
 		if count == nbrTasks {
 			// All tasks are completed, lock the coordination and kick off the post map pipeline execution
 			err = insertPipelineCoordinatorLock(ca.Dbpool, schemaProvider.RequestID, sessionId)
@@ -125,5 +126,8 @@ func (ca *StatusUpdate) updatePipelineCoordinator(sessionId string, schemaProvid
 func insertPipelineCoordinatorLock(dbpool *pgxpool.Pool, requestId, sessionId string) error {
 	stmt := `INSERT INTO jetsapi.pipeline_coordinator_lock (request_id, session_id) VALUES ($1, $2)`
 	_, err := dbpool.Exec(context.Background(), stmt, requestId, sessionId)
+	if err == nil {
+		log.Printf("%s Inserted lock for request_id %s in pipeline_coordinator_lock\n", sessionId, requestId)
+	}
 	return err
 }
