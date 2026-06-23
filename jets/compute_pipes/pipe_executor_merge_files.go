@@ -73,6 +73,7 @@ func (cpCtx *ComputePipesContext) StartMergeFiles(dbpool *pgxpool.Pool) (cpErr e
 	var fileFolder, fileName, outputS3FileKey string
 	inputFileKeys := cpCtx.InputFileKeys[0]
 	nbrFiles := len(inputFileKeys)
+	outputFileConfig.SetOutputLocation(utils.ReplaceEnvVars(outputFileConfig.OutputLocation(), cpCtx.EnvSettings))
 	switch outputFileConfig.OutputLocation() {
 	case "jetstore_s3_input", "jetstore_s3_output", "jetstore_s3_stage", "jetstore_s3_schema_events":
 		if len(outputFileConfig.Name()) > 0 {
@@ -105,7 +106,7 @@ func (cpCtx *ComputePipesContext) StartMergeFiles(dbpool *pgxpool.Pool) (cpErr e
 		}
 
 	default:
-		outputS3FileKey = utils.ReplaceEnvVars(outputFileConfig.OutputLocation(), cpCtx.EnvSettings)
+		outputS3FileKey = outputFileConfig.OutputLocation()
 	}
 
 	// Create a reader if stream the data to s3

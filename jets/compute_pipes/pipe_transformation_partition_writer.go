@@ -442,7 +442,7 @@ func (ctx *BuilderContext) NewPartitionWriterTransformationPipe(source *InputCha
 		}
 		// log.Printf("NewPartitionWriterTransformationPipe: Writing to baseOutputPath %s", baseOutputPath)
 	case "output":
-		outLoc := spec.OutputChannel.OutputLocation()
+		outLoc := utils.ReplaceEnvVars(spec.OutputChannel.OutputLocation(), ctx.env)
 		keyPrefix := spec.OutputChannel.KeyPrefix
 		switch outLoc {
 		case "jetstore_s3_schema_events":
@@ -451,9 +451,7 @@ func (ctx *BuilderContext) NewPartitionWriterTransformationPipe(source *InputCha
 			log.Printf("NewPartitionWriterTransformationPipe: Writing to schema events location with baseOutputPath: %s", baseOutputPath)
 
 		default:
-			if len(outLoc) > 0 &&
-				outLoc != "jetstore_s3_input" &&
-				outLoc != "jetstore_s3_output" {
+			if len(outLoc) > 0 && !strings.HasPrefix(outLoc, "jetstore_s3_") {
 				outputLocation := utils.ReplaceEnvVars(outLoc, ctx.env)
 				if !strings.HasSuffix(outputLocation, "/") {
 					pos := strings.LastIndex(outputLocation, "/")
