@@ -102,8 +102,8 @@ func (cpCtx *ComputePipesContext) StartMergeFiles(dbpool *pgxpool.Pool) (cpErr e
 				fileFolder = doSubstitution("$PATH_FILE_KEY", "", outputFileConfig.OutputLocation(),
 					cpCtx.EnvSettings)
 			}
-			outputS3FileKey = fmt.Sprintf("%s/%s", fileFolder, fileName)
 		}
+		outputS3FileKey = fmt.Sprintf("%s/%s", fileFolder, fileName)
 
 	default:
 		outputS3FileKey = outputFileConfig.OutputLocation()
@@ -139,6 +139,10 @@ func (cpCtx *ComputePipesContext) StartMergeFiles(dbpool *pgxpool.Pool) (cpErr e
 	case inputChannel.Format != "":
 		format = inputChannel.Format
 	}
+
+	log.Printf("%s node %d merging %d files to '%s' in bucket '%s' with format %s and compression %s",
+		cpCtx.SessionId, cpCtx.NodeId, nbrFiles, outputS3FileKey, externalBucket, format, compression)
+
 	var writeHeaders bool
 	var skipInputHeaders bool
 	switch {

@@ -38,6 +38,14 @@ func MultiPartCopy(ctx context.Context, svc *s3.Client, maxPoolSize int,
 	if maxPoolSize == 0 {
 		maxPoolSize = 20
 	}
+	if len(destKey) == 0 {
+		err := fmt.Errorf("MultiPartCopy: destination key is empty")
+		return err
+	}
+	if len(srcKey) == 0 {
+		err := fmt.Errorf("MultiPartCopy: source key is empty")
+		return err
+	}
 	if len(srcBucket) == 0 || srcBucket == "jetstore_bucket" {
 		srcBucket = JetStoreBucket()
 	}
