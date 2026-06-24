@@ -290,7 +290,7 @@ func (cpCtx *ComputePipesContext) StartMergeFiles(dbpool *pgxpool.Pool) (cpErr e
 
 		poolSize := cpCtx.CpConfig.ClusterConfig.S3WorkerPoolSize
 		var sourceKey string
-		// Main input source
+		// Main input source, always reading from "stage", therefore bucket is 'jetstore_bucket', hence the sourceBucket is ""
 		if len(inputChannel.FileKey) == 0 {
 			sourceKey = fmt.Sprintf("%s/process_name=%s/session_id=%s/step_id=%s",
 				awsi.JetStoreStagePrefix(), cpCtx.ProcessName, cpCtx.SessionId, inputChannel.ReadStepId)
@@ -298,6 +298,7 @@ func (cpCtx *ComputePipesContext) StartMergeFiles(dbpool *pgxpool.Pool) (cpErr e
 			fileK := utils.ReplaceEnvVars(inputChannel.FileKey, cpCtx.EnvSettings)
 			sourceKey = fmt.Sprintf("%s/%s", awsi.JetStoreStagePrefix(), fileK)
 		}
+		// Note sourceBucket is empty since we are always reading from the jetstore_bucket stage folder
 		err = awsi.MultiPartCopy(context.TODO(), s3Client, poolSize, "", sourceKey, externalBucket, outputS3FileKey,
 			cpCtx.CpConfig.ClusterConfig.IsDebugMode)
 		if err != nil {
@@ -468,15 +469,17 @@ func (r *MergeFileReader) Read(buf []byte) (int, error) {
 	default:
 		// Delegate to the reader
 		if r.skipHeaderFlag {
-			headers, err := r.reader.ReadString('\n')
+			var headers string
+			headers, err = r.reader.ReadString('\n')
 			if err != nil && err != io.EOF {
 				return 0, err
 			}
 			if r.getHeadersFromInputFile {
 				// Get the headers from the first input file and package them
-				r.headers, err = packageHeaders(r.outputSp, strings.Split(strings.TrimSpace(headers), string(r.delimiter)), r.delimiter)
-				if err != nil {
-					return 0, fmt.Errorf("while packaging headers from first input file: %v", err)
+				var err3 error
+				r.headers, err3 = packageHeaders(r.outputSp, strings.Split(strings.TrimSpace(headers), string(r.delimiter)), r.delimiter)
+				if err3 != nil {
+					return 0, fmt.Errorf("while packaging headers from first input file: %v", err3)
 				}
 				r.getHeadersFromInputFile = false
 				r.skipHeaderFlag = false

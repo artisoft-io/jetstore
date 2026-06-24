@@ -60,7 +60,7 @@ func ShardFileKeys(exeCtx context.Context, dbpool *pgxpool.Pool, baseFileKey str
 		fileKey := fmt.Sprintf("%s/%s", awsi.JetStoreStagePrefix(), inputChannelConfig.FileKey)
 		lback := inputChannelConfig.LookbackPeriods
 		if len(lback) > 0 {
-			s3Objects, err = GetS3Objects4LookbackPeriod(schemaProviderConfig.Bucket, fileKey,
+			s3Objects, err = GetS3Objects4LookbackPeriod("", fileKey,
 				inputChannelConfig.LookbackPeriods, envSettings)
 			if err != nil {
 				cpErr = fmt.Errorf("failed to download list of files from s3 for lookback periods: %v", err)
@@ -69,7 +69,7 @@ func ShardFileKeys(exeCtx context.Context, dbpool *pgxpool.Pool, baseFileKey str
 		} else {
 			fileKeyPrefix := utils.ReplaceEnvVars(fileKey, envSettings)
 			log.Printf("Downloading file keys from s3 stage folder: %s", fileKeyPrefix)
-			s3Objects, err = awsi.ListS3Objects(schemaProviderConfig.Bucket, &fileKeyPrefix)
+			s3Objects, err = awsi.ListS3Objects("", &fileKeyPrefix)
 			if err != nil {
 				cpErr = fmt.Errorf("failed to download list of files from s3: %v", err)
 				return
