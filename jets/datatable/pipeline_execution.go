@@ -17,7 +17,6 @@ import (
 
 	"github.com/artisoft-io/jetstore/jets/awsi"
 	"github.com/artisoft-io/jetstore/jets/jetrules/rdf"
-	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -967,8 +966,11 @@ func (ctx *DataTableContext) ProcessCoordinatorMapRegisterSchemaEvent(dbpool *pg
 	// Check if schemaInfo already contains a "request_id", if not create one.
 	requestId, ok := schemaInfo["request_id"].(string)
 	if !ok {
-		requestId = uuid.New().String()
-		schemaInfo["request_id"] = requestId
+		//TODO set request_id in schema providers and env var accordingly
+		// Set to schema providers & env var of the map, and to env var (only) to post map event.
+		// requestId = uuid.New().String()
+		// schemaInfo["request_id"] = requestId
+		return fmt.Errorf("request_id is missing in schemaInfo, it must be provided for pipeline coordinator map register schema event")
 	}
 	stmt := `INSERT INTO jetsapi.pipeline_coordinator_map (request_id, status, nbr_tasks, schema_provider_json) VALUES ($1, 'in_progress', $2, $3)`
 	_, err := dbpool.Exec(context.Background(), stmt, requestId, len(coordinatedPipesMap), postMapEventJson)

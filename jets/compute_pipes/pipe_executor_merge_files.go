@@ -89,11 +89,11 @@ func (cpCtx *ComputePipesContext) StartMergeFiles(dbpool *pgxpool.Pool) (cpErr e
 		case "jetstore_s3_stage":
 			// put in jetstore s3 stage path
 			keyPrefix := utils.ReplaceEnvVars(outputFileConfig.KeyPrefix, cpCtx.EnvSettings)
-			fileFolder = fmt.Sprintf("%s/%s/%s", awsi.JetStoreStagePrefix(), keyPrefix, fileName)
+			fileFolder = fmt.Sprintf("%s/%s", awsi.JetStoreStagePrefix(), keyPrefix)
 		case "jetstore_s3_schema_events":
 			// put in jetstore s3 schema events path
 			keyPrefix := utils.ReplaceEnvVars(outputFileConfig.KeyPrefix, cpCtx.EnvSettings)
-			fileFolder = fmt.Sprintf("%s/%s/%s", awsi.JetStoreSchemaEventsPrefix(), keyPrefix, fileName)
+			fileFolder = fmt.Sprintf("%s/%s", awsi.JetStoreSchemaEventsPrefix(), keyPrefix)
 		default:
 			if len(outputFileConfig.KeyPrefix) > 0 {
 				fileFolder = doSubstitution(outputFileConfig.KeyPrefix, "", outputFileConfig.OutputLocation(),
@@ -146,41 +146,41 @@ func (cpCtx *ComputePipesContext) StartMergeFiles(dbpool *pgxpool.Pool) (cpErr e
 	var writeHeaders bool
 	var skipInputHeaders bool
 	switch {
-		case format != "csv" && inputChannel.Format == "csv":
-			writeHeaders = false
-			skipInputHeaders = true
-			log.Printf("%s node %d input channel is csv but output format is %s, will not write headers in merged file",
-				cpCtx.SessionId, cpCtx.NodeId, format)
-		case format != "csv" && inputChannel.Format != "csv":
-			writeHeaders = false
-			skipInputHeaders = false
-			log.Printf("%s node %d input channel format is %s but output format is %s, will not write headers in merged file",
-				cpCtx.SessionId, cpCtx.NodeId, inputChannel.Format, format)
-		case format == "csv" && inputChannel.Format == "csv" && nbrFiles == 1:
-			writeHeaders = false
-			skipInputHeaders = false
-			log.Printf("%s node %d only one input file and format is csv, will copy input file with it's headers in merged file",
-				cpCtx.SessionId, cpCtx.NodeId)
-		case format == "csv" && inputChannel.Format == "csv" && pipeSpec.MergeFileConfig != nil && pipeSpec.MergeFileConfig.FirstPartitionHasHeaders:
-			writeHeaders = false
-			skipInputHeaders = false
-			log.Printf("%s node %d multiple input files and format is csv but first file has headers, will copy files as is, headeers will come from first file.",
-				cpCtx.SessionId, cpCtx.NodeId)
-		case format == "csv" && inputChannel.Format == "csv" && nbrFiles > 1:
-			writeHeaders = true
-			skipInputHeaders = true
-			log.Printf("%s node %d multiple input files and format is csv, will write headers in merged file but skip headers in input files",
-				cpCtx.SessionId, cpCtx.NodeId)
-		case format == "csv" && inputChannel.Format != "csv":
-			writeHeaders = true
-			skipInputHeaders = false
-			log.Printf("%s node %d input channel format is %s but output format is csv, will write headers in merged file",
-				cpCtx.SessionId, cpCtx.NodeId, inputChannel.Format)
-		default:
-			err := fmt.Errorf("error: unexpected case when determining whether to write headers in merged file, input format: %s, output format: %s, number of input files: %d",
-				inputChannel.Format, format, nbrFiles)
-			log.Println(err)
-			return err
+	case format != "csv" && inputChannel.Format == "csv":
+		writeHeaders = false
+		skipInputHeaders = true
+		log.Printf("%s node %d input channel is csv but output format is %s, will not write headers in merged file",
+			cpCtx.SessionId, cpCtx.NodeId, format)
+	case format != "csv" && inputChannel.Format != "csv":
+		writeHeaders = false
+		skipInputHeaders = false
+		log.Printf("%s node %d input channel format is %s but output format is %s, will not write headers in merged file",
+			cpCtx.SessionId, cpCtx.NodeId, inputChannel.Format, format)
+	case format == "csv" && inputChannel.Format == "csv" && nbrFiles == 1:
+		writeHeaders = false
+		skipInputHeaders = false
+		log.Printf("%s node %d only one input file and format is csv, will copy input file with it's headers in merged file",
+			cpCtx.SessionId, cpCtx.NodeId)
+	case format == "csv" && inputChannel.Format == "csv" && pipeSpec.MergeFileConfig != nil && pipeSpec.MergeFileConfig.FirstPartitionHasHeaders:
+		writeHeaders = false
+		skipInputHeaders = false
+		log.Printf("%s node %d multiple input files and format is csv but first file has headers, will copy files as is, headeers will come from first file.",
+			cpCtx.SessionId, cpCtx.NodeId)
+	case format == "csv" && inputChannel.Format == "csv" && nbrFiles > 1:
+		writeHeaders = true
+		skipInputHeaders = true
+		log.Printf("%s node %d multiple input files and format is csv, will write headers in merged file but skip headers in input files",
+			cpCtx.SessionId, cpCtx.NodeId)
+	case format == "csv" && inputChannel.Format != "csv":
+		writeHeaders = true
+		skipInputHeaders = false
+		log.Printf("%s node %d input channel format is %s but output format is csv, will write headers in merged file",
+			cpCtx.SessionId, cpCtx.NodeId, inputChannel.Format)
+	default:
+		err := fmt.Errorf("error: unexpected case when determining whether to write headers in merged file, input format: %s, output format: %s, number of input files: %d",
+			inputChannel.Format, format, nbrFiles)
+		log.Println(err)
+		return err
 	}
 
 	// Determine the headers to write
@@ -218,7 +218,7 @@ func (cpCtx *ComputePipesContext) StartMergeFiles(dbpool *pgxpool.Pool) (cpErr e
 		}
 		if len(outputFileConfig.Headers) == 0 && !getHeadersFromInputFile {
 			cpErr = fmt.Errorf(
-				"error: merge_files operator using output_file %s, no headers avaliable",
+				"error: merge_files operator using output_file %s, no headers available",
 				outputFileConfig.Key)
 			log.Println(cpErr)
 			return
@@ -289,8 +289,15 @@ func (cpCtx *ComputePipesContext) StartMergeFiles(dbpool *pgxpool.Pool) (cpErr e
 		}
 
 		poolSize := cpCtx.CpConfig.ClusterConfig.S3WorkerPoolSize
-		sourceKey := fmt.Sprintf("%s/process_name=%s/session_id=%s/step_id=%s",
-			awsi.JetStoreStagePrefix(), cpCtx.ProcessName, cpCtx.SessionId, inputChannel.ReadStepId)
+		var sourceKey string
+		// Main input source
+		if len(inputChannel.FileKey) == 0 {
+			sourceKey = fmt.Sprintf("%s/process_name=%s/session_id=%s/step_id=%s",
+				awsi.JetStoreStagePrefix(), cpCtx.ProcessName, cpCtx.SessionId, inputChannel.ReadStepId)
+		} else {
+			fileK := utils.ReplaceEnvVars(inputChannel.FileKey, cpCtx.EnvSettings)
+			sourceKey = fmt.Sprintf("%s/%s", awsi.JetStoreStagePrefix(), fileK)
+		}
 		err = awsi.MultiPartCopy(context.TODO(), s3Client, poolSize, "", sourceKey, externalBucket, outputS3FileKey,
 			cpCtx.CpConfig.ClusterConfig.IsDebugMode)
 		if err != nil {

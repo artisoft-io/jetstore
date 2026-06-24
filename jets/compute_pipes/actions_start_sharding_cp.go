@@ -184,40 +184,40 @@ func (args *StartComputePipesArgs) StartShardingComputePipes(ctx context.Context
 		if mainInputSchemaProvider.OutputEncodingSameAsInput {
 			mainInputSchemaProvider.OutputEncoding = mainInputSchemaProvider.Encoding
 		}
-	}
-	// log.Printf("*** cpipesStartup.MainInputDomainKeysSpec: %v, cpipesStartup.MainInputDomainClass: %v\n",
-	// 	cpipesStartup.MainInputDomainKeysSpec, cpipesStartup.MainInputDomainClass)
+		// log.Printf("*** cpipesStartup.MainInputDomainKeysSpec: %v, cpipesStartup.MainInputDomainClass: %v\n",
+		// 	cpipesStartup.MainInputDomainKeysSpec, cpipesStartup.MainInputDomainClass)
 
-	// NOTE: At this point we should have the headers of the input file (except potentially for parquet file)
-	if len(cpipesStartup.InputColumns) == 0 && len(mainInputSchemaProvider.Headers) > 0 {
-		cpipesStartup.InputColumns = mainInputSchemaProvider.Headers
-	}
-	if len(cpipesStartup.InputColumns) == 0 {
-		if !strings.HasPrefix(format, "parquet") {
-			return result, mainInputSchemaProvider, fmt.Errorf("configuration error: no header information available for the input file(s)")
+		// NOTE: At this point we should have the headers of the input file (except potentially for parquet file)
+		if len(cpipesStartup.InputColumns) == 0 && len(mainInputSchemaProvider.Headers) > 0 {
+			cpipesStartup.InputColumns = mainInputSchemaProvider.Headers
 		}
-	} else {
-		// Ensure the input columns are unique, if not make them unique and keep the original in InputColumnsOriginal
-		headersUniquefied := schema.NewHeadersUniquefied(cpipesStartup.InputColumns)
-		if headersUniquefied.Modified {
-			cpipesStartup.InputColumnsOriginal = headersUniquefied.OriginalHeaders
-			log.Printf("*** Uniquefied Input Columns: %v\n", headersUniquefied.UniqueHeaders)
-		}
-		cpipesStartup.InputColumns = headersUniquefied.UniqueHeaders
-
-		// log.Printf("*** Input Columns: %v\n", cpipesStartup.InputColumns)
-		// Add the headers from the partfile_key_component
-		for i := range cpipesStartup.CpConfig.Context {
-			if cpipesStartup.CpConfig.Context[i].Type == "partfile_key_component" {
-				cpipesStartup.InputColumns = append(cpipesStartup.InputColumns,
-					cpipesStartup.CpConfig.Context[i].Key)
+		if len(cpipesStartup.InputColumns) == 0 {
+			if !strings.HasPrefix(format, "parquet") {
+				return result, mainInputSchemaProvider, fmt.Errorf("configuration error: no header information available for the input file(s)")
 			}
-		}
+		} else {
+			// Ensure the input columns are unique, if not make them unique and keep the original in InputColumnsOriginal
+			headersUniquefied := schema.NewHeadersUniquefied(cpipesStartup.InputColumns)
+			if headersUniquefied.Modified {
+				cpipesStartup.InputColumnsOriginal = headersUniquefied.OriginalHeaders
+				log.Printf("*** Uniquefied Input Columns: %v\n", headersUniquefied.UniqueHeaders)
+			}
+			cpipesStartup.InputColumns = headersUniquefied.UniqueHeaders
 
-		// Add extra headers to input_row if specified in the channels spec
-		extraInputColumns := GetAdditionalInputColumns(&cpipesStartup.CpConfig)
-		if len(extraInputColumns) > 0 {
-			cpipesStartup.InputColumns = append(cpipesStartup.InputColumns, extraInputColumns...)
+			// log.Printf("*** Input Columns: %v\n", cpipesStartup.InputColumns)
+			// Add the headers from the partfile_key_component
+			for i := range cpipesStartup.CpConfig.Context {
+				if cpipesStartup.CpConfig.Context[i].Type == "partfile_key_component" {
+					cpipesStartup.InputColumns = append(cpipesStartup.InputColumns,
+						cpipesStartup.CpConfig.Context[i].Key)
+				}
+			}
+
+			// Add extra headers to input_row if specified in the channels spec
+			extraInputColumns := GetAdditionalInputColumns(&cpipesStartup.CpConfig)
+			if len(extraInputColumns) > 0 {
+				cpipesStartup.InputColumns = append(cpipesStartup.InputColumns, extraInputColumns...)
+			}
 		}
 	}
 	// Update output table schema
@@ -325,6 +325,7 @@ func (args *StartComputePipesArgs) StartShardingComputePipes(ctx context.Context
 			FileKey:         args.FileKey,
 			SessionId:       args.SessionId,
 			MainInputStepId: "reducing00", // this is used by name in the code to get the main_input_row_count, beware if changing
+			MergeFiles:      cpipesStartup.IsMergeFileOnly,
 			InputSessionId:  cpipesStartup.InputSessionId,
 			SourcePeriodKey: cpipesStartup.SourcePeriodKey,
 			ProcessName:     cpipesStartup.ProcessName,
@@ -399,7 +400,7 @@ func (args *StartComputePipesArgs) StartShardingComputePipes(ctx context.Context
 	override := mainInputSchemaProvider.NotifyApiGatewayOverride
 	switch {
 	case override == "no_notifications" || override == "failure_only" || override == "completion_and_failure_only":
-		log.Printf("%s CPIPES_STATUS_NOTIFICATION: skipping start notification to API Gateway as notify_api_gateway_override is set to '%s' in the schema provider\n", 
+		log.Printf("%s CPIPES_STATUS_NOTIFICATION: skipping start notification to API Gateway as notify_api_gateway_override is set to '%s' in the schema provider\n",
 			args.SessionId, override)
 		apiEndpoint = ""
 		apiEndpointJson = ""

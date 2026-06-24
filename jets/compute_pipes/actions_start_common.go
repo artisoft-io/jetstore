@@ -1479,7 +1479,9 @@ func prepareCpipesEnv(args *StartComputePipesArgs, cpipesStartup *CpipesStartup)
 
 	envSettings["$FILE_KEY"] = mainSchemaProviderConfig.FileKey
 	envSettings["$SESSIONID"] = args.SessionId
-	envSettings["${REQUEST_ID}"] = mainSchemaProviderConfig.RequestID
+	if len(mainSchemaProviderConfig.RequestID) > 0 {
+		envSettings["${REQUEST_ID}"] = mainSchemaProviderConfig.RequestID
+	}
 	envSettings["$PROCESS_NAME"] = cpipesStartup.ProcessName
 	envSettings["$PATH_FILE_KEY"] = fileKeyPath
 	envSettings["$NAME_FILE_KEY"] = fileKeyName

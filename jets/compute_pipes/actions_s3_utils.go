@@ -155,7 +155,7 @@ func GetPartitionSize4LookbackPeriod(bucket, fileKey, lookbackPeriod string, env
 }
 
 // Get the file_key(s) from s3 for the given process/session/step/partition.
-// This is used during the reducing mode.
+// This is used during the reducing mode or merge files only pipeline.
 func GetS3FileKeys(processName, sessionId, mainInputStepId, jetsPartitionLabel string,
 	inputChannelConfig *InputChannelConfig, envSettings map[string]any) ([][]*FileKeyInfo, error) {
 
