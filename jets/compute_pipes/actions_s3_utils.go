@@ -346,7 +346,7 @@ func DownloadS3Object(externalBucket string, s3Key *FileKeyInfo, localDir string
 	if err != nil {
 		return "", 0, fmt.Errorf("failed to open temp input file: %v", err)
 	}
-	if externalBucket == "" {
+	if externalBucket == "" || externalBucket == "jetstore_bucket" {
 		externalBucket = bucketName
 	}
 

@@ -95,30 +95,15 @@ func (args *ComputePipesNodeArgs) CoordinateComputePipes(ctx context.Context, db
 	// Get file keys
 	switch cpConfig.CommonRuntimeArgs.CpipesMode {
 	case "sharding":
-		// if cpConfig.CommonRuntimeArgs.MergeFiles {
-		// 	// Merge file only pipeline, get file keys from s3
-		// 	// Case reducing, get the file keys from s3
-		// 	fileKeys, err = GetS3FileKeys(cpConfig.CommonRuntimeArgs.ProcessName, cpConfig.CommonRuntimeArgs.SessionId,
-		// 		cpConfig.CommonRuntimeArgs.MainInputStepId, args.JetsPartitionLabel, inputChannelConfig, envSettings)
-		// 	if err != nil {
-		// 		cpErr = err
-		// 		goto gotError
-		// 	}
-		// 	log.Printf("%s node %d %s Got %d file keys from s3 (merge file only pipeline)",
-		// 		cpConfig.CommonRuntimeArgs.SessionId, args.NodeId,
-		// 		cpConfig.CommonRuntimeArgs.MainInputStepId, getTotNbrFileKeys(fileKeys))
-		// } else {
-			// Case sharding, get the file keys from compute_pipes_shard_registry
-			fileKeys, err = GetFileKeys(ctx, dbpool, cpConfig.CommonRuntimeArgs.SessionId, args.NodeId)
-			if err != nil {
-				cpErr = fmt.Errorf("while loading aws configuration (in CoordinateComputePipes): %v", err)
-				goto gotError
-			}
-			log.Printf("%s node %d %s Got %d file keys from database for file_key: %s",
-				cpConfig.CommonRuntimeArgs.SessionId, args.NodeId,
-				cpConfig.CommonRuntimeArgs.MainInputStepId, getTotNbrFileKeys(fileKeys), cpConfig.CommonRuntimeArgs.FileKey)
-
-		// }
+		// Case sharding, get the file keys from compute_pipes_shard_registry
+		fileKeys, err = GetFileKeys(ctx, dbpool, cpConfig.CommonRuntimeArgs.SessionId, args.NodeId)
+		if err != nil {
+			cpErr = fmt.Errorf("while loading aws configuration (in CoordinateComputePipes): %v", err)
+			goto gotError
+		}
+		log.Printf("%s node %d %s Got %d file keys from database for file_key: %s",
+			cpConfig.CommonRuntimeArgs.SessionId, args.NodeId,
+			cpConfig.CommonRuntimeArgs.MainInputStepId, getTotNbrFileKeys(fileKeys), cpConfig.CommonRuntimeArgs.FileKey)
 
 	case "reducing":
 		if inputChannelConfig.Type == "generator" {
@@ -164,7 +149,14 @@ func (args *ComputePipesNodeArgs) CoordinateComputePipes(ctx context.Context, db
 		goto gotError
 	}
 	if cpConfig.CommonRuntimeArgs.CpipesMode == "sharding" {
-		externalBucket = mainSchemaProviderConfig.Bucket
+		switch {
+		case len(inputChannelConfig.Bucket) > 0 && inputChannelConfig.Bucket != "jetstore_bucket":
+			externalBucket = inputChannelConfig.Bucket
+		case inputChannelConfig.Bucket == "jetstore_bucket":
+			externalBucket = ""
+		default:
+			externalBucket = mainSchemaProviderConfig.Bucket
+		}
 	}
 
 	cpContext = &ComputePipesContext{

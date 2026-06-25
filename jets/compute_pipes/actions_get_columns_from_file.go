@@ -54,7 +54,7 @@ func FetchHeadersAndDelimiterFromFile(externalBucket, fileKey, fileFormat, compr
 			os.Remove(fn)
 		}
 	}()
-	if externalBucket == "" {
+	if externalBucket == "" || externalBucket == "jetstore_bucket" {
 		externalBucket = bucketName
 	}
 	var byteRange *string

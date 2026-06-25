@@ -60,7 +60,7 @@ func (ctx *S3DeviceWorker) processTask(task *S3Object, _ *S3DeviceManager, resul
 		os.Remove(task.LocalFilePath)
 	}()
 
-	if task.ExternalBucket == "" {
+	if task.ExternalBucket == "" || task.ExternalBucket == "jetstore_bucket" {
 		task.ExternalBucket = bucketName
 	}
 	putObjInput = &s3.PutObjectInput{

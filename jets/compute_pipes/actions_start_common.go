@@ -199,7 +199,8 @@ func (args *StartComputePipesArgs) shardingInitializeCpipes(ctx context.Context,
 		if cpipesStartup.MainInputSchemaProviderConfig.ObjectType == "" {
 			cpipesStartup.MainInputSchemaProviderConfig.ObjectType = objectType
 		}
-		if cpipesStartup.MainInputSchemaProviderConfig.Bucket == "" {
+		if cpipesStartup.MainInputSchemaProviderConfig.Bucket == "" || 
+				cpipesStartup.MainInputSchemaProviderConfig.Bucket == "jetstore_bucket" {
 			cpipesStartup.MainInputSchemaProviderConfig.Bucket = bucketName
 		}
 		if cpipesStartup.MainInputSchemaProviderConfig.FileKey == "" {
@@ -813,6 +814,7 @@ func GetOutputFileConfig(cpConfig *ComputePipesConfig, outputFileKey string) *Ou
 // Function to validate the PipeSpec output channel config
 // Apply a default snappy compression if compression is not specified
 // and channel Type 'stage'.
+// Set the bucket to jetstore_bucket for input_channel of type stage.
 // This function also syncs the input and ouput channels with the associated schema provider.
 func (args *CpipesStartup) ValidatePipeSpecConfig(cpConfig *ComputePipesConfig, pipeConfig []PipeSpec) error {
 	for i := range pipeConfig {
@@ -838,6 +840,8 @@ func (args *CpipesStartup) ValidatePipeSpecConfig(cpConfig *ComputePipesConfig, 
 				}
 				syncInputChannelWithSchemaProvider(&pipeSpec.InputChannel, sp)
 			}
+			// Make sure we read from jetstore_bucket
+			pipeSpec.InputChannel.Bucket = "jetstore_bucket"
 			// Apply defaults
 			if pipeSpec.InputChannel.Delimiter == 0 {
 				pipeSpec.InputChannel.Delimiter = ','
@@ -863,6 +867,12 @@ func (args *CpipesStartup) ValidatePipeSpecConfig(cpConfig *ComputePipesConfig, 
 		// PipeSpec Type specific validations
 		switch pipeSpec.Type {
 		case "merge_files":
+			// Merge files must always read from stage
+			if pipeSpec.InputChannel.Type != "stage" {
+				return fmt.Errorf("configuration error: merge_files must read from input_channel of type 'stage'")
+			}
+			pipeSpec.InputChannel.Bucket = "jetstore_bucket"
+
 			if pipeSpec.OutputFile == nil || len(*pipeSpec.OutputFile) == 0 {
 				return fmt.Errorf("configuration error: merge_files must have output_file set")
 			}
