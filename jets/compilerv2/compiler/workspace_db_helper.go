@@ -110,9 +110,6 @@ func (w *WorkspaceDB) SaveJetRules(ctx context.Context, db *sql.DB, jetRuleModel
 	rulePropsData := make([][]any, 0)
 	ruleTermsData := make([][]any, 0)
 	for _, jetRule := range jetRuleModel.Jetrules {
-		if w.sourceMgr.IsPreExisting(jetRule.SourceFileName) {
-			continue
-		}
 
 		// JetRule
 		maxKey++

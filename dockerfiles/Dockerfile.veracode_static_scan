@@ -1,0 +1,36 @@
+FROM public.ecr.aws/amazonlinux/amazonlinux:2023
+
+RUN dnf update && dnf install -y \
+  wget tar zip xz gzip
+
+# Install Go
+RUN mkdir -p /usr/local
+RUN wget -q https://go.dev/dl/go1.26.4.linux-amd64.tar.gz \
+    && tar -C /usr/local -xzf go1.26.4.linux-amd64.tar.gz \
+    && rm go1.26.4.linux-amd64.tar.gz
+ENV PATH=$PATH:/usr/local/go/bin
+RUN go version
+
+# JetStore VeraCode Scan
+# Set working directory
+ENV JETS_SOURCE_DIR=/app
+RUN mkdir -p ${JETS_SOURCE_DIR}
+WORKDIR ${JETS_SOURCE_DIR}
+
+# Copy source files
+COPY go.mod              ${JETS_SOURCE_DIR}/
+COPY jets                ${JETS_SOURCE_DIR}/jets
+COPY cdk/jetstore_one    ${JETS_SOURCE_DIR}/cdk/jetstore_one
+
+# Set CGO environment variables
+ENV CGO_ENABLED=1
+ENV GOOS=linux
+ENV GOARCH=amd64
+RUN go mod tidy
+RUN go mod vendor
+# RUN go get all
+# RUN go mod download
+
+CMD ["sh", "-c", "zip -r /output/jetstore.zip /app && echo 'Archive created: /output/jetstore.zip'"]
+# Build: docker build -t zipper -f dockerfiles/Dockerfile.veracode_static_scan .
+# Run: docker run --rm -v $(pwd)/output:/output zipper
