@@ -23,9 +23,11 @@ COPY jets                ${JETS_SOURCE_DIR}/jets
 COPY cdk/jetstore_one    ${JETS_SOURCE_DIR}/cdk/jetstore_one
 
 # Set CGO environment variables
+ENV GOWORK=off
 ENV CGO_ENABLED=1
 ENV GOOS=linux
 ENV GOARCH=amd64
+
 RUN go mod tidy
 RUN go mod vendor
 # RUN go get all
