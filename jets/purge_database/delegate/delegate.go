@@ -100,13 +100,20 @@ func DoPurgeSessions() error {
 	tableNames = append(tableNames, "jetsapi.cpipes_metrics")
 	tableNames = append(tableNames, "jetsapi.session_registry")
 	tableNames = append(tableNames, "jetsapi.session_reservation")
+	tableNames = append(tableNames, "jetsapi.pipeline_lock") // just in case some locks do not get released
 
 	for _, s := range tableNames {
-		fmt.Println("   Purge data from", s)
+		log.Println("   Purge data from", s)
 		err = purgeMatchingRows(dbpool, sessionIds, s)
 		if err != nil {
 			return fmt.Errorf("while purging data from table %s: %v", s, err)
 		}
+	}
+
+	// Purge records in pipeline_coordinator_* tables
+	err = purgePipelineCoordinatorTables(dbpool, sessionIds)
+	if err != nil {
+		return fmt.Errorf("while purging data from pipeline_coordinator tables: %v", err)
 	}
 
 	// Purge records that are more than 6 months old on pipeline_execution_status table
@@ -117,7 +124,7 @@ func DoPurgeSessions() error {
 	}
 
 	// Perform Vaccum on database
-	fmt.Println("   Performing VACUUM")
+	log.Println("   Performing VACUUM")
 	_, err = dbpool.Exec(context.Background(), "VACUUM")
 	if err != nil {
 		return fmt.Errorf("while performing VACUUM: %v", err)
@@ -176,10 +183,70 @@ func readTableNames(dbpool *pgxpool.Pool) ([]string, error) {
 
 // purge the rows matching the session id
 func purgeMatchingRows(dbpool *pgxpool.Pool, sessionIds []string, tableName string) error {
+	if len(sessionIds) == 0 {
+		return nil
+	}
 	var buf strings.Builder
 	buf.WriteString("DELETE FROM ")
 	buf.WriteString(tableName)
 	buf.WriteString(" WHERE session_id IN (")
+	buf.WriteString(stringifySessionIds(sessionIds))
+	buf.WriteString(");")
+	sqlstmt := buf.String()
+	// log.Println(sqlstmt)
+	log.Printf("Purging %d sessions from table %s\n", len(sessionIds), tableName)
+	// ignore returned error, due to tableName that does not exis (virtual table)
+	dbpool.Exec(context.Background(), sqlstmt)
+	return nil
+}
+
+// purge the rows matching the session id in the pipeline coordinator tables
+func purgePipelineCoordinatorTables(dbpool *pgxpool.Pool, sessionIds []string) error {
+	if len(sessionIds) == 0 {
+		return nil
+	}
+	// Delete from pipeline_coordinator_map joining the request_id from table pipeline_coordinator_map_items by session_id
+	var buf strings.Builder
+	buf.WriteString("DELETE FROM jetsapi.pipeline_coordinator_map WHERE request_id IN (")
+	buf.WriteString("SELECT request_id FROM jetsapi.pipeline_coordinator_map_items WHERE session_id IN (")
+	buf.WriteString(stringifySessionIds(sessionIds))
+	buf.WriteString("));")
+	sqlstmt := buf.String()
+	// log.Println(sqlstmt)
+	log.Printf("Purging %d sessions from pipeline_coordinator_map and pipeline_coordinator_map_items\n", len(sessionIds))
+	_, err := dbpool.Exec(context.Background(), sqlstmt)
+	if err != nil {
+		log.Printf("Error purging sessions from pipeline_coordinator_map and pipeline_coordinator_map_items: %v", err)
+	}
+
+	// Delete from pipeline_coordinator_lock by session_id
+	buf.Reset()
+	buf.WriteString("DELETE FROM jetsapi.pipeline_coordinator_lock WHERE session_id IN (")
+	buf.WriteString(stringifySessionIds(sessionIds))
+	buf.WriteString(");")
+	sqlstmt = buf.String()
+	// log.Println(sqlstmt)
+	_, err = dbpool.Exec(context.Background(), sqlstmt)
+	if err != nil {
+		log.Printf("Error purging sessions from pipeline_coordinator_lock: %v", err)
+	}
+
+	// Delete from pipeline_coordinator_map_items by session_id
+	buf.Reset()
+	buf.WriteString("DELETE FROM jetsapi.pipeline_coordinator_map_items WHERE session_id IN (")
+	buf.WriteString(stringifySessionIds(sessionIds))
+	buf.WriteString(");")
+	sqlstmt = buf.String()
+	// log.Println(sqlstmt)
+	_, err = dbpool.Exec(context.Background(), sqlstmt)
+	if err != nil {
+		log.Printf("Error purging sessions from pipeline_coordinator_map_items: %v", err)
+	}
+	return err
+}
+
+func stringifySessionIds(sessionIds []string) string {
+	var buf strings.Builder
 	isFirst := true
 	for i := range sessionIds {
 		if !isFirst {
@@ -190,11 +257,5 @@ func purgeMatchingRows(dbpool *pgxpool.Pool, sessionIds []string, tableName stri
 		buf.WriteString("'")
 		isFirst = false
 	}
-	buf.WriteString(");")
-	sqlstmt := buf.String()
-	// fmt.Println(sqlstmt)
-	fmt.Printf("Purging %d sessions from table %s", len(sessionIds), tableName)
-	// ignore returned error, due to tableName that does not exis (virtual table)
-	dbpool.Exec(context.Background(), sqlstmt)
-	return nil
+	return buf.String()
 }
