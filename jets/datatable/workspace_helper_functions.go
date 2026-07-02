@@ -193,33 +193,6 @@ func loadWorkspaceConfigAction(ctx *DataTableContext, dataTableAction *DataTable
 	}
 }
 
-// Execute pipeline in unit test mode
-func UnitTestWorkspaceAction(ctx *DataTableContext, dataTableAction *DataTableAction, token string) {
-
-	dataTableAction.Action = "insert_rows"
-	dataTableAction.FromClauses[0].Table = "pipeline_execution_status"
-	ctx.DevMode = true
-	results, _, err := ctx.InsertRows(dataTableAction, token)
-
-	dataTableAction.Data[0]["last_git_log"] = (*results)["log"]
-	dataTableAction.Data[0]["status"] = ""
-	if err != nil {
-		dataTableAction.Data[0]["status"] = "error"
-	}
-
-	// Perform the Insert Rows
-	sqlStmt := sqlInsertStmts["unit_test"]
-	row := make([]interface{}, len(sqlStmt.ColumnKeys))
-	for jcol, colKey := range sqlStmt.ColumnKeys {
-		row[jcol] = dataTableAction.Data[0][colKey]
-	}
-
-	_, err = ctx.Dbpool.Exec(context.Background(), sqlStmt.Stmt, row...)
-	if err != nil {
-		log.Printf("While inserting in table %s: %v", dataTableAction.FromClauses[0].Table, err)
-	}
-}
-
 // Run update_db - function used by apiserver and server
 func RunUpdateDb(workspaceName string, serverArgs *[]string) (string, error) {
 	log.Printf("Run update_db: %s", *serverArgs)

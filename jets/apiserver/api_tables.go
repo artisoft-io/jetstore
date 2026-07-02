@@ -50,10 +50,6 @@ func (server *Server) DoDataTableAction(w http.ResponseWriter, r *http.Request) 
 		results, code, err = ctx.InsertRawRows(&dataTableAction, token)
 	case "insert_rows":
 		results, code, err = ctx.InsertRows(&dataTableAction, token)
-	case "test_pipeline":
-		results = &map[string]any{}
-		code = 200
-		datatable.UnitTestWorkspaceAction(ctx, &dataTableAction, token)
 
 		// fetch file from stage
 	case "fetch_file_from_stage":
@@ -95,10 +91,10 @@ func (server *Server) DoDataTableAction(w http.ResponseWriter, r *http.Request) 
 		}
 		stmt := `INSERT INTO jetsapi.pipeline_execution_status (
 								pipeline_config_key, main_input_registry_key, main_input_file_key, 
-								client, process_name, main_object_type, input_session_id, session_id, source_period_key, status, user_email) 
+								client, process_name, main_object_type, input_session_id, request_id, session_id, source_period_key, status, user_email) 
 							(SELECT 
 								pipeline_config_key, main_input_registry_key, main_input_file_key, 
-								client, process_name, main_object_type, input_session_id, $1, source_period_key, 'pending', $2 
+								client, process_name, main_object_type, input_session_id, request_id, $1, source_period_key, 'pending', $2 
 							FROM jetsapi.pipeline_execution_status WHERE session_id = $3 )`
 		_, err = server.dbpool.Exec(context.TODO(), stmt, newSessionId, user, sid)
 		if err != nil {

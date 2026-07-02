@@ -111,20 +111,20 @@ func (ctx *DataTableContext) InsertPipelineExecutionStatus(dataTableAction *Data
 
 	switch {
 	case strings.HasSuffix(dataTableAction.FromClauses[0].Table, "pipeline_execution_status"):
-		if dataTableAction.Data[irow]["input_session_id"] == nil {
-			inSessionId := sessionId
-			inputRegistryKey := dataTableAction.Data[irow]["main_input_registry_key"]
-			if inputRegistryKey != nil {
-				stmt := "SELECT session_id FROM jetsapi.input_registry WHERE key = $1"
-				err = ctx.Dbpool.QueryRow(context.Background(), stmt, inputRegistryKey).Scan(&inSessionId)
-				if err != nil {
-					log.Printf("While getting session_id from input_registry table %s: %v", dataTableAction.FromClauses[0].Table, err)
-					httpStatus = http.StatusInternalServerError
-					err = errors.New("error while reading from a table")
-					return
-				}
+		inputRegistryKey := dataTableAction.Data[irow]["main_input_registry_key"]
+		if inputRegistryKey != nil {
+			var inSessionId string
+			var requestId sql.NullString
+			stmt := "SELECT session_id, request_id FROM jetsapi.input_registry WHERE key = $1"
+			err = ctx.Dbpool.QueryRow(context.Background(), stmt, inputRegistryKey).Scan(&inSessionId, &requestId)
+			if err != nil {
+				log.Printf("While getting session_id, request_id from input_registry for inserting in table %s: %v", dataTableAction.FromClauses[0].Table, err)
+				httpStatus = http.StatusInternalServerError
+				err = errors.New("error while reading from a table")
+				return
 			}
 			dataTableAction.Data[irow]["input_session_id"] = inSessionId
+			dataTableAction.Data[irow]["request_id"] = requestId.String
 		}
 		//=============
 		// Need to get:
@@ -205,7 +205,7 @@ func (ctx *DataTableContext) InsertPipelineExecutionStatus(dataTableAction *Data
 	case "input_loader_status":
 		httpStatus, err = ctx.startLoader(dataTableAction, irow, peKey, token)
 
-	case "pipeline_execution_status", "short/pipeline_execution_status":
+	case "pipeline_execution_status":
 		if status == "submitted" {
 			var mainInputRegistryKey int64
 			switch vv := dataTableAction.Data[irow]["main_input_registry_key"].(type) {

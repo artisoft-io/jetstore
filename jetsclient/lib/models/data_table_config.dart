@@ -91,6 +91,7 @@ enum DataTableActionType {
   doActionShowDialog,
   clearHomeFilters,
   setSessionIdFilter,
+  setRequestIdFilter,
 }
 
 /// enum describing the condition when an action button is enabled based on

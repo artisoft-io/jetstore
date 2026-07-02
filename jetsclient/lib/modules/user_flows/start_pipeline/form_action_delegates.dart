@@ -119,23 +119,6 @@ Future<String?> startPipelineFormActionsUF(
       }
       break;
 
-    // Test Pipeline
-    case ActionKeys.spTestPipelineUF:
-      var valid = formKey.currentState!.validate();
-      if (!valid) {
-        return null;
-      }
-      final encodedJsonBody =
-          mkStartPipelinePayload(state, 'test_pipeline', 'unit_test');
-      JetsSpinnerOverlay.of(context).show();
-      await postSimpleAction(
-          context, formState, ServerEPs.dataTableEP, encodedJsonBody);
-      if (context.mounted) {
-        JetsSpinnerOverlay.of(context).hide();
-        Navigator.of(context).pop();
-      }
-      break;
-
     default:
       print(
           'Oops unknown ActionKey for Start Pipeline UF ActionKey: $actionKey');
