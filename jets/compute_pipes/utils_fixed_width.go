@@ -8,7 +8,7 @@ import (
 	"strings"
 
 	"github.com/artisoft-io/jetstore/jets/csv"
-	"github.com/artisoft-io/jetstore/jets/datatable/jcsv"
+	"github.com/artisoft-io/jetstore/jets/utils/jcsv"
 )
 
 // Utilities for Fixed Width Files

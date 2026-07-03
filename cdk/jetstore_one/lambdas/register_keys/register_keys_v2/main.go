@@ -14,6 +14,7 @@ import (
 	"github.com/artisoft-io/jetstore/cdk/jetstore_one/lambdas/dbc"
 	"github.com/artisoft-io/jetstore/jets/awsi"
 	"github.com/artisoft-io/jetstore/jets/datatable"
+	"github.com/artisoft-io/jetstore/jets/utils"
 	"github.com/artisoft-io/jetstore/jets/user"
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-lambda-go/lambda"
@@ -131,7 +132,7 @@ func doFileKey(dbpool *pgxpool.Pool, context *datatable.DataTableContext, fileKe
 
 	// Extract processing date from file key inFile
 	fileKeyComponents := make(map[string]any)
-	fileKeyComponents = datatable.SplitFileKeyIntoComponents(fileKeyComponents, &fileKey)
+	fileKeyComponents = utils.SplitFileKeyIntoComponents(fileKeyComponents, &fileKey)
 	fileKeyComponents["size"] = fileSize
 
 	registerFileKeyAction := datatable.RegisterFileKeyAction{

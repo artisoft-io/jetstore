@@ -19,7 +19,7 @@ import (
 
 	"github.com/artisoft-io/jetstore/jets/awsi"
 	"github.com/artisoft-io/jetstore/jets/csv"
-	"github.com/artisoft-io/jetstore/jets/datatable/jcsv"
+	"github.com/artisoft-io/jetstore/jets/utils/jcsv"
 	"github.com/artisoft-io/jetstore/jets/dbutils"
 	"github.com/artisoft-io/jetstore/jets/schema"
 	"github.com/artisoft-io/jetstore/jets/user"

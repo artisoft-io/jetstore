@@ -9,7 +9,7 @@ import (
 
 	"github.com/artisoft-io/jetstore/cdk/jetstore_one/lambdas/dbc"
 	"github.com/artisoft-io/jetstore/jets/compute_pipes"
-	"github.com/artisoft-io/jetstore/jets/datatable"
+	"github.com/artisoft-io/jetstore/jets/utils"
 	"github.com/aws/aws-lambda-go/lambda"
 )
 
@@ -132,7 +132,7 @@ func handler(ctx context.Context, arg compute_pipes.StartComputePipesArgs) (comp
 			// ignore returned err
 			env, ok := result.ErrorUpdate["cpipesEnv"].(map[string]any)
 			if ok {
-				datatable.DoNotifyApiGateway(arg.FileKey, apiEndpoint, apiEndpointJson, notificationTemplate, customFileKeys, err.Error(), env)
+				utils.DoNotifyApiGateway(arg.FileKey, apiEndpoint, apiEndpointJson, notificationTemplate, customFileKeys, err.Error(), env)
 			}
 		}
 	}

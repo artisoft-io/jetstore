@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/artisoft-io/jetstore/jets/datatable/jcsv"
+	"github.com/artisoft-io/jetstore/jets/utils/jcsv"
 	"github.com/artisoft-io/jetstore/jets/utils"
 	"github.com/jackc/pgx/v5"
 )

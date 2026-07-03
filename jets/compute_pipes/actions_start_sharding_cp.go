@@ -9,7 +9,6 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/artisoft-io/jetstore/jets/datatable"
 	"github.com/artisoft-io/jetstore/jets/schema"
 	"github.com/artisoft-io/jetstore/jets/utils"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -423,7 +422,7 @@ func (args *StartComputePipesArgs) StartShardingComputePipes(ctx context.Context
 			notificationTemplate = os.Getenv("CPIPES_START_NOTIFICATION_JSON")
 		}
 		// ignore returned err
-		datatable.DoNotifyApiGateway(args.FileKey, apiEndpoint, apiEndpointJson,
+		utils.DoNotifyApiGateway(args.FileKey, apiEndpoint, apiEndpointJson,
 			notificationTemplate, customFileKeys, "", mainInputSchemaProvider.Env)
 	}
 

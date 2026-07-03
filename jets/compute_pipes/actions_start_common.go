@@ -11,7 +11,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/artisoft-io/jetstore/jets/datatable"
+	"github.com/artisoft-io/jetstore/jets/utils"
 	"github.com/artisoft-io/jetstore/jets/workspace"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -1465,7 +1465,7 @@ func prepareCpipesEnv(args *StartComputePipesArgs, cpipesStartup *CpipesStartup)
 
 	// Extract processing date from file key inFile
 	fileKeyComponents := make(map[string]any)
-	datatable.SplitFileKeyIntoComponents(fileKeyComponents, &args.FileKey)
+	utils.SplitFileKeyIntoComponents(fileKeyComponents, &args.FileKey)
 	if len(fileKeyComponents) > 0 {
 		year := fileKeyComponents["year"].(int)
 		month := fileKeyComponents["month"].(int)

@@ -9,8 +9,8 @@ import (
 	"strings"
 
 	"github.com/artisoft-io/jetstore/cdk/jetstore_one/lambdas/dbc"
-	"github.com/artisoft-io/jetstore/jets/datatable"
 	"github.com/artisoft-io/jetstore/jets/run_reports/delegate"
+	"github.com/artisoft-io/jetstore/jets/utils"
 	"github.com/aws/aws-lambda-go/lambda"
 )
 
@@ -204,7 +204,7 @@ func handler(ctx context.Context, arg []string) error {
 		ReportScriptPaths:    []string{},
 		BucketName:           awsBucket,
 		RegionName:           awsRegion,
-		FileKeyComponents:    datatable.SplitFileKeyIntoComponents(map[string]any{}, &rr.FileKey),
+		FileKeyComponents:    utils.SplitFileKeyIntoComponents(map[string]any{}, &rr.FileKey),
 		SkipCompileWorkspace: true,
 	}
 	if rr.Client != "" && rr.Client != "Any" {

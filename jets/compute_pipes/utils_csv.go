@@ -11,7 +11,7 @@ import (
 	"strings"
 	"unicode/utf8"
 
-	"github.com/artisoft-io/jetstore/jets/datatable/jcsv"
+	"github.com/artisoft-io/jetstore/jets/utils/jcsv"
 	"github.com/golang/snappy"
 	"github.com/saintfish/chardet"
 	"golang.org/x/text/encoding/charmap"

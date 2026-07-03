@@ -6,7 +6,7 @@ import (
 	"strings"
 	"unicode"
 
-	"github.com/artisoft-io/jetstore/jets/datatable/jcsv"
+	"github.com/artisoft-io/jetstore/jets/utils/jcsv"
 )
 
 // Support functions and types

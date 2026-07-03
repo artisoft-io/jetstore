@@ -9,8 +9,8 @@ import (
 	"strings"
 
 	"github.com/artisoft-io/jetstore/jets/awsi"
-	"github.com/artisoft-io/jetstore/jets/datatable"
 	"github.com/artisoft-io/jetstore/jets/run_reports/delegate"
+	"github.com/artisoft-io/jetstore/jets/utils"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -217,7 +217,7 @@ func main() {
 		ReportScriptPaths: []string{},
 		BucketName:        *awsBucket,
 		RegionName:        *awsRegion,
-		FileKeyComponents: datatable.SplitFileKeyIntoComponents(map[string]interface{}{}, &fileKey),
+		FileKeyComponents: utils.SplitFileKeyIntoComponents(map[string]interface{}{}, &fileKey),
 	}
 	if *client != "" {
 		ca.FileKeyComponents["client"] = *client
