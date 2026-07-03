@@ -724,7 +724,6 @@ class ActionKeys {
   // Start Pipeline UF ActionKeys
   static const spPipelineSelected = "spPipelineSelected";
   static const spStartPipelineUF = "spStartPipelineUF";
-  static const spTestPipelineUF = "spTestPipelineUF";
   static const spPrepareStartPipeline = "spPrepareStartPipeline";
 
   // Workspace Pull UF ActionKeys

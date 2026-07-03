@@ -1364,6 +1364,10 @@
         "dataType": "text"
       },
       {
+        "columnName": "request_id",
+        "dataType": "text"
+      },
+      {
         "columnName": "session_id",
         "dataType": "text",
         "isNotNull": true

@@ -226,6 +226,14 @@ final Map<String, TableConfig> _tableConfigurations = {
           isEnabledWhenHavingSelectedRows: null,
           isEnabledFnc: (state) => true,),
       ActionConfig(
+          actionType: DataTableActionType.setRequestIdFilter,
+          key: 'setRequestIdFilters',
+          label: 'Set Request Id',
+          style: ActionStyle.primary,
+          isVisibleWhenCheckboxVisible: null,
+          isEnabledWhenHavingSelectedRows: null,
+          isEnabledFnc: (state) => true,),
+      ActionConfig(
         actionType: DataTableActionType.clearHomeFilters,
         key: 'clearHomeFilters',
         label: 'Clear Filters',
@@ -264,7 +272,7 @@ final Map<String, TableConfig> _tableConfigurations = {
           isVisibleWhenCheckboxVisible: null,
           isEnabledWhenHavingSelectedRows: true,
           configForm: FormKeys.showFailureDetails,
-          navigationParams: {'session_id': 10, 'failure_details': 12}),
+          navigationParams: {'session_id': 10, 'failure_details': 13}),
       ActionConfig(
           actionType: DataTableActionType.showScreen,
           key: 'viewExecStatsDetails',
@@ -296,7 +304,7 @@ final Map<String, TableConfig> _tableConfigurations = {
       ),
       DataTableFormStateOtherColumnConfig(
         stateKey: FSK.failureDetails,
-        columnIdx: 12,
+        columnIdx: 13,
       ),
     ]),
     columns: [
@@ -392,17 +400,23 @@ final Map<String, TableConfig> _tableConfigurations = {
           index: 11,
           name: "input_session_id",
           label: 'Input Session',
-          tooltips: 'Input session used (overriding input registry)',
+          tooltips: 'Input session used (from input registry)',
           isNumeric: false),
       ColumnConfig(
           index: 12,
+          name: "request_id",
+          label: 'Request ID',
+          tooltips: 'Request identifier used (from input registry)',
+          isNumeric: false),
+      ColumnConfig(
+          index: 13,
           name: "failure_details",
           label: 'Failure Details',
           tooltips: '',
           isNumeric: false,
           isHidden: true),
       ColumnConfig(
-          index: 13,
+          index: 14,
           name: "main_input_registry_key",
           label: 'Main Input Registry',
           tooltips:
@@ -410,7 +424,7 @@ final Map<String, TableConfig> _tableConfigurations = {
           isNumeric: true,
           isHidden: true),
       ColumnConfig(
-          index: 14,
+          index: 15,
           name: "merged_input_registry_keys",
           label: 'Merge-In Input Registry',
           tooltips:
@@ -418,20 +432,20 @@ final Map<String, TableConfig> _tableConfigurations = {
           isNumeric: false,
           isHidden: true),
       ColumnConfig(
-          index: 15,
+          index: 16,
           name: "user_email",
           label: 'User',
           tooltips: 'Who submitted the pipeline',
           isNumeric: false),
       ColumnConfig(
-          index: 16,
+          index: 17,
           name: "run_duration",
           label: 'Duration',
           tooltips: 'Run duration',
           calculatedAs: 'AGE(last_update, start_time)',
           isNumeric: false),
       ColumnConfig(
-          index: 17,
+          index: 18,
           name: "last_update",
           label: 'Loaded At',
           tooltips: 'Indicates when the pipeline was submitted',

@@ -66,7 +66,7 @@ class JetsDataTableWidget extends FormField<WidgetField> {
             final ThemeData themeData = Theme.of(context);
             final MaterialLocalizations localizations =
                 MaterialLocalizations.of(context);
-                
+
             // prepare the footer widgets
             final TextStyle? footerTextStyle = themeData.textTheme.bodySmall;
             List<DropdownMenuItem<int>> rowsPerPageItems =
@@ -460,6 +460,13 @@ class JetsDataTableState extends FormFieldState<WidgetField> {
     }
   }
 
+  // This function clear the selected rows in the data table and also clear the selectedRows flags in the JetsDataTableSource
+  void _clearSelectedRows() {
+    final config = formFieldConfig!;
+    formState!.clearSelectedRow(config.group, config.key);
+    dataSource.clearSelectedRows();
+  }
+
   void _toggleCopy2Clipboard() {
     // print(
     //     "*** _toggleCopy2Clipboard called for Table ${tableConfig.key} requesting ModelData");
@@ -655,15 +662,19 @@ class JetsDataTableState extends FormFieldState<WidgetField> {
         JetsRouterDelegate().homeFilters = [];
         JetsRouterDelegate().dataRegistryFilters = [];
         JetsRouterDelegate().homeFiltersState = {};
+        _clearSelectedRows();
         _refreshTable();
         break;
 
-        // Set filter on session_id from user, input is a list of session_id separated by comma
+      // Set filter on session_id from user, input is a list of session_id separated by comma
       case DataTableActionType.setSessionIdFilter:
-        var sessionIds = await showGetInputDialog(context, 'Enter session IDs comma separated to filter');
+        var sessionIds = await showGetInputDialog(
+            context, 'Enter session IDs comma separated to filter');
         if (sessionIds != null) {
           // var sessionIdList = sessionIds.split(',').map((e) => "'${e.trim()}'").toList();
-          var sessionIdList = sessionIds.split(',').map((e) => e.trim()).toList();
+          var sessionIdList =
+              sessionIds.split(',').map((e) => e.trim()).toList();
+          _clearSelectedRows();
           JetsRouterDelegate().homeFilters = [
             WhereClause(
               table: "pipeline_execution_status",
@@ -671,7 +682,7 @@ class JetsDataTableState extends FormFieldState<WidgetField> {
               defaultValue: sessionIdList,
             )
           ];
-        JetsRouterDelegate().dataRegistryFilters = [
+          JetsRouterDelegate().dataRegistryFilters = [
             WhereClause(
               table: "input_registry",
               column: 'session_id',
@@ -682,7 +693,39 @@ class JetsDataTableState extends FormFieldState<WidgetField> {
               column: 'session_id',
               defaultValue: sessionIdList,
             )
-        ];
+          ];
+          _refreshTable();
+        }
+        break;
+
+      // Set filter on request_id from user, input is a list of request_id separated by comma
+      case DataTableActionType.setRequestIdFilter:
+        var requestIds = await showGetInputDialog(
+            context, 'Enter request IDs comma separated to filter');
+        if (requestIds != null) {
+          _clearSelectedRows();
+          // var requestIdList = requestIds.split(',').map((e) => "'${e.trim()}'").toList();
+          var requestIdList =
+              requestIds.split(',').map((e) => e.trim()).toList();
+          JetsRouterDelegate().homeFilters = [
+            WhereClause(
+              table: "pipeline_execution_status",
+              column: 'request_id',
+              defaultValue: requestIdList,
+            )
+          ];
+          JetsRouterDelegate().dataRegistryFilters = [
+            WhereClause(
+              table: "input_registry",
+              column: 'request_id',
+              joinWith: "pipeline_execution_status.input_request_id",
+            ),
+            WhereClause(
+              table: "pipeline_execution_status",
+              column: 'request_id',
+              defaultValue: requestIdList,
+            )
+          ];
           _refreshTable();
         }
         break;

@@ -18,6 +18,7 @@ import (
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-lambda-go/lambda"
 	"github.com/aws/aws-sdk-go-v2/feature/s3/manager"
+	"github.com/aws/aws-sdk-go-v2/feature/s3/transfermanager"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -27,7 +28,7 @@ var (
 	systemUser     string = "system"
 	awsRegion      string = os.Getenv("JETS_REGION")
 	awsBucket      string = os.Getenv("JETS_BUCKET")
-	downloader     *manager.Downloader
+	downloader     *transfermanager.Client
 	dbConnection   *dbc.DbConnection
 )
 

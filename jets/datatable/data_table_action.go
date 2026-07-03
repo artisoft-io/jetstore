@@ -686,7 +686,7 @@ func (ctx *DataTableContext) InsertRows(dataTableAction *DataTableAction, token 
 
 	// Check if we delegate to InsertPipelineExecutionStatus
 	switch dataTableAction.FromClauses[0].Table {
-	case "input_loader_status", "pipeline_execution_status", "short/pipeline_execution_status":
+	case "input_loader_status", "pipeline_execution_status":
 		var peKey int
 		for irow := range dataTableAction.Data {
 			peKey, httpStatus, err = ctx.InsertPipelineExecutionStatus(dataTableAction, irow, results, token)

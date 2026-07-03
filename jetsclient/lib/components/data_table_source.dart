@@ -155,6 +155,16 @@ class JetsDataTableSource extends ChangeNotifier {
     formState.notifyListeners();
   }
 
+  /// Clear the selectedRows flags in the JetsDataTableSource
+  /// This is used by buttons seting/clearing the home filter.
+  /// It does not notify lisners since the table will be refreshed after the home filter is set/cleared.
+  void clearSelectedRows() {
+    final sz = min(selectedRows.length, model!.length);
+    for (int index = 0; index < sz; index++) {
+      selectedRows[index] = true;
+    }
+  }
+
   /// Update table's selected rows based on form state
   void updateTableFromFormState() {
     var formStateConfig = state.tableConfig.formStateConfig;

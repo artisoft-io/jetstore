@@ -111,20 +111,20 @@ func (ctx *DataTableContext) InsertPipelineExecutionStatus(dataTableAction *Data
 
 	switch {
 	case strings.HasSuffix(dataTableAction.FromClauses[0].Table, "pipeline_execution_status"):
-		if dataTableAction.Data[irow]["input_session_id"] == nil {
-			inSessionId := sessionId
-			inputRegistryKey := dataTableAction.Data[irow]["main_input_registry_key"]
-			if inputRegistryKey != nil {
-				stmt := "SELECT session_id FROM jetsapi.input_registry WHERE key = $1"
-				err = ctx.Dbpool.QueryRow(context.Background(), stmt, inputRegistryKey).Scan(&inSessionId)
-				if err != nil {
-					log.Printf("While getting session_id from input_registry table %s: %v", dataTableAction.FromClauses[0].Table, err)
-					httpStatus = http.StatusInternalServerError
-					err = errors.New("error while reading from a table")
-					return
-				}
+		inputRegistryKey := dataTableAction.Data[irow]["main_input_registry_key"]
+		if inputRegistryKey != nil {
+			var inSessionId string
+			var requestId sql.NullString
+			stmt := "SELECT session_id, request_id FROM jetsapi.input_registry WHERE key = $1"
+			err = ctx.Dbpool.QueryRow(context.Background(), stmt, inputRegistryKey).Scan(&inSessionId, &requestId)
+			if err != nil {
+				log.Printf("While getting session_id, request_id from input_registry for inserting in table %s: %v", dataTableAction.FromClauses[0].Table, err)
+				httpStatus = http.StatusInternalServerError
+				err = errors.New("error while reading from a table")
+				return
 			}
 			dataTableAction.Data[irow]["input_session_id"] = inSessionId
+			dataTableAction.Data[irow]["request_id"] = requestId.String
 		}
 		//=============
 		// Need to get:
@@ -205,7 +205,7 @@ func (ctx *DataTableContext) InsertPipelineExecutionStatus(dataTableAction *Data
 	case "input_loader_status":
 		httpStatus, err = ctx.startLoader(dataTableAction, irow, peKey, token)
 
-	case "pipeline_execution_status", "short/pipeline_execution_status":
+	case "pipeline_execution_status":
 		if status == "submitted" {
 			var mainInputRegistryKey int64
 			switch vv := dataTableAction.Data[irow]["main_input_registry_key"].(type) {
@@ -872,6 +872,7 @@ func (ctx *DataTableContext) startLoader(dataTableAction *DataTableAction, irow 
 }
 
 // API version to register schema event. This is used by the Jets_Loader process to avoid writing the event to s3 first.
+// This is also used by the register key v2 lambda once the event is downloaded from s3.
 func (ctx *DataTableContext) RegisterSchemaEvent(dbpool *pgxpool.Pool, schemaInfo map[string]any, token string) error {
 	log.Printf("Registering schema event with schema info: %v", schemaInfo)
 
@@ -908,6 +909,16 @@ func (ctx *DataTableContext) RegisterSchemaEvent(dbpool *pgxpool.Pool, schemaInf
 	schemaInfo["month"] = month
 	schemaInfo["day"] = day
 	schemaInfo["schema_provider_json"] = string(schemaInfoJson)
+
+	// Check if the schema event has no request_id but has one in the env var section, 
+	// if so put it in the register key event so it gets put on the input_registry table for tracking the pipeline execution.
+	if _, ok := schemaInfo["request_id"]; !ok {
+		if env, ok := schemaInfo["env"].(map[string]any); ok {
+			if reqId, ok := env["${REQUEST_ID}"].(string); ok && len(reqId) > 0 {
+				schemaInfo["request_id"] = reqId
+			}
+		}
+	}
 
 	registerFileKeyAction := RegisterFileKeyAction{
 		Action:        "register_keys",

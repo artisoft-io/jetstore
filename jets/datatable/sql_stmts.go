@@ -182,19 +182,10 @@ var sqlInsertStmts = map[string]*SqlInsertDefinition{
 	// pipeline_execution_status
 	"pipeline_execution_status": {
 		Stmt: `INSERT INTO jetsapi.pipeline_execution_status 
-			(pipeline_config_key, main_input_registry_key, main_input_file_key, merged_input_registry_keys, client, process_name, main_object_type, input_session_id, session_id, source_period_key, status, user_email) 
-			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+			(pipeline_config_key, main_input_registry_key, main_input_file_key, merged_input_registry_keys, client, process_name, main_object_type, input_session_id, request_id, session_id, source_period_key, status, user_email) 
+			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
 			RETURNING key`,
-		ColumnKeys: []string{"pipeline_config_key", "main_input_registry_key", "main_input_file_key", "merged_input_registry_keys", "client", "process_name", "main_object_type", "input_session_id", "session_id", "source_period_key", "status", "user_email"},
-		Capability: "run_pipelines",
-	},
-	// Used for load+start from the lambda handler (legacy -- to be removed)
-	"short/pipeline_execution_status": {
-		Stmt: `INSERT INTO jetsapi.pipeline_execution_status 
-			(pipeline_config_key, main_input_file_key, client, process_name, main_object_type, input_session_id, session_id, status, user_email) 
-			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-			RETURNING key`,
-		ColumnKeys: []string{"pipeline_config_key", "main_input_file_key", "client", "process_name", "main_object_type", "input_session_id", "session_id", "status", "user_email"},
+		ColumnKeys: []string{"pipeline_config_key", "main_input_registry_key", "main_input_file_key", "merged_input_registry_keys", "client", "process_name", "main_object_type", "input_session_id", "request_id", "session_id", "source_period_key", "status", "user_email"},
 		Capability: "run_pipelines",
 	},
 
@@ -286,14 +277,6 @@ var sqlInsertStmts = map[string]*SqlInsertDefinition{
 	},
 	// load_workspace_config (insert into workspace_registry and trigger server local execution via datatable.InsertRow)
 	"load_workspace_config": {
-		Stmt: `UPDATE jetsapi.workspace_registry SET
-			(last_git_log, status, user_email, last_update) 
-			= ($1, $2, $3, DEFAULT) WHERE workspace_name = $4`,
-		ColumnKeys: []string{"last_git_log", "status", "user_email", "workspace_name"},
-		Capability: "workspace_ide",
-	},
-	// unit test workspace (insert into workspace_registry and trigger server local execution via datatable.InsertRow)
-	"unit_test": {
 		Stmt: `UPDATE jetsapi.workspace_registry SET
 			(last_git_log, status, user_email, last_update) 
 			= ($1, $2, $3, DEFAULT) WHERE workspace_name = $4`,

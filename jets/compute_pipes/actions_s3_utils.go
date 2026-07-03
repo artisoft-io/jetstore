@@ -14,7 +14,7 @@ import (
 
 	"github.com/artisoft-io/jetstore/jets/awsi"
 	"github.com/artisoft-io/jetstore/jets/utils"
-	"github.com/aws/aws-sdk-go-v2/feature/s3/manager"
+	"github.com/aws/aws-sdk-go-v2/feature/s3/transfermanager"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -22,7 +22,7 @@ import (
 // Common functions and types for s3, rewite of loader's version
 
 var bucketName, regionName, kmsKeyArn string
-var downloader *manager.Downloader
+var downloader *transfermanager.Client
 
 func init() {
 	bucketName = os.Getenv("JETS_BUCKET")

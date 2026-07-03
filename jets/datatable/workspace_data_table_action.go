@@ -300,12 +300,6 @@ func (ctx *DataTableContext) WorkspaceInsertRows(dataTableAction *DataTableActio
 			}
 			dataTableAction.Data[irow]["status"] = ""
 
-		case strings.HasPrefix(dataTableAction.FromClauses[0].Table, "unit_test"):
-			if dataTableAction.WorkspaceName == "" {
-				return nil, http.StatusBadRequest, fmt.Errorf("invaid request for unit_test, missing workspace_name")
-			}
-			dataTableAction.Data[irow]["status"] = "Unit Test in progress"
-
 		case dataTableAction.FromClauses[0].Table == "delete_workspace":
 			if dataTableAction.WorkspaceName == "" {
 				return nil, http.StatusBadRequest, fmt.Errorf("invaid request for delete/workspace_registry, missing workspace_name")
@@ -366,9 +360,6 @@ func (ctx *DataTableContext) WorkspaceInsertRows(dataTableAction *DataTableActio
 	case strings.HasPrefix(dataTableAction.FromClauses[0].Table, "compile_workspace"):
 		//	- Compile workspace (workspace.db, lookup.db, and reports.tgz)
 		go compileWorkspaceAction(ctx, dataTableAction)
-
-	case strings.HasPrefix(dataTableAction.FromClauses[0].Table, "unit_test"):
-		go UnitTestWorkspaceAction(ctx, dataTableAction, token)
 
 	case dataTableAction.FromClauses[0].Table == "load_workspace_config":
 		// Load workspace config
