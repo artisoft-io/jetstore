@@ -16,6 +16,7 @@ import (
 	"strings"
 
 	"github.com/artisoft-io/jetstore/jets/awsi"
+	"github.com/artisoft-io/jetstore/jets/compute_pipes"
 	"github.com/artisoft-io/jetstore/jets/jetrules/rdf"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -689,7 +690,7 @@ func (ctx *DataTableContext) startLoader(dataTableAction *DataTableAction, irow 
 	// Get the file info for the file to load from input_registry table
 	// originDomainKeys is needed to register the loaded file in input_registry table after the load
 	// is successful.
-	var inputRegistryKey sql.NullInt64
+	var sourcePeriodKey sql.NullInt64
 	var year, month, day int
 	var inputFormat string
 	var originDomainKeys []string
@@ -704,7 +705,7 @@ func (ctx *DataTableContext) startLoader(dataTableAction *DataTableAction, irow 
 			AND sp.key = ir.source_period_key
 			AND ir.table_name = sc.table_name`
 	err = ctx.Dbpool.QueryRow(context.Background(), stmt, fileKey, inputRegistrySessionId).Scan(
-		&inputRegistryKey, &year, &month, &day, &inputFormat, &originDomainKeys, &originSchemaProviderJson,
+		&sourcePeriodKey, &year, &month, &day, &inputFormat, &originDomainKeys, &originSchemaProviderJson,
 		&icJson, &icPosCsv, &inputFormatDataJson, &scSchemaProviderJson)
 	if err != nil {
 		log.Printf("While getting file info for file_key '%s' and session_id '%s': %v", fileKey, inputRegistrySessionId, err)
@@ -713,7 +714,7 @@ func (ctx *DataTableContext) startLoader(dataTableAction *DataTableAction, irow 
 		return
 	}
 
-	if !inputRegistryKey.Valid {
+	if !sourcePeriodKey.Valid {
 		log.Printf("error: got nil key from input_registry key for file_key '%s' and session_id '%s'", fileKey, inputRegistrySessionId)
 		httpStatus = http.StatusInternalServerError
 		err = errors.New("error while reading from input_registry table")
@@ -729,32 +730,34 @@ func (ctx *DataTableContext) startLoader(dataTableAction *DataTableAction, irow 
 		"${TABLE_NAME}":             tableName,
 		"$ORIGIN_SESSIONID":         originSessionId,
 		"$ORIGIN_DOMAIN_KEYS":       originDomainKeys,
-		"$ORIGIN_SOURCE_PERIOD_KEY": int(inputRegistryKey.Int64),
+		"$ORIGIN_SOURCE_PERIOD_KEY": int(sourcePeriodKey.Int64),
 		"$INPUT_LOADER_STATUS_KEY":  inputLoaderStatusKey,
 		"${STAGING_TABLE_NAME}":     tableName,
 	}
-	schemaInfo := map[string]any{
-		"key":                        "_main_input_",
-		"type":                       "default",
-		"source_type":                "main_input",
-		"client":                     "Any",
-		"object_type":                "Any",
-		"use_origin_source_config":   true,
-		"file_key":                   fileKey,
-		"format":                     inputFormat,
-		"detect_encoding":            true,
-		"detect_cr_as_eol":           true,
-		"compression":                "none",
-		"use_lazy_quotes":            false,
-		"use_lazy_quotes_special":    true,
-		"variable_fields_per_record": true,
-		"multi_columns_input":        true,
-		"enforce_row_max_length":     false,
-		"enforce_row_min_length":     false,
-		"trim_columns":               true,
-		"is_part_files":              false,
-		"file_date":                  fmt.Sprintf("%04d-%02d-%02d", year, month, day),
-		"env":                        cpipesEnv,
+	schemaInfo := &compute_pipes.SchemaProviderSpec{
+		Key:                   "_main_input_",
+		Type:                  "default",
+		SourceType:            "main_input",
+		Client:                "Any",
+		ObjectType:            "Any",
+		UseOriginSourceConfig: true,
+		FileConfig: compute_pipes.FileConfig{
+			FileKey:                 fileKey.(string),
+			Format:                  inputFormat,
+			DetectEncoding:          true,
+			DetectCrAsEol:           true,
+			Compression:             "none",
+			UseLazyQuotes:           false,
+			UseLazyQuotesSpecial:    true,
+			VariableFieldsPerRecord: true,
+			MultiColumnsInput:       true,
+			EnforceRowMaxLength:     false,
+			EnforceRowMinLength:     false,
+			TrimColumns:             true,
+			IsPartFiles:             false,
+		},
+		FileDate: fmt.Sprintf("%04d-%02d-%02d", year, month, day),
+		Env:      cpipesEnv,
 	}
 	if icJson.Valid {
 		// Convert the icJson string to []string
@@ -767,90 +770,41 @@ func (ctx *DataTableContext) startLoader(dataTableAction *DataTableAction, irow 
 			err = errors.New("error while preparing to start Jet_Loader pipeline")
 			return
 		}
-		schemaInfo["headers"] = ic
+		schemaInfo.Headers = ic
 	}
 	if icPosCsv.Valid {
-		schemaInfo["fixed_width_columns_csv"] = icPosCsv.String
+		schemaInfo.FixedWidthColumnsCsv = icPosCsv.String
 	}
 	if inputFormatDataJson.Valid {
-		schemaInfo["input_format_data_json"] = inputFormatDataJson.String
+		schemaInfo.InputFormatDataJson = inputFormatDataJson.String
 	}
 
-	// Get file infor from source_config.schema_provider_json if available, it will be overridden by the one in
+	// Get file info from source_config.schema_provider_json if available, it will be overridden by the one in
 	// input_registry.schema_provider_json if both are available, since input_registry is closer to the file
 	// source and more likely to be updated with correct info.
-	// Columns of interest
-	keyColumns := []string{
-		"bucket",
-		"compression",
-		"delimiter",
-		"detect_cr_as_eol",
-		"detect_encoding",
-		"domain_class",
-		"domain_keys",
-		"encoding",
-		"enforce_row_max_length",
-		"enforce_row_min_length",
-		"eol_byte",
-		"file_key",
-		"file_name",
-		"fixed_width_columns_csv",
-		"format",
-		"input_format_data_json",
-		"is_part_files",
-		"main_input_row_count",
-		"multi_columns_input",
-		"nbr_rows_in_record",
-		"no_quotes",
-		"quote_all_records",
-		"read_date_layout",
-		"trim_columns",
-		"use_lazy_quotes",
-		"use_lazy_quotes_special",
-		"variable_fields_per_record",
-	}
-	// Copy infor from scource_config schema provider
+	// Copy info from source_config schema provider
 	if scSchemaProviderJson.Valid && len(scSchemaProviderJson.String) > 0 {
 		// Unmarshal the schema_provider_json in source_config to get loading information
-		var scSchemaProvider map[string]any
-		err = json.Unmarshal([]byte(scSchemaProviderJson.String), &scSchemaProvider)
+		err = json.Unmarshal([]byte(scSchemaProviderJson.String), schemaInfo)
 		if err != nil {
 			log.Printf("While unmarshalling source_config schema_provider_json: %v", err)
 			httpStatus = http.StatusInternalServerError
 			err = errors.New("error while preparing to start Jet_Loader pipeline")
 			return
 		}
-		// Copy over information needed to loading the file, set defaults for the rest if not exist, will be overridden by input_registry.schema_provider_json if exist
-		var v any
-		var ok bool
-		for _, k := range keyColumns {
-			if v, ok = scSchemaProvider[k]; ok {
-				schemaInfo[k] = v
-			}
-		}
 	}
-	// Copy infor from input_registry schema provider
+	// Copy info from input_registry schema provider
 	if len(originSchemaProviderJson) > 0 {
 		// Put the origin schema_provider_json into the cpipesEnv since we need it to register the loaded file
-		//*TODO compress and encode base64 if too big?
 		cpipesEnv["$ORIGIN_SCHEMA_PROVIDER_JSON"] = originSchemaProviderJson
 
-		// Unmarshal the origin schema_provider_json to get loading information
-		var originSchemaProvider map[string]any
-		err = json.Unmarshal([]byte(originSchemaProviderJson), &originSchemaProvider)
+		// Unmarshal the origin schema_provider_json to get information for the loader pipeline
+		err = json.Unmarshal([]byte(originSchemaProviderJson), schemaInfo)
 		if err != nil {
 			log.Printf("While unmarshalling origin schema_provider_json: %v", err)
 			httpStatus = http.StatusInternalServerError
 			err = errors.New("error while preparing to start Jet_Loader pipeline")
 			return
-		}
-		// Copy over information needed to loading the file, overrides defaults set above
-		var v any
-		var ok bool
-		for _, k := range keyColumns {
-			if v, ok = originSchemaProvider[k]; ok {
-				schemaInfo[k] = v
-			}
 		}
 	}
 
@@ -873,18 +827,24 @@ func (ctx *DataTableContext) startLoader(dataTableAction *DataTableAction, irow 
 
 // API version to register schema event. This is used by the Jets_Loader process to avoid writing the event to s3 first.
 // This is also used by the register key v2 lambda once the event is downloaded from s3.
-func (ctx *DataTableContext) RegisterSchemaEvent(dbpool *pgxpool.Pool, schemaInfo map[string]any, token string) error {
-	log.Printf("Registering schema event with schema info: %v", schemaInfo)
+func (ctx *DataTableContext) RegisterSchemaEvent(dbpool *pgxpool.Pool, schemaEvent *compute_pipes.SchemaProviderSpec, token string) error {
 
 	// Check if this is a pipeline_coordinator schema event
-	evType, ok := schemaInfo["type"].(string)
-	if ok && evType == "pipeline_coordinator_map" {
-		return ctx.ProcessCoordinatorMapRegisterSchemaEvent(dbpool, schemaInfo, token)
+	if schemaEvent.Type == "pipeline_coordinator_map" {
+		return ctx.ProcessCoordinatorMapRegisterSchemaEvent(dbpool, schemaEvent, token)
 	}
 
-	schemaInfoJson, err := json.Marshal(schemaInfo)
+	b, err := json.Marshal(schemaEvent)
 	if err != nil {
 		return fmt.Errorf("while marshalling schema info to json in RegisterSchemaEvent: %v", err)
+	}
+
+	schemaInfoJson := string(b)
+	log.Printf("Registering schema event with schema info: %v", schemaInfoJson)
+	var schemaInfo map[string]any
+	err = json.Unmarshal(b, &schemaInfo)
+	if err != nil {
+		return fmt.Errorf("while unmarshalling schema info in RegisterSchemaEvent: %v", err)
 	}
 
 	// Prepare the register key request
@@ -908,9 +868,9 @@ func (ctx *DataTableContext) RegisterSchemaEvent(dbpool *pgxpool.Pool, schemaInf
 	schemaInfo["year"] = year
 	schemaInfo["month"] = month
 	schemaInfo["day"] = day
-	schemaInfo["schema_provider_json"] = string(schemaInfoJson)
+	schemaInfo["schema_provider_json"] = schemaInfoJson
 
-	// Check if the schema event has no request_id but has one in the env var section, 
+	// Check if the schema event has no request_id but has one in the env var section,
 	// if so put it in the register key event so it gets put on the input_registry table for tracking the pipeline execution.
 	if _, ok := schemaInfo["request_id"]; !ok {
 		if env, ok := schemaInfo["env"].(map[string]any); ok {
@@ -933,50 +893,49 @@ func (ctx *DataTableContext) RegisterSchemaEvent(dbpool *pgxpool.Pool, schemaInf
 // which contains the coordinated pipes map and the post map event.
 // coordinatedPipesMap is a list of schema_event_json
 // postMapEvent is the schema event for the post map event, which will be called after all steps in the coordinated pipes map are executed.
-// TODO: Use a domain model rather than slice and maps. For this will need to split the model from compute_pipes.
-func NewPipelineCoordinatorMapSchemaInfo(requestId string, coordinatedPipesJsonMap []string, postMapEvent map[string]any) (map[string]any, error) {
-	var postMapEventJson string
-	if postMapEvent != nil {
-		postMapEventJsonBytes, err := json.Marshal(postMapEvent)
-		if err != nil {
-			return nil, fmt.Errorf("while marshalling post map event schema: %v", err)
-		}
-		postMapEventJson = string(postMapEventJsonBytes)
-	}
-	schemaInfo := map[string]any{
-		"type":                       "pipeline_coordinator_map",
-		"coordinated_pipes_json_map": coordinatedPipesJsonMap,
-		"post_map_event_json":        postMapEventJson,
-		"request_id":                 requestId,
+// Returns the schema info for the pipeline coordinator map register schema event of type pipeline_coordinator_map, which can be passed to RegisterSchemaEvent.
+func NewPipelineCoordinatorMapSchemaInfo(requestId string, coordinatedPipesJsonMap []*compute_pipes.SchemaProviderSpec,
+	postMapEvent *compute_pipes.SchemaProviderSpec) (*compute_pipes.SchemaProviderSpec, error) {
+	schemaInfo := &compute_pipes.SchemaProviderSpec{
+		Type:                "pipeline_coordinator_map",
+		CoordinatedPipesMap: coordinatedPipesJsonMap,
+		PostMapEvent:        postMapEvent,
+		RequestID:           requestId,
 	}
 	log.Printf("NewPipelineCoordinatorMapSchemaInfo called with RequestId=%s\n", requestId)
 	return schemaInfo, nil
 }
 
-// Keys from schemaInfo:
-//   - "coordinated_pipes_json_map": list of schema_event_json
-//   - "post_map_event_json": serialized SchemaProviderSpec
-//   - "request_id": optional, if not exist, will be created and added to schemaInfo for tracking the pipeline execution
-func (ctx *DataTableContext) ProcessCoordinatorMapRegisterSchemaEvent(dbpool *pgxpool.Pool, schemaInfo map[string]any, token string) error {
+// ProcessCoordinatorMapRegisterSchemaEvent processes a pipeline coordinator map register schema event.
+// Input schemaInfo is of Type "pipeline_coordinator_map" and contains the coordinated pipes map and the post map event:
+//   - CoordinatedPipesMap: list of schema_event_json
+//   - PostMapEvent: serialized SchemaProviderSpec
+//   - RequestID: optional, if not exist, will be created and added to schemaInfo for tracking the pipeline execution
+//
+// This is called by RegisterSchemaEvent when the schema event is of type "pipeline_coordinator_map".
+// and RegisterSchemaEvent is called for each step in the coordinated pipes map.
+func (ctx *DataTableContext) ProcessCoordinatorMapRegisterSchemaEvent(dbpool *pgxpool.Pool,
+	schemaInfo *compute_pipes.SchemaProviderSpec, token string) error {
+
 	// Setup a Process Coordinator pipeline
 	log.Printf("Processing pipeline coordinator map register schema event with schema info: %v", schemaInfo)
 
-	coordinatedPipesMap, ok := schemaInfo["coordinated_pipes_json_map"].([]any)
-	if !ok {
+	coordinatedPipesMap := schemaInfo.CoordinatedPipesMap
+	if coordinatedPipesMap == nil || len(coordinatedPipesMap) == 0 {
 		return fmt.Errorf("coordinated_pipes_json_map is missing or not a list of schemaInfo")
 	}
 	var postMapEventJson string
-	val := schemaInfo["post_map_event_json"]
-	if val != nil {
-		postMapEventJson, ok = val.(string)
-		if !ok {
-			return fmt.Errorf("post_map_event_json is not a string in schemaInfo")
+	if schemaInfo.PostMapEvent != nil {
+		postMapEventJsonBytes, err := json.Marshal(schemaInfo.PostMapEvent)
+		if err != nil {
+			return fmt.Errorf("while marshalling post map event schema: %v", err)
 		}
+		postMapEventJson = string(postMapEventJsonBytes)
 	}
 	// Insert into table jetsapi.pipeline_coordinator_map
 	// Check if schemaInfo already contains a "request_id", if not create one.
-	requestId, ok := schemaInfo["request_id"].(string)
-	if !ok {
+	requestId := schemaInfo.RequestID
+	if requestId == "" {
 		//TODO set request_id in schema providers and env var accordingly
 		// Set to schema providers & env var of the map, and to env var (only) to post map event.
 		// requestId = uuid.New().String()
@@ -991,16 +950,7 @@ func (ctx *DataTableContext) ProcessCoordinatorMapRegisterSchemaEvent(dbpool *pg
 
 	// For each step in coordinatedPipesMap, unmarshal the schema_event_json and call RegisterSchemaEvent
 	for _, step := range coordinatedPipesMap {
-		var stepSchemaInfo map[string]any
-		se, ok := step.(string)
-		if !ok {
-			return fmt.Errorf("step in coordinated_pipes_json_map (schema_event_json) is not a string: %v", step)
-		}
-		err := json.Unmarshal([]byte(se), &stepSchemaInfo)
-		if err != nil {
-			return fmt.Errorf("while unmarshalling schema_event_json in ProcessCoordinatorMapRegisterSchemaEvent: %v", err)
-		}
-		err = ctx.RegisterSchemaEvent(dbpool, stepSchemaInfo, token)
+		err = ctx.RegisterSchemaEvent(dbpool, step, token)
 		if err != nil {
 			return fmt.Errorf("while registering schema event in ProcessCoordinatorMapRegisterSchemaEvent: %v", err)
 		}

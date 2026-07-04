@@ -13,9 +13,10 @@ import (
 
 	"github.com/artisoft-io/jetstore/cdk/jetstore_one/lambdas/dbc"
 	"github.com/artisoft-io/jetstore/jets/awsi"
+	"github.com/artisoft-io/jetstore/jets/compute_pipes"
 	"github.com/artisoft-io/jetstore/jets/datatable"
-	"github.com/artisoft-io/jetstore/jets/utils"
 	"github.com/artisoft-io/jetstore/jets/user"
+	"github.com/artisoft-io/jetstore/jets/utils"
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-lambda-go/lambda"
 	"github.com/aws/aws-sdk-go-v2/feature/s3/manager"
@@ -128,7 +129,7 @@ func processMessage(dbpool *pgxpool.Pool, record events.S3EventRecord) error {
 	}
 }
 
-func doFileKey(dbpool *pgxpool.Pool, context *datatable.DataTableContext, fileKey string, fileSize int64, token string) error {
+func doFileKey(_ *pgxpool.Pool, context *datatable.DataTableContext, fileKey string, fileSize int64, token string) error {
 
 	// Extract processing date from file key inFile
 	fileKeyComponents := make(map[string]any)
@@ -154,11 +155,11 @@ func doFileSchema(dbpool *pgxpool.Pool, context *datatable.DataTableContext, fil
 		return fmt.Errorf("while downloading file schema from s3: %v", err)
 	}
 	// log.Printf("*** Got file schema from s3:\n%s\n", string(buf))
-	schemaInfo := map[string]any{}
+	var schemaInfo compute_pipes.SchemaProviderSpec
 	err = json.Unmarshal(buf, &schemaInfo)
 	if err != nil {
 		// check to see if we have a slice of events instead of a single event
-		var schemaInfoSlice []map[string]any
+		var schemaInfoSlice []*compute_pipes.SchemaProviderSpec
 		err2 := json.Unmarshal(buf, &schemaInfoSlice)
 		if err2 != nil {
 			return fmt.Errorf("while unmarshalling schema info from json in RegisterFileKeyV2 lambda: %v", err)
@@ -176,5 +177,5 @@ func doFileSchema(dbpool *pgxpool.Pool, context *datatable.DataTableContext, fil
 		return nil
 	}
 
-	return context.RegisterSchemaEvent(dbpool, schemaInfo, token)
+	return context.RegisterSchemaEvent(dbpool, &schemaInfo, token)
 }

@@ -95,12 +95,11 @@ var jetsS3SchemaTriggers string = os.Getenv("JETS_s3_SCHEMA_TRIGGERS")
 // Submit Schema Event to S3 (which will call RegisterFileKEys as side effect)
 func (ctx *DataTableContext) PutSchemaEventToS3(action *RegisterFileKeyAction, token string) (*map[string]any, int, error) {
 	for irow := range action.Data {
-		var schemaProviderJson string
 		e := action.Data[irow]["event"]
 		key := action.Data[irow]["file_key"]
 		if e != nil && key != nil {
-			schemaProviderJson = e.(string)
-			if len(schemaProviderJson) > 0 {
+			schemaProviderJson, ok := e.(string)
+			if ok && len(schemaProviderJson) > 0 {
 				err := awsi.UploadBufToS3("", fmt.Sprintf("%s/%v", jetsS3SchemaTriggers, key), []byte(schemaProviderJson))
 				if err != nil {
 					return nil, http.StatusInternalServerError, fmt.Errorf("while calling UploadBufToS3: %v", err)

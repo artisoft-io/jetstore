@@ -1,6 +1,7 @@
 package compute_pipes
 
 import (
+	"encoding/json"
 	"fmt"
 	"regexp"
 	"strings"
@@ -303,7 +304,8 @@ type BlankFieldMarkersSpec struct {
 }
 
 type SchemaProviderSpec struct {
-	// Type range: default
+	// Type range: default, pipeline_coordinator_map
+	// Most properties applies to type default:
 	// Key is schema provider key for reference by compute pipes steps
 	// Format: csv, headerless_csv, fixed_width, parquet, parquet_select,
 	//              xlsx, headerless_xlsx
@@ -346,32 +348,53 @@ type SchemaProviderSpec struct {
 	// NotificationTemplatesOverrides have the following keys to override the templates defined
 	// in the deployment environment var: CPIPES_START_NOTIFICATION_JSON,
 	// CPIPES_COMPLETED_NOTIFICATION_JSON, and CPIPES_FAILED_NOTIFICATION_JSON.
+	// Properties for type pipeline_coordinator_map:
+	// Type: pipeline_coordinator_map.
+	// RequestId: request_id for the pipeline coordinator map.
+	// CoordinatedPipesMap: list of schema_event_json.
+	// PostMapEvent: schema event for post map pipeline.
 	//*TODO domain_keys_json
 	//*TODO code_values_mapping_json
 	FileConfig
-	Key                              string             `json:"key"`
-	Type                             string             `json:"type"`
-	FileSize                         int64              `json:"file_size,omitzero"`
-	KmsKey                           string             `json:"kms_key_arn,omitempty"`
-	Client                           string             `json:"client,omitempty"`
-	Vendor                           string             `json:"vendor,omitempty"`
-	ObjectType                       string             `json:"object_type,omitempty"`
-	RequestID                        string             `json:"request_id,omitempty"`
-	UseOriginSourceConfig            bool               `json:"use_origin_source_config,omitempty"`
-	FileDate                         string             `json:"file_date,omitempty"`
-	SourceType                       string             `json:"source_type,omitempty"`
-	SchemaName                       string             `json:"schema_name,omitempty"`
-	Columns                          []SchemaColumnSpec `json:"columns,omitempty"`
-	Headers                          []string           `json:"headers,omitempty"`
-	CapDobYears                      int                `json:"cap_dob_years,omitzero"`
-	SetDobToJan1                     bool               `json:"set_dob_to_jan1,omitzero"`
-	SetDodToJan1                     bool               `json:"set_dod_to_jan1,omitzero"`
-	SetAllDatesToJan1                bool               `json:"set_all_dates_to_jan1,omitzero"`
-	Env                              map[string]any     `json:"env,omitempty"`
-	ReportCmds                       []ReportCmdSpec    `json:"report_cmds,omitempty"`
-	NotificationTemplatesOverrides   map[string]string  `json:"notification_templates_overrides,omitempty"`
-	NotificationRoutingOverridesJson string             `json:"notification_routing_overrides_json,omitempty"`
-	NotifyApiGatewayOverride         string             `json:"notify_api_gateway_override,omitempty"`
+	Key                              string                `json:"key"`
+	Type                             string                `json:"type"`
+	FileSize                         int64                 `json:"file_size,omitzero"`
+	KmsKey                           string                `json:"kms_key_arn,omitempty"`
+	Client                           string                `json:"client,omitempty"`
+	Vendor                           string                `json:"vendor,omitempty"`
+	ObjectType                       string                `json:"object_type,omitempty"`
+	RequestID                        string                `json:"request_id,omitempty"`
+	UseOriginSourceConfig            bool                  `json:"use_origin_source_config,omitempty"`
+	FileDate                         string                `json:"file_date,omitempty"`
+	SourceType                       string                `json:"source_type,omitempty"`
+	SchemaName                       string                `json:"schema_name,omitempty"`
+	Columns                          []SchemaColumnSpec    `json:"columns,omitempty"`
+	Headers                          []string              `json:"headers,omitempty"`
+	CapDobYears                      int                   `json:"cap_dob_years,omitzero"`
+	SetDobToJan1                     bool                  `json:"set_dob_to_jan1,omitzero"`
+	SetDodToJan1                     bool                  `json:"set_dod_to_jan1,omitzero"`
+	SetAllDatesToJan1                bool                  `json:"set_all_dates_to_jan1,omitzero"`
+	Env                              map[string]any        `json:"env,omitempty"`
+	ReportCmds                       []ReportCmdSpec       `json:"report_cmds,omitempty"`
+	NotificationTemplatesOverrides   map[string]string     `json:"notification_templates_overrides,omitempty"`
+	NotificationRoutingOverridesJson string                `json:"notification_routing_overrides_json,omitempty"`
+	NotifyApiGatewayOverride         string                `json:"notify_api_gateway_override,omitempty"`
+	CoordinatedPipesMap              []*SchemaProviderSpec `json:"coordinated_pipes_map,omitempty"`
+	PostMapEvent                     *SchemaProviderSpec   `json:"post_map_event,omitzero"`
+}
+
+// Utility function to convert to a map[string]any for use in input_registry table
+func (sp *SchemaProviderSpec) ToMap() (map[string]any, error) {
+	b, err := json.Marshal(sp)
+	if err != nil {
+		return nil, err
+	}
+	m := make(map[string]any)
+	err = json.Unmarshal(b, &m)
+	if err != nil {
+		return nil, err
+	}
+	return m, nil
 }
 
 // Commands for the run_report step
