@@ -1,6 +1,8 @@
 # =======================================================================================
 # Jets Data Model 
 # ---------------------------------------------------------------------------------------
+# Define the jets data model version
+@JetCompilerDirective JWS_VERSION = "0.1.0";
 
 class jets:Entity {
   $base_classes = [owl:Thing],

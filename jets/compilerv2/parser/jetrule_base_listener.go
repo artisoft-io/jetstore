@@ -87,6 +87,12 @@ func (s *BaseJetRuleListener) EnterDataPropertyDefinitions(ctx *DataPropertyDefi
 // ExitDataPropertyDefinitions is called when production dataPropertyDefinitions is exited.
 func (s *BaseJetRuleListener) ExitDataPropertyDefinitions(ctx *DataPropertyDefinitionsContext) {}
 
+// EnterObjectPropertyDefinitions is called when production objectPropertyDefinitions is entered.
+func (s *BaseJetRuleListener) EnterObjectPropertyDefinitions(ctx *ObjectPropertyDefinitionsContext) {}
+
+// ExitObjectPropertyDefinitions is called when production objectPropertyDefinitions is exited.
+func (s *BaseJetRuleListener) ExitObjectPropertyDefinitions(ctx *ObjectPropertyDefinitionsContext) {}
+
 // EnterDataPropertyType is called when production dataPropertyType is entered.
 func (s *BaseJetRuleListener) EnterDataPropertyType(ctx *DataPropertyTypeContext) {}
 

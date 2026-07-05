@@ -157,7 +157,7 @@ func (ctx *BuilderContext) NewMapRecordTransformationPipe(source *InputChannel, 
 				// Check if this is a "local variable for rules", ie if it's added to the input class
 				_, ok := (*outputCh.Columns)[mappingExp.DataProperty]
 				if ok {
-					node = &rete.DataPropertyNode{Type: "text"}
+					node = &rete.PropertyNode{Type: "text"}
 					log.Printf("Note: mapping expression data property '%s' is not found in workspace metastore but found in input channel columns, treating it as text type", mappingExp.DataProperty)
 				} else {
 					return nil, fmt.Errorf("error: property name not found in workspace metastore or input channel: %v",

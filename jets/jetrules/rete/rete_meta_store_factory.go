@@ -315,7 +315,7 @@ func (ctx *ReteBuilderContext) BuildReteMetaStore() (*ReteMetaStore, error) {
 	}
 
 	// Prepare a lookup of Data Properties (from classes) by name
-	dataPropertyMap := make(map[string]*DataPropertyNode)
+	dataPropertyMap := make(map[string]*PropertyNode)
 	for i := range ctx.JetruleModel.Classes {
 		for j := range ctx.JetruleModel.Classes[i].DataProperties {
 			p := &ctx.JetruleModel.Classes[i].DataProperties[j]

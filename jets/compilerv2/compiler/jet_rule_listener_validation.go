@@ -436,7 +436,7 @@ func (l *JetRuleListener) PostProcessClasses() {
 		l.currentRuleVarByValue = make(map[string]*rete.ResourceNode)
 		name := fmt.Sprintf("ci_%s", className)
 		rule := &rete.JetruleNode{
-			Name:       name,
+			Name: name,
 			Properties: map[string]string{
 				"i": "true",
 				"o": "false",
@@ -522,6 +522,16 @@ func (l *JetRuleListener) visitClass(doUp bool, store map[string]*rete.TableColu
 				Type:       cls.DataProperties[i].Type,
 				ColumnName: cls.DataProperties[i].Name,
 				AsArray:    cls.DataProperties[i].AsArray,
+			}
+		}
+	}
+	for i := range cls.ObjectProperties {
+		if _, exists := store[cls.ObjectProperties[i].Name]; !exists {
+			store[cls.ObjectProperties[i].Name] = &rete.TableColumnNode{
+				Type:       cls.ObjectProperties[i].Type,
+				ColumnName: cls.ObjectProperties[i].Name,
+				AsArray:    cls.ObjectProperties[i].AsArray,
+				IsObject:   true,
 			}
 		}
 	}

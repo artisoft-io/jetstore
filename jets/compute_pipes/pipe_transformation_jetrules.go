@@ -7,8 +7,8 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/artisoft-io/jetstore/jets/utils/jcsv"
 	"github.com/artisoft-io/jetstore/jets/utils"
+	"github.com/artisoft-io/jetstore/jets/utils/jcsv"
 	"github.com/jackc/pgx/v5"
 )
 
@@ -26,8 +26,10 @@ type JetrulesTransformationPipe struct {
 	doneCh         chan struct{}
 }
 
+// Encoding: json, toon, row (default)
 type JetrulesOutputChan struct {
 	ClassName        string
+	Encoding         string
 	ColumnEvaluators []TransformationColumnEvaluator
 	OutputCh         *OutputChannel
 }
@@ -144,6 +146,7 @@ func (ctx *BuilderContext) NewJetrulesTransformationPipe(source *InputChannel, _
 			ClassName:        outCh.Config.ClassName,
 			ColumnEvaluators: columnEvaluators,
 			OutputCh:         outCh,
+			Encoding:         outCh.Config.Encoding,
 		})
 	}
 

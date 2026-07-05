@@ -58,12 +58,14 @@ defineClassStmt: CLASS className=declIdentifier '{'
 classStmt
   : BaseClasses ASSIGN '[' COMMENT* subClassOfStmt (',' COMMENT* subClassOfStmt)* COMMENT* ']'
   | DataProperties ASSIGN '[' COMMENT* dataPropertyDefinitions (','COMMENT* dataPropertyDefinitions)* COMMENT* ']'
+  | ObjectProperties ASSIGN '[' COMMENT* objectPropertyDefinitions (','COMMENT* objectPropertyDefinitions)* COMMENT* ']'
   | GroupingProperties ASSIGN '[' COMMENT* groupingPropertyStmt (',' COMMENT* groupingPropertyStmt)* COMMENT* ']'
   | asTableStmt
   ;
 
 subClassOfStmt: baseClassName=declIdentifier;
 dataPropertyDefinitions: dataPName=declIdentifier 'as' array=ARRAY? dataPType=dataPropertyType;
+objectPropertyDefinitions: objectPName=declIdentifier 'as' array=ARRAY? ResourceType;
 dataPropertyType
   : Int32Type
   | UInt32Type
@@ -276,6 +278,7 @@ CLASS: 'class';
 BaseClasses: '$base_classes';
 AsTable: '$as_table';
 DataProperties: '$data_properties';
+ObjectProperties: '$object_properties';
 ARRAY: 'array of';
 GroupingProperties: '$grouping_properties';
 

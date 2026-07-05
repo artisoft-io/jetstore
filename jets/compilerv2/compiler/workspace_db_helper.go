@@ -513,14 +513,26 @@ func (w *WorkspaceDB) SaveClassesAndTables(ctx context.Context, db *sql.DB, jetR
 		return err
 	}
 
+	// Load existing object properties since they are reference by Domain Tables
+	objectProperties2Key, err := getKeyNameFromTable(ctx, db, "object_properties", "key", "name")
+	if err != nil {
+		return err
+	}
+	maxObjectPropKey, err := getMaxKey(ctx, db, "object_properties")
+	if err != nil {
+		return err
+	}
+
 	// The insert stmts
 	classStmt := "INSERT INTO domain_classes (key, name, as_table, source_file_key) VALUES (?, ?, ?, ?)"
 	dataPropertiesStmt := "INSERT INTO data_properties (key, domain_class_key, name, type, as_array) VALUES (?, ?, ?, ?, ?)"
+	objectPropertiesStmt := "INSERT INTO object_properties (key, domain_class_key, name, type, as_array) VALUES (?, ?, ?, ?, ?)"
 	baseClassStmt := "INSERT INTO base_classes (domain_class_key, base_class_key) VALUES (?, ?)"
 
 	// Insert the new classes, it's data properties and base classes
 	classData := make([][]any, 0, len(jetRuleModel.Classes))
 	dataPropertiesData := make([][]any, 0)
+	objectPropertiesData := make([][]any, 0)
 	baseClassData := make([][]any, 0, 2*len(jetRuleModel.Classes))
 
 	// Initialize classData with owl:Thing if className2Key is empty (no classes entered yet in db)
@@ -550,6 +562,18 @@ func (w *WorkspaceDB) SaveClassesAndTables(ctx context.Context, db *sql.DB, jetR
 					dp.AsArray,
 				})
 			}
+			// It's object properties
+			for _, op := range class.ObjectProperties {
+				maxObjectPropKey++
+				objectProperties2Key[op.Name] = maxObjectPropKey
+				objectPropertiesData = append(objectPropertiesData, []any{
+					maxObjectPropKey,
+					maxClassKey,
+					op.Name,
+					op.Type,
+					op.AsArray,
+				})
+			}
 			// Insert it's base classes
 			for _, baseClass := range class.BaseClasses {
 				baseClsKey, ok := className2Key[baseClass]
@@ -574,6 +598,12 @@ func (w *WorkspaceDB) SaveClassesAndTables(ctx context.Context, db *sql.DB, jetR
 			return fmt.Errorf("failed to insert data properties: %w", err)
 		}
 	}
+	if len(objectPropertiesData) > 0 {
+		err = DoStatement(ctx, db, objectPropertiesStmt, objectPropertiesData)
+		if err != nil {
+			return fmt.Errorf("failed to insert object properties: %w", err)
+		}
+	}
 	if len(baseClassData) > 0 {
 		err = DoStatement(ctx, db, baseClassStmt, baseClassData)
 		if err != nil {
@@ -581,12 +611,12 @@ func (w *WorkspaceDB) SaveClassesAndTables(ctx context.Context, db *sql.DB, jetR
 		}
 	}
 
-	return w.SaveTables(ctx, db, className2Key, dataProperties2Key, jetRuleModel)
+	return w.SaveTables(ctx, db, className2Key, dataProperties2Key, objectProperties2Key, jetRuleModel)
 }
 
 // Save Tables into workspace db
 func (w *WorkspaceDB) SaveTables(ctx context.Context, db *sql.DB,
-	className2Key, dataProperties2Key map[string]int, jetRuleModel *rete.JetruleModel) error {
+	className2Key, dataProperties2Key, objectProperties2Key map[string]int, jetRuleModel *rete.JetruleModel) error {
 
 	// Load existing tables put them in a set and keep tack of the max key
 	tableName2Key, err := getKeyNameFromTable(ctx, db, "domain_tables", "key", "name")
@@ -600,7 +630,7 @@ func (w *WorkspaceDB) SaveTables(ctx context.Context, db *sql.DB,
 
 	// Insert new tables that are not in tableName2Key
 	tableStmt := "INSERT INTO domain_tables (key, domain_class_key, name) VALUES (?, ?, ?)"
-	columnStmt := "INSERT INTO domain_columns (domain_table_key, data_property_key, name, type, as_array) VALUES (?, ?, ?, ?, ?)"
+	columnStmt := "INSERT INTO domain_columns (domain_table_key, data_property_key, name, type, as_array, is_object) VALUES (?, ?, ?, ?, ?, ?)"
 	tableData := make([][]any, 0, len(jetRuleModel.Tables))
 	columnData := make([][]any, 0)
 
@@ -617,12 +647,23 @@ func (w *WorkspaceDB) SaveTables(ctx context.Context, db *sql.DB,
 			}
 
 			// Table's columns
-			for _, column := range table.Columns {
-				dataPropertyKey, ok := dataProperties2Key[column.ColumnName]
-				if ok {
-					columnData = append(columnData, []any{maxTableKey, dataPropertyKey, column.ColumnName, column.Type, column.AsArray})
+			for i := range table.Columns {
+				column := &table.Columns[i]
+				if column.IsObject {
+					objectPropertyKey, ok := objectProperties2Key[column.ColumnName]
+					if ok {
+						columnData = append(columnData, []any{maxTableKey, objectPropertyKey, column.ColumnName, column.Type, column.AsArray, true})
+					} else {
+						return fmt.Errorf("failed to find object property key for column %s in table %s", column.ColumnName, table.TableName)
+					}
 				} else {
-					return fmt.Errorf("failed to find data property key for column %s in table %s", column.ColumnName, table.TableName)
+					dataPropertyKey, ok := dataProperties2Key[column.ColumnName]
+					if ok {
+						columnData = append(columnData, []any{maxTableKey, dataPropertyKey, column.ColumnName, column.Type, column.AsArray, false})
+					} else {
+						return fmt.Errorf("failed to find data property key for column %s in table %s", column.ColumnName, table.TableName)
+					}
+
 				}
 			}
 		}

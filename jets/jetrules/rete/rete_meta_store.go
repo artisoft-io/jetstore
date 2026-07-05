@@ -15,13 +15,13 @@ type ReteMetaStore struct {
 	AlphaNodes      []*AlphaNode
 	NodeVertices    []*NodeVertex
 	JetStoreConfig  *map[string]string
-	DataPropertyMap map[string]*DataPropertyNode
+	DataPropertyMap map[string]*PropertyNode
 	DomainTableMap  map[string]*TableNode
 }
 
 func NewReteMetaStore(rm *rdf.ResourceManager, mg *rdf.RdfGraph, ltm *LookupTableManager,
 	an []*AlphaNode, nv []*NodeVertex, config *map[string]string,
-	dataPropertyMap map[string]*DataPropertyNode,
+	dataPropertyMap map[string]*PropertyNode,
 	domainTableMap map[string]*TableNode) (*ReteMetaStore, error) {
 	return &ReteMetaStore{
 		ResourceMgr:     rm,
