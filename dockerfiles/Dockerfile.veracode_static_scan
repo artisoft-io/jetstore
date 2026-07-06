@@ -1,38 +1,80 @@
 FROM public.ecr.aws/amazonlinux/amazonlinux:2023
 
-RUN dnf update && dnf install -y \
-  wget tar zip xz gzip
+# gcc/gcc-c++ are REQUIRED: the app uses CGO (github.com/mattn/go-sqlite3 and the
+# first-party C++ rules-engine bridge under jets/bridge).
+# git/ca-certificates/unzip are needed by the Go toolchain and the Veracode CLI.
+RUN dnf update -y && dnf install -y \
+      wget tar zip unzip xz gzip gcc gcc-c++ make git ca-certificates \
+    && dnf clean all
 
-# Install Go
-RUN mkdir -p /usr/local
+# ── Go 1.26.4 (matches go.mod; Veracode lists Go 1.26 and earlier as supported) ─
 RUN wget -q https://go.dev/dl/go1.26.4.linux-amd64.tar.gz \
     && tar -C /usr/local -xzf go1.26.4.linux-amd64.tar.gz \
     && rm go1.26.4.linux-amd64.tar.gz
-ENV PATH=$PATH:/usr/local/go/bin
+ENV PATH=/usr/local/go/bin:/usr/local/bin:$PATH
 RUN go version
 
-# JetStore VeraCode Scan
-# Set working directory
-ENV JETS_SOURCE_DIR=/app
-RUN mkdir -p ${JETS_SOURCE_DIR}
-WORKDIR ${JETS_SOURCE_DIR}
+# ── Veracode CLI (official autopackager) ───────────────────────────────────────
+# Per Veracode's Go packaging guide, CGO applications must be packaged with the
+# `veracode package` command and VERACODE_PACKAGE_GOLANG_GENERATE=on.
+RUN cd /usr/local/bin && curl -fsS https://tools.veracode.com/veracode-cli/install | sh \
+    && veracode version
 
-# Copy source files
-COPY go.mod              ${JETS_SOURCE_DIR}/
-COPY jets                ${JETS_SOURCE_DIR}/jets
-COPY cdk/jetstore_one    ${JETS_SOURCE_DIR}/cdk/jetstore_one
+# Go caches under /jenkins/tmp (container-internal scratch).
+ENV GOCACHE=/jenkins/tmp/go-build
+ENV GOMODCACHE=/jenkins/tmp/go-mod
+# IMPORTANT: the module MUST be staged at /app.
+# jets/bridge/bridge.go hardcodes `#cgo CFLAGS: ... -I/app/jets` (source we cannot
+# edit), and it does `#include "rete/jets_rete_cwrapper.h"`. Only /app/jets/rete/...
+# resolves that header. Staging anywhere else makes CGO fail with
+# "fatal error: rete/jets_rete_cwrapper.h: No such file or directory".
+ENV APP_DIR=/app
+RUN mkdir -p /jenkins/tmp "$GOCACHE" "$GOMODCACHE" "$APP_DIR"
+WORKDIR ${APP_DIR}
 
-# Set CGO environment variables
+# ── Stage the SINGLE Go module we scan (the root module) ───────────────────────
+# Veracode requires exactly one module per upload, so we copy only files that
+# belong to `github.com/artisoft-io/jetstore` and set GOWORK=off so go.work does
+# not pull in the cdk/bootstrap_aws and cdk/vpc_peering sub-modules.
+COPY go.mod                        ${APP_DIR}/
+COPY go.sum                        ${APP_DIR}/
+COPY jets/                         ${APP_DIR}/jets/
+COPY cdk/jetstore_one/lambdas/     ${APP_DIR}/cdk/jetstore_one/lambdas/
+
 ENV GOWORK=off
+# CGO ON — required for mattn/go-sqlite3 and the jets/bridge C++ engine.
 ENV CGO_ENABLED=1
 ENV GOOS=linux
 ENV GOARCH=amd64
 
-RUN go mod tidy
-RUN go mod vendor
-# RUN go get all
-# RUN go mod download
+# Warm the module cache so packaging is faster and fails fast if a dep is missing.
+RUN go mod download
 
-CMD ["sh", "-c", "zip -r /output/jetstore.zip /app && echo 'Archive created: /output/jetstore.zip'"]
-# Build: docker build -t zipper -f dockerfiles/Dockerfile.veracode_static_scan .
-# Run: docker run --rm -v $(pwd)/output:/output zipper
+# Enable client-side CGO code generation during packaging (Veracode Go + CGO guide).
+ENV VERACODE_PACKAGE_GOLANG_GENERATE=on
+
+# ── Packaging script ───────────────────────────────────────────────────────────
+# Runs the Veracode autopackager, then copies the produced Go artifact to the
+# mounted /output as jetstore.zip so the Jenkins pipeline stays unchanged.
+RUN printf '%s\n' \
+  '#!/bin/sh' \
+  'set -e' \
+  'WORK=/jenkins/tmp/verascan' \
+  'rm -rf "$WORK" && mkdir -p "$WORK" /output' \
+  'echo "Running Veracode autopackager (CGO generate=$VERACODE_PACKAGE_GOLANG_GENERATE)..."' \
+  '# --trust: non-interactive; --strict: exit non-zero on build failure;' \
+  '# --verbose: emit full build/compile diagnostics (CLI recommended this).' \
+  'veracode package --source /app --output "$WORK" --trust --strict --verbose' \
+  'ART=$(ls "$WORK"/veracode-auto-pack-*-go.zip 2>/dev/null | head -n1)' \
+  'if [ -z "$ART" ]; then echo "ERROR: autopackager did not produce a Go artifact"; ls -la "$WORK"; exit 1; fi' \
+  'cp "$ART" /output/jetstore.zip' \
+  'echo "Artifact: $ART"' \
+  'echo "Package size: $(du -sh /output/jetstore.zip)"' \
+  'echo "Top-level entries in zip:"; unzip -l /output/jetstore.zip | head -30' \
+  'echo "Done."' \
+  > /package.sh && chmod +x /package.sh
+
+CMD ["/package.sh"]
+
+# Build:  docker build -t jetstore-veracode -f dockerfiles/Dockerfile.veracode_static_scan .
+# Run:    docker run --rm -v /jenkins/tmp/veracode-out:/output jetstore-veracode
