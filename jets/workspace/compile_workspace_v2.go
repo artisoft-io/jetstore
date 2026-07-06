@@ -235,7 +235,7 @@ func compileWorkspaceV2(dbpool *pgxpool.Pool, workspaceControl *rete.WorkspaceCo
 	// Create a map to save them in a lookup-like structure
 	domainClasses := make(map[string]*rete.ClassNode)
 	domainTables := make(map[string]*rete.TableNode)
-	domainProperties := make(map[string]*rete.DataPropertyNode)
+	domainProperties := make(map[string]*rete.PropertyNode)
 	for _, cls := range classes {
 		domainClasses[cls.Name] = cls
 		for _, prop := range cls.DataProperties {

@@ -402,6 +402,23 @@ var sqlInsertStmts = map[string]*SqlInsertDefinition{
 		ColumnKeys: []string{"domain_class_key", "name", "type", "as_array"},
 		Capability: "workspace_ide",
 	},
+	// Object Properties
+	"WORKSPACE/object_properties": {
+		Stmt: `WITH e AS(
+				INSERT INTO $SCHEMA.object_properties 
+				(domain_class_key,name,type,as_array) 
+				VALUES ($1,$2,$3,$4)
+				ON CONFLICT
+				DO NOTHING
+				RETURNING key
+			)
+			SELECT * FROM e
+			UNION
+			SELECT key FROM $SCHEMA.object_properties 
+			WHERE name=$2`,
+		ColumnKeys: []string{"domain_class_key", "name", "type", "as_array"},
+		Capability: "workspace_ide",
+	},
 	// Domain Tables
 	"WORKSPACE/domain_tables": {
 		Stmt: `WITH e AS(

@@ -60,11 +60,12 @@ func (s *JetRuleListener) EnterDefineClassStmt(ctx *parser.DefineClassStmtContex
 		name := EscR(ctx.GetClassName().GetText())
 		s.AddR(name)
 		s.currentClass = &rete.ClassNode{
-			Type:           "class",
-			Name:           name,
-			BaseClasses:    []string{},
-			DataProperties: []rete.DataPropertyNode{},
-			SourceFileName: s.currentRuleFileName,
+			Type:             "class",
+			Name:             name,
+			BaseClasses:      []string{},
+			DataProperties:   []rete.PropertyNode{},
+			ObjectProperties: []rete.PropertyNode{},
+			SourceFileName:   s.currentRuleFileName,
 		}
 	}
 }
@@ -99,13 +100,29 @@ func (s *JetRuleListener) ExitDataPropertyDefinitions(ctx *parser.DataPropertyDe
 	if ctx.GetDataPName() != nil && ctx.GetDataPType() != nil {
 		name := EscR(ctx.GetDataPName().GetText())
 		s.AddR(name)
-		dp := rete.DataPropertyNode{
+		dp := rete.PropertyNode{
 			Type:      ctx.GetDataPType().GetText(),
 			Name:      name,
 			ClassName: s.currentClass.Name,
 			AsArray:   ctx.GetArray() != nil,
 		}
 		s.currentClass.DataProperties = append(s.currentClass.DataProperties, dp)
+	}
+}
+
+// ExitObjectPropertyDefinitions is called when production objectPropertyDefinitions is exited.
+func (s *JetRuleListener) ExitObjectPropertyDefinitions(ctx *parser.ObjectPropertyDefinitionsContext) {
+	if ctx.GetObjectPName() != nil {
+		name := EscR(ctx.GetObjectPName().GetText())
+		s.AddR(name)
+		dp := rete.PropertyNode{
+			Type:      "resource",
+			Name:      name,
+			ClassName: s.currentClass.Name,
+			AsArray:   ctx.GetArray() != nil,
+			IsObject:  true,
+		}
+		s.currentClass.ObjectProperties = append(s.currentClass.ObjectProperties, dp)
 	}
 }
 
@@ -251,7 +268,7 @@ func (s *JetRuleListener) ExitNamedResourceStmt(ctx *parser.NamedResourceStmtCon
 	switch {
 	case ctx.GetResCtx().GetResVal() != nil:
 		value = StripQuotes(ctx.GetResCtx().GetResVal().GetText())
-		if after, ok :=strings.CutPrefix(value, "_0:"); ok  {
+		if after, ok := strings.CutPrefix(value, "_0:"); ok {
 			value = after
 			typ = "volatile_resource"
 		} else {

@@ -3,6 +3,7 @@ package compiler
 import (
 	"encoding/json"
 	"fmt"
+	"os"
 	"testing"
 )
 
@@ -27,6 +28,12 @@ func TestJetRuleListener_SimpleFile(t *testing.T) {
 }
 
 func TestJetRuleListener_Classes(t *testing.T) {
+	// delete file "./testdata/workspace.db" if it exists
+	if _, err := os.Stat("./testdata/workspace.db"); err == nil {
+		if err := os.Remove("./testdata/workspace.db"); err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+	}
 
 	jrCompiler, err := CompileJetRuleFiles("./testdata", "classes.jr", true, true, false)
 	if err != nil {

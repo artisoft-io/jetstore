@@ -1,12 +1,18 @@
 # =======================================================================================
 # Class
 # ---------------------------------------------------------------------------------------
+# Define the rules version
+@JetCompilerDirective JWS_VERSION = "0.1.0";
 
 class ClassA {
   $base_classes = [owl:Thing],
   $data_properties = [
     someProperty       as int,
     someValue          as resource
+  ],
+  $object_properties = [
+    objProperty1       as resource,
+    objProperty2       as array of resource
   ],
   $as_table = true
 };

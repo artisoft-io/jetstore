@@ -31,6 +31,17 @@ CREATE TABLE IF NOT EXISTS data_properties (
   UNIQUE (name)
 );
 
+-- object_properties
+CREATE TABLE IF NOT EXISTS object_properties (
+  key INTEGER PRIMARY KEY,
+  domain_class_key INTEGER NOT NULL,
+  name TEXT NOT NULL,
+  type TEXT NOT NULL,
+  as_array BOOL DEFAULT FALSE,
+  -- domain property name must be unique in workspace
+  UNIQUE (name)
+);
+
 -- domain_classes
 CREATE TABLE IF NOT EXISTS domain_classes (
   key INTEGER PRIMARY KEY,
@@ -48,9 +59,10 @@ CREATE TABLE IF NOT EXISTS domain_columns (
   name TEXT NOT NULL,
   type TEXT NOT NULL,
   as_array BOOL DEFAULT FALSE,
+  is_object BOOL DEFAULT FALSE,
   is_grouping BOOL DEFAULT FALSE,
   -- a column must appear only once in a table
-  UNIQUE (domain_table_key, data_property_key),
+  UNIQUE (domain_table_key, data_property_key, is_object),
   -- a column name must be unique for a table
   UNIQUE (domain_table_key, name)
 );

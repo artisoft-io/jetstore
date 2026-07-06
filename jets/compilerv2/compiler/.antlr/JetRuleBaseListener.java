@@ -148,6 +148,18 @@ public class JetRuleBaseListener implements JetRuleListener {
 	 *
 	 * <p>The default implementation does nothing.</p>
 	 */
+	@Override public void enterObjectPropertyDefinitions(JetRuleParser.ObjectPropertyDefinitionsContext ctx) { }
+	/**
+	 * {@inheritDoc}
+	 *
+	 * <p>The default implementation does nothing.</p>
+	 */
+	@Override public void exitObjectPropertyDefinitions(JetRuleParser.ObjectPropertyDefinitionsContext ctx) { }
+	/**
+	 * {@inheritDoc}
+	 *
+	 * <p>The default implementation does nothing.</p>
+	 */
 	@Override public void enterDataPropertyType(JetRuleParser.DataPropertyTypeContext ctx) { }
 	/**
 	 * {@inheritDoc}

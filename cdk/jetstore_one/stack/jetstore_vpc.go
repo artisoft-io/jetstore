@@ -79,7 +79,7 @@ func LookupVpcEndpointsSecurityGroup(stack awscdk.Stack, sgId string) awsec2.ISe
 		log.Fatal("Failed to lookup security group, please check JETS_VPC_ENDPOINTS_SG_ID")
 	}
 	log.Printf("Resolved VPC Endpoints Security Group '%s'\n", *sg.SecurityGroupId())
-	log.Printf("Egress rules are %T, %v '%s'\n", sg.ToEgressRuleConfig(), sg.ToEgressRuleConfig(), sg.ToEgressRuleConfig())
+	// log.Printf("Egress rules are %T, %v\n", sg.ToEgressRuleConfig(), sg.ToEgressRuleConfig())
 	return sg
 }
 

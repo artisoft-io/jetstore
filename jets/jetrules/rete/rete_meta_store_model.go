@@ -170,17 +170,17 @@ func (rt *RuleTerm) UniqueKey() string {
 // Value is the resource key for identifier.
 // DbKey is the database key for the expression node (not serialized).
 type ExpressionNode struct {
-	Type          string          `json:"type,omitempty"`
-	Op            string          `json:"op,omitempty"`
-	Arg           *ExpressionNode `json:"arg,omitzero"`
-	Lhs           *ExpressionNode `json:"lhs,omitempty"`
-	Rhs           *ExpressionNode `json:"rhs,omitempty"`
-	Value         int             `json:"value,omitempty"`
-	DbKey         int             `json:"-"`
+	Type  string          `json:"type,omitempty"`
+	Op    string          `json:"op,omitempty"`
+	Arg   *ExpressionNode `json:"arg,omitzero"`
+	Lhs   *ExpressionNode `json:"lhs,omitempty"`
+	Rhs   *ExpressionNode `json:"rhs,omitempty"`
+	Value int             `json:"value,omitempty"`
+	DbKey int             `json:"-"`
 }
 
 func (nd *ExpressionNode) UniqueKey(resourceKeyToDbKey map[int]int) string {
-	var  k1, k2 int
+	var k1, k2 int
 	switch nd.Type {
 	case "unary":
 		if nd.Arg != nil {
@@ -216,20 +216,22 @@ type BetaVarNode struct {
 }
 
 type ClassNode struct {
-	Type           string             `json:"type,omitempty"`
-	Name           string             `json:"name,omitempty"`
-	BaseClasses    []string           `json:"base_classes,omitempty"`
-	DataProperties []DataPropertyNode `json:"data_properties,omitempty"`
-	SourceFileName string             `json:"source_file_name,omitempty"`
-	AsTable        bool               `json:"as_table,omitzero"`
-	SubClasses     []string           `json:"sub_classes,omitempty"`
+	Type             string         `json:"type,omitempty"`
+	Name             string         `json:"name,omitempty"`
+	BaseClasses      []string       `json:"base_classes,omitempty"`
+	DataProperties   []PropertyNode `json:"data_properties,omitempty"`
+	ObjectProperties []PropertyNode `json:"object_properties,omitempty"`
+	SourceFileName   string         `json:"source_file_name,omitempty"`
+	AsTable          bool           `json:"as_table,omitzero"`
+	SubClasses       []string       `json:"sub_classes,omitempty"`
 }
 
-type DataPropertyNode struct {
+type PropertyNode struct {
 	Type      string `json:"type,omitempty"`
 	Name      string `json:"name,omitempty"`
 	ClassName string `json:"class_name,omitempty"`
 	AsArray   bool   `json:"as_array,omitzero"`
+	IsObject  bool   `json:"is_object,omitzero"`
 }
 
 type TableNode struct {
@@ -241,8 +243,9 @@ type TableNode struct {
 }
 
 type TableColumnNode struct {
-	Type    string `json:"type,omitempty"`
-	AsArray bool   `json:"as_array,omitzero"`
+	Type     string `json:"type,omitempty"`
+	AsArray  bool   `json:"as_array,omitzero"`
+	IsObject bool   `json:"is_object,omitzero"`
 	// PropertyName string `json:"property_name,omitempty"`
 	ColumnName string `json:"column_name,omitempty"`
 }

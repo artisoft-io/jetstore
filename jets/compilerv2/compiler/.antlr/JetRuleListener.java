@@ -117,6 +117,16 @@ public interface JetRuleListener extends ParseTreeListener {
 	 */
 	void exitDataPropertyDefinitions(JetRuleParser.DataPropertyDefinitionsContext ctx);
 	/**
+	 * Enter a parse tree produced by {@link JetRuleParser#objectPropertyDefinitions}.
+	 * @param ctx the parse tree
+	 */
+	void enterObjectPropertyDefinitions(JetRuleParser.ObjectPropertyDefinitionsContext ctx);
+	/**
+	 * Exit a parse tree produced by {@link JetRuleParser#objectPropertyDefinitions}.
+	 * @param ctx the parse tree
+	 */
+	void exitObjectPropertyDefinitions(JetRuleParser.ObjectPropertyDefinitionsContext ctx);
+	/**
 	 * Enter a parse tree produced by {@link JetRuleParser#dataPropertyType}.
 	 * @param ctx the parse tree
 	 */

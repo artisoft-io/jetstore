@@ -169,3 +169,4 @@ jets/cmds/cpipes_server/cpipes_server
 jets/purge_database/purge_database
 jets/run_reports/run_reports
 package-lock.json
+jets/compilerv2/compiler/.venv

@@ -150,6 +150,9 @@ func (tableSpec *DomainTable) UpdateDomainTableSchema(dbpool *pgxpool.Pool, drop
 	// Add column definitions
 	for icol := range tableSpec.Columns {
 		col := &tableSpec.Columns[icol]
+		if col.ColumnInfo.IsObject {
+			continue
+		}
 		columnDef := schema.ColumnDefinition{
 			ColumnName: col.ColumnInfo.ColumnName,
 			DataType:   col.ColumnInfo.Type,

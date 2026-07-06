@@ -232,6 +232,7 @@ type CsvSourceSpec struct {
 // DomainKeys provide the ability to configure the domain keys in the cpipes config document.
 // DomainKeysSpec is parsed version of DomainKeys or the spec from the domain_keys_registry table.
 // DomainKeysSpec is derived from DomainKeys when provided.
+// Encoding is used to specify the entity encoding: json, toon, row (default).
 // columnsMap is added in StartComputePipes
 type ChannelSpec struct {
 	Name                 string          `json:"name"`
@@ -242,6 +243,7 @@ type ChannelSpec struct {
 	SameColumnsAsInput   bool            `json:"same_columns_as_input,omitzero"`
 	DomainKeys           map[string]any  `json:"domain_keys,omitempty"`
 	DomainKeysInfo       *DomainKeysSpec `json:"domain_keys_spec,omitzero"`
+	Encoding             string          `json:"encoding,omitempty"`
 	columnsMap           *map[string]int
 }
 

@@ -41,6 +41,9 @@ type JetRuleListener interface {
 	// EnterDataPropertyDefinitions is called when entering the dataPropertyDefinitions production.
 	EnterDataPropertyDefinitions(c *DataPropertyDefinitionsContext)
 
+	// EnterObjectPropertyDefinitions is called when entering the objectPropertyDefinitions production.
+	EnterObjectPropertyDefinitions(c *ObjectPropertyDefinitionsContext)
+
 	// EnterDataPropertyType is called when entering the dataPropertyType production.
 	EnterDataPropertyType(c *DataPropertyTypeContext)
 
@@ -220,6 +223,9 @@ type JetRuleListener interface {
 
 	// ExitDataPropertyDefinitions is called when exiting the dataPropertyDefinitions production.
 	ExitDataPropertyDefinitions(c *DataPropertyDefinitionsContext)
+
+	// ExitObjectPropertyDefinitions is called when exiting the objectPropertyDefinitions production.
+	ExitObjectPropertyDefinitions(c *ObjectPropertyDefinitionsContext)
 
 	// ExitDataPropertyType is called when exiting the dataPropertyType production.
 	ExitDataPropertyType(c *DataPropertyTypeContext)
