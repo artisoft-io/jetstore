@@ -398,6 +398,10 @@ func DownloadFromS3(bucket, region, objKey string, fileHd *os.File) (int64, erro
 		Bucket:   &bucket,
 		Key:      &objKey,
 		WriterAt: fileHd,
+	}, func(o *transfermanager.Options) {
+		o.PartSizeBytes = 10 * 1024 * 1024 // 10 MB
+		o.Concurrency = 10
+		o.GetObjectType = types.GetObjectParts
 	})
 	if err != nil {
 		return 0, fmt.Errorf("failed to download file from s3 bucket '%s': %v", bucket, err)
@@ -415,12 +419,33 @@ func NewDownloader(region string) (*transfermanager.Client, error) {
 
 // Use a shared Downloader to download obj from s3 into fileHd (must be writable), return size of download in bytes
 func DownloadFromS3v2(downloader *transfermanager.Client, bucket, objKey string, byteRange *string, fileHd *os.File) (int64, error) {
-	doo, err := downloader.DownloadObject(context.TODO(), &transfermanager.DownloadObjectInput{
-		Bucket:   &bucket,
-		Key:      &objKey,
-		Range:    byteRange,
-		WriterAt: fileHd,
-	})
+
+	var doo *transfermanager.DownloadObjectOutput
+	var err error
+	if byteRange != nil {
+		log.Printf("Downloading s3 object '%s' from bucket '%s' with byte range '%s'", objKey, bucket, *byteRange)
+		doo, err = downloader.DownloadObject(context.TODO(), &transfermanager.DownloadObjectInput{
+			Bucket:   &bucket,
+			Key:      &objKey,
+			Range:    byteRange,
+			WriterAt: fileHd,
+		}, func(o *transfermanager.Options) {
+			o.PartSizeBytes = 10 * 1024 * 1024 // 10 MB
+			o.Concurrency = 10
+			o.GetObjectType = types.GetObjectRanges
+		})
+	} else {
+		log.Printf("Downloading s3 object '%s' from bucket '%s'", objKey, bucket)
+		doo, err = downloader.DownloadObject(context.TODO(), &transfermanager.DownloadObjectInput{
+			Bucket:   &bucket,
+			Key:      &objKey,
+			WriterAt: fileHd,
+		}, func(o *transfermanager.Options) {
+			o.PartSizeBytes = 10 * 1024 * 1024 // 10 MB
+			o.Concurrency = 10
+			o.GetObjectType = types.GetObjectParts
+		})
+	}
 	if err != nil {
 		return 0, fmt.Errorf("failed to download file from s3 bucket '%s': %v", bucket, err)
 	}
@@ -442,16 +467,37 @@ func DownloadFromS3v2(downloader *transfermanager.Client, bucket, objKey string,
 //	buf := make([]byte, n)
 //	// wrap with aws.WriteAtBuffer
 //	w := manager.NewWriteAtBuffer(buf)
-func DownloadFromS3WithRetry(downloader *transfermanager.Client, bucket, objKey string, byteRange *string, w io.WriterAt) (n int64, err error) {
+func DownloadFromS3WithRetry(downloader *transfermanager.Client, bucket, objKey string, byteRange *string, w io.WriterAt) (int64, error) {
+	var (
+		n   int64
+		err error
+	)
 	retry := 0
 do_retry:
 	// Download the object
-	doo, err := downloader.DownloadObject(context.TODO(), &transfermanager.DownloadObjectInput{
-		Bucket:   &bucket,
-		Key:      &objKey,
-		Range:    byteRange,
-		WriterAt: w,
-	})
+	var doo *transfermanager.DownloadObjectOutput
+	if byteRange != nil {
+		doo, err = downloader.DownloadObject(context.TODO(), &transfermanager.DownloadObjectInput{
+			Bucket:   &bucket,
+			Key:      &objKey,
+			Range:    byteRange,
+			WriterAt: w,
+		}, func(o *transfermanager.Options) {
+			o.PartSizeBytes = 10 * 1024 * 1024 // 10 MB
+			o.Concurrency = 10
+			o.GetObjectType = types.GetObjectRanges
+		})
+	} else {
+		doo, err = downloader.DownloadObject(context.TODO(), &transfermanager.DownloadObjectInput{
+			Bucket:   &bucket,
+			Key:      &objKey,
+			WriterAt: w,
+		}, func(o *transfermanager.Options) {
+			o.PartSizeBytes = 10 * 1024 * 1024 // 10 MB
+			o.Concurrency = 10
+			o.GetObjectType = types.GetObjectParts
+		})
+	}
 	if err != nil {
 		if retry < 6 {
 			retry++
@@ -496,7 +542,10 @@ do_retry:
 		putObjInput.ServerSideEncryption = types.ServerSideEncryptionAwsKms
 		putObjInput.SSEKMSKeyID = &kmsKeyArn
 	}
-	_, err = uploader.UploadObject(context.TODO(), putObjInput)
+	_, err = uploader.UploadObject(context.TODO(), putObjInput, func(o *transfermanager.Options) {
+		o.PartSizeBytes = 64 * 1024 * 1024
+		o.Concurrency = 10
+	})
 	if err != nil {
 		if retry < 6 {
 			retry++
@@ -533,6 +582,10 @@ do_retry:
 		Bucket:   &jetstoreOwnBucket,
 		Key:      &objKey,
 		WriterAt: w,
+	}, func(o *transfermanager.Options) {
+		o.PartSizeBytes = 10 * 1024 * 1024 // 10 MB
+		o.Concurrency = 10
+		o.GetObjectType = types.GetObjectParts
 	})
 	if err != nil {
 		if retry < 6 {
