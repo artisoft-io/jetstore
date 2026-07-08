@@ -343,8 +343,8 @@ func assignShardInfo(s3Objects []*awsi.S3Object, shardSize, maxShardSize, offset
 			var end int64
 			reminder := obj.Size
 			for reminder > 0 {
-				if start+shardSize-currentShardSize >= obj.Size {
-					end = obj.Size
+				if start+shardSize-currentShardSize >= obj.Size - 1 {
+					end = obj.Size -1
 					nextStart = 0
 					reminder = 0
 				} else {
