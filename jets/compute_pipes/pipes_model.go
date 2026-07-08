@@ -229,10 +229,12 @@ type CsvSourceSpec struct {
 // the domain class.
 // When direct_properties_only is true, only take the data properties
 // of the class, not including the properties of the parent classes.
+// ClassName is used to get the columns from the local workspace, and get domain key from registry, and is optional.
+// Env variables (from mainInputSchemaProvider.Env) can be used in the class_name, e.g., hc:${ENTITY}.
 // DomainKeys provide the ability to configure the domain keys in the cpipes config document.
 // DomainKeysSpec is parsed version of DomainKeys or the spec from the domain_keys_registry table.
 // DomainKeysSpec is derived from DomainKeys when provided.
-// Encoding is used to specify the entity encoding: json, toon, row (default).
+// EntityEncoding is used to specify the entity encoding: json, toon, row (default).
 // columnsMap is added in StartComputePipes
 type ChannelSpec struct {
 	Name                 string          `json:"name"`
@@ -243,7 +245,7 @@ type ChannelSpec struct {
 	SameColumnsAsInput   bool            `json:"same_columns_as_input,omitzero"`
 	DomainKeys           map[string]any  `json:"domain_keys,omitempty"`
 	DomainKeysInfo       *DomainKeysSpec `json:"domain_keys_spec,omitzero"`
-	Encoding             string          `json:"encoding,omitempty"`
+	EntityEncoding       string          `json:"entity_encoding,omitempty"`
 	columnsMap           *map[string]int
 }
 
@@ -426,6 +428,9 @@ type SchemaColumnSpec struct {
 	Precision *int   `json:"precision,omitzero"` // for fixed_width
 }
 
+// TableSpec specifies the output table configuration
+// Key is the table key for reference by compute pipes steps
+// Name is the table name for reference by compute pipes steps, env var replacement used for table name (e.g., ${CLIENT}_${OBJECT_TYPE})
 // ChannelSpecName specify the channel spec.
 // Column provides metadata info
 type TableSpec struct {

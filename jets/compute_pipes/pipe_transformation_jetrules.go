@@ -29,7 +29,6 @@ type JetrulesTransformationPipe struct {
 // Encoding: json, toon, row (default)
 type JetrulesOutputChan struct {
 	ClassName        string
-	Encoding         string
 	ColumnEvaluators []TransformationColumnEvaluator
 	OutputCh         *OutputChannel
 }
@@ -146,7 +145,6 @@ func (ctx *BuilderContext) NewJetrulesTransformationPipe(source *InputChannel, _
 			ClassName:        outCh.Config.ClassName,
 			ColumnEvaluators: columnEvaluators,
 			OutputCh:         outCh,
-			Encoding:         outCh.Config.Encoding,
 		})
 	}
 

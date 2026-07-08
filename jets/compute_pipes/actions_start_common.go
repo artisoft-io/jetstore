@@ -357,6 +357,8 @@ func (args *StartComputePipesArgs) shardingInitializeCpipes(ctx context.Context,
 	for i := range cpipesStartup.CpConfig.Channels {
 		chSpec := &cpipesStartup.CpConfig.Channels[i]
 		if len(chSpec.ClassName) > 0 {
+			// Apply env var substitution to the class name
+			chSpec.ClassName = utils.ReplaceEnvVars(chSpec.ClassName, mainInputSchemaProvider.Env)
 			// Get the columns from the local workspace
 			columns, err := GetDomainProperties(chSpec.ClassName, chSpec.DirectPropertiesOnly)
 			if err != nil {

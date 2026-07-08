@@ -321,7 +321,7 @@ func (ctx *JrPoolWorker) executeRules(inputRecords *[]any,
 	// Extract data from the rdf session based on class names
 	for _, outChannel := range ctx.outputChannels {
 
-		switch outChannel.OutputCh.Config.Encoding {
+		switch outChannel.OutputCh.Config.EntityEncoding {
 		case "toon":
 			err = ctx.extractSessionData(rdfSession, outChannel, "toon")
 		case "json":
