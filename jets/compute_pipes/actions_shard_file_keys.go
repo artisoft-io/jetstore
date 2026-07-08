@@ -25,6 +25,7 @@ type ShardFileKeyResult struct {
 	clusterShardingInfo *ClusterShardingInfo
 	nbrShardingNodes    int
 	firstKey            string
+	firstKeyFileSize		int64
 	clusterSpec         *ClusterShardingSpec
 }
 
@@ -207,6 +208,7 @@ func ShardFileKeys(exeCtx context.Context, dbpool *pgxpool.Pool, baseFileKey str
 	}
 
 	result.firstKey = shardRegistryRows[0][1].(string)
+	result.firstKeyFileSize = shardRegistryRows[0][2].(int64)
 
 	if result.clusterSpec.S3WorkerPoolSize == 0 {
 		result.clusterSpec.S3WorkerPoolSize = clusterConfig.S3WorkerPoolSize

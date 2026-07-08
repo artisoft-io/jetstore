@@ -27,7 +27,7 @@ type FetchFileInfoResult struct {
 }
 
 // Main function
-func FetchHeadersAndDelimiterFromFile(externalBucket, fileKey, fileFormat, compression, encoding string, delimitor rune,
+func FetchHeadersAndDelimiterFromFile(externalBucket, fileKey string, firstKeyFileSize int64, fileFormat, compression, encoding string, delimitor rune,
 	multiColumnsInput, noQuotes, fetchHeaders, fetchDelimitor, fetchEncoding, detectCrAsEol bool, fileFormatDataJson string) (*FetchFileInfoResult, error) {
 	var fileHd *os.File
 	var err error
@@ -60,7 +60,7 @@ func FetchHeadersAndDelimiterFromFile(externalBucket, fileKey, fileFormat, compr
 	var byteRange *string
 	switch fileFormat {
 	case "csv", "headerless_csv", "fixed_width":
-		if compression == "none" {
+		if compression == "none" && firstKeyFileSize > 50000 {
 			s := "bytes=0-50000"
 			byteRange = &s
 		}

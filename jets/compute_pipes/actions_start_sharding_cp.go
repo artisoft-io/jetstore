@@ -108,7 +108,8 @@ func (args *StartComputePipesArgs) StartShardingComputePipes(ctx context.Context
 	cpipesStartup.EnvSettings["nbr_partitions"] = shardResult.clusterShardingInfo.NbrPartitions
 	cpipesStartup.EnvSettings["$NBR_PARTITIONS"] = shardResult.clusterShardingInfo.NbrPartitions
 
-	log.Printf("%s SHARDING using %d nodes for total size %.4f gb", args.SessionId, shardResult.nbrShardingNodes, float64(cpipesStartup.EnvSettings["total_file_size_gb"].(float64)))
+	log.Printf("%s SHARDING using %d nodes for total size %.4f gb (%d bytes)", args.SessionId, shardResult.nbrShardingNodes, 
+		float64(cpipesStartup.EnvSettings["total_file_size_gb"].(float64)), shardResult.clusterShardingInfo.TotalFileSize)
 
 	stepId := 0
 	pipeConfig, stepId, err := cpipesStartup.CpConfig.GetComputePipes(stepId, cpipesStartup.EnvSettings)
@@ -156,7 +157,7 @@ func (args *StartComputePipesArgs) StartShardingComputePipes(ctx context.Context
 		if fetchHeaders || fetchDelimitor || detectEncoding || detectCrAsEol {
 			// Get the input columns / column separator from the first file
 			sp := mainInputSchemaProvider
-			fileInfo, err := FetchHeadersAndDelimiterFromFile(sp.Bucket, shardResult.firstKey, sp.Format,
+			fileInfo, err := FetchHeadersAndDelimiterFromFile(sp.Bucket, shardResult.firstKey, shardResult.firstKeyFileSize, sp.Format,
 				sp.Compression, sp.Encoding, sp.Delimiter, sp.MultiColumnsInput, sp.NoQuotes, fetchHeaders, fetchDelimitor,
 				detectEncoding, detectCrAsEol, sp.InputFormatDataJson)
 			if err != nil {
