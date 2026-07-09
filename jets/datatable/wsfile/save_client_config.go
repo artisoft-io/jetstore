@@ -192,7 +192,11 @@ func getColumns(jetsSchema *map[string]schema.TableDefinition, skipKeyColumn boo
 	}
 	for i := range tableDef.Columns {
 		if tableDef.Columns[i].ColumnName != "last_update" && (!skipKeyColumn || tableDef.Columns[i].ColumnName != "key") {
-			result = append(result, tableDef.Columns[i].ColumnName)
+			if tableDef.Columns[i].IsArray {
+				result = append(result, tableDef.Columns[i].ColumnName+"::text")
+			} else {
+				result = append(result, tableDef.Columns[i].ColumnName)
+			}
 		}
 	}
 	return result, nil
