@@ -17,6 +17,15 @@ class jets:Entity {
   $as_table = false
 };
 
+# Class to use when encoding as toon or json
+class json:Data {
+  $base_classes = [jets:Entity],
+  $data_properties = [
+    json:data                   as text
+  ],
+  $as_table = true
+};
+
 # Marker class to indicate the entity is a mapped entity
 # This is used by the server process to ensure we extract only mapped entities
 class jets:InputRecord {

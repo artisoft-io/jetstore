@@ -15,6 +15,7 @@ INSERT INTO jetsapi.mapping_function_registry (function_name, is_argument_requir
   ('concat_with',            '1'),
   ('concat',                 '1'),
   ('find_and_replace',       '1'),
+  ('scrub_characters',       '1'),
   ('format_phone',           '0'),
   ('ndc10_to_11',            '0'),
   ('overpunch_number',       '1'),

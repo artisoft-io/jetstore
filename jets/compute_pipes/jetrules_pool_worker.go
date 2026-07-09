@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"hash/fnv"
 	"log"
 	"maps"
 	"runtime/debug"
@@ -162,6 +161,7 @@ func (ctx *JrPoolWorker) executeRules(inputRecords *[]any,
 	var reteSession JetReteSession
 	var inputAsserted bool
 	var ruleFileNames []string
+	// var ctor TripleIterator
 	isDebug := ctx.config.IsDebug
 	// Create the rdf session
 	rdfSession, err := re.NewRdfSession()
@@ -302,21 +302,21 @@ func (ctx *JrPoolWorker) executeRules(inputRecords *[]any,
 		reteSession.Release()
 	}
 
-	// Print rdf session if in debug mode
-	if isDebug {
-		log.Println("Execute Rules Completed")
-		// 	//************************
-		// 	log.Println("************************")
-		// 	ctor := rdfSession.Find()
-		// 	for !ctor.IsEnd() {
-		// 		s := ctor.GetSubject()
-		// 		p := ctor.GetPredicate()
-		// 		o := ctor.GetObject()
-		// 		log.Printf("triple: (%v, %v, %v)", s, p, o)
-		// 		ctor.Next()
-		// 	}
-		// 	log.Println("************************")
-	}
+	// // Print rdf session if in debug mode
+	// // if isDebug {
+	// 	log.Println("Execute Rules Completed")
+	// 		//************************
+	// 		log.Println("************************")
+	// 		ctor = rdfSession.Find()
+	// 		for !ctor.IsEnd() {
+	// 			s := ctor.GetSubject()
+	// 			p := ctor.GetPredicate()
+	// 			o := ctor.GetObject()
+	// 			log.Printf("triple: (%v, %v, %v)", s, p, o)
+	// 			ctor.Next()
+	// 		}
+	// 		log.Println("************************")
+	// // }
 
 	// Extract data from the rdf session based on class names
 	for _, outChannel := range ctx.outputChannels {
@@ -398,6 +398,7 @@ func keepObjectForCurrentSourcePeriod(rdfSession JetRdfSession, subject RdfNode)
 			keepObj = false
 		}
 	}
+	log.Printf("*** keepObject? subject: %s, sourcePeriod: %d, keepObj: %v", subject, sourcePeriod, keepObj)
 	return keepObj, err
 }
 
@@ -465,24 +466,54 @@ func (ctx *JrPoolWorker) extractLiteralValue(rdfSession JetRdfSession, subject, 
 	return data
 }
 
+// Navigate recursively the object properties and extract their values into a map[string]any
+// excluding the properties starting with _0:
 func (ctx *JrPoolWorker) extractObjectValue(rdfSession JetRdfSession, subject RdfNode,
 	entityObj map[string]any, currentSourcePeriod int, outChannel *JetrulesOutputChan) {
-	rm := rdfSession.GetResourceManager()
-	columns := outChannel.OutputCh.Config.Columns
-	// Start with the data properties
-	for _, p := range columns {
-		data := ctx.extractLiteralValue(rdfSession, subject, rm.NewResource(p), currentSourcePeriod, outChannel)
-		entityObj[p] = data
-	}
-	// The obj properties are not in the columns, so we need to extract them separately
-	for prop := range ctx.objectProperties {
-		itor := rdfSession.FindSP(subject, rm.NewResource(prop))
-		for !itor.IsEnd() {
-			subEntityObj := make(map[string]any)
-			entityObj[prop] = subEntityObj
-			ctx.extractObjectValue(rdfSession, itor.GetObject(), subEntityObj, currentSourcePeriod, outChannel)
+	itor := rdfSession.FindS(subject)
+	for !itor.IsEnd() {
+		log.Printf("*** Triple (%s, %s, %s)", itor.GetSubject(), itor.GetPredicate(), itor.GetObject())
+		prop := itor.GetPredicate()
+		if strings.HasPrefix(prop.String(), "_0:") {
 			itor.Next()
+			continue
 		}
+		// Check if it's an obj property
+		jtor := rdfSession.FindS(itor.GetObject())
+		isObjProperty := false
+		for !jtor.IsEnd() {
+			isObjProperty = true
+			subEntityObj := make(map[string]any)
+			addToEntityObj(entityObj, prop.String(), subEntityObj)
+			ctx.extractObjectValue(rdfSession, jtor.GetSubject(), subEntityObj, currentSourcePeriod, outChannel)
+			jtor.Next()
+		}
+		if !isObjProperty {
+			// It's a literal property, extract its value
+			addToEntityObj(entityObj, prop.String(), itor.GetObject().Value())
+		}
+		itor.Next()
+	}
+}
+
+func addToEntityObj(entityObj map[string]any, prop string, value any) {
+	if value == nil {
+		return
+	}
+	if existing, ok := entityObj[prop]; ok {
+		// If existing is any, then create a slice to hold current and existing values
+		// If existing is []any then add to it
+		switch existingVal := existing.(type) {
+		case []any:
+			existingVal = append(existingVal, value)
+			entityObj[prop] = existingVal
+		case nil:
+			entityObj[prop] = value
+		default:
+			entityObj[prop] = []any{existingVal, value}
+		}
+	} else {
+		entityObj[prop] = value
 	}
 }
 
@@ -500,7 +531,7 @@ func (ctx *JrPoolWorker) extractSessionData(rdfSession JetRdfSession,
 	currentSourcePeriod := ctx.config.CurrentSourcePeriod
 
 	// Extract entity by rdf type
-	// log.Println("*** Pool Worker == Extracting entities of class", outChannel.ClassName)
+	log.Printf("*** Pool Worker == Extracting entities of class %s, encoding %s", outChannel.ClassName, encoding)
 	ctor := rdfSession.FindSPO(nil, jr.Rdf__type, rm.NewResource(outChannel.ClassName))
 	for !ctor.IsEnd() {
 		subject := ctor.GetSubject()
@@ -512,13 +543,15 @@ func (ctx *JrPoolWorker) extractSessionData(rdfSession JetRdfSession,
 		}
 		// extract entity if we keep it (i.e. not an historical entity)
 		if keepObj {
-			entityRow := make([]any, len(columns))
+			log.Printf("*** Extracting entity for subject %s", subject)
+			entityRow := make([]any, len(*outChannel.OutputCh.Columns))
 			switch encoding {
 			case "toon", "json":
 				// For toon and json encoding, we extract the entire object as a map[string]any
+				log.Printf("*** Extracting json/toon obj - start")
 				entityObj := make(map[string]any)
-				entityRow[0] = entityObj
 				ctx.extractObjectValue(rdfSession, subject, entityObj, currentSourcePeriod, outChannel)
+				log.Printf("*** Extracting json/toon obj - end")
 				if encoding == "toon" {
 					// For toon encoding, we need to convert the map to a toon string
 					toonBytes, err := togo.Marshal(entityObj)
@@ -527,7 +560,8 @@ func (ctx *JrPoolWorker) extractSessionData(rdfSession JetRdfSession,
 						log.Println(err)
 						return err
 					}
-					entityRow[0] = string(toonBytes)
+					log.Printf("*** toon encoded obj:\n%s", string(toonBytes))
+					entityRow[(*outChannel.OutputCh.Columns)["json:data"]] = string(toonBytes)
 				} else {
 					// For json encoding, we need to convert the map to a json string
 					jsonBytes, err := json.Marshal(entityObj)
@@ -536,10 +570,12 @@ func (ctx *JrPoolWorker) extractSessionData(rdfSession JetRdfSession,
 						log.Println(err)
 						return err
 					}
-					entityRow[0] = string(jsonBytes)
+					log.Printf("*** json encoded obj:\n%s", string(jsonBytes))
+					entityRow[(*outChannel.OutputCh.Columns)["json:data"]] = string(jsonBytes)
 				}
 
 			default:
+				log.Printf("*** Extracting DEFAULT encoding for subject %s", subject)
 				for i, p := range columns {
 					data = ctx.extractLiteralValue(rdfSession, subject, rm.NewResource(p), currentSourcePeriod, outChannel)
 					entityRow[i] = data
@@ -558,7 +594,7 @@ func (ctx *JrPoolWorker) extractSessionData(rdfSession JetRdfSession,
 				}
 			}
 			// Send the record to output channel
-			// log.Println("*** Extracted ENTITY_ROW:", entityRow)
+			log.Printf("*** Extracted ENTITY_ROW: %v", entityRow)
 			select {
 			case outChannel.OutputCh.Channel <- entityRow:
 				entityCount += 1
@@ -570,6 +606,7 @@ func (ctx *JrPoolWorker) extractSessionData(rdfSession JetRdfSession,
 		ctor.Next()
 	}
 	ctor.Release()
+	log.Printf("*** jetrules: Extracted %d entities for class %s", entityCount, outChannel.ClassName)
 	if isDebug {
 		log.Printf("jetrules: Extracted %d entities for class %s", entityCount, outChannel.ClassName)
 	}
@@ -622,7 +659,7 @@ func assertInputRow(config *JetrulesSpec, rdfSession JetRdfSession, row *[]any, 
 	var ok bool
 	jetsKey, ok = (*row)[0].(string)
 	if !ok {
-		jetsKey = computeRowHash((*row)[3:], config.CurrentSourcePeriod)
+		jetsKey = ComputeRowHash((*row)[3:], config.CurrentSourcePeriod)
 	}
 
 	rdfTypes, ok = (*row)[1].([]any)
@@ -727,51 +764,6 @@ nextField:
 		}
 	}
 	return
-}
-
-func computeRowHash(row []any, sourcePeriod int) string {
-	// Compute a hash for the row, to be used as jets:key when it's not provided in the input data
-	// The hash is computed on the concatenation of the string representation of the values in the row and the source period, to avoid having the same hash for the same row in different source periods
-	hasher := fnv.New64a()
-	// Add sourcePeriod in row_hash calculation so if same record in input
-	// for 2 different period, they get different jets:key
-	hasher.Write([]byte(strconv.Itoa(sourcePeriod)))
-	for _, v := range row {
-		if v == nil {
-			continue
-		}
-		switch vv := v.(type) {
-		case string:
-			hasher.Write([]byte(vv))
-		case int:
-			hasher.Write([]byte(strconv.Itoa(vv)))
-		case float64:
-			hasher.Write([]byte(strconv.FormatFloat(vv, 'f', -1, 64)))
-		case uint:
-			hasher.Write([]byte(strconv.FormatUint(uint64(vv), 10)))
-		case time.Time:
-			if vv.Hour() == 0 && vv.Minute() == 0 && vv.Second() == 0 {
-				// Date, format as 2006-01-02
-				hasher.Write([]byte(vv.Format("2006-01-02")))
-			} else {
-				// Datetime, format as 2006-01-02T15:04:05
-				hasher.Write([]byte(vv.Format("2006-01-02T15:04:05")))
-			}
-		case int64:
-			hasher.Write([]byte(strconv.FormatInt(vv, 10)))
-		case uint64:
-			hasher.Write([]byte(strconv.FormatUint(vv, 10)))
-		case int32:
-			hasher.Write([]byte(strconv.FormatInt(int64(vv), 10)))
-		case uint32:
-			hasher.Write([]byte(strconv.FormatUint(uint64(vv), 10)))
-		case float32:
-			hasher.Write([]byte(strconv.FormatFloat(float64(vv), 'f', -1, 32)))
-		default:
-			hasher.Write([]byte(fmt.Sprintf("%v", vv)))
-		}
-	}
-	return fmt.Sprintf("%016x", hasher.Sum64())
 }
 
 func NewRdfNode(inValue any, re JetResourceManager) (RdfNode, error) {

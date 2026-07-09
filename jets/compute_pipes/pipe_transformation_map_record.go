@@ -13,15 +13,17 @@ import (
 // map_record: each input record is mapped to the output
 
 type MapRecordTransformationPipe struct {
-	source           *InputChannel
-	outputCh         *OutputChannel
-	columnEvaluators []TransformationColumnEvaluator
-	failOnError      bool
-	errorCount       int
-	errorOutputCh    *OutputChannel
-	spec             *TransformationSpec
-	doneCh           chan struct{}
-	builderContext   *BuilderContext
+	source              *InputChannel
+	outputCh            *OutputChannel
+	columnEvaluators    []TransformationColumnEvaluator
+	failOnError         bool
+	errorCount          int
+	errorOutputCh       *OutputChannel
+	spec                *TransformationSpec
+	currentSourcePeriod int
+	sourcePeriodType    string
+	doneCh              chan struct{}
+	builderContext      *BuilderContext
 }
 
 // Implementing interface PipeTransformationEvaluator
@@ -81,6 +83,11 @@ func (ctx *MapRecordTransformationPipe) Apply(input *[]any) error {
 		typeIdx, ok := (*ctx.outputCh.Columns)["rdf:type"]
 		if ok && (*currentValues)[typeIdx] == nil {
 			(*currentValues)[typeIdx] = fmt.Sprintf(`{"%s"}`, ctx.outputCh.Config.ClassName)
+		}
+		// Set jets:key to output channel class name if it's not set by the mapping
+		keyIdx, ok := (*ctx.outputCh.Columns)["jets:key"]
+		if ok && (*currentValues)[keyIdx] == nil {
+			(*currentValues)[keyIdx] = ComputeRowHash((*currentValues)[3:], ctx.currentSourcePeriod)
 		}
 	}
 
@@ -217,14 +224,17 @@ func (ctx *BuilderContext) NewMapRecordTransformationPipe(source *InputChannel, 
 	if config != nil {
 		failOnError = config.FailOnError
 	}
+	currentSourcePeriod, sourcePeriodType := GetCurrentSourcePeriod(ctx.env)
 	return &MapRecordTransformationPipe{
-		source:           source,
-		outputCh:         outputCh,
-		columnEvaluators: columnEvaluators,
-		spec:             spec,
-		failOnError:      failOnError,
-		doneCh:           ctx.done,
-		errorOutputCh:    errorOutputCh,
-		builderContext:   ctx,
+		source:              source,
+		outputCh:            outputCh,
+		columnEvaluators:    columnEvaluators,
+		spec:                spec,
+		currentSourcePeriod: currentSourcePeriod,
+		sourcePeriodType:    sourcePeriodType,
+		failOnError:         failOnError,
+		doneCh:              ctx.done,
+		errorOutputCh:       errorOutputCh,
+		builderContext:      ctx,
 	}, nil
 }

@@ -5,11 +5,13 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"hash/fnv"
 	"log"
 	"os"
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/artisoft-io/jetstore/jets/jetrules/rete"
 	"github.com/google/uuid"
@@ -112,26 +114,8 @@ func AssertSourcePeriodInfo(re JetRuleEngine, config *JetrulesSpec, env map[stri
 	rm := re.GetMetaResourceManager()
 	jr := re.JetResources()
 	// ${PERIOD_ID_TYPE}
-	var pt string
 	if config.CurrentSourcePeriod == 0 || config.CurrentSourcePeriodType == "" {
-		pt, _ = env["${PERIOD_ID_TYPE}"].(string)
-		switch pt {
-		case "${MONTH_PERIOD}", "month_period":
-			config.CurrentSourcePeriodType = "month_period"
-		case "${DAY_PERIOD}", "day_period":
-			config.CurrentSourcePeriodType = "day_period"
-		case "${HOUR_PERIOD}", "hour_period":
-			config.CurrentSourcePeriodType = "hour_period"
-		}
-
-		switch vv := env[pt].(type) {
-		case int:
-			config.CurrentSourcePeriod = vv
-		case float64:
-			config.CurrentSourcePeriod = int(vv)
-		case string:
-			config.CurrentSourcePeriod, _ = strconv.Atoi(vv)
-		}
+		config.CurrentSourcePeriod, config.CurrentSourcePeriodType = GetCurrentSourcePeriod(env)
 	}
 	err = re.Insert(jr.Jets__istate, jr.Jets__currentSourcePeriod, rm.NewIntLiteral(config.CurrentSourcePeriod))
 	if err != nil {
@@ -245,41 +229,81 @@ func ExtractRdfNodeInfoJson(e any) (value, rdfType string, err error) {
 	}
 }
 
-// This is not used
-// // Function to get the JetRuleEngine for a rule process
-// func GetJetRuleEngine(reFactory JetRulesFactory, dbpool *pgxpool.Pool, processName string, isDebug bool) (
-// 	ruleEngine JetRuleEngine, err error) {
+func ComputeRowHash(row []any, sourcePeriod int) string {
+	// Compute a hash for the row, to be used as jets:key when it's not provided in the input data
+	// The hash is computed on the concatenation of the string representation of the values in the row and the source period, to avoid having the same hash for the same row in different source periods
+	hasher := fnv.New64a()
+	// Add sourcePeriod in row_hash calculation so if same record in input
+	// for 2 different period, they get different jets:key
+	hasher.Write([]byte(strconv.Itoa(sourcePeriod)))
+	for _, v := range row {
+		if v == nil {
+			continue
+		}
+		switch vv := v.(type) {
+		case string:
+			hasher.Write([]byte(vv))
+		case int:
+			hasher.Write([]byte(strconv.Itoa(vv)))
+		case float64:
+			hasher.Write([]byte(strconv.FormatFloat(vv, 'f', -1, 64)))
+		case uint:
+			hasher.Write([]byte(strconv.FormatUint(uint64(vv), 10)))
+		case time.Time:
+			if vv.Hour() == 0 && vv.Minute() == 0 && vv.Second() == 0 {
+				// Date, format as 2006-01-02
+				hasher.Write([]byte(vv.Format("2006-01-02")))
+			} else {
+				// Datetime, format as 2006-01-02T15:04:05
+				hasher.Write([]byte(vv.Format("2006-01-02T15:04:05")))
+			}
+		case int64:
+			hasher.Write([]byte(strconv.FormatInt(vv, 10)))
+		case uint64:
+			hasher.Write([]byte(strconv.FormatUint(vv, 10)))
+		case int32:
+			hasher.Write([]byte(strconv.FormatInt(int64(vv), 10)))
+		case uint32:
+			hasher.Write([]byte(strconv.FormatUint(uint64(vv), 10)))
+		case float32:
+			hasher.Write([]byte(strconv.FormatFloat(float64(vv), 'f', -1, 32)))
+		default:
+			hasher.Write([]byte(fmt.Sprintf("%v", vv)))
+		}
+	}
+	return fmt.Sprintf("%016x", hasher.Sum64())
+}
 
-// 	// Get the Rete MetaStore for the mainRules
-// 	reHdle, _ := ruleEngineCache.Load(processName)
-// 	if reHdle == nil {
-// 		// Get the jetrule process info -- the mainRule name or ruleSequence name
-// 		var mainRules string
-// 		stmt := `SELECT	pc.main_rules FROM jetsapi.process_config pc WHERE pc.process_name = $1`
-// 		err := dbpool.QueryRow(context.Background(), stmt, processName).Scan(&mainRules)
-// 		if err != nil {
-// 			return nil,
-// 				fmt.Errorf("quering main rule file name for process %s from jetsapi.process_config failed: %v",
-// 					processName, err)
-// 		}
-// 		if len(mainRules) == 0 {
-// 			return nil, fmt.Errorf("error: main rule file name is empty for process %s", processName)
-// 		}
-// 		log.Printf("Rule engine for ruleset '%s' for process '%s' not loaded, loading from local workspace",
-// 			mainRules, processName)
-// 		ruleEngine, err = reFactory.NewJetRuleEngine(dbpool, mainRules, isDebug)
-// 		if err != nil {
-// 			return nil,
-// 				fmt.Errorf("while loading ruleset '%s' for process '%s' from local workspace via NewJetRuleEngine: %v",
-// 					mainRules, processName, err)
-// 		}
-// 		//*** concurrent read/write og resourceMap issue
-// 		// ruleEngineCache.Store(processName, ruleEngine)
-// 	} else {
-// 		ruleEngine = reHdle.(JetRuleEngine)
-// 	}
-// 	return
-// }
+// GetCurrentSourcePeriod returns the current source period and its type from the environment map
+// Expecting the following keys in the env map:
+// - ${PERIOD_ID_TYPE} : the type of the period, e.g. "month_period", "day_period", "hour_period"
+// - ${MONTH_PERIOD} or ${DAY_PERIOD} or ${HOUR_PERIOD} : the current source period value, depending on the type
+func GetCurrentSourcePeriod(env map[string]any) (int, string) {
+	currentSourcePeriod := 0
+	sourcePeriodType := ""
+	pt, ok := env["${PERIOD_ID_TYPE}"].(string)
+	if !ok {
+		return currentSourcePeriod, sourcePeriodType
+	}
+	switch pt {
+	case "${MONTH_PERIOD}", "month_period":
+		sourcePeriodType = "month_period"
+	case "${DAY_PERIOD}", "day_period":
+		sourcePeriodType = "day_period"
+	case "${HOUR_PERIOD}", "hour_period":
+		sourcePeriodType = "hour_period"
+	}
+
+	switch vv := env[pt].(type) {
+	case int:
+		currentSourcePeriod = vv
+	case float64:
+		currentSourcePeriod = int(vv)
+	case string:
+		currentSourcePeriod, _ = strconv.Atoi(vv)
+	}
+	return currentSourcePeriod, sourcePeriodType
+}
 
 type RuleEngineConfig struct {
 	MainRuleFile   string            `json:"main_rule_file_name,omitempty"`

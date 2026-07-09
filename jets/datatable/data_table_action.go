@@ -19,10 +19,10 @@ import (
 
 	"github.com/artisoft-io/jetstore/jets/awsi"
 	"github.com/artisoft-io/jetstore/jets/csv"
-	"github.com/artisoft-io/jetstore/jets/utils/jcsv"
 	"github.com/artisoft-io/jetstore/jets/dbutils"
 	"github.com/artisoft-io/jetstore/jets/schema"
 	"github.com/artisoft-io/jetstore/jets/user"
+	"github.com/artisoft-io/jetstore/jets/utils/jcsv"
 
 	// lru "github.com/hashicorp/golang-lru"
 	"github.com/jackc/pgx/v5"
@@ -78,8 +78,8 @@ type DataTableAction struct {
 	// used for raw_query & raw_query_tool action only
 	RequestColumnDef bool `json:"requestColumnDef"`
 	// other non-query properties
-	SkipThrottling bool                     `json:"skipThrottling"`
-	Data           []map[string]interface{} `json:"data"`
+	SkipThrottling bool             `json:"skipThrottling"`
+	Data           []map[string]any `json:"data"`
 }
 type Column struct {
 	Table        string `json:"table"`
@@ -453,7 +453,7 @@ func (ctx *DataTableContext) VerifyUserPermission(sqlStmt *SqlInsertDefinition, 
 // var tableSchemaCache *lru.Cache
 // func init() {
 // 	var err error
-// 	tableSchemaCache, err = lru.NewWithEvict(128, func(key, value interface{}) {log.Printf("Cache evicting item with key %v", key)})
+// 	tableSchemaCache, err = lru.NewWithEvict(128, func(key, value any) {log.Printf("Cache evicting item with key %v", key)})
 // 	if err != nil {
 // 		log.Fatal("error: cannot create cache")
 // 	}
@@ -464,7 +464,7 @@ func (ctx *DataTableContext) VerifyUserPermission(sqlStmt *SqlInsertDefinition, 
 
 // ExecRawQuery ------------------------------------------------------
 // These are queries to load reference data for widget, e.g. dropdown list of items
-func (ctx *DataTableContext) ExecRawQuery(dataTableAction *DataTableAction, token string) (results *map[string]interface{}, httpStatus int, err error) {
+func (ctx *DataTableContext) ExecRawQuery(dataTableAction *DataTableAction, token string) (results *map[string]any, httpStatus int, err error) {
 	// fmt.Println("*** ExecRawQuery called, query:",dataTableAction.RawQuery)
 
 	resultRows, columnDefs, err2 := execQuery(ctx.Dbpool, dataTableAction, &dataTableAction.RawQuery)
@@ -475,7 +475,7 @@ func (ctx *DataTableContext) ExecRawQuery(dataTableAction *DataTableAction, toke
 		return
 	}
 
-	results = &map[string]interface{}{
+	results = &map[string]any{
 		"rows":      resultRows,
 		"columnDef": columnDefs,
 	}
@@ -483,7 +483,7 @@ func (ctx *DataTableContext) ExecRawQuery(dataTableAction *DataTableAction, toke
 	return
 }
 
-func (ctx *DataTableContext) ExecDataManagementStatement(dataTableAction *DataTableAction, token string) (results *map[string]interface{}, httpStatus int, err error) {
+func (ctx *DataTableContext) ExecDataManagementStatement(dataTableAction *DataTableAction, token string) (results *map[string]any, httpStatus int, err error) {
 	// fmt.Println("*** ExecDataManagementStatement called, query:",dataTableAction.RawQuery)
 	_, err2 := ctx.VerifyUserPermission(&SqlInsertDefinition{Capability: "workspace_ide"}, token)
 	if err2 != nil {
@@ -499,7 +499,7 @@ func (ctx *DataTableContext) ExecDataManagementStatement(dataTableAction *DataTa
 		return
 	}
 
-	results = &map[string]interface{}{
+	results = &map[string]any{
 		"rows":      resultRows,
 		"columnDef": columnDefs,
 	}
@@ -509,9 +509,9 @@ func (ctx *DataTableContext) ExecDataManagementStatement(dataTableAction *DataTa
 
 // ExecRawQueryMap ------------------------------------------------------
 // These are queries to load reference data for widget, e.g. dropdown list of items
-func (ctx *DataTableContext) ExecRawQueryMap(dataTableAction *DataTableAction, token string) (results *map[string]interface{}, httpStatus int, err error) {
+func (ctx *DataTableContext) ExecRawQueryMap(dataTableAction *DataTableAction, token string) (results *map[string]any, httpStatus int, err error) {
 	// fmt.Println("ExecRawQueryMap:")
-	resultMap := make(map[string]interface{}, len(dataTableAction.RawQueryMap))
+	resultMap := make(map[string]any, len(dataTableAction.RawQueryMap))
 	for k, v := range dataTableAction.RawQueryMap {
 		// fmt.Println("Query:",v)
 		resultRows, _, err2 := execQuery(ctx.Dbpool, dataTableAction, &v)
@@ -527,7 +527,7 @@ func (ctx *DataTableContext) ExecRawQueryMap(dataTableAction *DataTableAction, t
 		}
 		resultMap[k] = resultRows
 	}
-	results = &map[string]interface{}{
+	results = &map[string]any{
 		"result_map": resultMap,
 	}
 	httpStatus = http.StatusOK
@@ -537,7 +537,7 @@ func (ctx *DataTableContext) ExecRawQueryMap(dataTableAction *DataTableAction, t
 // InsertRawRows ------------------------------------------------------
 // Insert row function using a raw text buffer containing cst/tsv rows
 // Delegates to InsertRows
-func (ctx *DataTableContext) InsertRawRows(dataTableAction *DataTableAction, token string) (results *map[string]interface{}, httpStatus int, err error) {
+func (ctx *DataTableContext) InsertRawRows(dataTableAction *DataTableAction, token string) (results *map[string]any, httpStatus int, err error) {
 	httpStatus = http.StatusOK
 	// Copy Data so to re-use dataTableAction with different sets of Data
 	requestTable := dataTableAction.FromClauses[0].Table
@@ -585,7 +585,7 @@ func (ctx *DataTableContext) InsertRawRows(dataTableAction *DataTableAction, tok
 			return
 		}
 		// Put the parsed row as elm back in dataTableAction.Data
-		dataTableAction.Data = make([]map[string]interface{}, 0)
+		dataTableAction.Data = make([]map[string]any, 0)
 		for {
 			record, err2 := r.Read()
 			if err2 == io.EOF {
@@ -597,7 +597,7 @@ func (ctx *DataTableContext) InsertRawRows(dataTableAction *DataTableAction, tok
 				err = fmt.Errorf("error while parsing raw_rows: %v", err2)
 				return
 			}
-			row := make(map[string]interface{})
+			row := make(map[string]any)
 			for i := range headers {
 				if record[i] == "" {
 					row[headers[i]] = nil
@@ -663,9 +663,9 @@ func (ctx *DataTableContext) InsertRawRows(dataTableAction *DataTableAction, tok
 // Main insert row function with pre processing hooks for validating/authorizing the request
 // Main insert row function with post processing hooks for starting pipelines
 // Inserting rows using pre-defined sql statements, keyed by table name provided in dataTableAction
-func (ctx *DataTableContext) InsertRows(dataTableAction *DataTableAction, token string) (results *map[string]interface{}, httpStatus int, err error) {
+func (ctx *DataTableContext) InsertRows(dataTableAction *DataTableAction, token string) (results *map[string]any, httpStatus int, err error) {
 	returnedKey := make([]int, len(dataTableAction.Data))
-	results = &map[string]interface{}{
+	results = &map[string]any{
 		"returned_keys": &returnedKey,
 	}
 
@@ -698,7 +698,7 @@ func (ctx *DataTableContext) InsertRows(dataTableAction *DataTableAction, token 
 		return
 	}
 
-	row := make([]interface{}, len(sqlStmt.ColumnKeys))
+	row := make([]any, len(sqlStmt.ColumnKeys))
 	for irow := range dataTableAction.Data {
 		// Pre-Processing hook
 		dbUpdateDone := false
@@ -708,7 +708,7 @@ func (ctx *DataTableContext) InsertRows(dataTableAction *DataTableAction, token 
 			if dataTableAction.Data[irow]["domain_keys_json"] == nil {
 				dataTableAction.Data[irow]["domain_keys"] = []string{dataTableAction.Data[irow]["object_type"].(string)}
 			} else {
-				var f interface{}
+				var f any
 				err2 := json.Unmarshal([]byte(dataTableAction.Data[irow]["domain_keys_json"].(string)), &f)
 				if err2 != nil {
 					err = fmt.Errorf("while parsing domainKeysJson using json parser: %v", err2)
@@ -716,12 +716,14 @@ func (ctx *DataTableContext) InsertRows(dataTableAction *DataTableAction, token 
 				}
 				// Extract the domain keys structure from the json
 				switch value := f.(type) {
-				case string, []interface{}:
+				case string, []any:
 					dataTableAction.Data[irow]["domain_keys"] = []string{dataTableAction.Data[irow]["object_type"].(string)}
-				case map[string]interface{}:
+				case map[string]any:
 					keys := make([]string, 0, len(value))
 					for k := range value {
-						keys = append(keys, k)
+						if k != "jets:hashing_override" {
+							keys = append(keys, k)
+						}
 					}
 					dataTableAction.Data[irow]["domain_keys"] = keys
 				default:
@@ -745,7 +747,7 @@ func (ctx *DataTableContext) InsertRows(dataTableAction *DataTableAction, token 
 			// @**@ encrypt roles and put them in column encrypted_roles
 			rolesi := dataTableAction.Data[irow]["roles"]
 			if rolesi != nil {
-				roles := rolesi.([]interface{})
+				roles := rolesi.([]any)
 				encryptedRoles := make([]string, len(roles))
 				for i := range roles {
 					role := roles[i].(string)
@@ -790,10 +792,10 @@ func (ctx *DataTableContext) InsertRows(dataTableAction *DataTableAction, token 
 }
 
 // utility methods
-func execQuery(dbpool *pgxpool.Pool, dataTableAction *DataTableAction, query *string) (*[][]interface{}, *[]DataTableColumnDef, error) {
+func execQuery(dbpool *pgxpool.Pool, dataTableAction *DataTableAction, query *string) (*[][]any, *[]DataTableColumnDef, error) {
 	// //DEV
 	// fmt.Print("\n*** UI Query:\n", *query, "\n\n")
-	resultRows := make([][]interface{}, 0, dataTableAction.Limit)
+	resultRows := make([][]any, 0, dataTableAction.Limit)
 	var columnDefs []DataTableColumnDef
 	rows, err := dbpool.Query(context.Background(), *query)
 	if err != nil {
@@ -827,7 +829,7 @@ func execQuery(dbpool *pgxpool.Pool, dataTableAction *DataTableAction, query *st
 		}
 	}
 	for rows.Next() {
-		dataRow := make([]interface{}, nCol)
+		dataRow := make([]any, nCol)
 		for i := 0; i < nCol; i++ {
 			dataRow[i] = &sql.NullString{}
 		}
@@ -836,7 +838,7 @@ func execQuery(dbpool *pgxpool.Pool, dataTableAction *DataTableAction, query *st
 			log.Printf("While scanning the row: %v", err)
 			return nil, nil, err
 		}
-		flatRow := make([]interface{}, nCol)
+		flatRow := make([]any, nCol)
 		for i := 0; i < nCol; i++ {
 			ns := dataRow[i].(*sql.NullString)
 			if ns.Valid {
@@ -850,10 +852,10 @@ func execQuery(dbpool *pgxpool.Pool, dataTableAction *DataTableAction, query *st
 	return &resultRows, &columnDefs, nil
 }
 
-func execWorkspaceQuery(db *sql.DB, dataTableAction *DataTableAction, query *string) (*[][]interface{}, error) {
+func execWorkspaceQuery(db *sql.DB, dataTableAction *DataTableAction, query *string) (*[][]any, error) {
 	// //DEV
 	// fmt.Println("\n*** UI Query:\n", *query)
-	resultRows := make([][]interface{}, 0, dataTableAction.Limit)
+	resultRows := make([][]any, 0, dataTableAction.Limit)
 	rows, err := db.Query(*query)
 	if err != nil {
 		log.Printf("While executing dataTable query: %v", err)
@@ -867,7 +869,7 @@ func execWorkspaceQuery(db *sql.DB, dataTableAction *DataTableAction, query *str
 	}
 	nCol := len(columns)
 	for rows.Next() {
-		dataRow := make([]interface{}, nCol)
+		dataRow := make([]any, nCol)
 		for i := 0; i < nCol; i++ {
 			dataRow[i] = &sql.NullString{}
 		}
@@ -876,7 +878,7 @@ func execWorkspaceQuery(db *sql.DB, dataTableAction *DataTableAction, query *str
 			log.Printf("While scanning the row: %v", err)
 			return nil, err
 		}
-		flatRow := make([]interface{}, nCol)
+		flatRow := make([]any, nCol)
 		for i := 0; i < nCol; i++ {
 			ns := dataRow[i].(*sql.NullString)
 			if ns.Valid {
@@ -890,7 +892,7 @@ func execWorkspaceQuery(db *sql.DB, dataTableAction *DataTableAction, query *str
 	return &resultRows, nil
 }
 
-func execDDL(dbpool *pgxpool.Pool, _ *DataTableAction, query *string) (*[][]interface{}, *[]DataTableColumnDef, error) {
+func execDDL(dbpool *pgxpool.Pool, _ *DataTableAction, query *string) (*[][]any, *[]DataTableColumnDef, error) {
 	// //DEV
 	// fmt.Println("\n*** UI Query:\n", *query)
 	results, err := dbpool.Exec(context.Background(), *query)
@@ -905,17 +907,17 @@ func execDDL(dbpool *pgxpool.Pool, _ *DataTableAction, query *string) (*[][]inte
 		Tooltips:  "Exec result",
 		IsNumeric: false,
 	}}
-	resultRows := make([][]interface{}, 1)
-	resultRows[0] = make([]interface{}, 1)
+	resultRows := make([][]any, 1)
+	resultRows[0] = make([]any, 1)
 	resultRows[0][0] = results.String()
 	return &resultRows, &columnDefs, nil
 }
 
 // DoReadAction ------------------------------------------------------
-func (ctx *DataTableContext) DoReadAction(dataTableAction *DataTableAction, token string) (*map[string]interface{}, int, error) {
+func (ctx *DataTableContext) DoReadAction(dataTableAction *DataTableAction, token string) (*map[string]any, int, error) {
 
 	// to package up the result
-	results := make(map[string]interface{})
+	results := make(map[string]any)
 
 	var columnsDef []DataTableColumnDef
 	var err error
@@ -1007,7 +1009,7 @@ gotRolesPos:
 }
 
 // DoPreviewFileAction ------------------------------------------------------
-func (ctx *DataTableContext) DoPreviewFileAction(dataTableAction *DataTableAction, token string) (*map[string]interface{}, int, error) {
+func (ctx *DataTableContext) DoPreviewFileAction(dataTableAction *DataTableAction, token string) (*map[string]any, int, error) {
 
 	// Validation
 	if len(dataTableAction.WhereClauses) == 0 ||
@@ -1023,7 +1025,7 @@ func (ctx *DataTableContext) DoPreviewFileAction(dataTableAction *DataTableActio
 
 	// to package up the result
 	fileKey := dataTableAction.WhereClauses[0].Values[0]
-	results := map[string]interface{}{
+	results := map[string]any{
 		"label": fmt.Sprintf("Preview of %s", fileKey),
 	}
 	results["columnDef"] = []DataTableColumnDef{
@@ -1052,14 +1054,14 @@ func (ctx *DataTableContext) DoPreviewFileAction(dataTableAction *DataTableActio
 	// Read the file
 	fileHd.Seek(0, 0)
 	fileScanner := bufio.NewScanner(fileHd)
-	resultRows := make([][]interface{}, 0, dataTableAction.Limit)
+	resultRows := make([][]any, 0, dataTableAction.Limit)
 	nbrLines := 0
 
 	fileScanner.Split(bufio.ScanLines)
 
 	done := false
 	for !done && fileScanner.Scan() {
-		row := []interface{}{
+		row := []any{
 			fileScanner.Text(),
 		}
 		resultRows = append(resultRows, row)
@@ -1075,7 +1077,7 @@ func (ctx *DataTableContext) DoPreviewFileAction(dataTableAction *DataTableActio
 
 // DropTable ------------------------------------------------------
 // These are queries to load reference data for widget, e.g. dropdown list of items
-func (ctx *DataTableContext) DropTable(dataTableAction *DataTableAction, token string) (results *map[string]interface{}, httpStatus int, err error) {
+func (ctx *DataTableContext) DropTable(dataTableAction *DataTableAction, token string) (results *map[string]any, httpStatus int, err error) {
 	//* TODO NEED TO APPLY FILTER ON TABLE NAME
 	for ipos := range dataTableAction.Data {
 		tableName := dataTableAction.Data[ipos]["tableName"]
@@ -1112,7 +1114,7 @@ func (ctx *DataTableContext) DropTable(dataTableAction *DataTableAction, token s
 		// }
 	}
 
-	results = &map[string]interface{}{}
+	results = &map[string]any{}
 	httpStatus = http.StatusOK
 	return
 }

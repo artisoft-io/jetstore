@@ -189,6 +189,9 @@ func (args *StartComputePipesArgs) shardingInitializeCpipes(ctx context.Context,
 		}
 		cpipesStartup.CpConfig.SchemaProviders = append(cpipesStartup.CpConfig.SchemaProviders, cpipesStartup.MainInputSchemaProviderConfig)
 	} else {
+		if  cpipesStartup.MainInputSchemaProviderConfig.Env == nil {
+			cpipesStartup.MainInputSchemaProviderConfig.Env = make(map[string]any)
+		}
 		// Initialize unspecified value in main schema provider using the source_config table values
 		if cpipesStartup.MainInputSchemaProviderConfig.Client == "" {
 			cpipesStartup.MainInputSchemaProviderConfig.Client = client
@@ -363,7 +366,7 @@ func (args *StartComputePipesArgs) shardingInitializeCpipes(ctx context.Context,
 			columns, err := GetDomainProperties(chSpec.ClassName, chSpec.DirectPropertiesOnly)
 			if err != nil {
 				return cpipesStartup, fmt.Errorf(
-					"while getting domain properties for channel spec class name %s: %v (does workspace_control.json needs to be updated?)",
+					"while getting domain properties for channel spec class name %s: %v (does the class as_table: true needs to be set?)",
 					chSpec.ClassName, err)
 			}
 			if len(chSpec.Columns) > 0 {

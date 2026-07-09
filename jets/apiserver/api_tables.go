@@ -83,6 +83,12 @@ func (server *Server) DoDataTableAction(w http.ResponseWriter, r *http.Request) 
 			ERROR(w, 400, err)
 			return
 		}
+		if sid == "F000000000000" {
+			err = fmt.Errorf("error: invalid session_id in resubmit_pipeline")
+			log.Printf("Error: %v", err)
+			ERROR(w, 400, err)
+			return
+		}
 		newSessionId, err := datatable.ReserveSessionId(server.dbpool)
 		if err != nil {
 			log.Printf("Error: %v", err)
