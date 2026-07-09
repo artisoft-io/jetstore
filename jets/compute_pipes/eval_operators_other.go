@@ -99,18 +99,12 @@ func (op *opApplyFormat) Eval(lhs any, rhs any) (any, error) {
 type opApplyRegex struct {
 	re *regexp.Regexp
 }
-var regexCache = make(map[string]*regexp.Regexp)
-var regexCacheMx sync.Mutex
-func getCompiledRegex(pattern string) (*regexp.Regexp, error) {
-	value := regexCache[pattern]
-	if value != nil {
-		return value, nil
-	}
-	regexCacheMx.Lock()
-	defer regexCacheMx.Unlock()
-	value = regexCache[pattern]
-	if value != nil {
-		return value, nil
+var regexCache *sync.Map = new(sync.Map)
+
+func GetCompiledRegex(pattern string) (*regexp.Regexp, error) {
+	value, ok := regexCache.Load(pattern)
+	if ok {
+		return value.(*regexp.Regexp), nil
 	}
 	fmt.Println("Compiling:", pattern)
 	re, err := regexp.Compile(pattern)
@@ -118,7 +112,7 @@ func getCompiledRegex(pattern string) (*regexp.Regexp, error) {
 		fmt.Printf("while compiling regex '%s': %v", pattern, err)
 		return nil, fmt.Errorf("while compiling regex '%s': %v", pattern, err)
 	}
-	regexCache[pattern] = re
+	regexCache.Store(pattern, re)
 	return re, nil
 }
 
@@ -132,7 +126,7 @@ func (op *opApplyRegex) Eval(lhs any, rhs any) (any, error) {
 		switch rhsv := rhs.(type) {
 		case string:
 			if op.re == nil {
-				op.re, err = getCompiledRegex(rhsv)
+				op.re, err = GetCompiledRegex(rhsv)
 				if err != nil {
 					return nil, err
 				}
@@ -148,7 +142,7 @@ func (op *opApplyRegex) Eval(lhs any, rhs any) (any, error) {
 			return nil, fmt.Errorf("error: apply_regex rhs argument must be a regular expression as a string")
 		}
 	default:
-		return nil, fmt.Errorf("error: apply_format lhs argument must be a string")
+		return nil, fmt.Errorf("error: apply_regex lhs argument must be a string")
 	}
 }
 
