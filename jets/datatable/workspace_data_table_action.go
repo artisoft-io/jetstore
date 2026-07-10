@@ -41,7 +41,7 @@ func getWorkspaceUri(dataTableAction *DataTableAction, irow int) string {
 // Main insert row function with pre processing hooks for validating/authorizing the request
 // Main insert row function with post processing hooks to perform work async
 // Inserting rows using pre-defined sql statements, keyed by table name provided in dataTableAction
-func (ctx *DataTableContext) WorkspaceInsertRows(dataTableAction *DataTableAction, token string) (results *map[string]interface{}, httpStatus int, err error) {
+func (ctx *DataTableContext) WorkspaceInsertRows(dataTableAction *DataTableAction, token string) (results *map[string]any, httpStatus int, err error) {
 	httpStatus = http.StatusOK
 	returnedKey := make([]int, len(dataTableAction.Data))
 	sqlStmt, ok := sqlInsertStmts[dataTableAction.FromClauses[0].Table]
@@ -57,7 +57,7 @@ func (ctx *DataTableContext) WorkspaceInsertRows(dataTableAction *DataTableActio
 	var gitProfile user.GitProfile
 	gitProfile, gitProfileErr := user.GetGitProfile(ctx.Dbpool, userProfile.Email)
 
-	row := make([]interface{}, len(sqlStmt.ColumnKeys))
+	row := make([]any, len(sqlStmt.ColumnKeys))
 	for irow := range dataTableAction.Data {
 		// Pre-Processing hook
 		// -----------------------------------------------------------------------
@@ -266,7 +266,7 @@ func (ctx *DataTableContext) WorkspaceInsertRows(dataTableAction *DataTableActio
 				// Check if compile_workspace is requested, if not check if load client config is requested
 				otherActions := dataTableAction.Data[irow]["otherWorkspaceActionOptions"]
 				if otherActions != nil {
-					l := otherActions.([]interface{})
+					l := otherActions.([]any)
 					compileWorkspaceStarted := false
 					for i := range l {
 						if l[i] != nil && l[i] == "wpCompileWorkspaceOption" {
@@ -366,14 +366,14 @@ func (ctx *DataTableContext) WorkspaceInsertRows(dataTableAction *DataTableActio
 
 	}
 returnResults:
-	results = &map[string]interface{}{
+	results = &map[string]any{
 		"returned_keys": &returnedKey,
 	}
 	return
 }
 
 // DoWorkspaceReadAction ------------------------------------------------------
-func (ctx *DataTableContext) DoWorkspaceReadAction(dataTableAction *DataTableAction, token string) (*map[string]interface{}, int, error) {
+func (ctx *DataTableContext) DoWorkspaceReadAction(dataTableAction *DataTableAction, token string) (*map[string]any, int, error) {
 
 	// Replace table schema with value $SCHEMA with the workspace_name
 	//* NOTE: Reading directly from sqlite, no schema needed (set $SCHEMA to empty)
@@ -388,7 +388,7 @@ func (ctx *DataTableContext) DoWorkspaceReadAction(dataTableAction *DataTableAct
 	}
 
 	// to package up the result
-	results := make(map[string]interface{})
+	results := make(map[string]any)
 	var err error
 
 	if len(dataTableAction.Columns) == 0 {
@@ -410,7 +410,7 @@ func (ctx *DataTableContext) DoWorkspaceReadAction(dataTableAction *DataTableAct
 	query, nbrRowsQuery := dataTableAction.buildQuery()
 
 	// Perform the query
-	var resultRows *[][]interface{}
+	var resultRows *[][]any
 	var totalRowCount int
 	if dataTableAction.FromClauses[0].Schema == "jetsapi" {
 		resultRows, _, err = execQuery(ctx.Dbpool, dataTableAction, &query)
@@ -865,7 +865,7 @@ func (ctx *DataTableContext) DeleteWorkspaceFile(dataTableAction *DataTableActio
 // GetWorkspaceFileContent --------------------------------------------------------------------------
 // Function to get the workspace file content based on relative file name
 // Read the file from the workspace on file system since it's already in sync with database
-func (ctx *DataTableContext) GetWorkspaceFileContent(dataTableAction *DataTableAction, token string) (results *map[string]interface{}, httpStatus int, err error) {
+func (ctx *DataTableContext) GetWorkspaceFileContent(dataTableAction *DataTableAction, token string) (results *map[string]any, httpStatus int, err error) {
 	_, err2 := ctx.VerifyUserPermission(&SqlInsertDefinition{Capability: "workspace_ide"}, token)
 	if err2 != nil {
 		return nil, http.StatusUnauthorized, errors.New("error: unauthorized, cannot get user info or does not have permission")
@@ -889,7 +889,7 @@ func (ctx *DataTableContext) GetWorkspaceFileContent(dataTableAction *DataTableA
 
 	// Read file from local workspace
 	content, err := wsfile.GetContent(workspaceName, fileName)
-	results = &map[string]interface{}{
+	results = &map[string]any{
 		"file_name":    wsFileName,
 		"file_content": content,
 	}
@@ -898,7 +898,7 @@ func (ctx *DataTableContext) GetWorkspaceFileContent(dataTableAction *DataTableA
 
 // SaveWorkspaceFileContent --------------------------------------------------------------------------
 // Function to save the workspace file content in local workspace file system and in database
-func (ctx *DataTableContext) SaveWorkspaceFileContent(dataTableAction *DataTableAction, token string) (results *map[string]interface{}, httpStatus int, err error) {
+func (ctx *DataTableContext) SaveWorkspaceFileContent(dataTableAction *DataTableAction, token string) (results *map[string]any, httpStatus int, err error) {
 	_, err2 := ctx.VerifyUserPermission(&SqlInsertDefinition{Capability: "workspace_ide"}, token)
 	if err2 != nil {
 		return nil, http.StatusUnauthorized, errors.New("error: unauthorized, cannot get user info or does not have permission")
@@ -934,7 +934,7 @@ func (ctx *DataTableContext) SaveWorkspaceFileContent(dataTableAction *DataTable
 	}
 	// Write file to local workspace
 	err = wsfile.SaveContent(ctx.Dbpool, workspaceName, fileName, wsFileContent.(string))
-	results = &map[string]interface{}{
+	results = &map[string]any{
 		"file_name": wsFileName,
 	}
 	return
@@ -942,7 +942,7 @@ func (ctx *DataTableContext) SaveWorkspaceFileContent(dataTableAction *DataTable
 
 // SaveWorkspaceClientConfig --------------------------------------------------------------------------
 // Function to save the workspace file content in local workspace file system and in database
-func (ctx *DataTableContext) SaveWorkspaceClientConfig(dataTableAction *DataTableAction, token string) (results *map[string]interface{}, httpStatus int, err error) {
+func (ctx *DataTableContext) SaveWorkspaceClientConfig(dataTableAction *DataTableAction, token string) (results *map[string]any, httpStatus int, err error) {
 	_, err2 := ctx.VerifyUserPermission(&SqlInsertDefinition{Capability: "workspace_ide"}, token)
 	if err2 != nil {
 		return nil, http.StatusUnauthorized, errors.New("error: unauthorized, cannot get user info or does not have permission")
@@ -960,7 +960,7 @@ func (ctx *DataTableContext) SaveWorkspaceClientConfig(dataTableAction *DataTabl
 
 	// Save client config to local workspace
 	err = wsfile.SaveClientConfig(ctx.Dbpool, workspaceName, clientName.(string))
-	results = &map[string]interface{}{}
+	results = &map[string]any{}
 	return
 }
 
@@ -968,7 +968,7 @@ func (ctx *DataTableContext) SaveWorkspaceClientConfig(dataTableAction *DataTabl
 // Function to delete workspace file changes based on rows in workspace_changes
 // Delete the workspace_changes row and the associated large object
 // Restaure files from stash, except for .db and .tgz files
-func (ctx *DataTableContext) DeleteWorkspaceChanges(dataTableAction *DataTableAction, token string) (results *map[string]interface{}, httpStatus int, err error) {
+func (ctx *DataTableContext) DeleteWorkspaceChanges(dataTableAction *DataTableAction, token string) (results *map[string]any, httpStatus int, err error) {
 	_, err2 := ctx.VerifyUserPermission(&SqlInsertDefinition{Capability: "workspace_ide"}, token)
 	if err2 != nil {
 		return nil, http.StatusUnauthorized, errors.New("error: unauthorized, cannot get user info or does not have permission")
@@ -991,14 +991,14 @@ func (ctx *DataTableContext) DeleteWorkspaceChanges(dataTableAction *DataTableAc
 		}
 	}
 
-	results = &map[string]interface{}{}
+	results = &map[string]any{}
 	return
 }
 
 // DeleteAllWorkspaceChanges --------------------------------------------------------------------------
 // Function to delete workspace file changes based on rows in workspace_changes
 // Delete the workspace_changes row and the associated large object
-func (ctx *DataTableContext) DeleteAllWorkspaceChanges(dataTableAction *DataTableAction, token string) (results *map[string]interface{}, httpStatus int, err error) {
+func (ctx *DataTableContext) DeleteAllWorkspaceChanges(dataTableAction *DataTableAction, token string) (results *map[string]any, httpStatus int, err error) {
 	_, err2 := ctx.VerifyUserPermission(&SqlInsertDefinition{Capability: "workspace_ide"}, token)
 	if err2 != nil {
 		return nil, http.StatusUnauthorized, errors.New("error: unauthorized, cannot get user info or does not have permission")
@@ -1018,6 +1018,6 @@ func (ctx *DataTableContext) DeleteAllWorkspaceChanges(dataTableAction *DataTabl
 		return
 	}
 
-	results = &map[string]interface{}{}
+	results = &map[string]any{}
 	return
 }
