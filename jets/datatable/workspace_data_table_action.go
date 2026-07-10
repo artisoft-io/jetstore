@@ -138,8 +138,7 @@ func (ctx *DataTableContext) WorkspaceInsertRows(dataTableAction *DataTableActio
 			wsCM := dataTableAction.Data[irow]["git.commit.message"]
 			var wsCommitMessage string
 			if wsCM != nil {
-				// escape singe ' with ''
-				wsCommitMessage = strings.ReplaceAll(wsCM.(string), "'", "''")
+				wsCommitMessage = wsCM.(string)
 			}
 			workspaceGit := git.InitWorkspaceGit(&git.WorkspaceGit{
 				WorkspaceName:   dataTableAction.WorkspaceName,

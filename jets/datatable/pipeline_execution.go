@@ -82,6 +82,41 @@ type PendingTask struct {
 	FileSize             sql.NullInt64
 }
 
+// validateCommandArg guards against option-style argument injection.
+// The task fields below are passed as arguments to external commands
+// (run_reports, local_test_driver) and to state machine inputs that
+// ultimately execute those commands. exec.Command does not invoke a shell,
+// so shell metacharacters are not a concern, but a value beginning with '-'
+// could be interpreted as a flag/option by the invoked program. Reject such
+// values (and empty values) to prevent argument injection.
+func validateCommandArg(name, value string) error {
+	if value == "" {
+		return fmt.Errorf("invalid %s: value must not be empty", name)
+	}
+	if strings.HasPrefix(value, "-") {
+		return fmt.Errorf("invalid %s: value must not start with '-'", name)
+	}
+	return nil
+}
+
+// validateForCommand validates the PendingTask fields that are used to build
+// command-line arguments, preventing option-style argument injection.
+func (task *PendingTask) validateForCommand() error {
+	if err := validateCommandArg("client", task.Client); err != nil {
+		return err
+	}
+	if err := validateCommandArg("process_name", task.ProcessName); err != nil {
+		return err
+	}
+	if err := validateCommandArg("session_id", task.SessionId); err != nil {
+		return err
+	}
+	if err := validateCommandArg("file_key", task.MainInputFileKey.String); err != nil {
+		return err
+	}
+	return nil
+}
+
 // Insert into pipeline_execution_status and in loader_execution_status
 func (ctx *DataTableContext) InsertPipelineExecutionStatus(dataTableAction *DataTableAction,
 	irow int, results *map[string]any, token string) (peKey int, httpStatus int, err error) {
@@ -465,6 +500,13 @@ func (ctx *DataTableContext) startPipeline(devModeCode string, task *PendingTask
 func (ctx *DataTableContext) startStateMachine(task *PendingTask) error {
 	var err error
 	var name string
+
+	// Guard against option-style argument injection before building command args.
+	if err = task.validateForCommand(); err != nil {
+		log.Printf("while validating task for startStateMachine: %v", err)
+		return errors.New("error: invalid task argument")
+	}
+
 	peKey := strconv.Itoa(int(task.Key))
 
 	runReportsCommand := []string{
@@ -543,6 +585,13 @@ func (ctx *DataTableContext) startStateMachine(task *PendingTask) error {
 func (ctx *DataTableContext) runPipelineLocally(devModeCode string, task *PendingTask, results *map[string]any) error {
 
 	var err error
+
+	// Guard against option-style argument injection before building command args.
+	if err = task.validateForCommand(); err != nil {
+		log.Printf("while validating task for runPipelineLocally: %v", err)
+		return errors.New("error: invalid task argument")
+	}
+
 	workspaceName := os.Getenv("WORKSPACE")
 	peKey := strconv.Itoa(int(task.Key))
 
@@ -921,7 +970,7 @@ func (ctx *DataTableContext) ProcessCoordinatorMapRegisterSchemaEvent(dbpool *pg
 	log.Printf("Processing pipeline coordinator map register schema event with schema info: %v", schemaInfo)
 
 	coordinatedPipesMap := schemaInfo.CoordinatedPipesMap
-	if coordinatedPipesMap == nil || len(coordinatedPipesMap) == 0 {
+	if len(coordinatedPipesMap) == 0 {
 		return fmt.Errorf("coordinated_pipes_json_map is missing or not a list of schemaInfo")
 	}
 	var postMapEventJson string
