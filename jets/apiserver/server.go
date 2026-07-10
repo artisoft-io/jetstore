@@ -70,7 +70,9 @@ func corsh(next http.HandlerFunc) http.HandlerFunc {
 		// DEV
 		// log.Println("* cors for",r.URL.Path,", Origin Header:", r.Header.Get("Origin"))
 		//* check that origin is what we expect
-		w.Header().Set("Access-Control-Allow-Origin", r.Header.Get("Origin"))
+		if origin := sanitizeOrigin(r.Header.Get("Origin")); origin != "" {
+			w.Header().Set("Access-Control-Allow-Origin", origin)
+		}
 		next(w, r)
 	}
 }
@@ -92,7 +94,9 @@ func (optionConfig OptionConfig) options(w http.ResponseWriter, r *http.Request)
 	// for key, value := range r.Header {
 	// 	log.Println("OptionConfig: ",key,value)
 	// }
-	w.Header().Set("Access-Control-Allow-Origin", r.Header.Get("Origin"))
+	if origin := sanitizeOrigin(r.Header.Get("Origin")); origin != "" {
+		w.Header().Set("Access-Control-Allow-Origin", origin)
+	}
 	if len(optionConfig.AllowedMethods) > 0 {
 		w.Header().Set("Access-Control-Allow-Methods", optionConfig.AllowedMethods)
 	}
