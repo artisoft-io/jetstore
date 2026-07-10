@@ -71,6 +71,50 @@ func validateWorkspaceName(workspaceName string) (string, error) {
 	return workspaceName, nil
 }
 
+// confinePath joins fileName onto baseDir and verifies the cleaned result stays
+// within baseDir, mitigating external control of file name or path (CWE-73).
+// fileName may legitimately contain subdirectories (e.g. "process_config/foo.sql"),
+// so the path is confined to baseDir rather than reduced with filepath.Base.
+func confinePath(baseDir, fileName string) (string, error) {
+	absBase, err := filepath.Abs(baseDir)
+	if err != nil {
+		return "", fmt.Errorf("while resolving base dir %q: %w", baseDir, err)
+	}
+	joined := filepath.Join(absBase, fileName)
+	if joined != absBase && !strings.HasPrefix(joined, absBase+string(os.PathSeparator)) {
+		return "", fmt.Errorf("invalid file path %q: escapes directory %q", fileName, baseDir)
+	}
+	return joined, nil
+}
+
+// ResolveWorkspacePath validates workspaceName and confines fileName within the
+// workspace directory under WORKSPACES_HOME, mitigating external control of file
+// name or path (CWE-73). It returns the safe absolute file path.
+func ResolveWorkspacePath(workspaceName, fileName string) (string, error) {
+	_, path, err := resolveWorkspacePath(workspaceName, fileName)
+	return path, err
+}
+
+// resolveWorkspacePath validates workspaceName and confines fileName within the
+// workspace directory under WORKSPACES_HOME, mitigating external control of file
+// name or path (CWE-73). It returns the validated workspace name and the safe
+// absolute file path.
+func resolveWorkspacePath(workspaceName, fileName string) (string, string, error) {
+	workspaceName, err := validateWorkspaceName(workspaceName)
+	if err != nil {
+		return "", "", err
+	}
+	workspacesHome := strings.TrimSpace(os.Getenv("WORKSPACES_HOME"))
+	if workspacesHome == "" {
+		return "", "", fmt.Errorf("WORKSPACES_HOME is not set")
+	}
+	path, err := confinePath(filepath.Join(workspacesHome, workspaceName), fileName)
+	if err != nil {
+		return "", "", err
+	}
+	return workspaceName, path, nil
+}
+
 func copyDirNoDereference(srcDir, dstDir string) error {
 	srcInfo, err := os.Lstat(srcDir)
 	if err != nil {

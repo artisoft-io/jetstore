@@ -25,7 +25,7 @@ var bigChunk int64 = 100 * 1024 * 1024  // multi part: part size of 100 MB for f
 func buildCopySourceRange(start, partSize, objectSize int64) (bool, string) {
 	end := start + partSize - 1
 	isLastPart := false
-	if end >= objectSize || objectSize - end < partSize {
+	if end >= objectSize || objectSize-end < partSize {
 		end = objectSize - 1
 		isLastPart = true
 	}
@@ -53,6 +53,18 @@ func MultiPartCopy(ctx context.Context, svc *s3.Client, maxPoolSize int,
 		destBucket = JetStoreBucket()
 	}
 
+	// Sanitize the externally-controlled object keys to mitigate external control
+	// of file name or path (CWE-73) before using them as S3 object paths.
+	var err error
+	srcKey, err = sanitizeS3Prefix(srcKey)
+	if err != nil {
+		return fmt.Errorf("MultiPartCopy: invalid source key: %v", err)
+	}
+	destKey, err = sanitizeS3Prefix(destKey)
+	if err != nil {
+		return fmt.Errorf("MultiPartCopy: invalid destination key: %v", err)
+	}
+
 	// Get the list of obj and their size
 	s3Objects, err := ListS3ObjectsV2(svc, srcBucket, &srcKey)
 	if err != nil {
@@ -72,7 +84,7 @@ func MultiPartCopy(ctx context.Context, svc *s3.Client, maxPoolSize int,
 	if totalFileSize < fileSizeCutoff && len(s3Objects) == 1 {
 		// Do the copy in one shot
 		copySource := url.QueryEscape(fmt.Sprintf("%s/%s", srcBucket, s3Objects[0].Key))
-		log.Printf("Copying using single part for file %s/%s to %s/%s of size %d", srcBucket, 
+		log.Printf("Copying using single part for file %s/%s to %s/%s of size %d", srcBucket,
 			s3Objects[0].Key, destBucket, destKey, totalFileSize)
 		copyInput := &s3.CopyObjectInput{
 			CopySource: &copySource,

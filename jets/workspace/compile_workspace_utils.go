@@ -89,7 +89,12 @@ func SyncWorkspaceFiles(dbpool *pgxpool.Pool, workspaceName, contentType string,
 		// When in skipTgzFiles == true, do not override *.tgz files
 		if (!skipSqliteFiles || !strings.HasSuffix(fo.FileName, ".db")) &&
 			(!skipTgzFiles || !strings.HasSuffix(fo.FileName, ".tgz")) {
-			localFileName := fmt.Sprintf("%s/%s/%s", workspaceHome, workspaceName, fo.FileName)
+			// Confine the DB-provided file name within the workspace directory (CWE-73).
+			baseDir := fmt.Sprintf("%s/%s", workspaceHome, workspaceName)
+			localFileName, err := resolveWorkspacePath(baseDir, fo.FileName)
+			if err != nil {
+				return false, err
+			}
 			// create workspace.tgz file and dir structure
 			fileDir := filepath.Dir(localFileName)
 			if err = os.MkdirAll(fileDir, 0770); err != nil {
@@ -103,7 +108,7 @@ func SyncWorkspaceFiles(dbpool *pgxpool.Pool, workspaceName, contentType string,
 			// If FileName ends with .tgz, extract files from archive
 			switch {
 			case strings.HasSuffix(fo.FileName, ".tgz"):
-				err = extractTgz(localFileName, fmt.Sprintf("%s/%s", workspaceHome, workspaceName))
+				err = extractTgz(localFileName, baseDir)
 				if err != nil {
 					return false, err
 				}
@@ -132,6 +137,22 @@ func extractTgz(sourceFileName, destBaseDir string) error {
 	}
 	log.Printf("Extracted tgz file %s to %s", sourceFileName, destBaseDir)
 	return nil
+}
+
+// resolveWorkspacePath joins fileName onto baseDir and verifies the result stays
+// within baseDir, mitigating external control of file name or path (CWE-73).
+// fileName originates from the database (fo.FileName) and may legitimately contain
+// subdirectories, so we confine the cleaned path to baseDir rather than stripping it.
+func resolveWorkspacePath(baseDir, fileName string) (string, error) {
+	absBase, err := filepath.Abs(baseDir)
+	if err != nil {
+		return "", fmt.Errorf("while resolving workspace base dir: %v", err)
+	}
+	joined := filepath.Join(absBase, fileName)
+	if joined != absBase && !strings.HasPrefix(joined, absBase+string(os.PathSeparator)) {
+		return "", fmt.Errorf("invalid workspace file path %q: escapes workspace directory", fileName)
+	}
+	return joined, nil
 }
 
 // Sync the workspace files for run report lambdas if a new version of the workspace exist since the last call.

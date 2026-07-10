@@ -9,9 +9,7 @@ import (
 
 // Mock readFileFunc for testing
 func mockReadFile(files map[string]string) readFileFunc {
-	return func(filePath string) (string, error) {
-		parts := strings.Split(filePath, "/")
-		fileName := parts[len(parts)-1]
+	return func(baseDir, fileName string) (string, error) {
 		content, ok := files[fileName]
 		if !ok {
 			return "", errors.New("file not found: " + fileName)
@@ -41,8 +39,8 @@ func TestRuleFileReader_SimpleFile(t *testing.T) {
 
 func TestRuleFileReader_ImportFile(t *testing.T) {
 	files := map[string]string{
-		"main.rules":   "import \"imp1.rules\"\nmain_rule",
-		"imp1.rules":   "imp_rule1\nimp_rule2",
+		"main.rules": "import \"imp1.rules\"\nmain_rule",
+		"imp1.rules": "imp_rule1\nimp_rule2",
 	}
 	r := NewRuleFileReader("", "main.rules", mockReadFile(files))
 	content, err := r.ReadAll()
@@ -64,8 +62,8 @@ func TestRuleFileReader_ImportFile(t *testing.T) {
 
 func TestRuleFileReader_CircularImport(t *testing.T) {
 	files := map[string]string{
-		"main.rules":   "import \"imp1.rules\"\nmain_rule",
-		"imp1.rules":   "import \"main.rules\"\nimp_rule1",
+		"main.rules": "import \"imp1.rules\"\nmain_rule",
+		"imp1.rules": "import \"main.rules\"\nimp_rule1",
 	}
 	r := NewRuleFileReader("", "main.rules", mockReadFile(files))
 	content, err := r.ReadAll()
@@ -97,9 +95,9 @@ func TestRuleFileReader_MissingFile(t *testing.T) {
 
 func TestRuleFileReader_MultipleImports(t *testing.T) {
 	files := map[string]string{
-		"main.rules":   "import \"imp1.rules\"\nimport \"imp2.rules\"\nmain_rule",
-		"imp1.rules":   "imp1_rule",
-		"imp2.rules":   "imp2_rule",
+		"main.rules": "import \"imp1.rules\"\nimport \"imp2.rules\"\nmain_rule",
+		"imp1.rules": "imp1_rule",
+		"imp2.rules": "imp2_rule",
 	}
 	r := NewRuleFileReader("", "main.rules", mockReadFile(files))
 	content, err := r.ReadAll()

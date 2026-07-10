@@ -752,7 +752,13 @@ func (ctx *DataTableContext) addWorkspaceFile(dataTableAction *DataTableAction, 
 		}
 		var fileName string
 		fileName, err = url.QueryUnescape(wsFileName.(string))
-		fullFileName := fmt.Sprintf("%s/%s/%s", os.Getenv("WORKSPACES_HOME"), workspaceName, fileName)
+		if err != nil {
+			fmt.Println(err)
+			return
+		}
+		// Confine the file path within the workspace directory (CWE-73)
+		var fullFileName string
+		fullFileName, err = wsfile.ResolveWorkspacePath(workspaceName, fileName)
 		if err != nil {
 			fmt.Println(err)
 			return
@@ -828,7 +834,13 @@ func (ctx *DataTableContext) DeleteWorkspaceFile(dataTableAction *DataTableActio
 			httpStatus = http.StatusBadRequest
 			return
 		}
-		fullFileName := fmt.Sprintf("%s/%s/%s", os.Getenv("WORKSPACES_HOME"), workspaceName, fileName)
+		// Confine the file path within the workspace directory (CWE-73)
+		var fullFileName string
+		if fullFileName, err = wsfile.ResolveWorkspacePath(workspaceName, fileName); err != nil {
+			fmt.Println(err)
+			httpStatus = http.StatusBadRequest
+			return
+		}
 		// Write empty file to local workspace & db
 		if err = wsfile.SaveContent(ctx.Dbpool, workspaceName, fileName, ""); err != nil {
 			fmt.Println(err)

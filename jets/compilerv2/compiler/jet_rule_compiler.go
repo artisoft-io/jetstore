@@ -15,15 +15,15 @@ import (
 // This file contains the JetRule Compiler using a listener for transformation and validation logic
 
 type Compiler struct {
-	listener *JetRuleListener
-	saveJson bool
+	listener         *JetRuleListener
+	saveJson         bool
 	autoAddResources bool
 }
 
 func NewCompiler(basePath string, mainRuleFileName string, saveJson, trace, autoAddResources bool) *Compiler {
 	c := &Compiler{
-		listener: NewJetRuleListener(basePath, mainRuleFileName),
-		saveJson: saveJson,
+		listener:         NewJetRuleListener(basePath, mainRuleFileName),
+		saveJson:         saveJson,
 		autoAddResources: autoAddResources,
 	}
 	c.listener.trace = trace
@@ -87,30 +87,34 @@ func (c *Compiler) CompileBuffer(combinedContent string) error {
 }
 
 func (c *Compiler) SaveModel() error {
-		outPath := fmt.Sprintf("%s/%s", c.listener.basePath, c.OutJsonFileName())
-		log.Println("Saving json to", outPath)
-		data, err := c.JetRuleModel().ToJson()
-		if err != nil {
-			log.Println("** ERROR converting to json:", err.Error())
-			return fmt.Errorf("while converting to json: %w", err)
-		}
-		err = os.WriteFile(outPath, data, 0644)
-		if err != nil {
-			log.Println("** ERROR saving json:", err.Error())
-			return fmt.Errorf("while saving json: %w", err)
-		}
-		// Save to workspace.db file
-		wDb, err := NewWorkspaceDB(context.TODO(), c.listener.basePath)
-		if err != nil {
-			log.Println("** ERROR creating workspace.db:", err.Error())
-			return fmt.Errorf("while creating workspace.db: %w", err)
-		}
-		err = wDb.SaveJetRuleModel(context.TODO(), c.listener.jetRuleModel)
-		if err != nil {
-			log.Println("** ERROR saving to workspace.db:", err.Error())
-			return fmt.Errorf("while saving to workspace.db: %w", err)
-		}
-		return nil
+	outPath, err := confinePath(c.listener.basePath, c.OutJsonFileName())
+	if err != nil {
+		log.Println("** ERROR resolving output path:", err.Error())
+		return fmt.Errorf("while resolving output path: %w", err)
+	}
+	log.Println("Saving json to", outPath)
+	data, err := c.JetRuleModel().ToJson()
+	if err != nil {
+		log.Println("** ERROR converting to json:", err.Error())
+		return fmt.Errorf("while converting to json: %w", err)
+	}
+	err = os.WriteFile(outPath, data, 0644)
+	if err != nil {
+		log.Println("** ERROR saving json:", err.Error())
+		return fmt.Errorf("while saving json: %w", err)
+	}
+	// Save to workspace.db file
+	wDb, err := NewWorkspaceDB(context.TODO(), c.listener.basePath)
+	if err != nil {
+		log.Println("** ERROR creating workspace.db:", err.Error())
+		return fmt.Errorf("while creating workspace.db: %w", err)
+	}
+	err = wDb.SaveJetRuleModel(context.TODO(), c.listener.jetRuleModel)
+	if err != nil {
+		log.Println("** ERROR saving to workspace.db:", err.Error())
+		return fmt.Errorf("while saving to workspace.db: %w", err)
+	}
+	return nil
 }
 
 func (c *Compiler) Trace() bool {

@@ -9,6 +9,7 @@ import (
 	"io"
 	"log"
 	"os"
+	"path/filepath"
 	"runtime/debug"
 	"strconv"
 	"strings"
@@ -333,11 +334,36 @@ func (ca *CommandArguments) RunReports(dbpool *pgxpool.Pool) (returnedErr error)
 	return nil
 }
 
+// confineReportPath verifies that reportScriptPath, after resolving to an
+// absolute path, stays within the workspace reports directory, mitigating
+// external control of file name or path (CWE-73). The report script names come
+// from the report directives config, which is externally controlled.
+func confineReportPath(reportScriptPath string) (string, error) {
+	baseDir, err := filepath.Abs(fmt.Sprintf("%s/%s/reports", workspaceHome, wprefix))
+	if err != nil {
+		return "", fmt.Errorf("while resolving reports dir: %w", err)
+	}
+	absPath, err := filepath.Abs(reportScriptPath)
+	if err != nil {
+		return "", fmt.Errorf("while resolving report path %q: %w", reportScriptPath, err)
+	}
+	if absPath != baseDir && !strings.HasPrefix(absPath, baseDir+string(os.PathSeparator)) {
+		return "", fmt.Errorf("invalid report script path %q: escapes reports directory", reportScriptPath)
+	}
+	return absPath, nil
+}
+
 // Support Functions
 func (ca *CommandArguments) runSqlScriptDelegate(dbpool *pgxpool.Pool, reportScriptPath string) error {
 
+	// Confine the report script path within the workspace reports directory (CWE-73)
+	safePath, err := confineReportPath(reportScriptPath)
+	if err != nil {
+		return err
+	}
+
 	// Read the sql script
-	file, err := os.ReadFile(reportScriptPath)
+	file, err := os.ReadFile(safePath)
 	if err != nil {
 		if os.IsNotExist(err) {
 			fmt.Println("Error sql Script not found:", reportScriptPath)
@@ -374,8 +400,14 @@ func (ca *CommandArguments) runSqlScriptDelegate(dbpool *pgxpool.Pool, reportScr
 
 func (ca *CommandArguments) runReportsDelegate(dbpool *pgxpool.Pool, tempDir string, reportScriptPath string, updatedKeys *[]string) error {
 
+	// Confine the report script path within the workspace reports directory (CWE-73)
+	safePath, err := confineReportPath(reportScriptPath)
+	if err != nil {
+		return err
+	}
+
 	// Get the report definitions
-	file, err := os.Open(reportScriptPath)
+	file, err := os.Open(safePath)
 	if err != nil {
 		if os.IsNotExist(err) {
 			log.Printf("Report definitions file %s does not exist, skipping", reportScriptPath)

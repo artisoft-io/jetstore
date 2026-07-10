@@ -34,13 +34,19 @@ func ExtractTarGz(gzipStream io.Reader, baseDir string) error {
 			return fmt.Errorf("ExtractTarGz: Next() failed: %s", err.Error())
 		}
 
+		// Confine the archive entry within baseDir to prevent path traversal (zip-slip, CWE-22).
+		target, err := sanitizeExtractPath(baseDir, header.Name)
+		if err != nil {
+			return err
+		}
+
 		switch header.Typeflag {
 		case tar.TypeDir:
-			if err := os.Mkdir(fmt.Sprintf("%s/%s", baseDir, header.Name), 0755); err != nil {
+			if err := os.MkdirAll(target, 0755); err != nil {
 				log.Printf("ExtractTarGz: Mkdir() failed, folder probably already exist: %s", err.Error())
 			}
 		case tar.TypeReg:
-			err = extractFile(fmt.Sprintf("%s/%s", baseDir, header.Name), tarReader)
+			err = extractFile(target, tarReader)
 			if err != nil {
 				return err
 			}
@@ -56,7 +62,32 @@ func ExtractTarGz(gzipStream io.Reader, baseDir string) error {
 	return nil
 }
 
+// sanitizeExtractPath validates the externally controlled archive entry name and
+// joins it onto baseDir, mitigating archive path traversal (zip-slip, CWE-22/CWE-73).
+func sanitizeExtractPath(baseDir, name string) (string, error) {
+	// Reject absolute paths and any name that escapes the destination (e.g. "..").
+	// filepath.IsLocal breaks the taint from the untrusted archive header name.
+	if !filepath.IsLocal(name) {
+		return "", fmt.Errorf("ExtractTarGz: illegal file path %q: not a local path", name)
+	}
+	cleanName := filepath.Clean(name)
+	absBase, err := filepath.Abs(baseDir)
+	if err != nil {
+		return "", fmt.Errorf("ExtractTarGz: while resolving base dir: %v", err)
+	}
+	target := filepath.Join(absBase, cleanName)
+	// Defense in depth: confirm the resolved target remains within baseDir.
+	if target != absBase && !strings.HasPrefix(target, absBase+string(os.PathSeparator)) {
+		return "", fmt.Errorf("ExtractTarGz: illegal file path %q: escapes destination directory", name)
+	}
+	return target, nil
+}
+
 func extractFile(localFileName string, tarReader *tar.Reader) error {
+	// Ensure the parent directory exists before creating the file.
+	if err := os.MkdirAll(filepath.Dir(localFileName), 0755); err != nil {
+		return fmt.Errorf("ExtractTarGz: MkdirAll() failed: %v", err)
+	}
 	os.Remove(localFileName)
 	outFile, err := os.Create(localFileName)
 	if err != nil {

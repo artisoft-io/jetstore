@@ -9,6 +9,7 @@ import (
 	"io/fs"
 	"log"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/artisoft-io/jetstore/jets/schema"
@@ -51,7 +52,25 @@ func MigrateDb(dbpool *pgxpool.Pool) error {
 	return nil
 }
 
-func loadConfig(dbpool *pgxpool.Pool, sqlFile string) error {
+// confineFilePath joins fileName onto baseDir and verifies the cleaned result
+// stays within baseDir, mitigating external control of file name or path (CWE-73).
+func confineFilePath(baseDir, fileName string) (string, error) {
+	absBase, err := filepath.Abs(baseDir)
+	if err != nil {
+		return "", fmt.Errorf("while resolving base dir %q: %w", baseDir, err)
+	}
+	joined := filepath.Join(absBase, fileName)
+	if joined != absBase && !strings.HasPrefix(joined, absBase+string(os.PathSeparator)) {
+		return "", fmt.Errorf("invalid file path %q: escapes directory %q", fileName, baseDir)
+	}
+	return joined, nil
+}
+
+func loadConfig(dbpool *pgxpool.Pool, baseDir, fileName string) error {
+	sqlFile, err := confineFilePath(baseDir, fileName)
+	if err != nil {
+		return err
+	}
 	fmt.Println("\nInitializing jetsapi db using", sqlFile)
 	file, err := os.Open(sqlFile)
 	if err != nil {
@@ -91,13 +110,12 @@ func InitializeBaseJetsapiDb(dbpool *pgxpool.Pool, jetsDbInitPath *string) error
 	// initialize jetsapi database -- base initialization only
 	// jetsDbInitPath using base__workspace_init_db.sql
 	if len(jetsDbInitScriptPath) > 0 {
-		err := loadConfig(dbpool, jetsDbInitScriptPath)
+		err := loadConfig(dbpool, filepath.Dir(jetsDbInitScriptPath), filepath.Base(jetsDbInitScriptPath))
 		if err != nil {
 			return err
 		}
 	}
-	sqlFile := fmt.Sprintf("%s/base__workspace_init_db.sql", *jetsDbInitPath)
-	return loadConfig(dbpool, sqlFile)
+	return loadConfig(dbpool, *jetsDbInitPath, "base__workspace_init_db.sql")
 }
 
 func InitializeJetsapiDb4Clients(dbpool *pgxpool.Pool, jetsDbInitPath *string, clients *string) error {
@@ -107,8 +125,8 @@ func InitializeJetsapiDb4Clients(dbpool *pgxpool.Pool, jetsDbInitPath *string, c
 	}
 	clientList := strings.Split(*clients, ",")
 	for i := range clientList {
-		sqlFile := fmt.Sprintf("%s/%s_workspace_init_db.sql", *jetsDbInitPath, strings.ToLower(clientList[i]))
-		err := loadConfig(dbpool, sqlFile)
+		fileName := fmt.Sprintf("%s_workspace_init_db.sql", strings.ToLower(clientList[i]))
+		err := loadConfig(dbpool, *jetsDbInitPath, fileName)
 		if err != nil {
 			return err
 		}

@@ -5,6 +5,7 @@ import (
 	"log"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 
 	"github.com/artisoft-io/jetstore/jets/dbutils"
@@ -22,7 +23,12 @@ func RunCommand(buf *strings.Builder, command string, args *[]string, workspaceN
 		cmd = exec.Command(command)
 	}
 	if workspaceName != "" {
-		path := fmt.Sprintf("%s/%s", os.Getenv("WORKSPACES_HOME"), workspaceName)
+		validatedName, err := validateWorkspaceName(workspaceName)
+		if err != nil {
+			return err
+		}
+		workspaceName = validatedName
+		path := filepath.Join(os.Getenv("WORKSPACES_HOME"), workspaceName)
 		buf.WriteString(fmt.Sprintf("Executing command %s in %s\n", command, path))
 		cmd.Dir = path
 		cmd.Env = append(os.Environ(),
@@ -48,10 +54,12 @@ func RunCommand(buf *strings.Builder, command string, args *[]string, workspaceN
 // Read the file from the workspace on file system since it's already in sync with database
 func GetContent(workspaceName, fileName string) (string, error) {
 
-	// Read file from local workspace
-	var content []byte
-	var err error
-	content, err = os.ReadFile(fmt.Sprintf("%s/%s/%s", os.Getenv("WORKSPACES_HOME"), workspaceName, fileName))
+	// Read file from local workspace, confining the path to the workspace dir (CWE-73)
+	_, path, err := resolveWorkspacePath(workspaceName, fileName)
+	if err != nil {
+		return "", err
+	}
+	content, err := os.ReadFile(path)
 	if err != nil {
 		return "", fmt.Errorf("failed to read local workspace file %s: %v", fileName, err)
 	}
@@ -62,10 +70,13 @@ func GetContent(workspaceName, fileName string) (string, error) {
 // Function to save the workspace file content in local workspace file system and in database
 func SaveContent(dbpool *pgxpool.Pool, workspaceName, fileName, fileContent string) error {
 
-	// Write file to local workspace
+	// Write file to local workspace, confining the path to the workspace dir (CWE-73)
+	workspaceName, path, err := resolveWorkspacePath(workspaceName, fileName)
+	if err != nil {
+		return err
+	}
 	data := []byte(fileContent)
-	path := fmt.Sprintf("%s/%s/%s", os.Getenv("WORKSPACES_HOME"), workspaceName, fileName)
-	err := os.WriteFile(path, data, 0644)
+	err = os.WriteFile(path, data, 0644)
 	if err != nil {
 		return fmt.Errorf("failed to write local workspace file %s: %v", fileName, err)
 	}
