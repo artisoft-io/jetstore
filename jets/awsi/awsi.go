@@ -257,6 +257,28 @@ type S3Object struct {
 	Size int64
 }
 
+// sanitizeS3Prefix validates and cleans an externally-provided S3 key prefix to
+// mitigate external control of file name or path (CWE-73). It rejects control
+// characters, strips any leading '/', and rejects path traversal ("..") sequences.
+func sanitizeS3Prefix(prefix string) (string, error) {
+	if prefix == "" {
+		return "", nil
+	}
+	// Reject embedded control characters (e.g. CR/LF, NUL).
+	for _, r := range prefix {
+		if r < 0x20 || r == 0x7f {
+			return "", fmt.Errorf("invalid s3 prefix: contains control character")
+		}
+	}
+	// Strip leading '/' and reject path traversal sequences.
+	cleaned := strings.TrimLeft(prefix, "/")
+	if cleaned == ".." || strings.HasPrefix(cleaned, "../") ||
+		strings.Contains(cleaned, "/../") || strings.HasSuffix(cleaned, "/..") {
+		return "", fmt.Errorf("invalid s3 prefix: path traversal detected")
+	}
+	return cleaned, nil
+}
+
 func NewS3Client() (*s3.Client, error) {
 	cfg, err := config.LoadDefaultConfig(context.TODO(), config.WithRegion(jetstoreOwnRegion))
 	if err != nil {
@@ -315,6 +337,15 @@ func ListS3ObjectsV2(s3Client *s3.Client, externalBucket string, prefix *string)
 		externalBucket = jetstoreOwnBucket
 	}
 
+	// Validate the externally-provided prefix (CWE-73).
+	if prefix != nil {
+		cleaned, err := sanitizeS3Prefix(*prefix)
+		if err != nil {
+			return nil, err
+		}
+		prefix = &cleaned
+	}
+
 	// Download the keys
 	keys := make([]*S3Object, 0)
 	var token *string
@@ -350,6 +381,12 @@ func ListS3ObjectsV2(s3Client *s3.Client, externalBucket string, prefix *string)
 func CountS3ObjectsWithPrefix(s3Client *s3.Client, externalBucket, prefix string) (int64, string, error) {
 	if externalBucket == "" || externalBucket == "jetstore_bucket" {
 		externalBucket = jetstoreOwnBucket
+	}
+
+	// Validate the externally-provided prefix (CWE-73).
+	prefix, err := sanitizeS3Prefix(prefix)
+	if err != nil {
+		return 0, "", err
 	}
 
 	var count int64

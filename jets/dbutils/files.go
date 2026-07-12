@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"path/filepath"
+	"strings"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -56,10 +58,37 @@ func QueryFileObject(dbpool *pgxpool.Pool, workspaceName, contentType string) ([
 	return fileObjects, nil
 }
 
+// confineToWorkspace validates that localFileName resolves within the workspace
+// directory under WORKSPACES_HOME, mitigating external control of file name or
+// path (CWE-73). It returns the cleaned, confined absolute path.
+func (fo *FileDbObject) confineToWorkspace(localFileName string) (string, error) {
+	workspacesHome := strings.TrimSpace(os.Getenv("WORKSPACES_HOME"))
+	if workspacesHome == "" {
+		return "", fmt.Errorf("WORKSPACES_HOME is not set")
+	}
+	absBase, err := filepath.Abs(filepath.Join(workspacesHome, fo.WorkspaceName))
+	if err != nil {
+		return "", fmt.Errorf("while resolving workspace base dir: %v", err)
+	}
+	joined := filepath.Clean(localFileName)
+	if !filepath.IsAbs(joined) {
+		joined = filepath.Join(absBase, joined)
+	}
+	if joined != absBase && !strings.HasPrefix(joined, absBase+string(os.PathSeparator)) {
+		return "", fmt.Errorf("invalid workspace file path %q: escapes workspace directory", localFileName)
+	}
+	return joined, nil
+}
+
 // Write Db Object, identified by fo.Oid to local file system
 func (fo *FileDbObject) WriteDbObject2LocalFile(dbpool *pgxpool.Pool, localFileName string) error {
-	os.Remove(localFileName)
-	fileHd, err := os.Create(localFileName)
+	// Confine the externally-controlled path within the workspace directory (CWE-73).
+	safeFileName, err := fo.confineToWorkspace(localFileName)
+	if err != nil {
+		return err
+	}
+	os.Remove(safeFileName)
+	fileHd, err := os.Create(safeFileName)
 	if err != nil {
 		return fmt.Errorf("failed to os.Create on local workspace file %s for write: %v", fo.FileName, err)
 	}

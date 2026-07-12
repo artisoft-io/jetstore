@@ -348,7 +348,7 @@ func (ses *JetRdfSessionGo) encodeSession() (map[string]any, error) {
 
 	ri := ses.re.JetResources()
 	// Create the rdf_type (rdfTypeSet) and entity_key_by_type (entityKeyByType) data structures
-	ctor := ses.rdfSession.FindSPO(nil, ri.Rdf__type.Hdle().(*rdf.Node), nil)
+	ctor := ses.rdfSession.FindSPO(nil, ri.Rdf__type.Hdle().(*RdfNodeGo).node, nil)
 	for t3 := range ctor.Itor {
 		entity := t3[0]
 		entityName := entity.String()

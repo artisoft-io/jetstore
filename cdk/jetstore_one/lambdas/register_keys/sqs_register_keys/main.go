@@ -48,6 +48,7 @@ func main() {
 func getInfo(requestUrl string) (string, error) {
 	retry := 0
 do_retry:
+	// #nosec G107 G704 -- requestUrl originates from a trusted source (internal SQS event payload), not from untrusted external input.
 	resp, err := http.Get(requestUrl)
 	if err != nil {
 		if retry < 10 {

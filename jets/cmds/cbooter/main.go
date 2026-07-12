@@ -48,14 +48,35 @@ var rootSysProcAttr *syscall.SysProcAttr = &syscall.SysProcAttr{
 	},
 }
 
+// allowedCommands is the set of commands cbooter is permitted to run.
+// The user-supplied command must match one of these exactly to prevent
+// arbitrary command / argument injection via os.Args.
+var allowedCommands = map[string]bool{
+	"apiserver":            true,
+	"run_reports":          true,
+	"cpipes_server":        true,
+	"cpipes_native_server": true,
+}
+
 func main() {
 	log.Printf("cbooter starting with arguments %v...", os.Args[1:])
+
+	// A command name is required as the first argument.
+	if len(os.Args) < 2 {
+		log.Fatalf("a command name must be provided as the first argument; allowed commands: apiserver, run_reports, loader, server, serverv2, cpipes_server, cpipes_native_server")
+	}
 
 	// Separate cbooter args from command args
 	// cbooter args are -ui, -reports, -loader, -server, -serverv2, -cpipes
 	// Everything else is considered a cmd arg
 	cmd := os.Args[1]
 	cmdArgs := os.Args[2:]
+
+	// Validate the command against the allowlist to prevent command injection.
+	// Only known, trusted command names may be executed.
+	if !allowedCommands[cmd] {
+		log.Fatalf("invalid command %q; allowed commands: apiserver, run_reports, loader, server, serverv2, cpipes_server, cpipes_native_server", cmd)
+	}
 
 	// Validate that JETS_TEMP_DATA, WORKSPACES_REPO, and WORKSPACES_HOME are set
 	if os.Getenv("JETS_TEMP_DATA") == "" || os.Getenv("WORKSPACES_REPO") == "" || os.Getenv("WORKSPACES_HOME") == "" {

@@ -151,6 +151,7 @@ func handler(ctx context.Context, event TestEvent) (TestResponse, error) {
 	}
 
 	// Create HTTP request
+	// #nosec G107 G704 -- url targets the internal API Gateway endpoint from trusted configuration, not untrusted external input.
 	req, err := http.NewRequestWithContext(ctx, method, url, bytes.NewReader(requestBody))
 	if err != nil {
 		return TestResponse{
@@ -194,6 +195,7 @@ func handler(ctx context.Context, event TestEvent) (TestResponse, error) {
 		Timeout: 30 * time.Second,
 	}
 
+	// #nosec G704 -- req targets the internal API Gateway endpoint from trusted configuration, not untrusted external input.
 	resp, err := client.Do(req)
 	if err != nil {
 		return TestResponse{

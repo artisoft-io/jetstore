@@ -6,14 +6,33 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"regexp"
 	"strings"
 
 	"github.com/artisoft-io/jetstore/jets/jetrules/rete"
 )
 
+// sqlIdentifierRe matches safe, unqualified SQL identifiers (table or column names).
+// SQL identifiers cannot be passed as bind parameters, so any identifier that is
+// interpolated into a statement must be validated against this allowlist to prevent
+// SQL injection (CWE-89).
+var sqlIdentifierRe = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_]*$`)
+
+// validateSQLIdentifier returns an error if name is not a safe SQL identifier.
+func validateSQLIdentifier(kind, name string) error {
+	if !sqlIdentifierRe.MatchString(name) {
+		return fmt.Errorf("invalid %s identifier %q", kind, name)
+	}
+	return nil
+}
+
 // Function to get max key from table
 func getMaxKey(ctx context.Context, db *sql.DB, tableName string) (int, error) {
+	if err := validateSQLIdentifier("table", tableName); err != nil {
+		return 0, err
+	}
 	var maxKey sql.NullInt64
+	// #nosec G201 -- tableName is validated against sqlIdentifierRe by validateSQLIdentifier above.
 	query := fmt.Sprintf("SELECT MAX(key) FROM %s", tableName)
 	err := db.QueryRowContext(ctx, query).Scan(&maxKey)
 	if err != nil && !strings.Contains(err.Error(), "converting NULL to int is unsupported") {
@@ -27,7 +46,14 @@ func getMaxKey(ctx context.Context, db *sql.DB, tableName string) (int, error) {
 
 // Function to get key from table based on column name and value
 func getKeyByColumn(ctx context.Context, db *sql.DB, tableName, columnName string, columnValue any) (int, error) {
+	if err := validateSQLIdentifier("table", tableName); err != nil {
+		return 0, err
+	}
+	if err := validateSQLIdentifier("column", columnName); err != nil {
+		return 0, err
+	}
 	var key sql.NullInt64
+	// #nosec G201 -- tableName and columnName are validated against sqlIdentifierRe by validateSQLIdentifier above.
 	query := fmt.Sprintf("SELECT key FROM %s WHERE %s = ?", tableName, columnName)
 	err := db.QueryRowContext(ctx, query, columnValue).Scan(&key)
 	if err != nil && !strings.Contains(err.Error(), "converting NULL to int is unsupported") && err != sql.ErrNoRows {

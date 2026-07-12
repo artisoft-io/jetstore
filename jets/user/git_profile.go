@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"math"
 	"os"
 	"strings"
 
@@ -35,6 +36,11 @@ func init() {
 		JetsEncriptionKey, err = getEncryptionKeyFromSecret()
 		if err != nil {
 			log.Println("user.init():", err)
+		}
+	}
+	if JetsEncriptionKey != "" {
+		if err := verifyKeyStrength(JetsEncriptionKey); err != nil {
+			log.Println("WARNING: JetsEncriptionKey did not pass strength check:", err)
 		}
 	}
 	AdminEmail = os.Getenv("JETS_ADMIN_EMAIL")
@@ -87,6 +93,49 @@ func GetGitProfile(dbpool *pgxpool.Pool, userEmail string) (GitProfile, error) {
 	return gitProfile, err
 }
 
+// minKeyEntropyBits is the minimum acceptable Shannon entropy (in bits per byte)
+// for the AES encryption key. A 32-byte key generated from a cryptographically
+// secure source will comfortably exceed this threshold, while weak or predictable
+// keys (e.g. repeated characters or dictionary phrases) fall below it. This guards
+// against Insufficient Entropy (CWE-331) in the configured key material.
+const minKeyEntropyBits = 3.0
+
+// shannonEntropy returns the Shannon entropy of data expressed in bits per byte.
+func shannonEntropy(data []byte) float64 {
+	if len(data) == 0 {
+		return 0
+	}
+	var counts [256]float64
+	for _, b := range data {
+		counts[b]++
+	}
+	length := float64(len(data))
+	var entropy float64
+	for _, c := range counts {
+		if c == 0 {
+			continue
+		}
+		p := c / length
+		entropy -= p * math.Log2(p)
+	}
+	return entropy
+}
+
+// verifyKeyStrength validates that the encryption key has the required length and
+// sufficient entropy to be used safely as an AES-256 key. It returns an error when
+// the key is not 32 bytes long or when its entropy is below minKeyEntropyBits.
+func verifyKeyStrength(keyString string) error {
+	if len(keyString) != 32 {
+		return fmt.Errorf("error: encryption key must be 32 bytes long, got %d", len(keyString))
+	}
+	if entropy := shannonEntropy([]byte(keyString)); entropy < minKeyEntropyBits {
+		return fmt.Errorf(
+			"error: encryption key has insufficient entropy (%.2f bits/byte, minimum %.2f); "+
+				"use a key generated from a cryptographically secure source", entropy, minKeyEntropyBits)
+	}
+	return nil
+}
+
 func EncryptGitToken(gitToken string) (string, error) {
 	return encrypt(gitToken, JetsEncriptionKey)
 }
@@ -121,8 +170,12 @@ func DecryptValue(value, encryptionKey string) (string, error) {
 // From: https://www.melvinvivas.com/how-to-encrypt-and-decrypt-data-using-aes
 func encrypt(stringToEncrypt string, keyString string) (encryptedString string, err error) {
 
-	if stringToEncrypt == "" || len(keyString) != 32 {
-		err = fmt.Errorf("ERROR: decrypt called with empty stringToEncrypt or len(key) != 32")
+	if stringToEncrypt == "" {
+		err = fmt.Errorf("ERROR: encrypt called with empty stringToEncrypt")
+		log.Println(err)
+		return "", err
+	}
+	if err = verifyKeyStrength(keyString); err != nil {
 		log.Println(err)
 		return "", err
 	}
@@ -158,8 +211,12 @@ func encrypt(stringToEncrypt string, keyString string) (encryptedString string, 
 
 func decrypt(encryptedString string, keyString string) (decryptedString string, err error) {
 
-	if encryptedString == "" || len(keyString) != 32 {
-		err = fmt.Errorf("ERROR: decrypt called with empty encryptedString or len(key) != 32")
+	if encryptedString == "" {
+		err = fmt.Errorf("ERROR: decrypt called with empty encryptedString")
+		log.Println(err)
+		return "", err
+	}
+	if err = verifyKeyStrength(keyString); err != nil {
 		log.Println(err)
 		return "", err
 	}

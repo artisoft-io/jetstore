@@ -20,7 +20,11 @@ func (j *JetRuleListener) LogParse(msg string) {
 	j.parseLog.WriteString("\n")
 }
 
-func readRuleFile(filePath string) (string, error) {
+func readRuleFile(basePath, fileName string) (string, error) {
+	filePath, err := confinePath(basePath, fileName)
+	if err != nil {
+		return "", err
+	}
 	data, err := os.ReadFile(filePath)
 	if err != nil {
 		return "", err

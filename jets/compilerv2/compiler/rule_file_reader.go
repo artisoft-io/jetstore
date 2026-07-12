@@ -2,6 +2,8 @@ package compiler
 
 import (
 	"fmt"
+	"os"
+	"path/filepath"
 	"regexp"
 	"strings"
 )
@@ -13,7 +15,24 @@ import (
 // line number in each file.
 
 var reImportPattern = regexp.MustCompile(`import\s*"([a-zA-Z0-9_\/.-]*)"`)
-type readFileFunc func(filePath string) (string, error)
+
+type readFileFunc func(baseDir, fileName string) (string, error)
+
+// confinePath joins fileName onto baseDir and verifies the resulting path
+// stays within baseDir, preventing path traversal via '..' or absolute paths
+// (CWE-73: External Control of File Name or Path). fileName may contain
+// legitimate subdirectories but must not escape baseDir.
+func confinePath(baseDir, fileName string) (string, error) {
+	absBase, err := filepath.Abs(baseDir)
+	if err != nil {
+		return "", fmt.Errorf("while resolving base path %q: %w", baseDir, err)
+	}
+	p := filepath.Join(absBase, fileName)
+	if p != absBase && !strings.HasPrefix(p, absBase+string(os.PathSeparator)) {
+		return "", fmt.Errorf("invalid file path %q: escapes base directory %q", fileName, baseDir)
+	}
+	return p, nil
+}
 
 // RuleFileReader reads and combines rule files
 // with support for import statements and tracking line numbers
@@ -109,8 +128,7 @@ func (r *RuleFileReader) readFileRecursive(fileName string) error {
 	r.combinedContent.WriteString(fmt.Sprintf("@JetCompilerDirective source_file = \"%s\";\n", fileName))
 	r.globalLineNum++
 
-	filePath := fmt.Sprintf("%s/%s", r.basePath, fileName)
-	content, err := r.readFile(filePath)
+	content, err := r.readFile(r.basePath, fileName)
 	if err != nil {
 		return err
 	}
