@@ -591,8 +591,18 @@ func listenAndServe() error {
 	}
 
 	log.Println("Listening to address ", serverAddr)
+	// Configure the HTTP server with explicit timeouts to mitigate slow-client
+	// (Slowloris) denial-of-service attacks (CWE-676 / OWASP Security Misconfiguration).
+	httpServer := &http.Server{
+		Addr:              serverAddr,
+		Handler:           server.Router,
+		ReadHeaderTimeout: 10 * time.Second,
+		ReadTimeout:       30 * time.Second,
+		WriteTimeout:      120 * time.Second,
+		IdleTimeout:       120 * time.Second,
+	}
 	if *usingSshTunnel {
-		return http.ListenAndServe(serverAddr, server.Router)
+		return httpServer.ListenAndServe()
 	} else {
 		err = GenerateCert()
 		if err != nil {
@@ -600,7 +610,7 @@ func listenAndServe() error {
 			log.Println(err)
 			return err
 		}
-		return http.ListenAndServeTLS(serverAddr, "cert.pem", "key.pem", server.Router)
+		return httpServer.ListenAndServeTLS("cert.pem", "key.pem")
 	}
 }
 
