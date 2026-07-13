@@ -108,6 +108,30 @@ type SecretManagerClient struct {
 	smClient *secretsmanager.Client
 }
 
+// sanitizeSecretId validates and neutralizes an externally-provided AWS Secrets
+// Manager secret identifier to mitigate resource injection (CWE-99). The
+// identifier may be either a secret name or an ARN. It rejects empty values,
+// control characters, and any character outside the set allowed by AWS for
+// secret names and ARNs (alphanumeric and the characters /_+=.@-:).
+func sanitizeSecretId(secret string) (string, error) {
+	if secret == "" {
+		return "", fmt.Errorf("invalid secret id: empty value")
+	}
+	for _, r := range secret {
+		switch {
+		case r >= 'a' && r <= 'z',
+			r >= 'A' && r <= 'Z',
+			r >= '0' && r <= '9',
+			r == '/', r == '_', r == '+', r == '=',
+			r == '.', r == '@', r == '-', r == ':':
+			// allowed
+		default:
+			return "", fmt.Errorf("invalid secret id: contains disallowed character")
+		}
+	}
+	return secret, nil
+}
+
 func NewSecretManagerClient() (*SecretManagerClient, error) {
 	cfg, err := GetConfig()
 	if err != nil {
@@ -121,6 +145,10 @@ func NewSecretManagerClient() (*SecretManagerClient, error) {
 }
 
 func (c *SecretManagerClient) GetSecretValue(secret, label string) (string, error) {
+	secret, err := sanitizeSecretId(secret)
+	if err != nil {
+		return "", err
+	}
 	input := &secretsmanager.GetSecretValueInput{
 		SecretId:     aws.String(secret),
 		VersionStage: aws.String(label), //  AWSCURRENT, AWSPREVIOUS, AWSPENDING
@@ -150,6 +178,10 @@ func (c *SecretManagerClient) GetRandomPassword(excludeCharacters string, length
 }
 
 func (c *SecretManagerClient) DescribeSecret(secret string) (*secretsmanager.DescribeSecretOutput, error) {
+	secret, err := sanitizeSecretId(secret)
+	if err != nil {
+		return nil, err
+	}
 	input := &secretsmanager.DescribeSecretInput{
 		SecretId: aws.String(secret),
 	}
@@ -161,6 +193,10 @@ func (c *SecretManagerClient) DescribeSecret(secret string) (*secretsmanager.Des
 }
 
 func (c *SecretManagerClient) GetCurrentSecretValue(secret string) (string, error) {
+	secret, err := sanitizeSecretId(secret)
+	if err != nil {
+		return "", err
+	}
 	input := &secretsmanager.GetSecretValueInput{
 		SecretId:     aws.String(secret),
 		VersionStage: aws.String("AWSCURRENT"), // VersionStage defaults to AWSCURRENT if unspecified
@@ -178,13 +214,17 @@ func (c *SecretManagerClient) GetCurrentSecretValue(secret string) (string, erro
 }
 
 func (c *SecretManagerClient) PutSecretValue(secret, value, stageLabel, clientRequestToken string) error {
+	secret, err := sanitizeSecretId(secret)
+	if err != nil {
+		return err
+	}
 	input := &secretsmanager.PutSecretValueInput{
 		SecretId:           aws.String(secret),
 		ClientRequestToken: aws.String(clientRequestToken),
 		SecretString:       aws.String(value),
 		VersionStages:      []string{stageLabel},
 	}
-	_, err := c.smClient.PutSecretValue(context.TODO(), input)
+	_, err = c.smClient.PutSecretValue(context.TODO(), input)
 	return err
 }
 
