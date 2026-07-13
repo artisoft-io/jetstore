@@ -69,8 +69,9 @@ func corsh(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		// DEV
 		// log.Println("* cors for",r.URL.Path,", Origin Header:", r.Header.Get("Origin"))
-		//* check that origin is what we expect
-		if origin := sanitizeOrigin(r.Header.Get("Origin")); origin != "" {
+		// Check that origin is what we expect
+		origin := sanitizeOrigin(r.Header.Get("Origin"))
+		if origin != "" {
 			w.Header().Set("Access-Control-Allow-Origin", origin)
 		}
 		next(w, r)
@@ -87,14 +88,14 @@ type OptionConfig struct {
 func (optionConfig OptionConfig) options(w http.ResponseWriter, r *http.Request) {
 	// // for devel
 	// log.Println("* Options for", r.URL, "method:",r.Method)
-
-	// write cors headers
-	//* TODO check that origin is what we expect
-	//
 	// for key, value := range r.Header {
 	// 	log.Println("OptionConfig: ",key,value)
 	// }
-	if origin := sanitizeOrigin(r.Header.Get("Origin")); origin != "" {
+	
+	// write cors headers
+	// Check that origin is what we expect
+	origin := sanitizeOrigin(r.Header.Get("Origin"))
+	if origin != "" {
 		w.Header().Set("Access-Control-Allow-Origin", origin)
 	}
 	if len(optionConfig.AllowedMethods) > 0 {
