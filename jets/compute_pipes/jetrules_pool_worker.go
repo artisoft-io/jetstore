@@ -466,57 +466,6 @@ func (ctx *JrPoolWorker) extractLiteralValue(rdfSession JetRdfSession, subject, 
 	return data
 }
 
-// Navigate recursively the object properties and extract their values into a map[string]any
-// excluding the properties starting with _0:
-func (ctx *JrPoolWorker) extractObjectValue(rdfSession JetRdfSession, subject RdfNode,
-	entityObj map[string]any, currentSourcePeriod int, outChannel *JetrulesOutputChan) {
-	itor := rdfSession.FindS(subject)
-	for !itor.IsEnd() {
-		log.Printf("*** Triple (%s, %s, %s)", itor.GetSubject(), itor.GetPredicate(), itor.GetObject())
-		prop := itor.GetPredicate()
-		if strings.HasPrefix(prop.String(), "_0:") {
-			itor.Next()
-			continue
-		}
-		// Check if it's an obj property
-		jtor := rdfSession.FindS(itor.GetObject())
-		isObjProperty := false
-		for !jtor.IsEnd() {
-			isObjProperty = true
-			subEntityObj := make(map[string]any)
-			addToEntityObj(entityObj, prop.String(), subEntityObj)
-			ctx.extractObjectValue(rdfSession, jtor.GetSubject(), subEntityObj, currentSourcePeriod, outChannel)
-			jtor.Next()
-		}
-		if !isObjProperty {
-			// It's a literal property, extract its value
-			addToEntityObj(entityObj, prop.String(), itor.GetObject().Value())
-		}
-		itor.Next()
-	}
-}
-
-func addToEntityObj(entityObj map[string]any, prop string, value any) {
-	if value == nil {
-		return
-	}
-	if existing, ok := entityObj[prop]; ok {
-		// If existing is any, then create a slice to hold current and existing values
-		// If existing is []any then add to it
-		switch existingVal := existing.(type) {
-		case []any:
-			existingVal = append(existingVal, value)
-			entityObj[prop] = existingVal
-		case nil:
-			entityObj[prop] = value
-		default:
-			entityObj[prop] = []any{existingVal, value}
-		}
-	} else {
-		entityObj[prop] = value
-	}
-}
-
 func (ctx *JrPoolWorker) extractSessionData(rdfSession JetRdfSession,
 	outChannel *JetrulesOutputChan, encoding string) error {
 
@@ -550,7 +499,7 @@ func (ctx *JrPoolWorker) extractSessionData(rdfSession JetRdfSession,
 				// For toon and json encoding, we extract the entire object as a map[string]any
 				log.Printf("*** Extracting json/toon obj - start")
 				entityObj := make(map[string]any)
-				ctx.extractObjectValue(rdfSession, subject, entityObj, currentSourcePeriod, outChannel)
+				ExtractAsEntity(rdfSession, subject, entityObj, currentSourcePeriod, outChannel)
 				log.Printf("*** Extracting json/toon obj - end")
 				if encoding == "toon" {
 					// For toon encoding, we need to convert the map to a toon string
