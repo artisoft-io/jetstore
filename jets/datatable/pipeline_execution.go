@@ -18,6 +18,7 @@ import (
 	"github.com/artisoft-io/jetstore/jets/awsi"
 	"github.com/artisoft-io/jetstore/jets/compute_pipes"
 	"github.com/artisoft-io/jetstore/jets/jetrules/rdf"
+	"github.com/artisoft-io/jetstore/jets/utils"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -628,6 +629,8 @@ func (ctx *DataTableContext) runPipelineLocally(devModeCode string, task *Pendin
 				"-file_key", task.MainInputFileKey.String,
 				"-session_id", task.SessionId,
 			}
+			// Sanitize the arguments to prevent injection of options/flags
+			cpipesArgs = utils.SanitizeArgs(cpipesArgs)
 			log.Printf("Run local cpipes driver: %s", cpipesArgs)
 			lable = "CPIPES"
 			cmd = exec.Command("/usr/local/bin/local_test_driver", cpipesArgs...)
@@ -670,6 +673,8 @@ func (ctx *DataTableContext) runPipelineLocally(devModeCode string, task *Pendin
 		if ctx.UsingSshTunnel {
 			runReportsCommand = append(runReportsCommand, "-usingSshTunnel")
 		}
+		// Sanitize the arguments to prevent injection of options/flags
+		runReportsCommand = utils.SanitizeArgs(runReportsCommand)
 		cmd := exec.Command("/usr/local/bin/run_reports", runReportsCommand...)
 		cmd.Env = append(os.Environ(),
 			fmt.Sprintf("WORKSPACE=%s", workspaceName),

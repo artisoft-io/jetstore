@@ -9,6 +9,8 @@ import (
 	"os/exec"
 	"syscall"
 	"time"
+
+	"github.com/artisoft-io/jetstore/jets/utils"
 )
 
 // Docker image booter to run commands as non-root user inside container
@@ -63,7 +65,7 @@ func main() {
 
 	// A command name is required as the first argument.
 	if len(os.Args) < 2 {
-		log.Fatalf("a command name must be provided as the first argument; allowed commands: apiserver, run_reports, loader, server, serverv2, cpipes_server, cpipes_native_server")
+		log.Fatalf("a command name must be provided as the first argument; allowed commands: apiserver, run_reports, cpipes_server, cpipes_native_server")
 	}
 
 	// Separate cbooter args from command args
@@ -75,7 +77,7 @@ func main() {
 	// Validate the command against the allowlist to prevent command injection.
 	// Only known, trusted command names may be executed.
 	if !allowedCommands[cmd] {
-		log.Fatalf("invalid command %q; allowed commands: apiserver, run_reports, loader, server, serverv2, cpipes_server, cpipes_native_server", cmd)
+		log.Fatalf("invalid command %q; allowed commands: apiserver, run_reports, cpipes_server, cpipes_native_server", cmd)
 	}
 
 	// Validate that JETS_TEMP_DATA, WORKSPACES_REPO, and WORKSPACES_HOME are set
@@ -155,6 +157,8 @@ func makeJetsdataWritable() error {
 }
 
 func runCommandAsRoot(command string, args []string) error {
+	// Sanitize the command and arguments to prevent injection of options/flags
+	args = utils.SanitizeArgs(args)
 	cmd := exec.Command(command, args...)
 	cmd.SysProcAttr = rootSysProcAttr
 	// Run the command and capture output
@@ -166,6 +170,8 @@ func runCommandAsRoot(command string, args []string) error {
 // runCommandAsJsuser runs a command with specified user
 // It returns an error if the command fails to start
 func runCommandAsJsuser(command string, args []string) error {
+	// Sanitize the command and arguments to prevent injection of options/flags
+	args = utils.SanitizeArgs(args)
 	cmd := exec.Command(command, args...)
 	cmd.SysProcAttr = jsuserSysProcAttr
 

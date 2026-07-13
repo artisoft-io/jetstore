@@ -12,6 +12,7 @@ import (
 	"strings"
 
 	"github.com/artisoft-io/jetstore/jets/user"
+	"github.com/artisoft-io/jetstore/jets/utils"
 )
 
 // This package execute git command in the workspace directory
@@ -92,6 +93,8 @@ func validateGitRef(ref string) error {
 // directly to git without a shell, which prevents command/argument injection. Any
 // credentials embedded in remote URLs are redacted from the returned output and logs.
 func runGit(dir string, args ...string) (string, error) {
+	// Sanitize the arguments to prevent injection of options/flags
+	args = utils.SanitizeArgs(args)
 	cmd := exec.Command("git", args...)
 	cmd.Dir = dir
 	var b1 bytes.Buffer

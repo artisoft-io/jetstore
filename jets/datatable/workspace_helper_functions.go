@@ -14,6 +14,7 @@ import (
 	"github.com/artisoft-io/jetstore/jets/datatable/git"
 	"github.com/artisoft-io/jetstore/jets/datatable/wsfile"
 	"github.com/artisoft-io/jetstore/jets/user"
+	"github.com/artisoft-io/jetstore/jets/utils"
 	"github.com/artisoft-io/jetstore/jets/workspace"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -195,6 +196,8 @@ func loadWorkspaceConfigAction(ctx *DataTableContext, dataTableAction *DataTable
 
 // Run update_db - function used by apiserver and server
 func RunUpdateDb(workspaceName string, serverArgs *[]string) (string, error) {
+	// Sanitize the arguments to prevent injection of options/flags
+	*serverArgs = utils.SanitizeArgs(*serverArgs)
 	log.Printf("Run update_db: %s", *serverArgs)
 	cmd := exec.Command("/usr/local/bin/update_db", *serverArgs...)
 	cmd.Env = append(os.Environ(),

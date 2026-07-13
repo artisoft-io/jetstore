@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/artisoft-io/jetstore/jets/dbutils"
+	"github.com/artisoft-io/jetstore/jets/utils"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -18,6 +19,8 @@ import (
 func RunCommand(buf *strings.Builder, command string, args *[]string, workspaceName string) error {
 	var cmd *exec.Cmd
 	if args != nil {
+		// Sanitize the arguments to prevent injection of options/flags
+		*args = utils.SanitizeArgs(*args)
 		cmd = exec.Command(command, (*args)...)
 	} else {
 		cmd = exec.Command(command)
@@ -29,13 +32,13 @@ func RunCommand(buf *strings.Builder, command string, args *[]string, workspaceN
 		}
 		workspaceName = validatedName
 		path := filepath.Join(os.Getenv("WORKSPACES_HOME"), workspaceName)
-		buf.WriteString(fmt.Sprintf("Executing command %s in %s\n", command, path))
+		fmt.Fprintf(buf, "Executing command %s in %s\n", command, path)
 		cmd.Dir = path
 		cmd.Env = append(os.Environ(),
 			fmt.Sprintf("WORKSPACE=%s", workspaceName),
 		)
 	} else {
-		buf.WriteString(fmt.Sprintf("Executing command %s (not workspace specific or path specified)\n", command))
+		fmt.Fprintf(buf, "Executing command %s (not workspace specific or path specified)\n", command)
 	}
 	cmd.Stdout = buf
 	cmd.Stderr = buf
