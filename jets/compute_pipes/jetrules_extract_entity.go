@@ -13,9 +13,9 @@ func ExtractAsEntity(rdfSession JetRdfSession, subject RdfNode,
 	itor := rdfSession.FindS(subject)
 	defer itor.Release()
 	for !itor.IsEnd() {
-		log.Printf("*** Triple (%s, %s, %s)", itor.GetSubject(), itor.GetPredicate(), itor.GetObject())
+		log.Printf("*** Triple (%s, %s (%s), %s)", itor.GetSubject(), itor.GetPredicate(), itor.GetPredicate().Type(), itor.GetObject())
 		prop := itor.GetPredicate()
-		if strings.HasPrefix(prop.String(), "_0:") {
+		if strings.HasPrefix(prop.String(), "_0:") || prop.Type() != "named_resource" {
 			itor.Next()
 			continue
 		}

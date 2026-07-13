@@ -537,6 +537,13 @@ func (n *RdfNodeGo) IsNil() bool {
 	return n.node == rdf.Null()
 }
 
+func (n *RdfNodeGo) Type() string {
+	if n == nil || n.node == nil {
+		return "null"
+	}
+	return n.node.GetTypeName()
+}
+
 func (n *RdfNodeGo) Value() any {
 	if n == nil || n.node == nil {
 		return nil

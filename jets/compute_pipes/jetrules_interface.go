@@ -88,6 +88,7 @@ type RdfNode interface {
 	Hdle() any
 	IsNil() bool
 	Value() any
+	Type() string
 	Equals(other RdfNode) bool
 	String() string
 }

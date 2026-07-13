@@ -648,6 +648,13 @@ func (n *RdfNodeNative) IsNil() bool {
 	return n.node.GetType() == 0
 }
 
+func (n *RdfNodeNative) Type() string {
+	if n == nil || n.node == nil {
+		return "null"
+	}
+	return n.node.GetTypeName()
+}
+
 func (n *RdfNodeNative) Value() any {
 	if n == nil || n.node == nil {
 		return nil
