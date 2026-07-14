@@ -853,8 +853,8 @@ func execQuery(dbpool *pgxpool.Pool, dataTableAction *DataTableAction, query *st
 }
 
 func execWorkspaceQuery(db *sql.DB, dataTableAction *DataTableAction, query *string) (*[][]any, error) {
-	// //DEV
-	// fmt.Println("\n*** UI Query:\n", *query)
+	//DEV
+	fmt.Println("\n*** UI Workspace Query:\n", *query)
 	resultRows := make([][]any, 0, dataTableAction.Limit)
 	rows, err := db.Query(*query)
 	if err != nil {
