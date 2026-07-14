@@ -13,6 +13,7 @@ import (
 	"strings"
 
 	"github.com/artisoft-io/jetstore/jets/schema"
+	"github.com/artisoft-io/jetstore/jets/utils"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -52,22 +53,8 @@ func MigrateDb(dbpool *pgxpool.Pool) error {
 	return nil
 }
 
-// confineFilePath joins fileName onto baseDir and verifies the cleaned result
-// stays within baseDir, mitigating external control of file name or path (CWE-73).
-func confineFilePath(baseDir, fileName string) (string, error) {
-	absBase, err := filepath.Abs(baseDir)
-	if err != nil {
-		return "", fmt.Errorf("while resolving base dir %q: %w", baseDir, err)
-	}
-	joined := filepath.Join(absBase, fileName)
-	if joined != absBase && !strings.HasPrefix(joined, absBase+string(os.PathSeparator)) {
-		return "", fmt.Errorf("invalid file path %q: escapes directory %q", fileName, baseDir)
-	}
-	return joined, nil
-}
-
 func loadConfig(dbpool *pgxpool.Pool, baseDir, fileName string) error {
-	sqlFile, err := confineFilePath(baseDir, fileName)
+	sqlFile, err := utils.ConfineFilePath(baseDir, fileName)
 	if err != nil {
 		return err
 	}

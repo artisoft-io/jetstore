@@ -10,6 +10,7 @@ import (
 	"github.com/antlr4-go/antlr/v4"
 	"github.com/artisoft-io/jetstore/jets/compilerv2/parser"
 	"github.com/artisoft-io/jetstore/jets/jetrules/rete"
+	"github.com/artisoft-io/jetstore/jets/utils"
 )
 
 // This file contains the JetRule Compiler using a listener for transformation and validation logic
@@ -88,7 +89,7 @@ func (c *Compiler) CompileBuffer(combinedContent string) error {
 
 func (c *Compiler) SaveModel() error {
 	// Prevent CWE-73: External Control of File Name or Path.
-	outPath, err := confinePath(c.listener.basePath, c.OutJsonFileName())
+	outPath, err := utils.ConfineFilePath(c.listener.basePath, c.OutJsonFileName())
 	if err != nil {
 		log.Println("** ERROR resolving output path:", err.Error())
 		return fmt.Errorf("while resolving output path: %w", err)

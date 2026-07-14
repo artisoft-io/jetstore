@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/artisoft-io/jetstore/jets/awsi"
+	"github.com/artisoft-io/jetstore/jets/utils"
 	"github.com/artisoft-io/jetstore/jets/workspace"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -338,19 +339,13 @@ func (ca *CommandArguments) RunReports(dbpool *pgxpool.Pool) (returnedErr error)
 // absolute path, stays within the workspace reports directory, mitigating
 // external control of file name or path (CWE-73). The report script names come
 // from the report directives config, which is externally controlled.
-func confineReportPath(reportScriptPath string) (string, error) {
-	baseDir, err := filepath.Abs(fmt.Sprintf("%s/%s/reports", workspaceHome, wprefix))
+func confineReportPath(reportScriptPath string) (string, error) {	
+	baseDir := filepath.Join(workspaceHome, wprefix, "reports")
+	filePath, err := utils.ConfineFilePath(baseDir, reportScriptPath)
 	if err != nil {
-		return "", fmt.Errorf("while resolving reports dir: %w", err)
+		return "", err
 	}
-	absPath, err := filepath.Abs(reportScriptPath)
-	if err != nil {
-		return "", fmt.Errorf("while resolving report path %q: %w", reportScriptPath, err)
-	}
-	if absPath != baseDir && !strings.HasPrefix(absPath, baseDir+string(os.PathSeparator)) {
-		return "", fmt.Errorf("invalid report script path %q: escapes reports directory", reportScriptPath)
-	}
-	return absPath, nil
+	return filePath, nil
 }
 
 // Support Functions

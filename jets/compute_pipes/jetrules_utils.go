@@ -8,12 +8,14 @@ import (
 	"hash/fnv"
 	"log"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/artisoft-io/jetstore/jets/jetrules/rete"
+	"github.com/artisoft-io/jetstore/jets/utils"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -312,6 +314,7 @@ type RuleEngineConfig struct {
 
 // Function to get domain classes info from the local workspace
 func loadRuleEngineConfig(mainRuleFile string) (map[string]string, error) {
+	var err error
 	ruleConfig := &RuleEngineConfig{}
 	ruleEngineConfigMx.Lock()
 	defer ruleEngineConfigMx.Unlock()
@@ -319,9 +322,16 @@ func loadRuleEngineConfig(mainRuleFile string) (map[string]string, error) {
 	if ok {
 		return config, nil
 	}
-	fpath := fmt.Sprintf("%s/%s/build/%s.config.json", workspaceHome, wsPrefix, strings.TrimSuffix(mainRuleFile, ".jr"))
-	log.Println("Reading Rule Engine config definitions from:", fpath)
-	file, err := os.ReadFile(fpath)
+	fileName := strings.TrimSuffix(mainRuleFile, ".jr")+".config.json"
+	basePath := filepath.Join(WorkspaceHome(), WorkspacePrefix())
+	filePath := filepath.Join("build", fileName)
+	filePath, err = utils.ConfineFilePath(basePath, filePath)
+	if err != nil {
+		return nil, fmt.Errorf("while confining file path for %s: %v", filePath, err)
+	}
+
+	log.Println("Reading Rule Engine config definitions from:", fileName)
+	file, err := os.ReadFile(filePath)
 	if err != nil {
 		err = fmt.Errorf("while reading config.json file (GetRuleEngineConfig):%v", err)
 		log.Println(err)
