@@ -9,6 +9,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/artisoft-io/jetstore/jets/utils"
 )
 
 // This file contains functions to stash workspace in the jetstore ui container
@@ -17,7 +19,7 @@ import (
 // Function to copy all workspace files to a stash location
 // The stash is used when deleting workspace changes to restore the file to original content
 func StashFiles(workspaceName string) error {
-	workspaceName, err := validateWorkspaceName(workspaceName)
+	workspaceName, err := utils.ValidateWorkspaceName(workspaceName)
 	if err != nil {
 		return err
 	}
@@ -60,17 +62,6 @@ func StashFiles(workspaceName string) error {
 	return nil
 }
 
-func validateWorkspaceName(workspaceName string) (string, error) {
-	workspaceName = strings.TrimSpace(workspaceName)
-	if workspaceName == "" {
-		return "", fmt.Errorf("workspace name is required")
-	}
-	if workspaceName != filepath.Base(workspaceName) || workspaceName == "." || workspaceName == ".." {
-		return "", fmt.Errorf("invalid workspace name: %q", workspaceName)
-	}
-	return workspaceName, nil
-}
-
 // confinePath joins fileName onto baseDir and verifies the cleaned result stays
 // within baseDir, mitigating external control of file name or path (CWE-73).
 // fileName may legitimately contain subdirectories (e.g. "process_config/foo.sql"),
@@ -100,7 +91,7 @@ func ResolveWorkspacePath(workspaceName, fileName string) (string, error) {
 // name or path (CWE-73). It returns the validated workspace name and the safe
 // absolute file path.
 func resolveWorkspacePath(workspaceName, fileName string) (string, string, error) {
-	workspaceName, err := validateWorkspaceName(workspaceName)
+	workspaceName, err := utils.ValidateWorkspaceName(workspaceName)
 	if err != nil {
 		return "", "", err
 	}
@@ -171,7 +162,7 @@ func copyDirNoDereference(srcDir, dstDir string) error {
 
 // Function to remove the stash
 func ClearStash(workspaceName string) error {
-	workspaceName, err := validateWorkspaceName(workspaceName)
+	workspaceName, err := utils.ValidateWorkspaceName(workspaceName)
 	if err != nil {
 		return err
 	}
@@ -214,9 +205,25 @@ func CopyFiles(src, dst string) (int64, error) {
 }
 
 // Restaure (copy dir recursively) srcDir to dstDir
-func RestaureFiles(srcDir, dstDir string) error {
-	srcDir = filepath.Clean(strings.TrimSpace(srcDir))
-	dstDir = filepath.Clean(strings.TrimSpace(dstDir))
+func RestaureWorkspaceFiles(workspaceName string) error {
+	// Validate workspace name before using it to build filesystem paths (CWE-73)
+	workspaceName, err := utils.ValidateWorkspaceName(workspaceName)
+	if err != nil {
+		return err
+	}
+	stashPath := StashDir()
+	// Validate filesystem paths confinement (CWE-73)
+	source, err := confinePath(stashPath, workspaceName)
+	if err != nil {
+		return fmt.Errorf("error resolving source path: %w", err)
+	}
+	// Validate filesystem paths confinement (CWE-73)
+	target, err := confinePath(os.Getenv("WORKSPACES_HOME"), workspaceName)
+	if err != nil {
+		return fmt.Errorf("error resolving target path: %w", err)
+	}
+	srcDir := filepath.Clean(strings.TrimSpace(source))
+	dstDir := filepath.Clean(strings.TrimSpace(target))
 	if srcDir == "" || srcDir == "." {
 		return fmt.Errorf("source directory is required")
 	}
@@ -227,9 +234,7 @@ func RestaureFiles(srcDir, dstDir string) error {
 	if err := os.MkdirAll(dstDir, 0755); err != nil {
 		return fmt.Errorf("while creating restore destination %s: %w", dstDir, err)
 	}
-
-	targetPath := filepath.Join(dstDir, filepath.Base(srcDir))
-	err := copyDirNoDereference(srcDir, targetPath)
+	err = copyDirNoDereference(srcDir, dstDir)
 	if err != nil {
 		log.Printf("while executing restaure from stash all the workspace files: %v", err)
 	} else {

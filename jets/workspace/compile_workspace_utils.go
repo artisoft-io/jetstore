@@ -11,6 +11,7 @@ import (
 
 	"github.com/artisoft-io/jetstore/jets/dbutils"
 	"github.com/artisoft-io/jetstore/jets/run_reports/tarextract"
+	"github.com/artisoft-io/jetstore/jets/utils"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -80,6 +81,13 @@ func SyncWorkspaceFiles(dbpool *pgxpool.Pool, workspaceName, contentType string,
 	} else {
 		log.Printf("Start synching overriten workspace file from database")
 	}
+	
+	// Mitigating external control of file name or path (CWE-73) in workspaceName. 
+	workspaceName, err := utils.ValidateWorkspaceName(workspaceName)
+	if err != nil {
+		return false, err
+	}
+
 	fileObjects, err := dbutils.QueryFileObject(dbpool, workspaceName, contentType)
 	if err != nil {
 		return false, err
@@ -89,8 +97,10 @@ func SyncWorkspaceFiles(dbpool *pgxpool.Pool, workspaceName, contentType string,
 		// When in skipTgzFiles == true, do not override *.tgz files
 		if (!skipSqliteFiles || !strings.HasSuffix(fo.FileName, ".db")) &&
 			(!skipTgzFiles || !strings.HasSuffix(fo.FileName, ".tgz")) {
-			// Confine the DB-provided file name within the workspace directory (CWE-73).
-			baseDir := fmt.Sprintf("%s/%s", workspaceHome, workspaceName)
+
+			// Mitigating external control of file name or path (CWE-73) in resolveWorkspacePath
+			// Confine the DB-provided file name within the workspace directory (CWE-73).			
+			baseDir := filepath.Join(workspaceHome, workspaceName)
 			localFileName, err := resolveWorkspacePath(baseDir, fo.FileName)
 			if err != nil {
 				return false, err

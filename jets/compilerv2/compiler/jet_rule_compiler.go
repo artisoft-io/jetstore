@@ -87,6 +87,7 @@ func (c *Compiler) CompileBuffer(combinedContent string) error {
 }
 
 func (c *Compiler) SaveModel() error {
+	// Prevent CWE-73: External Control of File Name or Path.
 	outPath, err := confinePath(c.listener.basePath, c.OutJsonFileName())
 	if err != nil {
 		log.Println("** ERROR resolving output path:", err.Error())

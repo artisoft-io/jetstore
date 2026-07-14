@@ -18,6 +18,7 @@ import (
 // Run command in workspace
 func RunCommand(buf *strings.Builder, command string, args *[]string, workspaceName string) error {
 	var cmd *exec.Cmd
+	var err error
 	if args != nil {
 		// Sanitize the arguments to prevent injection of options/flags
 		*args = utils.SanitizeArgs(*args)
@@ -26,11 +27,10 @@ func RunCommand(buf *strings.Builder, command string, args *[]string, workspaceN
 		cmd = exec.Command(command)
 	}
 	if workspaceName != "" {
-		validatedName, err := validateWorkspaceName(workspaceName)
+		workspaceName, err = utils.ValidateWorkspaceName(workspaceName)
 		if err != nil {
 			return err
 		}
-		workspaceName = validatedName
 		path := filepath.Join(os.Getenv("WORKSPACES_HOME"), workspaceName)
 		fmt.Fprintf(buf, "Executing command %s in %s\n", command, path)
 		cmd.Dir = path
@@ -42,7 +42,7 @@ func RunCommand(buf *strings.Builder, command string, args *[]string, workspaceN
 	}
 	cmd.Stdout = buf
 	cmd.Stderr = buf
-	err := cmd.Run()
+	err = cmd.Run()
 	if err != nil {
 		msg := fmt.Sprintf("while executing command '%v': %v\n", command, err)
 		log.Print(msg)

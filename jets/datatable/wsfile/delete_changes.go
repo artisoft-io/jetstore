@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/artisoft-io/jetstore/jets/utils"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -58,7 +59,7 @@ func DeleteFileChange(dbpool *pgxpool.Pool, workspaceName, fileName string) erro
 // if keepWorkspaceAndLookupDb is true, then don't remove files 'workspace.db', 'lookup.db', 'workspace.tgz', 'reports.tgz' from the overrides
 func DeleteAllFileChanges(dbpool *pgxpool.Pool, workspaceName string, restaureFromStash, keepWorkspaceAndLookupDb bool) error {
 	// Validate workspace name before using it to build filesystem paths (CWE-73)
-	workspaceName, err := validateWorkspaceName(workspaceName)
+	workspaceName, err := utils.ValidateWorkspaceName(workspaceName)
 	if err != nil {
 		return err
 	}
@@ -84,11 +85,9 @@ func DeleteAllFileChanges(dbpool *pgxpool.Pool, workspaceName string, restaureFr
 		return nil
 	}
 	// restauring file from stash (if exists, do not report error if fails)
-	stashPath := StashDir()
-	source := fmt.Sprintf("%s/%s", stashPath, workspaceName)
-	log.Printf("Restauring all workspace files from %s", source)
-	if err = RestaureFiles(source, os.Getenv("WORKSPACES_HOME")); err != nil {
-		log.Println("while restauring all workspace files:", err)
+	log.Println("Restauring all workspace files from stash")
+	if err = RestaureWorkspaceFiles(workspaceName); err != nil {
+		log.Println("Warning: while restauring all workspace files:", err)
 	}
 	return nil
 }

@@ -65,18 +65,6 @@ func authRemoteURL(gitUser, gitToken, gitRepo string) string {
 	return fmt.Sprintf("https://%s@%s", url.UserPassword(gitUser, gitToken).String(), gitRepo)
 }
 
-// validateWorkspaceName ensures the workspace name is a safe single path segment
-// that cannot be interpreted as a command-line option or used for path traversal.
-func validateWorkspaceName(name string) error {
-	if name == "" {
-		return fmt.Errorf("error, must provide workspace_name")
-	}
-	if name != filepath.Base(name) || name == "." || name == ".." || strings.HasPrefix(name, "-") {
-		return fmt.Errorf("invalid workspace_name: %q", name)
-	}
-	return nil
-}
-
 // validateGitRef ensures a branch/ref name cannot be interpreted as a command-line
 // option and does not contain characters that are invalid in git references.
 func validateGitRef(ref string) error {
@@ -168,7 +156,7 @@ func tokenizeGitCommand(line string) ([]string, error) {
 
 // Function to delete local workspace directory
 func (wg *WorkspaceGit) DeleteWorkspace() error {
-	if err := validateWorkspaceName(wg.WorkspaceName); err != nil {
+	if _, err := utils.ValidateWorkspaceName(wg.WorkspaceName); err != nil {
 		return err
 	}
 	if wg.WorkspaceName == wg.ActiveWorkspace {
@@ -192,7 +180,7 @@ func (wg *WorkspaceGit) DeleteWorkspace() error {
 //
 // Get the column position for workspace_name, workspace_branch, feature_branch and status
 func (wg *WorkspaceGit) GetStatus() (string, error) {
-	if err := validateWorkspaceName(wg.WorkspaceName); err != nil {
+	if _, err := utils.ValidateWorkspaceName(wg.WorkspaceName); err != nil {
 		return "", err
 	}
 	workspacePath := filepath.Join(wg.WorkspacesHome, wg.WorkspaceName)
@@ -252,7 +240,7 @@ func (wg *WorkspaceGit) UpdateLocalWorkspace(userName, userEmail, gitUser, gitTo
 	//	- If folder workspace_name in workspaces root does not exists, chechout workspace_uri in workspace_name
 	//  - If user is renaming workspace_name, delete the old workspace folder under workspaces root
 	//    Note: UI must provide old workspace name as 'previous.workspace_name' virtual column
-	if err := validateWorkspaceName(wg.WorkspaceName); err != nil {
+	if _, err := utils.ValidateWorkspaceName(wg.WorkspaceName); err != nil {
 		return "", err
 	}
 	if err := validateGitRef(wg.WorkspaceBranch); err != nil {
@@ -337,7 +325,7 @@ func (wg *WorkspaceGit) CommitLocalWorkspace(gitProfile *user.GitProfile, wsComm
 	// git add -A
 	// git commit -m '<message>'
 	// git push 'https://<user>:<token>@<repo>'
-	if err := validateWorkspaceName(wg.WorkspaceName); err != nil {
+	if _, err := utils.ValidateWorkspaceName(wg.WorkspaceName); err != nil {
 		return "", err
 	}
 	workspacePath := filepath.Join(wg.WorkspacesHome, wg.WorkspaceName)
@@ -384,7 +372,7 @@ func (wg *WorkspaceGit) CommitLocalWorkspace(gitProfile *user.GitProfile, wsComm
 
 func (wg *WorkspaceGit) PushOnlyWorkspace(gitUser, gitToken string) (string, error) {
 	// git push 'https://<user>:<token>@<repo>'
-	if err := validateWorkspaceName(wg.WorkspaceName); err != nil {
+	if _, err := utils.ValidateWorkspaceName(wg.WorkspaceName); err != nil {
 		return "", err
 	}
 	workspacePath := filepath.Join(wg.WorkspacesHome, wg.WorkspaceName)
@@ -403,7 +391,7 @@ func (wg *WorkspaceGit) GitCommandWorkspace(gitCommand string) (string, error) {
 	// Execute git command(s), one per line. Each command is tokenized and executed
 	// directly (no shell), which prevents command/argument injection. Only 'git'
 	// commands are permitted.
-	if err := validateWorkspaceName(wg.WorkspaceName); err != nil {
+	if _, err := utils.ValidateWorkspaceName(wg.WorkspaceName); err != nil {
 		return "", err
 	}
 	workspacePath := filepath.Join(wg.WorkspacesHome, wg.WorkspaceName)
@@ -440,7 +428,7 @@ func (wg *WorkspaceGit) GitCommandWorkspace(gitCommand string) (string, error) {
 
 // Pull changes from orign repo by merging changes into current branch
 func (wg *WorkspaceGit) PullRemoteWorkspace(gitUser, gitToken string) (string, error) {
-	if err := validateWorkspaceName(wg.WorkspaceName); err != nil {
+	if _, err := utils.ValidateWorkspaceName(wg.WorkspaceName); err != nil {
 		return "", err
 	}
 	if err := validateGitRef(wg.WorkspaceBranch); err != nil {

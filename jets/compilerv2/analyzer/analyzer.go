@@ -109,6 +109,8 @@ func (a *Analyzer) Analyze() (err error) {
 }
 
 func (c *Analyzer) SaveModel() error {
+	// OutJsonFileName validate the output path to remain inside the
+	// base path to prevent path traversal (CWE-73).
 	outPath, err := c.OutJsonFileName()
 	if err != nil {
 		log.Println("** ERROR invalid output path:", err.Error())

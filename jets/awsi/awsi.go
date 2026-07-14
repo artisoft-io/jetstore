@@ -378,21 +378,23 @@ func ListS3ObjectsV2(s3Client *s3.Client, externalBucket string, prefix *string)
 	}
 
 	// Validate the externally-provided prefix (CWE-73).
+	var cleanedPrefix *string
 	if prefix != nil {
 		cleaned, err := sanitizeS3Prefix(*prefix)
 		if err != nil {
 			return nil, err
 		}
-		prefix = &cleaned
+		cleanedPrefix = &cleaned
 	}
 
 	// Download the keys
 	keys := make([]*S3Object, 0)
 	var token *string
-	for isTruncated := true; isTruncated; {
+	isTruncated := true
+	for isTruncated {
 		result, err := s3Client.ListObjectsV2(context.TODO(), &s3.ListObjectsV2Input{
 			Bucket:            aws.String(externalBucket),
-			Prefix:            prefix,
+			Prefix:            cleanedPrefix,
 			MaxKeys:           aws.Int32(500),
 			ContinuationToken: token,
 		})
