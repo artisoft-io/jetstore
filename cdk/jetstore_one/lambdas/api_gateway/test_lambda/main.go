@@ -14,6 +14,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/artisoft-io/jetstore/jets/utils"
 	"github.com/aws/aws-lambda-go/lambda"
 	v4 "github.com/aws/aws-sdk-go-v2/aws/signer/v4"
 	"github.com/aws/aws-sdk-go-v2/config"
@@ -152,6 +153,14 @@ func handler(ctx context.Context, event TestEvent) (TestResponse, error) {
 
 	// Create HTTP request
 	// #nosec G107 G704 -- url targets the internal API Gateway endpoint from trusted configuration, not untrusted external input.
+	err = utils.VerifyUrlPath(path)
+	if err != nil {
+		return TestResponse{
+			StatusCode: 400,
+			Body:       fmt.Sprintf("Invalid path: %v", err),
+			Error:      err.Error(),
+		}, nil
+	}
 	req, err := http.NewRequestWithContext(ctx, method, url, bytes.NewReader(requestBody))
 	if err != nil {
 		return TestResponse{
