@@ -33,6 +33,8 @@ func (ctx *MapRecordTransformationPipe) Apply(input *[]any) error {
 	}
 	var currentValues *[]any
 	var inBytes []byte
+	var rowHash string
+	var hasClassName bool
 	// Debug logging of input record
 	if ctx.spec.MapRecordConfig != nil && ctx.spec.MapRecordConfig.IsDebug {
 		data, err := utils.ZipSlices(ctx.source.Config.Columns, *input)
@@ -43,6 +45,13 @@ func (ctx *MapRecordTransformationPipe) Apply(input *[]any) error {
 		log.Println()
 		log.Printf("MapRecordTransformationPipe input (zipped): %s", string(inBytes))
 		log.Println()
+	}
+
+	// Compute the row hash for the input record if the output channel has a class name
+	// so we can use the hash as jets:key
+	if ctx.outputCh.Config.ClassName != "" {
+		rowHash = ComputeRowHash((*input), ctx.currentSourcePeriod)
+		hasClassName = true
 	}
 
 	if ctx.spec.NewRecord {
@@ -78,7 +87,7 @@ func (ctx *MapRecordTransformationPipe) Apply(input *[]any) error {
 			*currentValues = (*currentValues)[:len(ctx.outputCh.Config.Columns)]
 		}
 	}
-	if ctx.outputCh.Config.ClassName != "" {
+	if hasClassName {
 		// Set rdf:type to output channel class name if it's not set by the mapping
 		typeIdx, ok := (*ctx.outputCh.Columns)["rdf:type"]
 		if ok && (*currentValues)[typeIdx] == nil {
@@ -87,7 +96,7 @@ func (ctx *MapRecordTransformationPipe) Apply(input *[]any) error {
 		// Set jets:key to output channel class name if it's not set by the mapping
 		keyIdx, ok := (*ctx.outputCh.Columns)["jets:key"]
 		if ok && (*currentValues)[keyIdx] == nil {
-			(*currentValues)[keyIdx] = ComputeRowHash((*currentValues)[3:], ctx.currentSourcePeriod)
+			(*currentValues)[keyIdx] = rowHash
 		}
 	}
 
