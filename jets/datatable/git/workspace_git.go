@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"fmt"
 	"log"
-	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -57,12 +56,6 @@ var credURLPattern = regexp.MustCompile(`(https://)[^@\s/]+(@)`)
 // redactURLCreds masks credentials embedded in https remote URLs.
 func redactURLCreds(s string) string {
 	return credURLPattern.ReplaceAllString(s, "${1}***${2}")
-}
-
-// authRemoteURL builds an authenticated https remote URL with the credentials
-// properly percent-encoded so that special characters cannot alter the URL.
-func authRemoteURL(gitUser, gitToken, gitRepo string) string {
-	return fmt.Sprintf("https://%s@%s", url.UserPassword(gitUser, gitToken).String(), gitRepo)
 }
 
 // validateGitRef ensures a branch/ref name cannot be interpreted as a command-line
