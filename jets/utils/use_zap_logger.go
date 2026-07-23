@@ -34,8 +34,9 @@ func UseJetStoreLogger() {
 	// logger.Info("logger construction succeeded")
 
 	// Replace the system logger with our new logger. This allows us to use the standard library
-	undo := zap.RedirectStdLog(logger)
-	defer undo()
+	zap.RedirectStdLog(logger)
+	// undo := zap.RedirectStdLog(logger)
+	// defer undo()
 
 	log.Print("redirected standard library logging to zap logger")
 }
