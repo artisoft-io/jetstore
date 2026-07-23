@@ -400,7 +400,7 @@ func reportTypeError(r *Resource, columnType string) (ret interface{}, err error
 	err = fmt.Errorf(
 		"error: while saving entity, got a data property of type %s but the db schema is expecting %s",
 		r.GetTypeName(), columnType)
-	fmt.Println(err)
+	log.Println(err)
 	return
 }
 
@@ -416,7 +416,7 @@ func (r *Resource) AsInterface(columnType string) (ret interface{}, err error) {
 	case 2:
 		v, err := r.GetName()
 		if err != nil {
-			fmt.Println("ERROR Can't get resource name", err)
+			log.Println("ERROR Can't get resource name", err)
 			return ret, fmt.Errorf("while getting name of resource for AsInterface: %v", err)
 		}
 		if columnType != "text" {
@@ -426,7 +426,7 @@ func (r *Resource) AsInterface(columnType string) (ret interface{}, err error) {
 	case 3,5:
 		v, err := r.GetInt()
 		if err != nil {
-			fmt.Println("ERROR Can't GetInt", err)
+			log.Println("ERROR Can't GetInt", err)
 			return ret, fmt.Errorf("while getting int value of literal for AsInterface: %v", err)
 		}
 		if columnType != "integer" && columnType != "int" {
@@ -436,7 +436,7 @@ func (r *Resource) AsInterface(columnType string) (ret interface{}, err error) {
 	case 6:
 		v, err := r.GetUint()
 		if err != nil {
-			fmt.Println("ERROR Can't GetInt", err)
+			log.Println("ERROR Can't GetInt", err)
 			return ret, fmt.Errorf("while getting int value of literal for AsInterface: %v", err)
 		}
 		if columnType != "integer" && columnType != "int" {
@@ -446,7 +446,7 @@ func (r *Resource) AsInterface(columnType string) (ret interface{}, err error) {
 	case 7:
 		v, err := r.GetDouble()
 		if err != nil {
-			fmt.Println("ERROR Can't GetDouble", err)
+			log.Println("ERROR Can't GetDouble", err)
 			return ret, fmt.Errorf("while getting double value of literal for AsInterface: %v", err)
 		}
 		if columnType != "double precision" && columnType != "double" {
@@ -456,7 +456,7 @@ func (r *Resource) AsInterface(columnType string) (ret interface{}, err error) {
 	case 8:
 		v, err := r.GetText()
 		if err != nil {
-			fmt.Println("ERROR Can't GetText", err)
+			log.Println("ERROR Can't GetText", err)
 			return ret, fmt.Errorf("while getting text of literal for AsInterface: %v", err)
 		}
 		if columnType != "text" && columnType != "string" {
@@ -492,7 +492,7 @@ func (r *Resource) AsInterface(columnType string) (ret interface{}, err error) {
 		}
 		return reportTypeError(r, columnType)
 	default:
-		fmt.Printf("ERROR, Unexpected Resource type: %d\n", rtype)
+		log.Printf("ERROR, Unexpected Resource type: %d\n", rtype)
 		return ret, fmt.Errorf("error, unexpected resource type: %d", rtype)
 	}
 }

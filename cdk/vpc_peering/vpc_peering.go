@@ -2,8 +2,10 @@ package main
 
 import (
 	"fmt"
+	"log"
 	"os"
 
+	"github.com/artisoft-io/jetstore/jets/utils"
 	"github.com/aws/aws-cdk-go/awscdk/v2"
 	"github.com/aws/aws-cdk-go/awscdk/v2/awsec2"
 	"github.com/aws/aws-cdk-go/awscdk/v2/awsrds"
@@ -172,22 +174,23 @@ func NewVpcPeeringStack(scope constructs.Construct, id string, props *VpcPeering
 // JETS_TAG_NAME_DESCRIPTION (optional, resource-level tag name for description of the resource)
 
 func main() {
+	utils.UseJetStoreLogger()
 	defer jsii.Close()
 
-	fmt.Println("Got following env var")
-	fmt.Println("env AWS_ACCOUNT:", os.Getenv("AWS_ACCOUNT"))
-	fmt.Println("env AWS_REGION:", os.Getenv("AWS_REGION"))
-	fmt.Println("env HOST_VPC_ID:", os.Getenv("HOST_VPC_ID"))
-	fmt.Println("env HOST_VPC_REGION:", os.Getenv("HOST_VPC_REGION"))
-	fmt.Println("env JETSTORE_VPC_ID:", os.Getenv("JETSTORE_VPC_ID"))
-	fmt.Println("env BASTION_HOST_KEYPAIR_NAME:", os.Getenv("BASTION_HOST_KEYPAIR_NAME"))
-	fmt.Println("env JETS_TAG_NAME_OWNER:", os.Getenv("JETS_TAG_NAME_OWNER"))
-	fmt.Println("env JETS_TAG_VALUE_OWNER:", os.Getenv("JETS_TAG_VALUE_OWNER"))
-	fmt.Println("env JETS_TAG_NAME_PROD:", os.Getenv("JETS_TAG_NAME_PROD"))
-	fmt.Println("env JETS_TAG_VALUE_PROD:", os.Getenv("JETS_TAG_VALUE_PROD"))
-	fmt.Println("env JETS_TAG_NAME_PHI:", os.Getenv("JETS_TAG_NAME_PHI"))
-	fmt.Println("env JETS_TAG_NAME_PII:", os.Getenv("JETS_TAG_NAME_PII"))
-	fmt.Println("env JETS_TAG_NAME_DESCRIPTION:", os.Getenv("JETS_TAG_NAME_DESCRIPTION"))
+	log.Println("Got following env var")
+	log.Println("env AWS_ACCOUNT:", os.Getenv("AWS_ACCOUNT"))
+	log.Println("env AWS_REGION:", os.Getenv("AWS_REGION"))
+	log.Println("env HOST_VPC_ID:", os.Getenv("HOST_VPC_ID"))
+	log.Println("env HOST_VPC_REGION:", os.Getenv("HOST_VPC_REGION"))
+	log.Println("env JETSTORE_VPC_ID:", os.Getenv("JETSTORE_VPC_ID"))
+	log.Println("env BASTION_HOST_KEYPAIR_NAME:", os.Getenv("BASTION_HOST_KEYPAIR_NAME"))
+	log.Println("env JETS_TAG_NAME_OWNER:", os.Getenv("JETS_TAG_NAME_OWNER"))
+	log.Println("env JETS_TAG_VALUE_OWNER:", os.Getenv("JETS_TAG_VALUE_OWNER"))
+	log.Println("env JETS_TAG_NAME_PROD:", os.Getenv("JETS_TAG_NAME_PROD"))
+	log.Println("env JETS_TAG_VALUE_PROD:", os.Getenv("JETS_TAG_VALUE_PROD"))
+	log.Println("env JETS_TAG_NAME_PHI:", os.Getenv("JETS_TAG_NAME_PHI"))
+	log.Println("env JETS_TAG_NAME_PII:", os.Getenv("JETS_TAG_NAME_PII"))
+	log.Println("env JETS_TAG_NAME_DESCRIPTION:", os.Getenv("JETS_TAG_NAME_DESCRIPTION"))
 
 	// Verify that we have all the required env variables
 	hasErr := false
@@ -206,9 +209,9 @@ func main() {
 	}
 	if hasErr {
 		for _, msg := range errMsg {
-			fmt.Println("**", msg)
+			log.Println("**", msg)
 		}
-		os.Exit(1)
+		log.Panic("Missing required env variables. See above for details.")
 	}
 
 	app := awscdk.NewApp(nil)

@@ -40,7 +40,7 @@ func (ctx *mapReduceColumnEval) Update(_ *[]any, input *[]any) error {
 		// Make the alternate key to hash
 		var buf bytes.Buffer
 		err = makeAlternateKey(&buf, &ctx.altInputKey, "", input)
-		// fmt.Printf("##### # mapReduceColumnEval: makeAlternateKey got: %v\n", inputVal)
+		// log.Printf("##### # mapReduceColumnEval: makeAlternateKey got: %v\n", inputVal)
 		if err != nil {
 			return err
 		}
@@ -90,7 +90,7 @@ func (ctx *mapReduceColumnEval) Done(currentValue *[]any) error {
 		}
 	}
 	// for k,v := range ctx.currentIntermediateValues {
-	// 	fmt.Println("**!@@ MAP REDUCE intermediate values by key",k,": ",v)
+	// 	log.Println("**!@@ MAP REDUCE intermediate values by key",k,": ",v)
 	// }
 	return nil
 }

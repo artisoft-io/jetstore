@@ -192,7 +192,7 @@ func (ctx ExprBuilderContext) parseValue(expr *string, maxSubstitutions int) (an
 			return nil, fmt.Errorf("error: expecting an int: %s", *expr)
 		}
 	}
-	// fmt.Printf("**!@@ PARSEVALUE: %s => = %v of type %T\n", *expr, value, value)
+	// log.Printf("**!@@ PARSEVALUE: %s => = %v of type %T\n", *expr, value, value)
 	return value, err
 }
 

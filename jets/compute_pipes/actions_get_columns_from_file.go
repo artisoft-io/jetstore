@@ -46,7 +46,6 @@ func FetchHeadersAndDelimiterFromFile(externalBucket, fileKey string, firstKeyFi
 	if err != nil {
 		return nil, fmt.Errorf("failed to open temp file: %v", err)
 	}
-	// fmt.Println("Temp error file name:", fileHd.Name())
 	defer func() {
 		if fileHd != nil {
 			fn := fileHd.Name()
@@ -197,7 +196,7 @@ func GetRawHeadersCsv(fileHd *os.File, fileName, fileFormat, compression string,
 	}
 	// Make sure we don't have empty names in rawHeaders
 	AdjustFillers(&ic)
-	fmt.Println("Got input columns (rawHeaders) from csv file:", ic)
+	log.Println("Got input columns (rawHeaders) from csv file:", ic)
 	return ic, nil
 }
 

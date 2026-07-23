@@ -73,7 +73,7 @@ func NewAnalyzer(basePath, mainRuleFileName, runOptions, dependencyPropertyName 
 func (a *Analyzer) Analyze() (err error) {
 	model := a.compiler.JetRuleModel()
 	if a.compiler.Trace() {
-		fmt.Printf("** Starting analysis of model with %d classes and %d rules\n", len(model.Classes), len(model.Jetrules))
+		log.Printf("** Starting analysis of model with %d classes and %d rules\n", len(model.Classes), len(model.Jetrules))
 	}
 	// Perform analysis logic here, such as validating the model, checking for consistency, etc.
 	for _, option := range a.runOptions {
@@ -94,7 +94,7 @@ func (a *Analyzer) Analyze() (err error) {
 				return fmt.Errorf("error analyzing property dependencies: %w", err)
 			}
 		default:
-			fmt.Printf("** Unknown analysis option: %s\n", option)
+			log.Printf("** Unknown analysis option: %s\n", option)
 		}
 	}
 

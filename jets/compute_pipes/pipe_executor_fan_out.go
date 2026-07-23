@@ -29,7 +29,7 @@ func (ctx *BuilderContext) StartFanOutPipe(spec *PipeSpec, source *InputChannel,
 			}
 		}
 		// Closing the output channels
-		fmt.Println("FanOutPipe: Closing Output Channels")
+		log.Println("FanOutPipe: Closing Output Channels")
 		oc := make(map[string]bool)
 		for i := range spec.Apply {
 			// Make sure the output channel config is used (eg jetrules don't, it overrides it)
@@ -48,7 +48,7 @@ func (ctx *BuilderContext) StartFanOutPipe(spec *PipeSpec, source *InputChannel,
 			}
 		}
 		for name := range oc {
-			fmt.Println("FanOutPipe: Closing Output Channel", name)
+			log.Println("FanOutPipe: Closing Output Channel", name)
 			ctx.channelRegistry.CloseChannel(name)
 		}
 		close(writePartitionsResultCh)
@@ -63,7 +63,7 @@ func (ctx *BuilderContext) StartFanOutPipe(spec *PipeSpec, source *InputChannel,
 		evaluators[j] = eval
 	}
 
-	// fmt.Println("**!@@ start fan_out loop on source:", source.name)
+	// log.Println("**!@@ start fan_out loop on source:", source.name)
 	for inRow := range source.Channel {
 		for i := range spec.Apply {
 			if evaluators[i] != nil {
@@ -75,7 +75,7 @@ func (ctx *BuilderContext) StartFanOutPipe(spec *PipeSpec, source *InputChannel,
 			}
 		}
 	}
-	// fmt.Println("Closing fan_out PipeTransformationEvaluator")
+	// log.Println("Closing fan_out PipeTransformationEvaluator")
 	for i := range evaluators {
 		if evaluators[i] != nil {
 			err = evaluators[i].Done()

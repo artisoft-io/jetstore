@@ -43,6 +43,7 @@ func init() {
 }
 
 func main() {
+	utils.UseJetStoreLogger()
 	hasErr := false
 	var errMsg []string
 	var err error
@@ -61,7 +62,7 @@ func main() {
 
 	if hasErr {
 		for _, msg := range errMsg {
-			fmt.Println("**", msg)
+			log.Println("**", msg)
 		}
 		log.Panic("Invalid argument(s)")
 	}
@@ -112,7 +113,7 @@ func processMessage(dbpool *pgxpool.Pool, record events.S3EventRecord) error {
 		return fmt.Errorf("error creating jwt token: %v", err)
 	}
 	context := datatable.NewDataTableContext(dbpool, false, false, nil, &systemUser)
-	
+
 	// Determine the event source: file key or schema file?
 	switch {
 	case strings.HasPrefix(fileKey, s3InputPrefix):

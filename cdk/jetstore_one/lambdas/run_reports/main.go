@@ -56,6 +56,7 @@ var dbConnection *dbc.DbConnection
 // skip running the reports.
 
 func main() {
+	utils.UseJetStoreLogger()
 	var err error
 	hasErr := false
 	var errMsg []string
@@ -88,16 +89,15 @@ func main() {
 	fileDir := filepath.Dir(fmt.Sprintf("%s/%s/%s", workspaceHome, wprefix, "somefile.jr"))
 	if err = os.MkdirAll(fileDir, 0770); err != nil {
 		err = fmt.Errorf("while creating file directory structure: %v", err)
-		fmt.Println(err)
 		hasErr = true
 		errMsg = append(errMsg, err.Error())
 	}
 
 	if hasErr {
 		for _, msg := range errMsg {
-			fmt.Println("**", msg)
+			log.Println("**", msg)
 		}
-		panic("Invalid argument(s)")
+		log.Panic("Invalid argument(s)")
 	}
 
 	// open db connection
@@ -112,9 +112,7 @@ func main() {
 	log.Println("Got argument: awsRegion", awsRegion)
 	log.Println("ENV JETSTORE_DEV_MODE:", os.Getenv("JETSTORE_DEV_MODE"))
 	log.Println("ENV WORKSPACE:", os.Getenv("WORKSPACE"))
-	log.Println("ENV JETS_DSN_SECRET:", os.Getenv("JETS_DSN_SECRET"))
 	log.Println("ENV JETS_SENTINEL_FILE_NAME:", os.Getenv("JETS_SENTINEL_FILE_NAME"))
-	log.Println("ENV JETS_S3_KMS_KEY_ARN:", os.Getenv("JETS_S3_KMS_KEY_ARN"))
 	log.Println("*** DO NOT USE jetsapi.session_registry TABLE IN REPORTS FOR THE CURRENT session_id SINCE IT IS NOT REGISTERED YET")
 	log.Println("*** The session_id is registered AFTER the report completion during the status_update task")
 	log.Println("*** Use the substitution variable $SOURCE_PERIOD_KEY to get the source_period_key of the current session_id")
@@ -166,7 +164,7 @@ func handler(ctx context.Context, arg []string) error {
 	var originalFileName string
 	idx := strings.LastIndex(rr.OutputPath, "/")
 	if idx >= 0 && idx < len(rr.OutputPath)-1 {
-		// fmt.Println("Extracting originalFileName from filePath", rr.OutputPath)
+		// log.Println("Extracting originalFileName from filePath", rr.OutputPath)
 		originalFileName = (rr.OutputPath)[idx+1:]
 		rr.OutputPath = (rr.OutputPath)[0:idx]
 	} else {
@@ -213,7 +211,7 @@ func handler(ctx context.Context, arg []string) error {
 	ca.Client = toString(ca.FileKeyComponents["client"])
 	ca.Org = toString(ca.FileKeyComponents["org"])
 	ca.ObjectType = toString(ca.FileKeyComponents["object_type"])
-	
+
 	if rr.ReportName == "jets_loader.pc.json" {
 		// Special case for loader report
 		if ca.Org != "" {

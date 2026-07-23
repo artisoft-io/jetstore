@@ -2,6 +2,7 @@ package compute_pipes
 
 import (
 	"fmt"
+	"log"
 	"regexp"
 	"strings"
 	"sync"
@@ -106,10 +107,10 @@ func GetCompiledRegex(pattern string) (*regexp.Regexp, error) {
 	if ok {
 		return value.(*regexp.Regexp), nil
 	}
-	fmt.Println("Compiling:", pattern)
+	log.Println("Compiling:", pattern)
 	re, err := regexp.Compile(pattern)
 	if err != nil {
-		fmt.Printf("while compiling regex '%s': %v", pattern, err)
+		log.Printf("while compiling regex '%s': %v", pattern, err)
 		return nil, fmt.Errorf("while compiling regex '%s': %v", pattern, err)
 	}
 	regexCache.Store(pattern, re)
@@ -131,7 +132,7 @@ func (op *opApplyRegex) Eval(lhs any, rhs any) (any, error) {
 					return nil, err
 				}
 			}
-			// fmt.Println("apply regex on:", lhsv)
+			// log.Println("apply regex on:", lhsv)
 			vv := op.re.FindString(lhsv)
 			if len(vv) == 0 {
 				return nil, nil

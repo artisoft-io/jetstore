@@ -857,8 +857,8 @@ func execWorkspaceQuery(db *sql.DB, dataTableAction *DataTableAction, query *str
 		return nil, fmt.Errorf("query is nil")
 	}
 	*query = strings.ReplaceAll(*query, "::text", "")
-	//DEV
-	fmt.Println("\n*** UI Workspace Query:\n", *query)
+	// //DEV
+	// fmt.Println("\n*** UI Workspace Query:\n", *query)
 	resultRows := make([][]any, 0, dataTableAction.Limit)
 	rows, err := db.Query(*query)
 	if err != nil {
@@ -1045,7 +1045,7 @@ func (ctx *DataTableContext) DoPreviewFileAction(dataTableAction *DataTableActio
 	if err != nil {
 		return nil, http.StatusBadRequest, fmt.Errorf("failed to open temp input file: %v", err)
 	}
-	fmt.Println("Temp input file name:", fileHd.Name())
+	// fmt.Println("Temp input file name:", fileHd.Name())
 	defer os.Remove(fileHd.Name())
 
 	// Download the object
@@ -1053,7 +1053,7 @@ func (ctx *DataTableContext) DoPreviewFileAction(dataTableAction *DataTableActio
 	if err != nil {
 		return nil, http.StatusBadRequest, fmt.Errorf("failed to download input file: %v", err)
 	}
-	fmt.Println("downloaded", nsz, "bytes from s3")
+	log.Println("downloaded", nsz, "bytes from s3")
 
 	// Read the file
 	fileHd.Seek(0, 0)

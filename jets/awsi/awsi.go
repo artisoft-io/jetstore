@@ -88,14 +88,14 @@ func GetPrivateIp() (string, error) {
 		log.Printf("while reading resp of http get $ECS_CONTAINER_METADATA_URI_V4: %v", err)
 		return "", err
 	}
-	fmt.Println("Got ECS_CONTAINER_METADATA_URI_V4:\n", string(body))
-	var data map[string]interface{}
+	log.Println("Got ECS_CONTAINER_METADATA_URI_V4:\n", string(body))
+	var data map[string]any
 	err = json.Unmarshal(body, &data)
 	if err != nil {
 		return "", fmt.Errorf("** Invalid JSON from ECS_CONTAINER_METADATA_URI_V4: %v", err)
 	}
-	result := data["Networks"].([]interface{})[0].(map[string]interface{})["IPv4Addresses"].([]interface{})[0].(string)
-	fmt.Println("*** IPv4Addresses:", result)
+	result := data["Networks"].([]any)[0].(map[string]any)["IPv4Addresses"].([]any)[0].(string)
+	log.Println("Got IPv4Addresses")
 	return result, nil
 }
 
@@ -255,18 +255,18 @@ func GetDsnFromJson(dsnJson string, useLocalhost bool, poolSize int) (string, er
 		return "", nil
 	}
 	// parse the json into the map m
-	m := make(map[string]interface{})
+	m := make(map[string]any)
 	err := json.Unmarshal([]byte(dsnJson), &m)
 	if err != nil {
 		return "", fmt.Errorf("while umarshaling dsn json: %v", err)
 	}
-	// fmt.Println(m)
+	// log.Println(m)
 	if !useLocalhost {
 		_, useLocalhost = os.LookupEnv("USING_SSH_TUNNEL")
 	}
 	if useLocalhost {
 		m["host"] = "localhost"
-		fmt.Println("LOCAL TESTING using ssh tunnel (expecting ssh tunnel open)")
+		log.Println("LOCAL TESTING using ssh tunnel (expecting ssh tunnel open)")
 	}
 	if poolSize == 0 {
 		poolSize = 10
@@ -656,7 +656,7 @@ do_retry:
 	return bytes.TrimRightFunc(w.Bytes(), func(r rune) bool { return r == '\x00' }), nil
 }
 
-func StartExecution(stateMachineARN string, stateMachineInput map[string]interface{}, name string) (string, error) {
+func StartExecution(stateMachineARN string, stateMachineInput map[string]any, name string) (string, error) {
 	// Load the SDK's configuration from environment and shared config, and
 	// create the client with this.
 	cfg, err := config.LoadDefaultConfig(context.TODO())
@@ -674,7 +674,7 @@ func StartExecution(stateMachineARN string, stateMachineInput map[string]interfa
 	if name == "" {
 		name = strconv.FormatInt(time.Now().UnixMilli(), 10)
 	}
-	fmt.Println("Start Machine Exec Name is:", name)
+	log.Println("Start Machine Exec Name is:", name)
 
 	// Set the parameters for starting a process
 	params := &sfn.StartExecutionInput{

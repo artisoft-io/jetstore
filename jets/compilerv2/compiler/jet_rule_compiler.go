@@ -41,9 +41,9 @@ func (c *Compiler) Compile() error {
 	if err != nil {
 		return fmt.Errorf("error reading rule files: %w", err)
 	}
-	if c.Trace() {
-		fmt.Printf("** Combined Rule File Content (%d lines):\n%s\n", len(strings.Split(combinedContent, "\n")), combinedContent)
-	}
+	// if c.Trace() {
+	// 	fmt.Printf("** Combined Rule File Content (%d lines):\n%s\n", len(strings.Split(combinedContent, "\n")), combinedContent)
+	// }
 	return c.CompileBuffer(combinedContent)
 }
 

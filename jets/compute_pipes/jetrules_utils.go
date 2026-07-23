@@ -206,7 +206,7 @@ func ExtractRdfNodeInfoJson(e any) (value, rdfType string, err error) {
 		rdfType = "text"
 		return
 	case map[string]any:
-		// fmt.Println("*** Domain Key is a struct of composite keys", value)
+		// log.Println("*** Domain Key is a struct of composite keys", value)
 		for k, v := range obj {
 			switch vv := v.(type) {
 			case string:
@@ -366,7 +366,7 @@ func GetWorkspaceDomainClasses() (map[string]*rete.ClassNode, error) {
 		domainClassesMx.Lock()
 		defer domainClassesMx.Unlock()
 		if domainClassesMap == nil {
-			fmt.Println("Load Domain Tables from local Workspace")
+			log.Println("Load Domain Tables from local Workspace")
 			domainClassesMap = make(map[string]*rete.ClassNode)
 			fpath := fmt.Sprintf("%s/%s/build/classes.json", workspaceHome, wsPrefix)
 			log.Println("Reading Domain Classes definitions from:", fpath)

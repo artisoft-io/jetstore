@@ -6,10 +6,12 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/artisoft-io/jetstore/jets/awsi"
 	"github.com/artisoft-io/jetstore/cdk/jetstore_one/lambdas/dbc"
+	"github.com/artisoft-io/jetstore/jets/awsi"
+	"github.com/artisoft-io/jetstore/jets/utils"
 	"github.com/aws/aws-lambda-go/events"
 )
+
 var dbConnection *dbc.DbConnection
 
 type RequestBody struct {
@@ -33,13 +35,14 @@ type JetsResult struct {
 // These requests use jets: prefix for the method name.
 // See readme.md for more details
 type JetsParams struct {
-	SessionId   string          `json:"jetstore_session_id,omitempty"`
+	SessionId string `json:"jetstore_session_id,omitempty"`
 }
 
 // JetsHandler handles JetStore general related API requests
-type JetsHandler struct{
+type JetsHandler struct {
 	prefix string
 }
+
 func (h *JetsHandler) Prefix() string {
 	return h.prefix
 }
@@ -119,7 +122,7 @@ func response(statusCode int, body string) (awsi.Response, error) {
 }
 
 func main() {
-
+	utils.UseJetStoreLogger()
 	// open db connection
 	var err error
 	dbConnection, err = dbc.NewDbConnection(5)

@@ -333,7 +333,6 @@ func (ctx *CleansingFunctionContext) ApplyCleasingFunction(functionName string, 
 			var buf strings.Builder
 			buf.WriteString(inputValue)
 			for i := range arg.ColumnPositions {
-				// fmt.Println("=== concat value @pos:",arg.ColumnPositions[i])
 				if (*inputRow)[arg.ColumnPositions[i]] != nil {
 					if arg.Delimit != "" {
 						buf.WriteString(arg.Delimit)

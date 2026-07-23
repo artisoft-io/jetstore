@@ -361,7 +361,7 @@ func (ca *CommandArguments) runSqlScriptDelegate(dbpool *pgxpool.Pool, reportScr
 	file, err := os.ReadFile(safePath)
 	if err != nil {
 		if os.IsNotExist(err) {
-			fmt.Println("Error sql Script not found:", reportScriptPath)
+			log.Println("Error sql Script not found:", reportScriptPath)
 		}
 		return err
 	}
@@ -571,20 +571,18 @@ func (ca *CommandArguments) DoReport(dbpool *pgxpool.Pool, tempDir string, outpu
 			escapedStmt := strings.ReplaceAll(stmt, "'", "''")
 			s3Stmt := fmt.Sprintf("SELECT * from aws_s3.query_export_to_s3('%s', '%s', '%s','%s',options:='%s')",
 				escapedStmt, ca.BucketName, s3FileName, ca.RegionName, options)
-			// fmt.Println("S3 QUERY:", s3Stmt)
+			// log.Println("S3 QUERY:", s3Stmt)
 			var rowsUploaded, filesUploaded, bytesUploaded sql.NullInt64
 			err := dbpool.QueryRow(context.Background(), s3Stmt).Scan(&rowsUploaded, &filesUploaded, &bytesUploaded)
 			if err != nil {
 				return "", fmt.Errorf("while executing s3 query %s: %v", escapedStmt, err)
 			}
-			fmt.Println("Report:", name, "rowsUploaded", rowsUploaded.Int64, "filesUploaded", filesUploaded.Int64, "bytesUploaded", bytesUploaded.Int64)
+			log.Println("Report:", name, "rowsUploaded", rowsUploaded.Int64, "filesUploaded", filesUploaded.Int64, "bytesUploaded", bytesUploaded.Int64)
 		}
 	default:
 		// Report not saved to s3, probably as as table (see below)
 		log.Printf("Report %s not saved to s3", *outputFileName)
 	}
-
-	fmt.Println("------")
 
 	return s3FileName, nil
 }

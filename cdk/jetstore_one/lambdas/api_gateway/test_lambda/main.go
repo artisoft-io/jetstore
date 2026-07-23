@@ -263,5 +263,6 @@ func handler(ctx context.Context, event TestEvent) (TestResponse, error) {
 }
 
 func main() {
+	utils.UseJetStoreLogger()
 	lambda.Start(handler)
 }

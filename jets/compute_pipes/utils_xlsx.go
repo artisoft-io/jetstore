@@ -89,6 +89,6 @@ func GetRawHeadersXlsx(fileName string, fileFormatDataJson string) ([]string, er
 	}
 	// Make sure we don't have empty names in rawHeaders
 	AdjustFillers(&rawHeaders)
-	fmt.Println("Got input columns (rawHeaders) from xls file:", rawHeaders)
+	log.Println("Got input columns (rawHeaders) from xls file:", rawHeaders)
 	return rawHeaders, nil
 }

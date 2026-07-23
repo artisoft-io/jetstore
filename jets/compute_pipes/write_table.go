@@ -85,23 +85,23 @@ func (wt *WriteTableSource) WriteTable(dbpool *pgxpool.Pool, done chan struct{},
 		case wt.count > 0 && len(wt.pending) == 0:
 			log.Println("Last pending row is not available")
 		case wt.count > 0 && len(wt.pending) == len(wt.columns):
-			log.Println("Last pending row is:")
-			for i := range wt.columns {
-				if i > 0 {
-					fmt.Print(",")
-				}
-				if wt.pending[i] != nil {
-					fmt.Print(wt.pending[i])
-				}
-			}
-			fmt.Println()
+			log.Println("Last pending row is: ()redacted for privacy)")
+			// for i := range wt.columns {
+			// 	if i > 0 {
+			// 		fmt.Print(",")
+			// 	}
+			// 	if wt.pending[i] != nil {
+			// 		fmt.Print(wt.pending[i])
+			// 	}
+			// }
+			// fmt.Println()
 		}
 		close(done)
-		fmt.Println("**!@@ ERROR writing to database, writing to copy2DbResultCh (ComputePipesResult) recCount", recCount)
+		log.Println("**!@@ ERROR writing to database, writing to copy2DbResultCh (ComputePipesResult) recCount", recCount)
 		copy2DbResultCh <- ComputePipesResult{TableName: wt.tableIdentifier.Sanitize(), Err: fmt.Errorf("while copy records to db at count %d: %v", wt.count, err)}
 		return
 	}
-	// fmt.Println("**!@@ DONE writing to database, writing to copy2DbResultCh (ComputePipesResult)")
+	// log.Println("**!@@ DONE writing to database, writing to copy2DbResultCh (ComputePipesResult)")
 	copy2DbResultCh <- ComputePipesResult{TableName: wt.tableIdentifier.Sanitize(), CopyRowCount: recCount}
 }
 

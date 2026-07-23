@@ -64,7 +64,7 @@ func SyncS3Files(dbpool *pgxpool.Pool, workspaceName, keyPrefix, trimPrefix, con
 			return fmt.Errorf("failed to download input file: %v", err)
 		}
 		fileHd.Close()
-		fmt.Println("downloaded", s3Obj.Key, "size", nsz, "bytes from s3")
+		log.Println("downloaded", s3Obj.Key, "size", nsz, "bytes from s3")
 		// Copy file to database
 		if nsz > 1024*1024*1024 {
 			return fmt.Errorf("error: Jetstore does not support workspace file larger than 1 Go, the object size is: %v", nsz)
@@ -83,7 +83,7 @@ func SyncS3Files(dbpool *pgxpool.Pool, workspaceName, keyPrefix, trimPrefix, con
 		if err != nil {
 			return err
 		}
-		fmt.Println("uploaded", fo.FileName, "size", n, "bytes to database")
+		log.Println("uploaded", fo.FileName, "size", n, "bytes to database")
 	}
 	log.Println("Done synching overriten workspace file from s3")
 	return nil

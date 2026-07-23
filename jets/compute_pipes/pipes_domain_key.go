@@ -45,13 +45,13 @@ func ParseDomainKeyInfo(mainObjectType string, domainKeys any) (*DomainKeysSpec,
 	// Extract the domain keys structure from domainKeys
 	switch value := domainKeys.(type) {
 	case string:
-		// fmt.Println("*** Domain Key is single column", value)
+		// log.Println("*** Domain Key is single column", value)
 		result.DomainKeys[mainObjectType] = &DomainKeyInfo{
 			KeyExpr:    []string{value},
 			ObjectType: mainObjectType,
 		}
 	case []any:
-		// fmt.Println("*** Domain Key is a composite key", value)
+		// log.Println("*** Domain Key is a composite key", value)
 		ck := make([]string, 0, len(value))
 		for i := range value {
 			if reflect.TypeOf(value[i]).Kind() == reflect.String {
@@ -63,7 +63,7 @@ func ParseDomainKeyInfo(mainObjectType string, domainKeys any) (*DomainKeysSpec,
 			ObjectType: mainObjectType,
 		}
 	case map[string]any:
-		// fmt.Println("*** Domain Key is a struct of composite keys", value)
+		// log.Println("*** Domain Key is a struct of composite keys", value)
 		for k, v := range value {
 			switch vv := v.(type) {
 			case string:

@@ -8,6 +8,7 @@ import (
 
 	"github.com/artisoft-io/jetstore/cdk/jetstore_one/lambdas/dbc"
 	"github.com/artisoft-io/jetstore/jets/compute_pipes"
+	"github.com/artisoft-io/jetstore/jets/utils"
 	"github.com/aws/aws-lambda-go/lambda"
 )
 
@@ -27,6 +28,7 @@ var awsBucket string
 var dbConnection *dbc.DbConnection
 
 func main() {
+	utils.UseJetStoreLogger()
 	hasErr := false
 	var errMsg []string
 	var err error
@@ -55,9 +57,9 @@ func main() {
 
 	if hasErr {
 		for _, msg := range errMsg {
-			fmt.Println("**", msg)
+			log.Println("**", msg)
 		}
-		panic("Invalid argument(s)")
+		log.Panic("Invalid argument(s)")
 	}
 
 	// open db connection

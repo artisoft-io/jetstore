@@ -195,7 +195,7 @@ loop_record:
 						}
 					case enforceRowMinLength:
 						// Input line is too short - got a bad row
-						// fmt.Printf("***TOO SHORT %d/%d **%s\n", len(line), maxEnd, line[:int(math.Min(40, float64(len(line))))])
+						// log.Printf("***TOO SHORT %d/%d **%s\n", len(line), maxEnd, line[:int(math.Min(40, float64(len(line))))])
 						if badRowChannel != nil {
 							select {
 							case badRowChannel.OutputCh <- []byte(line + "\n"):
@@ -212,14 +212,14 @@ loop_record:
 						}
 					}
 					// if cpCtx.CpConfig.ClusterConfig.IsDebugMode {
-					// 	fmt.Printf("*** record[%d] = %s, idx %d:%d, record type: %s, offset: %d\n",
+					// 	log.Printf("*** record[%d] = %s, idx %d:%d, record type: %s, offset: %d\n",
 					// 		recordTypeOffset+i, record[recordTypeOffset+i], columnInfo.Start, columnInfo.End, recordType, recordTypeOffset)
 					// }
 				}
 				if maxEnd < ll && enforceRowMaxLength {
 					// Input line is too long, did not used all the input characters
 					// Got a bad row
-					// fmt.Printf("***TOO LONG %d/%d **%s\n", len(line), maxEnd, line[:int(math.Min(40, float64(len(line))))])
+					// log.Printf("***TOO LONG %d/%d **%s\n", len(line), maxEnd, line[:int(math.Min(40, float64(len(line))))])
 					if badRowChannel != nil {
 						select {
 						case badRowChannel.OutputCh <- []byte(line + "\n"):

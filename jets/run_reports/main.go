@@ -66,8 +66,9 @@ var fileKey string
 // skip running the reports
 
 func main() {
+	utils.UseJetStoreLogger()
 	var err error
-	fmt.Println("CMD LINE ARGS:", os.Args[1:])
+	log.Println("CMD LINE ARGS:", os.Args[1:])
 	flag.Parse()
 	hasErr := false
 	var errMsg []string
@@ -88,7 +89,7 @@ func main() {
 	if *originalFileName == "" {
 		idx := strings.LastIndex(*filePath, "/")
 		if idx >= 0 && idx < len(*filePath)-1 {
-			fmt.Println("Extracting originalFileName from filePath", *filePath)
+			log.Println("Extracting originalFileName from filePath", *filePath)
 			*originalFileName = (*filePath)[idx+1:]
 			*filePath = (*filePath)[0:idx]
 		} else {
@@ -163,43 +164,43 @@ func main() {
 
 	if hasErr {
 		for _, msg := range errMsg {
-			fmt.Println("**", msg)
+			log.Println("**", msg)
 		}
-		panic("Invalid argument(s)")
+		log.Panic("Invalid argument(s)")
 	}
 
-	fmt.Println("Run Reports argument:")
-	fmt.Println("----------------")
+	log.Println("Run Reports argument:")
+	log.Println("----------------")
 	if *dsn == "" {
-		fmt.Println("Got argument: dsn is empty")
+		log.Println("Got argument: dsn is empty")
 	} else {
-		fmt.Println("Got argument: dsn is non empty")
+		log.Println("Got argument: dsn is non empty")
 	}
-	fmt.Println("Got argument: awsDsnSecret", *awsDsnSecret)
-	fmt.Println("Got argument: dbPoolSize", *dbPoolSize)
-	fmt.Println("Got argument: usingSshTunnel", *usingSshTunnel)
-	fmt.Println("Got argument: awsRegion", *awsRegion)
-	fmt.Println("Got argument: client", *client)
-	fmt.Println("Got argument: processName", *processName)
-	fmt.Println("Got argument: reportName", *reportName)
-	fmt.Println("Got argument: sessionId", *sessionId)
-	fmt.Println("Got argument: awsBucket", *awsBucket)
-	fmt.Println("Got argument: filePath", *filePath)
-	fmt.Println("Got argument: originalFileName", *originalFileName)
-	fmt.Println("ENV JETSTORE_DEV_MODE:", os.Getenv("JETSTORE_DEV_MODE"))
-	fmt.Println("ENV WORKSPACE:", os.Getenv("WORKSPACE"))
-	fmt.Println("ENV JETS_S3_KMS_KEY_ARN:", os.Getenv("JETS_S3_KMS_KEY_ARN"))
-	fmt.Println("ENV JETS_SENTINEL_FILE_NAME:", os.Getenv("JETS_SENTINEL_FILE_NAME"))
-	fmt.Println("Process Input file_key:", fileKey)
-	fmt.Println("*** DO NOT USE jetsapi.session_registry TABLE IN REPORTS FOR THE CURRENT session_id SINCE IT IS NOT REGISTERED YET")
-	fmt.Println("*** The session_id is registered AFTER the report completion during the status_update task")
-	fmt.Println("*** Use the substitution variable $SOURCE_PERIOD_KEY to get the source_period_key of the current session_id")
+	log.Println("Got argument: awsDsnSecret", *awsDsnSecret)
+	log.Println("Got argument: dbPoolSize", *dbPoolSize)
+	log.Println("Got argument: usingSshTunnel", *usingSshTunnel)
+	log.Println("Got argument: awsRegion", *awsRegion)
+	log.Println("Got argument: client", *client)
+	log.Println("Got argument: processName", *processName)
+	log.Println("Got argument: reportName", *reportName)
+	log.Println("Got argument: sessionId", *sessionId)
+	log.Println("Got argument: awsBucket", *awsBucket)
+	log.Println("Got argument: filePath", *filePath)
+	log.Println("Got argument: originalFileName", *originalFileName)
+	log.Println("ENV JETSTORE_DEV_MODE:", os.Getenv("JETSTORE_DEV_MODE"))
+	log.Println("ENV WORKSPACE:", os.Getenv("WORKSPACE"))
+	log.Println("ENV JETS_S3_KMS_KEY_ARN:", os.Getenv("JETS_S3_KMS_KEY_ARN"))
+	log.Println("ENV JETS_SENTINEL_FILE_NAME:", os.Getenv("JETS_SENTINEL_FILE_NAME"))
+	log.Println("Process Input file_key:", fileKey)
+	log.Println("*** DO NOT USE jetsapi.session_registry TABLE IN REPORTS FOR THE CURRENT session_id SINCE IT IS NOT REGISTERED YET")
+	log.Println("*** The session_id is registered AFTER the report completion during the status_update task")
+	log.Println("*** Use the substitution variable $SOURCE_PERIOD_KEY to get the source_period_key of the current session_id")
 
 	//* MOVE THIS TO DIRECTIVE Check for special case: serverSM produced no output records, then exit silently
 	if len(*sessionId) > 0 {
 		dbRecordCount, outputRecordCount := delegate.GetOutputRecordCount(dbpool, *sessionId)
 		if dbRecordCount > 0 && outputRecordCount == 0 {
-			fmt.Println("This run_report is for a serverSM that produced no output records, exiting silently")
+			log.Println("This run_report is for a serverSM that produced no output records, exiting silently")
 			return
 		}
 	}

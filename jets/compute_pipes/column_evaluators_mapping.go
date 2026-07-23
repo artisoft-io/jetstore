@@ -2,6 +2,7 @@ package compute_pipes
 
 import (
 	"fmt"
+	"log"
 	"strconv"
 
 	"github.com/artisoft-io/jetstore/jets/cleansing_functions"
@@ -60,7 +61,7 @@ func (ctx *mapColumnEval) Update(currentValue *[]any, input *[]any) error {
 					ctx.cleansingCtx.ApplyCleasingFunction(mapConfig.CleansingFunction,
 						mapConfig.Argument, inputV, config.inputPos, input)
 				if len(errMsg) > 0 {
-					fmt.Println("*** Error while applying cleansing function:", errMsg)
+					log.Println("*** Error while applying cleansing function:", errMsg)
 					outputVal = nil
 				}
 			}
@@ -149,7 +150,7 @@ func (ctx *BuilderContext) BuildMapTCEvaluator(source *InputChannel, outCh *Outp
 		case "date":
 			temp, err := ParseDate(meDefault)
 			if err != nil || temp == nil {
-				fmt.Println("default value is not date:", meDefault)
+				log.Println("default value is not date:", meDefault)
 				defaultValue = nil
 				err = nil
 			} else {
@@ -158,7 +159,7 @@ func (ctx *BuilderContext) BuildMapTCEvaluator(source *InputChannel, outCh *Outp
 		case "datetime":
 			temp, err := ParseDatetime(meDefault)
 			if err != nil || temp == nil {
-				fmt.Println("default value is not datetime:", meDefault)
+				log.Println("default value is not datetime:", meDefault)
 				defaultValue = nil
 				err = nil
 			} else {

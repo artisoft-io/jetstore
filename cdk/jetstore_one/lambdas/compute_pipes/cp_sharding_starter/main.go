@@ -32,6 +32,7 @@ var awsBucket string
 var dbConnection *dbc.DbConnection
 
 func main() {
+	utils.UseJetStoreLogger()
 	hasErr := false
 	var errMsg []string
 	var err error
@@ -60,9 +61,9 @@ func main() {
 
 	if hasErr {
 		for _, msg := range errMsg {
-			fmt.Println("**", msg)
+			log.Println("**", msg)
 		}
-		panic("Invalid argument(s)")
+		log.Panic("Invalid argument(s)")
 	}
 
 	// open db connection
@@ -106,7 +107,7 @@ func handler(ctx context.Context, arg compute_pipes.StartComputePipesArgs) (comp
 		switch {
 		case override == "no_notifications" || override == "start_only":
 			log.Printf(
-				"%s CPIPES_STATUS_NOTIFICATION: skipping notification to API Gateway as notify_api_gateway_override is set to '%s' in the schema provider\n", 
+				"%s CPIPES_STATUS_NOTIFICATION: skipping notification to API Gateway as notify_api_gateway_override is set to '%s' in the schema provider\n",
 				arg.SessionId, override)
 			doNotNotify = true
 			apiEndpoint = ""

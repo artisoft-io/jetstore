@@ -59,20 +59,20 @@ func CoordinateWorkAndUpdateStatus(ctx context.Context, dbpool *pgxpool.Pool, ca
 	file, err := os.ReadFile(configFile)
 	if err != nil {
 		if os.IsNotExist(err) {
-			fmt.Println("Warning report config.json does not exist, using defaults")
+			log.Println("Warning report config.json does not exist, using defaults")
 			ca.CurrentReportDirectives = &ReportDirectives{}
 		} else {
 			return fmt.Errorf("while reading report config.json: %v", err)
 		}
 	} else {
 		// Un-marshal the reportDirectives
-		// fmt.Println("Un-marshal the reportDirectives")
+		// log.Println("Un-marshal the reportDirectives")
 		err = json.Unmarshal(file, reportConfiguration)
 		if err != nil {
 			return fmt.Errorf("error while parsing report config.json: %v", err)
 		}
 		// //*
-		// fmt.Println("REPORT DIRECTIVES:", *reportConfiguration)
+		// log.Println("REPORT DIRECTIVES:", *reportConfiguration)
 		// The report directives for the current reportName
 		rd, ok := (*reportConfiguration)[ca.ReportName]
 		if ok {
@@ -109,7 +109,7 @@ func CoordinateWorkAndUpdateStatus(ctx context.Context, dbpool *pgxpool.Pool, ca
 		return fmt.Errorf("can't determine ca.OutputPath, is file path argument missing? (-filePath)")
 	}
 	ca.OutputPath = strings.TrimSuffix(ca.OutputPath, "/")
-	fmt.Println("Report ca.OutputPath:", ca.OutputPath)
+	log.Println("Report ca.OutputPath:", ca.OutputPath)
 
 	// Put the full path to the ReportScript
 	ca.ReportScriptPaths = make([]string, 0)
@@ -123,16 +123,16 @@ func CoordinateWorkAndUpdateStatus(ctx context.Context, dbpool *pgxpool.Pool, ca
 		ca.CurrentReportDirectives.ReportScripts = []string{ca.ReportName}
 	}
 
-	fmt.Println("Reports available for execution:")
+	log.Println("Reports available for execution:")
 	for i := range ca.ReportScriptPaths {
-		fmt.Println("  -", ca.ReportScriptPaths[i])
+		log.Println("  -", ca.ReportScriptPaths[i])
 	}
 
 	// Get the source_period_key from pipeline_execution_status table by session_id
 	if len(ca.SessionId) > 0 {
 		k, err := getSourcePeriodKey(ctx, dbpool, ca.SessionId, ca.FileKey)
 		if err != nil {
-			fmt.Println(err)
+			log.Println(err)
 		} else {
 			ca.SourcePeriodKey = strconv.Itoa(k)
 		}

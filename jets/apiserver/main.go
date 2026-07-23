@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/artisoft-io/jetstore/jets/awsi"
+	"github.com/artisoft-io/jetstore/jets/utils"
 )
 
 // # Env Variables Correspondence
@@ -74,6 +75,7 @@ var globalDevMode bool
 var serverAddr string
 
 func main() {
+	utils.UseJetStoreLogger()
 	flag.Parse()
 	hasErr := false
 	var errMsg []string
@@ -172,7 +174,7 @@ func main() {
 		for _, msg := range errMsg {
 			log.Println("**", msg)
 		}
-		panic(errMsg)
+		log.Panic(errMsg)
 	}
 
 	log.Println("apiserver argument:")

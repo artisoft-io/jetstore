@@ -62,7 +62,8 @@ func (j *JetRulesProxyImpl) GetNativeFactory() compute_pipes.JetRulesFactory {
 }
 
 func main() {
-	fmt.Println("LOCAL TEST DRIVER CMD LINE ARGS:", os.Args[1:])
+	// utils.UseJetStoreLogger()
+	log.Println("LOCAL TEST DRIVER CMD LINE ARGS:", os.Args[1:])
 	flag.Parse()
 	start := time.Now()
 	defer func() {
@@ -125,7 +126,7 @@ func main() {
 		for _, msg := range errMsg {
 			log.Println("** error:", msg)
 		}
-		panic("Invalid argument(s)")
+		log.Panic("Invalid argument(s)")
 	}
 
 	// open db connection

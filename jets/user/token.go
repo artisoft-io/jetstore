@@ -27,7 +27,7 @@ func CreateToken(email string) (string, error) {
 // Check if token is valid, if valid returns the associated email
 func TokenValid(r *http.Request) (string, error) {
 	tokenString := ExtractToken(r)
-	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
+	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (any, error) {
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
 		}
@@ -72,7 +72,7 @@ func ExtractToken(r *http.Request) string {
 }
 
 func ExtractTokenID(token string) (string, error) {
-	jwtToken, err := jwt.Parse(token, func(token *jwt.Token) (interface{}, error) {
+	jwtToken, err := jwt.Parse(token, func(token *jwt.Token) (any, error) {
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
 		}
@@ -90,12 +90,12 @@ func ExtractTokenID(token string) (string, error) {
 }
 
 //Pretty display the claims nicely in the terminal
-func Pretty(data interface{}) {
+func Pretty(data any) {
 	b, err := json.MarshalIndent(data, "", " ")
 	if err != nil {
 		log.Println(err)
 		return
 	}
 
-	fmt.Println(string(b))
+	log.Println(string(b))
 }

@@ -58,7 +58,7 @@ func (ctx *BadRowsChannel) Write(nodeId int) {
 	}
 
 	// open the local temp file
-	// fmt.Println("*** BadRowChannel.Write: create tempFileName:", tempFileName)
+	// log.Println("*** BadRowChannel.Write: create tempFileName:", tempFileName)
 	fout, err = os.Create(tempFileName)
 	if err != nil {
 		cpErr = fmt.Errorf("opening output file failed (in BadRowsChannel.Write): %v", err)
@@ -74,7 +74,7 @@ func (ctx *BadRowsChannel) Write(nodeId int) {
 		goto gotError
 	}
 
-	// fmt.Println("*** BadRowsChannel.Write: DONE writing local file:", tempFileName)
+	// log.Println("*** BadRowsChannel.Write: DONE writing local file:", tempFileName)
 	if nrows > 0 {
 		// schedule the file to be moved to s3
 		select {

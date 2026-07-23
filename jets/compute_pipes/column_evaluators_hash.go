@@ -394,7 +394,7 @@ func (ctx *HashEvaluator) ComputeHash(input []any) (any, error) {
 		// Make the alternate key to hash
 		var buf bytes.Buffer
 		err = makeAlternateKey(&buf, &ctx.altInputKey, "", &input)
-		// fmt.Printf("##### # makeAlternateKey: %v\n", inputVal)
+		// log.Printf("##### # makeAlternateKey: %v\n", inputVal)
 		if err != nil {
 			return nil, err
 		}
@@ -404,9 +404,9 @@ func (ctx *HashEvaluator) ComputeHash(input []any) (any, error) {
 	h := EvalHash(inputVal, ctx.partitions)
 	if h != nil {
 		hashedValue = *h
-		// 	fmt.Printf("##### # EvalHash k: %v, nbr partitions: %d => %v\n", inputVal, ctx.partitions, hashedValue)
+		// 	log.Printf("##### # EvalHash k: %v, nbr partitions: %d => %v\n", inputVal, ctx.partitions, hashedValue)
 		// } else {
-		// 	fmt.Printf("##### # EvalHash k: %v, nbr partitions: %d => NULL\n", inputVal, ctx.partitions)
+		// 	log.Printf("##### # EvalHash k: %v, nbr partitions: %d => NULL\n", inputVal, ctx.partitions)
 	}
 	// if ctx.debugCount > 0 {
 	// 	log.Printf("HashEvaluator.ComputeHash debug %d: input=%v => hash=%v\n", ctx.debugCount, inputVal, hashedValue)

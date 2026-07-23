@@ -228,7 +228,7 @@ func (ctx *AnalyzeTransformationPipe) Done() error {
 			} else {
 				w.Flush()
 				dv := strings.TrimSuffix(buf.String(), "\n")
-				// fmt.Printf("*** DISTINCT VALUES for %s: %v\n",state.ColumnName, dv)
+				// log.Printf("*** DISTINCT VALUES for %s: %v\n",state.ColumnName, dv)
 				outputRow[ipos] = dv
 			}
 		}

@@ -19,7 +19,7 @@ import (
 
 func (ca *CommandArguments) DoParquetReport(dbpool *pgxpool.Pool, tempDir string, s3FileName *string, name string, sqlStmt *string) error {
 	// save report locally in parquet
-	fmt.Println("STMT", name, "saving in parquet format")
+	log.Println("STMT", name, "saving in parquet format")
 
 	// open the parquet writer
 	tempFileName := fmt.Sprintf("%s/csv.parquet", tempDir)
@@ -50,7 +50,7 @@ func (ca *CommandArguments) DoParquetReport(dbpool *pgxpool.Pool, tempDir string
 	for inPos := range fd {
 		oid := fd[inPos].DataTypeOID
 		columName := string(fd[inPos].Name)
-		// fmt.Println("*** ColumnName",columName,"oid",oid)
+		// log.Println("*** ColumnName",columName,"oid",oid)
 		// skipping arrays and unknown data type
 		//TODO Add json and jsonb support in parquet writer and then remove the skipping of those data type
 		if !dbutils.IsArrayFromOID(oid) {
@@ -222,6 +222,6 @@ doneReport:
 	if err = awsi.UploadToS3(ca.BucketName, ca.RegionName, *s3FileName, fileHd); err != nil {
 		return fmt.Errorf("while copying to s3: %v", err)
 	}
-	fmt.Println("Report:", name, "rowsUploaded containing", rowCount, "rows")
+	log.Println("Report:", name, "rowsUploaded containing", rowCount, "rows")
 	return nil
 }

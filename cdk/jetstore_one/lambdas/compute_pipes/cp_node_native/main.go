@@ -12,6 +12,7 @@ import (
 	"github.com/artisoft-io/jetstore/jets/compute_pipes"
 	"github.com/artisoft-io/jetstore/jets/compute_pipes/jetrules_go_adaptor"
 	"github.com/artisoft-io/jetstore/jets/compute_pipes/jetrules_native_adaptor"
+	"github.com/artisoft-io/jetstore/jets/utils"
 	"github.com/aws/aws-lambda-go/lambda"
 )
 
@@ -32,8 +33,9 @@ var awsBucket string
 var dbConnection *dbc.DbConnection
 
 type JetRulesProxyImpl struct {
-	defaultFactory     compute_pipes.JetRulesFactory
+	defaultFactory compute_pipes.JetRulesFactory
 }
+
 func (j *JetRulesProxyImpl) GetDefaultFactory() compute_pipes.JetRulesFactory {
 	return j.defaultFactory
 }
@@ -45,6 +47,7 @@ func (j *JetRulesProxyImpl) GetNativeFactory() compute_pipes.JetRulesFactory {
 }
 
 func main() {
+	utils.UseJetStoreLogger()
 	hasErr := false
 	var errMsg []string
 	var err error
@@ -77,9 +80,9 @@ func main() {
 
 	if hasErr {
 		for _, msg := range errMsg {
-			fmt.Println("**", msg)
+			log.Println("**", msg)
 		}
-		panic("Invalid argument(s)")
+		log.Panic("Invalid argument(s)")
 	}
 
 	dbConnection, err = dbc.NewDbConnection(dbPoolSize)
@@ -105,7 +108,7 @@ func handler(ctx context.Context, arg compute_pipes.ComputePipesNodeArgs) error 
 	if err != nil {
 		return fmt.Errorf("while checking if db credential have been updated: %v", err)
 	}
-	
+
 	jrProxy := &JetRulesProxyImpl{
 		defaultFactory: jetrules_native_adaptor.NewJetRulesFactory(),
 	}
