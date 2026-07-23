@@ -621,6 +621,9 @@ func (w *WorkspaceDB) SaveClassesAndTables(ctx context.Context, db *sql.DB, jetR
 	if len(dataPropertiesData) > 0 {
 		err = DoStatement(ctx, db, dataPropertiesStmt, dataPropertiesData)
 		if err != nil {
+			// for i := range dataPropertiesData {
+			// 	fmt.Println("Data property:", dataPropertiesData[i])
+			// }
 			return fmt.Errorf("failed to insert data properties: %w", err)
 		}
 	}
