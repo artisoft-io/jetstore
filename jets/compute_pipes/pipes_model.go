@@ -246,6 +246,7 @@ type ChannelSpec struct {
 	DomainKeys           map[string]any  `json:"domain_keys,omitempty"`
 	DomainKeysInfo       *DomainKeysSpec `json:"domain_keys_spec,omitzero"`
 	EntityEncoding       string          `json:"entity_encoding,omitempty"`
+	ExcludeProperties    []string        `json:"exclude_properties,omitempty"`
 	columnsMap           *map[string]int
 }
 
