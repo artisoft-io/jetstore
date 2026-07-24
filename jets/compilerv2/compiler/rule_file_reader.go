@@ -2,6 +2,7 @@ package compiler
 
 import (
 	"fmt"
+	"log"
 	"regexp"
 	"strings"
 )
@@ -90,9 +91,9 @@ func (r *RuleFileReader) GetLocalFileAndLine(globalLineNum int) (string, int, er
 }
 
 func (r *RuleFileReader) PrintImportedFiles() {
-	fmt.Println("Imported Files:")
+	log.Println("Imported Files:")
 	for _, fileInfo := range r.importedFileInfo {
-		fmt.Println(fileInfo)
+		log.Println(fileInfo)
 	}
 }
 

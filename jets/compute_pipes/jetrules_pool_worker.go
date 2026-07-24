@@ -320,15 +320,7 @@ func (ctx *JrPoolWorker) executeRules(inputRecords *[]any,
 
 	// Extract data from the rdf session based on class names
 	for _, outChannel := range ctx.outputChannels {
-
-		switch outChannel.OutputCh.Config.EntityEncoding {
-		case "toon":
-			err = ctx.extractSessionData(rdfSession, outChannel, "toon")
-		case "json":
-			err = ctx.extractSessionData(rdfSession, outChannel, "json")
-		default:
-			err = ctx.extractSessionData(rdfSession, outChannel, "row")
-		}
+		err = ctx.extractSessionData(rdfSession, outChannel, outChannel.OutputCh.Config)
 		if err != nil {
 			cpErr = fmt.Errorf(
 				"while extraction entity from jetrules for class %s: %v",
@@ -467,20 +459,28 @@ func (ctx *JrPoolWorker) extractLiteralValue(rdfSession JetRdfSession, subject, 
 }
 
 func (ctx *JrPoolWorker) extractSessionData(rdfSession JetRdfSession,
-	outChannel *JetrulesOutputChan, encoding string) error {
+	outChannel *JetrulesOutputChan, config *ChannelSpec) error {
 
 	jr := rdfSession.JetResources()
 	rm := rdfSession.GetResourceManager()
 	entityCount := 0
-	columns := outChannel.OutputCh.Config.Columns
+	columns := config.Columns
 	var data any
 	var keepObj bool
 	var err error
 	isDebug := ctx.config.IsDebug
 	currentSourcePeriod := ctx.config.CurrentSourcePeriod
 
+	// Prep the excluded data properties
+	excludeProperties := make(map[string]bool)
+	for _, prop := range config.ExcludeProperties {
+		excludeProperties[prop] = true
+	}
+
 	// Extract entity by rdf type
-	log.Printf("*** Pool Worker == Extracting entities of class %s, encoding %s", outChannel.ClassName, encoding)
+	if isDebug {
+		log.Printf("*** Pool Worker == Extracting entities of class %s, encoding %s", outChannel.ClassName, config.EntityEncoding)
+	}
 	ctor := rdfSession.FindSPO(nil, jr.Rdf__type, rm.NewResource(outChannel.ClassName))
 	for !ctor.IsEnd() {
 		subject := ctor.GetSubject()
@@ -492,16 +492,16 @@ func (ctx *JrPoolWorker) extractSessionData(rdfSession JetRdfSession,
 		}
 		// extract entity if we keep it (i.e. not an historical entity)
 		if keepObj {
-			log.Printf("*** Extracting entity for subject %s", subject)
-			entityRow := make([]any, len(*outChannel.OutputCh.Columns))
-			switch encoding {
+			// log.Printf("*** Extracting entity for subject %s", subject)
+			entityRow := make([]any, len(columns))
+			switch config.EntityEncoding {
 			case "toon", "json":
 				// For toon and json encoding, we extract the entire object as a map[string]any
-				log.Printf("*** Extracting json/toon obj - start")
+				// log.Printf("*** Extracting json/toon obj - start")
 				entityObj := make(map[string]any)
-				ExtractAsEntity(rdfSession, subject, entityObj, currentSourcePeriod, outChannel)
-				log.Printf("*** Extracting json/toon obj - end")
-				if encoding == "toon" {
+				ExtractAsEntity(rdfSession, subject, entityObj, currentSourcePeriod, outChannel, excludeProperties)
+				// log.Printf("*** Extracting json/toon obj - end")
+				if config.EntityEncoding == "toon" {
 					// For toon encoding, we need to convert the map to a toon string
 					toonBytes, err := togo.Marshal(entityObj)
 					if err != nil {
@@ -509,7 +509,7 @@ func (ctx *JrPoolWorker) extractSessionData(rdfSession JetRdfSession,
 						log.Println(err)
 						return err
 					}
-					log.Printf("*** toon encoded obj:\n%s", string(toonBytes))
+					// log.Printf("*** toon encoded obj:\n%s", string(toonBytes))
 					entityRow[(*outChannel.OutputCh.Columns)["json:data"]] = string(toonBytes)
 				} else {
 					// For json encoding, we need to convert the map to a json string
@@ -519,12 +519,12 @@ func (ctx *JrPoolWorker) extractSessionData(rdfSession JetRdfSession,
 						log.Println(err)
 						return err
 					}
-					log.Printf("*** json encoded obj:\n%s", string(jsonBytes))
+					// log.Printf("*** json encoded obj:\n%s", string(jsonBytes))
 					entityRow[(*outChannel.OutputCh.Columns)["json:data"]] = string(jsonBytes)
 				}
 
 			default:
-				log.Printf("*** Extracting DEFAULT encoding for subject %s", subject)
+				// log.Printf("*** Extracting DEFAULT encoding for subject %s", subject)
 				for i, p := range columns {
 					data = ctx.extractLiteralValue(rdfSession, subject, rm.NewResource(p), currentSourcePeriod, outChannel)
 					entityRow[i] = data
@@ -543,7 +543,7 @@ func (ctx *JrPoolWorker) extractSessionData(rdfSession JetRdfSession,
 				}
 			}
 			// Send the record to output channel
-			log.Printf("*** Extracted ENTITY_ROW: %v", entityRow)
+			// log.Printf("*** Extracted ENTITY_ROW: %v", entityRow)
 			select {
 			case outChannel.OutputCh.Channel <- entityRow:
 				entityCount += 1
@@ -555,7 +555,7 @@ func (ctx *JrPoolWorker) extractSessionData(rdfSession JetRdfSession,
 		ctor.Next()
 	}
 	ctor.Release()
-	log.Printf("*** jetrules: Extracted %d entities for class %s", entityCount, outChannel.ClassName)
+	// log.Printf("*** jetrules: Extracted %d entities for class %s", entityCount, outChannel.ClassName)
 	if isDebug {
 		log.Printf("jetrules: Extracted %d entities for class %s", entityCount, outChannel.ClassName)
 	}

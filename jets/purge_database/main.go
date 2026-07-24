@@ -1,8 +1,10 @@
 package main
 
 import (
-	"fmt"
+	"log"
+
 	"github.com/artisoft-io/jetstore/jets/purge_database/delegate"
+	"github.com/artisoft-io/jetstore/jets/utils"
 )
 
 // Env variable:
@@ -12,10 +14,11 @@ import (
 // RETENTION_DAYS site global rentention days, delete session if > 0
 
 func main() {
-	fmt.Println("Purge historical sessions from database")
+	utils.UseJetStoreLogger()
+	log.Println("Purge historical sessions from database")
 	err := delegate.DoPurgeSessions()
 	if err != nil {
-		fmt.Println(err)
-		panic(err)
+		log.Println(err)
+		log.Panic(err)
 	}
 }

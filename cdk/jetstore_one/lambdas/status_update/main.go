@@ -10,6 +10,7 @@ import (
 
 	"github.com/artisoft-io/jetstore/cdk/jetstore_one/lambdas/dbc"
 	"github.com/artisoft-io/jetstore/jets/datatable"
+	"github.com/artisoft-io/jetstore/jets/utils"
 	"github.com/aws/aws-lambda-go/lambda"
 	"go.uber.org/zap"
 )
@@ -26,12 +27,10 @@ var c config
 var dbConnection *dbc.DbConnection
 
 func main() {
+	utils.UseJetStoreLogger()
 	// Create logger.
 	var err error
-	logger, err = zap.NewProduction()
-	if err != nil {
-		panic("failed to create logger: " + err.Error())
-	}
+	logger = zap.L()
 
 	// Check required env var
 	c.IsValid = true
@@ -157,13 +156,13 @@ func handler(ctx context.Context, arguments map[string]any) (err error) {
 		}
 
 	default:
-		fmt.Println("Unknown type for failureDetails")
+		log.Println("Unknown type for failureDetails")
 	}
 	fileKey := arguments["file_key"]
 	if fileKey != nil {
 		ca.FileKey = fileKey.(string)
 	}
-	fmt.Println("Got peKey:", ca.PeKey, "fileKey:", fileKey, "failureDetails:", ca.FailureDetails)
+	log.Println("Got peKey:", ca.PeKey, "fileKey:", fileKey, "failureDetails:", ca.FailureDetails)
 
 	// Check if the db credential have been updated
 	ca.Dbpool, err = dbConnection.GetConnection()

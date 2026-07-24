@@ -146,7 +146,7 @@ func (ctx *HighFreqTransformationPipe) Done() error {
 			}
 		}
 	}
-	fmt.Println("**!@@ ** Send Freq Count Result to", ctx.outputCh.Name, "DONE")
+	// log.Println("**!@@ ** Send Freq Count Result to", ctx.outputCh.Name, "DONE")
 	return nil
 }
 

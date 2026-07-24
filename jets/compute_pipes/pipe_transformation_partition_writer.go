@@ -196,7 +196,7 @@ func (ctx *PartitionWriterTransformationPipe) applyInternal(input *[]any) error 
 						close(ctx.doneCh)
 					}
 				}
-				// fmt.Println("**@= Defer called done writing, calling ClientsWg.Done()")
+				// log.Println("**@= Defer called done writing, calling ClientsWg.Done()")
 				ctx.s3DeviceManager.ClientsWg.Done()
 			}()
 
@@ -297,7 +297,7 @@ func (ctx *PartitionWriterTransformationPipe) Finally() {
 
 	// Indicate to S3DeviceManager that we're done using it
 	if ctx.s3DeviceManager.ClientsWg != nil {
-		// fmt.Println("**@= Finally called, calling ClientsWg.Done()")
+		// log.Println("**@= Finally called, calling ClientsWg.Done()")
 		ctx.s3DeviceManager.ClientsWg.Done()
 	} else {
 		log.Panicln("ERROR expecting ctx.s3DeviceManager.ClientsWg not nil")

@@ -255,7 +255,7 @@ nextAction:
 					hashedValue = inputStr
 					hashedValue4KeyFile = inputStr
 				}
-				// fmt.Println("*** Error while parsing:", err, "will use blinded date:", hashedValue)
+				// log.Println("*** Error while parsing:", err, "will use blinded date:", hashedValue)
 			}
 		}
 		(*input)[action.inputColumn] = hashedValue
@@ -559,7 +559,7 @@ func (ctx *BuilderContext) NewAnonymizeTransformationPipe(source *InputChannel, 
 				if ok {
 					r := csv.NewReader(bytes.NewReader([]byte(dateLayoutsCsv)))
 					dateLayouts, err = r.Read()
-					// fmt.Println("*** Got date layouts:", dateLayouts)
+					// log.Println("*** Got date layouts:", dateLayouts)
 					if err != nil {
 						return nil, fmt.Errorf("while decoding date formats from csv:%v", err)
 					}

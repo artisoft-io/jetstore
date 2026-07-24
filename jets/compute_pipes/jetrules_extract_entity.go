@@ -1,21 +1,21 @@
 package compute_pipes
 
 import (
-	"log"
 	"strings"
 )
 
 // Navigate recursively the object properties and extract their values into a map[string]any
 // excluding the properties starting with _0:
-func ExtractAsEntity(rdfSession JetRdfSession, subject RdfNode,
-	entityObj map[string]any, currentSourcePeriod int, outChannel *JetrulesOutputChan) {
+func ExtractAsEntity(rdfSession JetRdfSession, subject RdfNode,	entityObj map[string]any, 
+	currentSourcePeriod int, outChannel *JetrulesOutputChan, excludeProp map[string]bool) {
+		
 	var objProperties map[string]RdfNode
 	itor := rdfSession.FindS(subject)
 	defer itor.Release()
 	for !itor.IsEnd() {
-		log.Printf("*** Triple (%s, %s (%s), %s)", itor.GetSubject(), itor.GetPredicate(), itor.GetPredicate().Type(), itor.GetObject())
+		// log.Printf("*** Triple (%s, %s (%s), %s)", itor.GetSubject(), itor.GetPredicate(), itor.GetPredicate().Type(), itor.GetObject())
 		prop := itor.GetPredicate()
-		if strings.HasPrefix(prop.String(), "_0:") || prop.Type() != "named_resource" {
+		if strings.HasPrefix(prop.String(), "_0:") || prop.Type() != "named_resource" || excludeProp[prop.String()] {
 			itor.Next()
 			continue
 		}
@@ -37,7 +37,7 @@ func ExtractAsEntity(rdfSession JetRdfSession, subject RdfNode,
 		for !jtor.IsEnd() {
 			subEntityObj := make(map[string]any)
 			addToEntityObj(entityObj, prop, subEntityObj)
-			ExtractAsEntity(rdfSession, jtor.GetObject(), subEntityObj, currentSourcePeriod, outChannel)
+			ExtractAsEntity(rdfSession, jtor.GetObject(), subEntityObj, currentSourcePeriod, outChannel, excludeProp)
 			jtor.Next()
 		}
 	}

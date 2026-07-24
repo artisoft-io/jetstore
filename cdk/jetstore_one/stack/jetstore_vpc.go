@@ -2,7 +2,6 @@ package stack
 
 import (
 	"encoding/json"
-	"fmt"
 	"log"
 	"os"
 	"strconv"
@@ -183,8 +182,8 @@ func CreateJetStoreVPC(stack awscdk.Stack) awsec2.Vpc {
 		var tags map[string]string
 		err := json.Unmarshal([]byte(os.Getenv("JETS_STACK_TAGS_JSON")), &tags)
 		if err != nil {
-			fmt.Println("** Invalid JSON in JETS_STACK_TAGS_JSON:", err)
-			os.Exit(1)
+			log.Println("** Invalid JSON in JETS_STACK_TAGS_JSON:", err)
+			log.Panic("Terminated due to invalid JSON in JETS_STACK_TAGS_JSON")
 		}
 		for k, v := range tags {
 			awscdk.Tags_Of(s3Endpoint).Add(jsii.String(k), jsii.String(v), nil)
@@ -219,8 +218,8 @@ func init() {
 	if os.Getenv("JETS_STACK_TAGS_JSON") != "" {
 		err := json.Unmarshal([]byte(os.Getenv("JETS_STACK_TAGS_JSON")), &tags)
 		if err != nil {
-			fmt.Println("** Invalid JSON in JETS_STACK_TAGS_JSON:", err)
-			os.Exit(1)
+			log.Println("** Invalid JSON in JETS_STACK_TAGS_JSON:", err)
+			log.Panic("Terminated due to invalid JSON in JETS_STACK_TAGS_JSON")
 		}
 	}
 }

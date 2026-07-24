@@ -2,8 +2,10 @@ package main
 
 import (
 	"fmt"
+	"log"
 	"os"
 
+	"github.com/artisoft-io/jetstore/jets/utils"
 	"github.com/aws/aws-cdk-go/awscdk/v2"
 	iam "github.com/aws/aws-cdk-go/awscdk/v2/awsiam"
 	"github.com/aws/constructs-go/constructs/v10"
@@ -25,9 +27,9 @@ func NewBootstrapAWSStack(scope constructs.Construct, id string, props *Bootstra
 	/**
 	* Create an Identity provider for GitHub inside your AWS Account. This
 	* allows GitHub to present itself to AWS IAM and assume a role.
-	*/
+	 */
 	provider := iam.NewOpenIdConnectProvider(stack, jsii.String("JSProvider"), &iam.OpenIdConnectProviderProps{
-		Url: jsii.String("https://token.actions.githubusercontent.com"),
+		Url:       jsii.String("https://token.actions.githubusercontent.com"),
 		ClientIds: jsii.Strings("sts.amazonaws.com"),
 		// Thumbprints no longer needed but no harm leaving them
 		Thumbprints: jsii.Strings("6938fd4d98bab03faadb97b34396831e3780aea1", "1c58a3a8518e8759bf075b76b750d4f2df264fcd"),
@@ -39,36 +41,35 @@ func NewBootstrapAWSStack(scope constructs.Construct, id string, props *Bootstra
 	 */
 	GitHubPrincipal := iam.NewOpenIdConnectPrincipal(provider, &map[string]interface{}{
 		"StringLike": map[string]interface{}{
-			"token.actions.githubusercontent.com:sub": 
-			fmt.Sprintf("repo:%s:*", os.Getenv("GH_REPO_NAME"))},
+			"token.actions.githubusercontent.com:sub": fmt.Sprintf("repo:%s:*", os.Getenv("GH_REPO_NAME"))},
 		"StringEquals": map[string]interface{}{
 			"token.actions.githubusercontent.com:aud": "sts.amazonaws.com"},
 	})
 
 	/**
-		* Create a deployment role that has short lived credentials. The only
-		* principal that can assume this role is the GitHub Open ID provider.
-		*
-		* This role is granted authority to assume aws cdk roles; which are created
-		* by the aws cdk v2.
-	*/
+	* Create a deployment role that has short lived credentials. The only
+	* principal that can assume this role is the GitHub Open ID provider.
+	*
+	* This role is granted authority to assume aws cdk roles; which are created
+	* by the aws cdk v2.
+	 */
 	role := os.Getenv("AWS_ROLE")
 	if role == "" {
 		role = "github-ci-role"
 	}
 	iam.NewRole(stack, jsii.String("CDKDeployRole"), &iam.RoleProps{
-		AssumedBy: GitHubPrincipal,
-		Description: jsii.String("Role assumed by GitHubPrincipal for deploying from CI using aws cdk"),
-		RoleName: jsii.String(role),
+		AssumedBy:          GitHubPrincipal,
+		Description:        jsii.String("Role assumed by GitHubPrincipal for deploying from CI using aws cdk"),
+		RoleName:           jsii.String(role),
 		MaxSessionDuration: awscdk.Duration_Hours(jsii.Number(1)),
 		InlinePolicies: &map[string]iam.PolicyDocument{
 			"CdkDeploymentPolicy": iam.NewPolicyDocument(&iam.PolicyDocumentProps{
 				AssignSids: jsii.Bool(true),
 				Statements: &[]iam.PolicyStatement{
 					iam.NewPolicyStatement(&iam.PolicyStatementProps{
-						Effect: iam.Effect_ALLOW,
-						Actions: jsii.Strings("sts:AssumeRole"),
-						Resources: jsii.Strings(fmt.Sprintf("arn:aws:iam::%s:role/cdk-*",	os.Getenv("AWS_ACCOUNT"))),
+						Effect:    iam.Effect_ALLOW,
+						Actions:   jsii.Strings("sts:AssumeRole"),
+						Resources: jsii.Strings(fmt.Sprintf("arn:aws:iam::%s:role/cdk-*", os.Getenv("AWS_ACCOUNT"))),
 					}),
 					iam.NewPolicyStatement(&iam.PolicyStatementProps{
 						Effect: iam.Effect_ALLOW,
@@ -88,7 +89,7 @@ func NewBootstrapAWSStack(scope constructs.Construct, id string, props *Bootstra
 							"ecr:PutImage",
 							"ecr:UploadLayerPart",
 						),
-						Resources: jsii.Strings(fmt.Sprintf("arn:aws:ecr:*:%s:repository/*",	os.Getenv("AWS_ACCOUNT"))),
+						Resources: jsii.Strings(fmt.Sprintf("arn:aws:ecr:*:%s:repository/*", os.Getenv("AWS_ACCOUNT"))),
 					}),
 					iam.NewPolicyStatement(&iam.PolicyStatementProps{
 						Effect: iam.Effect_ALLOW,
@@ -101,7 +102,7 @@ func NewBootstrapAWSStack(scope constructs.Construct, id string, props *Bootstra
 			}),
 		},
 	})
-	
+
 	return stack
 }
 
@@ -122,36 +123,37 @@ func NewBootstrapAWSStack(scope constructs.Construct, id string, props *Bootstra
 
 func main() {
 	defer jsii.Close()
-	fmt.Println("Got following env var")
-	fmt.Println("env AWS_ACCOUNT:", os.Getenv("AWS_ACCOUNT"))
-	fmt.Println("env AWS_REGION:", os.Getenv("AWS_REGION"))
-	fmt.Println("env AWS_ROLE:", os.Getenv("AWS_ROLE"))
-	fmt.Println("env GH_ORG_NAME:", os.Getenv("GH_ORG_NAME"))
-	fmt.Println("env GH_REPO_NAME:", os.Getenv("GH_REPO_NAME"))
-	fmt.Println("env JETS_TAG_NAME_OWNER:", os.Getenv("JETS_TAG_NAME_OWNER"))
-	fmt.Println("env JETS_TAG_VALUE_OWNER:", os.Getenv("JETS_TAG_VALUE_OWNER"))
-	fmt.Println("env JETS_TAG_NAME_PROD:", os.Getenv("JETS_TAG_NAME_PROD"))
-	fmt.Println("env JETS_TAG_VALUE_PROD:", os.Getenv("JETS_TAG_VALUE_PROD"))
-	fmt.Println("env JETS_TAG_NAME_PHI:", os.Getenv("JETS_TAG_NAME_PHI"))
-	fmt.Println("env JETS_TAG_NAME_PII:", os.Getenv("JETS_TAG_NAME_PII"))
-	fmt.Println("env JETS_TAG_NAME_DESCRIPTION:", os.Getenv("JETS_TAG_NAME_DESCRIPTION"))
+	utils.UseJetStoreLogger()
+	// log.Println("Got following env var")
+	// log.Println("env AWS_ACCOUNT:", os.Getenv("AWS_ACCOUNT"))
+	// log.Println("env AWS_REGION:", os.Getenv("AWS_REGION"))
+	// log.Println("env AWS_ROLE:", os.Getenv("AWS_ROLE"))
+	// log.Println("env GH_ORG_NAME:", os.Getenv("GH_ORG_NAME"))
+	// log.Println("env GH_REPO_NAME:", os.Getenv("GH_REPO_NAME"))
+	// log.Println("env JETS_TAG_NAME_OWNER:", os.Getenv("JETS_TAG_NAME_OWNER"))
+	// log.Println("env JETS_TAG_VALUE_OWNER:", os.Getenv("JETS_TAG_VALUE_OWNER"))
+	// log.Println("env JETS_TAG_NAME_PROD:", os.Getenv("JETS_TAG_NAME_PROD"))
+	// log.Println("env JETS_TAG_VALUE_PROD:", os.Getenv("JETS_TAG_VALUE_PROD"))
+	// log.Println("env JETS_TAG_NAME_PHI:", os.Getenv("JETS_TAG_NAME_PHI"))
+	// log.Println("env JETS_TAG_NAME_PII:", os.Getenv("JETS_TAG_NAME_PII"))
+	// log.Println("env JETS_TAG_NAME_DESCRIPTION:", os.Getenv("JETS_TAG_NAME_DESCRIPTION"))
 
 	// Verify that we have all the required env variables
 	hasErr := false
 	var errMsg []string
 	if os.Getenv("AWS_ACCOUNT") == "" || os.Getenv("AWS_REGION") == "" {
 		hasErr = true
-		errMsg = append(errMsg, "Env variables 'AWS_ACCOUNT' and 'AWS_REGION' are required.")		
+		errMsg = append(errMsg, "Env variables 'AWS_ACCOUNT' and 'AWS_REGION' are required.")
 	}
 	if os.Getenv("GH_ORG_NAME") == "" || os.Getenv("GH_REPO_NAME") == "" {
 		hasErr = true
-		errMsg = append(errMsg, "Env variables 'GH_ORG_NAME' and 'GH_REPO_NAME' are required.")		
+		errMsg = append(errMsg, "Env variables 'GH_ORG_NAME' and 'GH_REPO_NAME' are required.")
 	}
 	if hasErr {
 		for _, msg := range errMsg {
-			fmt.Println("**", msg)
+			log.Println("**", msg)
 		}
-		os.Exit(1)
+		log.Panic("Missing required env variables. See above for details.")
 	}
 
 	app := awscdk.NewApp(nil)
@@ -159,7 +161,7 @@ func main() {
 	// Set stack-level tags
 	stackDescription := jsii.String(
 		"Create an Identity provider for GitHub inside the AWS Account." +
-		" This allows GitHub to present itself to AWS IAM and assume a role to deploy JetStore Platform stack")
+			" This allows GitHub to present itself to AWS IAM and assume a role to deploy JetStore Platform stack")
 
 	if os.Getenv("JETS_TAG_NAME_OWNER") != "" && os.Getenv("JETS_TAG_VALUE_OWNER") != "" {
 		awscdk.Tags_Of(app).Add(jsii.String(os.Getenv("JETS_TAG_NAME_OWNER")), jsii.String(os.Getenv("JETS_TAG_VALUE_OWNER")), nil)
@@ -178,7 +180,7 @@ func main() {
 	}
 	NewBootstrapAWSStack(app, "BootstrapAWSStack", &BootstrapAWSStackProps{
 		awscdk.StackProps{
-			Env: env(),
+			Env:         env(),
 			Description: stackDescription,
 		},
 	})
@@ -201,7 +203,7 @@ func env() *awscdk.Environment {
 	return &awscdk.Environment{
 		Account: jsii.String(os.Getenv("AWS_ACCOUNT")),
 		Region:  jsii.String(os.Getenv("AWS_REGION")),
-	 }
+	}
 
 	// Uncomment to specialize this stack for the AWS Account and Region that are
 	// implied by the current CLI configuration. This is recommended for dev

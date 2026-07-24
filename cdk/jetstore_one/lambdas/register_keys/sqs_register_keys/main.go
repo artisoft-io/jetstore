@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/artisoft-io/jetstore/jets/utils"
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-lambda-go/lambda"
 )
@@ -25,12 +26,12 @@ func handler(event map[string]any) error {
 	// 		return err
 	// 	}
 	// }
-	fmt.Println("done")
+	log.Println("done")
 	return nil
 }
 
 func processMessage(record events.SQSMessage) error {
-	fmt.Printf("Processed message %s\n", record.Body)
+	log.Printf("Processed message %s\n", record.Body)
 	//*** Test calling the endpoint in the record body
 	info, err := getInfo(record.Body)
 	if err != nil {
@@ -42,6 +43,7 @@ func processMessage(record events.SQSMessage) error {
 }
 
 func main() {
+	utils.UseJetStoreLogger()
 	lambda.Start(handler)
 }
 

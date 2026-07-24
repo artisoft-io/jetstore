@@ -61,6 +61,7 @@ var allowedCommands = map[string]bool{
 }
 
 func main() {
+	utils.UseJetStoreLogger()
 	log.Printf("cbooter starting with arguments %v...", os.Args[1:])
 
 	// A command name is required as the first argument.

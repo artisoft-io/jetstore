@@ -27,7 +27,7 @@ func (ctx *AggregateTransformationPipe) Apply(input *[]interface{}) error {
 }
 func (ctx *AggregateTransformationPipe) Done() error {
 	// Notify the column evaluator that we're done
-	// fmt.Println("**!@@ calling done on column evaluator from AggregateTransformationPipe for output", ctx.outputCh.name)
+	// log.Println("**!@@ calling done on column evaluator from AggregateTransformationPipe for output", ctx.outputCh.name)
 	for i := range ctx.columnEvaluators {
 		err := ctx.columnEvaluators[i].Done(&ctx.currentValues)
 		if err != nil {
@@ -35,13 +35,13 @@ func (ctx *AggregateTransformationPipe) Done() error {
 		}
 	}
 	// Send the result to output
-	// fmt.Println("**!@@ ** Send AGGREGATE Result to", ctx.outputCh.name)
+	// log.Println("**!@@ ** Send AGGREGATE Result to", ctx.outputCh.name)
 	select {
 	case ctx.outputCh.Channel <- ctx.currentValues:
 	case <-ctx.doneCh:
 		log.Println("AggregateTransform interrupted")
 	}
-	// fmt.Println("**!@@ ** Send AGGREGATE Result to", ctx.outputCh.name,"DONE")
+	// log.Println("**!@@ ** Send AGGREGATE Result to", ctx.outputCh.name,"DONE")
 	return nil
 }
 
@@ -53,7 +53,7 @@ func (ctx *BuilderContext) NewAggregateTransformationPipe(source *InputChannel, 
 	// Validate the config: must have NewRecord set to true
 	if !spec.NewRecord {
 		err = fmt.Errorf("error: must have new_record set to true for aggregate transform")
-		fmt.Println(err)
+		log.Println(err)
 		return nil, err
 	}
 	columnEvaluators := make([]TransformationColumnEvaluator, len(spec.Columns))
@@ -62,7 +62,7 @@ func (ctx *BuilderContext) NewAggregateTransformationPipe(source *InputChannel, 
 		columnEvaluators[i], err = ctx.BuildTransformationColumnEvaluator(source, outputCh, &spec.Columns[i])
 		if err != nil {
 			err = fmt.Errorf("while BuildTransformationColumnEvaluator (in NewAggregateTransformationPipe) %v", err)
-			fmt.Println(err)
+			log.Println(err)
 			return nil, err
 		}
 	}

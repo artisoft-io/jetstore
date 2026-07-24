@@ -172,7 +172,7 @@ func (cpCtx *ComputePipesContext) processRecord(computePipesInputCh chan<- []any
 		currentRow += arrowRecord.NumRows()
 		return currentRow, inputRowCount, false, nil
 	}
-	// fmt.Println("*** The Arrow Record contains", arrowRecord.NumRows(), "rows")
+	// log.Println("*** The Arrow Record contains", arrowRecord.NumRows(), "rows")
 	nbrPartFileKeyColumns := len(cpCtx.PartFileKeyComponents)
 	for irow := range int(arrowRecord.NumRows()) {
 		if nbrRowsToRead > 0 {

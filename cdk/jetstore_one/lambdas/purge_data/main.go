@@ -5,6 +5,7 @@ import (
 	"strconv"
 
 	"github.com/artisoft-io/jetstore/jets/purge_database/delegate"
+	"github.com/artisoft-io/jetstore/jets/utils"
 	"github.com/aws/aws-lambda-go/lambda"
 	"go.uber.org/zap"
 )
@@ -12,10 +13,10 @@ import (
 // Sample lambda function in go to purge historical data
 
 type config struct {
-	AWSRegion         string
-	AWSDnsSecret      string
-	RetentionDays     int
-	IsValid           bool
+	AWSRegion     string
+	AWSDnsSecret  string
+	RetentionDays int
+	IsValid       bool
 }
 
 var logger *zap.SugaredLogger
@@ -29,7 +30,8 @@ var c config
 func main() {
 	// Create logger.
 	var err error
-	logger = zap.NewExample().Sugar()
+	utils.UseJetStoreLogger()
+	logger = zap.L().Sugar()
 
 	// Check required env var
 	c.IsValid = true

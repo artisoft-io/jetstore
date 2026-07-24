@@ -269,7 +269,7 @@ func (ctx *BuilderContext) NewClusteringPoolManager(config *ClusteringSpec,
 			// save the result so it can be used to determine the clusters
 			key := fmt.Sprintf("%v__%v", correlationresult[wName1], correlationresult[wName2])
 			// //***
-			// fmt.Printf("Got Worker Result: %v, %v distinct_count: %v, total: %v\n",
+			// log.Printf("Got Worker Result: %v, %v distinct_count: %v, total: %v\n",
 			// correlationresult[wName1],
 			// correlationresult[wName2],
 			// correlationresult[WCount],

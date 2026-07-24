@@ -11,6 +11,7 @@ import (
 
 	"github.com/artisoft-io/jetstore/jets/awsi"
 	"github.com/artisoft-io/jetstore/jets/user"
+	"github.com/artisoft-io/jetstore/jets/utils"
 	"github.com/aws/aws-lambda-go/lambda"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -459,5 +460,6 @@ func OpenDbConn(dnsJson string) (*pgxpool.Pool, error) {
 }
 
 func main() {
+	utils.UseJetStoreLogger()
 	lambda.Start(handler)
 }

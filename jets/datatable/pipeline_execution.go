@@ -579,7 +579,7 @@ func (ctx *DataTableContext) startStateMachine(task *PendingTask) error {
 		err = errors.New("error while calling StartExecution")
 		return err
 	}
-	fmt.Println("State Machine", name, "started")
+	log.Println("State Machine", name, "started")
 	return nil
 }
 

@@ -55,7 +55,7 @@ func (ctx *S3DeviceWriter) WritePartition(writer func(w io.Writer)) {
 		var fout *os.File
 		tempFileName := fmt.Sprintf("%s/%s", *ctx.localTempDir, *ctx.fileName)
 		s3FileName := fmt.Sprintf("%s/%s", *ctx.s3BasePath, *ctx.fileName)
-		// fmt.Println("**&@@ WritePartition *1: fileName:", *ctx.fileName)
+		// log.Println("**&@@ WritePartition *1: fileName:", *ctx.fileName)
 		if ctx.s3DeviceManager == nil {
 			cpErr = fmt.Errorf("error: s3DeviceManager is nil")
 			goto gotError
@@ -72,7 +72,7 @@ func (ctx *S3DeviceWriter) WritePartition(writer func(w io.Writer)) {
 		// Write the partition
 		writer(fout)
 
-		// fmt.Println("**&@@ WritePartition: DONE writing local file for fileName:", *ctx.fileName)
+		// log.Println("**&@@ WritePartition: DONE writing local file for fileName:", *ctx.fileName)
 		// schedule the file to be moved to s3
 		select {
 		case ctx.s3DeviceManager.WorkersTaskCh <- S3Object{
@@ -164,11 +164,11 @@ func (ctx *S3DeviceWriter) WriteCsvPartition(fout io.Writer) {
 		}
 		// log.Printf("*** Cast WRITE RDF TYPE %d:%v\n", count, row)
 		if err = csvWriter.Write(row); err != nil {
-			// fmt.Println("ERROR")
+			// log.Println("ERROR")
 			// for i := range inRow {
-			// 	fmt.Println(inRow[i], reflect.TypeOf(inRow[i]).Kind())
+			// 	log.Println(inRow[i], reflect.TypeOf(inRow[i]).Kind())
 			// }
-			// fmt.Println("ERROR")
+			// log.Println("ERROR")
 			cpErr = fmt.Errorf("while writing row to local csv file: %v", err)
 			goto gotError
 		}
@@ -286,7 +286,7 @@ func (ctx *S3DeviceWriter) WriteFixedWidthPartition(fout io.Writer) {
 		}
 	}
 
-	// fmt.Println("**&@@ WriteFixedWidthPartition: DONE writing local file for fileName:", *ctx.fileName,
+	// log.Println("**&@@ WriteFixedWidthPartition: DONE writing local file for fileName:", *ctx.fileName,
 	// "...file key:",s3FileName)
 	fwWriter.Flush()
 	if snWriter != nil {

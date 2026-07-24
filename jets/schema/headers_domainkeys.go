@@ -187,19 +187,19 @@ func (dkInfo *HeadersAndDomainKeysInfo) Initialize(mainObjectType string, domain
 	var f interface{}
 	err := json.Unmarshal([]byte(*domainKeysJson), &f)
 	if err != nil {
-		fmt.Println("while parsing domainKeysJson using json parser:", err)
+		log.Println("while parsing domainKeysJson using json parser:", err)
 		return err
 	}
 	// Extract the domain keys structure from the json
 	switch value := f.(type) {
 	case string:
-		// fmt.Println("*** Domain Key is single column", value)
+		// log.Println("*** Domain Key is single column", value)
 		dkInfo.DomainKeysInfoMap[mainObjectType] = &DomainKeyInfo{
 			ColumnNames: []string{value},
 			ObjectType:  mainObjectType,
 		}
 	case []interface{}:
-		// fmt.Println("*** Domain Key is a composite key", value)
+		// log.Println("*** Domain Key is a composite key", value)
 		ck := make([]string, 0)
 		for i := range value {
 			if reflect.TypeOf(value[i]).Kind() == reflect.String {
@@ -211,7 +211,7 @@ func (dkInfo *HeadersAndDomainKeysInfo) Initialize(mainObjectType string, domain
 			ObjectType:  mainObjectType,
 		}
 	case map[string]interface{}:
-		// fmt.Println("*** Domain Key is a struct of composite keys", value)
+		// log.Println("*** Domain Key is a struct of composite keys", value)
 		for k, v := range value {
 			switch vv := v.(type) {
 			case string:
@@ -578,7 +578,7 @@ func GetObjectTypesFromDominsKeyJson(domainKeysJson string, defaultValue string)
 		var f interface{}
 		err := json.Unmarshal([]byte(domainKeysJson), &f)
 		if err != nil {
-			fmt.Println("while parsing domainKeysJson using json parser:", err)
+			log.Println("while parsing domainKeysJson using json parser:", err)
 			return nil, err
 		}
 		// Extract the domain keys structure from the json

@@ -36,7 +36,7 @@ func MigrateDb(dbpool *pgxpool.Pool) error {
 		return fmt.Errorf("error while decoding jstore schema: %v", err)
 	}
 	for i := range schemaDef {
-		fmt.Println("-- Got schema for", schemaDef[i].SchemaName, ".", schemaDef[i].TableName)
+		log.Println("Got schema for", schemaDef[i].SchemaName, ".", schemaDef[i].TableName)
 		// Drop specified tables
 		if schemaDef[i].Deleted {
 			err = schemaDef[i].DropTable(dbpool)
@@ -58,7 +58,7 @@ func loadConfig(dbpool *pgxpool.Pool, baseDir, fileName string) error {
 	if err != nil {
 		return err
 	}
-	fmt.Println("\nInitializing jetsapi db using", sqlFile)
+	log.Println("Initializing jetsapi db using", sqlFile)
 	file, err := os.Open(sqlFile)
 	if err != nil {
 		return fmt.Errorf("error while opening jetsapi init db file: %v", err)
@@ -81,7 +81,7 @@ func loadConfig(dbpool *pgxpool.Pool, baseDir, fileName string) error {
 			return fmt.Errorf("error while reading db init, stmt is empty")
 		}
 		stmt = strings.TrimSpace(stmt)
-		// fmt.Println(stmt)
+		// log.Println(stmt)
 		_, err = dbpool.Exec(context.Background(), stmt)
 		if err != nil {
 			return fmt.Errorf("error while executing: %v", err)
@@ -131,11 +131,11 @@ func InitializeJetsapiDb(dbpool *pgxpool.Pool, jetsDbInitPath *string) error {
 			return err
 		}
 		if info.IsDir() || path == "base__workspace_init_db.sql" {
-			// fmt.Printf("visiting directory: %+v \n", info.Name())
+			// log.Printf("visiting directory: %+v \n", info.Name())
 			return nil
 		}
 		sqlFile := fmt.Sprintf("%s/%s", *jetsDbInitPath, path)
-		fmt.Println("-- Initializing jetsapi db using", sqlFile)
+		log.Println("Initializing jetsapi db using", sqlFile)
 		file, err := os.Open(sqlFile)
 		if err != nil {
 			return fmt.Errorf("error while opening jetsapi init db file: %v", err)
@@ -157,7 +157,7 @@ func InitializeJetsapiDb(dbpool *pgxpool.Pool, jetsDbInitPath *string) error {
 				return fmt.Errorf("error while reading db init, stmt is empty")
 			}
 			stmt = strings.TrimSpace(stmt)
-			// fmt.Println(stmt)
+			// log.Println(stmt)
 			_, err = dbpool.Exec(context.Background(), stmt)
 			if err != nil {
 				return fmt.Errorf("error while executing: %v", err)

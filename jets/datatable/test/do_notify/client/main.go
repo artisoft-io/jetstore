@@ -7,6 +7,7 @@ import (
 )
 
 func main() {
+	utils.UseJetStoreLogger()
 	var apiEndpoint string
 	// apiEndpoint = "http://localhost:8090/hello"
 	apiEndpointJson := `{

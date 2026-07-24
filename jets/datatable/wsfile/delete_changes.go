@@ -22,7 +22,7 @@ func DeleteFileChange(dbpool *pgxpool.Pool, workspaceName, fileName string) erro
 	if err != nil {
 		return err
 	}
-	fmt.Println("DeleteWorkspaceChanges: Deleting workspaceName", workspaceName, "file name", fileName)
+	log.Println("DeleteWorkspaceChanges: Deleting workspaceName", workspaceName, "file name", fileName)
 	stmt := "DELETE FROM jetsapi.workspace_changes WHERE workspace_name = $1 and file_name = $2"
 	_, err = dbpool.Exec(context.Background(), stmt, workspaceName, fileName)
 	if err != nil {
@@ -63,7 +63,7 @@ func DeleteAllFileChanges(dbpool *pgxpool.Pool, workspaceName string, restaureFr
 	if err != nil {
 		return err
 	}
-	fmt.Println("DeleteAllWorkspaceChanges: workspace_name", workspaceName)
+	log.Println("DeleteAllWorkspaceChanges: workspace_name", workspaceName)
 	var stmt string
 	switch {
 	case keepWorkspaceAndLookupDb:
@@ -74,7 +74,7 @@ func DeleteAllFileChanges(dbpool *pgxpool.Pool, workspaceName string, restaureFr
 		stmt = `DELETE FROM jetsapi.workspace_changes 
 			 WHERE workspace_name = $1`
 	}
-	fmt.Println("DELETE stmt:", stmt)
+	log.Println("DELETE stmt:", stmt)
 	_, err = dbpool.Exec(context.Background(), stmt, workspaceName)
 	if err != nil {
 		log.Printf("While deleting row in workspace_changes table: %v", err)

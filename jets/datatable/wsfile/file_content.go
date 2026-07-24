@@ -104,6 +104,6 @@ func SaveContent(dbpool *pgxpool.Pool, workspaceName, fileName, fileContent stri
 	if err != nil {
 		return fmt.Errorf("failed to save local workspace file %s in database: %v", fileName, err)
 	}
-	fmt.Println("uploaded", fo.FileName, "size", n, "bytes to database")
+	log.Println("uploaded", fo.FileName, "size", n, "bytes to database")
 	return nil
 }
