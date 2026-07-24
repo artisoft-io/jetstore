@@ -66,6 +66,7 @@ func (c *Compiler) CompileBuffer(combinedContent string) error {
 	tree := p.Jetrule()
 
 	// Finally walk the tree
+	var hasError bool
 	antlr.ParseTreeWalkerDefault.Walk(c.listener, tree)
 	if c.Trace() {
 		log.Println("** Compilation successful")
@@ -74,7 +75,16 @@ func (c *Compiler) CompileBuffer(combinedContent string) error {
 		log.Println("** Parse Log:\n", c.ParseLog().String())
 	}
 	if c.ErrorLog().Len() > 0 {
-		log.Println("** Compilation Errors:\n", c.ErrorLog().String())
+		errors := strings.Split(c.ErrorLog().String(), "\n")
+		log.Println("** Compilation Errors:")
+		for _, e := range errors {
+			if strings.TrimSpace(e) != "" {
+				log.Println(e)
+				if !strings.Contains(e, "warning:") {
+					hasError = true
+				}
+			}
+		}
 	}
 	if c.saveJson {
 		err := c.SaveModel()
@@ -83,7 +93,9 @@ func (c *Compiler) CompileBuffer(combinedContent string) error {
 			return err
 		}
 	}
-
+	if hasError {
+		return fmt.Errorf("compilation failed with errors")
+	}
 	return nil
 }
 
