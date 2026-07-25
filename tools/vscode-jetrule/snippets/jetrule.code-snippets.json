@@ -1,0 +1,80 @@
+{
+  "Comment banner": {
+    "prefix": "banner",
+    "body": [
+      "# =======================================================================================",
+      "# ${1:Title}",
+      "# ---------------------------------------------------------------------------------------"
+    ],
+    "description": "JetRule comment banner"
+  },
+  "Jet rule": {
+    "prefix": "rule",
+    "body": [
+      "[${1:RuleName}]:",
+      "  (${2:?s} ${3:predicate} ${4:?o})",
+      "  ->",
+      "  (${5:?s} ${6:predicate} ${7:?o})",
+      ";"
+    ],
+    "description": "Define a JetRule antecedent -> consequent rule"
+  },
+  "Class definition": {
+    "prefix": "class",
+    "body": [
+      "class ${1:ClassName} {",
+      "  \\$base_classes = [${2:owl:Thing}],",
+      "  \\$data_properties = [",
+      "    ${3:propertyName}       as ${4|int,uint,long,ulong,double,text,date,datetime,bool,resource|}",
+      "  ],",
+      "  \\$as_table = ${5|true,false|}",
+      "};"
+    ],
+    "description": "Define a JetRule class"
+  },
+  "Lookup table": {
+    "prefix": "lookup_table",
+    "body": [
+      "lookup_table ${1:LookupName} {",
+      "  \\$csv_file = \"${2:lookups/file.csv}\",",
+      "  \\$key = [${3:\"key_col\"}],",
+      "  \\$columns = [",
+      "    ${4:\"column_name\"} as ${5|int,uint,long,ulong,double,text,date,datetime,bool|}",
+      "  ]",
+      "};"
+    ],
+    "description": "Define a JetRule lookup table"
+  },
+  "Rule sequence": {
+    "prefix": "rule_sequence",
+    "body": [
+      "rule_sequence ${1:SequenceName} {",
+      "  \\$main_rule_sets = [",
+      "    \"${2:jet_rules/main/file.jr}\"",
+      "  ]",
+      "};"
+    ],
+    "description": "Define a JetRule rule sequence"
+  },
+  "Resource": {
+    "prefix": "resource",
+    "body": [
+      "resource ${1:name} = \"${2:name}\";"
+    ],
+    "description": "Define a named resource"
+  },
+  "Volatile resource": {
+    "prefix": "volatile_resource",
+    "body": [
+      "volatile_resource ${1:name} = \"${2:name}\";"
+    ],
+    "description": "Define a volatile resource"
+  },
+  "Triple": {
+    "prefix": "triple",
+    "body": [
+      "triple(${1:?s}, ${2:predicate}, ${3:?o});"
+    ],
+    "description": "Assert a triple"
+  }
+}

@@ -1,0 +1,53 @@
+{
+  "name": "vscode-jetrule",
+  "displayName": "JetRule Language Support",
+  "description": "Syntax highlighting for the JetStore JetRule DSL (.jr files).",
+  "version": "0.1.0",
+  "publisher": "jetstore",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/artisoft-io/jetstore.git",
+    "directory": "tools/vscode-jetrule"
+  },
+  "engines": {
+    "vscode": "^1.75.0"
+  },
+  "categories": [
+    "Programming Languages"
+  ],
+  "keywords": [
+    "jetrule",
+    "jetstore",
+    "rules",
+    "rete"
+  ],
+  "contributes": {
+    "languages": [
+      {
+        "id": "jetrule",
+        "aliases": [
+          "JetRule",
+          "jetrule"
+        ],
+        "extensions": [
+          ".jr"
+        ],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "jetrule",
+        "scopeName": "source.jetrule",
+        "path": "./syntaxes/jetrule.tmLanguage.json"
+      }
+    ],
+    "snippets": [
+      {
+        "language": "jetrule",
+        "path": "./snippets/jetrule.code-snippets.json"
+      }
+    ]
+  }
+}
