@@ -476,10 +476,12 @@ func (ctx *JrPoolWorker) extractSessionData(rdfSession JetRdfSession,
 	for _, prop := range config.ExcludeProperties {
 		excludeProperties[prop] = true
 	}
+	removeModelPrefixes := config.RemoveModelPrefixes
 
 	// Extract entity by rdf type
 	if isDebug {
-		log.Printf("*** Pool Worker == Extracting entities of class %s, encoding %s", outChannel.ClassName, config.EntityEncoding)
+		log.Printf("*** Pool Worker == Extracting entities of class %s, encoding %s, remove prefixes? %v",
+			outChannel.ClassName, config.EntityEncoding, config.RemoveModelPrefixes)
 	}
 	ctor := rdfSession.FindSPO(nil, jr.Rdf__type, rm.NewResource(outChannel.ClassName))
 	for !ctor.IsEnd() {
@@ -499,7 +501,7 @@ func (ctx *JrPoolWorker) extractSessionData(rdfSession JetRdfSession,
 				// For toon and json encoding, we extract the entire object as a map[string]any
 				// log.Printf("*** Extracting json/toon obj - start")
 				entityObj := make(map[string]any)
-				ExtractAsEntity(rdfSession, subject, entityObj, currentSourcePeriod, outChannel, excludeProperties)
+				ExtractAsEntity(rdfSession, removeModelPrefixes, subject, entityObj, currentSourcePeriod, outChannel, excludeProperties)
 				// log.Printf("*** Extracting json/toon obj - end")
 				if config.EntityEncoding == "toon" {
 					// For toon encoding, we need to convert the map to a toon string

@@ -6,7 +6,7 @@ import (
 
 // Navigate recursively the object properties and extract their values into a map[string]any
 // excluding the properties starting with _0:
-func ExtractAsEntity(rdfSession JetRdfSession, subject RdfNode,	entityObj map[string]any, 
+func ExtractAsEntity(rdfSession JetRdfSession, removeModelPrefixes bool, subject RdfNode,	entityObj map[string]any, 
 	currentSourcePeriod int, outChannel *JetrulesOutputChan, excludeProp map[string]bool) {
 		
 	var objProperties map[string]RdfNode
@@ -27,7 +27,7 @@ func ExtractAsEntity(rdfSession JetRdfSession, subject RdfNode,	entityObj map[st
 			objProperties[prop.String()] = prop
 		} else {
 			// It's a literal property, extract its value
-			addToEntityObj(entityObj, prop.String(), itor.GetObject().Value())
+			addToEntityObj(entityObj, removeModelPrefixes, prop.String(), itor.GetObject().Value())
 		}
 		itor.Next()
 	}
@@ -36,8 +36,8 @@ func ExtractAsEntity(rdfSession JetRdfSession, subject RdfNode,	entityObj map[st
 		jtor := rdfSession.FindSP(subject, node)
 		for !jtor.IsEnd() {
 			subEntityObj := make(map[string]any)
-			addToEntityObj(entityObj, prop, subEntityObj)
-			ExtractAsEntity(rdfSession, jtor.GetObject(), subEntityObj, currentSourcePeriod, outChannel, excludeProp)
+			addToEntityObj(entityObj, removeModelPrefixes, prop, subEntityObj)
+			ExtractAsEntity(rdfSession, removeModelPrefixes, jtor.GetObject(), subEntityObj, currentSourcePeriod, outChannel, excludeProp)
 			jtor.Next()
 		}
 	}
@@ -49,9 +49,15 @@ func isEntity(rdfSession JetRdfSession, node RdfNode) bool {
 	return !itor.IsEnd()
 }
 
-func addToEntityObj(entityObj map[string]any, prop string, value any) {
+func addToEntityObj(entityObj map[string]any, removeModelPrefixes bool, prop string, value any) {
 	if value == nil {
 		return
+	}
+	if removeModelPrefixes {
+		// Remove model prefixes from the property name, e.g. remove the start of prop upto the char : if present, e.g. jets: or rdf:
+		if idx := strings.Index(prop, ":"); idx != -1 {
+			prop = prop[idx+1:]
+		}
 	}
 	if existing, ok := entityObj[prop]; ok {
 		// If existing is any, then create a slice to hold current and existing values
