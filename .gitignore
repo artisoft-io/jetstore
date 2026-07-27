@@ -170,3 +170,4 @@ jets/purge_database/purge_database
 jets/run_reports/run_reports
 package-lock.json
 jets/compilerv2/compiler/.venv
+tools/sample_projects/tasks_go/tasks_go
