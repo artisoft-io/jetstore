@@ -235,6 +235,7 @@ type CsvSourceSpec struct {
 // DomainKeysSpec is parsed version of DomainKeys or the spec from the domain_keys_registry table.
 // DomainKeysSpec is derived from DomainKeys when provided.
 // EntityEncoding is used to specify the entity encoding: json, toon, row (default).
+// RemoveModelPrefixes is used to remove the model prefixes from the columns, e.g., jets: or rdf: on the output (currently used only for json and toon).
 // columnsMap is added in StartComputePipes
 type ChannelSpec struct {
 	Name                 string          `json:"name"`
@@ -246,6 +247,7 @@ type ChannelSpec struct {
 	DomainKeys           map[string]any  `json:"domain_keys,omitempty"`
 	DomainKeysInfo       *DomainKeysSpec `json:"domain_keys_spec,omitzero"`
 	EntityEncoding       string          `json:"entity_encoding,omitempty"`
+	RemoveModelPrefixes  bool            `json:"remove_model_prefixes,omitzero"`
 	ExcludeProperties    []string        `json:"exclude_properties,omitempty"`
 	columnsMap           *map[string]int
 }
