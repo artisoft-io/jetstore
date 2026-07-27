@@ -1,0 +1,136 @@
+{
+    "type": "array",
+    "items": {
+      "anyOf": [
+        {
+          "additionalProperties": false,
+          "type": "object",
+          "required": [
+            "type",
+            "id",
+            "title",
+            "status",
+            "recipient"
+          ],
+          "properties": {
+            "type": {
+              "const": "email",
+              "type": "string"
+            },
+            "id": {
+              "type": "string"
+            },
+            "title": {
+              "type": "string"
+            },
+            "status": {
+              "$id": "Status",
+              "anyOf": [
+                {
+                  "const": "todo",
+                  "type": "string"
+                },
+                {
+                  "const": "in_progress",
+                  "type": "string"
+                },
+                {
+                  "const": "done",
+                  "type": "string"
+                }
+              ]
+            },
+            "recipient": {
+              "type": "string"
+            }
+          }
+        },
+        {
+          "additionalProperties": false,
+          "type": "object",
+          "required": [
+            "type",
+            "id",
+            "title",
+            "status",
+            "reviewer"
+          ],
+          "properties": {
+            "type": {
+              "const": "review",
+              "type": "string"
+            },
+            "id": {
+              "type": "string"
+            },
+            "title": {
+              "type": "string"
+            },
+            "status": {
+              "$id": "Status",
+              "anyOf": [
+                {
+                  "const": "todo",
+                  "type": "string"
+                },
+                {
+                  "const": "in_progress",
+                  "type": "string"
+                },
+                {
+                  "const": "done",
+                  "type": "string"
+                }
+              ]
+            },
+            "reviewer": {
+              "type": "string"
+            }
+          }
+        },
+        {
+          "additionalProperties": false,
+          "type": "object",
+          "required": [
+            "type",
+            "id",
+            "title",
+            "status",
+            "recordCount"
+          ],
+          "properties": {
+            "type": {
+              "const": "batch_job",
+              "type": "string"
+            },
+            "id": {
+              "type": "string"
+            },
+            "title": {
+              "type": "string"
+            },
+            "status": {
+              "$id": "Status",
+              "anyOf": [
+                {
+                  "const": "todo",
+                  "type": "string"
+                },
+                {
+                  "const": "in_progress",
+                  "type": "string"
+                },
+                {
+                  "const": "done",
+                  "type": "string"
+                }
+              ]
+            },
+            "recordCount": {
+              "type": "integer"
+            }
+          }
+        }
+      ]
+    }
+  }
