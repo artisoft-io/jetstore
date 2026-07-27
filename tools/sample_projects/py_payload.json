@@ -1,0 +1,160 @@
+{
+  "model": "gemma4:latest",
+  "stream": false,
+  "format": {
+    "$defs": {
+      "BatchJobTask": {
+        "properties": {
+          "type": {
+            "const": "batch_job",
+            "title": "Type",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "todo",
+              "in_progress",
+              "done"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "recordCount": {
+            "title": "Recordcount",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "type",
+          "id",
+          "title",
+          "status",
+          "recordCount"
+        ],
+        "title": "BatchJobTask",
+        "type": "object"
+      },
+      "EmailTask": {
+        "properties": {
+          "type": {
+            "const": "email",
+            "title": "Type",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "todo",
+              "in_progress",
+              "done"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "recipient": {
+            "title": "Recipient",
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "id",
+          "title",
+          "status",
+          "recipient"
+        ],
+        "title": "EmailTask",
+        "type": "object"
+      },
+      "ReviewTask": {
+        "properties": {
+          "type": {
+            "const": "review",
+            "title": "Type",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "todo",
+              "in_progress",
+              "done"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "reviewer": {
+            "title": "Reviewer",
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "id",
+          "title",
+          "status",
+          "reviewer"
+        ],
+        "title": "ReviewTask",
+        "type": "object"
+      }
+    },
+    "items": {
+      "discriminator": {
+        "mapping": {
+          "batch_job": "#/$defs/BatchJobTask",
+          "email": "#/$defs/EmailTask",
+          "review": "#/$defs/ReviewTask"
+        },
+        "propertyName": "type"
+      },
+      "oneOf": [
+        {
+          "$ref": "#/$defs/EmailTask"
+        },
+        {
+          "$ref": "#/$defs/ReviewTask"
+        },
+        {
+          "$ref": "#/$defs/BatchJobTask"
+        }
+      ]
+    },
+    "type": "array"
+  },
+  "options": {
+    "temperature": 0
+  },
+  "messages": [
+    {
+      "role": "system",
+      "content": "You convert requests into Task objects.\n\nRules:\n- Emit a JSON array of Task. No prose, no markdown fences.\n- New tasks get status \"todo\".\n- If the discriminator is ambiguous, omit the task rather than guessing."
+    },
+    {
+      "role": "user",
+      "content": "email the summary to dana@plan.com, then have priya review it"
+    }
+  ]
+}

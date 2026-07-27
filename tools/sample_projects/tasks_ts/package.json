@@ -1,0 +1,19 @@
+{
+  "name": "tasks_ts",
+  "version": "1.0.0",
+  "description": "Sample app: call a local Ollama server to turn a request into Task objects, validated with TypeBox.",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "dev": "tsc && node dist/index.js"
+  },
+  "dependencies": {
+    "@sinclair/typebox": "^0.34.9"
+  },
+  "devDependencies": {
+    "@types/node": "^22.20.1",
+    "typescript": "^5.7.2"
+  }
+}
