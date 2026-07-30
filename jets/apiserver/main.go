@@ -182,7 +182,7 @@ func main() {
 	log.Println("Got argument: awsApiSecret", *awsApiSecret)
 	log.Println("Got argument: apiSecret len", len(*apiSecret))
 	log.Println("Got argument: dsn len", len(*dsn))
-	log.Println("Got argument: awsDsnSecret", *awsDsnSecret)
+	log.Println("Got argument: awsDsnSecret len", len(*awsDsnSecret))
 	log.Println("Got argument: dbPoolSize", *dbPoolSize)
 	log.Println("Got argument: usingSshTunnel", *usingSshTunnel)
 	log.Println("Got argument: awsRegion", *awsRegion)

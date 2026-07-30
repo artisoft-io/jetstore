@@ -397,9 +397,18 @@ func ListS3ObjectsV2(s3Client *s3.Client, externalBucket string, prefix *string)
 	return keys, nil
 }
 
+// CountS3ObjectsResult holds the result of counting S3 objects
+// It also returns the key of one of the objects found, and its size, for convenience
+type CountS3ObjectsResult struct {
+	Count               int64
+	FileKey4Headers     string
+	FileKey4HeadersSize int64
+}
+
 // CountS3ObjectsWithPrefix counts non-"folder" objects in the given bucket matching the prefix,
 // and skips any objects with size 0. If externalBucket is empty, it uses the JetStore default bucket.
-func CountS3ObjectsWithPrefix(s3Client *s3.Client, externalBucket, prefix string) (int64, string, error) {
+
+func CountS3ObjectsWithPrefix(s3Client *s3.Client, externalBucket, prefix string) (*CountS3ObjectsResult, error) {
 	if externalBucket == "" || externalBucket == "jetstore_bucket" {
 		externalBucket = jetstoreOwnBucket
 	}
@@ -407,7 +416,7 @@ func CountS3ObjectsWithPrefix(s3Client *s3.Client, externalBucket, prefix string
 	// Validate the externally-provided prefix (CWE-73).
 	prefix, err := utils.SanitizeS3Prefix(prefix)
 	if err != nil {
-		return 0, "", err
+		return nil, err
 	}
 
 	var count int64
@@ -417,28 +426,34 @@ func CountS3ObjectsWithPrefix(s3Client *s3.Client, externalBucket, prefix string
 	})
 
 	var fileKey string
+	var fileSize int64
 	for p.HasMorePages() {
 		out, err := p.NextPage(context.TODO())
 		if err != nil {
-			return 0, "", fmt.Errorf("while listing objects from bucket '%s': %v", externalBucket, err)
+			return nil, fmt.Errorf("while listing objects from bucket '%s': %v", externalBucket, err)
 		}
 		for _, obj := range out.Contents {
 			// Skip common-prefix "folders" and zero-sized objects
 			if strings.HasSuffix(aws.ToString(obj.Key), "/") || aws.ToInt64(obj.Size) == 0 {
 				continue
 			}
+			fileSize = aws.ToInt64(obj.Size)
 			fileKey = aws.ToString(obj.Key)
 			count++
 		}
 	}
-	return count, fileKey, nil
+	return &CountS3ObjectsResult{
+		Count:               count,
+		FileKey4Headers:     fileKey,
+		FileKey4HeadersSize: fileSize,
+	}, nil
 }
 
 // CountS3Objects is a convenience wrapper that creates a client and uses the default bucket.
-func CountS3Objects(prefix string) (int64, string, error) {
+func CountS3Objects(prefix string) (*CountS3ObjectsResult, error) {
 	s3Client, err := NewS3Client()
 	if err != nil {
-		return 0, "", fmt.Errorf("while creating s3 client: %v", err)
+		return nil, fmt.Errorf("while creating s3 client: %v", err)
 	}
 	return CountS3ObjectsWithPrefix(s3Client, "", prefix)
 }
