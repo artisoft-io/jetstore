@@ -171,3 +171,4 @@ jets/run_reports/run_reports
 package-lock.json
 jets/compilerv2/compiler/.venv
 tools/sample_projects/tasks_go/tasks_go
+tools/sample_projects/patient_summary_go/patient_summary_go

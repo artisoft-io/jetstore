@@ -159,7 +159,7 @@ func (args *StartComputePipesArgs) StartShardingComputePipes(ctx context.Context
 			sp := mainInputSchemaProvider
 			fileInfo, err := FetchHeadersAndDelimiterFromFile(sp.Bucket, shardResult.firstKey, shardResult.firstKeyFileSize, sp.Format,
 				sp.Compression, sp.Encoding, sp.Delimiter, sp.MultiColumnsInput, sp.NoQuotes, fetchHeaders, fetchDelimitor,
-				detectEncoding, detectCrAsEol, sp.InputFormatDataJson)
+				detectEncoding, detectCrAsEol, sp.FailOnEmptyColumnName, sp.InputFormatDataJson)
 			if err != nil {
 				log.Printf("while calling FetchHeadersAndDelimiterFromFile('%s', '%s', '%s', '%s'): %v\n",
 					sp.Bucket, shardResult.firstKey, sp.Format, sp.Compression, err)

@@ -24,7 +24,7 @@ func ParseInputFormatDataXlsx(inputDataFormatJson *string) (map[string]any, erro
 	return inputFormatData, nil
 }
 
-func GetRawHeadersXlsx(fileName string, fileFormatDataJson string) ([]string, error) {
+func GetRawHeadersXlsx(failOnEmptyColumnName bool, fileName string, fileFormatDataJson string) ([]string, error) {
 	// Parse the file type specific options
 	inputFormatData, err := ParseInputFormatDataXlsx(&fileFormatDataJson)
 	if err != nil {
@@ -88,7 +88,10 @@ func GetRawHeadersXlsx(fileName string, fileFormatDataJson string) ([]string, er
 		ipos += 1
 	}
 	// Make sure we don't have empty names in rawHeaders
-	AdjustFillers(&rawHeaders)
+	err = AdjustFillers(failOnEmptyColumnName, &rawHeaders)
+	if err != nil {
+		return nil, err
+	}
 	log.Println("Got input columns (rawHeaders) from xls file:", rawHeaders)
 	return rawHeaders, nil
 }

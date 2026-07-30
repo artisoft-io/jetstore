@@ -176,7 +176,7 @@ func main() {
 	} else {
 		log.Println("Got argument: dsn is non empty")
 	}
-	log.Println("Got argument: awsDsnSecret", *awsDsnSecret)
+	log.Println("Got argument: awsDsnSecret len", len(*awsDsnSecret))
 	log.Println("Got argument: dbPoolSize", *dbPoolSize)
 	log.Println("Got argument: usingSshTunnel", *usingSshTunnel)
 	log.Println("Got argument: awsRegion", *awsRegion)

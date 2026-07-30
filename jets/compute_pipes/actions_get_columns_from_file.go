@@ -28,7 +28,7 @@ type FetchFileInfoResult struct {
 
 // Main function
 func FetchHeadersAndDelimiterFromFile(externalBucket, fileKey string, firstKeyFileSize int64, fileFormat, compression, encoding string, delimitor rune,
-	multiColumnsInput, noQuotes, fetchHeaders, fetchDelimitor, fetchEncoding, detectCrAsEol bool, fileFormatDataJson string) (*FetchFileInfoResult, error) {
+	multiColumnsInput, noQuotes, fetchHeaders, fetchDelimitor, fetchEncoding, detectCrAsEol, failOnEmptyColumnName bool, fileFormatDataJson string) (*FetchFileInfoResult, error) {
 	var fileHd *os.File
 	var err error
 	var sepFlag jcsv.Chartype
@@ -107,7 +107,7 @@ do_retry:
 		}
 		if fetchHeaders {
 			fileInfo.Headers, err = GetRawHeadersCsv(fileHd, fileKey, fileFormat,
-				compression, fileInfo.SepFlag, fileInfo.Encoding, fileInfo.EolByte, fileInfo.MultiColumns, noQuotes)
+				compression, fileInfo.SepFlag, fileInfo.Encoding, fileInfo.EolByte, fileInfo.MultiColumns, noQuotes, failOnEmptyColumnName)
 		}
 		return fileInfo, err
 
@@ -141,7 +141,7 @@ do_retry:
 			fileName := fileHd.Name()
 			fileHd.Close()
 			fileHd = nil
-			fileInfo.Headers, err = GetRawHeadersXlsx(fileName, fileFormatDataJson)
+			fileInfo.Headers, err = GetRawHeadersXlsx(failOnEmptyColumnName, fileName, fileFormatDataJson)
 			os.Remove(fileName)
 			return fileInfo, err
 		} else {
@@ -157,7 +157,7 @@ do_retry:
 // Get the raw headers from fileHd, put them in *ic
 // Use *sepFlag as the csv delimiter
 func GetRawHeadersCsv(fileHd *os.File, fileName, fileFormat, compression string, sepFlag jcsv.Chartype,
-	encoding string, eolByte byte, multiColumns, noQuotes bool) ([]string, error) {
+	encoding string, eolByte byte, multiColumns, noQuotes, failOnEmptyHeader bool) ([]string, error) {
 	var err error
 	utfReader, err := WrapReaderWithDecoder(WrapReaderWithDecompressor(fileHd, compression), encoding)
 	if err != nil {
@@ -195,15 +195,22 @@ func GetRawHeadersCsv(fileHd *os.File, fileName, fileFormat, compression string,
 		return nil, err
 	}
 	// Make sure we don't have empty names in rawHeaders
-	AdjustFillers(&ic)
+	err = AdjustFillers(failOnEmptyHeader, &ic)
+	if err != nil {
+		return nil, err
+	}
 	log.Println("Got input columns (rawHeaders) from csv file:", ic)
 	return ic, nil
 }
 
-func AdjustFillers(rawHeaders *[]string) {
+func AdjustFillers(failOnEmptyHeader bool, rawHeaders *[]string) error {
 	for i := range *rawHeaders {
 		if (*rawHeaders)[i] == "" {
+			if failOnEmptyHeader {
+				return fmt.Errorf("empty header found at position %d", i+1)
+			}
 			(*rawHeaders)[i] = "FILLER"
 		}
 	}
+	return nil
 }
