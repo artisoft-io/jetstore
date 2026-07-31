@@ -88,7 +88,7 @@ func GetPrivateIp() (string, error) {
 		log.Printf("while reading resp of http get $ECS_CONTAINER_METADATA_URI_V4: %v", err)
 		return "", err
 	}
-	log.Println("Got ECS_CONTAINER_METADATA_URI_V4:\n", string(body))
+	// log.Println("Got ECS_CONTAINER_METADATA_URI_V4:\n", string(body))
 	var data map[string]any
 	err = json.Unmarshal(body, &data)
 	if err != nil {

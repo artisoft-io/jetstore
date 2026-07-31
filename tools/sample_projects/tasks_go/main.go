@@ -80,7 +80,10 @@ func callOllama(ctx context.Context, host, model, system, user string) (string, 
 		Stream: false,
 		// Constrain generation to our JSON Schema.
 		Format:  json.RawMessage(taskSchema),
-		Options: map[string]any{"temperature": 0},
+		Options: map[string]any{
+			"temperature": 0.8,
+			"num_thread": 16,
+		},
 		Messages: []chatMessage{
 			{Role: "system", Content: system},
 			{Role: "user", Content: user},

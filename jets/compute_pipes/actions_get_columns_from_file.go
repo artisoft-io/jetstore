@@ -199,7 +199,7 @@ func GetRawHeadersCsv(fileHd *os.File, fileName, fileFormat, compression string,
 	if err != nil {
 		return nil, err
 	}
-	log.Println("Got input columns (rawHeaders) from csv file:", ic)
+	log.Printf("Got input columns (rawHeaders) from csv file: %d headers, first 3: %v", len(ic), ic[:min(3, len(ic))])
 	return ic, nil
 }
 
