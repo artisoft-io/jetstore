@@ -143,8 +143,8 @@ type JetStoreStackComponents struct {
 }
 
 func (jsComp *JetStoreStackComponents) DoBuildInferServer() bool {
-	// Check if BUILD_INFER_SM environment variable is set to "true"
-	checkValue := strings.ToUpper(os.Getenv("BUILD_INFER_SM"))
+	// Check if BUILD_INFER_SERVICE environment variable is set to "true"
+	checkValue := strings.ToUpper(os.Getenv("BUILD_INFER_SERVICE"))
 	if checkValue != "TRUE" && checkValue != "1" {
 		// Skip building the state machine if the environment variable is not set to "true"
 		return false

@@ -135,7 +135,7 @@ before adding a new toggle.
 
 ### Infer Server (GPU inference)
 
-Optional subsystem, gated behind `BUILD_INFER_SM=true`. Every component no-ops via
+Optional subsystem, gated behind `BUILD_INFER_SERVICE=true`. Every component no-ops via
 `JetStoreStackComponents.DoBuildInferServer()` (`stack/stack_model.go`) when the flag is off, so
 the default stack is unaffected. It spans three files that must be read together:
 

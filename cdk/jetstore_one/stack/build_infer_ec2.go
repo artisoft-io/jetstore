@@ -19,7 +19,7 @@ import (
 // Symmary of what this file does:
 // Build the EC2 instance for the Infer Server
 
-// BUILD_INFER_SM (optional) set to TRUE to build the infer state machine, default FALSE
+// BUILD_INFER_SERVICE (optional) set to TRUE to build the infer state machine, default FALSE
 // INFER_AMI_NAME (optional) name of the AMI to use for ec2 infer task, default "jetstore-infer-*"
 // (a wildcard resolves to the most recently built AMI)
 // INFER_AMI_OWNER (optional) owner of the infer AMI, default "self" (the deploying account)
@@ -30,7 +30,7 @@ import (
 func (jsComp *JetStoreStackComponents) BuildInferEc2(scope constructs.Construct, stack awscdk.Stack, props *JetstoreOneStackProps) awsecs.Ec2TaskDefinition {
 
 	if !jsComp.DoBuildInferServer() {
-		log.Println("Skipping INFER_EC2 build because BUILD_INFER_SM is not set to true")
+		log.Println("Skipping INFER_EC2 build because BUILD_INFER_SERVICE is not set to true")
 		return jsComp.InferTaskDefinition
 	}
 

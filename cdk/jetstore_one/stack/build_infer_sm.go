@@ -17,7 +17,7 @@ import (
 // This file contains the function BuildInferSM which builds the Infer State Machine (INFER_SM) for JetStore.
 // The state machine contains a single ECS Run Task state that runs an EC2 instance with a persistent EBS volume attached.
 
-// BUILD_INFER_SM (optional) set to TRUE to build the infer state machine, default FALSE
+// BUILD_INFER_SERVICE (optional) set to TRUE to build the infer state machine, default FALSE
 // INFER_AMI_NAME (optional) name of the AMI to use for ec2 infer task, default "jetstore-infer-*"
 // (a wildcard resolves to the most recently built AMI)
 // INFER_CPU (optional) allocated cpu in vCPU units for infer task, default 4
@@ -29,7 +29,7 @@ import (
 func (jsComp *JetStoreStackComponents) BuildInferSM(scope constructs.Construct, stack awscdk.Stack, props *JetstoreOneStackProps) {
 
 	if !jsComp.DoBuildInferServer() {
-		log.Println("Skipping INFER_SM build because BUILD_INFER_SM is not set to true")
+		log.Println("Skipping INFER_SM build because BUILD_INFER_SERVICE is not set to true")
 		return
 	}
 

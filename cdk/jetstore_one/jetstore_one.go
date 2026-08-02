@@ -562,12 +562,12 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 // WORKSPACES_HOME  this is taken from container env (dockerfile) or hardcoded in lambda definition
 // WORKSPACE_FILE_KEY_LABEL_RE (optional) regex to extract label from file_key in UI
 // === New Entries for Infer Task ===
-// BUILD_INFER_SM (optional) set to TRUE to build the infer state machine, default FALSE
+// BUILD_INFER_SERVICE (optional) set to TRUE to build the infer state machine, default FALSE
 // JETS_INFER_PORT (optional) port for infer server, default 11434
 // INFER_AMI_NAME (optional) name of the AMI to use for ec2 infer task, default "jetstore-infer-*"
 // (a wildcard resolves to the most recently built AMI)
 // INFER_AMI_OWNER (optional) owner of the infer AMI, default "self" (the deploying account)
-// INFER_IMAGE_TAG (required for Infer Server)
+// INFER_IMAGE_TAG (optional) (required for Infer Server) default "latest"
 // INFER_MEM_LIMIT_MB (optional) memory limit in MB for infer task, default 1024 * 16 * 10 / 8 = 12.5 GB
 // INFER_EC2_INSTANCE_TYPE (optional) EC2 instance type for infer task, default g5.xlarge
 // INFER_TASK_TIMEOUT_MIN (optional) state machine timeout for INFER_SM, default 4h
@@ -668,7 +668,7 @@ func main() {
 	log.Println("env EXTERNAL_SQS_ARN:", os.Getenv("EXTERNAL_SQS_ARN"))
 	log.Println("env JETS_PIVOT_YEAR_TIME_PARSING:", os.Getenv("JETS_PIVOT_YEAR_TIME_PARSING"))
 	// Infer Task env vars
-	log.Println("env BUILD_INFER_SM:", os.Getenv("BUILD_INFER_SM"))
+	log.Println("env BUILD_INFER_SERVICE:", os.Getenv("BUILD_INFER_SERVICE"))
 	log.Println("env JETS_INFER_PORT:", os.Getenv("JETS_INFER_PORT"))
 	log.Println("env INFER_AMI_NAME:", os.Getenv("INFER_AMI_NAME"))
 	log.Println("env INFER_AMI_OWNER:", os.Getenv("INFER_AMI_OWNER"))
