@@ -42,26 +42,44 @@ Build a new AMI from latest Ubuntu linux:
 - Install Docker NVIDIA Container Toolkit
 - Grant the default ubuntu user non-root permission to execute docker commands without prepending sudo
 - Configure Docker to use the NVIDIA runtime as the default container runtime engine
+- Cap Docker container logs at 3 files of 50MB each, globally
+- Pre-pull the `ollama/ollama:latest` image so it is baked into the AMI
+- Reboot, then verify the GPU is visible both on the host and inside a container
 
-**Important Hardware Note**: Caching the ollama/ollama:rocm image. The :rocm tag is specifically built for AMD GPUs (ROCm runtime). Because your target instance type is an AWS g5.xlarge, it features an NVIDIA A10G Tensor Core GPU. Running the ROCm version on an NVIDIA instance will force it to fall back to the CPU.
+The runtime wiring in `/etc/docker/daemon.json` is written by `nvidia-ctk runtime configure`,
+and the log rotation policy is merged onto it with `jq`. Do not replace that file wholesale —
+the NVIDIA runtime path is version-dependent and is not safe to hardcode.
 
-The configuration below pulls the official ollama/ollama:latest image instead. Because we already configured NVIDIA as the default Docker container runtime engine, the regular ollama/ollama image will automatically detect and lock onto your g5.xlarge NVIDIA GPU without needing any special tags or --gpus all flags!
+**Note**: because `default-runtime` is set to `nvidia`, this AMI is GPU-only. Every container
+requires the NVIDIA runtime, so `docker run` will fail on a non-GPU instance type.
+
+**Important Hardware Note**: do not switch the cached image to the `ollama/ollama:rocm` tag. The `:rocm` tag is built for AMD GPUs (ROCm runtime), and the target g5.xlarge carries an NVIDIA A10G Tensor Core GPU — running the ROCm build there silently falls back to the CPU.
+
+The configuration pulls the official `ollama/ollama:latest` image. Because NVIDIA is already configured as the default Docker container runtime engine, the regular `ollama/ollama` image detects and locks onto the g5.xlarge NVIDIA GPU without any special tags or `--gpus all` flags.
 
 ## Build & Validate Execution
 
 ### Build your updated image mapping to AWS infrastructure directly from your CLI terminal:
 
 ```bash
-packer init ubuntu-nvidia-docker-complete.pkr.hcl
-packer build ubuntu-nvidia-docker-complete.pkr.hcl
+packer init infer-nvidia.pkr.hcl
+packer build infer-nvidia.pkr.hcl
 ```
+
+The build reboots the temporary instance near the end, then runs `nvidia-smi` on the host and
+again inside a container before the snapshot is taken. A driver that fails to load after reboot
+fails the build rather than producing a broken AMI, so a successful `packer build` means the GPU
+path is already confirmed working.
+
 ### Deploy a new g5.xlarge node using the newly generated custom AMI ID output.
 
 Test your instant startup configuration using the cached layers without needing sudo or hardware-pass:
 
 ```bash
-# Will start immediately since the layers are baked into the AMI storage drive natively
-docker run -d -p 11434:11434 --name ollama-gpu ollama/ollama:latest
+# Will start immediately since the layers are baked into the AMI storage drive natively.
+# The named volume keeps pulled model weights outside the container's writable layer,
+# so they survive `docker rm` and a container upgrade.
+docker run -d -p 11434:11434 -v ollama:/root/.ollama --name ollama-gpu ollama/ollama:latest
 ```
 
 Verify your container is leveraging the NVIDIA A10G hardware on your G5 host:
