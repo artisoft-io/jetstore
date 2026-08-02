@@ -564,7 +564,8 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 // === New Entries for Infer Task ===
 // BUILD_INFER_SM (optional) set to TRUE to build the infer state machine, default FALSE
 // JETS_INFER_PORT (optional) port for infer server, default 11434
-// INFER_AMI_NAME name of the AMI to use for ec2 infer task (required if BUILD_INFER_SM is TRUE)
+// INFER_AMI_NAME (optional) name of the AMI to use for ec2 infer task, default "jetstore-infer-*"
+// (a wildcard resolves to the most recently built AMI)
 // INFER_AMI_OWNER (optional) owner of the infer AMI, default "self" (the deploying account)
 // INFER_IMAGE_TAG (required for Infer Server)
 // INFER_MEM_LIMIT_MB (optional) memory limit in MB for infer task, default 1024 * 16 * 10 / 8 = 12.5 GB

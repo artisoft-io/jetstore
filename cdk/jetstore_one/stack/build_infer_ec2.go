@@ -20,7 +20,8 @@ import (
 // Build the EC2 instance for the Infer Server
 
 // BUILD_INFER_SM (optional) set to TRUE to build the infer state machine, default FALSE
-// INFER_AMI_NAME name of the AMI to use for ec2 infer task (required if BUILD_INFER_SM is TRUE)
+// INFER_AMI_NAME (optional) name of the AMI to use for ec2 infer task, default "jetstore-infer-*"
+// (a wildcard resolves to the most recently built AMI)
 // INFER_AMI_OWNER (optional) owner of the infer AMI, default "self" (the deploying account)
 // INFER_MEM_LIMIT_MB (optional) memory limit in MB for infer task, default 16 GB * 0.8 = 12.8 GB
 // INFER_EC2_INSTANCE_TYPE (optional) EC2 instance type for infer task, default g5.xlarge
@@ -84,10 +85,13 @@ func (jsComp *JetStoreStackComponents) BuildInferEc2(scope constructs.Construct,
 	//    for data because data lives on the separate persistent volume.
 	//    The ASG is constrained to the same AZ as the persistent volume.
 	// -----------------------------------------------------------------------
+	// Matches the naming convention of the Packer template in tools/infer_ami_builder,
+	// which stamps each build as jetstore-infer-<YYYY-MM-DD-hhmm>. MachineImage_Lookup
+	// resolves a wildcard to the most recently created match.
 	imageName := os.Getenv("INFER_AMI_NAME")
 	if imageName == "" {
-		log.Println("Error: INFER_AMI_NAME is not set, skipping Infer EC2 task definition build")
-		return jsComp.InferTaskDefinition
+		imageName = "jetstore-infer-*"
+		log.Println("INFER_AMI_NAME is not set, defaulting to", imageName)
 	}
 	// The AMI is built out-of-band by the Packer template in tools/infer_ami_builder and
 	// therefore owned by the deploying account, not by aws-marketplace. Override

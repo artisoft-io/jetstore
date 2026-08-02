@@ -18,7 +18,8 @@ import (
 // The state machine contains a single ECS Run Task state that runs an EC2 instance with a persistent EBS volume attached.
 
 // BUILD_INFER_SM (optional) set to TRUE to build the infer state machine, default FALSE
-// INFER_AMI_NAME name of the AMI to use for ec2 infer task (required if BUILD_INFER_SM is TRUE)
+// INFER_AMI_NAME (optional) name of the AMI to use for ec2 infer task, default "jetstore-infer-*"
+// (a wildcard resolves to the most recently built AMI)
 // INFER_CPU (optional) allocated cpu in vCPU units for infer task, default 4
 // INFER_MEM_LIMIT_MB (optional) memory limit in MB for infer task, default 8192
 // INFER_EC2_INSTANCE_TYPE (optional) EC2 instance type for infer task, default g5.xlarge
