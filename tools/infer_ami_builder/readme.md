@@ -107,8 +107,10 @@ be unique per account per region:
 The `Name` tag is what the EC2 console shows in its Name column; without it the AMI and its
 snapshot appear unnamed.
 
-Pass the **AMI name** (not the tag) to the CDK stack as `INFER_AMI_NAME`. A wildcard such as
-`jetstore-infer-*` works and picks up the most recent match.
+The CDK stack matches on the **AMI name**, not the tag. `INFER_AMI_NAME` now defaults to
+`jetstore-infer-*`, which resolves to the most recently built AMI — so a fresh build is picked up
+on the next `cdk deploy` with no configuration change. Set `INFER_AMI_NAME` explicitly only to
+pin a specific build.
 
 ### Deploy a new g5.xlarge node using the newly generated custom AMI ID output.
 
