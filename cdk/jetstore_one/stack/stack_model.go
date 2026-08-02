@@ -9,11 +9,13 @@ import (
 
 	awscdk "github.com/aws/aws-cdk-go/awscdk/v2"
 	"github.com/aws/aws-cdk-go/awscdk/v2/awsapigateway"
+	"github.com/aws/aws-cdk-go/awscdk/v2/awsautoscaling"
 	"github.com/aws/aws-cdk-go/awscdk/v2/awsec2"
 	"github.com/aws/aws-cdk-go/awscdk/v2/awsecs"
 	awselb "github.com/aws/aws-cdk-go/awscdk/v2/awselasticloadbalancingv2"
 	"github.com/aws/aws-cdk-go/awscdk/v2/awsiam"
 	"github.com/aws/aws-cdk-go/awscdk/v2/awskms"
+	"github.com/aws/aws-cdk-go/awscdk/v2/awslogs"
 	"github.com/aws/aws-cdk-go/awscdk/v2/awsrds"
 	"github.com/aws/aws-cdk-go/awscdk/v2/awss3"
 	awssm "github.com/aws/aws-cdk-go/awscdk/v2/awssecretsmanager"
@@ -129,6 +131,25 @@ type JetStoreStackComponents struct {
 	CpipesSM       sfn.StateMachine
 	CpipesNativeSM sfn.StateMachine
 	BastionHost    awsec2.BastionHostLinux
+
+	// Infer components
+	InferSM                sfn.StateMachine
+	EcsInferService        awsecs.FargateService
+	InferTaskDefinition    awsecs.Ec2TaskDefinition
+	InferTaskContainer     awsecs.ContainerDefinition
+	PersistentVolume       awsec2.Volume
+	InferContainerLogGroup awslogs.LogGroup
+	InferAutoScalingGroup  awsautoscaling.AutoScalingGroup
+}
+
+func (jsComp *JetStoreStackComponents) DoBuildInferServer() bool {
+	// Check if BUILD_INFER_SM environment variable is set to "true"
+	checkValue := strings.ToUpper(os.Getenv("BUILD_INFER_SM"))
+	if checkValue != "TRUE" && checkValue != "1" {
+		// Skip building the state machine if the environment variable is not set to "true"
+		return false
+	}
+	return true
 }
 
 func MkCatchProps() *sfn.CatchProps {
@@ -158,7 +179,7 @@ func (jsComp *JetStoreStackComponents) JetsTempData() string {
 	var jetsTempData string
 	jetsTempData = os.Getenv("JETS_TEMP_DATA")
 	if jetsTempData == "" {
-		jetsTempData = "/jetsdata"
+		jetsTempData = jsComp.JetsTempData()
 	}
 	return jetsTempData
 }

@@ -73,7 +73,7 @@ func (jsComp *JetStoreStackComponents) BuildEcsTasks(scope constructs.Construct,
 			"JETS_CPIPES_NATIVE_SM_ARN":     jsii.String(jsComp.CpipesNativeSmArn),
 			"JETS_REPORTS_SM_ARN":           jsii.String(jsComp.ReportsSmArn),
 			"JETS_DB_POOL_SIZE":             jsii.String(os.Getenv("JETS_DB_POOL_SIZE")),
-			"WORKSPACES_HOME":               jsii.String("/jetsdata/workspaces"),
+			"WORKSPACES_HOME":               jsii.String(jsComp.JetsTempData() + "/workspaces"),
 			"WORKSPACE":                     jsii.String(os.Getenv("WORKSPACE")),
 		},
 		Secrets: &map[string]awsecs.Secret{
@@ -88,7 +88,7 @@ func (jsComp *JetStoreStackComponents) BuildEcsTasks(scope constructs.Construct,
 	})
 	jsComp.RunreportsContainerDef.AddMountPoints(&awsecs.MountPoint{
 		SourceVolume:  jsii.String("tmp-volume"),
-		ContainerPath: jsii.String("/jetsdata"),
+		ContainerPath: jsii.String(jsComp.JetsTempData()),
 		ReadOnly:      jsii.Bool(false),
 	})
 	var memLimit, cpu float64
@@ -173,7 +173,7 @@ func (jsComp *JetStoreStackComponents) BuildEcsTasks(scope constructs.Construct,
 			"JETS_CPIPES_NATIVE_SM_ARN":     jsii.String(jsComp.CpipesNativeSmArn),
 			"JETS_REPORTS_SM_ARN":           jsii.String(jsComp.ReportsSmArn),
 			"JETS_DB_POOL_SIZE":             jsii.String(os.Getenv("JETS_DB_POOL_SIZE")),
-			"WORKSPACES_HOME":               jsii.String("/jetsdata/workspaces"),
+			"WORKSPACES_HOME":               jsii.String(jsComp.JetsTempData() + "/workspaces"),
 			"WORKSPACE":                     jsii.String(os.Getenv("WORKSPACE")),
 		},
 		Secrets: &map[string]awsecs.Secret{
@@ -184,11 +184,12 @@ func (jsComp *JetStoreStackComponents) BuildEcsTasks(scope constructs.Construct,
 			StreamPrefix: jsii.String("task"),
 			LogGroup:     cpipesContainerLogGroup,
 		}),
-		ReadonlyRootFilesystem: jsii.Bool(true),
+		// TODO MAKE IT READ ONLY
+		// ReadonlyRootFilesystem: jsii.Bool(true),
 	})
 	jsComp.CpipesContainerDef.AddMountPoints(&awsecs.MountPoint{
 		SourceVolume:  jsii.String("tmp-volume"),
-		ContainerPath: jsii.String("/jetsdata"),
+		ContainerPath: jsii.String(jsComp.JetsTempData()),
 		ReadOnly:      jsii.Bool(false),
 	})
 }
