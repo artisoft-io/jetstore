@@ -21,6 +21,7 @@ import (
 
 // BUILD_INFER_SM (optional) set to TRUE to build the infer state machine, default FALSE
 // INFER_AMI_NAME name of the AMI to use for ec2 infer task (required if BUILD_INFER_SM is TRUE)
+// INFER_AMI_OWNER (optional) owner of the infer AMI, default "self" (the deploying account)
 // INFER_MEM_LIMIT_MB (optional) memory limit in MB for infer task, default 16 GB * 0.8 = 12.8 GB
 // INFER_EC2_INSTANCE_TYPE (optional) EC2 instance type for infer task, default g5.xlarge
 
@@ -88,9 +89,16 @@ func (jsComp *JetStoreStackComponents) BuildInferEc2(scope constructs.Construct,
 		log.Println("Error: INFER_AMI_NAME is not set, skipping Infer EC2 task definition build")
 		return jsComp.InferTaskDefinition
 	}
+	// The AMI is built out-of-band by the Packer template in tools/infer_ami_builder and
+	// therefore owned by the deploying account, not by aws-marketplace. Override
+	// INFER_AMI_OWNER only when the AMI is shared in from another account.
+	imageOwner := os.Getenv("INFER_AMI_OWNER")
+	if imageOwner == "" {
+		imageOwner = "self"
+	}
 	ami := awsec2.MachineImage_Lookup(&awsec2.LookupMachineImageProps{
 		Name:   jsii.String(imageName),
-		Owners: &[]*string{jsii.String("aws-marketplace")},
+		Owners: &[]*string{jsii.String(imageOwner)},
 	})
 	instanceType := os.Getenv("INFER_EC2_INSTANCE_TYPE")
 	if instanceType == "" {

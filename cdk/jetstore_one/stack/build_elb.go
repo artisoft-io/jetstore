@@ -107,7 +107,7 @@ func (jsComp *JetStoreStackComponents) BuildELB(scope constructs.Construct, stac
 		Description: jsii.String("UI Listener ARN"),
 	})
 	awscdk.NewCfnOutput(stack, jsii.String("UiListenerUrl"), &awscdk.CfnOutputProps{
-		Value:       jsii.String(fmt.Sprintf("http://%s:%d", jsComp.UiLoadBalancer.LoadBalancerDnsName(), int(uiPort))),
+		Value:       jsii.String(fmt.Sprintf("http://%s:%d", *jsComp.UiLoadBalancer.LoadBalancerDnsName(), int(uiPort))),
 		Description: jsii.String("UI Listener URL"),
 	})
 
@@ -148,7 +148,7 @@ func (jsComp *JetStoreStackComponents) BuildELB(scope constructs.Construct, stac
 			Description: jsii.String("Infer Listener ARN"),
 		})
 		awscdk.NewCfnOutput(stack, jsii.String("InferListenerUrl"), &awscdk.CfnOutputProps{
-			Value:       jsii.String(fmt.Sprintf("http://%s:%d", jsComp.UiLoadBalancer.LoadBalancerDnsName(), int(inferPort))),
+			Value:       jsii.String(fmt.Sprintf("http://%s:%d", *jsComp.UiLoadBalancer.LoadBalancerDnsName(), int(inferPort))),
 			Description: jsii.String("Infer Listener URL"),
 		})
 	}

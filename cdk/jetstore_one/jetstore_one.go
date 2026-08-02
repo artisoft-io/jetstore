@@ -565,6 +565,7 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 // BUILD_INFER_SM (optional) set to TRUE to build the infer state machine, default FALSE
 // JETS_INFER_PORT (optional) port for infer server, default 11434
 // INFER_AMI_NAME name of the AMI to use for ec2 infer task (required if BUILD_INFER_SM is TRUE)
+// INFER_AMI_OWNER (optional) owner of the infer AMI, default "self" (the deploying account)
 // INFER_IMAGE_TAG (required for Infer Server)
 // INFER_MEM_LIMIT_MB (optional) memory limit in MB for infer task, default 1024 * 16 * 10 / 8 = 12.5 GB
 // INFER_EC2_INSTANCE_TYPE (optional) EC2 instance type for infer task, default g5.xlarge
@@ -669,6 +670,7 @@ func main() {
 	log.Println("env BUILD_INFER_SM:", os.Getenv("BUILD_INFER_SM"))
 	log.Println("env JETS_INFER_PORT:", os.Getenv("JETS_INFER_PORT"))
 	log.Println("env INFER_AMI_NAME:", os.Getenv("INFER_AMI_NAME"))
+	log.Println("env INFER_AMI_OWNER:", os.Getenv("INFER_AMI_OWNER"))
 	log.Println("env INFER_MEM_LIMIT_MB:", os.Getenv("INFER_MEM_LIMIT_MB"))
 	log.Println("env INFER_EC2_INSTANCE_TYPE:", os.Getenv("INFER_EC2_INSTANCE_TYPE"))
 	log.Println("env INFER_TASK_TIMEOUT_MIN:", os.Getenv("INFER_TASK_TIMEOUT_MIN"))
