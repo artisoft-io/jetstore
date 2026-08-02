@@ -67,7 +67,12 @@ build {
       "sudo apt-get install -y build-essential gcc make ca-certificates curl gnupg jq linux-headers-$(uname -r)",
 
       "echo '=== 2. Installing NVIDIA Host Drivers ==='",
-      "sudo apt-get install -y nvidia-driver-535-server",
+      # Let Ubuntu select the recommended server driver for the detected GPU instead of
+      # naming a version. Naming one was misleading anyway: nvidia-driver-535-server on
+      # noble is a 12.5kB transitional shim that pulls in the 580 branch regardless.
+      # --gpgpu selects the headless/compute driver, which is what a container host needs.
+      "sudo apt-get install -y ubuntu-drivers-common",
+      "sudo ubuntu-drivers install --gpgpu",
 
       "echo '=== 3. Purging Snap Docker ==='",
       "sudo snap remove --purge docker || true",
