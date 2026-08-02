@@ -7,10 +7,32 @@ packer {
   }
 }
 
+// INFER_AMI_REGION (optional) region to build the AMI in, default us-east-1
+variable "infer_ami_region" {
+  type        = string
+  default     = env("INFER_AMI_REGION")
+  description = "Region to build the AMI in. Must match the region the JetStore stack deploys to, since an AMI is region-scoped."
+}
+
+// INFER_AMI_BUILD_INSTANCE_TYPE (optional) build instance type, default g4dn.xlarge
+// NOTE: this is the throwaway *build* instance, not the runtime instance type the
+// CDK stack launches (that one is INFER_EC2_INSTANCE_TYPE, default g5.xlarge).
+// It must be GPU-enabled either way — the verification step below runs nvidia-smi.
+variable "infer_ami_build_instance_type" {
+  type        = string
+  default     = env("INFER_AMI_BUILD_INSTANCE_TYPE")
+  description = "GPU-enabled instance type used to build the AMI."
+}
+
+locals {
+  region        = var.infer_ami_region != "" ? var.infer_ami_region : "us-east-1"
+  instance_type = var.infer_ami_build_instance_type != "" ? var.infer_ami_build_instance_type : "g4dn.xlarge"
+}
+
 source "amazon-ebs" "ubuntu-nvidia-docker" {
   ami_name      = "ubuntu-2404-nvidia-ollama-{{timestamp}}"
-  instance_type = "g4dn.xlarge" # Worker instance with an attached GPU to compile drivers
-  region        = "us-east-1"
+  instance_type = local.instance_type
+  region        = local.region
 
   source_ami_filter {
     filters = {

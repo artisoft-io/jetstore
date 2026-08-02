@@ -63,11 +63,30 @@ The configuration pulls the official `ollama/ollama:latest` image. Because NVIDI
 
 ## Build & Validate Execution
 
+### Configuration
+
+Both settings are optional and read from the environment at build time:
+
+| Variable | Default | Purpose |
+|---|---|---|
+| `INFER_AMI_REGION` | `us-east-1` | Region to build the AMI in |
+| `INFER_AMI_BUILD_INSTANCE_TYPE` | `g4dn.xlarge` | GPU instance used to build the AMI |
+
+An AMI is region-scoped, so `INFER_AMI_REGION` must match the region the JetStore stack deploys
+into or the CDK `INFER_AMI_NAME` lookup will not find it.
+
+`INFER_AMI_BUILD_INSTANCE_TYPE` is the throwaway build instance and is **not** the runtime
+instance type — that is the CDK's `INFER_EC2_INSTANCE_TYPE` (default `g5.xlarge`). Both must be
+GPU-enabled; see the note at the top of this file.
+
 ### Build your updated image mapping to AWS infrastructure directly from your CLI terminal:
 
 ```bash
 packer init infer-nvidia.pkr.hcl
 packer build infer-nvidia.pkr.hcl
+
+# Or targeting another region / build instance:
+INFER_AMI_REGION=us-west-2 INFER_AMI_BUILD_INSTANCE_TYPE=g5.xlarge packer build infer-nvidia.pkr.hcl
 ```
 
 The build reboots the temporary instance near the end, then runs `nvidia-smi` on the host and
