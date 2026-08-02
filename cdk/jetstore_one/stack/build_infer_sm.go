@@ -47,22 +47,10 @@ func (jsComp *JetStoreStackComponents) BuildInferSM(scope constructs.Construct, 
 
 	jsComp.EcsCluster.AddAsgCapacityProvider(capacityProvider, &awsecs.AddAutoScalingGroupCapacityOptions{})
 
-	memoryLimitMB := float64(1024 * 16 * 0.8) // default to 12.8 GB
-	memLimit := os.Getenv("INFER_MEM_LIMIT_MB")
-	if memLimit != "" {
-		if memLimitInt, err := strconv.Atoi(memLimit); err == nil {
-			memoryLimitMB = float64(memLimitInt)
-		}
-	}
-	dockerImage := os.Getenv("INFER_IMAGE_TAG")
-	if dockerImage == "" {
-		log.Println("Error: INFER_IMAGE_TAG is not set, skipping Infer EC2 task definition build")
-		return
-	}
-
+	dockerImage := jsComp.InferImageTag()
 	container := jsComp.InferTaskDefinition.AddContainer(jsii.String("InferContainer"), &awsecs.ContainerDefinitionOptions{
 		Image:          awsecs.ContainerImage_FromRegistry(jsii.String(dockerImage), nil),
-		MemoryLimitMiB: jsii.Number(memoryLimitMB), // 12.8 GB
+		MemoryLimitMiB: jsii.Number(jsComp.InferMemLimitMB()), // default 12.8 GB
 		// Cpu:            jsii.Number(2048),
 
 		Logging: awsecs.LogDriver_AwsLogs(&awsecs.AwsLogDriverProps{

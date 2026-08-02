@@ -5,6 +5,7 @@ import (
 	"log"
 	"os"
 	"path"
+	"strconv"
 	"strings"
 
 	awscdk "github.com/aws/aws-cdk-go/awscdk/v2"
@@ -179,9 +180,31 @@ func (jsComp *JetStoreStackComponents) JetsTempData() string {
 	var jetsTempData string
 	jetsTempData = os.Getenv("JETS_TEMP_DATA")
 	if jetsTempData == "" {
-		jetsTempData = jsComp.JetsTempData()
+		jetsTempData = "/jets_data"
 	}
 	return jetsTempData
+}
+
+func (jsComp *JetStoreStackComponents) InferImageTag() string {
+	var inferImageTag string
+	inferImageTag = os.Getenv("INFER_IMAGE_TAG")
+	if inferImageTag == "" {
+		inferImageTag = "ollama/ollama:latest"
+	}
+	return inferImageTag
+}
+
+func (jsComp *JetStoreStackComponents) InferMemLimitMB() float64 {
+	var memLimit float64
+	memLimitStr := os.Getenv("INFER_MEM_LIMIT_MB")
+	if memLimitStr != "" {
+		if memLimitInt, err := strconv.Atoi(memLimitStr); err == nil {
+			memLimit = float64(memLimitInt)
+		}
+	} else {
+		memLimit = 1024 * 16 * 0.8 // default to 12.8 GB
+	}
+	return memLimit
 }
 
 func (jsComp *JetStoreStackComponents) TempDir() string {

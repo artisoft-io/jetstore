@@ -20,6 +20,7 @@ func (jsComp *JetStoreStackComponents) BuildInferService(scope constructs.Constr
 	// ---------------------------------------
 	// Define the JetStore Infer Service
 	// ---------------------------------------
+
 	// Define the log group
 	inferContainerLogGroup := awslogs.NewLogGroup(stack, jsii.String("InferContainerLogGroup"), &awslogs.LogGroupProps{
 		Retention: awslogs.RetentionDays_ONE_WEEK,
@@ -31,6 +32,7 @@ func (jsComp *JetStoreStackComponents) BuildInferService(scope constructs.Constr
 		ContainerName: jsii.String("inferServiceContainer"),
 		Essential:     jsii.Bool(true),
 		EntryPoint:    jsii.Strings("cbooter", "apiserver"),
+		MemoryLimitMiB: jsii.Number(jsComp.InferMemLimitMB()), // default 12.8 GB
 		PortMappings: &[]*awsecs.PortMapping{
 			{
 				Name:          jsii.String("infer-service-port-mapping"),
@@ -68,9 +70,7 @@ func (jsComp *JetStoreStackComponents) BuildInferService(scope constructs.Constr
 		Cluster:        jsComp.EcsCluster,
 		ServiceName:    jsii.String("jetstore-infer-service"),
 		TaskDefinition: jsComp.InferTaskDefinition,
-		// VpcSubnets:     jsComp.PrivateSubnetSelection,
-		// TODO RESTAURE the jsComp.PrivateSubnetSelection
-		VpcSubnets:     jsComp.PublicSubnetSelection,
+		VpcSubnets:     jsComp.PrivateSubnetSelection,
 		AssignPublicIp: jsii.Bool(false),
 		DesiredCount:   jsii.Number(0), // Start with 0 desired count, scale up as needed
 		SecurityGroups: &[]awsec2.ISecurityGroup{

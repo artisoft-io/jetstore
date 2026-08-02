@@ -567,7 +567,7 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 // INFER_AMI_NAME (optional) name of the AMI to use for ec2 infer task, default "jetstore-infer-*"
 // (a wildcard resolves to the most recently built AMI)
 // INFER_AMI_OWNER (optional) owner of the infer AMI, default "self" (the deploying account)
-// INFER_IMAGE_TAG (optional) (required for Infer Server) default "latest"
+// INFER_IMAGE_TAG (required for Infer Server) defaults to "ollama/ollama:latest" if not set, otherwise must be a valid docker image tag
 // INFER_MEM_LIMIT_MB (optional) memory limit in MB for infer task, default 1024 * 16 * 10 / 8 = 12.5 GB
 // INFER_EC2_INSTANCE_TYPE (optional) EC2 instance type for infer task, default g5.xlarge
 // INFER_TASK_TIMEOUT_MIN (optional) state machine timeout for INFER_SM, default 4h
