@@ -128,6 +128,46 @@ AWS CDK infrastructure is in `cdk/`:
 - `cdk/jetstore_one/` — main stack: ECS Fargate, Lambda, RDS, Step Functions, VPC
 - `cdk/vpc_peering/` — VPC peering utility
 
+Stack composition is driven almost entirely by environment variables read at synth time, not by
+CDK context or config files. `cdk/jetstore_one/jetstore_one.go` carries the authoritative list in
+a comment block near the bottom of the file, and logs every value at synth — read that block
+before adding a new toggle.
+
+### Infer Server (GPU inference)
+
+Optional subsystem, gated behind `BUILD_INFER_SM=true`. Every component no-ops via
+`JetStoreStackComponents.DoBuildInferServer()` (`stack/stack_model.go`) when the flag is off, so
+the default stack is unaffected. It spans three files that must be read together:
+
+| File | Builds |
+|---|---|
+| `stack/build_infer_ec2.go` | ASG + launch template, persistent EBS volume, lifecycle-hook Lambda |
+| `stack/build_infer_service.go` | ECS container definition — JetStore image, `cbooter apiserver` entrypoint, port 11434 |
+| `stack/build_infer_sm.go` | Step Functions state machine wrapping an ECS Run Task — **currently dead code**, the call in `jetstore_one.go` is commented out and marked "To BE REMOVED" |
+
+Two pieces of non-obvious wiring:
+
+**Persistent EBS across instance restarts.** LLM weights live on a separate 100GB volume with
+`RemovalPolicy_RETAIN`, deliberately not managed by the instance lifecycle. An
+`EC2_INSTANCE_LAUNCHING` lifecycle hook fires an inline-Python Lambda that attaches the volume
+and only then signals `CONTINUE` — the launch template's user data assumes `/dev/xvdf` already
+exists when it runs `mount`. This is why the ASG and the volume are both pinned to
+`AvailabilityZones()[0]`: an EBS volume cannot cross an AZ. Changing the AZ pinning on either
+side silently breaks instance launch.
+
+**The AMI comes from `tools/infer_ami_builder/`.** `INFER_AMI_NAME` is looked up at synth time
+via `awsec2.MachineImage_Lookup`; the AMI itself is built out-of-band by the Packer template in
+that directory (NVIDIA drivers + Docker + NVIDIA Container Toolkit, with `default-runtime` set to
+`nvidia`). There is no CI wiring between the two — build the AMI first, then pass its name in.
+
+## Tools
+
+`tools/` holds standalone utilities that are not part of any Go module or the main build:
+- `infer_ami_builder/` — Packer template for the GPU AMI consumed by the Infer Server (see above)
+- `jetrule_ts/`, `jetrule_domain_model_ts/` — TypeScript JetRules tooling
+- `vscode-jetrule/` — VS Code extension for the JetRules DSL
+- `sample_projects/` — example workspaces
+
 ## Flutter UI
 
 `jetsclient/` is a Flutter/Dart web app for workspace management and pipeline administration. Build with standard Flutter tooling (`flutter build web`).

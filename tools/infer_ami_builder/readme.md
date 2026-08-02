@@ -1,12 +1,16 @@
 # Building JetStore Infer AMI
 
-Create an Ubuntu-based AMI with NVIDIA drivers for a g5.xlarge instance using HashiCorp Packer, 
-using the Amazon EBS builder. Because NVIDIA drivers require a GPU to compile and install correctly during the build phase, Packer must run the temporary build instance on a GPU-enabled instance type like g4dn.xlarge or g5.xlarge.
+Create an Ubuntu-based AMI with NVIDIA drivers for a g5.xlarge instance using HashiCorp Packer,
+using the Amazon EBS builder. The build must run on a GPU-enabled instance type such as
+g4dn.xlarge or g5.xlarge: the driver itself compiles against kernel headers and would not
+strictly need a GPU, but the build's verification step runs `nvidia-smi` on the host and inside a
+container before the snapshot is taken, and that requires real hardware. Do not downgrade the
+build instance to a non-GPU type — verification will fail.
 
-## Prerequisites and SetupInstall Packer: 
+## Prerequisites and Setup
 
-- Ensure Packer is installed on your local machine.AWS 
-- Credentials: Configure your local terminal with AWS credentials that have permissions to create EC2 instances, security groups, snapshots, and AMIs.
+- **Packer**: ensure Packer is installed on your local machine.
+- **AWS credentials**: configure your local terminal with AWS credentials that have permissions to create EC2 instances, security groups, snapshots, and AMIs.
 
 ### Install HashiCorp Packer on Linux
 
