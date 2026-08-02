@@ -27,12 +27,29 @@ variable "infer_ami_build_instance_type" {
 locals {
   region        = var.infer_ami_region != "" ? var.infer_ami_region : "us-east-1"
   instance_type = var.infer_ami_build_instance_type != "" ? var.infer_ami_build_instance_type : "g4dn.xlarge"
+
+  # AMI names must be unique per account per region, so every build gets a UTC stamp.
+  # The same stamp goes in the Name tag, which is what the EC2 console actually displays.
+  build_time = formatdate("YYYY-MM-DD-hhmm", timestamp())
+  ami_label  = "JetStore Infer ${local.build_time}"
 }
 
 source "amazon-ebs" "ubuntu-nvidia-docker" {
-  ami_name      = "ubuntu-2404-nvidia-ollama-{{timestamp}}"
+  ami_name      = "jetstore-infer-${local.build_time}"
   instance_type = local.instance_type
   region        = local.region
+
+  # Without a Name tag the console shows a blank Name column for both the AMI and
+  # its backing snapshot. Tag all three (AMI, snapshot, builder instance).
+  tags = {
+    Name = local.ami_label
+  }
+  snapshot_tags = {
+    Name = "${local.ami_label} (snapshot)"
+  }
+  run_tags = {
+    Name = "${local.ami_label} (packer builder)"
+  }
 
   source_ami_filter {
     filters = {

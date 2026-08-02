@@ -94,6 +94,22 @@ again inside a container before the snapshot is taken. A driver that fails to lo
 fails the build rather than producing a broken AMI, so a successful `packer build` means the GPU
 path is already confirmed working.
 
+### Naming
+
+Each build stamps a UTC timestamp into the name so repeated builds don't collide — AMI names must
+be unique per account per region:
+
+| | Value |
+|---|---|
+| AMI name | `jetstore-infer-YYYY-MM-DD-hhmm` |
+| `Name` tag (AMI, snapshot, builder instance) | `JetStore Infer YYYY-MM-DD-hhmm` |
+
+The `Name` tag is what the EC2 console shows in its Name column; without it the AMI and its
+snapshot appear unnamed.
+
+Pass the **AMI name** (not the tag) to the CDK stack as `INFER_AMI_NAME`. A wildcard such as
+`jetstore-infer-*` works and picks up the most recent match.
+
 ### Deploy a new g5.xlarge node using the newly generated custom AMI ID output.
 
 Test your instant startup configuration using the cached layers without needing sudo or hardware-pass:
