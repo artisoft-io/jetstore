@@ -81,15 +81,21 @@ build {
 
       "echo '=== 1. Updating System & Installing Kernel Headers ==='",
       "sudo apt-get update -y",
-      "sudo apt-get install -y build-essential gcc make ca-certificates curl gnupg jq linux-headers-$(uname -r)",
+      # linux-headers-aws is a metapackage tracking the aws kernel flavour. It is installed
+      # alongside the running kernel's headers so DKMS can still rebuild the NVIDIA module
+      # if the reboot in step 10 lands on a newer kernel than the one we built against.
+      "sudo apt-get install -y build-essential gcc make ca-certificates curl gnupg jq linux-headers-$(uname -r) linux-headers-aws",
 
       "echo '=== 2. Installing NVIDIA Host Drivers ==='",
-      # Let Ubuntu select the recommended server driver for the detected GPU instead of
-      # naming a version. Naming one was misleading anyway: nvidia-driver-535-server on
-      # noble is a 12.5kB transitional shim that pulls in the 580 branch regardless.
-      # --gpgpu selects the headless/compute driver, which is what a container host needs.
-      "sudo apt-get install -y ubuntu-drivers-common",
-      "sudo ubuntu-drivers install --gpgpu",
+      # Resolve the newest server driver branch present in the repos rather than naming a
+      # version. Do NOT use `ubuntu-drivers install --gpgpu` here: it selects the
+      # nvidia-headless-no-dkms-*-open packages, which omit nvidia-utils (and therefore
+      # nvidia-smi) and ship prebuilt modules pinned to one kernel ABI. The
+      # nvidia-driver-<N>-server metapackage pulls the full DKMS stack including utils.
+      "NVIDIA_BRANCH=$(apt-cache search --names-only '^nvidia-driver-[0-9]+-server$' | grep -oP 'nvidia-driver-\\K[0-9]+' | sort -rn | head -1)",
+      "test -n \"$NVIDIA_BRANCH\"",
+      "echo \"Selected NVIDIA server driver branch: $NVIDIA_BRANCH\"",
+      "sudo apt-get install -y nvidia-driver-$NVIDIA_BRANCH-server",
 
       "echo '=== 3. Purging Snap Docker ==='",
       "sudo snap remove --purge docker || true",
