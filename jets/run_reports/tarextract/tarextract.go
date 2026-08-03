@@ -94,10 +94,12 @@ func extractFile(localFileName string, tarReader *tar.Reader) error {
 		return fmt.Errorf("ExtractTarGz: OpenFile() failed: %v", err)
 	}
 	defer outFile.Close()
-	_, err = io.Copy(outFile, tarReader)
+	var n int64
+	n, err = io.Copy(outFile, tarReader)
 	if err != nil {
 		return fmt.Errorf("ExtractTarGz: Copy() failed: %v", err)
 	}
+	log.Printf("Extracted from tgz: %s (%d bytes)", localFileName, n)
 	return nil
 }
 

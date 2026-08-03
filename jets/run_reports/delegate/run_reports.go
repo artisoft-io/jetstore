@@ -405,7 +405,7 @@ func (ca *CommandArguments) runReportsDelegate(dbpool *pgxpool.Pool, tempDir str
 	file, err := os.Open(safePath)
 	if err != nil {
 		if os.IsNotExist(err) {
-			log.Printf("Report definitions file %s does not exist, skipping", reportScriptPath)
+			log.Printf("Report definitions file %s (safe path: %s) does not exist, skipping", reportScriptPath, safePath)
 			return nil
 		}
 		return fmt.Errorf("error while opening report definitions file %s: %v", reportScriptPath, err)
