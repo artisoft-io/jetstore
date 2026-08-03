@@ -57,8 +57,7 @@ func (jsComp *JetStoreStackComponents) BuildInferService(scope constructs.Constr
 			StreamPrefix: jsii.String("infer-service"),
 			LogGroup:     inferContainerLogGroup,
 		}),
-		// TODO MAKE IT READ ONLY
-		// ReadonlyRootFilesystem: jsii.Bool(true),
+		ReadonlyRootFilesystem: jsii.Bool(true),
 	})
 	jsComp.InferTaskContainer.AddMountPoints(&awsecs.MountPoint{
 		SourceVolume:  jsii.String("persistent-data"),

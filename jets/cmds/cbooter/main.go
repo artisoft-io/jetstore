@@ -133,9 +133,23 @@ func main() {
 
 	case "infer_server":
 		log.Println("Starting infer_server...")
-		// docker run -e OLLAMA_CONTEXT_LENGTH=256000 -p 11434:11434 --gpus all -v /jetsdata:/root/.ollama --name ollama-gpu ollama/ollama:latest
-
-
+		// docker run --rm -e OLLAMA_CONTEXT_LENGTH=256000 -p 11434:11434 --gpus all -v /jetsdata/ollama:/root/.ollama --name ollama-gpu ollama/ollama:latest
+		err := runCommandAsRoot(
+			"docker", 
+			[]string{
+					"run", "--rm", 
+					"-e", "OLLAMA_NUM_PARALLEL=4", 
+					"-e", "OLLAMA_MAX_LOADED_MODELS=2", 
+					"-e", "OLLAMA_KEEP_ALIVE=30", 
+					"-e", "OLLAMA_CONTEXT_LENGTH=256000", 
+					"-p", "11434:11434", "--gpus", "all", "-v", 
+					os.Getenv("JETS_TEMP_DATA") + "/ollama:/root/.ollama", 
+					"--name", "ollama-gpu", "ollama/ollama:latest",
+				},
+		)
+		if err != nil {
+			log.Fatalf("Failed to start infer_server: %s", err)
+		}
 
 	default:
 		// Copy the workspace repo to workspace home make the mounted JETS_TEMP_DATA writable

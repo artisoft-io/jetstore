@@ -42,6 +42,9 @@ func (jsComp *JetStoreStackComponents) BuildInferEc2(scope constructs.Construct,
 		Description:      jsii.String("Security group for JetStore ECS EC2 instances"),
 		AllowAllOutbound: jsii.Bool(true),
 	})
+	// Allow inbound traffic on port 11434 for the infer service
+	instanceSG.AddIngressRule(awsec2.Peer_AnyIpv4(), awsec2.Port_Tcp(jsii.Number(11434)), 
+		jsii.String("Allow inbound traffic on port 11434 for the infer service"), nil)
 
 	// -----------------------------------------------------------------------
 	// 4. IAM Role for EC2 instances
@@ -157,7 +160,7 @@ func (jsComp *JetStoreStackComponents) BuildInferEc2(scope constructs.Construct,
 			AvailabilityZones: &[]*string{
 				awscdk.Fn_Select(jsii.Number(0), stack.AvailabilityZones()),
 			},
-			SubnetType: awsec2.SubnetType_PUBLIC,
+			SubnetType: awsec2.SubnetType_PRIVATE_WITH_EGRESS,
 		},
 	})
 
