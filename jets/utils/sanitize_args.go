@@ -39,11 +39,15 @@ func sanitizeArg(arg string) string {
 // ConfineFilePath joins fileName onto baseDir and verifies the cleaned result
 // stays within baseDir, mitigating external control of file name or path (CWE-73).
 func ConfineFilePath(baseDir, fileName string) (string, error) {
+	cleanName := filepath.Clean(fileName)
 	absBase, err := filepath.Abs(baseDir)
 	if err != nil {
 		return "", fmt.Errorf("while resolving base dir %q: %w", baseDir, err)
 	}
-	joined := filepath.Join(absBase, fileName)
+	joined := cleanName
+	if !strings.HasPrefix(cleanName, absBase) {
+		joined = filepath.Join(absBase, cleanName)
+	}
 	if joined != absBase && !strings.HasPrefix(joined, absBase+string(os.PathSeparator)) {
 		return "", fmt.Errorf("invalid file path %q: escapes directory %q", fileName, baseDir)
 	}

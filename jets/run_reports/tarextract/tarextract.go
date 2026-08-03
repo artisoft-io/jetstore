@@ -75,7 +75,10 @@ func sanitizeExtractPath(baseDir, name string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("ExtractTarGz: while resolving base dir: %v", err)
 	}
-	target := filepath.Join(absBase, cleanName)
+	target := cleanName
+	if !strings.HasPrefix(cleanName, absBase) {
+		target = filepath.Join(absBase, cleanName)
+	}
 	// Defense in depth: confirm the resolved target remains within baseDir.
 	if target != absBase && !strings.HasPrefix(target, absBase+string(os.PathSeparator)) {
 		return "", fmt.Errorf("ExtractTarGz: illegal file path %q: escapes destination directory", name)
@@ -94,12 +97,12 @@ func extractFile(localFileName string, tarReader *tar.Reader) error {
 		return fmt.Errorf("ExtractTarGz: OpenFile() failed: %v", err)
 	}
 	defer outFile.Close()
-	var n int64
-	n, err = io.Copy(outFile, tarReader)
+	// var n int64
+	_, err = io.Copy(outFile, tarReader)
 	if err != nil {
 		return fmt.Errorf("ExtractTarGz: Copy() failed: %v", err)
 	}
-	log.Printf("Extracted from tgz: %s (%d bytes)", localFileName, n)
+	// log.Printf("Extracted from tgz: %s (%d bytes)", localFileName, n)
 	return nil
 }
 
