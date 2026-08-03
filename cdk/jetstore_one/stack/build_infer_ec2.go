@@ -143,6 +143,10 @@ func (jsComp *JetStoreStackComponents) BuildInferEc2(scope constructs.Construct,
 	// -----------------------------------------------------------------------
 	// Auto Scaling Group  (min=0, max=1, single AZ matching the EBS volume)
 	// -----------------------------------------------------------------------
+	// The ASG is built from the launch template above. The launch template is how the
+	// AMI, instance type, security group, role, block devices and user data are wired
+	// into the ECS capacity. The cluster itself does not take a launch template directly;
+	// instead it takes an ASG (via a capacity provider) that references the launch template.
 	jsComp.InferAutoScalingGroup = awsautoscaling.NewAutoScalingGroup(stack, jsii.String("InferASG"), &awsautoscaling.AutoScalingGroupProps{
 		Vpc:            jsComp.Vpc,
 		LaunchTemplate: launchTemplate,
@@ -155,6 +159,19 @@ func (jsComp *JetStoreStackComponents) BuildInferEc2(scope constructs.Construct,
 			},
 			SubnetType: awsec2.SubnetType_PUBLIC,
 		},
+	})
+
+	// Add EC2 capacity on the cluster jsComp.EcsCluster via a capacity provider
+	// backed by the ASG (which references the launch template).
+	jsComp.EcsCluster.AddAsgCapacityProvider(awsecs.NewAsgCapacityProvider(stack, jsii.String("CapacityProvider"), &awsecs.AsgCapacityProviderProps{
+		AutoScalingGroup:                   jsComp.InferAutoScalingGroup,
+		EnableManagedScaling:               jsii.Bool(true),
+		TargetCapacityPercent:              jsii.Number(100),
+		EnableManagedTerminationProtection: jsii.Bool(false),
+		MinimumScalingStepSize:             jsii.Number(1),
+		MaximumScalingStepSize:             jsii.Number(1),
+	}), &awsecs.AddAutoScalingGroupCapacityOptions{
+		// MachineImageType: awsecs.MachineImageType_AMAZON_LINUX_2,
 	})
 
 	// -----------------------------------------------------------------------
@@ -279,24 +296,11 @@ def handler(event, context):
 		},
 	})
 
-	// // -----------------------------------------------------------------------
-	// // CloudWatch Log Group
-	// // -----------------------------------------------------------------------
-	// logGroup := awslogs.NewLogGroup(stack, jsii.String("InferTaskLogGroup"), &awslogs.LogGroupProps{
-	// 	Retention:     awslogs.RetentionDays_ONE_WEEK,
-	// })
-
 	// -----------------------------------------------------------------------
 	// ECS Task Definition
 	// -----------------------------------------------------------------------
-	dockerImage := os.Getenv("INFER_IMAGE_TAG")
-	if dockerImage == "" {
-		log.Println("Error: INFER_IMAGE_TAG is not set, skipping Infer EC2 task definition build")
-		return nil
-	}
-
 	jsComp.InferTaskDefinition = awsecs.NewEc2TaskDefinition(stack, jsii.String("InferTaskDef"), &awsecs.Ec2TaskDefinitionProps{
-		NetworkMode: awsecs.NetworkMode_BRIDGE,
+		NetworkMode: awsecs.NetworkMode_AWS_VPC,
 		// Mount the persistent EBS volume into the container at JetsTempData()
 		Volumes: &[]*awsecs.Volume{
 			{
@@ -307,33 +311,6 @@ def handler(event, context):
 			},
 		},
 	})
-
-	// memoryLimitMB := 1024 * 16 * 0.8 // default to 12.8 GB
-	// memLimit := os.Getenv("INFER_MEM_LIMIT_MB")
-	// if memLimit != "" {
-	// 	if memLimitInt, err := strconv.Atoi(memLimit); err == nil {
-	// 		memoryLimitMB = float64(memLimitInt)
-	// 	}
-	// }
-	// container := jsComp.InferTaskDefinition.AddContainer(jsii.String("InferContainer"), &awsecs.ContainerDefinitionOptions{
-	// 	Image:          awsecs.ContainerImage_FromRegistry(jsii.String(dockerImage), nil),
-	// 	MemoryLimitMiB: jsii.Number(memoryLimitMB), // 12.8 GB
-	// 	// Cpu:            jsii.Number(2048),
-	// 	Logging: awsecs.LogDrivers_AwsLogs(&awsecs.AwsLogDriverProps{
-	// 		StreamPrefix: jsii.String("infer"),
-	// 		LogGroup:     logGroup,
-	// 	}),
-	// 	Environment: &map[string]*string{
-	// 		"NAME": jsii.String("World"),
-	// 	},
-	// })
-
-	// // Mount the persistent volume inside the container at /data
-	// container.AddMountPoints(&awsecs.MountPoint{
-	// 	SourceVolume:  jsii.String("persistent-data"),
-	// 	ContainerPath: jsii.String(jsComp.JetsTempData()),
-	// 	ReadOnly:      jsii.Bool(false),
-	// })
 
 	// -----------------------------------------------------------------------
 	// Outputs

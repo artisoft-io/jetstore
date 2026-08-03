@@ -571,7 +571,7 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 // INFER_MEM_LIMIT_MB (optional) memory limit in MB for infer task, default 1024 * 16 * 10 / 8 = 12.5 GB
 // INFER_EC2_INSTANCE_TYPE (optional) EC2 instance type for infer task, default g5.xlarge
 // INFER_TASK_TIMEOUT_MIN (optional) state machine timeout for INFER_SM, default 4h
-// JETS_INFER_SSH_KEY_NAME (optional) name of the keypair to use for infer ec2 instance, default none (*for debugging only*)
+//XXX JETS_INFER_SSH_KEY_NAME (optional) name of the keypair to use for infer ec2 instance, default none (*for debugging only*)
 
 func main() {
 	defer jsii.Close()
@@ -675,7 +675,7 @@ func main() {
 	log.Println("env INFER_MEM_LIMIT_MB:", os.Getenv("INFER_MEM_LIMIT_MB"))
 	log.Println("env INFER_EC2_INSTANCE_TYPE:", os.Getenv("INFER_EC2_INSTANCE_TYPE"))
 	log.Println("env INFER_TASK_TIMEOUT_MIN:", os.Getenv("INFER_TASK_TIMEOUT_MIN"))
-	log.Println("env JETS_INFER_SSH_KEY_NAME:", os.Getenv("JETS_INFER_SSH_KEY_NAME"))
+	// log.Println("env JETS_INFER_SSH_KEY_NAME:", os.Getenv("JETS_INFER_SSH_KEY_NAME"))
 
 	// Verify that we have all the required env variables
 	hasErr := false

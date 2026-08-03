@@ -180,7 +180,7 @@ func (jsComp *JetStoreStackComponents) JetsTempData() string {
 	var jetsTempData string
 	jetsTempData = os.Getenv("JETS_TEMP_DATA")
 	if jetsTempData == "" {
-		jetsTempData = "/jets_data"
+		jetsTempData = "/jetsdata"
 	}
 	return jetsTempData
 }
@@ -202,7 +202,7 @@ func (jsComp *JetStoreStackComponents) InferMemLimitMB() float64 {
 			memLimit = float64(memLimitInt)
 		}
 	} else {
-		memLimit = 1024 * 16 * 0.8 // default to 12.8 GB
+		memLimit = 1024 * 12 // default to 12 GB
 	}
 	return memLimit
 }
