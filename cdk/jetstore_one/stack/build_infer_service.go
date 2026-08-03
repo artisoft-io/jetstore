@@ -31,8 +31,8 @@ func (jsComp *JetStoreStackComponents) BuildInferService(scope constructs.Constr
 		Image:         jsComp.JetStoreImage,
 		ContainerName: jsii.String("inferServiceContainer"),
 		Essential:     jsii.Bool(true),
-		EntryPoint:    jsii.Strings("cbooter", "apiserver"),
-		MemoryLimitMiB: jsii.Number(jsComp.InferMemLimitMB()), // default 12.8 GB
+		EntryPoint:    jsii.Strings("cbooter", "infer_server"),
+		MemoryLimitMiB: jsii.Number(jsComp.InferMemLimitMB()), // default 12 GB
 		PortMappings: &[]*awsecs.PortMapping{
 			{
 				Name:          jsii.String("infer-service-port-mapping"),
@@ -82,12 +82,13 @@ func (jsComp *JetStoreStackComponents) BuildInferService(scope constructs.Constr
 			// NewGitAccessSecurityGroup(stack, jsComp.Vpc),
 		},
 	})
-	// Add keypair to the infer service for SSH access (for debugging only)
-	if keyName := os.Getenv("JETS_INFER_SSH_KEY_NAME"); keyName != "" {
-		jsComp.EcsInferService.Connections().AllowFrom(awsec2.Peer_AnyIpv4(), awsec2.Port_Tcp(jsii.Number(22)), jsii.String("Allow SSH access to Infer Service"))
-		cfnService := jsComp.EcsInferService.Node().DefaultChild().(awsecs.CfnService)
-		cfnService.AddPropertyOverride(jsii.String("KeyName"), jsii.String(keyName))
-	}
+	// TODO remove this
+	// // Add keypair to the infer service for SSH access (for debugging only)
+	// if keyName := os.Getenv("JETS_INFER_SSH_KEY_NAME"); keyName != "" {
+	// 	jsComp.EcsInferService.Connections().AllowFrom(awsec2.Peer_AnyIpv4(), awsec2.Port_Tcp(jsii.Number(22)), jsii.String("Allow SSH access to Infer Service"))
+	// 	cfnService := jsComp.EcsInferService.Node().DefaultChild().(awsecs.CfnService)
+	// 	cfnService.AddPropertyOverride(jsii.String("KeyName"), jsii.String(keyName))
+	// }
 	if phiTagName != nil {
 		awscdk.Tags_Of(jsComp.EcsInferService).Add(phiTagName, jsii.String("true"), nil)
 	}

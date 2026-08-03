@@ -21,7 +21,7 @@ import (
 // WORKSPACES_HOME - location where the workspace repo is copied to (read-write)
 //
 // The first argument must be the command name, one of:
-// apiserver, run_reports, loader, server, serverv2, cpipes_server, cpipes_native_server.
+// apiserver, infer_server, run_reports, loader, server, serverv2, cpipes_server, cpipes_native_server.
 // The other arguments are passed to the command being run.
 //
 // The commands are mutually exclusive, only one can be specified at a time.
@@ -55,6 +55,7 @@ var rootSysProcAttr *syscall.SysProcAttr = &syscall.SysProcAttr{
 // arbitrary command / argument injection via os.Args.
 var allowedCommands = map[string]bool{
 	"apiserver":            true,
+	"infer_server":         true,
 	"run_reports":          true,
 	"cpipes_server":        true,
 	"cpipes_native_server": true,
@@ -66,7 +67,7 @@ func main() {
 
 	// A command name is required as the first argument.
 	if len(os.Args) < 2 {
-		log.Fatalf("a command name must be provided as the first argument; allowed commands: apiserver, run_reports, cpipes_server, cpipes_native_server")
+		log.Fatalf("a command name must be provided as the first argument; allowed commands: apiserver, infer_server, run_reports, cpipes_server, cpipes_native_server")
 	}
 
 	// Separate cbooter args from command args
@@ -78,7 +79,7 @@ func main() {
 	// Validate the command against the allowlist to prevent command injection.
 	// Only known, trusted command names may be executed.
 	if !allowedCommands[cmd] {
-		log.Fatalf("invalid command %q; allowed commands: apiserver, run_reports, cpipes_server, cpipes_native_server", cmd)
+		log.Fatalf("invalid command %q; allowed commands: apiserver, infer_server, run_reports, cpipes_server, cpipes_native_server", cmd)
 	}
 
 	// Validate that JETS_TEMP_DATA, WORKSPACES_REPO, and WORKSPACES_HOME are set
@@ -129,6 +130,12 @@ func main() {
 		if err != nil {
 			log.Fatalf("Failed to start apiserver: %s", err)
 		}
+
+	case "infer_server":
+		log.Println("Starting infer_server...")
+		// docker run -e OLLAMA_CONTEXT_LENGTH=256000 -p 11434:11434 --gpus all -v /jetsdata:/root/.ollama --name ollama-gpu ollama/ollama:latest
+
+
 
 	default:
 		// Copy the workspace repo to workspace home make the mounted JETS_TEMP_DATA writable
