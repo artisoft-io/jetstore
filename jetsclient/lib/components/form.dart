@@ -52,6 +52,19 @@ class JetsFormWidgetState extends State<JetsForm> {
     if (inputFields.isEmpty) {
       queryInputFieldItems();
     }
+    // Give the form a chance to initialize itself or fetch what it needs to
+    // display. Deferred to after the first frame so the delegate runs with a
+    // laid out form: it may put up a spinner or a dialog, and the fields it
+    // writes to must already be listening.
+    final onLoadActionKey = widget.formConfig.onLoadActionKey;
+    if (onLoadActionKey != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        widget.formConfig.formActionsDelegate(
+            context, widget.formKey, widget.formState, onLoadActionKey,
+            group: 0);
+      });
+    }
   }
 
   void markAsDirty() {
