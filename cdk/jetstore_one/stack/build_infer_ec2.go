@@ -3,6 +3,7 @@ package stack
 import (
 	"log"
 	"os"
+	"strconv"
 
 	awscdk "github.com/aws/aws-cdk-go/awscdk/v2"
 	"github.com/aws/aws-cdk-go/awscdk/v2/awsautoscaling"
@@ -20,11 +21,12 @@ import (
 // Build the EC2 instance for the Infer Server
 
 // BUILD_INFER_SERVICE (optional) set to TRUE to build the infer state machine, default FALSE
-// INFER_AMI_NAME (optional) name of the AMI to use for ec2 infer task, default "jetstore-infer-*"
-// (a wildcard resolves to the most recently built AMI)
-// INFER_AMI_OWNER (optional) owner of the infer AMI, default "self" (the deploying account)
+// INFER_AMI_NAME (optional) escape hatch to pin a custom AMI; when unset the stock ECS
+// GPU-optimized Amazon Linux 2023 AMI is used (NVIDIA driver + ECS agent preinstalled)
+// INFER_AMI_OWNER (optional) owner of the custom AMI, default "self"; ignored unless INFER_AMI_NAME is set
 // INFER_MEM_LIMIT_MB (optional) memory limit in MB for infer task, default 16 GB * 0.8 = 12.8 GB
 // INFER_EC2_INSTANCE_TYPE (optional) EC2 instance type for infer task, default g5.xlarge
+// INFER_ROOT_VOLUME_GB (optional) size of the instance root volume in GB, default 50
 
 // functions to build the cpipes state machine
 func (jsComp *JetStoreStackComponents) BuildInferEc2(scope constructs.Construct, stack awscdk.Stack, props *JetstoreOneStackProps) awsecs.Ec2TaskDefinition {
@@ -43,7 +45,7 @@ func (jsComp *JetStoreStackComponents) BuildInferEc2(scope constructs.Construct,
 		AllowAllOutbound: jsii.Bool(true),
 	})
 	// Allow inbound traffic on port 11434 for the infer service
-	instanceSG.AddIngressRule(awsec2.Peer_AnyIpv4(), awsec2.Port_Tcp(jsii.Number(11434)), 
+	instanceSG.AddIngressRule(awsec2.Peer_AnyIpv4(), awsec2.Port_Tcp(jsii.Number(11434)),
 		jsii.String("Allow inbound traffic on port 11434 for the infer service"), nil)
 
 	// -----------------------------------------------------------------------
@@ -88,28 +90,47 @@ func (jsComp *JetStoreStackComponents) BuildInferEc2(scope constructs.Construct,
 	//    for data because data lives on the separate persistent volume.
 	//    The ASG is constrained to the same AZ as the persistent volume.
 	// -----------------------------------------------------------------------
-	// Matches the naming convention of the Packer template in tools/infer_ami_builder,
-	// which stamps each build as jetstore-infer-<YYYY-MM-DD-hhmm>. MachineImage_Lookup
-	// resolves a wildcard to the most recently created match.
+	// The ECS GPU-optimized AMI (al2023-ami-ecs-gpu-hvm-*) already ships the NVIDIA driver,
+	// the NVIDIA container toolkit, Docker and the ECS container agent, and it advertises its
+	// GPUs to the agent via /var/lib/ecs/gpu/nvidia-gpu-info.json. That inventory is what makes
+	// the task definition's GpuCount schedulable, so a custom AMI must reproduce it. Resolved
+	// from SSM at deploy time, so a stack update picks up AWS's driver/agent patches.
+	//
+	// Set INFER_AMI_NAME only to pin a specific or hardened AMI. Its root device name must match
+	// rootDeviceName below (the ECS AL2023 AMIs use /dev/xvda, Ubuntu images use /dev/sda1).
+	var ami awsec2.IMachineImage
+	rootDeviceName := "/dev/xvda"
 	imageName := os.Getenv("INFER_AMI_NAME")
 	if imageName == "" {
-		imageName = "jetstore-infer-*"
-		log.Println("INFER_AMI_NAME is not set, defaulting to", imageName)
+		log.Println("INFER_AMI_NAME is not set, using the ECS GPU-optimized Amazon Linux 2023 AMI")
+		ami = awsecs.EcsOptimizedImage_AmazonLinux2023(awsecs.AmiHardwareType_GPU, nil)
+	} else {
+		imageOwner := os.Getenv("INFER_AMI_OWNER")
+		if imageOwner == "" {
+			imageOwner = "self"
+		}
+		log.Println("Using custom infer AMI", imageName, "owned by", imageOwner)
+		ami = awsec2.MachineImage_Lookup(&awsec2.LookupMachineImageProps{
+			Name:   jsii.String(imageName),
+			Owners: &[]*string{jsii.String(imageOwner)},
+		})
+		if name := os.Getenv("INFER_AMI_ROOT_DEVICE"); name != "" {
+			rootDeviceName = name
+		}
 	}
-	// The AMI is built out-of-band by the Packer template in tools/infer_ami_builder and
-	// therefore owned by the deploying account, not by aws-marketplace. Override
-	// INFER_AMI_OWNER only when the AMI is shared in from another account.
-	imageOwner := os.Getenv("INFER_AMI_OWNER")
-	if imageOwner == "" {
-		imageOwner = "self"
-	}
-	ami := awsec2.MachineImage_Lookup(&awsec2.LookupMachineImageProps{
-		Name:   jsii.String(imageName),
-		Owners: &[]*string{jsii.String(imageOwner)},
-	})
 	instanceType := os.Getenv("INFER_EC2_INSTANCE_TYPE")
 	if instanceType == "" {
 		instanceType = "g5.xlarge"
+	}
+	// The stock AMI's root volume is 30 GB; enlarge it to hold the container image layers.
+	// Model weights do not live here — they go on the persistent volume mounted below.
+	var rootVolumeGb float64 = 50
+	if v := os.Getenv("INFER_ROOT_VOLUME_GB"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil && n > 0 {
+			rootVolumeGb = float64(n)
+		} else {
+			log.Println("Invalid INFER_ROOT_VOLUME_GB, defaulting to", rootVolumeGb)
+		}
 	}
 	launchTemplate := awsec2.NewLaunchTemplate(stack, jsii.String("LaunchTemplate"), &awsec2.LaunchTemplateProps{
 		InstanceType:  awsec2.NewInstanceType(jsii.String(instanceType)),
@@ -119,8 +140,10 @@ func (jsComp *JetStoreStackComponents) BuildInferEc2(scope constructs.Construct,
 		// Root OS volume — kept at a reasonable size for the OS/Docker layers.
 		BlockDevices: &[]*awsec2.BlockDevice{
 			{
-				DeviceName: jsii.String("/dev/sda1"),
-				Volume: awsec2.BlockDeviceVolume_Ebs(jsii.Number(50), &awsec2.EbsDeviceOptions{
+				// Must be the AMI's root device name, otherwise this adds a second,
+				// unused volume and the root stays at the AMI's default size.
+				DeviceName: jsii.String(rootDeviceName),
+				Volume: awsec2.BlockDeviceVolume_Ebs(jsii.Number(rootVolumeGb), &awsec2.EbsDeviceOptions{
 					VolumeType:          awsec2.EbsDeviceVolumeType_GP3,
 					DeleteOnTermination: jsii.Bool(true), // root volume is ephemeral — fine
 				}),
@@ -129,19 +152,22 @@ func (jsComp *JetStoreStackComponents) BuildInferEc2(scope constructs.Construct,
 		UserData: awsec2.UserData_ForLinux(&awsec2.LinuxUserDataOptions{}),
 	})
 
-	// User data: register with ECS cluster.
-	// The persistent volume is attached and mounted by the lifecycle-hook Lambda
-	// BEFORE this user data runs (lifecycle hook pauses the launch sequence).
+	// User data: mount the persistent volume before the ECS agent comes up.
+	// The volume is attached by the lifecycle-hook Lambda BEFORE this runs (the hook pauses
+	// the launch sequence and signals CONTINUE only after attaching), so /dev/xvdf is ready.
+	//
+	// The ECS_CLUSTER line is NOT written here: EcsCluster.AddAsgCapacityProvider below appends
+	// `echo ECS_CLUSTER=<name> >> /etc/ecs/ecs.config` to this same user data for
+	// MachineImageType AMAZON_LINUX_2. Adding it here too would duplicate the entry.
+	// Ordering works out because ecs.service starts after cloud-init finishes.
 	launchTemplate.UserData().AddCommands(
-		jsii.String("#!/bin/bash"),
-		jsii.String("echo ECS_CLUSTER="+*jsComp.EcsCluster.ClusterName()+" >> /etc/ecs/ecs.config"),
-		// Mount the persistent volume once it has been attached by the Lambda.
-		// The Lambda signals CONTINUE only after attaching, so /dev/xvdf is ready.
 		jsii.String("mkdir -p "+jsComp.JetsTempData()),
 		jsii.String("if ! blkid /dev/xvdf; then mkfs -t ext4 /dev/xvdf; fi"),
 		jsii.String("mount /dev/xvdf "+jsComp.JetsTempData()),
 		jsii.String("echo '/dev/xvdf "+jsComp.JetsTempData()+" ext4 defaults,nofail 0 2' >> /etc/fstab"),
 	)
+	// Ownership of the mount is not set here: cbooter chowns it to jsuser (999:999) at task
+	// start, while it still has root, before dropping privileges to run ollama.
 
 	// -----------------------------------------------------------------------
 	// Auto Scaling Group  (min=0, max=1, single AZ matching the EBS volume)
@@ -174,7 +200,9 @@ func (jsComp *JetStoreStackComponents) BuildInferEc2(scope constructs.Construct,
 		MinimumScalingStepSize:             jsii.Number(1),
 		MaximumScalingStepSize:             jsii.Number(1),
 	}), &awsecs.AddAutoScalingGroupCapacityOptions{
-		// MachineImageType: awsecs.MachineImageType_AMAZON_LINUX_2,
+		// Stated explicitly rather than left to the default: this is what makes CDK append the
+		// ECS_CLUSTER line to the launch template user data (see the comment above).
+		MachineImageType: awsecs.MachineImageType_AMAZON_LINUX_2,
 	})
 
 	// -----------------------------------------------------------------------

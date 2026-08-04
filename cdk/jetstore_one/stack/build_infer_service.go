@@ -27,12 +27,17 @@ func (jsComp *JetStoreStackComponents) BuildInferService(scope constructs.Constr
 	})
 	// Define the container
 	jsComp.InferTaskContainer = jsComp.InferTaskDefinition.AddContainer(jsii.String("inferServiceContainer"), &awsecs.ContainerDefinitionOptions{
-		// Use JetStore Image in ecr
-		Image:         jsComp.JetStoreImage,
-		ContainerName: jsii.String("inferServiceContainer"),
-		Essential:     jsii.Bool(true),
-		EntryPoint:    jsii.Strings("cbooter", "infer_server"),
+		// Dedicated infer image (Ollama + cbooter on Amazon Linux 2023), not the JetStore image
+		Image:          jsComp.InferImage,
+		ContainerName:  jsii.String("inferServiceContainer"),
+		Essential:      jsii.Bool(true),
+		EntryPoint:     jsii.Strings("cbooter", "infer_server"),
 		MemoryLimitMiB: jsii.Number(jsComp.InferMemLimitMB()), // default 12 GB
+		// Reserve one GPU for this container. ECS matches this against the GPU inventory the
+		// container agent reads from /var/lib/ecs/gpu/nvidia-gpu-info.json on the GPU-optimized
+		// AMI, then injects the devices via the nvidia runtime. Without it the task is placed
+		// with no GPU visible and Ollama silently falls back to CPU.
+		GpuCount: jsii.Number(1),
 		PortMappings: &[]*awsecs.PortMapping{
 			{
 				Name:          jsii.String("infer-service-port-mapping"),
@@ -42,11 +47,25 @@ func (jsComp *JetStoreStackComponents) BuildInferService(scope constructs.Constr
 			},
 		},
 		Environment: &map[string]*string{
-			"JETS_TEMP_DATA":  jsii.String(jsComp.JetsTempData()),
-			"TMPDIR":          jsii.String(jsComp.TempDir()),
-			"WORKSPACES_HOME": jsii.String(jsComp.JetsTempData() + "/workspaces"),
-			"WORKSPACE":       jsii.String(os.Getenv("WORKSPACE")),
-			"ENVIRONMENT":     jsii.String(os.Getenv("ENVIRONMENT")),
+			"JETS_TEMP_DATA": jsii.String(jsComp.JetsTempData()),
+			"TMPDIR":         jsii.String(jsComp.TempDir()),
+			"WORKSPACE":      jsii.String(os.Getenv("WORKSPACE")),
+			"ENVIRONMENT":    jsii.String(os.Getenv("ENVIRONMENT")),
+			// No WORKSPACES_REPO / WORKSPACES_HOME: the infer image carries no workspace and
+			// cbooter only requires those for the commands that stage one.
+			// Ollama runs as a direct child of cbooter (as jsuser, uid 999) rather than as a
+			// nested `docker run`, so it inherits these directly.
+			// OLLAMA_MODELS puts the weights on the persistent EBS volume so they survive both
+			// task restarts and instance replacement; jsuser has no writable HOME otherwise.
+			"OLLAMA_MODELS": jsii.String(jsComp.JetsTempData() + "/ollama"),
+			"OLLAMA_HOST":   jsii.String("0.0.0.0:11434"),
+			// Dropping to uid 999 does not change HOME; left at root's, Ollama cannot write
+			// its signing key or caches under /root/.ollama.
+			"HOME":                     jsii.String(jsComp.JetsTempData() + "/home"),
+			"OLLAMA_NUM_PARALLEL":      jsii.String(jsComp.InferEnvOrDefault("OLLAMA_NUM_PARALLEL", "4")),
+			"OLLAMA_MAX_LOADED_MODELS": jsii.String(jsComp.InferEnvOrDefault("OLLAMA_MAX_LOADED_MODELS", "2")),
+			"OLLAMA_KEEP_ALIVE":        jsii.String(jsComp.InferEnvOrDefault("OLLAMA_KEEP_ALIVE", "30")),
+			"OLLAMA_CONTEXT_LENGTH":    jsii.String(jsComp.InferEnvOrDefault("OLLAMA_CONTEXT_LENGTH", "256000")),
 		},
 		// Secrets: &map[string]awsecs.Secret{
 		// 	"API_SECRET":          awsecs.Secret_FromSecretsManager(jsComp.ApiSecret, nil),

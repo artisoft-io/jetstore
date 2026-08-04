@@ -136,7 +136,14 @@ func (jsComp *JetStoreStackComponents) BuildELB(scope constructs.Construct, stac
 			Listener: awsecs.ListenerConfig_ApplicationListener(inferListener, &awselb.AddApplicationTargetsProps{
 				Protocol: awselb.ApplicationProtocol_HTTP,
 				HealthCheck: &awselb.HealthCheck{
-					Path: jsii.String("/healthcheck/status"),
+					// Ollama has no /healthcheck/status route — GET / returns 200 "Ollama is
+					// running". Using the JetStore path here would 404 and the ALB would kill
+					// the task in a loop.
+					Path: jsii.String("/"),
+					// Loading a model can stall the server past the default 5s/2-try budget.
+					Timeout:                 awscdk.Duration_Seconds(jsii.Number(10)),
+					Interval:                awscdk.Duration_Seconds(jsii.Number(30)),
+					UnhealthyThresholdCount: jsii.Number(5),
 				},
 			}),
 		})

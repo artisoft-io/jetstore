@@ -16,7 +16,6 @@ import (
 	awselb "github.com/aws/aws-cdk-go/awscdk/v2/awselasticloadbalancingv2"
 	"github.com/aws/aws-cdk-go/awscdk/v2/awsiam"
 	"github.com/aws/aws-cdk-go/awscdk/v2/awskms"
-	"github.com/aws/aws-cdk-go/awscdk/v2/awslogs"
 	"github.com/aws/aws-cdk-go/awscdk/v2/awsrds"
 	"github.com/aws/aws-cdk-go/awscdk/v2/awss3"
 	awssm "github.com/aws/aws-cdk-go/awscdk/v2/awssecretsmanager"
@@ -88,6 +87,7 @@ type JetStoreStackComponents struct {
 	EcsTaskRole          awsiam.Role
 	JetStoreImage        awsecs.EcrImage
 	CpipesImage          awsecs.EcrImage
+	InferImage           awsecs.EcrImage
 
 	RunreportTaskDefinition awsecs.FargateTaskDefinition
 	RunreportsContainerDef  awsecs.ContainerDefinition
@@ -134,13 +134,11 @@ type JetStoreStackComponents struct {
 	BastionHost    awsec2.BastionHostLinux
 
 	// Infer components
-	InferSM                sfn.StateMachine
-	EcsInferService        awsecs.FargateService
-	InferTaskDefinition    awsecs.Ec2TaskDefinition
-	InferTaskContainer     awsecs.ContainerDefinition
-	PersistentVolume       awsec2.Volume
-	InferContainerLogGroup awslogs.LogGroup
-	InferAutoScalingGroup  awsautoscaling.AutoScalingGroup
+	EcsInferService       awsecs.FargateService
+	InferTaskDefinition   awsecs.Ec2TaskDefinition
+	InferTaskContainer    awsecs.ContainerDefinition
+	PersistentVolume      awsec2.Volume
+	InferAutoScalingGroup awsautoscaling.AutoScalingGroup
 }
 
 func (jsComp *JetStoreStackComponents) DoBuildInferServer() bool {
@@ -185,13 +183,34 @@ func (jsComp *JetStoreStackComponents) JetsTempData() string {
 	return jetsTempData
 }
 
+// InferImageTag is the ECR tag of the infer image (Ollama + cbooter, built from
+// dockerfiles/Dockerfile.infer_service). It tracks JETS_IMAGE_TAG unless overridden,
+// so the two images stay in step when they are built and pushed together.
 func (jsComp *JetStoreStackComponents) InferImageTag() string {
-	var inferImageTag string
-	inferImageTag = os.Getenv("INFER_IMAGE_TAG")
+	inferImageTag := os.Getenv("INFER_IMAGE_TAG")
 	if inferImageTag == "" {
-		inferImageTag = "ollama/ollama:latest"
+		inferImageTag = os.Getenv("JETS_IMAGE_TAG")
 	}
 	return inferImageTag
+}
+
+// InferEcrRepoArn is the ECR repo holding the infer image, defaulting to the main
+// JetStore repo so a separate repo is only needed when you want one.
+func (jsComp *JetStoreStackComponents) InferEcrRepoArn() string {
+	arn := os.Getenv("INFER_ECR_REPO_ARN")
+	if arn == "" {
+		arn = os.Getenv("JETS_ECR_REPO_ARN")
+	}
+	return arn
+}
+
+// InferEnvOrDefault reads an Ollama tuning variable from the synth environment,
+// falling back to the value baked into the stack.
+func (jsComp *JetStoreStackComponents) InferEnvOrDefault(name, defaultValue string) string {
+	if v := os.Getenv(name); v != "" {
+		return v
+	}
+	return defaultValue
 }
 
 func (jsComp *JetStoreStackComponents) InferMemLimitMB() float64 {

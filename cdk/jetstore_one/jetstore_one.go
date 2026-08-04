@@ -355,11 +355,17 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 
 	// Build the infer State Machine (inferSM)
 	if jsComp.DoBuildInferServer() {
+		// Infer Image from ecr -- Ollama + cbooter, built from dockerfiles/Dockerfile.infer_service.
+		// Resolved here rather than alongside JetStoreImage so the ECR repo lookup construct is
+		// only created when the infer server is actually being built.
+		jsComp.InferImage = awsecs.AssetImage_FromEcrRepository(
+			awsecr.Repository_FromRepositoryArn(stack, jsii.String("jetstore-infer-image"),
+				jsii.String(jsComp.InferEcrRepoArn())),
+			jsii.String(jsComp.InferImageTag()))
+
 		if jsComp.BuildInferEc2(scope, stack, props) != nil {
 			jsComp.BuildInferService(scope, stack, props)
 		}
-		// To BE REMOVED
-		// jsComp.BuildInferSM(scope, stack, props)
 	}
 
 	// RegisterKey Lambda
@@ -564,13 +570,17 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 // === New Entries for Infer Task ===
 // BUILD_INFER_SERVICE (optional) set to TRUE to build the infer state machine, default FALSE
 // JETS_INFER_PORT (optional) port for infer server, default 11434
-// INFER_AMI_NAME (optional) name of the AMI to use for ec2 infer task, default "jetstore-infer-*"
-// (a wildcard resolves to the most recently built AMI)
-// INFER_AMI_OWNER (optional) owner of the infer AMI, default "self" (the deploying account)
-// INFER_IMAGE_TAG (required for Infer Server) defaults to "ollama/ollama:latest" if not set, otherwise must be a valid docker image tag
+// INFER_AMI_NAME (optional) escape hatch to pin a custom AMI; when unset the stock ECS
+// GPU-optimized Amazon Linux 2023 AMI is used (NVIDIA driver + ECS agent preinstalled)
+// INFER_AMI_OWNER (optional) owner of the custom AMI, default "self"; ignored unless INFER_AMI_NAME is set
+// INFER_AMI_ROOT_DEVICE (optional) root device name of the custom AMI, default "/dev/xvda"
+// INFER_ECR_REPO_ARN (optional) ECR repo holding the infer image, default JETS_ECR_REPO_ARN
+// INFER_IMAGE_TAG (optional) tag of the infer image, default JETS_IMAGE_TAG
 // INFER_MEM_LIMIT_MB (optional) memory limit in MB for infer task, default 1024 * 16 * 10 / 8 = 12.5 GB
 // INFER_EC2_INSTANCE_TYPE (optional) EC2 instance type for infer task, default g5.xlarge
-// INFER_TASK_TIMEOUT_MIN (optional) state machine timeout for INFER_SM, default 4h
+// INFER_ROOT_VOLUME_GB (optional) size of the infer instance root volume in GB, default 50
+// OLLAMA_NUM_PARALLEL, OLLAMA_MAX_LOADED_MODELS, OLLAMA_KEEP_ALIVE, OLLAMA_CONTEXT_LENGTH
+// (optional) Ollama tuning passed through to the infer container, defaults 4 / 2 / 30 / 256000
 //XXX JETS_INFER_SSH_KEY_NAME (optional) name of the keypair to use for infer ec2 instance, default none (*for debugging only*)
 
 func main() {
@@ -672,9 +682,12 @@ func main() {
 	log.Println("env JETS_INFER_PORT:", os.Getenv("JETS_INFER_PORT"))
 	log.Println("env INFER_AMI_NAME:", os.Getenv("INFER_AMI_NAME"))
 	log.Println("env INFER_AMI_OWNER:", os.Getenv("INFER_AMI_OWNER"))
+	log.Println("env INFER_AMI_ROOT_DEVICE:", os.Getenv("INFER_AMI_ROOT_DEVICE"))
+	log.Println("env INFER_ECR_REPO_ARN:", os.Getenv("INFER_ECR_REPO_ARN"))
+	log.Println("env INFER_IMAGE_TAG:", os.Getenv("INFER_IMAGE_TAG"))
 	log.Println("env INFER_MEM_LIMIT_MB:", os.Getenv("INFER_MEM_LIMIT_MB"))
 	log.Println("env INFER_EC2_INSTANCE_TYPE:", os.Getenv("INFER_EC2_INSTANCE_TYPE"))
-	log.Println("env INFER_TASK_TIMEOUT_MIN:", os.Getenv("INFER_TASK_TIMEOUT_MIN"))
+	log.Println("env INFER_ROOT_VOLUME_GB:", os.Getenv("INFER_ROOT_VOLUME_GB"))
 	// log.Println("env JETS_INFER_SSH_KEY_NAME:", os.Getenv("JETS_INFER_SSH_KEY_NAME"))
 
 	// Verify that we have all the required env variables
