@@ -22,6 +22,7 @@ package awsi
 import (
 	"context"
 	"fmt"
+	"os"
 	"strings"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -34,16 +35,20 @@ import (
 const DefaultInferServiceName = "jetstore-infer-service"
 
 // InferServerTarget identifies the infer service and the EC2 capacity behind it.
+//
+// Every field falls back to an environment variable when left empty, and the CDK stack sets
+// all three on the UI container whenever the infer server is part of the stack. Callers
+// running there can therefore pass the zero value, InferServerTarget{}. An explicitly set
+// field always wins over the environment.
 type InferServerTarget struct {
-	// ClusterName is the ECS cluster hosting the infer service. Required — the stack
-	// does not currently pass it to containers, so callers must supply it (it is a
-	// CloudFormation output of the stack, ClusterName).
+	// ClusterName is the ECS cluster hosting the infer service. Required, either here or
+	// as JETS_ECS_CLUSTER_NAME.
 	ClusterName string
-	// ServiceName defaults to DefaultInferServiceName when empty.
+	// ServiceName falls back to JETS_INFER_SERVICE_NAME, then to DefaultInferServiceName.
 	ServiceName string
-	// AsgName is the auto scaling group holding the GPU capacity. Optional: when empty
-	// it is resolved from the cluster's capacity provider, since CDK generates the name
-	// and it cannot be predicted.
+	// AsgName is the auto scaling group holding the GPU capacity. Falls back to
+	// JETS_INFER_ASG_NAME. When it resolves to empty it is discovered from the cluster's
+	// capacity provider, since CDK generates the name and it cannot be predicted.
 	AsgName string
 }
 
@@ -70,8 +75,20 @@ func StopInferServer(ctx context.Context, target InferServerTarget) (changed boo
 }
 
 func scaleInferServer(ctx context.Context, target InferServerTarget, count int32) (bool, error) {
+	// Fall back to the environment for anything the caller left empty. The CDK stack sets
+	// all three on the UI container, so InferServerTarget{} is enough when running there.
 	if target.ClusterName == "" {
-		return false, fmt.Errorf("error: ClusterName is required to scale the infer server")
+		target.ClusterName = os.Getenv("JETS_ECS_CLUSTER_NAME")
+	}
+	if target.ServiceName == "" {
+		target.ServiceName = os.Getenv("JETS_INFER_SERVICE_NAME")
+	}
+	if target.AsgName == "" {
+		target.AsgName = os.Getenv("JETS_INFER_ASG_NAME")
+	}
+	if target.ClusterName == "" {
+		return false, fmt.Errorf(
+			"error: ClusterName is required to scale the infer server, set it on InferServerTarget or as JETS_ECS_CLUSTER_NAME")
 	}
 	if target.ServiceName == "" {
 		target.ServiceName = DefaultInferServiceName

@@ -388,6 +388,47 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 		Actions:   jsii.Strings("states:StartExecution"),
 		Resources: &resources,
 	}))
+
+	// ---------------------------------------
+	// Allow JetStore Tasks to start and stop the Infer Server
+	// ---------------------------------------
+	// Used by awsi.StartInferServer / StopInferServer, called from the UI service. The task
+	// and its GPU instance scale independently, so this covers both the ECS service and the
+	// auto scaling group behind it. These land on the shared EcsTaskRole -- the convention
+	// stated where the role is created -- so the cpipes and run-reports tasks receive them
+	// too, which is what would be wanted if a pipeline step ever needs inference.
+	//
+	// Guarded on the components rather than DoBuildInferServer() so this cannot reference a
+	// nil resource if the infer build above was skipped for any other reason.
+	if jsComp.EcsInferService != nil && jsComp.InferAutoScalingGroup != nil {
+		jsComp.EcsTaskRole.AddToPolicy(awsiam.NewPolicyStatement(&awsiam.PolicyStatementProps{
+			Actions:   jsii.Strings("ecs:DescribeServices", "ecs:UpdateService"),
+			Resources: &[]*string{jsComp.EcsInferService.ServiceArn()},
+		}))
+		jsComp.EcsTaskRole.AddToPolicy(awsiam.NewPolicyStatement(&awsiam.PolicyStatementProps{
+			Actions:   jsii.Strings("autoscaling:SetDesiredCapacity"),
+			Resources: &[]*string{jsComp.InferAutoScalingGroup.AutoScalingGroupArn()},
+		}))
+		jsComp.EcsTaskRole.AddToPolicy(awsiam.NewPolicyStatement(&awsiam.PolicyStatementProps{
+			// Autoscaling Describe* actions have no resource types, so this cannot be scoped.
+			Actions:   jsii.Strings("autoscaling:DescribeAutoScalingGroups"),
+			Resources: jsii.Strings("*"),
+		}))
+		// The remaining two are only for awsi's fallback path, which discovers the auto
+		// scaling group through the cluster's capacity provider when JETS_INFER_ASG_NAME is
+		// absent. The UI container always has that variable set, so this is here to keep the
+		// fallback from failing with a confusing AccessDenied rather than because the normal
+		// path needs it. DescribeCapacityProviders has no resource types either.
+		jsComp.EcsTaskRole.AddToPolicy(awsiam.NewPolicyStatement(&awsiam.PolicyStatementProps{
+			Actions:   jsii.Strings("ecs:DescribeClusters"),
+			Resources: &[]*string{jsComp.EcsCluster.ClusterArn()},
+		}))
+		jsComp.EcsTaskRole.AddToPolicy(awsiam.NewPolicyStatement(&awsiam.PolicyStatementProps{
+			Actions:   jsii.Strings("ecs:DescribeCapacityProviders"),
+			Resources: jsii.Strings("*"),
+		}))
+	}
+
 	// Also to status update & register key lambda
 	jsComp.StatusUpdateLambda.AddToRolePolicy(awsiam.NewPolicyStatement(&awsiam.PolicyStatementProps{
 		Actions: jsii.Strings("states:StartExecution"),

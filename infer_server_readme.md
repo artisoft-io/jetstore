@@ -145,6 +145,25 @@ aws ecs update-service --cluster "$CLUSTER" \
 Scaling only the service also works, since managed scaling launches an instance when a task
 cannot be placed, but it is slower: the alarm has to fire before the instance even begins booting.
 
+### From Go
+
+`awsi.StartInferServer` / `awsi.StopInferServer` (`jets/awsi/infer_server.go`) do both steps
+in the right order. They are idempotent — starting an already running server returns
+`changed=false` rather than an error — and they return as soon as both scale changes are
+requested, without waiting for the instance or the model.
+
+The CDK stack sets `JETS_ECS_CLUSTER_NAME`, `JETS_INFER_SERVICE_NAME` and
+`JETS_INFER_ASG_NAME` on the UI container whenever the infer server is part of the stack, and
+every `InferServerTarget` field falls back to its variable, so from the apiserver:
+
+```go
+changed, err := awsi.StartInferServer(ctx, awsi.InferServerTarget{})
+```
+
+The variables being absent is how the apiserver can tell "infer server not deployed" from
+"deployed but stopped" — with `BUILD_INFER_SERVICE` unset, none of the three are present and
+the corresponding IAM permissions are not granted either.
+
 **What still costs money after this.** The 100 GiB gp3 persistent volume
 (`vol-02db94957c76c43cb`, ~$8/month) is deliberately retained — it holds the model weights, and
 deleting it means re-pulling them on next start. The instance's 50 GiB root volume has
