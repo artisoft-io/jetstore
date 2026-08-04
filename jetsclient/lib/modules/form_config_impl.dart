@@ -17,6 +17,7 @@ import 'package:jetsclient/modules/user_flows/workspace_pull/form_config.dart';
 import 'package:jetsclient/utils/constants.dart';
 import 'package:jetsclient/models/form_config.dart';
 import 'package:jetsclient/modules/workspace_ide/form_config.dart';
+import 'package:jetsclient/modules/workspace_ide/infer_server_admin/form_config.dart';
 
 final Map<String, FormConfig> _formConfigurations = {
   // Home Form (actionless)
@@ -810,6 +811,8 @@ FormConfig getFormConfig(String key) {
   var config = _formConfigurations[key];
   if (config != null) return config;
   config = getWorkspaceFormConfig(key);
+  if (config != null) return config;
+  config = getInferServerAdminFormConfig(key);
   if (config != null) return config;
   config = getClientRegistryFormConfig(key);
   if (config != null) return config;

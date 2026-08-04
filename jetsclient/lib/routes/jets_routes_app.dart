@@ -21,6 +21,9 @@ const homePath = '/';
 // const processInputPath = '/processInput';
 const domainTableViewerPath = '/domainTableViewer/:table_name/:session_id';
 const queryToolPath = '/queryTool';
+// Top level, like queryToolPath: reached from the Workspace IDE menu but not nested under
+// /workspaces, which is a parameterized route.
+const inferServerAdminPath = '/inferServerAdmin';
 const filePreviewPath = '/filePreviewPath/:file_key';
 const executionStatusDetailsPath = '/executionStatusDetails/:session_id';
 const executionStatsDetailsPath = '/executionStatsDetails/:session_id';
@@ -157,6 +160,14 @@ final Map<String, Widget> jetsRoutesMap = {
       getFormConfig(FormKeys.queryToolInputForm),
       getFormConfig(FormKeys.queryToolResultViewForm),
     ],
+  ),
+
+  // Infer Server Admin
+  inferServerAdminPath: ScreenWithForm(
+    key: const Key(ScreenKeys.inferServerAdminScreen),
+    screenPath: const JetsRouteData(inferServerAdminPath),
+    screenConfig: getScreenConfig(ScreenKeys.inferServerAdminScreen),
+    formConfig: getFormConfig(FormKeys.inferServerAdminForm),
   ),
 
   // File Preview

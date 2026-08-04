@@ -164,6 +164,44 @@ The variables being absent is how the apiserver can tell "infer server not deplo
 "deployed but stopped" — with `BUILD_INFER_SERVICE` unset, none of the three are present and
 the corresponding IAM permissions are not granted either.
 
+`awsi.GetInferServerStatus` reports the same thing back: `running`, `stopped`, or the
+`starting` / `stopping` transitions, derived from the desired counts against what is actually
+placed. It reads only, through the two describes the scaling calls already make, so it needs
+no permissions beyond theirs.
+
+### From the UI
+
+**Workspace IDE → Infer Server Admin** drives all of this from a screen. It needs the
+`infer_server_admin` capability, which is checked in the apiserver
+(`jets/apiserver/api_infer_server.go`), not only in the UI — the disabled menu button is
+presentation, the endpoint is the enforcement point. The capability is seeded for
+`knowledge_engineer` in `jets/jets_init_db.sql`.
+
+The screen posts a request envelope to `/inferServer`. The envelope names an action and the
+server maps it to a route; it never accepts a path, which would make the apiserver an open
+proxy into the VPC.
+
+```json
+{ "action": "pull_model", "body": { "model": "granite4.1:3b", "stream": false } }
+```
+
+| `action` | Effect |
+|---|---|
+| `server_status` | `GetInferServerStatus` |
+| `start_server` / `stop_server` | `StartInferServer` / `StopInferServer`, then re-reads status |
+| `list_models` | `GET /api/ps` |
+| `pull_model` | `POST /api/pull` |
+| `show_model` | `POST /api/show` |
+| `delete_model` | `DELETE /api/delete` |
+
+Set `"stream": false` on a pull: Ollama otherwise streams NDJSON progress, which the screen
+cannot render. The proxy allows 20 minutes, matching the ALB idle timeout — enough for a model
+this size, possibly not for a much larger one.
+
+The apiserver reaches Ollama at `JETS_INFER_URL`, which `BuildELB` sets on the UI container
+(the load balancer does not exist yet when `BuildUiService` runs). Its absence means the stack
+was built without the infer server, and the proxy actions say so rather than failing to connect.
+
 **What still costs money after this.** The 100 GiB gp3 persistent volume
 (`vol-02db94957c76c43cb`, ~$8/month) is deliberately retained — it holds the model weights, and
 deleting it means re-pulling them on next start. The instance's 50 GiB root volume has
