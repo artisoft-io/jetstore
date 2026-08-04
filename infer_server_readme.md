@@ -103,6 +103,54 @@ The one case that still needs an explicit value is the **first** deploy of a new
 property absent, ECS defaults a brand new service to 1 and a GPU instance starts as soon as the
 stack comes up. Set `INFER_DESIRED_COUNT=0` for that initial deploy, then leave it unset.
 
+> **Not yet verified.** The `INFER_DESIRED_COUNT=0` path has only been reasoned through, not
+> exercised — it can only be tested on a brand new stack, since ECS applies the "default a new
+> service to 1" behaviour at create time only. The preservation behaviour on *update* is
+> verified (see below). Confirm this the next time a new environment is stood up.
+
+## Stopping it completely
+
+Scaling the service to 0 stops the task but **leaves the `g5.xlarge` running**, which is where
+almost all of the cost is. The instance belongs to the `InferASG` auto-scaling group, not to the
+ECS service, so it has to be scaled down separately:
+
+```bash
+CLUSTER=JetstoreOneStack-ecsCluster15812518-mXSyN5XGIXmN
+ASG=$(aws autoscaling describe-auto-scaling-groups \
+  --query "AutoScalingGroups[?contains(AutoScalingGroupName,'InferASG')].AutoScalingGroupName" \
+  --output text)
+
+# 1. stop the task
+aws ecs update-service --cluster "$CLUSTER" \
+  --service jetstore-infer-service --desired-count 0
+
+# 2. terminate the GPU instance
+aws autoscaling set-desired-capacity --auto-scaling-group-name "$ASG" --desired-capacity 0
+```
+
+Step 2 is about *when*, not whether. The capacity provider has managed scaling enabled with
+`DisableScaleIn: false` and managed termination protection off, so ECS will scale the ASG to 0 on
+its own once the last task stops — but that runs off a CloudWatch target-tracking alarm and takes
+roughly 15 minutes. Setting the desired capacity explicitly terminates it immediately. It is also
+stable: with no tasks pending, managed scaling has nothing to scale back out for.
+
+To start it again, reverse the order — capacity first, then the task:
+
+```bash
+aws autoscaling set-desired-capacity --auto-scaling-group-name "$ASG" --desired-capacity 1
+aws ecs update-service --cluster "$CLUSTER" \
+  --service jetstore-infer-service --desired-count 1
+```
+
+Scaling only the service also works, since managed scaling launches an instance when a task
+cannot be placed, but it is slower: the alarm has to fire before the instance even begins booting.
+
+**What still costs money after this.** The 100 GiB gp3 persistent volume
+(`vol-02db94957c76c43cb`, ~$8/month) is deliberately retained — it holds the model weights, and
+deleting it means re-pulling them on next start. The instance's 50 GiB root volume has
+`DeleteOnTermination: true` and disappears with the instance. Everything else in the stack (ELB,
+NAT gateway, RDS) is not infer-specific.
+
 ## Verification
 
 With `num_ctx: 32768`, against the live service:
@@ -112,6 +160,13 @@ With `num_ctx: 32768`, against the live service:
 - **4 concurrent copies of that request** — 10.6s wall clock (vs 8.0s for one), all four
   returning complete responses. Memory flat at 12.32 GiB, fully in VRAM.
 - **Warm generation** — ~166 tok/s.
+
+Scale preservation across a deploy, with the service running at 1:
+
+- **`cdk deploy` completed `UPDATE_COMPLETE` on the service, and the task was untouched** — same
+  task id and same `startedAt` before and after, `desired`/`running` still 1, and no ECS service
+  events logged during the update at all. The model stayed resident in VRAM, so the first
+  post-deploy request served warm in 4.3s.
 
 ## Notes for the next person debugging this
 
