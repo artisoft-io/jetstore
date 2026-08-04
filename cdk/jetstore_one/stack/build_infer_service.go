@@ -113,7 +113,9 @@ func (jsComp *JetStoreStackComponents) BuildInferService(scope constructs.Constr
 		TaskDefinition: jsComp.InferTaskDefinition,
 		VpcSubnets:     jsComp.PrivateSubnetSelection,
 		AssignPublicIp: jsii.Bool(false),
-		DesiredCount:   jsii.Number(0), // Start with 0 desired count, scale up as needed
+		// Deliberately nil unless INFER_DESIRED_COUNT is set, so that deploying the stack
+		// leaves the service at whatever scale it is already running. See InferDesiredCount.
+		DesiredCount: jsComp.InferDesiredCount(),
 		SecurityGroups: &[]awsec2.ISecurityGroup{
 			jsComp.VpcEndpointsSg,
 			// jsComp.RdsAccessSg,

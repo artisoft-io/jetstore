@@ -78,6 +78,31 @@ variable of the same name at CDK synth time.
 VRAM and must be chosen together. Raising either one requires lowering the other, or a larger
 GPU. Two models at 32k want 24.6 GiB and will not fit.
 
+## Scaling the service
+
+The service is scaled on demand and is normally left at 0:
+
+```bash
+CLUSTER=$(aws ecs list-clusters --query 'clusterArns[]' --output text \
+  | tr '\t' '\n' | grep -i jetstore | head -1)
+aws ecs update-service --cluster "$CLUSTER" \
+  --service jetstore-infer-service --desired-count 1   # or 0 to stop
+```
+
+**A stack deploy leaves this count alone.** `DesiredCount` is deliberately omitted from the
+CloudFormation template (see `InferDesiredCount` in `stack/stack_model.go`), because
+CloudFormation only manages the property when it is present. Running stays running, stopped
+stays stopped.
+
+It was previously pinned to `0`, which meant every stack update — including updates that had
+nothing to do with the infer service — reset the count and stopped a running task mid-use. The
+symptom is a 503 from the load balancer with no corresponding error anywhere in the infer logs,
+because the task was stopped deliberately rather than having failed.
+
+The one case that still needs an explicit value is the **first** deploy of a new stack: with the
+property absent, ECS defaults a brand new service to 1 and a GPU instance starts as soon as the
+stack comes up. Set `INFER_DESIRED_COUNT=0` for that initial deploy, then leave it unset.
+
 ## Verification
 
 With `num_ctx: 32768`, against the live service:

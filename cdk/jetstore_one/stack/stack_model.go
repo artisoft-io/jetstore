@@ -223,6 +223,32 @@ func (jsComp *JetStoreStackComponents) InferEnvOrDefault(name, defaultValue stri
 	return defaultValue
 }
 
+// InferDesiredCount returns the desired task count for the infer service, or nil to leave
+// the property out of the CloudFormation template entirely.
+//
+// nil is the default, and is the point of this function. CloudFormation only manages
+// DesiredCount when the property is present, so omitting it makes a stack update preserve
+// whatever the service is currently scaled to — running stays running, stopped stays
+// stopped. Pinned to a literal, every deploy reset the count and stopped a running infer
+// task mid-use, surfacing only as a 503 from the load balancer.
+//
+// The trade-off is at create time: with the property absent ECS defaults a brand new
+// service to 1, which launches a GPU instance as soon as the stack comes up. Set
+// INFER_DESIRED_COUNT=0 on the first deploy of a new stack to avoid paying for an idle
+// g5 before the service is wanted. On an existing stack, leave it unset.
+func (jsComp *JetStoreStackComponents) InferDesiredCount() *float64 {
+	v := os.Getenv("INFER_DESIRED_COUNT")
+	if v == "" {
+		return nil
+	}
+	n, err := strconv.Atoi(v)
+	if err != nil || n < 0 {
+		log.Println("Invalid INFER_DESIRED_COUNT, ignoring it and preserving the service's current scale")
+		return nil
+	}
+	return jsii.Number(float64(n))
+}
+
 func (jsComp *JetStoreStackComponents) InferMemLimitMB() float64 {
 	var memLimit float64
 	memLimitStr := os.Getenv("INFER_MEM_LIMIT_MB")
