@@ -61,14 +61,34 @@ func (jsComp *JetStoreStackComponents) BuildInferService(scope constructs.Constr
 			"OLLAMA_HOST":   jsii.String("0.0.0.0:11434"),
 			// Dropping to uid 999 does not change HOME; left at root's, Ollama cannot write
 			// its signing key or caches under /root/.ollama.
-			"HOME":                     jsii.String(jsComp.JetsTempData() + "/home"),
-			"OLLAMA_NUM_PARALLEL":      jsii.String(jsComp.InferEnvOrDefault("OLLAMA_NUM_PARALLEL", "4")),
-			"OLLAMA_MAX_LOADED_MODELS": jsii.String(jsComp.InferEnvOrDefault("OLLAMA_MAX_LOADED_MODELS", "2")),
+			"HOME":                jsii.String(jsComp.JetsTempData() + "/home"),
+			"OLLAMA_NUM_PARALLEL": jsii.String(jsComp.InferEnvOrDefault("OLLAMA_NUM_PARALLEL", "4")),
+			// One model at a time. A second resident model of this size would want another
+			// ~12 GiB of KV cache on top of the first (see OLLAMA_CONTEXT_LENGTH below),
+			// which does not fit in the A10G's 24 GiB and would push both caches into host
+			// RAM. Raise this only together with a lower OLLAMA_CONTEXT_LENGTH.
+			"OLLAMA_MAX_LOADED_MODELS": jsii.String(jsComp.InferEnvOrDefault("OLLAMA_MAX_LOADED_MODELS", "1")),
 			// Must carry a unit: Ollama parses a bare integer as seconds, so the previous
 			// "30" unloaded the model after 30s idle and paid a full VRAM reload on the
 			// next request.
 			"OLLAMA_KEEP_ALIVE": jsii.String(jsComp.InferEnvOrDefault("OLLAMA_KEEP_ALIVE", "30m")),
-			"OLLAMA_CONTEXT_LENGTH":    jsii.String(jsComp.InferEnvOrDefault("OLLAMA_CONTEXT_LENGTH", "256000")),
+			// Sizes the KV cache, which is allocated up front at model load — NOT on demand
+			// from the actual prompt. It is also the one Ollama setting MemoryLimitMiB cannot
+			// protect: that is a cgroup limit on host RAM, invisible to Ollama's memory
+			// planner, which sizes the cache against total VRAM plus total host RAM.
+			//
+			// Measured on g5.xlarge (A10G, 24 GiB VRAM / 16 GiB RAM) with granite4.1:3b, the
+			// cache costs ~0.31 MiB per token on top of a ~2.3 GiB base:
+			//   16k -> 7.3 GiB   32k -> 12.3 GiB   64k -> 22.6 GiB (spills to host RAM)
+			//   128k -> tries to put 22 GiB of overflow in 16 GiB of RAM and the load fails
+			// The previous 256000 was silently clamped to the model's 131072 maximum and hit
+			// exactly that last case, so every model load died before serving a token.
+			//
+			// 32768 keeps the model fully GPU-resident and still holds several concurrent
+			// requests (the production cintel summarization prompt is ~4.4k tokens). Raising
+			// it past ~48k pushes the cache back off the GPU, as does raising
+			// OLLAMA_MAX_LOADED_MODELS above 1.
+			"OLLAMA_CONTEXT_LENGTH": jsii.String(jsComp.InferEnvOrDefault("OLLAMA_CONTEXT_LENGTH", "32768")),
 		},
 		// Secrets: &map[string]awsecs.Secret{
 		// 	"API_SECRET":          awsecs.Secret_FromSecretsManager(jsComp.ApiSecret, nil),

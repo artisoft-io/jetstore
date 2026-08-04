@@ -580,7 +580,8 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 // INFER_EC2_INSTANCE_TYPE (optional) EC2 instance type for infer task, default g5.xlarge
 // INFER_ROOT_VOLUME_GB (optional) size of the infer instance root volume in GB, default 50
 // OLLAMA_NUM_PARALLEL, OLLAMA_MAX_LOADED_MODELS, OLLAMA_KEEP_ALIVE, OLLAMA_CONTEXT_LENGTH
-// (optional) Ollama tuning passed through to the infer container, defaults 4 / 2 / 30m / 256000
+// (optional) Ollama tuning passed through to the infer container, defaults 4 / 1 / 30m / 32768
+// (see infer_server_readme.md before changing the last two — they are GPU-memory bound)
 //XXX JETS_INFER_SSH_KEY_NAME (optional) name of the keypair to use for infer ec2 instance, default none (*for debugging only*)
 
 func main() {
