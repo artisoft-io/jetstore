@@ -82,9 +82,16 @@ func main() {
 		log.Fatalf("invalid command %q; allowed commands: apiserver, infer_server, run_reports, cpipes_server, cpipes_native_server", cmd)
 	}
 
-	// Validate that JETS_TEMP_DATA, WORKSPACES_REPO, and WORKSPACES_HOME are set
-	if os.Getenv("JETS_TEMP_DATA") == "" || os.Getenv("WORKSPACES_REPO") == "" || os.Getenv("WORKSPACES_HOME") == "" {
-		log.Fatalf("JETS_TEMP_DATA, WORKSPACES_REPO, and WORKSPACES_HOME environment variables must be set")
+	// JETS_TEMP_DATA is the mount point every command writes to.
+	if os.Getenv("JETS_TEMP_DATA") == "" {
+		log.Fatalf("JETS_TEMP_DATA environment variable must be set")
+	}
+	// The workspace variables are only meaningful to the commands that stage a workspace.
+	// infer_server serves models off the mounted volume and never touches one.
+	if cmd != "infer_server" {
+		if os.Getenv("WORKSPACES_REPO") == "" || os.Getenv("WORKSPACES_HOME") == "" {
+			log.Fatalf("WORKSPACES_REPO and WORKSPACES_HOME environment variables must be set for %s", cmd)
+		}
 	}
 
 	// Give some time for the mounted volumes to be ready
@@ -133,21 +140,38 @@ func main() {
 
 	case "infer_server":
 		log.Println("Starting infer_server...")
-		// docker run --rm -e OLLAMA_CONTEXT_LENGTH=256000 -p 11434:11434 --gpus all -v /jetsdata/ollama:/root/.ollama --name ollama-gpu ollama/ollama:latest
-		err := runCommandAsRoot(
-			"docker", 
-			[]string{
-					"run", "--rm", 
-					"-e", "OLLAMA_NUM_PARALLEL=4", 
-					"-e", "OLLAMA_MAX_LOADED_MODELS=2", 
-					"-e", "OLLAMA_KEEP_ALIVE=30", 
-					"-e", "OLLAMA_CONTEXT_LENGTH=256000", 
-					"-p", "11434:11434", "--gpus", "all", "-v", 
-					os.Getenv("JETS_TEMP_DATA") + "/ollama:/root/.ollama", 
-					"--name", "ollama-gpu", "ollama/ollama:latest",
-				},
-		)
-		if err != nil {
+		// Ollama is installed in the image (see dockerfiles/Dockerfile.infer_service) and runs
+		// as a direct child process, not as a nested `docker run`: this container has no access
+		// to a Docker socket, and with awsvpc networking a nested container would publish its
+		// port on the host namespace rather than on the task ENI the load balancer targets.
+		// The GPU is supplied by ECS through the task definition's GpuCount, and the OLLAMA_*
+		// tuning variables are inherited from the container environment.
+		//
+		// OLLAMA_MODELS must live under JETS_TEMP_DATA so the weights land on the persistent
+		// volume; jsuser has no writable home for Ollama's default of $HOME/.ollama.
+		modelsDir := os.Getenv("OLLAMA_MODELS")
+		if modelsDir == "" {
+			log.Fatalf("OLLAMA_MODELS environment variable must be set for infer_server")
+		}
+		if err := os.MkdirAll(modelsDir, 0775); err != nil {
+			log.Fatalf("Failed to create the Ollama models directory %s: %s", modelsDir, err)
+		}
+		// Switching uid does not change HOME, so the child would otherwise inherit root's
+		// and fail to write its signing key and caches under /root/.ollama. HOME must point
+		// somewhere jsuser owns — see the Dockerfile, which puts it under JETS_TEMP_DATA.
+		homeDir := os.Getenv("HOME")
+		if homeDir == "" {
+			log.Fatalf("HOME environment variable must be set for infer_server")
+		}
+		if err := os.MkdirAll(homeDir, 0775); err != nil {
+			log.Fatalf("Failed to create the home directory %s: %s", homeDir, err)
+		}
+		// The mounted volume comes up owned by root and the task's root filesystem is
+		// read-only, so this has to happen here, while we are still root.
+		if err := makeJetsdataWritable(); err != nil {
+			log.Fatalf("Failed to make JETS_TEMP_DATA writable: %s", err)
+		}
+		if err := runCommandAsJsuser("ollama", []string{"serve"}); err != nil {
 			log.Fatalf("Failed to start infer_server: %s", err)
 		}
 
