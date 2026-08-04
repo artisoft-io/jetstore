@@ -137,15 +137,22 @@ before adding a new toggle.
 
 Optional subsystem, gated behind `BUILD_INFER_SERVICE=true`. Every component no-ops via
 `JetStoreStackComponents.DoBuildInferServer()` (`stack/stack_model.go`) when the flag is off, so
-the default stack is unaffected. It spans three files that must be read together:
+the default stack is unaffected. It spans two files that must be read together:
 
 | File | Builds |
 |---|---|
 | `stack/build_infer_ec2.go` | ASG + launch template, persistent EBS volume, lifecycle-hook Lambda |
-| `stack/build_infer_service.go` | ECS container definition — JetStore image, `cbooter apiserver` entrypoint, port 11434 |
-| `stack/build_infer_sm.go` | Step Functions state machine wrapping an ECS Run Task — **currently dead code**, the call in `jetstore_one.go` is commented out and marked "To BE REMOVED" |
+| `stack/build_infer_service.go` | ECS container definition — infer image, `cbooter infer_server` entrypoint, port 11434, `GpuCount: 1` |
 
-Two pieces of non-obvious wiring:
+It runs Ollama as an EC2-backed ECS service (not Fargate — Fargate has no GPU support). The
+image is built from `dockerfiles/Dockerfile.infer_service`: Amazon Linux 2023 + the Ollama
+release archive + `cbooter`, which starts `ollama serve` as `jsuser` (uid/gid 999). Two traps
+in that hand-off: AL2023 does not predefine uid 999, so the Dockerfile creates it the way
+`Dockerfile.cpipes` does; and `syscall.Credential` changes the uid without changing `HOME`, so
+`HOME` and `OLLAMA_MODELS` must both be pointed under `JETS_TEMP_DATA` or Ollama fails writing
+its signing key and caches to root's home.
+
+Three pieces of non-obvious wiring:
 
 **Persistent EBS across instance restarts.** LLM weights live on a separate 100GB volume with
 `RemovalPolicy_RETAIN`, deliberately not managed by the instance lifecycle. An
@@ -155,10 +162,20 @@ exists when it runs `mount`. This is why the ASG and the volume are both pinned 
 `AvailabilityZones()[0]`: an EBS volume cannot cross an AZ. Changing the AZ pinning on either
 side silently breaks instance launch.
 
-**The AMI comes from `tools/infer_ami_builder/`.** `INFER_AMI_NAME` is looked up at synth time
-via `awsec2.MachineImage_Lookup`; the AMI itself is built out-of-band by the Packer template in
-that directory (NVIDIA drivers + Docker + NVIDIA Container Toolkit, with `default-runtime` set to
-`nvidia`). There is no CI wiring between the two — build the AMI first, then pass its name in.
+**GPU scheduling is ECS-native, and the AMI must cooperate.** The instances run the stock ECS
+GPU-optimized AMI (`al2023-ami-ecs-gpu-hvm-*`, resolved from SSM by
+`awsecs.EcsOptimizedImage_AmazonLinux2023`), which ships the NVIDIA driver, the ECS agent, and a
+GPU inventory at `/var/lib/ecs/gpu/nvidia-gpu-info.json`. That inventory is what makes the task
+definition's `GpuCount` schedulable — without it the task lands with no GPU and Ollama silently
+falls back to CPU. `INFER_AMI_NAME` still exists as an escape hatch for pinning a custom AMI, but
+such an AMI must reproduce that inventory and match `INFER_AMI_ROOT_DEVICE` (`/dev/xvda` on
+AL2023, `/dev/sda1` on Ubuntu images).
+
+`tools/infer_ami_builder/` predates this and is no longer on the deploy path.
+
+**Container CMD must be cleared, not just left unset.** The `amazonlinux:2023` base image sets
+`CMD ["/bin/bash"]`. ECS task definitions here override `entryPoint` but not `command`, so an
+image that does not reset `CMD` gets `/bin/bash` appended to its arguments.
 
 ## Tools
 
