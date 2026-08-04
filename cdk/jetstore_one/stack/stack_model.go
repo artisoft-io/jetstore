@@ -184,22 +184,32 @@ func (jsComp *JetStoreStackComponents) JetsTempData() string {
 }
 
 // InferImageTag is the ECR tag of the infer image (Ollama + cbooter, built from
-// dockerfiles/Dockerfile.infer_service). It tracks JETS_IMAGE_TAG unless overridden,
-// so the two images stay in step when they are built and pushed together.
+// dockerfiles/Dockerfile.infer_service).
+//
+// Required, not defaulted. The infer image shares no content with the JetStore image,
+// so there is no value of JETS_IMAGE_TAG that would produce a working infer task:
+// falling back to it deploys an image with no ollama binary, and the failure only
+// surfaces in the container log as
+//
+//	exec: "ollama": executable file not found in $PATH
+//
+// long after synth and deploy have both reported success. Note that the tags are never
+// interchangeable anyway -- JETS_IMAGE_TAG is derived from the workspaces repo while the
+// infer image is built from this repo, so the sha and timestamp differ.
 func (jsComp *JetStoreStackComponents) InferImageTag() string {
 	inferImageTag := os.Getenv("INFER_IMAGE_TAG")
 	if inferImageTag == "" {
-		inferImageTag = os.Getenv("JETS_IMAGE_TAG")
+		log.Fatal("INFER_IMAGE_TAG must be provided when BUILD_INFER_SERVICE is true")
 	}
 	return inferImageTag
 }
 
-// InferEcrRepoArn is the ECR repo holding the infer image, defaulting to the main
-// JetStore repo so a separate repo is only needed when you want one.
+// InferEcrRepoArn is the ECR repo holding the infer image. Required rather than
+// defaulted, for the same reason as InferImageTag above.
 func (jsComp *JetStoreStackComponents) InferEcrRepoArn() string {
 	arn := os.Getenv("INFER_ECR_REPO_ARN")
 	if arn == "" {
-		arn = os.Getenv("JETS_ECR_REPO_ARN")
+		log.Fatal("INFER_ECR_REPO_ARN must be provided when BUILD_INFER_SERVICE is true")
 	}
 	return arn
 }

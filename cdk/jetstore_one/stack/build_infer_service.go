@@ -64,7 +64,10 @@ func (jsComp *JetStoreStackComponents) BuildInferService(scope constructs.Constr
 			"HOME":                     jsii.String(jsComp.JetsTempData() + "/home"),
 			"OLLAMA_NUM_PARALLEL":      jsii.String(jsComp.InferEnvOrDefault("OLLAMA_NUM_PARALLEL", "4")),
 			"OLLAMA_MAX_LOADED_MODELS": jsii.String(jsComp.InferEnvOrDefault("OLLAMA_MAX_LOADED_MODELS", "2")),
-			"OLLAMA_KEEP_ALIVE":        jsii.String(jsComp.InferEnvOrDefault("OLLAMA_KEEP_ALIVE", "30")),
+			// Must carry a unit: Ollama parses a bare integer as seconds, so the previous
+			// "30" unloaded the model after 30s idle and paid a full VRAM reload on the
+			// next request.
+			"OLLAMA_KEEP_ALIVE": jsii.String(jsComp.InferEnvOrDefault("OLLAMA_KEEP_ALIVE", "30m")),
 			"OLLAMA_CONTEXT_LENGTH":    jsii.String(jsComp.InferEnvOrDefault("OLLAMA_CONTEXT_LENGTH", "256000")),
 		},
 		// Secrets: &map[string]awsecs.Secret{

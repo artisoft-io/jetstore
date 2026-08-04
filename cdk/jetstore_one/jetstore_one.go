@@ -574,13 +574,13 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 // GPU-optimized Amazon Linux 2023 AMI is used (NVIDIA driver + ECS agent preinstalled)
 // INFER_AMI_OWNER (optional) owner of the custom AMI, default "self"; ignored unless INFER_AMI_NAME is set
 // INFER_AMI_ROOT_DEVICE (optional) root device name of the custom AMI, default "/dev/xvda"
-// INFER_ECR_REPO_ARN (optional) ECR repo holding the infer image, default JETS_ECR_REPO_ARN
-// INFER_IMAGE_TAG (optional) tag of the infer image, default JETS_IMAGE_TAG
+// INFER_ECR_REPO_ARN (required when BUILD_INFER_SERVICE) ECR repo holding the infer image
+// INFER_IMAGE_TAG (required when BUILD_INFER_SERVICE) tag of the infer image
 // INFER_MEM_LIMIT_MB (optional) memory limit in MB for infer task, default 1024 * 16 * 10 / 8 = 12.5 GB
 // INFER_EC2_INSTANCE_TYPE (optional) EC2 instance type for infer task, default g5.xlarge
 // INFER_ROOT_VOLUME_GB (optional) size of the infer instance root volume in GB, default 50
 // OLLAMA_NUM_PARALLEL, OLLAMA_MAX_LOADED_MODELS, OLLAMA_KEEP_ALIVE, OLLAMA_CONTEXT_LENGTH
-// (optional) Ollama tuning passed through to the infer container, defaults 4 / 2 / 30 / 256000
+// (optional) Ollama tuning passed through to the infer container, defaults 4 / 2 / 30m / 256000
 //XXX JETS_INFER_SSH_KEY_NAME (optional) name of the keypair to use for infer ec2 instance, default none (*for debugging only*)
 
 func main() {
