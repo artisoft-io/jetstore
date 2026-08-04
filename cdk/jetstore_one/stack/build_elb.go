@@ -147,6 +147,14 @@ func (jsComp *JetStoreStackComponents) BuildELB(scope constructs.Construct, stac
 				},
 			}),
 		})
+		// Tell the apiserver where to reach Ollama, for the Infer Server Admin screen.
+		// This has to be done here rather than in BuildUiService: the load balancer does
+		// not exist until this function runs, and BuildUiService runs before it.
+		// Its absence is meaningful — the apiserver reports "not part of this deployment"
+		// rather than a connection error when the stack was built without the infer server.
+		jsComp.UiTaskContainer.AddEnvironment(jsii.String("JETS_INFER_URL"),
+			jsii.String(fmt.Sprintf("http://%s:%d", *jsComp.UiLoadBalancer.LoadBalancerDnsName(), int(inferPort))))
+
 		// -----------------------------------------------------------------------
 		// Outputs
 		// -----------------------------------------------------------------------

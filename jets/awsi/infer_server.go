@@ -74,7 +74,16 @@ func StopInferServer(ctx context.Context, target InferServerTarget) (changed boo
 	return scaleInferServer(ctx, target, 0)
 }
 
-func scaleInferServer(ctx context.Context, target InferServerTarget, count int32) (bool, error) {
+// inferServer holds a fully resolved target together with the clients to act on it.
+type inferServer struct {
+	target    InferServerTarget
+	ecsClient *ecs.Client
+	asgClient *autoscaling.Client
+}
+
+// resolveInferServer fills in the target from the environment, builds the AWS clients
+// and, when the auto scaling group is still unknown, discovers it from the cluster.
+func resolveInferServer(ctx context.Context, target InferServerTarget) (*inferServer, error) {
 	// Fall back to the environment for anything the caller left empty. The CDK stack sets
 	// all three on the UI container, so InferServerTarget{} is enough when running there.
 	if target.ClusterName == "" {
@@ -87,31 +96,129 @@ func scaleInferServer(ctx context.Context, target InferServerTarget, count int32
 		target.AsgName = os.Getenv("JETS_INFER_ASG_NAME")
 	}
 	if target.ClusterName == "" {
-		return false, fmt.Errorf(
-			"error: ClusterName is required to scale the infer server, set it on InferServerTarget or as JETS_ECS_CLUSTER_NAME")
+		return nil, fmt.Errorf(
+			"error: ClusterName is required to reach the infer server, set it on InferServerTarget or as JETS_ECS_CLUSTER_NAME")
 	}
 	if target.ServiceName == "" {
 		target.ServiceName = DefaultInferServiceName
 	}
 	cfg, err := GetConfig()
 	if err != nil {
-		return false, fmt.Errorf("while loading aws configuration: %v", err)
+		return nil, fmt.Errorf("while loading aws configuration: %v", err)
 	}
-	ecsClient := ecs.NewFromConfig(cfg)
-	asgClient := autoscaling.NewFromConfig(cfg)
-
-	if target.AsgName == "" {
-		target.AsgName, err = inferAsgName(ctx, ecsClient, target.ClusterName)
+	is := &inferServer{
+		target:    target,
+		ecsClient: ecs.NewFromConfig(cfg),
+		asgClient: autoscaling.NewFromConfig(cfg),
+	}
+	if is.target.AsgName == "" {
+		is.target.AsgName, err = inferAsgName(ctx, is.ecsClient, is.target.ClusterName)
 		if err != nil {
-			return false, err
+			return nil, err
 		}
 	}
+	return is, nil
+}
+
+// Infer server states reported by GetInferServerStatus.
+const (
+	// InferStopped means the task and the GPU instance are both gone. Nothing is billing
+	// beyond the retained model volume.
+	InferStopped = "stopped"
+	// InferRunning means a task is running. It does not mean a model is loaded — the
+	// first request after a start still pays the model load.
+	InferRunning = "running"
+	// InferStarting and InferStopping are transitional. Both take several minutes: the
+	// instance has to register with the cluster on the way up, and ECS drains the
+	// container instance before the group releases it on the way down.
+	InferStarting = "starting"
+	InferStopping = "stopping"
+)
+
+// InferServerStatus is a point-in-time view of the infer service and the capacity
+// behind it, detailed enough to distinguish a steady state from a transition.
+type InferServerStatus struct {
+	State           string `json:"state"`
+	DesiredTasks    int32  `json:"desiredTasks"`
+	RunningTasks    int32  `json:"runningTasks"`
+	PendingTasks    int32  `json:"pendingTasks"`
+	DesiredCapacity int32  `json:"desiredCapacity"`
+	InstanceCount   int32  `json:"instanceCount"`
+}
+
+// GetInferServerStatus reports whether the infer server is up, starting, stopping or
+// stopped.
+//
+// It only reads, and uses the same two describes StartInferServer and StopInferServer
+// already need, so it requires no permissions beyond theirs.
+//
+// Note that InferRunning tracks the ECS task, not Ollama's readiness: a task that has
+// just been placed answers this as running while still loading a model.
+func GetInferServerStatus(ctx context.Context, target InferServerTarget) (*InferServerStatus, error) {
+	is, err := resolveInferServer(ctx, target)
+	if err != nil {
+		return nil, err
+	}
+	describeService, err := is.ecsClient.DescribeServices(ctx, &ecs.DescribeServicesInput{
+		Cluster:  aws.String(is.target.ClusterName),
+		Services: []string{is.target.ServiceName},
+	})
+	if err != nil {
+		return nil, fmt.Errorf("while calling DescribeServices for %s: %v", is.target.ServiceName, err)
+	}
+	if len(describeService.Services) == 0 || aws.ToString(describeService.Services[0].Status) == "INACTIVE" {
+		return nil, fmt.Errorf(
+			"error: infer service %s not found in cluster %s, was the stack deployed with BUILD_INFER_SERVICE?",
+			is.target.ServiceName, is.target.ClusterName)
+	}
+	service := describeService.Services[0]
+
+	describeAsg, err := is.asgClient.DescribeAutoScalingGroups(ctx, &autoscaling.DescribeAutoScalingGroupsInput{
+		AutoScalingGroupNames: []string{is.target.AsgName},
+	})
+	if err != nil {
+		return nil, fmt.Errorf("while calling DescribeAutoScalingGroups for %s: %v", is.target.AsgName, err)
+	}
+	if len(describeAsg.AutoScalingGroups) == 0 {
+		return nil, fmt.Errorf("error: auto scaling group %s not found", is.target.AsgName)
+	}
+	asg := describeAsg.AutoScalingGroups[0]
+
+	status := &InferServerStatus{
+		DesiredTasks:    service.DesiredCount,
+		RunningTasks:    service.RunningCount,
+		PendingTasks:    service.PendingCount,
+		DesiredCapacity: aws.ToInt32(asg.DesiredCapacity),
+		InstanceCount:   int32(len(asg.Instances)),
+	}
+	// Intent comes from the desired counts, progress from what is actually there. The
+	// instance count is part of the stopped test because ECS releases the task well
+	// before the group terminates the instance, and that instance is the cost.
+	switch {
+	case status.DesiredTasks > 0 && status.RunningTasks > 0:
+		status.State = InferRunning
+	case status.DesiredTasks > 0:
+		status.State = InferStarting
+	case status.RunningTasks > 0 || status.InstanceCount > 0 || status.DesiredCapacity > 0:
+		status.State = InferStopping
+	default:
+		status.State = InferStopped
+	}
+	return status, nil
+}
+
+func scaleInferServer(ctx context.Context, target InferServerTarget, count int32) (bool, error) {
+	is, err := resolveInferServer(ctx, target)
+	if err != nil {
+		return false, err
+	}
+	ecsClient, asgClient := is.ecsClient, is.asgClient
 
 	scaleTask := func() (bool, error) {
-		return setInferServiceCount(ctx, ecsClient, target, count)
+		return setInferServiceCount(ctx, ecsClient, is.target, count)
 	}
 	scaleCapacity := func() (bool, error) {
-		return setInferAsgCapacity(ctx, asgClient, target.AsgName, count)
+		return setInferAsgCapacity(ctx, asgClient, is.target.AsgName, count)
 	}
 
 	// Capacity first when starting, task first when stopping.

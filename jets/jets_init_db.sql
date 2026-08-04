@@ -49,6 +49,9 @@ INSERT INTO jetsapi.roles (role, details) VALUES
 -- 	- client_config: Add, modify client configuration
 --	- workspace_ide: Access workspace IDE screens and functions, including query tool and git functions
 --	- run_pipelines: Load files & execute pipelines
+--	- infer_server_admin: Start & stop the Infer Server (GPU inference) and manage its models.
+--	                     Granted with workspace_ide since the screen is reached from the IDE.
+--	                     Note this capability starts billable GPU capacity.
 TRUNCATE jetsapi.role_capability;
 INSERT INTO jetsapi.role_capability (role, capability) VALUES
   ('ops_user', 'jetstore_read'),
@@ -63,6 +66,7 @@ INSERT INTO jetsapi.role_capability (role, capability) VALUES
   ('knowledge_engineer', 'client_config'),
   ('knowledge_engineer', 'run_pipelines'),
   ('knowledge_engineer', 'user_profile'),
+  ('knowledge_engineer', 'infer_server_admin'),
   ('system_role', 'run_pipelines')
 ;
 
