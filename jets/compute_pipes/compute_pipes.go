@@ -203,17 +203,18 @@ func (cpCtx *ComputePipesContext) StartComputePipes(dbpool *pgxpool.Pool,
 	outputChannels = make([]*OutputChannelConfig, 0)
 	for i := range cpCtx.CpConfig.PipesConfig {
 		for j := range cpCtx.CpConfig.PipesConfig[i].Apply {
-			switch cpCtx.CpConfig.PipesConfig[i].Apply[j].Type {
+			transformationConfig := &cpCtx.CpConfig.PipesConfig[i].Apply[j]
+			switch transformationConfig.Type {
 			case "anonymize":
-				outputChannel := &cpCtx.CpConfig.PipesConfig[i].Apply[j].OutputChannel
+				outputChannel := &transformationConfig.OutputChannel
 				outputChannels = append(outputChannels, outputChannel)
-				outputChannel = cpCtx.CpConfig.PipesConfig[i].Apply[j].AnonymizeConfig.KeysOutputChannel
+				outputChannel = transformationConfig.AnonymizeConfig.KeysOutputChannel
 				if outputChannel != nil {
 					outputChannels = append(outputChannels, outputChannel)
 				}
 			case "jetrules":
 				// Jetrules config overrides the outputChannel
-				jetruleConfig := cpCtx.CpConfig.PipesConfig[i].Apply[j].JetrulesConfig
+				jetruleConfig := transformationConfig.JetrulesConfig
 				if jetruleConfig == nil {
 					cpErr = fmt.Errorf("error: jetrules_config is required for transformation of type jetrules in PipesConfig")
 					goto gotError
@@ -226,31 +227,23 @@ func (cpCtx *ComputePipesContext) StartComputePipes(dbpool *pgxpool.Pool,
 					outputChannel := &jetruleConfig.OutputChannels[k]
 					outputChannels = append(outputChannels, outputChannel)
 				}
-				// Add the error output channel if specified
-				if jetruleConfig.ErrorChannel != nil {
-					outputChannels = append(outputChannels, jetruleConfig.ErrorChannel)
-				}
-			case "ollama":
-				// The ollama operator augments the input record in place, its output
-				// channel shares the input channel's spec. The error channel must be
-				// registered here too, otherwise it is missing from the channel registry.
-				ollamaConfig := cpCtx.CpConfig.PipesConfig[i].Apply[j].OllamaConfig
-				if ollamaConfig == nil {
-					cpErr = fmt.Errorf("error: ollama_config is required for transformation of type ollama in PipesConfig")
-					goto gotError
-				}
-				outputChannels = append(outputChannels, &cpCtx.CpConfig.PipesConfig[i].Apply[j].OutputChannel)
-				if ollamaConfig.ErrorChannel != nil {
-					outputChannels = append(outputChannels, ollamaConfig.ErrorChannel)
-				}
 			case "clustering":
-				outputChannel := &cpCtx.CpConfig.PipesConfig[i].Apply[j].OutputChannel
+				outputChannel := &transformationConfig.OutputChannel
 				outputChannels = append(outputChannels, outputChannel)
-				outputChannel = cpCtx.CpConfig.PipesConfig[i].Apply[j].ClusteringConfig.CorrelationOutputChannel
+				outputChannel = transformationConfig.ClusteringConfig.CorrelationOutputChannel
 				outputChannels = append(outputChannels, outputChannel)
 			default:
-				outputChannel := &cpCtx.CpConfig.PipesConfig[i].Apply[j].OutputChannel
+				// Note the ollama operator falls here: it augments the input record in
+				// place, so its output channel shares the input channel's spec.
+				outputChannel := &transformationConfig.OutputChannel
 				outputChannels = append(outputChannels, outputChannel)
+			}
+			// The operators that report row level errors write to an error channel, which
+			// must be registered here too or it is missing from the channel registry.
+			// See errorChannelConfig for the operators concerned.
+			errorChannel := errorChannelConfig(transformationConfig)
+			if errorChannel != nil && len(errorChannel.Name) > 0 {
+				outputChannels = append(outputChannels, errorChannel)
 			}
 		}
 	}

@@ -963,28 +963,12 @@ func (args *CpipesStartup) ValidatePipeSpecConfig(cpConfig *ComputePipesConfig, 
 						return err
 					}
 				}
-				// Validate the error output channel in jetrules config if specified
-				if transformationConfig.JetrulesConfig.ErrorChannel != nil {
-					err := args.validateOutputChConfig(transformationConfig.JetrulesConfig.ErrorChannel,
-						getSchemaProvider(cpConfig.SchemaProviders, transformationConfig.JetrulesConfig.ErrorChannel.SchemaProvider))
-					if err != nil {
-						return err
-					}
-				}
 			case "ollama":
 				if transformationConfig.OllamaConfig == nil {
 					return fmt.Errorf("configuration error: missing ollama_config for ollama operator")
 				}
 				if transformationConfig.OllamaConfig.PoolSize < 1 {
 					transformationConfig.OllamaConfig.PoolSize = 1
-				}
-				// Validate the error output channel in ollama config if specified
-				if transformationConfig.OllamaConfig.ErrorChannel != nil {
-					err := args.validateOutputChConfig(transformationConfig.OllamaConfig.ErrorChannel,
-						getSchemaProvider(cpConfig.SchemaProviders, transformationConfig.OllamaConfig.ErrorChannel.SchemaProvider))
-					if err != nil {
-						return err
-					}
 				}
 			case "clustering":
 				if transformationConfig.ClusteringConfig == nil ||
@@ -994,6 +978,15 @@ func (args *CpipesStartup) ValidatePipeSpecConfig(cpConfig *ComputePipesConfig, 
 				}
 				outCh := transformationConfig.ClusteringConfig.CorrelationOutputChannel
 				err := args.validateOutputChConfig(outCh, getSchemaProvider(cpConfig.SchemaProviders, outCh.SchemaProvider))
+				if err != nil {
+					return err
+				}
+			}
+			// Validate the error channel of the operators that report row level errors,
+			// see errorChannelConfig.
+			if errorChannel := errorChannelConfig(transformationConfig); errorChannel != nil {
+				err := args.validateOutputChConfig(errorChannel,
+					getSchemaProvider(cpConfig.SchemaProviders, errorChannel.SchemaProvider))
 				if err != nil {
 					return err
 				}

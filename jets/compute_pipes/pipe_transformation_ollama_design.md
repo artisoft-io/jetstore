@@ -184,8 +184,9 @@ operator of a step:
 |---|---|
 | `pipes_model.go` | `OllamaSpec`, `OllamaServerSpec`, `OllamaMappingSpec`, `PromptTemplateSpec`; `TransformationSpec.OllamaConfig`; `ComputePipesConfig.PromptTemplates` |
 | `pipes_runtime_model.go` | `case "ollama"` in `BuildPipeTransformationEvaluator` |
-| `compute_pipes.go` | `case "ollama"` registering the main **and** error channel — without it the error channel never enters `channelsInUse` and `GetOutputChannel` fails at build |
-| `actions_start_common.go` | `case "ollama"` validation + the step-wide error channel uniqueness check |
+| `compute_pipes.go` | Register the error channel of every operator that has one — without it the channel never enters `channelsInUse` and `GetOutputChannel` fails at build |
+| `actions_start_common.go` | `case "ollama"` validation, error channel validation for every operator that has one, and the step-wide error channel uniqueness check |
+| `pipe_transformation_map_record.go` | Close the error channel in `Finally` (see below) |
 | `pipe_transformation_ollama.go` | The operator |
 | `pipe_transformation_ollama_test.go` | Tests |
 | `cdk/jetstore_one/stack/build_ecs_tasks.go`, `build_cpipes_lambdas.go`, `build_elb.go` | Give the cpipes tasks and lambdas `JETS_INFER_URL` |
@@ -193,6 +194,14 @@ operator of a step:
 The fan_out and splitter executors need no change: the main output channel is declared in
 `spec.OutputChannel` so it is already in their close set, and the error channel is closed
 by `Finally()`.
+
+Error channels are handled once for every operator rather than per operator type, keyed on
+`errorChannelConfig` (`actions_start_common.go`) — registration, validation and the
+uniqueness rule all read from that one list. This closed a latent gap in `map_record`,
+whose error channel was neither registered (so `GetOutputChannel` would have failed at
+build) nor closed (so the pipe reading it would have hung). No workspace config used it,
+which is why it had gone unnoticed; `map_record` now closes it in `Finally` the way
+`jetrules` and `ollama` do.
 
 ## 8. Deployment note
 

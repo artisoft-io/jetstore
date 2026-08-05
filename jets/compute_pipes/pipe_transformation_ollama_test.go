@@ -234,6 +234,34 @@ func TestOllamaValidateChannels(t *testing.T) {
 // Error channel ownership, see CpipesStartup.ValidatePipeSpecConfig
 // ---------------------------------------------------------------------------
 
+// errorChannelConfig is what both the channel registration (compute_pipes.go) and the
+// error channel validation rely on to know which operators report row level errors.
+func TestErrorChannelConfig(t *testing.T) {
+	errorChannel := &OutputChannelConfig{Name: "process_errors.out", SpecName: "process_errors"}
+	tests := []struct {
+		name      string
+		spec      *TransformationSpec
+		expecting *OutputChannelConfig
+	}{
+		{"map_record", &TransformationSpec{Type: "map_record",
+			MapRecordConfig: &MapRecordSpec{ErrorChannel: errorChannel}}, errorChannel},
+		{"jetrules", &TransformationSpec{Type: "jetrules",
+			JetrulesConfig: &JetrulesSpec{ErrorChannel: errorChannel}}, errorChannel},
+		{"ollama", &TransformationSpec{Type: "ollama",
+			OllamaConfig: &OllamaSpec{ErrorChannel: errorChannel}}, errorChannel},
+		{"map_record without error channel", &TransformationSpec{Type: "map_record",
+			MapRecordConfig: &MapRecordSpec{}}, nil},
+		{"map_record without config", &TransformationSpec{Type: "map_record"}, nil},
+		{"ollama without config", &TransformationSpec{Type: "ollama"}, nil},
+		{"operator with no error channel", &TransformationSpec{Type: "filter"}, nil},
+	}
+	for _, test := range tests {
+		if got := errorChannelConfig(test.spec); got != test.expecting {
+			t.Errorf("%s: expecting %v, got %v", test.name, test.expecting, got)
+		}
+	}
+}
+
 func TestValidateErrorChannels(t *testing.T) {
 	errorChannel := func(name string) *OutputChannelConfig {
 		return &OutputChannelConfig{Name: name, SpecName: "process_errors"}
