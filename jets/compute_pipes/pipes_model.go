@@ -16,6 +16,7 @@ type ComputePipesConfig struct {
 	OutputFiles            []OutputFileSpec        `json:"output_files,omitempty"`
 	LookupTables           []*LookupSpec           `json:"lookup_tables,omitempty"`
 	Channels               []ChannelSpec           `json:"channels,omitempty"`
+	PromptTemplates        []PromptTemplateSpec    `json:"prompt_templates,omitempty"`
 	Context                []ContextSpec           `json:"context,omitempty"`
 	SchemaProviders        []*SchemaProviderSpec   `json:"schema_providers,omitempty"`
 	PipesConfig            []PipeSpec              `json:"pipes_config,omitempty"`
@@ -553,7 +554,8 @@ type SplitterSpec struct {
 
 type TransformationSpec struct {
 	// Type range: map_record, aggregate, analyze, high_freq, partition_writer,
-	// anonymize, distinct, shuffling, group_by, filter, sort, merge, jetrules, clustering
+	// anonymize, distinct, shuffling, group_by, filter, sort, merge, jetrules, clustering,
+	// ollama
 	// Format takes precedence over SchemaProvider's Format (from OutputChannelConfig)
 	Type                  string                           `json:"type"`
 	NewRecord             bool                             `json:"new_record,omitzero"`
@@ -569,6 +571,7 @@ type TransformationSpec struct {
 	FilterConfig          *FilterSpec                      `json:"filter_config,omitzero"`
 	SortConfig            *SortSpec                        `json:"sort_config,omitzero"`
 	JetrulesConfig        *JetrulesSpec                    `json:"jetrules_config,omitzero"`
+	OllamaConfig          *OllamaSpec                      `json:"ollama_config,omitzero"`
 	ClusteringConfig      *ClusteringSpec                  `json:"clustering_config,omitzero"`
 	MergeConfig           *MergeSpec                       `json:"merge_config,omitzero"`
 	OutputChannel         OutputChannelConfig              `json:"output_channel"`
@@ -1060,6 +1063,126 @@ type JetrulesSpec struct {
 	IsDebug                 bool                  `json:"is_debug,omitzero"`
 	OutputChannels          []OutputChannelConfig `json:"output_channels,omitempty"`
 	ErrorChannel            *OutputChannelConfig  `json:"error_channel,omitzero"`
+}
+
+// PromptTemplateSpec is a named prompt template, defined at the ComputePipesConfig level
+// so a template can be shared by several steps and pipes.
+// Key is the name used by OllamaSpec.PromptTemplateName.
+// Template is the prompt text, see OllamaSpec for the placeholder syntax.
+// SystemPrompt and ResponseFormat are defaults for the operator using this template,
+// the operator's own settings take precedence when both are provided.
+type PromptTemplateSpec struct {
+	Key            string          `json:"key"`
+	Template       string          `json:"template"`
+	SystemPrompt   string          `json:"system_prompt,omitempty"`
+	ResponseFormat json.RawMessage `json:"response_format,omitempty"`
+}
+
+// OllamaSpec configuration for the ollama transformation operator.
+// The operator calls the infer server (Ollama) once per input record and augments that
+// record *in place* with values extracted from the model response. The input and output
+// channels must therefore share the same ChannelSpec, ie be configured with the same
+// channel_spec_name; this is validated when the operator is built.
+//
+// Model is the model tag to use, eg llama3.1:8b (required).
+// Api is the ollama api to call: generate (default) or chat.
+// PromptTemplate is the prompt template, alternatively PromptTemplateName refers to a
+// template of ComputePipesConfig.PromptTemplates. Exactly one of them must be provided.
+// The template supports two kinds of placeholders:
+//   - $ENV_VAR and ${ENV_VAR} are substituted from the cpipes env when the operator is
+//     built (same syntax as the other operators, see the `context` config section);
+//   - {{column_name}} is substituted with the record's value for that column. The
+//     reserved placeholder {{@record}} expands to the whole record as a json object.
+//
+// A {{column_name}} that does not match a column of the input channel is a configuration
+// error reported when the operator is built.
+// SystemPrompt is the system message, optional.
+// ResponseFormat is passed to ollama as `format`: the string "json" or a json schema.
+// Options is passed to ollama as `options`, eg temperature, num_ctx, seed, num_predict.
+// KeepAlive is passed to ollama as `keep_alive`, it is how long the model stays resident
+// between calls; defaults to 30m since a pipeline calls the model for every record.
+// Think is passed to ollama as `think` for reasoning models.
+// Server specifies how to reach the infer server, see OllamaServerSpec.
+// OutputMapping specifies how to map the response onto the record's columns (required).
+// DisableStripCodeFences turns off the removal of markdown code fences around the model
+// response before it is parsed as json (they are removed by default).
+// PoolSize is the number of concurrent requests to the infer server, default 1.
+// NOTE: with PoolSize == 1 the record order is preserved, with PoolSize > 1 it is not.
+// RequestTimeoutSec is the timeout of a single request attempt, default 120.
+// ConnectTimeoutSec is the connection (and tls handshake) timeout, default 10.
+// MaxRetry is the number of retries on timeout, connection error, 429 and 5xx responses,
+// default 2 when not specified; set it to 0 to disable the retries.
+// RetryWaitSec is the wait before the first retry, doubled on each attempt, default 2.
+// MaxInputCount caps the number of records sent to the model (0 means unlimited), it is
+// a cost guard: records past the cap are passed through to the output channel unchanged
+// rather than filtered out.
+// OnError specifies what to do with a record that failed: pass_through (default, the
+// record is sent to the output channel unchanged), drop, or fail (interrupt the pipeline).
+// MaxErrorCount caps the number of records reported to the error channel, default 50.
+// RowKeyColumn is the column identifying the record in the error reports (row_jets_key).
+// IsDebug logs the prompt and the response of every record.
+// ErrorChannel is the channel where row-level errors are reported, using the
+// process_errors channel spec (see the jetrules operator).
+type OllamaSpec struct {
+	Model                  string               `json:"model"`
+	Api                    string               `json:"api,omitempty"`
+	PromptTemplate         string               `json:"prompt_template,omitempty"`
+	PromptTemplateName     string               `json:"prompt_template_name,omitempty"`
+	SystemPrompt           string               `json:"system_prompt,omitempty"`
+	ResponseFormat         json.RawMessage      `json:"response_format,omitempty"`
+	Options                map[string]any       `json:"options,omitempty"`
+	KeepAlive              string               `json:"keep_alive,omitempty"`
+	Think                  *bool                `json:"think,omitzero"`
+	Server                 *OllamaServerSpec    `json:"server,omitzero"`
+	OutputMapping          []OllamaMappingSpec  `json:"output_mapping,omitempty"`
+	DisableStripCodeFences bool                 `json:"disable_strip_code_fences,omitzero"`
+	PoolSize               int                  `json:"pool_size,omitzero"`
+	RequestTimeoutSec      int                  `json:"request_timeout_sec,omitzero"`
+	ConnectTimeoutSec      int                  `json:"connect_timeout_sec,omitzero"`
+	MaxRetry               *int                 `json:"max_retry,omitzero"`
+	RetryWaitSec           int                  `json:"retry_wait_sec,omitzero"`
+	MaxInputCount          int                  `json:"max_input_count,omitzero"`
+	OnError                string               `json:"on_error,omitempty"`
+	MaxErrorCount          int                  `json:"max_error_count,omitzero"`
+	RowKeyColumn           string               `json:"row_key_column,omitempty"`
+	IsDebug                bool                 `json:"is_debug,omitzero"`
+	ErrorChannel           *OutputChannelConfig `json:"error_channel,omitzero"`
+}
+
+// OllamaServerSpec specifies how to reach the infer server.
+// Url is the base url of the infer server, eg http://my-elb:11434. It is resolved in
+// this order: this property (with cpipes env var substitution), then $JETS_INFER_URL from
+// the cpipes env, then the JETS_INFER_URL environment variable - which is set on the
+// deployed containers when the stack is built with BUILD_INFER_SERVICE.
+// Headers are additional request headers, optional.
+type OllamaServerSpec struct {
+	Url     string            `json:"url,omitempty"`
+	Headers map[string]string `json:"headers,omitempty"`
+}
+
+// OllamaMappingSpec maps one element of the model response to a column of the record.
+// Column is the name of the column to set, it must be a column of the channel shared by
+// the input and output channels.
+// Source specifies what the mapping reads from:
+//   - response (default): the model's text, parsed as json when Path is specified;
+//   - raw_response: the model's text, verbatim, without parsing;
+//   - envelope: a property of the ollama api response envelope itself, eg eval_count,
+//     prompt_eval_count, total_duration, model;
+//   - thinking: the reasoning text, when Think is in use.
+//
+// Path is a dot notation path into the parsed json, eg summary, codes.0.icd10,
+// detail.score - a numeric element indicates the position in an array.
+// An empty Path takes the whole value.
+// AsRdfType casts the value, see CastToRdfType.
+// Default is the value to use when the path is absent or null.
+// Required indicates that an absent or null value is a row-level error.
+type OllamaMappingSpec struct {
+	Column    string `json:"column"`
+	Source    string `json:"source,omitempty"`
+	Path      string `json:"path,omitempty"`
+	AsRdfType string `json:"as_rdf_type,omitempty"`
+	Default   string `json:"default,omitempty"`
+	Required  bool   `json:"required,omitzero"`
 }
 
 // If is_debug is true, correlation results are forwarded to s3 otherwise

@@ -152,8 +152,19 @@ func (jsComp *JetStoreStackComponents) BuildELB(scope constructs.Construct, stac
 		// not exist until this function runs, and BuildUiService runs before it.
 		// Its absence is meaningful — the apiserver reports "not part of this deployment"
 		// rather than a connection error when the stack was built without the infer server.
-		jsComp.UiTaskContainer.AddEnvironment(jsii.String("JETS_INFER_URL"),
-			jsii.String(fmt.Sprintf("http://%s:%d", *jsComp.UiLoadBalancer.LoadBalancerDnsName(), int(inferPort))))
+		inferUrl := fmt.Sprintf("http://%s:%d", *jsComp.UiLoadBalancer.LoadBalancerDnsName(), int(inferPort))
+		jsComp.UiTaskContainer.AddEnvironment(jsii.String("JETS_INFER_URL"), jsii.String(inferUrl))
+
+		// Same for the compute pipes nodes, so the ollama operator can reach the infer
+		// server without the url being repeated in every pipeline configuration.
+		// These are the components that execute the compute pipes operators: the ecs task
+		// and the node lambdas. The native node lambda only exists when cpipes native is
+		// deployed.
+		jsComp.CpipesContainerDef.AddEnvironment(jsii.String("JETS_INFER_URL"), jsii.String(inferUrl))
+		jsComp.CpipesNodeLambda.AddEnvironment(jsii.String("JETS_INFER_URL"), jsii.String(inferUrl), nil)
+		if jsComp.CpipesNativeNodeLambda != nil {
+			jsComp.CpipesNativeNodeLambda.AddEnvironment(jsii.String("JETS_INFER_URL"), jsii.String(inferUrl), nil)
+		}
 
 		// -----------------------------------------------------------------------
 		// Outputs

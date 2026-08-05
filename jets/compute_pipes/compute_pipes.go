@@ -230,6 +230,19 @@ func (cpCtx *ComputePipesContext) StartComputePipes(dbpool *pgxpool.Pool,
 				if jetruleConfig.ErrorChannel != nil {
 					outputChannels = append(outputChannels, jetruleConfig.ErrorChannel)
 				}
+			case "ollama":
+				// The ollama operator augments the input record in place, its output
+				// channel shares the input channel's spec. The error channel must be
+				// registered here too, otherwise it is missing from the channel registry.
+				ollamaConfig := cpCtx.CpConfig.PipesConfig[i].Apply[j].OllamaConfig
+				if ollamaConfig == nil {
+					cpErr = fmt.Errorf("error: ollama_config is required for transformation of type ollama in PipesConfig")
+					goto gotError
+				}
+				outputChannels = append(outputChannels, &cpCtx.CpConfig.PipesConfig[i].Apply[j].OutputChannel)
+				if ollamaConfig.ErrorChannel != nil {
+					outputChannels = append(outputChannels, ollamaConfig.ErrorChannel)
+				}
 			case "clustering":
 				outputChannel := &cpCtx.CpConfig.PipesConfig[i].Apply[j].OutputChannel
 				outputChannels = append(outputChannels, outputChannel)
