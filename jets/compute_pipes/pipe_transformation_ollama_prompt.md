@@ -460,3 +460,104 @@ OllamaTransformationPipe response (412ms, 37 eval tokens): {"model":"granite4.1:
 
 Per record, so pair it with `"max_input_count": 5` when debugging against real data — that caps how
 many records are sent to the model at all, and the rest pass through untouched.
+
+---
+
+## 7. The other request surface: the Infer Server Admin screen
+
+**Workspace IDE → Infer Server Admin** is a console over the same infer server, reached through the
+apiserver's `/inferServer` endpoint rather than through a pipeline. Its **Request** box takes a
+different kind of JSON from everything above, so it is worth being explicit about what goes in it.
+
+Implementation: `jets/apiserver/api_infer_server.go`,
+`jetsclient/lib/modules/workspace_ide/infer_server_admin/`. Operational context — starting and
+stopping the GPU instance, what it costs — is in `infer_server_readme.md`.
+
+### What goes in the Request box
+
+A complete **request envelope**: an `action` naming what to do, and a `body` that is the Ollama
+request for that action.
+
+```json
+{
+  "action": "pull_model",
+  "body": {
+    "model": "granite4.1:3b",
+    "stream": false
+  }
+}
+```
+
+Submit parses the box as JSON (a syntax error is reported in the Response box, nothing is sent) and
+POSTs it to `/inferServer`. The four macro buttons above the box — List Models, Pull Model, Show
+Model, Delete Model — fill it with a ready-to-submit envelope for each proxied action, so the usual
+flow is click, edit the model tag, Submit.
+
+The apiserver looks the action up in a closed allow list and supplies the method and route itself.
+For the envelope above it sends, to `<JETS_INFER_URL>/api/pull` with
+`Content-Type: application/json`:
+
+```json
+{
+    "model": "granite4.1:3b",
+    "stream": false
+  }
+```
+
+That is the `body` **forwarded byte for byte** — it is held as a `json.RawMessage` and never
+re-encoded, which is why the odd indentation of the typed envelope survives into the request. Only
+`body` is sent; `action` is consumed by the apiserver and never reaches Ollama.
+
+The answer comes back in the Response box wrapped in the HTTP status Ollama replied with:
+
+```json
+{
+  "statusCode": 200,
+  "response": {"status": "success"}
+}
+```
+
+`response` is Ollama's own answer, parsed when it is JSON and passed through as text when it is not —
+an Ollama error is reported here rather than collapsed into an apiserver failure, since its errors
+are as useful as its successes.
+
+### Accepted values for `action`
+
+Seven, and no others. The client names an action, never a path: a caller-supplied path would make the
+apiserver an open proxy to anything reachable inside the VPC.
+
+| `action` | What it does | `body` |
+|---|---|---|
+| `server_status` | `awsi.GetInferServerStatus` — running / stopped / starting / stopping | ignored |
+| `start_server` | `awsi.StartInferServer` (ASG capacity, then the ECS task), then re-reads the status | ignored |
+| `stop_server` | `awsi.StopInferServer`, then re-reads the status | ignored |
+| `list_models` | `GET /api/ps` — the loaded models and their VRAM residency | forwarded |
+| `pull_model` | `POST /api/pull` | forwarded |
+| `show_model` | `POST /api/show` | forwarded |
+| `delete_model` | `DELETE /api/delete` | forwarded |
+
+The first three are lifecycle actions handled entirely in AWS; they never call Ollama and their
+`body` may be omitted. `server_status` answers `{"status": {…}}`; `start_server` and `stop_server`
+answer `{"changed": …, "status": {…}}`, where `changed: false` means the server was already in the
+requested state — a successful no-op, not a failure. The last four are proxied and answer with the
+`statusCode` / `response` wrapper shown above. The buttons on the screen cover the lifecycle actions,
+but typing one into the box works too, and the screen picks the status up from the answer either way.
+
+Four things that bite:
+
+- **`"stream": false` on `pull_model`.** Ollama otherwise streams NDJSON progress, which the screen
+  cannot render.
+- **An unknown action is a 422** naming the seven accepted values — not a 404, and nothing is sent.
+- **A missing `JETS_INFER_URL` is a 503** saying the infer server is not part of this deployment.
+  That is deliberately distinct from a connection failure, which reports the server as possibly
+  stopped: one is a deploy-time choice, the other is a button away.
+- **Every action needs the `infer_server_admin` capability**, checked in the apiserver. The disabled
+  menu entry is presentation; the endpoint is the enforcement point.
+
+### This screen cannot send a prompt
+
+The allow list has no `/api/generate` or `/api/chat` entry, by design — this endpoint administers
+models, it does not run inference. Prompt configuration is the operator's business, i.e. everything in
+§1–§6. To exercise a prompt by hand, call the infer server directly with a chat request; the
+`infer_server_readme.md` verification section does exactly that, from
+`data/unit_test_data/cintel/ollama_unit_test_chat.json` in the `jets_ws` workspace.
