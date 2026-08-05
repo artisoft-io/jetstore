@@ -5,10 +5,12 @@ import (
 	"log"
 	"os"
 	"path"
+	"strconv"
 	"strings"
 
 	awscdk "github.com/aws/aws-cdk-go/awscdk/v2"
 	"github.com/aws/aws-cdk-go/awscdk/v2/awsapigateway"
+	"github.com/aws/aws-cdk-go/awscdk/v2/awsautoscaling"
 	"github.com/aws/aws-cdk-go/awscdk/v2/awsec2"
 	"github.com/aws/aws-cdk-go/awscdk/v2/awsecs"
 	awselb "github.com/aws/aws-cdk-go/awscdk/v2/awselasticloadbalancingv2"
@@ -85,6 +87,7 @@ type JetStoreStackComponents struct {
 	EcsTaskRole          awsiam.Role
 	JetStoreImage        awsecs.EcrImage
 	CpipesImage          awsecs.EcrImage
+	InferImage           awsecs.EcrImage
 
 	RunreportTaskDefinition awsecs.FargateTaskDefinition
 	RunreportsContainerDef  awsecs.ContainerDefinition
@@ -129,6 +132,23 @@ type JetStoreStackComponents struct {
 	CpipesSM       sfn.StateMachine
 	CpipesNativeSM sfn.StateMachine
 	BastionHost    awsec2.BastionHostLinux
+
+	// Infer components
+	EcsInferService       awsecs.FargateService
+	InferTaskDefinition   awsecs.Ec2TaskDefinition
+	InferTaskContainer    awsecs.ContainerDefinition
+	PersistentVolume      awsec2.Volume
+	InferAutoScalingGroup awsautoscaling.AutoScalingGroup
+}
+
+func (jsComp *JetStoreStackComponents) DoBuildInferServer() bool {
+	// Check if BUILD_INFER_SERVICE environment variable is set to "true"
+	checkValue := strings.ToUpper(os.Getenv("BUILD_INFER_SERVICE"))
+	if checkValue != "TRUE" && checkValue != "1" {
+		// Skip building the state machine if the environment variable is not set to "true"
+		return false
+	}
+	return true
 }
 
 func MkCatchProps() *sfn.CatchProps {
@@ -161,6 +181,85 @@ func (jsComp *JetStoreStackComponents) JetsTempData() string {
 		jetsTempData = "/jetsdata"
 	}
 	return jetsTempData
+}
+
+// InferImageTag is the ECR tag of the infer image (Ollama + cbooter, built from
+// dockerfiles/Dockerfile.infer_service).
+//
+// Required, not defaulted. The infer image shares no content with the JetStore image,
+// so there is no value of JETS_IMAGE_TAG that would produce a working infer task:
+// falling back to it deploys an image with no ollama binary, and the failure only
+// surfaces in the container log as
+//
+//	exec: "ollama": executable file not found in $PATH
+//
+// long after synth and deploy have both reported success. Note that the tags are never
+// interchangeable anyway -- JETS_IMAGE_TAG is derived from the workspaces repo while the
+// infer image is built from this repo, so the sha and timestamp differ.
+func (jsComp *JetStoreStackComponents) InferImageTag() string {
+	inferImageTag := os.Getenv("INFER_IMAGE_TAG")
+	if inferImageTag == "" {
+		log.Fatal("INFER_IMAGE_TAG must be provided when BUILD_INFER_SERVICE is true")
+	}
+	return inferImageTag
+}
+
+// InferEcrRepoArn is the ECR repo holding the infer image. Required rather than
+// defaulted, for the same reason as InferImageTag above.
+func (jsComp *JetStoreStackComponents) InferEcrRepoArn() string {
+	arn := os.Getenv("INFER_ECR_REPO_ARN")
+	if arn == "" {
+		log.Fatal("INFER_ECR_REPO_ARN must be provided when BUILD_INFER_SERVICE is true")
+	}
+	return arn
+}
+
+// InferEnvOrDefault reads an Ollama tuning variable from the synth environment,
+// falling back to the value baked into the stack.
+func (jsComp *JetStoreStackComponents) InferEnvOrDefault(name, defaultValue string) string {
+	if v := os.Getenv(name); v != "" {
+		return v
+	}
+	return defaultValue
+}
+
+// InferDesiredCount returns the desired task count for the infer service, or nil to leave
+// the property out of the CloudFormation template entirely.
+//
+// nil is the default, and is the point of this function. CloudFormation only manages
+// DesiredCount when the property is present, so omitting it makes a stack update preserve
+// whatever the service is currently scaled to — running stays running, stopped stays
+// stopped. Pinned to a literal, every deploy reset the count and stopped a running infer
+// task mid-use, surfacing only as a 503 from the load balancer.
+//
+// The trade-off is at create time: with the property absent ECS defaults a brand new
+// service to 1, which launches a GPU instance as soon as the stack comes up. Set
+// INFER_DESIRED_COUNT=0 on the first deploy of a new stack to avoid paying for an idle
+// g5 before the service is wanted. On an existing stack, leave it unset.
+func (jsComp *JetStoreStackComponents) InferDesiredCount() *float64 {
+	v := os.Getenv("INFER_DESIRED_COUNT")
+	if v == "" {
+		return nil
+	}
+	n, err := strconv.Atoi(v)
+	if err != nil || n < 0 {
+		log.Println("Invalid INFER_DESIRED_COUNT, ignoring it and preserving the service's current scale")
+		return nil
+	}
+	return jsii.Number(float64(n))
+}
+
+func (jsComp *JetStoreStackComponents) InferMemLimitMB() float64 {
+	var memLimit float64
+	memLimitStr := os.Getenv("INFER_MEM_LIMIT_MB")
+	if memLimitStr != "" {
+		if memLimitInt, err := strconv.Atoi(memLimitStr); err == nil {
+			memLimit = float64(memLimitInt)
+		}
+	} else {
+		memLimit = 1024 * 12 // default to 12 GB
+	}
+	return memLimit
 }
 
 func (jsComp *JetStoreStackComponents) TempDir() string {

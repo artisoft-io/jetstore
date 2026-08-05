@@ -87,10 +87,11 @@ Future<String?> pass(BuildContext context, GlobalKey<FormState> formKey,
 /// used by [inputFieldsQuery], [dropdownItemsQueries], [metadataQueries],
 /// and [stateKeyPredicates].
 ///
-/// [initializationDelegate] when not null is invoked to initialize the form state(s)
-/// or any data preparation that is needed.
-/// This is invoked in [ScreenWithFormState.initState] and
-/// [ScreenWithMultiFormsState.initState]
+/// [onLoadActionKey] when not null is dispatched to the [formActionsDelegate]
+/// once the form has been laid out, to initialize the form state or fetch data
+/// the form needs before the user does anything. It is fired from a post-frame
+/// callback in [JetsFormWidgetState.initState] so the delegate gets a mounted
+/// context and may show dialogs or spinners.
 class FormConfig {
   FormConfig({
     required this.key,
@@ -98,6 +99,7 @@ class FormConfig {
     this.inputFields = const [],
     this.inputFieldsV2 = const [],
     this.formTabsConfig = const [],
+    this.onLoadActionKey,
     this.inputFieldRowBuilder,
     required this.actions,
     this.queries,
@@ -130,6 +132,7 @@ class FormConfig {
   final List<String>? stateKeyPredicates;
   final bool? formWithDynamicRows;
   final bool? useListView;
+  final String? onLoadActionKey;
 
   int groupCount() {
     var unique = <int>{};
@@ -245,6 +248,12 @@ class TextFieldConfig extends FormFieldConfig {
 
 typedef ReadOnlyEvaluator = bool Function(JetsFormState formState);
 
+/// Evaluates whether a [FormActionConfig] button is enabled, based on the
+/// current form state rather than on form validity. Used for buttons whose
+/// availability depends on data the form holds, e.g. a Start button that must
+/// be off while the thing it starts is already running.
+typedef EnabledEvaluator = bool Function(JetsFormState formState);
+
 class FormInputFieldConfig extends FormFieldConfig {
   FormInputFieldConfig({
     required super.key,
@@ -263,6 +272,8 @@ class FormInputFieldConfig extends FormFieldConfig {
     this.autofillHints,
     this.defaultValue,
     this.useDefaultFont = false,
+    this.syncWithFormState = false,
+    this.showCopyToClipboard = false,
   });
   final String label;
   final String hint;
@@ -277,6 +288,15 @@ class FormInputFieldConfig extends FormFieldConfig {
   final String? defaultValue;
   final List<String>? autofillHints;
   final bool useDefaultFont;
+  // By default the widget seeds its text from the form state once, at
+  // initState, and from then on the text box is the source of truth. Set this
+  // when something other than the user writes the value — a button that fills
+  // in a template, a server response — otherwise the form state changes and
+  // the displayed text does not.
+  final bool syncWithFormState;
+  // Adds a copy-to-clipboard button in the top right corner of the field, for
+  // values too large to read in place.
+  final bool showCopyToClipboard;
 
   @override
   Widget makeFormField({
@@ -504,12 +524,17 @@ class FormActionConfig extends FormFieldConfig {
     this.rightMargin = 0.0,
     this.bottomMargin = 0.0,
     this.capability,
+    this.isEnabledEval,
   });
   final String label;
   final Map<ActionStyle, String> labelByStyle;
   final ActionStyle buttonStyle;
   final bool enableOnlyWhenFormValid;
   final bool enableOnlyWhenFormNotValid;
+  // Additional, form-state-driven enablement, ANDed with the capability check
+  // and with [enableOnlyWhenFormValid]. Note that form validity is form-wide,
+  // so this is the way to gate a single button on a single value.
+  final EnabledEvaluator? isEnabledEval;
   final double leftMargin;
   final double topMargin;
   final double rightMargin;
@@ -527,6 +552,9 @@ class FormActionConfig extends FormFieldConfig {
         formActionConfig: this,
         formKey: formState.formKey!,
         formState: formState,
-        actionsDelegate: formConfig.formActionsDelegate);
+        actionsDelegate: formConfig.formActionsDelegate,
+        // As a form field the button is already inside the Flexible that
+        // JetsForm wraps every field in, so it must not add its own.
+        expand: false);
   }
 }

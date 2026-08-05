@@ -128,6 +128,63 @@ AWS CDK infrastructure is in `cdk/`:
 - `cdk/jetstore_one/` — main stack: ECS Fargate, Lambda, RDS, Step Functions, VPC
 - `cdk/vpc_peering/` — VPC peering utility
 
+Stack composition is driven almost entirely by environment variables read at synth time, not by
+CDK context or config files. `cdk/jetstore_one/jetstore_one.go` carries the authoritative list in
+a comment block near the bottom of the file, and logs every value at synth — read that block
+before adding a new toggle.
+
+### Infer Server (GPU inference)
+
+Optional subsystem, gated behind `BUILD_INFER_SERVICE=true`. Every component no-ops via
+`JetStoreStackComponents.DoBuildInferServer()` (`stack/stack_model.go`) when the flag is off, so
+the default stack is unaffected. It spans two files that must be read together:
+
+| File | Builds |
+|---|---|
+| `stack/build_infer_ec2.go` | ASG + launch template, persistent EBS volume, lifecycle-hook Lambda |
+| `stack/build_infer_service.go` | ECS container definition — infer image, `cbooter infer_server` entrypoint, port 11434, `GpuCount: 1` |
+
+It runs Ollama as an EC2-backed ECS service (not Fargate — Fargate has no GPU support). The
+image is built from `dockerfiles/Dockerfile.infer_service`: Amazon Linux 2023 + the Ollama
+release archive + `cbooter`, which starts `ollama serve` as `jsuser` (uid/gid 999). Two traps
+in that hand-off: AL2023 does not predefine uid 999, so the Dockerfile creates it the way
+`Dockerfile.cpipes` does; and `syscall.Credential` changes the uid without changing `HOME`, so
+`HOME` and `OLLAMA_MODELS` must both be pointed under `JETS_TEMP_DATA` or Ollama fails writing
+its signing key and caches to root's home.
+
+Three pieces of non-obvious wiring:
+
+**Persistent EBS across instance restarts.** LLM weights live on a separate 100GB volume with
+`RemovalPolicy_RETAIN`, deliberately not managed by the instance lifecycle. An
+`EC2_INSTANCE_LAUNCHING` lifecycle hook fires an inline-Python Lambda that attaches the volume
+and only then signals `CONTINUE` — the launch template's user data assumes `/dev/xvdf` already
+exists when it runs `mount`. This is why the ASG and the volume are both pinned to
+`AvailabilityZones()[0]`: an EBS volume cannot cross an AZ. Changing the AZ pinning on either
+side silently breaks instance launch.
+
+**GPU scheduling is ECS-native, and the AMI must cooperate.** The instances run the stock ECS
+GPU-optimized AMI (`al2023-ami-ecs-gpu-hvm-*`, resolved from SSM by
+`awsecs.EcsOptimizedImage_AmazonLinux2023`), which ships the NVIDIA driver, the ECS agent, and a
+GPU inventory at `/var/lib/ecs/gpu/nvidia-gpu-info.json`. That inventory is what makes the task
+definition's `GpuCount` schedulable — without it the task lands with no GPU and Ollama silently
+falls back to CPU. `INFER_AMI_NAME` still exists as an escape hatch for pinning a custom AMI, but
+such an AMI must reproduce that inventory and match `INFER_AMI_ROOT_DEVICE` (`/dev/xvda` on
+AL2023, `/dev/sda1` on Ubuntu images).
+
+`tools/infer_ami_builder/` predates this and is no longer on the deploy path.
+
+**Container CMD must be cleared, not just left unset.** The `amazonlinux:2023` base image sets
+`CMD ["/bin/bash"]`. ECS task definitions here override `entryPoint` but not `command`, so an
+image that does not reset `CMD` gets `/bin/bash` appended to its arguments.
+
+## Tools
+
+`tools/` holds standalone utilities that are not part of any Go module or the main build:
+- `infer_ami_builder/` — Packer template for the GPU AMI consumed by the Infer Server (see above)
+- `jetrule_ts/`, `jetrule_domain_model_ts/` — TypeScript JetRules tooling
+- `vscode-jetrule/` — VS Code extension for the JetRules DSL
+- `sample_projects/` — example workspaces
+
 ## Flutter UI
 
 `jetsclient/` is a Flutter/Dart web app for workspace management and pipeline administration. Build with standard Flutter tooling (`flutter build web`).

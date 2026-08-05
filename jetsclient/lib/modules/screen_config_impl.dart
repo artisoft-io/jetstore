@@ -10,6 +10,7 @@ import 'package:jetsclient/modules/user_flows/workspace_pull/screen_config.dart'
 import 'package:jetsclient/utils/constants.dart';
 import 'package:jetsclient/modules/actions/menu_delegates.dart';
 import 'package:jetsclient/models/screen_config.dart';
+import 'package:jetsclient/modules/workspace_ide/infer_server_admin/screen_config.dart';
 import 'package:jetsclient/modules/workspace_ide/screen_config.dart';
 
 import 'package:jetsclient/routes/jets_routes_app.dart';
@@ -320,6 +321,8 @@ ScreenConfig getScreenConfig(String key) {
   var config = _screenConfigurations[key];
   if (config != null) return config;
   config = getWorkspaceScreenConfig(key);
+  if (config != null) return config;
+  config = getInferServerAdminScreenConfig(key);
   if (config != null) return config;
   config = getClientRegistryScreenConfig(key);
   if (config != null) return config;

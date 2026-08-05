@@ -1,4 +1,3 @@
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:jetsclient/components/jets_form_state.dart';
@@ -84,6 +83,31 @@ class _JetsTextFormFieldState extends State<JetsTextFormField> {
     // debugPrint("Controller listener called for ${_config.key}");
   }
 
+  /// Pull the value back from the form state when something other than the
+  /// user changed it. Only registered when [FormInputFieldConfig.syncWithFormState]
+  /// is set, so the default one-way behaviour of this widget is untouched.
+  ///
+  /// Deferred by a zero-duration delay, as [_JetsFormButtonState] does, because
+  /// the notification can arrive while a build is in flight and mutating the
+  /// controller then would trigger a rebuild during build.
+  void _formStateListener() {
+    Future.delayed(Duration.zero, () {
+      if (!mounted) return;
+      final value =
+          unpack(widget.formState.getValue(_config.group, _config.key)) ?? '';
+      // The guard is what keeps this from fighting with typing: user edits
+      // reach the form state through onChanged, so by the time we see the
+      // notification the two already agree and there is nothing to do.
+      if (value == _controller.text) return;
+      _controller.value = _controller.value.copyWith(
+        text: value,
+        selection:
+            TextSelection(baseOffset: value.length, extentOffset: value.length),
+        composing: TextRange.empty,
+      );
+    });
+  }
+
   @override
   void initState() {
     super.initState();
@@ -99,6 +123,9 @@ class _JetsTextFormFieldState extends State<JetsTextFormField> {
     }
     _controller = TextEditingController(text: value);
     _controller.addListener(_controllerListener);
+    if (_config.syncWithFormState) {
+      widget.formState.addListener(_formStateListener);
+    }
     _node = FocusNode(debugLabel: _config.key);
     _node.addListener(_handleFocusChange);
   }
@@ -108,43 +135,70 @@ class _JetsTextFormFieldState extends State<JetsTextFormField> {
     // print("*** InputText dispose called for ${_config.key}");
     _controller.removeListener(_controllerListener);
     _controller.dispose();
+    if (_config.syncWithFormState) {
+      widget.formState.removeListener(_formStateListener);
+    }
     _node.removeListener(_handleFocusChange);
     _node.dispose();
     super.dispose();
   }
 
+  /// Copy button for values too large to read in the box. Mirrors the
+  /// long-press-to-copy affordance of [JetsDataTableSource], snackbar included.
+  Widget _copyToClipboardButton(BuildContext context) {
+    final messenger = ScaffoldMessenger.of(context);
+    return Positioned(
+      top: 0.0,
+      right: 0.0,
+      child: IconButton(
+        icon: const Icon(Icons.copy, size: 18.0),
+        tooltip: 'Copy to clipboard',
+        onPressed: () {
+          Clipboard.setData(ClipboardData(text: _controller.text));
+          messenger.showSnackBar(
+              const SnackBar(content: Text("Copied to Clipboard")));
+        },
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    final Widget field = TextFormField(
+      autofocus: _config.autofocus,
+      controller: _controller,
+      focusNode: _node,
+      showCursor: _focused,
+      obscureText: _config.obscureText,
+      readOnly: _config.isReadOnlyEval != null
+          ? _config.isReadOnlyEval!(widget.formState)
+          : _config.isReadOnly,
+      maxLines: _config.maxLines,
+      maxLength: _config.maxLength,
+      maxLengthEnforcement: MaxLengthEnforcement.enforced,
+      decoration: InputDecoration(
+        hintText: _config.hint,
+        labelText: _config.label,
+      ),
+      onChanged: widget.onChanged,
+      validator: (p0) => widget.formValidator(_config.group, _config.key, p0),
+      autovalidateMode: _config.autovalidateMode,
+      autofillHints: _config.autofillHints,
+      style: _config.useDefaultFont
+          ? null
+          : const TextStyle(
+              fontFamily: 'Victor Mono',
+              fontWeight: FontWeight.w500,
+              fontFeatures: [FontFeature.tabularFigures()],
+            ),
+    );
     return Padding(
       padding: const EdgeInsets.fromLTRB(16.0, 0.0, 16.0, 0.0),
-      child: TextFormField(
-        autofocus: _config.autofocus,
-        controller: _controller,
-        focusNode: _node,
-        showCursor: _focused,
-        obscureText: _config.obscureText,
-        readOnly: _config.isReadOnlyEval != null
-            ? _config.isReadOnlyEval!(widget.formState)
-            : _config.isReadOnly,
-        maxLines: _config.maxLines,
-        maxLength: _config.maxLength,
-        maxLengthEnforcement: MaxLengthEnforcement.enforced,
-        decoration: InputDecoration(
-          hintText: _config.hint,
-          labelText: _config.label,
-        ),
-        onChanged: widget.onChanged,
-        validator: (p0) => widget.formValidator(_config.group, _config.key, p0),
-        autovalidateMode: _config.autovalidateMode,
-        autofillHints: _config.autofillHints,
-        style: _config.useDefaultFont
-            ? null
-            : const TextStyle(
-                fontFamily: 'Victor Mono',
-                fontWeight: FontWeight.w500,
-                fontFeatures: [FontFeature.tabularFigures()],
-              ),
-      ),
+      // The Stack sizes itself to the field, its only non-positioned child, so
+      // the icon floats over the top right corner without changing the layout.
+      child: _config.showCopyToClipboard
+          ? Stack(children: [field, _copyToClipboardButton(context)])
+          : field,
     );
   }
 }

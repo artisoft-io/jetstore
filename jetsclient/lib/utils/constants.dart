@@ -129,6 +129,9 @@ class ScreenKeys {
   // Query Tool
   static const queryToolScreen = "queryToolScreen";
 
+  // Infer Server Admin
+  static const inferServerAdminScreen = "inferServerAdminScreen";
+
   static const login = "loginScreen";
   static const register = "registerScreen";
   static const userAdmin = "userAdminScreen";
@@ -188,6 +191,8 @@ class FormKeys {
   // Query Tool Forms
   static const queryToolInputForm = "queryToolInputForm";
   static const queryToolResultViewForm = "queryToolResultViewForm";
+  // Infer Server Admin Form
+  static const inferServerAdminForm = "inferServerAdminForm";
   // User Admin forms
   static const login = "login";
   static const register = "register";
@@ -361,6 +366,15 @@ class FSK {
   static const rawQueryReady = "raw_query.ready";
   static const rawDdlQueryReady = "raw_query.ddl.ready";
   static const queryReady = "query.ready";
+
+  // Infer Server Admin
+  // The request envelope the user submits, and the response rendered back.
+  static const inferRequest = "infer.request";
+  static const inferResponse = "infer.response";
+  // Server lifecycle state, one of the awsi infer states: running, stopped,
+  // starting, stopping. Drives the Start/Stop button enablement.
+  static const inferServerState = "infer.server.state";
+  static const inferServerStatusLabel = "infer.server.status_label";
 
   // keys used for mapping
   // key for domain classes data properties
@@ -602,6 +616,18 @@ class ActionKeys {
   // Query Tool Actions
   static const queryToolOk = "queryTool.ok";
   static const queryToolDdlOk = "queryTool.ddl.ok";
+
+  // Infer Server Admin Actions
+  static const inferServerLoad = "inferServer.load";
+  static const inferServerRefresh = "inferServer.refresh";
+  static const inferServerStart = "inferServer.start";
+  static const inferServerStop = "inferServer.stop";
+  static const inferServerSubmit = "inferServer.submit";
+  // Macro buttons, each fills the request box with a template
+  static const inferMacroListModels = "inferServer.macro.listModels";
+  static const inferMacroPullModel = "inferServer.macro.pullModel";
+  static const inferMacroShowModel = "inferServer.macro.showModel";
+  static const inferMacroDeleteModel = "inferServer.macro.deleteModel";
 
   // for add process input dialog
   static const addProcessInputOk = "addProcessInputOk";
@@ -875,6 +901,7 @@ class DTKeys {
 class ServerEPs {
   static const dataTableEP = "/dataTable";
   static const purgeDataEP = "/purgeData";
+  static const inferServerEP = "/inferServer";
   static const registerFileKeyEP = "/registerFileKey";
   static const loginEP = "/login";
   static const registerEP = "/register";

@@ -541,6 +541,15 @@ func listenAndServe() error {
 	server.Router.HandleFunc("/purgeData", purgeDataOptions.options).Methods("OPTIONS")
 	server.Router.HandleFunc("/purgeData", jsonh(corsh(authh(server.DoPurgeDataAction)))).Methods("POST")
 
+	// InferServer route
+	// Note: authh validates the token only; the infer_server_admin capability is checked
+	// inside DoInferServerAction.
+	inferServerOptions := OptionConfig{Origin: "",
+		AllowedMethods: "POST, OPTIONS",
+		AllowedHeaders: "Content-Type, Authorization"}
+	server.Router.HandleFunc("/inferServer", inferServerOptions.options).Methods("OPTIONS")
+	server.Router.HandleFunc("/inferServer", jsonh(corsh(authh(server.DoInferServerAction)))).Methods("POST")
+
 	// //* Currently not used
 	// //* TODO add options and corrs check - Users routes
 	// // server.Router.HandleFunc("/register", jsonh(server.CreateUser)).Methods("POST")

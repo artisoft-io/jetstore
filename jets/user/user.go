@@ -37,6 +37,7 @@ type User struct {
 //	- workspace_ide: Access workspace IDE screens and functions, including query tool and git functions
 //	- run_pipelines: Load files and run pipelines
 //  - user_profile:  Update user profile
+//  - infer_server_admin: Start & stop the Infer Server and manage its models
 // NOTE: role_capability table is initialized in jets_init_db.sql
 
 func NewUser(email string) *User {

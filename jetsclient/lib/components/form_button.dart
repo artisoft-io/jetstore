@@ -11,12 +11,19 @@ class JetsFormButton extends StatefulWidget {
     required this.formKey,
     required this.formState,
     required this.actionsDelegate,
+    this.expand = true,
   });
 
   final FormActionConfig formActionConfig;
   final GlobalKey<FormState> formKey;
   final JetsFormState formState;
   final FormActionsDelegate actionsDelegate;
+  // Whether to wrap the button in an [Expanded]. True when it sits directly in
+  // the form's action Row, which is the common case. False when the button is
+  // used as a form *field*: [JetsForm] already wraps every field of a row in a
+  // Flexible carrying the same flex, and a second ParentDataWidget on top of
+  // that throws "Incorrect use of ParentDataWidget".
+  final bool expand;
 
   @override
   State<JetsFormButton> createState() => _JetsFormButtonState();
@@ -74,24 +81,33 @@ class _JetsFormButtonState extends State<JetsFormButton> {
         isOn = !widget.formActionConfig.enableOnlyWhenFormValid ||
             widget.formState.isFormValid();
       }
+      // Form-state-driven enablement, for buttons gated on data rather than on
+      // form validity. Evaluated here in build so it re-runs on every form
+      // state change, via the listener registered in initState.
+      final isEnabledEval = widget.formActionConfig.isEnabledEval;
+      if (isOn && isEnabledEval != null) {
+        isOn = isEnabledEval(widget.formState);
+      }
     }
+    final button = Padding(
+      padding: EdgeInsets.fromLTRB(
+          widget.formActionConfig.leftMargin,
+          widget.formActionConfig.topMargin,
+          widget.formActionConfig.rightMargin,
+          widget.formActionConfig.bottomMargin),
+      child: ElevatedButton(
+          style: buttonStyle(_buttonStyle, themeData),
+          onPressed: isOn
+              ? () => widget.actionsDelegate(
+                  context, widget.formKey, formState, config.key,
+                  group: config.group)
+              : null,
+          child: Text(label ?? '')),
+    );
+    if (!widget.expand) return button;
     return Expanded(
       flex: widget.formActionConfig.flex,
-      child: Padding(
-        padding: EdgeInsets.fromLTRB(
-            widget.formActionConfig.leftMargin,
-            widget.formActionConfig.topMargin,
-            widget.formActionConfig.rightMargin,
-            widget.formActionConfig.bottomMargin),
-        child: ElevatedButton(
-            style: buttonStyle(_buttonStyle, themeData),
-            onPressed: isOn
-                ? () => widget.actionsDelegate(
-                    context, widget.formKey, formState, config.key,
-                    group: config.group)
-                : null,
-            child: Text(label ?? '')),
-      ),
+      child: button,
     );
   }
 }

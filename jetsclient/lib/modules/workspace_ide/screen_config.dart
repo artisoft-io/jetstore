@@ -16,6 +16,13 @@ final List<MenuEntry> workspaceRegistryMenuEntries = [
       key: 'queryTool',
       label: 'Query Tool',
       routePath: queryToolPath),
+  // Disabled rather than hidden without the capability, as base_screen does for every
+  // menu entry. The api endpoint enforces the same capability independently.
+  MenuEntry(
+      key: 'inferServerAdmin',
+      label: 'Infer Server Admin',
+      capability: 'infer_server_admin',
+      routePath: inferServerAdminPath),
 ];
 
 final Map<String, ScreenConfig> _screenConfigurations = {

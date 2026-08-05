@@ -42,6 +42,60 @@ func (jsComp *JetStoreStackComponents) BuildUiService(scope constructs.Construct
 	uiContainerLogGroup := awslogs.NewLogGroup(stack, jsii.String("UiContainerLogGroup"), &awslogs.LogGroupProps{
 		Retention: awslogs.RetentionDays_THREE_MONTHS,
 	})
+	// Container environment. Built as a variable rather than inline so the infer server
+	// identifiers below can be added conditionally.
+	uiEnvironment := map[string]*string{
+		"JETS_BUCKET":                   jsComp.SourceBucket.BucketName(),
+		"JETS_TEMP_DATA":                jsii.String(jsComp.JetsTempData()),
+		"TMPDIR":                        jsii.String(jsComp.TempDir()),
+		"JETS_DSN_SECRET":               jsComp.RdsSecret.SecretName(),
+		"AWS_API_SECRET":                jsComp.ApiSecret.SecretName(),
+		"AWS_JETS_ADMIN_PWD_SECRET":     jsComp.AdminPwdSecret.SecretName(),
+		"JETS_ENCRYPTION_KEY_SECRET":    jsComp.EncryptionKeySecret.SecretName(),
+		"JETS_DOMAIN_KEY_HASH_ALGO":     jsii.String(os.Getenv("JETS_DOMAIN_KEY_HASH_ALGO")),
+		"JETS_DOMAIN_KEY_HASH_SEED":     jsii.String(os.Getenv("JETS_DOMAIN_KEY_HASH_SEED")),
+		"JETS_INPUT_ROW_JETS_KEY_ALGO":  jsii.String(os.Getenv("JETS_INPUT_ROW_JETS_KEY_ALGO")),
+		"JETS_INVALID_CODE":             jsii.String(os.Getenv("JETS_INVALID_CODE")),
+		"JETS_REGION":                   jsii.String(os.Getenv("AWS_REGION")),
+		"JETS_PIVOT_YEAR_TIME_PARSING":  jsii.String(os.Getenv("JETS_PIVOT_YEAR_TIME_PARSING")),
+		"JETS_s3_INPUT_PREFIX":          jsii.String(os.Getenv("JETS_s3_INPUT_PREFIX")),
+		"JETS_s3_OUTPUT_PREFIX":         jsii.String(os.Getenv("JETS_s3_OUTPUT_PREFIX")),
+		"JETS_s3_STAGE_PREFIX":          jsii.String(GetS3StagePrefix()),
+		"JETS_s3_SCHEMA_TRIGGERS":       jsii.String(GetS3SchemaTriggersPrefix()),
+		"JETS_S3_KMS_KEY_ARN":           jsii.String(os.Getenv("JETS_S3_KMS_KEY_ARN")),
+		"JETS_SENTINEL_FILE_NAME":       jsii.String(os.Getenv("JETS_SENTINEL_FILE_NAME")),
+		"JETS_DOMAIN_KEY_SEPARATOR":     jsii.String(os.Getenv("JETS_DOMAIN_KEY_SEPARATOR")),
+		"WORKSPACES_HOME":               jsii.String(jsComp.JetsTempData() + "/workspaces"),
+		"WORKSPACE":                     jsii.String(os.Getenv("WORKSPACE")),
+		"WORKSPACE_BRANCH":              jsii.String(os.Getenv("WORKSPACE_BRANCH")),
+		"WORKSPACE_FILE_KEY_LABEL_RE":   jsii.String(os.Getenv("WORKSPACE_FILE_KEY_LABEL_RE")),
+		"WORKSPACE_URI":                 jsii.String(os.Getenv("WORKSPACE_URI")),
+		"ACTIVE_WORKSPACE_URI":          jsii.String(os.Getenv("ACTIVE_WORKSPACE_URI")),
+		"ENVIRONMENT":                   jsii.String(os.Getenv("ENVIRONMENT")),
+		"JETS_PIPELINE_THROTTLING_JSON": jsii.String(os.Getenv("JETS_PIPELINE_THROTTLING_JSON")),
+		"JETS_CPIPES_SM_TIMEOUT_MIN":    jsii.String(os.Getenv("JETS_CPIPES_SM_TIMEOUT_MIN")),
+		"JETS_CPIPES_SM_ARN":            jsii.String(jsComp.CpipesSmArn),
+		"JETS_CPIPES_NATIVE_SM_ARN":     jsii.String(jsComp.CpipesNativeSmArn),
+		"JETS_REPORTS_SM_ARN":           jsii.String(jsComp.ReportsSmArn),
+		"JETS_ADMIN_EMAIL":              jsii.String(os.Getenv("JETS_ADMIN_EMAIL")),
+	}
+
+	// Identifiers used by awsi.StartInferServer / StopInferServer, which scale the infer
+	// service and its GPU auto scaling group together. Set only when the infer server is
+	// part of the stack, so the apiserver can tell "not deployed" from "deployed but
+	// stopped". JETS_INFER_ASG_NAME matters beyond convenience: with it set, awsi skips
+	// discovering the group through the cluster's capacity provider, which is why the task
+	// role needs no capacity-provider read on the normal path.
+	//
+	// Guarded on the components themselves rather than on DoBuildInferServer(): the infer
+	// resources are built conditionally in jetstore_one.go, so a nil check cannot
+	// desynchronise from what was actually constructed.
+	if jsComp.EcsInferService != nil && jsComp.InferAutoScalingGroup != nil {
+		uiEnvironment["JETS_ECS_CLUSTER_NAME"] = jsComp.EcsCluster.ClusterName()
+		uiEnvironment["JETS_INFER_SERVICE_NAME"] = jsComp.EcsInferService.ServiceName()
+		uiEnvironment["JETS_INFER_ASG_NAME"] = jsComp.InferAutoScalingGroup.AutoScalingGroupName()
+	}
+
 	// Define the container
 	jsComp.UiTaskContainer = jsComp.UiTaskDefinition.AddContainer(jsii.String("uiContainer"), &awsecs.ContainerDefinitionOptions{
 		// Use JetStore Image in ecr
@@ -57,41 +111,7 @@ func (jsComp *JetStoreStackComponents) BuildUiService(scope constructs.Construct
 				AppProtocol:   awsecs.AppProtocol_Http(),
 			},
 		},
-		Environment: &map[string]*string{
-			"JETS_BUCKET":                   jsComp.SourceBucket.BucketName(),
-			"JETS_TEMP_DATA":                jsii.String(jsComp.JetsTempData()),
-			"TMPDIR":                        jsii.String(jsComp.TempDir()),
-			"JETS_DSN_SECRET":               jsComp.RdsSecret.SecretName(),
-			"AWS_API_SECRET":                jsComp.ApiSecret.SecretName(),
-			"AWS_JETS_ADMIN_PWD_SECRET":     jsComp.AdminPwdSecret.SecretName(),
-			"JETS_ENCRYPTION_KEY_SECRET":    jsComp.EncryptionKeySecret.SecretName(),
-			"JETS_DOMAIN_KEY_HASH_ALGO":     jsii.String(os.Getenv("JETS_DOMAIN_KEY_HASH_ALGO")),
-			"JETS_DOMAIN_KEY_HASH_SEED":     jsii.String(os.Getenv("JETS_DOMAIN_KEY_HASH_SEED")),
-			"JETS_INPUT_ROW_JETS_KEY_ALGO":  jsii.String(os.Getenv("JETS_INPUT_ROW_JETS_KEY_ALGO")),
-			"JETS_INVALID_CODE":             jsii.String(os.Getenv("JETS_INVALID_CODE")),
-			"JETS_REGION":                   jsii.String(os.Getenv("AWS_REGION")),
-			"JETS_PIVOT_YEAR_TIME_PARSING":  jsii.String(os.Getenv("JETS_PIVOT_YEAR_TIME_PARSING")),
-			"JETS_s3_INPUT_PREFIX":          jsii.String(os.Getenv("JETS_s3_INPUT_PREFIX")),
-			"JETS_s3_OUTPUT_PREFIX":         jsii.String(os.Getenv("JETS_s3_OUTPUT_PREFIX")),
-			"JETS_s3_STAGE_PREFIX":          jsii.String(GetS3StagePrefix()),
-			"JETS_s3_SCHEMA_TRIGGERS":       jsii.String(GetS3SchemaTriggersPrefix()),
-			"JETS_S3_KMS_KEY_ARN":           jsii.String(os.Getenv("JETS_S3_KMS_KEY_ARN")),
-			"JETS_SENTINEL_FILE_NAME":       jsii.String(os.Getenv("JETS_SENTINEL_FILE_NAME")),
-			"JETS_DOMAIN_KEY_SEPARATOR":     jsii.String(os.Getenv("JETS_DOMAIN_KEY_SEPARATOR")),
-			"WORKSPACES_HOME":               jsii.String("/jetsdata/workspaces"),
-			"WORKSPACE":                     jsii.String(os.Getenv("WORKSPACE")),
-			"WORKSPACE_BRANCH":              jsii.String(os.Getenv("WORKSPACE_BRANCH")),
-			"WORKSPACE_FILE_KEY_LABEL_RE":   jsii.String(os.Getenv("WORKSPACE_FILE_KEY_LABEL_RE")),
-			"WORKSPACE_URI":                 jsii.String(os.Getenv("WORKSPACE_URI")),
-			"ACTIVE_WORKSPACE_URI":          jsii.String(os.Getenv("ACTIVE_WORKSPACE_URI")),
-			"ENVIRONMENT":                   jsii.String(os.Getenv("ENVIRONMENT")),
-			"JETS_PIPELINE_THROTTLING_JSON": jsii.String(os.Getenv("JETS_PIPELINE_THROTTLING_JSON")),
-			"JETS_CPIPES_SM_TIMEOUT_MIN":    jsii.String(os.Getenv("JETS_CPIPES_SM_TIMEOUT_MIN")),
-			"JETS_CPIPES_SM_ARN":            jsii.String(jsComp.CpipesSmArn),
-			"JETS_CPIPES_NATIVE_SM_ARN":     jsii.String(jsComp.CpipesNativeSmArn),
-			"JETS_REPORTS_SM_ARN":           jsii.String(jsComp.ReportsSmArn),
-			"JETS_ADMIN_EMAIL":              jsii.String(os.Getenv("JETS_ADMIN_EMAIL")),
-		},
+		Environment: &uiEnvironment,
 		// Secrets: &map[string]awsecs.Secret{
 		// 	"API_SECRET":          awsecs.Secret_FromSecretsManager(jsComp.ApiSecret, nil),
 		// 	"JETS_ADMIN_PWD":      awsecs.Secret_FromSecretsManager(jsComp.AdminPwdSecret, nil),
@@ -105,7 +125,7 @@ func (jsComp *JetStoreStackComponents) BuildUiService(scope constructs.Construct
 	})
 	jsComp.UiTaskContainer.AddMountPoints(&awsecs.MountPoint{
 		SourceVolume:  jsii.String("tmp-volume"),
-		ContainerPath: jsii.String("/jetsdata"),
+		ContainerPath: jsii.String(jsComp.JetsTempData()),
 		ReadOnly:      jsii.Bool(false),
 	})
 

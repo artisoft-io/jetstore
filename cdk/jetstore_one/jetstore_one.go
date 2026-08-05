@@ -256,7 +256,7 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 	// Create the jsComp.EcsCluster.
 	// ==============================================================================================================
 	jsComp.EcsCluster = awsecs.NewCluster(stack, props.MkId("ecsCluster"), &awsecs.ClusterProps{
-		Vpc: jsComp.Vpc,
+		Vpc:                 jsComp.Vpc,
 		ContainerInsightsV2: awsecs.ContainerInsights_ENABLED,
 	})
 	if phiTagName != nil {
@@ -296,7 +296,7 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 	jsComp.SourceBucket.GrantReadWrite(jsComp.EcsTaskRole, nil)
 	jsComp.GrantReadWriteFromExternalBuckets(stack, jsComp.EcsTaskRole)
 	jsComp.GrantEncryptDecryptExternalKmsKey(jsComp.EcsTaskRole)
-	
+
 	// Provide access to the secrets
 	jsComp.RdsSecret.GrantRead(jsComp.EcsTaskRole, nil)
 	jsComp.ApiSecret.GrantRead(jsComp.EcsTaskRole, nil)
@@ -353,6 +353,21 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 	// Build the cpipes State Machine (cpipesSM)
 	jsComp.BuildCpipesSM(scope, stack, props)
 
+	// Build the infer State Machine (inferSM)
+	if jsComp.DoBuildInferServer() {
+		// Infer Image from ecr -- Ollama + cbooter, built from dockerfiles/Dockerfile.infer_service.
+		// Resolved here rather than alongside JetStoreImage so the ECR repo lookup construct is
+		// only created when the infer server is actually being built.
+		jsComp.InferImage = awsecs.AssetImage_FromEcrRepository(
+			awsecr.Repository_FromRepositoryArn(stack, jsii.String("jetstore-infer-image"),
+				jsii.String(jsComp.InferEcrRepoArn())),
+			jsii.String(jsComp.InferImageTag()))
+
+		if jsComp.BuildInferEc2(scope, stack, props) != nil {
+			jsComp.BuildInferService(scope, stack, props)
+		}
+	}
+
 	// RegisterKey Lambda
 	jsComp.BuildRegisterKeyLambdas(scope, stack, props)
 
@@ -373,6 +388,47 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 		Actions:   jsii.Strings("states:StartExecution"),
 		Resources: &resources,
 	}))
+
+	// ---------------------------------------
+	// Allow JetStore Tasks to start and stop the Infer Server
+	// ---------------------------------------
+	// Used by awsi.StartInferServer / StopInferServer, called from the UI service. The task
+	// and its GPU instance scale independently, so this covers both the ECS service and the
+	// auto scaling group behind it. These land on the shared EcsTaskRole -- the convention
+	// stated where the role is created -- so the cpipes and run-reports tasks receive them
+	// too, which is what would be wanted if a pipeline step ever needs inference.
+	//
+	// Guarded on the components rather than DoBuildInferServer() so this cannot reference a
+	// nil resource if the infer build above was skipped for any other reason.
+	if jsComp.EcsInferService != nil && jsComp.InferAutoScalingGroup != nil {
+		jsComp.EcsTaskRole.AddToPolicy(awsiam.NewPolicyStatement(&awsiam.PolicyStatementProps{
+			Actions:   jsii.Strings("ecs:DescribeServices", "ecs:UpdateService"),
+			Resources: &[]*string{jsComp.EcsInferService.ServiceArn()},
+		}))
+		jsComp.EcsTaskRole.AddToPolicy(awsiam.NewPolicyStatement(&awsiam.PolicyStatementProps{
+			Actions:   jsii.Strings("autoscaling:SetDesiredCapacity"),
+			Resources: &[]*string{jsComp.InferAutoScalingGroup.AutoScalingGroupArn()},
+		}))
+		jsComp.EcsTaskRole.AddToPolicy(awsiam.NewPolicyStatement(&awsiam.PolicyStatementProps{
+			// Autoscaling Describe* actions have no resource types, so this cannot be scoped.
+			Actions:   jsii.Strings("autoscaling:DescribeAutoScalingGroups"),
+			Resources: jsii.Strings("*"),
+		}))
+		// The remaining two are only for awsi's fallback path, which discovers the auto
+		// scaling group through the cluster's capacity provider when JETS_INFER_ASG_NAME is
+		// absent. The UI container always has that variable set, so this is here to keep the
+		// fallback from failing with a confusing AccessDenied rather than because the normal
+		// path needs it. DescribeCapacityProviders has no resource types either.
+		jsComp.EcsTaskRole.AddToPolicy(awsiam.NewPolicyStatement(&awsiam.PolicyStatementProps{
+			Actions:   jsii.Strings("ecs:DescribeClusters"),
+			Resources: &[]*string{jsComp.EcsCluster.ClusterArn()},
+		}))
+		jsComp.EcsTaskRole.AddToPolicy(awsiam.NewPolicyStatement(&awsiam.PolicyStatementProps{
+			Actions:   jsii.Strings("ecs:DescribeCapacityProviders"),
+			Resources: jsii.Strings("*"),
+		}))
+	}
+
 	// Also to status update & register key lambda
 	jsComp.StatusUpdateLambda.AddToRolePolicy(awsiam.NewPolicyStatement(&awsiam.PolicyStatementProps{
 		Actions: jsii.Strings("states:StartExecution"),
@@ -552,6 +608,26 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 // WORKSPACE_URI (optional, if set it will lock the workspace uri and will not take the ui value)
 // WORKSPACES_HOME  this is taken from container env (dockerfile) or hardcoded in lambda definition
 // WORKSPACE_FILE_KEY_LABEL_RE (optional) regex to extract label from file_key in UI
+// === New Entries for Infer Task ===
+// BUILD_INFER_SERVICE (optional) set to TRUE to build the infer state machine, default FALSE
+// JETS_INFER_PORT (optional) port for infer server, default 11434
+// INFER_AMI_NAME (optional) escape hatch to pin a custom AMI; when unset the stock ECS
+// GPU-optimized Amazon Linux 2023 AMI is used (NVIDIA driver + ECS agent preinstalled)
+// INFER_AMI_OWNER (optional) owner of the custom AMI, default "self"; ignored unless INFER_AMI_NAME is set
+// INFER_AMI_ROOT_DEVICE (optional) root device name of the custom AMI, default "/dev/xvda"
+// INFER_ECR_REPO_ARN (required when BUILD_INFER_SERVICE) ECR repo holding the infer image
+// INFER_IMAGE_TAG (required when BUILD_INFER_SERVICE) tag of the infer image
+// INFER_MEM_LIMIT_MB (optional) memory limit in MB for infer task, default 1024 * 16 * 10 / 8 = 12.5 GB
+// INFER_DESIRED_COUNT (optional) desired task count for the infer service. Leave unset so a
+// deploy preserves the current scale; set to 0 on the first deploy of a new stack to avoid
+// starting a GPU instance right away
+// INFER_EC2_INSTANCE_TYPE (optional) EC2 instance type for infer task, default g5.xlarge
+// INFER_ROOT_VOLUME_GB (optional) size of the infer instance root volume in GB, default 50
+// OLLAMA_NUM_PARALLEL, OLLAMA_MAX_LOADED_MODELS, OLLAMA_KEEP_ALIVE, OLLAMA_CONTEXT_LENGTH
+// (optional) Ollama tuning passed through to the infer container, defaults 4 / 1 / 30m / 32768
+// (see infer_server_readme.md before changing the last two — they are GPU-memory bound)
+//XXX JETS_INFER_SSH_KEY_NAME (optional) name of the keypair to use for infer ec2 instance, default none (*for debugging only*)
+
 func main() {
 	defer jsii.Close()
 	var err error
@@ -646,6 +722,18 @@ func main() {
 	log.Println("env EXTERNAL_S3_KMS_KEY_ARN:", os.Getenv("EXTERNAL_S3_KMS_KEY_ARN"))
 	log.Println("env EXTERNAL_SQS_ARN:", os.Getenv("EXTERNAL_SQS_ARN"))
 	log.Println("env JETS_PIVOT_YEAR_TIME_PARSING:", os.Getenv("JETS_PIVOT_YEAR_TIME_PARSING"))
+	// Infer Task env vars
+	log.Println("env BUILD_INFER_SERVICE:", os.Getenv("BUILD_INFER_SERVICE"))
+	log.Println("env JETS_INFER_PORT:", os.Getenv("JETS_INFER_PORT"))
+	log.Println("env INFER_AMI_NAME:", os.Getenv("INFER_AMI_NAME"))
+	log.Println("env INFER_AMI_OWNER:", os.Getenv("INFER_AMI_OWNER"))
+	log.Println("env INFER_AMI_ROOT_DEVICE:", os.Getenv("INFER_AMI_ROOT_DEVICE"))
+	log.Println("env INFER_ECR_REPO_ARN:", os.Getenv("INFER_ECR_REPO_ARN"))
+	log.Println("env INFER_IMAGE_TAG:", os.Getenv("INFER_IMAGE_TAG"))
+	log.Println("env INFER_MEM_LIMIT_MB:", os.Getenv("INFER_MEM_LIMIT_MB"))
+	log.Println("env INFER_EC2_INSTANCE_TYPE:", os.Getenv("INFER_EC2_INSTANCE_TYPE"))
+	log.Println("env INFER_ROOT_VOLUME_GB:", os.Getenv("INFER_ROOT_VOLUME_GB"))
+	// log.Println("env JETS_INFER_SSH_KEY_NAME:", os.Getenv("JETS_INFER_SSH_KEY_NAME"))
 
 	// Verify that we have all the required env variables
 	hasErr := false
