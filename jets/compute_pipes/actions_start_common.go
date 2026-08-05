@@ -963,13 +963,12 @@ func (args *CpipesStartup) ValidatePipeSpecConfig(cpConfig *ComputePipesConfig, 
 						return err
 					}
 				}
-				// Validate the error output channel in jetrules config if specified
-				if transformationConfig.JetrulesConfig.ErrorChannel != nil {
-					err := args.validateOutputChConfig(transformationConfig.JetrulesConfig.ErrorChannel,
-						getSchemaProvider(cpConfig.SchemaProviders, transformationConfig.JetrulesConfig.ErrorChannel.SchemaProvider))
-					if err != nil {
-						return err
-					}
+			case "ollama":
+				if transformationConfig.OllamaConfig == nil {
+					return fmt.Errorf("configuration error: missing ollama_config for ollama operator")
+				}
+				if transformationConfig.OllamaConfig.PoolSize < 1 {
+					transformationConfig.OllamaConfig.PoolSize = 1
 				}
 			case "clustering":
 				if transformationConfig.ClusteringConfig == nil ||
@@ -983,10 +982,117 @@ func (args *CpipesStartup) ValidatePipeSpecConfig(cpConfig *ComputePipesConfig, 
 					return err
 				}
 			}
+			// Validate the error channel of the operators that report row level errors,
+			// see errorChannelConfig.
+			if errorChannel := errorChannelConfig(transformationConfig); errorChannel != nil {
+				err := args.validateOutputChConfig(errorChannel,
+					getSchemaProvider(cpConfig.SchemaProviders, errorChannel.SchemaProvider))
+				if err != nil {
+					return err
+				}
+			}
 			err := args.validateOutputChConfig(outputChConfig, sp)
 			if err != nil {
 				return err
 			}
+		}
+	}
+	return validateErrorChannels(pipeConfig)
+}
+
+// errorChannelConfig returns the error channel of a transformation, nil when it has none.
+// These are the operators that report row level errors, typically to the process_errors
+// table.
+func errorChannelConfig(transformationConfig *TransformationSpec) *OutputChannelConfig {
+	switch transformationConfig.Type {
+	case "map_record":
+		if transformationConfig.MapRecordConfig != nil {
+			return transformationConfig.MapRecordConfig.ErrorChannel
+		}
+	case "jetrules":
+		if transformationConfig.JetrulesConfig != nil {
+			return transformationConfig.JetrulesConfig.ErrorChannel
+		}
+	case "ollama":
+		if transformationConfig.OllamaConfig != nil {
+			return transformationConfig.OllamaConfig.ErrorChannel
+		}
+	}
+	return nil
+}
+
+// outputChannelNames returns the names of the channels a transformation writes its
+// results to, excluding its error channel.
+func outputChannelNames(transformationConfig *TransformationSpec) []string {
+	names := make([]string, 0, 2)
+	addName := func(name string) {
+		if len(name) > 0 {
+			names = append(names, name)
+		}
+	}
+	addName(transformationConfig.OutputChannel.Name)
+	switch transformationConfig.Type {
+	case "jetrules":
+		if transformationConfig.JetrulesConfig != nil {
+			for i := range transformationConfig.JetrulesConfig.OutputChannels {
+				addName(transformationConfig.JetrulesConfig.OutputChannels[i].Name)
+			}
+		}
+	case "anonymize":
+		if transformationConfig.AnonymizeConfig != nil && transformationConfig.AnonymizeConfig.KeysOutputChannel != nil {
+			addName(transformationConfig.AnonymizeConfig.KeysOutputChannel.Name)
+		}
+	case "clustering":
+		if transformationConfig.ClusteringConfig != nil && transformationConfig.ClusteringConfig.CorrelationOutputChannel != nil {
+			addName(transformationConfig.ClusteringConfig.CorrelationOutputChannel.Name)
+		}
+	}
+	return names
+}
+
+// validateErrorChannels checks that an error channel has a single writer:
+//   - no two operators of the step may declare the same error channel;
+//   - an error channel may not also be the output channel of an operator.
+//
+// The operator owning an error channel closes it when it is done, so a second writer
+// would either panic writing to a closed channel or lose its rows to a channel that was
+// closed early. Note that sharing a *regular* output channel between operators is fine
+// and is used in practice (see the qc_* pipelines writing to a common writer channel):
+// those channels are closed by the pipe executor once every operator is done.
+func validateErrorChannels(pipeConfig []PipeSpec) error {
+	// First collect the output channels of the step, then check the error channels
+	// against them, so the error reported does not depend on the visit order.
+	outputChannels := make(map[string]string)
+	for i := range pipeConfig {
+		for j := range pipeConfig[i].Apply {
+			transformationConfig := &pipeConfig[i].Apply[j]
+			for _, name := range outputChannelNames(transformationConfig) {
+				outputChannels[name] = transformationConfig.Type
+			}
+		}
+	}
+	errorChannels := make(map[string]string)
+	for i := range pipeConfig {
+		for j := range pipeConfig[i].Apply {
+			transformationConfig := &pipeConfig[i].Apply[j]
+			errorChannel := errorChannelConfig(transformationConfig)
+			if errorChannel == nil || len(errorChannel.Name) == 0 {
+				continue
+			}
+			if owner, ok := errorChannels[errorChannel.Name]; ok {
+				return fmt.Errorf(
+					"configuration error: operators '%s' and '%s' both use '%s' as error channel, "+
+						"each operator must have its own error channel since it closes it when it is done",
+					owner, transformationConfig.Type, errorChannel.Name)
+			}
+			if owner, ok := outputChannels[errorChannel.Name]; ok {
+				return fmt.Errorf(
+					"configuration error: channel '%s' is the error channel of operator '%s' and the output "+
+						"channel of operator '%s', an error channel cannot be shared since it is closed by the "+
+						"operator that reports to it",
+					errorChannel.Name, transformationConfig.Type, owner)
+			}
+			errorChannels[errorChannel.Name] = transformationConfig.Type
 		}
 	}
 	return nil

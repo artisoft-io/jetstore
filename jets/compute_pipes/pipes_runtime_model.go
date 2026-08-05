@@ -317,6 +317,9 @@ func (ctx *BuilderContext) BuildPipeTransformationEvaluator(source *InputChannel
 	case "jetrules":
 		return ctx.NewJetrulesTransformationPipe(source, outCh, spec)
 
+	case "ollama":
+		return ctx.NewOllamaTransformationPipe(source, outCh, spec)
+
 	case "analyze":
 		return ctx.NewAnalyzeTransformationPipe(source, outCh, spec)
 
