@@ -6,7 +6,7 @@ import { TaskArray, type Task } from "./schema.js";
 const OLLAMA_HOST = process.env.OLLAMA_HOST ?? "http://localhost:11434";
 const OLLAMA_MODEL = process.env.OLLAMA_MODEL ?? "gemma4:latest";
 const DEFAULT_PROMPT_FILE =
-  "/home/michel/projects/repos/workspaces/jets_ws/data/patient_clinical_summary/initial_test_prompt.md";
+  "/home/michel/projects/repos/jetstore_agentic_ai/workspaces/jets_ws/data/patient_clinical_summary/initial_test_prompt.md";
 
 interface Prompt {
   system: string;

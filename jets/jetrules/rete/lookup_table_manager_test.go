@@ -43,23 +43,23 @@ func NewTestLookupTableManagerContext() *TestLookupTableManagerContext {
 }
 
 func TestLookupTable1(t *testing.T) {
-	workspaceHome = "/home/michel/projects/repos/jetstore/jets/jetrules"
+	workspaceHome = "/home/michel/projects/repos/jetstore_agentic_ai/jetstore_ai/jets/jetrules"
 	wprefix = "test_ws"
 	ctx := NewTestLookupTableManagerContext()
 	jetRuleModel := &JetruleModel{
 		LookupTables: []*LookupTableNode{
 			{
 				Columns: []LookupTableColumn{
-					{Name:"ZIP_CITY", Type: "text"},
-					{Name:"ZIP_COUNTY", Type: "text"},
-					{Name:"SC_ID", Type: "text"},
-					{Name:"ZIP_STATE", Type: "text"},
-					{Name:"ZIP", Type: "text"},
+					{Name: "ZIP_CITY", Type: "text"},
+					{Name: "ZIP_COUNTY", Type: "text"},
+					{Name: "SC_ID", Type: "text"},
+					{Name: "ZIP_STATE", Type: "text"},
+					{Name: "ZIP", Type: "text"},
 				},
 				CsvFile: "lookups/common/zipcode.csv",
-				Key: []string{"ZIP"},
-				Name: "common_zipcode",
-				Type: "lookup",
+				Key:     []string{"ZIP"},
+				Name:    "common_zipcode",
+				Type:    "lookup",
 			},
 		},
 	}
@@ -104,20 +104,20 @@ func TestLookupTable1(t *testing.T) {
 	itor.Done()
 }
 func TestLookupTable2(t *testing.T) {
-	workspaceHome = "/home/michel/projects/repos/jetstore/jets/jetrules"
+	workspaceHome = "/home/michel/projects/repos/jetstore_agentic_ai/jetstore_ai/jets/jetrules"
 	wprefix = "test_ws"
 	ctx := NewTestLookupTableManagerContext()
 	jetRuleModel := &JetruleModel{
 		LookupTables: []*LookupTableNode{
 			{
 				Columns: []LookupTableColumn{
-					{Name:"PRIORITY", Type: "int"},
-					{Name:"TYPE", Type: "text"},
+					{Name: "PRIORITY", Type: "int"},
+					{Name: "TYPE", Type: "text"},
 				},
 				CsvFile: "lookups/IM/Exclusion_Type.csv",
-				Key: []string{"TYPE"},
-				Name: "IM_Exclusion_Type",
-				Type: "lookup",
+				Key:     []string{"TYPE"},
+				Name:    "IM_Exclusion_Type",
+				Type:    "lookup",
 			},
 		},
 	}
@@ -160,20 +160,20 @@ func TestLookupTable2(t *testing.T) {
 }
 
 func TestLookupRand1(t *testing.T) {
-	workspaceHome = "/home/michel/projects/repos/jetstore/jets/jetrules"
+	workspaceHome = "/home/michel/projects/repos/jetstore_agentic_ai/jetstore_ai/jets/jetrules"
 	wprefix = "test_ws"
 	ctx := NewTestLookupTableManagerContext()
 	jetRuleModel := &JetruleModel{
 		LookupTables: []*LookupTableNode{
 			{
 				Columns: []LookupTableColumn{
-					{Name:"PRIORITY", Type: "int"},
-					{Name:"TYPE", Type: "text"},
+					{Name: "PRIORITY", Type: "int"},
+					{Name: "TYPE", Type: "text"},
 				},
 				CsvFile: "lookups/IM/Exclusion_Type.csv",
-				Key: []string{"TYPE"},
-				Name: "IM_Exclusion_Type",
-				Type: "lookup",
+				Key:     []string{"TYPE"},
+				Name:    "IM_Exclusion_Type",
+				Type:    "lookup",
 			},
 		},
 	}
@@ -215,20 +215,20 @@ func TestLookupRand1(t *testing.T) {
 }
 
 func TestLookupMultiRand1(t *testing.T) {
-	workspaceHome = "/home/michel/projects/repos/jetstore/jets/jetrules"
+	workspaceHome = "/home/michel/projects/repos/jetstore_agentic_ai/jetstore_ai/jets/jetrules"
 	wprefix = "test_ws"
 	ctx := NewTestLookupTableManagerContext()
 	jetRuleModel := &JetruleModel{
 		LookupTables: []*LookupTableNode{
 			{
 				Columns: []LookupTableColumn{
-					{Name:"PRIORITY", Type: "int"},
-					{Name:"TYPE", Type: "text"},
+					{Name: "PRIORITY", Type: "int"},
+					{Name: "TYPE", Type: "text"},
 				},
 				CsvFile: "lookups/IM/Exclusion_Type.csv",
-				Key: []string{"TYPE"},
-				Name: "IM_Exclusion_Type",
-				Type: "lookup",
+				Key:     []string{"TYPE"},
+				Name:    "IM_Exclusion_Type",
+				Type:    "lookup",
 			},
 		},
 	}

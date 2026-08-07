@@ -16,7 +16,7 @@ from .schema import TaskList
 OLLAMA_HOST = os.environ.get("OLLAMA_HOST", "http://localhost:11434")
 OLLAMA_MODEL = os.environ.get("OLLAMA_MODEL", "gemma4:latest")
 DEFAULT_PROMPT_FILE = (
-    "/home/michel/projects/repos/workspaces/jets_ws/data/"
+    "/home/michel/projects/repos/jetstore_agentic_ai/workspaces/jets_ws/data/"
     "patient_clinical_summary/initial_test_prompt.md"
 )
 
