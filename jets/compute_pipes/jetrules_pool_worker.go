@@ -505,7 +505,16 @@ func (ctx *JrPoolWorker) extractSessionData(rdfSession JetRdfSession,
 				// log.Printf("*** Extracting json/toon obj - end")
 				if config.EntityEncoding == "toon" {
 					// For toon encoding, we need to convert the map to a toon string
-					toonBytes, err := togo.Marshal(entityObj)
+					toonBytes, err := togo.Marshal(entityObj, togo.WithTimeFormatter(func(t time.Time) string {
+						switch {
+						case t.IsZero():
+							return ""
+						case t.Hour() == 0 && t.Minute() == 0 && t.Second() == 0 && t.Nanosecond() == 0:
+							return t.Format("2006-01-02")
+						default:
+							return t.Format("2006-01-02T15:04:05")
+						}
+					}))
 					if err != nil {
 						err = fmt.Errorf("error: failed to marshal entity object to toon for subject %s: %v", subject, err)
 						log.Println(err)

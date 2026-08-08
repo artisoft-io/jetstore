@@ -260,7 +260,7 @@ func castToRdfTypeFromTxt(inValue string, rdfType string, isArray *bool) (any, e
 
 	case "bool":
 		return rdf.ParseBool(inValue), nil
-	
+
 	case "datetime":
 		dt, err := rdf.ParseDatetime(inValue)
 		if err != nil {
@@ -299,7 +299,14 @@ func encodeRdfTypeToTxt(inValue any) string {
 	case float32:
 		return strconv.FormatFloat(float64(vv), 'f', -1, 32)
 	case time.Time:
-		return vv.Format("2006-01-02T15:04:05")
+		switch {
+		case vv.IsZero():
+			return ""
+		case vv.Hour() == 0 && vv.Minute() == 0 && vv.Second() == 0 && vv.Nanosecond() == 0:
+			return vv.Format("2006-01-02")
+		default:
+			return vv.Format("2006-01-02T15:04:05")
+		}
 	case uint:
 		return strconv.FormatUint(uint64(vv), 10)
 	case uint32:
