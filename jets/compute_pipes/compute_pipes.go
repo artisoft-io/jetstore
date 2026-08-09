@@ -51,7 +51,7 @@ func (cpCtx *ComputePipesContext) StartComputePipes(dbpool *pgxpool.Pool,
 	var cpErr, err error
 	var channelRegistry *ChannelRegistry
 	var outChannel *Channel
-	var wt WriteTableSource
+	var wt *WriteTableSource
 	var table chan ComputePipesResult
 	var ctx *BuilderContext
 	var inputChannel InputChannelConfig
@@ -350,11 +350,8 @@ func (cpCtx *ComputePipesContext) StartComputePipes(dbpool *pgxpool.Pool,
 		if cpCtx.CpConfig.ClusterConfig.IsDebugMode {
 			log.Println("*** Channel for Output Table", tableIdentifier, "is:", outChannel.Name)
 		}
-		wt = WriteTableSource{
-			source:          outChannel.Channel,
-			tableIdentifier: tableIdentifier,
-			columns:         outChannel.Config.Columns,
-		}
+		wt = NewWriteTableSource(outChannel.Channel, tableIdentifier, outChannel.Config.Columns, 
+			cpCtx.Done, cpCtx.ErrCh)
 		table = make(chan ComputePipesResult, 1)
 		cpCtx.ChResults.Copy2DbResultCh <- table
 		go wt.WriteTable(dbpool, cpCtx.Done, table)
@@ -403,13 +400,14 @@ func (cpCtx *ComputePipesContext) StartComputePipes(dbpool *pgxpool.Pool,
 	// Wait until the lookup tables are ready
 	managersWg.Wait()
 
-	// log.Println("Calling ctx.BuildComputeGraph()")
 	err = ctx.BuildComputeGraph()
 	if err != nil {
 		cpErr = fmt.Errorf("while building the compute graph: %s", err)
 		goto gotError
 	}
-	// log.Println("Calling ctx.BuildComputeGraph() completed")
+	if cpCtx.CpConfig.ClusterConfig.IsDebugMode {
+		log.Println("*** Calling ctx.BuildComputeGraph() completed")
+	}
 
 	// All done!
 	close(cpCtx.ChResults.Copy2DbResultCh)

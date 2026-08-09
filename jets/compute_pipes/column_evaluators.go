@@ -214,6 +214,9 @@ func (ctx *selectColumnEval) Update(currentValue *[]any, input *[]any) error {
 	if currentValue == nil || input == nil {
 		return fmt.Errorf("error selectColumnEval.update cannot have nil currentValue or input")
 	}
+	if ctx.inputPos < 0 || ctx.inputPos >= len(*input) {
+		return fmt.Errorf("error selectColumnEval.update inputPos %d out of range for input length %d", ctx.inputPos, len(*input))
+	}
 	value := (*input)[ctx.inputPos]
 	if ctx.cast2RdfType != nil {
 		var err error

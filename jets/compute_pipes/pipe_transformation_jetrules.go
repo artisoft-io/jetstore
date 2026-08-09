@@ -21,6 +21,7 @@ type JetrulesTransformationPipe struct {
 	jrPoolManager  *JrPoolManager
 	errorOutputCh  *OutputChannel
 	outputChannels []*JetrulesOutputChan
+	builderContext *BuilderContext
 	spec           *TransformationSpec
 	env            map[string]any
 	doneCh         chan struct{}
@@ -54,17 +55,17 @@ func (ctx *JetrulesTransformationPipe) Done() error {
 }
 
 func (ctx *JetrulesTransformationPipe) Finally() {
-	// log.Println("Entering JetrulesTransformationPipe.Finally")
-	close(ctx.jrPoolManager.WorkersTaskCh)
-	// Wait till the pool workers are done
-	// This is to avoid to close the output channel too early since the pool workers
-	// are writing to the output channel async
-	ctx.jrPoolManager.WaitForDone.Wait()
-	// log.Println("JetrulesTransformationPipe.Finally done")
-	// Close the error channel if exists
-	if ctx.errorOutputCh != nil {
-		close(ctx.errorOutputCh.Channel)
+	if ctx.jrPoolManager != nil {
+		close(ctx.jrPoolManager.WorkersTaskCh)
+		// Wait till the pool workers are done
+		// This is to avoid to close the output channel too early since the pool workers
+		// are writing to the output channel async
+		if ctx.jrPoolManager.WaitForDone != nil {
+			ctx.jrPoolManager.WaitForDone.Wait()
+		}
 	}
+	// Note - closing the error channel is moved with closing all the output channels in
+	// the pipe_executor_fan_out.go and pipe_executor_fsplitter.go
 }
 
 func (ctx *BuilderContext) NewJetrulesTransformationPipe(source *InputChannel, _ *OutputChannel, spec *TransformationSpec) (
@@ -228,11 +229,11 @@ func (ctx *BuilderContext) NewJetrulesTransformationPipe(source *InputChannel, _
 	var jrPoolManager *JrPoolManager
 	workerResultCh := make(chan JetrulesWorkerResult, 10)
 	ctx.chResults.JetrulesWorkerResultCh <- workerResultCh
-	jrPoolManager, err = ctx.NewJrPoolManager(config, source, rdfType2Columns, ruleEngine,
+	jrPoolManager = ctx.NewJrPoolManager(config, source, rdfType2Columns, ruleEngine,
 		errorOutputCh, jetrulesOutputChan, workerResultCh)
-	if err != nil {
-		return nil, err
-	}
+
+	// All good!
+	log.Printf("*** NewJetrulesTransformationPipe: exiting SUCCESS")
 	return &JetrulesTransformationPipe{
 		cpConfig:       ctx.cpConfig,
 		source:         source,
@@ -240,6 +241,7 @@ func (ctx *BuilderContext) NewJetrulesTransformationPipe(source *InputChannel, _
 		jrPoolManager:  jrPoolManager,
 		errorOutputCh:  errorOutputCh,
 		outputChannels: jetrulesOutputChan,
+		builderContext: ctx,
 		spec:           spec,
 		env:            ctx.env,
 		doneCh:         ctx.done,

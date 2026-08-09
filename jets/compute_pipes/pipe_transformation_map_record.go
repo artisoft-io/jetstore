@@ -127,13 +127,8 @@ func (ctx *MapRecordTransformationPipe) Done() error {
 }
 
 func (ctx *MapRecordTransformationPipe) Finally() {
-	// Close the error channel if exists, this operator owns it (see the error channel
-	// validation in CpipesStartup.ValidatePipeSpecConfig). Nothing else closes it: the
-	// pipe executors close the output channels of the transformations, not their error
-	// channel, so without this the pipe reading the error channel would never complete.
-	if ctx.errorOutputCh != nil {
-		ctx.builderContext.channelRegistry.CloseChannel(ctx.errorOutputCh.Name)
-	}
+	// Note - closing the error channel is moved with closing all the output channels in 
+	// the pipe_executor_fan_out.go and pipe_executor_fsplitter.go
 }
 
 func (ctx *BuilderContext) NewMapRecordTransformationPipe(source *InputChannel, outputCh *OutputChannel,

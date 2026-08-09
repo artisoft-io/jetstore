@@ -99,6 +99,9 @@ func (ctx *OllamaTransformationPipe) Done() error {
 }
 
 func (ctx *OllamaTransformationPipe) Finally() {
+	if ctx.poolManager == nil {
+		return
+	}
 	close(ctx.poolManager.workersTaskCh)
 	// Wait for the workers before letting the caller close the output channel: the pool
 	// writes to it asynchronously, and StartFanOutPipe closes the output channels right
@@ -106,13 +109,8 @@ func (ctx *OllamaTransformationPipe) Finally() {
 	ctx.poolManager.workersWg.Wait()
 	// Release the goroutine watching doneCh (see newOllamaCallContext).
 	ctx.cancelCalls()
-	// Close the error channel if exists, this operator owns it (see the error channel
-	// validation in CpipesStartup.ValidatePipeSpecConfig). Going through the registry
-	// records the close, so a later close of the same channel is a no-op rather than a
-	// panic.
-	if ctx.errorOutputCh != nil {
-		ctx.channelRegistry.CloseChannel(ctx.errorOutputCh.Name)
-	}
+	// Note - closing the error channel is moved with closing all the output channels in 
+	// the pipe_executor_fan_out.go and pipe_executor_fsplitter.go
 	log.Println(ctx.poolManager.summary(ctx.config.Model))
 }
 
@@ -815,6 +813,20 @@ func (ctx *BuilderContext) NewOllamaTransformationPipe(source *InputChannel, out
 		return nil, err
 	}
 
+	// Build one set of column evaluators per worker: they carry state and are not safe to
+	// share across goroutines. Building them here rather than in the worker keeps a bad
+	// column spec a build time error.
+	columnEvaluators := make([][]TransformationColumnEvaluator, config.PoolSize)
+	for w := range columnEvaluators {
+		columnEvaluators[w] = make([]TransformationColumnEvaluator, len(spec.Columns))
+		for i := range spec.Columns {
+			columnEvaluators[w][i], err = ctx.BuildTransformationColumnEvaluator(source, outputCh, &spec.Columns[i])
+			if err != nil {
+				return nil, fmt.Errorf("while BuildTransformationColumnEvaluator (in NewOllamaTransformationPipe): %v", err)
+			}
+		}
+	}
+
 	// Get the error channel if configured
 	var errorOutputCh *OutputChannel
 	if config.ErrorChannel != nil {
@@ -827,20 +839,6 @@ func (ctx *BuilderContext) NewOllamaTransformationPipe(source *InputChannel, out
 		errorOutputCh, err = ctx.channelRegistry.GetOutputChannel(config.ErrorChannel.Name)
 		if err != nil {
 			return nil, err
-		}
-	}
-
-	// Build one set of column evaluators per worker: they carry state and are not safe to
-	// share across goroutines. Building them here rather than in the worker keeps a bad
-	// column spec a build time error.
-	columnEvaluators := make([][]TransformationColumnEvaluator, config.PoolSize)
-	for w := range columnEvaluators {
-		columnEvaluators[w] = make([]TransformationColumnEvaluator, len(spec.Columns))
-		for i := range spec.Columns {
-			columnEvaluators[w][i], err = ctx.BuildTransformationColumnEvaluator(source, outputCh, &spec.Columns[i])
-			if err != nil {
-				return nil, fmt.Errorf("while BuildTransformationColumnEvaluator (in NewOllamaTransformationPipe): %v", err)
-			}
 		}
 	}
 

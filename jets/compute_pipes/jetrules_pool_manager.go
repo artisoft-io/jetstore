@@ -1,7 +1,6 @@
 package compute_pipes
 
 import (
-	"fmt"
 	"log"
 	"sync"
 )
@@ -23,12 +22,12 @@ type JrPoolManager struct {
 func (ctx *BuilderContext) NewJrPoolManager(
 	config *JetrulesSpec, source *InputChannel, rdfType2Columns map[string][]string, ruleEngine JetRuleEngine,
 	errorOutputCh *OutputChannel, outputChannels []*JetrulesOutputChan, 
-	jetrulesWorkerResultCh chan JetrulesWorkerResult) (jrpm *JrPoolManager, err error) {
+	jetrulesWorkerResultCh chan JetrulesWorkerResult) (jrpm *JrPoolManager) {
 		
 	log.Println("Starting the Pool Manager")
 	if config.PoolSize < 1 {
-		close(jetrulesWorkerResultCh)
-		return nil, fmt.Errorf("error: cannot have a worker pool of size less than 1")
+		log.Printf("warning: cannot have a worker pool of size less than 1, setting to 1")
+		config.PoolSize = 1
 	}
 
 	// Create the pool manager

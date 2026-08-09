@@ -263,6 +263,7 @@ type ContextSpec struct {
 // Configuration type for factoring out all file settings.
 // This is used by more specific types such as:
 // SchemaProviderSpec, InputChannelConfig, OutputChannelConfig, OutputFileSpec
+// See those types for a description of the fields
 type FileConfig struct {
 	BadRowsConfig              *BadRowsSpec           `json:"bad_rows_config,omitzero"`
 	BlankFieldMarkers          *BlankFieldMarkersSpec `json:"blank_field_markers,omitzero"`

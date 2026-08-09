@@ -21,11 +21,12 @@ type ChannelState struct {
 func (ctx *BuilderContext) StartSplitterPipe(spec *PipeSpec, source *InputChannel, writePartitionsResultCh chan ComputePipesResult) {
 	var cpErr error
 	var wg sync.WaitGroup
+	inputSourceName := source.Name
 	defer func() {
 		// Catch the panic that might be generated downstream
 		if r := recover(); r != nil {
 			var buf strings.Builder
-			fmt.Fprintf(&buf, "StartSplitterPipe: recovered error: %v\n", r)
+			fmt.Fprintf(&buf, "StartSplitterPipe[source: %s]: recovered error: %v\n", inputSourceName, r)
 			buf.WriteString(string(debug.Stack()))
 			cpErr := errors.New(buf.String())
 			ctx.errCh <- cpErr
@@ -38,22 +39,43 @@ func (ctx *BuilderContext) StartSplitterPipe(spec *PipeSpec, source *InputChanne
 		}
 		close(writePartitionsResultCh)
 		// Closing the output channels
-		log.Println("SPLITTER: Closing Output Channels")
+		log.Printf("StartSplitterPipe[source: %s]: Closing Output Channels", inputSourceName)
 		oc := make(map[string]bool)
 		for i := range spec.Apply {
 			// Make sure the output chan config is used
 			if len(spec.Apply[i].OutputChannel.Name) > 0 {
 				oc[spec.Apply[i].OutputChannel.Name] = true
 			}
-			if spec.Apply[i].Type == "jetrules" {
+			switch spec.Apply[i].Type {
+			case "jetrules":
 				// Get the output channels of jetrules
 				for j := range spec.Apply[i].JetrulesConfig.OutputChannels {
 					oc[spec.Apply[i].JetrulesConfig.OutputChannels[j].Name] = true
 				}
+				// Get the error output channel of jetrules
+				if spec.Apply[i].JetrulesConfig.ErrorChannel != nil {
+					oc[spec.Apply[i].JetrulesConfig.ErrorChannel.Name] = true
+				}
+
+			case "ollama":
+				// Get the error output channel of ollama
+				if spec.Apply[i].OllamaConfig.ErrorChannel != nil {
+					oc[spec.Apply[i].OllamaConfig.ErrorChannel.Name] = true
+				}
+
+			case "clustering":
+				// Get the output channels of clustering
+				oc[spec.Apply[i].ClusteringConfig.CorrelationOutputChannel.Name] = true
+
+			case "map_record":
+				// Get the error output channel of map_record
+				if spec.Apply[i].MapRecordConfig.ErrorChannel != nil {
+					oc[spec.Apply[i].MapRecordConfig.ErrorChannel.Name] = true
+				}
 			}
 		}
 		for i := range oc {
-			log.Println("SPLITTER: Closing Output Channel", i)
+			log.Printf("StartSplitterPipe[source: %s]: Closing Output Channel %s", inputSourceName, i)
 			ctx.channelRegistry.CloseChannel(i)
 		}
 	}()
@@ -67,6 +89,7 @@ func (ctx *BuilderContext) StartSplitterPipe(spec *PipeSpec, source *InputChanne
 	var jetsPartitionKey any
 	var splitOnColumn, splitOnDefault, splitOnHash bool
 	var hashEvaluator *HashEvaluator
+	channelHandlersCount := 0
 
 	if spec.SplitterConfig == nil {
 		cpErr = fmt.Errorf("error: missing splitter_config for splitter with source channel %s", source.Name)
@@ -173,6 +196,7 @@ func (ctx *BuilderContext) StartSplitterPipe(spec *PipeSpec, source *InputChanne
 				log.Println(ctx.sessionId, "node", ctx.nodeId, "*WARNING* splitter with nil jetsPartitionKey, with source channel", source.Name)
 			}
 			wg.Add(1)
+			channelHandlersCount += 1
 			go ctx.startSplitterChannelHandler(spec, &InputChannel{
 				Channel:        splitCh.data,
 				Columns:        source.Columns,
@@ -225,10 +249,13 @@ doneSplitterLoop:
 		return false
 	})
 	// Close the output channels once all ch handlers are done
-	// log.Println("**!@@ Splitter loop done, ABOUT to wait on wg")
+	if ctx.cpConfig.ClusterConfig.IsDebugMode {
+		log.Printf("*** StartSplitterPipe[source: %s]: waiting for %d channel handlers to finish", inputSourceName, channelHandlersCount)
+	}
 	wg.Wait()
-	// log.Println("**!@@ Splitter loop done, DONE waiting on wg!")
-	// Closing the output channels via the defer above
+	if ctx.cpConfig.ClusterConfig.IsDebugMode {
+		log.Printf("*** StartSplitterPipe[source: %s]: finished waiting for %d channel handlers", inputSourceName, channelHandlersCount)
+	}
 	// All good!
 	return
 gotError:

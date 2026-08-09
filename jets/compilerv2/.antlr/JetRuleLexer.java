@@ -1,4 +1,4 @@
-// Generated from /home/michel/projects/repos/jetstore/jets/compilerv2/JetRule.g4 by ANTLR 4.13.1
+// Generated from /home/michel/projects/repos/jetstore_agentic_ai/jetstore_ai/jets/compilerv2/JetRule.g4 by ANTLR 4.13.1
 import org.antlr.v4.runtime.Lexer;
 import org.antlr.v4.runtime.CharStream;
 import org.antlr.v4.runtime.Token;

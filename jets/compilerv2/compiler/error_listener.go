@@ -3,7 +3,7 @@ package compiler
 // antlr v4 ErrorListner interface implementation
 
 // Example of a custom antlr.ErrorListener implementation in Go (ANTLR v4)
-// filepath: /home/michel/projects/repos/jetstore/jets/compilerv2/error_listener.go
+// filepath: /home/michel/projects/repos/jetstore_agentic_ai/jetstore_ai/jets/compilerv2/error_listener.go
 
 import (
 	"fmt"
