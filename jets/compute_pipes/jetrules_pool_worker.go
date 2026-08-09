@@ -390,7 +390,7 @@ func keepObjectForCurrentSourcePeriod(rdfSession JetRdfSession, subject RdfNode)
 			keepObj = false
 		}
 	}
-	log.Printf("*** keepObject? subject: %s, sourcePeriod: %d, keepObj: %v", subject, sourcePeriod, keepObj)
+	// log.Printf("*** keepObject? subject: %s, sourcePeriod: %d, keepObj: %v", subject, sourcePeriod, keepObj)
 	return keepObj, err
 }
 

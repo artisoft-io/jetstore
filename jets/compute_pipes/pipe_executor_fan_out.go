@@ -10,6 +10,7 @@ import (
 
 func (ctx *BuilderContext) StartFanOutPipe(spec *PipeSpec, source *InputChannel, writePartitionsResultCh chan ComputePipesResult) {
 	var cpErr, err error
+	var tag string
 	evaluators := make([]PipeTransformationEvaluator, len(spec.Apply))
 
 	defer func() {
@@ -55,12 +56,16 @@ func (ctx *BuilderContext) StartFanOutPipe(spec *PipeSpec, source *InputChannel,
 	}()
 
 	for j := range spec.Apply {
+		tag = spec.Apply[j].Type
 		eval, err := ctx.BuildPipeTransformationEvaluator(source, nil, writePartitionsResultCh, &spec.Apply[j])
 		if err != nil {
-			cpErr = fmt.Errorf("while calling BuildPipeTransformationEvaluator for %s: %v", spec.Apply[j].Type, err)
+			cpErr = fmt.Errorf("while calling BuildPipeTransformationEvaluator for %s: %v", tag, err)
 			goto gotError
 		}
 		evaluators[j] = eval
+		if ctx.cpConfig.ClusterConfig.IsDebugMode {
+			log.Printf("*** StartFanOutPipe: BUILT PipeTransformationEvaluator for %s", tag)
+		}
 	}
 
 	// log.Println("**!@@ start fan_out loop on source:", source.name)
@@ -114,4 +119,5 @@ gotError:
 	default:
 		close(ctx.done)
 	}
+	log.Printf("*** StartFanOutPipe: exiting with error for %s", tag)
 }

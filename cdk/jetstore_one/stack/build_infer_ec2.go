@@ -180,7 +180,7 @@ func (jsComp *JetStoreStackComponents) BuildInferEc2(scope constructs.Construct,
 		Vpc:            jsComp.Vpc,
 		LaunchTemplate: launchTemplate,
 		MinCapacity:    jsii.Number(0),
-		MaxCapacity:    jsii.Number(1),
+		MaxCapacity:    jsii.Number(2),
 		// Pin to the same AZ as the persistent EBS volume.
 		VpcSubnets: &awsec2.SubnetSelection{
 			AvailabilityZones: &[]*string{

@@ -19,19 +19,31 @@ type WriteTableSource struct {
 	count           int
 	tableIdentifier pgx.Identifier
 	columns         []string
+	errCh           chan error
+	done            chan struct{}
 }
 
-func NewWriteTableSource(source <-chan []any, tableIdentifier pgx.Identifier, columns []string) *WriteTableSource {
+func NewWriteTableSource(source <-chan []any, tableIdentifier pgx.Identifier, columns []string,
+	done chan struct{}, errCh chan error) *WriteTableSource {
 	return &WriteTableSource{
 		source:          source,
 		tableIdentifier: tableIdentifier,
 		columns:         columns,
+		errCh:           errCh,
+		done:            done,
 	}
 }
 
 // pgx.CopyFromSource interface
 func (wt *WriteTableSource) Next() bool {
 	var ok bool
+	// Check if the done channel is closed
+	select {
+	case <-wt.done:
+		log.Println("*** WriteTableSource: write table source interrupted")
+		return false
+	default:
+	}
 	wt.pending, ok = <-wt.source
 	if ok {
 		wt.count += 1
@@ -39,15 +51,16 @@ func (wt *WriteTableSource) Next() bool {
 	return ok
 }
 func (wt *WriteTableSource) Values() ([]any, error) {
-	// fmt.Println("*** WriteTable Row ***")
-	// for _, v := range wt.pending {
-	// 	fmt.Printf("%v (%T), ", v, v)
-	// }
-	// fmt.Println()
-	// fmt.Println()
 	return wt.pending, nil
 }
 func (wt *WriteTableSource) Err() error {
+	// Check if the done channel is closed
+	select {
+	case <-wt.done:
+		log.Println("*** write table source interrupted at count:", wt.count)
+		return nil
+	default:
+	}
 	return nil
 }
 
@@ -71,7 +84,6 @@ func SplitTableName(tableName string) (pgx.Identifier, error) {
 // Methods for writing output entity records to postgres
 func (wt *WriteTableSource) WriteTable(dbpool *pgxpool.Pool, done chan struct{}, copy2DbResultCh chan<- ComputePipesResult) {
 	defer func() {
-		// log.Println("Write Table Exiting, closing channel copy2DbResultCh")
 		close(copy2DbResultCh)
 	}()
 	// log.Println("Write Table Started for", wt.tableIdentifier, "with", len(wt.columns), "columns")
@@ -86,22 +98,19 @@ func (wt *WriteTableSource) WriteTable(dbpool *pgxpool.Pool, done chan struct{},
 			log.Println("Last pending row is not available")
 		case wt.count > 0 && len(wt.pending) == len(wt.columns):
 			log.Println("Last pending row is: ()redacted for privacy)")
-			// for i := range wt.columns {
-			// 	if i > 0 {
-			// 		fmt.Print(",")
-			// 	}
-			// 	if wt.pending[i] != nil {
-			// 		fmt.Print(wt.pending[i])
-			// 	}
-			// }
-			// fmt.Println()
 		}
-		close(done)
+		wt.errCh <- fmt.Errorf("while writing to database at count %d: %v", wt.count, err)
+		select {
+		case <-wt.done:
+			log.Println("write table source interrupted")
+		default:
+			close(done)
+		}
 		log.Println("**!@@ ERROR writing to database, writing to copy2DbResultCh (ComputePipesResult) recCount", recCount)
 		copy2DbResultCh <- ComputePipesResult{TableName: wt.tableIdentifier.Sanitize(), Err: fmt.Errorf("while copy records to db at count %d: %v", wt.count, err)}
 		return
 	}
-	// log.Println("**!@@ DONE writing to database, writing to copy2DbResultCh (ComputePipesResult)")
+	// log.Println("** DONE writing to database, writing to copy2DbResultCh (ComputePipesResult)")
 	copy2DbResultCh <- ComputePipesResult{TableName: wt.tableIdentifier.Sanitize(), CopyRowCount: recCount}
 }
 

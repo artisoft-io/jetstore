@@ -89,9 +89,9 @@ func main() {
 	}
 	defer dbConnection.ReleaseConnection()
 
-	// log.Println("CP Node:")
-	// log.Println("--------")
-	// log.Println("Got argument: dbPoolSize", dbPoolSize)
+	log.Println("CP Node:")
+	log.Println("--------")
+	log.Println("Got argument: dbPoolSize", dbPoolSize)
 	// log.Println("Got argument: awsRegion", awsRegion)
 	// log.Println("Got env: JETS_S3_KMS_KEY_ARN", os.Getenv("JETS_S3_KMS_KEY_ARN"))
 

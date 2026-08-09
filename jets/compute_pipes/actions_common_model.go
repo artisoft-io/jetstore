@@ -273,4 +273,7 @@ func (cpCtx *ComputePipesContext) DoneAll(err error) {
 	default:
 		close(cpCtx.Done)
 	}
+	if cpCtx.CpConfig.ClusterConfig.IsDebugMode {
+		log.Println("*** ComputePipesContext.DoneAll: exiting")
+	}
 }
