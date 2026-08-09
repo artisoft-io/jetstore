@@ -56,11 +56,7 @@ func (r *ChannelRegistry) CloseChannel(name string) {
 	c := r.ComputeChannels[name]
 	if c != nil {
 		// log.Println("** Closing channel", name)
-		select {
-		case <-c.Channel:
-		default:
-			close(c.Channel)
-		}
+		close(c.Channel)
 	}
 	r.ClosedChannels[name] = true
 }

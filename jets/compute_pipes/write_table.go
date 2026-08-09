@@ -54,13 +54,6 @@ func (wt *WriteTableSource) Values() ([]any, error) {
 	return wt.pending, nil
 }
 func (wt *WriteTableSource) Err() error {
-	// Check if the done channel is closed
-	select {
-	case <-wt.done:
-		log.Println("*** write table source interrupted at count:", wt.count)
-		return nil
-	default:
-	}
 	return nil
 }
 
