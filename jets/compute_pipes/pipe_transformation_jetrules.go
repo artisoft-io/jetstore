@@ -27,11 +27,15 @@ type JetrulesTransformationPipe struct {
 	doneCh         chan struct{}
 }
 
-// Encoding: json, toon, row (default)
+type JrSpecialColumnEncoding struct {
+	Config            *ColumnEncodingSpec
+	ExcludeProperties map[string]bool
+}
 type JetrulesOutputChan struct {
-	ClassName        string
-	ColumnEvaluators []TransformationColumnEvaluator
-	OutputCh         *OutputChannel
+	ClassName         string
+	JrColumnEncodings map[string]*JrSpecialColumnEncoding
+	ColumnEvaluators  []TransformationColumnEvaluator
+	OutputCh          *OutputChannel
 }
 
 // Implementing interface PipeTransformationEvaluator
@@ -131,6 +135,28 @@ func (ctx *BuilderContext) NewJetrulesTransformationPipe(source *InputChannel, _
 			return nil, fmt.Errorf("error: missing class name on jetrules output channel named %s",
 				config.OutputChannels[i].Name)
 		}
+
+		// The ChannelSpec associated with the output channel will give use the special encoding to use
+		//TODO: ColumnEncodingSpec will exist in Class metadata sidecar.
+		// The ColumnEncodingSpec on the ChannelSpec will override at the column level the one in the Class metadata sidecar.
+		// Make a lookup of column -> *JrSpecialColumnEncoding for the output channel
+		columnEncodings := make(map[string]*JrSpecialColumnEncoding)
+		for j := range outCh.Config.ColumnEncodings {
+			se := outCh.Config.ColumnEncodings[j]
+			if len(se.Column) == 0 {
+				return nil, fmt.Errorf("error: missing column name on jetrules output channel named %s column_encodings[%d]",
+					outCh.Config.Name, j)
+			}
+			excludeProperties := make(map[string]bool)
+			for _, p := range se.ExcludeProperties {
+				excludeProperties[p] = true
+			}
+			columnEncodings[se.Column] = &JrSpecialColumnEncoding{
+				Config:            se,
+				ExcludeProperties: excludeProperties,
+			}
+		}
+
 		// Make a set of TransformationColumnEvaluator for each of the output channel
 		columnEvaluators := make([]TransformationColumnEvaluator, len(spec.Columns))
 		for i := range spec.Columns {
@@ -143,9 +169,10 @@ func (ctx *BuilderContext) NewJetrulesTransformationPipe(source *InputChannel, _
 			}
 		}
 		jetrulesOutputChan = append(jetrulesOutputChan, &JetrulesOutputChan{
-			ClassName:        outCh.Config.ClassName,
-			ColumnEvaluators: columnEvaluators,
-			OutputCh:         outCh,
+			ClassName:         outCh.Config.ClassName,
+			ColumnEvaluators:  columnEvaluators,
+			OutputCh:          outCh,
+			JrColumnEncodings: columnEncodings,
 		})
 	}
 

@@ -24,6 +24,22 @@ type ComputePipesConfig struct {
 	ConditionalPipesConfig []ConditionalPipeSpec   `json:"conditional_pipes_config,omitempty"`
 }
 
+func (cp *ComputePipesConfig) GetSchemaProviderSpec(key string) *SchemaProviderSpec {
+	for i := range cp.SchemaProviders {
+		if cp.SchemaProviders[i].Key == key {
+			return cp.SchemaProviders[i]
+		}
+	}
+	return nil
+}
+func (cp *ComputePipesConfig) GetChannelSpec(name string) *ChannelSpec {
+	for i := range cp.Channels {
+		if cp.Channels[i].Name == name {
+			return &cp.Channels[i]
+		}
+	}
+	return nil
+}
 func (cp *ComputePipesConfig) MainInputChannel() *InputChannelConfig {
 	switch {
 	case len(cp.ReducingPipesConfig) > 0 && len(cp.ReducingPipesConfig[0]) > 0:
@@ -222,7 +238,7 @@ type CsvSourceSpec struct {
 	MakeEmptyWhenNoFile bool   `json:"make_empty_source_when_no_files_found,omitzero"`
 }
 
-// ChannelSpec specifies the columns of a channel
+// ChannelSpec specifies the columns of a channel and other properties.
 // The columns can be obtained from a domain class from the
 // local workspace using class_name.
 // In that case, the columns
@@ -233,24 +249,32 @@ type CsvSourceSpec struct {
 // ClassName is used to get the columns from the local workspace, and get domain key from registry, and is optional.
 // Env variables (from mainInputSchemaProvider.Env) can be used in the class_name, e.g., hc:${ENTITY}.
 // DomainKeys provide the ability to configure the domain keys in the cpipes config document.
-// DomainKeysSpec is parsed version of DomainKeys or the spec from the domain_keys_registry table.
-// DomainKeysSpec is derived from DomainKeys when provided.
-// EntityEncoding is used to specify the entity encoding: json, toon, row (default).
-// RemoveModelPrefixes is used to remove the model prefixes from the columns, e.g., jets: or rdf: on the output (currently used only for json and toon).
+// DomainKeysInfo is obtained from the domain_keys_registry table or derived from DomainKeys - the latter takes precedence when both are available.
 // columnsMap is added in StartComputePipes
 type ChannelSpec struct {
-	Name                 string          `json:"name"`
-	Columns              []string        `json:"columns"`
-	ClassName            string          `json:"class_name,omitempty"`
-	DirectPropertiesOnly bool            `json:"direct_properties_only,omitzero"`
-	HasDynamicColumns    bool            `json:"has_dynamic_columns,omitzero"`
-	SameColumnsAsInput   bool            `json:"same_columns_as_input,omitzero"`
-	DomainKeys           map[string]any  `json:"domain_keys,omitempty"`
-	DomainKeysInfo       *DomainKeysSpec `json:"domain_keys_spec,omitzero"`
-	EntityEncoding       string          `json:"entity_encoding,omitempty"`
-	RemoveModelPrefixes  bool            `json:"remove_model_prefixes,omitzero"`
-	ExcludeProperties    []string        `json:"exclude_properties,omitempty"`
+	Name                 string                `json:"name"`
+	Columns              []string              `json:"columns"`
+	ClassName            string                `json:"class_name,omitempty"`
+	DirectPropertiesOnly bool                  `json:"direct_properties_only,omitzero"`
+	HasDynamicColumns    bool                  `json:"has_dynamic_columns,omitzero"`
+	SameColumnsAsInput   bool                  `json:"same_columns_as_input,omitzero"`
+	DomainKeys           map[string]any        `json:"domain_keys,omitempty"`
+	DomainKeysInfo       *DomainKeysSpec       `json:"domain_keys_spec,omitzero"`
+	ColumnEncodings      []*ColumnEncodingSpec `json:"column_encodings,omitzero"`
 	columnsMap           *map[string]int
+}
+
+// ColumnEncodingSpec is used to specify special encoding for a channel column, e.g., toon or json
+// Column is the column name to which the special encoding applies, this is required.
+// EntityEncoding is used to specify the encoding of the column: range values: json, toon (default is json).
+// RemoveModelPrefixes is used to remove the model prefixes from the columns, e.g., jets: or rdf: on the output (any prefix up to the character ':').
+// ExcludeProperties is used to specify the properties to exclude from the output, e.g., jets:key, rdf:type, etc.
+// This is used to exclude properties from the json or toon output.
+type ColumnEncodingSpec struct {
+	Column              string   `json:"column"`
+	EntityEncoding      string   `json:"entity_encoding,omitempty"`
+	RemoveModelPrefixes bool     `json:"remove_model_prefixes,omitzero"`
+	ExcludeProperties   []string `json:"exclude_properties,omitempty"`
 }
 
 type ContextSpec struct {
@@ -705,9 +729,10 @@ type InputChannelConfig struct {
 
 type OutputChannelConfig struct {
 	// Type range: memory (default), stage, output, sql
-	// Format: csv, headerless_csv, etc.
-	// NbrRowsInRecord: nbr of rows in record (format: parquet)
-	// Compression: none, snappy (default).
+	// Name: output channel name, required (must exist in the channels section of the config document)
+	// Format: file format, range values: csv, headerless_csv, fixed_width.
+	// NbrRowsInRecord: nbr of rows in record (applicable to format: parquet)
+	// Compression: none, snappy (default). Does not apply to parquet format (always snappy).
 	// UseInputParquetSchema to use the same schema as the input file.
 	// UseOriginalHeaders to use the headers from the input file (csv only).
 	// Must have save_parquet_schema = true in the cpipes first input_channel.
@@ -722,7 +747,7 @@ type OutputChannelConfig struct {
 	// KeyPrefix is optional, default to $PATH_FILE_KEY.
 	// Use $CURRENT_PARTITION_LABEL in KeyPrefix and FileName to substitute with
 	// current partition label.
-	// Other available env substitution:
+	// Other available env substitution (this is not comprehensive list, any defined env var can be used):
 	// $FILE_KEY main input file key.
 	// $SESSIONID current session id.
 	// ${REQUEST_ID} current request id.
@@ -733,7 +758,7 @@ type OutputChannelConfig struct {
 	// $JETS_PARTITION_LABEL current node partition label.
 	FileConfig
 	Type                  string `json:"type"`
-	Name                  string `json:"name,omitempty"`
+	Name                  string `json:"name"`
 	UseOriginalHeaders    bool   `json:"use_original_headers,omitzero"`     // Type output
 	UseInputParquetSchema bool   `json:"use_input_parquet_schema,omitzero"` // Type stage,output
 	SchemaProvider        string `json:"schema_provider,omitempty"`         // Type stage,output, alt to Format
@@ -1170,6 +1195,7 @@ type OllamaServerSpec struct {
 //   - envelope: a property of the ollama api response envelope itself, eg eval_count,
 //     prompt_eval_count, total_duration, model;
 //   - thinking: the reasoning text, when Think is in use.
+//	 - model_name: the model name.
 //
 // Path is a dot notation path into the parsed json, eg summary, codes.0.icd10,
 // detail.score - a numeric element indicates the position in an array.

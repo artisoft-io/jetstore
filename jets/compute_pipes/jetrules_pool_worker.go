@@ -14,7 +14,6 @@ import (
 
 	"github.com/artisoft-io/jetstore/jets/jetrules/rete"
 	"github.com/artisoft-io/jetstore/jets/utils"
-	togo "github.com/toon-format/toon-go"
 )
 
 // Worker to perform jetrules execute rules function
@@ -471,17 +470,9 @@ func (ctx *JrPoolWorker) extractSessionData(rdfSession JetRdfSession,
 	isDebug := ctx.config.IsDebug
 	currentSourcePeriod := ctx.config.CurrentSourcePeriod
 
-	// Prep the excluded data properties
-	excludeProperties := make(map[string]bool)
-	for _, prop := range config.ExcludeProperties {
-		excludeProperties[prop] = true
-	}
-	removeModelPrefixes := config.RemoveModelPrefixes
-
 	// Extract entity by rdf type
 	if isDebug {
-		log.Printf("*** Pool Worker == Extracting entities of class %s, encoding %s, remove prefixes? %v",
-			outChannel.ClassName, config.EntityEncoding, config.RemoveModelPrefixes)
+		log.Printf("*** Pool Worker == Extracting entities of class %s", outChannel.ClassName)
 	}
 	ctor := rdfSession.FindSPO(nil, jr.Rdf__type, rm.NewResource(outChannel.ClassName))
 	for !ctor.IsEnd() {
@@ -496,47 +487,13 @@ func (ctx *JrPoolWorker) extractSessionData(rdfSession JetRdfSession,
 		if keepObj {
 			// log.Printf("*** Extracting entity for subject %s", subject)
 			entityRow := make([]any, len(columns))
-			switch config.EntityEncoding {
-			case "toon", "json":
-				// For toon and json encoding, we extract the entire object as a map[string]any
-				// log.Printf("*** Extracting json/toon obj - start")
-				entityObj := make(map[string]any)
-				ExtractAsEntity(rdfSession, removeModelPrefixes, subject, entityObj, currentSourcePeriod, outChannel, excludeProperties)
-				// log.Printf("*** Extracting json/toon obj - end")
-				if config.EntityEncoding == "toon" {
-					// For toon encoding, we need to convert the map to a toon string
-					toonBytes, err := togo.Marshal(entityObj, togo.WithTimeFormatter(func(t time.Time) string {
-						switch {
-						case t.IsZero():
-							return ""
-						case t.Hour() == 0 && t.Minute() == 0 && t.Second() == 0 && t.Nanosecond() == 0:
-							return t.Format("2006-01-02")
-						default:
-							return t.Format("2006-01-02T15:04:05")
-						}
-					}))
-					if err != nil {
-						err = fmt.Errorf("error: failed to marshal entity object to toon for subject %s: %v", subject, err)
-						log.Println(err)
-						return err
-					}
-					// log.Printf("*** toon encoded obj:\n%s", string(toonBytes))
-					entityRow[(*outChannel.OutputCh.Columns)["json:data"]] = string(toonBytes)
+			// log.Printf("*** Extracting DEFAULT encoding for subject %s", subject)
+			for i, p := range columns {
+				specialEncoding := outChannel.JrColumnEncodings[p]
+				if specialEncoding != nil {
+					// Special encoding for this column, extract the entire object as a json/toon/map[string]any
+					entityRow[i] = specialEncoding.EncodeColumnData(rdfSession, subject)
 				} else {
-					// For json encoding, we need to convert the map to a json string
-					jsonBytes, err := json.Marshal(entityObj)
-					if err != nil {
-						err = fmt.Errorf("error: failed to marshal entity object to json for subject %s: %v", subject, err)
-						log.Println(err)
-						return err
-					}
-					// log.Printf("*** json encoded obj:\n%s", string(jsonBytes))
-					entityRow[(*outChannel.OutputCh.Columns)["json:data"]] = string(jsonBytes)
-				}
-
-			default:
-				// log.Printf("*** Extracting DEFAULT encoding for subject %s", subject)
-				for i, p := range columns {
 					data = ctx.extractLiteralValue(rdfSession, subject, rm.NewResource(p), currentSourcePeriod, outChannel)
 					entityRow[i] = data
 				}

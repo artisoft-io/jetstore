@@ -64,6 +64,7 @@ const (
 	ollamaSourceRawResponse = "raw_response"
 	ollamaSourceEnvelope    = "envelope"
 	ollamaSourceThinking    = "thinking"
+	ollamaSourceModelName   = "model_name"
 )
 
 type OllamaTransformationPipe struct {
@@ -427,12 +428,12 @@ func compileOllamaMappings(config *OllamaSpec, outputCh *OutputChannel) (
 			}
 		case ollamaSourceEnvelope:
 			needEnvelope = true
-		case ollamaSourceRawResponse, ollamaSourceThinking:
+		case ollamaSourceRawResponse, ollamaSourceThinking, ollamaSourceModelName:
 		default:
 			return nil, false, false, fmt.Errorf(
-				"error: unknown output_mapping source '%s' for column '%s', expecting one of %s, %s, %s, %s",
+				"error: unknown output_mapping source '%s' for column '%s', expecting one of %s, %s, %s, %s, %s",
 				spec.Source, spec.Column, ollamaSourceResponse, ollamaSourceRawResponse,
-				ollamaSourceEnvelope, ollamaSourceThinking)
+				ollamaSourceEnvelope, ollamaSourceThinking, ollamaSourceModelName)
 		}
 		var path []string
 		if len(spec.Path) > 0 {
@@ -483,6 +484,8 @@ func (w *ollamaWorker) applyMappings(record *[]any, body []byte, resp *ollamaApi
 			value, found = text, true
 		case ollamaSourceThinking:
 			value, found = thinking, len(thinking) > 0
+		case ollamaSourceModelName:
+			value, found = resp.Model, true
 		case ollamaSourceEnvelope:
 			value, found = ollamaWalkPath(envelope, mapping.path)
 		default: // ollamaSourceResponse

@@ -220,7 +220,7 @@ startStepId:
 		}
 	} else {
 		// Get the columns from the channel spec
-		chSpec := GetChannelSpec(cpipesStartup.CpConfig.Channels, inputChannel)
+		chSpec := cpipesStartup.CpConfig.GetChannelSpec(inputChannel)
 		if chSpec != nil {
 			cpipesStartup.InputColumns = chSpec.Columns
 		}

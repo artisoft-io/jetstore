@@ -103,7 +103,7 @@ the shape most useful for prompting.
 | Key | Meaning |
 |---|---|
 | `column` | Output column to fill; must exist in the shared `ChannelSpec` |
-| `source` | `response` (default, model text parsed as JSON when `path` is set), `raw_response` (text verbatim), `envelope` (a field of the Ollama API envelope: `eval_count`, `total_duration`, `model`…), `thinking` |
+| `source` | `response` (default, model text parsed as JSON when `path` is set), `raw_response` (text verbatim), `envelope` (a field of the Ollama API envelope: `eval_count`, `total_duration`, `model`…), `thinking`, `model_name` |
 | `path` | Dot notation over the parsed JSON: `summary`, `codes.0.icd10`, `detail.score` |
 | `as_rdf_type` | Cast via `CastToRdfType` |
 | `default` | Used when the path is absent or null |

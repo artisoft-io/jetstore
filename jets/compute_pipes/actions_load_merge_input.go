@@ -30,7 +30,7 @@ func (cpCtx *ComputePipesContext) loadMergeInput(computePipesInputCh chan []any,
 		cpCtx.ChResults.LoadFromS3FilesResultCh <- LoadFromS3FilesResult{LoadRowCount: 0, BadRowCount: 0, Err: err}
 		return
 	}
-	channelInfo := GetChannelSpec(cpCtx.CpConfig.Channels, inputChannelConfig.Name)
+	channelInfo := cpCtx.CpConfig.GetChannelSpec(inputChannelConfig.Name)
 	if channelInfo == nil {
 		err = fmt.Errorf("unexpected error: Channel info not found for channel '%s'", inputChannelConfig.Name)
 		log.Println(err)
