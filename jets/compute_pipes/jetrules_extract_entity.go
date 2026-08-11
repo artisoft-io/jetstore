@@ -1,14 +1,61 @@
 package compute_pipes
 
 import (
+	"encoding/json"
+	"fmt"
+	"log"
 	"strings"
+	"time"
+
+	togo "github.com/toon-format/toon-go"
 )
+
+func (ce *JrSpecialColumnEncoding) EncodeColumnData(rdfSession JetRdfSession, subject RdfNode) any {
+	if ce.Config == nil {
+		log.Panicf("bug: JrSpecialColumnEncoding.Config is nil")
+	}
+	// For toon and json encoding, we extract the entire object as a map[string]any
+	// log.Printf("*** Extracting json/toon obj - start")
+	entityObj := make(map[string]any)
+	extractAsEntity(rdfSession, ce.Config.RemoveModelPrefixes, subject, entityObj, ce.ExcludeProperties)
+	// log.Printf("*** Extracting json/toon obj - end")
+	if ce.Config.EntityEncoding == "toon" {
+		// For toon encoding, we need to convert the map to a toon string
+		toonBytes, err := togo.Marshal(entityObj, togo.WithTimeFormatter(func(t time.Time) string {
+			switch {
+			case t.IsZero():
+				return ""
+			case t.Hour() == 0 && t.Minute() == 0 && t.Second() == 0 && t.Nanosecond() == 0:
+				return t.Format("2006-01-02")
+			default:
+				return t.Format("2006-01-02T15:04:05")
+			}
+		}))
+		if err != nil {
+			err = fmt.Errorf("error: failed to marshal entity object to toon for subject %s: %v", subject, err)
+			log.Println(err)
+			return err
+		}
+		// log.Printf("*** toon encoded obj:\n%s", string(toonBytes))
+		return string(toonBytes)
+	} else {
+		// For json encoding, we need to convert the map to a json string
+		jsonBytes, err := json.Marshal(entityObj)
+		if err != nil {
+			err = fmt.Errorf("error: failed to marshal entity object to json for subject %s: %v", subject, err)
+			log.Println(err)
+			return err
+		}
+		// log.Printf("*** json encoded obj:\n%s", string(jsonBytes))
+		return string(jsonBytes)
+	}
+}
 
 // Navigate recursively the object properties and extract their values into a map[string]any
 // excluding the properties starting with _0:
-func ExtractAsEntity(rdfSession JetRdfSession, removeModelPrefixes bool, subject RdfNode,	entityObj map[string]any, 
-	currentSourcePeriod int, outChannel *JetrulesOutputChan, excludeProp map[string]bool) {
-		
+func extractAsEntity(rdfSession JetRdfSession, removeModelPrefixes bool, subject RdfNode,
+	entityObj map[string]any, excludeProp map[string]bool) {
+
 	var objProperties map[string]RdfNode
 	itor := rdfSession.FindS(subject)
 	defer itor.Release()
@@ -37,7 +84,7 @@ func ExtractAsEntity(rdfSession JetRdfSession, removeModelPrefixes bool, subject
 		for !jtor.IsEnd() {
 			subEntityObj := make(map[string]any)
 			addToEntityObj(entityObj, removeModelPrefixes, prop, subEntityObj)
-			ExtractAsEntity(rdfSession, removeModelPrefixes, jtor.GetObject(), subEntityObj, currentSourcePeriod, outChannel, excludeProp)
+			extractAsEntity(rdfSession, removeModelPrefixes, jtor.GetObject(), subEntityObj, excludeProp)
 			jtor.Next()
 		}
 	}

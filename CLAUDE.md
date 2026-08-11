@@ -8,6 +8,13 @@ JetStore is a **Compute Analytic Platform** for cloud-native data processing, ru
 
 ## Build Commands
 
+**All paths below are relative to this repository's root.** On the `jets_ai` branch this repo is
+normally checked out as a submodule of `jetstore_agentic_ai` (at `jetstore_ai/`), which carries its
+own `go.work` and its own CMake build tree over these same sources. Both build systems then resolve
+differently depending on whether your working directory is inside this repo or above it — see the
+notes under each. That parent repo's `CLAUDE.md` documents the arrangement; the commands here assume
+you are inside this repo.
+
 ### C++ RETE Engine (CMake)
 ```bash
 cd build
@@ -19,6 +26,10 @@ ctest
 # Or directly: build/jets/jets_test
 ```
 
+A parent checkout may configure a *second*, independent build tree over these sources (the
+`jetstore_agentic_ai` one is Debug, at its root `build/`, and is what its `.vscode` CMake integration
+uses). The two caches share no state, so an artifact staleness question has to name which tree.
+
 ### Go Binaries
 ```bash
 go mod tidy
@@ -27,6 +38,12 @@ go build -ldflags="-w -s" -o <binary> <package>
 ```
 
 The repo uses a Go workspace (`go.work`) covering three modules: root `.`, `./cdk/bootstrap_aws`, and `./cdk/vpc_peering`.
+
+Go selects a workspace by walking up from the current directory and stopping at the first `go.work`,
+so this file only governs commands run **from inside this repo**. Run from a parent that has its own
+`go.work` — as `jetstore_agentic_ai` does, where the workspace is `.`, `./jetstore_ai`, and
+`./workspaces/cedargate_ws` — and the CDK modules drop out of the build set while the cedargate
+workspace's Go lambdas enter it. Do CDK work from this directory.
 
 ### Docker (full build)
 See `dockerfiles/Dockerfile.cpipes_builder` — multi-stage build that compiles C++ first, then cross-compiles Go binaries for `linux/amd64`.

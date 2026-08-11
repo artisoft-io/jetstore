@@ -36,7 +36,7 @@ func (cpCtx *ComputePipesContext) loadMainInput(computePipesInputCh chan []any,
 	if inputChannelConfig.Name == "input_row" {
 		mainInputDomainClass = mainInput.DomainClass
 	} else {
-		channelInfo := GetChannelSpec(cpCtx.CpConfig.Channels, inputChannelConfig.Name)
+		channelInfo := cpCtx.CpConfig.GetChannelSpec(inputChannelConfig.Name)
 		if channelInfo == nil {
 			err = fmt.Errorf("unexpected error: Channel info not found for channel '%s'", inputChannelConfig.Name)
 			log.Println(err)
