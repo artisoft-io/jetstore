@@ -198,8 +198,7 @@ image that does not reset `CMD` gets `/bin/bash` appended to its arguments.
 
 `tools/` holds standalone utilities that are not part of any Go module or the main build:
 - `infer_ami_builder/` — Packer template for the GPU AMI consumed by the Infer Server (see above)
-- `jetrule_ts/`, `jetrule_domain_model_ts/` — TypeScript JetRules tooling
-- `vscode-jetrule/` — VS Code extension for the JetRules DSL
+- `vscode-jetrule/` — VS Code extension for the JetRules DSL (grammar and snippets, no TypeScript)
 - `sample_projects/` — example workspaces
 
 ## Flutter UI
