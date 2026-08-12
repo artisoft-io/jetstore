@@ -1,0 +1,137 @@
+/**
+ * Typed wrappers over the workspace actions of /dataTable.
+ *
+ * The wire shapes here are not invented; they mirror the Go side:
+ *   - the tree node is `wsfile.WorkspaceNode` (jets/datatable/wsfile/visitor.go)
+ *   - the actions are the `workspace_*` arms of the switch in
+ *     jets/apiserver/api_tables.go
+ *   - `file_name` is **url-escaped by the server** when it builds the tree and
+ *     url-unescaped again when it reads the file, so it is passed back exactly as
+ *     received and never decoded on the way through.
+ *
+ * Note what is deliberately absent: a size limit. The Flutter client refused to
+ * open anything at or above 250,000 bytes because its editor laid the whole
+ * document out per frame. CodeMirror virtualises by viewport, so the limit has no
+ * reason to exist here and the largest rule file in the corpus (1.18 MB) is
+ * unremarkable.
+ */
+
+import type { ApiClient } from "./client";
+
+/** Mirrors wsfile.WorkspaceNode. */
+export interface WorkspaceNode {
+  key: string;
+  pageMatchKey: string;
+  /** "dir" | "file" | "section" */
+  type: string;
+  size: number;
+  label: string;
+  route_path: string;
+  route_params: Record<string, string> | null;
+  children: WorkspaceNode[] | null;
+}
+
+export interface WorkspaceSummary {
+  name: string;
+  uri: string;
+  branch: string;
+}
+
+/** A file opened for editing. */
+export interface WorkspaceFile {
+  /** Url-escaped relative path, exactly as the server issued it. */
+  fileName: string;
+  /** Human-readable path, for tab labels and titles. */
+  label: string;
+  content: string;
+}
+
+export class WorkspaceApi {
+  constructor(private readonly api: ApiClient) {}
+
+  /** The workspaces this user may open, from jetsapi.workspace_registry. */
+  async listWorkspaces(): Promise<WorkspaceSummary[]> {
+    const body = await this.api.dataTable<{ rows?: unknown[][]; columns?: unknown }>({
+      action: "raw_query",
+      query:
+        "SELECT workspace_name, workspace_uri, workspace_branch " +
+        "FROM jetsapi.workspace_registry ORDER BY workspace_name ASC LIMIT 200",
+    });
+    const rows = Array.isArray(body.rows) ? body.rows : [];
+    return rows.map((r) => ({
+      name: String(r?.[0] ?? ""),
+      uri: String(r?.[1] ?? ""),
+      branch: String(r?.[2] ?? ""),
+    }));
+  }
+
+  /** The file tree for a workspace. */
+  async fileTree(workspaceName: string): Promise<WorkspaceNode[]> {
+    const body = await this.api.dataTable<{
+      result_type?: string;
+      result_data?: WorkspaceNode[];
+    }>({
+      action: "workspace_query_structure",
+      fromClauses: [{ table: "workspace_file_structure" }],
+      workspaceName,
+      data: [{ workspace_name: workspaceName }],
+    });
+    if (body.result_type !== "workspace_file_structure" || !Array.isArray(body.result_data)) {
+      return [];
+    }
+    return body.result_data;
+  }
+
+  async readFile(workspaceName: string, node: WorkspaceNode): Promise<WorkspaceFile> {
+    const fileName = fileNameOf(node);
+    if (!fileName) throw new Error(`${node.label} is not a file`);
+    const body = await this.api.dataTable<{ file_content?: string }>({
+      action: "get_workspace_file_content",
+      workspaceName,
+      data: [{ ...(node.route_params ?? {}), file_name: fileName }],
+    });
+    return {
+      fileName,
+      label: decodeLabel(fileName),
+      content: body.file_content ?? "",
+    };
+  }
+
+  /**
+   * Save. The server validates any `.json` file before writing (it refuses to
+   * persist one that will not parse), so a 400 here is frequently a real syntax
+   * error in the buffer rather than a transport problem — worth surfacing verbatim.
+   */
+  async saveFile(workspaceName: string, fileName: string, content: string): Promise<void> {
+    await this.api.dataTable({
+      action: "save_workspace_file_content",
+      workspaceName,
+      data: [{ file_name: fileName, file_content: content }],
+    });
+  }
+}
+
+/** The escaped relative path for a file node, or null for anything else. */
+export function fileNameOf(node: WorkspaceNode): string | null {
+  if (node.type !== "file") return null;
+  const fromParams = node.route_params?.["file_name"];
+  if (typeof fromParams === "string" && fromParams !== "") return fromParams;
+  return node.pageMatchKey !== "" ? node.pageMatchKey : null;
+}
+
+/** Turn the escaped wire path back into something readable for a tab label. */
+export function decodeLabel(escaped: string): string {
+  try {
+    return decodeURIComponent(escaped.replace(/\+/g, " "));
+  } catch {
+    return escaped;
+  }
+}
+
+/** Depth-first walk, used by the tree filter and by the tests. */
+export function* walk(nodes: WorkspaceNode[]): Generator<WorkspaceNode> {
+  for (const n of nodes) {
+    yield n;
+    if (n.children) yield* walk(n.children);
+  }
+}

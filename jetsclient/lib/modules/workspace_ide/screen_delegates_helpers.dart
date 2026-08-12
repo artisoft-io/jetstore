@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:web/web.dart' as web;
 import 'package:jetsclient/http_client.dart';
 import 'package:jetsclient/routes/jets_route_data.dart';
 import 'package:jetsclient/routes/jets_router_delegate.dart';
@@ -73,6 +74,26 @@ Future<String?> openWorkspaceActions(
     JetsSpinnerOverlay.of(context).hide();
   }
   return null;
+}
+
+/// Opens the CodeMirror Workspace IDE (jetsclient_ide) in a new tab.
+///
+/// That app is a separate bundle served by this same apiserver under /ide/, so
+/// the url is resolved against the api origin rather than against the browser's,
+/// which differ under `flutter run`.
+///
+/// It opens in a new tab rather than an iframe because it owns its own routing
+/// and its own editor keybindings, both of which an embedded frame would fight.
+/// One consequence worth knowing: it holds its token in memory and does not share
+/// this app's session, so the user signs in once more there.
+Future<int> openWorkspaceIdeApp(
+    BuildContext context, MenuEntry menuEntry, State<StatefulWidget> state) async {
+  // main() always sets serverAdd, but falling back to the relative path is the
+  // right answer anyway: in production the IDE is served from this same origin.
+  final base = HttpClientSingleton().serverAdd;
+  final url = base == null ? '/ide/' : base.resolve('/ide/').toString();
+  web.window.open(url, '_blank');
+  return 200;
 }
 
 /// Files of this size or larger are not opened in the Workspace IDE.

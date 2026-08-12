@@ -68,6 +68,7 @@ var dsn = flag.String("dsn", "", "primary database connection string (required u
 var tokenExpiration = flag.Int("tokenExpiration", 60, "Token expiration in min, must be more than 5 min (default 60)")
 var unitTestDir = flag.String("unitTestDir", "", "Unit Test Data directory, will be prefixed by ${WORKSPACES_HOME}/${WORKSPACE} if defined and unitTestDir starts with '.' e.g. ./data/test_data (dev mode only)")
 var uiWebDir = flag.String("WEB_APP_DEPLOYMENT_DIR", "/usr/local/lib/web", "UI static web app directory")
+var ideWebDir = flag.String("IDE_APP_DEPLOYMENT_DIR", "/usr/local/lib/ide", "Workspace IDE (jetsclient_ide) static web app directory")
 var adminEmail = flag.String("adminEmail", "admin", "Admin email, may not be an actual email (default is admin)")
 var awsAdminPwdSecret = flag.String("awsAdminPwdSecret", "", "aws secret with Admin password as string (aws integration) (required unless -adminPwd is provided)")
 var adminPwd = flag.String("adminPwd", "", "Admin password (required unless -awsAdminPwdSecret is provided)")
@@ -89,6 +90,10 @@ func main() {
 	webAppDirEnv := os.Getenv("WEB_APP_DEPLOYMENT_DIR")
 	if webAppDirEnv != "" {
 		*uiWebDir = webAppDirEnv
+	}
+	ideAppDirEnv := os.Getenv("IDE_APP_DEPLOYMENT_DIR")
+	if ideAppDirEnv != "" {
+		*ideWebDir = ideAppDirEnv
 	}
 	if *adminEmail == "" {
 		*adminEmail = os.Getenv("JETS_ADMIN_EMAIL")

@@ -431,6 +431,13 @@ func listenAndServe() error {
 	// Home Route
 	// server.Router.HandleFunc("/", audit(jsonh(server.Home))).Methods("GET")
 
+	// Serve the Workspace IDE (jetsclient_ide) — one handler over a prefix rather
+	// than a route per asset, because vite emits content-hashed file names that
+	// cannot be enumerated here. See static_ide.go.
+	server.Router.PathPrefix(ideAssetPrefix).
+		Handler(ideHandler(ideAssetPrefix, *ideWebDir)).
+		Methods("GET")
+
 	// Serve the jetsclient app
 	fs := http.FileServer(http.Dir(*uiWebDir))
 	server.Router.Handle("/", fs).Methods("GET")

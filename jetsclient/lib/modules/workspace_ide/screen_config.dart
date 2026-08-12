@@ -1,6 +1,7 @@
 import 'package:jetsclient/routes/jets_routes_app.dart';
 import 'package:jetsclient/utils/constants.dart';
 import 'package:jetsclient/models/screen_config.dart';
+import 'package:jetsclient/modules/workspace_ide/screen_delegates_helpers.dart';
 
 //*TODO Take path params from current Navigator provider (current page)
 final List<MenuEntry> workspaceRegistryMenuEntries = [
@@ -16,6 +17,13 @@ final List<MenuEntry> workspaceRegistryMenuEntries = [
       key: 'queryTool',
       label: 'Query Tool',
       routePath: queryToolPath),
+  // The CodeMirror editor, served by this apiserver at /ide/. It opens in a new
+  // tab and has no routePath, so it never joins this app's page stack.
+  MenuEntry(
+      key: 'codeEditor',
+      label: 'Code Editor ↗',
+      capability: 'workspace_ide',
+      menuAction: openWorkspaceIdeApp),
   // Disabled rather than hidden without the capability, as base_screen does for every
   // menu entry. The api endpoint enforces the same capability independently.
   MenuEntry(
