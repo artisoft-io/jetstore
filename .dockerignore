@@ -3,3 +3,10 @@ __pycache__
 jets/bin/
 jets/pkg/
 jetstore.egg-info
+
+# Workspace IDE build artifacts. node_modules is hundreds of megabytes and holds
+# platform-native binaries (esbuild, rollup) built for the developer's machine,
+# so shipping it into the build context would be both slow and wrong; the image
+# installs its own from package-lock.json. dist is rebuilt in the image too.
+jetsclient_ide/node_modules/
+jetsclient_ide/dist/

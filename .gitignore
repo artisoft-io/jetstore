@@ -169,6 +169,10 @@ jets/cmds/cpipes_server/cpipes_server
 jets/purge_database/purge_database
 jets/run_reports/run_reports
 package-lock.json
+# ...except the Workspace IDE's, which the image build needs. Dockerfile.ui_service_ws
+# runs `npm ci`, and that reads the lock and fails without it - an ignored lock file
+# means a build machine cloning this repo cannot build the ui image at all.
+!jetsclient_ide/package-lock.json
 jets/compilerv2/compiler/.venv
 tools/sample_projects/tasks_go/tasks_go
 tools/sample_projects/patient_summary_go/patient_summary_go

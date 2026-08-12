@@ -32,6 +32,20 @@ ENV PATH="${PATH}:/usr/local/flutter/bin"
 RUN flutter --version
 RUN dart --version
 
+# Install Node.js - builds the Workspace IDE (jetsclient_ide), a vite/react app
+# served by the apiserver alongside the flutter bundle.
+# Pinned to a release tarball rather than taken from dnf for the same reason Go
+# and Flutter are: the distro package floats across rebuilds and the toolchain
+# must not. Extracted under its own prefix like flutter, rather than splatted
+# into /usr/local, so it can be removed or bumped without touching anything else.
+RUN wget -q "https://nodejs.org/dist/v24.19.0/node-v24.19.0-linux-x64.tar.xz" \
+    && mkdir -p /usr/local/node \
+    && tar -C /usr/local/node --strip-components=1 -xf node-v24.19.0-linux-x64.tar.xz \
+    && rm node-v24.19.0-linux-x64.tar.xz
+ENV PATH="${PATH}:/usr/local/node/bin"
+RUN node --version
+RUN npm --version
+
 # Abseil
 RUN wget -q "https://github.com/abseil/abseil-cpp/releases/download/20260107.1/abseil-cpp-20260107.1.tar.gz"  \
     && tar xf "abseil-cpp-20260107.1.tar.gz"  \

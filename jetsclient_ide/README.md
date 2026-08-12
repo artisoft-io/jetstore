@@ -116,6 +116,32 @@ other endpoints to the apiserver, so there is no CORS involved and the app still
 sees a same-origin path. The proxy sets `secure: false` for the `:8443` case,
 whose certificate is self-signed.
 
+## In the container image
+
+The bundle is built into `ui_service_ws` alongside the Flutter one, by the same
+three-image chain:
+
+| Dockerfile | What it contributes |
+|---|---|
+| `Dockerfile.cpipes_base_builder` | Node.js 24.19.0, pinned to a release tarball under `/usr/local/node`, next to Go and Flutter |
+| `Dockerfile.cpipes_builder` | copies `jetsclient_ide/` into the build image |
+| `Dockerfile.ui_service_ws` | `npm ci && npm run build`, then copies `dist/` to `/usr/local/lib/ide` |
+
+`/usr/local/lib/ide` is the default of `-IDE_APP_DEPLOYMENT_DIR`, so the image
+sets no environment variable for it — the same arrangement `/usr/local/lib/web`
+has with `-WEB_APP_DEPLOYMENT_DIR`. The variable still overrides it at runtime.
+
+Two things this depends on, both easy to undo by accident:
+
+**`package-lock.json` is committed**, against a repo-wide `.gitignore` rule that
+excludes lock files everywhere else — there is an explicit negation for this one.
+`npm ci` reads the lock and fails without it, so removing it from git breaks the
+image build on any machine that builds from a fresh clone, while continuing to
+work on a developer's, where the file is present but untracked.
+
+**The bundle is not relocatable.** `/ide/` is baked into every asset url at build
+time by vite's `base`, so serving it from another prefix is a rebuild, not a move.
+
 ## Serving
 
 `jets/apiserver/static_ide.go` serves the bundle under `/ide/` with **one**
