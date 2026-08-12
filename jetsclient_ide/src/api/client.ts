@@ -94,7 +94,11 @@ export class ApiClient {
     const res = await this.fetchImpl(`${this.baseUrl}/login`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, password }),
+      // The field is `user_email`, not `email`: /login unmarshals straight into
+      // user.User, whose Email carries `json:"user_email"` (jets/user/user.go).
+      // Sending `email` unmarshals to an empty string and the server answers
+      // "required Email" while the form plainly had one in it.
+      body: JSON.stringify({ user_email: email, password }),
     });
     const body = (await this.readJson(res)) as LoginResponse;
     if (!res.ok) {

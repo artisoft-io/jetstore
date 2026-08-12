@@ -52,7 +52,19 @@ describe("ApiClient", () => {
     expect(api.currentUser?.email).toBe("ada@example.com");
     expect(api.currentUser?.capabilities).toEqual(["workspace_ide"]);
     expect(calls[0]?.url).toBe("/login");
-    expect(calls[0]?.body).toEqual({ email: "ada@example.com", password: "pw" });
+  });
+
+  it("posts the email as user_email, the field the server unmarshals", () => {
+    // Regression: this was `email`, which unmarshals into user.User as an empty
+    // Email — the server then answers "required Email" for a form that plainly
+    // had one, and the audit log records a login for user "". The tag is
+    // `json:"user_email"` in jets/user/user.go, and the Flutter client posts the
+    // same key. Asserting the wire field rather than the argument name is the
+    // whole point of this test.
+    return signedIn([]).then(({ calls }) => {
+      expect(calls[0]?.body).toEqual({ user_email: "ada@example.com", password: "pw" });
+      expect(calls[0]?.body).not.toHaveProperty("email");
+    });
   });
 
   it("rejects a login that returns no token", async () => {
