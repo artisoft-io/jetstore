@@ -3,6 +3,18 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!--
+      Declared explicitly rather than left to the browser's implicit request for
+      /favicon.ico at the origin root. That fallback resolves to the *Flutter*
+      app's icon, only works when WEB_APP_DEPLOYMENT_DIR is set, and gives the two
+      apps the same tab. This one ships with the bundle, so it holds whether or
+      not the Flutter app is deployed.
+
+      Written with a leading slash so vite rewrites it with the configured base;
+      a relative href would resolve against the current document and break on a
+      deep client route, which is served this same html from a different path.
+    -->
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <title>JetStore Workspace IDE</title>
   </head>
   <body>
