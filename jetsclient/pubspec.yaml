@@ -17,8 +17,13 @@ publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 # https://developer.apple.com/library/archive/documentation/General/Reference/InfoPlistKeyReference/Articles/CoreFoundationKeys.html
 version: 1.0.0+1
 
+# The lower bound also sets the language version this package's own sources are
+# compiled at, so it is not merely a floor on the toolchain. It said
+# '>=2.18.0-161.0.dev <3.0.0' long after the package required Dart 3 — the
+# resolved dependencies in pubspec.lock need '>=3.12.0 <4.0.0' — which left the
+# sources on 2.18 semantics and Dart 3 language features unavailable.
 environment:
-  sdk: '>=2.18.0-161.0.dev <3.0.0'
+  sdk: '>=3.12.0 <4.0.0'
 
 # Dependencies specify other packages that your package needs in order to work.
 # To automatically upgrade your package dependencies to the latest versions

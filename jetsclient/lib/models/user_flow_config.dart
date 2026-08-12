@@ -189,9 +189,6 @@ class Expression extends UserFlowChoice {
           return lhs.contains(rhs);
         }
         return false;
-
-      default:
-        return false;
     }
   }
 }

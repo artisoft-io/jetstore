@@ -305,7 +305,7 @@ class FormInputFieldConfig extends FormFieldConfig {
     required JetsFormState formState,
   }) {
     return JetsTextFormField(
-      key: UniqueKey(),
+      key: ValueKey('$group::$key'),
       formFieldConfig: this,
       onChanged: (p0) {
         formState.setValueAndNotify(group, key, p0.isNotEmpty ? p0 : null);
@@ -363,7 +363,7 @@ class FormDropdownFieldConfig extends FormFieldConfig {
     required JetsFormState formState,
   }) {
     return JetsDropdownButtonFormField(
-      key: UniqueKey(),
+      key: ValueKey('$group::$key'),
       screenPath: screenPath,
       formFieldConfig: this,
       onChanged: (p0) => formState.setValueAndNotify(group, key, p0),
@@ -411,7 +411,7 @@ class FormDropdownWithSharedItemsFieldConfig extends FormFieldConfig {
     required JetsFormState formState,
   }) {
     return JetsDropdownWithSharedItemsFormField(
-      key: UniqueKey(),
+      key: ValueKey('$group::$key'),
       screenPath: screenPath,
       formFieldConfig: this,
       onChanged: (p0) => formState.setValueAndNotify(group, key, p0),
@@ -450,7 +450,7 @@ class FormTypeaheadFieldConfig extends FormFieldConfig {
     required JetsFormState formState,
   }) {
     return JetsTypeaheadFormField(
-      key: UniqueKey(),
+      key: ValueKey('$group::$key'),
       formFieldConfig: this,
       onChanged: (p0) {
         formState.setValueAndNotify(group, key, p0.isNotEmpty ? p0 : null);
@@ -487,7 +487,7 @@ class FormDataTableFieldConfig extends FormFieldConfig {
         width: tableWidth,
         height: tableHeight,
         child: JetsDataTableWidget(
-            key: UniqueKey(),
+            key: ValueKey('$group::$key'),
             screenPath: screenPath,
             formFieldConfig: this,
             tableConfig: getTableConfig(dataTableConfig),
@@ -548,7 +548,7 @@ class FormActionConfig extends FormFieldConfig {
     required JetsFormState formState,
   }) {
     return JetsFormButton(
-        key: UniqueKey(),
+        key: ValueKey('$group::$key'),
         formActionConfig: this,
         formKey: formState.formKey!,
         formState: formState,
