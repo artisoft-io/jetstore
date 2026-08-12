@@ -15,8 +15,12 @@ becomes a projection of it. This package holds the matrix and the machinery that
 matrix/types.csv        one row per addressable type (Go struct + discriminator value)
 matrix/fields.csv       one row per field of one of those types - the matrix proper
 matrix/constraints.csv  requirements spanning more than one field
-cpipes_contract/        the schema as Pydantic models, and the checks
+cpipes_contract/        the schema as Pydantic models, the checks, and the corpus walker
 ```
+
+The corpus is `workspaces/*/pipes_config/**` - 49 files. The `.pc.json` under `workspaces/*/data/`
+are developer reference material JetStore never loads, and counting them manufactures contradictions
+with the validator; see `cpipes_contract/corpus.py`.
 
 **[MATRIX_SCHEMA.md](MATRIX_SCHEMA.md) is the column reference** and the document to read first.
 
@@ -25,7 +29,8 @@ on it.
 
 ```bash
 python3 -m venv .venv && .venv/bin/pip install -e .
-.venv/bin/cpipes-contract check --code ../.. --corpus ../../..
+.venv/bin/cpipes-contract check --code ../.. --corpus ../../..   # coherence, citations, exemplars
+.venv/bin/cpipes-contract corpus --corpus ../../..               # recorded counts vs measured
 ```
 
 The matrix is under review; the rows in `matrix/` are a seed rather than an extraction. The plan it

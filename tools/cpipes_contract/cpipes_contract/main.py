@@ -6,6 +6,7 @@ import argparse
 import sys
 from pathlib import Path
 
+from . import corpus as corpus_mod
 from .check import check, check_citations, check_exemplars
 from .matrix_schema import Matrix
 
@@ -41,6 +42,27 @@ def main(argv: list[str] | None = None) -> int:
         help="root the evidence_ref citations resolve against, ie the JetStore repo",
     )
 
+    corpus_cmd = sub.add_parser(
+        "corpus", help="measure the matrix against the live corpus"
+    )
+    corpus_cmd.add_argument("--matrix", type=Path, default=DEFAULT_MATRIX)
+    corpus_cmd.add_argument(
+        "--corpus",
+        type=Path,
+        required=True,
+        help="root holding workspaces/; only workspaces/*/pipes_config/** is counted",
+    )
+    corpus_cmd.add_argument(
+        "--apply",
+        action="store_true",
+        help="write the measured counts and live exemplars back onto the rows",
+    )
+    corpus_cmd.add_argument(
+        "--unknown",
+        action="store_true",
+        help="also list keys seen in the corpus that no field row accounts for",
+    )
+
     args = parser.parse_args(argv)
 
     try:
@@ -48,6 +70,9 @@ def main(argv: list[str] | None = None) -> int:
     except (OSError, ValueError) as err:
         print(f"FAIL: {err}", file=sys.stderr)
         return 1
+
+    if args.command == "corpus":
+        return _corpus(args, matrix)
 
     problems = check(matrix, strict=args.strict)
     if args.corpus is not None:
@@ -66,6 +91,38 @@ def main(argv: list[str] | None = None) -> int:
         print(f"\n{len(problems)} problem(s) over {counts}", file=sys.stderr)
         return 1
     print(f"ok: {counts}")
+    return 0
+
+
+def _corpus(args, matrix: Matrix) -> int:
+    live, retired = corpus_mod.config_files(args.corpus)
+    measurement = corpus_mod.measure(matrix, args.corpus)
+    print(
+        f"corpus: {len(live)} live .pc.json under */pipes_config/, "
+        f"{len(retired)} retired under */data/ and not counted"
+    )
+
+    if args.unknown:
+        for key, counter in sorted(measurement.unknown_keys.items()):
+            for name, n in counter.most_common():
+                print(f"  unaccounted {key[0]}/{key[1]}.{name}: {n}")
+
+    for (struct, token), n in measurement.unreachable.most_common():
+        print(f"  unreachable {struct}/{token}: {n} node(s) - no matrix row")
+
+    if args.apply:
+        corpus_mod.apply(matrix, measurement)
+        matrix.save(args.matrix)
+        print(f"applied to {args.matrix}")
+        return 0
+
+    problems = corpus_mod.drift(matrix, measurement)
+    for problem in problems:
+        print(f"DRIFT {problem}", file=sys.stderr)
+    if problems:
+        print(f"\n{len(problems)} drift(s); rerun with --apply", file=sys.stderr)
+        return 1
+    print("ok: the matrix matches the live corpus")
     return 0
 
 

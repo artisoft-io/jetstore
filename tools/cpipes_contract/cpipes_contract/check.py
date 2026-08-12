@@ -16,6 +16,7 @@ import json
 from collections import Counter
 from pathlib import Path
 
+from .corpus import LIVE_PARENT
 from .matrix_schema import (
     ANY_TOKEN,
     NONE,
@@ -222,6 +223,13 @@ def check_exemplars(matrix: Matrix, corpus_root: Path) -> list[str]:
         path = corpus_root / t.exemplar_file
         if not path.is_file():
             problems.append(f"types {_key(t)}: exemplar_file not found: {path}")
+            continue
+        if LIVE_PARENT not in Path(t.exemplar_file).parts:
+            # A retired config under `workspaces/*/data/` is not evidence of anything
+            # current, so it cannot stand as the exemplar of a fragment.
+            problems.append(
+                f"types {_key(t)}: exemplar is not a live config: {t.exemplar_file}"
+            )
             continue
         node = json.loads(path.read_text(encoding="utf-8"))
         for step in t.exemplar_path.split("."):

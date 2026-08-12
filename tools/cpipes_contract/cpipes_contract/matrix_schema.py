@@ -48,6 +48,7 @@ class Container(StrEnum):
     SCALAR = "scalar"
     OBJECT = "object"
     ARRAY = "array"
+    ARRAY2 = "array2"  # `[][]T`: reducing_pipes_config, date_formats, other_date_formats
     MAP = "map"
     RAW_JSON = "raw_json"  # json.RawMessage - carried through unparsed
     ANY = "any"  # Go `any`: accepts more than one shape, see notes
@@ -56,6 +57,12 @@ class Container(StrEnum):
 class YesNo(StrEnum):
     YES = "yes"
     NO = "no"
+
+
+# `deprecated` is a third axis, not a state of `applicable`. A deprecated field is
+# applicable, is present in the corpus, and must still validate - three things
+# `applicable=no` denies. What it must not do is appear in anything the model is
+# prompted to produce, or in the fragment library.
 
 
 class Required(StrEnum):
@@ -90,7 +97,8 @@ class Evidence(StrEnum):
 
     VALIDATOR = "validator"  # CpipesStartup.ValidatePipeSpecConfig - hard
     BUILDER = "builder"  # the operator builders and their defaults - hard
-    CORPUS = "corpus"  # the 71 .pc.json - strong for presence, weak for absence
+    CORPUS = "corpus"  # the live .pc.json: strong for presence, weak for absence,
+    # and worth nothing against the validator - see corpus.py
     GENERATOR = "generator"  # the org1 lambda generators
     COMMENT = "comment"  # the Go doc comments
 
@@ -168,7 +176,9 @@ class TypeRow(Row):
     discriminator: str  # json key of the discriminating field, or `-`
     embeds: str  # comma-separated embedded structs whose fields are promoted, or `-`
     fragment: YesNo  # can it be authored and validated standing alone?
+    deprecated: YesNo  # superseded but still valid: excluded from the fragment library
     corpus_instances: int
+    corpus_prod_instances: int  # of those, outside a `test/` directory
     exemplar_file: str  # a real occurrence, or `-` when the corpus has none
     exemplar_path: str  # dot path into that file, the OllamaMappingSpec.Path convention
     doc_ref: str  # file:line of the type definition
@@ -195,7 +205,9 @@ class FieldRow(Row):
     default_by: DefaultBy
     evidence: Evidence
     evidence_ref: str  # file:line; `-` is allowed only for corpus evidence
+    deprecated: YesNo  # superseded but still valid: must validate, must not be generated
     corpus_count: int
+    corpus_prod_count: int  # of those, outside a `test/` directory
     harness: Harness
     review: Review
     description: str
@@ -224,6 +236,13 @@ class FieldRow(Row):
             raise ValueError(f"a {self.container} field cannot have a ref_struct")
         if self.evidence is not Evidence.CORPUS and self.evidence_ref == NONE:
             raise ValueError(f"{self.evidence} evidence must carry a file:line ref")
+        if self.deprecated is YesNo.YES and self.applicable is YesNo.NO:
+            raise ValueError(
+                "deprecated and applicable=no are different claims; a deprecated field is "
+                "still applicable and must still validate"
+            )
+        if self.corpus_prod_count > self.corpus_count:
+            raise ValueError("corpus_prod_count cannot exceed corpus_count")
         if self.applicable is YesNo.NO and self.corpus_count > 0:
             raise ValueError(
                 f"claimed inapplicable but occurs {self.corpus_count} times in the corpus"
