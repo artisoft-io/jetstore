@@ -144,6 +144,34 @@ func TestIdeHandlerServesTheRealBundle(t *testing.T) {
 	}
 }
 
+// TestIdeShipsItsOwnFavicon guards a dependency that is easy to reintroduce by
+// accident. With no <link rel="icon"> the browser falls back to /favicon.ico at
+// the origin root, which is the *Flutter* app's icon: the IDE then shows no tab
+// icon at all unless WEB_APP_DEPLOYMENT_DIR happens to be set, and shows the
+// wrong one when it is. The icon has to ship with this bundle and be declared.
+func TestIdeShipsItsOwnFavicon(t *testing.T) {
+	dir, err := filepath.Abs(filepath.Join("..", "..", "jetsclient_ide", "dist"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	index, err := os.ReadFile(filepath.Join(dir, "index.html"))
+	if err != nil {
+		t.Skip("jetsclient_ide/dist not built; run `npm run build` in jetsclient_ide")
+	}
+
+	icon := regexp.MustCompile(`rel="icon"[^>]*href="([^"]+)"`).FindSubmatch(index)
+	if icon == nil {
+		t.Fatal("index.html declares no rel=icon; the browser would fall back to the Flutter favicon")
+	}
+	href := string(icon[1])
+	if !strings.HasPrefix(href, ideAssetPrefix) {
+		t.Fatalf("favicon %q is not under %q, so it does not come from this bundle", href, ideAssetPrefix)
+	}
+	if res := get(t, ideHandler(ideAssetPrefix, dir), href); res.Code != http.StatusOK {
+		t.Fatalf("favicon %q: got %d, want 200", href, res.Code)
+	}
+}
+
 func TestIdeHandlerReportsMissingDeployment(t *testing.T) {
 	// An apiserver built without the IDE bundle should say so rather than 500.
 	h := ideHandler(ideAssetPrefix, filepath.Join(t.TempDir(), "absent"))
