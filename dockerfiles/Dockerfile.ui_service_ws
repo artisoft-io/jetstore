@@ -14,6 +14,25 @@ RUN \
   echo "Flutter web build completed with custom button config:" \
   && ls -la build/web
 
+# JETSTORE WORKSPACE IDE == VITE BUILD ==
+# The apiserver serves this bundle under /ide/, which is baked into the asset
+# urls at build time by vite's `base` (see jetsclient_ide/vite.config.ts). The
+# bundle is therefore not relocatable: serving it from another prefix means
+# rebuilding it, not just moving the files.
+WORKDIR ${JETS_SOURCE_DIR}/jetsclient_ide
+# `npm ci` rather than `npm install`: it installs exactly package-lock.json and
+# fails if the lock and package.json disagree, so the image cannot silently pick
+# up a different dependency tree than the one that was tested. It also removes
+# any node_modules it finds first, so no clean step is needed here.
+RUN npm ci
+# `build` is `tsc --noEmit && vite build` - the typecheck is part of the build
+# on purpose, so a type error fails the image rather than shipping.
+RUN npm run build
+
+RUN \
+  echo "Workspace IDE build completed:" \
+  && ls -la dist
+
 FROM compile_ws:latest AS ws_builder
 
 FROM ui_service:latest
@@ -44,6 +63,13 @@ COPY --from=ws_builder $WORKSPACES_REPO/$WORKSPACE $WORKSPACES_REPO/$WORKSPACE
 
 # Copy the compiled flutter web ui to the appropriate location in the ui_service image
 COPY --from=builder /app/jetsclient/build/web /usr/local/lib/web
+
+# Copy the built Workspace IDE bundle alongside it. The destination is the
+# default of the apiserver's -IDE_APP_DEPLOYMENT_DIR flag (jets/apiserver/main.go),
+# which is why no environment variable is set for it here - the same arrangement
+# /usr/local/lib/web has with -WEB_APP_DEPLOYMENT_DIR. IDE_APP_DEPLOYMENT_DIR
+# still overrides it at runtime if the bundle is ever mounted elsewhere.
+COPY --from=builder /app/jetsclient_ide/dist /usr/local/lib/ide
 
 # Copy the resources
 # Copy the resources (for future needs - currently is the ui container that needs it)

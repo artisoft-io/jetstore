@@ -201,6 +201,20 @@ image that does not reset `CMD` gets `/bin/bash` appended to its arguments.
 - `vscode-jetrule/` — VS Code extension for the JetRules DSL (grammar and snippets, no TypeScript)
 - `sample_projects/` — example workspaces
 
-## Flutter UI
+## Web UIs
 
-`jetsclient/` is a Flutter/Dart web app for workspace management and pipeline administration. Build with standard Flutter tooling (`flutter build web`).
+Two web apps, served by the same apiserver on the same origin.
+
+`jetsclient/` is a Flutter/Dart web app for workspace management and pipeline administration. Build
+with standard Flutter tooling (`flutter build web`). Served at `/`.
+
+`jetsclient_ide/` is a React + TypeScript + vite app — the Workspace IDE's CodeMirror 6 editor.
+Build with `npm ci && npm run build`. Served at `/ide/`, and that prefix is compiled into the asset
+urls by vite's `base`, so the bundle cannot be moved to another prefix without rebuilding it. It has
+its own `README.md`.
+
+Both are built into the `ui_service_ws` image (`dockerfiles/Dockerfile.ui_service_ws`) and land at
+`/usr/local/lib/web` and `/usr/local/lib/ide`, which are the defaults of the apiserver's
+`-WEB_APP_DEPLOYMENT_DIR` and `-IDE_APP_DEPLOYMENT_DIR` flags. The toolchains for both — Flutter and
+Node — are installed in `dockerfiles/Dockerfile.cpipes_base_builder`, each pinned to a release
+tarball rather than taken from the distro.
