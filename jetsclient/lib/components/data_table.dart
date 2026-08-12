@@ -824,10 +824,6 @@ class JetsDataTableState extends FormFieldState<WidgetField> {
       //   download(utf8.encode('Mapping for $client and $org for object type $objectType, mapping contains ${model!.length} rows'), downloadName: 'mapping.txt');
 
       //   break;
-
-      default:
-        showAlertDialog(
-            context, 'Oops something is wrong, unknown action ${ac.key}');
     }
   }
 

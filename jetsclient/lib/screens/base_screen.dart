@@ -177,30 +177,19 @@ class BaseScreenState extends State<BaseScreen> with TickerProviderStateMixin {
     final ThemeData themeData = Theme.of(context);
     final dropdownItems = [DropdownItemConfig(label: 'Filter Client')];
     dropdownItems.addAll(JetsRouterDelegate().clients);
-    List<MenuEntry> menuEntries = [];
-
-    switch (widget.screenConfig.type) {
-      case ScreenType.home:
-        // Home screen and all (pipeline) config & operational pages
-        menuEntries = JetsRouterDelegate().user.isAdmin
-            ? widget.screenConfig.adminMenuEntries
-            : widget.screenConfig.menuEntries;
-        break;
-      case ScreenType.other:
-        menuEntries = JetsRouterDelegate().user.isAdmin
-            ? widget.screenConfig.adminMenuEntries
-            : widget.screenConfig.menuEntries;
-        break;
-      case ScreenType.workspace:
-        // All workspace IDE screens
-        // All screens with workspace content in left menu tree
-        menuEntries = JetsRouterDelegate().workspaceMenuState;
-        break;
-      default:
-        // unknown
-        print(
-            'Oops unknown widget.screenConfig.type: ${widget.screenConfig.type}');
-    }
+    // A switch expression rather than a statement, so that adding a
+    // [ScreenType] is a compile error here rather than a screen that renders an
+    // empty menu and says nothing about why.
+    final List<MenuEntry> menuEntries = switch (widget.screenConfig.type) {
+      // The home screen, all (pipeline) config and operational pages, and the
+      // remaining non-workspace screens, which choose their menu the same way.
+      ScreenType.home || ScreenType.other => JetsRouterDelegate().user.isAdmin
+          ? widget.screenConfig.adminMenuEntries
+          : widget.screenConfig.menuEntries,
+      // All workspace IDE screens, i.e. every screen carrying workspace content
+      // in the left menu tree.
+      ScreenType.workspace => JetsRouterDelegate().workspaceMenuState,
+    };
     // print("*** BUILDING BaseScreen");
     return Scaffold(
         appBar: appBar(

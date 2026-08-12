@@ -106,11 +106,7 @@ ButtonStyle? buttonStyle(ActionStyle style, ThemeData td) {
         backgroundColor: td.colorScheme.primaryContainer,
         textStyle: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
       ).copyWith(elevation: ButtonStyleButton.allOrNull(0.0));
-
-    default: // primary
-      print("*** UNKNOWN ActionStyle: $style");
   }
-  return null;
 }
 
 /// Screen ID Keys
