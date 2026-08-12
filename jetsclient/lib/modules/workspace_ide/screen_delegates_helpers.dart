@@ -75,8 +75,23 @@ Future<String?> openWorkspaceActions(
   return null;
 }
 
+/// Files of this size or larger are not opened in the Workspace IDE.
+///
+/// The editor is a single Flutter text field, and Flutter lays a text field's
+/// whole document out on every frame rather than virtualising it by line, so
+/// the cost grows with the size of the file instead of with the part of it on
+/// screen. Past roughly this size the screen stops being usable, so
+/// [mapMenuEntry] drops both the route and the menu action below — which is
+/// why an oversized file's menu entry does nothing at all when clicked rather
+/// than opening slowly.
+///
+/// Raising this number on its own therefore trades a clear failure for an
+/// unusable screen; it can only go up once the editor itself virtualises.
+const workspaceFileEditorSizeLimit = 250000;
+
 // Utility function to create MenuEntry recursively
-// Note: Cap file size to 120K (120000), larger than that we don't bring them in ui
+// Note: files at or above [workspaceFileEditorSizeLimit] are listed but not
+// openable — see that constant for why.
 // Note: MenuEntry.formConfigKey is constructed from e['type'] and e['key']
 // (file, data_model, jet_rules, lookups)
 // It is used in initializeWorkspaceFileEditor to get the formConfig to use.
@@ -108,11 +123,14 @@ List<MenuEntry> mapMenuEntry(List<dynamic> data) {
     return MenuEntry(
       key: pageMatchKey ?? '',
       label: '${e!["label"] ?? ''} (${size/1000}Kb)',
-      routePath:
-          size < 250000 ? (routePath.isNotEmpty ? routePath : null) : null,
+      routePath: size < workspaceFileEditorSizeLimit
+          ? (routePath.isNotEmpty ? routePath : null)
+          : null,
       pageMatchKey: pageMatchKey,
       routeParams: e!["route_params"],
-      menuAction: size < 250000 ? initializeWorkspaceFileEditor : null,
+      menuAction: size < workspaceFileEditorSizeLimit
+          ? initializeWorkspaceFileEditor
+          : null,
       formConfigKey: formConfigKey,
       onPageStyle: onPageStyle,
       otherPageStyle: otherPageStyle,
