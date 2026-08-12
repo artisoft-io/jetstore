@@ -71,13 +71,14 @@ does not know which one it is in.
 Point `IDE_APP_DEPLOYMENT_DIR` at the built bundle:
 
 ```bash
-npm run build
+npm run build                     # the IDE bundle
+cd ../jetsclient && flutter build web --release && cd ..   # the Flutter bundle
 
-cd ..
 go build -o /tmp/apiserver ./jets/apiserver
 
 WORKSPACES_HOME=/home/michel/projects/repos/workspaces \
 WORKSPACE=jets_ws \
+WEB_APP_DEPLOYMENT_DIR=$PWD/jetsclient/build/web \
 IDE_APP_DEPLOYMENT_DIR=$PWD/jetsclient_ide/dist \
 JETS_DSN='postgresql://...' \
 API_SECRET='...' \
@@ -86,6 +87,16 @@ API_SECRET='...' \
 
 Then open <http://localhost:8080/ide/>. `-usingSshTunnel` is what puts the server
 on `:8080` without TLS; without it the server listens on `:8443`.
+
+**Set `WEB_APP_DEPLOYMENT_DIR` even if you only care about the IDE.** It defaults
+to `/usr/local/lib/web`, which exists in the container image and on no
+development machine, and the `/` route is an `http.FileServer` over it. Leave it
+unset and every Flutter url 404s — including `/#/login`, because the fragment
+never reaches the server and the browser is really asking for `/` — while `/ide/`
+carries on working from its own directory. The asymmetry makes it look like the
+IDE broke the Flutter app; it did not, and
+`TestIdePrefixDoesNotShadowTheFlutterApp` in `jets/apiserver` exists to keep that
+answerable without guessing.
 
 The flag is `-IDE_APP_DEPLOYMENT_DIR`, and the environment variable of the same
 name overrides it — the same arrangement `WEB_APP_DEPLOYMENT_DIR` uses for the
