@@ -176,3 +176,13 @@ package-lock.json
 jets/compilerv2/compiler/.venv
 tools/sample_projects/tasks_go/tasks_go
 tools/sample_projects/patient_summary_go/patient_summary_go
+
+# Claude Code machine-local state.
+# .claude/worktrees/ is the one that bites: a git worktree's root holds a .git
+# *file* rather than a directory, so `git add -A` records the whole worktree as a
+# subproject gitlink instead of as files. That is how the dangling
+# .claude/worktrees/docker-ide-bundle entry got committed and had to be removed.
+# Scoped to these two paths rather than all of .claude/ so shared settings can
+# still be committed, as the parent repo does with .claude/settings.json.
+.claude/worktrees/
+.claude/settings.local.json
