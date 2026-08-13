@@ -16,15 +16,42 @@ departure is issue **I-11** in that repo's `plan/tracking/3_phase0_tasks_issues_
 
 | File | One row per | What it is for |
 |---|---|---|
-| `matrix/types.csv` | **addressable type** — a Go struct paired with one value of its discriminator | The unit of a `$defs` entry, of a Pydantic subclass, and of a fragment-library part |
+| `matrix/types.csv` | **addressable type** — a Go struct, paired with one value of its discriminator when it has one | The unit of a `$defs` entry, of a Pydantic subclass, and of a fragment-library part |
 | `matrix/fields.csv` | **field of an addressable type** | The matrix proper: applicability, requirement, default, evidence |
 | `matrix/constraints.csv` | **requirement spanning more than one field** | What `(applicable, required)` cannot express |
 
 The plan asks for one CSV. It became three because the discriminator vocabulary, the corpus instance
 count and the exemplar are properties of a *type* rather than of a field: carried on every field row
 they would be repeated a dozen times and could disagree row to row, which is the two-sources-for-one-
-fact problem decision 8 exists to object to. `fields.csv` remains the review artifact; the other two
-are small (a few dozen rows each when complete).
+fact problem decision 8 exists to object to. `fields.csv` remains the review artifact.
+
+### How exhaustive `types.csv` has to be
+
+**Exhaustive.** A type row is not merely a place to put a `defs_name` that the Go name cannot carry —
+it is the parent of its field rows, the anchor of the fragment library's exemplar, and the node the
+corpus walker descends through. So:
+
+> **Every struct reachable as a *value* gets a row: one per `(go_struct, type_token)` pair, and `*`
+> is a full-standing token, not a placeholder.** A struct with no discriminator gets exactly one row.
+
+Reachable *as a value* means some field points at it through `ref_struct`, plus the document root.
+Two consequences that are easy to get wrong at extraction time:
+
+- **Embedded structs get no row.** `FileConfig` is only ever embedded, never a named field, so
+  nothing references it — its 43 fields appear on the *host's* rows with `declared_in=FileConfig`.
+  A `FileConfig/*` row would have no parent field, no exemplar and no corpus count.
+- **Undiscriminated structs are not optional.** `OllamaSpec/*` is where the only `ollama` exemplar in
+  the corpus lives, and it is the parent of 22 field rows. `defs_name` happens to be mechanical there;
+  the other nine columns are not.
+
+This is enforced, not merely intended. `check` fails with `no types row for X/Y` for any orphaned
+field row; the corpus walker reports a struct with no row as `unreachable` and stops descending, which
+is how `TransformationColumnSpec` (1446 nodes) and `OutputChannelConfig` (389) currently head the
+coverage worklist; and `--strict` makes every unresolved `ref_struct` a failure.
+
+Size, then: `pipes_model.go` declares 69 structs, of which about fourteen discriminate into roughly
+fifty tokens between them — `TransformationSpec` alone has fifteen. So expect **on the order of a
+hundred rows**, not a few dozen. `constraints.csv` stays small.
 
 ## Conventions
 
