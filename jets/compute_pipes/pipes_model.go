@@ -236,12 +236,13 @@ type CsvSourceSpec struct {
 	Type                string `json:"type"`
 	Format              string `json:"format,omitempty"`
 	Compression         string `json:"compression,omitempty"`
-	Delimiter           rune   `json:"delimiter,omitzero"`       // default ','
-	ProcessName         string `json:"process_name,omitempty"`   // for cpipes
-	ReadStepId          string `json:"read_step_id,omitempty"`   // for cpipes
-	JetsPartitionLabel  string `json:"jets_partition,omitempty"` // for cpipes
-	SessionId           string `json:"session_id,omitempty"`     // for cpipes
-	ClassName           string `json:"class_name,omitempty"`     // used by jetrules_config
+	Delimiter           rune   `json:"delimiter,omitzero"`            // default ','
+	CsvSourceFileKey    string `json:"csv_source_file_key,omitempty"` // for csv_file
+	ProcessName         string `json:"process_name,omitempty"`        // for cpipes
+	ReadStepId          string `json:"read_step_id,omitempty"`        // for cpipes
+	JetsPartitionLabel  string `json:"jets_partition,omitempty"`      // for cpipes
+	SessionId           string `json:"session_id,omitempty"`          // for cpipes
+	ClassName           string `json:"class_name,omitempty"`          // used by jetrules_config
 	MakeEmptyWhenNoFile bool   `json:"make_empty_source_when_no_files_found,omitzero"`
 }
 
@@ -288,7 +289,7 @@ type ColumnEncodingSpec struct {
 
 type ContextSpec struct {
 	Comment string `json:"comment,omitempty"` // free text for the reader; ignored by JetStore
-	// Type range: file_key_component, partfile_key_component
+	// Type range: file_key_component, partfile_key_component, value
 	Type string `json:"type,omitempty"`
 	Key  string `json:"key,omitempty"`
 	Expr string `json:"expr,omitempty"`
@@ -373,7 +374,7 @@ type SchemaProviderSpec struct {
 	// Note EnforceRowMinLength and EnforceRowMaxLength apply to text format only (csv, headerless_csv, fixed_width).
 	// UseOriginSourceConfig: when true, use the source config from file_key components (client, org, object_type).
 	// Note origin session_id is from cpipes env $ORIGIN_SESSIONID
-	// BadRowsConfig: Specify how to handle bad rows when bot specified on InputChannelConfig.
+	// BadRowsConfig: Specify how to handle bad rows when not specified on InputChannelConfig.
 	// SourceType range: main_input, merged_input, historical_input (from input_source table)
 	// Columns: may be ommitted if fixed_width_columns_csv is provided or is a csv format
 	// Headers: alt to Columns, typically for csv format
@@ -559,8 +560,8 @@ type MergeFileSpec struct {
 	FirstPartitionHasHeaders bool   `json:"first_partition_has_headers,omitempty"` // splitter column
 }
 
-// ConditionalPipe: Each step are executed conditionally.
-// When the key "when" is nil, the step is always executed.
+// ConditionalPipe: The pipes_config are executed conditionally, all or nothing.
+// When the key "when" is nil, the pipes_config are always executed.
 // Available expr variables as main schema provider env var (see above):
 // multi_step_sharding as int, when > 0, nbr of shards is nbr_partition**2
 // total_file_size in bytes
@@ -1047,11 +1048,11 @@ type ShufflingSpec struct {
 	FilterColumns         *FilterColumnSpec `json:"filter_columns,omitzero"`
 }
 
-// FilterColumnSpec specify how to filter the input rows before shuffling
+// FilterColumnSpec specify how to filter columns in the input rows before shuffling
 // LookupName is the name of the lookup table containing the column metadata, produced by the analyze operator.
 // ColumnName is the name of the column of the lookup table containing the column name to use on the output rows.
 // LookupColumn is the name of the column in the lookup table containing column name of the metadata table to filter on.
-// RetainOnValues is the list of values in the lookup table for LookupColumn to retain, only rows with thosae values are retained.
+// RetainOnValues is the list of values in the lookup table for LookupColumn to retain, only rows with those values are retained.
 type FilterColumnSpec struct {
 	Comment        string   `json:"comment,omitempty"` // free text for the reader; ignored by JetStore
 	LookupName     string   `json:"lookup_name,omitempty"`

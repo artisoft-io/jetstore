@@ -78,6 +78,10 @@ def check(matrix: Matrix, strict: bool = False) -> list[str]:
                 where,
                 "exemplar_file must be set exactly when corpus_instances > 0",
             )
+        if t.exemplar_file == NONE and t.exemplar_path != NONE:
+            # `exemplar_path = -` is legitimate on its own - it means the exemplar is
+            # the whole file - but a path with no file to resolve it against is not.
+            bad(where, "exemplar_path must be '-' when there is no exemplar_file")
         if t.fragment is YesNo.NO and t.notes == NONE:
             bad(where, "fragment=no must say why in notes")
         discriminators.setdefault(t.go_struct, set()).add(t.discriminator)
@@ -232,6 +236,13 @@ def check_exemplars(matrix: Matrix, corpus_root: Path) -> list[str]:
             )
             continue
         node = json.loads(path.read_text(encoding="utf-8"))
+        if t.exemplar_path == NONE:
+            # The exemplar is the document itself, which is the root type's case and
+            # only its case. `-` reads as "no path into the file", and no path into a
+            # file is the file - the same reading `OllamaMappingSpec.Path` gives an
+            # empty path (`pipe_transformation_ollama.go:439`). The every-cell-is-filled
+            # rule forbids the empty string the Go side uses, so the sentinel stands in.
+            continue
         for step in t.exemplar_path.split("."):
             if isinstance(node, list):
                 index = int(step) if step.isdigit() else -1

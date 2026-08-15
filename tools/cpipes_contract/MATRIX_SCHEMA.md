@@ -93,12 +93,26 @@ hundred rows**, not a few dozen. `constraints.csv` stays small.
 | `fragment` | Whether this type can be authored and validated standing alone (plan criteria 6 and 7). Expected to be `yes` almost everywhere; a `no` must say why in `notes`. |
 | `deprecated` | Superseded but still valid; as in `fields.csv`. |
 | `corpus_instances`, `corpus_prod_instances` | **Measured.** Occurrences across the live corpus, and the subset outside a `test/` directory. Written by `corpus --apply`, never by hand. |
-| `exemplar_file`, `exemplar_path` | One real occurrence, from a live config, preferring a production one over a `test/` one. Set exactly when `corpus_instances > 0`, and `check --corpus` resolves every one of them and refuses a retired one — a fragment library whose exemplars do not resolve is a catalogue of things that may not exist. |
+| `exemplar_file`, `exemplar_path` | One real occurrence, from a live config, preferring a production one over a `test/` one. Set exactly when `corpus_instances > 0`, and `check --corpus` resolves every one of them and refuses a retired one — a fragment library whose exemplars do not resolve is a catalogue of things that may not exist. **`exemplar_path = -` means the exemplar is the whole file**, which is the root type's case and only its case; see below. |
 | `doc_ref` | `file:line` of the type definition. |
 | `description`, `notes` | Prose. `description` is destined for the Pydantic model; `notes` is not. |
 
 The token vocabulary of a struct is the set of its rows here. It is deliberately not a column
 anywhere, so it cannot drift from the rows it describes.
+
+**The exemplar of the root type is the file itself, and its `exemplar_path` is `-`.** The dot path is
+borrowed from `OllamaMappingSpec.Path`, where an *empty* path means the whole response
+(`pipe_transformation_ollama.go:439` — `path` stays nil and the root object is used). The
+every-cell-is-filled rule has no empty string to offer, so the `-` sentinel carries that meaning
+instead: no path into a file is the file. The two columns disambiguate each other, so nothing is lost:
+
+| `exemplar_file` | `exemplar_path` | Means |
+|---|---|---|
+| `-` | `-` | No exemplar at all — `corpus_instances = 0`, as `SplitterSpec/ext_count` |
+| a live config | `-` | The exemplar **is** that whole document — `ComputePipesConfig` |
+| a live config | `conditional_pipes_config.6.pipes_config.3.apply.0` | That node inside it |
+
+The fourth combination — a path with no file to resolve it against — is rejected by the check.
 
 ## `fields.csv`
 

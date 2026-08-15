@@ -167,7 +167,9 @@ class _Walker:
         # Prefer a production exemplar: the fragment library is a catalogue of parts to
         # imitate, and a test config is a weaker thing to hold up as the example.
         if key not in self.out.exemplars or (prod and not self.out.exemplar_is_prod[key]):
-            self.out.exemplars[key] = (rel, path)
+            # An empty path means the node *is* the document, which is the root type's
+            # case. It is written as `-`, since a cell is never left empty.
+            self.out.exemplars[key] = (rel, path or NONE)
             self.out.exemplar_is_prod[key] = prod
 
         accounted: set[str] = set()
@@ -184,7 +186,10 @@ class _Walker:
             for child, child_path in self._children(row.container, value, row.json_key):
                 child_key = self.resolve(row.ref_struct, child)
                 if child_key is not None:
-                    self.visit(child_key, child, rel, f"{path}.{child_path}", prod)
+                    # `path` is empty at the document root, where a dotted join would
+                    # produce a leading dot that resolves against nothing.
+                    below = f"{path}.{child_path}" if path else child_path
+                    self.visit(child_key, child, rel, below, prod)
         for seen in node:
             if seen not in accounted:
                 self.out.unknown_keys[key][seen] += 1
