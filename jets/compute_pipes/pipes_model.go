@@ -132,7 +132,7 @@ func (cp *ComputePipesConfig) GetStepName(stepId int) string {
 // Note: Make sure that ClusterShardingSpec is in decreasing order of WhenTotalSizeGe.
 type ClusterSpec struct {
 	Comment                     string                `json:"comment,omitempty"` // free text for the reader; ignored by JetStore
-	MaxNbrPartitions            int                   `json:"max_nbr_partitons,omitzero"`
+	MaxNbrPartitions            int                   `json:"max_nbr_partitions,omitzero"`
 	MultiStepShardingThresholds int                   `json:"multi_step_sharding_thresholds,omitzero"`
 	DefaultShardSizeMb          float64               `json:"default_shard_size_mb,omitzero"`
 	DefaultShardMaxSizeMb       float64               `json:"default_shard_max_size_mb,omitzero"`
