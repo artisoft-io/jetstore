@@ -33,6 +33,7 @@ python3 -m venv .venv && .venv/bin/pip install -e .
 .venv/bin/cpipes-contract check --code ../.. --corpus ../../..   # coherence, citations, exemplars
 .venv/bin/cpipes-contract corpus --corpus ../../..               # recorded counts vs measured
 .venv/bin/cpipes-contract harness --code ../..                   # every row becomes a test result
+.venv/bin/cpipes-contract stamp                                  # certify what the review marked
 ```
 
 The matrix is extracted (B.2) and under review; the harness (B.7) turns its rows into test results

@@ -136,16 +136,16 @@ class Wiring:
 
 
 REFERENCE_WIRING: dict[tuple[str, str], Wiring] = {
-    # merge_files must name an OutputFileSpec (actions_start_common.go:884)
+    # merge_files must name an OutputFileSpec (actions_start_common.go:894)
     ("PipeSpec", "output_file"): Wiring("output_files", ("OutputFileSpec", ANY_TOKEN), "key"),
     # a sql output channel must name an output table whose channel_spec_name is
-    # set (actions_start_common.go:1457)
+    # set (actions_start_common.go:1467)
     ("OutputChannelConfig", "output_table_key"): Wiring(
         "output_tables", ("TableSpec", ANY_TOKEN), "key",
         extras=(("channel_spec_name", "cs_wired"),),
     ),
     # a jetrules output channel's spec_name must resolve to a ChannelSpec
-    # (actions_start_common.go:977)
+    # (actions_start_common.go:987)
     ("OutputChannelConfig", "channel_spec_name"): Wiring("channels", ("ChannelSpec", ANY_TOKEN), "name"),
     # an input channel naming a schema provider must find it
     # (actions_start_common.go:841)
@@ -156,7 +156,7 @@ REFERENCE_WIRING: dict[tuple[str, str], Wiring] = {
 
 # Requirements that hold only at one position, imposed by the *enclosing* struct
 # on its children: a jetrules output channel must name a ChannelSpec through
-# spec_name (actions_start_common.go:977), where an ordinary output channel needs
+# spec_name (actions_start_common.go:987), where an ordinary output channel needs
 # none. (parent struct, field) -> the child field to wire, via REFERENCE_WIRING.
 CONTEXT_WIRING: dict[tuple[str, str], str] = {
     ("JetrulesSpec", "output_channels"): "channel_spec_name",

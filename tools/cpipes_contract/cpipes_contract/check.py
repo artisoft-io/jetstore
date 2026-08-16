@@ -25,9 +25,11 @@ from .matrix_schema import (
     ConstraintRow,
     FieldRow,
     Matrix,
+    Review,
     TypeRow,
     YesNo,
     defs_name_for,
+    row_hash,
     split_csv_cell,
     split_list,
     unfilled,
@@ -193,6 +195,27 @@ def check(matrix: Matrix, strict: bool = False) -> list[str]:
                     continue  # a path below this type; resolved by the harness
                 if member not in keys:
                     bad(where, f"member '{member}' is not a field of this type")
+
+    # --- the review stamp -------------------------------------------------
+    # A `reviewed` mark certifies the row as it stood; the stamp is the proof.
+    # An unstamped reviewed row has not finished being reviewed, a mismatched
+    # stamp means the row changed underneath its tick (a re-extraction or a
+    # `corpus --apply`), and a stamp on an unreviewed row is a leftover. The
+    # `stamp` command fills and clears; only a human sets `review`.
+    for label, rows in (("fields", matrix.fields_), ("constraints", matrix.constraints)):
+        for row in rows:
+            where = f"{label} {_key(row)}"
+            reviewed = row.review is Review.REVIEWED
+            if reviewed and row.reviewed_hash == NONE:
+                bad(where, "reviewed but not stamped: run `cpipes-contract stamp`")
+            elif reviewed and row.reviewed_hash != row_hash(row):
+                bad(
+                    where,
+                    "changed since it was reviewed: re-review it, then "
+                    "`cpipes-contract stamp --restamp`",
+                )
+            elif not reviewed and row.reviewed_hash != NONE:
+                bad(where, "carries a stamp but no reviewed mark: run `cpipes-contract stamp`")
 
     return problems
 
