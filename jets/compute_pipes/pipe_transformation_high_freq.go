@@ -165,6 +165,9 @@ func (ctx *BuilderContext) NewHighFreqTransformationPipe(source *InputChannel, o
 	// Set up the High Freq State for each input column that are tracked
 	analyzeState := make(map[string]map[string]*DistinctCount)
 	for _, c := range spec.HighFreqColumns {
+		if _, ok := (*source.Columns)[c.Name]; !ok {
+			return nil, fmt.Errorf("error: high_freq column '%s' is not an input column to %s", c.Name, source.Name)
+		}
 		analyzeState[c.Name] = make(map[string]*DistinctCount)
 		// Compile the key extraction regex
 		if len(c.KeyRe) > 0 {
