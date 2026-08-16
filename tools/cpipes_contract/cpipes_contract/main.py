@@ -7,6 +7,7 @@ import sys
 from pathlib import Path
 
 from . import corpus as corpus_mod
+from . import harness as harness_mod
 from .check import check, check_citations, check_exemplars, unfilled_report
 from .matrix_schema import Matrix
 
@@ -63,6 +64,30 @@ def main(argv: list[str] | None = None) -> int:
         help="also list keys seen in the corpus that no field row accounts for",
     )
 
+    harness_cmd = sub.add_parser(
+        "harness",
+        help="synthesize a minimal config per type, run it through "
+        "ValidatePipeSpecConfig, and turn every row into a test result",
+    )
+    harness_cmd.add_argument("--matrix", type=Path, default=DEFAULT_MATRIX)
+    harness_cmd.add_argument(
+        "--code",
+        type=Path,
+        required=True,
+        help="the JetStore repo root; the Go runner is `go run` from there",
+    )
+    harness_cmd.add_argument(
+        "--apply",
+        action="store_true",
+        help="write the results back onto the harness column of the rows",
+    )
+    harness_cmd.add_argument(
+        "--dump",
+        type=Path,
+        default=None,
+        help="also write each synthesized config to this directory, for reading",
+    )
+
     args = parser.parse_args(argv)
 
     try:
@@ -73,6 +98,8 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.command == "corpus":
         return _corpus(args, matrix)
+    if args.command == "harness":
+        return _harness(args, matrix)
 
     problems = check(matrix, strict=args.strict)
     if args.corpus is not None:
@@ -127,6 +154,27 @@ def _corpus(args, matrix: Matrix) -> int:
         return 1
     print("ok: the matrix matches the live corpus")
     return 0
+
+
+def _harness(args, matrix: Matrix) -> int:
+    try:
+        report = harness_mod.evaluate(matrix, args.code, dump_dir=args.dump)
+    except (RuntimeError, LookupError) as err:
+        print(f"FAIL: {err}", file=sys.stderr)
+        return 1
+
+    for note in report.notes:
+        print(f"  note {note}")
+    for finding in report.findings:
+        print(f"FINDING {finding}", file=sys.stderr)
+    print(harness_mod.summary(report))
+
+    if args.apply:
+        harness_mod.apply(matrix, report)
+        matrix.save(args.matrix)
+        print(f"applied to {args.matrix}")
+        return 0
+    return 1 if report.findings else 0
 
 
 if __name__ == "__main__":  # pragma: no cover

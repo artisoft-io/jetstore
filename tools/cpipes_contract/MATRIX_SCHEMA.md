@@ -1,6 +1,6 @@
 # The cpipes applicability matrix — schema
 
-**Task B.1 · drafted 2026-08-11 · revised 2026-08-12 after first review · revised 2026-08-15 during B.2 (virtual tokens; the unfilled cell state) · awaiting review**
+**Task B.1 · drafted 2026-08-11 · revised 2026-08-12 after first review · revised 2026-08-15 during B.2 (virtual tokens; the unfilled cell state) · revised 2026-08-15 during B.7 (the harness; `types.csv` gains a machine-written `harness` column) · awaiting review**
 
 This is the definition of the matrix, not the matrix. The rows currently in `matrix/` are a seed:
 twelve types and eighty-eight fields, hand-extracted while designing the schema, kept because a schema
@@ -122,6 +122,7 @@ hundred rows**, not a few dozen. `constraints.csv` stays small.
 | `corpus_instances`, `corpus_prod_instances` | **Measured.** Occurrences across the live corpus, and the subset outside a `test/` directory. Written by `corpus --apply`, never by hand. |
 | `exemplar_file`, `exemplar_path` | One real occurrence, from a live config, preferring a production one over a `test/` one. `check --corpus` resolves every one, refuses a retired one, and demands more than resolution: the node must be an **object that is an instance of this row** — a path landing on the containing array fails, and so does a node whose discriminator carries another row's token or that fails a virtual row's predicate. While extraction is partial, a row the walk cannot reach yet may carry a *hand-proposed* exemplar, which those checks verify and which `corpus --apply` replaces with a measured one as soon as the type becomes reachable; "set exactly when `corpus_instances > 0`" is therefore a `--strict` check, with the other invariants that only hold at end state. **`exemplar_path = -` means the exemplar is the whole file**, which is the root type's case and only its case; see below. |
 | `doc_ref` | `file:line` of the type definition. `check --code` resolves it and requires the cited line to name the struct — the same discipline `evidence_ref` gets, and what catches a filename remembered rather than read. |
+| **+** `harness` | **Written by the machine**, like its `fields.csv` namesake: did `ValidatePipeSpecConfig` accept the minimal config the harness synthesized for this type from the matrix's own claims? `pass`, `fail`, or `pending` — a type has no `untestable`, since every type can at least be embedded and offered. A `fail` here is the review's entry point for the whole type: its field rows stay `pending` until the type's own acceptance is settled, because removal tests against a rejected base prove nothing. See *The harness* below. |
 | `description`, `notes` | Prose. `description` is destined for the Pydantic model; `notes` is not. |
 
 The token vocabulary of a struct is the set of its rows here. It is deliberately not a column
@@ -165,7 +166,7 @@ Ten of these columns are the plan's §5.2.1 list. The other twelve are marked **
 | **+** `evidence_ref` | `file:line`, relative to the JetStore repo root. Required for every evidence kind except `corpus`, where `corpus_count` is the citation. A source kind with no location is not checkable, and the plan's own standard is that a claim without a citation does not belong. `check --code` resolves every one of them and requires the cited line to name the field — see below. |
 | `corpus_count` | **Measured.** Occurrences of this field across instances of this type. Strong evidence for presence, weak for absence — a row claiming `applicable=no` with a non-zero count is rejected outright. |
 | **+** `corpus_prod_count` | **Measured.** Of those, the ones outside a `test/` directory. A field attested only by test configs is weaker evidence than one a production pipeline depends on, and `corpus_count == n, corpus_prod_count == 0` is the pattern the review should reach early (R-1 orders by evidence strength). Costs nothing to carry, since both are written by `corpus --apply` and never typed. |
-| **+** `harness` | **Written by the machine.** `pass`, `fail`, `untestable`, `pending` — the B.7 result for this row, written back by the harness. The mitigation for R-1 is that reviewing a row means reading a test result, which is only true if the result is on the row. `untestable` is the honest state for builder-evidence rows the config validator never sees. |
+| **+** `harness` | **Written by the machine.** `pass`, `fail`, `untestable`, `pending` — the B.7 result for this row, written back by the harness. The mitigation for R-1 is that reviewing a row means reading a test result, which is only true if the result is on the row. What each state means per claim: a `required=yes` (or satisfied `required_when`) row is `pass` when removing the field got the document rejected; a `required=no` row is `pass` when the type's minimal config — which omits every optional field — was accepted, absence tolerated being exactly that row's claim. `untestable` is the honest state for claims the config validator cannot see: a builder-enforced requirement whose removal was still accepted, a prohibition (`applicable=no` — the decoder ignores what it does not know), or a discriminator or `present()` membership key, whose removal *re-types* the node rather than invalidating it. `fail` is reserved for a claim the validator contradicts: `evidence=validator` and the removal was accepted anyway. See *The harness* below. |
 | **+** `review` | **Written by you.** `unreviewed`, `reviewed`, `disputed` — the human sign-off, set by hand in B.8 and by nothing else. A separate axis from `evidence`: a row can be corpus-derived and reviewed, or validator-derived and unreviewed. R-1's number to watch — rows still unreviewed when B.9 wants to start — is not countable unless these are two columns. `disputed` is for rows where you judge the sources to disagree; it is a verdict, not a measurement. |
 
 `harness` and `review` are the answer to "who fills this in": the columns marked **Measured** are
@@ -353,6 +354,72 @@ value token is *also* legal at that position, and the schema for `then` is the w
 than one branch. Neither case is the defaulted-discriminator shape of the third finding above:
 there, an absent key still means one value token; here, absence or presence *is* the discrimination.
 
+## The harness
+
+B.7, built before the review rather than after it, so that reviewing a row means reading what the
+validator actually did. Two halves:
+
+- **`harness/` (Go)** is deliberately dumb: a JSON array of `{id, config}` documents on stdin, a
+  verdict per document on stdout, produced by running each one through `GetComputePipes`,
+  `ApplyAllConditionalTransformationSpec` and `ValidatePipeSpecConfig` exactly as
+  `actions_start_sharding_cp.go` and `actions_start_reducing_cp.go` do — including a fresh unmarshal
+  per step, because the validator mutates its input (I-4). It holds no opinion about the matrix, so
+  the contract under test is the one the engine enforces. A `decode` failure (the document
+  `json.Unmarshal` refuses) is reported separately from a `validate` rejection, because the first
+  means the matrix's `go_type` or the synthesis is wrong and the second is the observation the
+  harness exists to make.
+- **`cpipes_contract/harness.py`** synthesizes, per `(go_struct, type_token)`, a **minimal authored
+  config from the matrix alone**: the target's required fields (and the conditional ones whose
+  `required_when` holds in the minimal context), values taken from `values`, `default` or neutral
+  fill, embedded at a position found by walking the matrix's own `ref_struct` graph from
+  `ComputePipesConfig/*` — the same graph the corpus walker descends, in the other direction. The
+  host chain is itself minimal, references are wired to the sibling entities the validator resolves
+  them against (`output_file` to an `output_files` entry, `output_table_key` to an `output_tables`
+  entry with a `channel_spec_name`, a jetrules `spec_name` to a `channels` entry), and every document
+  gets at least one live step, since a config the validator runs zero steps over is accepted
+  vacuously. Then, for each required field of the target, the same document minus that one field must
+  be rejected.
+
+Three kinds of knowledge live in the harness rather than the matrix, each a small named table with
+its reason: which token an intermediate takes (`PREFERRED_TOKEN` — the cheapest valid instance,
+`map_record` for a transformation, `value` for an expression), which token is position-bound
+(`TOKEN_ONLY_VIA` — `~override` means override only at `conditional_config.N.then`; anywhere else a
+type-less spec is just invalid), and the reference wiring above. A hint never substitutes for a
+missing `required` claim: when the matrix under-declares a type, its minimal config is rejected and
+that is reported as a finding, not papered over — the findings *are* the review worklist, in
+validator-authority order.
+
+The honest limit is the plan's own (§5.2.1): the config validator sees a fraction of the real
+contract, the rest living in the operator builders at DAG-build time. So `pass` on a type the
+validator never inspects says only "decodable, and nothing contradicted"; builder-evidence
+requirements come back `untestable` rather than proven; and prohibitions are entirely the emitted
+schema's to enforce. The expression grammar is the extreme case: an `ExpressionNode` is carried, not
+compiled, at config level, so all seven of its variants accept vacuously — their contract becomes
+testable only where an expression is actually built, which is gap 6's territory.
+
+### What the first run found, 2026-08-15
+
+45 findings, none of them a harness artifact, in three classes — recorded here the way the seed's
+findings were, because they are the B.8 worklist:
+
+1. **Unfilled `required` claims the validator enforces.** Twelve transformation tokens
+   (`aggregate` through `merge`) carry no claim on `output_channel`, and the validator rejects every
+   one of them (`output_channel.name must not be empty`, `actions_start_common.go:1468`) — this one
+   gap fails ~25 types, because everything reachable only through those tokens inherits it.
+   Likewise `anonymize_config`, `jetrules_config`, `clustering_config` (+
+   `correlation_output_channel`) on their operators, `output_channels` on `JetrulesSpec`,
+   `write_step_id`/`file_key` on `OutputChannelConfig/stage`, `format` on
+   `OutputChannelConfig/output`.
+2. **Six `required=yes, evidence=validator` claims the validator does not enforce.** The validator
+   *defaults* an absent `input_channel` (to a memory channel) rather than requiring one
+   (`PipeSpec/fan_out`, `/splitter`), and never checks that an input channel's `name` is non-empty
+   (all four `InputChannelConfig` tokens). Marked `fail` — the claim may still be right about the
+   engine's behaviour downstream, but its evidence is wrong, and that is the row's problem to fix.
+3. **Two types are unreachable by construction** — `ComputePipesCommonArgs` and
+   `ClusterShardingInfo`, whose only referring fields are `applicable=no` because JetStore writes
+   them, not the author (I-14). Permanently `pending` at config level, which is the correct state
+   for runtime-only shapes.
+
 ## Running the checks
 
 ```bash
@@ -366,7 +433,15 @@ python3 -m venv .venv && .venv/bin/pip install -e .
 .venv/bin/cpipes-contract corpus --corpus ../../..           # recorded counts vs measured
 .venv/bin/cpipes-contract corpus --corpus ../../.. --apply   # write the measured ones back
 .venv/bin/cpipes-contract corpus --corpus ../../.. --unknown # keys no field row accounts for
+
+.venv/bin/cpipes-contract harness --code ../..               # run the B.7 harness; findings on stderr
+.venv/bin/cpipes-contract harness --code ../.. --apply       # write results onto the harness columns
+.venv/bin/cpipes-contract harness --code ../.. --dump DIR    # also keep each synthesized config
 ```
+
+`harness` needs a Go toolchain: the runner is `go run ./tools/cpipes_contract/harness` from the
+`--code` root. Without `--apply` it exits non-zero when it has findings, which makes it the same
+kind of drift check as `corpus`.
 
 One command, one exit code — there is no CI service to host it (I-9). `--strict` adds the checks that
 only hold once extraction is complete, and its failures are the worklist: every `ref_struct` with no
