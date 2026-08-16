@@ -240,6 +240,17 @@ def check_citations(matrix: Matrix, code_root: Path) -> list[str]:
             cache[path] = path.read_text(encoding="utf-8").splitlines()
         return cache[path]
 
+    def cited_file(file_part: str) -> Path:
+        # Generator evidence (the org1 lambdas, B.5) lives in the client workspaces
+        # beside the JetStore checkout, not inside it: a ref that starts with
+        # `workspaces/` resolves against the repo holding them - the same root the
+        # corpus paths use.
+        if file_part.startswith("workspaces/"):
+            # resolve() first: the root is normally given as a relative `../..`,
+            # whose textual .parent would be `..` rather than one level further up.
+            return code_root.resolve().parent / file_part
+        return code_root / file_part
+
     # A type row's doc_ref is a citation like any other: it must resolve, and the
     # cited line must name the struct. This is what catches a filename remembered
     # rather than read (action_common_model.go for actions_common_model.go) and a
@@ -250,7 +261,7 @@ def check_citations(matrix: Matrix, code_root: Path) -> list[str]:
         if not file_part or not line_part.isdigit():
             problems.append(f"types {_key(t)}: doc_ref is not file:line: {ref}")
             continue
-        lines = lines_of(code_root / file_part)
+        lines = lines_of(cited_file(file_part))
         if lines is None:
             problems.append(f"types {_key(t)}: doc_ref file not found: {file_part}")
             continue
@@ -272,7 +283,7 @@ def check_citations(matrix: Matrix, code_root: Path) -> list[str]:
         if not file_part or not line_part.isdigit():
             problems.append(f"{_key(row)}: evidence_ref is not file:line: {ref}")
             continue
-        lines = lines_of(code_root / file_part)
+        lines = lines_of(cited_file(file_part))
         if lines is None:
             problems.append(f"{_key(row)}: evidence_ref file not found: {file_part}")
             continue

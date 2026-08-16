@@ -86,7 +86,10 @@ hundred rows**, not a few dozen. `constraints.csv` stays small.
   Schema branches become `if`/`then` overlays on key presence, and the Pydantic side needs a
   pre-validator rather than a discriminator field.
 - **Citations are `path:line` relative to the JetStore repo root**, the same convention the plan uses:
-  `jets/compute_pipes/pipes_model.go:1152`.
+  `jets/compute_pipes/pipes_model.go:1152`. One extension, added for B.5: **a citation beginning with
+  `workspaces/` resolves against the repo holding the corpus** — the parent of the code root — because
+  generator evidence (the org1 lambdas) lives in the client workspaces beside the JetStore checkout,
+  not inside it. `check --code` follows both.
 - **The corpus is `workspaces/*/pipes_config/**` and nothing else** — 45 files. The `.pc.json` under
   `workspaces/*/data/` are developer notes and reference material that JetStore never loads; they are
   not counted, and `check --corpus` refuses one as an exemplar. See *The corpus* below.
