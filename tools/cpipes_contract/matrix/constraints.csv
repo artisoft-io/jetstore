@@ -19,3 +19,4 @@ HashExpression,*,precedence,expr|composite_expr,prompt,comment,jets/compute_pipe
 HashExpression,*,precedence,nbr_jets_partitions|max_nbr_jets_partitions,prompt,comment,jets/compute_pipes/pipes_model.go:1354,unreviewed,NbrJetsPartitions wins when both are provided.
 JetrulesSpec,*,mutually_exclusive,use_jet_rules_native|use_jet_rules_go,schema,comment,jets/compute_pipes/pipes_model.go:1112,unreviewed,Both false means the native engine when available.
 ColumnNameLookupNode,*,precedence,column_names|column_pos,prompt,comment,jets/compute_pipes/pipes_model.go:706,unreviewed,Both may be empty when column_name_fragments is used.
+OutputChannelConfig,stage,at_least_one,write_step_id|file_key,validator,validator,jets/compute_pipes/actions_start_common.go:1500,unreviewed,"A stage output channel must say where to write: write_step_id names the staging step, file_key an explicit location. Found by the B.7 harness."

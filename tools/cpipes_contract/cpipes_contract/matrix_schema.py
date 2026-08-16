@@ -248,6 +248,7 @@ class TypeRow(Row):
     exemplar_file: str  # a real occurrence, or `-` when the corpus has none
     exemplar_path: str  # dot path into that file, the OllamaMappingSpec.Path convention
     doc_ref: str  # file:line of the type definition
+    harness: Harness  # written by the B.7 harness: was the minimal config accepted?
     description: str
     notes: str
 

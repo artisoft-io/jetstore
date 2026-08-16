@@ -861,6 +861,16 @@ func (args *CpipesStartup) ValidatePipeSpecConfig(cpConfig *ComputePipesConfig, 
 		default:
 			return fmt.Errorf("configuration error: unknown input_channel.type: %s", pipeSpec.InputChannel.Type)
 		}
+		// An input channel must be authored with a name: every pipe reads from its
+		// channel by name, resolved in the channel registry at DAG-build time - so an
+		// unnamed one fails inside a running task, for what is a configuration error.
+		// An absent input_channel decodes to the zero value, so this also catches a
+		// pipe with no input_channel at all.
+		if pipeSpec.InputChannel.Name == "" {
+			return fmt.Errorf(
+				"configuration error: input_channel.name is required (pipe %d of type '%s')",
+				i, pipeSpec.Type)
+		}
 		// Check that we don't have two input channel reading from the same channel,
 		// this creates record lost since they steal records from each other
 		for k := range pipeConfig {
