@@ -425,19 +425,30 @@ findings were, with the resolution each got:
    (all four `InputChannelConfig` tokens). The claims themselves stand — the requirement is real,
    enforced where `GetInputChannel` resolves the name at DAG build
    (`pipes_runtime_model.go:193`), and the corpus is unanimous on presence (333/333 pipes, 343/343
-   names) — so the *evidence* moved to `builder` with that citation, and the rows went `fail` →
-   `untestable`. A deliberate tightening of `ValidatePipeSpecConfig` (planned as its own change,
-   with the 49/49 corpus check as its guard) would move them back to `validator` and make them
-   provable.
+   names) — so the *evidence* first moved to `builder` with that citation, and the rows went
+   `fail` → `untestable`. The validator was then tightened the same day, as its own change:
+   `ValidatePipeSpecConfig` now rejects an unnamed or absent input channel
+   (`actions_start_common.go:869`), guarded by running all 49 live configs through it before and
+   after with no verdict changing. The evidence moved back to `validator` and the six rows are
+   `pass` — the harness proving the very check it caused to exist.
 3. **Two types are unreachable by construction** — `ComputePipesCommonArgs` and
    `ClusterShardingInfo`, whose only referring fields are `applicable=no` because JetStore writes
    them, not the author (I-14). Permanently `pending` at config level, which is the correct state
    for runtime-only shapes. No action; that is the finding.
 
-After the corrections the harness runs clean: **115 of 117 types `pass`, 0 `fail`, the 2 above
-`pending`; fields 573 `pass`, 0 `fail`, 639 `untestable`, 580 `pending`** — the pending fields
-being the 569 rows whose `required` is still unfilled plus the 19 rows of the two unreachable
-types (eight are both), which together are the remaining B.8 worklist.
+After the corrections and the tightening the harness runs clean: **115 of 117 types `pass`, 0
+`fail`, the 2 above `pending`; fields 579 `pass`, 0 `fail`, 633 `untestable`, 580 `pending`** —
+the pending fields being the 569 rows whose `required` is still unfilled plus the 19 rows of the
+two unreachable types (eight are both), which together are the remaining B.8 worklist.
+
+Two side observations from the corpus baseline the tightening was guarded with, for B.14/B.15:
+the live corpus is *not* 49/49 through `ValidatePipeSpecConfig` today. Three cedargate configs
+need env vars the harness cannot know (`$CGT_*`, `$MAIN_INPUT_ROW_COUNT` in `when` conditions —
+an environment limit, not a config defect); but `cedargate_ws/pipes_config/csv_test.pc.json`
+fails to **decode** (a string in the `int32` `delimiter` of a schema provider), and the two
+usi_ws `test/` jetrules configs are rejected by today's jetrules channel checks — three files
+that would fail at startup as-is, which the "test is a tier, and it must validate" rule says
+someone should look at.
 
 ## Running the checks
 
