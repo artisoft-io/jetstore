@@ -289,7 +289,12 @@ func (ctx ExprBuilderContext) BuildExprNodeEvaluator(sourceName string, columns 
 				// Select by column name
 				// Special case when spec.Expr starts with '$', in this case we consider
 				// that spec.Expr is an env var key whose value is the actual column name to select.
-				if strings.HasPrefix(spec.Expr, "$") {
+				// Only when a columns map exists: with columns == nil the input at Eval time
+				// is the env map itself and spec.Expr is the key to read there - substituting
+				// the env var's *value* as the key would break every env-reading select (the
+				// conditional_config and conditional_apply `when` nodes), which is what
+				// TestApplyAllConditionalTransformationSpec caught.
+				if columns != nil && strings.HasPrefix(spec.Expr, "$") {
 					if v, ok := ctx[spec.Expr]; ok {
 						if colName, ok := v.(string); ok {
 							spec.Expr = colName
