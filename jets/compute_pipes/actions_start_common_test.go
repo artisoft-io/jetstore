@@ -10,14 +10,14 @@ func TestMergeTransformationSpec(t *testing.T) {
 		Type: "partition_writer",
 		PartitionWriterConfig: &PartitionWriterSpec{
 			DeviceWriterType: "S3",
-			PartitionSize:     50,
+			PartitionSize:    50,
 		},
 	}
 	override := &TransformationSpec{
 		Type: "", // Empty type means we want to merge fields, not replace
 		PartitionWriterConfig: &PartitionWriterSpec{
 			DeviceWriterType: "Parquet",
-			PartitionSize:     500,
+			PartitionSize:    500,
 		},
 	}
 
@@ -40,7 +40,7 @@ func TestMergeTransformationSpec(t *testing.T) {
 		Type: "partition_writer",
 		PartitionWriterConfig: &PartitionWriterSpec{
 			DeviceWriterType: "S3",
-			PartitionSize:     50,
+			PartitionSize:    50,
 		},
 	}
 	override = &TransformationSpec{
@@ -76,7 +76,7 @@ func TestMergeTransformationSpec(t *testing.T) {
 		Type: "partition_writer",
 		PartitionWriterConfig: &PartitionWriterSpec{
 			DeviceWriterType: "S3",
-			PartitionSize:     50,
+			PartitionSize:    50,
 		},
 	}
 	override = &TransformationSpec{
@@ -119,7 +119,7 @@ func TestApplyAllConditionalTransformationSpec(t *testing.T) {
 	// Test applying conditional transformation specs
 	envSettings := map[string]any{
 		"$USE_S3_WRITER": "true",
-		"count":           5,
+		"count":          5,
 	}
 
 	pipeConfig := []PipeSpec{
@@ -129,25 +129,25 @@ func TestApplyAllConditionalTransformationSpec(t *testing.T) {
 					Type: "partition_writer",
 					PartitionWriterConfig: &PartitionWriterSpec{
 						DeviceWriterType: "S3",
-						PartitionSize:     100,
+						PartitionSize:    100,
 					},
 					ConditionalConfig: []*ConditionalTransformationSpec{
 						{
 							When: ExpressionNode{
 								Lhs: &ExpressionNode{
-									Type:  "select",
+									Type: "select",
 									Expr: "$USE_S3_WRITER",
 								},
-								Op:  "==",
+								Op: "==",
 								Rhs: &ExpressionNode{
-									Type:  "value",
+									Type: "value",
 									Expr: "'true'",
 								},
 							},
 							Then: TransformationSpec{
 								PartitionWriterConfig: &PartitionWriterSpec{
 									DeviceWriterType: "S3",
-									PartitionSize:     500,
+									PartitionSize:    500,
 								},
 								MapRecordConfig: &MapRecordSpec{
 									FileMappingTableName: "my_mapping_table_name",
@@ -157,19 +157,19 @@ func TestApplyAllConditionalTransformationSpec(t *testing.T) {
 						{
 							When: ExpressionNode{
 								Lhs: &ExpressionNode{
-									Type:  "select",
+									Type: "select",
 									Expr: "count",
 								},
-								Op:  ">",
+								Op: ">",
 								Rhs: &ExpressionNode{
-									Type:  "value",
+									Type: "value",
 									Expr: "1",
 								},
 							},
 							Then: TransformationSpec{
 								PartitionWriterConfig: &PartitionWriterSpec{
 									DeviceWriterType: "Parquet",
-									PartitionSize:     200,
+									PartitionSize:    200,
 								},
 							},
 						},
@@ -178,7 +178,7 @@ func TestApplyAllConditionalTransformationSpec(t *testing.T) {
 			},
 		},
 	}
-	
+
 	err := ApplyAllConditionalTransformationSpec(pipeConfig, envSettings)
 	if err != nil {
 		t.Fatalf("ApplyAllConditionalTransformationSpec failed: %v", err)
@@ -200,5 +200,40 @@ func TestApplyAllConditionalTransformationSpec(t *testing.T) {
 	}
 	if transformation.PartitionWriterConfig.PartitionSize != 200 {
 		t.Errorf("Expected PartitionSize 200, got '%d'", transformation.PartitionWriterConfig.PartitionSize)
+	}
+}
+func TestValidatePipeSpecConfigRequiresInputChannelName(t *testing.T) {
+	// The pipe reads from its input channel by name, resolved in the channel
+	// registry at DAG-build time, so validation must reject an unnamed one
+	// rather than let it fail inside a running task.
+	makePipe := func(inputName string) []PipeSpec {
+		return []PipeSpec{{
+			Type:         "fan_out",
+			InputChannel: InputChannelConfig{Name: inputName},
+			Apply: []TransformationSpec{{
+				Type:          "map_record",
+				OutputChannel: OutputChannelConfig{Name: "mapped_row"},
+			}},
+		}}
+	}
+	startup := &CpipesStartup{}
+
+	if err := startup.ValidatePipeSpecConfig(&ComputePipesConfig{}, makePipe("input_row")); err != nil {
+		t.Fatalf("named input channel rejected: %v", err)
+	}
+	if err := startup.ValidatePipeSpecConfig(&ComputePipesConfig{}, makePipe("")); err == nil {
+		t.Error("expected an unnamed input channel to be rejected")
+	}
+	// An absent input_channel decodes to the zero value, so it must fail the
+	// same way.
+	noChannel := []PipeSpec{{
+		Type: "fan_out",
+		Apply: []TransformationSpec{{
+			Type:          "map_record",
+			OutputChannel: OutputChannelConfig{Name: "mapped_row"},
+		}},
+	}}
+	if err := startup.ValidatePipeSpecConfig(&ComputePipesConfig{}, noChannel); err == nil {
+		t.Error("expected a pipe with no input_channel to be rejected")
 	}
 }
