@@ -331,3 +331,23 @@ func TestValidatePipeSpecConfigOriginalHeadersStagePath(t *testing.T) {
 		t.Fatalf("output channel with a single flag must not constrain the stage path: %v", err)
 	}
 }
+
+func TestValidatePipeSpecConfigRejectsEmptyConditionalPipes(t *testing.T) {
+	// An empty pipes_config on a conditional step used to panic in the
+	// merge-files-only special case or validate as a silent no-op step;
+	// the validator must reject it instead.
+	startup := &CpipesStartup{}
+	cpConfig := &ComputePipesConfig{
+		ConditionalPipesConfig: []ConditionalPipeSpec{{StepName: "s0"}},
+	}
+	if err := startup.ValidatePipeSpecConfig(cpConfig, nil); err == nil {
+		t.Error("expecting an empty conditional pipes_config to be rejected")
+	}
+	cpConfig.ConditionalPipesConfig[0].PipesConfig = []PipeSpec{{
+		Type:         "fan_out",
+		InputChannel: InputChannelConfig{Name: "input_row", Type: "input"},
+	}}
+	if err := startup.ValidatePipeSpecConfig(cpConfig, nil); err != nil {
+		t.Fatalf("non-empty conditional pipes_config rejected: %v", err)
+	}
+}

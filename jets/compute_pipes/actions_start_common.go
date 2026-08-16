@@ -253,6 +253,7 @@ func (args *StartComputePipesArgs) shardingInitializeCpipes(ctx context.Context,
 	// in which case we want to skip the sharding step and go directly to the merge file step
 	// with the main input file (submitted file key) as the input of the merge file step.
 	if len(cpipesStartup.CpConfig.ConditionalPipesConfig) == 1 &&
+		len(cpipesStartup.CpConfig.ConditionalPipesConfig[0].PipesConfig) > 0 &&
 		cpipesStartup.CpConfig.ConditionalPipesConfig[0].PipesConfig[0].Type == "merge_files" {
 		cpipesStartup.IsMergeFileOnly = true
 		goto wrapUp
@@ -824,6 +825,11 @@ func GetOutputFileConfig(cpConfig *ComputePipesConfig, outputFileKey string) *Ou
 // An output channel setting both use_original_headers and put_headers_on_first_partition
 // requires both flags on the stage channels leading to it (validateOriginalHeadersStagePath).
 func (args *CpipesStartup) ValidatePipeSpecConfig(cpConfig *ComputePipesConfig, pipeConfig []PipeSpec) error {
+	for i := range cpConfig.ConditionalPipesConfig {
+		if len(cpConfig.ConditionalPipesConfig[i].PipesConfig) == 0 {
+			return fmt.Errorf("configuration error: conditional_pipes_config step %d has an empty pipes_config", i)
+		}
+	}
 	for i := range pipeConfig {
 		pipeSpec := &pipeConfig[i]
 		// log.Printf("VALIDATE PIPESPEC %s\n", pipeSpec.Type)
