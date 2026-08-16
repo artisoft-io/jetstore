@@ -821,6 +821,8 @@ func GetOutputFileConfig(cpConfig *ComputePipesConfig, outputFileKey string) *Ou
 // and channel Type 'stage'.
 // Set the bucket to jetstore_bucket for input_channel of type stage.
 // This function also syncs the input and ouput channels with the associated schema provider.
+// An output channel setting both use_original_headers and put_headers_on_first_partition
+// requires both flags on the stage channels leading to it (validateOriginalHeadersStagePath).
 func (args *CpipesStartup) ValidatePipeSpecConfig(cpConfig *ComputePipesConfig, pipeConfig []PipeSpec) error {
 	for i := range pipeConfig {
 		pipeSpec := &pipeConfig[i]
@@ -1044,6 +1046,13 @@ func (args *CpipesStartup) ValidatePipeSpecConfig(cpConfig *ComputePipesConfig, 
 			if err != nil {
 				return err
 			}
+			// An output channel with both use_original_headers and
+			// put_headers_on_first_partition needs the stage channels leading to
+			// it to carry both flags too — see validateOriginalHeadersStagePath.
+			err = validateOriginalHeadersStagePath(cpConfig, pipeConfig, transformationConfig)
+			if err != nil {
+				return err
+			}
 		}
 	}
 	return validateErrorChannels(pipeConfig)
@@ -1070,33 +1079,128 @@ func errorChannelConfig(transformationConfig *TransformationSpec) *OutputChannel
 	return nil
 }
 
-// outputChannelNames returns the names of the channels a transformation writes its
-// results to, excluding its error channel.
-func outputChannelNames(transformationConfig *TransformationSpec) []string {
-	names := make([]string, 0, 2)
-	addName := func(name string) {
-		if len(name) > 0 {
-			names = append(names, name)
-		}
-	}
-	addName(transformationConfig.OutputChannel.Name)
+// outputChannelConfigs returns the channels a transformation writes its results
+// to, excluding its error channel.
+func outputChannelConfigs(transformationConfig *TransformationSpec) []*OutputChannelConfig {
+	configs := make([]*OutputChannelConfig, 0, 2)
+	configs = append(configs, &transformationConfig.OutputChannel)
 	switch transformationConfig.Type {
 	case "jetrules":
 		if transformationConfig.JetrulesConfig != nil {
 			for i := range transformationConfig.JetrulesConfig.OutputChannels {
-				addName(transformationConfig.JetrulesConfig.OutputChannels[i].Name)
+				configs = append(configs, &transformationConfig.JetrulesConfig.OutputChannels[i])
 			}
 		}
 	case "anonymize":
 		if transformationConfig.AnonymizeConfig != nil && transformationConfig.AnonymizeConfig.KeysOutputChannel != nil {
-			addName(transformationConfig.AnonymizeConfig.KeysOutputChannel.Name)
+			configs = append(configs, transformationConfig.AnonymizeConfig.KeysOutputChannel)
 		}
 	case "clustering":
 		if transformationConfig.ClusteringConfig != nil && transformationConfig.ClusteringConfig.CorrelationOutputChannel != nil {
-			addName(transformationConfig.ClusteringConfig.CorrelationOutputChannel.Name)
+			configs = append(configs, transformationConfig.ClusteringConfig.CorrelationOutputChannel)
+		}
+	}
+	return configs
+}
+
+// outputChannelNames returns the names of the channels a transformation writes its
+// results to, excluding its error channel.
+func outputChannelNames(transformationConfig *TransformationSpec) []string {
+	names := make([]string, 0, 2)
+	for _, outputCh := range outputChannelConfigs(transformationConfig) {
+		if len(outputCh.Name) > 0 {
+			names = append(names, outputCh.Name)
 		}
 	}
 	return names
+}
+
+// allComputePipesSteps returns every step's pipes as authored in the document:
+// pipes_config (the runtime shape), then reducing_pipes_config, then the
+// conditional steps. Used to look across step boundaries at validation time.
+func allComputePipesSteps(cpConfig *ComputePipesConfig) [][]PipeSpec {
+	steps := make([][]PipeSpec, 0, len(cpConfig.ReducingPipesConfig)+len(cpConfig.ConditionalPipesConfig)+1)
+	if len(cpConfig.PipesConfig) > 0 {
+		steps = append(steps, cpConfig.PipesConfig)
+	}
+	steps = append(steps, cpConfig.ReducingPipesConfig...)
+	for i := range cpConfig.ConditionalPipesConfig {
+		steps = append(steps, cpConfig.ConditionalPipesConfig[i].PipesConfig)
+	}
+	return steps
+}
+
+// stageReadStepIds returns the step ids a step's pipes read from stage.
+func stageReadStepIds(step []PipeSpec) []string {
+	ids := make([]string, 0, 1)
+	for i := range step {
+		inputChannel := &step[i].InputChannel
+		if inputChannel.Type == "stage" && len(inputChannel.ReadStepId) > 0 {
+			ids = append(ids, inputChannel.ReadStepId)
+		}
+	}
+	return ids
+}
+
+// validateOriginalHeadersStagePath enforces the header contract of an output
+// channel carrying both use_original_headers and put_headers_on_first_partition:
+// such a channel gets the header line of the final merged file from the part
+// files themselves — the merge concatenates them (s3 multipart copy) without
+// rewriting them, so the header line must already sit, once and with the
+// original headers, in the first part file written upstream. Every stage
+// channel on the path leading to this output channel (followed backward through
+// read_step_id/write_step_id across the document's steps) must therefore carry
+// both flags as well; a stage channel missing either one leaves the final file
+// with uniquefied headers, no header line at all, or a header line per part.
+//
+// Config-level limits, accepted deliberately: step ids are compared as authored
+// (env vars unsubstituted), the other steps are seen as their base specs (a
+// conditional_config override of another step is not evaluated here), and a
+// stage read by file_key (historical data) has no writer in this document.
+func validateOriginalHeadersStagePath(cpConfig *ComputePipesConfig, pipeConfig []PipeSpec,
+	transformationConfig *TransformationSpec) error {
+	for _, outputCh := range outputChannelConfigs(transformationConfig) {
+		if outputCh.Type != "output" || !outputCh.UseOriginalHeaders || !outputCh.PutHeadersOnFirstPartition {
+			continue
+		}
+		allSteps := allComputePipesSteps(cpConfig)
+		visited := make(map[string]bool)
+		pending := stageReadStepIds(pipeConfig)
+		for len(pending) > 0 {
+			readStepId := pending[len(pending)-1]
+			pending = pending[:len(pending)-1]
+			if visited[readStepId] {
+				continue
+			}
+			visited[readStepId] = true
+			for _, step := range allSteps {
+				stepWritesToIt := false
+				for i := range step {
+					for j := range step[i].Apply {
+						for _, stageCh := range outputChannelConfigs(&step[i].Apply[j]) {
+							if stageCh.Type != "stage" || stageCh.WriteStepId != readStepId {
+								continue
+							}
+							if !stageCh.UseOriginalHeaders || !stageCh.PutHeadersOnFirstPartition {
+								return fmt.Errorf(
+									"configuration error: output_channel '%s' has both use_original_headers and "+
+										"put_headers_on_first_partition set, but the stage output_channel '%s' "+
+										"(write_step_id '%s') leading to it does not; the final output file is a "+
+										"concatenation of the stage part files, so every stage channel leading to "+
+										"this output channel must also set both flags",
+									outputCh.Name, stageCh.Name, stageCh.WriteStepId)
+							}
+							stepWritesToIt = true
+						}
+					}
+				}
+				if stepWritesToIt {
+					pending = append(pending, stageReadStepIds(step)...)
+				}
+			}
+		}
+	}
+	return nil
 }
 
 // validateErrorChannels checks that an error channel has a single writer:

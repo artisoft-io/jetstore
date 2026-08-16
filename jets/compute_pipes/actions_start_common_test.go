@@ -271,3 +271,63 @@ func TestValidatePipeSpecConfigRequiresSortKey(t *testing.T) {
 		t.Error("expected a sort operator without sort_config to be rejected")
 	}
 }
+
+func TestValidatePipeSpecConfigOriginalHeadersStagePath(t *testing.T) {
+	// The final file of an output channel carrying both use_original_headers and
+	// put_headers_on_first_partition is a concatenation of the stage part files
+	// written upstream (s3 multipart copy), so its header line is the one written
+	// on the first stage partition — the stage channels leading to the output
+	// channel must carry both flags too.
+	makeStagePath := func(stageUseOriginal, stagePutHeaders, outUseOriginal, outPutHeaders bool) (*ComputePipesConfig, []PipeSpec) {
+		writerStep := []PipeSpec{{
+			Type:         "fan_out",
+			InputChannel: InputChannelConfig{Name: "input_row", Type: "input"},
+			Apply: []TransformationSpec{{
+				Type: "map_record",
+				OutputChannel: OutputChannelConfig{
+					Type:               "stage",
+					Name:               "staged_row",
+					WriteStepId:        "staged_data",
+					UseOriginalHeaders: stageUseOriginal,
+					FileConfig:         FileConfig{PutHeadersOnFirstPartition: stagePutHeaders},
+				},
+			}},
+		}}
+		outputStep := []PipeSpec{{
+			Type:         "fan_out",
+			InputChannel: InputChannelConfig{Name: "input_row", Type: "stage", ReadStepId: "staged_data"},
+			Apply: []TransformationSpec{{
+				Type: "map_record",
+				OutputChannel: OutputChannelConfig{
+					Type:               "output",
+					Name:               "final_row",
+					SpecName:           "input_row",
+					UseOriginalHeaders: outUseOriginal,
+					FileConfig:         FileConfig{Format: "csv", PutHeadersOnFirstPartition: outPutHeaders},
+				},
+			}},
+		}}
+		cpConfig := &ComputePipesConfig{ReducingPipesConfig: [][]PipeSpec{writerStep, outputStep}}
+		return cpConfig, outputStep
+	}
+	startup := &CpipesStartup{}
+
+	cpConfig, outputStep := makeStagePath(true, true, true, true)
+	if err := startup.ValidatePipeSpecConfig(cpConfig, outputStep); err != nil {
+		t.Fatalf("stage channel carrying both flags rejected: %v", err)
+	}
+	cpConfig, outputStep = makeStagePath(false, true, true, true)
+	if err := startup.ValidatePipeSpecConfig(cpConfig, outputStep); err == nil {
+		t.Error("expected a stage channel without use_original_headers to be rejected")
+	}
+	cpConfig, outputStep = makeStagePath(true, false, true, true)
+	if err := startup.ValidatePipeSpecConfig(cpConfig, outputStep); err == nil {
+		t.Error("expected a stage channel without put_headers_on_first_partition to be rejected")
+	}
+	// The rule is anchored on the output channel having both flags: with only
+	// use_original_headers set, the stage channels are unconstrained.
+	cpConfig, outputStep = makeStagePath(false, false, true, false)
+	if err := startup.ValidatePipeSpecConfig(cpConfig, outputStep); err != nil {
+		t.Fatalf("output channel with a single flag must not constrain the stage path: %v", err)
+	}
+}

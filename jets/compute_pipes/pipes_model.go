@@ -768,8 +768,20 @@ type OutputChannelConfig struct {
 	// NbrRowsInRecord: nbr of rows in record (applicable to format: parquet)
 	// Compression: none, snappy (default). Does not apply to parquet format (always snappy).
 	// UseInputParquetSchema to use the same schema as the input file.
-	// UseOriginalHeaders to use the headers from the input file (csv only).
 	// Must have save_parquet_schema = true in the cpipes first input_channel.
+	// UseOriginalHeaders to use the original headers that came with the input
+	// file (csv only) rather than the headers JetStore processes with. JetStore
+	// needs unique header names during processing, so when an input file carries
+	// duplicate headers they are uniquefied and the originals are kept aside for
+	// the final pipeline output. Applies to Type output and to the Type stage
+	// channels leading to an output channel: for delimited files the header line
+	// is written on the first partition only (see PutHeadersOnFirstPartition in
+	// FileConfig), so the merge operator can concatenate the part files with the
+	// s3 multipart copy without rewriting them — the first stage part file then
+	// carries the header line of the final output file. When an output channel
+	// sets both UseOriginalHeaders and PutHeadersOnFirstPartition, the preceding
+	// stage channels leading to it must also set both to get the expected
+	// outcome (enforced by ValidatePipeSpecConfig).
 	// OutputLocation: jetstore_s3_schema_events, jetstore_s3_input, jetstore_s3_output (default), or custom location.
 	// When OutputLocation is jetstore_s3_input it will also write to the input bucket.
 	// When using jetstore_s3_input and jetstore_s3_schema_events you must specify
@@ -793,7 +805,7 @@ type OutputChannelConfig struct {
 	FileConfig
 	Type                  string `json:"type"`
 	Name                  string `json:"name"`
-	UseOriginalHeaders    bool   `json:"use_original_headers,omitzero"`     // Type output
+	UseOriginalHeaders    bool   `json:"use_original_headers,omitzero"`     // Type stage,output — see doc block above
 	UseInputParquetSchema bool   `json:"use_input_parquet_schema,omitzero"` // Type stage,output
 	SchemaProvider        string `json:"schema_provider,omitempty"`         // Type stage,output, alt to Format
 	WriteStepId           string `json:"write_step_id,omitempty"`           // Type stage
