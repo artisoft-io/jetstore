@@ -28,7 +28,7 @@ import csv
 import re
 from enum import StrEnum
 from pathlib import Path
-from typing import Annotated, Iterable, Sequence, TypeVar
+from typing import Annotated, Iterable, Literal, Sequence, TypeVar
 
 from pydantic import BaseModel, BeforeValidator, ConfigDict, model_validator
 
@@ -300,8 +300,10 @@ class FieldRow(Row):
     evidence: _opt(Evidence)
     evidence_ref: _opt(str)  # file:line; `-` is allowed only for corpus evidence
     deprecated: _opt(YesNo)  # superseded but still valid: must validate, not generate
-    corpus_count: _opt(int)  # measured; blank until the walk reaches the type
-    corpus_prod_count: _opt(int)  # of those, outside a `test/` directory
+    corpus_count: _opt(int | Literal["-"])  # measured; blank until the walk reaches
+    # the type; `-` is `corpus --apply`'s stamp for a type the walk cannot reach
+    # (runtime-injected shapes), so the row does not await review forever
+    corpus_prod_count: _opt(int | Literal["-"])  # of those, outside a `test/` directory
     harness: Harness
     review: Review
     reviewed_hash: str  # machine-stamped fingerprint of what was reviewed; `-` until stamped
@@ -349,10 +351,10 @@ class FieldRow(Row):
                     "deprecated and applicable=no are different claims; a deprecated "
                     "field is still applicable and must still validate"
                 )
-        if have(self.corpus_count, self.corpus_prod_count):
+        if isinstance(self.corpus_count, int) and isinstance(self.corpus_prod_count, int):
             if self.corpus_prod_count > self.corpus_count:
                 raise ValueError("corpus_prod_count cannot exceed corpus_count")
-        if have(self.applicable, self.corpus_count):
+        if have(self.applicable) and isinstance(self.corpus_count, int):
             if self.applicable is YesNo.NO and self.corpus_count > 0:
                 raise ValueError(
                     f"claimed inapplicable but occurs {self.corpus_count} times "

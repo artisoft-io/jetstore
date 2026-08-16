@@ -303,3 +303,9 @@ def apply(matrix: Matrix, measurement: Measurement) -> None:
         if key in measurement.instances:
             f.corpus_count = measurement.field_counts[key].get(f.json_key, 0)
             f.corpus_prod_count = measurement.prod_field_counts[key].get(f.json_key, 0)
+        else:
+            # The walk cannot reach this type (runtime-injected shapes); stamp the
+            # rows so they do not await review forever. A later run that reaches
+            # the type replaces the stamp with measured counts via the drift path.
+            f.corpus_count = "-"
+            f.corpus_prod_count = "-"

@@ -151,7 +151,7 @@ def check(matrix: Matrix, strict: bool = False) -> list[str]:
                 bad(where, f"unfilled cells: {', '.join(unfilled(f))}")
             if f.ref_struct != NONE and f.ref_struct not in known_structs:
                 bad(where, f"ref_struct {f.ref_struct} has no types row")
-            if f.corpus_count is not None and f.corpus_count > parent.corpus_instances:
+            if isinstance(f.corpus_count, int) and f.corpus_count > parent.corpus_instances:
                 bad(
                     where,
                     f"corpus_count {f.corpus_count} exceeds the type's "
