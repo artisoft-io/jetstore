@@ -169,6 +169,8 @@ Ten of these columns are the plan's §5.2.1 list. The other twelve are marked **
 | **+** `harness` | **Written by the machine.** `pass`, `fail`, `untestable`, `pending` — the B.7 result for this row, written back by the harness. The mitigation for R-1 is that reviewing a row means reading a test result, which is only true if the result is on the row. What each state means per claim: a `required=yes` (or satisfied `required_when`) row is `pass` when removing the field got the document rejected; a `required=no` row is `pass` when the type's minimal config — which omits every optional field — was accepted, absence tolerated being exactly that row's claim. `untestable` is the honest state for claims the config validator cannot see: a builder-enforced requirement whose removal was still accepted, a prohibition (`applicable=no` — the decoder ignores what it does not know), or a discriminator or `present()` membership key, whose removal *re-types* the node rather than invalidating it. `fail` is reserved for a claim the validator contradicts: `evidence=validator` and the removal was accepted anyway. See *The harness* below. |
 | **+** `review` | **Written by you.** `unreviewed`, `reviewed`, `disputed` — the human sign-off, set by hand in B.8 and by nothing else. A separate axis from `evidence`: a row can be corpus-derived and reviewed, or validator-derived and unreviewed. R-1's number to watch — rows still unreviewed when B.9 wants to start — is not countable unless these are two columns. `disputed` is for rows where you judge the sources to disagree; it is a verdict, not a measurement. |
 | **+** `reviewed_hash` | **Written by `stamp`.** The fingerprint of what a `reviewed` mark certifies — every column except `harness`, `review`, `notes` and the stamp itself — and `-` until stamped. This closes the gap the first revision of this file left open: a row reviewed in B.8 and then changed by a re-extraction or a `corpus --apply` used to keep its tick silently; now `check` reports it as *changed since it was reviewed*, and only an explicit `stamp --restamp` re-certifies it. Mark a row `reviewed`, run `stamp`; the command never touches `review` itself, so a reviewed mark still cannot be manufactured by a re-run. `harness` is deliberately outside the fingerprint — it re-runs freely and a regression there is caught loudly on its own axis. |
+| `description` | The Go doc comment, carried across by B.6. Destined for the Pydantic field description, after which the Go comments stop being the source. Last column, so a spreadsheet review can hide it. |
+| `notes` | Everything else, including why a weak row is weak. |
 
 `harness`, `review` and `reviewed_hash` are the answer to "who fills this in": the columns marked
 **Measured** are written by `corpus --apply`, the rest are extracted from the code by hand, `harness`
@@ -181,9 +183,6 @@ container, ref_struct, all read from the declarations — plus `harness=pending`
 `review=unreviewed`, which are defined initial states rather than judgments. Everything else starts
 blank (see *Conventions*), `corpus --apply` fills the measured counts as the walk reaches each type,
 and the review turns the rest into claims one row at a time.
-
-| `description` | The Go doc comment, carried across by B.6. Destined for the Pydantic field description, after which the Go comments stop being the source. Last column, so a spreadsheet review can hide it. |
-| `notes` | Everything else, including why a weak row is weak. |
 
 ### Coherence rules the check enforces
 
