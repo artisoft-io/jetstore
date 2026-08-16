@@ -30,8 +30,26 @@ from .matrix_schema import (
     defs_name_for,
     split_csv_cell,
     split_list,
+    unfilled,
     variant_matches,
 )
+
+
+def unfilled_report(matrix: Matrix) -> str | None:
+    """One line naming how much of the matrix still awaits judgment, or None.
+
+    Not a failure outside --strict: a blank cell is the extraction working as
+    designed. But it is the number R-1 watches, so `check` always prints it.
+    """
+    rows = cells = 0
+    for row in [*matrix.fields_, *matrix.constraints]:
+        blanks = unfilled(row)
+        if blanks:
+            rows += 1
+            cells += len(blanks)
+    if not rows:
+        return None
+    return f"unfilled: {cells} cells over {rows} rows await review"
 
 
 def _key(row: TypeRow | FieldRow | ConstraintRow) -> str:
@@ -121,15 +139,17 @@ def check(matrix: Matrix, strict: bool = False) -> list[str]:
                     where,
                     f"declared_in={f.declared_in} but the types row does not embed it",
                 )
-        if f.json_key == parent.discriminator and f.values != NONE:
+        if f.json_key == parent.discriminator and f.values not in (NONE, None):
             bad(
                 where,
                 "the discriminator's value set is the types table, leave values as '-'",
             )
         if strict:
+            if unfilled(f):
+                bad(where, f"unfilled cells: {', '.join(unfilled(f))}")
             if f.ref_struct != NONE and f.ref_struct not in known_structs:
                 bad(where, f"ref_struct {f.ref_struct} has no types row")
-            if f.corpus_count > parent.corpus_instances:
+            if f.corpus_count is not None and f.corpus_count > parent.corpus_instances:
                 bad(
                     where,
                     f"corpus_count {f.corpus_count} exceeds the type's "
@@ -157,6 +177,8 @@ def check(matrix: Matrix, strict: bool = False) -> list[str]:
             bad(where, f"no types row for {c.go_struct}/{c.type_token}")
             continue
         if strict:
+            if unfilled(c):
+                bad(where, f"unfilled cells: {', '.join(unfilled(c))}")
             keys = {r.json_key for r in fields_by_type.get((c.go_struct, c.type_token), [])}
             members = split_list(c.members)
             # A constraint is recorded on the innermost type from which every member is
@@ -220,7 +242,7 @@ def check_citations(matrix: Matrix, code_root: Path) -> list[str]:
             )
 
     for row in [*matrix.fields_, *matrix.constraints]:
-        if row.evidence_ref == NONE:
+        if row.evidence_ref in (NONE, None):
             continue
         ref = row.evidence_ref
         file_part, _, line_part = ref.rpartition(":")

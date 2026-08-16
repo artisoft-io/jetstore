@@ -7,7 +7,7 @@ import sys
 from pathlib import Path
 
 from . import corpus as corpus_mod
-from .check import check, check_citations, check_exemplars
+from .check import check, check_citations, check_exemplars, unfilled_report
 from .matrix_schema import Matrix
 
 DEFAULT_MATRIX = Path(__file__).resolve().parent.parent / "matrix"
@@ -87,6 +87,9 @@ def main(argv: list[str] | None = None) -> int:
         f"{len(matrix.types)} types, {len(matrix.fields_)} fields, "
         f"{len(matrix.constraints)} constraints"
     )
+    report = unfilled_report(matrix)
+    if report is not None:
+        print(report)
     if problems:
         print(f"\n{len(problems)} problem(s) over {counts}", file=sys.stderr)
         return 1

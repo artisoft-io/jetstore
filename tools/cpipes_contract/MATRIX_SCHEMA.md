@@ -1,6 +1,6 @@
 # The cpipes applicability matrix — schema
 
-**Task B.1 · drafted 2026-08-11 · revised 2026-08-12 after first review · revised 2026-08-15 during B.2 (virtual tokens) · awaiting review**
+**Task B.1 · drafted 2026-08-11 · revised 2026-08-12 after first review · revised 2026-08-15 during B.2 (virtual tokens; the unfilled cell state) · awaiting review**
 
 This is the definition of the matrix, not the matrix. The rows currently in `matrix/` are a seed:
 twelve types and eighty-eight fields, hand-extracted while designing the schema, kept because a schema
@@ -55,8 +55,18 @@ hundred rows**, not a few dozen. `constraints.csv` stays small.
 
 ## Conventions
 
-- **Every cell is filled.** `-` means "none / not applicable". An empty cell is a schema error, so an
-  unfilled row is always distinguishable from a row reviewed and found empty.
+- **A cell has three states, and they never collapse into each other.** `-` is a claim: "none, and
+  judged to be none". A **blank** is the absence of a claim: mechanically extracted, awaiting review —
+  the state B.2's inventory pass leaves every judgment column in, precisely so that a value in one of
+  those columns is always someone's decision and never a generator's guess. A blank is legal only on
+  the judgment columns of `fields.csv` and `constraints.csv`: identity columns (the struct, the field,
+  the wire key, the container) come from the source and a blank one is a schema error, as is any blank
+  on a row marked `reviewed`. `check` reports the blank count on every run — it is R-1's number — and
+  `--strict` fails each one, because at end state the worklist must be empty. This replaces the
+  original "every cell is filled" rule, which was right about the distinction and wrong about the
+  mechanism: with no legal blank, a mechanical extraction pass would have had to *invent* values for
+  22,000 judgment cells just to satisfy the loader, manufacturing exactly the unreviewed-claims
+  problem the rule existed to prevent.
 - **`*` is the type token of a struct with no discriminator** — `OllamaSpec/*` means every instance
   of `OllamaSpec`. A blank token would collide with "not yet determined".
 - **`~name` is a *virtual* token: a variant selected by the shape of the node rather than by a value
@@ -162,6 +172,12 @@ Ten of these columns are the plan's §5.2.1 list. The other twelve are marked **
 written by `corpus --apply`, the rest are extracted from the code by hand, `harness` is written by
 the test run, and `review` is the one column that is yours. Nothing in the toolchain writes it — `check` and `corpus` only ever read it, so
 a `reviewed` mark can never be manufactured by a re-run.
+
+The B.2 inventory pass fills only the identity columns — field name, wire key, declarer, Go type,
+container, ref_struct, all read from the declarations — plus `harness=pending` and
+`review=unreviewed`, which are defined initial states rather than judgments. Everything else starts
+blank (see *Conventions*), `corpus --apply` fills the measured counts as the walk reaches each type,
+and the review turns the rest into claims one row at a time.
 
 What the toolchain does *not* yet do is invalidate a `reviewed` mark when the row underneath it
 changes, which it should: a row reviewed in B.8 and re-measured in a later `corpus --apply` keeps its

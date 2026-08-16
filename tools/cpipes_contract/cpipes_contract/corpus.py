@@ -137,7 +137,7 @@ class _Walker:
             row.default
             for t in self.by_struct.get(ref_struct, [])
             for row in self.fields[(t.go_struct, t.type_token)]
-            if row.json_key == discriminator and row.default != NONE
+            if row.json_key == discriminator and row.default not in (NONE, None)
         }
         if len(seen) > 1:
             self.out.unreachable[(ref_struct, f"!ambiguous default {sorted(seen)}")] += 1
@@ -281,17 +281,21 @@ def drift(matrix: Matrix, measurement: Measurement) -> list[str]:
         key = (f.go_struct, f.type_token)
         if key not in measurement.instances:
             continue  # the walk never reached this type; nothing measured to compare
+        # A blank count on a reached type is drift too: the measurement exists and
+        # the row does not carry it yet, which --apply resolves.
         measured_prod = measurement.prod_field_counts[key].get(f.json_key, 0)
         if f.corpus_prod_count != measured_prod:
+            recorded = "unfilled" if f.corpus_prod_count is None else f.corpus_prod_count
             problems.append(
                 f"fields {f.go_struct}/{f.type_token}.{f.json_key}: corpus_prod_count "
-                f"{f.corpus_prod_count}, measured {measured_prod}"
+                f"{recorded}, measured {measured_prod}"
             )
         measured = measurement.field_counts[key].get(f.json_key, 0)
         if f.corpus_count != measured:
+            recorded = "unfilled" if f.corpus_count is None else f.corpus_count
             problems.append(
                 f"fields {f.go_struct}/{f.type_token}.{f.json_key}: corpus_count "
-                f"{f.corpus_count}, measured {measured}"
+                f"{recorded}, measured {measured}"
             )
     return problems
 
