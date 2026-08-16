@@ -53,15 +53,6 @@ def is_production(path: Path) -> bool:
 
 TypeKey = tuple[str, str]
 
-# The document root. Hard-coded because `ComputePipesConfig` and `ConditionalPipeSpec`
-# have no matrix rows yet; delete this and start the walk from ("ComputePipesConfig", "*")
-# once B.2 adds them.
-_ROOTS: list[tuple[str, TypeKey]] = [
-    ("pipes_config", ("PipeSpec", "")),
-    ("reducing_pipes_config", ("PipeSpec", "")),
-    ("conditional_pipes_config", ("PipeSpec", "")),
-]
-
 
 def config_files(root: Path) -> tuple[list[Path], list[Path]]:
     """Split the workspaces' `.pc.json` into (live, retired)."""
@@ -70,22 +61,6 @@ def config_files(root: Path) -> tuple[list[Path], list[Path]]:
     for path in sorted((root / "workspaces").rglob("*.pc.json")):
         (live if LIVE_PARENT in path.parts else retired).append(path)
     return live, retired
-
-
-def _root_pipes(doc: Any) -> Iterator[tuple[str, Any]]:
-    """Yield every `PipeSpec` of a document, with its dot path."""
-    if not isinstance(doc, dict):
-        return
-    for pipe_index, pipe in enumerate(doc.get("pipes_config") or []):
-        yield f"pipes_config.{pipe_index}", pipe
-    for group_index, group in enumerate(doc.get("reducing_pipes_config") or []):
-        for pipe_index, pipe in enumerate(group or []):
-            yield f"reducing_pipes_config.{group_index}.{pipe_index}", pipe
-    for step_index, step in enumerate(doc.get("conditional_pipes_config") or []):
-        if not isinstance(step, dict):
-            continue
-        for pipe_index, pipe in enumerate(step.get("pipes_config") or []):
-            yield f"conditional_pipes_config.{step_index}.pipes_config.{pipe_index}", pipe
 
 
 @dataclass
@@ -239,7 +214,14 @@ class _Walker:
 
 
 def measure(matrix: Matrix, root: Path) -> Measurement:
-    """Walk the live corpus, counting what the matrix can reach."""
+    """Walk the live corpus, counting what the matrix can reach.
+
+    The walk starts at the document root, `ComputePipesConfig/*`, and descends
+    wherever the matrix's own field rows point — so the root sections
+    (`channels`, `lookup_tables`, `schema_providers`, ...) are measured with the
+    same machinery as the pipes, and a key the root rows do not account for
+    shows up in `unknown_keys` like any other. Earlier revisions hard-coded the
+    three pipe-carrying roots because `ComputePipesConfig` had no row yet."""
     walker = _Walker(matrix)
     live, _ = config_files(root)
     walker.out.files = len(live)
@@ -247,10 +229,9 @@ def measure(matrix: Matrix, root: Path) -> Measurement:
         rel = path.relative_to(root).as_posix()
         prod = is_production(path)
         doc = json.loads(path.read_text(encoding="utf-8"))
-        for pipe_path, pipe in _root_pipes(doc):
-            key = walker.resolve("PipeSpec", pipe)
-            if key is not None:
-                walker.visit(key, pipe, rel, pipe_path, prod)
+        key = walker.resolve("ComputePipesConfig", doc)
+        if key is not None:
+            walker.visit(key, doc, rel, "", prod)
     return walker.out
 
 

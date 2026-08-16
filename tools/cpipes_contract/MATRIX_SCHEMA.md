@@ -1,6 +1,6 @@
 # The cpipes applicability matrix — schema
 
-**Task B.1 · drafted 2026-08-11 · revised 2026-08-12 after first review · revised 2026-08-15 during B.2 (virtual tokens; the unfilled cell state) · revised 2026-08-15 during B.7 (the harness; `types.csv` gains a machine-written `harness` column) · awaiting review**
+**Task B.1 · drafted 2026-08-11 · revised 2026-08-12 after first review · revised 2026-08-15 during B.2 (virtual tokens; the unfilled cell state) · revised 2026-08-15 during B.7 (the harness; `types.csv` gains a machine-written `harness` column) · revised 2026-08-15 preparing B.8 (the reachability closure; the walk starts at the root; the review stamp) · awaiting review**
 
 This is the definition of the matrix, not the matrix. The rows currently in `matrix/` are a seed:
 twelve types and eighty-eight fields, hand-extracted while designing the schema, kept because a schema
@@ -87,7 +87,7 @@ hundred rows**, not a few dozen. `constraints.csv` stays small.
   pre-validator rather than a discriminator field.
 - **Citations are `path:line` relative to the JetStore repo root**, the same convention the plan uses:
   `jets/compute_pipes/pipes_model.go:1152`.
-- **The corpus is `workspaces/*/pipes_config/**` and nothing else** — 49 files. The `.pc.json` under
+- **The corpus is `workspaces/*/pipes_config/**` and nothing else** — 45 files. The `.pc.json` under
   `workspaces/*/data/` are developer notes and reference material that JetStore never loads; they are
   not counted, and `check --corpus` refuses one as an exemplar. See *The corpus* below.
 - **The corpus is authored documents.** The root type also serialises a *runtime* shape that
@@ -168,11 +168,13 @@ Ten of these columns are the plan's §5.2.1 list. The other twelve are marked **
 | **+** `corpus_prod_count` | **Measured.** Of those, the ones outside a `test/` directory. A field attested only by test configs is weaker evidence than one a production pipeline depends on, and `corpus_count == n, corpus_prod_count == 0` is the pattern the review should reach early (R-1 orders by evidence strength). Costs nothing to carry, since both are written by `corpus --apply` and never typed. |
 | **+** `harness` | **Written by the machine.** `pass`, `fail`, `untestable`, `pending` — the B.7 result for this row, written back by the harness. The mitigation for R-1 is that reviewing a row means reading a test result, which is only true if the result is on the row. What each state means per claim: a `required=yes` (or satisfied `required_when`) row is `pass` when removing the field got the document rejected; a `required=no` row is `pass` when the type's minimal config — which omits every optional field — was accepted, absence tolerated being exactly that row's claim. `untestable` is the honest state for claims the config validator cannot see: a builder-enforced requirement whose removal was still accepted, a prohibition (`applicable=no` — the decoder ignores what it does not know), or a discriminator or `present()` membership key, whose removal *re-types* the node rather than invalidating it. `fail` is reserved for a claim the validator contradicts: `evidence=validator` and the removal was accepted anyway. See *The harness* below. |
 | **+** `review` | **Written by you.** `unreviewed`, `reviewed`, `disputed` — the human sign-off, set by hand in B.8 and by nothing else. A separate axis from `evidence`: a row can be corpus-derived and reviewed, or validator-derived and unreviewed. R-1's number to watch — rows still unreviewed when B.9 wants to start — is not countable unless these are two columns. `disputed` is for rows where you judge the sources to disagree; it is a verdict, not a measurement. |
+| **+** `reviewed_hash` | **Written by `stamp`.** The fingerprint of what a `reviewed` mark certifies — every column except `harness`, `review`, `notes` and the stamp itself — and `-` until stamped. This closes the gap the first revision of this file left open: a row reviewed in B.8 and then changed by a re-extraction or a `corpus --apply` used to keep its tick silently; now `check` reports it as *changed since it was reviewed*, and only an explicit `stamp --restamp` re-certifies it. Mark a row `reviewed`, run `stamp`; the command never touches `review` itself, so a reviewed mark still cannot be manufactured by a re-run. `harness` is deliberately outside the fingerprint — it re-runs freely and a regression there is caught loudly on its own axis. |
 
-`harness` and `review` are the answer to "who fills this in": the columns marked **Measured** are
-written by `corpus --apply`, the rest are extracted from the code by hand, `harness` is written by
-the test run, and `review` is the one column that is yours. Nothing in the toolchain writes it — `check` and `corpus` only ever read it, so
-a `reviewed` mark can never be manufactured by a re-run.
+`harness`, `review` and `reviewed_hash` are the answer to "who fills this in": the columns marked
+**Measured** are written by `corpus --apply`, the rest are extracted from the code by hand, `harness`
+is written by the test run, `review` is the one column that is yours — nothing in the toolchain
+writes it, so a `reviewed` mark can never be manufactured by a re-run — and `reviewed_hash` is
+written by `stamp`, which certifies the marks you made and clears the ones you withdrew.
 
 The B.2 inventory pass fills only the identity columns — field name, wire key, declarer, Go type,
 container, ref_struct, all read from the declarations — plus `harness=pending` and
@@ -180,10 +182,6 @@ container, ref_struct, all read from the declarations — plus `harness=pending`
 blank (see *Conventions*), `corpus --apply` fills the measured counts as the walk reaches each type,
 and the review turns the rest into claims one row at a time.
 
-What the toolchain does *not* yet do is invalidate a `reviewed` mark when the row underneath it
-changes, which it should: a row reviewed in B.8 and re-measured in a later `corpus --apply` keeps its
-tick. Cheapest fix is a hash of the row's evidence-bearing columns stored alongside the mark, and it
-belongs with B.8 rather than here.
 | `description` | The Go doc comment, carried across by B.6. Destined for the Pydantic field description, after which the Go comments stop being the source. Last column, so a spreadsheet review can hide it. |
 | `notes` | Everything else, including why a weak row is weak. |
 
@@ -209,12 +207,20 @@ wins when both are set*, or *required unless that one is present*. All three are
 | `kind` | `one_of`, `at_least_one`, `mutually_exclusive`, `precedence` (all may be set, the first member wins), `requires`, `forbids`, `external`. |
 | `members` | Pipe-separated json keys, in significant order for `precedence`. For `external`, the first member is the field and the rest name something outside the type — another section of the document, or the pipe's position. |
 | `enforce` | `schema` (expressible as an `if`/`then` overlay), `validator` (needs the Go validator or the harness), `prompt` (expressible only as an instruction to the model). Knowing which constraints fall to `prompt` is knowing where the contract stops applying. |
-| `evidence`, `evidence_ref`, `review` | As in `fields.csv`. |
+| `evidence`, `evidence_ref`, `review`, `reviewed_hash` | As in `fields.csv`. |
 | `notes` | Prose. |
 
 ## The corpus
 
-**49 files, not 71.** `workspaces/*/pipes_config/**` is what JetStore loads. The `.pc.json` under
+**45 files — 49 until 2026-08-16, 71 originally.** `workspaces/*/pipes_config/**` is what JetStore
+loads. Four files were deleted on 2026-08-16 on I-15's finding that they could not run as they
+stood: `cedargate_ws`'s `csv_test.pc.json` (does not decode — a string in an `int32` `delimiter`)
+and `clustering_test.pc.json` (clustering keys from a retired revision of `ClusteringSpec`), and
+`usi_ws`'s two `test/` jetrules configs (predate the jetrules output-channel checks). The same call
+as the 2026-08-12 deletions: a config the engine rejects is not corpus, it is history. One
+consequence worth naming: `TransformationSpec/clustering`, `ClusteringSpec` and
+`TargetColumnsLookupSpec` are back to zero live instances — code-supported, corpus-unused, the
+`SplitterSpec/ext_count` state. The `.pc.json` under
 `workspaces/*/data/` are notes and reference material for developers, never read by the engine, and
 preserving config shapes that have since been retired. Counting them does not add noise, it
 manufactures contradictions: *every* apparent disagreement between the validator and the corpus in
@@ -222,9 +228,9 @@ the first draft of this seed came from that directory, and all of them dissolve 
 
 | | live `*/pipes_config/**` | retired `*/data/**` |
 |---|---:|---:|
-| files | 49 | 9 |
-| pipes | 333 | 68 |
-| transformations | 468 | 186 |
+| files | 45 | 9 |
+| pipes | 324 | 68 |
+| transformations | 458 | 186 |
 | `splitter` without `splitter_config` | **0** | 18 |
 | `partition_writer` without `partition_writer_config` | **0** | 0 |
 
@@ -232,12 +238,17 @@ Those zeroes are the point, and they were not zero when this seed was drafted. T
 `data/automated_mapping/initial_pipes_config/` and the one live file copied from it,
 `cedargate_ws/pipes_config/hf_medicalclaim_extract.pc.json` — were deleted on 2026-08-12. The live
 corpus now agrees with the validator without exception: `partition_writer_config` is present on
-143/143 instances, `splitter_config` on 89/89.
+143/143 instances, `splitter_config` on 89/89 (138/138 and 89/89 after the 2026-08-16 deletions).
 
 Counting is not done by hand. `cpipes-contract corpus` walks the live corpus **driven by the matrix
-itself** — a field row's `ref_struct` says where a child of that type is found, the child's own
-discriminator says which row it is — and `--apply` writes the measured counts and a live exemplar
-back onto the rows. So `corpus_instances`, `corpus_count` and every exemplar are measured or they are
+itself** — starting at the document root, `ComputePipesConfig/*`: a field row's `ref_struct` says
+where a child of that type is found, the child's own discriminator says which row it is — and
+`--apply` writes the measured counts and a live exemplar back onto the rows. (Until 2026-08-15 the
+walk hard-coded the three pipe-carrying roots, a scaffold from before `ComputePipesConfig` had a
+row; the root sections — `channels`, `lookup_tables`, `schema_providers`, `output_tables` — were
+invisible to it, their types carried hand-proposed exemplars with instances stuck at zero, and the
+unknown-key audit could not see a stray key at the top of the document. Repointing it found two —
+see the closure note under *The harness*.) So `corpus_instances`, `corpus_count` and every exemplar are measured or they are
 not written, which is the same discipline `--code` imposes on citations and for the same reason.
 Typing a node tries the struct's `~virtual` rows first, in their row order, before reading the
 discriminator — the same dispatch order as the code the rows describe — and falls back to the
@@ -258,7 +269,7 @@ were in doubt rather than to make progress on coverage:
 - **`OllamaSpec/*`, all 22 fields with their defaults and descriptions.** The operator the agentic
   programme cares about, the richest set of builder-applied defaults in the model, and a full B.6
   description transfer on one struct — the standard R-2 asks the rest to be held to.
-- **`pool_size`** — a default applied twice, by the validator at `actions_start_common.go:997` and
+- **`pool_size`** — a default applied twice, by the validator at `actions_start_common.go:1007` and
   again by `applyOllamaDefaults` at `pipe_transformation_ollama.go:911`. `default_by` earns its place
   on this row alone.
 - **`device_writer_type`** — required unless the output channel names a schema provider, a condition
@@ -296,7 +307,7 @@ number in the matrix and are set out under *The corpus* above; the largest is th
 now measured against configs that actually execute.
 
 **The `partition_writer_config` dispute was an artifact of that.** The validator rejects a
-`partition_writer` without one (`actions_start_common.go:908`); 8 of the then-181 instances had none.
+`partition_writer` without one (`actions_start_common.go:918`); 8 of the then-181 instances had none.
 Seven of those 8 are retired, and the eighth is the stale live file named above. The validator was
 right, and the general rule now stated under *Conventions* — the validator wins, because it runs on
 every execution — is what the seed had backwards. The row is no longer `disputed`. The dead-key
@@ -405,7 +416,7 @@ findings were, with the resolution each got:
 1. **Requirements the validator enforces that the matrix under- or mis-declared.** Eleven
    transformation tokens (`aggregate` through `clustering`) carried no claim on `output_channel`,
    and the validator rejects every one of them (`output_channel.name must not be empty`,
-   `actions_start_common.go:1468`) — this one gap failed ~25 types, because everything reachable
+   `actions_start_common.go:1478`) — this one gap failed ~25 types, because everything reachable
    only through those tokens inherited it. Worse than unfilled: `anonymize_config`,
    `jetrules_config`, `clustering_config`, `correlation_output_channel` and
    `JetrulesSpec.output_channels` all said **`required=no` on comment evidence**, and
@@ -415,9 +426,9 @@ findings were, with the resolution each got:
    with `evidence=validator` and the rejecting line cited; the stage channel's
    `write_step_id`-or-`file_key` alternative became `required=conditional` on both rows plus an
    `at_least_one` constraint, and `format` on the `output` token is conditional on
-   `absent(schema_provider)`, since the sync (`:1388`) can supply it — the `device_writer_type`
+   `absent(schema_provider)`, since the sync (`:1398`) can supply it — the `device_writer_type`
    shape. `TransformationSpec/jetrules.output_channel` went the other way: `applicable=no`, because
-   the validator discards it (`:962`) in favour of `jetrules_config.output_channels`, and 0/13
+   the validator discards it (`:972`) in favour of `jetrules_config.output_channels`, and 0/13
    corpus instances carry one.
 2. **Six `required=yes, evidence=validator` claims the validator does not enforce.** The validator
    *defaults* an absent `input_channel` (to a memory channel) rather than requiring one
@@ -441,6 +452,33 @@ After the corrections and the tightening the harness runs clean: **115 of 117 ty
 the pending fields being the 569 rows whose `required` is still unfilled plus the 19 rows of the
 two unreachable types (eight are both), which together are the remaining B.8 worklist.
 
+### Closing the reachability gap, 2026-08-15
+
+Preparing B.8, `check --strict`'s worklist was worked down to the review itself. Ten structs
+referenced through `ref_struct` had no rows — the seven strict named plus the three their own fields
+pull in (`S3CopyFileSpec`, `DomainKeyInfo`, `InputSourceSpec`; `ReportCmdSpec` turned out to be
+discriminated, `type` range `s3_copy_file`) — bringing the matrix to 127 types and 1,831 fields,
+every `ref_struct` now resolving. The corpus walk was repointed to start at the document root, so
+the root-section types are measured rather than hand-attested (`ComputePipesConfig` 49,
+`TableColumnSpec` 256, `ChannelSpec` 133, ...), and the one live `TargetColumnsLookupSpec` node the
+old walk reported unreachable is typed. The harness now stands at **123 of 127 types `pass`, 0
+`fail`, 4 `pending`** — the four being the runtime-only shapes (`ComputePipesCommonArgs`,
+`ClusterShardingInfo`, and now `SourcesConfigSpec` and `InputSourceSpec`, reachable only through
+`common_runtime_args`).
+
+The repointed walk immediately found two engine-level defects at the top of the document, both
+invisible before:
+
+- **`ClusterSpec.MaxNbrPartitions`'s json tag is misspelled `max_nbr_partitons`**
+  (`pipes_model.go:135`). Eight live configs write the correct spelling, Go ignores all eight, so
+  their partition caps never take effect and the `ClusterShardingSpec`-level or default value wins
+  instead. No config uses the misspelled key, so correcting the tag is corpus-safe — but it makes
+  those eight caps *start working*, a runtime behaviour change that is an upstream decision, not a
+  matrix edit.
+- **Seven live configs set `use_ecs_tasks` on `cluster_sharding_config` entries**, where the model
+  has no such field — the key belongs to `ConditionalPipeSpec`. Silently ignored today; either the
+  configs are wrong or the field is missing upstream.
+
 Two side observations from the corpus baseline the tightening was guarded with, for B.14/B.15:
 the live corpus is *not* 49/49 through `ValidatePipeSpecConfig` today. Three cedargate configs
 need env vars the harness cannot know (`$CGT_*`, `$MAIN_INPUT_ROW_COUNT` in `when` conditions —
@@ -448,7 +486,13 @@ an environment limit, not a config defect); but `cedargate_ws/pipes_config/csv_t
 fails to **decode** (a string in the `int32` `delimiter` of a schema provider), and the two
 usi_ws `test/` jetrules configs are rejected by today's jetrules channel checks — three files
 that would fail at startup as-is, which the "test is a tier, and it must validate" rule says
-someone should look at.
+someone should look at. **Settled 2026-08-16 (Michel): all three deleted, along with
+`clustering_test.pc.json` and its retired clustering keys — see *The corpus* above. The corpus is
+45 files, and every one of them decodes; the remaining three rejections are the env-var limit,
+which is the harness's, not the corpus's.** Also settled the same day: the two stray keys the root
+walk found. `use_ecs_tasks` on sharding tiers was the field's *old* home before it moved to
+`ConditionalPipeSpec` — the seven leftovers (all `false`) are removed from the cedargate `qc_*`
+configs; and the `max_nbr_partitions` story is under *Closing the reachability gap*.
 
 ## Running the checks
 
@@ -467,6 +511,9 @@ python3 -m venv .venv && .venv/bin/pip install -e .
 .venv/bin/cpipes-contract harness --code ../..               # run the B.7 harness; findings on stderr
 .venv/bin/cpipes-contract harness --code ../.. --apply       # write results onto the harness columns
 .venv/bin/cpipes-contract harness --code ../.. --dump DIR    # also keep each synthesized config
+
+.venv/bin/cpipes-contract stamp                              # certify reviewed rows; clear withdrawn ones
+.venv/bin/cpipes-contract stamp --restamp                    # re-approve rows changed since review
 ```
 
 `harness` needs a Go toolchain: the runner is `go run ./tools/cpipes_contract/harness` from the

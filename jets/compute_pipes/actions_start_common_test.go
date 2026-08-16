@@ -237,3 +237,37 @@ func TestValidatePipeSpecConfigRequiresInputChannelName(t *testing.T) {
 		t.Error("expected a pipe with no input_channel to be rejected")
 	}
 }
+
+func TestValidatePipeSpecConfigRequiresSortKey(t *testing.T) {
+	// A sort with no key silently emits records in arrival order, which is how
+	// two production configs ran with their key in a dead `expr` field.
+	makePipe := func(sortConfig *SortSpec) []PipeSpec {
+		return []PipeSpec{{
+			Type:         "fan_out",
+			InputChannel: InputChannelConfig{Name: "input_row"},
+			Apply: []TransformationSpec{{
+				Type:          "sort",
+				SortConfig:    sortConfig,
+				OutputChannel: OutputChannelConfig{Name: "sorted_row"},
+			}},
+		}}
+	}
+	startup := &CpipesStartup{}
+
+	if err := startup.ValidatePipeSpecConfig(&ComputePipesConfig{},
+		makePipe(&SortSpec{SortByColumn: []string{"key1"}})); err != nil {
+		t.Fatalf("sort_by sort rejected: %v", err)
+	}
+	if err := startup.ValidatePipeSpecConfig(&ComputePipesConfig{},
+		makePipe(&SortSpec{DomainKey: "dk"})); err != nil {
+		t.Fatalf("domain_key sort rejected: %v", err)
+	}
+	if err := startup.ValidatePipeSpecConfig(&ComputePipesConfig{},
+		makePipe(&SortSpec{IsDebug: true})); err == nil {
+		t.Error("expected a sort_config with neither domain_key nor sort_by to be rejected")
+	}
+	if err := startup.ValidatePipeSpecConfig(&ComputePipesConfig{},
+		makePipe(nil)); err == nil {
+		t.Error("expected a sort operator without sort_config to be rejected")
+	}
+}

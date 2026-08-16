@@ -88,6 +88,19 @@ def main(argv: list[str] | None = None) -> int:
         help="also write each synthesized config to this directory, for reading",
     )
 
+    stamp_cmd = sub.add_parser(
+        "stamp",
+        help="certify reviewed rows: write the fingerprint a reviewed mark "
+        "certifies, and clear leftovers on unreviewed rows",
+    )
+    stamp_cmd.add_argument("--matrix", type=Path, default=DEFAULT_MATRIX)
+    stamp_cmd.add_argument(
+        "--restamp",
+        action="store_true",
+        help="also re-certify reviewed rows whose stamp no longer matches - "
+        "an explicit re-approval of the changed row, never the default",
+    )
+
     args = parser.parse_args(argv)
 
     try:
@@ -100,6 +113,8 @@ def main(argv: list[str] | None = None) -> int:
         return _corpus(args, matrix)
     if args.command == "harness":
         return _harness(args, matrix)
+    if args.command == "stamp":
+        return _stamp(args, matrix)
 
     problems = check(matrix, strict=args.strict)
     if args.corpus is not None:
@@ -154,6 +169,38 @@ def _corpus(args, matrix: Matrix) -> int:
         return 1
     print("ok: the matrix matches the live corpus")
     return 0
+
+
+def _stamp(args, matrix: Matrix) -> int:
+    """Certify what the reviewer marked. The command never touches `review`
+    itself - it only writes the fingerprint of rows already marked reviewed
+    (so `check` can tell when one later changes underneath its tick), clears
+    leftover stamps on rows no longer marked, and, only under --restamp,
+    re-certifies mismatches as an explicit re-approval."""
+    from .matrix_schema import NONE, Review, row_hash
+
+    stamped = cleared = restamped = mismatched = 0
+    for row in [*matrix.fields_, *matrix.constraints]:
+        if row.review is Review.REVIEWED:
+            current = row_hash(row)
+            if row.reviewed_hash == NONE:
+                row.reviewed_hash = current
+                stamped += 1
+            elif row.reviewed_hash != current:
+                if args.restamp:
+                    row.reviewed_hash = current
+                    restamped += 1
+                else:
+                    mismatched += 1
+        elif row.reviewed_hash != NONE:
+            row.reviewed_hash = NONE
+            cleared += 1
+    matrix.save(args.matrix)
+    print(
+        f"stamped {stamped}, cleared {cleared}, restamped {restamped}; "
+        f"{mismatched} changed-since-review left for re-review"
+    )
+    return 1 if mismatched else 0
 
 
 def _harness(args, matrix: Matrix) -> int:

@@ -304,6 +304,7 @@ class FieldRow(Row):
     corpus_prod_count: _opt(int)  # of those, outside a `test/` directory
     harness: Harness
     review: Review
+    reviewed_hash: str  # machine-stamped fingerprint of what was reviewed; `-` until stamped
     description: _opt(str)
     notes: _opt(str)
 
@@ -378,6 +379,7 @@ class ConstraintRow(Row):
     evidence: _opt(Evidence)
     evidence_ref: _opt(str)
     review: Review
+    reviewed_hash: str  # as in fields.csv
     notes: _opt(str)
 
     @model_validator(mode="after")
@@ -470,6 +472,33 @@ class Matrix(BaseModel):
         write_table(directory / TYPES_CSV, self.types, TypeRow)
         write_table(directory / FIELDS_CSV, self.fields_, FieldRow)
         write_table(directory / CONSTRAINTS_CSV, self.constraints, ConstraintRow)
+
+
+# ---------------------------------------------------------------------------
+# The review stamp
+# ---------------------------------------------------------------------------
+
+# Columns excluded from the review fingerprint. `review` and `reviewed_hash`
+# are the mark itself; `harness` is a machine result that re-runs freely (a
+# regression there is caught loudly on its own axis); `notes` is prose that may
+# be annotated without invalidating the judgment. Everything else - identity,
+# claims and measurements alike - is what the reviewer signed off on, so a
+# later change to any of it (a re-extraction, a `corpus --apply`) makes the
+# stored stamp mismatch and `check` reports the review as stale rather than
+# letting the tick silently survive the row it certified.
+_UNSTAMPED = {"harness", "review", "reviewed_hash", "notes"}
+
+
+def row_hash(row: Row) -> str:
+    """The fingerprint of what a `reviewed` mark certifies."""
+    import hashlib
+
+    parts = [
+        f"{name}={'' if value is None else value}"
+        for name, value in row
+        if name not in _UNSTAMPED
+    ]
+    return hashlib.sha256("\x1f".join(parts).encode("utf-8")).hexdigest()[:12]
 
 
 # ---------------------------------------------------------------------------

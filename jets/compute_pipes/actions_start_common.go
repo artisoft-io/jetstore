@@ -1018,6 +1018,18 @@ func (args *CpipesStartup) ValidatePipeSpecConfig(cpConfig *ComputePipesConfig, 
 				if err != nil {
 					return err
 				}
+			case "sort":
+				// A sort with no key silently emits the records in arrival order: the
+				// builder resolves domain_key (via the domain key spec) or sort_by into
+				// the sortBy positions and used to accept both empty.
+				if transformationConfig.SortConfig == nil {
+					return fmt.Errorf("configuration error: missing sort_config for sort operator")
+				}
+				if len(transformationConfig.SortConfig.DomainKey) == 0 &&
+					len(transformationConfig.SortConfig.SortByColumn) == 0 {
+					return fmt.Errorf(
+						"configuration error: sort_config must set domain_key or sort_by, otherwise the sort has no key")
+				}
 			}
 			// Validate the error channel of the operators that report row level errors,
 			// see errorChannelConfig.
