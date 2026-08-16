@@ -20,6 +20,7 @@ from .corpus import LIVE_PARENT
 from .matrix_schema import (
     ANY_TOKEN,
     NONE,
+    VIRTUAL_PREFIX,
     ConstraintKind,
     ConstraintRow,
     FieldRow,
@@ -29,6 +30,7 @@ from .matrix_schema import (
     defs_name_for,
     split_csv_cell,
     split_list,
+    variant_matches,
 )
 
 
@@ -63,6 +65,10 @@ def check(matrix: Matrix, strict: bool = False) -> list[str]:
 
     # --- types ------------------------------------------------------------
     discriminators: dict[str, set[str]] = {}
+    defs_names = Counter(t.defs_name for t in matrix.types)
+    for name, n in defs_names.items():
+        if n > 1:
+            bad("types", f"defs_name {name} appears {n} times; $defs keys are unique")
     for t in matrix.types:
         where = f"types {_key(t)}"
         expected = defs_name_for(t.go_struct, t.type_token)
@@ -73,7 +79,12 @@ def check(matrix: Matrix, strict: bool = False) -> list[str]:
                 where,
                 "discriminator must be '-' exactly when type_token is '*'",
             )
-        if (t.corpus_instances > 0) != (t.exemplar_file != NONE):
+        if strict and (t.corpus_instances > 0) != (t.exemplar_file != NONE):
+            # Strict-only: while extraction is partial the walk cannot reach every
+            # type, so a hand-proposed exemplar legitimately sits on a row whose
+            # instances have not been measured yet. `check --corpus` verifies the
+            # proposal either way; once extraction is complete, `corpus --apply`
+            # makes the two agree and this becomes an invariant.
             bad(
                 where,
                 "exemplar_file must be set exactly when corpus_instances > 0",
@@ -184,6 +195,30 @@ def check_citations(matrix: Matrix, code_root: Path) -> list[str]:
             cache[path] = path.read_text(encoding="utf-8").splitlines()
         return cache[path]
 
+    # A type row's doc_ref is a citation like any other: it must resolve, and the
+    # cited line must name the struct. This is what catches a filename remembered
+    # rather than read (action_common_model.go for actions_common_model.go) and a
+    # line number carried over from a neighbouring type.
+    for t in matrix.types:
+        ref = t.doc_ref
+        file_part, _, line_part = ref.rpartition(":")
+        if not file_part or not line_part.isdigit():
+            problems.append(f"types {_key(t)}: doc_ref is not file:line: {ref}")
+            continue
+        lines = lines_of(code_root / file_part)
+        if lines is None:
+            problems.append(f"types {_key(t)}: doc_ref file not found: {file_part}")
+            continue
+        n = int(line_part)
+        if not 1 <= n <= len(lines):
+            problems.append(f"types {_key(t)}: {ref} is past the end of the file")
+            continue
+        if t.go_struct not in lines[n - 1]:
+            problems.append(
+                f"types {_key(t)}: {ref} does not name {t.go_struct}: "
+                f"{lines[n - 1].strip()!r}"
+            )
+
     for row in [*matrix.fields_, *matrix.constraints]:
         if row.evidence_ref == NONE:
             continue
@@ -263,4 +298,32 @@ def check_exemplars(matrix: Matrix, corpus_root: Path) -> list[str]:
                 f"types {_key(t)}: exemplar_path does not resolve: "
                 f"{t.exemplar_file}#{t.exemplar_path}"
             )
+            continue
+        # The exemplar must be an instance of *this* row, not merely a node that
+        # exists. A path landing on the containing array (`lookup_tables` for a
+        # LookupSpec) resolves and is still wrong; so is a `standard` splitter held
+        # up as the exemplar of `ext_count`.
+        if not isinstance(node, dict):
+            problems.append(
+                f"types {_key(t)}: exemplar_path lands on a {type(node).__name__}, "
+                f"not an object; point at one instance: "
+                f"{t.exemplar_file}#{t.exemplar_path}"
+            )
+            continue
+        if t.type_token.startswith(VIRTUAL_PREFIX):
+            if not variant_matches(t.variant_when, node):
+                problems.append(
+                    f"types {_key(t)}: exemplar does not satisfy {t.variant_when}: "
+                    f"{t.exemplar_file}#{t.exemplar_path}"
+                )
+        elif t.type_token != ANY_TOKEN:
+            found = node.get(t.discriminator)
+            # An absent discriminator is the defaulted case (standard splitter,
+            # memory input channel) and is accepted; a *different* value is a node
+            # of another row standing in for this one.
+            if found is not None and found != "" and found != t.type_token:
+                problems.append(
+                    f"types {_key(t)}: exemplar is a {t.discriminator}={found!r} "
+                    f"node, not {t.type_token}: {t.exemplar_file}#{t.exemplar_path}"
+                )
     return problems

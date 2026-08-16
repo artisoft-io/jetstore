@@ -36,6 +36,41 @@ NONE = "-"
 # instance of it".
 ANY_TOKEN = "*"
 
+# The prefix of a *virtual* token: a variant not identified by a value of the
+# discriminator but by the shape of the node, as `variant_when` states. The engine
+# contains two such discriminations and the seed's grammar could express neither:
+# an ExpressionNode is unary when `arg` is set and binary when `lhs` is
+# (eval_expression.go:208, tested in that order, before `type` is consulted), and a
+# TransformationSpec inside conditional_config.then with no `type` at all is a field
+# override rather than an operator (actions_start_common.go:707). The `~` keeps the
+# virtual vocabulary out of the wire vocabulary while letting the mechanical naming
+# rule apply unchanged: CamelCase(unary) + ExpressionNode = UnaryExpressionNode.
+VIRTUAL_PREFIX = "~"
+
+_VIRTUAL_TOKEN = re.compile(r"^~[a-z][a-z0-9_]*$")
+
+# The membership predicate of a virtual token. `present(k)` means the json key k is
+# set and not null; `absent(k)` means it is missing, null or the empty string - the
+# reading Go gives an omitted `string` field.
+_VARIANT_WHEN = re.compile(r"^(present|absent)\(([a-z_][a-z0-9_]*)\)$")
+
+
+def parse_variant_when(cell: str) -> tuple[str, str]:
+    """Split `present(lhs)` into ('present', 'lhs'). The cell must already be valid."""
+    match = _VARIANT_WHEN.match(cell)
+    if match is None:
+        raise ValueError(f"not a variant_when predicate: {cell!r}")
+    return match.group(1), match.group(2)
+
+
+def variant_matches(cell: str, node: dict) -> bool:
+    """Does this node satisfy a virtual token's membership predicate?"""
+    kind, key = parse_variant_when(cell)
+    value = node.get(key)
+    if kind == "present":
+        return value is not None
+    return value is None or value == ""
+
 
 # ---------------------------------------------------------------------------
 # Controlled vocabularies
@@ -171,9 +206,10 @@ class TypeRow(Row):
     """
 
     go_struct: str
-    type_token: str  # a value of the discriminator, or `*`
+    type_token: str  # a value of the discriminator, `*`, or a `~virtual` token
     defs_name: str  # the $defs key; mechanical, see check_defs_name
     discriminator: str  # json key of the discriminating field, or `-`
+    variant_when: str  # membership predicate of a `~virtual` token, or `-`
     embeds: str  # comma-separated embedded structs whose fields are promoted, or `-`
     fragment: YesNo  # can it be authored and validated standing alone?
     deprecated: YesNo  # superseded but still valid: excluded from the fragment library
@@ -184,6 +220,25 @@ class TypeRow(Row):
     doc_ref: str  # file:line of the type definition
     description: str
     notes: str
+
+    @model_validator(mode="after")
+    def _coherent(self) -> "TypeRow":
+        virtual = self.type_token.startswith(VIRTUAL_PREFIX)
+        if virtual and not _VIRTUAL_TOKEN.match(self.type_token):
+            raise ValueError(f"malformed virtual token: {self.type_token!r}")
+        if virtual != (self.variant_when != NONE):
+            raise ValueError(
+                "variant_when must be set exactly when the token is `~virtual`: a value "
+                "token's membership is the discriminator, a virtual token's is its predicate"
+            )
+        if virtual:
+            parse_variant_when(self.variant_when)  # raises on a malformed predicate
+            if self.discriminator == NONE:
+                raise ValueError(
+                    "a virtual token still names the struct's discriminator, so the "
+                    "rows of one struct can be checked for agreement on it"
+                )
+        return self
 
 
 class FieldRow(Row):
@@ -359,11 +414,18 @@ def defs_name_for(go_struct: str, type_token: str) -> str:
     """`OllamaTransformationSpec` from (TransformationSpec, ollama).
 
     Mechanical so that the Pydantic subclass name, the `$defs` key and the fragment
-    library entry are one name rather than three conventions.
+    library entry are one name rather than three conventions. Where a token repeats a
+    word of the struct the name stutters (`OutputOutputChannelConfig`) - the price of
+    a rule under which no hand-picked pair of names can collide.
+
+    A virtual token drops its `~` and is otherwise treated the same, which is what
+    makes `~override` + TransformationSpec = OverrideTransformationSpec. Hyphens split
+    like underscores, for `de-identification` -> DeIdentificationAnonymizeSpec.
     """
     if type_token == ANY_TOKEN:
         return go_struct
-    camel = "".join(part.capitalize() for part in type_token.split("_"))
+    token = type_token.removeprefix(VIRTUAL_PREFIX)
+    camel = "".join(part.capitalize() for part in re.split(r"[_-]", token))
     return f"{camel}{go_struct}"
 
 

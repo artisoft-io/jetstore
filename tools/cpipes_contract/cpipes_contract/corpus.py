@@ -27,7 +27,15 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Iterator
 
-from .matrix_schema import ANY_TOKEN, NONE, Container, Matrix, TypeRow
+from .matrix_schema import (
+    ANY_TOKEN,
+    NONE,
+    VIRTUAL_PREFIX,
+    Container,
+    Matrix,
+    TypeRow,
+    variant_matches,
+)
 
 # `workspaces/<ws>/pipes_config/...`, at any depth below it - usi_ws and jets_ws keep a
 # `test/` subdirectory, and those configs do run.
@@ -137,14 +145,32 @@ class _Walker:
         return seen.pop() if seen else None
 
     def resolve(self, ref_struct: str, node: Any) -> TypeKey | None:
-        """Which row is this node? The struct plus, when it discriminates, its token."""
+        """Which row is this node? The struct plus, when it discriminates, its token.
+
+        Virtual tokens are tested first, in their row order, before the discriminator
+        value is consulted - the same dispatch order as the code they describe
+        (eval_expression.go:208 tests `arg`, then `lhs`, then `type`), which is why
+        the file order of a struct's virtual rows is significant.
+        """
         rows = self.by_struct.get(ref_struct)
         if not rows:
             self.out.unreachable[(ref_struct, "?")] += 1
             return None
-        if len(rows) == 1 and rows[0].type_token == ANY_TOKEN:
+        if isinstance(node, dict):
+            for t in rows:
+                if t.type_token.startswith(VIRTUAL_PREFIX) and variant_matches(
+                    t.variant_when, node
+                ):
+                    return (ref_struct, t.type_token)
+        value_rows = [
+            t for t in rows if not t.type_token.startswith(VIRTUAL_PREFIX)
+        ]
+        if not value_rows:
+            self.out.unreachable[(ref_struct, "!no value token matched")] += 1
+            return None
+        if len(value_rows) == 1 and value_rows[0].type_token == ANY_TOKEN:
             return (ref_struct, ANY_TOKEN)
-        discriminator = rows[0].discriminator
+        discriminator = value_rows[0].discriminator
         token = node.get(discriminator) if isinstance(node, dict) else None
         if token is None:
             # A discriminator with a default is usually absent from the config: not one of
@@ -281,10 +307,12 @@ def apply(matrix: Matrix, measurement: Measurement) -> None:
         t.corpus_instances = measurement.instances.get(key, 0)
         t.corpus_prod_instances = measurement.prod_instances.get(key, 0)
         exemplar = measurement.exemplars.get(key)
-        if exemplar is None:
-            t.exemplar_file, t.exemplar_path = NONE, NONE
-        else:
+        if exemplar is not None:
             t.exemplar_file, t.exemplar_path = exemplar
+        # When the walk found none, a hand-proposed exemplar is left standing rather
+        # than erased: while extraction is partial the walk cannot reach every type,
+        # and the proposal is still verified by `check --corpus`. Once the type
+        # becomes reachable the measured exemplar replaces it.
     for f in matrix.fields_:
         key = (f.go_struct, f.type_token)
         if key in measurement.instances:
