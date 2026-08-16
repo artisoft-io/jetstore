@@ -146,12 +146,20 @@ REFERENCE_WIRING: dict[tuple[str, str], Wiring] = {
     ),
     # a jetrules output channel's spec_name must resolve to a ChannelSpec
     # (actions_start_common.go:977)
-    ("OutputChannelConfig", "spec_name"): Wiring("channels", ("ChannelSpec", ANY_TOKEN), "name"),
+    ("OutputChannelConfig", "channel_spec_name"): Wiring("channels", ("ChannelSpec", ANY_TOKEN), "name"),
     # an input channel naming a schema provider must find it
     # (actions_start_common.go:841)
     ("InputChannelConfig", "schema_provider"): Wiring(
         "schema_providers", ("SchemaProviderSpec", "default"), "key"
     ),
+}
+
+# Requirements that hold only at one position, imposed by the *enclosing* struct
+# on its children: a jetrules output channel must name a ChannelSpec through
+# spec_name (actions_start_common.go:977), where an ordinary output channel needs
+# none. (parent struct, field) -> the child field to wire, via REFERENCE_WIRING.
+CONTEXT_WIRING: dict[tuple[str, str], str] = {
+    ("JetrulesSpec", "output_channels"): "channel_spec_name",
 }
 
 # Neutral values for free scalars the validator inspects by shape rather than by
@@ -341,7 +349,20 @@ class _Builder:
                 node.pop(pred_key, None)
         for json_key, value in ENSURE_FIELDS.get(struct, {}).items():
             node.setdefault(json_key, copy.deepcopy(value))
+        for row in rows:
+            if row.json_key in node:
+                self.wire_context(row, node[row.json_key])
         return node
+
+    def wire_context(self, row: FieldRow, value: Any) -> None:
+        """Impose the enclosing struct's requirements on a child just built."""
+        wire_field = CONTEXT_WIRING.get((row.go_struct, row.json_key))
+        if wire_field is None:
+            return
+        wiring = REFERENCE_WIRING[(row.ref_struct, wire_field)]
+        for child in value if isinstance(value, list) else [value]:
+            if isinstance(child, dict) and wire_field not in child:
+                child[wire_field] = self.wire_reference(wiring)
 
     def value_for(self, row: FieldRow, stack: tuple, depth: int) -> Any:
         if row.ref_struct != NONE:
@@ -502,6 +523,7 @@ def synthesize(matrix: Matrix) -> Plan:
             for edge in chain:
                 child = builder.minimal(edge.child, stack)
                 cursor[edge.row.json_key] = builder.wrap(edge.row.container, child)
+                builder.wire_context(edge.row, cursor[edge.row.json_key])
                 instance_path += _step_segments(edge.row.container, edge.row.json_key)
                 cursor = child
                 stack = stack + ((edge.child, child),)

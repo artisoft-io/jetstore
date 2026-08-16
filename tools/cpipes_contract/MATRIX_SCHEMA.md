@@ -397,28 +397,47 @@ schema's to enforce. The expression grammar is the extreme case: an `ExpressionN
 compiled, at config level, so all seven of its variants accept vacuously — their contract becomes
 testable only where an expression is actually built, which is gap 6's territory.
 
-### What the first run found, 2026-08-15
+### What the first run found, 2026-08-15 — and how it settled, same day
 
 45 findings, none of them a harness artifact, in three classes — recorded here the way the seed's
-findings were, because they are the B.8 worklist:
+findings were, with the resolution each got:
 
-1. **Unfilled `required` claims the validator enforces.** Twelve transformation tokens
-   (`aggregate` through `merge`) carry no claim on `output_channel`, and the validator rejects every
-   one of them (`output_channel.name must not be empty`, `actions_start_common.go:1468`) — this one
-   gap fails ~25 types, because everything reachable only through those tokens inherits it.
-   Likewise `anonymize_config`, `jetrules_config`, `clustering_config` (+
-   `correlation_output_channel`) on their operators, `output_channels` on `JetrulesSpec`,
-   `write_step_id`/`file_key` on `OutputChannelConfig/stage`, `format` on
-   `OutputChannelConfig/output`.
+1. **Requirements the validator enforces that the matrix under- or mis-declared.** Eleven
+   transformation tokens (`aggregate` through `clustering`) carried no claim on `output_channel`,
+   and the validator rejects every one of them (`output_channel.name must not be empty`,
+   `actions_start_common.go:1468`) — this one gap failed ~25 types, because everything reachable
+   only through those tokens inherited it. Worse than unfilled: `anonymize_config`,
+   `jetrules_config`, `clustering_config`, `correlation_output_channel` and
+   `JetrulesSpec.output_channels` all said **`required=no` on comment evidence**, and
+   `write_step_id`/`file_key`/`format` said the same on `OutputChannelConfig` — claims the
+   validator rejects outright. *The authority order working as designed:* the validator outranks
+   the comment and the corpus, and the harness is what made the disagreement visible. All corrected
+   with `evidence=validator` and the rejecting line cited; the stage channel's
+   `write_step_id`-or-`file_key` alternative became `required=conditional` on both rows plus an
+   `at_least_one` constraint, and `format` on the `output` token is conditional on
+   `absent(schema_provider)`, since the sync (`:1388`) can supply it — the `device_writer_type`
+   shape. `TransformationSpec/jetrules.output_channel` went the other way: `applicable=no`, because
+   the validator discards it (`:962`) in favour of `jetrules_config.output_channels`, and 0/13
+   corpus instances carry one.
 2. **Six `required=yes, evidence=validator` claims the validator does not enforce.** The validator
    *defaults* an absent `input_channel` (to a memory channel) rather than requiring one
    (`PipeSpec/fan_out`, `/splitter`), and never checks that an input channel's `name` is non-empty
-   (all four `InputChannelConfig` tokens). Marked `fail` — the claim may still be right about the
-   engine's behaviour downstream, but its evidence is wrong, and that is the row's problem to fix.
+   (all four `InputChannelConfig` tokens). The claims themselves stand — the requirement is real,
+   enforced where `GetInputChannel` resolves the name at DAG build
+   (`pipes_runtime_model.go:193`), and the corpus is unanimous on presence (333/333 pipes, 343/343
+   names) — so the *evidence* moved to `builder` with that citation, and the rows went `fail` →
+   `untestable`. A deliberate tightening of `ValidatePipeSpecConfig` (planned as its own change,
+   with the 49/49 corpus check as its guard) would move them back to `validator` and make them
+   provable.
 3. **Two types are unreachable by construction** — `ComputePipesCommonArgs` and
    `ClusterShardingInfo`, whose only referring fields are `applicable=no` because JetStore writes
    them, not the author (I-14). Permanently `pending` at config level, which is the correct state
-   for runtime-only shapes.
+   for runtime-only shapes. No action; that is the finding.
+
+After the corrections the harness runs clean: **115 of 117 types `pass`, 0 `fail`, the 2 above
+`pending`; fields 573 `pass`, 0 `fail`, 639 `untestable`, 580 `pending`** — the pending fields
+being the 569 rows whose `required` is still unfilled plus the 19 rows of the two unreachable
+types (eight are both), which together are the remaining B.8 worklist.
 
 ## Running the checks
 
