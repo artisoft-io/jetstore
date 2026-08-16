@@ -87,7 +87,7 @@ hundred rows**, not a few dozen. `constraints.csv` stays small.
   pre-validator rather than a discriminator field.
 - **Citations are `path:line` relative to the JetStore repo root**, the same convention the plan uses:
   `jets/compute_pipes/pipes_model.go:1152`.
-- **The corpus is `workspaces/*/pipes_config/**` and nothing else** — 49 files. The `.pc.json` under
+- **The corpus is `workspaces/*/pipes_config/**` and nothing else** — 45 files. The `.pc.json` under
   `workspaces/*/data/` are developer notes and reference material that JetStore never loads; they are
   not counted, and `check --corpus` refuses one as an exemplar. See *The corpus* below.
 - **The corpus is authored documents.** The root type also serialises a *runtime* shape that
@@ -212,7 +212,15 @@ wins when both are set*, or *required unless that one is present*. All three are
 
 ## The corpus
 
-**49 files, not 71.** `workspaces/*/pipes_config/**` is what JetStore loads. The `.pc.json` under
+**45 files — 49 until 2026-08-16, 71 originally.** `workspaces/*/pipes_config/**` is what JetStore
+loads. Four files were deleted on 2026-08-16 on I-15's finding that they could not run as they
+stood: `cedargate_ws`'s `csv_test.pc.json` (does not decode — a string in an `int32` `delimiter`)
+and `clustering_test.pc.json` (clustering keys from a retired revision of `ClusteringSpec`), and
+`usi_ws`'s two `test/` jetrules configs (predate the jetrules output-channel checks). The same call
+as the 2026-08-12 deletions: a config the engine rejects is not corpus, it is history. One
+consequence worth naming: `TransformationSpec/clustering`, `ClusteringSpec` and
+`TargetColumnsLookupSpec` are back to zero live instances — code-supported, corpus-unused, the
+`SplitterSpec/ext_count` state. The `.pc.json` under
 `workspaces/*/data/` are notes and reference material for developers, never read by the engine, and
 preserving config shapes that have since been retired. Counting them does not add noise, it
 manufactures contradictions: *every* apparent disagreement between the validator and the corpus in
@@ -220,9 +228,9 @@ the first draft of this seed came from that directory, and all of them dissolve 
 
 | | live `*/pipes_config/**` | retired `*/data/**` |
 |---|---:|---:|
-| files | 49 | 9 |
-| pipes | 333 | 68 |
-| transformations | 468 | 186 |
+| files | 45 | 9 |
+| pipes | 324 | 68 |
+| transformations | 458 | 186 |
 | `splitter` without `splitter_config` | **0** | 18 |
 | `partition_writer` without `partition_writer_config` | **0** | 0 |
 
@@ -230,7 +238,7 @@ Those zeroes are the point, and they were not zero when this seed was drafted. T
 `data/automated_mapping/initial_pipes_config/` and the one live file copied from it,
 `cedargate_ws/pipes_config/hf_medicalclaim_extract.pc.json` — were deleted on 2026-08-12. The live
 corpus now agrees with the validator without exception: `partition_writer_config` is present on
-143/143 instances, `splitter_config` on 89/89.
+143/143 instances, `splitter_config` on 89/89 (138/138 and 89/89 after the 2026-08-16 deletions).
 
 Counting is not done by hand. `cpipes-contract corpus` walks the live corpus **driven by the matrix
 itself** — starting at the document root, `ComputePipesConfig/*`: a field row's `ref_struct` says
@@ -478,7 +486,13 @@ an environment limit, not a config defect); but `cedargate_ws/pipes_config/csv_t
 fails to **decode** (a string in the `int32` `delimiter` of a schema provider), and the two
 usi_ws `test/` jetrules configs are rejected by today's jetrules channel checks — three files
 that would fail at startup as-is, which the "test is a tier, and it must validate" rule says
-someone should look at.
+someone should look at. **Settled 2026-08-16 (Michel): all three deleted, along with
+`clustering_test.pc.json` and its retired clustering keys — see *The corpus* above. The corpus is
+45 files, and every one of them decodes; the remaining three rejections are the env-var limit,
+which is the harness's, not the corpus's.** Also settled the same day: the two stray keys the root
+walk found. `use_ecs_tasks` on sharding tiers was the field's *old* home before it moved to
+`ConditionalPipeSpec` — the seven leftovers (all `false`) are removed from the cedargate `qc_*`
+configs; and the `max_nbr_partitions` story is under *Closing the reachability gap*.
 
 ## Running the checks
 
