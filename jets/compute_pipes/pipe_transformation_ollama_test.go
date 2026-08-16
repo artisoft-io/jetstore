@@ -381,8 +381,9 @@ func runOllamaTestPipe(t *testing.T, serverUrl string, config *OllamaSpec, spec 
 	}
 
 	// Drain the channels while the pool is running: they are unbuffered.
-	// The error channel is drained only when the operator owns one, since the operator is
-	// what closes it (in Finally) and the reader would otherwise never return.
+	// The error channel is drained only when the operator owns one; it is closed
+	// below together with the output channel, the way the pipe executor does —
+	// the operator's Finally no longer closes it (see StartFanOutPipe).
 	result := &ollamaTestResult{}
 	var wg sync.WaitGroup
 	wg.Add(1)
@@ -411,8 +412,12 @@ func runOllamaTestPipe(t *testing.T, serverUrl string, config *OllamaSpec, spec 
 		t.Fatal(err)
 	}
 	pipe.Finally()
-	// The pipe executor closes the output channels once every operator is done.
+	// The pipe executor closes the output channels — the operator's error channel
+	// included — once every operator is done (StartFanOutPipe); mimic it here.
 	registry.CloseChannel("claims.out")
+	if config.ErrorChannel != nil {
+		registry.CloseChannel("process_errors.out")
+	}
 	wg.Wait()
 
 	close(builderContext.errCh)
