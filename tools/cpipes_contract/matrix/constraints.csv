@@ -10,3 +10,12 @@ InputChannelConfig,stage,external,schema_provider|schema_providers,validator,val
 InputChannelConfig,stage,external,type|pipe_position,prompt,validator,jets/compute_pipes/actions_start_common.go:838,unreviewed,"Only the first pipe of a step may read from a channel of type stage. Positional, so neither the schema nor a per-fragment check can express it."
 SplitterSpec,standard,at_least_one,column|default_splitter_value|shard_on,schema,builder,jets/compute_pipes/pipe_executor_splitter.go:102,unreviewed,At least one of the three must be set or the pipe fails to build. All three may be set; column is read first.
 SplitterSpec,ext_count,at_least_one,column|default_splitter_value|shard_on,schema,builder,jets/compute_pipes/pipe_executor_splitter.go:102,unreviewed,At least one of the three must be set or the pipe fails to build. All three may be set; column is read first.
+ExpressionNode,~binary,requires,lhs|rhs|op,schema,builder,jets/compute_pipes/eval_expression.go:231,unreviewed,A binary node requires all three; the builder rejects it otherwise.
+ExpressionNode,~unary,requires,arg|op,schema,builder,jets/compute_pipes/eval_expression.go:212,unreviewed,A unary node requires op; the builder rejects it otherwise.
+ExpressionNode,select,at_least_one,expr|expr_pos,schema,builder,jets/compute_pipes/eval_expression.go:285,unreviewed,Select by column name or by 0-based position; expr wins when both are set.
+GroupBySpec,*,at_least_one,group_by_name|group_by_pos|group_by_count|domain_key,schema,comment,jets/compute_pipes/pipes_model.go:1064,unreviewed,At least one grouping mode must be specified.
+GroupBySpec,*,precedence,group_by_count|group_by_name|group_by_pos,prompt,comment,jets/compute_pipes/pipes_model.go:1065,unreviewed,group_by_count wins over the others; group_by_name wins over group_by_pos.
+HashExpression,*,precedence,expr|composite_expr,prompt,comment,jets/compute_pipes/pipes_model.go:1346,unreviewed,Expr wins when both are populated.
+HashExpression,*,precedence,nbr_jets_partitions|max_nbr_jets_partitions,prompt,comment,jets/compute_pipes/pipes_model.go:1354,unreviewed,NbrJetsPartitions wins when both are provided.
+JetrulesSpec,*,mutually_exclusive,use_jet_rules_native|use_jet_rules_go,schema,comment,jets/compute_pipes/pipes_model.go:1112,unreviewed,Both false means the native engine when available.
+ColumnNameLookupNode,*,precedence,column_names|column_pos,prompt,comment,jets/compute_pipes/pipes_model.go:706,unreviewed,Both may be empty when column_name_fragments is used.

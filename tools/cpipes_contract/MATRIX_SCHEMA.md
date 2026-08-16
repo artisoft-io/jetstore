@@ -1,6 +1,6 @@
 # The cpipes applicability matrix — schema
 
-**Task B.1 · drafted 2026-08-11 · revised 2026-08-12 after first review · awaiting review**
+**Task B.1 · drafted 2026-08-11 · revised 2026-08-12 after first review · revised 2026-08-15 during B.2 (virtual tokens; the unfilled cell state) · awaiting review**
 
 This is the definition of the matrix, not the matrix. The rows currently in `matrix/` are a seed:
 twelve types and eighty-eight fields, hand-extracted while designing the schema, kept because a schema
@@ -16,22 +16,75 @@ departure is issue **I-11** in that repo's `plan/tracking/3_phase0_tasks_issues_
 
 | File | One row per | What it is for |
 |---|---|---|
-| `matrix/types.csv` | **addressable type** — a Go struct paired with one value of its discriminator | The unit of a `$defs` entry, of a Pydantic subclass, and of a fragment-library part |
+| `matrix/types.csv` | **addressable type** — a Go struct, paired with one value of its discriminator when it has one | The unit of a `$defs` entry, of a Pydantic subclass, and of a fragment-library part |
 | `matrix/fields.csv` | **field of an addressable type** | The matrix proper: applicability, requirement, default, evidence |
 | `matrix/constraints.csv` | **requirement spanning more than one field** | What `(applicable, required)` cannot express |
 
 The plan asks for one CSV. It became three because the discriminator vocabulary, the corpus instance
 count and the exemplar are properties of a *type* rather than of a field: carried on every field row
 they would be repeated a dozen times and could disagree row to row, which is the two-sources-for-one-
-fact problem decision 8 exists to object to. `fields.csv` remains the review artifact; the other two
-are small (a few dozen rows each when complete).
+fact problem decision 8 exists to object to. `fields.csv` remains the review artifact.
+
+### How exhaustive `types.csv` has to be
+
+**Exhaustive.** A type row is not merely a place to put a `defs_name` that the Go name cannot carry —
+it is the parent of its field rows, the anchor of the fragment library's exemplar, and the node the
+corpus walker descends through. So:
+
+> **Every struct reachable as a *value* gets a row: one per `(go_struct, type_token)` pair, and `*`
+> is a full-standing token, not a placeholder.** A struct with no discriminator gets exactly one row.
+
+Reachable *as a value* means some field points at it through `ref_struct`, plus the document root.
+Two consequences that are easy to get wrong at extraction time:
+
+- **Embedded structs get no row.** `FileConfig` is only ever embedded, never a named field, so
+  nothing references it — its 43 fields appear on the *host's* rows with `declared_in=FileConfig`.
+  A `FileConfig/*` row would have no parent field, no exemplar and no corpus count.
+- **Undiscriminated structs are not optional.** `OllamaSpec/*` is where the only `ollama` exemplar in
+  the corpus lives, and it is the parent of 22 field rows. `defs_name` happens to be mechanical there;
+  the other nine columns are not.
+
+This is enforced, not merely intended. `check` fails with `no types row for X/Y` for any orphaned
+field row; the corpus walker reports a struct with no row as `unreachable` and stops descending, which
+is how `TransformationColumnSpec` (1446 nodes) and `OutputChannelConfig` (389) currently head the
+coverage worklist; and `--strict` makes every unresolved `ref_struct` a failure.
+
+Size, then: `pipes_model.go` declares 69 structs, of which about fourteen discriminate into roughly
+fifty tokens between them — `TransformationSpec` alone has fifteen. So expect **on the order of a
+hundred rows**, not a few dozen. `constraints.csv` stays small.
 
 ## Conventions
 
-- **Every cell is filled.** `-` means "none / not applicable". An empty cell is a schema error, so an
-  unfilled row is always distinguishable from a row reviewed and found empty.
+- **A cell has three states, and they never collapse into each other.** `-` is a claim: "none, and
+  judged to be none". A **blank** is the absence of a claim: mechanically extracted, awaiting review —
+  the state B.2's inventory pass leaves every judgment column in, precisely so that a value in one of
+  those columns is always someone's decision and never a generator's guess. A blank is legal only on
+  the judgment columns of `fields.csv` and `constraints.csv`: identity columns (the struct, the field,
+  the wire key, the container) come from the source and a blank one is a schema error, as is any blank
+  on a row marked `reviewed`. `check` reports the blank count on every run — it is R-1's number — and
+  `--strict` fails each one, because at end state the worklist must be empty. This replaces the
+  original "every cell is filled" rule, which was right about the distinction and wrong about the
+  mechanism: with no legal blank, a mechanical extraction pass would have had to *invent* values for
+  22,000 judgment cells just to satisfy the loader, manufacturing exactly the unreviewed-claims
+  problem the rule existed to prevent.
 - **`*` is the type token of a struct with no discriminator** — `OllamaSpec/*` means every instance
   of `OllamaSpec`. A blank token would collide with "not yet determined".
+- **`~name` is a *virtual* token: a variant selected by the shape of the node rather than by a value
+  of the discriminator.** Its membership test lives in `variant_when` — `present(key)` (the key is
+  set and not null) or `absent(key)` (missing, null, or the empty string, the reading Go gives an
+  omitted `string`). The engine contains two such discriminations and the seed's grammar could
+  express neither: an `ExpressionNode` is `~unary` when `arg` is set and `~binary` when `lhs` is
+  (`eval_expression.go:208` tests them in that order, before consulting `type`), and a
+  `TransformationSpec` at `conditional_config.N.then` with no `type` at all is `~override` — a
+  field-level override of its host, where a `then` *with* a `type` is a full replacement
+  (`actions_start_common.go:707`). Virtual rows still carry the struct's real discriminator, so the
+  one-discriminator-per-struct rule stays checkable; they are tested **in their row order, before
+  any value token**, which is why `~unary` precedes `~binary` in the file — the row order mirrors
+  the dispatch order of the code. The mechanical naming rule applies with the `~` dropped:
+  `CamelCase(override) + TransformationSpec = OverrideTransformationSpec`. One consequence for what
+  the matrix emits: a union with virtual members is not a plain discriminated union — the JSON
+  Schema branches become `if`/`then` overlays on key presence, and the Pydantic side needs a
+  pre-validator rather than a discriminator field.
 - **Citations are `path:line` relative to the JetStore repo root**, the same convention the plan uses:
   `jets/compute_pipes/pipes_model.go:1152`.
 - **The corpus is `workspaces/*/pipes_config/**` and nothing else** — 49 files. The `.pc.json` under
@@ -59,19 +112,34 @@ are small (a few dozen rows each when complete).
 | Column | Rule |
 |---|---|
 | `go_struct` | The Go struct name, as declared. |
-| `type_token` | One value of that struct's discriminator, or `*` when it has none. |
-| `defs_name` | Mechanical: `CamelCase(type_token) + go_struct`, or `go_struct` when the token is `*`. `OllamaTransformationSpec`, `MergeFilesPipeSpec`, `StageInputChannelConfig`. The check enforces it, so the `$defs` key, the Pydantic class name and the fragment-library entry are one name rather than three conventions. |
-| `discriminator` | The **json key** of the discriminating field, or `-`. Not always `type`: `PartitionWriterSpec` discriminates on `device_writer_type`. |
+| `type_token` | One value of that struct's discriminator, `*` when it has none, or a `~virtual` token (see *Conventions*). |
+| `defs_name` | Mechanical: `CamelCase(type_token) + go_struct`, or `go_struct` when the token is `*`. `OllamaTransformationSpec`, `MergeFilesPipeSpec`, `StageInputChannelConfig`. A virtual token drops its `~` first; hyphens split like underscores (`de-identification` → `DeIdentificationAnonymizeSpec`). Where the token repeats a word of the struct the name stutters — `OutputOutputChannelConfig`, `SqlLookupLookupSpec` — and the stutter stands: it is the price of a rule under which no hand-picked pair of names can collide. The check enforces the rule and also that every `defs_name` is unique, so the `$defs` key, the Pydantic class name and the fragment-library entry are one name rather than three conventions. |
+| `discriminator` | The **json key** of the discriminating field, or `-`. Not always `type`: `PartitionWriterSpec` discriminates on `device_writer_type`. Virtual rows carry it too, so all rows of one struct can be checked to agree on it. |
+| `variant_when` | The membership predicate of a `~virtual` token — `present(key)` or `absent(key)` — and `-` on every other row. The corpus walker and the emitted schema both read it. |
 | `embeds` | Structs embedded anonymously, whose fields are promoted onto this type on the wire. `InputChannelConfig` embeds `FileConfig`. |
 | `fragment` | Whether this type can be authored and validated standing alone (plan criteria 6 and 7). Expected to be `yes` almost everywhere; a `no` must say why in `notes`. |
 | `deprecated` | Superseded but still valid; as in `fields.csv`. |
 | `corpus_instances`, `corpus_prod_instances` | **Measured.** Occurrences across the live corpus, and the subset outside a `test/` directory. Written by `corpus --apply`, never by hand. |
-| `exemplar_file`, `exemplar_path` | One real occurrence, from a live config, preferring a production one over a `test/` one. Set exactly when `corpus_instances > 0`, and `check --corpus` resolves every one of them and refuses a retired one — a fragment library whose exemplars do not resolve is a catalogue of things that may not exist. |
-| `doc_ref` | `file:line` of the type definition. |
+| `exemplar_file`, `exemplar_path` | One real occurrence, from a live config, preferring a production one over a `test/` one. `check --corpus` resolves every one, refuses a retired one, and demands more than resolution: the node must be an **object that is an instance of this row** — a path landing on the containing array fails, and so does a node whose discriminator carries another row's token or that fails a virtual row's predicate. While extraction is partial, a row the walk cannot reach yet may carry a *hand-proposed* exemplar, which those checks verify and which `corpus --apply` replaces with a measured one as soon as the type becomes reachable; "set exactly when `corpus_instances > 0`" is therefore a `--strict` check, with the other invariants that only hold at end state. **`exemplar_path = -` means the exemplar is the whole file**, which is the root type's case and only its case; see below. |
+| `doc_ref` | `file:line` of the type definition. `check --code` resolves it and requires the cited line to name the struct — the same discipline `evidence_ref` gets, and what catches a filename remembered rather than read. |
 | `description`, `notes` | Prose. `description` is destined for the Pydantic model; `notes` is not. |
 
 The token vocabulary of a struct is the set of its rows here. It is deliberately not a column
 anywhere, so it cannot drift from the rows it describes.
+
+**The exemplar of the root type is the file itself, and its `exemplar_path` is `-`.** The dot path is
+borrowed from `OllamaMappingSpec.Path`, where an *empty* path means the whole response
+(`pipe_transformation_ollama.go:439` — `path` stays nil and the root object is used). The
+every-cell-is-filled rule has no empty string to offer, so the `-` sentinel carries that meaning
+instead: no path into a file is the file. The two columns disambiguate each other, so nothing is lost:
+
+| `exemplar_file` | `exemplar_path` | Means |
+|---|---|---|
+| `-` | `-` | No exemplar at all — `corpus_instances = 0`, as `SplitterSpec/ext_count` |
+| a live config | `-` | The exemplar **is** that whole document — `ComputePipesConfig` |
+| a live config | `conditional_pipes_config.6.pipes_config.3.apply.0` | That node inside it |
+
+The fourth combination — a path with no file to resolve it against — is rejected by the check.
 
 ## `fields.csv`
 
@@ -104,6 +172,12 @@ Ten of these columns are the plan's §5.2.1 list. The other twelve are marked **
 written by `corpus --apply`, the rest are extracted from the code by hand, `harness` is written by
 the test run, and `review` is the one column that is yours. Nothing in the toolchain writes it — `check` and `corpus` only ever read it, so
 a `reviewed` mark can never be manufactured by a re-run.
+
+The B.2 inventory pass fills only the identity columns — field name, wire key, declarer, Go type,
+container, ref_struct, all read from the declarations — plus `harness=pending` and
+`review=unreviewed`, which are defined initial states rather than judgments. Everything else starts
+blank (see *Conventions*), `corpus --apply` fills the measured counts as the walk reaches each type,
+and the review turns the rest into claims one row at a time.
 
 What the toolchain does *not* yet do is invalidate a `reviewed` mark when the row underneath it
 changes, which it should: a row reviewed in B.8 and re-measured in a later `corpus --apply` keeps its
@@ -164,6 +238,9 @@ itself** — a field row's `ref_struct` says where a child of that type is found
 discriminator says which row it is — and `--apply` writes the measured counts and a live exemplar
 back onto the rows. So `corpus_instances`, `corpus_count` and every exemplar are measured or they are
 not written, which is the same discipline `--code` imposes on citations and for the same reason.
+Typing a node tries the struct's `~virtual` rows first, in their row order, before reading the
+discriminator — the same dispatch order as the code the rows describe — and falls back to the
+discriminator's recorded default when the key is absent from the wire.
 
 Two things fall out of the walk for free. `unreachable` names the types the matrix cannot yet descend
 into, ordered by how much of the corpus sits behind them — `TransformationColumnSpec` (1446 nodes),
@@ -254,6 +331,27 @@ matrix has no column for yet.
 2026-08-08, so the corpus now holds a real exemplar for the operator the programme cares about most.
 Recorded as I-12 — which also needs restating, since the transformation totals it quotes (678 against
 the analysis's 676) were computed over all 71 files and are superseded by the live figures above.
+
+## A sixth finding, from B.2: two discriminations are structural
+
+The token grammar this file first defined — a value of the discriminator, or `*` — could not express
+two variants B.2 ran into, and the first attempt at recording them invented per-row notation (a `-`
+token with `lhs` or `arg` standing in the `discriminator` column) that broke the very properties the
+schema depends on: `-` acquired three meanings, and the rows of one struct stopped agreeing on their
+discriminator. The correction is the `~virtual` token and its `variant_when` predicate, defined under
+*Conventions*.
+
+The two cases are worth recording because they are different in kind. `ExpressionNode` is a **hybrid
+union**: `BuildExprNodeEvaluator` (`eval_expression.go:208`) dispatches on `arg` being set, then on
+`lhs`, and only then on the `type` value — so `~unary` and `~binary` are shape-selected while
+`select`, `value`, `expr_proxy`, `function` and `static_list` (a leaf the first draft missed: the
+mandatory rhs of `in` and `in_no_case`) are value-selected, and the row order of the virtual tokens
+carries the dispatch precedence. `TransformationSpec/~override` is **absence-selected**: a
+`conditional_config.N.then` whose `type` is empty overrides fields of its host, while one with a
+`type` replaces it outright (`MergeTransformationSpec`, `actions_start_common.go:725`) — so every
+value token is *also* legal at that position, and the schema for `then` is the whole union rather
+than one branch. Neither case is the defaulted-discriminator shape of the third finding above:
+there, an absent key still means one value token; here, absence or presence *is* the discrimination.
 
 ## Running the checks
 

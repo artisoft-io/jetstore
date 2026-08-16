@@ -27,7 +27,15 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Iterator
 
-from .matrix_schema import ANY_TOKEN, NONE, Container, Matrix, TypeRow
+from .matrix_schema import (
+    ANY_TOKEN,
+    NONE,
+    VIRTUAL_PREFIX,
+    Container,
+    Matrix,
+    TypeRow,
+    variant_matches,
+)
 
 # `workspaces/<ws>/pipes_config/...`, at any depth below it - usi_ws and jets_ws keep a
 # `test/` subdirectory, and those configs do run.
@@ -129,7 +137,7 @@ class _Walker:
             row.default
             for t in self.by_struct.get(ref_struct, [])
             for row in self.fields[(t.go_struct, t.type_token)]
-            if row.json_key == discriminator and row.default != NONE
+            if row.json_key == discriminator and row.default not in (NONE, None)
         }
         if len(seen) > 1:
             self.out.unreachable[(ref_struct, f"!ambiguous default {sorted(seen)}")] += 1
@@ -137,14 +145,32 @@ class _Walker:
         return seen.pop() if seen else None
 
     def resolve(self, ref_struct: str, node: Any) -> TypeKey | None:
-        """Which row is this node? The struct plus, when it discriminates, its token."""
+        """Which row is this node? The struct plus, when it discriminates, its token.
+
+        Virtual tokens are tested first, in their row order, before the discriminator
+        value is consulted - the same dispatch order as the code they describe
+        (eval_expression.go:208 tests `arg`, then `lhs`, then `type`), which is why
+        the file order of a struct's virtual rows is significant.
+        """
         rows = self.by_struct.get(ref_struct)
         if not rows:
             self.out.unreachable[(ref_struct, "?")] += 1
             return None
-        if len(rows) == 1 and rows[0].type_token == ANY_TOKEN:
+        if isinstance(node, dict):
+            for t in rows:
+                if t.type_token.startswith(VIRTUAL_PREFIX) and variant_matches(
+                    t.variant_when, node
+                ):
+                    return (ref_struct, t.type_token)
+        value_rows = [
+            t for t in rows if not t.type_token.startswith(VIRTUAL_PREFIX)
+        ]
+        if not value_rows:
+            self.out.unreachable[(ref_struct, "!no value token matched")] += 1
+            return None
+        if len(value_rows) == 1 and value_rows[0].type_token == ANY_TOKEN:
             return (ref_struct, ANY_TOKEN)
-        discriminator = rows[0].discriminator
+        discriminator = value_rows[0].discriminator
         token = node.get(discriminator) if isinstance(node, dict) else None
         if token is None:
             # A discriminator with a default is usually absent from the config: not one of
@@ -167,7 +193,9 @@ class _Walker:
         # Prefer a production exemplar: the fragment library is a catalogue of parts to
         # imitate, and a test config is a weaker thing to hold up as the example.
         if key not in self.out.exemplars or (prod and not self.out.exemplar_is_prod[key]):
-            self.out.exemplars[key] = (rel, path)
+            # An empty path means the node *is* the document, which is the root type's
+            # case. It is written as `-`, since a cell is never left empty.
+            self.out.exemplars[key] = (rel, path or NONE)
             self.out.exemplar_is_prod[key] = prod
 
         accounted: set[str] = set()
@@ -184,7 +212,10 @@ class _Walker:
             for child, child_path in self._children(row.container, value, row.json_key):
                 child_key = self.resolve(row.ref_struct, child)
                 if child_key is not None:
-                    self.visit(child_key, child, rel, f"{path}.{child_path}", prod)
+                    # `path` is empty at the document root, where a dotted join would
+                    # produce a leading dot that resolves against nothing.
+                    below = f"{path}.{child_path}" if path else child_path
+                    self.visit(child_key, child, rel, below, prod)
         for seen in node:
             if seen not in accounted:
                 self.out.unknown_keys[key][seen] += 1
@@ -250,17 +281,21 @@ def drift(matrix: Matrix, measurement: Measurement) -> list[str]:
         key = (f.go_struct, f.type_token)
         if key not in measurement.instances:
             continue  # the walk never reached this type; nothing measured to compare
+        # A blank count on a reached type is drift too: the measurement exists and
+        # the row does not carry it yet, which --apply resolves.
         measured_prod = measurement.prod_field_counts[key].get(f.json_key, 0)
         if f.corpus_prod_count != measured_prod:
+            recorded = "unfilled" if f.corpus_prod_count is None else f.corpus_prod_count
             problems.append(
                 f"fields {f.go_struct}/{f.type_token}.{f.json_key}: corpus_prod_count "
-                f"{f.corpus_prod_count}, measured {measured_prod}"
+                f"{recorded}, measured {measured_prod}"
             )
         measured = measurement.field_counts[key].get(f.json_key, 0)
         if f.corpus_count != measured:
+            recorded = "unfilled" if f.corpus_count is None else f.corpus_count
             problems.append(
                 f"fields {f.go_struct}/{f.type_token}.{f.json_key}: corpus_count "
-                f"{f.corpus_count}, measured {measured}"
+                f"{recorded}, measured {measured}"
             )
     return problems
 
@@ -276,10 +311,12 @@ def apply(matrix: Matrix, measurement: Measurement) -> None:
         t.corpus_instances = measurement.instances.get(key, 0)
         t.corpus_prod_instances = measurement.prod_instances.get(key, 0)
         exemplar = measurement.exemplars.get(key)
-        if exemplar is None:
-            t.exemplar_file, t.exemplar_path = NONE, NONE
-        else:
+        if exemplar is not None:
             t.exemplar_file, t.exemplar_path = exemplar
+        # When the walk found none, a hand-proposed exemplar is left standing rather
+        # than erased: while extraction is partial the walk cannot reach every type,
+        # and the proposal is still verified by `check --corpus`. Once the type
+        # becomes reachable the measured exemplar replaces it.
     for f in matrix.fields_:
         key = (f.go_struct, f.type_token)
         if key in measurement.instances:
