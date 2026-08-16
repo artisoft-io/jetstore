@@ -648,10 +648,27 @@ type ConditionalTransformationSpec struct {
 // Note: When output_channel.class_name is provided, the first 3 columns of the output record
 // are `jets:key,rdf:type,jets:source_period_sequence` and if rdf:type is null after the mapping,
 // the default value specified by output_channel.class_name is used.
+// OnError policy values shared by the operators that report record-level
+// failures (map_record, jetrules, ollama).
+const (
+	OnErrorPassThrough = "pass_through"
+	OnErrorDrop        = "drop"
+	OnErrorFail        = "fail"
+)
+
+// OnError specifies what to do with a record whose column transformation
+// failed: pass_through (default, the record is sent to the output), drop,
+// or fail. fail_on_error is the legacy spelling of on_error: fail and is
+// honoured when on_error is not set.
+// MaxErrorCount caps the number of errors reported to the log and the
+// error channel, default 20. Errors are logged even when no error_channel
+// is configured.
 type MapRecordSpec struct {
 	Comment              string               `json:"comment,omitempty"` // free text for the reader; ignored by JetStore
 	FileMappingTableName string               `json:"file_mapping_table_name"`
 	ErrorChannel         *OutputChannelConfig `json:"error_channel,omitzero"`
+	OnError              string               `json:"on_error,omitempty"`
+	MaxErrorCount        int                  `json:"max_error_count,omitzero"`
 	FailOnError          bool                 `json:"fail_on_error,omitzero"`
 	IsDebug              bool                 `json:"is_debug,omitzero"`
 }
@@ -1157,7 +1174,16 @@ type JetrulesSpec struct {
 	MetadataInputSources    []CsvSourceSpec       `json:"metadata_input_sources,omitempty"`
 	IsDebug                 bool                  `json:"is_debug,omitzero"`
 	OutputChannels          []OutputChannelConfig `json:"output_channels,omitempty"`
-	ErrorChannel            *OutputChannelConfig  `json:"error_channel,omitzero"`
+	// OnError specifies what to do when a record bundle fails rule execution
+	// (ExecuteRules error, max-loop reached, or jets:exception): pass_through
+	// (default, the session data is still extracted), drop (the bundle's
+	// output is discarded), or fail (the pipeline is aborted).
+	// MaxErrorCount caps the number of errors reported to the log and the
+	// error channel, default 20. Errors are logged even when no error_channel
+	// is configured.
+	OnError       string               `json:"on_error,omitempty"`
+	MaxErrorCount int                  `json:"max_error_count,omitzero"`
+	ErrorChannel  *OutputChannelConfig `json:"error_channel,omitzero"`
 }
 
 // PromptTemplateSpec is a named prompt template, defined at the ComputePipesConfig level

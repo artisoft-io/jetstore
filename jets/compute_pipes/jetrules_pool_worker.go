@@ -159,6 +159,7 @@ func (ctx *JrPoolWorker) executeRules(inputRecords *[]any,
 	var rm JetResourceManager
 	var reteSession JetReteSession
 	var inputAsserted bool
+	var recordFailed bool
 	var ruleFileNames []string
 	// var ctor TripleIterator
 	isDebug := ctx.config.IsDebug
@@ -238,18 +239,24 @@ func (ctx *JrPoolWorker) executeRules(inputRecords *[]any,
 			}
 			err2 := reteSession.ExecuteRules()
 			if err2 != nil {
-				if ctx.errorOutputCh != nil && ctx.errorCount < 50 {
-					// report the rule error
-					peRow := ctx.builderContext.NewProcessError()
-					peRow.ErrorMessage = fmt.Sprintf("ExecuteRules returned error: %v", err2)
-					peRow.write2Chan(ctx.errorOutputCh, ctx.done)
+				recordFailed = true
+				ctx.errorCount++
+				switch {
+				case ctx.errorCount <= ctx.config.MaxErrorCount:
 					log.Printf("jetrules: ExecuteRules returned error: %v", err2)
-				} else {
+					if ctx.errorOutputCh != nil {
+						// report the rule error
+						peRow := ctx.builderContext.NewProcessError()
+						peRow.ErrorMessage = fmt.Sprintf("ExecuteRules returned error: %v", err2)
+						peRow.write2Chan(ctx.errorOutputCh, ctx.done)
+					}
+				case ctx.errorCount == ctx.config.MaxErrorCount+1:
+					log.Printf("jetrules: reached max_error_count (%d), stop reporting errors", ctx.config.MaxErrorCount)
+				default:
 					if ctx.config.IsDebug {
 						log.Printf("jetrules: ExecuteRules returned error: %v", err2)
 					}
 				}
-				ctx.errorCount++
 				break
 			}
 			// Check if looping is completed (Jets__completed)
@@ -260,17 +267,23 @@ func (ctx *JrPoolWorker) executeRules(inputRecords *[]any,
 		}
 		if maxLooping > 0 && iloop >= maxLooping {
 			// Looped til the end, something might be wrong
-			if ctx.errorOutputCh != nil && ctx.errorCount < 40 {
-				peRow := ctx.builderContext.NewProcessError()
-				peRow.ErrorMessage = fmt.Sprintf("MAX LOOP REACHED, maxLooping is %d", maxLooping)
-				peRow.write2Chan(ctx.errorOutputCh, ctx.done)
+			recordFailed = true
+			ctx.errorCount++
+			switch {
+			case ctx.errorCount <= ctx.config.MaxErrorCount:
 				log.Printf("jetrules: MAX LOOP REACHED, maxLooping is %d", maxLooping)
-			} else {
+				if ctx.errorOutputCh != nil {
+					peRow := ctx.builderContext.NewProcessError()
+					peRow.ErrorMessage = fmt.Sprintf("MAX LOOP REACHED, maxLooping is %d", maxLooping)
+					peRow.write2Chan(ctx.errorOutputCh, ctx.done)
+				}
+			case ctx.errorCount == ctx.config.MaxErrorCount+1:
+				log.Printf("jetrules: reached max_error_count (%d), stop reporting errors", ctx.config.MaxErrorCount)
+			default:
 				if ctx.config.IsDebug {
 					log.Printf("jetrules: MAX LOOP REACHED, maxLooping is %d", maxLooping)
 				}
 			}
-			ctx.errorCount++
 		}
 		// Check for any jets:exceptions in the rdfSession
 		ctor := rdfSession.FindSP(jr.Jets__istate, jr.Jets__exception)
@@ -278,22 +291,28 @@ func (ctx *JrPoolWorker) executeRules(inputRecords *[]any,
 			hasException := ctor.GetObject()
 			if hasException != nil {
 				// report jetrules exception, save rete session
-				if ctx.errorOutputCh != nil && ctx.errorCount < 25 {
-					peRow := ctx.builderContext.NewProcessError()
-					peRow.ErrorMessage = fmt.Sprintf("jets:exception caught: %s", hasException)
-					if ctx.config.MaxReteSessionsSaved > 0 && ctx.nbrReteSessionsSaved < ctx.config.MaxReteSessionsSaved {
-						ctx.nbrReteSessionsSaved++
-						peRow.ReteSessionSaved = "Y"
-						peRow.ReteSessionTriples = sql.NullString{String: rdfSession.EncodeRdfSession(), Valid: true}
-					}
-					peRow.write2Chan(ctx.errorOutputCh, ctx.done)
+				recordFailed = true
+				ctx.errorCount++
+				switch {
+				case ctx.errorCount <= ctx.config.MaxErrorCount:
 					log.Printf("jetrule: jets:exception caught: %s", hasException)
-				} else {
+					if ctx.errorOutputCh != nil {
+						peRow := ctx.builderContext.NewProcessError()
+						peRow.ErrorMessage = fmt.Sprintf("jets:exception caught: %s", hasException)
+						if ctx.config.MaxReteSessionsSaved > 0 && ctx.nbrReteSessionsSaved < ctx.config.MaxReteSessionsSaved {
+							ctx.nbrReteSessionsSaved++
+							peRow.ReteSessionSaved = "Y"
+							peRow.ReteSessionTriples = sql.NullString{String: rdfSession.EncodeRdfSession(), Valid: true}
+						}
+						peRow.write2Chan(ctx.errorOutputCh, ctx.done)
+					}
+				case ctx.errorCount == ctx.config.MaxErrorCount+1:
+					log.Printf("jetrules: reached max_error_count (%d), stop reporting errors", ctx.config.MaxErrorCount)
+				default:
 					if ctx.config.IsDebug {
 						log.Printf("jetrule: jets:exception caught: %s", hasException)
 					}
 				}
-				ctx.errorCount++
 			}
 			ctor.Next()
 		}
@@ -316,6 +335,18 @@ func (ctx *JrPoolWorker) executeRules(inputRecords *[]any,
 	// 		}
 	// 		log.Println("************************")
 	// // }
+
+	// Apply the on_error policy when the record bundle failed rule execution
+	if recordFailed {
+		switch ctx.config.OnError {
+		case OnErrorDrop:
+			// discard the bundle's output
+			return
+		case OnErrorFail:
+			cpErr = fmt.Errorf("jetrules: record bundle failed rule execution (on_error: fail)")
+			goto gotError
+		}
+	}
 
 	// Extract data from the rdf session based on class names
 	for _, outChannel := range ctx.outputChannels {
@@ -437,14 +468,19 @@ func (ctx *JrPoolWorker) extractLiteralValue(rdfSession JetRdfSession, subject, 
 				if ctx.column2RdfType[pname] == "text" {
 					data = dataArr
 				} else {
-					// Report the first 20 as error, set to null
-					if ctx.errorOutputCh != nil && ctx.errorCount < 20 {
-						peRow := ctx.builderContext.NewProcessError()
-						peRow.ErrorMessage = fmt.Sprintf("property %s is not multi-value but has multiple values for subject %s, setting value to null", pname, subject)
-						peRow.write2Chan(ctx.errorOutputCh, ctx.done)
-						ctx.errorCount += 1
+					// Report the first max_error_count as error, set to null
+					ctx.errorCount++
+					switch {
+					case ctx.errorCount <= ctx.config.MaxErrorCount:
 						log.Printf("warning: property %s is not multi-value but has multiple values for subject %s, setting value to null", pname, subject)
-					} else {
+						if ctx.errorOutputCh != nil {
+							peRow := ctx.builderContext.NewProcessError()
+							peRow.ErrorMessage = fmt.Sprintf("property %s is not multi-value but has multiple values for subject %s, setting value to null", pname, subject)
+							peRow.write2Chan(ctx.errorOutputCh, ctx.done)
+						}
+					case ctx.errorCount == ctx.config.MaxErrorCount+1:
+						log.Printf("jetrules: reached max_error_count (%d), stop reporting errors", ctx.config.MaxErrorCount)
+					default:
 						if ctx.config.IsDebug {
 							log.Printf("warning: property %s is not multi-value but has multiple values for subject %s, setting value to null", pname, subject)
 						}

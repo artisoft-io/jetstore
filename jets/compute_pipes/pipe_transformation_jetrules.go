@@ -81,6 +81,20 @@ func (ctx *BuilderContext) NewJetrulesTransformationPipe(source *InputChannel, _
 	spec.NewRecord = true
 	config := spec.JetrulesConfig
 
+	// Apply the on_error policy defaults and validate, mirroring the ollama operator
+	if len(config.OnError) == 0 {
+		config.OnError = OnErrorPassThrough
+	}
+	switch config.OnError {
+	case OnErrorPassThrough, OnErrorDrop, OnErrorFail:
+	default:
+		return nil, fmt.Errorf("error: unknown jetrules_config on_error '%s', expecting one of %s, %s, %s",
+			config.OnError, OnErrorPassThrough, OnErrorDrop, OnErrorFail)
+	}
+	if config.MaxErrorCount < 1 {
+		config.MaxErrorCount = 20
+	}
+
 	// Prepare JetRules engine
 	var jrFactory JetRulesFactory
 	if config.UseJetRulesNative {

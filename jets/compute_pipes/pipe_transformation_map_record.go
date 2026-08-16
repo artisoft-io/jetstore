@@ -16,7 +16,8 @@ type MapRecordTransformationPipe struct {
 	source              *InputChannel
 	outputCh            *OutputChannel
 	columnEvaluators    []TransformationColumnEvaluator
-	failOnError         bool
+	onError             string
+	maxErrorCount       int
 	errorCount          int
 	errorOutputCh       *OutputChannel
 	spec                *TransformationSpec
@@ -61,25 +62,35 @@ func (ctx *MapRecordTransformationPipe) Apply(input *[]any) error {
 		currentValues = input
 	}
 	// Apply the column transformation for each column
+	hadError := false
 	for i := range ctx.columnEvaluators {
 		err := ctx.columnEvaluators[i].Update(currentValues, input)
 		if err != nil {
+			hadError = true
+			ctx.errorCount++
 			switch {
-			case ctx.errorCount < 10:
-				ctx.errorCount++
+			case ctx.errorCount <= ctx.maxErrorCount:
 				log.Printf("mapping error: %s", err.Error())
 				if ctx.errorOutputCh != nil {
 					peRow := ctx.builderContext.NewProcessError()
 					peRow.ErrorMessage = err.Error()
 					peRow.write2Chan(ctx.errorOutputCh, ctx.doneCh)
 				}
-			case ctx.spec.MapRecordConfig != nil && ctx.spec.MapRecordConfig.IsDebug:
-				log.Printf("mapping error: %s", err.Error())
+			case ctx.errorCount == ctx.maxErrorCount+1:
+				log.Printf("map_record: reached max_error_count (%d), stop reporting errors", ctx.maxErrorCount)
+			default:
+				if ctx.spec.MapRecordConfig != nil && ctx.spec.MapRecordConfig.IsDebug {
+					log.Printf("mapping error: %s", err.Error())
+				}
 			}
-			if ctx.failOnError {
+			if ctx.onError == OnErrorFail {
 				return fmt.Errorf("error while applying column transformation: %v", err)
 			}
 		}
+	}
+	if hadError && ctx.onError == OnErrorDrop {
+		// on_error: drop - do not send the failed record to the output
+		return nil
 	}
 	if !ctx.spec.NewRecord {
 		// resize the slice in case we're dropping column on the output
@@ -127,7 +138,7 @@ func (ctx *MapRecordTransformationPipe) Done() error {
 }
 
 func (ctx *MapRecordTransformationPipe) Finally() {
-	// Note - closing the error channel is moved with closing all the output channels in 
+	// Note - closing the error channel is moved with closing all the output channels in
 	// the pipe_executor_fan_out.go and pipe_executor_fsplitter.go
 }
 
@@ -232,9 +243,26 @@ func (ctx *BuilderContext) NewMapRecordTransformationPipe(source *InputChannel, 
 			return nil, err
 		}
 	}
-	var failOnError bool
+	// Apply the on_error policy defaults and validate, mirroring the ollama
+	// operator; fail_on_error is the legacy spelling of on_error: fail
+	onError := OnErrorPassThrough
+	maxErrorCount := 20
 	if config != nil {
-		failOnError = config.FailOnError
+		switch {
+		case len(config.OnError) > 0:
+			onError = config.OnError
+		case config.FailOnError:
+			onError = OnErrorFail
+		}
+		switch onError {
+		case OnErrorPassThrough, OnErrorDrop, OnErrorFail:
+		default:
+			return nil, fmt.Errorf("error: unknown map_record_config on_error '%s', expecting one of %s, %s, %s",
+				onError, OnErrorPassThrough, OnErrorDrop, OnErrorFail)
+		}
+		if config.MaxErrorCount > 0 {
+			maxErrorCount = config.MaxErrorCount
+		}
 	}
 	currentSourcePeriod, sourcePeriodType := GetCurrentSourcePeriod(ctx.env)
 	return &MapRecordTransformationPipe{
@@ -244,7 +272,8 @@ func (ctx *BuilderContext) NewMapRecordTransformationPipe(source *InputChannel, 
 		spec:                spec,
 		currentSourcePeriod: currentSourcePeriod,
 		sourcePeriodType:    sourcePeriodType,
-		failOnError:         failOnError,
+		onError:             onError,
+		maxErrorCount:       maxErrorCount,
 		doneCh:              ctx.done,
 		errorOutputCh:       errorOutputCh,
 		builderContext:      ctx,
