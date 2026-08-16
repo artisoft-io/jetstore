@@ -95,24 +95,24 @@ func TestGroupByRecords3(t *testing.T) {
 	// t.Error()
 }
 
-func doGroupByRecordsTest( groupByColumn []string, groupByPos []int, groupByCount int, inputRecords []*[]any) (outputRecords [][]any, err error) {
+func doGroupByRecordsTest(groupByColumn []string, groupByPos []int, groupByCount int, inputRecords []*[]any) (outputRecords [][]any, err error) {
 	spec := &TransformationSpec{
 		Type: "group_by",
 		GroupByConfig: &GroupBySpec{
-			GroupByName: groupByColumn,
-			GroupByPos: groupByPos,
+			GroupByName:  groupByColumn,
+			GroupByPos:   groupByPos,
 			GroupByCount: groupByCount,
 		},
 	}
 	columns := &map[string]int{
-		"key1": 0,
-		"key2": 1,
-		"key3": 2,
+		"key1":  0,
+		"key2":  1,
+		"key3":  2,
 		"value": 3,
 	}
 
 	source := &InputChannel{
-		Name: "in",
+		Name:    "in",
 		Columns: columns,
 	}
 	outCh := make(chan []any)
@@ -155,4 +155,17 @@ func doGroupByRecordsTest( groupByColumn []string, groupByPos []int, groupByCoun
 	close(outCh)
 	wg.Wait()
 	return
+}
+
+func TestGroupByRejectsUnknownKeyColumn(t *testing.T) {
+	// An unchecked lookup used to map an unknown group_by_name to position 0,
+	// silently grouping by the wrong column; the builder must reject it instead.
+	_, err := doGroupByRecordsTest([]string{"not_a_column"}, nil, 0, nil)
+	if err == nil {
+		t.Error("expecting a group_by key that is not an input column to be rejected")
+	}
+	// A known column still builds.
+	if _, err := doGroupByRecordsTest([]string{"key2"}, nil, 0, nil); err != nil {
+		t.Fatalf("known group_by key rejected: %v", err)
+	}
 }
