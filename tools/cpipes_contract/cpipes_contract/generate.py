@@ -66,6 +66,20 @@ REF_OVERRIDES = {
     ("ConditionalTransformationSpec", "then"): "TransformationSpecOverride",
 }
 
+# The B.13 decisions on the untyped fields, as full-type replacements (the
+# container is part of the decision, so no wrapping applies on top). Each is
+# checked against the forms the corpus actually contains and the consuming
+# code: the *_any quartet reads through utils.ToIntWithEnv (int or env-var
+# string); domain_keys values are ParseDomainKeyInfo's two forms ("key" or
+# ["k1","k2"]); env values are the scalar settings the engine substitutes;
+# response_format is the inference API's "json"-or-schema union. ollama's
+# options stays dict[str, Any] deliberately - it is a pass-through to the API.
+FULL_TYPE_OVERRIDES = {
+    "domain_keys": "dict[str, str | list[str]]",
+    "env": "dict[str, str | int | float | bool]",
+    "response_format": "str | dict[str, Any]",
+}
+
 _GO_BASE = {
     "string": "str",
     "bool": "bool",
@@ -161,6 +175,9 @@ class Emitter:
     def py_type(self, row: FieldRow, literal_token: str | None = None) -> str:
         if literal_token is not None:
             return f'Literal["{literal_token}"]'
+        override = FULL_TYPE_OVERRIDES.get(row.json_key)
+        if override is not None:
+            return override
         container = str(row.container)
         if container == "any":
             base = "int | str"

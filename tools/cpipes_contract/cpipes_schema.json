@@ -1014,7 +1014,19 @@
         "domain_keys": {
           "anyOf": [
             {
-              "additionalProperties": true,
+              "additionalProperties": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array"
+                  }
+                ]
+              },
               "type": "object"
             },
             {
@@ -4367,7 +4379,19 @@
         "domain_keys": {
           "anyOf": [
             {
-              "additionalProperties": true,
+              "additionalProperties": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array"
+                  }
+                ]
+              },
               "type": "object"
             },
             {
@@ -4895,7 +4919,19 @@
         "domain_keys": {
           "anyOf": [
             {
-              "additionalProperties": true,
+              "additionalProperties": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array"
+                  }
+                ]
+              },
               "type": "object"
             },
             {
@@ -7184,7 +7220,13 @@
         },
         "response_format": {
           "anyOf": [
-            {},
+            {
+              "type": "string"
+            },
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
             {
               "type": "null"
             }
@@ -7462,7 +7504,19 @@
         "domain_keys": {
           "anyOf": [
             {
-              "additionalProperties": true,
+              "additionalProperties": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array"
+                  }
+                ]
+              },
               "type": "object"
             },
             {
@@ -7882,7 +7936,19 @@
         "domain_keys": {
           "anyOf": [
             {
-              "additionalProperties": true,
+              "additionalProperties": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array"
+                  }
+                ]
+              },
               "type": "object"
             },
             {
@@ -8286,7 +8352,19 @@
         "domain_keys": {
           "anyOf": [
             {
-              "additionalProperties": true,
+              "additionalProperties": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array"
+                  }
+                ]
+              },
               "type": "object"
             },
             {
@@ -9575,7 +9653,13 @@
         },
         "response_format": {
           "anyOf": [
-            {},
+            {
+              "type": "string"
+            },
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
             {
               "type": "null"
             }
@@ -10060,7 +10144,19 @@
         "domain_keys": {
           "anyOf": [
             {
-              "additionalProperties": true,
+              "additionalProperties": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array"
+                  }
+                ]
+              },
               "type": "object"
             },
             {
@@ -10126,7 +10222,22 @@
         "env": {
           "anyOf": [
             {
-              "additionalProperties": true,
+              "additionalProperties": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "integer"
+                  },
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "boolean"
+                  }
+                ]
+              },
               "type": "object"
             },
             {
