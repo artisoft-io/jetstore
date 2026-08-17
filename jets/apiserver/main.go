@@ -57,6 +57,7 @@ import (
 // JETS_WORKSPACE_DB_SCHEMA_SCRIPT location of the workspace.db schema file
 // JETS_INIT_DB_SCRIPT path to jets_init_db.sql files (not workspace specific)
 // JETS_ENCRYPTION_KEY_SECRET or JETS_ENCRYPTION_KEY required key to encrypt git token in users table
+// IDE_APP_DEPLOYMENT_DIR path to the IDE static web app directory (jetsclient_ide)
 
 var awsDsnSecret = flag.String("awsDsnSecret", "", "aws secret with dsn definition (aws integration) (required unless -dsn is provided)")
 var awsApiSecret = flag.String("awsApiSecret", "", "aws secret with string to use for signing jwt tokens (aws integration) (required unless -dsn is provided)")
@@ -197,6 +198,7 @@ func main() {
 	log.Println("Got argument: awsAdminPwdSecret", *awsAdminPwdSecret)
 	log.Println("Got argument: adminPwd len", len(*adminPwd))
 	log.Println("Got argument: WEB_APP_DEPLOYMENT_DIR", *uiWebDir)
+	log.Println("Got argument: IDE_APP_DEPLOYMENT_DIR", *ideWebDir)
 	if globalDevMode {
 		log.Println("Running in DEV MODE")
 		if len(*unitTestDir) > 0 {
