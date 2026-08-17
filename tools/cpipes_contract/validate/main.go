@@ -14,6 +14,8 @@
 package main
 
 import (
+	"bytes"
+	"encoding/json"
 	"flag"
 	"fmt"
 	"io/fs"
@@ -28,6 +30,8 @@ import (
 func main() {
 	schemaPath := flag.String("schema", "tools/cpipes_contract/cpipes_schema.json", "the emitted cpipes schema")
 	corpusRoot := flag.String("corpus", "../..", "root holding workspaces/")
+	negatives := flag.String("negatives", "tools/cpipes_contract/negative_suite.json",
+		"the B.16 negative suite; empty to skip")
 	flag.Parse()
 
 	fh, err := os.Open(*schemaPath)
@@ -96,6 +100,48 @@ func main() {
 		}
 	}
 	fmt.Printf("%d/%d validate under santhosh-tekuri/jsonschema/v6\n", len(files)-fails, len(files))
+
+	// The B.16 negative suite: every case marked invalid must fail, and a
+	// negative that validates is a schema hole worth failing the build for.
+	if *negatives != "" {
+		nfh, err := os.Open(*negatives)
+		if err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(2)
+		}
+		var suite struct {
+			Cases []struct {
+				Name   string          `json:"name"`
+				Class  string          `json:"class"`
+				Expect string          `json:"expect"`
+				Config json.RawMessage `json:"config"`
+			} `json:"cases"`
+		}
+		dec := json.NewDecoder(nfh)
+		if err := dec.Decode(&suite); err != nil {
+			fmt.Fprintf(os.Stderr, "bad negative suite: %v\n", err)
+			os.Exit(2)
+		}
+		nfh.Close()
+		holes := 0
+		for _, c := range suite.Cases {
+			instance, err := jsonschema.UnmarshalJSON(bytes.NewReader(c.Config))
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "bad case %q: %v\n", c.Name, err)
+				os.Exit(2)
+			}
+			valid := schema.Validate(instance) == nil
+			want := c.Expect == "valid"
+			if valid != want {
+				holes++
+				fmt.Printf("HOLE [%s] %s: expected %s, got %s\n",
+					c.Class, c.Name, c.Expect, map[bool]string{true: "valid", false: "invalid"}[valid])
+			}
+		}
+		fmt.Printf("%d/%d negative-suite cases behave as expected\n", len(suite.Cases)-holes, len(suite.Cases))
+		fails += holes
+	}
+
 	if fails > 0 {
 		os.Exit(1)
 	}

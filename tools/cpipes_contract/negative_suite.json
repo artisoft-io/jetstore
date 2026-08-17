@@ -1,0 +1,131 @@
+{
+  "comment": "The B.16 negative suite (criterion 6): every case marked invalid must FAIL schema validation - a negative that validates is a schema hole. Each case mutates the one valid base so it fails for exactly the intended reason. The classes are the task's five - wrong discriminator, missing required field, inapplicable field for the type, unknown operator type, invented field name - plus I-14's runtime shape and the B.13 type decisions. Run via `go run ./tools/cpipes_contract/validate` or `python -m cpipes_contract validate`.",
+  "cases": [
+    {
+      "name": "base",
+      "class": "sanity",
+      "expect": "valid",
+      "config": {"conditional_pipes_config": [{"pipes_config": [{"type": "fan_out", "input_channel": {"name": "i"}, "apply": [{"type": "map_record", "output_channel": {"type": "sql", "output_table_key": "t"}}]}]}]}
+    },
+    {
+      "name": "root pipes_config (I-14 runtime shape)",
+      "class": "runtime-shape",
+      "expect": "invalid",
+      "config": {"pipes_config": [{"type": "fan_out", "input_channel": {"name": "i"}, "apply": [{"type": "map_record", "output_channel": {"type": "sql", "output_table_key": "t"}}]}]}
+    },
+    {
+      "name": "unknown operator type",
+      "class": "unknown-type",
+      "expect": "invalid",
+      "config": {"conditional_pipes_config": [{"pipes_config": [{"type": "fan_out", "input_channel": {"name": "i"}, "apply": [{"type": "no_such_operator"}]}]}]}
+    },
+    {
+      "name": "unknown pipe type",
+      "class": "unknown-type",
+      "expect": "invalid",
+      "config": {"conditional_pipes_config": [{"pipes_config": [{"type": "no_such_pipe", "input_channel": {"name": "i"}}]}]}
+    },
+    {
+      "name": "unknown input channel type",
+      "class": "unknown-type",
+      "expect": "invalid",
+      "config": {"conditional_pipes_config": [{"pipes_config": [{"type": "fan_out", "input_channel": {"name": "i", "type": "bogus"}, "apply": [{"type": "map_record", "output_channel": {"type": "sql", "output_table_key": "t"}}]}]}]}
+    },
+    {
+      "name": "jetrules missing jetrules_config",
+      "class": "missing-required",
+      "expect": "invalid",
+      "config": {"conditional_pipes_config": [{"pipes_config": [{"type": "fan_out", "input_channel": {"name": "i"}, "apply": [{"type": "jetrules"}]}]}]}
+    },
+    {
+      "name": "sql output channel missing output_table_key",
+      "class": "missing-required",
+      "expect": "invalid",
+      "config": {"conditional_pipes_config": [{"pipes_config": [{"type": "fan_out", "input_channel": {"name": "i"}, "apply": [{"type": "map_record", "output_channel": {"type": "sql"}}]}]}]}
+    },
+    {
+      "name": "merge_files pipe missing output_file",
+      "class": "missing-required",
+      "expect": "invalid",
+      "config": {"conditional_pipes_config": [{"pipes_config": [{"type": "merge_files", "input_channel": {"name": "i", "type": "stage", "read_step_id": "reducing01"}}]}]}
+    },
+    {
+      "name": "ext_count splitter missing partition_row_count",
+      "class": "missing-required",
+      "expect": "invalid",
+      "config": {"conditional_pipes_config": [{"pipes_config": [{"type": "splitter", "input_channel": {"name": "i"}, "splitter_config": {"type": "ext_count", "column": "c"}, "apply": [{"type": "map_record", "output_channel": {"type": "sql", "output_table_key": "t"}}]}]}]}
+    },
+    {
+      "name": "input channel missing name",
+      "class": "missing-required",
+      "expect": "invalid",
+      "config": {"conditional_pipes_config": [{"pipes_config": [{"type": "fan_out", "input_channel": {}, "apply": [{"type": "map_record", "output_channel": {"type": "sql", "output_table_key": "t"}}]}]}]}
+    },
+    {
+      "name": "sort carrying anonymize_config",
+      "class": "inapplicable-field",
+      "expect": "invalid",
+      "config": {"conditional_pipes_config": [{"pipes_config": [{"type": "fan_out", "input_channel": {"name": "i"}, "apply": [{"type": "sort", "sort_config": {"sort_by_column": ["a"]}, "anonymize_config": {"mode": "anonymization", "anonymize_type": "at", "key_prefix": "kp", "metadata_lookup_name": "m", "data_classification": "dc", "keys_output_channel": {"type": "sql", "output_table_key": "t"}}, "output_channel": {"type": "sql", "output_table_key": "t"}}]}]}]}
+    },
+    {
+      "name": "memory input channel carrying sampling_max_count",
+      "class": "inapplicable-field",
+      "expect": "invalid",
+      "config": {"conditional_pipes_config": [{"pipes_config": [{"type": "fan_out", "input_channel": {"name": "i", "sampling_max_count": 1000}, "apply": [{"type": "map_record", "output_channel": {"type": "sql", "output_table_key": "t"}}]}]}]}
+    },
+    {
+      "name": "stage output channel carrying lookback_periods",
+      "class": "inapplicable-field",
+      "expect": "invalid",
+      "config": {"conditional_pipes_config": [{"pipes_config": [{"type": "fan_out", "input_channel": {"name": "i"}, "apply": [{"type": "map_record", "output_channel": {"type": "stage", "name": "o", "channel_spec_name": "s", "write_step_id": "w", "lookback_periods": "1:1"}}]}]}]}
+    },
+    {
+      "name": "untyped splitter carrying ext_count's partition_row_count",
+      "class": "wrong-discriminator",
+      "expect": "invalid",
+      "config": {"conditional_pipes_config": [{"pipes_config": [{"type": "splitter", "input_channel": {"name": "i"}, "splitter_config": {"column": "c", "partition_row_count": 10}, "apply": [{"type": "map_record", "output_channel": {"type": "sql", "output_table_key": "t"}}]}]}]}
+    },
+    {
+      "name": "select column carrying multi_select's expr_array",
+      "class": "wrong-discriminator",
+      "expect": "invalid",
+      "config": {"conditional_pipes_config": [{"pipes_config": [{"type": "fan_out", "input_channel": {"name": "i"}, "apply": [{"type": "map_record", "output_channel": {"type": "sql", "output_table_key": "t"}, "columns": [{"name": "n", "type": "select", "expr": "a", "expr_array": ["a", "b"]}]}]}]}]}
+    },
+    {
+      "name": "invented field at the document root",
+      "class": "invented-field",
+      "expect": "invalid",
+      "config": {"conditional_pipes_config": [{"pipes_config": [{"type": "fan_out", "input_channel": {"name": "i"}, "apply": [{"type": "map_record", "output_channel": {"type": "sql", "output_table_key": "t"}}]}]}], "invented_root_key": true}
+    },
+    {
+      "name": "invented field on a transformation",
+      "class": "invented-field",
+      "expect": "invalid",
+      "config": {"conditional_pipes_config": [{"pipes_config": [{"type": "fan_out", "input_channel": {"name": "i"}, "apply": [{"type": "map_record", "output_channel": {"type": "sql", "output_table_key": "t"}, "invented_key": 1}]}]}]}
+    },
+    {
+      "name": "invented field on a nested expression node",
+      "class": "invented-field",
+      "expect": "invalid",
+      "config": {"conditional_pipes_config": [{"pipes_config": [{"type": "fan_out", "input_channel": {"name": "i"}, "apply": [{"type": "filter", "filter_config": {"when": {"lhs": {"type": "value", "expr": "1", "bogus": 1}, "op": "==", "rhs": {"type": "value", "expr": "1"}}}, "output_channel": {"type": "sql", "output_table_key": "t"}}]}]}]}
+    },
+    {
+      "name": "out-of-range enum: output format tsv",
+      "class": "value-range",
+      "expect": "invalid",
+      "config": {"conditional_pipes_config": [{"pipes_config": [{"type": "fan_out", "input_channel": {"name": "i"}, "apply": [{"type": "map_record", "output_channel": {"type": "stage", "name": "o", "channel_spec_name": "s", "write_step_id": "w", "format": "tsv"}}]}]}]}
+    },
+    {
+      "name": "generator nbr_rows as float (B.13: int or env-var string)",
+      "class": "value-range",
+      "expect": "invalid",
+      "config": {"conditional_pipes_config": [{"pipes_config": [{"type": "fan_out", "input_channel": {"name": "i", "type": "generator", "nbr_rows": 1.5}, "apply": [{"type": "map_record", "output_channel": {"type": "sql", "output_table_key": "t"}}]}]}]}
+    },
+    {
+      "name": "domain_keys with a numeric value (B.13: key or key list)",
+      "class": "value-range",
+      "expect": "invalid",
+      "config": {"channels": [{"name": "c", "columns": ["a"], "domain_keys": {"T": 42}}], "conditional_pipes_config": [{"pipes_config": [{"type": "fan_out", "input_channel": {"name": "i"}, "apply": [{"type": "map_record", "output_channel": {"type": "sql", "output_table_key": "t"}}]}]}]}
+    }
+  ]
+}
