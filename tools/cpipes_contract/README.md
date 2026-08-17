@@ -38,4 +38,4 @@ python3 -m venv .venv && .venv/bin/pip install -e .
 
 The matrix is extracted (B.2) and under review; the harness (B.7) turns its rows into test results
 so the review reads what the validator actually did. The plan it executes is
-`plan/1_phase0_plan.md` §5.2 in the `jetstore_agentic_ai` repo, tasks B.1–B.8.
+`projects/agentic_ai/plan/phase0_plan.md` §5.2 in the `jetstore_agentic_ai` repo, tasks B.1–B.8.

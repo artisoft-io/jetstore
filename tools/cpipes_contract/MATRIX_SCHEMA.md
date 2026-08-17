@@ -19,9 +19,10 @@ with no rows in it has not been shown to carry anything. B.2–B.6 fill the rest
 
 The reasoning behind the matrix — why reflection over `pipes_model.go` recovers nothing about
 applicability, and why the schema is a projection of the matrix rather than a thing built directly —
-is in the Phase 0 plan (`plan/1_phase0_plan.md` §5.2 of the `jetstore_agentic_ai` repo). This file
-documents the columns. Where it departs from the plan's §5.2.1 it says so, and the argument for each
-departure is issue **I-11** in that repo's `plan/tracking/3_phase0_tasks_issues_risks.md`.
+is in the Phase 0 plan (`projects/agentic_ai/plan/phase0_plan.md` §5.2 of the `jetstore_agentic_ai`
+repo). This file documents the columns. Where it departs from the plan's §5.2.1 it says so, and the
+argument for each departure is issue **I-11** in that repo's
+`projects/agentic_ai/plan/tracking/phase0_tasks_issues_risks.md`.
 
 ## Three tables, not one
 
