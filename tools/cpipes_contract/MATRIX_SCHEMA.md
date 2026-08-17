@@ -2,6 +2,17 @@
 
 **Task B.1 · drafted 2026-08-11 · revised 2026-08-12 after first review · revised 2026-08-15 during B.2 (virtual tokens; the unfilled cell state) · revised 2026-08-15 during B.7 (the harness; `types.csv` gains a machine-written `harness` column) · revised 2026-08-15 preparing B.8 (the reachability closure; the walk starts at the root; the review stamp) · awaiting review**
 
+> **The B.10 flip (2026-08-16).** Since B.9/B.10 the source of truth for the *contract claims* —
+> which fields exist per token (`applicable`), `required`, `values`, `default`, `description` — is
+> `cpipes_model.py`, the generated-then-adopted Pydantic model. Those columns of `fields.csv` are
+> regenerated from the model by `python -m cpipes_contract reflect`, and `reflect --check` is the
+> divergence guard. Everything else stays CSV-authoritative: the audit trail (evidence, citations,
+> corpus counts, harness verdicts, review stamps, notes), the Go binding (`go_type`, `container`,
+> `ref_struct`, `declared_in`), `types.csv`, `constraints.csv`, and the rows the model cannot express
+> (the merged `ExpressionNode`/`ContextSpec` claims; fields inapplicable on every token of their
+> struct). The `generate` command is the bootstrap that first produced the model — running it again
+> overwrites model edits.
+
 This is the definition of the matrix, not the matrix. The rows currently in `matrix/` are a seed:
 twelve types and eighty-eight fields, hand-extracted while designing the schema, kept because a schema
 with no rows in it has not been shown to carry anything. B.2–B.6 fill the rest.

@@ -1,5 +1,9 @@
 """Generate `cpipes_model.py` — the Pydantic v2 model — from the reviewed matrix.
 
+Post-B.10 this is the BOOTSTRAP direction only: the model is the source of
+truth and `reflect` regenerates the matrix from it. Running `generate` again
+overwrites edits made in the model — it exists to re-bootstrap, not to sync.
+
 The design is the plan's §5.2.2: a base class per discriminated struct carrying
 the fields applicable to every token, one subclass per `type` token carrying
 only its own, and `Field(discriminator=...)` on the union — applicability stops
@@ -69,15 +73,21 @@ _GO_BASE = {
     "map[string]string": "dict[str, str]",
 }
 
-HEADER = '''"""GENERATED from the cpipes applicability matrix - do not edit.
+HEADER = '''"""The cpipes contract - THE SOURCE OF TRUTH for the contract claims (B.10).
 
-Regenerate with:  python -m cpipes_contract generate
+Since the B.10 flip, this Pydantic v2 model is where the contract is edited:
+which fields exist per operator token, which are required, their value ranges,
+and their descriptions. The matrix CSVs remain the review artifact and the
+audit/Go-binding record, regenerated FROM this file:
 
-The matrix (matrix/*.csv) is the reviewed source; this file is its projection
-as a Pydantic v2 model (the plan's §5.2.2). Field descriptions carry the
-matrix's description column; engine-applied defaults are noted in the text and
-deliberately NOT materialised as Pydantic defaults, so a dumped document stays
-minimal and the wire format unchanged.
+    python -m cpipes_contract reflect          # sync the matrix claim columns
+    python -m cpipes_contract reflect --check  # the divergence guard (CI)
+
+The `generate` command is the bootstrap projection that first produced this
+file from the reviewed matrix (B.9) - running it again OVERWRITES edits made
+here. Engine-applied defaults are noted in the descriptions and deliberately
+NOT materialised as Pydantic defaults, so a dumped document stays minimal and
+the wire format unchanged.
 """
 
 from __future__ import annotations
@@ -183,7 +193,7 @@ class Emitter:
             desc = "DEPRECATED. " + desc
         if row.required is Required.CONDITIONAL and row.required_when not in (NONE, None):
             desc += f" Required when: {row.required_when}."
-        if row.default not in (NONE, None) and literal_token is None:
+        if row.default not in (NONE, None):
             desc += f" Engine default: {row.default} ({row.default_by})."
         desc = desc.replace("\\", "\\\\").replace('"', '\\"')
         if literal_token is not None:
@@ -274,17 +284,18 @@ class Emitter:
             out.append("")
 
         for t in virtual:
+            # A virtual token does not inherit the union base: its applicable
+            # surface is its own (the matrix rules `when`/`conditional_config`
+            # off the ~override shape, which the base would smuggle back in).
             cname = self.class_name(struct, t.type_token)
-            out.append(f"class {cname}({base_name}):")
+            out.append(f"class {cname}(_Base):")
             doc = self.type_doc(t)
             if doc:
                 out.append(f'    """{doc}"""')
             rows = [
                 f
                 for f in self.fields[(struct, t.type_token)]
-                if f.applicable is YesNo.YES
-                and f.json_key != disc
-                and f.json_key not in common
+                if f.applicable is YesNo.YES and f.json_key != disc
             ]
             if not rows and not doc:
                 out.append("    pass")
@@ -393,6 +404,21 @@ class Emitter:
             if self.is_union(struct):
                 self.emit_union_alias(struct, out)
         out.append("")
+        out.append("")
+        keys: list[str] = []
+        for struct in sorted(self.types):
+            for t in self.types[struct]:
+                if struct in MERGED:
+                    continue
+                if self.is_union(struct):
+                    cname = self.class_name(struct, t.type_token)
+                else:
+                    cname = struct
+                keys.append(f'    "{cname}": ("{struct}", "{t.type_token}"),')
+        out.append("# class -> (go_struct, type_token); the reflect direction's key.")
+        out.append("_MATRIX_KEYS = {")
+        out.extend(sorted(set(keys)))
+        out.append("}")
         out.append("")
         out.append("_MODELS = [v for v in list(globals().values()) if isinstance(v, type) and issubclass(v, BaseModel) and v is not BaseModel]")
         out.append("for _m in _MODELS:")

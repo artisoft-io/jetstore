@@ -113,7 +113,30 @@ def main(argv: list[str] | None = None) -> int:
         "an explicit re-approval of the changed row, never the default",
     )
 
+    reflect_cmd = sub.add_parser(
+        "reflect",
+        help="regenerate the matrix's claim columns from cpipes_model.py (B.10)",
+    )
+    reflect_cmd.add_argument("--matrix", type=Path, default=DEFAULT_MATRIX)
+    reflect_cmd.add_argument(
+        "--model",
+        type=Path,
+        default=DEFAULT_MATRIX.parent / "cpipes_model.py",
+        help="the model to reflect",
+    )
+    reflect_cmd.add_argument(
+        "--check",
+        action="store_true",
+        help="compare instead of writing; exit nonzero on divergence",
+    )
+
     args = parser.parse_args(argv)
+
+    if args.command == "reflect":
+        # reflect reads the CSV raw (it rewrites cells the schema validates)
+        from . import reflect as reflect_mod
+
+        return reflect_mod.run(args)
 
     try:
         matrix = Matrix.load(args.matrix)

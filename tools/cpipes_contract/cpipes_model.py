@@ -1,12 +1,18 @@
-"""GENERATED from the cpipes applicability matrix - do not edit.
+"""The cpipes contract - THE SOURCE OF TRUTH for the contract claims (B.10).
 
-Regenerate with:  python -m cpipes_contract generate
+Since the B.10 flip, this Pydantic v2 model is where the contract is edited:
+which fields exist per operator token, which are required, their value ranges,
+and their descriptions. The matrix CSVs remain the review artifact and the
+audit/Go-binding record, regenerated FROM this file:
 
-The matrix (matrix/*.csv) is the reviewed source; this file is its projection
-as a Pydantic v2 model (the plan's §5.2.2). Field descriptions carry the
-matrix's description column; engine-applied defaults are noted in the text and
-deliberately NOT materialised as Pydantic defaults, so a dumped document stays
-minimal and the wire format unchanged.
+    python -m cpipes_contract reflect          # sync the matrix claim columns
+    python -m cpipes_contract reflect --check  # the divergence guard (CI)
+
+The `generate` command is the bootstrap projection that first produced this
+file from the reviewed matrix (B.9) - running it again OVERWRITES edits made
+here. Engine-applied defaults are noted in the descriptions and deliberately
+NOT materialised as Pydantic defaults, so a dumped document stays minimal and
+the wire format unchanged.
 """
 
 from __future__ import annotations
@@ -65,7 +71,7 @@ class AnonymizeSpecBase(_Base):
 
 class AnonymizeSpecAnonymization(AnonymizeSpecBase):
     """Configuration for the anonymize transformation operator: lookup information indicating how to anonymize, etc."""
-    mode: Literal["anonymization"] = Field(default="anonymization", description="Mode: Specify mode of action: de-identification, anonymization (default) - de-identification: mask the data (not reversible); - anonymization: replace the data with hashed value (reversible using crosswalk file).")
+    mode: Literal["anonymization"] = Field(default="anonymization", description="Mode: Specify mode of action: de-identification, anonymization (default) - de-identification: mask the data (not reversible); - anonymization: replace the data with hashed value (reversible using crosswalk file). Engine default: anonymization (builder).")
     data_classification: str = Field(description="The column of the metadata lookup table giving each input column's data classification. The classification decides how the column is treated (e.g. 'date' columns can be capped to Jan 1) and, in de-identification mode, selects the deid lookup (deid_lookups) or deid function (deid_functions) to apply.")
     key_date_layout: str | None = Field(default=None, description="KeyDateLayout is the format to use in the key mapping file (crosswalk file) for anonymization.")
     keys_output_channel: OutputChannelConfig = Field(description="Channel receiving the key mapping (crosswalk) records.")
@@ -446,7 +452,7 @@ class InputChannelConfigBase(_Base):
 
 class InputChannelConfigMemory(InputChannelConfigBase):
     """In memory channel chaining two compute pipes."""
-    type: Literal["memory"] = Field(default="memory", description="The channel type. Range: memory (default), input, stage, generator.")
+    type: Literal["memory"] = Field(default="memory", description="The channel type. Range: memory (default), input, stage, generator. Engine default: memory (validator).")
 
 
 class InputChannelConfigInput(InputChannelConfigBase):
@@ -736,7 +742,7 @@ class OutputChannelConfigBase(_Base):
 
 class OutputChannelConfigMemory(OutputChannelConfigBase):
     """Configuration for in-memory channel to pass records between transformation operators."""
-    type: Literal["memory"] = Field(default="memory", description="The channel type. Range: memory (default), stage, output, sql.")
+    type: Literal["memory"] = Field(default="memory", description="The channel type. Range: memory (default), stage, output, sql. Engine default: memory (validator).")
     name: str = Field(description="Name: output channel name, required (must exist in the channels section of the config document) Format: file format, range values: csv, headerless_csv, fixed_width. NbrRowsInRecord: nbr of rows in record (applicable to format: parquet) Compression: none, snappy (default). Does not apply to parquet format (always snappy). UseInputParquetSchema to use the same schema as the input file. UseOriginalHeaders to use the headers from the input file (csv only). Must have save_parquet_schema = true in the cpipes first input_channel. OutputLocation: jetstore_s3_schema_events, jetstore_s3_input, jetstore_s3_output (default), or custom location. When OutputLocation is jetstore_s3_input it will also write to the input bucket. When using jetstore_s3_input and jetstore_s3_schema_events you must specify WriteStepId to specify the step id in stage location to output the file. When OutputLocation uses a custom location, it replaces KeyPrefix and FileName. OutputLocation must ends with \"/\" if we want to use default file name (i.e. OutputLocation does not include the file name).")
 
 
@@ -1079,12 +1085,12 @@ class SplitterSpecBase(_Base):
 
 class SplitterSpecStandard(SplitterSpecBase):
     """Creates one partition per distinct value of the split key."""
-    type: Literal["standard"] = Field(default="standard", description="Which splitting strategy to use.")
+    type: Literal["standard"] = Field(default="standard", description="Which splitting strategy to use. Engine default: standard (builder).")
 
 
 class SplitterSpecExtCount(SplitterSpecBase):
     """Creates one partition per distinct value of the split key, subdivided so that no partition holds more than partition_row_count rows."""
-    type: Literal["ext_count"] = Field(default="ext_count", description="Which splitting strategy to use.")
+    type: Literal["ext_count"] = Field(default="ext_count", description="Which splitting strategy to use. Engine default: standard (builder).")
     partition_row_count: int = Field(description="Maximum number of rows in each extended partition.")
 
 
@@ -1376,12 +1382,13 @@ class TransformationSpecClustering(TransformationSpecBase):
     output_channel: OutputChannelConfig = Field(description="The channel the operator writes to.")
 
 
-class TransformationSpecOverride(TransformationSpecBase):
+class TransformationSpecOverride(_Base):
     """Fragments of transformation operator to override fields of the host transformation operator."""
     analyze_config: AnalyzeSpec | None = Field(default=None, description="Configuration of the analyze operator.")
     anonymize_config: AnonymizeSpec | None = Field(default=None, description="Configuration of the anonymize operator.")
     clustering_config: ClusteringSpec | None = Field(default=None, description="Configuration of the clustering operator.")
     columns: list[TransformationColumnSpec] | None = Field(default=None, description="The column transformations producing the output record.")
+    comment: str | None = Field(default=None, description="Free text for the reader; ignored by JetStore.")
     distinct_config: DistinctSpec | None = Field(default=None, description="Configuration of the distinct operator: the composite key.")
     filter_config: FilterSpec | None = Field(default=None, description="Configuration of the filter operator.")
     group_by_config: GroupBySpec | None = Field(default=None, description="Configuration of the group_by operator.")
@@ -1408,6 +1415,127 @@ SplitterSpec = Annotated[Union[SplitterSpecStandard, SplitterSpecExtCount], Fiel
 TransformationColumnSpec = Annotated[Union[TransformationColumnSpecAvrg, TransformationColumnSpecCase, TransformationColumnSpecCount, TransformationColumnSpecDistinctCount, TransformationColumnSpecEval, TransformationColumnSpecHash, TransformationColumnSpecLookup, TransformationColumnSpecMap, TransformationColumnSpecMapReduce, TransformationColumnSpecMax, TransformationColumnSpecMin, TransformationColumnSpecMultiSelect, TransformationColumnSpecSelect, TransformationColumnSpecSum, TransformationColumnSpecValue], Field(discriminator="type")]
 TransformationSpec = Annotated[Union[TransformationSpecOllama, TransformationSpecPartitionWriter, TransformationSpecMapRecord, TransformationSpecAggregate, TransformationSpecAnalyze, TransformationSpecHighFreq, TransformationSpecAnonymize, TransformationSpecDistinct, TransformationSpecShuffling, TransformationSpecGroupBy, TransformationSpecFilter, TransformationSpecSort, TransformationSpecMerge, TransformationSpecJetrules, TransformationSpecClustering], Field(discriminator="type")]
 
+
+# class -> (go_struct, type_token); the reflect direction's key.
+_MATRIX_KEYS = {
+    "AnalyzeSpec": ("AnalyzeSpec", "*"),
+    "AnonymizeSpecAnonymization": ("AnonymizeSpec", "anonymization"),
+    "AnonymizeSpecDeIdentification": ("AnonymizeSpec", "de-identification"),
+    "BadRowsSpec": ("BadRowsSpec", "*"),
+    "BlankFieldMarkersSpec": ("BlankFieldMarkersSpec", "*"),
+    "CaseEnvExpression": ("CaseEnvExpression", "*"),
+    "CaseExpression": ("CaseExpression", "*"),
+    "ChannelSpec": ("ChannelSpec", "*"),
+    "ClusterShardingInfo": ("ClusterShardingInfo", "*"),
+    "ClusterShardingSpec": ("ClusterShardingSpec", "*"),
+    "ClusterSpec": ("ClusterSpec", "*"),
+    "ClusteringSpec": ("ClusteringSpec", "*"),
+    "ColumnEncodingSpec": ("ColumnEncodingSpec", "*"),
+    "ColumnFileSpec": ("ColumnFileSpec", "*"),
+    "ColumnNameLookupNode": ("ColumnNameLookupNode", "*"),
+    "ColumnNameTokenNode": ("ColumnNameTokenNode", "*"),
+    "ComputePipesCommonArgs": ("ComputePipesCommonArgs", "*"),
+    "ComputePipesConfig": ("ComputePipesConfig", "*"),
+    "ConditionalEnvVariable": ("ConditionalEnvVariable", "*"),
+    "ConditionalPipeSpec": ("ConditionalPipeSpec", "*"),
+    "ConditionalTransformationSpec": ("ConditionalTransformationSpec", "*"),
+    "CsvSourceSpecCpipes": ("CsvSourceSpec", "cpipes"),
+    "CsvSourceSpecCsvFile": ("CsvSourceSpec", "csv_file"),
+    "DateFormatLookupSpec": ("DateFormatLookupSpec", "*"),
+    "DistinctSpec": ("DistinctSpec", "*"),
+    "DomainKeyInfo": ("DomainKeyInfo", "*"),
+    "DomainKeysSpec": ("DomainKeysSpec", "*"),
+    "EntityHint": ("EntityHint", "*"),
+    "FieldInfo": ("FieldInfo", "*"),
+    "FilterColumnSpec": ("FilterColumnSpec", "*"),
+    "FilterSpec": ("FilterSpec", "*"),
+    "FunctionTokenNodeParseDate": ("FunctionTokenNode", "parse_date"),
+    "FunctionTokenNodeParseDouble": ("FunctionTokenNode", "parse_double"),
+    "FunctionTokenNodeParseText": ("FunctionTokenNode", "parse_text"),
+    "GroupBySpec": ("GroupBySpec", "*"),
+    "HashExpression": ("HashExpression", "*"),
+    "HighFreqSpec": ("HighFreqSpec", "*"),
+    "InputChannelConfigGenerator": ("InputChannelConfig", "generator"),
+    "InputChannelConfigInput": ("InputChannelConfig", "input"),
+    "InputChannelConfigMemory": ("InputChannelConfig", "memory"),
+    "InputChannelConfigStage": ("InputChannelConfig", "stage"),
+    "InputSourceSpec": ("InputSourceSpec", "*"),
+    "JetrulesSpec": ("JetrulesSpec", "*"),
+    "KeywordTokenNode": ("KeywordTokenNode", "*"),
+    "LookupColumnSpecSelect": ("LookupColumnSpec", "select"),
+    "LookupColumnSpecValue": ("LookupColumnSpec", "value"),
+    "LookupSpecS3CsvLookup": ("LookupSpec", "s3_csv_lookup"),
+    "LookupSpecSqlLookup": ("LookupSpec", "sql_lookup"),
+    "LookupTokenNode": ("LookupTokenNode", "*"),
+    "MapExpression": ("MapExpression", "*"),
+    "MapRecordSpec": ("MapRecordSpec", "*"),
+    "MergeFileSpec": ("MergeFileSpec", "*"),
+    "MergeSpec": ("MergeSpec", "*"),
+    "Metric": ("Metric", "*"),
+    "MetricsSpec": ("MetricsSpec", "*"),
+    "MultiTokensNode": ("MultiTokensNode", "*"),
+    "OllamaMappingSpec": ("OllamaMappingSpec", "*"),
+    "OllamaServerSpec": ("OllamaServerSpec", "*"),
+    "OllamaSpec": ("OllamaSpec", "*"),
+    "OutputChannelConfigMemory": ("OutputChannelConfig", "memory"),
+    "OutputChannelConfigOutput": ("OutputChannelConfig", "output"),
+    "OutputChannelConfigSql": ("OutputChannelConfig", "sql"),
+    "OutputChannelConfigStage": ("OutputChannelConfig", "stage"),
+    "OutputFileSpec": ("OutputFileSpec", "*"),
+    "ParquetSchemaInfo": ("ParquetSchemaInfo", "*"),
+    "ParseDateFTSpec": ("ParseDateFTSpec", "*"),
+    "ParseDateSpec": ("ParseDateSpec", "*"),
+    "PartitionWriterSpec": ("PartitionWriterSpec", "*"),
+    "PipeSpecFanOut": ("PipeSpec", "fan_out"),
+    "PipeSpecMergeFiles": ("PipeSpec", "merge_files"),
+    "PipeSpecSplitter": ("PipeSpec", "splitter"),
+    "PromptTemplateSpec": ("PromptTemplateSpec", "*"),
+    "RegexNode": ("RegexNode", "*"),
+    "ReportCmdSpec": ("ReportCmdSpec", "s3_copy_file"),
+    "S3CopyFileSpec": ("S3CopyFileSpec", "*"),
+    "SchemaColumnSpec": ("SchemaColumnSpec", "*"),
+    "SchemaProviderSpecDefault": ("SchemaProviderSpec", "default"),
+    "SchemaProviderSpecPipelineCoordinatorMap": ("SchemaProviderSpec", "pipeline_coordinator_map"),
+    "ShufflingSpec": ("ShufflingSpec", "*"),
+    "SortSpec": ("SortSpec", "*"),
+    "SourcesConfigSpec": ("SourcesConfigSpec", "*"),
+    "SplitterSpecExtCount": ("SplitterSpec", "ext_count"),
+    "SplitterSpecStandard": ("SplitterSpec", "standard"),
+    "TableColumnSpec": ("TableColumnSpec", "*"),
+    "TableSpec": ("TableSpec", "*"),
+    "TargetColumnsLookupSpec": ("TargetColumnsLookupSpec", "*"),
+    "TransformationColumnSpecAvrg": ("TransformationColumnSpec", "avrg"),
+    "TransformationColumnSpecCase": ("TransformationColumnSpec", "case"),
+    "TransformationColumnSpecCount": ("TransformationColumnSpec", "count"),
+    "TransformationColumnSpecDistinctCount": ("TransformationColumnSpec", "distinct_count"),
+    "TransformationColumnSpecEval": ("TransformationColumnSpec", "eval"),
+    "TransformationColumnSpecHash": ("TransformationColumnSpec", "hash"),
+    "TransformationColumnSpecLookup": ("TransformationColumnSpec", "lookup"),
+    "TransformationColumnSpecMap": ("TransformationColumnSpec", "map"),
+    "TransformationColumnSpecMapReduce": ("TransformationColumnSpec", "map_reduce"),
+    "TransformationColumnSpecMax": ("TransformationColumnSpec", "max"),
+    "TransformationColumnSpecMin": ("TransformationColumnSpec", "min"),
+    "TransformationColumnSpecMultiSelect": ("TransformationColumnSpec", "multi_select"),
+    "TransformationColumnSpecSelect": ("TransformationColumnSpec", "select"),
+    "TransformationColumnSpecSum": ("TransformationColumnSpec", "sum"),
+    "TransformationColumnSpecValue": ("TransformationColumnSpec", "value"),
+    "TransformationSpecAggregate": ("TransformationSpec", "aggregate"),
+    "TransformationSpecAnalyze": ("TransformationSpec", "analyze"),
+    "TransformationSpecAnonymize": ("TransformationSpec", "anonymize"),
+    "TransformationSpecClustering": ("TransformationSpec", "clustering"),
+    "TransformationSpecDistinct": ("TransformationSpec", "distinct"),
+    "TransformationSpecFilter": ("TransformationSpec", "filter"),
+    "TransformationSpecGroupBy": ("TransformationSpec", "group_by"),
+    "TransformationSpecHighFreq": ("TransformationSpec", "high_freq"),
+    "TransformationSpecJetrules": ("TransformationSpec", "jetrules"),
+    "TransformationSpecMapRecord": ("TransformationSpec", "map_record"),
+    "TransformationSpecMerge": ("TransformationSpec", "merge"),
+    "TransformationSpecOllama": ("TransformationSpec", "ollama"),
+    "TransformationSpecOverride": ("TransformationSpec", "~override"),
+    "TransformationSpecPartitionWriter": ("TransformationSpec", "partition_writer"),
+    "TransformationSpecShuffling": ("TransformationSpec", "shuffling"),
+    "TransformationSpecSort": ("TransformationSpec", "sort"),
+}
 
 _MODELS = [v for v in list(globals().values()) if isinstance(v, type) and issubclass(v, BaseModel) and v is not BaseModel]
 for _m in _MODELS:
