@@ -88,6 +88,21 @@ def main(argv: list[str] | None = None) -> int:
         help="also write each synthesized config to this directory, for reading",
     )
 
+    gofile_cmd = sub.add_parser(
+        "gofile",
+        help="emit the matrix as one generated Go data file (B.17)",
+    )
+    gofile_cmd.add_argument("--matrix", type=Path, default=DEFAULT_MATRIX)
+    gofile_cmd.add_argument(
+        "--out",
+        type=Path,
+        default=DEFAULT_MATRIX.parent.parent.parent
+        / "jets"
+        / "compute_pipes"
+        / "cpipes_contract_data.go",
+        help="destination of the generated Go file",
+    )
+
     stamp_cmd = sub.add_parser(
         "stamp",
         help="certify reviewed rows: write the fingerprint a reviewed mark "
@@ -197,6 +212,10 @@ def main(argv: list[str] | None = None) -> int:
         return _harness(args, matrix)
     if args.command == "stamp":
         return _stamp(args, matrix)
+    if args.command == "gofile":
+        from . import emit_go
+
+        return emit_go.run_with_matrix(args, matrix)
     if args.command == "generate":
         from . import generate as generate_mod
 
