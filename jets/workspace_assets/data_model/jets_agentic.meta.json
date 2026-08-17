@@ -1,0 +1,591 @@
+{
+  "model": "jets_agentic",
+  "version": "0.1.0",
+  "prefix": "jetsa",
+  "entities": {
+    "jetsa:AgentRun": {
+      "description": "One execution of one agent: the unit the audit store correlates on (\u00a77.2's run_id) and the carrier of the reproducibility fields the proposal's generated_by block names (\u00a7A.2.7).",
+      "base": "jets:Entity",
+      "as_table": true,
+      "properties": {
+        "jetsa:run_id": {
+          "type": "text",
+          "array": false,
+          "required": true,
+          "description": "The run identity; agent_audit.run_id correlates to it.",
+          "key": true
+        },
+        "jetsa:agent_id": {
+          "type": "text",
+          "array": false,
+          "required": true,
+          "description": "The agent that ran."
+        },
+        "jetsa:agent_version": {
+          "type": "text",
+          "array": false,
+          "required": true,
+          "description": "The agent's version, for reproducibility (\u00a7A.2.7 generated_by)."
+        },
+        "jetsa:model_id": {
+          "type": "text",
+          "array": false,
+          "required": true,
+          "description": "The model that served the run."
+        },
+        "jetsa:prompt_version": {
+          "type": "text",
+          "array": false,
+          "required": true,
+          "description": "The prompt version, for reproducibility."
+        },
+        "jetsa:tier": {
+          "type": "text",
+          "array": false,
+          "required": true,
+          "description": "The autonomy tier the run executed under, recorded not enforced (\u00a79.1).",
+          "vocabulary": "AutonomyTier"
+        },
+        "jetsa:started_at": {
+          "type": "datetime",
+          "array": false,
+          "required": true,
+          "description": "When the run started."
+        },
+        "jetsa:ended_at": {
+          "type": "datetime",
+          "array": false,
+          "required": false,
+          "description": "When the run ended; unset while running."
+        },
+        "jetsa:run_status": {
+          "type": "text",
+          "array": false,
+          "required": false,
+          "description": "The run outcome: succeeded, failed, interrupted; unset while running (scoped per F7: status is \u00a7A.2.7's name on Incident)."
+        },
+        "jetsa:triggered_by": {
+          "type": "text",
+          "array": false,
+          "required": false,
+          "description": "What started the run: a schedule, an anomaly, a user (scoped per F7: trigger_ref is \u00a7A.2.10's name on ChangeProposal)."
+        },
+        "jetsa:domain_model_version": {
+          "type": "text",
+          "array": false,
+          "required": true,
+          "description": "The domain model version the run reasoned against (\u00a75.3)."
+        }
+      }
+    },
+    "jetsa:ApprovalEvent": {
+      "description": "One human or agent decision on a supervised subject: the supervision seam. Outcomes are appended, never updated \u2014 a decision is a new event referencing the same subject (\u00a77.2).",
+      "base": "jets:Entity",
+      "as_table": true,
+      "properties": {
+        "jetsa:approval_event_id": {
+          "type": "text",
+          "array": false,
+          "required": true,
+          "description": "The event identity.",
+          "key": true
+        },
+        "jetsa:run_ref": {
+          "type": "text",
+          "array": false,
+          "required": true,
+          "description": "The AgentRun this event belongs to (scoped per F7: run_id names the run's own identity)."
+        },
+        "jetsa:subject_ref": {
+          "type": "text",
+          "array": false,
+          "required": true,
+          "description": "The Remediation or ChangeProposal being decided."
+        },
+        "jetsa:from_state": {
+          "type": "text",
+          "array": false,
+          "required": true,
+          "description": "The approval state before the decision.",
+          "vocabulary": "ApprovalState"
+        },
+        "jetsa:to_state": {
+          "type": "text",
+          "array": false,
+          "required": true,
+          "description": "The approval state after the decision.",
+          "vocabulary": "ApprovalState"
+        },
+        "jetsa:actor": {
+          "type": "text",
+          "array": false,
+          "required": true,
+          "description": "Who decided: a user_email or an agent identity."
+        },
+        "jetsa:tier_at_event": {
+          "type": "text",
+          "array": false,
+          "required": true,
+          "description": "The autonomy tier at the time of the event (\u00a77.2; scoped per F7).",
+          "vocabulary": "AutonomyTier"
+        },
+        "jetsa:decided_at": {
+          "type": "datetime",
+          "array": false,
+          "required": true,
+          "description": "When the decision was made."
+        },
+        "jetsa:decision_rationale": {
+          "type": "text",
+          "array": false,
+          "required": false,
+          "description": "Why, in the actor's words (scoped per F7: rationale is \u00a7A.2.10's name on ChangeProposal)."
+        }
+      }
+    },
+    "jetsa:ChangeProposal": {
+      "description": "A proposed code or configuration change (\u00a7A.2.10), flattened to scalar and array properties: code_diff, ci_result and impact_analysis are nested objects in the schema and JetRules has no anonymous nested object.",
+      "base": "jets:Entity",
+      "as_table": true,
+      "properties": {
+        "jetsa:proposal_id": {
+          "type": "text",
+          "array": false,
+          "required": true,
+          "description": "The proposal identity (\u00a7A.2.10: ^chg_[a-z0-9]+$).",
+          "key": true
+        },
+        "jetsa:trigger": {
+          "type": "text",
+          "array": false,
+          "required": true,
+          "description": "What prompted the proposal (\u00a7A.4 ChangeTrigger vocabulary; carried as text in Phase 0 \u2014 the vocabulary ships with its consumer)."
+        },
+        "jetsa:trigger_ref": {
+          "type": "text",
+          "array": false,
+          "required": false,
+          "description": "Incident, drift detection, or backlog item."
+        },
+        "jetsa:affected_pipelines": {
+          "type": "text",
+          "array": true,
+          "required": true,
+          "description": "The pipelines the change touches (min 1)."
+        },
+        "jetsa:code_diff_repository": {
+          "type": "text",
+          "array": false,
+          "required": false,
+          "description": "code_diff.repository of \u00a7A.2.10."
+        },
+        "jetsa:code_diff_branch": {
+          "type": "text",
+          "array": false,
+          "required": false,
+          "description": "code_diff.branch of \u00a7A.2.10."
+        },
+        "jetsa:code_diff_files_changed": {
+          "type": "text",
+          "array": true,
+          "required": false,
+          "description": "code_diff.files_changed of \u00a7A.2.10."
+        },
+        "jetsa:code_diff_lines_added": {
+          "type": "int",
+          "array": false,
+          "required": false,
+          "description": "code_diff.lines_added of \u00a7A.2.10."
+        },
+        "jetsa:code_diff_lines_removed": {
+          "type": "int",
+          "array": false,
+          "required": false,
+          "description": "code_diff.lines_removed of \u00a7A.2.10."
+        },
+        "jetsa:rationale": {
+          "type": "text",
+          "array": false,
+          "required": false,
+          "description": "Why the change is proposed."
+        },
+        "jetsa:assumptions_made": {
+          "type": "text",
+          "array": true,
+          "required": false,
+          "description": "The assumptions the proposal rests on."
+        },
+        "jetsa:generated_tests": {
+          "type": "text",
+          "array": true,
+          "required": true,
+          "description": "The tests generated with the change (min 1)."
+        },
+        "jetsa:ci_result_status": {
+          "type": "text",
+          "array": false,
+          "required": false,
+          "description": "ci_result.status: passed, failed, pending."
+        },
+        "jetsa:ci_result_tests_run": {
+          "type": "int",
+          "array": false,
+          "required": false,
+          "description": "ci_result.tests_run."
+        },
+        "jetsa:ci_result_tests_failed": {
+          "type": "int",
+          "array": false,
+          "required": false,
+          "description": "ci_result.tests_failed."
+        },
+        "jetsa:impact_affected_assets": {
+          "type": "text",
+          "array": true,
+          "required": true,
+          "description": "impact_analysis.affected_downstream_assets, as asset refs."
+        },
+        "jetsa:impact_clinical_relevance_touched": {
+          "type": "bool",
+          "array": false,
+          "required": true,
+          "description": "impact_analysis.clinical_relevance_touched \u2014 the flag \u00a710 escalates on."
+        },
+        "jetsa:approval_state": {
+          "type": "text",
+          "array": false,
+          "required": true,
+          "description": "Where the proposal sits in the approval lifecycle.",
+          "vocabulary": "ApprovalState"
+        },
+        "jetsa:proposal_model_version": {
+          "type": "text",
+          "array": false,
+          "required": true,
+          "description": "The domain model version the proposal was generated against (scoped per F7; domain_model_version stays on AgentRun)."
+        }
+      }
+    },
+    "jetsa:Anomaly": {
+      "description": "A deterministic detector's observation (\u00a7A.2.6). Skeleton: identity and detection time; the signal fields arrive with the Observer agent.",
+      "base": "jets:Entity",
+      "as_table": false,
+      "properties": {
+        "jetsa:anomaly_id": {
+          "type": "text",
+          "array": false,
+          "required": true,
+          "description": "The anomaly identity (\u00a7A.2.6: ^anom_[a-z0-9]+$).",
+          "key": true
+        },
+        "jetsa:detected_at": {
+          "type": "datetime",
+          "array": false,
+          "required": true,
+          "description": "When the detector emitted it."
+        }
+      }
+    },
+    "jetsa:Evidence": {
+      "description": "One evidence item of a Hypothesis (\u00a7A.2.8 `$defs`): a value object in working memory, so \u00a7B.3's escalation trigger \u2014 contradictory evidence exceeding supporting \u2014 is a rule-countable fact rather than a JSON blob.",
+      "base": "owl:Thing",
+      "as_table": false,
+      "properties": {
+        "jetsa:statement": {
+          "type": "text",
+          "array": false,
+          "required": true,
+          "description": "The evidence, in words.",
+          "data_classification": "PHI"
+        },
+        "jetsa:source": {
+          "type": "text",
+          "array": false,
+          "required": true,
+          "description": "Where the evidence came from.",
+          "vocabulary": "EvidenceSource"
+        },
+        "jetsa:source_ref": {
+          "type": "text",
+          "array": false,
+          "required": false,
+          "description": "A resolvable reference into the source."
+        }
+      }
+    },
+    "jetsa:Hypothesis": {
+      "description": "A causal hypothesis for an Incident (\u00a7A.2.8): the RCA agent's output contract (\u00a7B.3). contradicting_evidence is required \u2014 a calibration control, not a documentation nicety (\u00a7A.2.8's own note).",
+      "base": "jets:Entity",
+      "as_table": false,
+      "properties": {
+        "jetsa:hypothesis_id": {
+          "type": "text",
+          "array": false,
+          "required": true,
+          "description": "The hypothesis identity.",
+          "key": true
+        },
+        "jetsa:cause": {
+          "type": "text",
+          "array": false,
+          "required": true,
+          "description": "The hypothesised cause (max 500 chars in \u00a7A.2.8)."
+        },
+        "jetsa:cause_category": {
+          "type": "text",
+          "array": false,
+          "required": false,
+          "description": "The causal taxonomy entry.",
+          "vocabulary": "IncidentClassification"
+        },
+        "jetsa:confidence": {
+          "type": "double",
+          "array": false,
+          "required": true,
+          "description": "The agent's confidence, 0..1."
+        },
+        "jetsa:rank": {
+          "type": "int",
+          "array": false,
+          "required": true,
+          "description": "The rank among the incident's hypotheses, 1-based."
+        },
+        "jetsa:supporting_evidence": {
+          "type": "resource",
+          "array": true,
+          "required": true,
+          "description": "The evidence for (min 1).",
+          "entity": "jetsa:Evidence"
+        },
+        "jetsa:contradicting_evidence": {
+          "type": "resource",
+          "array": true,
+          "required": true,
+          "description": "The evidence against \u2014 required; empty only where the agent explicitly asserts none exists (\u00a7A.2.8).",
+          "entity": "jetsa:Evidence"
+        }
+      }
+    },
+    "jetsa:Incident": {
+      "description": "A triaged cluster of anomalies (\u00a7A.2.7). Skeleton: identity, lifecycle and the classification trio; the impact and generated_by fields arrive with their consumer.",
+      "base": "jets:Entity",
+      "as_table": false,
+      "properties": {
+        "jetsa:incident_id": {
+          "type": "text",
+          "array": false,
+          "required": true,
+          "description": "The incident identity (\u00a7A.2.7: ^inc_[a-z0-9]+$).",
+          "key": true
+        },
+        "jetsa:classification": {
+          "type": "text",
+          "array": false,
+          "required": true,
+          "description": "The causal classification.",
+          "vocabulary": "IncidentClassification"
+        },
+        "jetsa:severity": {
+          "type": "text",
+          "array": false,
+          "required": true,
+          "description": "The severity.",
+          "vocabulary": "Severity"
+        },
+        "jetsa:status": {
+          "type": "text",
+          "array": false,
+          "required": true,
+          "description": "Where the incident sits in \u00a7A.5's state machine.",
+          "vocabulary": "IncidentStatus"
+        },
+        "jetsa:hypotheses": {
+          "type": "resource",
+          "array": true,
+          "required": false,
+          "description": "The ranked causal hypotheses.",
+          "entity": "jetsa:Hypothesis"
+        },
+        "jetsa:incident_model_version": {
+          "type": "text",
+          "array": false,
+          "required": true,
+          "description": "\u00a7A.2.7's domain_model_version, scoped per F7: the model version the incident was raised against."
+        }
+      }
+    },
+    "jetsa:Remediation": {
+      "description": "A proposed corrective action (\u00a7A.2.9). Skeleton: identity, the incident it corrects, and the two governing states.",
+      "base": "jets:Entity",
+      "as_table": false,
+      "properties": {
+        "jetsa:remediation_id": {
+          "type": "text",
+          "array": false,
+          "required": true,
+          "description": "The remediation identity (\u00a7A.2.9: ^rem_[a-z0-9]+$).",
+          "key": true
+        },
+        "jetsa:incident_ref": {
+          "type": "text",
+          "array": false,
+          "required": true,
+          "description": "The Incident this remediates (\u00a7A.2.9 names it incident_id; scoped per F7 against Incident's identity)."
+        },
+        "jetsa:autonomy_tier_required": {
+          "type": "text",
+          "array": false,
+          "required": true,
+          "description": "The tier the action requires (recorded; enforcement is by privilege, \u00a79.1).",
+          "vocabulary": "AutonomyTier"
+        },
+        "jetsa:remediation_approval_state": {
+          "type": "text",
+          "array": false,
+          "required": true,
+          "description": "Where the remediation sits in the approval lifecycle (\u00a7A.2.9 names it approval_state; scoped per F7 against ChangeProposal's).",
+          "vocabulary": "ApprovalState"
+        }
+      }
+    },
+    "jetsa:EvalCase": {
+      "description": "One evaluation case of the assurance suite (ours; \u00a711's consumer arrives in a later phase). Skeleton: identity only.",
+      "base": "jets:Entity",
+      "as_table": false,
+      "properties": {
+        "jetsa:eval_case_id": {
+          "type": "text",
+          "array": false,
+          "required": true,
+          "description": "The evaluation case identity.",
+          "key": true
+        }
+      }
+    },
+    "jetsa:DomainModelVersion": {
+      "description": "A released version of the domain model itself (proposal \u00a75.3: identity and intent given, fields ours). Skeleton: the version and when it took effect.",
+      "base": "jets:Entity",
+      "as_table": false,
+      "properties": {
+        "jetsa:version": {
+          "type": "text",
+          "array": false,
+          "required": true,
+          "description": "The semantic version of the model release.",
+          "key": true
+        },
+        "jetsa:effective_at": {
+          "type": "datetime",
+          "array": false,
+          "required": true,
+          "description": "When this version became the current one."
+        }
+      }
+    }
+  },
+  "vocabularies": {
+    "AutonomyTier": {
+      "properties": [
+        "jetsa:autonomy_tier_required",
+        "jetsa:tier",
+        "jetsa:tier_at_event"
+      ],
+      "values": [
+        "T0",
+        "T1",
+        "T2",
+        "T3",
+        "T4"
+      ],
+      "description": "\u00a7A.4. Lexicographic order is tier order \u2014 the ceiling comparisons of gap 7 work on the text directly, so do not relabel to the \u00a79.2 names and do not exceed T9 (\u00a74)."
+    },
+    "ApprovalState": {
+      "properties": [
+        "jetsa:approval_state",
+        "jetsa:from_state",
+        "jetsa:remediation_approval_state",
+        "jetsa:to_state"
+      ],
+      "values": [
+        "draft",
+        "validated",
+        "agent_reviewed",
+        "awaiting_human_approval",
+        "approved",
+        "approved_with_modification",
+        "rejected",
+        "superseded",
+        "deployed"
+      ],
+      "description": "\u00a7A.4 \u2014 the approval lifecycle (9 values)."
+    },
+    "EvidenceSource": {
+      "properties": [
+        "jetsa:source"
+      ],
+      "values": [
+        "run_telemetry",
+        "lineage",
+        "commit_history",
+        "prior_incident",
+        "infrastructure_log",
+        "source_delivery_history",
+        "dq_result",
+        "code_inspection",
+        "profile"
+      ],
+      "description": "\u00a7A.2.8's `$defs` \u2014 scoped to Evidence and deliberately NOT in \u00a7A.4, which is why the emitters discover vocabularies by reachability (9 values)."
+    },
+    "IncidentClassification": {
+      "properties": [
+        "jetsa:cause_category",
+        "jetsa:classification"
+      ],
+      "values": [
+        "source_delivery_failure",
+        "source_content_change",
+        "transport_failure",
+        "parse_failure",
+        "validation_breach",
+        "transformation_defect",
+        "infrastructure_failure",
+        "dependency_failure",
+        "capacity_or_cost_deviation",
+        "benign_variation"
+      ],
+      "description": "\u00a7A.4 \u2014 the causal taxonomy of an incident (10 values)."
+    },
+    "Severity": {
+      "properties": [
+        "jetsa:severity"
+      ],
+      "values": [
+        "info",
+        "low",
+        "medium",
+        "high",
+        "critical"
+      ],
+      "description": "\u00a7A.4 (5 values)."
+    },
+    "IncidentStatus": {
+      "properties": [
+        "jetsa:status"
+      ],
+      "values": [
+        "detected",
+        "triaged",
+        "diagnosed",
+        "remediation_proposed",
+        "awaiting_approval",
+        "remediating",
+        "resolved",
+        "verified",
+        "closed",
+        "reclassified",
+        "suppressed_as_benign"
+      ],
+      "description": "\u00a7A.4 \u2014 the incident lifecycle (11 values); the state machine is \u00a7A.5's."
+    }
+  }
+}
