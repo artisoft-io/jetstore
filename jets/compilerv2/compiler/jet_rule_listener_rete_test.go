@@ -46,7 +46,7 @@ func TestJetRuleListener_BuildReteNetwork1(t *testing.T) {
 	case len(jrCompiler.JetRuleModel().ReteNodes) != 6:
 		t.Error("Expected 6 rete nodes, got", len(jrCompiler.JetRuleModel().ReteNodes))
 	}
-	t.Error("Done")
+	// t.Error("Done")
 }
 
 func TestJetRuleListener_BuildReteNetwork2(t *testing.T) {
@@ -84,13 +84,40 @@ func TestJetRuleListener_BuildReteNetwork2(t *testing.T) {
 	// fmt.Printf("** Jet Rules: \n%v\n", string(b))
 	b, _ = json.MarshalIndent(jrCompiler.JetRuleModel().ReteNodes, "", " ")
 	fmt.Printf("** Rete Nodes: \n%v\n", string(b))
+	// Eleven nodes, not the twelve this test used to expect: a head node, six
+	// antecedent nodes and four consequents. The two rules share the first four
+	// antecedents *and* the fifth — Savings01's (?drugInterchange
+	// wrs:Target_Drug_Cost ?targetCost) and Savings02's ... ?targetCost1
+	// normalise to the same node, (?x02 wrs:Target_Drug_Cost ?x05), because a
+	// variable's name is local to its rule. Savings02 then extends that node
+	// with its second Target_Drug_Cost binding. Sharing the common prefix is
+	// what a RETE network is for, so counting twelve was counting a network
+	// that had failed to share.
 	switch {
 	case jrCompiler.ErrorLog().Len() > 0:
 		t.Error(jrCompiler.ErrorLog().String())
 	case len(jrCompiler.JetRuleModel().Jetrules) != 2:
 		t.Error("Expected 2 jetrules")
-	case len(jrCompiler.JetRuleModel().ReteNodes) != 12:
-		t.Error("Expected 12 rete nodes, got", len(jrCompiler.JetRuleModel().ReteNodes))
+	case len(jrCompiler.JetRuleModel().ReteNodes) != 11:
+		t.Error("Expected 11 rete nodes, got", len(jrCompiler.JetRuleModel().ReteNodes))
+	}
+	// The shape behind the count: the antecedents form one chain of six, and
+	// each rule's two consequents hang off the vertex where that rule ends -
+	// Savings01 at 5, Savings02 at 6.
+	antecedents, consequents := 0, map[int]int{}
+	for _, node := range jrCompiler.JetRuleModel().ReteNodes {
+		switch node.Type {
+		case "antecedent":
+			antecedents++
+		case "consequent":
+			consequents[node.Vertex]++
+		}
+	}
+	if antecedents != 6 {
+		t.Errorf("expected 6 antecedent nodes (4 shared, 1 shared fifth, 1 for Savings02), got %d", antecedents)
+	}
+	if consequents[5] != 2 || consequents[6] != 2 {
+		t.Errorf("expected both rules to end at vertices 5 and 6 with two consequents each, got %v", consequents)
 	}
 	// t.Error("Done")
 }

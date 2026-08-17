@@ -4,7 +4,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"strings"
 	"testing"
+
+	"github.com/artisoft-io/jetstore/jets/jetrules/rete"
 )
 
 func TestJetRuleListener_SimpleFile(t *testing.T) {
@@ -95,7 +98,7 @@ func TestJetRuleListener_JetRuleConfig(t *testing.T) {
 	if jrCompiler.ErrorLog().Len() > 0 {
 		t.Error(jrCompiler.ErrorLog().String())
 	} else {
-		t.Error("Done")
+		// t.Error("Done")
 	}
 }
 
@@ -133,18 +136,19 @@ func TestJetRuleListener_Resources(t *testing.T) {
 
 func TestJetRuleListener_Resources_err1(t *testing.T) {
 
-	jrCompiler, err := CompileJetRuleFiles("./testdata", "resources_err1.jr", false, true, false)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
+	jrCompiler := NewCompiler("./testdata", "resources_err1.jr", false, true, false)
+	// The fixture is invalid by design: the compile is expected to report
+	// errors, and returning them is not a test failure.
+	err := jrCompiler.Compile()
+	if err == nil {
+		t.Error("expected the compile to fail on an invalid fixture")
 	}
 	b, _ := json.MarshalIndent(jrCompiler.JetRuleModel().Resources, "", " ")
 	fmt.Printf("** Resources: \n%v\n", string(b))
 	fmt.Printf("** Error Log: \n%v\n", jrCompiler.ErrorLog().String())
-	if jrCompiler.ErrorLog().Len() == 0 {
-		t.Error("Expected error but none found")
-	} else {
-		// t.Error("Done")
-	}
+	assertErrorLog(t, jrCompiler.ErrorLog().String(),
+		"resource Id conflict for Id 'always'",
+		"resource Id conflict for Id 'never'")
 }
 
 func TestJetRuleListener_Lookup(t *testing.T) {
@@ -182,38 +186,39 @@ func TestJetRuleListener_JetRule0(t *testing.T) {
 
 func TestJetRuleListener_JetRule_err1(t *testing.T) {
 
-	jrCompiler, err := CompileJetRuleFiles("./testdata", "jetrule_err1.jr", false, true, false)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
+	jrCompiler := NewCompiler("./testdata", "jetrule_err1.jr", false, true, false)
+	// The fixture is invalid by design: the compile is expected to report
+	// errors, and returning them is not a test failure.
+	err := jrCompiler.Compile()
+	if err == nil {
+		t.Error("expected the compile to fail on an invalid fixture")
 	}
 	b, _ := json.MarshalIndent(jrCompiler.JetRuleModel().Resources, "", " ")
 	fmt.Printf("** Resources: \n%v\n", string(b))
 	b, _ = json.MarshalIndent(jrCompiler.JetRuleModel().Jetrules, "", " ")
 	fmt.Printf("** Jet Rules: \n%v\n", string(b))
 	fmt.Printf("** Error Log: \n%v\n", jrCompiler.ErrorLog().String())
-	if jrCompiler.ErrorLog().Len() == 0 {
-		t.Error("Expected error but none found")
-	} else {
-		// t.Error("Done")
-	}
+	assertErrorLog(t, jrCompiler.ErrorLog().String(),
+		"antecedent must have at least one of subject, predicate, object as variable",
+		"consequent subject variable var|?config not found in antecedents")
 }
 
 func TestJetRuleListener_JetRule_err2(t *testing.T) {
 
-	jrCompiler, err := CompileJetRuleFiles("./testdata", "jetrule_err2.jr", false, true, false)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
+	jrCompiler := NewCompiler("./testdata", "jetrule_err2.jr", false, true, false)
+	// The fixture is invalid by design: the compile is expected to report
+	// errors, and returning them is not a test failure.
+	err := jrCompiler.Compile()
+	if err == nil {
+		t.Error("expected the compile to fail on an invalid fixture")
 	}
 	b, _ := json.MarshalIndent(jrCompiler.JetRuleModel().Resources, "", " ")
 	fmt.Printf("** Resources: \n%v\n", string(b))
 	b, _ = json.MarshalIndent(jrCompiler.JetRuleModel().Jetrules, "", " ")
 	fmt.Printf("** Jet Rules: \n%v\n", string(b))
 	fmt.Printf("** Error Log: \n%v\n", jrCompiler.ErrorLog().String())
-	if jrCompiler.ErrorLog().Len() == 0 {
-		t.Error("Expected error but none found")
-	} else {
-		// t.Error("Done")
-	}
+	assertErrorLog(t, jrCompiler.ErrorLog().String(),
+		"consequent object expression variable var|?v1 not found in antecedents")
 }
 
 func TestJetRuleListener_InlineLiteral(t *testing.T) {
@@ -235,10 +240,50 @@ func TestJetRuleListener_InlineLiteral(t *testing.T) {
 	b, _ = json.MarshalIndent(jrCompiler.JetRuleModel().Jetrules, "", " ")
 	fmt.Printf("** Jet Rules: \n%v\n", string(b))
 	fmt.Printf("** Error Log: \n%v\n", jrCompiler.ErrorLog().String())
-	if jrCompiler.ErrorLog().Len() == 0 {
-		t.Error("Expected error but none found")
-	} else {
-		// t.Error("Done")
+
+	// This test expected an error, from a time when a literal written inline in
+	// a consequent was not supported. It is: the corpus is full of them
+	// (workspaces/usi_ws alone has hundreds of (?x hc_usi:meetRule "...")), and
+	// the compiler records the literal as an anonymous inline text resource
+	// which the consequent then refers to. What the test checks now is that.
+	if jrCompiler.ErrorLog().Len() > 0 {
+		t.Error(jrCompiler.ErrorLog().String())
+	}
+	var inline *rete.ResourceNode
+	for i, r := range jrCompiler.JetRuleModel().Resources {
+		if r.Inline && r.Type == "text" && r.Value == "Missing Relationship_Code" {
+			inline = jrCompiler.JetRuleModel().Resources[i]
+		}
+	}
+	if inline == nil {
+		t.Fatal("the inline literal is not in the model as an inline text resource")
+	}
+	if inline.Id != "" {
+		t.Errorf("an inline literal is anonymous; this one has id %q", inline.Id)
+	}
+	if len(jrCompiler.JetRuleModel().Jetrules) != 1 {
+		t.Fatalf("expected 1 rule, got %d", len(jrCompiler.JetRuleModel().Jetrules))
+	}
+	consequents := jrCompiler.JetRuleModel().Jetrules[0].Consequents
+	if len(consequents) != 1 ||
+		consequents[0].NormalizedLabel != "(?x01 jets:ruleTag text(Missing Relationship_Code))" {
+		t.Errorf("the consequent does not refer to the literal: %+v", consequents)
+	}
+}
+
+// assertErrorLog fails unless every wanted diagnostic is in the compiler's
+// error log, printing the log when it is not — a fixture that stops producing
+// the error it exists for should say which error went missing.
+func assertErrorLog(t *testing.T, errorLog string, want ...string) {
+	t.Helper()
+	if errorLog == "" {
+		t.Errorf("expected the compile to report errors, the error log is empty")
+		return
+	}
+	for _, w := range want {
+		if !strings.Contains(errorLog, w) {
+			t.Errorf("the error log does not report %q:\n%s", w, errorLog)
+		}
 	}
 }
 
