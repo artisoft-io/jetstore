@@ -1090,7 +1090,7 @@ class SplitterSpecStandard(SplitterSpecBase):
 
 class SplitterSpecExtCount(SplitterSpecBase):
     """Creates one partition per distinct value of the split key, subdivided so that no partition holds more than partition_row_count rows."""
-    type: Literal["ext_count"] = Field(default="ext_count", description="Which splitting strategy to use. Engine default: standard (builder).")
+    type: Literal["ext_count"] = Field(description="Which splitting strategy to use. Engine default: standard (builder).")
     partition_row_count: int = Field(description="Maximum number of rows in each extended partition.")
 
 

@@ -5,6 +5,7 @@ description = "The cpipes config contract: the applicability matrix, its schema 
 requires-python = ">=3.11"
 dependencies = [
     "pydantic>=2.5",
+    "jsonschema>=4.21",
 ]
 
 [project.scripts]

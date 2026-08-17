@@ -130,7 +130,24 @@ def main(argv: list[str] | None = None) -> int:
         help="compare instead of writing; exit nonzero on divergence",
     )
 
+    schema_cmd = sub.add_parser(
+        "schema",
+        help="emit the JSON Schema with every type addressable in $defs (B.11)",
+    )
+    schema_cmd.add_argument("--matrix", type=Path, default=DEFAULT_MATRIX)
+    schema_cmd.add_argument(
+        "--model", type=Path, default=DEFAULT_MATRIX.parent / "cpipes_model.py"
+    )
+    schema_cmd.add_argument(
+        "--out", type=Path, default=DEFAULT_MATRIX.parent / "cpipes_schema.json"
+    )
+
     args = parser.parse_args(argv)
+
+    if args.command == "schema":
+        from . import schema as schema_mod
+
+        return schema_mod.run(args)
 
     if args.command == "reflect":
         # reflect reads the CSV raw (it rewrites cells the schema validates)

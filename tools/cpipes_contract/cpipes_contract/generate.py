@@ -197,7 +197,10 @@ class Emitter:
             desc += f" Engine default: {row.default} ({row.default_by})."
         desc = desc.replace("\\", "\\\\").replace('"', '\\"')
         if literal_token is not None:
-            default = f' = "{literal_token}"' if row.required is not Required.YES else ""
+            has_default = (
+                row.required is not Required.YES and str(row.default) == literal_token
+            )
+            default = f' = "{literal_token}"' if has_default else ""
             if desc:
                 return f'    {name}: {typ} = Field({literal_token_default(row, literal_token)}description="{desc}")'
             return f"    {name}: {typ}{default}"
@@ -428,7 +431,10 @@ class Emitter:
 
 
 def literal_token_default(row: FieldRow, token: str) -> str:
-    if row.required is not Required.YES:
+    # Only the engine-default variant of a union may leave its tag optional:
+    # in JSON Schema (no tag injection there) an untagged document must match
+    # exactly one oneOf branch, so every other variant requires its tag.
+    if row.required is not Required.YES and str(row.default) == token:
         return f'default="{token}", '
     return ""
 
