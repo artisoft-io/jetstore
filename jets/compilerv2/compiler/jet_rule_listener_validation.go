@@ -413,8 +413,18 @@ func (l *JetRuleListener) PostProcessClasses() {
 			}
 		}
 	}
-	// visit classes and create rules for class inheritance axioms
-	for className, class := range l.classesByName {
+	// visit classes and create rules for class inheritance axioms.
+	// In name order: these rules are appended to the model in the order visited,
+	// and ranging over the map put them in a different order on every run, which
+	// made workspace.db's jet_rules, rule_terms and rete_nodes keys differ
+	// between two compiles of the same workspace.
+	classNames := make([]string, 0, len(l.classesByName))
+	for className := range l.classesByName {
+		classNames = append(classNames, className)
+	}
+	sort.Strings(classNames)
+	for _, className := range classNames {
+		class := l.classesByName[className]
 		// Create a single rule to infer all base classes of the class:
 		// (?x01 rdf:type <class>) -> (?x01 rdf:type <baseClass1>).(?x01 rdf:type <baseClass2>)...;
 		// Rule name: ci_<class>

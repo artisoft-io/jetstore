@@ -197,6 +197,13 @@ func TestRegistryDrivesAllThreeTools(t *testing.T) {
 	if got := len(desc.Vocabularies["IncidentStatus"]); got != 11 {
 		t.Errorf("describe jetsa:Incident: IncidentStatus inlined with %d values, want 11", got)
 	}
+	// The declaring file, not the first file of the flattened import unit
+	// (I-16). jets_agentic.jr imports jets_model.jr, so everything it declares
+	// used to be reported as belonging to jets_model.jr.
+	if desc.SourceFile != "data_model/jets_agentic.jr" {
+		t.Errorf("describe jetsa:Incident: source_file %q, want data_model/jets_agentic.jr",
+			desc.SourceFile)
+	}
 
 	// Tool 2, PHI marking arrives through the triples channel.
 	raw = call(t, reg, ws, "describe_domain_class", `{"name":"jetsa:Evidence"}`)

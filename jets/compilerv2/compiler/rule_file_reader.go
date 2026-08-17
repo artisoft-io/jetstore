@@ -29,6 +29,9 @@ type RuleFileReader struct {
 	importedFileNames map[string]bool
 	importedFileInfo  []*ImportedFileInfo
 	readFile          readFileFunc
+	// The file the last source_file directive named — what the listener will
+	// attribute the next declaration to.
+	currentSourceFile string
 }
 
 func NewRuleFileReader(basePath string, mainFileName string, readFile readFileFunc) *RuleFileReader {
@@ -108,8 +111,7 @@ func (r *RuleFileReader) readFileRecursive(fileName string) error {
 
 	// Put jet compiler directive to mark the file, this also replace the import statement
 	// so the imported file starts at the next line
-	r.combinedContent.WriteString(fmt.Sprintf("@JetCompilerDirective source_file = \"%s\";\n", fileName))
-	r.globalLineNum++
+	r.writeSourceFileDirective(fileName)
 
 	content, err := r.readFile(r.basePath, fileName)
 	if err != nil {
@@ -146,7 +148,14 @@ func (r *RuleFileReader) readFileRecursive(fileName string) error {
 					return err
 				}
 
-				// Resume the current file
+				// Resume the current file, re-marking it as the source: the
+				// directive is what the listener attributes declarations to
+				// (currentRuleFileName), so without it everything after an
+				// import in this file would be recorded as belonging to the
+				// file that was imported.
+				if remainingLines > 0 {
+					r.writeSourceFileDirective(fileName)
+				}
 				r.importedFileInfo = append(r.importedFileInfo,
 					NewImportedFileInfo(fileName, r.globalLineNum, r.globalLineNum+remainingLines, iLine+1))
 			}
@@ -157,6 +166,20 @@ func (r *RuleFileReader) readFileRecursive(fileName string) error {
 	}
 
 	return nil
+}
+
+// writeSourceFileDirective marks the following lines as belonging to fileName.
+// It occupies one global line, so the caller's line accounting sees it — and it
+// is a no-op when fileName is already the file in effect, which keeps the
+// resume case from emitting a directive for a file whose import was its first
+// line.
+func (r *RuleFileReader) writeSourceFileDirective(fileName string) {
+	if r.currentSourceFile == fileName {
+		return
+	}
+	r.combinedContent.WriteString(fmt.Sprintf("@JetCompilerDirective source_file = \"%s\";\n", fileName))
+	r.currentSourceFile = fileName
+	r.globalLineNum++
 }
 
 func splitLines(content string) []string {
