@@ -351,3 +351,41 @@ func TestValidatePipeSpecConfigRejectsEmptyConditionalPipes(t *testing.T) {
 		t.Fatalf("non-empty conditional pipes_config rejected: %v", err)
 	}
 }
+
+func TestValidatePipeSpecConfigRejectsEncodingWithoutColumn(t *testing.T) {
+	// The column check used to live only in the jetrules output-channel branch;
+	// an encoding without a column on any other channel validated silently.
+	startup := &CpipesStartup{}
+	cpConfig := &ComputePipesConfig{
+		Channels: []ChannelSpec{{
+			Name:            "ch1",
+			Columns:         []string{"c1"},
+			ColumnEncodings: []*ColumnEncodingSpec{{EntityEncoding: "json"}},
+		}},
+	}
+	if err := startup.ValidatePipeSpecConfig(cpConfig, nil); err == nil {
+		t.Error("expecting a column_encodings entry with no column to be rejected")
+	}
+	cpConfig.Channels[0].ColumnEncodings[0].Column = "c1"
+	if err := startup.ValidatePipeSpecConfig(cpConfig, nil); err != nil {
+		t.Fatalf("valid column_encodings rejected: %v", err)
+	}
+}
+
+func TestGetComputePipesRejectsEmptySelectedStep(t *testing.T) {
+	// A selected conditional step with an empty pipes_config used to return nil
+	// pipes, silently skipping validation and the step itself.
+	cpConfig := &ComputePipesConfig{
+		ConditionalPipesConfig: []ConditionalPipeSpec{{StepName: "s0"}},
+	}
+	if _, _, err := cpConfig.GetComputePipes(0, map[string]any{}); err == nil {
+		t.Error("expecting an empty selected pipes_config to be rejected")
+	}
+	cpConfig.ConditionalPipesConfig[0].PipesConfig = []PipeSpec{{
+		Type:         "fan_out",
+		InputChannel: InputChannelConfig{Name: "input_row", Type: "input"},
+	}}
+	if _, _, err := cpConfig.GetComputePipes(0, map[string]any{}); err != nil {
+		t.Fatalf("non-empty selected pipes_config rejected: %v", err)
+	}
+}

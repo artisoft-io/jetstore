@@ -67,6 +67,15 @@ func (cp *ComputePipesConfig) GetComputePipes(stepId int, env map[string]any) ([
 	case len(cp.ReducingPipesConfig) > stepId:
 		return cp.ReducingPipesConfig[stepId], stepId, nil
 	case len(cp.ConditionalPipesConfig) > stepId:
+		// A selected step with an empty pipes_config is a configuration error,
+		// not a no-op; ValidatePipeSpecConfig rejects it statically and this
+		// guards the paths that select a step before validation runs.
+		selected := func(id int) ([]PipeSpec, int, error) {
+			if len(cp.ConditionalPipesConfig[id].PipesConfig) == 0 {
+				return nil, id, fmt.Errorf("configuration error: conditional_pipes_config step %d has an empty pipes_config", id)
+			}
+			return cp.ConditionalPipesConfig[id].PipesConfig, id, nil
+		}
 		if cp.ConditionalPipesConfig[stepId].When != nil {
 			// Check if condition is met
 			// Available expr variables:
@@ -88,7 +97,7 @@ func (cp *ComputePipesConfig) GetComputePipes(stepId int, env map[string]any) ([
 					}
 					if ToBool(v) {
 						ApplyConditionalEnvVars(cp.ConditionalPipesConfig[stepId].AddlEnv, env)
-						return cp.ConditionalPipesConfig[stepId].PipesConfig, stepId, nil
+						return selected(stepId)
 					}
 					stepId += 1
 					if len(cp.ConditionalPipesConfig) == stepId {
@@ -97,12 +106,12 @@ func (cp *ComputePipesConfig) GetComputePipes(stepId int, env map[string]any) ([
 					}
 				} else {
 					ApplyConditionalEnvVars(cp.ConditionalPipesConfig[stepId].AddlEnv, env)
-					return cp.ConditionalPipesConfig[stepId].PipesConfig, stepId, nil
+					return selected(stepId)
 				}
 			}
 		}
 		ApplyConditionalEnvVars(cp.ConditionalPipesConfig[stepId].AddlEnv, env)
-		return cp.ConditionalPipesConfig[stepId].PipesConfig, stepId, nil
+		return selected(stepId)
 	}
 	return nil, stepId, nil
 }

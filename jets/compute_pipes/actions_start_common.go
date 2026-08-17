@@ -830,6 +830,14 @@ func (args *CpipesStartup) ValidatePipeSpecConfig(cpConfig *ComputePipesConfig, 
 			return fmt.Errorf("configuration error: conditional_pipes_config step %d has an empty pipes_config", i)
 		}
 	}
+	for i := range cpConfig.Channels {
+		for _, encoding := range cpConfig.Channels[i].ColumnEncodings {
+			if encoding == nil || len(encoding.Column) == 0 {
+				return fmt.Errorf("configuration error: channel '%s' has a column_encodings entry with no column specified",
+					cpConfig.Channels[i].Name)
+			}
+		}
+	}
 	for i := range pipeConfig {
 		pipeSpec := &pipeConfig[i]
 		// log.Printf("VALIDATE PIPESPEC %s\n", pipeSpec.Type)
