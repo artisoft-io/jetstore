@@ -344,7 +344,7 @@ class EntityHint(_Base):
 
 
 class ExpressionNode(_Base):
-    """ExpressionNode: Unary operator expression: op arg."""
+    """An expression tree node - one class, several structural shapes: a unary operator node (op + arg), a binary operator node (lhs + op + rhs), or a typed leaf (type: select, value, expr_proxy, function, static_list); unary and binary operator nodes carry no type. Self-referential through arg, lhs, rhs, function_arguments, and default. JSON Schema cannot bound the recursion, so the depth budget lives with the caller: the deepest live expression in the corpus is 8 levels, and prompts should bound generation at 12."""
     arg: ExpressionNode | None = Field(default=None, description="The operand of a unary operator node.")
     as_rdf_type: str | None = Field(default=None, description="Casts the leaf value; see CastToRdfType.")
     comment: str | None = Field(default=None, description="Free text for the reader; ignored by JetStore.")

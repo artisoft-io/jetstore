@@ -47,6 +47,15 @@ from .matrix_schema import (
 # discriminator is optional in the wire and the variants are structural.
 MERGED = {"ExpressionNode", "ContextSpec"}
 
+# Docstrings for the merged classes: the per-token descriptions describe one
+# shape each, and the merged class needs the whole story (B.12 carries the
+# recursion depth guidance here, since a re-bootstrap must not lose it).
+MERGED_DOC = {
+    "ExpressionNode": (
+        "An expression tree node - one class, several structural shapes: a unary operator node (op + arg), a binary operator node (lhs + op + rhs), or a typed leaf (type: select, value, expr_proxy, function, static_list); unary and binary operator nodes carry no type. Self-referential through arg, lhs, rhs, function_arguments, and default. JSON Schema cannot bound the recursion, so the depth budget lives with the caller: the deepest live expression in the corpus is 8 levels, and prompts should bound generation at 12."
+    ),
+}
+
 # Virtual tokens (the `~` prefix) carry no literal tag and never join a union.
 VIRTUAL_PREFIX = "~"
 
@@ -342,7 +351,7 @@ class Emitter:
                 ):
                     optional.add(key)
         out.append(f"class {struct}(_Base):")
-        doc = self.type_doc(tokens[0], base=len(tokens) > 1)
+        doc = MERGED_DOC.get(struct) or self.type_doc(tokens[0], base=len(tokens) > 1)
         if doc:
             out.append(f'    """{doc}"""')
         if not merged and not doc:
