@@ -12,7 +12,7 @@ import argparse
 import sys
 from pathlib import Path
 
-from . import ddl, jr, schema, sidecar
+from . import ddl, jr, schema, sidecar, toolsig
 
 # The emitter registry: (repo-root-relative output path, emitter). Item 3's
 # glossary and tool-signature emitters append here. Workspace-installed
@@ -23,6 +23,7 @@ EMITTERS: list[tuple[str, object]] = [
     ("jets/workspace_assets/data_model/jets_agentic.meta.json", sidecar.emit),
     ("jets/workspace_assets/data_model/jets_agentic.schema.json", schema.emit),
     ("jets/agentic/audit/agent_audit.sql", ddl.emit),
+    ("jets/agentic/tools/jets_agentic_tools.json", toolsig.emit),
 ]
 
 # tools/jets_agentic/jets_agentic/main.py -> the JetStore repo root.

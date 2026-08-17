@@ -1,0 +1,60 @@
+{
+  "catalog": "jets_agentic_tools",
+  "version": "0.1.0",
+  "generated_by": "jets-agentic generate; source tools/jets_agentic/jets_agentic/toolsig.py - do not edit",
+  "schemas": {
+    "domain_model": "jets/workspace_assets/data_model/jets_agentic.schema.json",
+    "cpipes_config": "tools/cpipes_contract/cpipes_schema.json"
+  },
+  "tools": [
+    {
+      "name": "list_domain_classes",
+      "description": "List every domain class of the live workspace - the workspace-wide view from build/classes.json: name, base classes, whether it persists as a table, and where it was declared. Read-only.",
+      "reversibility": "na",
+      "min_tier": "T0",
+      "input_schema": {
+        "type": "object",
+        "properties": {},
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "describe_domain_class",
+      "description": "Describe one domain class of the live workspace: its properties and types from the compiled model, its documentation from the jets_agentic sidecar (schema-first classes) or the workspace triples (jr-authored classes), with any controlled vocabulary inlined in full. A class declared with no authored metadata says so rather than erroring. Read-only.",
+      "reversibility": "na",
+      "min_tier": "T0",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "The class name as declared, prefix included (e.g. jetsa:Incident, hc:Claim)."
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "validate_cpipes_config",
+      "description": "Validate a compute-pipes configuration with the real startup-time validator (CpipesStartup.ValidatePipeSpecConfig), step by step, and report every diagnostic. Validates a copy; the submitted config is never executed or stored. Read-only.",
+      "reversibility": "na",
+      "min_tier": "T0",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "config": {
+            "$ref": "tools/cpipes_contract/cpipes_schema.json#",
+            "description": "The cpipes config object, as it would appear in a .pc.json file."
+          }
+        },
+        "required": [
+          "config"
+        ],
+        "additionalProperties": false
+      }
+    }
+  ]
+}
