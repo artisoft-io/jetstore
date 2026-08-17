@@ -4096,6 +4096,107 @@
       "title": "HighFreqSpec",
       "type": "object"
     },
+    "InferMappingSpec": {
+      "additionalProperties": false,
+      "description": "Maps one element of the model response to a column of the output record.",
+      "properties": {
+        "as_rdf_type": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Casts the value; see CastToRdfType.",
+          "title": "As Rdf Type"
+        },
+        "column": {
+          "description": "The column to set. Must be a column of the shared channel spec.",
+          "title": "Column",
+          "type": "string"
+        },
+        "comment": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Free text for the reader; ignored by JetStore.",
+          "title": "Comment"
+        },
+        "default": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Value to use when the path is absent or null.",
+          "title": "Default"
+        },
+        "path": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Dot path into the parsed json, eg codes.0.icd10. Empty takes the whole value.",
+          "title": "Path"
+        },
+        "required": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "An absent or null value is a row-level error.",
+          "title": "Required"
+        },
+        "source": {
+          "anyOf": [
+            {
+              "enum": [
+                "response",
+                "raw_response",
+                "envelope",
+                "thinking",
+                "model_name"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "What the mapping reads from. Engine default: response (builder).",
+          "title": "Source"
+        }
+      },
+      "required": [
+        "column"
+      ],
+      "title": "InferMappingSpec",
+      "type": "object"
+    },
     "InputChannelConfig": {
       "discriminator": {
         "mapping": {
@@ -6810,107 +6911,6 @@
       "title": "MultiTokensNode",
       "type": "object"
     },
-    "OllamaMappingSpec": {
-      "additionalProperties": false,
-      "description": "Maps one element of the model response to a column of the output record.",
-      "properties": {
-        "as_rdf_type": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Casts the value; see CastToRdfType.",
-          "title": "As Rdf Type"
-        },
-        "column": {
-          "description": "The column to set. Must be a column of the shared channel spec.",
-          "title": "Column",
-          "type": "string"
-        },
-        "comment": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Free text for the reader; ignored by JetStore.",
-          "title": "Comment"
-        },
-        "default": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Value to use when the path is absent or null.",
-          "title": "Default"
-        },
-        "path": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Dot path into the parsed json, eg codes.0.icd10. Empty takes the whole value.",
-          "title": "Path"
-        },
-        "required": {
-          "anyOf": [
-            {
-              "type": "boolean"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "An absent or null value is a row-level error.",
-          "title": "Required"
-        },
-        "source": {
-          "anyOf": [
-            {
-              "enum": [
-                "response",
-                "raw_response",
-                "envelope",
-                "thinking",
-                "model_name"
-              ],
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "What the mapping reads from. Engine default: response (builder).",
-          "title": "Source"
-        }
-      },
-      "required": [
-        "column"
-      ],
-      "title": "OllamaMappingSpec",
-      "type": "object"
-    },
     "OllamaServerSpec": {
       "additionalProperties": false,
       "description": "Specify how to reach the infer server: url, headers",
@@ -7161,7 +7161,7 @@
         "output_mapping": {
           "description": "How the response maps onto the record's columns.",
           "items": {
-            "$ref": "#/$defs/OllamaMappingSpec"
+            "$ref": "#/$defs/InferMappingSpec"
           },
           "title": "Output Mapping",
           "type": "array"

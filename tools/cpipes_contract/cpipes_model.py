@@ -443,6 +443,17 @@ class HighFreqSpec(_Base):
     top_rank: int | None = Field(default=None, description="Retain the top n percent of distinct values, by descending frequency.")
 
 
+class InferMappingSpec(_Base):
+    """Maps one element of the model response to a column of the output record."""
+    as_rdf_type: str | None = Field(default=None, description="Casts the value; see CastToRdfType.")
+    column: str = Field(description="The column to set. Must be a column of the shared channel spec.")
+    comment: str | None = Field(default=None, description="Free text for the reader; ignored by JetStore.")
+    default: str | None = Field(default=None, description="Value to use when the path is absent or null.")
+    path: str | None = Field(default=None, description="Dot path into the parsed json, eg codes.0.icd10. Empty takes the whole value.")
+    required: bool | None = Field(default=None, description="An absent or null value is a row-level error.")
+    source: Literal["response", "raw_response", "envelope", "thinking", "model_name"] | None = Field(default=None, description="What the mapping reads from. Engine default: response (builder).")
+
+
 class InputChannelConfigBase(_Base):
     """InputChannelConfig: In memory channel chaining two compute pipes."""
     comment: str | None = Field(default=None, description="Free text for the reader; ignored by JetStore.")
@@ -688,17 +699,6 @@ class MultiTokensNode(_Base):
     tokens: list[str] = Field(description="Each split value must match at least one token.")
 
 
-class OllamaMappingSpec(_Base):
-    """Maps one element of the model response to a column of the output record."""
-    as_rdf_type: str | None = Field(default=None, description="Casts the value; see CastToRdfType.")
-    column: str = Field(description="The column to set. Must be a column of the shared channel spec.")
-    comment: str | None = Field(default=None, description="Free text for the reader; ignored by JetStore.")
-    default: str | None = Field(default=None, description="Value to use when the path is absent or null.")
-    path: str | None = Field(default=None, description="Dot path into the parsed json, eg codes.0.icd10. Empty takes the whole value.")
-    required: bool | None = Field(default=None, description="An absent or null value is a row-level error.")
-    source: Literal["response", "raw_response", "envelope", "thinking", "model_name"] | None = Field(default=None, description="What the mapping reads from. Engine default: response (builder).")
-
-
 class OllamaServerSpec(_Base):
     """Specify how to reach the infer server: url, headers"""
     comment: str | None = Field(default=None, description="Free text for the reader; ignored by JetStore.")
@@ -721,7 +721,7 @@ class OllamaSpec(_Base):
     model: str = Field(description="The model tag to use, eg llama3.1:8b.")
     on_error: Literal["pass_through", "drop", "fail"] | None = Field(default=None, description="What to do with a record that failed. Engine default: pass_through (builder).")
     options: dict[str, Any] | None = Field(default=None, description="Passed to ollama as options, eg temperature, num_ctx, seed, num_predict.")
-    output_mapping: list[OllamaMappingSpec] = Field(description="How the response maps onto the record's columns.")
+    output_mapping: list[InferMappingSpec] = Field(description="How the response maps onto the record's columns.")
     pool_size: int | None = Field(default=None, description="Concurrent requests to the infer server. Engine default: 1 (validator).")
     prompt_template: str | None = Field(default=None, description="The prompt template, inline.")
     prompt_template_name: str | None = Field(default=None, description="Key of a prompt_templates entry of the document.")
@@ -1455,6 +1455,7 @@ _MATRIX_KEYS = {
     "GroupBySpec": ("GroupBySpec", "*"),
     "HashExpression": ("HashExpression", "*"),
     "HighFreqSpec": ("HighFreqSpec", "*"),
+    "InferMappingSpec": ("InferMappingSpec", "*"),
     "InputChannelConfigGenerator": ("InputChannelConfig", "generator"),
     "InputChannelConfigInput": ("InputChannelConfig", "input"),
     "InputChannelConfigMemory": ("InputChannelConfig", "memory"),
@@ -1474,7 +1475,6 @@ _MATRIX_KEYS = {
     "Metric": ("Metric", "*"),
     "MetricsSpec": ("MetricsSpec", "*"),
     "MultiTokensNode": ("MultiTokensNode", "*"),
-    "OllamaMappingSpec": ("OllamaMappingSpec", "*"),
     "OllamaServerSpec": ("OllamaServerSpec", "*"),
     "OllamaSpec": ("OllamaSpec", "*"),
     "OutputChannelConfigMemory": ("OutputChannelConfig", "memory"),

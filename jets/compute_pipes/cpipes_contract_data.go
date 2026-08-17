@@ -410,6 +410,15 @@ var CpipesContract = map[string]map[string]ContractField{
 		"top_pct":  {},
 		"top_rank": {},
 	},
+	"InferMappingSpec/*": {
+		"as_rdf_type": {},
+		"column":      {Required: true},
+		"comment":     {},
+		"default":     {},
+		"path":        {},
+		"required":    {},
+		"source":      {Values: []string{"response", "raw_response", "envelope", "thinking", "model_name"}},
+	},
 	"InputChannelConfig/generator": {
 		"comment":          {},
 		"has_grouped_rows": {},
@@ -621,15 +630,6 @@ var CpipesContract = map[string]map[string]ContractField{
 		"name":       {Required: true},
 		"nbr_tokens": {Required: true},
 		"tokens":     {Required: true},
-	},
-	"OllamaMappingSpec/*": {
-		"as_rdf_type": {},
-		"column":      {Required: true},
-		"comment":     {},
-		"default":     {},
-		"path":        {},
-		"required":    {},
-		"source":      {Values: []string{"response", "raw_response", "envelope", "thinking", "model_name"}},
 	},
 	"OllamaServerSpec/*": {
 		"comment": {},
