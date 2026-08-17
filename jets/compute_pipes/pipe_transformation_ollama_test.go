@@ -27,7 +27,7 @@ func ollamaTestColumnsMap() map[string]int {
 }
 
 func TestOllamaPromptTemplateRender(t *testing.T) {
-	template, err := compileOllamaPromptTemplate(
+	template, err := compileInferPromptTemplate(
 		"Classify claim {{claim_id}}.\nDiagnosis: {{ diagnosis }}\n", ollamaTestColumnsMap())
 	if err != nil {
 		t.Fatal(err)
@@ -46,7 +46,7 @@ func TestOllamaPromptTemplateRender(t *testing.T) {
 // A short record is legitimate (see pad_short_rows_with_nulls), the missing value must
 // render as empty rather than panic.
 func TestOllamaPromptTemplateShortRecord(t *testing.T) {
-	template, err := compileOllamaPromptTemplate("[{{claim_id}}][{{diagnosis}}]", ollamaTestColumnsMap())
+	template, err := compileInferPromptTemplate("[{{claim_id}}][{{diagnosis}}]", ollamaTestColumnsMap())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -61,7 +61,7 @@ func TestOllamaPromptTemplateShortRecord(t *testing.T) {
 }
 
 func TestOllamaPromptTemplateRecordPlaceholder(t *testing.T) {
-	template, err := compileOllamaPromptTemplate("Record: {{@record}}", ollamaTestColumnsMap())
+	template, err := compileInferPromptTemplate("Record: {{@record}}", ollamaTestColumnsMap())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -76,7 +76,7 @@ func TestOllamaPromptTemplateRecordPlaceholder(t *testing.T) {
 }
 
 func TestOllamaPromptTemplateUnknownColumn(t *testing.T) {
-	_, err := compileOllamaPromptTemplate("Hello {{not_a_column}}", ollamaTestColumnsMap())
+	_, err := compileInferPromptTemplate("Hello {{not_a_column}}", ollamaTestColumnsMap())
 	if err == nil {
 		t.Fatal("expecting an error for an unknown column")
 	}
@@ -86,14 +86,14 @@ func TestOllamaPromptTemplateUnknownColumn(t *testing.T) {
 }
 
 func TestOllamaPromptTemplateUnterminated(t *testing.T) {
-	_, err := compileOllamaPromptTemplate("Hello {{claim_id", ollamaTestColumnsMap())
+	_, err := compileInferPromptTemplate("Hello {{claim_id", ollamaTestColumnsMap())
 	if err == nil {
 		t.Fatal("expecting an error for an unterminated placeholder")
 	}
 }
 
 func TestOllamaPromptTemplateEmpty(t *testing.T) {
-	if _, err := compileOllamaPromptTemplate("   ", ollamaTestColumnsMap()); err == nil {
+	if _, err := compileInferPromptTemplate("   ", ollamaTestColumnsMap()); err == nil {
 		t.Fatal("expecting an error for an empty template")
 	}
 }
@@ -127,7 +127,7 @@ func TestOllamaWalkPath(t *testing.T) {
 		{"empty", nil, false},
 	}
 	for _, test := range tests {
-		value, found := ollamaWalkPath(parsed, strings.Split(test.path, "."))
+		value, found := inferWalkPath(parsed, strings.Split(test.path, "."))
 		if found != test.found {
 			t.Errorf("path %s: expecting found=%v, got %v", test.path, test.found, found)
 			continue
@@ -150,7 +150,7 @@ func TestOllamaStripCodeFences(t *testing.T) {
 		{"  ```JSON\n{\"a\":1}\n```  ", "{\"a\":1}"},
 	}
 	for _, test := range tests {
-		if got := ollamaStripCodeFences(test.in); got != test.expecting {
+		if got := inferStripCodeFences(test.in); got != test.expecting {
 			t.Errorf("input %q: expecting %q, got %q", test.in, test.expecting, got)
 		}
 	}
@@ -167,8 +167,8 @@ func TestOllamaResolveTemplate(t *testing.T) {
 		},
 	}
 	// By name, and the named template's defaults are applied
-	config := &OllamaSpec{PromptTemplateName: "classify"}
-	template, err := resolveOllamaTemplate(cpConfig, config)
+	config := &InferCommonSpec{PromptTemplateName: "classify"}
+	template, err := resolveInferTemplate(cpConfig, config, "ollama_config")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -176,26 +176,26 @@ func TestOllamaResolveTemplate(t *testing.T) {
 		t.Errorf("unexpected template %q / system prompt %q", template, config.SystemPrompt)
 	}
 	// The operator's own setting wins over the template's default
-	config = &OllamaSpec{PromptTemplateName: "classify", SystemPrompt: "mine"}
-	if _, err = resolveOllamaTemplate(cpConfig, config); err != nil {
+	config = &InferCommonSpec{PromptTemplateName: "classify", SystemPrompt: "mine"}
+	if _, err = resolveInferTemplate(cpConfig, config, "ollama_config"); err != nil {
 		t.Fatal(err)
 	}
 	if config.SystemPrompt != "mine" {
 		t.Errorf("expecting the operator's system prompt to win, got %q", config.SystemPrompt)
 	}
 	// Inline
-	config = &OllamaSpec{PromptTemplate: "inline"}
-	if template, err = resolveOllamaTemplate(cpConfig, config); err != nil || template != "inline" {
+	config = &InferCommonSpec{PromptTemplate: "inline"}
+	if template, err = resolveInferTemplate(cpConfig, config, "ollama_config"); err != nil || template != "inline" {
 		t.Errorf("expecting the inline template, got %q, err %v", template, err)
 	}
 	// Both, neither, and an unknown name are configuration errors
-	if _, err = resolveOllamaTemplate(cpConfig, &OllamaSpec{PromptTemplate: "a", PromptTemplateName: "classify"}); err == nil {
+	if _, err = resolveInferTemplate(cpConfig, &InferCommonSpec{PromptTemplate: "a", PromptTemplateName: "classify"}, "ollama_config"); err == nil {
 		t.Error("expecting an error when both prompt_template and prompt_template_name are set")
 	}
-	if _, err = resolveOllamaTemplate(cpConfig, &OllamaSpec{}); err == nil {
+	if _, err = resolveInferTemplate(cpConfig, &InferCommonSpec{}, "ollama_config"); err == nil {
 		t.Error("expecting an error when no template is provided")
 	}
-	if _, err = resolveOllamaTemplate(cpConfig, &OllamaSpec{PromptTemplateName: "nope"}); err == nil {
+	if _, err = resolveInferTemplate(cpConfig, &InferCommonSpec{PromptTemplateName: "nope"}, "ollama_config"); err == nil {
 		t.Error("expecting an error for an unknown prompt_template_name")
 	}
 }
@@ -205,18 +205,18 @@ func TestOllamaValidateChannels(t *testing.T) {
 	spec := &ChannelSpec{Name: "claims", Columns: ollamaTestColumns, columnsMap: &columnsMap}
 	source := &InputChannel{Name: "claims.in", Columns: &columnsMap, Config: spec}
 	// Same spec instance: the normal case, both channels use the same channel_spec_name
-	if err := validateOllamaChannels(source, &OutputChannel{Name: "claims.out", Config: spec}); err != nil {
+	if err := validateInferChannels(source, &OutputChannel{Name: "claims.out", Config: spec}, "ollama operator"); err != nil {
 		t.Errorf("expecting no error when the channels share the spec, got %v", err)
 	}
 	// Distinct spec instances with the same columns are accepted
 	sameColumns := &ChannelSpec{Name: "claims2", Columns: ollamaTestColumns}
-	if err := validateOllamaChannels(source, &OutputChannel{Name: "claims.out", Config: sameColumns}); err != nil {
+	if err := validateInferChannels(source, &OutputChannel{Name: "claims.out", Config: sameColumns}, "ollama operator"); err != nil {
 		t.Errorf("expecting no error when the columns match, got %v", err)
 	}
 	// Different columns are not
 	other := &ChannelSpec{Name: "other", Columns: []string{"claim_id", "something_else", "claim_category",
 		"claim_confidence", "infer_tokens"}}
-	err := validateOllamaChannels(source, &OutputChannel{Name: "other.out", Config: other})
+	err := validateInferChannels(source, &OutputChannel{Name: "other.out", Config: other}, "ollama operator")
 	if err == nil {
 		t.Fatal("expecting an error when the columns differ")
 	}
@@ -225,7 +225,7 @@ func TestOllamaValidateChannels(t *testing.T) {
 	}
 	// So is a different column count
 	shorter := &ChannelSpec{Name: "shorter", Columns: []string{"claim_id"}}
-	if err = validateOllamaChannels(source, &OutputChannel{Name: "shorter.out", Config: shorter}); err == nil {
+	if err = validateInferChannels(source, &OutputChannel{Name: "shorter.out", Config: shorter}, "ollama operator"); err == nil {
 		t.Fatal("expecting an error when the column counts differ")
 	}
 }
@@ -248,7 +248,7 @@ func TestErrorChannelConfig(t *testing.T) {
 		{"jetrules", &TransformationSpec{Type: "jetrules",
 			JetrulesConfig: &JetrulesSpec{ErrorChannel: errorChannel}}, errorChannel},
 		{"ollama", &TransformationSpec{Type: "ollama",
-			OllamaConfig: &OllamaSpec{ErrorChannel: errorChannel}}, errorChannel},
+			OllamaConfig: &OllamaSpec{InferCommonSpec: InferCommonSpec{ErrorChannel: errorChannel}}}, errorChannel},
 		{"map_record without error channel", &TransformationSpec{Type: "map_record",
 			MapRecordConfig: &MapRecordSpec{}}, nil},
 		{"map_record without config", &TransformationSpec{Type: "map_record"}, nil},
@@ -269,7 +269,7 @@ func TestValidateErrorChannels(t *testing.T) {
 	// Two operators, each with its own error channel: fine
 	pipeConfig := []PipeSpec{
 		{Apply: []TransformationSpec{
-			{Type: "ollama", OllamaConfig: &OllamaSpec{ErrorChannel: errorChannel("errors.ollama")},
+			{Type: "ollama", OllamaConfig: &OllamaSpec{InferCommonSpec: InferCommonSpec{ErrorChannel: errorChannel("errors.ollama")}},
 				OutputChannel: OutputChannelConfig{Name: "claims.out"}},
 			{Type: "jetrules", JetrulesConfig: &JetrulesSpec{ErrorChannel: errorChannel("errors.jetrules")}},
 		}},
@@ -281,7 +281,7 @@ func TestValidateErrorChannels(t *testing.T) {
 	// The same error channel used twice: rejected
 	pipeConfig = []PipeSpec{
 		{Apply: []TransformationSpec{
-			{Type: "ollama", OllamaConfig: &OllamaSpec{ErrorChannel: errorChannel("process_errors.out")}},
+			{Type: "ollama", OllamaConfig: &OllamaSpec{InferCommonSpec: InferCommonSpec{ErrorChannel: errorChannel("process_errors.out")}}},
 		}},
 		{Apply: []TransformationSpec{
 			{Type: "jetrules", JetrulesConfig: &JetrulesSpec{ErrorChannel: errorChannel("process_errors.out")}},
@@ -299,7 +299,7 @@ func TestValidateErrorChannels(t *testing.T) {
 	pipeConfig = []PipeSpec{
 		{Apply: []TransformationSpec{
 			{Type: "map_record", OutputChannel: OutputChannelConfig{Name: "shared.ch"}},
-			{Type: "ollama", OllamaConfig: &OllamaSpec{ErrorChannel: errorChannel("shared.ch")}},
+			{Type: "ollama", OllamaConfig: &OllamaSpec{InferCommonSpec: InferCommonSpec{ErrorChannel: errorChannel("shared.ch")}}},
 		}},
 	}
 	if err = validateErrorChannels(pipeConfig); err == nil {
@@ -473,15 +473,11 @@ func TestOllamaAugmentsRecordInPlace(t *testing.T) {
 	server, prompts := ollamaTestServer(t, []ollamaTestResponse{
 		{body: `{"category":"dental","confidence":0.87}`},
 	})
-	result := runOllamaTestPipe(t, server.URL, &OllamaSpec{
-		Model:          "test-model",
-		PromptTemplate: "Classify {{claim_id}}: {{diagnosis}}",
-		OutputMapping: []OllamaMappingSpec{
-			{Column: "claim_category", Path: "category"},
-			{Column: "claim_confidence", Path: "confidence", AsRdfType: "double"},
-			{Column: "infer_tokens", Source: ollamaSourceEnvelope, Path: "eval_count", AsRdfType: "int"},
-		},
-	}, nil, [][]any{{"c-1", "tooth ache", nil, nil, nil}})
+	result := runOllamaTestPipe(t, server.URL, &OllamaSpec{Model: "test-model", InferCommonSpec: InferCommonSpec{PromptTemplate: "Classify {{claim_id}}: {{diagnosis}}", OutputMapping: []InferMappingSpec{
+		{Column: "claim_category", Path: "category"},
+		{Column: "claim_confidence", Path: "confidence", AsRdfType: "double"},
+		{Column: "infer_tokens", Source: inferSourceEnvelope, Path: "eval_count", AsRdfType: "int"},
+	}}}, nil, [][]any{{"c-1", "tooth ache", nil, nil, nil}})
 
 	if len(result.outputRecords) != 1 {
 		t.Fatalf("expecting 1 output record, got %d", len(result.outputRecords))
@@ -511,11 +507,7 @@ func TestOllamaAugmentsRecordInPlace(t *testing.T) {
 // A short record must be grown before the mapped columns are assigned.
 func TestOllamaAugmentsShortRecord(t *testing.T) {
 	server, _ := ollamaTestServer(t, []ollamaTestResponse{{body: `{"category":"dental"}`}})
-	result := runOllamaTestPipe(t, server.URL, &OllamaSpec{
-		Model:          "test-model",
-		PromptTemplate: "Classify {{claim_id}}",
-		OutputMapping:  []OllamaMappingSpec{{Column: "claim_category", Path: "category"}},
-	}, nil, [][]any{{"c-1", "tooth ache"}})
+	result := runOllamaTestPipe(t, server.URL, &OllamaSpec{Model: "test-model", InferCommonSpec: InferCommonSpec{PromptTemplate: "Classify {{claim_id}}", OutputMapping: []InferMappingSpec{{Column: "claim_category", Path: "category"}}}}, nil, [][]any{{"c-1", "tooth ache"}})
 
 	if len(result.outputRecords) != 1 {
 		t.Fatalf("expecting 1 output record, got %d", len(result.outputRecords))
@@ -531,13 +523,7 @@ func TestOllamaAugmentsShortRecord(t *testing.T) {
 
 func TestOllamaServerFailurePassesRecordThrough(t *testing.T) {
 	server, _ := ollamaTestServer(t, []ollamaTestResponse{{status: http.StatusBadRequest}})
-	result := runOllamaTestPipe(t, server.URL, &OllamaSpec{
-		Model:          "test-model",
-		PromptTemplate: "Classify {{claim_id}}",
-		RowKeyColumn:   "claim_id",
-		OutputMapping:  []OllamaMappingSpec{{Column: "claim_category", Path: "category"}},
-		ErrorChannel:   &OutputChannelConfig{Name: "process_errors.out", SpecName: "process_errors"},
-	}, nil, [][]any{{"c-1", "tooth ache", nil, nil, nil}})
+	result := runOllamaTestPipe(t, server.URL, &OllamaSpec{Model: "test-model", InferCommonSpec: InferCommonSpec{PromptTemplate: "Classify {{claim_id}}", RowKeyColumn: "claim_id", OutputMapping: []InferMappingSpec{{Column: "claim_category", Path: "category"}}, ErrorChannel: &OutputChannelConfig{Name: "process_errors.out", SpecName: "process_errors"}}}, nil, [][]any{{"c-1", "tooth ache", nil, nil, nil}})
 
 	// pass_through is the default: the record comes out unchanged
 	if len(result.outputRecords) != 1 {
@@ -550,10 +536,10 @@ func TestOllamaServerFailurePassesRecordThrough(t *testing.T) {
 		t.Fatalf("expecting 1 error record, got %d", len(result.errorRecords))
 	}
 	errorRecord := result.errorRecords[0]
-	if rowKey := ollamaToString(errorRecord[3]); rowKey != "c-1" {
+	if rowKey := inferToString(errorRecord[3]); rowKey != "c-1" {
 		t.Errorf("expecting row_jets_key 'c-1', got %v", errorRecord[3])
 	}
-	if msg := ollamaToString(errorRecord[5]); !strings.Contains(msg, "400") {
+	if msg := inferToString(errorRecord[5]); !strings.Contains(msg, "400") {
 		t.Errorf("expecting the error message to report the status, got %q", msg)
 	}
 	if len(result.pipelineErrs) != 0 {
@@ -563,13 +549,7 @@ func TestOllamaServerFailurePassesRecordThrough(t *testing.T) {
 
 func TestOllamaOnErrorDrop(t *testing.T) {
 	server, _ := ollamaTestServer(t, []ollamaTestResponse{{status: http.StatusBadRequest}})
-	result := runOllamaTestPipe(t, server.URL, &OllamaSpec{
-		Model:          "test-model",
-		PromptTemplate: "Classify {{claim_id}}",
-		OnError:        ollamaOnErrorDrop,
-		OutputMapping:  []OllamaMappingSpec{{Column: "claim_category", Path: "category"}},
-		ErrorChannel:   &OutputChannelConfig{Name: "process_errors.out", SpecName: "process_errors"},
-	}, nil, [][]any{{"c-1", "tooth ache", nil, nil, nil}})
+	result := runOllamaTestPipe(t, server.URL, &OllamaSpec{Model: "test-model", InferCommonSpec: InferCommonSpec{PromptTemplate: "Classify {{claim_id}}", OnError: OnErrorDrop, OutputMapping: []InferMappingSpec{{Column: "claim_category", Path: "category"}}, ErrorChannel: &OutputChannelConfig{Name: "process_errors.out", SpecName: "process_errors"}}}, nil, [][]any{{"c-1", "tooth ache", nil, nil, nil}})
 
 	if len(result.outputRecords) != 0 {
 		t.Errorf("expecting the record to be dropped, got %v", result.outputRecords)
@@ -581,12 +561,7 @@ func TestOllamaOnErrorDrop(t *testing.T) {
 
 func TestOllamaOnErrorFail(t *testing.T) {
 	server, _ := ollamaTestServer(t, []ollamaTestResponse{{status: http.StatusBadRequest}})
-	result := runOllamaTestPipe(t, server.URL, &OllamaSpec{
-		Model:          "test-model",
-		PromptTemplate: "Classify {{claim_id}}",
-		OnError:        ollamaOnErrorFail,
-		OutputMapping:  []OllamaMappingSpec{{Column: "claim_category", Path: "category"}},
-	}, nil, [][]any{{"c-1", "tooth ache", nil, nil, nil}})
+	result := runOllamaTestPipe(t, server.URL, &OllamaSpec{Model: "test-model", InferCommonSpec: InferCommonSpec{PromptTemplate: "Classify {{claim_id}}", OnError: OnErrorFail, OutputMapping: []InferMappingSpec{{Column: "claim_category", Path: "category"}}}}, nil, [][]any{{"c-1", "tooth ache", nil, nil, nil}})
 
 	if len(result.pipelineErrs) != 1 {
 		t.Fatalf("expecting the pipeline to be interrupted with 1 error, got %v", result.pipelineErrs)
@@ -602,12 +577,7 @@ func TestOllamaRetriesServerError(t *testing.T) {
 		{status: http.StatusServiceUnavailable},
 		{body: `{"category":"dental"}`},
 	})
-	result := runOllamaTestPipe(t, server.URL, &OllamaSpec{
-		Model:          "test-model",
-		PromptTemplate: "Classify {{claim_id}}",
-		RetryWaitSec:   1,
-		OutputMapping:  []OllamaMappingSpec{{Column: "claim_category", Path: "category"}},
-	}, nil, [][]any{{"c-1", "tooth ache", nil, nil, nil}})
+	result := runOllamaTestPipe(t, server.URL, &OllamaSpec{Model: "test-model", InferCommonSpec: InferCommonSpec{PromptTemplate: "Classify {{claim_id}}", RetryWaitSec: 1, OutputMapping: []InferMappingSpec{{Column: "claim_category", Path: "category"}}}}, nil, [][]any{{"c-1", "tooth ache", nil, nil, nil}})
 
 	if len(*prompts) != 2 {
 		t.Fatalf("expecting the call to be retried once, got %d calls", len(*prompts))
@@ -624,12 +594,7 @@ func TestOllamaMaxRetryZeroDisablesRetries(t *testing.T) {
 		{body: `{"category":"dental"}`},
 	})
 	noRetry := 0
-	runOllamaTestPipe(t, server.URL, &OllamaSpec{
-		Model:          "test-model",
-		PromptTemplate: "Classify {{claim_id}}",
-		MaxRetry:       &noRetry,
-		OutputMapping:  []OllamaMappingSpec{{Column: "claim_category", Path: "category"}},
-	}, nil, [][]any{{"c-1", "tooth ache", nil, nil, nil}})
+	runOllamaTestPipe(t, server.URL, &OllamaSpec{Model: "test-model", InferCommonSpec: InferCommonSpec{PromptTemplate: "Classify {{claim_id}}", MaxRetry: &noRetry, OutputMapping: []InferMappingSpec{{Column: "claim_category", Path: "category"}}}}, nil, [][]any{{"c-1", "tooth ache", nil, nil, nil}})
 
 	if len(*prompts) != 1 {
 		t.Errorf("expecting a single call when max_retry is 0, got %d", len(*prompts))
@@ -639,11 +604,7 @@ func TestOllamaMaxRetryZeroDisablesRetries(t *testing.T) {
 // A 4xx is the server refusing the request, retrying it would only waste time.
 func TestOllamaDoesNotRetryClientError(t *testing.T) {
 	server, prompts := ollamaTestServer(t, []ollamaTestResponse{{status: http.StatusBadRequest}})
-	runOllamaTestPipe(t, server.URL, &OllamaSpec{
-		Model:          "test-model",
-		PromptTemplate: "Classify {{claim_id}}",
-		OutputMapping:  []OllamaMappingSpec{{Column: "claim_category", Path: "category"}},
-	}, nil, [][]any{{"c-1", "tooth ache", nil, nil, nil}})
+	runOllamaTestPipe(t, server.URL, &OllamaSpec{Model: "test-model", InferCommonSpec: InferCommonSpec{PromptTemplate: "Classify {{claim_id}}", OutputMapping: []InferMappingSpec{{Column: "claim_category", Path: "category"}}}}, nil, [][]any{{"c-1", "tooth ache", nil, nil, nil}})
 
 	if len(*prompts) != 1 {
 		t.Errorf("expecting a single call for a 4xx, got %d", len(*prompts))
@@ -653,12 +614,7 @@ func TestOllamaDoesNotRetryClientError(t *testing.T) {
 // Past max_input_count the records are passed through un-inferred rather than filtered.
 func TestOllamaMaxInputCount(t *testing.T) {
 	server, prompts := ollamaTestServer(t, []ollamaTestResponse{{body: `{"category":"dental"}`}})
-	result := runOllamaTestPipe(t, server.URL, &OllamaSpec{
-		Model:          "test-model",
-		PromptTemplate: "Classify {{claim_id}}",
-		MaxInputCount:  2,
-		OutputMapping:  []OllamaMappingSpec{{Column: "claim_category", Path: "category"}},
-	}, nil, [][]any{
+	result := runOllamaTestPipe(t, server.URL, &OllamaSpec{Model: "test-model", InferCommonSpec: InferCommonSpec{PromptTemplate: "Classify {{claim_id}}", MaxInputCount: 2, OutputMapping: []InferMappingSpec{{Column: "claim_category", Path: "category"}}}}, nil, [][]any{
 		{"c-1", "a", nil, nil, nil},
 		{"c-2", "b", nil, nil, nil},
 		{"c-3", "c", nil, nil, nil},
@@ -676,21 +632,16 @@ func TestOllamaMaxInputCount(t *testing.T) {
 // A required mapping that the model did not answer is a row level error.
 func TestOllamaRequiredMappingMissing(t *testing.T) {
 	server, _ := ollamaTestServer(t, []ollamaTestResponse{{body: `{"something_else":"x"}`}})
-	result := runOllamaTestPipe(t, server.URL, &OllamaSpec{
-		Model:          "test-model",
-		PromptTemplate: "Classify {{claim_id}}",
-		OutputMapping:  []OllamaMappingSpec{{Column: "claim_category", Path: "category", Required: true}},
-		ErrorChannel:   &OutputChannelConfig{Name: "process_errors.out", SpecName: "process_errors"},
-	}, nil, [][]any{{"c-1", "tooth ache", nil, nil, nil}})
+	result := runOllamaTestPipe(t, server.URL, &OllamaSpec{Model: "test-model", InferCommonSpec: InferCommonSpec{PromptTemplate: "Classify {{claim_id}}", OutputMapping: []InferMappingSpec{{Column: "claim_category", Path: "category", Required: true}}, ErrorChannel: &OutputChannelConfig{Name: "process_errors.out", SpecName: "process_errors"}}}, nil, [][]any{{"c-1", "tooth ache", nil, nil, nil}})
 
 	if len(result.errorRecords) != 1 {
 		t.Fatalf("expecting 1 error record, got %d", len(result.errorRecords))
 	}
-	if msg := ollamaToString(result.errorRecords[0][5]); !strings.Contains(msg, "claim_category") {
+	if msg := inferToString(result.errorRecords[0][5]); !strings.Contains(msg, "claim_category") {
 		t.Errorf("expecting the error to name the column, got %q", msg)
 	}
 	// A mapping failure reports which column it was on
-	if column := ollamaToString(result.errorRecords[0][4]); column != "claim_category" {
+	if column := inferToString(result.errorRecords[0][4]); column != "claim_category" {
 		t.Errorf("expecting input_column 'claim_category', got %q", column)
 	}
 }
@@ -699,14 +650,10 @@ func TestOllamaRequiredMappingMissing(t *testing.T) {
 // existing column does not destroy the input value.
 func TestOllamaMissingMappingKeepsInputValue(t *testing.T) {
 	server, _ := ollamaTestServer(t, []ollamaTestResponse{{body: `{"something_else":"x"}`}})
-	result := runOllamaTestPipe(t, server.URL, &OllamaSpec{
-		Model:          "test-model",
-		PromptTemplate: "Classify {{claim_id}}",
-		OutputMapping: []OllamaMappingSpec{
-			{Column: "diagnosis", Path: "category"},
-			{Column: "claim_category", Path: "category", Default: "unknown"},
-		},
-	}, nil, [][]any{{"c-1", "tooth ache", nil, nil, nil}})
+	result := runOllamaTestPipe(t, server.URL, &OllamaSpec{Model: "test-model", InferCommonSpec: InferCommonSpec{PromptTemplate: "Classify {{claim_id}}", OutputMapping: []InferMappingSpec{
+		{Column: "diagnosis", Path: "category"},
+		{Column: "claim_category", Path: "category", Default: "unknown"},
+	}}}, nil, [][]any{{"c-1", "tooth ache", nil, nil, nil}})
 
 	if len(result.outputRecords) != 1 {
 		t.Fatalf("expecting 1 output record, got %d", len(result.outputRecords))
@@ -724,14 +671,10 @@ func TestOllamaObjectValueIsEncoded(t *testing.T) {
 	server, _ := ollamaTestServer(t, []ollamaTestResponse{
 		{body: `{"detail":{"score":0.9},"codes":["a","b"]}`},
 	})
-	result := runOllamaTestPipe(t, server.URL, &OllamaSpec{
-		Model:          "test-model",
-		PromptTemplate: "Classify {{claim_id}}",
-		OutputMapping: []OllamaMappingSpec{
-			{Column: "claim_category", Path: "detail"},
-			{Column: "claim_confidence", Path: "codes"},
-		},
-	}, nil, [][]any{{"c-1", "tooth ache", nil, nil, nil}})
+	result := runOllamaTestPipe(t, server.URL, &OllamaSpec{Model: "test-model", InferCommonSpec: InferCommonSpec{PromptTemplate: "Classify {{claim_id}}", OutputMapping: []InferMappingSpec{
+		{Column: "claim_category", Path: "detail"},
+		{Column: "claim_confidence", Path: "codes"},
+	}}}, nil, [][]any{{"c-1", "tooth ache", nil, nil, nil}})
 
 	record := result.outputRecords[0]
 	if record[2] != `{"score":0.9}` {
@@ -745,11 +688,7 @@ func TestOllamaObjectValueIsEncoded(t *testing.T) {
 // The raw_response source takes the model text as is, without parsing it.
 func TestOllamaRawResponseMapping(t *testing.T) {
 	server, _ := ollamaTestServer(t, []ollamaTestResponse{{body: "a plain sentence"}})
-	result := runOllamaTestPipe(t, server.URL, &OllamaSpec{
-		Model:          "test-model",
-		PromptTemplate: "Summarize {{claim_id}}",
-		OutputMapping:  []OllamaMappingSpec{{Column: "claim_category", Source: ollamaSourceRawResponse}},
-	}, nil, [][]any{{"c-1", "tooth ache", nil, nil, nil}})
+	result := runOllamaTestPipe(t, server.URL, &OllamaSpec{Model: "test-model", InferCommonSpec: InferCommonSpec{PromptTemplate: "Summarize {{claim_id}}", OutputMapping: []InferMappingSpec{{Column: "claim_category", Source: inferSourceRawResponse}}}}, nil, [][]any{{"c-1", "tooth ache", nil, nil, nil}})
 
 	if result.outputRecords[0][2] != "a plain sentence" {
 		t.Errorf("expecting the raw response, got %v", result.outputRecords[0][2])
@@ -762,17 +701,12 @@ func TestOllamaErrorInSuccessfulResponse(t *testing.T) {
 		_, _ = w.Write([]byte(`{"error":"model 'nope' not found"}`))
 	}))
 	t.Cleanup(server.Close)
-	result := runOllamaTestPipe(t, server.URL, &OllamaSpec{
-		Model:          "nope",
-		PromptTemplate: "Classify {{claim_id}}",
-		OutputMapping:  []OllamaMappingSpec{{Column: "claim_category", Path: "category"}},
-		ErrorChannel:   &OutputChannelConfig{Name: "process_errors.out", SpecName: "process_errors"},
-	}, nil, [][]any{{"c-1", "tooth ache", nil, nil, nil}})
+	result := runOllamaTestPipe(t, server.URL, &OllamaSpec{Model: "nope", InferCommonSpec: InferCommonSpec{PromptTemplate: "Classify {{claim_id}}", OutputMapping: []InferMappingSpec{{Column: "claim_category", Path: "category"}}, ErrorChannel: &OutputChannelConfig{Name: "process_errors.out", SpecName: "process_errors"}}}, nil, [][]any{{"c-1", "tooth ache", nil, nil, nil}})
 
 	if len(result.errorRecords) != 1 {
 		t.Fatalf("expecting 1 error record, got %d", len(result.errorRecords))
 	}
-	if msg := ollamaToString(result.errorRecords[0][5]); !strings.Contains(msg, "not found") {
+	if msg := inferToString(result.errorRecords[0][5]); !strings.Contains(msg, "not found") {
 		t.Errorf("expecting the model error to be reported, got %q", msg)
 	}
 }
@@ -780,17 +714,12 @@ func TestOllamaErrorInSuccessfulResponse(t *testing.T) {
 // A response that is not json fails the record with a message that shows what came back.
 func TestOllamaUnparseableResponse(t *testing.T) {
 	server, _ := ollamaTestServer(t, []ollamaTestResponse{{body: "I am afraid I cannot do that"}})
-	result := runOllamaTestPipe(t, server.URL, &OllamaSpec{
-		Model:          "test-model",
-		PromptTemplate: "Classify {{claim_id}}",
-		OutputMapping:  []OllamaMappingSpec{{Column: "claim_category", Path: "category"}},
-		ErrorChannel:   &OutputChannelConfig{Name: "process_errors.out", SpecName: "process_errors"},
-	}, nil, [][]any{{"c-1", "tooth ache", nil, nil, nil}})
+	result := runOllamaTestPipe(t, server.URL, &OllamaSpec{Model: "test-model", InferCommonSpec: InferCommonSpec{PromptTemplate: "Classify {{claim_id}}", OutputMapping: []InferMappingSpec{{Column: "claim_category", Path: "category"}}, ErrorChannel: &OutputChannelConfig{Name: "process_errors.out", SpecName: "process_errors"}}}, nil, [][]any{{"c-1", "tooth ache", nil, nil, nil}})
 
 	if len(result.errorRecords) != 1 {
 		t.Fatalf("expecting 1 error record, got %d", len(result.errorRecords))
 	}
-	if msg := ollamaToString(result.errorRecords[0][5]); !strings.Contains(msg, "I am afraid") {
+	if msg := inferToString(result.errorRecords[0][5]); !strings.Contains(msg, "I am afraid") {
 		t.Errorf("expecting the response to be quoted in the error, got %q", msg)
 	}
 }
@@ -802,11 +731,7 @@ func TestOllamaPreservesOrderWithSingleWorker(t *testing.T) {
 	for i := range 20 {
 		records = append(records, []any{"c-" + string(rune('a'+i)), "d", nil, nil, nil})
 	}
-	result := runOllamaTestPipe(t, server.URL, &OllamaSpec{
-		Model:          "test-model",
-		PromptTemplate: "Classify {{claim_id}}",
-		OutputMapping:  []OllamaMappingSpec{{Column: "claim_category", Path: "category"}},
-	}, nil, records)
+	result := runOllamaTestPipe(t, server.URL, &OllamaSpec{Model: "test-model", InferCommonSpec: InferCommonSpec{PromptTemplate: "Classify {{claim_id}}", OutputMapping: []InferMappingSpec{{Column: "claim_category", Path: "category"}}}}, nil, records)
 
 	if len(result.outputRecords) != len(records) {
 		t.Fatalf("expecting %d records, got %d", len(records), len(result.outputRecords))
@@ -825,12 +750,7 @@ func TestOllamaWorkerPool(t *testing.T) {
 	for i := range 25 {
 		records = append(records, []any{i, "d", nil, nil, nil})
 	}
-	result := runOllamaTestPipe(t, server.URL, &OllamaSpec{
-		Model:          "test-model",
-		PromptTemplate: "Classify {{claim_id}}",
-		PoolSize:       5,
-		OutputMapping:  []OllamaMappingSpec{{Column: "claim_category", Path: "category"}},
-	}, nil, records)
+	result := runOllamaTestPipe(t, server.URL, &OllamaSpec{Model: "test-model", InferCommonSpec: InferCommonSpec{PromptTemplate: "Classify {{claim_id}}", PoolSize: 5, OutputMapping: []InferMappingSpec{{Column: "claim_category", Path: "category"}}}}, nil, records)
 
 	if len(*prompts) != len(records) {
 		t.Errorf("expecting %d calls, got %d", len(records), len(*prompts))
@@ -870,13 +790,7 @@ func TestOllamaChatApi(t *testing.T) {
 	}))
 	t.Cleanup(server.Close)
 
-	result := runOllamaTestPipe(t, server.URL, &OllamaSpec{
-		Model:          "test-model",
-		Api:            "chat",
-		SystemPrompt:   "be terse",
-		PromptTemplate: "Classify {{claim_id}}",
-		OutputMapping:  []OllamaMappingSpec{{Column: "claim_category", Path: "category"}},
-	}, nil, [][]any{{"c-1", "tooth ache", nil, nil, nil}})
+	result := runOllamaTestPipe(t, server.URL, &OllamaSpec{Model: "test-model", Api: "chat", InferCommonSpec: InferCommonSpec{SystemPrompt: "be terse", PromptTemplate: "Classify {{claim_id}}", OutputMapping: []InferMappingSpec{{Column: "claim_category", Path: "category"}}}}, nil, [][]any{{"c-1", "tooth ache", nil, nil, nil}})
 
 	if len(gotMessages) != 2 || gotMessages[0].Role != "system" || gotMessages[1].Content != "Classify c-1" {
 		t.Errorf("unexpected chat messages: %v", gotMessages)
@@ -910,12 +824,7 @@ func TestOllamaTemplateEnvVarSubstitution(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	spec := &TransformationSpec{Type: "ollama", OllamaConfig: &OllamaSpec{
-		Model:          "test-model",
-		Server:         &OllamaServerSpec{Url: server.URL},
-		PromptTemplate: "Client $CLIENT claim {{claim_id}}",
-		OutputMapping:  []OllamaMappingSpec{{Column: "claim_category", Path: "category"}},
-	}}
+	spec := &TransformationSpec{Type: "ollama", OllamaConfig: &OllamaSpec{Model: "test-model", Server: &OllamaServerSpec{Url: server.URL}, InferCommonSpec: InferCommonSpec{PromptTemplate: "Client $CLIENT claim {{claim_id}}", OutputMapping: []InferMappingSpec{{Column: "claim_category", Path: "category"}}}}}
 	pipe, err := builderContext.NewOllamaTransformationPipe(source, outputCh, spec)
 	if err != nil {
 		t.Fatal(err)

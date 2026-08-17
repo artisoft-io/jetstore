@@ -1255,18 +1255,29 @@ type PromptTemplateSpec struct {
 // ErrorChannel is the channel where row-level errors are reported, using the
 // process_errors channel spec (see the jetrules operator).
 type OllamaSpec struct {
-	Comment                string               `json:"comment,omitempty"` // free text for the reader; ignored by JetStore
-	Model                  string               `json:"model"`
-	Api                    string               `json:"api,omitempty"`
+	Comment   string            `json:"comment,omitempty"` // free text for the reader; ignored by JetStore
+	Model     string            `json:"model"`
+	Api       string            `json:"api,omitempty"`
+	Options   map[string]any    `json:"options,omitempty"`
+	KeepAlive string            `json:"keep_alive,omitempty"`
+	Think     *bool             `json:"think,omitzero"`
+	Server    *OllamaServerSpec `json:"server,omitzero"`
+	// The backend-agnostic configuration, embedded anonymously so encoding/json
+	// field promotion keeps every existing .pc.json parsing unchanged (15a).
+	InferCommonSpec
+}
+
+// InferCommonSpec is the backend-agnostic configuration of an inference
+// operator, shared by the infer plumbing (pipe_transformation_infer.go). It is
+// embedded anonymously in each backend's spec (OllamaSpec today), so the wire
+// format is unchanged: encoding/json promotes the fields onto the host.
+// See the doc block above OllamaSpec for the field-by-field description.
+type InferCommonSpec struct {
 	PromptTemplate         string               `json:"prompt_template,omitempty"`
 	PromptTemplateName     string               `json:"prompt_template_name,omitempty"`
 	SystemPrompt           string               `json:"system_prompt,omitempty"`
 	ResponseFormat         json.RawMessage      `json:"response_format,omitempty"`
-	Options                map[string]any       `json:"options,omitempty"`
-	KeepAlive              string               `json:"keep_alive,omitempty"`
-	Think                  *bool                `json:"think,omitzero"`
-	Server                 *OllamaServerSpec    `json:"server,omitzero"`
-	OutputMapping          []OllamaMappingSpec  `json:"output_mapping,omitempty"`
+	OutputMapping          []InferMappingSpec   `json:"output_mapping,omitempty"`
 	DisableStripCodeFences bool                 `json:"disable_strip_code_fences,omitzero"`
 	PoolSize               int                  `json:"pool_size,omitzero"`
 	RequestTimeoutSec      int                  `json:"request_timeout_sec,omitzero"`
@@ -1293,13 +1304,13 @@ type OllamaServerSpec struct {
 	Headers map[string]string `json:"headers,omitempty"`
 }
 
-// OllamaMappingSpec maps one element of the model response to a column of the record.
+// InferMappingSpec maps one element of the model response to a column of the record.
 // Column is the name of the column to set, it must be a column of the channel shared by
 // the input and output channels.
 // Source specifies what the mapping reads from:
 //   - response (default): the model's text, parsed as json when Path is specified;
 //   - raw_response: the model's text, verbatim, without parsing;
-//   - envelope: a property of the ollama api response envelope itself, eg eval_count,
+//   - envelope: a property of the infer server response envelope itself, eg eval_count,
 //     prompt_eval_count, total_duration, model;
 //   - thinking: the reasoning text, when Think is in use.
 //   - model_name: the model name.
@@ -1310,7 +1321,7 @@ type OllamaServerSpec struct {
 // AsRdfType casts the value, see CastToRdfType.
 // Default is the value to use when the path is absent or null.
 // Required indicates that an absent or null value is a row-level error.
-type OllamaMappingSpec struct {
+type InferMappingSpec struct {
 	Comment   string `json:"comment,omitempty"` // free text for the reader; ignored by JetStore
 	Column    string `json:"column"`
 	Source    string `json:"source,omitempty"`
