@@ -8,6 +8,7 @@ import (
 	"log"
 	"os"
 
+	"github.com/artisoft-io/jetstore/jets/agentic/audit"
 	"github.com/artisoft-io/jetstore/jets/awsi"
 	"github.com/artisoft-io/jetstore/jets/jetrules/rete"
 	"github.com/artisoft-io/jetstore/jets/utils"
@@ -61,6 +62,13 @@ func doJob() error {
 	if *migrateDb {
 		log.Println("Migrating jetsapi system tables to latest schema")
 		err = MigrateDb(dbpool)
+		if err != nil {
+			return err
+		}
+		// The agentic audit store rides the same migration; its DDL is
+		// generated from the jets_agentic model and idempotent.
+		log.Println("Installing jetsapi.agent_audit (agentic audit store)")
+		err = audit.InstallSchema(context.Background(), dbpool)
 		if err != nil {
 			return err
 		}

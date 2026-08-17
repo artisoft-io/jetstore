@@ -12,19 +12,22 @@ import argparse
 import sys
 from pathlib import Path
 
-from . import jr, schema, sidecar
+from . import ddl, jr, schema, sidecar
 
-# The emitter registry: (output file name, emitter). Item 3's glossary and
-# tool-signature emitters append here.
+# The emitter registry: (repo-root-relative output path, emitter). Item 3's
+# glossary and tool-signature emitters append here. Workspace-installed
+# assets live under jets/workspace_assets/ (A21.1); the audit DDL lands in
+# the Go package that go:embeds it, which cannot cross package directories.
 EMITTERS: list[tuple[str, object]] = [
-    ("jets_agentic.jr", jr.emit),
-    ("jets_agentic.meta.json", sidecar.emit),
-    ("jets_agentic.schema.json", schema.emit),
+    ("jets/workspace_assets/data_model/jets_agentic.jr", jr.emit),
+    ("jets/workspace_assets/data_model/jets_agentic.meta.json", sidecar.emit),
+    ("jets/workspace_assets/data_model/jets_agentic.schema.json", schema.emit),
+    ("jets/agentic/audit/agent_audit.sql", ddl.emit),
 ]
 
 # tools/jets_agentic/jets_agentic/main.py -> the JetStore repo root.
 REPO_ROOT = Path(__file__).resolve().parents[3]
-DEFAULT_OUT = REPO_ROOT / "jets" / "workspace_assets" / "data_model"
+DEFAULT_OUT = REPO_ROOT
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -32,7 +35,11 @@ def main(argv: list[str] | None = None) -> int:
     sub = parser.add_subparsers(dest="command", required=True)
     generate = sub.add_parser("generate", help="emit every registered artifact")
     generate.add_argument(
-        "--out", type=Path, default=DEFAULT_OUT, help="destination directory"
+        "--out",
+        type=Path,
+        default=DEFAULT_OUT,
+        help="root directory the registry's relative output paths are joined "
+        "under (default: the repo root)",
     )
     generate.add_argument(
         "--check",
@@ -108,7 +115,6 @@ def main(argv: list[str] | None = None) -> int:
 
         return decode_check.run(args)
 
-    args.out.mkdir(parents=True, exist_ok=True)
     stale: list[str] = []
     for name, emitter in EMITTERS:
         text = emitter()  # type: ignore[operator]
@@ -117,6 +123,7 @@ def main(argv: list[str] | None = None) -> int:
             if not target.exists() or target.read_text() != text:
                 stale.append(name)
         else:
+            target.parent.mkdir(parents=True, exist_ok=True)
             target.write_text(text)
             print(f"wrote {target}")
     if args.check:

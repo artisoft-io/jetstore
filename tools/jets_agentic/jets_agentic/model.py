@@ -138,6 +138,21 @@ class EvidenceSource(StrEnum):
     profile = "profile"
 
 
+class AuditEventType(StrEnum):
+    """§7.2's event taxonomy for the `jetsapi.agent_audit` stream (item 8).
+    Deliberately *not* reachable from any entity: it constrains the audit
+    store's DDL (a CHECK constraint the ddl emitter generates), not working
+    memory, so it must not become a workspace vocabulary — the reachability
+    rule keeps it out of the .jr by construction."""
+
+    intent = "intent"
+    tool_call = "tool_call"
+    decision = "decision"
+    outcome = "outcome"
+    approval = "approval"
+    error = "error"
+
+
 # ---------------------------------------------------------------------------
 # Property metadata (A1.2)
 # ---------------------------------------------------------------------------
