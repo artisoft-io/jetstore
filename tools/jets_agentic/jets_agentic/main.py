@@ -12,7 +12,7 @@ import argparse
 import sys
 from pathlib import Path
 
-from . import ddl, jr, schema, sidecar, toolsig
+from . import ddl, header, jr, schema, sidecar, toolsig
 
 # The emitter registry: (repo-root-relative output path, emitter). Item 3's
 # glossary and tool-signature emitters append here. Workspace-installed
@@ -29,6 +29,26 @@ EMITTERS: list[tuple[str, object]] = [
 # tools/jets_agentic/jets_agentic/main.py -> the JetStore repo root.
 REPO_ROOT = Path(__file__).resolve().parents[3]
 DEFAULT_OUT = REPO_ROOT
+
+# A21.7. `jets/workspace_assets/data_model/` is installed into client
+# workspaces wholesale by `jets/workspace_assets/install.go`, whose embed glob
+# takes every `.jr` and `.json` in it — so a file arriving there by any route
+# reaches every client. --check therefore accounts for the whole directory, not
+# only for what the registry writes: anything not emitted above has to be named
+# here, with the reason it is exempt.
+ASSET_DIR = "jets/workspace_assets/data_model"
+HAND_AUTHORED = {
+    # The platform base model (A21.6). Hand-authored in JetStore rather than
+    # generated, JetStore-owned all the same, and installed by the same step —
+    # which is what makes the six divergent copies non-authoritative.
+    "jets_model.jr",
+}
+NOT_INSTALLED = {
+    # JetStore's own documentation of the convention (A1.10, A21.4). The embed
+    # glob excludes it; this list is what makes that deliberate rather than
+    # incidental.
+    "README.md",
+}
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -128,11 +148,46 @@ def main(argv: list[str] | None = None) -> int:
             target.write_text(text)
             print(f"wrote {target}")
     if args.check:
-        if stale:
-            print(f"stale generated output (regenerate with `jets-agentic generate`): {', '.join(stale)}")
+        problems = [
+            f"stale generated output (regenerate with `jets-agentic generate`): {name}"
+            for name in stale
+        ]
+        problems.extend(check_asset_dir(args.out))
+        if problems:
+            for p in problems:
+                print(p)
             return 1
-        print("generated outputs match their source")
+        print(
+            f"generated outputs match their source; {ASSET_DIR} holds nothing unaccounted for"
+        )
     return 0
+
+
+def check_asset_dir(out: Path) -> list[str]:
+    """A21.7's second half: the installed set is the directory's contents, so
+    the directory is what has to be accounted for."""
+    directory = out / ASSET_DIR
+    if not directory.is_dir():
+        return [f"{ASSET_DIR} does not exist"]
+    generated = {Path(name).name for name, _ in EMITTERS if name.startswith(ASSET_DIR)}
+    problems: list[str] = []
+    for path in sorted(directory.iterdir()):
+        if path.name in generated or path.name in NOT_INSTALLED:
+            continue
+        if path.name in HAND_AUTHORED:
+            if header.TOKEN not in path.read_text():
+                problems.append(
+                    f"{ASSET_DIR}/{path.name} has lost its {header.TOKEN} header, which "
+                    f"is what the install guard reads to tell a JetStore file from a "
+                    f"client's (A21.4)"
+                )
+            continue
+        problems.append(
+            f"{ASSET_DIR}/{path.name} is neither generated nor declared hand-authored, "
+            f"and every .jr and .json in that directory is installed into every client "
+            f"workspace. Add it to EMITTERS, HAND_AUTHORED or NOT_INSTALLED."
+        )
+    return problems
 
 
 if __name__ == "__main__":

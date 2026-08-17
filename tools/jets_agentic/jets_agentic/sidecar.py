@@ -14,6 +14,7 @@ from enum import StrEnum
 
 from pydantic import BaseModel
 
+from . import header
 from . import model as M
 from .jr import analyze, collect_vocabularies, qname
 
@@ -61,6 +62,11 @@ def emit() -> str:
 
     return json.dumps(
         {
+            "jetstore-owned-asset": header.json_object(
+                "jets_agentic.meta.json",
+                "`jets-agentic generate`, from "
+                "tools/jets_agentic/jets_agentic/model.py.",
+            ),
             "model": "jets_agentic",
             "version": M.MODEL_VERSION,
             "prefix": M.PREFIX,
