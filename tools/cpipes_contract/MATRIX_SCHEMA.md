@@ -1,6 +1,6 @@
 # The cpipes applicability matrix — schema
 
-**Task B.1 · drafted 2026-08-11 · revised 2026-08-12 after first review · revised 2026-08-15 during B.2 (virtual tokens; the unfilled cell state) · revised 2026-08-15 during B.7 (the harness; `types.csv` gains a machine-written `harness` column) · revised 2026-08-15 preparing B.8 (the reachability closure; the walk starts at the root; the review stamp) · awaiting review**
+**Task B.1 · drafted 2026-08-11 · revised 2026-08-12 after first review · revised 2026-08-15 during B.2 (virtual tokens; the unfilled cell state) · revised 2026-08-15 during B.7 (the harness; `types.csv` gains a machine-written `harness` column) · revised 2026-08-15 preparing B.8 (the reachability closure; the walk starts at the root; the review stamp) · revised 2026-08-16 (the B.10 flip; the corpus-unreachable stamp) · **third review complete — reviewed and signed off by Michel 2026-08-16, with the matrix***
 
 > **The B.10 flip (2026-08-16).** Since B.9/B.10 the source of truth for the *contract claims* —
 > which fields exist per token (`applicable`), `required`, `values`, `default`, `description` — is
