@@ -142,7 +142,37 @@ def main(argv: list[str] | None = None) -> int:
         "--out", type=Path, default=DEFAULT_MATRIX.parent / "cpipes_schema.json"
     )
 
+    validate_cmd = sub.add_parser(
+        "validate",
+        help="validate the live corpus against the emitted schema with the Go "
+        "validator (santhosh-tekuri/jsonschema/v6) - the B.15 gate",
+    )
+    validate_cmd.add_argument(
+        "--code", type=Path, required=True, help="the JetStore repo root"
+    )
+    validate_cmd.add_argument(
+        "--schema",
+        type=Path,
+        default=Path("tools/cpipes_contract/cpipes_schema.json"),
+        help="schema path, relative to --code",
+    )
+    validate_cmd.add_argument(
+        "--corpus", type=Path, default=Path(".."), help="root holding workspaces/, relative to --code"
+    )
+
     args = parser.parse_args(argv)
+
+    if args.command == "validate":
+        import subprocess
+
+        proc = subprocess.run(
+            [
+                "go", "run", "./tools/cpipes_contract/validate",
+                "-schema", str(args.schema), "-corpus", str(args.corpus),
+            ],
+            cwd=args.code,
+        )
+        return proc.returncode
 
     if args.command == "schema":
         from . import schema as schema_mod
