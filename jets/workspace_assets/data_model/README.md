@@ -12,8 +12,8 @@ install rather than being overwritten.
 There are two ways a data model gets written, and the split is deliberate, not
 drift:
 
-- **The agentic model (`jets_agentic.jr`, `jets_agentic.meta.json`) is
-  schema-first in Python.** Its source of truth is
+- **The agentic model (`jets_agentic.jr`, `jets_agentic.meta.json`,
+  `jets_agentic.schema.json`) is schema-first in Python.** Its source of truth is
   `tools/jets_agentic/jets_agentic/model.py`; the files here are emitted by
   `jets-agentic generate` and carry a GENERATED header. Edit the Python source
   and regenerate — never edit the emitted files. `jets-agentic generate

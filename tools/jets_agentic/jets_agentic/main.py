@@ -12,13 +12,14 @@ import argparse
 import sys
 from pathlib import Path
 
-from . import jr, sidecar
+from . import jr, schema, sidecar
 
-# The emitter registry: (output file name, emitter). Item 2a's JSON Schema
-# emitter and item 3's glossary and tool-signature emitters append here.
+# The emitter registry: (output file name, emitter). Item 3's glossary and
+# tool-signature emitters append here.
 EMITTERS: list[tuple[str, object]] = [
     ("jets_agentic.jr", jr.emit),
     ("jets_agentic.meta.json", sidecar.emit),
+    ("jets_agentic.schema.json", schema.emit),
 ]
 
 # tools/jets_agentic/jets_agentic/main.py -> the JetStore repo root.
@@ -54,6 +55,29 @@ def main(argv: list[str] | None = None) -> int:
     precheck_cmd.add_argument(
         "workspace_db", help="path to the target workspace's workspace.db (or its directory)"
     )
+    schema_cmd = sub.add_parser(
+        "schema",
+        help="print the JSON Schema projection of an entity over an "
+        "allowed-field subset — what an agent's decode is constrained by "
+        "(A2a.1); pass it as-is to Ollama `format` or vLLM `guided_json`",
+    )
+    schema_cmd.add_argument("entity", help="entity class name, e.g. Incident")
+    schema_cmd.add_argument(
+        "--fields",
+        help="comma-separated allowed fields; omit for the whole entity",
+    )
+    decode_cmd = sub.add_parser(
+        "decode-check",
+        help="verify the emitted schema drives constrained decoding with no "
+        "translation step (A2a.3) and that vocabularies survive as $defs "
+        "enums the projection cannot widen (A2a.4)",
+    )
+    decode_cmd.add_argument(
+        "--ollama-model",
+        help="run a live Ollama `format` decode against this model "
+        "(needs a reachable server); without it the Ollama half only "
+        "reports how to run it",
+    )
 
     args = parser.parse_args(argv)
 
@@ -66,6 +90,23 @@ def main(argv: list[str] | None = None) -> int:
         from . import precheck
 
         return precheck.run(args)
+
+    if args.command == "schema":
+        import json
+
+        entity = schema.entity_by_name(args.entity)
+        fields = (
+            [f.strip() for f in args.fields.split(",")]
+            if args.fields
+            else list(entity.model_fields)
+        )
+        print(json.dumps(schema.schema_for(entity, fields), indent=2))
+        return 0
+
+    if args.command == "decode-check":
+        from . import decode_check
+
+        return decode_check.run(args)
 
     args.out.mkdir(parents=True, exist_ok=True)
     stale: list[str] = []
