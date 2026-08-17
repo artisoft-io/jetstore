@@ -167,7 +167,7 @@ CONTEXT_WIRING: dict[tuple[str, str], str] = {
 VALUE_HINTS: dict[str, Any] = {
     "format": "csv",
     "compression": "none",
-    "delimiter": ",",
+    "delimiter": 44,  # rune fields decode from the code point, not the character
 }
 
 _GO_STRING_TYPES = {"string", "*string", "[]string", "[][]string"}
@@ -348,7 +348,10 @@ class _Builder:
             if kind == "absent":
                 node.pop(pred_key, None)
         for json_key, value in ENSURE_FIELDS.get(struct, {}).items():
-            node.setdefault(json_key, copy.deepcopy(value))
+            # override, not setdefault: a generically synthesized value (a fresh
+            # placeholder for a `when` that gets evaluated at validate time)
+            # would defeat the purpose of the ensure
+            node[json_key] = copy.deepcopy(value)
         for row in rows:
             if row.json_key in node:
                 self.wire_context(row, node[row.json_key])
@@ -400,7 +403,7 @@ class _Builder:
         base = row.go_type.lstrip("*").removeprefix("[]").removeprefix("[]")
         if base == "bool":
             return True
-        if base in ("int", "int64", "uint64", "float64"):
+        if base in ("int", "int64", "int32", "uint64", "float64", "rune", "byte"):
             return 1
         if base == "any" or row.container is Container.ANY:
             return 1
