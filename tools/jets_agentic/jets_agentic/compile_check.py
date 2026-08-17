@@ -13,10 +13,14 @@ asserts against the produced workspace.db:
   where the source declares a nested value object (§4).
 
 Note on F5: `build/classes.json` — the workspace-wide view — is written by
-the *full* workspace compile (`jets/workspace/compile_workspace_v2.go`),
-which uploads to Postgres and needs a deployed workspace. This check reads
-`workspace.db` directly, which carries the same class model; the
-classes.json comparison joins when item 21 installs into a real workspace.
+the *full* workspace compile (`jets/workspace/compile_workspace_v2.go`).
+An earlier version of this note said that compile needs Postgres; item 3
+disproved that — `compile_workspace` runs with a nil dbpool (Postgres is
+only for the upload), and the item-3 test fixture compiles a workspace
+offline. This check still reads `workspace.db` directly, which carries the
+same class model and needs no per-run workspace copy of the platform model;
+the classes.json comparison lives in the item-3 tool tests, which resolve a
+fully compiled fixture.
 
 Beware F4: a full compile deletes workspace.db first, and re-saving a main
 source file already present is an error — hence the throwaway directory per
