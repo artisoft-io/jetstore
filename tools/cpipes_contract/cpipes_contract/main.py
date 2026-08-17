@@ -88,6 +88,16 @@ def main(argv: list[str] | None = None) -> int:
         help="also write each synthesized config to this directory, for reading",
     )
 
+    drift_cmd = sub.add_parser(
+        "drift",
+        help="field-inventory drift check between pipes_model.go and the "
+        "matrix (B.18); exit code carries the verdict",
+    )
+    drift_cmd.add_argument("--matrix", type=Path, default=DEFAULT_MATRIX)
+    drift_cmd.add_argument(
+        "--code", type=Path, required=True, help="the JetStore repo root"
+    )
+
     gofile_cmd = sub.add_parser(
         "gofile",
         help="emit the matrix as one generated Go data file (B.17)",
@@ -212,6 +222,10 @@ def main(argv: list[str] | None = None) -> int:
         return _harness(args, matrix)
     if args.command == "stamp":
         return _stamp(args, matrix)
+    if args.command == "drift":
+        from . import drift as drift_mod
+
+        return drift_mod.run(args, matrix)
     if args.command == "gofile":
         from . import emit_go
 
