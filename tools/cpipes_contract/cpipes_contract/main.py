@@ -93,6 +93,18 @@ def main(argv: list[str] | None = None) -> int:
         help="certify reviewed rows: write the fingerprint a reviewed mark "
         "certifies, and clear leftovers on unreviewed rows",
     )
+    generate_cmd = sub.add_parser(
+        "generate",
+        help="generate cpipes_model.py (Pydantic v2) from the reviewed matrix",
+    )
+    generate_cmd.add_argument("--matrix", type=Path, default=DEFAULT_MATRIX)
+    generate_cmd.add_argument(
+        "--out",
+        type=Path,
+        default=DEFAULT_MATRIX.parent / "cpipes_model.py",
+        help="destination of the generated model",
+    )
+
     stamp_cmd.add_argument("--matrix", type=Path, default=DEFAULT_MATRIX)
     stamp_cmd.add_argument(
         "--restamp",
@@ -115,6 +127,10 @@ def main(argv: list[str] | None = None) -> int:
         return _harness(args, matrix)
     if args.command == "stamp":
         return _stamp(args, matrix)
+    if args.command == "generate":
+        from . import generate as generate_mod
+
+        return generate_mod.run_with_matrix(args, matrix)
 
     problems = check(matrix, strict=args.strict)
     if args.corpus is not None:
