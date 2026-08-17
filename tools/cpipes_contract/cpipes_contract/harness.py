@@ -20,15 +20,16 @@ What a result means — and does not mean — at config-validation level:
   or a satisfied `required_when` it says removal was rejected.
 - `untestable` is the honest state for claims the config validator cannot see:
   a requirement enforced by an operator builder at DAG-build time, a prohibition
-  (`applicable=no` — the decoder ignores unknown-to-context fields), or a
+  (`applicable=no` — the decoder ignores unknown-to-context fields), a
   discriminator/membership key whose removal *re-types* the node instead of
-  invalidating it.
+  invalidating it, or a runtime-injected shape (I-14) that embeds only through
+  applicable=no fields and so can never appear in an authored document.
 - `fail` is reserved for a claim the validator contradicts: `evidence=validator`
   and the removal was accepted. A builder- or comment-evidenced removal that is
   accepted proves nothing either way and stays `untestable`.
-- `pending` marks rows the run could not reach: an unfilled `required`, a type
-  whose minimal config was rejected (its findings come first), or a type the
-  matrix graph cannot embed.
+- `pending` marks rows a *future* run may still resolve: an unfilled `required`,
+  a type whose minimal config was rejected (its findings come first), or a type
+  whose synthesis failed for a fixable reason.
 
 The synthesis takes its knowledge from the matrix — `required`, `values`,
 `default`, `ref_struct`, the discriminator vocabulary — plus the small hint
@@ -504,6 +505,9 @@ def _step_segments(container: Container, json_key: str) -> list[Any]:
     return [json_key]
 
 
+NO_CHAIN = "no applicable ref_struct chain from the document root"
+
+
 def synthesize(matrix: Matrix) -> Plan:
     index = _Index(matrix)
     plan = Plan()
@@ -513,9 +517,7 @@ def synthesize(matrix: Matrix) -> Plan:
     for key in index.types:
         chain = paths.get(key)
         if chain is None:
-            plan.unreachable[key] = (
-                "no applicable ref_struct chain from the document root"
-            )
+            plan.unreachable[key] = NO_CHAIN
             continue
         builder = _Builder(index)
         try:
@@ -653,8 +655,21 @@ def evaluate(matrix: Matrix, code_root: Path, dump_dir: Path | None = None) -> R
     report = Report()
 
     for key, reason in plan.unreachable.items():
-        report.type_results[key] = Harness.PENDING
-        report.notes.append(f"unreachable {key[0]}/{key[1]}: {reason}")
+        if reason == NO_CHAIN:
+            # Unreachable by construction: this type embeds only through
+            # applicable=no fields, so no authored document can ever put it in
+            # front of the validator. The claims are untestable, not awaiting a
+            # future run (the runtime-injected shapes of I-14).
+            report.type_results[key] = Harness.UNTESTABLE
+            for row in index.fields.get(key, []):
+                cell = (row.go_struct, row.type_token, row.json_key)
+                report.field_results[cell] = Harness.UNTESTABLE
+            report.notes.append(
+                f"unreachable by construction {key[0]}/{key[1]}: untestable"
+            )
+        else:
+            report.type_results[key] = Harness.PENDING
+            report.notes.append(f"unreachable {key[0]}/{key[1]}: {reason}")
 
     if dump_dir is not None:
         dump_dir.mkdir(parents=True, exist_ok=True)
