@@ -26,7 +26,10 @@ class jetsa:AgentRun {
     jetsa:ended_at as datetime,
     jetsa:run_status as text,
     jetsa:triggered_by as text,
-    jetsa:domain_model_version as text
+    jetsa:domain_model_version as text,
+    jetsa:iteration_cap as int,
+    jetsa:wall_clock_cap_seconds as int,
+    jetsa:token_spend as int
   ],
   $as_table = true
 };

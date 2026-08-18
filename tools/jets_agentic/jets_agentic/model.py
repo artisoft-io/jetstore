@@ -226,6 +226,16 @@ class AgentRun(JetsaEntity):
     run_status: str | None = prop("The run outcome: succeeded, failed, interrupted; unset while running (scoped per F7: status is §A.2.7's name on Incident).", default=None)
     triggered_by: str | None = prop("What started the run: a schedule, an anomaly, a user (scoped per F7: trigger_ref is §A.2.10's name on ChangeProposal).", default=None)
     domain_model_version: str = prop("The domain model version the run reasoned against (§5.3).")
+    # The budget (D.1, phase-1 plan §3.4). Two caps and one meter: the caps
+    # bound a run and are required, because a run without a bound is what the
+    # budget exists to prevent; the meter records what was actually spent and
+    # is unset until the run reports it. Names are deliberately distinctive —
+    # F7 makes property names one flat workspace-wide namespace, so `max_tokens`
+    # or `timeout` would be exactly the kind of generic name a client workspace
+    # is likely to want for something else.
+    iteration_cap: int = prop("Maximum propose-verify-repair iterations before the run ends as exhausted; the bound §7's Rung 3 asks for without saying by what.")
+    wall_clock_cap_seconds: int = prop("Maximum wall-clock seconds for the whole run, carried on the run's context; the only cap that bounds a call the request timeout missed.")
+    token_spend: int | None = prop("Total tokens consumed by the run, accumulated from the inference responses; unset while running. Recorded rather than capped in phase 1 - it is what lets the eval harness compare sampling policies at equal spend (§4.3).", default=None)
 
 
 class ApprovalEvent(JetsaEntity):
