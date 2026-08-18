@@ -223,7 +223,7 @@ class AgentRun(JetsaEntity):
     tier: AutonomyTier = prop("The autonomy tier the run executed under, recorded not enforced (§9.1).")
     started_at: datetime = prop("When the run started.")
     ended_at: datetime | None = prop("When the run ended; unset while running.", default=None)
-    run_status: str | None = prop("The run outcome: succeeded, failed, interrupted; unset while running (scoped per F7: status is §A.2.7's name on Incident).", default=None)
+    run_status: str | None = prop("The run outcome: succeeded, exhausted, interrupted or failed; unset while running (scoped per F7: status is §A.2.7's name on Incident). Corrected at D.5: this read 'succeeded, failed, interrupted' while the loop wrote 'exhausted' - the budget running out is not a failure, it is the compile-pass rate's denominator - and never wrote 'interrupted' until the same task gave it a wall-clock cap to distinguish from a caller's cancellation.", default=None)
     triggered_by: str | None = prop("What started the run: a schedule, an anomaly, a user (scoped per F7: trigger_ref is §A.2.10's name on ChangeProposal).", default=None)
     domain_model_version: str = prop("The domain model version the run reasoned against (§5.3).")
     # The budget (D.1, phase-1 plan §3.4). Two caps and one meter: the caps
