@@ -113,6 +113,45 @@ TOOLS: list[dict] = [
             "additionalProperties": False,
         },
     },
+    {
+        "name": "compile_rule_file",
+        "description": (
+            "Compile JetRule source with the real compiler (compilerv2) "
+            "against a throwaway copy of the live workspace, and report "
+            "every diagnostic with the file and line it belongs to. The "
+            "submitted text is compiled, never saved: the live workspace, "
+            "its workspace.db and its build outputs are untouched. Imports "
+            "resolve against the workspace's own rule files, because a rule "
+            "file is inlined with its data model before parsing and cannot "
+            "be compiled without the vocabulary that gives its terms "
+            "meaning. Read-only."
+        ),
+        "reversibility": "na",
+        "min_tier": "T0",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "rule_text": {
+                    "type": "string",
+                    "description": (
+                        "The JetRule source to compile, as it would appear "
+                        "in a .jr file, import statements included."
+                    ),
+                },
+                "file_name": {
+                    "type": "string",
+                    "description": (
+                        "Name to compile the text under, so diagnostics "
+                        "about it are attributed to a recognisable file. "
+                        "Must be a bare file name ending in .jr, no path "
+                        "separators. Defaults to a generated name."
+                    ),
+                },
+            },
+            "required": ["rule_text"],
+            "additionalProperties": False,
+        },
+    },
 ]
 
 
