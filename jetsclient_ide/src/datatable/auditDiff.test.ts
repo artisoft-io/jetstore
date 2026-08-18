@@ -13,9 +13,23 @@
  * **stdout** (`jets/apiserver/server.go:405`). So driving a flow in the Flutter
  * app with the apiserver's stdout captured is the whole apparatus.
  *
+ * **A capture is bundled, so this runs by default.**
+ * `fixtures/load_files_flutter_audit.log` is the apiserver's stdout from driving
+ * `load_files` in the Flutter app on 2026-08-18, against synthetic data. It makes
+ * the comparison a standing regression guard on A.4a rather than an exercise
+ * someone has to remember to repeat: change `makeQuery` in a way the Dart would
+ * not have, and this fails.
+ *
+ * To check a fresh capture instead — a different flow, or one that pages and
+ * re-sorts — point `JETS_AUDIT_LOG` at it:
+ *
  *     # apiserver started with:  ./apiserver … 2>&1 | tee apiserver.log
  *     # then drive http://localhost:8080/#/loadFilesUF and pick a source config
  *     JETS_AUDIT_LOG=/path/to/apiserver.log npx vitest run src/datatable/auditDiff.test.ts
+ *
+ * **What the bundled capture does not cover**, and a fresh one should: the other
+ * 26 querying configurations, and any paging or sorting interaction — both of its
+ * requests carry `offset: 0` and the configured sort.
  *
  * ## What is taken from the observation, and what is not
  *
@@ -45,7 +59,10 @@ import corpus from "./fixtures/table_configs.json";
 import { makeQuery } from "./query";
 import type { DataTableAction, TableConfig, WhereClausePayload } from "./types";
 
-const logPath = process.env["JETS_AUDIT_LOG"];
+/** An override for a fresh capture; otherwise the bundled one. */
+const logPath =
+  process.env["JETS_AUDIT_LOG"] ??
+  new URL("./fixtures/load_files_flutter_audit.log", import.meta.url).pathname;
 const tables = corpus.tables as unknown as Record<string, TableConfig>;
 
 /** One zap line: `{"level":…,"message":"<the raw body>","logger_type":"audit_log"}`. */
@@ -204,8 +221,8 @@ describe("the audit-log parser", () => {
   });
 });
 
-describe.skipIf(!logPath)("captured Flutter requests match what A.4a builds", () => {
-  const log = logPath ? readFileSync(logPath, "utf8") : "";
+describe("captured Flutter requests match what A.4a builds", () => {
+  const log = readFileSync(logPath, "utf8");
   const observed = extractDataTableRequests(log);
 
   it("found requests in the log at all", () => {
