@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "startAtKey": "select_source_config",
+  "states": {
+    "select_source_config": {
+      "description": "Select an existing Source Config for mapping",
+      "formConfig": "fmSelectSourceConfigUF",
+      "stateAction": "fmSelectSourceConfigUF",
+      "defaultNextState": "file_mapping"
+    },
+    "file_mapping": {
+      "description": "File Mapping",
+      "formConfig": "fmFileMappingUF",
+      "isEnd": true
+    }
+  }
+}

@@ -1,0 +1,35 @@
+{
+  "schemaVersion": 1,
+  "startAtKey": "pull_workspace",
+  "exitScreenPath": "/workspaces",
+  "states": {
+    "pull_workspace": {
+      "description": "Pull workspace form",
+      "formConfig": "wpPullWorkspaceUF",
+      "stateAction": "wpPullWorkspaceConfirmUF",
+      "choices": [
+        {
+          "when": {
+            "op": "contains",
+            "key": "otherWorkspaceActionOptions",
+            "value": "wpLoadSelectedClientConfgOption"
+          },
+          "nextState": "select_clients"
+        }
+      ],
+      "defaultNextState": "confirm"
+    },
+    "select_clients": {
+      "description": "Select clients to load",
+      "formConfig": "wpSelectClientsgUF",
+      "stateAction": "wpLoadConfigConfirmUF",
+      "defaultNextState": "confirm"
+    },
+    "confirm": {
+      "description": "Confirm pull workspace",
+      "formConfig": "wpConfirmPullWorkspaceUF",
+      "stateAction": "wpPullWorkspaceOkUF",
+      "isEnd": true
+    }
+  }
+}

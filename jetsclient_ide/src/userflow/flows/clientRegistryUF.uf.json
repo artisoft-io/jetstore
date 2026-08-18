@@ -1,0 +1,45 @@
+{
+  "schemaVersion": 1,
+  "startAtKey": "select_client_vendor",
+  "states": {
+    "select_client_vendor": {
+      "description": "Select between create client or add vendor/org",
+      "formConfig": "ufSelectClientOrVendor",
+      "choices": [
+        {
+          "when": {
+            "op": "equals",
+            "key": "ufClientOrVendorOption",
+            "value": "ufClientOption"
+          },
+          "nextState": "create_client"
+        },
+        {
+          "when": {
+            "op": "equals",
+            "key": "ufClientOrVendorOption",
+            "value": "ufVendorOption"
+          },
+          "nextState": "select_client"
+        }
+      ]
+    },
+    "create_client": {
+      "description": "Create client",
+      "formConfig": "ufCreateClient",
+      "stateAction": "crAddClientUF",
+      "defaultNextState": "show_org"
+    },
+    "select_client": {
+      "description": "Select an existing client",
+      "formConfig": "ufSelectClient",
+      "stateAction": "crSelectClientUF",
+      "defaultNextState": "show_org"
+    },
+    "show_org": {
+      "description": "Create org/vendor of client",
+      "formConfig": "ufShowVendor",
+      "isEnd": true
+    }
+  }
+}

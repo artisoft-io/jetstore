@@ -1,0 +1,11 @@
+{
+  "schemaVersion": 1,
+  "startAtKey": "map_file",
+  "states": {
+    "map_file": {
+      "description": "Map file screen/dialog",
+      "formConfig": "fmMappingFormUF",
+      "isEnd": true
+    }
+  }
+}

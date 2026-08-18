@@ -1,0 +1,42 @@
+{
+  "schemaVersion": 1,
+  "startAtKey": "select_pipeline_config",
+  "states": {
+    "select_pipeline_config": {
+      "description": "Select a pipeline configuration",
+      "formConfig": "spSelectPipelineConfigUF",
+      "stateAction": "spPipelineSelected",
+      "defaultNextState": "select_main_data_source"
+    },
+    "select_main_data_source": {
+      "description": "Select the main data source",
+      "formConfig": "spSelectMainDataSourceUF",
+      "stateAction": "spPrepareStartPipeline",
+      "choices": [
+        {
+          "when": {
+            "op": "not",
+            "condition": {
+              "op": "isNullOrEmpty",
+              "key": "merged_process_input_keys"
+            }
+          },
+          "nextState": "select_merged_data_sources"
+        }
+      ],
+      "defaultNextState": "summaryUF"
+    },
+    "select_merged_data_sources": {
+      "description": "Select the merged data sources",
+      "formConfig": "spSelectMergedDataSourcesUF",
+      "stateAction": "spPrepareStartPipeline",
+      "defaultNextState": "summaryUF"
+    },
+    "summaryUF": {
+      "description": "Start Pipeline Summary",
+      "formConfig": "spSummaryUF",
+      "stateAction": "spStartPipelineUF",
+      "isEnd": true
+    }
+  }
+}

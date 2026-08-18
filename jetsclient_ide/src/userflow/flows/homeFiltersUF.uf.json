@@ -1,0 +1,36 @@
+{
+  "schemaVersion": 1,
+  "startAtKey": "select_process",
+  "formStateInitializer": "seedFromHomeFilters",
+  "states": {
+    "select_process": {
+      "description": "Select process filter",
+      "formConfig": "hfSelectProcessUF",
+      "stateAction": "hfSelectProcessUF",
+      "defaultNextState": "select_status"
+    },
+    "select_status": {
+      "description": "Select status filter",
+      "formConfig": "hfSelectStatusUF",
+      "stateAction": "hfSelectStatusUF",
+      "defaultNextState": "select_file_key_filter"
+    },
+    "select_file_key_filter": {
+      "description": "Select file key filter",
+      "formConfig": "hfSelectFileKeyFilterUF",
+      "stateAction": "hfSelectFileKeyFilterUF",
+      "defaultNextState": "select_time_window"
+    },
+    "select_time_window": {
+      "description": "Select time windows of pipeline execution",
+      "formConfig": "hfSelectTimeWindowUF",
+      "stateAction": "hfSelectTimeWindowUF",
+      "defaultNextState": "view_status_table"
+    },
+    "view_status_table": {
+      "description": "Pipeline Execution Status",
+      "formConfig": "hfViewStatusTableUF",
+      "isEnd": true
+    }
+  }
+}
