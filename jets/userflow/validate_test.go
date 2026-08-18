@@ -113,6 +113,49 @@ func TestGoToStatesCountAsReaching(t *testing.T) {
 	}
 }
 
+// TestFindingsCarryAPath pins the JSON Pointer the agentic_ai stream asked for.
+// The three transition shapes produce three different paths, and a document-wide
+// finding still points at the field that caused it rather than at nothing.
+func TestFindingsCarryAPath(t *testing.T) {
+	flow := readFlow(t, "clientRegistryUF")
+
+	start := flow.States[flow.StartAtKey]
+	start.Choices[1].NextState = "typoInChoice"
+	flow.States[flow.StartAtKey] = start
+
+	create := flow.States["create_client"]
+	create.DefaultNextState = "typoInDefault"
+	create.GoToStates = []string{"typoInGoTo"}
+	flow.States["create_client"] = create
+
+	want := []Finding{
+		{Error, CodeUnknownTarget, `state "create_client" transitions to "typoInDefault", which is not a state`, "/states/create_client/defaultNextState"},
+		{Error, CodeUnknownTarget, `state "create_client" transitions to "typoInGoTo", which is not a state`, "/states/create_client/goToStates/0"},
+		{Error, CodeUnknownTarget, `state "select_client_vendor" transitions to "typoInChoice", which is not a state`, "/states/select_client_vendor/choices/1/nextState"},
+		// One typo really does strand two states; that is the walk working.
+		{Warning, CodeUnreachableState, `state "select_client" is not reachable from "select_client_vendor"`, "/states/select_client"},
+		{Warning, CodeUnreachableState, `state "show_org" is not reachable from "select_client_vendor"`, "/states/show_org"},
+	}
+	got := ValidateFlow(flow, DefaultPolicy())
+	if len(got) != len(want) {
+		t.Fatalf("expected %d findings, got %d: %v", len(want), len(got), got)
+	}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Errorf("finding %d:\n got  %+v\n want %+v", i, got[i], want[i])
+		}
+	}
+}
+
+func TestUnknownStartStatePointsAtTheField(t *testing.T) {
+	flow := readFlow(t, "loadFilesUF")
+	flow.StartAtKey = "nope"
+	findings := ValidateFlow(flow, DefaultPolicy())
+	if len(findings) != 1 || findings[0].Path != "/startAtKey" {
+		t.Errorf("expected one finding at /startAtKey, got %+v", findings)
+	}
+}
+
 func TestPolicyFromEnv(t *testing.T) {
 	// The value table is duplicated in isTruthy's test in
 	// jetsclient_ide/src/userflow/validate.test.ts, and must stay identical:

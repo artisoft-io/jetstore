@@ -40,6 +40,23 @@ type Finding struct {
 	Severity Severity `json:"severity"`
 	Code     string   `json:"code"`
 	Message  string   `json:"message"`
+	// Path locates the offending place as a JSON Pointer (RFC 6901) into the
+	// document — "/states/select_client/choices/0/nextState". Empty means the
+	// finding is about the document as a whole.
+	//
+	// **Added at the agentic_ai stream's request, and it was right that it helps
+	// this side sooner.** The structure was already here and was being
+	// stringified into Message: an unknownTarget knows which state and which
+	// transition offended, and putting that only in prose means a UI cannot jump
+	// to it and a repair prompt cannot say where. One string rather than a
+	// typed location keeps Finding comparable and JSON-friendly, and keeps the
+	// two file types from having to agree on a schema for locations.
+	//
+	// No escaping is applied and none is needed: every segment that varies is an
+	// Identifier, whose pattern excludes both "/" and "~" (schema.ts). If a
+	// future segment can contain either, it must be escaped per RFC 6901 §3
+	// rather than interpolated.
+	Path string `json:"path,omitempty"`
 }
 
 // Policy says how severely each configurable check is taken. A struct rather
@@ -132,22 +149,40 @@ func ParseFlow(data []byte) (*Flow, error) {
 	return &flow, nil
 }
 
+// Transition is a target and where in the document it was declared.
+type Transition struct {
+	Target string
+	Path   string
+}
+
 // targetsOf returns every state a state transitions to: choices, then the
 // default, then the ones an action takes — the same order as validate.ts, so
 // findings come out in the same order from both.
-func targetsOf(flow *Flow, key string) []string {
+func targetsOf(flow *Flow, key string) []Transition {
 	state, ok := flow.States[key]
 	if !ok {
 		return nil
 	}
-	targets := make([]string, 0, len(state.Choices)+len(state.GoToStates)+1)
-	for _, choice := range state.Choices {
-		targets = append(targets, choice.NextState)
+	base := fmt.Sprintf("/states/%s", key)
+	targets := make([]Transition, 0, len(state.Choices)+len(state.GoToStates)+1)
+	for i, choice := range state.Choices {
+		targets = append(targets, Transition{
+			Target: choice.NextState,
+			Path:   fmt.Sprintf("%s/choices/%d/nextState", base, i),
+		})
 	}
 	if state.DefaultNextState != "" {
-		targets = append(targets, state.DefaultNextState)
+		targets = append(targets, Transition{
+			Target: state.DefaultNextState,
+			Path:   base + "/defaultNextState",
+		})
 	}
-	targets = append(targets, state.GoToStates...)
+	for i, target := range state.GoToStates {
+		targets = append(targets, Transition{
+			Target: target,
+			Path:   fmt.Sprintf("%s/goToStates/%d", base, i),
+		})
+	}
 	return targets
 }
 
@@ -166,6 +201,7 @@ func ValidateFlow(flow *Flow, policy Policy) []Finding {
 			Severity: Error,
 			Code:     CodeUnknownStartState,
 			Message:  fmt.Sprintf("startAtKey %q is not a state", flow.StartAtKey),
+			Path:     "/startAtKey",
 		})
 	}
 
@@ -174,13 +210,14 @@ func ValidateFlow(flow *Flow, policy Policy) []Finding {
 	// between runs is one nobody can diff.
 	keys := sortedKeys(flow.States)
 	for _, key := range keys {
-		for _, target := range targetsOf(flow, key) {
-			if _, ok := flow.States[target]; !ok {
+		for _, transition := range targetsOf(flow, key) {
+			if _, ok := flow.States[transition.Target]; !ok {
 				findings = append(findings, Finding{
 					Severity: Error,
 					Code:     CodeUnknownTarget,
 					Message: fmt.Sprintf(
-						"state %q transitions to %q, which is not a state", key, target),
+						"state %q transitions to %q, which is not a state", key, transition.Target),
+					Path: transition.Path,
 				})
 			}
 		}
@@ -192,10 +229,10 @@ func ValidateFlow(flow *Flow, policy Policy) []Finding {
 		for len(frontier) > 0 {
 			key := frontier[len(frontier)-1]
 			frontier = frontier[:len(frontier)-1]
-			for _, target := range targetsOf(flow, key) {
-				if _, ok := flow.States[target]; ok && !reached[target] {
-					reached[target] = true
-					frontier = append(frontier, target)
+			for _, transition := range targetsOf(flow, key) {
+				if _, ok := flow.States[transition.Target]; ok && !reached[transition.Target] {
+					reached[transition.Target] = true
+					frontier = append(frontier, transition.Target)
 				}
 			}
 		}
@@ -206,6 +243,7 @@ func ValidateFlow(flow *Flow, policy Policy) []Finding {
 					Code:     CodeUnreachableState,
 					Message: fmt.Sprintf(
 						"state %q is not reachable from %q", key, flow.StartAtKey),
+					Path: fmt.Sprintf("/states/%s", key),
 				})
 			}
 		}

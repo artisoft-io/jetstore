@@ -232,6 +232,41 @@ describe("the reference checks the schema cannot express", () => {
     ]);
   });
 
+  it("locates each finding with a JSON Pointer into the document", () => {
+    // Requested by the agentic_ai stream so a repair prompt can say *where*
+    // rather than only *what*; it earns its place here too, since an editor
+    // cannot jump to a sentence. The three paths below are the three shapes a
+    // transition can take.
+    const flow = structuredClone(flows["clientRegistryUF"]!);
+    const start = flow.states[flow.startAtKey]! as { choices: { nextState: string }[] };
+    start.choices[1]!.nextState = "typoInChoice";
+    // The State union does not promise `defaultNextState` on every branch, and
+    // the cast is the honest way to say "this branch, which the corpus has".
+    const created = flow.states["create_client"]! as {
+      defaultNextState: string;
+      goToStates: string[];
+    };
+    created.defaultNextState = "typoInDefault";
+    created.goToStates = ["typoInGoTo"];
+
+    expect(validateFlow(flow).map((f) => [f.code, f.path])).toEqual([
+      ["unknownTarget", "/states/select_client_vendor/choices/1/nextState"],
+      ["unknownTarget", "/states/create_client/defaultNextState"],
+      ["unknownTarget", "/states/create_client/goToStates/0"],
+      // Breaking the second choice orphans `select_client` as well as
+      // `show_org`, which is the reachability walk doing its job rather than
+      // noise: one typo really does strand two states.
+      ["unreachableState", "/states/select_client"],
+      ["unreachableState", "/states/show_org"],
+    ]);
+  });
+
+  it("points at the field, not the document, for an unknown start state", () => {
+    const flow = structuredClone(flows["loadFilesUF"]!);
+    flow.startAtKey = "nope";
+    expect(validateFlow(flow).map((f) => f.path)).toEqual(["/startAtKey"]);
+  });
+
   it("treats a goToStates target that does not exist as an error", () => {
     // A declared edge is still a reference, and gets the same check as the rest.
     const flow = structuredClone(flows["loadFilesUF"]!);
