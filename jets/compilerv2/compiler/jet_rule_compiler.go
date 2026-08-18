@@ -16,7 +16,13 @@ import (
 // This file contains the JetRule Compiler using a listener for transformation and validation logic
 
 type Compiler struct {
-	listener         *JetRuleListener
+	listener *JetRuleListener
+	// ruleFileReader is retained rather than dropped after ReadAll, which is
+	// the whole reason a diagnostic can name an authored file: the reader owns
+	// the global-to-local line mapping, and by the time errors are reported it
+	// used to be out of scope. Nil when CompileBuffer is called directly, in
+	// which case positions stay buffer-relative and say so.
+	ruleFileReader   *RuleFileReader
 	saveJson         bool
 	autoAddResources bool
 }
@@ -35,6 +41,10 @@ func NewCompiler(basePath string, mainRuleFileName string, saveJson, trace, auto
 func (c *Compiler) Compile() error {
 	// Read all rule files and imports
 	ruleFileReader := NewRuleFileReader(c.listener.basePath, c.listener.mainRuleFileName, readRuleFile)
+	// Keep it: CompileBuffer resolves diagnostics through it at the end of the
+	// walk, and it is the only thing that knows which file a buffer line
+	// belongs to.
+	c.ruleFileReader = ruleFileReader
 
 	// Read all files recursively
 	combinedContent, err := ruleFileReader.ReadAll()
@@ -60,6 +70,7 @@ func (c *Compiler) CompileBuffer(combinedContent string) error {
 	p.BuildParseTrees = true
 	p.RemoveErrorListeners() // remove default ConsoleErrorListener
 	errorListener := NewCustomErrorListener(c.ParseLog(), c.ErrorLog(), false /* c.Trace */)
+	errorListener.Diagnostics = c.listener.diagnostics
 	p.AddErrorListener(errorListener)
 
 	// Build the tree
@@ -86,6 +97,14 @@ func (c *Compiler) CompileBuffer(combinedContent string) error {
 			}
 		}
 	}
+	// Resolve buffer lines to authored files once the walk is done, whatever
+	// the outcome: a compile that only warned still has diagnostics worth
+	// reading, and resolving them only on failure would make Diagnostics()
+	// mean different things depending on how the compile ended. Positions the
+	// reader cannot place keep their buffer line rather than acquiring a
+	// plausible-looking wrong file.
+	c.listener.diagnostics.resolve(c.ruleFileReader)
+
 	if c.saveJson {
 		err := c.SaveModel()
 		if err != nil {
@@ -94,7 +113,7 @@ func (c *Compiler) CompileBuffer(combinedContent string) error {
 		}
 	}
 	if hasError {
-		return fmt.Errorf("compilation failed with errors")
+		return &CompilationError{Diagnostics: c.Diagnostics()}
 	}
 	return nil
 }
@@ -145,6 +164,22 @@ func (c *Compiler) JetRuleModel() *rete.JetruleModel {
 
 func (c *Compiler) ErrorLog() *strings.Builder {
 	return c.listener.errorLog
+}
+
+// Diagnostics returns the structured form of what ErrorLog carries as text,
+// in emission order and including warnings. Populated on success as well as
+// on failure, since a clean compile can still have warned.
+func (c *Compiler) Diagnostics() []Diagnostic {
+	if c.listener == nil || c.listener.diagnostics == nil {
+		return nil
+	}
+	return c.listener.diagnostics.diagnostics
+}
+
+// RuleFileReader exposes the reader retained by Compile, so a caller holding a
+// buffer line of its own can resolve it. Nil after CompileBuffer.
+func (c *Compiler) RuleFileReader() *RuleFileReader {
+	return c.ruleFileReader
 }
 
 func (c *Compiler) OutJsonFileName() string {

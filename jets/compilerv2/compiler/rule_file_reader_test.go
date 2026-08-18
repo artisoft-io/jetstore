@@ -263,6 +263,96 @@ func TestRuleFileReader_DirectiveMatchesLineAttribution(t *testing.T) {
 	}
 }
 
+// A file with more than one import mapped its lines to the wrong file. Each
+// import closed the *first* segment recorded for the file rather than the one
+// being filled, so that segment's range stretched across everything the
+// imports contributed — and GetLocalFileAndLine returns the first range that
+// matches, so the stale one shadowed the real ones. A single import hid it,
+// because there is no second close; every existing test used one. 47 of the
+// 357 rule files in the workspaces carry two or more imports, and they are the
+// main files rather than the imported leaves.
+//
+// The check maps every line of the combined buffer back and compares it with
+// the text actually at that file and line, which is what a diagnostic's
+// reader will do.
+func TestRuleFileReader_GetLocalFileAndLine_MultipleImports(t *testing.T) {
+	for _, tc := range []struct {
+		name  string
+		files map[string]string
+	}{
+		{
+			name: "two imports in one file",
+			files: map[string]string{
+				"main.rules": "main_line1\nimport \"a.rules\"\nmain_line2\nimport \"b.rules\"\nmain_line3",
+				"a.rules":    "a_line1\na_line2",
+				"b.rules":    "b_line1\nb_line2",
+			},
+		},
+		{
+			name: "three imports, one of them nested",
+			files: map[string]string{
+				"main.rules": "m1\nimport \"a.rules\"\nm2\nimport \"b.rules\"\nm3\nimport \"c.rules\"\nm4",
+				"a.rules":    "a1\na2",
+				"b.rules":    "b1\nimport \"c.rules\"\nb2",
+				"c.rules":    "c1\nc2",
+			},
+		},
+		{
+			name: "imports on the first and last lines",
+			files: map[string]string{
+				"main.rules": "import \"a.rules\"\nm1\nimport \"b.rules\"",
+				"a.rules":    "a1",
+				"b.rules":    "b1",
+			},
+		},
+		{
+			name: "consecutive imports with no lines between",
+			files: map[string]string{
+				"main.rules": "import \"a.rules\"\nimport \"b.rules\"\nm1",
+				"a.rules":    "a1",
+				"b.rules":    "b1",
+			},
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			want := make(map[string][]string, len(tc.files))
+			for name, content := range tc.files {
+				want[name] = strings.Split(content, "\n")
+			}
+			r := NewRuleFileReader("", "main.rules", mockReadFile(tc.files))
+			combined, err := r.ReadAll()
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			for i, line := range strings.Split(combined, "\n") {
+				if line == "" || directiveFileName(line) != "" {
+					continue
+				}
+				globalLine := i + 1
+				fileName, localLine, err := r.GetLocalFileAndLine(globalLine)
+				if err != nil {
+					t.Errorf("global line %d (%q): %v", globalLine, line, err)
+					continue
+				}
+				lines, ok := want[fileName]
+				if !ok {
+					t.Errorf("global line %d (%q) attributed to unknown file %s", globalLine, line, fileName)
+					continue
+				}
+				if localLine < 1 || localLine > len(lines) {
+					t.Errorf("global line %d (%q) -> %s:%d, out of range for a %d-line file",
+						globalLine, line, fileName, localLine, len(lines))
+					continue
+				}
+				if got := lines[localLine-1]; got != line {
+					t.Errorf("global line %d is %q, but the mapping says %s:%d, which is %q",
+						globalLine, line, fileName, localLine, got)
+				}
+			}
+		})
+	}
+}
+
 func directiveFileName(line string) string {
 	const prefix = "@JetCompilerDirective source_file = \""
 	if !strings.HasPrefix(line, prefix) {

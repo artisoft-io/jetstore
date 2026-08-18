@@ -50,7 +50,11 @@ type JetRuleListener struct {
 	// Logs
 	parseLog *strings.Builder
 	errorLog *strings.Builder
-	trace    bool
+	// Structured form of what errorLog carries as text; see diagnostic.go.
+	// Shared with the ANTLR error listener, which is the only producer that
+	// has a position to record.
+	diagnostics *diagnosticSink
+	trace       bool
 }
 
 func NewJetRuleListener(basePath string, mainRuleFileName string) *JetRuleListener {
@@ -66,6 +70,7 @@ func NewJetRuleListener(basePath string, mainRuleFileName string) *JetRuleListen
 		collectedTempVarNodes: make([]*rete.ResourceNode, 0),
 		parseLog:              &strings.Builder{},
 		errorLog:              &strings.Builder{},
+		diagnostics:           &diagnosticSink{},
 	}
 	l.AddR("jets:client")
 	l.AddR("jets:completed")
