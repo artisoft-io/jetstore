@@ -34,54 +34,82 @@ func TestShippingFlowsHaveNoReferenceErrors(t *testing.T) {
 	}
 }
 
-// TestStrictReachabilityChangesTheOutcome is the switch doing its job on the one
-// flow in the corpus that exercises it — and on the same flow, which is what
-// makes it a severity change rather than a different check.
-func TestStrictReachabilityChangesTheOutcome(t *testing.T) {
-	flow := readFlow(t, "pipelineConfigUF")
+// withOrphan returns a flow with one state nothing reaches. The corpus no longer
+// has one, which is the correction of I-18; the check still has to work.
+func withOrphan(t *testing.T) *Flow {
+	t.Helper()
+	flow := readFlow(t, "loadFilesUF")
+	flow.States["orphan"] = State{IsEnd: true}
+	return flow
+}
 
-	lenient := ValidateFlow(flow, DefaultPolicy())
+// TestStrictReachabilityChangesTheOutcome is the switch doing its job, and doing
+// only its job: the same finding, one field apart.
+func TestStrictReachabilityChangesTheOutcome(t *testing.T) {
+	lenient := ValidateFlow(withOrphan(t), DefaultPolicy())
 	if got := len(ErrorsOnly(lenient)); got != 0 {
 		t.Errorf("default policy: expected no errors, got %d", got)
 	}
-	if len(lenient) != 2 {
-		t.Fatalf("default policy: expected 2 findings, got %d: %v", len(lenient), lenient)
+	if len(lenient) != 1 {
+		t.Fatalf("default policy: expected 1 finding, got %d: %v", len(lenient), lenient)
 	}
 
-	strict := ValidateFlow(flow, StrictPolicy())
-	if got := len(ErrorsOnly(strict)); got != 2 {
-		t.Errorf("strict policy: expected 2 errors, got %d: %v", got, strict)
+	strict := ValidateFlow(withOrphan(t), StrictPolicy())
+	if got := len(ErrorsOnly(strict)); got != 1 {
+		t.Fatalf("strict policy: expected 1 error, got %d: %v", got, strict)
 	}
-	for i := range strict {
-		if strict[i].Code != lenient[i].Code || strict[i].Message != lenient[i].Message {
-			t.Errorf("finding %d differs beyond severity:\n %v\n %v", i, lenient[i], strict[i])
-		}
+	if strict[0].Code != lenient[0].Code || strict[0].Message != lenient[0].Message {
+		t.Errorf("finding differs beyond severity:\n %v\n %v", lenient[0], strict[0])
 	}
-	if strict[0].Message != `state "add_injected_process_inputs" is not reachable from "select_add_or_edit"` {
-		t.Errorf("unexpected first finding: %q", strict[0].Message)
+	if strict[0].Message != `state "orphan" is not reachable from "select_source_config"` {
+		t.Errorf("unexpected finding: %q", strict[0].Message)
 	}
 }
 
-// TestStrictReachabilityRefusesTheShippingFlow states the trade the environment
-// variable buys, as a test rather than as a sentence in a comment. A deployment
-// that sets it cannot save pipelineConfigUF unmodified.
-func TestStrictReachabilityRefusesTheShippingFlow(t *testing.T) {
+// TestStrictReachabilityRefusesNothingShipping is the reverse of the assertion
+// S.1 shipped, and the reversal is the finding.
+//
+// The switch was introduced believing a strict deployment could not save
+// pipelineConfigUF. That was true of the check rather than of the flow: two of
+// its states are reached by a button, and the document did not declare the edge.
+// It does now, so the switch costs a deployment nothing today — see I-18.
+func TestStrictReachabilityRefusesNothingShipping(t *testing.T) {
 	t.Setenv(StrictReachabilityEnvVar, "true")
 	policy := PolicyFromEnv()
 
-	refused := 0
 	for _, path := range flowFiles(t) {
 		name := filepath.Base(path)
 		flow := readFlow(t, name[:len(name)-len(".uf.json")])
-		if len(ErrorsOnly(ValidateFlow(flow, policy))) > 0 {
-			refused++
-			if name != "pipelineConfigUF.uf.json" {
-				t.Errorf("%s is refused under strict reachability and should not be", name)
-			}
+		if refusals := ErrorsOnly(ValidateFlow(flow, policy)); len(refusals) > 0 {
+			t.Errorf("%s is refused under strict reachability: %v", name, refusals)
 		}
 	}
-	if refused != 1 {
-		t.Errorf("expected exactly pipelineConfigUF to be refused, got %d flows", refused)
+}
+
+// TestGoToStatesCountAsReaching pins the edge kind that was missing, in both
+// directions: it reaches what it names and nothing else, and a target that does
+// not exist is still an error.
+func TestGoToStatesCountAsReaching(t *testing.T) {
+	flow := readFlow(t, "loadFilesUF")
+	flow.States["reached"] = State{IsEnd: true}
+	flow.States["orphan"] = State{IsEnd: true}
+	start := flow.States[flow.StartAtKey]
+	start.GoToStates = []string{"reached"}
+	flow.States[flow.StartAtKey] = start
+
+	findings := ValidateFlow(flow, DefaultPolicy())
+	if len(findings) != 1 || findings[0].Code != CodeUnreachableState {
+		t.Fatalf("expected only orphan to be unreached, got %v", findings)
+	}
+	if findings[0].Message != `state "orphan" is not reachable from "select_source_config"` {
+		t.Errorf("unexpected finding: %q", findings[0].Message)
+	}
+
+	start.GoToStates = []string{"typo"}
+	flow.States[flow.StartAtKey] = start
+	errs := ErrorsOnly(ValidateFlow(flow, DefaultPolicy()))
+	if len(errs) != 1 || errs[0].Code != CodeUnknownTarget {
+		t.Errorf("a declared edge to nowhere should be an unknownTarget, got %v", errs)
 	}
 }
 

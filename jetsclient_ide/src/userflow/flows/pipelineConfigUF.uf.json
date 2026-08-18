@@ -45,11 +45,17 @@
     "view_merge_process_inputs": {
       "description": "View the merge process inputs",
       "formConfig": "pcViewMergeProcessInputsUF",
+      "goToStates": [
+        "add_merge_process_inputs"
+      ],
       "defaultNextState": "view_injected_process_inputs"
     },
     "view_injected_process_inputs": {
       "description": "View the merge process inputs",
       "formConfig": "pcViewInjectedProcessInputsUF",
+      "goToStates": [
+        "add_injected_process_inputs"
+      ],
       "defaultNextState": "set_pipeline_automation"
     },
     "set_pipeline_automation": {

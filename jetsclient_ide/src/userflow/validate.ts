@@ -98,7 +98,16 @@ export interface Finding {
   message: string;
 }
 
-/** Every state a state can transition to, choices first then the default. */
+/**
+ * Every state a state can transition to: choices, then the default, then the
+ * ones an action takes.
+ *
+ * **The third kind was missing from S.1 and that made this function wrong.** An
+ * action delegate can jump the flow to a named state, and two states in
+ * `pipelineConfigUF` are reached only that way — which S.1 reported as dead
+ * code, on the strength of a nearby comment. `goToStates` is how a document
+ * declares those edges; see `schema.ts` and I-18.
+ */
 export function targetsOf(flow: UserFlow, stateKey: string): string[] {
   const state = flow.states[stateKey];
   if (state === undefined) return [];
@@ -106,6 +115,7 @@ export function targetsOf(flow: UserFlow, stateKey: string): string[] {
   if ("defaultNextState" in state && state.defaultNextState !== undefined) {
     targets.push(state.defaultNextState);
   }
+  if (state.goToStates !== undefined) targets.push(...state.goToStates);
   return targets;
 }
 

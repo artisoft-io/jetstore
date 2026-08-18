@@ -82,6 +82,32 @@ export const formStateInitializerNames: Record<string, string> = {
   homeFiltersUF: "seedFromHomeFilters",
 };
 
+/**
+ * Transitions an action makes, which the Dart `UserFlowConfig` does not declare.
+ *
+ * **Enumerated mechanically, not read.** An action delegate that moves the flow
+ * must call `userFlowScreenState.setCurrentUserFlowState`; that call appears
+ * seven times in the app, four of them inside the flow engine
+ * (`modules/actions/user_flow_actions.dart`) implementing `ufStartFlow`,
+ * `ufNext` and `ufPrevious`. The other three are these. The grep is the
+ * evidence, and it is repeatable:
+ *
+ *     grep -rn setCurrentUserFlowState jetsclient/lib/
+ *
+ * Keyed `<flowKey>.<stateKey>` because a state key alone is not unique across
+ * flows — `summaryUF` and `confirm` each appear in more than one.
+ */
+export const actionTransitions: Record<string, string[]> = {
+  // `crShowVendorUF`, on a state that already reaches `show_org` by default.
+  // Listed anyway: the edge is real, and an entry that changes no outcome today
+  // is what stops the table looking like it was written to fix one warning.
+  "clientRegistryUF.select_client": ["show_org"],
+  // The two buttons — "Add Data Source to Merge" and "Add Data Source for
+  // Historical Data" — that S.1 could not see, and reported as dead states.
+  "pipelineConfigUF.view_merge_process_inputs": ["add_merge_process_inputs"],
+  "pipelineConfigUF.view_injected_process_inputs": ["add_injected_process_inputs"],
+};
+
 function assertDeadNextState(choice: CorpusChoice): void {
   if (choice.nextState !== "") {
     throw new Error(
@@ -128,7 +154,7 @@ function toCondition(c: CorpusChoice, nested: boolean): Condition {
   }
 }
 
-function toState(s: CorpusState): State {
+function toState(s: CorpusState, goToStates?: string[]): State {
   // `formConfigSelfKey` is read and discarded on purpose: it is the form's own
   // `key` field, which disagrees with the registry key for two of the fifty
   // forms and is the identity the schema does not use. See `schema.ts`.
@@ -136,6 +162,7 @@ function toState(s: CorpusState): State {
     description: s.description,
     formConfig: s.formConfig,
     ...(s.stateAction !== undefined ? { stateAction: s.stateAction } : {}),
+    ...(goToStates !== undefined ? { goToStates } : {}),
   };
   if (s.isEnd === true) return { ...common, isEnd: true };
   return {
@@ -160,7 +187,10 @@ export function toUserFlow(flowKey: string, flow: CorpusFlow): UserFlow {
     ...(flow.exitScreenPath !== undefined ? { exitScreenPath: flow.exitScreenPath } : {}),
     ...(initializer !== undefined ? { formStateInitializer: initializer } : {}),
     states: Object.fromEntries(
-      Object.entries(flow.states).map(([key, state]) => [key, toState(state)]),
+      Object.entries(flow.states).map(([key, state]) => [
+        key,
+        toState(state, actionTransitions[`${flowKey}.${key}`]),
+      ]),
     ),
   };
 }

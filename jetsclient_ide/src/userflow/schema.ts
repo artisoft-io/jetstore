@@ -146,11 +146,32 @@ export const ChoiceSchema = z
  * user leaves the state (`modules/actions/user_flow_actions.dart:24`). 29 of the
  * 46 states set one, 27 names distinct. What those names may do is S.2's
  * grammar; which of them a document may name is S.7's allowlist.
+ *
+ * **`goToStates` exists because a transition can also come from an action, and
+ * S.1 did not know that.** An action delegate may call
+ * `setCurrentUserFlowState` and jump the flow to a named state, doing the
+ * `ufVisitedPages` bookkeeping `ufNext` would have done. There are exactly three
+ * such sites, and the enumeration is mechanical rather than read: grep
+ * `setCurrentUserFlowState` and subtract the three in the flow engine itself.
+ *
+ * | Flow | Action | Goes to |
+ * |---|---|---|
+ * | `clientRegistryUF` | `crShowVendorUF` | `show_org` |
+ * | `pipelineConfigUF` | `pcGotToAddMergeProcessInputUF` | `add_merge_process_inputs` |
+ * | `pipelineConfigUF` | `pcGotToAddInjectedProcessInputUF` | `add_injected_process_inputs` |
+ *
+ * These are edges of the state machine, so a document that omits them describes
+ * a different machine — which is exactly what happened: S.1 reported the last
+ * two states as unreachable and they are reached by a button. **The field is a
+ * declaration, not an instruction**: S.2's grammar is what will contain the
+ * `goToState` step, and this field is how the graph stays checkable whether or
+ * not a reader can follow the action.
  */
 const stateFields = {
   description: z.string().min(1),
   formConfig: Identifier,
   stateAction: Identifier.optional(),
+  goToStates: z.array(Identifier).min(1).optional(),
 } as const;
 
 /**
@@ -164,6 +185,10 @@ const stateFields = {
  *
  * The corpus satisfies both already — 11 end states, one per flow, none with a
  * transition; and every one of the other 35 has choices, a default, or both.
+ *
+ * **`goToStates` is allowed on an end state**, and that is not an oversight: it
+ * is not a transition the flow takes when the user presses Next, it is one an
+ * action on the state can take. Nothing in the corpus exercises the combination.
  */
 export const StateSchema = z
   .union([

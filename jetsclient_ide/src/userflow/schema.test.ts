@@ -201,15 +201,42 @@ describe("the reference checks the schema cannot express", () => {
     expect(errorsOnly(findings)).toHaveLength(1);
   });
 
-  it("reports the two dead states pipelineConfigUF ships, as a warning", () => {
-    // Deliberately not an error: they have shipped for years and the flow works.
-    // See the note at the foot of `validate.ts`.
-    const findings = validateFlow(flows["pipelineConfigUF"]!);
-    expect(errorsOnly(findings)).toEqual([]);
-    expect(findings.map((f) => f.message).sort()).toEqual([
-      'state "add_injected_process_inputs" is not reachable from "select_add_or_edit"',
-      'state "add_merge_process_inputs" is not reachable from "select_add_or_edit"',
+  it("finds nothing unreachable in any of the eleven flows", () => {
+    // **This assertion is the reverse of the one S.1 shipped, and the reversal
+    // is the point.** S.1 reported two states in `pipelineConfigUF` as dead on
+    // the strength of a nearby comment. They are reached by a button — an action
+    // that jumps the flow — which the walk could not see because the document
+    // did not declare the edge. It does now, via `goToStates` (I-18).
+    for (const key of Object.keys(flows)) {
+      expect({ [key]: validateFlow(flows[key]!) }).toEqual({ [key]: [] });
+    }
+  });
+
+  it("still reports a state that genuinely nothing reaches", () => {
+    // The check has to keep working, or the correction above would have been a
+    // way of making a failing test pass.
+    const flow = structuredClone(flows["loadFilesUF"]!);
+    flow.states["orphan"] = { description: "d", formConfig: "f", isEnd: true };
+    expect(validateFlow(flow).map((f) => f.message)).toEqual([
+      'state "orphan" is not reachable from "select_source_config"',
     ]);
+  });
+
+  it("counts a goToStates edge as reaching, and only the states it names", () => {
+    const flow = structuredClone(flows["loadFilesUF"]!);
+    flow.states["reached"] = { description: "d", formConfig: "f", isEnd: true };
+    flow.states["orphan"] = { description: "d", formConfig: "f", isEnd: true };
+    flow.states[flow.startAtKey]!.goToStates = ["reached"];
+    expect(validateFlow(flow).map((f) => f.message)).toEqual([
+      'state "orphan" is not reachable from "select_source_config"',
+    ]);
+  });
+
+  it("treats a goToStates target that does not exist as an error", () => {
+    // A declared edge is still a reference, and gets the same check as the rest.
+    const flow = structuredClone(flows["loadFilesUF"]!);
+    flow.states[flow.startAtKey]!.goToStates = ["typo"];
+    expect(errorsOnly(validateFlow(flow)).map((f) => f.code)).toEqual(["unknownTarget"]);
   });
 
   it("does not bury an unknown start state under a flood of unreachables", () => {

@@ -65,6 +65,16 @@
               "pattern": "^[A-Za-z0-9_.-]+$",
               "description": "A key naming a state, form, action or form-state entry"
             },
+            "goToStates": {
+              "minItems": 1,
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "pattern": "^[A-Za-z0-9_.-]+$",
+                "description": "A key naming a state, form, action or form-state entry"
+              }
+            },
             "isEnd": {
               "type": "boolean",
               "const": true
@@ -95,6 +105,16 @@
               "minLength": 1,
               "pattern": "^[A-Za-z0-9_.-]+$",
               "description": "A key naming a state, form, action or form-state entry"
+            },
+            "goToStates": {
+              "minItems": 1,
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "pattern": "^[A-Za-z0-9_.-]+$",
+                "description": "A key naming a state, form, action or form-state entry"
+              }
             },
             "isEnd": {
               "type": "boolean",
@@ -139,6 +159,16 @@
               "minLength": 1,
               "pattern": "^[A-Za-z0-9_.-]+$",
               "description": "A key naming a state, form, action or form-state entry"
+            },
+            "goToStates": {
+              "minItems": 1,
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "pattern": "^[A-Za-z0-9_.-]+$",
+                "description": "A key naming a state, form, action or form-state entry"
+              }
             },
             "isEnd": {
               "type": "boolean",
