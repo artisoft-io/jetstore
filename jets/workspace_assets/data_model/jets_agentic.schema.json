@@ -53,6 +53,18 @@
         "domain_model_version": {
           "description": "The domain model version the run reasoned against (\u00a75.3).",
           "type": "string"
+        },
+        "iteration_cap": {
+          "description": "Maximum propose-verify-repair iterations before the run ends as exhausted; the bound \u00a77's Rung 3 asks for without saying by what.",
+          "type": "integer"
+        },
+        "wall_clock_cap_seconds": {
+          "description": "Maximum wall-clock seconds for the whole run, carried on the run's context; the only cap that bounds a call the request timeout missed.",
+          "type": "integer"
+        },
+        "token_spend": {
+          "type": "integer",
+          "description": "Total tokens consumed by the run, accumulated from the inference responses; unset while running. Recorded rather than capped in phase 1 - it is what lets the eval harness compare sampling policies at equal spend (\u00a74.3)."
         }
       },
       "required": [
@@ -63,7 +75,9 @@
         "prompt_version",
         "tier",
         "started_at",
-        "domain_model_version"
+        "domain_model_version",
+        "iteration_cap",
+        "wall_clock_cap_seconds"
       ],
       "type": "object"
     },

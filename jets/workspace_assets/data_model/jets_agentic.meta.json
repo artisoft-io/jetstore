@@ -82,6 +82,24 @@
           "array": false,
           "required": true,
           "description": "The domain model version the run reasoned against (\u00a75.3)."
+        },
+        "jetsa:iteration_cap": {
+          "type": "int",
+          "array": false,
+          "required": true,
+          "description": "Maximum propose-verify-repair iterations before the run ends as exhausted; the bound \u00a77's Rung 3 asks for without saying by what."
+        },
+        "jetsa:wall_clock_cap_seconds": {
+          "type": "int",
+          "array": false,
+          "required": true,
+          "description": "Maximum wall-clock seconds for the whole run, carried on the run's context; the only cap that bounds a call the request timeout missed."
+        },
+        "jetsa:token_spend": {
+          "type": "int",
+          "array": false,
+          "required": false,
+          "description": "Total tokens consumed by the run, accumulated from the inference responses; unset while running. Recorded rather than capped in phase 1 - it is what lets the eval harness compare sampling policies at equal spend (\u00a74.3)."
         }
       }
     },
