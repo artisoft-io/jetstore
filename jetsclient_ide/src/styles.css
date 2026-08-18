@@ -137,6 +137,9 @@ body {
 }
 .navlink:hover { background: var(--rule); color: var(--ink); }
 .navlink.is-active { background: var(--rule); color: var(--ink); font-weight: 600; }
+/* Visible and inert, matching how the Flutter app treats a capability the user
+   lacks. See shell/capabilities.tsx. */
+.navlink.is-disabled { opacity: 0.45; cursor: not-allowed; }
 .user { font-size: 12px; color: var(--ink-2); }
 
 .screenbar {

@@ -23,6 +23,7 @@ import { WorkspaceApi, fileNameOf, type WorkspaceNode, type WorkspaceSummary } f
 import { FileTree } from "../components/FileTree";
 import { Editor } from "../editor/Editor";
 import { isServerValidatedJson, languageNameFor } from "../editor/language";
+import { ActionButton } from "../shell/capabilities";
 import { useNotifications } from "../shell/notifications";
 
 /** The capability the server requires for every workspace action. */
@@ -206,14 +207,14 @@ export function WorkspaceIde({ api }: { api: ApiClient }) {
         {busy && <span className="pill">Working…</span>}
         {!canEdit && <span className="pill pill-warn">Read only — no {WORKSPACE_IDE}</span>}
 
-        <button
-          type="button"
+        <ActionButton
+          capability={WORKSPACE_IDE}
           className="btn btn-primary"
           onClick={save}
-          disabled={!activeTab || activeTab.current === activeTab.saved || !canEdit || busy}
+          disabled={!activeTab || activeTab.current === activeTab.saved || busy}
         >
           Save
-        </button>
+        </ActionButton>
       </div>
 
       <div className="body">
