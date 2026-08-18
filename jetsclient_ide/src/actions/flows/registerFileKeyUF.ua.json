@@ -1,0 +1,29 @@
+{
+  "schemaVersion": 1,
+  "actions": {
+    "rfkSubmitSchemaEventUF": {
+      "description": "Submit a schema event to register a file key",
+      "steps": [
+        { "do": "validate" },
+        {
+          "do": "post",
+          "endpoint": "/registerFileKey",
+          "action": "put_schema_event_to_s3",
+          "spinner": true,
+          "data": {
+            "rows": "fields",
+            "fields": {
+              "file_key": { "fromKey": "file_key" },
+              "event": { "fromKey": "schemaEventJson" }
+            }
+          }
+        },
+        { "do": "close" }
+      ]
+    },
+    "dialogCancel": {
+      "description": "Dismiss the dialog without submitting",
+      "steps": [{ "do": "close" }]
+    }
+  }
+}

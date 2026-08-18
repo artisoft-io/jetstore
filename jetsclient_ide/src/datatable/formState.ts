@@ -53,6 +53,7 @@ function sameValue(a: FormStateValue, b: FormStateValue): boolean {
 export class FormState {
   private readonly groups: Group[];
   private readonly listeners = new Set<Listener>();
+  private readonly refreshListeners = new Set<Listener>();
 
   /**
    * `isDialog` changes one thing, and only one: a dialog's tables do not fall
@@ -142,7 +143,34 @@ export class FormState {
     for (const fn of [...this.listeners]) fn();
   }
 
-  /** For tests and debugging; not a supported way to mutate. */
+  /**
+   * The second notification channel, added by S.2a.
+   *
+   * **`JetsFormState` has two and A.4c implemented one.** `addListener` fires on
+   * a value change and is what the refresh-on-watched-key machinery reads;
+   * `addCallback`/`invokeCallbacks` (`jets_form_state.dart:122`) is separate and
+   * fires when something happens that a table should re-read the *server* for.
+   * `postSimpleAction` calls it after a successful write
+   * (`delegate_helpers.dart:133`), and the data table registers `_refreshTable`
+   * on both channels (`data_table.dart:741`).
+   *
+   * Without it, a write would leave every table on screen showing pre-write rows:
+   * a post changes no form-state key, so the listener path correctly declines to
+   * refresh, and nothing else would ask. That is a silent staleness rather than
+   * an error, which is why it is worth a channel of its own rather than a
+   * `notifyListeners()` call that would refresh nothing.
+   */
+  onRefreshRequested(fn: Listener): () => void {
+    this.refreshListeners.add(fn);
+    return () => this.refreshListeners.delete(fn);
+  }
+
+  /** `invokeCallbacks()` — something happened; re-read from the server. */
+  requestRefresh(): void {
+    for (const fn of [...this.refreshListeners]) fn();
+  }
+
+  /** The whole group, as the row a `wholeState` request sends. */
   snapshot(group: number): Record<string, string | string[]> {
     return Object.fromEntries(this.group(group).values);
   }
