@@ -44,7 +44,7 @@
         },
         "run_status": {
           "type": "string",
-          "description": "The run outcome: succeeded, failed, interrupted; unset while running (scoped per F7: status is \u00a7A.2.7's name on Incident)."
+          "description": "The run outcome: succeeded, exhausted, interrupted or failed; unset while running (scoped per F7: status is \u00a7A.2.7's name on Incident). Corrected at D.5: this read 'succeeded, failed, interrupted' while the loop wrote 'exhausted' - the budget running out is not a failure, it is the compile-pass rate's denominator - and never wrote 'interrupted' until the same task gave it a wall-clock cap to distinguish from a caller's cancellation."
         },
         "triggered_by": {
           "type": "string",

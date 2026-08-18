@@ -33,6 +33,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/artisoft-io/jetstore/jets/agentic/audit"
 	"github.com/artisoft-io/jetstore/jets/agentic/infer"
@@ -50,6 +51,12 @@ const (
 	// Distinct from failed on purpose: it says the loop worked and the model
 	// did not converge, which is the compile-pass-rate denominator.
 	OutcomeExhausted Outcome = "exhausted"
+	// OutcomeInterrupted means the caller stopped the run — a cancelled
+	// context from outside, not a budget of ours running out. Distinct from
+	// exhausted because an interrupted run says nothing about the model and
+	// must not count in the compile-pass denominator, and distinct from failed
+	// because nothing went wrong.
+	OutcomeInterrupted Outcome = "interrupted"
 	// OutcomeFailed means the run could not continue — the model was
 	// unreachable, the verifier errored, the budget was invalid.
 	OutcomeFailed Outcome = "failed"
@@ -90,12 +97,25 @@ func (t *Task) validate() error {
 	return nil
 }
 
-// Budget bounds a run. Only the iteration cap is enforced here — it is
-// inherent to a loop — while the wall-clock cap rides on the caller's context
-// and token spend is accumulated for recording. D.5 persists all three onto
-// AgentRun.
+// Budget bounds a run: two caps and a meter.
+//
+// The caps stop a run and are enforced here. Token spend is accumulated and
+// recorded rather than capped, because what §4.3 needs is spend *comparable at
+// equal budget* between sampling policies, and a token ceiling would truncate
+// the very runs being compared.
+//
+// **A budget bounds one run and nothing else.** Nothing stops a user starting a
+// hundred runs; that is a quota, it belongs with gap 7's tier machinery, and
+// enforcing it here would put a control in the wrong layer.
 type Budget struct {
+	// MaxIterations bounds the propose-verify-repair cycle. Exceeding it ends
+	// the run as exhausted.
 	MaxIterations int
+	// WallClock bounds the whole run, including verification and the time
+	// between calls — it is the only cap that bounds a call the per-request
+	// timeout missed. Zero means unbounded, which is what a test wants and
+	// what production should not have.
+	WallClock time.Duration
 }
 
 // Verdict is the contract the loop depends on, and the whole of what it
@@ -195,9 +215,28 @@ func (l *Loop) Run(ctx context.Context, task *Task) (*Result, error) {
 		}
 	}
 
+	// The wall-clock cap is a deadline on a derived context, so it bounds the
+	// model call, the verification and the time between them alike — the
+	// per-request timeout in the inference client bounds only one call, and a
+	// run can exceed its budget without any single call doing so.
+	parent := ctx
+	if l.Budget.WallClock > 0 {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, l.Budget.WallClock)
+		defer cancel()
+	}
+
 	req := &infer.Request{System: task.System, User: task.Instruction, Schema: task.Schema}
 
 	for i := 1; i <= l.Budget.MaxIterations; i++ {
+		// Check before spending rather than only after: the deadline may have
+		// passed during the previous verification, and starting a call that
+		// cannot finish wastes the tokens it costs.
+		if out, stop := l.overrun(ctx, parent); stop {
+			result.Outcome = out
+			l.finish(ctx, out, result)
+			return result, nil
+		}
 		result.Iterations = i
 
 		resp, err := l.Infer.Chat(ctx, req)
@@ -212,6 +251,15 @@ func (l *Loop) Run(ctx context.Context, task *Task) (*Result, error) {
 				l.event(ctx, audit.EventError, "", errorPayload("schema", schemaErr.Error()))
 				req = repairFromSchema(task, schemaErr)
 				continue
+			}
+			// A call that died because a deadline passed is the budget
+			// binding, not the model failing. Classifying it as a failure
+			// would put budget exhaustion into the population §4.4 measures
+			// the model against.
+			if out, stop := l.overrun(ctx, parent); stop {
+				result.Outcome = out
+				l.finish(ctx, out, result)
+				return result, nil
 			}
 			l.event(ctx, audit.EventError, "", errorPayload("inference", err.Error()))
 			l.finish(ctx, OutcomeFailed, result)
@@ -243,6 +291,26 @@ func (l *Loop) Run(ctx context.Context, task *Task) (*Result, error) {
 	result.Outcome = OutcomeExhausted
 	l.finish(ctx, OutcomeExhausted, result)
 	return result, nil
+}
+
+// overrun says whether the run must stop, and which of the two reasons it is.
+//
+// The distinction matters more than it looks. A run stopped by *our* wall-clock
+// cap is exhausted — the budget bound it, exactly as an iteration cap would,
+// and it belongs in the compile-pass rate's denominator. A run stopped because
+// the *caller's* context was cancelled is interrupted: nothing went wrong, the
+// model was not given a fair attempt, and counting it against the model would
+// be measuring the operator rather than the copilot.
+func (l *Loop) overrun(ctx, parent context.Context) (Outcome, bool) {
+	// The parent is checked first: when both are done, the caller's
+	// cancellation is the cause and our deadline is a consequence of it.
+	if parent.Err() != nil {
+		return OutcomeInterrupted, true
+	}
+	if ctx.Err() != nil {
+		return OutcomeExhausted, true
+	}
+	return "", false
 }
 
 // verify dispatches to the named tool and reads a verdict out of whatever it
