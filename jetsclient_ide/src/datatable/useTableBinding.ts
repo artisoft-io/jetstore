@@ -180,5 +180,10 @@ export function useTableBinding(options: UseTableBindingOptions): TableBinding {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [doRefresh]);
 
+  // The second notification channel: something wrote to the server, so re-read
+  // regardless of whether any watched key moved. `invokeCallbacks` — see
+  // `FormState.onRefreshRequested`, added by S.2a.
+  useEffect(() => formState.onRefreshRequested(refresh), [formState, refresh]);
+
   return { ...state, blocked, setRowSelected, modes, refresh };
 }
