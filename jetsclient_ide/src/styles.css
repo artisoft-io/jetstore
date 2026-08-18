@@ -125,6 +125,29 @@ body {
 .brand strong { color: var(--ink); }
 .spacer { flex: 1 1 auto; }
 
+/* Screen navigation. One row for the application, a second for the screen —
+   the shell owns what is true everywhere, the screen owns the rest. */
+.mainnav { display: flex; gap: 2px; margin-left: 8px; }
+.navlink {
+  font-size: 13px;
+  padding: 4px 10px;
+  border-radius: 5px;
+  color: var(--ink-2);
+  text-decoration: none;
+}
+.navlink:hover { background: var(--rule); color: var(--ink); }
+.navlink.is-active { background: var(--rule); color: var(--ink); font-weight: 600; }
+.user { font-size: 12px; color: var(--ink-2); }
+
+.screenbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 12px;
+  border-bottom: 1px solid var(--rule);
+  flex: 0 0 auto;
+}
+
 .ws-picker select {
   font-family: var(--sans);
   font-size: 13px;
