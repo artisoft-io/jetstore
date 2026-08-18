@@ -78,6 +78,10 @@ func (jsComp *JetStoreStackComponents) BuildUiService(scope constructs.Construct
 		"JETS_CPIPES_NATIVE_SM_ARN":     jsii.String(jsComp.CpipesNativeSmArn),
 		"JETS_REPORTS_SM_ARN":           jsii.String(jsComp.ReportsSmArn),
 		"JETS_ADMIN_EMAIL":              jsii.String(os.Getenv("JETS_ADMIN_EMAIL")),
+		// Deployment-time switch for user flow validation on save: turns the
+		// unreachable-state warning into a refusal. Off unless set; see
+		// jets/userflow/validate.go for why the default is what it is.
+		"JETS_USERFLOW_STRICT_REACHABILITY": jsii.String(os.Getenv("JETS_USERFLOW_STRICT_REACHABILITY")),
 	}
 
 	// Identifiers used by awsi.StartInferServer / StopInferServer, which scale the infer

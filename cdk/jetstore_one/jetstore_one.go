@@ -536,6 +536,10 @@ func NewJetstoreOneStack(scope constructs.Construct, id string, props *jetstores
 // JETS_DOMAIN_KEY_HASH_ALGO (values: md5, sha1, none (default))
 // JETS_DOMAIN_KEY_HASH_SEED (required for md5 and sha1. MUST be a valid uuid )
 // JETS_DOMAIN_KEY_SEPARATOR used as separator to domain key elements
+// JETS_USERFLOW_STRICT_REACHABILITY (optional, values: 1/true/yes/on; anything else, including
+//	unset, is off) refuse to save a .uf.json user flow that contains a state nothing
+//	transitions to, instead of reporting it as a warning. Off by default because the workspace
+//	flows shipped today include one such state; see jets/userflow/validate.go.
 // JETS_ECR_REPO_ARN (required)
 // CPIPES_ECR_REPO_ARN (required for cpipes server)
 // CPIPES_LAMBDA_ECR_REPO_ARN (required for cpipes native lambdas)
@@ -662,6 +666,7 @@ func main() {
 	log.Println("env JETS_DOMAIN_KEY_HASH_ALGO:", os.Getenv("JETS_DOMAIN_KEY_HASH_ALGO"))
 	log.Println("env JETS_DOMAIN_KEY_HASH_SEED:", os.Getenv("JETS_DOMAIN_KEY_HASH_SEED"))
 	log.Println("env JETS_DOMAIN_KEY_SEPARATOR:", os.Getenv("JETS_DOMAIN_KEY_SEPARATOR"))
+	log.Println("env JETS_USERFLOW_STRICT_REACHABILITY:", os.Getenv("JETS_USERFLOW_STRICT_REACHABILITY"))
 	log.Println("env JETS_ECR_REPO_ARN:", os.Getenv("JETS_ECR_REPO_ARN"))
 	log.Println("env CPIPES_ECR_REPO_ARN:", os.Getenv("CPIPES_ECR_REPO_ARN"))
 	log.Println("env CPIPES_LAMBDA_ECR_REPO_ARN:", os.Getenv("CPIPES_LAMBDA_ECR_REPO_ARN"))
