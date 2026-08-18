@@ -1764,6 +1764,501 @@
           }
         }
       }
+    },
+    {
+      "name": "server action outside the allowlist (exec_ddl)",
+      "class": "not-allowed",
+      "document": "action",
+      "expect": "invalid",
+      "by": "schema",
+      "content": {
+        "schemaVersion": 1,
+        "actions": {
+          "lfLoadFilesUF": {
+            "description": "Start the loader for every selected file key",
+            "steps": [
+              {
+                "do": "validate"
+              },
+              {
+                "do": "post",
+                "endpoint": "/dataTable",
+                "action": "insert_rows",
+                "table": "input_loader_status",
+                "spinner": true,
+                "data": {
+                  "rows": "fanOut",
+                  "over": "file_key",
+                  "fields": {
+                    "client": {
+                      "fromKey": "client"
+                    },
+                    "org": {
+                      "fromKey": "org"
+                    },
+                    "object_type": {
+                      "fromKey": "object_type"
+                    },
+                    "table_name": {
+                      "fromKey": "table_name"
+                    },
+                    "file_key": {
+                      "fromKeyAtIndex": "file_key"
+                    },
+                    "input_registry.session_id": {
+                      "fromKeyAtIndex": "input_registry.session_id"
+                    },
+                    "source_period_key": {
+                      "fromKeyAtIndex": "source_period_key"
+                    },
+                    "status": {
+                      "literal": "submitted"
+                    },
+                    "user_email": {
+                      "userEmail": true
+                    },
+                    "session_id": {
+                      "nowMillis": true
+                    }
+                  }
+                }
+              }
+            ]
+          },
+          "lfSyncFileKey": {
+            "description": "Sync the file key registry with object storage",
+            "steps": [
+              {
+                "do": "post",
+                "endpoint": "/registerFileKey",
+                "action": "exec_ddl",
+                "spinner": true,
+                "data": {
+                  "rows": "none"
+                }
+              }
+            ]
+          },
+          "lfDropTable": {
+            "description": "Drop the staging table of the selected data source",
+            "steps": [
+              {
+                "do": "post",
+                "endpoint": "/dataTable",
+                "action": "drop_table",
+                "spinner": true,
+                "data": {
+                  "rows": "fields",
+                  "fields": {
+                    "schemaName": {
+                      "literal": "public"
+                    },
+                    "tableName": {
+                      "fromKey": "table_name"
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "name": "server action outside the allowlist (reset_domain_tables)",
+      "class": "not-allowed",
+      "document": "action",
+      "expect": "invalid",
+      "by": "schema",
+      "content": {
+        "schemaVersion": 1,
+        "actions": {
+          "lfLoadFilesUF": {
+            "description": "Start the loader for every selected file key",
+            "steps": [
+              {
+                "do": "validate"
+              },
+              {
+                "do": "post",
+                "endpoint": "/dataTable",
+                "action": "insert_rows",
+                "table": "input_loader_status",
+                "spinner": true,
+                "data": {
+                  "rows": "fanOut",
+                  "over": "file_key",
+                  "fields": {
+                    "client": {
+                      "fromKey": "client"
+                    },
+                    "org": {
+                      "fromKey": "org"
+                    },
+                    "object_type": {
+                      "fromKey": "object_type"
+                    },
+                    "table_name": {
+                      "fromKey": "table_name"
+                    },
+                    "file_key": {
+                      "fromKeyAtIndex": "file_key"
+                    },
+                    "input_registry.session_id": {
+                      "fromKeyAtIndex": "input_registry.session_id"
+                    },
+                    "source_period_key": {
+                      "fromKeyAtIndex": "source_period_key"
+                    },
+                    "status": {
+                      "literal": "submitted"
+                    },
+                    "user_email": {
+                      "userEmail": true
+                    },
+                    "session_id": {
+                      "nowMillis": true
+                    }
+                  }
+                }
+              }
+            ]
+          },
+          "lfSyncFileKey": {
+            "description": "Sync the file key registry with object storage",
+            "steps": [
+              {
+                "do": "post",
+                "endpoint": "/registerFileKey",
+                "action": "reset_domain_tables",
+                "spinner": true,
+                "data": {
+                  "rows": "none"
+                }
+              }
+            ]
+          },
+          "lfDropTable": {
+            "description": "Drop the staging table of the selected data source",
+            "steps": [
+              {
+                "do": "post",
+                "endpoint": "/dataTable",
+                "action": "drop_table",
+                "spinner": true,
+                "data": {
+                  "rows": "fields",
+                  "fields": {
+                    "schemaName": {
+                      "literal": "public"
+                    },
+                    "tableName": {
+                      "fromKey": "table_name"
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "name": "insert target outside the allowlist (delete/users)",
+      "class": "not-allowed",
+      "document": "action",
+      "expect": "invalid",
+      "by": "schema",
+      "content": {
+        "schemaVersion": 1,
+        "actions": {
+          "lfLoadFilesUF": {
+            "description": "Start the loader for every selected file key",
+            "steps": [
+              {
+                "do": "validate"
+              },
+              {
+                "do": "post",
+                "endpoint": "/dataTable",
+                "action": "insert_rows",
+                "table": "delete/users",
+                "spinner": true,
+                "data": {
+                  "rows": "fanOut",
+                  "over": "file_key",
+                  "fields": {
+                    "client": {
+                      "fromKey": "client"
+                    },
+                    "org": {
+                      "fromKey": "org"
+                    },
+                    "object_type": {
+                      "fromKey": "object_type"
+                    },
+                    "table_name": {
+                      "fromKey": "table_name"
+                    },
+                    "file_key": {
+                      "fromKeyAtIndex": "file_key"
+                    },
+                    "input_registry.session_id": {
+                      "fromKeyAtIndex": "input_registry.session_id"
+                    },
+                    "source_period_key": {
+                      "fromKeyAtIndex": "source_period_key"
+                    },
+                    "status": {
+                      "literal": "submitted"
+                    },
+                    "user_email": {
+                      "userEmail": true
+                    },
+                    "session_id": {
+                      "nowMillis": true
+                    }
+                  }
+                }
+              }
+            ]
+          },
+          "lfSyncFileKey": {
+            "description": "Sync the file key registry with object storage",
+            "steps": [
+              {
+                "do": "post",
+                "endpoint": "/registerFileKey",
+                "action": "sync_file_keys",
+                "spinner": true,
+                "data": {
+                  "rows": "none"
+                }
+              }
+            ]
+          },
+          "lfDropTable": {
+            "description": "Drop the staging table of the selected data source",
+            "steps": [
+              {
+                "do": "post",
+                "endpoint": "/dataTable",
+                "action": "drop_table",
+                "spinner": true,
+                "data": {
+                  "rows": "fields",
+                  "fields": {
+                    "schemaName": {
+                      "literal": "public"
+                    },
+                    "tableName": {
+                      "fromKey": "table_name"
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "name": "insert target outside the allowlist (users)",
+      "class": "not-allowed",
+      "document": "action",
+      "expect": "invalid",
+      "by": "schema",
+      "content": {
+        "schemaVersion": 1,
+        "actions": {
+          "lfLoadFilesUF": {
+            "description": "Start the loader for every selected file key",
+            "steps": [
+              {
+                "do": "validate"
+              },
+              {
+                "do": "post",
+                "endpoint": "/dataTable",
+                "action": "insert_rows",
+                "table": "users",
+                "spinner": true,
+                "data": {
+                  "rows": "fanOut",
+                  "over": "file_key",
+                  "fields": {
+                    "client": {
+                      "fromKey": "client"
+                    },
+                    "org": {
+                      "fromKey": "org"
+                    },
+                    "object_type": {
+                      "fromKey": "object_type"
+                    },
+                    "table_name": {
+                      "fromKey": "table_name"
+                    },
+                    "file_key": {
+                      "fromKeyAtIndex": "file_key"
+                    },
+                    "input_registry.session_id": {
+                      "fromKeyAtIndex": "input_registry.session_id"
+                    },
+                    "source_period_key": {
+                      "fromKeyAtIndex": "source_period_key"
+                    },
+                    "status": {
+                      "literal": "submitted"
+                    },
+                    "user_email": {
+                      "userEmail": true
+                    },
+                    "session_id": {
+                      "nowMillis": true
+                    }
+                  }
+                }
+              }
+            ]
+          },
+          "lfSyncFileKey": {
+            "description": "Sync the file key registry with object storage",
+            "steps": [
+              {
+                "do": "post",
+                "endpoint": "/registerFileKey",
+                "action": "sync_file_keys",
+                "spinner": true,
+                "data": {
+                  "rows": "none"
+                }
+              }
+            ]
+          },
+          "lfDropTable": {
+            "description": "Drop the staging table of the selected data source",
+            "steps": [
+              {
+                "do": "post",
+                "endpoint": "/dataTable",
+                "action": "drop_table",
+                "spinner": true,
+                "data": {
+                  "rows": "fields",
+                  "fields": {
+                    "schemaName": {
+                      "literal": "public"
+                    },
+                    "tableName": {
+                      "fromKey": "table_name"
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "name": "endpoint outside the two a flow may use",
+      "class": "not-allowed",
+      "document": "action",
+      "expect": "invalid",
+      "by": "schema",
+      "content": {
+        "schemaVersion": 1,
+        "actions": {
+          "lfLoadFilesUF": {
+            "description": "Start the loader for every selected file key",
+            "steps": [
+              {
+                "do": "validate"
+              },
+              {
+                "do": "post",
+                "endpoint": "/dataTable",
+                "action": "insert_rows",
+                "table": "input_loader_status",
+                "spinner": true,
+                "data": {
+                  "rows": "fanOut",
+                  "over": "file_key",
+                  "fields": {
+                    "client": {
+                      "fromKey": "client"
+                    },
+                    "org": {
+                      "fromKey": "org"
+                    },
+                    "object_type": {
+                      "fromKey": "object_type"
+                    },
+                    "table_name": {
+                      "fromKey": "table_name"
+                    },
+                    "file_key": {
+                      "fromKeyAtIndex": "file_key"
+                    },
+                    "input_registry.session_id": {
+                      "fromKeyAtIndex": "input_registry.session_id"
+                    },
+                    "source_period_key": {
+                      "fromKeyAtIndex": "source_period_key"
+                    },
+                    "status": {
+                      "literal": "submitted"
+                    },
+                    "user_email": {
+                      "userEmail": true
+                    },
+                    "session_id": {
+                      "nowMillis": true
+                    }
+                  }
+                }
+              }
+            ]
+          },
+          "lfSyncFileKey": {
+            "description": "Sync the file key registry with object storage",
+            "steps": [
+              {
+                "do": "post",
+                "endpoint": "/purgeData",
+                "action": "sync_file_keys",
+                "spinner": true,
+                "data": {
+                  "rows": "none"
+                }
+              }
+            ]
+          },
+          "lfDropTable": {
+            "description": "Drop the staging table of the selected data source",
+            "steps": [
+              {
+                "do": "post",
+                "endpoint": "/dataTable",
+                "action": "drop_table",
+                "spinner": true,
+                "data": {
+                  "rows": "fields",
+                  "fields": {
+                    "schemaName": {
+                      "literal": "public"
+                    },
+                    "tableName": {
+                      "fromKey": "table_name"
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        }
+      }
     }
   ]
 }

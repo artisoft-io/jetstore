@@ -75,6 +75,7 @@ describe("the negative suite", () => {
       "inapplicable-field",
       "invented-field",
       "missing-required",
+      "not-allowed",
       "reference",
       "sanity",
       "unknown-type",
