@@ -656,7 +656,7 @@ func (ctx *DataTableContext) WorkspaceQueryStructure(dataTableAction *DataTableA
 		// many files it holds. S.3 created `user_flows/` and would have shipped it
 		// invisible without this. Both suffixes are listed because a flow and its
 		// actions are edited together.
-		workspaceNode, err = wsfile.VisitDirWrapper(root, "user_flows", "User Flows", &[]string{".uf.json", ".ua.json"}, workspaceName)
+		workspaceNode, err = wsfile.VisitDirWrapper(root, "user_flows", "User Flows", &[]string{".uf.json", ".ua.json", ".form.json"}, workspaceName)
 		if err != nil {
 			log.Println("while walking workspace structure:", err)
 			httpStatus = http.StatusInternalServerError

@@ -1,0 +1,41 @@
+{
+  "schemaVersion": 1,
+  "forms": {
+    "lfSelectSourceConfigUF": {
+      "rows": [
+        [
+          {
+            "field": "dataTable",
+            "key": "lfSourceConfigTable",
+            "table": "lfSourceConfigTable",
+            "rules": [
+              { "rule": "required", "message": "Please select a file data source configuration." }
+            ]
+          }
+        ]
+      ],
+      "actions": [
+        { "action": "ufPrevious", "label": "Previous", "style": "primary" },
+        { "action": "ufCancel", "label": "Cancel", "style": "primary" },
+        { "action": "ufNext", "label": "Next", "style": "secondary" }
+      ]
+    },
+    "lfSelectFileKeysUF": {
+      "rows": [
+        [
+          {
+            "field": "dataTable",
+            "key": "lfFileKeyStagingTable",
+            "table": "lfFileKeyStagingTable",
+            "rules": [{ "rule": "required", "message": "Please select a file(s) to load." }]
+          }
+        ]
+      ],
+      "actions": [
+        { "action": "ufPrevious", "label": "Previous", "style": "primary" },
+        { "action": "ufCancel", "label": "Cancel", "style": "primary" },
+        { "action": "ufCompleted", "label": "Load Files & Done", "style": "secondary" }
+      ]
+    }
+  }
+}

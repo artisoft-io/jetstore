@@ -11,8 +11,9 @@ import (
 
 func TestValidatorForPicksTheMostSpecificSuffix(t *testing.T) {
 	cases := map[string]bool{
-		"user_flows/loadFilesUF.uf.json": true,
-		"user_flows/loadFilesUF.ua.json": true,
+		"user_flows/loadFilesUF.uf.json":   true,
+		"user_flows/loadFilesUF.ua.json":   true,
+		"user_flows/loadFilesUF.form.json": true,
 		// The plain-JSON files that have always been saved through this path keep
 		// their existing behaviour: well-formedness only, no specific validator.
 		"workspace_control.json":    false,

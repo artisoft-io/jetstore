@@ -1,0 +1,53 @@
+{
+  "schemaVersion": 1,
+  "forms": {
+    "rfkSubmitSchemaEvent": {
+      "rows": [
+        [{ "field": "spacer" }],
+        [
+          {
+            "field": "label",
+            "text": "Enter the file key for the event and paste or enter the Schema Event as json below:"
+          }
+        ],
+        [
+          {
+            "field": "text",
+            "key": "file_key",
+            "label": "Event's File Key",
+            "hint": "S3 file key for the schema event",
+            "maxLength": 300,
+            "autofocus": true,
+            "rules": [{ "rule": "required", "message": "Please provide a file key" }]
+          }
+        ],
+        [{ "field": "spacer" }],
+        [
+          {
+            "field": "text",
+            "key": "schemaEventJson",
+            "label": "Schema Event (json)",
+            "hint": "Schema event json defines the file schema and the source file location to use as file key",
+            "maxLines": 13,
+            "maxLength": 51200,
+            "rules": [
+              { "rule": "required", "message": "Please provide a Schema Event json" },
+              { "rule": "json", "message": "Schema Event is not a valid json" }
+            ]
+          }
+        ],
+        [{ "field": "spacer" }]
+      ],
+      "actions": [
+        {
+          "action": "rfkSubmitSchemaEventUF",
+          "label": "Save",
+          "style": "primary",
+          "capability": "client_config",
+          "enableOnlyWhenFormValid": true
+        },
+        { "action": "dialogCancel", "label": "Cancel", "style": "secondary" }
+      ]
+    }
+  }
+}

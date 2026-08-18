@@ -43,6 +43,7 @@ var schemaFS embed.FS
 const (
 	flowSchemaFile   = "schema/userflow.schema.json"
 	actionSchemaFile = "schema/action.schema.json"
+	formSchemaFile   = "schema/form.schema.json"
 )
 
 // ownedAssetComment is injected into each copy so the file says what it is when
@@ -177,6 +178,16 @@ func ValidateFlowDocument(content string) []wsvalidate.Finding {
 // loadable flow — the client checks it at load, in userflow/store.ts.
 func ValidateActionDocument(content string) []wsvalidate.Finding {
 	return validateAgainst(actionSchemaFile, content)
+}
+
+// ValidateFormDocument is the .form.json validator.
+//
+// Schema only. A form names a table configuration and an action, and neither can
+// be checked here: the table configurations are still compiled into the client
+// (A.4), and whether an action name resolves depends on the flow's own action
+// document, which this file has not been given. The client checks both at load.
+func ValidateFormDocument(content string) []wsvalidate.Finding {
+	return validateAgainst(formSchemaFile, content)
 }
 
 func asValidationError(err error, target **jsonschema.ValidationError) bool {
