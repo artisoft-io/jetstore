@@ -393,3 +393,20 @@ body {
 @media (prefers-reduced-motion: reduce) {
   * { transition: none !important; animation: none !important; }
 }
+
+/* ---------- form fields (A.3) ---------- */
+.field { display: flex; flex-direction: column; gap: 3px; margin: 6px 0; }
+.field label { font-size: 12px; color: var(--ink-2); }
+.field input, .field select, .field textarea {
+  font-family: var(--sans);
+  font-size: 13px;
+  padding: 5px 7px;
+  border: 1px solid var(--rule);
+  border-radius: 5px;
+  background: var(--surface);
+  color: var(--ink);
+}
+.field textarea { resize: vertical; }
+.field--readonly input, .field--readonly select, .field--readonly textarea { opacity: 0.6; }
+.field [aria-invalid="true"] { border-color: #b3261e; }
+.field-error { margin: 0; font-size: 12px; color: #b3261e; }
