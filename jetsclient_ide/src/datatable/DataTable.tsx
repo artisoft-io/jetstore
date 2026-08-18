@@ -32,6 +32,7 @@ import {
   pageRowsInfo,
   visibleColumns,
 } from "./model";
+import type { TableModes } from "./modes";
 import type { DataTableState } from "./useDataTable";
 import type { ColumnConfig, TableConfig } from "./types";
 
@@ -44,10 +45,15 @@ export interface DataTableProps {
    */
   actions?: ReactNode;
   /**
-   * Cell copy-on-click. Off by default, matching `noCopy2Clipboard`'s default of
-   * true; the *toggle* that turns it on is an action button, so it is S.2's.
+   * The table's own display modes — checkbox column and copy-on-click — and the
+   * buttons that flip them.
+   *
+   * **Optional, and the fallback is the honest one**: without it the table reads
+   * `isCheckboxVisible` straight from the configuration and never copies, which
+   * is what A.4b did and is correct for a table with no mode buttons. A.5 added
+   * this because the toggles turned out to be the widget's rather than S.2's.
    */
-  copyEnabled?: boolean;
+  modes?: TableModes;
   /** Per-column text filters, replacing the Dart closures the corpus cannot carry. */
   cellFilters?: Record<string, (value: string | null) => string | null>;
 }
@@ -56,11 +62,12 @@ export function DataTable({
   config,
   state,
   actions,
-  copyEnabled = false,
+  modes,
   cellFilters,
 }: DataTableProps): React.JSX.Element {
   const columns = visibleColumns(state.columns);
-  const checkboxes = config.isCheckboxVisible;
+  const checkboxes = modes ? modes.checkboxVisible : config.isCheckboxVisible;
+  const copyEnabled = modes ? modes.copyEnabled : false;
   const rowsPerPageId = useId();
 
   const lastPage = lastPageIndex(state.totalRowCount, state.rowsPerPage);
@@ -78,7 +85,23 @@ export function DataTable({
     <div className="jets-datatable">
       <div className="jets-datatable__header">
         {state.label !== "" && <h2 className="jets-datatable__label">{state.label}</h2>}
-        {actions != null && <div className="jets-datatable__actions">{actions}</div>}
+        {(actions != null || modes?.copyToggleAvailable) && (
+          <div className="jets-datatable__actions">
+            {actions}
+            {/*
+              The copy-mode button is synthesised by the widget rather than
+              configured — no `TableConfig` declares it (`data_table.dart:163`) —
+              which is why counting the 25 configured actions did not find it.
+            */}
+            {modes?.copyToggleAvailable && (
+              <button type="button" onClick={modes.toggleCopyEnabled}>
+                {/* The Dart's own labels (`data_table.dart:176`), which name
+                    the mode being switched *to* rather than the current one. */}
+                {modes.copyEnabled ? "Enable Select Row" : "Enable Copy Cell"}
+              </button>
+            )}
+          </div>
+        )}
       </div>
 
       {state.error != null && (

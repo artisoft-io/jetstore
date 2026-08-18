@@ -16,7 +16,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import {
-  clearPublishedSelection,
   hasBlockingFilter,
   publishSelection,
   restoreSelection,
@@ -25,6 +24,7 @@ import {
 } from "./binding";
 import type { FormState } from "./formState";
 import { keepSelectedRows } from "./model";
+import { refreshTable, useTableModes, type TableModes } from "./modes";
 import { useDataTable, type DataTableFetcher, type DataTableState } from "./useDataTable";
 import type { QueryContext, TableConfig } from "./types";
 
@@ -47,7 +47,21 @@ export interface UseTableBindingOptions {
   >;
 }
 
-export function useTableBinding(options: UseTableBindingOptions): DataTableState {
+/**
+ * The table's state, plus the two things only the widget itself can do.
+ *
+ * `modes` and `refresh` are A.5's: the four configured actions the sizing found
+ * misfiled into S.2 (`toggleCheckboxVisible` ×3, `refreshTable` ×1) act on the
+ * table rather than on a flow, so the widget owns the behaviour and S.2b's
+ * action bar only has to find it here.
+ */
+export interface TableBinding extends DataTableState {
+  modes: TableModes;
+  /** `_refreshTable`, as a button rather than as a reaction to the form. */
+  refresh(): void;
+}
+
+export function useTableBinding(options: UseTableBindingOptions): TableBinding {
   const { config, field, formState, fetcher, context } = options;
 
   const [refreshToken, setRefreshToken] = useState(0);
@@ -95,6 +109,27 @@ export function useTableBinding(options: UseTableBindingOptions): DataTableState
     },
   });
 
+  const modes = useTableModes(config);
+
+  // One sequence, two callers: the watched-key reaction below and the action
+  // button. `refreshToken` rather than `state.refresh()` only because the token
+  // is already threaded into `useDataTable`; the two are the same signal.
+  const doRefresh = useCallback(() => {
+    refreshTable(
+      {
+        setPage: state.setPage,
+        setRowsPerPage: state.setRowsPerPage,
+        clearSelection: state.clearSelection,
+        refresh: () => setRefreshToken((t) => t + 1),
+      },
+      config,
+      formState,
+      field,
+      config.formStateConfig,
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [config, formState, field.group, field.key, state]);
+
   // Restore the selection from the form whenever the page of rows changes. This
   // is `updateTableFromFormState`, and it is what makes a selection survive
   // paging away and back — the rows are retained in form state, not in the page.
@@ -125,12 +160,10 @@ export function useTableBinding(options: UseTableBindingOptions): DataTableState
       setFormVersion((v) => v + 1);
       if (!changed) return;
 
-      // `_refreshTable`: clear before re-querying, and go back to page one.
-      clearPublishedSelection(formState, field, config.formStateConfig);
+      // `_refreshTable`, shared with the action button rather than open-coded
+      // here — which is how this path came to omit the page-size reset (A.5).
       restoredFor.current = "";
-      state.setPage(0);
-      state.clearSelection();
-      setRefreshToken((t) => t + 1);
+      doRefresh();
     });
     return unsubscribe;
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -141,5 +174,11 @@ export function useTableBinding(options: UseTableBindingOptions): DataTableState
     [state],
   );
 
-  return { ...state, blocked, setRowSelected };
+  const refresh = useCallback(() => {
+    restoredFor.current = "";
+    doRefresh();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [doRefresh]);
+
+  return { ...state, blocked, setRowSelected, modes, refresh };
 }
