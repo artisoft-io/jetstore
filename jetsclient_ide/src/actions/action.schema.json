@@ -215,14 +215,10 @@
               "$ref": "#/$defs/Endpoint"
             },
             "action": {
-              "type": "string",
-              "minLength": 1,
-              "pattern": "^[A-Za-z0-9_.-]+$",
-              "description": "A key naming a form-state entry, action, state or table"
+              "$ref": "#/$defs/ServerAction"
             },
             "table": {
-              "type": "string",
-              "minLength": 1
+              "$ref": "#/$defs/InsertTarget"
             },
             "extras": {
               "type": "object",
@@ -518,10 +514,41 @@
       "type": "string",
       "enum": [
         "/dataTable",
-        "/registerFileKey",
-        "/purgeData",
-        "/inferServer"
+        "/registerFileKey"
       ]
+    },
+    "ServerAction": {
+      "type": "string",
+      "enum": [
+        "insert_rows",
+        "workspace_insert_rows",
+        "drop_table",
+        "sync_file_keys",
+        "resubmit_pipeline",
+        "put_schema_event_to_s3"
+      ],
+      "description": "A server action an authored flow may invoke"
+    },
+    "InsertTarget": {
+      "type": "string",
+      "enum": [
+        "client_registry",
+        "client_org_registry",
+        "delete/client",
+        "delete/org",
+        "pipeline_config",
+        "delete/pipeline_config",
+        "delete/source_config",
+        "source_config",
+        "update/source_config",
+        "pipeline_execution_status",
+        "input_loader_status",
+        "process_mapping",
+        "delete/process_mapping",
+        "pull_workspace",
+        "load_workspace_config"
+      ],
+      "description": "A table an authored flow may write to"
     },
     "Rows": {
       "anyOf": [

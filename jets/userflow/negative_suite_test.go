@@ -131,7 +131,7 @@ func TestNegativeSuiteCoversEveryClass(t *testing.T) {
 	}
 	for _, class := range []string{
 		"sanity", "unknown-type", "missing-required", "inapplicable-field",
-		"wrong-discriminator", "invented-field", "value-range", "reference",
+		"wrong-discriminator", "invented-field", "value-range", "reference", "not-allowed",
 	} {
 		if seen[class] == 0 {
 			t.Errorf("no case in class %q", class)

@@ -107,10 +107,87 @@ export const RowsSchema = z
   ])
   .meta({ id: "Rows", description: "How the request's data array is built" });
 
-/** The four endpoints the flows post to, from `ServerEPs` (`constants.dart:897`). */
+/**
+ * The endpoints a flow may post to.
+ *
+ * Narrowed by S.7 from the four `ServerEPs` declares (`constants.dart:897`) to
+ * the two any flow uses. `/purgeData` and `/inferServer` are reachable from
+ * compiled screens and are not things an authored document should be able to
+ * name.
+ */
 export const EndpointSchema = z
-  .enum(["/dataTable", "/registerFileKey", "/purgeData", "/inferServer"])
+  .enum(["/dataTable", "/registerFileKey"])
   .meta({ id: "Endpoint" });
+
+/**
+ * The server actions an authored flow may invoke. **Task S.7, and this is the
+ * security boundary rather than a tidy-up.**
+ *
+ * `/dataTable` dispatches **thirty** action names, including `exec_ddl`,
+ * `reset_domain_tables`, `rerun_db_init`, `raw_query_tool`, `delete_workspace_files`
+ * and `start_server`. Until this enum existed the grammar's `action` was a bare
+ * identifier, so a `.ua.json` could name any of them — and the person authoring
+ * it needs only `workspace_ide`.
+ *
+ * **What that was and was not.** Every one of the 58 insert targets in
+ * `jets/datatable/sql_stmts.go` is gated, by a capability or by `AdminOnly`, and
+ * the request carries the *running* user's token — so a hostile document could
+ * not do anything the user running it could not already do. The exposure was
+ * that it could do it **without them meaning to**: a button labelled "Next" that
+ * posts `reset_domain_tables` is a confused-deputy problem, not an escalation.
+ *
+ * **Why an enum in the schema rather than a check in Go.** The schema is already
+ * emitted, already committed under `jets/userflow/schema/`, and already enforced
+ * on the save path by the validator S.4 wired. An allowlist expressed here is
+ * enforced server-side for free, is visible to the author in the same place
+ * everything else about the document is, and is probed by the negative suite
+ * like any other constraint. A second mechanism would have been a second thing
+ * to keep in step.
+ *
+ * **Adding to this list is a code change and a redeploy, deliberately.** That is
+ * the cost of an allowlist and the reason it is worth having.
+ */
+export const ServerActionSchema = z
+  .enum([
+    // Writes, each gated by capability in `sql_stmts.go`.
+    "insert_rows",
+    "workspace_insert_rows",
+    // Operational actions the flows use.
+    "drop_table",
+    "sync_file_keys",
+    "resubmit_pipeline",
+    "put_schema_event_to_s3",
+  ])
+  .meta({ id: "ServerAction", description: "A server action an authored flow may invoke" });
+
+/**
+ * The insert targets an authored flow may name.
+ *
+ * `insert_rows` looks its target up in `sqlInsertStmts` — 58 entries, covering
+ * users, roles, workspaces and the domain tables. A flow needs eleven of them.
+ * The `delete/` prefixed entries are deletes; they are here because the flows
+ * genuinely delete clients, orgs, pipeline configs and source configs, and each
+ * is gated by `client_config` server-side.
+ */
+export const InsertTargetSchema = z
+  .enum([
+    "client_registry",
+    "client_org_registry",
+    "delete/client",
+    "delete/org",
+    "pipeline_config",
+    "delete/pipeline_config",
+    "delete/source_config",
+    "source_config",
+    "update/source_config",
+    "pipeline_execution_status",
+    "input_loader_status",
+    "process_mapping",
+    "delete/process_mapping",
+    "pull_workspace",
+    "load_workspace_config",
+  ])
+  .meta({ id: "InsertTarget", description: "A table an authored flow may write to" });
 
 /**
  * One step. Twelve kinds, discriminated by `do`.
@@ -134,10 +211,10 @@ const stepUnion = [
   z.strictObject({
     do: z.literal("post"),
     endpoint: EndpointSchema,
-    /** The server-side action name, e.g. `insert_rows`. Not a client action. */
-    action: Identifier,
+    /** The server-side action name. Constrained by S.7 — see `ServerActionSchema`. */
+    action: ServerActionSchema,
     /** Becomes `fromClauses: [{table}]`. Absent for actions that name no table. */
-    table: z.string().min(1).optional(),
+    table: InsertTargetSchema.optional(),
     /** Top-level extras beside `data`, e.g. `workspaceName`. Values, not literals. */
     extras: z.record(Identifier, ValueSchema).optional(),
     /**
