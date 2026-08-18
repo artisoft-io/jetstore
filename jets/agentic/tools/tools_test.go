@@ -139,13 +139,38 @@ func TestSignaturesAndHandlersAgree(t *testing.T) {
 	if unbound := reg.Unbound(); len(unbound) != 0 {
 		t.Fatalf("signatures with no handler: %v", unbound)
 	}
+	// The set rather than the count: a count says a tool was added and not
+	// which, and the interesting failure is a handler bound to a name no
+	// signature declares. compile_rule_file joined the three Phase-0 tools at
+	// E.6 as gap 6's second verifier.
+	want := map[string]bool{
+		"list_domain_classes":    true,
+		"describe_domain_class":  true,
+		"validate_cpipes_config": true,
+		"compile_rule_file":      true,
+	}
 	sigs := reg.List()
-	if len(sigs) != 3 {
-		t.Fatalf("expected the three Phase-0 tools, got %d", len(sigs))
+	got := map[string]bool{}
+	for _, sig := range sigs {
+		got[sig.Name] = true
+	}
+	for name := range want {
+		if !got[name] {
+			t.Errorf("%s is expected in the registry and is not there", name)
+		}
+	}
+	for name := range got {
+		if !want[name] {
+			t.Errorf("%s is in the registry and is not expected; add it here deliberately", name)
+		}
 	}
 	for _, sig := range sigs {
+		// Still true of all four, and still worth asserting rather than
+		// assuming: the first tool that changes anything arrives with the
+		// Phase-2 write catalogue, and this line is where that shows up.
 		if sig.Reversibility != "na" {
-			t.Errorf("%s: the three read-only tools carry reversibility 'na', got %q", sig.Name, sig.Reversibility)
+			t.Errorf("%s: every tool so far is read-only and carries reversibility 'na', got %q",
+				sig.Name, sig.Reversibility)
 		}
 		if sig.MinTier != "T0" {
 			t.Errorf("%s: min_tier %q, want T0", sig.Name, sig.MinTier)

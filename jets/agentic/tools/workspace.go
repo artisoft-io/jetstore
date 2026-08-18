@@ -24,6 +24,28 @@ type Workspace struct {
 	Meta *Sidecar
 	// workspace.db, opened read-only, for the metadata triples.
 	db *sql.DB
+	// dir is where this workspace was resolved from. Tools still never take
+	// a path as an argument — that rule is about the tool *signature*, so a
+	// Phase-2 catalogue is not born holding the stdio adapter's local-disk
+	// shape — but a tool that has to run the compiler needs the rule sources
+	// on a filesystem, and the handle is the right place to carry that. Empty
+	// when the workspace was assembled some other way; LocalDir says so
+	// rather than returning a path that is not there.
+	dir string
+}
+
+// LocalDir is where the workspace's files live, for the one tool that needs
+// them: compiling a rule file means resolving its imports, and imports are
+// files. It fails rather than guessing when the handle has no local
+// materialisation, which is the honest answer for a workspace that was never
+// on this disk.
+func (ws *Workspace) LocalDir() (string, error) {
+	if ws == nil || ws.dir == "" {
+		return "", fmt.Errorf(
+			"this workspace has no local directory, so its rule sources cannot be read; " +
+				"compiling requires a workspace resolved from a checkout")
+	}
+	return ws.dir, nil
 }
 
 // Sidecar mirrors jets_agentic.meta.json (the A1.6 emitter's shape).
@@ -64,7 +86,7 @@ type SidecarVocabulary struct {
 // checkout without it has not been compiled, and the error says how to fix
 // that), workspace.db is required, the sidecar is optional.
 func ResolveWorkspace(dir string) (*Workspace, error) {
-	ws := &Workspace{}
+	ws := &Workspace{dir: dir}
 
 	classesPath := filepath.Join(dir, "build", "classes.json")
 	raw, err := os.ReadFile(classesPath)

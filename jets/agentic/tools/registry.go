@@ -76,12 +76,17 @@ func NewRegistry(handlers map[string]Handler) (*Registry, error) {
 	return reg, nil
 }
 
-// DefaultRegistry is the Phase-0 registry: the three read-only tools.
+// DefaultRegistry is the registry as it stands: the three Phase-0 read-only
+// tools plus compile_rule_file, which Phase 1 adds as gap 6's second verifier.
+// All four are still read-only; the first tool that changes anything arrives
+// with the Phase-2 write catalogue, and it will need a reversibility class
+// other than "na".
 func DefaultRegistry() (*Registry, error) {
 	return NewRegistry(map[string]Handler{
 		"list_domain_classes":    ListDomainClasses,
 		"describe_domain_class":  DescribeDomainClass,
 		"validate_cpipes_config": ValidateCpipesConfig,
+		"compile_rule_file":      CompileRuleFile,
 	})
 }
 
