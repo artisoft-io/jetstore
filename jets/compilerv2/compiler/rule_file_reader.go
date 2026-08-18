@@ -124,9 +124,14 @@ func (r *RuleFileReader) readFileRecursive(fileName string) error {
 		return nil // empty file
 	}
 
-	// Put the file ImportFileInfo on the stack
-	fileInfo := NewImportedFileInfo(fileName, r.globalLineNum, r.globalLineNum+nbrLines, 0)
-	r.importedFileInfo = append(r.importedFileInfo, fileInfo)
+	// Put the file ImportFileInfo on the stack. A file contributes one segment
+	// per uninterrupted run of its own lines, so a file with N imports produces
+	// up to N+1 of these. EndLine is provisional here and is corrected the
+	// moment the segment stops being filled: it is computed from the file's
+	// line count, which includes the import lines that get replaced rather
+	// than written.
+	segment := NewImportedFileInfo(fileName, r.globalLineNum, r.globalLineNum+nbrLines, 0)
+	r.importedFileInfo = append(r.importedFileInfo, segment)
 	r.importedFileNames[fileName] = true
 
 	for iLine, line := range lines {
@@ -138,8 +143,12 @@ func (r *RuleFileReader) readFileRecursive(fileName string) error {
 			importFileName := extractImportFileName(line)
 			if importFileName != "" {
 
-				// Pause the current file
-				fileInfo.EndLine = r.globalLineNum
+				// Close the segment currently being filled. It must be that
+				// segment and not the first one: with two imports in one file,
+				// re-closing the first would stretch its range over everything
+				// the imports contributed, and GetLocalFileAndLine returns the
+				// first range that matches.
+				segment.EndLine = r.globalLineNum
 				remainingLines := nbrLines - iLine - 1
 
 				// Read the imported file
@@ -156,14 +165,20 @@ func (r *RuleFileReader) readFileRecursive(fileName string) error {
 				if remainingLines > 0 {
 					r.writeSourceFileDirective(fileName)
 				}
-				r.importedFileInfo = append(r.importedFileInfo,
-					NewImportedFileInfo(fileName, r.globalLineNum, r.globalLineNum+remainingLines, iLine+1))
+				segment = NewImportedFileInfo(fileName, r.globalLineNum,
+					r.globalLineNum+remainingLines, iLine+1)
+				r.importedFileInfo = append(r.importedFileInfo, segment)
 			}
 		} else {
 			r.combinedContent.WriteString(line + "\n")
 			r.globalLineNum++
 		}
 	}
+
+	// Close the final segment at the line actually reached rather than leaving
+	// the provisional estimate, which over-counts by one per import consumed
+	// after this segment began.
+	segment.EndLine = r.globalLineNum
 
 	return nil
 }
