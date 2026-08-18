@@ -40,6 +40,7 @@ import { NavLink, Outlet } from "react-router-dom";
 
 import { ApiClient, type User } from "../api/client";
 import { Login } from "../components/Login";
+import { ApiProvider, useCan } from "./capabilities";
 import { NotificationsProvider, useNotifications } from "./notifications";
 
 export type Theme = "light" | "dark";
@@ -69,9 +70,41 @@ export interface AppShellProps {
  */
 export function AppShell(props: AppShellProps) {
   return (
-    <NotificationsProvider>
-      <ShellChrome {...props} />
-    </NotificationsProvider>
+    <ApiProvider api={props.api}>
+      <NotificationsProvider>
+        <ShellChrome {...props} />
+      </NotificationsProvider>
+    </ApiProvider>
+  );
+}
+
+/**
+ * A nav item the user cannot reach: visible and inert, not absent.
+ *
+ * See `capabilities.tsx` — every gated control in the Flutter app disables
+ * rather than hides, and A.1 diverged from that here without noticing.
+ */
+function DisabledNavItem({ label, reason }: { label: string; reason?: string }) {
+  return (
+    <span
+      className="navlink is-disabled"
+      aria-disabled="true"
+      {...(reason ? { title: reason } : {})}
+    >
+      {label}
+    </span>
+  );
+}
+
+function ShellNavItem({ item }: { item: NavItem }) {
+  const permission = useCan(item.capability);
+  if (!permission.allowed) {
+    return <DisabledNavItem label={item.label} {...(permission.reason ? { reason: permission.reason } : {})} />;
+  }
+  return (
+    <NavLink to={item.to} className={({ isActive }) => `navlink${isActive ? " is-active" : ""}`}>
+      {item.label}
+    </NavLink>
   );
 }
 
@@ -101,11 +134,6 @@ function ShellChrome({ api, nav }: AppShellProps) {
   // screens call the api without each one re-checking.
   if (!user) return <Login version="" onSubmit={signIn} />;
 
-  // Capability filtering is presentation only, and deliberately so: the server
-  // is the enforcement point (assessment §3.5). Hiding an item the user cannot
-  // use is courtesy, not security. A.2 generalises this to buttons and actions.
-  const visible = nav.filter((item) => item.capability == null || api.can(item.capability));
-
   return (
     <div className="app">
       <header className="topbar">
@@ -114,14 +142,8 @@ function ShellChrome({ api, nav }: AppShellProps) {
         </span>
 
         <nav className="mainnav" aria-label="Screens">
-          {visible.map((item) => (
-            <NavLink
-              key={item.to}
-              to={item.to}
-              className={({ isActive }) => `navlink${isActive ? " is-active" : ""}`}
-            >
-              {item.label}
-            </NavLink>
+          {nav.map((item) => (
+            <ShellNavItem key={item.to} item={item} />
           ))}
         </nav>
 

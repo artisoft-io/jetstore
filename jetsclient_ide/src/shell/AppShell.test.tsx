@@ -118,12 +118,20 @@ describe("AppShell", () => {
     expect(screen.getByRole("link", { name: "Workspace IDE" }).className).not.toContain("is-active");
   });
 
-  it("hides a nav item the user has no capability for", async () => {
-    // Presentation only — the server is the enforcement point. Hiding a screen
-    // the user cannot use is courtesy, and A.2 generalises it.
+  it("disables a nav item the user has no capability for, and keeps it visible", async () => {
+    // **Corrected in A.2.** A.1 filtered the item out of the list; every gated
+    // control in the Flutter app disables and stays visible
+    // (`screens/base_screen.dart:155`), so hiding was a divergence introduced
+    // without noticing. An application that looks different to different people,
+    // with no way to tell why, is the thing that change avoided.
     renderShell(await signedIn([]), nav);
     await screen.findByText("screen: workspace");
+
     expect(screen.queryByRole("link", { name: "Workspace IDE" })).toBeNull();
+    const inert = screen.getByText("Workspace IDE");
+    expect(inert.getAttribute("aria-disabled")).toBe("true");
+    expect(inert.getAttribute("title")).toContain("workspace_ide");
+
     expect(screen.getByRole("link", { name: "Flows" })).toBeTruthy();
   });
 
