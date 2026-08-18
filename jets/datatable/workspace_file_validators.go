@@ -26,6 +26,7 @@ var workspaceFileValidators = []struct {
 }{
 	{".uf.json", userflow.ValidateFlowDocument},
 	{".ua.json", userflow.ValidateActionDocument},
+	{".form.json", userflow.ValidateFormDocument},
 }
 
 // validatorFor returns the most specific match, or nil.

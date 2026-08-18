@@ -12,6 +12,7 @@ import (
 var schemaSources = map[string]string{
 	flowSchemaFile:   "../../jetsclient_ide/src/userflow/userflow.schema.json",
 	actionSchemaFile: "../../jetsclient_ide/src/actions/action.schema.json",
+	formSchemaFile:   "../../jetsclient_ide/src/userflow/form.schema.json",
 }
 
 // expectedCopy is the source with its owned-asset `$comment` injected.
@@ -67,7 +68,7 @@ func TestSchemaCopiesMatchSource(t *testing.T) {
 // TestEmbeddedSchemasCompile checks the copies are usable, not merely present —
 // a file can match its source and still be something v6 refuses.
 func TestEmbeddedSchemasCompile(t *testing.T) {
-	for _, name := range []string{flowSchemaFile, actionSchemaFile} {
+	for _, name := range []string{flowSchemaFile, actionSchemaFile, formSchemaFile} {
 		if _, err := compile(name); err != nil {
 			t.Errorf("%s does not compile: %v", name, err)
 		}
