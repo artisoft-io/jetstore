@@ -1,0 +1,76 @@
+{
+  "schemaVersion": 1,
+  "actions": {
+    "wpPullWorkspaceConfirmUF": {
+      "description": "Carry the chosen actions to the confirmation page",
+      "steps": [
+        { "do": "set", "key": "wpPullWorkspaceConfirmOptions", "value": { "fromKeyList": "otherWorkspaceActionOptions" } }
+      ]
+    },
+    "wpPullWorkspaceOkUF": {
+      "description": "Pull the workspace and perform the chosen actions",
+      "steps": [
+        { "do": "post", "endpoint": "/dataTable", "action": "workspace_insert_rows", "table": "pull_workspace",
+          "extras": {
+            "workspaceName": { "fromKey": "workspace_name" },
+            "workspaceBranch": { "fromKey": "workspace_branch" },
+            "featureBranch": { "fromKey": "feature_branch" }
+          },
+          "onConflict": "Server error, please try again.",
+          "data": {
+            "rows": "wholeState",
+            "normalise": [
+              { "key": "user_email", "as": { "userEmail": true } },
+              { "key": "key", "as": { "fromKey": "key" } },
+              { "key": "workspace_name", "as": { "fromKey": "workspace_name" } },
+              { "key": "workspace_branch", "as": { "fromKey": "workspace_branch" } },
+              { "key": "feature_branch", "as": { "fromKey": "feature_branch" } },
+              { "key": "workspace_uri", "as": { "fromKey": "workspace_uri" } }
+            ]
+          } }
+      ]
+    },
+    "wpLoadConfigConfirmUF": {
+      "description": "Carry the chosen clients to the confirmation page",
+      "steps": [
+        { "do": "set", "key": "wpClientListRO", "value": { "fromKeyList": "wpClientList" } }
+      ]
+    },
+    "wpLoadConfigOkUF": {
+      "description": "Load the selected clients' configuration",
+      "steps": [
+        { "do": "post", "endpoint": "/dataTable", "action": "workspace_insert_rows", "table": "load_workspace_config",
+          "spinner": true,
+          "extras": { "workspaceName": { "fromKey": "workspace_name" } },
+          "data": {
+            "rows": "wholeState",
+            "normalise": [
+              { "key": "user_email", "as": { "userEmail": true } },
+              { "key": "workspace_name", "as": { "fromKey": "workspace_name" } }
+            ]
+          } }
+      ]
+    },
+    "wpLoadAllClientConfigUF": {
+      "description": "Load every client's configuration",
+      "steps": [
+        { "do": "remove", "keys": ["wpClientList"] },
+        { "do": "post", "endpoint": "/dataTable", "action": "workspace_insert_rows", "table": "load_workspace_config",
+          "spinner": true,
+          "extras": { "workspaceName": { "fromKey": "workspace_name" } },
+          "data": {
+            "rows": "wholeState",
+            "normalise": [
+              { "key": "user_email", "as": { "userEmail": true } },
+              { "key": "workspace_name", "as": { "fromKey": "workspace_name" } }
+            ]
+          } },
+        { "do": "close" }
+      ]
+    },
+    "dialogCancel": {
+      "description": "Dismiss the dialog",
+      "steps": [{ "do": "close" }]
+    }
+  }
+}

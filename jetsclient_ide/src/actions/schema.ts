@@ -140,10 +140,43 @@ const stepUnion = [
     table: z.string().min(1).optional(),
     /** Top-level extras beside `data`, e.g. `workspaceName`. Values, not literals. */
     extras: z.record(Identifier, ValueSchema).optional(),
+    /**
+     * Which of the Dart's two POST helpers this is. Added by the coverage pass
+     * (I-23): the grammar modelled `postSimpleAction` only, and `postInsertRows`
+     * (`delegate_helpers.dart:63`) is a different behaviour, not a flag on the
+     * same one — on success it pops the screen with a dirty-table result, and on
+     * failure it records the message into form state under `serverError` and
+     * pops anyway. Two arms use it.
+     */
+    transport: z.enum(["simple", "insertRows"]).optional(),
     spinner: z.boolean().optional(),
     /** Message shown on HTTP 409, which the Dart special-cases at four sites. */
     onConflict: z.string().min(1).optional(),
     data: RowsSchema,
+  }),
+  /**
+   * Read rows from the server into form state.
+   *
+   * **The sizing said this primitive had no sites and that was wrong** (I-23).
+   * It grepped `queryJetsDataModel` across the delegate and helper files and
+   * found none; `pcAddPipelineConfigUF` reaches it through
+   * `getProcessInputRdfTypes` (`modules/actions/utils/get_process_info.dart:8`),
+   * a directory the grep did not cover.
+   *
+   * **`name` is a registered query, not SQL.** The Dart builds a `raw_query`
+   * with a SQL string inline, and carrying that into an authored document would
+   * hand S.7 a much worse problem than the one it already has — a config that
+   * names a table is user-authored server instruction, and a config carrying SQL
+   * is worse. So the document names a query the build registers, which is the
+   * same shape I-11 needs for `dropdownItemsQueries`.
+   *
+   * `into` maps result columns onto form-state keys. One row is read: every use
+   * in the corpus takes the first row and the Dart's helper returns a map.
+   */
+  z.strictObject({
+    do: z.literal("query"),
+    name: Identifier,
+    into: z.record(Identifier, Identifier),
   }),
   z.strictObject({ do: z.literal("goToState"), state: Identifier }),
   z.strictObject({ do: z.literal("close") }),

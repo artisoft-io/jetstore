@@ -1,0 +1,47 @@
+{
+  "schemaVersion": 1,
+  "actions": {
+    "spPipelineSelected": {
+      "description": "Unwrap the selected pipeline's process input key lists",
+      "steps": [
+        { "do": "set", "key": "merged_process_input_keys", "value": { "fromKeyList": "merged_process_input_keys" } },
+        { "do": "set", "key": "injected_process_input_keys", "value": { "fromKeyList": "injected_process_input_keys" } }
+      ]
+    },
+    "spPrepareStartPipeline": {
+      "description": "Collect every data source key the pipeline will read",
+      "steps": [
+        { "do": "set", "key": "spAllDataSourceKeys", "value": { "fromKeyList": "merged_input_registry_keys" } },
+        { "do": "appendUnique", "listKey": "spAllDataSourceKeys", "value": { "fromKey": "main_input_registry_key" } },
+        { "do": "set", "key": "description", "value": { "fromKey": "description" } }
+      ]
+    },
+    "spStartPipelineUF": {
+      "description": "Submit the pipeline execution",
+      "steps": [
+        { "do": "validate" },
+        { "do": "post", "endpoint": "/dataTable", "action": "insert_rows", "table": "pipeline_execution_status",
+          "spinner": true,
+          "extras": { "workspaceName": { "fromKey": "workspace_name" } },
+          "data": {
+            "rows": "wholeState",
+            "normalise": [
+              { "key": "merged_input_registry_keys", "as": { "pgArrayFromKey": "merged_input_registry_keys" } },
+              { "key": "pipeline_config_key", "as": { "fromKey": "pipeline_config_key" } },
+              { "key": "main_input_registry_key", "as": { "fromKey": "main_input_registry_key" } },
+              { "key": "main_input_file_key", "as": { "fromKey": "main_input_file_key" } },
+              { "key": "client", "as": { "fromKey": "client" } },
+              { "key": "process_name", "as": { "fromKey": "process_name" } },
+              { "key": "main_object_type", "as": { "fromKey": "main_object_type" } },
+              { "key": "source_period_key", "as": { "fromKey": "source_period_key" } },
+              { "key": "status", "as": { "literal": "submitted" } },
+              { "key": "user_email", "as": { "userEmail": true } },
+              { "key": "session_id", "as": { "nowMillis": true } },
+              { "key": "object_type", "as": { "fromKey": "main_object_type" } },
+              { "key": "file_key", "as": { "fromKey": "main_input_file_key" } }
+            ]
+          } }
+      ]
+    }
+  }
+}

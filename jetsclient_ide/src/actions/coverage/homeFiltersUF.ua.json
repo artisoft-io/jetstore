@@ -1,0 +1,32 @@
+{
+  "schemaVersion": 1,
+  "actions": {
+    "hfSelectProcessUF": {
+      "description": "Record the process filter",
+      "steps": [{ "do": "validate" }, { "do": "escape", "name": "updateHomeFilters" }]
+    },
+    "hfSelectStatusUF": {
+      "description": "Record the status filter",
+      "steps": [{ "do": "validate" }, { "do": "escape", "name": "updateHomeFilters" }]
+    },
+    "hfSelectFileKeyFilterUF": {
+      "description": "Record the file key filter",
+      "steps": [{ "do": "validate" }, { "do": "escape", "name": "updateHomeFilters" }]
+    },
+    "hfSelectTimeWindowUF": {
+      "description": "Record the time window filter",
+      "steps": [{ "do": "validate" }, { "do": "escape", "name": "updateHomeFilters" }]
+    },
+    "resubmitPipeline": {
+      "description": "Resubmit the selected pipeline execution",
+      "steps": [
+        { "do": "post", "endpoint": "/dataTable", "action": "resubmit_pipeline",
+          "data": { "rows": "wholeState" } }
+      ]
+    },
+    "dialogCancel": {
+      "description": "Dismiss the dialog",
+      "steps": [{ "do": "close" }]
+    }
+  }
+}

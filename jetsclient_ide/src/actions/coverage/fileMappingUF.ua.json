@@ -1,0 +1,40 @@
+{
+  "schemaVersion": 1,
+  "actions": {
+    "fmSelectSourceConfigUF": {
+      "description": "Load the selected file configuration for mapping",
+      "steps": [
+        { "do": "set", "key": "client", "value": { "fromKey": "client" } },
+        { "do": "set", "key": "org", "value": { "fromKey": "org" } },
+        { "do": "set", "key": "table_name", "value": { "fromKey": "table_name" } },
+        { "do": "set", "key": "object_type", "value": { "fromKey": "object_type" } }
+      ]
+    },
+    "downloadMapping": {
+      "description": "Download the mapping rows as a file",
+      "steps": [{ "do": "escape", "name": "downloadMapping" }]
+    },
+    "loadRawRows.Ok": {
+      "description": "Load raw rows into the staging table",
+      "steps": [
+        { "do": "validate" },
+        { "do": "escape", "name": "loadRawRows" }
+      ]
+    },
+    "mapperOk": {
+      "description": "Save the file mapping, replacing every existing mapping for the table",
+      "steps": [
+        { "do": "validate" },
+        { "do": "escape", "name": "saveProcessMapping" }
+      ]
+    },
+    "mapperDraft": {
+      "description": "Save the file mapping as a draft, without validating it",
+      "steps": [{ "do": "escape", "name": "saveProcessMapping" }]
+    },
+    "dialogCancel": {
+      "description": "Dismiss the dialog",
+      "steps": [{ "do": "close" }]
+    }
+  }
+}

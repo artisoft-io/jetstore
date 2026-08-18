@@ -236,6 +236,13 @@
                 "$ref": "#/$defs/Value"
               }
             },
+            "transport": {
+              "type": "string",
+              "enum": [
+                "simple",
+                "insertRows"
+              ]
+            },
             "spinner": {
               "type": "boolean"
             },
@@ -252,6 +259,42 @@
             "endpoint",
             "action",
             "data"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "do": {
+              "type": "string",
+              "const": "query"
+            },
+            "name": {
+              "type": "string",
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9_.-]+$",
+              "description": "A key naming a form-state entry, action, state or table"
+            },
+            "into": {
+              "type": "object",
+              "propertyNames": {
+                "type": "string",
+                "minLength": 1,
+                "pattern": "^[A-Za-z0-9_.-]+$",
+                "description": "A key naming a form-state entry, action, state or table"
+              },
+              "additionalProperties": {
+                "type": "string",
+                "minLength": 1,
+                "pattern": "^[A-Za-z0-9_.-]+$",
+                "description": "A key naming a form-state entry, action, state or table"
+              }
+            }
+          },
+          "required": [
+            "do",
+            "name",
+            "into"
           ],
           "additionalProperties": false
         },
