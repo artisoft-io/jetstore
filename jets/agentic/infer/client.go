@@ -125,7 +125,17 @@ func (r *Response) Tokens() int { return r.PromptTokens + r.EvalTokens }
 type SchemaError struct {
 	Content string
 	Err     error
+	// PromptTokens and EvalTokens are what the rejected answer cost. They are
+	// on the error because the call still spent them: a budget that counted
+	// only accepted answers would undercount every run that had to repair,
+	// which is precisely the runs a repair loop produces. Found by D.3, which
+	// is the first caller in a position to notice.
+	PromptTokens int
+	EvalTokens   int
 }
+
+// Tokens is what this rejected attempt cost.
+func (e *SchemaError) Tokens() int { return e.PromptTokens + e.EvalTokens }
 
 func (e *SchemaError) Error() string {
 	return fmt.Sprintf("the model's answer does not satisfy the schema: %v\n\nanswer:\n%s",
@@ -224,10 +234,16 @@ func (c *Client) validate(raw *chatResponse, schema *jsonschema.Schema, attempts
 	// guided decoding. Client-side validation is what makes it safe to rely on
 	// in the meantime, so it is not optional here.
 	if err := json.Unmarshal([]byte(resp.Content), &resp.Value); err != nil {
-		return nil, &SchemaError{Content: resp.Content, Err: fmt.Errorf("not valid JSON: %w", err)}
+		return nil, &SchemaError{
+			Content: resp.Content, Err: fmt.Errorf("not valid JSON: %w", err),
+			PromptTokens: resp.PromptTokens, EvalTokens: resp.EvalTokens,
+		}
 	}
 	if err := schema.Validate(resp.Value); err != nil {
-		return nil, &SchemaError{Content: resp.Content, Err: err}
+		return nil, &SchemaError{
+			Content: resp.Content, Err: err,
+			PromptTokens: resp.PromptTokens, EvalTokens: resp.EvalTokens,
+		}
 	}
 	return resp, nil
 }
