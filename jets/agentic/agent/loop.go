@@ -159,7 +159,11 @@ type Loop struct {
 	// than something a caller is trusted to do around it. Nil means the run is
 	// not persisted, which is what the tests and a dry run use.
 	Recorder Recorder
-	Budget   Budget
+	// Guard is the durable stop. When set, it is consulted before the first
+	// model call and before every tool call that writes. Nil means unguarded,
+	// which is what the tests use — and what production must not be.
+	Guard  Guard
+	Budget Budget
 
 	// RunId correlates every audit event of this run. One run, one id; a
 	// fan-out gives each candidate its own.
@@ -203,6 +207,17 @@ func (l *Loop) Run(ctx context.Context, task *Task) (*Result, error) {
 	}
 
 	result := &Result{Outcome: OutcomeFailed}
+
+	// The kill switch, before anything else spends money or writes a record.
+	// A revoked identity should not leave an audit trail of a run it was never
+	// allowed to start, so this precedes even the intent.
+	if l.Guard != nil {
+		if err := l.Guard.Allowed(ctx); err != nil {
+			l.event(ctx, audit.EventError, "", errorPayload("capability", err.Error()))
+			result.Outcome = OutcomeFailed
+			return result, fmt.Errorf("agent: refused before the first model call: %w", err)
+		}
+	}
 
 	// Write before act. The commit inside Start is the acknowledgement: after
 	// it returns, a process that dies leaves a durable record of what it was
@@ -321,6 +336,17 @@ func (l *Loop) verify(ctx context.Context, task *Task, artifact json.RawMessage)
 	args, err := task.VerifierArgs(artifact)
 	if err != nil {
 		return nil, fmt.Errorf("while building the verifier's arguments: %w", err)
+	}
+	// Re-checked before the tool call rather than trusted from the start of the
+	// run: a revocation part-way through a long run should take effect at the
+	// next check, which is the whole of what "durable" buys over a flag in
+	// memory. Every Phase-1 tool is read-only, so today this guards a call that
+	// changes nothing — it is here because the first write tool must not be the
+	// thing that introduces the check.
+	if l.Guard != nil {
+		if err := l.Guard.Allowed(ctx); err != nil {
+			return nil, err
+		}
 	}
 	raw, err := l.Registry.Call(ctx, l.Workspace, task.Verifier, args)
 	if err != nil {
