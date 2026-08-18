@@ -96,6 +96,29 @@ export interface Finding {
   /** Machine-readable so the Go port and the IDE can agree on a message. */
   code: "unknownStartState" | "unknownTarget" | "unreachableState";
   message: string;
+  /**
+   * Where in the document, as a JSON Pointer (RFC 6901) — empty for a finding
+   * about the document as a whole.
+   *
+   * **Added at the agentic_ai stream's request, and it was right that it helps
+   * this side sooner.** The structure was already here and was being stringified
+   * into `message`: an `unknownTarget` knows which state and which transition
+   * offended, and prose is not something an editor can jump to or a repair
+   * prompt can use. One string rather than a typed location keeps `Finding`
+   * comparable and JSON-friendly, and stops two file types having to agree on a
+   * schema for locations.
+   *
+   * No escaping is applied and none is needed: every varying segment is an
+   * `Identifier`, whose pattern excludes `/` and `~`. A future segment that can
+   * contain either must be escaped per RFC 6901 §3 rather than interpolated.
+   */
+  path: string;
+}
+
+/** A target, and where in the document it was declared. */
+export interface Transition {
+  target: string;
+  path: string;
 }
 
 /**
@@ -108,14 +131,25 @@ export interface Finding {
  * code, on the strength of a nearby comment. `goToStates` is how a document
  * declares those edges; see `schema.ts` and I-18.
  */
-export function targetsOf(flow: UserFlow, stateKey: string): string[] {
+export function targetsOf(flow: UserFlow, stateKey: string): Transition[] {
   const state = flow.states[stateKey];
   if (state === undefined) return [];
-  const targets = "choices" in state && state.choices ? state.choices.map((c) => c.nextState) : [];
+  const base = `/states/${stateKey}`;
+  const targets: Transition[] =
+    "choices" in state && state.choices
+      ? state.choices.map((c, i) => ({
+          target: c.nextState,
+          path: `${base}/choices/${i}/nextState`,
+        }))
+      : [];
   if ("defaultNextState" in state && state.defaultNextState !== undefined) {
-    targets.push(state.defaultNextState);
+    targets.push({ target: state.defaultNextState, path: `${base}/defaultNextState` });
   }
-  if (state.goToStates !== undefined) targets.push(...state.goToStates);
+  if (state.goToStates !== undefined) {
+    targets.push(
+      ...state.goToStates.map((target, i) => ({ target, path: `${base}/goToStates/${i}` })),
+    );
+  }
   return targets;
 }
 
@@ -135,16 +169,18 @@ export function validateFlow(flow: UserFlow, policy: Policy = defaultPolicy): Fi
       severity: "error",
       code: "unknownStartState",
       message: `startAtKey "${flow.startAtKey}" is not a state`,
+      path: "/startAtKey",
     });
   }
 
   for (const key of keys) {
-    for (const target of targetsOf(flow, key)) {
+    for (const { target, path } of targetsOf(flow, key)) {
       if (!(target in flow.states)) {
         findings.push({
           severity: "error",
           code: "unknownTarget",
           message: `state "${key}" transitions to "${target}", which is not a state`,
+          path,
         });
       }
     }
@@ -154,7 +190,7 @@ export function validateFlow(flow: UserFlow, policy: Policy = defaultPolicy): Fi
     const reached = new Set<string>([flow.startAtKey]);
     const frontier = [flow.startAtKey];
     while (frontier.length > 0) {
-      for (const target of targetsOf(flow, frontier.pop()!)) {
+      for (const { target } of targetsOf(flow, frontier.pop()!)) {
         if (!reached.has(target) && target in flow.states) {
           reached.add(target);
           frontier.push(target);
@@ -167,6 +203,7 @@ export function validateFlow(flow: UserFlow, policy: Policy = defaultPolicy): Fi
           severity: policy.unreachableState,
           code: "unreachableState",
           message: `state "${key}" is not reachable from "${flow.startAtKey}"`,
+          path: `/states/${key}`,
         });
       }
     }
