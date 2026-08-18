@@ -1,0 +1,149 @@
+{
+  "schemaVersion": 1,
+  "actions": {
+    "pcAddPipelineConfigUF": {
+      "description": "Initialise a new pipeline configuration",
+      "steps": [
+        { "do": "set", "key": "max_rete_sessions_saved", "value": { "literal": "0" } },
+        { "do": "set", "key": "merged_process_input_keys", "value": { "fromKeyList": "merged_process_input_keys" } },
+        { "do": "set", "key": "injected_process_input_keys", "value": { "fromKeyList": "injected_process_input_keys" } },
+        { "do": "query", "name": "processInputRdfTypes",
+          "into": { "process_config_key": "process_config_key", "entity_rdf_type": "entity_rdf_type" } }
+      ]
+    },
+    "pcSelectPipelineConfigUF": {
+      "description": "Load the selected pipeline configuration into the form",
+      "steps": [
+        { "do": "set", "key": "automated", "value": { "fromKey": "automated" } },
+        { "do": "set", "key": "client", "value": { "fromKey": "client" } },
+        { "do": "set", "key": "description", "value": { "fromKey": "description" } },
+        { "do": "set", "key": "pcPipelineConfigTable", "value": { "fromKey": "pcPipelineConfigTable" } },
+        { "do": "set", "key": "main_object_type", "value": { "fromKey": "main_object_type" } },
+        { "do": "set", "key": "main_process_input_key", "value": { "fromKey": "main_process_input_key" } },
+        { "do": "set", "key": "merged_process_input_keys", "value": { "fromKeyList": "merged_process_input_keys" } },
+        { "do": "set", "key": "injected_process_input_keys", "value": { "fromKeyList": "injected_process_input_keys" } },
+        { "do": "set", "key": "main_source_type", "value": { "fromKey": "main_source_type" } },
+        { "do": "set", "key": "max_rete_sessions_saved", "value": { "fromKey": "max_rete_sessions_saved" } },
+        { "do": "set", "key": "process_config_key", "value": { "fromKey": "process_config_key" } },
+        { "do": "set", "key": "process_name", "value": { "fromKey": "process_name" } },
+        { "do": "set", "key": "rule_config_json", "value": { "fromKey": "rule_config_json" } },
+        { "do": "set", "key": "source_period_type", "value": { "fromKey": "source_period_type" } },
+        { "do": "set", "key": "pcMainProcessInputKey", "value": { "fromKey": "main_process_input_key" } }
+      ]
+    },
+    "deletePipelineConfig": {
+      "description": "Delete the selected pipeline configuration",
+      "steps": [
+        { "do": "confirm", "message": "Are you sure you want to delete the selected Pipeline Configuration?" },
+        { "do": "set", "key": "key", "value": { "fromKey": "key" } },
+        { "do": "clearSelection", "key": "pcPipelineConfigTable" },
+        { "do": "remove", "keys": ["pcPipelineConfigTable"] },
+        { "do": "post", "endpoint": "/dataTable", "action": "insert_rows", "table": "delete/pipeline_config",
+          "data": { "rows": "wholeState" } },
+        { "do": "remove", "keys": ["key"] }
+      ]
+    },
+    "pcRemoveMergedProcessInput": {
+      "description": "Remove a data source from the merge set",
+      "steps": [
+        { "do": "removeFrom", "listKey": "merged_process_input_keys", "value": { "fromKey": "pcViewMergedProcessInputKeys" } },
+        { "do": "remove", "keys": ["pcViewMergedProcessInputKeys"] },
+        { "do": "clearSelection", "key": "pcViewMergedProcessInputKeys" }
+      ]
+    },
+    "pcRemoveInjectedProcessInput": {
+      "description": "Remove a data source from the injected set",
+      "steps": [
+        { "do": "removeFrom", "listKey": "injected_process_input_keys", "value": { "fromKey": "pcViewInjectedProcessInputKeys" } },
+        { "do": "remove", "keys": ["pcViewInjectedProcessInputKeys"] },
+        { "do": "clearSelection", "key": "pcViewInjectedProcessInputKeys" }
+      ]
+    },
+    "pcGotToAddMergeProcessInputUF": {
+      "description": "Go to the page that adds a data source to merge",
+      "steps": [
+        { "do": "goToState", "state": "add_merge_process_inputs" },
+        { "do": "remove", "keys": ["pcMergedProcessInputKeys"] },
+        { "do": "clearSelection", "key": "pcMergedProcessInputKeys" }
+      ]
+    },
+    "pcGotToAddInjectedProcessInputUF": {
+      "description": "Go to the page that adds a data source for historical data",
+      "steps": [
+        { "do": "goToState", "state": "add_injected_process_inputs" },
+        { "do": "remove", "keys": ["pcInjectedProcessInputKeys"] },
+        { "do": "clearSelection", "key": "pcInjectedProcessInputKeys" }
+      ]
+    },
+    "pcSelectMainProcessInputUF": {
+      "description": "Record the selected main process input",
+      "steps": [
+        { "do": "set", "key": "main_process_input_key", "value": { "fromKey": "pcMainProcessInputKey" } }
+      ]
+    },
+    "pcAddMergeProcessInputUF": {
+      "description": "Add the selected data source to the merge set",
+      "steps": [
+        { "do": "appendUnique", "listKey": "merged_process_input_keys", "value": { "fromKey": "pcMergedProcessInputKeys" } },
+        { "do": "remove", "keys": ["pcViewMergedProcessInputKeys"] },
+        { "do": "clearSelection", "key": "pcViewMergedProcessInputKeys" }
+      ]
+    },
+    "pcAddInjectedProcessInputUF": {
+      "description": "Add the selected data source to the injected set",
+      "steps": [
+        { "do": "appendUnique", "listKey": "injected_process_input_keys", "value": { "fromKey": "pcInjectedProcessInputKeys" } },
+        { "do": "remove", "keys": ["pcViewInjectedProcessInputKeys"] },
+        { "do": "clearSelection", "key": "pcViewInjectedProcessInputKeys" }
+      ]
+    },
+    "pcPrepareSummaryUF": {
+      "description": "Collect every process input key for the summary",
+      "steps": [
+        { "do": "set", "key": "ufAllProcessInputKeys", "value": { "fromKeyList": "injected_process_input_keys" } },
+        { "do": "appendUnique", "listKey": "ufAllProcessInputKeys", "value": { "fromKey": "merged_process_input_keys" } },
+        { "do": "appendUnique", "listKey": "ufAllProcessInputKeys", "value": { "fromKey": "main_process_input_key" } }
+      ]
+    },
+    "pcSavePipelineConfigUF": {
+      "description": "Save the pipeline configuration",
+      "steps": [
+        { "do": "validate" },
+        { "do": "post", "endpoint": "/dataTable", "action": "insert_rows", "table": "pipeline_config",
+          "onConflict": "Record already exist, please verify.",
+          "data": {
+            "rows": "fields",
+            "fields": {
+              "process_name": { "fromKey": "process_name" },
+              "process_config_key": { "fromKey": "process_config_key" },
+              "client": { "fromKey": "client" },
+              "max_rete_sessions_saved": { "fromKey": "max_rete_sessions_saved" },
+              "rule_config_json": { "fromKey": "rule_config_json" },
+              "source_period_type": { "fromKey": "source_period_type" },
+              "main_process_input_key": { "fromKey": "main_process_input_key" },
+              "main_object_type": { "fromKey": "main_object_type" },
+              "main_source_type": { "fromKey": "main_source_type" },
+              "automated": { "fromKey": "automated" },
+              "description": { "fromKey": "description" },
+              "user_email": { "userEmail": true },
+              "merged_process_input_keys": { "pgArrayFromKey": "merged_process_input_keys" },
+              "injected_process_input_keys": { "pgArrayFromKey": "injected_process_input_keys" }
+            }
+          } }
+      ]
+    },
+    "pcSetProcessInputRegistryKey": {
+      "description": "Derive the process input registry key from four form values",
+      "steps": [
+        { "do": "set", "key": "pcProcessInputRegistry",
+          "value": { "template": "{process_name}{object_type}{table_name}{source_type}" } },
+        { "do": "set", "key": "pcProcessInputRegistry4MI",
+          "value": { "template": "{process_name}{object_type}{table_name}{source_type}" } }
+      ]
+    },
+    "dialogCancel": {
+      "description": "Dismiss the dialog",
+      "steps": [{ "do": "close" }]
+    }
+  }
+}

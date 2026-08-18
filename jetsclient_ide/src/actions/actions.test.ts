@@ -33,6 +33,10 @@ function makeHost(overrides: Partial<ActionHost> = {}) {
       events.push("post");
       return { statusCode: 200 };
     },
+    query: async (name) => {
+      events.push(`query:${name}`);
+      return { process_config_key: "pck-1", entity_rdf_type: "hc:Claim" };
+    },
     notify: (level, message) => notices.push([level, message]),
     setBusy: (busy) => events.push(busy ? "busy" : "idle"),
     goToState: (state) => events.push(`goToState:${state}`),
@@ -54,7 +58,7 @@ describe("the emitted JSON Schema", () => {
     expect(readFileSync(artifactPath, "utf8")).toBe(emitted);
   });
 
-  it("closes every object except the four keyed maps", () => {
+  it("closes every object except the five keyed maps", () => {
     const open: string[] = [];
     const walk = (node: unknown, path: string): void => {
       if (node === null || typeof node !== "object") return;
@@ -63,14 +67,15 @@ describe("the emitted JSON Schema", () => {
       for (const [key, value] of Object.entries(obj)) walk(value, `${path}.${key}`);
     };
     walk(emitJsonSchema(), "$");
-    // Four maps whose *keys* are the data: action names, request column names
-    // (twice — `fields` and `fanOut.fields`) and the request's top-level extras.
-    // Each constrains its keys with `propertyNames` instead. A fifth appearing
-    // later is a hole, not a design.
+    // Five maps whose *keys* are the data: action names, request column names
+    // (twice — `fields` and `fanOut.fields`), the request's top-level extras,
+    // and a query's column-to-state mapping. Each constrains its keys with
+    // `propertyNames` instead. A sixth appearing later is a hole, not a design.
     expect(open.sort()).toEqual([
       "$.$defs.Rows.anyOf.1.properties.fields",
       "$.$defs.Rows.anyOf.3.properties.fields",
       "$.$defs.Step.anyOf.7.properties.extras",
+      "$.$defs.Step.anyOf.8.properties.into",
       "$.properties.actions",
     ]);
   });

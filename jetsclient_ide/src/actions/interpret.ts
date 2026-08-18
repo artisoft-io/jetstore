@@ -39,6 +39,14 @@ import type { Action, Rows, Step, Value } from "./schema";
 
 /** Everything an action can reach outside form state. */
 export interface ActionHost {
+  /**
+   * Runs a registered query and returns its first row, or null.
+   *
+   * The name is resolved by the build, not by the document — see `schema.ts`.
+   * Returning a map rather than positional rows matches the one Dart site
+   * (`getProcessInputRdfTypes`), which is a map by the time a delegate sees it.
+   */
+  query(name: string): Promise<Record<string, string | null> | null>;
   /** Runs the form's validators. False stops the action without failing it. */
   validate(): boolean;
   /** A modal question. False stops the action without failing it. */
@@ -221,11 +229,25 @@ async function runStep(step: Step, run: ActionRun): Promise<{ done: boolean; out
       if (step.spinner) host.setBusy(true);
       try {
         const result = await host.post({ endpoint: step.endpoint, body });
+        // `postInsertRows` records the server's message into form state and
+        // closes either way; `postSimpleAction` reports and stays put.
+        const insertRows = step.transport === "insertRows";
         if (result.statusCode === 200) {
+          if (insertRows) host.close();
           // `invokeCallbacks()`, which is what makes tables on screen re-read
           // after a write. See `FormState.onRefreshRequested`.
           formState.requestRefresh();
           return carryOn;
+        }
+        if (insertRows) {
+          const message =
+            result.statusCode === 409
+              ? "Duplicate record. Please verify."
+              : (result.error ?? "Something went wrong. Please try again.");
+          formState.setValue(group, "serverError", message as never);
+          host.notify("error", message);
+          host.close();
+          return { done: true, outcome: message };
         }
         if (result.statusCode === 409 && step.onConflict !== undefined) {
           host.notify("error", step.onConflict);
@@ -237,6 +259,15 @@ async function runStep(step: Step, run: ActionRun): Promise<{ done: boolean; out
       } finally {
         if (step.spinner) host.setBusy(false);
       }
+    }
+
+    case "query": {
+      const row = await host.query(step.name);
+      if (row === null) return { done: true, outcome: `query "${step.name}" returned no rows` };
+      for (const [stateKey, column] of Object.entries(step.into)) {
+        formState.setValue(group, stateKey, (row[column] ?? null) as never);
+      }
+      return carryOn;
     }
 
     case "goToState":

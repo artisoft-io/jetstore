@@ -13,6 +13,7 @@ import (
 const (
 	actionSchemaPath = "../../jetsclient_ide/src/actions/action.schema.json"
 	actionsDir       = "../../jetsclient_ide/src/actions/flows"
+	coverageDir      = "../../jetsclient_ide/src/actions/coverage"
 )
 
 // The action grammar's Go half, on the same argument as the flow schema's: the
@@ -50,6 +51,36 @@ func TestProofFlowActionsValidate(t *testing.T) {
 	// count moving would mean somebody added a document and not a decision.
 	if len(names) != 2 {
 		t.Fatalf("expected the two proof flows, found %d: %v", len(names), names)
+	}
+	for _, path := range names {
+		t.Run(strings.TrimSuffix(filepath.Base(path), ".ua.json"), func(t *testing.T) {
+			fh, err := os.Open(path)
+			if err != nil {
+				t.Fatalf("opening: %v", err)
+			}
+			defer fh.Close()
+			inst, err := jsonschema.UnmarshalJSON(fh)
+			if err != nil {
+				t.Fatalf("parsing: %v", err)
+			}
+			if err := schema.Validate(inst); err != nil {
+				t.Errorf("%s does not validate:\n%v", path, err)
+			}
+		})
+	}
+}
+
+// TestCoverageActionsValidate is the other half of S.2a's exit condition: not
+// "the grammar can express the five arms we built" but "the grammar can express
+// all of them". The seven documents here carry the remaining fifty actions,
+// wired to no flow and no screen — see coverage.test.ts for what that does and
+// does not prove.
+func TestCoverageActionsValidate(t *testing.T) {
+	schema := compileActionSchema(t)
+	names, err := filepath.Glob(filepath.Join(coverageDir, "*.ua.json"))
+	if err != nil || len(names) != 7 {
+		t.Fatalf("expected seven coverage documents at %s, found %d (err %v)",
+			coverageDir, len(names), err)
 	}
 	for _, path := range names {
 		t.Run(strings.TrimSuffix(filepath.Base(path), ".ua.json"), func(t *testing.T) {

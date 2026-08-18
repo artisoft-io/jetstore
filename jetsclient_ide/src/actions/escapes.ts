@@ -44,7 +44,14 @@ export interface EscapeContext {
   flowKey: string;
 }
 
-/** An action body that could not be expressed as steps. Four of these exist. */
+/**
+ * An action body that could not be expressed as steps. **Six of these exist**,
+ * not the four the sizing found — `downloadMapping` and `loadRawRows` came out
+ * of the coverage pass (I-23). Both build a query, act on its rows and then do
+ * something the grammar has no business describing: one turns them into a CSV
+ * the browser saves, the other posts them back as `insert_raw_rows`. Neither is
+ * a missing primitive; both are exactly what an escape is for.
+ */
 export type ActionEscape = (context: EscapeContext) => Promise<string | null>;
 
 /** Seeds form state from somewhere outside the form. One of these exists. */
