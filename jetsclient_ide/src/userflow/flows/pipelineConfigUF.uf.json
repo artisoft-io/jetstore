@@ -1,0 +1,80 @@
+{
+  "schemaVersion": 1,
+  "startAtKey": "select_add_or_edit",
+  "states": {
+    "select_add_or_edit": {
+      "description": "Select between add or edit pipeline_config",
+      "formConfig": "pcAddOrEditPipelineConfigUF",
+      "choices": [
+        {
+          "when": {
+            "op": "equals",
+            "key": "pcAddOrEditPipelineConfigOption",
+            "value": "ufAddOption"
+          },
+          "nextState": "add_pipeline_config"
+        },
+        {
+          "when": {
+            "op": "equals",
+            "key": "pcAddOrEditPipelineConfigOption",
+            "value": "ufEditOption"
+          },
+          "nextState": "select_pipeline_config"
+        }
+      ]
+    },
+    "add_pipeline_config": {
+      "description": "Add Pipeline Config",
+      "formConfig": "pcAddPipelineConfigUF",
+      "stateAction": "pcAddPipelineConfigUF",
+      "defaultNextState": "select_main_process_input"
+    },
+    "select_pipeline_config": {
+      "description": "Select an existing Pipeline Config for mapping",
+      "formConfig": "pcSelectPipelineConfigUF",
+      "stateAction": "pcSelectPipelineConfigUF",
+      "defaultNextState": "select_main_process_input"
+    },
+    "select_main_process_input": {
+      "description": "Select the main process input",
+      "formConfig": "pcSelectMainProcessInputUF",
+      "stateAction": "pcSelectMainProcessInputUF",
+      "defaultNextState": "view_merge_process_inputs"
+    },
+    "view_merge_process_inputs": {
+      "description": "View the merge process inputs",
+      "formConfig": "pcViewMergeProcessInputsUF",
+      "defaultNextState": "view_injected_process_inputs"
+    },
+    "view_injected_process_inputs": {
+      "description": "View the merge process inputs",
+      "formConfig": "pcViewInjectedProcessInputsUF",
+      "defaultNextState": "set_pipeline_automation"
+    },
+    "set_pipeline_automation": {
+      "description": "Set pipeline automation",
+      "formConfig": "pcAutomationUF",
+      "stateAction": "pcPrepareSummaryUF",
+      "defaultNextState": "summaryUF"
+    },
+    "summaryUF": {
+      "description": "Pipeline Configuration Summary",
+      "formConfig": "pcSummaryUF",
+      "stateAction": "pcSavePipelineConfigUF",
+      "isEnd": true
+    },
+    "add_merge_process_inputs": {
+      "description": "Add a merge process inputs",
+      "formConfig": "pcAddMergeProcessInputsUF",
+      "stateAction": "pcAddMergeProcessInputUF",
+      "defaultNextState": "view_merge_process_inputs"
+    },
+    "add_injected_process_inputs": {
+      "description": "Add an injected process inputs",
+      "formConfig": "pcAddInjectedProcessInputsUF",
+      "stateAction": "pcAddInjectedProcessInputUF",
+      "defaultNextState": "view_injected_process_inputs"
+    }
+  }
+}

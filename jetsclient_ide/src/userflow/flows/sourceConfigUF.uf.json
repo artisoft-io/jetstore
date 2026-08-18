@@ -1,0 +1,170 @@
+{
+  "schemaVersion": 1,
+  "startAtKey": "select_add_or_edit",
+  "states": {
+    "select_add_or_edit": {
+      "description": "Select between add or edit source_config",
+      "formConfig": "scAddOrEditSourceConfigUF",
+      "choices": [
+        {
+          "when": {
+            "op": "equals",
+            "key": "scAddOrEditSourceConfigOption",
+            "value": "ufAddOption"
+          },
+          "nextState": "add_source_config"
+        },
+        {
+          "when": {
+            "op": "equals",
+            "key": "scAddOrEditSourceConfigOption",
+            "value": "ufEditOption"
+          },
+          "nextState": "select_source_config"
+        }
+      ]
+    },
+    "add_source_config": {
+      "description": "Add Source Config",
+      "formConfig": "scAddSourceConfigUF",
+      "stateAction": "scAddSourceConfigUF",
+      "defaultNextState": "select_file_type_option"
+    },
+    "select_source_config": {
+      "description": "Select an existing Source Config",
+      "formConfig": "scSelectSourceConfigUF",
+      "stateAction": "scSelectSourceConfigUF",
+      "defaultNextState": "select_file_type_option"
+    },
+    "select_file_type_option": {
+      "description": "Select file type: csv, parquet, fixed-width, etc.",
+      "formConfig": "scSourceConfigTypeUF",
+      "choices": [
+        {
+          "when": {
+            "op": "equals",
+            "key": "input_format",
+            "value": "csv"
+          },
+          "nextState": "select_single_or_multi_part_file"
+        },
+        {
+          "when": {
+            "op": "equals",
+            "key": "input_format",
+            "value": "headerless_csv"
+          },
+          "nextState": "edit_csv_headers"
+        },
+        {
+          "when": {
+            "op": "equals",
+            "key": "input_format",
+            "value": "headerless_csv_with_schema_provider"
+          },
+          "nextState": "select_single_or_multi_part_file"
+        },
+        {
+          "when": {
+            "op": "equals",
+            "key": "input_format",
+            "value": "xlsx"
+          },
+          "nextState": "edit_xlsx_options"
+        },
+        {
+          "when": {
+            "op": "equals",
+            "key": "input_format",
+            "value": "headerless_xlsx"
+          },
+          "nextState": "edit_xlsx_options"
+        },
+        {
+          "when": {
+            "op": "equals",
+            "key": "input_format",
+            "value": "fixed_width"
+          },
+          "nextState": "edit_fixed_width_layout"
+        },
+        {
+          "when": {
+            "op": "equals",
+            "key": "input_format",
+            "value": "fixed_width_with_schema_provider"
+          },
+          "nextState": "select_single_or_multi_part_file"
+        },
+        {
+          "when": {
+            "op": "equals",
+            "key": "input_format",
+            "value": "parquet"
+          },
+          "nextState": "select_single_or_multi_part_file"
+        },
+        {
+          "when": {
+            "op": "equals",
+            "key": "input_format",
+            "value": "parquet_select"
+          },
+          "nextState": "edit_csv_headers"
+        }
+      ]
+    },
+    "edit_xlsx_options": {
+      "description": "Specify additional options for xlsx files",
+      "formConfig": "scEditXlsxOptionsUF",
+      "stateAction": "scEditXlsxOptionsUF",
+      "choices": [
+        {
+          "when": {
+            "op": "equals",
+            "key": "input_format",
+            "value": "headerless_xlsx"
+          },
+          "nextState": "edit_csv_headers"
+        }
+      ],
+      "defaultNextState": "select_single_or_multi_part_file"
+    },
+    "edit_csv_headers": {
+      "description": "Specify Headers for Headerless CSV/XLSX or Parquet Select Options",
+      "formConfig": "scEditFileHeadersUF",
+      "defaultNextState": "select_single_or_multi_part_file"
+    },
+    "edit_fixed_width_layout": {
+      "description": "Edit Source Config Fixed Width Layout",
+      "formConfig": "scEditFixedWidthLayoutUF",
+      "defaultNextState": "select_single_or_multi_part_file"
+    },
+    "select_single_or_multi_part_file": {
+      "description": "Select between single file or multi-part files",
+      "formConfig": "scSelectSingleOrMultiPartFileUF",
+      "defaultNextState": "edit_domain_keys"
+    },
+    "edit_domain_keys": {
+      "description": "Edit Source Config Domain Keys",
+      "formConfig": "scEditDomainKeysUF",
+      "defaultNextState": "edit_code_value_mapping"
+    },
+    "edit_code_value_mapping": {
+      "description": "Edit Code Value Mapping",
+      "formConfig": "scEditCodeValueMappingUF",
+      "defaultNextState": "add_schema_provider_json"
+    },
+    "add_schema_provider_json": {
+      "description": "Add Schema Provider JSON",
+      "formConfig": "scAddSchemaProviderJsonUF",
+      "defaultNextState": "confirm_state"
+    },
+    "confirm_state": {
+      "description": "Confirm changes",
+      "formConfig": "scSummaryUF",
+      "stateAction": "addSourceConfig.ok",
+      "isEnd": true
+    }
+  }
+}

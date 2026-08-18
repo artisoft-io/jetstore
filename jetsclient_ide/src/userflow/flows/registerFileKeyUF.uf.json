@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "startAtKey": "submit_schema_event",
+  "states": {
+    "submit_schema_event": {
+      "description": "Submit a schema event to register a file key",
+      "formConfig": "rfkSubmitSchemaEvent",
+      "stateAction": "rfkSubmitSchemaEventUF",
+      "isEnd": true
+    }
+  }
+}

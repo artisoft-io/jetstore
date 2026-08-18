@@ -1,0 +1,398 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "schemaVersion": {
+      "type": "number",
+      "const": 1
+    },
+    "startAtKey": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^[A-Za-z0-9_.-]+$",
+      "description": "A key naming a state, form, action or form-state entry"
+    },
+    "exitScreenPath": {
+      "type": "string",
+      "minLength": 1
+    },
+    "formStateInitializer": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^[A-Za-z0-9_.-]+$",
+      "description": "A key naming a state, form, action or form-state entry"
+    },
+    "states": {
+      "type": "object",
+      "propertyNames": {
+        "type": "string",
+        "minLength": 1,
+        "pattern": "^[A-Za-z0-9_.-]+$",
+        "description": "A key naming a state, form, action or form-state entry"
+      },
+      "additionalProperties": {
+        "$ref": "#/$defs/State"
+      }
+    }
+  },
+  "required": [
+    "schemaVersion",
+    "startAtKey",
+    "states"
+  ],
+  "additionalProperties": false,
+  "title": "JetStore UserFlow configuration",
+  "description": "A state machine over screens, authored as data and interpreted at run time",
+  "$defs": {
+    "State": {
+      "anyOf": [
+        {
+          "type": "object",
+          "properties": {
+            "description": {
+              "type": "string",
+              "minLength": 1
+            },
+            "formConfig": {
+              "type": "string",
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9_.-]+$",
+              "description": "A key naming a state, form, action or form-state entry"
+            },
+            "stateAction": {
+              "type": "string",
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9_.-]+$",
+              "description": "A key naming a state, form, action or form-state entry"
+            },
+            "isEnd": {
+              "type": "boolean",
+              "const": true
+            }
+          },
+          "required": [
+            "description",
+            "formConfig",
+            "isEnd"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "description": {
+              "type": "string",
+              "minLength": 1
+            },
+            "formConfig": {
+              "type": "string",
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9_.-]+$",
+              "description": "A key naming a state, form, action or form-state entry"
+            },
+            "stateAction": {
+              "type": "string",
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9_.-]+$",
+              "description": "A key naming a state, form, action or form-state entry"
+            },
+            "isEnd": {
+              "type": "boolean",
+              "const": false
+            },
+            "choices": {
+              "minItems": 1,
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/Choice"
+              }
+            },
+            "defaultNextState": {
+              "type": "string",
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9_.-]+$",
+              "description": "A key naming a state, form, action or form-state entry"
+            }
+          },
+          "required": [
+            "description",
+            "formConfig",
+            "choices"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "description": {
+              "type": "string",
+              "minLength": 1
+            },
+            "formConfig": {
+              "type": "string",
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9_.-]+$",
+              "description": "A key naming a state, form, action or form-state entry"
+            },
+            "stateAction": {
+              "type": "string",
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9_.-]+$",
+              "description": "A key naming a state, form, action or form-state entry"
+            },
+            "isEnd": {
+              "type": "boolean",
+              "const": false
+            },
+            "choices": {
+              "minItems": 1,
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/Choice"
+              }
+            },
+            "defaultNextState": {
+              "type": "string",
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9_.-]+$",
+              "description": "A key naming a state, form, action or form-state entry"
+            }
+          },
+          "required": [
+            "description",
+            "formConfig",
+            "defaultNextState"
+          ],
+          "additionalProperties": false
+        }
+      ],
+      "description": "One step of the flow: a form, an optional action, and where to go next"
+    },
+    "Choice": {
+      "type": "object",
+      "properties": {
+        "when": {
+          "$ref": "#/$defs/Condition"
+        },
+        "nextState": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_.-]+$",
+          "description": "A key naming a state, form, action or form-state entry"
+        }
+      },
+      "required": [
+        "when",
+        "nextState"
+      ],
+      "additionalProperties": false,
+      "description": "A guarded transition to another state"
+    },
+    "Condition": {
+      "description": "A predicate over form state, evaluated to pick the next state",
+      "anyOf": [
+        {
+          "type": "object",
+          "properties": {
+            "op": {
+              "type": "string",
+              "const": "equals"
+            },
+            "key": {
+              "type": "string",
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9_.-]+$",
+              "description": "A key naming a state, form, action or form-state entry"
+            },
+            "value": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "op",
+            "key",
+            "value"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "op": {
+              "type": "string",
+              "const": "equals"
+            },
+            "key": {
+              "type": "string",
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9_.-]+$",
+              "description": "A key naming a state, form, action or form-state entry"
+            },
+            "valueFromKey": {
+              "type": "string",
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9_.-]+$",
+              "description": "A key naming a state, form, action or form-state entry"
+            }
+          },
+          "required": [
+            "op",
+            "key",
+            "valueFromKey"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "op": {
+              "type": "string",
+              "const": "contains"
+            },
+            "key": {
+              "type": "string",
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9_.-]+$",
+              "description": "A key naming a state, form, action or form-state entry"
+            },
+            "value": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "op",
+            "key",
+            "value"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "op": {
+              "type": "string",
+              "const": "contains"
+            },
+            "key": {
+              "type": "string",
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9_.-]+$",
+              "description": "A key naming a state, form, action or form-state entry"
+            },
+            "valueFromKey": {
+              "type": "string",
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9_.-]+$",
+              "description": "A key naming a state, form, action or form-state entry"
+            }
+          },
+          "required": [
+            "op",
+            "key",
+            "valueFromKey"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "op": {
+              "type": "string",
+              "const": "isNull"
+            },
+            "key": {
+              "type": "string",
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9_.-]+$",
+              "description": "A key naming a state, form, action or form-state entry"
+            }
+          },
+          "required": [
+            "op",
+            "key"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "op": {
+              "type": "string",
+              "const": "isNullOrEmpty"
+            },
+            "key": {
+              "type": "string",
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9_.-]+$",
+              "description": "A key naming a state, form, action or form-state entry"
+            }
+          },
+          "required": [
+            "op",
+            "key"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "op": {
+              "type": "string",
+              "const": "not"
+            },
+            "condition": {
+              "$ref": "#/$defs/Condition"
+            }
+          },
+          "required": [
+            "op",
+            "condition"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "op": {
+              "type": "string",
+              "const": "and"
+            },
+            "conditions": {
+              "minItems": 1,
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/Condition"
+              }
+            }
+          },
+          "required": [
+            "op",
+            "conditions"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "op": {
+              "type": "string",
+              "const": "or"
+            },
+            "conditions": {
+              "minItems": 1,
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/Condition"
+              }
+            }
+          },
+          "required": [
+            "op",
+            "conditions"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    }
+  }
+}
