@@ -133,7 +133,13 @@ type Loop struct {
 	Registry  Verifier
 	Workspace *tools.Workspace
 	Audit     Auditor
-	Budget    Budget
+	// Recorder persists the run. When set, Start runs to completion before the
+	// first model call and Finish runs after the last — that ordering is the
+	// write-before-act contract and is why this is a field on the loop rather
+	// than something a caller is trusted to do around it. Nil means the run is
+	// not persisted, which is what the tests and a dry run use.
+	Recorder Recorder
+	Budget   Budget
 
 	// RunId correlates every audit event of this run. One run, one id; a
 	// fan-out gives each candidate its own.
@@ -177,6 +183,18 @@ func (l *Loop) Run(ctx context.Context, task *Task) (*Result, error) {
 	}
 
 	result := &Result{Outcome: OutcomeFailed}
+
+	// Write before act. The commit inside Start is the acknowledgement: after
+	// it returns, a process that dies leaves a durable record of what it was
+	// about to do. A failure here stops the run rather than proceeding
+	// unrecorded — acting without a record is the one thing this contract
+	// exists to prevent, so it is a hard failure and not a logged one.
+	if l.Recorder != nil {
+		if err := l.Recorder.Start(ctx, intentPayload(task, l.Budget)); err != nil {
+			return nil, fmt.Errorf("agent: refusing to act on an unrecorded run: %w", err)
+		}
+	}
+
 	req := &infer.Request{System: task.System, User: task.Instruction, Schema: task.Schema}
 
 	for i := 1; i <= l.Budget.MaxIterations; i++ {
@@ -308,7 +326,13 @@ func (l *Loop) event(ctx context.Context, eventType, toolName string, payload []
 }
 
 func (l *Loop) finish(ctx context.Context, outcome Outcome, result *Result) {
+	// The outcome event first: it is the durable record, appended and
+	// immutable. The run row is the mutable summary and follows, so a failure
+	// to update it costs a summary rather than the trail.
 	l.event(ctx, audit.EventOutcome, "", outcomePayload(outcome, result))
+	if l.Recorder != nil {
+		_ = l.Recorder.Finish(ctx, outcome, result.TokenSpend)
+	}
 }
 
 func decisionPayload(iteration int, artifact json.RawMessage) []byte {

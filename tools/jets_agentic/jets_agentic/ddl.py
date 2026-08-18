@@ -42,8 +42,62 @@ def _key_field(entity) -> tuple[str, object]:
     raise LookupError(f"{entity.__name__} declares no key field")
 
 
+# Postgres types for the model's field types. Deliberately small: the agentic
+# entities use six, and a general mapper would invite emitting tables for
+# entities that have no business being tables.
+_PG_TYPES = {
+    str: "text",
+    int: "bigint",
+    bool: "boolean",
+}
+
+
+def _pg_type(annotation) -> tuple[str, bool]:
+    """Return (postgres type, nullable) for a model field annotation."""
+    import datetime
+    import enum
+    import types
+    import typing
+
+    nullable = False
+    args = typing.get_args(annotation)
+    if typing.get_origin(annotation) in (typing.Union, types.UnionType) and type(None) in args:
+        nullable = True
+        annotation = next(a for a in args if a is not type(None))
+
+    if isinstance(annotation, type) and issubclass(annotation, enum.StrEnum):
+        return "text", nullable
+    if annotation is datetime.datetime:
+        return "timestamp with time zone", nullable
+    if annotation is datetime.date:
+        return "date", nullable
+    return _PG_TYPES.get(annotation, "text"), nullable
+
+
+def _agent_run_columns() -> str:
+    """AgentRun's fields as column definitions, in declaration order.
+
+    The run table exists because the audit store correlates to it and because
+    a budget has to be recorded somewhere (criterion 17). It is emitted from
+    the same model as everything else, so a field added there arrives here on
+    the next `generate` rather than by hand.
+    """
+    run_key, _ = _key_field(M.AgentRun)
+    lines = []
+    for fname, field in M.AgentRun.model_fields.items():
+        pg, nullable = _pg_type(field.annotation)
+        parts = [f"  {fname:<24} {pg}"]
+        if fname == run_key:
+            parts.append("PRIMARY KEY")
+        elif not nullable:
+            parts.append("NOT NULL")
+        lines.append(" ".join(parts))
+    return ",\n".join(lines)
+
+
 def emit() -> str:
     run_key, _ = _key_field(M.AgentRun)
+    run_columns = _agent_run_columns()
     event_types = ", ".join(f"'{m.value}'" for m in M.AuditEventType)
     tiers = ", ".join(f"'{m.value}'" for m in M.AutonomyTier)
 
@@ -119,4 +173,20 @@ CREATE TRIGGER agent_audit_immutable
   FOR EACH STATEMENT EXECUTE FUNCTION jetsapi.agent_audit_immutable();
 -- stmt
 REVOKE UPDATE, DELETE, TRUNCATE ON jetsapi.agent_audit FROM PUBLIC;
+-- stmt
+-- The run the audit store correlates to. It is here rather than in a file of
+-- its own because the two are one subsystem installed by one call: agent_audit
+-- has no meaning without the run its {run_key} names, and a separate migration
+-- could leave one present and the other absent.
+--
+-- Unlike agent_audit this table is NOT append-only. A run is written once
+-- before anything acts (the write-before-act intent, plan section 7.2) and
+-- updated once when it ends, with its outcome and what it spent. That is the
+-- division the audit store depends on: the run row is mutable state and the
+-- audit rows are the immutable record of how it got there, so a lost update
+-- here costs a summary while the trail behind it stays intact.
+CREATE TABLE IF NOT EXISTS jetsapi.agent_run (
+{run_columns},
+  CONSTRAINT agent_run_tier_ck CHECK (tier IN ({tiers}))
+);
 """
