@@ -51,17 +51,19 @@ type Policy struct {
 
 // StrictReachabilityEnvVar is the deployment-time switch.
 //
-// **The default is the shipping corpus's answer, not a preference.**
-// pipelineConfigUF ships two states nothing transitions to —
-// add_merge_process_inputs and add_injected_process_inputs, the remains of an
-// approach replaced by dialogs — so a deployment that treated unreachability as
-// an error could not save a flow it already runs. A workspace without that
-// history has no such reason to tolerate one, and this variable is how it says
-// so.
+// **The trade this was introduced with turned out not to exist, and the entry
+// that describes it is I-18.** It was added believing that pipelineConfigUF
+// shipped two dead states, so that a strict deployment could not save a flow it
+// already runs. Those two states are reached by a button — an action that jumps
+// the flow — and the walk could not see the edge because the document did not
+// declare it. It does now, via State.GoToStates, and **no flow in the corpus is
+// refused under the strict policy**.
 //
-// **Setting it is a trade, and the trade is worth stating plainly**: a strict
-// deployment cannot save pipelineConfigUF unmodified. That is a thing to find
-// out when the variable is set, not when someone presses Save.
+// The default stays a warning regardless, because the two questions are
+// different: whether the shipping flows pass is about today, and whether a
+// workspace wants an unreached state to block a save is about that workspace.
+// A deployment that wants the stricter reading can now take it without also
+// taking a false positive.
 const StrictReachabilityEnvVar = "JETS_USERFLOW_STRICT_REACHABILITY"
 
 // DefaultPolicy reports unreachable states without blocking the save.
@@ -103,10 +105,16 @@ type Choice struct {
 // State carries only the fields the reference checks need. Unknown fields are
 // ignored on purpose — the schema check runs first and is what rejects them, so
 // duplicating that here would give one document two different complaints.
+//
+// GoToStates are transitions an action of this state makes rather than ones the
+// Next button makes. They are edges of the state machine all the same, and
+// omitting them is what made S.1 report two live states as dead — see I-18 and
+// the comment on targetsOf.
 type State struct {
 	IsEnd            bool     `json:"isEnd"`
 	Choices          []Choice `json:"choices"`
 	DefaultNextState string   `json:"defaultNextState"`
+	GoToStates       []string `json:"goToStates"`
 }
 
 type Flow struct {
@@ -124,21 +132,22 @@ func ParseFlow(data []byte) (*Flow, error) {
 	return &flow, nil
 }
 
-// targetsOf returns every state a state transitions to, choices first then the
-// default — the same order as validate.ts, so findings come out in the same
-// order from both.
+// targetsOf returns every state a state transitions to: choices, then the
+// default, then the ones an action takes — the same order as validate.ts, so
+// findings come out in the same order from both.
 func targetsOf(flow *Flow, key string) []string {
 	state, ok := flow.States[key]
 	if !ok {
 		return nil
 	}
-	targets := make([]string, 0, len(state.Choices)+1)
+	targets := make([]string, 0, len(state.Choices)+len(state.GoToStates)+1)
 	for _, choice := range state.Choices {
 		targets = append(targets, choice.NextState)
 	}
 	if state.DefaultNextState != "" {
 		targets = append(targets, state.DefaultNextState)
 	}
+	targets = append(targets, state.GoToStates...)
 	return targets
 }
 

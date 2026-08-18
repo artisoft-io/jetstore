@@ -45,31 +45,39 @@ describe("isTruthy", () => {
 });
 
 describe("the reachability policy", () => {
-  const flow = () => flows["pipelineConfigUF"]!;
+  /** A flow with one state nothing reaches, since the corpus no longer has one. */
+  const withOrphan = () => {
+    const flow = structuredClone(flows["loadFilesUF"]!);
+    flow.states["orphan"] = { description: "d", formConfig: "f", isEnd: true };
+    return flow;
+  };
 
-  it("reports the two dead states as warnings by default", () => {
-    const findings = validateFlow(flow());
+  it("reports an unreached state as a warning by default", () => {
+    const findings = validateFlow(withOrphan());
     expect(errorsOnly(findings)).toEqual([]);
-    expect(findings).toHaveLength(2);
+    expect(findings).toHaveLength(1);
   });
 
-  it("reports the same two as errors under the strict policy", () => {
-    const lenient = validateFlow(flow());
-    const strict = validateFlow(flow(), strictPolicy);
-    expect(errorsOnly(strict)).toHaveLength(2);
+  it("reports the same one as an error under the strict policy", () => {
+    const lenient = validateFlow(withOrphan());
+    const strict = validateFlow(withOrphan(), strictPolicy);
+    expect(errorsOnly(strict)).toHaveLength(1);
     // Same findings, one field apart. A switch that changed *which* states were
     // reported would be a different check wearing the same name.
     expect(strict.map((f) => ({ ...f, severity: "warning" }))).toEqual(lenient);
   });
 
-  it("refuses exactly pipelineConfigUF across the corpus, and nothing else", () => {
-    // The trade the variable buys, stated as a test: a strict deployment cannot
-    // save the one shipping flow that has dead states.
+  it("refuses nothing in the shipping corpus, which is what changed", () => {
+    // **S.1 asserted the opposite — that a strict deployment could not save
+    // `pipelineConfigUF`.** That was true of the check, not of the flow: two of
+    // its states are reached by a button and the document did not say so (I-18).
+    // The switch is now free to turn on, which is the trade it should always
+    // have been.
     const policy = policyFromEnv({ [VAR]: "true" });
     const refused = Object.keys(flows).filter(
       (key) => errorsOnly(validateFlow(flows[key]!, policy)).length > 0,
     );
-    expect(refused).toEqual(["pipelineConfigUF"]);
+    expect(refused).toEqual([]);
   });
 
   it("does not change the severity of a reference error", () => {
