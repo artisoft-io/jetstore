@@ -65,6 +65,34 @@ go test -run TestFooBar ./jets/datatable/  # single test
 ```
 Key test packages: `compute_pipes`, `datatable`, `workspace`, `jetrules`.
 
+### Flutter Tests (`jetsclient/`)
+
+**They only run on the chrome platform. Plain `flutter test` fails to load every
+test in the package**, with compile errors from `package:web` — a direct
+dependency at `jetsclient/pubspec.yaml:52`, and web-only by construction, so it
+does not build for the Dart VM that `flutter test` targets by default. The errors
+name `jsify`, `toJS` and `ProgressEvent` and look like a broken test rather than
+a broken target, which is why this is written down.
+
+```bash
+cd jetsclient
+CHROME_EXECUTABLE=/usr/bin/google-chrome flutter test --platform chrome
+```
+
+The consequence for test design: **there is no filesystem.** A test that wants to
+emit an artefact has to print it and be scraped, and a test that wants to detect
+drift has to compare a checksum rather than a file — which is what
+`test/table_config_corpus_test.dart` does, and its header explains why.
+
+### JavaScript Tests (`jetsclient_ide/`)
+
+```bash
+cd jetsclient_ide
+npm ci
+npm test          # vitest, node environment, src/**/*.test.ts
+npm run typecheck # tsc --noEmit; `npm run build` runs it first
+```
+
 ## Architecture
 
 ### Layer Overview
