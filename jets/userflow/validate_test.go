@@ -129,12 +129,12 @@ func TestFindingsCarryAPath(t *testing.T) {
 	flow.States["create_client"] = create
 
 	want := []Finding{
-		{Error, CodeUnknownTarget, `state "create_client" transitions to "typoInDefault", which is not a state`, "/states/create_client/defaultNextState"},
-		{Error, CodeUnknownTarget, `state "create_client" transitions to "typoInGoTo", which is not a state`, "/states/create_client/goToStates/0"},
-		{Error, CodeUnknownTarget, `state "select_client_vendor" transitions to "typoInChoice", which is not a state`, "/states/select_client_vendor/choices/1/nextState"},
+		{Severity: Error, Code: CodeUnknownTarget, Message: `state "create_client" transitions to "typoInDefault", which is not a state`, Path: "/states/create_client/defaultNextState"},
+		{Severity: Error, Code: CodeUnknownTarget, Message: `state "create_client" transitions to "typoInGoTo", which is not a state`, Path: "/states/create_client/goToStates/0"},
+		{Severity: Error, Code: CodeUnknownTarget, Message: `state "select_client_vendor" transitions to "typoInChoice", which is not a state`, Path: "/states/select_client_vendor/choices/1/nextState"},
 		// One typo really does strand two states; that is the walk working.
-		{Warning, CodeUnreachableState, `state "select_client" is not reachable from "select_client_vendor"`, "/states/select_client"},
-		{Warning, CodeUnreachableState, `state "show_org" is not reachable from "select_client_vendor"`, "/states/show_org"},
+		{Severity: Warning, Code: CodeUnreachableState, Message: `state "select_client" is not reachable from "select_client_vendor"`, Path: "/states/select_client"},
+		{Severity: Warning, Code: CodeUnreachableState, Message: `state "show_org" is not reachable from "select_client_vendor"`, Path: "/states/show_org"},
 	}
 	got := ValidateFlow(flow, DefaultPolicy())
 	if len(got) != len(want) {
