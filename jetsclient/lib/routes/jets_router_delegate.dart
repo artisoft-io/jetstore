@@ -6,6 +6,8 @@ import 'dart:async';
 import 'jets_route_information_parser.dart';
 import 'jets_routes_app.dart';
 import 'jets_route_data.dart';
+import 'migrated_user_flows.dart';
+import 'package:web/web.dart' as web;
 import 'package:adaptive_theme/adaptive_theme.dart';
 import 'package:jetsclient/models/user.dart';
 
@@ -63,21 +65,37 @@ class JetsRouterDelegate extends RouterDelegate<JetsRouteData>
 
   void call(JetsRouteData appRoute) {
     // print("Routing to page ${appRoute.path} with params.length ${appRoute.params.length}");
+    // S.8: a flow the React app now serves is handed over rather than opened
+    // here. Every navigation in this app passes through this method, which is
+    // why the check is here and not at each call site.
+    final handoff = handoffUrlFor(_flowKeyOf(appRoute.path));
+    if (handoff != null) {
+      // A full page load, deliberately: the two bundles share an origin and a
+      // token but not a heap, so neither router can navigate into the other.
+      web.window.location.href = handoff;
+      return;
+    }
     _setRoutePages(appRoute);
     notifyListeners();
   }
 
+  /// The leading path segment, which is the flow key for a flow route.
+  static String _flowKeyOf(String path) {
+    final segments = Uri.parse(path).pathSegments;
+    return segments.isEmpty ? '' : segments.first;
+  }
+
   @override
   Widget build(BuildContext context) => Navigator(
-        key: navigatorKey,
-        pages: _pages.isEmpty
-            ? [MaterialPage(child: Container(color: Colors.blueGrey[900]))]
-            : _pages,
-        onDidRemovePage: (page) {
-          _onpop();
-          notifyListeners();
-        },
-      );
+    key: navigatorKey,
+    pages: _pages.isEmpty
+        ? [MaterialPage(child: Container(color: Colors.blueGrey[900]))]
+        : _pages,
+    onDidRemovePage: (page) {
+      _onpop();
+      notifyListeners();
+    },
+  );
 
   @override
   Future<void> setNewRoutePath(JetsRouteData configuration) async {
@@ -114,10 +132,12 @@ class JetsRouterDelegate extends RouterDelegate<JetsRouteData>
       var uri = Uri.parse(route).pathSegments;
       var tmp = '';
 
-      pagesList.add(MaterialPage(
-        key: const ValueKey(homePath),
-        child: jetsRoutesMap[homePath]!,
-      ));
+      pagesList.add(
+        MaterialPage(
+          key: const ValueKey(homePath),
+          child: jetsRoutesMap[homePath]!,
+        ),
+      );
 
       routeList.add(homePath);
 
@@ -129,10 +149,12 @@ class JetsRouterDelegate extends RouterDelegate<JetsRouteData>
 
           for (var i = 0; i < myRoutes.length; i++) {
             if (myRoutes[i] == tmp) {
-              pagesList.add(MaterialPage(
-                key: ValueKey(myRoutes[i] + i.toString()),
-                child: jetsRoutesMap[tmp]!,
-              ));
+              pagesList.add(
+                MaterialPage(
+                  key: ValueKey(myRoutes[i] + i.toString()),
+                  child: jetsRoutesMap[tmp]!,
+                ),
+              );
               routeList.add(tmp);
               break;
             }
