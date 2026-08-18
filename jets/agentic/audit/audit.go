@@ -98,10 +98,49 @@ func Append(ctx context.Context, db DB, ev *Event) (int, error) {
 	return seq, nil
 }
 
+// installLockKey is an arbitrary constant identifying this schema's install
+// lock. Advisory locks share one namespace per database, so the value only has
+// to be unlikely to collide with another subsystem's.
+const installLockKey = 0x6a657473_61756469 // "jets" "audi"
+
 // InstallSchema applies the embedded generated DDL. Every statement is
 // idempotent (IF NOT EXISTS / OR REPLACE / DROP IF EXISTS), so it is safe on
 // every `update_db -migrateDb` run, which is where it is wired.
+//
+// **Idempotent is not the same as concurrency-safe**, which is the part that
+// bit. Two callers installing at once do not conflict over the tables — those
+// are IF NOT EXISTS — but they do over CREATE OR REPLACE FUNCTION and the
+// DROP/CREATE TRIGGER pair, where one transaction can drop a trigger the other
+// is about to create, or deadlock on the catalog. It surfaced when a second
+// package's tests began using the same database as this one's: both installed,
+// and both failed intermittently.
+//
+// So the install takes a transaction-scoped advisory lock when the caller can
+// give it a transaction, which serialises concurrent installers and releases
+// on commit or rollback without a cleanup path. A caller that supplies only an
+// Exec keeps the previous behaviour — that is the deployment path, where
+// update_db runs alone.
 func InstallSchema(ctx context.Context, db Exec) error {
+	if beginner, ok := db.(interface {
+		Begin(ctx context.Context) (pgx.Tx, error)
+	}); ok {
+		tx, err := beginner.Begin(ctx)
+		if err != nil {
+			return fmt.Errorf("while opening the schema-install transaction: %w", err)
+		}
+		defer func() { _ = tx.Rollback(ctx) }()
+		if _, err := tx.Exec(ctx, "SELECT pg_advisory_xact_lock($1)", int64(installLockKey)); err != nil {
+			return fmt.Errorf("while taking the schema-install lock: %w", err)
+		}
+		if err := installStatements(ctx, tx); err != nil {
+			return err
+		}
+		return tx.Commit(ctx)
+	}
+	return installStatements(ctx, db)
+}
+
+func installStatements(ctx context.Context, db Exec) error {
 	for _, stmt := range splitStatements(schemaSQL) {
 		if _, err := db.Exec(ctx, stmt); err != nil {
 			return fmt.Errorf("while installing agent_audit schema at %q: %w",

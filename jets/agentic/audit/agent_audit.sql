@@ -70,3 +70,32 @@ CREATE TRIGGER agent_audit_immutable
   FOR EACH STATEMENT EXECUTE FUNCTION jetsapi.agent_audit_immutable();
 -- stmt
 REVOKE UPDATE, DELETE, TRUNCATE ON jetsapi.agent_audit FROM PUBLIC;
+-- stmt
+-- The run the audit store correlates to. It is here rather than in a file of
+-- its own because the two are one subsystem installed by one call: agent_audit
+-- has no meaning without the run its run_id names, and a separate migration
+-- could leave one present and the other absent.
+--
+-- Unlike agent_audit this table is NOT append-only. A run is written once
+-- before anything acts (the write-before-act intent, plan section 7.2) and
+-- updated once when it ends, with its outcome and what it spent. That is the
+-- division the audit store depends on: the run row is mutable state and the
+-- audit rows are the immutable record of how it got there, so a lost update
+-- here costs a summary while the trail behind it stays intact.
+CREATE TABLE IF NOT EXISTS jetsapi.agent_run (
+  run_id                   text PRIMARY KEY,
+  agent_id                 text NOT NULL,
+  agent_version            text NOT NULL,
+  model_id                 text NOT NULL,
+  prompt_version           text NOT NULL,
+  tier                     text NOT NULL,
+  started_at               timestamp with time zone NOT NULL,
+  ended_at                 timestamp with time zone,
+  run_status               text,
+  triggered_by             text,
+  domain_model_version     text NOT NULL,
+  iteration_cap            bigint NOT NULL,
+  wall_clock_cap_seconds   bigint NOT NULL,
+  token_spend              bigint,
+  CONSTRAINT agent_run_tier_ck CHECK (tier IN ('T0', 'T1', 'T2', 'T3', 'T4'))
+);
