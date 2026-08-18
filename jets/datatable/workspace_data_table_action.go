@@ -648,6 +648,23 @@ func (ctx *DataTableContext) WorkspaceQueryStructure(dataTableAction *DataTableA
 		}
 		resultData = append(resultData, workspaceNode)
 
+		// User Flows (.uf.json, .ua.json)
+		//
+		// **This entry is the whole of making a new file type visible**, which is
+		// worth saying because the list is hard-coded: a workspace directory that
+		// no VisitDirWrapper call names does not appear in the IDE at all, however
+		// many files it holds. S.3 created `user_flows/` and would have shipped it
+		// invisible without this. Both suffixes are listed because a flow and its
+		// actions are edited together.
+		workspaceNode, err = wsfile.VisitDirWrapper(root, "user_flows", "User Flows", &[]string{".uf.json", ".ua.json"}, workspaceName)
+		if err != nil {
+			log.Println("while walking workspace structure:", err)
+			httpStatus = http.StatusInternalServerError
+			err = errors.New("error while walking workspace folder")
+			return
+		}
+		resultData = append(resultData, workspaceNode)
+
 		// Process Configurations (workspace_init_db.sql)
 		// log.Println("** Visiting process_config:")
 		workspaceNode, err = wsfile.VisitDirWrapper(root, "process_config", "Process Configuration", &[]string{"workspace_init_db.sql"}, workspaceName)
@@ -921,19 +938,26 @@ func (ctx *DataTableContext) SaveWorkspaceFileContent(dataTableAction *DataTable
 		return
 	}
 
-	if strings.HasSuffix(strings.ToUpper(fileName), ".JSON") {
-		// Validate json file
-		var m map[string]any
-		err = json.Unmarshal([]byte(wsFileContent.(string)), &m)
-		if err != nil {
-			err = fmt.Errorf("the file is not a valid json file: %v", err)
-			log.Println(err)
-			httpStatus = http.StatusBadRequest
-			return
-		}
+	// Validate structured files before writing them. Two steps, in this order,
+	// and the order is the agreement with the agentic_ai stream (Q-3):
+	//
+	//  1. **Well-formedness, for anything ending .json.** It is a precondition for
+	//     every structured check, so doing it once keeps one bad file from
+	//     producing two different complaints.
+	//  2. **At most one specific validator**, on the most specific suffix match —
+	//     see validatorFor. Absent for a plain .json, which keeps the behaviour
+	//     every existing file type has today.
+	// Warnings travel with the findings and do not block; only errors do. Which
+	// of the two an unreachable state is, is the deployment's call through
+	// JETS_USERFLOW_STRICT_REACHABILITY.
+	content := wsFileContent.(string)
+	if err = checkWorkspaceFile(fileName, content); err != nil {
+		log.Println(err)
+		httpStatus = http.StatusBadRequest
+		return
 	}
 	// Write file to local workspace
-	err = wsfile.SaveContent(ctx.Dbpool, workspaceName, fileName, wsFileContent.(string))
+	err = wsfile.SaveContent(ctx.Dbpool, workspaceName, fileName, content)
 	results = &map[string]any{
 		"file_name": wsFileName,
 	}

@@ -18,15 +18,23 @@ import (
 	"os"
 	"slices"
 	"strings"
+
+	"github.com/artisoft-io/jetstore/jets/wsvalidate"
 )
 
-// Severity of a finding. A document with any error must not be saved; warnings
-// are reported and do not block.
-type Severity string
+// Severity and Finding are aliases, not copies.
+//
+// They moved to jets/wsvalidate when S.4 wired the save path, because the
+// cpipes validator needs the same types and neither package should import the
+// other. Aliases rather than a rename so that every caller here keeps working
+// and there is still exactly one type — `userflow.Finding` and
+// `wsvalidate.Finding` are the same type, not two that happen to match.
+type Severity = wsvalidate.Severity
+type Finding = wsvalidate.Finding
 
 const (
-	Error   Severity = "error"
-	Warning Severity = "warning"
+	Error   = wsvalidate.Error
+	Warning = wsvalidate.Warning
 )
 
 // Finding codes, matching validate.ts.
@@ -35,29 +43,6 @@ const (
 	CodeUnknownTarget     = "unknownTarget"
 	CodeUnreachableState  = "unreachableState"
 )
-
-type Finding struct {
-	Severity Severity `json:"severity"`
-	Code     string   `json:"code"`
-	Message  string   `json:"message"`
-	// Path locates the offending place as a JSON Pointer (RFC 6901) into the
-	// document — "/states/select_client/choices/0/nextState". Empty means the
-	// finding is about the document as a whole.
-	//
-	// **Added at the agentic_ai stream's request, and it was right that it helps
-	// this side sooner.** The structure was already here and was being
-	// stringified into Message: an unknownTarget knows which state and which
-	// transition offended, and putting that only in prose means a UI cannot jump
-	// to it and a repair prompt cannot say where. One string rather than a
-	// typed location keeps Finding comparable and JSON-friendly, and keeps the
-	// two file types from having to agree on a schema for locations.
-	//
-	// No escaping is applied and none is needed: every segment that varies is an
-	// Identifier, whose pattern excludes both "/" and "~" (schema.ts). If a
-	// future segment can contain either, it must be escaped per RFC 6901 §3
-	// rather than interpolated.
-	Path string `json:"path,omitempty"`
-}
 
 // Policy says how severely each configurable check is taken. A struct rather
 // than a bool so that a second configurable check does not change every
@@ -253,15 +238,7 @@ func ValidateFlow(flow *Flow, policy Policy) []Finding {
 }
 
 // ErrorsOnly is what a save-time check acts on; warnings are reported alongside.
-func ErrorsOnly(findings []Finding) []Finding {
-	errs := make([]Finding, 0, len(findings))
-	for _, f := range findings {
-		if f.Severity == Error {
-			errs = append(errs, f)
-		}
-	}
-	return errs
-}
+func ErrorsOnly(findings []Finding) []Finding { return wsvalidate.ErrorsOnly(findings) }
 
 func sortedKeys(states map[string]State) []string {
 	keys := make([]string, 0, len(states))
