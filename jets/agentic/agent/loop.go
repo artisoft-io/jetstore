@@ -190,6 +190,9 @@ type Result struct {
 	// LastDiagnostics is the verdict of the final failed attempt, kept so a
 	// caller can report why a run exhausted rather than only that it did.
 	LastDiagnostics []json.RawMessage
+	// ProposalId names the change_proposal row a successful run produced, and
+	// is empty when the run did not succeed or was not persisted.
+	ProposalId string
 }
 
 // Run executes the loop. It returns a Result for every outcome the loop
@@ -295,6 +298,19 @@ func (l *Loop) Run(ctx context.Context, task *Task) (*Result, error) {
 			result.Outcome = OutcomeSucceeded
 			result.Artifact = artifact
 			result.LastDiagnostics = nil
+			// The proposal is the run's output and is written before the run
+			// is closed, so a run that reports success always has the thing it
+			// succeeded at. A failure to record it is not fatal — the artifact
+			// is on the transcript as a decision event either way — but it is
+			// reported, because a caller expecting a proposal id should learn
+			// it did not get one.
+			if l.Recorder != nil {
+				id, err := l.Recorder.Propose(ctx, artifact)
+				if err != nil {
+					l.event(ctx, audit.EventError, "", errorPayload("proposal", err.Error()))
+				}
+				result.ProposalId = id
+			}
 			l.finish(ctx, OutcomeSucceeded, result)
 			return result, nil
 		}

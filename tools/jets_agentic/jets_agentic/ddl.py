@@ -53,7 +53,14 @@ _PG_TYPES = {
 
 
 def _pg_type(annotation) -> tuple[str, bool]:
-    """Return (postgres type, nullable) for a model field annotation."""
+    """Return (postgres type, nullable) for a model field annotation.
+
+    A `list[X]` becomes `X[]` rather than a join table. That is the right call
+    for these entities and worth saying why: the lists are small, closed and
+    read whole — a proposal's affected pipelines are read with the proposal or
+    not at all — and JetRules already models them as `as_array` properties, so
+    an array column is the shape the domain model already has.
+    """
     import datetime
     import enum
     import types
@@ -64,6 +71,11 @@ def _pg_type(annotation) -> tuple[str, bool]:
     if typing.get_origin(annotation) in (typing.Union, types.UnionType) and type(None) in args:
         nullable = True
         annotation = next(a for a in args if a is not type(None))
+        args = typing.get_args(annotation)
+
+    if typing.get_origin(annotation) is list:
+        inner, _ = _pg_type(args[0]) if args else ("text", False)
+        return f"{inner}[]", nullable
 
     if isinstance(annotation, type) and issubclass(annotation, enum.StrEnum):
         return "text", nullable
@@ -74,20 +86,20 @@ def _pg_type(annotation) -> tuple[str, bool]:
     return _PG_TYPES.get(annotation, "text"), nullable
 
 
-def _agent_run_columns() -> str:
-    """AgentRun's fields as column definitions, in declaration order.
+def _table_columns(entity) -> str:
+    """An entity's fields as column definitions, in declaration order.
 
-    The run table exists because the audit store correlates to it and because
-    a budget has to be recorded somewhere (criterion 17). It is emitted from
-    the same model as everything else, so a field added there arrives here on
-    the next `generate` rather than by hand.
+    These tables are emitted from the same model as everything else, so a field
+    added there arrives here on the next `generate` rather than by hand. A field
+    the model marks required becomes NOT NULL, which is the point: the model is
+    where requiredness is decided and this is a projection of it.
     """
-    run_key, _ = _key_field(M.AgentRun)
+    key, _ = _key_field(entity)
     lines = []
-    for fname, field in M.AgentRun.model_fields.items():
+    for fname, field in entity.model_fields.items():
         pg, nullable = _pg_type(field.annotation)
-        parts = [f"  {fname:<24} {pg}"]
-        if fname == run_key:
+        parts = [f"  {fname:<32} {pg}"]
+        if fname == key:
             parts.append("PRIMARY KEY")
         elif not nullable:
             parts.append("NOT NULL")
@@ -97,7 +109,9 @@ def _agent_run_columns() -> str:
 
 def emit() -> str:
     run_key, _ = _key_field(M.AgentRun)
-    run_columns = _agent_run_columns()
+    run_columns = _table_columns(M.AgentRun)
+    proposal_columns = _table_columns(M.ChangeProposal)
+    approval_states = ", ".join(f"'{m.value}'" for m in M.ApprovalState)
     event_types = ", ".join(f"'{m.value}'" for m in M.AuditEventType)
     tiers = ", ".join(f"'{m.value}'" for m in M.AutonomyTier)
 
@@ -188,5 +202,23 @@ REVOKE UPDATE, DELETE, TRUNCATE ON jetsapi.agent_audit FROM PUBLIC;
 CREATE TABLE IF NOT EXISTS jetsapi.agent_run (
 {run_columns},
   CONSTRAINT agent_run_tier_ck CHECK (tier IN ({tiers}))
+);
+-- stmt
+-- What a run proposes. Phase 1 writes one on success and writes nothing to git:
+-- staged branch writes are the analysis's "Write - staged" class and arrive
+-- with the Phase-2 approval screens, because a copilot that can commit before
+-- anyone can review the commit has the supervision layer in the wrong order.
+--
+-- Note what `draft` means here. Appendix A.2.10 requires generated_tests,
+-- affected_pipelines and the impact analysis, and a Phase-1 authoring run has
+-- none of them - it produced one transformation, not a change set with tests
+-- and a blast radius. Those columns are NOT NULL because the model marks the
+-- fields required, and a draft carries empty arrays rather than nulls: honest
+-- about having nothing, and distinguishable from a proposal that was never
+-- asked. The approval lifecycle fills them before the proposal may leave
+-- draft, which is what the state is for.
+CREATE TABLE IF NOT EXISTS jetsapi.change_proposal (
+{proposal_columns},
+  CONSTRAINT change_proposal_approval_state_ck CHECK (approval_state IN ({approval_states}))
 );
 """

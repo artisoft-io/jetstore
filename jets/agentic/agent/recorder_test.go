@@ -12,6 +12,7 @@ package agent
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -204,3 +205,108 @@ func (failingRecorder) Start(context.Context, []byte) error {
 	return errors.New("the database is unreachable")
 }
 func (failingRecorder) Finish(context.Context, Outcome, int) error { return nil }
+func (failingRecorder) Propose(context.Context, json.RawMessage) (string, error) {
+	return "", nil
+}
+
+// D.7: a successful run produces a proposal row, in draft, and writes nothing
+// to git. The "nothing to git" half is not testable as an absence — what is
+// testable is that the only thing produced is a row, which is what this
+// asserts by reading it back.
+func TestD7_SuccessfulRunProducesADraftProposal(t *testing.T) {
+	pool := testPool(t)
+	rec := newRun(t, pool)
+
+	in := &stubInfer{answers: []string{`{"type":"map_record"}`}, tokens: 2}
+	reg := &stubRegistry{reports: []any{&tools.ValidationReport{Valid: true}}}
+	l := &Loop{
+		Infer: in, Registry: reg, Audit: rec, Recorder: rec,
+		Budget: Budget{MaxIterations: 2}, RunId: rec.Run.RunId, Actor: "agent:test", Tier: "T1",
+	}
+
+	res, err := l.Run(context.Background(), task())
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if res.ProposalId == "" {
+		t.Fatal("a successful run reported no proposal id")
+	}
+
+	var state, trigger, ref, rationale string
+	var tests, pipelines, assets []string
+	var clinical bool
+	if err := pool.QueryRow(context.Background(),
+		`SELECT approval_state, trigger, trigger_ref, rationale, generated_tests,
+		        affected_pipelines, impact_affected_assets, impact_clinical_relevance_touched
+		   FROM jetsapi.change_proposal WHERE proposal_id = $1`,
+		res.ProposalId).Scan(&state, &trigger, &ref, &rationale, &tests,
+		&pipelines, &assets, &clinical); err != nil {
+		t.Fatalf("reading the proposal: %v", err)
+	}
+
+	if state != "draft" {
+		t.Errorf("approval_state = %q, want draft — an authoring run cannot produce an approvable proposal", state)
+	}
+	if ref != rec.Run.RunId {
+		t.Errorf("trigger_ref = %q, want the run id so the proposal and its transcript join", ref)
+	}
+	if rationale != `{"type":"map_record"}` {
+		t.Errorf("rationale = %q, want the accepted artifact", rationale)
+	}
+	// Empty, not null: "asked, and there are none" is a different claim from
+	// "never asked", and Postgres distinguishes them.
+	for name, arr := range map[string][]string{
+		"generated_tests": tests, "affected_pipelines": pipelines, "impact_affected_assets": assets,
+	} {
+		if arr == nil {
+			t.Errorf("%s is null; a draft carries empty arrays rather than nulls", name)
+		}
+		if len(arr) != 0 {
+			t.Errorf("%s = %v, want empty — Phase 1 produces none of these", name, arr)
+		}
+	}
+	if clinical {
+		t.Error("impact_clinical_relevance_touched is true; Phase 1 cannot judge this and must not guess it")
+	}
+}
+
+// A run that exhausts produces no proposal. There is nothing to propose.
+func TestD7_ExhaustedRunProducesNoProposal(t *testing.T) {
+	pool := testPool(t)
+	rec := newRun(t, pool)
+	in := &stubInfer{answers: []string{`{"a":1}`, `{"b":2}`}}
+	reg := &stubRegistry{reports: []any{&tools.ValidationReport{Valid: false}}}
+	l := &Loop{
+		Infer: in, Registry: reg, Audit: rec, Recorder: rec,
+		Budget: Budget{MaxIterations: 2}, RunId: rec.Run.RunId, Actor: "agent:test", Tier: "T1",
+	}
+	res, err := l.Run(context.Background(), task())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res.Outcome != OutcomeExhausted {
+		t.Fatalf("outcome = %q", res.Outcome)
+	}
+	if res.ProposalId != "" {
+		t.Errorf("an exhausted run reported proposal %q; there was nothing to propose", res.ProposalId)
+	}
+	var n int
+	if err := pool.QueryRow(context.Background(),
+		`SELECT count(*) FROM jetsapi.change_proposal WHERE trigger_ref = $1`,
+		rec.Run.RunId).Scan(&n); err != nil {
+		t.Fatal(err)
+	}
+	if n != 0 {
+		t.Errorf("found %d proposals for a run that produced nothing", n)
+	}
+}
+
+// A proposal with no approval state is refused: a proposal outside the
+// lifecycle can be neither approved nor rejected, so it is not a proposal.
+func TestRecordProposal_RequiresAnApprovalState(t *testing.T) {
+	pool := testPool(t)
+	err := audit.RecordProposal(context.Background(), pool, &audit.Proposal{ProposalId: "chg_x"})
+	if err == nil {
+		t.Error("expected a proposal with no approval state to be refused")
+	}
+}
