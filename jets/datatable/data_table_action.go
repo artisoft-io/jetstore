@@ -464,8 +464,18 @@ func (ctx *DataTableContext) VerifyUserPermission(sqlStmt *SqlInsertDefinition, 
 
 // ExecRawQuery ------------------------------------------------------
 // These are queries to load reference data for widget, e.g. dropdown list of items
-func (ctx *DataTableContext) ExecRawQuery(dataTableAction *DataTableAction, token string) (results *map[string]any, httpStatus int, err error) {
+// ExecRawQuery executes the SQL in the request body.
+//
+// **`capability` is a parameter because the two callers are not equally
+// dangerous.** `raw_query` is issued by the UIs on a user's behalf against
+// queries the app composed; `raw_query_tool` is the IDE's free-SQL box, where
+// the statement is whatever the user typed. They shared a case and a capability
+// of none; they now share a case and differ in what they require.
+func (ctx *DataTableContext) ExecRawQuery(dataTableAction *DataTableAction, token, capability string) (results *map[string]any, httpStatus int, err error) {
 	// fmt.Println("*** ExecRawQuery called, query:",dataTableAction.RawQuery)
+	if code, err2 := ctx.requireCapability(capability, token); err2 != nil {
+		return nil, code, err2
+	}
 
 	resultRows, columnDefs, err2 := execQuery(ctx.Dbpool, dataTableAction, &dataTableAction.RawQuery)
 
@@ -510,6 +520,9 @@ func (ctx *DataTableContext) ExecDataManagementStatement(dataTableAction *DataTa
 // ExecRawQueryMap ------------------------------------------------------
 // These are queries to load reference data for widget, e.g. dropdown list of items
 func (ctx *DataTableContext) ExecRawQueryMap(dataTableAction *DataTableAction, token string) (results *map[string]any, httpStatus int, err error) {
+	if code, err2 := ctx.requireCapability(CapabilityReadData, token); err2 != nil {
+		return nil, code, err2
+	}
 	// fmt.Println("ExecRawQueryMap:")
 	resultMap := make(map[string]any, len(dataTableAction.RawQueryMap))
 	for k, v := range dataTableAction.RawQueryMap {
@@ -917,8 +930,43 @@ func execDDL(dbpool *pgxpool.Pool, _ *DataTableAction, query *string) (*[][]any,
 	return &resultRows, &columnDefs, nil
 }
 
+// Capabilities required to read through /dataTable — I-2.
+//
+// **These were already declared and granted; they were simply never checked.**
+// `jets_init_db.sql:48` documents `jetstore_read` as "read data in JetStore" and
+// grants it to `ops_user`, `client_advocate` and `knowledge_engineer` — every
+// human role. The same block documents `workspace_ide` as covering "the query
+// tool", which is what `raw_query_tool` is. So this is not a new policy; it is
+// the policy the seed file states, enforced.
+//
+// `system_role` holds neither, and holds only `run_pipelines`. It appears
+// nowhere in Go and issues no read: `DoReadAction` has one caller
+// (`api_tables.go`), reached from the two web UIs with a human's token.
+const (
+	// CapabilityReadData gates the structured read path and the queries the UIs
+	// issue on a user's behalf.
+	CapabilityReadData = "jetstore_read"
+	// CapabilityQueryTool gates the free-SQL query tool, per the seed file's own
+	// description of workspace_ide.
+	CapabilityQueryTool = "workspace_ide"
+)
+
+// requireCapability is the read-side counterpart of VerifyUserPermission's use
+// on the write side. It exists so that every read path gates identically and the
+// set of them is greppable.
+func (ctx *DataTableContext) requireCapability(capability, token string) (int, error) {
+	if _, err := ctx.VerifyUserPermission(&SqlInsertDefinition{Capability: capability}, token); err != nil {
+		return http.StatusUnauthorized,
+			errors.New("error: unauthorized, cannot get user info or does not have permission")
+	}
+	return http.StatusOK, nil
+}
+
 // DoReadAction ------------------------------------------------------
 func (ctx *DataTableContext) DoReadAction(dataTableAction *DataTableAction, token string) (*map[string]any, int, error) {
+	if code, err := ctx.requireCapability(CapabilityReadData, token); err != nil {
+		return nil, code, err
+	}
 
 	// to package up the result
 	results := make(map[string]any)
@@ -1014,6 +1062,9 @@ gotRolesPos:
 
 // DoPreviewFileAction ------------------------------------------------------
 func (ctx *DataTableContext) DoPreviewFileAction(dataTableAction *DataTableAction, token string) (*map[string]any, int, error) {
+	if code, err := ctx.requireCapability(CapabilityReadData, token); err != nil {
+		return nil, code, err
+	}
 
 	// Validation
 	if len(dataTableAction.WhereClauses) == 0 ||

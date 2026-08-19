@@ -40,8 +40,13 @@ func (server *Server) DoDataTableAction(w http.ResponseWriter, r *http.Request) 
 	ctx := datatable.NewDataTableContext(server.dbpool, globalDevMode, *usingSshTunnel, unitTestDir, adminEmail)
 	// Intercept specific dataTable action
 	switch dataTableAction.Action {
-	case "raw_query", "raw_query_tool":
-		results, code, err = ctx.ExecRawQuery(&dataTableAction, token)
+	case "raw_query":
+		// Queries the app composed, issued on a user's behalf.
+		results, code, err = ctx.ExecRawQuery(&dataTableAction, token, datatable.CapabilityReadData)
+	case "raw_query_tool":
+		// The IDE's free-SQL box: the statement is whatever the user typed, so it
+		// wants the capability the seed file already says covers the query tool.
+		results, code, err = ctx.ExecRawQuery(&dataTableAction, token, datatable.CapabilityQueryTool)
 	case "exec_ddl":
 		results, code, err = ctx.ExecDataManagementStatement(&dataTableAction, token)
 	case "raw_query_map":
