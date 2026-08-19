@@ -24,7 +24,7 @@ var (
 	fixtureErr  error
 )
 
-func repoRoot(t *testing.T) string {
+func repoRoot(t testing.TB) string {
 	t.Helper()
 	wd, err := os.Getwd()
 	if err != nil {
@@ -36,7 +36,7 @@ func repoRoot(t *testing.T) string {
 // fixture builds (once) a compiled workspace: test_ws + the jets_agentic
 // assets + a main rule file importing both models, compiled with
 // compile_workspace under a scratch WORKSPACES_HOME.
-func fixture(t *testing.T) *Workspace {
+func fixture(t testing.TB) *Workspace {
 	t.Helper()
 	root := repoRoot(t)
 	fixtureOnce.Do(func() {

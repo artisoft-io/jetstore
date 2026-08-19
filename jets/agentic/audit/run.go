@@ -42,6 +42,12 @@ type Run struct {
 	DomainModelVersion  string
 	IterationCap        int
 	WallClockCapSeconds int
+	// TriggeredBy is what started this run. For a candidate of a
+	// generate-and-filter batch it is the parent run's id, which is how the
+	// batch is reconstructed: each candidate keeps its own run and its own
+	// hash chain, and this is the only thing joining them. Empty for a run
+	// nothing else started.
+	TriggeredBy string
 }
 
 // Beginner is the slice of pgx that StartRun needs: something that can open a
@@ -80,11 +86,12 @@ func StartRun(ctx context.Context, db Beginner, run *Run, intent []byte) error {
 	if _, err := tx.Exec(ctx,
 		`INSERT INTO jetsapi.agent_run
 		   (run_id, agent_id, agent_version, model_id, prompt_version, tier,
-		    started_at, domain_model_version, iteration_cap, wall_clock_cap_seconds)
-		 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
+		    started_at, domain_model_version, iteration_cap, wall_clock_cap_seconds,
+		    triggered_by)
+		 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,NULLIF($11,''))`,
 		run.RunId, run.AgentId, run.AgentVersion, run.ModelId, run.PromptVersion,
 		run.Tier, run.StartedAt, run.DomainModelVersion, run.IterationCap,
-		run.WallClockCapSeconds); err != nil {
+		run.WallClockCapSeconds, run.TriggeredBy); err != nil {
 		return fmt.Errorf("while recording run %s: %w", run.RunId, err)
 	}
 
