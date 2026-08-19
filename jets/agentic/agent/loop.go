@@ -37,6 +37,7 @@ import (
 
 	"github.com/artisoft-io/jetstore/jets/agentic/audit"
 	"github.com/artisoft-io/jetstore/jets/agentic/infer"
+	"github.com/artisoft-io/jetstore/jets/agentic/prompt"
 	"github.com/artisoft-io/jetstore/jets/agentic/tools"
 )
 
@@ -81,6 +82,10 @@ type Task struct {
 	// `config` for cpipes, `rule_text` for the compiler — and teaching the
 	// loop that difference is exactly what the registry exists to avoid.
 	VerifierArgs func(artifact json.RawMessage) (json.RawMessage, error)
+	// ContextTokens is the serving context this task will run against. Zero
+	// takes the deployed default. It is on the task rather than the loop
+	// because it bounds what may be *asked*, and gap 12 may move it.
+	ContextTokens int
 }
 
 func (t *Task) validate() error {
@@ -93,6 +98,13 @@ func (t *Task) validate() error {
 		return errors.New("agent: the task names no verifier; an unverified proposal is not what this loop produces")
 	case t.VerifierArgs == nil:
 		return errors.New("agent: the task has no VerifierArgs, so a proposal cannot be handed to its verifier")
+	}
+	// A schema larger than the model's context is refused here rather than
+	// discovered at the server, where it is either truncated — silently
+	// changing what constrains generation — or rejected after the request has
+	// been paid for. ContextTokens of zero takes the deployed default.
+	if err := prompt.Fits(t.Schema, t.ContextTokens, 0); err != nil {
+		return fmt.Errorf("agent: this task cannot be asked: %w", err)
 	}
 	return nil
 }
