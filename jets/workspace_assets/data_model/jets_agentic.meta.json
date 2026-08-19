@@ -214,7 +214,7 @@
           "type": "text",
           "array": true,
           "required": false,
-          "description": "code_diff.files_changed of \u00a7A.2.10."
+          "description": "code_diff.files_changed of \u00a7A.2.10. Corrected at D.7: declared list[str] with default=None, which Pydantic does not validate and which the DDL emitter read as required-and-defaulted-to-null - two claims that cannot both hold. The default says the intent was optional."
         },
         "jetsa:code_diff_lines_added": {
           "type": "int",
@@ -238,7 +238,7 @@
           "type": "text",
           "array": true,
           "required": false,
-          "description": "The assumptions the proposal rests on."
+          "description": "The assumptions the proposal rests on. Corrected at D.7 with code_diff_files_changed, same defect."
         },
         "jetsa:generated_tests": {
           "type": "text",

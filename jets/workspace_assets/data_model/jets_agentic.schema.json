@@ -213,11 +213,11 @@
           "description": "code_diff.branch of \u00a7A.2.10."
         },
         "code_diff_files_changed": {
-          "description": "code_diff.files_changed of \u00a7A.2.10.",
           "items": {
             "type": "string"
           },
-          "type": "array"
+          "type": "array",
+          "description": "code_diff.files_changed of \u00a7A.2.10. Corrected at D.7: declared list[str] with default=None, which Pydantic does not validate and which the DDL emitter read as required-and-defaulted-to-null - two claims that cannot both hold. The default says the intent was optional."
         },
         "code_diff_lines_added": {
           "type": "integer",
@@ -232,11 +232,11 @@
           "description": "Why the change is proposed."
         },
         "assumptions_made": {
-          "description": "The assumptions the proposal rests on.",
           "items": {
             "type": "string"
           },
-          "type": "array"
+          "type": "array",
+          "description": "The assumptions the proposal rests on. Corrected at D.7 with code_diff_files_changed, same defect."
         },
         "generated_tests": {
           "description": "The tests generated with the change (min 1).",

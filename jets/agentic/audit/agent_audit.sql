@@ -83,19 +83,55 @@ REVOKE UPDATE, DELETE, TRUNCATE ON jetsapi.agent_audit FROM PUBLIC;
 -- audit rows are the immutable record of how it got there, so a lost update
 -- here costs a summary while the trail behind it stays intact.
 CREATE TABLE IF NOT EXISTS jetsapi.agent_run (
-  run_id                   text PRIMARY KEY,
-  agent_id                 text NOT NULL,
-  agent_version            text NOT NULL,
-  model_id                 text NOT NULL,
-  prompt_version           text NOT NULL,
-  tier                     text NOT NULL,
-  started_at               timestamp with time zone NOT NULL,
-  ended_at                 timestamp with time zone,
-  run_status               text,
-  triggered_by             text,
-  domain_model_version     text NOT NULL,
-  iteration_cap            bigint NOT NULL,
-  wall_clock_cap_seconds   bigint NOT NULL,
-  token_spend              bigint,
+  run_id                           text PRIMARY KEY,
+  agent_id                         text NOT NULL,
+  agent_version                    text NOT NULL,
+  model_id                         text NOT NULL,
+  prompt_version                   text NOT NULL,
+  tier                             text NOT NULL,
+  started_at                       timestamp with time zone NOT NULL,
+  ended_at                         timestamp with time zone,
+  run_status                       text,
+  triggered_by                     text,
+  domain_model_version             text NOT NULL,
+  iteration_cap                    bigint NOT NULL,
+  wall_clock_cap_seconds           bigint NOT NULL,
+  token_spend                      bigint,
   CONSTRAINT agent_run_tier_ck CHECK (tier IN ('T0', 'T1', 'T2', 'T3', 'T4'))
+);
+-- stmt
+-- What a run proposes. Phase 1 writes one on success and writes nothing to git:
+-- staged branch writes are the analysis's "Write - staged" class and arrive
+-- with the Phase-2 approval screens, because a copilot that can commit before
+-- anyone can review the commit has the supervision layer in the wrong order.
+--
+-- Note what `draft` means here. Appendix A.2.10 requires generated_tests,
+-- affected_pipelines and the impact analysis, and a Phase-1 authoring run has
+-- none of them - it produced one transformation, not a change set with tests
+-- and a blast radius. Those columns are NOT NULL because the model marks the
+-- fields required, and a draft carries empty arrays rather than nulls: honest
+-- about having nothing, and distinguishable from a proposal that was never
+-- asked. The approval lifecycle fills them before the proposal may leave
+-- draft, which is what the state is for.
+CREATE TABLE IF NOT EXISTS jetsapi.change_proposal (
+  proposal_id                      text PRIMARY KEY,
+  trigger                          text NOT NULL,
+  trigger_ref                      text,
+  affected_pipelines               text[] NOT NULL,
+  code_diff_repository             text,
+  code_diff_branch                 text,
+  code_diff_files_changed          text[],
+  code_diff_lines_added            bigint,
+  code_diff_lines_removed          bigint,
+  rationale                        text,
+  assumptions_made                 text[],
+  generated_tests                  text[] NOT NULL,
+  ci_result_status                 text,
+  ci_result_tests_run              bigint,
+  ci_result_tests_failed           bigint,
+  impact_affected_assets           text[] NOT NULL,
+  impact_clinical_relevance_touched boolean NOT NULL,
+  approval_state                   text NOT NULL,
+  proposal_model_version           text NOT NULL,
+  CONSTRAINT change_proposal_approval_state_ck CHECK (approval_state IN ('draft', 'validated', 'agent_reviewed', 'awaiting_human_approval', 'approved', 'approved_with_modification', 'rejected', 'superseded', 'deployed'))
 );

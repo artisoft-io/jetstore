@@ -2,6 +2,7 @@ package agent
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"strings"
 	"testing"
@@ -189,3 +190,6 @@ type recorderFunc struct{ start func() error }
 
 func (r recorderFunc) Start(context.Context, []byte) error      { return r.start() }
 func (recorderFunc) Finish(context.Context, Outcome, int) error { return nil }
+func (recorderFunc) Propose(context.Context, json.RawMessage) (string, error) {
+	return "chg_stub", nil
+}
