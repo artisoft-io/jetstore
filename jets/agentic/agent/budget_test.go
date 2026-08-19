@@ -3,6 +3,7 @@ package agent
 import (
 	"context"
 	"encoding/json"
+	"strings"
 	"testing"
 	"time"
 
@@ -178,5 +179,43 @@ func TestBudget_ZeroWallClockIsUnbounded(t *testing.T) {
 	}
 	if res.Outcome != OutcomeSucceeded {
 		t.Errorf("outcome = %q; a zero wall-clock must not bound the run", res.Outcome)
+	}
+}
+
+// E.7: a task whose schema cannot fit the serving context is refused before a
+// token is spent. Discovering it at the server means either a silent truncation
+// — which changes what constrains generation without saying so — or a rejection
+// after the request has been paid for.
+func TestE7_TaskWithAnOverBudgetSchemaIsRefused(t *testing.T) {
+	in := &stubInfer{answers: []string{`{"a":1}`}}
+	big := task()
+	// ~30k tokens of schema against a 32k context leaves 2k for everything else.
+	big.Schema = []byte(`{"x":"` + strings.Repeat("y", 4*30000) + `"}`)
+
+	l := loop(in, &stubRegistry{}, &recorder{}, 3)
+	_, err := l.Run(context.Background(), big)
+	if err == nil {
+		t.Fatal("expected a task with an unusable schema to be refused")
+	}
+	if !strings.Contains(err.Error(), "cannot be asked") {
+		t.Errorf("the error does not say the task is unaskable: %v", err)
+	}
+	if len(in.seen) != 0 {
+		t.Errorf("made %d model calls with a schema that cannot fit; none is permitted", len(in.seen))
+	}
+}
+
+// And a task may say what context it will run against, because gap 12 may move
+// it and a task sized for a larger server should not be refused on the old
+// number.
+func TestE7_TaskMayDeclareItsOwnContext(t *testing.T) {
+	big := task()
+	big.Schema = []byte(`{"x":"` + strings.Repeat("y", 4*30000) + `"}`)
+	big.ContextTokens = 131072 // a larger serving context
+
+	in := &stubInfer{answers: []string{`{"a":1}`}}
+	l := loop(in, &stubRegistry{reports: []any{&tools.ValidationReport{Valid: true}}}, &recorder{}, 2)
+	if _, err := l.Run(context.Background(), big); err != nil {
+		t.Fatalf("a schema that fits the declared context was refused: %v", err)
 	}
 }
