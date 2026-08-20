@@ -57,7 +57,7 @@ class AnalyzeSpec(_Base):
 class AnonymizeSpecBase(_Base):
     """AnonymizeSpec: Configuration for the anonymize transformation operator: lookup information indicating how to anonymize, etc."""
     adjust_field_width_on_fixed_width_file: bool | None = Field(default=None, description="Adjust field widths on fixed-width files.")
-    anonymize_type: str = Field(description="AnonymizeType is column name in lookup table that specifiy how to anonymize (value: date, text).")
+    anonymize_type: str = Field(description="AnonymizeType is column name in lookup table that specifies how to anonymize (value: date, text).")
     anonymized_columns_output_file: ColumnFileSpec | None = Field(default=None, description="Where the list of anonymized columns is written.")
     comment: str | None = Field(default=None, description="Free text for the reader; ignored by JetStore.")
     date_formats_column: str | None = Field(default=None, description="DateFormatsColumn is column name of the lookup table having the list of date format (optional).")
@@ -168,7 +168,7 @@ class ClusterSpec(_Base):
 
 
 class ClusteringSpec(_Base):
-    """Configuration for the clustering tranformation operator."""
+    """Configuration for the clustering transformation operator."""
     cluster_data_subclassification: list[str] | None = Field(default=None, description="data_classification values propagated as data_subclassification across a cluster.")
     comment: str | None = Field(default=None, description="Free text for the reader; ignored by JetStore.")
     correlation_output_channel: OutputChannelConfig = Field(description="Intermediate channel between the pool manager and the workers.")
@@ -258,7 +258,7 @@ class ConditionalEnvVariable(_Base):
 
 
 class ConditionalPipeSpec(_Base):
-    """Define a stage of a pipeline execution consisting of a compute pipes, executed conditionaly."""
+    """Define a stage of a pipeline execution consisting of a compute pipes, executed conditionally."""
     addl_env: list[ConditionalEnvVariable] | None = Field(default=None, description="Env vars added when the step executes.")
     comment: str | None = Field(default=None, description="Free text for the reader; ignored by JetStore.")
     pipes_config: list[PipeSpec] = Field(description="The pipes executed for this step.")
@@ -269,7 +269,7 @@ class ConditionalPipeSpec(_Base):
 
 
 class ConditionalTransformationSpec(_Base):
-    """Configuration to specify a condition to override fields of a transformation operator or replace the transformation althogether."""
+    """Configuration to specify a condition to override fields of a transformation operator or replace the transformation altogether."""
     comment: str | None = Field(default=None, description="Free text for the reader; ignored by JetStore.")
     then: TransformationSpecOverride | None = Field(default=None, description="The override (type empty) or replacement (type set) applied when the condition holds.")
     when: ExpressionNode = Field(description="When is the condition to evaluate, if true then apply the Then spec.")
@@ -318,7 +318,7 @@ class DateFormatLookupSpec(_Base):
 
 
 class DistinctSpec(_Base):
-    """Configuration for the distinct tranformation operator: specify the composite key."""
+    """Configuration for the distinct transformation operator: specify the composite key."""
     comment: str | None = Field(default=None, description="Free text for the reader; ignored by JetStore.")
     distinct_on: list[str] | None = Field(default=None, description="Columns forming the composite key rows are distinct on.")
 
@@ -355,7 +355,7 @@ class ExpressionNode(_Base):
     expr_pos: int | None = Field(default=None, description="ExprPos is for leaf nodes for Type select, it is the 0-based column position to select, it is an alternative to Expr which is the column name. Required when: absent(expr).")
     function_arguments: list[ExpressionNode] | None = Field(default=None, description="The arguments of a function call (type function).")
     lhs: ExpressionNode | None = Field(default=None, description="The left operand of a binary operator node.")
-    max_env_var_substitution: int | None = Field(default=None, description="MaxEnvVarSubstitution indicates how many loop of env substitution to do for Expr containinng the char '$', default to 3. For non leaf nodes, Op is the operator: and, or, ==, !=, >, >=, <, <=, etc. Special case for type: expr_proxy, it indicates that the expression is a proxy for another expression, the actual expression is specified by one of: - ExprEnvVarProxy: the expression is specified by an env var, the value of the env var is the actual expression as a json string to evaluate. (more to come) Special case for type: function, it indicates that the expression is a function call, the actual function is specified by Expr, and the arguments are specified by Farg. Default value to use when the evaluation returns error Engine default: 3 (builder).")
+    max_env_var_substitution: int | None = Field(default=None, description="MaxEnvVarSubstitution indicates how many loop of env substitution to do for Expr containing the char '$', default to 3. For non leaf nodes, Op is the operator: and, or, ==, !=, >, >=, <, <=, etc. Special case for type: expr_proxy, it indicates that the expression is a proxy for another expression, the actual expression is specified by one of: - ExprEnvVarProxy: the expression is specified by an env var, the value of the env var is the actual expression as a json string to evaluate. (more to come) Special case for type: function, it indicates that the expression is a function call, the actual function is specified by Expr, and the arguments are specified by Farg. Default value to use when the evaluation returns error Engine default: 3 (builder).")
     name: str | None = Field(default=None, description="Name is for the special case CaseEnvExpression")
     op: str | None = Field(default=None, description="The operator of a unary or binary node: and, or, ==, !=, >, >=, <, <=, in, etc.")
     rhs: ExpressionNode | None = Field(default=None, description="The right operand of a binary operator node.")
@@ -422,7 +422,7 @@ class GroupBySpec(_Base):
 
 class HashExpression(_Base):
     """Configuration for hashing values from columns."""
-    alternate_composite_expr: list[str] | None = Field(default=None, description="AlternateCompositeExpr is used when Expr or CompositeExpr returns nil or empty. MultiStepShardingMode values: 'limited_range', 'full_range' or empty. NoPartitions indicated not to assign the hash to a partition (no modulo operation). NbrJetsPartitions is the number of partitions to use for the hash operator when NoPartitions is false. MaxNbrJetsPartitions use the minimum between the cluster nbr of partitions and this setting provided the NoPartitions is false. NbrJetsPartitions takes precedence over MaxNbrJetsPartitions when both are provided. ComputeDomainKey flag indicate to compute the domain key rather than a simple hash. This consider the hashing algo used and delimitor between the key components.")
+    alternate_composite_expr: list[str] | None = Field(default=None, description="AlternateCompositeExpr is used when Expr or CompositeExpr returns nil or empty. MultiStepShardingMode values: 'limited_range', 'full_range' or empty. NoPartitions indicated not to assign the hash to a partition (no modulo operation). NbrJetsPartitions is the number of partitions to use for the hash operator when NoPartitions is false. MaxNbrJetsPartitions use the minimum between the cluster nbr of partitions and this setting provided the NoPartitions is false. NbrJetsPartitions takes precedence over MaxNbrJetsPartitions when both are provided. ComputeDomainKey flag indicate to compute the domain key rather than a simple hash. This consider the hashing algo used and delimiter between the key components.")
     comment: str | None = Field(default=None, description="Free text for the reader; ignored by JetStore.")
     composite_expr: list[str] | None = Field(default=None, description="The columns of the composite hash.")
     compute_domain_key: bool | None = Field(default=None, description="Compute the domain key rather than a simple hash.")
@@ -435,7 +435,7 @@ class HashExpression(_Base):
 
 
 class HighFreqSpec(_Base):
-    """Configuration for the high_freq tansformation operator: top percentile and rank to keep, optional regex to apply on input data."""
+    """Configuration for the high_freq transformation operator: top percentile and rank to keep, optional regex to apply on input data."""
     comment: str | None = Field(default=None, description="Free text for the reader; ignored by JetStore.")
     key_re: str | None = Field(default=None, description="Optional regex applied to the input values.")
     name: str = Field(description="The column classification this spec applies to.")
@@ -564,7 +564,7 @@ class InputSourceSpec(_Base):
 
 
 class JetrulesSpec(_Base):
-    """Configuration for the JetRules tranformation operator: rule process name, input rdf type, worker pool size, etc."""
+    """Configuration for the JetRules transformation operator: rule process name, input rdf type, worker pool size, etc."""
     comment: str | None = Field(default=None, description="Free text for the reader; ignored by JetStore.")
     current_source_period: int | None = Field(default=None, description="CurrentSourcePeriod is the source period key to use for this process.")
     current_source_period_date: str | None = Field(default=None, description="CurrentSourcePeriodDate is the source period date (aka file period date) to use this process.")
@@ -670,7 +670,7 @@ class MergeFileSpec(_Base):
 
 
 class MergeSpec(_Base):
-    """Configuration for the merge tranformation operator: specify the channels to merge and how to group them."""
+    """Configuration for the merge transformation operator: specify the channels to merge and how to group them."""
     comment: str | None = Field(default=None, description="Free text for the reader; ignored by JetStore.")
     is_debug: bool | None = Field(default=None, description="Log trace info.")
     main_group_by: GroupBySpec = Field(description="Grouping of the main input channel.")
@@ -879,7 +879,7 @@ class ParseDateFTSpec(_Base):
 class ParseDateSpec(_Base):
     """Configuration for parse_date function: date formats, null dates, etc."""
     comment: str | None = Field(default=None, description="Free text for the reader; ignored by JetStore.")
-    date_format_lookup: DateFormatLookupSpec | None = Field(default=None, description="DateFormatLookup: lookup table to use for date format parsing, with the following columns: - lookup_key: the key to match in the lookup table as int (column position in the channel) - lookup_values: the column name in the lookup table that contains the columns's date format.")
+    date_format_lookup: DateFormatLookupSpec | None = Field(default=None, description="DateFormatLookup: lookup table to use for date format parsing, with the following columns: - lookup_key: the key to match in the lookup table as int (column position in the channel) - lookup_values: the column name in the lookup table that contains the column's date format.")
     date_format_token: str | None = Field(default=None, description="DateFormatToken: output column name for listing up to 3 formats used in file.")
     date_formats: list[list[str]] | None = Field(default=None, description="DateFormats: list of date formats to use for parsing the date.")
     minmax_date_format: str | None = Field(default=None, description="MinMaxDateFormat: format used in output report for min/max dates.")
@@ -986,7 +986,7 @@ class SchemaProviderSpecDefault(SchemaProviderSpecBase):
     bucket: str | None = Field(default=None, description="S3 bucket holding the file.")
     cap_dob_years: int | None = Field(default=None, description="CapDobYears: number of years to cap dob (date of birth) to today - for Anonymization.")
     client: str | None = Field(default=None, description="Client, Vendor, ObjectType, FileDate (does not apply to Jets_Loader).")
-    columns: list[SchemaColumnSpec] | None = Field(default=None, description="Columns: may be ommitted if fixed_width_columns_csv is provided or is a csv format")
+    columns: list[SchemaColumnSpec] | None = Field(default=None, description="Columns: may be omitted if fixed_width_columns_csv is provided or is a csv format")
     compression: Literal["none", "snappy"] | None = Field(default=None, description="Compression: none, snappy (parquet is always snappy).")
     delimiter: int | None = Field(default=None, description="Field delimiter, as a code point (a json number).")
     detect_cr_as_eol: bool | None = Field(default=None, description="DetectCrAsEol: Detect if \\r is used as eol (format: csv,headerless_csv).")
@@ -1052,7 +1052,7 @@ class SchemaProviderSpecPipelineCoordinatorMap(SchemaProviderSpecBase):
 
 
 class ShufflingSpec(_Base):
-    """Configuration for the shuffle tranformation operator:number of records to retain to draw values from, max number of output records, column filtering, etc."""
+    """Configuration for the shuffle transformation operator:number of records to retain to draw values from, max number of output records, column filtering, etc."""
     comment: str | None = Field(default=None, description="Free text for the reader; ignored by JetStore.")
     filter_columns: FilterColumnSpec | None = Field(default=None, description="Which columns are retained, via an analysis lookup.")
     max_input_sample_size: int | None = Field(default=None, description="Nbr of input records retained to draw values from. Engine default: 1000 (builder).")
@@ -1297,7 +1297,7 @@ class TransformationSpecAggregate(TransformationSpecBase):
 
 
 class TransformationSpecAnalyze(TransformationSpecBase):
-    """Analyze each collumns of the input records, emit a record per column with various metrics to the output channel"""
+    """Analyze each columns of the input records, emit a record per column with various metrics to the output channel"""
     type: Literal["analyze"] = Field(description="The operator. Range: map_record, aggregate, analyze, high_freq, partition_writer, anonymize, distinct, shuffling, group_by, filter, sort, merge, jetrules, clustering, ollama.")
     analyze_config: AnalyzeSpec = Field(description="Configuration of the analyze operator.")
     columns: list[TransformationColumnSpec] | None = Field(default=None, description="The column transformations producing the output record.")
@@ -1367,7 +1367,7 @@ class TransformationSpecMerge(TransformationSpecBase):
 
 
 class TransformationSpecJetrules(TransformationSpecBase):
-    """Input channel contains either individual or bundled input records. Each record or bundle are sent to JetRules as a rule session. Output records are extracted by type from the rule session, each type correcpond to an output channel."""
+    """Input channel contains either individual or bundled input records. Each record or bundle are sent to JetRules as a rule session. Output records are extracted by type from the rule session, each type correspond to an output channel."""
     type: Literal["jetrules"] = Field(description="The operator. Range: map_record, aggregate, analyze, high_freq, partition_writer, anonymize, distinct, shuffling, group_by, filter, sort, merge, jetrules, clustering, ollama.")
     columns: list[TransformationColumnSpec] | None = Field(default=None, description="The column transformations producing the output record.")
     jetrules_config: JetrulesSpec = Field(description="Configuration of the jetrules operator.")
@@ -1375,7 +1375,7 @@ class TransformationSpecJetrules(TransformationSpecBase):
 
 
 class TransformationSpecClustering(TransformationSpecBase):
-    """Compute the correlation beween sets of columns identified by classification via a lookup table."""
+    """Compute the correlation between sets of columns identified by classification via a lookup table."""
     type: Literal["clustering"] = Field(description="The operator. Range: map_record, aggregate, analyze, high_freq, partition_writer, anonymize, distinct, shuffling, group_by, filter, sort, merge, jetrules, clustering, ollama.")
     clustering_config: ClusteringSpec = Field(description="Configuration of the clustering operator.")
     new_record: bool | None = Field(default=None, description="Emit a new record rather than augmenting the input one.")

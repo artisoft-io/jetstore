@@ -568,7 +568,7 @@
           "title": "Adjust Field Width On Fixed Width File"
         },
         "anonymize_type": {
-          "description": "AnonymizeType is column name in lookup table that specifiy how to anonymize (value: date, text).",
+          "description": "AnonymizeType is column name in lookup table that specifies how to anonymize (value: date, text).",
           "title": "Anonymize Type",
           "type": "string"
         },
@@ -766,7 +766,7 @@
           "title": "Adjust Field Width On Fixed Width File"
         },
         "anonymize_type": {
-          "description": "AnonymizeType is column name in lookup table that specifiy how to anonymize (value: date, text).",
+          "description": "AnonymizeType is column name in lookup table that specifies how to anonymize (value: date, text).",
           "title": "Anonymize Type",
           "type": "string"
         },
@@ -897,7 +897,7 @@
           "title": "Adjust Field Width On Fixed Width File"
         },
         "anonymize_type": {
-          "description": "AnonymizeType is column name in lookup table that specifiy how to anonymize (value: date, text).",
+          "description": "AnonymizeType is column name in lookup table that specifies how to anonymize (value: date, text).",
           "title": "Anonymize Type",
           "type": "string"
         },
@@ -2022,7 +2022,7 @@
     },
     "ClusteringSpec": {
       "additionalProperties": false,
-      "description": "Configuration for the clustering tranformation operator.",
+      "description": "Configuration for the clustering transformation operator.",
       "properties": {
         "cluster_data_subclassification": {
           "anyOf": [
@@ -3074,7 +3074,7 @@
     },
     "ConditionalPipeSpec": {
       "additionalProperties": false,
-      "description": "Define a stage of a pipeline execution consisting of a compute pipes, executed conditionaly.",
+      "description": "Define a stage of a pipeline execution consisting of a compute pipes, executed conditionally.",
       "properties": {
         "addl_env": {
           "anyOf": [
@@ -3190,7 +3190,7 @@
     },
     "ConditionalTransformationSpec": {
       "additionalProperties": false,
-      "description": "Configuration to specify a condition to override fields of a transformation operator or replace the transformation althogether.",
+      "description": "Configuration to specify a condition to override fields of a transformation operator or replace the transformation altogether.",
       "properties": {
         "comment": {
           "anyOf": [
@@ -3230,7 +3230,7 @@
     },
     "ConditionalTransformationSpecAggregatePipe": {
       "additionalProperties": false,
-      "description": "Configuration to specify a condition to override fields of a transformation operator or replace the transformation althogether.",
+      "description": "Configuration to specify a condition to override fields of a transformation operator or replace the transformation altogether.",
       "properties": {
         "comment": {
           "anyOf": [
@@ -3270,7 +3270,7 @@
     },
     "ConditionalTransformationSpecAnalyzePipe": {
       "additionalProperties": false,
-      "description": "Configuration to specify a condition to override fields of a transformation operator or replace the transformation althogether.",
+      "description": "Configuration to specify a condition to override fields of a transformation operator or replace the transformation altogether.",
       "properties": {
         "comment": {
           "anyOf": [
@@ -3310,7 +3310,7 @@
     },
     "ConditionalTransformationSpecAnonymizePipe": {
       "additionalProperties": false,
-      "description": "Configuration to specify a condition to override fields of a transformation operator or replace the transformation althogether.",
+      "description": "Configuration to specify a condition to override fields of a transformation operator or replace the transformation altogether.",
       "properties": {
         "comment": {
           "anyOf": [
@@ -3350,7 +3350,7 @@
     },
     "ConditionalTransformationSpecClusteringPipe": {
       "additionalProperties": false,
-      "description": "Configuration to specify a condition to override fields of a transformation operator or replace the transformation althogether.",
+      "description": "Configuration to specify a condition to override fields of a transformation operator or replace the transformation altogether.",
       "properties": {
         "comment": {
           "anyOf": [
@@ -3390,7 +3390,7 @@
     },
     "ConditionalTransformationSpecDistinctPipe": {
       "additionalProperties": false,
-      "description": "Configuration to specify a condition to override fields of a transformation operator or replace the transformation althogether.",
+      "description": "Configuration to specify a condition to override fields of a transformation operator or replace the transformation altogether.",
       "properties": {
         "comment": {
           "anyOf": [
@@ -3430,7 +3430,7 @@
     },
     "ConditionalTransformationSpecFilterPipe": {
       "additionalProperties": false,
-      "description": "Configuration to specify a condition to override fields of a transformation operator or replace the transformation althogether.",
+      "description": "Configuration to specify a condition to override fields of a transformation operator or replace the transformation altogether.",
       "properties": {
         "comment": {
           "anyOf": [
@@ -3470,7 +3470,7 @@
     },
     "ConditionalTransformationSpecGroupByPipe": {
       "additionalProperties": false,
-      "description": "Configuration to specify a condition to override fields of a transformation operator or replace the transformation althogether.",
+      "description": "Configuration to specify a condition to override fields of a transformation operator or replace the transformation altogether.",
       "properties": {
         "comment": {
           "anyOf": [
@@ -3510,7 +3510,7 @@
     },
     "ConditionalTransformationSpecHighFreqPipe": {
       "additionalProperties": false,
-      "description": "Configuration to specify a condition to override fields of a transformation operator or replace the transformation althogether.",
+      "description": "Configuration to specify a condition to override fields of a transformation operator or replace the transformation altogether.",
       "properties": {
         "comment": {
           "anyOf": [
@@ -3550,7 +3550,7 @@
     },
     "ConditionalTransformationSpecJetrulesPipe": {
       "additionalProperties": false,
-      "description": "Configuration to specify a condition to override fields of a transformation operator or replace the transformation althogether.",
+      "description": "Configuration to specify a condition to override fields of a transformation operator or replace the transformation altogether.",
       "properties": {
         "comment": {
           "anyOf": [
@@ -3590,7 +3590,7 @@
     },
     "ConditionalTransformationSpecMapRecordPipe": {
       "additionalProperties": false,
-      "description": "Configuration to specify a condition to override fields of a transformation operator or replace the transformation althogether.",
+      "description": "Configuration to specify a condition to override fields of a transformation operator or replace the transformation altogether.",
       "properties": {
         "comment": {
           "anyOf": [
@@ -3630,7 +3630,7 @@
     },
     "ConditionalTransformationSpecMergePipe": {
       "additionalProperties": false,
-      "description": "Configuration to specify a condition to override fields of a transformation operator or replace the transformation althogether.",
+      "description": "Configuration to specify a condition to override fields of a transformation operator or replace the transformation altogether.",
       "properties": {
         "comment": {
           "anyOf": [
@@ -3670,7 +3670,7 @@
     },
     "ConditionalTransformationSpecOllamaPipe": {
       "additionalProperties": false,
-      "description": "Configuration to specify a condition to override fields of a transformation operator or replace the transformation althogether.",
+      "description": "Configuration to specify a condition to override fields of a transformation operator or replace the transformation altogether.",
       "properties": {
         "comment": {
           "anyOf": [
@@ -3710,7 +3710,7 @@
     },
     "ConditionalTransformationSpecPartitionWriterPipe": {
       "additionalProperties": false,
-      "description": "Configuration to specify a condition to override fields of a transformation operator or replace the transformation althogether.",
+      "description": "Configuration to specify a condition to override fields of a transformation operator or replace the transformation altogether.",
       "properties": {
         "comment": {
           "anyOf": [
@@ -3750,7 +3750,7 @@
     },
     "ConditionalTransformationSpecShufflingPipe": {
       "additionalProperties": false,
-      "description": "Configuration to specify a condition to override fields of a transformation operator or replace the transformation althogether.",
+      "description": "Configuration to specify a condition to override fields of a transformation operator or replace the transformation altogether.",
       "properties": {
         "comment": {
           "anyOf": [
@@ -3790,7 +3790,7 @@
     },
     "ConditionalTransformationSpecSortPipe": {
       "additionalProperties": false,
-      "description": "Configuration to specify a condition to override fields of a transformation operator or replace the transformation althogether.",
+      "description": "Configuration to specify a condition to override fields of a transformation operator or replace the transformation altogether.",
       "properties": {
         "comment": {
           "anyOf": [
@@ -4434,7 +4434,7 @@
     },
     "DistinctSpec": {
       "additionalProperties": false,
-      "description": "Configuration for the distinct tranformation operator: specify the composite key.",
+      "description": "Configuration for the distinct transformation operator: specify the composite key.",
       "properties": {
         "comment": {
           "anyOf": [
@@ -4746,7 +4746,7 @@
             }
           ],
           "default": null,
-          "description": "MaxEnvVarSubstitution indicates how many loop of env substitution to do for Expr containinng the char '$', default to 3. For non leaf nodes, Op is the operator: and, or, ==, !=, >, >=, <, <=, etc. Special case for type: expr_proxy, it indicates that the expression is a proxy for another expression, the actual expression is specified by one of: - ExprEnvVarProxy: the expression is specified by an env var, the value of the env var is the actual expression as a json string to evaluate. (more to come) Special case for type: function, it indicates that the expression is a function call, the actual function is specified by Expr, and the arguments are specified by Farg. Default value to use when the evaluation returns error Engine default: 3 (builder).",
+          "description": "MaxEnvVarSubstitution indicates how many loop of env substitution to do for Expr containing the char '$', default to 3. For non leaf nodes, Op is the operator: and, or, ==, !=, >, >=, <, <=, etc. Special case for type: expr_proxy, it indicates that the expression is a proxy for another expression, the actual expression is specified by one of: - ExprEnvVarProxy: the expression is specified by an env var, the value of the env var is the actual expression as a json string to evaluate. (more to come) Special case for type: function, it indicates that the expression is a function call, the actual function is specified by Expr, and the arguments are specified by Farg. Default value to use when the evaluation returns error Engine default: 3 (builder).",
           "title": "Max Env Var Substitution"
         },
         "name": {
@@ -5498,7 +5498,7 @@
             }
           ],
           "default": null,
-          "description": "AlternateCompositeExpr is used when Expr or CompositeExpr returns nil or empty. MultiStepShardingMode values: 'limited_range', 'full_range' or empty. NoPartitions indicated not to assign the hash to a partition (no modulo operation). NbrJetsPartitions is the number of partitions to use for the hash operator when NoPartitions is false. MaxNbrJetsPartitions use the minimum between the cluster nbr of partitions and this setting provided the NoPartitions is false. NbrJetsPartitions takes precedence over MaxNbrJetsPartitions when both are provided. ComputeDomainKey flag indicate to compute the domain key rather than a simple hash. This consider the hashing algo used and delimitor between the key components.",
+          "description": "AlternateCompositeExpr is used when Expr or CompositeExpr returns nil or empty. MultiStepShardingMode values: 'limited_range', 'full_range' or empty. NoPartitions indicated not to assign the hash to a partition (no modulo operation). NbrJetsPartitions is the number of partitions to use for the hash operator when NoPartitions is false. MaxNbrJetsPartitions use the minimum between the cluster nbr of partitions and this setting provided the NoPartitions is false. NbrJetsPartitions takes precedence over MaxNbrJetsPartitions when both are provided. ComputeDomainKey flag indicate to compute the domain key rather than a simple hash. This consider the hashing algo used and delimiter between the key components.",
           "title": "Alternate Composite Expr"
         },
         "comment": {
@@ -5761,7 +5761,7 @@
     },
     "HighFreqSpec": {
       "additionalProperties": false,
-      "description": "Configuration for the high_freq tansformation operator: top percentile and rank to keep, optional regex to apply on input data.",
+      "description": "Configuration for the high_freq transformation operator: top percentile and rank to keep, optional regex to apply on input data.",
       "properties": {
         "comment": {
           "anyOf": [
@@ -7369,7 +7369,7 @@
     },
     "JetrulesSpec": {
       "additionalProperties": false,
-      "description": "Configuration for the JetRules tranformation operator: rule process name, input rdf type, worker pool size, etc.",
+      "description": "Configuration for the JetRules transformation operator: rule process name, input rdf type, worker pool size, etc.",
       "properties": {
         "comment": {
           "anyOf": [
@@ -8749,7 +8749,7 @@
     },
     "MergeSpec": {
       "additionalProperties": false,
-      "description": "Configuration for the merge tranformation operator: specify the channels to merge and how to group them.",
+      "description": "Configuration for the merge transformation operator: specify the channels to merge and how to group them.",
       "properties": {
         "comment": {
           "anyOf": [
@@ -11114,7 +11114,7 @@
             }
           ],
           "default": null,
-          "description": "DateFormatLookup: lookup table to use for date format parsing, with the following columns: - lookup_key: the key to match in the lookup table as int (column position in the channel) - lookup_values: the column name in the lookup table that contains the columns's date format."
+          "description": "DateFormatLookup: lookup table to use for date format parsing, with the following columns: - lookup_key: the key to match in the lookup table as int (column position in the channel) - lookup_values: the column name in the lookup table that contains the column's date format."
         },
         "date_format_token": {
           "anyOf": [
@@ -12311,7 +12311,7 @@
             }
           ],
           "default": null,
-          "description": "Columns: may be ommitted if fixed_width_columns_csv is provided or is a csv format",
+          "description": "Columns: may be omitted if fixed_width_columns_csv is provided or is a csv format",
           "title": "Columns"
         },
         "comment": {
@@ -13312,7 +13312,7 @@
     },
     "ShufflingSpec": {
       "additionalProperties": false,
-      "description": "Configuration for the shuffle tranformation operator:number of records to retain to draw values from, max number of output records, column filtering, etc.",
+      "description": "Configuration for the shuffle transformation operator:number of records to retain to draw values from, max number of output records, column filtering, etc.",
       "properties": {
         "comment": {
           "anyOf": [
@@ -15775,7 +15775,7 @@
     },
     "TransformationSpecAnalyze": {
       "additionalProperties": false,
-      "description": "Analyze each collumns of the input records, emit a record per column with various metrics to the output channel",
+      "description": "Analyze each columns of the input records, emit a record per column with various metrics to the output channel",
       "properties": {
         "analyze_config": {
           "$ref": "#/$defs/AnalyzeSpec",
@@ -16198,7 +16198,7 @@
     },
     "TransformationSpecClustering": {
       "additionalProperties": false,
-      "description": "Compute the correlation beween sets of columns identified by classification via a lookup table.",
+      "description": "Compute the correlation between sets of columns identified by classification via a lookup table.",
       "properties": {
         "clustering_config": {
           "$ref": "#/$defs/ClusteringSpec",
@@ -16867,7 +16867,7 @@
     },
     "TransformationSpecJetrules": {
       "additionalProperties": false,
-      "description": "Input channel contains either individual or bundled input records. Each record or bundle are sent to JetRules as a rule session. Output records are extracted by type from the rule session, each type correcpond to an output channel.",
+      "description": "Input channel contains either individual or bundled input records. Each record or bundle are sent to JetRules as a rule session. Output records are extracted by type from the rule session, each type correspond to an output channel.",
       "properties": {
         "columns": {
           "anyOf": [
