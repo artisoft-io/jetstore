@@ -79,15 +79,24 @@ func (jsComp *JetStoreStackComponents) BuildInferService(scope constructs.Constr
 			//
 			// Measured on g5.xlarge (A10G, 24 GiB VRAM / 16 GiB RAM) with granite4.1:3b, the
 			// cache costs ~0.31 MiB per token on top of a ~2.3 GiB base:
-			//   16k -> 7.3 GiB   32k -> 12.3 GiB   64k -> 22.6 GiB (spills to host RAM)
+			//   16k -> 7.26 GiB   32k -> 12.32 GiB   64k -> 22.61 GiB (spills to host RAM)
 			//   128k -> tries to put 22 GiB of overflow in 16 GiB of RAM and the load fails
 			// The previous 256000 was silently clamped to the model's 131072 maximum and hit
 			// exactly that last case, so every model load died before serving a token.
 			//
 			// 32768 keeps the model fully GPU-resident and still holds several concurrent
-			// requests (the production cintel summarization prompt is ~4.4k tokens). Raising
-			// it past ~48k pushes the cache back off the GPU, as does raising
-			// OLLAMA_MAX_LOADED_MODELS above 1.
+			// requests (the production cintel summarization prompt is ~4.4k tokens).
+			//
+			// Re-measured 2026-08-20 with tools/infer_capacity, which reads size_vram from
+			// /api/ps rather than inferring the spill from throughput. The ceiling is
+			// between 57344 and 61440 — this comment previously said "past ~48k", which was
+			// an estimate and conservative by about 9k. 32768 stays the default anyway: the
+			// headroom is not free, since raising OLLAMA_MAX_LOADED_MODELS above 1 spends
+			// the same VRAM, and the two must be chosen together.
+			//
+			// The spill is graded, not a cliff: 0.59 GiB spilled costs 32% of throughput and
+			// 2.26 GiB costs 62%, with nothing logged either time. Re-run the tool after any
+			// instance change rather than trusting these numbers.
 			"OLLAMA_CONTEXT_LENGTH": jsii.String(jsComp.InferEnvOrDefault("OLLAMA_CONTEXT_LENGTH", "32768")),
 		},
 		// Secrets: &map[string]awsecs.Secret{
