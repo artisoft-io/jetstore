@@ -293,3 +293,156 @@ def check_against_matrix(parts: list[Part], types_csv: Path) -> list[str]:
         for name in sorted(recorded)
         if recorded[name] != found.get(name, 0)
     ]
+
+
+# ---------------------------------------------------------------------------
+# F.2 - curation
+# ---------------------------------------------------------------------------
+
+# `ComputePipesConfig` holds three fields that can carry pipes, and which one is
+# populated depends on the lifecycle stage rather than on the author's choice (I-14).
+# `pipes_config` is written by JetStore and never by an author, so a part carrying it
+# validates and cannot be authored; `reducing_pipes_config` is the author's but
+# deprecated (MATRIX_SCHEMA.md:175). Neither may reach the library.
+ROOT_TYPE = "ComputePipesConfig"
+RUNTIME_ONLY = "pipes_config"
+DEPRECATED = "reducing_pipes_config"
+
+# `pipes_config` is only runtime-only **on the root type**. `ConditionalPipeSpec` has a
+# field of the same name holding the authored steps of one stage, and 88 parts carry it
+# legitimately. Scoping this to the root is the difference between a guard and a bug.
+#
+# In fact the guard cannot fire today: B.13 removed `pipes_config` from
+# `ComputePipesConfig`'s properties when I-14 was raised, so the schema-guided walk has
+# no path to it and the library could not contain one if the corpus did. It is kept as
+# a backstop that fails loudly if that upstream decision is ever reversed, which is
+# cheaper than rediscovering I-14 from a model that has learnt to emit the runtime
+# shape.
+
+
+def _contains_key(value: object, key: str) -> bool:
+    if isinstance(value, dict):
+        return key in value or any(_contains_key(v, key) for v in value.values())
+    if isinstance(value, list):
+        return any(_contains_key(v, key) for v in value)
+    return False
+
+
+def shape(value: object) -> str:
+    """The structure of a value with its data removed.
+
+    Two parts share a shape when they differ only in what they say, not in what they
+    are: `{"type":"select","expr":"a"}` and `{"type":"select","expr":"b"}` are one
+    shape. Shape is what composition needs to cover - a model assembling a config needs
+    to have seen every *form* a part takes, and the fortieth `select` over a different
+    column name teaches it nothing the first did not. Discriminator values are kept in
+    the shape because they change what a part *is*.
+    """
+    if isinstance(value, dict):
+        inner = ",".join(
+            f"{k}:{value[k]!r}" if k in ("type", "mode") and isinstance(value[k], str)
+            else f"{k}:{shape(value[k])}"
+            for k in sorted(value)
+        )
+        return "{" + inner + "}"
+    if isinstance(value, list):
+        return "[" + "|".join(sorted({shape(v) for v in value})) + "]"
+    return type(value).__name__
+
+
+def curate(parts: list[Part], thin_at: int = 4, per_shape: int = 2) -> tuple[list[Part], dict]:
+    """Decision 14's rule: curated, not proportional.
+
+    Three things happen, in order, and only the third is a judgement.
+
+    **Excluded outright**: any part containing a deprecated field at any depth, and any
+    root-type part carrying the runtime-only shape. Criterion 24 admits no exceptions.
+
+    **Kept whole**: every part of a type with `thin_at` or fewer distinct parts. This is
+    the rule the criterion names, and it is the reason the library is not proportional -
+    the nine thin operators are where the differentiator lives and where the corpus has
+    least to say, so they contribute everything they have.
+
+    **Capped by shape** for everything else: keep up to `per_shape` exemplars of each
+    distinct shape, most-cited first, preferring one attested in production. A
+    proportional library would reproduce the corpus's 83% skew and discard the only
+    property that made the approach worth taking; capping by *shape* rather than by
+    count keeps coverage of form while dropping repetition of content.
+    """
+    kept: list[Part] = []
+    stats = {
+        "input": len(parts),
+        "excluded_deprecated": 0,
+        "excluded_runtime_shape": 0,
+        "kept_thin": 0,
+        "kept_capped": 0,
+        "dropped_repetition": 0,
+    }
+
+    surviving: list[Part] = []
+    for part in parts:
+        if _contains_key(part.value, DEPRECATED):
+            stats["excluded_deprecated"] += 1
+        elif part.defs_name == ROOT_TYPE and RUNTIME_ONLY in part.value:
+            stats["excluded_runtime_shape"] += 1
+        else:
+            surviving.append(part)
+
+    by_name: dict[str, list[Part]] = defaultdict(list)
+    for part in surviving:
+        by_name[part.defs_name].append(part)
+
+    for name, group in sorted(by_name.items()):
+        # Thin by **corpus instances**, which is what criterion 24 says and is not the
+        # same as thin by distinct parts: a type can have three instances that are
+        # three different parts, or ten that are two. The criterion is about how little
+        # the corpus has to teach, so citations are the measure.
+        if sum(p.instances for p in group) <= thin_at:
+            kept.extend(group)
+            stats["kept_thin"] += len(group)
+            continue
+        seen: dict[str, int] = defaultdict(int)
+        for part in sorted(group, key=lambda p: (-p.prod_instances, -p.instances)):
+            key = shape(part.value)
+            if seen[key] < per_shape:
+                seen[key] += 1
+                kept.append(part)
+                stats["kept_capped"] += 1
+            else:
+                stats["dropped_repetition"] += 1
+
+    kept.sort(key=lambda p: (p.defs_name, -p.instances))
+    stats["output"] = len(kept)
+    return kept, stats
+
+
+def criterion_24(before: list[Part], after: list[Part], types_csv: Path) -> list[str]:
+    """Every type with four or fewer corpus instances kept every part it had.
+
+    The criterion in one function, checked rather than argued. It is the half of
+    decision 14 that a plausible-looking curation quietly breaks: trimming by count
+    looks reasonable everywhere and is wrong exactly where the corpus is thinnest,
+    which is where the differentiator lives.
+    """
+    import csv
+    from collections import Counter
+
+    recorded: Counter[str] = Counter()
+    with open(types_csv, newline="") as fh:
+        for row in csv.DictReader(fh):
+            if row["corpus_instances"] not in ("-", ""):
+                recorded[row["defs_name"]] += int(row["corpus_instances"])
+
+    kept: Counter[str] = Counter()
+    had: Counter[str] = Counter()
+    for part in after:
+        kept[part.defs_name] += 1
+    for part in before:
+        had[part.defs_name] += 1
+
+    return [
+        f"{name} has {recorded[name]} corpus instances but the curation kept "
+        f"{kept[name]} of {had[name]} parts"
+        for name in sorted(recorded)
+        if recorded[name] <= 4 and kept[name] != had[name]
+    ]
