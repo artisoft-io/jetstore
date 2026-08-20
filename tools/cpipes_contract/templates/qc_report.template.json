@@ -1,0 +1,927 @@
+{
+  "name": "qc_report",
+  "description": "The qc_* quality-report skeleton: source rows in, one report row per metric out.",
+  "holes": [
+    {
+      "name": "data_channel",
+      "schema_ref": "ChannelSpec",
+      "prompt": "The channel carrying the source rows, and the columns it carries."
+    },
+    {
+      "name": "metrics_channel",
+      "schema_ref": "ChannelSpec",
+      "prompt": "The channel carrying the per-shard metric counts."
+    },
+    {
+      "name": "data_column_specs",
+      "schema_ref": "ColumnMapping",
+      "repeat_over": "input_columns",
+      "prompt": "How each source column is read onto the data channel."
+    },
+    {
+      "name": "stage1_map_pipe",
+      "schema_ref": "PipeSpec",
+      "repeat_over": "stage1_map_pipes",
+      "prompt": "An optional pipe that remaps source columns before aggregation. Usually absent."
+    },
+    {
+      "name": "distinct_metrics",
+      "schema_ref": "ColumnAggregation",
+      "repeat_over": "distinct_metrics",
+      "prompt": "A distinct-count metric: how many distinct values of a composite key appear."
+    },
+    {
+      "name": "sum_metrics",
+      "schema_ref": "ColumnAggregation",
+      "repeat_over": "sum_metrics",
+      "prompt": "A metric summing a column across the shard."
+    },
+    {
+      "name": "count_metrics",
+      "schema_ref": "ColumnAggregation",
+      "repeat_over": "metrics",
+      "prompt": "A quality metric counting the rows that match a condition."
+    },
+    {
+      "name": "map_reduce_metrics",
+      "schema_ref": "ColumnAggregation",
+      "repeat_over": "map_reduce_metrics",
+      "prompt": "A metric aggregated per group and then combined across groups."
+    },
+    {
+      "name": "metric_maps",
+      "schema_ref": "ColumnMapping",
+      "repeat_over": "all_metrics",
+      "prompt": "Read one per-shard metric count as a long."
+    },
+    {
+      "name": "metric_sums",
+      "schema_ref": "ColumnAggregation",
+      "repeat_over": "all_metrics",
+      "prompt": "Sum one metric's per-shard counts across shards."
+    },
+    {
+      "name": "metric_emitters",
+      "schema_ref": "MapRecordPipe",
+      "repeat_over": "emitters",
+      "prompt": "Emit one report row per metric: its display name, its id, and its numerator."
+    }
+  ],
+  "body": {
+    "cluster_config": {
+      "$item": "cluster_config"
+    },
+    "context": [
+      {
+        "type": "file_key_component",
+        "key": "$PROCESSING_TICKET",
+        "expr": "processing_ticket"
+      },
+      {
+        "type": "value",
+        "key": "$REPORT",
+        "expr": {
+          "$item": "report"
+        }
+      },
+      {
+        "type": "value",
+        "key": "$CGT_FILE_TYPE",
+        "expr": {
+          "$item": "file_type"
+        }
+      },
+      {
+        "type": "value",
+        "key": "$CGT_NOTIFICATION_TYPE",
+        "expr": "Test Harness"
+      },
+      {
+        "type": "partfile_key_component",
+        "key": "layout_name",
+        "expr": "layout"
+      }
+    ],
+    "output_files": [
+      {
+        "key": "report_output",
+        "name": "$REPORT_$SESSIONID_report.csv",
+        "headers": [
+          "test_id",
+          "test_name",
+          "numerator_value",
+          "denominator_value",
+          "ratio",
+          "test_result",
+          "layout_name",
+          "rawfilename",
+          "processing_ticket",
+          "session_id"
+        ]
+      }
+    ],
+    "lookup_tables": [
+      {
+        "key": "thresholds",
+        "type": "sql_lookup",
+        "query": "WITH qc1 AS (SELECT field_id, upper_failure, upper_warning, lower_failure, lower_warning FROM PUBLIC.qc_client_thresholds WHERE client = SUBSTRING('$PROCESSING_TICKET', 1, 7) AND layout_name = '$JETS_PARTITION_LABEL' AND report = '$REPORT'), qc2 AS (SELECT field_id, upper_failure, upper_warning, lower_failure, lower_warning FROM PUBLIC.qc_client_thresholds WHERE client = SUBSTRING('$PROCESSING_TICKET', 1, 7) AND layout_name = '' AND report = '$REPORT' AND field_id NOT IN (SELECT field_id FROM qc1)) SELECT * FROM qc1 UNION SELECT * FROM qc2 UNION (SELECT field_id, upper_failure, upper_warning, lower_failure, lower_warning FROM PUBLIC.qc_thresholds WHERE report = '$REPORT' AND field_id NOT IN (SELECT field_id FROM qc1 UNION SELECT field_id FROM qc2))",
+        "columns": [
+          {
+            "name": "field_id",
+            "rdf_type": "text"
+          },
+          {
+            "name": "upper_failure",
+            "rdf_type": "double"
+          },
+          {
+            "name": "upper_warning",
+            "rdf_type": "double"
+          },
+          {
+            "name": "lower_failure",
+            "rdf_type": "double"
+          },
+          {
+            "name": "lower_warning",
+            "rdf_type": "double"
+          }
+        ],
+        "lookup_key": [
+          "field_id"
+        ],
+        "lookup_values": [
+          "upper_failure",
+          "upper_warning",
+          "lower_failure",
+          "lower_warning"
+        ]
+      }
+    ],
+    "channels": [
+      {
+        "$hole": "data_channel",
+        "$body": {
+          "name": {
+            "$item": "data_channel"
+          },
+          "columns": {
+            "$item": "data_columns"
+          }
+        }
+      },
+      {
+        "$hole": "metrics_channel",
+        "$body": {
+          "name": {
+            "$item": "metrics_channel"
+          },
+          "columns": {
+            "$item": "metric_columns"
+          }
+        }
+      },
+      {
+        "name": "qc_metrics",
+        "columns": [
+          "dw_rawfilename",
+          "layout_name",
+          "field",
+          "field_id",
+          "numerator",
+          "denominator",
+          "ratio",
+          "upper_failure",
+          "upper_warning",
+          "lower_failure",
+          "lower_warning"
+        ]
+      },
+      {
+        "name": "report_output",
+        "columns": [
+          "field_id",
+          "field",
+          "numerator",
+          "denominator",
+          "ratio",
+          "status",
+          "layout_name",
+          "dw_rawfilename",
+          "processing_ticket",
+          "session_id"
+        ]
+      }
+    ],
+    "reducing_pipes_config": [
+      [
+        {
+          "type": "fan_out",
+          "input_channel": {
+            "$item": "input_channel"
+          },
+          "apply": [
+            {
+              "type": "map_record",
+              "new_record": true,
+              "columns": [
+                {
+                  "name": "dw_rawfilename",
+                  "type": "map",
+                  "expr": "dw_rawfilename",
+                  "map_expr": {
+                    "default": "dw_rawfilename",
+                    "rdf_type": "text"
+                  }
+                },
+                {
+                  "name": "layout_name",
+                  "type": "select",
+                  "expr": "layout_name"
+                },
+                {
+                  "name": "jets_partition",
+                  "type": "hash",
+                  "hash_expr": {
+                    "$item": "partition_key"
+                  }
+                },
+                {
+                  "$hole": "data_column_specs",
+                  "$body": {
+                    "$item": "spec"
+                  }
+                }
+              ],
+              "output_channel": {
+                "name": {
+                  "$item": "data_writer"
+                },
+                "channel_spec_name": {
+                  "$item": "data_channel"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "type": "splitter",
+          "input_channel": {
+            "name": {
+              "$item": "data_writer"
+            }
+          },
+          "splitter_config": {
+            "column": "jets_partition"
+          },
+          "apply": [
+            {
+              "type": "partition_writer",
+              "partition_writer_config": {
+                "partition_size": 200000,
+                "device_writer_type": "csv_writer"
+              },
+              "output_channel": {
+                "type": "stage",
+                "name": {
+                  "$item": "data_out"
+                },
+                "write_step_id": "reducing01",
+                "channel_spec_name": {
+                  "$item": "data_channel"
+                }
+              }
+            }
+          ]
+        }
+      ],
+      [
+        {
+          "$hole": "stage1_map_pipe",
+          "$body": {
+            "$item": "pipe"
+          }
+        },
+        {
+          "type": "splitter",
+          "input_channel": {
+            "$item": "stage1_agg_input"
+          },
+          "splitter_config": {
+            "column": "dw_rawfilename"
+          },
+          "apply": [
+            {
+              "type": "aggregate",
+              "new_record": true,
+              "columns": [
+                {
+                  "name": "dw_rawfilename",
+                  "type": "select",
+                  "expr": "dw_rawfilename"
+                },
+                {
+                  "name": "layout_name",
+                  "type": "select",
+                  "expr": "layout_name"
+                },
+                {
+                  "name": "n",
+                  "type": "count",
+                  "expr": "*"
+                },
+                {
+                  "$hole": "distinct_metrics",
+                  "$body": {
+                    "name": {
+                      "$item": "name"
+                    },
+                    "type": "distinct_count",
+                    "expr": {
+                      "$item": "expr"
+                    }
+                  }
+                },
+                {
+                  "$hole": "sum_metrics",
+                  "$body": {
+                    "name": {
+                      "$item": "name"
+                    },
+                    "type": "sum",
+                    "expr": {
+                      "$item": "expr"
+                    }
+                  }
+                },
+                {
+                  "$hole": "count_metrics",
+                  "$body": {
+                    "name": {
+                      "$item": "name"
+                    },
+                    "type": "count",
+                    "expr": "*",
+                    "where": {
+                      "$item": "where"
+                    }
+                  }
+                },
+                {
+                  "$hole": "map_reduce_metrics",
+                  "$body": {
+                    "$item": "spec"
+                  }
+                }
+              ],
+              "output_channel": {
+                "name": {
+                  "$item": "metrics_mapped"
+                },
+                "channel_spec_name": {
+                  "$item": "metrics_channel"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "type": "fan_out",
+          "input_channel": {
+            "name": {
+              "$item": "metrics_mapped"
+            }
+          },
+          "apply": [
+            {
+              "type": "map_record",
+              "columns": [
+                {
+                  "name": "jets_partition",
+                  "type": "hash",
+                  "hash_expr": {
+                    "expr": "dw_rawfilename"
+                  }
+                }
+              ],
+              "output_channel": {
+                "name": {
+                  "$item": "metrics_writer"
+                },
+                "channel_spec_name": {
+                  "$item": "metrics_channel"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "type": "splitter",
+          "input_channel": {
+            "name": {
+              "$item": "metrics_writer"
+            }
+          },
+          "splitter_config": {
+            "column": "jets_partition"
+          },
+          "apply": [
+            {
+              "type": "partition_writer",
+              "partition_writer_config": {
+                "partition_size": 200000,
+                "device_writer_type": "csv_writer"
+              },
+              "output_channel": {
+                "type": "stage",
+                "name": {
+                  "$item": "metrics_out"
+                },
+                "write_step_id": "reducing02",
+                "channel_spec_name": {
+                  "$item": "metrics_channel"
+                }
+              }
+            }
+          ]
+        }
+      ],
+      [
+        {
+          "type": "fan_out",
+          "input_channel": {
+            "type": "stage",
+            "name": {
+              "$item": "metrics_channel"
+            },
+            "read_step_id": "reducing02"
+          },
+          "apply": [
+            {
+              "type": "map_record",
+              "columns": [
+                {
+                  "name": "n",
+                  "type": "map",
+                  "expr": "n",
+                  "map_expr": {
+                    "rdf_type": "long"
+                  }
+                },
+                {
+                  "$hole": "metric_maps",
+                  "$body": {
+                    "name": {
+                      "$item": "name"
+                    },
+                    "type": "map",
+                    "expr": {
+                      "$item": "name"
+                    },
+                    "map_expr": {
+                      "rdf_type": "long"
+                    }
+                  }
+                }
+              ],
+              "output_channel": {
+                "name": {
+                  "$item": "metrics_mapped"
+                },
+                "channel_spec_name": {
+                  "$item": "metrics_channel"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "type": "splitter",
+          "input_channel": {
+            "name": {
+              "$item": "metrics_mapped"
+            }
+          },
+          "splitter_config": {
+            "column": "dw_rawfilename"
+          },
+          "apply": [
+            {
+              "type": "aggregate",
+              "new_record": true,
+              "columns": [
+                {
+                  "name": "dw_rawfilename",
+                  "type": "select",
+                  "expr": "dw_rawfilename"
+                },
+                {
+                  "name": "layout_name",
+                  "type": "select",
+                  "expr": "layout_name"
+                },
+                {
+                  "name": "n",
+                  "type": "sum",
+                  "expr": "n"
+                },
+                {
+                  "$hole": "metric_sums",
+                  "$body": {
+                    "name": {
+                      "$item": "name"
+                    },
+                    "type": "sum",
+                    "expr": {
+                      "$item": "name"
+                    }
+                  }
+                }
+              ],
+              "output_channel": {
+                "name": {
+                  "$item": "metrics_aggregated"
+                },
+                "channel_spec_name": {
+                  "$item": "metrics_channel"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "type": "fan_out",
+          "input_channel": {
+            "name": {
+              "$item": "metrics_aggregated"
+            }
+          },
+          "apply": [
+            {
+              "$hole": "metric_emitters",
+              "$body": {
+                "type": "map_record",
+                "new_record": true,
+                "columns": [
+                  {
+                    "name": "dw_rawfilename",
+                    "type": "select",
+                    "expr": "dw_rawfilename"
+                  },
+                  {
+                    "name": "layout_name",
+                    "type": "select",
+                    "expr": "layout_name"
+                  },
+                  {
+                    "name": "field",
+                    "type": "value",
+                    "expr": {
+                      "$item": "field"
+                    }
+                  },
+                  {
+                    "name": "field_id",
+                    "type": "value",
+                    "expr": {
+                      "$item": "field_id"
+                    }
+                  },
+                  {
+                    "$item": "numerator"
+                  },
+                  {
+                    "$item": "denominator"
+                  }
+                ],
+                "output_channel": {
+                  "name": "qc_metrics.writer",
+                  "channel_spec_name": "qc_metrics"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "type": "splitter",
+          "input_channel": {
+            "name": "qc_metrics.writer"
+          },
+          "splitter_config": {
+            "column": "layout_name",
+            "default_splitter_value": "unspecified_layout"
+          },
+          "apply": [
+            {
+              "type": "partition_writer",
+              "partition_writer_config": {
+                "partition_size": 200000,
+                "device_writer_type": "csv_writer"
+              },
+              "output_channel": {
+                "type": "stage",
+                "name": "qc_metrics.out",
+                "write_step_id": "reducing03",
+                "channel_spec_name": "qc_metrics"
+              }
+            }
+          ]
+        }
+      ],
+      [
+        {
+          "type": "fan_out",
+          "input_channel": {
+            "type": "stage",
+            "name": "qc_metrics",
+            "read_step_id": "reducing03"
+          },
+          "apply": [
+            {
+              "type": "map_record",
+              "columns": [
+                {
+                  "type": "case",
+                  "case_expr": [
+                    {
+                      "when": {
+                        "lhs": {
+                          "type": "select",
+                          "expr": "denominator",
+                          "as_rdf_type": "double"
+                        },
+                        "op": "<",
+                        "rhs": {
+                          "type": "value",
+                          "expr": "0.01"
+                        }
+                      },
+                      "then": [
+                        {
+                          "name": "ratio",
+                          "type": "value",
+                          "expr": "0.0"
+                        }
+                      ]
+                    }
+                  ],
+                  "else_expr": [
+                    {
+                      "name": "ratio",
+                      "type": "eval",
+                      "eval_expr": {
+                        "lhs": {
+                          "type": "select",
+                          "expr": "numerator",
+                          "as_rdf_type": "double"
+                        },
+                        "op": "/",
+                        "rhs": {
+                          "type": "select",
+                          "expr": "denominator",
+                          "as_rdf_type": "double"
+                        }
+                      }
+                    }
+                  ]
+                },
+                {
+                  "type": "lookup",
+                  "lookup_name": "thresholds",
+                  "key": [
+                    {
+                      "type": "select",
+                      "expr": "field_id"
+                    }
+                  ],
+                  "values": [
+                    {
+                      "name": "upper_failure",
+                      "type": "select",
+                      "expr": "upper_failure"
+                    },
+                    {
+                      "name": "upper_warning",
+                      "type": "select",
+                      "expr": "upper_warning"
+                    },
+                    {
+                      "name": "lower_failure",
+                      "type": "select",
+                      "expr": "lower_failure"
+                    },
+                    {
+                      "name": "lower_warning",
+                      "type": "select",
+                      "expr": "lower_warning"
+                    }
+                  ]
+                }
+              ],
+              "output_channel": {
+                "name": "qc_metrics.mapped",
+                "channel_spec_name": "qc_metrics"
+              }
+            }
+          ]
+        },
+        {
+          "type": "fan_out",
+          "input_channel": {
+            "name": "qc_metrics.mapped"
+          },
+          "apply": [
+            {
+              "type": "partition_writer",
+              "partition_writer_config": {
+                "jets_partition_key": "0p",
+                "device_writer_type": "csv_writer"
+              },
+              "new_record": true,
+              "columns": [
+                {
+                  "name": "dw_rawfilename",
+                  "type": "select",
+                  "expr": "dw_rawfilename"
+                },
+                {
+                  "name": "layout_name",
+                  "type": "select",
+                  "expr": "layout_name"
+                },
+                {
+                  "name": "field",
+                  "type": "select",
+                  "expr": "field"
+                },
+                {
+                  "name": "field_id",
+                  "type": "select",
+                  "expr": "field_id"
+                },
+                {
+                  "name": "numerator",
+                  "type": "select",
+                  "expr": "numerator"
+                },
+                {
+                  "name": "denominator",
+                  "type": "select",
+                  "expr": "denominator"
+                },
+                {
+                  "name": "ratio",
+                  "type": "eval",
+                  "eval_expr": {
+                    "lhs": {
+                      "type": "select",
+                      "expr": "ratio"
+                    },
+                    "op": "apply_format",
+                    "rhs": {
+                      "type": "value",
+                      "expr": "'%.2f'"
+                    }
+                  }
+                },
+                {
+                  "name": "session_id",
+                  "type": "value",
+                  "expr": "$SESSIONID"
+                },
+                {
+                  "name": "processing_ticket",
+                  "type": "value",
+                  "expr": "$PROCESSING_TICKET"
+                },
+                {
+                  "type": "case",
+                  "case_expr": [
+                    {
+                      "when": {
+                        "lhs": {
+                          "type": "select",
+                          "expr": "ratio"
+                        },
+                        "op": ">=",
+                        "rhs": {
+                          "type": "select",
+                          "expr": "upper_failure"
+                        }
+                      },
+                      "then": [
+                        {
+                          "name": "status",
+                          "type": "value",
+                          "expr": "'failed'"
+                        }
+                      ]
+                    },
+                    {
+                      "when": {
+                        "lhs": {
+                          "type": "select",
+                          "expr": "ratio"
+                        },
+                        "op": "<=",
+                        "rhs": {
+                          "type": "select",
+                          "expr": "lower_failure"
+                        }
+                      },
+                      "then": [
+                        {
+                          "name": "status",
+                          "type": "value",
+                          "expr": "'failed'"
+                        }
+                      ]
+                    },
+                    {
+                      "when": {
+                        "lhs": {
+                          "lhs": {
+                            "type": "select",
+                            "expr": "ratio"
+                          },
+                          "op": ">=",
+                          "rhs": {
+                            "type": "select",
+                            "expr": "upper_warning"
+                          }
+                        },
+                        "op": "and",
+                        "rhs": {
+                          "lhs": {
+                            "type": "select",
+                            "expr": "upper_warning"
+                          },
+                          "op": ">",
+                          "rhs": {
+                            "type": "value",
+                            "expr": "0.0"
+                          }
+                        }
+                      },
+                      "then": [
+                        {
+                          "name": "status",
+                          "type": "value",
+                          "expr": "'warning'"
+                        }
+                      ]
+                    },
+                    {
+                      "when": {
+                        "lhs": {
+                          "type": "select",
+                          "expr": "ratio"
+                        },
+                        "op": "<=",
+                        "rhs": {
+                          "type": "select",
+                          "expr": "lower_warning"
+                        }
+                      },
+                      "then": [
+                        {
+                          "name": "status",
+                          "type": "value",
+                          "expr": "'warning'"
+                        }
+                      ]
+                    }
+                  ],
+                  "else_expr": [
+                    {
+                      "name": "status",
+                      "type": "value",
+                      "expr": "'pass'"
+                    }
+                  ]
+                }
+              ],
+              "output_channel": {
+                "type": "stage",
+                "name": "report_output.out",
+                "write_step_id": "reducing04",
+                "channel_spec_name": "report_output"
+              }
+            }
+          ]
+        }
+      ],
+      [
+        {
+          "type": "merge_files",
+          "input_channel": {
+            "type": "stage",
+            "name": "input_row",
+            "read_step_id": "reducing04"
+          },
+          "output_file": "report_output"
+        }
+      ]
+    ]
+  }
+}

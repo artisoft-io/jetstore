@@ -1,0 +1,466 @@
+{
+  "$item": {
+    "data_channel": "participation_data",
+    "data_columns": [
+      "jets_partition",
+      "dw_rawfilename",
+      "layout_name",
+      "mbr_first_name",
+      "mbr_last_name",
+      "mbr_dob",
+      "program_start_date",
+      "program_end_date",
+      "mbr_days_in_program"
+    ],
+    "metrics_channel": "participation_metrics",
+    "metric_columns": [
+      "jets_partition",
+      "dw_rawfilename",
+      "layout_name",
+      "n",
+      "distinct_name_dob",
+      "null_mbr_first_name",
+      "null_mbr_last_name",
+      "null_mbr_dob",
+      "null_program_start_date",
+      "invalid_program_end_date_count",
+      "equal_program_start_end_date",
+      "null_program_days",
+      "program_days_mismatch"
+    ],
+    "report": "qc_participation",
+    "file_type": "Participation",
+    "cluster_config": {
+      "default_max_concurrency": 40,
+      "s3_worker_pool_size": 40,
+      "default_shard_size_mb": 20,
+      "default_shard_max_size_mb": 28
+    },
+    "input_channel": {
+      "type": "input",
+      "name": "input_row"
+    },
+    "partition_key": {
+      "composite_expr": [
+        "mbr_first_name",
+        "mbr_last_name",
+        "format_date(mbr_dob)"
+      ]
+    },
+    "data_writer": "participation_data.writer",
+    "data_out": "participation_data.out",
+    "stage1_agg_input": {
+      "type": "stage",
+      "name": "participation_data",
+      "read_step_id": "reducing01"
+    },
+    "metrics_mapped": "participation_metrics.mapped",
+    "metrics_writer": "participation_metrics.writer",
+    "metrics_out": "participation_metrics.out",
+    "metrics_aggregated": "participation_metrics.aggregated"
+  },
+  "input_columns": [
+    {
+      "spec": {
+        "name": "mbr_first_name",
+        "type": "select",
+        "expr": "mbr_first_name"
+      }
+    },
+    {
+      "spec": {
+        "name": "mbr_last_name",
+        "type": "select",
+        "expr": "mbr_last_name"
+      }
+    },
+    {
+      "spec": {
+        "name": "mbr_dob",
+        "type": "select",
+        "expr": "mbr_dob"
+      }
+    },
+    {
+      "spec": {
+        "name": "program_start_date",
+        "type": "map",
+        "expr": "program_start_date",
+        "map_expr": {
+          "rdf_type": "date"
+        }
+      }
+    },
+    {
+      "spec": {
+        "name": "program_end_date",
+        "type": "map",
+        "expr": "program_end_date",
+        "map_expr": {
+          "rdf_type": "date"
+        }
+      }
+    },
+    {
+      "spec": {
+        "name": "mbr_days_in_program",
+        "type": "select",
+        "expr": "mbr_days_in_program"
+      }
+    }
+  ],
+  "stage1_map_pipes": [],
+  "distinct_metrics": [
+    {
+      "name": "distinct_name_dob",
+      "expr": "jets_partition"
+    }
+  ],
+  "sum_metrics": [],
+  "map_reduce_metrics": [],
+  "emitters": [
+    {
+      "field": "'Null First name'",
+      "field_id": "'S1-PP01'",
+      "numerator": {
+        "name": "numerator",
+        "type": "select",
+        "expr": "null_mbr_first_name"
+      },
+      "denominator": {
+        "name": "denominator",
+        "type": "select",
+        "expr": "n"
+      }
+    },
+    {
+      "field": "'Null Last name'",
+      "field_id": "'S1-PP02'",
+      "numerator": {
+        "name": "numerator",
+        "type": "select",
+        "expr": "null_mbr_last_name"
+      },
+      "denominator": {
+        "name": "denominator",
+        "type": "select",
+        "expr": "n"
+      }
+    },
+    {
+      "field": "'Null DOB'",
+      "field_id": "'S1-PP03'",
+      "numerator": {
+        "name": "numerator",
+        "type": "select",
+        "expr": "null_mbr_dob"
+      },
+      "denominator": {
+        "name": "denominator",
+        "type": "select",
+        "expr": "n"
+      }
+    },
+    {
+      "field": "'Null Program Start Date'",
+      "field_id": "'S1-PP04'",
+      "numerator": {
+        "name": "numerator",
+        "type": "select",
+        "expr": "null_program_start_date"
+      },
+      "denominator": {
+        "name": "denominator",
+        "type": "select",
+        "expr": "n"
+      }
+    },
+    {
+      "field": "'Null Program End Date'",
+      "field_id": "'S1-PP05'",
+      "numerator": {
+        "name": "numerator",
+        "type": "select",
+        "expr": "invalid_program_end_date_count"
+      },
+      "denominator": {
+        "name": "denominator",
+        "type": "select",
+        "expr": "n"
+      }
+    },
+    {
+      "field": "'Equal Program Start-End Date'",
+      "field_id": "'S1-PP06'",
+      "numerator": {
+        "name": "numerator",
+        "type": "select",
+        "expr": "equal_program_start_end_date"
+      },
+      "denominator": {
+        "name": "denominator",
+        "type": "select",
+        "expr": "n"
+      }
+    },
+    {
+      "field": "'Null Mbr Days'",
+      "field_id": "'S1-PP07'",
+      "numerator": {
+        "name": "numerator",
+        "type": "select",
+        "expr": "null_program_days"
+      },
+      "denominator": {
+        "name": "denominator",
+        "type": "select",
+        "expr": "n"
+      }
+    },
+    {
+      "field": "'Mbr_days vs program dates mismatch'",
+      "field_id": "'S1-PP08'",
+      "numerator": {
+        "name": "numerator",
+        "type": "select",
+        "expr": "program_days_mismatch"
+      },
+      "denominator": {
+        "name": "denominator",
+        "type": "value",
+        "expr": "1"
+      }
+    }
+  ],
+  "metrics": [
+    {
+      "name": "null_mbr_first_name",
+      "where": {
+        "lhs": {
+          "type": "select",
+          "expr": "mbr_first_name"
+        },
+        "op": "IS",
+        "rhs": {
+          "type": "value",
+          "expr": "NULL"
+        }
+      }
+    },
+    {
+      "name": "null_mbr_last_name",
+      "where": {
+        "lhs": {
+          "type": "select",
+          "expr": "mbr_last_name"
+        },
+        "op": "IS",
+        "rhs": {
+          "type": "value",
+          "expr": "NULL"
+        }
+      }
+    },
+    {
+      "name": "null_mbr_dob",
+      "where": {
+        "lhs": {
+          "type": "select",
+          "expr": "mbr_dob"
+        },
+        "op": "IS",
+        "rhs": {
+          "type": "value",
+          "expr": "NULL"
+        }
+      }
+    },
+    {
+      "name": "null_program_start_date",
+      "where": {
+        "lhs": {
+          "type": "select",
+          "expr": "program_start_date"
+        },
+        "op": "IS",
+        "rhs": {
+          "type": "value",
+          "expr": "NULL"
+        }
+      }
+    },
+    {
+      "name": "invalid_program_end_date_count",
+      "where": {
+        "lhs": {
+          "lhs": {
+            "type": "select",
+            "expr": "program_end_date"
+          },
+          "op": "IS",
+          "rhs": {
+            "type": "value",
+            "expr": "NULL"
+          }
+        },
+        "op": "OR",
+        "rhs": {
+          "lhs": {
+            "lhs": {
+              "type": "select",
+              "expr": "program_end_date"
+            },
+            "op": "==",
+            "rhs": {
+              "type": "value",
+              "expr": "''"
+            }
+          },
+          "op": "OR",
+          "rhs": {
+            "lhs": {
+              "type": "select",
+              "expr": "program_end_date",
+              "as_rdf_type": "date"
+            },
+            "op": "==",
+            "rhs": {
+              "type": "value",
+              "expr": "'2099-12-31'",
+              "as_rdf_type": "date"
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "equal_program_start_end_date",
+      "where": {
+        "op": "AND",
+        "lhs": {
+          "op": "==",
+          "lhs": {
+            "type": "select",
+            "expr": "program_start_date"
+          },
+          "rhs": {
+            "type": "select",
+            "expr": "program_end_date"
+          }
+        },
+        "rhs": {
+          "op": "AND",
+          "lhs": {
+            "op": "NOT",
+            "arg": {
+              "op": "IS",
+              "lhs": {
+                "type": "select",
+                "expr": "program_start_date"
+              },
+              "rhs": {
+                "type": "value",
+                "expr": "NULL"
+              }
+            }
+          },
+          "rhs": {
+            "op": "NOT",
+            "arg": {
+              "op": "IS",
+              "lhs": {
+                "type": "select",
+                "expr": "program_end_date"
+              },
+              "rhs": {
+                "type": "value",
+                "expr": "NULL"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "null_program_days",
+      "where": {
+        "lhs": {
+          "lhs": {
+            "type": "select",
+            "expr": "mbr_days_in_program"
+          },
+          "op": "IS",
+          "rhs": {
+            "type": "value",
+            "expr": "NULL"
+          }
+        },
+        "op": "OR",
+        "rhs": {
+          "lhs": {
+            "type": "select",
+            "expr": "mbr_days_in_program"
+          },
+          "op": "==",
+          "rhs": {
+            "type": "value",
+            "expr": "0"
+          }
+        }
+      }
+    },
+    {
+      "name": "program_days_mismatch",
+      "where": {
+        "lhs": {
+          "lhs": {
+            "type": "select",
+            "expr": "program_end_date",
+            "as_rdf_type": "date"
+          },
+          "op": "-",
+          "rhs": {
+            "type": "select",
+            "expr": "program_start_date",
+            "as_rdf_type": "date"
+          }
+        },
+        "op": "==",
+        "rhs": {
+          "type": "select",
+          "expr": "mbr_days_in_program",
+          "as_rdf_type": "int"
+        }
+      }
+    }
+  ],
+  "all_metrics": [
+    {
+      "name": "distinct_name_dob"
+    },
+    {
+      "name": "null_mbr_first_name"
+    },
+    {
+      "name": "null_mbr_last_name"
+    },
+    {
+      "name": "null_mbr_dob"
+    },
+    {
+      "name": "null_program_start_date"
+    },
+    {
+      "name": "invalid_program_end_date_count"
+    },
+    {
+      "name": "equal_program_start_end_date"
+    },
+    {
+      "name": "null_program_days"
+    },
+    {
+      "name": "program_days_mismatch"
+    }
+  ]
+}
