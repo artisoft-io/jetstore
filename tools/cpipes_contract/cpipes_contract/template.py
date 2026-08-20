@@ -204,16 +204,27 @@ def check(
     for hole in template.holes:
         if hole.schema_ref not in defs:
             continue
-        from .authoring import estimate_tokens, instruction_for
+        from .authoring import estimate_tokens, fits, instruction_for
 
         tokens = estimate_tokens(
             instruction_for(hole, schema, matrix, library, item=None)
         )
-        if tokens > budget:
+        verdict = fits(tokens, budget)
+        if verdict == "over":
             notes.append(
                 f"hole {hole.name!r} fills {hole.schema_ref}, whose prompt is ~{tokens} tokens "
                 f"against a {budget} budget - it can be recovered into but **not authored** "
                 f"(criterion 22 is unreachable for this hole; name a bundle instead)"
+            )
+        elif verdict == "unclear":
+            # **Reported rather than rounded.** The estimate carries a few per cent of
+            # error, and a hole this close to the budget is one the error decides. Saying
+            # so is the honest answer; `from_model` will get the exact count from the
+            # server when it runs (I-42).
+            notes.append(
+                f"hole {hole.name!r} fills {hole.schema_ref}, whose prompt is ~{tokens} tokens "
+                f"against a {budget} budget - **too close to call offline**; the estimate's "
+                f"error is a few per cent and authoring will take the server's own count"
             )
 
     if library is not None:

@@ -31,6 +31,7 @@ population measures the population.
 from __future__ import annotations
 
 import json
+import re
 import urllib.error
 import urllib.request
 from dataclasses import dataclass, field
@@ -215,18 +216,94 @@ def examples_for(
 # ---------------------------------------------------------------------------
 
 
-def estimate_tokens(text: str) -> int:
-    """Tokens in `text`, at four characters each.
+# Measured against `granite4.1:3b`'s `prompt_eval_count`, 2026-08-20 (I-42). Characters
+# per token, by what the region contains:
+#
+#   typescript  4.6   declarations: long identifiers, few delimiters
+#   json        3.2   few-shot examples: punctuation-dense, so it tokenises finer
+#   prose       4.0   **pinned, not fitted** - prose is ~1% of every prompt measured, so
+#                     the data cannot constrain it and a fitted value would be noise
+#
+# Two fitted parameters against three observations. That is thin, and the numbers should
+# be refitted rather than trusted if the prompt gains a fourth kind of region.
+CHARS_PER_TOKEN = {"typescript": 4.6, "json": 3.2, "prose": 4.0}
 
-    **Deliberately crude, and it under-predicts on JSON.** Measured against
-    `prompt_eval_count` on `granite4.1:3b`: 0.99x on a prose-and-TypeScript prompt,
-    1.14x when the TypeScript dominates, but **0.87x** on an example-heavy one, because
-    the punctuation-dense JSON of a few-shot block tokenises finer than four characters.
-    The budget therefore wants headroom rather than trust; `DEFAULT_RESERVE_TOKENS`
-    supplies it, and a hole within a few per cent of the budget should be read as
-    unknown rather than as fitting.
+# How close to the budget counts as "too close to call". The worst residual of the fit
+# above is 3.7%, so 10% is roughly three times the observed error - wide enough that a
+# verdict of `fits` means it, narrow enough to leave most holes with a clear answer.
+FIT_MARGIN = 0.10
+
+_FENCE = re.compile(r"```(\w+)\n(.*?)```", re.S)
+
+
+def segments(text: str) -> list[tuple[str, int]]:
+    """`(kind, characters)` for each region of a prompt.
+
+    Fenced blocks are named by their language and everything else is prose, which is
+    exactly the structure `instruction_for` builds - so this is a reading of the prompt's
+    own shape rather than a heuristic over its content.
     """
-    return len(text) // 4
+    out: list[tuple[str, int]] = []
+    last = 0
+    for match in _FENCE.finditer(text):
+        out.append(("prose", match.start() - last))
+        out.append((match.group(1), len(match.group(2))))
+        last = match.end()
+    out.append(("prose", len(text) - last))
+    return [(kind, n) for kind, n in out if n > 0]
+
+
+def estimate_tokens(text: str) -> int:
+    """Tokens in `text`, at a rate that depends on what the region holds.
+
+    **This replaced `len(text) // 4`, which was wrong in the dangerous direction.**
+    Measured against `prompt_eval_count`, the flat rate under-predicted an
+    example-heavy prompt by 12.6% and over-predicted a TypeScript-heavy one by 14.2%;
+    the first of those admits a hole that will then be silently truncated, which is the
+    failure the fit check exists to prevent. Segmenting brings the worst residual to
+    3.7% and, on the three prompts measured, no longer under-predicts the dangerous one.
+
+    It is still an estimate. `count_tokens` is exact when a server is at hand.
+    """
+    return round(
+        sum(n / CHARS_PER_TOKEN.get(kind, CHARS_PER_TOKEN["prose"]) for kind, n in segments(text))
+    )
+
+
+def count_tokens(text: str, model: str, host: str = DEFAULT_HOST, timeout: int = 120) -> int | None:
+    """The server's own count of `text`, or `None` if it cannot be had.
+
+    **An upgrade, never the mechanism.** `template.check` runs offline by design and the
+    infer server is routinely down, so a fit check that needed one would be a fit check
+    that could not run. Where a server is already in hand - `from_model` is about to call
+    it - the exact number is free apart from a prompt evaluation, and it is worth taking.
+    """
+    try:
+        body = _post(
+            host,
+            "/api/generate",
+            {"model": model, "prompt": text, "stream": False, "options": {"num_predict": 1}},
+            timeout,
+        )
+    except Exception:  # noqa: BLE001 - an unreachable server is an answer, not an error
+        return None
+    count = body.get("prompt_eval_count")
+    return int(count) if count else None
+
+
+def fits(tokens: int, budget: int) -> str:
+    """`"fits"`, `"unclear"` or `"over"` - three answers, because there are three.
+
+    A hole within `FIT_MARGIN` of the budget is reported as **unclear** rather than
+    rounded to a yes or a no. I-42's whole content is that the estimate has error in it,
+    and a two-valued verdict over a number with error hides exactly the cases where the
+    error decides the answer.
+    """
+    if tokens > budget:
+        return "over"
+    if tokens > budget * (1 - FIT_MARGIN):
+        return "unclear"
+    return "fits"
 
 
 def instruction_for(
@@ -317,15 +394,20 @@ def from_model(
         instruction = instruction_for(
             hole, schema, matrix, library, shots, item, members, tokens, fmt
         )
-        size = estimate_tokens(instruction)
-        if size > budget:
+        # The server is already in hand here, so take its count and fall back to the
+        # estimate only when it will not answer (I-42).
+        exact = count_tokens(instruction, model, host, timeout)
+        size = exact if exact is not None else estimate_tokens(instruction)
+        verdict = fits(size, budget)
+        if verdict == "over":
             # Refused here rather than sent and truncated. An over-budget *prompt* gets
             # cut by the server, which changes what the model reads without saying so -
             # the failure I-29 called out, and the reason `Fits` exists. What is
             # measured is the assembled instruction, not the schema: see Q-15.
             attempt = Attempt(hole=hole.name, schema_ref=hole.schema_ref, item=item)
             attempt.error = (
-                f"prompt for {hole.schema_ref} is ~{size} tokens against a {budget} "
+                f"prompt for {hole.schema_ref} is {size} tokens "
+                f"({'measured' if exact is not None else 'estimated'}) against a {budget} "
                 f"budget; refused rather than truncated"
             )
             if report is not None:

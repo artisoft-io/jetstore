@@ -471,3 +471,74 @@ def test_nothing_here_writes_into_the_library():
     source = inspect.getsource(mod)
     assert "library.jsonl" not in source
     assert ".write_text(" not in source and "open(" not in source.replace("open(matrix", "")
+
+
+# --- I-42: the estimate, and what it was wrong about --------------------------------
+
+from cpipes_contract.authoring import (  # noqa: E402
+    CHARS_PER_TOKEN, estimate_tokens, fits, instruction_for, segments,
+)
+
+# Measured against granite4.1:3b's prompt_eval_count, 2026-08-20 (Q-15).
+MEASURED = {"ColumnAggregation": 1824, "ConditionalPipeSpec": 10291, "AnalyzePipe": 13501}
+CURATED = [
+    json.loads(line)
+    for line in (HERE / "fragments" / "library.curated.jsonl").read_text().splitlines()
+    if line.strip()
+]
+
+
+def _prompt(schema_ref):
+    from cpipes_contract.template import Hole
+
+    hole = Hole(name="h", schema_ref=schema_ref, prompt="Author one fragment.")
+    return instruction_for(hole, SCHEMA, HERE / "matrix", CURATED)
+
+
+def test_the_estimate_is_within_five_per_cent_of_the_server():
+    """The three prompts whose true token counts were measured.
+
+    `len(text) // 4` was off by -12.6%, +14.2% and -1.8% on these. Segmenting by what
+    each region holds brings the worst to under 5%. Two fitted parameters against three
+    observations is thin, and this test is what makes refitting visible if it drifts.
+    """
+    for name, actual in MEASURED.items():
+        est = estimate_tokens(_prompt(name))
+        assert abs(est - actual) / actual < 0.05, f"{name}: estimated {est}, measured {actual}"
+
+
+def test_it_no_longer_under_predicts_the_example_heavy_prompt():
+    """The direction is the point, not the magnitude.
+
+    Over-predicting refuses a hole that would have fitted, which is visible and
+    recoverable. Under-predicting admits one that the server will silently truncate,
+    which is the failure the fit check exists to prevent. `AnalyzePipe` is the witness:
+    three-quarters few-shot JSON, and the flat rate under-predicted it by 12.6%.
+    """
+    flat = len(_prompt("AnalyzePipe")) // 4
+    assert flat < MEASURED["AnalyzePipe"], "the old estimate must under-predict, or the case is gone"
+    assert estimate_tokens(_prompt("AnalyzePipe")) >= MEASURED["AnalyzePipe"]
+
+
+def test_json_tokenises_finer_than_typescript():
+    """The mechanism behind the correction, asserted so a refit cannot invert it.
+
+    Punctuation-dense JSON packs more tokens per character than declarations do. If a
+    future fit reversed these, the estimator would be fitting noise.
+    """
+    assert CHARS_PER_TOKEN["json"] < CHARS_PER_TOKEN["typescript"]
+
+
+def test_a_prompt_near_the_budget_is_unclear_rather_than_rounded():
+    """Three answers, because there are three (I-42)."""
+    budget = 24576
+    assert fits(1000, budget) == "fits"
+    assert fits(budget - 1, budget) == "unclear"
+    assert fits(budget + 1, budget) == "over"
+
+
+def test_segments_reads_the_prompts_own_shape():
+    """Fenced blocks by language, everything else prose - which is what `instruction_for`
+    builds, so this is a reading rather than a heuristic."""
+    kinds = {kind for kind, _ in segments(_prompt("AnalyzePipe"))}
+    assert {"typescript", "json", "prose"} <= kinds
