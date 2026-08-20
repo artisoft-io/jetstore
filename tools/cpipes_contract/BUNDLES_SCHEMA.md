@@ -16,6 +16,15 @@ Measured over all fifteen, against the 24,576-token budget: **every bundle fits*
 (`AnalyzePipe`, 63% of budget), mean 10,671, best 7,271 (`DistinctPipe`). The flat
 `TransformationSpec` union it replaces was 41,040 and fitted nowhere.
 
+> **Correction, 2026-08-20 (Q-15).** Those figures size the *JSON Schema*, and the JSON Schema never
+> occupies the context: Ollama compiles `format` into a sampling grammar, at a measured 2–3 prompt
+> tokens whether the schema is 5,252 or 41,029. The prompt is the constraint, and by that measure the
+> flat union is ~9,090 tokens and **does** fit — so "fitted nowhere" is wrong as stated, and the
+> section below argues from a premise that did not hold. Measured as assembled prompts *with* their
+> few-shot examples, every bundle still fits comfortably: worst `AnalyzePipe` at ~11,818 estimated
+> and 13,501 measured, against 24,576. The layer's value is therefore semantic scoping and a two- to
+> six-fold prompt saving, not fit. Nothing in the mechanism changes; the justification does.
+
 `-` marks not-applicable throughout, consistent with the other matrix sheets.
 
 ## What the layer is for
