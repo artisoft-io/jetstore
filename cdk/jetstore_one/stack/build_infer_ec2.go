@@ -24,8 +24,8 @@ import (
 // INFER_AMI_NAME (optional) escape hatch to pin a custom AMI; when unset the stock ECS
 // GPU-optimized Amazon Linux 2023 AMI is used (NVIDIA driver + ECS agent preinstalled)
 // INFER_AMI_OWNER (optional) owner of the custom AMI, default "self"; ignored unless INFER_AMI_NAME is set
-// INFER_MEM_LIMIT_MB (optional) memory limit in MB for infer task, default 16 GB * 0.8 = 12.8 GB
-// INFER_EC2_INSTANCE_TYPE (optional) EC2 instance type for infer task, default g5.xlarge
+// INFER_MEM_LIMIT_MB (optional) memory limit in MB for infer task, default 51200 (64 GB * 0.8)
+// INFER_EC2_INSTANCE_TYPE (optional) EC2 instance type for infer task, default g6e.2xlarge
 // INFER_ROOT_VOLUME_GB (optional) size of the instance root volume in GB, default 50
 
 // functions to build the cpipes state machine
@@ -120,7 +120,11 @@ func (jsComp *JetStoreStackComponents) BuildInferEc2(scope constructs.Construct,
 	}
 	instanceType := os.Getenv("INFER_EC2_INSTANCE_TYPE")
 	if instanceType == "" {
-		instanceType = "g5.xlarge"
+		// g6e.2xlarge: one L40S, 48 GiB VRAM / 64 GiB host RAM. Replaced g5.xlarge
+		// (A10G, 24 / 16) on 2026-08-20. The reason is VRAM rather than speed: two
+		// models cannot be held on 24 GiB, and holding two is the whole case for the
+		// larger card. Speed came along anyway - 203 tok/s against 131.
+		instanceType = "g6e.2xlarge"
 	}
 	// The stock AMI's root volume is 30 GB; enlarge it to hold the container image layers.
 	// Model weights do not live here — they go on the persistent volume mounted below.

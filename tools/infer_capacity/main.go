@@ -101,6 +101,19 @@ func measure(host, model string, ctx, predict int) row {
 	post(host, "/api/generate", map[string]any{"model": model, "keep_alive": 0}, 60*time.Second)
 	time.Sleep(2 * time.Second)
 
+	// **Warm up before timing.** The first generate after a load pays for reading the
+	// weights off disk, and that lands in eval_duration: the first row of a cold sweep
+	// read 26.8 tok/s where every later row read 203. The residency figures were never
+	// affected - only the throughput column - but a throughput column that is wrong on
+	// exactly one row is worse than none, because the row looks like a finding.
+	if _, err := post(host, "/api/generate", map[string]any{
+		"model": model, "prompt": "Warm up.", "stream": false,
+		"options": map[string]any{"num_predict": 1, "num_ctx": ctx, "temperature": 0},
+	}, 15*time.Minute); err != nil {
+		r.Err = short(err.Error())
+		return r
+	}
+
 	body, err := post(host, "/api/generate", map[string]any{
 		"model": model, "prompt": "Count to twenty.", "stream": false,
 		"options": map[string]any{"num_predict": predict, "num_ctx": ctx, "temperature": 0},
