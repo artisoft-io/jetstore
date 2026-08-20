@@ -7,12 +7,20 @@ F.5 supplied `from_target`; this supplies the third filler, the one that asks a 
 write a fragment it has never seen, constrained by the hole's own schema. Nothing here
 reads the library or the target.
 
-**The bundle layer is what makes this possible at all.** A hole's `schema_ref` names a
-bundle, and `subschema` emits a self-contained document rooted at it. Addressed at
-`TransformationSpec` the schema would be 41,040 tokens against a 32,768-token context and
-would not fit; addressed at a bundle the widest is 15,513. I-29 recorded that as a
-blocker and the bundle layer resolved it - this module is the first thing that could not
-have been written before.
+**The bundle layer is what makes this practical**, though not for the reason first
+given. A hole's `schema_ref` names a bundle, and `subschema` emits a self-contained
+document rooted at it. I-29 recorded the flat `TransformationSpec` union as 41,040
+tokens against a 32,768-token context and called it a blocker; Q-15 measured that number
+against the wrong thing. **The JSON Schema does not enter the context at all** - Ollama
+compiles `format` into a sampling grammar, at a measured cost of 2-3 prompt tokens
+whether the schema is 5,252 or 41,029. What occupies the window is the prompt, where the
+same union is ~9,090 tokens and fits.
+
+So the bundle layer is not load-bearing for *fit*, and this module could have been
+written without it. It is load-bearing for what the original proposal actually argued:
+a hole binds to the operators its host can semantically hold, rather than to all
+fifteen, and the prompt shrinks two- to six-fold as a side effect. That is a better
+reason than the one recorded, and it survives the correction.
 
 **Reported per hole, never in aggregate.** One bad hole in a 453-column config would
 otherwise report as total failure, and decision 13's rule against an aggregate figure
@@ -32,10 +40,12 @@ from .expand import Fill
 from .template import Hole, _bundle_members
 
 
-def _bundle_tokens(matrix: Path) -> dict[str, list[str]]:
+def _bundle_tokens(matrix: Path | None) -> dict[str, list[str]]:
     """Bundle -> the discriminator *values* it admits, which is what a model must emit."""
     import csv
 
+    if matrix is None:
+        return {}
     out: dict[str, list[str]] = {}
     with open(matrix / "bundle_members.csv", newline="") as fh:
         for row in csv.DictReader(fh):
@@ -200,6 +210,82 @@ def examples_for(
     return picked
 
 
+# ---------------------------------------------------------------------------
+# What actually occupies the context window (Q-15)
+# ---------------------------------------------------------------------------
+
+
+def estimate_tokens(text: str) -> int:
+    """Tokens in `text`, at four characters each.
+
+    **Deliberately crude, and it under-predicts on JSON.** Measured against
+    `prompt_eval_count` on `granite4.1:3b`: 0.99x on a prose-and-TypeScript prompt,
+    1.14x when the TypeScript dominates, but **0.87x** on an example-heavy one, because
+    the punctuation-dense JSON of a few-shot block tokenises finer than four characters.
+    The budget therefore wants headroom rather than trust; `DEFAULT_RESERVE_TOKENS`
+    supplies it, and a hole within a few per cent of the budget should be read as
+    unknown rather than as fitting.
+    """
+    return len(text) // 4
+
+
+def instruction_for(
+    hole: Hole,
+    schema: dict,
+    matrix: Path | None,
+    library: list[dict] | None = None,
+    shots: int = 4,
+    item: object | None = None,
+    members: dict[str, list[str]] | None = None,
+    tokens: dict[str, list[str]] | None = None,
+    fmt: dict | None = None,
+) -> str:
+    """The prompt `from_model` sends for one hole.
+
+    **Assembled in one place because it is also what gets measured.** The fit check used
+    to size a hole by its JSON Schema and the prompt was built separately; Q-15 measured
+    that the schema does not enter the context at all, so the two had to become one
+    function or drift apart again.
+    """
+    if fmt is None:
+        fmt = subschema(schema, hole.schema_ref)
+    if members is None:
+        members = _bundle_members(matrix)
+    if tokens is None:
+        tokens = _bundle_tokens(matrix)
+
+    shown = examples_for(hole.schema_ref, library, members, shots) if library else []
+    examples = ""
+    if shown:
+        body = "\n".join(
+            f"// {p['description'][:90]}\n{json.dumps(p['value'], indent=1)}" for p in shown
+        )
+        examples = (
+            f"\n\nHere are {len(shown)} real examples from existing JetStore "
+            f"configurations, one per variant. Follow their field names exactly - "
+            f"note which fields each variant requires:\n\n```json\n{body}\n```"
+        )
+    return (
+        f"{hole.prompt}\n\n"
+        f"These are the types you must produce, as TypeScript declarations:\n\n"
+        f"```typescript\n{as_typescript(fmt, hole.schema_ref)}\n```\n\n"
+        f"Produce exactly one JSON value for this hole. It must satisfy the schema "
+        f"you have been given, which is the JetStore cpipes contract for "
+        f"{hole.schema_ref}."
+        # **Tokens, not class names.** `_bundle_members` returns `defs_name`s because
+        # that is what the library is keyed by; naming them here told the model that
+        # `TransformationColumnSpecValue` was a legal `type`, and it dutifully wrote
+        # exactly that. The discriminator value is the token.
+        + (
+            f"\n\nThe `type` field must be one of: {', '.join(tokens[hole.schema_ref])}."
+            if hole.schema_ref in tokens
+            else ""
+        )
+        + examples
+        + (f"\n\nThis instance is for: {json.dumps(item)}" if item is not None else "")
+    )
+
+
 def from_model(
     schema: dict,
     matrix: Path,
@@ -227,51 +313,24 @@ def from_model(
         if hole.schema_ref not in cache:
             cache[hole.schema_ref] = subschema(schema, hole.schema_ref)
         fmt = cache[hole.schema_ref]
-        size = len(json.dumps(fmt, separators=(",", ":"))) // 4
+        item = ctx.get("$item")
+        instruction = instruction_for(
+            hole, schema, matrix, library, shots, item, members, tokens, fmt
+        )
+        size = estimate_tokens(instruction)
         if size > budget:
-            # Refused here rather than sent and truncated. An over-budget schema gets
-            # cut by the server, which changes what constrains generation without
-            # saying so - the failure I-29 called out, and the reason `Fits` exists.
-            attempt = Attempt(hole=hole.name, schema_ref=hole.schema_ref, item=ctx.get("$item"))
+            # Refused here rather than sent and truncated. An over-budget *prompt* gets
+            # cut by the server, which changes what the model reads without saying so -
+            # the failure I-29 called out, and the reason `Fits` exists. What is
+            # measured is the assembled instruction, not the schema: see Q-15.
+            attempt = Attempt(hole=hole.name, schema_ref=hole.schema_ref, item=item)
             attempt.error = (
-                f"schema for {hole.schema_ref} is ~{size} tokens against a {budget} "
+                f"prompt for {hole.schema_ref} is ~{size} tokens against a {budget} "
                 f"budget; refused rather than truncated"
             )
             if report is not None:
                 report.attempts.append(attempt)
             return {"$unfilled": hole.name}
-        item = ctx.get("$item")
-        declarations = as_typescript(fmt, hole.schema_ref)
-        shown = examples_for(hole.schema_ref, library, members, shots) if library else []
-        examples = ""
-        if shown:
-            body = "\n".join(
-                f"// {p['description'][:90]}\n{json.dumps(p['value'], indent=1)}" for p in shown
-            )
-            examples = (
-                f"\n\nHere are {len(shown)} real examples from existing JetStore "
-                f"configurations, one per variant. Follow their field names exactly - "
-                f"note which fields each variant requires:\n\n```json\n{body}\n```"
-            )
-        instruction = (
-            f"{hole.prompt}\n\n"
-            f"These are the types you must produce, as TypeScript declarations:\n\n"
-            f"```typescript\n{declarations}\n```\n\n"
-            f"Produce exactly one JSON value for this hole. It must satisfy the schema "
-            f"you have been given, which is the JetStore cpipes contract for "
-            f"{hole.schema_ref}."
-            # **Tokens, not class names.** `_bundle_members` returns `defs_name`s
-            # because that is what the library is keyed by; naming them here told the
-            # model that `TransformationColumnSpecValue` was a legal `type`, and it
-            # dutifully wrote exactly that. The discriminator value is the token.
-            + (
-                f"\n\nThe `type` field must be one of: {', '.join(tokens[hole.schema_ref])}."
-                if hole.schema_ref in tokens
-                else ""
-            )
-            + examples
-            + (f"\n\nThis instance is for: {json.dumps(item)}" if item is not None else "")
-        )
         attempt = Attempt(hole=hole.name, schema_ref=hole.schema_ref, item=item)
         try:
             body = _post(

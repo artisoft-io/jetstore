@@ -232,3 +232,87 @@ if __name__ == "__main__":
                 print(f"  FAIL {name}: {e}")
     print(f"\n{fails} failure(s)")
     sys.exit(1 if fails else 0)
+
+
+# ---------------------------------------------------------------------------
+# Q-15: the prompt is the constraint, not the schema
+# ---------------------------------------------------------------------------
+
+
+def test_the_fit_check_measures_the_prompt_not_the_schema():
+    """`ConditionalPipeSpec` is the case that settled Q-15.
+
+    Its JSON Schema is ~49,008 tokens and its prompt ~11,800, against a 24,576 budget.
+    The old check sized the schema and refused the hole as unauthorable; the schema
+    never occupied the context, because Ollama compiles `format` into a sampling
+    grammar. Measured on `granite4.1:3b`, `format` costs 2-3 prompt tokens whether its
+    schema is 5,252 or 41,029 - so the number the check used was not a cost at all.
+    """
+    from cpipes_contract.authoring import estimate_tokens, instruction_for, subschema
+    from cpipes_contract.template import Hole
+
+    hole = Hole(
+        name="stage",
+        schema_ref="ConditionalPipeSpec",
+        prompt="A pipeline stage.",
+    )
+    schema_size = estimate_tokens(
+        json.dumps(subschema(SCHEMA, hole.schema_ref), separators=(",", ":"))
+    )
+    prompt_size = estimate_tokens(instruction_for(hole, SCHEMA, HERE / "matrix"))
+    budget = 32768 - 8192
+
+    assert schema_size > budget, "the type this test is about must be over by the old measure"
+    assert prompt_size < budget, "and under by the new one, or the test proves nothing"
+    assert prompt_size * 3 < schema_size, "the two must differ by more than rounding"
+
+
+def test_the_examples_are_counted_because_they_are_sent():
+    """The other half of the correction: few-shot examples occupy context too.
+
+    For `AnalyzePipe` they are ~8,733 tokens against ~2,987 of TypeScript - nearly three
+    times the declarations, and the old check counted neither. A fit check that omits
+    the largest term is not conservative, it is wrong in the flattering direction.
+    """
+    from cpipes_contract.authoring import estimate_tokens, instruction_for
+    from cpipes_contract.template import Hole
+
+    library = [
+        json.loads(line)
+        for line in (HERE / "fragments" / "library.curated.jsonl").read_text().splitlines()
+        if line.strip()
+    ]
+    hole = Hole(name="op", schema_ref="AnalyzePipe", prompt="Analyse the input columns.")
+    bare = estimate_tokens(instruction_for(hole, SCHEMA, HERE / "matrix", None))
+    shown = estimate_tokens(instruction_for(hole, SCHEMA, HERE / "matrix", library))
+    assert shown > bare * 2, "the examples must dominate, or this type is the wrong witness"
+
+
+def test_every_bundle_is_authorable():
+    """The bundle layer's promise, restated against what actually occupies the window.
+
+    F.8 sized the bundles by JSON Schema and reported the worst at 15,513 of 24,576.
+    Measured as prompts with their examples, the worst is `AnalyzePipe` at ~11,818 - so
+    the promise holds under the corrected measure as well, which was not guaranteed:
+    the examples could have eaten the headroom the TypeScript freed.
+    """
+    import csv
+
+    from cpipes_contract.authoring import estimate_tokens, instruction_for
+    from cpipes_contract.template import Hole
+
+    library = [
+        json.loads(line)
+        for line in (HERE / "fragments" / "library.curated.jsonl").read_text().splitlines()
+        if line.strip()
+    ]
+    budget = 32768 - 8192
+    with open(HERE / "matrix" / "bundles.csv", newline="") as fh:
+        bundles = [row["bundle"] for row in csv.DictReader(fh) if row["bundle"]]
+    over = []
+    for name in bundles:
+        hole = Hole(name="h", schema_ref=name, prompt="Author one fragment.")
+        size = estimate_tokens(instruction_for(hole, SCHEMA, HERE / "matrix", library))
+        if size > budget:
+            over.append((name, size))
+    assert over == [], f"over budget: {over}"

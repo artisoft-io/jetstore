@@ -1,10 +1,20 @@
 """The bundle layer: abstract types between a root union and its concrete leaves.
 
-**Why the layer exists.** A schema addressed at `#/$defs/TransformationSpec` is
-41,040 tokens against an infer-server context of 32,768. Narrowing the union
-does not fix that on its own - a union of *one* operator still measures 28,700 -
-because every leaf carries `conditional_config` -> `ConditionalTransformationSpec`
--> `TransformationSpecOverride`, which re-admits every operator's config. The
+**Why the layer exists — corrected 2026-08-20 (Q-15).** As built, the argument
+was fit: a schema addressed at `#/$defs/TransformationSpec` is 41,040 tokens
+against an infer-server context of 32,768. That premise was measured against the
+wrong quantity. The JSON Schema goes to Ollama as `format`, which becomes a
+sampling grammar rather than prompt text, and costs 2-3 tokens regardless of its
+size; the prompt is what occupies the window, and there the flat union is ~9,090
+tokens and fits. **Nothing here was unnecessary, but the stated reason was
+wrong**, and the honest one is the one the proposal gave first: a hole should
+offer the operators its host can semantically hold, not all fifteen.
+
+The mechanism below is unchanged and still required for that, because the
+narrowing is what does not work naively. A union of *one* operator still measures
+28,700 as a schema - and roughly its whole union as a prompt - because every leaf
+carries `conditional_config` -> `ConditionalTransformationSpec` ->
+`TransformationSpecOverride`, which re-admits every operator's config. The
 closure of a cycle does not care how the entry points are partitioned.
 
 So the fix is two changes that only work together: an abstract type per bundle,

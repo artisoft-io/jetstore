@@ -186,22 +186,32 @@ def check(
                 f"which is not a list position; a repeating hole expands into a list"
             )
 
-    # A `schema_ref` too large for the infer server's context can still be *recovered*
-    # into - no model is involved - so this is a note rather than a finding, and the
-    # refusal belongs where a model is actually asked. That is the same split
+    # A hole whose *prompt* is too large for the infer server's context can still be
+    # *recovered* into - no model is involved - so this is a note rather than a finding,
+    # and the refusal belongs where a model is actually asked. That is the same split
     # `jets/agentic/prompt` makes: the schema is emitted regardless and Task validation
-    # is what refuses. `ConditionalPipeSpec` is the live case at 49,008 tokens, which is
-    # I-29 arriving at an entry point the bundle layer does not cover.
+    # is what refuses.
+    #
+    # **What is measured is the prompt, not the schema (Q-15).** Until 2026-08-20 this
+    # sized a hole by its JSON Schema and reported `ConditionalPipeSpec` as 49,008
+    # tokens against a 24,576 budget - unauthorable by construction. That number never
+    # occupied the context: Ollama compiles `format` into a sampling grammar, and the
+    # measurement puts its cost at 2-3 tokens whether the schema is 5,252 or 41,029.
+    # The prompt is the constraint, and it carries three terms the old check had
+    # backwards - TypeScript at a fifth of the schema, the few-shot examples the check
+    # ignored entirely, and the prose.
     budget = DEFAULT_CONTEXT_TOKENS - DEFAULT_RESERVE_TOKENS
     for hole in template.holes:
         if hole.schema_ref not in defs:
             continue
-        from .authoring import subschema
+        from .authoring import estimate_tokens, instruction_for
 
-        tokens = len(json.dumps(subschema(schema, hole.schema_ref), separators=(",", ":"))) // 4
+        tokens = estimate_tokens(
+            instruction_for(hole, schema, matrix, library, item=None)
+        )
         if tokens > budget:
             notes.append(
-                f"hole {hole.name!r} fills {hole.schema_ref}, whose schema is ~{tokens} tokens "
+                f"hole {hole.name!r} fills {hole.schema_ref}, whose prompt is ~{tokens} tokens "
                 f"against a {budget} budget - it can be recovered into but **not authored** "
                 f"(criterion 22 is unreachable for this hole; name a bundle instead)"
             )
