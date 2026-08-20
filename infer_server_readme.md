@@ -78,28 +78,50 @@ spilled a little just looks slow.
 ## Choosing the three settings together
 
 `OLLAMA_MAX_LOADED_MODELS` multiplies the VRAM cost. `OLLAMA_NUM_PARALLEL` **divides** the
-per-request context. `OLLAMA_CONTEXT_LENGTH` sizes the window they act on. **They are one choice,
-not three.**
+per-request context and does not change the VRAM cost at all. `OLLAMA_CONTEXT_LENGTH` sizes the
+window they act on. **They are one choice, not three.**
+
+**Deployed 2026-08-20: `98304` / `2` parallel / `1` model** — 32.26 GiB resident, **49 152 tokens
+per request**. The largest prompt the authoring loop actually builds is 13.5k (measured at F.6), so
+that is 3.6× headroom.
 
 | combination | VRAM | per request | |
 |---|---|---|---|
-| **2 models, 48k, 2 parallel** | **34.78 GiB** | **24 576** | **current default** |
-| 1 model, 128k, 4 parallel | 42.14 GiB | 32 768 | works, but holds one model |
-| 2 models, 64k, 4 parallel | 44.90 GiB | 16 384 | past the 42.14 GiB observed ceiling |
-| 2 models, 48k, 4 parallel | 34.78 GiB | 12 288 | under the largest real prompt — see below |
+| **98304, 2 parallel, 1 model** | **32.26 GiB** | **49 152** | **current** |
+| 98304, 4 parallel, 1 model | 32.26 GiB | 24 576 | safe; restores E.8's K to 4 |
+| 128k, 4 parallel, 1 model | 42.14 GiB | 32 768 | safe, near the ceiling |
+| 98304, 2 parallel, **2 models** | **64.5 GiB** | 49 152 | **over 48 GiB — silent spill** |
+| 49152, 2 parallel, 2 models | 34.78 GiB | 24 576 | what two models costs |
 
-The largest prompt the authoring loop actually builds is **13.5k tokens**, measured at F.6. So
-four-way parallelism and two loaded models are not simultaneously affordable at a per-request
-context that clears real prompts. **Two models won, because holding two is the reason this card was
-bought** — and `OLLAMA_NUM_PARALLEL` dropping from 4 to 2 is the one regression in the move.
+**Raising `OLLAMA_MAX_LOADED_MODELS` to 2 requires lowering `OLLAMA_CONTEXT_LENGTH` in the same
+change.** Leaving them inconsistent is safe only while exactly one model exists, because Ollama does
+not load a model until it is requested — so the failure arrives with the second model, as a spill
+rather than a refusal.
 
-**The two-model figures are arithmetic over single-model measurements**, not a two-model
-measurement: `OLLAMA_MAX_LOADED_MODELS` is server-side and was not varied. Re-run the tool after
-changing any of the three:
+### How the division was established, because the first attempt did not
+
+`tools/infer_capacity` sets `num_ctx` **per request**, which overrides `OLLAMA_CONTEXT_LENGTH`
+entirely. So the sweep measures the per-request path and says nothing about how the env var
+interacts with `OLLAMA_NUM_PARALLEL`. An earlier revision of this file asserted the division from
+the sweep; the sweep could not see it.
+
+What settled it was a reading with no override at all — `/api/ps` immediately after a plain
+generate:
 
 ```
-go run ./tools/infer_capacity -model granite4.1:3b
+size 32.26 GiB   size_vram 32.26 GiB   context_length 98304
 ```
+
+against `OLLAMA_CONTEXT_LENGTH=98304`, `OLLAMA_NUM_PARALLEL=2`. That is the figure a *single*
+98304-token request allocates, not twice it. Multiplying would have wanted ~120 GiB and refused to
+start.
+
+**One consequence worth keeping.** The previous default of `32768` with `OLLAMA_NUM_PARALLEL` at 4
+was giving each request **8 192 tokens** — under the prompts the loop builds. That truncation was
+latent and unnoticed, and it is gone rather than fixed.
+
+**And one figure here is still arithmetic, not a reading**: the two-model rows. `OLLAMA_MAX_LOADED_MODELS`
+was never varied, because doing so needs a deployment. See I-47.
 
 ## Current defaults
 
