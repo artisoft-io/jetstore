@@ -50,23 +50,20 @@ def emit(module, types_csv: Path) -> dict:
             defs.setdefault(name, entry)
         defs[struct] = schema
 
-    # Every matrix type must be independently addressable.
+    # Every matrix type must be independently addressable, **under the name the matrix
+    # records for it**. Checking the model's own class name here would only prove the
+    # emitter self-consistent; it is `defs_name` that the fragment library, the bundle
+    # layer and every typed hole key off, so that is the column to hold to the schema.
+    # Comparing the two is the check whose absence let `defs_name` diverge from the
+    # emitted keys for 68 of 127 types until 2026-08-20.
     missing = []
     with open(types_csv, newline="") as fh:
         for row in csv.DictReader(fh):
-            struct, token = row["go_struct"], row["type_token"]
-            if struct in MERGED or token == "*":
-                expected = struct
-            else:
-                cname = next(
-                    (c for c, k in module._MATRIX_KEYS.items() if tuple(k) == (struct, token)),
-                    None,
-                )
-                expected = cname or struct
-            if expected not in defs:
-                missing.append(f"{struct}/{token} -> {expected}")
+            struct, token, name = row["go_struct"], row["type_token"], row["defs_name"]
+            if name not in defs:
+                missing.append(f"{struct}/{token} -> defs_name {name!r}")
     if missing:
-        raise ValueError(f"types not addressable in $defs: {missing}")
+        raise ValueError(f"defs_name values with no $defs entry: {missing}")
 
     # The bundle layer: abstract types between the root unions and their leaves,
     # with every reachable column list ranged. See bundles.py for why this is a

@@ -509,22 +509,31 @@ def row_hash(row: Row) -> str:
 
 
 def defs_name_for(go_struct: str, type_token: str) -> str:
-    """`OllamaTransformationSpec` from (TransformationSpec, ollama).
+    """`TransformationSpecOllama` from (TransformationSpec, ollama).
 
     Mechanical so that the Pydantic subclass name, the `$defs` key and the fragment
     library entry are one name rather than three conventions. Where a token repeats a
-    word of the struct the name stutters (`OutputOutputChannelConfig`) - the price of
+    word of the struct the name stutters (`OutputChannelConfigOutput`) - the price of
     a rule under which no hand-picked pair of names can collide.
 
     A virtual token drops its `~` and is otherwise treated the same, which is what
-    makes `~override` + TransformationSpec = OverrideTransformationSpec. Hyphens split
-    like underscores, for `de-identification` -> DeIdentificationAnonymizeSpec.
+    makes `~override` + TransformationSpec = TransformationSpecOverride. Hyphens split
+    like underscores, for `de-identification` -> AnonymizeSpecDeIdentification.
+
+    **Struct first, token second — corrected 2026-08-20.** It was written the other way
+    round and enforced that way by `check_defs_name`, so `types.csv` was internally
+    consistent with a rule the rest of the contract did not follow: the generated model
+    and the emitted schema have always named these `TransformationSpecOllama`. Two
+    conventions coexisted for 68 of 127 types because the check compared the column to
+    the rule and nothing compared the rule to the schema. `check_defs_addressable` is
+    that missing check. Struct-first also sorts every variant of a union together, which
+    is what a reader of `$defs` or of the fragment library wants.
     """
     if type_token == ANY_TOKEN:
         return go_struct
     token = type_token.removeprefix(VIRTUAL_PREFIX)
     camel = "".join(part.capitalize() for part in re.split(r"[_-]", token))
-    return f"{camel}{go_struct}"
+    return f"{go_struct}{camel}"
 
 
 def split_list(cell: str) -> list[str]:
