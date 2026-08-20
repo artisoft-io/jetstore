@@ -164,6 +164,42 @@ def reachable(host: str = DEFAULT_HOST, timeout: int = 5) -> tuple[bool, str]:
         return False, str(err)
 
 
+def examples_for(
+    schema_ref: str, library: list[dict], members: dict[str, list[str]], limit: int = 4
+) -> list[dict]:
+    """Up to `limit` library parts for a bundle, chosen for **shape diversity**.
+
+    Three `select` examples teach less than one each of select, value and eval, so the
+    pick is one part per member type, most-cited first, before any second example of a
+    type it already has.
+
+    **Few-shot from the library is legitimate for criterion 22 and few-shot from the
+    target is not.** §5.3.9's qualification is about a harness recovering *the answer*;
+    the library is general corpus material and A§6.1(3) proposes it as a source for
+    exactly this. The boundary is that no example may come from the config a template was
+    derived from - which is why this reads the library and `from_target` remains a
+    separate function nothing here calls.
+    """
+    wanted = members.get(schema_ref, [schema_ref])
+    best: dict[str, list[dict]] = {}
+    for part in library:
+        if part["defs_name"] in wanted:
+            best.setdefault(part["defs_name"], []).append(part)
+    for parts in best.values():
+        parts.sort(key=lambda p: (-p.get("prod_instances", 0), -p["instances"]))
+
+    picked: list[dict] = []
+    round_ = 0
+    while len(picked) < limit and any(len(v) > round_ for v in best.values()):
+        for name in sorted(best, key=lambda n: -best[n][0]["instances"]):
+            if len(picked) >= limit:
+                break
+            if len(best[name]) > round_:
+                picked.append(best[name][round_])
+        round_ += 1
+    return picked
+
+
 def from_model(
     schema: dict,
     matrix: Path,
@@ -173,6 +209,8 @@ def from_model(
     report: Report | None = None,
     context_tokens: int = 32768,
     reserve_tokens: int = 8192,
+    library: list[dict] | None = None,
+    shots: int = 4,
 ) -> Fill:
     """A `Fill` that asks the infer server to author each fragment.
 
@@ -204,6 +242,17 @@ def from_model(
             return {"$unfilled": hole.name}
         item = ctx.get("$item")
         declarations = as_typescript(fmt, hole.schema_ref)
+        shown = examples_for(hole.schema_ref, library, members, shots) if library else []
+        examples = ""
+        if shown:
+            body = "\n".join(
+                f"// {p['description'][:90]}\n{json.dumps(p['value'], indent=1)}" for p in shown
+            )
+            examples = (
+                f"\n\nHere are {len(shown)} real examples from existing JetStore "
+                f"configurations, one per variant. Follow their field names exactly - "
+                f"note which fields each variant requires:\n\n```json\n{body}\n```"
+            )
         instruction = (
             f"{hole.prompt}\n\n"
             f"These are the types you must produce, as TypeScript declarations:\n\n"
@@ -220,6 +269,7 @@ def from_model(
                 if hole.schema_ref in tokens
                 else ""
             )
+            + examples
             + (f"\n\nThis instance is for: {json.dumps(item)}" if item is not None else "")
         )
         attempt = Attempt(hole=hole.name, schema_ref=hole.schema_ref, item=item)

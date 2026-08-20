@@ -313,7 +313,14 @@ def main(argv: list[str] | None = None) -> int:
                 config, bad = expand_template(
                     tpl,
                     context,
-                    from_model(schema, args.matrix, args.author, args.host, report=report),
+                    from_model(
+                        schema,
+                        args.matrix,
+                        args.author,
+                        args.host,
+                        report=report,
+                        library=library,
+                    ),
                     schema,
                 )
                 print()
