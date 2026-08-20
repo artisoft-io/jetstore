@@ -50,17 +50,37 @@ overflow to host RAM — and asks for 22 GiB of it on an instance with 16 GiB. `
 `granite4.1:3b` on `g5.xlarge` (A10G, 24 GiB VRAM / 16 GiB host RAM), from `/api/ps` after
 loading at each context size. Roughly **0.31 MiB per token** on top of a ~2.3 GiB base.
 
-| `num_ctx` | Total | Resident in VRAM | Result |
-|---|---|---|---|
-| 8k | 4.6 GiB | 4.6 GiB | fully GPU-resident |
-| 16k | 7.3 GiB | 7.3 GiB | fully GPU-resident |
-| **32k** | **12.3 GiB** | **12.3 GiB** | **fully GPU-resident — current default** |
-| 64k | 22.6 GiB | 20.4 GiB | 2.3 GiB spilled to host RAM |
-| 128k | — | — | load fails (22 GiB overflow into 16 GiB RAM) |
+| `num_ctx` | Total | Resident in VRAM | tok/s | Result |
+|---|---|---|---|---|
+| 8k | 4.59 GiB | 4.59 GiB | 131.0 | fully GPU-resident |
+| 16k | 7.26 GiB | 7.26 GiB | 131.2 | fully GPU-resident |
+| **32k** | **12.32 GiB** | **12.32 GiB** | **131.0** | **fully GPU-resident — current default** |
+| 48k | 17.06 GiB | 17.06 GiB | 131.2 | fully GPU-resident |
+| 52k | 18.31 GiB | 18.31 GiB | 128.2 | fully GPU-resident |
+| **56k** | **19.57 GiB** | **19.57 GiB** | **131.1** | **largest tested that stays resident** |
+| 60k | 21.33 GiB | 20.74 GiB | 89.4 | 0.59 GiB spilled — **68% of resident speed** |
+| 64k | 22.61 GiB | 20.35 GiB | 50.0 | 2.26 GiB spilled — **38% of resident speed** |
+| 96k | — | — | — | load fails |
+| 128k | — | — | — | load fails (22 GiB overflow into 16 GiB RAM) |
 
-The practical ceiling on this instance type is roughly 48k for a single model. Past that the
-cache starts leaving the GPU, and inference silently degrades to host-RAM speed long before it
-fails outright.
+**Re-measured 2026-08-20 with `tools/infer_capacity`**, which reads `size` and `size_vram` from
+`/api/ps` rather than inferring the spill from throughput. Every figure above 32k is new; the
+8k–64k sizes reproduce the 2026-08-04 readings to within 0.01 GiB, so the table was not stale —
+it was simply coarse where it mattered.
+
+**The practical ceiling is between 56k and 60k, not "roughly 48k" as this file previously said.**
+That earlier figure was an estimate and it was conservative by about 9k; 48k is now measured and
+fully resident. The correction does not change the recommended default — see below.
+
+**What the spill costs is now a number rather than a warning.** Throughput falls to 68% of
+resident speed at 0.59 GiB spilled and to 38% at 2.26 GiB, so the degradation is graded rather
+than a cliff, and a model that has spilled a little looks merely slow. Nothing logs, nothing
+errors. That is the whole reason this table exists and the reason to re-run the tool rather than
+trust it after any instance change:
+
+```
+go run ./tools/infer_capacity -model granite4.1:3b
+```
 
 ## Current defaults
 
