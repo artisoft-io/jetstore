@@ -164,6 +164,42 @@ def reachable(host: str = DEFAULT_HOST, timeout: int = 5) -> tuple[bool, str]:
         return False, str(err)
 
 
+def examples_for(
+    schema_ref: str, library: list[dict], members: dict[str, list[str]], limit: int = 4
+) -> list[dict]:
+    """Up to `limit` library parts for a bundle, chosen for **shape diversity**.
+
+    Three `select` examples teach less than one each of select, value and eval, so the
+    pick is one part per member type, most-cited first, before any second example of a
+    type it already has.
+
+    **Few-shot from the library is legitimate for criterion 22 and few-shot from the
+    target is not.** §5.3.9's qualification is about a harness recovering *the answer*;
+    the library is general corpus material and A§6.1(3) proposes it as a source for
+    exactly this. The boundary is that no example may come from the config a template was
+    derived from - which is why this reads the library and `from_target` remains a
+    separate function nothing here calls.
+    """
+    wanted = members.get(schema_ref, [schema_ref])
+    best: dict[str, list[dict]] = {}
+    for part in library:
+        if part["defs_name"] in wanted:
+            best.setdefault(part["defs_name"], []).append(part)
+    for parts in best.values():
+        parts.sort(key=lambda p: (-p.get("prod_instances", 0), -p["instances"]))
+
+    picked: list[dict] = []
+    round_ = 0
+    while len(picked) < limit and any(len(v) > round_ for v in best.values()):
+        for name in sorted(best, key=lambda n: -best[n][0]["instances"]):
+            if len(picked) >= limit:
+                break
+            if len(best[name]) > round_:
+                picked.append(best[name][round_])
+        round_ += 1
+    return picked
+
+
 def from_model(
     schema: dict,
     matrix: Path,
@@ -173,6 +209,8 @@ def from_model(
     report: Report | None = None,
     context_tokens: int = 32768,
     reserve_tokens: int = 8192,
+    library: list[dict] | None = None,
+    shots: int = 4,
 ) -> Fill:
     """A `Fill` that asks the infer server to author each fragment.
 
@@ -203,8 +241,22 @@ def from_model(
                 report.attempts.append(attempt)
             return {"$unfilled": hole.name}
         item = ctx.get("$item")
+        declarations = as_typescript(fmt, hole.schema_ref)
+        shown = examples_for(hole.schema_ref, library, members, shots) if library else []
+        examples = ""
+        if shown:
+            body = "\n".join(
+                f"// {p['description'][:90]}\n{json.dumps(p['value'], indent=1)}" for p in shown
+            )
+            examples = (
+                f"\n\nHere are {len(shown)} real examples from existing JetStore "
+                f"configurations, one per variant. Follow their field names exactly - "
+                f"note which fields each variant requires:\n\n```json\n{body}\n```"
+            )
         instruction = (
             f"{hole.prompt}\n\n"
+            f"These are the types you must produce, as TypeScript declarations:\n\n"
+            f"```typescript\n{declarations}\n```\n\n"
             f"Produce exactly one JSON value for this hole. It must satisfy the schema "
             f"you have been given, which is the JetStore cpipes contract for "
             f"{hole.schema_ref}."
@@ -217,6 +269,7 @@ def from_model(
                 if hole.schema_ref in tokens
                 else ""
             )
+            + examples
             + (f"\n\nThis instance is for: {json.dumps(item)}" if item is not None else "")
         )
         attempt = Attempt(hole=hole.name, schema_ref=hole.schema_ref, item=item)
@@ -262,3 +315,65 @@ def from_model(
             return {"$unfilled": hole.name}
 
     return fill
+
+
+# ---------------------------------------------------------------------------
+# The schema, in the prompt as well as in `format`
+# ---------------------------------------------------------------------------
+
+
+def as_typescript(document: dict, root: str) -> str:
+    """Render a subschema as TypeScript type declarations.
+
+    **`format` alone is not sufficient**, measured here and independently by the
+    `tools/sample_projects/tasks_go` sample: with the type declaration removed from that
+    sample's prompt the model stops returning a valid task list, and `format` carrying
+    the same schema does not save it. F.6's first reading of 0 of 9 was a version that
+    sent the schema only as `format`.
+
+    TypeScript rather than JSON Schema because it is what the sample uses and because it
+    is far denser - a discriminated union is one line per variant instead of a `oneOf`
+    with a mapping - which matters when the budget is what I-29 was about.
+    """
+    defs = document.get("$defs", {})
+    lines: list[str] = []
+
+    def ts(node: dict, depth: int = 0) -> str:
+        if "$ref" in node:
+            return node["$ref"].split("/")[-1]
+        if "oneOf" in node or "anyOf" in node:
+            branches = node.get("oneOf") or node.get("anyOf")
+            parts = [ts(b, depth) for b in branches if b.get("type") != "null"]
+            nullable = any(b.get("type") == "null" for b in branches)
+            out = " | ".join(dict.fromkeys(parts)) or "unknown"
+            return f"{out} | null" if nullable else out
+        if "enum" in node:
+            return " | ".join(json.dumps(v) for v in node["enum"])
+        if "const" in node:
+            return json.dumps(node["const"])
+        kind = node.get("type")
+        if kind == "array":
+            return f"{ts(node.get('items', {}), depth)}[]"
+        if kind == "object":
+            props = node.get("properties")
+            if not props:
+                return "Record<string, unknown>"
+            required = set(node.get("required", []))
+            inner = "; ".join(
+                f"{k}{'' if k in required else '?'}: {ts(v, depth + 1)}" for k, v in props.items()
+            )
+            return "{ " + inner + " }"
+        return {"string": "string", "integer": "number", "number": "number", "boolean": "boolean"}.get(
+            kind, "unknown"
+        )
+
+    for name in sorted(defs):
+        node = defs[name]
+        body = ts(node)
+        doc = (node.get("description") or "").strip().split("\n")[0]
+        if doc:
+            lines.append(f"// {doc[:110]}")
+        lines.append(f"type {name} = {body};")
+    lines.append("")
+    lines.append(f"// Produce one value of type {root}.")
+    return "\n".join(lines)
