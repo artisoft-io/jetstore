@@ -167,6 +167,24 @@ def main(argv: list[str] | None = None) -> int:
         "--out", type=Path, default=DEFAULT_MATRIX.parent / "cpipes_schema.json"
     )
 
+    fragments_cmd = sub.add_parser(
+        "fragments",
+        help="extract the fragment library from the live corpus, keyed by defs_name (F.1)",
+    )
+    fragments_cmd.add_argument("--matrix", type=Path, default=DEFAULT_MATRIX)
+    fragments_cmd.add_argument(
+        "--schema", type=Path, default=DEFAULT_MATRIX.parent / "cpipes_schema.json"
+    )
+    fragments_cmd.add_argument(
+        "--model", type=Path, default=DEFAULT_MATRIX.parent / "cpipes_model.py"
+    )
+    fragments_cmd.add_argument(
+        "--corpus", type=Path, default=DEFAULT_MATRIX.parent.parent.parent.parent
+    )
+    fragments_cmd.add_argument(
+        "--out", type=Path, default=DEFAULT_MATRIX.parent / "fragments" / "library.jsonl"
+    )
+
     bundles_cmd = sub.add_parser(
         "bundles",
         help="validate every live TransformationSpec fragment against its bundle",
@@ -201,6 +219,28 @@ def main(argv: list[str] | None = None) -> int:
     )
 
     args = parser.parse_args(argv)
+
+    if args.command == "fragments":
+        import json
+
+        from .fragments import check_against_matrix, extract, to_jsonl
+
+        schema = json.loads(args.schema.read_text())
+        ex = extract(schema, args.corpus, args.model)
+        parts = ex.library()
+        for finding in ex.unresolved:
+            print(f"FINDING unresolved union at {finding}", file=sys.stderr)
+        args.out.parent.mkdir(parents=True, exist_ok=True)
+        args.out.write_text(to_jsonl(parts))
+        drift = check_against_matrix(parts, args.matrix / "types.csv")
+        for finding in drift:
+            print(f"FINDING corpus count disagrees - {finding}", file=sys.stderr)
+        names = {p.defs_name for p in parts}
+        print(
+            f"wrote {args.out}: {len(parts)} distinct parts over {len(names)} $defs "
+            f"entries, from {sum(p.instances for p in parts)} corpus instances"
+        )
+        return 1 if (ex.unresolved or drift) else 0
 
     if args.command == "bundles":
         import json

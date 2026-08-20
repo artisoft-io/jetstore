@@ -13,7 +13,7 @@ once extraction is complete, and is what the exit criteria run.
 from __future__ import annotations
 
 import json
-from collections import Counter
+from collections import Counter, defaultdict
 from pathlib import Path
 
 from .corpus import LIVE_PARENT
@@ -85,15 +85,24 @@ def check(matrix: Matrix, strict: bool = False) -> list[str]:
 
     # --- types ------------------------------------------------------------
     discriminators: dict[str, set[str]] = {}
-    defs_names = Counter(t.defs_name for t in matrix.types)
-    for name, n in defs_names.items():
-        if n > 1:
-            bad("types", f"defs_name {name} appears {n} times; $defs keys are unique")
+    # Two rows may share a defs_name only by sharing a struct the model merges -
+    # ExpressionNode's seven tokens are one class and one $defs entry. Two different
+    # structs colliding on one key is the collision the naming rule exists to prevent.
+    structs_by_defs_name: dict[str, set[str]] = defaultdict(set)
+    for t in matrix.types:
+        structs_by_defs_name[t.defs_name].add(t.go_struct)
+    for name, structs in structs_by_defs_name.items():
+        if len(structs) > 1:
+            bad("types", f"defs_name {name} is claimed by {sorted(structs)}; $defs keys are unique")
     for t in matrix.types:
         where = f"types {_key(t)}"
         expected = defs_name_for(t.go_struct, t.type_token)
-        if t.defs_name != expected:
-            bad(where, f"defs_name should be {expected}, found {t.defs_name}")
+        # A struct the model expresses as one class rather than one per token is
+        # addressable only under the struct's own name - ExpressionNode and
+        # ContextSpec by merge, ReportCmdSpec by having a single variant. For those
+        # the column records what the schema calls it, which is the column's job.
+        if t.defs_name not in (expected, t.go_struct):
+            bad(where, f"defs_name should be {expected} or {t.go_struct}, found {t.defs_name}")
         if (t.discriminator == NONE) != (t.type_token == ANY_TOKEN):
             bad(
                 where,
