@@ -229,7 +229,14 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "fragments":
         import json
 
-        from .fragments import check_against_matrix, criterion_24, curate, extract, to_jsonl
+        from .fragments import (
+            check_against_matrix,
+            criterion_24,
+            curate,
+            extract,
+            recovered_parts,
+            to_jsonl,
+        )
 
         schema = json.loads(args.schema.read_text())
         ex = extract(schema, args.corpus, args.model)
@@ -247,19 +254,40 @@ def main(argv: list[str] | None = None) -> int:
             f"entries, from {sum(p.instances for p in parts)} corpus instances"
         )
 
+        rec = recovered_parts(schema, args.matrix, args.corpus, args.model)
+        recovered = rec.library()
+        for note in rec.stale:
+            print(f"  note stale in a recovered source, not admitted: {note}")
+        for finding in rec.unresolved:
+            print(f"FINDING recovered source unreadable - {finding}", file=sys.stderr)
+
         kept, stats = curate(parts)
+        # Criterion 24 is about what the curation *dropped* from the corpus, so it is
+        # checked before recovered parts are added: an addition is not a loss, and
+        # comparing after would report a gain as a violation.
+        thin_lost = criterion_24(parts, kept, args.matrix / "types.csv")
+
+        # Recovered parts join the *curated* library, not the extraction: library.jsonl
+        # stays a faithful record of the live corpus, while the consumable library gets
+        # the operator coverage the corpus can no longer provide.
+        have = {p.defs_name for p in kept}
+        added = [p for p in recovered if p.defs_name not in have]
+        kept.extend(added)
+        kept.sort(key=lambda p: (p.defs_name, -p.instances))
+        stats["recovered_added"] = len(added)
+        stats["output"] = len(kept)
         args.curated_out.write_text(to_jsonl(kept))
         print(
             f"wrote {args.curated_out}: {stats['output']} curated "
             f"({stats['excluded_deprecated']} deprecated and "
             f"{stats['excluded_runtime_shape']} runtime-shape excluded, "
             f"{stats['kept_thin']} kept whole from thin types, "
-            f"{stats['dropped_repetition']} repetitions dropped)"
+            f"{stats['dropped_repetition']} repetitions dropped, "
+            f"{stats['recovered_added']} recovered from history)"
         )
-        thin_lost = criterion_24(parts, kept, args.matrix / "types.csv")
         for finding in thin_lost:
             print(f"FINDING criterion 24 - {finding}", file=sys.stderr)
-        return 1 if (ex.unresolved or drift or thin_lost) else 0
+        return 1 if (ex.unresolved or drift or thin_lost or rec.unresolved) else 0
 
     if args.command == "bundles":
         import json
