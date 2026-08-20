@@ -163,6 +163,61 @@ def test_a_bad_fragment_is_reported_and_still_spliced():
     assert cfg["conditional_pipes_config"], "and the config must still be produced"
 
 
+
+
+# --- F.5: criterion 21 ----------------------------------------------------------
+
+from cpipes_contract.expand import from_target  # noqa: E402
+
+TARGET_PATH = (
+    HERE / ".." / ".." / ".." / "workspaces" / "walrus_ws" / "pipes_config" / "map_claim.pc.json"
+)
+
+
+def _round_trip():
+    """Expand the map_claim template against the config it was derived from."""
+    tpl = Template.model_validate(
+        json.loads((HERE / "templates" / "map_claim_load_stages.template.json").read_text())
+    )
+    ctx = json.loads((HERE / "templates" / "map_claim_load_stages.bindings.json").read_text())
+    target = json.loads(TARGET_PATH.read_text())
+    cfg, findings = expand(tpl, ctx, from_target(target, key="step_name"), SCHEMA)
+    return tpl, target, cfg, findings
+
+
+def test_criterion_21_the_template_is_clean_and_expands():
+    tpl, _, _, findings = _round_trip()
+    assert check(tpl, SCHEMA, None, HERE / "matrix")[0] == []
+    assert findings == []
+
+
+def test_criterion_21_the_expansion_validates_under_the_2b_schema():
+    import jsonschema
+
+    _, _, cfg, _ = _round_trip()
+    v = jsonschema.Draft202012Validator(
+        {"$schema": SCHEMA["$schema"], "$ref": "#/$defs/ComputePipesConfig", "$defs": SCHEMA["$defs"]}
+    )
+    assert list(v.iter_errors(cfg)) == []
+
+
+def test_criterion_21_the_expansion_regenerates_its_target_exactly():
+    """The round trip is what makes the criterion checkable rather than plausible.
+
+    A template derived from a live config, expanded with payload recovered from that
+    same config, must reproduce it byte for byte. Anything less and the mechanism is
+    losing or inventing something, and no amount of validating would show which.
+
+    `ValidatePipeSpecConfig` is the criterion's other half and is not run from here -
+    it needs the Go harness. Both the expansion and the target return
+    `{"ok": true, "steps": 8}`, checked 2026-08-20:
+
+        go run ./tools/cpipes_contract/harness < cases.json
+    """
+    _, target, cfg, _ = _round_trip()
+    assert json.dumps(cfg, sort_keys=True) == json.dumps(target, sort_keys=True)
+
+
 if __name__ == "__main__":
     import sys
 
