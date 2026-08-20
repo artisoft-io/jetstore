@@ -1,0 +1,8 @@
+{
+  "metrics": [
+    { "channel": "qc_completeness.mapped", "channel_spec": "qc_metrics" },
+    { "channel": "qc_validity.mapped", "channel_spec": "qc_metrics" },
+    { "channel": "qc_consistency.mapped", "channel_spec": "qc_metrics" }
+  ],
+  "input_columns": ["member_id", "dob", "zip"]
+}

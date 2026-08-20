@@ -6,7 +6,7 @@
       "name": "metric_operators",
       "schema_ref": "MapRecordPipe",
       "repeat_over": "metrics",
-      "prompt": "One map_record operator per metric in `metrics`. Each writes to that metric's own output channel and leaves the input record otherwise untouched. This is the OUTER level: it repeats over metrics, not over columns."
+      "prompt": "One map_record operator per metric in `metrics`. Each writes to that metric's own output channel and leaves the input record otherwise untouched. This is the OUTER level: it repeats over metrics, not over columns. Each repetition reads its own channel names from the metric via $item."
     },
     {
       "name": "metric_columns",
@@ -44,7 +44,12 @@
                     }
                   ],
                   "output_channel": {
-                    "name": "metrics.mapped"
+                    "name": {
+                      "$item": "channel"
+                    },
+                    "channel_spec_name": {
+                      "$item": "channel_spec"
+                    }
                   }
                 }
               }
