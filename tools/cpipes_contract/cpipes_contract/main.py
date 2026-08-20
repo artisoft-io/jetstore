@@ -207,6 +207,15 @@ def main(argv: list[str] | None = None) -> int:
     templates_cmd.add_argument(
         "--dir", type=Path, default=DEFAULT_MATRIX.parent / "templates"
     )
+    templates_cmd.add_argument(
+        "--expand",
+        type=Path,
+        help="a JSON file binding each repeat_over name to a list; expands every "
+        "template against it and validates the result as a whole config (F.4)",
+    )
+    templates_cmd.add_argument(
+        "--out", type=Path, help="where to write the expanded config (with --expand)"
+    )
 
     bundles_cmd = sub.add_parser(
         "bundles",
@@ -274,6 +283,41 @@ def main(argv: list[str] | None = None) -> int:
             for finding in findings:
                 print(f"FINDING {path.name}: {finding}", file=sys.stderr)
             total += len(findings)
+
+            if args.expand and not findings:
+                import jsonschema
+
+                from .expand import expand as expand_template
+                from .expand import from_library
+
+                context = json.loads(args.expand.read_text())
+                if library is None:
+                    print(f"FINDING {path.name}: --expand needs the library", file=sys.stderr)
+                    total += 1
+                    continue
+                config, bad = expand_template(
+                    tpl, context, from_library(library, args.matrix), schema
+                )
+                for finding in bad:
+                    print(f"FINDING {path.name}: {finding}", file=sys.stderr)
+                validator = jsonschema.Draft202012Validator(
+                    {
+                        "$schema": schema["$schema"],
+                        "$ref": "#/$defs/ComputePipesConfig",
+                        "$defs": schema["$defs"],
+                    }
+                )
+                errors = sorted(validator.iter_errors(config), key=lambda e: len(e.path))
+                for error in errors[:5]:
+                    at = ".".join(str(p) for p in error.path) or "<root>"
+                    print(f"FINDING {path.name}: expanded config invalid at {at}: "
+                          f"{error.message[:120]}", file=sys.stderr)
+                total += len(bad) + len(errors)
+                if not bad and not errors:
+                    print(f"  expanded and validates as an ordinary .pc.json")
+                if args.out:
+                    args.out.write_text(json.dumps(config, indent=2) + "\n")
+                    print(f"  wrote {args.out}")
         return 1 if total else 0
 
     if args.command == "fragments":

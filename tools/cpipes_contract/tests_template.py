@@ -81,6 +81,88 @@ def test_nested_holes_are_found_through_a_body():
     assert paths["metric_columns"].startswith(paths["metric_operators"])
 
 
+
+
+# --- F.4: expansion -------------------------------------------------------------
+
+from cpipes_contract.expand import ExpansionError, expand, from_library  # noqa: E402
+
+LIBRARY = [
+    json.loads(line)
+    for line in (HERE / "fragments" / "library.curated.jsonl").read_text().splitlines()
+    if line.strip()
+]
+CTX = {
+    "metrics": [
+        {"channel": "qc_a.mapped", "channel_spec": "qc_metrics"},
+        {"channel": "qc_b.mapped", "channel_spec": "qc_metrics"},
+    ],
+    "input_columns": ["member_id", "dob"],
+}
+
+
+def expanded():
+    tpl = Template.model_validate(copy.deepcopy(BASE))
+    return expand(tpl, CTX, from_library(LIBRARY, HERE / "matrix"), SCHEMA)
+
+
+def test_expansion_produces_a_valid_config():
+    import jsonschema
+
+    cfg, findings = expanded()
+    assert findings == []
+    v = jsonschema.Draft202012Validator(
+        {"$schema": SCHEMA["$schema"], "$ref": "#/$defs/ComputePipesConfig", "$defs": SCHEMA["$defs"]}
+    )
+    assert list(v.iter_errors(cfg)) == []
+
+
+def test_the_output_carries_no_marker_of_being_generated():
+    """`compute_pipes` must not be able to tell. No $hole, $body or $item survives."""
+    cfg, _ = expanded()
+    blob = json.dumps(cfg)
+    assert "$hole" not in blob and "$body" not in blob and "$item" not in blob
+
+
+def test_both_levels_repeat_independently():
+    """The §5.3.9 case: outer over metrics, inner over columns, neither inferred."""
+    cfg, _ = expanded()
+    ops = cfg["conditional_pipes_config"][0]["pipes_config"][0]["apply"]
+    assert len(ops) == len(CTX["metrics"])
+    for op in ops:
+        assert len(op["columns"]) == len(CTX["input_columns"])
+
+
+def test_a_repeating_hole_splices_rather_than_nests():
+    cfg, _ = expanded()
+    ops = cfg["conditional_pipes_config"][0]["pipes_config"][0]["apply"]
+    assert all(isinstance(o, dict) for o in ops), "expanded into a list of lists"
+
+
+def test_item_reads_the_current_iteration():
+    cfg, _ = expanded()
+    ops = cfg["conditional_pipes_config"][0]["pipes_config"][0]["apply"]
+    assert [o["output_channel"]["name"] for o in ops] == [m["channel"] for m in CTX["metrics"]]
+
+
+def test_an_unbound_repeat_over_raises():
+    tpl = Template.model_validate(copy.deepcopy(BASE))
+    try:
+        expand(tpl, {"metrics": CTX["metrics"]}, from_library(LIBRARY, HERE / "matrix"), SCHEMA)
+    except ExpansionError as e:
+        assert "input_columns" in str(e)
+    else:
+        raise AssertionError("expected ExpansionError for the unbound collection")
+
+
+def test_a_bad_fragment_is_reported_and_still_spliced():
+    """An author sees the whole result, not the first failure."""
+    tpl = Template.model_validate(copy.deepcopy(BASE))
+    cfg, findings = expand(tpl, CTX, lambda hole, ctx: {"nonsense": True}, SCHEMA)
+    assert findings, "a bad fragment must be reported"
+    assert cfg["conditional_pipes_config"], "and the config must still be produced"
+
+
 if __name__ == "__main__":
     import sys
 
