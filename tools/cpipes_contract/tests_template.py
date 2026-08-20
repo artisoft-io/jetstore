@@ -316,3 +316,89 @@ def test_every_bundle_is_authorable():
         if size > budget:
             over.append((name, size))
     assert over == [], f"over budget: {over}"
+
+
+# --- F.7: criterion 23 ----------------------------------------------------------
+
+from cpipes_contract.qc_bindings import derive  # noqa: E402
+
+QC = HERE / ".." / ".." / ".." / "workspaces" / "cedargate_ws" / "pipes_config"
+QC_TEMPLATE = Template.model_validate(
+    json.loads((HERE / "templates" / "qc_report.template.json").read_text())
+)
+QC_EXACT = ("qc_hra", "qc_laboratory", "qc_disability", "qc_participation", "qc_eligibility")
+QC_NOT_EXACT = ("qc_biometric", "qc_pharmacyclaim", "qc_medicalclaim")
+
+
+def _qc(name):
+    target = json.loads((QC / f"{name}.pc.json").read_text())
+    cfg, bad = expand(QC_TEMPLATE, derive(target), lambda h, c: {"$UNFILLED": h.name}, SCHEMA)
+    return target, cfg, bad
+
+
+def test_the_qc_template_is_clean():
+    findings, _ = check(QC_TEMPLATE, SCHEMA, None, HERE / "matrix")
+    assert findings == []
+
+
+def test_criterion_23_two_of_the_five_non_exact_reproduce_exactly():
+    """§5.3.9 left five `qc_*` configs short of byte-for-byte. Two of them now are.
+
+    Criterion 23 asks for one. `qc_participation` (14 diffs in Phase 0) and
+    `qc_eligibility` (54) both reproduce exactly from `qc_TEMPLATE` plus the hole set,
+    and the three Phase 0 already had stay exact - which is the check that matters, since
+    a hole added for one config can easily break another.
+
+    **This proves placement, not authoring** - §5.3.9's third qualification, unchanged.
+    `derive` reads the target.
+    """
+    for name in QC_EXACT:
+        target, cfg, bad = _qc(name)
+        assert bad == [], f"{name}: {bad}"
+        assert json.dumps(cfg, sort_keys=True) == json.dumps(target, sort_keys=True), name
+
+
+def test_no_fragment_comes_from_a_model_or_the_library():
+    """Every hole is filled by its own `$body`; the `fill` seam is never reached.
+
+    That is stronger than F.5's round trip, which recovered whole operators with
+    `from_target`. Here the skeleton supplies the shape and the bindings supply only
+    values, so a `fill` callable that returns nonsense changes nothing.
+    """
+    calls = []
+    target = json.loads((QC / "qc_participation.pc.json").read_text())
+    cfg, _ = expand(
+        QC_TEMPLATE, derive(target),
+        lambda h, c: (calls.append(h.name), {"$UNFILLED": h.name})[1], SCHEMA,
+    )
+    assert calls == []
+    assert json.dumps(cfg, sort_keys=True) == json.dumps(target, sort_keys=True)
+
+
+def test_the_three_that_do_not_reproduce_are_recorded_as_bounded():
+    """The honest half of criterion 23: what is left, and that it is not the mechanism.
+
+    Nine, ten and thirty-three leaves respectively, in four categories that are all
+    per-config payload the template does not yet name - `format`/`compression` on an
+    output channel, a metric's `rdf_type`, a `count` over a column rather than `*`, and
+    a whole `output_tables` section. None of them is a varying skeleton, and none needs
+    anything the hole model cannot express. The test pins the *size* of what is left so
+    that it cannot quietly grow.
+    """
+    def leaves(o, p=""):
+        if isinstance(o, dict):
+            for k, v in o.items():
+                yield from leaves(v, f"{p}.{k}")
+        elif isinstance(o, list):
+            for i, v in enumerate(o):
+                yield from leaves(v, f"{p}[{i}]")
+        else:
+            yield p, o
+
+    budget = {"qc_biometric": 9, "qc_pharmacyclaim": 33, "qc_medicalclaim": 10}
+    for name in QC_NOT_EXACT:
+        target, cfg, bad = _qc(name)
+        assert bad == [], f"{name}: {bad}"
+        a, b = dict(leaves(cfg)), dict(leaves(target))
+        n = len(set(a) ^ set(b)) + sum(1 for k in set(a) & set(b) if a[k] != b[k])
+        assert n <= budget[name], f"{name}: {n} differing leaves, was {budget[name]}"
