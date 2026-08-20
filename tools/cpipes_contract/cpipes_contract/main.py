@@ -184,6 +184,12 @@ def main(argv: list[str] | None = None) -> int:
     fragments_cmd.add_argument(
         "--out", type=Path, default=DEFAULT_MATRIX.parent / "fragments" / "library.jsonl"
     )
+    fragments_cmd.add_argument(
+        "--curated-out",
+        type=Path,
+        default=DEFAULT_MATRIX.parent / "fragments" / "library.curated.jsonl",
+        help="the F.2 curation: decision 14's rules applied to the extraction",
+    )
 
     bundles_cmd = sub.add_parser(
         "bundles",
@@ -223,7 +229,7 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "fragments":
         import json
 
-        from .fragments import check_against_matrix, extract, to_jsonl
+        from .fragments import check_against_matrix, criterion_24, curate, extract, to_jsonl
 
         schema = json.loads(args.schema.read_text())
         ex = extract(schema, args.corpus, args.model)
@@ -240,7 +246,20 @@ def main(argv: list[str] | None = None) -> int:
             f"wrote {args.out}: {len(parts)} distinct parts over {len(names)} $defs "
             f"entries, from {sum(p.instances for p in parts)} corpus instances"
         )
-        return 1 if (ex.unresolved or drift) else 0
+
+        kept, stats = curate(parts)
+        args.curated_out.write_text(to_jsonl(kept))
+        print(
+            f"wrote {args.curated_out}: {stats['output']} curated "
+            f"({stats['excluded_deprecated']} deprecated and "
+            f"{stats['excluded_runtime_shape']} runtime-shape excluded, "
+            f"{stats['kept_thin']} kept whole from thin types, "
+            f"{stats['dropped_repetition']} repetitions dropped)"
+        )
+        thin_lost = criterion_24(parts, kept, args.matrix / "types.csv")
+        for finding in thin_lost:
+            print(f"FINDING criterion 24 - {finding}", file=sys.stderr)
+        return 1 if (ex.unresolved or drift or thin_lost) else 0
 
     if args.command == "bundles":
         import json
