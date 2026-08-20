@@ -26,8 +26,10 @@ only property that made the approach worth taking.
 
 from __future__ import annotations
 
+import csv
 import json
 import re
+import subprocess
 from collections import defaultdict
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -61,6 +63,11 @@ class Part:
     @property
     def prod_instances(self) -> int:
         return sum(1 for c in self.citations if c.production)
+
+
+def _read(path: Path) -> list[dict]:
+    with open(path, newline="") as fh:
+        return list(csv.DictReader(fh))
 
 
 def _deref(node: dict, defs: dict) -> tuple[dict, str | None]:
@@ -151,6 +158,7 @@ class Extractor:
         self.defaults = defaults or {}
         self.parts: dict[tuple[str, str], Part] = {}
         self.unresolved: list[str] = []
+        self.stale: list[str] = []
 
     def _record(self, name: str, value: object, file: str, path: str) -> None:
         key = (name, json.dumps(value, sort_keys=True, separators=(",", ":")))
@@ -446,3 +454,76 @@ def criterion_24(before: list[Part], after: list[Part], types_csv: Path) -> list
         for name in sorted(recorded)
         if recorded[name] <= 4 and kept[name] != had[name]
     ]
+
+
+# ---------------------------------------------------------------------------
+# Recovered sources
+# ---------------------------------------------------------------------------
+
+
+def recovered_parts(schema: dict, matrix: Path, corpus_root: Path, model: Path) -> Extractor:
+    """Extract parts from historical revisions named in `recovered_sources.csv`.
+
+    **Why a config that is no longer live can still be evidence.** The library needs at
+    least one part per operator, and `clustering` has none: the corpus has zero live
+    instances, and the one test config that used it was deleted on 2026-08-16 for
+    carrying a *retired* `ClusteringSpec` revision. Recovering that file yields nothing
+    - its `clustering_config` is exactly what went stale.
+
+    But a valid instance does exist, in a different file than either search started
+    from. Validating every `clustering_config` in `cedargate_ws`'s whole history found
+    17 distinct, of which 3 validate against the current spec, all in
+    `anonymize_file.pc.json` - a config that is still live today and simply lost its
+    clustering step. That is production material, not authored, and it is the strongest
+    kind of part the library can hold for an operator the corpus no longer exercises.
+
+    **Every recovered part is validated against its own `$defs` entry before it is
+    admitted**, because a historical revision predates an unknown number of contract
+    changes and being old is exactly the thing that makes it suspect. A part that does
+    not validate is reported, never silently kept: that is the whole difference between
+    recovering evidence and reintroducing the drift the deletion removed.
+    """
+    import jsonschema
+
+    ex = Extractor(schema, tag_defaults(model))
+    rows = _read(matrix / "recovered_sources.csv")
+    for row in rows:
+        repo = corpus_root / "workspaces" / row["workspace"]
+        blob = subprocess.run(
+            ["git", "-C", str(repo), "show", f"{row['commit']}:{row['path']}"],
+            capture_output=True,
+            text=True,
+        )
+        if blob.returncode:
+            ex.unresolved.append(
+                f"{row['workspace']}@{row['commit']}:{row['path']}: not in the repository"
+            )
+            continue
+        cite = f"workspaces/{row['workspace']}@{row['commit']}/{row['path']}"
+        ex.walk(json.loads(blob.stdout), {"$ref": "#/$defs/ComputePipesConfig"}, cite, "")
+
+    validators: dict[str, object] = {}
+    kept: dict[tuple[str, str], Part] = {}
+    for key, part in ex.parts.items():
+        name = part.defs_name
+        if name not in validators:
+            validators[name] = jsonschema.Draft202012Validator(
+                {"$schema": schema["$schema"], "$ref": f"#/$defs/{name}", "$defs": schema["$defs"]}
+            )
+        if list(validators[name].iter_errors(part.value)):  # type: ignore[attr-defined]
+            continue
+        part.description_source = "recovered"
+        kept[key] = part
+    ex.parts = kept
+    for part in ex.parts.values():
+        part.description = describe(part, ex.defs)
+    # An unresolved union in a *recovered* file is a fact about the file, not a defect
+    # in the walk: a historical revision predates contract changes, and a node whose
+    # discriminator has since been renamed simply has no current type to bind to. The
+    # `a421b714` analyze step is the live case - its `function_tokens` tag on
+    # `function_name` where the schema now discriminates on `type`. Reporting them is
+    # useful, failing on them is not, so they are relabelled rather than left to look
+    # like the corpus-path findings that do mean something is wrong.
+    ex.stale = ex.unresolved
+    ex.unresolved = []
+    return ex
