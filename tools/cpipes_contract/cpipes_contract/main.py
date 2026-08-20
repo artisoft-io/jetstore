@@ -191,6 +191,23 @@ def main(argv: list[str] | None = None) -> int:
         help="the F.2 curation: decision 14's rules applied to the extraction",
     )
 
+    templates_cmd = sub.add_parser(
+        "templates",
+        help="check authored templates: holes declared, placed, typed and covered (F.3)",
+    )
+    templates_cmd.add_argument("--matrix", type=Path, default=DEFAULT_MATRIX)
+    templates_cmd.add_argument(
+        "--schema", type=Path, default=DEFAULT_MATRIX.parent / "cpipes_schema.json"
+    )
+    templates_cmd.add_argument(
+        "--library",
+        type=Path,
+        default=DEFAULT_MATRIX.parent / "fragments" / "library.curated.jsonl",
+    )
+    templates_cmd.add_argument(
+        "--dir", type=Path, default=DEFAULT_MATRIX.parent / "templates"
+    )
+
     bundles_cmd = sub.add_parser(
         "bundles",
         help="validate every live TransformationSpec fragment against its bundle",
@@ -225,6 +242,39 @@ def main(argv: list[str] | None = None) -> int:
     )
 
     args = parser.parse_args(argv)
+
+    if args.command == "templates":
+        import json
+
+        from .template import check as check_template
+        from .template import load as load_template
+
+        schema = json.loads(args.schema.read_text())
+        library = (
+            [json.loads(line) for line in args.library.read_text().splitlines() if line.strip()]
+            if args.library.exists()
+            else None
+        )
+        paths = sorted(args.dir.glob("*.template.json"))
+        if not paths:
+            print(f"no templates in {args.dir}")
+            return 0
+        total = 0
+        for path in paths:
+            tpl = load_template(path)
+            findings, notes = check_template(tpl, schema, library, args.matrix)
+            holes = len(tpl.holes)
+            repeating = sum(1 for h in tpl.holes if h.repeat_over)
+            print(
+                f"{path.name}: {holes} hole(s), {repeating} repeating, "
+                f"{len(findings)} finding(s)"
+            )
+            for note in notes:
+                print(f"  note {note}")
+            for finding in findings:
+                print(f"FINDING {path.name}: {finding}", file=sys.stderr)
+            total += len(findings)
+        return 1 if total else 0
 
     if args.command == "fragments":
         import json

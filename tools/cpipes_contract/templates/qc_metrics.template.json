@@ -1,0 +1,68 @@
+{
+  "name": "qc_metrics",
+  "description": "The qc_* family's metric stage: one map_record operator per metric family, each mapping a fixed set of input columns onto the metric's output channel. Reproduces the shape stage 2.2 of qc_biometric.pc.json has three times over, which is the case that failed round 1 of the phase 0 plan's 5.3.9 experiment.",
+  "holes": [
+    {
+      "name": "metric_operators",
+      "schema_ref": "MapRecordPipe",
+      "repeat_over": "metrics",
+      "prompt": "One map_record operator per metric in `metrics`. Each writes to that metric's own output channel and leaves the input record otherwise untouched. This is the OUTER level: it repeats over metrics, not over columns."
+    },
+    {
+      "name": "metric_columns",
+      "schema_ref": "ColumnMapping",
+      "repeat_over": "input_columns",
+      "prompt": "One column transformation per entry of `input_columns`, inside a single metric operator. This is the INNER level: it repeats over columns within one metric. A text marker cannot distinguish this hole from `metric_operators` - both are 'the metric marker' - which is why each declares its own repeat_over."
+    },
+    {
+      "name": "partition_output",
+      "schema_ref": "PartitionWriterPipe",
+      "prompt": "The single partition_writer that closes the stage. Fills once: it does not repeat over anything."
+    }
+  ],
+  "body": {
+    "conditional_pipes_config": [
+      {
+        "step_name": "Compute QC metrics",
+        "pipes_config": [
+          {
+            "type": "fan_out",
+            "input_channel": {
+              "type": "stage",
+              "name": "input_row",
+              "read_step_id": "qc_input"
+            },
+            "apply": [
+              {
+                "$hole": "metric_operators",
+                "$body": {
+                  "type": "map_record",
+                  "new_record": true,
+                  "columns": [
+                    {
+                      "$hole": "metric_columns"
+                    }
+                  ],
+                  "output_channel": {
+                    "name": "metrics.mapped"
+                  }
+                }
+              }
+            ]
+          },
+          {
+            "type": "fan_out",
+            "input_channel": {
+              "name": "metrics.mapped"
+            },
+            "apply": [
+              {
+                "$hole": "partition_output"
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}
