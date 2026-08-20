@@ -62,20 +62,28 @@ func (jsComp *JetStoreStackComponents) BuildInferService(scope constructs.Constr
 			// Dropping to uid 999 does not change HOME; left at root's, Ollama cannot write
 			// its signing key or caches under /root/.ollama.
 			"HOME": jsii.String(jsComp.JetsTempData() + "/home"),
-			// **Divides the context window rather than adding to it**, so it belongs to the
-			// same choice as the two settings below: each in-flight request gets
-			// OLLAMA_CONTEXT_LENGTH / OLLAMA_NUM_PARALLEL tokens. Lowered from 4 to 2 on
-			// 2026-08-20, which is the one regression in the move to the larger card —
-			// see the arithmetic in the OLLAMA_CONTEXT_LENGTH block.
+			// **Divides the context window rather than adding to it**, so each in-flight
+			// request gets OLLAMA_CONTEXT_LENGTH / OLLAMA_NUM_PARALLEL tokens and the
+			// VRAM cost does not change with it. Measured 2026-08-20 rather than assumed:
+			// with the env var at 98304 and this at 2, /api/ps reports 32.26 GiB and
+			// context_length 98304 — the same figure a single 98304-token request
+			// allocates. Multiplying would have wanted ~120 GiB and refused to start.
+			//
+			// **4 is safe at 98304 and would restore E.8's K**, at 24576 per request. It
+			// is left at 2 only because raising it costs a deployment and nothing is
+			// waiting on it.
 			"OLLAMA_NUM_PARALLEL": jsii.String(jsComp.InferEnvOrDefault("OLLAMA_NUM_PARALLEL", "2")),
 			// One model at a time. A second resident model of this size would want another
 			// ~12 GiB of KV cache on top of the first (see OLLAMA_CONTEXT_LENGTH below),
 			// which does not fit in the A10G's 24 GiB and would push both caches into host
 			// RAM. Raise this only together with a lower OLLAMA_CONTEXT_LENGTH.
-			// Two, which is what the g6e.2xlarge was bought for: 24 GiB could not hold two
-			// models and 48 GiB can. Chosen together with OLLAMA_CONTEXT_LENGTH below —
-			// they multiply against fixed VRAM, so neither is a free-standing number.
-			"OLLAMA_MAX_LOADED_MODELS": jsii.String(jsComp.InferEnvOrDefault("OLLAMA_MAX_LOADED_MODELS", "2")),
+			// **One, and that is a pair decision with OLLAMA_CONTEXT_LENGTH below.** Two
+			// models is what the g6e.2xlarge was bought for and 48 GiB can hold two — but
+			// not at 98304 each, which is 2 x 32.26 = 64.5 GiB. Raising this to 2 requires
+			// lowering the context in the same change; leaving them inconsistent is safe
+			// only for as long as exactly one model exists, and the failure when a second
+			// arrives is a silent spill rather than a refusal. See I-47.
+			"OLLAMA_MAX_LOADED_MODELS": jsii.String(jsComp.InferEnvOrDefault("OLLAMA_MAX_LOADED_MODELS", "1")),
 			// Must carry a unit: Ollama parses a bare integer as seconds, so the previous
 			// "30" unloaded the model after 30s idle and paid a full VRAM reload on the
 			// next request.
@@ -91,33 +99,28 @@ func (jsComp *JetStoreStackComponents) BuildInferService(scope constructs.Constr
 			// **Nothing spilled, at any context this model supports.** 131072 is granite's
 			// own maximum and it sits fully on the GPU with ~6 GiB to spare, so for a
 			// single model the card is no longer the constraint - the model is. Throughput
-			// is flat at ~203 tok/s across the whole range, against 131 on the g5.xlarge
-			// this replaced.
+			// is flat at ~203 tok/s, against 131 on the g5.xlarge this replaced.
 			//
-			// The cache still costs ~0.31 MiB per token on a ~2.3 GiB base; that is a
-			// property of the model and did not change with the card. What changed is how
-			// much of it fits.
+			// The cache costs ~0.31 MiB per token on a ~2.3 GiB base; that is a property
+			// of the model and did not change with the card. What changed is how much fits.
 			//
-			// **Three settings divide this window and they are one choice, not three.**
-			// OLLAMA_MAX_LOADED_MODELS multiplies the VRAM cost; OLLAMA_NUM_PARALLEL
-			// divides the per-request context. At 49152 with two models loaded the cost is
-			// 2 x 17.39 = 34.78 GiB, comfortably inside the 42.14 GiB that was observed
-			// resident, and each of two parallel requests gets 24576 tokens - which clears
-			// the largest prompt the authoring loop actually builds (13.5k, measured at
-			// F.6) with room over.
+			// **98304 with OLLAMA_NUM_PARALLEL=2 gives each request 49152 tokens** and
+			// costs 32.26 GiB, leaving ~15.7 GiB. The largest prompt the authoring loop
+			// actually builds is 13.5k (measured at F.6), so that is 3.6x headroom.
 			//
-			// The combinations that do not work are worth recording, because each looks
-			// affordable until the arithmetic is done:
-			//   two models at 64k  -> 44.9 GiB, past the 42.14 GiB observed ceiling
-			//   49152 with 4 parallel -> 12288 per request, under F.6's largest prompt
-			// So four-way parallelism and two loaded models are not simultaneously
-			// affordable at a per-request context that clears real prompts. Two models won,
-			// because holding two is the reason the larger card was bought.
+			// **How the division was established, because the first attempt did not.**
+			// tools/infer_capacity sets num_ctx per request, which overrides this variable
+			// entirely - so the sweep measures the per-request path and says nothing about
+			// how this setting interacts with OLLAMA_NUM_PARALLEL. What settled it was a
+			// reading with no override at all: /api/ps reported 32.26 GiB and
+			// context_length 98304 against 98304/2, which is the single-request figure and
+			// not twice it. An earlier revision of this comment asserted the division from
+			// the sweep; the sweep could not see it.
 			//
-			// **The two-model figures are arithmetic over single-model measurements**, not
-			// a two-model measurement: OLLAMA_MAX_LOADED_MODELS is server-side and was not
-			// varied. Re-run tools/infer_capacity after changing any of the three.
-			"OLLAMA_CONTEXT_LENGTH": jsii.String(jsComp.InferEnvOrDefault("OLLAMA_CONTEXT_LENGTH", "49152")),
+			// One consequence worth keeping: the previous default of 32768 with
+			// OLLAMA_NUM_PARALLEL at 4 was giving each request 8192 tokens, under the
+			// prompts the loop builds. That truncation was latent and unnoticed.
+			"OLLAMA_CONTEXT_LENGTH": jsii.String(jsComp.InferEnvOrDefault("OLLAMA_CONTEXT_LENGTH", "98304")),
 		},
 		// Secrets: &map[string]awsecs.Secret{
 		// 	"API_SECRET":          awsecs.Secret_FromSecretsManager(jsComp.ApiSecret, nil),
