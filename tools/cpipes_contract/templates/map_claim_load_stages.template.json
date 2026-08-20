@@ -1,0 +1,543 @@
+{
+  "name": "map_claim_load_stages",
+  "description": "The map_claim pipeline, with its three near-identical 'Load X to DB' stages left as one repeating hole. Each maps an entity onto its own domain table and writes it. Every other stage is carried verbatim, so expanding against the target regenerates a live config exactly.",
+  "holes": [
+    {
+      "name": "load_stages",
+      "schema_ref": "ConditionalPipeSpec",
+      "repeat_over": "entities",
+      "prompt": "One stage per entity in `entities`: map the entity's records onto its domain table's columns, then write them. Each stage names its own input channel, output channel and write_step_id. Criterion 21 permits recovering this payload from the target and the filler here does exactly that - which is why this proves placement and F.6 may not reuse it."
+    }
+  ],
+  "body": {
+    "cluster_config": {
+      "default_max_concurrency": 20,
+      "s3_worker_pool_size": 20,
+      "shard_offset": 25000,
+      "default_shard_size_mb": 10.0,
+      "default_shard_max_size_mb": 15.0,
+      "is_debug_mode": false,
+      "cluster_sharding_tiers": [
+        {
+          "applies_to_format": "parquet",
+          "when_total_size_ge_mb": 50,
+          "shard_size_mb": 50,
+          "shard_max_size_mb": 55
+        }
+      ]
+    },
+    "context": [
+      {
+        "type": "value",
+        "key": "${PERIOD_ID_TYPE}",
+        "expr": "${MONTH_PERIOD}"
+      }
+    ],
+    "output_tables": [
+      {
+        "key": "MedicalClaim",
+        "name": "wrs:MedicalClaim",
+        "channel_spec_name": "MedicalClaim"
+      },
+      {
+        "key": "PharmacyClaim",
+        "name": "wrs:PharmacyClaim",
+        "channel_spec_name": "PharmacyClaim"
+      },
+      {
+        "key": "Opportunity",
+        "name": "wrs:Opportunity",
+        "channel_spec_name": "Opportunity"
+      },
+      {
+        "key": "process_errors",
+        "name": "jetsapi.process_errors",
+        "channel_spec_name": "process_errors"
+      }
+    ],
+    "output_files": [],
+    "channels": [
+      {
+        "name": "input_row",
+        "columns": [
+          "jets:key",
+          "Eligibility:domain_key"
+        ]
+      },
+      {
+        "name": "InputClaim",
+        "class_name": "wrs:BaseClaim",
+        "columns": [
+          "tmp:Net_Amount_Due",
+          "tmp:Total_Paid_Amount",
+          "tmp:Patient_Pay_Amount",
+          "tmp:Patient_DOB",
+          "tmp:Claim_Type_Code",
+          "session_id"
+        ]
+      },
+      {
+        "name": "PharmacyClaim",
+        "class_name": "wrs:PharmacyClaim",
+        "columns": [
+          "session_id"
+        ]
+      },
+      {
+        "name": "MedicalClaim",
+        "class_name": "wrs:MedicalClaim",
+        "columns": [
+          "session_id"
+        ]
+      },
+      {
+        "name": "PreviousEligibility",
+        "class_name": "wrs:Eligibility",
+        "columns": [
+          "session_id"
+        ]
+      },
+      {
+        "name": "Opportunity",
+        "class_name": "wrs:Opportunity",
+        "columns": [
+          "session_id"
+        ]
+      },
+      {
+        "name": "process_errors",
+        "columns": [
+          "pipeline_execution_status_key",
+          "session_id",
+          "grouping_key",
+          "row_jets_key",
+          "input_column",
+          "error_message",
+          "rete_session_saved",
+          "rete_session_triples",
+          "shard_id"
+        ]
+      }
+    ],
+    "conditional_pipes_config": [
+      {
+        "step_name": "Ingest Claim Data",
+        "pipes_config": [
+          {
+            "type": "splitter",
+            "input_channel": {
+              "type": "input",
+              "name": "input_row",
+              "variable_fields_per_record": true,
+              "multi_columns_input": true,
+              "use_lazy_quotes_special": true
+            },
+            "splitter_config": {
+              "shard_on": {
+                "domain_key": "Eligibility"
+              }
+            },
+            "apply": [
+              {
+                "type": "partition_writer",
+                "partition_writer_config": {
+                  "device_writer_type": "csv_writer"
+                },
+                "columns": [
+                  {
+                    "name": "Eligibility:domain_key",
+                    "type": "hash",
+                    "hash_expr": {
+                      "domain_key": "Eligibility",
+                      "compute_domain_key": true
+                    }
+                  }
+                ],
+                "output_channel": {
+                  "type": "stage",
+                  "name": "input_data.sharded",
+                  "format": "csv",
+                  "compression": "none",
+                  "write_step_id": "input_data.sharded",
+                  "channel_spec_name": "input_row"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "step_name": "Shard PreviousEligibility Data",
+        "pipes_config": [
+          {
+            "type": "splitter",
+            "input_channel": {
+              "type": "stage",
+              "name": "PreviousEligibility",
+              "format": "csv",
+              "compression": "none",
+              "file_key": "$CLIENT/Eligibility/${PERIOD_ID}M",
+              "lookback_periods": "1:1"
+            },
+            "splitter_config": {
+              "shard_on": {
+                "domain_key": "Eligibility"
+              }
+            },
+            "apply": [
+              {
+                "type": "partition_writer",
+                "partition_writer_config": {
+                  "device_writer_type": "csv_writer"
+                },
+                "output_channel": {
+                  "type": "stage",
+                  "name": "PreviousEligibility.sharded",
+                  "format": "csv",
+                  "compression": "none",
+                  "write_step_id": "PreviousEligibility.sharded",
+                  "channel_spec_name": "PreviousEligibility"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "step_name": "Map and Sort Claim Data",
+        "pipes_config": [
+          {
+            "type": "fan_out",
+            "input_channel": {
+              "type": "stage",
+              "name": "input_row",
+              "format": "csv",
+              "compression": "none",
+              "read_step_id": "input_data.sharded"
+            },
+            "apply": [
+              {
+                "type": "map_record",
+                "new_record": true,
+                "map_record_config": {
+                  "is_debug": false,
+                  "file_mapping_table_name": "${TABLE_NAME}"
+                },
+                "columns": [
+                  {
+                    "name": "session_id",
+                    "type": "value",
+                    "expr": "$SESSIONID"
+                  },
+                  {
+                    "name": "jets:client",
+                    "type": "value",
+                    "expr": "$CLIENT"
+                  }
+                ],
+                "output_channel": {
+                  "name": "BaseClaim.mapped",
+                  "channel_spec_name": "InputClaim"
+                }
+              }
+            ]
+          },
+          {
+            "type": "fan_out",
+            "input_channel": {
+              "name": "BaseClaim.mapped"
+            },
+            "apply": [
+              {
+                "type": "sort",
+                "sort_config": {
+                  "is_debug": false,
+                  "sort_by": [
+                    "wrs:Generated_ID"
+                  ]
+                },
+                "output_channel": {
+                  "name": "BaseClaim.sorted",
+                  "channel_spec_name": "InputClaim"
+                }
+              }
+            ]
+          },
+          {
+            "type": "fan_out",
+            "input_channel": {
+              "name": "BaseClaim.sorted"
+            },
+            "apply": [
+              {
+                "type": "partition_writer",
+                "partition_writer_config": {
+                  "jets_partition_key": "$JETS_PARTITION_LABEL",
+                  "device_writer_type": "csv_writer"
+                },
+                "output_channel": {
+                  "type": "stage",
+                  "name": "BaseClaim.sorted.out",
+                  "format": "csv",
+                  "compression": "none",
+                  "write_step_id": "BaseClaim.sorted",
+                  "channel_spec_name": "InputClaim"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "step_name": "Sort PreviousEligibility Data",
+        "pipes_config": [
+          {
+            "type": "fan_out",
+            "input_channel": {
+              "type": "stage",
+              "name": "PreviousEligibility",
+              "format": "csv",
+              "compression": "none",
+              "read_step_id": "PreviousEligibility.sharded"
+            },
+            "apply": [
+              {
+                "type": "sort",
+                "sort_config": {
+                  "is_debug": false,
+                  "domain_key": "Eligibility"
+                },
+                "output_channel": {
+                  "name": "PreviousEligibility.sorted",
+                  "channel_spec_name": "PreviousEligibility"
+                }
+              }
+            ]
+          },
+          {
+            "type": "fan_out",
+            "input_channel": {
+              "name": "PreviousEligibility.sorted"
+            },
+            "apply": [
+              {
+                "type": "partition_writer",
+                "partition_writer_config": {
+                  "jets_partition_key": "$JETS_PARTITION_LABEL",
+                  "device_writer_type": "csv_writer"
+                },
+                "output_channel": {
+                  "type": "stage",
+                  "name": "PreviousEligibility.sorted.out",
+                  "format": "csv",
+                  "compression": "none",
+                  "write_step_id": "PreviousEligibility.sorted",
+                  "channel_spec_name": "PreviousEligibility"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "step_name": "Invoke Jetrules",
+        "use_ecs_tasks": false,
+        "pipes_config": [
+          {
+            "type": "fan_out",
+            "input_channel": {
+              "type": "stage",
+              "name": "InputClaim",
+              "format": "csv",
+              "compression": "none",
+              "read_step_id": "BaseClaim.sorted",
+              "merge_channels": [
+                {
+                  "type": "stage",
+                  "name": "PreviousEligibility",
+                  "format": "csv",
+                  "compression": "none",
+                  "read_step_id": "PreviousEligibility.sorted"
+                }
+              ]
+            },
+            "apply": [
+              {
+                "type": "merge",
+                "merge_config": {
+                  "is_debug": false,
+                  "main_group_by": {
+                    "group_by_name": [
+                      "wrs:Generated_ID"
+                    ]
+                  }
+                },
+                "output_channel": {
+                  "name": "BaseClaim.merged",
+                  "channel_spec_name": "InputClaim"
+                }
+              }
+            ]
+          },
+          {
+            "type": "fan_out",
+            "input_channel": {
+              "name": "BaseClaim.merged",
+              "has_grouped_rows": true
+            },
+            "apply": [
+              {
+                "type": "jetrules",
+                "new_record": true,
+                "jetrules_config": {
+                  "process_name": "jet_rules/claim/map_claim_main.jr",
+                  "input_rdf_type": "wrs:BaseClaim",
+                  "max_input_count": 50000,
+                  "pool_size": 10,
+                  "is_debug": false,
+                  "max_rete_sessions_saved": 0,
+                  "use_jet_rules_go": false,
+                  "metadata_input_sources": [],
+                  "output_channels": [
+                    {
+                      "name": "PharmacyClaim.out",
+                      "channel_spec_name": "PharmacyClaim"
+                    },
+                    {
+                      "name": "MedicalClaim.out",
+                      "channel_spec_name": "MedicalClaim"
+                    },
+                    {
+                      "name": "Opportunity.out",
+                      "channel_spec_name": "Opportunity"
+                    }
+                  ],
+                  "error_channel": {
+                    "name": "process_errors.out",
+                    "channel_spec_name": "process_errors"
+                  }
+                },
+                "columns": [
+                  {
+                    "name": "session_id",
+                    "type": "value",
+                    "expr": "$SESSIONID"
+                  },
+                  {
+                    "name": "jets:client",
+                    "type": "value",
+                    "expr": "$CLIENT"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "type": "fan_out",
+            "input_channel": {
+              "name": "process_errors.out"
+            },
+            "apply": [
+              {
+                "type": "map_record",
+                "output_channel": {
+                  "type": "sql",
+                  "output_table_key": "process_errors"
+                }
+              }
+            ]
+          },
+          {
+            "type": "splitter",
+            "input_channel": {
+              "name": "PharmacyClaim.out"
+            },
+            "splitter_config": {
+              "shard_on": {
+                "expr": "wrs:Generated_ID",
+                "max_nbr_jets_partitions": 3
+              }
+            },
+            "apply": [
+              {
+                "type": "partition_writer",
+                "partition_writer_config": {
+                  "device_writer_type": "csv_writer"
+                },
+                "output_channel": {
+                  "type": "stage",
+                  "name": "PharmacyClaim.writer",
+                  "format": "csv",
+                  "compression": "none",
+                  "write_step_id": "PharmacyClaim.writer",
+                  "channel_spec_name": "PharmacyClaim"
+                }
+              }
+            ]
+          },
+          {
+            "type": "splitter",
+            "input_channel": {
+              "name": "MedicalClaim.out"
+            },
+            "splitter_config": {
+              "shard_on": {
+                "expr": "wrs:Generated_ID",
+                "max_nbr_jets_partitions": 3
+              }
+            },
+            "apply": [
+              {
+                "type": "partition_writer",
+                "partition_writer_config": {
+                  "jets_partition_key": "$JETS_PARTITION_LABEL",
+                  "device_writer_type": "csv_writer"
+                },
+                "output_channel": {
+                  "type": "stage",
+                  "name": "MedicalClaim.writer",
+                  "format": "csv",
+                  "compression": "none",
+                  "write_step_id": "MedicalClaim.writer",
+                  "channel_spec_name": "MedicalClaim"
+                }
+              }
+            ]
+          },
+          {
+            "type": "splitter",
+            "input_channel": {
+              "name": "Opportunity.out"
+            },
+            "splitter_config": {
+              "shard_on": {
+                "expr": "wrs:Generated_ID",
+                "max_nbr_jets_partitions": 3
+              }
+            },
+            "apply": [
+              {
+                "type": "partition_writer",
+                "partition_writer_config": {
+                  "jets_partition_key": "$JETS_PARTITION_LABEL",
+                  "device_writer_type": "csv_writer"
+                },
+                "output_channel": {
+                  "type": "stage",
+                  "name": "Opportunity.writer",
+                  "format": "csv",
+                  "compression": "none",
+                  "write_step_id": "Opportunity.writer",
+                  "channel_spec_name": "Opportunity"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "$hole": "load_stages"
+      }
+    ]
+  }
+}

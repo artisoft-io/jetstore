@@ -208,3 +208,53 @@ def from_library(library: list[dict], matrix: Path | None = None) -> Fill:
         return copy.deepcopy(part["value"])
 
     return fill
+
+
+def from_target(target: dict, key: str = "write_step_id") -> Fill:
+    """A `Fill` that recovers each fragment from an existing config.
+
+    **Criterion 21 permits this and criterion 22 does not**, which is the whole reason
+    it is a separate function with a separate name. §5.3.9's third qualification: a
+    harness that recovers payload from the target proves *placement*, not authoring. F.5
+    is allowed to prove placement; F.6 is the one that must not.
+
+    The current iteration item names which fragment to recover, by `key`. Every operator
+    in the target is indexed by that field, so a template derived from a config expands
+    back into it - which makes the round trip checkable rather than merely plausible,
+    and a round trip that does not reproduce its source is a defect in the mechanism.
+    """
+    index: dict[object, dict] = {}
+
+    def collect(node: object) -> None:
+        if isinstance(node, dict):
+            # A hole can sit at any level, so the index is built at every level a
+            # fragment can be recovered from: a stage by its step_name, an operator by
+            # its output channel's key. Indexing only operators would work for the
+            # template that happened to be written first and fail on the next one.
+            if key in node:
+                index[node[key]] = node
+            for name, value in node.items():
+                if name == "apply" and isinstance(value, list):
+                    for op in value:
+                        if isinstance(op, dict):
+                            channel = op.get("output_channel")
+                            if isinstance(channel, dict) and key in channel:
+                                index[channel[key]] = op
+                collect(value)
+        elif isinstance(node, list):
+            for value in node:
+                collect(value)
+
+    collect(target)
+
+    def fill(hole: Hole, ctx: dict) -> object:
+        item = ctx.get(ITEM_KEY)
+        wanted = item.get(key) if isinstance(item, dict) else item
+        if wanted not in index:
+            raise ExpansionError(
+                f"hole {hole.name!r}: the target has no operator whose "
+                f"output_channel.{key} is {wanted!r}"
+            )
+        return copy.deepcopy(index[wanted])
+
+    return fill
