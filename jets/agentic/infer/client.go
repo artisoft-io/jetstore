@@ -17,12 +17,27 @@
 //     no pool. Reusing it would mean instantiating a one-record stream to ask
 //     one question.
 //
+// **What changed since, and it matters before you extend this file.** cpipes
+// gap 15a split that operator behind an inferBackend seam
+// (pipe_transformation_infer.go:54), and the seam is prompt-in / bytes-out:
+// BuildRequest(prompt) and CallOnce(ctx, payload), with no records, no channels
+// and no pool in it. The second bullet above is therefore still true of the
+// *operator* and no longer true of the *backend* — which is the part this
+// package would actually have shared. What still does not fit is narrower:
+// BuildRequest takes one prompt string where this package varies System and
+// User per call, the seam is unexported, and its retry lives in the worker
+// rather than in the seam.
+//
 // The honest cost is two request/response envelope implementations against one
 // server, recorded as Q-13. The recommendation there is to revisit when gap
-// 15b's vLLM operator lands — with two backends and two consumers rather than
-// one of each, the shared surface's real width is visible, and guided_json is
-// not format. Until then this stays small deliberately; a client that grows
-// past a few hundred lines is evidence the extraction should happen sooner.
+// 15b's vLLM operator lands, now on the narrower question of whether the schema
+// belongs in the seam — guided_json is not format.
+//
+// **The size to watch is the envelope, not the file.** Of this file's 247 code
+// lines about 86 are envelope; the rest is schema compilation, validation and
+// the SchemaError the repair loop acts on, which the cpipes side has never had
+// and 15b will not give it. An earlier version of this comment said "a few
+// hundred lines", which measured the file and concluded about the duplication.
 //
 // **What this is a copy of.** tools/sample_projects/tasks_go demonstrates the
 // whole of Rung 1 (analysis §7) in Go: send a JSON Schema as Ollama's `format`,
