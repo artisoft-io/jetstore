@@ -320,6 +320,9 @@ func (ctx *BuilderContext) BuildPipeTransformationEvaluator(source *InputChannel
 	case "ollama":
 		return ctx.NewOllamaTransformationPipe(source, outCh, spec)
 
+	case "embed":
+		return ctx.NewEmbedTransformationPipe(source, outCh, spec)
+
 	case "analyze":
 		return ctx.NewAnalyzeTransformationPipe(source, outCh, spec)
 

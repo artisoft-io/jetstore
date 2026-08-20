@@ -335,6 +335,32 @@ class DomainKeysSpec(_Base):
     hashing_override: Literal["none", "sha1", "md5"] | None = Field(default=None, description="Overriding hashing method, applicable to all object types.")
 
 
+class EmbedSpec(_Base):
+    """Configuration of the embed transformation operator: model, input template, the column the vector lands in and the request policy."""
+    comment: str | None = Field(default=None, description="Free text for the reader; ignored by JetStore.")
+    connect_timeout_sec: int | None = Field(default=None, description="Connection and tls handshake timeout. Engine default: 10 (builder).")
+    error_channel: OutputChannelConfig | None = Field(default=None, description="Channel where row-level errors are reported, on the process_errors channel spec.")
+    is_debug: bool | None = Field(default=None, description="Log the prompt and the response of every record.")
+    keep_alive: str | None = Field(default=None, description="How long the model stays resident between calls. Engine default: 30m (builder).")
+    max_error_count: int | None = Field(default=None, description="Cap on the records reported to the error channel. Engine default: 50 (builder).")
+    max_input_count: int | None = Field(default=None, description="Cap on the records sent to the model. A cost guard.")
+    max_retry: int | None = Field(default=None, description="Retries on timeout, connection error, 429 and 5xx. Engine default: 2 (builder).")
+    model: str = Field(description="The embedding model tag, eg nomic-embed-text. It must be a model whose /api/show capabilities include `embedding`; a generative model refuses the endpoint.")
+    on_error: Literal["pass_through", "drop", "fail"] | None = Field(default=None, description="What to do with a record that failed. Engine default: pass_through (builder).")
+    options: dict[str, Any] | None = Field(default=None, description="Passed to ollama as options, eg num_ctx.")
+    output_mapping: list[InferMappingSpec] | None = Field(default=None, description="Additional mappings, applied on top of the synthesized vector mapping.")
+    pool_size: int | None = Field(default=None, description="Concurrent requests to the infer server. Engine default: 1 (validator).")
+    prompt_template: str | None = Field(default=None, description="The prompt template, inline.")
+    prompt_template_name: str | None = Field(default=None, description="Key of a prompt_templates entry of the document.")
+    request_timeout_sec: int | None = Field(default=None, description="Timeout of a single request attempt. Engine default: 120 (builder).")
+    retry_wait_sec: int | None = Field(default=None, description="Wait before the first retry, doubled on each attempt. Engine default: 2 (builder).")
+    row_key_column: str | None = Field(default=None, description="Column identifying the record in the error reports (row_jets_key).")
+    server: OllamaServerSpec | None = Field(default=None, description="How to reach the infer server.")
+    truncate: bool | None = Field(default=None, description="Passed to ollama as truncate: truncate an input longer than the model's context.")
+    vector_as_rdf_type: str | None = Field(default=None, description="Casts the vector's elements, see CastToRdfType.")
+    vector_column: str = Field(description="The column receiving the embedding vector.")
+
+
 class EntityHint(_Base):
     """Identify the entity (e.g. provider) the column is associated to by using column name fragments, with exclusions."""
     column_name_fragments: list[str] | None = Field(default=None, description="Column-name fragments indicating the entity.")
@@ -1264,15 +1290,23 @@ class TransformationSpecBase(_Base):
 
 class TransformationSpecOllama(TransformationSpecBase):
     """Calls the infer server once per record and augments the record in place with values extracted from the model response."""
-    type: Literal["ollama"] = Field(description="The operator. Range: map_record, aggregate, analyze, high_freq, partition_writer, anonymize, distinct, shuffling, group_by, filter, sort, merge, jetrules, clustering, ollama.")
+    type: Literal["ollama"] = Field(description="The operator. Range: map_record, aggregate, analyze, high_freq, partition_writer, anonymize, distinct, shuffling, group_by, filter, sort, merge, jetrules, clustering, ollama, embed.")
     columns: list[TransformationColumnSpec] | None = Field(default=None, description="Column transformations; the ollama operator maps through output_mapping instead.")
     ollama_config: OllamaSpec = Field(description="Configuration of the ollama operator.")
     output_channel: OutputChannelConfig = Field(description="The channel the operator writes to.")
 
 
+class TransformationSpecEmbed(TransformationSpecBase):
+    """Calls the infer server's embeddings endpoint once per record and puts the resulting vector on the record."""
+    type: Literal["embed"] = Field(description="The operator. Range: map_record, aggregate, analyze, high_freq, partition_writer, anonymize, distinct, shuffling, group_by, filter, sort, merge, jetrules, clustering, ollama, embed.")
+    columns: list[TransformationColumnSpec] | None = Field(default=None, description="Column transformations; the ollama operator maps through output_mapping instead.")
+    embed_config: EmbedSpec = Field(description="Configuration of the embed operator.")
+    output_channel: OutputChannelConfig = Field(description="The channel the operator writes to.")
+
+
 class TransformationSpecPartitionWriter(TransformationSpecBase):
     """Writes the records of its input channel to partition files."""
-    type: Literal["partition_writer"] = Field(description="The operator. Range: map_record, aggregate, analyze, high_freq, partition_writer, anonymize, distinct, shuffling, group_by, filter, sort, merge, jetrules, clustering, ollama.")
+    type: Literal["partition_writer"] = Field(description="The operator. Range: map_record, aggregate, analyze, high_freq, partition_writer, anonymize, distinct, shuffling, group_by, filter, sort, merge, jetrules, clustering, ollama, embed.")
     columns: list[TransformationColumnSpec] | None = Field(default=None, description="Column transformations applied before the write.")
     new_record: bool | None = Field(default=None, description="Emit a new record rather than augmenting the input one.")
     output_channel: OutputChannelConfig = Field(description="The channel the operator writes to.")
@@ -1281,7 +1315,7 @@ class TransformationSpecPartitionWriter(TransformationSpecBase):
 
 class TransformationSpecMapRecord(TransformationSpecBase):
     """Maps the input record onto the output channel's columns."""
-    type: Literal["map_record"] = Field(description="The operator. Range: map_record, aggregate, analyze, high_freq, partition_writer, anonymize, distinct, shuffling, group_by, filter, sort, merge, jetrules, clustering, ollama.")
+    type: Literal["map_record"] = Field(description="The operator. Range: map_record, aggregate, analyze, high_freq, partition_writer, anonymize, distinct, shuffling, group_by, filter, sort, merge, jetrules, clustering, ollama, embed.")
     columns: list[TransformationColumnSpec] | None = Field(default=None, description="The column transformations. The operator's payload.")
     map_record_config: MapRecordSpec | None = Field(default=None, description="Optional file_mapping table driving the mapping, with its error channel.")
     new_record: bool | None = Field(default=None, description="Emit a new record rather than augmenting the input one.")
@@ -1290,7 +1324,7 @@ class TransformationSpecMapRecord(TransformationSpecBase):
 
 class TransformationSpecAggregate(TransformationSpecBase):
     """Aggregate the input records to a single output record"""
-    type: Literal["aggregate"] = Field(description="The operator. Range: map_record, aggregate, analyze, high_freq, partition_writer, anonymize, distinct, shuffling, group_by, filter, sort, merge, jetrules, clustering, ollama.")
+    type: Literal["aggregate"] = Field(description="The operator. Range: map_record, aggregate, analyze, high_freq, partition_writer, anonymize, distinct, shuffling, group_by, filter, sort, merge, jetrules, clustering, ollama, embed.")
     columns: list[TransformationColumnSpec] | None = Field(default=None, description="The column transformations producing the output record.")
     new_record: bool = Field(description="Emit a new record rather than augmenting the input one.")
     output_channel: OutputChannelConfig = Field(description="The channel the operator writes to.")
@@ -1298,7 +1332,7 @@ class TransformationSpecAggregate(TransformationSpecBase):
 
 class TransformationSpecAnalyze(TransformationSpecBase):
     """Analyze each columns of the input records, emit a record per column with various metrics to the output channel"""
-    type: Literal["analyze"] = Field(description="The operator. Range: map_record, aggregate, analyze, high_freq, partition_writer, anonymize, distinct, shuffling, group_by, filter, sort, merge, jetrules, clustering, ollama.")
+    type: Literal["analyze"] = Field(description="The operator. Range: map_record, aggregate, analyze, high_freq, partition_writer, anonymize, distinct, shuffling, group_by, filter, sort, merge, jetrules, clustering, ollama, embed.")
     analyze_config: AnalyzeSpec = Field(description="Configuration of the analyze operator.")
     columns: list[TransformationColumnSpec] | None = Field(default=None, description="The column transformations producing the output record.")
     new_record: bool | None = Field(default=None, description="Emit a new record rather than augmenting the input one.")
@@ -1307,7 +1341,7 @@ class TransformationSpecAnalyze(TransformationSpecBase):
 
 class TransformationSpecHighFreq(TransformationSpecBase):
     """Analyze selected column and send to output channel their top percentile values"""
-    type: Literal["high_freq"] = Field(description="The operator. Range: map_record, aggregate, analyze, high_freq, partition_writer, anonymize, distinct, shuffling, group_by, filter, sort, merge, jetrules, clustering, ollama.")
+    type: Literal["high_freq"] = Field(description="The operator. Range: map_record, aggregate, analyze, high_freq, partition_writer, anonymize, distinct, shuffling, group_by, filter, sort, merge, jetrules, clustering, ollama, embed.")
     columns: list[TransformationColumnSpec] | None = Field(default=None, description="The column transformations producing the output record.")
     high_freq_columns: list[HighFreqSpec] = Field(description="Configuration of the high_freq operator: the columns to analyze.")
     new_record: bool | None = Field(default=None, description="Emit a new record rather than augmenting the input one.")
@@ -1316,7 +1350,7 @@ class TransformationSpecHighFreq(TransformationSpecBase):
 
 class TransformationSpecAnonymize(TransformationSpecBase):
     """Anonymize or de-identify input records using an analysis lookup identifying columns containing sensitive data."""
-    type: Literal["anonymize"] = Field(description="The operator. Range: map_record, aggregate, analyze, high_freq, partition_writer, anonymize, distinct, shuffling, group_by, filter, sort, merge, jetrules, clustering, ollama.")
+    type: Literal["anonymize"] = Field(description="The operator. Range: map_record, aggregate, analyze, high_freq, partition_writer, anonymize, distinct, shuffling, group_by, filter, sort, merge, jetrules, clustering, ollama, embed.")
     anonymize_config: AnonymizeSpec = Field(description="Configuration of the anonymize operator.")
     columns: list[TransformationColumnSpec] | None = Field(default=None, description="The column transformations producing the output record.")
     output_channel: OutputChannelConfig = Field(description="The channel the operator writes to.")
@@ -1324,28 +1358,28 @@ class TransformationSpecAnonymize(TransformationSpecBase):
 
 class TransformationSpecDistinct(TransformationSpecBase):
     """Filter the input records to retain a single record per composite key value, records sent to the output channel have a distinct composite key."""
-    type: Literal["distinct"] = Field(description="The operator. Range: map_record, aggregate, analyze, high_freq, partition_writer, anonymize, distinct, shuffling, group_by, filter, sort, merge, jetrules, clustering, ollama.")
+    type: Literal["distinct"] = Field(description="The operator. Range: map_record, aggregate, analyze, high_freq, partition_writer, anonymize, distinct, shuffling, group_by, filter, sort, merge, jetrules, clustering, ollama, embed.")
     distinct_config: DistinctSpec = Field(description="Configuration of the distinct operator: the composite key.")
     output_channel: OutputChannelConfig = Field(description="The channel the operator writes to.")
 
 
 class TransformationSpecShuffling(TransformationSpecBase):
     """Shuffle data on a per-column basis for retained columns specified in a lookup. The number of input records is capped by configuration. The number of generated output records is also specified by configuration."""
-    type: Literal["shuffling"] = Field(description="The operator. Range: map_record, aggregate, analyze, high_freq, partition_writer, anonymize, distinct, shuffling, group_by, filter, sort, merge, jetrules, clustering, ollama.")
+    type: Literal["shuffling"] = Field(description="The operator. Range: map_record, aggregate, analyze, high_freq, partition_writer, anonymize, distinct, shuffling, group_by, filter, sort, merge, jetrules, clustering, ollama, embed.")
     output_channel: OutputChannelConfig = Field(description="The channel the operator writes to.")
     shuffling_config: ShufflingSpec = Field(description="Configuration of the shuffling operator.")
 
 
 class TransformationSpecGroupBy(TransformationSpecBase):
     """Group the input records into bundles using a composite key. Each output records correspond to a bundle where each element of the output record contains an input record."""
-    type: Literal["group_by"] = Field(description="The operator. Range: map_record, aggregate, analyze, high_freq, partition_writer, anonymize, distinct, shuffling, group_by, filter, sort, merge, jetrules, clustering, ollama.")
+    type: Literal["group_by"] = Field(description="The operator. Range: map_record, aggregate, analyze, high_freq, partition_writer, anonymize, distinct, shuffling, group_by, filter, sort, merge, jetrules, clustering, ollama, embed.")
     group_by_config: GroupBySpec = Field(description="Configuration of the group_by operator.")
     output_channel: OutputChannelConfig = Field(description="The channel the operator writes to.")
 
 
 class TransformationSpecFilter(TransformationSpecBase):
     """Apply a filter to input records, sending retained records to the output channel. Cap the number of retained records if specified."""
-    type: Literal["filter"] = Field(description="The operator. Range: map_record, aggregate, analyze, high_freq, partition_writer, anonymize, distinct, shuffling, group_by, filter, sort, merge, jetrules, clustering, ollama.")
+    type: Literal["filter"] = Field(description="The operator. Range: map_record, aggregate, analyze, high_freq, partition_writer, anonymize, distinct, shuffling, group_by, filter, sort, merge, jetrules, clustering, ollama, embed.")
     columns: list[TransformationColumnSpec] | None = Field(default=None, description="The column transformations producing the output record.")
     filter_config: FilterSpec | None = Field(default=None, description="Configuration of the filter operator.")
     new_record: bool | None = Field(default=None, description="Emit a new record rather than augmenting the input one.")
@@ -1354,21 +1388,21 @@ class TransformationSpecFilter(TransformationSpecBase):
 
 class TransformationSpecSort(TransformationSpecBase):
     """Sort the input records in memory, send the sorted records to output channel."""
-    type: Literal["sort"] = Field(description="The operator. Range: map_record, aggregate, analyze, high_freq, partition_writer, anonymize, distinct, shuffling, group_by, filter, sort, merge, jetrules, clustering, ollama.")
+    type: Literal["sort"] = Field(description="The operator. Range: map_record, aggregate, analyze, high_freq, partition_writer, anonymize, distinct, shuffling, group_by, filter, sort, merge, jetrules, clustering, ollama, embed.")
     output_channel: OutputChannelConfig = Field(description="The channel the operator writes to.")
     sort_config: SortSpec = Field(description="Configuration of the sort operator.")
 
 
 class TransformationSpecMerge(TransformationSpecBase):
     """Merge sorted records from multiple channels using a grouping composite key. All input channels must be sorted using the same logical sort order. Bundled records are sent to the output channel, each element of the output records correspond to an input record."""
-    type: Literal["merge"] = Field(description="The operator. Range: map_record, aggregate, analyze, high_freq, partition_writer, anonymize, distinct, shuffling, group_by, filter, sort, merge, jetrules, clustering, ollama.")
+    type: Literal["merge"] = Field(description="The operator. Range: map_record, aggregate, analyze, high_freq, partition_writer, anonymize, distinct, shuffling, group_by, filter, sort, merge, jetrules, clustering, ollama, embed.")
     merge_config: MergeSpec = Field(description="Configuration of the merge operator: the channels to merge and how to group them.")
     output_channel: OutputChannelConfig = Field(description="The channel the operator writes to.")
 
 
 class TransformationSpecJetrules(TransformationSpecBase):
     """Input channel contains either individual or bundled input records. Each record or bundle are sent to JetRules as a rule session. Output records are extracted by type from the rule session, each type correspond to an output channel."""
-    type: Literal["jetrules"] = Field(description="The operator. Range: map_record, aggregate, analyze, high_freq, partition_writer, anonymize, distinct, shuffling, group_by, filter, sort, merge, jetrules, clustering, ollama.")
+    type: Literal["jetrules"] = Field(description="The operator. Range: map_record, aggregate, analyze, high_freq, partition_writer, anonymize, distinct, shuffling, group_by, filter, sort, merge, jetrules, clustering, ollama, embed.")
     columns: list[TransformationColumnSpec] | None = Field(default=None, description="The column transformations producing the output record.")
     jetrules_config: JetrulesSpec = Field(description="Configuration of the jetrules operator.")
     new_record: bool | None = Field(default=None, description="Emit a new record rather than augmenting the input one.")
@@ -1376,7 +1410,7 @@ class TransformationSpecJetrules(TransformationSpecBase):
 
 class TransformationSpecClustering(TransformationSpecBase):
     """Compute the correlation between sets of columns identified by classification via a lookup table."""
-    type: Literal["clustering"] = Field(description="The operator. Range: map_record, aggregate, analyze, high_freq, partition_writer, anonymize, distinct, shuffling, group_by, filter, sort, merge, jetrules, clustering, ollama.")
+    type: Literal["clustering"] = Field(description="The operator. Range: map_record, aggregate, analyze, high_freq, partition_writer, anonymize, distinct, shuffling, group_by, filter, sort, merge, jetrules, clustering, ollama, embed.")
     clustering_config: ClusteringSpec = Field(description="Configuration of the clustering operator.")
     new_record: bool | None = Field(default=None, description="Emit a new record rather than augmenting the input one.")
     output_channel: OutputChannelConfig = Field(description="The channel the operator writes to.")
@@ -1413,7 +1447,7 @@ PipeSpec = Annotated[Union[PipeSpecFanOut, PipeSpecMergeFiles, PipeSpecSplitter]
 SchemaProviderSpec = Annotated[Union[SchemaProviderSpecDefault, SchemaProviderSpecPipelineCoordinatorMap], Field(discriminator="type")]
 SplitterSpec = Annotated[Union[SplitterSpecStandard, SplitterSpecExtCount], Field(discriminator="type"), BeforeValidator(_tag_default("type", "standard"))]
 TransformationColumnSpec = Annotated[Union[TransformationColumnSpecAvrg, TransformationColumnSpecCase, TransformationColumnSpecCount, TransformationColumnSpecDistinctCount, TransformationColumnSpecEval, TransformationColumnSpecHash, TransformationColumnSpecLookup, TransformationColumnSpecMap, TransformationColumnSpecMapReduce, TransformationColumnSpecMax, TransformationColumnSpecMin, TransformationColumnSpecMultiSelect, TransformationColumnSpecSelect, TransformationColumnSpecSum, TransformationColumnSpecValue], Field(discriminator="type")]
-TransformationSpec = Annotated[Union[TransformationSpecOllama, TransformationSpecPartitionWriter, TransformationSpecMapRecord, TransformationSpecAggregate, TransformationSpecAnalyze, TransformationSpecHighFreq, TransformationSpecAnonymize, TransformationSpecDistinct, TransformationSpecShuffling, TransformationSpecGroupBy, TransformationSpecFilter, TransformationSpecSort, TransformationSpecMerge, TransformationSpecJetrules, TransformationSpecClustering], Field(discriminator="type")]
+TransformationSpec = Annotated[Union[TransformationSpecOllama, TransformationSpecEmbed, TransformationSpecPartitionWriter, TransformationSpecMapRecord, TransformationSpecAggregate, TransformationSpecAnalyze, TransformationSpecHighFreq, TransformationSpecAnonymize, TransformationSpecDistinct, TransformationSpecShuffling, TransformationSpecGroupBy, TransformationSpecFilter, TransformationSpecSort, TransformationSpecMerge, TransformationSpecJetrules, TransformationSpecClustering], Field(discriminator="type")]
 
 
 # class -> (go_struct, type_token); the reflect direction's key.
@@ -1445,6 +1479,7 @@ _MATRIX_KEYS = {
     "DistinctSpec": ("DistinctSpec", "*"),
     "DomainKeyInfo": ("DomainKeyInfo", "*"),
     "DomainKeysSpec": ("DomainKeysSpec", "*"),
+    "EmbedSpec": ("EmbedSpec", "*"),
     "EntityHint": ("EntityHint", "*"),
     "FieldInfo": ("FieldInfo", "*"),
     "FilterColumnSpec": ("FilterColumnSpec", "*"),
@@ -1524,6 +1559,7 @@ _MATRIX_KEYS = {
     "TransformationSpecAnonymize": ("TransformationSpec", "anonymize"),
     "TransformationSpecClustering": ("TransformationSpec", "clustering"),
     "TransformationSpecDistinct": ("TransformationSpec", "distinct"),
+    "TransformationSpecEmbed": ("TransformationSpec", "embed"),
     "TransformationSpecFilter": ("TransformationSpec", "filter"),
     "TransformationSpecGroupBy": ("TransformationSpec", "group_by"),
     "TransformationSpecHighFreq": ("TransformationSpec", "high_freq"),

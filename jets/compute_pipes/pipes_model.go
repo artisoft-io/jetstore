@@ -613,9 +613,9 @@ type SplitterSpec struct {
 
 type TransformationSpec struct {
 	Comment string `json:"comment,omitempty"` // free text for the reader; ignored by JetStore
-	// Type range: map_record, aggregate, analyze, high_freq, partition_writer,
-	// anonymize, distinct, shuffling, group_by, filter, sort, merge, jetrules, clustering,
-	// ollama
+	// Type range: map_record, aggregate, analyze, high_freq, partition_writer, anonymize,
+	// distinct, shuffling, group_by, filter, sort, merge, jetrules, clustering, ollama,
+	// embed
 	// Format takes precedence over SchemaProvider's Format (from OutputChannelConfig)
 	Type                  string                           `json:"type"`
 	NewRecord             bool                             `json:"new_record,omitzero"`
@@ -632,6 +632,7 @@ type TransformationSpec struct {
 	SortConfig            *SortSpec                        `json:"sort_config,omitzero"`
 	JetrulesConfig        *JetrulesSpec                    `json:"jetrules_config,omitzero"`
 	OllamaConfig          *OllamaSpec                      `json:"ollama_config,omitzero"`
+	EmbedConfig           *EmbedSpec                       `json:"embed_config,omitzero"`
 	ClusteringConfig      *ClusteringSpec                  `json:"clustering_config,omitzero"`
 	MergeConfig           *MergeSpec                       `json:"merge_config,omitzero"`
 	OutputChannel         OutputChannelConfig              `json:"output_channel"`
@@ -1506,4 +1507,57 @@ type CaseExpression struct {
 	Comment string                      `json:"comment,omitempty"` // free text for the reader; ignored by JetStore
 	When    ExpressionNode              `json:"when"`
 	Then    []*TransformationColumnSpec `json:"then"`
+}
+
+// EmbedSpec is the configuration of the embed transformation operator: it renders
+// one text per record from the record's columns and calls the infer server's
+// embeddings endpoint, putting the resulting vector on the record.
+//
+// It embeds InferCommonSpec, so the prompt template, the request policy (pool,
+// timeouts, retries), the cost guard and the on_error handling are the ollama
+// operator's and are described on the doc block above OllamaSpec. Three of the
+// promoted fields have no meaning for an embeddings call and are rejected at build
+// time rather than silently ignored: system_prompt, response_format and
+// disable_strip_code_fences.
+//
+// Note that PromptTemplate renders the text to embed rather than an instruction to a
+// model; the name is the shared plumbing's and is kept so the two operators are
+// configured the same way.
+//
+// Model is the embedding model, required. It must be a model whose /api/show
+// capabilities include `embedding` - a generative model refuses the endpoint with a
+// message naming a server flag, which is not the actual cause.
+// VectorColumn is the column receiving the embedding vector, required. It saves the
+// configuration from naming the response path, which is not free to choose: see the
+// endpoint note below.
+// VectorAsRdfType casts the vector's elements, see CastToRdfType; without it the vector
+// is written as json text, which is what a csv or text output channel can carry. Set it
+// to double when the consumer wants the numbers.
+// Truncate is passed to ollama as `truncate`; the default (true) truncates an input
+// longer than the model's context, false makes it a row level error instead.
+// Options is passed to ollama as `options`, eg num_ctx.
+// KeepAlive is passed to ollama as `keep_alive`, defaults to 30m as ollama's does.
+// Server specifies how to reach the infer server, shared with the ollama operator.
+// OutputMapping is optional here, unlike on the ollama operator: the vector mapping
+// is synthesized from VectorColumn, and any mapping given is applied on top of it -
+// the envelope carries `model` and `prompt_eval_count` worth mapping.
+//
+// The endpoint is /api/embed and is not configurable. The legacy /api/embeddings
+// returns the vector alone, with no model name and no token count, so it cannot
+// satisfy the operator's model_name and envelope mappings. The two also differ in a
+// way that does not announce itself: /api/embed returns an L2 normalised vector and
+// the legacy endpoint the raw one, same direction, so a corpus embedded through both
+// compares correctly under cosine and wrongly under dot product.
+type EmbedSpec struct {
+	Comment         string            `json:"comment,omitempty"` // free text for the reader; ignored by JetStore
+	Model           string            `json:"model"`
+	VectorColumn    string            `json:"vector_column"`
+	VectorAsRdfType string            `json:"vector_as_rdf_type,omitempty"`
+	Truncate        *bool             `json:"truncate,omitzero"`
+	Options         map[string]any    `json:"options,omitempty"`
+	KeepAlive       string            `json:"keep_alive,omitempty"`
+	Server          *OllamaServerSpec `json:"server,omitzero"`
+	// The backend-agnostic configuration, embedded anonymously so encoding/json
+	// field promotion gives the wire shape the ollama operator has (15a).
+	InferCommonSpec
 }

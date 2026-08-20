@@ -83,7 +83,7 @@
         },
         "type": {
           "const": "aggregate",
-          "description": "The operator. Range: map_record, aggregate, analyze, high_freq, partition_writer, anonymize, distinct, shuffling, group_by, filter, sort, merge, jetrules, clustering, ollama.",
+          "description": "The operator. Range: map_record, aggregate, analyze, high_freq, partition_writer, anonymize, distinct, shuffling, group_by, filter, sort, merge, jetrules, clustering, ollama, embed.",
           "title": "Type",
           "type": "string"
         },
@@ -203,7 +203,7 @@
         },
         "type": {
           "const": "analyze",
-          "description": "The operator. Range: map_record, aggregate, analyze, high_freq, partition_writer, anonymize, distinct, shuffling, group_by, filter, sort, merge, jetrules, clustering, ollama.",
+          "description": "The operator. Range: map_record, aggregate, analyze, high_freq, partition_writer, anonymize, distinct, shuffling, group_by, filter, sort, merge, jetrules, clustering, ollama, embed.",
           "title": "Type",
           "type": "string"
         },
@@ -508,7 +508,7 @@
         },
         "type": {
           "const": "anonymize",
-          "description": "The operator. Range: map_record, aggregate, analyze, high_freq, partition_writer, anonymize, distinct, shuffling, group_by, filter, sort, merge, jetrules, clustering, ollama.",
+          "description": "The operator. Range: map_record, aggregate, analyze, high_freq, partition_writer, anonymize, distinct, shuffling, group_by, filter, sort, merge, jetrules, clustering, ollama, embed.",
           "title": "Type",
           "type": "string"
         },
@@ -1995,7 +1995,7 @@
         },
         "type": {
           "const": "clustering",
-          "description": "The operator. Range: map_record, aggregate, analyze, high_freq, partition_writer, anonymize, distinct, shuffling, group_by, filter, sort, merge, jetrules, clustering, ollama.",
+          "description": "The operator. Range: map_record, aggregate, analyze, high_freq, partition_writer, anonymize, distinct, shuffling, group_by, filter, sort, merge, jetrules, clustering, ollama, embed.",
           "title": "Type",
           "type": "string"
         },
@@ -4407,7 +4407,7 @@
         },
         "type": {
           "const": "distinct",
-          "description": "The operator. Range: map_record, aggregate, analyze, high_freq, partition_writer, anonymize, distinct, shuffling, group_by, filter, sort, merge, jetrules, clustering, ollama.",
+          "description": "The operator. Range: map_record, aggregate, analyze, high_freq, partition_writer, anonymize, distinct, shuffling, group_by, filter, sort, merge, jetrules, clustering, ollama, embed.",
           "title": "Type",
           "type": "string"
         },
@@ -4536,6 +4536,318 @@
         "domain_keys_info"
       ],
       "title": "DomainKeysSpec",
+      "type": "object"
+    },
+    "EmbedSpec": {
+      "additionalProperties": false,
+      "description": "Configuration of the embed transformation operator: model, input template, the column the vector lands in and the request policy.",
+      "properties": {
+        "comment": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Free text for the reader; ignored by JetStore.",
+          "title": "Comment"
+        },
+        "connect_timeout_sec": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Connection and tls handshake timeout. Engine default: 10 (builder).",
+          "title": "Connect Timeout Sec"
+        },
+        "error_channel": {
+          "anyOf": [
+            {
+              "discriminator": {
+                "mapping": {
+                  "memory": "#/$defs/OutputChannelConfigMemory",
+                  "output": "#/$defs/OutputChannelConfigOutput",
+                  "sql": "#/$defs/OutputChannelConfigSql",
+                  "stage": "#/$defs/OutputChannelConfigStage"
+                },
+                "propertyName": "type"
+              },
+              "oneOf": [
+                {
+                  "$ref": "#/$defs/OutputChannelConfigMemory"
+                },
+                {
+                  "$ref": "#/$defs/OutputChannelConfigStage"
+                },
+                {
+                  "$ref": "#/$defs/OutputChannelConfigOutput"
+                },
+                {
+                  "$ref": "#/$defs/OutputChannelConfigSql"
+                }
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Channel where row-level errors are reported, on the process_errors channel spec.",
+          "title": "Error Channel"
+        },
+        "is_debug": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Log the prompt and the response of every record.",
+          "title": "Is Debug"
+        },
+        "keep_alive": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "How long the model stays resident between calls. Engine default: 30m (builder).",
+          "title": "Keep Alive"
+        },
+        "max_error_count": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Cap on the records reported to the error channel. Engine default: 50 (builder).",
+          "title": "Max Error Count"
+        },
+        "max_input_count": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Cap on the records sent to the model. A cost guard.",
+          "title": "Max Input Count"
+        },
+        "max_retry": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Retries on timeout, connection error, 429 and 5xx. Engine default: 2 (builder).",
+          "title": "Max Retry"
+        },
+        "model": {
+          "description": "The embedding model tag, eg nomic-embed-text. It must be a model whose /api/show capabilities include `embedding`; a generative model refuses the endpoint.",
+          "title": "Model",
+          "type": "string"
+        },
+        "on_error": {
+          "anyOf": [
+            {
+              "enum": [
+                "pass_through",
+                "drop",
+                "fail"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "What to do with a record that failed. Engine default: pass_through (builder).",
+          "title": "On Error"
+        },
+        "options": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Passed to ollama as options, eg num_ctx.",
+          "title": "Options"
+        },
+        "output_mapping": {
+          "anyOf": [
+            {
+              "items": {
+                "$ref": "#/$defs/InferMappingSpec"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Additional mappings, applied on top of the synthesized vector mapping.",
+          "title": "Output Mapping"
+        },
+        "pool_size": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Concurrent requests to the infer server. Engine default: 1 (validator).",
+          "title": "Pool Size"
+        },
+        "prompt_template": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The prompt template, inline.",
+          "title": "Prompt Template"
+        },
+        "prompt_template_name": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Key of a prompt_templates entry of the document.",
+          "title": "Prompt Template Name"
+        },
+        "request_timeout_sec": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Timeout of a single request attempt. Engine default: 120 (builder).",
+          "title": "Request Timeout Sec"
+        },
+        "retry_wait_sec": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Wait before the first retry, doubled on each attempt. Engine default: 2 (builder).",
+          "title": "Retry Wait Sec"
+        },
+        "row_key_column": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Column identifying the record in the error reports (row_jets_key).",
+          "title": "Row Key Column"
+        },
+        "server": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/OllamaServerSpec"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "How to reach the infer server."
+        },
+        "truncate": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Passed to ollama as truncate: truncate an input longer than the model's context.",
+          "title": "Truncate"
+        },
+        "vector_as_rdf_type": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Casts the vector's elements, see CastToRdfType.",
+          "title": "Vector As Rdf Type"
+        },
+        "vector_column": {
+          "description": "The column receiving the embedding vector.",
+          "title": "Vector Column",
+          "type": "string"
+        }
+      },
+      "required": [
+        "model",
+        "vector_column"
+      ],
+      "title": "EmbedSpec",
       "type": "object"
     },
     "EntityHint": {
@@ -5058,7 +5370,7 @@
         },
         "type": {
           "const": "filter",
-          "description": "The operator. Range: map_record, aggregate, analyze, high_freq, partition_writer, anonymize, distinct, shuffling, group_by, filter, sort, merge, jetrules, clustering, ollama.",
+          "description": "The operator. Range: map_record, aggregate, analyze, high_freq, partition_writer, anonymize, distinct, shuffling, group_by, filter, sort, merge, jetrules, clustering, ollama, embed.",
           "title": "Type",
           "type": "string"
         },
@@ -5364,7 +5676,7 @@
         },
         "type": {
           "const": "group_by",
-          "description": "The operator. Range: map_record, aggregate, analyze, high_freq, partition_writer, anonymize, distinct, shuffling, group_by, filter, sort, merge, jetrules, clustering, ollama.",
+          "description": "The operator. Range: map_record, aggregate, analyze, high_freq, partition_writer, anonymize, distinct, shuffling, group_by, filter, sort, merge, jetrules, clustering, ollama, embed.",
           "title": "Type",
           "type": "string"
         },
@@ -5734,7 +6046,7 @@
         },
         "type": {
           "const": "high_freq",
-          "description": "The operator. Range: map_record, aggregate, analyze, high_freq, partition_writer, anonymize, distinct, shuffling, group_by, filter, sort, merge, jetrules, clustering, ollama.",
+          "description": "The operator. Range: map_record, aggregate, analyze, high_freq, partition_writer, anonymize, distinct, shuffling, group_by, filter, sort, merge, jetrules, clustering, ollama, embed.",
           "title": "Type",
           "type": "string"
         },
@@ -7343,7 +7655,7 @@
         },
         "type": {
           "const": "jetrules",
-          "description": "The operator. Range: map_record, aggregate, analyze, high_freq, partition_writer, anonymize, distinct, shuffling, group_by, filter, sort, merge, jetrules, clustering, ollama.",
+          "description": "The operator. Range: map_record, aggregate, analyze, high_freq, partition_writer, anonymize, distinct, shuffling, group_by, filter, sort, merge, jetrules, clustering, ollama, embed.",
           "title": "Type",
           "type": "string"
         },
@@ -8472,7 +8784,7 @@
         },
         "type": {
           "const": "map_record",
-          "description": "The operator. Range: map_record, aggregate, analyze, high_freq, partition_writer, anonymize, distinct, shuffling, group_by, filter, sort, merge, jetrules, clustering, ollama.",
+          "description": "The operator. Range: map_record, aggregate, analyze, high_freq, partition_writer, anonymize, distinct, shuffling, group_by, filter, sort, merge, jetrules, clustering, ollama, embed.",
           "title": "Type",
           "type": "string"
         },
@@ -8722,7 +9034,7 @@
         },
         "type": {
           "const": "merge",
-          "description": "The operator. Range: map_record, aggregate, analyze, high_freq, partition_writer, anonymize, distinct, shuffling, group_by, filter, sort, merge, jetrules, clustering, ollama.",
+          "description": "The operator. Range: map_record, aggregate, analyze, high_freq, partition_writer, anonymize, distinct, shuffling, group_by, filter, sort, merge, jetrules, clustering, ollama, embed.",
           "title": "Type",
           "type": "string"
         },
@@ -9034,7 +9346,7 @@
         },
         "type": {
           "const": "ollama",
-          "description": "The operator. Range: map_record, aggregate, analyze, high_freq, partition_writer, anonymize, distinct, shuffling, group_by, filter, sort, merge, jetrules, clustering, ollama.",
+          "description": "The operator. Range: map_record, aggregate, analyze, high_freq, partition_writer, anonymize, distinct, shuffling, group_by, filter, sort, merge, jetrules, clustering, ollama, embed.",
           "title": "Type",
           "type": "string"
         },
@@ -11350,7 +11662,7 @@
         },
         "type": {
           "const": "partition_writer",
-          "description": "The operator. Range: map_record, aggregate, analyze, high_freq, partition_writer, anonymize, distinct, shuffling, group_by, filter, sort, merge, jetrules, clustering, ollama.",
+          "description": "The operator. Range: map_record, aggregate, analyze, high_freq, partition_writer, anonymize, distinct, shuffling, group_by, filter, sort, merge, jetrules, clustering, ollama, embed.",
           "title": "Type",
           "type": "string"
         },
@@ -11536,6 +11848,7 @@
                     "anonymize": "#/$defs/TransformationSpecAnonymize",
                     "clustering": "#/$defs/TransformationSpecClustering",
                     "distinct": "#/$defs/TransformationSpecDistinct",
+                    "embed": "#/$defs/TransformationSpecEmbed",
                     "filter": "#/$defs/TransformationSpecFilter",
                     "group_by": "#/$defs/TransformationSpecGroupBy",
                     "high_freq": "#/$defs/TransformationSpecHighFreq",
@@ -11552,6 +11865,9 @@
                 "oneOf": [
                   {
                     "$ref": "#/$defs/TransformationSpecOllama"
+                  },
+                  {
+                    "$ref": "#/$defs/TransformationSpecEmbed"
                   },
                   {
                     "$ref": "#/$defs/TransformationSpecPartitionWriter"
@@ -11752,6 +12068,7 @@
                     "anonymize": "#/$defs/TransformationSpecAnonymize",
                     "clustering": "#/$defs/TransformationSpecClustering",
                     "distinct": "#/$defs/TransformationSpecDistinct",
+                    "embed": "#/$defs/TransformationSpecEmbed",
                     "filter": "#/$defs/TransformationSpecFilter",
                     "group_by": "#/$defs/TransformationSpecGroupBy",
                     "high_freq": "#/$defs/TransformationSpecHighFreq",
@@ -11768,6 +12085,9 @@
                 "oneOf": [
                   {
                     "$ref": "#/$defs/TransformationSpecOllama"
+                  },
+                  {
+                    "$ref": "#/$defs/TransformationSpecEmbed"
                   },
                   {
                     "$ref": "#/$defs/TransformationSpecPartitionWriter"
@@ -13285,7 +13605,7 @@
         },
         "type": {
           "const": "shuffling",
-          "description": "The operator. Range: map_record, aggregate, analyze, high_freq, partition_writer, anonymize, distinct, shuffling, group_by, filter, sort, merge, jetrules, clustering, ollama.",
+          "description": "The operator. Range: map_record, aggregate, analyze, high_freq, partition_writer, anonymize, distinct, shuffling, group_by, filter, sort, merge, jetrules, clustering, ollama, embed.",
           "title": "Type",
           "type": "string"
         },
@@ -13448,7 +13768,7 @@
         },
         "type": {
           "const": "sort",
-          "description": "The operator. Range: map_record, aggregate, analyze, high_freq, partition_writer, anonymize, distinct, shuffling, group_by, filter, sort, merge, jetrules, clustering, ollama.",
+          "description": "The operator. Range: map_record, aggregate, analyze, high_freq, partition_writer, anonymize, distinct, shuffling, group_by, filter, sort, merge, jetrules, clustering, ollama, embed.",
           "title": "Type",
           "type": "string"
         },
@@ -15538,6 +15858,7 @@
           "anonymize": "#/$defs/TransformationSpecAnonymize",
           "clustering": "#/$defs/TransformationSpecClustering",
           "distinct": "#/$defs/TransformationSpecDistinct",
+          "embed": "#/$defs/TransformationSpecEmbed",
           "filter": "#/$defs/TransformationSpecFilter",
           "group_by": "#/$defs/TransformationSpecGroupBy",
           "high_freq": "#/$defs/TransformationSpecHighFreq",
@@ -15554,6 +15875,9 @@
       "oneOf": [
         {
           "$ref": "#/$defs/TransformationSpecOllama"
+        },
+        {
+          "$ref": "#/$defs/TransformationSpecEmbed"
         },
         {
           "$ref": "#/$defs/TransformationSpecPartitionWriter"
@@ -15748,7 +16072,7 @@
         },
         "type": {
           "const": "aggregate",
-          "description": "The operator. Range: map_record, aggregate, analyze, high_freq, partition_writer, anonymize, distinct, shuffling, group_by, filter, sort, merge, jetrules, clustering, ollama.",
+          "description": "The operator. Range: map_record, aggregate, analyze, high_freq, partition_writer, anonymize, distinct, shuffling, group_by, filter, sort, merge, jetrules, clustering, ollama, embed.",
           "title": "Type",
           "type": "string"
         },
@@ -15934,7 +16258,7 @@
         },
         "type": {
           "const": "analyze",
-          "description": "The operator. Range: map_record, aggregate, analyze, high_freq, partition_writer, anonymize, distinct, shuffling, group_by, filter, sort, merge, jetrules, clustering, ollama.",
+          "description": "The operator. Range: map_record, aggregate, analyze, high_freq, partition_writer, anonymize, distinct, shuffling, group_by, filter, sort, merge, jetrules, clustering, ollama, embed.",
           "title": "Type",
           "type": "string"
         },
@@ -16122,7 +16446,7 @@
         },
         "type": {
           "const": "anonymize",
-          "description": "The operator. Range: map_record, aggregate, analyze, high_freq, partition_writer, anonymize, distinct, shuffling, group_by, filter, sort, merge, jetrules, clustering, ollama.",
+          "description": "The operator. Range: map_record, aggregate, analyze, high_freq, partition_writer, anonymize, distinct, shuffling, group_by, filter, sort, merge, jetrules, clustering, ollama, embed.",
           "title": "Type",
           "type": "string"
         },
@@ -16275,7 +16599,7 @@
         },
         "type": {
           "const": "clustering",
-          "description": "The operator. Range: map_record, aggregate, analyze, high_freq, partition_writer, anonymize, distinct, shuffling, group_by, filter, sort, merge, jetrules, clustering, ollama.",
+          "description": "The operator. Range: map_record, aggregate, analyze, high_freq, partition_writer, anonymize, distinct, shuffling, group_by, filter, sort, merge, jetrules, clustering, ollama, embed.",
           "title": "Type",
           "type": "string"
         },
@@ -16366,7 +16690,7 @@
         },
         "type": {
           "const": "distinct",
-          "description": "The operator. Range: map_record, aggregate, analyze, high_freq, partition_writer, anonymize, distinct, shuffling, group_by, filter, sort, merge, jetrules, clustering, ollama.",
+          "description": "The operator. Range: map_record, aggregate, analyze, high_freq, partition_writer, anonymize, distinct, shuffling, group_by, filter, sort, merge, jetrules, clustering, ollama, embed.",
           "title": "Type",
           "type": "string"
         },
@@ -16389,6 +16713,179 @@
         "output_channel"
       ],
       "title": "TransformationSpecDistinct",
+      "type": "object"
+    },
+    "TransformationSpecEmbed": {
+      "additionalProperties": false,
+      "description": "Calls the infer server's embeddings endpoint once per record and puts the resulting vector on the record.",
+      "properties": {
+        "columns": {
+          "anyOf": [
+            {
+              "items": {
+                "discriminator": {
+                  "mapping": {
+                    "avrg": "#/$defs/TransformationColumnSpecAvrg",
+                    "case": "#/$defs/TransformationColumnSpecCase",
+                    "count": "#/$defs/TransformationColumnSpecCount",
+                    "distinct_count": "#/$defs/TransformationColumnSpecDistinctCount",
+                    "eval": "#/$defs/TransformationColumnSpecEval",
+                    "hash": "#/$defs/TransformationColumnSpecHash",
+                    "lookup": "#/$defs/TransformationColumnSpecLookup",
+                    "map": "#/$defs/TransformationColumnSpecMap",
+                    "map_reduce": "#/$defs/TransformationColumnSpecMapReduce",
+                    "max": "#/$defs/TransformationColumnSpecMax",
+                    "min": "#/$defs/TransformationColumnSpecMin",
+                    "multi_select": "#/$defs/TransformationColumnSpecMultiSelect",
+                    "select": "#/$defs/TransformationColumnSpecSelect",
+                    "sum": "#/$defs/TransformationColumnSpecSum",
+                    "value": "#/$defs/TransformationColumnSpecValue"
+                  },
+                  "propertyName": "type"
+                },
+                "oneOf": [
+                  {
+                    "$ref": "#/$defs/TransformationColumnSpecAvrg"
+                  },
+                  {
+                    "$ref": "#/$defs/TransformationColumnSpecCase"
+                  },
+                  {
+                    "$ref": "#/$defs/TransformationColumnSpecCount"
+                  },
+                  {
+                    "$ref": "#/$defs/TransformationColumnSpecDistinctCount"
+                  },
+                  {
+                    "$ref": "#/$defs/TransformationColumnSpecEval"
+                  },
+                  {
+                    "$ref": "#/$defs/TransformationColumnSpecHash"
+                  },
+                  {
+                    "$ref": "#/$defs/TransformationColumnSpecLookup"
+                  },
+                  {
+                    "$ref": "#/$defs/TransformationColumnSpecMap"
+                  },
+                  {
+                    "$ref": "#/$defs/TransformationColumnSpecMapReduce"
+                  },
+                  {
+                    "$ref": "#/$defs/TransformationColumnSpecMax"
+                  },
+                  {
+                    "$ref": "#/$defs/TransformationColumnSpecMin"
+                  },
+                  {
+                    "$ref": "#/$defs/TransformationColumnSpecMultiSelect"
+                  },
+                  {
+                    "$ref": "#/$defs/TransformationColumnSpecSelect"
+                  },
+                  {
+                    "$ref": "#/$defs/TransformationColumnSpecSum"
+                  },
+                  {
+                    "$ref": "#/$defs/TransformationColumnSpecValue"
+                  }
+                ]
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Column transformations; the ollama operator maps through output_mapping instead.",
+          "title": "Columns"
+        },
+        "comment": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Free text for the reader; ignored by JetStore.",
+          "title": "Comment"
+        },
+        "conditional_config": {
+          "anyOf": [
+            {
+              "items": {
+                "$ref": "#/$defs/ConditionalTransformationSpec"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Conditions that override fields of this operator or replace it altogether.",
+          "title": "Conditional Config"
+        },
+        "embed_config": {
+          "$ref": "#/$defs/EmbedSpec",
+          "description": "Configuration of the embed operator."
+        },
+        "output_channel": {
+          "description": "The channel the operator writes to.",
+          "discriminator": {
+            "mapping": {
+              "memory": "#/$defs/OutputChannelConfigMemory",
+              "output": "#/$defs/OutputChannelConfigOutput",
+              "sql": "#/$defs/OutputChannelConfigSql",
+              "stage": "#/$defs/OutputChannelConfigStage"
+            },
+            "propertyName": "type"
+          },
+          "oneOf": [
+            {
+              "$ref": "#/$defs/OutputChannelConfigMemory"
+            },
+            {
+              "$ref": "#/$defs/OutputChannelConfigStage"
+            },
+            {
+              "$ref": "#/$defs/OutputChannelConfigOutput"
+            },
+            {
+              "$ref": "#/$defs/OutputChannelConfigSql"
+            }
+          ],
+          "title": "Output Channel"
+        },
+        "type": {
+          "const": "embed",
+          "description": "The operator. Range: map_record, aggregate, analyze, high_freq, partition_writer, anonymize, distinct, shuffling, group_by, filter, sort, merge, jetrules, clustering, ollama, embed.",
+          "title": "Type",
+          "type": "string"
+        },
+        "when": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ExpressionNode"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Guard: the transformation is applied only when this evaluates true."
+        }
+      },
+      "required": [
+        "type",
+        "embed_config",
+        "output_channel"
+      ],
+      "title": "TransformationSpecEmbed",
       "type": "object"
     },
     "TransformationSpecFilter": {
@@ -16560,7 +17057,7 @@
         },
         "type": {
           "const": "filter",
-          "description": "The operator. Range: map_record, aggregate, analyze, high_freq, partition_writer, anonymize, distinct, shuffling, group_by, filter, sort, merge, jetrules, clustering, ollama.",
+          "description": "The operator. Range: map_record, aggregate, analyze, high_freq, partition_writer, anonymize, distinct, shuffling, group_by, filter, sort, merge, jetrules, clustering, ollama, embed.",
           "title": "Type",
           "type": "string"
         },
@@ -16650,7 +17147,7 @@
         },
         "type": {
           "const": "group_by",
-          "description": "The operator. Range: map_record, aggregate, analyze, high_freq, partition_writer, anonymize, distinct, shuffling, group_by, filter, sort, merge, jetrules, clustering, ollama.",
+          "description": "The operator. Range: map_record, aggregate, analyze, high_freq, partition_writer, anonymize, distinct, shuffling, group_by, filter, sort, merge, jetrules, clustering, ollama, embed.",
           "title": "Type",
           "type": "string"
         },
@@ -16840,7 +17337,7 @@
         },
         "type": {
           "const": "high_freq",
-          "description": "The operator. Range: map_record, aggregate, analyze, high_freq, partition_writer, anonymize, distinct, shuffling, group_by, filter, sort, merge, jetrules, clustering, ollama.",
+          "description": "The operator. Range: map_record, aggregate, analyze, high_freq, partition_writer, anonymize, distinct, shuffling, group_by, filter, sort, merge, jetrules, clustering, ollama, embed.",
           "title": "Type",
           "type": "string"
         },
@@ -16999,7 +17496,7 @@
         },
         "type": {
           "const": "jetrules",
-          "description": "The operator. Range: map_record, aggregate, analyze, high_freq, partition_writer, anonymize, distinct, shuffling, group_by, filter, sort, merge, jetrules, clustering, ollama.",
+          "description": "The operator. Range: map_record, aggregate, analyze, high_freq, partition_writer, anonymize, distinct, shuffling, group_by, filter, sort, merge, jetrules, clustering, ollama, embed.",
           "title": "Type",
           "type": "string"
         },
@@ -17192,7 +17689,7 @@
         },
         "type": {
           "const": "map_record",
-          "description": "The operator. Range: map_record, aggregate, analyze, high_freq, partition_writer, anonymize, distinct, shuffling, group_by, filter, sort, merge, jetrules, clustering, ollama.",
+          "description": "The operator. Range: map_record, aggregate, analyze, high_freq, partition_writer, anonymize, distinct, shuffling, group_by, filter, sort, merge, jetrules, clustering, ollama, embed.",
           "title": "Type",
           "type": "string"
         },
@@ -17282,7 +17779,7 @@
         },
         "type": {
           "const": "merge",
-          "description": "The operator. Range: map_record, aggregate, analyze, high_freq, partition_writer, anonymize, distinct, shuffling, group_by, filter, sort, merge, jetrules, clustering, ollama.",
+          "description": "The operator. Range: map_record, aggregate, analyze, high_freq, partition_writer, anonymize, distinct, shuffling, group_by, filter, sort, merge, jetrules, clustering, ollama, embed.",
           "title": "Type",
           "type": "string"
         },
@@ -17455,7 +17952,7 @@
         },
         "type": {
           "const": "ollama",
-          "description": "The operator. Range: map_record, aggregate, analyze, high_freq, partition_writer, anonymize, distinct, shuffling, group_by, filter, sort, merge, jetrules, clustering, ollama.",
+          "description": "The operator. Range: map_record, aggregate, analyze, high_freq, partition_writer, anonymize, distinct, shuffling, group_by, filter, sort, merge, jetrules, clustering, ollama, embed.",
           "title": "Type",
           "type": "string"
         },
@@ -19089,7 +19586,7 @@
         },
         "type": {
           "const": "partition_writer",
-          "description": "The operator. Range: map_record, aggregate, analyze, high_freq, partition_writer, anonymize, distinct, shuffling, group_by, filter, sort, merge, jetrules, clustering, ollama.",
+          "description": "The operator. Range: map_record, aggregate, analyze, high_freq, partition_writer, anonymize, distinct, shuffling, group_by, filter, sort, merge, jetrules, clustering, ollama, embed.",
           "title": "Type",
           "type": "string"
         },
@@ -19180,7 +19677,7 @@
         },
         "type": {
           "const": "shuffling",
-          "description": "The operator. Range: map_record, aggregate, analyze, high_freq, partition_writer, anonymize, distinct, shuffling, group_by, filter, sort, merge, jetrules, clustering, ollama.",
+          "description": "The operator. Range: map_record, aggregate, analyze, high_freq, partition_writer, anonymize, distinct, shuffling, group_by, filter, sort, merge, jetrules, clustering, ollama, embed.",
           "title": "Type",
           "type": "string"
         },
@@ -19271,7 +19768,7 @@
         },
         "type": {
           "const": "sort",
-          "description": "The operator. Range: map_record, aggregate, analyze, high_freq, partition_writer, anonymize, distinct, shuffling, group_by, filter, sort, merge, jetrules, clustering, ollama.",
+          "description": "The operator. Range: map_record, aggregate, analyze, high_freq, partition_writer, anonymize, distinct, shuffling, group_by, filter, sort, merge, jetrules, clustering, ollama, embed.",
           "title": "Type",
           "type": "string"
         },
