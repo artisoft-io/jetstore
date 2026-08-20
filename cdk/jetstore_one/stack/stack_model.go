@@ -257,7 +257,12 @@ func (jsComp *JetStoreStackComponents) InferMemLimitMB() float64 {
 			memLimit = float64(memLimitInt)
 		}
 	} else {
-		memLimit = 1024 * 12 // default to 12 GB
+		// 80% of the instance's host RAM, which is 64 GiB on g6e.2xlarge. This is a
+		// cgroup limit on *host* RAM and Ollama's memory planner cannot see it, so it
+		// protects the instance from the container rather than the container from
+		// itself - see the OLLAMA_CONTEXT_LENGTH comment in build_infer_service.go.
+		// Was 12 GB, derived from g5.xlarge's 16 GiB.
+		memLimit = 1024 * 51 // 51 GB, 80% of 64 GiB
 	}
 	return memLimit
 }

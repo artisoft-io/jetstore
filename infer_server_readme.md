@@ -1,7 +1,9 @@
 # Infer Server — GPU memory and Ollama tuning
 
-Findings from the first live test of the Infer Server (2026-08-04), measured against a running
-`jetstore-infer-service` task on `g5.xlarge` with `granite4.1:3b`, Ollama 0.32.5.
+Measured against a running `jetstore-infer-service` task with `granite4.1:3b`, Ollama 0.32.5.
+First written 2026-08-04 against `g5.xlarge`; **re-measured 2026-08-20 on `g6e.2xlarge`**, which is
+the instance these numbers now describe. Every figure below comes from `tools/infer_capacity` run
+against the deployed task, not from a formula.
 
 This file covers **runtime memory behaviour** only. For how the service is assembled — the ASG,
 the persistent EBS volume, the lifecycle hook, GPU scheduling and the AMI contract — see the
@@ -47,36 +49,53 @@ overflow to host RAM — and asks for 22 GiB of it on an instance with 16 GiB. `
 
 ## Measured KV cache cost
 
-`granite4.1:3b` on `g5.xlarge` (A10G, 24 GiB VRAM / 16 GiB host RAM), from `/api/ps` after
-loading at each context size. Roughly **0.31 MiB per token** on top of a ~2.3 GiB base.
+`granite4.1:3b` on **`g6e.2xlarge` (L40S, 48 GiB VRAM / 64 GiB host RAM)**, measured 2026-08-20
+with `tools/infer_capacity`, which reads `size` and `size_vram` from `/api/ps` rather than
+inferring the spill from throughput.
 
 | `num_ctx` | Total | Resident in VRAM | tok/s | Result |
 |---|---|---|---|---|
-| 8k | 4.59 GiB | 4.59 GiB | 131.0 | fully GPU-resident |
-| 16k | 7.26 GiB | 7.26 GiB | 131.2 | fully GPU-resident |
-| **32k** | **12.32 GiB** | **12.32 GiB** | **131.0** | **fully GPU-resident — current default** |
-| 48k | 17.06 GiB | 17.06 GiB | 131.2 | fully GPU-resident |
-| 52k | 18.31 GiB | 18.31 GiB | 128.2 | fully GPU-resident |
-| **56k** | **19.57 GiB** | **19.57 GiB** | **131.1** | **largest tested that stays resident** |
-| 60k | 21.33 GiB | 20.74 GiB | 89.4 | 0.59 GiB spilled — **68% of resident speed** |
-| 64k | 22.61 GiB | 20.35 GiB | 50.0 | 2.26 GiB spilled — **38% of resident speed** |
-| 96k | — | — | — | load fails |
-| 128k | — | — | — | load fails (22 GiB overflow into 16 GiB RAM) |
+| 32k | 12.32 GiB | 12.32 GiB | 202.7 | fully GPU-resident |
+| **48k** | **17.39 GiB** | **17.39 GiB** | **203.0** | **fully GPU-resident — current default** |
+| 64k | 22.45 GiB | 22.45 GiB | 202.7 | fully GPU-resident |
+| 128k | 42.14 GiB | 42.14 GiB | 202.6 | fully GPU-resident — granite's own maximum |
 
-**Re-measured 2026-08-20 with `tools/infer_capacity`**, which reads `size` and `size_vram` from
-`/api/ps` rather than inferring the spill from throughput. Every figure above 32k is new; the
-8k–64k sizes reproduce the 2026-08-04 readings to within 0.01 GiB, so the table was not stale —
-it was simply coarse where it mattered.
+**Nothing spilled, at any context this model supports.** 131072 is the model's maximum and it sits
+fully on the GPU with about 6 GiB to spare, so for a single model **the card is no longer the
+constraint — the model is.** Throughput is flat at ~203 tok/s across the whole range.
 
-**The practical ceiling is between 56k and 60k, not "roughly 48k" as this file previously said.**
-That earlier figure was an estimate and it was conservative by about 9k; 48k is now measured and
-fully resident. The correction does not change the recommended default — see below.
+The cache still costs **~0.31 MiB per token** on a ~2.3 GiB base. That is a property of the model
+and did not change with the card; what changed is how much of it fits.
 
-**What the spill costs is now a number rather than a warning.** Throughput falls to 68% of
-resident speed at 0.59 GiB spilled and to 38% at 2.26 GiB, so the degradation is graded rather
-than a cliff, and a model that has spilled a little looks merely slow. Nothing logs, nothing
-errors. That is the whole reason this table exists and the reason to re-run the tool rather than
-trust it after any instance change:
+### What this replaced
+
+The previous instance was `g5.xlarge` (A10G, 24 GiB VRAM / 16 GiB host RAM), where the ceiling was
+between 56k and 60k and the spill was graded rather than a cliff — 68% of resident speed at 0.59 GiB
+spilled, 38% at 2.26 GiB, with nothing logged either time. Those readings are gone from the table
+because the instance is gone, but the *shape* of the failure is worth carrying: a model that has
+spilled a little just looks slow.
+
+## Choosing the three settings together
+
+`OLLAMA_MAX_LOADED_MODELS` multiplies the VRAM cost. `OLLAMA_NUM_PARALLEL` **divides** the
+per-request context. `OLLAMA_CONTEXT_LENGTH` sizes the window they act on. **They are one choice,
+not three.**
+
+| combination | VRAM | per request | |
+|---|---|---|---|
+| **2 models, 48k, 2 parallel** | **34.78 GiB** | **24 576** | **current default** |
+| 1 model, 128k, 4 parallel | 42.14 GiB | 32 768 | works, but holds one model |
+| 2 models, 64k, 4 parallel | 44.90 GiB | 16 384 | past the 42.14 GiB observed ceiling |
+| 2 models, 48k, 4 parallel | 34.78 GiB | 12 288 | under the largest real prompt — see below |
+
+The largest prompt the authoring loop actually builds is **13.5k tokens**, measured at F.6. So
+four-way parallelism and two loaded models are not simultaneously affordable at a per-request
+context that clears real prompts. **Two models won, because holding two is the reason this card was
+bought** — and `OLLAMA_NUM_PARALLEL` dropping from 4 to 2 is the one regression in the move.
+
+**The two-model figures are arithmetic over single-model measurements**, not a two-model
+measurement: `OLLAMA_MAX_LOADED_MODELS` is server-side and was not varied. Re-run the tool after
+changing any of the three:
 
 ```
 go run ./tools/infer_capacity -model granite4.1:3b
