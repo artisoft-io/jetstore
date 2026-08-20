@@ -134,6 +134,10 @@ def _bundle_members(matrix: Path | None) -> dict[str, list[str]]:
     return out
 
 
+DEFAULT_CONTEXT_TOKENS = 32768
+DEFAULT_RESERVE_TOKENS = 8192
+
+
 def check(
     template: Template,
     schema: dict,
@@ -180,6 +184,26 @@ def check(
             findings.append(
                 f"hole {hole.name!r} repeats over {hole.repeat_over!r} but sits at {path}, "
                 f"which is not a list position; a repeating hole expands into a list"
+            )
+
+    # A `schema_ref` too large for the infer server's context can still be *recovered*
+    # into - no model is involved - so this is a note rather than a finding, and the
+    # refusal belongs where a model is actually asked. That is the same split
+    # `jets/agentic/prompt` makes: the schema is emitted regardless and Task validation
+    # is what refuses. `ConditionalPipeSpec` is the live case at 49,008 tokens, which is
+    # I-29 arriving at an entry point the bundle layer does not cover.
+    budget = DEFAULT_CONTEXT_TOKENS - DEFAULT_RESERVE_TOKENS
+    for hole in template.holes:
+        if hole.schema_ref not in defs:
+            continue
+        from .authoring import subschema
+
+        tokens = len(json.dumps(subschema(schema, hole.schema_ref), separators=(",", ":"))) // 4
+        if tokens > budget:
+            notes.append(
+                f"hole {hole.name!r} fills {hole.schema_ref}, whose schema is ~{tokens} tokens "
+                f"against a {budget} budget - it can be recovered into but **not authored** "
+                f"(criterion 22 is unreachable for this hole; name a bundle instead)"
             )
 
     if library is not None:

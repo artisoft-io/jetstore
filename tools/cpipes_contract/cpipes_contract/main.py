@@ -216,6 +216,13 @@ def main(argv: list[str] | None = None) -> int:
     templates_cmd.add_argument(
         "--out", type=Path, help="where to write the expanded config (with --expand)"
     )
+    templates_cmd.add_argument(
+        "--author",
+        metavar="MODEL",
+        help="fill every hole by asking the infer server to author it from the hole's "
+        "prompt, constrained by its schema_ref - criterion 22 (F.6)",
+    )
+    templates_cmd.add_argument("--host", default="http://localhost:11434")
 
     bundles_cmd = sub.add_parser(
         "bundles",
@@ -284,13 +291,48 @@ def main(argv: list[str] | None = None) -> int:
                 print(f"FINDING {path.name}: {finding}", file=sys.stderr)
             total += len(findings)
 
+            if args.author and not findings:
+                from .authoring import Report, from_model, reachable
+
+                ready, detail = reachable(args.host)
+                if not ready:
+                    print(f"FINDING infer server not ready: {detail}", file=sys.stderr)
+                    return 1
+                # Bindings are per template: `<name>.bindings.json` beside it. One
+                # template's context applied to another's holes is not a partial
+                # answer, it is a different question.
+                beside = path.with_name(path.name.replace(".template.json", ".bindings.json"))
+                source = beside if beside.exists() else args.expand
+                if source is None:
+                    print(f"  {path.name}: no bindings; skipped")
+                    continue
+                context = json.loads(source.read_text())
+                report = Report(model=args.author)
+                from .expand import expand as expand_template
+
+                config, bad = expand_template(
+                    tpl,
+                    context,
+                    from_model(schema, args.matrix, args.author, args.host, report=report),
+                    schema,
+                )
+                print()
+                print(report.render())
+                for finding in bad:
+                    print(f"  invalid: {finding}")
+                if args.out:
+                    args.out.write_text(json.dumps(config, indent=2) + "\n")
+                    print(f"  wrote {args.out}")
+                continue
+
             if args.expand and not findings:
                 import jsonschema
 
                 from .expand import expand as expand_template
                 from .expand import from_library
 
-                context = json.loads(args.expand.read_text())
+                beside = path.with_name(path.name.replace(".template.json", ".bindings.json"))
+                context = json.loads((beside if beside.exists() else args.expand).read_text())
                 if library is None:
                     print(f"FINDING {path.name}: --expand needs the library", file=sys.stderr)
                     total += 1
