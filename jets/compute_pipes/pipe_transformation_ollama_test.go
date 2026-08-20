@@ -847,17 +847,17 @@ func TestOllamaTemplateEnvVarSubstitution(t *testing.T) {
 
 // The operator refuses to be built when it cannot tell where the infer server is.
 func TestOllamaMissingServerUrl(t *testing.T) {
-	if _, err := resolveOllamaUrl(&OllamaSpec{}, map[string]any{}); err == nil {
+	if _, err := resolveInferServerUrl(nil, map[string]any{}, "ollama_config"); err == nil {
 		t.Error("expecting an error when no url can be resolved")
 	}
 	env := map[string]any{"$JETS_INFER_URL": "http://from-env:11434"}
-	url, err := resolveOllamaUrl(&OllamaSpec{}, env)
+	url, err := resolveInferServerUrl(nil, env, "ollama_config")
 	if err != nil || url != "http://from-env:11434" {
 		t.Errorf("expecting the url from the cpipes env, got %q, err %v", url, err)
 	}
 	// The configuration wins over the env, and gets env var substitution
-	url, err = resolveOllamaUrl(&OllamaSpec{Server: &OllamaServerSpec{Url: "http://configured:$PORT"}},
-		map[string]any{"$PORT": 11434, "$JETS_INFER_URL": "http://from-env:11434"})
+	url, err = resolveInferServerUrl(&OllamaServerSpec{Url: "http://configured:$PORT"},
+		map[string]any{"$PORT": 11434, "$JETS_INFER_URL": "http://from-env:11434"}, "ollama_config")
 	if err != nil || url != "http://configured:11434" {
 		t.Errorf("expecting the configured url, got %q, err %v", url, err)
 	}

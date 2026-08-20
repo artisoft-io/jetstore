@@ -1023,6 +1023,13 @@ func (args *CpipesStartup) ValidatePipeSpecConfig(cpConfig *ComputePipesConfig, 
 				if transformationConfig.OllamaConfig.PoolSize < 1 {
 					transformationConfig.OllamaConfig.PoolSize = 1
 				}
+			case "embed":
+				if transformationConfig.EmbedConfig == nil {
+					return fmt.Errorf("configuration error: missing embed_config for embed operator")
+				}
+				if transformationConfig.EmbedConfig.PoolSize < 1 {
+					transformationConfig.EmbedConfig.PoolSize = 1
+				}
 			case "clustering":
 				if transformationConfig.ClusteringConfig == nil ||
 					transformationConfig.ClusteringConfig.CorrelationOutputChannel == nil {
@@ -1088,6 +1095,10 @@ func errorChannelConfig(transformationConfig *TransformationSpec) *OutputChannel
 	case "ollama":
 		if transformationConfig.OllamaConfig != nil {
 			return transformationConfig.OllamaConfig.ErrorChannel
+		}
+	case "embed":
+		if transformationConfig.EmbedConfig != nil {
+			return transformationConfig.EmbedConfig.ErrorChannel
 		}
 	}
 	return nil

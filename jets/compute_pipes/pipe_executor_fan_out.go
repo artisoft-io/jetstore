@@ -58,6 +58,12 @@ func (ctx *BuilderContext) StartFanOutPipe(spec *PipeSpec, source *InputChannel,
 					oc[spec.Apply[i].OllamaConfig.ErrorChannel.Name] = true
 				}
 
+			case "embed":
+				// Get the error output channel of embed
+				if spec.Apply[i].EmbedConfig != nil && spec.Apply[i].EmbedConfig.ErrorChannel != nil {
+					oc[spec.Apply[i].EmbedConfig.ErrorChannel.Name] = true
+				}
+
 			case "clustering":
 				// Get the output channels of clustering
 				if spec.Apply[i].ClusteringConfig != nil &&

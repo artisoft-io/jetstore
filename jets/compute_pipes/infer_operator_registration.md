@@ -6,6 +6,13 @@ why that is not a 15a deficiency: every cpipes operator pays this —
 `jetrules`, `clustering` and `map_record` sit in the same switches, so a
 `vllm` arm alongside them is the convention rather than a fork.
 
+**Exercised 2026-08-20 by the `embed` operator, and the six rows below were
+right.** `pipe_transformation_embed.go` is ~340 lines of genuinely embeddings-
+specific code, the six registration points cost about five lines each, and
+nothing in `pipe_transformation_infer.go` had to change — the seam took a
+backend whose response carries no text at all. What the checklist *understated*
+is the last paragraph, the contract chain: see the note at the end.
+
 What the operator does NOT have to write is everything in
 `pipe_transformation_infer.go`: the operator shell, the worker pool and its
 counters, the on_error policy, the prompt template compile/render with the
@@ -29,6 +36,28 @@ And the contract chain (`tools/cpipes_contract/`): a new operator token means
 new matrix rows (a `types.csv` row per token, `fields.csv` rows for the spec —
 the `InferCommonSpec` rows carry over by embedding, as `FileConfig`'s do), a
 `generate`/`schema`/`gofile` regeneration, and the corpus/negative gates.
+
+**That paragraph is the expensive one, and not for the reason it gives.** The
+`embed` operator added 63 field rows, 2 type rows and 3 constraint rows, which
+is the predicted cost and is fine. What it also did was invalidate **711
+already-reviewed rows** — because `evidence_ref` is an absolute `file:line`
+citation, `evidence_ref` is inside the review fingerprint, and adding one field
+to `TransformationSpec` shifts every line below it in `pipes_model.go`. The
+matrix then reports 695 rows as *changed since reviewed* when nothing a reviewer
+looked at has changed at all.
+
+The mechanical repair is an exact old→new line map (`difflib` over the `HEAD`
+blob against the working file) applied to `evidence_ref`, followed by
+`stamp --restamp`. That works, and it is what was done. But `--restamp` exists
+to record an explicit human re-approval, and using it on 695 rows because a
+struct gained a field spends the review mechanism to pay for a line number.
+
+**So: any change to `pipes_model.go` costs a mass re-approval until the
+citations stop being line numbers.** Two ways out, neither attempted here —
+cite a symbol (`pipes_model.go:TransformationSpec.EmbedConfig`) and resolve it
+at check time, or exclude `evidence_ref` from the fingerprint and check the
+citation on its own axis, the way `harness` already is. Recorded as debt rather
+than fixed, because it is matrix-shaped work and this was an operator.
 
 The one place this surface could shrink is rows 5–6: both switches re-derive
 what `errorChannelConfig` already answers because they need a superset

@@ -272,7 +272,7 @@ func applyOllamaDefaults(config *OllamaSpec) {
 }
 
 func newOllamaClient(config *OllamaSpec, env map[string]any) (*ollamaClient, error) {
-	url, err := resolveOllamaUrl(config, env)
+	url, err := resolveInferServerUrl(config.Server, env, "ollama_config")
 	if err != nil {
 		return nil, err
 	}
@@ -305,12 +305,14 @@ func newOllamaClient(config *OllamaSpec, env map[string]any) (*ollamaClient, err
 	}, nil
 }
 
-// resolveOllamaUrl takes the infer server url from the operator config, then from the
-// cpipes env, then from the JETS_INFER_URL environment variable which the deployed
+// resolveInferServerUrl takes the infer server url from the operator config, then from
+// the cpipes env, then from the JETS_INFER_URL environment variable which the deployed
 // containers get when the stack is built with BUILD_INFER_SERVICE.
-func resolveOllamaUrl(config *OllamaSpec, env map[string]any) (string, error) {
-	if config.Server != nil && len(config.Server.Url) > 0 {
-		url := strings.TrimSpace(utils.ReplaceEnvVars(config.Server.Url, env))
+// It is shared by the inference operators; configName names the caller's config element
+// in the failure message, so each operator points at its own property.
+func resolveInferServerUrl(server *OllamaServerSpec, env map[string]any, configName string) (string, error) {
+	if server != nil && len(server.Url) > 0 {
+		url := strings.TrimSpace(utils.ReplaceEnvVars(server.Url, env))
 		if len(url) > 0 {
 			return url, nil
 		}
@@ -324,6 +326,6 @@ func resolveOllamaUrl(config *OllamaSpec, env map[string]any) (string, error) {
 		return url, nil
 	}
 	return "", fmt.Errorf(
-		"error: cannot determine the infer server url, set ollama_config.server.url in the configuration or " +
-			"deploy the stack with BUILD_INFER_SERVICE so JETS_INFER_URL is set on the containers")
+		"error: cannot determine the infer server url, set %s.server.url in the configuration or "+
+			"deploy the stack with BUILD_INFER_SERVICE so JETS_INFER_URL is set on the containers", configName)
 }
