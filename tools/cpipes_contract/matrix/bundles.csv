@@ -1,0 +1,20 @@
+bundle,applies_to,description,status,notes
+MapRecordPipe,TransformationSpec,Maps the input record onto the output channel's columns.,reviewed,
+PartitionWriterPipe,TransformationSpec,Writes the records of its input channel to partition files.,reviewed,
+AggregatePipe,TransformationSpec,Aggregate the input records to a single output record,reviewed,
+AnalyzePipe,TransformationSpec,"Analyze each columns of the input records, emit a record per column with various metrics to the output channel",reviewed,
+AnonymizePipe,TransformationSpec,Anonymize or de-identify input records using an analysis lookup identifying columns containing sensitive data.,reviewed,
+HighFreqPipe,TransformationSpec,Analyze selected column and send to output channel their top percentile values,reviewed,
+ClusteringPipe,TransformationSpec,Compute the correlation between sets of columns identified by classification via a lookup table.,reviewed,
+FilterPipe,TransformationSpec,"Apply a filter to input records, sending retained records to the output channel. Cap the number of retained records if specified.",reviewed,
+DistinctPipe,TransformationSpec,"Filter the input records to retain a single record per composite key value, records sent to the output channel have a distinct composite key.",reviewed,
+ShufflingPipe,TransformationSpec,Shuffle data on a per-column basis for retained columns specified in a lookup. The number of input records is capped by configuration. The number of generated output records is also specified by configuration.,reviewed,
+GroupByPipe,TransformationSpec,Group the input records into bundles using a composite key. Each output records correspond to a bundle where each element of the output record contains an input record.,reviewed,
+SortPipe,TransformationSpec,"Sort the input records in memory, send the sorted records to output channel.",reviewed,
+MergePipe,TransformationSpec,"Merge sorted records from multiple channels using a grouping composite key. All input channels must be sorted using the same logical sort order. Bundled records are sent to the output channel, each element of the output records correspond to an input record.",reviewed,
+JetrulesPipe,TransformationSpec,"Input channel contains either individual or bundled input records. Each record or bundle are sent to JetRules as a rule session. Output records are extracted by type from the rule session, each type correspond to an output channel.",reviewed,
+OllamaPipe,TransformationSpec,Calls the infer server once per record and augments the record in place with values extracted from the model response.,reviewed,
+ColumnMapping,TransformationColumnSpec,Reshapes records from one channel's columns onto another's: the mapping and staging theme.,reviewed,
+ColumnAggregation,TransformationColumnSpec,"Collapses many records to few: counts, sums and the group keys they are taken over.",reviewed,
+ColumnMapPhase,TransformationColumnSpec,Partial aggregations computed per shard in the map phase of a map_reduce column operator.,reviewed,"Corpus-attested: distinct_count (6), sum (4), count (2). min/max/avrg added as the same kind of per-shard partial; no live instance attests them here. select/value/eval deliberately excluded - the corpus carries group keys in the hosting aggregate's own columns, never in a phase."
+ColumnReducePhase,TransformationColumnSpec,Operators that combine per-shard partial results in the reduce phase of a map_reduce column operator.,reviewed,"Corpus-attested: count only (12 instances, no exceptions). sum/min/max added because they combine partials correctly. distinct_count and avrg deliberately excluded - neither composes across shards, which is likely why the corpus reduces distinct_count to a count."

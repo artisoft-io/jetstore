@@ -1,0 +1,45 @@
+bundle,type_token,role,columns_range,conditional_range,status,notes
+MapRecordPipe,map_record,theme,ColumnMapping,MapRecordPipe,reviewed,
+PartitionWriterPipe,partition_writer,theme,ColumnMapping,PartitionWriterPipe,reviewed,
+AggregatePipe,aggregate,theme,ColumnAggregation,AggregatePipe,reviewed,
+AnalyzePipe,analyze,theme,ColumnMapping,AnalyzePipe,reviewed,
+AnonymizePipe,anonymize,theme,ColumnMapping,AnonymizePipe,reviewed,
+HighFreqPipe,high_freq,theme,ColumnAggregation,HighFreqPipe,reviewed,
+ClusteringPipe,clustering,theme,-,ClusteringPipe,reviewed,"columns is not applicable to this operator per fields.csv; was ColumnAggregation. Set 2026-08-20 - the range still reached the column bundle through TransformationSpecOverride.columns, costing ~4,000 tokens."
+FilterPipe,filter,theme,ColumnMapping,FilterPipe,reviewed,
+DistinctPipe,distinct,theme,-,DistinctPipe,reviewed,"columns is not applicable to this operator per fields.csv; was ColumnMapping. Set 2026-08-20 - the range still reached the column bundle through TransformationSpecOverride.columns, costing ~4,000 tokens."
+ShufflingPipe,shuffling,theme,-,ShufflingPipe,reviewed,"columns is not applicable to this operator per fields.csv; was ColumnMapping. Set 2026-08-20 - the range still reached the column bundle through TransformationSpecOverride.columns, costing ~4,000 tokens."
+GroupByPipe,group_by,theme,-,GroupByPipe,reviewed,"columns is not applicable to this operator per fields.csv; was ColumnMapping. Set 2026-08-20 - the range still reached the column bundle through TransformationSpecOverride.columns, costing ~4,000 tokens."
+SortPipe,sort,theme,-,SortPipe,reviewed,"columns is not applicable to this operator per fields.csv; was ColumnMapping. Set 2026-08-20 - the range still reached the column bundle through TransformationSpecOverride.columns, costing ~4,000 tokens."
+MergePipe,merge,theme,-,MergePipe,reviewed,"columns is not applicable to this operator per fields.csv; was ColumnMapping. Set 2026-08-20 - the range still reached the column bundle through TransformationSpecOverride.columns, costing ~4,000 tokens."
+JetrulesPipe,jetrules,theme,ColumnMapping,JetrulesPipe,reviewed,
+OllamaPipe,ollama,theme,ColumnMapping,OllamaPipe,reviewed,
+ColumnMapping,select,theme,-,-,reviewed,
+ColumnMapping,value,theme,-,-,reviewed,
+ColumnMapping,eval,theme,-,-,reviewed,
+ColumnMapping,case,theme,then=ColumnMapping;else_expr=ColumnMapping,-,reviewed,
+ColumnMapping,map,theme,-,-,reviewed,
+ColumnMapping,hash,theme,-,-,reviewed,
+ColumnMapping,lookup,theme,-,-,reviewed,
+ColumnMapping,multi_select,theme,-,-,reviewed,
+ColumnAggregation,select,theme,-,-,reviewed,
+ColumnAggregation,value,theme,-,-,reviewed,
+ColumnAggregation,eval,theme,-,-,reviewed,
+ColumnAggregation,case,theme,then=ColumnAggregation;else_expr=ColumnAggregation,-,reviewed,
+ColumnAggregation,count,theme,-,-,reviewed,
+ColumnAggregation,distinct_count,theme,-,-,reviewed,
+ColumnAggregation,sum,theme,-,-,reviewed,
+ColumnAggregation,min,theme,-,-,reviewed,
+ColumnAggregation,max,theme,-,-,reviewed,
+ColumnAggregation,avrg,theme,-,-,reviewed,
+ColumnAggregation,map_reduce,theme,apply_map=ColumnMapPhase;apply_reduce=ColumnReducePhase,-,reviewed,"Phases split 2026-08-20. The corpus ranges differ sharply: apply_map holds distinct_count/sum/count, apply_reduce holds count and nothing else across 12 instances."
+ColumnMapPhase,count,theme,-,-,reviewed,corpus-attested in apply_map
+ColumnMapPhase,distinct_count,theme,-,-,reviewed,corpus-attested in apply_map
+ColumnMapPhase,sum,theme,-,-,reviewed,corpus-attested in apply_map
+ColumnMapPhase,min,theme,-,-,reviewed,proposed on semantics; no live instance in a map phase
+ColumnMapPhase,max,theme,-,-,reviewed,proposed on semantics; no live instance in a map phase
+ColumnMapPhase,avrg,theme,-,-,reviewed,proposed on semantics; no live instance in a map phase
+ColumnReducePhase,count,theme,-,-,reviewed,corpus-attested in apply_reduce (12 instances)
+ColumnReducePhase,sum,theme,-,-,reviewed,proposed on semantics; combines partials correctly
+ColumnReducePhase,min,theme,-,-,reviewed,proposed on semantics; combines partials correctly
+ColumnReducePhase,max,theme,-,-,reviewed,proposed on semantics; combines partials correctly

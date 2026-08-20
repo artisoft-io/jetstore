@@ -167,6 +167,21 @@ def main(argv: list[str] | None = None) -> int:
         "--out", type=Path, default=DEFAULT_MATRIX.parent / "cpipes_schema.json"
     )
 
+    bundles_cmd = sub.add_parser(
+        "bundles",
+        help="validate every live TransformationSpec fragment against its bundle",
+    )
+    bundles_cmd.add_argument("--matrix", type=Path, default=DEFAULT_MATRIX)
+    bundles_cmd.add_argument(
+        "--schema", type=Path, default=DEFAULT_MATRIX.parent / "cpipes_schema.json"
+    )
+    bundles_cmd.add_argument(
+        "--corpus",
+        type=Path,
+        default=DEFAULT_MATRIX.parent.parent.parent.parent,
+        help="root holding workspaces/",
+    )
+
     validate_cmd = sub.add_parser(
         "validate",
         help="validate the live corpus against the emitted schema with the Go "
@@ -186,6 +201,21 @@ def main(argv: list[str] | None = None) -> int:
     )
 
     args = parser.parse_args(argv)
+
+    if args.command == "bundles":
+        import json
+
+        from .bundles import check_corpus
+
+        schema = json.loads(args.schema.read_text())
+        checked, findings = check_corpus(schema, args.matrix, args.corpus)
+        for finding in findings:
+            print(f"FINDING {finding}", file=sys.stderr)
+        print(
+            f"{checked} live fragments checked against their bundle; "
+            f"{len(findings)} finding(s)"
+        )
+        return 1 if findings else 0
 
     if args.command == "validate":
         import subprocess

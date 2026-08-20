@@ -1,6 +1,7 @@
 package prompt
 
 import (
+	"encoding/csv"
 	"encoding/json"
 	"os"
 	"path/filepath"
@@ -143,4 +144,58 @@ func realSchema(t *testing.T) []byte {
 		t.Skipf("the emitted cpipes schema is not present at %s: %v", path, err)
 	}
 	return doc
+}
+
+// TestAgainstTheRealContract_EveryBundleFits is the guard on the bundle layer.
+//
+// TestAgainstTheRealContract_TransformationSpecDoesNotFit records why the layer
+// exists; this records that it works. Every bundle named in
+// tools/cpipes_contract/matrix/bundles.csv must be addressable in $defs and must
+// fit the default budget, because a task that declares an over-budget schema is
+// refused at validation and a template hole bound to such a bundle is therefore
+// dead. A bundle that stops fitting is a regression in the contract, not in this
+// package - the fix is in the authored CSVs or in cpipes_contract/bundles.py.
+func TestAgainstTheRealContract_EveryBundleFits(t *testing.T) {
+	doc := realSchema(t)
+	path := filepath.Join("..", "..", "..", "tools", "cpipes_contract", "matrix", "bundles.csv")
+	f, err := os.Open(path)
+	if err != nil {
+		t.Skipf("the authored bundles are not present at %s: %v", path, err)
+	}
+	defer f.Close()
+	rows, err := csv.NewReader(f).ReadAll()
+	if err != nil || len(rows) < 2 {
+		t.Skipf("bundles.csv is not readable: %v", err)
+	}
+	col := -1
+	for i, h := range rows[0] {
+		if h == "bundle" {
+			col = i
+		}
+	}
+	if col < 0 {
+		t.Fatalf("bundles.csv has no `bundle` column: %v", rows[0])
+	}
+
+	worst := 0
+	for _, row := range rows[1:] {
+		if col >= len(row) || row[col] == "" {
+			continue
+		}
+		name := row[col]
+		sub, err := Subschema(doc, name)
+		if err != nil {
+			t.Errorf("bundle %q is authored but not addressable in $defs: %v", name, err)
+			continue
+		}
+		if err := Fits(sub, DefaultContextTokens, DefaultReserveTokens); err != nil {
+			t.Errorf("bundle %q: %v", name, err)
+		}
+		if n := EstimateTokens(sub); n > worst {
+			worst = n
+		}
+	}
+	budget := DefaultContextTokens - DefaultReserveTokens
+	t.Logf("%d bundles, worst %d tokens of a %d budget (%d%%)",
+		len(rows)-1, worst, budget, 100*worst/budget)
 }

@@ -25,6 +25,7 @@ from pathlib import Path
 from pydantic import TypeAdapter
 from pydantic.json_schema import models_json_schema
 
+from .bundles import emit as emit_bundles
 from .reflect import MERGED, load_model
 
 REF_TEMPLATE = "#/$defs/{model}"
@@ -66,6 +67,11 @@ def emit(module, types_csv: Path) -> dict:
                 missing.append(f"{struct}/{token} -> {expected}")
     if missing:
         raise ValueError(f"types not addressable in $defs: {missing}")
+
+    # The bundle layer: abstract types between the root unions and their leaves,
+    # with every reachable column list ranged. See bundles.py for why this is a
+    # projection over $defs rather than classes in the model.
+    emit_bundles(defs, types_csv.parent)
 
     return {
         "$schema": "https://json-schema.org/draft/2020-12/schema",
