@@ -239,6 +239,23 @@ def main(argv: list[str] | None = None) -> int:
         help="root holding workspaces/",
     )
 
+    fixtures_cmd = sub.add_parser(
+        "fixtures",
+        help="assess the harvested compute_pipes test fixtures as library material (F.2b)",
+    )
+    fixtures_cmd.add_argument(
+        "--fixtures", type=Path, required=True,
+        help="JSONL written by `go run ./tools/cpipes_contract/fixtures -out ...`",
+    )
+    fixtures_cmd.add_argument("--matrix", type=Path, default=DEFAULT_MATRIX)
+    fixtures_cmd.add_argument(
+        "--schema", type=Path, default=DEFAULT_MATRIX.parent / "cpipes_schema.json"
+    )
+    fixtures_cmd.add_argument(
+        "--library", type=Path,
+        default=DEFAULT_MATRIX.parent / "fragments" / "library.jsonl",
+    )
+
     validate_cmd = sub.add_parser(
         "validate",
         help="validate the live corpus against the emitted schema with the Go "
@@ -446,6 +463,23 @@ def main(argv: list[str] | None = None) -> int:
             f"{len(findings)} finding(s)"
         )
         return 1 if findings else 0
+
+    if args.command == "fixtures":
+        import json
+
+        from .fixtures import coverage, load, render, validate as validate_fixtures
+
+        schema = json.loads(args.schema.read_text())
+        library = [
+            json.loads(line)
+            for line in args.library.read_text().splitlines()
+            if line.strip()
+        ]
+        good, bad = validate_fixtures(load(args.fixtures), schema)
+        print(render(good, bad, coverage(good, library, args.matrix)))
+        # **Not a gate.** The report is the deliverable; there is nothing here for CI to
+        # fail on, because nothing is merged into the library.
+        return 0
 
     if args.command == "validate":
         import subprocess

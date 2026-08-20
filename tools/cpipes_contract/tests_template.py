@@ -402,3 +402,72 @@ def test_the_three_that_do_not_reproduce_are_recorded_as_bounded():
         a, b = dict(leaves(cfg)), dict(leaves(target))
         n = len(set(a) ^ set(b)) + sum(1 for k in set(a) & set(b) if a[k] != b[k])
         assert n <= budget[name], f"{name}: {n} differing leaves, was {budget[name]}"
+
+
+# --- F.2b: A§6.1 source 2, measured -----------------------------------------------
+
+from cpipes_contract.fixtures import coverage, load, validate as validate_fixtures  # noqa: E402
+
+FIXTURES = HERE / "fragments" / "fixtures.jsonl"
+LIBRARY = [
+    json.loads(line)
+    for line in (HERE / "fragments" / "library.jsonl").read_text().splitlines()
+    if line.strip()
+]
+
+
+def test_the_resolver_reaches_the_tail_i35_said_it_could_not():
+    """I-35's point was that a static parse misses exactly the types worth having.
+
+    `GroupBySpec` was 0 of 5 self-contained and `MergeSpec` 0 of 4, because their
+    fixtures read locals like `mergeColumn := []string{"key1"}`. Resolving the enclosing
+    function's literal bindings gets them, which is why F.2b is a resolver rather than
+    the test-time capture I-35 left open as the alternative.
+    """
+    got = {}
+    for fixture in load(FIXTURES):
+        got[fixture["defs_name"]] = got.get(fixture["defs_name"], 0) + 1
+    assert got.get("MergeSpec", 0) >= 4
+    assert got.get("GroupBySpec", 0) >= 4
+
+
+def test_a_harvested_fixture_is_not_the_same_as_a_valid_fragment():
+    """The finding that decides what source 2 is worth (I-45).
+
+    A§6.1 calls the fixtures "correct by construction". They are correct *for their
+    test*: partial where the test only needs part, deliberately wrong where the test is
+    negative, and sentinel-valued where the test only round-trips a field. Fewer than
+    half validate, and the gap is the point rather than a defect in the harvester.
+    """
+    good, bad = validate_fixtures(load(FIXTURES), SCHEMA)
+    assert len(good) < len(bad) + len(good), "some must fail, or this test proves nothing"
+    assert len(good) >= 55, f"harvest regressed: {len(good)} valid"
+
+    reasons = " ".join(f["why"] for f in bad)
+    assert "'model' is a required property" in reasons, "partial fixtures"
+    assert "'bogus'" in reasons, "a deliberately-invalid fixture from a negative test"
+    assert "'S3'" in reasons, "a sentinel where a domain value belongs"
+
+
+def test_the_fixtures_fill_two_of_the_twenty_five_empty_types():
+    """The measure source 2's argument actually rests on.
+
+    A§6.1's case is that the fixtures concentrate where the corpus is thin, so a count of
+    fixtures is the wrong number and a count of types the corpus cannot illustrate is the
+    right one. Twenty-five contract types have no library part; the fixtures supply two.
+    """
+    good, _ = validate_fixtures(load(FIXTURES), SCHEMA)
+    cov = coverage(good, LIBRARY, HERE / "matrix")
+    assert len(cov["empty"]) == 25
+    assert cov["filled_by_fixtures"] == ["DomainKeysSpec", "OllamaServerSpec"]
+
+
+def test_nothing_here_writes_into_the_library():
+    """The module reports; merging is a decision, not a side effect."""
+    import inspect
+
+    from cpipes_contract import fixtures as mod
+
+    source = inspect.getsource(mod)
+    assert "library.jsonl" not in source
+    assert ".write_text(" not in source and "open(" not in source.replace("open(matrix", "")
