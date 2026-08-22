@@ -1,12 +1,13 @@
 {
-  "comment": "The embed operator, end to end. Reads a csv of text, calls the infer server's embeddings endpoint once per row, and writes the vector back onto the row. Added 2026-08-20 at L.3 of the agentic_ai Phase 2 plan, to close the half of criterion 33 that unit tests structurally cannot: the operator's tests run against an httptest stand in, so nothing until now had exercised the builder registration, the config validator, the DAG build and a live /api/embed call together. The input is 500 parts of the cpipes fragment library, whose vectors were also taken directly from the api at L.3a - so the output can be diffed against them rather than merely inspected.",
+  "comment": "JetStore-owned. Reads a csv of text parts, calls the infer server's embeddings endpoint once per row, and writes the vector back onto the row. Registered as the Embed_Input_Parts process in jets/jets_init_db.sql against client JetsA and object type jetsa:EmbeddedData; see pipes_config/README.md for what that registration is and why a .pc.json alone does nothing. INPUT CONTRACT: the input file is a csv whose headers include part_key (a stable identifier for the row, used to key error reports) and part_text (the text to embed). The other headers are carried through untouched - the operator augments the record in place and does not project it. The three columns declared on the input_row channel below are ADDED to the file's own headers, which is how the operator can read the file directly with no staging pipe. OUTPUT: the augmented rows are written as csv under the JetStore stage prefix at process_name=Embed_Input_Parts/session_id=<id>/step_id=parts_embeddings/, and failures go to jetsapi.process_errors keyed by part_key.",
   "cluster_config": {
+    "comment": "pool_size on the embed operator is a share of the infer server's budget rather than a throughput setting: the worker pool is built per node, so what the server sees is nodes x pool_size. Measured against nomic-embed-text on an L40S, throughput scales almost linearly to 16 concurrent and then stops, with only latency growing past it. default_max_concurrency 4 x pool_size 4 puts this pipeline exactly on that knee. Re-measure and re-divide if either the model or the card changes; 137M parameters is small enough that a larger embedding model will move the knee.",
     "default_max_concurrency": 4,
     "s3_worker_pool_size": 4,
     "default_shard_size_mb": 200.0,
     "default_shard_max_size_mb": 220.0,
     "shard_offset": 2500,
-    "is_debug_mode": true
+    "is_debug_mode": false
   },
   "schema_providers": [
     {
@@ -60,7 +61,7 @@
           "apply": [
             {
               "type": "embed",
-              "comment": "vector_column is the whole configuration of the mapping: the vector lives at embeddings.0 and nowhere else, so the operator synthesizes that mapping and this file never names a response path. vector_as_rdf_type is deliberately unset, so the vector lands as json text - which is what a csv cell can carry. The typed-array path is not exercised here and is not claimed to work.",
+              "comment": "vector_column is the whole configuration of the mapping: the vector lives at embeddings.0 and nowhere else, so the operator synthesizes that mapping and this file never names a response path. vector_as_rdf_type is deliberately unset, so the vector lands as json text - which is what a csv cell can carry, and what the object type's description promises. on_error is fail rather than the pass_through default: pass_through is right when an inference call augments a record that is useful without it, and wrong here, where a failed call writes the row out with an empty vector and the first consumer to notice is a similarity search returning slightly worse answers for ever.",
               "embed_config": {
                 "model": "nomic-embed-text",
                 "prompt_template": "{{part_text}}",
@@ -71,7 +72,7 @@
                 "row_key_column": "part_key",
                 "output_mapping": [
                   {
-                    "comment": "Both envelope values the endpoint returns beyond the vector. model_name proves the response envelope was parsed and not merely the vector plucked out of it; prompt_eval_count is the only token count an embeddings call produces, and reading it here is what shows Tokens() returning (n, 0) is right rather than a lucky zero.",
+                    "comment": "Provenance for the vector, and the reason to keep it: a vector is only comparable to other vectors from the same model, so a corpus that does not record which model produced each row cannot be re-embedded incrementally or audited after a model change. prompt_eval_count is the only token count an embeddings call produces.",
                     "column": "embed_model",
                     "source": "model_name",
                     "required": true
