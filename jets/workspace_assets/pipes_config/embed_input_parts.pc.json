@@ -1,0 +1,140 @@
+{
+  "comment": "The embed operator, end to end. Reads a csv of text, calls the infer server's embeddings endpoint once per row, and writes the vector back onto the row. Added 2026-08-20 at L.3 of the agentic_ai Phase 2 plan, to close the half of criterion 33 that unit tests structurally cannot: the operator's tests run against an httptest stand in, so nothing until now had exercised the builder registration, the config validator, the DAG build and a live /api/embed call together. The input is 500 parts of the cpipes fragment library, whose vectors were also taken directly from the api at L.3a - so the output can be diffed against them rather than merely inspected.",
+  "cluster_config": {
+    "default_max_concurrency": 4,
+    "s3_worker_pool_size": 4,
+    "default_shard_size_mb": 200.0,
+    "default_shard_max_size_mb": 220.0,
+    "shard_offset": 2500,
+    "is_debug_mode": true
+  },
+  "schema_providers": [
+    {
+      "key": "_main_input_",
+      "type": "default",
+      "source_type": "main_input"
+    }
+  ],
+  "output_tables": [
+    {
+      "key": "process_errors",
+      "name": "jetsapi.process_errors",
+      "channel_spec_name": "process_errors"
+    }
+  ],
+  "channels": [
+    {
+      "name": "process_errors",
+      "columns": [
+        "pipeline_execution_status_key",
+        "session_id",
+        "grouping_key",
+        "row_jets_key",
+        "input_column",
+        "error_message",
+        "rete_session_saved",
+        "rete_session_triples",
+        "shard_id"
+      ]
+    },
+    {
+      "comment": "The input file's own columns are taken from the file, here adding the augmented columns only.",
+      "name": "input_row",
+      "columns": [
+        "embedding",
+        "embed_model",
+        "embed_prompt_tokens"
+      ]
+    }
+  ],
+  "conditional_pipes_config": [
+    {
+      "step_name": "Embed the parts",
+      "pipes_config": [
+        {
+          "type": "fan_out",
+          "input_channel": {
+            "type": "input",
+            "name": "input_row"
+          },
+          "apply": [
+            {
+              "type": "embed",
+              "comment": "vector_column is the whole configuration of the mapping: the vector lives at embeddings.0 and nowhere else, so the operator synthesizes that mapping and this file never names a response path. vector_as_rdf_type is deliberately unset, so the vector lands as json text - which is what a csv cell can carry. The typed-array path is not exercised here and is not claimed to work.",
+              "embed_config": {
+                "model": "nomic-embed-text",
+                "prompt_template": "{{part_text}}",
+                "vector_column": "embedding",
+                "pool_size": 4,
+                "is_debug": false,
+                "on_error": "fail",
+                "row_key_column": "part_key",
+                "output_mapping": [
+                  {
+                    "comment": "Both envelope values the endpoint returns beyond the vector. model_name proves the response envelope was parsed and not merely the vector plucked out of it; prompt_eval_count is the only token count an embeddings call produces, and reading it here is what shows Tokens() returning (n, 0) is right rather than a lucky zero.",
+                    "column": "embed_model",
+                    "source": "model_name",
+                    "required": true
+                  },
+                  {
+                    "column": "embed_prompt_tokens",
+                    "source": "envelope",
+                    "path": "prompt_eval_count",
+                    "as_rdf_type": "int",
+                    "required": true
+                  }
+                ],
+                "error_channel": {
+                  "name": "process_errors.out",
+                  "channel_spec_name": "process_errors"
+                }
+              },
+              "output_channel": {
+                "name": "parts.writer",
+                "channel_spec_name": "input_row"
+              }
+            }
+          ]
+        },
+        {
+          "type": "fan_out",
+          "input_channel": {
+            "name": "process_errors.out"
+          },
+          "apply": [
+            {
+              "type": "map_record",
+              "output_channel": {
+                "type": "sql",
+                "output_table_key": "process_errors"
+              }
+            }
+          ]
+        },
+        {
+          "type": "fan_out",
+          "input_channel": {
+            "name": "parts.writer"
+          },
+          "apply": [
+            {
+              "type": "partition_writer",
+              "partition_writer_config": {
+                "device_writer_type": "csv_writer",
+                "jets_partition_key": "single_part"
+              },
+              "output_channel": {
+                "type": "stage",
+                "format": "csv",
+                "compression": "none",
+                "name": "parts.out",
+                "write_step_id": "parts_embeddings",
+                "channel_spec_name": "input_row"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

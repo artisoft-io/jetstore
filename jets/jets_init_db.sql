@@ -105,24 +105,32 @@ WHERE input_rdf_type = entity_rdf_type
 
 -- Pre-Defined clients used by the platform
 -- 'Any' is used to kick off the loader pipeline for any object type
-DELETE FROM jetsapi.client_registry WHERE client IN ('Any');
+DELETE FROM jetsapi.client_registry WHERE client IN ('Any', 'JetsA');
 INSERT INTO jetsapi.client_registry (
    client,     details) VALUES
-  ('Any',      'Any client')
+  ('Any',      'Any client'),
+  ('JetsA',    'JetStore internal client to execute pipelines')
 ON CONFLICT DO NOTHING 
 ;
 
 -- Define the ObjectType used by the platform
 -- 'Any' is used to kick off the loader pipeline for any object type
-DELETE FROM jetsapi.object_type_registry WHERE object_type IN ('Any');
+DELETE FROM jetsapi.object_type_registry WHERE object_type IN ('Any', 'jetsa:EmbeddedData');
 INSERT INTO jetsapi.object_type_registry (
    object_type, entity_rdf_type,   domain_key_object_types, details) VALUES
-  ('Any',       'owl:Thing',       '{Any}',                 'Any object')
+  ('Any', -- object_type
+  'owl:Thing', -- entity_rdf_type
+  '{Any}', -- domain_key_object_types
+  'Any object'), -- details
+  ('jetsa:EmbeddedData', -- object_type
+  'owl:Thing', -- entity_rdf_type
+  '{jetsa:EmbeddedData}', -- domain_key_object_types
+  'JetStore internal object type to embed input parts into a single json array') -- details
 ON CONFLICT DO NOTHING 
 ;
 
 -- Table source_config
-DELETE FROM jetsapi."source_config" WHERE "client" = 'Any';
+DELETE FROM jetsapi."source_config" WHERE "client" IN ('Any', 'JetsA');
 INSERT INTO jetsapi."source_config" (object_type,client,org,automated,table_name,domain_keys_json,domain_keys,code_values_mapping_json,input_columns_json,input_columns_positions_csv,input_format,compression,input_format_data_json,is_part_files,schema_provider_json,compute_pipes_json,user_email) VALUES
   ('Any',
    'Any',
@@ -140,40 +148,112 @@ INSERT INTO jetsapi."source_config" (object_type,client,org,automated,table_name
    0,
    NULL,
    NULL,
-   'michel@artisoft.io')
+   'admin'),
+  ('jetsa:EmbeddedData',
+   'JetsA',
+   DEFAULT,
+   1,
+   'JetsA_jetsa:EmbeddedData',
+   NULL,
+   '{jetsa:EmbeddedData}',
+   NULL,
+   NULL,
+   NULL,
+   'csv',
+   'none',
+   '',
+   0,
+   NULL,
+   NULL,
+   'admin')
 ON CONFLICT DO NOTHING;
 
 -- process_config define jetstore internal processes:
 -- JetsLoader: process to load files into jetstore staging table (replacement of loader)
--- Note: process_name must be unique and key < 1000 are reserved for these internal processes.
-DELETE FROM jetsapi.process_config WHERE process_name IN ('Jets_Loader');
+-- Note: process_name must be unique.
+DELETE FROM jetsapi.process_config WHERE process_name IN ('Jets_Loader', 'Embed_Input_Parts');
 INSERT INTO jetsapi.process_config 
-  (key, process_name,          main_rules,                                is_rule_set,   devmode_code,        state_machine_name,    input_rdf_types,             output_tables,                             user_email) VALUES
-  (DEFAULT, 'Jets_Loader',     'pipes_config/jets_loader.pc.json',                  0, 'run_cpipes_reports',    'cpipesNativeSM',       '{}',                         '{}',                                     'admin')
+(key, process_name, main_rules, is_rule_set, devmode_code, 
+state_machine_name, input_rdf_types, output_tables, user_email) VALUES
+  (DEFAULT,                            -- key
+  'Jets_Loader',                       -- process_name
+  'pipes_config/jets_loader.pc.json',  -- main_rules
+  0,                                   -- is_rule_set
+  'run_cpipes_reports',                -- devmode_code
+  'cpipesSM',                          -- state_machine_name
+  '{}',                                -- input_rdf_types
+  '{}',                                -- output_tables
+  'admin'),                            -- user_email
+  (DEFAULT,                                 -- key
+  'Embed_Input_Parts',                      -- process_name
+  'pipes_config/embed_input_parts.pc.json', -- main_rules
+  0,                                        -- is_rule_set
+  'run_cpipes_only',                        -- devmode_code
+  'cpipesSM',                               -- state_machine_name
+  '{owl:Thing}',                            -- input_rdf_types
+  '{}',                                     -- output_tables
+  'admin')                                  -- user_email
 ON CONFLICT DO NOTHING
 ;
 
 -- Table process_input
-DELETE FROM jetsapi."process_input" WHERE "client" = 'Any';
-INSERT INTO jetsapi."process_input" (key,client,org,object_type,table_name,source_type,lookback_periods,entity_rdf_type,key_column,status,user_email) VALUES
-  (DEFAULT, 'Any', '', 'Any', 'Any_Any', 'file', 0, 'owl:Thing', NULL, 'created', 'system')
+DELETE FROM jetsapi."process_input" WHERE "client" IN ('Any', 'JetsA');
+INSERT INTO jetsapi."process_input" 
+(key, client, org, object_type, table_name, source_type, lookback_periods, 
+entity_rdf_type, key_column, status, user_email) VALUES
+  (DEFAULT,    -- key
+  'Any',       -- client
+  '',          -- org
+  'Any',       -- object_type
+  'Any_Any',   -- table_name
+  'file',      -- source_type
+  0,           -- lookback_periods
+  'owl:Thing', -- entity_rdf_type
+  NULL,        -- key_column
+  'created',   -- status
+  'system'),   -- user_email
+  (DEFAULT,                   -- key
+  'JetsA',                    -- client
+  '',                         -- org
+  'jetsa:EmbeddedData',       -- object_type
+  'JetsA_jetsa:EmbeddedData', -- table_name
+  'file',                     -- source_type
+  0,                          -- lookback_periods
+  'owl:Thing',                -- entity_rdf_type
+  NULL,                       -- key_column
+  'created',                  -- status
+  'system')                   -- user_email
 ON CONFLICT DO NOTHING;
 
 -- Table pipeline_config
-DELETE FROM jetsapi."pipeline_config" WHERE "client" = 'Any';
+DELETE FROM jetsapi."pipeline_config" WHERE "client" IN ('Any', 'JetsA');
 INSERT INTO jetsapi."pipeline_config" (process_name,client,process_config_key,main_process_input_key,merged_process_input_keys,injected_process_input_keys,main_object_type,main_source_type,source_period_type,automated,max_rete_sessions_saved,rule_config_json,description,user_email) VALUES
-  ('Jets_Loader',
-   'Any',
+  ('Jets_Loader',    -- process_name
+   'Any',            -- client
    (SELECT key FROM jetsapi."process_config" WHERE process_name = 'Jets_Loader'),
    (SELECT key FROM jetsapi."process_input" WHERE "client" = 'Any' AND object_type = 'Any' AND table_name = 'Any_Any' AND source_type = 'file'),
-   '{}',
-   '{}',
-   'Any',
-   'file',
-   'month_period',
-   1,
-   0,
-   '[]',
-   'Pipeline to load files to staging table',
-   'system')
+   '{}',            -- merged_process_input_keys
+   '{}',            -- injected_process_input_keys 
+   'Any',           -- main_object_type
+   'file',          -- main_source_type
+   'month_period',  -- source_period_type
+   1,               -- automated
+   0,               -- max_rete_sessions_saved
+   '[]',            -- rule_config_json
+   'Pipeline to load files to staging table', -- description
+   'system'),                                 -- user_email
+  ('Embed_Input_Parts',    -- process_name
+   'JetsA',                -- client
+   (SELECT key FROM jetsapi."process_config" WHERE process_name = 'Embed_Input_Parts'),
+   (SELECT key FROM jetsapi."process_input" WHERE "client" = 'JetsA' AND object_type = 'jetsa:EmbeddedData' AND table_name = 'JetsA_jetsa:EmbeddedData' AND source_type = 'file'),
+   '{}',                           -- merged_process_input_keys
+   '{}',                           -- injected_process_input_keys 
+   'jetsa:EmbeddedData',           -- main_object_type
+   'file',                         -- main_source_type
+   'month_period',                 -- source_period_type
+   1,                              -- automated
+   0,                              -- max_rete_sessions_saved
+   '[]',                           -- rule_config_json
+   'Pipeline to embed input parts, returns embedded data vector as json array', -- description
+   'system')                       -- user_email
 ON CONFLICT DO NOTHING;
