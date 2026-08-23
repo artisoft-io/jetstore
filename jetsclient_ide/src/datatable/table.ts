@@ -97,6 +97,7 @@
 
 import { z } from "zod";
 
+import type { EscapeReferences } from "../actions/escapes";
 import { Identifier } from "../userflow/schema";
 
 /**
@@ -395,6 +396,37 @@ export function escapeNamesOf(table: TableConfigDocument): string[] {
   if (table.source === "query")
     for (const action of table.actions ?? []) if (action.isEnabled) names.add(action.isEnabled);
   return [...names].sort();
+}
+
+/**
+ * The same references, carrying which namespace each belongs to. Task I.3b.
+ *
+ * `escapeNamesOf` flattens both kinds into one sorted list, which is what a
+ * *count* wants and not what resolution wants: a `cellFilter` and an `isEnabled`
+ * are looked up in different namespaces, and a name registered as one does not
+ * satisfy the other. Both functions are kept — the flat one is what the round-trip
+ * and corpus tests assert against, and rewriting them to unwrap this would make
+ * them less legible for no gain.
+ *
+ * `at` is a JSON Pointer into the table document, so a load failure names the
+ * offending line rather than the file — the same contract `escapeReferences` has
+ * for a flow (`userflow/store.ts`).
+ */
+export function tableEscapeReferences(table: TableConfigDocument): EscapeReferences[] {
+  const references: EscapeReferences[] = [];
+  table.columns.forEach((column, index) => {
+    if (column.cellFilter) {
+      references.push({ kind: "cellFilters", name: column.cellFilter, at: `/columns/${index}/cellFilter` });
+    }
+  });
+  if (table.source === "query") {
+    (table.actions ?? []).forEach((action, index) => {
+      if (action.isEnabled) {
+        references.push({ kind: "predicates", name: action.isEnabled, at: `/actions/${index}/isEnabled` });
+      }
+    });
+  }
+  return references;
 }
 
 /**

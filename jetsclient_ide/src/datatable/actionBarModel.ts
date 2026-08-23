@@ -31,12 +31,30 @@
  * twice: *the router's filter list is non-empty* (`:243`,
  * `start_pipeline/data_table_config.dart:371`, `:428`).
  *
- * So the surface is **one named predicate**, `hasActiveFilters`, resolved
+ * So the surface is **one named predicate**, `hasDataRegistryFilters`, resolved
  * through the escape registry — the same router-singleton seam that
  * `updateHomeFilters` and `seedFromHomeFilters` already sit on. A `true` closure
  * becomes no gate at all, which is what it always meant.
+ *
+ * **The name was `hasActiveFilters` until I.3b and had to change**, because by
+ * then it was one of two names for one body. S.2b coined it from the action key,
+ * having only a boolean to go on; I.3a read the three closures and named the body
+ * `hasDataRegistryFilters` in the authored document (`tableTranslate.ts`,
+ * `DATA_REGISTRY_FILTERS_ESCAPE`). Neither was wrong on its own terms, and the
+ * two together were: a `.tc.json` naming the body would have been looked up here
+ * under the key's name and reported as a missing predicate. Renaming the map's
+ * value is the whole fix and keeps one name for one function.
+ *
+ * **The residual wart, stated rather than fixed.** This map is still consulted by
+ * action *key*, so a `.tc.json` that named some other predicate on a `clearFilters`
+ * button would be ignored in favour of this entry. Carrying the authored name on
+ * `ActionConfig` was tried and reverted: `fromDocument` restoring a field the
+ * corpus cannot express breaks the round-trip invariant that the translation
+ * loses nothing (`table.test.ts`), which is a more valuable property than a
+ * flexibility no configuration uses. Recorded as I-66.
  */
 
+import { DATA_REGISTRY_FILTERS_ESCAPE } from "./tableTranslate";
 import type { FormState } from "./formState";
 import type { ActionConfig } from "./types";
 
@@ -74,9 +92,13 @@ export interface ActionAvailability {
  * because the corpus cannot carry a closure at all — `hasIsEnabledFnc` is a
  * boolean, so which predicate an action wants is a fact only the Dart source
  * has. Recording the mapping here keeps that reading in one place.
+ *
+ * The value must be the name the authored document uses, which is what the
+ * header above explains; `DATA_REGISTRY_FILTERS_ESCAPE` in `tableTranslate.ts`
+ * is the one definition of it, and `actions/registry.ts` is where it resolves.
  */
 export const enabledPredicateFor: Record<string, string> = {
-  clearFilters: "hasActiveFilters",
+  clearFilters: DATA_REGISTRY_FILTERS_ESCAPE,
 };
 
 export function availability(
