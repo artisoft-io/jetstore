@@ -19,6 +19,7 @@ import loadFilesFlow from "./flows/loadFilesUF.uf.json";
 import homeFiltersFlow from "./flows/homeFiltersUF.uf.json";
 import lfFileKeyStagingTable from "../datatable/tables/lfFileKeyStagingTable.tc.json";
 import lfSourceConfigTable from "../datatable/tables/lfSourceConfigTable.tc.json";
+import inputRegistryTable from "../datatable/tables/inputRegistryTable.tc.json";
 import { tablePath } from "../datatable/table";
 import loadFilesForms from "./forms/loadFilesUF.form.json";
 import {
@@ -318,6 +319,50 @@ describe("the form and table documents", () => {
     expect(error).toBeInstanceOf(FlowLoadError);
     expect(error.message).toContain("no cellFilters escape named \"noSuchFilter\"");
     expect(error.message).toContain("table_configs/lfSourceConfigTable.tc.json/columns/1/cellFilter");
+  });
+});
+
+describe("a table document that names both escapes", () => {
+  // `inputRegistryTable` is one of the three configurations carrying both of
+  // I-54's names — `cellFilter: fileKeyLabel` on a column and
+  // `isEnabled: hasDataRegistryFilters` on its `clearFilters` action. No flow
+  // this project has migrated uses it, so this is a synthetic set: a one-state
+  // flow whose form names that table. **The point is the resolution, not the
+  // flow** — until `actions/registry.ts` existed both names failed, and the two
+  // sites that could have said so are here and in `registry.test.ts`.
+  const syntheticFlow = {
+    schemaVersion: 1,
+    startAtKey: "pick",
+    states: {
+      pick: { description: "pick a file", formConfig: "pickForm", isEnd: true },
+    },
+  };
+  const syntheticForms = {
+    schemaVersion: 1,
+    forms: {
+      pickForm: {
+        rows: [[{ field: "dataTable", key: "inputRegistryTable", table: "inputRegistryTable" }]],
+        actions: [{ action: "ufCompleted", label: "Done" }],
+      },
+    },
+  };
+  const files = () => ({
+    ...workspace("x", syntheticFlow, { schemaVersion: 1, actions: {} }, syntheticForms),
+    [tablePath("inputRegistryTable")]: serialise(inputRegistryTable),
+  });
+
+  it("loads under the production registry", async () => {
+    const { store } = storeFor(files(), productionRegistry);
+    const loaded = await store.load("x");
+    expect(Object.keys(loaded.tables)).toEqual(["inputRegistryTable"]);
+  });
+
+  it("is refused by a build that registers neither", async () => {
+    const { store } = storeFor(files(), emptyRegistry);
+    const error = (await store.load("x").catch((e: FlowLoadError) => e)) as FlowLoadError;
+    expect(error).toBeInstanceOf(FlowLoadError);
+    expect(error.message).toContain("fileKeyLabel");
+    expect(error.message).toContain("hasDataRegistryFilters");
   });
 });
 
