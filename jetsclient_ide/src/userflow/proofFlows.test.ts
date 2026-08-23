@@ -526,7 +526,7 @@ describe("pull_workspace, end to end", () => {
  * document transcribed the Dart's line order, which puts `clearSelection` before
  * the post — and `delete/client` takes `client` as its only bound parameter
  * (`jets/datatable/sql_stmts.go`, `"delete/client"`), so the delete would have
- * run with a NULL, matched nothing, and returned 200 (I-89).
+ * run with a NULL, matched nothing, and returned 200 (I-90).
  */
 describe("client_registry, end to end", () => {
   const setup = () => harness(clientRegistryFlowDoc, clientRegistryActionsDoc, clientRegistryFormsDoc);
@@ -673,7 +673,7 @@ describe("client_registry, end to end", () => {
 
   it("its dialog form is named by a table, not by a state", () => {
     // The four forms `user_flows.json` calls unreferenced are the four a table
-    // opens; `ufVendor` is this flow's (I-88). It is in the form document and no
+    // opens; `ufVendor` is this flow's (I-89). It is in the form document and no
     // state's `formConfig`.
     const stateForms = new Set(Object.values(setup().flow.states).map((s) => s.formConfig));
     expect(stateForms.has("ufVendor")).toBe(false);

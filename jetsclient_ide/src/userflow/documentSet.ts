@@ -234,7 +234,7 @@ function checkItemSources(forms: FormDocument): SetFinding[] {
  * four a table names this way — `ufVendor`, `loadRawRowsDialog`,
  * `pcNewProcessInputDialog` and `pcNewProcessInputDialog4MI`. Unreferenced there
  * means *named by no state*, which is what the corpus measures; it does not mean
- * unreachable, and F23 read it as though it did.
+ * unreachable, and F23 read it as though it did (I-89).
  *
  * **This runs where the tables are, not inside `validateDocumentSet`.** That
  * function takes three parsed documents and nothing else, which is what lets a

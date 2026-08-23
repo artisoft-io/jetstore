@@ -51,7 +51,7 @@ const sets: [string, DocumentSet][] = [
   ["loadConfigUF", parse(loadConfigFlowDoc, loadConfigActionsDoc, loadConfigFormsDoc)],
   // F.3's, and the first whose form document defines a form no *state* names:
   // `ufVendor` is a table action's `configForm`, which is why the corpus calls
-  // it unreferenced and why that word does not mean unreachable (I-88).
+  // it unreferenced and why that word does not mean unreachable (I-89).
   ["clientRegistryUF", parse(clientRegistryFlowDoc, clientRegistryActionsDoc, clientRegistryFormsDoc)],
 ];
 

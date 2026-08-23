@@ -119,7 +119,7 @@ export const actionTransitions: Record<string, string[]> = {
   // `pcGotToAddMergeProcessInputUF` and `pcGotToAddInjectedProcessInputUF` are
   // inline buttons on `pcViewMergeProcessInputsUF` and
   // `pcViewInjectedProcessInputsUF` (`pipeline_config/form_config.dart:130`,
-  // `:158`) — see I-88.
+  // `:158`) — see I-91.
   //
   // The two buttons — "Add Data Source to Merge" and "Add Data Source for
   // Historical Data" — that S.1 could not see, and reported as dead states.
