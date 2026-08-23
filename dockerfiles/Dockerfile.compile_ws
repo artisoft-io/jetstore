@@ -4,6 +4,33 @@ ARG WORKSPACE
 ENV WORKSPACE=${WORKSPACE}
 ENV WORKSPACES_REPO=/workspaces
 
+# The version compile_workspace stamps into the database, and therefore the
+# value every runtime image's JETS_VERSION is compared against by
+# SyncComputePipesWorkspace. It must be the *current* build run's, which is why
+# it is an explicit build arg rather than the ENV inherited from
+# cpipes_builder above: build_cpipes.sh rebuilds that image only on a prompt, so
+# the inherited value is whenever the builder was last rebuilt, while
+# ui_service and cpipes receive the current run's value directly. Those two
+# disagreeing is what made the skip never fire.
+#
+# Measured, because the resolution rule is not the obvious one and one of the
+# three cases is a trap:
+#
+#   ARG declared, no --build-arg      -> the inherited ENV. A safe fallback,
+#                                        and the reason adding this line before
+#                                        build_workspace.sh passes the arg is a
+#                                        no-op rather than a breakage.
+#   --build-arg JETS_VERSION=<ts>     -> <ts>. What we want.
+#   --build-arg JETS_VERSION=         -> empty, and it does shadow the ENV.
+#
+# The third is what `--build-arg "JETS_VERSION=$JETS_VERSION"` expands to when
+# the variable is unset in the shell, so build_workspace.sh guards against that
+# before it gets here. If one ever slips through, the compile below aborts —
+# compile_workspace panics on an empty -v
+# (jets/cmds/compile_workspace/main.go:25) — rather than stamping a version
+# nothing will match.
+ARG JETS_VERSION
+
 # Copy the workspace and compile it
 # to $WORKSPACES_REPO/$WORKSPACE
 # NOTE THIS IS WORKSPACE SPECIFIC
