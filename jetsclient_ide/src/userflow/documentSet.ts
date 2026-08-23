@@ -71,9 +71,10 @@ const ADVANCING_ACTIONS = new Set(["ufNext", "ufStartFlow"]);
  * `fmMappingFormUF` offers no `uf*` action at all. Requiring `ufCompleted` would
  * reject two shipping forms. **All eleven satisfy "no `ufNext`".**
  *
- * **The hazard is inherited, not introduced.** The Dart's default action set is
- * Previous / Cancel / **Next** (`models/user_flow_config.dart:20`–`:36`), so an
- * end state's form has always had to override it, and
+ * **The hazard is inherited, not introduced.** The Dart's `standardActions` —
+ * the default button set a UserFlow form gets — is Previous / Cancel / **Next**
+ * (`models/user_flow_config.dart:18`–`:37`), so an end state's form has always
+ * had to override it, and
  * `validateConfiguration()` has never checked that it did — it checks the flow
  * side only, that a non-end state has somewhere to go. Authoring the form as data
  * moves the same unenforced convention into a second document; it does not create
