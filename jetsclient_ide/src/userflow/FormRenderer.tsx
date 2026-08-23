@@ -7,13 +7,22 @@
  * walks `form.rows`, maps each field kind to the widget track A built, and
  * renders `form.actions` as buttons.
  *
- * ## Five field kinds, three widgets, and the two that are not widgets
+ * ## Six field kinds, four widgets, and the two that are not widgets
  *
- * `text`, `dropdown` and `dataTable` are A.3's and A.4's. `label` and `spacer`
- * are layout — they carry no key, hold no value and cannot be validated, which is
- * why `valueFieldsOf` exists to exclude them (`form.ts`). The 55 `PaddingConfig`
- * and 12 `TextFieldConfig` instances the corpus counts (I-12) are the second
- * largest thing in a form after the inputs, so they are not an afterthought.
+ * `text`, `dropdown` and `dataTable` are A.3's and A.4's, and `typeahead` is
+ * I.2b's. `label` and `spacer` are layout — they carry no key, hold no value and
+ * cannot be validated, which is why `valueFieldsOf` exists to exclude them
+ * (`form.ts`). The 55 `PaddingConfig` and 12 `TextFieldConfig` instances the
+ * corpus counts (I-12) are the second largest thing in a form after the inputs,
+ * so they are not an afterthought.
+ *
+ * ## Where a query-backed field's items come from
+ *
+ * Not from here. The host supplies `queryRows`, because *running* a form's queries
+ * is a screen's job — it needs the api client, a re-run trigger and somewhere to
+ * put a failure — and the rule is the one the error list already follows: a
+ * renderer decides what a field looks like, and a caller decides what is true.
+ * `formQueries.ts` holds the plan and `FlowRunner` runs it.
  *
  * ## Errors are the caller's, not this component's
  *
@@ -39,17 +48,26 @@ import type { FormState } from "../datatable/formState";
 import type { ActionRequest } from "../datatable/actionDispatch";
 import { useTableBinding } from "../datatable/useTableBinding";
 import type { DataTableFetcher } from "../datatable/useDataTable";
-import type { ActionConfig, TableConfig } from "../datatable/types";
+import type { ActionConfig, JetsRow, TableConfig } from "../datatable/types";
 import { ActionButton } from "../shell/capabilities";
 import { Dropdown } from "../widgets/Dropdown";
 import { TextInput } from "../widgets/TextInput";
+import { Typeahead } from "../widgets/Typeahead";
 import type { Field, Form, FormAction } from "./form";
+import { itemsFromRows } from "./formQueries";
 import type { FieldError } from "./validateForm";
 
 /** Everything the renderer needs that is not the form. */
 export interface FormHost {
   formState: FormState;
   group: number;
+  /**
+   * The rows one of the form's named queries returned, or undefined while it has
+   * not run. Task I.2b — `FlowRunner` reads them off `FormState.queryRows`.
+   */
+  queryRows(name: string): JetsRow[] | undefined;
+  /** True while any of the form's queries is in flight; item sources wait. */
+  queriesLoading: boolean;
   /** Resolves a `dataTable` field's `table` to the configuration it names. */
   tableConfig(key: string): TableConfig;
   fetcher: DataTableFetcher;
@@ -144,16 +162,38 @@ function FieldView({
           {...(error !== undefined ? { error } : {})}
         />
       );
-    case "dropdown":
+    case "dropdown": {
+      // The literal list first and the query's rows after it, which is what both
+      // Dart paths do — the literal carries the "Select a…" prompt and the query
+      // carries the choices (`form.ts`, `itemsFrom`).
+      const fetched =
+        field.itemsFrom === undefined ? [] : itemsFromRows(host.queryRows(field.itemsFrom));
       return (
         <Dropdown
           formState={host.formState}
           group={host.group}
           fieldKey={field.key}
           label={field.label}
-          items={field.items}
+          items={[...field.items, ...fetched]}
+          loading={field.itemsFrom !== undefined && host.queriesLoading}
           {...(field.defaultItemPos !== undefined ? { defaultItemPos: field.defaultItemPos } : {})}
           {...(field.isReadOnly !== undefined ? { isReadOnly: field.isReadOnly } : {})}
+          {...(error !== undefined ? { error } : {})}
+        />
+      );
+    }
+    case "typeahead":
+      return (
+        <Typeahead
+          formState={host.formState}
+          group={host.group}
+          fieldKey={field.key}
+          label={field.label}
+          items={itemsFromRows(host.queryRows(field.itemsFrom)).map((i) => i.value)}
+          loading={host.queriesLoading}
+          {...(field.hint !== undefined ? { hint: field.hint } : {})}
+          {...(field.priorityKey !== undefined ? { priorityKey: field.priorityKey } : {})}
+          {...(field.maxLength !== undefined ? { maxLength: field.maxLength } : {})}
           {...(error !== undefined ? { error } : {})}
         />
       );

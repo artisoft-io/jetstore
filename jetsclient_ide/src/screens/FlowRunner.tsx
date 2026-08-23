@@ -52,6 +52,7 @@ import type { ActionConfig } from "../datatable/types";
 import { useNotifications } from "../shell/notifications";
 import { FormRenderer } from "../userflow/FormRenderer";
 import type { FormAction } from "../userflow/form";
+import { useFormQueries } from "../userflow/useFormQueries";
 import {
   advance,
   isStandardAction,
@@ -153,12 +154,32 @@ export function FlowRunner({ api }: { api: ApiClient }) {
     else void navigate("/workspace");
   }, [loaded, navigate]);
 
+  const queryPost = useCallback(
+    (payload: Record<string, unknown>) => api.dataTable<{ result_map?: Record<string, unknown> }>(payload),
+    [api],
+  );
+
   const currentForm = useMemo(() => {
     if (loaded === null || position === null) return null;
     const state = loaded.flow.flow.states[position.stateKey];
     if (state === undefined) return null;
     return loaded.flow.forms.forms[state.formConfig] ?? null;
   }, [loaded, position]);
+
+  // The form's named queries — the dropdown and typeahead item sources of I.2b.
+  // Declared after `currentForm` because they are the *current* form's, and a
+  // transition changes the set: `FlowStore` loads every form of the flow, and
+  // only the one on screen has a reason to be querying.
+  const queries = useFormQueries(currentForm, formState, queryPost);
+
+  // **A failed item query is a banner, not a load failure.** The form renders:
+  // the dropdown shows its prompt entry and no choices, the typeahead offers no
+  // suggestions, and everything else on the form still works. Refusing the whole
+  // screen would be the wrong trade — `loadFilesUF` has no queries at all and
+  // `fmMappingFormUF` has three, only one of which any given field needs.
+  useEffect(() => {
+    if (queries.error !== null) setError(`Loading the form's choices failed: ${queries.error}`);
+  }, [queries.error, setError]);
 
   // `goToState` writes through a ref because the interpreter may call it in the
   // middle of an action whose result also moves the flow; the last write wins,
@@ -356,6 +377,8 @@ export function FlowRunner({ api }: { api: ApiClient }) {
         host={{
           formState,
           group: GROUP,
+          queryRows: queries.rows,
+          queriesLoading: queries.loading,
           tableConfig: (tableKey) => tableConfigOf(loaded.flow, tableKey),
           fetcher,
           predicates: productionRegistry.predicates,

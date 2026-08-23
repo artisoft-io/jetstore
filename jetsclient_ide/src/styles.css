@@ -411,6 +411,35 @@ body {
 .field [aria-invalid="true"] { border-color: #b3261e; }
 .field-error { margin: 0; font-size: 12px; color: #b3261e; }
 
+/* ---------- typeahead (I.2b) ---------- */
+/*
+  The listbox floats over what follows it, so a suggestion list in a repeating
+  form does not push the next row down as the user types. `position: relative` on
+  the field is what the absolute list is measured against; the field keeps
+  `display: flex` from `.field` above, and the list is taken out of flow so the
+  column gap does not reserve space for it.
+*/
+.field--typeahead { position: relative; }
+.typeahead__list {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  z-index: 20;
+  margin: 2px 0 0;
+  padding: 2px 0;
+  max-height: 240px;
+  overflow-y: auto;
+  list-style: none;
+  border: 1px solid var(--rule);
+  border-radius: 5px;
+  background: var(--surface);
+  box-shadow: 0 4px 12px rgb(0 0 0 / 18%);
+}
+.typeahead__list[hidden] { display: none; }
+.typeahead__item { padding: 4px 8px; font-size: 13px; cursor: pointer; }
+.typeahead__item.is-active, .typeahead__item:hover { background: var(--rule); }
+
 /* ---------- the flow runner (F.0a) ---------- */
 /*
   A screen rather than a chrome: the shell owns the top bar, the banners and the

@@ -42,6 +42,51 @@ const files: Record<string, string> = {
   "user_flows/loadFilesUF.form.json": serialise(loadFilesForms),
   "table_configs/lfSourceConfigTable.tc.json": serialise(lfSourceConfigTable),
   "table_configs/lfFileKeyStagingTable.tc.json": serialise(lfFileKeyStagingTable),
+
+  // **A synthetic flow, and it is synthetic on purpose** (I.2b). No shipping flow
+  // pairs a query-backed dropdown with a typeahead — `fmMappingFormUF` has both
+  // and reaches them through a row builder, which is F.1's — so the wiring from
+  // `useFormQueries` through `FormHost.queryRows` to the two widgets has no real
+  // document to be exercised by yet. I-24's rule: a behaviour no configuration
+  // exercises needs a case written for it, and that case is necessarily invented.
+  "user_flows/itemSourceProbe.uf.json": serialise({
+    schemaVersion: 1,
+    startAtKey: "choose",
+    states: { choose: { description: "Choose a client", formConfig: "probeForm", isEnd: true } },
+  }),
+  "user_flows/itemSourceProbe.ua.json": serialise({ schemaVersion: 1, actions: {} }),
+  "user_flows/itemSourceProbe.form.json": serialise({
+    schemaVersion: 1,
+    forms: {
+      probeForm: {
+        queries: {
+          clients: { sql: "SELECT client FROM jetsapi.client_registry ORDER BY client" },
+          orgs: {
+            sql: "SELECT org FROM jetsapi.client_org_registry WHERE client = '{client}'",
+            params: ["client"],
+          },
+        },
+        rows: [
+          [
+            {
+              field: "dropdown",
+              key: "client",
+              label: "Client",
+              items: [{ value: "", label: "Select a Client" }],
+              itemsFrom: "clients",
+            },
+            {
+              field: "typeahead",
+              key: "org",
+              label: "Organization",
+              itemsFrom: "orgs",
+            },
+          ],
+        ],
+        actions: [{ action: "ufCompleted", label: "Done" }],
+      },
+    },
+  }),
 };
 
 const sourceRows: JetsRow[] = [
@@ -117,6 +162,18 @@ function stubServer(overrides: { missing?: string[] } = {}) {
         const wanted = clauses.find((c) => c.column === "table_name")?.values ?? [];
         const rows = fileRows.filter((r) => wanted.includes(r[9]!));
         return new Response(JSON.stringify({ rows, totalRowCount: rows.length }), { status: 200 });
+      }
+
+      case "raw_query_map": {
+        const map = body["query_map"] as Record<string, string>;
+        const result_map: Record<string, unknown> = {};
+        for (const [name, sql] of Object.entries(map)) {
+          if (name === "clients") result_map[name] = [["acme"], ["globex"]];
+          // The substituted statement is what decides the answer, so the
+          // assertion below is about the substitution rather than about the name.
+          else result_map[name] = sql.includes("'acme'") ? [["eastern"], ["western"]] : [];
+        }
+        return new Response(JSON.stringify({ result_map }), { status: 200 });
       }
 
       case "insert_rows":
@@ -324,5 +381,56 @@ describe("the table action bar", () => {
 
     expect(await screen.findByText("s3://bucket/in/f10.csv")).toBeTruthy();
     expect(screen.queryByText(".../f10.csv")).toBeNull();
+  });
+});
+
+describe("a form whose item sources are queries", () => {
+  it("fills a dropdown from its query, behind the literal prompt item", async () => {
+    await mount("itemSourceProbe");
+    const select = (await screen.findByLabelText("Client")) as HTMLSelectElement;
+    await waitFor(() =>
+      expect([...select.options].map((o) => o.textContent)).toEqual([
+        "Select a Client",
+        "acme",
+        "globex",
+      ]),
+    );
+  });
+
+  it("posts one raw_query_map for the whole form rather than one per field", async () => {
+    const { posts } = await mount("itemSourceProbe");
+    await screen.findByLabelText("Client");
+    await waitFor(() => expect(actions(posts)).toContain("raw_query_map"));
+    const batches = posts.filter((p) => p.body["action"] === "raw_query_map");
+    expect(batches).toHaveLength(1);
+    // `orgs` is not in it: its parameter is not set, so it waits.
+    expect(Object.keys(batches[0]!.body["query_map"] as object)).toEqual(["clients"]);
+  });
+
+  it("re-runs the waiting query when its parameter is chosen, and fills the typeahead", async () => {
+    const { posts } = await mount("itemSourceProbe");
+    const select = (await screen.findByLabelText("Client")) as HTMLSelectElement;
+    await waitFor(() => expect(select.options).toHaveLength(3));
+
+    fireEvent.change(select, { target: { value: "acme" } });
+
+    const org = await screen.findByLabelText("Organization");
+    await waitFor(() => {
+      const batches = posts.filter((p) => p.body["action"] === "raw_query_map");
+      expect(batches).toHaveLength(2);
+      expect((batches[1]!.body["query_map"] as Record<string, string>)["orgs"]).toContain(
+        "client = 'acme'",
+      );
+    });
+
+    // Scoped to the listbox: a `<select>`'s `<option>` carries the same role, so
+    // an unscoped query here would also return the dropdown's three.
+    fireEvent.focus(org);
+    const listbox = screen.getByRole("listbox", { name: "Organization suggestions" });
+    await waitFor(() =>
+      expect(
+        [...listbox.querySelectorAll('[role="option"]')].map((o) => o.textContent),
+      ).toEqual(["eastern", "western"]),
+    );
   });
 });
