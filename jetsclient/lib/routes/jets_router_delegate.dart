@@ -68,7 +68,12 @@ class JetsRouterDelegate extends RouterDelegate<JetsRouteData>
     // S.8: a flow the React app now serves is handed over rather than opened
     // here. Every navigation in this app passes through this method, which is
     // why the check is here and not at each call site.
-    final handoff = handoffUrlFor(_flowKeyOf(appRoute.path));
+    //
+    // F.10: the whole route goes in, not a key guessed from its first segment.
+    // `appRoute.path` is a template from `jetsRoutesMap` and `appRoute.params`
+    // holds the values, which is what lets `userFlowRoutes` name both the flow
+    // and the parameters it has to carry across (I-75).
+    final handoff = handoffUrlFor(appRoute);
     if (handoff != null) {
       // A full page load, deliberately: the two bundles share an origin and a
       // token but not a heap, so neither router can navigate into the other.
@@ -77,12 +82,6 @@ class JetsRouterDelegate extends RouterDelegate<JetsRouteData>
     }
     _setRoutePages(appRoute);
     notifyListeners();
-  }
-
-  /// The leading path segment, which is the flow key for a flow route.
-  static String _flowKeyOf(String path) {
-    final segments = Uri.parse(path).pathSegments;
-    return segments.isEmpty ? '' : segments.first;
   }
 
   @override

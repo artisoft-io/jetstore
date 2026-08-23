@@ -130,7 +130,12 @@ export function FlowRunner({ api }: { api: ApiClient }) {
    * `/fileMappingUF/mapping/:table_name/:object_type`
    * (`jetsclient/lib/routes/jets_routes_app.dart`, `ufMappingPath`), and both are
    * substituted into its form's queries — with neither, the worksheet has no rows
-   * to draw. Four of the eleven flow routes carry parameters this way.
+   * to draw. **Five** of the eleven flow routes carry parameters this way —
+   * `clientRegistryUF` and `sourceConfigUF` a `startAtKey`, `mapFileUF` those
+   * two, `workspacePullUF` five and `loadConfigUF` a `workspace_name`. This
+   * comment said four until F.10 counted them off `jetsRoutesMap`; the Flutter
+   * half that fills the query string is `userFlowRoutes`
+   * (`jetsclient/lib/routes/migrated_user_flows.dart`).
    *
    * A query string rather than path segments, because the names differ per flow
    * and a positional path would have to be declared somewhere the router can see
