@@ -31,13 +31,14 @@
 
 import { isStandardAction } from "./engine";
 import type { ActionDocument } from "../actions/schema";
+import type { TableAction, TableConfigDocument } from "../datatable/table";
 import { buttonsOf, itemSourcesOf, type FormDocument, type Form } from "./form";
 import type { UserFlow } from "./schema";
 
 export type SetFindingCode =
-  /** A state names a form the form document does not define. */
+  /** A state, or a table action's `configForm`, names a form the form document does not define. */
   | "missingForm"
-  /** A state or a form button names an action the action document does not define. */
+  /** A state, a form button or a table action names an action the action document does not define. */
   | "missingAction"
   /** An end state's form offers a button that tries to advance. */
   | "advanceFromEndState"
@@ -51,7 +52,7 @@ export interface SetFinding {
   /** A JSON Pointer into the document the finding is about. */
   path: string;
   /** Which of the set the pointer indexes, since a set finding spans files. */
-  document: "flow" | "actions" | "forms";
+  document: "flow" | "actions" | "forms" | "tables";
 }
 
 /** The buttons that try to move the flow forward. */
@@ -209,6 +210,89 @@ function checkItemSources(forms: FormDocument): SetFinding[] {
         document: "forms",
       });
     }
+  }
+  return findings;
+}
+
+/**
+ * A table action's `actionName` and `configForm` resolve. Task F.3.
+ *
+ * **The third source of action names, and the first flow to have one is F.3's.**
+ * `checkActions` above reads a state's `stateAction` and a form's buttons,
+ * because when it was written those were the only two places a name could
+ * appear. A table's `doAction` and `doActionShowDialog` name an entry in the
+ * *flow's* action document too (`datatable/actionDispatch.ts`, `requestFor`
+ * returns `runAction` for both), and nothing checked it. `clientRegistryUF` is
+ * the first migrated flow whose tables carry actions — `client.tc.json` names
+ * `deleteClientAction`, `org.tc.json` names `deleteOrgAction` and opens
+ * `ufVendor` — so the gap had no way to show before now. `loadFilesUF`, the one
+ * earlier set with table actions, happens to define both of its (I-88).
+ *
+ * **And `configForm` is the same gap on the form side.** `showDialog` and
+ * `doActionShowDialog` name a form, and the four forms the corpus calls
+ * *unreferenced* (`user_flows.json`, `unreferencedFormKeys`) are exactly the
+ * four a table names this way — `ufVendor`, `loadRawRowsDialog`,
+ * `pcNewProcessInputDialog` and `pcNewProcessInputDialog4MI`. Unreferenced there
+ * means *named by no state*, which is what the corpus measures; it does not mean
+ * unreachable, and F23 read it as though it did.
+ *
+ * **This runs where the tables are, not inside `validateDocumentSet`.** That
+ * function takes three parsed documents and nothing else, which is what lets a
+ * generator run it without a browser and without fetching a `table_configs/`
+ * directory; the tables arrive later in `FlowStore.load`, after the set has been
+ * checked. Two functions rather than a widened one, on the same reasoning
+ * `validateAllGroups` was added beside `validateForm` rather than replacing it.
+ */
+export function validateTableActions(
+  actions: ActionDocument,
+  forms: FormDocument,
+  tables: Record<string, TableConfigDocument>,
+): SetFinding[] {
+  const findings: SetFinding[] = [];
+  const knownActions = new Set(Object.keys(actions.actions));
+  const knownForms = new Set(Object.keys(forms.forms));
+
+  for (const [tableKey, table] of Object.entries(tables)) {
+    // A static table cannot carry actions — `actions` is on the `query` arm of
+    // the discriminated union alone (`datatable/table.ts`), which is the same
+    // guard `actionNamesOf` opens with and is exact rather than a narrowing
+    // convenience.
+    if (table.source !== "query") continue;
+    (table.actions ?? []).forEach((action: TableAction, index: number) => {
+      const name = action.actionName;
+      if (
+        name !== undefined &&
+        (action.action === "doAction" || action.action === "doActionShowDialog") &&
+        !isStandardAction(name) &&
+        !knownActions.has(name)
+      ) {
+        findings.push({
+          severity: "error",
+          code: "missingAction",
+          message:
+            `table "${tableKey}" action "${action.key}" runs "${name}", which the action ` +
+            `document does not define`,
+          path: `/${tableKey}/actions/${index}/actionName`,
+          document: "tables",
+        });
+      }
+      const form = action.configForm;
+      if (
+        form !== undefined &&
+        (action.action === "showDialog" || action.action === "doActionShowDialog") &&
+        !knownForms.has(form)
+      ) {
+        findings.push({
+          severity: "error",
+          code: "missingForm",
+          message:
+            `table "${tableKey}" action "${action.key}" opens form "${form}", which the form ` +
+            `document does not define`,
+          path: `/${tableKey}/actions/${index}/configForm`,
+          document: "tables",
+        });
+      }
+    });
   }
   return findings;
 }

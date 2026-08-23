@@ -15,20 +15,26 @@
 
 import { describe, expect, it } from "vitest";
 
+import clientRegistryActionsDoc from "../actions/flows/clientRegistryUF.ua.json";
 import loadConfigActionsDoc from "../actions/flows/loadConfigUF.ua.json";
 import loadFilesActionsDoc from "../actions/flows/loadFilesUF.ua.json";
 import registerFileKeyActionsDoc from "../actions/flows/registerFileKeyUF.ua.json";
 import { ActionDocumentSchema, type ActionDocument } from "../actions/schema";
+import clientTable from "../datatable/tables/client.tc.json";
+import orgTable from "../datatable/tables/org.tc.json";
+import { TableConfigDocumentSchema, type TableConfigDocument } from "../datatable/table";
 import corpus from "./fixtures/user_flows.json";
+import clientRegistryFlowDoc from "./flows/clientRegistryUF.uf.json";
 import loadConfigFlowDoc from "./flows/loadConfigUF.uf.json";
 import loadFilesFlowDoc from "./flows/loadFilesUF.uf.json";
 import registerFileKeyFlowDoc from "./flows/registerFileKeyUF.uf.json";
 import { FormDocumentSchema, type FormDocument } from "./form";
+import clientRegistryFormsDoc from "./forms/clientRegistryUF.form.json";
 import loadConfigFormsDoc from "./forms/loadConfigUF.form.json";
 import loadFilesFormsDoc from "./forms/loadFilesUF.form.json";
 import registerFileKeyFormsDoc from "./forms/registerFileKeyUF.form.json";
 import { UserFlowSchema, type UserFlow } from "./schema";
-import { validateDocumentSet, type DocumentSet } from "./documentSet";
+import { validateDocumentSet, validateTableActions, type DocumentSet } from "./documentSet";
 
 const parse = (flowDoc: unknown, actionsDoc: unknown, formsDoc: unknown): DocumentSet => ({
   flow: UserFlowSchema.parse(flowDoc) as UserFlow,
@@ -43,6 +49,10 @@ const sets: [string, DocumentSet][] = [
   // action bar — which is what makes the two cases at the bottom of this file
   // testable against a real configuration rather than an invented one.
   ["loadConfigUF", parse(loadConfigFlowDoc, loadConfigActionsDoc, loadConfigFormsDoc)],
+  // F.3's, and the first whose form document defines a form no *state* names:
+  // `ufVendor` is a table action's `configForm`, which is why the corpus calls
+  // it unreferenced and why that word does not mean unreachable (I-88).
+  ["clientRegistryUF", parse(clientRegistryFlowDoc, clientRegistryActionsDoc, clientRegistryFormsDoc)],
 ];
 
 /** The `loadConfigUF` set, by name rather than by index. */
@@ -216,5 +226,65 @@ describe("a button inside the rows", () => {
     ]);
     const findings = validateDocumentSet(set);
     expect(findings.map((f) => f.code)).toContain("advanceFromEndState");
+  });
+});
+
+/**
+ * The table half, task F.3.
+ *
+ * **The set these fire on is the first that could produce them.** A table's
+ * `doAction` names an entry in the flow's action document and its `showDialog`
+ * names a form in the flow's form document; before `clientRegistryUF` the only
+ * migrated set with table actions was `loadFilesUF`, which happens to define
+ * both of its and offers no dialog at all. So the gap (I-88) had two years of
+ * documents and no way to show.
+ */
+describe("a table action naming something the set does not define", () => {
+  const tables = (): Record<string, TableConfigDocument> => ({
+    client: TableConfigDocumentSchema.parse(structuredClone(clientTable)) as TableConfigDocument,
+    org: TableConfigDocumentSchema.parse(structuredClone(orgTable)) as TableConfigDocument,
+  });
+  /** `clientRegistryUF`'s, by name rather than by index. */
+  const clientRegistrySet = (): DocumentSet => clone(sets[3]![1]);
+
+  it("passes on the shipping set", () => {
+    const set = clientRegistrySet();
+    expect(validateTableActions(set.actions, set.forms, tables())).toEqual([]);
+  });
+
+  it("reports a doAction whose actionName the action document does not define", () => {
+    const set = clientRegistrySet();
+    delete set.actions.actions["deleteClientAction"];
+    const findings = validateTableActions(set.actions, set.forms, tables());
+    expect(findings.map((f) => [f.code, f.document, f.path])).toEqual([
+      ["missingAction", "tables", "/client/actions/0/actionName"],
+    ]);
+  });
+
+  it("reports a showDialog whose configForm the form document does not define", () => {
+    const set = clientRegistrySet();
+    delete set.forms.forms["ufVendor"];
+    const findings = validateTableActions(set.actions, set.forms, tables());
+    expect(findings.map((f) => [f.code, f.document, f.path])).toEqual([
+      ["missingForm", "tables", "/org/actions/0/configForm"],
+    ]);
+  });
+
+  it("ignores the action kinds that reach neither document", () => {
+    // `toggleCheckboxVisible` is the widget's own (I-19) and `showScreen`
+    // navigates — the latter carries a `configForm` on one corpus table
+    // (`fmFileMappingTableUF`, `configureMappingPage`) that `requestFor` never
+    // reads, so checking it would refuse a document for a field nothing uses.
+    const set = clientRegistrySet();
+    const org = tables()["org"]!;
+    if (org.source !== "query") throw new Error("org.tc.json is a query table");
+    expect(org.actions!.map((a) => a.action)).toEqual([
+      "showDialog",
+      "toggleCheckboxVisible",
+      "doAction",
+    ]);
+    org.actions![1]!.actionName = "notAnAction";
+    org.actions![1]!.configForm = "notAForm";
+    expect(validateTableActions(set.actions, set.forms, { org })).toEqual([]);
   });
 });

@@ -1,0 +1,129 @@
+{
+  "schemaVersion": 1,
+  "forms": {
+    "ufSelectClientOrVendor": {
+      "rows": [
+        [{ "field": "spacer" }],
+        [
+          {
+            "field": "dataTable",
+            "key": "ufClientOrVendorOption",
+            "table": "ufClientOrVendorOption",
+            "rules": [{ "rule": "required", "message": "An option must be selected." }]
+          }
+        ]
+      ],
+      "actions": [
+        { "action": "ufPrevious", "label": "Previous", "style": "primary" },
+        { "action": "ufCancel", "label": "Cancel", "style": "primary" },
+        { "action": "ufNext", "label": "Next", "style": "secondary" }
+      ]
+    },
+    "ufCreateClient": {
+      "rows": [
+        [{ "field": "spacer" }],
+        [{ "field": "label", "text": "Enter the client name:" }],
+        [
+          {
+            "field": "text",
+            "key": "client",
+            "label": "Client Name",
+            "hint": "Client name as a short name",
+            "autofocus": true,
+            "maxLength": 20,
+            "rules": [{ "rule": "required", "message": "Client name is required." }]
+          }
+        ],
+        [{ "field": "spacer" }],
+        [{ "field": "label", "text": "Enter the client details (optional):" }],
+        [
+          {
+            "field": "text",
+            "key": "ufClientDetails",
+            "label": "Client Details",
+            "hint": "Optional notes",
+            "maxLength": 80
+          }
+        ],
+        [{ "field": "spacer" }]
+      ],
+      "actions": [
+        { "action": "ufPrevious", "label": "Previous", "style": "primary" },
+        { "action": "ufCancel", "label": "Cancel", "style": "primary" },
+        { "action": "ufNext", "label": "Next", "style": "secondary" }
+      ]
+    },
+    "ufSelectClient": {
+      "rows": [
+        [
+          {
+            "field": "dataTable",
+            "key": "client",
+            "table": "client",
+            "rules": [{ "rule": "required", "message": "Client name is required." }]
+          }
+        ]
+      ],
+      "actions": [
+        { "action": "ufPrevious", "label": "Previous", "style": "primary" },
+        { "action": "ufCancel", "label": "Cancel", "style": "primary" },
+        { "action": "ufNext", "label": "Next", "style": "secondary" }
+      ]
+    },
+    "ufShowVendor": {
+      "rows": [[{ "field": "dataTable", "key": "org", "table": "org" }]],
+      "actions": [
+        { "action": "ufPrevious", "label": "Previous", "style": "primary" },
+        { "action": "ufCompleted", "label": "Done", "style": "secondary" }
+      ]
+    },
+    "ufVendor": {
+      "rows": [
+        [{ "field": "spacer" }],
+        [{ "field": "label", "text": "Enter a new Vendor (or Org) for the Client." }],
+        [
+          {
+            "field": "text",
+            "key": "client",
+            "label": "Client Name",
+            "hint": "Client name as a short name",
+            "isReadOnly": true,
+            "maxLength": 20,
+            "rules": [{ "rule": "required", "message": "Client name is required." }]
+          }
+        ],
+        [{ "field": "spacer" }],
+        [
+          {
+            "field": "text",
+            "key": "org",
+            "label": "Vendor/Org Name",
+            "hint": "Organization name as a short name",
+            "autofocus": true,
+            "maxLength": 20,
+            "rules": [{ "rule": "required", "message": "Vendor/Org name is required." }]
+          }
+        ],
+        [{ "field": "spacer" }],
+        [
+          {
+            "field": "text",
+            "key": "ufVendorDetails",
+            "label": "Details",
+            "hint": "Optional notes",
+            "maxLength": 80
+          }
+        ]
+      ],
+      "actions": [
+        {
+          "action": "crAddVendorOk",
+          "label": "Add",
+          "style": "primary",
+          "capability": "client_config"
+        },
+        { "action": "dialogCancel", "label": "Cancel", "style": "secondary" }
+      ]
+    }
+  }
+}
