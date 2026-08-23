@@ -11,6 +11,11 @@
  * and dropdowns land they should *extend* this rather than introduce a second
  * store — two form states in one screen is the failure this file exists to avoid.
  *
+ * **The group dimension is paid as of I.1** — `resizeFormState` and
+ * `removeValidationGroup` below (I-31). The array of groups was always the right
+ * shape; what was missing was the arithmetic. Still outstanding from that list:
+ * the invalid-key set, the value cache and the anonymous callbacks (I-9).
+ *
  * Three behaviours are load-bearing and easy to lose in a rewrite:
  *
  *  - **Setting `null` removes the binding** rather than storing a null, so
@@ -69,6 +74,77 @@ export class FormState {
 
   get groupCount(): number {
     return this.groups.length;
+  }
+
+  /**
+   * `resizeFormState` (`jets_form_state.dart:139`). Task I.1, and the answer to
+   * I-31.
+   *
+   * **It grows and never shrinks, and that is the Dart's behaviour rather than
+   * an omission.** The Dart computes `n = newGroupCount - groupCount` and does
+   * nothing at all unless `n > 0`, so a form reloaded with *fewer* rows keeps
+   * the groups it had. Reproducing that is deliberate: the shrinking case has a
+   * method of its own, `removeValidationGroup`, which is what the "delete this
+   * row" affordance calls with the index the user pointed at — and a resize
+   * cannot know *which* group the caller meant to drop. Silently truncating the
+   * tail would discard whichever group happened to be last.
+   *
+   * **The count comes from a query result at load time**, not from the document:
+   * `form.dart:210` reads `data[inputFieldsQuery]`, takes its length, adds one
+   * spare group when the form offers an "add another" affordance
+   * (`formWithDynamicRows`), and calls this. The file mapping tool is one group
+   * per field to be mapped on exactly that mechanism, which is why I-31 named
+   * F.8 as the consumer.
+   *
+   * **No maximum-iteration cutoff lives here, and the reason is now ours.** The
+   * suggestion to cap the count came from the agentic project's `from_model`
+   * case, which has since been retired (I-44) — so the rule stands on its own
+   * merits rather than as a concession: the store's job is to hold values, and a
+   * policy limit inside it is a limit every caller inherits silently. A caller
+   * that needs a bound imposes it on the number it passes.
+   *
+   * Growing does not notify. The Dart does not either, and a resize is normally
+   * followed by the caller building the rows that read the new groups.
+   */
+  resizeFormState(newGroupCount: number): void {
+    const n = newGroupCount - this.groups.length;
+    if (n <= 0) return;
+    for (let i = 0; i < n; i++) this.groups.push(newGroup());
+  }
+
+  /**
+   * `removeValidationGroup` (`jets_form_state.dart:155`). The shrinking half.
+   *
+   * **Removing group *i* renumbers every group after it**, because a group is
+   * identified by its index and by nothing else. Callers holding an index across
+   * a removal are holding a stale one — which is a property of the Dart too, and
+   * is why the "delete this row" path rebuilds its rows afterwards rather than
+   * patching them.
+   *
+   * **Out of range throws rather than asserting.** The Dart asserts
+   * (`:156`) and Dart strips asserts in release builds, so there the guard is a
+   * development-time courtesy and production relies on `removeAt` raising — see
+   * I-47 for how widely that pattern runs in `jetsclient`. Throwing here matches
+   * what this class already chose for `group()`, and makes the two enforcement
+   * points agree in every build rather than only in debug.
+   *
+   * **Emptying the state is refused, and that is a deliberate divergence.** The
+   * Dart would let the last group go and leave `groupCount` at 0, after which
+   * every accessor on it fails; the constructor here already declares the
+   * opposite invariant with `Math.max(1, groupCount)`, and a form state with no
+   * groups has no operation that works. Refusing turns a state nothing can use
+   * into an error at the call that would have created it. No Dart caller is
+   * known to do it — the one delete path runs on a form that always carries a
+   * spare group — so this closes a hole rather than changing a behaviour.
+   */
+  removeValidationGroup(group: number): void {
+    if (!Number.isInteger(group) || group < 0 || group >= this.groups.length) {
+      throw new Error(`form state: no such validation group ${group}`);
+    }
+    if (this.groups.length === 1) {
+      throw new Error("form state: cannot remove the last validation group");
+    }
+    this.groups.splice(group, 1);
   }
 
   private group(index: number): Group {
