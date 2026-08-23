@@ -30,8 +30,9 @@
  * selection. `file_mapping`'s 222-line validator is unchanged as an escape, and
  * a form needing more than these two names one.
  *
- * **Dropdown item queries** — I-11, still open. Neither proof flow uses a
- * dropdown, which is why S.5 could be reached without settling it.
+ * **Dropdown item *queries*** — I-11, still open, and now I.2b. Neither proof
+ * flow uses a dropdown, which is why S.5 could be reached without settling it.
+ * The *static* half arrived later and is here — see `dropdown` below.
  *
  * ## Why a sibling document rather than fields on the state
  *
@@ -64,12 +65,36 @@ export const RuleSchema = z
   .meta({ id: "Rule", description: "A field-level validation rule" });
 
 /**
+ * One choice offered by a `dropdown`.
+ *
+ * Mirrors `DropdownItem` (`widgets/Dropdown.tsx:33`) exactly, because the field
+ * is the widget's prop: a document that parses is a list the widget takes.
+ *
+ * **`value` may be empty, and that is the prompt item.** The Dart's
+ * `DropdownItemConfig.value` is nullable (`models/form_config.dart:326`) and
+ * **nine of the eleven** shipping dropdowns open with a "Select a…" entry
+ * declared with a label and no value at all —
+ * `DropdownItemConfig(label: 'Select a Client')`,
+ * `user_flows/pipeline_config/form_config.dart:40`. It stands for *nothing
+ * chosen*. Here that is `""`, which is the same thing `validateForm`'s
+ * `required` rule already treats as empty — so a prompt item and a `required`
+ * rule compose into "the author must choose" without a rule of their own.
+ * `label` is not optional in the same way: an unlabelled choice is unpickable.
+ */
+export const DropdownItemSchema = z
+  .strictObject({
+    value: z.string(),
+    label: z.string().min(1),
+  })
+  .meta({ id: "DropdownItem", description: "One choice offered by a dropdown" });
+
+/**
  * One field.
  *
- * `text` and `dataTable` are widgets; `label` and `spacer` are not, and they are
- * here because a form is a layout as well as a set of inputs — the 55
- * `PaddingConfig` and 12 `TextFieldConfig` instances across the flows (I-12) are
- * the second largest thing in a form after the inputs themselves.
+ * `text`, `dataTable` and `dropdown` are widgets; `label` and `spacer` are not,
+ * and they are here because a form is a layout as well as a set of inputs — the
+ * 55 `PaddingConfig` and 12 `TextFieldConfig` instances across the flows (I-12)
+ * are the second largest thing in a form after the inputs themselves.
  */
 export const FieldSchema = z
   .union([
@@ -88,6 +113,41 @@ export const FieldSchema = z
       key: Identifier,
       /** The table configuration key; A.4's widget resolves it. */
       table: Identifier,
+      rules: z.array(RuleSchema).optional(),
+    }),
+    /**
+     * A closed list, chosen from literals. Task I.2a, requested by the agentic
+     * project (I-43).
+     *
+     * **The widget is not the gap and never was.** A.3 built `Dropdown.tsx` to
+     * take `items` as a prop precisely so "a static list and a query result
+     * reach it the same way" — so what was missing was a way to *author* the
+     * static list, which is this variant and nothing else. I-11's machinery —
+     * the named query, `returnedModelCacheKey`, `stateKeyPredicates` — is
+     * untouched, because it is form-level and this is a field-level literal.
+     *
+     * `defaultItemPos` and `isReadOnly` are here for our own flows rather than
+     * for the requester's: the form-field corpus puts `isReadOnly` on 4 of the
+     * eleven `FormDropdownFieldConfig` instances and `defaultItemPos` on 2
+     * (`datatable/fixtures/form_fields.json`). The projection that asked for
+     * this variant will use neither, which settles what is on *its* critical
+     * path and not what the schema owes.
+     *
+     * **`defaultItemPos` is bounded below and not above**, deliberately. An
+     * index past the end is a cross-field rule, and this file may only use
+     * constructs that emit (`schema.ts`); a `.refine()` would be enforced in the
+     * browser and silently absent in Go, which is the worst of the three
+     * options. Out of range degrades rather than throws — `items[pos]?.value` at
+     * `Dropdown.tsx:65` is `undefined` and the field simply seeds nothing.
+     */
+    z.strictObject({
+      field: z.literal("dropdown"),
+      key: Identifier,
+      label: z.string().min(1),
+      items: z.array(DropdownItemSchema).min(1),
+      /** Index into `items`, selected when the form state holds nothing. */
+      defaultItemPos: z.number().int().nonnegative().optional(),
+      isReadOnly: z.boolean().optional(),
       rules: z.array(RuleSchema).optional(),
     }),
     z.strictObject({ field: z.literal("label"), text: z.string().min(1) }),
@@ -137,6 +197,7 @@ export const FormDocumentSchema = z
   });
 
 export type Rule = z.infer<typeof RuleSchema>;
+export type DropdownItem = z.infer<typeof DropdownItemSchema>;
 export type Field = z.infer<typeof FieldSchema>;
 export type FormAction = z.infer<typeof FormActionSchema>;
 export type Form = z.infer<typeof FormSchema>;
@@ -152,11 +213,15 @@ export function fieldsOf(form: Form): Field[] {
 }
 
 /** A field that holds a value, and can therefore carry rules. */
-export type ValueField = Extract<Field, { field: "text" } | { field: "dataTable" }>;
+export type ValueField = Extract<
+  Field,
+  { field: "text" } | { field: "dataTable" } | { field: "dropdown" }
+>;
 
 /** Fields that hold a value and can therefore be validated. */
 export function valueFieldsOf(form: Form): ValueField[] {
   return fieldsOf(form).filter(
-    (f): f is ValueField => f.field === "text" || f.field === "dataTable",
+    (f): f is ValueField =>
+      f.field === "text" || f.field === "dataTable" || f.field === "dropdown",
   );
 }

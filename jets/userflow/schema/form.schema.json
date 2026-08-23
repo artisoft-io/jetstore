@@ -1,6 +1,24 @@
 {
   "$comment": "jetstore-owned-asset — DO NOT EDIT. Source: ../../jetsclient_ide/src/userflow/form.schema.json, emitted by `npm run emit-schema` in jetsclient_ide. This copy exists because //go:embed cannot reach outside its own directory; TestSchemaCopiesMatchSource fails if the two drift, so a local edit is caught rather than silently overwritten.",
   "$defs": {
+    "DropdownItem": {
+      "additionalProperties": false,
+      "description": "One choice offered by a dropdown",
+      "properties": {
+        "label": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "value": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "value",
+        "label"
+      ],
+      "type": "object"
+    },
     "Field": {
       "anyOf": [
         {
@@ -80,6 +98,53 @@
             "field",
             "key",
             "table"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "defaultItemPos": {
+              "maximum": 9007199254740991,
+              "minimum": 0,
+              "type": "integer"
+            },
+            "field": {
+              "const": "dropdown",
+              "type": "string"
+            },
+            "isReadOnly": {
+              "type": "boolean"
+            },
+            "items": {
+              "items": {
+                "$ref": "#/$defs/DropdownItem"
+              },
+              "minItems": 1,
+              "type": "array"
+            },
+            "key": {
+              "description": "A key naming a state, form, action or form-state entry",
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9_.-]+$",
+              "type": "string"
+            },
+            "label": {
+              "minLength": 1,
+              "type": "string"
+            },
+            "rules": {
+              "items": {
+                "$ref": "#/$defs/Rule"
+              },
+              "type": "array"
+            }
+          },
+          "required": [
+            "field",
+            "key",
+            "label",
+            "items"
           ],
           "type": "object"
         },

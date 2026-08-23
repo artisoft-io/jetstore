@@ -147,6 +147,53 @@
           "properties": {
             "field": {
               "type": "string",
+              "const": "dropdown"
+            },
+            "key": {
+              "type": "string",
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9_.-]+$",
+              "description": "A key naming a state, form, action or form-state entry"
+            },
+            "label": {
+              "type": "string",
+              "minLength": 1
+            },
+            "items": {
+              "minItems": 1,
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/DropdownItem"
+              }
+            },
+            "defaultItemPos": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "isReadOnly": {
+              "type": "boolean"
+            },
+            "rules": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/Rule"
+              }
+            }
+          },
+          "required": [
+            "field",
+            "key",
+            "label",
+            "items"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "field": {
+              "type": "string",
               "const": "label"
             },
             "text": {
@@ -216,6 +263,24 @@
         }
       ],
       "description": "A field-level validation rule"
+    },
+    "DropdownItem": {
+      "type": "object",
+      "properties": {
+        "value": {
+          "type": "string"
+        },
+        "label": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "required": [
+        "value",
+        "label"
+      ],
+      "additionalProperties": false,
+      "description": "One choice offered by a dropdown"
     },
     "FormAction": {
       "type": "object",
