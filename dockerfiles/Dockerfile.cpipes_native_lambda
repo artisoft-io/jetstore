@@ -16,36 +16,31 @@ RUN dnf update -y && \
 
 ENV JETS_SOURCE_DIR=/app JETS_BUILD_DIR=/app
 
-# Provenance only, and the omission below is deliberate.
+# JETS_VERSION is the build's timestamp, stamped identically into every image of
+# a build run by build_cpipes.sh. It is not only provenance: compile_workspace
+# writes it into the database as the workspace version, and
+# SyncComputePipesWorkspace skips fetching workspace.tgz and sqlite when the two
+# match - because this image already carries the compiled workspace that
+# Dockerfile.cpipes_native_lambda_ws bakes in at WORKSPACES_REPO.
 #
-# build_cpipes.sh passes both of these and this stage discarded them, because an
-# ARG is scoped to its stage and ENV does not cross the FROM above. Declaring the
-# ARGs consumes them and records them in /VERSION.txt, so the image can be
-# identified the way cpipes and ui_service can.
+# Promoting it was held back until the handler could use it. The reason is that
+# this image has no cbooter: a container process gets WORKSPACES_REPO copied to
+# WORKSPACES_HOME before the binary is exec'd, and a Lambda's entrypoint is the
+# runtime interface, so nothing copied anything. The CDK gives this function
+# WORKSPACES_HOME=/tmp/workspaces, which starts empty on every cold start, and
+# skipping the fetch would have left jetrules_utils.go reading
+# <WORKSPACES_HOME>/<workspace>/build/classes.json out of an empty directory
+# while the real one sat unread at /workspaces.
 #
-# JETS_VERSION is NOT promoted to ENV here, which its siblings do.  Doing that is
-# what lets SyncComputePipesWorkspace skip fetching workspace.tgz and sqlite when
-# the database's workspace version matches the image's - and in this image alone
-# that skip would be a defect rather than a saving:
-#
-#   - cpipes (the ECS task) is started by `cbooter cpipes_native_server`, and
-#     cbooter copies WORKSPACES_REPO to WORKSPACES_HOME before the process runs
-#     (jets/cmds/cbooter/main.go:180). The baked workspace is therefore already
-#     at the path the code reads, and skipping the fetch is correct.
-#   - this image has no cbooter. Its entrypoint is the Lambda runtime interface
-#     and CMD is the handler, so nothing copies /workspaces anywhere; the CDK
-#     gives it WORKSPACES_HOME=/tmp/workspaces, which starts empty on every cold
-#     start. Skip the fetch and jetrules_utils.go's read of
-#     <WORKSPACES_HOME>/<workspace>/build/classes.json finds nothing.
-#
-# So enabling it here needs the workspace to reach WORKSPACES_HOME first. Setting
-# WORKSPACES_HOME=/workspaces is not the answer on its own: a Lambda filesystem
-# is read-only outside /tmp, so the version-mismatch case - the one where the
-# fetch is actually needed - would then fail on the write. The handler copying
-# /workspaces to /tmp on cold start, as cbooter does for the task, is the shape
-# that works. Until that exists, leave this as an ARG.
+# jets/workspace's ensureLocalRepoSeeded now does that copy, on the skip path
+# itself so a run that is about to fetch a newer workspace does not pay for one
+# it would overwrite. With that in place the skip is safe here, and this is the
+# image it was worth the most on: /tmp is empty at every cold start, so this
+# function was fetching the workspace it already had.
 ARG JETS_VERSION
+ENV JETS_VERSION=${JETS_VERSION}
 ARG JETS_GIT_SHA
+ENV JETS_GIT_SHA=${JETS_GIT_SHA}
 RUN echo "----------------JetStore-Version------------------" >> /VERSION.txt && \
     echo "JETS_VERSION: ${JETS_VERSION}"                      >> /VERSION.txt && \
     echo "JETS_GIT_SHA: ${JETS_GIT_SHA}"                      >> /VERSION.txt && \

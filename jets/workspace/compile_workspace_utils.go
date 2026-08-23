@@ -165,6 +165,64 @@ func resolveWorkspacePath(baseDir, fileName string) (string, error) {
 	return joined, nil
 }
 
+// ensureLocalRepoSeeded makes an image-carried workspace usable at the path the
+// rest of the code actually reads.
+//
+// Every workspace path in this package and in compute_pipes is built from
+// WORKSPACES_HOME, and both packages read that variable in init(), so it cannot
+// be repointed at run time. An image that bakes its compiled workspace in puts
+// it at WORKSPACES_REPO instead, and something has to bridge the two:
+//
+//   - a container process gets the bridge from cbooter, which copies
+//     WORKSPACES_REPO to WORKSPACES_HOME before exec'ing the binary
+//     (jets/cmds/cbooter/main.go);
+//   - a Lambda has no cbooter. Its entrypoint is the runtime interface and its
+//     CMD is the handler, so nothing copied anything: the baked workspace sat
+//     unread at /workspaces while WORKSPACES_HOME=/tmp/workspaces stayed empty
+//     and the fetch the bake was meant to save ran on every cold start.
+//
+// This is that bridge, and it is on the *skip* path rather than at startup on
+// purpose. It runs only once the version check has decided the image's own
+// workspace is the one to use, so a run that is about to download a newer one
+// does not pay for a copy it would immediately overwrite.
+//
+// No-op wherever WORKSPACES_REPO is unset (the zip lambdas carry no workspace),
+// where it equals WORKSPACES_HOME, or where the destination already holds the
+// workspace - which is every container, cbooter having got there first. Lambda's
+// /tmp is writable and lives as long as the execution environment, so the copy
+// happens once per cold start and warm invocations find it already there.
+//
+// It copies the whole directory, as cbooter does, rather than the subset the
+// runtime is known to read. The workspace is a client artifact and what reads
+// what is not this function's business to predict; jets_ws measures 110 MB, of
+// which .git is a few, against an S3 fetch and untar of the compiled halves.
+func ensureLocalRepoSeeded() error {
+	repo := os.Getenv("WORKSPACES_REPO")
+	if repo == "" || workspaceHome == "" || wprefix == "" || repo == workspaceHome {
+		return nil
+	}
+	dest := filepath.Join(workspaceHome, wprefix)
+	if _, err := os.Stat(dest); err == nil {
+		return nil
+	}
+	src := filepath.Join(repo, wprefix)
+	if _, err := os.Stat(src); err != nil {
+		// The caller has just decided the image's workspace is authoritative and
+		// there isn't one. Say so rather than falling through to a fetch that the
+		// caller has already declined to make.
+		return fmt.Errorf(
+			"workspace version %s matches this image's, but the image carries no workspace at %s: %v",
+			workspaceVersion, src, err)
+	}
+	log.Printf("Seeding %s from the image's %s ...", dest, src)
+	start := time.Now()
+	if err := os.CopyFS(dest, os.DirFS(src)); err != nil {
+		return fmt.Errorf("while seeding %s from %s: %v", dest, src, err)
+	}
+	log.Printf("Seeded %s in %s", dest, time.Since(start).Round(time.Millisecond))
+	return nil
+}
+
 // Sync the workspace files for run report lambdas if a new version of the workspace exist since the last call.
 // Return true if a sync was performed.
 // Note: run report lambdas do not need the full workspace, only the reports definitions.
@@ -196,7 +254,7 @@ func SyncRunReportsWorkspace(dbpool *pgxpool.Pool) (bool, error) {
 		if len(localRepoVersion) > 0 && localRepoVersion == workspaceVersion {
 			// No need to sync since workspace taken from local repo
 			log.Printf("Skipping sync of reports.tgz since workspace version %s is same as local repo version", workspaceVersion)
-			return false, nil
+			return false, ensureLocalRepoSeeded()
 		}
 		// Get the reports
 		_, err = SyncWorkspaceFiles(dbpool, wprefix, "reports.tgz", true, false)
@@ -240,7 +298,7 @@ func SyncComputePipesWorkspace(dbpool *pgxpool.Pool) (bool, error) {
 		if len(localRepoVersion) > 0 && localRepoVersion == workspaceVersion {
 			// No need to sync since workspace taken from local repo
 			log.Printf("Skipping sync of workspace.tgz and sqlite since workspace version %s is same as local repo version", workspaceVersion)
-			return false, nil
+			return false, ensureLocalRepoSeeded()
 		}
 		// Get the compiled rules
 		_, err = SyncWorkspaceFiles(dbpool, os.Getenv("WORKSPACE"), "workspace.tgz", true, false)
