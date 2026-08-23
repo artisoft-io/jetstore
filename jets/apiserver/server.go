@@ -557,6 +557,16 @@ func listenAndServe() error {
 	server.Router.HandleFunc("/inferServer", inferServerOptions.options).Methods("OPTIONS")
 	server.Router.HandleFunc("/inferServer", jsonh(corsh(authh(server.DoInferServerAction)))).Methods("POST")
 
+	// Agentic supervision route — proposal staging, approval decisions and run
+	// transcripts for the Workspace IDE (task K.3, gap 11).
+	// Note: authh validates the token only; the agent_supervision capability is
+	// checked inside DoAgenticAction, following the InferServer route above.
+	agenticOptions := OptionConfig{Origin: "",
+		AllowedMethods: "POST, OPTIONS",
+		AllowedHeaders: "Content-Type, Authorization"}
+	server.Router.HandleFunc("/agentic", agenticOptions.options).Methods("OPTIONS")
+	server.Router.HandleFunc("/agentic", jsonh(corsh(authh(server.DoAgenticAction)))).Methods("POST")
+
 	// //* Currently not used
 	// //* TODO add options and corrs check - Users routes
 	// // server.Router.HandleFunc("/register", jsonh(server.CreateUser)).Methods("POST")

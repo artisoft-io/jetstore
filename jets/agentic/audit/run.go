@@ -137,3 +137,47 @@ func FinishRun(ctx context.Context, db Execer, runId, status string, tokenSpend 
 	}
 	return nil
 }
+
+// RunTier reads the autonomy tier a run was operating at (task K.3).
+//
+// **It exists because `approval_event.tier_at_event` must not come from the
+// client.** The column is NOT NULL and CHECKed against T0–T4, and its docstring
+// calls it "the AutonomyTier at the time of the decision" — the authority the
+// decision was taken under. A browser posting its own value would let the caller
+// choose the authority its decision is recorded at, which is the one thing a
+// governance record exists to fix. So the approval endpoint resolves it from
+// the run that produced the proposal, here, and ignores anything the request
+// carried.
+//
+// It returns ErrNoRun when the run is not in agent_run — which for an approval
+// means the proposal's trigger_ref names a run that was never recorded, and is
+// a refusal rather than a default, because there is no honest tier to fall back
+// on.
+func RunTier(ctx context.Context, db Querier, runId string) (string, error) {
+	if runId == "" {
+		return "", fmt.Errorf("cannot read a tier without a run id")
+	}
+	rows, err := db.Query(ctx, `SELECT tier FROM jetsapi.agent_run WHERE run_id = $1`, runId)
+	if err != nil {
+		return "", fmt.Errorf("while reading the tier of run %s: %w", runId, err)
+	}
+	defer rows.Close()
+	if !rows.Next() {
+		if err := rows.Err(); err != nil {
+			return "", fmt.Errorf("while reading the tier of run %s: %w", runId, err)
+		}
+		return "", &ErrNoRun{RunId: runId}
+	}
+	var tier string
+	if err := rows.Scan(&tier); err != nil {
+		return "", fmt.Errorf("while scanning the tier of run %s: %w", runId, err)
+	}
+	return tier, rows.Err()
+}
+
+// ErrNoRun is returned when a run id names no row in agent_run.
+type ErrNoRun struct{ RunId string }
+
+func (e *ErrNoRun) Error() string {
+	return fmt.Sprintf("no run %s in the run record, so its tier cannot be resolved", e.RunId)
+}
