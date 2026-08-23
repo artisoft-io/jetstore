@@ -93,6 +93,18 @@ func Run(ctx context.Context, reg *tools.Registry, ws *tools.Workspace) error {
 // be resolved by an MCP client, so it is replaced by a permissive object
 // schema whose description names the authoritative schema file. Internal
 // `#/...` refs pass through untouched.
+// WireSchema is relaxExternalRefs under an exported name, for callers that
+// must send the registry's schemas to a model over a wire that cannot resolve
+// a cross-file $ref — the tool-conformance measurement of J.2 among them.
+//
+// **Exported so the measurement cannot drift from the adapter.** J.2 asks
+// whether a local model can drive the same catalogue Claude drives; a harness
+// that relaxed the refs its own way would be measuring a schema no client is
+// ever served, and the discrepancy would be invisible in the result.
+func WireSchema(schema json.RawMessage) (json.RawMessage, error) {
+	return relaxExternalRefs(schema)
+}
+
 func relaxExternalRefs(schema json.RawMessage) (json.RawMessage, error) {
 	var node any
 	if err := json.Unmarshal(schema, &node); err != nil {

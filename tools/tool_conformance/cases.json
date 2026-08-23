@@ -1,0 +1,274 @@
+{
+  "cases": [
+    {
+      "id": "ldc-1",
+      "expect": "list_domain_classes",
+      "prompt": "What domain classes exist in this workspace?"
+    },
+    {
+      "id": "ldc-2",
+      "expect": "list_domain_classes",
+      "prompt": "Show me the data model."
+    },
+    {
+      "id": "ldc-3",
+      "expect": "list_domain_classes",
+      "prompt": "I need an inventory of every class defined here, including which ones persist as tables."
+    },
+    {
+      "id": "ldc-4",
+      "expect": "list_domain_classes",
+      "prompt": "list the classes"
+    },
+    {
+      "id": "ldc-5",
+      "expect": "list_domain_classes",
+      "prompt": "Before I write a rule I want to see what entities are available to me."
+    },
+    {
+      "id": "ldc-6",
+      "expect": "list_domain_classes",
+      "prompt": "Which classes in this workspace are backed by a table?"
+    },
+    {
+      "id": "ddc-1",
+      "expect": "describe_domain_class",
+      "prompt": "Describe the class jetsa:Incident for me.",
+      "fidelity": {
+        "arg": "name",
+        "must_contain": [
+          "jetsa:Incident"
+        ]
+      }
+    },
+    {
+      "id": "ddc-2",
+      "expect": "describe_domain_class",
+      "prompt": "What properties does hc:Claim have?",
+      "fidelity": {
+        "arg": "name",
+        "must_contain": [
+          "hc:Claim"
+        ]
+      }
+    },
+    {
+      "id": "ddc-3",
+      "expect": "describe_domain_class",
+      "prompt": "Tell me about jetsa:AnomalyReport - its fields and what they mean.",
+      "fidelity": {
+        "arg": "name",
+        "must_contain": [
+          "jetsa:AnomalyReport"
+        ]
+      }
+    },
+    {
+      "id": "ddc-4",
+      "expect": "describe_domain_class",
+      "prompt": "I'm about to map a file onto hc:Member. What does that class look like?",
+      "fidelity": {
+        "arg": "name",
+        "must_contain": [
+          "hc:Member"
+        ]
+      }
+    },
+    {
+      "id": "ddc-5",
+      "expect": "describe_domain_class",
+      "prompt": "documentation for jetsa:PipelineRun please",
+      "fidelity": {
+        "arg": "name",
+        "must_contain": [
+          "jetsa:PipelineRun"
+        ]
+      }
+    },
+    {
+      "id": "ddc-6",
+      "expect": "describe_domain_class",
+      "prompt": "Is there a status vocabulary on jetsa:Incident, and what are its values?",
+      "fidelity": {
+        "arg": "name",
+        "must_contain": [
+          "jetsa:Incident"
+        ]
+      }
+    },
+    {
+      "id": "vcc-1",
+      "expect": "validate_cpipes_config",
+      "prompt": "Is this compute-pipes config valid?\n\n{\"client\":\"acme\",\"process_name\":\"load\",\"pipes\":[]}",
+      "fidelity": {
+        "arg": "config",
+        "must_contain": [
+          "acme",
+          "load"
+        ]
+      }
+    },
+    {
+      "id": "vcc-2",
+      "expect": "validate_cpipes_config",
+      "prompt": "Check this .pc.json against the real validator:\n\n{\"client\":\"acme\",\"pipes\":[{\"type\":\"input\",\"input_channel\":{\"name\":\"main\"}}]}",
+      "fidelity": {
+        "arg": "config",
+        "must_contain": [
+          "acme",
+          "main"
+        ]
+      }
+    },
+    {
+      "id": "vcc-3",
+      "expect": "validate_cpipes_config",
+      "prompt": "I think there is something wrong with this pipeline definition. {\"client\":\"x\",\"process_name\":\"p\",\"pipes\":[{\"type\":\"fan_out\",\"apply\":[]}]}",
+      "fidelity": {
+        "arg": "config",
+        "must_contain": [
+          "fan_out",
+          "p"
+        ]
+      }
+    },
+    {
+      "id": "vcc-4",
+      "expect": "validate_cpipes_config",
+      "prompt": "Run the startup validator over {\"client\":\"c\",\"process_name\":\"n\",\"pipes\":[]} and tell me every diagnostic.",
+      "fidelity": {
+        "arg": "config",
+        "must_contain": [
+          "c",
+          "n"
+        ]
+      }
+    },
+    {
+      "id": "vcc-5",
+      "expect": "validate_cpipes_config",
+      "prompt": "Would this config start? {\"client\":\"c\",\"process_name\":\"n\",\"pipes\":[{\"type\":\"map_record\"}]}",
+      "fidelity": {
+        "arg": "config",
+        "must_contain": [
+          "map_record"
+        ]
+      }
+    },
+    {
+      "id": "vcc-6",
+      "expect": "validate_cpipes_config",
+      "prompt": "validate: {\"client\":\"acme\",\"process_name\":\"embed\",\"pipes\":[{\"type\":\"input\",\"input_channel\":{\"name\":\"parts\"}}]}",
+      "fidelity": {
+        "arg": "config",
+        "must_contain": [
+          "embed",
+          "parts"
+        ]
+      }
+    },
+    {
+      "id": "crf-1",
+      "expect": "compile_rule_file",
+      "prompt": "Does this JetRule compile?\n\n[rule1]:\n  (?x jets:key ?k)\n  ->\n  (?x hc:flag true);",
+      "fidelity": {
+        "arg": "rule_text",
+        "must_contain": [
+          "[rule1]",
+          "?x jets:key ?k",
+          "hc:flag"
+        ]
+      }
+    },
+    {
+      "id": "crf-2",
+      "expect": "compile_rule_file",
+      "prompt": "Compile this and show me the errors:\n\nimport \"jets_model.jr\"\n[r2]: (?c hc:amount ?a) -> (?c hc:big true);",
+      "fidelity": {
+        "arg": "rule_text",
+        "must_contain": [
+          "import",
+          "jets_model.jr",
+          "[r2]",
+          "hc:amount"
+        ]
+      }
+    },
+    {
+      "id": "crf-3",
+      "expect": "compile_rule_file",
+      "prompt": "I wrote this rule but I am not sure about the syntax:\n\n[bad]: (?x jets:key ?k) -> (?x hc:flag);",
+      "fidelity": {
+        "arg": "rule_text",
+        "must_contain": [
+          "[bad]",
+          "jets:key"
+        ]
+      }
+    },
+    {
+      "id": "crf-4",
+      "expect": "compile_rule_file",
+      "prompt": "check my jetrule source\n\n[r]: (?a hc:x ?v) -> (?a hc:y ?v);",
+      "fidelity": {
+        "arg": "rule_text",
+        "must_contain": [
+          "[r]",
+          "hc:x",
+          "hc:y"
+        ]
+      }
+    },
+    {
+      "id": "crf-5",
+      "expect": "compile_rule_file",
+      "prompt": "Please run the compiler over the following, calling it claims.jr:\n\n[c1]: (?c hc:paid true) -> (?c hc:settled true);",
+      "fidelity": {
+        "arg": "rule_text",
+        "must_contain": [
+          "[c1]",
+          "hc:paid",
+          "hc:settled"
+        ]
+      }
+    },
+    {
+      "id": "crf-6",
+      "expect": "compile_rule_file",
+      "prompt": "Will the RETE compiler accept this?\n\n[r9]: (?x jets:entity ?e) -> (?x hc:seen true);",
+      "fidelity": {
+        "arg": "rule_text",
+        "must_contain": [
+          "[r9]",
+          "jets:entity",
+          "hc:seen"
+        ]
+      }
+    },
+    {
+      "id": "none-1",
+      "expect": "",
+      "prompt": "What is a RETE network, in two sentences?"
+    },
+    {
+      "id": "none-2",
+      "expect": "",
+      "prompt": "Why would I choose a fan_out over a map_record conceptually?"
+    },
+    {
+      "id": "none-3",
+      "expect": "",
+      "prompt": "Thanks, that's all I needed."
+    },
+    {
+      "id": "none-4",
+      "expect": "",
+      "prompt": "Who maintains this codebase?"
+    },
+    {
+      "id": "none-5",
+      "expect": "",
+      "prompt": "Explain what an autonomy tier is."
+    }
+  ]
+}
