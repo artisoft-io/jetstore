@@ -64,7 +64,7 @@ const proof: Record<string, unknown> = {
   // F.3's re-partition. One delegate file, one flow — so unlike F.1's and F.2's
   // nothing had to be split. What it dropped is `crShowVendorUF`, whose body
   // jumps the flow to `show_org` and which **no form and no table of the flow
-  // offers** (I-88): the reachability shape of I-86, on a live arm rather than a
+  // offers** (I-91): the reachability shape of I-86, on a live arm rather than a
   // cancel. The two `delete*Action` arms are here because the *tables* offer
   // them, which is the third place an action name can appear and the first time
   // a migrated set has used it.
@@ -103,7 +103,7 @@ describe("the coverage fixture", () => {
     // cancellation F.2 relied on does not apply and the total moves. The arm is
     // live in the Dart — it jumps the flow to `show_org` — and is offered by no
     // form and no table of `clientRegistryUF`, which is I-86's reachability
-    // question asked of an arm that *does* something (I-88). **55 was never an
+    // question asked of an arm that *does* something (I-91). **55 was never an
     // invariant**: it is a count of `case` labels minus the ones declared twice,
     // and a migrated corpus needs fewer of them than the delegates declare.
     const names = Object.values(all).flatMap((doc) =>
