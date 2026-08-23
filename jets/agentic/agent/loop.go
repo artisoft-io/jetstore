@@ -428,11 +428,20 @@ func repairFromSchema(task *Task, err *infer.SchemaError) *infer.Request {
 	return &infer.Request{System: task.System, User: b.String(), Schema: task.Schema}
 }
 
-// event appends to the transcript. A failure to record is logged into the
-// result rather than aborting the run: losing the audit trail is bad, and
-// killing a run that is otherwise fine because its transcript hiccuped is
-// worse. The intent event is the exception and is D.4's, because that one
-// must be durable before anything acts.
+// event appends to the transcript. A failure to record is discarded rather
+// than aborting the run: losing the audit trail is bad, and killing a run that
+// is otherwise fine because its transcript hiccuped is worse. The intent event
+// is the exception and is D.4's, because that one must be durable before
+// anything acts.
+//
+// **Discarded, not recorded — corrected at K.2, 2026-08-23.** This comment
+// previously said the failure was "logged into the result", and it is not:
+// Result has no field for it and never had. The distinction matters because the
+// audit trigger assigns seq as max(seq)+1, so an append that never lands leaves
+// no gap either — a dropped event is invisible from both ends, and
+// audit.Verify is correspondingly silent about it. The trade is still the right
+// one; what was wrong was the claim that it left a trace. See the note under
+// "What this proves" in jets/agentic/audit/transcript.go.
 func (l *Loop) event(ctx context.Context, eventType, toolName string, payload []byte) {
 	if l.Audit == nil {
 		return
