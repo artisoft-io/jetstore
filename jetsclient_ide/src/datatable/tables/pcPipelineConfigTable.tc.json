@@ -1,0 +1,208 @@
+{
+  "schemaVersion": 1,
+  "label": "Select a Pipeline Configuration",
+  "columns": [
+    {
+      "name": "key",
+      "label": "Key",
+      "table": "pipeline_config",
+      "tooltip": "Row Primary Key",
+      "isNumeric": true,
+      "isHidden": true
+    },
+    {
+      "name": "client",
+      "label": "Client",
+      "table": "pipeline_config",
+      "tooltip": "Client the file came from"
+    },
+    {
+      "name": "process_name",
+      "label": "Process",
+      "table": "pipeline_config",
+      "tooltip": "Process Name"
+    },
+    {
+      "name": "process_config_key",
+      "label": "Process Config",
+      "table": "pipeline_config",
+      "isNumeric": true,
+      "isHidden": true
+    },
+    {
+      "name": "main_process_input_key",
+      "label": "Main Process Input",
+      "table": "pipeline_config",
+      "isNumeric": true,
+      "isHidden": true
+    },
+    {
+      "name": "merged_process_input_keys",
+      "label": "Merged Process Inputs",
+      "table": "pipeline_config",
+      "isNumeric": true,
+      "isHidden": true
+    },
+    {
+      "name": "main_object_type",
+      "label": "Domain Key",
+      "table": "pipeline_config",
+      "tooltip": "Domain Key of main input table"
+    },
+    {
+      "name": "main_source_type",
+      "label": "Main Source Type",
+      "table": "pipeline_config",
+      "tooltip": "Source type of main input table"
+    },
+    {
+      "name": "source_period_type",
+      "label": "Pipeline Frequency",
+      "table": "pipeline_config",
+      "tooltip": "How often the pipeline execute",
+      "isHidden": true
+    },
+    {
+      "name": "automated",
+      "label": "Automated",
+      "table": "pipeline_config",
+      "tooltip": "Is pipeline automated? (true: 1, false: 0)"
+    },
+    {
+      "name": "description",
+      "label": "Description",
+      "table": "pipeline_config",
+      "tooltip": "Pipeline description"
+    },
+    {
+      "name": "max_rete_sessions_saved",
+      "label": "Max Rete Session Saved",
+      "table": "pipeline_config",
+      "tooltip": "Max Rete Session Saved",
+      "isNumeric": true,
+      "isHidden": true
+    },
+    {
+      "name": "injected_process_input_keys",
+      "label": "Data Sources of Historical Data",
+      "table": "pipeline_config",
+      "isHidden": true
+    },
+    {
+      "name": "rule_config_json",
+      "table": "pipeline_config",
+      "isHidden": true
+    },
+    {
+      "name": "input_rdf_types",
+      "table": "process_config",
+      "isHidden": true
+    },
+    {
+      "name": "last_update",
+      "label": "Loaded At",
+      "table": "pipeline_config",
+      "tooltip": "Indicates when the record was created"
+    }
+  ],
+  "sortColumn": "process_name",
+  "sortAscending": true,
+  "rowsPerPage": 20,
+  "isCheckboxVisible": true,
+  "isCheckboxSingleSelect": true,
+  "formStateBinding": {
+    "keyColumnIdx": 0,
+    "otherColumns": [
+      {
+        "stateKey": "key",
+        "columnIdx": 0
+      },
+      {
+        "stateKey": "client",
+        "columnIdx": 1
+      },
+      {
+        "stateKey": "process_name",
+        "columnIdx": 2
+      },
+      {
+        "stateKey": "process_config_key",
+        "columnIdx": 3
+      },
+      {
+        "stateKey": "main_process_input_key",
+        "columnIdx": 4
+      },
+      {
+        "stateKey": "merged_process_input_keys",
+        "columnIdx": 5
+      },
+      {
+        "stateKey": "main_object_type",
+        "columnIdx": 6
+      },
+      {
+        "stateKey": "main_source_type",
+        "columnIdx": 7
+      },
+      {
+        "stateKey": "source_period_type",
+        "columnIdx": 8
+      },
+      {
+        "stateKey": "automated",
+        "columnIdx": 9
+      },
+      {
+        "stateKey": "description",
+        "columnIdx": 10
+      },
+      {
+        "stateKey": "max_rete_sessions_saved",
+        "columnIdx": 11
+      },
+      {
+        "stateKey": "injected_process_input_keys",
+        "columnIdx": 12
+      },
+      {
+        "stateKey": "rule_config_json",
+        "columnIdx": 13
+      },
+      {
+        "stateKey": "entity_rdf_type",
+        "columnIdx": 14
+      }
+    ]
+  },
+  "source": "query",
+  "from": [
+    {
+      "schema": "jetsapi",
+      "table": "pipeline_config"
+    },
+    {
+      "schema": "jetsapi",
+      "table": "process_config"
+    }
+  ],
+  "where": [
+    {
+      "column": "process_name",
+      "table": "pipeline_config",
+      "joinWith": "process_config.process_name"
+    }
+  ],
+  "actions": [
+    {
+      "key": "deletePipelineConfig",
+      "label": "Delete",
+      "action": "doAction",
+      "style": "danger",
+      "actionName": "deletePipelineConfig",
+      "capability": "client_config",
+      "isVisibleWhenCheckboxVisible": true,
+      "isEnabledWhenHavingSelectedRows": true
+    }
+  ]
+}

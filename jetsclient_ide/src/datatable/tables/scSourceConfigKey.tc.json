@@ -1,0 +1,183 @@
+{
+  "schemaVersion": 1,
+  "label": "Select a Data Source",
+  "columns": [
+    {
+      "name": "key",
+      "label": "Key",
+      "tooltip": "Row Primary Key",
+      "isNumeric": true,
+      "isHidden": true
+    },
+    {
+      "name": "client",
+      "label": "Client",
+      "tooltip": "Client the file came from"
+    },
+    {
+      "name": "org",
+      "label": "Organization",
+      "tooltip": "Clients organization"
+    },
+    {
+      "name": "object_type",
+      "label": "Object Type",
+      "tooltip": "Type of objects in file"
+    },
+    {
+      "name": "automated",
+      "label": "Automated",
+      "tooltip": "Is load automated? (true: 1, false: 0)",
+      "isNumeric": true,
+      "isHidden": true
+    },
+    {
+      "name": "table_name",
+      "label": "Table Name",
+      "tooltip": "Table where to load the file"
+    },
+    {
+      "name": "domain_keys_json",
+      "label": "Domain Keys (json)",
+      "tooltip": "Column(s) for rows domain key(s) (json-encoded string)",
+      "isHidden": true
+    },
+    {
+      "name": "code_values_mapping_json",
+      "label": "Code Value Mapping (json)",
+      "tooltip": "Client-specific code values mapping to canonical codes (json-encoded string)",
+      "isHidden": true
+    },
+    {
+      "name": "input_columns_json",
+      "label": "Input Columns (json)",
+      "tooltip": "Column names for HEADERLESS FILES ONLY (json-encoded string)",
+      "isHidden": true
+    },
+    {
+      "name": "input_columns_positions_csv",
+      "label": "Fixed-Width Column Positions (csv)",
+      "tooltip": "Column names & position for FIXED-WIDTH ONLY (csv)",
+      "isHidden": true
+    },
+    {
+      "name": "input_format",
+      "label": "File Format",
+      "tooltip": "File format: csv, headerless_csv, etc."
+    },
+    {
+      "name": "is_part_files",
+      "label": "Single or Multi-Part Files?",
+      "isNumeric": true,
+      "isHidden": true
+    },
+    {
+      "name": "input_format_data_json",
+      "label": "input_format_data_json",
+      "isHidden": true
+    },
+    {
+      "name": "schema_provider_json",
+      "label": "schema_provider_json",
+      "isHidden": true
+    },
+    {
+      "name": "last_update",
+      "label": "Last Updated",
+      "tooltip": "Indicates when the record was last updated"
+    }
+  ],
+  "sortColumn": "last_update",
+  "rowsPerPage": 20,
+  "isCheckboxVisible": true,
+  "isCheckboxSingleSelect": true,
+  "formStateBinding": {
+    "keyColumnIdx": 0,
+    "otherColumns": [
+      {
+        "stateKey": "key",
+        "columnIdx": 0
+      },
+      {
+        "stateKey": "client",
+        "columnIdx": 1
+      },
+      {
+        "stateKey": "org",
+        "columnIdx": 2
+      },
+      {
+        "stateKey": "object_type",
+        "columnIdx": 3
+      },
+      {
+        "stateKey": "automated",
+        "columnIdx": 4
+      },
+      {
+        "stateKey": "table_name",
+        "columnIdx": 5
+      },
+      {
+        "stateKey": "domain_keys_json",
+        "columnIdx": 6
+      },
+      {
+        "stateKey": "code_values_mapping_json",
+        "columnIdx": 7
+      },
+      {
+        "stateKey": "input_columns_json",
+        "columnIdx": 8
+      },
+      {
+        "stateKey": "input_columns_positions_csv",
+        "columnIdx": 9
+      },
+      {
+        "stateKey": "input_format",
+        "columnIdx": 10
+      },
+      {
+        "stateKey": "is_part_files",
+        "columnIdx": 11
+      },
+      {
+        "stateKey": "input_format_data_json",
+        "columnIdx": 12
+      },
+      {
+        "stateKey": "schema_provider_json",
+        "columnIdx": 13
+      }
+    ]
+  },
+  "source": "query",
+  "from": [
+    {
+      "schema": "jetsapi",
+      "table": "source_config"
+    }
+  ],
+  "actions": [
+    {
+      "key": "dropStagingTable",
+      "label": "Drop Staging Table",
+      "action": "doAction",
+      "style": "primary",
+      "actionName": "dropTable",
+      "capability": "run_pipelines",
+      "isEnabledWhenHavingSelectedRows": true
+    },
+    {
+      "key": "deleteSourceConfig",
+      "label": "Delete",
+      "action": "doAction",
+      "style": "danger",
+      "actionName": "deleteSourceConfig",
+      "capability": "client_config",
+      "isVisibleWhenCheckboxVisible": true,
+      "isEnabledWhenHavingSelectedRows": true
+    }
+  ]
+}

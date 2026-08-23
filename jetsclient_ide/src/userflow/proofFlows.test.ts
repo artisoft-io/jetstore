@@ -24,6 +24,7 @@ import registerFileKeyFormsDoc from "./forms/registerFileKeyUF.form.json";
 import { advance, back, evaluateCondition, isStandardAction, startAt, step, FlowError } from "./engine";
 import loadFilesFlowDoc from "./flows/loadFilesUF.uf.json";
 import registerFileKeyFlowDoc from "./flows/registerFileKeyUF.uf.json";
+import { validateDocumentSet } from "./documentSet";
 import { UserFlowSchema, type UserFlow } from "./schema";
 import { isFormValid, validateForm } from "./validateForm";
 
@@ -107,39 +108,23 @@ function harness(
 }
 
 describe("the documents are complete and consistent", () => {
+  // **Moved to `documentSet.ts` rather than kept here.** These two checks were
+  // written in this file because it was the only place holding a whole set, and
+  // that is exactly why nothing else got them: a generator producing a set had
+  // no way to run them, and `store.ts` did not either. They are one exported
+  // function now, and this test is the corpus half of it — `documentSet.test.ts`
+  // carries the cases that make each check fire.
   it.each([
     ["registerFileKeyUF", registerFileKeyFlowDoc, registerFileKeyActionsDoc, registerFileKeyFormsDoc],
     ["loadFilesUF", loadFilesFlowDoc, loadFilesActionsDoc, loadFilesFormsDoc],
-  ])("%s validates and every state's form exists", (_name, flowDoc, actionsDoc, formsDoc) => {
-    const flow = UserFlowSchema.parse(flowDoc) as UserFlow;
-    const forms = FormDocumentSchema.parse(formsDoc) as FormDocument;
-    ActionDocumentSchema.parse(actionsDoc);
-    for (const [key, state] of Object.entries(flow.states)) {
-      expect({ [key]: forms.forms[state.formConfig] !== undefined }).toEqual({ [key]: true });
-    }
-  });
-
-  it("names only actions the flow's own documents define", () => {
-    // A form button or a stateAction pointing at nothing is the failure S.4
-    // cannot catch — it validates each document alone, not the set.
-    for (const [flowDoc, actionsDoc, formsDoc] of [
-      [registerFileKeyFlowDoc, registerFileKeyActionsDoc, registerFileKeyFormsDoc],
-      [loadFilesFlowDoc, loadFilesActionsDoc, loadFilesFormsDoc],
-    ] as const) {
-      const flow = UserFlowSchema.parse(flowDoc) as UserFlow;
-      const actions = ActionDocumentSchema.parse(actionsDoc) as ActionDocument;
-      const forms = FormDocumentSchema.parse(formsDoc) as FormDocument;
-      const known = new Set(Object.keys(actions.actions));
-
-      for (const state of Object.values(flow.states)) {
-        if (state.stateAction !== undefined) expect(known).toContain(state.stateAction);
-      }
-      for (const form of Object.values(forms.forms)) {
-        for (const action of form.actions) {
-          if (!isStandardAction(action.action)) expect(known).toContain(action.action);
-        }
-      }
-    }
+  ])("%s is a consistent set", (_name, flowDoc, actionsDoc, formsDoc) => {
+    expect(
+      validateDocumentSet({
+        flow: UserFlowSchema.parse(flowDoc) as UserFlow,
+        actions: ActionDocumentSchema.parse(actionsDoc) as ActionDocument,
+        forms: FormDocumentSchema.parse(formsDoc) as FormDocument,
+      }),
+    ).toEqual([]);
   });
 });
 

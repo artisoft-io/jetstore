@@ -1,0 +1,46 @@
+{
+  "schemaVersion": 1,
+  "label": "Select a Clients",
+  "columns": [
+    {
+      "name": "client",
+      "label": "Client Name"
+    },
+    {
+      "name": "details",
+      "label": "Client details"
+    },
+    {
+      "name": "last_update",
+      "label": "Last Updated At",
+      "tooltip": "Indicates when the record was last updated"
+    }
+  ],
+  "sortColumn": "client",
+  "sortAscending": true,
+  "rowsPerPage": 100,
+  "isCheckboxVisible": true,
+  "isCheckboxSingleSelect": true,
+  "formStateBinding": {
+    "keyColumnIdx": 0
+  },
+  "source": "query",
+  "from": [
+    {
+      "schema": "jetsapi",
+      "table": "client_registry"
+    }
+  ],
+  "actions": [
+    {
+      "key": "deleteClient",
+      "label": "Delete Client",
+      "action": "doAction",
+      "style": "danger",
+      "actionName": "deleteClientAction",
+      "capability": "client_config",
+      "isVisibleWhenCheckboxVisible": true,
+      "isEnabledWhenHavingSelectedRows": true
+    }
+  ]
+}

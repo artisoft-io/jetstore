@@ -1,0 +1,163 @@
+{
+  "schemaVersion": 1,
+  "label": "Select a Pipeline Configuration",
+  "columns": [
+    {
+      "name": "key",
+      "label": "Key",
+      "table": "pipeline_config",
+      "tooltip": "Row Primary Key",
+      "isNumeric": true,
+      "isHidden": true
+    },
+    {
+      "name": "client",
+      "label": "Client",
+      "table": "pipeline_config",
+      "tooltip": "Client the file came from"
+    },
+    {
+      "name": "process_name",
+      "label": "Process",
+      "table": "pipeline_config",
+      "tooltip": "Process Name"
+    },
+    {
+      "name": "process_config_key",
+      "label": "Process Config",
+      "table": "pipeline_config",
+      "isNumeric": true,
+      "isHidden": true
+    },
+    {
+      "name": "main_process_input_key",
+      "label": "Main Process Input",
+      "table": "pipeline_config",
+      "isNumeric": true,
+      "isHidden": true
+    },
+    {
+      "name": "merged_process_input_keys",
+      "label": "Merged Process Inputs",
+      "table": "pipeline_config",
+      "isNumeric": true,
+      "isHidden": true
+    },
+    {
+      "name": "main_object_type",
+      "label": "Domain Key",
+      "table": "pipeline_config",
+      "tooltip": "Domain Key of main input table"
+    },
+    {
+      "name": "main_source_type",
+      "label": "Main Source Type",
+      "table": "pipeline_config",
+      "tooltip": "Source Type is file, db_table or domain_table"
+    },
+    {
+      "name": "description",
+      "label": "Description",
+      "table": "pipeline_config",
+      "tooltip": "Pipeline description"
+    },
+    {
+      "name": "source_period_type",
+      "label": "Frequency",
+      "table": "pipeline_config",
+      "tooltip": "Frequency of execution"
+    },
+    {
+      "name": "table_name",
+      "label": "Main Table Name",
+      "table": "process_input",
+      "isHidden": true
+    },
+    {
+      "name": "injected_process_input_keys",
+      "label": "Injected Data Process Inputs",
+      "table": "pipeline_config",
+      "isNumeric": true,
+      "isHidden": true
+    },
+    {
+      "name": "user_email",
+      "label": "User",
+      "table": "pipeline_config",
+      "tooltip": "Who created the record"
+    },
+    {
+      "name": "last_update",
+      "label": "Loaded At",
+      "table": "pipeline_config",
+      "tooltip": "Indicates when the record was created"
+    }
+  ],
+  "sortColumn": "process_name",
+  "sortAscending": true,
+  "rowsPerPage": 100,
+  "isCheckboxVisible": true,
+  "isCheckboxSingleSelect": true,
+  "formStateBinding": {
+    "keyColumnIdx": 0,
+    "otherColumns": [
+      {
+        "stateKey": "process_name",
+        "columnIdx": 2
+      },
+      {
+        "stateKey": "client",
+        "columnIdx": 1
+      },
+      {
+        "stateKey": "main_process_input_key",
+        "columnIdx": 4
+      },
+      {
+        "stateKey": "merged_process_input_keys",
+        "columnIdx": 5
+      },
+      {
+        "stateKey": "main_object_type",
+        "columnIdx": 6
+      },
+      {
+        "stateKey": "main_source_type",
+        "columnIdx": 7
+      },
+      {
+        "stateKey": "description",
+        "columnIdx": 8
+      },
+      {
+        "stateKey": "source_period_type",
+        "columnIdx": 9
+      },
+      {
+        "stateKey": "main_process_input.table_name",
+        "columnIdx": 10
+      },
+      {
+        "stateKey": "injected_process_input_keys",
+        "columnIdx": 11
+      }
+    ]
+  },
+  "source": "query",
+  "from": [
+    {
+      "schema": "jetsapi",
+      "table": "pipeline_config"
+    },
+    {
+      "schema": "jetsapi",
+      "table": "process_input"
+    }
+  ],
+  "where": [
+    {
+      "column": "main_process_input_key",
+      "joinWith": "process_input.key"
+    }
+  ]
+}

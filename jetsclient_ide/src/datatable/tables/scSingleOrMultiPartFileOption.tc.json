@@ -1,0 +1,42 @@
+{
+  "schemaVersion": 1,
+  "label": "Is the data source a single file or multi-part files?",
+  "columns": [
+    {
+      "name": "option_description",
+      "label": "Select one of the following options"
+    },
+    {
+      "name": "option",
+      "isHidden": true
+    },
+    {
+      "name": "option_order",
+      "isNumeric": true,
+      "isHidden": true
+    }
+  ],
+  "sortColumn": "option_order",
+  "sortAscending": true,
+  "rowsPerPage": 1000000,
+  "isCheckboxVisible": true,
+  "isCheckboxSingleSelect": true,
+  "noFooter": true,
+  "noCopy2Clipboard": true,
+  "formStateBinding": {
+    "keyColumnIdx": 1
+  },
+  "source": "static",
+  "rows": [
+    [
+      "Data source is a single file (most common)",
+      "scSingleFileOption",
+      "0"
+    ],
+    [
+      "Data source is a multi-part files",
+      "scMultiPartFileOption",
+      "1"
+    ]
+  ]
+}

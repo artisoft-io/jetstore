@@ -1,0 +1,73 @@
+{
+  "schemaVersion": 1,
+  "label": "Client Organization Registry",
+  "columns": [
+    {
+      "name": "client",
+      "label": "Client Name"
+    },
+    {
+      "name": "org",
+      "label": "Client Organization"
+    },
+    {
+      "name": "details",
+      "label": "Organization details"
+    }
+  ],
+  "sortColumn": "org",
+  "sortAscending": true,
+  "rowsPerPage": 50,
+  "isCheckboxSingleSelect": true,
+  "formStateBinding": {
+    "keyColumnIdx": 0,
+    "otherColumns": [
+      {
+        "stateKey": "org",
+        "columnIdx": 1
+      }
+    ]
+  },
+  "source": "query",
+  "from": [
+    {
+      "schema": "jetsapi",
+      "table": "client_org_registry"
+    }
+  ],
+  "where": [
+    {
+      "column": "client",
+      "formStateKey": "client"
+    }
+  ],
+  "actions": [
+    {
+      "key": "addVendorDialog",
+      "label": "Add Vendor/Org",
+      "action": "showDialog",
+      "style": "secondary",
+      "configForm": "ufVendor",
+      "capability": "client_config",
+      "stateFormNavigationParams": {
+        "client": "client"
+      }
+    },
+    {
+      "key": "toggleRowSelection",
+      "label": "Show/Hide Select Row",
+      "action": "toggleCheckboxVisible",
+      "style": "primary"
+    },
+    {
+      "key": "deleteOrg",
+      "label": "Delete Organization",
+      "action": "doAction",
+      "style": "danger",
+      "actionName": "deleteOrgAction",
+      "capability": "client_config",
+      "isVisibleWhenCheckboxVisible": true,
+      "isEnabledWhenHavingSelectedRows": true
+    }
+  ]
+}

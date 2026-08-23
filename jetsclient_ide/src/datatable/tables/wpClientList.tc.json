@@ -1,0 +1,29 @@
+{
+  "schemaVersion": 1,
+  "label": "Select Clients",
+  "columns": [
+    {
+      "name": "client",
+      "label": "Client Name"
+    },
+    {
+      "name": "details",
+      "label": "Client details"
+    }
+  ],
+  "sortColumn": "client",
+  "sortAscending": true,
+  "rowsPerPage": 100,
+  "isCheckboxVisible": true,
+  "noCopy2Clipboard": true,
+  "formStateBinding": {
+    "keyColumnIdx": 0
+  },
+  "source": "query",
+  "from": [
+    {
+      "schema": "jetsapi",
+      "table": "client_registry"
+    }
+  ]
+}

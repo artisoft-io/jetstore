@@ -11,9 +11,10 @@ import (
 
 func TestValidatorForPicksTheMostSpecificSuffix(t *testing.T) {
 	cases := map[string]bool{
-		"user_flows/loadFilesUF.uf.json":   true,
-		"user_flows/loadFilesUF.ua.json":   true,
-		"user_flows/loadFilesUF.form.json": true,
+		"user_flows/loadFilesUF.uf.json":            true,
+		"user_flows/loadFilesUF.ua.json":            true,
+		"user_flows/loadFilesUF.form.json":          true,
+		"table_configs/lfSourceConfigTable.tc.json": true,
 		// The plain-JSON files that have always been saved through this path keep
 		// their existing behaviour: well-formedness only, no specific validator.
 		"workspace_control.json":    false,
@@ -32,7 +33,8 @@ func TestValidatorForPicksTheMostSpecificSuffix(t *testing.T) {
 
 // TestSuffixesAreDistinct guards the rule rather than today's table: longest
 // match only means something if two suffixes can overlap, and it is the rule
-// that keeps a fourth file type honest.
+// that keeps the *next* file type honest — `.tc.json` was the fourth and did not
+// need it, which is exactly when a guard like this stops being watched.
 func TestSuffixesAreDistinct(t *testing.T) {
 	for i, a := range workspaceFileValidators {
 		for j, b := range workspaceFileValidators {
@@ -74,6 +76,32 @@ func TestShippingDocumentsPassTheSaveCheck(t *testing.T) {
 	}
 	if checked != 11 {
 		t.Errorf("expected the app's eleven flows, checked %d", checked)
+	}
+}
+
+// TestShippingTablesPassTheSaveCheck is the same rule for the fourth document
+// type, and it goes through `validatorFor` rather than calling the validator
+// directly — the dispatch is the part that was untested until the mutation pass
+// found it (see the header of the file under test).
+func TestShippingTablesPassTheSaveCheck(t *testing.T) {
+	tables := "../../jetsclient_ide/src/datatable/tables"
+	entries, err := os.ReadDir(tables)
+	if err != nil {
+		t.Fatalf("reading %s: %v", tables, err)
+	}
+	checked := 0
+	for _, e := range entries {
+		if !strings.HasSuffix(e.Name(), ".tc.json") {
+			continue
+		}
+		content := readGolden(t, tables+"/"+e.Name())
+		if findings := validatorFor(e.Name())(content); len(findings) > 0 {
+			t.Errorf("%s is refused by the save check: %v", e.Name(), findings)
+		}
+		checked++
+	}
+	if checked != 37 {
+		t.Errorf("expected the flows' 37 table configurations, checked %d", checked)
 	}
 }
 

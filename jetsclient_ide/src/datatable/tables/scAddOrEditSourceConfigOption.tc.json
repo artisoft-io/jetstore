@@ -1,0 +1,43 @@
+{
+  "schemaVersion": 1,
+  "label": "Select one of the following options:",
+  "columns": [
+    {
+      "name": "option_description",
+      "label": "Select one of the following option",
+      "tooltip": "Select one of the option"
+    },
+    {
+      "name": "option",
+      "isHidden": true
+    },
+    {
+      "name": "option_order",
+      "isNumeric": true,
+      "isHidden": true
+    }
+  ],
+  "sortColumn": "option_order",
+  "sortAscending": true,
+  "rowsPerPage": 1000000,
+  "isCheckboxVisible": true,
+  "isCheckboxSingleSelect": true,
+  "noFooter": true,
+  "noCopy2Clipboard": true,
+  "formStateBinding": {
+    "keyColumnIdx": 1
+  },
+  "source": "static",
+  "rows": [
+    [
+      "Create a file configuration",
+      "ufAddOption",
+      "0"
+    ],
+    [
+      "Edit an existing file configuration",
+      "ufEditOption",
+      "1"
+    ]
+  ]
+}

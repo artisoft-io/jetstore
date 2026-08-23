@@ -1,0 +1,78 @@
+{
+  "schemaVersion": 1,
+  "label": "Select one of the following file type option:",
+  "columns": [
+    {
+      "name": "option_description",
+      "label": "Select one of the following option",
+      "tooltip": "Select one of the option"
+    },
+    {
+      "name": "option",
+      "isHidden": true
+    },
+    {
+      "name": "option_order",
+      "isNumeric": true,
+      "isHidden": true
+    }
+  ],
+  "sortColumn": "option_order",
+  "sortAscending": true,
+  "rowsPerPage": 1000000,
+  "isCheckboxVisible": true,
+  "isCheckboxSingleSelect": true,
+  "noFooter": true,
+  "noCopy2Clipboard": true,
+  "formStateBinding": {
+    "keyColumnIdx": 1
+  },
+  "source": "static",
+  "rows": [
+    [
+      "CSV file with headers (most common)",
+      "csv",
+      "0"
+    ],
+    [
+      "Headerless CSV file",
+      "headerless_csv",
+      "1"
+    ],
+    [
+      "Headerless CSV file (using a Schema Provider)",
+      "headerless_csv_with_schema_provider",
+      "2"
+    ],
+    [
+      "XLSX file with header row",
+      "xlsx",
+      "3"
+    ],
+    [
+      "Headerless XLSX file",
+      "headerless_xlsx",
+      "4"
+    ],
+    [
+      "Fixed-width file",
+      "fixed_width",
+      "5"
+    ],
+    [
+      "Fixed-width file (using a Schema Provider)",
+      "fixed_width_with_schema_provider",
+      "6"
+    ],
+    [
+      "Parquet file",
+      "parquet",
+      "7"
+    ],
+    [
+      "Parquet file with selected columns",
+      "parquet_select",
+      "8"
+    ]
+  ]
+}

@@ -44,6 +44,7 @@ var validatorsByDocument = map[string]func(string) []wsvalidate.Finding{
 	"flow":   ValidateFlowDocument,
 	"action": ValidateActionDocument,
 	"form":   ValidateFormDocument,
+	"table":  ValidateTableDocument,
 }
 
 // TestNegativeSuite is S.6, run where it matters: **in Go, against the emitted
@@ -110,6 +111,8 @@ func TestNegativeSuiteLayers(t *testing.T) {
 				file = actionSchemaFile
 			case "form":
 				file = formSchemaFile
+			case "table":
+				file = tableSchemaFile
 			}
 			if len(validateAgainst(file, string(tc.Content))) == 0 {
 				t.Errorf("the schema accepts this; the suite says the schema should catch it")
@@ -138,7 +141,7 @@ func TestNegativeSuiteCoversEveryClass(t *testing.T) {
 		}
 	}
 	// And every document type is probed, not just the one with the most fields.
-	for _, doc := range []string{"flow", "action", "form"} {
+	for _, doc := range []string{"flow", "action", "form", "table"} {
 		if documents[doc] < 3 {
 			t.Errorf("document %q has only %d cases", doc, documents[doc])
 		}
