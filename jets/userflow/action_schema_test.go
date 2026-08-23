@@ -52,8 +52,9 @@ func TestProofFlowActionsValidate(t *testing.T) {
 	// added a document and not a decision — which is why the number is written
 	// down rather than derived from the glob.
 	//
-	// 3 as of F.1 (mapFileUF, 2026-08-23).
-	const migratedFlows = 3
+	// 3 as of F.1 (mapFileUF, 2026-08-23); 5 as of F.2 (loadConfigUF and
+	// workspacePullUF, 2026-08-23 — one task, because they are one delegate file).
+	const migratedFlows = 5
 	if len(names) != migratedFlows {
 		t.Fatalf("expected %d migrated flows, found %d: %v", migratedFlows, len(names), names)
 	}
@@ -77,14 +78,18 @@ func TestProofFlowActionsValidate(t *testing.T) {
 
 // TestCoverageActionsValidate is the other half of S.2a's exit condition: not
 // "the grammar can express the five arms we built" but "the grammar can express
-// all of them". The seven documents here carry the remaining fifty actions,
-// wired to no flow and no screen — see coverage.test.ts for what that does and
-// does not prove.
+// all of them". The documents here carry the arms of the flows track F has not
+// reached, wired to no flow and no screen — see coverage.test.ts for what that
+// does and does not prove.
+//
+// **The count falls as track F lands flows, and it falling is the point.** Seven
+// until F.2 re-partitioned workspacePullUF.ua.json into two runtime documents
+// and deleted it; six now. F.9 retires whatever is left.
 func TestCoverageActionsValidate(t *testing.T) {
 	schema := compileActionSchema(t)
 	names, err := filepath.Glob(filepath.Join(coverageDir, "*.ua.json"))
-	if err != nil || len(names) != 7 {
-		t.Fatalf("expected seven coverage documents at %s, found %d (err %v)",
+	if err != nil || len(names) != 6 {
+		t.Fatalf("expected six coverage documents at %s, found %d (err %v)",
 			coverageDir, len(names), err)
 	}
 	for _, path := range names {

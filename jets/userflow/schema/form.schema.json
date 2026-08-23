@@ -34,6 +34,9 @@
             "hint": {
               "type": "string"
             },
+            "isReadOnly": {
+              "type": "boolean"
+            },
             "key": {
               "description": "A key naming a state, form, action or form-state entry",
               "minLength": 1,
@@ -253,6 +256,51 @@
             }
           },
           "required": [
+            "field"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "action": {
+              "description": "A key naming a state, form, action or form-state entry",
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9_.-]+$",
+              "type": "string"
+            },
+            "capability": {
+              "description": "A key naming a state, form, action or form-state entry",
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9_.-]+$",
+              "type": "string"
+            },
+            "enableOnlyWhenFormNotValid": {
+              "type": "boolean"
+            },
+            "enableOnlyWhenFormValid": {
+              "type": "boolean"
+            },
+            "field": {
+              "const": "button",
+              "type": "string"
+            },
+            "label": {
+              "minLength": 1,
+              "type": "string"
+            },
+            "style": {
+              "enum": [
+                "primary",
+                "secondary",
+                "danger"
+              ],
+              "type": "string"
+            }
+          },
+          "required": [
+            "action",
+            "label",
             "field"
           ],
           "type": "object"

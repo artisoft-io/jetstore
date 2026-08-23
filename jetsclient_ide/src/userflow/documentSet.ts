@@ -31,7 +31,7 @@
 
 import { isStandardAction } from "./engine";
 import type { ActionDocument } from "../actions/schema";
-import { itemSourcesOf, type FormDocument, type Form } from "./form";
+import { buttonsOf, itemSourcesOf, type FormDocument, type Form } from "./form";
 import type { UserFlow } from "./schema";
 
 export type SetFindingCode =
@@ -92,7 +92,9 @@ function checkEndStateButtons(flow: UserFlow, forms: FormDocument): SetFinding[]
     if (!state.isEnd) continue;
     const form = forms.forms[state.formConfig];
     if (form === undefined) continue; // reported by checkForms
-    for (const action of form.actions) {
+    // **Every button, not only the action bar's** — F.2 added a `button` field
+    // and an inline one advances exactly as an action-bar one does.
+    for (const action of buttonsOf(form)) {
       if (!ADVANCING_ACTIONS.has(action.action)) continue;
       findings.push({
         severity: "error",
@@ -149,13 +151,17 @@ function checkActions(flow: UserFlow, actions: ActionDocument, forms: FormDocume
   }
 
   for (const [formKey, form] of Object.entries(forms.forms) as [string, Form][]) {
-    form.actions.forEach((action, index) => {
+    // The pointer names the action bar for a bar button and the form for an
+    // inline one: `buttonsOf` flattens two shapes into one list and the index is
+    // no longer a position in `actions` once it passes that boundary.
+    const barCount = form.actions.length;
+    buttonsOf(form).forEach((action, index) => {
       if (isStandardAction(action.action) || known.has(action.action)) return;
       findings.push({
         severity: "error",
         code: "missingAction",
         message: `form "${formKey}" has a button naming action "${action.action}", which the action document does not define`,
-        path: `/forms/${formKey}/actions/${index}`,
+        path: index < barCount ? `/forms/${formKey}/actions/${index}` : `/forms/${formKey}/rows`,
         document: "forms",
       });
     });

@@ -31,10 +31,11 @@ import homeFilters from "./coverage/homeFiltersUF.ua.json";
 import pipelineConfig from "./coverage/pipelineConfigUF.ua.json";
 import sourceConfig from "./coverage/sourceConfigUF.ua.json";
 import startPipeline from "./coverage/startPipelineUF.ua.json";
-import workspacePull from "./coverage/workspacePullUF.ua.json";
+import loadConfig from "./flows/loadConfigUF.ua.json";
 import loadFiles from "./flows/loadFilesUF.ua.json";
 import mapFile from "./flows/mapFileUF.ua.json";
 import registerFileKey from "./flows/registerFileKeyUF.ua.json";
+import workspacePull from "./flows/workspacePullUF.ua.json";
 import { ActionDocumentSchema, type ActionDocument } from "./schema";
 
 const coverage: Record<string, unknown> = {
@@ -44,7 +45,6 @@ const coverage: Record<string, unknown> = {
   pipelineConfigUF: pipelineConfig,
   sourceConfigUF: sourceConfig,
   startPipelineUF: startPipeline,
-  workspacePullUF: workspacePull,
 };
 const proof: Record<string, unknown> = {
   loadFilesUF: loadFiles,
@@ -55,6 +55,13 @@ const proof: Record<string, unknown> = {
   // `file_mapping/` is one directory holding two flows (I-61). The three that
   // stay behind belong to `fileMappingUF`, which is F.8.
   mapFileUF: mapFile,
+  // F.2's re-partition, and the one the plan's F4 was written about
+  // (`actions/coverage/workspacePullUF.ua.json`, now gone): one *delegate file*
+  // holding two switches for two flows. `wpLoadConfigConfirmUF` is a state
+  // action of both, so it appears in both documents; `dialogCancel` appears in
+  // neither, because no form or table of either flow offers it.
+  loadConfigUF: loadConfig,
+  workspacePullUF: workspacePull,
 };
 const all = { ...coverage, ...proof };
 
@@ -74,11 +81,42 @@ describe("the coverage fixture", () => {
     // move.** Three names left `coverage/fileMappingUF.ua.json` and three
     // arrived in `flows/mapFileUF.ua.json`; a copy rather than a move would read
     // as 58 here.
+    //
+    // **Still 55 after F.2's, and there the total conserves by cancellation
+    // rather than by construction** — which is why the names are checked below
+    // as well as the count. `coverage/workspacePullUF.ua.json` held six names
+    // for a delegate file with seven arms (`dialogCancel` twice). The two
+    // runtime documents hold six between them: `wpLoadConfigConfirmUF` is
+    // **duplicated**, because it is a state action of both flows, and
+    // `dialogCancel` is **dropped**, because neither flow has a form or a table
+    // that offers it. +1 and −1 is not an invariant, so the assertion below is.
     const names = Object.values(all).flatMap((doc) =>
       Object.keys((doc as ActionDocument).actions),
     );
     expect(names).toHaveLength(55);
     expect(new Set(names).size).toBeLessThan(names.length); // dialogCancel repeats across flows
+  });
+
+  it("re-partitions the workspace_pull delegate by flow, not by file", () => {
+    // The whole of F4, checked on the one delegate file it was written about.
+    // Every name here is a `case ActionKeys.` label of
+    // `workspace_pull/form_action_delegates.dart`; the two switches in that file
+    // are two flows, and this is where they part.
+    expect(Object.keys((loadConfig as ActionDocument).actions).sort()).toEqual([
+      "wpLoadAllClientConfigUF",
+      "wpLoadConfigConfirmUF",
+      "wpLoadConfigOkUF",
+    ]);
+    expect(Object.keys((workspacePull as ActionDocument).actions).sort()).toEqual([
+      "wpLoadConfigConfirmUF",
+      "wpPullWorkspaceConfirmUF",
+      "wpPullWorkspaceOkUF",
+    ]);
+    // **The shared arm is the same body in both**, which is the thing a split
+    // "from opposite ends" loses: two documents, one behaviour, no drift.
+    expect((loadConfig as ActionDocument).actions["wpLoadConfigConfirmUF"]).toEqual(
+      (workspacePull as ActionDocument).actions["wpLoadConfigConfirmUF"],
+    );
   });
 
   it("names five escapes: I-23 found six and one of them became grammar", () => {
@@ -103,7 +141,7 @@ describe("the coverage fixture", () => {
     ]);
   });
 
-  it("uses the two primitives the grammar gained, and nothing undeclared", () => {
+  it("uses the primitives the grammar gained, and nothing undeclared", () => {
     const verbs = Object.values(all).flatMap((doc) =>
       Object.values((doc as ActionDocument).actions).flatMap((a) => a.steps.map((s) => s.do)),
     );
@@ -111,6 +149,20 @@ describe("the coverage fixture", () => {
     // edit removes their only user, this says so rather than leaving dead
     // grammar behind.
     expect(verbs).toContain("query");
+    // F.2's `when`, on the same terms — one site today, and it is
+    // `wpPullWorkspaceConfirmUF`'s.
+    const guarded = Object.values(all).flatMap((doc) =>
+      Object.values((doc as ActionDocument).actions).flatMap((a) =>
+        a.steps.filter((s) => s.when !== undefined),
+      ),
+    );
+    expect(guarded).toHaveLength(1);
+    // And F.2's `csvFromKey`. **Two sites in the Dart and three here**, because
+    // `loadConfigInternal` is a helper two arms call and the documents have no
+    // helper — `wpLoadConfigOkUF` and `wpLoadAllClientConfigUF` each spell it.
+    // Every one of the three writes `updateDbClients`.
+    const csv = JSON.stringify(Object.values(all)).match(/"csvFromKey"/g) ?? [];
+    expect(csv).toHaveLength(3);
     const transports = Object.values(all).flatMap((doc) =>
       Object.values((doc as ActionDocument).actions).flatMap((a) =>
         a.steps.filter((s) => s.do === "post").map((s) => s.transport ?? "simple"),
@@ -167,7 +219,7 @@ describe("every form-state key exists in the Dart", () => {
     const collect = (value: unknown): void => {
       if (value === null || typeof value !== "object") return;
       const node = value as Record<string, unknown>;
-      for (const field of ["key", "listKey", "fromKey", "fromKeyList", "fromKeyAtIndex", "pgArrayFromKey", "over"]) {
+      for (const field of ["key", "listKey", "fromKey", "fromKeyList", "fromKeyAtIndex", "pgArrayFromKey", "csvFromKey", "valueFromKey", "over"]) {
         if (typeof node[field] === "string") keys.add(node[field]);
       }
       if (Array.isArray(node["keys"])) for (const k of node["keys"]) keys.add(k as string);

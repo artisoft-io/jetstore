@@ -1,5 +1,5 @@
 /**
- * The two proof flows, driven end to end. Task S.5.
+ * The flows that run from documents, driven end to end. Tasks S.5 and F.2.
  *
  * **This is the test the whole phase was built to make possible.** Everything
  * before it checked one piece against the Dart: the query builder's payload, the
@@ -8,6 +8,14 @@
  * request go — with nothing compiled in but the widgets.
  *
  * The flow, its actions and its forms are all read from the documents.
+ *
+ * **F.2 widened it from "the two proof flows" to "the flows that run".** The
+ * harness below is the flow runner minus a DOM, so a migrated flow belongs here
+ * whether or not it is one of Phase 2's two — and `loadConfigUF` and
+ * `workspacePullUF` are the pair that share a delegate file, which is the thing
+ * the re-partition has to get right and which no single-flow test can see.
+ * `mapFileUF` is the exception and stays in `FlowRunner.test.tsx`: its form
+ * repeats, so it needs the screen that sizes the groups.
  */
 
 import { describe, expect, it } from "vitest";
@@ -15,15 +23,21 @@ import { describe, expect, it } from "vitest";
 import { emptyRegistry } from "../actions/escapes";
 import { runAction, type ActionHost } from "../actions/interpret";
 import { ActionDocumentSchema, type ActionDocument } from "../actions/schema";
+import loadConfigActionsDoc from "../actions/flows/loadConfigUF.ua.json";
 import loadFilesActionsDoc from "../actions/flows/loadFilesUF.ua.json";
 import registerFileKeyActionsDoc from "../actions/flows/registerFileKeyUF.ua.json";
+import workspacePullActionsDoc from "../actions/flows/workspacePullUF.ua.json";
 import { FormState } from "../datatable/formState";
 import { FormDocumentSchema, type FormDocument } from "./form";
+import loadConfigFormsDoc from "./forms/loadConfigUF.form.json";
 import loadFilesFormsDoc from "./forms/loadFilesUF.form.json";
 import registerFileKeyFormsDoc from "./forms/registerFileKeyUF.form.json";
+import workspacePullFormsDoc from "./forms/workspacePullUF.form.json";
 import { advance, back, evaluateCondition, isStandardAction, startAt, step, FlowError } from "./engine";
+import loadConfigFlowDoc from "./flows/loadConfigUF.uf.json";
 import loadFilesFlowDoc from "./flows/loadFilesUF.uf.json";
 import registerFileKeyFlowDoc from "./flows/registerFileKeyUF.uf.json";
+import workspacePullFlowDoc from "./flows/workspacePullUF.uf.json";
 import { validateDocumentSet } from "./documentSet";
 import { UserFlowSchema, type UserFlow } from "./schema";
 import { isFormValid, validateForm } from "./validateForm";
@@ -117,6 +131,8 @@ describe("the documents are complete and consistent", () => {
   it.each([
     ["registerFileKeyUF", registerFileKeyFlowDoc, registerFileKeyActionsDoc, registerFileKeyFormsDoc],
     ["loadFilesUF", loadFilesFlowDoc, loadFilesActionsDoc, loadFilesFormsDoc],
+    ["loadConfigUF", loadConfigFlowDoc, loadConfigActionsDoc, loadConfigFormsDoc],
+    ["workspacePullUF", workspacePullFlowDoc, workspacePullActionsDoc, workspacePullFormsDoc],
   ])("%s is a consistent set", (_name, flowDoc, actionsDoc, formsDoc) => {
     expect(
       validateDocumentSet({
@@ -300,6 +316,196 @@ describe("conditions", () => {
     expect(evaluateCondition({ op: "not", condition: no }, formState, 0)).toBe(true);
     expect(evaluateCondition({ op: "and", conditions: [yes, no] }, formState, 0)).toBe(false);
     expect(evaluateCondition({ op: "or", conditions: [yes, no] }, formState, 0)).toBe(true);
+  });
+});
+
+/**
+ * F.2's two flows, which are one delegate file and two state machines.
+ *
+ * **The re-partition is what these test, and the payload is what it costs to get
+ * wrong.** `updateDbClients` is the key the server branches on — a comma-joined
+ * client list means *load these*, its absence means *load them all*
+ * (`jets/datatable/workspace_helper_functions.go`, `loadWorkspaceConfigAction`) —
+ * and the coverage document promoted verbatim would have posted neither.
+ */
+describe("load_config, end to end", () => {
+  const setup = () => {
+    const h = harness(loadConfigFlowDoc, loadConfigActionsDoc, loadConfigFormsDoc);
+    // The route's parameter, which `FlowRunner` seeds from the query string.
+    h.formState.setValue(0, "workspace_name", "jets_ws");
+    h.formState.setValue(0, "workspace_uri", "git@github.com:artisoft-io/jets_ws.git");
+    return h;
+  };
+
+  it("starts on the form that offers the client list", () => {
+    const h = setup();
+    expect(h.at()).toBe("load_config");
+    expect(h.formFor("load_config").rows.flat().map((f) => f.field)).toEqual([
+      "text",
+      "text",
+      "dataTable",
+      "spacer",
+      "spacer",
+      "button",
+    ]);
+  });
+
+  it("refuses to advance with no client selected", async () => {
+    const h = setup();
+    const errors = validateForm(h.formFor("load_config"), h.formState, 0);
+    expect(errors.map((e) => e.message)).toEqual(["Select Client to load their configuration"]);
+    // `stay()` with no message: the engine leaves the errors to the caller's
+    // list rather than putting a banner over them (`engine.ts`, `ufNext`).
+    expect(await h.press("ufNext")).toBeNull();
+    expect(h.at()).toBe("load_config");
+    expect(h.posts).toEqual([]);
+  });
+
+  it("carries the selection to the confirmation page as its read-only twin", async () => {
+    const h = setup();
+    h.formState.setValue(0, "wpClientList", ["ACME", "USI"]);
+    expect(await h.press("ufNext")).toBeNull();
+    expect(h.at()).toBe("confirm");
+    expect(h.formState.getValue(0, "wpClientListRO")).toEqual(["ACME", "USI"]);
+  });
+
+  it("posts the selection as a comma-joined updateDbClients", async () => {
+    const h = setup();
+    h.formState.setValue(0, "wpClientList", ["ACME", "USI"]);
+    await h.press("ufNext");
+    expect(await h.press("ufCompleted")).toBeNull();
+    expect(h.posts).toHaveLength(1);
+    const body = h.posts[0]!.body as Record<string, unknown>;
+    expect(body["action"]).toBe("workspace_insert_rows");
+    expect(body["fromClauses"]).toEqual([{ table: "load_workspace_config" }]);
+    expect(body["workspaceName"]).toBe("jets_ws");
+    const row = (body["data"] as Record<string, unknown>[])[0]!;
+    expect(row["updateDbClients"]).toBe("ACME,USI");
+    expect(row["user_email"]).toBe("michel@artisoft.io");
+    expect(row["workspace_name"]).toBe("jets_ws");
+  });
+
+  it("sends updateDbClients as null when the inline button loads them all", async () => {
+    const h = setup();
+    h.formState.setValue(0, "wpClientList", ["ACME"]);
+    // The inline `button` field, dispatched exactly as an action-bar button is.
+    const button = h.formFor("load_config").rows.flat().find((f) => f.field === "button")!;
+    expect("action" in button && button.action).toBe("wpLoadAllClientConfigUF");
+    expect(await h.press("wpLoadAllClientConfigUF")).toBeNull();
+    const row = (h.posts[0]!.body["data"] as Record<string, unknown>[])[0]!;
+    // **Null, not `""` and not `{}`.** The server reads a null here as
+    // "-initWorkspaceDb", which is the whole point of the button.
+    expect(row["updateDbClients"]).toBeNull();
+    expect(row["wpClientList"]).toBeUndefined();
+    expect(h.events).toContain("close");
+  });
+
+  it("does not offer an advancing button on its end state", () => {
+    const h = setup();
+    expect(h.flow.states["confirm"]!.isEnd).toBe(true);
+    expect(h.formFor("confirm").actions.map((a) => a.action)).toEqual([
+      "ufPrevious",
+      "ufCancel",
+      "ufCompleted",
+    ]);
+  });
+});
+
+describe("pull_workspace, end to end", () => {
+  const setup = () => {
+    const h = harness(workspacePullFlowDoc, workspacePullActionsDoc, workspacePullFormsDoc);
+    for (const [key, value] of [
+      ["key", "12"],
+      ["workspace_name", "jets_ws"],
+      ["workspace_branch", "main"],
+      ["feature_branch", "jets_ai"],
+      ["workspace_uri", "git@github.com:artisoft-io/jets_ws.git"],
+    ] as const) {
+      h.formState.setValue(0, key, value);
+    }
+    return h;
+  };
+
+  it("branches to the client list only when the selected-clients option is ticked", async () => {
+    const h = setup();
+    h.formState.setValue(0, "otherWorkspaceActionOptions", ["wpLoadSelectedClientConfgOption"]);
+    expect(await h.press("ufNext")).toBeNull();
+    expect(h.at()).toBe("select_clients");
+  });
+
+  it("goes straight to the confirmation otherwise", async () => {
+    const h = setup();
+    h.formState.setValue(0, "otherWorkspaceActionOptions", ["wpCompileWorkspaceOption"]);
+    expect(await h.press("ufNext")).toBeNull();
+    expect(h.at()).toBe("confirm");
+  });
+
+  it("drops a client selection the chosen actions no longer use", async () => {
+    // The `when` guard, and the reason it had to exist. The user ticks
+    // "SELECTED clients", picks two, goes Previous, unticks it, and goes Next:
+    // without the guarded `remove` the confirmation page still lists two
+    // clients and the post still names them.
+    const h = setup();
+    h.formState.setValue(0, "otherWorkspaceActionOptions", ["wpLoadSelectedClientConfgOption"]);
+    await h.press("ufNext");
+    h.formState.setValue(0, "wpClientList", ["ACME", "USI"]);
+    await h.press("ufNext");
+    expect(h.formState.getValue(0, "wpClientListRO")).toEqual(["ACME", "USI"]);
+
+    await h.press("ufPrevious");
+    await h.press("ufPrevious");
+    expect(h.at()).toBe("pull_workspace");
+    h.formState.setValue(0, "otherWorkspaceActionOptions", ["wpLoadClientConfgOption"]);
+    expect(await h.press("ufNext")).toBeNull();
+    expect(h.at()).toBe("confirm");
+    expect(h.formState.getValue(0, "wpClientList")).toBeUndefined();
+    expect(h.formState.getValue(0, "wpClientListRO")).toBeUndefined();
+  });
+
+  it("keeps the selection when the option is still ticked", async () => {
+    const h = setup();
+    h.formState.setValue(0, "otherWorkspaceActionOptions", ["wpLoadSelectedClientConfgOption"]);
+    h.formState.setValue(0, "wpClientList", ["ACME"]);
+    await h.press("ufNext");
+    expect(h.formState.getValue(0, "wpClientList")).toEqual(["ACME"]);
+  });
+
+  it("survives an untouched option table, which the Dart does not", async () => {
+    // `final l = state[otherWorkspaceActionOptions] as List` is a hard cast, not
+    // an assert, so in Flutter this throws — see the register. Here the guard's
+    // `contains` is false on a missing key and the step is skipped.
+    const h = setup();
+    expect(await h.press("ufNext")).toBeNull();
+    expect(h.at()).toBe("confirm");
+  });
+
+  it("posts the whole state with the workspace extras beside it", async () => {
+    const h = setup();
+    h.formState.setValue(0, "otherWorkspaceActionOptions", ["wpLoadSelectedClientConfgOption"]);
+    await h.press("ufNext");
+    h.formState.setValue(0, "wpClientList", ["ACME", "USI"]);
+    await h.press("ufNext");
+    expect(await h.press("ufCompleted")).toBeNull();
+    const body = h.posts[0]!.body as Record<string, unknown>;
+    expect(body["fromClauses"]).toEqual([{ table: "pull_workspace" }]);
+    expect(body["workspaceName"]).toBe("jets_ws");
+    expect(body["workspaceBranch"]).toBe("main");
+    expect(body["featureBranch"]).toBe("jets_ai");
+    const row = (body["data"] as Record<string, unknown>[])[0]!;
+    expect(row["key"]).toBe("12");
+    expect(row["workspace_uri"]).toBe("git@github.com:artisoft-io/jets_ws.git");
+    expect(row["updateDbClients"]).toBe("ACME,USI");
+    expect(row["otherWorkspaceActionOptions"]).toEqual(["wpLoadSelectedClientConfgOption"]);
+    expect(row["wpPullWorkspaceConfirmOptions"]).toEqual(["wpLoadSelectedClientConfgOption"]);
+  });
+
+  it("shares wpLoadConfigConfirmUF with load_config and means the same thing", async () => {
+    const h = setup();
+    h.formState.setValue(0, "otherWorkspaceActionOptions", ["wpLoadSelectedClientConfgOption"]);
+    await h.press("ufNext");
+    h.formState.setValue(0, "wpClientList", ["ACME"]);
+    expect(await h.press("ufNext")).toBeNull();
+    expect(h.formState.getValue(0, "wpClientListRO")).toEqual(["ACME"]);
   });
 });
 

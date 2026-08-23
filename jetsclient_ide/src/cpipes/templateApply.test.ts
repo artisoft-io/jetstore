@@ -41,7 +41,7 @@ import { runAction, type ActionHost } from "../actions/interpret";
 import { ActionDocumentSchema, type ActionDocument } from "../actions/schema";
 import { FormState } from "../datatable/formState";
 import { isStandardAction, startAt, step } from "../userflow/engine";
-import { FormDocumentSchema, type Form, type FormDocument } from "../userflow/form";
+import { FormDocumentSchema, valueFieldsOf, type Form, type FormDocument } from "../userflow/form";
 import { UserFlowSchema, type UserFlow } from "../userflow/schema";
 import { escapeReferences } from "../userflow/store";
 import { resolveEscapes } from "../actions/escapes";
@@ -96,9 +96,13 @@ const host: ActionHost = {
  * check that "empty is absent" holds.
  */
 function fill(form: Form, formState: FormState, choose: (key: string) => string | undefined): void {
-  for (const row of form.rows) {
-    for (const field of row) {
-      if (field.field === "label" || field.field === "spacer") continue;
+  // **`valueFieldsOf` rather than walking the rows and skipping the kinds that are
+  // not inputs.** F.2 added a `button` field kind, which broke the skip list here —
+  // and a skip list is the shape that breaks every time a kind is added. The
+  // function exists to answer exactly this question (`userflow/form.ts`), so the
+  // next field kind costs this file nothing.
+  {
+    for (const field of valueFieldsOf(form)) {
       const key = field.key;
       const required = (field.rules ?? []).some((r) => r.rule === "required");
       const json = (field.rules ?? []).some((r) => r.rule === "json");

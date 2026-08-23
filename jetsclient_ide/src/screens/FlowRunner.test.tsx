@@ -23,13 +23,18 @@ import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { ApiClient } from "../api/client";
 import lfFileKeyStagingTable from "../datatable/tables/lfFileKeyStagingTable.tc.json";
 import lfSourceConfigTable from "../datatable/tables/lfSourceConfigTable.tc.json";
+import wpClientList from "../datatable/tables/wpClientList.tc.json";
+import wpClientListRO from "../datatable/tables/wpClientListRO.tc.json";
 import type { JetsRow } from "../datatable/types";
 import { ApiProvider } from "../shell/capabilities";
 import { NotificationsProvider } from "../shell/notifications";
+import loadConfigActions from "../actions/flows/loadConfigUF.ua.json";
 import loadFilesActions from "../actions/flows/loadFilesUF.ua.json";
 import mapFileActions from "../actions/flows/mapFileUF.ua.json";
+import loadConfigFlow from "../userflow/flows/loadConfigUF.uf.json";
 import loadFilesFlow from "../userflow/flows/loadFilesUF.uf.json";
 import mapFileFlow from "../userflow/flows/mapFileUF.uf.json";
+import loadConfigForms from "../userflow/forms/loadConfigUF.form.json";
 import loadFilesForms from "../userflow/forms/loadFilesUF.form.json";
 import mapFileForms from "../userflow/forms/mapFileUF.form.json";
 import { FlowRunner } from "./FlowRunner";
@@ -51,6 +56,15 @@ const files: Record<string, string> = {
   "user_flows/mapFileUF.uf.json": serialise(mapFileFlow),
   "user_flows/mapFileUF.ua.json": serialise(mapFileActions),
   "user_flows/mapFileUF.form.json": serialise(mapFileForms),
+
+  // F.2. Its route carries `?workspace_name=&workspace_uri=`, and the two text
+  // fields that show them are read-only — which the corpus says of 20 of the 36
+  // text inputs and the schema could not say until this task.
+  "user_flows/loadConfigUF.uf.json": serialise(loadConfigFlow),
+  "user_flows/loadConfigUF.ua.json": serialise(loadConfigActions),
+  "user_flows/loadConfigUF.form.json": serialise(loadConfigForms),
+  "table_configs/wpClientList.tc.json": serialise(wpClientList),
+  "table_configs/wpClientListRO.tc.json": serialise(wpClientListRO),
 
   // **A synthetic flow, and it is synthetic on purpose** (I.2b). No shipping flow
   // pairs a query-backed dropdown with a typeahead — `fmMappingFormUF` has both
@@ -116,6 +130,11 @@ const mappingRows: JetsRow[] = [
   ["member:dob", "0", "dob", "to_date", "%Y-%m-%d", null, null, null],
 ];
 const stagingColumns: JetsRow[] = [["claim_id"], ["dob"], ["member_id"]];
+/** `wpClientList`'s two columns — the key column is `client`, at index 0. */
+const clientRows: JetsRow[] = [
+  ["ACME", "Acme Health"],
+  ["USI", "USI Insurance"],
+];
 const mappingFunctions: JetsRow[] = [
   ["to_date", "1"],
   ["to_upper", "0"],
@@ -181,6 +200,12 @@ function stubServer(overrides: { missing?: string[] } = {}) {
 
       case "read": {
         const from = (body["fromClauses"] as { table: string }[])[0]!.table;
+        if (from === "client_registry") {
+          return new Response(
+            JSON.stringify({ rows: clientRows, totalRowCount: clientRows.length }),
+            { status: 200 },
+          );
+        }
         if (from === "source_config") {
           return new Response(
             JSON.stringify({ rows: sourceRows, totalRowCount: sourceRows.length }),
@@ -209,6 +234,7 @@ function stubServer(overrides: { missing?: string[] } = {}) {
       }
 
       case "insert_rows":
+      case "workspace_insert_rows":
         return new Response("{}", { status: 200 });
 
       default:
@@ -650,5 +676,91 @@ describe("mapFileUF — the file mapping worksheet", () => {
     // mount — the same reason the load-failure test asserts on the runner's own
     // findings list rather than on a notification.
     expect(posts.filter((p) => p.body["action"] === "insert_rows")).toHaveLength(0);
+  });
+});
+
+const LOAD_CONFIG_SEARCH =
+  "?workspace_name=jets_ws&workspace_uri=git%40github.com%3Aartisoft-io%2Fjets_ws.git";
+
+/**
+ * `loadConfigUF`, on the screen. Task F.2.
+ *
+ * **What only a rendered form can show**, and the reason this block exists
+ * alongside `proofFlows.test.ts`'s: the two text fields are read-only, and the
+ * "Load All Clients Config" button is a `button` *field* sitting in the rows
+ * rather than an entry in the action bar. Neither is visible to a harness that
+ * drives the engine.
+ */
+describe("loadConfigUF — loading client configuration", () => {
+  it("shows the workspace from the route, read-only", async () => {
+    await mount("loadConfigUF", { search: LOAD_CONFIG_SEARCH });
+    const name = (await screen.findByLabelText("Workspace Name")) as HTMLInputElement;
+    const uri = screen.getByLabelText("Worksapce URI") as HTMLInputElement;
+    expect(name.value).toBe("jets_ws");
+    expect(uri.value).toBe("git@github.com:artisoft-io/jets_ws.git");
+    // `isReadOnly` — 20 of the corpus's 36 text inputs set it, and until F.2 the
+    // schema could not say so. An editable copy here is a form on which the user
+    // retargets the pull.
+    expect(name.readOnly).toBe(true);
+    expect(uri.readOnly).toBe(true);
+  });
+
+  it("draws the inline button beside the client table, not in the action bar", async () => {
+    await mount("loadConfigUF", { search: LOAD_CONFIG_SEARCH });
+    const inline = await screen.findByRole("button", { name: "Load All Clients Config" });
+    const bar = screen.getByRole("group", { name: "Form actions" });
+    expect(bar.contains(inline)).toBe(false);
+    expect(bar.textContent).toBe("PreviousCancelNext");
+  });
+
+  it("posts the selected clients as a comma-joined list", async () => {
+    const { posts } = await mount("loadConfigUF", { search: LOAD_CONFIG_SEARCH });
+    await screen.findByText("Acme Health");
+    fireEvent.click(screen.getAllByRole("checkbox")[0]!);
+    fireEvent.click(screen.getAllByRole("checkbox")[1]!);
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
+
+    await screen.findByRole("button", { name: "Comfirm" });
+    fireEvent.click(screen.getByRole("button", { name: "Comfirm" }));
+
+    await waitFor(() =>
+      expect(posts.filter((p) => p.body["action"] === "workspace_insert_rows")).toHaveLength(1),
+    );
+    const post = posts.find((p) => p.body["action"] === "workspace_insert_rows")!;
+    expect(post.body["workspaceName"]).toBe("jets_ws");
+    const row = (post.body["data"] as Record<string, unknown>[])[0]!;
+    expect(row["updateDbClients"]).toBe("ACME,USI");
+    expect(row["user_email"]).toBe("michel@artisoft.io");
+  });
+
+  it("posts a null updateDbClients when the inline button is used instead", async () => {
+    const { posts } = await mount("loadConfigUF", { search: LOAD_CONFIG_SEARCH });
+    await screen.findByText("Acme Health");
+    fireEvent.click(screen.getAllByRole("checkbox")[0]!);
+    fireEvent.click(screen.getByRole("button", { name: "Load All Clients Config" }));
+
+    await waitFor(() =>
+      expect(posts.filter((p) => p.body["action"] === "workspace_insert_rows")).toHaveLength(1),
+    );
+    const post = posts.find((p) => p.body["action"] === "workspace_insert_rows")!;
+    const row = (post.body["data"] as Record<string, unknown>[])[0]!;
+    // **Null rather than absent or `{}`**: the server reads a null here as
+    // `-initWorkspaceDb` and a string as `-clients <list>`
+    // (`jets/datatable/workspace_helper_functions.go`, `loadWorkspaceConfigAction`).
+    expect(row["updateDbClients"]).toBeNull();
+    // And the button does not validate first, so the selection it clears never
+    // had to be there — which is why the required rule on the table does not
+    // gate it.
+    expect(row["wpClientList"]).toBeUndefined();
+  });
+
+  it("refuses Next with no client selected", async () => {
+    const { posts } = await mount("loadConfigUF", { search: LOAD_CONFIG_SEARCH });
+    await screen.findByText("Acme Health");
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
+    await waitFor(() =>
+      expect(screen.getByText("Select Client to load their configuration")).toBeTruthy(),
+    );
+    expect(posts.filter((p) => p.body["action"] === "workspace_insert_rows")).toHaveLength(0);
   });
 });

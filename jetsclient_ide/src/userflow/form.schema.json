@@ -166,6 +166,9 @@
             "autofocus": {
               "type": "boolean"
             },
+            "isReadOnly": {
+              "type": "boolean"
+            },
             "rules": {
               "type": "array",
               "items": {
@@ -365,6 +368,51 @@
             }
           },
           "required": [
+            "field"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "action": {
+              "type": "string",
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9_.-]+$",
+              "description": "A key naming a state, form, action or form-state entry"
+            },
+            "label": {
+              "type": "string",
+              "minLength": 1
+            },
+            "style": {
+              "type": "string",
+              "enum": [
+                "primary",
+                "secondary",
+                "danger"
+              ]
+            },
+            "capability": {
+              "type": "string",
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9_.-]+$",
+              "description": "A key naming a state, form, action or form-state entry"
+            },
+            "enableOnlyWhenFormValid": {
+              "type": "boolean"
+            },
+            "enableOnlyWhenFormNotValid": {
+              "type": "boolean"
+            },
+            "field": {
+              "type": "string",
+              "const": "button"
+            }
+          },
+          "required": [
+            "action",
+            "label",
             "field"
           ],
           "additionalProperties": false

@@ -219,7 +219,7 @@
       "description": "A guarded transition to another state"
     },
     "Condition": {
-      "description": "A predicate over form state, evaluated to pick the next state",
+      "description": "A predicate over form state, guarding a transition or a step",
       "anyOf": [
         {
           "type": "object",
