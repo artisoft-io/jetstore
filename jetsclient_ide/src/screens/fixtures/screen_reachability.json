@@ -92,6 +92,16 @@
       "access": [
         "anyUser"
       ],
+      "tableCount": 3,
+      "tables": [
+        "inputLoaderStatusTable",
+        "inputRegistryTable",
+        "pipelineExecStatusTable"
+      ],
+      "dialogFormCount": 1,
+      "dialogForms": [
+        "showFailureDetailsDialog"
+      ],
       "reachedFrom": [
         "/ menu:jetstoreHome",
         "/clientRegistryUF/:startAtKey menu:jetstoreHome",
@@ -140,6 +150,10 @@
       "widget": "MessageScreen",
       "authRequired": true,
       "access": [],
+      "tableCount": 0,
+      "tables": [],
+      "dialogFormCount": 0,
+      "dialogForms": [],
       "reachedFrom": [],
       "outgoing": []
     },
@@ -149,6 +163,16 @@
       "authRequired": true,
       "access": [
         "anyUser"
+      ],
+      "tableCount": 3,
+      "tables": [
+        "client",
+        "org",
+        "ufClientOrVendorOption"
+      ],
+      "dialogFormCount": 1,
+      "dialogForms": [
+        "ufVendor"
       ],
       "reachedFrom": [
         "/ menu:clientOrgAdmin",
@@ -213,6 +237,17 @@
       "access": [
         "anyUser"
       ],
+      "tableCount": 4,
+      "tables": [
+        "hfFileKeyFilterTypeTableUF",
+        "hfProcessTableUF",
+        "hfStatusTableUF",
+        "pipelineExecStatusTable"
+      ],
+      "dialogFormCount": 1,
+      "dialogForms": [
+        "showFailureDetailsDialog"
+      ],
       "reachedFrom": [
         "/ table:pipelineExecStatusTable:setHomeFilters",
         "/configureHomeFiltersUF table:pipelineExecStatusTable:setHomeFilters"
@@ -242,6 +277,12 @@
       "access": [
         "anyUser"
       ],
+      "tableCount": 1,
+      "tables": [
+        "inputTable"
+      ],
+      "dialogFormCount": 0,
+      "dialogForms": [],
       "reachedFrom": [
         "/ table:inputLoaderStatusTable:viewDomainTable",
         "/ table:inputRegistryTable:viewDomainTable"
@@ -267,6 +308,12 @@
       "access": [
         "anyUser"
       ],
+      "tableCount": 1,
+      "tables": [
+        "cpipesExecDetailsTable"
+      ],
+      "dialogFormCount": 0,
+      "dialogForms": [],
       "reachedFrom": [
         "/ table:pipelineExecStatusTable:viewExecStatsDetails",
         "/configureHomeFiltersUF table:pipelineExecStatusTable:viewExecStatsDetails"
@@ -292,6 +339,12 @@
       "access": [
         "anyUser"
       ],
+      "tableCount": 1,
+      "tables": [
+        "pipelineExecDetailsTable"
+      ],
+      "dialogFormCount": 0,
+      "dialogForms": [],
       "reachedFrom": [
         "/ table:pipelineExecStatusTable:viewStatusDetails",
         "/configureHomeFiltersUF table:pipelineExecStatusTable:viewStatusDetails"
@@ -316,6 +369,16 @@
       "authRequired": true,
       "access": [
         "anyUser"
+      ],
+      "tableCount": 2,
+      "tables": [
+        "fmFileMappingTableUF",
+        "fmInputSourceMappingUF"
+      ],
+      "dialogFormCount": 2,
+      "dialogForms": [
+        "fmMappingFormUF",
+        "loadRawRowsDialog"
       ],
       "reachedFrom": [
         "/ menu:inputSourceMapping",
@@ -381,6 +444,10 @@
       "access": [
         "anyUser"
       ],
+      "tableCount": 0,
+      "tables": [],
+      "dialogFormCount": 0,
+      "dialogForms": [],
       "reachedFrom": [
         "/fileMappingUF table:fmFileMappingTableUF:configureMappingPage"
       ],
@@ -405,6 +472,12 @@
       "access": [
         "anyUser"
       ],
+      "tableCount": 1,
+      "tables": [
+        "inputFileViewerTable"
+      ],
+      "dialogFormCount": 0,
+      "dialogForms": [],
       "reachedFrom": [
         "/loadFilesUF table:lfFileKeyStagingTable:previewInputFile"
       ],
@@ -430,6 +503,10 @@
         "admin",
         "cap:infer_server_admin+cap:workspace_ide"
       ],
+      "tableCount": 0,
+      "tables": [],
+      "dialogFormCount": 0,
+      "dialogForms": [],
       "reachedFrom": [
         "/inferServerAdmin menu:inferServerAdmin",
         "/queryTool menu:inferServerAdmin",
@@ -456,6 +533,13 @@
       "access": [
         "anyUser"
       ],
+      "tableCount": 2,
+      "tables": [
+        "lfFileKeyStagingTable",
+        "lfSourceConfigTable"
+      ],
+      "dialogFormCount": 0,
+      "dialogForms": [],
       "reachedFrom": [
         "/ toolbar:loaderUF",
         "/clientRegistryUF/:startAtKey toolbar:loaderUF",
@@ -499,6 +583,10 @@
       "widget": "ScreenWithForm",
       "authRequired": false,
       "access": [],
+      "tableCount": 0,
+      "tables": [],
+      "dialogFormCount": 0,
+      "dialogForms": [],
       "reachedFrom": [],
       "outgoing": []
     },
@@ -508,6 +596,24 @@
       "authRequired": true,
       "access": [
         "anyUser"
+      ],
+      "tableCount": 10,
+      "tables": [
+        "pcAddOrEditPipelineConfigOption",
+        "pcInjectedProcessInputKeys",
+        "pcMainProcessInputKey",
+        "pcMergedProcessInputKeys",
+        "pcPipelineConfigTable",
+        "pcProcessInputRegistry",
+        "pcProcessInputRegistry4MI",
+        "pcSummaryProcessInputs",
+        "pcViewInjectedProcessInputKeys",
+        "pcViewMergedProcessInputKeys"
+      ],
+      "dialogFormCount": 2,
+      "dialogForms": [
+        "pcNewProcessInputDialog",
+        "pcNewProcessInputDialog4MI"
       ],
       "reachedFrom": [
         "/ menu:pipelineConfig",
@@ -570,6 +676,15 @@
       "widget": "ScreenWithForm",
       "authRequired": true,
       "access": [],
+      "tableCount": 2,
+      "tables": [
+        "clientsAndProcessesTableView",
+        "ruleConfigTable"
+      ],
+      "dialogFormCount": 1,
+      "dialogForms": [
+        "rulesConfigDialog"
+      ],
       "reachedFrom": [],
       "outgoing": [
         "/",
@@ -591,6 +706,18 @@
       "authRequired": true,
       "access": [
         "anyUser"
+      ],
+      "tableCount": 4,
+      "tables": [
+        "processErrorsTable",
+        "reteSessionEntityDetailsTable",
+        "reteSessionEntityKeyTable",
+        "reteSessionRdfTypeTable"
+      ],
+      "dialogFormCount": 2,
+      "dialogForms": [
+        "viewInputRecordsDialog",
+        "viewReteTriplesDialogV2"
       ],
       "reachedFrom": [
         "/ table:pipelineExecStatusTable:viewProcessErrors",
@@ -618,6 +745,15 @@
         "admin",
         "cap:workspace_ide"
       ],
+      "tableCount": 4,
+      "tables": [
+        "otherWorkspaceActionOptions",
+        "wpClientList",
+        "wpClientListRO",
+        "wpPullWorkspaceConfirmOptions"
+      ],
+      "dialogFormCount": 0,
+      "dialogForms": [],
       "reachedFrom": [
         "/workspaces table:workspaceRegistryTable:pullWorkspace"
       ],
@@ -643,6 +779,12 @@
         "admin",
         "cap:workspace_ide"
       ],
+      "tableCount": 1,
+      "tables": [
+        "queryToolResultSetTable"
+      ],
+      "dialogFormCount": 0,
+      "dialogForms": [],
       "reachedFrom": [
         "/inferServerAdmin menu:queryTool",
         "/queryTool menu:queryTool",
@@ -667,6 +809,10 @@
       "widget": "ScreenWithForm",
       "authRequired": false,
       "access": [],
+      "tableCount": 0,
+      "tables": [],
+      "dialogFormCount": 0,
+      "dialogForms": [],
       "reachedFrom": [],
       "outgoing": []
     },
@@ -677,6 +823,10 @@
       "access": [
         "anyUser"
       ],
+      "tableCount": 0,
+      "tables": [],
+      "dialogFormCount": 0,
+      "dialogForms": [],
       "reachedFrom": [
         "/ toolbar:registerKeyUF",
         "/clientRegistryUF/:startAtKey toolbar:registerKeyUF",
@@ -721,6 +871,14 @@
       "access": [
         "anyUser"
       ],
+      "tableCount": 1,
+      "tables": [
+        "ruleConfigv2Table"
+      ],
+      "dialogFormCount": 1,
+      "dialogForms": [
+        "rulesConfigv2Dialog"
+      ],
       "reachedFrom": [
         "/ menu:processConfig",
         "/clientRegistryUF/:startAtKey menu:processConfig",
@@ -763,6 +921,15 @@
       "access": [
         "anyUser"
       ],
+      "tableCount": 4,
+      "tables": [
+        "input_format",
+        "scAddOrEditSourceConfigOption",
+        "scSingleOrMultiPartFileOption",
+        "scSourceConfigKey"
+      ],
+      "dialogFormCount": 0,
+      "dialogForms": [],
       "reachedFrom": [
         "/ menu:sourceConfigUF",
         "/ toolbar:sourceConfigUF",
@@ -826,6 +993,17 @@
       "access": [
         "anyUser"
       ],
+      "tableCount": 6,
+      "tables": [
+        "main_input_registry_key",
+        "mergeProcessInputTable",
+        "merged_input_registry_keys",
+        "pipeline_config_key",
+        "spInjectedProcessInput",
+        "spSummaryDataSources"
+      ],
+      "dialogFormCount": 0,
+      "dialogForms": [],
       "reachedFrom": [
         "/ table:pipelineExecStatusTable:startPipeline",
         "/ toolbar:startPipelineUF",
@@ -872,6 +1050,15 @@
       "access": [
         "admin"
       ],
+      "tableCount": 2,
+      "tables": [
+        "userRolesTable",
+        "userTable"
+      ],
+      "dialogFormCount": 1,
+      "dialogForms": [
+        "editUserProfile"
+      ],
       "reachedFrom": [
         "/ adminMenu:userAdmin",
         "/clientRegistryUF/:startAtKey adminMenu:userAdmin",
@@ -912,6 +1099,10 @@
       "widget": "ScreenWithForm",
       "authRequired": true,
       "access": [],
+      "tableCount": 0,
+      "tables": [],
+      "dialogFormCount": 0,
+      "dialogForms": [],
       "reachedFrom": [],
       "outgoing": [
         "/",
@@ -934,6 +1125,20 @@
       "access": [
         "admin",
         "cap:workspace_ide"
+      ],
+      "tableCount": 1,
+      "tables": [
+        "workspaceRegistryTable"
+      ],
+      "dialogFormCount": 7,
+      "dialogForms": [
+        "addWorkspace",
+        "commitWorkspaceDialog",
+        "doGitCommandWorkspaceDialog",
+        "doGitStatusWorkspaceDialog",
+        "exportWorkspaceClientConfig",
+        "pushOnlyWorkspaceDialog",
+        "viewGitLogWorkspaceDialog"
       ],
       "reachedFrom": [
         "/ menu:workspaceIDEHome",
@@ -975,6 +1180,12 @@
       "widget": "ScreenWithTabsWithForm",
       "authRequired": true,
       "access": [],
+      "tableCount": 1,
+      "tables": [
+        "workspaceChangesTable"
+      ],
+      "dialogFormCount": 0,
+      "dialogForms": [],
       "reachedFrom": [],
       "outgoing": []
     },
@@ -986,6 +1197,13 @@
         "admin",
         "cap:workspace_ide"
       ],
+      "tableCount": 2,
+      "tables": [
+        "wpClientList",
+        "wpClientListRO"
+      ],
+      "dialogFormCount": 0,
+      "dialogForms": [],
       "reachedFrom": [
         "/workspaces table:workspaceRegistryTable:loadWorkspaceConfig"
       ],

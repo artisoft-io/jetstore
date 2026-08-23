@@ -93,7 +93,7 @@ const endMarker = '===END SCREEN REACHABILITY CORPUS===';
 /// **Update it only together with the React fixture.** A failure here means a
 /// route, a menu or a navigate action changed; the fix is to regenerate both,
 /// never to edit this number so the test goes green.
-const expectedChecksum = 'fnv1a32:6c0da84e';
+const expectedChecksum = 'fnv1a32:308ad556';
 
 /// Every screen configuration every registry holds, by registry.
 ///
@@ -238,10 +238,23 @@ void collectFromTable(String key, Set<String> tables, Set<String> forms) {
   }
 }
 
-/// The table configurations one route shows, and the navigate actions they
-/// carry. The widget is the source: it holds the very configuration the screen
-/// renders, so nothing has to be matched up by naming convention.
-Set<String> tablesOfRoute(Widget widget) {
+/// The configuration one route shows: the table keys and the dialog-form keys
+/// reachable from it. The widget is the source — it holds the very configuration
+/// the screen renders, so nothing has to be matched up by naming convention.
+///
+/// **This is the per-route inventory the sizing reads.** `screen_configs.json`
+/// counts the non-flow surface in total; this says which route each piece of it
+/// belongs to, which is what turns a total into an order of work.
+class RouteConfiguration {
+  RouteConfiguration(this.tables, this.forms);
+  final Set<String> tables;
+
+  /// Dialog forms only — the form a screen renders directly is named by its
+  /// widget rather than reached through an action, and is emitted separately.
+  final Set<String> forms;
+}
+
+RouteConfiguration configurationOfRoute(Widget widget) {
   final tables = <String>{};
   final forms = <String>{};
   if (widget is ScreenOne) {
@@ -259,7 +272,7 @@ Set<String> tablesOfRoute(Widget widget) {
       collectFromForm(state.formConfig, tables, forms);
     }
   }
-  return tables;
+  return RouteConfiguration(tables, forms);
 }
 
 /// Every outgoing edge of one route.
@@ -268,7 +281,7 @@ List<Edge> edgesOf(String route, Widget widget) {
   if (widget is BaseScreen) {
     edges.addAll(menuEdges(widget.screenConfig));
   }
-  for (final key in tablesOfRoute(widget).toList()..sort()) {
+  for (final key in configurationOfRoute(widget).tables.toList()..sort()) {
     for (final action in [
       ...getTableConfig(key).actions,
       ...getTableConfig(key).secondRowActions,
@@ -350,11 +363,16 @@ String buildCorpus() {
   final routeRows = <String, dynamic>{};
   for (final route in routes) {
     final reached = grants[route];
+    final config = configurationOfRoute(jetsRoutesMap[route]!);
     routeRows[route] = <String, dynamic>{
       'screenKey': screenOfRoute[route],
       'widget': widgetOfRoute[route],
       'authRequired': _authRequired(route),
       'access': reached == null ? <String>[] : grantLabels(reached),
+      'tableCount': config.tables.length,
+      'tables': config.tables.toList()..sort(),
+      'dialogFormCount': config.forms.length,
+      'dialogForms': config.forms.toList()..sort(),
       'reachedFrom': (incoming[route]?.toList() ?? <String>[])..sort(),
       'outgoing': outgoing[route]!.map((e) => e.to).toSet().toList()..sort(),
     };

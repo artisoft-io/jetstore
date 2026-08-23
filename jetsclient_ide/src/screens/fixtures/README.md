@@ -119,6 +119,25 @@ capability `c` is reachable two ways — by an administrator, or by a user holdi
 `orphanScreenKeys` and `routesWithNoConfiguredEdge` are the two lists worth
 reading first.
 
+**Each route also carries its own inventory** — `tables` and `dialogForms`, the
+configuration reachable from that screen. `screen_configs.json` counts the
+non-flow surface in total; this says which route each piece of it belongs to,
+which is what turns a total into an order of work.
+
+**Eighteen of that file's 28 table configurations are reached from a non-flow
+route by this closure. The other ten are not, and none of the three reasons is
+"dead code" except one:**
+
+| Tables | Why the closure does not reach them |
+|---:|---|
+| 8 | The Workspace IDE's tabbed sections. `MenuEntry.formConfigKey` is composed at run time as `"workspace.$pageMatchKey.form"` from the server's file-tree response (`workspace_ide/screen_delegates_helpers.dart:137`), so the edge is a *string template* over server data rather than a declaration. |
+| 1 | `inputRecordsFromProcessErrorTable`, inside an `inputFieldRowBuilder` closure — the fourth field container `allFields` deliberately does not walk, because its fields do not exist until a form is driven. |
+| 1 | `reteSessionTriplesTable`, whose only opener is a **commented-out** `configForm` (`data_table_config_impl.dart:671`). `viewReteTriplesV2` superseded it. This one really is dead. |
+
+The first row is the one that matters: the Workspace IDE is first in the
+migration order, and its screen inventory is data-driven from the apiserver
+rather than enumerable here.
+
 **"No configured edge" is a statement about the configuration, not a claim that
 the route is dead** (I-20). Five of the six are reached from Dart:
 `/login` and `/register` from `user_delegates.dart` and `http_client.dart`,
