@@ -1,3 +1,11 @@
+# The screens' fixtures
+
+Two files, generated from the running Flutter app, both answering one half of
+Phase 3's sizing gate: `screen_configs.json` counts what the non-flow screens
+*hold*, and `screen_reachability.json` says what *reaches* them.
+
+---
+
 # `screen_configs.json` — the non-flow screens' configuration, as data
 
 Generated from the running Flutter app. **Do not edit it by hand.**
@@ -61,3 +69,73 @@ the markers into this file, and put the new checksum into `expectedChecksum` in
 that test. **Both, together** — the checksum is what makes a stale fixture fail
 rather than diverge quietly. The browser has no filesystem, which is why the
 corpus is printed rather than written (I-5).
+
+---
+
+# `screen_reachability.json` — which screens anything routes to, and for whom
+
+Generated from the running Flutter app by
+`jetsclient/test/screen_reachability_corpus_test.dart`. **Do not edit it by
+hand.**
+
+`screen_configs.json` counts configuration; it does not ask whether a user can
+get to it. **G3.2 asks that**, because the migration is per route: a screen
+nothing reaches costs nothing to leave behind, and a screen only an administrator
+reaches is not on the critical path. See
+`projects/ui_refresh/plan/phase3_plan.md` §1.2 sub-question 3, and the sizing
+document that reads this file.
+
+## Reachability here is a closure over configuration
+
+Four kinds of edge, every one of them declared somewhere:
+
+| Edge | Where it is declared |
+|---|---|
+| route → screen configuration | `jetsRoutesMap`; every screen widget extends `BaseScreen` and carries its own `screenConfig`, so the route table *names* its screen |
+| screen → route | `MenuEntry.routePath`, walked recursively through `children`, over `menuEntries`, `adminMenuEntries` and `toolbarMenuEntries` |
+| table action → route | `ActionConfig.configScreenPath`, on the tables a route shows — `ScreenOne.tableConfig`, a form's `FormDataTableFieldConfig.dataTableConfig`, and the dialog forms an action names in `configForm` |
+| flow → route | `UserFlowConfig.exitScreenPath` |
+
+The closure runs from `/`, which is where an authenticated session lands.
+
+**The role model is the one the widgets implement**, and it is small: `isAdmin`
+bypasses every capability check, in the menu (`screens/base_screen.dart:145`) and
+on a table action (`components/data_table.dart:30`). So an entry gated on
+capability `c` is reachable two ways — by an administrator, or by a user holding
+`c` — and `access` carries both alternatives rather than collapsing them.
+
+## What it establishes
+
+| Quantity | |
+|---|---:|
+| Screen configurations registered | **30** |
+| Routes in `jetsRoutesMap` | **28** |
+| Screen configurations a route names | **26** |
+| Registered but unrouted — dead configuration | **4** |
+| Routes reachable by any authenticated user | **16** |
+| Routes needing `admin` or a capability | **6** |
+| Routes with no configured edge | **6** |
+
+`orphanScreenKeys` and `routesWithNoConfiguredEdge` are the two lists worth
+reading first.
+
+**"No configured edge" is a statement about the configuration, not a claim that
+the route is dead** (I-20). Five of the six are reached from Dart:
+`/login` and `/register` from `user_delegates.dart` and `http_client.dart`,
+`/userGitProfile/…` from `app_bar.dart:43`, `/workspaces/:workspace_name/home`
+from `screen_delegates.dart` and `screen_delegates_helpers.dart`, and `/404` from
+the route parser's fallback. **The sixth, `/processConfig`, is reached from
+nowhere at all** — the `processConfig` menu entry points at `ruleConfigPath`.
+
+## Regenerating
+
+```bash
+cd jetsclient
+CHROME_EXECUTABLE=/usr/bin/google-chrome \
+  flutter test --platform chrome test/screen_reachability_corpus_test.dart
+```
+
+Same procedure as above: copy the JSON printed between
+`===BEGIN SCREEN REACHABILITY CORPUS===` and
+`===END SCREEN REACHABILITY CORPUS===` into this file, and put the printed
+checksum into `expectedChecksum` in that test. **Both, together.**
