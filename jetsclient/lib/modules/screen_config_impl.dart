@@ -346,3 +346,11 @@ ScreenConfig getScreenConfig(String key) {
   throw Exception(
       'ERROR: Invalid program configuration: screen configuration $key not found');
 }
+
+/// The screen configurations the central registry registers.
+///
+/// Exposed so `screen_reachability_corpus_test.dart` can enumerate the map
+/// rather than probe a list of constants — see I-37, and the note in
+/// `screen_config_corpus_test.dart` about why asking the map is the only
+/// enumeration that cannot be wrong about its own contents.
+Iterable<String> get mainScreenConfigKeys => _screenConfigurations.keys;
