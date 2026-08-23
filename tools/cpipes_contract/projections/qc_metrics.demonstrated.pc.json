@@ -1,0 +1,115 @@
+{
+  "conditional_pipes_config": [
+    {
+      "step_name": "Compute QC metrics",
+      "pipes_config": [
+        {
+          "type": "fan_out",
+          "input_channel": {
+            "type": "stage",
+            "name": "input_row",
+            "read_step_id": "qc_input"
+          },
+          "apply": [
+            {
+              "type": "map_record",
+              "new_record": true,
+              "columns": [
+                {
+                  "type": "select",
+                  "expr": "metric_columns.0.select.expr",
+                  "name": "metric_columns.0.select.name"
+                },
+                {
+                  "type": "select",
+                  "expr": "metric_columns.1.select.expr",
+                  "name": "metric_columns.1.select.name"
+                },
+                {
+                  "type": "select",
+                  "expr": "metric_columns.2.select.expr",
+                  "name": "metric_columns.2.select.name"
+                }
+              ],
+              "output_channel": {
+                "name": "bindings.metrics.0.channel",
+                "channel_spec_name": "bindings.metrics.0.channel_spec"
+              }
+            },
+            {
+              "type": "map_record",
+              "new_record": true,
+              "columns": [
+                {
+                  "type": "select",
+                  "expr": "metric_columns.3.select.expr",
+                  "name": "metric_columns.3.select.name"
+                },
+                {
+                  "type": "select",
+                  "expr": "metric_columns.4.select.expr",
+                  "name": "metric_columns.4.select.name"
+                },
+                {
+                  "type": "select",
+                  "expr": "metric_columns.5.select.expr",
+                  "name": "metric_columns.5.select.name"
+                }
+              ],
+              "output_channel": {
+                "name": "bindings.metrics.1.channel",
+                "channel_spec_name": "bindings.metrics.1.channel_spec"
+              }
+            },
+            {
+              "type": "map_record",
+              "new_record": true,
+              "columns": [
+                {
+                  "type": "select",
+                  "expr": "metric_columns.6.select.expr",
+                  "name": "metric_columns.6.select.name"
+                },
+                {
+                  "type": "select",
+                  "expr": "metric_columns.7.select.expr",
+                  "name": "metric_columns.7.select.name"
+                },
+                {
+                  "type": "select",
+                  "expr": "metric_columns.8.select.expr",
+                  "name": "metric_columns.8.select.name"
+                }
+              ],
+              "output_channel": {
+                "name": "bindings.metrics.2.channel",
+                "channel_spec_name": "bindings.metrics.2.channel_spec"
+              }
+            }
+          ]
+        },
+        {
+          "type": "fan_out",
+          "input_channel": {
+            "name": "metrics.mapped"
+          },
+          "apply": [
+            {
+              "type": "partition_writer",
+              "output_channel": {
+                "type": "memory",
+                "name": "partition_output.output_channel.memory.name"
+              },
+              "partition_writer_config": {
+                "device_writer_type": "csv_writer"
+              },
+              "when": {
+                "type": "select"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

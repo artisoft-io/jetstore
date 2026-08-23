@@ -83,21 +83,8 @@
         ],
         [
           {
-            "field": "text",
-            "key": "bindings.input_columns",
-            "label": "input_columns",
-            "maxLines": 3,
-            "hint": "A JSON list, e.g. [\"a\", \"b\"]",
-            "rules": [
-              {
-                "rule": "json",
-                "message": "Input columns must be a JSON list"
-              },
-              {
-                "rule": "required",
-                "message": "Input columns is required"
-              }
-            ]
+            "field": "label",
+            "text": "Input columns \u2014 not editable here. Its 3 entries decide how many steps this wizard has, and a flow cannot make a state; changing that means editing the bindings and generating again."
           }
         ]
       ],
@@ -10589,8 +10576,8 @@
           "style": "secondary"
         },
         {
-          "action": "ufNext",
-          "label": "Next",
+          "action": "ufCompleted",
+          "label": "Save configuration",
           "style": "primary",
           "enableOnlyWhenFormValid": true
         },
