@@ -24,9 +24,7 @@ library;
 
 import 'dart:convert';
 
-import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:jetsclient/models/form_config.dart';
 import 'package:jetsclient/modules/form_config_impl.dart';
 
 import 'corpus_support.dart';
@@ -37,74 +35,6 @@ const endMarker = '===END FORM FIELD CORPUS===';
 
 /// Update only together with the fixture. See the README beside it.
 const expectedChecksum = 'fnv1a32:a87baa83';
-
-/// Every field a form declares, across all three containers it may use.
-///
-/// **A `FormConfig` holds fields in three places** — `inputFields` for classic
-/// forms, `inputFieldsV2` for the row-flex variant, and `formTabsConfig` for
-/// tabbed ones — and a form uses whichever suits it. Walking only `inputFields`
-/// found 29 of the 37 `FormDataTableFieldConfig` sites the flows declare; the
-/// missing eight were not dead code, they were in the other two containers.
-///
-/// A fourth path is deliberately not walked: `inputFieldRowBuilder` is a closure
-/// that builds rows per record at run time, so its fields do not exist until a
-/// form is driven. Forms that use it are counted with the fields they declare
-/// statically, and `hasRowBuilder` marks them.
-List<FormFieldConfig> allFields(FormConfig config) => [
-  ...config.inputFields.expand((row) => row),
-  ...config.inputFieldsV2.expand((row) => row.rowConfig),
-  ...config.formTabsConfig.map((tab) => tab.inputField),
-];
-
-Map<String, dynamic> fieldToJson(FormFieldConfig f) {
-  final json = <String, dynamic>{
-    'type': f.runtimeType.toString(),
-    'key': f.key,
-    'group': f.group,
-    'flex': f.flex,
-  };
-
-  // Only options set away from their default are emitted. The question A.3 asks
-  // is which of them a widget must support, and a field that leaves an option
-  // alone is evidence that it need not.
-  if (f is FormInputFieldConfig) {
-    json.addAll(<String, dynamic>{
-      'label': f.label,
-      'hint': f.hint,
-      if (f.autofocus) 'autofocus': true,
-      if (f.obscureText) 'obscureText': true,
-      if (f.isReadOnly) 'isReadOnly': true,
-      if (f.isReadOnlyEval != null) 'hasIsReadOnlyEval': true,
-      'textRestriction': f.textRestriction.name,
-      if (f.maxLines != 1) 'maxLines': f.maxLines,
-      'maxLength': f.maxLength,
-      if (f.defaultValue != null) 'defaultValue': f.defaultValue,
-      if (f.autofillHints != null) 'autofillHints': f.autofillHints,
-      if (f.useDefaultFont) 'useDefaultFont': true,
-      if (f.syncWithFormState) 'syncWithFormState': true,
-      if (f.showCopyToClipboard) 'showCopyToClipboard': true,
-    });
-  } else if (f is FormDropdownFieldConfig) {
-    json.addAll(<String, dynamic>{
-      'itemCount': f.items.length,
-      'items': f.items.map((i) => i.label).toList(),
-      if (f.defaultItemPos != 0) 'defaultItemPos': f.defaultItemPos,
-      if (f.dropdownItemsQuery != null) 'hasDropdownItemsQuery': true,
-      if (f.returnedModelCacheKey != null)
-        'returnedModelCacheKey': f.returnedModelCacheKey,
-      if (f.stateKeyPredicates.isNotEmpty)
-        'stateKeyPredicates': f.stateKeyPredicates,
-      if (f.whereStateContains.isNotEmpty)
-        'whereStateContains': f.whereStateContains,
-      if (f.isReadOnly) 'isReadOnly': true,
-      if (f.makeReadOnlyWhenHasSelectedValue)
-        'makeReadOnlyWhenHasSelectedValue': true,
-    });
-  } else if (f is FormDataTableFieldConfig) {
-    json['dataTableConfig'] = f.dataTableConfig;
-  }
-  return json;
-}
 
 String buildCorpus() {
   final forms = <String, dynamic>{};
