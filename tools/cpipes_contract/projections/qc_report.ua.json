@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "actions": {
+    "cpipesTemplateApply": {
+      "description": "Assemble the collected values into qc_report.pc.json and save it",
+      "steps": [
+        {
+          "do": "escape",
+          "name": "cpipesTemplateApply"
+        }
+      ]
+    }
+  }
+}

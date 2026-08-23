@@ -1262,8 +1262,8 @@
           "style": "secondary"
         },
         {
-          "action": "ufNext",
-          "label": "Next",
+          "action": "ufCompleted",
+          "label": "Save configuration",
           "style": "primary",
           "enableOnlyWhenFormValid": true
         },

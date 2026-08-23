@@ -1,0 +1,493 @@
+{
+  "schemaVersion": 1,
+  "template": "qc_metrics",
+  "fillMarker": "$cpipesFill",
+  "bindingMarker": "$cpipesBinding:",
+  "choosers": {
+    "metric_columns.0": {
+      "property": "type",
+      "literals": [
+        "case",
+        "eval",
+        "hash",
+        "lookup",
+        "map",
+        "multi_select",
+        "select",
+        "value"
+      ]
+    },
+    "metric_columns.1": {
+      "property": "type",
+      "literals": [
+        "case",
+        "eval",
+        "hash",
+        "lookup",
+        "map",
+        "multi_select",
+        "select",
+        "value"
+      ]
+    },
+    "metric_columns.2": {
+      "property": "type",
+      "literals": [
+        "case",
+        "eval",
+        "hash",
+        "lookup",
+        "map",
+        "multi_select",
+        "select",
+        "value"
+      ]
+    },
+    "metric_columns.3": {
+      "property": "type",
+      "literals": [
+        "case",
+        "eval",
+        "hash",
+        "lookup",
+        "map",
+        "multi_select",
+        "select",
+        "value"
+      ]
+    },
+    "metric_columns.4": {
+      "property": "type",
+      "literals": [
+        "case",
+        "eval",
+        "hash",
+        "lookup",
+        "map",
+        "multi_select",
+        "select",
+        "value"
+      ]
+    },
+    "metric_columns.5": {
+      "property": "type",
+      "literals": [
+        "case",
+        "eval",
+        "hash",
+        "lookup",
+        "map",
+        "multi_select",
+        "select",
+        "value"
+      ]
+    },
+    "metric_columns.6": {
+      "property": "type",
+      "literals": [
+        "case",
+        "eval",
+        "hash",
+        "lookup",
+        "map",
+        "multi_select",
+        "select",
+        "value"
+      ]
+    },
+    "metric_columns.7": {
+      "property": "type",
+      "literals": [
+        "case",
+        "eval",
+        "hash",
+        "lookup",
+        "map",
+        "multi_select",
+        "select",
+        "value"
+      ]
+    },
+    "metric_columns.8": {
+      "property": "type",
+      "literals": [
+        "case",
+        "eval",
+        "hash",
+        "lookup",
+        "map",
+        "multi_select",
+        "select",
+        "value"
+      ]
+    },
+    "partition_output.output_channel": {
+      "property": "type",
+      "literals": [
+        "memory",
+        "output",
+        "sql",
+        "stage"
+      ]
+    }
+  },
+  "constants": {
+    "metric_columns.0.case": {
+      "type": "case"
+    },
+    "metric_columns.0.eval": {
+      "type": "eval"
+    },
+    "metric_columns.0.hash": {
+      "type": "hash"
+    },
+    "metric_columns.0.lookup": {
+      "type": "lookup"
+    },
+    "metric_columns.0.map": {
+      "type": "map"
+    },
+    "metric_columns.0.multi_select": {
+      "type": "multi_select"
+    },
+    "metric_columns.0.select": {
+      "type": "select"
+    },
+    "metric_columns.0.value": {
+      "type": "value"
+    },
+    "metric_columns.1.case": {
+      "type": "case"
+    },
+    "metric_columns.1.eval": {
+      "type": "eval"
+    },
+    "metric_columns.1.hash": {
+      "type": "hash"
+    },
+    "metric_columns.1.lookup": {
+      "type": "lookup"
+    },
+    "metric_columns.1.map": {
+      "type": "map"
+    },
+    "metric_columns.1.multi_select": {
+      "type": "multi_select"
+    },
+    "metric_columns.1.select": {
+      "type": "select"
+    },
+    "metric_columns.1.value": {
+      "type": "value"
+    },
+    "metric_columns.2.case": {
+      "type": "case"
+    },
+    "metric_columns.2.eval": {
+      "type": "eval"
+    },
+    "metric_columns.2.hash": {
+      "type": "hash"
+    },
+    "metric_columns.2.lookup": {
+      "type": "lookup"
+    },
+    "metric_columns.2.map": {
+      "type": "map"
+    },
+    "metric_columns.2.multi_select": {
+      "type": "multi_select"
+    },
+    "metric_columns.2.select": {
+      "type": "select"
+    },
+    "metric_columns.2.value": {
+      "type": "value"
+    },
+    "metric_columns.3.case": {
+      "type": "case"
+    },
+    "metric_columns.3.eval": {
+      "type": "eval"
+    },
+    "metric_columns.3.hash": {
+      "type": "hash"
+    },
+    "metric_columns.3.lookup": {
+      "type": "lookup"
+    },
+    "metric_columns.3.map": {
+      "type": "map"
+    },
+    "metric_columns.3.multi_select": {
+      "type": "multi_select"
+    },
+    "metric_columns.3.select": {
+      "type": "select"
+    },
+    "metric_columns.3.value": {
+      "type": "value"
+    },
+    "metric_columns.4.case": {
+      "type": "case"
+    },
+    "metric_columns.4.eval": {
+      "type": "eval"
+    },
+    "metric_columns.4.hash": {
+      "type": "hash"
+    },
+    "metric_columns.4.lookup": {
+      "type": "lookup"
+    },
+    "metric_columns.4.map": {
+      "type": "map"
+    },
+    "metric_columns.4.multi_select": {
+      "type": "multi_select"
+    },
+    "metric_columns.4.select": {
+      "type": "select"
+    },
+    "metric_columns.4.value": {
+      "type": "value"
+    },
+    "metric_columns.5.case": {
+      "type": "case"
+    },
+    "metric_columns.5.eval": {
+      "type": "eval"
+    },
+    "metric_columns.5.hash": {
+      "type": "hash"
+    },
+    "metric_columns.5.lookup": {
+      "type": "lookup"
+    },
+    "metric_columns.5.map": {
+      "type": "map"
+    },
+    "metric_columns.5.multi_select": {
+      "type": "multi_select"
+    },
+    "metric_columns.5.select": {
+      "type": "select"
+    },
+    "metric_columns.5.value": {
+      "type": "value"
+    },
+    "metric_columns.6.case": {
+      "type": "case"
+    },
+    "metric_columns.6.eval": {
+      "type": "eval"
+    },
+    "metric_columns.6.hash": {
+      "type": "hash"
+    },
+    "metric_columns.6.lookup": {
+      "type": "lookup"
+    },
+    "metric_columns.6.map": {
+      "type": "map"
+    },
+    "metric_columns.6.multi_select": {
+      "type": "multi_select"
+    },
+    "metric_columns.6.select": {
+      "type": "select"
+    },
+    "metric_columns.6.value": {
+      "type": "value"
+    },
+    "metric_columns.7.case": {
+      "type": "case"
+    },
+    "metric_columns.7.eval": {
+      "type": "eval"
+    },
+    "metric_columns.7.hash": {
+      "type": "hash"
+    },
+    "metric_columns.7.lookup": {
+      "type": "lookup"
+    },
+    "metric_columns.7.map": {
+      "type": "map"
+    },
+    "metric_columns.7.multi_select": {
+      "type": "multi_select"
+    },
+    "metric_columns.7.select": {
+      "type": "select"
+    },
+    "metric_columns.7.value": {
+      "type": "value"
+    },
+    "metric_columns.8.case": {
+      "type": "case"
+    },
+    "metric_columns.8.eval": {
+      "type": "eval"
+    },
+    "metric_columns.8.hash": {
+      "type": "hash"
+    },
+    "metric_columns.8.lookup": {
+      "type": "lookup"
+    },
+    "metric_columns.8.map": {
+      "type": "map"
+    },
+    "metric_columns.8.multi_select": {
+      "type": "multi_select"
+    },
+    "metric_columns.8.select": {
+      "type": "select"
+    },
+    "metric_columns.8.value": {
+      "type": "value"
+    },
+    "partition_output": {
+      "type": "partition_writer"
+    },
+    "partition_output.output_channel.memory": {
+      "type": "memory"
+    },
+    "partition_output.output_channel.output": {
+      "type": "output"
+    },
+    "partition_output.output_channel.sql": {
+      "type": "sql"
+    },
+    "partition_output.output_channel.stage": {
+      "type": "stage"
+    }
+  },
+  "jsonFields": [
+    "metric_columns.0.eval.eval_expr.expr_list",
+    "metric_columns.0.hash.hash_expr.alternate_composite_expr",
+    "metric_columns.0.hash.hash_expr.composite_expr",
+    "metric_columns.0.multi_select.expr_array",
+    "metric_columns.1.eval.eval_expr.expr_list",
+    "metric_columns.1.hash.hash_expr.alternate_composite_expr",
+    "metric_columns.1.hash.hash_expr.composite_expr",
+    "metric_columns.1.multi_select.expr_array",
+    "metric_columns.2.eval.eval_expr.expr_list",
+    "metric_columns.2.hash.hash_expr.alternate_composite_expr",
+    "metric_columns.2.hash.hash_expr.composite_expr",
+    "metric_columns.2.multi_select.expr_array",
+    "metric_columns.3.eval.eval_expr.expr_list",
+    "metric_columns.3.hash.hash_expr.alternate_composite_expr",
+    "metric_columns.3.hash.hash_expr.composite_expr",
+    "metric_columns.3.multi_select.expr_array",
+    "metric_columns.4.eval.eval_expr.expr_list",
+    "metric_columns.4.hash.hash_expr.alternate_composite_expr",
+    "metric_columns.4.hash.hash_expr.composite_expr",
+    "metric_columns.4.multi_select.expr_array",
+    "metric_columns.5.eval.eval_expr.expr_list",
+    "metric_columns.5.hash.hash_expr.alternate_composite_expr",
+    "metric_columns.5.hash.hash_expr.composite_expr",
+    "metric_columns.5.multi_select.expr_array",
+    "metric_columns.6.eval.eval_expr.expr_list",
+    "metric_columns.6.hash.hash_expr.alternate_composite_expr",
+    "metric_columns.6.hash.hash_expr.composite_expr",
+    "metric_columns.6.multi_select.expr_array",
+    "metric_columns.7.eval.eval_expr.expr_list",
+    "metric_columns.7.hash.hash_expr.alternate_composite_expr",
+    "metric_columns.7.hash.hash_expr.composite_expr",
+    "metric_columns.7.multi_select.expr_array",
+    "metric_columns.8.eval.eval_expr.expr_list",
+    "metric_columns.8.hash.hash_expr.alternate_composite_expr",
+    "metric_columns.8.hash.hash_expr.composite_expr",
+    "metric_columns.8.multi_select.expr_array",
+    "partition_output.when.expr_list"
+  ],
+  "skeleton": {
+    "conditional_pipes_config": [
+      {
+        "step_name": "Compute QC metrics",
+        "pipes_config": [
+          {
+            "type": "fan_out",
+            "input_channel": {
+              "type": "stage",
+              "name": "input_row",
+              "read_step_id": "qc_input"
+            },
+            "apply": [
+              {
+                "type": "map_record",
+                "new_record": true,
+                "columns": [
+                  {
+                    "$cpipesFill": "metric_columns.0"
+                  },
+                  {
+                    "$cpipesFill": "metric_columns.1"
+                  },
+                  {
+                    "$cpipesFill": "metric_columns.2"
+                  }
+                ],
+                "output_channel": {
+                  "name": "$cpipesBinding:bindings.metrics.0.channel",
+                  "channel_spec_name": "$cpipesBinding:bindings.metrics.0.channel_spec"
+                }
+              },
+              {
+                "type": "map_record",
+                "new_record": true,
+                "columns": [
+                  {
+                    "$cpipesFill": "metric_columns.3"
+                  },
+                  {
+                    "$cpipesFill": "metric_columns.4"
+                  },
+                  {
+                    "$cpipesFill": "metric_columns.5"
+                  }
+                ],
+                "output_channel": {
+                  "name": "$cpipesBinding:bindings.metrics.1.channel",
+                  "channel_spec_name": "$cpipesBinding:bindings.metrics.1.channel_spec"
+                }
+              },
+              {
+                "type": "map_record",
+                "new_record": true,
+                "columns": [
+                  {
+                    "$cpipesFill": "metric_columns.6"
+                  },
+                  {
+                    "$cpipesFill": "metric_columns.7"
+                  },
+                  {
+                    "$cpipesFill": "metric_columns.8"
+                  }
+                ],
+                "output_channel": {
+                  "name": "$cpipesBinding:bindings.metrics.2.channel",
+                  "channel_spec_name": "$cpipesBinding:bindings.metrics.2.channel_spec"
+                }
+              }
+            ]
+          },
+          {
+            "type": "fan_out",
+            "input_channel": {
+              "name": "metrics.mapped"
+            },
+            "apply": [
+              {
+                "$cpipesFill": "partition_output"
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

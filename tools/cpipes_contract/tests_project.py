@@ -35,12 +35,17 @@ def projection(name):
     return project(tpl, context, SCHEMA)
 
 
-def test_pair_validates_against_the_schemas_go_embeds():
+def test_the_triple_validates_against_the_schemas_go_embeds():
   for name in TEMPLATES:
+      """**Three documents, not two** — the loader reads all three and M.4 emitted two
+      (I-84). The action document was added to this check in the same change that
+      started emitting it, because a document nothing validates is how the pair came to
+      look complete."""
       p = projection(name)
       for document, filename in (
           (p.flow, "userflow.schema.json"),
           ({"schemaVersion": 1, "forms": p.forms}, "form.schema.json"),
+          (p.actions, "action.schema.json"),
       ):
           schema = json.loads((GO_SCHEMA / filename).read_text())
           errors = sorted(
@@ -159,6 +164,178 @@ def test_the_bindings_walk_agrees_with_the_M1_census():
         scalars, objects = _walk_bindings(context)
         assert len(sites(p for p, _ in scalars)) == n_scalar, name
         assert len(sites(objects)) == n_object, name
+
+
+def test_an_end_state_offers_completed_and_no_other_state_does():
+  for name in TEMPLATES:
+      """`isEnd` is in the flow document and the button set is in the form document.
+
+      Neither schema can see the other, so this rule is not expressible in either — the
+      third instance of I-84's shape, and the reason it is a test rather than a comment.
+      `step` runs the state action on `ufNext` too, so the failure was not a config that
+      did not save: it was a config that saved and then said *"No next step from …"*.
+
+      **This biconditional is about what *this generator* emits, and it is stricter than
+      the corpus rule. Do not lift it out as one.** The rule the shipped flows actually
+      keep is that an end state's form offers no *advancing* button; two of the eleven
+      finish through a custom action and declare no `uf*` action at all
+      (`fmMappingFormUF`, `rfkSubmitSchemaEvent`). A validator asserting `ufCompleted`
+      would reject both — `ui_refresh` drafted exactly that and their corpus refused it.
+      This projection has one way to end, so the tighter assertion is the right one
+      *here* and the wrong one anywhere else.
+      """
+      p = projection(name)
+      for key, state in p.flow["states"].items():
+          buttons = {a["action"] for a in p.forms[key]["actions"]}
+          ends = state.get("isEnd", False)
+          assert ("ufCompleted" in buttons) is ends, f"{name}: {key}"
+          assert ("ufNext" in buttons) is not ends, f"{name}: {key}"
+
+
+def test_the_skeleton_is_the_expansion_with_markers_where_values_go():
+  for name in TEMPLATES:
+      """The apply substitutes rather than expands, so the skeleton must *be* the config.
+
+      Checked by expanding a second time with the real bindings and an inert filler, and
+      comparing everything that is not a marker. A skeleton that had drifted from the
+      expansion would produce a config no author asked for, and nothing downstream of
+      the wizard would know.
+      """
+      from cpipes_contract.expand import expand
+      from cpipes_contract.project import FILL_MARKER, BINDING_MARKER
+
+      tpl = tmod.load(HERE / "templates" / f"{name}.template.json")
+      context = json.loads((HERE / "templates" / f"{name}.bindings.json").read_text())
+      plain, _ = expand(tpl, context, lambda hole, ctx: {"__fill__": hole.name}, None)
+      skeleton = projection(name).plan["skeleton"]
+
+      def agree(a, b, path=""):
+          if isinstance(b, dict) and len(b) == 1 and FILL_MARKER in b:
+              assert isinstance(a, dict) and "__fill__" in a, f"{name} at {path}: not a fill"
+              return
+          if isinstance(b, str) and b.startswith(BINDING_MARKER):
+              return
+          assert type(a) is type(b), f"{name} at {path}: {type(a)} vs {type(b)}"
+          if isinstance(b, dict):
+              assert set(a) == set(b), f"{name} at {path}: {set(a) ^ set(b)}"
+              for k in b:
+                  agree(a[k], b[k], f"{path}.{k}")
+          elif isinstance(b, list):
+              assert len(a) == len(b), f"{name} at {path}: {len(a)} vs {len(b)}"
+              for i, (x, y) in enumerate(zip(a, b)):
+                  agree(x, y, f"{path}[{i}]")
+          else:
+              assert a == b, f"{name} at {path}: {a!r} vs {b!r}"
+
+      agree(plain, skeleton)
+
+
+def test_every_marker_names_a_key_some_form_collects():
+  for name in TEMPLATES:
+      """A marker with no field behind it is a value the wizard can never supply.
+
+      A binding marker names a form key directly; a fill marker names a state, and what
+      it collects is that state's own keys or those of the states below it. Both are
+      checked against the forms rather than against the projector's own bookkeeping,
+      which would agree with itself.
+      """
+      from cpipes_contract.project import FILL_MARKER, BINDING_MARKER
+
+      p = projection(name)
+      keys = {
+          field["key"]
+          for form in p.forms.values()
+          for row in form["rows"]
+          for field in row
+          if "key" in field
+      }
+
+      def walk(node):
+          if isinstance(node, dict):
+              if len(node) == 1 and FILL_MARKER in node:
+                  at = node[FILL_MARKER]
+                  assert any(k == at or k.startswith(f"{at}.") for k in keys), f"{name}: {at}"
+                  return
+              for value in node.values():
+                  walk(value)
+          elif isinstance(node, list):
+              for value in node:
+                  walk(value)
+          elif isinstance(node, str) and node.startswith(BINDING_MARKER):
+              key = node[len(BINDING_MARKER):]
+              assert key in keys, f"{name}: {key} has no field"
+
+      walk(p.plan["skeleton"])
+
+
+def test_a_binding_that_sizes_the_flow_is_not_offered_as_a_field():
+    """I-82, made visible where it binds rather than stated in a document.
+
+    `qc_metrics.input_columns` is three strings and nine states; an editable field there
+    would take an edit and drop it, because a flow has no way to make a state. It is a
+    label, and the label says how many.
+    """
+    p = projection("qc_metrics")
+    fields = {
+        field["key"]
+        for form in p.forms.values()
+        for row in form["rows"]
+        for field in row
+        if "key" in field
+    }
+    assert "bindings.input_columns" not in fields
+    labels = [
+        field["text"]
+        for row in p.forms["bindings"]["rows"]
+        for field in row
+        if field["field"] == "label"
+    ]
+    assert any("Input columns" in t and "3 entries" in t for t in labels), labels
+
+
+def test_the_demonstrated_config_validates_against_the_contract():
+    """M.5's output, checked at the layer no UserFlow schema can reach.
+
+    `projections/qc_metrics.demonstrated.pc.json` is what the wizard produced when
+    `jetsclient_ide/src/cpipes/templateApply.test.ts` walked the projection with the
+    shipped engine and interpreter. **Every layer M.4 ran validates a *flow* document;
+    this validates the *config* those documents produce**, which is the only place a
+    whole class of defect is visible — and the class is not hypothetical. The
+    demonstration's first run emitted a `partition_writer` operator with no `type`,
+    because a `const` property is not a field and nothing was carrying it. Four layers
+    passed that pair, and this check is a `required` violation away from it.
+    """
+    config = json.loads((HERE / "projections" / "qc_metrics.demonstrated.pc.json").read_text())
+    validator = jsonschema.Draft202012Validator(
+        {
+            "$schema": SCHEMA["$schema"],
+            "$ref": "#/$defs/ComputePipesConfig",
+            "$defs": SCHEMA["$defs"],
+        }
+    )
+    errors = list(validator.iter_errors(config))
+    assert not errors, jsonschema.exceptions.best_match(errors).message
+
+
+def test_every_const_property_is_carried_rather_than_dropped():
+  for name in TEMPLATES:
+      """A `const` is not a field, and it is not nothing either.
+
+      `fields_for` skips one on the grounds that a variant chooser already supplied it —
+      which holds for a union and not for a single concrete type, where there is no
+      chooser. Checked from the schema rather than from the projector's own bookkeeping,
+      so that the plan agreeing with itself is not what passes.
+      """
+      p = projection(name)
+      contract_defs = SCHEMA["$defs"]
+      for prefix, fixed in p.plan["constants"].items():
+          assert fixed, f"{name}: {prefix} records an empty constant set"
+          for prop, value in fixed.items():
+              matches = [
+                  d for d in contract_defs.values()
+                  if isinstance(d, dict) and d.get("properties", {}).get(prop, {}).get("const") == value
+              ]
+              assert matches, f"{name}: {prefix}.{prop}={value!r} is no type's const"
 
 
 def test_the_walk_is_shorter_than_the_document():

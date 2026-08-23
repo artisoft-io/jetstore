@@ -173,21 +173,8 @@
         ],
         [
           {
-            "field": "text",
-            "key": "bindings.stage1_map_pipes",
-            "label": "stage1_map_pipes",
-            "maxLines": 3,
-            "hint": "A JSON list, e.g. [\"a\", \"b\"]",
-            "rules": [
-              {
-                "rule": "json",
-                "message": "Stage1 map pipes must be a JSON list"
-              },
-              {
-                "rule": "required",
-                "message": "Stage1 map pipes is required"
-              }
-            ]
+            "field": "label",
+            "text": "Stage1 map pipes \u2014 not editable here. Its 0 entries decide how many steps this wizard has, and a flow cannot make a state; changing that means editing the bindings and generating again."
           }
         ],
         [
@@ -218,40 +205,14 @@
         ],
         [
           {
-            "field": "text",
-            "key": "bindings.sum_metrics",
-            "label": "sum_metrics",
-            "maxLines": 3,
-            "hint": "A JSON list, e.g. [\"a\", \"b\"]",
-            "rules": [
-              {
-                "rule": "json",
-                "message": "Sum metrics must be a JSON list"
-              },
-              {
-                "rule": "required",
-                "message": "Sum metrics is required"
-              }
-            ]
+            "field": "label",
+            "text": "Sum metrics \u2014 not editable here. Its 0 entries decide how many steps this wizard has, and a flow cannot make a state; changing that means editing the bindings and generating again."
           }
         ],
         [
           {
-            "field": "text",
-            "key": "bindings.map_reduce_metrics",
-            "label": "map_reduce_metrics",
-            "maxLines": 3,
-            "hint": "A JSON list, e.g. [\"a\", \"b\"]",
-            "rules": [
-              {
-                "rule": "json",
-                "message": "Map reduce metrics must be a JSON list"
-              },
-              {
-                "rule": "required",
-                "message": "Map reduce metrics is required"
-              }
-            ]
+            "field": "label",
+            "text": "Map reduce metrics \u2014 not editable here. Its 0 entries decide how many steps this wizard has, and a flow cannot make a state; changing that means editing the bindings and generating again."
           }
         ],
         [
@@ -691,8 +652,8 @@
           "style": "secondary"
         },
         {
-          "action": "ufNext",
-          "label": "Next",
+          "action": "ufCompleted",
+          "label": "Save configuration",
           "style": "primary",
           "enableOnlyWhenFormValid": true
         },

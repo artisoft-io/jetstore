@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "actions": {
+    "cpipesTemplateApply": {
+      "description": "Assemble the collected values into map_claim_load_stages.pc.json and save it",
+      "steps": [
+        {
+          "do": "escape",
+          "name": "cpipesTemplateApply"
+        }
+      ]
+    }
+  }
+}
