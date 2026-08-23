@@ -42,16 +42,19 @@ type PartitionWriterTransformationPipe struct {
 	samplingMaxCount     int
 	samplingCount        int
 	outputCh             *OutputChannel
-	currentDeviceCh      chan []any
-	parquetSchema        *ParquetSchemaInfo
-	columnEvaluators     []TransformationColumnEvaluator
-	doneCh               chan struct{}
-	errCh                chan error
-	copy2DeviceResultCh  chan<- ComputePipesResult
-	sessionId            string
-	nodeId               int
-	s3DeviceManager      *S3DeviceManager
-	env                  map[string]any
+	// inputChannelName is the name of the channel this partition writer reads;
+	// with outputCh.Name it is the DAG edge the result reports.
+	inputChannelName    string
+	currentDeviceCh     chan []any
+	parquetSchema       *ParquetSchemaInfo
+	columnEvaluators    []TransformationColumnEvaluator
+	doneCh              chan struct{}
+	errCh               chan error
+	copy2DeviceResultCh chan<- ComputePipesResult
+	sessionId           string
+	nodeId              int
+	s3DeviceManager     *S3DeviceManager
+	env                 map[string]any
 }
 
 func MakeJetsPartitionLabel(jetsPartitionKey any) string {
@@ -290,9 +293,13 @@ func (ctx *PartitionWriterTransformationPipe) Finally() {
 	}
 	// Send the total row count to ctx.copy2DeviceResultCh
 	ctx.copy2DeviceResultCh <- ComputePipesResult{
-		TableName:    fmt.Sprintf("jets_partition=%s", ctx.jetsPartitionLabel),
-		CopyRowCount: ctx.totalRowCount,
-		PartsCount:   int64(ctx.filePartitionNumber),
+		Type:              SinkJetsPartition,
+		EntityName:        ctx.jetsPartitionLabel,
+		InputChannel:      ctx.inputChannelName,
+		OutputChannel:     ctx.outputCh.Name,
+		OutputChannelSpec: ctx.outputCh.Config.Name,
+		CopyRowCount:      ctx.totalRowCount,
+		PartsCount:        int64(ctx.filePartitionNumber),
 	}
 
 	// Indicate to S3DeviceManager that we're done using it
@@ -521,6 +528,7 @@ func (ctx *BuilderContext) NewPartitionWriterTransformationPipe(source *InputCha
 		samplingRate:         config.SamplingRate,
 		samplingMaxCount:     config.SamplingMaxCount,
 		outputCh:             outputCh,
+		inputChannelName:     source.Name,
 		parquetSchema:        parquetSchema,
 		columnEvaluators:     columnEvaluators,
 		errCh:                ctx.errCh,

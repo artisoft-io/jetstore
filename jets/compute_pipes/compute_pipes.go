@@ -350,8 +350,13 @@ func (cpCtx *ComputePipesContext) StartComputePipes(dbpool *pgxpool.Pool,
 		if cpCtx.CpConfig.ClusterConfig.IsDebugMode {
 			log.Println("*** Channel for Output Table", tableIdentifier, "is:", outChannel.Name)
 		}
-		wt = NewWriteTableSource(outChannel.Channel, tableIdentifier, outChannel.Config.Columns, 
-			cpCtx.Done, cpCtx.ErrCh)
+		// The DAG edge this writer is: from the channel named by
+		// channel_spec_name to the output table, named by its key rather than
+		// by tableIdentifier — the table name is env-var substituted and is not
+		// unique across the output_tables entries of a config.
+		wt = NewWriteTableSource(outChannel.Channel, tableIdentifier, outChannel.Config.Columns,
+			cpCtx.CpConfig.OutputTables[i].ChannelSpecName, cpCtx.CpConfig.OutputTables[i].Key,
+			cpCtx.CpConfig.OutputTables[i].ChannelSpecName, cpCtx.Done, cpCtx.ErrCh)
 		table = make(chan ComputePipesResult, 1)
 		cpCtx.ChResults.Copy2DbResultCh <- table
 		go wt.WriteTable(dbpool, cpCtx.Done, table)
