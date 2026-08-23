@@ -6,6 +6,29 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 JetStore is a **Compute Analytic Platform** for cloud-native data processing, rule-based inference, and analytical pipelines. It combines a high-performance C++ RETE rules engine with Go-based orchestration, distributed compute pipes, and AWS cloud infrastructure.
 
+## Package notes — where a discovery gets written down
+
+**When something costs you real digging, write it into a `README.md` in the Go package it belongs
+to.** Not API documentation — that goes in doc comments, where `go doc` and an editor hover will find
+it. A package `README.md` is for what you cannot see from the code in front of you: how a mechanism
+behaves across a process boundary, what an environment variable is really deciding, why an
+obvious-looking change is wrong.
+
+The bar is *would the next person have lost a day without this?* Cite `file:line` so an entry can be
+checked rather than believed, say what was **measured** rather than reasoned, and date it — a fact
+about deployment wiring goes stale without announcing it. Entries are appended, newest first.
+
+| Package | Covers |
+|---|---|
+| `jets/compute_pipes/README.md` | How a compiled workspace reaches a running process, and the `JETS_VERSION` chain that decides whether it is fetched — including the cbooter/Lambda asymmetry and the Docker `ARG`/`ENV` resolution rule |
+
+**Put the entry where someone will be standing when they hit the symptom**, not where the mechanism
+happens to be implemented, and cross-reference by `file:line` rather than duplicating. A discovery
+that spans several packages still gets one home; two copies drift.
+
+**System-wide deployment wiring stays here instead** — the *Infer Server* section below is the model
+for that: one place, describing how the pieces are wired rather than what one package does.
+
 ## Build Commands
 
 **All paths below are relative to this repository's root.** On the `jets_ai` branch this repo is
