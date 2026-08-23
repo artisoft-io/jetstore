@@ -5,7 +5,7 @@ import react from "@vitejs/plugin-react";
 // so every emitted asset url has to carry that prefix. In dev the same endpoints are
 // proxied to a locally running apiserver, which keeps the client's origin handling
 // identical in both modes — it always talks to a same-origin path.
-const API_PATHS = ["/dataTable", "/login", "/register", "/inferServer", "/registerFileKey", "/purgeData"];
+const API_PATHS = ["/dataTable", "/login", "/register", "/inferServer", "/registerFileKey", "/purgeData", "/agentic"];
 
 // The apiserver listens on :8080 with -usingSshTunnel and on :8443 (TLS) otherwise,
 // so the dev target is configurable. `secure: false` matters for the :8443 case,

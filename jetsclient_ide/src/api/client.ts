@@ -143,6 +143,21 @@ export class ApiClient {
     return this.post<T>("/dataTable", payload);
   }
 
+  /**
+   * POST to /agentic, the agentic supervision endpoint — proposal staging,
+   * approval decisions and run transcripts (the switch in
+   * jets/apiserver/api_agentic.go). Same envelope shape as /dataTable: an
+   * `action` name and its arguments.
+   *
+   * Added by the agentic_ai project, whose screens live in `src/proposals/`;
+   * this method is the whole of its footprint on the api client.
+   */
+  async agentic<T = Record<string, unknown>>(
+    payload: Record<string, unknown>,
+  ): Promise<T> {
+    return this.post<T>("/agentic", payload);
+  }
+
   private async post<T>(path: string, payload: Record<string, unknown>): Promise<T> {
     if (!this.token) throw new SessionExpiredError();
     const res = await this.fetchImpl(`${this.baseUrl}${path}`, {

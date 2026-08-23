@@ -19,6 +19,9 @@
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 
 import { ApiClient } from "./api/client";
+import { AGENT_SUPERVISION } from "./proposals/api";
+import { ProposalScreen } from "./proposals/ProposalScreen";
+import { ProposalsScreen } from "./proposals/ProposalsScreen";
 import { WorkspaceIde, WORKSPACE_IDE } from "./screens/WorkspaceIde";
 import { AppShell, type NavItem } from "./shell/AppShell";
 
@@ -29,6 +32,9 @@ export const BASENAME = "/ide";
 
 export const NAV: NavItem[] = [
   { to: "/workspace", label: "Workspace IDE", capability: WORKSPACE_IDE },
+  // agentic_ai's screens (task K.3). The nav entry and the two routes below are
+  // this file's whole knowledge of them; the screens are in `proposals/`.
+  { to: "/proposals", label: "Proposals", capability: AGENT_SUPERVISION },
 ];
 
 /**
@@ -50,6 +56,8 @@ export default function App() {
               app links to, and a redirect is cheaper than teaching it a url. */}
           <Route index element={<Navigate to="/workspace" replace />} />
           <Route path="workspace" element={<WorkspaceIde api={api} />} />
+          <Route path="proposals" element={<ProposalsScreen api={api} />} />
+          <Route path="proposals/:proposalId" element={<ProposalScreen api={api} />} />
           <Route path="*" element={<Navigate to="/workspace" replace />} />
         </Route>
       </Routes>
