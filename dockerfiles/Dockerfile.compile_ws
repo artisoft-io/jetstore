@@ -20,8 +20,8 @@ ENV WORKSPACES_REPO=/workspaces
 # Copy the whole repo so to be able to pull and push changes
 COPY . $WORKSPACES_REPO/$WORKSPACE/
 
-# Install the JetStore-owned assets into the workspace's data_model/ before the
-# compile reads it. The assets are embedded in the binary, so this needs no path
+# Install the JetStore-owned assets into the workspace's data_model/ and
+# pipes_config/ before the compile reads them. The assets are embedded in the binary, so this needs no path
 # into the JetStore source tree. It fails the build rather than overwrite a
 # JetStore-owned file the workspace has changed locally — see
 # jets/workspace_assets/install.go.

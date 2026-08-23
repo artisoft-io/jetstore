@@ -7,6 +7,14 @@ before `compile_workspace`). Files here are **installed, not authored in place**
 in a workspace — a locally modified copy of a JetStore-owned file fails the
 install rather than being overwritten.
 
+**It is one of two such directories.** `../pipes_config/` holds the pipeline
+configurations JetStore owns, installed by the same step under the same guard,
+and a conflict in either refuses both — a workspace with a new data model and an
+old pipeline set is no more consistent than the reverse. The mechanism below is
+shared; that directory's README carries the one place the two differ, which is
+that a `.pc.json` carries no ownership header and its manifest is therefore the
+only evidence the guard has.
+
 ## What is installed, and how
 
 Every `.jr` and `.json` in this directory is installed into every client

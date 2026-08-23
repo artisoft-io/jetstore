@@ -1,6 +1,7 @@
 // install_workspace_assets copies the JetStore-owned workspace assets into a
 // client workspace, and fails rather than overwrite a local change (A21.2,
-// A21.3; plan section 3.9).
+// A21.3; plan section 3.9). Two directories are installed — data_model/ and
+// pipes_config/ — and a conflict in either refuses both.
 //
 // It runs in Dockerfile.compile_ws, immediately before /app/compile_workspace,
 // against the workspace the image was built from:
@@ -25,6 +26,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"strings"
 
 	workspace_assets "github.com/artisoft-io/jetstore/jets/workspace_assets"
 )
@@ -47,16 +49,32 @@ func main() {
 	results, err := workspace_assets.Install(dir, workspace_assets.Options{
 		DryRun: *dryRun, Force: *force,
 	})
-	for _, r := range results {
-		fmt.Printf("  %-28s %s\n", r.Name, r.Action)
-	}
 	if err != nil {
-		// The conflict message is the point of the exercise; print it whole.
+		// The conflict message is the point of the exercise; print it whole,
+		// and print nothing else — the per-asset listing describes what the
+		// install *would* have done, and a refused install did none of it.
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
-	fmt.Printf("install_workspace_assets: %d asset(s) in %s\n",
-		len(results), filepath.Join(dir, workspace_assets.AssetDir))
+	// Grouped by directory, in install order, so the output reads as the
+	// directory listing it produces rather than as one flat set.
+	counts := make(map[string]int, len(workspace_assets.AssetGroups))
+	for _, g := range workspace_assets.AssetGroups {
+		fmt.Printf("%s:\n", filepath.Join(dir, g.Dir))
+		for _, r := range results {
+			if r.Dir != g.Dir {
+				continue
+			}
+			counts[g.Dir]++
+			fmt.Printf("  %-28s %s\n", r.Name, r.Action)
+		}
+	}
+	var parts []string
+	for _, g := range workspace_assets.AssetGroups {
+		parts = append(parts, fmt.Sprintf("%d in %s", counts[g.Dir], g.Dir))
+	}
+	fmt.Printf("install_workspace_assets: %d asset(s) in %s (%s)\n",
+		len(results), dir, strings.Join(parts, ", "))
 }
 
 func workspaceDir() (string, error) {

@@ -36,6 +36,12 @@ DEFAULT_OUT = REPO_ROOT
 # reaches every client. --check therefore accounts for the whole directory, not
 # only for what the registry writes: anything not emitted above has to be named
 # here, with the reason it is exempt.
+# The sibling group, jets/workspace_assets/pipes_config/, is installed by the
+# same step and reaches every client the same way, but nothing here emits into
+# it and --check does not account for it: its assets are hand-authored .pc.json
+# and the guard against a stray file there is review, not this check. If a
+# generator ever writes a pipeline configuration, give it its own ASSET_DIR
+# entry rather than widening this one.
 ASSET_DIR = "jets/workspace_assets/data_model"
 HAND_AUTHORED = {
     # The platform base model (A21.6). Hand-authored in JetStore rather than
