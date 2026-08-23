@@ -165,6 +165,39 @@ export const FormQuerySchema = z
   .meta({ id: "FormQuery", description: "A named query filling a form's item sources" });
 
 /**
+ * A form's action button.
+ *
+ * `action` is the name dispatched — either one of the six the flow engine
+ * handles itself (`ufNext`, `ufPrevious`, `ufCancel`, `ufCompleted`,
+ * `ufContinueLater`, `ufStartFlow`) or a name in the flow's action document.
+ *
+ * `enableOnlyWhenFormValid` is form-wide, because the Dart says so in as many
+ * words at `models/form_config.dart:535`. Reading it per field would be a
+ * behaviour change wearing a tidy-up.
+ */
+export const FormActionSchema = z
+  .strictObject({
+    action: Identifier,
+    label: z.string().min(1),
+    style: z.enum(["primary", "secondary", "danger"]).optional(),
+    capability: Identifier.optional(),
+    enableOnlyWhenFormValid: z.boolean().optional(),
+    /**
+     * The inverse gate. One site: `mapperDraft`
+     * (`file_mapping/form_config.dart`, `enableOnlyWhenFormNotValid: true`).
+     *
+     * **It is a real behaviour rather than a stylistic mirror of the flag above.**
+     * "Save as Draft" is offered *because* the worksheet does not validate — a
+     * half-finished mapping is worth keeping — so the two buttons are never
+     * enabled at the same time, and the Save button is the one the user should
+     * reach for once it lights up. `form_button.dart` reads them as two
+     * independent branches of one condition.
+     */
+    enableOnlyWhenFormNotValid: z.boolean().optional(),
+  })
+  .meta({ id: "FormAction" });
+
+/**
  * One field.
  *
  * `text`, `dataTable`, `dropdown` and `typeahead` are widgets; `label` and
@@ -182,6 +215,27 @@ export const FieldSchema = z
       maxLines: z.number().int().positive().optional(),
       maxLength: z.number().int().positive().optional(),
       autofocus: z.boolean().optional(),
+      /**
+       * The field is shown and not edited. Task F.2, and the first half of I-62.
+       *
+       * **20 of the 36 `FormInputFieldConfig` instances set it**
+       * (`datatable/fixtures/form_fields.json`), and `TextInput.tsx` has taken
+       * the prop since A.3 — so the gap was the authoring layer alone, which is
+       * what I-62 said and why it is one line here.
+       *
+       * **F.1 declined it and F.2 takes it, for the reason I-62 asked for: a
+       * consumer.** `mapFileUF`'s five text inputs set neither this nor
+       * `defaultValue`, so building it there would have been building for
+       * nobody. All **eight** text fields of F.2's five forms set it, and they
+       * hold `workspace_name` and `workspace_uri` — the workspace the flow is
+       * about, seeded from the route and posted back as `workspaceName`. An
+       * editable copy of that is not a cosmetic divergence: it is a form on
+       * which the user can retarget the pull.
+       *
+       * `defaultValue` is still unbuilt, still 2 of 36, and still has no
+       * consumer here.
+       */
+      isReadOnly: z.boolean().optional(),
       rules: z.array(RuleSchema).optional(),
     }),
     z.strictObject({
@@ -295,41 +349,32 @@ export const FieldSchema = z
     z.strictObject({ field: z.literal("label"), text: z.string().min(1) }),
     z.strictObject({ field: z.literal("label"), fromKey: Identifier }),
     z.strictObject({ field: z.literal("spacer") }),
+    /**
+     * A button *inside the rows* rather than in the action bar. Task F.2.
+     *
+     * **The corpus has three and this is not a layout preference in any of
+     * them.** `form_fields.json` reports `FormActionConfig` at three sites —
+     * `wpLoadConfigUF`'s "Load All Clients Config", and
+     * `pcViewMergeProcessInputsUF` and `pcViewInjectedProcessInputsUF`'s two
+     * "add" buttons, which are `pipelineConfigUF`'s and therefore F.6's. Each
+     * sits beside the table it acts on, and each is an *alternative* to
+     * finishing the form: the action bar below still carries Previous / Cancel /
+     * Next, and the flow continues if the user ignores the button.
+     *
+     * **It is `FormActionSchema` extended, not a second button shape**, because
+     * the Dart's is one class — `FormActionConfig` appears in `actions` and in
+     * `inputFields` alike (`models/form_config.dart`). So `capability`,
+     * `enableOnlyWhenFormValid` and its inverse mean here exactly what they mean
+     * there, and `buttonsOf` below is what stops the document-set checks from
+     * seeing only half the buttons a form offers.
+     *
+     * **A `button` field holds no value**, so it is not in `ValueField`, carries
+     * no `rules` and cannot be validated — the same line `label` and `spacer` are
+     * on.
+     */
+    FormActionSchema.extend({ field: z.literal("button") }),
   ])
   .meta({ id: "Field", description: "One field of a form" });
-
-/**
- * A form's action button.
- *
- * `action` is the name dispatched — either one of the six the flow engine
- * handles itself (`ufNext`, `ufPrevious`, `ufCancel`, `ufCompleted`,
- * `ufContinueLater`, `ufStartFlow`) or a name in the flow's action document.
- *
- * `enableOnlyWhenFormValid` is form-wide, because the Dart says so in as many
- * words at `models/form_config.dart:535`. Reading it per field would be a
- * behaviour change wearing a tidy-up.
- */
-export const FormActionSchema = z
-  .strictObject({
-    action: Identifier,
-    label: z.string().min(1),
-    style: z.enum(["primary", "secondary", "danger"]).optional(),
-    capability: Identifier.optional(),
-    enableOnlyWhenFormValid: z.boolean().optional(),
-    /**
-     * The inverse gate. One site: `mapperDraft`
-     * (`file_mapping/form_config.dart`, `enableOnlyWhenFormNotValid: true`).
-     *
-     * **It is a real behaviour rather than a stylistic mirror of the flag above.**
-     * "Save as Draft" is offered *because* the worksheet does not validate — a
-     * half-finished mapping is worth keeping — so the two buttons are never
-     * enabled at the same time, and the Save button is the one the user should
-     * reach for once it lights up. `form_button.dart` reads them as two
-     * independent branches of one condition.
-     */
-    enableOnlyWhenFormNotValid: z.boolean().optional(),
-  })
-  .meta({ id: "FormAction" });
 
 /**
  * A form drawn once per row of a query. Task F.1.
@@ -456,6 +501,27 @@ export function emitJsonSchema(): unknown {
 /** Every field in a form, flattened out of its rows. */
 export function fieldsOf(form: Form): Field[] {
   return form.rows.flat();
+}
+
+/**
+ * Every button a form offers — the action bar's and the rows' alike. Task F.2.
+ *
+ * **This exists because the document-set checks were written when there was only
+ * one place to look**, and adding the second place without it would have made
+ * both of them quietly incomplete: `checkActions` would stop refusing an inline
+ * button naming an undefined action, and `checkEndStateButtons` would stop
+ * refusing an end state whose *inline* button advances (I-57). Neither failure
+ * shows at authoring time, which is the whole reason that layer exists.
+ *
+ * Order is the action bar first, then the rows in document order — the bar is
+ * where a reader looks first and a finding's list reads better that way. Nothing
+ * depends on the order.
+ */
+export function buttonsOf(form: Form): FormAction[] {
+  const inline = fieldsOf(form).filter(
+    (f): f is Extract<Field, { field: "button" }> => f.field === "button",
+  );
+  return [...form.actions, ...inline];
 }
 
 /** A field that holds a value, and can therefore carry rules. */

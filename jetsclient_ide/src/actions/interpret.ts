@@ -34,6 +34,7 @@
 import { clearPublishedSelection } from "../datatable/binding";
 import type { FormField } from "../datatable/binding";
 import type { FormState } from "../datatable/formState";
+import { evaluateCondition } from "../userflow/engine";
 import type { EscapeRegistry } from "./escapes";
 import type { Action, Rows, Step, Value } from "./schema";
 
@@ -116,6 +117,22 @@ function toPgArray(raw: unknown): string {
   return list === null ? "{}" : `{${list.join(",")}}`;
 }
 
+/**
+ * `unpackToList(x)?.join(',')`. Task F.2.
+ *
+ * **Null in, null out, and that is the whole reason this is not `toPgArray`
+ * without the braces.** `makePgArray` turns a missing key into the string `'{}'`;
+ * this returns null, because the Dart writes `state[updateDbClients] =
+ * unpackToList(...)?.join(',')` and the server reads a null there as *load every
+ * client* (`workspace_helper_functions.go`, `loadWorkspaceConfigAction`). An
+ * empty *list* is a different thing and stays an empty string — the user cleared
+ * a selection rather than never having one.
+ */
+function toCsv(raw: unknown): string | null {
+  const list = unpackToList(raw);
+  return list === null ? null : list.join(",");
+}
+
 interface EvalContext {
   formState: FormState;
   field: FormField;
@@ -130,6 +147,7 @@ export function evaluate(value: Value, context: EvalContext): unknown {
   if ("fromKey" in value) return unpack(read(value.fromKey));
   if ("fromKeyList" in value) return unpackToList(read(value.fromKeyList));
   if ("pgArrayFromKey" in value) return toPgArray(read(value.pgArrayFromKey));
+  if ("csvFromKey" in value) return toCsv(read(value.csvFromKey));
   if ("userEmail" in value) return context.host.userEmail();
   if ("nowMillis" in value) return String(context.host.now() + (context.index ?? 0));
   if ("template" in value) {
@@ -197,6 +215,22 @@ async function runStep(step: Step, run: ActionRun): Promise<{ done: boolean; out
   const context: EvalContext = { formState, field, host };
   const carryOn = { done: false, outcome: null as ActionOutcome };
   const group = field.group;
+
+  /**
+   * F.2's guard, evaluated before anything else the step would do.
+   *
+   * **A skipped step is a no-op, not a stop**, which is what an `if` around a
+   * mutation means in the Dart — `wpPullWorkspaceConfirmUF` carries its options
+   * forward either way and only *drops the client selection* when the chosen
+   * actions no longer use it (`workspace_pull/form_action_delegates.dart:27`).
+   *
+   * `evaluateCondition` is the flow engine's, not a second implementation: the
+   * predicate is the same object a `choices` entry carries, so a document author
+   * who can read one can read the other, and a bug fixed in one is fixed in both.
+   */
+  if (step.when !== undefined && !evaluateCondition(step.when, formState, group)) {
+    return carryOn;
+  }
 
   switch (step.do) {
     case "validate":

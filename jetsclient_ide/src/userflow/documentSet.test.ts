@@ -15,13 +15,16 @@
 
 import { describe, expect, it } from "vitest";
 
+import loadConfigActionsDoc from "../actions/flows/loadConfigUF.ua.json";
 import loadFilesActionsDoc from "../actions/flows/loadFilesUF.ua.json";
 import registerFileKeyActionsDoc from "../actions/flows/registerFileKeyUF.ua.json";
 import { ActionDocumentSchema, type ActionDocument } from "../actions/schema";
 import corpus from "./fixtures/user_flows.json";
+import loadConfigFlowDoc from "./flows/loadConfigUF.uf.json";
 import loadFilesFlowDoc from "./flows/loadFilesUF.uf.json";
 import registerFileKeyFlowDoc from "./flows/registerFileKeyUF.uf.json";
 import { FormDocumentSchema, type FormDocument } from "./form";
+import loadConfigFormsDoc from "./forms/loadConfigUF.form.json";
 import loadFilesFormsDoc from "./forms/loadFilesUF.form.json";
 import registerFileKeyFormsDoc from "./forms/registerFileKeyUF.form.json";
 import { UserFlowSchema, type UserFlow } from "./schema";
@@ -36,7 +39,14 @@ const parse = (flowDoc: unknown, actionsDoc: unknown, formsDoc: unknown): Docume
 const sets: [string, DocumentSet][] = [
   ["registerFileKeyUF", parse(registerFileKeyFlowDoc, registerFileKeyActionsDoc, registerFileKeyFormsDoc)],
   ["loadFilesUF", parse(loadFilesFlowDoc, loadFilesActionsDoc, loadFilesFormsDoc)],
+  // F.2's, and the only set so far whose form carries a button outside the
+  // action bar — which is what makes the two cases at the bottom of this file
+  // testable against a real configuration rather than an invented one.
+  ["loadConfigUF", parse(loadConfigFlowDoc, loadConfigActionsDoc, loadConfigFormsDoc)],
 ];
+
+/** The `loadConfigUF` set, by name rather than by index. */
+const loadConfigSet = (): DocumentSet => clone(sets[2]![1]);
 
 /** A deep copy, so a mutation in one case cannot reach another. */
 const clone = (set: DocumentSet): DocumentSet => structuredClone(set);
@@ -167,5 +177,44 @@ describe("the corpus the narrow rule was chosen from", () => {
       Object.entries(flow.states).filter(([, state]) => state.isEnd === true),
     );
     expect(endStates.length).toBe(11);
+  });
+});
+
+/**
+ * An inline `button` field is a button. Task F.2.
+ *
+ * **Both checks had to learn about it and neither would have failed loudly.** A
+ * form's buttons were `form.actions` until F.2 added a field kind that is also a
+ * button; a check reading only the action bar goes on passing and stops seeing
+ * half the form (`form.ts`, `buttonsOf`).
+ */
+describe("a button inside the rows", () => {
+  const inlineOf = (set: DocumentSet) => {
+    const rows = set.forms.forms["wpLoadConfigUF"]!.rows;
+    const field = rows.flat().find((f) => f.field === "button")!;
+    return field as Extract<typeof field, { field: "button" }>;
+  };
+
+  it("is checked against the action document like any other", () => {
+    const set = loadConfigSet();
+    inlineOf(set).action = "notAnAction";
+    const findings = validateDocumentSet(set);
+    expect(findings.map((f) => [f.code, f.document, f.path])).toContainEqual([
+      "missingAction",
+      "forms",
+      "/forms/wpLoadConfigUF/rows",
+    ]);
+  });
+
+  it("cannot advance from an end state either", () => {
+    // I-57 on the surface it did not know about. `confirm` is an end state; a
+    // `ufNext` in its rows would fire the state action and then report no next
+    // step, exactly as one in its action bar would.
+    const set = loadConfigSet();
+    set.forms.forms["wpConfirmLoadConfigUF"]!.rows.push([
+      { field: "button", action: "ufNext", label: "Next" },
+    ]);
+    const findings = validateDocumentSet(set);
+    expect(findings.map((f) => f.code)).toContain("advanceFromEndState");
   });
 });

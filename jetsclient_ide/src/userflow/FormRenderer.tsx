@@ -7,14 +7,16 @@
  * walks `form.rows`, maps each field kind to the widget track A built, and
  * renders `form.actions` as buttons.
  *
- * ## Six field kinds, four widgets, and the two that are not widgets
+ * ## Seven field kinds, four widgets, and the three that are not widgets
  *
  * `text`, `dropdown` and `dataTable` are A.3's and A.4's, and `typeahead` is
- * I.2b's. `label` and `spacer` are layout — they carry no key, hold no value and
- * cannot be validated, which is why `valueFieldsOf` exists to exclude them
- * (`form.ts`). The 55 `PaddingConfig` and 12 `TextFieldConfig` instances the
- * corpus counts (I-12) are the second largest thing in a form after the inputs,
- * so they are not an afterthought.
+ * I.2b's. `label`, `spacer` and F.2's `button` are layout — they carry no key,
+ * hold no value and cannot be validated, which is why `valueFieldsOf` exists to
+ * exclude them (`form.ts`). The 55 `PaddingConfig` and 12 `TextFieldConfig`
+ * instances the corpus counts (I-12) are the second largest thing in a form
+ * after the inputs, so they are not an afterthought — and the three
+ * `FormActionConfig` instances it counts are why a button is a field kind at
+ * all.
  *
  * ## Where a query-backed field's items come from
  *
@@ -132,23 +134,13 @@ export function FormRenderer({ form, host, errors }: FormRendererProps): ReactNo
       ))}
 
       <div className="uf-form__actions" role="group" aria-label="Form actions">
+        {/* The inverse gate below is a real behaviour rather than a stylistic
+            mirror: "Save as Draft" is offered *because* the worksheet does not
+            validate (`form_button.dart`). Both gates live in
+            `FormActionButton` now, so an inline `button` field reads them the
+            same way — see the `button` case in `FieldView`. */}
         {form.actions.map((action) => (
-          <ActionButton
-            key={action.action}
-            className={`btn btn--${action.style ?? "primary"}`}
-            disabled={
-              host.busy ||
-              (action.enableOnlyWhenFormValid === true && !host.formValid) ||
-              // The inverse gate, and the two are independent branches rather
-              // than one flag: "Save as Draft" is offered *because* the worksheet
-              // does not validate (`form_button.dart`).
-              (action.enableOnlyWhenFormNotValid === true && host.formValid)
-            }
-            {...(action.capability !== undefined ? { capability: action.capability } : {})}
-            onClick={() => host.onFormAction(action)}
-          >
-            {action.label}
-          </ActionButton>
+          <FormActionButton key={action.action} action={action} host={host} />
         ))}
       </div>
     </section>
@@ -234,6 +226,7 @@ function FieldView({
           {...(field.maxLines !== undefined ? { maxLines: field.maxLines } : {})}
           {...(field.maxLength !== undefined ? { maxLength: field.maxLength } : {})}
           {...(field.autofocus !== undefined ? { autofocus: field.autofocus } : {})}
+          {...(field.isReadOnly !== undefined ? { isReadOnly: field.isReadOnly } : {})}
           {...(error !== undefined ? { error } : {})}
         />
       );
@@ -281,7 +274,37 @@ function FieldView({
           {...(error !== undefined ? { error } : {})}
         />
       );
+    case "button":
+      // **The same component the action bar renders, deliberately.** A
+      // `FormActionConfig` in `inputFields` and one in `actions` are one Dart
+      // class (`form.ts`, the `button` variant), so a divergence here would be a
+      // divergence the document cannot express.
+      return <FormActionButton action={field} host={host} />;
   }
+}
+
+/**
+ * One button, wherever it sits. Task F.2.
+ *
+ * Factored out of the action bar's map so the bar and an inline `button` field
+ * cannot drift on the two enable gates — which is the pair `mapperOk` and
+ * `mapperDraft` proved are independent branches rather than one flag (I-76).
+ */
+function FormActionButton({ action, host }: { action: FormAction; host: FormHost }): ReactNode {
+  return (
+    <ActionButton
+      className={`btn btn--${action.style ?? "primary"}`}
+      disabled={
+        host.busy ||
+        (action.enableOnlyWhenFormValid === true && !host.formValid) ||
+        (action.enableOnlyWhenFormNotValid === true && host.formValid)
+      }
+      {...(action.capability !== undefined ? { capability: action.capability } : {})}
+      onClick={() => host.onFormAction(action)}
+    >
+      {action.label}
+    </ActionButton>
+  );
 }
 
 /**

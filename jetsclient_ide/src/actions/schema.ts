@@ -7,7 +7,7 @@
  * emit.** A rule written with `.refine()` would hold in the browser and be
  * silently absent in Go.
  *
- * ## Fourteen primitives become twelve steps and eight value forms
+ * ## Fourteen primitives become thirteen steps and nine value forms
  *
  * `sizing_action_grammar.md` §3 counts fourteen primitives across the 58 action
  * arms. That is not the same as fourteen steps, and the difference is not a
@@ -30,6 +30,8 @@
 
 import { z } from "zod";
 
+import { ConditionSchema } from "../userflow/schema";
+
 /** Same identifier rule as the flow schema, and for the same reasons. */
 export const Identifier = z
   .string()
@@ -38,7 +40,7 @@ export const Identifier = z
   .meta({ description: "A key naming a form-state entry, action, state or table" });
 
 /**
- * A value an action can produce, in eight forms.
+ * A value an action can produce, in nine forms.
  *
  * `fromKey` is `unpack` — a scalar, or the first element of a selection array
  * (`delegate_helpers.dart:10`); it is the single most common operation in the
@@ -62,6 +64,32 @@ export const ValueSchema = z
     z.strictObject({ fromKey: Identifier }),
     z.strictObject({ fromKeyList: Identifier }),
     z.strictObject({ pgArrayFromKey: Identifier }),
+    /**
+     * `unpackToList(x)?.join(',')` — a selection as a bare comma-separated list.
+     * Task F.2.
+     *
+     * **Not `pgArrayFromKey` with the braces left off, and the difference is a
+     * server-side type assertion.** `makePgArray` produces `{a,b}` and returns
+     * `'{}'` for a missing key; this produces `a,b` and returns **null**, because
+     * the Dart's `?.` propagates and the null is what the server reads as *load
+     * them all*: `loadWorkspaceConfigAction` branches on
+     * `Data[0]["updateDbClients"] != nil` and then does `clients.(string)`
+     * (`jets/datatable/workspace_helper_functions.go`, `loadWorkspaceConfigAction`).
+     * A `{}` there would be one client literally named `{}`; a `[]string` would
+     * panic the goroutine.
+     *
+     * **Two sites in the Dart, both in F.2's two flows, and three in the
+     * documents** — `updateDbClients`, written once in `loadConfigInternal` and
+     * once in `wpPullWorkspaceOkUF` (`workspace_pull/form_action_delegates.dart:44`,
+     * `:103`); `loadConfigInternal` is a helper two arms call, and the document
+     * grammar has no helper, so `wpLoadConfigOkUF` and `wpLoadAllClientConfigUF`
+     * each spell it out. That is a weaker
+     * justification than `require` or `rows: "everyGroup"` had, and it is stated
+     * rather than dressed up: this form is *required*, not convenient. Without it
+     * the two flows post no `updateDbClients` at all and the server loads every
+     * client's configuration where the user asked for three.
+     */
+    z.strictObject({ csvFromKey: Identifier }),
     z.strictObject({ fromKeyAtIndex: Identifier }),
     z.strictObject({ template: z.string().min(1) }),
     z.strictObject({ userEmail: z.literal(true) }),
@@ -212,7 +240,8 @@ export const InsertTargetSchema = z
   .meta({ id: "InsertTarget", description: "A table an authored flow may write to" });
 
 /**
- * One step. Thirteen kinds, discriminated by `do` — `require` is F.1's.
+ * One step. Thirteen kinds, discriminated by `do` — `require` is F.1's — and every
+ * one of them may carry F.2's `when` guard.
  *
  * `post`'s `spinner` defaults to **false**, which is measured rather than
  * assumed: only 6 of the 16 posts inside action arms show one. The other spinner
@@ -222,8 +251,37 @@ export const InsertTargetSchema = z
  * it (I-19). A fifth appearing is expected; a fiftieth would mean the grammar is
  * wrong.
  */
+/**
+ * A guard every step may carry. Task F.2.
+ *
+ * **The grammar declined a general conditional once, on `require`, and this is
+ * the narrower thing that declining bought.** That note says sixteen arms open
+ * with `if (x == null) return "<message>";` and that a grammar growing `if` to
+ * serve them "would be able to express far more than the corpus does" — which is
+ * still true, and is why the guard is a *predicate over form state* rather than
+ * an expression language. It is `ConditionSchema`, the same object a flow's
+ * `choices` already carry, imported rather than restated: the port gains no new
+ * comparison vocabulary, no new operators, and nothing the flow engine cannot
+ * already evaluate (`userflow/engine.ts`, `evaluateCondition`).
+ *
+ * **Measured, because "justified beyond this flow" is a claim.** F.2 needs one:
+ * `wpPullWorkspaceConfirmUF` drops a client selection the chosen actions no
+ * longer use (`workspace_pull/form_action_delegates.dart:27`). The arm that needs
+ * it most is not this one — `scSelectSourceConfigUF`
+ * (`configure_files/form_action_delegates.dart:164`–`:225`) is six conditional
+ * `set`s in a row, and I-23's coverage pass transcribed the whole arm as the
+ * `loadSourceConfigWithFileTypeInference` escape. Whether that escape survives
+ * F.7 is that task's finding to make, not a promise here; I-74's rule is that the
+ * count is an upper bound.
+ *
+ * **A guarded step that does not run is not a failure**: the action continues at
+ * the next step, which is what an `if` around a mutation means. A step that wants
+ * to *stop* says `fail` or `require`.
+ */
+const guard = { when: ConditionSchema.optional() };
+
 const stepUnion = [
-  z.strictObject({ do: z.literal("validate") }),
+  z.strictObject({ do: z.literal("validate"), ...guard }),
   /**
    * Stop with a message unless every named key holds a value. Task F.1.
    *
@@ -244,13 +302,14 @@ const stepUnion = [
     do: z.literal("require"),
     keys: z.array(Identifier).min(1),
     message: z.string().min(1),
+    ...guard,
   }),
-  z.strictObject({ do: z.literal("confirm"), message: z.string().min(1) }),
-  z.strictObject({ do: z.literal("set"), key: Identifier, value: ValueSchema }),
-  z.strictObject({ do: z.literal("remove"), keys: z.array(Identifier).min(1) }),
-  z.strictObject({ do: z.literal("clearSelection"), key: Identifier }),
-  z.strictObject({ do: z.literal("appendUnique"), listKey: Identifier, value: ValueSchema }),
-  z.strictObject({ do: z.literal("removeFrom"), listKey: Identifier, value: ValueSchema }),
+  z.strictObject({ do: z.literal("confirm"), message: z.string().min(1), ...guard }),
+  z.strictObject({ do: z.literal("set"), key: Identifier, value: ValueSchema, ...guard }),
+  z.strictObject({ do: z.literal("remove"), keys: z.array(Identifier).min(1), ...guard }),
+  z.strictObject({ do: z.literal("clearSelection"), key: Identifier, ...guard }),
+  z.strictObject({ do: z.literal("appendUnique"), listKey: Identifier, value: ValueSchema, ...guard }),
+  z.strictObject({ do: z.literal("removeFrom"), listKey: Identifier, value: ValueSchema, ...guard }),
   z.strictObject({
     do: z.literal("post"),
     endpoint: EndpointSchema,
@@ -273,6 +332,7 @@ const stepUnion = [
     /** Message shown on HTTP 409, which the Dart special-cases at four sites. */
     onConflict: z.string().min(1).optional(),
     data: RowsSchema,
+    ...guard,
   }),
   /**
    * Read rows from the server into form state.
@@ -297,12 +357,18 @@ const stepUnion = [
     do: z.literal("query"),
     name: Identifier,
     into: z.record(Identifier, Identifier),
+    ...guard,
   }),
-  z.strictObject({ do: z.literal("goToState"), state: Identifier }),
-  z.strictObject({ do: z.literal("close") }),
-  z.strictObject({ do: z.literal("notify"), level: z.enum(["info", "error"]), message: z.string().min(1) }),
-  z.strictObject({ do: z.literal("fail"), message: z.string().min(1) }),
-  z.strictObject({ do: z.literal("escape"), name: Identifier }),
+  z.strictObject({ do: z.literal("goToState"), state: Identifier, ...guard }),
+  z.strictObject({ do: z.literal("close"), ...guard }),
+  z.strictObject({
+    do: z.literal("notify"),
+    level: z.enum(["info", "error"]),
+    message: z.string().min(1),
+    ...guard,
+  }),
+  z.strictObject({ do: z.literal("fail"), message: z.string().min(1), ...guard }),
+  z.strictObject({ do: z.literal("escape"), name: Identifier, ...guard }),
 ] as const;
 
 export const StepSchema = z

@@ -225,7 +225,7 @@
           "type": "object"
         }
       ],
-      "description": "A predicate over form state, evaluated to pick the next state"
+      "description": "A predicate over form state, guarding a transition or a step"
     },
     "State": {
       "anyOf": [

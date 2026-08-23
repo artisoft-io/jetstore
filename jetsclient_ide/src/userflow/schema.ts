@@ -119,7 +119,11 @@ export const ConditionSchema: z.ZodType<Condition> = z.lazy(() =>
   ]),
 ).meta({
   id: "Condition",
-  description: "A predicate over form state, evaluated to pick the next state",
+  // **Two consumers now, and the wording says so.** A choice picks the next
+  // state; F.2's `when` guards one step of an action (`actions/schema.ts`). The
+  // predicate is the same one either way, which is the whole reason the action
+  // grammar imports this rather than growing a second comparison vocabulary.
+  description: "A predicate over form state, guarding a transition or a step",
 });
 
 /** A condition paired with where to go when it holds. Evaluated in order. */
