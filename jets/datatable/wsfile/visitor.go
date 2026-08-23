@@ -1,6 +1,7 @@
 package wsfile
 
 import (
+	"errors"
 	"fmt"
 	"io/fs"
 	"log"
@@ -89,11 +90,37 @@ func visitChildren(root, relativeRoot, dir string, filters *[]string, workspaceN
 // relativeRoot is file relative root with respect to workspace root (file path within workspace)
 // relativeRoot includes dir as the last component of it
 // Note: This function cannot be called recursively, otherwise it will interrupt WalDir
+//
+// A section directory that does not exist yields an empty section rather than an
+// error, and that is a deliberate change of failure mode (task F.0a, 2026-08-23).
+//
+// The sections are hard-coded in workspace_data_table_action.go, one
+// VisitDirWrapper call each, and before this change a missing directory made
+// WalkDir invoke its callback with a stat error — which the callback returned,
+// which failed the whole workspace_file_structure request. **One absent folder
+// therefore emptied the IDE's entire file tree, not its own heading.** The
+// process_sequence removal earlier the same day had to be sequenced around that
+// blast radius, and its comment says so.
+//
+// It was not hypothetical by then: S.3 added the `user_flows` section, and no
+// workspace in the corpus has a `user_flows/` directory — cedargate_ws, jets_ws,
+// usi_ws and walrus_ws all lack one at the commits this branch pins. The tree was
+// failing for every workspace, and it read as a server error rather than as a
+// missing folder.
+//
+// Only fs.ErrNotExist is swallowed. A directory that exists and cannot be read is
+// still an error, because that one is a real fault rather than a section nobody
+// has authored into this workspace yet.
 func visitDir(root, relativeRoot, dir string, filters *[]string, workspaceName string) (*[]*WorkspaceNode, error) {
 
 	// fmt.Println("*visitDir called for:",fmt.Sprintf("%s/%s", root, dir))
-	fileSystem := os.DirFS(fmt.Sprintf("%s/%s", root, dir))
+	dirPath := fmt.Sprintf("%s/%s", root, dir)
 	children := make([]*WorkspaceNode, 0)
+	if _, statErr := os.Stat(dirPath); errors.Is(statErr, fs.ErrNotExist) {
+		log.Printf("workspace directory %q does not exist, reporting an empty section", dirPath)
+		return &children, nil
+	}
+	fileSystem := os.DirFS(dirPath)
 
 	err := fs.WalkDir(fileSystem, ".", func(path string, info fs.DirEntry, err error) error {
 		// fmt.Println("*** WalkDir @",path, "err is",err)
