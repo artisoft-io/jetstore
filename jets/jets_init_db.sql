@@ -52,6 +52,11 @@ INSERT INTO jetsapi.roles (role, details) VALUES
 --	- infer_server_admin: Start & stop the Infer Server (GPU inference) and manage its models.
 --	                     Granted with workspace_ide since the screen is reached from the IDE.
 --	                     Note this capability starts billable GPU capacity.
+--	- agent_supervision: See staged change proposals, read an agent run's transcript, and
+--	                     approve or reject a proposal (jets/apiserver/api_agentic.go).
+--	                     Deliberately not workspace_ide and not jetstore_read: editing a rule
+--	                     file and authorising an agent's change are different authorities, and
+--	                     a transcript is a governance record rather than client data.
 TRUNCATE jetsapi.role_capability;
 INSERT INTO jetsapi.role_capability (role, capability) VALUES
   ('ops_user', 'jetstore_read'),
@@ -67,6 +72,7 @@ INSERT INTO jetsapi.role_capability (role, capability) VALUES
   ('knowledge_engineer', 'run_pipelines'),
   ('knowledge_engineer', 'user_profile'),
   ('knowledge_engineer', 'infer_server_admin'),
+  ('knowledge_engineer', 'agent_supervision'),
   ('system_role', 'run_pipelines')
 ;
 
