@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "startAtKey": "bindings",
+  "states": {
+    "bindings": {
+      "description": "The values this template is parameterised by",
+      "formConfig": "bindings",
+      "isEnd": true,
+      "stateAction": "cpipesTemplateApply"
+    }
+  }
+}
