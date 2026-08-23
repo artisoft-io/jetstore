@@ -11,7 +11,15 @@
 import { describe, expect, it } from "vitest";
 
 import { FormState } from "../datatable/formState";
-import { FieldSchema, FormSchema, fieldsOf, valueFieldsOf, type Form } from "./form";
+import {
+  FieldSchema,
+  FormDocumentSchema,
+  FormSchema,
+  fieldsOf,
+  itemSourcesOf,
+  valueFieldsOf,
+  type Form,
+} from "./form";
 import { isFormValid, validateForm } from "./validateForm";
 
 /** The shape the agentic project's template projection emits (I-43). */
@@ -148,5 +156,108 @@ describe("a dropdown inside a form", () => {
 
   it("fails `required` when the field was never touched at all", () => {
     expect(isFormValid(form, new FormState(), 0)).toBe(false);
+  });
+});
+
+describe("query-backed item sources", () => {
+  /** `fmMappingFormUF`, reduced to the two fields that take items from a query. */
+  const mapping: Form = FormSchema.parse({
+    title: "File Mapping Worksheet",
+    queries: {
+      inputColumns: {
+        sql: "SELECT column_name FROM information_schema.columns WHERE table_name = '{table_name}'",
+        params: ["table_name"],
+      },
+      mappingFunctions: { sql: "SELECT function_name FROM jetsapi.mapping_function_registry" },
+    },
+    rows: [
+      [
+        {
+          field: "typeahead",
+          key: "input_column",
+          label: "Input Column",
+          hint: "Input File Column Name",
+          itemsFrom: "inputColumns",
+          priorityKey: "data_property",
+          maxLength: 120,
+          rules: [{ rule: "required", message: "Input Column must be selected." }],
+        },
+        {
+          field: "dropdown",
+          key: "function_name",
+          label: "Cleansing function",
+          items: [{ value: "", label: "Select cleansing function" }],
+          itemsFrom: "mappingFunctions",
+        },
+      ],
+    ],
+    actions: [{ action: "mapperOk", label: "Save", enableOnlyWhenFormValid: true }],
+  });
+
+  it("makes a typeahead a value field, so rules reach it", () => {
+    expect(valueFieldsOf(mapping).map((f) => f.key)).toEqual(["input_column", "function_name"]);
+  });
+
+  it("validates a typeahead like any other value field", () => {
+    const formState = new FormState();
+    expect(validateForm(mapping, formState, 0)).toEqual([
+      { key: "input_column", message: "Input Column must be selected." },
+    ]);
+    formState.setValue(0, "input_column", "member_id");
+    expect(isFormValid(mapping, formState, 0)).toBe(true);
+  });
+
+  it("names every item source with the field that names it", () => {
+    expect(itemSourcesOf(mapping)).toEqual([
+      { key: "input_column", query: "inputColumns" },
+      { key: "function_name", query: "mappingFunctions" },
+    ]);
+  });
+
+  it("reports nothing for a form whose dropdown carries only literals", () => {
+    // I.2a's variant is untouched by I.2b: `itemsFrom` is optional on a dropdown
+    // and absent is the static case.
+    const literal: Form = FormSchema.parse({
+      rows: [[variantChoice]],
+      actions: [{ action: "ufNext", label: "Next" }],
+    });
+    expect(itemSourcesOf(literal)).toEqual([]);
+  });
+
+  it("refuses a typeahead with no item source", () => {
+    // A typeahead with nothing to suggest is a text field, and a document that
+    // means a text field should say `text`.
+    const { itemsFrom, ...rest } = {
+      field: "typeahead",
+      key: "input_column",
+      label: "Input Column",
+      itemsFrom: "inputColumns",
+    };
+    void itemsFrom;
+    expect(FieldSchema.safeParse(rest).success).toBe(false);
+  });
+
+  it("refuses the Dart's own spelling of the same idea", () => {
+    // `typeaheadMenuItemCacheKey` names a form-state cache key and
+    // `dropdownItemsQuery` carries SQL on the field; the document has one
+    // construct where the Dart has three, so all three are invented fields here.
+    for (const invented of [
+      { field: "typeahead", key: "c", label: "C", itemsFrom: "q", typeaheadMenuItemCacheKey: "k" },
+      { field: "typeahead", key: "c", label: "C", itemsFrom: "q", priorityTargetKey: "d" },
+      { field: "dropdown", key: "c", label: "C", items: [{ value: "a", label: "A" }], dropdownItemsQuery: "SELECT 1" },
+    ]) {
+      expect(FieldSchema.safeParse(invented).success).toBe(false);
+    }
+  });
+
+  it("requires a statement and refuses an empty params list", () => {
+    const base = { schemaVersion: 1, forms: { f: { rows: [[{ field: "spacer" }]], actions: [{ action: "ufCompleted", label: "Done" }] } } };
+    const withQueries = (queries: unknown) => ({
+      ...base,
+      forms: { f: { ...base.forms.f, queries } },
+    });
+    expect(FormDocumentSchema.safeParse(withQueries({ q: { params: ["a"] } })).success).toBe(false);
+    expect(FormDocumentSchema.safeParse(withQueries({ q: { sql: "SELECT 1", params: [] } })).success).toBe(false);
+    expect(FormDocumentSchema.safeParse(withQueries({ q: { sql: "SELECT 1" } })).success).toBe(true);
   });
 });

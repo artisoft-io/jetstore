@@ -112,6 +112,49 @@ describe("an end state whose form tries to advance", () => {
   });
 });
 
+describe("a field taking its items from a query the form does not declare", () => {
+  it("is reported against the form", () => {
+    // The relation a schema cannot state: `itemsFrom` is an `Identifier`, and
+    // whether it keys the sibling `queries` object is a fact about two properties
+    // of one form. A `.refine()` would say it in the browser and vanish from the
+    // emitted JSON Schema, so Go would not enforce it.
+    const set = clone(sets[1]![1]);
+    const form = set.forms.forms["lfSelectSourceConfigUF"]!;
+    form.queries = { sourceConfigs: { sql: "SELECT client FROM jetsapi.client_registry" } };
+    form.rows[0]!.push({
+      field: "dropdown",
+      key: "client",
+      label: "Client",
+      items: [{ value: "", label: "Select a Client" }],
+      itemsFrom: "clientsTypo",
+    });
+    const findings = validateDocumentSet(set);
+    expect(findings.map((f) => [f.code, f.document, f.path])).toContainEqual([
+      "missingItemSource",
+      "forms",
+      "/forms/lfSelectSourceConfigUF/queries",
+    ]);
+  });
+
+  it("is not reported when the query is declared on the same form", () => {
+    const set = clone(sets[1]![1]);
+    const form = set.forms.forms["lfSelectSourceConfigUF"]!;
+    form.queries = { clients: { sql: "SELECT client FROM jetsapi.client_registry" } };
+    form.rows[0]!.push({
+      field: "dropdown",
+      key: "client",
+      label: "Client",
+      items: [{ value: "", label: "Select a Client" }],
+      itemsFrom: "clients",
+    });
+    expect(validateDocumentSet(set)).toEqual([]);
+  });
+
+  it("is not reported for a form with no queries and no item sources", () => {
+    expect(validateDocumentSet(sets[0]![1])).toEqual([]);
+  });
+});
+
 describe("the corpus the narrow rule was chosen from", () => {
   it("has eleven end states, and two of them do not use ufCompleted", () => {
     // Measured rather than asserted from memory: the Dart's form configs give

@@ -1,5 +1,5 @@
 {
-  "comment": "The S.6 negative suite. Every case marked invalid must FAIL validation \u2014 a negative that validates is a hole, not a pass. Each case mutates one of the five valid bases \u2014 flow, action, form, and the two table kinds \u2014 so that it fails for exactly the intended reason. `by` names the layer expected to catch it: `schema` is the emitted JSON Schema, `reference` is the check JSON Schema cannot express. A case marked `reference` that the schema also rejects is fine and stronger; a case marked `schema` that only the reference layer catches means the schema has a hole. On the cpipes negative_suite.json pattern (tools/cpipes_contract/), with `by` added because this side validates in two layers.",
+  "comment": "The S.6 negative suite. Every case marked invalid must FAIL validation — a negative that validates is a hole, not a pass. Each case mutates one of the five valid bases — flow, action, form, and the two table kinds — so that it fails for exactly the intended reason. `by` names the layer expected to catch it: `schema` is the emitted JSON Schema, `reference` is the check JSON Schema cannot express. A case marked `reference` that the schema also rejects is fine and stronger; a case marked `schema` that only the reference layer catches means the schema has a hole. On the cpipes negative_suite.json pattern (tools/cpipes_contract/), with `by` added because this side validates in two layers.",
   "cases": [
     {
       "name": "base flow",
@@ -2574,7 +2574,7 @@
       }
     },
     {
-      "name": "dropdown naming an items query on the field",
+      "name": "dropdown naming the Dart field-level items query",
       "class": "invented-field",
       "document": "form",
       "expect": "invalid",
@@ -2620,6 +2620,412 @@
                 "style": "secondary"
               }
             ]
+          },
+          "lfSelectFileKeysUF": {
+            "rows": [
+              [
+                {
+                  "field": "dataTable",
+                  "key": "lfFileKeyStagingTable",
+                  "table": "lfFileKeyStagingTable",
+                  "rules": [
+                    {
+                      "rule": "required",
+                      "message": "Please select a file(s) to load."
+                    }
+                  ]
+                }
+              ]
+            ],
+            "actions": [
+              {
+                "action": "ufPrevious",
+                "label": "Previous",
+                "style": "primary"
+              },
+              {
+                "action": "ufCancel",
+                "label": "Cancel",
+                "style": "primary"
+              },
+              {
+                "action": "ufCompleted",
+                "label": "Load Files & Done",
+                "style": "secondary"
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "name": "typeahead without an items source",
+      "class": "missing-required",
+      "document": "form",
+      "expect": "invalid",
+      "by": "schema",
+      "content": {
+        "schemaVersion": 1,
+        "forms": {
+          "lfSelectSourceConfigUF": {
+            "rows": [
+              [
+                {
+                  "field": "typeahead",
+                  "key": "input_column",
+                  "label": "Input Column"
+                }
+              ]
+            ],
+            "actions": [
+              {
+                "action": "ufPrevious",
+                "label": "Previous",
+                "style": "primary"
+              },
+              {
+                "action": "ufCancel",
+                "label": "Cancel",
+                "style": "primary"
+              },
+              {
+                "action": "ufNext",
+                "label": "Next",
+                "style": "secondary"
+              }
+            ],
+            "queries": {
+              "inputColumns": {
+                "sql": "SELECT column_name FROM information_schema.columns"
+              }
+            }
+          },
+          "lfSelectFileKeysUF": {
+            "rows": [
+              [
+                {
+                  "field": "dataTable",
+                  "key": "lfFileKeyStagingTable",
+                  "table": "lfFileKeyStagingTable",
+                  "rules": [
+                    {
+                      "rule": "required",
+                      "message": "Please select a file(s) to load."
+                    }
+                  ]
+                }
+              ]
+            ],
+            "actions": [
+              {
+                "action": "ufPrevious",
+                "label": "Previous",
+                "style": "primary"
+              },
+              {
+                "action": "ufCancel",
+                "label": "Cancel",
+                "style": "primary"
+              },
+              {
+                "action": "ufCompleted",
+                "label": "Load Files & Done",
+                "style": "secondary"
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "name": "typeahead naming the Dart cache key",
+      "class": "invented-field",
+      "document": "form",
+      "expect": "invalid",
+      "by": "schema",
+      "content": {
+        "schemaVersion": 1,
+        "forms": {
+          "lfSelectSourceConfigUF": {
+            "rows": [
+              [
+                {
+                  "field": "typeahead",
+                  "key": "input_column",
+                  "label": "Input Column",
+                  "itemsFrom": "inputColumns",
+                  "typeaheadMenuItemCacheKey": "cache.input_columns"
+                }
+              ]
+            ],
+            "actions": [
+              {
+                "action": "ufPrevious",
+                "label": "Previous",
+                "style": "primary"
+              },
+              {
+                "action": "ufCancel",
+                "label": "Cancel",
+                "style": "primary"
+              },
+              {
+                "action": "ufNext",
+                "label": "Next",
+                "style": "secondary"
+              }
+            ],
+            "queries": {
+              "inputColumns": {
+                "sql": "SELECT column_name FROM information_schema.columns"
+              }
+            }
+          },
+          "lfSelectFileKeysUF": {
+            "rows": [
+              [
+                {
+                  "field": "dataTable",
+                  "key": "lfFileKeyStagingTable",
+                  "table": "lfFileKeyStagingTable",
+                  "rules": [
+                    {
+                      "rule": "required",
+                      "message": "Please select a file(s) to load."
+                    }
+                  ]
+                }
+              ]
+            ],
+            "actions": [
+              {
+                "action": "ufPrevious",
+                "label": "Previous",
+                "style": "primary"
+              },
+              {
+                "action": "ufCancel",
+                "label": "Cancel",
+                "style": "primary"
+              },
+              {
+                "action": "ufCompleted",
+                "label": "Load Files & Done",
+                "style": "secondary"
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "name": "form query without a statement",
+      "class": "missing-required",
+      "document": "form",
+      "expect": "invalid",
+      "by": "schema",
+      "content": {
+        "schemaVersion": 1,
+        "forms": {
+          "lfSelectSourceConfigUF": {
+            "rows": [
+              [
+                {
+                  "field": "typeahead",
+                  "key": "input_column",
+                  "label": "Input Column",
+                  "itemsFrom": "inputColumns"
+                }
+              ]
+            ],
+            "actions": [
+              {
+                "action": "ufPrevious",
+                "label": "Previous",
+                "style": "primary"
+              },
+              {
+                "action": "ufCancel",
+                "label": "Cancel",
+                "style": "primary"
+              },
+              {
+                "action": "ufNext",
+                "label": "Next",
+                "style": "secondary"
+              }
+            ],
+            "queries": {
+              "inputColumns": {
+                "params": [
+                  "table_name"
+                ]
+              }
+            }
+          },
+          "lfSelectFileKeysUF": {
+            "rows": [
+              [
+                {
+                  "field": "dataTable",
+                  "key": "lfFileKeyStagingTable",
+                  "table": "lfFileKeyStagingTable",
+                  "rules": [
+                    {
+                      "rule": "required",
+                      "message": "Please select a file(s) to load."
+                    }
+                  ]
+                }
+              ]
+            ],
+            "actions": [
+              {
+                "action": "ufPrevious",
+                "label": "Previous",
+                "style": "primary"
+              },
+              {
+                "action": "ufCancel",
+                "label": "Cancel",
+                "style": "primary"
+              },
+              {
+                "action": "ufCompleted",
+                "label": "Load Files & Done",
+                "style": "secondary"
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "name": "form query with an empty params list",
+      "class": "value-range",
+      "document": "form",
+      "expect": "invalid",
+      "by": "schema",
+      "content": {
+        "schemaVersion": 1,
+        "forms": {
+          "lfSelectSourceConfigUF": {
+            "rows": [
+              [
+                {
+                  "field": "typeahead",
+                  "key": "input_column",
+                  "label": "Input Column",
+                  "itemsFrom": "inputColumns"
+                }
+              ]
+            ],
+            "actions": [
+              {
+                "action": "ufPrevious",
+                "label": "Previous",
+                "style": "primary"
+              },
+              {
+                "action": "ufCancel",
+                "label": "Cancel",
+                "style": "primary"
+              },
+              {
+                "action": "ufNext",
+                "label": "Next",
+                "style": "secondary"
+              }
+            ],
+            "queries": {
+              "inputColumns": {
+                "sql": "SELECT 1",
+                "params": []
+              }
+            }
+          },
+          "lfSelectFileKeysUF": {
+            "rows": [
+              [
+                {
+                  "field": "dataTable",
+                  "key": "lfFileKeyStagingTable",
+                  "table": "lfFileKeyStagingTable",
+                  "rules": [
+                    {
+                      "rule": "required",
+                      "message": "Please select a file(s) to load."
+                    }
+                  ]
+                }
+              ]
+            ],
+            "actions": [
+              {
+                "action": "ufPrevious",
+                "label": "Previous",
+                "style": "primary"
+              },
+              {
+                "action": "ufCancel",
+                "label": "Cancel",
+                "style": "primary"
+              },
+              {
+                "action": "ufCompleted",
+                "label": "Load Files & Done",
+                "style": "secondary"
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "name": "form naming the Dart query maps",
+      "class": "invented-field",
+      "document": "form",
+      "expect": "invalid",
+      "by": "schema",
+      "content": {
+        "schemaVersion": 1,
+        "forms": {
+          "lfSelectSourceConfigUF": {
+            "rows": [
+              [
+                {
+                  "field": "typeahead",
+                  "key": "input_column",
+                  "label": "Input Column",
+                  "itemsFrom": "inputColumns"
+                }
+              ]
+            ],
+            "actions": [
+              {
+                "action": "ufPrevious",
+                "label": "Previous",
+                "style": "primary"
+              },
+              {
+                "action": "ufCancel",
+                "label": "Cancel",
+                "style": "primary"
+              },
+              {
+                "action": "ufNext",
+                "label": "Next",
+                "style": "secondary"
+              }
+            ],
+            "queries": {
+              "inputColumns": {
+                "sql": "SELECT column_name FROM information_schema.columns"
+              }
+            },
+            "typeaheadItemsQueries": {
+              "cache.input_columns": "inputColumns"
+            }
           },
           "lfSelectFileKeysUF": {
             "rows": [

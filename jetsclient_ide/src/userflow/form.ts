@@ -89,12 +89,84 @@ export const DropdownItemSchema = z
   .meta({ id: "DropdownItem", description: "One choice offered by a dropdown" });
 
 /**
+ * A named query the form runs to fill its item sources. Task I.2b.
+ *
+ * ## The query is named on the form, and in the Dart that is true of one of the
+ * two mechanisms rather than of both
+ *
+ * I-11 and I-43 both state it as a fact about `jetsclient`, and **half of it is
+ * a fact about the port instead** (I-70). The Dart has two item-source paths and
+ * they disagree about where the SQL lives:
+ *
+ * | Dart | Where the SQL is | How it runs |
+ * |---|---|---|
+ * | `FormDropdownFieldConfig.dropdownItemsQuery` | **on the field** (`models/form_config.dart:348`) | `raw_query`, from the widget (`components/dropdown_form_field.dart`, `queryDropdownItems`) |
+ * | `FormConfig.dropdownItemsQueries` / `typeaheadItemsQueries` | **on the form** (`models/form_config.dart:129`–`:130`) | `raw_query_map`, once, from the form (`components/form.dart`, `queryInputFieldItems`) |
+ *
+ * Five of the eleven dropdowns take the first path and two fields of
+ * `fmMappingFormUF` take the second. **This schema has one**: a query is declared
+ * here, on the form, and a field names it. That collapses two Dart classes and
+ * two request shapes into one construct, which is I-60's observation — *"the two
+ * exotic types are one widget and one item source"* — carried into the document.
+ *
+ * ## `params` is `stateKeyPredicates`, and it is both of them
+ *
+ * The Dart spells the same idea twice: `FormConfig.stateKeyPredicates` substitutes
+ * form-state values into every query in the map, and
+ * `FormDropdownFieldConfig.stateKeyPredicates` substitutes into that one field's
+ * query *and* re-runs it when the value changes. Here a query declares the keys
+ * it reads and both behaviours follow from that: a query whose parameters are not
+ * all present does not run, and one whose parameter changes runs again
+ * (`formQueries.ts`).
+ *
+ * ## What is deliberately not carried across
+ *
+ * `returnedModelCacheKey` (2 of 11) named a second place to find the rows. Here
+ * the query's own name addresses them — `FormState.queryRows` — so a second key
+ * would be a second name for one thing, which is the cut I-52 made thirteen times
+ * over on the table document.
+ *
+ * `whereStateContains` is declared by the Dart and set by **no** field in any
+ * flow (`widgets/Dropdown.tsx`, from the form-field corpus), so it is absent for
+ * the reason `apiAction` is absent from `.tc.json`: a construct with no use is a
+ * surface with no test.
+ */
+export const FormQuerySchema = z
+  .strictObject({
+    /**
+     * The statement, run by `raw_query_map` against the deployment's database.
+     *
+     * **Raw SQL in an authored document is a capability question and it was
+     * asked** (I-71). Saving a workspace file requires `workspace_ide`
+     * (`jets/datatable/workspace_data_table_action.go`, `SaveWorkspaceFileContent`),
+     * and `workspace_ide` *is* `CapabilityQueryTool`
+     * (`jets/datatable/data_table_action.go`, `CapabilityQueryTool`) — the
+     * capability the free-SQL query tool already requires. So an author who can
+     * write this file can already run the same statement through
+     * `raw_query_tool`, and the document grants them nothing new. That is the
+     * opposite conclusion to I.3a's on `apiAction`, and for a stated reason: that
+     * field reached a *write* switch, and this one reaches the read path the
+     * author is already trusted with.
+     */
+    sql: z.string().min(1),
+    /**
+     * Form-state keys substituted into `sql` as `{key}`, read from group 0.
+     *
+     * Group 0 rather than the field's group, matching `form.dart`'s
+     * `getValue(0, stateKey)`: a query is the form's and a repeating row's group
+     * is not a thing it can see.
+     */
+    params: z.array(Identifier).min(1).optional(),
+  })
+  .meta({ id: "FormQuery", description: "A named query filling a form's item sources" });
+
+/**
  * One field.
  *
- * `text`, `dataTable` and `dropdown` are widgets; `label` and `spacer` are not,
- * and they are here because a form is a layout as well as a set of inputs — the
- * 55 `PaddingConfig` and 12 `TextFieldConfig` instances across the flows (I-12)
- * are the second largest thing in a form after the inputs themselves.
+ * `text`, `dataTable`, `dropdown` and `typeahead` are widgets; `label` and
+ * `spacer` are not, and they are here because a form is a layout as well as a set
+ * of inputs — the 55 `PaddingConfig` and 12 `TextFieldConfig` instances across the
+ * flows (I-12) are the second largest thing in a form after the inputs themselves.
  */
 export const FieldSchema = z
   .union([
@@ -145,9 +217,62 @@ export const FieldSchema = z
       key: Identifier,
       label: z.string().min(1),
       items: z.array(DropdownItemSchema).min(1),
+      /**
+       * A `queries` entry whose rows are appended to `items`. Task I.2b.
+       *
+       * **Appended, not substituted**, because that is what the Dart does with
+       * both of its paths: `setDropdownItems` starts from `_config.items` and adds
+       * the model, and `form.dart`'s cache builder puts a "Select…" entry in front
+       * of the rows. So the literal list keeps carrying the prompt item — which is
+       * why `items` stays required with a minimum of one — and the query supplies
+       * the choices.
+       *
+       * Column 0 of each row is the value **and** the label, as both Dart paths
+       * do (`DropdownItemConfig(label: e[0]!, value: e[0]!)`). A query selecting a
+       * second column is not thereby offering it: `process_name, key` is read for
+       * its second column by an action, through the rows rather than through the
+       * dropdown.
+       */
+      itemsFrom: Identifier.optional(),
       /** Index into `items`, selected when the form state holds nothing. */
       defaultItemPos: z.number().int().nonnegative().optional(),
       isReadOnly: z.boolean().optional(),
+      rules: z.array(RuleSchema).optional(),
+    }),
+    /**
+     * A text box with suggestions. Task I.2b, and the one widget F.0b found
+     * missing (F21, I-60).
+     *
+     * **It is not a dropdown and the difference is the point.** The value is
+     * whatever the user typed — the Dart's `onChanged` writes it through on every
+     * keystroke (`components/typeahead_form_field.dart`, `JetsTypeaheadFormField`)
+     * — and the suggestion list only helps them type it. `mapFileUF`'s validator
+     * is what rejects a value that is not a column of the staging table, which is
+     * why membership is a rule rather than a constraint of the control.
+     *
+     * `itemsFrom` is required here and optional on `dropdown`: a typeahead with no
+     * suggestions is a text field, and a document that means a text field should
+     * say `text`.
+     */
+    z.strictObject({
+      field: z.literal("typeahead"),
+      key: Identifier,
+      label: z.string().min(1),
+      hint: z.string().optional(),
+      /** The `queries` entry whose column 0 supplies the suggestions. */
+      itemsFrom: Identifier,
+      /**
+       * A sibling key whose value floats the suggestions that resemble it.
+       *
+       * `priorityTargetKey` (`models/form_config.dart:442`). The Dart splits the
+       * target on `:` and `_`, lowercases, and puts every suggestion containing
+       * any part first — so mapping the `member:dob` data property offers the
+       * columns with `member` or `dob` in them before the other four hundred. It
+       * is ordering only: nothing is hidden, which is what makes it safe to leave
+       * unset.
+       */
+      priorityKey: Identifier.optional(),
+      maxLength: z.number().int().positive().optional(),
       rules: z.array(RuleSchema).optional(),
     }),
     z.strictObject({ field: z.literal("label"), text: z.string().min(1) }),
@@ -179,6 +304,14 @@ export const FormActionSchema = z
 export const FormSchema = z
   .strictObject({
     title: z.string().min(1).optional(),
+    /**
+     * Named queries this form runs when it loads. Task I.2b.
+     *
+     * A field names one with `itemsFrom`; nothing else reads them today, and the
+     * rows are addressable by query name from an escape, which is where the two
+     * `metadataQueries` caches of `fmMappingFormUF` end up.
+     */
+    queries: z.record(Identifier, FormQuerySchema).optional(),
     /** Rows, rendered in order; a row is a horizontal group. */
     rows: z.array(z.array(FieldSchema).min(1)).min(1),
     actions: z.array(FormActionSchema).min(1),
@@ -198,6 +331,7 @@ export const FormDocumentSchema = z
 
 export type Rule = z.infer<typeof RuleSchema>;
 export type DropdownItem = z.infer<typeof DropdownItemSchema>;
+export type FormQuery = z.infer<typeof FormQuerySchema>;
 export type Field = z.infer<typeof FieldSchema>;
 export type FormAction = z.infer<typeof FormActionSchema>;
 export type Form = z.infer<typeof FormSchema>;
@@ -215,13 +349,34 @@ export function fieldsOf(form: Form): Field[] {
 /** A field that holds a value, and can therefore carry rules. */
 export type ValueField = Extract<
   Field,
-  { field: "text" } | { field: "dataTable" } | { field: "dropdown" }
+  { field: "text" } | { field: "dataTable" } | { field: "dropdown" } | { field: "typeahead" }
 >;
+
+const VALUE_KINDS = new Set(["text", "dataTable", "dropdown", "typeahead"]);
 
 /** Fields that hold a value and can therefore be validated. */
 export function valueFieldsOf(form: Form): ValueField[] {
-  return fieldsOf(form).filter(
-    (f): f is ValueField =>
-      f.field === "text" || f.field === "dataTable" || f.field === "dropdown",
-  );
+  return fieldsOf(form).filter((f): f is ValueField => VALUE_KINDS.has(f.field));
+}
+
+/**
+ * Every `queries` entry a field names, with the field that names it.
+ *
+ * **The check this exists for is the one no schema can state**: `itemsFrom` is an
+ * `Identifier`, and whether that identifier is a key of the *same form's*
+ * `queries` is a relation between two properties of one object. Zod could say it
+ * with `.refine()` and `z.toJSONSchema` would drop it, so Go would not enforce it
+ * — the split I.2a called the worst of the three (`defaultItemPos`). So it is a
+ * document-set check instead (`documentSet.ts`), where both languages can reach
+ * it and a generator can run it without a browser.
+ */
+export function itemSourcesOf(form: Form): { key: string; query: string }[] {
+  const sources: { key: string; query: string }[] = [];
+  for (const field of fieldsOf(form)) {
+    if (field.field === "typeahead") sources.push({ key: field.key, query: field.itemsFrom });
+    if (field.field === "dropdown" && field.itemsFrom !== undefined) {
+      sources.push({ key: field.key, query: field.itemsFrom });
+    }
+  }
+  return sources;
 }

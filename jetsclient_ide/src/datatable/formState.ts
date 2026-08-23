@@ -13,8 +13,12 @@
  *
  * **The group dimension is paid as of I.1** — `resizeFormState` and
  * `removeValidationGroup` below (I-31). The array of groups was always the right
- * shape; what was missing was the arithmetic. Still outstanding from that list:
- * the invalid-key set, the value cache and the anonymous callbacks (I-9).
+ * shape; what was missing was the arithmetic. **The value cache is paid as of
+ * I.2b**, narrowly: `queryRows` holds what a form's named queries returned. All
+ * five `addCacheValue` call sites in `jetsclient` write a query result — four in
+ * `components/form.dart` and one in `components/dropdown_form_field.dart` — so a
+ * cache of anything else has no author to serve. Still outstanding: the
+ * invalid-key set and the anonymous callbacks (I-9).
  *
  * Three behaviours are load-bearing and easy to lose in a rewrite:
  *
@@ -59,6 +63,7 @@ export class FormState {
   private readonly groups: Group[];
   private readonly listeners = new Set<Listener>();
   private readonly refreshListeners = new Set<Listener>();
+  private readonly queries = new Map<string, JetsRow[]>();
 
   /**
    * `isDialog` changes one thing, and only one: a dialog's tables do not fall
@@ -74,6 +79,29 @@ export class FormState {
 
   get groupCount(): number {
     return this.groups.length;
+  }
+
+  /**
+   * The rows a form's named query returned. Task I.2b.
+   *
+   * **Outside the group dimension, deliberately.** The Dart's cache is likewise
+   * flat — `addCacheValue(key, value)` takes no group
+   * (`jets_form_state.dart`, `addCacheValue`) — and it has to be: a repeating form
+   * sizes its groups *from* a query result, so a result held inside a group could
+   * not be read before the groups existed.
+   *
+   * Keyed by the query's own name rather than by a cache key the document
+   * chooses. The Dart offers both (`returnedModelCacheKey`, and the map keys of
+   * `dropdownItemsQueries`), which is two names for one set of rows; one name is
+   * the same cut I-52 made thirteen times over on the table document.
+   */
+  setQueryRows(name: string, rows: JetsRow[]): void {
+    this.queries.set(name, rows);
+  }
+
+  /** Undefined when the query has not run — which is not the same as no rows. */
+  queryRows(name: string): JetsRow[] | undefined {
+    return this.queries.get(name);
   }
 
   /**

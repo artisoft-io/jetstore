@@ -34,6 +34,18 @@
           "type": "string",
           "minLength": 1
         },
+        "queries": {
+          "type": "object",
+          "propertyNames": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9_.-]+$",
+            "description": "A key naming a state, form, action or form-state entry"
+          },
+          "additionalProperties": {
+            "$ref": "#/$defs/FormQuery"
+          }
+        },
         "rows": {
           "minItems": 1,
           "type": "array",
@@ -59,6 +71,30 @@
       ],
       "additionalProperties": false,
       "description": "One screen of a user flow"
+    },
+    "FormQuery": {
+      "type": "object",
+      "properties": {
+        "sql": {
+          "type": "string",
+          "minLength": 1
+        },
+        "params": {
+          "minItems": 1,
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9_.-]+$",
+            "description": "A key naming a state, form, action or form-state entry"
+          }
+        }
+      },
+      "required": [
+        "sql"
+      ],
+      "additionalProperties": false,
+      "description": "A named query filling a form's item sources"
     },
     "Field": {
       "anyOf": [
@@ -166,6 +202,12 @@
                 "$ref": "#/$defs/DropdownItem"
               }
             },
+            "itemsFrom": {
+              "type": "string",
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9_.-]+$",
+              "description": "A key naming a state, form, action or form-state entry"
+            },
             "defaultItemPos": {
               "type": "integer",
               "minimum": 0,
@@ -186,6 +228,58 @@
             "key",
             "label",
             "items"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "field": {
+              "type": "string",
+              "const": "typeahead"
+            },
+            "key": {
+              "type": "string",
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9_.-]+$",
+              "description": "A key naming a state, form, action or form-state entry"
+            },
+            "label": {
+              "type": "string",
+              "minLength": 1
+            },
+            "hint": {
+              "type": "string"
+            },
+            "itemsFrom": {
+              "type": "string",
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9_.-]+$",
+              "description": "A key naming a state, form, action or form-state entry"
+            },
+            "priorityKey": {
+              "type": "string",
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9_.-]+$",
+              "description": "A key naming a state, form, action or form-state entry"
+            },
+            "maxLength": {
+              "type": "integer",
+              "exclusiveMinimum": 0,
+              "maximum": 9007199254740991
+            },
+            "rules": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/Rule"
+              }
+            }
+          },
+          "required": [
+            "field",
+            "key",
+            "label",
+            "itemsFrom"
           ],
           "additionalProperties": false
         },

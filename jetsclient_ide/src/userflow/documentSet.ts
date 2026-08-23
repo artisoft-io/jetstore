@@ -31,7 +31,7 @@
 
 import { isStandardAction } from "./engine";
 import type { ActionDocument } from "../actions/schema";
-import type { FormDocument, Form } from "./form";
+import { itemSourcesOf, type FormDocument, type Form } from "./form";
 import type { UserFlow } from "./schema";
 
 export type SetFindingCode =
@@ -40,7 +40,9 @@ export type SetFindingCode =
   /** A state or a form button names an action the action document does not define. */
   | "missingAction"
   /** An end state's form offers a button that tries to advance. */
-  | "advanceFromEndState";
+  | "advanceFromEndState"
+  /** A field's `itemsFrom` names a query its own form does not declare. */
+  | "missingItemSource";
 
 export interface SetFinding {
   severity: "error";
@@ -161,6 +163,46 @@ function checkActions(flow: UserFlow, actions: ActionDocument, forms: FormDocume
   return findings;
 }
 
+/**
+ * Every `itemsFrom` names a query the same form declares. Task I.2b.
+ *
+ * **This one is inside a single document, and it is here anyway.** The file's
+ * header says these checks span the set, so the widening is stated rather than
+ * slipped in: what they actually share is being *relations a schema cannot
+ * express*, and the set is where that has been true so far. `itemsFrom` is an
+ * `Identifier` and whether it is a key of the sibling `queries` object is a
+ * relation between two properties of one form — sayable in Zod with `.refine()`,
+ * which `z.toJSONSchema` drops, so Go would not enforce it. That is the split
+ * I.2a called the worst of the three options.
+ *
+ * **The Go save path could check it and does not.** Unlike the escape names and
+ * the action names, nothing here needs the browser bundle or a second document —
+ * `ValidateFormDocument` has the whole form in front of it. What it lacks is a Go
+ * parser for the form document, which is a second implementation of this rule to
+ * keep in step with this one, and I-16's copied-schema arrangement exists
+ * precisely because one artifact with a drift test beats two readings of it. So
+ * the check lives once, here, where the load path and a generator both reach it.
+ */
+function checkItemSources(forms: FormDocument): SetFinding[] {
+  const findings: SetFinding[] = [];
+  for (const [formKey, form] of Object.entries(forms.forms) as [string, Form][]) {
+    const declared = new Set(Object.keys(form.queries ?? {}));
+    for (const source of itemSourcesOf(form)) {
+      if (declared.has(source.query)) continue;
+      findings.push({
+        severity: "error",
+        code: "missingItemSource",
+        message:
+          `form "${formKey}" field "${source.key}" takes its items from query ` +
+          `"${source.query}", which the form does not declare`,
+        path: `/forms/${formKey}/queries`,
+        document: "forms",
+      });
+    }
+  }
+  return findings;
+}
+
 export interface DocumentSet {
   flow: UserFlow;
   actions: ActionDocument;
@@ -184,5 +226,6 @@ export function validateDocumentSet(set: DocumentSet): SetFinding[] {
     ...checkForms(set.flow, set.forms),
     ...checkActions(set.flow, set.actions, set.forms),
     ...checkEndStateButtons(set.flow, set.forms),
+    ...checkItemSources(set.forms),
   ];
 }

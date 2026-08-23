@@ -182,7 +182,14 @@ describe("Dropdown", () => {
 });
 
 describe("the field corpus", () => {
-  const forms = (corpus as { forms: Record<string, { fields: { type: string }[] }> }).forms;
+  const forms = (
+    corpus as {
+      forms: Record<
+        string,
+        { fields: { type: string }[]; hasRowBuilder?: boolean; fieldCount?: number }
+      >;
+    }
+  ).forms;
   const fields = Object.values(forms).flatMap((f) => f.fields);
 
   it("is the 50 flow forms, and A.3 covers the two scalar input types in them", () => {
@@ -198,14 +205,30 @@ describe("the field corpus", () => {
     expect(counts["FormDataTableFieldConfig"]).toBe(37);
   });
 
-  it("contains none of the three exotic field types", () => {
-    // `FormTypeaheadFieldConfig` and `FormDropdownWithSharedItemsFieldConfig`
-    // have three constructor sites between them, all inside `file_mapping`'s
-    // `inputFieldRowBuilder` — a closure that builds rows per record at run
-    // time, so they are unreachable statically. `file_mapping` is the flow the
-    // plan already excludes from Phase 2's proof flows.
+  it("cannot see the two exotic field types, which is not the same as their being absent", () => {
+    // **This assertion was read for a year as evidence about the app and it is
+    // evidence about the corpus** (I-60, 2026-08-23). `FormTypeaheadFieldConfig`
+    // and `FormDropdownWithSharedItemsFieldConfig` have three constructor sites
+    // between them — two live, one commented out — all inside `mapFileUF`'s
+    // `inputFieldRowBuilder`, and `allFields` deliberately does not walk a row
+    // builder (`jetsclient/test/corpus_support.dart`, `allFields`). So the
+    // corpus contains none of them *by construction*, and this test would pass
+    // whether the app used them or not.
+    //
+    // **A test that asserts a corpus lacks what the corpus cannot hold reads
+    // exactly like a test that the app lacks it.** Kept, with its name changed to
+    // say what it measures: it is still the guard that would fire if one of these
+    // types appeared in a statically declared field, which is a real thing to
+    // learn. Both are now served — the typeahead by `widgets/Typeahead.tsx` and
+    // the shared-items dropdown by `Dropdown.tsx` plus `itemsFrom` (I.2b).
     for (const type of ["FormTypeaheadFieldConfig", "FormDropdownWithSharedItemsFieldConfig"]) {
       expect(fields.some((f) => f.type === type)).toBe(false);
     }
+    // The form the closure belongs to, named so the exclusion is visible here
+    // rather than only in the register: it is the one form of the fifty with a
+    // row builder and no declared field.
+    const mapping = forms["fmMappingFormUF"];
+    expect(mapping?.hasRowBuilder).toBe(true);
+    expect(mapping?.fieldCount).toBe(0);
   });
 });
