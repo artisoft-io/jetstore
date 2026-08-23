@@ -111,6 +111,7 @@ def emit() -> str:
     run_key, _ = _key_field(M.AgentRun)
     run_columns = _table_columns(M.AgentRun)
     proposal_columns = _table_columns(M.ChangeProposal)
+    approval_columns = _table_columns(M.ApprovalEvent)
     approval_states = ", ".join(f"'{m.value}'" for m in M.ApprovalState)
     event_types = ", ".join(f"'{m.value}'" for m in M.AuditEventType)
     tiers = ", ".join(f"'{m.value}'" for m in M.AutonomyTier)
@@ -221,4 +222,43 @@ CREATE TABLE IF NOT EXISTS jetsapi.change_proposal (
 {proposal_columns},
   CONSTRAINT change_proposal_approval_state_ck CHECK (approval_state IN ({approval_states}))
 );
+-- stmt
+-- Who decided what, and from which state to which. The supervision seam of
+-- section 7.2, emitted for the first time at K.1.
+--
+-- **This table is the typed half of a record whose other half is an audit
+-- event, and the two are written in one transaction.** jetsapi.agent_audit
+-- carries an `approval` event type and has since Phase 0, which is what makes
+-- the decision tamper-evident: hash-chained, append-only, ordered within its
+-- run. What it cannot carry is structure. Its columns are actor and tier; the
+-- subject, the two states and the rationale would live in `payload` jsonb,
+-- where `from_state` is unconstrained while change_proposal.approval_state
+-- three tables up is CHECKed against the same vocabulary. Recording a
+-- transition less strictly than the state it produces is the asymmetry this
+-- table removes.
+--
+-- Like agent_run and unlike agent_audit it is not append-only by trigger, and
+-- unlike agent_run it is never updated either: a decision is a new row
+-- referencing the same subject, which is the entity's own docstring and the
+-- reason outcomes are appended rather than mutated.
+--
+-- run_ref is the originating run, not the approver's session. A proposal is
+-- approved after the run that produced it has ended, so this table and the
+-- chain both grow past agent_run.ended_at. That is intended: the approval is
+-- part of the run's story, and there is no seal to violate - nothing closes a
+-- chain.
+CREATE TABLE IF NOT EXISTS jetsapi.approval_event (
+{approval_columns},
+  CONSTRAINT approval_event_from_state_ck CHECK (from_state IN ({approval_states})),
+  CONSTRAINT approval_event_to_state_ck CHECK (to_state IN ({approval_states})),
+  CONSTRAINT approval_event_tier_ck CHECK (tier_at_event IN ({tiers}))
+);
+-- stmt
+-- Answering "who approved proposal X" and "what happened to it" without a
+-- jsonb scan is the whole reason the typed half exists.
+CREATE INDEX IF NOT EXISTS approval_event_subject_idx
+  ON jetsapi.approval_event (subject_ref, decided_at);
+-- stmt
+CREATE INDEX IF NOT EXISTS approval_event_run_idx
+  ON jetsapi.approval_event (run_ref);
 """
