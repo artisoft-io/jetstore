@@ -25,12 +25,12 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 
-import clientRegistry from "./coverage/clientRegistryUF.ua.json";
 import fileMapping from "./coverage/fileMappingUF.ua.json";
 import homeFilters from "./coverage/homeFiltersUF.ua.json";
 import pipelineConfig from "./coverage/pipelineConfigUF.ua.json";
 import sourceConfig from "./coverage/sourceConfigUF.ua.json";
 import startPipeline from "./coverage/startPipelineUF.ua.json";
+import clientRegistry from "./flows/clientRegistryUF.ua.json";
 import loadConfig from "./flows/loadConfigUF.ua.json";
 import loadFiles from "./flows/loadFilesUF.ua.json";
 import mapFile from "./flows/mapFileUF.ua.json";
@@ -39,7 +39,6 @@ import workspacePull from "./flows/workspacePullUF.ua.json";
 import { ActionDocumentSchema, type ActionDocument } from "./schema";
 
 const coverage: Record<string, unknown> = {
-  clientRegistryUF: clientRegistry,
   fileMappingUF: fileMapping,
   homeFiltersUF: homeFilters,
   pipelineConfigUF: pipelineConfig,
@@ -62,6 +61,14 @@ const proof: Record<string, unknown> = {
   // neither, because no form or table of either flow offers it.
   loadConfigUF: loadConfig,
   workspacePullUF: workspacePull,
+  // F.3's re-partition. One delegate file, one flow — so unlike F.1's and F.2's
+  // nothing had to be split. What it dropped is `crShowVendorUF`, whose body
+  // jumps the flow to `show_org` and which **no form and no table of the flow
+  // offers** (I-88): the reachability shape of I-86, on a live arm rather than a
+  // cancel. The two `delete*Action` arms are here because the *tables* offer
+  // them, which is the third place an action name can appear and the first time
+  // a migrated set has used it.
+  clientRegistryUF: clientRegistry,
 };
 const all = { ...coverage, ...proof };
 
@@ -71,7 +78,7 @@ describe("the coverage fixture", () => {
     expect(result.success ? [] : result.error.issues).toEqual([]);
   });
 
-  it("accounts for all 58 action arms the delegates declare", () => {
+  it("accounts for the 58 arms the delegates declare, less the ones nothing reaches", () => {
     // 58 `case ActionKeys.` labels across the nine `form_action_delegates.dart`
     // files. Three flows declare `dialogCancel` twice — once in the user-flow
     // delegate and once in the dialog delegate — which is one action reached
@@ -90,11 +97,39 @@ describe("the coverage fixture", () => {
     // **duplicated**, because it is a state action of both flows, and
     // `dialogCancel` is **dropped**, because neither flow has a form or a table
     // that offers it. +1 and −1 is not an invariant, so the assertion below is.
+    //
+    // **54 after F.3's, and the fall is the point rather than a slip.** That
+    // re-partition dropped `crShowVendorUF` and duplicated nothing, so the
+    // cancellation F.2 relied on does not apply and the total moves. The arm is
+    // live in the Dart — it jumps the flow to `show_org` — and is offered by no
+    // form and no table of `clientRegistryUF`, which is I-86's reachability
+    // question asked of an arm that *does* something (I-88). **55 was never an
+    // invariant**: it is a count of `case` labels minus the ones declared twice,
+    // and a migrated corpus needs fewer of them than the delegates declare.
     const names = Object.values(all).flatMap((doc) =>
       Object.keys((doc as ActionDocument).actions),
     );
-    expect(names).toHaveLength(55);
+    expect(names).toHaveLength(54);
     expect(new Set(names).size).toBeLessThan(names.length); // dialogCancel repeats across flows
+  });
+
+  it("holds every clientRegistryUF arm a form or a table offers, and no other", () => {
+    // F.3. `client_registry/form_action_delegates.dart` declares seven `case`
+    // labels across its two switches; six are here. The absentee is
+    // `crShowVendorUF`, and the check that finds it is the one I-86 used: not
+    // *what does the delegate declare* but *what can press it*. The flow's four
+    // states take `standardActions` or Previous/Done (`form_config.dart`), the
+    // `ufVendor` dialog offers `crAddVendorOk` and `dialogCancel`, and
+    // `client`/`org` offer `deleteClientAction` and `deleteOrgAction`
+    // (`data_table_config.dart`). Nothing names `crShowVendorUF`.
+    expect(Object.keys((clientRegistry as ActionDocument).actions).sort()).toEqual([
+      "crAddClientUF",
+      "crAddVendorOk",
+      "crSelectClientUF",
+      "deleteClientAction",
+      "deleteOrgAction",
+      "dialogCancel",
+    ]);
   });
 
   it("re-partitions the workspace_pull delegate by flow, not by file", () => {

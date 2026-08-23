@@ -23,17 +23,20 @@ import { describe, expect, it } from "vitest";
 import { emptyRegistry } from "../actions/escapes";
 import { runAction, type ActionHost } from "../actions/interpret";
 import { ActionDocumentSchema, type ActionDocument } from "../actions/schema";
+import clientRegistryActionsDoc from "../actions/flows/clientRegistryUF.ua.json";
 import loadConfigActionsDoc from "../actions/flows/loadConfigUF.ua.json";
 import loadFilesActionsDoc from "../actions/flows/loadFilesUF.ua.json";
 import registerFileKeyActionsDoc from "../actions/flows/registerFileKeyUF.ua.json";
 import workspacePullActionsDoc from "../actions/flows/workspacePullUF.ua.json";
 import { FormState } from "../datatable/formState";
 import { FormDocumentSchema, type FormDocument } from "./form";
+import clientRegistryFormsDoc from "./forms/clientRegistryUF.form.json";
 import loadConfigFormsDoc from "./forms/loadConfigUF.form.json";
 import loadFilesFormsDoc from "./forms/loadFilesUF.form.json";
 import registerFileKeyFormsDoc from "./forms/registerFileKeyUF.form.json";
 import workspacePullFormsDoc from "./forms/workspacePullUF.form.json";
 import { advance, back, evaluateCondition, isStandardAction, startAt, step, FlowError } from "./engine";
+import clientRegistryFlowDoc from "./flows/clientRegistryUF.uf.json";
 import loadConfigFlowDoc from "./flows/loadConfigUF.uf.json";
 import loadFilesFlowDoc from "./flows/loadFilesUF.uf.json";
 import registerFileKeyFlowDoc from "./flows/registerFileKeyUF.uf.json";
@@ -133,6 +136,7 @@ describe("the documents are complete and consistent", () => {
     ["loadFilesUF", loadFilesFlowDoc, loadFilesActionsDoc, loadFilesFormsDoc],
     ["loadConfigUF", loadConfigFlowDoc, loadConfigActionsDoc, loadConfigFormsDoc],
     ["workspacePullUF", workspacePullFlowDoc, workspacePullActionsDoc, workspacePullFormsDoc],
+    ["clientRegistryUF", clientRegistryFlowDoc, clientRegistryActionsDoc, clientRegistryFormsDoc],
   ])("%s is a consistent set", (_name, flowDoc, actionsDoc, formsDoc) => {
     expect(
       validateDocumentSet({
@@ -506,6 +510,174 @@ describe("pull_workspace, end to end", () => {
     h.formState.setValue(0, "wpClientList", ["ACME"]);
     expect(await h.press("ufNext")).toBeNull();
     expect(h.formState.getValue(0, "wpClientListRO")).toEqual(["ACME"]);
+  });
+});
+
+/**
+ * F.3's flow, and the first whose *tables* run actions.
+ *
+ * **The step order is what these are for.** The Dart builds its request body
+ * with `jsonEncode` and *then* mutates form state, so `clearSelectedRow` and
+ * `state.remove(client)` sit above the `await` and change nothing that is sent
+ * (`client_registry/form_action_delegates.dart`, `clientRegistryFormActions`).
+ * A step grammar has no "encode now, send later": `clearSelection` writes null,
+ * `setValue(…, null)` **deletes the key** (`datatable/formState.ts`, `setValue`),
+ * and `wholeState` is a snapshot taken when the `post` step runs. The coverage
+ * document transcribed the Dart's line order, which puts `clearSelection` before
+ * the post — and `delete/client` takes `client` as its only bound parameter
+ * (`jets/datatable/sql_stmts.go`, `"delete/client"`), so the delete would have
+ * run with a NULL, matched nothing, and returned 200 (I-89).
+ */
+describe("client_registry, end to end", () => {
+  const setup = () => harness(clientRegistryFlowDoc, clientRegistryActionsDoc, clientRegistryFormsDoc);
+
+  it("refuses to advance until an option is chosen", async () => {
+    const h = setup();
+    expect(h.at()).toBe("select_client_vendor");
+    expect(validateForm(h.formFor("select_client_vendor"), h.formState, 0).map((e) => e.message))
+      .toEqual(["An option must be selected."]);
+    expect(await h.press("ufNext")).toBeNull();
+    expect(h.at()).toBe("select_client_vendor");
+  });
+
+  it("branches to create_client or select_client on the chosen option", async () => {
+    const create = setup();
+    create.formState.setValue(0, "ufClientOrVendorOption", ["ufClientOption"]);
+    expect(await create.press("ufNext")).toBeNull();
+    expect(create.at()).toBe("create_client");
+
+    const select = setup();
+    select.formState.setValue(0, "ufClientOrVendorOption", ["ufVendorOption"]);
+    expect(await select.press("ufNext")).toBeNull();
+    expect(select.at()).toBe("select_client");
+  });
+
+  it("creates a client, sending ufClientDetails as details and dropping both after", async () => {
+    const h = setup();
+    h.formState.setValue(0, "ufClientOrVendorOption", ["ufClientOption"]);
+    await h.press("ufNext");
+    h.formState.setValue(0, "client", "ACME");
+    h.formState.setValue(0, "ufClientDetails", "a note");
+    expect(await h.press("ufNext")).toBeNull();
+    expect(h.at()).toBe("show_org");
+
+    const body = h.posts[0]!.body as Record<string, unknown>;
+    expect(body["action"]).toBe("insert_rows");
+    expect(body["fromClauses"]).toEqual([{ table: "client_registry" }]);
+    const row = (body["data"] as Record<string, unknown>[])[0]!;
+    expect(row["client"]).toBe("ACME");
+    expect(row["details"]).toBe("a note");
+    // **The Dart sends `ufClientDetails` too**, because the removes are below
+    // the encode. The coverage document had `omit: ["ufClientDetails"]`, which is
+    // inert — the server projects a row through `ColumnKeys` — and says
+    // something about the payload that is not true.
+    expect(row["ufClientDetails"]).toBe("a note");
+    expect(h.formState.getValue(0, "details")).toBeUndefined();
+    expect(h.formState.getValue(0, "ufClientDetails")).toBeUndefined();
+  });
+
+  it("unpacks the selected client so the org table can filter on it", async () => {
+    const h = setup();
+    h.formState.setValue(0, "ufClientOrVendorOption", ["ufVendorOption"]);
+    await h.press("ufNext");
+    h.formState.setValue(0, "client", ["ACME"]);
+    expect(await h.press("ufNext")).toBeNull();
+    expect(h.at()).toBe("show_org");
+    // `org.tc.json`'s where clause reads `client` as a scalar.
+    expect(h.formState.getValue(0, "client")).toBe("ACME");
+  });
+
+  it("ends on show_org, which offers no advancing button", () => {
+    const h = setup();
+    expect(h.flow.states["show_org"]!.isEnd).toBe(true);
+    expect(h.formFor("show_org").actions.map((a) => a.action)).toEqual(["ufPrevious", "ufCompleted"]);
+  });
+
+  it("deletes the client it posted, not the one it has just cleared", async () => {
+    const h = setup();
+    h.formState.setValue(0, "client", ["ACME"]);
+    expect(await h.press("deleteClientAction")).toBeNull();
+    const row = (h.posts[0]!.body["data"] as Record<string, unknown>[])[0]!;
+    expect(row["client"]).toBe("ACME");
+    // Cleared afterwards, which is the whole ordering question.
+    expect(h.formState.getValue(0, "client")).toBeUndefined();
+  });
+
+  it("deletes an organization with both of its bound columns present", async () => {
+    const h = setup();
+    h.formState.setValue(0, "client", "ACME");
+    h.formState.setValue(0, "org", ["ACME_EAST"]);
+    expect(await h.press("deleteOrgAction")).toBeNull();
+    const body = h.posts[0]!.body as Record<string, unknown>;
+    expect(body["fromClauses"]).toEqual([{ table: "delete/org" }]);
+    const row = (body["data"] as Record<string, unknown>[])[0]!;
+    expect(row["client"]).toBe("ACME");
+    expect(row["org"]).toBe("ACME_EAST");
+    expect(h.formState.getValue(0, "org")).toBeUndefined();
+    // The client survives: the user stays on this client's organizations.
+    expect(h.formState.getValue(0, "client")).toBe("ACME");
+  });
+
+  it("posts nothing and clears nothing when the confirmation is declined", async () => {
+    // The harness answers every `confirm` with yes, so this one is driven
+    // directly. A declined confirmation returns null and stops the arm — a user
+    // changing their mind is not an error (`actions/interpret.ts`).
+    const formState = new FormState();
+    formState.setValue(0, "client", ["ACME"]);
+    const posts: unknown[] = [];
+    const actions = ActionDocumentSchema.parse(clientRegistryActionsDoc) as ActionDocument;
+    const outcome = await runAction({
+      action: actions.actions["deleteClientAction"]!,
+      host: {
+        validate: () => true,
+        confirm: async () => false,
+        post: async (r) => {
+          posts.push(r);
+          return { statusCode: 200 };
+        },
+        query: async () => null,
+        notify: () => undefined,
+        setBusy: () => undefined,
+        goToState: () => undefined,
+        close: () => undefined,
+        userEmail: () => "michel@artisoft.io",
+        now: () => 0,
+      },
+      formState,
+      field,
+      registry: emptyRegistry,
+      flowKey: "test",
+    });
+    expect(outcome).toBeNull();
+    expect(posts).toEqual([]);
+    expect(formState.getValue(0, "client")).toEqual(["ACME"]);
+  });
+
+  it("adds a vendor through the dialog form, and closes either way", async () => {
+    const h = setup();
+    h.formState.setValue(0, "client", "ACME");
+    h.formState.setValue(0, "org", "ACME_EAST");
+    h.formState.setValue(0, "ufVendorDetails", "east region");
+    expect(await h.press("crAddVendorOk")).toBeNull();
+    const body = h.posts[0]!.body as Record<string, unknown>;
+    expect(body["fromClauses"]).toEqual([{ table: "client_org_registry" }]);
+    const row = (body["data"] as Record<string, unknown>[])[0]!;
+    expect(row["details"]).toBe("east region");
+    expect(row["org"]).toBe("ACME_EAST");
+    // `postInsertRows` pops the dialog on success; `transport: "insertRows"`.
+    expect(h.events).toContain("close");
+    // The Dart posts a *copy* with `details` added, so the key never enters form
+    // state. The grammar has no copy, so the arm puts it back.
+    expect(h.formState.getValue(0, "details")).toBeUndefined();
+  });
+
+  it("its dialog form is named by a table, not by a state", () => {
+    // The four forms `user_flows.json` calls unreferenced are the four a table
+    // opens; `ufVendor` is this flow's (I-88). It is in the form document and no
+    // state's `formConfig`.
+    const stateForms = new Set(Object.values(setup().flow.states).map((s) => s.formConfig));
+    expect(stateForms.has("ufVendor")).toBe(false);
+    expect(Object.keys(setup().forms.forms)).toContain("ufVendor");
   });
 });
 

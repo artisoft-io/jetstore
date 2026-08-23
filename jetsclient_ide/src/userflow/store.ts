@@ -63,7 +63,7 @@ import {
 } from "../datatable/table";
 import { fromDocument } from "../datatable/tableTranslate";
 import type { TableConfig } from "../datatable/types";
-import { validateDocumentSet } from "./documentSet";
+import { validateDocumentSet, validateTableActions } from "./documentSet";
 import { FormDocumentSchema, fieldsOf, type FormDocument } from "./form";
 import { UserFlowSchema, type UserFlow } from "./schema";
 import { validateFlow, type Finding, type Policy } from "./validate";
@@ -193,11 +193,12 @@ export class FlowStore {
    * Reads, parses and validates. Throws `FlowLoadError` rather than returning
    * half a flow.
    *
-   * **Five checks, in an order chosen so the first failure is the useful one**:
+   * **Six checks, in an order chosen so the first failure is the useful one**:
    * shape, then the flow's internal references, then the *set*, then the tables'
-   * shape, then whether every escape name exists in this build. Each rests on the
-   * one before — a set check over a document that did not parse would report
-   * missing forms that are merely unreadable.
+   * shape, then the tables' cross-document references (F.3), then whether every
+   * escape name exists in this build. Each rests on the one before — a set check
+   * over a document that did not parse would report missing forms that are merely
+   * unreadable.
    */
   async load(key: string): Promise<LoadedFlow> {
     const reads = await this.readAll([flowPath(key), actionPath(key), formPath(key)]);
@@ -252,6 +253,25 @@ export class FlowStore {
     }
 
     const tables = await this.loadTables(key, tableKeysOf(forms));
+
+    // F.3, and the same layer one document further out: a table's `doAction`
+    // names an entry in *this flow's* action document and its `showDialog`
+    // names a form in *this flow's* form document, and neither reference had a
+    // check (**I-88**). It runs here rather than inside `validateDocumentSet`
+    // because the tables are not knowable until the form document has parsed —
+    // which is the reason `loadTables` is below that call and not above it.
+    const tableFindings = validateTableActions(actions, forms, tables);
+    if (tableFindings.length > 0) {
+      throw new FlowLoadError(
+        key,
+        tableFindings.map((f) => ({
+          severity: "error" as const,
+          code: "unknownTarget" as const,
+          message: f.message,
+          path: `${f.document}${f.path}`,
+        })),
+      );
+    }
 
     const references = [
       ...escapeReferences(flow, actions),

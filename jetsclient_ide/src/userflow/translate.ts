@@ -98,10 +98,29 @@ export const formStateInitializerNames: Record<string, string> = {
  * flows — `summaryUF` and `confirm` each appear in more than one.
  */
 export const actionTransitions: Record<string, string[]> = {
-  // `crShowVendorUF`, on a state that already reaches `show_org` by default.
-  // Listed anyway: the edge is real, and an entry that changes no outcome today
-  // is what stops the table looking like it was written to fix one warning.
-  "clientRegistryUF.select_client": ["show_org"],
+  // **`clientRegistryUF.select_client` was here and is not any more — F.3,
+  // 2026-08-23.** The entry was `crShowVendorUF`'s, on the reasoning that "the
+  // edge is real, and an entry that changes no outcome today is what stops the
+  // table looking like it was written to fix one warning". The first half is
+  // what the grep above cannot establish: `setCurrentUserFlowState` says an arm
+  // *would* move the flow, not that anything can press it. **No form and no
+  // table of `clientRegistryUF` offers `crShowVendorUF`** — the three forms of
+  // its four states take `standardActions`, the fourth takes Previous /
+  // Completed, and neither `client` nor `org` names it
+  // (`client_registry/form_config.dart`, `data_table_config.dart`) — so the arm
+  // is dead and the edge it declared is unreachable. `show_org` is
+  // `select_client`'s `defaultNextState` regardless, so removing it changes no
+  // outcome either, which is the same thing the old comment said about keeping
+  // it. The tie is broken by which claim the document makes: a `goToStates`
+  // entry asserts an action-driven jump exists.
+  //
+  // The rule the two survivors satisfy and this one did not: **an entry belongs
+  // here when the arm that jumps is offered by a form or a table.**
+  // `pcGotToAddMergeProcessInputUF` and `pcGotToAddInjectedProcessInputUF` are
+  // inline buttons on `pcViewMergeProcessInputsUF` and
+  // `pcViewInjectedProcessInputsUF` (`pipeline_config/form_config.dart:130`,
+  // `:158`) — see I-88.
+  //
   // The two buttons — "Add Data Source to Merge" and "Add Data Source for
   // Historical Data" — that S.1 could not see, and reported as dead states.
   "pipelineConfigUF.view_merge_process_inputs": ["add_merge_process_inputs"],

@@ -34,9 +34,6 @@
       "description": "Select an existing client",
       "formConfig": "ufSelectClient",
       "stateAction": "crSelectClientUF",
-      "goToStates": [
-        "show_org"
-      ],
       "defaultNextState": "show_org"
     },
     "show_org": {

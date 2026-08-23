@@ -7,18 +7,8 @@
         { "do": "validate" },
         { "do": "set", "key": "details", "value": { "fromKey": "ufClientDetails" } },
         { "do": "post", "endpoint": "/dataTable", "action": "insert_rows", "table": "client_registry",
-          "data": { "rows": "wholeState", "omit": ["ufClientDetails"] } },
+          "data": { "rows": "wholeState" } },
         { "do": "remove", "keys": ["details", "ufClientDetails"] }
-      ]
-    },
-    "crAddVendorOk": {
-      "description": "Create an organization for the client",
-      "steps": [
-        { "do": "validate" },
-        { "do": "set", "key": "details", "value": { "fromKey": "ufVendorDetails" } },
-        { "do": "post", "endpoint": "/dataTable", "action": "insert_rows", "table": "client_org_registry",
-          "transport": "insertRows",
-          "data": { "rows": "wholeState" } }
       ]
     },
     "crSelectClientUF": {
@@ -28,18 +18,14 @@
         { "do": "set", "key": "client", "value": { "fromKey": "client" } }
       ]
     },
-    "crShowVendorUF": {
-      "description": "Jump to the organization page",
-      "steps": [{ "do": "goToState", "state": "show_org" }]
-    },
     "deleteClientAction": {
       "description": "Delete the selected client",
       "steps": [
         { "do": "confirm", "message": "Are you sure you want to delete the selected client?" },
         { "do": "set", "key": "client", "value": { "fromKey": "client" } },
-        { "do": "clearSelection", "key": "client" },
         { "do": "post", "endpoint": "/dataTable", "action": "insert_rows", "table": "delete/client",
           "data": { "rows": "wholeState" } },
+        { "do": "clearSelection", "key": "client" },
         { "do": "remove", "keys": ["client", "details", "ufVendorDetails", "ufClientDetails", "org"] }
       ]
     },
@@ -49,10 +35,21 @@
         { "do": "confirm", "message": "Are you sure you want to delete the selected organization?" },
         { "do": "set", "key": "client", "value": { "fromKey": "client" } },
         { "do": "set", "key": "org", "value": { "fromKey": "org" } },
-        { "do": "clearSelection", "key": "org" },
         { "do": "post", "endpoint": "/dataTable", "action": "insert_rows", "table": "delete/org",
           "data": { "rows": "wholeState" } },
+        { "do": "clearSelection", "key": "org" },
         { "do": "remove", "keys": ["details", "ufVendorDetails", "org"] }
+      ]
+    },
+    "crAddVendorOk": {
+      "description": "Create an organization for the client",
+      "steps": [
+        { "do": "validate" },
+        { "do": "set", "key": "details", "value": { "fromKey": "ufVendorDetails" } },
+        { "do": "post", "endpoint": "/dataTable", "action": "insert_rows", "table": "client_org_registry",
+          "transport": "insertRows",
+          "data": { "rows": "wholeState" } },
+        { "do": "remove", "keys": ["details"] }
       ]
     },
     "dialogCancel": {
