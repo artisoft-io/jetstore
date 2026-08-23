@@ -26,11 +26,31 @@ deployment — so a configuration added here needs a row added there in the same
 change, and neither half does anything alone.
 
 `jets_loader.pc.json` — the platform loader — used to exist as one committed
-copy per workspace. They had not diverged (all four were byte-identical when
-this directory was created, on 2026-08-22), which is why adopting them costs
-nothing: the install sees the same bytes and reports `unchanged`. That is luck
-rather than design, and it is the reason this consolidation happened while it
-was still free.
+copy per workspace, and **two of the four had diverged**. This README first said
+they had not; that was measured against working trees which had already been
+normalised by hand, rather than against what the workspaces commit, and it was
+wrong. Corrected 2026-08-22:
+
+| Workspace | Committed parquet sharding tier | Adopting it changed |
+|---|---|---|
+| `cedargate_ws` | 100 / 100 / 110 | nothing |
+| `usi_ws` | 100 / 100 / 110 | nothing |
+| `jets_ws` | 100 / 100 / **120** | `shard_max_size_mb`, set by "adjusted sharding" |
+| `walrus_ws` | **50 / 50 / 55** | the whole tier, set by "Adjust parquet shard sizing" |
+
+(`when_total_size_ge_mb` / `shard_size_mb` / `shard_max_size_mb`.)
+
+**Both divergences were deliberate commits**, so adopting the JetStore version
+reverses two pieces of tuning. That is the cost of consolidating a file that is
+already in use, and it is what the guard below exists to make visible: had the
+install run before those two workspaces were normalised by hand, it would have
+refused them by name rather than overwriting them.
+
+**The lesson is not "consolidate early while it is free".** A file that four
+teams can edit will have been edited; the question is only whether you find out
+from a build failure or from a diff. Check what the workspaces *commit* — `git
+show HEAD:<path>` — because a working tree can already have been changed by the
+very consolidation you are trying to assess.
 
 ## The guard, and the one way it differs from `data_model`
 
