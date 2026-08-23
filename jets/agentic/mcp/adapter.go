@@ -2,7 +2,9 @@
 // an adapter over jets/agentic/tools, not the calling convention (plan
 // section 6, settled Q-4). The Phase-1 loop calls the registry in-process;
 // this package exists so an MCP client (Claude Code, criterion 12) can
-// drive the same three tools over stdio. The modelcontextprotocol/go-sdk
+// drive the same tools over stdio — whichever ones the registry carries,
+// which is the point of the adapter and the reason this sentence no longer
+// names a count. The modelcontextprotocol/go-sdk
 // dependency is confined here: the registry stays testable with no
 // transport, and an HTTP exposure — which no identified consumer needs — is
 // one new file later, behind its own security decision.
