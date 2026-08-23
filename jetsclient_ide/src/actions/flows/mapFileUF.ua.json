@@ -1,0 +1,92 @@
+{
+  "schemaVersion": 1,
+  "actions": {
+    "mapperOk": {
+      "description": "Save the worksheet, replacing every existing mapping for the staging table",
+      "steps": [
+        { "do": "validate" },
+        {
+          "do": "require",
+          "keys": ["table_name"],
+          "message": "Cannot save the mapping: the staging table is not known."
+        },
+        {
+          "do": "post",
+          "endpoint": "/dataTable",
+          "action": "insert_rows",
+          "table": "delete/process_mapping",
+          "spinner": true,
+          "data": {
+            "rows": "fields",
+            "fields": {
+              "table_name": { "fromKey": "table_name" },
+              "user_email": { "userEmail": true }
+            }
+          }
+        },
+        {
+          "do": "post",
+          "endpoint": "/dataTable",
+          "action": "insert_rows",
+          "table": "process_mapping",
+          "spinner": true,
+          "data": {
+            "rows": "everyGroup",
+            "normalise": [
+              { "key": "table_name", "as": { "fromKey": "table_name" } },
+              { "key": "user_email", "as": { "userEmail": true } }
+            ],
+            "omit": ["data_property_label"]
+          }
+        },
+        { "do": "notify", "level": "info", "message": "Mapping updated successfully." },
+        { "do": "close" }
+      ]
+    },
+    "mapperDraft": {
+      "description": "Save the worksheet as a draft, without requiring it to validate",
+      "steps": [
+        {
+          "do": "require",
+          "keys": ["table_name"],
+          "message": "Cannot save the mapping: the staging table is not known."
+        },
+        {
+          "do": "post",
+          "endpoint": "/dataTable",
+          "action": "insert_rows",
+          "table": "delete/process_mapping",
+          "spinner": true,
+          "data": {
+            "rows": "fields",
+            "fields": {
+              "table_name": { "fromKey": "table_name" },
+              "user_email": { "userEmail": true }
+            }
+          }
+        },
+        {
+          "do": "post",
+          "endpoint": "/dataTable",
+          "action": "insert_rows",
+          "table": "process_mapping",
+          "spinner": true,
+          "data": {
+            "rows": "everyGroup",
+            "normalise": [
+              { "key": "table_name", "as": { "fromKey": "table_name" } },
+              { "key": "user_email", "as": { "userEmail": true } }
+            ],
+            "omit": ["data_property_label"]
+          }
+        },
+        { "do": "notify", "level": "info", "message": "Mapping saved as a draft." },
+        { "do": "close" }
+      ]
+    },
+    "dialogCancel": {
+      "description": "Leave the worksheet without saving",
+      "steps": [{ "do": "close" }]
+    }
+  }
+}

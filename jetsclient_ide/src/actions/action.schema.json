@@ -75,6 +75,35 @@
           "properties": {
             "do": {
               "type": "string",
+              "const": "require"
+            },
+            "keys": {
+              "minItems": 1,
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "pattern": "^[A-Za-z0-9_.-]+$",
+                "description": "A key naming a form-state entry, action, state or table"
+              }
+            },
+            "message": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "required": [
+            "do",
+            "keys",
+            "message"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "do": {
+              "type": "string",
               "const": "confirm"
             },
             "message": {
@@ -597,6 +626,50 @@
             "rows": {
               "type": "string",
               "const": "wholeState"
+            },
+            "normalise": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "key": {
+                    "type": "string",
+                    "minLength": 1,
+                    "pattern": "^[A-Za-z0-9_.-]+$",
+                    "description": "A key naming a form-state entry, action, state or table"
+                  },
+                  "as": {
+                    "$ref": "#/$defs/Value"
+                  }
+                },
+                "required": [
+                  "key",
+                  "as"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "omit": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "pattern": "^[A-Za-z0-9_.-]+$",
+                "description": "A key naming a form-state entry, action, state or table"
+              }
+            }
+          },
+          "required": [
+            "rows"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "rows": {
+              "type": "string",
+              "const": "everyGroup"
             },
             "normalise": {
               "type": "array",

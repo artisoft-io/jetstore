@@ -73,9 +73,9 @@ describe("the emitted JSON Schema", () => {
     // `propertyNames` instead. A sixth appearing later is a hole, not a design.
     expect(open.sort()).toEqual([
       "$.$defs.Rows.anyOf.1.properties.fields",
-      "$.$defs.Rows.anyOf.3.properties.fields",
-      "$.$defs.Step.anyOf.7.properties.extras",
-      "$.$defs.Step.anyOf.8.properties.into",
+      "$.$defs.Rows.anyOf.4.properties.fields",
+      "$.$defs.Step.anyOf.8.properties.extras",
+      "$.$defs.Step.anyOf.9.properties.into",
       "$.properties.actions",
     ]);
   });

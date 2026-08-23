@@ -33,6 +33,7 @@ import sourceConfig from "./coverage/sourceConfigUF.ua.json";
 import startPipeline from "./coverage/startPipelineUF.ua.json";
 import workspacePull from "./coverage/workspacePullUF.ua.json";
 import loadFiles from "./flows/loadFilesUF.ua.json";
+import mapFile from "./flows/mapFileUF.ua.json";
 import registerFileKey from "./flows/registerFileKeyUF.ua.json";
 import { ActionDocumentSchema, type ActionDocument } from "./schema";
 
@@ -48,6 +49,12 @@ const coverage: Record<string, unknown> = {
 const proof: Record<string, unknown> = {
   loadFilesUF: loadFiles,
   registerFileKeyUF: registerFileKey,
+  // F.1's re-partition: `mapperOk`, `mapperDraft` and `dialogCancel` moved here
+  // out of `coverage/fileMappingUF.ua.json`, which is F4's rule — a coverage
+  // document is partitioned by *delegate file* and a runtime one by *flow*, and
+  // `file_mapping/` is one directory holding two flows (I-61). The three that
+  // stay behind belong to `fileMappingUF`, which is F.8.
+  mapFileUF: mapFile,
 };
 const all = { ...coverage, ...proof };
 
@@ -62,6 +69,11 @@ describe("the coverage fixture", () => {
     // files. Three flows declare `dialogCancel` twice — once in the user-flow
     // delegate and once in the dialog delegate — which is one action reached
     // from two switches, not two actions. 58 − 3 = 55.
+    //
+    // **Still 55 after F.1's re-partition, and that is the check that it was a
+    // move.** Three names left `coverage/fileMappingUF.ua.json` and three
+    // arrived in `flows/mapFileUF.ua.json`; a copy rather than a move would read
+    // as 58 here.
     const names = Object.values(all).flatMap((doc) =>
       Object.keys((doc as ActionDocument).actions),
     );
@@ -69,17 +81,23 @@ describe("the coverage fixture", () => {
     expect(new Set(names).size).toBeLessThan(names.length); // dialogCancel repeats across flows
   });
 
-  it("names six escapes, not the four the sizing found", () => {
+  it("names five escapes: I-23 found six and one of them became grammar", () => {
     const escapes = Object.values(all).flatMap((doc) =>
       Object.values((doc as ActionDocument).actions).flatMap((action) =>
         action.steps.filter((s) => s.do === "escape").map((s) => s.name),
       ),
     );
+    // **`saveProcessMapping` is gone and that is F.1's finding.** I-23 counted
+    // six escapes by transcribing the delegates, and this one was transcribed as
+    // an escape because the grammar of the day could not post one row per
+    // validation group and had no missing-key guard. It has both now — `rows:
+    // "everyGroup"` and `require`, each justified beyond this flow — so
+    // `mapperOk` and `mapperDraft` are steps. **A transcription says what the
+    // grammar could express when it was written, not what the arm needs.**
     expect([...new Set(escapes)].sort()).toEqual([
       "downloadMapping",
       "loadRawRows",
       "loadSourceConfigWithFileTypeInference",
-      "saveProcessMapping",
       "saveSourceConfigForFileType",
       "updateHomeFilters",
     ]);

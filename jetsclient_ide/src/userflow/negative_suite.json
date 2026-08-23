@@ -2261,6 +2261,190 @@
       }
     },
     {
+      "name": "require with no keys",
+      "class": "value-range",
+      "document": "action",
+      "expect": "invalid",
+      "by": "schema",
+      "content": {
+        "schemaVersion": 1,
+        "actions": {
+          "lfLoadFilesUF": {
+            "description": "Start the loader for every selected file key",
+            "steps": [
+              {
+                "do": "require",
+                "keys": [],
+                "message": "Missing."
+              }
+            ]
+          },
+          "lfSyncFileKey": {
+            "description": "Sync the file key registry with object storage",
+            "steps": [
+              {
+                "do": "post",
+                "endpoint": "/registerFileKey",
+                "action": "sync_file_keys",
+                "spinner": true,
+                "data": {
+                  "rows": "none"
+                }
+              }
+            ]
+          },
+          "lfDropTable": {
+            "description": "Drop the staging table of the selected data source",
+            "steps": [
+              {
+                "do": "post",
+                "endpoint": "/dataTable",
+                "action": "drop_table",
+                "spinner": true,
+                "data": {
+                  "rows": "fields",
+                  "fields": {
+                    "schemaName": {
+                      "literal": "public"
+                    },
+                    "tableName": {
+                      "fromKey": "table_name"
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "name": "require with no message",
+      "class": "missing-required",
+      "document": "action",
+      "expect": "invalid",
+      "by": "schema",
+      "content": {
+        "schemaVersion": 1,
+        "actions": {
+          "lfLoadFilesUF": {
+            "description": "Start the loader for every selected file key",
+            "steps": [
+              {
+                "do": "require",
+                "keys": [
+                  "table_name"
+                ]
+              }
+            ]
+          },
+          "lfSyncFileKey": {
+            "description": "Sync the file key registry with object storage",
+            "steps": [
+              {
+                "do": "post",
+                "endpoint": "/registerFileKey",
+                "action": "sync_file_keys",
+                "spinner": true,
+                "data": {
+                  "rows": "none"
+                }
+              }
+            ]
+          },
+          "lfDropTable": {
+            "description": "Drop the staging table of the selected data source",
+            "steps": [
+              {
+                "do": "post",
+                "endpoint": "/dataTable",
+                "action": "drop_table",
+                "spinner": true,
+                "data": {
+                  "rows": "fields",
+                  "fields": {
+                    "schemaName": {
+                      "literal": "public"
+                    },
+                    "tableName": {
+                      "fromKey": "table_name"
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "name": "everyGroup carrying a field map",
+      "class": "invented-field",
+      "document": "action",
+      "expect": "invalid",
+      "by": "schema",
+      "content": {
+        "schemaVersion": 1,
+        "actions": {
+          "lfLoadFilesUF": {
+            "description": "Start the loader for every selected file key",
+            "steps": [
+              {
+                "do": "post",
+                "endpoint": "/dataTable",
+                "action": "insert_rows",
+                "table": "process_mapping",
+                "data": {
+                  "rows": "everyGroup",
+                  "fields": {
+                    "a": {
+                      "fromKey": "a"
+                    }
+                  }
+                }
+              }
+            ]
+          },
+          "lfSyncFileKey": {
+            "description": "Sync the file key registry with object storage",
+            "steps": [
+              {
+                "do": "post",
+                "endpoint": "/registerFileKey",
+                "action": "sync_file_keys",
+                "spinner": true,
+                "data": {
+                  "rows": "none"
+                }
+              }
+            ]
+          },
+          "lfDropTable": {
+            "description": "Drop the staging table of the selected data source",
+            "steps": [
+              {
+                "do": "post",
+                "endpoint": "/dataTable",
+                "action": "drop_table",
+                "spinner": true,
+                "data": {
+                  "rows": "fields",
+                  "fields": {
+                    "schemaName": {
+                      "literal": "public"
+                    },
+                    "tableName": {
+                      "fromKey": "table_name"
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
       "name": "dropdown without an items list",
       "class": "missing-required",
       "document": "form",
@@ -3026,6 +3210,330 @@
             "typeaheadItemsQueries": {
               "cache.input_columns": "inputColumns"
             }
+          },
+          "lfSelectFileKeysUF": {
+            "rows": [
+              [
+                {
+                  "field": "dataTable",
+                  "key": "lfFileKeyStagingTable",
+                  "table": "lfFileKeyStagingTable",
+                  "rules": [
+                    {
+                      "rule": "required",
+                      "message": "Please select a file(s) to load."
+                    }
+                  ]
+                }
+              ]
+            ],
+            "actions": [
+              {
+                "action": "ufPrevious",
+                "label": "Previous",
+                "style": "primary"
+              },
+              {
+                "action": "ufCancel",
+                "label": "Cancel",
+                "style": "primary"
+              },
+              {
+                "action": "ufCompleted",
+                "label": "Load Files & Done",
+                "style": "secondary"
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "name": "repeating form without a row seeder",
+      "class": "missing-required",
+      "document": "form",
+      "expect": "invalid",
+      "by": "schema",
+      "content": {
+        "schemaVersion": 1,
+        "forms": {
+          "lfSelectSourceConfigUF": {
+            "rows": [
+              [
+                {
+                  "field": "dataTable",
+                  "key": "lfSourceConfigTable",
+                  "table": "lfSourceConfigTable",
+                  "rules": [
+                    {
+                      "rule": "required",
+                      "message": "Please select a file data source configuration."
+                    }
+                  ]
+                }
+              ]
+            ],
+            "actions": [
+              {
+                "action": "ufPrevious",
+                "label": "Previous",
+                "style": "primary"
+              },
+              {
+                "action": "ufCancel",
+                "label": "Cancel",
+                "style": "primary"
+              },
+              {
+                "action": "ufNext",
+                "label": "Next",
+                "style": "secondary"
+              }
+            ],
+            "queries": {
+              "inputFields": {
+                "sql": "SELECT 1"
+              }
+            },
+            "repeat": {
+              "from": "inputFields"
+            }
+          },
+          "lfSelectFileKeysUF": {
+            "rows": [
+              [
+                {
+                  "field": "dataTable",
+                  "key": "lfFileKeyStagingTable",
+                  "table": "lfFileKeyStagingTable",
+                  "rules": [
+                    {
+                      "rule": "required",
+                      "message": "Please select a file(s) to load."
+                    }
+                  ]
+                }
+              ]
+            ],
+            "actions": [
+              {
+                "action": "ufPrevious",
+                "label": "Previous",
+                "style": "primary"
+              },
+              {
+                "action": "ufCancel",
+                "label": "Cancel",
+                "style": "primary"
+              },
+              {
+                "action": "ufCompleted",
+                "label": "Load Files & Done",
+                "style": "secondary"
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "name": "repeat carrying its own row count",
+      "class": "invented-field",
+      "document": "form",
+      "expect": "invalid",
+      "by": "schema",
+      "content": {
+        "schemaVersion": 1,
+        "forms": {
+          "lfSelectSourceConfigUF": {
+            "rows": [
+              [
+                {
+                  "field": "dataTable",
+                  "key": "lfSourceConfigTable",
+                  "table": "lfSourceConfigTable",
+                  "rules": [
+                    {
+                      "rule": "required",
+                      "message": "Please select a file data source configuration."
+                    }
+                  ]
+                }
+              ]
+            ],
+            "actions": [
+              {
+                "action": "ufPrevious",
+                "label": "Previous",
+                "style": "primary"
+              },
+              {
+                "action": "ufCancel",
+                "label": "Cancel",
+                "style": "primary"
+              },
+              {
+                "action": "ufNext",
+                "label": "Next",
+                "style": "secondary"
+              }
+            ],
+            "queries": {
+              "inputFields": {
+                "sql": "SELECT 1"
+              }
+            },
+            "repeat": {
+              "from": "inputFields",
+              "seed": "seedMappingRow",
+              "count": 10
+            }
+          },
+          "lfSelectFileKeysUF": {
+            "rows": [
+              [
+                {
+                  "field": "dataTable",
+                  "key": "lfFileKeyStagingTable",
+                  "table": "lfFileKeyStagingTable",
+                  "rules": [
+                    {
+                      "rule": "required",
+                      "message": "Please select a file(s) to load."
+                    }
+                  ]
+                }
+              ]
+            ],
+            "actions": [
+              {
+                "action": "ufPrevious",
+                "label": "Previous",
+                "style": "primary"
+              },
+              {
+                "action": "ufCancel",
+                "label": "Cancel",
+                "style": "primary"
+              },
+              {
+                "action": "ufCompleted",
+                "label": "Load Files & Done",
+                "style": "secondary"
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "name": "label with both a literal and a key",
+      "class": "unknown-type",
+      "document": "form",
+      "expect": "invalid",
+      "by": "schema",
+      "content": {
+        "schemaVersion": 1,
+        "forms": {
+          "lfSelectSourceConfigUF": {
+            "rows": [
+              [
+                {
+                  "field": "label",
+                  "text": "Data property",
+                  "fromKey": "data_property_label"
+                }
+              ]
+            ],
+            "actions": [
+              {
+                "action": "ufPrevious",
+                "label": "Previous",
+                "style": "primary"
+              },
+              {
+                "action": "ufCancel",
+                "label": "Cancel",
+                "style": "primary"
+              },
+              {
+                "action": "ufNext",
+                "label": "Next",
+                "style": "secondary"
+              }
+            ]
+          },
+          "lfSelectFileKeysUF": {
+            "rows": [
+              [
+                {
+                  "field": "dataTable",
+                  "key": "lfFileKeyStagingTable",
+                  "table": "lfFileKeyStagingTable",
+                  "rules": [
+                    {
+                      "rule": "required",
+                      "message": "Please select a file(s) to load."
+                    }
+                  ]
+                }
+              ]
+            ],
+            "actions": [
+              {
+                "action": "ufPrevious",
+                "label": "Previous",
+                "style": "primary"
+              },
+              {
+                "action": "ufCancel",
+                "label": "Cancel",
+                "style": "primary"
+              },
+              {
+                "action": "ufCompleted",
+                "label": "Load Files & Done",
+                "style": "secondary"
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "name": "label with neither a literal nor a key",
+      "class": "missing-required",
+      "document": "form",
+      "expect": "invalid",
+      "by": "schema",
+      "content": {
+        "schemaVersion": 1,
+        "forms": {
+          "lfSelectSourceConfigUF": {
+            "rows": [
+              [
+                {
+                  "field": "label"
+                }
+              ]
+            ],
+            "actions": [
+              {
+                "action": "ufPrevious",
+                "label": "Previous",
+                "style": "primary"
+              },
+              {
+                "action": "ufCancel",
+                "label": "Cancel",
+                "style": "primary"
+              },
+              {
+                "action": "ufNext",
+                "label": "Next",
+                "style": "secondary"
+              }
+            ]
           },
           "lfSelectFileKeysUF": {
             "rows": [

@@ -27,8 +27,11 @@ import type { JetsRow } from "../datatable/types";
 import { ApiProvider } from "../shell/capabilities";
 import { NotificationsProvider } from "../shell/notifications";
 import loadFilesActions from "../actions/flows/loadFilesUF.ua.json";
+import mapFileActions from "../actions/flows/mapFileUF.ua.json";
 import loadFilesFlow from "../userflow/flows/loadFilesUF.uf.json";
+import mapFileFlow from "../userflow/flows/mapFileUF.uf.json";
 import loadFilesForms from "../userflow/forms/loadFilesUF.form.json";
+import mapFileForms from "../userflow/forms/mapFileUF.form.json";
 import { FlowRunner } from "./FlowRunner";
 
 afterEach(cleanup);
@@ -42,6 +45,12 @@ const files: Record<string, string> = {
   "user_flows/loadFilesUF.form.json": serialise(loadFilesForms),
   "table_configs/lfSourceConfigTable.tc.json": serialise(lfSourceConfigTable),
   "table_configs/lfFileKeyStagingTable.tc.json": serialise(lfFileKeyStagingTable),
+
+  // F.1. The committed documents rather than a fixture, which is the whole point
+  // of the test: what is being checked is that *these* files run.
+  "user_flows/mapFileUF.uf.json": serialise(mapFileFlow),
+  "user_flows/mapFileUF.ua.json": serialise(mapFileActions),
+  "user_flows/mapFileUF.form.json": serialise(mapFileForms),
 
   // **A synthetic flow, and it is synthetic on purpose** (I.2b). No shipping flow
   // pairs a query-backed dropdown with a typeahead — `fmMappingFormUF` has both
@@ -96,6 +105,22 @@ const fileRows: JetsRow[] = [
   ["10", "acme", "vendorA", "claims", "s3://bucket/in/f10.csv", "2026", "8", "1", "p", "staging_claims", "sess-1", "d", "spk"],
 ];
 
+/**
+ * `inputFieldsQuery`'s eight columns, for a two-property canonical model.
+ *
+ * `claim:id` is required and unmapped; `member:dob` is optional and has a saved
+ * mapping. Two rows is the smallest set that shows the groups are independent.
+ */
+const mappingRows: JetsRow[] = [
+  ["claim:id", "1", null, null, null, null, null, null],
+  ["member:dob", "0", "dob", "to_date", "%Y-%m-%d", null, null, null],
+];
+const stagingColumns: JetsRow[] = [["claim_id"], ["dob"], ["member_id"]];
+const mappingFunctions: JetsRow[] = [
+  ["to_date", "1"],
+  ["to_upper", "0"],
+];
+
 interface Posted {
   path: string;
   body: Record<string, unknown>;
@@ -122,7 +147,11 @@ function stubServer(overrides: { missing?: string[] } = {}) {
           name: "Michel",
           user_email: "michel@artisoft.io",
           is_admin: false,
-          capabilities: ["workspace_ide", "run_pipelines"],
+          // `client_config` is `mapFileUF`'s: both its save buttons declare it
+          // (`file_mapping/form_config.dart`), and `insert_rows` into
+          // `process_mapping` is gated on it server-side (`sql_stmts.go`). A user
+          // without it sees the worksheet and cannot save it.
+          capabilities: ["workspace_ide", "run_pipelines", "client_config"],
         }),
         { status: 200 },
       );
@@ -169,6 +198,9 @@ function stubServer(overrides: { missing?: string[] } = {}) {
         const result_map: Record<string, unknown> = {};
         for (const [name, sql] of Object.entries(map)) {
           if (name === "clients") result_map[name] = [["acme"], ["globex"]];
+          else if (name === "inputFields") result_map[name] = mappingRows;
+          else if (name === "inputColumns") result_map[name] = stagingColumns;
+          else if (name === "mappingFunctions") result_map[name] = mappingFunctions;
           // The substituted statement is what decides the answer, so the
           // assertion below is about the substitution rather than about the name.
           else result_map[name] = sql.includes("'acme'") ? [["eastern"], ["western"]] : [];
@@ -189,7 +221,10 @@ function stubServer(overrides: { missing?: string[] } = {}) {
   return { fetchImpl, posts };
 }
 
-async function mount(flowKey = "loadFilesUF", overrides: { missing?: string[] } = {}) {
+async function mount(
+  flowKey = "loadFilesUF",
+  overrides: { missing?: string[]; search?: string } = {},
+) {
   const { fetchImpl, posts } = stubServer(overrides);
   const api = new ApiClient("", fetchImpl);
   await api.login("michel@artisoft.io", "pw");
@@ -197,7 +232,7 @@ async function mount(flowKey = "loadFilesUF", overrides: { missing?: string[] } 
   render(
     <ApiProvider api={api}>
       <NotificationsProvider>
-        <MemoryRouter initialEntries={[`/flow/${flowKey}`]}>
+        <MemoryRouter initialEntries={[`/flow/${flowKey}${overrides.search ?? ""}`]}>
           <Routes>
             <Route path="/flow/:key" element={<FlowRunner api={api} />} />
             <Route path="/workspace" element={<p>the workspace ide</p>} />
@@ -432,5 +467,188 @@ describe("a form whose item sources are queries", () => {
         [...listbox.querySelectorAll('[role="option"]')].map((o) => o.textContent),
       ).toEqual(["eastern", "western"]),
     );
+  });
+});
+
+/**
+ * `mapFileUF`, the whole of task F.1.
+ *
+ * The corpus's most expensive flow (I-61) driven from its committed documents:
+ * three named queries, a form drawn once per query row, a typeahead and a
+ * query-backed dropdown inside each row, a validator escape, and two save
+ * buttons whose bodies are grammar rather than an escape.
+ *
+ * **The route carries parameters and until F.1 it could not.** Flutter serves
+ * this flow at `/fileMappingUF/mapping/:table_name/:object_type`, and both are
+ * substituted into `inputFieldsQuery` — with neither, the worksheet has no rows.
+ */
+const MAPPING_SEARCH = "?table_name=acme_org_claim&object_type=Claim";
+
+describe("mapFileUF — the file mapping worksheet", () => {
+  it("draws one group per data property, headed by the property", async () => {
+    await mount("mapFileUF", { search: MAPPING_SEARCH });
+    expect(await screen.findByText("claim:id*")).toBeTruthy();
+    expect(screen.getByText("member:dob")).toBeTruthy();
+    // Two groups, so two of each field.
+    expect(screen.getAllByLabelText("Input Column")).toHaveLength(2);
+    expect(screen.getAllByLabelText("Cleansing Function")).toHaveLength(2);
+  });
+
+  it("substitutes both route parameters into the queries", async () => {
+    const { posts } = await mount("mapFileUF", { search: MAPPING_SEARCH });
+    await screen.findByText("claim:id*");
+    const batch = posts.find((p) => p.body["action"] === "raw_query_map")!;
+    const map = batch.body["query_map"] as Record<string, string>;
+    expect(map["inputFields"]).toContain("table_name = 'acme_org_claim'");
+    expect(map["inputFields"]).toContain("object_type = 'Claim'");
+    expect(map["inputColumns"]).toContain("table_name = 'acme_org_claim'");
+  });
+
+  it("seeds the saved mapping and defaults the unmapped row from the staging table", async () => {
+    await mount("mapFileUF", { search: MAPPING_SEARCH });
+    await screen.findByText("claim:id*");
+    const columns = screen.getAllByLabelText("Input Column") as HTMLInputElement[];
+    // `claim:id` has no saved mapping and the staging table has no column of that
+    // name, so it stays empty; `member:dob` carries `dob` from `process_mapping`.
+    expect(columns.map((c) => c.value)).toEqual(["", "dob"]);
+    const functions = screen.getAllByLabelText("Cleansing Function") as HTMLSelectElement[];
+    expect(functions.map((f) => f.value)).toEqual(["", "to_date"]);
+  });
+
+  it("fills each row's typeahead from the staging table's columns", async () => {
+    await mount("mapFileUF", { search: MAPPING_SEARCH });
+    await screen.findByText("claim:id*");
+    const first = screen.getAllByLabelText("Input Column")[0]!;
+    fireEvent.focus(first);
+    const listbox = screen.getAllByRole("listbox", { name: "Input Column suggestions" })[0]!;
+    await waitFor(() =>
+      expect([...listbox.querySelectorAll('[role="option"]')].map((o) => o.textContent)).toEqual([
+        // `claim:id` splits on `:` to `claim` and `id`, and a column containing
+        // *either* part floats — so `member_id` is priority too and only `dob`
+        // falls to the rest. `priorityKey` reads **this row's** data property
+        // rather than the form's, which is what makes the ordering per row.
+        // Nothing is hidden: the Dart's rule is an ordering, not a filter.
+        "claim_id",
+        "member_id",
+        "dob",
+      ]),
+    );
+  });
+
+  it("keeps Save disabled and Save as Draft enabled while a required row is unmapped", async () => {
+    await mount("mapFileUF", { search: MAPPING_SEARCH });
+    await screen.findByText("claim:id*");
+    expect((screen.getByRole("button", { name: "Save" }) as HTMLButtonElement).disabled).toBe(true);
+    expect(
+      (screen.getByRole("button", { name: "Save as Draft" }) as HTMLButtonElement).disabled,
+    ).toBe(false);
+  });
+
+  it("swaps the two once every row validates", async () => {
+    await mount("mapFileUF", { search: MAPPING_SEARCH });
+    await screen.findByText("claim:id*");
+    fireEvent.change(screen.getAllByLabelText("Input Column")[0]!, {
+      target: { value: "claim_id" },
+    });
+    await waitFor(() =>
+      expect((screen.getByRole("button", { name: "Save" }) as HTMLButtonElement).disabled).toBe(
+        false,
+      ),
+    );
+    expect(
+      (screen.getByRole("button", { name: "Save as Draft" }) as HTMLButtonElement).disabled,
+    ).toBe(true);
+  });
+
+  it("marks the row whose input column is not a column of the table", async () => {
+    await mount("mapFileUF", { search: MAPPING_SEARCH });
+    await screen.findByText("claim:id*");
+    fireEvent.change(screen.getAllByLabelText("Input Column")[1]!, {
+      target: { value: "not_a_column" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Save as Draft" }));
+    // The error is attached to the *second* group, which is what `FieldError.group`
+    // is for: one error list across n groups.
+    expect(await screen.findByText("Input Column is not valid.")).toBeTruthy();
+    expect(screen.getAllByText("Input Column is not valid.")).toHaveLength(1);
+  });
+
+  it("saves by deleting the table's mappings and posting one row per group", async () => {
+    const { posts } = await mount("mapFileUF", { search: MAPPING_SEARCH });
+    await screen.findByText("claim:id*");
+    fireEvent.change(screen.getAllByLabelText("Input Column")[0]!, {
+      target: { value: "claim_id" },
+    });
+    await waitFor(() =>
+      expect((screen.getByRole("button", { name: "Save" }) as HTMLButtonElement).disabled).toBe(
+        false,
+      ),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+
+    await waitFor(() => {
+      const inserts = posts.filter((p) => p.body["action"] === "insert_rows");
+      expect(inserts).toHaveLength(2);
+    });
+    const inserts = posts.filter((p) => p.body["action"] === "insert_rows");
+
+    // The delete first, keyed on the table alone — `delete/process_mapping`'s
+    // statement takes one column.
+    expect(inserts[0]!.body["fromClauses"]).toEqual([{ table: "delete/process_mapping" }]);
+    expect(inserts[0]!.body["data"]).toEqual([
+      { table_name: "acme_org_claim", user_email: "michel@artisoft.io" },
+    ]);
+
+    // Then one row per group, with the form-level values copied into each — the
+    // Dart's loop over `groupCount`, expressed as `rows: "everyGroup"`.
+    expect(inserts[1]!.body["fromClauses"]).toEqual([{ table: "process_mapping" }]);
+    const rows = inserts[1]!.body["data"] as Record<string, unknown>[];
+    expect(rows).toHaveLength(2);
+    expect(rows[0]).toEqual({
+      table_name: "acme_org_claim",
+      object_type: "Claim",
+      user_email: "michel@artisoft.io",
+      data_property: "claim:id",
+      "flag.is_required": "1",
+      input_column: "claim_id",
+    });
+    expect(rows[1]).toMatchObject({
+      data_property: "member:dob",
+      input_column: "dob",
+      function_name: "to_date",
+      argument: "%Y-%m-%d",
+      table_name: "acme_org_claim",
+    });
+    // `data_property_label` is this port's addition, not a `process_mapping`
+    // column, and is omitted so the payload matches what the Dart sends.
+    expect(rows.every((r) => !("data_property_label" in r))).toBe(true);
+  });
+
+  it("saves a draft without validating, which is the point of the second button", async () => {
+    const { posts } = await mount("mapFileUF", { search: MAPPING_SEARCH });
+    await screen.findByText("claim:id*");
+    fireEvent.click(screen.getByRole("button", { name: "Save as Draft" }));
+    await waitFor(() =>
+      expect(posts.filter((p) => p.body["action"] === "insert_rows")).toHaveLength(2),
+    );
+  });
+
+  it("refuses to save when the staging table is not in the url", async () => {
+    // The `require` step, and the guard the Dart opens `mapperOk` with. Without
+    // `table_name` the worksheet has no rows either, so this is what a user who
+    // reached the route by hand sees.
+    const { posts } = await mount("mapFileUF", { search: "?object_type=Claim" });
+    await screen.findByRole("button", { name: "Save as Draft" });
+    // The worksheet is empty as well, because `inputFields` waits on the same
+    // parameter — so this is what a user who reached the route by hand sees.
+    expect(screen.getByText("Nothing to map yet.")).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("button", { name: "Save as Draft" }));
+    await waitFor(() => expect(screen.getByRole("button", { name: "Save as Draft" })).toBeTruthy());
+    // **Nothing is posted, which is the assertion.** The message itself goes to
+    // `setError` and is drawn by the shell's banner, which this tree does not
+    // mount — the same reason the load-failure test asserts on the runner's own
+    // findings list rather than on a notification.
+    expect(posts.filter((p) => p.body["action"] === "insert_rows")).toHaveLength(0);
   });
 });

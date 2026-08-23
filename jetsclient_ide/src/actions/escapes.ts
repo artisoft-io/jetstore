@@ -35,6 +35,7 @@
  */
 
 import type { FormState } from "../datatable/formState";
+import type { JetsRow } from "../datatable/types";
 
 /** What an escaped action body is handed. Deliberately narrow. */
 export interface EscapeContext {
@@ -58,15 +59,41 @@ export type ActionEscape = (context: EscapeContext) => Promise<string | null>;
 export type InitializerEscape = (context: EscapeContext) => void;
 
 /**
- * A form validator. **None of these exist yet** — the field is here because
- * I-15 will need it and because a registry with one namespace invites a second
- * registry rather than a second namespace.
+ * A form validator, run over every value field of a form that names one.
+ *
+ * **The first of these exists as of F.1**, three tasks after this type was
+ * written for a consumer I-15 predicted: `mappingFormValidator`, whose every
+ * reachable branch is a relation between sibling values rather than a property of
+ * one field. The `required` and `json` rules stay where they are and this runs
+ * beside them.
+ *
+ * Returns the message for the field, or null when it passes.
  */
 export type ValidatorEscape = (
   context: EscapeContext,
   key: string,
   value: unknown,
 ) => string | null;
+
+/**
+ * Seeds one validation group from one row of a query. Task F.1.
+ *
+ * **A repeating form's row builder, minus the layout.** The Dart's
+ * `inputFieldRowBuilder` does two things at once — write the row's values into
+ * group *i* and return that group's field configurations — and the port separates
+ * them: the fields are `FormSchema.rows`, drawn once per group, and this is the
+ * writing. `fmMappingFormUF` is the only form of the fifty that has one.
+ *
+ * It is a distinct namespace from `initializers` rather than a widening of it,
+ * because the arguments differ: an initializer seeds the form once from outside
+ * it, and this is called per row with the row. Folding them would give one of the
+ * two a parameter it can never use.
+ */
+export type RowInitializerEscape = (
+  context: EscapeContext,
+  row: JetsRow,
+  index: number,
+) => void;
 
 /**
  * A column's display filter. **Two names, three sites, one body** — see I-54.
@@ -86,7 +113,7 @@ export type CellFilterEscape = (value: string | null) => string | null;
 export type PredicateEscape = (formState: FormState, group: number) => boolean;
 
 /**
- * The five namespaces.
+ * The six namespaces.
  *
  * **`cellFilters` and `predicates` are task I.3b's**, and they are namespaces
  * rather than a second registry for the reason the header gives: the three that
@@ -101,6 +128,7 @@ export type PredicateEscape = (formState: FormState, group: number) => boolean;
 export interface EscapeRegistry {
   actions: Readonly<Record<string, ActionEscape>>;
   initializers: Readonly<Record<string, InitializerEscape>>;
+  rowInitializers: Readonly<Record<string, RowInitializerEscape>>;
   validators: Readonly<Record<string, ValidatorEscape>>;
   cellFilters: Readonly<Record<string, CellFilterEscape>>;
   predicates: Readonly<Record<string, PredicateEscape>>;
@@ -109,6 +137,7 @@ export interface EscapeRegistry {
 export const emptyRegistry: EscapeRegistry = {
   actions: {},
   initializers: {},
+  rowInitializers: {},
   validators: {},
   cellFilters: {},
   predicates: {},

@@ -22,17 +22,21 @@
  * flow actually needs is the three widgets track A already built, plus the two
  * things that are not widgets — a label and a spacer.
  *
- * ## What this deliberately does not cover
+ * ## What S.5 deliberately did not cover, and what has arrived since
  *
  * **Validators beyond `required` and `json`.** Those two cover both proof flows
  * exactly: `registerFileKeyFormValidator` checks two fields are non-empty and
  * that one parses as JSON; `loadFilesFormValidator` checks two tables have a
- * selection. `file_mapping`'s 222-line validator is unchanged as an escape, and
- * a form needing more than these two names one.
+ * selection. S.5 said a form needing more than these two would name an escape,
+ * and **F.1 is the first that does** — `validator` on `FormSchema`, carrying
+ * `mappingFormValidator`.
  *
- * **Dropdown item *queries*** — I-11, still open, and now I.2b. Neither proof
- * flow uses a dropdown, which is why S.5 could be reached without settling it.
- * The *static* half arrived later and is here — see `dropdown` below.
+ * **Dropdown item *queries*** — I-11. Neither proof flow uses a dropdown, which
+ * is why S.5 could be reached without settling it. The *static* half arrived with
+ * I.2a and the *query* half with I.2b, which is `queries` and `itemsFrom` below.
+ *
+ * **A form drawn once per row of a query.** Not foreseen here at all; one form of
+ * the fifty has it, and it is `repeat` below (F.1).
  *
  * ## Why a sibling document rather than fields on the state
  *
@@ -275,7 +279,21 @@ export const FieldSchema = z
       maxLength: z.number().int().positive().optional(),
       rules: z.array(RuleSchema).optional(),
     }),
+    /**
+     * A line of text. `TextFieldConfig`, 12 instances across the flows (I-12).
+     *
+     * **`fromKey` is the repeating-row case and it is why this is a union.** A
+     * form with `repeat` draws the same fields once per row, so a label that says
+     * which row this is cannot be a literal: `fmMappingFormUF`'s per-row heading
+     * is the data property being mapped, with a `*` when it is required
+     * (`file_mapping/form_config.dart`, inside `inputFieldRowBuilder`). The seed
+     * escape writes that string into the group's form state and the label reads
+     * it, which keeps the *computation* in the escape and the *layout* here.
+     *
+     * Exactly one of the two, because a label with both would have to pick.
+     */
     z.strictObject({ field: z.literal("label"), text: z.string().min(1) }),
+    z.strictObject({ field: z.literal("label"), fromKey: Identifier }),
     z.strictObject({ field: z.literal("spacer") }),
   ])
   .meta({ id: "Field", description: "One field of a form" });
@@ -298,8 +316,59 @@ export const FormActionSchema = z
     style: z.enum(["primary", "secondary", "danger"]).optional(),
     capability: Identifier.optional(),
     enableOnlyWhenFormValid: z.boolean().optional(),
+    /**
+     * The inverse gate. One site: `mapperDraft`
+     * (`file_mapping/form_config.dart`, `enableOnlyWhenFormNotValid: true`).
+     *
+     * **It is a real behaviour rather than a stylistic mirror of the flag above.**
+     * "Save as Draft" is offered *because* the worksheet does not validate — a
+     * half-finished mapping is worth keeping — so the two buttons are never
+     * enabled at the same time, and the Save button is the one the user should
+     * reach for once it lights up. `form_button.dart` reads them as two
+     * independent branches of one condition.
+     */
+    enableOnlyWhenFormNotValid: z.boolean().optional(),
   })
   .meta({ id: "FormAction" });
+
+/**
+ * A form drawn once per row of a query. Task F.1.
+ *
+ * **One form of the fifty has this shape** — `fmMappingFormUF`, the only one the
+ * corpus reports with `hasRowBuilder: true` and `fieldCount: 0`
+ * (`datatable/fixtures/form_fields.json`). The Dart builds it with a closure:
+ * `inputFieldRowBuilder` is called once per row of `inputFieldsQuery` and returns
+ * the field configurations for that row, having first written the row's values
+ * into validation group *i* (`form.dart`, `queryInputFieldItems`).
+ *
+ * **The split here is layout from computation, and it is the whole design.** The
+ * *layout* is the same for every row, so it is `rows` — declared once, drawn once
+ * per group. The *seeding* is not: `input_column`'s default is
+ * `saved ?? column 7 ?? (the data property, if it is a column of the staging
+ * table)`, a three-term coalesce whose last term is a membership test against a
+ * second query. Expressing that would take a binding vocabulary — coalesce,
+ * literal mapping, membership — with exactly one consumer, and this project's
+ * answer to computation in a document is a named escape rather than a language
+ * for it (`plan/phase3_plan.md` §5: *declarative with a named escape*).
+ *
+ * So `seed` names a `rowInitializers` entry, which is handed the row and the
+ * group index and writes the values. The registry refuses an unresolved name at
+ * load, as it does for every other escape kind.
+ *
+ * **`from` names a query rather than carrying one** so that the same result feeds
+ * the row count and anything else that reads it — `savedStateQuery` and
+ * `inputFieldsQuery` are literally the same query in the Dart, which is why the
+ * row builder's `savedState?[index][n]` and `inputFieldRow[n]` are the same
+ * value and the seeding is a column map rather than a join.
+ */
+export const RepeatSchema = z
+  .strictObject({
+    /** A `queries` entry; one validation group per row it returns. */
+    from: Identifier,
+    /** A `rowInitializers` escape, called per row before the group is drawn. */
+    seed: Identifier,
+  })
+  .meta({ id: "Repeat", description: "Draw this form once per row of a query" });
 
 export const FormSchema = z
   .strictObject({
@@ -312,6 +381,48 @@ export const FormSchema = z
      * `metadataQueries` caches of `fmMappingFormUF` end up.
      */
     queries: z.record(Identifier, FormQuerySchema).optional(),
+    /** Draw `rows` once per row of a query. Task F.1 — see `RepeatSchema`. */
+    repeat: RepeatSchema.optional(),
+    /**
+     * A `validators` escape run over every value field, beside the field `rules`.
+     * Task F.1, and the first of these to exist.
+     *
+     * **The rules cover a form whose fields are independent, and this is the one
+     * that is not.** `mappingFormValidator` is 222 lines
+     * (`file_mapping/form_mapping_validator.dart`, `mappingFormValidator`) and
+     * every branch of it that `mapFileUF` reaches is a *relation between sibling
+     * values*: an input column must be one of the staging table's columns, an
+     * argument is required or forbidden according to the function chosen beside
+     * it, a default value and an error message may not both be given. Four
+     * bespoke rule kinds would be a rule language written for one form; a named
+     * validator is the mechanism `escapes.ts` already declares and I-15 predicted
+     * would be wanted.
+     *
+     * It runs *in addition to* `rules`, not instead of them, so a form may use
+     * both — and the errors are merged by key, first one winning per field.
+     */
+    validator: Identifier.optional(),
+    /**
+     * Show validation messages as the user types, rather than when an action
+     * asks. Task F.1.
+     *
+     * `AutovalidateMode.always` (`models/form_config.dart`, `autovalidateMode`).
+     * **Four live sites in the whole corpus and all four are in
+     * `fmMappingFormUF`** — the typeahead, its wrapped input, the function
+     * argument and the default value
+     * (`file_mapping/form_config.dart:196`, `:206`, `:235`, `:249`; a fifth at
+     * `:215` is commented out). The two `onUserInteraction` sites are
+     * `pipelineConfigUF` dropdowns and are not this.
+     *
+     * **Form-level rather than per field, because four of four are one form** and
+     * because validity here is already form-wide (`validateForm.ts`). Per-field
+     * granularity would be a distinction the corpus does not draw.
+     *
+     * It is not cosmetic on this form. Save is gated on `enableOnlyWhenFormValid`
+     * over *every* row, so without live messages a user with fifty properties to
+     * map sees a disabled button and no indication of which row is wrong.
+     */
+    autovalidate: z.boolean().optional(),
     /** Rows, rendered in order; a row is a horizontal group. */
     rows: z.array(z.array(FieldSchema).min(1)).min(1),
     actions: z.array(FormActionSchema).min(1),
@@ -332,6 +443,7 @@ export const FormDocumentSchema = z
 export type Rule = z.infer<typeof RuleSchema>;
 export type DropdownItem = z.infer<typeof DropdownItemSchema>;
 export type FormQuery = z.infer<typeof FormQuerySchema>;
+export type Repeat = z.infer<typeof RepeatSchema>;
 export type Field = z.infer<typeof FieldSchema>;
 export type FormAction = z.infer<typeof FormActionSchema>;
 export type Form = z.infer<typeof FormSchema>;

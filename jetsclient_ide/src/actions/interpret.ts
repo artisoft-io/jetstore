@@ -167,6 +167,20 @@ export function buildRows(spec: Rows, context: EvalContext): Record<string, unkn
       for (const key of spec.omit ?? []) delete row[key];
       return [row];
     }
+    case "everyGroup": {
+      // `normalise` is evaluated once, in the *action's* group, and applied to
+      // every row — see the schema. That is the Dart's loop, which copies one
+      // form-level value into each group before sending.
+      const shared: Record<string, unknown> = {};
+      for (const { key, as } of spec.normalise ?? []) shared[key] = evaluate(as, context);
+      const rows: Record<string, unknown>[] = [];
+      for (let group = 0; group < context.formState.groupCount; group += 1) {
+        const row: Record<string, unknown> = { ...context.formState.snapshot(group), ...shared };
+        for (const key of spec.omit ?? []) delete row[key];
+        rows.push(row);
+      }
+      return rows;
+    }
     case "fanOut": {
       const over = context.formState.getValue(context.field.group, spec.over);
       if (!Array.isArray(over)) {
@@ -187,6 +201,16 @@ async function runStep(step: Step, run: ActionRun): Promise<{ done: boolean; out
   switch (step.do) {
     case "validate":
       return host.validate() ? carryOn : { done: true, outcome: null };
+
+    case "require": {
+      // Missing and empty are the same state here, as everywhere else in this
+      // port: a cleared widget stores nothing at all (`useFormField`).
+      const missing = step.keys.filter((key) => {
+        const value = unpack(formState.getValue(group, key));
+        return value === null || value === "";
+      });
+      return missing.length === 0 ? carryOn : { done: true, outcome: step.message };
+    }
 
     case "confirm":
       return (await host.confirm(step.message)) ? carryOn : { done: true, outcome: null };
