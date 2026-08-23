@@ -1,0 +1,707 @@
+{
+  "schemaVersion": 1,
+  "forms": {
+    "bindings": {
+      "rows": [
+        [
+          {
+            "field": "text",
+            "key": "bindings._item.data_channel",
+            "label": "$item.data_channel",
+            "rules": [
+              {
+                "rule": "required",
+                "message": "Data channel is required"
+              }
+            ]
+          }
+        ],
+        [
+          {
+            "field": "text",
+            "key": "bindings._item.data_columns",
+            "label": "$item.data_columns",
+            "maxLines": 3,
+            "hint": "A JSON list, e.g. [\"a\", \"b\"]",
+            "rules": [
+              {
+                "rule": "json",
+                "message": "Data columns must be a JSON list"
+              },
+              {
+                "rule": "required",
+                "message": "Data columns is required"
+              }
+            ]
+          }
+        ],
+        [
+          {
+            "field": "text",
+            "key": "bindings._item.metrics_channel",
+            "label": "$item.metrics_channel",
+            "rules": [
+              {
+                "rule": "required",
+                "message": "Metrics channel is required"
+              }
+            ]
+          }
+        ],
+        [
+          {
+            "field": "text",
+            "key": "bindings._item.metric_columns",
+            "label": "$item.metric_columns",
+            "maxLines": 3,
+            "hint": "A JSON list, e.g. [\"a\", \"b\"]",
+            "rules": [
+              {
+                "rule": "json",
+                "message": "Metric columns must be a JSON list"
+              },
+              {
+                "rule": "required",
+                "message": "Metric columns is required"
+              }
+            ]
+          }
+        ],
+        [
+          {
+            "field": "text",
+            "key": "bindings._item.report",
+            "label": "$item.report",
+            "rules": [
+              {
+                "rule": "required",
+                "message": "Report is required"
+              }
+            ]
+          }
+        ],
+        [
+          {
+            "field": "text",
+            "key": "bindings._item.file_type",
+            "label": "$item.file_type",
+            "rules": [
+              {
+                "rule": "required",
+                "message": "File type is required"
+              }
+            ]
+          }
+        ],
+        [
+          {
+            "field": "text",
+            "key": "bindings._item.data_writer",
+            "label": "$item.data_writer",
+            "rules": [
+              {
+                "rule": "required",
+                "message": "Data writer is required"
+              }
+            ]
+          }
+        ],
+        [
+          {
+            "field": "text",
+            "key": "bindings._item.data_out",
+            "label": "$item.data_out",
+            "rules": [
+              {
+                "rule": "required",
+                "message": "Data out is required"
+              }
+            ]
+          }
+        ],
+        [
+          {
+            "field": "text",
+            "key": "bindings._item.metrics_mapped",
+            "label": "$item.metrics_mapped",
+            "rules": [
+              {
+                "rule": "required",
+                "message": "Metrics mapped is required"
+              }
+            ]
+          }
+        ],
+        [
+          {
+            "field": "text",
+            "key": "bindings._item.metrics_writer",
+            "label": "$item.metrics_writer",
+            "rules": [
+              {
+                "rule": "required",
+                "message": "Metrics writer is required"
+              }
+            ]
+          }
+        ],
+        [
+          {
+            "field": "text",
+            "key": "bindings._item.metrics_out",
+            "label": "$item.metrics_out",
+            "rules": [
+              {
+                "rule": "required",
+                "message": "Metrics out is required"
+              }
+            ]
+          }
+        ],
+        [
+          {
+            "field": "text",
+            "key": "bindings._item.metrics_aggregated",
+            "label": "$item.metrics_aggregated",
+            "rules": [
+              {
+                "rule": "required",
+                "message": "Metrics aggregated is required"
+              }
+            ]
+          }
+        ],
+        [
+          {
+            "field": "text",
+            "key": "bindings.stage1_map_pipes",
+            "label": "stage1_map_pipes",
+            "maxLines": 3,
+            "hint": "A JSON list, e.g. [\"a\", \"b\"]",
+            "rules": [
+              {
+                "rule": "json",
+                "message": "Stage1 map pipes must be a JSON list"
+              },
+              {
+                "rule": "required",
+                "message": "Stage1 map pipes is required"
+              }
+            ]
+          }
+        ],
+        [
+          {
+            "field": "text",
+            "key": "bindings.distinct_metrics.0.name",
+            "label": "distinct_metrics.0.name",
+            "rules": [
+              {
+                "rule": "required",
+                "message": "Name is required"
+              }
+            ]
+          }
+        ],
+        [
+          {
+            "field": "text",
+            "key": "bindings.distinct_metrics.0.expr",
+            "label": "distinct_metrics.0.expr",
+            "rules": [
+              {
+                "rule": "required",
+                "message": "Expr is required"
+              }
+            ]
+          }
+        ],
+        [
+          {
+            "field": "text",
+            "key": "bindings.sum_metrics",
+            "label": "sum_metrics",
+            "maxLines": 3,
+            "hint": "A JSON list, e.g. [\"a\", \"b\"]",
+            "rules": [
+              {
+                "rule": "json",
+                "message": "Sum metrics must be a JSON list"
+              },
+              {
+                "rule": "required",
+                "message": "Sum metrics is required"
+              }
+            ]
+          }
+        ],
+        [
+          {
+            "field": "text",
+            "key": "bindings.map_reduce_metrics",
+            "label": "map_reduce_metrics",
+            "maxLines": 3,
+            "hint": "A JSON list, e.g. [\"a\", \"b\"]",
+            "rules": [
+              {
+                "rule": "json",
+                "message": "Map reduce metrics must be a JSON list"
+              },
+              {
+                "rule": "required",
+                "message": "Map reduce metrics is required"
+              }
+            ]
+          }
+        ],
+        [
+          {
+            "field": "text",
+            "key": "bindings.emitters.0.field",
+            "label": "emitters.0.field",
+            "rules": [
+              {
+                "rule": "required",
+                "message": "Field is required"
+              }
+            ]
+          }
+        ],
+        [
+          {
+            "field": "text",
+            "key": "bindings.emitters.0.field_id",
+            "label": "emitters.0.field_id",
+            "rules": [
+              {
+                "rule": "required",
+                "message": "Field id is required"
+              }
+            ]
+          }
+        ],
+        [
+          {
+            "field": "text",
+            "key": "bindings.emitters.1.field",
+            "label": "emitters.1.field",
+            "rules": [
+              {
+                "rule": "required",
+                "message": "Field is required"
+              }
+            ]
+          }
+        ],
+        [
+          {
+            "field": "text",
+            "key": "bindings.emitters.1.field_id",
+            "label": "emitters.1.field_id",
+            "rules": [
+              {
+                "rule": "required",
+                "message": "Field id is required"
+              }
+            ]
+          }
+        ],
+        [
+          {
+            "field": "text",
+            "key": "bindings.emitters.2.field",
+            "label": "emitters.2.field",
+            "rules": [
+              {
+                "rule": "required",
+                "message": "Field is required"
+              }
+            ]
+          }
+        ],
+        [
+          {
+            "field": "text",
+            "key": "bindings.emitters.2.field_id",
+            "label": "emitters.2.field_id",
+            "rules": [
+              {
+                "rule": "required",
+                "message": "Field id is required"
+              }
+            ]
+          }
+        ],
+        [
+          {
+            "field": "text",
+            "key": "bindings.emitters.3.field",
+            "label": "emitters.3.field",
+            "rules": [
+              {
+                "rule": "required",
+                "message": "Field is required"
+              }
+            ]
+          }
+        ],
+        [
+          {
+            "field": "text",
+            "key": "bindings.emitters.3.field_id",
+            "label": "emitters.3.field_id",
+            "rules": [
+              {
+                "rule": "required",
+                "message": "Field id is required"
+              }
+            ]
+          }
+        ],
+        [
+          {
+            "field": "text",
+            "key": "bindings.emitters.4.field",
+            "label": "emitters.4.field",
+            "rules": [
+              {
+                "rule": "required",
+                "message": "Field is required"
+              }
+            ]
+          }
+        ],
+        [
+          {
+            "field": "text",
+            "key": "bindings.emitters.4.field_id",
+            "label": "emitters.4.field_id",
+            "rules": [
+              {
+                "rule": "required",
+                "message": "Field id is required"
+              }
+            ]
+          }
+        ],
+        [
+          {
+            "field": "text",
+            "key": "bindings.emitters.5.field",
+            "label": "emitters.5.field",
+            "rules": [
+              {
+                "rule": "required",
+                "message": "Field is required"
+              }
+            ]
+          }
+        ],
+        [
+          {
+            "field": "text",
+            "key": "bindings.emitters.5.field_id",
+            "label": "emitters.5.field_id",
+            "rules": [
+              {
+                "rule": "required",
+                "message": "Field id is required"
+              }
+            ]
+          }
+        ],
+        [
+          {
+            "field": "text",
+            "key": "bindings.emitters.6.field",
+            "label": "emitters.6.field",
+            "rules": [
+              {
+                "rule": "required",
+                "message": "Field is required"
+              }
+            ]
+          }
+        ],
+        [
+          {
+            "field": "text",
+            "key": "bindings.emitters.6.field_id",
+            "label": "emitters.6.field_id",
+            "rules": [
+              {
+                "rule": "required",
+                "message": "Field id is required"
+              }
+            ]
+          }
+        ],
+        [
+          {
+            "field": "text",
+            "key": "bindings.emitters.7.field",
+            "label": "emitters.7.field",
+            "rules": [
+              {
+                "rule": "required",
+                "message": "Field is required"
+              }
+            ]
+          }
+        ],
+        [
+          {
+            "field": "text",
+            "key": "bindings.emitters.7.field_id",
+            "label": "emitters.7.field_id",
+            "rules": [
+              {
+                "rule": "required",
+                "message": "Field id is required"
+              }
+            ]
+          }
+        ],
+        [
+          {
+            "field": "text",
+            "key": "bindings.metrics.0.name",
+            "label": "metrics.0.name",
+            "rules": [
+              {
+                "rule": "required",
+                "message": "Name is required"
+              }
+            ]
+          }
+        ],
+        [
+          {
+            "field": "text",
+            "key": "bindings.metrics.1.name",
+            "label": "metrics.1.name",
+            "rules": [
+              {
+                "rule": "required",
+                "message": "Name is required"
+              }
+            ]
+          }
+        ],
+        [
+          {
+            "field": "text",
+            "key": "bindings.metrics.2.name",
+            "label": "metrics.2.name",
+            "rules": [
+              {
+                "rule": "required",
+                "message": "Name is required"
+              }
+            ]
+          }
+        ],
+        [
+          {
+            "field": "text",
+            "key": "bindings.metrics.3.name",
+            "label": "metrics.3.name",
+            "rules": [
+              {
+                "rule": "required",
+                "message": "Name is required"
+              }
+            ]
+          }
+        ],
+        [
+          {
+            "field": "text",
+            "key": "bindings.metrics.4.name",
+            "label": "metrics.4.name",
+            "rules": [
+              {
+                "rule": "required",
+                "message": "Name is required"
+              }
+            ]
+          }
+        ],
+        [
+          {
+            "field": "text",
+            "key": "bindings.metrics.5.name",
+            "label": "metrics.5.name",
+            "rules": [
+              {
+                "rule": "required",
+                "message": "Name is required"
+              }
+            ]
+          }
+        ],
+        [
+          {
+            "field": "text",
+            "key": "bindings.metrics.6.name",
+            "label": "metrics.6.name",
+            "rules": [
+              {
+                "rule": "required",
+                "message": "Name is required"
+              }
+            ]
+          }
+        ],
+        [
+          {
+            "field": "text",
+            "key": "bindings.metrics.7.name",
+            "label": "metrics.7.name",
+            "rules": [
+              {
+                "rule": "required",
+                "message": "Name is required"
+              }
+            ]
+          }
+        ],
+        [
+          {
+            "field": "text",
+            "key": "bindings.all_metrics.0.name",
+            "label": "all_metrics.0.name",
+            "rules": [
+              {
+                "rule": "required",
+                "message": "Name is required"
+              }
+            ]
+          }
+        ],
+        [
+          {
+            "field": "text",
+            "key": "bindings.all_metrics.1.name",
+            "label": "all_metrics.1.name",
+            "rules": [
+              {
+                "rule": "required",
+                "message": "Name is required"
+              }
+            ]
+          }
+        ],
+        [
+          {
+            "field": "text",
+            "key": "bindings.all_metrics.2.name",
+            "label": "all_metrics.2.name",
+            "rules": [
+              {
+                "rule": "required",
+                "message": "Name is required"
+              }
+            ]
+          }
+        ],
+        [
+          {
+            "field": "text",
+            "key": "bindings.all_metrics.3.name",
+            "label": "all_metrics.3.name",
+            "rules": [
+              {
+                "rule": "required",
+                "message": "Name is required"
+              }
+            ]
+          }
+        ],
+        [
+          {
+            "field": "text",
+            "key": "bindings.all_metrics.4.name",
+            "label": "all_metrics.4.name",
+            "rules": [
+              {
+                "rule": "required",
+                "message": "Name is required"
+              }
+            ]
+          }
+        ],
+        [
+          {
+            "field": "text",
+            "key": "bindings.all_metrics.5.name",
+            "label": "all_metrics.5.name",
+            "rules": [
+              {
+                "rule": "required",
+                "message": "Name is required"
+              }
+            ]
+          }
+        ],
+        [
+          {
+            "field": "text",
+            "key": "bindings.all_metrics.6.name",
+            "label": "all_metrics.6.name",
+            "rules": [
+              {
+                "rule": "required",
+                "message": "Name is required"
+              }
+            ]
+          }
+        ],
+        [
+          {
+            "field": "text",
+            "key": "bindings.all_metrics.7.name",
+            "label": "all_metrics.7.name",
+            "rules": [
+              {
+                "rule": "required",
+                "message": "Name is required"
+              }
+            ]
+          }
+        ],
+        [
+          {
+            "field": "text",
+            "key": "bindings.all_metrics.8.name",
+            "label": "all_metrics.8.name",
+            "rules": [
+              {
+                "rule": "required",
+                "message": "Name is required"
+              }
+            ]
+          }
+        ]
+      ],
+      "actions": [
+        {
+          "action": "ufPrevious",
+          "label": "Back",
+          "style": "secondary"
+        },
+        {
+          "action": "ufNext",
+          "label": "Next",
+          "style": "primary",
+          "enableOnlyWhenFormValid": true
+        },
+        {
+          "action": "ufCancel",
+          "label": "Cancel",
+          "style": "secondary"
+        }
+      ]
+    }
+  }
+}

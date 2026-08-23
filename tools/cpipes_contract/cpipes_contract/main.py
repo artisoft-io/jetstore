@@ -223,6 +223,13 @@ def main(argv: list[str] | None = None) -> int:
         "prompt, constrained by its schema_ref - criterion 22 (F.6)",
     )
     templates_cmd.add_argument("--host", default="http://localhost:11434")
+    templates_cmd.add_argument(
+        "--project",
+        type=Path,
+        metavar="DIR",
+        help="project each template and its bindings into a UserFlow document pair, "
+        "one state per fill, and write them to DIR - gap 20 (M.4)",
+    )
 
     bundles_cmd = sub.add_parser(
         "bundles",
@@ -347,6 +354,26 @@ def main(argv: list[str] | None = None) -> int:
                 if args.out:
                     args.out.write_text(json.dumps(config, indent=2) + "\n")
                     print(f"  wrote {args.out}")
+                continue
+
+            if args.project and not findings:
+                from .project import project as project_template
+
+                beside = path.with_name(path.name.replace(".template.json", ".bindings.json"))
+                if not beside.exists():
+                    print(f"  {path.name}: no bindings; not projected")
+                    continue
+                context = json.loads(beside.read_text())
+                projection = project_template(tpl, context, schema)
+                written = projection.write(args.project)
+                print(
+                    f"  projected: {projection.state_count} states, longest walk "
+                    f"{projection.longest_walk()}, {len(projection.notes)} notes"
+                )
+                for note in sorted(set(projection.notes)):
+                    print(f"    {note}")
+                for out in written:
+                    print(f"  wrote {out}")
                 continue
 
             if args.expand and not findings:
