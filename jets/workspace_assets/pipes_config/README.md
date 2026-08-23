@@ -41,10 +41,15 @@ wrong. Corrected 2026-08-22:
 (`when_total_size_ge_mb` / `shard_size_mb` / `shard_max_size_mb`.)
 
 **Both divergences were deliberate commits**, so adopting the JetStore version
-reverses two pieces of tuning. That is the cost of consolidating a file that is
-already in use, and it is what the guard below exists to make visible: had the
-install run before those two workspaces were normalised by hand, it would have
-refused them by name rather than overwriting them.
+reverses two pieces of tuning. **Neither turned out to be load-bearing** —
+walrus's 50 MB tier was for testing, confirmed 2026-08-22, and the JetStore
+version is the one to keep — but that was a question someone had to answer, and
+it could as easily have gone the other way.
+
+That is the cost of consolidating a file already in use, and it is what the
+guard below exists to make visible: had the install run before those two
+workspaces were normalised by hand, it would have refused them by name rather
+than overwriting them.
 
 **The lesson is not "consolidate early while it is free".** A file that four
 teams can edit will have been edited; the question is only whether you find out
