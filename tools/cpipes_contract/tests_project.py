@@ -174,6 +174,15 @@ def test_an_end_state_offers_completed_and_no_other_state_does():
       third instance of I-84's shape, and the reason it is a test rather than a comment.
       `step` runs the state action on `ufNext` too, so the failure was not a config that
       did not save: it was a config that saved and then said *"No next step from …"*.
+
+      **This biconditional is about what *this generator* emits, and it is stricter than
+      the corpus rule. Do not lift it out as one.** The rule the shipped flows actually
+      keep is that an end state's form offers no *advancing* button; two of the eleven
+      finish through a custom action and declare no `uf*` action at all
+      (`fmMappingFormUF`, `rfkSubmitSchemaEvent`). A validator asserting `ufCompleted`
+      would reject both — `ui_refresh` drafted exactly that and their corpus refused it.
+      This projection has one way to end, so the tighter assertion is the right one
+      *here* and the wrong one anywhere else.
       """
       p = projection(name)
       for key, state in p.flow["states"].items():
