@@ -81,6 +81,21 @@ export interface FormHost {
   onFormAction(action: FormAction): void;
   /** Whether the form as a whole passes — `enableOnlyWhenFormValid` reads this. */
   formValid: boolean;
+  /**
+   * How many validation groups to draw. Task F.1.
+   *
+   * One for every form in the corpus but `fmMappingFormUF`, which draws its rows
+   * once per row of `repeat.from`'s result — so the count is the **query's**, not
+   * the document's and not `FormState.groupCount`.
+   *
+   * **Not the store's, and the difference is visible.** `resizeFormState` grows
+   * and never shrinks (I.1, and the Dart does the same), so a store that has held
+   * ten rows still reports ten after a re-query returns two. The Dart has the
+   * same store behaviour and does not have the same bug, because what it draws is
+   * the list its row builder returned rather than the group count. This is that
+   * list's length.
+   */
+  groupCount: number;
   /** True while an action is running; every button waits. */
   busy: boolean;
 }
@@ -92,13 +107,79 @@ export interface FormRendererProps {
 }
 
 export function FormRenderer({ form, host, errors }: FormRendererProps): ReactNode {
-  const errorFor = (key: string): string | undefined =>
-    errors.find((e) => e.key === key)?.message;
+  // A repeating form draws its rows once per validation group; every other form
+  // draws them once, in the host's group. The two are the same loop.
+  const groups =
+    form.repeat === undefined
+      ? [host.group]
+      : Array.from({ length: Math.max(0, host.groupCount) }, (_, index) => index);
 
   return (
     <section className="uf-form">
       {form.title !== undefined && <h2 className="uf-form__title">{form.title}</h2>}
 
+      {form.repeat !== undefined && groups.length === 0 && !host.queriesLoading && (
+        // Zero rows and nothing in flight. Either the query returned none or a
+        // parameter it needs is missing — and the second is what a user reaching
+        // a parameterised flow route by hand gets.
+        <p className="uf-form__empty" role="status">
+          Nothing to map yet.
+        </p>
+      )}
+
+      {groups.map((group) => (
+        <FormGroup key={group} form={form} host={host} group={group} errors={errors} />
+      ))}
+
+      <div className="uf-form__actions" role="group" aria-label="Form actions">
+        {form.actions.map((action) => (
+          <ActionButton
+            key={action.action}
+            className={`btn btn--${action.style ?? "primary"}`}
+            disabled={
+              host.busy ||
+              (action.enableOnlyWhenFormValid === true && !host.formValid) ||
+              // The inverse gate, and the two are independent branches rather
+              // than one flag: "Save as Draft" is offered *because* the worksheet
+              // does not validate (`form_button.dart`).
+              (action.enableOnlyWhenFormNotValid === true && host.formValid)
+            }
+            {...(action.capability !== undefined ? { capability: action.capability } : {})}
+            onClick={() => host.onFormAction(action)}
+          >
+            {action.label}
+          </ActionButton>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+/**
+ * One validation group's worth of the form.
+ *
+ * Split out of `FormRenderer` so a repeating form is a loop over this rather than
+ * a `group` threaded through every call below it, and so the group boundary is
+ * where React's reconciliation boundary is — a row added or removed at the end
+ * must not re-key the rows before it.
+ */
+function FormGroup({
+  form,
+  host,
+  group,
+  errors,
+}: {
+  form: Form;
+  host: FormHost;
+  group: number;
+  errors: FieldError[];
+}): ReactNode {
+  const errorFor = (key: string): string | undefined =>
+    errors.find((e) => e.key === key && e.group === group)?.message;
+  const scoped: FormHost = group === host.group ? host : { ...host, group };
+
+  return (
+    <>
       {form.rows.map((row, rowIndex) => (
         // Rows are positional and a field carries no identity of its own beyond
         // its key, which `label` and `spacer` do not have — so the index is the
@@ -110,27 +191,13 @@ export function FormRenderer({ form, host, errors }: FormRendererProps): ReactNo
             <FieldView
               key={fieldIndex}
               field={field}
-              host={host}
+              host={scoped}
               error={"key" in field ? errorFor(field.key) : undefined}
             />
           ))}
         </div>
       ))}
-
-      <div className="uf-form__actions" role="group" aria-label="Form actions">
-        {form.actions.map((action) => (
-          <ActionButton
-            key={action.action}
-            className={`btn btn--${action.style ?? "primary"}`}
-            disabled={host.busy || (action.enableOnlyWhenFormValid === true && !host.formValid)}
-            {...(action.capability !== undefined ? { capability: action.capability } : {})}
-            onClick={() => host.onFormAction(action)}
-          >
-            {action.label}
-          </ActionButton>
-        ))}
-      </div>
-    </section>
+    </>
   );
 }
 
@@ -145,7 +212,15 @@ function FieldView({
 }): ReactNode {
   switch (field.field) {
     case "label":
-      return <p className="uf-form__label">{field.text}</p>;
+      return (
+        <p className="uf-form__label">
+          {"text" in field
+            ? field.text
+            : // A repeating row's heading, written by the seed escape into this
+              // group's form state — see `form.ts`, the `label` union.
+              (asText(host.formState.getValue(host.group, field.fromKey)) ?? "")}
+        </p>
+      );
     case "spacer":
       return <div className="uf-form__spacer" aria-hidden="true" />;
     case "text":
@@ -273,4 +348,11 @@ function FormDataTable({
       )}
     </div>
   );
+}
+
+/** Form state holds `string | string[]`; a label shows the first. */
+function asText(raw: unknown): string | null {
+  if (typeof raw === "string") return raw;
+  if (Array.isArray(raw) && raw.length > 0 && typeof raw[0] === "string") return raw[0];
+  return null;
 }

@@ -187,7 +187,11 @@ function checkItemSources(forms: FormDocument): SetFinding[] {
   const findings: SetFinding[] = [];
   for (const [formKey, form] of Object.entries(forms.forms) as [string, Form][]) {
     const declared = new Set(Object.keys(form.queries ?? {}));
-    for (const source of itemSourcesOf(form)) {
+    // `repeat.from` is the same relation on the form itself rather than on a
+    // field: the query whose rows decide how many groups there are.
+    const sources = [...itemSourcesOf(form)];
+    if (form.repeat !== undefined) sources.push({ key: "repeat", query: form.repeat.from });
+    for (const source of sources) {
       if (declared.has(source.query)) continue;
       findings.push({
         severity: "error",

@@ -39,7 +39,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 
 import { ApiError, type ApiClient } from "../api/client";
 import { WorkspaceApi } from "../api/workspace";
@@ -62,7 +62,12 @@ import {
   type StandardAction,
 } from "../userflow/engine";
 import { FlowLoadError, FlowStore, tableConfigOf, type LoadedFlow } from "../userflow/store";
-import { isFormValid, validateForm, type FieldError } from "../userflow/validateForm";
+import {
+  isWholeFormValid,
+  validateAllGroups,
+  type FieldError,
+  type FormValidatorContext,
+} from "../userflow/validateForm";
 
 /** The capability the server requires for every workspace read. */
 export const FLOW_RUNNER = "workspace_ide";
@@ -84,6 +89,7 @@ interface Loaded {
 
 export function FlowRunner({ api }: { api: ApiClient }) {
   const { key } = useParams<{ key: string }>();
+  const [search] = useSearchParams();
   const navigate = useNavigate();
   const { setError, setStatus } = useNotifications();
 
@@ -92,12 +98,52 @@ export function FlowRunner({ api }: { api: ApiClient }) {
   const [position, setPosition] = useState<FlowPosition | null>(null);
   const [errors, setErrors] = useState<FieldError[]>([]);
   const [busy, setBusy] = useState(false);
+  /**
+   * Bumped whenever the form state changes, so this screen re-renders with it.
+   *
+   * **Two things below are computed from the store rather than from React state,
+   * and both were silently stale without this.** `formValid` decides whether a
+   * button is enabled, and the Dart gets that from `setValueAndNotify` rebuilding
+   * the form (`components/form_button.dart` reads `formState.isFormValid()` on
+   * every build); and `groupCount` decides how many rows a repeating form draws,
+   * which changes when the query returns and `resizeFormState` runs.
+   *
+   * Added by F.1 because it is the first form where both matter: `mapperOk` and
+   * `mapperDraft` swap as the user types, and until F.1 no form on this screen
+   * gated a button on validity at all.
+   */
+  const [stateVersion, setStateVersion] = useState(0);
 
   // One form state for the whole flow, deliberately: a flow's states share their
   // values — `loadFilesUF`'s second table filters on the first's selection — and
   // a per-state store would lose them at every transition.
   const formState = useMemo(() => new FormState(), [key]); // eslint-disable-line react-hooks/exhaustive-deps
   const workspaceApi = useMemo(() => new WorkspaceApi(api), [api]);
+
+  useEffect(() => formState.subscribe(() => setStateVersion((n) => n + 1)), [formState]);
+
+  /**
+   * The flow's parameters, seeded into group 0 before anything reads them.
+   *
+   * **A flow can need arguments and until F.1 this route could not carry any.**
+   * `mapFileUF` is served in Flutter by
+   * `/fileMappingUF/mapping/:table_name/:object_type`
+   * (`jetsclient/lib/routes/jets_routes_app.dart`, `ufMappingPath`), and both are
+   * substituted into its form's queries — with neither, the worksheet has no rows
+   * to draw. Four of the eleven flow routes carry parameters this way.
+   *
+   * A query string rather than path segments, because the names differ per flow
+   * and a positional path would have to be declared somewhere the router can see
+   * before the document is read. `?table_name=…&object_type=…`.
+   *
+   * Seeded once per flow, before the load, so `planQueries` sees them on its
+   * first pass and no query runs twice.
+   */
+  useEffect(() => {
+    for (const [name, value] of search.entries()) formState.setValue(0, name, value);
+    // `search` is a new object per render; its serialisation is the dependency.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [formState, search.toString()]);
 
   useEffect(() => {
     if (key === undefined) return;
@@ -172,6 +218,41 @@ export function FlowRunner({ api }: { api: ApiClient }) {
   // only the one on screen has a reason to be querying.
   const queries = useFormQueries(currentForm, formState, queryPost);
 
+  /** The form's named validator, resolved. Undefined for a form naming none. */
+  const validator = useMemo((): FormValidatorContext | undefined => {
+    if (currentForm?.validator === undefined || loaded === null) return undefined;
+    // `FlowStore.load` refuses the set if the name does not resolve, so reaching
+    // here with an unregistered name is not possible — the lookup is total.
+    return {
+      validate: productionRegistry.validators[currentForm.validator]!,
+      flowKey: loaded.flow.key,
+    };
+  }, [currentForm, loaded]);
+
+  /**
+   * Sizing and seeding a repeating form. Task F.1.
+   *
+   * The count comes from the query, not from the document — `resizeFormState`
+   * grows and never shrinks (I.1), which is the Dart's behaviour and is why the
+   * form state is per flow and the groups accumulate rather than reset. Then the
+   * named `rowInitializers` escape writes each row into its group.
+   *
+   * **Runs when the rows change, and writes are idempotent**, so a re-query
+   * caused by a changed parameter re-seeds rather than appends: the escape sets
+   * the same keys of the same groups.
+   */
+  const repeatRows = currentForm?.repeat === undefined ? undefined : queries.rows(currentForm.repeat.from);
+  useEffect(() => {
+    const repeat = currentForm?.repeat;
+    if (repeat === undefined || repeatRows === undefined || loaded === null) return;
+    const seed = productionRegistry.rowInitializers[repeat.seed]!;
+    formState.resizeFormState(repeatRows.length);
+    repeatRows.forEach((row, index) => {
+      seed({ formState, group: GROUP, flowKey: loaded.flow.key }, row, index);
+    });
+    formState.notifyListeners();
+  }, [currentForm, repeatRows, formState, loaded]);
+
   // **A failed item query is a banner, not a load failure.** The form renders:
   // the dropdown shows its prompt entry and no choices, the typeahead offers no
   // suggestions, and everything else on the form still works. Refusing the whole
@@ -180,6 +261,31 @@ export function FlowRunner({ api }: { api: ApiClient }) {
   useEffect(() => {
     if (queries.error !== null) setError(`Loading the form's choices failed: ${queries.error}`);
   }, [queries.error, setError]);
+
+  // Recomputed on every store change — see `stateVersion`. A memo rather than an
+  // inline call so the dependency on the version is written down rather than
+  // implied by where the expression happens to sit.
+  const formValid = useMemo(
+    () => (currentForm === null ? true : isWholeFormValid(currentForm, formState, GROUP, validator)),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [currentForm, formState, validator, stateVersion],
+  );
+
+  /**
+   * Live validation messages, for a form that asks for them.
+   *
+   * The header of `FormRenderer` says a renderer that validated on every
+   * keystroke "would show a required-field error before the user had typed
+   * anything, which is not what the Flutter app does" — and on **this** form it
+   * is exactly what the Flutter app does (`autovalidate`, `form.ts`). Both are
+   * right: it is a property of the form, so it is in the document, and the
+   * decision stays with the caller rather than moving into the renderer.
+   */
+  useEffect(() => {
+    if (currentForm?.autovalidate !== true) return;
+    setErrors(validateAllGroups(currentForm, formState, GROUP, validator));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentForm, formState, validator, stateVersion]);
 
   // `goToState` writes through a ref because the interpreter may call it in the
   // middle of an action whose result also moves the flow; the last write wins,
@@ -197,7 +303,7 @@ export function FlowRunner({ api }: { api: ApiClient }) {
       },
       validate: () => {
         if (currentForm === null) return true;
-        const found = validateForm(currentForm, formState, GROUP);
+        const found = validateAllGroups(currentForm, formState, GROUP, validator);
         setErrors(found);
         return found.length === 0;
       },
@@ -224,7 +330,7 @@ export function FlowRunner({ api }: { api: ApiClient }) {
       userEmail: () => api.currentUser?.email ?? "",
       now: () => Date.now(),
     }),
-    [api, currentForm, exit, formState, setError, setStatus],
+    [api, currentForm, exit, formState, setError, setStatus, validator],
   );
 
   const runNamedAction = useCallback(
@@ -379,13 +485,24 @@ export function FlowRunner({ api }: { api: ApiClient }) {
           group: GROUP,
           queryRows: queries.rows,
           queriesLoading: queries.loading,
+          // **The smaller of the two, and both halves are load-bearing.** The
+          // query's row count is what the Dart draws, and the store grows and
+          // never shrinks (I.1) — so taking the store's alone keeps drawing rows
+          // a re-query no longer has, and taking the query's alone draws a group
+          // the store does not have yet, because the resize happens in an effect
+          // *after* the render that learns the rows. `min` is the state both are
+          // true in.
+          groupCount:
+            currentForm.repeat === undefined
+              ? 1
+              : Math.min(repeatRows?.length ?? 0, formState.groupCount),
           tableConfig: (tableKey) => tableConfigOf(loaded.flow, tableKey),
           fetcher,
           predicates: productionRegistry.predicates,
           cellFilters: (tableKey) => cellFiltersFor(loaded.flow, tableKey),
           onTableAction,
           onFormAction,
-          formValid: isFormValid(currentForm, formState, GROUP),
+          formValid: formValid,
           busy,
         }}
       />

@@ -98,6 +98,28 @@ export const RowsSchema = z
       normalise: z.array(z.strictObject({ key: Identifier, as: ValueSchema })).optional(),
       omit: z.array(Identifier).optional(),
     }),
+    /**
+     * One row per validation group. Task F.1.
+     *
+     * **The Dart spells it `getInternalState()`** (`jets_form_state.dart`), which
+     * returns the whole `List<Map<String, dynamic>>` rather than one group's map,
+     * and `mapperOk` posts exactly that: a repeating form's rows *are* its groups
+     * (`file_mapping/form_action_delegates.dart`, `fileMappingFormActions`).
+     * `wholeState` is the same idea for a form with one group and cannot serve
+     * this one — it would post the first row and drop the rest silently.
+     *
+     * **`normalise` is evaluated in the action's group, not in each row's**, and
+     * that is the behaviour rather than an oversight. The Dart loops
+     * `for (i in groups) { setValue(i, table_name, tableName); setValue(i,
+     * user_email, ...) }` before sending — one form-level value copied into every
+     * row. Evaluating per row would make `normalise` a way to read the row, which
+     * is what the row already is.
+     */
+    z.strictObject({
+      rows: z.literal("everyGroup"),
+      normalise: z.array(z.strictObject({ key: Identifier, as: ValueSchema })).optional(),
+      omit: z.array(Identifier).optional(),
+    }),
     z.strictObject({
       rows: z.literal("fanOut"),
       /** The list-valued key whose length decides how many rows are sent. */
@@ -190,7 +212,7 @@ export const InsertTargetSchema = z
   .meta({ id: "InsertTarget", description: "A table an authored flow may write to" });
 
 /**
- * One step. Twelve kinds, discriminated by `do`.
+ * One step. Thirteen kinds, discriminated by `do` — `require` is F.1's.
  *
  * `post`'s `spinner` defaults to **false**, which is measured rather than
  * assumed: only 6 of the 16 posts inside action arms show one. The other spinner
@@ -202,6 +224,27 @@ export const InsertTargetSchema = z
  */
 const stepUnion = [
   z.strictObject({ do: z.literal("validate") }),
+  /**
+   * Stop with a message unless every named key holds a value. Task F.1.
+   *
+   * **A guard, which the grammar had none of, and it is not a one-off.** Sixteen
+   * arms across the delegates open with `if (x == null) return "<message>";` —
+   * `config_delegates.dart` four times, `process_errors_delegates.dart` five,
+   * `pipeline_config/form_action_delegates.dart` five, and
+   * `file_mapping/form_action_delegates.dart` once, which is the site F.1 needs:
+   * `mapperOk` refuses to save when `table_name` is unset, because the rows it is
+   * about to post are keyed by it.
+   *
+   * It is deliberately *not* a general conditional. Every one of the sixteen is
+   * the same shape — a key is missing, so stop and say so — and a grammar that
+   * grew `if` to serve them would be able to express far more than the corpus
+   * does.
+   */
+  z.strictObject({
+    do: z.literal("require"),
+    keys: z.array(Identifier).min(1),
+    message: z.string().min(1),
+  }),
   z.strictObject({ do: z.literal("confirm"), message: z.string().min(1) }),
   z.strictObject({ do: z.literal("set"), key: Identifier, value: ValueSchema }),
   z.strictObject({ do: z.literal("remove"), keys: z.array(Identifier).min(1) }),

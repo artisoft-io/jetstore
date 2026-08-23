@@ -255,6 +255,7 @@ export class FlowStore {
 
     const references = [
       ...escapeReferences(flow, actions),
+      ...formEscapeReferences(forms, key),
       ...Object.entries(tables).flatMap(([tableKey, table]) =>
         tableEscapeReferences(table).map((ref) => ({
           ...ref,
@@ -389,6 +390,36 @@ export class FlowStore {
 
 /** Two spaces and a trailing newline, matching every fixture this port emits. */
 export const serialise = (document: unknown): string => `${JSON.stringify(document, null, 2)}\n`;
+
+/**
+ * Every escape name a *form* document references. Task F.1.
+ *
+ * The third document to name one, after the flow (`formStateInitializer`) and
+ * the action document (`escape` steps). A form names a `validator` and, when it
+ * repeats, a `rowInitializers` entry for its rows — and both must be refused at
+ * load rather than at the moment a user presses Save, which is the whole reason
+ * `resolveEscapes` runs where it does.
+ */
+export function formEscapeReferences(forms: FormDocument, key = ""): EscapeReferences[] {
+  const references: EscapeReferences[] = [];
+  for (const [formKey, form] of Object.entries(forms.forms)) {
+    if (form.validator !== undefined) {
+      references.push({
+        kind: "validators",
+        name: form.validator,
+        at: `${formPath(key)}/forms/${formKey}/validator`,
+      });
+    }
+    if (form.repeat !== undefined) {
+      references.push({
+        kind: "rowInitializers",
+        name: form.repeat.seed,
+        at: `${formPath(key)}/forms/${formKey}/repeat/seed`,
+      });
+    }
+  }
+  return references;
+}
 
 /** Every escape name the pair references, with where it was found. */
 export function escapeReferences(flow: UserFlow, actions: ActionDocument): EscapeReferences[] {

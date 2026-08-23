@@ -228,6 +228,26 @@
           "additionalProperties": false,
           "properties": {
             "field": {
+              "const": "label",
+              "type": "string"
+            },
+            "fromKey": {
+              "description": "A key naming a state, form, action or form-state entry",
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9_.-]+$",
+              "type": "string"
+            }
+          },
+          "required": [
+            "field",
+            "fromKey"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "field": {
               "const": "spacer",
               "type": "string"
             }
@@ -251,6 +271,9 @@
           "minItems": 1,
           "type": "array"
         },
+        "autovalidate": {
+          "type": "boolean"
+        },
         "queries": {
           "additionalProperties": {
             "$ref": "#/$defs/FormQuery"
@@ -262,6 +285,9 @@
             "type": "string"
           },
           "type": "object"
+        },
+        "repeat": {
+          "$ref": "#/$defs/Repeat"
         },
         "rows": {
           "items": {
@@ -276,6 +302,12 @@
         },
         "title": {
           "minLength": 1,
+          "type": "string"
+        },
+        "validator": {
+          "description": "A key naming a state, form, action or form-state entry",
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_.-]+$",
           "type": "string"
         }
       },
@@ -299,6 +331,9 @@
           "minLength": 1,
           "pattern": "^[A-Za-z0-9_.-]+$",
           "type": "string"
+        },
+        "enableOnlyWhenFormNotValid": {
+          "type": "boolean"
         },
         "enableOnlyWhenFormValid": {
           "type": "boolean"
@@ -343,6 +378,29 @@
       },
       "required": [
         "sql"
+      ],
+      "type": "object"
+    },
+    "Repeat": {
+      "additionalProperties": false,
+      "description": "Draw this form once per row of a query",
+      "properties": {
+        "from": {
+          "description": "A key naming a state, form, action or form-state entry",
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_.-]+$",
+          "type": "string"
+        },
+        "seed": {
+          "description": "A key naming a state, form, action or form-state entry",
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_.-]+$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "from",
+        "seed"
       ],
       "type": "object"
     },

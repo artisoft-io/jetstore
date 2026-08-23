@@ -25,11 +25,15 @@
  *
  * ## What is here, and what is deliberately not
  *
- * The two bodies I-54 found, and nothing else. They are `cellFilters` and
- * `predicates` entries, not `actions` — the six action escapes belong to flows
- * track F has not migrated (`homeFiltersUF` carries one), and registering a name
- * whose body has not been ported would be the failure `escapes.ts` was written to
- * prevent: a document that loads and does nothing.
+ * I-54's two bodies, plus F.1's two — a row seeder and a form validator, both in
+ * `fileMapping.ts` because they are one flow's and belong together.
+ *
+ * Still **no `actions` entry**, and after F.1 that is a measurement rather than a
+ * wait: `mapFileUF` was expected to need one and its two save buttons became
+ * grammar instead. The remaining action escapes belong to flows track F has not
+ * migrated (`homeFiltersUF` carries one), and registering a name whose body has
+ * not been ported would be the failure `escapes.ts` was written to prevent: a
+ * document that loads and does nothing.
  *
  * `seedFromHomeFilters` is likewise absent. It is `homeFiltersUF`'s
  * `formStateInitializer` and that flow is F.5; the flow will not load until it
@@ -37,6 +41,7 @@
  */
 
 import type { FormState } from "../datatable/formState";
+import { mappingFormValidator, seedMappingRow } from "./fileMapping";
 import type { EscapeRegistry } from "./escapes";
 
 /**
@@ -111,11 +116,21 @@ export const fileKeyLabel = (value: string | null): string | null => {
  */
 export const hasDataRegistryFilters = (_formState: FormState, _group: number): boolean => false;
 
-/** The registry the application runs with. */
+/**
+ * The registry the application runs with.
+ *
+ * **`actions` is still empty after F.1, and that is the finding rather than a
+ * gap.** `mapFileUF` was expected to need a `saveProcessMapping` action escape —
+ * the coverage document named one — and the grammar turned out to express both of
+ * its save buttons given `rows: "everyGroup"` and a `require` step. What it could
+ * not express is a row seeder and a cross-field validator, which is what the two
+ * `fileMapping` entries are.
+ */
 export const productionRegistry: EscapeRegistry = {
   actions: {},
   initializers: {},
-  validators: {},
+  rowInitializers: { seedMappingRow },
+  validators: { mappingFormValidator },
   cellFilters: { fileKeyLabel },
   predicates: { hasDataRegistryFilters },
 };

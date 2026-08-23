@@ -20,21 +20,6 @@
         { "do": "validate" },
         { "do": "escape", "name": "loadRawRows" }
       ]
-    },
-    "mapperOk": {
-      "description": "Save the file mapping, replacing every existing mapping for the table",
-      "steps": [
-        { "do": "validate" },
-        { "do": "escape", "name": "saveProcessMapping" }
-      ]
-    },
-    "mapperDraft": {
-      "description": "Save the file mapping as a draft, without validating it",
-      "steps": [{ "do": "escape", "name": "saveProcessMapping" }]
-    },
-    "dialogCancel": {
-      "description": "Dismiss the dialog",
-      "steps": [{ "do": "close" }]
     }
   }
 }

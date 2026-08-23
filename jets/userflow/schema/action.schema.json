@@ -139,6 +139,50 @@
         {
           "additionalProperties": false,
           "properties": {
+            "normalise": {
+              "items": {
+                "additionalProperties": false,
+                "properties": {
+                  "as": {
+                    "$ref": "#/$defs/Value"
+                  },
+                  "key": {
+                    "description": "A key naming a form-state entry, action, state or table",
+                    "minLength": 1,
+                    "pattern": "^[A-Za-z0-9_.-]+$",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "key",
+                  "as"
+                ],
+                "type": "object"
+              },
+              "type": "array"
+            },
+            "omit": {
+              "items": {
+                "description": "A key naming a form-state entry, action, state or table",
+                "minLength": 1,
+                "pattern": "^[A-Za-z0-9_.-]+$",
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "rows": {
+              "const": "everyGroup",
+              "type": "string"
+            }
+          },
+          "required": [
+            "rows"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
             "fields": {
               "additionalProperties": {
                 "$ref": "#/$defs/Value"
@@ -196,6 +240,35 @@
           },
           "required": [
             "do"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "do": {
+              "const": "require",
+              "type": "string"
+            },
+            "keys": {
+              "items": {
+                "description": "A key naming a form-state entry, action, state or table",
+                "minLength": 1,
+                "pattern": "^[A-Za-z0-9_.-]+$",
+                "type": "string"
+              },
+              "minItems": 1,
+              "type": "array"
+            },
+            "message": {
+              "minLength": 1,
+              "type": "string"
+            }
+          },
+          "required": [
+            "do",
+            "keys",
+            "message"
           ],
           "type": "object"
         },

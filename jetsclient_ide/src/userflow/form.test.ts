@@ -147,7 +147,7 @@ describe("a dropdown inside a form", () => {
     const formState = new FormState();
     formState.setValue(0, "columnAggregationType", "");
     expect(validateForm(form, formState, 0)).toEqual([
-      { key: "columnAggregationType", message: "Please choose an aggregation." },
+      { key: "columnAggregationType", message: "Please choose an aggregation.", group: 0 },
     ]);
 
     formState.setValue(0, "columnAggregationType", "sum");
@@ -201,7 +201,9 @@ describe("query-backed item sources", () => {
   it("validates a typeahead like any other value field", () => {
     const formState = new FormState();
     expect(validateForm(mapping, formState, 0)).toEqual([
-      { key: "input_column", message: "Input Column must be selected." },
+      // The group travels with the error: a repeating form has one error list
+      // across n groups, and the renderer has to know which row to mark (F.1).
+      { key: "input_column", message: "Input Column must be selected.", group: 0 },
     ]);
     formState.setValue(0, "input_column", "member_id");
     expect(isFormValid(mapping, formState, 0)).toBe(true);

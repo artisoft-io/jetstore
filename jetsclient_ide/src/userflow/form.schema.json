@@ -46,6 +46,18 @@
             "$ref": "#/$defs/FormQuery"
           }
         },
+        "repeat": {
+          "$ref": "#/$defs/Repeat"
+        },
+        "validator": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_.-]+$",
+          "description": "A key naming a state, form, action or form-state entry"
+        },
+        "autovalidate": {
+          "type": "boolean"
+        },
         "rows": {
           "minItems": 1,
           "type": "array",
@@ -95,6 +107,29 @@
       ],
       "additionalProperties": false,
       "description": "A named query filling a form's item sources"
+    },
+    "Repeat": {
+      "type": "object",
+      "properties": {
+        "from": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_.-]+$",
+          "description": "A key naming a state, form, action or form-state entry"
+        },
+        "seed": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_.-]+$",
+          "description": "A key naming a state, form, action or form-state entry"
+        }
+      },
+      "required": [
+        "from",
+        "seed"
+      ],
+      "additionalProperties": false,
+      "description": "Draw this form once per row of a query"
     },
     "Field": {
       "anyOf": [
@@ -306,6 +341,26 @@
           "properties": {
             "field": {
               "type": "string",
+              "const": "label"
+            },
+            "fromKey": {
+              "type": "string",
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9_.-]+$",
+              "description": "A key naming a state, form, action or form-state entry"
+            }
+          },
+          "required": [
+            "field",
+            "fromKey"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "field": {
+              "type": "string",
               "const": "spacer"
             }
           },
@@ -404,6 +459,9 @@
           "description": "A key naming a state, form, action or form-state entry"
         },
         "enableOnlyWhenFormValid": {
+          "type": "boolean"
+        },
+        "enableOnlyWhenFormNotValid": {
           "type": "boolean"
         }
       },

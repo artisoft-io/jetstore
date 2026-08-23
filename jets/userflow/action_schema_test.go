@@ -47,10 +47,15 @@ func TestProofFlowActionsValidate(t *testing.T) {
 	if err != nil || len(names) == 0 {
 		t.Fatalf("no action documents at %s (err %v)", actionsDir, err)
 	}
-	// The two proof flows the plan nominates. A third appearing here without the
-	// count moving would mean somebody added a document and not a decision.
-	if len(names) != 2 {
-		t.Fatalf("expected the two proof flows, found %d: %v", len(names), names)
+	// The migrated flows: Phase 2's two proof flows plus each one track F lands.
+	// A document appearing here without this count moving would mean somebody
+	// added a document and not a decision — which is why the number is written
+	// down rather than derived from the glob.
+	//
+	// 3 as of F.1 (mapFileUF, 2026-08-23).
+	const migratedFlows = 3
+	if len(names) != migratedFlows {
+		t.Fatalf("expected %d migrated flows, found %d: %v", migratedFlows, len(names), names)
 	}
 	for _, path := range names {
 		t.Run(strings.TrimSuffix(filepath.Base(path), ".ua.json"), func(t *testing.T) {
