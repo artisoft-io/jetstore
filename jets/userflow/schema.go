@@ -44,6 +44,7 @@ const (
 	flowSchemaFile   = "schema/userflow.schema.json"
 	actionSchemaFile = "schema/action.schema.json"
 	formSchemaFile   = "schema/form.schema.json"
+	tableSchemaFile  = "schema/table.schema.json"
 )
 
 // ownedAssetComment is injected into each copy so the file says what it is when
@@ -188,6 +189,30 @@ func ValidateActionDocument(content string) []wsvalidate.Finding {
 // document, which this file has not been given. The client checks both at load.
 func ValidateFormDocument(content string) []wsvalidate.Finding {
 	return validateAgainst(formSchemaFile, content)
+}
+
+// ValidateTableDocument is the .tc.json validator. Task I.3.
+//
+// Schema only, and the two things it cannot check are worth naming because both
+// look checkable from here.
+//
+// **The escape names.** A column may name a `cellFilter` and an action an
+// `isEnabled`; both resolve in a registry compiled into the browser bundle, so
+// the server cannot enumerate them — the same asymmetry ValidateActionDocument
+// describes, arriving on a second document type.
+//
+// **The action names.** A table's `doAction` button names an entry in a *flow's*
+// action document, and a table configuration has no flow: it is a sibling file,
+// shared between flows by construction (`wpClientList` serves two). There is no
+// single document to resolve the name against, and at save time the flow may not
+// exist yet. The client checks it when it loads a flow and its tables together.
+//
+// **What it does enforce, and this is the security half.** The document has no
+// `apiAction` field at all and every object is closed, so an authored table
+// cannot name a server action. See the header of
+// `jetsclient_ide/src/datatable/table.ts`.
+func ValidateTableDocument(content string) []wsvalidate.Finding {
+	return validateAgainst(tableSchemaFile, content)
 }
 
 func asValidationError(err error, target **jsonschema.ValidationError) bool {

@@ -3,14 +3,14 @@
   "private": true,
   "version": "0.1.0",
   "type": "module",
-  "description": "JetStore Workspace IDE — a CodeMirror 6 editor served by the Go apiserver",
+  "description": "JetStore Workspace IDE \u2014 a CodeMirror 6 editor served by the Go apiserver",
   "scripts": {
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
     "typecheck": "tsc --noEmit",
     "preview": "vite preview",
     "test": "vitest run",
-    "emit-schema": "UPDATE_SCHEMA=1 vitest run src/userflow/"
+    "emit-schema": "UPDATE_SCHEMA=1 vitest run"
   },
   "dependencies": {
     "@codemirror/autocomplete": "^6.18.6",

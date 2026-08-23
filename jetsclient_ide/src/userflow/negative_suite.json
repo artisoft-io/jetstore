@@ -1,5 +1,5 @@
 {
-  "comment": "The S.6 negative suite. Every case marked invalid must FAIL validation \u2014 a negative that validates is a hole, not a pass. Each case mutates one of the three valid bases so that it fails for exactly the intended reason. `by` names the layer expected to catch it: `schema` is the emitted JSON Schema, `reference` is the check JSON Schema cannot express. A case marked `reference` that the schema also rejects is fine and stronger; a case marked `schema` that only the reference layer catches means the schema has a hole. On the cpipes negative_suite.json pattern (tools/cpipes_contract/), with `by` added because this side validates in two layers.",
+  "comment": "The S.6 negative suite. Every case marked invalid must FAIL validation \u2014 a negative that validates is a hole, not a pass. Each case mutates one of the five valid bases \u2014 flow, action, form, and the two table kinds \u2014 so that it fails for exactly the intended reason. `by` names the layer expected to catch it: `schema` is the emitted JSON Schema, `reference` is the check JSON Schema cannot express. A case marked `reference` that the schema also rejects is fine and stronger; a case marked `schema` that only the reference layer catches means the schema has a hole. On the cpipes negative_suite.json pattern (tools/cpipes_contract/), with `by` added because this side validates in two layers.",
   "cases": [
     {
       "name": "base flow",
@@ -2655,6 +2655,872 @@
               }
             ]
           }
+        }
+      }
+    },
+    {
+      "name": "base query table",
+      "class": "sanity",
+      "document": "table",
+      "expect": "valid",
+      "content": {
+        "schemaVersion": 1,
+        "source": "query",
+        "label": "Select a source configuration",
+        "columns": [
+          {
+            "name": "key",
+            "label": "Key",
+            "isHidden": true
+          },
+          {
+            "name": "client",
+            "label": "Client"
+          }
+        ],
+        "sortColumn": "client",
+        "rowsPerPage": 20,
+        "isCheckboxVisible": true,
+        "isCheckboxSingleSelect": true,
+        "from": [
+          {
+            "schema": "jetsapi",
+            "table": "source_config"
+          }
+        ],
+        "where": [
+          {
+            "column": "client",
+            "formStateKey": "client"
+          }
+        ],
+        "actions": [
+          {
+            "key": "drop",
+            "label": "Drop Table",
+            "action": "doAction",
+            "style": "danger",
+            "actionName": "lfDropTable",
+            "capability": "client_config"
+          }
+        ],
+        "formStateBinding": {
+          "keyColumnIdx": 0,
+          "otherColumns": [
+            {
+              "stateKey": "client",
+              "columnIdx": 1
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "base static table",
+      "class": "sanity",
+      "document": "table",
+      "expect": "valid",
+      "content": {
+        "schemaVersion": 1,
+        "source": "static",
+        "label": "Select one of the following option:",
+        "columns": [
+          {
+            "name": "option_description",
+            "label": "Option"
+          },
+          {
+            "name": "option",
+            "isHidden": true
+          },
+          {
+            "name": "option_order",
+            "isNumeric": true,
+            "isHidden": true
+          }
+        ],
+        "sortColumn": "option_order",
+        "sortAscending": true,
+        "rowsPerPage": 1000000,
+        "isCheckboxVisible": true,
+        "isCheckboxSingleSelect": true,
+        "noFooter": true,
+        "formStateBinding": {
+          "keyColumnIdx": 1
+        },
+        "rows": [
+          [
+            "Create a client",
+            "ufClientOption",
+            "0"
+          ],
+          [
+            "Add vendors",
+            "ufVendorOption",
+            "1"
+          ]
+        ]
+      }
+    },
+    {
+      "name": "a table naming a server action",
+      "class": "not-allowed",
+      "document": "table",
+      "expect": "invalid",
+      "by": "schema",
+      "content": {
+        "schemaVersion": 1,
+        "source": "query",
+        "label": "Select a source configuration",
+        "columns": [
+          {
+            "name": "key",
+            "label": "Key",
+            "isHidden": true
+          },
+          {
+            "name": "client",
+            "label": "Client"
+          }
+        ],
+        "sortColumn": "client",
+        "rowsPerPage": 20,
+        "isCheckboxVisible": true,
+        "isCheckboxSingleSelect": true,
+        "from": [
+          {
+            "schema": "jetsapi",
+            "table": "source_config"
+          }
+        ],
+        "where": [
+          {
+            "column": "client",
+            "formStateKey": "client"
+          }
+        ],
+        "actions": [
+          {
+            "key": "drop",
+            "label": "Drop Table",
+            "action": "doAction",
+            "style": "danger",
+            "actionName": "lfDropTable",
+            "capability": "client_config"
+          }
+        ],
+        "formStateBinding": {
+          "keyColumnIdx": 0,
+          "otherColumns": [
+            {
+              "stateKey": "client",
+              "columnIdx": 1
+            }
+          ]
+        },
+        "apiAction": "exec_ddl"
+      }
+    },
+    {
+      "name": "a table naming an api path",
+      "class": "not-allowed",
+      "document": "table",
+      "expect": "invalid",
+      "by": "schema",
+      "content": {
+        "schemaVersion": 1,
+        "source": "query",
+        "label": "Select a source configuration",
+        "columns": [
+          {
+            "name": "key",
+            "label": "Key",
+            "isHidden": true
+          },
+          {
+            "name": "client",
+            "label": "Client"
+          }
+        ],
+        "sortColumn": "client",
+        "rowsPerPage": 20,
+        "isCheckboxVisible": true,
+        "isCheckboxSingleSelect": true,
+        "from": [
+          {
+            "schema": "jetsapi",
+            "table": "source_config"
+          }
+        ],
+        "where": [
+          {
+            "column": "client",
+            "formStateKey": "client"
+          }
+        ],
+        "actions": [
+          {
+            "key": "drop",
+            "label": "Drop Table",
+            "action": "doAction",
+            "style": "danger",
+            "actionName": "lfDropTable",
+            "capability": "client_config"
+          }
+        ],
+        "formStateBinding": {
+          "keyColumnIdx": 0,
+          "otherColumns": [
+            {
+              "stateKey": "client",
+              "columnIdx": 1
+            }
+          ]
+        },
+        "apiPath": "/dataTable"
+      }
+    },
+    {
+      "name": "a table action of an unknown type",
+      "class": "unknown-type",
+      "document": "table",
+      "expect": "invalid",
+      "by": "schema",
+      "content": {
+        "schemaVersion": 1,
+        "source": "query",
+        "label": "Select a source configuration",
+        "columns": [
+          {
+            "name": "key",
+            "label": "Key",
+            "isHidden": true
+          },
+          {
+            "name": "client",
+            "label": "Client"
+          }
+        ],
+        "sortColumn": "client",
+        "rowsPerPage": 20,
+        "isCheckboxVisible": true,
+        "isCheckboxSingleSelect": true,
+        "from": [
+          {
+            "schema": "jetsapi",
+            "table": "source_config"
+          }
+        ],
+        "where": [
+          {
+            "column": "client",
+            "formStateKey": "client"
+          }
+        ],
+        "actions": [
+          {
+            "key": "k",
+            "label": "Drop",
+            "action": "exec_ddl",
+            "style": "danger"
+          }
+        ],
+        "formStateBinding": {
+          "keyColumnIdx": 0,
+          "otherColumns": [
+            {
+              "stateKey": "client",
+              "columnIdx": 1
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "a visible column with no label",
+      "class": "missing-required",
+      "document": "table",
+      "expect": "invalid",
+      "by": "schema",
+      "content": {
+        "schemaVersion": 1,
+        "source": "query",
+        "label": "Select a source configuration",
+        "columns": [
+          {
+            "name": "client"
+          }
+        ],
+        "sortColumn": "client",
+        "rowsPerPage": 20,
+        "isCheckboxVisible": true,
+        "isCheckboxSingleSelect": true,
+        "from": [
+          {
+            "schema": "jetsapi",
+            "table": "source_config"
+          }
+        ],
+        "where": [
+          {
+            "column": "client",
+            "formStateKey": "client"
+          }
+        ],
+        "actions": [
+          {
+            "key": "drop",
+            "label": "Drop Table",
+            "action": "doAction",
+            "style": "danger",
+            "actionName": "lfDropTable",
+            "capability": "client_config"
+          }
+        ],
+        "formStateBinding": {
+          "keyColumnIdx": 0,
+          "otherColumns": [
+            {
+              "stateKey": "client",
+              "columnIdx": 1
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "a table with no columns",
+      "class": "value-range",
+      "document": "table",
+      "expect": "invalid",
+      "by": "schema",
+      "content": {
+        "schemaVersion": 1,
+        "source": "query",
+        "label": "Select a source configuration",
+        "columns": [],
+        "sortColumn": "client",
+        "rowsPerPage": 20,
+        "isCheckboxVisible": true,
+        "isCheckboxSingleSelect": true,
+        "from": [
+          {
+            "schema": "jetsapi",
+            "table": "source_config"
+          }
+        ],
+        "where": [
+          {
+            "column": "client",
+            "formStateKey": "client"
+          }
+        ],
+        "actions": [
+          {
+            "key": "drop",
+            "label": "Drop Table",
+            "action": "doAction",
+            "style": "danger",
+            "actionName": "lfDropTable",
+            "capability": "client_config"
+          }
+        ],
+        "formStateBinding": {
+          "keyColumnIdx": 0,
+          "otherColumns": [
+            {
+              "stateKey": "client",
+              "columnIdx": 1
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "a table with no source",
+      "class": "missing-required",
+      "document": "table",
+      "expect": "invalid",
+      "by": "schema",
+      "content": {
+        "schemaVersion": 1,
+        "label": "Select a source configuration",
+        "columns": [
+          {
+            "name": "key",
+            "label": "Key",
+            "isHidden": true
+          },
+          {
+            "name": "client",
+            "label": "Client"
+          }
+        ],
+        "sortColumn": "client",
+        "rowsPerPage": 20,
+        "isCheckboxVisible": true,
+        "isCheckboxSingleSelect": true,
+        "from": [
+          {
+            "schema": "jetsapi",
+            "table": "source_config"
+          }
+        ],
+        "where": [
+          {
+            "column": "client",
+            "formStateKey": "client"
+          }
+        ],
+        "actions": [
+          {
+            "key": "drop",
+            "label": "Drop Table",
+            "action": "doAction",
+            "style": "danger",
+            "actionName": "lfDropTable",
+            "capability": "client_config"
+          }
+        ],
+        "formStateBinding": {
+          "keyColumnIdx": 0,
+          "otherColumns": [
+            {
+              "stateKey": "client",
+              "columnIdx": 1
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "a static table that names a schema",
+      "class": "wrong-discriminator",
+      "document": "table",
+      "expect": "invalid",
+      "by": "schema",
+      "content": {
+        "schemaVersion": 1,
+        "source": "static",
+        "label": "Select one of the following option:",
+        "columns": [
+          {
+            "name": "option_description",
+            "label": "Option"
+          },
+          {
+            "name": "option",
+            "isHidden": true
+          },
+          {
+            "name": "option_order",
+            "isNumeric": true,
+            "isHidden": true
+          }
+        ],
+        "sortColumn": "option_order",
+        "sortAscending": true,
+        "rowsPerPage": 1000000,
+        "isCheckboxVisible": true,
+        "isCheckboxSingleSelect": true,
+        "noFooter": true,
+        "formStateBinding": {
+          "keyColumnIdx": 1
+        },
+        "rows": [
+          [
+            "Create a client",
+            "ufClientOption",
+            "0"
+          ],
+          [
+            "Add vendors",
+            "ufVendorOption",
+            "1"
+          ]
+        ],
+        "from": [
+          {
+            "schema": "jetsapi",
+            "table": "source_config"
+          }
+        ]
+      }
+    },
+    {
+      "name": "a query table that carries rows",
+      "class": "wrong-discriminator",
+      "document": "table",
+      "expect": "invalid",
+      "by": "schema",
+      "content": {
+        "schemaVersion": 1,
+        "source": "query",
+        "label": "Select a source configuration",
+        "columns": [
+          {
+            "name": "key",
+            "label": "Key",
+            "isHidden": true
+          },
+          {
+            "name": "client",
+            "label": "Client"
+          }
+        ],
+        "sortColumn": "client",
+        "rowsPerPage": 20,
+        "isCheckboxVisible": true,
+        "isCheckboxSingleSelect": true,
+        "from": [
+          {
+            "schema": "jetsapi",
+            "table": "source_config"
+          }
+        ],
+        "where": [
+          {
+            "column": "client",
+            "formStateKey": "client"
+          }
+        ],
+        "actions": [
+          {
+            "key": "drop",
+            "label": "Drop Table",
+            "action": "doAction",
+            "style": "danger",
+            "actionName": "lfDropTable",
+            "capability": "client_config"
+          }
+        ],
+        "formStateBinding": {
+          "keyColumnIdx": 0,
+          "otherColumns": [
+            {
+              "stateKey": "client",
+              "columnIdx": 1
+            }
+          ]
+        },
+        "rows": [
+          [
+            "a",
+            "b"
+          ]
+        ]
+      }
+    },
+    {
+      "name": "a query table with no from clause",
+      "class": "value-range",
+      "document": "table",
+      "expect": "invalid",
+      "by": "schema",
+      "content": {
+        "schemaVersion": 1,
+        "source": "query",
+        "label": "Select a source configuration",
+        "columns": [
+          {
+            "name": "key",
+            "label": "Key",
+            "isHidden": true
+          },
+          {
+            "name": "client",
+            "label": "Client"
+          }
+        ],
+        "sortColumn": "client",
+        "rowsPerPage": 20,
+        "isCheckboxVisible": true,
+        "isCheckboxSingleSelect": true,
+        "from": [],
+        "where": [
+          {
+            "column": "client",
+            "formStateKey": "client"
+          }
+        ],
+        "actions": [
+          {
+            "key": "drop",
+            "label": "Drop Table",
+            "action": "doAction",
+            "style": "danger",
+            "actionName": "lfDropTable",
+            "capability": "client_config"
+          }
+        ],
+        "formStateBinding": {
+          "keyColumnIdx": 0,
+          "otherColumns": [
+            {
+              "stateKey": "client",
+              "columnIdx": 1
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "a static table with no rows",
+      "class": "value-range",
+      "document": "table",
+      "expect": "invalid",
+      "by": "schema",
+      "content": {
+        "schemaVersion": 1,
+        "source": "static",
+        "label": "Select one of the following option:",
+        "columns": [
+          {
+            "name": "option_description",
+            "label": "Option"
+          },
+          {
+            "name": "option",
+            "isHidden": true
+          },
+          {
+            "name": "option_order",
+            "isNumeric": true,
+            "isHidden": true
+          }
+        ],
+        "sortColumn": "option_order",
+        "sortAscending": true,
+        "rowsPerPage": 1000000,
+        "isCheckboxVisible": true,
+        "isCheckboxSingleSelect": true,
+        "noFooter": true,
+        "formStateBinding": {
+          "keyColumnIdx": 1
+        },
+        "rows": []
+      }
+    },
+    {
+      "name": "a negative key column index",
+      "class": "value-range",
+      "document": "table",
+      "expect": "invalid",
+      "by": "schema",
+      "content": {
+        "schemaVersion": 1,
+        "source": "query",
+        "label": "Select a source configuration",
+        "columns": [
+          {
+            "name": "key",
+            "label": "Key",
+            "isHidden": true
+          },
+          {
+            "name": "client",
+            "label": "Client"
+          }
+        ],
+        "sortColumn": "client",
+        "rowsPerPage": 20,
+        "isCheckboxVisible": true,
+        "isCheckboxSingleSelect": true,
+        "from": [
+          {
+            "schema": "jetsapi",
+            "table": "source_config"
+          }
+        ],
+        "where": [
+          {
+            "column": "client",
+            "formStateKey": "client"
+          }
+        ],
+        "actions": [
+          {
+            "key": "drop",
+            "label": "Drop Table",
+            "action": "doAction",
+            "style": "danger",
+            "actionName": "lfDropTable",
+            "capability": "client_config"
+          }
+        ],
+        "formStateBinding": {
+          "keyColumnIdx": -1
+        }
+      }
+    },
+    {
+      "name": "a table with an unknown property",
+      "class": "invented-field",
+      "document": "table",
+      "expect": "invalid",
+      "by": "schema",
+      "content": {
+        "schemaVersion": 1,
+        "source": "query",
+        "label": "Select a source configuration",
+        "columns": [
+          {
+            "name": "key",
+            "label": "Key",
+            "isHidden": true
+          },
+          {
+            "name": "client",
+            "label": "Client"
+          }
+        ],
+        "sortColumn": "client",
+        "rowsPerPage": 20,
+        "isCheckboxVisible": true,
+        "isCheckboxSingleSelect": true,
+        "from": [
+          {
+            "schema": "jetsapi",
+            "table": "source_config"
+          }
+        ],
+        "where": [
+          {
+            "column": "client",
+            "formStateKey": "client"
+          }
+        ],
+        "actions": [
+          {
+            "key": "drop",
+            "label": "Drop Table",
+            "action": "doAction",
+            "style": "danger",
+            "actionName": "lfDropTable",
+            "capability": "client_config"
+          }
+        ],
+        "formStateBinding": {
+          "keyColumnIdx": 0,
+          "otherColumns": [
+            {
+              "stateKey": "client",
+              "columnIdx": 1
+            }
+          ]
+        },
+        "defaultToAllRows": true
+      }
+    },
+    {
+      "name": "a column with an unknown property",
+      "class": "invented-field",
+      "document": "table",
+      "expect": "invalid",
+      "by": "schema",
+      "content": {
+        "schemaVersion": 1,
+        "source": "query",
+        "label": "Select a source configuration",
+        "columns": [
+          {
+            "name": "client",
+            "label": "Client",
+            "calculatedAs": "1"
+          }
+        ],
+        "sortColumn": "client",
+        "rowsPerPage": 20,
+        "isCheckboxVisible": true,
+        "isCheckboxSingleSelect": true,
+        "from": [
+          {
+            "schema": "jetsapi",
+            "table": "source_config"
+          }
+        ],
+        "where": [
+          {
+            "column": "client",
+            "formStateKey": "client"
+          }
+        ],
+        "actions": [
+          {
+            "key": "drop",
+            "label": "Drop Table",
+            "action": "doAction",
+            "style": "danger",
+            "actionName": "lfDropTable",
+            "capability": "client_config"
+          }
+        ],
+        "formStateBinding": {
+          "keyColumnIdx": 0,
+          "otherColumns": [
+            {
+              "stateKey": "client",
+              "columnIdx": 1
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "a table at schema version 2",
+      "class": "value-range",
+      "document": "table",
+      "expect": "invalid",
+      "by": "schema",
+      "content": {
+        "schemaVersion": 2,
+        "source": "query",
+        "label": "Select a source configuration",
+        "columns": [
+          {
+            "name": "key",
+            "label": "Key",
+            "isHidden": true
+          },
+          {
+            "name": "client",
+            "label": "Client"
+          }
+        ],
+        "sortColumn": "client",
+        "rowsPerPage": 20,
+        "isCheckboxVisible": true,
+        "isCheckboxSingleSelect": true,
+        "from": [
+          {
+            "schema": "jetsapi",
+            "table": "source_config"
+          }
+        ],
+        "where": [
+          {
+            "column": "client",
+            "formStateKey": "client"
+          }
+        ],
+        "actions": [
+          {
+            "key": "drop",
+            "label": "Drop Table",
+            "action": "doAction",
+            "style": "danger",
+            "actionName": "lfDropTable",
+            "capability": "client_config"
+          }
+        ],
+        "formStateBinding": {
+          "keyColumnIdx": 0,
+          "otherColumns": [
+            {
+              "stateKey": "client",
+              "columnIdx": 1
+            }
+          ]
         }
       }
     }

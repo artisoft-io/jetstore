@@ -1,0 +1,87 @@
+{
+  "schemaVersion": 1,
+  "label": "Select a Data Source",
+  "columns": [
+    {
+      "name": "key",
+      "label": "Key",
+      "tooltip": "Row Primary Key",
+      "isNumeric": true,
+      "isHidden": true
+    },
+    {
+      "name": "client",
+      "label": "Client",
+      "tooltip": "Client the file came from"
+    },
+    {
+      "name": "org",
+      "label": "Organization",
+      "tooltip": "Clients organization"
+    },
+    {
+      "name": "object_type",
+      "label": "Object Type",
+      "table": "source_config",
+      "tooltip": "Type of objects in file"
+    },
+    {
+      "name": "table_name",
+      "label": "Table Name",
+      "tooltip": "Table where to load the file"
+    },
+    {
+      "name": "entity_rdf_type",
+      "label": "Domain Class",
+      "tooltip": "rdf:type of the Domain Class"
+    },
+    {
+      "name": "last_update",
+      "label": "Last Updated",
+      "tooltip": "Indicates when the record was last updated"
+    }
+  ],
+  "sortColumn": "last_update",
+  "rowsPerPage": 10,
+  "isCheckboxVisible": true,
+  "isCheckboxSingleSelect": true,
+  "formStateBinding": {
+    "keyColumnIdx": 0,
+    "otherColumns": [
+      {
+        "stateKey": "client",
+        "columnIdx": 1
+      },
+      {
+        "stateKey": "org",
+        "columnIdx": 2
+      },
+      {
+        "stateKey": "object_type",
+        "columnIdx": 3
+      },
+      {
+        "stateKey": "table_name",
+        "columnIdx": 4
+      }
+    ]
+  },
+  "source": "query",
+  "from": [
+    {
+      "schema": "jetsapi",
+      "table": "source_config"
+    },
+    {
+      "schema": "jetsapi",
+      "table": "object_type_registry"
+    }
+  ],
+  "where": [
+    {
+      "column": "object_type",
+      "table": "source_config",
+      "joinWith": "object_type_registry.object_type"
+    }
+  ]
+}

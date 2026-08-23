@@ -1,0 +1,44 @@
+{
+  "schemaVersion": 1,
+  "label": "Select one of the following options:",
+  "columns": [
+    {
+      "name": "option_description",
+      "label": "Select one of the following option",
+      "tooltip": "Select one of the option"
+    },
+    {
+      "name": "option",
+      "isNumeric": true,
+      "isHidden": true
+    },
+    {
+      "name": "option_order",
+      "isNumeric": true,
+      "isHidden": true
+    }
+  ],
+  "sortColumn": "option_order",
+  "sortAscending": true,
+  "rowsPerPage": 1000000,
+  "isCheckboxVisible": true,
+  "isCheckboxSingleSelect": true,
+  "noFooter": true,
+  "noCopy2Clipboard": true,
+  "formStateBinding": {
+    "keyColumnIdx": 1
+  },
+  "source": "static",
+  "rows": [
+    [
+      "New Pipeline Configuration",
+      "ufAddOption",
+      "0"
+    ],
+    [
+      "Edit an Existing Pipeline Configuration",
+      "ufEditOption",
+      "1"
+    ]
+  ]
+}

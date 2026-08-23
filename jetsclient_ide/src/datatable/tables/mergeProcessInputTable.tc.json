@@ -1,0 +1,78 @@
+{
+  "schemaVersion": 1,
+  "label": "Merge Process Input Configuration",
+  "columns": [
+    {
+      "name": "key",
+      "label": "Key",
+      "tooltip": "Row Primary Key",
+      "isNumeric": true,
+      "isHidden": true
+    },
+    {
+      "name": "client",
+      "label": "Client",
+      "tooltip": "Client the file came from"
+    },
+    {
+      "name": "org",
+      "label": "Organization",
+      "tooltip": "Clients organization the file came from"
+    },
+    {
+      "name": "object_type",
+      "label": "Domain Key",
+      "tooltip": "Pipeline Grouping Domain Key"
+    },
+    {
+      "name": "entity_rdf_type",
+      "label": "Domain Class",
+      "tooltip": "Canonical model for the source data"
+    },
+    {
+      "name": "source_type",
+      "label": "Source Type",
+      "tooltip": "Source of the input data, either File or Domain Table"
+    },
+    {
+      "name": "table_name",
+      "label": "Table Name",
+      "tooltip": "Table where the data reside"
+    },
+    {
+      "name": "lookback_periods",
+      "label": "Lookback Periods",
+      "tooltip": "Number of periods included in the rule session",
+      "isNumeric": true
+    },
+    {
+      "name": "user_email",
+      "label": "User",
+      "tooltip": "Who created the record"
+    },
+    {
+      "name": "last_update",
+      "label": "Loaded At",
+      "tooltip": "Indicates when the record was created"
+    }
+  ],
+  "sortColumn": "last_update",
+  "rowsPerPage": 10,
+  "noFooter": true,
+  "formStateBinding": {
+    "keyColumnIdx": 0
+  },
+  "source": "query",
+  "from": [
+    {
+      "schema": "jetsapi",
+      "table": "process_input"
+    }
+  ],
+  "where": [
+    {
+      "column": "key",
+      "formStateKey": "merged_process_input_keys"
+    }
+  ]
+}

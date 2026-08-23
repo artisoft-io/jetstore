@@ -15,6 +15,7 @@
 import { describe, expect, it } from "vitest";
 
 import { ActionDocumentSchema } from "../actions/schema";
+import { TableConfigDocumentSchema } from "../datatable/table";
 import { FormDocumentSchema } from "./form";
 import suite from "./negative_suite.json";
 import { UserFlowSchema, type UserFlow } from "./schema";
@@ -23,7 +24,7 @@ import { validateFlow } from "./validate";
 interface Case {
   name: string;
   class: string;
-  document: "flow" | "action" | "form";
+  document: "flow" | "action" | "form" | "table";
   expect: "valid" | "invalid";
   by?: "schema" | "reference";
   content: unknown;
@@ -35,6 +36,7 @@ const schemas = {
   flow: UserFlowSchema,
   action: ActionDocumentSchema,
   form: FormDocumentSchema,
+  table: TableConfigDocumentSchema,
 } as const;
 
 /** Schema, then — for a flow — the reference checks the schema cannot express. */
@@ -52,7 +54,7 @@ describe("the negative suite", () => {
   it("has not quietly shrunk", () => {
     // A suite that gets smaller is a deletion, not a pass.
     expect(cases.length).toBeGreaterThanOrEqual(20);
-    expect(cases.filter((c) => c.expect === "valid").length).toBe(3);
+    expect(cases.filter((c) => c.expect === "valid").length).toBe(5);
   });
 
   it.each(cases.map((c) => [`${c.expect}: ${c.name}`, c] as const))("%s", (_label, tc) => {

@@ -1,0 +1,36 @@
+{
+  "schemaVersion": 1,
+  "label": "Select Process(es) as filter criteria",
+  "columns": [
+    {
+      "name": "process_name",
+      "label": "Process Name",
+      "tooltip": "Process Name of the pipeline"
+    },
+    {
+      "name": "description",
+      "label": "Description",
+      "tooltip": "Process description"
+    }
+  ],
+  "sortColumn": "process_name",
+  "sortAscending": true,
+  "rowsPerPage": 20,
+  "isCheckboxVisible": true,
+  "formStateBinding": {
+    "keyColumnIdx": 0,
+    "otherColumns": [
+      {
+        "stateKey": "process_name",
+        "columnIdx": 0
+      }
+    ]
+  },
+  "source": "query",
+  "from": [
+    {
+      "schema": "jetsapi",
+      "table": "process_config"
+    }
+  ]
+}

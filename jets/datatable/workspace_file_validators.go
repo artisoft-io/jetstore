@@ -17,9 +17,15 @@ import (
 // third; two ifs would have been tolerable and three is where it should have
 // been a table.
 //
-// Adding a row is the whole of adding a file type. The `.pc.json` row is
-// agentic_ai's to add when their gap 6 activates; it is deliberately not
-// stubbed here, because a row pointing at nothing is worse than no row.
+// Adding a row is the whole of adding a file type, and `.tc.json` (task I.3,
+// 2026-08-23) is the fourth — added by editing this table and nothing else,
+// which is the claim the sentence above was making and this is the test of it.
+//
+// The `.pc.json` row is agentic_ai's; it is deliberately not stubbed here,
+// because a row pointing at nothing is worse than no row. **Their gap 6 closed
+// on 2026-08-18, so that row is overdue rather than scheduled** — this comment
+// said "when their gap 6 activates" for five days after it had (their I-81).
+// A note naming a future trigger goes silent when the trigger passes.
 var workspaceFileValidators = []struct {
 	suffix   string
 	validate wsvalidate.Validator
@@ -27,6 +33,7 @@ var workspaceFileValidators = []struct {
 	{".uf.json", userflow.ValidateFlowDocument},
 	{".ua.json", userflow.ValidateActionDocument},
 	{".form.json", userflow.ValidateFormDocument},
+	{".tc.json", userflow.ValidateTableDocument},
 }
 
 // validatorFor returns the most specific match, or nil.
@@ -34,8 +41,8 @@ var workspaceFileValidators = []struct {
 // **"Most specific" is not decoration.** The existing well-formedness check is
 // `HasSuffix(ToUpper(fileName), ".JSON")`, so `.uf.json` already matches it and
 // so will `.pc.json`; a naive dispatch would either double-validate or shadow.
-// The two specific suffixes are mutually exclusive today, so longest-match costs
-// nothing — it is the rule that keeps a fourth file type honest.
+// The four specific suffixes are mutually exclusive, so longest-match still
+// costs nothing — it is the rule that keeps a fifth file type honest.
 //
 // Matching is case-insensitive, like the check it sits behind. A workspace file
 // named `Foo.UF.JSON` is the same file type as `foo.uf.json`, and the file
