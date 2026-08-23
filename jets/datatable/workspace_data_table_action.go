@@ -676,16 +676,23 @@ func (ctx *DataTableContext) WorkspaceQueryStructure(dataTableAction *DataTableA
 		}
 		resultData = append(resultData, workspaceNode)
 
-		// Process Sequences (.jr)
-		// log.Println("** Visiting process_sequence:")
-		workspaceNode, err = wsfile.VisitDirWrapper(root, "process_sequence", "Process Sequences", &[]string{".jr"}, workspaceName)
-		if err != nil {
-			log.Println("while walking workspace structure:", err)
-			httpStatus = http.StatusInternalServerError
-			err = errors.New("error while walking workspace folder")
-			return
-		}
-		resultData = append(resultData, workspaceNode)
+		// Process Sequences: removed 2026-08-23.
+		//
+		// A rule sequence is a list of main rule sets the engine runs over one RDF
+		// session, and its definition now lives in `workspace_control.json`, read at
+		// run time by NewReteMetaStoreFactory (jets/jetrules/rete/rete_meta_store_factory.go:79).
+		// The `process_sequence/` directory held the older `.jr` declaration form,
+		// which nothing has read since: it is named by no workspace's `rule_sets`,
+		// imported by no rule file, and before this change the only reference to it
+		// anywhere in the Go, C++ and Python trees was this call.
+		//
+		// **This entry had to go before the directories could.** A missing directory
+		// makes visitDir's WalkDir callback return an error, which fails the whole
+		// workspace_file_structure request rather than one section of it — so a
+		// workspace that dropped the folder while this call remained would show an
+		// empty IDE tree, not a tree missing one heading. The `touch` placeholder
+		// files in cedargate_ws and jets_ws are what that hazard looks like from the
+		// other side.
 
 		// Reports (.sql, .json)
 		// log.Println("** Visiting reports:")
