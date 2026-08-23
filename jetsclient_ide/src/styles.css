@@ -410,3 +410,30 @@ body {
 .field--readonly input, .field--readonly select, .field--readonly textarea { opacity: 0.6; }
 .field [aria-invalid="true"] { border-color: #b3261e; }
 .field-error { margin: 0; font-size: 12px; color: #b3261e; }
+
+/* ---------- the flow runner (F.0a) ---------- */
+/*
+  A screen rather than a chrome: the shell owns the top bar, the banners and the
+  session, and this owns the space under `<Outlet/>`. `.screen` is new and
+  deliberately generic — track C adds fifteen more screens under it, and the one
+  thing they share is a margin.
+*/
+.screen { padding: 16px 20px; overflow: auto; }
+.uf-runner__header { margin-bottom: 12px; }
+.uf-runner__header h1 { font-size: 18px; margin: 0; }
+.uf-runner__state { margin: 2px 0 0; font-size: 13px; color: var(--ink-2); }
+
+.uf-form { display: flex; flex-direction: column; gap: 4px; }
+/*
+  A row is a horizontal group (`form.ts`, `FormSchema.rows`), so fields in one
+  row sit side by side and wrap rather than overflow. `align-items: flex-end`
+  keeps a labelled input level with an unlabelled one beside it.
+*/
+.uf-form__row { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px; }
+.uf-form__row > * { flex: 1 1 auto; min-width: 0; }
+.uf-form__title { font-size: 15px; margin: 0 0 4px; }
+.uf-form__label { margin: 6px 0 2px; font-size: 13px; color: var(--ink-2); }
+.uf-form__spacer { height: 10px; flex-basis: 100%; }
+/* A table takes the row to itself; it is never a field beside another field. */
+.uf-form__table { flex-basis: 100%; }
+.uf-form__actions { display: flex; gap: 8px; margin-top: 14px; }

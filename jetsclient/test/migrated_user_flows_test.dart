@@ -9,13 +9,24 @@ import 'package:jetsclient/routes/migrated_user_flows.dart';
 import 'package:jetsclient/utils/constants.dart';
 
 void main() {
-  test('hands off only the flows the React app serves', () {
-    expect(handoffUrlFor(UserFlowKeys.loadFilesUF), '/ide/flow/loadFilesUF');
-    expect(
-      handoffUrlFor(UserFlowKeys.registerFileKeyUF),
-      '/ide/flow/registerFileKeyUF',
-    );
+  test('hands off nothing while the React app serves no flow', () {
+    // **This assertion is the one that was missing, in the other direction.**
+    // Until F.0a the set listed two flows the React app had no route for, and
+    // the test that existed asserted only the URL this app *emits* — which was
+    // correct, and said nothing about whether anything would accept it (I-50).
+    expect(migratedUserFlows, isEmpty);
+    expect(handoffUrlFor(UserFlowKeys.loadFilesUF), isNull);
+    expect(handoffUrlFor(UserFlowKeys.registerFileKeyUF), isNull);
     expect(handoffUrlFor(UserFlowKeys.pipelineConfigUF), isNull);
+  });
+
+  test('the handoff url is still built the way the React app parses it', () {
+    // The set is empty, so nothing exercises the URL shape any more. Asserting
+    // it against a synthetic key keeps `reactAppBase` and the `/flow/<key>`
+    // template covered while track F fills the set back in one flow at a time —
+    // the React side reads it as `/ide` + `reactFlowPath(key)`
+    // (`jetsclient_ide/src/userflow/routing.ts`, `reactFlowPath`).
+    expect('$reactAppBase/flow/someFlowUF', '/ide/flow/someFlowUF');
   });
 
   test('every migrated key is a real flow key', () {

@@ -68,16 +68,50 @@ export type ValidatorEscape = (
   value: unknown,
 ) => string | null;
 
+/**
+ * A column's display filter. **Two names, three sites, one body** — see I-54.
+ *
+ * `hasCellFilter` in the corpus is a boolean standing in for a Dart closure, so
+ * `.tc.json` names the body instead (`datatable/tableTranslate.ts`,
+ * `FILE_KEY_LABEL_ESCAPE`). The signature is the Dart's: `String? Function(String?)`.
+ */
+export type CellFilterEscape = (value: string | null) => string | null;
+
+/**
+ * Whether a table action's button is enabled, for a gate that is not about the
+ * table. The three sites are `clearFilters` buttons whose predicate reads router
+ * state rather than the row set, which is exactly why it cannot be expressed in
+ * the document (`datatable/table.ts`, `TableActionSchema.isEnabled`).
+ */
+export type PredicateEscape = (formState: FormState, group: number) => boolean;
+
+/**
+ * The five namespaces.
+ *
+ * **`cellFilters` and `predicates` are task I.3b's**, and they are namespaces
+ * rather than a second registry for the reason the header gives: the three that
+ * were here first were designed together precisely so a fourth arrival would add
+ * a key and not a mechanism. I-54 named the two bodies; this is where they live.
+ *
+ * They differ from the first three in one way worth stating: an action escape is
+ * referenced from a *flow's* documents, and these two are referenced from a
+ * *table's*, which is shared between flows. Resolution is therefore per loaded
+ * set rather than per flow — `FlowStore.load` resolves both together.
+ */
 export interface EscapeRegistry {
   actions: Readonly<Record<string, ActionEscape>>;
   initializers: Readonly<Record<string, InitializerEscape>>;
   validators: Readonly<Record<string, ValidatorEscape>>;
+  cellFilters: Readonly<Record<string, CellFilterEscape>>;
+  predicates: Readonly<Record<string, PredicateEscape>>;
 }
 
 export const emptyRegistry: EscapeRegistry = {
   actions: {},
   initializers: {},
   validators: {},
+  cellFilters: {},
+  predicates: {},
 };
 
 export type EscapeKind = keyof EscapeRegistry;

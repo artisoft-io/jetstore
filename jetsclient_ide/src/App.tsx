@@ -22,6 +22,7 @@ import { ApiClient } from "./api/client";
 import { AGENT_SUPERVISION } from "./proposals/api";
 import { ProposalScreen } from "./proposals/ProposalScreen";
 import { ProposalsScreen } from "./proposals/ProposalsScreen";
+import { FlowRunner } from "./screens/FlowRunner";
 import { WorkspaceIde, WORKSPACE_IDE } from "./screens/WorkspaceIde";
 import { AppShell, type NavItem } from "./shell/AppShell";
 
@@ -58,6 +59,18 @@ export default function App() {
           <Route path="workspace" element={<WorkspaceIde api={api} />} />
           <Route path="proposals" element={<ProposalsScreen api={api} />} />
           <Route path="proposals/:proposalId" element={<ProposalScreen api={api} />} />
+          {/*
+            The route the Flutter app has been handing users to since S.8, and
+            which nothing registered until F.0a — so the handoff fell through to
+            `path="*"` below and redirected to the editor (I-50). `reactFlowPath`
+            in `userflow/routing.ts` is the one definition of the shape, and
+            `migrated_user_flows.dart` is the Flutter side of the same string.
+
+            There is no nav entry: a flow is entered by key, from the other app or
+            from a link, and a list of flows is a screen track F has not been
+            asked for.
+          */}
+          <Route path="flow/:key" element={<FlowRunner api={api} />} />
           <Route path="*" element={<Navigate to="/workspace" replace />} />
         </Route>
       </Routes>

@@ -31,11 +31,40 @@
  *
  * Findings carry a JSON Pointer, so an editor can put the cursor on the offence
  * rather than on the file.
+ *
+ * ## Four documents, not two — tasks F.0a and I.3b
+ *
+ * S.3 loaded `.uf.json` and `.ua.json`. It did not load the `.form.json`, and
+ * `FormDocumentSchema` had no consumer outside three test files, so a form could
+ * be authored, saved, validated in Go and rejected properly when malformed —
+ * and nothing in the client would ever open it (**I-51**). The `.tc.json` a
+ * `dataTable` field names was in the same position after I.3a.
+ *
+ * Both are loaded here now, and **the set is validated as a set**
+ * (`documentSet.ts`, `validateDocumentSet`, **I-57**). That check could not run
+ * anywhere else: it needs three documents at once, and the Go save path sees one
+ * file at a time — legitimately, since a `.uf.json` is saved before its
+ * `.form.json` exists.
+ *
+ * **Table documents are keyed by table and not by flow**, which is why they live
+ * in `table_configs/` rather than beside the flow: two flows may name the same
+ * table. So the set of tables to fetch is not knowable from the flow document —
+ * it is read off the *form* document, after it parses.
  */
 
 import { describeUnresolved, resolveEscapes, type EscapeReferences, type EscapeRegistry } from "../actions/escapes";
 import { ActionDocumentSchema, type ActionDocument } from "../actions/schema";
 import type { WorkspaceApi } from "../api/workspace";
+import {
+  TableConfigDocumentSchema,
+  tableEscapeReferences,
+  tablePath,
+  type TableConfigDocument,
+} from "../datatable/table";
+import { fromDocument } from "../datatable/tableTranslate";
+import type { TableConfig } from "../datatable/types";
+import { validateDocumentSet } from "./documentSet";
+import { FormDocumentSchema, fieldsOf, type FormDocument } from "./form";
 import { UserFlowSchema, type UserFlow } from "./schema";
 import { validateFlow, type Finding, type Policy } from "./validate";
 
@@ -44,12 +73,49 @@ export const FLOW_DIR = "user_flows";
 
 export const flowPath = (key: string): string => `${FLOW_DIR}/${key}.uf.json`;
 export const actionPath = (key: string): string => `${FLOW_DIR}/${key}.ua.json`;
+export const formPath = (key: string): string => `${FLOW_DIR}/${key}.form.json`;
 
-/** A flow and its actions, loaded together because neither runs without both. */
+/** A flow and everything it needs to run, because it runs with none of it missing. */
 export interface LoadedFlow {
   key: string;
   flow: UserFlow;
   actions: ActionDocument;
+  forms: FormDocument;
+  /** Keyed by table key, as the `dataTable` fields name them. */
+  tables: Record<string, TableConfigDocument>;
+}
+
+/** Every table key the forms of this set name, in document order, deduplicated. */
+export function tableKeysOf(forms: FormDocument): string[] {
+  const keys = new Set<string>();
+  for (const form of Object.values(forms.forms)) {
+    for (const field of fieldsOf(form)) {
+      if (field.field === "dataTable") keys.add(field.table);
+    }
+  }
+  return [...keys];
+}
+
+/**
+ * A loaded table document, as the runtime configuration the widget consumes.
+ *
+ * `fromDocument` was written for I.3a's round-trip proof — *the translation loses
+ * nothing* — and this is its first production caller, which is the outcome that
+ * test was arguing for: the inverse being exercised rather than merely asserted.
+ */
+export function tableConfigOf(loaded: LoadedFlow, key: string): TableConfig {
+  const document = loaded.tables[key];
+  if (document === undefined) {
+    throw new FlowLoadError(loaded.key, [
+      {
+        severity: "error",
+        code: "unknownTarget",
+        message: `no table configuration loaded for "${key}"`,
+        path: "",
+      },
+    ]);
+  }
+  return fromDocument(key, document);
 }
 
 export interface LoadFailure {
@@ -84,6 +150,13 @@ function findingsFromParse(error: { issues: { path: PropertyKey[]; message: stri
   }));
 }
 
+/** One file read, with the failure carried as a value so a batch can report all of them. */
+interface ReadResult {
+  path: string;
+  text?: string;
+  error?: Error;
+}
+
 export interface FlowStoreOptions {
   workspaceName: string;
   registry: EscapeRegistry;
@@ -116,27 +189,80 @@ export class FlowStore {
     return [...keys].sort();
   }
 
-  /** Reads, parses and validates. Throws `FlowLoadError` rather than returning half a flow. */
+  /**
+   * Reads, parses and validates. Throws `FlowLoadError` rather than returning
+   * half a flow.
+   *
+   * **Five checks, in an order chosen so the first failure is the useful one**:
+   * shape, then the flow's internal references, then the *set*, then the tables'
+   * shape, then whether every escape name exists in this build. Each rests on the
+   * one before — a set check over a document that did not parse would report
+   * missing forms that are merely unreadable.
+   */
   async load(key: string): Promise<LoadedFlow> {
-    const [flowText, actionText] = await Promise.all([
-      this.readText(flowPath(key)),
-      this.readText(actionPath(key)),
-    ]);
+    const reads = await this.readAll([flowPath(key), actionPath(key), formPath(key)]);
+    const unreadable = reads.filter((r) => r.error !== undefined);
+    if (unreadable.length > 0) {
+      // **A missing document is a load error with the file's name in it**, not a
+      // transport exception escaping the store. Before F.0a a flow was two files
+      // and both were fetched with a bare `Promise.all`; a third that a workspace
+      // may legitimately not have authored yet makes the difference visible.
+      throw new FlowLoadError(
+        key,
+        unreadable.map((r) => ({
+          severity: "error" as const,
+          code: "unknownTarget" as const,
+          message: `${r.path} could not be read: ${r.error!.message}`,
+          path: "",
+        })),
+      );
+    }
+    const [flowText, actionText, formText] = reads.map((r) => r.text!) as [string, string, string];
 
     const findings = [
       ...this.parseFindings(flowText, flowPath(key), UserFlowSchema),
       ...this.parseFindings(actionText, actionPath(key), ActionDocumentSchema),
+      ...this.parseFindings(formText, formPath(key), FormDocumentSchema),
     ];
     if (findings.length > 0) throw new FlowLoadError(key, findings);
 
     const flow = UserFlowSchema.parse(JSON.parse(flowText)) as UserFlow;
     const actions = ActionDocumentSchema.parse(JSON.parse(actionText)) as ActionDocument;
+    const forms = FormDocumentSchema.parse(JSON.parse(formText)) as FormDocument;
 
     const reference = validateFlow(flow, this.options.policy);
     const errors = reference.filter((f) => f.severity === "error");
     if (errors.length > 0) throw new FlowLoadError(key, errors);
 
-    const unresolved = resolveEscapes(escapeReferences(flow, actions), this.options.registry);
+    // I-57. The set findings carry their own code union — deliberately not
+    // `validate.ts`'s, because Go can never raise these — so they are mapped
+    // rather than concatenated, and the document they name goes into the pointer
+    // so a message spanning files still says which file.
+    const setFindings = validateDocumentSet({ flow, actions, forms });
+    if (setFindings.length > 0) {
+      throw new FlowLoadError(
+        key,
+        setFindings.map((f) => ({
+          severity: "error" as const,
+          code: "unknownTarget" as const,
+          message: f.message,
+          path: `${f.document}${f.path}`,
+        })),
+      );
+    }
+
+    const tables = await this.loadTables(key, tableKeysOf(forms));
+
+    const references = [
+      ...escapeReferences(flow, actions),
+      ...Object.entries(tables).flatMap(([tableKey, table]) =>
+        tableEscapeReferences(table).map((ref) => ({
+          ...ref,
+          at: `${tablePath(tableKey)}${ref.at}`,
+        })),
+      ),
+    ];
+    const unresolved = resolveEscapes(references, this.options.registry);
     if (unresolved.length > 0) {
       throw new FlowLoadError(key, [
         {
@@ -148,7 +274,61 @@ export class FlowStore {
       ]);
     }
 
-    return { key, flow, actions };
+    return { key, flow, actions, forms, tables };
+  }
+
+  /**
+   * Reads and parses the table documents the forms name.
+   *
+   * **Every failure is collected rather than thrown at the first**, and that is
+   * not symmetry with the rest of the file for its own sake: a flow with four
+   * tables is normally missing all four or none — the directory has not been
+   * authored yet — and reporting them one reload at a time is the friction
+   * `resolveEscapes` avoids for the same reason.
+   */
+  private async loadTables(
+    key: string,
+    keys: string[],
+  ): Promise<Record<string, TableConfigDocument>> {
+    const reads = await this.readAll(keys.map(tablePath));
+
+    const findings: Finding[] = [];
+    const tables: Record<string, TableConfigDocument> = {};
+    reads.forEach((entry, index) => {
+      const tableKey = keys[index]!;
+      if (entry.error !== undefined) {
+        findings.push({
+          severity: "error",
+          code: "unknownTarget",
+          message: `${entry.path} could not be read: ${entry.error.message}`,
+          path: "",
+        });
+        return;
+      }
+      const parse = this.parseFindings(entry.text!, entry.path, TableConfigDocumentSchema);
+      if (parse.length > 0) {
+        findings.push(...parse);
+        return;
+      }
+      tables[tableKey] = TableConfigDocumentSchema.parse(
+        JSON.parse(entry.text!),
+      ) as TableConfigDocument;
+    });
+    if (findings.length > 0) throw new FlowLoadError(key, findings);
+    return tables;
+  }
+
+  /** Reads several files at once, turning a rejection into a value. */
+  private readAll(paths: string[]): Promise<ReadResult[]> {
+    return Promise.all(
+      paths.map(async (path): Promise<ReadResult> => {
+        try {
+          return { path, text: await this.readText(path) };
+        } catch (error) {
+          return { path, error: error as Error };
+        }
+      }),
+    );
   }
 
   /**
@@ -162,14 +342,24 @@ export class FlowStore {
   async save(loaded: LoadedFlow): Promise<void> {
     const { workspaceName } = this.options;
     await this.api.saveFile(workspaceName, actionPath(loaded.key), serialise(loaded.actions));
+    await this.api.saveFile(workspaceName, formPath(loaded.key), serialise(loaded.forms));
     await this.api.saveFile(workspaceName, flowPath(loaded.key), serialise(loaded.flow));
   }
 
+  /**
+   * Reads one workspace file by path.
+   *
+   * **This went through `readFile` and could not have worked against the real
+   * API** (I-65). `readFile` takes a tree node and asks `fileNameOf` for the
+   * path, which returns null unless `node.type === "file"`; the caller here
+   * synthesised `{ label, key } as never`, which has no `type`, so the real
+   * method would have thrown *"…is not a file"* on every load. The store's tests
+   * stub `WorkspaceApi` with a map keyed on `node.key`, so the stub accepted what
+   * the implementation would refuse — and the `as never` was the cast that made
+   * the type checker agree.
+   */
   private async readText(path: string): Promise<string> {
-    const file = await this.api.readFile(this.options.workspaceName, {
-      label: path,
-      key: path,
-    } as never);
+    const file = await this.api.readWorkspaceFile(this.options.workspaceName, path);
     return file.content;
   }
 

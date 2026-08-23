@@ -11,11 +11,17 @@
 import { describe, expect, it, vi } from "vitest";
 
 import { emptyRegistry, type EscapeRegistry } from "../actions/escapes";
+import { productionRegistry } from "../actions/registry";
 import loadFilesActions from "../actions/flows/loadFilesUF.ua.json";
 import homeFiltersActions from "../actions/coverage/homeFiltersUF.ua.json";
 import type { WorkspaceApi } from "../api/workspace";
 import loadFilesFlow from "./flows/loadFilesUF.uf.json";
 import homeFiltersFlow from "./flows/homeFiltersUF.uf.json";
+import lfFileKeyStagingTable from "../datatable/tables/lfFileKeyStagingTable.tc.json";
+import lfSourceConfigTable from "../datatable/tables/lfSourceConfigTable.tc.json";
+import inputRegistryTable from "../datatable/tables/inputRegistryTable.tc.json";
+import { tablePath } from "../datatable/table";
+import loadFilesForms from "./forms/loadFilesUF.form.json";
 import {
   FLOW_DIR,
   FlowLoadError,
@@ -23,21 +29,34 @@ import {
   actionPath,
   escapeReferences,
   flowPath,
+  formPath,
   serialise,
+  tableConfigOf,
+  tableKeysOf,
 } from "./store";
 import { strictPolicy } from "./validate";
 
-/** A workspace as a map from path to text. */
+/**
+ * A workspace as a map from path to text.
+ *
+ * **The stub now answers `readWorkspaceFile`, and the change is the point of
+ * I-65.** It used to answer `readFile(ws, node)` and key off `node.key`, which
+ * the real `WorkspaceApi` never does: `readFile` takes a tree node and asks
+ * `fileNameOf` for the path, and that returns null unless `node.type === "file"`.
+ * The store was synthesising `{ label, key } as never`, so the stub accepted a
+ * shape the implementation would have refused. Stubbing the method the store
+ * actually calls is what keeps the two honest.
+ */
 function stubApi(files: Record<string, string>) {
   const saved: Record<string, string> = {};
   const api = {
     fileTree: vi.fn(async () =>
       Object.keys(files).map((path) => ({ label: path.split("/").pop(), key: path })),
     ),
-    readFile: vi.fn(async (_ws: string, node: { key: string }) => {
-      const content = files[node.key];
-      if (content === undefined) throw new Error(`no such file: ${node.key}`);
-      return { fileName: node.key, label: node.key, content };
+    readWorkspaceFile: vi.fn(async (_ws: string, path: string) => {
+      const content = files[path];
+      if (content === undefined) throw new Error(`no such file: ${path}`);
+      return { fileName: path, label: path, content };
     }),
     saveFile: vi.fn(async (_ws: string, name: string, content: string) => {
       saved[name] = content;
@@ -46,9 +65,34 @@ function stubApi(files: Record<string, string>) {
   return { api, saved };
 }
 
-const workspace = (key: string, flow: unknown, actions: unknown) => ({
+/**
+ * A form document good enough to satisfy the set checks, generated from a flow.
+ *
+ * Most cases here are about the *flow* — a transition to nowhere, an escape that
+ * does not resolve — and a hand-written form per case would put three documents
+ * in front of the reader to assert one thing about one of them. So the default is
+ * one spacer-only form per `formConfig`, with the button an end state may have:
+ * `ufNext` on a normal state, `ufCompleted` on an end state, which is exactly
+ * what `validateDocumentSet` asks (I-57). Cases that are about a real form pass
+ * the real document.
+ */
+function formsFor(flow: unknown): unknown {
+  const states = (flow as { states: Record<string, { formConfig: string; isEnd?: boolean }> }).states;
+  const forms: Record<string, unknown> = {};
+  for (const state of Object.values(states)) {
+    if (typeof state?.formConfig !== "string") continue;
+    forms[state.formConfig] = {
+      rows: [[{ field: "spacer" }]],
+      actions: [{ action: state.isEnd ? "ufCompleted" : "ufNext", label: "Go" }],
+    };
+  }
+  return { schemaVersion: 1, forms };
+}
+
+const workspace = (key: string, flow: unknown, actions: unknown, forms?: unknown) => ({
   [flowPath(key)]: serialise(flow),
   [actionPath(key)]: serialise(actions),
+  [formPath(key)]: serialise(forms ?? formsFor(flow)),
 });
 
 const registryWith = (names: string[]): EscapeRegistry => ({
@@ -94,6 +138,7 @@ describe("loading", () => {
     const { store } = storeFor({
       [flowPath("x")]: "{ not json",
       [actionPath("x")]: serialise(loadFilesActions),
+      [formPath("x")]: serialise(formsFor(loadFilesFlow)),
     });
     await expect(store.load("x")).rejects.toThrow(FlowLoadError);
   });
@@ -175,6 +220,152 @@ describe("loading", () => {
   });
 });
 
+/** `loadFilesUF` with its real form document and the two tables that form names. */
+const loadFilesWorkspace = () => ({
+  ...workspace("loadFilesUF", loadFilesFlow, loadFilesActions, loadFilesForms),
+  [tablePath("lfSourceConfigTable")]: serialise(lfSourceConfigTable),
+  [tablePath("lfFileKeyStagingTable")]: serialise(lfFileKeyStagingTable),
+});
+
+describe("the form and table documents", () => {
+  it("loads all four kinds, which is what I-51 said nothing did", async () => {
+    const { store } = storeFor(loadFilesWorkspace(), productionRegistry);
+    const loaded = await store.load("loadFilesUF");
+
+    expect(Object.keys(loaded.forms.forms).sort()).toEqual([
+      "lfSelectFileKeysUF",
+      "lfSelectSourceConfigUF",
+    ]);
+    expect(Object.keys(loaded.tables).sort()).toEqual([
+      "lfFileKeyStagingTable",
+      "lfSourceConfigTable",
+    ]);
+  });
+
+  it("takes the table set from the forms, not from the flow", async () => {
+    // A table is shared between flows and named by a field, so the flow document
+    // says nothing about which ones a run needs. Reading them off the forms is
+    // why `table_configs/` is keyed by table rather than by flow.
+    const { store } = storeFor(loadFilesWorkspace(), productionRegistry);
+    const loaded = await store.load("loadFilesUF");
+    expect(tableKeysOf(loaded.forms)).toEqual(["lfSourceConfigTable", "lfFileKeyStagingTable"]);
+    expect(JSON.stringify(loadFilesFlow)).not.toContain("lfSourceConfigTable");
+  });
+
+  it("hands the widget a runtime configuration, through I.3a's inverse", async () => {
+    const { store } = storeFor(loadFilesWorkspace(), productionRegistry);
+    const loaded = await store.load("loadFilesUF");
+    const config = tableConfigOf(loaded, "lfSourceConfigTable");
+    expect(config.key).toBe("lfSourceConfigTable");
+    expect(config.fromClauses[0]!.tableName).toBe("source_config");
+    // Restored rather than authored — see the `apiAction` note in `table.ts`.
+    expect(config.apiAction).toBe("read");
+  });
+
+  it("refuses a flow whose table document is not in the workspace", async () => {
+    const files = loadFilesWorkspace();
+    delete files[tablePath("lfFileKeyStagingTable")];
+    const { store } = storeFor(files, productionRegistry);
+
+    const error = (await store.load("loadFilesUF").catch((e: FlowLoadError) => e)) as FlowLoadError;
+    expect(error).toBeInstanceOf(FlowLoadError);
+    expect(error.message).toContain("table_configs/lfFileKeyStagingTable.tc.json");
+  });
+
+  it("refuses a flow whose form document is not in the workspace", async () => {
+    const files = loadFilesWorkspace();
+    delete files[formPath("loadFilesUF")];
+    const { store } = storeFor(files, productionRegistry);
+
+    const error = (await store.load("loadFilesUF").catch((e: FlowLoadError) => e)) as FlowLoadError;
+    expect(error).toBeInstanceOf(FlowLoadError);
+    expect(error.message).toContain("user_flows/loadFilesUF.form.json");
+  });
+
+  it("refuses a set whose end state offers a button that advances (I-57)", async () => {
+    // The check no schema can make: `isEnd` is in one document and the button set
+    // in the other, and both documents are valid. Nothing ran it at load until
+    // F.0a wired it here.
+    const forms = structuredClone(loadFilesForms) as {
+      forms: Record<string, { actions: { action: string; label: string }[] }>;
+    };
+    forms.forms["lfSelectFileKeysUF"]!.actions.push({ action: "ufNext", label: "Next" });
+    const files = {
+      ...loadFilesWorkspace(),
+      [formPath("loadFilesUF")]: serialise(forms),
+    };
+    const { store } = storeFor(files, productionRegistry);
+
+    const error = (await store.load("loadFilesUF").catch((e: FlowLoadError) => e)) as FlowLoadError;
+    expect(error).toBeInstanceOf(FlowLoadError);
+    expect(error.message).toContain("is an end state");
+    expect(error.findings[0]!.path).toBe("forms/forms/lfSelectFileKeysUF/actions");
+  });
+
+  it("refuses a table escape this build does not register, naming the file", async () => {
+    // The client-only half of validation, now reaching table documents too: the
+    // registry is compiled into the bundle and the server cannot enumerate it.
+    const table = structuredClone(lfSourceConfigTable) as {
+      columns: { name: string; cellFilter?: string }[];
+    };
+    table.columns[1]!.cellFilter = "noSuchFilter";
+    const files = {
+      ...loadFilesWorkspace(),
+      [tablePath("lfSourceConfigTable")]: serialise(table),
+    };
+    const { store } = storeFor(files, productionRegistry);
+
+    const error = (await store.load("loadFilesUF").catch((e: FlowLoadError) => e)) as FlowLoadError;
+    expect(error).toBeInstanceOf(FlowLoadError);
+    expect(error.message).toContain("no cellFilters escape named \"noSuchFilter\"");
+    expect(error.message).toContain("table_configs/lfSourceConfigTable.tc.json/columns/1/cellFilter");
+  });
+});
+
+describe("a table document that names both escapes", () => {
+  // `inputRegistryTable` is one of the three configurations carrying both of
+  // I-54's names — `cellFilter: fileKeyLabel` on a column and
+  // `isEnabled: hasDataRegistryFilters` on its `clearFilters` action. No flow
+  // this project has migrated uses it, so this is a synthetic set: a one-state
+  // flow whose form names that table. **The point is the resolution, not the
+  // flow** — until `actions/registry.ts` existed both names failed, and the two
+  // sites that could have said so are here and in `registry.test.ts`.
+  const syntheticFlow = {
+    schemaVersion: 1,
+    startAtKey: "pick",
+    states: {
+      pick: { description: "pick a file", formConfig: "pickForm", isEnd: true },
+    },
+  };
+  const syntheticForms = {
+    schemaVersion: 1,
+    forms: {
+      pickForm: {
+        rows: [[{ field: "dataTable", key: "inputRegistryTable", table: "inputRegistryTable" }]],
+        actions: [{ action: "ufCompleted", label: "Done" }],
+      },
+    },
+  };
+  const files = () => ({
+    ...workspace("x", syntheticFlow, { schemaVersion: 1, actions: {} }, syntheticForms),
+    [tablePath("inputRegistryTable")]: serialise(inputRegistryTable),
+  });
+
+  it("loads under the production registry", async () => {
+    const { store } = storeFor(files(), productionRegistry);
+    const loaded = await store.load("x");
+    expect(Object.keys(loaded.tables)).toEqual(["inputRegistryTable"]);
+  });
+
+  it("is refused by a build that registers neither", async () => {
+    const { store } = storeFor(files(), emptyRegistry);
+    const error = (await store.load("x").catch((e: FlowLoadError) => e)) as FlowLoadError;
+    expect(error).toBeInstanceOf(FlowLoadError);
+    expect(error.message).toContain("fileKeyLabel");
+    expect(error.message).toContain("hasDataRegistryFilters");
+  });
+});
+
 describe("saving", () => {
   it("writes the actions first, so a partial save leaves a runnable flow", async () => {
     // Not atomic and it cannot be: the endpoint takes one file. Actions first
@@ -187,7 +378,11 @@ describe("saving", () => {
     const order = (api.saveFile as unknown as { mock: { calls: [string, string][] } }).mock.calls.map(
       (c) => c[1],
     );
-    expect(order).toEqual([actionPath("loadFilesUF"), flowPath("loadFilesUF")]);
+    expect(order).toEqual([
+      actionPath("loadFilesUF"),
+      formPath("loadFilesUF"),
+      flowPath("loadFilesUF"),
+    ]);
     expect(saved[flowPath("loadFilesUF")]).toBe(serialise(loadFilesFlow));
   });
 

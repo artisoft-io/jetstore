@@ -36,7 +36,27 @@ library;
 /// Keep in step with the documents in the workspace: a key here whose documents
 /// are absent sends users to a React screen that cannot load, which is the worse
 /// of the two directions.
-const migratedUserFlows = <String>{'loadFilesUF', 'registerFileKeyUF'};
+///
+/// **Empty, and it was wrongly non-empty for five days.** `loadFilesUF` and
+/// `registerFileKeyUF` were listed here from S.8 on the strength of their
+/// documents existing, and the React app had no `/flow/:key` route to receive
+/// either — so `handoffUrlFor` returned a URL that landed on `App.tsx`'s
+/// `path="*"` and redirected to the Workspace IDE. The user asked for a flow and
+/// got the editor. Found 2026-08-23 as the ui_refresh project's **I-50**;
+/// emptied by task F.0a, which builds the runner.
+///
+/// **The comment above anticipated the opposite failure and that is the lesson.**
+/// It warns about a key whose *documents* are absent. The documents were present;
+/// what was absent was the route. S.8 tested this file's output —
+/// `handoffUrlFor(loadFilesUF) == '/ide/flow/loadFilesUF'` — and nothing tested
+/// that the other app accepts it, because the contract between two apps is a
+/// string and each has its own suite. **A handoff tested from one end is tested
+/// on the half that cannot fail.**
+///
+/// So a key goes back here only once the React runner serves that flow end to
+/// end, which is the ordering rule the phase 3 plan records as F10: adding a key
+/// is a *consequence* of migrating a flow, never a step in it.
+const migratedUserFlows = <String>{};
 
 /// Where the React app is mounted. `/ide/` is a misnomer for a whole
 /// application; see the UI refresh project's I-26.

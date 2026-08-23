@@ -665,6 +665,28 @@ func (ctx *DataTableContext) WorkspaceQueryStructure(dataTableAction *DataTableA
 		}
 		resultData = append(resultData, workspaceNode)
 
+		// Table Configurations (.tc.json)
+		//
+		// The fifth authored document type, and the one a `dataTable` form field
+		// names (task I.3, 2026-08-23). It sits in its own directory rather than
+		// beside the flows because a table configuration is *shared*: two flows
+		// may name the same table, so it is keyed by table rather than by flow —
+		// which is also why the client resolves it separately (FlowStore.load,
+		// jetsclient_ide/src/userflow/store.ts).
+		//
+		// Adding this section only became safe once visitDir stopped failing the
+		// whole request on a missing directory: no workspace has `table_configs/`
+		// yet, and before that change this call would have emptied the tree the
+		// way `user_flows/` already was.
+		workspaceNode, err = wsfile.VisitDirWrapper(root, "table_configs", "Table Configurations", &[]string{".tc.json"}, workspaceName)
+		if err != nil {
+			log.Println("while walking workspace structure:", err)
+			httpStatus = http.StatusInternalServerError
+			err = errors.New("error while walking workspace folder")
+			return
+		}
+		resultData = append(resultData, workspaceNode)
+
 		// Process Configurations (workspace_init_db.sql)
 		// log.Println("** Visiting process_config:")
 		workspaceNode, err = wsfile.VisitDirWrapper(root, "process_config", "Process Configuration", &[]string{"workspace_init_db.sql"}, workspaceName)

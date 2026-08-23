@@ -34,7 +34,7 @@ function makeContext(overrides: Partial<ActionContext> = {}): ActionContext {
     checkboxVisible: true,
     whereClauseSatisfied: true,
     formState: new FormState(),
-    predicates: { hasActiveFilters: () => true },
+    predicates: { hasDataRegistryFilters: () => true },
     ...overrides,
   };
 }
@@ -96,7 +96,7 @@ describe("the corpus this task owns", () => {
     // `(state) => true`, which is no gate. Only `clearFilters` has a real one.
     const withFnc = [...new Set(barActions.filter((a) => a.hasIsEnabledFnc).map((a) => a.key))];
     expect(withFnc).toEqual(["clearFilters"]);
-    expect(enabledPredicateFor["clearFilters"]).toBe("hasActiveFilters");
+    expect(enabledPredicateFor["clearFilters"]).toBe("hasDataRegistryFilters");
   });
 });
 
@@ -140,7 +140,7 @@ describe("availability", () => {
     const action = find("clearFilters");
     const state = availability(action, makeContext({ predicates: {} }));
     expect(state.enabled).toBe(false);
-    expect(state.reason).toBe('Missing predicate "hasActiveFilters"');
+    expect(state.reason).toBe('Missing predicate "hasDataRegistryFilters"');
   });
 
   it("composes gates as an and, not an or", () => {

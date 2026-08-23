@@ -37,6 +37,29 @@ export interface WorkspaceSummary {
   branch: string;
 }
 
+/**
+ * The workspace this apiserver is *running*, as opposed to the ones it can edit.
+ *
+ * `listWorkspaces` reads `jetsapi.workspace_registry` — every workspace a user may
+ * open in the IDE. That is the wrong question for a flow: a flow's documents live
+ * in the deployment's active workspace, which is the `WORKSPACE` environment
+ * variable and is answered by the `get_workspace_uri` action
+ * (`jets/apiserver/api_tables.go:183`).
+ *
+ * `fileKeyLabelRe` comes back in the same response and is the pattern the
+ * `fileKeyLabel` cell filter uses (`actions/registry.ts`). The Flutter app reads
+ * it here too, at sign-in (`modules/actions/user_delegates.dart:107`,
+ * `globalWorkspaceFileKeyLabelRe`); this app had no equivalent until F.0a needed
+ * the workspace name from the same call.
+ */
+export interface ActiveWorkspace {
+  name: string;
+  uri: string;
+  branch: string;
+  /** Empty when the deployment sets no `WORKSPACE_FILE_KEY_LABEL_RE`. */
+  fileKeyLabelRe: string;
+}
+
 /** A file opened for editing. */
 export interface WorkspaceFile {
   /** Url-escaped relative path, exactly as the server issued it. */
@@ -63,6 +86,22 @@ export class WorkspaceApi {
       uri: String(r?.[1] ?? ""),
       branch: String(r?.[2] ?? ""),
     }));
+  }
+
+  /** The workspace this deployment runs — see `ActiveWorkspace`. */
+  async activeWorkspace(): Promise<ActiveWorkspace> {
+    const body = await this.api.dataTable<{
+      workspace_uri?: string;
+      workspace_name?: string;
+      workspace_branch?: string;
+      workspace_file_key_label_re?: string;
+    }>({ action: "get_workspace_uri" });
+    return {
+      name: body.workspace_name ?? "",
+      uri: body.workspace_uri ?? "",
+      branch: body.workspace_branch ?? "",
+      fileKeyLabelRe: body.workspace_file_key_label_re ?? "",
+    };
   }
 
   /** The file tree for a workspace. */
@@ -98,6 +137,35 @@ export class WorkspaceApi {
   }
 
   /**
+   * Reads a file by its path, without a tree node.
+   *
+   * **`readFile` above cannot serve a caller that knows the path**, which is not
+   * obvious and cost a defect: it takes a `WorkspaceNode` and starts by asking
+   * `fileNameOf`, which returns null for anything whose `type` is not `"file"`.
+   * `FlowStore.readText` was constructing `{ label, key } as never` and passing
+   * it in — a shape with no `type` — so every load through it would have thrown
+   * *"…is not a file"* against the real API. Nothing said so because the store's
+   * tests stub `WorkspaceApi` and their stub keys off `node.key` (I-65).
+   *
+   * A flow's documents are addressed by path and not by browsing, so the honest
+   * fix is this method rather than a synthetic node. The tree is still how the
+   * *editor* opens a file; it is not how a runner resolves one.
+   *
+   * The server url-unescapes what it receives (`GetWorkspaceFileContent`,
+   * `jets/datatable/workspace_data_table_action.go:907`), so the path is escaped
+   * on the way out — see `queryEscape`.
+   */
+  async readWorkspaceFile(workspaceName: string, path: string): Promise<WorkspaceFile> {
+    const fileName = queryEscape(path);
+    const body = await this.api.dataTable<{ file_content?: string }>({
+      action: "get_workspace_file_content",
+      workspaceName,
+      data: [{ workspace_name: workspaceName, file_name: fileName }],
+    });
+    return { fileName, label: path, content: body.file_content ?? "" };
+  }
+
+  /**
    * Save. The server validates any `.json` file before writing (it refuses to
    * persist one that will not parse), so a 400 here is frequently a real syntax
    * error in the buffer rather than a transport problem — worth surfacing verbatim.
@@ -117,6 +185,25 @@ export function fileNameOf(node: WorkspaceNode): string | null {
   const fromParams = node.route_params?.["file_name"];
   if (typeof fromParams === "string" && fromParams !== "") return fromParams;
   return node.pageMatchKey !== "" ? node.pageMatchKey : null;
+}
+
+/**
+ * Go's `url.QueryEscape`, which is what the server's tree walk emits and what its
+ * read and save paths unescape (`net/url`, and `wsfile/visitor.go`'s
+ * `relativeFileName`).
+ *
+ * `encodeURIComponent` is close and not the same on two characters that matter
+ * here: it leaves `/` alone where Go writes `%2F`, and it leaves `+` alone where
+ * Go writes `%2B` — and Go's *unescape* reads a bare `+` as a space. A path with
+ * a `+` in it would therefore come back naming a different file. Neither
+ * character appears in a flow key, which is exactly why this would have been
+ * found late rather than never.
+ */
+export function queryEscape(value: string): string {
+  return encodeURIComponent(value)
+    .replace(/[!'()*]/g, (c) => `%${c.charCodeAt(0).toString(16).toUpperCase()}`)
+    .replace(/\//g, "%2F")
+    .replace(/%20/g, "+");
 }
 
 /** Turn the escaped wire path back into something readable for a tab label. */

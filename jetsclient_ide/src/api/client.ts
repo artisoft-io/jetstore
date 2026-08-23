@@ -158,6 +158,30 @@ export class ApiClient {
     return this.post<T>("/agentic", payload);
   }
 
+  /**
+   * POST to one of the endpoints an authored action may name. Task F.0a.
+   *
+   * `dataTable` was the only public poster, and a flow's `post` step names an
+   * endpoint: two flows in the corpus use `/registerFileKey` rather than
+   * `/dataTable` (`actions/schema.ts`, `EndpointSchema`).
+   *
+   * **The allowlist stays in the schema and is not repeated here.** S.7 narrowed
+   * the endpoint to two values *in the document type*, so a `.ua.json` naming
+   * anything else does not parse and never reaches this method — and the Go
+   * validator enforces the same enum at save time. A second list here would be a
+   * second place to update and the one more likely to be forgotten, which is the
+   * failure mode S.8's migrated-flow list is a standing example of.
+   *
+   * `agentic` above is the same shape for a fixed path; the two do not merge,
+   * because that one names its endpoint and this one is handed one.
+   */
+  async endpoint<T = Record<string, unknown>>(
+    path: string,
+    payload: Record<string, unknown>,
+  ): Promise<T> {
+    return this.post<T>(path, payload);
+  }
+
   private async post<T>(path: string, payload: Record<string, unknown>): Promise<T> {
     if (!this.token) throw new SessionExpiredError();
     const res = await this.fetchImpl(`${this.baseUrl}${path}`, {
