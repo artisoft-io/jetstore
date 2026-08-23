@@ -10,6 +10,8 @@ library;
 
 import 'dart:convert';
 
+import 'package:jetsclient/models/data_table_config.dart';
+import 'package:jetsclient/models/form_config.dart';
 import 'package:jetsclient/utils/constants.dart';
 
 /// FNV-1a, 32-bit, over the UTF-8 bytes of the corpus.
@@ -99,3 +101,217 @@ const userFlowFormKeys = <String>[
   FormKeys.wpPullWorkspaceUF,
   FormKeys.wpSelectClientsgUF,
 ];
+
+/// **Moved here from `form_field_corpus_test.dart` on 2026-08-23**, when
+/// `screen_config_corpus_test.dart` needed the same traversal. Two traversals
+/// would be free to disagree, and the note below is the record of how expensive
+/// getting this one right was.
+/// Every field a form declares, across all three containers it may use.
+///
+/// **A `FormConfig` holds fields in three places** — `inputFields` for classic
+/// forms, `inputFieldsV2` for the row-flex variant, and `formTabsConfig` for
+/// tabbed ones — and a form uses whichever suits it. Walking only `inputFields`
+/// found 29 of the 37 `FormDataTableFieldConfig` sites the flows declare; the
+/// missing eight were not dead code, they were in the other two containers.
+///
+/// A fourth path is deliberately not walked: `inputFieldRowBuilder` is a closure
+/// that builds rows per record at run time, so its fields do not exist until a
+/// form is driven. Forms that use it are counted with the fields they declare
+/// statically, and `hasRowBuilder` marks them.
+List<FormFieldConfig> allFields(FormConfig config) => [
+  ...config.inputFields.expand((row) => row),
+  ...config.inputFieldsV2.expand((row) => row.rowConfig),
+  ...config.formTabsConfig.map((tab) => tab.inputField),
+];
+
+Map<String, dynamic> fieldToJson(FormFieldConfig f) {
+  final json = <String, dynamic>{
+    'type': f.runtimeType.toString(),
+    'key': f.key,
+    'group': f.group,
+    'flex': f.flex,
+  };
+
+  // Only options set away from their default are emitted. The question A.3 asks
+  // is which of them a widget must support, and a field that leaves an option
+  // alone is evidence that it need not.
+  if (f is FormInputFieldConfig) {
+    json.addAll(<String, dynamic>{
+      'label': f.label,
+      'hint': f.hint,
+      if (f.autofocus) 'autofocus': true,
+      if (f.obscureText) 'obscureText': true,
+      if (f.isReadOnly) 'isReadOnly': true,
+      if (f.isReadOnlyEval != null) 'hasIsReadOnlyEval': true,
+      'textRestriction': f.textRestriction.name,
+      if (f.maxLines != 1) 'maxLines': f.maxLines,
+      'maxLength': f.maxLength,
+      if (f.defaultValue != null) 'defaultValue': f.defaultValue,
+      if (f.autofillHints != null) 'autofillHints': f.autofillHints,
+      if (f.useDefaultFont) 'useDefaultFont': true,
+      if (f.syncWithFormState) 'syncWithFormState': true,
+      if (f.showCopyToClipboard) 'showCopyToClipboard': true,
+    });
+  } else if (f is FormDropdownFieldConfig) {
+    json.addAll(<String, dynamic>{
+      'itemCount': f.items.length,
+      'items': f.items.map((i) => i.label).toList(),
+      if (f.defaultItemPos != 0) 'defaultItemPos': f.defaultItemPos,
+      if (f.dropdownItemsQuery != null) 'hasDropdownItemsQuery': true,
+      if (f.returnedModelCacheKey != null)
+        'returnedModelCacheKey': f.returnedModelCacheKey,
+      if (f.stateKeyPredicates.isNotEmpty)
+        'stateKeyPredicates': f.stateKeyPredicates,
+      if (f.whereStateContains.isNotEmpty)
+        'whereStateContains': f.whereStateContains,
+      if (f.isReadOnly) 'isReadOnly': true,
+      if (f.makeReadOnlyWhenHasSelectedValue)
+        'makeReadOnlyWhenHasSelectedValue': true,
+    });
+  } else if (f is FormDataTableFieldConfig) {
+    json['dataTableConfig'] = f.dataTableConfig;
+  }
+  return json;
+}
+
+/// The table-configuration serialisers, **moved here from
+/// `table_config_corpus_test.dart` on 2026-08-23** when
+/// `screen_config_corpus_test.dart` needed the same shapes. Emitting one shape
+/// from two places is how two corpora of the same thing stop being comparable.
+///
+/// Closures are emitted as booleans naming their presence, which is the point
+/// rather than a limitation: any `true` is a place the React port needs an
+/// answer the configuration cannot give it.
+
+Map<String, dynamic> columnToJson(ColumnConfig c) => <String, dynamic>{
+      'index': c.index,
+      if (c.table != null) 'table': c.table,
+      'name': c.name,
+      if (c.calculatedAs != null) 'calculatedAs': c.calculatedAs,
+      'label': c.label,
+      'tooltips': c.tooltips,
+      'isNumeric': c.isNumeric,
+      'isHidden': c.isHidden,
+      'maxLines': c.maxLines,
+      'columnWidth': c.columnWidth,
+      // A closure. See the library comment.
+      'hasCellFilter': c.cellFilter != null,
+    };
+
+Map<String, dynamic> fromClauseToJson(FromClause f) => <String, dynamic>{
+      'schemaName': f.schemaName,
+      'tableName': f.tableName,
+      'asTableName': f.asTableName,
+    };
+
+Map<String, dynamic> withClauseToJson(WithClause w) => <String, dynamic>{
+      'withName': w.withName,
+      'asStatement': w.asStatement,
+      'stateVariables': w.stateVariables,
+    };
+
+Map<String, dynamic> whereClauseToJson(WhereClause w) => <String, dynamic>{
+      if (w.table != null) 'table': w.table,
+      'column': w.column,
+      if (w.formStateKey != null) 'formStateKey': w.formStateKey,
+      'defaultValue': w.defaultValue,
+      if (w.joinWith != null) 'joinWith': w.joinWith,
+      if (w.predicate != null)
+        'predicate': <String, dynamic>{
+          'formStateKey': w.predicate!.formStateKey,
+          'expectedValue': w.predicate!.expectedValue,
+        },
+      'lookupColumnInFormState': w.lookupColumnInFormState,
+      if (w.like != null) 'like': w.like,
+      if (w.ge != null) 'ge': w.ge,
+      if (w.le != null) 'le': w.le,
+      if (w.orWith != null) 'orWith': whereClauseToJson(w.orWith!),
+    };
+
+Map<String, dynamic> formStateToJson(DataTableFormStateConfig f) =>
+    <String, dynamic>{
+      'keyColumnIdx': f.keyColumnIdx,
+      'otherColumns': f.otherColumns
+          .map((o) => <String, dynamic>{
+                'stateKey': o.stateKey,
+                'columnIdx': o.columnIdx,
+              })
+          .toList(),
+    };
+
+Map<String, dynamic> criteriaToJson(ActionEnableCriteria c) => <String, dynamic>{
+      'columnPos': c.columnPos,
+      'criteriaType': c.criteriaType.name,
+      'value': c.value,
+    };
+
+Map<String, dynamic> actionToJson(ActionConfig a) => <String, dynamic>{
+      'actionType': a.actionType.name,
+      'key': a.key,
+      'label': a.label,
+      'style': a.style.name,
+      if (a.isVisibleWhenCheckboxVisible != null)
+        'isVisibleWhenCheckboxVisible': a.isVisibleWhenCheckboxVisible,
+      if (a.isEnabledWhenHavingSelectedRows != null)
+        'isEnabledWhenHavingSelectedRows': a.isEnabledWhenHavingSelectedRows,
+      if (a.isEnabledWhenWhereClauseSatisfied != null)
+        'isEnabledWhenWhereClauseSatisfied': a.isEnabledWhenWhereClauseSatisfied,
+      if (a.isEnabledWhenStateHasKeys != null)
+        'isEnabledWhenStateHasKeys': a.isEnabledWhenStateHasKeys,
+      if (a.navigationParams != null) 'navigationParams': a.navigationParams,
+      if (a.stateFormNavigationParams != null)
+        'stateFormNavigationParams': a.stateFormNavigationParams,
+      if (a.configForm != null) 'configForm': a.configForm,
+      if (a.configScreenPath != null) 'configScreenPath': a.configScreenPath,
+      if (a.actionName != null) 'actionName': a.actionName,
+      if (a.capability != null) 'capability': a.capability,
+      'stateGroup': a.stateGroup,
+      if (a.actionEnableCriterias != null)
+        'actionEnableCriterias': a.actionEnableCriterias!
+            .map((conj) => conj.map(criteriaToJson).toList())
+            .toList(),
+      // Closures. See the library comment.
+      'hasIsEnabledFnc': a.isEnabledFnc != null,
+      'hasActionDelegate': a.actionDelegate != null,
+    };
+
+Map<String, dynamic> tableToJson(TableConfig t) => <String, dynamic>{
+      'key': t.key,
+      'label': t.label,
+      'apiPath': t.apiPath,
+      'apiAction': t.apiAction,
+      if (t.modelStateFormKey != null) 'modelStateFormKey': t.modelStateFormKey,
+      if (t.staticTableModel != null) 'staticTableModel': t.staticTableModel,
+      'isCheckboxVisible': t.isCheckboxVisible,
+      'isCheckboxSingleSelect': t.isCheckboxSingleSelect,
+      'isReadOnly': t.isReadOnly,
+      'showSelectedOnly': t.showSelectedOnly,
+      'actions': t.actions.map(actionToJson).toList(),
+      'secondRowActions': t.secondRowActions.map(actionToJson).toList(),
+      'fromConfigRowActions': t.fromConfigRowActions.map(actionToJson).toList(),
+      'columns': t.columns.map(columnToJson).toList(),
+      'defaultToAllRows': t.defaultToAllRows,
+      if (t.sqlQuery != null)
+        'sqlQuery': <String, dynamic>{
+          'sqlQuery': t.sqlQuery!.sqlQuery,
+          'stateVariables': t.sqlQuery!.stateVariables,
+        },
+      'requestColumnDef': t.requestColumnDef,
+      'withClauses': t.withClauses.map(withClauseToJson).toList(),
+      'fromClauses': t.fromClauses.map(fromClauseToJson).toList(),
+      'whereClauses': t.whereClauses.map(whereClauseToJson).toList(),
+      'distinctOnClauses': t.distinctOnClauses,
+      'refreshOnKeyUpdateEvent': t.refreshOnKeyUpdateEvent,
+      if (t.formStateConfig != null)
+        'formStateConfig': formStateToJson(t.formStateConfig!),
+      'sortColumnName': t.sortColumnName,
+      'sortColumnTableName': t.sortColumnTableName,
+      'sortAscending': t.sortAscending,
+      'rowsPerPage': t.rowsPerPage,
+      'noFooter': t.noFooter,
+      if (t.dataRowMinHeight != null) 'dataRowMinHeight': t.dataRowMinHeight,
+      if (t.dataRowMaxHeight != null) 'dataRowMaxHeight': t.dataRowMaxHeight,
+      if (t.noCopy2Clipboard != null) 'noCopy2Clipboard': t.noCopy2Clipboard,
+      // A closure. See the library comment.
+      'hasModelStateHandler': t.modelStateHandler != null,
+    };

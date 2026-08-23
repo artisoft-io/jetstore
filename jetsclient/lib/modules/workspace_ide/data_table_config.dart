@@ -1048,6 +1048,17 @@ final Map<String, TableConfig> _tableConfigurations = {
   ),
 };
 
+/// Every key _tableConfigurations holds — the Workspace IDE's screens.
+///
+/// Exists for `test/screen_config_corpus_test.dart`, which serialises these
+/// configurations for the React port. **It enumerates rather than hand-lists**,
+/// because the registry's key space is not one constant class: 13 of the user
+/// flows' 37 table keys are `FSK` constants rather than `DTKeys`, so a list
+/// derived from the declared constants of any one class is incomplete by
+/// construction. Nothing in the app reads this.
+Iterable<String> get workspaceTableConfigKeys => _tableConfigurations.keys;
+
+
 TableConfig? getWorkspaceTableConfig(String key) {
   var config = _tableConfigurations[key];
   return config;
