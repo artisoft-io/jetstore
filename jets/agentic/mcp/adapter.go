@@ -35,7 +35,6 @@ func NewServer(reg *tools.Registry, ws *tools.Workspace) (*mcp.Server, error) {
 		Title:   "JetStore agentic tools",
 		Version: "0.1.0",
 	}, nil)
-	readOnly := true
 	for _, sig := range reg.List() {
 		name := sig.Name
 		wireSchema, err := relaxExternalRefs(sig.InputSchema)
@@ -46,9 +45,12 @@ func NewServer(reg *tools.Registry, ws *tools.Workspace) (*mcp.Server, error) {
 			Name:        name,
 			Description: sig.Description,
 			InputSchema: wireSchema,
-			// The three Phase-0 tools are read-only by design; the day-one
-			// metadata rides in _meta for clients that look.
-			Annotations: &mcp.ToolAnnotations{ReadOnlyHint: sig.Reversibility == "na" && readOnly},
+			// Read-only is derived from the signature rather than asserted
+			// here: the catalogue J.1 decided includes a write tool, and a
+			// hint that says otherwise is worse than none. The day-one
+			// reversibility and tier metadata ride in _meta for clients that
+			// look.
+			Annotations: &mcp.ToolAnnotations{ReadOnlyHint: sig.Reversibility == "na"},
 			Meta: mcp.Meta{
 				"jetstore.reversibility": sig.Reversibility,
 				"jetstore.min_tier":      sig.MinTier,
