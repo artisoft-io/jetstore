@@ -1,16 +1,63 @@
 package compute_pipes
 
 import (
+	"cmp"
 	"context"
+	"fmt"
 	"log"
+	"slices"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
+// Sink kinds reported by ComputePipesResult.Type. They are the discriminant
+// for EntityName and for how the other fields are to be read.
+const (
+	SinkDbTable       = "db_table"       // written by WriteTableSource (write_table.go)
+	SinkJetsPartition = "jets_partition" // written by PartitionWriterTransformationPipe
+)
+
+// ComputePipesResult is what a writer reports back when it is done: which edge
+// of the compute graph it was, how many rows crossed it, and how many file
+// parts it produced.
+//
+// EntityName was called TableName and held either a schema-qualified table name
+// or the string "jets_partition=<label>" depending on which writer sent it —
+// an overloaded field with its discriminant smuggled into the value. Type now
+// carries the discriminant and EntityName holds the identity alone.
+//
+// InputChannel and OutputChannel are the configured names of the DAG edge this
+// result belongs to. They are what jetsapi.pipeline_execution_channel_details
+// is keyed on, and neither is derivable from EntityName: a table name is not
+// the channel that fed it (30 of the 42 output_tables entries in the rule
+// corpus have a `key` differing from the table `name`, and two entries of
+// patient_profile.pc.json write the same jetsapi.process_errors table), and a
+// jets_partition label is a shard rather than an edge.
 type ComputePipesResult struct {
-	// Table name can be jets_partition name
-	// PartCount is nbr of file part in jets_partition
-	TableName    string
+	// Type is the sink kind: SinkDbTable or SinkJetsPartition.
+	Type string
+	// EntityName is the sink's identity in its own namespace: the
+	// schema-qualified table for SinkDbTable (env vars already substituted),
+	// the jets_partition label for SinkJetsPartition.
+	EntityName string
+	// InputChannel is the configured name of the channel the writer reads.
+	InputChannel string
+	// OutputChannel is the configured name of the writer's output in the
+	// cpipes config: output_tables[].key for SinkDbTable — the name the rest
+	// of the config refers to that output by — and the output_channel name for
+	// SinkJetsPartition.
+	OutputChannel string
+	// OutputChannelSpec is that output's channel_spec_name: OutputChannelConfig.SpecName
+	// (pipes_model.go, JSON channel_spec_name) or TableSpec.ChannelSpecName.
+	// It is required — validateOutputChannel (actions_start_common.go, the
+	// "sql" arm) errors when it cannot be derived, and the graph build errors
+	// at "channel spec %s not found in Channel Registry" (compute_pipes.go)
+	// when it is absent — and it is guaranteed *different* from OutputChannel,
+	// since the same validator refuses output_channel.name equal to
+	// channel_spec_name. So the two columns are the edge and the shape of what
+	// crosses it, and neither substitutes for the other.
+	OutputChannelSpec string
+	// PartsCount is nbr of file part in jets_partition
 	CopyRowCount int64
 	PartsCount   int64
 	Err          error
@@ -71,9 +118,129 @@ func (ctx *SaveResultsContext) Save(category string, result *ComputePipesResult)
 		errMsg = result.Err.Error()
 	}
 	_, err := ctx.dbpool.Exec(context.Background(), stmt, sessionId, jetsPartition, nodeId, category,
-		result.TableName, result.CopyRowCount, result.PartsCount, errMsg)
+		result.EntityName, result.CopyRowCount, result.PartsCount, errMsg)
 	if err != nil {
 		log.Printf("error inserting in jetsapi.cpipes_results table: %v", err)
 		return
 	}
+}
+
+// ChannelExecutionDetail is one row of jetsapi.pipeline_execution_channel_details:
+// one edge of the worker's compute graph — an (input channel, output channel)
+// pair — with the rows and file parts that crossed it.
+//
+// The parent row in pipeline_execution_details is one per worker and its
+// output_records_count is the sum over these, which is why this table is a
+// child of it rather than a re-graining of it: three readers in
+// jets/datatable/status_update.go (:53, :75 and cpipes_execution_status_details
+// at :249), one in jets/compute_pipes/actions_start_reducing_cp.go (:61,
+// main_input_row_count) and one in jets/run_reports/delegate/run_reports.go
+// (:615) read the worker grain, and the input-side sums among them would
+// multiply by the output fan-out under any other.
+//
+// SinksCount is the number of sink instances folded into the row. A splitter
+// writes one output channel into many jets_partitions — one result each, up to
+// the 15000-buffer of pipes_runtime_model.go:218 — and the edge is their sum;
+// EntityName is carried only when the row has a single sink, so an aggregate is
+// never mistaken for an instance.
+type ChannelExecutionDetail struct {
+	InputChannel      string
+	OutputChannel     string
+	OutputChannelSpec string
+	OutputType        string
+	OutputEntity      string
+	SinksCount        int
+	RowCount          int64
+	PartsCount        int64
+	ErrMsg            string
+}
+
+// AggregateChannelResults folds a worker's writer results into one row per DAG
+// edge, keyed on (Type, InputChannel, OutputChannel). The result is ordered so
+// that it does not depend on the order the writers happened to finish in.
+func AggregateChannelResults(results []ComputePipesResult) []ChannelExecutionDetail {
+	type edgeKey struct {
+		outputType    string
+		inputChannel  string
+		outputChannel string
+	}
+	byEdge := make(map[edgeKey]*ChannelExecutionDetail)
+	order := make([]edgeKey, 0)
+	for i := range results {
+		r := &results[i]
+		k := edgeKey{r.Type, r.InputChannel, r.OutputChannel}
+		d := byEdge[k]
+		if d == nil {
+			d = &ChannelExecutionDetail{
+				InputChannel:      r.InputChannel,
+				OutputChannel:     r.OutputChannel,
+				OutputChannelSpec: r.OutputChannelSpec,
+				OutputType:        r.Type,
+				OutputEntity:      r.EntityName,
+			}
+			byEdge[k] = d
+			order = append(order, k)
+		}
+		d.SinksCount += 1
+		d.RowCount += r.CopyRowCount
+		d.PartsCount += r.PartsCount
+		if r.Err != nil {
+			if len(d.ErrMsg) > 0 {
+				d.ErrMsg += ","
+			}
+			d.ErrMsg += r.Err.Error()
+		}
+	}
+	details := make([]ChannelExecutionDetail, 0, len(order))
+	for _, k := range order {
+		d := byEdge[k]
+		if d.SinksCount > 1 {
+			// The row is the sum over several sinks; naming one of them would
+			// be the aggregation this table exists to remove.
+			d.OutputEntity = ""
+		}
+		details = append(details, *d)
+	}
+	slices.SortFunc(details, func(a, b ChannelExecutionDetail) int {
+		return cmp.Or(
+			cmp.Compare(a.OutputType, b.OutputType),
+			cmp.Compare(a.InputChannel, b.InputChannel),
+			cmp.Compare(a.OutputChannel, b.OutputChannel))
+	})
+	return details
+}
+
+// InsertChannelExecutionDetails records the worker's per-channel detail rows as
+// children of its pipeline_execution_details row.
+//
+// It logs and returns the error rather than failing the worker: this record is
+// additive observability, and a pipeline that has run correctly should not be
+// reported as failed because a detail row did not insert (the table is created
+// by update_db, which a deployment can lag behind). The caller does not
+// propagate it. A missing or partial child set is detectable rather than
+// silent — the parent's output_records_count is the sum over these rows, so
+// sum(child) != parent is the check.
+func InsertChannelExecutionDetails(dbpool *pgxpool.Pool, pipelineExecutionDetailsKey int,
+	sessionId string, details []ChannelExecutionDetail) error {
+	if len(details) == 0 {
+		return nil
+	}
+	stmt := `INSERT INTO jetsapi.pipeline_execution_channel_details (
+		pipeline_execution_details_key, session_id, input_channel, output_channel,
+		output_channel_spec, output_type, output_entity, output_sinks_count,
+		output_records_count, parts_count, error_message)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`
+	for i := range details {
+		d := &details[i]
+		_, err := dbpool.Exec(context.Background(), stmt,
+			pipelineExecutionDetailsKey, sessionId, d.InputChannel, d.OutputChannel,
+			d.OutputChannelSpec, d.OutputType, d.OutputEntity, d.SinksCount,
+			d.RowCount, d.PartsCount, d.ErrMsg)
+		if err != nil {
+			err = fmt.Errorf("error inserting in jetsapi.pipeline_execution_channel_details table: %v", err)
+			log.Println(err)
+			return err
+		}
+	}
+	return nil
 }

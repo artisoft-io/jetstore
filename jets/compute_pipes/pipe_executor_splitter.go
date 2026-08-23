@@ -204,6 +204,11 @@ func (ctx *BuilderContext) StartSplitterPipe(spec *PipeSpec, source *InputChanne
 			wg.Add(1)
 			channelHandlersCount += 1
 			go ctx.startSplitterChannelHandler(spec, &InputChannel{
+				// Name is the channel the splitter reads, carried through to
+				// the split so that downstream writers can name the edge of the
+				// DAG they are on. The ChannelSpec's name below is generated
+				// per split and is a label rather than a config identity.
+				Name:           source.Name,
 				Channel:        splitCh.data,
 				Columns:        source.Columns,
 				DomainKeySpec:  source.DomainKeySpec,
@@ -226,6 +231,9 @@ func (ctx *BuilderContext) StartSplitterPipe(spec *PipeSpec, source *InputChanne
 				// syart a go routine to manage the new channel
 				wg.Add(1)
 				go ctx.startSplitterChannelHandler(spec, &InputChannel{
+					// See the note above: Name is the config channel, the
+					// ChannelSpec's name is a per-split label.
+					Name:    source.Name,
 					Channel: splitCh.data,
 					Columns: source.Columns,
 					Config: &ChannelSpec{

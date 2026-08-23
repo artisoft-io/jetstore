@@ -1655,6 +1655,100 @@
   },
   {
     "schemaName": "jetsapi",
+    "tableName": "pipeline_execution_channel_details",
+    "description": "Child of pipeline_execution_details: one row per DAG edge (input channel, output channel) of a worker, so the data flow through a run's compute graph can be reconstructed. The parent row keeps its one-row-per-worker grain and its output_records_count remains the sum over these rows.",
+    "columns": [
+      {
+        "columnName": "key",
+        "dataType": "int",
+        "isPK": true
+      },
+      {
+        "columnName": "pipeline_execution_details_key",
+        "description": "Parent row in jetsapi.pipeline_execution_details",
+        "dataType": "int",
+        "isNotNull": true
+      },
+      {
+        "columnName": "session_id",
+        "description": "Carried from the parent so the purge (purge_database) and the session-scoped screens can reach these rows directly",
+        "dataType": "text",
+        "isNotNull": true
+      },
+      {
+        "columnName": "input_channel",
+        "description": "Configured name of the channel the writer reads",
+        "dataType": "text",
+        "default": "''",
+        "isNotNull": true
+      },
+      {
+        "columnName": "output_channel",
+        "description": "Configured name of the writer's output: output_tables[].key for output_type db_table, the output_channel name for jets_partition",
+        "dataType": "text",
+        "default": "''",
+        "isNotNull": true
+      },
+      {
+        "columnName": "output_channel_spec",
+        "description": "The output's channel_spec_name: the shape of what crosses the edge. Required and, for an output_channel, guaranteed different from output_channel",
+        "dataType": "text",
+        "default": "''",
+        "isNotNull": true
+      },
+      {
+        "columnName": "output_type",
+        "description": "Sink kind: db_table or jets_partition",
+        "dataType": "text",
+        "default": "''",
+        "isNotNull": true
+      },
+      {
+        "columnName": "output_entity",
+        "description": "Sink identity when the row has a single sink: the schema-qualified table, or the jets_partition label. Empty when output_sinks_count > 1",
+        "dataType": "text",
+        "default": "''",
+        "isNotNull": true
+      },
+      {
+        "columnName": "output_sinks_count",
+        "description": "Number of sink instances folded into this row; > 1 for a splitter writing one output channel into many jets_partitions",
+        "dataType": "int",
+        "default": "1",
+        "isNotNull": true
+      },
+      {
+        "columnName": "output_records_count",
+        "dataType": "long"
+      },
+      {
+        "columnName": "parts_count",
+        "dataType": "long"
+      },
+      {
+        "columnName": "error_message",
+        "dataType": "text"
+      },
+      {
+        "columnName": "last_update",
+        "dataType": "datetime",
+        "default": "now()",
+        "isNotNull": true
+      }
+    ],
+    "indexes": [
+      {
+        "indexName": "pipeline_execution_channel_details_ped_key_idx",
+        "indexDef": "INDEX pipeline_execution_channel_details_ped_key_idx ON jetsapi.pipeline_execution_channel_details (pipeline_execution_details_key)"
+      },
+      {
+        "indexName": "pipeline_execution_channel_details_session_id_idx",
+        "indexDef": "INDEX pipeline_execution_channel_details_session_id_idx ON jetsapi.pipeline_execution_channel_details (session_id)"
+      }
+    ]
+  },
+  {
+    "schemaName": "jetsapi",
     "tableName": "report_execution_status",
     "columns": [
       {

@@ -148,11 +148,16 @@ func (cpCtx *ComputePipesContext) ProcessFilesAndReportStatus(ctx context.Contex
 		log.Println("**@= CP RESULT = Copy2DbResultCh:")
 	}
 	var outputRowCount int64
+	// channelResults collects the writer results that outputRowCount sums away,
+	// so the per-channel detail can be recorded alongside the worker's total.
+	// The identity was always in hand here; only the += discarded it.
+	channelResults := make([]ComputePipesResult, 0)
 	if cpCtx.ChResults.Copy2DbResultCh != nil {
 		for table := range cpCtx.ChResults.Copy2DbResultCh {
 			// log.Println("**@= Write DB table results:")
 			for copy2DbResult := range table {
 				outputRowCount += copy2DbResult.CopyRowCount
+				channelResults = append(channelResults, copy2DbResult)
 				// saveResultsCtx.Save("DB Inserts", &copy2DbResult)
 				// log.Println("**@= Inserted", copy2DbResult.CopyRowCount, "rows in table", copy2DbResult.TableName, "::", copy2DbResult.Err)
 				if copy2DbResult.Err != nil {
@@ -175,6 +180,7 @@ func (cpCtx *ComputePipesContext) ProcessFilesAndReportStatus(ctx context.Contex
 			for partitionWriterResult := range splitter {
 				// saveResultsCtx.Save("Jets Partition Writer", &partitionWriterResult)
 				outputRowCount += partitionWriterResult.CopyRowCount
+				channelResults = append(channelResults, partitionWriterResult)
 				// log.Println("**@= Wrote", partitionWriterResult.CopyRowCount, "rows in", partitionWriterResult.PartsCount, "partfiles for", partitionWriterResult.TableName, "::", partitionWriterResult.Err)
 				if partitionWriterResult.Err != nil {
 					processingErrors = append(processingErrors, partitionWriterResult.Err.Error())
@@ -257,6 +263,15 @@ func (cpCtx *ComputePipesContext) ProcessFilesAndReportStatus(ctx context.Contex
 	if err2 != nil {
 		return fmt.Errorf("error while registering the load (cpipesSM): %v", err2)
 	}
+
+	// Register the per-channel detail of this shard with
+	// pipeline_execution_details' child table. One row per DAG edge, so the
+	// aggregate above can be read back as the flow it came from. Additive: the
+	// worker row keeps its grain and the error is logged rather than returned,
+	// see InsertChannelExecutionDetails.
+	InsertChannelExecutionDetails(dbpool, key, cpCtx.SessionId,
+		AggregateChannelResults(channelResults))
+
 	return err
 }
 
