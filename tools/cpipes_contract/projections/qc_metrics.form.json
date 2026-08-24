@@ -9578,6 +9578,20 @@
         [
           {
             "field": "text",
+            "key": "partition_output.output_channel.memory.channel_spec_name",
+            "label": "Channel spec name",
+            "hint": "Key of the channels entry providing this channel's spec, when it differs from name.",
+            "rules": [
+              {
+                "rule": "required",
+                "message": "Channel spec name is required"
+              }
+            ]
+          }
+        ],
+        [
+          {
+            "field": "text",
             "key": "partition_output.output_channel.memory.name",
             "label": "Name",
             "hint": "Name: output channel name, required (must exist in the channels section of the config document) Format: file format, range values: csv, headerless_csv, fixed_width. NbrRowsInRecord: nbr of rows in rec",
@@ -9598,14 +9612,6 @@
           {
             "field": "label",
             "text": "Optional"
-          }
-        ],
-        [
-          {
-            "field": "text",
-            "key": "partition_output.output_channel.memory.channel_spec_name",
-            "label": "Channel spec name",
-            "hint": "Key of the channels entry providing this channel's spec, when it differs from name."
           }
         ],
         [
@@ -9641,6 +9647,20 @@
         [
           {
             "field": "text",
+            "key": "partition_output.output_channel.output.channel_spec_name",
+            "label": "Channel spec name",
+            "hint": "Key of the channels entry providing this channel's spec, when it differs from name.",
+            "rules": [
+              {
+                "rule": "required",
+                "message": "Channel spec name is required"
+              }
+            ]
+          }
+        ],
+        [
+          {
+            "field": "text",
             "key": "partition_output.output_channel.output.name",
             "label": "Name",
             "hint": "Name: output channel name, required (must exist in the channels section of the config document) Format: file format, range values: csv, headerless_csv, fixed_width. NbrRowsInRecord: nbr of rows in rec",
@@ -9669,14 +9689,6 @@
             "key": "partition_output.output_channel.output.bucket",
             "label": "Bucket",
             "hint": "S3 bucket holding the file."
-          }
-        ],
-        [
-          {
-            "field": "text",
-            "key": "partition_output.output_channel.output.channel_spec_name",
-            "label": "Channel spec name",
-            "hint": "Key of the channels entry providing this channel's spec, when it differs from name."
           }
         ],
         [
@@ -10017,6 +10029,20 @@
         [
           {
             "field": "text",
+            "key": "partition_output.output_channel.stage.channel_spec_name",
+            "label": "Channel spec name",
+            "hint": "Key of the channels entry providing this channel's spec, when it differs from name.",
+            "rules": [
+              {
+                "rule": "required",
+                "message": "Channel spec name is required"
+              }
+            ]
+          }
+        ],
+        [
+          {
+            "field": "text",
             "key": "partition_output.output_channel.stage.name",
             "label": "Name",
             "hint": "Name: output channel name, required (must exist in the channels section of the config document) Format: file format, range values: csv, headerless_csv, fixed_width. NbrRowsInRecord: nbr of rows in rec",
@@ -10045,14 +10071,6 @@
             "key": "partition_output.output_channel.stage.bucket",
             "label": "Bucket",
             "hint": "S3 bucket holding the file."
-          }
-        ],
-        [
-          {
-            "field": "text",
-            "key": "partition_output.output_channel.stage.channel_spec_name",
-            "label": "Channel spec name",
-            "hint": "Key of the channels entry providing this channel's spec, when it differs from name."
           }
         ],
         [
