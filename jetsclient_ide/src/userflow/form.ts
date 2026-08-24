@@ -325,9 +325,19 @@ export const FieldSchema = z
        *
        * Column 0 of each row is the value **and** the label, as both Dart paths
        * do (`DropdownItemConfig(label: e[0]!, value: e[0]!)`). A query selecting a
-       * second column is not thereby offering it: `process_name, key` is read for
-       * its second column by an action, through the rows rather than through the
-       * dropdown.
+       * second column is not thereby offering it.
+       *
+       * **`process_name, key` was cited here as an action reading the second
+       * column through the rows, and F.6 authored that site and found it does
+       * not.** What reads `cache.process_config` is `ruleConfigv2FormActions`
+       * (`jetsclient/lib/modules/actions/config_delegates.dart`), on a screen
+       * outside every flow; `pcAddPipelineConfigUF`, the arm in the flow that
+       * declares the dropdown, gets the same `key` from its own `query` step
+       * against `process_config`. So `returnedModelCacheKey` has two writers and
+       * one reader, and the reader is nobody's flow — which is why this schema
+       * needs no field for it and why `pipelineConfigUF`'s form document drops it
+       * (I-118). The sentence above is still the rule; the example was the wrong
+       * one.
        */
       itemsFrom: Identifier.optional(),
       /** Index into `items`, selected when the form state holds nothing. */
