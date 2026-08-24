@@ -26,13 +26,13 @@ import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 
 import fileMapping from "./coverage/fileMappingUF.ua.json";
-import pipelineConfig from "./coverage/pipelineConfigUF.ua.json";
 import sourceConfig from "./coverage/sourceConfigUF.ua.json";
 import clientRegistry from "./flows/clientRegistryUF.ua.json";
 import homeFilters from "./flows/homeFiltersUF.ua.json";
 import loadConfig from "./flows/loadConfigUF.ua.json";
 import loadFiles from "./flows/loadFilesUF.ua.json";
 import mapFile from "./flows/mapFileUF.ua.json";
+import pipelineConfig from "./flows/pipelineConfigUF.ua.json";
 import registerFileKey from "./flows/registerFileKeyUF.ua.json";
 import startPipeline from "./flows/startPipelineUF.ua.json";
 import workspacePull from "./flows/workspacePullUF.ua.json";
@@ -40,7 +40,6 @@ import { ActionDocumentSchema, type ActionDocument } from "./schema";
 
 const coverage: Record<string, unknown> = {
   fileMappingUF: fileMapping,
-  pipelineConfigUF: pipelineConfig,
   sourceConfigUF: sourceConfig,
 };
 const proof: Record<string, unknown> = {
@@ -81,6 +80,17 @@ const proof: Record<string, unknown> = {
   // `state[session_id] = unpack(state[session_id])`, which reads as a no-op
   // assignment and is a conversion the server type-asserts on (I-100).
   homeFiltersUF: homeFilters,
+  // F.6's re-partition. One delegate file, one flow, nothing to split — and the
+  // largest of the nine at 14 `case` labels, a quarter of the 58. **The first
+  // whose document holds an arm the nine delegate files do not declare**:
+  // `addProcessInputOk` is the Save button of the two dialogs this flow's tables
+  // open, and it lives in `modules/actions/config_delegates.dart`
+  // (`processInputFormActions`) because those dialogs carry their own
+  // `formActionsDelegate` rather than the flow's. So the count *rises* here
+  // (I-114). `dialogCancel` is the same story and F.5 has already written it up
+  // as I-101: dead in the delegate it was transcribed from, live in the document
+  // it becomes.
+  pipelineConfigUF: pipelineConfig,
 };
 const all = { ...coverage, ...proof };
 
@@ -143,11 +153,110 @@ describe("the coverage fixture", () => {
     // flow rather than one per delegate**, so the dialog's Close button resolves
     // here — and `validateTableActions` requires exactly that. An arm dead in
     // the file it was transcribed from, live in the document it becomes (I-101).
+    //
+    // **55 after F.6's, and it is the first re-partition that adds.** Fourteen
+    // names left `coverage/` and fifteen arrived in `flows/`. The extra is
+    // `addProcessInputOk`, which is not one of the 58 at all: the denominator is
+    // `case ActionKeys.` across the nine `user_flows/*/form_action_delegates.dart`
+    // files, and this arm is in `modules/actions/config_delegates.dart`. **A
+    // dialog a flow's table opens may be served by a delegate outside the flow's
+    // directory**, so the corpus of arms a migrated flow needs is not a subset of
+    // the corpus this count is drawn from (I-114). 54 was as much an invariant as
+    // 55 was.
     const names = Object.values(all).flatMap((doc) =>
       Object.keys((doc as ActionDocument).actions),
     );
-    expect(names).toHaveLength(54);
+    expect(names).toHaveLength(55);
     expect(new Set(names).size).toBeLessThan(names.length); // dialogCancel repeats across flows
+  });
+
+  it("holds pipelineConfigUF's thirteen reachable arms plus the two its dialogs need", () => {
+    // F.6. `pipeline_config/form_action_delegates.dart` declares fourteen `case`
+    // labels in one switch. Thirteen are reachable through it — seven state
+    // actions, the two `pc*GotTo*` buttons `pcViewMergeProcessInputsUF` and
+    // `pcViewInjectedProcessInputsUF` carry inline (`form_config.dart`), and four
+    // the tables offer: `deletePipelineConfig` on `pcPipelineConfigTable`,
+    // `pcRemoveMergedProcessInput` and `pcRemoveInjectedProcessInput` on the two
+    // view tables, and `pcSetProcessInputRegistryKey` on all three
+    // `doActionShowDialog` buttons (`data_table_config.dart`).
+    //
+    // **The fourteenth, `dialogCancel`, is unreachable *through this delegate*
+    // and is here anyway** — the two dialogs set `formActionsDelegate:
+    // processInputFormActions`, and only the current state's form has its
+    // delegate overridden with the flow's (`screens/user_flow_screen.dart`). It is
+    // I-101's shape exactly, one flow later: the port has one action document per
+    // flow rather than one per delegate, so the dialog's Cancel resolves here.
+    // `addProcessInputOk` is its neighbour in that same switch and is the arm the
+    // 58 never counted.
+    expect(Object.keys((pipelineConfig as ActionDocument).actions).sort()).toEqual([
+      "addProcessInputOk",
+      "deletePipelineConfig",
+      "dialogCancel",
+      "pcAddInjectedProcessInputUF",
+      "pcAddMergeProcessInputUF",
+      "pcAddPipelineConfigUF",
+      "pcGotToAddInjectedProcessInputUF",
+      "pcGotToAddMergeProcessInputUF",
+      "pcPrepareSummaryUF",
+      "pcRemoveInjectedProcessInput",
+      "pcRemoveMergedProcessInput",
+      "pcSavePipelineConfigUF",
+      "pcSelectMainProcessInputUF",
+      "pcSelectPipelineConfigUF",
+      "pcSetProcessInputRegistryKey",
+    ]);
+  });
+
+  it("branches the two save arms on whether a row was selected, which the coverage document did not", () => {
+    // **I-115, and it is the largest thing F.6 found.** `pcSavePipelineConfigUF`
+    // reads `updateKey = unpack(state[pcPipelineConfigTable])` and posts to
+    // `update/pipeline_config` with `key` when it is set, `pipeline_config`
+    // without it otherwise (`pipeline_config/form_action_delegates.dart`,
+    // `pcSavePipelineConfigUF`). The coverage document had one unguarded `post`
+    // to `pipeline_config` and no `key` at all — so *Edit an Existing Pipeline
+    // Configuration*, one of the flow's two branches from its first state, would
+    // have inserted a duplicate row instead of updating the one the user chose.
+    // `addProcessInputOk` is the same shape over `process_input` /
+    // `update2/process_input`.
+    const saves = (pipelineConfig as ActionDocument).actions["pcSavePipelineConfigUF"]!.steps;
+    const posts = saves.filter((step) => step.do === "post");
+    expect(posts.map((step) => (step.do === "post" ? step.table : null))).toEqual([
+      "pipeline_config",
+      "update/pipeline_config",
+    ]);
+    expect(posts.every((step) => step.when !== undefined)).toBe(true);
+  });
+
+  it("initialises the two key lists to empty rather than to themselves", () => {
+    // **The transcription mechanism F.6 found, and it is a fifth** (I-116).
+    // `pcAddPipelineConfigUF` opens `state[merged_process_input_keys] =
+    // <String?>[]` — a fresh empty list. The coverage document wrote
+    // `{ "fromKeyList": "merged_process_input_keys" }`, which reads the key it is
+    // assigning to: the *left*-hand side supplied the right. Two `set` steps say
+    // what the Dart says — a `{}` literal, then the conversion that decodes it —
+    // which is F.4's finding again, that a lost composition needs no primitive.
+    const steps = (pipelineConfig as ActionDocument).actions["pcAddPipelineConfigUF"]!.steps;
+    expect(steps.slice(1, 5).map((s) => (s.do === "set" ? [s.key, Object.keys(s.value)[0]] : s.do))).toEqual([
+      ["merged_process_input_keys", "literal"],
+      ["merged_process_input_keys", "fromKeyList"],
+      ["injected_process_input_keys", "literal"],
+      ["injected_process_input_keys", "fromKeyList"],
+    ]);
+  });
+
+  it("names the columns the registered query actually returns", () => {
+    // The coverage document's `into` mapped `process_config_key` and
+    // `entity_rdf_type` on to columns of the same names; the statement selects
+    // `key` and `input_rdf_types::text`
+    // (`modules/actions/utils/get_process_info.dart`, `getProcessInputRdfTypes`).
+    // Both lookups would have missed, so `entity_rdf_type` would be null and
+    // three of this flow's data tables filter `process_input` by it — every data
+    // source of every entity type, on every page that picks one.
+    const step = (pipelineConfig as ActionDocument).actions["pcAddPipelineConfigUF"]!.steps.at(-1)!;
+    expect(step.do === "query" && step.into).toEqual({
+      process_config_key: "key",
+      entity_rdf_type: "input_rdf_types",
+    });
   });
 
   it("holds every clientRegistryUF arm a form or a table offers, and no other", () => {
@@ -297,14 +406,20 @@ describe("the coverage fixture", () => {
     // edit removes their only user, this says so rather than leaving dead
     // grammar behind.
     expect(verbs).toContain("query");
-    // F.2's `when`, on the same terms — one site today, and it is
-    // `wpPullWorkspaceConfirmUF`'s.
+    // F.2's `when`. **One site until F.6 and nine now**, which is the answer to
+    // the question F.2 left open — it argued the guard was justified beyond the
+    // one arm that needed it, and named `scSelectSourceConfigUF` as the arm that
+    // would want it most. That is still F.7's to say. What F.6 adds is a
+    // different shape from either: three arms whose *whole structure* is a
+    // branch, two of them choosing between an insert target and its update twin
+    // (I-115) and one clearing two keys when any of four is absent. A predicate
+    // over form state was enough for all three, so the grammar gained nothing.
     const guarded = Object.values(all).flatMap((doc) =>
       Object.values((doc as ActionDocument).actions).flatMap((a) =>
         a.steps.filter((s) => s.when !== undefined),
       ),
     );
-    expect(guarded).toHaveLength(1);
+    expect(guarded).toHaveLength(9);
     // And F.2's `csvFromKey`. **Two sites in the Dart and three here**, because
     // `loadConfigInternal` is a helper two arms call and the documents have no
     // helper — `wpLoadConfigOkUF` and `wpLoadAllClientConfigUF` each spell it.

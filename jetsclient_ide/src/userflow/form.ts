@@ -218,10 +218,17 @@ export const FieldSchema = z
       /**
        * The field is shown and not edited. Task F.2, and the first half of I-62.
        *
-       * **20 of the 36 `FormInputFieldConfig` instances set it**
+       * **23 of the 46 `FormInputFieldConfig` instances set it**
        * (`datatable/fixtures/form_fields.json`), and `TextInput.tsx` has taken
        * the prop since A.3 — so the gap was the authoring layer alone, which is
        * what I-62 said and why it is one line here.
+       *
+       * **The count read *20 of the 36* until F.6 and both halves were wrong**
+       * (I-111). The corpus has held 46 since it was generated and
+       * `TextInput.tsx`'s own option table reads 23 of 46, three files away — so
+       * two documents in this repository disagreed about one generated number,
+       * and the one nobody re-derived is the one that drifted. 20 is the count
+       * over the forms a *state* names, whose denominator is 38 rather than 36.
        *
        * **F.1 declined it and F.2 takes it, for the reason I-62 asked for: a
        * consumer.** `mapFileUF`'s five text inputs set neither this nor
@@ -231,11 +238,42 @@ export const FieldSchema = z
        * about, seeded from the route and posted back as `workspaceName`. An
        * editable copy of that is not a cosmetic divergence: it is a form on
        * which the user can retarget the pull.
-       *
-       * `defaultValue` is still unbuilt, still 2 of 36, and still has no
-       * consumer here.
        */
       isReadOnly: z.boolean().optional(),
+      /**
+       * The value the field starts with when form state holds nothing. Task F.6,
+       * and the second half of I-62.
+       *
+       * **Four sites in the 50-form corpus and all four are
+       * `pipelineConfigUF`'s** — `rule_config_json` on `pcAutomationUF` and
+       * `pcSummaryUF`, both `"[]"`, and `lookback_periods` on the two
+       * `pcNewProcessInputDialog` forms, both `"0"`
+       * (`datatable/fixtures/form_fields.json`). I-62 left it unbuilt because it
+       * had no consumer; this flow is the whole of it.
+       *
+       * **It is required rather than cosmetic on this flow, which is why it is
+       * built here and was not before.** `pipelineConfigFormValidatorUF` refuses
+       * a null `rule_config_json` with *"Please provide a value."*
+       * (`pipeline_config/form_action_delegates.dart`,
+       * `pipelineConfigFormValidatorUF`), and nothing else ever writes that key
+       * on the add path. Without the default the user meets a blocked Next on a
+       * field they were never told to fill.
+       */
+      defaultValue: z.string().optional(),
+      /**
+       * What the widget will let the user type. Task F.6.
+       *
+       * **Two sites, both `lookback_periods` on this flow's dialogs**, and both
+       * `digitsOnly` (`datatable/fixtures/form_fields.json`). `TextInput.tsx` has
+       * taken the prop and implemented all four restrictions since A.3; as with
+       * `defaultValue` the gap was the authoring layer alone.
+       *
+       * **The enum is the Dart's `TextRestriction` in full rather than the one
+       * member the corpus uses**, because `restrict` already implements four and
+       * a schema that admitted one would have to be widened by whoever meets the
+       * second — a change to an exported union rather than to a document.
+       */
+      textRestriction: z.enum(["none", "allLower", "allUpper", "digitsOnly"]).optional(),
       rules: z.array(RuleSchema).optional(),
     }),
     z.strictObject({
@@ -287,9 +325,19 @@ export const FieldSchema = z
        *
        * Column 0 of each row is the value **and** the label, as both Dart paths
        * do (`DropdownItemConfig(label: e[0]!, value: e[0]!)`). A query selecting a
-       * second column is not thereby offering it: `process_name, key` is read for
-       * its second column by an action, through the rows rather than through the
-       * dropdown.
+       * second column is not thereby offering it.
+       *
+       * **`process_name, key` was cited here as an action reading the second
+       * column through the rows, and F.6 authored that site and found it does
+       * not.** What reads `cache.process_config` is `ruleConfigv2FormActions`
+       * (`jetsclient/lib/modules/actions/config_delegates.dart`), on a screen
+       * outside every flow; `pcAddPipelineConfigUF`, the arm in the flow that
+       * declares the dropdown, gets the same `key` from its own `query` step
+       * against `process_config`. So `returnedModelCacheKey` has two writers and
+       * one reader, and the reader is nobody's flow — which is why this schema
+       * needs no field for it and why `pipelineConfigUF`'s form document drops it
+       * (I-118). The sentence above is still the rule; the example was the wrong
+       * one.
        */
       itemsFrom: Identifier.optional(),
       /** Index into `items`, selected when the form state holds nothing. */

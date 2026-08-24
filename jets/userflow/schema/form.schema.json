@@ -27,6 +27,9 @@
             "autofocus": {
               "type": "boolean"
             },
+            "defaultValue": {
+              "type": "string"
+            },
             "field": {
               "const": "text",
               "type": "string"
@@ -62,6 +65,15 @@
                 "$ref": "#/$defs/Rule"
               },
               "type": "array"
+            },
+            "textRestriction": {
+              "enum": [
+                "none",
+                "allLower",
+                "allUpper",
+                "digitsOnly"
+              ],
+              "type": "string"
             }
           },
           "required": [

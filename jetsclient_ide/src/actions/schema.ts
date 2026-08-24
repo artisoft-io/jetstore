@@ -218,6 +218,18 @@ export const ServerActionSchema = z
  * The `delete/` prefixed entries are deletes; they are here because the flows
  * genuinely delete clients, orgs, pipeline configs and source configs, and each
  * is gated by `client_config` server-side.
+ *
+ * **Three arrived with F.6 and each is an *update* target the list had no
+ * counterpart for.** `pipelineConfigUF` is the first migrated flow whose save arm
+ * branches: `pcSavePipelineConfigUF` posts to `pipeline_config` when nothing is
+ * selected and to `update/pipeline_config` when a row is
+ * (`pipeline_config/form_action_delegates.dart`, `pcSavePipelineConfigUF`), and
+ * `addProcessInputOk` does the same over `process_input` /
+ * `update2/process_input` (`file_mapping/form_action_helpers.dart`,
+ * `addProcessInput`). The list held the *insert* half of both pairs and neither
+ * update, which is what a list assembled from the arms transcribed so far looks
+ * like. All three are gated by `client_config` in `jets/datatable/sql_stmts.go`,
+ * the same capability the buttons that reach them already declare.
  */
 export const InsertTargetSchema = z
   .enum([
@@ -226,7 +238,10 @@ export const InsertTargetSchema = z
     "delete/client",
     "delete/org",
     "pipeline_config",
+    "update/pipeline_config",
     "delete/pipeline_config",
+    "process_input",
+    "update2/process_input",
     "delete/source_config",
     "source_config",
     "update/source_config",

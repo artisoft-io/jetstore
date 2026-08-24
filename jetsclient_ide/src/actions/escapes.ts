@@ -113,7 +113,39 @@ export type CellFilterEscape = (value: string | null) => string | null;
 export type PredicateEscape = (formState: FormState, group: number) => boolean;
 
 /**
- * The six namespaces.
+ * A statement a `query` step may run, registered by the build. Task F.6.
+ *
+ * **The only entry here that is data rather than a body, and it belongs here for
+ * the mechanism rather than the type.** The header names the shape these six
+ * share — *a named entry in a table the bundle compiles in, referenced from an
+ * authored document, resolved when the document loads, with an unresolved name
+ * being a load error* — and that is exactly what a registered query is. Giving it
+ * a registry of its own would be a second thing to thread through `FlowStore`,
+ * `runAction` and the screen, to buy a type distinction no caller makes.
+ *
+ * **Why the document names a query instead of carrying one.** S.2a's `query`
+ * step refused to let a `.ua.json` carry SQL. I-71 later settled the *opposite*
+ * for a form's `queries`, on the ground that saving a workspace file already
+ * requires `workspace_ide` and `workspace_ide` is `CapabilityQueryTool` — so the
+ * author gains nothing. **Both are in the corpus and only one of them can be the
+ * rule**; F.6 needed the step working and not the question settled, so this
+ * follows the step as written and the disagreement is recorded as I-112.
+ *
+ * `columns` names the statement's output positionally, because `raw_query_map`
+ * answers with rows as arrays and a `query` step's `into` maps *column names* on
+ * to form-state keys. It is the one place a registered query says something the
+ * SQL does not already say.
+ */
+export interface NamedQuery {
+  sql: string;
+  /** Form-state keys substituted as `{key}`, quoted as SQL literals. */
+  params?: readonly string[];
+  /** The statement's output columns, in order. */
+  columns: readonly string[];
+}
+
+/**
+ * The seven namespaces.
  *
  * **`cellFilters` and `predicates` are task I.3b's**, and they are namespaces
  * rather than a second registry for the reason the header gives: the three that
@@ -124,6 +156,11 @@ export type PredicateEscape = (formState: FormState, group: number) => boolean;
  * referenced from a *flow's* documents, and these two are referenced from a
  * *table's*, which is shared between flows. Resolution is therefore per loaded
  * set rather than per flow — `FlowStore.load` resolves both together.
+ *
+ * **`queries` is F.6's and is the first namespace holding data**; see
+ * `NamedQuery`. It was added the same way I.3b's two were — a key, not a
+ * mechanism — which is the claim this interface has been making since S.2a and
+ * the third time it has held.
  */
 export interface EscapeRegistry {
   actions: Readonly<Record<string, ActionEscape>>;
@@ -132,6 +169,7 @@ export interface EscapeRegistry {
   validators: Readonly<Record<string, ValidatorEscape>>;
   cellFilters: Readonly<Record<string, CellFilterEscape>>;
   predicates: Readonly<Record<string, PredicateEscape>>;
+  queries: Readonly<Record<string, NamedQuery>>;
 }
 
 export const emptyRegistry: EscapeRegistry = {
@@ -141,6 +179,7 @@ export const emptyRegistry: EscapeRegistry = {
   validators: {},
   cellFilters: {},
   predicates: {},
+  queries: {},
 };
 
 export type EscapeKind = keyof EscapeRegistry;
@@ -175,9 +214,27 @@ export function resolveEscapes(
     .map(({ kind, name, at }) => ({ kind, name, at }));
 }
 
+/**
+ * What each namespace is called in a message.
+ *
+ * Six read `<kind> escape`, which is what they were before F.6 and is left
+ * unchanged so no existing message moves. `queries` holds data rather than a
+ * body, so calling it an escape would be wrong in the one place a reader is
+ * looking for a name to go and register.
+ */
+const NAMESPACE_NOUN: Record<EscapeKind, string> = {
+  actions: "actions escape",
+  initializers: "initializers escape",
+  rowInitializers: "rowInitializers escape",
+  validators: "validators escape",
+  cellFilters: "cellFilters escape",
+  predicates: "predicates escape",
+  queries: "registered query",
+};
+
 /** A message naming every unresolved escape, or null when they all resolve. */
 export function describeUnresolved(unresolved: readonly UnresolvedEscape[]): string | null {
   if (unresolved.length === 0) return null;
-  const lines = unresolved.map((u) => `  ${u.at}: no ${u.kind} escape named "${u.name}"`);
+  const lines = unresolved.map((u) => `  ${u.at}: no ${NAMESPACE_NOUN[u.kind]} named "${u.name}"`);
   return `This configuration references code that is not in this build:\n${lines.join("\n")}`;
 }

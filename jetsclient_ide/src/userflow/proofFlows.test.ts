@@ -35,6 +35,7 @@ import { runAction, type ActionHost } from "../actions/interpret";
 import { ActionDocumentSchema, type ActionDocument } from "../actions/schema";
 import clientRegistryActionsDoc from "../actions/flows/clientRegistryUF.ua.json";
 import homeFiltersActionsDoc from "../actions/flows/homeFiltersUF.ua.json";
+import pipelineConfigActionsDoc from "../actions/flows/pipelineConfigUF.ua.json";
 import loadConfigActionsDoc from "../actions/flows/loadConfigUF.ua.json";
 import loadFilesActionsDoc from "../actions/flows/loadFilesUF.ua.json";
 import registerFileKeyActionsDoc from "../actions/flows/registerFileKeyUF.ua.json";
@@ -44,6 +45,7 @@ import { FormState } from "../datatable/formState";
 import { FormDocumentSchema, type FormDocument } from "./form";
 import clientRegistryFormsDoc from "./forms/clientRegistryUF.form.json";
 import homeFiltersFormsDoc from "./forms/homeFiltersUF.form.json";
+import pipelineConfigFormsDoc from "./forms/pipelineConfigUF.form.json";
 import loadConfigFormsDoc from "./forms/loadConfigUF.form.json";
 import loadFilesFormsDoc from "./forms/loadFilesUF.form.json";
 import registerFileKeyFormsDoc from "./forms/registerFileKeyUF.form.json";
@@ -52,6 +54,7 @@ import workspacePullFormsDoc from "./forms/workspacePullUF.form.json";
 import { advance, back, evaluateCondition, isStandardAction, startAt, step, FlowError } from "./engine";
 import clientRegistryFlowDoc from "./flows/clientRegistryUF.uf.json";
 import homeFiltersFlowDoc from "./flows/homeFiltersUF.uf.json";
+import pipelineConfigFlowDoc from "./flows/pipelineConfigUF.uf.json";
 import loadConfigFlowDoc from "./flows/loadConfigUF.uf.json";
 import loadFilesFlowDoc from "./flows/loadFilesUF.uf.json";
 import registerFileKeyFlowDoc from "./flows/registerFileKeyUF.uf.json";
@@ -73,6 +76,12 @@ function harness(
    * is partly in an escape body, so it is the first that has to supply one.
    */
   registry: EscapeRegistry = emptyRegistry,
+  /**
+   * What a `query` step reads. Defaulted to *no rows*, which is what every flow
+   * before F.6 needed — `pipelineConfigUF` is the only one with a `query` step at
+   * all (I-23), so it is the only caller that has to supply one.
+   */
+  query: ActionHost["query"] = async () => null,
 ) {
   const flow = UserFlowSchema.parse(flowDoc) as UserFlow;
   const actions = ActionDocumentSchema.parse(actionsDoc) as ActionDocument;
@@ -88,7 +97,7 @@ function harness(
       posts.push(r);
       return { statusCode: 200 };
     },
-    query: async () => null,
+    query,
     notify: (level, message) => events.push(`notify:${level}:${message}`),
     setBusy: (b) => events.push(b ? "busy" : "idle"),
     goToState: (s) => events.push(`goToState:${s}`),
@@ -161,6 +170,7 @@ describe("the documents are complete and consistent", () => {
     ["clientRegistryUF", clientRegistryFlowDoc, clientRegistryActionsDoc, clientRegistryFormsDoc],
     ["startPipelineUF", startPipelineFlowDoc, startPipelineActionsDoc, startPipelineFormsDoc],
     ["homeFiltersUF", homeFiltersFlowDoc, homeFiltersActionsDoc, homeFiltersFormsDoc],
+    ["pipelineConfigUF", pipelineConfigFlowDoc, pipelineConfigActionsDoc, pipelineConfigFormsDoc],
   ])("%s is a consistent set", (_name, flowDoc, actionsDoc, formsDoc) => {
     expect(
       validateDocumentSet({
@@ -958,6 +968,7 @@ describe("home_filters, end to end", () => {
     validators: { homeFiltersFormValidator },
     cellFilters: {},
     predicates: {},
+    queries: {},
   };
   const setup = () => {
     resetHomeFilters();
@@ -1093,6 +1104,305 @@ describe("home_filters, end to end", () => {
     expect(currentDataRegistryFilters()![0]!.joinWith).toBe(
       "pipeline_execution_status.input_request_id",
     );
+  });
+});
+
+/**
+ * `pipelineConfigUF`, end to end. Task F.6.
+ *
+ * **The largest flow in the corpus and the one the plan kept until now** — ten
+ * states, twelve forms, fifteen arms, ten tables. What is asserted here is what
+ * the coverage document got wrong rather than what it got right: a branch it did
+ * not have (I-115), an initialisation it read off its own left-hand side (I-116),
+ * a query whose columns it renamed, and a concatenation that would have kept one
+ * element of each list.
+ *
+ * **The `query` step runs for the first time.** Every earlier flow's harness
+ * answered `null`, which the interpreter reads as *no rows*; this one supplies
+ * the row `getProcessInputRdfTypes` returns.
+ */
+describe("pipeline_config, end to end", () => {
+  const processConfigRow = { key: "pc-42", input_rdf_types: "rdf:Claim" };
+  const setup = () =>
+    harness(
+      pipelineConfigFlowDoc,
+      pipelineConfigActionsDoc,
+      pipelineConfigFormsDoc,
+      emptyRegistry,
+      async () => processConfigRow,
+    );
+
+  /** Everything `pcAddPipelineConfigUF`'s form needs to pass its own rules. */
+  const fillAddForm = (h: ReturnType<typeof setup>) => {
+    h.formState.setValue(0, "client", ["acme"]);
+    h.formState.setValue(0, "process_name", ["loadFile"]);
+  };
+
+  it("takes the add branch and walks the seven states of it", async () => {
+    const h = setup();
+    expect(h.at()).toBe("select_add_or_edit");
+    h.formState.setValue(0, "pcAddOrEditPipelineConfigOption", ["ufAddOption"]);
+    await h.press("ufNext");
+    expect(h.at()).toBe("add_pipeline_config");
+
+    fillAddForm(h);
+    await h.press("ufNext");
+    expect(h.at()).toBe("select_main_process_input");
+
+    h.formState.setValue(0, "pcMainProcessInputKey", ["pi-1"]);
+    await h.press("ufNext");
+    expect(h.at()).toBe("view_merge_process_inputs");
+    await h.press("ufNext");
+    expect(h.at()).toBe("view_injected_process_inputs");
+    await h.press("ufNext");
+    expect(h.at()).toBe("set_pipeline_automation");
+
+    h.formState.setValue(0, "source_period_type", ["month_period"]);
+    h.formState.setValue(0, "automated", ["1"]);
+    h.formState.setValue(0, "rule_config_json", ["[]"]);
+    await h.press("ufNext");
+    expect(h.at()).toBe("summaryUF");
+  });
+
+  it("takes the edit branch on the other option", async () => {
+    const h = setup();
+    h.formState.setValue(0, "pcAddOrEditPipelineConfigOption", ["ufEditOption"]);
+    await h.press("ufNext");
+    expect(h.at()).toBe("select_pipeline_config");
+  });
+
+  it("initialises the two key lists to empty and reads the query by column name", async () => {
+    // I-116 and the `into` correction together, because they are the two halves
+    // of one arm. Both lists must be *present and empty*, because the arms that
+    // grow them are the flow's whole middle.
+    const h = setup();
+    h.formState.setValue(0, "pcAddOrEditPipelineConfigOption", ["ufAddOption"]);
+    await h.press("ufNext");
+    fillAddForm(h);
+    await h.press("ufNext");
+
+    expect(h.formState.getValue(0, "merged_process_input_keys")).toEqual([]);
+    expect(h.formState.getValue(0, "injected_process_input_keys")).toEqual([]);
+    expect(h.formState.getValue(0, "max_rete_sessions_saved")).toBe("0");
+    // `key` and `input_rdf_types::text`, not `process_config_key` and
+    // `entity_rdf_type` — the columns the statement selects.
+    expect(h.formState.getValue(0, "process_config_key")).toBe("pc-42");
+    expect(h.formState.getValue(0, "entity_rdf_type")).toBe("rdf:Claim");
+  });
+
+  it("stops the add arm when the process name is missing, after the initialisation", async () => {
+    // The Dart's null check is *below* the three assignments, so a flow that
+    // fails here still has its lists. Step order, which is I-90's subject.
+    const h = setup();
+    expect(await h.press("pcAddPipelineConfigUF")).toBe(
+      "Error: null process_name in formState",
+    );
+    expect(h.formState.getValue(0, "merged_process_input_keys")).toEqual([]);
+  });
+
+  it("unpacks the selection before decoding the array literal inside it", async () => {
+    // I-97, inherited from F.4 with nothing to build: `merged_process_input_keys`
+    // is `int[] NOT NULL DEFAULT '{}'`, every column of a data-table read is
+    // scanned into a `sql.NullString`, and the table publishes a secondary column
+    // as a one-element list. So form state holds `["{5,6}"]`.
+    const h = setup();
+    h.formState.setValue(0, "merged_process_input_keys", ["{5,6}"]);
+    h.formState.setValue(0, "injected_process_input_keys", ["{}"]);
+    h.formState.setValue(0, "main_process_input_key", ["pi-1"]);
+    await h.press("pcSelectPipelineConfigUF");
+    expect(h.formState.getValue(0, "merged_process_input_keys")).toEqual(["5", "6"]);
+    expect(h.formState.getValue(0, "injected_process_input_keys")).toEqual([]);
+    // The last step re-publishes the main key so the table shows it selected.
+    expect(h.formState.getValue(0, "pcMainProcessInputKey")).toBe("pi-1");
+  });
+
+  it("jumps to the add page and comes back, which is the edge that caused I-18", async () => {
+    const h = setup();
+    h.formState.setValue(0, "pcAddOrEditPipelineConfigOption", ["ufAddOption"]);
+    await h.press("ufNext");
+    fillAddForm(h);
+    await h.press("ufNext");
+    h.formState.setValue(0, "pcMainProcessInputKey", ["pi-1"]);
+    await h.press("ufNext");
+    expect(h.at()).toBe("view_merge_process_inputs");
+
+    // The button is *inside the rows* rather than in the action bar (F.2's
+    // `button` field), and pressing it runs an arm whose first step is
+    // `goToState`. The harness runs the arm; the screen applies the jump, which
+    // is why the event is what is asserted here.
+    h.formState.setValue(0, "pcMergedProcessInputKeys", ["pi-7"]);
+    expect(await h.press("pcGotToAddMergeProcessInputUF")).toBeNull();
+    expect(h.events).toContain("goToState:add_merge_process_inputs");
+    // And it clears the add page's own selection on the way in, so a second visit
+    // does not open with the previous choice ticked.
+    expect(h.formState.getValue(0, "pcMergedProcessInputKeys")).toBeUndefined();
+
+    h.formState.setValue(0, "pcMergedProcessInputKeys", ["pi-7"]);
+    await h.press("pcAddMergeProcessInputUF");
+    expect(h.formState.getValue(0, "merged_process_input_keys")).toEqual(["pi-7"]);
+    // Twice does not duplicate, which is what `appendUnique` is for.
+    h.formState.setValue(0, "pcMergedProcessInputKeys", ["pi-7"]);
+    await h.press("pcAddMergeProcessInputUF");
+    expect(h.formState.getValue(0, "merged_process_input_keys")).toEqual(["pi-7"]);
+
+    h.formState.setValue(0, "pcViewMergedProcessInputKeys", ["pi-7"]);
+    await h.press("pcRemoveMergedProcessInput");
+    expect(h.formState.getValue(0, "merged_process_input_keys")).toEqual([]);
+  });
+
+  it("collects every process input key rather than the first of each list", async () => {
+    // **The `appendUnique` widening, measured.** The Dart concatenates
+    // `[injected, merged, main].expand((x) => x)`; before F.6 an `appendUnique`
+    // over a list took element zero, so this would have been
+    // `["inj-1", "mrg-1", "pi-1"]` and the summary table would have shown three
+    // rows where the configuration has five.
+    const h = setup();
+    h.formState.setValue(0, "injected_process_input_keys", ["inj-1", "inj-2"]);
+    h.formState.setValue(0, "merged_process_input_keys", ["mrg-1", "mrg-2"]);
+    h.formState.setValue(0, "main_process_input_key", "pi-1");
+    expect(await h.press("pcPrepareSummaryUF")).toBeNull();
+    expect(h.formState.getValue(0, "ufAllProcessInputKeys")).toEqual([
+      "inj-1",
+      "inj-2",
+      "mrg-1",
+      "mrg-2",
+      "pi-1",
+    ]);
+  });
+
+  it("inserts when nothing is selected and updates when a row is", async () => {
+    // **I-115.** The coverage document had one unguarded insert, so the flow's
+    // *Edit an Existing Pipeline Configuration* branch would have added a second
+    // row rather than changing the one the user picked.
+    const fill = (h: ReturnType<typeof setup>) => {
+      h.formState.setValue(0, "process_name", "loadFile");
+      h.formState.setValue(0, "process_config_key", "pc-42");
+      h.formState.setValue(0, "client", "acme");
+      h.formState.setValue(0, "max_rete_sessions_saved", "0");
+      h.formState.setValue(0, "rule_config_json", "[]");
+      h.formState.setValue(0, "source_period_type", "month_period");
+      h.formState.setValue(0, "main_process_input_key", "pi-1");
+      h.formState.setValue(0, "main_object_type", "Claim");
+      h.formState.setValue(0, "main_source_type", "file");
+      h.formState.setValue(0, "automated", "1");
+      h.formState.setValue(0, "description", "nightly");
+      h.formState.setValue(0, "merged_process_input_keys", ["5", "6"]);
+      h.formState.setValue(0, "injected_process_input_keys", []);
+    };
+
+    const add = setup();
+    fill(add);
+    expect(await add.press("pcSavePipelineConfigUF")).toBeNull();
+    expect(add.posts).toHaveLength(1);
+    expect(add.posts[0]!.body["fromClauses"]).toEqual([{ table: "pipeline_config" }]);
+    const inserted = (add.posts[0]!.body["data"] as Record<string, unknown>[])[0]!;
+    expect(inserted["key"]).toBeUndefined();
+    // `makePgArray`, outwards: the column is `int[]` and the wire form is the
+    // Postgres literal, not a JSON array.
+    expect(inserted["merged_process_input_keys"]).toBe("{5,6}");
+    expect(inserted["injected_process_input_keys"]).toBe("{}");
+    expect(inserted["user_email"]).toBe("michel@artisoft.io");
+
+    const edit = setup();
+    fill(edit);
+    edit.formState.setValue(0, "pcPipelineConfigTable", ["cfg-9"]);
+    expect(await edit.press("pcSavePipelineConfigUF")).toBeNull();
+    expect(edit.posts).toHaveLength(1);
+    expect(edit.posts[0]!.body["fromClauses"]).toEqual([{ table: "update/pipeline_config" }]);
+    expect((edit.posts[0]!.body["data"] as Record<string, unknown>[])[0]!["key"]).toBe("cfg-9");
+  });
+
+  it("deletes the selected configuration and clears the table behind it", async () => {
+    const h = setup();
+    h.formState.setValue(0, "key", ["cfg-9"]);
+    h.formState.setValue(0, "pcPipelineConfigTable", ["cfg-9"]);
+    expect(await h.press("deletePipelineConfig")).toBeNull();
+    expect(h.posts).toHaveLength(1);
+    expect(h.posts[0]!.body["fromClauses"]).toEqual([{ table: "delete/pipeline_config" }]);
+    const row = (h.posts[0]!.body["data"] as Record<string, unknown>[])[0]!;
+    expect(row["key"]).toBe("cfg-9");
+    // **The Dart encodes the payload before clearing the selection and this
+    // clears first, so `pcPipelineConfigTable` is absent here and present
+    // there.** `delete/pipeline_config` declares `ColumnKeys: []string{"key"}`
+    // (`jets/datatable/sql_stmts.go`), so the server reads one column and the
+    // difference cannot be observed. The other order would be observable: the
+    // Dart clears the selection whether or not the delete succeeds.
+    expect(row["pcPipelineConfigTable"]).toBeUndefined();
+  });
+
+  it("saves a process input from the dialog, adding or updating on the same test the Dart uses", async () => {
+    // `addProcessInputOk` is not one of the 58 (I-114): it lives in
+    // `modules/actions/config_delegates.dart` because the dialogs carry their own
+    // delegate. Its add/update test is on `key` *unpacked or not* — the Dart reads
+    // `formState.getValue(0, FSK.key) != null` rather than `unpack(...)`, which is
+    // why the guard here is `isNull` where `pcSavePipelineConfigUF`'s is
+    // `isNullOrEmpty`.
+    const add = setup();
+    add.formState.setValue(0, "client", ["acme"]);
+    add.formState.setValue(0, "org", ["north"]);
+    add.formState.setValue(0, "source_type", ["file"]);
+    add.formState.setValue(0, "object_type", ["Claim"]);
+    add.formState.setValue(0, "table_name", ["claims"]);
+    add.formState.setValue(0, "lookback_periods", "0");
+    expect(await add.press("addProcessInputOk")).toBeNull();
+    expect(add.posts[0]!.body["fromClauses"]).toEqual([{ table: "process_input" }]);
+    expect((add.posts[0]!.body["data"] as Record<string, unknown>[])[0]!["org"]).toBe("north");
+
+    const update = setup();
+    update.formState.setValue(0, "key", "pi-3");
+    update.formState.setValue(0, "source_type", ["domain_table"]);
+    expect(await update.press("addProcessInputOk")).toBeNull();
+    expect(update.posts[0]!.body["fromClauses"]).toEqual([{ table: "update2/process_input" }]);
+    // An org belongs to a file or a database table and to nothing else, so the
+    // Dart blanks it for every other source type.
+    expect((update.posts[0]!.body["data"] as Record<string, unknown>[])[0]!["org"]).toBe("");
+  });
+
+  it("refuses to save a process input with no source type", async () => {
+    const h = setup();
+    h.formState.setValue(0, "client", ["acme"]);
+    expect(await h.press("addProcessInputOk")).toBe(
+      "Cannot save this data source: its source type is not set.",
+    );
+    expect(h.posts).toHaveLength(0);
+  });
+
+  it("derives the registry key from four values, and clears it when one is missing", async () => {
+    const h = setup();
+    h.formState.setValue(0, "process_name", "loadFile");
+    h.formState.setValue(0, "object_type", "Claim");
+    h.formState.setValue(0, "table_name", "claims");
+    h.formState.setValue(0, "source_type", "file");
+    await h.press("pcSetProcessInputRegistryKey");
+    expect(h.formState.getValue(0, "pcProcessInputRegistry")).toBe("loadFileClaimclaimsfile");
+    expect(h.formState.getValue(0, "pcProcessInputRegistry4MI")).toBe("loadFileClaimclaimsfile");
+
+    // The Dart removes both keys and returns rather than concatenating nulls into
+    // a key that would match no row. A `template` with a missing key substitutes
+    // the empty string, so the guard is what stops a plausible-looking wrong key.
+    const partial = setup();
+    partial.formState.setValue(0, "process_name", "loadFile");
+    await partial.press("pcSetProcessInputRegistryKey");
+    expect(partial.formState.getValue(0, "pcProcessInputRegistry")).toBeUndefined();
+    expect(partial.formState.getValue(0, "pcProcessInputRegistry4MI")).toBeUndefined();
+  });
+
+  it("ends on a form that cannot advance, and carries the two options I-62 left", () => {
+    const summary = pipelineConfigFormsDoc.forms.pcSummaryUF;
+    expect(summary.actions.map((a) => a.action)).toEqual([
+      "ufPrevious",
+      "ufCancel",
+      "ufCompleted",
+    ]);
+    // I-62's second half, built here because this flow is its only consumer: four
+    // `defaultValue` sites in the 50-form corpus and two `digitsOnly`, all six on
+    // these twelve forms.
+    const ruleConfig = summary.rows.flat().find((f) => "key" in f && f.key === "rule_config_json");
+    expect(ruleConfig).toMatchObject({ defaultValue: "[]", isReadOnly: true });
+    const lookback = pipelineConfigFormsDoc.forms.pcNewProcessInputDialog.rows
+      .flat()
+      .find((f) => "key" in f && f.key === "lookback_periods");
+    expect(lookback).toMatchObject({ defaultValue: "0", textRestriction: "digitsOnly" });
   });
 });
 

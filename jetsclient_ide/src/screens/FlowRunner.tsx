@@ -57,6 +57,7 @@ import type { ActionConfig } from "../datatable/types";
 import { useNotifications } from "../shell/notifications";
 import { FormRenderer } from "../userflow/FormRenderer";
 import type { FormAction } from "../userflow/form";
+import { resolveQuery } from "../userflow/formQueries";
 import { useFormQueries } from "../userflow/useFormQueries";
 import {
   advance,
@@ -304,12 +305,50 @@ export function FlowRunner({ api }: { api: ApiClient }) {
 
   const host: ActionHost = useMemo(
     () => ({
+      /**
+       * Runs a registered statement and returns its first row by column name.
+       * Task F.6.
+       *
+       * **This threw until now, and the comment it replaces named the flow that
+       * would fix it.** The one Dart site is `getProcessInputRdfTypes`
+       * (`modules/actions/utils/get_process_info.dart`,
+       * `getProcessInputRdfTypes`), reached by `pcAddPipelineConfigUF`.
+       *
+       * **`raw_query_map` rather than `raw_query`, so this shares I.2b's
+       * transport** — the same one request a form's item sources go through,
+       * with the same `{key}` substitution and the same literal quoting
+       * (`userflow/formQueries.ts`). The Dart uses `raw_query` here and
+       * `raw_query_map` for a form's queries; collapsing to one is the port's
+       * choice and it is the one that already had a tested substitution path.
+       *
+       * **Positional rows become a map here rather than in the interpreter**,
+       * because naming the columns is the registered query's job and the step's
+       * `into` is written against those names. A statement whose row is shorter
+       * than its declared columns yields nulls for the rest, which is what the
+       * interpreter already writes for a column the row does not carry.
+       */
       query: async (name: string) => {
-        // The one Dart site is `getProcessInputRdfTypes`, in a flow track F has
-        // not reached. Refusing loudly beats returning null, which the
-        // interpreter reads as "no rows" and reports as data rather than as a
-        // build gap.
-        throw new Error(`named query "${name}" is not registered in this build`);
+        const registered = productionRegistry.queries[name];
+        if (registered === undefined) {
+          // `resolveEscapes` refuses the set at load, so this is unreachable from
+          // a loaded flow and says so rather than reporting an empty result.
+          throw new Error(`named query "${name}" is not registered in this build`);
+        }
+        const sql = resolveQuery(
+          { sql: registered.sql, ...(registered.params ? { params: [...registered.params] } : {}) },
+          formState,
+        );
+        // A missing parameter is "no rows", which is the branch the Dart takes
+        // when its own statement finds nothing: `getProcessInputRdfTypes` returns
+        // null and the arm stops with "No rows returned".
+        if (sql === null) return null;
+        const body = await queryPost({ action: "raw_query_map", query_map: { [name]: sql } });
+        const rows = body.result_map?.[name];
+        if (!Array.isArray(rows) || rows.length === 0) return null;
+        const first = rows[0] as (string | null)[];
+        return Object.fromEntries(
+          registered.columns.map((column, index) => [column, first[index] ?? null]),
+        );
       },
       validate: () => {
         if (currentForm === null) return true;
@@ -340,7 +379,7 @@ export function FlowRunner({ api }: { api: ApiClient }) {
       userEmail: () => api.currentUser?.email ?? "",
       now: () => Date.now(),
     }),
-    [api, currentForm, exit, formState, setError, setStatus, validator],
+    [api, currentForm, exit, formState, queryPost, setError, setStatus, validator],
   );
 
   const runNamedAction = useCallback(
