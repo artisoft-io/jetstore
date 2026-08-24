@@ -27,8 +27,22 @@ var minPartSize int = 5*1024*1024 + 10 // 5 MB is the min part size for s3 multi
 
 // Function to merge the partfiles into a single file by streaming the content
 // to s3 using a channel. This is run in the main thread, so no need to have
-// a result channel back to the caller.
-func (cpCtx *ComputePipesContext) StartMergeFiles(dbpool *pgxpool.Pool) (cpErr error) {
+// a result channel back to the caller — the result is returned instead.
+//
+// The result is the merge's synthetic edge for
+// jetsapi.pipeline_execution_channel_details: without it a merge worker writes
+// no child row at all and zero in every row count, which makes it invisible to
+// every count-based reading of the record. It is returned once the destination
+// is known, so a merge that fails afterwards still records where it was writing
+// — the worker row carries the failure, and an arrival check that finds nothing
+// at the location is exactly the signal wanted.
+//
+// RowCountUnknown is set because the multipart-copy path moves bytes and never
+// parses a record: there is no number to report, and 0 would read as a
+// collapse. It is set on both paths rather than only on the copy path, since a
+// column that means a count on one path and a placeholder on the other is worse
+// than one that is honestly absent.
+func (cpCtx *ComputePipesContext) StartMergeFiles(dbpool *pgxpool.Pool) (result *ComputePipesResult, cpErr error) {
 
 	log.Println("Entering StartMergeFiles")
 
@@ -143,6 +157,26 @@ func (cpCtx *ComputePipesContext) StartMergeFiles(dbpool *pgxpool.Pool) (cpErr e
 	log.Printf("%s node %d merging %d files to '%s' in bucket '%s' with format %s and compression %s",
 		cpCtx.SessionId, cpCtx.NodeId, nbrFiles, outputS3FileKey, externalBucket, format, compression)
 
+	// The destination is known here, on both merge paths, and is the pair the
+	// line above logs. Bucket resolution is the readers' own: an empty
+	// externalBucket means the JetStore bucket (actions_s3_utils.go,
+	// DownloadS3Object).
+	bucket := externalBucket
+	if bucket == "" || bucket == "jetstore_bucket" {
+		bucket = awsi.JetStoreBucket()
+	}
+	result = &ComputePipesResult{
+		Type:          SinkOutputFile,
+		InputChannel:  inputChannel.Name,
+		OutputChannel: outputFileConfig.Key,
+		// OutputChannelSpec and EntityName are empty and meaningful under
+		// output_type = output_file: an OutputFileSpec carries no
+		// channel_spec_name, and the file is named by OutputChannel already.
+		OutputLocation:  fmt.Sprintf("s3://%s/%s", bucket, outputS3FileKey),
+		PartsCount:      1,
+		RowCountUnknown: true,
+	}
+
 	var writeHeaders bool
 	var skipInputHeaders bool
 	switch {
@@ -180,7 +214,8 @@ func (cpCtx *ComputePipesContext) StartMergeFiles(dbpool *pgxpool.Pool) (cpErr e
 		err := fmt.Errorf("error: unexpected case when determining whether to write headers in merged file, input format: %s, output format: %s, number of input files: %d",
 			inputChannel.Format, format, nbrFiles)
 		log.Println(err)
-		return err
+		cpErr = err
+		return
 	}
 
 	// Determine the headers to write

@@ -1656,7 +1656,7 @@
   {
     "schemaName": "jetsapi",
     "tableName": "pipeline_execution_channel_details",
-    "description": "Child of pipeline_execution_details: one row per DAG edge (input channel, output channel) of a worker, so the data flow through a run's compute graph can be reconstructed. The parent row keeps its one-row-per-worker grain and its output_records_count remains the sum over these rows.",
+    "description": "Child of pipeline_execution_details: one row per DAG edge (input channel, output channel) of a worker, so the data flow through a run's compute graph can be reconstructed. The parent row keeps its one-row-per-worker grain and its output_records_count remains the sum over these rows, read as coalesce(sum(child), 0) since a merge_files step records a NULL row count.",
     "columns": [
       {
         "columnName": "key",
@@ -1698,7 +1698,7 @@
       },
       {
         "columnName": "output_type",
-        "description": "Sink kind: db_table or jets_partition",
+        "description": "Sink kind: db_table, jets_partition, or output_file for the single file a merge_files step writes. It is the discriminant for how output_entity, output_channel_spec and output_location are to be read",
         "dataType": "text",
         "default": "''",
         "isNotNull": true
@@ -1706,6 +1706,13 @@
       {
         "columnName": "output_entity",
         "description": "Sink identity when the row has a single sink: the schema-qualified table, or the jets_partition label. Empty when output_sinks_count > 1",
+        "dataType": "text",
+        "default": "''",
+        "isNotNull": true
+      },
+      {
+        "columnName": "output_location",
+        "description": "Where the data was physically written, as a URI with env vars already substituted: s3://<bucket>/<prefix> for a file sink, sql://<schema>.<table> for a database one. The prefix rather than the per-sink path, so it is one value for an edge that folds several sinks. Empty under a known output_type means the sink has no physical location - a memory channel never leaves the process - and must not be read as a lost write",
         "dataType": "text",
         "default": "''",
         "isNotNull": true
@@ -1719,6 +1726,7 @@
       },
       {
         "columnName": "output_records_count",
+        "description": "Rows that crossed the edge. NULL rather than 0 when no row count exists for the sink: a merge_files step moves bytes and never parses a record, and 0 there would read as a collapse",
         "dataType": "long"
       },
       {

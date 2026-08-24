@@ -52,12 +52,17 @@ func NewWriteTableSource(source <-chan []any, tableIdentifier pgx.Identifier, co
 // result returns the ComputePipesResult for this writer, identifying the DAG
 // edge it is: from its input channel to the output table it writes.
 func (wt *WriteTableSource) result() ComputePipesResult {
+	// The destination is the same runtime value as EntityName: schema-qualified
+	// and with env vars already substituted, which TableSpec.Name is not. So
+	// "sql://" buys notation uniformity with the file sinks rather than
+	// information, and it must be built from here rather than from the config.
 	return ComputePipesResult{
 		Type:              SinkDbTable,
 		EntityName:        wt.tableIdentifier.Sanitize(),
 		InputChannel:      wt.inputChannel,
 		OutputChannel:     wt.outputChannel,
 		OutputChannelSpec: wt.channelSpec,
+		OutputLocation:    "sql://" + wt.tableIdentifier.Sanitize(),
 	}
 }
 

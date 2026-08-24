@@ -15,6 +15,14 @@ import (
 const (
 	SinkDbTable       = "db_table"       // written by WriteTableSource (write_table.go)
 	SinkJetsPartition = "jets_partition" // written by PartitionWriterTransformationPipe
+	// SinkOutputFile is the merge_files operator's single output file. It is not
+	// an output *channel*: OutputFiles sits on the config and a merge_files pipe
+	// names one through PipeSpec.OutputFile, so there is no edge in the compute
+	// graph to report and the row is synthesised by StartMergeFiles. The pair
+	// (input channel, output channel) degenerates to (the merge input channel,
+	// the OutputFileSpec key), which is the same degeneracy SinkDbTable already
+	// carries for output_tables[].key.
+	SinkOutputFile = "output_file" // written by StartMergeFiles (pipe_executor_merge_files.go)
 )
 
 // ComputePipesResult is what a writer reports back when it is done: which edge
@@ -57,6 +65,24 @@ type ComputePipesResult struct {
 	// channel_spec_name. So the two columns are the edge and the shape of what
 	// crosses it, and neither substitutes for the other.
 	OutputChannelSpec string
+	// OutputLocation is where the data was physically written, as a URI with
+	// env vars already substituted: "s3://<bucket>/<prefix>" for a file sink,
+	// "sql://<schema>.<table>" for a database one. It is the prefix rather than
+	// the per-sink path — a splitter writes one output channel into many
+	// jets_partitions and the edge row is their aggregate, so a per-sink path
+	// would reintroduce the aggregation the edge grain exists to remove.
+	//
+	// Empty is meaningful rather than unknown, and Type is the discriminant: a
+	// "memory" edge never left the process and has no physical location. A
+	// reader must not take an empty location under a known Type for a lost
+	// write.
+	OutputLocation string
+	// RowCountUnknown says that CopyRowCount is not a measurement: no row count
+	// exists for this sink. The merge_files multipart-copy path moves bytes and
+	// never parses a record, so 0 there would be a collapse to any detector
+	// reading it. The zero value means the count is known, so every writer that
+	// counts rows is untouched.
+	RowCountUnknown bool
 	// PartsCount is nbr of file part in jets_partition
 	CopyRowCount int64
 	PartsCount   int64
@@ -143,14 +169,20 @@ func (ctx *SaveResultsContext) Save(category string, result *ComputePipesResult)
 // the 15000-buffer of pipes_runtime_model.go:218 — and the edge is their sum;
 // EntityName is carried only when the row has a single sink, so an aggregate is
 // never mistaken for an instance.
+//
+// OutputLocation is the destination of the edge, identical across the sinks it
+// folds; RowCountUnknown makes RowCount NULL in the row rather than 0, since 0
+// is a measurement and NULL is "not measurable here".
 type ChannelExecutionDetail struct {
 	InputChannel      string
 	OutputChannel     string
 	OutputChannelSpec string
 	OutputType        string
 	OutputEntity      string
+	OutputLocation    string
 	SinksCount        int
 	RowCount          int64
+	RowCountUnknown   bool
 	PartsCount        int64
 	ErrMsg            string
 }
@@ -177,12 +209,19 @@ func AggregateChannelResults(results []ComputePipesResult) []ChannelExecutionDet
 				OutputChannelSpec: r.OutputChannelSpec,
 				OutputType:        r.Type,
 				OutputEntity:      r.EntityName,
+				// The location is the edge's, not the sink's: it is taken from
+				// the first result and is the same string on all of them, the
+				// same way OutputChannelSpec is.
+				OutputLocation: r.OutputLocation,
 			}
 			byEdge[k] = d
 			order = append(order, k)
 		}
 		d.SinksCount += 1
 		d.RowCount += r.CopyRowCount
+		// One sink that cannot count makes the edge total not a measurement:
+		// summing a number with a non-number gives a number that means nothing.
+		d.RowCountUnknown = d.RowCountUnknown || r.RowCountUnknown
 		d.PartsCount += r.PartsCount
 		if r.Err != nil {
 			if len(d.ErrMsg) > 0 {
@@ -219,7 +258,11 @@ func AggregateChannelResults(results []ComputePipesResult) []ChannelExecutionDet
 // by update_db, which a deployment can lag behind). The caller does not
 // propagate it. A missing or partial child set is detectable rather than
 // silent — the parent's output_records_count is the sum over these rows, so
-// sum(child) != parent is the check.
+// sum(child) != parent is the check. That check is
+// coalesce(sum(child), 0) != parent since a merge step records a NULL row
+// count, and it is correspondingly weaker for merge steps: they satisfy it at 0
+// on both sides. That is the price of not inventing a row count for a path that
+// moves bytes without parsing a record.
 func InsertChannelExecutionDetails(dbpool *pgxpool.Pool, pipelineExecutionDetailsKey int,
 	sessionId string, details []ChannelExecutionDetail) error {
 	if len(details) == 0 {
@@ -227,15 +270,21 @@ func InsertChannelExecutionDetails(dbpool *pgxpool.Pool, pipelineExecutionDetail
 	}
 	stmt := `INSERT INTO jetsapi.pipeline_execution_channel_details (
 		pipeline_execution_details_key, session_id, input_channel, output_channel,
-		output_channel_spec, output_type, output_entity, output_sinks_count,
-		output_records_count, parts_count, error_message)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`
+		output_channel_spec, output_type, output_entity, output_location,
+		output_sinks_count, output_records_count, parts_count, error_message)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`
 	for i := range details {
 		d := &details[i]
+		// NULL rather than 0 when no row count exists for the sink; the column
+		// is nullable, so this needs no schema change.
+		var rowCount any = d.RowCount
+		if d.RowCountUnknown {
+			rowCount = nil
+		}
 		_, err := dbpool.Exec(context.Background(), stmt,
 			pipelineExecutionDetailsKey, sessionId, d.InputChannel, d.OutputChannel,
-			d.OutputChannelSpec, d.OutputType, d.OutputEntity, d.SinksCount,
-			d.RowCount, d.PartsCount, d.ErrMsg)
+			d.OutputChannelSpec, d.OutputType, d.OutputEntity, d.OutputLocation,
+			d.SinksCount, rowCount, d.PartsCount, d.ErrMsg)
 		if err != nil {
 			err = fmt.Errorf("error inserting in jetsapi.pipeline_execution_channel_details table: %v", err)
 			log.Println(err)
