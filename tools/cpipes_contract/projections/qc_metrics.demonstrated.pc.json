@@ -98,6 +98,7 @@
               "type": "partition_writer",
               "output_channel": {
                 "type": "memory",
+                "channel_spec_name": "partition_output.output_channel.memory.channel_spec_name",
                 "name": "partition_output.output_channel.memory.name"
               },
               "partition_writer_config": {

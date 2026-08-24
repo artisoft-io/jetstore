@@ -395,7 +395,7 @@ var CpipesContract = map[string]map[string]ContractField{
 	},
 	"FunctionTokenNode/parse_date": {
 		"comment":           {},
-		"parse_date_config": {},
+		"parse_date_config": {Required: true},
 		"type":              {Required: true},
 	},
 	"FunctionTokenNode/parse_double": {
@@ -687,14 +687,14 @@ var CpipesContract = map[string]map[string]ContractField{
 		"think":                     {},
 	},
 	"OutputChannelConfig/memory": {
-		"channel_spec_name": {},
+		"channel_spec_name": {Required: true},
 		"comment":           {},
 		"name":              {Required: true},
 		"type":              {},
 	},
 	"OutputChannelConfig/output": {
 		"bucket":                         {},
-		"channel_spec_name":              {},
+		"channel_spec_name":              {Required: true},
 		"comment":                        {},
 		"compression":                    {Values: []string{"none", "snappy"}},
 		"delimiter":                      {},
@@ -730,7 +730,7 @@ var CpipesContract = map[string]map[string]ContractField{
 	},
 	"OutputChannelConfig/stage": {
 		"bucket":                         {},
-		"channel_spec_name":              {},
+		"channel_spec_name":              {Required: true},
 		"comment":                        {},
 		"compression":                    {Values: []string{"none", "snappy"}},
 		"delimiter":                      {},

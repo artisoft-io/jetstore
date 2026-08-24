@@ -422,7 +422,7 @@ class FunctionTokenNodeBase(_Base):
 class FunctionTokenNodeParseDate(FunctionTokenNodeBase):
     """Function to identify columns containing dates using a date parser with a collection of date formats."""
     type: Literal["parse_date"] = Field(description="Type: parse_date, parse_double, parse_text MinMaxDateFormat: Date parser, Type: parse_date ParseDateArguments: for Type: parse_date Large_Double: for Type: parse_double")
-    parse_date_config: ParseDateSpec | None = Field(default=None, description="Configuration of the parse_date function.")
+    parse_date_config: ParseDateSpec = Field(description="Configuration of the parse_date function.")
 
 
 class FunctionTokenNodeParseDouble(FunctionTokenNodeBase):
@@ -762,13 +762,13 @@ class OllamaSpec(_Base):
 
 class OutputChannelConfigBase(_Base):
     """OutputChannelConfig: Configuration for in-memory channel to pass records between transformation operators."""
-    channel_spec_name: str | None = Field(default=None, description="Key of the channels entry providing this channel's spec, when it differs from name.")
     comment: str | None = Field(default=None, description="Free text for the reader; ignored by JetStore.")
 
 
 class OutputChannelConfigMemory(OutputChannelConfigBase):
     """Configuration for in-memory channel to pass records between transformation operators."""
     type: Literal["memory"] = Field(default="memory", description="The channel type. Range: memory (default), stage, output, sql. Engine default: memory (validator).")
+    channel_spec_name: str = Field(description="Key of the channels entry providing this channel's spec, when it differs from name.")
     name: str = Field(description="Name: output channel name, required (must exist in the channels section of the config document) Format: file format, range values: csv, headerless_csv, fixed_width. NbrRowsInRecord: nbr of rows in record (applicable to format: parquet) Compression: none, snappy (default). Does not apply to parquet format (always snappy). UseInputParquetSchema to use the same schema as the input file. UseOriginalHeaders to use the headers from the input file (csv only). Must have save_parquet_schema = true in the cpipes first input_channel. OutputLocation: jetstore_s3_schema_events, jetstore_s3_input, jetstore_s3_output (default), or custom location. When OutputLocation is jetstore_s3_input it will also write to the input bucket. When using jetstore_s3_input and jetstore_s3_schema_events you must specify WriteStepId to specify the step id in stage location to output the file. When OutputLocation uses a custom location, it replaces KeyPrefix and FileName. OutputLocation must ends with \"/\" if we want to use default file name (i.e. OutputLocation does not include the file name).")
 
 
@@ -776,6 +776,7 @@ class OutputChannelConfigStage(OutputChannelConfigBase):
     """Configuration for a channel writing to JetStore stage s3 location."""
     type: Literal["stage"] = Field(description="The channel type. Range: memory (default), stage, output, sql.")
     bucket: str | None = Field(default=None, description="S3 bucket holding the file.")
+    channel_spec_name: str = Field(description="Key of the channels entry providing this channel's spec, when it differs from name.")
     compression: Literal["none", "snappy"] | None = Field(default=None, description="Compression: none, snappy (default). Does not apply to parquet format (always snappy). UseInputParquetSchema to use the same schema as the input file. UseOriginalHeaders to use the headers from the input file (csv only). Must have save_parquet_schema = true in the cpipes first input_channel. OutputLocation: jetstore_s3_schema_events, jetstore_s3_input, jetstore_s3_output (default), or custom location. When OutputLocation is jetstore_s3_input it will also write to the input bucket. When using jetstore_s3_input and jetstore_s3_schema_events you must specify WriteStepId to specify the step id in stage location to output the file. When OutputLocation uses a custom location, it replaces KeyPrefix and FileName. OutputLocation must ends with \"/\" if we want to use default file name (i.e. OutputLocation does not include the file name).")
     delimiter: int | None = Field(default=None, description="Field delimiter, as a code point (a json number). Engine default: 44 (validator).")
     domain_class: str | None = Field(default=None, description="Domain class of the records.")
@@ -805,6 +806,7 @@ class OutputChannelConfigOutput(OutputChannelConfigBase):
     """Configuration for a channel writing to a specified s3 location."""
     type: Literal["output"] = Field(description="The channel type. Range: memory (default), stage, output, sql.")
     bucket: str | None = Field(default=None, description="S3 bucket holding the file.")
+    channel_spec_name: str = Field(description="Key of the channels entry providing this channel's spec, when it differs from name.")
     compression: Literal["none", "snappy"] | None = Field(default=None, description="Compression: none, snappy (default). Does not apply to parquet format (always snappy). UseInputParquetSchema to use the same schema as the input file. UseOriginalHeaders to use the headers from the input file (csv only). Must have save_parquet_schema = true in the cpipes first input_channel. OutputLocation: jetstore_s3_schema_events, jetstore_s3_input, jetstore_s3_output (default), or custom location. When OutputLocation is jetstore_s3_input it will also write to the input bucket. When using jetstore_s3_input and jetstore_s3_schema_events you must specify WriteStepId to specify the step id in stage location to output the file. When OutputLocation uses a custom location, it replaces KeyPrefix and FileName. OutputLocation must ends with \"/\" if we want to use default file name (i.e. OutputLocation does not include the file name).")
     delimiter: int | None = Field(default=None, description="Field delimiter, as a code point (a json number). Engine default: 44 (validator).")
     domain_class: str | None = Field(default=None, description="Domain class of the records.")
@@ -833,6 +835,7 @@ class OutputChannelConfigOutput(OutputChannelConfigBase):
 class OutputChannelConfigSql(OutputChannelConfigBase):
     """Configuration for a channel writing records to JetStore db (postgres)."""
     type: Literal["sql"] = Field(description="The channel type. Range: memory (default), stage, output, sql.")
+    channel_spec_name: str | None = Field(default=None, description="Key of the channels entry providing this channel's spec, when it differs from name.")
     name: str | None = Field(default=None, description="Name: output channel name, required (must exist in the channels section of the config document) Format: file format, range values: csv, headerless_csv, fixed_width. NbrRowsInRecord: nbr of rows in record (applicable to format: parquet) Compression: none, snappy (default). Does not apply to parquet format (always snappy). UseInputParquetSchema to use the same schema as the input file. UseOriginalHeaders to use the headers from the input file (csv only). Must have save_parquet_schema = true in the cpipes first input_channel. OutputLocation: jetstore_s3_schema_events, jetstore_s3_input, jetstore_s3_output (default), or custom location. When OutputLocation is jetstore_s3_input it will also write to the input bucket. When using jetstore_s3_input and jetstore_s3_schema_events you must specify WriteStepId to specify the step id in stage location to output the file. When OutputLocation uses a custom location, it replaces KeyPrefix and FileName. OutputLocation must ends with \"/\" if we want to use default file name (i.e. OutputLocation does not include the file name). Engine default: computed (validator).")
     output_table_key: str = Field(description="Key of the output_tables entry to write to (type sql).")
 

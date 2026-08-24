@@ -5513,15 +5513,7 @@
           "title": "Comment"
         },
         "parse_date_config": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/ParseDateSpec"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
+          "$ref": "#/$defs/ParseDateSpec",
           "description": "Configuration of the parse_date function."
         },
         "type": {
@@ -5532,7 +5524,8 @@
         }
       },
       "required": [
-        "type"
+        "type",
+        "parse_date_config"
       ],
       "title": "FunctionTokenNodeParseDate",
       "type": "object"
@@ -9796,19 +9789,6 @@
       "additionalProperties": false,
       "description": "OutputChannelConfig: Configuration for in-memory channel to pass records between transformation operators.",
       "properties": {
-        "channel_spec_name": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Key of the channels entry providing this channel's spec, when it differs from name.",
-          "title": "Channel Spec Name"
-        },
         "comment": {
           "anyOf": [
             {
@@ -9831,17 +9811,9 @@
       "description": "Configuration for in-memory channel to pass records between transformation operators.",
       "properties": {
         "channel_spec_name": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
           "description": "Key of the channels entry providing this channel's spec, when it differs from name.",
-          "title": "Channel Spec Name"
+          "title": "Channel Spec Name",
+          "type": "string"
         },
         "comment": {
           "anyOf": [
@@ -9870,6 +9842,7 @@
         }
       },
       "required": [
+        "channel_spec_name",
         "name"
       ],
       "title": "OutputChannelConfigMemory",
@@ -9893,17 +9866,9 @@
           "title": "Bucket"
         },
         "channel_spec_name": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
           "description": "Key of the channels entry providing this channel's spec, when it differs from name.",
-          "title": "Channel Spec Name"
+          "title": "Channel Spec Name",
+          "type": "string"
         },
         "comment": {
           "anyOf": [
@@ -10240,6 +10205,7 @@
       },
       "required": [
         "type",
+        "channel_spec_name",
         "name"
       ],
       "title": "OutputChannelConfigOutput",
@@ -10325,17 +10291,9 @@
           "title": "Bucket"
         },
         "channel_spec_name": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
           "description": "Key of the channels entry providing this channel's spec, when it differs from name.",
-          "title": "Channel Spec Name"
+          "title": "Channel Spec Name",
+          "type": "string"
         },
         "comment": {
           "anyOf": [
@@ -10672,6 +10630,7 @@
       },
       "required": [
         "type",
+        "channel_spec_name",
         "name"
       ],
       "title": "OutputChannelConfigStage",
