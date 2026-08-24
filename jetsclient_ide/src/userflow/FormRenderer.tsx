@@ -243,6 +243,8 @@ function FieldView({
           {...(field.maxLength !== undefined ? { maxLength: field.maxLength } : {})}
           {...(field.autofocus !== undefined ? { autofocus: field.autofocus } : {})}
           {...(field.isReadOnly !== undefined ? { isReadOnly: field.isReadOnly } : {})}
+          {...(field.defaultValue !== undefined ? { defaultValue: field.defaultValue } : {})}
+          {...(field.textRestriction !== undefined ? { textRestriction: field.textRestriction } : {})}
           {...(error !== undefined ? { error } : {})}
         />
       );

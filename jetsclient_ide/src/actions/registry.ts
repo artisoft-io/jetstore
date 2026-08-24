@@ -41,6 +41,11 @@
  * `hasDataRegistryFilters` was the *only* predicate because `tableTranslate.ts`
  * sent every closure to it — true of the 37 flow tables and false of all three on
  * `pipelineExecStatusTable`. See that file's header for the mapping.
+ *
+ * **And `queries`, F.6's seventh namespace, holds the corpus's one registered
+ * statement** — `processInputRdfTypes`, in `queries.ts` because it is one flow's
+ * and belongs beside nothing else. It is data rather than a body, which is the
+ * one way it differs from the six above and is argued in `escapes.ts`.
  */
 
 import type { FormState } from "../datatable/formState";
@@ -53,6 +58,7 @@ import {
   seedFromHomeFilters,
   updateHomeFilters,
 } from "./homeFilters";
+import { productionQueries } from "./queries";
 import type { EscapeRegistry } from "./escapes";
 
 /**
@@ -149,4 +155,5 @@ export const productionRegistry: EscapeRegistry = {
   validators: { mappingFormValidator, homeFiltersFormValidator },
   cellFilters: { fileKeyLabel },
   predicates: { hasDataRegistryFilters, hasHomeFilters, alwaysEnabled },
+  queries: productionQueries,
 };

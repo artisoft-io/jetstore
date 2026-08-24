@@ -261,10 +261,42 @@ async function runStep(step: Step, run: ActionRun): Promise<{ done: boolean; out
       clearPublishedSelection(formState, { group, key: step.key }, undefined);
       return carryOn;
 
+    /**
+     * Append one value, or every element of a list value. Widened by F.6.
+     *
+     * **The list case is not a new capability so much as the removal of a silent
+     * truncation.** This step used to read `unpack(evaluate(...))`, which takes
+     * the *first* element of an array — so `appendUnique` with a `fromKeyList`
+     * appended one item and dropped the rest, with nothing to see. No document
+     * did that until now, which is why it went unnoticed: every prior site
+     * appends a scalar, and `fromKey` already evaluates to one.
+     *
+     * `pcPrepareSummaryUF` is the first arm that concatenates two *lists* and a
+     * scalar — `[injected, merged, main].expand((x) => x)`
+     * (`pipeline_config/form_action_delegates.dart`, `pcPrepareSummaryUF`) — and
+     * under the old reading the summary table would have shown the main data
+     * source, the first merged one and nothing else.
+     *
+     * **A step rather than a new value form**, because what changes is what
+     * *append* means when handed a list, not what a value is: `fromKeyList`
+     * already denotes a list everywhere else it appears. F.4's rule stands — two
+     * `set` steps beat a new primitive — and the same test applies here: nothing
+     * new is expressible, one thing stopped being lost.
+     *
+     * **`removeFrom` is deliberately untouched.** Its two sites remove a single
+     * selected key and no delegate removes a set, so widening it would be
+     * building for nobody — the reason I-62 gives for leaving `defaultValue`
+     * unbuilt until F.6 needed it.
+     */
     case "appendUnique": {
       const list = unpackToList(formState.getValue(group, step.listKey)) ?? [];
-      const value = unpack(evaluate(step.value, context));
-      if (value !== null && !list.includes(value)) list.push(value);
+      const evaluated = evaluate(step.value, context);
+      const values = Array.isArray(evaluated)
+        ? evaluated.map((element) => unpack(element))
+        : [unpack(evaluated)];
+      for (const value of values) {
+        if (value !== null && !list.includes(value)) list.push(value);
+      }
       formState.setValue(group, step.listKey, list as never);
       return carryOn;
     }

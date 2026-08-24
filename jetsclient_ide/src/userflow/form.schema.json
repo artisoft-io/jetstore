@@ -169,6 +169,18 @@
             "isReadOnly": {
               "type": "boolean"
             },
+            "defaultValue": {
+              "type": "string"
+            },
+            "textRestriction": {
+              "type": "string",
+              "enum": [
+                "none",
+                "allLower",
+                "allUpper",
+                "digitsOnly"
+              ]
+            },
             "rules": {
               "type": "array",
               "items": {

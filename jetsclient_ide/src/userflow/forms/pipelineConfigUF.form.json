@@ -1,0 +1,423 @@
+{
+  "schemaVersion": 1,
+  "forms": {
+    "pcAddOrEditPipelineConfigUF": {
+      "rows": [
+        [{ "field": "spacer" }],
+        [
+          {
+            "field": "dataTable",
+            "key": "pcAddOrEditPipelineConfigOption",
+            "table": "pcAddOrEditPipelineConfigOption",
+            "rules": [{ "rule": "required", "message": "Please select an option." }]
+          }
+        ]
+      ],
+      "actions": [
+        { "action": "ufPrevious", "label": "Previous", "style": "primary" },
+        { "action": "ufCancel", "label": "Cancel", "style": "primary" },
+        { "action": "ufNext", "label": "Next", "style": "secondary" }
+      ]
+    },
+    "pcAddPipelineConfigUF": {
+      "queries": {
+        "clients": {
+          "sql": "SELECT client FROM jetsapi.client_registry ORDER BY client ASC LIMIT 150"
+        },
+        "processes": {
+          "sql": "SELECT process_name, key FROM jetsapi.process_config ORDER BY process_name ASC LIMIT 100"
+        }
+      },
+      "rows": [
+        [{ "field": "spacer" }],
+        [
+          {
+            "field": "dropdown",
+            "key": "client",
+            "label": "Client",
+            "items": [{ "value": "", "label": "Select a Client" }],
+            "itemsFrom": "clients",
+            "rules": [{ "rule": "required", "message": "Please select an option." }]
+          }
+        ],
+        [{ "field": "spacer" }],
+        [
+          {
+            "field": "dropdown",
+            "key": "process_name",
+            "label": "Process",
+            "items": [{ "value": "", "label": "Select a process" }],
+            "itemsFrom": "processes",
+            "rules": [{ "rule": "required", "message": "Please select an option." }]
+          }
+        ],
+        [{ "field": "spacer" }],
+        [
+          {
+            "field": "text",
+            "key": "description",
+            "label": "Description",
+            "hint": "Pipeline configuration description",
+            "maxLength": 512
+          }
+        ],
+        [{ "field": "spacer" }]
+      ],
+      "actions": [
+        { "action": "ufPrevious", "label": "Previous", "style": "primary" },
+        { "action": "ufCancel", "label": "Cancel", "style": "primary" },
+        { "action": "ufNext", "label": "Next", "style": "secondary" }
+      ]
+    },
+    "pcSelectPipelineConfigUF": {
+      "rows": [
+        [
+          {
+            "field": "dataTable",
+            "key": "pcPipelineConfigTable",
+            "table": "pcPipelineConfigTable",
+            "rules": [{ "rule": "required", "message": "Please select an option." }]
+          }
+        ]
+      ],
+      "actions": [
+        { "action": "ufPrevious", "label": "Previous", "style": "primary" },
+        { "action": "ufCancel", "label": "Cancel", "style": "primary" },
+        { "action": "ufNext", "label": "Next", "style": "secondary" }
+      ]
+    },
+    "pcSelectMainProcessInputUF": {
+      "rows": [
+        [
+          {
+            "field": "dataTable",
+            "key": "pcMainProcessInputKey",
+            "table": "pcMainProcessInputKey",
+            "rules": [{ "rule": "required", "message": "Please select an option." }]
+          }
+        ]
+      ],
+      "actions": [
+        { "action": "ufPrevious", "label": "Previous", "style": "primary" },
+        { "action": "ufCancel", "label": "Cancel", "style": "primary" },
+        { "action": "ufNext", "label": "Next", "style": "secondary" }
+      ]
+    },
+    "pcViewMergeProcessInputsUF": {
+      "rows": [
+        [
+          {
+            "field": "dataTable",
+            "key": "pcViewMergedProcessInputKeys",
+            "table": "pcViewMergedProcessInputKeys"
+          }
+        ],
+        [
+          {
+            "field": "button",
+            "action": "pcGotToAddMergeProcessInputUF",
+            "label": "Add Data Source to Merge",
+            "style": "primary"
+          },
+          { "field": "spacer" },
+          { "field": "spacer" }
+        ]
+      ],
+      "actions": [
+        { "action": "ufPrevious", "label": "Previous", "style": "primary" },
+        { "action": "ufCancel", "label": "Cancel", "style": "primary" },
+        { "action": "ufNext", "label": "Next", "style": "secondary" }
+      ]
+    },
+    "pcViewInjectedProcessInputsUF": {
+      "rows": [
+        [
+          {
+            "field": "dataTable",
+            "key": "pcViewInjectedProcessInputKeys",
+            "table": "pcViewInjectedProcessInputKeys"
+          }
+        ],
+        [{ "field": "spacer" }],
+        [
+          {
+            "field": "button",
+            "action": "pcGotToAddInjectedProcessInputUF",
+            "label": "Add Data Source for Historical Data",
+            "style": "primary"
+          },
+          { "field": "spacer" },
+          { "field": "spacer" }
+        ]
+      ],
+      "actions": [
+        { "action": "ufPrevious", "label": "Previous", "style": "primary" },
+        { "action": "ufCancel", "label": "Cancel", "style": "primary" },
+        { "action": "ufNext", "label": "Next", "style": "secondary" }
+      ]
+    },
+    "pcAddMergeProcessInputsUF": {
+      "rows": [
+        [
+          {
+            "field": "dataTable",
+            "key": "pcMergedProcessInputKeys",
+            "table": "pcMergedProcessInputKeys",
+            "rules": [{ "rule": "required", "message": "Please select an option." }]
+          }
+        ]
+      ],
+      "actions": [
+        { "action": "ufPrevious", "label": "Previous", "style": "primary" },
+        { "action": "ufCancel", "label": "Cancel", "style": "primary" },
+        { "action": "ufNext", "label": "Next", "style": "secondary" }
+      ]
+    },
+    "pcAddInjectedProcessInputsUF": {
+      "rows": [
+        [
+          {
+            "field": "dataTable",
+            "key": "pcInjectedProcessInputKeys",
+            "table": "pcInjectedProcessInputKeys",
+            "rules": [{ "rule": "required", "message": "Please select an option." }]
+          }
+        ]
+      ],
+      "actions": [
+        { "action": "ufPrevious", "label": "Previous", "style": "primary" },
+        { "action": "ufCancel", "label": "Cancel", "style": "primary" },
+        { "action": "ufNext", "label": "Next", "style": "secondary" }
+      ]
+    },
+    "pcAutomationUF": {
+      "rows": [
+        [
+          {
+            "field": "dropdown",
+            "key": "source_period_type",
+            "label": "Execution Frequency",
+            "items": [
+              { "value": "", "label": "Select execution frequency" },
+              { "value": "month_period", "label": "Monthly" },
+              { "value": "week_period", "label": "Weekly" },
+              { "value": "day_period", "label": "Daily" }
+            ],
+            "defaultItemPos": 1,
+            "rules": [{ "rule": "required", "message": "Please select an option." }]
+          },
+          {
+            "field": "dropdown",
+            "key": "automated",
+            "label": "Automation Mode",
+            "items": [
+              { "value": "", "label": "Select automation mode" },
+              { "value": "1", "label": "Automated" },
+              { "value": "0", "label": "Manual" }
+            ],
+            "defaultItemPos": 1,
+            "rules": [{ "rule": "required", "message": "Please select an option." }]
+          }
+        ],
+        [
+          {
+            "field": "label",
+            "text": "Paste or enter the Rule Configuration as json or csv:"
+          }
+        ],
+        [
+          {
+            "field": "text",
+            "key": "rule_config_json",
+            "label": "Rule Configuration (csv or json)",
+            "hint": "Pipeline-specific Rule Configuration",
+            "defaultValue": "[]",
+            "maxLines": 13,
+            "maxLength": 51200,
+            "rules": [{ "rule": "required", "message": "Please provide a value." }]
+          }
+        ],
+        [{ "field": "spacer" }]
+      ],
+      "actions": [
+        { "action": "ufPrevious", "label": "Previous", "style": "primary" },
+        { "action": "ufCancel", "label": "Cancel", "style": "primary" },
+        { "action": "ufNext", "label": "Next", "style": "secondary" }
+      ]
+    },
+    "pcSummaryUF": {
+      "title": "Pipeline Configuration Summary",
+      "rows": [
+        [
+          {
+            "field": "text",
+            "key": "client",
+            "label": "Client",
+            "isReadOnly": true,
+            "maxLength": 60,
+            "rules": [{ "rule": "required", "message": "Please select an option." }]
+          },
+          {
+            "field": "text",
+            "key": "process_name",
+            "label": "Process Name",
+            "isReadOnly": true,
+            "maxLength": 100,
+            "rules": [{ "rule": "required", "message": "Please select an option." }]
+          }
+        ],
+        [
+          {
+            "field": "dropdown",
+            "key": "source_period_type",
+            "label": "Execution Frequency",
+            "items": [
+              { "value": "", "label": "Select execution frequency" },
+              { "value": "month_period", "label": "Monthly" },
+              { "value": "week_period", "label": "Weekly" },
+              { "value": "day_period", "label": "Daily" }
+            ],
+            "isReadOnly": true,
+            "rules": [{ "rule": "required", "message": "Please select an option." }]
+          },
+          {
+            "field": "dropdown",
+            "key": "automated",
+            "label": "Automation Mode",
+            "items": [
+              { "value": "", "label": "Select automation mode" },
+              { "value": "1", "label": "Automated" },
+              { "value": "0", "label": "Manual" }
+            ],
+            "isReadOnly": true,
+            "rules": [{ "rule": "required", "message": "Please select an option." }]
+          }
+        ],
+        [
+          {
+            "field": "text",
+            "key": "description",
+            "label": "Description",
+            "hint": "Pipeline configuration description",
+            "maxLength": 512
+          }
+        ],
+        [{ "field": "spacer" }],
+        [
+          {
+            "field": "dataTable",
+            "key": "pcSummaryProcessInputs",
+            "table": "pcSummaryProcessInputs"
+          }
+        ],
+        [
+          {
+            "field": "text",
+            "key": "rule_config_json",
+            "label": "Rule Configuration CSV / Json",
+            "hint": "Enter a valid json array or csv with headers of configuration objects",
+            "isReadOnly": true,
+            "defaultValue": "[]",
+            "maxLength": 51200,
+            "rules": [{ "rule": "required", "message": "Please provide a value." }]
+          }
+        ]
+      ],
+      "actions": [
+        { "action": "ufPrevious", "label": "Previous", "style": "primary" },
+        { "action": "ufCancel", "label": "Cancel", "style": "primary" },
+        { "action": "ufCompleted", "label": "Save & Done", "style": "secondary" }
+      ]
+    },
+    "pcNewProcessInputDialog": {
+      "title": "New Process Input",
+      "rows": [
+        [
+          {
+            "field": "text",
+            "key": "client",
+            "label": "Client",
+            "isReadOnly": true,
+            "maxLength": 25,
+            "rules": [{ "rule": "required", "message": "Please select an option." }]
+          },
+          { "field": "spacer" },
+          { "field": "spacer" }
+        ],
+        [
+          {
+            "field": "dataTable",
+            "key": "pcProcessInputRegistry",
+            "table": "pcProcessInputRegistry",
+            "rules": [{ "rule": "required", "message": "Please select an option." }]
+          }
+        ],
+        [{ "field": "spacer" }],
+        [
+          {
+            "field": "text",
+            "key": "lookback_periods",
+            "label": "Lookback Periods",
+            "hint": "Number of periods to include in the rule session",
+            "defaultValue": "0",
+            "textRestriction": "digitsOnly",
+            "maxLength": 10,
+            "rules": [{ "rule": "required", "message": "Please provide a value." }]
+          },
+          { "field": "spacer" },
+          { "field": "spacer" }
+        ],
+        [{ "field": "spacer" }]
+      ],
+      "actions": [
+        { "action": "addProcessInputOk", "label": "Save", "style": "primary", "capability": "client_config" },
+        { "action": "dialogCancel", "label": "Cancel", "style": "secondary" }
+      ]
+    },
+    "pcNewProcessInputDialog4MI": {
+      "title": "New Process Input",
+      "rows": [
+        [
+          {
+            "field": "text",
+            "key": "client",
+            "label": "Client",
+            "isReadOnly": true,
+            "maxLength": 25,
+            "rules": [{ "rule": "required", "message": "Please select an option." }]
+          },
+          { "field": "spacer" },
+          { "field": "spacer" }
+        ],
+        [
+          {
+            "field": "dataTable",
+            "key": "pcProcessInputRegistry4MI",
+            "table": "pcProcessInputRegistry4MI",
+            "rules": [{ "rule": "required", "message": "Please select an option." }]
+          }
+        ],
+        [{ "field": "spacer" }],
+        [
+          {
+            "field": "text",
+            "key": "lookback_periods",
+            "label": "Lookback Periods",
+            "hint": "Number of periods to include in the rule session",
+            "defaultValue": "0",
+            "textRestriction": "digitsOnly",
+            "maxLength": 10,
+            "rules": [{ "rule": "required", "message": "Please provide a value." }]
+          },
+          { "field": "spacer" },
+          { "field": "spacer" }
+        ],
+        [{ "field": "spacer" }]
+      ],
+      "actions": [
+        { "action": "addProcessInputOk", "label": "Save", "style": "primary", "capability": "client_config" },
+        { "action": "dialogCancel", "label": "Cancel", "style": "secondary" }
+      ]
+    }
+  }
+}

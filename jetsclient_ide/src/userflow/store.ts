@@ -456,6 +456,17 @@ export function escapeReferences(flow: UserFlow, actions: ActionDocument): Escap
       if (step.do === "escape") {
         references.push({ kind: "actions", name: step.name, at: `/actions/${name}/steps/${index}` });
       }
+      // **A `query` step's name resolves out of the build too. Task F.6.**
+      // `schema.ts` says so — *"`name` is a registered query, not SQL"* — and
+      // nothing enforced it, so a document naming a query no build has would load
+      // cleanly and fail at the press of a button. That is precisely the failure
+      // `escapes.ts` refuses for the other six namespaces, and it was live: the
+      // coverage document's `into` named two columns the statement does not
+      // return, which a load-time check on the *name* would not have caught but
+      // which is the same class of gap one field over (I-113).
+      if (step.do === "query") {
+        references.push({ kind: "queries", name: step.name, at: `/actions/${name}/steps/${index}` });
+      }
     });
   }
   return references;

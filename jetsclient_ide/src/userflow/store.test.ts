@@ -14,14 +14,27 @@ import { emptyRegistry, type EscapeRegistry } from "../actions/escapes";
 import { productionRegistry } from "../actions/registry";
 import loadFilesActions from "../actions/flows/loadFilesUF.ua.json";
 import homeFiltersActions from "../actions/flows/homeFiltersUF.ua.json";
+import pipelineConfigActions from "../actions/flows/pipelineConfigUF.ua.json";
 import type { WorkspaceApi } from "../api/workspace";
 import loadFilesFlow from "./flows/loadFilesUF.uf.json";
 import homeFiltersFlow from "./flows/homeFiltersUF.uf.json";
+import pipelineConfigFlow from "./flows/pipelineConfigUF.uf.json";
 import lfFileKeyStagingTable from "../datatable/tables/lfFileKeyStagingTable.tc.json";
 import lfSourceConfigTable from "../datatable/tables/lfSourceConfigTable.tc.json";
 import inputRegistryTable from "../datatable/tables/inputRegistryTable.tc.json";
 import { tablePath } from "../datatable/table";
 import homeFiltersForms from "./forms/homeFiltersUF.form.json";
+import pipelineConfigForms from "./forms/pipelineConfigUF.form.json";
+import pcAddOrEditOption from "../datatable/tables/pcAddOrEditPipelineConfigOption.tc.json";
+import pcPipelineConfigTable from "../datatable/tables/pcPipelineConfigTable.tc.json";
+import pcMainProcessInputKey from "../datatable/tables/pcMainProcessInputKey.tc.json";
+import pcViewMerged from "../datatable/tables/pcViewMergedProcessInputKeys.tc.json";
+import pcViewInjected from "../datatable/tables/pcViewInjectedProcessInputKeys.tc.json";
+import pcSummaryProcessInputs from "../datatable/tables/pcSummaryProcessInputs.tc.json";
+import pcMerged from "../datatable/tables/pcMergedProcessInputKeys.tc.json";
+import pcInjected from "../datatable/tables/pcInjectedProcessInputKeys.tc.json";
+import pcProcessInputRegistry from "../datatable/tables/pcProcessInputRegistry.tc.json";
+import pcProcessInputRegistry4MI from "../datatable/tables/pcProcessInputRegistry4MI.tc.json";
 import hfProcessTable from "../datatable/tables/hfProcessTableUF.tc.json";
 import hfStatusTable from "../datatable/tables/hfStatusTableUF.tc.json";
 import hfFileKeyFilterTypeTable from "../datatable/tables/hfFileKeyFilterTypeTableUF.tc.json";
@@ -287,6 +300,105 @@ describe("homeFiltersUF against the shipping registry", () => {
       .catch((e: FlowLoadError) => e)) as FlowLoadError;
     expect(error).toBeInstanceOf(FlowLoadError);
     expect(error.findings[0]!.message).toContain("showFailureDetailsDialog");
+  });
+});
+
+/**
+ * `pipelineConfigUF`'s ten tables, which is every table its twelve forms name.
+ *
+ * **Two of the ten are named by no state's form at all** —
+ * `pcProcessInputRegistry` and `pcProcessInputRegistry4MI` are inside the two
+ * dialogs, which are reached from a table's `doActionShowDialog`. So the table
+ * set of this flow is not derivable from the flow document *or* from the states'
+ * forms; it needs the dialog forms, which need I-89's rule that they are part of
+ * the form document.
+ */
+const pipelineConfigWorkspace = () => ({
+  ...workspace("pipelineConfigUF", pipelineConfigFlow, pipelineConfigActions, pipelineConfigForms),
+  [tablePath("pcAddOrEditPipelineConfigOption")]: serialise(pcAddOrEditOption),
+  [tablePath("pcPipelineConfigTable")]: serialise(pcPipelineConfigTable),
+  [tablePath("pcMainProcessInputKey")]: serialise(pcMainProcessInputKey),
+  [tablePath("pcViewMergedProcessInputKeys")]: serialise(pcViewMerged),
+  [tablePath("pcViewInjectedProcessInputKeys")]: serialise(pcViewInjected),
+  [tablePath("pcSummaryProcessInputs")]: serialise(pcSummaryProcessInputs),
+  [tablePath("pcMergedProcessInputKeys")]: serialise(pcMerged),
+  [tablePath("pcInjectedProcessInputKeys")]: serialise(pcInjected),
+  [tablePath("pcProcessInputRegistry")]: serialise(pcProcessInputRegistry),
+  [tablePath("pcProcessInputRegistry4MI")]: serialise(pcProcessInputRegistry4MI),
+});
+
+describe("pipelineConfigUF against the shipping registry", () => {
+  it("loads twelve forms and ten tables, and resolves its registered query", async () => {
+    const { store } = storeFor(pipelineConfigWorkspace(), productionRegistry);
+    const loaded = await store.load("pipelineConfigUF");
+    // Ten states and twelve forms: I-89's two dialogs are the difference, and
+    // "one form per state" would have been short by exactly them.
+    expect(Object.keys(loaded.flow.states)).toHaveLength(10);
+    expect(Object.keys(loaded.forms.forms)).toHaveLength(12);
+    expect(Object.keys(loaded.tables)).toHaveLength(10);
+    // F.6's seventh escape namespace, resolved through the same pass as the other
+    // six: `pcAddPipelineConfigUF` names `processInputRdfTypes` and this build
+    // registers it (`actions/queries.ts`).
+    expect(
+      escapeReferences(loaded.flow, loaded.actions).filter((r) => r.kind === "queries"),
+    ).toEqual([
+      { kind: "queries", name: "processInputRdfTypes", at: "/actions/pcAddPipelineConfigUF/steps/6" },
+    ]);
+  });
+
+  it("refuses a query name this build does not register", async () => {
+    const files = pipelineConfigWorkspace();
+    const actions = structuredClone(pipelineConfigActions) as {
+      actions: Record<string, { steps: Record<string, unknown>[] }>;
+    };
+    const steps = actions.actions["pcAddPipelineConfigUF"]!.steps;
+    steps[steps.length - 1]!["name"] = "processInputRdfTypesV2";
+    files[actionPath("pipelineConfigUF")] = serialise(actions);
+    const { store } = storeFor(files, productionRegistry);
+    const error = (await store
+      .load("pipelineConfigUF")
+      .catch((e: FlowLoadError) => e)) as FlowLoadError;
+    expect(error).toBeInstanceOf(FlowLoadError);
+    // Not "escape", because this namespace holds a statement rather than a body
+    // and the message is where an author is told what to go and register.
+    expect(error.findings[0]!.message).toContain(
+      'no registered query named "processInputRdfTypesV2"',
+    );
+  });
+
+  it("catches both halves of I-88's check at once, which no earlier flow could", async () => {
+    // **The first set where a table names an action *and* a form on the same
+    // button.** All three `doActionShowDialog` actions run
+    // `pcSetProcessInputRegistryKey` and open one of the two dialogs
+    // (`pipeline_config/data_table_config.dart`), so removing either definition
+    // must fail the load — and before F.3 built `validateTableActions` neither
+    // would have.
+    const drop = async (mutate: (files: Record<string, string>) => void) => {
+      const files = pipelineConfigWorkspace();
+      mutate(files);
+      const { store } = storeFor(files, productionRegistry);
+      return (await store.load("pipelineConfigUF").catch((e: FlowLoadError) => e)) as FlowLoadError;
+    };
+
+    const withoutAction = await drop((files) => {
+      const actions = structuredClone(pipelineConfigActions) as { actions: Record<string, unknown> };
+      delete actions.actions["pcSetProcessInputRegistryKey"];
+      files[actionPath("pipelineConfigUF")] = serialise(actions);
+    });
+    expect(withoutAction).toBeInstanceOf(FlowLoadError);
+    expect(withoutAction.findings.map((f) => f.message).join("\n")).toContain(
+      'runs "pcSetProcessInputRegistryKey"',
+    );
+
+    const withoutForm = await drop((files) => {
+      const forms = structuredClone(pipelineConfigForms) as { forms: Record<string, unknown> };
+      delete forms.forms["pcNewProcessInputDialog4MI"];
+      files[formPath("pipelineConfigUF")] = serialise(forms);
+    });
+    expect(withoutForm).toBeInstanceOf(FlowLoadError);
+    expect(withoutForm.findings.map((f) => f.message).join("\n")).toContain(
+      'opens form "pcNewProcessInputDialog4MI"',
+    );
   });
 });
 
